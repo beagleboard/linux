@@ -288,8 +288,8 @@ static void usb_release(struct device *dev)
 static struct resource udc_resources[] = {
 	/* order is significant! */
 	{		/* registers */
-		.start		= IO_ADDRESS(UDC_BASE),
-		.end		= IO_ADDRESS(UDC_BASE + 0xff),
+		.start		= UDC_BASE,
+		.end		= UDC_BASE + 0xff,
 		.flags		= IORESOURCE_MEM,
 	}, {		/* general IRQ */
 		.start		= IH2_BASE + 20,
@@ -327,7 +327,7 @@ static u64 ohci_dmamask = ~(u32)0;
 static struct resource ohci_resources[] = {
 	{
 		.start	= OMAP_OHCI_BASE,
-		.end	= OMAP_OHCI_BASE + 4096,
+		.end	= OMAP_OHCI_BASE + 4096 - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	{
@@ -355,8 +355,8 @@ static struct platform_device ohci_device = {
 static struct resource otg_resources[] = {
 	/* order is significant! */
 	{
-		.start		= IO_ADDRESS(OTG_BASE),
-		.end		= IO_ADDRESS(OTG_BASE + 0xff),
+		.start		= OTG_BASE,
+		.end		= OTG_BASE + 0xff,
 		.flags		= IORESOURCE_MEM,
 	}, {
 		.start		= IH2_BASE + 8,
