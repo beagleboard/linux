@@ -161,7 +161,3 @@ SECTIONS
 	.stab.indexstr 0 : { *(.stab.indexstr) }
 	.comment 0 : { *(.comment) }
 }
-
-/* those must never be empty */
-ASSERT((__proc_info_end - __proc_info_begin), "missing CPU support")
-ASSERT((__arch_info_end - __arch_info_begin), "no machine record defined")
