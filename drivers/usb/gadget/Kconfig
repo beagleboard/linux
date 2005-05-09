@@ -150,7 +150,7 @@ config USB_LH7A40X
 
 config USB_GADGET_OMAP
 	boolean "OMAP USB Device Controller"
-	depends on ARCH_OMAP
+	depends on ARCH_OMAP1
 	select ISP1301_OMAP if MACH_OMAP_H2 || MACH_OMAP_H3
 	help
 	   Many Texas Instruments OMAP processors have flexible full

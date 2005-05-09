@@ -67,11 +67,11 @@ static struct clk *usb_host_ck;
 static void omap_ohci_clock_power(int on)
 {
 	if (on) {
-		clk_enable(usb_host_ck);
+		clk_use(usb_host_ck);
 		/* guesstimate for T5 == 1x 32K clock + APLL lock time */
 		udelay(100);
 	} else {
-		clk_disable(usb_host_ck);
+		clk_unuse(usb_host_ck);
 	}
 }
 
@@ -100,6 +100,7 @@ static int omap_ohci_transceiver_power(int on)
 	return 0;
 }
 
+#ifdef CONFIG_ARCH_OMAP1510
 /*
  * OMAP-1510 specific Local Bus clock on/off
  */
@@ -149,6 +150,10 @@ static int omap_1510_local_bus_init(void)
 
 	return 0;
 }
+#else
+#define omap_1510_local_bus_power(x)	{}
+#define omap_1510_local_bus_init()	{}
+#endif
 
 #ifdef	CONFIG_USB_OTG
 
