@@ -1468,6 +1468,48 @@ config FB_S1D13XXX
 	  working with S1D13806). Product specs at
 	  <http://www.erd.epson.com/vdc/html/legacy_13xxx.htm>
 
+config FB_OMAP
+	tristate "OMAP frame buffer support (EXPERIMENTAL)"
+        depends on FB && ARCH_OMAP1
+	select FB_SOFT_CURSOR
+        help
+          This is the new frame buffer device driver with 2D acceleration
+          for OMAP boards.
+
+config FB_OMAP_INTERNAL_LCDC
+	bool "OMAP internal LCD controller support"
+	depends on FB_OMAP
+	default y
+	help
+	  Say Y here, if you want to have support for the internal OMAP
+	  LCD controller. If unsure, say Y.
+
+config FB_OMAP_EXTERNAL_LCDC
+	bool "OMAP external LCD controller support"
+	depends on FB_OMAP
+	help
+	  Say Y here, if you want to have support for boards with an
+	  external LCD controller connected to the SoSSI interface.
+
+config FB_OMAP_MANUAL_UPDATE
+	bool "Default to manual update mode"
+	depends on FB_OMAP_EXTERNAL_LCDC
+	help
+	  Say Y here, if your user-space applications are capable of
+	  notifying the frame buffer driver when a change has occured in
+          the frame buffer content and thus a reload of the image data is
+          required. If unsure, say N.
+
+config FB_OMAP_DMA_TUNE
+        bool "Set DMA SDRAM access priority high"
+        depends on FB_OMAP
+        help
+          On systems in which video memory is in system memory
+          (SDRAM) this will speed up graphics DMA operations.
+          If you have such a system and want to use rotation
+          answer yes. Answer no if you have a dedicated video
+          memory, or don't use any of the accelerated features.
+
 config FB_VIRTUAL
 	tristate "Virtual Frame Buffer support (ONLY FOR TESTING!)"
 	depends on FB

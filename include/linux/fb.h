@@ -107,6 +107,7 @@
 #define FB_ACCEL_NV_20          44      /* nVidia Arch 20               */
 #define FB_ACCEL_NV_30          45      /* nVidia Arch 30               */
 #define FB_ACCEL_NV_40          46      /* nVidia Arch 40               */
+#define FB_ACCEL_OMAP1610       47	/* TI OMAP16xx */
 #define FB_ACCEL_NEOMAGIC_NM2070 90	/* NeoMagic NM2070              */
 #define FB_ACCEL_NEOMAGIC_NM2090 91	/* NeoMagic NM2090              */
 #define FB_ACCEL_NEOMAGIC_NM2093 92	/* NeoMagic NM2093              */
