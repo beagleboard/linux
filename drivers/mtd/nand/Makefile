@@ -20,5 +20,7 @@ obj-$(CONFIG_MTD_NAND_H1900)		+= h1910.o
 obj-$(CONFIG_MTD_NAND_RTC_FROM4)	+= rtc_from4.o
 obj-$(CONFIG_MTD_NAND_SHARPSL)		+= sharpsl.o
 obj-$(CONFIG_MTD_NAND_NANDSIM)		+= nandsim.o
+obj-$(CONFIG_MTD_NAND_OMAP) 		+= omap-nand-flash.o
+obj-$(CONFIG_MTD_NAND_OMAP_HW)		+= omap-hw.o
 
 nand-objs = nand_base.o nand_bbt.o

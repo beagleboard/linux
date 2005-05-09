@@ -49,6 +49,12 @@ config MTD_NAND_SPIA
 	help
 	  If you had to ask, you don't have one. Say 'N'.
 
+config MTD_NAND_OMAP
+        tristate "NAND Flash device on OMAP H3/H2  board"
+	depends on ARM && ARCH_OMAP1 && MTD_NAND && (MACH_OMAP_H2 || MACH_OMAP_H3 || MACH_NETSTAR)
+        help
+          Support for NAND flash on Texas Instruments H3/H2  platform.
+
 config MTD_NAND_TOTO
 	tristate "NAND Flash device on TOTO board"
 	depends on ARM && ARCH_OMAP && MTD_NAND
@@ -203,5 +209,12 @@ config MTD_NAND_DISKONCHIP_BBTWRITE
 	help
 	  The simulator may simulate verious NAND flash chips for the
 	  MTD nand layer.
- 
+
+config MTD_NAND_OMAP_HW
+	bool "OMAP HW NAND Flash controller support"
+        depends on ARM && ARCH_OMAP16XX && MTD_NAND
+
+	help
+	  Driver for TI OMAP16xx hardware NAND flash controller.
+
 endmenu
