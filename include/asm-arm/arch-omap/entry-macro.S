@@ -8,6 +8,14 @@
  * warranty of any kind, whether express or implied.
  */
 
+#if defined(CONFIG_ARCH_OMAP730) && \
+	(defined(CONFIG_ARCH_OMAP1510) || defined(CONFIG_ARCH_OMAP16XX))
+#error "FIXME: OMAP730 doesn't support multiple-OMAP"	
+#elif defined(CONFIG_ARCH_OMAP730)
+#undef	INT_IH2_IRQ
+#define INT_IH2_IRQ		INT_730_IH2_IRQ
+#endif
+
  		.macro	disable_fiq
 		.endm
 
