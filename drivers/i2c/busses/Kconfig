@@ -497,4 +497,11 @@ config I2C_MV64XXX
 	  This driver can also be built as a module.  If so, the module
 	  will be called i2c-mv64xxx.
 
+config I2C_OMAP
+	tristate "OMAP I2C adapter"
+	depends on I2C
+	default y if MACH_OMAP_H3 || MACH_OMAP_OSK
+	help
+	  Support for TI OMAP I2C driver. Say yes if you want to use the OMAP
+	  I2C interface.
 endmenu

@@ -36,7 +36,11 @@
 #include <linux/workqueue.h>
 
 #include <asm/irq.h>
+#include <asm/mach-types.h>
+
+#include <asm/arch/gpio.h>
 #include <asm/arch/usb.h>
+#include <asm/arch/mux.h>
 
 
 #ifndef	DEBUG
@@ -91,13 +95,10 @@ struct isp1301 {
 
 /*-------------------------------------------------------------------------*/
 
-#ifdef	CONFIG_MACH_OMAP_H2
+#if	defined(CONFIG_MACH_OMAP_H2) || \
+	defined(CONFIG_MACH_OMAP_H3)
 
 /* board-specific PM hooks */
-
-#include <asm/arch/gpio.h>
-#include <asm/arch/mux.h>
-#include <asm/mach-types.h>
 
 
 #if	defined(CONFIG_TPS65010) || defined(CONFIG_TPS65010_MODULE)
@@ -129,14 +130,27 @@ static void enable_vbus_source(struct isp1301 *isp)
 }
 
 
+#else
+
+static void enable_vbus_draw(struct isp1301 *isp, unsigned mA)
+{
+	pr_debug("%s UNIMPL\n", __FUNCTION__);
+}
+
+static void enable_vbus_source(struct isp1301 *isp)
+{
+	pr_debug("%s UNIMPL\n", __FUNCTION__);
+}
+
+#endif
+
+/*-------------------------------------------------------------------------*/
+
 /* products will deliver OTG messages with LEDs, GUI, etc */
 static inline void notresponding(struct isp1301 *isp)
 {
 	printk(KERN_NOTICE "OTG device not responding.\n");
 }
-
-
-#endif
 
 /*-------------------------------------------------------------------------*/
 
@@ -516,6 +530,7 @@ static inline void check_state(struct isp1301 *isp, const char *tag) { }
 static void update_otg1(struct isp1301 *isp, u8 int_src)
 {
 	u32	otg_ctrl;
+	u8      int_id;
 
 	otg_ctrl = OTG_CTRL_REG
 			& OTG_CTRL_MASK
@@ -529,7 +544,10 @@ static void update_otg1(struct isp1301 *isp, u8 int_src)
 	}
 	if (int_src & INTR_VBUS_VLD)
 		otg_ctrl |= OTG_VBUSVLD;
-	if (int_src & INTR_ID_GND) {		/* default-A */
+
+	int_id = isp1301_get_u8(isp, ISP1301_INTERRUPT_SOURCE);
+
+	if (int_id & INTR_ID_GND) {		/* default-A */
 		if (isp->otg.state == OTG_STATE_B_IDLE
 				|| isp->otg.state == OTG_STATE_UNDEFINED) {
 			a_idle(isp, "init");
@@ -1082,7 +1100,7 @@ static void isp_update_otg(struct isp1301 *isp, u8 stat)
 	/* update the OTG controller state to match the isp1301; may
 	 * trigger OPRT_CHG irqs for changes going to the isp1301.
 	 */
-	update_otg1(isp, isp_stat);
+	update_otg1(isp, stat); // pass the actual interrupt latch status
 	update_otg2(isp, isp_bstat);
 	check_state(isp, __FUNCTION__);
 #endif
@@ -1223,6 +1241,9 @@ static int isp1301_detach_client(struct i2c_client *i2c)
 	if (machine_is_omap_h2())
 		omap_free_gpio(2);
 
+	if (machine_is_omap_h3())
+		omap_free_gpio(14);
+
 	isp->timer.data = 0;
 	set_bit(WORK_STOP, &isp->todo);
 	del_timer_sync(&isp->timer);
@@ -1301,7 +1322,7 @@ isp1301_set_host(struct otg_transceiver *otg, struct usb_bus *host)
 
 	power_up(isp);
 
-	if (machine_is_omap_h2())
+	if (machine_is_omap_h2() || machine_is_omap_h3())
 		isp1301_set_bits(isp, ISP1301_MODE_CONTROL_1, MC1_DAT_SE0);
 
 	dev_info(&isp->client.dev, "A-Host sessions ok\n");
@@ -1364,13 +1385,13 @@ isp1301_set_peripheral(struct otg_transceiver *otg, struct usb_gadget *gadget)
 	power_up(isp);
 	isp->otg.state = OTG_STATE_B_IDLE;
 
-	if (machine_is_omap_h2())
+	if (machine_is_omap_h2() || machine_is_omap_h3())
 		isp1301_set_bits(isp, ISP1301_MODE_CONTROL_1, MC1_DAT_SE0);
 
 	isp1301_set_bits(isp, ISP1301_INTERRUPT_RISING,
-	 	INTR_SESS_VLD);
+	 	INTR_SESS_VLD | INTR_VBUS_VLD);
 	isp1301_set_bits(isp, ISP1301_INTERRUPT_FALLING,
-	 	INTR_VBUS_VLD);
+	 	INTR_VBUS_VLD | INTR_SESS_VLD);
 	dev_info(&isp->client.dev, "B-Peripheral sessions ok\n");
 	dump_regs(isp, __FUNCTION__);
 
@@ -1447,6 +1468,10 @@ isp1301_start_hnp(struct otg_transceiver *dev)
 	 * So do this part as early as possible...
 	 */
 	switch (isp->otg.state) {
+	case OTG_STATE_B_PERIPHERAL:
+		isp->otg.state = OTG_STATE_B_WAIT_ACON;
+		isp1301_defer_work(isp, WORK_UPDATE_ISP);
+		break;
 	case OTG_STATE_B_HOST:
 		isp->otg.state = OTG_STATE_B_PERIPHERAL;
 		/* caller will suspend next */
@@ -1562,19 +1587,30 @@ fail1:
 	}
 #endif
 
-	if (machine_is_omap_h2()) {
+	if (machine_is_omap_h2() || machine_is_omap_h3()) {
 		/* full speed signaling by default */
 		isp1301_set_bits(isp, ISP1301_MODE_CONTROL_1,
 			MC1_SPEED_REG);
 		isp1301_set_bits(isp, ISP1301_MODE_CONTROL_2,
 			MC2_SPD_SUSP_CTRL);
+	}
 
+	if (machine_is_omap_h2()) {
 		/* IRQ wired at M14 */
 		omap_cfg_reg(M14_1510_GPIO2);
 		isp->irq = OMAP_GPIO_IRQ(2);
 		omap_request_gpio(2);
 		omap_set_gpio_direction(2, 1);
 		omap_set_gpio_edge_ctrl(2, OMAP_GPIO_FALLING_EDGE);
+	}
+
+	if (machine_is_omap_h3()) {
+		/* IRQ wired at N21 */
+		omap_cfg_reg(N21_1710_GPIO14);
+		isp->irq = OMAP_GPIO_IRQ(14);
+		omap_request_gpio(14);
+		omap_set_gpio_direction(14, 1);
+		omap_set_gpio_edge_ctrl(14, OMAP_GPIO_FALLING_EDGE);
 	}
 
 	status = request_irq(isp->irq, isp1301_irq,
