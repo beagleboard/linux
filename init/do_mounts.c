@@ -287,6 +287,7 @@ void __init mount_block_root(char *name, int flags)
 	char *fs_names = __getname();
 	char *p;
 	char b[BDEVNAME_SIZE];
+	int i = 0;
 
 	get_fs_names(fs_names);
 retry:
@@ -301,6 +302,14 @@ retry:
 			case -EINVAL:
 				continue;
 		}
+
+		printk("VFS: No root yet, retrying to mount root on %s (%s)\n",
+		       root_device_name, __bdevname(ROOT_DEV, b));
+		current->state = TASK_INTERRUPTIBLE;
+		schedule_timeout(10 * HZ);
+		if (i++ < 5)
+			goto retry;
+
 	        /*
 		 * Allow the user to distinguish between failed sys_open
 		 * and bad superblock on root device.
