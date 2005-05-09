@@ -28,6 +28,7 @@
 #include <linux/profile.h>
 #include <linux/sysdev.h>
 #include <linux/timer.h>
+#include <linux/pm.h>
 
 #include <asm/hardware.h>
 #include <asm/io.h>
@@ -350,6 +351,49 @@ void timer_tick(struct pt_regs *regs)
 #endif
 }
 
+#ifdef CONFIG_NO_IDLE_HZ
+int timer_dyn_tick_enable(void)
+{
+	unsigned long flags;
+	int ret = -ENODEV;
+
+	write_seqlock_irqsave(&xtime_lock, flags);
+	if (!system_timer->dyn_tick || !system_timer->dyn_tick->enable)
+		goto out_err;
+
+	ret = system_timer->dyn_tick->enable();
+	if (ret != 0)
+		goto out_err;
+
+	if (system_timer->dyn_tick->handler)
+		system_timer->dyn_tick->state |= DYN_TICK_ENABLED;
+
+	write_sequnlock_irqrestore(&xtime_lock, flags);
+
+	return ret;
+
+out_err:
+	system_timer->dyn_tick->state &= ~DYN_TICK_ENABLED;
+	write_sequnlock_irqrestore(&xtime_lock, flags);
+	return ret;
+}
+
+int timer_dyn_tick_disable(void)
+{
+	unsigned long flags;
+	int ret = 0;
+
+	write_seqlock_irqsave(&xtime_lock, flags);
+	if (system_timer->dyn_tick && system_timer->dyn_tick->disable)
+		ret = system_timer->dyn_tick->disable();
+
+	system_timer->dyn_tick->state &= ~DYN_TICK_ENABLED;
+	write_sequnlock_irqrestore(&xtime_lock, flags);
+
+	return ret;
+}
+#endif
+
 #ifdef CONFIG_PM
 static int timer_suspend(struct sys_device *dev, pm_message_t state)
 {
@@ -381,6 +425,29 @@ static struct sysdev_class timer_sysclass = {
 	.resume		= timer_resume,
 };
 
+#ifdef CONFIG_NO_IDLE_HZ
+static ssize_t timer_show_dyn_tick(struct sys_device *dev, char *buf)
+{
+	return sprintf(buf, "%i\n",
+		       (system_timer->dyn_tick->state & DYN_TICK_ENABLED) >> 1);
+}
+
+static ssize_t timer_set_dyn_tick(struct sys_device *dev, const char *buf,
+				  size_t count)
+{
+	int ret = 0;
+	unsigned int enable = simple_strtoul(buf, NULL, 2);
+
+	if (enable)
+		ret = timer_dyn_tick_enable();
+	else
+		ret = timer_dyn_tick_disable();
+
+	return count;
+}
+static SYSDEV_ATTR(dyn_tick, 0644, timer_show_dyn_tick, timer_set_dyn_tick);
+#endif
+
 static int __init timer_init_sysfs(void)
 {
 	int ret = sysdev_class_register(&timer_sysclass);
@@ -388,6 +455,15 @@ static int __init timer_init_sysfs(void)
 		system_timer->dev.cls = &timer_sysclass;
 		ret = sysdev_register(&system_timer->dev);
 	}
+
+#ifdef CONFIG_NO_IDLE_HZ
+	ret = sysdev_create_file(&system_timer->dev, &attr_dyn_tick);
+#if defined(CONFIG_NO_IDLE_HZ_ENABLED)
+	/* Turn on dynamic tick after calibrate delay for correct bogomips */
+	ret = timer_dyn_tick_enable();
+#endif
+#endif
+
 	return ret;
 }
 

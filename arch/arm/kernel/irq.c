@@ -4,6 +4,10 @@
  *  Copyright (C) 1992 Linus Torvalds
  *  Modifications for ARM processor Copyright (C) 1995-2000 Russell King.
  *
+ *  Support for Dynamic Tick Timer Copyright (C) 2004-2005 Nokia Corporation.
+ *  Dynamic Tick Timer written by Tony Lindgren <tony@atomide.com> and
+ *  Tuukka Tikkanen <tuukka.tikkanen@elektrobit.com>.
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
@@ -37,6 +41,7 @@
 #include <asm/irq.h>
 #include <asm/system.h>
 #include <asm/mach/irq.h>
+#include <asm/mach/time.h>
 
 /*
  * Maximum IRQ count.  Currently, this is arbitary.  However, it should
@@ -331,6 +336,12 @@ __do_irq(unsigned int irq, struct irqaction *action, struct pt_regs *regs)
 
 	if (!(action->flags & SA_INTERRUPT))
 		local_irq_enable();
+
+#ifdef CONFIG_NO_IDLE_HZ
+	if ((!(action->flags & SA_TIMER)) && system_timer->dyn_tick->handler &&
+	    (system_timer->dyn_tick->state & DYN_TICK_ENABLED))
+		system_timer->dyn_tick->handler(irq, 0, regs);
+#endif
 
 	status = 0;
 	do {
