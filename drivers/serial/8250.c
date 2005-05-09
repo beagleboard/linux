@@ -1272,7 +1272,8 @@ static irqreturn_t serial8250_interrupt(int irq, void *dev_id, struct pt_regs *r
 
 	DEBUG_INTR("end.\n");
 
-	return IRQ_RETVAL(handled);
+	//return IRQ_RETVAL(handled);
+	return IRQ_HANDLED;	/* FIXME: iir status not ready on 1510 */
 }
 
 /*
@@ -1772,6 +1773,17 @@ serial8250_set_termios(struct uart_port *port, struct termios *termios,
 		serial_outp(up, UART_EFR, efr);
 	}
 
+#ifdef CONFIG_ARCH_OMAP1510
+	/* Workaround to enable 115200 baud on OMAP1510 internal ports */
+	if (cpu_is_omap1510() && is_omap_port(up->port.membase)) {
+		if (baud == 115200) {
+			quot = 1;
+			serial_out(up, UART_OMAP_OSC_12M_SEL, 1);
+		} else
+			serial_out(up, UART_OMAP_OSC_12M_SEL, 0);
+        }
+#endif
+
 	if (up->capabilities & UART_NATSEMI) {
 		/* Switch to bank 2 not bank 1, to avoid resetting EXCR2 */
 		serial_outp(up, UART_LCR, 0xe0);
@@ -1821,6 +1833,11 @@ static int serial8250_request_std_resource(struct uart_8250_port *up)
 {
 	unsigned int size = 8 << up->port.regshift;
 	int ret = 0;
+
+#ifdef CONFIG_ARCH_OMAP
+	if (is_omap_port(up->port.membase))
+		size = 0x16 << up->port.regshift;
+#endif
 
 	switch (up->port.iotype) {
 	case UPIO_MEM:
