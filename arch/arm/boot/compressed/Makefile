@@ -51,7 +51,11 @@ OBJS		+= head-sharpsl.o
 endif
 
 ifeq ($(CONFIG_DEBUG_ICEDCC),y)
-OBJS            += ice-dcc.o
+OBJS		+= ice-dcc.o
+endif
+
+ifeq ($(CONFIG_MACH_OMAP_PERSEUS2),y)
+OBJS		+= head-omap.o
 endif
 
 ifeq ($(CONFIG_CPU_BIG_ENDIAN),y)
