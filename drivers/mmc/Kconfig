@@ -29,6 +29,23 @@ config MMC_BLOCK
 	  mount the filesystem. Almost everyone wishing MMC support
 	  should say Y or M here.
 
+config MMC_BLOCK_BROKEN_RFD
+	boolean "Write work-around for incompatible cards"
+	depends on MMC_BLOCK
+	default n
+	help
+	  Say y here if your MMC card fails write operations. Some cards
+	  lie about being ready to receive data while they actually are not.
+
+config MMC_BULKTRANSFER
+	bool "Multi-block writes (EXPERIMENTAL)"
+	depends on MMC_BLOCK != n && EXPERIMENTAL
+	default n
+	help
+	  By default all writes are done one sector at a time. Enable
+	  this option to transfer as large blocks as the host supports.
+	  The transfer speed is in most cases doubled.
+
 config MMC_ARMMMCI
 	tristate "ARM AMBA Multimedia Card Interface support"
 	depends on ARM_AMBA && MMC
@@ -48,6 +65,36 @@ config MMC_PXA
 	  say Y or M here.
 
 	  If unsure, say N.
+
+config MMC_OMAP
+	tristate "TI OMAP Multimedia Card Interface support"
+	depends on ARCH_OMAP && MMC
+	select TPS65010 if MACH_OMAP_H2
+	help
+	  This selects the TI OMAP Multimedia card Interface.
+	  If you have an OMAP board with a Multimedia Card slot,
+	  say Y or M here.
+
+	  If unsure, say N.
+
+config MMC_OMAP16XX_BLOCK1
+	boolean "First MMC block on OMAP16XX"
+	depends on ARCH_OMAP16XX && MMC_OMAP
+	default y if MACH_OMAP_H2 || MACH_OMAP_H3
+	help
+	  This enables the first of two MMC blocks on OMAP1610 multimedia
+	  processor. You need to enable the correct block to activate your
+	  MMC slot.
+
+config MMC_OMAP16XX_BLOCK2
+	boolean "Second MMC block on OMAP16XX"
+	depends on ARCH_OMAP16XX && MMC_OMAP
+	default n if MACH_OMAP_H2 || MACH_OMAP_H3
+	default y
+	help
+	  This enables the second of two MMC blocks on OMAP1610 multimedia
+	  processor. You need to enable the correct block to activate your
+	  MMC slot.
 
 config MMC_WBSD
 	tristate "Winbond W83L51xD SD/MMC Card Interface support"

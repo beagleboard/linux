@@ -54,6 +54,7 @@ struct mmc_blk_data {
 
 	unsigned int	usage;
 	unsigned int	block_bits;
+	unsigned int	suspended;
 };
 
 static DECLARE_MUTEX(open_lock);
@@ -158,6 +159,19 @@ static int mmc_blk_prep_rq(struct mmc_queue *mq, struct request *req)
 		stat = BLKPREP_KILL;
 	}
 
+	if (md->suspended) {
+		blk_plug_device(md->queue.queue);
+		stat = BLKPREP_DEFER;
+	}
+
+	/*
+	 * Check for excessive requests.
+	 */
+	if (req->sector + req->nr_sectors > get_capacity(req->rq_disk)) {
+		printk("bad request size\n");
+		stat = BLKPREP_KILL;
+	}
+
 	return stat;
 }
 
@@ -166,9 +180,25 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 	struct mmc_blk_data *md = mq->data;
 	struct mmc_card *card = md->queue.card;
 	int ret;
+	
+#ifdef CONFIG_MMC_BULKTRANSFER
+	int failsafe;
+#endif
 
 	if (mmc_card_claim_host(card))
 		goto cmd_err;
+	
+#ifdef CONFIG_MMC_BULKTRANSFER
+	/*
+	 * We first try transfering multiple blocks. If this fails
+	 * we fall back to single block transfers.
+	 *
+	 * This gives us good performance when all is well and the
+	 * possibility to determine which sector fails when all
+	 * is not well.
+	 */
+	failsafe = 0;
+#endif
 
 	do {
 		struct mmc_blk_request brq;
@@ -188,14 +218,32 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 		brq.stop.arg = 0;
 		brq.stop.flags = MMC_RSP_R1B;
 
+#ifdef CONFIG_MMC_BULKTRANSFER		
+		/*
+		 * A multi-block transfer failed. Falling back to single
+		 * blocks.
+		 */
+		if (failsafe)
+			brq.data.blocks = 1;
+		
+#else
+		/*
+		 * Writes are done one sector at a time.
+		 */
+		if (rq_data_dir(req) != READ)
+			brq.data.blocks = 1;
+#endif
+		
+		ret = 1;
+
 		if (rq_data_dir(req) == READ) {
 			brq.cmd.opcode = brq.data.blocks > 1 ? MMC_READ_MULTIPLE_BLOCK : MMC_READ_SINGLE_BLOCK;
 			brq.data.flags |= MMC_DATA_READ;
 		} else {
-			brq.cmd.opcode = MMC_WRITE_BLOCK;
+			brq.cmd.opcode = brq.data.blocks > 1 ? MMC_WRITE_MULTIPLE_BLOCK :
+				MMC_WRITE_BLOCK;
 			brq.cmd.flags = MMC_RSP_R1B;
 			brq.data.flags |= MMC_DATA_WRITE;
-			brq.data.blocks = 1;
 		}
 		brq.mrq.stop = brq.data.blocks > 1 ? &brq.stop : NULL;
 
@@ -206,19 +254,19 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 		if (brq.cmd.error) {
 			printk(KERN_ERR "%s: error %d sending read/write command\n",
 			       req->rq_disk->disk_name, brq.cmd.error);
-			goto cmd_err;
+			goto cmd_fail;
 		}
 
 		if (brq.data.error) {
 			printk(KERN_ERR "%s: error %d transferring data\n",
 			       req->rq_disk->disk_name, brq.data.error);
-			goto cmd_err;
+			goto cmd_fail;
 		}
 
 		if (brq.stop.error) {
 			printk(KERN_ERR "%s: error %d sending stop command\n",
 			       req->rq_disk->disk_name, brq.stop.error);
-			goto cmd_err;
+			goto cmd_fail;
 		}
 
 		do {
@@ -231,8 +279,15 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 			if (err) {
 				printk(KERN_ERR "%s: error %d requesting status\n",
 				       req->rq_disk->disk_name, err);
-				goto cmd_err;
+				goto cmd_fail;
 			}
+#ifdef CONFIG_MMC_BLOCK_BROKEN_RFD
+			/* Work-around for broken cards setting READY_FOR_DATA
+			 * when not actually ready.
+			 */
+			if (R1_CURRENT_STATE(cmd.resp[0]) == 7)
+				cmd.resp[0] &= ~R1_READY_FOR_DATA;
+#endif
 		} while (!(cmd.resp[0] & R1_READY_FOR_DATA));
 
 #if 0
@@ -257,6 +312,27 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 			end_that_request_last(req);
 		}
 		spin_unlock_irq(&md->lock);
+		
+#ifdef CONFIG_MMC_BULKTRANSFER
+		/*
+		 * Go back to bulk mode if in failsafe mode.
+		 */
+		failsafe = 0;
+#endif
+
+		continue;
+
+ cmd_fail:
+
+#ifdef CONFIG_MMC_BULKTRANSFER
+		if (failsafe)
+	 		goto cmd_err;
+	 	else
+	 		failsafe = 1;
+#else
+ 		goto cmd_err;
+#endif
+
 	} while (ret);
 
 	mmc_card_release_host(card);
