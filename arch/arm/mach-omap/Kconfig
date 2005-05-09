@@ -93,6 +93,13 @@ config OMAP_32K_TIMER_HZ
 	  Kernel internal timer frequency should be a divisor of 32768,
 	  such as 64 or 128.
 
+config OMAP_DM_TIMER
+	bool "Use dual-mode timer"
+	default n
+	depends on ARCH_OMAP16XX
+	help
+	 Select this option if you want to use OMAP Dual-Mode timers.
+
 config NO_IDLE_HZ
 	bool "Dynamic Tick Timer"
 	depends on OMAP_32K_TIMER
