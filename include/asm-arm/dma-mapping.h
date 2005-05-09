@@ -5,6 +5,7 @@
 
 #include <linux/config.h>
 #include <linux/mm.h> /* need struct page */
+#include <linux/device.h>
 
 #include <asm/scatterlist.h>
 
