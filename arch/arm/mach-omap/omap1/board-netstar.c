@@ -100,7 +100,7 @@ static int __initdata omap_serial_ports[OMAP_MAX_NR_PORTS] = {1, 1, 1};
 
 static void __init netstar_map_io(void)
 {
-	omap_map_io();
+	omap_map_common_io();
 	omap_serial_init(omap_serial_ports);
 }
 

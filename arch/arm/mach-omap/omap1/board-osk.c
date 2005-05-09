@@ -29,25 +29,73 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/device.h>
+#include <linux/mtd/mtd.h>
+#include <linux/mtd/partitions.h>
 
 #include <asm/hardware.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
+#include <asm/mach/flash.h>
 
 #include <asm/arch/gpio.h>
 #include <asm/arch/usb.h>
 #include <asm/arch/mux.h>
 #include <asm/arch/tc.h>
 
-#include "common.h"
+#include "../common.h"
 
-static struct map_desc osk5912_io_desc[] __initdata = {
-{ OMAP_OSK_NOR_FLASH_BASE, OMAP_OSK_NOR_FLASH_START, OMAP_OSK_NOR_FLASH_SIZE,
-	MT_DEVICE },
-};
 
 static int __initdata osk_serial_ports[OMAP_MAX_NR_PORTS] = {1, 0, 0};
+
+static struct mtd_partition osk_partitions[] = {
+	/* bootloader (U-Boot, etc) in first sector */
+	{
+	      .name		= "bootloader",
+	      .offset		= 0,
+	      .size		= SZ_128K,
+	      .mask_flags	= MTD_WRITEABLE, /* force read-only */
+	},
+	/* bootloader params in the next sector */
+	{
+	      .name		= "params",
+	      .offset		= MTDPART_OFS_APPEND,
+	      .size		= SZ_128K,
+	      .mask_flags	= 0,
+	}, {
+	      .name		= "kernel",
+	      .offset		= MTDPART_OFS_APPEND,
+	      .size		= SZ_2M,
+	      .mask_flags	= 0
+	}, {
+	      .name		= "filesystem",
+	      .offset		= MTDPART_OFS_APPEND,
+	      .size		= MTDPART_SIZ_FULL,
+	      .mask_flags	= 0
+	}
+};
+
+static struct flash_platform_data osk_flash_data = {
+	.map_name	= "cfi_probe",
+	.width		= 2,
+	.parts		= osk_partitions,
+	.nr_parts	= ARRAY_SIZE(osk_partitions),
+};
+
+static struct resource osk_flash_resource = {
+	/* this is on CS3, wherever it's mapped */
+	.flags		= IORESOURCE_MEM,
+};
+
+static struct platform_device osk5912_flash_device = {
+	.name		= "omapflash",
+	.id		= 0,
+	.dev		= {
+		.platform_data	= &osk_flash_data,
+	},
+	.num_resources	= 1,
+	.resource	= &osk_flash_resource,
+};
 
 static struct resource osk5912_smc91x_resources[] = {
 	[0] = {
@@ -88,6 +136,7 @@ static struct platform_device osk5912_cf_device = {
 };
 
 static struct platform_device *osk5912_devices[] __initdata = {
+	&osk5912_flash_device,
 	&osk5912_smc91x_device,
 	&osk5912_cf_device,
 };
@@ -115,7 +164,7 @@ static void __init osk_init_cf(void)
 	omap_set_gpio_edge_ctrl(62, OMAP_GPIO_FALLING_EDGE);
 }
 
-void osk_init_irq(void)
+static void __init osk_init_irq(void)
 {
 	omap_init_irq();
 	omap_gpio_init();
@@ -145,6 +194,8 @@ static struct omap_board_config_kernel osk_config[] = {
 
 static void __init osk_init(void)
 {
+	osk_flash_resource.end = osk_flash_resource.start = omap_cs3_phys();
+	osk_flash_resource.end += SZ_32M - 1;
 	platform_add_devices(osk5912_devices, ARRAY_SIZE(osk5912_devices));
 	omap_board_config = osk_config;
 	omap_board_config_size = ARRAY_SIZE(osk_config);
@@ -153,8 +204,7 @@ static void __init osk_init(void)
 
 static void __init osk_map_io(void)
 {
-	omap_map_io();
-	iotable_init(osk5912_io_desc, ARRAY_SIZE(osk5912_io_desc));
+	omap_map_common_io();
 	omap_serial_init(osk_serial_ports);
 }
 

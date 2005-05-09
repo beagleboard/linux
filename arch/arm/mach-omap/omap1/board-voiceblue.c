@@ -25,6 +25,7 @@
 #include <asm/hardware.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
+#include <asm/mach/flash.h>
 #include <asm/mach/map.h>
 
 #include <asm/arch/gpio.h>
@@ -32,7 +33,7 @@
 #include <asm/arch/mux.h>
 #include <asm/arch/usb.h>
 
-#include "common.h"
+#include "../common.h"
 
 extern void omap_init_time(void);
 extern int omap_gpio_init(void);
@@ -87,6 +88,27 @@ static int __init ext_uart_init(void)
 }
 arch_initcall(ext_uart_init);
 
+static struct flash_platform_data voiceblue_flash_data = {
+	.map_name	= "cfi_probe",
+	.width		= 2,
+};
+
+static struct resource voiceblue_flash_resource = {
+	.start	= OMAP_CS0_PHYS,
+	.end	= OMAP_CS0_PHYS + SZ_32M - 1,
+	.flags	= IORESOURCE_MEM,
+};
+
+static struct platform_device voiceblue_flash_device = {
+	.name		= "omapflash",
+	.id		= 0,
+	.dev		= {
+		.platform_data	= &voiceblue_flash_data,
+	},
+	.num_resources	= 1,
+	.resource	= &voiceblue_flash_resource,
+};
+
 static struct resource voiceblue_smc91x_resources[] = {
 	[0] = {
 		.start	= OMAP_CS2_PHYS + 0x300,
@@ -108,6 +130,7 @@ static struct platform_device voiceblue_smc91x_device = {
 };
 
 static struct platform_device *voiceblue_devices[] __initdata = {
+	&voiceblue_flash_device,
 	&voiceblue_smc91x_device,
 };
 
@@ -120,8 +143,18 @@ static struct omap_usb_config voiceblue_usb_config __initdata = {
 	.pins[2]	= 6,
 };
 
+static struct omap_mmc_config voiceblue_mmc_config = {
+	.mmc_blocks		= 1,
+	.mmc1_power_pin		= 2,
+	.mmc1_switch_pin	= -1,
+};
+
+static struct omap_boot_reason_config voiceblue_boot_reason;
+
 static struct omap_board_config_kernel voiceblue_config[] = {
 	{ OMAP_TAG_USB, &voiceblue_usb_config },
+	{ OMAP_TAG_MMC, &voiceblue_mmc_config },
+	{ OMAP_TAG_BOOT_REASON, &voiceblue_boot_reason },
 };
 
 static void __init voiceblue_init_irq(void)
@@ -132,11 +165,10 @@ static void __init voiceblue_init_irq(void)
 
 static void __init voiceblue_init(void)
 {
-	/* There is a good chance board is going up, so enable Power LED
-	 * (it is connected through invertor) */
-	omap_writeb(0x00, OMAP_LPG1_LCR);
 	/* Watchdog */
 	omap_request_gpio(0);
+	/* INIT button */
+	omap_request_gpio(1);
 	/* smc91x reset */
 	omap_request_gpio(7);
 	omap_set_gpio_direction(7, 0);
@@ -164,13 +196,18 @@ static void __init voiceblue_init(void)
 	platform_add_devices(voiceblue_devices, ARRAY_SIZE(voiceblue_devices));
 	omap_board_config = voiceblue_config;
 	omap_board_config_size = ARRAY_SIZE(voiceblue_config);
+
+	/* There is a good chance board is going up, so enable power LED
+	 * (it is connected through invertor) */
+	omap_writeb(0x00, OMAP_LPG1_LCR);
+	omap_writeb(0x00, OMAP_LPG1_PMR);	/* Disable clock */
 }
 
 static int __initdata omap_serial_ports[OMAP_MAX_NR_PORTS] = {1, 1, 1};
 
 static void __init voiceblue_map_io(void)
 {
-	omap_map_io();
+	omap_map_common_io();
 	omap_serial_init(omap_serial_ports);
 }
 
@@ -185,9 +222,9 @@ static int panic_event(struct notifier_block *this, unsigned long event,
 	if (test_and_set_bit(MACHINE_PANICED, &machine_state))
 		return NOTIFY_DONE;
 
-	/* Flash Power LED
-	 * (TODO: Enable clock right way (enabled in bootloader already)) */
+	/* Flash power LED */
 	omap_writeb(0x78, OMAP_LPG1_LCR);
+	omap_writeb(0x01, OMAP_LPG1_PMR);	/* Enable clock */
 
 	return NOTIFY_DONE;
 }
@@ -196,15 +233,21 @@ static struct notifier_block panic_block = {
 	.notifier_call	= panic_event,
 };
 
-static int __init setup_notifier(void)
+static int __init voiceblue_setup(void)
 {
 	/* Setup panic notifier */
 	notifier_chain_register(&panic_notifier_list, &panic_block);
 
+	/* This information should come from bootloader. We do it here for
+	 * now... Pushing "init" button (hangs on GPIO1) during power on
+	 * resets device to factory defaults */
+	omap_set_gpio_direction(1, 1);
+	sprintf(voiceblue_boot_reason.reason_str, "poweron%s",
+		omap_get_gpio_datain(1) ? "" : "-R");
+
 	return 0;
 }
-
-postcore_initcall(setup_notifier);
+postcore_initcall(voiceblue_setup);
 
 static int wdt_gpio_state;
 

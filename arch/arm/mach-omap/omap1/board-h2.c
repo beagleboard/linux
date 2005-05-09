@@ -36,7 +36,7 @@
 #include <asm/arch/tc.h>
 #include <asm/arch/usb.h>
 
-#include "common.h"
+#include "../common.h"
 
 extern int omap_gpio_init(void);
 
@@ -81,8 +81,7 @@ static struct flash_platform_data h2_flash_data = {
 };
 
 static struct resource h2_flash_resource = {
-	.start		= OMAP_CS2B_PHYS,
-	.end		= OMAP_CS2B_PHYS + OMAP_CS2B_SIZE - 1,
+	/* This is on CS3, wherever it's mapped */
 	.flags		= IORESOURCE_MEM,
 };
 
@@ -130,7 +129,7 @@ static void __init h2_init_smc91x(void)
 	omap_set_gpio_edge_ctrl(0, OMAP_GPIO_FALLING_EDGE);
 }
 
-void h2_init_irq(void)
+static void __init h2_init_irq(void)
 {
 	omap_init_irq();
 	omap_gpio_init();
@@ -165,6 +164,12 @@ static struct omap_board_config_kernel h2_config[] = {
 
 static void __init h2_init(void)
 {
+	/* NOTE: revC boards support NAND-boot, which can put NOR on CS2B
+	 * and NAND (either 16bit or 8bit) on CS3.
+	 */
+	h2_flash_resource.end = h2_flash_resource.start = omap_cs3_phys();
+	h2_flash_resource.end += SZ_32M - 1;
+
 	platform_add_devices(h2_devices, ARRAY_SIZE(h2_devices));
 	omap_board_config = h2_config;
 	omap_board_config_size = ARRAY_SIZE(h2_config);
@@ -172,7 +177,7 @@ static void __init h2_init(void)
 
 static void __init h2_map_io(void)
 {
-	omap_map_io();
+	omap_map_common_io();
 	omap_serial_init(h2_serial_ports);
 }
 

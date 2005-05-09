@@ -34,7 +34,7 @@
 #include <asm/arch/tc.h>
 #include <asm/arch/usb.h>
 
-#include "common.h"
+#include "../common.h"
 
 static int __initdata innovator_serial_ports[OMAP_MAX_NR_PORTS] = {1, 1, 1};
 
@@ -174,7 +174,7 @@ static void __init innovator_init_smc91x(void)
 			printk("Error requesting gpio 0 for smc91x irq\n");
 			return;
 		}
-		omap_set_gpio_edge_ctrl(0, OMAP_GPIO_RISING_EDGE);
+		omap_set_gpio_edge_ctrl(0, OMAP_GPIO_FALLING_EDGE);
 	}
 }
 
@@ -252,7 +252,7 @@ static void __init innovator_init(void)
 
 static void __init innovator_map_io(void)
 {
-	omap_map_io();
+	omap_map_common_io();
 
 #ifdef CONFIG_ARCH_OMAP1510
 	if (cpu_is_omap1510()) {
