@@ -67,6 +67,12 @@ int clk_use(struct clk *clk);
 void clk_unuse(struct clk *clk);
 
 /**
+ * clk_get_usecount - get the use count
+ * @clk: clock source
+ */
+int clk_get_usecount(struct clk *clk);
+
+/**
  * clk_get_rate - obtain the current clock rate (in Hz) for a clock source.
  *		  This is only valid once the clock source has been enabled.
  * @clk: clock source
