@@ -127,7 +127,7 @@ int jffs2_get_inode_nodes(struct jffs2_sb_info *c, struct jffs2_inode_info *f,
 
 	valid_ref = jffs2_first_valid_node(f->inocache->nodes);
 
-	if (!valid_ref)
+	if (!valid_ref && (f->inocache->ino != 1))
 		printk(KERN_WARNING "Eep. No valid nodes for ino #%u\n", f->inocache->ino);
 
 	while (valid_ref) {
