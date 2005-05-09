@@ -20,3 +20,4 @@ obj-$(CONFIG_PM) += pm.o sleep.o
 obj-$(CONFIG_CPU_FREQ) += cpu-omap.o
 obj-$(CONFIG_OMAP_DM_TIMER) += dmtimer.o
 obj-$(CONFIG_OMAP_BOOT_REASON) += bootreason.o
+obj-$(CONFIG_OMAP_GPIO_SWITCH) += gpio-switch.o
