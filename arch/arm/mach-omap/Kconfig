@@ -42,6 +42,14 @@ config OMAP_BOOT_TAG
           Say Y, if you have a bootloader which passes information
           about your board and its peripheral configuration.
 
+config OMAP_BOOT_REASON
+	bool "Support for boot reason"
+        depends on OMAP_BOOT_TAG
+        default n
+        help
+          Say Y, if you want to have a procfs entry for reading the boot
+          reason in user-space.
+
 config OMAP_MUX
 	bool "OMAP multiplexing support"
         depends on ARCH_OMAP
