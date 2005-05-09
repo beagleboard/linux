@@ -96,3 +96,17 @@ config TOUCHSCREEN_HP600
 	  module will be called hp680_ts_input.
 
 endif
+config TOUCHSCREEN_OMAP
+	tristate "OMAP touchscreen input driver"
+	depends on INPUT && INPUT_TOUCHSCREEN
+	help
+	  Say Y here if you have an OMAP based board with touchscreen
+	  attached to it, e.g. OMAP Innovator, OSK, H2 or H3
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called omap_ts.
+
+
+

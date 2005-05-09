@@ -183,3 +183,23 @@ config KEYBOARD_HIL
 	  to your machine, so normally you should say Y here.
 
 endif
+
+config KEYBOARD_OMAP
+	tristate "TI OMAP keypad support"
+	depends on (ARCH_OMAP1510 || ARCH_OMAP16XX) && INPUT && INPUT_KEYBOARD
+	help
+	  Say Y here if you want to use the OMAP keypad.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called omap-keypad.
+
+config OMAP_PS2
+	tristate "TI OMAP Innovator 1510 PS/2 keyboard & mouse support"
+	depends on ARCH_OMAP1510 && MACH_OMAP_INNOVATOR && INPUT && INPUT_KEYBOARD
+	help
+	  Say Y here if you want to use the OMAP Innovator 1510 PS/2
+	  keyboard and mouse.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called innovator_ps2.
+	  
