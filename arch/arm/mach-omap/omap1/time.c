@@ -1,10 +1,10 @@
 /*
- * linux/arch/arm/mach-omap/time.c
+ * linux/arch/arm/mach-omap/omap1/time.c
  *
  * OMAP Timers
  *
  * Copyright (C) 2004 Nokia Corporation
- * Partial timer rewrite and additional VST timer support by
+ * Partial timer rewrite and additional dynamic tick timer support by
  * Tony Lindgen <tony@atomide.com> and
  * Tuukka Tikkanen <tuukka.tikkanen@elektrobit.com>
  *
@@ -58,16 +58,8 @@ struct sys_timer omap_timer;
  * MPU timer
  * ---------------------------------------------------------------------------
  */
-#define OMAP_MPU_TIMER1_BASE		(0xfffec500)
-#define OMAP_MPU_TIMER2_BASE		(0xfffec600)
-#define OMAP_MPU_TIMER3_BASE		(0xfffec700)
 #define OMAP_MPU_TIMER_BASE		OMAP_MPU_TIMER1_BASE
 #define OMAP_MPU_TIMER_OFFSET		0x100
-
-#define MPU_TIMER_FREE			(1 << 6)
-#define MPU_TIMER_CLOCK_ENABLE		(1 << 5)
-#define MPU_TIMER_AR			(1 << 1)
-#define MPU_TIMER_ST			(1 << 0)
 
 /* cycles to nsec conversions taken from arch/i386/kernel/timers/timer_tsc.c,
  * converted to use kHz by Kevin Hilman */
@@ -347,6 +339,54 @@ static irqreturn_t omap_32k_timer_interrupt(int irq, void *dev_id,
 	return IRQ_HANDLED;
 }
 
+#ifdef CONFIG_NO_IDLE_HZ
+/*
+ * Programs the next timer interrupt needed. Called when dynamic tick is
+ * enabled, and to reprogram the ticks to skip from pm_idle.
+ */
+void omap_32k_timer_next_dyn_tick_interrupt(void)
+{
+	unsigned long next;
+
+	if (!system_timer->dyn_tick->state & DYN_TICK_ENABLED)
+		return;
+
+	next = next_timer_interrupt() - jiffies;
+
+	if (next > MAX_SKIP_JIFFIES)
+		next = MAX_SKIP_JIFFIES;
+
+	/*
+	 * We can keep the timer continuous, no need to set it to
+	 * run in one-shot mode. When using dynamic tick, the timer
+	 * will get reprogrammed again after the next interrupt.
+	 */
+	omap_32k_timer_start(JIFFIES_TO_HW_TICKS(next, 32768) + 1);
+}
+
+static struct irqaction omap_32k_timer_irq;
+extern struct timer_update_handler timer_update;
+
+static int omap_32k_timer_enable_dyn_tick(void)
+{
+	omap_32k_timer_next_dyn_tick_interrupt();
+	return 0;
+}
+
+static int omap_32k_timer_disable_dyn_tick(void)
+{
+	omap_32k_timer_start(OMAP_32K_TIMER_TICK_PERIOD);
+	return 0;
+}
+
+static struct dyn_tick_timer omap_dyn_tick_timer = {
+	.enable		= omap_32k_timer_enable_dyn_tick,
+	.disable	= omap_32k_timer_disable_dyn_tick,
+	.reprogram	= omap_32k_timer_next_dyn_tick_interrupt,
+	.handler	= omap_32k_timer_interrupt,
+};
+#endif	/* CONFIG_NO_IDLE_HZ */
+
 static struct irqaction omap_32k_timer_irq = {
 	.name		= "32KHz timer",
 	.flags		= SA_INTERRUPT,
@@ -355,6 +395,14 @@ static struct irqaction omap_32k_timer_irq = {
 
 static __init void omap_init_32k_timer(void)
 {
+
+#ifdef CONFIG_NO_IDLE_HZ
+	omap_timer.dyn_tick = &omap_dyn_tick_timer;
+
+	/* Tell __do_irq not to duplicate timer ticks with dyn-tick */
+	omap_32k_timer_irq.flags |= SA_TIMER;
+#endif
+
 	setup_irq(INT_OS_TIMER, &omap_32k_timer_irq);
 	omap_timer.offset  = omap_32k_timer_gettimeoffset;
 	omap_32k_last_tick = omap_32k_sync_timer_read();
@@ -367,7 +415,7 @@ static __init void omap_init_32k_timer(void)
  * Timer initialization
  * ---------------------------------------------------------------------------
  */
-void __init omap_timer_init(void)
+static void __init omap_timer_init(void)
 {
 #if defined(CONFIG_OMAP_MPU_TIMER)
 	omap_init_mpu_timer();
