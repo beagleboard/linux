@@ -17,8 +17,11 @@
 #include <linux/sched.h>
 #include <linux/interrupt.h>
 #include <linux/ptrace.h>
+#include <linux/sysdev.h>
+#include <linux/err.h>
 
 #include <asm/hardware.h>
+#include <asm/hardware/clock.h>
 #include <asm/irq.h>
 #include <asm/arch/irqs.h>
 #include <asm/arch/gpio.h>
@@ -52,14 +55,17 @@
 #define OMAP1610_GPIO_SYSSTATUS		0x0014
 #define OMAP1610_GPIO_IRQSTATUS1	0x0018
 #define OMAP1610_GPIO_IRQENABLE1	0x001c
+#define OMAP1610_GPIO_WAKEUPENABLE	0x0028
 #define OMAP1610_GPIO_DATAIN		0x002c
 #define OMAP1610_GPIO_DATAOUT		0x0030
 #define OMAP1610_GPIO_DIRECTION		0x0034
 #define OMAP1610_GPIO_EDGE_CTRL1	0x0038
 #define OMAP1610_GPIO_EDGE_CTRL2	0x003c
 #define OMAP1610_GPIO_CLEAR_IRQENABLE1	0x009c
+#define OMAP1610_GPIO_CLEAR_WAKEUPENA	0x00a8
 #define OMAP1610_GPIO_CLEAR_DATAOUT	0x00b0
 #define OMAP1610_GPIO_SET_IRQENABLE1	0x00dc
+#define OMAP1610_GPIO_SET_WAKEUPENA	0x00e8
 #define OMAP1610_GPIO_SET_DATAOUT	0x00f0
 
 /*
@@ -86,6 +92,8 @@ struct gpio_bank {
 	u16 virtual_irq_start;
 	u8 method;
 	u32 reserved_map;
+	u32 suspend_wakeup;
+	u32 saved_wakeup;
 	spinlock_t lock;
 };
 
@@ -489,6 +497,48 @@ static inline void _set_gpio_irqenable(struct gpio_bank *bank, int gpio, int ena
 	_enable_gpio_irqbank(bank, 1 << get_gpio_index(gpio), enable);
 }
 
+/*
+ * Note that ENAWAKEUP needs to be enabled in GPIO_SYSCONFIG register.
+ * 1510 does not seem to have a wake-up register. If JTAG is connected
+ * to the target, system will wake up always on GPIO events. While
+ * system is running all registered GPIO interrupts need to have wake-up
+ * enabled. When system is suspended, only selected GPIO interrupts need
+ * to have wake-up enabled.
+ */
+static void _set_gpio_wakeup(struct gpio_bank *bank, int gpio, int enable)
+{
+	switch (bank->method) {
+	case METHOD_GPIO_1610:
+		spin_lock(&bank->lock);
+		if (enable)
+			bank->suspend_wakeup |= (1 << gpio);
+		else
+			bank->suspend_wakeup &= ~(1 << gpio);
+		spin_unlock(&bank->lock);
+		break;
+	default:
+		printk(KERN_ERR "Can't enable GPIO wakeup for method %i\n",
+		       bank->method);
+		return;
+	}
+}
+
+/* Use disable_irq_wake() and enable_irq_wake() functions from drivers */
+static int gpio_wake_enable(unsigned int irq, unsigned int enable)
+{
+	unsigned int gpio = irq - IH_GPIO_BASE;
+	struct gpio_bank *bank;
+
+	if (check_gpio(gpio) < 0)
+		return -ENODEV;
+	bank = get_gpio_bank(gpio);
+	spin_lock(&bank->lock);
+	_set_gpio_wakeup(bank, get_gpio_index(gpio), enable);
+	spin_unlock(&bank->lock);
+
+	return 0;
+}
+
 int omap_request_gpio(int gpio)
 {
 	struct gpio_bank *bank;
@@ -514,6 +564,13 @@ int omap_request_gpio(int gpio)
 		__raw_writel(__raw_readl(reg) | (1 << get_gpio_index(gpio)), reg);
 	}
 #endif
+#ifdef CONFIG_ARCH_OMAP16XX
+	if (bank->method == METHOD_GPIO_1610) {
+		/* Enable wake-up during idle for dynamic tick */
+		u32 reg = bank->base + OMAP1610_GPIO_SET_WAKEUPENA;
+		__raw_writel(1 << get_gpio_index(gpio), reg);
+	}
+#endif
 	spin_unlock(&bank->lock);
 
 	return 0;
@@ -533,6 +590,13 @@ void omap_free_gpio(int gpio)
 		spin_unlock(&bank->lock);
 		return;
 	}
+#ifdef CONFIG_ARCH_OMAP16XX
+	if (bank->method == METHOD_GPIO_1610) {
+		/* Disable wake-up during idle for dynamic tick */
+		u32 reg = bank->base + OMAP1610_GPIO_CLEAR_WAKEUPENA;
+		__raw_writel(1 << get_gpio_index(gpio), reg);
+	}
+#endif
 	bank->reserved_map &= ~(1 << get_gpio_index(gpio));
 	_set_gpio_direction(bank, get_gpio_index(gpio), 1);
 	_set_gpio_irqenable(bank, gpio, 0);
@@ -648,6 +712,7 @@ static struct irqchip gpio_irq_chip = {
 	.ack	= gpio_ack_irq,
 	.mask	= gpio_mask_irq,
 	.unmask = gpio_unmask_irq,
+	.wake	= gpio_wake_enable,
 };
 
 static struct irqchip mpuio_irq_chip = {
@@ -657,6 +722,7 @@ static struct irqchip mpuio_irq_chip = {
 };
 
 static int initialized = 0;
+static struct clk * gpio_ck = 0;
 
 static int __init _omap_gpio_init(void)
 {
@@ -664,6 +730,14 @@ static int __init _omap_gpio_init(void)
 	struct gpio_bank *bank;
 
 	initialized = 1;
+
+	if (cpu_is_omap1510()) {
+		gpio_ck = clk_get(0, "arm_gpio_ck");
+		if (IS_ERR(gpio_ck))
+			printk("Could not get arm_gpio_ck\n");
+		else
+			clk_use(gpio_ck);
+	}
 
 #ifdef CONFIG_ARCH_OMAP1510
 	if (cpu_is_omap1510()) {
@@ -710,6 +784,7 @@ static int __init _omap_gpio_init(void)
 		if (bank->method == METHOD_GPIO_1610) {
 			__raw_writew(0x0000, bank->base + OMAP1610_GPIO_IRQENABLE1);
 			__raw_writew(0xffff, bank->base + OMAP1610_GPIO_IRQSTATUS1);
+			__raw_writew(0x0014, bank->base + OMAP1610_GPIO_SYSCONFIG);
 		}
 #endif
 #ifdef CONFIG_ARCH_OMAP730
@@ -741,6 +816,69 @@ static int __init _omap_gpio_init(void)
 	return 0;
 }
 
+#ifdef CONFIG_ARCH_OMAP16XX
+static int omap_gpio_suspend(struct sys_device *dev, u32 state)
+{
+	int i;
+
+	if (cpu_is_omap1510())
+		return 0;
+
+	for (i = 0; i < gpio_bank_count; i++) {
+		struct gpio_bank *bank = &gpio_bank[i];
+		u32 wake_status = bank->base + OMAP1610_GPIO_WAKEUPENABLE;
+		u32 wake_clear = bank->base + OMAP1610_GPIO_CLEAR_WAKEUPENA;
+		u32 wake_set = bank->base + OMAP1610_GPIO_SET_WAKEUPENA;
+
+		if (bank->method != METHOD_GPIO_1610)
+			continue;
+
+		spin_lock(&bank->lock);
+		bank->saved_wakeup = __raw_readl(wake_status);
+		__raw_writel(0xffffffff, wake_clear);
+		__raw_writel(bank->suspend_wakeup, wake_set);
+		spin_unlock(&bank->lock);
+	}
+
+	return 0;
+}
+
+static int omap_gpio_resume(struct sys_device *dev)
+{
+	int i;
+
+	if (cpu_is_omap1510())
+		return 0;
+
+	for (i = 0; i < gpio_bank_count; i++) {
+		struct gpio_bank *bank = &gpio_bank[i];
+		u32 wake_clear = bank->base + OMAP1610_GPIO_CLEAR_WAKEUPENA;
+		u32 wake_set = bank->base + OMAP1610_GPIO_SET_WAKEUPENA;
+
+		if (bank->method != METHOD_GPIO_1610)
+			continue;
+
+		spin_lock(&bank->lock);
+		__raw_writel(0xffffffff, wake_clear);
+		__raw_writel(bank->saved_wakeup, wake_set);
+		spin_unlock(&bank->lock);
+	}
+
+	return 0;
+}
+
+static struct sysdev_class omap_gpio_sysclass = {
+	set_kset_name("gpio"),
+	.suspend	= omap_gpio_suspend,
+	.resume		= omap_gpio_resume,
+};
+
+static struct sys_device omap_gpio_device = {
+	.id		= 0,
+	.cls		= &omap_gpio_sysclass,
+};
+#endif
+
 /*
  * This may get called early from board specific init
  */
@@ -752,6 +890,26 @@ int omap_gpio_init(void)
 		return 0;
 }
 
+static int __init omap_gpio_sysinit(void)
+{
+	int ret = 0;
+
+	if (!initialized)
+		ret = _omap_gpio_init();
+
+#ifdef CONFIG_ARCH_OMAP16XX
+	if (cpu_is_omap16xx()) {
+		if (ret == 0) {
+			ret = sysdev_class_register(&omap_gpio_sysclass);
+			if (ret == 0)
+				ret = sysdev_register(&omap_gpio_device);
+		}
+	}
+#endif
+
+	return ret;
+}
+
 EXPORT_SYMBOL(omap_request_gpio);
 EXPORT_SYMBOL(omap_free_gpio);
 EXPORT_SYMBOL(omap_set_gpio_direction);
@@ -759,4 +917,4 @@ EXPORT_SYMBOL(omap_set_gpio_dataout);
 EXPORT_SYMBOL(omap_get_gpio_datain);
 EXPORT_SYMBOL(omap_set_gpio_edge_ctrl);
 
-arch_initcall(omap_gpio_init);
+arch_initcall(omap_gpio_sysinit);
