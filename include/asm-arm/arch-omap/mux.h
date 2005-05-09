@@ -332,7 +332,7 @@ typedef enum {
  * Table of various FUNC_MUX and PULL_DWN combinations for each device.
  * See also reg_cfg_t above for the lookup table.
  */
-static reg_cfg_set __initdata_or_module
+static const reg_cfg_set __initdata_or_module
 reg_cfg_table[] = {
 /*
  *	 description		mux  mode   mux	 pull pull  pull  pu_pd	 pu  dbg
@@ -503,7 +503,7 @@ MUX_CFG("Y10_USB0_SUSP",	 B,   3,     5,	  2,  17,   0,	  2,	 0,  1)
 MUX_CFG("W9_USB2_TXEN",		 B,   9,     1,	 NA,   0,   0,	 NA,	 0,  1)
 MUX_CFG("AA9_USB2_VP",		 B,   6,     1,	 NA,   0,   0,	 NA,	 0,  1)
 MUX_CFG("Y5_USB2_RCV",		 C,  21,     1,	 NA,   0,   0,	 NA,	 0,  1)
-MUX_CFG("R8_USB2_VM",		 C,  18,     1,	 NA,   0,   0,	 NA,	 0,  1)
+MUX_CFG("R9_USB2_VM",		 C,  18,     1,	 NA,   0,   0,	 NA,	 0,  1)
 MUX_CFG("V6_USB2_TXD",		 C,  27,     2,	 NA,   0,   0,	 NA,	 0,  1)
 MUX_CFG("W5_USB2_SE0",		 C,  24,     2,	 NA,   0,   0,	 NA,	 0,  1)
 
