@@ -271,8 +271,6 @@ int dsp_suspend(void)
 		return -ERESTARTSYS;
 
 	if (!dsp_is_ready()) {
-		printk(KERN_WARNING
-		       "omapdsp: DSP is not ready. suspend failed.\n");
 		ret = -EINVAL;
 		goto up_out;
 	}
@@ -288,7 +286,6 @@ int dsp_suspend(void)
 	}
 
 	udelay(100);
-	dsp_reset();
 	cfgstat = CFG_SUSPEND;
 up_out:
 	up(&ioctl_sem);
@@ -301,7 +298,6 @@ int dsp_resume(void)
 		return 0;
 
 	cfgstat = CFG_READY;
-	dsp_run();
 	return 0;
 }
 
@@ -433,11 +429,15 @@ static int dsp_ctl_ioctl(struct inode *inode, struct file *file,
 		break;
 
 	case OMAP_DSP_IOCTL_SUSPEND:
-		ret = dsp_suspend();
+		if ((ret = dsp_suspend()) < 0)
+			break;
+		dsp_reset();
 		break;
 
 	case OMAP_DSP_IOCTL_RESUME:
-		ret = dsp_resume();
+		if ((ret = dsp_resume()) < 0)
+			break;
+		dsp_run();
 		break;
 
 	case OMAP_DSP_IOCTL_REGMEMR:

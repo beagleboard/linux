@@ -27,6 +27,8 @@
 #ifndef ASM_ARCH_DSP_COMMON_H
 #define ASM_ARCH_DSP_COMMON_H
 
+void omap_dsp_pm_suspend(void);
+void omap_dsp_pm_resume(void);
 void omap_dsp_request_idle(void);
 
 #endif /* ASM_ARCH_DSP_COMMON_H */

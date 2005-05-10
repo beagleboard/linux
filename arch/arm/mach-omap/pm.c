@@ -52,6 +52,7 @@
 #include <asm/arch/pm.h>
 #include <asm/arch/mux.h>
 #include <asm/arch/tps65010.h>
+#include <asm/arch/dsp_common.h>
 
 #include "clock.h"
 
@@ -161,7 +162,6 @@ void omap_pm_suspend(void)
 {
 	unsigned long arg0 = 0, arg1 = 0;
 	int (*func_ptr)(unsigned short, unsigned short) = NULL;
-	unsigned short save_dsp_idlect2;
 
 	printk("PM: OMAP%x is trying to enter deep sleep...\n", system_rev);
 
@@ -229,20 +229,7 @@ void omap_pm_suspend(void)
 	 * Step 4: OMAP DSP Shutdown
 	 */
 
-	/* Set DSP_RST = 1 and DSP_EN = 0, put DSP block into reset */
-	omap_writel((omap_readl(ARM_RSTCT1) | DSP_RST) & ~DSP_ENABLE,
-		    ARM_RSTCT1);
-
-	/* Set DSP boot mode to DSP-IDLE, DSP_BOOT_MODE = 0x2 */
-        omap_writel(DSP_IDLE_MODE, MPUI_DSP_BOOT_CONFIG);
-
-	/* Set EN_DSPCK = 0, stop DSP block clock */
-	omap_writel(omap_readl(ARM_CKCTL) & ~DSP_CLOCK_ENABLE, ARM_CKCTL);
-
-	/* Stop any DSP domain clocks */
-	omap_writel(omap_readl(ARM_IDLECT2) | (1<<EN_APICK), ARM_IDLECT2);
-	save_dsp_idlect2 = __raw_readw(DSP_IDLECT2);
-	__raw_writew(0, DSP_IDLECT2);
+	omap_dsp_pm_suspend();
 
 	/*
 	 * Step 5: Wakeup Event Setup
@@ -295,9 +282,7 @@ void omap_pm_suspend(void)
 	 */
 
 	/* Restore DSP clocks */
-	omap_writel(omap_readl(ARM_IDLECT2) | (1<<EN_APICK), ARM_IDLECT2);
-	__raw_writew(save_dsp_idlect2, DSP_IDLECT2);
-	ARM_RESTORE(ARM_IDLECT2);
+	omap_dsp_pm_resume();
 
 	/*
 	 * Restore ARM state, except ARM_IDLECT1/2 which omap_cpu_suspend did

@@ -30,6 +30,7 @@
 #include <linux/sched.h>
 #include <linux/delay.h>
 #include <linux/mm.h>
+#include <asm/io.h>
 #include <asm/tlbflush.h>
 #include <asm/irq.h>
 #include <asm/arch/dsp.h>
@@ -162,6 +163,43 @@ void dsp_set_idle_boot_base(unsigned long adr, size_t size)
 		dsp_idle();
 }
 
+static unsigned short save_dsp_idlect2;
+
+/*
+ * note: if we are in pm_suspend / pm_resume function,
+ * we are out of clk_use() management.
+ */
+void omap_dsp_pm_suspend(void)
+{
+	unsigned short save_arm_idlect2;
+
+	/* Reset DSP */
+	__dsp_reset();
+
+	clk_disable(dsp_ck_handle);
+
+	/* Stop any DSP domain clocks */
+	save_arm_idlect2 = omap_readw(ARM_IDLECT2); // api_ck is in ARM_IDLECT2
+	clk_enable(api_ck_handle);
+	save_dsp_idlect2 = __raw_readw(DSP_IDLECT2);
+	__raw_writew(0, DSP_IDLECT2);
+	omap_writew(save_arm_idlect2, ARM_IDLECT2);
+}
+
+void omap_dsp_pm_resume(void)
+{
+	unsigned short save_arm_idlect2;
+
+	/* Restore DSP domain clocks */
+	save_arm_idlect2 = omap_readw(ARM_IDLECT2); // api_ck is in ARM_IDLECT2
+	clk_enable(api_ck_handle);
+	__raw_writew(save_dsp_idlect2, DSP_IDLECT2);
+	omap_writew(save_arm_idlect2, ARM_IDLECT2);
+
+	/* Run DSP, if it was running */
+	if (dsp_runstat != RUNSTAT_RESET)
+		__dsp_run();
+}
 static int init_done;
 
 static int __init omap_dsp_init(void)
@@ -216,6 +254,8 @@ void omap_dsp_request_idle(void)
 
 arch_initcall(omap_dsp_init);
 
+EXPORT_SYMBOL(omap_dsp_pm_suspend);
+EXPORT_SYMBOL(omap_dsp_pm_resume);
 EXPORT_SYMBOL(omap_dsp_request_idle);
 
 #ifdef CONFIG_OMAP_DSP_MODULE
