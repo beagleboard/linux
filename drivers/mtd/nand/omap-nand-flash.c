@@ -110,11 +110,12 @@ static int omap_nand_ready(struct mtd_info *mtd)
 		return omap_get_gpio_datain(H2_NAND_RB_GPIO_PIN);
 	if (machine_is_netstar())
 		return omap_get_gpio_datain(NETSTAR_NAND_RB_GPIO_PIN);
+	return 0;
 }
 
 /* Scan to find existance of the device at omap_nand_flash_base.
    This also allocates oob and data internal buffers */
-static int probe_nand_chip(void)
+static int __init probe_nand_chip(void)
 {
         struct nand_chip *this;
 
@@ -149,6 +150,8 @@ static int probe_nand_chip(void)
 
 	return 0;
 }
+
+static char nand1_name [] = "nand";
 
 /*
  * Main initialization routine
@@ -214,6 +217,7 @@ int __init omap_nand_init (void)
 
         /* try the first address */
 	omap_nand_flash_base = ioremap(OMAP_NAND_FLASH_START1, SZ_4K);
+	omap_nand_mtd->name = nand1_name;
 	if (probe_nand_chip()){
 		nandboot = 1;
 		/* try the second address */
