@@ -102,18 +102,17 @@ IS_OMAP_CLASS(24xx, 0x24)
 #define cpu_is_omap24xx()		0
 
 #if defined(MULTI_OMAP1)
-#  if defined(CONFIG_ARCH_OMAP730)
-#   undef  cpu_is_omap7xx
-#   define cpu_is_omap7xx()		is_omap7xx()
-#  endif
-#  if defined(CONFIG_ARCH_OMAP1510)
-#   undef  cpu_is_omap15xx
-#   define cpu_is_omap15xx()		is_omap15xx()
-#  endif
-#  if defined(CONFIG_ARCH_OMAP16XX)
-#   undef  cpu_is_omap16xx
-#   define cpu_is_omap16xx()		is_omap16xx()
-#  endif
+# if defined(CONFIG_ARCH_OMAP730)
+#  undef  cpu_is_omap7xx
+#  define cpu_is_omap7xx()		is_omap7xx()
+# endif
+# if defined(CONFIG_ARCH_OMAP1510)
+#  undef  cpu_is_omap15xx
+#  define cpu_is_omap15xx()		is_omap15xx()
+# endif
+# if defined(CONFIG_ARCH_OMAP16XX)
+#  undef  cpu_is_omap16xx
+#  define cpu_is_omap16xx()		is_omap16xx()
 # endif
 #else
 # if defined(CONFIG_ARCH_OMAP730)
@@ -199,10 +198,9 @@ IS_OMAP_TYPE(2420, 0x24)
 # define cpu_is_omap1710()		is_omap1710()
 #endif
 
-# if defined(CONFIG_ARCH_OMAP2420)
+#if defined(CONFIG_ARCH_OMAP2420)
 #  undef  cpu_is_omap2420
 #  define cpu_is_omap2420()		1
-# endif
 #endif
 
 #endif
