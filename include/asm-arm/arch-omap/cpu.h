@@ -38,39 +38,40 @@ extern unsigned int system_rev;
 /*
  * Test if multicore OMAP support is needed
  */
-#undef MULTI_OMAP
+#undef MULTI_OMAP1
+#undef MULTI_OMAP2
 #undef OMAP_NAME
 
 #ifdef CONFIG_ARCH_OMAP730
 # ifdef OMAP_NAME
-#  undef  MULTI_OMAP
-#  define MULTI_OMAP
+#  undef  MULTI_OMAP1
+#  define MULTI_OMAP1
 # else
 #  define OMAP_NAME omap730
 # endif
 #endif
 #ifdef CONFIG_ARCH_OMAP1510
 # ifdef OMAP_NAME
-#  undef  MULTI_OMAP
-#  define MULTI_OMAP
+#  undef  MULTI_OMAP1
+#  define MULTI_OMAP1
 # else
 #  define OMAP_NAME omap1510
 # endif
 #endif
 #ifdef CONFIG_ARCH_OMAP16XX
 # ifdef OMAP_NAME
-#  undef  MULTI_OMAP
-#  define MULTI_OMAP
+#  undef  MULTI_OMAP1
+#  define MULTI_OMAP1
 # else
-#  define OMAP_NAME omap1610
+#  define OMAP_NAME omap16xx
 # endif
 #endif
-#ifdef CONFIG_ARCH_OMAP16XX
-# ifdef OMAP_NAME
-#  undef  MULTI_OMAP
-#  define MULTI_OMAP
+#ifdef CONFIG_ARCH_OMAP24XX
+# if (defined(OMAP_NAME) || defined(MULTI_OMAP1))
+#  error "OMAP1 and OMAP2 can't be selected at the same time"
 # else
-#  define OMAP_NAME omap1710
+#  undef  MULTI_OMAP2
+#  define OMAP_NAME omap24xx
 # endif
 #endif
 
@@ -111,7 +112,7 @@ IS_OMAP_CLASS(24xx, 0x24)
  * cpu_is_omap15xx():	True for 1510 and 5910
  * cpu_is_omap16xx():	True for 1610, 5912 and 1710
  */
-#if defined(MULTI_OMAP)
+#if defined(MULTI_OMAP1)
 # define cpu_is_omap7xx()		is_omap7xx()
 # define cpu_is_omap15xx()		is_omap15xx()
 # if !(defined(CONFIG_ARCH_OMAP1510) || defined(CONFIG_ARCH_OMAP730))
@@ -137,7 +138,7 @@ IS_OMAP_CLASS(24xx, 0x24)
 # endif
 #endif
 
-#if defined(MULTI_OMAP)
+#if defined(MULTI_OMAP1)
 # define cpu_is_omap730()		is_omap730()
 # define cpu_is_omap1510()		is_omap1510()
 # define cpu_is_omap1610()		is_omap1610()
