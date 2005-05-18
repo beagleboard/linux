@@ -1990,7 +1990,7 @@ static int __init smc_probe(struct net_device *dev, void __iomem *ioaddr)
       	if (retval)
       		goto err_out;
 
-	set_irq_type(dev->irq, IRQT_RISING);
+	set_irq_type(dev->irq, IRQ_TRIGGER_TYPE);
 
 #ifdef SMC_USE_PXA_DMA
 	{

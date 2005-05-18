@@ -64,6 +64,8 @@ extern void omap_free_gpio(int gpio);
 extern void omap_set_gpio_direction(int gpio, int is_input);
 extern void omap_set_gpio_dataout(int gpio, int enable);
 extern int omap_get_gpio_datain(int gpio);
-extern void omap_set_gpio_edge_ctrl(int gpio, int edge);
+
+/* use ARM-standard set_irq_type() instead */
+extern void __deprecated omap_set_gpio_edge_ctrl(int gpio, int edge);
 
 #endif
