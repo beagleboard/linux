@@ -113,72 +113,69 @@ IS_OMAP_CLASS(24xx, 0x24)
  * cpu_is_omap16xx():	True for 1610, 5912 and 1710
  */
 #if defined(MULTI_OMAP1)
-# define cpu_is_omap7xx()		is_omap7xx()
-# define cpu_is_omap15xx()		is_omap15xx()
-# if !(defined(CONFIG_ARCH_OMAP1510) || defined(CONFIG_ARCH_OMAP730))
-#  define cpu_is_omap16xx()		1
-# else
-#  define cpu_is_omap16xx()		is_omap16xx()
+#  if defined(CONFIG_ARCH_OMAP730)
+#   undef  cpu_is_omap7xx
+#   define cpu_is_omap7xx()		is_omap7xx()
+#  endif
+#  if defined(CONFIG_ARCH_OMAP1510)
+#   undef  cpu_is_omap15xx
+#   define cpu_is_omap15xx()		is_omap15xx()
+#  endif
+#  if defined(CONFIG_ARCH_OMAP16XX)
+#   undef  cpu_is_omap16xx
+#   define cpu_is_omap16xx()		is_omap16xx()
+#  endif
 # endif
 #else
 # if defined(CONFIG_ARCH_OMAP730)
+#  undef  cpu_is_omap7xx
 #  define cpu_is_omap7xx()		1
-# else
-#  define cpu_is_omap7xx()		0
 # endif
 # if defined(CONFIG_ARCH_OMAP1510)
+#  undef  cpu_is_omap15xx
 #  define cpu_is_omap15xx()		1
-# else
-#  define cpu_is_omap15xx()		0
 # endif
 # if defined(CONFIG_ARCH_OMAP16XX)
+#  undef  cpu_is_omap16xx()
 #  define cpu_is_omap16xx()		1
-# else
-#  define cpu_is_omap16xx()		0
+# endif
+# if defined(CONFIG_ARCH_OMAP24XX)
+#  undef  cpu_is_omap24xx
+#  define cpu_is_omap24xx()		1
 # endif
 #endif
 
 #if defined(MULTI_OMAP1)
-# define cpu_is_omap730()		is_omap730()
-# define cpu_is_omap1510()		is_omap1510()
-# define cpu_is_omap1610()		is_omap1610()
-# define cpu_is_omap5912()		is_omap5912()
-# define cpu_is_omap1710()		is_omap1710()
-#else
 # if defined(CONFIG_ARCH_OMAP730)
-#  define cpu_is_omap730()		1
-# else
-#  define cpu_is_omap730()		0
+#  undef  cpu_is_omap730
+#  define cpu_is_omap730()		is_omap730()
 # endif
 # if defined(CONFIG_ARCH_OMAP1510)
+#  undef  cpu_is_omap1510
+#  define cpu_is_omap1510()		is_omap1510()
+# endif
+#else
+# if defined(CONFIG_ARCH_OMAP730)
+#  undef  cpu_is_omap730
+#  define cpu_is_omap730()		1
+# endif
+# if defined(CONFIG_ARCH_OMAP1510)
+#  undef  cpu_is_omap1510
 #  define cpu_is_omap1510()		1
-# else
-#  define cpu_is_omap1510()		0
 # endif
-# if defined(CONFIG_ARCH_OMAP16XX)
-#  define cpu_is_omap1610()		1
-# else
-#  define cpu_is_omap1610()		0
-# endif
-# if defined(CONFIG_ARCH_OMAP16XX)
-#  define cpu_is_omap5912()		1
-# else
-#  define cpu_is_omap5912()		0
-# endif
-# if defined(CONFIG_ARCH_OMAP16XX)
+#endif
+
+/*
+ * Whether we have MULTI_OMAP1 or not, we still need to distinguish
+ * between 1611B/5912 and 1710.
+ */
+#if defined(CONFIG_ARCH_OMAP16XX)
+# undef  cpu_is_omap1610
+# undef  cpu_is_omap5912
+# undef  cpu_is_omap1710
 # define cpu_is_omap1610()		is_omap1610()
 # define cpu_is_omap5912()		is_omap5912()
 # define cpu_is_omap1710()		is_omap1710()
-# else
-# define cpu_is_omap1610()		0
-# define cpu_is_omap5912()		0
-# define cpu_is_omap1710()		0
-# endif
-# if defined(CONFIG_ARCH_OMAP2420)
-#  define cpu_is_omap2420()		1
-# else
-#  define cpu_is_omap2420()		0
-# endif
 #endif
 
 #endif
