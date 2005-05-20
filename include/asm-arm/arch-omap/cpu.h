@@ -124,7 +124,7 @@ IS_OMAP_CLASS(24xx, 0x24)
 #  define cpu_is_omap15xx()		1
 # endif
 # if defined(CONFIG_ARCH_OMAP16XX)
-#  undef  cpu_is_omap16xx()
+#  undef  cpu_is_omap16xx
 #  define cpu_is_omap16xx()		1
 # endif
 # if defined(CONFIG_ARCH_OMAP24XX)
