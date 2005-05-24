@@ -548,7 +548,7 @@ int audio_sync(struct file *file)
 		 * to complete. So it's need to unlink dma channels
 		 * to avoid empty dma work.
 		 */
-		if (!cpu_is_omap1510())
+		if (!cpu_is_omap1510() && AUDIO_QUEUE_EMPTY(s))
 			omap_sound_dma_unlink_lch(s);
 
 		shiftval = s->fragsize - b->offset;
