@@ -188,9 +188,6 @@ static int omap_mcbsp_check(unsigned int id)
 	return -1;
 }
 
-#define EN_XORPCK		1
-#define DSP_RSTCT2              0xe1008014
-
 static void omap_mcbsp_dsp_request(void)
 {
 	if (cpu_is_omap1510() || cpu_is_omap16xx()) {
@@ -200,6 +197,11 @@ static void omap_mcbsp_dsp_request(void)
 
 		/* enable 12MHz clock to mcbsp 1 & 3 */
 		clk_use(mcbsp_dspxor_ck);
+
+		/*
+		 * DSP external peripheral reset
+		 * FIXME: This should be moved to dsp code
+		 */
 		__raw_writew(__raw_readw(DSP_RSTCT2) | 1 | 1 << 1,
 			     DSP_RSTCT2);
 	}

@@ -53,6 +53,7 @@ struct mpu_rate {
 #define CLOCK_IN_OMAP1510	128
 #define CLOCK_IN_OMAP730	256
 #define DSP_DOMAIN_CLOCK	512
+#define VIRTUAL_IO_ADDRESS	1024
 
 /* ARM_CKCTL bit shifts */
 #define CKCTL_PERDIV_OFFSET	0

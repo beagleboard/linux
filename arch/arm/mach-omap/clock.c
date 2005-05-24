@@ -14,6 +14,7 @@
 #include <linux/errno.h>
 #include <linux/err.h>
 
+#include <asm/io.h>
 #include <asm/semaphore.h>
 #include <asm/hardware/clock.h>
 #include <asm/arch/board.h>
@@ -220,7 +221,7 @@ static struct clk dspper_ck = {
 	.name		= "dspper_ck",
 	.parent		= &ck_dpll1,
 	.flags		= CLOCK_IN_OMAP1510 | CLOCK_IN_OMAP16XX |
-			  RATE_CKCTL | DSP_DOMAIN_CLOCK,
+			  RATE_CKCTL | DSP_DOMAIN_CLOCK | VIRTUAL_IO_ADDRESS,
 	.enable_reg	= DSP_IDLECT2,
 	.enable_bit	= EN_PERCK,
 	.rate_offset	= CKCTL_PERDIV_OFFSET,
@@ -232,7 +233,7 @@ static struct clk dspxor_ck = {
 	.name		= "dspxor_ck",
 	.parent		= &ck_ref,
 	.flags		= CLOCK_IN_OMAP1510 | CLOCK_IN_OMAP16XX |
-			  DSP_DOMAIN_CLOCK,
+			  DSP_DOMAIN_CLOCK | VIRTUAL_IO_ADDRESS,
 	.enable_reg	= DSP_IDLECT2,
 	.enable_bit	= EN_XORPCK,
 	.recalc		= &followparent_recalc,
@@ -242,7 +243,7 @@ static struct clk dsptim_ck = {
 	.name		= "dsptim_ck",
 	.parent		= &ck_ref,
 	.flags		= CLOCK_IN_OMAP1510 | CLOCK_IN_OMAP16XX |
-			  DSP_DOMAIN_CLOCK,
+			  DSP_DOMAIN_CLOCK | VIRTUAL_IO_ADDRESS,
 	.enable_reg	= DSP_IDLECT2,
 	.enable_bit	= EN_DSPTIMCK,
 	.recalc		= &followparent_recalc,
@@ -605,13 +606,25 @@ int __clk_enable(struct clk *clk)
 	}
 
 	if (clk->flags & ENABLE_REG_32BIT) {
-		regval32 = omap_readl(clk->enable_reg);
-		regval32 |= (1 << clk->enable_bit);
-		omap_writel(regval32, clk->enable_reg);
+		if (clk->flags & VIRTUAL_IO_ADDRESS) {
+			regval32 = __raw_readl(clk->enable_reg);
+			regval32 |= (1 << clk->enable_bit);
+			__raw_writel(regval32, clk->enable_reg);
+		} else {
+			regval32 = omap_readl(clk->enable_reg);
+			regval32 |= (1 << clk->enable_bit);
+			omap_writel(regval32, clk->enable_reg);
+		}
 	} else {
-		regval16 = omap_readw(clk->enable_reg);
-		regval16 |= (1 << clk->enable_bit);
-		omap_writew(regval16, clk->enable_reg);
+		if (clk->flags & VIRTUAL_IO_ADDRESS) {
+			regval16 = __raw_readw(clk->enable_reg);
+			regval16 |= (1 << clk->enable_bit);
+			__raw_writew(regval16, clk->enable_reg);
+		} else {
+			regval16 = omap_readw(clk->enable_reg);
+			regval16 |= (1 << clk->enable_bit);
+			omap_writew(regval16, clk->enable_reg);
+		}
 	}
 
 	if (clk->flags & DSP_DOMAIN_CLOCK) {
@@ -635,13 +648,25 @@ void __clk_disable(struct clk *clk)
 	}
 
 	if (clk->flags & ENABLE_REG_32BIT) {
-		regval32 = omap_readl(clk->enable_reg);
-		regval32 &= ~(1 << clk->enable_bit);
-		omap_writel(regval32, clk->enable_reg);
+		if (clk->flags & VIRTUAL_IO_ADDRESS) {
+			regval32 = __raw_readl(clk->enable_reg);
+			regval32 &= ~(1 << clk->enable_bit);
+			__raw_writel(regval32, clk->enable_reg);
+		} else {
+			regval32 = omap_readl(clk->enable_reg);
+			regval32 &= ~(1 << clk->enable_bit);
+			omap_writel(regval32, clk->enable_reg);
+		}
 	} else {
-		regval16 = omap_readw(clk->enable_reg);
-		regval16 &= ~(1 << clk->enable_bit);
-		omap_writew(regval16, clk->enable_reg);
+		if (clk->flags & VIRTUAL_IO_ADDRESS) {
+			regval16 = __raw_readw(clk->enable_reg);
+			regval16 &= ~(1 << clk->enable_bit);
+			__raw_writew(regval16, clk->enable_reg);
+		} else {
+			regval16 = omap_readw(clk->enable_reg);
+			regval16 &= ~(1 << clk->enable_bit);
+			omap_writew(regval16, clk->enable_reg);
+		}
 	}
 
 	if (clk->flags & DSP_DOMAIN_CLOCK) {
@@ -843,10 +868,12 @@ static void ckctl_recalc(struct clk *  clk)
 	/* Calculate divisor encoded as 2-bit exponent */
 	if (clk->flags & DSP_DOMAIN_CLOCK) {
 		/* The clock control bits are in DSP domain,
-		 * so api_ck is needed for access
+		 * so api_ck is needed for access.
+		 * Note that DSP_CKCTL virt addr = phys addr, so
+		 * we must use __raw_readw() instead of omap_readw().
 		 */
 		__clk_use(&api_ck);
-		dsor = 1 << (3 & (omap_readw(DSP_CKCTL) >> clk->rate_offset));
+		dsor = 1 << (3 & (__raw_readw(DSP_CKCTL) >> clk->rate_offset));
 		__clk_unuse(&api_ck);
 	} else {
 		dsor = 1 << (3 & (omap_readw(ARM_CKCTL) >> clk->rate_offset));
@@ -1248,10 +1275,17 @@ static int __init omap_clk_reset(void)
 			continue;
 
 		/* Is the clock already disabled? */
-		if (p->flags & ENABLE_REG_32BIT)
-			regval32 = omap_readl(p->enable_reg);
-		else
-			regval32 = omap_readw(p->enable_reg);
+		if (p->flags & ENABLE_REG_32BIT) {
+			if (p->flags & VIRTUAL_IO_ADDRESS)
+				regval32 = __raw_readl(p->enable_reg);
+			else
+				regval32 = omap_readl(p->enable_reg);
+		} else {
+			if (p->flags & VIRTUAL_IO_ADDRESS)
+				regval32 = __raw_readw(p->enable_reg);
+			else
+				regval32 = omap_readw(p->enable_reg);
+		}
 
 		if ((regval32 & (1 << p->enable_bit)) == 0)
 			continue;
