@@ -147,7 +147,6 @@ static void __init osk_init_smc91x(void)
 		printk("Error requesting gpio 0 for smc91x irq\n");
 		return;
 	}
-	omap_set_gpio_edge_ctrl(0, OMAP_GPIO_RISING_EDGE);
 
 	/* Check EMIFS wait states to fix errors with SMC_GET_PKT_HDR */
 	EMIFS_CCS(1) |= 0x2;
@@ -160,8 +159,8 @@ static void __init osk_init_cf(void)
 		printk("Error requesting gpio 62 for CF irq\n");
 		return;
 	}
-	/* it's really active-low */
-	omap_set_gpio_edge_ctrl(62, OMAP_GPIO_FALLING_EDGE);
+	/* the CF I/O IRQ is really active-low */
+	set_irq_type(OMAP_GPIO_IRQ(62), IRQT_FALLING);
 }
 
 static void __init osk_init_irq(void)

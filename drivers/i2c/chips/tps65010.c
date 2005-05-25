@@ -535,7 +535,7 @@ fail1:
 		tps->irq = OMAP_GPIO_IRQ(58);
 		omap_request_gpio(58);
 		omap_set_gpio_direction(58, 1);
-		omap_set_gpio_edge_ctrl(58, OMAP_GPIO_FALLING_EDGE);
+		set_irq_type(tps->irq, IRQT_FALLING);
 	}
 	if (machine_is_omap_osk()) {
 		tps->model = TPS65010;
@@ -543,7 +543,7 @@ fail1:
 		tps->irq = OMAP_GPIO_IRQ(OMAP_MPUIO(1));
 		omap_request_gpio(OMAP_MPUIO(1));
 		omap_set_gpio_direction(OMAP_MPUIO(1), 1);
-		omap_set_gpio_edge_ctrl(OMAP_MPUIO(1), OMAP_GPIO_FALLING_EDGE);
+		set_irq_type(tps->irq, IRQT_FALLING);
 	}
 	if (machine_is_omap_h3()) {
 		tps->model = TPS65013;

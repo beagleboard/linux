@@ -335,9 +335,9 @@ static int _set_gpio_edge_ctrl(struct gpio_bank *bank, int gpio, int edge)
 	case METHOD_MPUIO:
 		reg += OMAP_MPUIO_GPIO_INT_EDGE;
 		l = __raw_readl((void __iomem *)reg);
-		if (edge == OMAP_GPIO_RISING_EDGE)
+		if (edge == IRQT_RISING)
 			l |= 1 << gpio;
-		else if (edge == OMAP_GPIO_FALLING_EDGE)
+		else if (edge == IRQT_FALLING)
 			l &= ~(1 << gpio);
 		else
 			goto bad;
@@ -345,14 +345,15 @@ static int _set_gpio_edge_ctrl(struct gpio_bank *bank, int gpio, int edge)
 	case METHOD_GPIO_1510:
 		reg += OMAP1510_GPIO_INT_CONTROL;
 		l = __raw_readl((void __iomem *)reg);
-		if (edge == OMAP_GPIO_RISING_EDGE)
+		if (edge == IRQT_RISING)
 			l |= 1 << gpio;
-		else if (edge == OMAP_GPIO_FALLING_EDGE)
+		else if (edge == IRQT_FALLING)
 			l &= ~(1 << gpio);
 		else
 			goto bad;
 		break;
 	case METHOD_GPIO_1610:
+		/* NOTE: knows __IRQT_{FAL,RIS}EDGE match OMAP hardware */
 		edge &= 0x03;
 		if (gpio & 0x08)
 			reg += OMAP1610_GPIO_EDGE_CTRL2;
@@ -366,9 +367,9 @@ static int _set_gpio_edge_ctrl(struct gpio_bank *bank, int gpio, int edge)
 	case METHOD_GPIO_730:
 		reg += OMAP730_GPIO_INT_CONTROL;
 		l = __raw_readl((void __iomem *)reg);
-		if (edge == OMAP_GPIO_RISING_EDGE)
+		if (edge == IRQT_RISING)
 			l |= 1 << gpio;
-		else if (edge == OMAP_GPIO_FALLING_EDGE)
+		else if (edge == IRQT_FALLING)
 			l &= ~(1 << gpio);
 		else
 			goto bad;
@@ -397,9 +398,6 @@ static int gpio_irq_type(unsigned irq, unsigned type)
 	if (check_gpio(gpio) < 0)
 		return -EINVAL;
 
-	/* NOTE:  __IRQT_FALEDGE == OMAP_GPIO_FALLING_EDGE,
-	 * and  __IRQT_RISEDGE == OMAP_GPIO_RISING_EDGE
-	 */
 	if (type & (__IRQT_LOWLVL|__IRQT_HIGHLVL|IRQT_PROBE))
 		return -EINVAL;
 
@@ -408,18 +406,6 @@ static int gpio_irq_type(unsigned irq, unsigned type)
 	retval = _set_gpio_edge_ctrl(bank, get_gpio_index(gpio), type);
 	spin_unlock(&bank->lock);
 	return retval;
-}
-
-void omap_set_gpio_edge_ctrl(int gpio, int edge)
-{
-	struct gpio_bank *bank;
-
-	if (check_gpio(gpio) < 0)
-		return;
-	bank = get_gpio_bank(gpio);
-	spin_lock(&bank->lock);
-	_set_gpio_edge_ctrl(bank, get_gpio_index(gpio), edge);
-	spin_unlock(&bank->lock);
 }
 
 
@@ -431,21 +417,22 @@ static int _get_gpio_edge_ctrl(struct gpio_bank *bank, int gpio)
 	case METHOD_MPUIO:
 		l = __raw_readl(reg + OMAP_MPUIO_GPIO_INT_EDGE);
 		return (l & (1 << gpio)) ?
-			OMAP_GPIO_RISING_EDGE : OMAP_GPIO_FALLING_EDGE;
+			IRQT_RISING : IRQT_FALLING;
 	case METHOD_GPIO_1510:
 		l = __raw_readl(reg + OMAP1510_GPIO_INT_CONTROL);
 		return (l & (1 << gpio)) ?
-			OMAP_GPIO_RISING_EDGE : OMAP_GPIO_FALLING_EDGE;
+			IRQT_RISING : IRQT_FALLING;
 	case METHOD_GPIO_1610:
 		if (gpio & 0x08)
 			reg += OMAP1610_GPIO_EDGE_CTRL2;
 		else
 			reg += OMAP1610_GPIO_EDGE_CTRL1;
+		/* NOTE: knows __IRQT_{FAL,RIS}EDGE match OMAP hardware */
 		return (__raw_readl(reg) >> ((gpio & 0x07) << 1)) & 0x03;
 	case METHOD_GPIO_730:
 		l = __raw_readl(reg + OMAP730_GPIO_INT_CONTROL);
 		return (l & (1 << gpio)) ?
-			OMAP_GPIO_RISING_EDGE : OMAP_GPIO_FALLING_EDGE;
+			IRQT_RISING : IRQT_FALLING;
 	default:
 		BUG();
 		return -1;
@@ -714,10 +701,10 @@ static void gpio_unmask_irq(unsigned int irq)
 	unsigned int gpio = irq - IH_GPIO_BASE;
 	struct gpio_bank *bank = get_gpio_bank(gpio);
 
-	if (_get_gpio_edge_ctrl(bank, get_gpio_index(gpio)) == OMAP_GPIO_NO_EDGE) {
+	if (_get_gpio_edge_ctrl(bank, get_gpio_index(gpio)) == IRQT_NOEDGE) {
 		printk(KERN_ERR "OMAP GPIO %d: trying to enable GPIO IRQ while no edge is set\n",
 		       gpio);
-		_set_gpio_edge_ctrl(bank, get_gpio_index(gpio), OMAP_GPIO_RISING_EDGE);
+		_set_gpio_edge_ctrl(bank, get_gpio_index(gpio), IRQT_RISING);
 	}
 	_set_gpio_irqenable(bank, gpio, 1);
 }
@@ -951,6 +938,5 @@ EXPORT_SYMBOL(omap_free_gpio);
 EXPORT_SYMBOL(omap_set_gpio_direction);
 EXPORT_SYMBOL(omap_set_gpio_dataout);
 EXPORT_SYMBOL(omap_get_gpio_datain);
-EXPORT_SYMBOL(omap_set_gpio_edge_ctrl);
 
 arch_initcall(omap_gpio_sysinit);

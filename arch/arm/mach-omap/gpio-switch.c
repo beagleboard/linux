@@ -132,9 +132,9 @@ static void gpio_sw_handler(void *data)
 			       &dev_attr_cover_switch.attr);
 	sw->state = state;
 	if (omap_get_gpio_datain(sw->gpio))
-		omap_set_gpio_edge_ctrl(sw->gpio, OMAP_GPIO_FALLING_EDGE);
+		set_irq_type(OMAP_GPIO_IRQ(sw->gpio), IRQT_FALLING);
 	else
-		omap_set_gpio_edge_ctrl(sw->gpio, OMAP_GPIO_RISING_EDGE);
+		set_irq_type(OMAP_GPIO_IRQ(sw->gpio), IRQT_RISING);
 	print_sw_state(sw, state);
 }
 
@@ -165,9 +165,9 @@ static int __init new_switch(struct gpio_switch *sw)
 	omap_set_gpio_direction(sw->gpio, direction);
 
 	if (omap_get_gpio_datain(sw->gpio))
-		omap_set_gpio_edge_ctrl(sw->gpio, OMAP_GPIO_FALLING_EDGE);
+		set_irq_type(OMAP_GPIO_IRQ(sw->gpio), IRQT_FALLING);
 	else
-		omap_set_gpio_edge_ctrl(sw->gpio, OMAP_GPIO_RISING_EDGE);
+		set_irq_type(OMAP_GPIO_IRQ(sw->gpio), IRQT_RISING);
 
 	switch (sw->type) {
 	case OMAP_GPIO_SWITCH_TYPE_COVER:

@@ -185,7 +185,7 @@ SMC_outw(u16 val, unsigned long ioaddr, int reg)
 #include <asm/mach-types.h>
 #include <asm/arch/cpu.h>
 
-#define	IRQ_TRIGGER_TYPE (( \
+#define	SMC_IRQ_TRIGGER_TYPE (( \
 		   machine_is_omap_h2() \
 		|| machine_is_omap_h3() \
 		|| (machine_is_omap_innovator() && !cpu_is_omap1510()) \
@@ -310,8 +310,8 @@ static inline void SMC_outsw (unsigned long a, int r, unsigned char* p, int l)
 
 #endif
 
-#ifndef	IRQ_TRIGGER_TYPE
-#define	IRQ_TRIGGER_TYPE	IRQT_RISING
+#ifndef	SMC_IRQ_TRIGGER_TYPE
+#define	SMC_IRQ_TRIGGER_TYPE	IRQT_RISING
 #endif
 
 #ifdef SMC_USE_PXA_DMA

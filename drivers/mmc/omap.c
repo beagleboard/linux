@@ -973,7 +973,7 @@ static int mmc_omap_probe(struct device *dev)
 		}
 
 		omap_set_gpio_direction(host->switch_pin, 1);
-		omap_set_gpio_edge_ctrl(host->switch_pin, OMAP_GPIO_RISING_EDGE);
+		set_irq_type(OMAP_GPIO_IRQ(host->switch_pin), IRQT_RISING);
 		ret = request_irq(OMAP_GPIO_IRQ(host->switch_pin),
 				  mmc_omap_switch_irq, 0, DRIVER_NAME, host);
 		if (ret) {

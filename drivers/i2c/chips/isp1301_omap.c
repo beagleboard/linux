@@ -1601,7 +1601,7 @@ fail1:
 		isp->irq = OMAP_GPIO_IRQ(2);
 		omap_request_gpio(2);
 		omap_set_gpio_direction(2, 1);
-		omap_set_gpio_edge_ctrl(2, OMAP_GPIO_FALLING_EDGE);
+		set_irq_type(isp->irq, IRQT_FALLING);
 	}
 
 	if (machine_is_omap_h3()) {
@@ -1610,7 +1610,7 @@ fail1:
 		isp->irq = OMAP_GPIO_IRQ(14);
 		omap_request_gpio(14);
 		omap_set_gpio_direction(14, 1);
-		omap_set_gpio_edge_ctrl(14, OMAP_GPIO_FALLING_EDGE);
+		set_irq_type(isp->irq, IRQT_FALLING);
 	}
 
 	status = request_irq(isp->irq, isp1301_irq,

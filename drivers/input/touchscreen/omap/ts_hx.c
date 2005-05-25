@@ -98,7 +98,7 @@ static int __init hx_ts_probe(struct omap_ts_t *ts)
 	};
 
 	omap_set_gpio_direction(gpio, 1);
-	omap_set_gpio_edge_ctrl(gpio, OMAP_GPIO_FALLING_EDGE);
+	set_irq_type(ts->irq, IRQT_FALLING);
 	return 0;
 }
 

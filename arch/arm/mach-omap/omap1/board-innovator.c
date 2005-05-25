@@ -174,7 +174,6 @@ static void __init innovator_init_smc91x(void)
 			printk("Error requesting gpio 0 for smc91x irq\n");
 			return;
 		}
-		omap_set_gpio_edge_ctrl(0, OMAP_GPIO_FALLING_EDGE);
 	}
 }
 

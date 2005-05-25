@@ -188,7 +188,6 @@ static void __init h3_init_smc91x(void)
 		printk("Error requesting gpio 40 for smc91x irq\n");
 		return;
 	}
-	omap_set_gpio_edge_ctrl(40, OMAP_GPIO_FALLING_EDGE);
 }
 
 void h3_init_irq(void)
