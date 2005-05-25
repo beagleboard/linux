@@ -94,7 +94,7 @@ static struct lcdc_video_mode mode240x320 = {
 	.vsw = 1,
 	.vfp = 1,
 	.vbp = 0,
-	.pcd = 4,
+	.pcd = 2,
 };
 
 struct lcd_panel h3_panel = {
