@@ -84,8 +84,8 @@ static struct flash_platform_data p2_flash_data = {
 };
 
 static struct resource p2_flash_resource = {
-	.start		= OMAP_FLASH_0_START,
-	.end		= OMAP_FLASH_0_START + OMAP_FLASH_0_SIZE - 1,
+	.start		= OMAP_CS0_PHYS,
+	.end		= OMAP_CS0_PHYS + SZ_32M - 1,
 	.flags		= IORESOURCE_MEM,
 };
 
