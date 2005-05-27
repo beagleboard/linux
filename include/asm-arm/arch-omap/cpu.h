@@ -139,11 +139,13 @@ IS_OMAP_CLASS(24xx, 0x24)
  * cpu_is_omap730():	True for OMAP730
  * cpu_is_omap1510():	True for OMAP1510
  * cpu_is_omap1610():	True for OMAP1610
+ * cpu_is_omap1611():	True for OMAP1611
  * cpu_is_omap5912():	True for OMAP5912
+ * cpu_is_omap1621():	True for OMAP1621
  * cpu_is_omap1710():	True for OMAP1710
  * cpu_is_omap2420():	True for OMAP2420
  */
-#define GET_OMAP_TYPE	((system_rev >> 24) & 0xff)
+#define GET_OMAP_TYPE	((system_rev >> 16) & 0xffff)
 
 #define IS_OMAP_TYPE(type, id)				\
 static inline int is_omap ##type (void)			\
@@ -151,17 +153,21 @@ static inline int is_omap ##type (void)			\
 	return (GET_OMAP_TYPE == (id)) ? 1 : 0;		\
 }
 
-IS_OMAP_TYPE(730, 0x07)
-IS_OMAP_TYPE(1510, 0x15)
-IS_OMAP_TYPE(1610, 0x16)
-IS_OMAP_TYPE(5912, 0x16)
-IS_OMAP_TYPE(1710, 0x17)
-IS_OMAP_TYPE(2420, 0x24)
+IS_OMAP_TYPE(730, 0x0730)
+IS_OMAP_TYPE(1510, 0x1510)
+IS_OMAP_TYPE(1610, 0x1610)
+IS_OMAP_TYPE(1611, 0x1611)
+IS_OMAP_TYPE(5912, 0x1611)
+IS_OMAP_TYPE(1621, 0x1621)
+IS_OMAP_TYPE(1710, 0x1710)
+IS_OMAP_TYPE(2420, 0x2420)
 
 #define cpu_is_omap730()		0
 #define cpu_is_omap1510()		0
 #define cpu_is_omap1610()		0
 #define cpu_is_omap5912()		0
+#define cpu_is_omap1611()		0
+#define cpu_is_omap1621()		0
 #define cpu_is_omap1710()		0
 #define cpu_is_omap2420()		0
 
@@ -191,10 +197,14 @@ IS_OMAP_TYPE(2420, 0x24)
  */
 #if defined(CONFIG_ARCH_OMAP16XX)
 # undef  cpu_is_omap1610
+# undef  cpu_is_omap1611
 # undef  cpu_is_omap5912
+# undef  cpu_is_omap1621
 # undef  cpu_is_omap1710
 # define cpu_is_omap1610()		is_omap1610()
+# define cpu_is_omap1611()		is_omap1611()
 # define cpu_is_omap5912()		is_omap5912()
+# define cpu_is_omap1621()		is_omap1621()
 # define cpu_is_omap1710()		is_omap1710()
 #endif
 
