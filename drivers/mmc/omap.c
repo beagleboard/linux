@@ -69,9 +69,9 @@ struct mmc_omap_host {
 	struct mmc_data *	data;
 	struct mmc_host *	mmc;
 	struct device *		dev;
-	unsigned char		id; /* 1610 has 2 MMC blocks */
+	unsigned char		id; /* 16xx chips have 2 MMC blocks */
 	struct clk *		clk;
-	u32			base;
+	void __iomem		*base;
 	int irq;
 	unsigned char		bus_mode;
 	unsigned int		dma_len;
@@ -217,7 +217,7 @@ mmc_omap_start_command(struct mmc_omap_host *host, struct mmc_command *cmd)
 	if (host->datadir == OMAP_MMC_DATADIR_READ)
 		cmdreg |= 1 << 15;
 
-	clk_enable(host->clk);
+	clk_use(host->clk);
 
 	OMAP_MMC_WRITE(host->base, CTO, 200);
 	OMAP_MMC_WRITE(host->base, ARGL, cmd->arg & 0xffff);
@@ -254,7 +254,7 @@ mmc_omap_xfer_done(struct mmc_omap_host *host, struct mmc_data *data)
 		     host->datadir);
 	host->dma_len = 0;
 
-	clk_disable(host->clk);
+	clk_unuse(host->clk);
 
 	if (!data->stop) {
 		host->mrq = NULL;
@@ -305,7 +305,7 @@ mmc_omap_cmd_done(struct mmc_omap_host *host, struct mmc_command *cmd)
 	if (host->data == NULL || cmd->error != MMC_ERR_NONE) {
 		DBG("MMC%d: End request, err %x\n", host->id, cmd->error);
 		host->mrq = NULL;
-		clk_disable(host->clk);
+		clk_unuse(host->clk);
 		mmc_request_done(host->mmc, cmd->mrq);
 	}
 }
@@ -522,11 +522,14 @@ static void mmc_omap_dma_cb(int lch, u16 ch_status, void *data)
 	complete(&host->dma_completion);
 }
 
-static int mmc_omap_start_dma_transfer(struct mmc_omap_host *host, struct mmc_request *req)
+static int
+mmc_omap_start_dma_transfer(struct mmc_omap_host *host, struct mmc_request *req)
 {
 	int sync_dev, dma_ch, r;
 	const char *dev_name;
 	struct mmc_data *data = req->data;
+	u16 buf, frame;
+	u32 words;
 
 	/* If for some reason the DMA transfer is still active,
 	 * we wait for it to complete. This shouldn't normally happen. */
@@ -552,38 +555,57 @@ static int mmc_omap_start_dma_transfer(struct mmc_omap_host *host, struct mmc_re
 			dev_name = "MMC2 write";
 		}
 	}
-	r = omap_request_dma(sync_dev, dev_name, mmc_omap_dma_cb, host, &dma_ch);
+	r = omap_request_dma(sync_dev, dev_name, mmc_omap_dma_cb,
+			host, &dma_ch);
 	if (r != 0) {
-		printk("MMC%d: omap_request_dma() failed with %d\n", host->id, r);
+		printk("MMC%d: omap_request_dma() failed with %d\n",
+				host->id, r);
 		return r;
 	}
+
+	/* FIFO is 32x2 bytes; use 32 word frames when possible */
+	frame = 1 << (data->blksz_bits - 1);
+	words = data->blocks * frame;
+	if (frame > 32)
+		frame = 32;
+
 	if (!(data->flags & MMC_DATA_WRITE)) {
-		/* 16 frames/block, 32 bytes/frame */
+		buf = 0x800f | ((frame - 1) << 8);
 		omap_set_dma_src_params(dma_ch, OMAP_DMA_PORT_TIPB,
-					OMAP_DMA_AMODE_CONSTANT,
-					virt_to_phys((void *) host->base) + OMAP_MMC_REG_DATA);
+				OMAP_DMA_AMODE_CONSTANT,
+				virt_to_phys((void __force *)host->base)
+						+ OMAP_MMC_REG_DATA);
 		omap_set_dma_dest_params(dma_ch, OMAP_DMA_PORT_EMIFF,
-					 OMAP_DMA_AMODE_POST_INC,
-					 data->sg->dma_address);
-		OMAP_MMC_WRITE(host->base, BUF, 0x8f0f);
+				OMAP_DMA_AMODE_POST_INC,
+				data->sg->dma_address);
+		omap_set_dma_dest_data_pack(dma_ch, 1);
+		omap_set_dma_dest_burst_mode(dma_ch, OMAP_DMA_DATA_BURST_4);
 	} else {
+		buf = 0x0f80 | ((frame - 1) << 0);
 		omap_set_dma_dest_params(dma_ch, OMAP_DMA_PORT_TIPB,
-					 OMAP_DMA_AMODE_CONSTANT,
-					 virt_to_phys((void *) host->base) + OMAP_MMC_REG_DATA);
+				OMAP_DMA_AMODE_CONSTANT,
+				virt_to_phys((void __force *)host->base)
+						+ OMAP_MMC_REG_DATA);
 		omap_set_dma_src_params(dma_ch, OMAP_DMA_PORT_EMIFF,
-					OMAP_DMA_AMODE_POST_INC,
-					data->sg->dma_address);
-		OMAP_MMC_WRITE(host->base, BUF, 0x0f8f);
+				OMAP_DMA_AMODE_POST_INC,
+				data->sg->dma_address);
+		omap_set_dma_src_data_pack(dma_ch, 1);
+		omap_set_dma_src_burst_mode(dma_ch, OMAP_DMA_DATA_BURST_4);
 	}
-	omap_set_dma_transfer_params(dma_ch, OMAP_DMA_DATA_TYPE_S16, 16,
-				     16 * data->blocks, OMAP_DMA_SYNC_FRAME);
+
+	/* blocksize is usually 512 bytes; but not for some SD reads */
+	OMAP_MMC_WRITE(host->base, BUF, buf);
+	omap_set_dma_transfer_params(dma_ch, OMAP_DMA_DATA_TYPE_S16,
+		frame, words / frame, OMAP_DMA_SYNC_FRAME);
+
 	host->dma_ch = dma_ch;
 	omap_start_dma(dma_ch);
 
         return 0;
 }
 
-static inline void set_cmd_timeout(struct mmc_omap_host *host, struct mmc_request *req)
+static inline void
+set_cmd_timeout(struct mmc_omap_host *host, struct mmc_request *req)
 {
 	u16 reg;
 
@@ -826,7 +848,7 @@ static void mmc_omap_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	}
 
 	host->bus_mode = ios->bus_mode;
-	clk_enable(host->clk);
+	clk_use(host->clk);
 	/* On insanely high arm_per frequencies something sometimes
 	 * goes somehow out of sync, and the POW bit is not being set,
 	 * which results in the while loop below getting stuck.
@@ -841,7 +863,7 @@ static void mmc_omap_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		while (0 == (OMAP_MMC_READ(host->base, STAT) & 1));
 		OMAP_MMC_WRITE(host->base, STAT, 1);
 	}
-	clk_disable(host->clk);
+	clk_unuse(host->clk);
 }
 
 static struct mmc_host_ops mmc_omap_ops = {
@@ -849,7 +871,7 @@ static struct mmc_host_ops mmc_omap_ops = {
 	.set_ios	= mmc_omap_set_ios,
 };
 
-static int mmc_omap_probe(struct device *dev)
+static int __init mmc_omap_probe(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct mmc_host *mmc;
@@ -931,7 +953,7 @@ static int mmc_omap_probe(struct device *dev)
 	host->dma_ch = -1;
 
 	host->irq = pdev->resource[1].start;
-	host->base = (u32)pdev->resource[0].start;
+	host->base = (void __iomem *)pdev->resource[0].start;
 
 	mmc->ops = &mmc_omap_ops;
 	mmc->f_min = 400000;
@@ -1012,7 +1034,7 @@ out:
 	return ret;
 }
 
-static int mmc_omap_remove(struct device *dev)
+static int __exit mmc_omap_remove(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct mmc_omap_host *host = dev_get_drvdata(dev);
@@ -1047,7 +1069,7 @@ static int mmc_omap_remove(struct device *dev)
 }
 
 #ifdef CONFIG_PM
-static int mmc_omap_suspend(struct device *dev, u32 state, u32 level)
+static int mmc_omap_suspend(struct device *dev, pm_message_t mesg, u32 level)
 {
 	int ret = 0;
 	struct mmc_omap_host *host = dev_get_drvdata(dev);
@@ -1059,7 +1081,7 @@ static int mmc_omap_suspend(struct device *dev, u32 state, u32 level)
 		return -EAGAIN;
 
 	if (host) {
-		ret = mmc_suspend_host(host->mmc, state);
+		ret = mmc_suspend_host(host->mmc, mesg);
 		if (ret == 0)
 			host->suspended = 1;
 	}
@@ -1126,7 +1148,7 @@ static struct platform_device mmc_omap_device1 = {
 		.release	= mmc_release,
 		.dma_mask	= &mmc_dmamask,
 	},
-	.num_resources	= ARRAY_SIZE(&mmc1_resources),
+	.num_resources	= ARRAY_SIZE(mmc1_resources),
 	.resource	= mmc1_resources,
 };
 
@@ -1137,7 +1159,7 @@ static struct platform_device mmc_omap_device2 = {
 		.release	= mmc_release,
 		.dma_mask	= &mmc_dmamask,
 	},
-	.num_resources	= ARRAY_SIZE(&mmc2_resources),
+	.num_resources	= ARRAY_SIZE(mmc2_resources),
 	.resource	= mmc2_resources,
 };
 
@@ -1145,7 +1167,7 @@ static struct device_driver mmc_omap_driver = {
 	.name		= "mmci-omap",
 	.bus		= &platform_bus_type,
 	.probe		= mmc_omap_probe,
-	.remove		= mmc_omap_remove,
+	.remove		= __exit_p(mmc_omap_remove),
 	.suspend	= mmc_omap_suspend,
 	.resume		= mmc_omap_resume,
 };
