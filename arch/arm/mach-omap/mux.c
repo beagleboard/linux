@@ -53,7 +53,7 @@ omap_cfg_reg(const reg_cfg_t reg_cfg)
 		return -EINVAL;
 	}
 
-	cfg = &reg_cfg_table[reg_cfg];
+	cfg = (reg_cfg_set *)&reg_cfg_table[reg_cfg];
 
 	/* Check the mux register in question */
 	if (cfg->mux_reg) {
