@@ -21,6 +21,7 @@
 #include <asm/arch/usb.h>
 
 #include "clock.h"
+#include "sram.h"
 
 static LIST_HEAD(clocks);
 static DECLARE_MUTEX(clocks_sem);
@@ -51,7 +52,7 @@ static struct mpu_rate rate_table[] = {
 	{ 192000000, 19200000, 192000000, 0x050f, 0x2510 }, /* 1/1/2/2/8/8 */
 	{ 192000000, 12000000, 192000000, 0x050f, 0x2810 }, /* 1/1/2/2/8/8 */
 	{  96000000, 12000000, 192000000, 0x055f, 0x2810 }, /* 2/2/2/2/8/8 */
-	{  48000000, 12000000, 192000000, 0x0ccf, 0x2810 }, /* 4/4/4/4/8/8 */
+	{  48000000, 12000000, 192000000, 0x0baf, 0x2810 }, /* 4/8/4/4/8/8 */
 	{  24000000, 12000000, 192000000, 0x0fff, 0x2810 }, /* 8/8/8/8/8/8 */
 #endif
 #if defined(CONFIG_OMAP_ARM_182MHZ)
@@ -948,16 +949,12 @@ static int select_table_rate(struct clk *  clk, unsigned long rate)
 		return -EINVAL;
 
 	/*
-	 * If ARM_TIM_CK is coming from CK_GEN1, reset it and set
-	 * safe values for dividers in ARM_CKCTL.
-	 * Otherwise system may hang when reprogramming DPLL_CTL.
+	 * In most cases we should not need to reprogram DPLL.
+	 * Reprogramming the DPLL is tricky, it must be done from SRAM.
 	 */
-	if (unlikely(ck_dpll1.rate == 0)) {
-		omap_writew(0x03ff, ARM_CKCTL);
-		omap_writew(ptr->dpllctl_val, DPLL_CTL);
-		ck_dpll1.rate = ptr->pll_rate;
-	}
-	omap_writew(ptr->ckctl_val, ARM_CKCTL);
+	omap_sram_reprogram_clock(ptr->dpllctl_val, ptr->ckctl_val);
+
+	ck_dpll1.rate = ptr->pll_rate;
 	propagate_rate(&ck_dpll1);
 	return 0;
 }
