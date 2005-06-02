@@ -98,26 +98,6 @@
 #define OMAP1610_IDLECT3		0xfffece24
 #define OMAP1610_IDLE_LOOP_REQUEST	0x0400
 
-#ifndef OMAP1510_SRAM_IDLE_SUSPEND
-#define OMAP1510_SRAM_IDLE_SUSPEND 0
-#endif
-#ifndef OMAP1610_SRAM_IDLE_SUSPEND
-#define OMAP1610_SRAM_IDLE_SUSPEND 0
-#endif
-#ifndef OMAP5912_SRAM_IDLE_SUSPEND
-#define OMAP5912_SRAM_IDLE_SUSPEND 0
-#endif
-
-#ifndef OMAP1510_SRAM_API_SUSPEND
-#define OMAP1510_SRAM_API_SUSPEND 0
-#endif
-#ifndef OMAP1610_SRAM_API_SUSPEND
-#define OMAP1610_SRAM_API_SUSPEND 0
-#endif
-#ifndef OMAP5912_SRAM_API_SUSPEND
-#define OMAP5912_SRAM_API_SUSPEND 0
-#endif
-
 #if     !defined(CONFIG_ARCH_OMAP1510) && \
 	!defined(CONFIG_ARCH_OMAP16XX)
 #error "Power management for this processor not implemented yet"
@@ -126,10 +106,11 @@
 #ifndef __ASSEMBLER__
 extern void omap_pm_idle(void);
 extern void omap_pm_suspend(void);
-extern int omap1510_cpu_suspend(unsigned short, unsigned short);
-extern int omap1610_cpu_suspend(unsigned short, unsigned short);
-extern int omap1510_idle_loop_suspend(void);
-extern int omap1610_idle_loop_suspend(void);
+extern void omap1510_cpu_suspend(unsigned short, unsigned short);
+extern void omap1610_cpu_suspend(unsigned short, unsigned short);
+extern void omap1510_idle_loop_suspend(void);
+extern void omap1610_idle_loop_suspend(void);
+
 extern unsigned int omap1510_cpu_suspend_sz;
 extern unsigned int omap1510_idle_loop_suspend_sz;
 extern unsigned int omap1610_cpu_suspend_sz;
