@@ -55,11 +55,15 @@
 #include <asm/arch/dsp_common.h>
 
 #include "clock.h"
+#include "sram.h"
 
 static unsigned int arm_sleep_save[ARM_SLEEP_SAVE_SIZE];
 static unsigned short ulpd_sleep_save[ULPD_SLEEP_SAVE_SIZE];
 static unsigned int mpui1510_sleep_save[MPUI1510_SLEEP_SAVE_SIZE];
 static unsigned int mpui1610_sleep_save[MPUI1610_SLEEP_SAVE_SIZE];
+
+static void (*omap_sram_idle)(void) = NULL;
+static void (*omap_sram_suspend)(unsigned long r0, unsigned long r1) = NULL;
 
 /*
  * Let's power down on idle, but only if we are really
@@ -69,7 +73,6 @@ static unsigned int mpui1610_sleep_save[MPUI1610_SLEEP_SAVE_SIZE];
  */
 void omap_pm_idle(void)
 {
-	int (*func_ptr)(void) = NULL;
 	unsigned int mask32 = 0;
 
 	/*
@@ -105,18 +108,8 @@ void omap_pm_idle(void)
 
 	if ((mask32 & DSP_IDLE) == 0) {
 		__asm__ volatile ("mcr	p15, 0, r0, c7, c0, 4");
-	} else {
-
-		if (cpu_is_omap1510()) {
-			func_ptr = (void *)(OMAP1510_SRAM_IDLE_SUSPEND);
-		} else if (cpu_is_omap1610() || cpu_is_omap1710()) {
-			func_ptr = (void *)(OMAP1610_SRAM_IDLE_SUSPEND);
-		} else if (cpu_is_omap5912()) {
-			func_ptr = (void *)(OMAP5912_SRAM_IDLE_SUSPEND);
-		}
-
-		func_ptr();
-	}
+	} else
+		omap_sram_idle();
 }
 
 /*
@@ -161,7 +154,6 @@ static void omap_pm_wakeup_setup(void)
 void omap_pm_suspend(void)
 {
 	unsigned long arg0 = 0, arg1 = 0;
-	int (*func_ptr)(unsigned short, unsigned short) = NULL;
 
 	printk("PM: OMAP%x is trying to enter deep sleep...\n", system_rev);
 
@@ -260,22 +252,13 @@ void omap_pm_suspend(void)
 	arg0 = arm_sleep_save[ARM_SLEEP_SAVE_ARM_IDLECT1];
 	arg1 = arm_sleep_save[ARM_SLEEP_SAVE_ARM_IDLECT2];
 
-	if (cpu_is_omap1510()) {
-		func_ptr = (void *)(OMAP1510_SRAM_API_SUSPEND);
-	} else if (cpu_is_omap1610() || cpu_is_omap1710()) {
-		func_ptr = (void *)(OMAP1610_SRAM_API_SUSPEND);
-	} else if (cpu_is_omap5912()) {
-		func_ptr = (void *)(OMAP5912_SRAM_API_SUSPEND);
-	}
-
 	/*
 	 * Step 6c: ARM and Traffic controller shutdown
 	 *
 	 * Jump to assembly code. The processor will stay there
  	 * until wake up.
 	 */
-
-        func_ptr(arg0, arg1);
+        omap_sram_suspend(arg0, arg1);
 
 	/*
 	 * If we are here, processor is woken up!
@@ -564,35 +547,29 @@ static struct pm_ops omap_pm_ops ={
 static int __init omap_pm_init(void)
 {
 	printk("Power Management for TI OMAP.\n");
-	pm_idle = omap_pm_idle;
 	/*
 	 * We copy the assembler sleep/wakeup routines to SRAM.
 	 * These routines need to be in SRAM as that's the only
 	 * memory the MPU can see when it wakes up.
 	 */
-
-#ifdef	CONFIG_ARCH_OMAP1510
 	if (cpu_is_omap1510()) {
-		memcpy((void *)OMAP1510_SRAM_IDLE_SUSPEND,
-		       omap1510_idle_loop_suspend,
-		       omap1510_idle_loop_suspend_sz);
-		memcpy((void *)OMAP1510_SRAM_API_SUSPEND, omap1510_cpu_suspend,
-		       omap1510_cpu_suspend_sz);
-	} else
-#endif
-	if (cpu_is_omap16xx()) {
-		memcpy((void *)OMAP1610_SRAM_IDLE_SUSPEND,
-		       omap1610_idle_loop_suspend,
-		       omap1610_idle_loop_suspend_sz);
-		memcpy((void *)OMAP1610_SRAM_API_SUSPEND, omap1610_cpu_suspend,
-		       omap1610_cpu_suspend_sz);
-	} else if (cpu_is_omap5912()) {
-		memcpy((void *)OMAP5912_SRAM_IDLE_SUSPEND,
-		       omap1610_idle_loop_suspend,
-		       omap1610_idle_loop_suspend_sz);
-		memcpy((void *)OMAP5912_SRAM_API_SUSPEND, omap1610_cpu_suspend,
-		       omap1610_cpu_suspend_sz);
+		omap_sram_idle = omap_sram_push(omap1510_idle_loop_suspend,
+						omap1510_idle_loop_suspend_sz);
+		omap_sram_suspend = omap_sram_push(omap1510_cpu_suspend,
+						   omap1510_cpu_suspend_sz);
+	} else if (cpu_is_omap16xx()) {
+		omap_sram_idle = omap_sram_push(omap1610_idle_loop_suspend,
+						omap1610_idle_loop_suspend_sz);
+		omap_sram_suspend = omap_sram_push(omap1610_cpu_suspend,
+						   omap1610_cpu_suspend_sz);
 	}
+
+	if (omap_sram_idle == NULL || omap_sram_suspend == NULL) {
+		printk(KERN_ERR "PM not initialized: Missing SRAM support\n");
+		return -ENODEV;
+	}
+
+	pm_idle = omap_pm_idle;
 
 	setup_irq(INT_1610_WAKE_UP_REQ, &omap_wakeup_irq);
 #if 0
