@@ -20,7 +20,7 @@
 #include "../clock.h"
 
 extern void omap_check_revision(void);
-extern void omap_detect_sram(void);
+extern void omap_sram_init(void);
 
 /*
  * The machine specific code may provide the extra mapping besides the
@@ -102,8 +102,9 @@ static void __init _omap_map_io(void)
 /*
  * This should only get called from board specific init
  */
-void omap_map_common_io(void)
+void __init omap_map_common_io(void)
 {
 	if (!initialized)
 		_omap_map_io();
 }
+
