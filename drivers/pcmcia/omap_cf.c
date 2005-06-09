@@ -34,8 +34,8 @@
  * with various other devices (like WLAN adapters) without some external
  * logic to help out.
  *
- * Also:  CF controller docs disagree with address space docs as to where
- * CF_BASE really lives.
+ * NOTE:  CF controller docs disagree with address space docs as to where
+ * CF_BASE really lives; this is a doc erratum.
  */
 #define	CF_BASE	0xfffe2800
 
@@ -362,7 +362,7 @@ static int __init omap_cf_init(void)
 static void __exit omap_cf_exit(void)
 {
 	if (cpu_is_omap16xx())
-		driver_register(&omap_cf_driver);
+		driver_unregister(&omap_cf_driver);
 }
 
 module_init(omap_cf_init);
