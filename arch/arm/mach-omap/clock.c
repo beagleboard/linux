@@ -386,8 +386,7 @@ static struct clk uart2_ck = {
 	.name		= "uart2_ck",
 	/* Direct from ULPD, no parent */
 	.rate		= 12000000,
-	.flags		= CLOCK_IN_OMAP1510 | CLOCK_IN_OMAP16XX | ENABLE_REG_32BIT |
-			  ALWAYS_ENABLED,
+	.flags		= CLOCK_IN_OMAP1510 | CLOCK_IN_OMAP16XX | ENABLE_REG_32BIT,
 	.enable_reg	= MOD_CONF_CTRL_0,
 	.enable_bit	= 30,	/* Chooses between 12MHz and 48MHz */
 	.set_rate	= &set_uart_rate,
