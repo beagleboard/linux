@@ -81,6 +81,9 @@ static void (*_omap_sram_reprogram_clock)(u32 dpllctl, u32 ckctl) = NULL;
 
 void omap_sram_reprogram_clock(u32 dpllctl, u32 ckctl)
 {
+	if (_omap_sram_reprogram_clock == NULL)
+		panic("Cannot use SRAM");
+
 	return _omap_sram_reprogram_clock(dpllctl, ckctl);
 }
 
