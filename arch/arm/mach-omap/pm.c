@@ -157,6 +157,8 @@ void omap_pm_suspend(void)
 
 	printk("PM: OMAP%x is trying to enter deep sleep...\n", system_rev);
 
+	omap_serial_wake_trigger(1);
+
 	if (machine_is_omap_osk()) {
 		/* Stop LED1 (D9) blink */
 		tps65010_set_led(LED1, OFF);
@@ -311,6 +313,8 @@ void omap_pm_suspend(void)
 
 	local_irq_enable();
 	local_fiq_enable();
+
+	omap_serial_wake_trigger(0);
 
 	printk("PM: OMAP%x is re-starting from deep sleep...\n", system_rev);
 
