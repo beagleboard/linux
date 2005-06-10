@@ -1125,13 +1125,26 @@ void clk_unregister(struct clk *clk)
 }
 EXPORT_SYMBOL(clk_unregister);
 
-
+#ifdef CONFIG_OMAP_RESET_CLOCKS
+/*
+ * Resets some clocks that may be left on from bootloader,
+ * but leaves serial clocks on. See also omap_late_clk_reset().
+ */
+static inline void omap_early_clk_reset(void)
+{
+	omap_writel(0x3 << 29, MOD_CONF_CTRL_0);
+}
+#else
+#define omap_early_clk_reset()	{}
+#endif
 
 int __init clk_init(void)
 {
 	struct clk **  clkp;
 	const struct omap_clock_config *info;
 	int crystal_type = 0; /* Default 12 MHz */
+
+	omap_early_clk_reset();
 
 	for (clkp = onchip_clks; clkp < onchip_clks+ARRAY_SIZE(onchip_clks); clkp++) {
 		if (((*clkp)->flags &CLOCK_IN_OMAP1510) && cpu_is_omap1510()) {
@@ -1252,7 +1265,7 @@ int __init clk_init(void)
 
 #ifdef CONFIG_OMAP_RESET_CLOCKS
 
-static int __init omap_clk_reset(void)
+static int __init omap_late_clk_reset(void)
 {
 	/* Turn off all unused clocks */
 	struct clk *p;
@@ -1305,6 +1318,6 @@ static int __init omap_clk_reset(void)
 	return 0;
 }
 
-late_initcall(omap_clk_reset);
+late_initcall(omap_late_clk_reset);
 
 #endif
