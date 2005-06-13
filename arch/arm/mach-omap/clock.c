@@ -1132,7 +1132,7 @@ EXPORT_SYMBOL(clk_unregister);
  */
 static inline void omap_early_clk_reset(void)
 {
-	omap_writel(0x3 << 29, MOD_CONF_CTRL_0);
+	//omap_writel(0x3 << 29, MOD_CONF_CTRL_0);
 }
 #else
 #define omap_early_clk_reset()	{}
