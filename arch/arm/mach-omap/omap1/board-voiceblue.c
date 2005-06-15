@@ -143,7 +143,7 @@ static struct omap_usb_config voiceblue_usb_config __initdata = {
 	.pins[2]	= 6,
 };
 
-static struct omap_mmc_config voiceblue_mmc_config = {
+static struct omap_mmc_config voiceblue_mmc_config __initdata = {
 	.mmc_blocks		= 1,
 	.mmc1_power_pin		= 2,
 	.mmc1_switch_pin	= -1,
