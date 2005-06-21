@@ -643,6 +643,7 @@ static inline void set_data_timeout(struct mmc_omap_host *host, struct mmc_reque
 static void mmc_omap_prepare_data(struct mmc_omap_host *host, struct mmc_request *req)
 {
 	struct mmc_data *data = req->data;
+	enum dma_data_direction dma_data_dir;
 
 	host->data = data;
 	if (data == NULL) {
@@ -664,12 +665,16 @@ static void mmc_omap_prepare_data(struct mmc_omap_host *host, struct mmc_request
 	OMAP_MMC_WRITE(host->base, BLEN, (1 << data->blksz_bits) - 1);
 	set_data_timeout(host, req);
 
-	host->datadir = (data->flags & MMC_DATA_WRITE) ?
-		OMAP_MMC_DATADIR_WRITE : OMAP_MMC_DATADIR_READ;
-	host->dma_len = 0;
-
-	host->dma_len = dma_map_sg(mmc_dev(host->mmc), data->sg, data->sg_len,
-				   host->datadir);
+	if (data->flags & MMC_DATA_WRITE) {
+		host->datadir = OMAP_MMC_DATADIR_WRITE;
+		dma_data_dir = DMA_TO_DEVICE;
+	} else {
+		host->datadir = OMAP_MMC_DATADIR_READ;
+		dma_data_dir = DMA_FROM_DEVICE;
+	}
+  
+  	host->dma_len = dma_map_sg(mmc_dev(host->mmc), data->sg, data->sg_len,
+				   dma_data_dir);
 
 	/* No SG-DMA */
 	if (unlikely(host->dma_len > 1))
