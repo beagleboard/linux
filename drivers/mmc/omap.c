@@ -234,6 +234,8 @@ mmc_omap_start_command(struct mmc_omap_host *host, struct mmc_command *cmd)
 static void
 mmc_omap_xfer_done(struct mmc_omap_host *host, struct mmc_data *data)
 {
+	enum dma_data_direction dma_data_dir;
+
 	host->data = NULL;
 	host->datadir = OMAP_MMC_DATADIR_NONE;
 
@@ -250,8 +252,14 @@ mmc_omap_xfer_done(struct mmc_omap_host *host, struct mmc_data *data)
 		}
 	}
 
+	if (host->datadir == OMAP_MMC_DATADIR_WRITE)
+		dma_data_dir = DMA_TO_DEVICE;
+	else
+		dma_data_dir = DMA_FROM_DEVICE;
+
 	dma_unmap_sg(mmc_dev(host->mmc), data->sg, host->dma_len,
-		     host->datadir);
+		     dma_data_dir);
+
 	host->dma_len = 0;
 
 	clk_unuse(host->clk);
