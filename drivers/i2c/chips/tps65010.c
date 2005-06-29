@@ -535,7 +535,7 @@ fail1:
 		tps->irq = OMAP_GPIO_IRQ(58);
 		omap_request_gpio(58);
 		omap_set_gpio_direction(58, 1);
-		omap_set_gpio_edge_ctrl(58, OMAP_GPIO_FALLING_EDGE);
+		set_irq_type(tps->irq, IRQT_FALLING);
 	}
 	if (machine_is_omap_osk()) {
 		tps->model = TPS65010;
@@ -543,7 +543,7 @@ fail1:
 		tps->irq = OMAP_GPIO_IRQ(OMAP_MPUIO(1));
 		omap_request_gpio(OMAP_MPUIO(1));
 		omap_set_gpio_direction(OMAP_MPUIO(1), 1);
-		omap_set_gpio_edge_ctrl(OMAP_MPUIO(1), OMAP_GPIO_FALLING_EDGE);
+		set_irq_type(tps->irq, IRQT_FALLING);
 	}
 	if (machine_is_omap_h3()) {
 		tps->model = TPS65013;
@@ -700,14 +700,14 @@ int tps65010_set_gpio_out_value(unsigned gpio, unsigned value)
 		return -ENODEV;
 	if ((gpio < GPIO1) || (gpio > GPIO4))
 		return -EINVAL;
-
+	
 	down(&the_tps->lock);
 
 	defgpio = i2c_smbus_read_byte_data(&the_tps->client, TPS_DEFGPIO);
 
 	/* Configure GPIO for output */
 	defgpio |= 1 << (gpio + 3);
-
+	
 	/* Writing 1 forces a logic 0 on that GPIO and vice versa */
 	switch (value) {
 	case LOW:
@@ -718,14 +718,14 @@ int tps65010_set_gpio_out_value(unsigned gpio, unsigned value)
 		defgpio &= ~(1 << (gpio - 1)); /* set GPIO high by writing 0 */
 		break;
 	}
-
+	
 	status = i2c_smbus_write_byte_data(&the_tps->client,
 		TPS_DEFGPIO, defgpio);
 
 	pr_debug("%s: gpio%dout = %s, defgpio 0x%02x\n", DRIVER_NAME,
 		gpio, value ? "high" : "low",
 		i2c_smbus_read_byte_data(&the_tps->client, TPS_DEFGPIO));
-
+	
 	up(&the_tps->lock);
 	return status;
 }
@@ -758,7 +758,7 @@ int tps65010_set_led(unsigned led, unsigned mode)
 
 	dev_dbg (&the_tps->client.dev, "led%i_per  0x%02x\n", led,
 		i2c_smbus_read_byte_data(&the_tps->client, TPS_LED1_PER + offs));
-
+	
 	switch (mode) {
 	case OFF:
 		led_on  = 1 << 7;
@@ -773,7 +773,7 @@ int tps65010_set_led(unsigned led, unsigned mode)
 		led_per = 0x08 | (1 << 7);
 		break;
 	default:
-		printk(KERN_ERR "%s: Wrong mode parameter for tps65010_set_led()\n",
+		printk(KERN_ERR "%s: Wrong mode parameter for tps65010_set_led()\n", 
 		       DRIVER_NAME);
 		up(&the_tps->lock);
 		return -EINVAL;
@@ -783,11 +783,11 @@ int tps65010_set_led(unsigned led, unsigned mode)
 			TPS_LED1_ON + offs, led_on);
 
 	if (status != 0) {
-		printk(KERN_ERR "%s: Failed to write led%i_on register\n",
+		printk(KERN_ERR "%s: Failed to write led%i_on register\n", 
 		       DRIVER_NAME, led);
 		up(&the_tps->lock);
 		return status;
-	}
+	} 
 
 	dev_dbg (&the_tps->client.dev, "led%i_on   0x%02x\n", led,
 		i2c_smbus_read_byte_data(&the_tps->client, TPS_LED1_ON + offs));
@@ -796,7 +796,7 @@ int tps65010_set_led(unsigned led, unsigned mode)
 			TPS_LED1_PER + offs, led_per);
 
 	if (status != 0) {
-		printk(KERN_ERR "%s: Failed to write led%i_per register\n",
+		printk(KERN_ERR "%s: Failed to write led%i_per register\n", 
 		       DRIVER_NAME, led);
 		up(&the_tps->lock);
 		return status;
@@ -858,7 +858,7 @@ int tps65010_set_low_pwr(unsigned mode)
 		i2c_smbus_read_byte_data(&the_tps->client, TPS_VDCDC1));
 
 	vdcdc1 = i2c_smbus_read_byte_data(&the_tps->client, TPS_VDCDC1);
-
+	
 	switch (mode) {
 	case OFF:
 		vdcdc1 &= ~TPS_ENABLE_LP; /* disable ENABLE_LP bit */
@@ -873,7 +873,7 @@ int tps65010_set_low_pwr(unsigned mode)
 			TPS_VDCDC1, vdcdc1);
 
 	if (status != 0)
-		printk(KERN_ERR "%s: Failed to write vdcdc1 register\n",
+		printk(KERN_ERR "%s: Failed to write vdcdc1 register\n", 
 		       DRIVER_NAME);
 	else
 		pr_debug("%s: vdcdc1 0x%02x\n", DRIVER_NAME,
@@ -899,14 +899,14 @@ int tps65010_config_vregs1(unsigned value)
 
 	down(&the_tps->lock);
 
-	pr_debug("%s: vregs1 0x%02x\n", DRIVER_NAME,
+	pr_debug("%s: vregs1 0x%02x\n", DRIVER_NAME, 
 		        i2c_smbus_read_byte_data(&the_tps->client, TPS_VREGS1));
 
 	status = i2c_smbus_write_byte_data(&the_tps->client,
 			TPS_VREGS1, value);
 
 	if (status != 0)
-		printk(KERN_ERR "%s: Failed to write vregs1 register\n",
+		printk(KERN_ERR "%s: Failed to write vregs1 register\n", 
 		        DRIVER_NAME);
 	else
 		pr_debug("%s: vregs1 0x%02x\n", DRIVER_NAME,
@@ -1049,8 +1049,8 @@ static int __init tps_init(void)
 	} else if (machine_is_omap_h3()) {
 		/* gpio4 for SD, gpio3 for VDD_DSP */
 #ifdef CONFIG_PM
-		/* Enable LOW_PWR */
-		tps65013_set_low_pwr(ON);
+		/* FIXME: Enable LOW_PWR hangs H3 */
+		//tps65013_set_low_pwr(ON);
 #endif
 	}
 #endif
