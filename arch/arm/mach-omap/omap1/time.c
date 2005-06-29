@@ -180,8 +180,8 @@ static irqreturn_t omap_mpu_timer_interrupt(int irq, void *dev_id,
 
 static struct irqaction omap_mpu_timer_irq = {
 	.name		= "mpu timer",
-	.flags		= SA_INTERRUPT,
-	.handler	= omap_mpu_timer_interrupt
+	.flags		= SA_INTERRUPT | SA_TIMER,
+	.handler	= omap_mpu_timer_interrupt,
 };
 
 static unsigned long omap_mpu_timer1_overflows;
@@ -195,7 +195,7 @@ static irqreturn_t omap_mpu_timer1_interrupt(int irq, void *dev_id,
 static struct irqaction omap_mpu_timer1_irq = {
 	.name		= "mpu timer1 overflow",
 	.flags		= SA_INTERRUPT,
-	.handler	= omap_mpu_timer1_interrupt
+	.handler	= omap_mpu_timer1_interrupt,
 };
 
 static __init void omap_init_mpu_timer(void)
@@ -260,7 +260,6 @@ static unsigned modulo_count = 0; /* Counts 1/HZ units */
  * so with HZ = 100, TVR = 327.68.
  */
 #define OMAP_32K_TIMER_TICK_PERIOD	((32768 / HZ) - 1)
-#define MAX_SKIP_JIFFIES		25
 #define TIMER_32K_SYNCHRONIZED		0xfffbc410
 
 #define JIFFIES_TO_HW_TICKS(nr_jiffies, clock_rate)			\
@@ -362,26 +361,14 @@ static irqreturn_t omap_32k_timer_interrupt(int irq, void *dev_id,
 #ifdef CONFIG_NO_IDLE_HZ
 /*
  * Programs the next timer interrupt needed. Called when dynamic tick is
- * enabled, and to reprogram the ticks to skip from pm_idle.
+ * enabled, and to reprogram the ticks to skip from pm_idle. Note that
+ * we can keep the timer continuous, and don't need to set it to run in
+ * one-shot mode. This is because the timer will get reprogrammed again
+ * after next interrupt.
  */
-void omap_32k_timer_next_dyn_tick_interrupt(void)
+void omap_32k_timer_reprogram(unsigned long next_tick)
 {
-	unsigned long next;
-
-	if (!system_timer->dyn_tick->state & DYN_TICK_ENABLED)
-		return;
-
-	next = next_timer_interrupt() - jiffies;
-
-	if (next > MAX_SKIP_JIFFIES)
-		next = MAX_SKIP_JIFFIES;
-
-	/*
-	 * We can keep the timer continuous, no need to set it to
-	 * run in one-shot mode. When using dynamic tick, the timer
-	 * will get reprogrammed again after the next interrupt.
-	 */
-	omap_32k_timer_start(JIFFIES_TO_HW_TICKS(next, 32768) + 1);
+	omap_32k_timer_start(JIFFIES_TO_HW_TICKS(next_tick, 32768) + 1);
 }
 
 static struct irqaction omap_32k_timer_irq;
@@ -389,7 +376,7 @@ extern struct timer_update_handler timer_update;
 
 static int omap_32k_timer_enable_dyn_tick(void)
 {
-	omap_32k_timer_next_dyn_tick_interrupt();
+	/* No need to reprogram timer, just use the next interrupt */
 	return 0;
 }
 
@@ -402,15 +389,15 @@ static int omap_32k_timer_disable_dyn_tick(void)
 static struct dyn_tick_timer omap_dyn_tick_timer = {
 	.enable		= omap_32k_timer_enable_dyn_tick,
 	.disable	= omap_32k_timer_disable_dyn_tick,
-	.reprogram	= omap_32k_timer_next_dyn_tick_interrupt,
+	.reprogram	= omap_32k_timer_reprogram,
 	.handler	= omap_32k_timer_interrupt,
 };
 #endif	/* CONFIG_NO_IDLE_HZ */
 
 static struct irqaction omap_32k_timer_irq = {
 	.name		= "32KHz timer",
-	.flags		= SA_INTERRUPT,
-	.handler	= omap_32k_timer_interrupt
+	.flags		= SA_INTERRUPT | SA_TIMER,
+	.handler	= omap_32k_timer_interrupt,
 };
 
 static __init void omap_init_32k_timer(void)
@@ -418,9 +405,6 @@ static __init void omap_init_32k_timer(void)
 
 #ifdef CONFIG_NO_IDLE_HZ
 	omap_timer.dyn_tick = &omap_dyn_tick_timer;
-
-	/* Tell __do_irq not to duplicate timer ticks with dyn-tick */
-	omap_32k_timer_irq.flags |= SA_TIMER;
 #endif
 
 	setup_irq(INT_OS_TIMER, &omap_32k_timer_irq);
