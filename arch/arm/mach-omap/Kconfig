@@ -128,31 +128,6 @@ config OMAP_DM_TIMER
 	help
 	 Select this option if you want to use OMAP Dual-Mode timers.
 
-config NO_IDLE_HZ
-	bool "Dynamic Tick Timer"
-	depends on OMAP_32K_TIMER
-	help
-	  Select this option if you want to disable continuous timer ticks
-	  and have them programmed one at a time from the idle loop. This
-	  option saves power as the system does not need to exit idle state
-	  because of a timer interrupt. If you have this option selected,
-	  you still need to enable dynamic tick using the sysfs interface.
-	  By default dynamic tick is disabled during the boot, and can be
-	  manually enabled with:
-
- 	  echo 1 > /sys/devices/platform/timer0/dyn_tick
-
-	  If you want dynamic tick automatically enabled during boot, select
-	  also NO_IDLE_HZ_ENABLED below.
-
-config NO_IDLE_HZ_ENABLED
-	bool "Enable Dynamic Tick Timer by default"
-	depends on NO_IDLE_HZ
-	default n
-	help
-	  Select this option if you want dynamic tick turned on by default
-	  at startup.
-
 choice
 	prompt "Low-level debug console UART"
 	depends on ARCH_OMAP
