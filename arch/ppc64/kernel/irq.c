@@ -52,7 +52,7 @@
 #include <asm/cache.h>
 #include <asm/prom.h>
 #include <asm/ptrace.h>
-#include <asm/iSeries/LparData.h>
+#include <asm/iSeries/ItLpQueue.h>
 #include <asm/machdep.h>
 #include <asm/paca.h>
 
@@ -245,7 +245,7 @@ void ppc_irq_dispatch_handler(struct pt_regs *regs, int irq)
 
 		spin_lock(&desc->lock);
 		if (!noirqdebug)
-			note_interrupt(irq, desc, action_ret);
+			note_interrupt(irq, desc, action_ret, regs);
 		if (likely(!(desc->status & IRQ_PENDING)))
 			break;
 		desc->status &= ~IRQ_PENDING;
@@ -394,6 +394,9 @@ int virt_irq_create_mapping(unsigned int real_irq)
 
 	if (ppc64_interrupt_controller == IC_OPEN_PIC)
 		return real_irq;	/* no mapping for openpic (for now) */
+
+	if (ppc64_interrupt_controller == IC_BPA_IIC)
+		return real_irq;	/* no mapping for iic either */
 
 	/* don't map interrupts < MIN_VIRT_IRQ */
 	if (real_irq < MIN_VIRT_IRQ) {

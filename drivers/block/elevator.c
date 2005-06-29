@@ -286,6 +286,13 @@ void elv_requeue_request(request_queue_t *q, struct request *rq)
 	}
 
 	/*
+	 * the request is prepped and may have some resources allocated.
+	 * allowing unprepped requests to pass this one may cause resource
+	 * deadlock.  turn on softbarrier.
+	 */
+	rq->flags |= REQ_SOFTBARRIER;
+
+	/*
 	 * if iosched has an explicit requeue hook, then use that. otherwise
 	 * just put the request at the front of the queue
 	 */
@@ -381,6 +388,12 @@ struct request *elv_next_request(request_queue_t *q)
 		if (ret == BLKPREP_OK) {
 			break;
 		} else if (ret == BLKPREP_DEFER) {
+			/*
+			 * the request may have been (partially) prepped.
+			 * we need to keep this request in the front to
+			 * avoid resource deadlock.  turn on softbarrier.
+			 */
+			rq->flags |= REQ_SOFTBARRIER;
 			rq = NULL;
 			break;
 		} else if (ret == BLKPREP_KILL) {
@@ -473,12 +486,13 @@ struct request *elv_former_request(request_queue_t *q, struct request *rq)
 	return NULL;
 }
 
-int elv_set_request(request_queue_t *q, struct request *rq, int gfp_mask)
+int elv_set_request(request_queue_t *q, struct request *rq, struct bio *bio,
+		    int gfp_mask)
 {
 	elevator_t *e = q->elevator;
 
 	if (e->ops->elevator_set_req_fn)
-		return e->ops->elevator_set_req_fn(q, rq, gfp_mask);
+		return e->ops->elevator_set_req_fn(q, rq, bio, gfp_mask);
 
 	rq->elevator_private = NULL;
 	return 0;
@@ -492,12 +506,12 @@ void elv_put_request(request_queue_t *q, struct request *rq)
 		e->ops->elevator_put_req_fn(q, rq);
 }
 
-int elv_may_queue(request_queue_t *q, int rw)
+int elv_may_queue(request_queue_t *q, int rw, struct bio *bio)
 {
 	elevator_t *e = q->elevator;
 
 	if (e->ops->elevator_may_queue_fn)
-		return e->ops->elevator_may_queue_fn(q, rw);
+		return e->ops->elevator_may_queue_fn(q, rw, bio);
 
 	return ELV_MQUEUE_MAY;
 }

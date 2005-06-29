@@ -334,6 +334,15 @@ __do_irq(unsigned int irq, struct irqaction *action, struct pt_regs *regs)
 
 	spin_unlock(&irq_controller_lock);
 
+#ifdef CONFIG_NO_IDLE_HZ
+	if (!(action->flags & SA_TIMER) && system_timer->dyn_tick != NULL) {
+		write_seqlock(&xtime_lock);
+		if (system_timer->dyn_tick->state & DYN_TICK_ENABLED)
+			system_timer->dyn_tick->handler(irq, 0, regs);
+		write_sequnlock(&xtime_lock);
+	}
+#endif
+
 	if (!(action->flags & SA_INTERRUPT))
 		local_irq_enable();
 
