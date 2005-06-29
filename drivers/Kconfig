@@ -58,6 +58,8 @@ source "drivers/mmc/Kconfig"
 
 source "drivers/infiniband/Kconfig"
 
+source "drivers/sn/Kconfig"
+
 source "drivers/ssi/Kconfig"
 
 endmenu
