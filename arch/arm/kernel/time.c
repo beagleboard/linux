@@ -28,7 +28,6 @@
 #include <linux/profile.h>
 #include <linux/sysdev.h>
 #include <linux/timer.h>
-#include <linux/pm.h>
 
 #include <asm/hardware.h>
 #include <asm/io.h>
@@ -351,49 +350,6 @@ void timer_tick(struct pt_regs *regs)
 #endif
 }
 
-#ifdef CONFIG_NO_IDLE_HZ
-int timer_dyn_tick_enable(void)
-{
-	unsigned long flags;
-	int ret = -ENODEV;
-
-	write_seqlock_irqsave(&xtime_lock, flags);
-	if (!system_timer->dyn_tick || !system_timer->dyn_tick->enable)
-		goto out_err;
-
-	ret = system_timer->dyn_tick->enable();
-	if (ret != 0)
-		goto out_err;
-
-	if (system_timer->dyn_tick->handler)
-		system_timer->dyn_tick->state |= DYN_TICK_ENABLED;
-
-	write_sequnlock_irqrestore(&xtime_lock, flags);
-
-	return ret;
-
-out_err:
-	system_timer->dyn_tick->state &= ~DYN_TICK_ENABLED;
-	write_sequnlock_irqrestore(&xtime_lock, flags);
-	return ret;
-}
-
-int timer_dyn_tick_disable(void)
-{
-	unsigned long flags;
-	int ret = 0;
-
-	write_seqlock_irqsave(&xtime_lock, flags);
-	if (system_timer->dyn_tick && system_timer->dyn_tick->disable)
-		ret = system_timer->dyn_tick->disable();
-
-	system_timer->dyn_tick->state &= ~DYN_TICK_ENABLED;
-	write_sequnlock_irqrestore(&xtime_lock, flags);
-
-	return ret;
-}
-#endif
-
 #ifdef CONFIG_PM
 static int timer_suspend(struct sys_device *dev, pm_message_t state)
 {
@@ -426,6 +382,63 @@ static struct sysdev_class timer_sysclass = {
 };
 
 #ifdef CONFIG_NO_IDLE_HZ
+static int timer_dyn_tick_enable(void)
+{
+	struct dyn_tick_timer *dyn_tick = system_timer->dyn_tick;
+	unsigned long flags;
+	int ret = -ENODEV;
+
+	if (dyn_tick) {
+		write_seqlock_irqsave(&xtime_lock, flags);
+		ret = 0;
+		if (!(dyn_tick->state & DYN_TICK_ENABLED)) {
+			ret = dyn_tick->enable();
+
+			if (ret == 0)
+				dyn_tick->state |= DYN_TICK_ENABLED;
+		}
+		write_sequnlock_irqrestore(&xtime_lock, flags);
+	}
+
+	return ret;
+}
+
+static int timer_dyn_tick_disable(void)
+{
+	struct dyn_tick_timer *dyn_tick = system_timer->dyn_tick;
+	unsigned long flags;
+	int ret = -ENODEV;
+
+	if (dyn_tick) {
+		write_seqlock_irqsave(&xtime_lock, flags);
+		ret = 0;
+		if (dyn_tick->state & DYN_TICK_ENABLED) {
+			ret = dyn_tick->disable();
+
+			if (ret == 0)
+				dyn_tick->state &= ~DYN_TICK_ENABLED;
+		}
+		write_sequnlock_irqrestore(&xtime_lock, flags);
+	}
+
+	return ret;
+}
+
+/*
+ * Reprogram the system timer for at least the calculated time interval.
+ * This function should be called from the idle thread with IRQs disabled,
+ * immediately before sleeping.
+ */
+void timer_dyn_reprogram(void)
+{
+	struct dyn_tick_timer *dyn_tick = system_timer->dyn_tick;
+
+	write_seqlock(&xtime_lock);
+	if (dyn_tick->state & DYN_TICK_ENABLED)
+		dyn_tick->reprogram(next_timer_interrupt() - jiffies);
+	write_sequnlock(&xtime_lock);
+}
+
 static ssize_t timer_show_dyn_tick(struct sys_device *dev, char *buf)
 {
 	return sprintf(buf, "%i\n",
@@ -435,17 +448,30 @@ static ssize_t timer_show_dyn_tick(struct sys_device *dev, char *buf)
 static ssize_t timer_set_dyn_tick(struct sys_device *dev, const char *buf,
 				  size_t count)
 {
-	int ret = 0;
 	unsigned int enable = simple_strtoul(buf, NULL, 2);
 
 	if (enable)
-		ret = timer_dyn_tick_enable();
+		timer_dyn_tick_enable();
 	else
-		ret = timer_dyn_tick_disable();
+		timer_dyn_tick_disable();
 
 	return count;
 }
 static SYSDEV_ATTR(dyn_tick, 0644, timer_show_dyn_tick, timer_set_dyn_tick);
+
+/*
+ * dyntick=enable|disable
+ */
+static char dyntick_str[4] __initdata = "";
+
+static int __init dyntick_setup(char *str)
+{
+	if (str)
+		strlcpy(dyntick_str, str, sizeof(dyntick_str));
+	return 1;
+}
+
+__setup("dyntick=", dyntick_setup);
 #endif
 
 static int __init timer_init_sysfs(void)
@@ -457,11 +483,16 @@ static int __init timer_init_sysfs(void)
 	}
 
 #ifdef CONFIG_NO_IDLE_HZ
-	ret = sysdev_create_file(&system_timer->dev, &attr_dyn_tick);
-#if defined(CONFIG_NO_IDLE_HZ_ENABLED)
-	/* Turn on dynamic tick after calibrate delay for correct bogomips */
-	ret = timer_dyn_tick_enable();
-#endif
+	if (ret == 0 && system_timer->dyn_tick) {
+		ret = sysdev_create_file(&system_timer->dev, &attr_dyn_tick);
+
+		/*
+		 * Turn on dynamic tick after calibrate delay
+		 * for correct bogomips
+		 */
+		if (ret == 0 && dyntick_str[0] == 'e')
+			ret = timer_dyn_tick_enable();
+	}
 #endif
 
 	return ret;
