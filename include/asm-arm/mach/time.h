@@ -43,7 +43,6 @@ struct sys_timer {
 #ifdef CONFIG_NO_IDLE_HZ
 	struct dyn_tick_timer	*dyn_tick;
 #endif
-
 };
 
 #ifdef CONFIG_NO_IDLE_HZ
@@ -56,9 +55,13 @@ struct dyn_tick_timer {
 	unsigned int	state;			/* Current state */
 	int		(*enable)(void);	/* Enables dynamic tick */
 	int		(*disable)(void);	/* Disables dynamic tick */
-	void		(*reprogram)(void);	/* Reprograms the timer */
+	void		(*reprogram)(unsigned long); /* Reprograms the timer */
 	int		(*handler)(int, void *, struct pt_regs *);
 };
+
+void timer_dyn_reprogram(void);
+#else
+#define timer_dyn_reprogram()	do { } while (0)
 #endif
 
 extern struct sys_timer *system_timer;
