@@ -1049,8 +1049,8 @@ static int __init tps_init(void)
 	} else if (machine_is_omap_h3()) {
 		/* gpio4 for SD, gpio3 for VDD_DSP */
 #ifdef CONFIG_PM
-		/* Enable LOW_PWR */
-		tps65013_set_low_pwr(ON);
+		/* FIXME: Enable LOW_PWR hangs H3 */
+		//tps65013_set_low_pwr(ON);
 #endif
 	}
 #endif
