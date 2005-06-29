@@ -6,7 +6,6 @@
 #include <linux/config.h>
 #include <linux/init.h>
 #include <linux/types.h>
-#include <linux/string.h>
 
 #include <asm/elf.h>
 #include <asm/page.h>
