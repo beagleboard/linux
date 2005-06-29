@@ -93,10 +93,7 @@ void omap_pm_idle(void)
 	local_irq_enable();
 
 #if defined(CONFIG_OMAP_32K_TIMER) && defined(CONFIG_NO_IDLE_HZ)
-	/* Override timer to use dynamic tick for the next cycle */
-	if ((system_timer->dyn_tick->state & DYN_TICK_ENABLED)
-	    && system_timer->dyn_tick->reprogram)
-		system_timer->dyn_tick->reprogram();
+	timer_dyn_reprogram();
 #endif
 
 	/*
