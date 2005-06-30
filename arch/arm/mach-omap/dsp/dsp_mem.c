@@ -1340,7 +1340,8 @@ static int dsp_mem_release(struct inode *inode, struct file *file)
 /*
  * sysfs files
  */
-static ssize_t mmu_show(struct device *dev, char *buf)
+static ssize_t mmu_show(struct device *dev, struct device_attribute *attr,
+			char *buf)
 {
 	int len;
 	int lbase, victim;
@@ -1405,7 +1406,8 @@ static ssize_t mmu_show(struct device *dev, char *buf)
 
 static struct device_attribute dev_attr_mmu = __ATTR_RO(mmu);
 
-static ssize_t exmap_show(struct device *dev, char *buf)
+static ssize_t exmap_show(struct device *dev, struct device_attribute *attr,
+			  char *buf)
 {
 	int len;
 	int i;

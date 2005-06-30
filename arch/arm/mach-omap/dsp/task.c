@@ -148,17 +148,28 @@ static void taskdev_delete(unsigned char minor);
 static void taskdev_attach_task(struct taskdev *dev, struct dsptask *task);
 static void taskdev_detach_task(struct taskdev *dev);
 
-static ssize_t devname_show(struct device *d, char *buf);
-static ssize_t devstate_show(struct device *d, char *buf);
-static ssize_t proc_list_show(struct device *d, char *buf);
-static ssize_t taskname_show(struct device *d, char *buf);
-static ssize_t ttyp_show(struct device *d, char *buf);
-static ssize_t fifosz_show(struct device *d, char *buf);
-static int fifosz_store(struct device *d, const char *buf, size_t count);
-static ssize_t fifocnt_show(struct device *d, char *buf);
-static ssize_t ipblink_show(struct device *d, char *buf);
-static ssize_t wsz_show(struct device *d, char *buf);
-static ssize_t mmap_show(struct device *d, char *buf);
+static ssize_t devname_show(struct device *d, struct device_attribute *attr,
+			    char *buf);
+static ssize_t devstate_show(struct device *d, struct device_attribute *attr,
+			     char *buf);
+static ssize_t proc_list_show(struct device *d, struct device_attribute *attr,
+			      char *buf);
+static ssize_t taskname_show(struct device *d, struct device_attribute *attr,
+			     char *buf);
+static ssize_t ttyp_show(struct device *d, struct device_attribute *attr,
+			 char *buf);
+static ssize_t fifosz_show(struct device *d, struct device_attribute *attr,
+			   char *buf);
+static int fifosz_store(struct device *d, struct device_attribute *attr,
+			const char *buf, size_t count);
+static ssize_t fifocnt_show(struct device *d, struct device_attribute *attr,
+			    char *buf);
+static ssize_t ipblink_show(struct device *d, struct device_attribute *attr,
+			    char *buf);
+static ssize_t wsz_show(struct device *d, struct device_attribute *attr,
+			char *buf);
+static ssize_t mmap_show(struct device *d, struct device_attribute *attr,
+			 char *buf);
 
 static struct device_attribute dev_attr_devname = __ATTR_RO(devname);
 static struct device_attribute dev_attr_devstate = __ATTR_RO(devstate);
@@ -176,7 +187,7 @@ static struct bus_type dsptask_bus = {
 	.name = "dsptask",
 };
 
-static struct class_simple *dsp_task_class;
+static struct class *dsp_task_class;
 static struct taskdev *taskdev[TASKDEV_MAX];
 static struct dsptask *dsptask[TASKDEV_MAX];
 static DECLARE_MUTEX(cfg_sem);
@@ -1681,9 +1692,8 @@ static int taskdev_init(struct taskdev *dev, char *name, unsigned char minor)
 	device_create_file(&dev->dev, &dev_attr_devname);
 	device_create_file(&dev->dev, &dev_attr_devstate);
 	device_create_file(&dev->dev, &dev_attr_proc_list);
-	class_simple_device_add(dsp_task_class,
-				MKDEV(OMAP_DSP_TASK_MAJOR, minor), NULL,
-				"dsptask%d", minor);
+	class_device_create(dsp_task_class, MKDEV(OMAP_DSP_TASK_MAJOR, minor),
+			    NULL, "dsptask%d", minor);
 	devfs_mk_cdev(MKDEV(OMAP_DSP_TASK_MAJOR, minor),
 		      S_IFCHR | S_IRUGO | S_IWUGO, "dsptask%d", minor);
 
@@ -1703,6 +1713,7 @@ static void taskdev_delete(unsigned char minor)
 	device_remove_file(&dev->dev, &dev_attr_devstate);
 	device_remove_file(&dev->dev, &dev_attr_proc_list);
 
+	class_device_destroy(dsp_task_class, MKDEV(OMAP_DSP_TASK_MAJOR, minor));
 	devfs_remove("dsptask%d", minor);
 	device_unregister(&dev->dev);
 	proc_list_flush(&dev->proc_list);
@@ -2416,7 +2427,8 @@ void mbx1_dbg(struct mbcmd *mb)
 /*
  * sysfs files
  */
-static ssize_t devname_show(struct device *d, char *buf)
+static ssize_t devname_show(struct device *d, struct device_attribute *attr,
+			    char *buf)
 {
 	struct taskdev *dev = to_taskdev(d);
 	return sprintf(buf, "%s\n", dev->name);
@@ -2433,13 +2445,15 @@ static ssize_t devname_show(struct device *d, char *buf)
 	((stat) == OMAP_DSP_DEVSTATE_ADDFAIL)  ? "ADDFAIL" :\
 						 "unknown")
 
-static ssize_t devstate_show(struct device *d, char *buf)
+static ssize_t devstate_show(struct device *d, struct device_attribute *attr,
+			     char *buf)
 {
 	struct taskdev *dev = to_taskdev(d);
 	return sprintf(buf, "%s\n", devstate_name(dev->state));
 }
 
-static ssize_t proc_list_show(struct device *d, char *buf)
+static ssize_t proc_list_show(struct device *d, struct device_attribute *attr,
+			      char *buf)
 {
 	struct taskdev *dev;
 	struct proc_list *pl;
@@ -2455,7 +2469,8 @@ static ssize_t proc_list_show(struct device *d, char *buf)
 	return len;
 }
 
-static ssize_t taskname_show(struct device *d, char *buf)
+static ssize_t taskname_show(struct device *d, struct device_attribute *attr,
+			     char *buf)
 {
 	struct taskdev *dev = to_taskdev(d);
 	int len;
@@ -2465,7 +2480,8 @@ static ssize_t taskname_show(struct device *d, char *buf)
 	return len;
 }
 
-static ssize_t ttyp_show(struct device *d, char *buf)
+static ssize_t ttyp_show(struct device *d, struct device_attribute *attr,
+			 char *buf)
 {
 	unsigned short ttyp = to_taskdev(d)->task->ttyp;
 	int len = 0;
@@ -2487,13 +2503,15 @@ static ssize_t ttyp_show(struct device *d, char *buf)
 	return len;
 }
 
-static ssize_t fifosz_show(struct device *d, char *buf)
+static ssize_t fifosz_show(struct device *d, struct device_attribute *attr,
+			   char *buf)
 {
 	struct fifo_struct *fifo = &to_taskdev(d)->task->rcvdt.fifo;
 	return sprintf(buf, "%d\n", fifo->sz);
 }
 
-static int fifosz_store(struct device *d, const char *buf, size_t count)
+static int fifosz_store(struct device *d, struct device_attribute *attr,
+			const char *buf, size_t count)
 {
 	struct dsptask *task = to_taskdev(d)->task;
 	unsigned long fifosz;
@@ -2505,7 +2523,8 @@ static int fifosz_store(struct device *d, const char *buf, size_t count)
 	return (ret < 0) ? ret : strlen(buf);
 }
 
-static ssize_t fifocnt_show(struct device *d, char *buf)
+static ssize_t fifocnt_show(struct device *d, struct device_attribute *attr,
+			    char *buf)
 {
 	struct fifo_struct *fifo = &to_taskdev(d)->task->rcvdt.fifo;
 	return sprintf(buf, "%d\n", fifo->cnt);
@@ -2526,7 +2545,8 @@ static __inline__ char *bid_name(unsigned short bid)
 	}
 }
 
-static ssize_t ipblink_show(struct device *d, char *buf)
+static ssize_t ipblink_show(struct device *d, struct device_attribute *attr,
+			    char *buf)
 {
 	struct rcvdt_bk_struct *rcvdt = &to_taskdev(d)->task->rcvdt.bk;
 	int len;
@@ -2539,12 +2559,14 @@ static ssize_t ipblink_show(struct device *d, char *buf)
 	return len;
 }
 
-static ssize_t wsz_show(struct device *d, char *buf)
+static ssize_t wsz_show(struct device *d, struct device_attribute *attr,
+			char *buf)
 {
 	return sprintf(buf, "%d\n", to_taskdev(d)->task->wsz);
 }
 
-static ssize_t mmap_show(struct device *d, char *buf)
+static ssize_t mmap_show(struct device *d, struct device_attribute *attr,
+			 char *buf)
 {
 	struct dsptask *task = to_taskdev(d)->task;
 	return sprintf(buf, "0x%p 0x%x\n", task->map_base, task->map_length);
@@ -2599,7 +2621,7 @@ int __init dsp_taskmod_init(void)
 		unregister_chrdev(OMAP_DSP_TASK_MAJOR, "dsptask");
 		return -EINVAL;
 	}
-	dsp_task_class = class_simple_create(THIS_MODULE, "dsptask");
+	dsp_task_class = class_create(THIS_MODULE, "dsptask");
 	devfs_mk_dir("dsptask");
 
 	return 0;
@@ -2608,7 +2630,7 @@ int __init dsp_taskmod_init(void)
 void dsp_taskmod_exit(void)
 {
 	devfs_remove("dsptask");
-	class_simple_destroy(dsp_task_class);
+	class_destroy(dsp_task_class);
 	driver_unregister(&dsptask_driver);
 	bus_unregister(&dsptask_bus);
 	unregister_chrdev(OMAP_DSP_TASK_MAJOR, "dsptask");

@@ -165,7 +165,8 @@ void mblog_add(struct mbcmd *mb, enum mblog_dir dir)
 /*
  * sysfs file
  */
-static ssize_t mblog_show(struct device *dev, char *buf)
+static ssize_t mblog_show(struct device *dev, struct device_attribute *attr,
+			  char *buf)
 {
 	int len = 0;
 	int wp;

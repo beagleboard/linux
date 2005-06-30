@@ -38,7 +38,7 @@
 #define TWCH_MINOR	2
 #define ERR_MINOR	3
 
-static struct class_simple *dsp_ctl_class;
+static struct class *dsp_ctl_class;
 extern struct file_operations dsp_ctl_fops,
 			      dsp_mem_fops,
 			      dsp_twch_fops,
@@ -98,13 +98,13 @@ int __init dsp_ctl_core_init(void)
 		return retval;
 	}
 
-	dsp_ctl_class = class_simple_create(THIS_MODULE, "dspctl");
+	dsp_ctl_class = class_create(THIS_MODULE, "dspctl");
 	devfs_mk_dir("dspctl");
 	for (i = 0; i < ARRAY_SIZE(dev_list); i++) {
-		class_simple_device_add(dsp_ctl_class,
-					MKDEV(OMAP_DSP_CTL_MAJOR,
-					      dev_list[i].minor),
-					NULL, dev_list[i].devname);
+		class_device_create(dsp_ctl_class,
+				    MKDEV(OMAP_DSP_CTL_MAJOR,
+					  dev_list[i].minor),
+				    NULL, dev_list[i].devname);
 		devfs_mk_cdev(MKDEV(OMAP_DSP_CTL_MAJOR, dev_list[i].minor),
 			      S_IFCHR | dev_list[i].mode,
 			      dev_list[i].devfs_name);
@@ -119,11 +119,12 @@ void dsp_ctl_core_exit(void)
 
 	for (i = 0; i < ARRAY_SIZE(dev_list); i++) {
 		devfs_remove(dev_list[i].devfs_name);
-		class_simple_device_remove(MKDEV(OMAP_DSP_CTL_MAJOR,
-						 dev_list[i].minor));
+		class_device_destroy(dsp_ctl_class,
+				     MKDEV(OMAP_DSP_CTL_MAJOR,
+				           dev_list[i].minor));
 	}
 	devfs_remove("dspctl");
-	class_simple_destroy(dsp_ctl_class);
+	class_destroy(dsp_ctl_class);
 
 	unregister_chrdev(OMAP_DSP_CTL_MAJOR, "dspctl");
 }

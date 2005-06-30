@@ -42,7 +42,8 @@
 #include "dsp.h"
 #include "ipbuf.h"
 
-static ssize_t loadinfo_show(struct device *dev, char *buf);
+static ssize_t loadinfo_show(struct device *dev, struct device_attribute *attr,
+			     char *buf);
 static struct device_attribute dev_attr_loadinfo = __ATTR_RO(loadinfo);
 extern struct device_attribute dev_attr_ipbuf;
 
@@ -754,7 +755,8 @@ void mbx1_getvar(struct mbcmd *mb)
 /*
  * sysfs files
  */
-static ssize_t ifver_show(struct device *dev, char *buf)
+static ssize_t ifver_show(struct device *dev, struct device_attribute *attr,
+			  char *buf)
 {
 	int len = 0;
 
@@ -778,7 +780,8 @@ static ssize_t ifver_show(struct device *dev, char *buf)
 
 static struct device_attribute dev_attr_ifver = __ATTR_RO(ifver);
 
-static ssize_t icrmask_show(struct device *dev, char *buf)
+static ssize_t icrmask_show(struct device *dev, struct device_attribute *attr,
+			    char *buf)
 {
 #if 0
 	if (dsp_is_ready()) {
@@ -795,7 +798,8 @@ static ssize_t icrmask_show(struct device *dev, char *buf)
 	return sprintf(buf, "0x%04x\n", dsp_icrmask);
 }
 
-static ssize_t icrmask_store(struct device *dev, const char *buf, size_t count)
+static ssize_t icrmask_store(struct device *dev, struct device_attribute *attr,
+			     const char *buf, size_t count)
 {
 	int ret;
 
@@ -816,7 +820,8 @@ static ssize_t icrmask_store(struct device *dev, const char *buf, size_t count)
 static struct device_attribute dev_attr_icrmask = 
 	__ATTR(icrmask, S_IWUSR | S_IRUGO, icrmask_show, icrmask_store);
 
-static ssize_t loadinfo_show(struct device *dev, char *buf)
+static ssize_t loadinfo_show(struct device *dev, struct device_attribute *attr,
+			     char *buf)
 {
 	int len;
 	int ret;

@@ -234,7 +234,8 @@ void mbx1_err_ipbfull(void)
 /*
  * sysfs files
  */
-static ssize_t ipbuf_show(struct device *dev, char *buf)
+static ssize_t ipbuf_show(struct device *dev, struct device_attribute *attr,
+			  char *buf)
 {
 	int len = 0;
 	unsigned short bid;
