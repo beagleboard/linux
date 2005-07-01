@@ -29,6 +29,7 @@
 #include <asm/mach/flash.h>
 #include <asm/mach/map.h>
 
+#include <asm/arch/mux.h>
 #include <asm/arch/fpga.h>
 #include <asm/arch/gpio.h>
 #include <asm/arch/tc.h>
@@ -220,8 +221,19 @@ static struct omap_usb_config h2_usb_config __initdata = {
 };
 #endif
 
+static struct omap_mmc_config innovator_mmc_config __initdata = {
+	.mmc [0] = {
+		.enabled 	= 1,
+		.wire4		= 1,
+		.wp_pin		= OMAP_MPUIO(3),
+		.power_pin	= -1,	/* FPGA F3 UIO42 */
+		.switch_pin	= -1,	/* FPGA F4 UIO43 */
+	},
+};
+
 static struct omap_board_config_kernel innovator_config[] = {
 	{ OMAP_TAG_USB,         NULL },
+	{ OMAP_TAG_MMC,		&innovator_mmc_config },
 };
 
 static void __init innovator_init(void)
