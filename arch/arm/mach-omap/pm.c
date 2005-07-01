@@ -89,8 +89,6 @@ void omap_pm_idle(void)
 		return;
 	}
 	mask32 = omap_readl(ARM_SYSST);
-	local_fiq_enable();
-	local_irq_enable();
 
 #if defined(CONFIG_OMAP_32K_TIMER) && defined(CONFIG_NO_IDLE_HZ)
 	timer_dyn_reprogram();
@@ -107,6 +105,9 @@ void omap_pm_idle(void)
 		__asm__ volatile ("mcr	p15, 0, r0, c7, c0, 4");
 	} else
 		omap_sram_idle();
+
+	local_fiq_enable();
+	local_irq_enable();
 }
 
 /*
