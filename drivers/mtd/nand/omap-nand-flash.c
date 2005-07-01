@@ -36,6 +36,7 @@
 
 #define H3_NAND_RB_GPIO_PIN		10
 #define H2_NAND_RB_GPIO_PIN		62
+#define P2_NAND_RB_GPIO_PIN		62
 #define NETSTAR_NAND_RB_GPIO_PIN	 1
 /*
  * MTD structure for H3 board
@@ -108,6 +109,8 @@ static int omap_nand_ready(struct mtd_info *mtd)
 		return omap_get_gpio_datain(H3_NAND_RB_GPIO_PIN);
 	if (machine_is_omap_h2())
 		return omap_get_gpio_datain(H2_NAND_RB_GPIO_PIN);
+	if (machine_is_omap_perseus2())
+		return omap_get_gpio_datain(H2_NAND_RB_GPIO_PIN);
 	if (machine_is_netstar())
 		return omap_get_gpio_datain(NETSTAR_NAND_RB_GPIO_PIN);
 	return 0;
@@ -163,7 +166,7 @@ int __init omap_nand_init (void)
 	int err = 0;
 	int nandboot = 0;
 
-	if (!(machine_is_omap_h2() || machine_is_omap_h3() || machine_is_netstar()))
+	if (!(machine_is_omap_h2() || machine_is_omap_h3() || machine_is_netstar() || machine_is_omap_perseus2()))
 		return -ENODEV;
 
 	/* Allocate memory for MTD device structure and private data */
@@ -184,7 +187,7 @@ int __init omap_nand_init (void)
 	/* Link the private data with the MTD structure */
 	omap_nand_mtd->priv = this;
 
-	if (machine_is_omap_h2()) {
+	if (machine_is_omap_h2() || machine_is_omap_perseus2()) {
 		/* FIXME on H2, R/B needs M7_1610_GPIO62 ... */
 		this->chip_delay = 15;
 		omap_cfg_reg(L3_1610_FLASH_CS2B_OE);
@@ -236,6 +239,10 @@ int __init omap_nand_init (void)
 		if (!(machine_is_netstar()))
 			goto out_unsupported;
 		/* fall through */
+	case SZ_64M:
+		if (!(machine_is_netstar() || machine_is_omap_perseus2()))
+			goto out_unsupported;
+		/* fall through */
 	case SZ_32M:
 #ifdef CONFIG_MTD_PARTITIONS
 		err = parse_mtd_partitions(omap_nand_mtd, part_probes,
@@ -267,6 +274,8 @@ out_buf:
 	if (this->dev_ready) {
 		if (machine_is_omap_h2())
 			omap_free_gpio(H2_NAND_RB_GPIO_PIN);
+		else if (machine_is_omap_perseus2())
+			omap_free_gpio(P2_NAND_RB_GPIO_PIN);
 		else if (machine_is_omap_h3())
 	 		omap_free_gpio(H3_NAND_RB_GPIO_PIN);
 		else if (machine_is_netstar())
@@ -290,6 +299,8 @@ static void __exit omap_nand_cleanup (void)
         struct nand_chip *this = omap_nand_mtd->priv;
 	if (this->dev_ready) {
 		if (machine_is_omap_h2())
+			omap_free_gpio(H2_NAND_RB_GPIO_PIN);
+		else if (machine_is_omap_h2())
 			omap_free_gpio(H2_NAND_RB_GPIO_PIN);
 		else if (machine_is_omap_h3())
 	 		omap_free_gpio(H3_NAND_RB_GPIO_PIN);
