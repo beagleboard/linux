@@ -845,15 +845,18 @@ static void mmc_omap_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	if (ios->clock == 0) {
 		dsor = 0;
 	} else {
-		dsor = 48000000 / realclock;
+		int func_clk_rate = clk_get_rate(host->clk);
+
+		dsor = func_clk_rate / realclock;
 		if (dsor < 1)
 			dsor = 1;
 
-		if (48000000 / dsor > realclock)
+		if (func_clk_rate / dsor > realclock)
 			dsor++;
 
 		if (dsor > 250)
 			dsor = 250;
+		dsor++;
 	}
 
 	/* REVISIT:  if (ios->bus_width == MMC_BUS_WIDTH_4) dsor |= 1 << 15; */
