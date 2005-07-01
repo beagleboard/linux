@@ -90,16 +90,19 @@ void omap_pm_idle(void)
 	}
 	mask32 = omap_readl(ARM_SYSST);
 
-#if defined(CONFIG_OMAP_32K_TIMER) && defined(CONFIG_NO_IDLE_HZ)
-	timer_dyn_reprogram();
-#endif
-
 	/*
 	 * Prevent the ULPD from entering low power state by setting
 	 * POWER_CTRL_REG:4 = 0
 	 */
 	omap_writew(omap_readw(ULPD_POWER_CTRL) &
 		    ~ULPD_DEEP_SLEEP_TRANSITION_EN, ULPD_POWER_CTRL);
+
+	/*
+	 * Since an interrupt may set up a timer, we don't want to
+	 * reprogram the hardware timer with interrupts enabled.
+	 * Re-enable interrupts only after returning from idle.
+	 */
+	timer_dyn_reprogram();
 
 	if ((mask32 & DSP_IDLE) == 0) {
 		__asm__ volatile ("mcr	p15, 0, r0, c7, c0, 4");
