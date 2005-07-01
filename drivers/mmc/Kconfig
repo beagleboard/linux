@@ -77,25 +77,6 @@ config MMC_OMAP
 
 	  If unsure, say N.
 
-config MMC_OMAP16XX_BLOCK1
-	boolean "First MMC block on OMAP16XX"
-	depends on ARCH_OMAP16XX && MMC_OMAP
-	default y if MACH_OMAP_H2 || MACH_OMAP_H3
-	help
-	  This enables the first of two MMC blocks on OMAP1610 multimedia
-	  processor. You need to enable the correct block to activate your
-	  MMC slot.
-
-config MMC_OMAP16XX_BLOCK2
-	boolean "Second MMC block on OMAP16XX"
-	depends on ARCH_OMAP16XX && MMC_OMAP
-	default n if MACH_OMAP_H2 || MACH_OMAP_H3
-	default y
-	help
-	  This enables the second of two MMC blocks on OMAP1610 multimedia
-	  processor. You need to enable the correct block to activate your
-	  MMC slot.
-
 config MMC_WBSD
 	tristate "Winbond W83L51xD SD/MMC Card Interface support"
 	depends on MMC && ISA_DMA_API

@@ -3,7 +3,7 @@
 #
 
 # Common support
-obj-y := io.o id.o irq.o time.o serial.o
+obj-y := io.o id.o irq.o time.o serial.o devices.o
 led-y := leds.o
 
 # Specific board support

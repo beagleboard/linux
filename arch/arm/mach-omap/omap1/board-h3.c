@@ -161,10 +161,12 @@ static struct omap_usb_config h3_usb_config __initdata = {
 	.pins[1]	= 3,
 };
 
-static struct omap_mmc_config h3_mmc_config __initdata_or_module = {
-	.mmc_blocks		= 1,
-	.mmc1_power_pin		= -1,   /* tps65010 GPIO4 */
-	.mmc1_switch_pin	= OMAP_MPUIO(1),
+static struct omap_mmc_config h3_mmc_config __initdata = {
+	.mmc[0] = {
+		.enabled 	= 1,
+		.power_pin	= -1,   /* tps65010 GPIO4 */
+		.switch_pin	= OMAP_MPUIO(1),
+	},
 };
 
 static struct omap_board_config_kernel h3_config[] = {

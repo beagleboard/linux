@@ -33,6 +33,7 @@
 #include <asm/mach/map.h>
 
 #include <asm/arch/gpio.h>
+#include <asm/arch/mux.h>
 #include <asm/arch/tc.h>
 #include <asm/arch/usb.h>
 
@@ -151,9 +152,13 @@ static struct omap_usb_config h2_usb_config __initdata = {
 };
 
 static struct omap_mmc_config h2_mmc_config __initdata = {
-	.mmc_blocks		= 1,
-	.mmc1_power_pin		= -1,	/* tps65010 gpio3 */
-	.mmc1_switch_pin	= OMAP_MPUIO(1),
+	.mmc [0] = {
+		.enabled 	= 1,
+		.wire4		= 1,
+		.wp_pin		= OMAP_MPUIO(3),
+		.power_pin	= -1,	/* tps65010 gpio3 */
+		.switch_pin	= OMAP_MPUIO(1),
+	},
 };
 
 static struct omap_board_config_kernel h2_config[] = {
@@ -168,6 +173,10 @@ static void __init h2_init(void)
 	 */
 	h2_flash_resource.end = h2_flash_resource.start = omap_cs3_phys();
 	h2_flash_resource.end += SZ_32M - 1;
+
+	/* MMC:  card detect and WP */
+	// omap_cfg_reg(U19_ARMIO1);		/* CD */
+	omap_cfg_reg(BALLOUT_V8_ARMIO3);	/* WP */
 
 	platform_add_devices(h2_devices, ARRAY_SIZE(h2_devices));
 	omap_board_config = h2_config;

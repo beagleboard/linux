@@ -44,8 +44,8 @@
 #define DRIVER_NAME "mmci-omap"
 
 #ifdef CONFIG_MMC_DEBUG
-//#define DBG(x...)	printk(KERN_DEBUG x)
-#define DBG(x...)	printk(x)
+#define DBG(x...)	pr_debug(x)
+//#define DBG(x...)	printk(x)
 #else
 #define DBG(x...)	do { } while (0)
 #endif
@@ -53,11 +53,6 @@
 /* Specifies how often in millisecs to poll for card status changes
  * when the cover switch is open */
 #define OMAP_MMC_SWITCH_POLL_DELAY     500
-
-static s16 mmc1_power_pin = -1,
-	   mmc2_power_pin = -1;
-static s16 mmc1_switch_pin = -1,
-	   mmc2_switch_pin = -1;
 
 static int mmc_omap_enable_poll = 1;
 
@@ -81,17 +76,15 @@ struct mmc_omap_host {
 	unsigned char		datadir;
 	u16 * buffer;
 	u32 bytesleft;
-	int                     power_pin;
-
-	int                     use_dma, dma_ch;
+	short			power_pin;
+	short			wp_pin;
+	short			use_dma, dma_ch;
 	struct completion       dma_completion;
 
 	int			switch_pin;
 	struct work_struct	switch_work;
 	struct timer_list	switch_timer;
 	int			switch_last_state;
-
-	unsigned char		sd_support;
 };
 
 static inline int
@@ -394,11 +387,11 @@ static irqreturn_t mmc_omap_irq(int irq, void *dev_id, struct pt_regs *regs)
 		}
 
 		if (status & OMAP_MMC_STAT_CMD_TOUT) {
-			// Command timeout
+			/* Timeouts are routine with some commands */
 			if (host->cmd) {
-				/* Timeouts are normal in case of MMC_SEND_STATUS */
 				if (host->cmd->opcode != MMC_ALL_SEND_CID &&
 				    host->cmd->opcode != MMC_SEND_OP_COND &&
+				    host->cmd->opcode != MMC_APP_CMD &&
 				    !mmc_omap_cover_is_open(host))
 					printk(KERN_ERR "MMC%d: Command timeout, CMD%d\n",
 					       host->id, host->cmd->opcode);
@@ -417,10 +410,10 @@ static irqreturn_t mmc_omap_irq(int irq, void *dev_id, struct pt_regs *regs)
 		}
 
 		if (status & OMAP_MMC_STAT_OCR_BUSY) {
-			// OCR Busy
-			if (host->cmd && host->cmd->opcode != MMC_SEND_OP_COND &&
-			    host->cmd->opcode != MMC_SET_RELATIVE_ADDR) {
-				printk(KERN_DEBUG "MMC%d: OCR busy error, CMD%d\n",
+			/* OCR Busy ... happens a lot */
+			if (host->cmd && host->cmd->opcode != MMC_SEND_OP_COND
+				&& host->cmd->opcode != MMC_SET_RELATIVE_ADDR) {
+				DBG("MMC%d: OCR busy error, CMD%d\n",
 				       host->id, host->cmd->opcode);
 			}
 		}
@@ -849,6 +842,8 @@ static void mmc_omap_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 			dsor = 250;
 	}
 
+	/* REVISIT:  if (ios->bus_width == MMC_BUS_WIDTH_4) dsor |= 1 << 15; */
+
 	switch (ios->power_mode) {
 	case MMC_POWER_OFF:
 		mmc_omap_power(host, 0);
@@ -887,6 +882,7 @@ static struct mmc_host_ops mmc_omap_ops = {
 static int __init mmc_omap_probe(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
+	struct omap_mmc_conf *minfo = dev->platform_data;
 	struct mmc_host *mmc;
 	struct mmc_omap_host *host = NULL;
 	int ret = 0;
@@ -913,7 +909,7 @@ static int __init mmc_omap_probe(struct device *dev)
 	host = mmc_priv(mmc);
 	host->mmc = mmc;
 
-	host->id = (pdev->resource[0].start == IO_ADDRESS(OMAP_MMC1_BASE)) ? 1 : 2;
+	host->id = pdev->id;
 
 	host->clk = clk_get(dev, (host->id == 1) ? "mmc1_ck" : "mmc2_ck");
 	if (IS_ERR(host->clk)) {
@@ -921,46 +917,15 @@ static int __init mmc_omap_probe(struct device *dev)
 		goto out;
 	}
 
-	if (host->id == 1) {
-		omap_cfg_reg(MMC_CMD);
-		omap_cfg_reg(MMC_CLK);
-		omap_cfg_reg(MMC_DAT0);
-		if (cpu_is_omap1710()) {
-	              omap_cfg_reg(M15_1710_MMC_CLKI);
-	              omap_cfg_reg(P19_1710_MMC_CMDDIR);
-	              omap_cfg_reg(P20_1710_MMC_DATDIR0);
-	        }
-		if (host->sd_support) {
-			omap_cfg_reg(MMC_DAT1);
-			omap_cfg_reg(MMC_DAT2); 
-			omap_cfg_reg(MMC_DAT3);
-		}
-		host->power_pin = mmc1_power_pin;
-		host->switch_pin = mmc1_switch_pin;
-	} else {
-		omap_cfg_reg(Y8_1610_MMC2_CMD);
-		omap_cfg_reg(Y10_1610_MMC2_CLK);
-		omap_cfg_reg(R18_1610_MMC2_CLKIN);
-		omap_cfg_reg(W8_1610_MMC2_DAT0);
-		if (host->sd_support) {
-			omap_cfg_reg(V8_1610_MMC2_DAT1);
-			omap_cfg_reg(W15_1610_MMC2_DAT2);
-			omap_cfg_reg(R10_1610_MMC2_DAT3);
-		}
-
-		/* These are needed for the level shifter */
-		omap_cfg_reg(V9_1610_MMC2_CMDDIR);
-		omap_cfg_reg(V5_1610_MMC2_DATDIR0);
-		omap_cfg_reg(W19_1610_MMC2_DATDIR1);
-
-		host->power_pin = mmc2_power_pin;
-		host->switch_pin = mmc2_switch_pin;
-
-		/* Feedback clock must be set on OMAP-1710 MMC2 */
-		if (cpu_is_omap1710())
-			omap_writel(omap_readl(MOD_CONF_CTRL_1) | (1 << 24), 
-				     MOD_CONF_CTRL_1);
-	}
+	/* REVISIT:  SD-only support, when core merged
+	 *  - if (minfo->wire4) mmc->caps |= MMC_CAP_4_BIT_DATA;
+	 *  - mmc_omap_ops.get_ro uses wp_pin to sense slider
+	 * Also, use minfo->cover to decide how to manage
+	 * the card detect sensing.
+	 */
+	host->power_pin = minfo->power_pin;
+	host->switch_pin = minfo->switch_pin;
+	host->wp_pin = minfo->wp_pin;
 
 	host->use_dma = 1;
 	host->dma_ch = -1;
@@ -1122,60 +1087,6 @@ static int mmc_omap_resume(struct device *dev, u32 level)
 #define mmc_omap_resume		NULL
 #endif
 
-static void mmc_release(struct device *dev)
-{
-	/* Nothing to release? */
-}
-
-static struct resource mmc1_resources[] = {
-	{
-		.start		= IO_ADDRESS(OMAP_MMC1_BASE),
-		.end		= IO_ADDRESS(OMAP_MMC1_BASE) + 0x7f,
-		.flags		= IORESOURCE_MEM,
-	},
-	{
-		.start		= INT_MMC,
-		.flags		= IORESOURCE_IRQ,
-	},
-};
-
-static struct resource mmc2_resources[] = {
-	{
-		.start		= IO_ADDRESS(OMAP_MMC2_BASE),
-		.end		= IO_ADDRESS(OMAP_MMC2_BASE) + 0x7f,
-		.flags		= IORESOURCE_MEM,
-	},
-	{
-		.start		= INT_1610_MMC2,
-		.flags		= IORESOURCE_IRQ,
-	},
-};
-
-
-static u64 mmc_dmamask = 0xffffffff;
-
-static struct platform_device mmc_omap_device1 = {
-	.name		= "mmci-omap",
-	.id		= 1,
-	.dev = {
-		.release	= mmc_release,
-		.dma_mask	= &mmc_dmamask,
-	},
-	.num_resources	= ARRAY_SIZE(mmc1_resources),
-	.resource	= mmc1_resources,
-};
-
-static struct platform_device mmc_omap_device2 = {
-	.name		= "mmci-omap",
-	.id		= 2,
-	.dev = {
-		.release	= mmc_release,
-		.dma_mask	= &mmc_dmamask,
-	},
-	.num_resources	= ARRAY_SIZE(mmc2_resources),
-	.resource	= mmc2_resources,
-};
-
 static struct device_driver mmc_omap_driver = {
 	.name		= "mmci-omap",
 	.bus		= &platform_bus_type,
@@ -1185,72 +1096,14 @@ static struct device_driver mmc_omap_driver = {
 	.resume		= mmc_omap_resume,
 };
 
-static int enable_blocks = 0;
-
 static int __init mmc_omap_init(void)
 {
-	int ret;
-	const struct omap_mmc_config *minfo;
-
-	minfo = omap_get_config(OMAP_TAG_MMC, struct omap_mmc_config);
-	if (minfo != NULL) {
-		enable_blocks = minfo->mmc_blocks;
-		if (enable_blocks & 1) {
-			mmc1_power_pin = minfo->mmc1_power_pin;
-			mmc1_switch_pin = minfo->mmc1_switch_pin;
-		}
-		if (enable_blocks & 2) {
-			mmc2_power_pin = minfo->mmc2_power_pin;
-			mmc2_switch_pin = minfo->mmc2_switch_pin;
-		}
-	} else {
-#if defined(CONFIG_ARCH_OMAP1510) || defined(CONFIG_MMC_OMAP16XX_BLOCK1)
-		enable_blocks |= 1;
-#endif
-#if defined(CONFIG_MMC_OMAP16XX_BLOCK2)
-		enable_blocks |= 2;
-#endif
-	}
-	if (enable_blocks == 0) {
-		printk(KERN_INFO "OMAP MMC driver not loaded\n");
-		return -ENODEV;
-	}
-
-	if (enable_blocks & 1) {
-		ret = platform_device_register(&mmc_omap_device1);
-		if (ret != 0)
-			return -ENODEV;
-	}
-
-	if (enable_blocks & 2) {
-		ret = platform_device_register(&mmc_omap_device2);
-		if (ret != 0)
-			goto free1;
-	}
-
-	ret = driver_register(&mmc_omap_driver);
-	if (ret == 0)
-		return 0;
-
-	if (enable_blocks & 2)
-		platform_device_unregister(&mmc_omap_device2);
-
-free1:
-	if (enable_blocks & 1)
-		platform_device_unregister(&mmc_omap_device1);
-
-	return -ENODEV;
+	return driver_register(&mmc_omap_driver);
 }
 
 static void __exit mmc_omap_exit(void)
 {
 	driver_unregister(&mmc_omap_driver);
-
-	if (enable_blocks & 2)
-		platform_device_unregister(&mmc_omap_device2);
-
-	if (enable_blocks & 1)
-		platform_device_unregister(&mmc_omap_device1);
 }
 
 module_init(mmc_omap_init);
