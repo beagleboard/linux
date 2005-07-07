@@ -42,9 +42,7 @@
 #include <asm/arch/usb.h>
 #include <asm/arch/mux.h>
 #include <asm/arch/tc.h>
-
-#include "../common.h"
-
+#include <asm/arch/common.h>
 
 static int __initdata osk_serial_ports[OMAP_MAX_NR_PORTS] = {1, 0, 0};
 

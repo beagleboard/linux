@@ -27,8 +27,7 @@
 #include <asm/arch/gpio.h>
 #include <asm/arch/mux.h>
 #include <asm/arch/fpga.h>
-
-#include "../common.h"
+#include <asm/arch/common.h>
 
 static struct resource smc91x_resources[] = {
 	[0] = {

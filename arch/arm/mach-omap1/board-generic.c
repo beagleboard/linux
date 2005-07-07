@@ -26,8 +26,7 @@
 #include <asm/arch/mux.h>
 #include <asm/arch/usb.h>
 #include <asm/arch/board.h>
-
-#include "../common.h"
+#include <asm/arch/common.h>
 
 static int __initdata generic_serial_ports[OMAP_MAX_NR_PORTS] = {1, 1, 1};
 

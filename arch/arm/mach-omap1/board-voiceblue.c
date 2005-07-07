@@ -32,8 +32,7 @@
 #include <asm/arch/tc.h>
 #include <asm/arch/mux.h>
 #include <asm/arch/usb.h>
-
-#include "../common.h"
+#include <asm/arch/common.h>
 
 extern void omap_init_time(void);
 extern int omap_gpio_init(void);

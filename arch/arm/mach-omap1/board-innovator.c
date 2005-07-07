@@ -34,8 +34,7 @@
 #include <asm/arch/gpio.h>
 #include <asm/arch/tc.h>
 #include <asm/arch/usb.h>
-
-#include "../common.h"
+#include <asm/arch/common.h>
 
 static int __initdata innovator_serial_ports[OMAP_MAX_NR_PORTS] = {1, 1, 1};
 

@@ -17,8 +17,6 @@ config ARCH_OMAP2
 
 endchoice
 
-source "arch/arm/mach-omap/omap1/Kconfig"
-
 comment "OMAP Feature Selections"
 
 config OMAP_RESET_CLOCKS

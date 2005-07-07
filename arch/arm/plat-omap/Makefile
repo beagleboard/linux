@@ -8,9 +8,6 @@ obj-m :=
 obj-n :=
 obj-  :=
 
-# OMAP System type support
-obj-$(CONFIG_ARCH_OMAP1) += omap1/
-
 # OCPI interconnect support for 1710, 1610 and 5912
 obj-$(CONFIG_ARCH_OMAP16XX) += ocpi.o
 
