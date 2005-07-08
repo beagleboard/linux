@@ -1,5 +1,5 @@
 /*
- * linux/arch/arm/mach-omap/omap1/id.c
+ * linux/arch/arm/mach-omap1/id.c
  *
  * OMAP1 CPU identification code
  *

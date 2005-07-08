@@ -1,5 +1,5 @@
 /*
- * linux/arch/arm/mach-omap/sram.c
+ * linux/arch/arm/plat-omap/sram.c
  *
  * OMAP SRAM detection and management
  *

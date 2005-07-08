@@ -1,5 +1,5 @@
 /*
- * linux/arch/arm/mach-omap/dmtimer.c
+ * linux/arch/arm/plat-omap/dmtimer.c
  *
  * OMAP Dual-Mode Timers
  *

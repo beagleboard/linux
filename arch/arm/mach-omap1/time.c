@@ -1,5 +1,5 @@
 /*
- * linux/arch/arm/mach-omap/omap1/time.c
+ * linux/arch/arm/mach-omap1/time.c
  *
  * OMAP Timers
  *

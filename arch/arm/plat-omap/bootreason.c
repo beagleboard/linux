@@ -1,5 +1,5 @@
 /*
- * linux/arch/arm/mach-omap/bootreason.c
+ * linux/arch/arm/plat-omap/bootreason.c
  *
  * OMAP Bootreason passing
  *

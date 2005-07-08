@@ -1,5 +1,5 @@
 /*
- * arch/arm/mach-omap/usb.c -- platform level USB initialization
+ * arch/arm/plat-omap/usb.c -- platform level USB initialization
  *
  * Copyright (C) 2004 Texas Instruments, Inc.
  *

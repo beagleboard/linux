@@ -1,5 +1,5 @@
 /*
- *  linux/arch/arm/mach-omap/cpu-omap.c
+ *  linux/arch/arm/plat-omap/cpu-omap.c
  *
  *  CPU frequency scaling for OMAP
  *

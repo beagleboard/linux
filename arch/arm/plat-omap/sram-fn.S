@@ -1,5 +1,5 @@
 /*
- * linux/arch/arm/mach-omap/sram.S
+ * linux/arch/arm/plat-omap/sram.S
  *
  * Functions that need to be run in internal SRAM
  *

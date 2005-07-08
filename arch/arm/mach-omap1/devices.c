@@ -1,5 +1,5 @@
 /*
- * linux/arch/arm/mach-omap/omap1/devices.c
+ * linux/arch/arm/mach-omap1/devices.c
  *
  * OMAP1 platform device setup/initialization
  *

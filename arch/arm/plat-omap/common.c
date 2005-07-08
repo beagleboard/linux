@@ -1,5 +1,5 @@
 /*
- * linux/arch/arm/mach-omap/common.c
+ * linux/arch/arm/plat-omap/common.c
  *
  * Code common to all OMAP machines.
  *

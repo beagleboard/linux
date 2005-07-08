@@ -1,5 +1,5 @@
 /*
- * linux/arch/arm/mach-omap/sram.h
+ * linux/arch/arm/plat-omap/sram.h
  *
  * Interface for functions that need to be run in internal SRAM
  *

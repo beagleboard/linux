@@ -1,5 +1,5 @@
 /*
- *  linux/arch/arm/mach-omap/gpio-switch.c
+ *  linux/arch/arm/plat-omap/gpio-switch.c
  *
  *  Copyright (C) 2004, 2005 Nokia Corporation
  *  Written by Juha Yrjölä <juha.yrjola@nokia.com>

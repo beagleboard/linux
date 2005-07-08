@@ -1,5 +1,5 @@
 /*
- * linux/arch/arm/mach-omap/mux.c
+ * linux/arch/arm/plat-omap/mux.c
  *
  * Utility to set the Omap MUX and PULL_DWN registers from a table in mux.h
  *
