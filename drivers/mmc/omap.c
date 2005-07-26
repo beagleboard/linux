@@ -102,7 +102,8 @@ mmc_omap_cover_is_open(struct mmc_omap_host *host)
 }
 
 static ssize_t
-mmc_omap_show_cover_switch(struct device *dev, char *buf)
+mmc_omap_show_cover_switch(struct device *dev,
+	struct device_attribute *attr, char *buf)
 {
 	struct mmc_omap_host *host = dev_get_drvdata(dev);
 
@@ -112,13 +113,16 @@ mmc_omap_show_cover_switch(struct device *dev, char *buf)
 static DEVICE_ATTR(cover_switch, S_IRUGO, mmc_omap_show_cover_switch, NULL);
 
 static ssize_t
-mmc_omap_show_enable_poll(struct device *dev, char *buf)
+mmc_omap_show_enable_poll(struct device *dev,
+	struct device_attribute *attr, char *buf)
 {
 	return snprintf(buf, PAGE_SIZE, "%d\n", mmc_omap_enable_poll);
 }
 
 static ssize_t
-mmc_omap_store_enable_poll(struct device *dev, const char *buf, size_t size)
+mmc_omap_store_enable_poll(struct device *dev,
+	struct device_attribute *attr, const char *buf,
+	size_t size)
 {
 	int enable_poll;
 
@@ -1262,7 +1266,7 @@ static int mmc_omap_resume(struct device *dev, u32 level)
 #endif
 
 static struct device_driver mmc_omap_driver = {
-	.name		= "mmci-omap",
+	.name		= DRIVER_NAME,
 	.bus		= &platform_bus_type,
 	.probe		= mmc_omap_probe,
 	.remove		= __exit_p(mmc_omap_remove),
@@ -1285,4 +1289,5 @@ module_exit(mmc_omap_exit);
 
 MODULE_DESCRIPTION("OMAP Multimedia Card driver");
 MODULE_LICENSE("GPL");
+MODULE_ALIAS(DRIVER_NAME);
 MODULE_AUTHOR("Juha Yrjölä");
