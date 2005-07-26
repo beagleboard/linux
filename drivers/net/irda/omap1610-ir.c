@@ -962,11 +962,6 @@ static int omap1610_irda_remove(struct device *_dev)
 	return 0;
 }
 
-static void irda_dummy_release(struct device *dev)
-{
-	/* Dummy function to keep the platform driver happy */
-}
-
 static struct device_driver omap1610ir_driver = {
 	.name = "omap1610-ir",
 	.bus = &platform_bus_type,
@@ -976,29 +971,15 @@ static struct device_driver omap1610ir_driver = {
 	.resume = omap1610_irda_resume,
 };
 
-static struct platform_device omap1610ir_device = {
-	.name = "omap1610-ir",
-	.dev.release = irda_dummy_release,
-	.id = 0,
-};
-
 static int __init omap1610_irda_init(void)
 {
-	int ret;
-	ret = driver_register(&omap1610ir_driver);
-	if (ret == 0) {
-		ret = platform_device_register(&omap1610ir_device);
-		if (ret)
-			driver_unregister(&omap1610ir_driver);
-	}
-	return ret;
+	return driver_register(&omap1610ir_driver);
 
 }
 
 static void __exit omap1610_irda_exit(void)
 {
 	driver_unregister(&omap1610ir_driver);
-	platform_device_unregister(&omap1610ir_device);
 }
 
 module_init(omap1610_irda_init);

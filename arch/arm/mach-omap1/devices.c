@@ -17,6 +17,7 @@
 
 #include <asm/hardware.h>
 #include <asm/io.h>
+#include <asm/mach-types.h>
 #include <asm/mach/map.h>
 
 #include <asm/arch/tc.h>
@@ -24,6 +25,38 @@
 #include <asm/arch/mux.h>
 #include <asm/arch/gpio.h>
 
+
+#if	defined(CONFIG_OMAP1610_IR) || defined(CONFIG_OMAP161O_IR_MODULE)
+
+static u64 irda_dmamask = 0xffffffff;
+
+static struct platform_device omap1610ir_device = {
+	.name = "omap1610-ir",
+	.id = -1,
+	.dev = {
+		.release	= omap_nop_release,
+		.dma_mask	= &irda_dmamask,
+	},
+};
+
+static void omap_init_irda(void)
+{
+	/* FIXME define and use a boot tag, members something like:
+	 *  u8		uart;		// uart1, or uart3
+	 * ... but driver only handles uart3 for now
+	 *  s16		fir_sel;	// gpio for SIR vs FIR
+	 * ... may prefer a callback for SIR/MIR/FIR mode select;
+	 * while h2 uses a GPIO, H3 uses a gpio expander
+	 */
+	if (machine_is_omap_h2()
+			|| machine_is_omap_h3())
+		(void) platform_device_register(&omap1610ir_device);
+}
+#else
+static inline void omap_init_irda(void) {}
+#endif
+
+/*-------------------------------------------------------------------------*/
 
 #if	defined(CONFIG_MMC_OMAP) || defined(CONFIG_MMC_OMAP_MODULE)
 
@@ -183,6 +216,8 @@ static inline void omap_init_mmc(void) {}
  */
 static int __init omap_init_devices(void)
 {
+	omap_init_i2c();
+	omap_init_irda();
 	omap_init_mmc();
 	return 0;
 }
