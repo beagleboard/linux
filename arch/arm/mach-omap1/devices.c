@@ -287,7 +287,7 @@ static inline void omap_init_wdt(void) {}
  */
 static int __init omap_init_devices(void)
 {
-	omap_init_i2c();
+	//omap_init_i2c();
 	omap_init_irda();
 	omap_init_mmc();
 	omap_init_rtc();
