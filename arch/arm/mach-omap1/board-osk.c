@@ -29,6 +29,8 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/device.h>
+#include <linux/interrupt.h>
+
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
 
@@ -189,6 +191,54 @@ static struct omap_board_config_kernel osk_config[] = {
 	{ OMAP_TAG_USB,           &osk_usb_config },
 };
 
+#ifdef	CONFIG_OMAP_OSK_MISTRAL
+
+#ifdef	CONFIG_PM
+static irqreturn_t
+osk_mistral_wake_interrupt(int irq, void *ignored, struct pt_regs *regs)
+{
+	return IRQ_HANDLED;
+}
+#endif
+
+static void __init osk_mistral_init(void)
+{
+	/* FIXME here's where to feed in framebuffer, touchpad, and
+	 * keyboard setup ...  not in the drivers for those devices!
+	 *
+	 * NOTE:  we could actually tell if there's a Mistral board
+	 * attached, e.g. by trying to read something from the ads7846.
+	 * But this is too early for that...
+	 */
+
+	/* the sideways button (SW1) is for use as a "wakeup" button */
+	omap_cfg_reg(N15_1610_MPUIO2);
+	if (omap_request_gpio(OMAP_MPUIO(2)) == 0) {
+		int ret = 0;
+		omap_set_gpio_direction(OMAP_MPUIO(2), 1);
+		set_irq_type(OMAP_GPIO_IRQ(OMAP_MPUIO(2)), IRQT_RISING);
+#ifdef	CONFIG_PM
+		/* share the IRQ in case someone wants to use the
+		 * button for more than wakeup from system sleep.
+		 */
+		ret = request_irq(OMAP_GPIO_IRQ(OMAP_MPUIO(2)),
+				&osk_mistral_wake_interrupt,
+				SA_SHIRQ, "mistral_wakeup",
+				&osk_mistral_wake_interrupt);
+		if (ret != 0) {
+			omap_free_gpio(OMAP_MPUIO(2));
+			printk(KERN_ERR "OSK+Mistral: no wakeup irq, %d?\n",
+				ret);
+		} else
+			enable_irq_wake(OMAP_GPIO_IRQ(OMAP_MPUIO(2)));
+#endif
+	} else
+		printk(KERN_ERR "OSK+Mistral: wakeup button is awol\n");
+}
+#else
+static void __init osk_mistral_init(void) { }
+#endif
+
 static void __init osk_init(void)
 {
 	osk_flash_resource.end = osk_flash_resource.start = omap_cs3_phys();
@@ -197,6 +247,8 @@ static void __init osk_init(void)
 	omap_board_config = osk_config;
 	omap_board_config_size = ARRAY_SIZE(osk_config);
 	USB_TRANSCEIVER_CTRL_REG |= (3 << 1);
+
+	osk_mistral_init();
 }
 
 static void __init osk_map_io(void)

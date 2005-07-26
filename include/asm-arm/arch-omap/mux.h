@@ -185,6 +185,7 @@ typedef enum {
 
 	/* MPUIO */
 	MPUIO2,
+	N15_1610_MPUIO2,
 	MPUIO4,
 	MPUIO5,
 	T20_1610_MPUIO5,
@@ -252,7 +253,7 @@ typedef enum {
 	U18_1610_UWIRE_SDI,
 	W21_1610_UWIRE_SDO,
 	N14_1610_UWIRE_CS0,
-	P15_1610_UWIRE_CS0,
+	P15_1610_UWIRE_CS3,
 	N15_1610_UWIRE_CS1,
 
 	/* OMAP-1610 Flash */
@@ -413,7 +414,8 @@ MUX_CFG("N21_1710_GPIO14",       6,    9,    0,   1,   1,   1,    1,     1,  1)
 MUX_CFG("W15_1710_GPIO40",       9,   27,    7,   2,   5,   1,    2,     1,  1)
 
 /* MPUIO */
-MUX_CFG("MPUIO2",		 7,   18,    0,	  1,   1,   1,	 NA,	 0,  1)
+MUX_CFG("MPUIO2",		 7,   18,    0,	  1,  14,   1,	 NA,	 0,  1)
+MUX_CFG("N15_1610_MPUIO2",	 7,   18,    0,	  1,  14,   1,	  1,	 0,  1)
 MUX_CFG("MPUIO4",		 7,   15,    0,	  1,  13,   1,	 NA,	 0,  1)
 MUX_CFG("MPUIO5",		 7,   12,    0,	  1,  12,   1,	 NA,	 0,  1)
 

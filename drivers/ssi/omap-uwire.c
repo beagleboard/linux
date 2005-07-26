@@ -200,10 +200,17 @@ static int __init omap_uwire_init(void)
 		uwire_idx_shift = 2;
 
 	uwire_write_reg(UWIRE_SR3, 1);
-	if (machine_is_omap_h2() || machine_is_omap_osk()) {
+	if (machine_is_omap_h2()) {
 		/* defaults: W21 SDO, U18 SDI, V19 SCL */
 		omap_cfg_reg(N14_1610_UWIRE_CS0);
 		omap_cfg_reg(N15_1610_UWIRE_CS1);
+	}
+	if (machine_is_omap_osk()) {
+		/* this is the standard expansion connector usage, with
+		 * the other chipselect pins for MPUIO2 and MPUIO4.
+		 */
+		omap_cfg_reg(N14_1610_UWIRE_CS0);
+		omap_cfg_reg(P15_1610_UWIRE_CS3);
 	}
 	if (machine_is_omap_perseus2()) {
 		/* configure pins: MPU_UW_nSCS1, MPU_UW_SDO, MPU_UW_SCLK */

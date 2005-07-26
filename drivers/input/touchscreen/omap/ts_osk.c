@@ -83,6 +83,7 @@ static int osk_ts_penup(void)
 
 static int  __init osk_ts_probe(struct omap_ts_t *ts)
 {
+#ifdef	CONFIG_OMAP_OSK_MISTRAL
 	if (!machine_is_omap_osk())
 		return -ENODEV;
 
@@ -99,8 +100,16 @@ static int  __init osk_ts_probe(struct omap_ts_t *ts)
 		                                    UWIRE_WRITE_RISING_EDGE |
 		                                    UWIRE_CS_ACTIVE_LOW |
 				                    UWIRE_FREQ_DIV_2);
-	
+
+	/* FIXME verify there's really a Mistral board:
+	 * see if the AD7846 chip responds.
+	 */
+
+	/* NOTE:  no VREF; must ignore the temp, VBAT, and AUX sensors */
 	return 0;
+#else
+	return -ENODEV;
+#endif
 }
 
 static void osk_ts_read(u16 *data)

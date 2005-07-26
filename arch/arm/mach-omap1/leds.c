@@ -34,7 +34,10 @@ omap_leds_init(void)
 	if (machine_is_omap_h2()
 			|| machine_is_omap_h3()
 			|| machine_is_omap_perseus2()
-			|| machine_is_omap_osk()) {
+#ifdef	CONFIG_OMAP_OSK_MISTRAL
+			|| machine_is_omap_osk()
+#endif
+			) {
 
 		/* LED1/LED2 pins can be used as GPIO (as done here), or by
 		 * the LPG (works even in deep sleep!), to drive a bicolor
