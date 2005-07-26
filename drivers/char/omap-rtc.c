@@ -37,8 +37,6 @@
  *                  - changed the return value of the interrupt handler
  */
 
-#define RTC_VERSION		"1.0"
-
 /*
  *	Note that *all* calls to CMOS_READ and CMOS_WRITE are done with
  *	interrupts disabled.
@@ -56,16 +54,17 @@
 #include <linux/poll.h>
 #include <linux/proc_fs.h>
 #include <linux/spinlock.h>
-#include <linux/rtc.h>
-
+#include <linux/device.h>
 #include <linux/interrupt.h>
 #include <linux/rtc.h>
+#include <linux/bcd.h>
 
 #include <asm/io.h>
 #include <asm/uaccess.h>
 #include <asm/system.h>
 #include <asm/hardware.h>
 #include <asm/irq.h>
+
 #include "omap-rtc.h"
 
 extern spinlock_t rtc_lock;
@@ -76,45 +75,15 @@ extern spinlock_t rtc_lock;
 #define CMOS_READ(addr)		omap_readb(addr)
 #define CMOS_WRITE(val, addr)	omap_writeb(val, addr)
 
-
-/* Local BCD/BIN conversion macros: */
-#ifdef BCD_TO_BIN
-#undef BCD_TO_BIN
-#endif
-#define BCD_TO_BIN(val)	((val)=((val)&15) + ((val)>>4)*10)
- 
-#ifdef BIN_TO_BCD
-#undef BIN_TO_BCD
-#endif
-#define BIN_TO_BCD(val)	((val)=(((val)/10)<<4) + (val)%10)
-
-
-/*
- *	We sponge a minor off of the misc major. No need slurping
- *	up another valuable major dev number for this. If you add
- *	an ioctl, make sure you don't conflict with SPARC's RTC
- *	ioctls.
- */
-
 static struct fasync_struct *rtc_async_queue;
 
 static DECLARE_WAIT_QUEUE_HEAD(rtc_wait);
-
-static ssize_t rtc_read(struct file *file, char *buf,
-			size_t count, loff_t *ppos);
-
-static int rtc_ioctl(struct inode *inode, struct file *file,
-		     unsigned int cmd, unsigned long arg);
-
-static unsigned int rtc_poll(struct file *file, poll_table *wait);
 
 static void get_rtc_time (struct rtc_time *rtc_tm);
 static void get_rtc_alm_time (struct rtc_time *alm_tm);
 
 static void set_rtc_irq_bit(unsigned char bit);
 static void mask_rtc_irq_bit(unsigned char bit);
-
-static inline unsigned char rtc_is_updating(void);
 
 static int rtc_read_proc(char *page, char **start, off_t off,
                          int count, int *eof, void *data);
@@ -178,7 +147,7 @@ static irqreturn_t rtc_interrupt(int irq, void *dev_id, struct pt_regs *regs)
  *	Now all the various file operations that we export.
  */
 
-static ssize_t rtc_read(struct file *file, char *buf,
+static ssize_t rtc_read(struct file *file, char __user *buf,
 			size_t count, loff_t *ppos)
 {
 	DECLARE_WAITQUEUE(wait, current);
@@ -212,7 +181,7 @@ static ssize_t rtc_read(struct file *file, char *buf,
 	}
 
 	spin_unlock_irq (&rtc_lock);
-	retval = put_user(data, (unsigned long *)buf); 
+	retval = put_user(data, (unsigned long __user *)buf);
 	if (!retval)
 		retval = sizeof(unsigned long); 
  out:
@@ -222,34 +191,74 @@ static ssize_t rtc_read(struct file *file, char *buf,
 	return retval;
 }
 
+/* convert from userspace struct to hardware BCD-encoded version,
+ * or return error code
+ */
+static int utm2bcd(struct rtc_time __user *arg, struct rtc_time *tm)
+{
+	unsigned char leap_yr;
+
+	if (copy_from_user(tm, arg, sizeof(struct rtc_time)))
+		return -EFAULT;
+
+	tm->tm_year += 1900;
+	tm->tm_mon++;
+
+	if (tm->tm_year < 1970)
+		return -EINVAL;
+
+	leap_yr = (!(tm->tm_year % 4) && (tm->tm_year % 100))
+			|| !(tm->tm_year % 400);
+
+	if ((tm->tm_mon > 12) || (tm->tm_mday == 0))
+		return -EINVAL;
+
+	if (tm->tm_mday > (days_in_mo[tm->tm_mon] + ((tm->tm_mon == 2) && leap_yr)))
+		return -EINVAL;
+
+	if ((tm->tm_hour >= 24) || (tm->tm_min >= 60) || (tm->tm_sec >= 60))
+		return -EINVAL;
+
+	if ((tm->tm_year -= epoch) > 255)    /* They are unsigned */
+		return -EINVAL;
+
+	if (tm->tm_year > 169)
+		return -EINVAL;
+
+	if (tm->tm_year >= 100)
+		tm->tm_year -= 100;
+
+	BIN_TO_BCD(tm->tm_sec);
+	BIN_TO_BCD(tm->tm_min);
+	BIN_TO_BCD(tm->tm_hour);
+	BIN_TO_BCD(tm->tm_mday);
+	BIN_TO_BCD(tm->tm_mon);
+	BIN_TO_BCD(tm->tm_year);
+
+	return 0;
+}
+
 static int rtc_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 		     unsigned long arg)
 {
 	struct rtc_time wtime; 
+	int status = 0;
+	u8 save_control;
 
 	switch (cmd) {
 	case RTC_AIE_OFF:	/* Mask alarm int. enab. bit	*/
-	{
 		mask_rtc_irq_bit(OMAP_RTC_INTERRUPTS_IT_ALARM);
-		return 0;
-	}
+		break;
 	case RTC_AIE_ON:	/* Allow alarm interrupts.	*/
-	{
 		set_rtc_irq_bit(OMAP_RTC_INTERRUPTS_IT_ALARM);
-		return 0;
-	}
+		break;
 	case RTC_UIE_OFF:	/* Mask ints from RTC updates.	*/
-	{
 		mask_rtc_irq_bit(OMAP_RTC_INTERRUPTS_IT_TIMER);
-		return 0;
-	}
+		break;
 	case RTC_UIE_ON:	/* Allow ints for RTC updates.	*/
-	{
 		set_rtc_irq_bit(OMAP_RTC_INTERRUPTS_IT_TIMER);
-		return 0;
-	}
+		break;
 	case RTC_ALM_READ:	/* Read the present alarm time */
-	{
 		/*
 		 * This returns a struct rtc_time. Reading >= 0xc0
 		 * means "don't care" or "match all". Only the tm_hour,
@@ -257,167 +266,73 @@ static int rtc_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 		 */
 		memset(&wtime, 0, sizeof(struct rtc_time));
 		get_rtc_alm_time(&wtime);
-		break; 
-	}
+		goto return_wtime;
 	case RTC_ALM_SET:	/* Store a time into the alarm */
-	{
-		struct rtc_time alm_tm;
-		unsigned char mon, day, hrs, min, sec, leap_yr;
-		unsigned int yrs;
-
-		if (copy_from_user(&alm_tm, (struct rtc_time*)arg,
-				   sizeof(struct rtc_time)))
-			return -EFAULT;
-
-		yrs = alm_tm.tm_year + 1900;
-		mon = alm_tm.tm_mon + 1;
-		day = alm_tm.tm_mday;
-		hrs = alm_tm.tm_hour;
-		min = alm_tm.tm_min;
-		sec = alm_tm.tm_sec;
-
-		if (yrs < 1970)
-			return -EINVAL;
-
-		leap_yr = ((!(yrs % 4) && (yrs % 100)) || !(yrs % 400));
-
-		if ((mon > 12) || (day == 0))
-			return -EINVAL;
-
-		if (day > (days_in_mo[mon] + ((mon == 2) && leap_yr)))
-			return -EINVAL;
-			
-		if ((hrs >= 24) || (min >= 60) || (sec >= 60))
-			return -EINVAL;
-
-		if ((yrs -= epoch) > 255)    /* They are unsigned */
-			return -EINVAL;
-
-		if (yrs > 169) {
-			return -EINVAL;
-		}
-
-		if (yrs >= 100)
-			yrs -= 100;
-
-		BIN_TO_BCD(sec);
-		BIN_TO_BCD(min);
-		BIN_TO_BCD(hrs);
-		BIN_TO_BCD(day);
-		BIN_TO_BCD(mon);
-		BIN_TO_BCD(yrs);
+		status = utm2bcd((void __user *)arg, &wtime);
+		if (status != 0)
+			return status;
 
 		spin_lock_irq(&rtc_lock);
-		CMOS_WRITE(yrs, OMAP_RTC_ALARM_YEARS_REG);
-		CMOS_WRITE(mon, OMAP_RTC_ALARM_MONTHS_REG);
-		CMOS_WRITE(day, OMAP_RTC_ALARM_DAYS_REG);
-		CMOS_WRITE(hrs, OMAP_RTC_ALARM_HOURS_REG);
-		CMOS_WRITE(min, OMAP_RTC_ALARM_MINUTES_REG);
-		CMOS_WRITE(sec, OMAP_RTC_ALARM_SECONDS_REG);
+		CMOS_WRITE(wtime.tm_year, OMAP_RTC_ALARM_YEARS_REG);
+		CMOS_WRITE(wtime.tm_mon, OMAP_RTC_ALARM_MONTHS_REG);
+		CMOS_WRITE(wtime.tm_mday, OMAP_RTC_ALARM_DAYS_REG);
+		CMOS_WRITE(wtime.tm_hour, OMAP_RTC_ALARM_HOURS_REG);
+		CMOS_WRITE(wtime.tm_min, OMAP_RTC_ALARM_MINUTES_REG);
+		CMOS_WRITE(wtime.tm_sec, OMAP_RTC_ALARM_SECONDS_REG);
 		spin_unlock_irq(&rtc_lock);
 
-		return 0;
-	}
+		break;
 	case RTC_RD_TIME:	/* Read the time/date from RTC	*/
-	{
 		memset(&wtime, 0, sizeof(struct rtc_time));
 		get_rtc_time(&wtime);
-		break;
-	}
+		goto return_wtime;
 	case RTC_SET_TIME:	/* Set the RTC */
-	{
-		struct rtc_time rtc_tm;
-		unsigned char mon, day, hrs, min, sec, leap_yr;
-		unsigned char save_control;
-		unsigned int yrs;
-
 		if (!capable(CAP_SYS_TIME))
 			return -EACCES;
 
-		if (copy_from_user(&rtc_tm, (struct rtc_time*)arg,
-				   sizeof(struct rtc_time)))
-			return -EFAULT;
-
-		yrs = rtc_tm.tm_year + 1900;
-		mon = rtc_tm.tm_mon + 1;   /* tm_mon starts at zero */
-		day = rtc_tm.tm_mday;
-		hrs = rtc_tm.tm_hour;
-		min = rtc_tm.tm_min;
-		sec = rtc_tm.tm_sec;
-
-		if (yrs < 1970)
-			return -EINVAL;
-
-		leap_yr = ((!(yrs % 4) && (yrs % 100)) || !(yrs % 400));
-
-		if ((mon > 12) || (day == 0))
-			return -EINVAL;
-
-		if (day > (days_in_mo[mon] + ((mon == 2) && leap_yr)))
-			return -EINVAL;
-
-		if ((hrs >= 24) || (min >= 60) || (sec >= 60))
-			return -EINVAL;
-
-		if ((yrs -= epoch) > 255)    /* They are unsigned */
-			return -EINVAL;
-
-		if (yrs > 169) {
-			return -EINVAL;
-		}
-
-		if (yrs >= 100)
-			yrs -= 100;
-
-		BIN_TO_BCD(sec);
-		BIN_TO_BCD(min);
-		BIN_TO_BCD(hrs);
-		BIN_TO_BCD(day);
-		BIN_TO_BCD(mon);
-		BIN_TO_BCD(yrs);
+		status = utm2bcd((void __user *)arg, &wtime);
+		if (status != 0)
+			return status;
 
 		spin_lock_irq(&rtc_lock);
 		save_control = CMOS_READ(OMAP_RTC_CTRL_REG);
 		CMOS_WRITE((save_control & ~OMAP_RTC_CTRL_STOP),
 			   OMAP_RTC_CTRL_REG);
-		CMOS_WRITE(yrs, OMAP_RTC_YEARS_REG);
-		CMOS_WRITE(mon, OMAP_RTC_MONTHS_REG);
-		CMOS_WRITE(day, OMAP_RTC_DAYS_REG);
-		CMOS_WRITE(hrs, OMAP_RTC_HOURS_REG);
-		CMOS_WRITE(min, OMAP_RTC_MINUTES_REG);
-		CMOS_WRITE(sec, OMAP_RTC_SECONDS_REG);
+		CMOS_WRITE(wtime.tm_year, OMAP_RTC_YEARS_REG);
+		CMOS_WRITE(wtime.tm_mon, OMAP_RTC_MONTHS_REG);
+		CMOS_WRITE(wtime.tm_mday, OMAP_RTC_DAYS_REG);
+		CMOS_WRITE(wtime.tm_hour, OMAP_RTC_HOURS_REG);
+		CMOS_WRITE(wtime.tm_min, OMAP_RTC_MINUTES_REG);
+		CMOS_WRITE(wtime.tm_sec, OMAP_RTC_SECONDS_REG);
 		CMOS_WRITE((save_control | OMAP_RTC_CTRL_STOP),
 			   OMAP_RTC_CTRL_REG);
 		spin_unlock_irq(&rtc_lock);
 
-		return 0;
-	}
+		break;
 	case RTC_EPOCH_READ:	/* Read the epoch.	*/
-	{
-		return put_user (epoch, (unsigned long *)arg);
-	}
+		status = put_user (epoch, (unsigned long  __user *)arg);
+		break;
 	case RTC_EPOCH_SET:	/* Set the epoch.	*/
-	{
+		if (!capable(CAP_SYS_TIME))
+			return -EACCES;
+
 		/* 
 		 * There were no RTC clocks before 1900.
 		 */
 		if (arg < 1900)
-			return -EINVAL;
-
-		if (!capable(CAP_SYS_TIME))
-			return -EACCES;
-
-		epoch = arg;
-		return 0;
-	}
+			status = -EINVAL;
+		else
+			epoch = arg;
+		break;
 	default:
-#if	!defined(CONFIG_ARCH_OMAP)
-		return -ENOTTY;
-#else
-		return -EINVAL;
-#endif
+		status = -ENOTTY;
 	}
-	return copy_to_user((void *)arg, &wtime, sizeof wtime) ? -EFAULT : 0;
+	return status;
+
+return_wtime:
+	return copy_to_user((void  __user *)arg, &wtime, sizeof wtime)
+		? -EFAULT
+		: 0;
 }
 
 /*
@@ -432,7 +347,7 @@ static int rtc_open(struct inode *inode, struct file *file)
 {
 	spin_lock_irq (&rtc_lock);
 
-	if(rtc_status & RTC_IS_OPEN)
+	if (rtc_status & RTC_IS_OPEN)
 		goto out_busy;
 
 	rtc_status |= RTC_IS_OPEN;
@@ -446,8 +361,7 @@ out_busy:
 	return -EBUSY;
 }
 
-static int rtc_fasync (int fd, struct file *filp, int on)
-
+static int rtc_fasync(int fd, struct file *filp, int on)
 {
 	return fasync_helper (fd, filp, on, &rtc_async_queue);
 }
@@ -504,74 +418,76 @@ static unsigned int rtc_poll(struct file *file, poll_table *wait)
  */
 
 static struct file_operations rtc_fops = {
-	owner:		THIS_MODULE,
-	llseek:		no_llseek,
-	read:		rtc_read,
-	poll:		rtc_poll,
-	ioctl:		rtc_ioctl,
-	open:		rtc_open,
-	release:	rtc_release,
-	fasync:		rtc_fasync,
+	.owner		= THIS_MODULE,
+	.llseek		= no_llseek,
+	.read		= rtc_read,
+	.poll		= rtc_poll,
+	.ioctl		= rtc_ioctl,
+	.open		= rtc_open,
+	.release	= rtc_release,
+	.fasync		= rtc_fasync,
 };
 
-static struct miscdevice rtc_dev=
-{
-	RTC_MINOR,
-	"rtc",
-	&rtc_fops
+static struct miscdevice rtc_dev = {
+	.minor		= RTC_MINOR,
+	.name		= "rtc",
+	.fops		= &rtc_fops,
 };
 
 static int __init rtc_init(void)
 {
 	if (!request_region(OMAP_RTC_VIRT_BASE, OMAP_RTC_SIZE,
 			    rtc_dev.name)) {
-		printk(KERN_ERR "%s: RTC I/O port %d is not free.\n",
+		pr_debug("%s: RTC registers at %x are not free.\n",
 		       rtc_dev.name, OMAP_RTC_VIRT_BASE);
-		return -EIO;
+		return -EBUSY;
 	}
 
 	if (CMOS_READ(OMAP_RTC_STATUS_REG) & OMAP_RTC_STATUS_POWER_UP) {
-		printk(KERN_WARNING "%s: RTC power up reset detected.\n",
+		pr_info("%s: RTC power up reset detected.\n",
 		       rtc_dev.name);
 		/* Clear OMAP_RTC_STATUS_POWER_UP */
 		CMOS_WRITE(OMAP_RTC_STATUS_POWER_UP, OMAP_RTC_STATUS_REG);
 	}
 
 	if (CMOS_READ(OMAP_RTC_STATUS_REG) & OMAP_RTC_STATUS_ALARM) {
-		printk(KERN_WARNING "%s: Clearing RTC ALARM interrupt.\n",
+		pr_debug("%s: Clearing RTC ALARM interrupt.\n",
 		       rtc_dev.name);
 		/* Clear OMAP_RTC_STATUS_ALARM */
 		CMOS_WRITE(OMAP_RTC_STATUS_ALARM, OMAP_RTC_STATUS_REG);
 	}
 
-	if (!(CMOS_READ(OMAP_RTC_CTRL_REG) & OMAP_RTC_CTRL_STOP)) {
-		printk(KERN_INFO "%s: Enabling RTC.\n", rtc_dev.name);
-		CMOS_WRITE(OMAP_RTC_CTRL_STOP, OMAP_RTC_CTRL_REG);
-	}
-
 	if (request_irq(INT_RTC_TIMER, rtc_interrupt, SA_INTERRUPT,
 			rtc_dev.name, NULL)) {
-		printk(KERN_ERR "%s: RTC timer interrupt IRQ%d is not free.\n",
+		pr_debug("%s: RTC timer interrupt IRQ%d is not free.\n",
 		       rtc_dev.name, INT_RTC_TIMER);
-		release_region(OMAP_RTC_VIRT_BASE, OMAP_RTC_SIZE);
-		return -EIO;
+		goto fail;
 	}
 
 	if (request_irq(INT_RTC_ALARM, rtc_interrupt, SA_INTERRUPT,
-	                "omap-rtc alarm", NULL)) {
-		printk(KERN_ERR "%s: RTC alarm interrupt IRQ%d is not free.\n",
+		 rtc_dev.name, NULL)) {
+		pr_debug("%s: RTC alarm interrupt IRQ%d is not free.\n",
 		       rtc_dev.name, INT_RTC_ALARM);
-		release_region(OMAP_RTC_VIRT_BASE, OMAP_RTC_SIZE);
-		return -EIO;
+		free_irq(INT_RTC_TIMER, NULL);
+		goto fail;
 	}
+
+	/* On boards with split power, RTC_ON_NOFF resets all but the RTC */
+	if (!(CMOS_READ(OMAP_RTC_CTRL_REG) & OMAP_RTC_CTRL_STOP)) {
+		pr_info("%s: Enabling RTC.\n", rtc_dev.name);
+		CMOS_WRITE(OMAP_RTC_CTRL_STOP, OMAP_RTC_CTRL_REG);
+	} else
+		pr_info("%s: RTC already running.\n", rtc_dev.name);
 
 	spin_lock_init(&rtc_lock);
 	misc_register(&rtc_dev);
-	create_proc_read_entry ("driver/rtc", 0, 0, rtc_read_proc, NULL);
-
-	printk(KERN_INFO "Real Time Clock Driver v" RTC_VERSION "\n");
+	create_proc_read_entry("driver/rtc", 0, NULL, rtc_read_proc, NULL);
 
 	return 0;
+
+fail:
+	release_region(OMAP_RTC_VIRT_BASE, OMAP_RTC_SIZE);
+	return -EIO;
 }
 
 static void __exit rtc_exit (void)
@@ -592,7 +508,6 @@ static void __exit rtc_exit (void)
 static int rtc_proc_output (char *buf)
 {
 #define YN(value) ((value) ? "yes" : "no")
-#define NY(value) ((value) ? "no" : "yes")
 	char *p;
 	struct rtc_time tm;
 
@@ -640,25 +555,27 @@ static int rtc_proc_output (char *buf)
 
 	return  p - buf;
 #undef YN
-#undef NY
 }
 
 static int rtc_read_proc(char *page, char **start, off_t off,
                          int count, int *eof, void *data)
 {
         int len = rtc_proc_output (page);
-        if (len <= off+count) *eof = 1;
+
+	if (len <= off+count)
+		*eof = 1;
         *start = page + off;
         len -= off;
-        if (len>count) len = count;
-        if (len<0) len = 0;
+	if (len > count)
+		len = count;
+	if (len < 0)
+		len = 0;
         return len;
 }
 
 /*
  * Returns true if a clock update is in progress
  */
-/* FIXME shouldn't this be above rtc_init to make it fully inlined? */
 static inline unsigned char rtc_is_updating(void)
 {
 	unsigned char uip;
@@ -668,6 +585,26 @@ static inline unsigned char rtc_is_updating(void)
 	spin_unlock_irq(&rtc_lock);
 	return uip;
 }
+
+static void bcd2tm(struct rtc_time *tm)
+{
+	BCD_TO_BIN(tm->tm_sec);
+	BCD_TO_BIN(tm->tm_min);
+	BCD_TO_BIN(tm->tm_hour);
+	BCD_TO_BIN(tm->tm_mday);
+	BCD_TO_BIN(tm->tm_mon);
+	BCD_TO_BIN(tm->tm_year);
+
+	/*
+	 * Account for differences between how the RTC uses the values
+	 * and how they are defined in a struct rtc_time;
+	 */
+	if ((tm->tm_year += (epoch - 1900)) <= 69)
+		tm->tm_year += 100;
+
+	tm->tm_mon--;
+}
+
 
 static void get_rtc_time(struct rtc_time *rtc_tm)
 {
@@ -708,21 +645,7 @@ static void get_rtc_time(struct rtc_time *rtc_tm)
 	ctrl = CMOS_READ(OMAP_RTC_CTRL_REG);
 	spin_unlock_irq(&rtc_lock);
 
-	BCD_TO_BIN(rtc_tm->tm_sec);
-	BCD_TO_BIN(rtc_tm->tm_min);
-	BCD_TO_BIN(rtc_tm->tm_hour);
-	BCD_TO_BIN(rtc_tm->tm_mday);
-	BCD_TO_BIN(rtc_tm->tm_mon);
-	BCD_TO_BIN(rtc_tm->tm_year);
-
-	/*
-	 * Account for differences between how the RTC uses the values
-	 * and how they are defined in a struct rtc_time;
-	 */
-	if ((rtc_tm->tm_year += (epoch - 1900)) <= 69)
-		rtc_tm->tm_year += 100;
-
-	rtc_tm->tm_mon--;
+	bcd2tm(rtc_tm);
 }
 
 static void get_rtc_alm_time(struct rtc_time *alm_tm)
@@ -739,21 +662,7 @@ static void get_rtc_alm_time(struct rtc_time *alm_tm)
 	ctrl = CMOS_READ(OMAP_RTC_CTRL_REG);
 	spin_unlock_irq(&rtc_lock);
 
-	BCD_TO_BIN(alm_tm->tm_sec);
-	BCD_TO_BIN(alm_tm->tm_min);
-	BCD_TO_BIN(alm_tm->tm_hour);
-	BCD_TO_BIN(alm_tm->tm_mday);
-	BCD_TO_BIN(alm_tm->tm_mon);
-	BCD_TO_BIN(alm_tm->tm_year);
-
-	/*
-	 * Account for differences between how the RTC uses the values
-	 * and how they are defined in a struct rtc_time;
-	 */
-	if ((alm_tm->tm_year += (epoch - 1900)) <= 69)
-		alm_tm->tm_year += 100;
-
-	alm_tm->tm_mon--;
+	bcd2tm(alm_tm);
 }
 
 /*
@@ -784,8 +693,9 @@ static void set_rtc_irq_bit(unsigned char bit)
 	spin_unlock_irq(&rtc_lock);
 }
 
-MODULE_AUTHOR("George G. Davis");
-MODULE_LICENSE("GPL");
-
 module_init(rtc_init);
 module_exit(rtc_exit);
+
+MODULE_AUTHOR("George G. Davis (and others)");
+MODULE_LICENSE("GPL");
+MODULE_ALIAS_MISCDEV(RTC_MINOR);
