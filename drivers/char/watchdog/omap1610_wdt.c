@@ -21,6 +21,9 @@
  * Copyright (c) 2004 Texas Instruments.
  *	1. Modified to support OMAP1610 32-KHz watchdog timer
  *	2. Ported to 2.6 kernel
+ *
+ * Copyright (c) 2005 David Brownell
+ *	Use the driver model and standard identifiers; handle bigger timeouts.
  */
 
 #include <linux/module.h>
@@ -35,6 +38,7 @@
 #include <linux/smp_lock.h>
 #include <linux/init.h>
 #include <linux/err.h>
+#include <linux/device.h>
 #include <linux/moduleparam.h>
 
 #include <asm/io.h>
@@ -212,12 +216,24 @@ static struct miscdevice omap_wdt_miscdev = {
 };
 
 static int __init
-omap_wdt_init(void)
+omap1610_wdt_probe(struct device *dev)
 {
-	int ret;
+	struct platform_device	*pdev = to_platform_device(dev);
+	struct resource		*res, *mem;
+	int			ret;
+
+	/* reserve static register mappings */
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res)
+		return -ENOENT;
+	mem = request_mem_region(res->start, res->end - res->start + 1,
+				pdev->name);
+	if (mem == NULL)
+		return -EBUSY;
+	dev_set_drvdata(dev, mem);
 
 	omap_wdt_users = 0;
-	armwdt_ck = clk_get(NULL, "armwdt_ck");
+	armwdt_ck = clk_get(dev, "armwdt_ck");
 	if (IS_ERR(armwdt_ck)) {
 		ret = PTR_ERR(armwdt_ck);
 		armwdt_ck = NULL;
@@ -227,6 +243,7 @@ omap_wdt_init(void)
 	omap_wdt_disable();
 	omap_wdt_adjust_timeout(timer_margin);
 
+	omap_wdt_miscdev.dev = dev;
 	ret = misc_register(&omap_wdt_miscdev);
 	if (ret)
 		goto fail;
@@ -240,14 +257,72 @@ omap_wdt_init(void)
 fail:
 	if (armwdt_ck)
 		clk_put(armwdt_ck);
+	release_resource(mem);
 	return ret;
 }
 
-static void __exit
-omap_wdt_exit(void)
+static void
+omap1610_wdt_shutdown(struct device *dev)
 {
+	omap_wdt_disable();
+}
+
+static void __exit
+omap1610_wdt_remove(struct device *dev)
+{
+	struct resource *mem = dev_get_drvdata(dev);
 	misc_deregister(&omap_wdt_miscdev);
+	release_resource(mem);
 	clk_put(armwdt_ck);
+}
+
+#ifdef	CONFIG_PM
+
+/* REVISIT ... not clear this is the best way to handle system suspend; and
+ * it's very inappropriate for selective device suspend (e.g. suspending this
+ * through sysfs rather than by stopping the watchdog daemon).  Also, this
+ * may not play well enough with NOWAYOUT...
+ */
+
+static int omap1610_wdt_suspend(struct device *dev, pm_message_t mesg, u32 level)
+{
+	if (level == SUSPEND_POWER_DOWN && omap_wdt_users)
+		omap_wdt_disable();
+	return 0;
+}
+
+static int omap1610_wdt_resume(struct device *dev, u32 level)
+{
+	if (level == RESUME_POWER_ON && omap_wdt_users) {
+		omap_wdt_enable();
+		omap_wdt_ping();
+	}
+	return 0;
+}
+
+#else
+#define	omap1610_wdt_suspend	NULL
+#define	omap1610_wdt_resume	NULL
+#endif
+
+static struct device_driver omap1610_wdt_driver = {
+	.name		= "omap1610_wdt",
+	.bus		= &platform_bus_type,
+	.probe		= omap1610_wdt_probe,
+	.shutdown	= omap1610_wdt_shutdown,
+	.remove		= __exit_p(omap1610_wdt_remove),
+	.suspend	= omap1610_wdt_suspend,
+	.resume		= omap1610_wdt_resume,
+};
+
+static int __init omap_wdt_init(void)
+{
+	return driver_register(&omap1610_wdt_driver);
+}
+
+static void __exit omap_wdt_exit(void)
+{
+	driver_unregister(&omap1610_wdt_driver);
 }
 
 module_init(omap_wdt_init);
