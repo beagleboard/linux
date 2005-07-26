@@ -514,6 +514,7 @@ static int ohci_omap_resume(struct device *dev, u32 level)
 /*
  * Driver definition to register with the OMAP bus
  */
+MODULE_ALIAS("ohci");
 static struct device_driver ohci_hcd_omap_driver = {
 	.name		= "ohci",
 	.bus		= &platform_bus_type,
