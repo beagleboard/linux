@@ -56,6 +56,44 @@ static void omap_init_irda(void)
 static inline void omap_init_irda(void) {}
 #endif
 
+#if	defined(CONFIG_OMAP_RTC) || defined(CONFIG_OMAP_RTC)
+
+#define	OMAP_RTC_BASE		0xfffb4800
+
+static struct resource rtc_resources[] = {
+	{
+		.start		= OMAP_RTC_BASE,
+		.end		= OMAP_RTC_BASE + 0x5f,
+		.flags		= IORESOURCE_MEM,
+	},
+	{
+		.start		= INT_RTC_TIMER,
+		.flags		= IORESOURCE_IRQ,
+	},
+	{
+		.start		= INT_RTC_ALARM,
+		.flags		= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device omap_rtc_device = {
+	.name	   = "omap_rtc",
+	.id	     = -1,
+	.dev = {
+		.release	= omap_nop_release,
+	},
+	.num_resources	= ARRAY_SIZE(rtc_resources),
+	.resource	= rtc_resources,
+};
+
+static void omap_init_rtc(void)
+{
+	(void) platform_device_register(&omap_rtc_device);
+}
+#else
+static inline void omap_init_rtc(void) {}
+#endif
+
 /*-------------------------------------------------------------------------*/
 
 #if	defined(CONFIG_MMC_OMAP) || defined(CONFIG_MMC_OMAP_MODULE)
@@ -252,6 +290,7 @@ static int __init omap_init_devices(void)
 	omap_init_i2c();
 	omap_init_irda();
 	omap_init_mmc();
+	omap_init_rtc();
 	omap_init_wdt();
 
 	return 0;

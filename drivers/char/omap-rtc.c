@@ -434,50 +434,60 @@ static struct miscdevice rtc_dev = {
 	.fops		= &rtc_fops,
 };
 
-static int __init rtc_init(void)
+static int __init omap_rtc_probe(struct device *dev)
 {
-	if (!request_region(OMAP_RTC_VIRT_BASE, OMAP_RTC_SIZE,
-			    rtc_dev.name)) {
+	struct platform_device	*pdev = to_platform_device(dev);
+	struct resource		*res, *mem;
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (res)
+		mem = request_mem_region(res->start,
+				res->end - res->start + 1,
+				pdev->name);
+	else
+		mem = NULL;
+	if (!mem) {
 		pr_debug("%s: RTC registers at %x are not free.\n",
-		       rtc_dev.name, OMAP_RTC_VIRT_BASE);
+			pdev->name, OMAP_RTC_BASE);
 		return -EBUSY;
 	}
+	dev_set_drvdata(dev, mem);
 
 	if (CMOS_READ(OMAP_RTC_STATUS_REG) & OMAP_RTC_STATUS_POWER_UP) {
 		pr_info("%s: RTC power up reset detected.\n",
-		       rtc_dev.name);
+			pdev->name);
 		/* Clear OMAP_RTC_STATUS_POWER_UP */
 		CMOS_WRITE(OMAP_RTC_STATUS_POWER_UP, OMAP_RTC_STATUS_REG);
 	}
 
 	if (CMOS_READ(OMAP_RTC_STATUS_REG) & OMAP_RTC_STATUS_ALARM) {
 		pr_debug("%s: Clearing RTC ALARM interrupt.\n",
-		       rtc_dev.name);
+			pdev->name);
 		/* Clear OMAP_RTC_STATUS_ALARM */
 		CMOS_WRITE(OMAP_RTC_STATUS_ALARM, OMAP_RTC_STATUS_REG);
 	}
 
 	if (request_irq(INT_RTC_TIMER, rtc_interrupt, SA_INTERRUPT,
-			rtc_dev.name, NULL)) {
+			pdev->name, NULL)) {
 		pr_debug("%s: RTC timer interrupt IRQ%d is not free.\n",
-		       rtc_dev.name, INT_RTC_TIMER);
+			pdev->name, INT_RTC_TIMER);
 		goto fail;
 	}
 
 	if (request_irq(INT_RTC_ALARM, rtc_interrupt, SA_INTERRUPT,
-		 rtc_dev.name, NULL)) {
+			pdev->name, NULL)) {
 		pr_debug("%s: RTC alarm interrupt IRQ%d is not free.\n",
-		       rtc_dev.name, INT_RTC_ALARM);
+			pdev->name, INT_RTC_ALARM);
 		free_irq(INT_RTC_TIMER, NULL);
 		goto fail;
 	}
 
 	/* On boards with split power, RTC_ON_NOFF resets all but the RTC */
 	if (!(CMOS_READ(OMAP_RTC_CTRL_REG) & OMAP_RTC_CTRL_STOP)) {
-		pr_info("%s: Enabling RTC.\n", rtc_dev.name);
+		pr_info("%s: Enabling RTC.\n", pdev->name);
 		CMOS_WRITE(OMAP_RTC_CTRL_STOP, OMAP_RTC_CTRL_REG);
 	} else
-		pr_info("%s: RTC already running.\n", rtc_dev.name);
+		pr_info("%s: RTC already running.\n", pdev->name);
 
 	spin_lock_init(&rtc_lock);
 	misc_register(&rtc_dev);
@@ -486,11 +496,11 @@ static int __init rtc_init(void)
 	return 0;
 
 fail:
-	release_region(OMAP_RTC_VIRT_BASE, OMAP_RTC_SIZE);
+	release_resource(mem);
 	return -EIO;
 }
 
-static void __exit rtc_exit (void)
+static int __exit omap_rtc_remove(struct device *dev)
 {
 	free_irq (INT_RTC_TIMER, NULL);
 	free_irq (INT_RTC_ALARM, NULL);
@@ -498,7 +508,8 @@ static void __exit rtc_exit (void)
 	remove_proc_entry ("driver/rtc", NULL);
 	misc_deregister(&rtc_dev);
 
-	release_region (OMAP_RTC_VIRT_BASE, OMAP_RTC_SIZE);
+	release_resource(dev_get_drvdata(dev));
+	return 0;
 }
 
 /*
@@ -691,6 +702,23 @@ static void set_rtc_irq_bit(unsigned char bit)
 	CMOS_WRITE(val, OMAP_RTC_INTERRUPTS_REG);
 	rtc_irq_data = 0;
 	spin_unlock_irq(&rtc_lock);
+}
+
+static struct device_driver omap_rtc_driver = {
+	.name		= "omap_rtc",
+	.bus		= &platform_bus_type,
+	.probe		= omap_rtc_probe,
+	.remove		= __exit_p(omap_rtc_remove),
+};
+
+static int __init rtc_init(void)
+{
+	return driver_register(&omap_rtc_driver);
+}
+
+static void __exit rtc_exit(void)
+{
+	driver_unregister(&omap_rtc_driver);
 }
 
 module_init(rtc_init);
