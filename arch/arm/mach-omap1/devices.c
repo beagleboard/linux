@@ -219,6 +219,7 @@ static int __init omap_init_devices(void)
 	omap_init_i2c();
 	omap_init_irda();
 	omap_init_mmc();
+
 	return 0;
 }
 arch_initcall(omap_init_devices);
