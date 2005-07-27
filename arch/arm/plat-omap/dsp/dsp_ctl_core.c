@@ -21,14 +21,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
- * 2005/02/10:  DSP Gateway version 3.2
+ * 2005/07/26:  DSP Gateway version 3.3
  */
 
 #include <linux/module.h>
 #include <linux/major.h>
 #include <linux/fs.h>
 #include <linux/device.h>
-#include <linux/devfs_fs_kernel.h>
 #include <linux/init.h>
 #include <asm/arch/dsp.h>
 #include "hardware_dsp.h"
@@ -75,13 +74,12 @@ static struct file_operations dsp_ctl_core_fops = {
 static const struct dev_list {
 	unsigned int	minor;
 	char		*devname;
-	char		*devfs_name;
 	umode_t		mode;
 } dev_list[] = {
-	{CTL_MINOR,  "dspctl",  "dspctl/ctl",  S_IRUSR | S_IWUSR},
-	{MEM_MINOR,  "dspmem",  "dspctl/mem",  S_IRUSR | S_IWUSR | S_IRGRP},
-	{TWCH_MINOR, "dsptwch", "dspctl/twch", S_IRUSR | S_IWUSR | S_IRGRP},
-	{ERR_MINOR,  "dsperr",  "dspctl/err",  S_IRUSR | S_IRGRP},
+	{CTL_MINOR,  "dspctl",  S_IRUSR | S_IWUSR},
+	{MEM_MINOR,  "dspmem",  S_IRUSR | S_IWUSR | S_IRGRP},
+	{TWCH_MINOR, "dsptwch", S_IRUSR | S_IWUSR | S_IRGRP},
+	{ERR_MINOR,  "dsperr",  S_IRUSR | S_IRGRP},
 };
 
 int __init dsp_ctl_core_init(void)
@@ -99,15 +97,11 @@ int __init dsp_ctl_core_init(void)
 	}
 
 	dsp_ctl_class = class_create(THIS_MODULE, "dspctl");
-	devfs_mk_dir("dspctl");
 	for (i = 0; i < ARRAY_SIZE(dev_list); i++) {
 		class_device_create(dsp_ctl_class,
 				    MKDEV(OMAP_DSP_CTL_MAJOR,
 					  dev_list[i].minor),
 				    NULL, dev_list[i].devname);
-		devfs_mk_cdev(MKDEV(OMAP_DSP_CTL_MAJOR, dev_list[i].minor),
-			      S_IFCHR | dev_list[i].mode,
-			      dev_list[i].devfs_name);
 	}
 
 	return 0;
@@ -118,12 +112,10 @@ void dsp_ctl_core_exit(void)
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(dev_list); i++) {
-		devfs_remove(dev_list[i].devfs_name);
 		class_device_destroy(dsp_ctl_class,
 				     MKDEV(OMAP_DSP_CTL_MAJOR,
 				           dev_list[i].minor));
 	}
-	devfs_remove("dspctl");
 	class_destroy(dsp_ctl_class);
 
 	unregister_chrdev(OMAP_DSP_CTL_MAJOR, "dspctl");

@@ -21,7 +21,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
- * 2005/01/17:  DSP Gateway version 3.2
+ * 2005/06/01:  DSP Gateway version 3.3
  */
 
 #ifndef ASM_ARCH_DSP_H
@@ -34,14 +34,16 @@
 #define OMAP_DSP_IOCTL_RESET			1
 #define OMAP_DSP_IOCTL_RUN			2
 #define OMAP_DSP_IOCTL_SETRSTVECT		3
-#define OMAP_DSP_IOCTL_IDLE			4
+#define OMAP_DSP_IOCTL_CPU_IDLE			4
 #define OMAP_DSP_IOCTL_MPUI_WORDSWAP_ON		5
 #define OMAP_DSP_IOCTL_MPUI_WORDSWAP_OFF	6
 #define OMAP_DSP_IOCTL_MPUI_BYTESWAP_ON		7
 #define OMAP_DSP_IOCTL_MPUI_BYTESWAP_OFF	8
+#define OMAP_DSP_IOCTL_GBL_IDLE			9
 #define OMAP_DSP_IOCTL_DSPCFG			10
 #define OMAP_DSP_IOCTL_DSPUNCFG			11
 #define OMAP_DSP_IOCTL_TASKCNT			12
+#define OMAP_DSP_IOCTL_POLL			13
 #define OMAP_DSP_IOCTL_REGMEMR			40
 #define OMAP_DSP_IOCTL_REGMEMW			41
 #define OMAP_DSP_IOCTL_REGIOR			42
@@ -97,8 +99,12 @@ struct omap_dsp_mapinfo {
 #define OMAP_DSP_DEVSTATE_INVALID	0x00000008
 #define OMAP_DSP_DEVSTATE_ADDREQ	0x00000100
 #define OMAP_DSP_DEVSTATE_DELREQ	0x00000200
-#define OMAP_DSP_DEVSTATE_KILLREQ	0x00000400
 #define OMAP_DSP_DEVSTATE_ADDFAIL	0x00001000
+#define OMAP_DSP_DEVSTATE_ADDING	0x00010000
+#define OMAP_DSP_DEVSTATE_DELING	0x00020000
+#define OMAP_DSP_DEVSTATE_KILLING	0x00040000
+#define OMAP_DSP_DEVSTATE_STATE_MASK	0x7fffffff
+#define OMAP_DSP_DEVSTATE_STALE		0x80000000
 
 struct omap_dsp_taddinfo {
 	unsigned char minor;
@@ -133,7 +139,7 @@ struct omap_dsp_varinfo {
 	unsigned short val[0];
 };
 
-#define OMAP_DSP_MBPROT_REVISION	0x0018
+#define OMAP_DSP_MBPROT_REVISION	0x0019
 
 #define OMAP_DSP_MBCMD_WDSND	0x10
 #define OMAP_DSP_MBCMD_WDREQ	0x11
@@ -144,7 +150,8 @@ struct omap_dsp_varinfo {
 #define OMAP_DSP_MBCMD_BKREQP	0x25
 #define OMAP_DSP_MBCMD_TCTL	0x30
 #define OMAP_DSP_MBCMD_TCTLDATA	0x31
-#define OMAP_DSP_MBCMD_WDT	0x50
+#define OMAP_DSP_MBCMD_POLL	0x32
+#define OMAP_DSP_MBCMD_WDT	0x50	/* v3.3: obsolete */
 #define OMAP_DSP_MBCMD_RUNLEVEL	0x51
 #define OMAP_DSP_MBCMD_PM	0x52
 #define OMAP_DSP_MBCMD_SUSPEND	0x53
@@ -217,6 +224,7 @@ struct omap_dsp_varinfo {
 #define OMAP_DSP_EID_NOMEM	0xc0
 #define OMAP_DSP_EID_NORES	0xc1
 #define OMAP_DSP_EID_IPBFULL	0xc2
+#define OMAP_DSP_EID_WDT	0xd0
 #define OMAP_DSP_EID_TASKNOTRDY	0xe0
 #define OMAP_DSP_EID_TASKBSY	0xe1
 #define OMAP_DSP_EID_TASKERR	0xef

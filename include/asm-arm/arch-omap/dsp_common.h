@@ -21,7 +21,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
- * 2004/09/22:  DSP Gateway version 3.2
+ * 2005/06/03:  DSP Gateway version 3.3
  */
 
 #ifndef ASM_ARCH_DSP_COMMON_H
@@ -29,6 +29,9 @@
 
 void omap_dsp_pm_suspend(void);
 void omap_dsp_pm_resume(void);
-void omap_dsp_request_idle(void);
+void omap_dsp_request_mpui(void);
+void omap_dsp_release_mpui(void);
+int omap_dsp_request_mem(void);
+int omap_dsp_release_mem(void);
 
 #endif /* ASM_ARCH_DSP_COMMON_H */

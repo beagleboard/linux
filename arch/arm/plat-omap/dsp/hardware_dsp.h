@@ -21,11 +21,24 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
- * 2004/09/30:  DSP Gateway version 3.2
+ * 2005/05/30:  DSP Gateway version 3.3
  */
 
 #ifndef __OMAP_DSP_HARDWARE_DSP_H
 #define __OMAP_DSP_HARDWARE_DSP_H
+
+#ifdef CONFIG_ARCH_OMAP1510
+#define OMAP1510_DARAM_BASE	0xe0000000
+#define OMAP1510_DARAM_SIZE	0x10000
+#define OMAP1510_SARAM_BASE	0xe0010000
+#define OMAP1510_SARAM_SIZE	0x18000
+#endif
+#ifdef CONFIG_ARCH_OMAP16XX
+#define OMAP16XX_DARAM_BASE	0xe0000000
+#define OMAP16XX_DARAM_SIZE	0x10000
+#define OMAP16XX_SARAM_BASE	0xe0010000
+#define OMAP16XX_SARAM_SIZE	0x18000
+#endif
 
 /*
  * MAJOR device number: !! allocated arbitrary !!
@@ -186,6 +199,7 @@
 /*
  * DSP ICR
  */
+#define DSPREG_ICR_RESERVED_BITS	0xffc0
 #define DSPREG_ICR_EMIF_IDLE_DOMAIN	0x0020
 #define DSPREG_ICR_DPLL_IDLE_DOMAIN	0x0010
 #define DSPREG_ICR_PER_IDLE_DOMAIN	0x0008

@@ -21,7 +21,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
- * 2004/11/16:  DSP Gateway version 3.2
+ * 2005/06/13:  DSP Gateway version 3.3
  */
 
 #include "hardware_dsp.h"
@@ -52,28 +52,28 @@
  *   default setting: wordswap = all, byteswap = APIMEM only
  */
 #define mpui_wordswap_on() \
-	{ \
+	do { \
 		omap_writel( \
 			(omap_readl(MPUI_CTRL) & ~MPUI_CTRL_WORDSWAP_MASK) | \
 			MPUI_CTRL_WORDSWAP_ALL, MPUI_CTRL); \
 	} while(0)
 
 #define mpui_wordswap_off() \
-	{ \
+	do { \
 		omap_writel( \
 			(omap_readl(MPUI_CTRL) & ~MPUI_CTRL_WORDSWAP_MASK) | \
 			MPUI_CTRL_WORDSWAP_NONE, MPUI_CTRL); \
 	} while(0)
 
 #define mpui_byteswap_on() \
-	{ \
+	do { \
 		omap_writel( \
 			(omap_readl(MPUI_CTRL) & ~MPUI_CTRL_BYTESWAP_MASK) | \
 			MPUI_CTRL_BYTESWAP_API, MPUI_CTRL); \
 	} while(0)
 
 #define mpui_byteswap_off() \
-	{ \
+	do { \
 		omap_writel( \
 			(omap_readl(MPUI_CTRL) & ~MPUI_CTRL_BYTESWAP_MASK) | \
 			MPUI_CTRL_BYTESWAP_NONE, MPUI_CTRL); \
@@ -83,13 +83,13 @@
  * TC wordswap on / off
  */
 #define tc_wordswap() \
-	{ \
+	do { \
 		omap_writel(TC_ENDIANISM_SWAP_WORD | TC_ENDIANISM_EN, \
 			    TC_ENDIANISM); \
 	} while(0)
 
 #define tc_noswap() \
-	{  \
+	do {  \
 		omap_writel(omap_readl(TC_ENDIANISM) & ~TC_ENDIANISM_EN, \
 			    TC_ENDIANISM); \
 	} while(0)
@@ -102,16 +102,31 @@
 #define __dsp_run()	omap_set_bit_regw(ARM_RSTCT1_DSP_EN, ARM_RSTCT1)
 #define __dsp_reset()	omap_clr_bit_regw(ARM_RSTCT1_DSP_EN, ARM_RSTCT1)
 
-#define	RUNSTAT_RESET	0
-#define	RUNSTAT_IDLE	1
-#define	RUNSTAT_RUN	2
-
 extern struct clk *dsp_ck_handle;
 extern struct clk *api_ck_handle;
-extern unsigned long dspmem_base, dspmem_size;
-extern int dsp_runstat;
-extern unsigned short dsp_icrmask;
+extern unsigned long dspmem_base, dspmem_size,
+		     daram_base, daram_size,
+		     saram_base, saram_size;
+
+enum e_cpustat {
+	CPUSTAT_RESET = 0,
+	CPUSTAT_GBL_IDLE = 1,
+	CPUSTAT_CPU_IDLE = 2,
+	CPUSTAT_RUN = 3
+};
+
+#define cpustat_name(stat) \
+	((stat == CPUSTAT_RESET)    ? "RESET" :\
+	 (stat == CPUSTAT_GBL_IDLE) ? "GBL_IDLE" :\
+	 (stat == CPUSTAT_CPU_IDLE) ? "CPU_IDLE" :\
+	 (stat == CPUSTAT_RUN)      ? "RUN" :\
+	 			      "unknown")
 
 int dsp_set_rstvect(unsigned long adr);
-void dsp_idle(void);
 void dsp_set_idle_boot_base(unsigned long adr, size_t size);
+void dsp_cpustat_request(enum e_cpustat req);
+enum e_cpustat dsp_cpustat_get_stat(void);
+unsigned short dsp_cpustat_get_icrmask(void);
+void dsp_cpustat_set_icrmask(unsigned short mask);
+void dsp_register_mem_cb(int (*req_cb)(void), void (*rel_cb)(void));
+void dsp_unregister_mem_cb(void);

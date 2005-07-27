@@ -21,7 +21,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
- * 2005/02/17:  DSP Gateway version 3.2
+ * 2005/05/17:  DSP Gateway version 3.3
  */
 
 struct ipbuf {
@@ -43,13 +43,13 @@ struct ipbuf_p {
 
 struct ipbuf_sys {
 	unsigned short s;	/* sync word */
-	unsigned short d[15];	/* data */
+	unsigned short d[31];	/* data */
 };
 
 struct ipbcfg {
 	unsigned short ln;
 	unsigned short lsz;
-	unsigned long adr;
+	void *base;
 	unsigned short bsycnt;
 	unsigned long cnt_full;	/* count of IPBFULL error */
 };
@@ -72,8 +72,8 @@ extern struct ipbuf_sys *ipbuf_sys_da, *ipbuf_sys_ad;
 		enable_irq(INT_D2A_MB1); \
 	} while(0)
 
-#define dsp_mem_enable_ipbuf()	dsp_mem_enable(dspword_to_virt(ipbcfg.adr))
-#define dsp_mem_disable_ipbuf()	dsp_mem_disable(dspword_to_virt(ipbcfg.adr))
+#define dsp_mem_enable_ipbuf()	dsp_mem_enable(ipbcfg.base)
+#define dsp_mem_disable_ipbuf()	dsp_mem_disable(ipbcfg.base)
 
 struct ipblink {
 	spinlock_t lock;
@@ -89,6 +89,7 @@ struct ipblink {
 
 #define INIT_IPBLINK(link) \
 	do { \
+		spin_lock_init(&(link)->lock); \
 		(link)->top  = OMAP_DSP_BID_NULL; \
 		(link)->tail = OMAP_DSP_BID_NULL; \
 	} while(0)

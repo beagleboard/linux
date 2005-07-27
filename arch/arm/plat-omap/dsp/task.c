@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
- * 2005/02/22:  DSP Gateway version 3.2
+ * 2005/07/26:  DSP Gateway version 3.3
  */
 
 #include <linux/kernel.h>
@@ -32,7 +32,6 @@
 #include <linux/fs.h>
 #include <linux/poll.h>
 #include <linux/device.h>
-#include <linux/devfs_fs_kernel.h>
 #include <linux/slab.h>
 #include <linux/sched.h>
 #include <linux/mm.h>
@@ -49,16 +48,32 @@
 #include "fifo.h"
 #include "proclist.h"
 
+#define is_aligned(adr,align)	(!((adr)&((align)-1)))
+
 /*
- * device state machine
+ * taskdev.state: device state machine
  * NOTASK:	task is not attached.
  * ATTACHED:	task is attached.
  * GARBAGE:	task is detached. waiting for all processes to close this device.
  * ADDREQ:	requesting for tadd
  * DELREQ:	requesting for tdel. no process is opening this device.
- * KILLREQ:	requesting for tkill.
  * ADDFAIL:	tadd failed.
+ * ADDING:	tadd in process.
+ * DELING:	tdel in process.
+ * KILLING:	tkill in process.
  */
+#define devstate_name(stat) (\
+	((stat) & OMAP_DSP_DEVSTATE_NOTASK)   ? "NOTASK" :\
+	((stat) & OMAP_DSP_DEVSTATE_ATTACHED) ? "ATTACHED" :\
+	((stat) & OMAP_DSP_DEVSTATE_GARBAGE)  ? "GARBAGE" :\
+	((stat) & OMAP_DSP_DEVSTATE_INVALID)  ? "INVALID" :\
+	((stat) & OMAP_DSP_DEVSTATE_ADDREQ)   ? "ADDREQ" :\
+	((stat) & OMAP_DSP_DEVSTATE_DELREQ)   ? "DELREQ" :\
+	((stat) & OMAP_DSP_DEVSTATE_ADDFAIL)  ? "ADDFAIL" :\
+	((stat) & OMAP_DSP_DEVSTATE_ADDING)   ? "ADDING" :\
+	((stat) & OMAP_DSP_DEVSTATE_DELING)   ? "DELING" :\
+	((stat) & OMAP_DSP_DEVSTATE_KILLING)  ? "KILLING" :\
+						"unknown")
 
 struct taskdev {
 	struct bus_type *bus;
@@ -147,6 +162,7 @@ static int taskdev_init(struct taskdev *dev, char *name, unsigned char minor);
 static void taskdev_delete(unsigned char minor);
 static void taskdev_attach_task(struct taskdev *dev, struct dsptask *task);
 static void taskdev_detach_task(struct taskdev *dev);
+static int dsp_tdel_bh(unsigned char minor, unsigned short type);
 
 static ssize_t devname_show(struct device *d, struct device_attribute *attr,
 			    char *buf);
@@ -345,23 +361,27 @@ static int dsp_task_config(struct dsptask *task, unsigned char tid)
 {
 	unsigned short ttyp;
 	struct mbcmd mb;
+	int ret;
 
-	dsptask[tid] = task;
 	task->tid = tid;
+	dsptask[tid] = task;
 
 	/* TCFG request */
 	task->state = TASK_STATE_CFGREQ;
-	if (down_interruptible(&cfg_sem))
-		return -ERESTARTSYS;
+	if (down_interruptible(&cfg_sem)) {
+		ret = -ERESTARTSYS;
+		goto fail_out;
+	}
 	cfg_cmd = MBCMD(TCFG);
 	mbcmd_set(mb, MBCMD(TCFG), tid, 0);
-	dsp_mbsend_and_wait(&mb, &cfg_wait_q);
+	dsp_mbcmd_send_and_wait(&mb, &cfg_wait_q);
 	cfg_cmd = 0;
 	up(&cfg_sem);
 
 	if (task->state != TASK_STATE_READY) {
 		printk(KERN_ERR "omapdsp: task %d configuration error!\n", tid);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto fail_out;
 	}
 
 	if (strlen(task->name) <= 1)
@@ -370,34 +390,48 @@ static int dsp_task_config(struct dsptask *task, unsigned char tid)
 
 	ttyp = task->ttyp;
 
+	/*
+	 * task info sanity check
+	 */
+
 	/* task type check */
 	if (rcvtyp_psv(ttyp) && rcvtyp_pvt(ttyp)) {
-		printk(KERN_ERR "mbx: illegal task type(0x%04x), tid=%d\n",
+		printk(KERN_ERR "omapdsp: illegal task type(0x%04x), tid=%d\n",
 		       tid, ttyp);
+		ret = -EINVAL;
+		goto fail_out;
 	}
 
 	/* private buffer address check */
-	if (sndtyp_pvt(ttyp)) {
-		void *p = task->rcvdt.bk.ipbuf_pvt_r;
-
-		if ((unsigned long)p & 0x1) {
-			printk(KERN_ERR
-			       "mbx: private ipbuf (DSP->ARM) address (0x%p) "
-			       "is odd number!\n", p);
-			return -EINVAL;
-		}
+	if (sndtyp_pvt(ttyp) &&
+	    (ipbuf_p_validate(task->rcvdt.bk.ipbuf_pvt_r, DIR_D2A) < 0)) {
+		ret = -EINVAL;
+		goto fail_out;
+	}
+	if (rcvtyp_pvt(ttyp) &&
+	    (ipbuf_p_validate(task->ipbuf_pvt_w, DIR_A2D) < 0)) {
+		ret = -EINVAL;
+		goto fail_out;
+	}
+	
+	/* mmap buffer configuration check */
+	if ((task->map_length > 0) &&
+	    ((!is_aligned((unsigned long)task->map_base, PAGE_SIZE)) ||
+	     (!is_aligned(task->map_length, PAGE_SIZE)) ||
+	     (dsp_mem_type(task->map_base, task->map_length) != MEM_TYPE_EXTERN))) {
+		printk(KERN_ERR
+		       "omapdsp: illegal mmap buffer address(0x%p) or "
+		       "length(0x%x).\n"
+		       "  It needs to be page-aligned and located at "
+		       "external memory.\n",
+		       task->map_base, task->map_length);
+		ret = -EINVAL;
+		goto fail_out;
 	}
 
-	if (rcvtyp_pvt(ttyp)) {
-		void *p = task->ipbuf_pvt_w;
-
-		if ((unsigned long)p & 0x1) {
-			printk(KERN_ERR
-			       "mbx: private ipbuf (ARM->DSP) address (0x%p) "
-			       "is odd number!\n", p);
-			return -EINVAL;
-		}
-	}
+	/*
+	 * initialization
+	 */
 
 	/* read initialization */
 	if (sndtyp_wd(ttyp)) {
@@ -410,11 +444,11 @@ static int dsp_task_config(struct dsptask *task, unsigned char tid)
 			printk(KERN_ERR
 			       "omapdsp: unable to allocate receive buffer. "
 			       "(%d bytes for %s)\n", fifosz, task->name);
-			return -ENOMEM;
+			ret = -ENOMEM;
+			goto fail_out;
 		}
 	} else {
 		/* block */
-		spin_lock_init(&task->rcvdt.bk.link.lock);
 		INIT_IPBLINK(&task->rcvdt.bk.link);
 		task->rcvdt.bk.rp = 0;
 	}
@@ -426,14 +460,15 @@ static int dsp_task_config(struct dsptask *task, unsigned char tid)
 		    		       ipbcfg.lsz*2;	/* passive block */
 
 	return 0;
+
+fail_out:
+	dsptask[tid] = NULL;
+	return ret;
 }
 
 static void dsp_task_init(struct dsptask *task)
 {
-	struct mbcmd mb;
-
-	mbcmd_set(mb, MBCMD(TCTL), task->tid, OMAP_DSP_MBCMD_TCTL_TINIT);
-	dsp_mbsend(&mb);
+	dsp_mbsend(MBCMD(TCTL), task->tid, OMAP_DSP_MBCMD_TCTL_TINIT);
 }
 
 int dsp_task_config_all(unsigned char n)
@@ -558,11 +593,22 @@ int dsp_taskmod_busy(void)
 
 	for (minor = 0; minor < TASKDEV_MAX; minor++) {
 		dev = taskdev[minor];
-		if (dev &&
-		    ((dev->usecount > 0) ||
-		     (dev->state == OMAP_DSP_DEVSTATE_ADDREQ) ||
-		     (dev->state == OMAP_DSP_DEVSTATE_DELREQ)))
+		if (dev == NULL)
+			continue;
+		if (dev->usecount > 0) {
+			printk("dsp_taskmod_busy(): %s: usecount=%d\n",
+			       dev->name, dev->usecount);
 			return 1;
+		}
+/*
+		if ((dev->state & (OMAP_DSP_DEVSTATE_ADDREQ |
+				   OMAP_DSP_DEVSTATE_DELREQ)) {
+*/
+		if (dev->state & OMAP_DSP_DEVSTATE_ADDREQ) {
+			printk("dsp_taskmod_busy(): %s is in %s\n",
+			       dev->name, devstate_name(dev->state));
+			return 1;
+		}
 	}
 	return 0;
 }
@@ -704,13 +750,19 @@ static ssize_t dsp_task_read_bk_acv(struct file *file, char *buf, size_t count,
 				ret = -ERESTARTSYS;
 				goto up_out;
 			}
-			base = dspword_to_virt(MKLONG(ipbp->ah, ipbp->al));
-			src = base + rcvdt->rp;
+			base = MKVIRT(ipbp->ah, ipbp->al);
+			bkcnt = ((unsigned long)ipbp->c) * 2 - rcvdt->rp;
+			if (dsp_address_validate(base, bkcnt,
+						 "task %s read buffer",
+						 dev->task->name) < 0) {
+				ret = -ERESTARTSYS;
+				goto pv_out1;
+			}
 			if (dsp_mem_enable(base) < 0) {
 				ret = -ERESTARTSYS;
 				goto pv_out1;
 			}
-			bkcnt = ((unsigned long)ipbp->c) * 2 - rcvdt->rp;
+			src = base + rcvdt->rp;
 			if (bkcnt > count) {
 				if (copy_to_user_dsp(buf, src, count)) {
 					ret = -EFAULT;
@@ -813,7 +865,7 @@ static ssize_t dsp_task_read_wd_psv(struct file *file, char *buf, size_t count,
 	devstate_unlock(dev);
 
 	mbcmd_set(mb, MBCMD(WDREQ), tid, 0);
-	dsp_mbsend_and_wait(&mb, &dev->read_wait_q);
+	dsp_mbcmd_send_and_wait(&mb, &dev->read_wait_q);
 
 	if (signal_pending(current)) {
 		ret = -ERESTARTSYS;
@@ -868,7 +920,7 @@ static ssize_t dsp_task_read_bk_psv(struct file *file, char *buf, size_t count,
 	devstate_unlock(dev);
 
 	mbcmd_set(mb, MBCMD(BKREQ), tid, count/2);
-	dsp_mbsend_and_wait(&mb, &dev->read_wait_q);
+	dsp_mbcmd_send_and_wait(&mb, &dev->read_wait_q);
 
 	if (signal_pending(current)) {
 		ret = -ERESTARTSYS;
@@ -896,12 +948,17 @@ static ssize_t dsp_task_read_bk_psv(struct file *file, char *buf, size_t count,
 			ret = -ERESTARTSYS;
 			goto unlock_out;
 		}
-		src = dspword_to_virt(MKLONG(ipbp->ah, ipbp->al));
+		src = MKVIRT(ipbp->ah, ipbp->al);
+		rcvcnt = ((unsigned long)ipbp->c) * 2;
+		if (dsp_address_validate(src, rcvcnt, "task %s read buffer",
+					 dev->task->name) < 0) {
+			ret = -ERESTARTSYS;
+			goto pv_out1;
+		}
 		if (dsp_mem_enable(src) < 0) {
 			ret = -ERESTARTSYS;
 			goto pv_out1;
 		}
-		rcvcnt = ((unsigned long)ipbp->c) * 2;
 		if (count > rcvcnt)
 			count = rcvcnt;
 		if (copy_to_user_dsp(buf, src, count)) {
@@ -955,7 +1012,6 @@ static ssize_t dsp_task_write_wd(struct file *file, const char *buf,
 {
 	unsigned int minor = MINOR(file->f_dentry->d_inode->i_rdev);
 	struct taskdev *dev = taskdev[minor];
-	struct mbcmd mb;
 	unsigned short wd;
 	int have_devstate_lock = 0;
 	int ret = 0;
@@ -1013,9 +1069,8 @@ static ssize_t dsp_task_write_wd(struct file *file, const char *buf,
 		goto up_out;
 	}
 
-	mbcmd_set(mb, MBCMD(WDSND), dev->task->tid, wd);
 	spin_lock(&dev->task->wsz_lock);
-	if (dsp_mbsend(&mb) < 0) {
+	if (dsp_mbsend(MBCMD(WDSND), dev->task->tid, wd) < 0) {
 		spin_unlock(&dev->task->wsz_lock);
 		goto up_out;
 	}
@@ -1036,7 +1091,6 @@ static ssize_t dsp_task_write_bk(struct file *file, const char *buf,
 {
 	unsigned int minor = MINOR(file->f_dentry->d_inode->i_rdev);
 	struct taskdev *dev = taskdev[minor];
-	struct mbcmd mb;
 	int have_devstate_lock = 0;
 	int ret = 0;
 
@@ -1102,7 +1156,12 @@ static ssize_t dsp_task_write_bk(struct file *file, const char *buf,
 			ret = -ERESTARTSYS;
 			goto up_out;
 		}
-		dst = dspword_to_virt(MKLONG(ipbp->ah, ipbp->al));
+		dst = MKVIRT(ipbp->ah, ipbp->al);
+		if (dsp_address_validate(dst, count, "task %s write buffer",
+					 dev->task->name) < 0) {
+			ret = -ERESTARTSYS;
+			goto pv_out1;
+		}
 		if (dsp_mem_enable(dst) < 0) {
 			ret = -ERESTARTSYS;
 			goto pv_out1;
@@ -1113,9 +1172,8 @@ static ssize_t dsp_task_write_bk(struct file *file, const char *buf,
 		}
 		ipbp->c = count/2;
 		ipbp->s = dev->task->tid;
-		mbcmd_set(mb, MBCMD(BKSNDP), dev->task->tid, 0);
 		spin_lock(&dev->task->wsz_lock);
-		if (dsp_mbsend(&mb) == 0) {
+		if (dsp_mbsend(MBCMD(BKSNDP), dev->task->tid, 0) == 0) {
 			if (rcvtyp_acv(dev->task->ttyp))
 				dev->task->wsz = 0;
 			ret = count;
@@ -1145,9 +1203,8 @@ pv_out1:
 		}
 		ipbp->c  = count/2;
 		ipbp->sa = dev->task->tid;
-		mbcmd_set(mb, MBCMD(BKSND), dev->task->tid, bid);
 		spin_lock(&dev->task->wsz_lock);
-		if (dsp_mbsend(&mb) == 0) {
+		if (dsp_mbsend(MBCMD(BKSND), dev->task->tid, bid) == 0) {
 			if (rcvtyp_acv(dev->task->ttyp))
 				dev->task->wsz = 0;
 			ret = count;
@@ -1226,6 +1283,9 @@ static int dsp_task_ioctl(struct inode *inode, struct file *file,
 		 * reserved for backward compatibility
 		 * user-defined TCTL commands: no arg, non-interactive
 		 */
+		printk(KERN_WARNING "omapdsp: "
+		       "TCTL commands in 0x0080 - 0x0100 are obsolete.\n"
+		       "they won't be supported in the future.\n");
 		mbargc = 0;
 		interactive = 0;
 	} else if (cmd < 0x8000) {
@@ -1315,7 +1375,7 @@ static int dsp_task_ioctl(struct inode *inode, struct file *file,
 		dev->task->tctl_stat = -ERESTARTSYS;
 		devstate_unlock(dev);
 
-		dsp_mbsend_and_wait_exarg(&mb, mbargp, &dev->ioctl_wait_q);
+		dsp_mbcmd_send_and_wait_exarg(&mb, mbargp, &dev->ioctl_wait_q);
 		if (signal_pending(current)) {
 			ret = -ERESTARTSYS;
 			goto up_out;
@@ -1330,7 +1390,7 @@ static int dsp_task_ioctl(struct inode *inode, struct file *file,
 			goto unlock_out;
 		}
 	} else {
-		dsp_mbsend_exarg(&mb, mbargp);
+		dsp_mbcmd_send_exarg(&mb, mbargp);
 		ret = 0;
 	}
 
@@ -1341,18 +1401,42 @@ up_out:
 	return ret;
 }
 
+static void dsp_task_mmap_open(struct vm_area_struct *vma)
+{
+	struct taskdev *dev = (struct taskdev *)vma->vm_private_data;
+	struct dsptask *task;
+	size_t len = vma->vm_end - vma->vm_start;
+
+	BUG_ON(!(dev->state & OMAP_DSP_DEVSTATE_ATTACHED));
+	task = dev->task;
+	exmap_use(task->map_base, len);
+}
+
+static void dsp_task_mmap_close(struct vm_area_struct *vma)
+{
+	struct taskdev *dev = (struct taskdev *)vma->vm_private_data;
+	struct dsptask *task;
+	size_t len = vma->vm_end - vma->vm_start;
+
+	BUG_ON(!(dev->state & OMAP_DSP_DEVSTATE_ATTACHED));
+	task = dev->task;
+	exmap_unuse(task->map_base, len);
+}
+
 /**
  * On demand page allocation is not allowed. The mapping area is defined by
  * corresponding DSP tasks.
  */
-static struct page *dsp_task_nopage_mmap(struct vm_area_struct *vma,
+static struct page *dsp_task_mmap_nopage(struct vm_area_struct *vma,
 					 unsigned long address, int *type)
 {
 	return NOPAGE_SIGBUS;
 }
 
 static struct vm_operations_struct dsp_task_vm_ops = {
-	.nopage = dsp_task_nopage_mmap,
+	.open = dsp_task_mmap_open,
+	.close = dsp_task_mmap_close,
+	.nopage = dsp_task_mmap_nopage,
 };
 
 static int dsp_task_mmap(struct file *filp, struct vm_area_struct *vma)
@@ -1368,21 +1452,6 @@ static int dsp_task_mmap(struct file *filp, struct vm_area_struct *vma)
 	if (devstate_lock(dev, OMAP_DSP_DEVSTATE_ATTACHED) < 0)
 		return -ERESTARTSYS;
 	task = dev->task;
-	if (task->map_length == 0) {
-		printk(KERN_ERR
-		       "omapdsp: task %s doesn't have mmap buffer.\n",
-		       task->name);
-		ret = -EINVAL;
-		goto unlock_out;
-	}
-	if (is_dsp_internal_mem(task->map_base)) {
-		printk(KERN_ERR
-		       "omapdsp: task %s: map_base = %p\n"
-		       "    DARAM/SARAM can't be used as mmap buffer.\n",
-		       task->name, task->map_base);
-		ret = -EINVAL;
-		goto unlock_out;
-	}
 
 	/*
 	 * Don't swap this area out
@@ -1430,6 +1499,9 @@ static int dsp_task_mmap(struct file *filp, struct vm_area_struct *vma)
 	} while (req_len);
 
 	vma->vm_ops = &dsp_task_vm_ops;
+	vma->vm_private_data = dev;
+	exmap_use(task->map_base, vma->vm_end - vma->vm_start);
+
 unlock_out:
 	devstate_unlock(dev);
 	return ret;
@@ -1441,12 +1513,8 @@ static int dsp_task_open(struct inode *inode, struct file *file)
 	struct taskdev *dev;
 	int ret = 0;
 
-	if (minor >= TASKDEV_MAX)
+	if ((minor >= TASKDEV_MAX) || ((dev = taskdev[minor]) == NULL))
 		return -ENODEV;
-	dev = taskdev[minor];
-	if (dev == NULL)
-		return -ENODEV;
-
 	if (devstate_lock(dev, OMAP_DSP_DEVSTATE_NOTASK |
 			       OMAP_DSP_DEVSTATE_ATTACHED) < 0)
 		return -ERESTARTSYS;
@@ -1457,15 +1525,20 @@ static int dsp_task_open(struct inode *inode, struct file *file)
 	}
 #endif
 
-	if (dev->state == OMAP_DSP_DEVSTATE_NOTASK) {
+	if (dev->state & OMAP_DSP_DEVSTATE_NOTASK) {
 		dev->state = OMAP_DSP_DEVSTATE_ADDREQ;
 		/* wake up twch daemon for tadd */
 		dsp_twch_touch();
 		devstate_unlock(dev);
 		if (devstate_lock(dev, OMAP_DSP_DEVSTATE_ATTACHED |
-				       OMAP_DSP_DEVSTATE_ADDFAIL) < 0)
+				       OMAP_DSP_DEVSTATE_ADDFAIL) < 0) {
+			spin_lock(&dev->state_lock);
+			if (dev->state & OMAP_DSP_DEVSTATE_ADDREQ)
+				dev->state = OMAP_DSP_DEVSTATE_NOTASK;
+			spin_unlock(&dev->state_lock);
 			return -ERESTARTSYS;
-		if (dev->state == OMAP_DSP_DEVSTATE_ADDFAIL) {
+		}
+		if (dev->state & OMAP_DSP_DEVSTATE_ADDFAIL) {
 			printk(KERN_ERR "omapdsp: task attach failed for %s!\n",
 			       dev->name);
 			ret = -EBUSY;
@@ -1496,10 +1569,10 @@ static int dsp_task_release(struct inode *inode, struct file *file)
 	/* state_lock covers usecount, proc_list as well. */
 	spin_lock(&dev->state_lock);
 
-	/* state can be ATTACHED, KILLREQ or GARBAGE here. */
-	switch (dev->state) {
+	/* state can be ATTACHED, KILLING or GARBAGE here. */
+	switch (dev->state & OMAP_DSP_DEVSTATE_STATE_MASK) {
 
-	case OMAP_DSP_DEVSTATE_KILLREQ:
+	case OMAP_DSP_DEVSTATE_KILLING:
 		dev->usecount--;
 		break;
 
@@ -1582,11 +1655,10 @@ int dsp_rmdev(char *name)
 static int dsp_rmdev_minor(unsigned char minor)
 {
 	struct taskdev *dev = taskdev[minor];
-	struct dsptask *task = dev->task;
 
 	spin_lock(&dev->state_lock);
 
-	switch (dev->state) {
+	switch (dev->state & OMAP_DSP_DEVSTATE_STATE_MASK) {
 
 	case OMAP_DSP_DEVSTATE_NOTASK:
 		/* fine */
@@ -1598,6 +1670,7 @@ static int dsp_rmdev_minor(unsigned char minor)
 			siginfo_t info;
 			struct proc_list *pl;
 
+			dev->state = OMAP_DSP_DEVSTATE_KILLING;
 			info.si_signo = SIGBUS;
 			info.si_errno = 0;
 			info.si_code = SI_KERNEL;
@@ -1605,12 +1678,10 @@ static int dsp_rmdev_minor(unsigned char minor)
 			list_for_each_entry(pl, &dev->proc_list, list_head) {
 				send_sig_info(SIGBUS, &info, pl->tsk);
 			}
-			taskdev_detach_task(dev);
-			dsp_task_unconfig(task);
-			kfree(task);
-			dev->state = OMAP_DSP_DEVSTATE_GARBAGE;
+			spin_unlock(&dev->state_lock);
+			dsp_tdel_bh(minor, OMAP_DSP_MBCMD_TDEL_KILL);
+			goto invalidate;
 		}
-		break;
 
 	case OMAP_DSP_DEVSTATE_ADDREQ:
 		/* open() is waiting. drain it. */
@@ -1624,7 +1695,9 @@ static int dsp_rmdev_minor(unsigned char minor)
 		wake_up_interruptible_all(&dev->state_wait_q);
 		break;
 
-	case OMAP_DSP_DEVSTATE_KILLREQ:
+	case OMAP_DSP_DEVSTATE_ADDING:
+	case OMAP_DSP_DEVSTATE_DELING:
+	case OMAP_DSP_DEVSTATE_KILLING:
 	case OMAP_DSP_DEVSTATE_GARBAGE:
 	case OMAP_DSP_DEVSTATE_ADDFAIL:
 		/* transient state. wait for a moment. */
@@ -1634,12 +1707,13 @@ static int dsp_rmdev_minor(unsigned char minor)
 
 	spin_unlock(&dev->state_lock);
 
+invalidate:
 	/* wait for some time and hope the state is settled */
 	devstate_lock_timeout(dev, OMAP_DSP_DEVSTATE_NOTASK, HZ);
-	if (dev->state != OMAP_DSP_DEVSTATE_NOTASK) {
+	if (!(dev->state & OMAP_DSP_DEVSTATE_NOTASK)) {
 		printk(KERN_WARNING
-		       "omapdsp: illegal device state on rmdev %s.\n",
-		       dev->name);
+		       "omapdsp: illegal device state (%s) on rmdev %s.\n",
+		       devstate_name(dev->state), dev->name);
 	}
 	dev->state = OMAP_DSP_DEVSTATE_INVALID;
 	devstate_unlock(dev);
@@ -1656,7 +1730,6 @@ struct file_operations dsp_task_fops = {
 	.ioctl   = dsp_task_ioctl,
 	.open    = dsp_task_open,
 	.release = dsp_task_release,
-	.mmap    = dsp_task_mmap,
 };
 
 static void dsptask_dev_release(struct device *dev)
@@ -1694,8 +1767,6 @@ static int taskdev_init(struct taskdev *dev, char *name, unsigned char minor)
 	device_create_file(&dev->dev, &dev_attr_proc_list);
 	class_device_create(dsp_task_class, MKDEV(OMAP_DSP_TASK_MAJOR, minor),
 			    NULL, "dsptask%d", minor);
-	devfs_mk_cdev(MKDEV(OMAP_DSP_TASK_MAJOR, minor),
-		      S_IFCHR | S_IRUGO | S_IWUGO, "dsptask%d", minor);
 
 	init_waitqueue_head(&dev->state_wait_q);
 	spin_lock_init(&dev->state_lock);
@@ -1712,9 +1783,7 @@ static void taskdev_delete(unsigned char minor)
 	device_remove_file(&dev->dev, &dev_attr_devname);
 	device_remove_file(&dev->dev, &dev_attr_devstate);
 	device_remove_file(&dev->dev, &dev_attr_proc_list);
-
 	class_device_destroy(dsp_task_class, MKDEV(OMAP_DSP_TASK_MAJOR, minor));
-	devfs_remove("dsptask%d", minor);
 	device_unregister(&dev->dev);
 	proc_list_flush(&dev->proc_list);
 	taskdev[minor] = NULL;
@@ -1736,6 +1805,8 @@ static void taskdev_attach_task(struct taskdev *dev, struct dsptask *task)
 	dev->fops.write =
 		rcvtyp_wd(ttyp) ? dsp_task_write_wd:
 		/* rcvbyp_bk */	  dsp_task_write_bk;
+	if (task->map_length)
+		dev->fops.mmap = dsp_task_mmap;
 
 	device_create_file(&dev->dev, &dev_attr_taskname);
 	device_create_file(&dev->dev, &dev_attr_ttyp);
@@ -1781,7 +1852,7 @@ int dsp_tadd(unsigned char minor, unsigned long adr)
 	struct dsptask *task;
 	struct mbcmd mb;
 	struct mb_exarg arg;
-	unsigned char tid;
+	unsigned char tid, tid_response;
 	unsigned short argv[2];
 	int ret = minor;
 
@@ -1790,16 +1861,17 @@ int dsp_tadd(unsigned char minor, unsigned long adr)
 		       "omapdsp: no task device with minor %d\n", minor);
 		return -EINVAL;
 	}
-	/*
-	 * we don't need to lock state_lock because
-	 * only tadd is allowed when devstate is ADDREQ.
-	 */
-	if (dev->state != OMAP_DSP_DEVSTATE_ADDREQ) {
+
+	spin_lock(&dev->state_lock);
+	if (!(dev->state & OMAP_DSP_DEVSTATE_ADDREQ)) {
 		printk(KERN_ERR
-		       "omapdsp: taskdev %s is not requesting for tadd.\n",
-		       dev->name);
+		       "omapdsp: taskdev %s is not requesting for tadd. "
+		       "(state is %s)\n", dev->name, devstate_name(dev->state));
+		spin_unlock(&dev->state_lock);
 		return -EINVAL;
 	}
+	dev->state = OMAP_DSP_DEVSTATE_ADDING;
+	spin_unlock(&dev->state_lock);
 
 	if (adr == OMAP_DSP_TADD_ABORTADR) {
 		/* aborting tadd intentionally */
@@ -1828,7 +1900,8 @@ int dsp_tadd(unsigned char minor, unsigned long adr)
 	arg.argc = 2;
 	arg.argv = argv;
 
-	dsp_mbsend_and_wait_exarg(&mb, &arg, &cfg_wait_q);
+	dsp_mem_sync_inc();
+	dsp_mbcmd_send_and_wait_exarg(&mb, &arg, &cfg_wait_q);
 
 	tid = cfg_tid;
 	cfg_tid = OMAP_DSP_TID_ANON;
@@ -1847,7 +1920,7 @@ int dsp_tadd(unsigned char minor, unsigned long adr)
 	}
 	if ((task = kmalloc(sizeof(struct dsptask), GFP_KERNEL)) == NULL) {
 		ret = -ENOMEM;
-		goto fail_out;
+		goto del_out;
 	}
 	memset(task, 0, sizeof(struct dsptask));
 
@@ -1860,9 +1933,7 @@ int dsp_tadd(unsigned char minor, unsigned long adr)
 		       "omapdsp: task name (%s) doesn't match with "
 		       "device name (%s).\n", task->name, dev->name);
 		ret = -EINVAL;
-		dev->state = OMAP_DSP_DEVSTATE_DELREQ;
-		dsp_twch_touch();
-		return -EINVAL;
+		goto free_out;
 	}
 
 	dsp_task_init(task);
@@ -1873,6 +1944,30 @@ int dsp_tadd(unsigned char minor, unsigned long adr)
 
 free_out:
 	kfree(task);
+
+del_out:
+	printk(KERN_ERR "omapdsp: deleting the task...\n");
+
+	dev->state = OMAP_DSP_DEVSTATE_DELING;
+
+	if (down_interruptible(&cfg_sem)) {
+		printk(KERN_ERR "omapdsp: aborting tdel process. "
+				"DSP side could be corrupted.\n");
+		goto fail_out;
+	}
+	cfg_tid = OMAP_DSP_TID_ANON;
+	cfg_cmd = MBCMD(TDEL);
+	mbcmd_set(mb, MBCMD(TDEL), tid, OMAP_DSP_MBCMD_TDEL_KILL);
+	dsp_mbcmd_send_and_wait(&mb, &cfg_wait_q);
+	tid_response = cfg_tid;
+	cfg_tid = OMAP_DSP_TID_ANON;
+	cfg_cmd = 0;
+	up(&cfg_sem);
+
+	if (tid_response != tid)
+		printk(KERN_ERR "omapdsp: tdel failed. "
+				"DSP side could be corrupted.\n");
+
 fail_out:
 	dev->state = OMAP_DSP_DEVSTATE_ADDFAIL;
 	wake_up_interruptible_all(&dev->state_wait_q);
@@ -1882,64 +1977,6 @@ fail_out:
 int dsp_tdel(unsigned char minor)
 {
 	struct taskdev *dev;
-	struct dsptask *task;
-	struct mbcmd mb;
-	unsigned char tid, tid_response;
-	int ret = minor;
-
-	if ((minor >= TASKDEV_MAX) || ((dev = taskdev[minor]) == NULL)) {
-		printk(KERN_ERR
-		       "omapdsp: no task device with minor %d\n", minor);
-		return -EINVAL;
-	}
-	/*
-	 * we don't need to lock state_lock because
-	 * only tdel is allowed when devstate is DELREQ.
-	 */
-	if (dev->state != OMAP_DSP_DEVSTATE_DELREQ) {
-		printk(KERN_ERR
-		       "omapdsp: taskdev %s is not requesting for tdel.\n",
-		       dev->name);
-		return -EINVAL;
-	}
-
-	task = dev->task;
-	tid = task->tid;
-	if (down_interruptible(&cfg_sem)) {
-		return -ERESTARTSYS;
-	}
-	cfg_tid = OMAP_DSP_TID_ANON;
-	cfg_cmd = MBCMD(TDEL);
-	mbcmd_set(mb, MBCMD(TDEL), tid, OMAP_DSP_MBCMD_TDEL_SAFE);
-	dsp_mbsend_and_wait(&mb, &cfg_wait_q);
-	tid_response = cfg_tid;
-	cfg_tid = OMAP_DSP_TID_ANON;
-	cfg_cmd = 0;
-	up(&cfg_sem);
-
-	taskdev_detach_task(dev);
-	dsp_task_unconfig(task);
-	kfree(task);
-	dev->state = OMAP_DSP_DEVSTATE_NOTASK;
-	wake_up_interruptible_all(&dev->state_wait_q);
-
-	if (tid_response != tid) {
-		printk(KERN_ERR "omapdsp: tdel failed!\n");
-		ret = -EINVAL;
-	}
-
-	return ret;
-}
-
-int dsp_tkill(unsigned char minor)
-{
-	struct taskdev *dev;
-	struct dsptask *task;
-	struct mbcmd mb;
-	unsigned char tid, tid_response;
-	siginfo_t info;
-	struct proc_list *pl;
-	int ret = minor;
 
 	if ((minor >= TASKDEV_MAX) || ((dev = taskdev[minor]) == NULL)) {
 		printk(KERN_ERR
@@ -1947,14 +1984,39 @@ int dsp_tkill(unsigned char minor)
 		return -EINVAL;
 	}
 	spin_lock(&dev->state_lock);
-	if (dev->state != OMAP_DSP_DEVSTATE_ATTACHED) {
+	if (!(dev->state & OMAP_DSP_DEVSTATE_DELREQ)) {
+		printk(KERN_ERR
+		       "omapdsp: taskdev %s is not requesting for tdel. "
+		       "(state is %s)\n", dev->name, devstate_name(dev->state));
+		spin_unlock(&dev->state_lock);
+		return -EINVAL;
+	}
+	dev->state = OMAP_DSP_DEVSTATE_DELING;
+	spin_unlock(&dev->state_lock);
+
+	return dsp_tdel_bh(minor, OMAP_DSP_MBCMD_TDEL_SAFE);
+}
+
+int dsp_tkill(unsigned char minor)
+{
+	struct taskdev *dev;
+	siginfo_t info;
+	struct proc_list *pl;
+
+	if ((minor >= TASKDEV_MAX) || ((dev = taskdev[minor]) == NULL)) {
+		printk(KERN_ERR
+		       "omapdsp: no task device with minor %d\n", minor);
+		return -EINVAL;
+	}
+	spin_lock(&dev->state_lock);
+	if (!(dev->state & OMAP_DSP_DEVSTATE_ATTACHED)) {
 		printk(KERN_ERR
 		       "omapdsp: task has not been attached for taskdev %s\n",
 		       dev->name);
 		spin_unlock(&dev->state_lock);
 		return -EINVAL;
 	}
-	dev->state = OMAP_DSP_DEVSTATE_KILLREQ;
+	dev->state = OMAP_DSP_DEVSTATE_KILLING;
 	info.si_signo = SIGBUS;
 	info.si_errno = 0;
 	info.si_code = SI_KERNEL;
@@ -1964,17 +2026,33 @@ int dsp_tkill(unsigned char minor)
 	}
 	spin_unlock(&dev->state_lock);
 
+	return dsp_tdel_bh(minor, OMAP_DSP_MBCMD_TDEL_KILL);
+}
+
+static int dsp_tdel_bh(unsigned char minor, unsigned short type)
+{
+	struct taskdev *dev = taskdev[minor];
+	struct dsptask *task;
+	struct mbcmd mb;
+	unsigned char tid, tid_response;
+	int ret = minor;
+
 	task = dev->task;
 	tid = task->tid;
 	if (down_interruptible(&cfg_sem)) {
-		tid_response = OMAP_DSP_TID_ANON;
-		ret = -ERESTARTSYS;
-		goto detach_out;
+		if (type == OMAP_DSP_MBCMD_TDEL_SAFE) {
+			dev->state = OMAP_DSP_DEVSTATE_DELREQ;
+			return -ERESTARTSYS;
+		} else {
+			tid_response = OMAP_DSP_TID_ANON;
+			ret = -ERESTARTSYS;
+			goto detach_out;
+		}
 	}
 	cfg_tid = OMAP_DSP_TID_ANON;
 	cfg_cmd = MBCMD(TDEL);
-	mbcmd_set(mb, MBCMD(TDEL), tid, OMAP_DSP_MBCMD_TDEL_KILL);
-	dsp_mbsend_and_wait(&mb, &cfg_wait_q);
+	mbcmd_set(mb, MBCMD(TDEL), tid, type);
+	dsp_mbcmd_send_and_wait(&mb, &cfg_wait_q);
 	tid_response = cfg_tid;
 	cfg_tid = OMAP_DSP_TID_ANON;
 	cfg_cmd = 0;
@@ -1985,9 +2063,11 @@ detach_out:
 	dsp_task_unconfig(task);
 	kfree(task);
 
-	if (tid_response != tid)
-		printk(KERN_ERR "omapdsp: tkill failed!\n");
-
+	if (tid_response != tid) {
+		printk(KERN_ERR "omapdsp: %s failed!\n",
+		       (type == OMAP_DSP_MBCMD_TDEL_SAFE) ? "tdel" : "tkill");
+		ret = -EINVAL;
+	}
 	spin_lock(&dev->state_lock);
 	dev->state = (dev->usecount > 0) ? OMAP_DSP_DEVSTATE_GARBAGE :
 					   OMAP_DSP_DEVSTATE_NOTASK;
@@ -2000,10 +2080,14 @@ detach_out:
 /*
  * state inquiry
  */
-long taskdev_state(unsigned char minor)
+long taskdev_state_stale(unsigned char minor)
 {
-	return taskdev[minor] ? taskdev[minor]->state :
-				OMAP_DSP_DEVSTATE_NOTASK;
+	if (taskdev[minor]) {
+		long state = taskdev[minor]->state;
+		taskdev[minor]->state |= OMAP_DSP_DEVSTATE_STALE;
+		return state;
+	} else
+		return OMAP_DSP_DEVSTATE_NOTASK;
 }
 
 /*
@@ -2271,9 +2355,6 @@ void mbx1_tcfg(struct mbcmd *mb)
 {
 	unsigned char tid = mb->cmd_l;
 	struct dsptask *task = dsptask[tid];
-	unsigned long tmp_ipbp_r, tmp_ipbp_w;
-	unsigned long tmp_mapstart, tmp_maplen;
-	unsigned long tmp_tnm;
 	unsigned short *tnm;
 	volatile unsigned short *buf;
 	int i;
@@ -2289,25 +2370,29 @@ void mbx1_tcfg(struct mbcmd *mb)
 
 	if (sync_with_dsp(&ipbuf_sys_da->s, tid, 10) < 0) {
 		printk(KERN_ERR "mbx: TCFG - IPBUF sync failed!\n");
-		return;
+		goto out;
 	}
 
 	/*
 	 * read configuration data on system IPBUF
 	 */
 	buf = ipbuf_sys_da->d;
-	task->ttyp   = buf[0];
-	tmp_ipbp_r   = MKLONG(buf[1], buf[2]);
-	tmp_ipbp_w   = MKLONG(buf[3], buf[4]);
-	tmp_mapstart = MKLONG(buf[5], buf[6]);
-	tmp_maplen   = MKLONG(buf[7], buf[8]);
-	tmp_tnm      = MKLONG(buf[9], buf[10]);
+	task->ttyp                 = buf[0];
+	task->rcvdt.bk.ipbuf_pvt_r = MKVIRT(buf[1], buf[2]);
+	task->ipbuf_pvt_w          = MKVIRT(buf[3], buf[4]);
+	task->map_base             = MKVIRT(buf[5], buf[6]);
+	task->map_length           = MKLONG(buf[7], buf[8]) << 1;	/* word -> byte */
+	tnm                        = MKVIRT(buf[9], buf[10]);
+	release_ipbuf_pvt(ipbuf_sys_da);
 
-	task->rcvdt.bk.ipbuf_pvt_r = dspword_to_virt(tmp_ipbp_r);
-	task->ipbuf_pvt_w          = dspword_to_virt(tmp_ipbp_w);
-	task->map_base   = dspword_to_virt(tmp_mapstart);
-	task->map_length = tmp_maplen << 1;	/* word -> byte */
-	tnm = dspword_to_virt(tmp_tnm);
+	/*
+	 * copy task name string
+	 */
+	if (dsp_address_validate(tnm, OMAP_DSP_TNM_LEN, "task name buffer") <0) {
+		task->name[0] = '\0';
+		goto out;
+	}
+
 	for (i = 0; i < OMAP_DSP_TNM_LEN-1; i++) {
 		/* avoiding byte access */
 		unsigned short tmp = tnm[i];
@@ -2317,8 +2402,8 @@ void mbx1_tcfg(struct mbcmd *mb)
 	}
 	task->name[OMAP_DSP_TNM_LEN-1] = '\0';
 
-	release_ipbuf_pvt(ipbuf_sys_da);
 	task->state = TASK_STATE_READY;
+out:
 	wake_up_interruptible(&cfg_wait_q);
 }
 
@@ -2368,7 +2453,117 @@ void mbx1_err_fatal(unsigned char tid)
 	spin_unlock(&task->dev->state_lock);
 }
 
+static short *dbg_buf;
+static unsigned short dbg_buf_sz, dbg_line_sz;
+static int dbg_rp;
+
+int dsp_dbg_config(short *buf, unsigned short sz, unsigned short lsz)
+{
+#ifdef OLD_BINARY_SUPPORT
+	if ((mbx_revision == MBREV_3_0) || (mbx_revision == MBREV_3_2)) {
+		dbg_buf = NULL;
+		dbg_buf_sz = 0;
+		dbg_line_sz = 0;
+		dbg_rp = 0;
+		return 0;
+	}
+#endif
+
+	if (dsp_address_validate(buf, sz, "debug buffer") < 0)
+		return -1;
+
+	if (lsz > sz) {
+		printk(KERN_ERR
+		       "omapdsp: dbg_buf lsz (%d) is greater than its "
+		       "buffer size (%d)\n", lsz, sz);
+		return -1;
+	}
+
+	dbg_buf = buf;
+	dbg_buf_sz = sz;
+	dbg_line_sz = lsz;
+	dbg_rp = 0;
+
+	return 0;
+}
+
+void dsp_dbg_stop(void)
+{
+	dbg_buf = NULL;
+}
+
+#ifdef OLD_BINARY_SUPPORT
+static void mbx1_dbg_old(struct mbcmd *mb);
+#endif
+
 void mbx1_dbg(struct mbcmd *mb)
+{
+	unsigned char tid = mb->cmd_l;
+	int cnt = mb->data;
+	char s[80], *s_end = &s[79], *p;
+	unsigned short *src;
+	int i;
+
+#ifdef OLD_BINARY_SUPPORT
+	if ((mbx_revision == MBREV_3_0) || (mbx_revision == MBREV_3_2)) {
+		mbx1_dbg_old(mb);
+		return;
+	}
+#endif
+
+	if (((tid >= TASKDEV_MAX) || (dsptask[tid] == NULL)) &&
+	    (tid != OMAP_DSP_TID_ANON)) {
+		printk(KERN_ERR "mbx: DBG with illegal tid! %d\n", tid);
+		return;
+	}
+	if (dbg_buf == NULL) {
+		printk(KERN_ERR "mbx: DBG command received, but "
+		       "dbg_buf has not been configured yet.\n");
+		return;
+	}
+
+	if (dsp_mem_enable(dbg_buf) < 0)
+		return;
+
+	src = &dbg_buf[dbg_rp];
+	p = s;
+	for (i = 0; i < cnt; i++) {
+		unsigned short tmp;
+		/*
+		 * Be carefull that dbg_buf should not be read with
+		 * 1-byte access since it might be placed in DARAM/SARAM
+		 * and it can cause unexpected byteswap.
+		 * For example,
+		 *   *(p++) = *(src++) & 0xff;
+		 * causes 1-byte access!
+		 */
+		tmp = *src++;
+		*(p++) = tmp & 0xff;
+		if (*(p-1) == '\n') {
+			*p = '\0';
+			printk(KERN_INFO "%s", s);
+			p = s;
+			continue;
+		}
+		if (p == s_end) {
+			*p = '\0';
+			printk(KERN_INFO "%s\n", s);
+			p = s;
+			continue;
+		}
+	}
+	if (p > s) {
+		*p = '\0';
+		printk(KERN_INFO "%s\n", s);
+	}
+	if ((dbg_rp += cnt + 1) > dbg_buf_sz - dbg_line_sz)
+		dbg_rp = 0;
+
+	dsp_mem_disable(dbg_buf);
+}
+
+#ifdef OLD_BINARY_SUPPORT
+static void mbx1_dbg_old(struct mbcmd *mb)
 {
 	unsigned char tid = mb->cmd_l;
 	char s[80], *s_end = &s[79], *p;
@@ -2388,7 +2583,13 @@ void mbx1_dbg(struct mbcmd *mb)
 	}
 	buf = ipbuf_sys_da->d;
 	cnt = buf[0];
-	src = dspword_to_virt(MKLONG(buf[1], buf[2]));
+	src = MKVIRT(buf[1], buf[2]);
+	if (dsp_address_validate(src, cnt, "dbg buffer") < 0)
+		return;
+
+	if (dsp_mem_enable(src) < 0)
+		return;
+
 	p = s;
 	for (i = 0; i < cnt; i++) {
 		unsigned short tmp;
@@ -2421,8 +2622,9 @@ void mbx1_dbg(struct mbcmd *mb)
 	}
 
 	release_ipbuf_pvt(ipbuf_sys_da);
+	dsp_mem_disable(src);
 }
-
+#endif /* OLD_BINARY_SUPPORT */
 
 /*
  * sysfs files
@@ -2433,17 +2635,6 @@ static ssize_t devname_show(struct device *d, struct device_attribute *attr,
 	struct taskdev *dev = to_taskdev(d);
 	return sprintf(buf, "%s\n", dev->name);
 }
-
-#define devstate_name(stat) (\
-	((stat) == OMAP_DSP_DEVSTATE_NOTASK)   ? "NOTASK" :\
-	((stat) == OMAP_DSP_DEVSTATE_ATTACHED) ? "ATTACHED" :\
-	((stat) == OMAP_DSP_DEVSTATE_GARBAGE)  ? "GARBAGE" :\
-	((stat) == OMAP_DSP_DEVSTATE_INVALID)  ? "INVALID" :\
-	((stat) == OMAP_DSP_DEVSTATE_ADDREQ)   ? "ADDREQ" :\
-	((stat) == OMAP_DSP_DEVSTATE_DELREQ)   ? "DELREQ" :\
-	((stat) == OMAP_DSP_DEVSTATE_KILLREQ)  ? "KILLREQ" :\
-	((stat) == OMAP_DSP_DEVSTATE_ADDFAIL)  ? "ADDFAIL" :\
-						 "unknown")
 
 static ssize_t devstate_show(struct device *d, struct device_attribute *attr,
 			     char *buf)
@@ -2622,14 +2813,12 @@ int __init dsp_taskmod_init(void)
 		return -EINVAL;
 	}
 	dsp_task_class = class_create(THIS_MODULE, "dsptask");
-	devfs_mk_dir("dsptask");
 
 	return 0;
 }
 
 void dsp_taskmod_exit(void)
 {
-	devfs_remove("dsptask");
 	class_destroy(dsp_task_class);
 	driver_unregister(&dsptask_driver);
 	bus_unregister(&dsptask_bus);

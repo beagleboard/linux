@@ -21,7 +21,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
- * 2005/02/17:  DSP Gateway version 3.2
+ * 2005/06/09:  DSP Gateway version 3.3
  */
 
 #include <linux/module.h>
@@ -47,12 +47,12 @@ static ssize_t loadinfo_show(struct device *dev, struct device_attribute *attr,
 static struct device_attribute dev_attr_loadinfo = __ATTR_RO(loadinfo);
 extern struct device_attribute dev_attr_ipbuf;
 
-static enum {
+static enum cfgstat {
 	CFG_ERR,
 	CFG_READY,
 	CFG_SUSPEND
 } cfgstat;
-static int mbx_revision;
+int mbx_revision;
 static DECLARE_WAIT_QUEUE_HEAD(ioctl_wait_q);
 static unsigned short ioctl_wait_cmd;
 static DECLARE_MUTEX(ioctl_sem);
@@ -62,33 +62,6 @@ static unsigned char n_stask;
 /*
  * control functions
  */
-static void dsp_run(void)
-{
-	disable_irq(INT_DSP_MMU);
-	preempt_disable();
-	if (dsp_runstat == RUNSTAT_RESET) {
-		clk_use(api_ck_handle);
-		__dsp_run();
-		dsp_runstat = RUNSTAT_RUN;
-	}
-	preempt_enable();
-	enable_irq(INT_DSP_MMU);
-}
-
-static void dsp_reset(void)
-{
-	disable_irq(INT_DSP_MMU);
-	preempt_disable();
-	if (dsp_runstat > RUNSTAT_RESET) {
-		__dsp_reset();
-		if (dsp_runstat == RUNSTAT_RUN)
-			clk_unuse(api_ck_handle);
-		dsp_runstat = RUNSTAT_RESET;
-	}
-	preempt_enable();
-	enable_irq(INT_DSP_MMU);
-}
-
 static short varread_val[5]; /* maximum */
 
 static int dsp_regread(unsigned short cmd_l, unsigned short adr,
@@ -102,7 +75,7 @@ static int dsp_regread(unsigned short cmd_l, unsigned short adr,
 
 	ioctl_wait_cmd = MBCMD(REGRW);
 	mbcmd_set(mb, MBCMD(REGRW), cmd_l, adr);
-	dsp_mbsend_and_wait(&mb, &ioctl_wait_q);
+	dsp_mbcmd_send_and_wait(&mb, &ioctl_wait_q);
 
 	if (ioctl_wait_cmd != 0) {
 		printk(KERN_ERR "omapdsp: register read error!\n");
@@ -128,7 +101,7 @@ static int dsp_regwrite(unsigned short cmd_l, unsigned short adr,
 	};
 
 	mbcmd_set(mb, MBCMD(REGRW), cmd_l, adr);
-	dsp_mbsend_exarg(&mb, &arg);
+	dsp_mbcmd_send_exarg(&mb, &arg);
 	return 0;
 }
 
@@ -142,7 +115,7 @@ static int dsp_getvar(unsigned char varid, unsigned short *val, int sz)
 
 	ioctl_wait_cmd = MBCMD(GETVAR);
 	mbcmd_set(mb, MBCMD(GETVAR), varid, 0);
-	dsp_mbsend_and_wait(&mb, &ioctl_wait_q);
+	dsp_mbcmd_send_and_wait(&mb, &ioctl_wait_q);
 
 	if (ioctl_wait_cmd != 0) {
 		printk(KERN_ERR "omapdsp: variable read error!\n");
@@ -159,10 +132,7 @@ up_out:
 
 static int dsp_setvar(unsigned char varid, unsigned short val)
 {
-	struct mbcmd mb;
-
-	mbcmd_set(mb, MBCMD(SETVAR), varid, val);
-	dsp_mbsend(&mb);
+	dsp_mbsend(MBCMD(SETVAR), varid, val);
 	return 0;
 }
 
@@ -182,6 +152,15 @@ static int dspcfg(void)
 		goto up_out;
 	}
 
+	/* for safety */
+	dsp_mem_usecount_clear();
+
+	/*
+	 * DSPCFG command and dsp_mem_start() must be called
+	 * while internal mem is on.
+	 */
+	dsp_mem_enable((void *)dspmem_base);
+
 	dsp_mb_start();
 	dsp_twch_start();
 	dsp_mem_start();
@@ -190,7 +169,7 @@ static int dspcfg(void)
 	mbx_revision = -1;
 	ioctl_wait_cmd = MBCMD(DSPCFG);
 	mbcmd_set(mb, MBCMD(DSPCFG), OMAP_DSP_MBCMD_DSPCFG_REQ, 0);
-	dsp_mbsend_and_wait(&mb, &ioctl_wait_q);
+	dsp_mbcmd_send_and_wait(&mb, &ioctl_wait_q);
 
 	if (ioctl_wait_cmd != 0) {
 		printk(KERN_ERR "omapdsp: configuration error!\n");
@@ -199,16 +178,30 @@ static int dspcfg(void)
 		goto up_out;
 	}
 
+#ifdef OLD_BINARY_SUPPORT
+	/*
+	 * MBREV 3.2 or earlier doesn't assume DMA domain is on
+	 * when DSPCFG command is sent
+	 */
+	if ((mbx_revision == MBREV_3_0) ||
+	    (mbx_revision == MBREV_3_2)) {
+		ret = dsp_mbsend(MBCMD(PM), OMAP_DSP_MBCMD_PM_ENABLE,
+				 DSPREG_ICR_DMA_IDLE_DOMAIN);
+	}
+#endif
+
 	if ((ret = dsp_task_config_all(n_stask)) < 0) {
 		up(&ioctl_sem);
 		dspuncfg();
+		dsp_mem_disable((void *)dspmem_base);
 		return -EINVAL;
 	}
 
 	cfgstat = CFG_READY;
 
 	/* send parameter */
-	if ((ret = dsp_setvar(OMAP_DSP_MBCMD_VARID_ICRMASK, dsp_icrmask)) < 0)
+	if ((ret = dsp_setvar(OMAP_DSP_MBCMD_VARID_ICRMASK,
+			      dsp_cpustat_get_icrmask())) < 0)
 		goto up_out;
 
 	/* create runtime sysfs entries */
@@ -216,6 +209,7 @@ static int dspcfg(void)
 	device_create_file(&dsp_device.dev, &dev_attr_ipbuf);
 
 up_out:
+	dsp_mem_disable((void *)dspmem_base);
 	up(&ioctl_sem);
 	return ret;
 }
@@ -229,7 +223,7 @@ int dspuncfg(void)
 
 	if (down_interruptible(&ioctl_sem))
 		return -ERESTARTSYS;
-	
+
 	/* FIXME: lock task module */
 
 	/* remove runtime sysfs entries */
@@ -238,7 +232,9 @@ int dspuncfg(void)
 
 	dsp_mb_stop();
 	dsp_twch_stop();
+	dsp_mem_stop();
 	dsp_err_stop();
+	dsp_dbg_stop();
 	dsp_task_unconfig_all();
 	ipbuf_stop();
 	cfgstat = CFG_ERR;
@@ -252,18 +248,10 @@ int dsp_is_ready(void)
 	return (cfgstat == CFG_READY) ? 1 : 0;
 }
 
-void dsp_runlevel(unsigned char level)
-{
-	struct mbcmd mb;
-
-	mbcmd_set(mb, MBCMD(RUNLEVEL), level, 0);
-	if (level == OMAP_DSP_MBCMD_RUNLEVEL_RECOVERY)
-		dsp_mbsend_recovery(&mb);
-	else
-		dsp_mbsend(&mb);
-}
-
-int dsp_suspend(void)
+/*
+ * polls all tasks
+ */
+int dsp_poll(void)
 {
 	struct mbcmd mb;
 	int ret = 0;
@@ -271,14 +259,65 @@ int dsp_suspend(void)
 	if (down_interruptible(&ioctl_sem))
 		return -ERESTARTSYS;
 
-	if (!dsp_is_ready()) {
+	ioctl_wait_cmd = MBCMD(POLL);
+	mbcmd_set(mb, MBCMD(POLL), 0, 0);
+	dsp_mbcmd_send_and_wait(&mb, &ioctl_wait_q);
+
+	if (ioctl_wait_cmd != 0) {
+		printk(KERN_ERR "omapdsp: poll error!\n");
 		ret = -EINVAL;
 		goto up_out;
 	}
 
+up_out:
+	up(&ioctl_sem);
+	return ret;
+}
+
+void dsp_runlevel(unsigned char level)
+{
+	if (level == OMAP_DSP_MBCMD_RUNLEVEL_RECOVERY)
+		dsp_mbsend_recovery(MBCMD(RUNLEVEL), level, 0);
+	else
+		dsp_mbsend(MBCMD(RUNLEVEL), level, 0);
+}
+
+static enum cfgstat cfgstat_save_suspend;
+
+/*
+ * suspend / resume callbacks
+ * DSP is not reset within this code, but done in omap_pm_suspend.
+ * so if these functions are called as OMAP_DSP_IOCTL_SUSPEND,
+ * DSP should be reset / unreset out of these functions.
+ */
+int dsp_suspend(void)
+{
+	struct mbcmd mb;
+	int ret = 0;
+
+	if (cfgstat == CFG_SUSPEND) {
+		printk(KERN_ERR "omapdsp: DSP is already in suspend state.\n");
+		return -EINVAL;
+	}
+
+	if (down_interruptible(&ioctl_sem))
+		return -ERESTARTSYS;
+
+	cfgstat_save_suspend = cfgstat;
+	if (!dsp_is_ready()) {
+		if (dsp_cpustat_get_stat() == CPUSTAT_RUN) {
+			printk(KERN_WARNING
+			       "omapdsp: illegal operation: trying suspend DSP "
+			       "while it is running but has not configured "
+			       "yet.\n"
+			       "  Resetting DSP...\n");
+		}
+		goto transition;
+	}
+
 	ioctl_wait_cmd = MBCMD(SUSPEND);
 	mbcmd_set(mb, MBCMD(SUSPEND), 0, 0);
-	dsp_mbsend_and_wait(&mb, &ioctl_wait_q);
+	dsp_mbcmd_send_and_wait(&mb, &ioctl_wait_q);
 
 	if (ioctl_wait_cmd != 0) {
 		printk(KERN_ERR "omapdsp: DSP suspend error!\n");
@@ -287,6 +326,7 @@ int dsp_suspend(void)
 	}
 
 	udelay(100);
+transition:
 	cfgstat = CFG_SUSPEND;
 up_out:
 	up(&ioctl_sem);
@@ -295,29 +335,24 @@ up_out:
 
 int dsp_resume(void)
 {
-	if (cfgstat != CFG_SUSPEND)
-		return 0;
+	if (cfgstat != CFG_SUSPEND) {
+		printk(KERN_ERR "omapdsp: DSP is not in suspend state.\n");
+		return -EINVAL;
+	}
 
-	cfgstat = CFG_READY;
+	cfgstat = cfgstat_save_suspend;
 	return 0;
 }
 
 static void dsp_fbctl_enable(void)
 {
-#ifdef CONFIG_FB_OMAP_EXTERNAL_LCDC
-	struct mbcmd mb;
-
-	mbcmd_set(mb, MBCMD(KFUNC), OMAP_DSP_MBCMD_KFUNC_FBCTL,
-		  OMAP_DSP_MBCMD_FBCTL_ENABLE);
-	dsp_mbsend(&mb);
-#endif
+	dsp_mbsend(MBCMD(KFUNC), OMAP_DSP_MBCMD_KFUNC_FBCTL,
+		   OMAP_DSP_MBCMD_FBCTL_ENABLE);
 }
 
 static int dsp_fbctl_disable(void)
 {
 	int ret = 0;
-
-#ifdef CONFIG_FB_OMAP_EXTERNAL_LCDC
 	struct mbcmd mb;
 
 	if (down_interruptible(&ioctl_sem))
@@ -326,13 +361,12 @@ static int dsp_fbctl_disable(void)
 	ioctl_wait_cmd = MBCMD(KFUNC);
 	mbcmd_set(mb, MBCMD(KFUNC), OMAP_DSP_MBCMD_KFUNC_FBCTL,
 		  OMAP_DSP_MBCMD_FBCTL_DISABLE);
-	dsp_mbsend_and_wait(&mb, &ioctl_wait_q);
+	dsp_mbcmd_send_and_wait(&mb, &ioctl_wait_q);
 	if (ioctl_wait_cmd != 0) {
 		printk(KERN_ERR "omapdsp: fb disable error!\n");
 		ret = -EINVAL;
 	}
 	up(&ioctl_sem);
-#endif
 
 	return ret;
 }
@@ -350,19 +384,23 @@ static int dsp_ctl_ioctl(struct inode *inode, struct file *file,
 	 * command level 1: commands which don't need lock
 	 */
 	case OMAP_DSP_IOCTL_RUN:
-		dsp_run();
+		dsp_cpustat_request(CPUSTAT_RUN);
 		break;
 
 	case OMAP_DSP_IOCTL_RESET:
-		dsp_reset();
+		dsp_cpustat_request(CPUSTAT_RESET);
 		break;
 
 	case OMAP_DSP_IOCTL_SETRSTVECT:
 		ret = dsp_set_rstvect((unsigned long)arg);
 		break;
 
-	case OMAP_DSP_IOCTL_IDLE:
-		dsp_idle();
+	case OMAP_DSP_IOCTL_CPU_IDLE:
+		dsp_cpustat_request(CPUSTAT_CPU_IDLE);
+		break;
+
+	case OMAP_DSP_IOCTL_GBL_IDLE:
+		dsp_cpustat_request(CPUSTAT_GBL_IDLE);
 		break;
 
 	case OMAP_DSP_IOCTL_MPUI_WORDSWAP_ON:
@@ -389,7 +427,7 @@ static int dsp_ctl_ioctl(struct inode *inode, struct file *file,
 				return -EFAULT;
 			mb.cmd  = u_cmd.cmd;
 			mb.data = u_cmd.data;
-			ret = dsp_mbsend((struct mbcmd *)&mb);
+			ret = dsp_mbcmd_send((struct mbcmd *)&mb);
 			break;
 		}
 
@@ -425,20 +463,27 @@ static int dsp_ctl_ioctl(struct inode *inode, struct file *file,
 		ret = dsp_task_count();
 		break;
 
+	case OMAP_DSP_IOCTL_POLL:
+		ret = dsp_poll();
+		break;
+
 	case OMAP_DSP_IOCTL_FBDIS:
 		ret = dsp_fbctl_disable();
 		break;
 
+	/*
+	 * FIXME: cpu status control for suspend - resume
+	 */
 	case OMAP_DSP_IOCTL_SUSPEND:
 		if ((ret = dsp_suspend()) < 0)
 			break;
-		dsp_reset();
+		dsp_cpustat_request(CPUSTAT_RESET);
 		break;
 
 	case OMAP_DSP_IOCTL_RESUME:
 		if ((ret = dsp_resume()) < 0)
 			break;
-		dsp_run();
+		dsp_cpustat_request(CPUSTAT_RUN);
 		break;
 
 	case OMAP_DSP_IOCTL_REGMEMR:
@@ -547,7 +592,7 @@ void mbx1_dspcfg(struct mbcmd *mb)
 {
 	unsigned char last   = mb->cmd_l & 0x80;
 	unsigned char cfgcmd = mb->cmd_l & 0x7f;
-	static unsigned long tmp_ipbuf_sys_da;
+	static unsigned long tmp_ipb_adr;
 
 	/* mailbox protocol check */
 	if (cfgcmd == OMAP_DSP_MBCMD_DSPCFG_PROTREV) {
@@ -563,7 +608,8 @@ void mbx1_dspcfg(struct mbcmd *mb)
 		if (mbx_revision == OMAP_DSP_MBPROT_REVISION)
 			return;
 #ifdef OLD_BINARY_SUPPORT
-		else if (mbx_revision == MBREV_3_0) {
+		else if ((mbx_revision == MBREV_3_0) ||
+		         (mbx_revision == MBREV_3_2)) {
 			printk(KERN_WARNING
 			       "mbx: ***** old DSP binary *****\n"
 			       "  Please update your DSP application.\n");
@@ -576,7 +622,7 @@ void mbx1_dspcfg(struct mbcmd *mb)
 			       "  expected=0x%04x, received=0x%04x\n",
 			       OMAP_DSP_MBPROT_REVISION, mb->data);
 			mbx_revision = -1;
-			goto abort;
+			goto abort1;
 		}
 	}
 
@@ -601,15 +647,15 @@ void mbx1_dspcfg(struct mbcmd *mb)
 
 	switch (cfgcmd) {
 	case OMAP_DSP_MBCMD_DSPCFG_SYSADRH:
-		tmp_ipbuf_sys_da = (unsigned long)mb->data << 16;
+		tmp_ipb_adr = (unsigned long)mb->data << 16;
 		break;
 
 	case OMAP_DSP_MBCMD_DSPCFG_SYSADRL:
-		tmp_ipbuf_sys_da |= mb->data;
+		tmp_ipb_adr |= mb->data;
 		break;
 
 	case OMAP_DSP_MBCMD_DSPCFG_ABORT:
-		goto abort;
+		goto abort1;
 
 	default:
 		printk(KERN_ERR
@@ -619,24 +665,23 @@ void mbx1_dspcfg(struct mbcmd *mb)
 	}
 
 	if (last) {
-		unsigned long badr;
+		void *badr;
 		unsigned short bln;
 		unsigned short bsz;
 		volatile unsigned short *buf;
-		void *sync_seq;
+		void *ipb_sys_da, *ipb_sys_ad;
+		void *mbseq;
+		short *dbg_buf;
+		unsigned short dbg_buf_sz, dbg_line_sz;
+		struct mem_sync_struct mem_sync, *mem_syncp;
 
-		/* system IPBUF initialization */
-		if (tmp_ipbuf_sys_da & 0x1) {
-			printk(KERN_ERR
-			       "mbx: system ipbuf address (0x%lx) "
-			       "is odd number!\n", tmp_ipbuf_sys_da);
-			goto abort;
-		}
-		ipbuf_sys_da = dspword_to_virt(tmp_ipbuf_sys_da);
+		ipb_sys_da = dspword_to_virt(tmp_ipb_adr);
+		if (ipbuf_sys_config(ipb_sys_da, DIR_D2A) < 0)
+			goto abort1;
 
 		if (sync_with_dsp(&ipbuf_sys_da->s, OMAP_DSP_TID_ANON, 10) < 0) {
 			printk(KERN_ERR "mbx: DSPCFG - IPBUF sync failed!\n");
-			return;
+			goto abort1;
 		}
 		/*
 		 * read configuration data on system IPBUF
@@ -646,45 +691,93 @@ void mbx1_dspcfg(struct mbcmd *mb)
 		if (mbx_revision == OMAP_DSP_MBPROT_REVISION) {
 #endif
 			buf = ipbuf_sys_da->d;
-			n_stask = buf[0];
-			bln     = buf[1];
-			bsz     = buf[2];
-			badr    = MKLONG(buf[3], buf[4]);
-			/*ipbuf_sys_da = dspword_to_virt(MKLONG(buf[5], buf[6])); */
-			ipbuf_sys_ad = dspword_to_virt(MKLONG(buf[7], buf[8]));
-			sync_seq = dspword_to_virt(MKLONG(buf[9], buf[10]));
+			n_stask        = buf[0];
+			bln            = buf[1];
+			bsz            = buf[2];
+			badr           = MKVIRT(buf[3], buf[4]);
+			/* ipb_sys_da     = MKVIRT(buf[5], buf[6]); */
+			ipb_sys_ad     = MKVIRT(buf[7], buf[8]);
+			mbseq          = MKVIRT(buf[9], buf[10]);
+			dbg_buf        = MKVIRT(buf[11], buf[12]);
+			dbg_buf_sz     = buf[13];
+			dbg_line_sz    = buf[14];
+			mem_sync.DARAM = MKVIRT(buf[15], buf[16]);
+			mem_sync.SARAM = MKVIRT(buf[17], buf[18]);
+			mem_sync.SDRAM = MKVIRT(buf[19], buf[20]);
+			mem_syncp = &mem_sync;
 #ifdef OLD_BINARY_SUPPORT
+		} else if (mbx_revision == MBREV_3_2) {
+			buf = ipbuf_sys_da->d;
+			n_stask     = buf[0];
+			bln         = buf[1];
+			bsz         = buf[2];
+			badr        = MKVIRT(buf[3], buf[4]);
+			/* ipb_sys_da  = MKVIRT(buf[5], buf[6]); */
+			ipb_sys_ad  = MKVIRT(buf[7], buf[8]);
+			mbseq       = MKVIRT(buf[9], buf[10]);
+			dbg_buf     = NULL;
+			dbg_buf_sz  = 0;
+			dbg_line_sz = 0;
+			mem_syncp   = NULL;
 		} else if (mbx_revision == MBREV_3_0) {
 			buf = ipbuf_sys_da->d;
-			n_stask = buf[0];
-			bln     = buf[1];
-			bsz     = buf[2];
-			badr    = MKLONG(buf[3], buf[4]);
-			/* bkeep   = buf[5]; */
-			/*ipbuf_sys_da = dspword_to_virt(MKLONG(buf[6], buf[67)); */
-			ipbuf_sys_ad = dspword_to_virt(MKLONG(buf[8], buf[9]));
-			sync_seq = dspword_to_virt(MKLONG(buf[10], buf[11]));
+			n_stask     = buf[0];
+			bln         = buf[1];
+			bsz         = buf[2];
+			badr        = MKVIRT(buf[3], buf[4]);
+			/* bkeep       = buf[5]; */
+			/* ipb_sys_da  = MKVIRT(buf[6], buf[7]); */
+			ipb_sys_ad  = MKVIRT(buf[8], buf[9]);
+			mbseq       = MKVIRT(buf[10], buf[11]);
+			dbg_buf     = NULL;
+			dbg_buf_sz  = 0;
+			dbg_line_sz = 0;
+			mem_syncp   = NULL;
 		} else /* should not occur */
-			goto abort;
-#endif
+			goto abort1;
+#endif /* OLD_BINARY_SUPPORT */
 
-		/* ipbuf_config() should be done in interrupt routine. */
+		release_ipbuf_pvt(ipbuf_sys_da);
+
+		/*
+		 * following configurations need to be done before
+		 * waking up the dspcfg initiator process.
+		 */
+		if (ipbuf_sys_config(ipb_sys_ad, DIR_A2D) < 0)
+			goto abort1;
 		if (ipbuf_config(bln, bsz, badr) < 0)
-			goto abort;
-
-		ipbuf_sys_da->s = OMAP_DSP_TID_FREE;
-
-		/* mb_config() should be done in interrupt routine. */
-		dsp_mb_config(sync_seq);
+			goto abort1;
+		if (dsp_mb_config(mbseq) < 0)
+			goto abort2;
+		if (dsp_dbg_config(dbg_buf, dbg_buf_sz, dbg_line_sz) < 0)
+			goto abort2;
+		if (dsp_mem_sync_config(mem_syncp) < 0)
+			goto abort2;
 
 		ioctl_wait_cmd = 0;
 		wake_up_interruptible(&ioctl_wait_q);
 	}
 	return;
 
-abort:
+abort2:
+	ipbuf_stop();
+abort1:
 	wake_up_interruptible(&ioctl_wait_q);
 	return;
+}
+
+void mbx1_poll(struct mbcmd *mb)
+{
+	if (!waitqueue_active(&ioctl_wait_q) ||
+	    (ioctl_wait_cmd != MBCMD(POLL))) {
+		printk(KERN_WARNING
+		       "mbx: POLL command received, "
+		       "but nobody is waiting for it...\n");
+		return;
+	}
+
+	ioctl_wait_cmd = 0;
+	wake_up_interruptible(&ioctl_wait_q);
 }
 
 void mbx1_regrw(struct mbcmd *mb)
@@ -743,7 +836,7 @@ void mbx1_getvar(struct mbcmd *mb)
 			for (i = 0; i < 5; i++) {
 				varread_val[i] = buf[i];
 			}
-			ipbuf_sys_da->s = OMAP_DSP_TID_FREE;
+			release_ipbuf_pvt(ipbuf_sys_da);
 			break;
 		}
 	}
@@ -765,51 +858,54 @@ static ssize_t ifver_show(struct device *dev, struct device_attribute *attr,
 	 *
 	 * 3.2: sysfs / udev support
 	 *      KMEM_RESERVE / KMEM_RELEASE ioctls for mem device
+	 * 3.3: added following ioctls
+	 *      OMAP_DSP_IOCTL_GBL_IDLE
+	 *      OMAP_DSP_IOCTL_CPU_IDLE (instead of OMAP_DSP_IOCTL_IDLE)
+	 *      OMAP_DSP_IOCTL_POLL
 	 */
 
 	/*
 	 * print all supporting I/F VERSIONs, like followings.
 	 *
-	 * len += sprintf(buf, "3.1\n");
 	 * len += sprintf(buf, "3.2\n");
+	 * len += sprintf(buf, "3.3\n");
 	 */
 	len += sprintf(buf + len, "3.2\n");
+	len += sprintf(buf + len, "3.3\n");
 
 	return len;
 }
 
 static struct device_attribute dev_attr_ifver = __ATTR_RO(ifver);
 
+static ssize_t cpustat_show(struct device *dev, struct device_attribute *attr,
+			    char *buf)
+{
+	return sprintf(buf, "%s\n", cpustat_name(dsp_cpustat_get_stat()));
+}
+
+static struct device_attribute dev_attr_cpustat = __ATTR_RO(cpustat);
+
 static ssize_t icrmask_show(struct device *dev, struct device_attribute *attr,
 			    char *buf)
 {
-#if 0
-	if (dsp_is_ready()) {
-		int ret;
-		unsigned short val;
-
-		if ((ret = dsp_getvar(OMAP_DSP_MBCMD_VARID_ICRMASK, &val, 1)) < 0)
-			return ret;
-		if (val != dsp_icrmask)
-			printk(KERN_WARNING
-			       "omapdsp: icrmask value is inconsistent!\n");
-	}
-#endif
-	return sprintf(buf, "0x%04x\n", dsp_icrmask);
+	return sprintf(buf, "0x%04x\n", dsp_cpustat_get_icrmask());
 }
 
 static ssize_t icrmask_store(struct device *dev, struct device_attribute *attr,
 			     const char *buf, size_t count)
 {
+	unsigned short mask;
 	int ret;
 
 	if (!capable(CAP_SYS_ADMIN))
 		return -EPERM;
 
-	dsp_icrmask = simple_strtol(buf, NULL, 16);
+	mask = simple_strtol(buf, NULL, 16);
+	dsp_cpustat_set_icrmask(mask);
 
 	if (dsp_is_ready()) {
-		ret = dsp_setvar(OMAP_DSP_MBCMD_VARID_ICRMASK, dsp_icrmask);
+		ret = dsp_setvar(OMAP_DSP_MBCMD_VARID_ICRMASK, mask);
 		if (ret < 0)
 			return ret;
 	}
@@ -848,7 +944,6 @@ static ssize_t loadinfo_show(struct device *dev, struct device_attribute *attr,
  * static struct device_attribute dev_attr_loadinfo = __ATTR_RO(loadinfo);
  */
 
-#ifdef CONFIG_FB_OMAP_EXTERNAL_LCDC
 void mbx1_fbctl_disable(void)
 {
 	if (!waitqueue_active(&ioctl_wait_q) ||
@@ -861,7 +956,6 @@ void mbx1_fbctl_disable(void)
 	ioctl_wait_cmd = 0;
 	wake_up_interruptible(&ioctl_wait_q);
 }
-#endif
 
 #ifdef CONFIG_PROC_FS
 /* for backward compatibility */
@@ -902,6 +996,7 @@ struct file_operations dsp_ctl_fops = {
 void __init dsp_ctl_init(void)
 {
 	device_create_file(&dsp_device.dev, &dev_attr_ifver);
+	device_create_file(&dsp_device.dev, &dev_attr_cpustat);
 	device_create_file(&dsp_device.dev, &dev_attr_icrmask);
 #ifdef CONFIG_PROC_FS
 	dsp_ctl_create_proc();
@@ -911,6 +1006,7 @@ void __init dsp_ctl_init(void)
 void dsp_ctl_exit(void)
 {
 	device_remove_file(&dsp_device.dev, &dev_attr_ifver);
+	device_remove_file(&dsp_device.dev, &dev_attr_cpustat);
 	device_remove_file(&dsp_device.dev, &dev_attr_icrmask);
 #ifdef CONFIG_PROC_FS
 	dsp_ctl_remove_proc();

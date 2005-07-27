@@ -21,7 +21,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
- * 2005/02/17:  DSP Gateway version 3.2
+ * 2005/05/18:  DSP Gateway version 3.3
  */
 
 #include <linux/module.h>
@@ -98,6 +98,7 @@ char *subcmd_name(struct mbcmd *mb)
 		    (cmd_l == EID(BADTCTL))    ? "BADTCTL":
 		    (cmd_l == EID(BADPARAM))   ? "BADPARAM":
 		    (cmd_l == EID(FATAL))      ? "FATAL":
+		    (cmd_l == EID(WDT))        ? "WDT":
 		    (cmd_l == EID(NOMEM))      ? "NOMEM":
 		    (cmd_l == EID(NORES))      ? "NORES":
 		    (cmd_l == EID(IPBFULL))    ? "IPBFULL":
@@ -124,7 +125,7 @@ struct mblogent {
 	unsigned long jiffies;
 	unsigned short cmd;
 	unsigned short data;
-	enum mblog_dir dir;
+	enum arm_dsp_dir dir;
 };
 
 static struct {
@@ -134,7 +135,7 @@ static struct {
 	struct mblogent ent[MBLOG_DEPTH];
 } mblog;
 
-void mblog_add(struct mbcmd *mb, enum mblog_dir dir)
+void mblog_add(struct mbcmd *mb, enum arm_dsp_dir dir)
 {
 	struct mbcmd_hw *mb_hw = (struct mbcmd_hw *)mb;
 	struct mblogent *ent;
@@ -148,11 +149,11 @@ void mblog_add(struct mbcmd *mb, enum mblog_dir dir)
 	if (mblog.cnt < 0xffffffff)
 		mblog.cnt++;
 	switch (dir) {
-	case MBLOG_DIR_AD:
+	case DIR_A2D:
 		if (mblog.cnt_ad < 0xffffffff)
 			mblog.cnt_ad++;
 		break;
-	case MBLOG_DIR_DA:
+	case DIR_D2A:
 		if (mblog.cnt_da < 0xffffffff)
 			mblog.cnt_da++;
 		break;
@@ -197,7 +198,7 @@ static ssize_t mblog_show(struct device *dev, struct device_attribute *attr,
 		const struct cmdinfo *ci = cmdinfo[mb.sw.cmd_h];
 
 		len += sprintf(buf + len,
-			       (ent->dir == MBLOG_DIR_AD) ?
+			       (ent->dir == DIR_A2D) ?
 				"%08lx %d %04x %04x             ":
 				"%08lx             %d %04x %04x ",
 			       ent->jiffies, mb.sw.seq, ent->cmd, ent->data);
@@ -230,13 +231,13 @@ done:
 static struct device_attribute dev_attr_mblog = __ATTR_RO(mblog);
 
 #ifdef CONFIG_OMAP_DSP_MBCMD_VERBOSE
-void mblog_printcmd(struct mbcmd *mb, enum mblog_dir dir)
+void mblog_printcmd(struct mbcmd *mb, enum arm_dsp_dir dir)
 {
 	const struct cmdinfo *ci = cmdinfo[mb->cmd_h];
 	char *dir_str;
 	char *subname;
 
-	dir_str = (dir == MBLOG_DIR_AD) ? "sending" : "receiving";
+	dir_str = (dir == DIR_A2D) ? "sending" : "receiving";
 	switch (ci->cmd_l_type) {
 	case CMD_L_TYPE_SUBCMD:
 		if ((subname = subcmd_name(mb)) == NULL)

@@ -22,7 +22,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
  * Toshihiro Kobayashi <toshihiro.kobayashi@nokia.com>
- * 2005/02/17:  DSP Gateway version 3.2
+ * 2005/06/09:  DSP Gateway version 3.3
  */
 
 #include <linux/module.h>
@@ -42,8 +42,8 @@
 #include <asm/hardware/clock.h>
 #include <asm/arch/tc.h>
 #include <asm/arch/dsp.h>
+#include <asm/arch/dsp_common.h>
 #include "uaccess_dsp.h"
-#include "ipbuf.h"
 #include "dsp.h"
 
 #define SZ_1MB	0x100000
@@ -99,9 +99,12 @@ enum exmap_type {
 struct exmap_tbl {
 	unsigned int valid:1;
 	unsigned int cntnu:1;	/* grouping */
+	int usecount;		/* reference count by mmap */
 	enum exmap_type type;
-	void *buf;
-	void *vadr;
+	void *buf;		/* virtual address of the buffer,
+				 * i.e. 0xc0000000 - */
+	void *vadr;		/* DSP shadow space,
+				 * i.e. 0xe0000000 - 0xe0ffffff */
 	unsigned int order;
 };
 #define DSPMMU_TLB_LINES	32
@@ -112,6 +115,7 @@ static int dsp_exunmap(unsigned long dspadr);
 
 static void *dspvect_page;
 static unsigned long dsp_fault_adr;
+static struct mem_sync_struct mem_sync;
 
 static __inline__ unsigned long lineup_offset(unsigned long adr,
 					      unsigned long ref,
@@ -123,6 +127,47 @@ static __inline__ unsigned long lineup_offset(unsigned long adr,
 	if (newadr < adr)
 		newadr += mask + 1;
 	return newadr;
+}
+
+void dsp_mem_sync_inc(void)
+{
+	/*
+	 * FIXME: dsp_mem_enable()!!!
+	 */
+	if (mem_sync.DARAM)
+		mem_sync.DARAM->ad_arm++;
+	if (mem_sync.SARAM)
+		mem_sync.SARAM->ad_arm++;
+	if (mem_sync.SDRAM)
+		mem_sync.SDRAM->ad_arm++;
+}
+
+/*
+ * dsp_mem_sync_config() is called from mbx1 workqueue
+ */
+int dsp_mem_sync_config(struct mem_sync_struct *sync)
+{
+	size_t sync_seq_sz = sizeof(struct sync_seq);
+
+#ifdef OLD_BINARY_SUPPORT
+	if (sync == NULL) {
+		memset(&mem_sync, 0, sizeof(struct mem_sync_struct));
+		return 0;
+	}
+#endif
+	if ((dsp_mem_type(sync->DARAM, sync_seq_sz) != MEM_TYPE_DARAM) ||
+	    (dsp_mem_type(sync->SARAM, sync_seq_sz) != MEM_TYPE_SARAM) ||
+	    (dsp_mem_type(sync->SDRAM, sync_seq_sz) != MEM_TYPE_EXTERN)) {
+		printk(KERN_ERR
+		       "omapdsp: mem_sync address validation failure!\n"
+		       "  mem_sync.DARAM = 0x%p,\n"
+		       "  mem_sync.SARAM = 0x%p,\n"
+		       "  mem_sync.SDRAM = 0x%p,\n",
+		       sync->DARAM, sync->SARAM, sync->SDRAM);
+		return -1;
+	}
+	memcpy(&mem_sync, sync, sizeof(struct mem_sync_struct));
+	return 0;
 }
 
 /*
@@ -262,11 +307,21 @@ static unsigned long dsp_mem_get_dma_pages(unsigned int order)
 	return __get_dma_pages(GFP_KERNEL, order);
 }
 
-static void dsp_mem_free_pages(unsigned int buf, unsigned int order)
+static void dsp_mem_free_pages(unsigned long buf, unsigned int order)
 {
 	struct kmem_pool *pool;
+	struct page *page, *ps, *pe;
 	int i;
 
+	ps = virt_to_page(buf);
+	pe = virt_to_page(buf + (1 << (PAGE_SHIFT + order)));
+	for (page = ps; page < pe; page++) {
+		ClearPageReserved(page);
+	}
+
+	/*
+	 * return buffer to kmem_pool or paging system
+	 */
 	switch (order) {
 		case ORDER_1MB:
 			pool = &kmem_pool_1M;
@@ -358,6 +413,7 @@ static void exmap_clear_armmmu(unsigned long virt, unsigned long size)
 
 static int exmap_valid(void *vadr, size_t len)
 {
+	/* exmap_sem should be held before calling this function */
 	int i;
 
 start:
@@ -387,6 +443,107 @@ start:
 	}
 
 	return 0;
+}
+
+enum dsp_mem_type_e dsp_mem_type(void *vadr, size_t len)
+{
+	void *ds = (void *)daram_base;
+	void *de = (void *)daram_base + daram_size;
+	void *ss = (void *)saram_base;
+	void *se = (void *)saram_base + saram_size;
+	int ret;
+
+	if ((vadr >= ds) && (vadr < de)) {
+		if (vadr + len > de)
+			return MEM_TYPE_CROSSING;
+		else
+			return MEM_TYPE_DARAM;
+	} else if ((vadr >= ss) && (vadr < se)) {
+		if (vadr + len > se)
+			return MEM_TYPE_CROSSING;
+		else
+			return MEM_TYPE_SARAM;
+	} else {
+		down_read(&exmap_sem);
+		if (exmap_valid(vadr, len))
+			ret = MEM_TYPE_EXTERN;
+		else
+			ret = MEM_TYPE_NONE;
+		up_read(&exmap_sem);
+		return ret;
+	}
+}
+
+int dsp_address_validate(void *p, size_t len, char *fmt, ...)
+{
+	if (dsp_mem_type(p, len) <= 0) {
+		if (fmt != NULL) {
+			char s[64];
+			va_list args;
+
+			va_start(args, fmt);
+			vsprintf(s, fmt, args);
+			va_end(args);
+			printk(KERN_ERR
+			       "omapdsp: %s address(0x%p) and size(0x%x) is "
+			       "not valid!\n"
+			       "         (crossing different type of memories, or \n"
+			       "          external memory space where no "
+			       "actual memory is mapped)\n",
+			       s, p, len);
+		}
+		return -1;
+	}
+
+	return 0;
+}
+
+/*
+ * exmap_use(), unuse(): 
+ * when the mapped area is exported to user space with mmap,
+ * the usecount is incremented.
+ * while the usecount > 0, that area can't be released.
+ */
+void exmap_use(void *vadr, size_t len)
+{
+	int i;
+
+	down_write(&exmap_sem);
+	for (i = 0; i < DSPMMU_TLB_LINES; i++) {
+		void *mapadr;
+		unsigned long mapsize;
+		struct exmap_tbl *ent = &exmap_tbl[i];
+
+		if (!ent->valid)
+			continue;
+		mapadr = (void *)ent->vadr;
+		mapsize = 1 << (ent->order + PAGE_SHIFT);
+		if ((vadr + len > mapadr) && (vadr < mapadr + mapsize)) {
+			ent->usecount++;
+		}
+	}
+	up_write(&exmap_sem);
+}
+
+void exmap_unuse(void *vadr, size_t len)
+{
+	int i;
+
+	down_write(&exmap_sem);
+	for (i = 0; i < DSPMMU_TLB_LINES; i++) {
+		void *mapadr;
+		unsigned long mapsize;
+		struct exmap_tbl *ent = &exmap_tbl[i];
+
+		if (!ent->valid)
+			continue;
+		mapadr = (void *)ent->vadr;
+		mapsize = 1 << (ent->order + PAGE_SHIFT);
+		if ((vadr + len > mapadr) && (vadr < mapadr + mapsize)) {
+			ent->usecount--;
+		}
+	}
+	up_write(&exmap_sem);
 }
 
 /*
@@ -744,12 +901,13 @@ found_free:
 		goto fail;
 	}
 
-	exmap_ent->buf   = buf;
-	exmap_ent->vadr  = _vadr;
-	exmap_ent->order = order;
-	exmap_ent->valid = 1;
-	exmap_ent->cntnu = cntnu;
-	exmap_ent->type  = type;
+	exmap_ent->buf      = buf;
+	exmap_ent->vadr     = _vadr;
+	exmap_ent->order    = order;
+	exmap_ent->valid    = 1;
+	exmap_ent->cntnu    = cntnu;
+	exmap_ent->type     = type;
+	exmap_ent->usecount = 0;
 
 	if ((_size -= unit) == 0) {	/* normal completion */
 		up_write(&exmap_sem);
@@ -812,6 +970,14 @@ static int dsp_exunmap(unsigned long dspadr)
 	return -EINVAL;
 
 found_map:
+	if (ent->usecount > 0) {
+		printk(KERN_ERR
+		       "omapdsp: exmap reference count is not 0.\n"
+		       "   idx=%d, vadr=%p, order=%d, usecount=%d\n",
+		       idx, ent->vadr, ent->order, ent->usecount);
+		up_write(&exmap_sem);
+		return -EINVAL;
+	}
 	/* clearing DSP TLB entry */
 	dsp_mmu_clear_tlb(dspadr);
 
@@ -871,11 +1037,6 @@ static void exmap_flush(void)
 	/* flush TLB */
 	flush_tlb_kernel_range(dspmem_base + dspmem_size,
 			       dspmem_base + DSPSPACE_SIZE);
-	/*
-	 * we should clear processes' mm as well,
-	 * because processes might had accessed to those spaces
-	 * with old table in the past.
-	 */
 	up_write(&exmap_sem);
 }
 
@@ -998,11 +1159,12 @@ static void dsp_mmu_init(void)
 	phys = __pa(dspvect_page);
 	virt = dspbyte_to_virt(DSP_INIT_PAGE);	/* 0xe0fff000 */
 	exmap_set_armmmu((unsigned long)virt, phys, PAGE_SIZE);
-	exmap_tbl[0].buf   = dspvect_page;
-	exmap_tbl[0].vadr  = virt;
-	exmap_tbl[0].order = 0;
-	exmap_tbl[0].valid = 1;
-	exmap_tbl[0].cntnu = 0;
+	exmap_tbl[0].buf      = dspvect_page;
+	exmap_tbl[0].vadr     = virt;
+	exmap_tbl[0].usecount = 0;
+	exmap_tbl[0].order    = 0;
+	exmap_tbl[0].valid    = 1;
+	exmap_tbl[0].cntnu    = 0;
 
 	/* DSP TLB initialization */
 	set_tlb_lock(0, 0);
@@ -1020,88 +1182,66 @@ static void dsp_mmu_shutdown(void)
 }
 
 /*
- * dsp_mem_enable() / disable():
+ * intmem_enable() / disable():
  * if the address is in DSP internal memories,
  * we send PM mailbox commands so that DSP DMA domain won't go in idle
  * when ARM is accessing to those memories.
- * if the address is in external memory, acquire exmap_sem.
- *
- * __dsp_mem_enable() / disable() should be called only from __dsp_mbsend().
  */
-static int dsp_mem_en_count;
+static int intmem_enable(void)
+{
+	int ret = 0;
+
+	if (dsp_is_ready())
+		ret = dsp_mbsend(MBCMD(PM), OMAP_DSP_MBCMD_PM_ENABLE,
+				 DSPREG_ICR_DMA_IDLE_DOMAIN);
+
+	return ret;
+}
+
+static void intmem_disable(void) {
+	if (dsp_is_ready())
+		dsp_mbsend(MBCMD(PM), OMAP_DSP_MBCMD_PM_DISABLE,
+			   DSPREG_ICR_DMA_IDLE_DOMAIN);
+}
+
+/*
+ * dsp_mem_enable() / disable()
+ */
+int intmem_usecount;
 
 int dsp_mem_enable(void *adr)
 {
-	struct mbcmd mb;
-	int ret;
+	int ret = 0;
 
 	if (is_dsp_internal_mem(adr)) {
-		if (dsp_is_ready() && (!dsp_mem_en_count) &&
-		    (dsp_icrmask & DSPREG_ICR_DMA_IDLE_DOMAIN)) {
-			mbcmd_set(mb, MBCMD(PM), OMAP_DSP_MBCMD_PM_ENABLE,
-				  DSPREG_ICR_DMA_IDLE_DOMAIN);
-			if ((ret = dsp_mbsend(&mb)) < 0)
-				return ret;
-			dsp_mem_en_count++;
-		}
+		if (intmem_usecount++ == 0)
+			ret = omap_dsp_request_mem();
 	} else
 		down_read(&exmap_sem);
-	return 0;
+
+	return ret;
 }
 
-int dsp_mem_disable(void *adr)
+void dsp_mem_disable(void *adr)
 {
-	struct mbcmd mb;
-	int ret;
-
 	if (is_dsp_internal_mem(adr)) {
-		if (dsp_is_ready() && dsp_mem_en_count) {
-			mbcmd_set(mb, MBCMD(PM), OMAP_DSP_MBCMD_PM_DISABLE,
-				  DSPREG_ICR_DMA_IDLE_DOMAIN);
-			if ((ret = dsp_mbsend(&mb)) < 0)
-				return ret;
-			dsp_mem_en_count--;
-		}
+		if (--intmem_usecount == 0)
+			omap_dsp_release_mem();
 	} else
 		up_read(&exmap_sem);
-	return 0;
 }
 
-int __dsp_mem_enable(void *adr)
+/* for safety */
+void dsp_mem_usecount_clear(void)
 {
-	struct mbcmd mb;
-	int ret;
-
-	if (is_dsp_internal_mem(adr)) {
-		if (dsp_is_ready() && (!dsp_mem_en_count) &&
-		    (dsp_icrmask & DSPREG_ICR_DMA_IDLE_DOMAIN)) {
-			mbcmd_set(mb, MBCMD(PM), OMAP_DSP_MBCMD_PM_ENABLE,
-				  DSPREG_ICR_DMA_IDLE_DOMAIN);
-			if ((ret = __mbsend(&mb)) < 0)
-				return ret;
-			dsp_mem_en_count++;
-		}
-	} else
-		down_read(&exmap_sem);
-	return 0;
-}
-
-int __dsp_mem_disable(void *adr)
-{
-	struct mbcmd mb;
-	int ret;
-
-	if (is_dsp_internal_mem(adr)) {
-		if (dsp_is_ready() && dsp_mem_en_count) {
-			mbcmd_set(mb, MBCMD(PM), OMAP_DSP_MBCMD_PM_DISABLE,
-				  DSPREG_ICR_DMA_IDLE_DOMAIN);
-			if ((ret = __mbsend(&mb)) < 0)
-				return ret;
-			dsp_mem_en_count--;
-		}
-	} else
-		up_read(&exmap_sem);
-	return 0;
+	if (intmem_usecount != 0) {
+		printk(KERN_WARNING
+		       "omapdsp: unbalanced memory request/release detected.\n"
+		       "         intmem_usecount is not zero at where "
+		       "it should be! ... fixed to be zero.\n");
+		intmem_usecount = 0;
+		omap_dsp_release_mem();
+	}
 }
 
 /*
@@ -1144,10 +1284,10 @@ static ssize_t intmem_read(struct file *file, char *buf, size_t count,
 		read = size - p;
 	if (copy_to_user(buf, vadr, read)) {
 		read = -EFAULT;
-		goto finish;
+		goto out;
 	}
 	*ppos += read;
-finish:
+out:
 	clk_unuse(api_ck_handle);
 	return read;
 }
@@ -1157,39 +1297,37 @@ static ssize_t exmem_read(struct file *file, char *buf, size_t count,
 {
 	unsigned long p = *ppos;
 	void *vadr = dspbyte_to_virt(p);
-	ssize_t ret;
 
-	down_read(&exmap_sem);
 	if (!exmap_valid(vadr, count)) {
 		printk(KERN_ERR
 		       "omapdsp: DSP address %08lx / size %08x "
 		       "is not valid!\n", p, count);
-		ret = -EFAULT;
-		goto up_out;
+		return -EFAULT;
 	}
 	if (count > DSPSPACE_SIZE - p)
 		count = DSPSPACE_SIZE - p;
-	if (copy_to_user(buf, vadr, count)) {
-		ret = -EFAULT;
-		goto up_out;
-	}
+	if (copy_to_user(buf, vadr, count))
+		return -EFAULT;
 	*ppos += count;
 
-	up_read(&exmap_sem);
 	return count;
-
-up_out:
-	up_read(&exmap_sem);
-	return ret;
 }
 
 static ssize_t dsp_mem_read(struct file *file, char *buf, size_t count,
 			    loff_t *ppos)
 {
+	int ret;
+	void *vadr = dspbyte_to_virt(*(unsigned long *)ppos);
+
+	if (dsp_mem_enable(vadr) < 0)
+		return -EBUSY;
 	if (is_dspbyte_internal_mem(*ppos))
-		return intmem_read(file, buf, count, ppos);
+		ret = intmem_read(file, buf, count, ppos);
 	else
-		return exmem_read(file, buf, count, ppos);
+		ret = exmem_read(file, buf, count, ppos);
+	dsp_mem_disable(vadr);
+
+	return ret;
 }
 
 static ssize_t intmem_write(struct file *file, const char *buf, size_t count,
@@ -1208,10 +1346,10 @@ static ssize_t intmem_write(struct file *file, const char *buf, size_t count,
 		written = size - p;
 	if (copy_from_user(vadr, buf, written)) {
 		written = -EFAULT;
-		goto finish;
+		goto out;
 	}
 	*ppos += written;
-finish:
+out:
 	clk_unuse(api_ck_handle);
 	return written;
 }
@@ -1221,39 +1359,37 @@ static ssize_t exmem_write(struct file *file, const char *buf, size_t count,
 {
 	unsigned long p = *ppos;
 	void *vadr = dspbyte_to_virt(p);
-	ssize_t ret;
 
-	down_read(&exmap_sem);
 	if (!exmap_valid(vadr, count)) {
 		printk(KERN_ERR
 		       "omapdsp: DSP address %08lx / size %08x "
 		       "is not valid!\n", p, count);
-		ret = -EFAULT;
-		goto up_out;
+		return -EFAULT;
 	}
 	if (count > DSPSPACE_SIZE - p)
 		count = DSPSPACE_SIZE - p;
-	if (copy_from_user(vadr, buf, count)) {
-		ret = -EFAULT;
-		goto up_out;
-	}
+	if (copy_from_user(vadr, buf, count))
+		return -EFAULT;
 	*ppos += count;
 
-	up_read(&exmap_sem);
 	return count;
-
-up_out:
-	up_read(&exmap_sem);
-	return ret;
 }
 
 static ssize_t dsp_mem_write(struct file *file, const char *buf, size_t count,
 			     loff_t *ppos)
 {
+	int ret;
+	void *vadr = dspbyte_to_virt(*(unsigned long *)ppos);
+
+	if (dsp_mem_enable(vadr) < 0)
+		return -EBUSY;
 	if (is_dspbyte_internal_mem(*ppos))
-		return intmem_write(file, buf, count, ppos);
+		ret = intmem_write(file, buf, count, ppos);
 	else
-		return exmem_write(file, buf, count, ppos);
+		ret = exmem_write(file, buf, count, ppos);
+	dsp_mem_disable(vadr);
+
+	return ret;
 }
 
 static int dsp_mem_ioctl(struct inode *inode, struct file *file,
@@ -1325,15 +1461,12 @@ static int dsp_mem_open(struct inode *inode, struct file *file)
 {
 	if (!capable(CAP_SYS_RAWIO))
 		return -EPERM;
-	if (dsp_mem_enable((void *)dspmem_base) < 0)
-		return -EBUSY;
 
 	return 0;
 }
 
 static int dsp_mem_release(struct inode *inode, struct file *file)
 {
-	dsp_mem_disable((void *)dspmem_base);
 	return 0;
 }
 
@@ -1414,16 +1547,16 @@ static ssize_t exmap_show(struct device *dev, struct device_attribute *attr,
 
 	down_read(&exmap_sem);
 	len = sprintf(buf, "v: valid,  c: cntnu\n"
-			   "ety           vadr        buf od\n");
+			   "ety           vadr        buf od uc\n");
 			 /* 00: v c 0xe0300000 0xc0171800  0 */
 	for (i = 0; i < DSPMMU_TLB_LINES; i++) {
 		struct exmap_tbl *ent = &exmap_tbl[i];
 		/* 00: v c 0xe0300000 0xc0171800  0 */
-		len += sprintf(buf + len, "%02d: %c %c 0x%8p 0x%8p %2d\n",
+		len += sprintf(buf + len, "%02d: %c %c 0x%8p 0x%8p %2d %2d\n",
 			       i,
 			       ent->valid ? 'v' : ' ',
 			       ent->cntnu ? 'c' : ' ',
-			       ent->vadr, ent->buf, ent->order);
+			       ent->vadr, ent->buf, ent->order, ent->usecount);
 	}
 
 	up_read(&exmap_sem);
@@ -1431,6 +1564,19 @@ static ssize_t exmap_show(struct device *dev, struct device_attribute *attr,
 }
 
 static struct device_attribute dev_attr_exmap = __ATTR_RO(exmap);
+
+static ssize_t kmem_pool_show(struct device *dev, char *buf)
+{
+	int count_1M, count_64K, total;
+
+	count_1M = kmem_pool_1M.count;
+	count_64K = kmem_pool_64K.count;
+	total = count_1M * SZ_1MB + count_64K * SZ_64KB;
+
+	return sprintf(buf, "0x%x %d %d\n", total, count_1M, count_64K);
+}
+
+static struct device_attribute dev_attr_kmem_pool = __ATTR_RO(kmem_pool);
 
 /*
  * DSP MMU interrupt handler
@@ -1516,9 +1662,11 @@ irqreturn_t dsp_mmu_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 		/* FIXME */
 		dsp_err_mmu_set(dsp_fault_adr);
 	} else {
+		disable_irq(INT_DSP_MMU);
+		__dsp_mmu_itack();
 		printk(KERN_INFO "Resetting DSP...\n");
-		__dsp_reset();
-		clk_unuse(api_ck_handle);
+		dsp_cpustat_request(CPUSTAT_RESET);
+		enable_irq(INT_DSP_MMU);
 		/*
 		 * if we enable followings, semaphore lock should be avoided.
 		 *
@@ -1547,7 +1695,13 @@ struct file_operations dsp_mem_fops = {
 
 void dsp_mem_start(void)
 {
-	dsp_mem_en_count = 0;
+	dsp_register_mem_cb(intmem_enable, intmem_disable);
+}
+
+void dsp_mem_stop(void)
+{
+	memset(&mem_sync, 0, sizeof(struct mem_sync_struct));
+	dsp_unregister_mem_cb();
 }
 
 int __init dsp_mem_init(void)
@@ -1570,6 +1724,7 @@ int __init dsp_mem_init(void)
 
 	device_create_file(&dsp_device.dev, &dev_attr_mmu);
 	device_create_file(&dsp_device.dev, &dev_attr_exmap);
+	device_create_file(&dsp_device.dev, &dev_attr_kmem_pool);
 
 	return 0;
 }
@@ -1581,19 +1736,18 @@ void dsp_mem_exit(void)
 
 	if (dspvect_page != NULL) {
 		unsigned long virt;
-		pmd_t *pmdp;
-		pte_t *ptep;
 
+		down_read(&exmap_sem);
+
+		virt = (unsigned long)dspbyte_to_virt(DSP_INIT_PAGE);
+		flush_tlb_kernel_range(virt, virt + PAGE_SIZE);
 		free_page((unsigned long)dspvect_page);
 		dspvect_page = NULL;
 
-		virt = (unsigned long)dspbyte_to_virt(DSP_INIT_PAGE);
-		pmdp = pmd_offset(pgd_offset_k(virt), virt);
-		ptep = pte_offset_kernel(pmdp, 0);
-		pmd_clear(pmdp);
-		pte_free_kernel(ptep);
+		up_read(&exmap_sem);
 	}
 
 	device_remove_file(&dsp_device.dev, &dev_attr_mmu);
 	device_remove_file(&dsp_device.dev, &dev_attr_exmap);
+	device_remove_file(&dsp_device.dev, &dev_attr_kmem_pool);
 }

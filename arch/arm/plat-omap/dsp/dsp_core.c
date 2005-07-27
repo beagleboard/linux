@@ -21,7 +21,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
- * 2005/02/15:  DSP Gateway version 3.2
+ * 2005/06/07:  DSP Gateway version 3.3
  */
 
 #include <linux/init.h>
@@ -55,17 +55,11 @@ enum mbseq_check_level {
 };
 
 static enum mbseq_check_level mbseq_check_level = MBSEQ_CHECK_VERBOSE;
-static unsigned short mbseq_send;
-static unsigned short mbseq_expect;
 
-struct sync_seq {
-	unsigned short da_dsp;
-	unsigned short da_arm;
-	unsigned short ad_dsp;
-	unsigned short ad_arm;
-};
-
-static struct sync_seq *sync_seq;
+static int mbx1_valid;
+static struct sync_seq *mbseq;
+static unsigned short mbseq_expect_tmp;
+static unsigned short *mbseq_expect = &mbseq_expect_tmp;
 
 /*
  * mailbox commands
@@ -78,7 +72,11 @@ extern void mbx1_bkyld(struct mbcmd *mb);
 extern void mbx1_bksndp(struct mbcmd *mb);
 extern void mbx1_bkreqp(struct mbcmd *mb);
 extern void mbx1_tctl(struct mbcmd *mb);
+extern void mbx1_poll(struct mbcmd *mb);
+#ifdef OLD_BINARY_SUPPORT
+/* v3.3 obsolete */
 extern void mbx1_wdt(struct mbcmd *mb);
+#endif
 extern void mbx1_suspend(struct mbcmd *mb);
 static void mbx1_kfunc(struct mbcmd *mb);
 extern void mbx1_tcfg(struct mbcmd *mb);
@@ -100,7 +98,11 @@ static const struct cmdinfo
 	cif_bksndp   = { "BKSNDP",   CMD_L_TYPE_TID,    mbx1_bksndp  },
 	cif_bkreqp   = { "BKREQP",   CMD_L_TYPE_TID,    mbx1_bkreqp  },
 	cif_tctl     = { "TCTL",     CMD_L_TYPE_TID,    mbx1_tctl    },
+	cif_poll     = { "POLL",     CMD_L_TYPE_NULL,   mbx1_poll    },
+#ifdef OLD_BINARY_SUPPORT
+	/* v3.3 obsolete */
 	cif_wdt      = { "WDT",      CMD_L_TYPE_NULL,   mbx1_wdt     },
+#endif
 	cif_runlevel = { "RUNLEVEL", CMD_L_TYPE_SUBCMD, NULL         },
 	cif_pm       = { "PM",       CMD_L_TYPE_SUBCMD, NULL         },
 	cif_suspend  = { "SUSPEND",  CMD_L_TYPE_NULL,   mbx1_suspend },
@@ -129,7 +131,7 @@ const struct cmdinfo *cmdinfo[128] = {
 	&cif_bksndp, &cif_bkreqp, &cif_null, &cif_null,
 	&cif_null, &cif_null, &cif_null, &cif_null,
 	&cif_null, &cif_null, &cif_null, &cif_null,
-/*30*/	&cif_tctl, &cif_null, &cif_null, &cif_null,
+/*30*/	&cif_tctl, &cif_null, &cif_poll, &cif_null,
 	&cif_null, &cif_null, &cif_null, &cif_null,
 	&cif_null, &cif_null, &cif_null, &cif_null,
 	&cif_null, &cif_null, &cif_null, &cif_null,
@@ -137,7 +139,12 @@ const struct cmdinfo *cmdinfo[128] = {
 	&cif_null, &cif_null, &cif_null, &cif_null,
 	&cif_null, &cif_null, &cif_null, &cif_null,
 	&cif_null, &cif_null, &cif_null, &cif_null,
+#ifdef OLD_BINARY_SUPPORT
+	/* v3.3 obsolete */
 /*50*/	&cif_wdt, &cif_runlevel, &cif_pm, &cif_suspend,
+#else
+/*50*/	&cif_null, &cif_runlevel, &cif_pm, &cif_suspend,
+#endif
 	&cif_kfunc, &cif_null, &cif_null, &cif_null,
 	&cif_null, &cif_null, &cif_null, &cif_null,
 	&cif_null, &cif_null, &cif_null, &cif_null,
@@ -207,7 +214,7 @@ static __inline__ int mbsync_irq_save(unsigned long *flags, int try_cnt)
 #define print_mb_mmu_abort(mb)	do {} while(0)
 #endif /* !CONFIG_OMAP_DSP_MBCMD_VERBOSE */
 
-int __mbsend(struct mbcmd *mb)
+int __mbcmd_send(struct mbcmd *mb)
 {
 	struct mbcmd_hw *mb_hw = (struct mbcmd_hw *)mb;
 	unsigned long flags;
@@ -220,12 +227,13 @@ int __mbsend(struct mbcmd *mb)
 		return -1;
 	}
 
-	mb->seq = mbseq_send & 1;
-	mbseq_send++;
-	if (sync_seq)
-		sync_seq->ad_arm = mbseq_send;
-	mblog_add(mb, MBLOG_DIR_AD);
-	mblog_printcmd(mb, MBLOG_DIR_AD);
+	if (mbseq) {
+		mb->seq = mbseq->ad_arm;
+		mbseq->ad_arm++;
+	} else
+		mb->seq = 0;
+	mblog_add(mb, DIR_A2D);
+	mblog_printcmd(mb, DIR_A2D);
 
 	omap_writew(mb_hw->data, MAILBOX_ARM2DSP1);
 	omap_writew(mb_hw->cmd, MAILBOX_ARM2DSP1b);
@@ -235,9 +243,9 @@ int __mbsend(struct mbcmd *mb)
 }
 
 /*
- * __dsp_mbsend(): mailbox dispatcher
+ * __dsp_mbcmd_send(): mailbox dispatcher
  */
-int __dsp_mbsend(struct mbcmd *mb, struct mb_exarg *arg, int recovery_flag)
+int __dsp_mbcmd_send(struct mbcmd *mb, struct mb_exarg *arg, int recovery_flag)
 {
 	static DECLARE_MUTEX(mbsend_sem);
 	int ret = 0;
@@ -257,10 +265,18 @@ int __dsp_mbsend(struct mbcmd *mb, struct mb_exarg *arg, int recovery_flag)
 	if (arg) {	/* we have extra argument */
 		int i;
 
-		if (__dsp_mem_enable(ipbuf_sys_ad) < 0)
-			goto out;
+		/*
+		 * even if ipbuf_sys_ad is in DSP internal memory, 
+		 * dsp_mem_enable() never cause to call PM mailbox command
+		 * because in that case DSP memory should be always enabled.
+		 * (see ipbuf_sys_hold_mem_active in ipbuf.c)
+		 *
+		 * Therefore, we can call this function here safely.
+		 */
+		dsp_mem_enable(ipbuf_sys_ad);
 		if (sync_with_dsp(&ipbuf_sys_ad->s, OMAP_DSP_TID_FREE, 10) < 0) {
 			printk(KERN_ERR "omapdsp: ipbuf_sys_ad is busy.\n");
+			dsp_mem_disable(ipbuf_sys_ad);
 			ret = -EBUSY;
 			goto out;
 		}
@@ -268,19 +284,18 @@ int __dsp_mbsend(struct mbcmd *mb, struct mb_exarg *arg, int recovery_flag)
 			ipbuf_sys_ad->d[i] = arg->argv[i];
 		}
 		ipbuf_sys_ad->s = arg->tid;
-		if (__dsp_mem_disable(ipbuf_sys_ad) < 0)
-			goto out;
+		dsp_mem_disable(ipbuf_sys_ad);
 	}
 
-	ret = __mbsend(mb);
+	ret = __mbcmd_send(mb);
 
 out:
 	up(&mbsend_sem);
 	return ret;
 }
 
-int __dsp_mbsend_and_wait(struct mbcmd *mb, struct mb_exarg *arg,
-			  wait_queue_head_t *q)
+int __dsp_mbcmd_send_and_wait(struct mbcmd *mb, struct mb_exarg *arg,
+			      wait_queue_head_t *q)
 {
 	long current_state;
 	DECLARE_WAITQUEUE(wait, current);
@@ -288,36 +303,72 @@ int __dsp_mbsend_and_wait(struct mbcmd *mb, struct mb_exarg *arg,
 	add_wait_queue(q, &wait);
 	current_state = current->state;
 	set_current_state(TASK_INTERRUPTIBLE);
-	if (dsp_mbsend_exarg(mb, arg) < 0) {
+	if (dsp_mbcmd_send_exarg(mb, arg) < 0) {
 		set_current_state(current_state);
 		remove_wait_queue(q, &wait);
 		return -1;
 	}
-	schedule();
+	schedule_timeout(DSP_TIMEOUT);
 	set_current_state(current_state);
 	remove_wait_queue(q, &wait);
 
 	return 0;
 }
 
+int __dsp_mbsend(unsigned char cmdh, unsigned char cmdl, unsigned short data,
+		 int recovery_flag)
+{
+	struct mbcmd mb;
+
+	mbcmd_set(mb, cmdh, cmdl, data);
+	return __dsp_mbcmd_send(&mb, NULL, recovery_flag);
+}
+
+static int mbsync_hold_mem_active;
+
 void dsp_mb_start(void)
 {
-	mbseq_send = 0;
-	mbseq_expect = 0;
+	mbx1_valid = 1;	/* start interpreting */
+	mbseq_expect_tmp = 0;
 }
 
 void dsp_mb_stop(void)
 {
-	sync_seq = NULL;
+	mbx1_valid = 0;	/* stop interpreting */
+	if (mbsync_hold_mem_active) {
+		dsp_mem_disable((void *)daram_base);
+		mbsync_hold_mem_active = 0;
+	}
+	mbseq = NULL;
+	mbseq_expect = &mbseq_expect_tmp;
 }
 
-/*
- * dsp_mb_config() is called from mbx1 workqueue
- */
-void dsp_mb_config(void *sync_seq_adr)
+int dsp_mb_config(void *p)
 {
-	sync_seq = sync_seq_adr;
-	sync_seq->da_arm = mbseq_expect;
+	unsigned long flags;
+
+	if (dsp_address_validate(p, sizeof(struct sync_seq), "mbseq") < 0)
+		return -1;
+	if (dsp_mem_type(p, sizeof(struct sync_seq)) != MEM_TYPE_EXTERN) {
+		printk(KERN_WARNING
+		       "omapdsp: mbseq is placed in DSP internal memory.\n"
+		       "         It will prevent DSP from idling.\n");
+		mbsync_hold_mem_active = 1;
+		/*
+		 * dsp_mem_enable() never fails because
+		 * it has been already enabled in dspcfg process and
+		 * this will just increment the usecount.
+		 */
+		dsp_mem_enable((void *)daram_base);
+	}
+
+	local_irq_save(flags);
+	mbseq = p;
+	mbseq->da_arm = mbseq_expect_tmp;
+	mbseq_expect = &mbseq->da_arm;
+	local_irq_restore(flags);
+
+	return 0;
 }
 
 /*
@@ -351,8 +402,8 @@ static void do_mbx1(void)
 
 		mb = &mbq.mb[mbq.rp];
 
-		mblog_add(mb, MBLOG_DIR_DA);
-		mblog_printcmd(mb, MBLOG_DIR_DA);
+		mblog_add(mb, DIR_D2A);
+		mblog_printcmd(mb, DIR_D2A);
 
 		/*
 		 * call handler for each command
@@ -386,7 +437,6 @@ static DECLARE_WORK(mbx1_work, (void (*)(void *))do_mbx1, NULL);
 /*
  * kernel function dispatcher
  */
-#ifdef CONFIG_FB_OMAP_EXTERNAL_LCDC
 extern void mbx1_fbctl_disable(void);
 
 static void mbx1_kfunc_fbctl(unsigned short data)
@@ -400,16 +450,13 @@ static void mbx1_kfunc_fbctl(unsigned short data)
 		       "mailbox: Unknown FBCTL from DSP: 0x%04x\n", data);
 	}
 }
-#endif
 
 static void mbx1_kfunc(struct mbcmd *mb)
 {
 	switch (mb->cmd_l) {
-#ifdef CONFIG_FB_OMAP_EXTERNAL_LCDC
 	case OMAP_DSP_MBCMD_KFUNC_FBCTL:
 		mbx1_kfunc_fbctl(mb->data);
 		break;
-#endif
 
 	default:
 		printk(KERN_ERR
@@ -435,7 +482,11 @@ static irqreturn_t mbx1_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 	mb->hw.cmd  = omap_readw(MAILBOX_DSP2ARM2b);
 #endif
 
-	if (mb->sw.seq != (mbseq_expect & 1)) {
+	/* if mbx1 has not been validated yet, discard. */
+	if (!mbx1_valid)
+		return IRQ_HANDLED;
+
+	if (mb->sw.seq != (*mbseq_expect & 1)) {
 		switch (mbseq_check_level) {
 		case MBSEQ_CHECK_NONE:
 			break;
@@ -449,9 +500,7 @@ static irqreturn_t mbx1_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 		}
 	}
 
-	mbseq_expect++;
-	if (sync_seq)
-		sync_seq->da_arm = mbseq_expect;
+	(*mbseq_expect)++;
 
 	mbq_inc(mbq.wp);
 	if (mbq.wp == mbq.rp) {	/* mbq is full */
@@ -585,6 +634,9 @@ static int __init dsp_drv_probe(struct device *dev)
 		goto fail6;
 	}
 
+	/* MMU interrupt is not enabled until DSP runs */
+	disable_irq(INT_DSP_MMU);
+
 #if 0
 	ret = request_irq(INT_MPUIO, mpuio_interrupt, SA_INTERRUPT, "dsp", dev);
 	if (ret) {
@@ -617,7 +669,7 @@ fail1:
 
 static int dsp_drv_remove(struct device *dev)
 {
-	__dsp_reset();
+	dsp_cpustat_request(CPUSTAT_RESET);
 
 #if 0
 	free_irq(INT_MPUIO, dev);
@@ -625,6 +677,9 @@ static int dsp_drv_remove(struct device *dev)
 	free_irq(INT_DSP_MMU, dev);
 	free_irq(INT_D2A_MB2, dev);
 	free_irq(INT_D2A_MB1, dev);
+
+	/* recover disable_depth */
+	enable_irq(INT_DSP_MMU);
 
 	dspuncfg();
 	dsp_taskmod_exit();

@@ -21,7 +21,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
- * 2005/02/17:  DSP Gateway version 3.2
+ * 2005/06/06:  DSP Gateway version 3.3
  */
 
 #include <linux/init.h>
@@ -38,51 +38,51 @@ struct ipbuf **ipbuf;
 struct ipbcfg ipbcfg;
 struct ipbuf_sys *ipbuf_sys_da, *ipbuf_sys_ad;
 static struct ipblink ipb_free = IPBLINK_INIT;
+static int ipbuf_sys_hold_mem_active;
 
 void ipbuf_stop(void)
 {
-	ipbcfg.ln = 0;
-	if (ipbuf) {
-		kfree(ipbuf);
-		ipbuf = NULL;
-	}
-}
-
-/*
- * ipbuf_config() is called by mailbox workqueue
- */
-int ipbuf_config(unsigned short ln, unsigned short lsz, unsigned long adr)
-{
-	void *base;
-	unsigned long lsz_byte = ((unsigned long)lsz) << 1;
-	size_t size;
-	int ret = 0;
 	int i;
 
 	spin_lock(&ipb_free.lock);
 	INIT_IPBLINK(&ipb_free);
 	spin_unlock(&ipb_free.lock);
 
+	ipbcfg.ln = 0;
+	if (ipbuf) {
+		kfree(ipbuf);
+		ipbuf = NULL;
+	}
+	for (i = 0; i < ipbuf_sys_hold_mem_active; i++) {
+		dsp_mem_disable((void *)daram_base);
+	}
+	ipbuf_sys_hold_mem_active = 0;
+}
+
+int ipbuf_config(unsigned short ln, unsigned short lsz, void *base)
+{
+	unsigned long lsz_byte = ((unsigned long)lsz) << 1;
+	size_t size;
+	int ret = 0;
+	int i;
+
 	/*
 	 * global IPBUF
 	 */
-	if (adr & 0x1) {
+	if (((unsigned long)base) & 0x3) {
 		printk(KERN_ERR
-		       "mbx: global ipbuf address (0x%08lx) is odd number!\n",
-		       adr);
+		       "omapdsp: global ipbuf address(0x%p) is not "
+		       "32-bit aligned!\n", base);
 		return -EINVAL;
 	}
 	size = lsz_byte * ln;
-	if (adr + size > DSPSPACE_SIZE) {
-		printk(KERN_ERR
-		       "mbx: ipbuf address (0x%08lx) and size (0x%08x) is "
-		       "illegal!\n", adr, size);
+	if (dsp_address_validate(base, size, "global ipbuf") < 0)
 		return -EINVAL;
-	}
-	base = dspword_to_virt(adr);
+
 	ipbuf = kmalloc(sizeof(void *) * ln, GFP_KERNEL);
 	if (ipbuf == NULL) {
-		printk(KERN_ERR "mbx: memory allocation for ipbuf failed.\n");
+		printk(KERN_ERR
+		       "omapdsp: memory allocation for ipbuf failed.\n");
 		return -ENOMEM;
 	}
 	for (i = 0; i < ln; i++) {
@@ -101,20 +101,75 @@ int ipbuf_config(unsigned short ln, unsigned short lsz, unsigned long adr)
 			       "omapdsp: ipbuf[%d] crosses 64k-word boundary!\n"
 			       "  @0x%p, size=0x%08lx\n", i, top, lsz_byte);
 			ret = -EINVAL;
+			goto free_out;
 		}
 	}
 	ipbcfg.ln       = ln;
 	ipbcfg.lsz      = lsz;
-	ipbcfg.adr      = adr;
+	ipbcfg.base     = base;
 	ipbcfg.bsycnt   = ln;	/* DSP holds all ipbufs initially. */
 	ipbcfg.cnt_full = 0;
 
 	printk(KERN_INFO
 	       "omapdsp: IPBUF configuration\n"
 	       "           %d words * %d lines at 0x%p.\n",
-	       ipbcfg.lsz, ipbcfg.ln, dspword_to_virt(ipbcfg.adr));
+	       ipbcfg.lsz, ipbcfg.ln, ipbcfg.base);
 
 	return ret;
+
+free_out:
+	kfree(ipbuf);
+	ipbuf = NULL;
+	return ret;
+}
+
+int ipbuf_sys_config(void *p, enum arm_dsp_dir dir)
+{
+	char *dir_str = (dir == DIR_D2A) ? "D2A" : "A2D";
+
+	if (((unsigned long)p) & 0x3) {
+		printk(KERN_ERR
+		       "omapdsp: system ipbuf(%s) address(0x%p) is "
+		       "not 32-bit aligned!\n", dir_str, p);
+		return -1;
+	}
+	if (dsp_address_validate(p, sizeof(struct ipbuf_sys),
+				 "system ipbuf(%s)", dir_str) < 0)
+		return -1;
+	if (dsp_mem_type(p, sizeof(struct ipbuf_sys)) != MEM_TYPE_EXTERN) {
+		printk(KERN_WARNING
+		       "omapdsp: system ipbuf(%s) is placed in"
+		       " DSP internal memory.\n"
+		       "         It will prevent DSP from idling.\n", dir_str);
+		ipbuf_sys_hold_mem_active++;
+		/*
+		 * dsp_mem_enable() never fails because
+		 * it has been already enabled in dspcfg process and
+		 * this will just increment the usecount.
+		 */
+		dsp_mem_enable((void *)daram_base);
+	}
+
+	if (dir == DIR_D2A)
+		ipbuf_sys_da = p;
+	else
+		ipbuf_sys_ad = p;
+	
+	return 0;
+}
+
+int ipbuf_p_validate(void *p, enum arm_dsp_dir dir)
+{
+	char *dir_str = (dir == DIR_D2A) ? "D2A" : "A2D";
+
+	if (((unsigned long)p) & 0x3) {
+		printk(KERN_ERR
+		       "omapdsp: private ipbuf(%s) address(0x%p) is "
+		       "not 32-bit aligned!\n", dir_str, p);
+		return -1;
+	}
+	return dsp_address_validate(p, sizeof(struct ipbuf_p),
+				    "private ipbuf(%s)", dir_str);
 }
 
 /*
@@ -124,19 +179,22 @@ unsigned short get_free_ipbuf(unsigned char tid)
 {
 	unsigned short bid;
 
+	if (dsp_mem_enable_ipbuf() < 0)
+		return OMAP_DSP_BID_NULL;
+
+	spin_lock(&ipb_free.lock);
+
 	if (ipblink_empty(&ipb_free)) {
 		/* FIXME: wait on queue when not available.  */
-		return OMAP_DSP_BID_NULL;
+		bid = OMAP_DSP_BID_NULL;
+		goto out;
 	}
-
-	/*
-	 * FIXME: dsp_enable_dspmem!
-	 */
-	spin_lock(&ipb_free.lock);
 	bid = ipb_free.top;
 	ipbuf[bid]->la = tid;	/* lock */
 	ipblink_del_top(&ipb_free, ipbuf);
+out:
 	spin_unlock(&ipb_free.lock);
+	dsp_mem_disable_ipbuf();
 
 	return bid;
 }
@@ -161,12 +219,10 @@ void release_ipbuf(unsigned short bid)
 
 static int try_yld(unsigned short bid)
 {
-	struct mbcmd mb;
 	int status;
 
 	ipbuf[bid]->sa = OMAP_DSP_TID_ANON;
-	mbcmd_set(mb, MBCMD(BKYLD), 0, bid);
-	status = dsp_mbsend(&mb);
+	status = dsp_mbsend(MBCMD(BKYLD), 0, bid);
 	if (status < 0) {
 		/* DSP is busy and ARM keeps this line. */
 		release_ipbuf(bid);

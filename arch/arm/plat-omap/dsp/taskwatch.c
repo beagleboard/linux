@@ -21,7 +21,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
- * 2004/12/01:  DSP Gateway version 3.2
+ * 200%/05/16:  DSP Gateway version 3.3
  */
 
 #include <linux/module.h>
@@ -83,7 +83,12 @@ static ssize_t dsp_twch_read(struct file *file, char *buf, size_t count,
 	count = devcount * sizeof(long);
 	change_cnt = 0;
 	for (i = 0; i < devcount; i++) {
-		taskstat[i] = taskdev_state(i);
+		/*
+		 * once the device state is read, the 'STALE' bit will be set
+		 * so that the Dynamic Loader can distinguish the new request
+		 * from the old one.
+		 */
+		taskstat[i] = taskdev_state_stale(i);
 	}
 
 	if (copy_to_user(buf, taskstat, count))

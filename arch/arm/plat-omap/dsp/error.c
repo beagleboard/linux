@@ -21,7 +21,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
- * 2004/11/22:  DSP Gateway version 3.2
+ * 2005/03/11:  DSP Gateway version 3.3
  */
 
 #include <linux/module.h>
@@ -138,14 +138,21 @@ int dsp_err_wdt_isset(void)
 /*
  * functions called from mailbox1 interrupt routine
  */
-void mbx1_wdt(struct mbcmd *mb)
+static void mbx1_err_wdt(unsigned short data)
 {
-	printk(KERN_WARNING "omapdsp: DSP WDT expired!\n");
 	errcode |= OMAP_DSP_ERRDT_WDT;
 	errcnt++;
-	wdtval = mb->data;
+	wdtval = data;
 	wake_up_interruptible(&err_wait_q);
 }
+
+#ifdef OLD_BINARY_SUPPORT
+/* v3.3 obsolete */
+void mbx1_wdt(struct mbcmd *mb)
+{
+	mbx1_err_wdt(mb->data);
+}
+#endif
 
 extern void mbx1_err_ipbfull(void);
 extern void mbx1_err_fatal(unsigned char tid);
@@ -173,6 +180,10 @@ void mbx1_err(struct mbcmd *mb)
 	case OMAP_DSP_EID_FATAL:
 		tid = mb->data & 0x00ff;
 		mbx1_err_fatal(tid);
+		break;
+
+	case OMAP_DSP_EID_WDT:
+		mbx1_err_wdt(mb->data);
 		break;
 	}
 }

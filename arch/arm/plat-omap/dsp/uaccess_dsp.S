@@ -21,7 +21,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
- * 2004/06/29:  DSP Gateway version 3.2
+ * 2004/06/29:  DSP Gateway version 3.3
  */
 
 #include <linux/linkage.h>
