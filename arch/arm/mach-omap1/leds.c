@@ -1,5 +1,5 @@
 /*
- * linux/arch/arm/mach-omap/leds.c
+ * linux/arch/arm/mach-omap1/leds.c
  *
  * OMAP LEDs dispatcher
  */

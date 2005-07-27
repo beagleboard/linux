@@ -1,5 +1,5 @@
 /*
- * linux/arch/arm/omap/mcbsp.c
+ * linux/arch/arm/plat-omap/mcbsp.c
  *
  * Copyright (C) 2004 Nokia Corporation
  * Author: Samuel Ortiz <samuel.ortiz@nokia.com>

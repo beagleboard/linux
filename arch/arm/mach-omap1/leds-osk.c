@@ -1,5 +1,5 @@
 /*
- * linux/arch/arm/mach-omap/leds-osk.c
+ * linux/arch/arm/mach-omap1/leds-osk.c
  *
  * LED driver for OSK, and optionally Mistral QVGA, boards
  */

@@ -96,7 +96,7 @@ l_1510:	subs	r5, r5, #1
 	strh	r2, [r4, #ARM_IDLECT2_ASM_OFFSET & 0xff]
 	strh	r1, [r4, #ARM_IDLECT1_ASM_OFFSET & 0xff]
 
-	ldmfd	sp!, {r0 - r12, pc}     @ restore regs and return
+	ldmfd	sp!, {r0 - r12, pc}		@ restore regs and return
 
 ENTRY(omap1510_idle_loop_suspend_sz)
 	.word	. - omap1510_idle_loop_suspend
@@ -146,7 +146,7 @@ l_1610:	subs	r5, r5, #1
 	strh	r2, [r4, #ARM_IDLECT2_ASM_OFFSET & 0xff]
 	strh	r1, [r4, #ARM_IDLECT1_ASM_OFFSET & 0xff]
 
-	ldmfd	sp!, {r0 - r12, pc}     @ restore regs and return
+	ldmfd	sp!, {r0 - r12, pc}		@ restore regs and return
 
 ENTRY(omap1610_idle_loop_suspend_sz)
 	.word	. - omap1610_idle_loop_suspend
@@ -316,7 +316,7 @@ ENTRY(omap1610_cpu_suspend)
 	str	r8, [r6, #EMIFS_CONFIG_ASM_OFFSET & 0xff]
 
 	@ restore regs and return
-	ldmfd   sp!, {r0 - r12, pc}
+	ldmfd	sp!, {r0 - r12, pc}
 
 ENTRY(omap1610_cpu_suspend_sz)
 	.word	. - omap1610_cpu_suspend

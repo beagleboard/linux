@@ -1,5 +1,5 @@
 /*
- * linux/arch/arm/omap/dma.c
+ * linux/arch/arm/plat-omap/dma.c
  *
  * Copyright (C) 2003 Nokia Corporation
  * Author: Juha Yrjölä <juha.yrjola@nokia.com>
