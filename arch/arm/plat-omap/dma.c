@@ -983,6 +983,16 @@ dma_addr_t omap_get_dma_dst_pos(int lch)
 	(omap_readw(OMAP_DMA_CDSA_U(lch)) << 16));
 }
 
+/*
+ * Returns current source transfer counting for the given DMA channel.
+ * Can be used to monitor the progress of a transfer inside a  block.
+ * It must be called with disabled interrupts.
+ */
+int omap_get_dma_src_addr_counter(int lch)
+{
+	return (dma_addr_t) omap_readw(OMAP_DMA_CSAC(lch));
+}
+
 int omap_dma_running(void)
 {
 	int lch;
@@ -1076,6 +1086,7 @@ arch_initcall(omap_init_dma);
 
 EXPORT_SYMBOL(omap_get_dma_src_pos);
 EXPORT_SYMBOL(omap_get_dma_dst_pos);
+EXPORT_SYMBOL(omap_get_dma_src_addr_counter);
 EXPORT_SYMBOL(omap_clear_dma);
 EXPORT_SYMBOL(omap_set_dma_priority);
 EXPORT_SYMBOL(omap_request_dma);
