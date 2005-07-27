@@ -44,7 +44,6 @@
 #include <asm/mach-types.h>
 
 #include <asm/arch/mcbsp.h>
-#include <asm/arch/dsp_common.h>
 #include <asm/arch/fpga.h>
 #include <asm/arch/aic23.h>
 

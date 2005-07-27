@@ -24,12 +24,10 @@ config SOUND_OMAP_TSC2101
 config SOUND_OMAP_AIC23
 	tristate "AIC23 Stereo Codec"
 	depends on SOUND_OMAP && ( MACH_OMAP_INNOVATOR || MACH_OMAP_OSK )
-	select OMAP_DSP if ARCH_OMAP
 	select SENSORS_TLV320AIC23 if ARCH_OMAP
 	---help---
 	  AIC23 Audio Codec Driver for OMAP will be enabled.
-	  This will also enable OMAP DSP support because McBSP needed for
-	  this is a DSP peripheral. Additionally, AIC23 I2C support is enabled.
+	  Additionally, AIC23 I2C support is enabled.
 
 config SOUND_BT878
 	tristate "BT878 audio dma"
