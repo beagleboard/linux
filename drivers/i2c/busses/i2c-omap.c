@@ -430,16 +430,6 @@ omap_i2c_isr(int this_irq, void *dev_id, struct pt_regs *regs)
 	return IRQ_HANDLED;
 }
 
-static int omap_i2c_remove(struct device *dev)
-{
-        return 0;
-}
-
-static void omap_i2c_device_release(struct device *dev)
-{
-        /* Nothing */
-}
-
 static struct i2c_algorithm omap_i2c_algo = {
 	.name		= "OMAP I2C algorithm",
 	.id		= I2C_ALGO_EXP,
@@ -454,27 +444,20 @@ static struct i2c_adapter omap_i2c_adap = {
 	.algo		= &omap_i2c_algo,
 };
 
-static struct device_driver omap_i2c_driver = {
-        .name           = "omap_i2c",
-        .bus            = &platform_bus_type,
-        .remove         = omap_i2c_remove,
-};
-
-static struct platform_device omap_i2c_device = {
-        .name           = "i2c",
-        .id             = -1,
-        .dev = {
-                .driver         = &omap_i2c_driver,
-                .release        = omap_i2c_device_release,
-        },
-};
-
 static int __init
-omap_i2c_init(void)
+omap_i2c_probe(struct device *dev)
 {
+	struct platform_device	*pdev = to_platform_device(dev);
+	struct resource		*mem;
 	int r;
 
-	r = (int) request_mem_region(io_v2p(OMAP_I2C_BASE), OMAP_I2C_IOSIZE,
+	/* NOTE:  driver uses the static register mapping */
+	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!mem) {
+		pr_debug("%s: no mem resource?\n", driver_name);
+		return -ENODEV;
+	}
+	r = (int) request_mem_region(mem->start, (mem->end - mem->start) + 1,
 			driver_name);
 	if (!r) {
 		pr_debug("%s: I2C region already claimed\n", driver_name);
@@ -492,6 +475,9 @@ omap_i2c_init(void)
 	memset(&omap_i2c_dev, 0, sizeof(omap_i2c_dev));
 	init_waitqueue_head(&omap_i2c_dev.cmd_wait);
 
+	/* reset ASAP, clearing any IRQs */
+	omap_i2c_reset();
+
 	r = request_irq(INT_I2C, omap_i2c_isr, 0, driver_name, &omap_i2c_dev);
 	if (r) {
 		pr_debug("%s: failure requesting irq\n", driver_name);
@@ -502,25 +488,13 @@ omap_i2c_init(void)
 	pr_info("%s: rev%d.%d at %d KHz\n", driver_name,
 			r >> 4, r & 0xf, clock);
 
+	/* i2c device drivers may be active on return from add_adapter() */
 	i2c_set_adapdata(&omap_i2c_adap, &omap_i2c_dev);
+	omap_i2c_adap.dev.parent = dev;
 	r = i2c_add_adapter(&omap_i2c_adap);
 	if (r) {
 		pr_debug("%s: failure adding adapter\n", driver_name);
 		goto do_free_irq;
-	}
-
-	/* configure I/O pin multiplexing */
-	/* FIXME: This should be done in bootloader */
-	omap_cfg_reg(I2C_SCL);
-	omap_cfg_reg(I2C_SDA);
-
-	omap_i2c_reset();
-
-	if(driver_register(&omap_i2c_driver) != 0)
-		printk(KERN_ERR "Driver register failed for omap_i2c\n");
-	if(platform_device_register(&omap_i2c_device) != 0) {
-		printk(KERN_ERR "Device register failed for i2c\n");
-		driver_unregister(&omap_i2c_driver);
 	}
 
 	return 0;
@@ -528,25 +502,45 @@ omap_i2c_init(void)
 do_free_irq:
 	free_irq(INT_I2C, &omap_i2c_dev);
 do_release_region:
-	release_region(io_v2p(OMAP_I2C_BASE), OMAP_I2C_IOSIZE);
+	writew(0, OMAP_I2C_CON);
+	release_mem_region(mem->start, (mem->end - mem->start) + 1);
 
 	return r;
 }
 
 static void __exit
-omap_i2c_exit(void)
+omap_i2c_remove(struct device *dev)
 {
-	i2c_del_adapter(&omap_i2c_adap);
+	struct platform_device	*pdev = to_platform_device(dev);
+	struct resource		*mem;
+
 	writew(0, OMAP_I2C_CON);
+	i2c_del_adapter(&omap_i2c_adap);
 	free_irq(INT_I2C, &omap_i2c_dev);
-	release_region(io_v2p(OMAP_I2C_BASE), OMAP_I2C_IOSIZE);
-        driver_unregister(&omap_i2c_driver);
-        platform_device_unregister(&omap_i2c_device);
+	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	release_mem_region(mem->start, (mem->end - mem->start) + 1);
 }
 
+static struct device_driver omap_i2c_driver = {
+	.name		= (char *)driver_name,
+	.bus		= &platform_bus_type,
+	.probe		= omap_i2c_probe,
+	.remove		= __exit_p(omap_i2c_remove),
+};
+
 /* i2c may be needed to bring up other drivers */
-subsys_initcall(omap_i2c_init);
-module_exit(omap_i2c_exit);
+static int __init
+omap_i2c_init_driver(void)
+{
+	return driver_register(&omap_i2c_driver);
+}
+subsys_initcall(omap_i2c_init_driver);
+
+static void __exit omap_i2c_exit_driver(void)
+{
+	driver_unregister(&omap_i2c_driver);
+}
+module_exit(omap_i2c_exit_driver);
 
 MODULE_AUTHOR("MontaVista Software, Inc. (and others)");
 MODULE_DESCRIPTION("TI OMAP I2C bus adapter");

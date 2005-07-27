@@ -26,6 +26,58 @@
 #include <asm/arch/gpio.h>
 
 
+static void omap_nop_release(struct device *dev)
+{
+        /* Nothing */
+}
+
+/*-------------------------------------------------------------------------*/
+
+#if	defined(CONFIG_I2C_OMAP) || defined(CONFIG_I2C_OMAP_MODULE)
+
+#define	OMAP_I2C_BASE		0xfffb3800
+
+static struct resource i2c_resources[] = {
+	{
+		.start		= OMAP_I2C_BASE,
+		.end		= OMAP_I2C_BASE + 0x3f,
+		.flags		= IORESOURCE_MEM,
+	},
+	{
+		.start		= INT_I2C,
+		.flags		= IORESOURCE_IRQ,
+	},
+};
+
+/* DMA not used; works around erratum writing to non-empty i2c fifo */
+
+static struct platform_device omap_i2c_device = {
+        .name           = "i2c_omap",
+        .id             = -1,
+        .dev = {
+                .release        = omap_nop_release,
+        },
+	.num_resources	= ARRAY_SIZE(i2c_resources),
+	.resource	= i2c_resources,
+};
+
+static void omap_init_i2c(void)
+{
+	/* FIXME define and use a boot tag, in case of boards that
+	 * either don't wire up I2C, or chips that mux it differently...
+	 * it can include clocking and address info, maybe more.
+	 */
+	omap_cfg_reg(I2C_SCL);
+	omap_cfg_reg(I2C_SDA);
+
+	(void) platform_device_register(&omap_i2c_device);
+}
+#else
+static inline void omap_init_i2c(void) {}
+#endif
+
+/*-------------------------------------------------------------------------*/
+
 #if	defined(CONFIG_OMAP1610_IR) || defined(CONFIG_OMAP161O_IR_MODULE)
 
 static u64 irda_dmamask = 0xffffffff;
@@ -56,55 +108,12 @@ static void omap_init_irda(void)
 static inline void omap_init_irda(void) {}
 #endif
 
-#if	defined(CONFIG_OMAP_RTC) || defined(CONFIG_OMAP_RTC)
-
-#define	OMAP_RTC_BASE		0xfffb4800
-
-static struct resource rtc_resources[] = {
-	{
-		.start		= OMAP_RTC_BASE,
-		.end		= OMAP_RTC_BASE + 0x5f,
-		.flags		= IORESOURCE_MEM,
-	},
-	{
-		.start		= INT_RTC_TIMER,
-		.flags		= IORESOURCE_IRQ,
-	},
-	{
-		.start		= INT_RTC_ALARM,
-		.flags		= IORESOURCE_IRQ,
-	},
-};
-
-static struct platform_device omap_rtc_device = {
-	.name	   = "omap_rtc",
-	.id	     = -1,
-	.dev = {
-		.release	= omap_nop_release,
-	},
-	.num_resources	= ARRAY_SIZE(rtc_resources),
-	.resource	= rtc_resources,
-};
-
-static void omap_init_rtc(void)
-{
-	(void) platform_device_register(&omap_rtc_device);
-}
-#else
-static inline void omap_init_rtc(void) {}
-#endif
-
 /*-------------------------------------------------------------------------*/
 
 #if	defined(CONFIG_MMC_OMAP) || defined(CONFIG_MMC_OMAP_MODULE)
 
 #define	OMAP_MMC1_BASE		0xfffb7800
 #define	OMAP_MMC2_BASE		0xfffb7c00	/* omap16xx only */
-
-static void mmc_release(struct device *dev)
-{
-	/* Nothing to release */
-}
 
 static struct omap_mmc_conf mmc1_conf;
 
@@ -126,7 +135,7 @@ static struct platform_device mmc_omap_device1 = {
 	.name		= "mmci-omap",
 	.id		= 1,
 	.dev = {
-		.release	= mmc_release,
+		.release	= omap_nop_release,
 		.dma_mask	= &mmc1_dmamask,
 		.platform_data	= &mmc1_conf,
 	},
@@ -156,7 +165,7 @@ static struct platform_device mmc_omap_device2 = {
 	.name		= "mmci-omap",
 	.id		= 2,
 	.dev = {
-		.release	= mmc_release,
+		.release	= omap_nop_release,
 		.dma_mask	= &mmc2_dmamask,
 		.platform_data	= &mmc2_conf,
 	},
@@ -232,6 +241,46 @@ static void __init omap_init_mmc(void)
 static inline void omap_init_mmc(void) {}
 #endif
 
+#if	defined(CONFIG_OMAP_RTC) || defined(CONFIG_OMAP_RTC)
+
+#define	OMAP_RTC_BASE		0xfffb4800
+
+static struct resource rtc_resources[] = {
+	{
+		.start		= OMAP_RTC_BASE,
+		.end		= OMAP_RTC_BASE + 0x5f,
+		.flags		= IORESOURCE_MEM,
+	},
+	{
+		.start		= INT_RTC_TIMER,
+		.flags		= IORESOURCE_IRQ,
+	},
+	{
+		.start		= INT_RTC_ALARM,
+		.flags		= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device omap_rtc_device = {
+	.name           = "omap_rtc",
+	.id             = -1,
+	.dev = {
+		.release        = omap_nop_release,
+	},
+	.num_resources	= ARRAY_SIZE(rtc_resources),
+	.resource	= rtc_resources,
+};
+
+static void omap_init_rtc(void)
+{
+	(void) platform_device_register(&omap_rtc_device);
+}
+#else
+static inline void omap_init_rtc(void) {}
+#endif
+
+/*-------------------------------------------------------------------------*/
+
 #if	defined(CONFIG_OMAP16XX_WATCHDOG) || defined(CONFIG_OMAP16XX_WATCHDOG_MODULE)
 
 #define	OMAP_WDT_BASE		0xfffeb000
@@ -287,7 +336,10 @@ static inline void omap_init_wdt(void) {}
  */
 static int __init omap_init_devices(void)
 {
-	//omap_init_i2c();
+	/* please keep these calls, and their implementations above,
+	 * in alphabetical order so they're easier to sort through.
+	 */
+	omap_init_i2c();
 	omap_init_irda();
 	omap_init_mmc();
 	omap_init_rtc();
