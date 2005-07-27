@@ -965,8 +965,8 @@ void omap_clear_dma(int lch)
  */
 dma_addr_t omap_get_dma_src_pos(int lch)
 {
-	return (dma_addr_t) (OMAP_DMA_CSSA_L(lch) |
-			     (OMAP_DMA_CSSA_U(lch) << 16));
+	return (dma_addr_t) (omap_readw(OMAP_DMA_CSSA_L(lch)) |
+	(omap_readw(OMAP_DMA_CSSA_U(lch)) << 16));
 }
 
 /*
@@ -979,8 +979,8 @@ dma_addr_t omap_get_dma_src_pos(int lch)
  */
 dma_addr_t omap_get_dma_dst_pos(int lch)
 {
-	return (dma_addr_t) (OMAP_DMA_CDSA_L(lch) |
-			     (OMAP_DMA_CDSA_U(lch) << 16));
+	return (dma_addr_t) (omap_readw(OMAP_DMA_CDSA_L(lch)) |
+	(omap_readw(OMAP_DMA_CDSA_U(lch)) << 16));
 }
 
 int omap_dma_running(void)
