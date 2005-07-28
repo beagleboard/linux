@@ -346,12 +346,6 @@ __do_irq(unsigned int irq, struct irqaction *action, struct pt_regs *regs)
 	if (!(action->flags & SA_INTERRUPT))
 		local_irq_enable();
 
-#ifdef CONFIG_NO_IDLE_HZ
-	if ((!(action->flags & SA_TIMER)) && system_timer->dyn_tick->handler &&
-	    (system_timer->dyn_tick->state & DYN_TICK_ENABLED))
-		system_timer->dyn_tick->handler(irq, 0, regs);
-#endif
-
 	status = 0;
 	do {
 		ret = action->handler(irq, action->dev_id, regs);
