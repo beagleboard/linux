@@ -64,6 +64,8 @@
 #include <asm/system.h>
 #include <asm/hardware.h>
 #include <asm/irq.h>
+#include <asm/rtc.h>
+#include <asm/mach/time.h>
 
 #include "omap-rtc.h"
 
@@ -704,11 +706,54 @@ static void set_rtc_irq_bit(unsigned char bit)
 	spin_unlock_irq(&rtc_lock);
 }
 
+#ifdef CONFIG_PM
+static struct timespec rtc_delta;
+
+static int rtc_suspend(struct device *dev, u32 state, u32 level)
+{
+	struct rtc_time rtc_tm;
+	struct timespec time;
+
+	if (level == SUSPEND_POWER_DOWN)
+	{
+		time.tv_nsec = 0;
+		get_rtc_time(&rtc_tm);
+		rtc_tm_to_time(&rtc_tm, &time.tv_sec);
+
+		save_time_delta(&rtc_delta, &time);
+	}
+
+	return 0;
+}
+
+static int rtc_resume(struct device *dev, u32 level)
+{
+	struct rtc_time rtc_tm;
+	struct timespec time;
+
+	if (level == RESUME_POWER_ON)
+	{
+		time.tv_nsec = 0;
+		get_rtc_time(&rtc_tm);
+		rtc_tm_to_time(&rtc_tm, &time.tv_sec);
+
+		restore_time_delta(&rtc_delta, &time);
+	}
+
+	return 0;
+}
+#else
+#define rtc_suspend NULL
+#define rtc_resume  NULL
+#endif
+
 static struct device_driver omap_rtc_driver = {
 	.name		= "omap_rtc",
 	.bus		= &platform_bus_type,
 	.probe		= omap_rtc_probe,
 	.remove		= __exit_p(omap_rtc_remove),
+	.suspend	= rtc_suspend,
+	.resume		= rtc_resume,
 };
 
 static int __init rtc_init(void)
