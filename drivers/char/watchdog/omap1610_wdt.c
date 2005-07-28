@@ -267,13 +267,14 @@ omap1610_wdt_shutdown(struct device *dev)
 	omap_wdt_disable();
 }
 
-static void __exit
+static int __exit
 omap1610_wdt_remove(struct device *dev)
 {
 	struct resource *mem = dev_get_drvdata(dev);
 	misc_deregister(&omap_wdt_miscdev);
 	release_resource(mem);
 	clk_put(armwdt_ck);
+	return 0;
 }
 
 #ifdef	CONFIG_PM

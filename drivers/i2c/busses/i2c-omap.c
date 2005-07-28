@@ -508,7 +508,7 @@ do_release_region:
 	return r;
 }
 
-static void __exit
+static int __exit
 omap_i2c_remove(struct device *dev)
 {
 	struct platform_device	*pdev = to_platform_device(dev);
@@ -519,6 +519,7 @@ omap_i2c_remove(struct device *dev)
 	free_irq(INT_I2C, &omap_i2c_dev);
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	release_mem_region(mem->start, (mem->end - mem->start) + 1);
+	return 0;
 }
 
 static struct device_driver omap_i2c_driver = {

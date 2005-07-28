@@ -32,7 +32,6 @@
 
 /* I2C Addresses to scan */
 static unsigned short normal_i2c[] = { TLV320AIC23ID1, TLV320AIC23ID2, I2C_CLIENT_END };
-static unsigned short normal_i2c_range[] = { I2C_CLIENT_END };
 
 /* This makes all addr_data:s */
 I2C_CLIENT_INSMOD;

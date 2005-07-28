@@ -1224,9 +1224,11 @@ int __init clk_init(void)
 #endif
 	/* Cache rates for clocks connected to ck_ref (not dpll1) */
 	propagate_rate(&ck_ref);
-	printk(KERN_INFO "Clocking rate (xtal/DPLL1/MPU): %ld.%01ld/%ld/%ld MHz\n",
+	printk(KERN_INFO "Clocking rate (xtal/DPLL1/MPU): "
+		"%ld.%01ld/%ld.%01ld/%ld.%01ld MHz\n",
 	       ck_ref.rate / 1000000, (ck_ref.rate / 100000) % 10,
-	       ck_dpll1.rate, arm_ck.rate);
+	       ck_dpll1.rate / 1000000, (ck_dpll1.rate / 100000) % 10,
+	       arm_ck.rate / 1000000, (arm_ck.rate / 100000) % 10);
 
 #ifdef CONFIG_MACH_OMAP_PERSEUS2
 	/* Select slicer output as OMAP input clock */

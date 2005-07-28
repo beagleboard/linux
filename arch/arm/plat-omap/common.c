@@ -26,6 +26,7 @@
 #include <asm/hardware/clock.h>
 #include <asm/io.h>
 #include <asm/mach-types.h>
+#include <asm/setup.h>
 
 #include <asm/arch/board.h>
 #include <asm/arch/mux.h>

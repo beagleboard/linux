@@ -54,7 +54,6 @@ MODULE_LICENSE("GPL");
 static unsigned short normal_i2c[] = {
 	TPS_BASE,
 	I2C_CLIENT_END };
-static unsigned short normal_i2c_range[] = { I2C_CLIENT_END };
 
 I2C_CLIENT_INSMOD;
 
