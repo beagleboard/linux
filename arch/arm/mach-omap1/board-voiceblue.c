@@ -28,11 +28,11 @@
 #include <asm/mach/flash.h>
 #include <asm/mach/map.h>
 
-#include <asm/arch/gpio.h>
-#include <asm/arch/tc.h>
-#include <asm/arch/mux.h>
-#include <asm/arch/usb.h>
 #include <asm/arch/common.h>
+#include <asm/arch/gpio.h>
+#include <asm/arch/mux.h>
+#include <asm/arch/tc.h>
+#include <asm/arch/usb.h>
 
 extern void omap_init_time(void);
 extern int omap_gpio_init(void);
@@ -150,12 +150,9 @@ static struct omap_mmc_config voiceblue_mmc_config __initdata = {
 	},
 };
 
-static struct omap_boot_reason_config voiceblue_boot_reason;
-
 static struct omap_board_config_kernel voiceblue_config[] = {
 	{ OMAP_TAG_USB, &voiceblue_usb_config },
 	{ OMAP_TAG_MMC, &voiceblue_mmc_config },
-	{ OMAP_TAG_BOOT_REASON, &voiceblue_boot_reason },
 };
 
 static void __init voiceblue_init_irq(void)
@@ -168,8 +165,6 @@ static void __init voiceblue_init(void)
 {
 	/* Watchdog */
 	omap_request_gpio(0);
-	/* INIT button */
-	omap_request_gpio(1);
 	/* smc91x reset */
 	omap_request_gpio(7);
 	omap_set_gpio_direction(7, 0);
@@ -237,13 +232,6 @@ static int __init voiceblue_setup(void)
 {
 	/* Setup panic notifier */
 	notifier_chain_register(&panic_notifier_list, &panic_block);
-
-	/* This information should come from bootloader. We do it here for
-	 * now... Pushing "init" button (hangs on GPIO1) during power on
-	 * resets device to factory defaults */
-	omap_set_gpio_direction(1, 1);
-	sprintf(voiceblue_boot_reason.reason_str, "poweron%s",
-		omap_get_gpio_datain(1) ? "" : "-R");
 
 	return 0;
 }
