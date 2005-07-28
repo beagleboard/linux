@@ -44,12 +44,7 @@ static struct map_desc omap1510_io_desc[] __initdata = {
 #endif
 
 #if defined(CONFIG_ARCH_OMAP16XX)
-static struct map_desc omap1610_io_desc[] __initdata = {
- { OMAP16XX_DSP_BASE,    OMAP16XX_DSP_START,    OMAP16XX_DSP_SIZE,    MT_DEVICE },
- { OMAP16XX_DSPREG_BASE, OMAP16XX_DSPREG_START, OMAP16XX_DSPREG_SIZE, MT_DEVICE },
-};
-
-static struct map_desc omap5912_io_desc[] __initdata = {
+static struct map_desc omap16xx_io_desc[] __initdata = {
  { OMAP16XX_DSP_BASE,    OMAP16XX_DSP_START,    OMAP16XX_DSP_SIZE,    MT_DEVICE },
  { OMAP16XX_DSPREG_BASE, OMAP16XX_DSPREG_START, OMAP16XX_DSPREG_SIZE, MT_DEVICE },
 };
@@ -77,11 +72,8 @@ static void __init _omap_map_io(void)
 	}
 #endif
 #if defined(CONFIG_ARCH_OMAP16XX)
-	if (cpu_is_omap1610() || cpu_is_omap1710()) {
-		iotable_init(omap1610_io_desc, ARRAY_SIZE(omap1610_io_desc));
-	}
-	if (cpu_is_omap5912()) {
-		iotable_init(omap5912_io_desc, ARRAY_SIZE(omap5912_io_desc));
+	if (cpu_is_omap16xx()) {
+		iotable_init(omap16xx_io_desc, ARRAY_SIZE(omap16xx_io_desc));
 	}
 #endif
 
