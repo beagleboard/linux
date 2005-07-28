@@ -499,7 +499,7 @@ config I2C_MV64XXX
 
 config I2C_OMAP
 	tristate "OMAP I2C adapter"
-	depends on I2C
+	depends on I2C && ARCH_OMAP
 	default y if MACH_OMAP_H3 || MACH_OMAP_OSK
 	help
 	  Support for TI OMAP I2C driver. Say yes if you want to use the OMAP

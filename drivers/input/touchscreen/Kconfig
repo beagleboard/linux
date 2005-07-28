@@ -98,7 +98,7 @@ config TOUCHSCREEN_HP600
 endif
 config TOUCHSCREEN_OMAP
 	tristate "OMAP touchscreen input driver"
-	depends on INPUT && INPUT_TOUCHSCREEN
+	depends on INPUT && INPUT_TOUCHSCREEN && ARCH_OMAP
 	help
 	  Say Y here if you have an OMAP based board with touchscreen
 	  attached to it, e.g. OMAP Innovator, OSK, H2 or H3
