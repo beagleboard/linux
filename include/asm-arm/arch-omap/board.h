@@ -116,7 +116,7 @@ struct omap_boot_reason_config {
 
 struct omap_uart_config {
 	/* Bit field of UARTs present; bit 0 --> UART1 */
-	unsigned int enabled_uarts; 
+	unsigned int enabled_uarts;
 };
 
 struct omap_board_config_entry {
