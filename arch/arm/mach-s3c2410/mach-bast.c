@@ -25,8 +25,11 @@
  *     14-Jan-2005 BJD  Add support for muitlple NAND devices
  *     03-Mar-2005 BJD  Ensured that bast-cpld.h is included
  *     10-Mar-2005 LCVR Changed S3C2410_VA to S3C24XX_VA
- *     14-Mar-2006 BJD  Updated for __iomem changes
- *     22-Jun-2006 BJD  Added DM9000 platform information
+ *     14-Mar-2005 BJD  Updated for __iomem changes
+ *     22-Jun-2005 BJD  Added DM9000 platform information
+ *     28-Jun-2005 BJD  Moved pm functionality out to common code
+ *     17-Jul-2005 BJD  Changed to platform device for SuperIO 16550s
+ *     25-Jul-2005 BJD  Removed ASIX static mappings
 */
 
 #include <linux/kernel.h>
@@ -63,11 +66,12 @@
 #include <linux/mtd/nand_ecc.h>
 #include <linux/mtd/partitions.h>
 
+#include <linux/serial_8250.h>
+
 #include "clock.h"
 #include "devs.h"
 #include "cpu.h"
 #include "usb-simtec.h"
-#include "pm.h"
 
 #define COPYRIGHT ", (c) 2004-2005 Simtec Electronics"
 
@@ -113,7 +117,6 @@ static struct map_desc bast_iodesc[] __initdata = {
   /* slow, byte */
   { VA_C2(BAST_VA_ISAIO),   PA_CS2(BAST_PA_ISAIO),    SZ_16M, MT_DEVICE },
   { VA_C2(BAST_VA_ISAMEM),  PA_CS2(BAST_PA_ISAMEM),   SZ_16M, MT_DEVICE },
-  { VA_C2(BAST_VA_ASIXNET), PA_CS3(BAST_PA_ASIXNET),  SZ_1M,  MT_DEVICE },
   { VA_C2(BAST_VA_SUPERIO), PA_CS2(BAST_PA_SUPERIO),  SZ_1M,  MT_DEVICE },
   { VA_C2(BAST_VA_IDEPRI),  PA_CS3(BAST_PA_IDEPRI),   SZ_1M,  MT_DEVICE },
   { VA_C2(BAST_VA_IDESEC),  PA_CS3(BAST_PA_IDESEC),   SZ_1M,  MT_DEVICE },
@@ -123,7 +126,6 @@ static struct map_desc bast_iodesc[] __initdata = {
   /* slow, word */
   { VA_C3(BAST_VA_ISAIO),   PA_CS3(BAST_PA_ISAIO),    SZ_16M, MT_DEVICE },
   { VA_C3(BAST_VA_ISAMEM),  PA_CS3(BAST_PA_ISAMEM),   SZ_16M, MT_DEVICE },
-  { VA_C3(BAST_VA_ASIXNET), PA_CS3(BAST_PA_ASIXNET),  SZ_1M,  MT_DEVICE },
   { VA_C3(BAST_VA_SUPERIO), PA_CS3(BAST_PA_SUPERIO),  SZ_1M,  MT_DEVICE },
   { VA_C3(BAST_VA_IDEPRI),  PA_CS3(BAST_PA_IDEPRI),   SZ_1M,  MT_DEVICE },
   { VA_C3(BAST_VA_IDESEC),  PA_CS3(BAST_PA_IDESEC),   SZ_1M,  MT_DEVICE },
@@ -133,7 +135,6 @@ static struct map_desc bast_iodesc[] __initdata = {
   /* fast, byte */
   { VA_C4(BAST_VA_ISAIO),   PA_CS4(BAST_PA_ISAIO),    SZ_16M, MT_DEVICE },
   { VA_C4(BAST_VA_ISAMEM),  PA_CS4(BAST_PA_ISAMEM),   SZ_16M, MT_DEVICE },
-  { VA_C4(BAST_VA_ASIXNET), PA_CS5(BAST_PA_ASIXNET),  SZ_1M,  MT_DEVICE },
   { VA_C4(BAST_VA_SUPERIO), PA_CS4(BAST_PA_SUPERIO),  SZ_1M,  MT_DEVICE },
   { VA_C4(BAST_VA_IDEPRI),  PA_CS5(BAST_PA_IDEPRI),   SZ_1M,  MT_DEVICE },
   { VA_C4(BAST_VA_IDESEC),  PA_CS5(BAST_PA_IDESEC),   SZ_1M,  MT_DEVICE },
@@ -143,7 +144,6 @@ static struct map_desc bast_iodesc[] __initdata = {
   /* fast, word */
   { VA_C5(BAST_VA_ISAIO),   PA_CS5(BAST_PA_ISAIO),    SZ_16M, MT_DEVICE },
   { VA_C5(BAST_VA_ISAMEM),  PA_CS5(BAST_PA_ISAMEM),   SZ_16M, MT_DEVICE },
-  { VA_C5(BAST_VA_ASIXNET), PA_CS5(BAST_PA_ASIXNET),  SZ_1M,  MT_DEVICE },
   { VA_C5(BAST_VA_SUPERIO), PA_CS5(BAST_PA_SUPERIO),  SZ_1M,  MT_DEVICE },
   { VA_C5(BAST_VA_IDEPRI),  PA_CS5(BAST_PA_IDEPRI),   SZ_1M,  MT_DEVICE },
   { VA_C5(BAST_VA_IDESEC),  PA_CS5(BAST_PA_IDESEC),   SZ_1M,  MT_DEVICE },
@@ -351,6 +351,39 @@ static struct platform_device bast_device_dm9k = {
 	}
 };
 
+/* serial devices */
+
+#define SERIAL_BASE  (S3C2410_CS2 + BAST_PA_SUPERIO)
+#define SERIAL_FLAGS (UPF_BOOT_AUTOCONF | UPF_IOREMAP | UPF_SHARE_IRQ)
+#define SERIAL_CLK   (1843200)
+
+static struct plat_serial8250_port bast_sio_data[] = {
+	[0] = {
+		.mapbase	= SERIAL_BASE + 0x2f8,
+		.irq		= IRQ_PCSERIAL1,
+		.flags		= SERIAL_FLAGS,
+		.iotype		= UPIO_MEM,
+		.regshift	= 0,
+		.uartclk	= SERIAL_CLK,
+	},
+	[1] = {
+		.mapbase	= SERIAL_BASE + 0x3f8,
+		.irq		= IRQ_PCSERIAL2,
+		.flags		= SERIAL_FLAGS,
+		.iotype		= UPIO_MEM,
+		.regshift	= 0,
+		.uartclk	= SERIAL_CLK,
+	},
+	{ }
+};
+
+static struct platform_device bast_sio = {
+	.name			= "serial8250",
+	.id			= 0,
+	.dev			= {
+		.platform_data	= &bast_sio_data,
+	},
+};
 
 /* Standard BAST devices */
 
@@ -364,6 +397,7 @@ static struct platform_device *bast_devices[] __initdata = {
 	&s3c_device_nand,
 	&bast_device_nor,
 	&bast_device_dm9k,
+	&bast_sio,
 };
 
 static struct clk *bast_clocks[] = {
@@ -405,44 +439,14 @@ void __init bast_map_io(void)
 	usb_simtec_init();
 }
 
-void __init bast_init_irq(void)
-{
-	s3c24xx_init_irq();
-}
-
-#ifdef CONFIG_PM
-
-/* bast_init_machine
- *
- * enable the power management functions for the EB2410ITX
-*/
-
-static __init void bast_init_machine(void)
-{
-	unsigned long gstatus4;
-
-	printk(KERN_INFO "BAST Power Manangement" COPYRIGHT "\n");
-
-	gstatus4  = (__raw_readl(S3C2410_BANKCON7) & 0x3) << 30;
-	gstatus4 |= (__raw_readl(S3C2410_BANKCON6) & 0x3) << 28;
-	gstatus4 |= (__raw_readl(S3C2410_BANKSIZE) & S3C2410_BANKSIZE_MASK);
-
-	__raw_writel(gstatus4, S3C2410_GSTATUS4);
-
-	s3c2410_pm_init();
-}
-
-#else
-#define bast_init_machine NULL
-#endif
-
 
 MACHINE_START(BAST, "Simtec-BAST")
-     MAINTAINER("Ben Dooks <ben@simtec.co.uk>")
-     BOOT_MEM(S3C2410_SDRAM_PA, S3C2410_PA_UART, (u32)S3C24XX_VA_UART)
-     BOOT_PARAMS(S3C2410_SDRAM_PA + 0x100)
-     MAPIO(bast_map_io)
-     INITIRQ(bast_init_irq)
-	.init_machine	= bast_init_machine,
+	/* Maintainer: Ben Dooks <ben@simtec.co.uk> */
+	.phys_ram	= S3C2410_SDRAM_PA,
+	.phys_io	= S3C2410_PA_UART,
+	.io_pg_offst	= (((u32)S3C24XX_VA_UART) >> 18) & 0xfffc,
+	.boot_params	= S3C2410_SDRAM_PA + 0x100,
+	.map_io		= bast_map_io,
+	.init_irq	= s3c24xx_init_irq,
 	.timer		= &s3c24xx_timer,
 MACHINE_END

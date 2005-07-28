@@ -85,7 +85,9 @@ struct pt_regs;
 void die(const char *msg, struct pt_regs *regs, int err)
 		__attribute__((noreturn));
 
-void die_if_kernel(const char *str, struct pt_regs *regs, int err);
+struct siginfo;
+void notify_die(const char *str, struct pt_regs *regs, struct siginfo *info,
+		unsigned long err, unsigned long trap);
 
 void hook_fault_code(int nr, int (*fn)(unsigned long, unsigned int,
 				       struct pt_regs *),
@@ -137,7 +139,12 @@ extern unsigned int user_debug;
 #define vectors_high()	(0)
 #endif
 
+#if __LINUX_ARM_ARCH__ >= 6
+#define mb() __asm__ __volatile__ ("mcr p15, 0, %0, c7, c10, 5" \
+                                   : : "r" (0) : "memory")
+#else
 #define mb() __asm__ __volatile__ ("" : : : "memory")
+#endif
 #define rmb() mb()
 #define wmb() mb()
 #define read_barrier_depends() do { } while(0)
@@ -290,7 +297,6 @@ do {									\
 })
 
 #ifdef CONFIG_SMP
-#error SMP not supported
 
 #define smp_mb()		mb()
 #define smp_rmb()		rmb()
@@ -304,6 +310,8 @@ do {									\
 #define smp_wmb()		barrier()
 #define smp_read_barrier_depends()		do { } while(0)
 
+#endif /* CONFIG_SMP */
+
 #if defined(CONFIG_CPU_SA1100) || defined(CONFIG_CPU_SA110)
 /*
  * On the StrongARM, "swp" is terminally broken since it bypasses the
@@ -316,6 +324,9 @@ do {									\
  *
  * We choose (1) since its the "easiest" to achieve here and is not
  * dependent on the processor type.
+ *
+ * NOTE that this solution won't work on an SMP system, so explcitly
+ * forbid it here.
  */
 #define swp_is_buggy
 #endif
@@ -327,41 +338,72 @@ static inline unsigned long __xchg(unsigned long x, volatile void *ptr, int size
 #ifdef swp_is_buggy
 	unsigned long flags;
 #endif
+#if __LINUX_ARM_ARCH__ >= 6
+	unsigned int tmp;
+#endif
 
 	switch (size) {
-#ifdef swp_is_buggy
-		case 1:
-			local_irq_save(flags);
-			ret = *(volatile unsigned char *)ptr;
-			*(volatile unsigned char *)ptr = x;
-			local_irq_restore(flags);
-			break;
-
-		case 4:
-			local_irq_save(flags);
-			ret = *(volatile unsigned long *)ptr;
-			*(volatile unsigned long *)ptr = x;
-			local_irq_restore(flags);
-			break;
-#else
-		case 1:	__asm__ __volatile__ ("swpb %0, %1, [%2]"
-					: "=&r" (ret)
-					: "r" (x), "r" (ptr)
-					: "memory", "cc");
-			break;
-		case 4:	__asm__ __volatile__ ("swp %0, %1, [%2]"
-					: "=&r" (ret)
-					: "r" (x), "r" (ptr)
-					: "memory", "cc");
-			break;
+#if __LINUX_ARM_ARCH__ >= 6
+	case 1:
+		asm volatile("@	__xchg1\n"
+		"1:	ldrexb	%0, [%3]\n"
+		"	strexb	%1, %2, [%3]\n"
+		"	teq	%1, #0\n"
+		"	bne	1b"
+			: "=&r" (ret), "=&r" (tmp)
+			: "r" (x), "r" (ptr)
+			: "memory", "cc");
+		break;
+	case 4:
+		asm volatile("@	__xchg4\n"
+		"1:	ldrex	%0, [%3]\n"
+		"	strex	%1, %2, [%3]\n"
+		"	teq	%1, #0\n"
+		"	bne	1b"
+			: "=&r" (ret), "=&r" (tmp)
+			: "r" (x), "r" (ptr)
+			: "memory", "cc");
+		break;
+#elif defined(swp_is_buggy)
+#ifdef CONFIG_SMP
+#error SMP is not supported on this platform
 #endif
-		default: __bad_xchg(ptr, size), ret = 0;
+	case 1:
+		local_irq_save(flags);
+		ret = *(volatile unsigned char *)ptr;
+		*(volatile unsigned char *)ptr = x;
+		local_irq_restore(flags);
+		break;
+
+	case 4:
+		local_irq_save(flags);
+		ret = *(volatile unsigned long *)ptr;
+		*(volatile unsigned long *)ptr = x;
+		local_irq_restore(flags);
+		break;
+#else
+	case 1:
+		asm volatile("@	__xchg1\n"
+		"	swpb	%0, %1, [%2]"
+			: "=&r" (ret)
+			: "r" (x), "r" (ptr)
+			: "memory", "cc");
+		break;
+	case 4:
+		asm volatile("@	__xchg4\n"
+		"	swp	%0, %1, [%2]"
+			: "=&r" (ret)
+			: "r" (x), "r" (ptr)
+			: "memory", "cc");
+		break;
+#endif
+	default:
+		__bad_xchg(ptr, size), ret = 0;
+		break;
 	}
 
 	return ret;
 }
-
-#endif /* CONFIG_SMP */
 
 #endif /* __ASSEMBLY__ */
 

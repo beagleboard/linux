@@ -86,7 +86,7 @@ config SERIAL_8250_ACPI
 	  namespace, say Y here.  If unsure, say N.
 
 config SERIAL_8250_NR_UARTS
-	int "Maximum number of non-legacy 8250/16550 serial ports"
+	int "Maximum number of 8250/16550 serial ports"
 	depends on SERIAL_8250
 	default "4"
 	help
@@ -305,13 +305,6 @@ config SERIAL_S3C2410_CONSOLE
 	  "console=ttySACx". (Try "man bootparam" or see the documentation of
 	  your boot loader about how to pass options to the kernel at
 	  boot time.)
-
-config SERIAL_BAST_SIO
-	bool "Support for BAST SuperIO serial ports"
-	depends on ARCH_BAST && SERIAL_8250=y
-	help
-	  Support for registerin the SuperIO chip on BAST board with
-	  the 8250/16550 uart code.
 
 config SERIAL_DZ
 	bool "DECstation DZ serial driver"
