@@ -26,7 +26,9 @@
 #include <asm/arch/mux.h>
 #include <asm/arch/gpio.h>
 #include <asm/arch/fpga.h>
+#ifdef CONFIG_PM
 #include <asm/arch/pm.h>
+#endif
 
 static struct clk * uart1_ck = NULL;
 static struct clk * uart2_ck = NULL;
@@ -274,7 +276,9 @@ static void __init omap_serial_wakeup_init(void)
 
 static int __init omap_init(void)
 {
+#ifdef CONFIG_PM
 	omap_serial_wakeup_init();
+#endif
 	return platform_device_register(&serial_device);
 }
 arch_initcall(omap_init);
