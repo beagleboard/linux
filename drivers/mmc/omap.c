@@ -11,6 +11,12 @@
  */
 
 #include <linux/config.h>
+
+// #define CONFIG_MMC_DEBUG
+#ifdef CONFIG_MMC_DEBUG
+#define DEBUG	/* for dev_dbg(), pr_debug(), etc */
+#endif
+
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/init.h>
@@ -83,6 +89,7 @@ struct mmc_omap_host {
 	int			dma_ch;
 	spinlock_t		dma_lock;
 	struct timer_list	dma_timer;
+	unsigned		dma_len;
 
 	short			power_pin;
 	short			wp_pin;
@@ -149,16 +156,12 @@ mmc_omap_start_command(struct mmc_omap_host *host, struct mmc_command *cmd)
 	u32 resptype;
 	u32 cmdtype;
 
-	DBG("MMC%d: CMD%d, argument 0x%08x", host->id, cmd->opcode, cmd->arg);
-	if (cmd->flags & MMC_RSP_SHORT)
-		DBG(", 32-bit response");
-	if (cmd->flags & MMC_RSP_LONG)
-		DBG(", 128-bit response");
-	if (cmd->flags & MMC_RSP_CRC)
-		DBG(", CRC");
-	if (cmd->flags & MMC_RSP_BUSY)
-		DBG(", busy notification");
-	DBG("\n");
+	pr_debug("MMC%d: CMD%d, argument 0x%08x%s%s%s%s\n",
+		host->id, cmd->opcode, cmd->arg,
+		(cmd->flags & MMC_RSP_SHORT) ?  ", 32-bit response" : "",
+		(cmd->flags & MMC_RSP_LONG) ?  ", 128-bit response" : "",
+		(cmd->flags & MMC_RSP_CRC) ?  ", CRC" : "",
+		(cmd->flags & MMC_RSP_BUSY) ?  ", busy notification" : "");
 
 	host->cmd = cmd;
 
@@ -252,12 +255,14 @@ mmc_omap_xfer_done(struct mmc_omap_host *host, struct mmc_data *data)
 		dma_unmap_sg(mmc_dev(host->mmc), data->sg, host->sg_len,
 			     dma_data_dir);
 	}
-
 	host->data = NULL;
-
 	host->sg_len = 0;
-
 	clk_unuse(host->clk);
+
+	/* NOTE:  MMC layer will sometimes poll-wait CMD13 next, issuing
+	 * dozens of requests until the card finishes writing data.
+	 * It'd be cheaper to just wait till an EOFB interrupt arrives...
+	 */
 
 	if (!data->stop) {
 		host->mrq = NULL;
@@ -626,23 +631,36 @@ static void mmc_omap_switch_handler(void *data)
 	}
 }
 
-/* transfer the next segment of a scatterlist */
+/* prepare to transfer the next segment of a scatterlist */
 static void
-mmc_omap_start_dma_transfer(struct mmc_omap_host *host, struct mmc_data *data)
+mmc_omap_prepare_dma(struct mmc_omap_host *host, struct mmc_data *data)
 {
 	int dma_ch = host->dma_ch;
 	unsigned long data_addr;
-	u16 buf, frame;
+	u16 buf, frame, count;
 	struct scatterlist *sg = &data->sg[host->sg_idx];
+
+	data_addr = virt_to_phys((void __force *) host->base)
+				+ OMAP_MMC_REG_DATA;
+	frame = 1 << data->blksz_bits;
+	count = sg_dma_len(sg);
+
+	/* the MMC layer is confused about single block writes... */
+	if ((data->blocks == 1) && (count > (1 << data->blksz_bits))) {
+		pr_debug("patch bogus single block length! %d > %d\n",
+				count, frame);
+		count = frame;
+	}
+	host->dma_len = count;
 
 	/* FIFO is 32x2 bytes; use 32 word frames when the blocksize is
 	 * at least that large.  Blocksize is usually 512 bytes; but
 	 * not for some SD reads.
 	 */
-	data_addr = virt_to_phys((void __force *) host->base) + OMAP_MMC_REG_DATA;
-	frame = 1 << (data->blksz_bits - 1);
-	if (frame > 32)
-		frame = 32;
+	if (frame > 64)
+		frame = 64;
+	count /= frame;
+	frame >>= 1;
 
 	if (!(data->flags & MMC_DATA_WRITE)) {
 		buf = 0x800f | ((frame - 1) << 8);
@@ -668,9 +686,7 @@ mmc_omap_start_dma_transfer(struct mmc_omap_host *host, struct mmc_data *data)
 
 	OMAP_MMC_WRITE(host->base, BUF, buf);
 	omap_set_dma_transfer_params(dma_ch, OMAP_DMA_DATA_TYPE_S16,
-			frame, (sg_dma_len(sg) / 2 ) / frame,
-			OMAP_DMA_SYNC_FRAME);
-	omap_start_dma(dma_ch);
+			frame, count, OMAP_DMA_SYNC_FRAME);
 }
 
 /* a scatterlist segment completed */
@@ -698,19 +714,24 @@ static void mmc_omap_dma_cb(int lch, u16 ch_status, void *data)
 		 * just SYNC status ...
 		 */
 		if ((ch_status & ~OMAP_DMA_SYNC_IRQ))
-			printk(KERN_ERR "MMC%d: Unknown DMA channel status: %04x\n",
+			pr_debug("MMC%d: DMA channel status: %04x\n",
 			       host->id, ch_status);
 		return;
 	}
-	mmcdat->bytes_xfered += sg_dma_len(&mmcdat->sg[host->sg_idx]);
+	mmcdat->bytes_xfered += host->dma_len;
 
-	DBG("\tMMC DMA CB %04x (%d segments to go), %p\n", ch_status,
-	    host->sg_len - host->sg_idx - 1, host->data);
+	pr_debug("\tMMC DMA %d bytes CB %04x (%d segments to go), %p\n",
+		host->dma_len, ch_status,
+		host->sg_len - host->sg_idx - 1, host->data);
 
 	host->sg_idx++;
-	if (host->sg_idx < host->sg_len)
-		mmc_omap_start_dma_transfer(host, host->data);
-	else
+	if (host->sg_idx < host->sg_len) {
+		/* REVISIT we only checked the first segment
+		 * for being a dma candidate ...
+		 */
+		mmc_omap_prepare_dma(host, host->data);
+		omap_start_dma(host->dma_ch);
+	} else
 		mmc_omap_dma_done(host, host->data);
 }
 
@@ -793,44 +814,40 @@ static inline void set_data_timeout(struct mmc_omap_host *host, struct mmc_reque
 	OMAP_MMC_WRITE(host->base, DTO, timeout);
 }
 
-static void mmc_omap_prepare_data(struct mmc_omap_host *host, struct mmc_request *req)
+static void
+mmc_omap_prepare_data(struct mmc_omap_host *host, struct mmc_request *req)
 {
 	struct mmc_data *data = req->data;
 	int i, use_dma, block_size;
-	enum dma_data_direction dma_data_dir;
+	unsigned sg_len;
 
 	host->data = data;
 	if (data == NULL) {
 		OMAP_MMC_WRITE(host->base, BLEN, 0);
 		OMAP_MMC_WRITE(host->base, NBLK, 0);
 		OMAP_MMC_WRITE(host->base, BUF, 0);
+		host->dma_in_use = 0;
 		set_cmd_timeout(host, req);
 		return;
 	}
 
-	use_dma = host->use_dma;
 
 	block_size = 1 << data->blksz_bits;
-	DBG("MMC%d: Data xfer (%s %s), DTO %d cycles + %d ns, %d blocks of %d bytes\n",
-	    host->id, (data->flags & MMC_DATA_STREAM) ? "stream" : "block",
-	    (data->flags & MMC_DATA_WRITE) ? "write" : "read",
-	    data->timeout_clks, data->timeout_ns, data->blocks,
-	    block_size);
 
 	OMAP_MMC_WRITE(host->base, NBLK, data->blocks - 1);
 	OMAP_MMC_WRITE(host->base, BLEN, block_size - 1);
 	set_data_timeout(host, req);
 
-	if (data->flags & MMC_DATA_WRITE)
-		dma_data_dir = DMA_TO_DEVICE;
-	else
-		dma_data_dir = DMA_FROM_DEVICE;
+	/* cope with calling layer confusion; it issues "single
+	 * block" writes using multi-block scatterlists.
+	 */
+	sg_len = (data->blocks == 1) ? 1 : data->sg_len;
 
-	/* Only do DMA if offsets and lengths are aligned by 32. */
+	/* Only do DMA for entire blocks */
+	use_dma = host->use_dma;
 	if (use_dma) {
-		for (i = 0; i < data->sg_len; i++) {
-			if ((data->sg[i].length % 32) != 0
-					|| data->sg[i].offset != 0) {
+		for (i = 0; i < sg_len; i++) {
+			if ((data->sg[i].length % block_size) != 0) {
 				use_dma = 0;
 				break;
 			}
@@ -840,10 +857,17 @@ static void mmc_omap_prepare_data(struct mmc_omap_host *host, struct mmc_request
 	host->sg_idx = 0;
 	if (use_dma) {
 		if (mmc_omap_get_dma_channel(host, data) == 0) {
+			enum dma_data_direction dma_data_dir;
+
+			if (data->flags & MMC_DATA_WRITE)
+				dma_data_dir = DMA_TO_DEVICE;
+			else
+				dma_data_dir = DMA_FROM_DEVICE;
+
 			host->sg_len = dma_map_sg(mmc_dev(host->mmc), data->sg,
-						data->sg_len, dma_data_dir);
+						sg_len, dma_data_dir);
 			host->total_bytes_left = 0;
-			mmc_omap_start_dma_transfer(host, req->data);
+			mmc_omap_prepare_dma(host, req->data);
 			host->brs_received = 0;
 			host->dma_done = 0;
 			host->dma_in_use = 1;
@@ -855,10 +879,18 @@ static void mmc_omap_prepare_data(struct mmc_omap_host *host, struct mmc_request
 	if (!use_dma) {
 		OMAP_MMC_WRITE(host->base, BUF, 0x1f1f);
 		host->total_bytes_left = data->blocks * block_size;
-		host->sg_len = data->sg_len;
+		host->sg_len = sg_len;
 		mmc_omap_sg_to_buf(host);
 		host->dma_in_use = 0;
 	}
+
+	pr_debug("MMC%d: %s %s %s, DTO %d cycles + %d ns, "
+			"%d blocks of %d bytes, %d segments\n",
+		host->id, use_dma ? "DMA" : "PIO",
+		(data->flags & MMC_DATA_STREAM) ? "stream" : "block",
+		(data->flags & MMC_DATA_WRITE) ? "write" : "read",
+		data->timeout_clks, data->timeout_ns, data->blocks,
+		block_size, host->sg_len);
 }
 
 static inline int is_broken_card(struct mmc_card *card)
@@ -929,8 +961,11 @@ static void mmc_omap_request(struct mmc_host *mmc, struct mmc_request *req)
 		}
 	}
 
+	/* only touch fifo AFTER the controller readies it */
 	mmc_omap_prepare_data(host, req);
 	mmc_omap_start_command(host, req->cmd);
+	if (host->dma_in_use)
+		omap_start_dma(host->dma_ch);
 }
 
 static void innovator_fpga_socket_power(int on)
