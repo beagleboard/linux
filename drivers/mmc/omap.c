@@ -60,7 +60,7 @@
  * when the cover switch is open */
 #define OMAP_MMC_SWITCH_POLL_DELAY     500
 
-static int mmc_omap_enable_poll = 1;
+static int mmc_omap_enable_poll = 0;
 
 struct mmc_omap_host {
 	int                     initialized;
@@ -81,6 +81,7 @@ struct mmc_omap_host {
 	u16 *			buffer;
 	u32			buffer_bytes_left;
 	u32			total_bytes_left;
+	struct timer_list	xfer_timer;
 
 	unsigned		use_dma:1;
 	unsigned		brs_received:1, dma_done:1;
@@ -240,6 +241,8 @@ mmc_omap_start_command(struct mmc_omap_host *host, struct mmc_command *cmd)
 static void
 mmc_omap_xfer_done(struct mmc_omap_host *host, struct mmc_data *data)
 {
+	del_timer_sync(&host->xfer_timer);
+
 	if (host->dma_in_use) {
 		enum dma_data_direction dma_data_dir;
 
@@ -360,9 +363,27 @@ mmc_omap_cmd_done(struct mmc_omap_host *host, struct mmc_command *cmd)
 
 	if (host->data == NULL || cmd->error != MMC_ERR_NONE) {
 		DBG("MMC%d: End request, err %x\n", host->id, cmd->error);
+		if (host->data != NULL)
+			del_timer_sync(&host->xfer_timer);
 		host->mrq = NULL;
 		clk_unuse(host->clk);
 		mmc_request_done(host->mmc, cmd->mrq);
+	}
+}
+
+static void
+mmc_omap_xfer_timeout(unsigned long data)
+{
+	struct mmc_omap_host *host = (struct mmc_omap_host *) data;
+
+	printk(KERN_ERR "MMC%d: Data xfer timeout\n", host->id);
+	if (host->data != NULL) {
+		host->data->error |= MMC_ERR_TIMEOUT;
+		/* Perform a pseudo-reset of the MMC core logic, since
+		 * the controller seems to get really stuck */
+		OMAP_MMC_WRITE(host->base, CON, OMAP_MMC_READ(host->base, CON) & ~(1 << 11));
+		OMAP_MMC_WRITE(host->base, CON, OMAP_MMC_READ(host->base, CON) | (1 << 11));
+		mmc_omap_xfer_done(host, host->data);
 	}
 }
 
@@ -456,7 +477,7 @@ static irqreturn_t mmc_omap_irq(int irq, void *dev_id, struct pt_regs *regs)
 	while ((status = OMAP_MMC_READ(host->base, STAT)) != 0) {
 		OMAP_MMC_WRITE(host->base, STAT, status); // Reset status bits
 #ifdef CONFIG_MMC_DEBUG
-		printk(KERN_DEBUG "\tMMC IRQ %04x (CMD %d): ", status,
+		pr_debug("\tMMC IRQ %04x (CMD %d): ", status,
 		       host->cmd != NULL ? host->cmd->opcode : -1);
 		mmc_omap_report_irq(status);
 		printk("\n");
@@ -582,11 +603,26 @@ static irqreturn_t mmc_omap_irq(int irq, void *dev_id, struct pt_regs *regs)
 static irqreturn_t mmc_omap_switch_irq(int irq, void *dev_id, struct pt_regs *regs)
 {
 	struct mmc_omap_host *host = (struct mmc_omap_host *) dev_id;
+	int cover_open, detect_now;
 
+	cover_open = mmc_omap_cover_is_open(host);
 	DBG("MMC%d cover is now %s\n", host->id,
-	    omap_get_gpio_datain(host->switch_pin) ? "open" : "closed");
-	schedule_work(&host->switch_work);
-
+	    cover_open ? "open" : "closed");
+	detect_now = 0;
+	if (host->switch_last_state != cover_open) {
+		/* If the cover was just opened, we want to inform user-space
+		 * about it as soon as possible */
+		if (cover_open)
+			detect_now = 1;
+	}
+	if (detect_now)
+		schedule_work(&host->switch_work);
+	else {
+		/* Delay the switch work a little bit to get rid of the GPIO
+		 * line bounces */
+		mod_timer(&host->switch_timer,
+			  jiffies + msecs_to_jiffies(OMAP_MMC_SWITCH_POLL_DELAY));
+	}
 	return IRQ_HANDLED;
 }
 
@@ -602,7 +638,7 @@ static void mmc_omap_switch_handler(void *data)
 	struct mmc_omap_host *host = (struct mmc_omap_host *) data;
 	struct mmc_card *card;
 	static int complained = 0;
-	int cards = 0, cover_open;
+	int card_count = 0, cover_open;
 
 	if (host->switch_pin == -1)
 		return;
@@ -615,15 +651,18 @@ static void mmc_omap_switch_handler(void *data)
 	mmc_detect_change(host->mmc);
 	list_for_each_entry(card, &host->mmc->cards, node) {
 		if (mmc_card_present(card))
-			cards++;
+			card_count++;
 	}
-	DBG("MMC%d: %d card(s) present\n", host->id, cards);
-	if (mmc_omap_cover_is_open(host)) {
+	DBG("MMC%d: %d card(s) present\n", host->id, card_count);
+	if (cover_open) {
 		if (!complained) {
 			printk(KERN_INFO "MMC%d: cover is open\n", host->id);
 			complained = 1;
 		}
-		if (mmc_omap_enable_poll)
+		/* If the cover is open and a card is present (or the
+		 * poll has been forced on manually), we continue
+		 * polling */
+		if (cover_open && (card_count || mmc_omap_enable_poll))
 			mod_timer(&host->switch_timer, jiffies +
 				msecs_to_jiffies(OMAP_MMC_SWITCH_POLL_DELAY));
 	} else {
@@ -883,6 +922,7 @@ mmc_omap_prepare_data(struct mmc_omap_host *host, struct mmc_request *req)
 		mmc_omap_sg_to_buf(host);
 		host->dma_in_use = 0;
 	}
+	mod_timer(&host->xfer_timer, jiffies + msecs_to_jiffies(500));
 
 	pr_debug("MMC%d: %s %s %s, DTO %d cycles + %d ns, "
 			"%d blocks of %d bytes, %d segments\n",
@@ -1117,6 +1157,10 @@ static int __init mmc_omap_probe(struct device *dev)
 	init_timer(&host->dma_timer);
 	host->dma_timer.function = mmc_omap_dma_timer;
 	host->dma_timer.data = (unsigned long) host;
+
+	init_timer(&host->xfer_timer);
+	host->xfer_timer.function = mmc_omap_xfer_timeout;
+	host->xfer_timer.data = (unsigned long) host;
 
 	host->id = pdev->id;
 	host->clk = clk_get(dev, (host->id == 1) ? "mmc1_ck" : "mmc2_ck");

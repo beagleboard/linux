@@ -31,6 +31,7 @@
 
 #include <linux/mmc/card.h>
 #include <linux/mmc/protocol.h>
+#include <linux/mmc/host.h>
 
 #include <asm/system.h>
 #include <asm/uaccess.h>
@@ -358,6 +359,9 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 	blkdev_dequeue_request(req);
 	end_that_request_last(req);
 	spin_unlock_irq(&md->lock);
+
+	/* If a command fails, the card might be removed. */
+	mmc_detect_change(card->host);
 
 	return 0;
 }
