@@ -1,4 +1,6 @@
-#if __LINUX_ARM_ARCH__ >= 6
+#include <linux/config.h>
+
+#if __LINUX_ARM_ARCH__ >= 6 && defined(CONFIG_CPU_MPCORE)
 	.macro	bitop, instr
 	mov	r2, #1
 	and	r3, r0, #7		@ Get bit offset
@@ -7,7 +9,7 @@
 1:	ldrexb	r2, [r1]
 	\instr	r2, r2, r3
 	strexb	r0, r2, [r1]
-	cmpne	r0, #0
+	cmp	r0, #0
 	bne	1b
 	mov	pc, lr
 	.endm
