@@ -142,7 +142,7 @@ static struct clk arm_ck = {
 static struct clk armper_ck = {
 	.name		= "armper_ck",
 	.parent		= &ck_dpll1,
-	.flags		= CLOCK_IN_OMAP730 | CLOCK_IN_OMAP1510 | CLOCK_IN_OMAP16XX |
+	.flags		= CLOCK_IN_OMAP1510 | CLOCK_IN_OMAP16XX |
 			  RATE_CKCTL,
 	.enable_reg	= ARM_IDLECT2,
 	.enable_bit	= EN_PERCK,
@@ -386,7 +386,8 @@ static struct clk uart2_ck = {
 	.name		= "uart2_ck",
 	/* Direct from ULPD, no parent */
 	.rate		= 12000000,
-	.flags		= CLOCK_IN_OMAP1510 | CLOCK_IN_OMAP16XX | ENABLE_REG_32BIT,
+	.flags		= CLOCK_IN_OMAP1510 | CLOCK_IN_OMAP16XX | ENABLE_REG_32BIT |
+			  ALWAYS_ENABLED,
 	.enable_reg	= MOD_CONF_CTRL_0,
 	.enable_bit	= 30,	/* Chooses between 12MHz and 48MHz */
 	.set_rate	= &set_uart_rate,
@@ -442,6 +443,15 @@ static struct clk usb_hhc_ck16xx = {
 			  RATE_FIXED | ENABLE_REG_32BIT,
 	.enable_reg	= OTG_BASE + 0x08 /* OTG_SYSCON_2 */,
 	.enable_bit	= 8 /* UHOST_EN */,
+};
+
+static struct clk usb_dc_ck = {
+	.name		= "usb_dc_ck",
+	/* Direct from ULPD, no parent */
+	.rate		= 48000000,
+	.flags		= CLOCK_IN_OMAP16XX | RATE_FIXED,
+	.enable_reg	= SOFT_REQ_REG,
+	.enable_bit	= 4,
 };
 
 static struct clk mclk_1510 = {
@@ -553,6 +563,7 @@ static struct clk *  onchip_clks[] = {
 	&uart3_16xx,
 	&usb_clko,
 	&usb_hhc_ck1510, &usb_hhc_ck16xx,
+	&usb_dc_ck,
 	&mclk_1510,  &mclk_16xx,
 	&bclk_1510,  &bclk_16xx,
 	&mmc1_ck,
@@ -1273,7 +1284,9 @@ static int __init omap_late_clk_reset(void)
 	struct clk *p;
 	__u32 regval32;
 
-	omap_writew(0, SOFT_REQ_REG);
+	/* USB_REQ_EN will be disabled later if necessary (usb_dc_ck) */
+	regval32 = omap_readw(SOFT_REQ_REG) & (1 << 4);
+	omap_writew(regval32, SOFT_REQ_REG);
 	omap_writew(0, SOFT_REQ_REG2);
 
 	list_for_each_entry(p, &clocks, node) {
