@@ -326,7 +326,7 @@ mmc_omap_dma_done(struct mmc_omap_host *host, struct mmc_data *data)
 }
 
 static void
-mmc_omap_cmd_done(struct mmc_omap_host *host, struct mmc_command *cmd)
+mmc_omap_cmd_done(struct mmc_omap_host *host, struct mmc_command *cmd, int card_ready)
 {
 	host->cmd = NULL;
 
@@ -340,6 +340,10 @@ mmc_omap_cmd_done(struct mmc_omap_host *host, struct mmc_command *cmd)
 			OMAP_MMC_READ(host->base, RSP6) |
 			(OMAP_MMC_READ(host->base, RSP7) << 16);
 		DBG("MMC%d: Response %08x\n", host->id, cmd->resp[0]);
+		if (card_ready) {
+			pr_debug("MMC%d: Faking card ready based on EOFB\n", host->id);
+			cmd->resp[0] |= R1_READY_FOR_DATA;
+		}
 		break;
 	case MMC_RSP_LONG:
 		/* response type 2 */
@@ -458,6 +462,7 @@ static irqreturn_t mmc_omap_irq(int irq, void *dev_id, struct pt_regs *regs)
 	u16 status;
 	int end_command;
 	int end_transfer;
+	int card_ready;
 	int transfer_error;
 
 	if (host->cmd == NULL && host->data == NULL) {
@@ -472,6 +477,7 @@ static irqreturn_t mmc_omap_irq(int irq, void *dev_id, struct pt_regs *regs)
 
 	end_command = 0;
 	end_transfer = 0;
+	card_ready = 0;
 	transfer_error = 0;
 
 	while ((status = OMAP_MMC_READ(host->base, STAT)) != 0) {
@@ -558,8 +564,8 @@ static irqreturn_t mmc_omap_irq(int irq, void *dev_id, struct pt_regs *regs)
 					| (OMAP_MMC_READ(host->base, RSP7) << 16);
 				/* STOP sometimes sets must-ignore bits */
 				if (!(response & (R1_CC_ERROR
-	| R1_ILLEGAL_COMMAND
-	| R1_COM_CRC_ERROR))) {
+						  | R1_ILLEGAL_COMMAND
+						  | R1_COM_CRC_ERROR))) {
 					end_command = 1;
 					continue;
 				}
@@ -587,10 +593,21 @@ static irqreturn_t mmc_omap_irq(int irq, void *dev_id, struct pt_regs *regs)
 			// End of command phase
 			end_command = 1;
 		}
+
+		/*
+		 * Some cards produce EOFB interrupt and never
+		 * raise R1_READY_FOR_DATA bit after that.
+		 * To avoid infinite card status polling loop,
+		 * we must fake that bit to MMC layer.
+		 */
+		if ((status & OMAP_MMC_STAT_END_OF_CMD) &&
+		    (status & OMAP_MMC_STAT_END_BUSY)) {
+			card_ready = 1;
+		}
 	}
 
 	if (end_command) {
-		mmc_omap_cmd_done(host, host->cmd);
+		mmc_omap_cmd_done(host, host->cmd, card_ready);
 	}
 	if (transfer_error)
 		mmc_omap_xfer_done(host, host->data);

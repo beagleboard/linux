@@ -270,6 +270,10 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 			goto cmd_fail;
 		}
 
+		/* No need to check card status after a read */
+		if (rq_data_dir(req) == READ)
+			goto card_ready;
+
 		do {
 			int err;
 
@@ -298,6 +302,8 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 		if (mmc_decode_status(cmd.resp))
 			goto cmd_err;
 #endif
+
+	card_ready:
 
 		/*
 		 * A block was successfully transferred.
