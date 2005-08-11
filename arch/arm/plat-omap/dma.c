@@ -425,7 +425,7 @@ static int dma_handle_ch(int ch)
 		dma_chan[ch + 6].saved_csr = csr >> 7;
 		csr &= 0x7f;
 	}
-	if (!csr)
+	if ((csr & 0x3f) == 0)
 		return 0;
 	if (unlikely(dma_chan[ch].dev_id == -1)) {
 		printk(KERN_WARNING "Spurious interrupt from DMA channel %d (CSR %04x)\n",
@@ -890,11 +890,11 @@ void omap_enable_lcd_dma(void)
 	w |= 1 << 8;
 	omap_writew(w, OMAP1610_DMA_LCD_CTRL);
 
+	lcd_dma.active = 1;
+
 	w = omap_readw(OMAP1610_DMA_LCD_CCR);
 	w |= 1 << 7;
 	omap_writew(w, OMAP1610_DMA_LCD_CCR);
-
-	lcd_dma.active = 1;
 }
 
 void omap_setup_lcd_dma(void)

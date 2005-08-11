@@ -31,6 +31,7 @@
 
 #include <linux/mmc/card.h>
 #include <linux/mmc/protocol.h>
+#include <linux/mmc/host.h>
 
 #include <asm/system.h>
 #include <asm/uaccess.h>
@@ -269,6 +270,10 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 			goto cmd_fail;
 		}
 
+		/* No need to check card status after a read */
+		if (rq_data_dir(req) == READ)
+			goto card_ready;
+
 		do {
 			int err;
 
@@ -297,6 +302,8 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 		if (mmc_decode_status(cmd.resp))
 			goto cmd_err;
 #endif
+
+	card_ready:
 
 		/*
 		 * A block was successfully transferred.
@@ -358,6 +365,9 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 	blkdev_dequeue_request(req);
 	end_that_request_last(req);
 	spin_unlock_irq(&md->lock);
+
+	/* If a command fails, the card might be removed. */
+	mmc_detect_change(card->host);
 
 	return 0;
 }
