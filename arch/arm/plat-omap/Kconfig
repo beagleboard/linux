@@ -42,7 +42,7 @@ config OMAP_BOOT_TAG
 
 config OMAP_BOOT_REASON
 	bool "Support for boot reason"
-        depends on OMAP_BOOT_TAG
+        depends on OMAP_BOOT_TAG && PROC_FS
         default n
         help
           Say Y, if you want to have a procfs entry for reading the boot
