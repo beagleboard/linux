@@ -50,10 +50,10 @@ config OMAP_BOOT_REASON
 
 config OMAP_GPIO_SWITCH
 	bool "GPIO switch support"
-        depends on OMAP_BOOT_TAG
+        depends on OMAP_BOOT_TAG && PROC_FS
         default n
         help
-          Say Y, if you want to have support for input layer reporting
+          Say Y, if you want to have support for kevent reporting
           of GPIO switches (e.g. cover switches). Your bootloader has to
           provide information about the switches to the kernel via the
           ATAG_BOARD mechanism.

@@ -80,7 +80,9 @@ static int gpio_sw_get_state(struct gpio_switch *sw)
 	return state;
 }
 
-static ssize_t gpio_sw_store(struct device *dev, const char *buf, size_t count)
+static ssize_t gpio_sw_store(struct device *dev,
+			     struct device_attribute *attr,
+			     const char *buf, size_t count)
 {
 	struct gpio_switch *sw = dev_get_drvdata(dev);
 	int enable = (int)simple_strtoul(buf, NULL, 10);
@@ -89,7 +91,9 @@ static ssize_t gpio_sw_store(struct device *dev, const char *buf, size_t count)
 }
 
 #define gpio_sw_switch_attr(name)					\
-static ssize_t gpio_sw_show_##name(struct device *dev, char *buf)	\
+static ssize_t gpio_sw_show_##name(struct device *dev,			\
+				struct device_attribute *attr,		\
+				char *buf)				\
 {									\
 	struct gpio_switch *sw = dev_get_drvdata(dev);			\
 	return sprintf(buf, "%s\n", name##_str[gpio_sw_get_state(sw)]);	\
