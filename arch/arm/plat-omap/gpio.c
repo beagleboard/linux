@@ -807,7 +807,7 @@ static int __init _omap_gpio_init(void)
 		if (bank->method == METHOD_GPIO_1610) {
 			__raw_writew(0x0000, bank->base + OMAP1610_GPIO_IRQENABLE1);
 			__raw_writew(0xffff, bank->base + OMAP1610_GPIO_IRQSTATUS1);
-			__raw_writew(0x0014, bank->base + OMAP1610_GPIO_SYSCONFIG);
+			__raw_writew(0x0015, bank->base + OMAP1610_GPIO_SYSCONFIG);
 		}
 #endif
 #ifdef CONFIG_ARCH_OMAP730
