@@ -183,7 +183,8 @@ static int __init new_switch(struct gpio_switch *sw)
 	if (!direction)
 		return 0;
 
-	r = request_irq(OMAP_GPIO_IRQ(sw->gpio), gpio_sw_irq_handler, SA_SHIRQ, 			sw->name, sw);
+	r = request_irq(OMAP_GPIO_IRQ(sw->gpio), gpio_sw_irq_handler, SA_SHIRQ,
+			sw->name, sw);
 	if (r < 0) {
 		printk(KERN_ERR "gpio-switch: request_irq() failed "
 				"for GPIO %d\n", sw->gpio);

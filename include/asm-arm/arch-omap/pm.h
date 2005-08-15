@@ -99,7 +99,8 @@
 #define OMAP1610_IDLE_LOOP_REQUEST	0x0400
 
 #if     !defined(CONFIG_ARCH_OMAP1510) && \
-	!defined(CONFIG_ARCH_OMAP16XX)
+	!defined(CONFIG_ARCH_OMAP16XX) && \
+	!defined(CONFIG_ARCH_OMAP24XX)
 #error "Power management for this processor not implemented yet"
 #endif
 

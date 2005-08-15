@@ -10,6 +10,7 @@
 #include <linux/module.h>
 #include <linux/mm.h>
 #include <linux/pagemap.h>
+#include <linux/shm.h>
 
 #include <asm/cacheflush.h>
 #include <asm/system.h>
@@ -117,3 +118,54 @@ void flush_dcache_page(struct page *page)
 	}
 }
 EXPORT_SYMBOL(flush_dcache_page);
+
+void flush_cache_mm(struct mm_struct *mm)
+{
+	if (cache_is_vivt()) {
+		if (current->active_mm == mm)
+			__cpuc_flush_user_all();
+		return;
+	}
+
+	if (cache_is_vipt_aliasing()) {
+		asm(	"mcr	p15, 0, %0, c7, c14, 0\n"
+		"	mcr	p15, 0, %0, c7, c5, 0\n"
+		"	mcr	p15, 0, %0, c7, c10, 4"
+		    :
+		    : "r" (0)
+		    : "cc");
+	}
+}
+
+void flush_cache_range(struct vm_area_struct *vma, unsigned long start, unsigned long end)
+{
+	if (cache_is_vivt()) {
+		if (current->active_mm == vma->vm_mm)
+			__cpuc_flush_user_range(start & PAGE_MASK, PAGE_ALIGN(end),
+						vma->vm_flags);
+		return;
+	}
+
+	if (cache_is_vipt_aliasing()) {
+		asm(	"mcr	p15, 0, %0, c7, c14, 0\n"
+		"	mcr	p15, 0, %0, c7, c5, 0\n"
+		"	mcr	p15, 0, %0, c7, c10, 4"
+		    :
+		    : "r" (0)
+		    : "cc");
+	}
+}
+
+void flush_cache_page(struct vm_area_struct *vma, unsigned long user_addr, unsigned long pfn)
+{
+	if (cache_is_vivt()) {
+		if (current->active_mm == vma->vm_mm) {
+			unsigned long addr = user_addr & PAGE_MASK;
+			__cpuc_flush_user_range(addr, addr + PAGE_SIZE, vma->vm_flags);
+		}
+		return;
+	}
+
+	if (cache_is_vipt_aliasing())
+		flush_pfn_alias(pfn, user_addr);
+}

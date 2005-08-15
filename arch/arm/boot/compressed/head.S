@@ -52,6 +52,20 @@
 		add	\rb, \rb, #0x00010000	@ Ser1
 #  endif
 		.endm
+#elif defined(CONFIG_ARCH_OMAP2)
+		.macro	loadsp, rb
+		mov	\rb, #0x48000000	@ physical base address
+		add	\rb, \rb, #0x0006a000
+#ifdef CONFIG_OMAP_LL_DEBUG_UART2
+		add	\rb, \rb, #0x00002000
+#endif
+#ifdef CONFIG_OMAP_LL_DEBUG_UART3
+		add	\rb, \rb, #0x00004000
+#endif
+		.endm
+		.macro	writeb, rb
+		strb	\rb, [r3]
+		.endm
 #elif defined(CONFIG_ARCH_IOP331)
 		.macro loadsp, rb
                 mov   	\rb, #0xff000000

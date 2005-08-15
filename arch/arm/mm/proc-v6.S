@@ -123,11 +123,11 @@ ENTRY(cpu_v6_switch_mm)
  *	Permissions:
  *	  YUWD  APX AP1 AP0	SVC	User
  *	  0xxx   0   0   0	no acc	no acc
- *	  100x   1   0   1	r/o	no acc
  *	  10x0   1   0   1	r/o	no acc
+ *	  1001   0   0   1	r/w	no acc
  *	  1011   0   0   1	r/w	no acc
- *	  110x   0   1   0	r/w	r/o
- *	  11x0   0   1   0	r/w	r/o
+ *	  11x0   1   1   0	r/o	r/o
+ *	  1101   0   1   0	r/w	r/o
  *	  1111   0   1   1	r/w	r/w
  */
 ENTRY(cpu_v6_set_pte)
@@ -137,15 +137,16 @@ ENTRY(cpu_v6_set_pte)
 	bic	r2, r2, #0x00000003
 	orr	r2, r2, #PTE_EXT_AP0 | 2
 
-	tst	r1, #L_PTE_WRITE
-	tstne	r1, #L_PTE_DIRTY
+	tst	r1, #L_PTE_DIRTY
 	orreq	r2, r2, #PTE_EXT_APX
 
 	tst	r1, #L_PTE_USER
 	orrne	r2, r2, #PTE_EXT_AP1
-	tstne	r2, #PTE_EXT_APX
-	bicne	r2, r2, #PTE_EXT_APX | PTE_EXT_AP0
-
+	bicne	r2, r2, #PTE_EXT_AP0
+	tstne	r1, #L_PTE_WRITE
+	tstne	r1, #L_PTE_DIRTY
+	eorne	r2, r2, #PTE_EXT_AP0
+ 
 	tst	r1, #L_PTE_YOUNG
 	biceq	r2, r2, #PTE_EXT_APX | PTE_EXT_AP_MASK
 
