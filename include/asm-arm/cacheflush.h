@@ -256,34 +256,9 @@ extern void dmac_flush_range(unsigned long, unsigned long);
  * Convert calls to our calling convention.
  */
 #define flush_cache_all()		__cpuc_flush_kern_all()
-#ifndef CONFIG_CPU_CACHE_VIPT
-static inline void flush_cache_mm(struct mm_struct *mm)
-{
-	if (cpu_isset(smp_processor_id(), mm->cpu_vm_mask))
-		__cpuc_flush_user_all();
-}
-
-static inline void
-flush_cache_range(struct vm_area_struct *vma, unsigned long start, unsigned long end)
-{
-	if (cpu_isset(smp_processor_id(), vma->vm_mm->cpu_vm_mask))
-		__cpuc_flush_user_range(start & PAGE_MASK, PAGE_ALIGN(end),
-					vma->vm_flags);
-}
-
-static inline void
-flush_cache_page(struct vm_area_struct *vma, unsigned long user_addr, unsigned long pfn)
-{
-	if (cpu_isset(smp_processor_id(), vma->vm_mm->cpu_vm_mask)) {
-		unsigned long addr = user_addr & PAGE_MASK;
-		__cpuc_flush_user_range(addr, addr + PAGE_SIZE, vma->vm_flags);
-	}
-}
-#else
 extern void flush_cache_mm(struct mm_struct *mm);
 extern void flush_cache_range(struct vm_area_struct *vma, unsigned long start, unsigned long end);
 extern void flush_cache_page(struct vm_area_struct *vma, unsigned long user_addr, unsigned long pfn);
-#endif
 
 /*
  * flush_cache_user_range is used when we want to ensure that the

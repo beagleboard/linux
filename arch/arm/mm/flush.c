@@ -122,7 +122,7 @@ EXPORT_SYMBOL(flush_dcache_page);
 void flush_cache_mm(struct mm_struct *mm)
 {
 	if (cache_is_vivt()) {
-		if (current->active_mm == mm)
+		if (cpu_isset(smp_processor_id(), mm->cpu_vm_mask))
 			__cpuc_flush_user_all();
 		return;
 	}
@@ -140,7 +140,7 @@ void flush_cache_mm(struct mm_struct *mm)
 void flush_cache_range(struct vm_area_struct *vma, unsigned long start, unsigned long end)
 {
 	if (cache_is_vivt()) {
-		if (current->active_mm == vma->vm_mm)
+		if (cpu_isset(smp_processor_id(), vma->vm_mm->cpu_vm_mask))
 			__cpuc_flush_user_range(start & PAGE_MASK, PAGE_ALIGN(end),
 						vma->vm_flags);
 		return;
@@ -159,7 +159,7 @@ void flush_cache_range(struct vm_area_struct *vma, unsigned long start, unsigned
 void flush_cache_page(struct vm_area_struct *vma, unsigned long user_addr, unsigned long pfn)
 {
 	if (cache_is_vivt()) {
-		if (current->active_mm == vma->vm_mm) {
+		if (cpu_isset(smp_processor_id(), vma->vm_mm->cpu_vm_mask)) {
 			unsigned long addr = user_addr & PAGE_MASK;
 			__cpuc_flush_user_range(addr, addr + PAGE_SIZE, vma->vm_flags);
 		}
