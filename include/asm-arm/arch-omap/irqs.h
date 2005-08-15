@@ -135,7 +135,6 @@
 /*
  * OMAP-1510 specific IRQ numbers for interrupt handler 2
  */
-#define INT_1510_OS_32kHz_TIMER (22 + IH2_BASE)
 #define INT_1510_COM_SPI_RO	(31 + IH2_BASE)
 
 /*
