@@ -296,11 +296,20 @@ static inline void omap_32k_timer_stop(void)
 }
 
 /*
- * Rounds down to nearest usec
+ * Rounds down to nearest usec. Note that this will overflow for larger values.
  */
 static inline unsigned long omap_32k_ticks_to_usecs(unsigned long ticks_32k)
 {
 	return (ticks_32k * 5*5*5*5*5*5) >> 9;
+}
+
+/*
+ * Rounds down to nearest nsec.
+ */
+static inline unsigned long long
+omap_32k_ticks_to_nsecs(unsigned long ticks_32k)
+{
+	return (unsigned long long) ticks_32k * 1000 * 5*5*5*5*5*5 >> 9;
 }
 
 static unsigned long omap_32k_last_tick = 0;
@@ -312,6 +321,15 @@ static unsigned long omap_32k_timer_gettimeoffset(void)
 {
 	unsigned long now = omap_32k_sync_timer_read();
 	return omap_32k_ticks_to_usecs(now - omap_32k_last_tick);
+}
+
+/*
+ * Returns current time from boot in nsecs. It's OK for this to wrap
+ * around for now, as it's just a relative time stamp.
+ */
+unsigned long long sched_clock(void)
+{
+	return omap_32k_ticks_to_nsecs(omap_32k_sync_timer_read());
 }
 
 /*
