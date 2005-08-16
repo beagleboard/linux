@@ -637,7 +637,8 @@ mmc_omap_prepare_dma(struct mmc_omap_host *host, struct mmc_data *data)
 {
 	int dma_ch = host->dma_ch;
 	unsigned long data_addr;
-	u16 buf, frame, count;
+	u16 buf, frame;
+	u32 count;
 	struct scatterlist *sg = &data->sg[host->sg_idx];
 
 	data_addr = virt_to_phys((void __force *) host->base)
@@ -683,6 +684,10 @@ mmc_omap_prepare_dma(struct mmc_omap_host *host, struct mmc_data *data)
 		omap_set_dma_src_data_pack(dma_ch, 1);
 		omap_set_dma_src_burst_mode(dma_ch, OMAP_DMA_DATA_BURST_4);
 	}
+
+	/* Max limit for DMA frame count is 0xffff */
+	if (unlikely(count > 0xffff))
+		BUG();
 
 	OMAP_MMC_WRITE(host->base, BUF, buf);
 	omap_set_dma_transfer_params(dma_ch, OMAP_DMA_DATA_TYPE_S16,
@@ -1152,7 +1157,7 @@ static int __init mmc_omap_probe(struct device *dev)
 	 */
 	mmc->max_phys_segs = 32;
 	mmc->max_hw_segs = 32;
-	mmc->max_sectors = 128; /* NBLK is a 11-bit value */
+	mmc->max_sectors = 256; /* NBLK max 11-bits, OMAP also limited by DMA */
 	mmc->max_seg_size = mmc->max_sectors * 512;
 
 	if (host->power_pin >= 0) {
