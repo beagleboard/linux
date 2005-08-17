@@ -24,6 +24,7 @@
 
 #define OMAP1_SRAM_BASE		0xd0000000
 #define OMAP1_SRAM_START	0x20000000
+#define SRAM_BOOTLOADER_SZ	0x80
 
 static unsigned long omap_sram_base;
 static unsigned long omap_sram_size;
@@ -74,7 +75,13 @@ void __init omap_map_sram(void)
 	omap_sram_io_desc[0].length = (omap_sram_size + PAGE_SIZE-1)/PAGE_SIZE;
 	omap_sram_io_desc[0].length *= PAGE_SIZE;
 	iotable_init(omap_sram_io_desc, ARRAY_SIZE(omap_sram_io_desc));
-	memset((void *)omap_sram_base, 0, omap_sram_size);
+
+	/*
+	 * Looks like we need to preserve some bootloader code at the
+	 * beginning of SRAM for jumping to flash for reboot to work...
+	 */
+	memset((void *)omap_sram_base + SRAM_BOOTLOADER_SZ, 0,
+	       omap_sram_size - SRAM_BOOTLOADER_SZ);
 }
 
 static void (*_omap_sram_reprogram_clock)(u32 dpllctl, u32 ckctl) = NULL;
@@ -89,7 +96,7 @@ void omap_sram_reprogram_clock(u32 dpllctl, u32 ckctl)
 
 void * omap_sram_push(void * start, unsigned long size)
 {
-	if (size > (omap_sram_ceil - omap_sram_base)) {
+	if (size > (omap_sram_ceil - (omap_sram_base + SRAM_BOOTLOADER_SZ))) {
 		printk(KERN_ERR "Not enough space in SRAM\n");
 		return NULL;
 	}
