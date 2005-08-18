@@ -115,7 +115,6 @@ extern void omap1610_idle_loop_suspend(void);
 #ifdef CONFIG_OMAP_SERIAL_WAKE
 extern void omap_serial_wake_trigger(int enable);
 #else
-#define omap_serial_wakeup_init()	{}
 #define omap_serial_wake_trigger(x)	{}
 #endif	/* CONFIG_OMAP_SERIAL_WAKE */
 

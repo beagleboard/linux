@@ -259,7 +259,7 @@ static void __init omap_serial_set_port_wakeup(int gpio_nr)
 	enable_irq_wake(OMAP_GPIO_IRQ(gpio_nr));
 }
 
-static void __init omap_serial_wakeup_init(void)
+static int __init omap_serial_wakeup_init(void)
 {
 	if (!cpu_is_omap16xx())
 		return;
@@ -270,15 +270,15 @@ static void __init omap_serial_wakeup_init(void)
 		omap_serial_set_port_wakeup(18);
 	if (uart3_ck != NULL)
 		omap_serial_set_port_wakeup(49);
+
+	return 0;
 }
+late_initcall(omap_serial_wakeup_init);
 
 #endif	/* CONFIG_OMAP_SERIAL_WAKE */
 
 static int __init omap_init(void)
 {
-#ifdef CONFIG_PM
-	omap_serial_wakeup_init();
-#endif
 	return platform_device_register(&serial_device);
 }
 arch_initcall(omap_init);
