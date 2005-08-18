@@ -998,7 +998,7 @@ static int __init _omap_gpio_init(void)
 
 	/* Enable system clock for GPIO module.
 	 * The CAM_CLK_CTRL *is* really the right place. */
-	if (cpu_is_omap1610() || cpu_is_omap1710())
+	if (cpu_is_omap16xx())
 		omap_writel(omap_readl(ULPD_CAM_CLK_CTRL) | 0x04, ULPD_CAM_CLK_CTRL);
 
 	return 0;
@@ -1009,7 +1009,7 @@ static int omap_gpio_suspend(struct sys_device *dev, pm_message_t mesg)
 {
 	int i;
 
-	if (!cpu_is_omap24xx() && !cpu_is_omap1610())
+	if (!cpu_is_omap24xx() && !cpu_is_omap16xx())
 		return 0;
 
 	for (i = 0; i < gpio_bank_count; i++) {
@@ -1047,7 +1047,7 @@ static int omap_gpio_resume(struct sys_device *dev)
 {
 	int i;
 
-	if (!cpu_is_omap24xx() && !cpu_is_omap1610())
+	if (!cpu_is_omap24xx() && !cpu_is_omap16xx())
 		return 0;
 
 	for (i = 0; i < gpio_bank_count; i++) {
