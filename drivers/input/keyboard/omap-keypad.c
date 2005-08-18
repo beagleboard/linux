@@ -46,6 +46,7 @@ static void omap_kp_timer(unsigned long);
 
 static struct input_dev omap_kp_dev;
 static unsigned char keypad_state[8];
+static unsigned int keypad_irq = INT_KEYBOARD;
 
 static struct timer_list kp_timer;
 DECLARE_TASKLET_DISABLED(kp_tasklet, omap_kp_tasklet, 0);
@@ -130,6 +131,40 @@ static int osk_keymap[] = {
 	0 
 }; 
 
+static int p2_keymap[] = {
+	KEY(0,0,KEY_UP),
+	KEY(0,1,KEY_RIGHT),
+	KEY(0,2,KEY_LEFT),
+	KEY(0,3,KEY_DOWN),
+	KEY(0,4,KEY_CENTER),
+	KEY(0,5,KEY_0_5),
+	KEY(1,0,KEY_SOFT2),
+	KEY(1,1,KEY_SEND),
+	KEY(1,2,KEY_END),
+	KEY(1,3,KEY_VOLUMEDOWN),
+	KEY(1,4,KEY_VOLUMEUP),
+	KEY(1,5,KEY_RECORD),
+	KEY(2,0,KEY_SOFT1),
+	KEY(2,1,KEY_3),
+	KEY(2,2,KEY_6),
+	KEY(2,3,KEY_9),
+	KEY(2,4,KEY_SHARP),
+	KEY(2,5,KEY_2_5),
+	KEY(3,0,KEY_BACK),
+	KEY(3,1,KEY_2),
+	KEY(3,2,KEY_5),
+	KEY(3,3,KEY_8),
+	KEY(3,4,KEY_0),
+	KEY(3,5,KEY_HEADSETHOOK),
+	KEY(4,0,KEY_HOME),
+	KEY(4,1,KEY_1),
+	KEY(4,2,KEY_4),
+	KEY(4,3,KEY_7),
+	KEY(4,4,KEY_STAR),
+	KEY(4,5,KEY_POWER),
+	0
+};
+
 static int *keymap;
 
 static irqreturn_t omap_kp_interrupt(int irq, void *dev_id,
@@ -159,7 +194,7 @@ static void omap_kp_scan_keypad(unsigned char *state)
 		if (machine_is_omap_osk() || machine_is_omap_h2() || machine_is_omap_h3()) {
 			udelay(9);
 		} else {
-			udelay(2);
+			udelay(4);
 		}
 
 		state[col] = ~omap_readw(OMAP_MPUIO_BASE + OMAP_MPUIO_KBR_LATCH) & 0xff;
@@ -247,6 +282,9 @@ static int __init omap_kp_init(void)
 		keymap = innovator_keymap;
 	} else if (machine_is_omap_osk()) {
 		keymap = osk_keymap;
+	} else if (machine_is_omap_perseus2()) {
+		keymap = p2_keymap;
+		keypad_irq = INT_730_MPUIO_KEYPAD;
 	} else {
 		keymap = test_keymap;
 	}
@@ -256,7 +294,7 @@ static int __init omap_kp_init(void)
 
 	/* get the irq and init timer*/
 	tasklet_enable(&kp_tasklet);
-	if (request_irq(INT_KEYBOARD, omap_kp_interrupt, 0,
+	if (request_irq(keypad_irq, omap_kp_interrupt, 0,
 			"omap-keypad", 0) < 0)
 		return -EINVAL;
 
@@ -297,7 +335,7 @@ static void __exit omap_kp_exit(void)
 	tasklet_disable(&kp_tasklet);
 	omap_writew(1, OMAP_MPUIO_BASE + OMAP_MPUIO_KBD_MASKIT);
 
-	free_irq(INT_KEYBOARD, 0);
+	free_irq(keypad_irq, 0);
 	del_timer_sync(&kp_timer);
 
 	/* unregister everything */

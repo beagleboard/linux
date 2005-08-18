@@ -328,10 +328,22 @@ struct input_absinfo {
 #define KEY_BRIGHTNESSUP	225
 #define KEY_MEDIA		226
 
-#define KEY_SWITCHVIDEOMODE	227
-#define KEY_KBDILLUMTOGGLE	228
-#define KEY_KBDILLUMDOWN	229
-#define KEY_KBDILLUMUP		230
+
+/*Zeus: these keys are defined for OMAP730 Perseus2*/
+#define KEY_STAR		227
+#define KEY_SHARP		228
+#define KEY_SOFT1		229
+#define KEY_SOFT2		230
+#define KEY_SEND		231
+#define KEY_CENTER		232
+#define KEY_HEADSETHOOK		233
+#define KEY_0_5			234
+#define KEY_2_5			235
+
+#define KEY_SWITCHVIDEOMODE	236
+#define KEY_KBDILLUMTOGGLE	237
+#define KEY_KBDILLUMDOWN	238
+#define KEY_KBDILLUMUP		239
 
 #define KEY_UNKNOWN		240
 
