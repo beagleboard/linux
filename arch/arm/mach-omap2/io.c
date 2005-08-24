@@ -1,5 +1,5 @@
 /*
- * linux/arch/arm/mach-omap/omap1/io.c
+ * linux/arch/arm/mach-omap2/io.c
  *
  * OMAP2 I/O mapping code
  *

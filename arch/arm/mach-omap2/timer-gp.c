@@ -1,7 +1,7 @@
 /*
- * linux/arch/arm/mach-omap/omap2/timer-mpu.c
+ * linux/arch/arm/mach-omap2/timer-gp.c
  *
- * OMAP2 MPU timer support.
+ * OMAP2 GP timer support.
  *
  * Copyright (C) 2005 Nokia Corporation
  * Author: Paul Mundt <paul.mundt@nokia.com>
