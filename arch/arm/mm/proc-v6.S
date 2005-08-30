@@ -141,7 +141,7 @@ ENTRY(cpu_v6_set_pte)
 	orreq	r2, r2, #PTE_EXT_APX
 
 	tst	r1, #L_PTE_USER
-	orrne	r2, r2, #PTE_EXT_AP1
+	orrne	r2, r2, #PTE_EXT_AP1 | PTE_EXT_NG
 	bicne	r2, r2, #PTE_EXT_AP0
 	tstne	r1, #L_PTE_WRITE
 	tstne	r1, #L_PTE_DIRTY
