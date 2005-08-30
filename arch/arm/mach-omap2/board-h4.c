@@ -69,8 +69,8 @@ static inline void __init h4_init_smc91x(void)
 			OMAP24XX_ETHR_GPIO_IRQ);
 		return;
 	}
-	omap_set_gpio_triggering(OMAP24XX_ETHR_GPIO_IRQ,
-				 OMAP_GPIO_FALLING_EDGE);
+	set_irq_type(OMAP_GPIO_IRQ(OMAP24XX_ETHR_GPIO_IRQ),
+				 IRQT_FALLING);
 	/* Set pin M15 to mux mode 3 -> GPIO#92, disable PU/PD */
 	/* FIXME: change this using omap2 mux api when it's ready */
 	l = __raw_readl(0xd8000000 + 0x108);
