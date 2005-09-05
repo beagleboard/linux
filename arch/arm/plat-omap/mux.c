@@ -49,7 +49,7 @@ omap_cfg_reg(const reg_cfg_t reg_cfg)
 	unsigned int mask, warn = 0;
 
 	if (cpu_is_omap7xx())
-		return;
+		return 0;
 
 	if (reg_cfg > ARRAY_SIZE(reg_cfg_table)) {
 		printk(KERN_ERR "MUX: reg_cfg %d\n", reg_cfg);
