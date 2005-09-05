@@ -135,10 +135,16 @@ static struct platform_device osk5912_cf_device = {
 	.resource	= osk5912_cf_resources,
 };
 
+static struct platform_device osk5912_mcbsp1_device = {
+	.name		= "omap_mcbsp",
+	.id		= 1,
+};
+
 static struct platform_device *osk5912_devices[] __initdata = {
 	&osk5912_flash_device,
 	&osk5912_smc91x_device,
 	&osk5912_cf_device,
+	&osk5912_mcbsp1_device,
 };
 
 static void __init osk_init_smc91x(void)
