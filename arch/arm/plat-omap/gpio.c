@@ -806,23 +806,25 @@ static void gpio_irq_handler(unsigned int irq, struct irqdesc *desc,
 		isr_reg = bank->base + OMAP24XX_GPIO_IRQSTATUS1;
 #endif
 
-	isr = __raw_readl((void __iomem *)isr_reg);
-	_enable_gpio_irqbank(bank, isr, 0);
-	_clear_gpio_irqbank(bank, isr);
-	_enable_gpio_irqbank(bank, isr, 1);
-	desc->chip->unmask(irq);
+	while(1) {
+		isr = __raw_readl((void __iomem *)isr_reg);
+		_enable_gpio_irqbank(bank, isr, 0);
+		_clear_gpio_irqbank(bank, isr);
+		_enable_gpio_irqbank(bank, isr, 1);
+		desc->chip->unmask(irq);
 
-	if (unlikely(!isr))
-		return;
+		if (!isr)
+			break;
 
-	gpio_irq = bank->virtual_irq_start;
-	for (; isr != 0; isr >>= 1, gpio_irq++) {
-		struct irqdesc *d;
-		if (!(isr & 1))
-			continue;
-		d = irq_desc + gpio_irq;
-		d->handle(gpio_irq, d, regs);
-	}
+		gpio_irq = bank->virtual_irq_start;
+		for (; isr != 0; isr >>= 1, gpio_irq++) {
+			struct irqdesc *d;
+			if (!(isr & 1))
+				continue;
+			d = irq_desc + gpio_irq;
+			d->handle(gpio_irq, d, regs);
+		}
+        }
 }
 
 static void gpio_ack_irq(unsigned int irq)
