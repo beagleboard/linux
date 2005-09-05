@@ -262,7 +262,7 @@ static void __init omap_serial_set_port_wakeup(int gpio_nr)
 static int __init omap_serial_wakeup_init(void)
 {
 	if (!cpu_is_omap16xx())
-		return;
+		return 0;
 
 	if (uart1_ck != NULL)
 		omap_serial_set_port_wakeup(37);
