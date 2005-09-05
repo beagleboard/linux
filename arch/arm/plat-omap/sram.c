@@ -42,16 +42,16 @@ void __init omap_detect_sram(void)
 	omap_sram_base = OMAP1_SRAM_BASE;
 
 	if (cpu_is_omap730())
-		omap_sram_size = 0xc8;
+		omap_sram_size = 0x32000;
 	else if (cpu_is_omap1510())
-		omap_sram_size = 0x200;
+		omap_sram_size = 0x80000;
 	else if (cpu_is_omap1610() || cpu_is_omap1621() || cpu_is_omap1710())
 		omap_sram_size = 0x4000;
 	else if (cpu_is_omap1611())
 		omap_sram_size = 0x3e800;
 	else {
 		printk(KERN_ERR "Could not detect SRAM size\n");
-		omap_sram_size = 0xc8;
+		omap_sram_size = 0x4000;
 	}
 
 	printk(KERN_INFO "SRAM size: 0x%lx\n", omap_sram_size);
