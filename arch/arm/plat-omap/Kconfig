@@ -115,9 +115,7 @@ config OMAP_32K_TIMER_HZ
        default "128"
        help
 	  Kernel internal timer frequency should be a divisor of 32768,
-	  such as 64 or 128. If ARM Linux default HZ=100 is used, the system
-	  will still work, but the timer interrupt will use less efficient
-	  modulo code.
+	  such as 64 or 128.
 
 config OMAP_DM_TIMER
 	bool "Use dual-mode timer"
