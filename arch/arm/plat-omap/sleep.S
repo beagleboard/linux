@@ -66,7 +66,7 @@ ENTRY(omap1510_idle_loop_suspend)
 	@ get ARM_IDLECT2 into r2
 	ldrh	r2, [r4, #ARM_IDLECT2_ASM_OFFSET & 0xff]
 	mov	r5, #OMAP1510_IDLE_CLOCK_DOMAINS & 0xff
-	orr	r5,r5, #OMAP1510_IDLE_CLOCK_DOMAINS & 0xff00
+	orr	r5, r5, #OMAP1510_IDLE_CLOCK_DOMAINS & 0xff00
 	strh	r5, [r4, #ARM_IDLECT2_ASM_OFFSET & 0xff]
 
 	@ request ARM idle
@@ -116,7 +116,7 @@ ENTRY(omap1610_idle_loop_suspend)
 	@ get ARM_IDLECT2 into r2
 	ldrh	r2, [r4, #ARM_IDLECT2_ASM_OFFSET & 0xff]
 	mov	r5, #OMAP1610_IDLECT2_SLEEP_VAL & 0xff
-	orr	r5,r5, #OMAP1610_IDLECT2_SLEEP_VAL & 0xff00
+	orr	r5, r5, #OMAP1610_IDLECT2_SLEEP_VAL & 0xff00
 	strh	r5, [r4, #ARM_IDLECT2_ASM_OFFSET & 0xff]
 
 	@ request ARM idle
@@ -208,7 +208,7 @@ ENTRY(omap1510_cpu_suspend)
 
 	@ turn off clock domains
 	mov	r5, #OMAP1510_IDLE_CLOCK_DOMAINS & 0xff
-	orr	r5,r5, #OMAP1510_IDLE_CLOCK_DOMAINS & 0xff00
+	orr	r5, r5, #OMAP1510_IDLE_CLOCK_DOMAINS & 0xff00
 	strh	r5, [r4, #ARM_IDLECT2_ASM_OFFSET & 0xff]
 
 	@ request ARM idle
@@ -278,7 +278,7 @@ ENTRY(omap1610_cpu_suspend)
 	@ turn off clock domains
 	@ do not disable PERCK (0x04)
 	mov	r5, #OMAP1610_IDLECT2_SLEEP_VAL & 0xff
-	orr	r5,r5, #OMAP1610_IDLECT2_SLEEP_VAL & 0xff00
+	orr	r5, r5, #OMAP1610_IDLECT2_SLEEP_VAL & 0xff00
 	strh	r5, [r4, #ARM_IDLECT2_ASM_OFFSET & 0xff]
 
 	@ request ARM idle
