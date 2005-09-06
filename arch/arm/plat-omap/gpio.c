@@ -879,11 +879,11 @@ static void mpuio_unmask_irq(unsigned int irq)
 }
 
 static struct irqchip gpio_irq_chip = {
-	.ack	= gpio_ack_irq,
-	.mask	= gpio_mask_irq,
-	.unmask = gpio_unmask_irq,
-	.type   = gpio_irq_type,
-	.wake	= gpio_wake_enable,
+	.ack		= gpio_ack_irq,
+	.mask		= gpio_mask_irq,
+	.unmask		= gpio_unmask_irq,
+	.set_type	= gpio_irq_type,
+	.set_wake	= gpio_wake_enable,
 };
 
 static struct irqchip mpuio_irq_chip = {
