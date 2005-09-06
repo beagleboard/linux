@@ -46,6 +46,12 @@ struct mmc_ios {
 #define MMC_BUSMODE_OPENDRAIN	1
 #define MMC_BUSMODE_PUSHPULL	2
 
+	unsigned char	chip_select;		/* SPI chip select */
+
+#define MMC_CS_DONTCARE		0
+#define MMC_CS_HIGH		1
+#define MMC_CS_LOW		2
+
 	unsigned char	power_mode;		/* power supply mode */
 
 #define MMC_POWER_OFF		0
@@ -63,11 +69,12 @@ struct device;
 
 struct mmc_host {
 	struct device		*dev;
+	struct class_device	class_dev;
+	int			index;
 	struct mmc_host_ops	*ops;
 	unsigned int		f_min;
 	unsigned int		f_max;
 	u32			ocr_avail;
-	char			host_name[8];
 
 	/* host specific block data */
 	unsigned int		max_seg_size;	/* see blk_queue_max_segment_size */
@@ -97,6 +104,7 @@ extern void mmc_free_host(struct mmc_host *);
 
 #define mmc_priv(x)	((void *)((x) + 1))
 #define mmc_dev(x)	((x)->dev)
+#define mmc_hostname(x)	((x)->class_dev.class_id)
 
 extern int mmc_suspend_host(struct mmc_host *, pm_message_t);
 extern int mmc_resume_host(struct mmc_host *);

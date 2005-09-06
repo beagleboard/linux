@@ -175,7 +175,7 @@ config MOXA_INTELLIO
 
 config MOXA_SMARTIO
 	tristate "Moxa SmartIO support"
-	depends on SERIAL_NONSTANDARD
+	depends on SERIAL_NONSTANDARD && (BROKEN || !SPARC32)
 	help
 	  Say Y here if you have a Moxa SmartIO multiport serial card.
 
@@ -847,8 +847,7 @@ config SONYPI
 
 config TANBAC_TB0219
 	tristate "TANBAC TB0219 base board support"
-	depends TANBAC_TB0229
-
+	depends TANBAC_TB022X
 
 menu "Ftape, the floppy tape device driver"
 

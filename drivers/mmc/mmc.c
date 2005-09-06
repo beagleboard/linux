@@ -361,7 +361,7 @@ static void mmc_decode_cid(struct mmc_card *card)
 
 	default:
 		printk("%s: card has unknown MMCA version %d\n",
-			card->host->host_name, card->csd.mmca_vsn);
+			mmc_hostname(card->host), card->csd.mmca_vsn);
 		mmc_card_set_bad(card);
 		break;
 	}
@@ -383,7 +383,7 @@ static void mmc_decode_csd(struct mmc_card *card)
 	csd_struct = UNSTUFF_BITS(resp, 126, 2);
 	if (csd_struct != 1 && csd_struct != 2) {
 		printk("%s: unrecognised CSD structure version %d\n",
-			card->host->host_name, csd_struct);
+			mmc_hostname(card->host), csd_struct);
 		mmc_card_set_bad(card);
 		return;
 	}
@@ -457,11 +457,21 @@ static void mmc_idle_cards(struct mmc_host *host)
 {
 	struct mmc_command cmd;
 
+	host->ios.chip_select = MMC_CS_HIGH;
+	host->ops->set_ios(host, &host->ios);
+
+	mmc_delay(1);
+
 	cmd.opcode = MMC_GO_IDLE_STATE;
 	cmd.arg = 0;
 	cmd.flags = MMC_RSP_NONE;
 
 	mmc_wait_for_cmd(host, &cmd, 0);
+
+	mmc_delay(1);
+
+	host->ios.chip_select = MMC_CS_DONTCARE;
+	host->ops->set_ios(host, &host->ios);
 
 	mmc_delay(1);
 }
@@ -476,6 +486,7 @@ static void mmc_power_up(struct mmc_host *host)
 	host->ios.vdd = bit;
 	host->ios.clock = host->f_min;
 	host->ios.bus_mode = MMC_BUSMODE_OPENDRAIN;
+	host->ios.chip_select = MMC_CS_DONTCARE;
 	host->ios.power_mode = MMC_POWER_UP;
 	host->ops->set_ios(host, &host->ios);
 
@@ -492,6 +503,7 @@ static void mmc_power_off(struct mmc_host *host)
 	host->ios.clock = 0;
 	host->ios.vdd = 0;
 	host->ios.bus_mode = MMC_BUSMODE_OPENDRAIN;
+	host->ios.chip_select = MMC_CS_DONTCARE;
 	host->ios.power_mode = MMC_POWER_OFF;
 	host->ops->set_ios(host, &host->ios);
 }
@@ -551,7 +563,7 @@ static void mmc_discover_cards(struct mmc_host *host)
 		}
 		if (err != MMC_ERR_NONE) {
 			printk(KERN_ERR "%s: error requesting CID: %d\n",
-				host->host_name, err);
+				mmc_hostname(host), err);
 			break;
 		}
 
@@ -796,16 +808,12 @@ struct mmc_host *mmc_alloc_host(int extra, struct device *dev)
 {
 	struct mmc_host *host;
 
-	host = kmalloc(sizeof(struct mmc_host) + extra, GFP_KERNEL);
+	host = mmc_alloc_host_sysfs(extra, dev);
 	if (host) {
-		memset(host, 0, sizeof(struct mmc_host) + extra);
-
 		spin_lock_init(&host->lock);
 		init_waitqueue_head(&host->wq);
 		INIT_LIST_HEAD(&host->cards);
 		INIT_WORK(&host->detect, mmc_rescan, host);
-
-		host->dev = dev;
 
 		/*
 		 * By default, hosts do not support SGIO or large requests.
@@ -828,15 +836,15 @@ EXPORT_SYMBOL(mmc_alloc_host);
  */
 int mmc_add_host(struct mmc_host *host)
 {
-	static unsigned int host_num;
+	int ret;
 
-	snprintf(host->host_name, sizeof(host->host_name),
-		 "mmc%d", host_num++);
+	ret = mmc_add_host_sysfs(host);
+	if (ret == 0) {
+		mmc_power_off(host);
+		mmc_detect_change(host);
+	}
 
-	mmc_power_off(host);
-	mmc_detect_change(host);
-
-	return 0;
+	return ret;
 }
 
 EXPORT_SYMBOL(mmc_add_host);
@@ -859,6 +867,7 @@ void mmc_remove_host(struct mmc_host *host)
 	}
 
 	mmc_power_off(host);
+	mmc_remove_host_sysfs(host);
 }
 
 EXPORT_SYMBOL(mmc_remove_host);
@@ -872,7 +881,7 @@ EXPORT_SYMBOL(mmc_remove_host);
 void mmc_free_host(struct mmc_host *host)
 {
 	flush_scheduled_work();
-	kfree(host);
+	mmc_free_host_sysfs(host);
 }
 
 EXPORT_SYMBOL(mmc_free_host);

@@ -52,7 +52,6 @@ EXPORT_SYMBOL(plpar_hcall_4out);
 EXPORT_SYMBOL(plpar_hcall_norets);
 EXPORT_SYMBOL(plpar_hcall_8arg_2ret);
 
-extern void fw_feature_init(void);
 extern void pSeries_find_serial_port(void);
 
 
@@ -267,6 +266,10 @@ void vpa_init(int cpu)
 
 	/* Register the Virtual Processor Area (VPA) */
 	flags = 1UL << (63 - 18);
+
+	if (cpu_has_feature(CPU_FTR_ALTIVEC))
+		paca[cpu].lppaca.vmxregs_in_use = 1;
+
 	ret = register_vpa(flags, hwcpu, __pa(vpa));
 
 	if (ret)
@@ -279,7 +282,6 @@ long pSeries_lpar_hpte_insert(unsigned long hpte_group,
 			      unsigned long va, unsigned long prpn,
 			      unsigned long vflags, unsigned long rflags)
 {
-	unsigned long arpn = physRpn_to_absRpn(prpn);
 	unsigned long lpar_rc;
 	unsigned long flags;
 	unsigned long slot;
@@ -290,7 +292,7 @@ long pSeries_lpar_hpte_insert(unsigned long hpte_group,
 	if (vflags & HPTE_V_LARGE)
 		hpte_v &= ~(1UL << HPTE_V_AVPN_SHIFT);
 
-	hpte_r = (arpn << HPTE_R_RPN_SHIFT) | rflags;
+	hpte_r = (prpn << HPTE_R_RPN_SHIFT) | rflags;
 
 	/* Now fill in the actual HPTE */
 	/* Set CEC cookie to 0         */
