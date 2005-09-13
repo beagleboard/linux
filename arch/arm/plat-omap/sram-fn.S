@@ -35,7 +35,7 @@ ENTRY(sram_reprogram_clock)
 	bic	r0, r0, #1 << 4			@ else clear lock bit
 	strh	r0, [r2]			@ set dpll into bypass mode
 	orr	r0, r0, #1 << 4			@ set lock bit again
-	
+
 newck:
 	strh	r1, [r3]			@ write new ckctl value
 	strh	r0, [r2]			@ write new dpll value
@@ -48,11 +48,11 @@ delay:	sub	r4, r4, #1
 
 lock:	ldrh	r4, [r2], #0			@ read back dpll value
 	tst	r0, #1 << 4			@ want lock mode?
-	beq	out				@ nope	
+	beq	out				@ nope
 	tst	r4, #1 << 0			@ dpll rate locked?
 	beq	lock				@ try again
 
 out:
-	ldmfd	sp!, {r0 - r12, pc}		@ restore regs and return	
+	ldmfd	sp!, {r0 - r12, pc}		@ restore regs and return
 ENTRY(sram_reprogram_clock_sz)
 	.word	. - sram_reprogram_clock
