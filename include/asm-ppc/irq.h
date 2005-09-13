@@ -19,6 +19,11 @@
 #define IRQ_POLARITY_POSITIVE	0x2	/* high level or low->high edge */
 #define IRQ_POLARITY_NEGATIVE	0x0	/* low level or high->low edge */
 
+/*
+ * IRQ line status macro IRQ_PER_CPU is used
+ */
+#define ARCH_HAS_IRQ_PER_CPU
+
 #if defined(CONFIG_40x)
 #include <asm/ibm4xx.h>
 
@@ -398,10 +403,6 @@ static __inline__ int irq_canonicalize(int irq)
 extern unsigned long ppc_cached_irq_mask[NR_MASK_WORDS];
 extern unsigned long ppc_lost_interrupts[NR_MASK_WORDS];
 extern atomic_t ppc_n_lost_interrupts;
-
-struct irqaction;
-struct pt_regs;
-int handle_IRQ_event(unsigned int, struct pt_regs *, struct irqaction *);
 
 #endif /* _ASM_IRQ_H */
 #endif /* __KERNEL__ */

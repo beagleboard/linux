@@ -62,6 +62,7 @@
 #include <linux/namespace.h>
 #include <linux/mm.h>
 #include <linux/smp_lock.h>
+#include <linux/rcupdate.h>
 #include <linux/kallsyms.h>
 #include <linux/mount.h>
 #include <linux/security.h>
@@ -119,7 +120,6 @@ enum pid_directory_inos {
 #ifdef CONFIG_AUDITSYSCALL
 	PROC_TGID_LOGINUID,
 #endif
-	PROC_TGID_FD_DIR,
 	PROC_TGID_OOM_SCORE,
 	PROC_TGID_OOM_ADJUST,
 	PROC_TID_INO,
@@ -158,9 +158,11 @@ enum pid_directory_inos {
 #ifdef CONFIG_AUDITSYSCALL
 	PROC_TID_LOGINUID,
 #endif
-	PROC_TID_FD_DIR = 0x8000,	/* 0x8000-0xffff */
 	PROC_TID_OOM_SCORE,
 	PROC_TID_OOM_ADJUST,
+
+	/* Add new entries before this */
+	PROC_TID_FD_DIR = 0x8000,	/* 0x8000-0xffff */
 };
 
 struct pid_entry {
@@ -282,30 +284,36 @@ static int proc_fd_link(struct inode *inode, struct dentry **dentry, struct vfsm
 
 	files = get_files_struct(task);
 	if (files) {
-		spin_lock(&files->file_lock);
+		rcu_read_lock();
 		file = fcheck_files(files, fd);
 		if (file) {
 			*mnt = mntget(file->f_vfsmnt);
 			*dentry = dget(file->f_dentry);
-			spin_unlock(&files->file_lock);
+			rcu_read_unlock();
 			put_files_struct(files);
 			return 0;
 		}
-		spin_unlock(&files->file_lock);
+		rcu_read_unlock();
 		put_files_struct(files);
 	}
 	return -ENOENT;
 }
 
-static int proc_cwd_link(struct inode *inode, struct dentry **dentry, struct vfsmount **mnt)
+static struct fs_struct *get_fs_struct(struct task_struct *task)
 {
 	struct fs_struct *fs;
-	int result = -ENOENT;
-	task_lock(proc_task(inode));
-	fs = proc_task(inode)->fs;
+	task_lock(task);
+	fs = task->fs;
 	if(fs)
 		atomic_inc(&fs->count);
-	task_unlock(proc_task(inode));
+	task_unlock(task);
+	return fs;
+}
+
+static int proc_cwd_link(struct inode *inode, struct dentry **dentry, struct vfsmount **mnt)
+{
+	struct fs_struct *fs = get_fs_struct(proc_task(inode));
+	int result = -ENOENT;
 	if (fs) {
 		read_lock(&fs->lock);
 		*mnt = mntget(fs->pwdmnt);
@@ -319,13 +327,8 @@ static int proc_cwd_link(struct inode *inode, struct dentry **dentry, struct vfs
 
 static int proc_root_link(struct inode *inode, struct dentry **dentry, struct vfsmount **mnt)
 {
-	struct fs_struct *fs;
+	struct fs_struct *fs = get_fs_struct(proc_task(inode));
 	int result = -ENOENT;
-	task_lock(proc_task(inode));
-	fs = proc_task(inode)->fs;
-	if(fs)
-		atomic_inc(&fs->count);
-	task_unlock(proc_task(inode));
 	if (fs) {
 		read_lock(&fs->lock);
 		*mnt = mntget(fs->rootmnt);
@@ -344,33 +347,6 @@ static int proc_root_link(struct inode *inode, struct dentry **dentry, struct vf
 	 (task->state == TASK_STOPPED || task->state == TASK_TRACED) && \
 	 security_ptrace(current,task) == 0))
 
-static int may_ptrace_attach(struct task_struct *task)
-{
-	int retval = 0;
-
-	task_lock(task);
-
-	if (!task->mm)
-		goto out;
-	if (((current->uid != task->euid) ||
-	     (current->uid != task->suid) ||
-	     (current->uid != task->uid) ||
-	     (current->gid != task->egid) ||
-	     (current->gid != task->sgid) ||
-	     (current->gid != task->gid)) && !capable(CAP_SYS_PTRACE))
-		goto out;
-	rmb();
-	if (task->mm->dumpable != 1 && !capable(CAP_SYS_PTRACE))
-		goto out;
-	if (security_ptrace(current, task))
-		goto out;
-
-	retval = 1;
-out:
-	task_unlock(task);
-	return retval;
-}
-
 static int proc_pid_environ(struct task_struct *task, char * buffer)
 {
 	int res = 0;
@@ -380,7 +356,7 @@ static int proc_pid_environ(struct task_struct *task, char * buffer)
 		if (len > PAGE_SIZE)
 			len = PAGE_SIZE;
 		res = access_process_vm(task, mm->env_start, buffer, len, 0);
-		if (!may_ptrace_attach(task))
+		if (!ptrace_may_attach(task))
 			res = -ESRCH;
 		mmput(mm);
 	}
@@ -683,7 +659,7 @@ static ssize_t mem_read(struct file * file, char __user * buf,
 	int ret = -ESRCH;
 	struct mm_struct *mm;
 
-	if (!MAY_PTRACE(task) || !may_ptrace_attach(task))
+	if (!MAY_PTRACE(task) || !ptrace_may_attach(task))
 		goto out;
 
 	ret = -ENOMEM;
@@ -709,7 +685,7 @@ static ssize_t mem_read(struct file * file, char __user * buf,
 
 		this_len = (count > PAGE_SIZE) ? PAGE_SIZE : count;
 		retval = access_process_vm(task, src, page, this_len, 0);
-		if (!retval || !MAY_PTRACE(task) || !may_ptrace_attach(task)) {
+		if (!retval || !MAY_PTRACE(task) || !ptrace_may_attach(task)) {
 			if (!ret)
 				ret = -EIO;
 			break;
@@ -747,7 +723,7 @@ static ssize_t mem_write(struct file * file, const char * buf,
 	struct task_struct *task = proc_task(file->f_dentry->d_inode);
 	unsigned long dst = *ppos;
 
-	if (!MAY_PTRACE(task) || !may_ptrace_attach(task))
+	if (!MAY_PTRACE(task) || !ptrace_may_attach(task))
 		return -ESRCH;
 
 	page = (char *)__get_free_page(GFP_USER);
@@ -1064,6 +1040,7 @@ static int proc_readfd(struct file * filp, void * dirent, filldir_t filldir)
 	int retval;
 	char buf[NUMBUF];
 	struct files_struct * files;
+	struct fdtable *fdt;
 
 	retval = -ENOENT;
 	if (!pid_alive(p))
@@ -1086,15 +1063,16 @@ static int proc_readfd(struct file * filp, void * dirent, filldir_t filldir)
 			files = get_files_struct(p);
 			if (!files)
 				goto out;
-			spin_lock(&files->file_lock);
+			rcu_read_lock();
+			fdt = files_fdtable(files);
 			for (fd = filp->f_pos-2;
-			     fd < files->max_fds;
+			     fd < fdt->max_fds;
 			     fd++, filp->f_pos++) {
 				unsigned int i,j;
 
 				if (!fcheck_files(files, fd))
 					continue;
-				spin_unlock(&files->file_lock);
+				rcu_read_unlock();
 
 				j = NUMBUF;
 				i = fd;
@@ -1106,12 +1084,12 @@ static int proc_readfd(struct file * filp, void * dirent, filldir_t filldir)
 
 				ino = fake_ino(tid, PROC_TID_FD_DIR + fd);
 				if (filldir(dirent, buf+j, NUMBUF-j, fd+2, ino, DT_LNK) < 0) {
-					spin_lock(&files->file_lock);
+					rcu_read_lock();
 					break;
 				}
-				spin_lock(&files->file_lock);
+				rcu_read_lock();
 			}
-			spin_unlock(&files->file_lock);
+			rcu_read_unlock();
 			put_files_struct(files);
 	}
 out:
@@ -1286,9 +1264,9 @@ static int tid_fd_revalidate(struct dentry *dentry, struct nameidata *nd)
 
 	files = get_files_struct(task);
 	if (files) {
-		spin_lock(&files->file_lock);
+		rcu_read_lock();
 		if (fcheck_files(files, fd)) {
-			spin_unlock(&files->file_lock);
+			rcu_read_unlock();
 			put_files_struct(files);
 			if (task_dumpable(task)) {
 				inode->i_uid = task->euid;
@@ -1300,7 +1278,7 @@ static int tid_fd_revalidate(struct dentry *dentry, struct nameidata *nd)
 			security_task_to_inode(task, inode);
 			return 1;
 		}
-		spin_unlock(&files->file_lock);
+		rcu_read_unlock();
 		put_files_struct(files);
 	}
 	d_drop(dentry);
@@ -1392,7 +1370,7 @@ static struct dentry *proc_lookupfd(struct inode * dir, struct dentry * dentry, 
 	if (!files)
 		goto out_unlock;
 	inode->i_mode = S_IFLNK;
-	spin_lock(&files->file_lock);
+	rcu_read_lock();
 	file = fcheck_files(files, fd);
 	if (!file)
 		goto out_unlock2;
@@ -1400,7 +1378,7 @@ static struct dentry *proc_lookupfd(struct inode * dir, struct dentry * dentry, 
 		inode->i_mode |= S_IRUSR | S_IXUSR;
 	if (file->f_mode & 2)
 		inode->i_mode |= S_IWUSR | S_IXUSR;
-	spin_unlock(&files->file_lock);
+	rcu_read_unlock();
 	put_files_struct(files);
 	inode->i_op = &proc_pid_link_inode_operations;
 	inode->i_size = 64;
@@ -1410,7 +1388,7 @@ static struct dentry *proc_lookupfd(struct inode * dir, struct dentry * dentry, 
 	return NULL;
 
 out_unlock2:
-	spin_unlock(&files->file_lock);
+	rcu_read_unlock();
 	put_files_struct(files);
 out_unlock:
 	iput(inode);

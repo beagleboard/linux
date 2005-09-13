@@ -392,6 +392,7 @@ void free_initmem(void)
 
 	addr = (unsigned long)__init_begin;
 	for (; addr < (unsigned long)__init_end; addr += PAGE_SIZE) {
+		memset((void *)addr, 0xcc, PAGE_SIZE);
 		ClearPageReserved(virt_to_page(addr));
 		set_page_count(virt_to_page(addr), 1);
 		free_page(addr);
@@ -553,12 +554,12 @@ void __init do_init_bootmem(void)
 	 * present.
 	 */
 	for (i=0; i < lmb.memory.cnt; i++)
-		free_bootmem(lmb_start_pfn(&lmb.memory, i),
+		free_bootmem(lmb.memory.region[i].base,
 			     lmb_size_bytes(&lmb.memory, i));
 
 	/* reserve the sections we're already using */
 	for (i=0; i < lmb.reserved.cnt; i++)
-		reserve_bootmem(lmb_start_pfn(&lmb.reserved, i),
+		reserve_bootmem(lmb.reserved.region[i].base,
 				lmb_size_bytes(&lmb.reserved, i));
 
 	for (i=0; i < lmb.memory.cnt; i++)
