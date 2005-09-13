@@ -34,8 +34,6 @@
 #include <asm/io.h>
 #include <asm/delay.h>
 
-static int __initdata h4_serial_ports[OMAP_MAX_NR_PORTS] = {1, 1, 1};
-
 static struct resource h4_smc91x_resources[] = {
 	[0] = {
 		.start  = OMAP24XX_ETHR_START,          /* Physical */
@@ -86,7 +84,12 @@ static void __init omap_h4_init_irq(void)
 	h4_init_smc91x();
 }
 
+static struct omap_uart_config h4_uart_config __initdata = {
+	.enabled_uarts = ((1 << 0) | (1 << 1) | (1 << 2)),
+};
+
 static struct omap_board_config_kernel h4_config[] = {
+	{ OMAP_TAG_UART,	&h4_uart_config },
 };
 
 static void __init omap_h4_init(void)
@@ -99,7 +102,7 @@ static void __init omap_h4_init(void)
 	platform_add_devices(h4_devices, ARRAY_SIZE(h4_devices));
 	omap_board_config = h4_config;
 	omap_board_config_size = ARRAY_SIZE(h4_config);
-	omap_serial_init(h4_serial_ports);
+	omap_serial_init();
 }
 
 static void __init omap_h4_map_io(void)

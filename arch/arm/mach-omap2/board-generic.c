@@ -31,40 +31,24 @@
 #include <asm/arch/board.h>
 #include <asm/arch/common.h>
 
-static int __initdata generic_serial_ports[OMAP_MAX_NR_PORTS] = {1, 1, 1};
-
 static void __init omap_generic_init_irq(void)
 {
 	omap_init_irq();
 }
 
+static struct omap_uart_config generic_uart_config __initdata = {
+	.enabled_uarts = ((1 << 0) | (1 << 1) | (1 << 2)),
+};
+
 static struct omap_board_config_kernel generic_config[] = {
+	{ OMAP_TAG_UART,	&generic_uart_config },
 };
 
 static void __init omap_generic_init(void)
 {
-	const struct omap_uart_config *uart_conf;
-
-	/*
-	 * Make sure the serial ports are muxed on at this point.
-	 * You have to mux them off in device drivers later on
-	 * if not needed.
-	 */
-
-	uart_conf = omap_get_config(OMAP_TAG_UART, struct omap_uart_config);
-	if (uart_conf != NULL) {
-		unsigned int enabled_ports, i;
-
-		enabled_ports = uart_conf->enabled_uarts;
-		for (i = 0; i < 3; i++) {
-			if (!(enabled_ports & (1 << i)))
-				generic_serial_ports[i] = 0;
-		}
-	}
-
 	omap_board_config = generic_config;
 	omap_board_config_size = ARRAY_SIZE(generic_config);
-	omap_serial_init(generic_serial_ports);
+	omap_serial_init();
 }
 
 static void __init omap_generic_map_io(void)

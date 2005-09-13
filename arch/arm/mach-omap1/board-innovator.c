@@ -36,8 +36,6 @@
 #include <asm/arch/usb.h>
 #include <asm/arch/common.h>
 
-static int __initdata innovator_serial_ports[OMAP_MAX_NR_PORTS] = {1, 1, 1};
-
 static struct mtd_partition innovator_partitions[] = {
 	/* bootloader (U-Boot, etc) in first sector */
 	{
@@ -230,9 +228,14 @@ static struct omap_mmc_config innovator_mmc_config __initdata = {
 	},
 };
 
+static struct omap_uart_config innovator_uart_config __initdata = {
+	.enabled_uarts = ((1 << 0) | (1 << 1) | (1 << 2)),
+};
+
 static struct omap_board_config_kernel innovator_config[] = {
 	{ OMAP_TAG_USB,         NULL },
 	{ OMAP_TAG_MMC,		&innovator_mmc_config },
+	{ OMAP_TAG_UART,	&innovator_uart_config },
 };
 
 static void __init innovator_init(void)
@@ -276,7 +279,7 @@ static void __init innovator_map_io(void)
 		       fpga_read(OMAP1510_FPGA_BOARD_REV));
 	}
 #endif
-	omap_serial_init(innovator_serial_ports);
+	omap_serial_init();
 }
 
 MACHINE_START(OMAP_INNOVATOR, "TI-Innovator")

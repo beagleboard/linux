@@ -46,8 +46,6 @@
 #include <asm/arch/tc.h>
 #include <asm/arch/common.h>
 
-static int __initdata osk_serial_ports[OMAP_MAX_NR_PORTS] = {1, 0, 0};
-
 static struct mtd_partition osk_partitions[] = {
 	/* bootloader (U-Boot, etc) in first sector */
 	{
@@ -193,8 +191,13 @@ static struct omap_usb_config osk_usb_config __initdata = {
 	.pins[0]	= 2,
 };
 
+static struct omap_uart_config osk_uart_config __initdata = {
+	.enabled_uarts = (1 << 0),
+};
+
 static struct omap_board_config_kernel osk_config[] = {
 	{ OMAP_TAG_USB,           &osk_usb_config },
+	{ OMAP_TAG_UART,		&osk_uart_config },
 };
 
 #ifdef	CONFIG_OMAP_OSK_MISTRAL
@@ -260,7 +263,7 @@ static void __init osk_init(void)
 static void __init osk_map_io(void)
 {
 	omap_map_common_io();
-	omap_serial_init(osk_serial_ports);
+	omap_serial_init();
 }
 
 MACHINE_START(OMAP_OSK, "TI-OSK")

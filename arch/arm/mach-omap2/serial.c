@@ -16,7 +16,11 @@
 #include <linux/init.h>
 #include <linux/serial_8250.h>
 #include <linux/serial_reg.h>
+
 #include <asm/io.h>
+
+#include <asm/arch/common.h>
+#include <asm/arch/board.h>
 
 static struct plat_serial8250_port serial_platform_data[] = {
 	{
@@ -75,14 +79,27 @@ static inline void __init omap_serial_reset(struct plat_serial8250_port *p)
 	serial_write_reg(p, UART_OMAP_SYSC, 0x01);
 }
 
-void __init omap_serial_init(int ports[OMAP_MAX_NR_PORTS])
+void __init omap_serial_init()
 {
 	int i;
+	const struct omap_uart_config *info;
+
+	/*
+	 * Make sure the serial ports are muxed on at this point.
+	 * You have to mux them off in device drivers later on
+	 * if not needed.
+	 */
+
+	info = omap_get_config(OMAP_TAG_UART,
+			       struct omap_uart_config);
+
+	if (info == NULL)
+		return;
 
 	for (i = 0; i < OMAP_MAX_NR_PORTS; i++) {
 		struct plat_serial8250_port *p = serial_platform_data + i;
 
-		if (ports[i] == 0) {
+		if (!(info->enabled_uarts & (1 << i))) {
 			p->membase = 0;
 			p->mapbase = 0;
 			continue;

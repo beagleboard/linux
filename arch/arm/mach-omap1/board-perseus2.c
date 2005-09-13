@@ -29,6 +29,7 @@
 #include <asm/arch/mux.h>
 #include <asm/arch/fpga.h>
 #include <asm/arch/common.h>
+#include <asm/arch/board.h>
 
 static struct resource smc91x_resources[] = {
 	[0] = {
@@ -42,8 +43,6 @@ static struct resource smc91x_resources[] = {
 		.flags	= IORESOURCE_IRQ,
 	},
 };
-
-static int __initdata p2_serial_ports[OMAP_MAX_NR_PORTS] = {1, 1, 0};
 
 static struct mtd_partition p2_partitions[] = {
 	/* bootloader (U-Boot, etc) in first sector */
@@ -111,9 +110,20 @@ static struct platform_device *devices[] __initdata = {
 	&smc91x_device,
 };
 
+static struct omap_uart_config perseus2_uart_config __initdata = {
+	.enabled_uarts = ((1 << 0) | (1 << 1)),
+};
+
+static struct omap_board_config_kernel perseus2_config[] = {
+	{ OMAP_TAG_UART,	&perseus2_uart_config },
+};
+
 static void __init omap_perseus2_init(void)
 {
 	(void) platform_add_devices(devices, ARRAY_SIZE(devices));
+
+	omap_board_config = perseus2_config;
+	omap_board_config_size = ARRAY_SIZE(perseus2_config);
 }
 
 static void __init perseus2_init_smc91x(void)
@@ -131,7 +141,6 @@ void omap_perseus2_init_irq(void)
 	omap_gpio_init();
 	perseus2_init_smc91x();
 }
-
 /* Only FPGA needs to be mapped here. All others are done with ioremap */
 static struct map_desc omap_perseus2_io_desc[] __initdata = {
 	{H2P2_DBG_FPGA_BASE, H2P2_DBG_FPGA_START, H2P2_DBG_FPGA_SIZE,
@@ -175,7 +184,7 @@ static void __init omap_perseus2_map_io(void)
 	 * It is used as the Ethernet controller interrupt
 	 */
 	omap_writel(omap_readl(OMAP730_IO_CONF_9) & 0x1FFFFFFF, OMAP730_IO_CONF_9);
-	omap_serial_init(p2_serial_ports);
+	omap_serial_init();
 }
 
 MACHINE_START(OMAP_PERSEUS2, "OMAP730 Perseus2")

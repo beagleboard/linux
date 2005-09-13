@@ -40,8 +40,6 @@
 
 extern int omap_gpio_init(void);
 
-static int __initdata h2_serial_ports[OMAP_MAX_NR_PORTS] = {1, 1, 1};
-
 static struct mtd_partition h2_partitions[] = {
 	/* bootloader (U-Boot, etc) in first sector */
 	{
@@ -160,9 +158,14 @@ static struct omap_mmc_config h2_mmc_config __initdata = {
 	},
 };
 
+static struct omap_uart_config h2_uart_config __initdata = {
+	.enabled_uarts = ((1 << 0) | (1 << 1) | (1 << 2)),
+};
+
 static struct omap_board_config_kernel h2_config[] = {
 	{ OMAP_TAG_USB,           &h2_usb_config },
 	{ OMAP_TAG_MMC,           &h2_mmc_config },
+	{ OMAP_TAG_UART,	&h2_uart_config },
 };
 
 static void __init h2_init(void)
@@ -185,7 +188,7 @@ static void __init h2_init(void)
 static void __init h2_map_io(void)
 {
 	omap_map_common_io();
-	omap_serial_init(h2_serial_ports);
+	omap_serial_init();
 }
 
 MACHINE_START(OMAP_H2, "TI-H2")

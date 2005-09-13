@@ -41,8 +41,6 @@
 
 extern int omap_gpio_init(void);
 
-static int __initdata h3_serial_ports[OMAP_MAX_NR_PORTS] = {1, 1, 1};
-
 static struct mtd_partition h3_partitions[] = {
 	/* bootloader (U-Boot, etc) in first sector */
 	{
@@ -168,9 +166,14 @@ static struct omap_mmc_config h3_mmc_config __initdata = {
 	},
 };
 
+static struct omap_uart_config h3_uart_config __initdata = {
+	.enabled_uarts = ((1 << 0) | (1 << 1) | (1 << 2)),
+};
+
 static struct omap_board_config_kernel h3_config[] = {
 	{ OMAP_TAG_USB,	 &h3_usb_config },
 	{ OMAP_TAG_MMC,  &h3_mmc_config },
+	{ OMAP_TAG_UART,	&h3_uart_config },
 };
 
 static void __init h3_init(void)
@@ -201,7 +204,7 @@ void h3_init_irq(void)
 static void __init h3_map_io(void)
 {
 	omap_map_common_io();
-	omap_serial_init(h3_serial_ports);
+	omap_serial_init();
 }
 
 MACHINE_START(OMAP_H3, "TI OMAP1710 H3 board")
