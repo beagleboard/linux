@@ -431,8 +431,6 @@ omap_i2c_isr(int this_irq, void *dev_id, struct pt_regs *regs)
 }
 
 static struct i2c_algorithm omap_i2c_algo = {
-	.name		= "OMAP I2C algorithm",
-	.id		= I2C_ALGO_EXP,
 	.master_xfer	= omap_i2c_xfer,
 	.functionality	= omap_i2c_func,
 };
