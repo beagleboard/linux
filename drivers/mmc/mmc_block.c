@@ -371,7 +371,7 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 	spin_unlock_irq(&md->lock);
 
 	/* If a command fails, the card might be removed. */
-	mmc_detect_change(card->host);
+	mmc_detect_change(card->host, 0);
 
 	return 0;
 }

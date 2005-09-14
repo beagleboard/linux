@@ -612,7 +612,7 @@ static void mmc_omap_switch_handler(void *data)
 		host->switch_last_state = cover_open;
 	}
 	DBG("MMC cover switch handler started\n");
-	mmc_detect_change(host->mmc);
+	mmc_detect_change(host->mmc, 0);
 	list_for_each_entry(card, &host->mmc->cards, node) {
 		if (mmc_card_present(card))
 			cards++;
