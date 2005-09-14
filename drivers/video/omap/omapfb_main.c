@@ -623,7 +623,7 @@ static int omapfb_blank(int blank, struct fb_info *info)
 		omapfb_resume(fbdev->dev, 0);
 		break;
 	case VESA_POWERDOWN:
-		omapfb_suspend(fbdev->dev, 0, 0);
+	 omapfb_suspend(fbdev->dev, PMSG_SUSPEND, 0);
 		break;
 	default:
 		r = -EINVAL;
@@ -1617,7 +1617,7 @@ static struct fb_ops omapfb_ops = {
  * ---------------------------------------------------------------------------
  */
 /* omapfbX sysfs entries */
-static ssize_t omapfb_show_caps_num(struct device *dev, char *buf)
+static ssize_t omapfb_show_caps_num(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	struct omapfb_device *fbdev = (struct omapfb_device *)dev->driver_data;
 
@@ -1625,7 +1625,7 @@ static ssize_t omapfb_show_caps_num(struct device *dev, char *buf)
 		omapfb_get_caps(fbdev->fb_info));
 }
 
-static ssize_t omapfb_show_caps_text(struct device *dev, char *buf)
+static ssize_t omapfb_show_caps_text(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	struct omapfb_device *fbdev = (struct omapfb_device *)dev->driver_data;
 	int pos = 0;
@@ -1646,14 +1646,14 @@ static DEVICE_ATTR(caps_num, 0444, omapfb_show_caps_num, NULL);
 static DEVICE_ATTR(caps_text, 0444, omapfb_show_caps_text, NULL);
 
 /* panel sysfs entries */
-static ssize_t omapfb_show_panel_name(struct device *dev, char *buf)
+static ssize_t omapfb_show_panel_name(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	struct omapfb_device *fbdev = (struct omapfb_device *)dev->driver_data;
 
 	return snprintf(buf, PAGE_SIZE, "%s\n", fbdev->panel->name);
 }
 
-static ssize_t omapfb_show_bklight_level(struct device *dev, char *buf)
+static ssize_t omapfb_show_bklight_level(struct device *dev,struct device_attribute *attr, char *buf)
 {
 	struct omapfb_device *fbdev = (struct omapfb_device *)dev->driver_data;
 	int r;
@@ -1666,8 +1666,8 @@ static ssize_t omapfb_show_bklight_level(struct device *dev, char *buf)
 	return r;
 }
 
-static ssize_t omapfb_store_bklight_level(struct device *dev, const char *buf,
-					  size_t size)
+static ssize_t omapfb_store_bklight_level(struct device *dev, struct device_attribute *attr,
+					  const char *buf, size_t size)
 {
 	struct omapfb_device *fbdev = (struct omapfb_device *)dev->driver_data;
 	int r;
@@ -1685,7 +1685,7 @@ static ssize_t omapfb_store_bklight_level(struct device *dev, const char *buf,
 	return r ? r : size;
 }
 
-static ssize_t omapfb_show_bklight_max(struct device *dev, char *buf)
+static ssize_t omapfb_show_bklight_max(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	struct omapfb_device *fbdev = (struct omapfb_device *)dev->driver_data;
 	int r;
@@ -1717,7 +1717,7 @@ static struct attribute_group panel_attr_grp = {
 };
 
 /* ctrl sysfs entries */
-static ssize_t omapfb_show_ctrl_name(struct device *dev, char *buf)
+static ssize_t omapfb_show_ctrl_name(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	struct omapfb_device *fbdev = (struct omapfb_device *)dev->driver_data;
 
