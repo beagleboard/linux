@@ -65,7 +65,7 @@ MODULE_DESCRIPTION("OMAP Alsa mixer driver for ALSA");
  */
 
 /* Codec AIC23 */
-#ifdef CONFIG_SENSORS_TLV320AIC23
+#if defined(CONFIG_SENSORS_TLV320AIC23) || defined (CONFIG_SENSORS_TLV320AIC23_MODULE)
 
 extern __inline__ void audio_aic23_write(u8, u16);
 
