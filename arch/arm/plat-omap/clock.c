@@ -1158,7 +1158,7 @@ int __init clk_init(void)
 	omap_early_clk_reset();
 
 	for (clkp = onchip_clks; clkp < onchip_clks+ARRAY_SIZE(onchip_clks); clkp++) {
-		if (((*clkp)->flags &CLOCK_IN_OMAP1510) && cpu_is_omap1510()) {
+		if (((*clkp)->flags &CLOCK_IN_OMAP1510) && cpu_is_omap15xx()) {
 			clk_register(*clkp);
 			continue;
 		}
@@ -1269,7 +1269,7 @@ int __init clk_init(void)
 	clk_use(&armxor_ck);
 	clk_use(&armtim_ck);
 
-	if (cpu_is_omap1510())
+	if (cpu_is_omap15xx())
 		clk_enable(&arm_gpio_ck);
 
 	return 0;
