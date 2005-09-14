@@ -98,7 +98,7 @@
 #define OMAP1610_IDLECT3		0xfffece24
 #define OMAP1610_IDLE_LOOP_REQUEST	0x0400
 
-#if     !defined(CONFIG_ARCH_OMAP1510) && \
+#if     !defined(CONFIG_ARCH_OMAP15XX) && \
 	!defined(CONFIG_ARCH_OMAP16XX) && \
 	!defined(CONFIG_ARCH_OMAP24XX)
 #error "Power management for this processor not implemented yet"
@@ -188,7 +188,7 @@ enum mpui1510_save_state {
 	MPUI1510_SLEEP_SAVE_EMIFS_CONFIG,
 	MPUI1510_SLEEP_SAVE_OMAP_IH1_MIR,
 	MPUI1510_SLEEP_SAVE_OMAP_IH2_MIR,
-#if defined(CONFIG_ARCH_OMAP1510)
+#if defined(CONFIG_ARCH_OMAP15XX)
 	MPUI1510_SLEEP_SAVE_SIZE
 #else
 	MPUI1510_SLEEP_SAVE_SIZE = 0

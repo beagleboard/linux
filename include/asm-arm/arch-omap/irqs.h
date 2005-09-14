@@ -22,8 +22,8 @@
  *	 are different.
  */
 
-#ifndef __ASM_ARCH_OMAP1510_IRQS_H
-#define __ASM_ARCH_OMAP1510_IRQS_H
+#ifndef __ASM_ARCH_OMAP15XX_IRQS_H
+#define __ASM_ARCH_OMAP15XX_IRQS_H
 
 /*
  * IRQ numbers for interrupt handler 1

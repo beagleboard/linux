@@ -1796,7 +1796,7 @@ serial8250_set_termios(struct uart_port *port, struct termios *termios,
 		serial_outp(up, UART_EFR, efr);
 	}
 
-#ifdef CONFIG_ARCH_OMAP1510
+#ifdef CONFIG_ARCH_OMAP15XX
 	/* Workaround to enable 115200 baud on OMAP1510 internal ports */
 	if (cpu_is_omap1510() && is_omap_port((unsigned int)up->port.membase)) {
 		if (baud == 115200) {

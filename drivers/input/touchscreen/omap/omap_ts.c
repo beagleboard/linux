@@ -52,7 +52,7 @@ static struct ts_device *__initdata ts_devs[] = {
 #ifdef CONFIG_MACH_OMAP_OSK
 	&osk_ts,
 #endif
-#if defined(CONFIG_MACH_OMAP_INNOVATOR) && defined(CONFIG_ARCH_OMAP1510)
+#if defined(CONFIG_MACH_OMAP_INNOVATOR) && defined(CONFIG_ARCH_OMAP15XX)
 	&innovator1510_ts,
 #endif
 };

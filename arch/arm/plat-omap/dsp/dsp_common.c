@@ -281,7 +281,7 @@ static int init_done;
 static int __init omap_dsp_init(void)
 {
 	dspmem_size = 0;
-#ifdef CONFIG_ARCH_OMAP1510
+#ifdef CONFIG_ARCH_OMAP15XX
 	if (cpu_is_omap1510()) {
 		dspmem_base = OMAP1510_DSP_BASE;
 		dspmem_size = OMAP1510_DSP_SIZE;

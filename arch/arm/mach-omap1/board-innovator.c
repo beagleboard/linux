@@ -97,7 +97,7 @@ static struct platform_device innovator_flash_device = {
 	.resource	= &innovator_flash_resource,
 };
 
-#ifdef CONFIG_ARCH_OMAP1510
+#ifdef CONFIG_ARCH_OMAP15XX
 
 /* Only FPGA needs to be mapped here. All others are done with ioremap */
 static struct map_desc innovator1510_io_desc[] __initdata = {
@@ -130,7 +130,7 @@ static struct platform_device *innovator1510_devices[] __initdata = {
 	&innovator1510_smc91x_device,
 };
 
-#endif /* CONFIG_ARCH_OMAP1510 */
+#endif /* CONFIG_ARCH_OMAP15XX */
 
 #ifdef CONFIG_ARCH_OMAP16XX
 
@@ -179,7 +179,7 @@ void innovator_init_irq(void)
 {
 	omap_init_irq();
 	omap_gpio_init();
-#ifdef CONFIG_ARCH_OMAP1510
+#ifdef CONFIG_ARCH_OMAP15XX
 	if (cpu_is_omap1510()) {
 		omap1510_fpga_init_irq();
 	}
@@ -187,7 +187,7 @@ void innovator_init_irq(void)
 	innovator_init_smc91x();
 }
 
-#ifdef CONFIG_ARCH_OMAP1510
+#ifdef CONFIG_ARCH_OMAP15XX
 static struct omap_usb_config innovator1510_usb_config __initdata = {
 	/* for bundled non-standard host and peripheral cables */
 	.hmc_mode	= 4,
@@ -240,7 +240,7 @@ static struct omap_board_config_kernel innovator_config[] = {
 
 static void __init innovator_init(void)
 {
-#ifdef CONFIG_ARCH_OMAP1510
+#ifdef CONFIG_ARCH_OMAP15XX
 	if (cpu_is_omap1510()) {
 		platform_add_devices(innovator1510_devices, ARRAY_SIZE(innovator1510_devices));
 	}
@@ -251,7 +251,7 @@ static void __init innovator_init(void)
 	}
 #endif
 
-#ifdef CONFIG_ARCH_OMAP1510
+#ifdef CONFIG_ARCH_OMAP15XX
 	if (cpu_is_omap1510())
 		innovator_config[0].data = &innovator1510_usb_config;
 #endif
@@ -267,7 +267,7 @@ static void __init innovator_map_io(void)
 {
 	omap_map_common_io();
 
-#ifdef CONFIG_ARCH_OMAP1510
+#ifdef CONFIG_ARCH_OMAP15XX
 	if (cpu_is_omap1510()) {
 		iotable_init(innovator1510_io_desc, ARRAY_SIZE(innovator1510_io_desc));
 		udelay(10);	/* Delay needed for FPGA */

@@ -775,7 +775,7 @@ config EFI_RTC
 	depends on IA64
 config OMAP_RTC
 	bool "TI OMAP Real Time Clock"
-	depends on ARCH_OMAP1510 || ARCH_OMAP16XX || ARCH_OMAP730
+	depends on ARCH_OMAP15XX || ARCH_OMAP16XX || ARCH_OMAP730
 	help
 	  Support for TI OMAP RTC
 

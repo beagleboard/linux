@@ -16,7 +16,7 @@ obj-$(CONFIG_MACH_OMAP_H3)		+= board-h3.o
 obj-$(CONFIG_MACH_VOICEBLUE)		+= board-voiceblue.o
 obj-$(CONFIG_MACH_NETSTAR)		+= board-netstar.o
 
-ifeq ($(CONFIG_ARCH_OMAP1510),y)
+ifeq ($(CONFIG_ARCH_OMAP15XX),y)
 # Innovator-1510 FPGA
 obj-$(CONFIG_MACH_OMAP_INNOVATOR)	+= fpga.o
 endif

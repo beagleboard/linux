@@ -495,7 +495,7 @@ static inline void omap_otg_init(struct omap_usb_config *config) {}
 
 /*-------------------------------------------------------------------------*/
 
-#ifdef	CONFIG_ARCH_OMAP1510
+#ifdef	CONFIG_ARCH_OMAP15XX
 
 #define ULPD_DPLL_CTRL_REG	__REG16(ULPD_DPLL_CTRL)
 #define DPLL_IOB		(1 << 13)

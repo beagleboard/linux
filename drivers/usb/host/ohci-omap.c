@@ -100,7 +100,7 @@ static int omap_ohci_transceiver_power(int on)
 	return 0;
 }
 
-#ifdef CONFIG_ARCH_OMAP1510
+#ifdef CONFIG_ARCH_OMAP15XX
 /*
  * OMAP-1510 specific Local Bus clock on/off
  */

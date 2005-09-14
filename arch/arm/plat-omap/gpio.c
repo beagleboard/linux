@@ -140,7 +140,7 @@ static struct gpio_bank gpio_bank_1610[5] = {
 };
 #endif
 
-#ifdef CONFIG_ARCH_OMAP1510
+#ifdef CONFIG_ARCH_OMAP15XX
 static struct gpio_bank gpio_bank_1510[2] = {
 	{ OMAP_MPUIO_BASE,    INT_MPUIO,      IH_MPUIO_BASE, METHOD_MPUIO },
 	{ OMAP1510_GPIO_BASE, INT_GPIO_BANK1, IH_GPIO_BASE,  METHOD_GPIO_1510 }
@@ -173,7 +173,7 @@ static int gpio_bank_count;
 
 static inline struct gpio_bank *get_gpio_bank(int gpio)
 {
-#ifdef CONFIG_ARCH_OMAP1510
+#ifdef CONFIG_ARCH_OMAP15XX
 	if (cpu_is_omap1510()) {
 		if (OMAP_GPIO_IS_MPUIO(gpio))
 			return &gpio_bank[0];
@@ -222,7 +222,7 @@ static inline int gpio_valid(int gpio)
 			return -1;
 		return 0;
 	}
-#ifdef CONFIG_ARCH_OMAP1510
+#ifdef CONFIG_ARCH_OMAP15XX
 	if (cpu_is_omap1510() && gpio < 16)
 		return 0;
 #endif
@@ -654,7 +654,7 @@ int omap_request_gpio(int gpio)
 	/* Set trigger to none. You need to enable the trigger after request_irq */
 	_set_gpio_triggering(bank, get_gpio_index(gpio), IRQT_NOEDGE);
 
-#ifdef CONFIG_ARCH_OMAP1510
+#ifdef CONFIG_ARCH_OMAP15XX
 	if (bank->method == METHOD_GPIO_1510) {
 		void __iomem *reg;
 
@@ -739,7 +739,7 @@ static void gpio_irq_handler(unsigned int irq, struct irqdesc *desc,
 	bank = (struct gpio_bank *) desc->data;
 	if (bank->method == METHOD_MPUIO)
 		isr_reg = bank->base + OMAP_MPUIO_GPIO_INT;
-#ifdef CONFIG_ARCH_OMAP1510
+#ifdef CONFIG_ARCH_OMAP15XX
 	if (bank->method == METHOD_GPIO_1510)
 		isr_reg = bank->base + OMAP1510_GPIO_INT_STATUS;
 #endif
@@ -855,7 +855,7 @@ static int __init _omap_gpio_init(void)
 			clk_use(gpio_ck);
 	}
 
-#ifdef CONFIG_ARCH_OMAP1510
+#ifdef CONFIG_ARCH_OMAP15XX
 	if (cpu_is_omap1510()) {
 		printk(KERN_INFO "OMAP1510 GPIO hardware\n");
 		gpio_bank_count = 2;
@@ -901,7 +901,7 @@ static int __init _omap_gpio_init(void)
 		if (bank->method == METHOD_MPUIO) {
 			omap_writew(0xFFFF, OMAP_MPUIO_BASE + OMAP_MPUIO_GPIO_MASKIT);
 		}
-#ifdef CONFIG_ARCH_OMAP1510
+#ifdef CONFIG_ARCH_OMAP15XX
 		if (bank->method == METHOD_GPIO_1510) {
 			__raw_writew(0xffff, bank->base + OMAP1510_GPIO_INT_MASK);
 			__raw_writew(0x0000, bank->base + OMAP1510_GPIO_INT_STATUS);

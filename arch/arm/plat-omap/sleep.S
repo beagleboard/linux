@@ -52,7 +52,7 @@
  *       processor specific functions here.
  */
 
-#ifdef CONFIG_ARCH_OMAP1510
+#ifdef CONFIG_ARCH_OMAP15XX
 ENTRY(omap1510_idle_loop_suspend)
 
 	stmfd	sp!, {r0 - r12, lr}		@ save registers on stack
@@ -100,7 +100,7 @@ l_1510:	subs	r5, r5, #1
 
 ENTRY(omap1510_idle_loop_suspend_sz)
 	.word	. - omap1510_idle_loop_suspend
-#endif /* CONFIG_ARCH_OMAP1510 */
+#endif /* CONFIG_ARCH_OMAP15XX */
 
 #if defined(CONFIG_ARCH_OMAP16XX)
 ENTRY(omap1610_idle_loop_suspend)
@@ -169,7 +169,7 @@ ENTRY(omap1610_idle_loop_suspend_sz)
  *
  */
 
-#ifdef CONFIG_ARCH_OMAP1510
+#ifdef CONFIG_ARCH_OMAP15XX
 ENTRY(omap1510_cpu_suspend)
 
 	@ save registers on stack
@@ -241,7 +241,7 @@ l_1510_2:
 
 ENTRY(omap1510_cpu_suspend_sz)
 	.word	. - omap1510_cpu_suspend
-#endif /* CONFIG_ARCH_OMAP1510 */
+#endif /* CONFIG_ARCH_OMAP15XX */
 
 #if defined(CONFIG_ARCH_OMAP16XX)
 ENTRY(omap1610_cpu_suspend)

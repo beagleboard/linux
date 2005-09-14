@@ -50,7 +50,7 @@ extern unsigned int system_rev;
 #  define OMAP_NAME omap730
 # endif
 #endif
-#ifdef CONFIG_ARCH_OMAP1510
+#ifdef CONFIG_ARCH_OMAP15XX
 # ifdef OMAP_NAME
 #  undef  MULTI_OMAP1
 #  define MULTI_OMAP1
@@ -106,7 +106,7 @@ IS_OMAP_CLASS(24xx, 0x24)
 #  undef  cpu_is_omap7xx
 #  define cpu_is_omap7xx()		is_omap7xx()
 # endif
-# if defined(CONFIG_ARCH_OMAP1510)
+# if defined(CONFIG_ARCH_OMAP15XX)
 #  undef  cpu_is_omap15xx
 #  define cpu_is_omap15xx()		is_omap15xx()
 # endif
@@ -119,7 +119,7 @@ IS_OMAP_CLASS(24xx, 0x24)
 #  undef  cpu_is_omap7xx
 #  define cpu_is_omap7xx()		1
 # endif
-# if defined(CONFIG_ARCH_OMAP1510)
+# if defined(CONFIG_ARCH_OMAP15XX)
 #  undef  cpu_is_omap15xx
 #  define cpu_is_omap15xx()		1
 # endif
@@ -190,7 +190,7 @@ IS_OMAP_TYPE(2420, 0x2420)
  * Whether we have MULTI_OMAP1 or not, we still need to distinguish
  * between 330 vs. 1510 and 1611B/5912 vs. 1710.
  */
-#if defined(CONFIG_ARCH_OMAP1510)
+#if defined(CONFIG_ARCH_OMAP15XX)
 # undef  cpu_is_omap310
 # undef  cpu_is_omap1510
 # define cpu_is_omap310()		is_omap310()

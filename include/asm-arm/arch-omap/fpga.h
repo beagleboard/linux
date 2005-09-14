@@ -19,7 +19,7 @@
 #ifndef __ASM_ARCH_OMAP_FPGA_H
 #define __ASM_ARCH_OMAP_FPGA_H
 
-#if defined(CONFIG_MACH_OMAP_INNOVATOR) && defined(CONFIG_ARCH_OMAP1510)
+#if defined(CONFIG_MACH_OMAP_INNOVATOR) && defined(CONFIG_ARCH_OMAP15XX)
 extern void omap1510_fpga_init_irq(void);
 #else
 #define omap1510_fpga_init_irq()	(0)

@@ -645,7 +645,7 @@ static const struct omap_mcbsp_info mcbsp_730[] = {
 };
 #endif
 
-#ifdef CONFIG_ARCH_OMAP1510
+#ifdef CONFIG_ARCH_OMAP15XX
 static const struct omap_mcbsp_info mcbsp_1510[] = {
 	[0] = { .virt_base = OMAP1510_MCBSP1_BASE,
 		.dma_rx_sync = OMAP_DMA_MCBSP1_RX,
@@ -714,7 +714,7 @@ static int __init omap_mcbsp_init(void)
 		mcbsp_count = ARRAY_SIZE(mcbsp_730);
 	}
 #endif
-#ifdef CONFIG_ARCH_OMAP1510
+#ifdef CONFIG_ARCH_OMAP15XX
 	if (cpu_is_omap1510()) {
 		mcbsp_info = mcbsp_1510;
 		mcbsp_count = ARRAY_SIZE(mcbsp_1510);

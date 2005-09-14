@@ -101,7 +101,7 @@ static struct lcd_panel *panels[] = {
 	&osk_panel,
 #endif
 #ifdef CONFIG_MACH_OMAP_INNOVATOR
-#ifdef CONFIG_ARCH_OMAP1510
+#ifdef CONFIG_ARCH_OMAP15XX
 	&innovator1510_panel,
 #endif
 #ifdef CONFIG_ARCH_OMAP16XX

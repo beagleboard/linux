@@ -100,7 +100,7 @@ static const char driver_name[] = "i2c_omap";
 
 #define err(format, arg...) printk(KERN_ERR MODULE_NAME " ERROR: " format "\n",  ## arg )
 
-#ifdef CONFIG_ARCH_OMAP1510
+#ifdef CONFIG_ARCH_OMAP15XX
 #define omap_i2c_rev1()		(readw(OMAP_I2C_REV) < 0x20)
 #else
 #define omap_i2c_rev1()		0

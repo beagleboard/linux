@@ -975,7 +975,7 @@ static void mmc_omap_request(struct mmc_host *mmc, struct mmc_request *req)
 
 static void innovator_fpga_socket_power(int on)
 {
-#if defined(CONFIG_MACH_OMAP_INNOVATOR) && defined(CONFIG_ARCH_OMAP1510)
+#if defined(CONFIG_MACH_OMAP_INNOVATOR) && defined(CONFIG_ARCH_OMAP15XX)
 
 	if (on) {
 		fpga_write(fpga_read(OMAP1510_FPGA_POWER) | (1 << 3),

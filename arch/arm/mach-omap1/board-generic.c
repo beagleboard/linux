@@ -35,7 +35,7 @@ static void __init omap_generic_init_irq(void)
 
 /* assume no Mini-AB port */
 
-#ifdef CONFIG_ARCH_OMAP1510
+#ifdef CONFIG_ARCH_OMAP15XX
 static struct omap_usb_config generic1510_usb_config __initdata = {
 	.register_host	= 1,
 	.register_dev	= 1,
@@ -86,7 +86,7 @@ static struct omap_board_config_kernel generic_config[] = {
 
 static void __init omap_generic_init(void)
 {
-#ifdef CONFIG_ARCH_OMAP1510
+#ifdef CONFIG_ARCH_OMAP15XX
 	if (cpu_is_omap1510()) {
 		generic_config[0].data = &generic1510_usb_config;
 	}
