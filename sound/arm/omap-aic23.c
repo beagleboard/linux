@@ -681,7 +681,7 @@ static int omap_aic23_suspend(struct device *dev, pm_message_t state, u32 level)
 	snd_card_t *card = dev_get_drvdata(dev);
 	
 	if (card->power_state != SNDRV_CTL_POWER_D3hot) {
-		snd_omap_aic23_suspend(card, 0);
+		snd_omap_aic23_suspend(card, PMSG_SUSPEND);
 	}
 	return 0;
 }
