@@ -320,6 +320,20 @@ static int __init omap_kp_init(void)
 		omap_cfg_reg(N19_1610_KBR5);
 
 		omap_writew(0xff, OMAP_MPUIO_BASE + OMAP_MPUIO_GPIO_DEBOUNCING);
+	} else if (machine_is_omap_perseus2()) {
+		omap_cfg_reg(E2_730_KBR0);
+		omap_cfg_reg(J7_730_KBR1);
+		omap_cfg_reg(E1_730_KBR2);
+		omap_cfg_reg(F3_730_KBR3);
+		omap_cfg_reg(D2_730_KBR4);
+
+		omap_cfg_reg(C2_730_KBC0);
+		omap_cfg_reg(D3_730_KBC1);
+		omap_cfg_reg(E4_730_KBC2);
+		omap_cfg_reg(F4_730_KBC3);
+		omap_cfg_reg(E3_730_KBC4);
+
+		omap_writew(0xff, OMAP_MPUIO_BASE + OMAP_MPUIO_GPIO_DEBOUNCING);
 	}
 
 	/* scan current status and enable interrupt */

@@ -58,6 +58,16 @@
 					.pu_pd_reg = PU_PD_SEL_##reg, \
 					.pu_pd_val = status,
 
+#define MUX_REG_730(reg, mode_offset, mode) .mux_reg_name = "OMAP730_IO_CONF_"#reg, \
+					.mux_reg = OMAP730_IO_CONF_##reg, \
+					.mask_offset = mode_offset, \
+					.mask = mode,
+
+#define PULL_REG_730(reg, bit, status)	.pull_name = "OMAP730_IO_CONF_"#reg, \
+					.pull_reg = OMAP730_IO_CONF_##reg, \
+					.pull_bit = bit, \
+					.pull_val = status,
+
 #else
 
 #define MUX_REG(reg, mode_offset, mode) .mux_reg = FUNC_MUX_CTRL_##reg, \
@@ -71,6 +81,15 @@
 #define PU_PD_REG(reg, status)		.pu_pd_reg = PU_PD_SEL_##reg, \
 					.pu_pd_val = status,
 
+#define MUX_REG_730(reg, mode_offset, mode) \
+					.mux_reg = OMAP730_IO_CONF_##reg, \
+					.mask_offset = mode_offset, \
+					.mask = mode,
+
+#define PULL_REG_730(reg, bit, status)	.pull_reg = OMAP730_IO_CONF_##reg, \
+					.pull_bit = bit, \
+					.pull_val = status,
+
 #endif /* CONFIG_OMAP_MUX_DEBUG */
 
 #define MUX_CFG(desc, mux_reg, mode_offset, mode,	\
@@ -81,6 +100,25 @@
 	.debug = debug_status,				\
 	MUX_REG(mux_reg, mode_offset, mode)		\
 	PULL_REG(pull_reg, pull_bit, pull_status)	\
+	PU_PD_REG(pu_pd_reg, pu_pd_status)		\
+},
+
+
+/* 
+ * OMAP730 has a slightly different config for the pin mux.
+ * - config regs are the OMAP730_IO_CONF_x regs (see omap730.h) regs and 
+ *   not the FUNC_MUX_CTRL_x regs from hardware.h
+ * - for pull-up/down, only has one enable bit which is is in the same register 
+ *   as mux config
+ */
+#define MUX_CFG_730(desc, mux_reg, mode_offset, mode,	\
+		   pull_reg, pull_bit, pull_status,	\
+		   pu_pd_reg, pu_pd_status, debug_status)\
+{							\
+	.name =	 desc,					\
+	.debug = debug_status,				\
+	MUX_REG_730(mux_reg, mode_offset, mode)		\
+	PULL_REG_730(mux_reg, pull_bit, pull_status)	\
 	PU_PD_REG(pu_pd_reg, pu_pd_status)		\
 },
 
@@ -331,6 +369,18 @@ typedef enum {
 	V10_1610_CF_IREQ,
 	W10_1610_CF_RESET,
 	W11_1610_CF_CD1,
+
+	/* OMAP 730 keyboard */
+	E2_730_KBR0,
+	J7_730_KBR1,
+	E1_730_KBR2,
+	F3_730_KBR3,
+	D2_730_KBR4,
+	C2_730_KBC0,
+	D3_730_KBC1,
+	E4_730_KBC2,
+	F4_730_KBC3,
+	E3_730_KBC4,
 } reg_cfg_t;
 
 #if defined(__MUX_C__) && defined(CONFIG_OMAP_MUX)
@@ -560,6 +610,17 @@ MUX_CFG("R11_1610_CF_IOIS16",	 B,    0,    3,	  2,   16,   1,	  2,	 1,  1)
 MUX_CFG("V10_1610_CF_IREQ",	 A,   24,    3,	  2,   14,   0,	  2,	 0,  1)
 MUX_CFG("W10_1610_CF_RESET",	 A,   18,    3,	  2,   12,   1,	  2,	 1,  1)
 MUX_CFG("W11_1610_CF_CD1",	10,   15,    3,	  3,    8,   1,	  3,	 1,  1)
+
+MUX_CFG_730("E2_730_KBR0",	12,   21,    0,	  0,   20,   1,	  NA,	 0,  0)
+MUX_CFG_730("J7_730_KBR1",	12,   25,    0,	  0,   24,   1,	  NA,	 0,  0)
+MUX_CFG_730("E1_730_KBR2",	12,   29,    0,	  0,   28,   1,	  NA,	 0,  0)
+MUX_CFG_730("F3_730_KBR3",	13,    1,    0,	  0,   0,    1,	  NA,	 0,  0)
+MUX_CFG_730("D2_730_KBR4",	13,    5,    0,	  0,   4,    1,	  NA,	 0,  0)
+MUX_CFG_730("C2_730_KBC0",	13,    9,    0,	  0,	8,   1,	  NA,	 0,  0)
+MUX_CFG_730("D3_730_KBC1",	13,   13,    0,	  0,   12,   1,	  NA,	 0,  0)
+MUX_CFG_730("E4_730_KBC2",	13,   17,    0,	  0,   16,   1,	  NA,	 0,  0)
+MUX_CFG_730("F4_730_KBC3",	13,   21,    0,	  0,   20,   1,	  NA,	 0,  0)
+MUX_CFG_730("E3_730_KBC4",	13,   25,    0,	  0,   24,   1,	  NA,	 0,  0)
 };
 
 #endif	/* __MUX_C__ */
