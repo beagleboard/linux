@@ -32,7 +32,7 @@ static unsigned long omap_sram_ceil;
 
 /*
  * The amount of SRAM depends on the core type:
- * 730 = 200K, 1510 = 512K, 5912 = 256K, 1610 = 16K, 1710 = 16K
+ * 730 = 200K, 1510 = 192K, 5912 = 256K, 1610 = 16K, 1710 = 16K
  * Note that we cannot try to test for SRAM here because writes
  * to secure SRAM will hang the system. Also the SRAM is not
  * yet mapped at this point.
@@ -46,7 +46,7 @@ void __init omap_detect_sram(void)
 	else if (cpu_is_omap730())
 		omap_sram_size = 0x32000;
 	else if (cpu_is_omap1510())
-		omap_sram_size = 0x80000;
+		omap_sram_size = 0x30000;
 	else if (cpu_is_omap1610() || cpu_is_omap1621() || cpu_is_omap1710())
 		omap_sram_size = 0x4000;
 	else if (cpu_is_omap1611())
