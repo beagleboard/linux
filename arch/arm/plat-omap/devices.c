@@ -26,7 +26,7 @@
 #include <asm/arch/gpio.h>
 
 
-static void omap_nop_release(struct device *dev)
+void omap_nop_release(struct device *dev)
 {
         /* Nothing */
 }
