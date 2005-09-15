@@ -17,6 +17,8 @@
 
 #ifdef CONFIG_CPU_CACHE_VIPT
 
+static void flush_pfn_alias(unsigned long pfn, unsigned long vaddr);
+
 void flush_cache_mm(struct mm_struct *mm)
 {
 	if (cache_is_vivt()) {
