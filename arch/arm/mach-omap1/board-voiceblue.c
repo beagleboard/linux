@@ -196,6 +196,7 @@ static void __init voiceblue_init(void)
 	platform_add_devices(voiceblue_devices, ARRAY_SIZE(voiceblue_devices));
 	omap_board_config = voiceblue_config;
 	omap_board_config_size = ARRAY_SIZE(voiceblue_config);
+	omap_serial_init();
 
 	/* There is a good chance board is going up, so enable power LED
 	 * (it is connected through invertor) */
@@ -206,7 +207,6 @@ static void __init voiceblue_init(void)
 static void __init voiceblue_map_io(void)
 {
 	omap_map_common_io();
-	omap_serial_init();
 }
 
 #define MACHINE_PANICED		1

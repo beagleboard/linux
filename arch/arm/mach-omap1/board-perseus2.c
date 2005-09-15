@@ -124,6 +124,7 @@ static void __init omap_perseus2_init(void)
 
 	omap_board_config = perseus2_config;
 	omap_board_config_size = ARRAY_SIZE(perseus2_config);
+	omap_serial_init();
 }
 
 static void __init perseus2_init_smc91x(void)
@@ -184,7 +185,6 @@ static void __init omap_perseus2_map_io(void)
 	 * It is used as the Ethernet controller interrupt
 	 */
 	omap_writel(omap_readl(OMAP730_IO_CONF_9) & 0x1FFFFFFF, OMAP730_IO_CONF_9);
-	omap_serial_init();
 }
 
 MACHINE_START(OMAP_PERSEUS2, "OMAP730 Perseus2")

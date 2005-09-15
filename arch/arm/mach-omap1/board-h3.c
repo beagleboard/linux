@@ -171,8 +171,8 @@ static struct omap_uart_config h3_uart_config __initdata = {
 };
 
 static struct omap_board_config_kernel h3_config[] = {
-	{ OMAP_TAG_USB,	 &h3_usb_config },
-	{ OMAP_TAG_MMC,  &h3_mmc_config },
+	{ OMAP_TAG_USB,		&h3_usb_config },
+	{ OMAP_TAG_MMC,		&h3_mmc_config },
 	{ OMAP_TAG_UART,	&h3_uart_config },
 };
 
@@ -183,6 +183,7 @@ static void __init h3_init(void)
 	(void) platform_add_devices(devices, ARRAY_SIZE(devices));
 	omap_board_config = h3_config;
 	omap_board_config_size = ARRAY_SIZE(h3_config);
+	omap_serial_init();
 }
 
 static void __init h3_init_smc91x(void)
@@ -204,7 +205,6 @@ void h3_init_irq(void)
 static void __init h3_map_io(void)
 {
 	omap_map_common_io();
-	omap_serial_init();
 }
 
 MACHINE_START(OMAP_H3, "TI OMAP1710 H3 board")

@@ -261,6 +261,7 @@ static void __init innovator_init(void)
 #endif
 	omap_board_config = innovator_config;
 	omap_board_config_size = ARRAY_SIZE(innovator_config);
+	omap_serial_init();
 }
 
 static void __init innovator_map_io(void)
@@ -279,7 +280,6 @@ static void __init innovator_map_io(void)
 		       fpga_read(OMAP1510_FPGA_BOARD_REV));
 	}
 #endif
-	omap_serial_init();
 }
 
 MACHINE_START(OMAP_INNOVATOR, "TI-Innovator")

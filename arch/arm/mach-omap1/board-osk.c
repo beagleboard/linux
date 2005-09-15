@@ -257,13 +257,13 @@ static void __init osk_init(void)
 	omap_board_config_size = ARRAY_SIZE(osk_config);
 	USB_TRANSCEIVER_CTRL_REG |= (3 << 1);
 
+	omap_serial_init();
 	osk_mistral_init();
 }
 
 static void __init osk_map_io(void)
 {
 	omap_map_common_io();
-	omap_serial_init();
 }
 
 MACHINE_START(OMAP_OSK, "TI-OSK")

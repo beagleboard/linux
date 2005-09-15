@@ -183,12 +183,12 @@ static void __init h2_init(void)
 	platform_add_devices(h2_devices, ARRAY_SIZE(h2_devices));
 	omap_board_config = h2_config;
 	omap_board_config_size = ARRAY_SIZE(h2_config);
+	omap_serial_init();
 }
 
 static void __init h2_map_io(void)
 {
 	omap_map_common_io();
-	omap_serial_init();
 }
 
 MACHINE_START(OMAP_H2, "TI-H2")

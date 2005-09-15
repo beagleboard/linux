@@ -103,12 +103,12 @@ static void __init netstar_init(void)
 
 	omap_board_config = netstar_config;
 	omap_board_config_size = ARRAY_SIZE(netstar_config);
+	omap_serial_init();
 }
 
 static void __init netstar_map_io(void)
 {
 	omap_map_common_io();
-	omap_serial_init();
 }
 
 #define MACHINE_PANICED		1
