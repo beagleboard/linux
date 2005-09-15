@@ -951,7 +951,7 @@ void omap_clear_dma(int lch)
 	local_irq_save(flags);
 	omap_writew(omap_readw(OMAP_DMA_CCR(lch)) & ~OMAP_DMA_CCR_EN,
 		    OMAP_DMA_CCR(lch));
-	status = OMAP_DMA_CSR(lch);	/* clear pending interrupts */
+	status = omap_readw(OMAP_DMA_CSR(lch));	/* clear pending interrupts */
 	local_irq_restore(flags);
 }
 
@@ -1016,8 +1016,8 @@ static int __init omap_init_dma(void)
 {
 	int ch, r;
 
-	if (cpu_is_omap1510()) {
-		printk(KERN_INFO "DMA support for OMAP1510 initialized\n");
+	if (cpu_is_omap15xx()) {
+		printk(KERN_INFO "DMA support for OMAP15xx initialized\n");
 		dma_chan_count = 9;
 		enable_1510_mode = 1;
 	} else if (cpu_is_omap16xx() || cpu_is_omap730()) {
@@ -1048,6 +1048,10 @@ static int __init omap_init_dma(void)
 	spin_lock_init(&dma_chan_lock);
 	memset(&dma_chan, 0, sizeof(dma_chan));
 
+	/* Disable and clear all DMA channels to avoid spurious IRQ */
+	for (ch = 0; ch < dma_chan_count; ch++) {
+		omap_clear_dma(ch);
+	}
 	for (ch = 0; ch < dma_chan_count; ch++) {
 		dma_chan[ch].dev_id = -1;
 		dma_chan[ch].next_lch = -1;
