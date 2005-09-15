@@ -15,6 +15,7 @@
 
 #include <asm/mach/map.h>
 #include <asm/io.h>
+#include <asm/arch/mux.h>
 #include <asm/arch/tc.h>
 
 extern int clk_init(void);
@@ -95,7 +96,9 @@ static void __init _omap_map_io(void)
  */
 void __init omap_map_common_io(void)
 {
-	if (!initialized)
+	if (!initialized) {
 		_omap_map_io();
+		omap1_mux_init();
+	}
 }
 

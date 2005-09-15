@@ -3,7 +3,7 @@
 #
 
 # Common support
-obj-y := irq.o io.o serial.o
+obj-y := irq.o io.o mux.o serial.o
 
 obj-$(CONFIG_OMAP_MPU_TIMER)		+= timer-gp.o
 
