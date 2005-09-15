@@ -75,6 +75,16 @@ config MACH_NETSTAR
 	help
 	  Support for NetStar PBX. Say Y here if you have such a board.
 
+config MACH_OMAP_PALMTE
+	bool "Palm Tungsten E"
+	depends on ARCH_OMAP1 && ARCH_OMAP1510
+	help
+          Support for the Palm Tungsten E PDA. Currently only the LCD panel
+          is supported. To boot the kernel, you'll need a PalmOS compatible
+          bootloader; check out http://palmtelinux.sourceforge.net for more
+          informations.
+          Say Y here if you have such a PDA, say NO otherwise.
+
 config MACH_OMAP_GENERIC
 	bool "Generic OMAP board"
 	depends on ARCH_OMAP1 && (ARCH_OMAP15XX || ARCH_OMAP16XX)
