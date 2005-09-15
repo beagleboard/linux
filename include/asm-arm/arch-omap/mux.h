@@ -406,6 +406,7 @@ enum omap24xx_index {
 /* setup pin muxing in Linux */
 extern int omap1_mux_init(void);
 extern int omap2_mux_init(void);
+extern int omap_mux_register(struct pin_config * pins, unsigned long size);
 extern int omap_cfg_reg(unsigned long reg_cfg);
 #else
 /* boot loader does it all (no warnings from CONFIG_OMAP_MUX_WARNINGS) */
