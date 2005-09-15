@@ -40,11 +40,11 @@ struct pin_config __initdata_or_module omap24xx_pins[] = {
  */
 
 /* 24xx I2C */
-OMAP2_MUX_CFG("M19_24XX_I2C1_SCL",    0x111,    0,    0,    0,    1)
-OMAP2_MUX_CFG("L15_24XX_I2C1_SDA",    0x112,    0,    0,    0,    1)
-OMAP2_MUX_CFG("J15_24XX_I2C2_SCL",    0x113,    0,    0,    0,    1)
-OMAP2_MUX_CFG("H19_24XX_I2C2_SDA",    0x114,    0,    0,    0,    1)
-OMAP2_MUX_CFG("W19_24XX_SYS_NIRQ",    0x12c,    0,    1,    1,    1)
+MUX_CFG_24XX("M19_24XX_I2C1_SCL",    0x111,    0,    0,    0,    1)
+MUX_CFG_24XX("L15_24XX_I2C1_SDA",    0x112,    0,    0,    0,    1)
+MUX_CFG_24XX("J15_24XX_I2C2_SCL",    0x113,    0,    0,    0,    1)
+MUX_CFG_24XX("H19_24XX_I2C2_SDA",    0x114,    0,    0,    0,    1)
+MUX_CFG_24XX("W19_24XX_SYS_NIRQ",    0x12c,    0,    1,    1,    1)
 };
 
 int __init omap2_mux_init(void)

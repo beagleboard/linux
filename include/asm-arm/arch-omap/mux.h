@@ -122,7 +122,7 @@
 	PU_PD_REG(pu_pd_reg, pu_pd_status)		\
 },
 
-#define OMAP2_MUX_CFG(desc, reg_offset, mode,			\
+#define MUX_CFG_24XX(desc, reg_offset, mode,			\
 				pull_en, pull_mode, dbg)	\
 {								\
 	.name		= desc,					\
