@@ -81,10 +81,32 @@ static struct mpu_rate rate_table[] = {
 
 
 static void ckctl_recalc(struct clk *  clk);
-int __clk_enable(struct clk *clk);
-void __clk_disable(struct clk *clk);
-void __clk_unuse(struct clk *clk);
-int __clk_use(struct clk *clk);
+static void ckctl_recalc_dsp_domain(struct clk *  clk);
+static int __clk_enable(struct clk *clk);
+static int __clk_enable_dsp_domain(struct clk *clk);
+static int __clk_enable_uart_functional(struct clk *clk);
+static void __clk_disable(struct clk *clk);
+static void __clk_disable_dsp_domain(struct clk *clk);
+static void __clk_disable_uart_functional(struct clk *clk);
+static int __clk_use(struct clk *clk);
+static void __clk_unuse(struct clk *clk);
+static void __clk_deny_idle(struct clk *clk);
+static void __clk_allow_idle(struct clk *clk);
+static int __clk_set_rate_dsp_domain(struct clk *clk, unsigned long rate);
+
+struct uart_clk {
+	struct clk	clk;
+	unsigned long	sysc_addr;
+};
+
+
+/* Provide a method for preventing idling some ARM IDLECT clocks */
+struct arm_idlect1_clk {
+	struct clk	clk;
+	unsigned long	no_idle_count;
+	__u8		idlect_shift;
+};
+__u32 arm_idlect1_mask;
 
 
 static void followparent_recalc(struct clk *  clk)
@@ -112,6 +134,8 @@ static struct clk ck_ref = {
 	.rate		= 12000000,
 	.flags		= CLOCK_IN_OMAP1510 | CLOCK_IN_OMAP16XX |
 			  ALWAYS_ENABLED,
+	.enable		= &__clk_enable,
+	.disable	= &__clk_disable,
 };
 
 static struct clk ck_dpll1 = {
@@ -119,15 +143,22 @@ static struct clk ck_dpll1 = {
 	.parent		= &ck_ref,
 	.flags		= CLOCK_IN_OMAP1510 | CLOCK_IN_OMAP16XX |
 			  RATE_PROPAGATES | ALWAYS_ENABLED,
+	.enable		= &__clk_enable,
+	.disable	= &__clk_disable,
 };
 
-static struct clk ck_dpll1out = {
-	.name		= "ck_dpll1out",
-	.parent		= &ck_dpll1,
-	.flags		= CLOCK_IN_OMAP16XX,
-	.enable_reg	= ARM_IDLECT2,
-	.enable_bit	= EN_CKOUT_ARM,
-	.recalc		= &followparent_recalc,
+static struct arm_idlect1_clk ck_dpll1out = {
+	.clk = {
+	       	.name		= "ck_dpll1out",
+		.parent		= &ck_dpll1,
+		.flags		= CLOCK_IN_OMAP16XX | CLOCK_IDLE_CONTROL,
+		.enable_reg	= ARM_IDLECT2,
+		.enable_bit	= EN_CKOUT_ARM,
+		.recalc		= &followparent_recalc,
+		.enable		= &__clk_enable,
+		.disable	= &__clk_disable,
+	},
+	.idlect_shift	= 12,
 };
 
 static struct clk arm_ck = {
@@ -137,17 +168,24 @@ static struct clk arm_ck = {
 			  RATE_CKCTL | RATE_PROPAGATES | ALWAYS_ENABLED,
 	.rate_offset	= CKCTL_ARMDIV_OFFSET,
 	.recalc		= &ckctl_recalc,
+	.enable		= &__clk_enable,
+	.disable	= &__clk_disable,
 };
 
-static struct clk armper_ck = {
-	.name		= "armper_ck",
-	.parent		= &ck_dpll1,
-	.flags		= CLOCK_IN_OMAP1510 | CLOCK_IN_OMAP16XX |
-			  RATE_CKCTL,
-	.enable_reg	= ARM_IDLECT2,
-	.enable_bit	= EN_PERCK,
-	.rate_offset	= CKCTL_PERDIV_OFFSET,
-	.recalc		= &ckctl_recalc,
+static struct arm_idlect1_clk armper_ck = {
+	.clk = {
+		.name		= "armper_ck",
+		.parent		= &ck_dpll1,
+		.flags		= CLOCK_IN_OMAP1510 | CLOCK_IN_OMAP16XX |
+				  RATE_CKCTL | CLOCK_IDLE_CONTROL,
+		.enable_reg	= ARM_IDLECT2,
+		.enable_bit	= EN_PERCK,
+		.rate_offset	= CKCTL_PERDIV_OFFSET,
+		.recalc		= &ckctl_recalc,
+		.enable		= &__clk_enable,
+		.disable	= &__clk_disable,
+	},
+	.idlect_shift	= 2,
 };
 
 static struct clk arm_gpio_ck = {
@@ -157,33 +195,53 @@ static struct clk arm_gpio_ck = {
 	.enable_reg	= ARM_IDLECT2,
 	.enable_bit	= EN_GPIOCK,
 	.recalc		= &followparent_recalc,
+	.enable		= &__clk_enable,
+	.disable	= &__clk_disable,
 };
 
-static struct clk armxor_ck = {
-	.name		= "armxor_ck",
-	.parent		= &ck_ref,
-	.flags		= CLOCK_IN_OMAP1510 | CLOCK_IN_OMAP16XX,
-	.enable_reg	= ARM_IDLECT2,
-	.enable_bit	= EN_XORPCK,
-	.recalc		= &followparent_recalc,
+static struct arm_idlect1_clk armxor_ck = {
+	.clk = {
+		.name		= "armxor_ck",
+		.parent		= &ck_ref,
+		.flags		= CLOCK_IN_OMAP1510 | CLOCK_IN_OMAP16XX |
+				  CLOCK_IDLE_CONTROL,
+		.enable_reg	= ARM_IDLECT2,
+		.enable_bit	= EN_XORPCK,
+		.recalc		= &followparent_recalc,
+		.enable		= &__clk_enable,
+		.disable	= &__clk_disable,
+	},
+	.idlect_shift	= 1,
 };
 
-static struct clk armtim_ck = {
-	.name		= "armtim_ck",
-	.parent		= &ck_ref,
-	.flags		= CLOCK_IN_OMAP1510 | CLOCK_IN_OMAP16XX,
-	.enable_reg	= ARM_IDLECT2,
-	.enable_bit	= EN_TIMCK,
-	.recalc		= &followparent_recalc,
+static struct arm_idlect1_clk armtim_ck = {
+	.clk = {
+		.name		= "armtim_ck",
+		.parent		= &ck_ref,
+		.flags		= CLOCK_IN_OMAP1510 | CLOCK_IN_OMAP16XX |
+				  CLOCK_IDLE_CONTROL,
+		.enable_reg	= ARM_IDLECT2,
+		.enable_bit	= EN_TIMCK,
+		.recalc		= &followparent_recalc,
+		.enable		= &__clk_enable,
+		.disable	= &__clk_disable,
+	},
+	.idlect_shift	= 9,
 };
 
-static struct clk armwdt_ck = {
-	.name		= "armwdt_ck",
-	.parent		= &ck_ref,
-	.flags		= CLOCK_IN_OMAP1510 | CLOCK_IN_OMAP16XX,
-	.enable_reg	= ARM_IDLECT2,
-	.enable_bit	= EN_WDTCK,
-	.recalc		= &watchdog_recalc,
+static struct arm_idlect1_clk armwdt_ck = {
+	.clk = {
+		.name		= "armwdt_ck",
+		.parent		= &ck_ref,
+		.flags		= CLOCK_IN_OMAP1510 | CLOCK_IN_OMAP16XX |
+				  CLOCK_IDLE_CONTROL,
+		.enable_reg	= ARM_IDLECT2,
+		.enable_bit	= EN_WDTCK,
+		.recalc		= &watchdog_recalc,
+		.enable		= &__clk_enable,
+		.disable	= &__clk_disable,
+	},
+	.idlect_shift	= 0,
 };
 
 static struct clk arminth_ck16xx = {
@@ -196,6 +254,8 @@ static struct clk arminth_ck16xx = {
 	 *
 	 * 1510 version is in TC clocks.
 	 */
+	.enable		= &__clk_enable,
+	.disable	= &__clk_disable,
 };
 
 static struct clk dsp_ck = {
@@ -207,6 +267,8 @@ static struct clk dsp_ck = {
 	.enable_bit	= EN_DSPCK,
 	.rate_offset	= CKCTL_DSPDIV_OFFSET,
 	.recalc		= &ckctl_recalc,
+	.enable		= &__clk_enable,
+	.disable	= &__clk_disable,
 };
 
 static struct clk dspmmu_ck = {
@@ -216,202 +278,293 @@ static struct clk dspmmu_ck = {
 			  RATE_CKCTL | ALWAYS_ENABLED,
 	.rate_offset	= CKCTL_DSPMMUDIV_OFFSET,
 	.recalc		= &ckctl_recalc,
+	.enable		= &__clk_enable,
+	.disable	= &__clk_disable,
 };
 
 static struct clk dspper_ck = {
 	.name		= "dspper_ck",
 	.parent		= &ck_dpll1,
 	.flags		= CLOCK_IN_OMAP1510 | CLOCK_IN_OMAP16XX |
-			  RATE_CKCTL | DSP_DOMAIN_CLOCK | VIRTUAL_IO_ADDRESS,
+			  RATE_CKCTL | VIRTUAL_IO_ADDRESS,
 	.enable_reg	= DSP_IDLECT2,
 	.enable_bit	= EN_PERCK,
 	.rate_offset	= CKCTL_PERDIV_OFFSET,
-	.recalc		= &followparent_recalc,
-	//.recalc		= &ckctl_recalc,
+	.recalc		= &ckctl_recalc_dsp_domain,
+	.set_rate	= &__clk_set_rate_dsp_domain,
+	.enable		= &__clk_enable_dsp_domain,
+	.disable	= &__clk_disable_dsp_domain,
 };
 
 static struct clk dspxor_ck = {
 	.name		= "dspxor_ck",
 	.parent		= &ck_ref,
 	.flags		= CLOCK_IN_OMAP1510 | CLOCK_IN_OMAP16XX |
-			  DSP_DOMAIN_CLOCK | VIRTUAL_IO_ADDRESS,
+			  VIRTUAL_IO_ADDRESS,
 	.enable_reg	= DSP_IDLECT2,
 	.enable_bit	= EN_XORPCK,
 	.recalc		= &followparent_recalc,
+	.enable		= &__clk_enable_dsp_domain,
+	.disable	= &__clk_disable_dsp_domain,
 };
 
 static struct clk dsptim_ck = {
 	.name		= "dsptim_ck",
 	.parent		= &ck_ref,
 	.flags		= CLOCK_IN_OMAP1510 | CLOCK_IN_OMAP16XX |
-			  DSP_DOMAIN_CLOCK | VIRTUAL_IO_ADDRESS,
+			  VIRTUAL_IO_ADDRESS,
 	.enable_reg	= DSP_IDLECT2,
 	.enable_bit	= EN_DSPTIMCK,
 	.recalc		= &followparent_recalc,
+	.enable		= &__clk_enable_dsp_domain,
+	.disable	= &__clk_disable_dsp_domain,
 };
 
-static struct clk tc_ck = {
-	.name		= "tc_ck",
-	.parent		= &ck_dpll1,
-	.flags		= CLOCK_IN_OMAP1510 | CLOCK_IN_OMAP16XX | CLOCK_IN_OMAP730 |
-			  RATE_CKCTL | RATE_PROPAGATES | ALWAYS_ENABLED,
-	.rate_offset	= CKCTL_TCDIV_OFFSET,
-	.recalc		= &ckctl_recalc,
+/* Tie ARM_IDLECT1:IDLIF_ARM to this logical clock structure */
+static struct arm_idlect1_clk tc_ck = {
+	.clk = {
+		.name		= "tc_ck",
+		.parent		= &ck_dpll1,
+		.flags		= CLOCK_IN_OMAP1510 | CLOCK_IN_OMAP16XX |
+				  CLOCK_IN_OMAP730 | RATE_CKCTL |
+				  RATE_PROPAGATES | ALWAYS_ENABLED |
+				  CLOCK_IDLE_CONTROL,
+		.rate_offset	= CKCTL_TCDIV_OFFSET,
+		.recalc		= &ckctl_recalc,
+		.enable		= &__clk_enable,
+		.disable	= &__clk_disable,
+	},
+	.idlect_shift	= 6,
 };
 
 static struct clk arminth_ck1510 = {
 	.name		= "arminth_ck",
-	.parent		= &tc_ck,
+	.parent		= &tc_ck.clk,
 	.flags		= CLOCK_IN_OMAP1510 | ALWAYS_ENABLED,
 	.recalc		= &followparent_recalc,
 	/* Note: On 1510 the frequency follows TC_CK
 	 *
 	 * 16xx version is in MPU clocks.
 	 */
+	.enable		= &__clk_enable,
+	.disable	= &__clk_disable,
 };
 
 static struct clk tipb_ck = {
+	/* No-idle controlled by "tc_ck" */
 	.name		= "tibp_ck",
-	.parent		= &tc_ck,
+	.parent		= &tc_ck.clk,
 	.flags		= CLOCK_IN_OMAP1510 | ALWAYS_ENABLED,
 	.recalc		= &followparent_recalc,
+	.enable		= &__clk_enable,
+	.disable	= &__clk_disable,
 };
 
 static struct clk l3_ocpi_ck = {
+	/* No-idle controlled by "tc_ck" */
 	.name		= "l3_ocpi_ck",
-	.parent		= &tc_ck,
+	.parent		= &tc_ck.clk,
 	.flags		= CLOCK_IN_OMAP16XX,
 	.enable_reg	= ARM_IDLECT3,
 	.enable_bit	= EN_OCPI_CK,
 	.recalc		= &followparent_recalc,
+	.enable		= &__clk_enable,
+	.disable	= &__clk_disable,
 };
 
 static struct clk tc1_ck = {
 	.name		= "tc1_ck",
-	.parent		= &tc_ck,
+	.parent		= &tc_ck.clk,
 	.flags		= CLOCK_IN_OMAP16XX,
 	.enable_reg	= ARM_IDLECT3,
 	.enable_bit	= EN_TC1_CK,
 	.recalc		= &followparent_recalc,
+	.enable		= &__clk_enable,
+	.disable	= &__clk_disable,
 };
 
 static struct clk tc2_ck = {
 	.name		= "tc2_ck",
-	.parent		= &tc_ck,
+	.parent		= &tc_ck.clk,
 	.flags		= CLOCK_IN_OMAP16XX,
 	.enable_reg	= ARM_IDLECT3,
 	.enable_bit	= EN_TC2_CK,
 	.recalc		= &followparent_recalc,
+	.enable		= &__clk_enable,
+	.disable	= &__clk_disable,
 };
 
 static struct clk dma_ck = {
+	/* No-idle controlled by "tc_ck" */
 	.name		= "dma_ck",
-	.parent		= &tc_ck,
+	.parent		= &tc_ck.clk,
 	.flags		= CLOCK_IN_OMAP1510 | CLOCK_IN_OMAP16XX |
 			  ALWAYS_ENABLED,
 	.recalc		= &followparent_recalc,
+	.enable		= &__clk_enable,
+	.disable	= &__clk_disable,
 };
 
 static struct clk dma_lcdfree_ck = {
 	.name		= "dma_lcdfree_ck",
-	.parent		= &tc_ck,
+	.parent		= &tc_ck.clk,
 	.flags		= CLOCK_IN_OMAP16XX | ALWAYS_ENABLED,
 	.recalc		= &followparent_recalc,
+	.enable		= &__clk_enable,
+	.disable	= &__clk_disable,
 };
 
-static struct clk api_ck = {
-	.name		= "api_ck",
-	.parent		= &tc_ck,
-	.flags		= CLOCK_IN_OMAP1510 | CLOCK_IN_OMAP16XX,
-	.enable_reg	= ARM_IDLECT2,
-	.enable_bit	= EN_APICK,
-	.recalc		= &followparent_recalc,
+static struct arm_idlect1_clk api_ck = {
+	.clk = {
+		.name		= "api_ck",
+		.parent		= &tc_ck.clk,
+		.flags		= CLOCK_IN_OMAP1510 | CLOCK_IN_OMAP16XX |
+				  CLOCK_IDLE_CONTROL,
+		.enable_reg	= ARM_IDLECT2,
+		.enable_bit	= EN_APICK,
+		.recalc		= &followparent_recalc,
+		.enable		= &__clk_enable,
+		.disable	= &__clk_disable,
+	},
+	.idlect_shift	= 8,
 };
 
-static struct clk lb_ck = {
-	.name		= "lb_ck",
-	.parent		= &tc_ck,
-	.flags		= CLOCK_IN_OMAP1510,
-	.enable_reg	= ARM_IDLECT2,
-	.enable_bit	= EN_LBCK,
-	.recalc		= &followparent_recalc,
+static struct arm_idlect1_clk lb_ck = {
+	.clk = {
+		.name		= "lb_ck",
+		.parent		= &tc_ck.clk,
+		.flags		= CLOCK_IN_OMAP1510 | CLOCK_IDLE_CONTROL,
+		.enable_reg	= ARM_IDLECT2,
+		.enable_bit	= EN_LBCK,
+		.recalc		= &followparent_recalc,
+		.enable		= &__clk_enable,
+		.disable	= &__clk_disable,
+	},
+	.idlect_shift	= 4,
 };
 
 static struct clk rhea1_ck = {
 	.name		= "rhea1_ck",
-	.parent		= &tc_ck,
+	.parent		= &tc_ck.clk,
 	.flags		= CLOCK_IN_OMAP16XX | ALWAYS_ENABLED,
 	.recalc		= &followparent_recalc,
+	.enable		= &__clk_enable,
+	.disable	= &__clk_disable,
 };
 
 static struct clk rhea2_ck = {
 	.name		= "rhea2_ck",
-	.parent		= &tc_ck,
+	.parent		= &tc_ck.clk,
 	.flags		= CLOCK_IN_OMAP16XX | ALWAYS_ENABLED,
 	.recalc		= &followparent_recalc,
+	.enable		= &__clk_enable,
+	.disable	= &__clk_disable,
 };
 
-static struct clk lcd_ck = {
+static struct clk lcd_ck_16xx = {
 	.name		= "lcd_ck",
 	.parent		= &ck_dpll1,
-	.flags		= CLOCK_IN_OMAP1510 | CLOCK_IN_OMAP16XX | CLOCK_IN_OMAP730 |
-			  RATE_CKCTL,
+	.flags		= CLOCK_IN_OMAP16XX | CLOCK_IN_OMAP730 | RATE_CKCTL,
 	.enable_reg	= ARM_IDLECT2,
 	.enable_bit	= EN_LCDCK,
 	.rate_offset	= CKCTL_LCDDIV_OFFSET,
 	.recalc		= &ckctl_recalc,
+	.enable		= &__clk_enable,
+	.disable	= &__clk_disable,
+};
+
+static struct arm_idlect1_clk lcd_ck_1510 = {
+	.clk = {
+		.name		= "lcd_ck",
+		.parent		= &ck_dpll1,
+		.flags		= CLOCK_IN_OMAP1510 | RATE_CKCTL |
+				  CLOCK_IDLE_CONTROL,
+		.enable_reg	= ARM_IDLECT2,
+		.enable_bit	= EN_LCDCK,
+		.rate_offset	= CKCTL_LCDDIV_OFFSET,
+		.recalc		= &ckctl_recalc,
+		.enable		= &__clk_enable,
+		.disable	= &__clk_disable,
+	},
+	.idlect_shift	= 3,
 };
 
 static struct clk uart1_1510 = {
 	.name		= "uart1_ck",
-	/* Direct from ULPD, no parent */
+	/* Direct from ULPD, no real parent */
+	.parent		= &armper_ck.clk,
 	.rate		= 12000000,
-	.flags		= CLOCK_IN_OMAP1510 | ENABLE_REG_32BIT | ALWAYS_ENABLED,
+	.flags		= CLOCK_IN_OMAP1510 | ENABLE_REG_32BIT |
+			  ALWAYS_ENABLED | CLOCK_NO_IDLE_PARENT,
 	.enable_reg	= MOD_CONF_CTRL_0,
 	.enable_bit	= 29,	/* Chooses between 12MHz and 48MHz */
 	.set_rate	= &set_uart_rate,
 	.recalc		= &uart_recalc,
+	.enable		= &__clk_enable,
+	.disable	= &__clk_disable,
 };
 
-static struct clk uart1_16xx = {
-	.name		= "uart1_ck",
-	/* Direct from ULPD, no parent */
-	.rate		= 48000000,
-	.flags		= CLOCK_IN_OMAP16XX | RATE_FIXED | ENABLE_REG_32BIT,
-	.enable_reg	= MOD_CONF_CTRL_0,
-	.enable_bit	= 29,
+static struct uart_clk uart1_16xx = {
+	.clk	= {
+		.name		= "uart1_ck",
+		/* Direct from ULPD, no real parent */
+		.parent		= &armper_ck.clk,
+		.rate		= 48000000,
+		.flags		= CLOCK_IN_OMAP16XX | RATE_FIXED |
+				  ENABLE_REG_32BIT | CLOCK_NO_IDLE_PARENT,
+		.enable_reg	= MOD_CONF_CTRL_0,
+		.enable_bit	= 29,
+		.enable		= &__clk_enable_uart_functional,
+		.disable	= &__clk_disable_uart_functional,
+	},
+	.sysc_addr	= 0xfffb0054,
 };
 
 static struct clk uart2_ck = {
 	.name		= "uart2_ck",
-	/* Direct from ULPD, no parent */
+	/* Direct from ULPD, no real parent */
+	.parent		= &armper_ck.clk,
 	.rate		= 12000000,
-	.flags		= CLOCK_IN_OMAP1510 | CLOCK_IN_OMAP16XX | ENABLE_REG_32BIT |
-			  ALWAYS_ENABLED,
+	.flags		= CLOCK_IN_OMAP1510 | CLOCK_IN_OMAP16XX |
+			  ENABLE_REG_32BIT | ALWAYS_ENABLED |
+			  CLOCK_NO_IDLE_PARENT,
 	.enable_reg	= MOD_CONF_CTRL_0,
 	.enable_bit	= 30,	/* Chooses between 12MHz and 48MHz */
 	.set_rate	= &set_uart_rate,
 	.recalc		= &uart_recalc,
+	.enable		= &__clk_enable,
+	.disable	= &__clk_disable,
 };
 
 static struct clk uart3_1510 = {
 	.name		= "uart3_ck",
-	/* Direct from ULPD, no parent */
+	/* Direct from ULPD, no real parent */
+	.parent		= &armper_ck.clk,
 	.rate		= 12000000,
-	.flags		= CLOCK_IN_OMAP1510 | ENABLE_REG_32BIT | ALWAYS_ENABLED,
+	.flags		= CLOCK_IN_OMAP1510 | ENABLE_REG_32BIT |
+			  ALWAYS_ENABLED | CLOCK_NO_IDLE_PARENT,
 	.enable_reg	= MOD_CONF_CTRL_0,
 	.enable_bit	= 31,	/* Chooses between 12MHz and 48MHz */
 	.set_rate	= &set_uart_rate,
 	.recalc		= &uart_recalc,
+	.enable		= &__clk_enable,
+	.disable	= &__clk_disable,
 };
 
-static struct clk uart3_16xx = {
-	.name		= "uart3_ck",
-	/* Direct from ULPD, no parent */
-	.rate		= 48000000,
-	.flags		= CLOCK_IN_OMAP16XX | RATE_FIXED | ENABLE_REG_32BIT,
-	.enable_reg	= MOD_CONF_CTRL_0,
-	.enable_bit	= 31,
+static struct uart_clk uart3_16xx = {
+	.clk	= {
+		.name		= "uart3_ck",
+		/* Direct from ULPD, no real parent */
+		.parent		= &armper_ck.clk,
+		.rate		= 48000000,
+		.flags		= CLOCK_IN_OMAP16XX | RATE_FIXED |
+				  ENABLE_REG_32BIT | CLOCK_NO_IDLE_PARENT,
+		.enable_reg	= MOD_CONF_CTRL_0,
+		.enable_bit	= 31,
+		.enable		= &__clk_enable_uart_functional,
+		.disable	= &__clk_disable_uart_functional,
+	},
+	.sysc_addr	= 0xfffb9854,
 };
 
 static struct clk usb_clko = {	/* 6 MHz output on W4_USB_CLKO */
@@ -422,6 +575,8 @@ static struct clk usb_clko = {	/* 6 MHz output on W4_USB_CLKO */
 			  RATE_FIXED | ENABLE_REG_32BIT,
 	.enable_reg	= ULPD_CLOCK_CTRL,
 	.enable_bit	= USB_MCLK_EN_BIT,
+	.enable		= &__clk_enable,
+	.disable	= &__clk_disable,
 };
 
 static struct clk usb_hhc_ck1510 = {
@@ -432,6 +587,8 @@ static struct clk usb_hhc_ck1510 = {
 			  RATE_FIXED | ENABLE_REG_32BIT,
 	.enable_reg	= MOD_CONF_CTRL_0,
 	.enable_bit	= USB_HOST_HHC_UHOST_EN,
+	.enable		= &__clk_enable,
+	.disable	= &__clk_disable,
 };
 
 static struct clk usb_hhc_ck16xx = {
@@ -443,6 +600,8 @@ static struct clk usb_hhc_ck16xx = {
 			  RATE_FIXED | ENABLE_REG_32BIT,
 	.enable_reg	= OTG_BASE + 0x08 /* OTG_SYSCON_2 */,
 	.enable_bit	= 8 /* UHOST_EN */,
+	.enable		= &__clk_enable,
+	.disable	= &__clk_disable,
 };
 
 static struct clk usb_dc_ck = {
@@ -452,6 +611,8 @@ static struct clk usb_dc_ck = {
 	.flags		= CLOCK_IN_OMAP16XX | RATE_FIXED,
 	.enable_reg	= SOFT_REQ_REG,
 	.enable_bit	= 4,
+	.enable		= &__clk_enable,
+	.disable	= &__clk_disable,
 };
 
 static struct clk mclk_1510 = {
@@ -459,6 +620,8 @@ static struct clk mclk_1510 = {
 	/* Direct from ULPD, no parent. May be enabled by ext hardware. */
 	.rate		= 12000000,
 	.flags		= CLOCK_IN_OMAP1510 | RATE_FIXED,
+	.enable		= &__clk_enable,
+	.disable	= &__clk_disable,
 };
 
 static struct clk mclk_16xx = {
@@ -470,6 +633,8 @@ static struct clk mclk_16xx = {
 	.set_rate	= &set_ext_clk_rate,
 	.round_rate	= &round_ext_clk_rate,
 	.init		= &init_ext_clk,
+	.enable		= &__clk_enable,
+	.disable	= &__clk_disable,
 };
 
 static struct clk bclk_1510 = {
@@ -477,6 +642,8 @@ static struct clk bclk_1510 = {
 	/* Direct from ULPD, no parent. May be enabled by ext hardware. */
 	.rate		= 12000000,
 	.flags		= CLOCK_IN_OMAP1510 | RATE_FIXED,
+	.enable		= &__clk_enable,
+	.disable	= &__clk_disable,
 };
 
 static struct clk bclk_16xx = {
@@ -488,28 +655,34 @@ static struct clk bclk_16xx = {
 	.set_rate	= &set_ext_clk_rate,
 	.round_rate	= &round_ext_clk_rate,
 	.init		= &init_ext_clk,
+	.enable		= &__clk_enable,
+	.disable	= &__clk_disable,
 };
 
 static struct clk mmc1_ck = {
 	.name		= "mmc1_ck",
 	/* Functional clock is direct from ULPD, interface clock is ARMPER */
-	.parent		= &armper_ck,
+	.parent		= &armper_ck.clk,
 	.rate		= 48000000,
 	.flags		= CLOCK_IN_OMAP1510 | CLOCK_IN_OMAP16XX |
-			  RATE_FIXED | ENABLE_REG_32BIT,
+			  RATE_FIXED | ENABLE_REG_32BIT | CLOCK_NO_IDLE_PARENT,
 	.enable_reg	= MOD_CONF_CTRL_0,
 	.enable_bit	= 23,
+	.enable		= &__clk_enable,
+	.disable	= &__clk_disable,
 };
 
 static struct clk mmc2_ck = {
 	.name		= "mmc2_ck",
 	/* Functional clock is direct from ULPD, interface clock is ARMPER */
-	.parent		= &armper_ck,
+	.parent		= &armper_ck.clk,
 	.rate		= 48000000,
 	.flags		= CLOCK_IN_OMAP16XX |
-			  RATE_FIXED | ENABLE_REG_32BIT,
+			  RATE_FIXED | ENABLE_REG_32BIT | CLOCK_NO_IDLE_PARENT,
 	.enable_reg	= MOD_CONF_CTRL_0,
 	.enable_bit	= 20,
+	.enable		= &__clk_enable,
+	.disable	= &__clk_disable,
 };
 
 static struct clk virtual_ck_mpu = {
@@ -520,6 +693,8 @@ static struct clk virtual_ck_mpu = {
 	.recalc		= &followparent_recalc,
 	.set_rate	= &select_table_rate,
 	.round_rate	= &round_to_table_rate,
+	.enable		= &__clk_enable,
+	.disable	= &__clk_disable,
 };
 
 
@@ -528,13 +703,13 @@ static struct clk *  onchip_clks[] = {
 	&ck_ref,
 	&ck_dpll1,
 	/* CK_GEN1 clocks */
-	&ck_dpll1out,
+	&ck_dpll1out.clk,
 	&arm_ck,
-	&armper_ck,
+	&armper_ck.clk,
 	&arm_gpio_ck,
-	&armxor_ck,
-	&armtim_ck,
-	&armwdt_ck,
+	&armxor_ck.clk,
+	&armtim_ck.clk,
+	&armwdt_ck.clk,
 	&arminth_ck1510,  &arminth_ck16xx,
 	/* CK_GEN2 clocks */
 	&dsp_ck,
@@ -543,24 +718,25 @@ static struct clk *  onchip_clks[] = {
 	&dspxor_ck,
 	&dsptim_ck,
 	/* CK_GEN3 clocks */
-	&tc_ck,
+	&tc_ck.clk,
 	&tipb_ck,
 	&l3_ocpi_ck,
 	&tc1_ck,
 	&tc2_ck,
 	&dma_ck,
 	&dma_lcdfree_ck,
-	&api_ck,
-	&lb_ck,
+	&api_ck.clk,
+	&lb_ck.clk,
 	&rhea1_ck,
 	&rhea2_ck,
-	&lcd_ck,
+	&lcd_ck_16xx,
+	&lcd_ck_1510.clk,
 	/* ULPD clocks */
 	&uart1_1510,
-	&uart1_16xx,
+	&uart1_16xx.clk,
 	&uart2_ck,
 	&uart3_1510,
-	&uart3_16xx,
+	&uart3_16xx.clk,
 	&usb_clko,
 	&usb_hhc_ck1510, &usb_hhc_ck16xx,
 	&usb_dc_ck,
@@ -612,10 +788,6 @@ int __clk_enable(struct clk *clk)
 		return 0;
 	}
 
-	if (clk->flags & DSP_DOMAIN_CLOCK) {
-		__clk_use(&api_ck);
-	}
-
 	if (clk->flags & ENABLE_REG_32BIT) {
 		if (clk->flags & VIRTUAL_IO_ADDRESS) {
 			regval32 = __raw_readl(clk->enable_reg);
@@ -636,10 +808,6 @@ int __clk_enable(struct clk *clk)
 			regval16 |= (1 << clk->enable_bit);
 			omap_writew(regval16, clk->enable_reg);
 		}
-	}
-
-	if (clk->flags & DSP_DOMAIN_CLOCK) {
-		__clk_unuse(&api_ck);
 	}
 
 	return 0;
@@ -654,10 +822,6 @@ void __clk_disable(struct clk *clk)
 	if (clk->enable_reg == 0)
 		return;
 
-	if (clk->flags & DSP_DOMAIN_CLOCK) {
-		__clk_use(&api_ck);
-	}
-
 	if (clk->flags & ENABLE_REG_32BIT) {
 		if (clk->flags & VIRTUAL_IO_ADDRESS) {
 			regval32 = __raw_readl(clk->enable_reg);
@@ -679,19 +843,70 @@ void __clk_disable(struct clk *clk)
 			omap_writew(regval16, clk->enable_reg);
 		}
 	}
+}
 
-	if (clk->flags & DSP_DOMAIN_CLOCK) {
-		__clk_unuse(&api_ck);
+
+static int __clk_enable_dsp_domain(struct clk *clk)
+{
+	int retval;
+
+	retval = __clk_use(&api_ck.clk);
+	if (!retval) {
+		retval = __clk_enable(clk);
+		__clk_unuse(&api_ck.clk);
 	}
+
+	return retval;
+}
+
+
+static void __clk_disable_dsp_domain(struct clk *clk)
+{
+	if (__clk_use(&api_ck.clk) == 0) {
+		__clk_disable(clk);
+		__clk_unuse(&api_ck.clk);
+	}
+}
+
+
+static int __clk_enable_uart_functional(struct clk *clk)
+{
+	int ret;
+	struct uart_clk *uclk;
+
+	ret = __clk_enable(clk);
+	if (ret == 0) {
+		/* Set smart idle acknowledgement mode */
+		uclk = (struct uart_clk *)clk;
+		omap_writeb((omap_readb(uclk->sysc_addr) & ~0x10) | 8,
+			    uclk->sysc_addr);
+	}
+
+	return ret;
+}
+
+
+static void __clk_disable_uart_functional(struct clk *clk)
+{
+	struct uart_clk *uclk;
+
+	/* Set force idle acknowledgement mode */
+	uclk = (struct uart_clk *)clk;
+	omap_writeb((omap_readb(uclk->sysc_addr) & ~0x18), uclk->sysc_addr);
+
+	__clk_disable(clk);
 }
 
 
 void __clk_unuse(struct clk *clk)
 {
 	if (clk->usecount > 0 && !(--clk->usecount)) {
-		__clk_disable(clk);
-		if (likely(clk->parent))
+		clk->disable(clk);
+		if (likely(clk->parent)) {
 			__clk_unuse(clk->parent);
+			if (clk->flags & CLOCK_NO_IDLE_PARENT)
+				__clk_allow_idle(clk->parent);
+		}
 	}
 }
 
@@ -700,15 +915,19 @@ int __clk_use(struct clk *clk)
 {
 	int ret = 0;
 	if (clk->usecount++ == 0) {
-		if (likely(clk->parent))
+		if (likely(clk->parent)) {
 			ret = __clk_use(clk->parent);
 
-		if (unlikely(ret != 0)) {
-			clk->usecount--;
-			return ret;
+			if (unlikely(ret != 0)) {
+				clk->usecount--;
+				return ret;
+			}
+
+			if (clk->flags & CLOCK_NO_IDLE_PARENT)
+				__clk_deny_idle(clk->parent);
 		}
 
-		ret = __clk_enable(clk);
+		ret = clk->enable(clk);
 
 		if (unlikely(ret != 0) && clk->parent) {
 			__clk_unuse(clk->parent);
@@ -720,13 +939,37 @@ int __clk_use(struct clk *clk)
 }
 
 
+void __clk_allow_idle(struct clk *clk)
+{
+	struct arm_idlect1_clk * iclk = (struct arm_idlect1_clk *)clk;
+
+	if (!(clk->flags & CLOCK_IDLE_CONTROL))
+		return;
+
+	if (iclk->no_idle_count > 0 && !(--iclk->no_idle_count))
+		arm_idlect1_mask |= 1 << iclk->idlect_shift;
+}
+
+
+void __clk_deny_idle(struct clk *clk)
+{
+	struct arm_idlect1_clk * iclk = (struct arm_idlect1_clk *)clk;
+
+	if (!(clk->flags & CLOCK_IDLE_CONTROL))
+		return;
+
+	if (iclk->no_idle_count++ == 0)
+		arm_idlect1_mask &= ~(1 << iclk->idlect_shift);
+}
+
+
 int clk_enable(struct clk *clk)
 {
 	unsigned long flags;
 	int ret;
 
 	spin_lock_irqsave(&clockfw_lock, flags);
-	ret = __clk_enable(clk);
+	ret = clk->enable(clk);
 	spin_unlock_irqrestore(&clockfw_lock, flags);
 	return ret;
 }
@@ -738,7 +981,7 @@ void clk_disable(struct clk *clk)
 	unsigned long flags;
 
 	spin_lock_irqsave(&clockfw_lock, flags);
-	__clk_disable(clk);
+	clk->disable(clk);
 	spin_unlock_irqrestore(&clockfw_lock, flags);
 }
 EXPORT_SYMBOL(clk_disable);
@@ -773,6 +1016,28 @@ int clk_get_usecount(struct clk *clk)
         return clk->usecount;
 }
 EXPORT_SYMBOL(clk_get_usecount);
+
+
+void clk_deny_idle(struct clk *clk)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&clockfw_lock, flags);
+	__clk_deny_idle(clk);
+	spin_unlock_irqrestore(&clockfw_lock, flags);
+}
+EXPORT_SYMBOL(clk_deny_idle);
+
+
+void clk_allow_idle(struct clk *clk)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&clockfw_lock, flags);
+	__clk_allow_idle(clk);
+	spin_unlock_irqrestore(&clockfw_lock, flags);
+}
+EXPORT_SYMBOL(clk_allow_idle);
 
 
 unsigned long clk_get_rate(struct clk *clk)
@@ -877,18 +1142,32 @@ static void ckctl_recalc(struct clk *  clk)
 	int dsor;
 
 	/* Calculate divisor encoded as 2-bit exponent */
-	if (clk->flags & DSP_DOMAIN_CLOCK) {
-		/* The clock control bits are in DSP domain,
-		 * so api_ck is needed for access.
-		 * Note that DSP_CKCTL virt addr = phys addr, so
-		 * we must use __raw_readw() instead of omap_readw().
-		 */
-		__clk_use(&api_ck);
-		dsor = 1 << (3 & (__raw_readw(DSP_CKCTL) >> clk->rate_offset));
-		__clk_unuse(&api_ck);
-	} else {
-		dsor = 1 << (3 & (omap_readw(ARM_CKCTL) >> clk->rate_offset));
-	}
+	dsor = 1 << (3 & (omap_readw(ARM_CKCTL) >> clk->rate_offset));
+
+	if (unlikely(clk->rate == clk->parent->rate / dsor))
+		return; /* No change, quick exit */
+	clk->rate = clk->parent->rate / dsor;
+
+	if (unlikely(clk->flags & RATE_PROPAGATES))
+		propagate_rate(clk);
+}
+
+
+static void ckctl_recalc_dsp_domain(struct clk *  clk)
+{
+	int dsor;
+
+	/* Calculate divisor encoded as 2-bit exponent
+	 *
+	 * The clock control bits are in DSP domain,
+	 * so api_ck is needed for access.
+	 * Note that DSP_CKCTL virt addr = phys addr, so
+	 * we must use __raw_readw() instead of omap_readw().
+	 */
+	__clk_use(&api_ck.clk);
+	dsor = 1 << (3 & (__raw_readw(DSP_CKCTL) >> clk->rate_offset));
+	__clk_unuse(&api_ck.clk);
+
 	if (unlikely(clk->rate == clk->parent->rate / dsor))
 		return; /* No change, quick exit */
 	clk->rate = clk->parent->rate / dsor;
@@ -996,6 +1275,34 @@ static long round_to_table_rate(struct clk *  clk, unsigned long rate)
 }
 
 
+static int __clk_set_rate_dsp_domain(struct clk *clk, unsigned long rate)
+{
+	int  ret = -EINVAL;
+	int  dsor_exp;
+	__u16  regval;
+
+	if (clk->flags & RATE_CKCTL) {
+		dsor_exp = calc_dsor_exp(clk, rate);
+		if (dsor_exp > 3)
+			dsor_exp = -EINVAL;
+		if (dsor_exp < 0)
+			return dsor_exp;
+
+		regval = __raw_readw(DSP_CKCTL);
+		regval &= ~(3 << clk->rate_offset);
+		regval |= dsor_exp << clk->rate_offset;
+		__raw_writew(regval, DSP_CKCTL);
+		clk->rate = clk->parent->rate / (1 << dsor_exp);
+		ret = 0;
+	}
+
+	if (unlikely(ret == 0 && (clk->flags & RATE_PROPAGATES)))
+		propagate_rate(clk);
+
+	return ret;
+}
+
+
 int clk_set_rate(struct clk *clk, unsigned long rate)
 {
 	int  ret = -EINVAL;
@@ -1003,7 +1310,11 @@ int clk_set_rate(struct clk *clk, unsigned long rate)
 	__u16  regval;
 	unsigned long  flags;
 
-	if (clk->flags & RATE_CKCTL) {
+	if(clk->set_rate != 0) {
+		spin_lock_irqsave(&clockfw_lock, flags);
+		ret = clk->set_rate(clk, rate);
+		spin_unlock_irqrestore(&clockfw_lock, flags);
+	} else if (clk->flags & RATE_CKCTL) {
 		dsor_exp = calc_dsor_exp(clk, rate);
 		if (dsor_exp > 3)
 			dsor_exp = -EINVAL;
@@ -1019,10 +1330,6 @@ int clk_set_rate(struct clk *clk, unsigned long rate)
 		clk->rate = clk->parent->rate / (1 << dsor_exp);
 		spin_unlock_irqrestore(&clockfw_lock, flags);
 		ret = 0;
-	} else if(clk->set_rate != 0) {
-		spin_lock_irqsave(&clockfw_lock, flags);
-		ret = clk->set_rate(clk, rate);
-		spin_unlock_irqrestore(&clockfw_lock, flags);
 	}
 
 	if (unlikely(ret == 0 && (clk->flags & RATE_PROPAGATES)))
@@ -1157,8 +1464,11 @@ int __init clk_init(void)
 
 	omap_early_clk_reset();
 
+	/* By default all idlect1 clocks are allowed to idle */
+	arm_idlect1_mask = ~0;
+
 	for (clkp = onchip_clks; clkp < onchip_clks+ARRAY_SIZE(onchip_clks); clkp++) {
-		if (((*clkp)->flags &CLOCK_IN_OMAP1510) && cpu_is_omap15xx()) {
+		if (((*clkp)->flags &CLOCK_IN_OMAP1510) && cpu_is_omap1510()) {
 			clk_register(*clkp);
 			continue;
 		}
@@ -1265,11 +1575,11 @@ int __init clk_init(void)
 	 * Only enable those clocks we will need, let the drivers
 	 * enable other clocks as necessary
 	 */
-	clk_use(&armper_ck);
-	clk_use(&armxor_ck);
-	clk_use(&armtim_ck);
+	clk_use(&armper_ck.clk);
+	clk_use(&armxor_ck.clk);
+	clk_use(&armtim_ck.clk); /* This should be done by timer code */
 
-	if (cpu_is_omap15xx())
+	if (cpu_is_omap1510())
 		clk_enable(&arm_gpio_ck);
 
 	return 0;
@@ -1294,10 +1604,6 @@ static int __init omap_late_clk_reset(void)
 			p->enable_reg == 0)
 			continue;
 
-		/* Assume no DSP clocks have been activated by bootloader */
-		if (p->flags & DSP_DOMAIN_CLOCK)
-			continue;
-
 		/* Is the clock already disabled? */
 		if (p->flags & ENABLE_REG_32BIT) {
 			if (p->flags & VIRTUAL_IO_ADDRESS)
@@ -1317,7 +1623,7 @@ static int __init omap_late_clk_reset(void)
 		/* FIXME: This clock seems to be necessary but no-one
 		 * has asked for its activation. */
 		if (p == &tc2_ck         // FIX: pm.c (SRAM), CCP, Camera
-		    || p == &ck_dpll1out // FIX: SoSSI, SSR
+		    || p == &ck_dpll1out.clk // FIX: SoSSI, SSR
 		    || p == &arm_gpio_ck // FIX: GPIO code for 1510
 		    ) {
 			printk(KERN_INFO "FIXME: Clock \"%s\" seems unused\n",
@@ -1326,7 +1632,7 @@ static int __init omap_late_clk_reset(void)
 		}
 
 		printk(KERN_INFO "Disabling unused clock \"%s\"... ", p->name);
-		__clk_disable(p);
+		p->disable(p);
 		printk(" done\n");
 	}
 

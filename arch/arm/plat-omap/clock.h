@@ -30,6 +30,8 @@ struct clk {
 	int			(*set_rate)(struct clk *, unsigned long);
 	long			(*round_rate)(struct clk *, unsigned long);
 	void			(*init)(struct clk *);
+	int			(*enable)(struct clk *);
+	void			(*disable)(struct clk *);
 };
 
 
@@ -52,8 +54,9 @@ struct mpu_rate {
 #define CLOCK_IN_OMAP16XX	64
 #define CLOCK_IN_OMAP1510	128
 #define CLOCK_IN_OMAP730	256
-#define DSP_DOMAIN_CLOCK	512
 #define VIRTUAL_IO_ADDRESS	1024
+#define CLOCK_IDLE_CONTROL	2048
+#define CLOCK_NO_IDLE_PARENT	4096
 
 /* ARM_CKCTL bit shifts */
 #define CKCTL_PERDIV_OFFSET	0
