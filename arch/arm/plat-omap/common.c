@@ -32,7 +32,7 @@
 #include <asm/arch/mux.h>
 #include <asm/arch/fpga.h>
 
-#include "clock.h"
+#include <asm/arch/clock.h>
 
 #define NO_LENGTH_CHECK 0xffffffff
 

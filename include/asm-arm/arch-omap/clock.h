@@ -1,7 +1,7 @@
 /*
- *  linux/arch/arm/plat-omap/clock.h
+ *  linux/include/asm-arm/arch-omap/clock.h
  *
- *  Copyright (C) 2004 Nokia corporation
+ *  Copyright (C) 2004 - 2005 Nokia corporation
  *  Written by Tuukka Tikkanen <tuukka.tikkanen@elektrobit.com>
  *  Based on clocks.h by Tony Lindgren, Gordon McNutt and RidgeRun, Inc
  *
@@ -34,15 +34,28 @@ struct clk {
 	void			(*disable)(struct clk *);
 };
 
-
-struct mpu_rate {
-	unsigned long		rate;
-	unsigned long		xtal;
-	unsigned long		pll_rate;
-	__u16			ckctl_val;
-	__u16			dpllctl_val;
+struct clk_functions {
+	int		(*clk_use)(struct clk *clk);
+	void		(*clk_unuse)(struct clk *clk);
+	long		(*clk_round_rate)(struct clk *clk, unsigned long rate);
+	int		(*clk_set_rate)(struct clk *clk, unsigned long rate);
+	int		(*clk_set_parent)(struct clk *clk, struct clk *parent);
+	struct clk *	(*clk_get_parent)(struct clk *clk);
+	void		(*clk_allow_idle)(struct clk *clk);
+	void		(*clk_deny_idle)(struct clk *clk);
 };
 
+extern spinlock_t clockfw_lock;
+
+extern int clk_init(struct clk_functions * custom_clocks);
+extern int clk_register(struct clk *clk);
+extern void clk_unregister(struct clk *clk);
+extern void propagate_rate(struct clk *clk);
+extern void followparent_recalc(struct clk *  clk);
+
+/*-------------------------------------------------------------------------
+ * Defines for omap1 clocks
+ *-------------------------------------------------------------------------*/
 
 /* Clock flags */
 #define RATE_CKCTL		1
@@ -54,9 +67,9 @@ struct mpu_rate {
 #define CLOCK_IN_OMAP16XX	64
 #define CLOCK_IN_OMAP1510	128
 #define CLOCK_IN_OMAP730	256
-#define VIRTUAL_IO_ADDRESS	1024
-#define CLOCK_IDLE_CONTROL	2048
-#define CLOCK_NO_IDLE_PARENT	4096
+#define VIRTUAL_IO_ADDRESS	512
+#define CLOCK_IDLE_CONTROL	1024
+#define CLOCK_NO_IDLE_PARENT	2048
 
 /* ARM_CKCTL bit shifts */
 #define CKCTL_PERDIV_OFFSET	0
@@ -116,8 +129,9 @@ struct mpu_rate {
 #define SOFT_REQ_REG		0xfffe0834
 #define SOFT_REQ_REG2		0xfffe0880
 
-int clk_register(struct clk *clk);
-void clk_unregister(struct clk *clk);
-int clk_init(void);
+/*-------------------------------------------------------------------------
+ * Defines for omap2 clocks
+ *-------------------------------------------------------------------------*/
+
 
 #endif

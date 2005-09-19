@@ -54,8 +54,8 @@
 #include <asm/arch/tps65010.h>
 #include <asm/arch/dsp_common.h>
 
-#include "clock.h"
-#include "sram.h"
+#include <asm/arch/clock.h>
+#include <asm/arch/sram.h>
 
 static unsigned int arm_sleep_save[ARM_SLEEP_SAVE_SIZE];
 static unsigned short ulpd_sleep_save[ULPD_SLEEP_SAVE_SIZE];

@@ -20,7 +20,7 @@
 #include <asm/io.h>
 #include <asm/cacheflush.h>
 
-#include "sram.h"
+#include <asm/arch/sram.h>
 
 #define OMAP1_SRAM_BASE		0xd0000000
 #define OMAP1_SRAM_START	0x20000000

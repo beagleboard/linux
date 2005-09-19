@@ -18,7 +18,7 @@
 #include <asm/arch/mux.h>
 #include <asm/arch/tc.h>
 
-extern int clk_init(void);
+extern int omap1_clk_init(void);
 extern void omap_check_revision(void);
 extern void omap_sram_init(void);
 
@@ -88,7 +88,7 @@ static void __init _omap_map_io(void)
 
 	/* Must init clocks early to assure that timer interrupt works
 	 */
-	clk_init();
+	omap1_clk_init();
 }
 
 /*
