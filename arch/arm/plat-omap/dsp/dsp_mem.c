@@ -1565,7 +1565,8 @@ static ssize_t exmap_show(struct device *dev, struct device_attribute *attr,
 
 static struct device_attribute dev_attr_exmap = __ATTR_RO(exmap);
 
-static ssize_t kmem_pool_show(struct device *dev, char *buf)
+static ssize_t kmem_pool_show(struct device *dev,
+			      struct device_attribute *attr, char *buf)
 {
 	int count_1M, count_64K, total;
 

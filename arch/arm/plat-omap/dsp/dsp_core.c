@@ -696,7 +696,7 @@ static int dsp_drv_remove(struct device *dev)
 }
 
 #ifdef CONFIG_PM
-static int dsp_drv_suspend(struct device *dev, u32 state, u32 level)
+static int dsp_drv_suspend(struct device *dev, pm_message_t state, u32 level)
 {
 	switch(level) {
 	case SUSPEND_NOTIFY:
