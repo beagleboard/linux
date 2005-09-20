@@ -30,7 +30,7 @@ static struct clk_functions *arch_clock;
  * Standard clock functions defined in asm/hardware/clock.h
  *-------------------------------------------------------------------------*/
 
-struct clk *clk_get(struct device *dev, const char *id)
+struct clk * clk_get(struct device *dev, const char *id)
 {
 	struct clk *p, *clk = ERR_PTR(-ENOENT);
 
@@ -155,6 +155,8 @@ EXPORT_SYMBOL(clk_get_parent);
 /*-------------------------------------------------------------------------
  * OMAP specific clock functions shared between omap1 and omap2
  *-------------------------------------------------------------------------*/
+
+/* Used for clocks that always have same value as the parent clock */
 void followparent_recalc(struct clk *  clk)
 {
 	clk->rate = clk->parent->rate;
