@@ -20,7 +20,7 @@
 
 #include <asm/arch/clock.h>
 
-static LIST_HEAD(clocks);
+LIST_HEAD(clocks);
 static DECLARE_MUTEX(clocks_sem);
 static DEFINE_SPINLOCK(clockfw_lock);
 
@@ -55,6 +55,7 @@ int clk_enable(struct clk *clk)
 	spin_lock_irqsave(&clockfw_lock, flags);
 	ret = clk->enable(clk);
 	spin_unlock_irqrestore(&clockfw_lock, flags);
+
 	return ret;
 }
 EXPORT_SYMBOL(clk_enable);
@@ -78,6 +79,7 @@ int clk_use(struct clk *clk)
 	if (arch_clock->clk_use)
 		ret = arch_clock->clk_use(clk);
 	spin_unlock_irqrestore(&clockfw_lock, flags);
+
 	return ret;
 }
 EXPORT_SYMBOL(clk_use);
@@ -95,13 +97,27 @@ EXPORT_SYMBOL(clk_unuse);
 
 int clk_get_usecount(struct clk *clk)
 {
-        return clk->usecount;
+	unsigned long flags;
+	int ret = 0;
+
+	spin_lock_irqsave(&clockfw_lock, flags);
+	ret = clk->usecount;
+	spin_unlock_irqrestore(&clockfw_lock, flags);
+
+	return ret;
 }
 EXPORT_SYMBOL(clk_get_usecount);
 
 unsigned long clk_get_rate(struct clk *clk)
 {
-	return clk->rate;
+	unsigned long flags;
+	unsigned long ret = 0;
+
+	spin_lock_irqsave(&clockfw_lock, flags);
+	ret = clk->rate;
+	spin_unlock_irqrestore(&clockfw_lock, flags);
+
+	return ret;
 }
 EXPORT_SYMBOL(clk_get_rate);
 
@@ -118,37 +134,57 @@ EXPORT_SYMBOL(clk_put);
 
 long clk_round_rate(struct clk *clk, unsigned long rate)
 {
-	if (arch_clock->clk_round_rate)
-		return arch_clock->clk_round_rate(clk, rate);
+	unsigned long flags;
+	long ret = 0;
 
-	return 0;
+	spin_lock_irqsave(&clockfw_lock, flags);
+	if (arch_clock->clk_round_rate)
+		ret = arch_clock->clk_round_rate(clk, rate);
+	spin_unlock_irqrestore(&clockfw_lock, flags);
+
+	return ret;
 }
 EXPORT_SYMBOL(clk_round_rate);
 
 int clk_set_rate(struct clk *clk, unsigned long rate)
 {
-	if (arch_clock->clk_set_rate)
-		return arch_clock->clk_set_rate(clk, rate);
+	unsigned long flags;
+	int ret = 0;
 
-	return 0;
+	spin_lock_irqsave(&clockfw_lock, flags);
+	if (arch_clock->clk_set_rate)
+		ret = arch_clock->clk_set_rate(clk, rate);
+	spin_unlock_irqrestore(&clockfw_lock, flags);
+
+	return ret;
 }
 EXPORT_SYMBOL(clk_set_rate);
 
 int clk_set_parent(struct clk *clk, struct clk *parent)
 {
-	if (arch_clock->clk_set_parent)
-		return arch_clock->clk_set_parent(clk, parent);
+	unsigned long flags;
+	int ret = 0;
 
-	return 0;
+	spin_lock_irqsave(&clockfw_lock, flags);
+	if (arch_clock->clk_set_parent)
+		ret =  arch_clock->clk_set_parent(clk, parent);
+	spin_unlock_irqrestore(&clockfw_lock, flags);
+
+	return ret;
 }
 EXPORT_SYMBOL(clk_set_parent);
 
 struct clk *clk_get_parent(struct clk *clk)
 {
-	if (arch_clock->clk_get_parent)
-		return arch_clock->clk_get_parent(clk);
+	unsigned long flags;
+	struct clk * ret = NULL;
 
-	return 0;
+	spin_lock_irqsave(&clockfw_lock, flags);
+	if (arch_clock->clk_get_parent)
+		ret = arch_clock->clk_get_parent(clk);
+	spin_unlock_irqrestore(&clockfw_lock, flags);
+
+	return ret;
 }
 EXPORT_SYMBOL(clk_get_parent);
 
@@ -181,6 +217,7 @@ int clk_register(struct clk *clk)
 	if (clk->init)
 		clk->init(clk);
 	up(&clocks_sem);
+
 	return 0;
 }
 EXPORT_SYMBOL(clk_register);

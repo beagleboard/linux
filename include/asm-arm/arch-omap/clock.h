@@ -47,6 +47,7 @@ struct clk_functions {
 };
 
 extern spinlock_t clockfw_lock;
+extern struct list_head clocks;
 
 extern int clk_init(struct clk_functions * custom_clocks);
 extern int clk_register(struct clk *clk);

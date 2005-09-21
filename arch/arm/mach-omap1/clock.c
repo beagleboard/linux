@@ -641,7 +641,7 @@ static int __init omap1_late_clk_reset(void)
 
 	return 0;
 }
-late_initcall(omap_late_clk_reset);
+late_initcall(omap1_late_clk_reset);
 
 #else
 #define omap1_early_clk_reset()	{}
