@@ -22,8 +22,11 @@
 
 #include <asm/arch/sram.h>
 
-#define OMAP1_SRAM_BASE		0xd0000000
-#define OMAP1_SRAM_START	0x20000000
+#define OMAP1_SRAM_PA		0x20000000
+#define OMAP1_SRAM_VA		0xd0000000
+#define OMAP2_SRAM_PA		0x40200000
+#define OMAP2_SRAM_VA		0xd0000000
+
 #define SRAM_BOOTLOADER_SZ	0x80
 
 static unsigned long omap_sram_base;
@@ -31,35 +34,45 @@ static unsigned long omap_sram_size;
 static unsigned long omap_sram_ceil;
 
 /*
- * The amount of SRAM depends on the core type:
- * 730 = 200K, 1510 = 192K, 5912 = 256K, 1610 = 16K, 1710 = 16K
+ * The amount of SRAM depends on the core type.
  * Note that we cannot try to test for SRAM here because writes
  * to secure SRAM will hang the system. Also the SRAM is not
  * yet mapped at this point.
  */
 void __init omap_detect_sram(void)
 {
-	omap_sram_base = OMAP1_SRAM_BASE;
+	if (!cpu_is_omap24xx())
+		omap_sram_base = OMAP1_SRAM_VA;
+	else
+		omap_sram_base = OMAP2_SRAM_VA;
 
 	if (cpu_is_omap730())
-		omap_sram_size = 0x32000;
+		omap_sram_size = 0x32000;	/* 200K */
 	else if (cpu_is_omap15xx())
-		omap_sram_size = 0x30000;
+		omap_sram_size = 0x30000;	/* 192K */
 	else if (cpu_is_omap1610() || cpu_is_omap1621() || cpu_is_omap1710())
-		omap_sram_size = 0x4000;
+		omap_sram_size = 0x4000;	/* 16K */
 	else if (cpu_is_omap1611())
-		omap_sram_size = 0x3e800;
+		omap_sram_size = 0x3e800;	/* 250K */
+#if 0	/* FIXME: Enable after adding 24xx cpu detection */
+	else if (cpu_is_omap2410())
+		omap_sram_size = 0x10000;	/* 64K */
+	else if (cpu_is_omap2420())
+		omap_sram_size = 0xa0014;	/* 640K */
+#else
+	else if (cpu_is_omap24xx())
+		omap_sram_size = 0x10000;	/* 64K */
+#endif
 	else {
 		printk(KERN_ERR "Could not detect SRAM size\n");
 		omap_sram_size = 0x4000;
 	}
 
-	printk(KERN_INFO "SRAM size: 0x%lx\n", omap_sram_size);
 	omap_sram_ceil = omap_sram_base + omap_sram_size;
 }
 
 static struct map_desc omap_sram_io_desc[] __initdata = {
-	{ OMAP1_SRAM_BASE, OMAP1_SRAM_START, 0, MT_DEVICE }
+	{ OMAP1_SRAM_VA, OMAP1_SRAM_PA, 0, MT_DEVICE }
 };
 
 /*
@@ -72,9 +85,18 @@ void __init omap_map_sram(void)
 	if (omap_sram_size == 0)
 		return;
 
+	if (cpu_is_omap24xx()) {
+		omap_sram_io_desc[0].virtual = OMAP2_SRAM_VA;
+		omap_sram_io_desc[0].physical = OMAP2_SRAM_PA;
+	}
+
 	omap_sram_io_desc[0].length = (omap_sram_size + PAGE_SIZE-1)/PAGE_SIZE;
 	omap_sram_io_desc[0].length *= PAGE_SIZE;
 	iotable_init(omap_sram_io_desc, ARRAY_SIZE(omap_sram_io_desc));
+
+	printk(KERN_INFO "SRAM: Mapped pa 0x%08lx to va 0x%08lx size: 0x%lx\n",
+	       omap_sram_io_desc[0].physical, omap_sram_io_desc[0].virtual,
+	       omap_sram_io_desc[0].length);
 
 	/*
 	 * Looks like we need to preserve some bootloader code at the

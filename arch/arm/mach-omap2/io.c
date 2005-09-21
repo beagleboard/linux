@@ -20,6 +20,8 @@
 #include <asm/io.h>
 #include <asm/arch/mux.h>
 
+extern void omap_sram_init(void);
+
 /*
  * The machine specific code may provide the extra mapping besides the
  * default mapping provided here.
@@ -32,5 +34,6 @@ static struct map_desc omap2_io_desc[] __initdata = {
 void __init omap_map_common_io(void)
 {
 	iotable_init(omap2_io_desc, ARRAY_SIZE(omap2_io_desc));
+	omap_sram_init();
 	omap2_mux_init();
 }
