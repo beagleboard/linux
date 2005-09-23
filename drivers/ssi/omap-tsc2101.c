@@ -202,7 +202,7 @@ static int omap_tsc2101_configure(void)
 {
 	unsigned long uwire_flags = 0;
 
-#if CONFIG_MACH_OMAP_H3
+#ifdef CONFIG_MACH_OMAP_H3
 	int err = 0;
 	u8 ioExpanderVal = 0;
 
