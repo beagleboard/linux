@@ -4,12 +4,17 @@
  *  Copyright (C) 2004 - 2005 Nokia corporation
  *  Written by Tuukka Tikkanen <tuukka.tikkanen@elektrobit.com>
  *
+ *  Modified for omap shared clock framework by Tony Lindgren <tony@atomide.com>
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
-#include <linux/module.h>
+#include <linux/version.h>
+#include <linux/config.h>
 #include <linux/kernel.h>
+#include <linux/init.h>
+#include <linux/module.h>
 #include <linux/list.h>
 #include <linux/errno.h>
 #include <linux/err.h>
@@ -22,7 +27,7 @@
 
 LIST_HEAD(clocks);
 static DECLARE_MUTEX(clocks_sem);
-static DEFINE_SPINLOCK(clockfw_lock);
+DEFINE_SPINLOCK(clockfw_lock);
 
 static struct clk_functions *arch_clock;
 
@@ -50,10 +55,15 @@ EXPORT_SYMBOL(clk_get);
 int clk_enable(struct clk *clk)
 {
 	unsigned long flags;
-	int ret;
+	int ret = 0;
 
 	spin_lock_irqsave(&clockfw_lock, flags);
-	ret = clk->enable(clk);
+	if (clk->enable)
+		ret = clk->enable(clk);
+	else if (arch_clock->clk_enable)
+		ret = arch_clock->clk_enable(clk);
+	else
+		printk(KERN_ERR "Could not enable clock %s\n", clk->name);
 	spin_unlock_irqrestore(&clockfw_lock, flags);
 
 	return ret;
@@ -65,7 +75,12 @@ void clk_disable(struct clk *clk)
 	unsigned long flags;
 
 	spin_lock_irqsave(&clockfw_lock, flags);
-	clk->disable(clk);
+	if (clk->disable)
+		clk->disable(clk);
+	else if (arch_clock->clk_disable)
+		arch_clock->clk_disable(clk);
+	else
+		printk(KERN_ERR "Could not disable clock %s\n", clk->name);
 	spin_unlock_irqrestore(&clockfw_lock, flags);
 }
 EXPORT_SYMBOL(clk_disable);
@@ -192,12 +207,33 @@ EXPORT_SYMBOL(clk_get_parent);
  * OMAP specific clock functions shared between omap1 and omap2
  *-------------------------------------------------------------------------*/
 
+unsigned int __initdata mpurate;
+
+/*
+ * By default we use the rate set by the bootloader.
+ * You can override this with mpurate= cmdline option.
+ */
+static int __init omap_clk_setup(char *str)
+{
+	get_option(&str, &mpurate);
+
+	if (!mpurate)
+		return 1;
+
+	if (mpurate < 1000)
+		mpurate *= 1000000;
+
+	return 1;
+}
+__setup("mpurate=", omap_clk_setup);
+
 /* Used for clocks that always have same value as the parent clock */
-void followparent_recalc(struct clk *  clk)
+void followparent_recalc(struct clk *clk)
 {
 	clk->rate = clk->parent->rate;
 }
 
+/* Propagate rate to children */
 void propagate_rate(struct clk * tclk)
 {
 	struct clk *clkp;

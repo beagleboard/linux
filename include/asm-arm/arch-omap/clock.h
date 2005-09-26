@@ -22,7 +22,7 @@ struct clk {
 	struct clk		*parent;
 	unsigned long		rate;
 	__u32			flags;
-	__u32			enable_reg;
+	void __iomem		*enable_reg;
 	__u8			enable_bit;
 	__u8			rate_offset;
 	__u8			src_offset;
@@ -36,6 +36,8 @@ struct clk {
 };
 
 struct clk_functions {
+	int		(*clk_enable)(struct clk *clk);
+	void		(*clk_disable)(struct clk *clk);
 	int		(*clk_use)(struct clk *clk);
 	void		(*clk_unuse)(struct clk *clk);
 	long		(*clk_round_rate)(struct clk *clk, unsigned long rate);
@@ -46,14 +48,17 @@ struct clk_functions {
 	void		(*clk_deny_idle)(struct clk *clk);
 };
 
-extern spinlock_t clockfw_lock;
+extern unsigned int mpurate;
 extern struct list_head clocks;
+extern spinlock_t clockfw_lock;
 
 extern int clk_init(struct clk_functions * custom_clocks);
 extern int clk_register(struct clk *clk);
 extern void clk_unregister(struct clk *clk);
 extern void propagate_rate(struct clk *clk);
-extern void followparent_recalc(struct clk *  clk);
+extern void followparent_recalc(struct clk * clk);
+extern void clk_allow_idle(struct clk *clk);
+extern void clk_deny_idle(struct clk *clk);
 
 /* Clock flags */
 #define RATE_CKCTL		(1 << 0)	/* Main fixed ratio clocks */
