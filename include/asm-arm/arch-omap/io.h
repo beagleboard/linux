@@ -65,12 +65,12 @@
 #elif defined(CONFIG_ARCH_OMAP2)
 
 /* We map both L3 and L4 on OMAP2 */
-#define L3_PHYS		0x68000000
-#define L3_VIRT		0xf8000000
-#define L3_SIZE		SZ_1M		/* 44kB of 128MB used, want 1MB sect */
-#define L4_PHYS		0x48000000
-#define L4_VIRT		0xd8000000
-#define L4_SIZE		SZ_1M		/* 1MB of 128MB used, want 1MB sect */
+#define L3_24XX_PHYS	0x68000000
+#define L3_24XX_VIRT	0xf8000000
+#define L3_24XX_SIZE	SZ_1M		/* 44kB of 128MB used, want 1MB sect */
+#define L4_24XX_PHYS	0x48000000
+#define L4_24XX_VIRT	0xd8000000
+#define L4_24XX_SIZE	SZ_1M		/* 1MB of 128MB used, want 1MB sect */
 #define IO_OFFSET	0x90000000
 #define IO_ADDRESS(pa)	((pa) + IO_OFFSET)	/* Works for L3 and L4 */
 #define io_p2v(pa)	((pa) + IO_OFFSET)	/* Works for L3 and L4 */

@@ -106,16 +106,6 @@ void __init omap_map_sram(void)
 	       omap_sram_size - SRAM_BOOTLOADER_SZ);
 }
 
-static void (*_omap_sram_reprogram_clock)(u32 dpllctl, u32 ckctl) = NULL;
-
-void omap_sram_reprogram_clock(u32 dpllctl, u32 ckctl)
-{
-	if (_omap_sram_reprogram_clock == NULL)
-		panic("Cannot use SRAM");
-
-	return _omap_sram_reprogram_clock(dpllctl, ckctl);
-}
-
 void * omap_sram_push(void * start, unsigned long size)
 {
 	if (size > (omap_sram_ceil - (omap_sram_base + SRAM_BOOTLOADER_SZ))) {
@@ -129,10 +119,94 @@ void * omap_sram_push(void * start, unsigned long size)
 	return (void *)omap_sram_ceil;
 }
 
-void __init omap_sram_init(void)
+static void omap_sram_error(void)
+{
+	panic("Uninitialized SRAM function\n");
+}
+
+#ifdef CONFIG_ARCH_OMAP1
+
+static void (*_omap_sram_reprogram_clock)(u32 dpllctl, u32 ckctl);
+
+void omap_sram_reprogram_clock(u32 dpllctl, u32 ckctl)
+{
+	if (!_omap_sram_reprogram_clock)
+		omap_sram_error();
+
+	return _omap_sram_reprogram_clock(dpllctl, ckctl);
+}
+
+int __init omap1_sram_init(void)
+{
+	_omap_sram_reprogram_clock = omap_sram_push(sram_reprogram_clock,
+						    sram_reprogram_clock_sz);
+
+	return 0;
+}
+
+#else
+#define omap1_sram_init()	do {} while (0)
+#endif
+
+#ifdef CONFIG_ARCH_OMAP2
+
+static void (*_omap2_sram_ddr_init)(u32 *slow_dll_ctrl, u32 fast_dll_ctrl,
+			      u32 base_cs, u32 force_unlock);
+
+void omap2_sram_ddr_init(u32 *slow_dll_ctrl, u32 fast_dll_ctrl,
+		   u32 base_cs, u32 force_unlock)
+{
+	if (!_omap2_sram_ddr_init)
+		omap_sram_error();
+
+	return _omap2_sram_ddr_init(slow_dll_ctrl, fast_dll_ctrl,
+				    base_cs, force_unlock);
+}
+
+static void (*_omap2_sram_reprogram_sdrc)(u32 perf_level, u32 dll_val,
+					  u32 mem_type);
+
+void omap2_sram_reprogram_sdrc(u32 perf_level, u32 dll_val, u32 mem_type)
+{
+	if (!_omap2_sram_reprogram_sdrc)
+		omap_sram_error();
+
+	return _omap2_sram_reprogram_sdrc(perf_level, dll_val, mem_type);
+}
+
+static u32 (*_omap2_set_prcm)(u32 dpll_ctrl_val, u32 sdrc_rfr_val, int bypass);
+
+u32 omap2_set_prcm(u32 dpll_ctrl_val, u32 sdrc_rfr_val, int bypass)
+{
+	if (!_omap2_set_prcm)
+		omap_sram_error();
+
+	return _omap2_set_prcm(dpll_ctrl_val, sdrc_rfr_val, bypass);
+}
+
+int __init omap2_sram_init(void)
+{
+	_omap2_sram_ddr_init = omap_sram_push(sram_ddr_init, sram_ddr_init_sz);
+
+	_omap2_sram_reprogram_sdrc = omap_sram_push(sram_reprogram_sdrc,
+						    sram_reprogram_sdrc_sz);
+	_omap2_set_prcm = omap_sram_push(sram_set_prcm, sram_set_prcm_sz);
+
+	return 0;
+}
+#else
+#define omap2_sram_init()	do {} while (0)
+#endif
+
+int __init omap_sram_init(void)
 {
 	omap_detect_sram();
 	omap_map_sram();
-	_omap_sram_reprogram_clock = omap_sram_push(sram_reprogram_clock,
-						    sram_reprogram_clock_sz);
+
+	if (!cpu_is_omap24xx())
+		omap1_sram_init();
+	else
+		omap2_sram_init();
+
+	return 0;
 }
