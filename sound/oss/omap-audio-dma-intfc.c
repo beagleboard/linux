@@ -46,6 +46,7 @@
 #include <linux/sysrq.h>
 #include <linux/interrupt.h>
 #include <linux/dma-mapping.h>
+#include <linux/completion.h>
 
 #include <asm/uaccess.h>
 #include <asm/io.h>
@@ -210,7 +211,8 @@ int audio_setup_buf(audio_stream_t * s)
 	s->started = 0;
 	s->bytecount = 0;
 	s->fragcount = 0;
-	sema_init(&s->sem, s->nbfrags);
+	init_completion(&s->wfc);
+	s->wfc.done = s->nbfrags;
 	FN_OUT(0);
 	return 0;
       err:
@@ -469,7 +471,9 @@ void audio_prime_rx(audio_state_t * state)
 		audio_process_dma(state->output_stream);
 	}
 	is->pending_frags = is->nbfrags;
-	sema_init(&is->sem, 0);
+	init_completion(&is->wfc);
+	is->wfc.done = 0;
+
 	is->active = 1;
 	audio_process_dma(is);
 
@@ -535,7 +539,9 @@ int audio_sync(struct file *file)
 	 */
 	b = &s->buffers[s->usr_head];
 	if (b->offset &= ~3) {
-		down(&s->sem);
+		/* Wait for a buffer to become free */
+		if (wait_for_completion_interruptible(&s->wfc))
+			return 0;
 		/*
 		 * HACK ALERT !
 		 * To avoid increased complexity in the rest of the code
@@ -568,7 +574,7 @@ int audio_sync(struct file *file)
 	/* Let's wait for all buffers to complete */
 	set_current_state(TASK_INTERRUPTIBLE);
 	add_wait_queue(&s->wq, &wait);
-	while ((s->pending_frags || (atomic_read(&s->sem.count) < s->nbfrags))
+	while ((s->pending_frags || (s->wfc.done < s->nbfrags))
 	       && !signal_pending(current)) {
 		schedule();
 		set_current_state(TASK_INTERRUPTIBLE);
@@ -652,7 +658,8 @@ void audio_reset(audio_stream_t * s)
 		s->buffers[s->usr_head].offset = 0;
 		s->usr_head = s->dma_head;
 		s->pending_frags = 0;
-		sema_init(&s->sem, s->nbfrags);
+		init_completion(&s->wfc);
+		s->wfc.done = s->nbfrags;
 	}
 	s->active = 0;
 	s->stopped = 0;
@@ -864,7 +871,6 @@ static void sound_dma_irq_handler(int sound_curr_lch, u16 ch_status, void *data)
 		tasklet_schedule(&audio_isr_work2);
 		work_item_running = 0;
 	}
-
 	FN_OUT(0);
 	return;
 }
@@ -893,14 +899,13 @@ static void audio_dma_callback(int lch, u16 ch_status, void *data)
 			s->dma_tail = 0;
 
 		if (!s->mapped)
-			up(&s->sem);
+			complete(&s->wfc);
 		else
 			s->pending_frags++;
 
 		wake_up(&s->wq);
 	}
 
-	audio_process_dma(s);
 	
 	FN_OUT(0);
 	return;

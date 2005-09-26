@@ -45,6 +45,7 @@
 #include <linux/sysrq.h>
 #include <linux/delay.h>
 #include <linux/device.h>
+#include <linux/completion.h>
 
 #include <asm/uaccess.h>
 #include <asm/io.h>
@@ -442,6 +443,7 @@ int audio_register_codec(audio_state_t * codec_state)
 	}
 
 	memcpy(&audio_state, codec_state, sizeof(audio_state_t));
+	sema_init(&audio_state.sem, 1);
 
 	ret = platform_device_register(&omap_audio_device);
 	if (ret != 0) {
@@ -531,13 +533,12 @@ audio_write(struct file *file, const char __user *buffer,
 		/* Wait for a buffer to become free */
 		if (file->f_flags & O_NONBLOCK) {
 			ret = -EAGAIN;
-			if (down_trylock(&s->sem))
-				break;
-		} else {
-			ret = -ERESTARTSYS;
-			if (down_interruptible(&s->sem))
+			if (!s->wfc.done)
 				break;
 		}
+		ret = -ERESTARTSYS;
+		if (wait_for_completion_interruptible(&s->wfc))
+			break;
 
 		/* Feed the current buffer */
 		chunksize = s->fragsize - b->offset;
@@ -546,7 +547,7 @@ audio_write(struct file *file, const char __user *buffer,
 		DPRINTK("write %d to %d\n", chunksize, s->usr_head);
 		if (copy_from_user(b->data + b->offset, buffer, chunksize)) {
 			printk(KERN_ERR "Audio: CopyFrom User failed \n");
-			up(&s->sem);
+			complete(&s->wfc);
 			return -EFAULT;
 		}
 
@@ -555,7 +556,7 @@ audio_write(struct file *file, const char __user *buffer,
 		b->offset += chunksize;
 
 		if (b->offset < s->fragsize) {
-			up(&s->sem);
+			complete(&s->wfc);
 			break;
 		}
 
@@ -617,13 +618,12 @@ audio_read(struct file *file, char __user *buffer, size_t count, loff_t * ppos)
 		/* Wait for a buffer to become full */
 		if (file->f_flags & O_NONBLOCK) {
 			ret = -EAGAIN;
-			if (down_trylock(&s->sem))
-				break;
-		} else {
-			ret = -ERESTARTSYS;
-			if (down_interruptible(&s->sem))
+			if (!s->wfc.done)
 				break;
 		}
+		ret = -ERESTARTSYS;
+		if (wait_for_completion_interruptible(&s->wfc))
+			break;
 
 		/* Grab data from the current buffer */
 		chunksize = s->fragsize - b->offset;
@@ -631,14 +631,14 @@ audio_read(struct file *file, char __user *buffer, size_t count, loff_t * ppos)
 			chunksize = count;
 		DPRINTK("read %d from %d\n", chunksize, s->usr_head);
 		if (copy_to_user(buffer, b->data + b->offset, chunksize)) {
-			up(&s->sem);
+			complete(&s->wfc);
 			return -EFAULT;
 		}
 		buffer += chunksize;
 		count -= chunksize;
 		b->offset += chunksize;
 		if (b->offset < s->fragsize) {
-			up(&s->sem);
+			complete(&s->wfc);
 			break;
 		}
 
@@ -748,12 +748,12 @@ audio_poll(struct file *file, struct poll_table_struct *wait)
 
 	if (file->f_mode & FMODE_READ)
 		if ((is->mapped && is->bytecount > 0) ||
-		    (!is->mapped && atomic_read(&is->sem.count) > 0))
+		    (!is->mapped && is->wfc.done > 0))
 			mask |= POLLIN | POLLRDNORM;
 
 	if (file->f_mode & FMODE_WRITE)
 		if ((os->mapped && os->bytecount > 0) ||
-		    (!os->mapped && atomic_read(&os->sem.count) > 0))
+		    (!os->mapped && os->wfc.done > 0))
 			mask |= POLLOUT | POLLWRNORM;
 
 	DPRINTK("audio_poll() returned mask of %s%s\n",
@@ -897,7 +897,8 @@ audio_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 				local_irq_save(flags);
 				if (os->mapped && !os->pending_frags) {
 					os->pending_frags = os->nbfrags;
-					sema_init(&os->sem, 0);
+					init_completion(&os->wfc);
+					os->wfc.done = 0;
 					os->active = 1;
 				}
 				os->stopped = 0;
@@ -958,7 +959,7 @@ audio_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 				FN_OUT(19);
 				return -ENOMEM;
 			}
-			inf.bytes = atomic_read(&s->sem.count) * s->fragsize;
+			inf.bytes = s->wfc.done * s->fragsize;
 
 			inf.fragments = inf.bytes / s->fragsize;
 			inf.fragsize = s->fragsize;

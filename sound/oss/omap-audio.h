@@ -67,7 +67,7 @@ typedef struct {
 	int input_or_output;	/* Direction of this data stream */
 	int bytecount;		/* nbr of processed bytes */
 	int fragcount;		/* nbr of fragment transitions */
-	struct semaphore sem;	/* account for fragment usage */
+	struct completion wfc;  /* wait for "nbfrags" fragment completion */
 	wait_queue_head_t wq;	/* for poll */
 	int dma_spinref;	/* DMA is spinning */
 	unsigned mapped:1;	/* mmap()'ed buffers */
