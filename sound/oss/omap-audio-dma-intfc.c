@@ -906,6 +906,7 @@ static void audio_dma_callback(int lch, u16 ch_status, void *data)
 		wake_up(&s->wq);
 	}
 
+	audio_process_dma(s);
 	
 	FN_OUT(0);
 	return;
