@@ -162,14 +162,6 @@ static snd_pcm_hw_constraint_list_t hw_constraints_rates = {
  * codec dependent code.
  */
 
-extern int tlv320aic23_write_value(u8 reg, u16 value);
-
-/* TLV320AIC23 is a write only device */
-__inline__ void audio_aic23_write(u8 address, u16 data)
-{
-	tlv320aic23_write_value(address, data);
-}
-
 /*
  * Sample rate changing
  */

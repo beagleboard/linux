@@ -111,4 +111,17 @@ void snd_omap_suspend_mixer(void);
 void snd_omap_resume_mixer(void);
 #endif
 
+/* Codec AIC23 */
+#if defined(CONFIG_SENSORS_TLV320AIC23) || defined (CONFIG_SENSORS_TLV320AIC23_MODULE)
+
+extern int tlv320aic23_write_value(u8 reg, u16 value);
+
+/* TLV320AIC23 is a write only device */
+static __inline__ void audio_aic23_write(u8 address, u16 data)
+{
+	tlv320aic23_write_value(address, data);
+}
+
+#endif /* CONFIG_SENSORS_TLV320AIC23 */
+
 #endif
