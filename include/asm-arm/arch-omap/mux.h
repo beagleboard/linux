@@ -399,7 +399,13 @@ enum omap24xx_index {
 	L15_24XX_I2C1_SDA,
 	J15_24XX_I2C2_SCL,
 	H19_24XX_I2C2_SDA,
+
+	/* 24xx Menelaus interrupt */
 	W19_24XX_SYS_NIRQ,
+
+	/* 24xx GPIO */
+	Y20_24XX_GPIO60,
+	M15_24XX_GPIO92,
 };
 
 #ifdef	CONFIG_OMAP_MUX

@@ -33,18 +33,27 @@
 
 #ifdef CONFIG_OMAP_MUX
 
+/* NOTE: See mux.h for the enumeration */
+
 struct pin_config __initdata_or_module omap24xx_pins[] = {
 /*
- *            description             mux       mux   pull  pull  debug
- *                                    offset    mode  ena   type
+ *	description			mux	mux	pull	pull	debug
+ *					offset	mode	ena	type
  */
 
 /* 24xx I2C */
-MUX_CFG_24XX("M19_24XX_I2C1_SCL",    0x111,    0,    0,    0,    1)
-MUX_CFG_24XX("L15_24XX_I2C1_SDA",    0x112,    0,    0,    0,    1)
-MUX_CFG_24XX("J15_24XX_I2C2_SCL",    0x113,    0,    0,    0,    1)
-MUX_CFG_24XX("H19_24XX_I2C2_SDA",    0x114,    0,    0,    0,    1)
-MUX_CFG_24XX("W19_24XX_SYS_NIRQ",    0x12c,    0,    1,    1,    1)
+MUX_CFG_24XX("M19_24XX_I2C1_SCL",	0x111,	0,	0,	0,	1)
+MUX_CFG_24XX("L15_24XX_I2C1_SDA",	0x112,	0,	0,	0,	1)
+MUX_CFG_24XX("J15_24XX_I2C2_SCL",	0x113,	0,	0,	0,	1)
+MUX_CFG_24XX("H19_24XX_I2C2_SDA",	0x114,	0,	0,	0,	1)
+
+/* Menelaus interrupt */
+MUX_CFG_24XX("W19_24XX_SYS_NIRQ",	0x12c,	0,	1,	1,	1)
+
+/* 24xx GPIO */
+MUX_CFG_24XX("Y20_24XX_GPIO60",		0x12c,	3,	0,	0,	1)
+MUX_CFG_24XX("M15_24XX_GPIO92",		0x10a,	3,	0,	0,	1)
+
 };
 
 int __init omap2_mux_init(void)
