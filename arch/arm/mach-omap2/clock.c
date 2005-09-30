@@ -24,6 +24,7 @@
 #include <linux/delay.h>
 
 #include <asm/io.h>
+
 #include <asm/hardware/clock.h>
 #include <asm/arch/clock.h>
 #include <asm/arch/sram.h>
@@ -869,6 +870,7 @@ static int omap2_select_table_rate(struct clk * clk, unsigned long rate)
 	u32 flags, cur_rate, done_rate, bypass = 0;
 	u8 cpu_mask;
 	struct prcm_config *prcm;
+	unsigned long found_speed = 0;
 
 	if (clk != &virt_prcm_set)
 		return -EINVAL;
@@ -886,11 +888,13 @@ static int omap2_select_table_rate(struct clk * clk, unsigned long rate)
 		if (prcm->xtal_speed != sys_ck.rate)
 			continue;
 
-		if (prcm->mpu_speed <= rate)
+		if (prcm->mpu_speed <= rate) {
+			found_speed = prcm->mpu_speed;
 			break;
+		}
 	}
 
-	if (!prcm->mpu_speed) {
+	if (!found_speed) {
 		printk(KERN_INFO "Could not set MPU rate to %luMHz\n",
 		       rate / 1000000); 
 		return -EINVAL;
