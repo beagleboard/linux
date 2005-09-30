@@ -14,11 +14,14 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/device.h>
+#include <linux/mtd/mtd.h>
+#include <linux/mtd/partitions.h>
 
 #include <asm/hardware.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
+#include <asm/mach/flash.h>
 
 #include <asm/arch/gpio.h>
 #include <asm/arch/mux.h>
@@ -28,6 +31,60 @@
 
 #include <asm/io.h>
 #include <asm/delay.h>
+
+static struct mtd_partition h4_partitions[] = {
+	/* bootloader (U-Boot, etc) in first sector */
+	{
+	      .name		= "bootloader",
+	      .offset		= 0,
+	      .size		= SZ_128K,
+	      .mask_flags	= MTD_WRITEABLE, /* force read-only */
+	},
+	/* bootloader params in the next sector */
+	{
+	      .name		= "params",
+	      .offset		= MTDPART_OFS_APPEND,
+	      .size		= SZ_128K,
+	      .mask_flags	= 0,
+	},
+	/* kernel */
+	{
+	      .name		= "kernel",
+	      .offset		= MTDPART_OFS_APPEND,
+	      .size		= SZ_2M,
+	      .mask_flags	= 0
+	},
+	/* file system */
+	{
+	      .name		= "filesystem",
+	      .offset		= MTDPART_OFS_APPEND,
+	      .size		= MTDPART_SIZ_FULL,
+	      .mask_flags	= 0
+	}
+};
+
+static struct flash_platform_data h4_flash_data = {
+	.map_name	= "cfi_probe",
+	.width		= 2,
+	.parts		= h4_partitions,
+	.nr_parts	= ARRAY_SIZE(h4_partitions),
+};
+
+static struct resource h4_flash_resource = {
+	.start		= H4_CS0_BASE,
+	.end		= H4_CS0_BASE + SZ_64M - 1,
+	.flags		= IORESOURCE_MEM,
+};
+
+static struct platform_device h4_flash_device = {
+	.name		= "omapflash",
+	.id		= 0,
+	.dev		= {
+		.platform_data	= &h4_flash_data,
+	},
+	.num_resources	= 1,
+	.resource	= &h4_flash_resource,
+};
 
 static struct resource h4_smc91x_resources[] = {
 	[0] = {
@@ -51,6 +108,7 @@ static struct platform_device h4_smc91x_device = {
 
 static struct platform_device *h4_devices[] __initdata = {
 	&h4_smc91x_device,
+	&h4_flash_device,
 };
 
 static inline void __init h4_init_smc91x(void)
