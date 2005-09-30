@@ -774,7 +774,7 @@ static void gpio_irq_handler(unsigned int irq, struct irqdesc *desc,
 			d = irq_desc + gpio_irq;
 			desc_handle_irq(gpio_irq, d, regs);
 		}
-        }
+	}
 }
 
 static void gpio_ack_irq(unsigned int irq)
@@ -837,8 +837,9 @@ static struct irqchip mpuio_irq_chip = {
 	.unmask = mpuio_unmask_irq
 };
 
-static int initialized = 0;
-static struct clk * gpio_ck = NULL;
+static int initialized;
+static struct clk * gpio_ick;
+static struct clk * gpio_fck;
 
 static int __init _omap_gpio_init(void)
 {
@@ -848,11 +849,23 @@ static int __init _omap_gpio_init(void)
 	initialized = 1;
 
 	if (cpu_is_omap1510()) {
-		gpio_ck = clk_get(NULL, "arm_gpio_ck");
-		if (IS_ERR(gpio_ck))
+		gpio_ick = clk_get(NULL, "arm_gpio_ck");
+		if (IS_ERR(gpio_ick))
 			printk("Could not get arm_gpio_ck\n");
 		else
-			clk_use(gpio_ck);
+			clk_use(gpio_ick);
+	}
+	if (cpu_is_omap24xx()) {
+		gpio_ick = clk_get(NULL, "gpios_ick");
+		if (IS_ERR(gpio_ick))
+			printk("Could not get gpios_ick\n");
+		else
+			clk_use(gpio_ick);
+		gpio_fck = clk_get(NULL, "gpios_fck");
+		if (IS_ERR(gpio_ick))
+			printk("Could not get gpios_fck\n");
+		else
+			clk_use(gpio_fck);
 	}
 
 #ifdef CONFIG_ARCH_OMAP15XX
