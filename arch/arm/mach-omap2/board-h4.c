@@ -113,21 +113,13 @@ static struct platform_device *h4_devices[] __initdata = {
 
 static inline void __init h4_init_smc91x(void)
 {
-	u32 l;
-
+	omap_cfg_reg(M15_24XX_GPIO92);
 	if (omap_request_gpio(OMAP24XX_ETHR_GPIO_IRQ) < 0) {
-		printk(KERN_ERR "Failed to request GPIO#%d for smc91x IRQ\n",
+		printk(KERN_ERR "Failed to request GPIO%d for smc91x IRQ\n",
 			OMAP24XX_ETHR_GPIO_IRQ);
 		return;
 	}
-	set_irq_type(OMAP_GPIO_IRQ(OMAP24XX_ETHR_GPIO_IRQ),
-				 IRQT_FALLING);
-	/* Set pin M15 to mux mode 3 -> GPIO#92, disable PU/PD */
-	/* FIXME: change this using omap2 mux api when it's ready */
-	l = __raw_readl(0xd8000000 + 0x108);
-	l &= ~(((1 << 5) - 1) << 16);
-	l |= 3 << 16;
-	__raw_writel(l, 0xd8000000 + 0x108);
+	omap_set_gpio_direction(OMAP24XX_ETHR_GPIO_IRQ, 1);
 }
 
 static void __init omap_h4_init_irq(void)
