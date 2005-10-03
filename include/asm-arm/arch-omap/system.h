@@ -6,8 +6,8 @@
 #define __ASM_ARCH_SYSTEM_H
 #include <linux/config.h>
 #include <asm/mach-types.h>
-#include <asm/arch/hardware.h>
 #include <asm/hardware/clock.h>
+#include <asm/arch/hardware.h>
 #include <asm/arch/prcm.h>
 
 #ifndef CONFIG_MACH_VOICEBLUE
