@@ -18,9 +18,17 @@
 #include <linux/serial_reg.h>
 
 #include <asm/io.h>
+#include <asm/hardware/clock.h>
 
 #include <asm/arch/common.h>
 #include <asm/arch/board.h>
+
+static struct clk * uart1_ick = NULL;
+static struct clk * uart1_fck = NULL;
+static struct clk * uart2_ick = NULL;
+static struct clk * uart2_fck = NULL;
+static struct clk * uart3_ick = NULL;
+static struct clk * uart3_fck = NULL;
 
 static struct plat_serial8250_port serial_platform_data[] = {
 	{
@@ -103,6 +111,54 @@ void __init omap_serial_init()
 			p->membase = 0;
 			p->mapbase = 0;
 			continue;
+		}
+
+		switch (i) {
+		case 0:
+			uart1_ick = clk_get(NULL, "uart1_ick");
+			if (IS_ERR(uart1_ick))
+				printk("Could not get uart1_ick\n");
+			else {
+				clk_use(uart1_ick);
+			}
+
+			uart1_fck = clk_get(NULL, "uart1_fck");
+			if (IS_ERR(uart1_fck))
+				printk("Could not get uart1_fck\n");
+			else {
+				clk_use(uart1_fck);
+			}
+			break;
+		case 1:
+			uart2_ick = clk_get(NULL, "uart2_ick");
+			if (IS_ERR(uart2_ick))
+				printk("Could not get uart2_ick\n");
+			else {
+				clk_use(uart2_ick);
+			}
+
+			uart2_fck = clk_get(NULL, "uart2_fck");
+			if (IS_ERR(uart2_fck))
+				printk("Could not get uart2_fck\n");
+			else {
+				clk_use(uart2_fck);
+			}
+			break;
+		case 2:
+			uart3_ick = clk_get(NULL, "uart3_ick");
+			if (IS_ERR(uart3_ick))
+				printk("Could not get uart3_ick\n");
+			else {
+				clk_use(uart3_ick);
+			}
+
+			uart3_fck = clk_get(NULL, "uart3_fck");
+			if (IS_ERR(uart3_fck))
+				printk("Could not get uart3_fck\n");
+			else {
+				clk_use(uart3_fck);
+			}
+			break;
 		}
 
 		omap_serial_reset(p);

@@ -1080,13 +1080,5 @@ int __init omap2_clk_init(void)
 	if (cpu_is_omap2430())
 		clk_use(&sdrc_ick);
 
-	/* FIXME: Move these to serial setup */
-	clk_use(&uart1_ick);
-	clk_use(&uart1_fck);
-	clk_use(&uart2_ick);
-	clk_use(&uart2_fck);
-	clk_use(&uart3_ick);
-	clk_use(&uart3_fck);
-
 	return 0;
 }
