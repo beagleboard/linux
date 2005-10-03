@@ -967,8 +967,8 @@ static struct clk dss1_fck = {
 				RATE_CKCTL | CM_CORE_SEL1 | DELAYED_APP,
 	.enable_reg	= (void __iomem *)&CM_FCLKEN1_CORE,
 	.enable_bit	= 0,
-	.rate_offset= 8,
-	.src_offset = 8,
+	.rate_offset	= 8,
+	.src_offset	= 8,
 	.recalc		= &omap2_clksel_recalc,
 };
 
@@ -979,7 +979,7 @@ static struct clk dss2_fck = {		/* Alt clk used in power management */
 				RATE_CKCTL | CM_CORE_SEL1 | RATE_FIXED,
 	.enable_reg	= (void __iomem *)&CM_FCLKEN1_CORE,
 	.enable_bit	= 1,
-	.src_offset = 13,
+	.src_offset	= 13,
 	.recalc		= &omap2_followparent_recalc,
 };
 
@@ -1016,7 +1016,7 @@ static struct clk gpt1_fck = {
 				CM_WKUP_SEL1,
 	.enable_reg	= (void __iomem *)&CM_FCLKEN_WKUP,
 	.enable_bit	= 0,
-	.src_offset = 0,
+	.src_offset	= 0,
 	.recalc		= &omap2_followparent_recalc,
 };
 
@@ -1036,7 +1036,7 @@ static struct clk gpt2_fck = {
 				CM_CORE_SEL2,
 	.enable_reg	= (void __iomem *)&CM_FCLKEN1_CORE,
 	.enable_bit	= 4,
-	.src_offset = 2,
+	.src_offset	= 2,
 	.recalc		= &omap2_followparent_recalc,
 };
 
@@ -1056,7 +1056,7 @@ static struct clk gpt3_fck = {
 				CM_CORE_SEL2,
 	.enable_reg	= (void __iomem *)&CM_FCLKEN1_CORE,
 	.enable_bit	= 5,
-	.src_offset = 4,
+	.src_offset	= 4,
 	.recalc		= &omap2_followparent_recalc,
 };
 
@@ -1076,7 +1076,7 @@ static struct clk gpt4_fck = {
 				CM_CORE_SEL2,
 	.enable_reg	= (void __iomem *)&CM_FCLKEN1_CORE,
 	.enable_bit	= 6,
-	.src_offset = 6,
+	.src_offset	= 6,
 	.recalc		= &omap2_followparent_recalc,
 };
 
@@ -1096,7 +1096,7 @@ static struct clk gpt5_fck = {
 				CM_CORE_SEL2,
 	.enable_reg	= (void __iomem *)&CM_FCLKEN1_CORE,
 	.enable_bit	= 7,
-	.src_offset = 8,
+	.src_offset	= 8,
 	.recalc		= &omap2_followparent_recalc,
 };
 
@@ -1116,7 +1116,7 @@ static struct clk gpt6_fck = {
 				CM_CORE_SEL2,
 	.enable_reg	= (void __iomem *)&CM_FCLKEN1_CORE,
 	.enable_bit	= 8,
-	.src_offset = 10,
+	.src_offset	= 10,
 	.recalc		= &omap2_followparent_recalc,
 };
 
@@ -1136,7 +1136,7 @@ static struct clk gpt7_fck = {
 				CM_CORE_SEL2,
 	.enable_reg	= (void __iomem *)&CM_FCLKEN1_CORE,
 	.enable_bit	= 9,
-	.src_offset = 12,
+	.src_offset	= 12,
 	.recalc		= &omap2_followparent_recalc,
 };
 
@@ -1156,7 +1156,7 @@ static struct clk gpt8_fck = {
 				CM_CORE_SEL2,
 	.enable_reg	= (void __iomem *)&CM_FCLKEN1_CORE,
 	.enable_bit	= 10,
-	.src_offset = 14,
+	.src_offset	= 14,
 	.recalc		= &omap2_followparent_recalc,
 };
 
@@ -1176,7 +1176,7 @@ static struct clk gpt9_fck = {
 					CM_CORE_SEL2,
 	.enable_reg	= (void __iomem *)&CM_FCLKEN1_CORE,
 	.enable_bit	= 11,
-	.src_offset = 16,
+	.src_offset	= 16,
 	.recalc		= &omap2_followparent_recalc,
 };
 
@@ -1196,7 +1196,7 @@ static struct clk gpt10_fck = {
 					CM_CORE_SEL2,
 	.enable_reg	= (void __iomem *)&CM_FCLKEN1_CORE,
 	.enable_bit	= 12,
-	.src_offset = 18,
+	.src_offset	= 18,
 	.recalc		= &omap2_followparent_recalc,
 };
 
@@ -1216,7 +1216,7 @@ static struct clk gpt11_fck = {
 					CM_CORE_SEL2,
 	.enable_reg	= (void __iomem *)&CM_FCLKEN1_CORE,
 	.enable_bit	= 13,
-	.src_offset = 20,
+	.src_offset	= 20,
 	.recalc		= &omap2_followparent_recalc,
 };
 
@@ -1236,7 +1236,7 @@ static struct clk gpt12_fck = {
 					CM_CORE_SEL2,
 	.enable_reg	= (void __iomem *)&CM_FCLKEN1_CORE,
 	.enable_bit	= 14,
-	.src_offset = 22,
+	.src_offset	= 22,
 	.recalc		= &omap2_followparent_recalc,
 };
 
