@@ -3,7 +3,7 @@
  *
  *  Copyright (C) 2004 Nokia Corporation
  *  Written by Tuukka Tikkanen and Juha Yrjölä <juha.yrjola@nokia.com>
- *  Pin multiplexing and Innovator support by Tony Lindgren <tony@atomide.com>
+ *  Misc hacks here and there by Tony Lindgren <tony@atomide.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -42,6 +42,7 @@
 #include <asm/arch/mux.h>
 #include <asm/arch/fpga.h>
 #include <asm/arch/tps65010.h>
+#include <asm/arch/menelaus.h>
 
 #include <asm/hardware/clock.h>
 
@@ -58,12 +59,12 @@
 
 /* Specifies how often in millisecs to poll for card status changes
  * when the cover switch is open */
-#define OMAP_MMC_SWITCH_POLL_DELAY     500
+#define OMAP_MMC_SWITCH_POLL_DELAY	500
 
 static int mmc_omap_enable_poll = 1;
 
 struct mmc_omap_host {
-	int                     initialized;
+	int			initialized;
 	int			suspended;
 	struct mmc_request *	mrq;
 	struct mmc_command *	cmd;
@@ -71,10 +72,12 @@ struct mmc_omap_host {
 	struct mmc_host *	mmc;
 	struct device *		dev;
 	unsigned char		id; /* 16xx chips have 2 MMC blocks */
-	struct clk *		clk;
+	struct clk *		iclk;
+	struct clk *		fclk;
 	void __iomem		*base;
 	int			irq;
 	unsigned char		bus_mode;
+	unsigned char		hw_bus_mode;
 
 	unsigned int		sg_len;
 	int			sg_idx;
@@ -105,7 +108,7 @@ mmc_omap_cover_is_open(struct mmc_omap_host *host)
 {
 	if (host->switch_pin < 0)
 		return 0;
-        return omap_get_gpio_datain(host->switch_pin);
+	return omap_get_gpio_datain(host->switch_pin);
 }
 
 static ssize_t
@@ -168,6 +171,19 @@ mmc_omap_start_command(struct mmc_omap_host *host, struct mmc_command *cmd)
 	resptype = 0;
 	cmdtype = 0;
 
+	/*
+	 * On 24xx we may have external MMC transceiver on Menelaus.
+	 * In that case we need to manually toggle between open-drain
+	 * and push-pull states.
+	 */
+	if (omap_has_menelaus() && (host->bus_mode != host->hw_bus_mode)) {
+		if (host->bus_mode == MMC_BUSMODE_OPENDRAIN)
+			menelaus_mmc_opendrain(1);
+		else
+			menelaus_mmc_opendrain(0);
+		host->hw_bus_mode = host->bus_mode;
+	}
+
 	/* Protocol layer does not provide response type,
 	 * but our hardware needs to know exact type, not just size!
 	 */
@@ -223,7 +239,7 @@ mmc_omap_start_command(struct mmc_omap_host *host, struct mmc_command *cmd)
 	if (host->data && !(host->data->flags & MMC_DATA_WRITE))
 		cmdreg |= 1 << 15;
 
-	clk_use(host->clk);
+	clk_use(host->fclk);
 
 	OMAP_MMC_WRITE(host->base, CTO, 200);
 	OMAP_MMC_WRITE(host->base, ARGL, cmd->arg & 0xffff);
@@ -257,7 +273,7 @@ mmc_omap_xfer_done(struct mmc_omap_host *host, struct mmc_data *data)
 	}
 	host->data = NULL;
 	host->sg_len = 0;
-	clk_unuse(host->clk);
+	clk_unuse(host->fclk);
 
 	/* NOTE:  MMC layer will sometimes poll-wait CMD13 next, issuing
 	 * dozens of requests until the card finishes writing data.
@@ -361,7 +377,7 @@ mmc_omap_cmd_done(struct mmc_omap_host *host, struct mmc_command *cmd)
 	if (host->data == NULL || cmd->error != MMC_ERR_NONE) {
 		DBG("MMC%d: End request, err %x\n", host->id, cmd->error);
 		host->mrq = NULL;
-		clk_unuse(host->clk);
+		clk_unuse(host->fclk);
 		mmc_request_done(host->mmc, cmd->mrq);
 	}
 }
@@ -595,6 +611,26 @@ static void mmc_omap_switch_timer(unsigned long arg)
 	struct mmc_omap_host *host = (struct mmc_omap_host *) arg;
 
 	schedule_work(&host->switch_work);
+}
+
+/* FIXME: Handle card insertion and removal properly. Maybe use a mask
+ * for MMC state? */
+static void mmc_omap_switch_callback(unsigned long data, u8 mmc_mask)
+{
+	struct mmc_omap_host *host = (struct mmc_omap_host *) data;
+
+	if (machine_is_omap_h4()) {
+		if (mmc_mask & 0x1)
+			printk("XXX card in slot 1\n");
+		if (mmc_mask & 0x2)
+			printk("XXX card in slot 2\n");
+	} else {
+		/* Assume card detect connected to cover switch */
+		if (mmc_mask & 0x2)
+			printk("XXX cover open\n");
+		else
+			printk("XXX cover closed\n");
+	}
 }
 
 static void mmc_omap_switch_handler(void *data)
@@ -1001,7 +1037,10 @@ static void mmc_omap_power(struct mmc_omap_host *host, int on)
 		else if (machine_is_omap_h3())
 			/* GPIO 4 of TPS65010 sends SD_EN signal */
 			tps65010_set_gpio_out_value(GPIO4, HIGH);
-		else
+		else if (cpu_is_omap24xx()) {
+			u16 reg = OMAP_MMC_READ(host->base, CON);
+			OMAP_MMC_WRITE(host->base, CON, reg | (1 << 11));
+		} else
 			if (host->power_pin >= 0)
 				omap_set_gpio_dataout(host->power_pin, 1);
 	} else {
@@ -1011,7 +1050,10 @@ static void mmc_omap_power(struct mmc_omap_host *host, int on)
 			tps65010_set_gpio_out_value(GPIO3, LOW);
 		else if (machine_is_omap_h3())
 			tps65010_set_gpio_out_value(GPIO4, LOW);
-		else
+		else if (cpu_is_omap24xx()) {
+			u16 reg = OMAP_MMC_READ(host->base, CON);
+			OMAP_MMC_WRITE(host->base, CON, reg & ~(1 << 11));
+		} else
 			if (host->power_pin >= 0)
 				omap_set_gpio_dataout(host->power_pin, 0);
 	}
@@ -1027,17 +1069,15 @@ static void mmc_omap_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	    host->id, ios->clock, ios->bus_mode, ios->power_mode,
 	    ios->vdd / 100, ios->vdd % 100);
 
-	if (ios->power_mode == MMC_POWER_UP && ios->clock < 400000) {
-		/* Fix for broken stack */
-		realclock = 400000;
-	} else {
+	if (ios->power_mode == MMC_POWER_UP && ios->clock < 400000)
+		realclock = 400000; 		/* Fix for broken stack */
+	else
 		realclock = ios->clock;
-	}
 
-	if (ios->clock == 0) {
+	if (ios->clock == 0)
 		dsor = 0;
-	} else {
-		int func_clk_rate = clk_get_rate(host->clk);
+	else {
+		int func_clk_rate = clk_get_rate(host->fclk);
 
 		dsor = func_clk_rate / realclock;
 		if (dsor < 1)
@@ -1065,7 +1105,16 @@ static void mmc_omap_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	}
 
 	host->bus_mode = ios->bus_mode;
-	clk_use(host->clk);
+	if (omap_has_menelaus()) {
+		if (host->bus_mode == MMC_BUSMODE_OPENDRAIN)
+			menelaus_mmc_opendrain(1);
+		else
+			menelaus_mmc_opendrain(0);
+	}
+	host->hw_bus_mode = host->bus_mode;
+
+	clk_use(host->fclk);
+
 	/* On insanely high arm_per frequencies something sometimes
 	 * goes somehow out of sync, and the POW bit is not being set,
 	 * which results in the while loop below getting stuck.
@@ -1080,7 +1129,7 @@ static void mmc_omap_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		while (0 == (OMAP_MMC_READ(host->base, STAT) & 1));
 		OMAP_MMC_WRITE(host->base, STAT, 1);
 	}
-	clk_unuse(host->clk);
+	clk_unuse(host->fclk);
 }
 
 static struct mmc_host_ops mmc_omap_ops = {
@@ -1124,9 +1173,22 @@ static int __init mmc_omap_probe(struct device *dev)
 	host->dma_timer.data = (unsigned long) host;
 
 	host->id = pdev->id;
-	host->clk = clk_get(dev, (host->id == 1) ? "mmc1_ck" : "mmc2_ck");
-	if (IS_ERR(host->clk)) {
-		ret = PTR_ERR(host->clk);
+
+	if (cpu_is_omap24xx()) {
+		host->iclk = clk_get(dev, "mmc_ick");
+		if (IS_ERR(host->iclk))
+			goto out;
+		clk_use(host->iclk);
+	}
+
+	if (!cpu_is_omap24xx())
+		host->fclk = clk_get(dev,
+				    (host->id == 1) ? "mmc1_ck" : "mmc2_ck");
+	else
+		host->fclk = clk_get(dev, "mmc_fck");
+
+	if (IS_ERR(host->fclk)) {
+		ret = PTR_ERR(host->fclk);
 		goto out;
 	}
 
@@ -1140,7 +1202,11 @@ static int __init mmc_omap_probe(struct device *dev)
 	host->switch_pin = minfo->switch_pin;
 	host->wp_pin = minfo->wp_pin;
 
-	host->use_dma = 1;
+	/* FIXME: Remove once DMA works on 24xx */
+	if (cpu_is_omap24xx())
+		host->use_dma = 0;
+	else
+		host->use_dma = 1;
 	host->dma_ch = -1;
 
 	host->irq = pdev->resource[1].start;
@@ -1218,13 +1284,22 @@ static int __init mmc_omap_probe(struct device *dev)
 		if (mmc_omap_enable_poll && mmc_omap_cover_is_open(host))
 			schedule_work(&host->switch_work);
 	}
+
+	/* FIXME: Add callback function for card detection */
+	printk("XXX host: 0x%08x\n", &host);
+	if (omap_has_menelaus())
+		menelaus_mmc_register(mmc_omap_switch_callback, &host);
+
 no_switch:
 	return 0;
+
 out:
 	/* FIXME: Free other resources too. */
 	if (host) {
-		if (host->clk && !IS_ERR(host->clk))
-			clk_put(host->clk);
+		if (host->iclk && !IS_ERR(host->iclk))
+			clk_put(host->iclk);
+		if (host->fclk && !IS_ERR(host->fclk))
+			clk_put(host->fclk);
 		mmc_free_host(host->mmc);
 	}
 	return ret;
@@ -1253,10 +1328,15 @@ static int __exit mmc_omap_remove(struct device *dev)
 			del_timer_sync(&host->switch_timer);
 			flush_scheduled_work();
 		}
-		if (host->clk && !IS_ERR(host->clk))
-			clk_put(host->clk);
+		if (host->iclk && !IS_ERR(host->iclk))
+			clk_put(host->iclk);
+		if (host->fclk && !IS_ERR(host->fclk))
+			clk_put(host->fclk);
 		mmc_free_host(host->mmc);
 	}
+
+	if (omap_has_menelaus())
+		menelaus_mmc_remove();
 
 	release_mem_region(pdev->resource[0].start, 
 			   pdev->resource[0].end - pdev->resource[0].start + 1);
