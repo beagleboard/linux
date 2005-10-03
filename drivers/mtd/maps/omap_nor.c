@@ -59,12 +59,14 @@ static void omap_set_vpp(struct map_info *map, int enable)
 {
 	static int	count;
 
-	if (enable) {
-		if (count++ == 0)
-			OMAP_EMIFS_CONFIG_REG |= OMAP_EMIFS_CONFIG_WP;
-	} else {
-		if (count && (--count == 0))
-			OMAP_EMIFS_CONFIG_REG &= ~OMAP_EMIFS_CONFIG_WP;
+	if (!cpu_is_omap24xx()) {
+		if (enable) {
+			if (count++ == 0)
+				OMAP_EMIFS_CONFIG_REG |= OMAP_EMIFS_CONFIG_WP;
+		} else {
+			if (count && (--count == 0))
+				OMAP_EMIFS_CONFIG_REG &= ~OMAP_EMIFS_CONFIG_WP;
+		}
 	}
 }
 
