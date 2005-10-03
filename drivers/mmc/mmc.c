@@ -1069,6 +1069,14 @@ static void mmc_setup(struct mmc_host *host)
 	host->ios.bus_mode = MMC_BUSMODE_PUSHPULL;
 	host->ops->set_ios(host, &host->ios);
 
+	/*
+	 * Some already detectd cards get confused in the card identification
+	 * mode and futher commands can fail.  Doing an extra status inquiry
+	 * after the identification mode seems to get cards back to their
+	 * senses.
+	 */
+	mmc_check_cards(host);
+
 	mmc_read_csds(host);
 
 	if (host->mode == MMC_MODE_SD)
