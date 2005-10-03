@@ -116,6 +116,12 @@ config GPIOEXPANDER_OMAP
 	  If you say yes here you get support for I/O expander calls
 	  to configure IrDA, Camera and audio devices endmenu
 
+config MENELAUS
+	bool "Menelaus PM chip"
+	depends on I2C=y && ARCH_OMAP24XX
+	help
+	  Say yes here if you have Menelaus chip on your board
+
 config SENSORS_M41T00
 	tristate "ST M41T00 RTC chip"
 	depends on I2C && PPC32
