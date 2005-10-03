@@ -7,6 +7,7 @@
 #include <linux/config.h>
 #include <asm/mach-types.h>
 #include <asm/arch/hardware.h>
+#include <asm/arch/clock.h>
 
 #ifndef CONFIG_MACH_VOICEBLUE
 #define voiceblue_reset()		do {} while (0)
@@ -19,14 +20,8 @@ static inline void arch_idle(void)
 	cpu_do_idle();
 }
 
-static inline void arch_reset(char mode)
+static inline void omap1_arch_reset(char mode)
 {
-
-	if (cpu_is_omap24xx()) {
-		omap_writew(0x3, OMAP24XX_PM_RSTCTRL_WKUP);
-		return;			/* Should never get here */
-	}
-
 	/*
 	 * Workaround for 5912/1611b bug mentioned in sprz209d.pdf p. 28
 	 * "Global Software Reset Affects Traffic Controller Frequency".
@@ -41,7 +36,26 @@ static inline void arch_reset(char mode)
 		voiceblue_reset();
 	else
 		omap_writew(1, ARM_RSTCT1);
-			
+}
+
+static inline void omap2_arch_reset(char mode)
+{
+	u32 flags, rate;
+        struct clk *vclk, *sclk;
+
+        vclk = clk_get(NULL, "virt_prcm_set");
+        sclk = clk_get(NULL, "sys_ck");
+        rate = clk_get_rate(sclk);
+        clk_set_rate(vclk, rate);	/* go to bypass for OMAP limitation */
+        omap_writel(0x2, OMAP24XX_PM_RSTCTRL_WKUP);
+}
+
+static inline void arch_reset(char mode)
+{
+	if (!cpu_is_omap24xx())
+		omap1_arch_reset(mode);
+	else
+		omap2_arch_reset(mode);			
 }
 
 #endif
