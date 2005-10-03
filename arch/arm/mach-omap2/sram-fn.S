@@ -28,7 +28,7 @@
 #include <asm/arch/io.h>
 #include <asm/hardware.h>
 
-#include "prcm.h"
+#include <asm/arch/prcm.h>
 
 #define TIMER_32KSYNCT_CR_V	IO_ADDRESS(OMAP24XX_32KSYNCT_BASE + 0x010)
 	

@@ -7,13 +7,12 @@
 #include <linux/config.h>
 #include <asm/mach-types.h>
 #include <asm/arch/hardware.h>
-#include <asm/arch/clock.h>
+#include <asm/hardware/clock.h>
+#include <asm/arch/prcm.h>
 
 #ifndef CONFIG_MACH_VOICEBLUE
 #define voiceblue_reset()		do {} while (0)
 #endif
-
-#define OMAP24XX_PM_RSTCTRL_WKUP	(OMAP24XX_PRCM_BASE + 0x450)
 
 static inline void arch_idle(void)
 {
@@ -40,14 +39,14 @@ static inline void omap1_arch_reset(char mode)
 
 static inline void omap2_arch_reset(char mode)
 {
-	u32 flags, rate;
+	u32 rate;
         struct clk *vclk, *sclk;
 
         vclk = clk_get(NULL, "virt_prcm_set");
         sclk = clk_get(NULL, "sys_ck");
         rate = clk_get_rate(sclk);
         clk_set_rate(vclk, rate);	/* go to bypass for OMAP limitation */
-        omap_writel(0x2, OMAP24XX_PM_RSTCTRL_WKUP);
+        omap_writel(0x2, RM_RSTCTRL_WKUP);
 }
 
 static inline void arch_reset(char mode)
