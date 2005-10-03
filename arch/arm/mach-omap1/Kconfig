@@ -77,7 +77,7 @@ config MACH_NETSTAR
 
 config MACH_OMAP_PALMTE
 	bool "Palm Tungsten E"
-	depends on ARCH_OMAP1 && ARCH_OMAP1510
+	depends on ARCH_OMAP1 && ARCH_OMAP15XX
 	help
           Support for the Palm Tungsten E PDA. Currently only the LCD panel
           is supported. To boot the kernel, you'll need a PalmOS compatible
