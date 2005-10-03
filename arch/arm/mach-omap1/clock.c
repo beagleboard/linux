@@ -552,25 +552,21 @@ static int omap1_clk_set_rate(struct clk *clk, unsigned long rate)
 	__u16  regval;
 	unsigned long  flags;
 
-	if(clk->set_rate != 0) {
-		spin_lock_irqsave(&clockfw_lock, flags);
+	if (clk->set_rate)
 		ret = clk->set_rate(clk, rate);
-		spin_unlock_irqrestore(&clockfw_lock, flags);
-	} else if (clk->flags & RATE_CKCTL) {
+	else if (clk->flags & RATE_CKCTL) {
 		dsor_exp = calc_dsor_exp(clk, rate);
 		if (dsor_exp > 3)
 			dsor_exp = -EINVAL;
 		if (dsor_exp < 0)
 			return dsor_exp;
 
-		spin_lock_irqsave(&clockfw_lock, flags);
 		regval = omap_readw(ARM_CKCTL);
 		regval &= ~(3 << clk->rate_offset);
 		regval |= dsor_exp << clk->rate_offset;
 		regval = verify_ckctl_value(regval);
 		omap_writew(regval, ARM_CKCTL);
 		clk->rate = clk->parent->rate / (1 << dsor_exp);
-		spin_unlock_irqrestore(&clockfw_lock, flags);
 		ret = 0;
 	}
 
