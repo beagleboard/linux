@@ -1285,8 +1285,6 @@ static int __init mmc_omap_probe(struct device *dev)
 			schedule_work(&host->switch_work);
 	}
 
-	/* FIXME: Add callback function for card detection */
-	printk("XXX host: 0x%08x\n", &host);
 	if (omap_has_menelaus())
 		menelaus_mmc_register(mmc_omap_switch_callback, &host);
 
