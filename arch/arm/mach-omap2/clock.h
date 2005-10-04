@@ -200,6 +200,33 @@ struct prcm_config {
 #define RII_CLKSEL_GFX			(2 << 0)	/* 50MHz */
 #define RII_CM_CLKSEL_GFX_VAL		RII_CLKSEL_GFX
 
+/* 2420-PRCM VII (boot) */
+#define RVII_CLKSEL_L3			(1 << 0)
+#define RVII_CLKSEL_L4    		(1 << 5)
+#define RVII_CLKSEL_DSS1		(1 << 8)
+#define RVII_CLKSEL_DSS2		(0 << 13)
+#define RVII_CLKSEL_VLYNQ		(1 << 15)
+#define RVII_CLKSEL_SSI			(1 << 20)
+#define RVII_CLKSEL_USB			(1 << 25)
+
+#define RVII_CM_CLKSEL1_CORE_VAL	RVII_CLKSEL_USB | RVII_CLKSEL_SSI | \
+					RVII_CLKSEL_VLYNQ | RVII_CLKSEL_DSS2 | \
+					RVII_CLKSEL_DSS1 | RVII_CLKSEL_L4 | RVII_CLKSEL_L3
+
+#define RVII_CLKSEL_MPU			(1 << 0) /* all divide by 1 */
+#define RVII_CM_CLKSEL_MPU_VAL		RVII_CLKSEL_MPU
+
+#define RVII_CLKSEL_DSP			(1 << 0)
+#define RVII_CLKSEL_DSP_IF		(1 << 5)
+#define RVII_SYNC_DSP			(0 << 7)
+#define RVII_CLKSEL_IVA			(1 << 8)
+#define RVII_SYNC_IVA			(0 << 13)
+#define RVII_CM_CLKSEL_DSP_VAL		RVII_SYNC_IVA | RVII_CLKSEL_IVA | RVII_SYNC_DSP | \
+					RVII_CLKSEL_DSP_IF | RVII_CLKSEL_DSP
+
+#define RVII_CLKSEL_GFX			(1 << 0)
+#define RVII_CM_CLKSEL_GFX_VAL		RVII_CLKSEL_GFX
+
 /*-------------------------------------------------------------------------
  * 2430 Target modes: Along with each configuration the CPU has several
  * modes which goes along with them. Modes mainly are the addition of
@@ -318,6 +345,10 @@ struct prcm_config {
 					MIII_DPLL_DIV_13 | MIII_DPLL_MULT_13 | \
 					MX_APLLS_CLIKIN_13
 
+/* PRCM VII (boot bypass) */
+#define MVII_CM_CLKSEL1_PLL_12_VAL	MB_CM_CLKSEL1_PLL_12_VAL
+#define MVII_CM_CLKSEL1_PLL_13_VAL	MB_CM_CLKSEL1_PLL_13_VAL
+
 /* High and low operation value */
 #define MX_CLKSEL2_PLL_2x_VAL		(2 << 0)
 #define MX_CLKSEL2_PLL_1x_VAL		(1 << 0)
@@ -433,6 +464,20 @@ static struct prcm_config rate_table[] = {
 		MX_CLKSEL2_PLL_2x_VAL, 0, V24XX_SDRC_RFR_CTRL_133MHz,
 		RATE_IN_242X},
 
+	/* PRCM-VII (boot-bypass) */
+	{S12M, S12M, S12M, RVII_CM_CLKSEL_MPU_VAL,		/* 12MHz ARM*/
+		RVII_CM_CLKSEL_DSP_VAL, RVII_CM_CLKSEL_GFX_VAL,
+		RVII_CM_CLKSEL1_CORE_VAL, MVII_CM_CLKSEL1_PLL_12_VAL,
+		MX_CLKSEL2_PLL_2x_VAL, 0, V24XX_SDRC_RFR_CTRL_BYPASS,
+		RATE_IN_242X},
+
+	/* PRCM-VII (boot-bypass) */
+	{S13M, S13M, S13M, RVII_CM_CLKSEL_MPU_VAL,		/* 13MHz ARM */
+		RVII_CM_CLKSEL_DSP_VAL, RVII_CM_CLKSEL_GFX_VAL,
+		RVII_CM_CLKSEL1_CORE_VAL, MVII_CM_CLKSEL1_PLL_13_VAL,
+		MX_CLKSEL2_PLL_2x_VAL, 0, V24XX_SDRC_RFR_CTRL_BYPASS,
+		RATE_IN_242X},
+
 	/* PRCM #3 - ratio2 (ES2) - FAST */
 	{S13M, S660M, S330M, R1_CM_CLKSEL_MPU_VAL,		/* 330MHz ARM */
 		R1_CM_CLKSEL_DSP_VAL, R1_CM_CLKSEL_GFX_VAL,
@@ -487,7 +532,7 @@ static struct prcm_config rate_table[] = {
 		RB_CM_CLKSEL1_CORE_VAL, MB_CM_CLKSEL1_PLL_13_VAL,
 		MX_CLKSEL2_PLL_2x_VAL, RB_CM_CLKSEL_MDM_VAL,
 		V24XX_SDRC_RFR_CTRL_BYPASS,
-		RATE_IN_243X | RATE_IN_242X},
+		RATE_IN_243X},
 
 	/* PRCM-boot/bypass */
 	{S12M, S12M, S12M, RB_CM_CLKSEL_MPU_VAL,		/* 12Mhz */
@@ -495,7 +540,7 @@ static struct prcm_config rate_table[] = {
 		RB_CM_CLKSEL1_CORE_VAL, MB_CM_CLKSEL1_PLL_12_VAL,
 		MX_CLKSEL2_PLL_2x_VAL, RB_CM_CLKSEL_MDM_VAL,
 		V24XX_SDRC_RFR_CTRL_BYPASS,
-		RATE_IN_243X | RATE_IN_242X},
+		RATE_IN_243X},
 
 	{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 };
