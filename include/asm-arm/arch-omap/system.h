@@ -40,13 +40,19 @@ static inline void omap1_arch_reset(char mode)
 static inline void omap2_arch_reset(char mode)
 {
 	u32 rate;
-        struct clk *vclk, *sclk;
+	struct clk *vclk, *sclk;
+	unsigned long flags;
 
-        vclk = clk_get(NULL, "virt_prcm_set");
-        sclk = clk_get(NULL, "sys_ck");
-        rate = clk_get_rate(sclk);
-        clk_set_rate(vclk, rate);	/* go to bypass for OMAP limitation */
-        omap_writel(0x2, RM_RSTCTRL_WKUP);
+	vclk = clk_get(NULL, "virt_prcm_set");
+	sclk = clk_get(NULL, "sys_ck");
+
+	printk(KERN_INFO "Resetting the OMAP2\n");
+
+	local_irq_save(flags); /* no distractions, we are rebooting */
+	rate = clk_get_rate(sclk);
+	clk_set_rate(vclk, rate);	/* go to bypass for OMAP limitation */
+	RM_RSTCTRL_WKUP |= 2;
+	local_irq_restore(flags);
 }
 
 static inline void arch_reset(char mode)
