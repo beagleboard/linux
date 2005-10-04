@@ -202,7 +202,7 @@ struct prcm_config {
 
 /* 2420-PRCM VII (boot) */
 #define RVII_CLKSEL_L3			(1 << 0)
-#define RVII_CLKSEL_L4    		(1 << 5)
+#define RVII_CLKSEL_L4			(1 << 5)
 #define RVII_CLKSEL_DSS1		(1 << 8)
 #define RVII_CLKSEL_DSS2		(0 << 13)
 #define RVII_CLKSEL_VLYNQ		(1 << 15)
