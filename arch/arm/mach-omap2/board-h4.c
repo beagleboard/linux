@@ -16,6 +16,7 @@
 #include <linux/device.h>
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
+#include <linux/delay.h>
 
 #include <asm/hardware.h>
 #include <asm/mach-types.h>
@@ -28,6 +29,7 @@
 #include <asm/arch/usb.h>
 #include <asm/arch/board.h>
 #include <asm/arch/common.h>
+#include <asm/arch/prcm.h>
 
 #include <asm/io.h>
 #include <asm/delay.h>
@@ -113,6 +115,16 @@ static struct platform_device *h4_devices[] __initdata = {
 
 static inline void __init h4_init_smc91x(void)
 {
+	/* Make sure CS1 timings are correct */
+	GPMC_CONFIG1_1 = 0x00011200;
+	GPMC_CONFIG2_1 = 0x001f1f01;
+	GPMC_CONFIG3_1 = 0x00080803;
+	GPMC_CONFIG4_1 = 0x1c091c09;
+	GPMC_CONFIG5_1 = 0x041f1f1f;
+	GPMC_CONFIG6_1 = 0x000004c4;
+	GPMC_CONFIG7_1 = 0x00000f40 | (0x08000000 >> 24);
+	udelay(100);
+
 	omap_cfg_reg(M15_24XX_GPIO92);
 	if (omap_request_gpio(OMAP24XX_ETHR_GPIO_IRQ) < 0) {
 		printk(KERN_ERR "Failed to request GPIO%d for smc91x IRQ\n",
