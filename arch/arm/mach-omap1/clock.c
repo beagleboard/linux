@@ -550,7 +550,6 @@ static int omap1_clk_set_rate(struct clk *clk, unsigned long rate)
 	int  ret = -EINVAL;
 	int  dsor_exp;
 	__u16  regval;
-	unsigned long  flags;
 
 	if (clk->set_rate)
 		ret = clk->set_rate(clk, rate);

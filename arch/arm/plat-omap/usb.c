@@ -507,7 +507,6 @@ static inline void omap_otg_init(struct omap_usb_config *config) {}
 
 static void __init omap_1510_usb_init(struct omap_usb_config *config)
 {
-	int status;
 	unsigned int val;
 
 	omap_usb0_init(config->pins[0], is_usb0_device(config));
