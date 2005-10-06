@@ -43,7 +43,7 @@ putstr(const char *s)
 #ifdef CONFIG_ARCH_OMAP
 #ifdef	CONFIG_OMAP_LL_DEBUG_UART3
 	uart = (volatile u8 *)(OMAP_UART3_BASE);
-#elif	CONFIG_OMAP_LL_DEBUG_UART2
+#elifdef CONFIG_OMAP_LL_DEBUG_UART2
 	uart = (volatile u8 *)(OMAP_UART2_BASE);
 #else
 	uart = (volatile u8 *)(OMAP_UART1_BASE);
