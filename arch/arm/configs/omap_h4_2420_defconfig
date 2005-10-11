@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.14-rc1-omap1
-# Tue Oct  4 22:45:14 2005
+# Tue Oct 11 22:28:40 2005
 #
 CONFIG_ARM=y
 CONFIG_MMU=y
@@ -534,7 +534,15 @@ CONFIG_UNIX98_PTYS=y
 #
 # Watchdog Cards
 #
-# CONFIG_WATCHDOG is not set
+CONFIG_WATCHDOG=y
+CONFIG_WATCHDOG_NOWAYOUT=y
+
+#
+# Watchdog Device Drivers
+#
+# CONFIG_SOFT_WATCHDOG is not set
+CONFIG_OMAP_WATCHDOG=y
+# CONFIG_OMAP_RNG is not set
 # CONFIG_NVRAM is not set
 # CONFIG_RTC is not set
 # CONFIG_DTLK is not set
