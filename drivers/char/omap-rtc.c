@@ -709,7 +709,7 @@ static void set_rtc_irq_bit(unsigned char bit)
 #ifdef CONFIG_PM
 static struct timespec rtc_delta;
 
-static int rtc_suspend(struct device *dev, u32 state, u32 level)
+static int rtc_suspend(struct device *dev, pm_message_t message, u32 level)
 {
 	struct rtc_time rtc_tm;
 	struct timespec time;
