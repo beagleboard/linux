@@ -112,6 +112,7 @@ static const ac97_codec_id_t snd_ac97_codec_ids[] = {
 { 0x414c4723, 0xffffffff, "ALC650F",		NULL,	NULL }, /* already patched */
 { 0x414c4720, 0xfffffff0, "ALC650",		patch_alc650,	NULL },
 { 0x414c4760, 0xfffffff0, "ALC655",		patch_alc655,	NULL },
+{ 0x414c4781, 0xffffffff, "ALC658D",		NULL,	NULL }, /* already patched */
 { 0x414c4780, 0xfffffff0, "ALC658",		patch_alc655,	NULL },
 { 0x414c4790, 0xfffffff0, "ALC850",		patch_alc850,	NULL },
 { 0x414c4730, 0xffffffff, "ALC101",		NULL,		NULL },
@@ -1556,7 +1557,7 @@ static int snd_ac97_modem_build(snd_card_t * card, ac97_t * ac97)
 
 	/* build modem switches */
 	for (idx = 0; idx < ARRAY_SIZE(snd_ac97_controls_modem_switches); idx++)
-		if ((err = snd_ctl_add(card, snd_ac97_cnew(&snd_ac97_controls_modem_switches[idx], ac97))) < 0)
+		if ((err = snd_ctl_add(card, snd_ctl_new1(&snd_ac97_controls_modem_switches[idx], ac97))) < 0)
 			return err;
 
 	/* build chip specific controls */
@@ -1796,7 +1797,7 @@ int snd_ac97_bus(snd_card_t *card, int num, ac97_bus_ops_t *ops,
 
 	snd_assert(card != NULL, return -EINVAL);
 	snd_assert(rbus != NULL, return -EINVAL);
-	bus = kcalloc(1, sizeof(*bus), GFP_KERNEL);
+	bus = kzalloc(sizeof(*bus), GFP_KERNEL);
 	if (bus == NULL)
 		return -ENOMEM;
 	bus->card = card;
@@ -1827,7 +1828,6 @@ static int snd_ac97_dev_register(snd_device_t *device)
 
 	ac97->dev.bus = &ac97_bus_type;
 	ac97->dev.parent = ac97->bus->card->dev;
-	ac97->dev.platform_data = ac97;
 	ac97->dev.release = ac97_device_release;
 	snprintf(ac97->dev.bus_id, BUS_ID_SIZE, "card%d-%d", ac97->bus->card->number, ac97->num);
 	if ((err = device_register(&ac97->dev)) < 0) {
@@ -1905,7 +1905,7 @@ int snd_ac97_mixer(ac97_bus_t *bus, ac97_template_t *template, ac97_t **rac97)
 	}
 
 	card = bus->card;
-	ac97 = kcalloc(1, sizeof(*ac97), GFP_KERNEL);
+	ac97 = kzalloc(sizeof(*ac97), GFP_KERNEL);
 	if (ac97 == NULL)
 		return -ENOMEM;
 	ac97->private_data = template->private_data;

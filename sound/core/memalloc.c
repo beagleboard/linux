@@ -106,7 +106,7 @@ struct snd_mem_list {
 
 static void *snd_dma_hack_alloc_coherent(struct device *dev, size_t size,
 					 dma_addr_t *dma_handle,
-					 unsigned int __nocast flags)
+					 gfp_t flags)
 {
 	void *ret;
 	u64 dma_mask, coherent_dma_mask;
@@ -590,7 +590,7 @@ static int snd_mem_proc_write(struct file *file, const char __user *buffer,
 
 		alloced = 0;
 		pci = NULL;
-		while ((pci = pci_find_device(vendor, device, pci)) != NULL) {
+		while ((pci = pci_get_device(vendor, device, pci)) != NULL) {
 			if (mask > 0 && mask < 0xffffffff) {
 				if (pci_set_dma_mask(pci, mask) < 0 ||
 				    pci_set_consistent_dma_mask(pci, mask) < 0) {
@@ -604,6 +604,7 @@ static int snd_mem_proc_write(struct file *file, const char __user *buffer,
 				if (snd_dma_alloc_pages(SNDRV_DMA_TYPE_DEV, snd_dma_pci_data(pci),
 							size, &dmab) < 0) {
 					printk(KERN_ERR "snd-page-alloc: cannot allocate buffer pages (size = %d)\n", size);
+					pci_dev_put(pci);
 					return (int)count;
 				}
 				snd_dma_reserve_buf(&dmab, snd_dma_pci_buf_id(pci));

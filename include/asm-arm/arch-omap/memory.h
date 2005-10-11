@@ -86,6 +86,5 @@
 
 #endif	/* CONFIG_ARCH_OMAP15XX */
 
-#define PHYS_TO_NID(addr) (0)
 #endif
 

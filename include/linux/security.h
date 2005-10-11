@@ -1907,6 +1907,11 @@ extern int register_security	(struct security_operations *ops);
 extern int unregister_security	(struct security_operations *ops);
 extern int mod_reg_security	(const char *name, struct security_operations *ops);
 extern int mod_unreg_security	(const char *name, struct security_operations *ops);
+extern struct dentry *securityfs_create_file(const char *name, mode_t mode,
+					     struct dentry *parent, void *data,
+					     struct file_operations *fops);
+extern struct dentry *securityfs_create_dir(const char *name, struct dentry *parent);
+extern void securityfs_remove(struct dentry *dentry);
 
 
 #else /* CONFIG_SECURITY */
@@ -2629,8 +2634,7 @@ static inline int security_socket_getpeersec(struct socket *sock, char __user *o
 	return security_ops->socket_getpeersec(sock, optval, optlen, len);
 }
 
-static inline int security_sk_alloc(struct sock *sk, int family,
-				    unsigned int __nocast priority)
+static inline int security_sk_alloc(struct sock *sk, int family, gfp_t priority)
 {
 	return security_ops->sk_alloc_security(sk, family, priority);
 }
@@ -2747,8 +2751,7 @@ static inline int security_socket_getpeersec(struct socket *sock, char __user *o
 	return -ENOPROTOOPT;
 }
 
-static inline int security_sk_alloc(struct sock *sk, int family,
-				    unsigned int __nocast priority)
+static inline int security_sk_alloc(struct sock *sk, int family, gfp_t priority)
 {
 	return 0;
 }
