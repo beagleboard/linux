@@ -659,15 +659,13 @@ config HW_RANDOM
 
 	  If unsure, say N.
 
-config OMAP16XX_RNG
-	tristate "OMAP16xx Random Number Generator support"
-	depends on ARCH_OMAP16XX
+config OMAP_RNG
+	tristate "OMAP Random Number Generator support"
+	depends on ARCH_OMAP16XX || ARCH_OMAP24XX
 	---help---
 	  This driver provides kernel-side support for the Random Number
-	  Generator hardware found on OMAP16xx multimedia processors.
-
-	  To compile this driver as a module, choose M here: the
-	  module will be called hw_random.
+	  Generator hardware found on OMAP16xx and OMAP24xx multimedia
+	  processors.
 
 	  If unsure, say N.
 

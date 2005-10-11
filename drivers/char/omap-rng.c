@@ -1,10 +1,10 @@
 /*
- * drivers/char/omap16xx-rng.c
+ * drivers/char/omap-rng.c
  *
  * Copyright (C) 2005 Nokia Corporation
  * Author: Juha Yrjölä <juha.yrjola@nokia.com>
  *
- * OMAP16xx Random Number Generator driver
+ * OMAP16xx and OMAP24xx Random Number Generator driver
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -15,9 +15,17 @@
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/random.h>
-#include <asm/io.h>
+#include <linux/err.h>
 
+#include <asm/io.h>
+#include <asm/hardware/clock.h>
+
+#if defined (CONFIG_ARCH_OMAP16XX)
 #define RNG_BASE	0xfffe5000
+#endif
+#if defined (CONFIG_ARCH_OMAP24XX)
+#define RNG_BASE	0x480A0000
+#endif
 #define RNG_OUT_REG	0x00
 #define RNG_STAT_REG	0x04
 #define RNG_REV_REG	0x3c
@@ -26,6 +34,8 @@
 #define ENTROPY_WORD_COUNT 128
 
 static u32 rng_base = io_p2v(RNG_BASE);
+
+static struct clk *rng_ick = NULL;
 
 static u32 rng_read_reg(int reg)
 {
@@ -50,10 +60,19 @@ static void rng_feed_entropy(int count)
 
 static int __init rng_init(void)
 {
-	if (!cpu_is_omap16xx())
+	if (!cpu_is_omap16xx() && !cpu_is_omap24xx())
 		return -ENODEV;
 
-	printk("OMAP16xx Random Number Generator ver. %02x\n",
+	if (cpu_is_omap24xx()) {
+		rng_ick = clk_get(NULL, "rng_ick");
+		if (IS_ERR(rng_ick)) {
+			printk(KERN_ERR "omap-rng.c: Could not get rng_ick\n");
+			return PTR_ERR(rng_ick);
+		}
+		clk_use(rng_ick);
+	}
+
+	printk("OMAP Random Number Generator ver. %02x\n",
 	rng_read_reg(RNG_REV_REG));
 	rng_write_reg(RNG_MASK_REG, 0x00000001);
 	rng_feed_entropy(ENTROPY_WORD_COUNT);
@@ -62,14 +81,4 @@ static int __init rng_init(void)
 
 	return 0;
 }
-
-static void __exit rng_cleanup(void)
-{
-}
-
-MODULE_AUTHOR("Juha Yrjölä");
-MODULE_DESCRIPTION("OMAP16xx H/W Random Number Generator (RNG) driver");
-MODULE_LICENSE("GPL");
-
-module_init(rng_init);
-module_exit(rng_cleanup);
+late_initcall(rng_init);
