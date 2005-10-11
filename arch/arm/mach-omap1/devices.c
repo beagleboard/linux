@@ -99,38 +99,6 @@ static void omap_init_rtc(void)
 static inline void omap_init_rtc(void) {}
 #endif
 
-/*-------------------------------------------------------------------------*/
-
-#if	defined(CONFIG_OMAP16XX_WATCHDOG) || defined(CONFIG_OMAP16XX_WATCHDOG_MODULE)
-
-#define	OMAP_WDT_BASE		0xfffeb000
-
-static struct resource wdt_resources[] = {
-	{
-		.start		= OMAP_WDT_BASE,
-		.end		= OMAP_WDT_BASE + 0x4f,
-		.flags		= IORESOURCE_MEM,
-	},
-};
-
-static struct platform_device omap_wdt_device = {
-	.name	   = "omap1610_wdt",
-	.id	     = -1,
-	.dev = {
-		.release	= omap_nop_release,
-	},
-	.num_resources	= ARRAY_SIZE(wdt_resources),
-	.resource	= wdt_resources,
-};
-
-static void omap_init_wdt(void)
-{
-	(void) platform_device_register(&omap_wdt_device);
-}
-#else
-static inline void omap_init_wdt(void) {}
-#endif
-
 
 /*-------------------------------------------------------------------------*/
 
@@ -161,7 +129,6 @@ static int __init omap1_init_devices(void)
 	 */
 	omap_init_irda();
 	omap_init_rtc();
-	omap_init_wdt();
 
 	return 0;
 }

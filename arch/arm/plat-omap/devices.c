@@ -271,6 +271,41 @@ static void __init omap_init_mmc(void)
 static inline void omap_init_mmc(void) {}
 #endif
 
+#if	defined(CONFIG_OMAP_WATCHDOG) || defined(CONFIG_OMAP_WATCHDOG_MODULE)
+
+#ifdef CONFIG_ARCH_OMAP24XX
+#define	OMAP_WDT_BASE		0x48022000
+#else
+#define	OMAP_WDT_BASE		0xfffeb000
+#endif
+
+static struct resource wdt_resources[] = {
+	{
+		.start		= OMAP_WDT_BASE,
+		.end		= OMAP_WDT_BASE + 0x4f,
+		.flags		= IORESOURCE_MEM,
+	},
+};
+
+static struct platform_device omap_wdt_device = {
+	.name	   = "omap_wdt",
+	.id	     = -1,
+	.dev = {
+		.release	= omap_nop_release,
+	},
+	.num_resources	= ARRAY_SIZE(wdt_resources),
+	.resource	= wdt_resources,
+};
+
+static void omap_init_wdt(void)
+{
+	(void) platform_device_register(&omap_wdt_device);
+}
+#else
+static inline void omap_init_wdt(void) {}
+#endif
+
+
 /*
  * This gets called after board-specific INIT_MACHINE, and initializes most
  * on-chip peripherals accessible on this board (except for few like USB):
@@ -298,6 +333,7 @@ static int __init omap_init_devices(void)
 	 */
 	omap_init_i2c();
 	omap_init_mmc();
+	omap_init_wdt();
 
 	return 0;
 }
