@@ -538,6 +538,8 @@ static void __init omap_1510_usb_init(struct omap_usb_config *config)
 
 #ifdef	CONFIG_USB_GADGET_OMAP
 	if (config->register_dev) {
+		int status;
+
 		udc_device.dev.platform_data = config;
 		status = platform_device_register(&udc_device);
 		if (status)
@@ -548,6 +550,8 @@ static void __init omap_1510_usb_init(struct omap_usb_config *config)
 
 #if	defined(CONFIG_USB_OHCI_HCD) || defined(CONFIG_USB_OHCI_HCD_MODULE)
 	if (config->register_host) {
+		int status;
+
 		ohci_device.dev.platform_data = config;
 		status = platform_device_register(&ohci_device);
 		if (status)
