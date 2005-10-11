@@ -1038,7 +1038,9 @@ static int __init omap_init_dma(void)
 			dma_chan_count = 16;
 		} else
 			dma_chan_count = 9;
-	} else {
+	} else if (cpu_is_omap24xx())
+		dma_chan_count = 32;
+	else {
 		dma_chan_count = 0;
 		return 0;
 	}
