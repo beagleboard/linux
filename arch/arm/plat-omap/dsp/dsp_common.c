@@ -239,6 +239,7 @@ void dsp_set_idle_boot_base(unsigned long adr, size_t size)
 }
 
 static unsigned short save_dsp_idlect2;
+static int init_done;
 
 /*
  * note: if we are in pm_suspend / pm_resume function,
@@ -250,6 +251,9 @@ void omap_dsp_pm_suspend(void)
 
 	/* Reset DSP */
 	__dsp_reset();
+
+	if (! init_done)
+		return;
 
 	clk_disable(dsp_ck_handle);
 
@@ -265,6 +269,9 @@ void omap_dsp_pm_resume(void)
 {
 	unsigned short save_arm_idlect2;
 
+	if (! init_done)
+		return;
+
 	/* Restore DSP domain clocks */
 	save_arm_idlect2 = omap_readw(ARM_IDLECT2); // api_ck is in ARM_IDLECT2
 	clk_enable(api_ck_handle);
@@ -275,8 +282,6 @@ void omap_dsp_pm_resume(void)
 	if (cpustat.stat != CPUSTAT_RESET)
 		__dsp_run();
 }
-
-static int init_done;
 
 static int __init omap_dsp_init(void)
 {
