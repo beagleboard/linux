@@ -138,9 +138,8 @@ static void omap_pm_wakeup_setup(void)
 	omap_writel(~level1_wake, OMAP_IH1_MIR);
 
 	if (cpu_is_omap730()) {
-		level2_wake |= OMAP_IRQ_BIT(INT_730_MPUIO_KEYPAD);
 		omap_writel(~level2_wake,  OMAP_IH2_0_MIR);
-		omap_writel(~OMAP_IRQ_BIT(INT_730_WAKE_UP_REQ), OMAP_IH2_1_MIR);
+		omap_writel(~(OMAP_IRQ_BIT(INT_730_WAKE_UP_REQ) | OMAP_IRQ_BIT(INT_730_MPUIO_KEYPAD)), OMAP_IH2_1_MIR);
 	}
 
 	if (cpu_is_omap1510()) {
