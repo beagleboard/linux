@@ -121,7 +121,7 @@ void omap_pm_idle(void)
  */
 static void omap_pm_wakeup_setup(void)
 {
-	u32 level1_wake;
+	u32 level1_wake = OMAP_IRQ_BIT(INT_IH2_IRQ);
 	u32 level2_wake = OMAP_IRQ_BIT(INT_UART2);
 
 	/*
@@ -130,15 +130,10 @@ static void omap_pm_wakeup_setup(void)
 	 * drivers must still separately call omap_set_gpio_wakeup() to
 	 * wake up to a GPIO interrupt.
 	 */
-	if (cpu_is_omap730())
-		level1_wake = OMAP_IRQ_BIT(INT_730_GPIO_BANK1) |
-			OMAP_IRQ_BIT(INT_730_IH2_IRQ);
-	else if (cpu_is_omap1510())
-		level1_wake = OMAP_IRQ_BIT(INT_GPIO_BANK1) | 
-			OMAP_IRQ_BIT(INT_1510_IH2_IRQ);
-	else if (cpu_is_omap16xx())
-		level1_wake = OMAP_IRQ_BIT(INT_GPIO_BANK1) |
-			OMAP_IRQ_BIT(INT_1610_IH2_IRQ);
+	if (cpu_is_omap1510() || cpu_is_omap16xx())
+		level1_wake |= OMAP_IRQ_BIT(INT_GPIO_BANK1);
+	else if (cpu_is_omap730())
+		level1_wake |= OMAP_IRQ_BIT(INT_730_GPIO_BANK1);
 
 	omap_writel(~level1_wake, OMAP_IH1_MIR);
 
