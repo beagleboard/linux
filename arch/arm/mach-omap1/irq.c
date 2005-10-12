@@ -47,6 +47,7 @@
 #include <asm/irq.h>
 #include <asm/mach/irq.h>
 #include <asm/arch/gpio.h>
+#include <asm/arch/cpu.h>
 
 #include <asm/io.h>
 
@@ -234,9 +235,11 @@ void __init omap_init_irq(void)
 	}
 
 	/* Unmask level 2 handler */
-	if (cpu_is_omap730()) {
+
+	if (cpu_is_omap730())
 		omap_unmask_irq(INT_730_IH2_IRQ);
-	} else {
-		omap_unmask_irq(INT_IH2_IRQ);
-	}
+	else if (cpu_is_omap1510())
+		omap_unmask_irq(INT_1510_IH2_IRQ);
+	else if (cpu_is_omap16xx())
+		omap_unmask_irq(INT_1610_IH2_IRQ);
 }
