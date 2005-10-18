@@ -21,17 +21,31 @@
 #include <asm/hardware/clock.h>
 
 #if defined (CONFIG_ARCH_OMAP16XX)
-#define RNG_BASE	0xfffe5000
+#define RNG_BASE		0xfffe5000
 #endif
 #if defined (CONFIG_ARCH_OMAP24XX)
-#define RNG_BASE	0x480A0000
+#define RNG_BASE		0x480A0000
 #endif
-#define RNG_OUT_REG	0x00
-#define RNG_STAT_REG	0x04
-#define RNG_REV_REG	0x3c
-#define RNG_MASK_REG	0x40
 
-#define ENTROPY_WORD_COUNT 128
+#define RNG_OUT_REG		0x00		/* Output register */
+#define RNG_STAT_REG		0x04		/* Status register
+							[0] = STAT_BUSY */
+#define RNG_ALARM_REG		0x24		/* Alarm register
+							[7:0] = ALARM_COUNTER */
+#define RNG_CONFIG_REG		0x28		/* Configuration register
+							[11:6] = RESET_COUNT
+							[5:3]  = RING2_DELAY 
+							[2:0]  = RING1_DELAY */
+#define RNG_REV_REG		0x3c		/* Revision register
+							[7:0] = REV_NB */
+#define RNG_MASK_REG		0x40		/* Mask and reset register
+							[2] = IT_EN
+							[1] = SOFTRESET
+							[0] = AUTOIDLE */
+#define RNG_SYSSTATUS		0x44		/* System status
+							[0] = RESETDONE */
+
+#define ENTROPY_WORD_COUNT	128
 
 static u32 rng_base = io_p2v(RNG_BASE);
 
