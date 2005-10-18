@@ -121,8 +121,8 @@ static void omap_init_i2c(void)
 
 	(void) platform_device_register(&omap_i2c_device1);
 
-	//if (cpu_is_omap24xx())
-	//	(void) platform_device_register(&omap_i2c_device2);
+	if (cpu_is_omap24xx())
+		(void) platform_device_register(&omap_i2c_device2);
 }
 #else
 static inline void omap_init_i2c(void) {}
