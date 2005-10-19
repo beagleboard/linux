@@ -1051,6 +1051,7 @@ static struct sys_device omap_gpio_device = {
 
 /*
  * This may get called early from board specific init
+ * for boards that have interrupts routed via FPGA.
  */
 int omap_gpio_init(void)
 {
