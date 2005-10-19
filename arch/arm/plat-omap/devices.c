@@ -305,6 +305,41 @@ static void omap_init_wdt(void)
 static inline void omap_init_wdt(void) {}
 #endif
 
+/*-------------------------------------------------------------------------*/
+
+#if	defined(CONFIG_OMAP_RNG) || defined(CONFIG_OMAP_RNG_MODULE)
+
+#ifdef CONFIG_ARCH_OMAP24XX
+#define	OMAP_RNG_BASE		0x480A0000
+#else
+#define	OMAP_RNG_BASE		0xfffe5000
+#endif
+
+static struct resource rng_resources[] = {
+	{
+		.start		= OMAP_RNG_BASE,
+		.end		= OMAP_RNG_BASE + 0x4f,
+		.flags		= IORESOURCE_MEM,
+	},
+};
+
+static struct platform_device omap_rng_device = {
+	.name	   = "omap_rng",
+	.id	     = -1,
+	.dev = {
+		.release	= omap_nop_release,
+	},
+	.num_resources	= ARRAY_SIZE(rng_resources),
+	.resource	= rng_resources,
+};
+
+static void omap_init_rng(void)
+{
+	(void) platform_device_register(&omap_rng_device);
+}
+#else
+static inline void omap_init_rng(void) {}
+#endif
 
 /*
  * This gets called after board-specific INIT_MACHINE, and initializes most
@@ -334,6 +369,7 @@ static int __init omap_init_devices(void)
 	omap_init_i2c();
 	omap_init_mmc();
 	omap_init_wdt();
+	omap_init_rng();
 
 	return 0;
 }
