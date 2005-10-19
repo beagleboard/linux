@@ -31,8 +31,6 @@
 #include <asm/arch/common.h>
 #include <asm/arch/board.h>
 
-extern int omap_gpio_init(void);
-
 static struct resource smc91x_resources[] = {
 	[0] = {
 		.start	= H2P2_DBG_FPGA_ETHR_START,	/* Physical */

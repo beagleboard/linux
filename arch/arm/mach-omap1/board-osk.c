@@ -46,8 +46,6 @@
 #include <asm/arch/tc.h>
 #include <asm/arch/common.h>
 
-extern int omap_gpio_init(void);
-
 static struct mtd_partition osk_partitions[] = {
 	/* bootloader (U-Boot, etc) in first sector */
 	{

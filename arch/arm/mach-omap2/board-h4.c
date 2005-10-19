@@ -34,8 +34,6 @@
 #include <asm/io.h>
 #include <asm/delay.h>
 
-extern int omap_gpio_init(void);
-
 static struct mtd_partition h4_partitions[] = {
 	/* bootloader (U-Boot, etc) in first sector */
 	{

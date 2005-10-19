@@ -32,12 +32,9 @@
 #include <asm/arch/common.h>
 #include <asm/hardware/clock.h>
 
-extern int omap_gpio_init(void);
-
 static void __init omap_generic_init_irq(void)
 {
 	omap_init_irq();
-	omap_gpio_init();
 }
 
 static struct omap_usb_config palmte_usb_config __initdata = {
