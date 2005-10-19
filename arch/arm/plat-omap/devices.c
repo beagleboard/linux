@@ -37,11 +37,9 @@ void omap_nop_release(struct device *dev)
 
 #define	OMAP1_I2C_BASE		0xfffb3800
 #define OMAP2_I2C_BASE1		0x48070000
-#define OMAP2_I2C_BASE2		0x48072000
 #define OMAP_I2C_SIZE		0x3f
 #define OMAP1_I2C_INT		INT_I2C
 #define OMAP2_I2C_INT1		56
-#define OMAP2_I2C_INT2		57
 
 static struct resource i2c_resources1[] = {
 	{
@@ -67,32 +65,7 @@ static struct platform_device omap_i2c_device1 = {
 	.resource	= i2c_resources1,
 };
 
-#ifdef CONFIG_ARCH_OMAP24XX
-static struct resource i2c_resources2[] = {
-	{
-		.start		= OMAP2_I2C_BASE2,
-		.end		= OMAP2_I2C_BASE2 + OMAP_I2C_SIZE,
-		.flags		= IORESOURCE_MEM,
-	},
-	{
-		.start		= OMAP2_I2C_INT2,
-		.flags		= IORESOURCE_IRQ,
-	},
-};
-
-static struct platform_device omap_i2c_device2 = {
-        .name           = "i2c_omap",
-        .id             = 2,
-        .dev = {
-                .release        = omap_nop_release,
-        },
-	.num_resources	= ARRAY_SIZE(i2c_resources2),
-	.resource	= i2c_resources2,
-};
-#else
-#define omap_i2c_device2	NULL
-#endif
-
+/* See also arch/arm/mach-omap2/devices.c for second I2C on 24xx */
 static void omap_init_i2c(void)
 {
 	if (cpu_is_omap24xx()) {
@@ -112,20 +85,14 @@ static void omap_init_i2c(void)
 	if (cpu_is_omap24xx()) {
 		omap_cfg_reg(M19_24XX_I2C1_SCL);
 		omap_cfg_reg(L15_24XX_I2C1_SDA);
-		omap_cfg_reg(J15_24XX_I2C2_SCL);
-		omap_cfg_reg(H19_24XX_I2C2_SDA);
 	} else {
 		omap_cfg_reg(I2C_SCL);
 		omap_cfg_reg(I2C_SDA);
 	}
 
 	(void) platform_device_register(&omap_i2c_device1);
-
-	if (cpu_is_omap24xx())
-		(void) platform_device_register(&omap_i2c_device2);
 }
-#else
-static inline void omap_init_i2c(void) {}
+
 #endif
 
 /*-------------------------------------------------------------------------*/
