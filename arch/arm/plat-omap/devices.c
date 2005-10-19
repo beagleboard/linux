@@ -331,10 +331,8 @@ static inline void omap_init_fb(void)
 	const struct omap_lcd_config *conf;
 
 	conf = omap_get_config(OMAP_TAG_LCD, struct omap_lcd_config);
-	if (conf == NULL)
-		return;
-
-	omap_fb_conf = *conf;
+	if (conf != NULL)
+		omap_fb_conf = *conf;
 	platform_device_register(&omap_fb_device);
 }
 
@@ -369,6 +367,7 @@ static int __init omap_init_devices(void)
 	/* please keep these calls, and their implementations above,
 	 * in alphabetical order so they're easier to sort through.
 	 */
+	omap_init_fb();
 	omap_init_i2c();
 	omap_init_mmc();
 	omap_init_wdt();
