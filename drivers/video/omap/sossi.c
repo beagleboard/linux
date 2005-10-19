@@ -1,9 +1,9 @@
 /*
- * File: drivers/video/omap_new/omapfb_main.c
+ * File: drivers/video/omap/omap1/sossi.c
  *
- * Special optimiSed Screen Interface driver for TI OMAP boards
+ * OMAP1 Special OptimiSed Screen Interface support
  *
- * Copyright (C) 2004 Nokia Corporation
+ * Copyright (C) 2004-2005 Nokia Corporation
  * Author: Juha Yrjölä <juha.yrjola@nokia.com>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -24,9 +24,12 @@
 #include <linux/config.h>
 #include <linux/module.h>
 #include <linux/mm.h>
+#include <asm/hardware/clock.h>
 #include <asm/io.h>
 
 #include "sossi.h"
+
+#define MODULE_NAME		"omapfb-sossi"
 
 #define OMAP_SOSSI_BASE         0xfffbac00
 #define SOSSI_ID_REG		0x00
@@ -43,6 +46,8 @@
 #define DMA_LCD_CCR       0xfffee3c2
 #define DMA_LCD_CTRL      0xfffee3c4
 #define DMA_LCD_LCH_CTRL  0xfffee3ea
+
+#define pr_err(fmt, args...) printk(KERN_ERR MODULE_NAME ": " fmt, ## args)
 
 static int sossi_base = IO_ADDRESS(OMAP_SOSSI_BASE);
 
@@ -86,36 +91,18 @@ static void sossi_clear_bits(int reg, u32 bits)
         sossi_write_reg(reg, sossi_read_reg(reg) & ~bits);
 }
 
-#if 1
-void sossi_dump(void)
-{
-	printk("  INIT1:    0x%08x\n", sossi_read_reg(SOSSI_INIT1_REG));
-	printk("  INIT2:    0x%08x\n", sossi_read_reg(SOSSI_INIT2_REG));
-	printk("  INIT3:    0x%08x\n", sossi_read_reg(SOSSI_INIT3_REG));
-	printk("  TEARING:  0x%08x\n", sossi_read_reg(SOSSI_TEARING_REG));
-	printk("  INIT1B:   0x%08x\n", sossi_read_reg(SOSSI_INIT1B_REG));
-}
-#endif
-
-static void sossi_dma_init(void)
-{
-	/* OMAP3.1 mapping disable */
-	omap_writel(omap_readl(DMA_GSCR) | (1 << 3), DMA_GSCR);
-	/* Logical channel type to b0100 */
-	omap_writew(omap_readw(DMA_LCD_LCH_CTRL) | (1 << 2), DMA_LCD_LCH_CTRL);
-	/* LCD_DMA dest port to 1 */
-	omap_writew(omap_readw(DMA_LCD_CTRL) | (1 << 8), DMA_LCD_CTRL);
-	/* LCD_CCR OMAP31 comp mode */
-	omap_writew(omap_readw(DMA_LCD_CCR) | (1 << 10), DMA_LCD_CCR);
-}
-
 #define MOD_CONF_CTRL_1   0xfffe1110
 #define CONF_SOSSI_RESET_R      (1 << 23)
 #define CONF_MOD_SOSSI_CLK_EN_R (1 << 16)
 
+static struct clk *dpll_clk;
+
 int sossi_init(void)
 {
 	u32 l, k;
+
+	dpll_clk = clk_get(NULL, "ck_dpll1");
+	BUG_ON(dpll_clk == NULL);
 
 	/* Reset and enable the SoSSI module */
 	l = omap_readl(MOD_CONF_CTRL_1);
@@ -125,14 +112,10 @@ int sossi_init(void)
 	omap_writel(l, MOD_CONF_CTRL_1);
 
 	l |= CONF_MOD_SOSSI_CLK_EN_R;
-	/* FIXME: Hardcode divide ratio 3 */
-	l |= 2 << 17;
 	omap_writel(l, MOD_CONF_CTRL_1);
 
 	omap_writel(omap_readl(ARM_IDLECT2) | (1 << 11), ARM_IDLECT2);
 	omap_writel(omap_readl(ARM_IDLECT1) | (1 << 6), ARM_IDLECT1);
-
-	sossi_dma_init();
 
 	l = sossi_read_reg(SOSSI_INIT2_REG);
 	/* Enable and reset the SoSSI block */
@@ -145,14 +128,15 @@ int sossi_init(void)
 	sossi_write_reg(SOSSI_ID_REG, 0);
 	l = sossi_read_reg(SOSSI_ID_REG);
 	k = sossi_read_reg(SOSSI_ID_REG);
-	
+
 	if (l != 0x55555555 || k != 0xaaaaaaaa) {
-		printk(KERN_ERR "Invalid SoSSI sync pattern: %08x, %08x\n", l, k);
+		pr_err("Invalid SoSSI sync pattern: %08x, %08x\n", l, k);
 		return -ENODEV;
 	}
 	l = sossi_read_reg(SOSSI_ID_REG); /* Component code */
 	l = sossi_read_reg(SOSSI_ID_REG);
-	printk(KERN_INFO "SoSSI rev. %d.%d initialized\n", l >> 16, l & 0xffff);
+	pr_info(KERN_INFO MODULE_NAME ": version %d.%d initialized\n",
+			l >> 16, l & 0xffff);
 
 	l = sossi_read_reg(SOSSI_INIT1_REG);
 	l |= (1 << 19); /* DMA_MODE */
@@ -162,25 +146,83 @@ int sossi_init(void)
 	return 0;
 }
 
-static void set_timings(int tw0, int tw1)
+static unsigned long get_sossi_clk_rate(int div)
+{
+	return (clk_get_rate(dpll_clk)) / div;
+}
+
+static unsigned long get_sossi_clk_period(int div)
+{
+	/* In picoseconds */
+	return 1000000000 / (get_sossi_clk_rate(div) / 1000);
+}
+
+static int ns_to_sossi_ticks(int time, int div)
+{
+	unsigned long tick_ps;
+
+	/* Calculate in picosecs to yield more exact results */
+	tick_ps = get_sossi_clk_period(div);
+
+	return (time * 1000 + tick_ps - 1) / tick_ps;
+}
+
+static int set_timings(int div, int tw0, int tw1)
 {
 	u32 l;
 
+	if (tw1 * 1000 > 64 * get_sossi_clk_period(div))
+		return -1;
+	if (tw0 * 1000 > 16 * get_sossi_clk_period(div))
+		return -1;
+
+	l = omap_readl(MOD_CONF_CTRL_1);
+	l &= ~(7 << 17);
+	l |= (div - 1) << 17;
+	omap_writel(l, MOD_CONF_CTRL_1);
+
+	tw0 = ns_to_sossi_ticks(tw0, div) - 1;
+	tw1 = ns_to_sossi_ticks(tw1, div) - 1;
+	if (tw0 < 0)
+		tw0 = 0;
+	if (tw1 < 0)
+		tw1 = 0;
+#if 0
+	printk("Using TW0 = %d, TW1 = %d, div = %d, period = %d ps\n",
+	       tw0, tw1, div, get_sossi_clk_period(div));
+#endif
 	l = sossi_read_reg(SOSSI_INIT1_REG);
 	l &= ~((0x0f << 20) | (0x3f << 24));
 	l |= ((tw0 & 0x0f) << 20) | ((tw1 & 0x3f) << 24);
 	sossi_write_reg(SOSSI_INIT1_REG, l);
+
+	return 0;
 }
 
 static struct sossi {
 	int bus_pick_width;
 } sossi;
 
-void sossi_set_xfer_params(int tw0, int tw1, int bus_pick_count, int bus_pick_width)
+void sossi_set_timings(int min_time, int min_tw0, int min_tw1)
+{
+	int div;
+
+	for (div = 1; div <= 8; div++) {
+		if (min_time * 1000 > get_sossi_clk_period(div))
+			continue;
+		if (set_timings(div, min_tw0, min_tw1) == 0)
+			break;
+	}
+	if (div == 9) {
+		pr_err("DPLL frequency too high for SoSSI\n");
+		BUG();
+	}
+}
+
+void sossi_set_xfer_params(int bus_pick_count, int bus_pick_width)
 {
 	u32 l;
 
-	set_timings(tw0, tw1);	
 	sossi.bus_pick_width = bus_pick_width;
 	l = ((bus_pick_count - 1) << 5) | ((bus_pick_width - 1) & 0x1f);
 	sossi_write_reg(SOSSI_INIT3_REG, l);
@@ -234,27 +276,27 @@ static void set_cycles(unsigned int len)
 void sossi_send_cmd(const void *data, unsigned int len)
 {
 	sossi_clear_bits(SOSSI_INIT1_REG, 1 << 18);
-        set_cycles(len);
+	set_cycles(len);
 	send_data(data, len);
 }
 
 void sossi_send_data(const void *data, unsigned int len)
 {
 	sossi_set_bits(SOSSI_INIT1_REG, 1 << 18);
-        set_cycles(len);
+	set_cycles(len);
 	send_data(data, len);
 }
 
 void sossi_prepare_dma_transfer(unsigned int count)
 {
 	sossi_set_bits(SOSSI_INIT1_REG, 1 << 18);
-        set_cycles(count);
+	set_cycles(count);
 }
 
 void sossi_send_data_const32(u32 data, unsigned int count)
 {
 	sossi_set_bits(SOSSI_INIT1_REG, 1 << 18);
-        set_cycles(count * 4);
+	set_cycles(count * 4);
 	while (count > 0) {
 		sossi_write_reg(SOSSI_FIFO_REG, data);
 		count--;
@@ -283,7 +325,7 @@ void sossi_read_data(void *data, unsigned int len)
 	/* Before reading we must check if some writings are going on */
 	while (!(sossi_read_reg(SOSSI_INIT2_REG) & (1 << 3)));
 	sossi_set_bits(SOSSI_INIT1_REG, 1 << 18);
-        set_cycles(len);
+	set_cycles(len);
 	while (len >= 4) {
 		*(u32 *) data = sossi_read_reg(SOSSI_FIFO_REG);
 		len -= 4;

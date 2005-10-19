@@ -1,7 +1,7 @@
 /*
- * File: drivers/video/omap_new/lcd-h3.c
+ * File: drivers/video/omap/lcd-h3.c
  *
- * LCD panel support for the TI OMAP H3 board 
+ * LCD panel support for the TI OMAP H3 board
  *
  * Copyright (C) 2004 Nokia Corporation
  * Author: Imre Deak <imre.deak@nokia.com>
@@ -25,27 +25,30 @@
 
 #include <asm/arch/gpio.h>
 #include <asm/arch/tps65010.h>
+#include <asm/arch/omapfb.h>
 
-#include "omapfb.h"
-
-// #define OMAPFB_DBG 1
+/* #define OMAPFB_DBG 1 */
 
 #include "debug.h"
 
-static int h3_panel_init(struct lcd_panel *panel)
+#define MODULE_NAME	"omapfb-lcd_h3"
+
+#define pr_err(fmt, args...) printk(KERN_ERR MODULE_NAME ": " fmt, ## args)
+
+static int h3_panel_init(struct omapfb_device *fbdev)
 {
 	DBGENTER(1);
 	DBGLEAVE(1);
 	return 0;
 }
 
-static void h3_panel_cleanup(struct lcd_panel *panel)
+static void h3_panel_cleanup(void)
 {
 	DBGENTER(1);
 	DBGLEAVE(1);
 }
 
-static int h3_panel_enable(struct lcd_panel *panel)
+static int h3_panel_enable(void)
 {
 	int r = 0;
 
@@ -56,13 +59,13 @@ static int h3_panel_enable(struct lcd_panel *panel)
 	if (!r)
 		r = tps65010_set_gpio_out_value(GPIO2, HIGH);
 	if (r)
-		PRNERR("Unable to turn on LCD panel\n");
+		pr_err("Unable to turn on LCD panel\n");
 
 	DBGLEAVE(1);
 	return r;
 }
 
-static void h3_panel_disable(struct lcd_panel *panel)
+static void h3_panel_disable(void)
 {
 	int r = 0;
 
@@ -73,39 +76,37 @@ static void h3_panel_disable(struct lcd_panel *panel)
 	if (!r)
 		tps65010_set_gpio_out_value(GPIO2, LOW);
 	if (r)
-		PRNERR("Unable to turn off LCD panel\n");
+		pr_err("Unable to turn off LCD panel\n");
 
 	DBGLEAVE(1);
 }
 
-static unsigned long h3_panel_get_caps(struct lcd_panel *panel)
+static unsigned long h3_panel_get_caps(void)
 {
 	return 0;
 }
 
-static struct lcdc_video_mode mode240x320 = {
-	.x_res = 240,
-	.y_res = 320,
-	.pixel_clock = 12500,
-	.bpp = 16,
-	.hsw = 12,
-	.hfp = 14,
-	.hbp = 72 - 12,
-	.vsw = 1,
-	.vfp = 1,
-	.vbp = 0,
-	.pcd = 2,
-};
-
 struct lcd_panel h3_panel = {
-	.name       = "h3",
-	.config     = LCD_PANEL_TFT,
-	.video_mode = &mode240x320,
+	.name		= "h3",
+	.config		= OMAP_LCDC_PANEL_TFT,
 
-	.init	 = h3_panel_init,
-	.cleanup = h3_panel_cleanup,
-	.enable  = h3_panel_enable,
-	.disable = h3_panel_disable,
-	.get_caps= h3_panel_get_caps,
+	.data_lines	= 16,
+	.bpp		= 16,
+	.x_res		= 240,
+	.y_res		= 320,
+	.pixel_clock	= 12500,
+	.hsw		= 12,
+	.hfp		= 14,
+	.hbp		= 72 - 12,
+	.vsw		= 1,
+	.vfp		= 1,
+	.vbp		= 0,
+	.pcd		= 2,
+
+	.init		= h3_panel_init,
+	.cleanup	= h3_panel_cleanup,
+	.enable		= h3_panel_enable,
+	.disable	= h3_panel_disable,
+	.get_caps	= h3_panel_get_caps,
 };
 

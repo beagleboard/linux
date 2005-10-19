@@ -195,9 +195,15 @@ static struct omap_uart_config osk_uart_config __initdata = {
 	.enabled_uarts = (1 << 0),
 };
 
+static struct omap_lcd_config osk_lcd_config __initdata = {
+	.panel_name	= "osk",
+	.ctrl_name	= "internal",
+};
+
 static struct omap_board_config_kernel osk_config[] = {
 	{ OMAP_TAG_USB,           &osk_usb_config },
 	{ OMAP_TAG_UART,		&osk_uart_config },
+	{ OMAP_TAG_LCD,			&osk_lcd_config },
 };
 
 #ifdef	CONFIG_OMAP_OSK_MISTRAL

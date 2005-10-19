@@ -341,6 +341,42 @@ static void omap_init_rng(void)
 static inline void omap_init_rng(void) {}
 #endif
 
+#if defined(CONFIG_FB_OMAP) || defined(CONFIG_FB_OMAP_MODULE)
+
+static struct omap_lcd_config omap_fb_conf;
+
+static u64 omap_fb_dma_mask = ~(u32)0;
+
+static struct platform_device omap_fb_device = {
+	.name		= "omapfb",
+	.id		= -1,
+	.dev = {
+		.release		= omap_nop_release,
+		.dma_mask		= &omap_fb_dma_mask,
+		.coherent_dma_mask	= ~(u32)0,
+		.platform_data		= &omap_fb_conf,
+	},
+	.num_resources = 0,
+};
+
+static inline void omap_init_fb(void)
+{
+	const struct omap_lcd_config *conf;
+
+	conf = omap_get_config(OMAP_TAG_LCD, struct omap_lcd_config);
+	if (conf == NULL)
+		return;
+
+	omap_fb_conf = *conf;
+	platform_device_register(&omap_fb_device);
+}
+
+#else
+
+static inline void omap_init_fb(void) {}
+
+#endif
+
 /*
  * This gets called after board-specific INIT_MACHINE, and initializes most
  * on-chip peripherals accessible on this board (except for few like USB):

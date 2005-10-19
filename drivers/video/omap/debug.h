@@ -24,58 +24,23 @@
 #ifndef __OMAPFB_DEBUG_H
 #define __OMAPFB_DEBUG_H
 
+#include <asm/io.h>
+
 #ifdef OMAPFB_DBG
 
-#define DBG_BUF_SIZE		2048
-#define MAX_DBG_INDENT_LEVEL	5
-#define DBG_INDENT_SIZE		3
-#define MAX_DBG_MESSAGES	0
-
-static int dbg_indent;
-static int dbg_cnt;
-static char dbg_buf[DBG_BUF_SIZE];
-static spinlock_t dbg_spinlock = SPIN_LOCK_UNLOCKED;
-
-static inline void dbg_print(int level, const char *fmt, ...)
-{
-	if (level <= OMAPFB_DBG) {
-		if (!MAX_DBG_MESSAGES || dbg_cnt < MAX_DBG_MESSAGES) {
-			va_list args;
-			int	ind = dbg_indent;
-			unsigned long flags;
-
-			spin_lock_irqsave(&dbg_spinlock, flags);
-			dbg_cnt++;
-			if (ind > MAX_DBG_INDENT_LEVEL)
-				ind = MAX_DBG_INDENT_LEVEL;
-
-			printk("%*s", ind * DBG_INDENT_SIZE, "");
-			va_start(args, fmt);
-			vsnprintf(dbg_buf, sizeof(dbg_buf), fmt, args);
-			printk(dbg_buf);
-			va_end(args);
-			spin_unlock_irqrestore(&dbg_spinlock, flags);
-		}
-	}
-}
-
-#define DBGPRINT	dbg_print
-
-#define DBGENTER(level)	do { \
-		dbg_print(level, "%s: Enter\n", __FUNCTION__); \
-		dbg_indent++; \
-	} while (0)
-
-#define DBGLEAVE(level)	do { \
-		dbg_indent--; \
-		dbg_print(level, "%s: Leave\n", __FUNCTION__); \
-	} while (0)
+#define DBGPRINT(level, fmt, ...) if (level <= OMAPFB_DBG) do { \
+					printk(KERN_DEBUG "%s: "fmt, \
+						__FUNCTION__, ## __VA_ARGS__); \
+				  } while (0)
+#define DBGENTER(level) DBGPRINT(level, "Enter\n")
+#define DBGLEAVE(level)	DBGPRINT(level, "Leave\n")
 
 static inline void dump_dma_regs(int lch)
 {
+#ifdef CONFIG_ARCH_OMAP1
 #define _R(x) __REG16(OMAP_DMA_##x(lch))
 
-	dbg_print(4, "\nCSDP  :%#06x CCR      :%#06x CSSA_U  :%#06x "
+	DBGPRINT(4, "\nCSDP  :%#06x CCR      :%#06x CSSA_U  :%#06x "
 		    "\nCDSA_L:%#06x CDSA_U   :%#06x CEN     :%#06x "
 		    "\nCFN   :%#06x CSFI     :%#06x CSEI    :%#06x "
 		    "\nCSAC  :%#06x CICR     :%#06x CSR     :%04x "
@@ -90,6 +55,7 @@ static inline void dump_dma_regs(int lch)
 		    _R(CDFI), _R(COLOR_L), _R(COLOR_U),
 		    _R(CCR2), _R(CLNK_CTRL), _R(LCH_CTRL));
 #undef _R
+#endif
 }
 
 #define DUMP_DMA_REGS(lch) dump_dma_regs(lch)

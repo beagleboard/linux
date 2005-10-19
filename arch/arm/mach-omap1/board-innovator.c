@@ -199,6 +199,11 @@ static struct omap_usb_config innovator1510_usb_config __initdata = {
 	.register_dev	= 1,
 	.pins[0]	= 2,
 };
+
+static struct omap_lcd_config innovator1510_lcd_config __initdata = {
+	.panel_name	= "inn1510",
+	.ctrl_name	= "internal",
+};
 #endif
 
 #ifdef CONFIG_ARCH_OMAP16XX
@@ -215,6 +220,11 @@ static struct omap_usb_config h2_usb_config __initdata = {
 #endif
 
 	.pins[1]	= 3,
+};
+
+static struct omap_lcd_config innovator1610_lcd_config __initdata = {
+	.panel_name	= "inn1610",
+	.ctrl_name	= "internal",
 };
 #endif
 
@@ -234,6 +244,7 @@ static struct omap_uart_config innovator_uart_config __initdata = {
 
 static struct omap_board_config_kernel innovator_config[] = {
 	{ OMAP_TAG_USB,         NULL },
+	{ OMAP_TAG_LCD,		NULL },
 	{ OMAP_TAG_MMC,		&innovator_mmc_config },
 	{ OMAP_TAG_UART,	&innovator_uart_config },
 };
@@ -252,12 +263,16 @@ static void __init innovator_init(void)
 #endif
 
 #ifdef CONFIG_ARCH_OMAP15XX
-	if (cpu_is_omap1510())
+	if (cpu_is_omap1510()) {
 		innovator_config[0].data = &innovator1510_usb_config;
+		innovator_config[1].data = &innovator1510_lcd_config;
+	}
 #endif
 #ifdef CONFIG_ARCH_OMAP16XX
-	if (cpu_is_omap1610())
+	if (cpu_is_omap1610()) {
 		innovator_config[0].data = &h2_usb_config;
+		innovator_config[1].data = &innovator1610_lcd_config;
+	}
 #endif
 	omap_board_config = innovator_config;
 	omap_board_config_size = ARRAY_SIZE(innovator_config);

@@ -43,28 +43,21 @@
 #include <asm/arch/irqs.h>
 #include <asm/arch/mux.h>
 #include <asm/arch/board.h>
+#include <asm/arch/omapfb.h>
 
-#include "omapfb.h"
-
-// #define OMAPFB_DBG_FIFO 1
-// #define OMAPFB_DBG 1
+/* #define OMAPFB_DBG 1 */
 
 #include "debug.h"
 
-#define COPY_MODE_REV_DIR	0x01
-#define COPY_MODE_TRANSPARENT	0x02
-#define COPY_MODE_IMAGE		0x04
+#define OMAPFB_DRIVER	"omapfb"
+#define MODULE_NAME	"omapfb"
 
-#ifdef OMAPFB_DBG_FIFO
-struct gfx_stat {
-	unsigned long f_run[GFX_FIFO_SIZE];
-} stat;
-#endif
+#define pr_err(fmt, args...) printk(KERN_ERR MODULE_NAME ": " fmt, ## args)
 
 static unsigned int	def_accel;
 static unsigned long	def_vram;
-static long		def_vxres;
-static long		def_vyres;
+static unsigned long	def_vxres;
+static unsigned long	def_vyres;
 static unsigned int	def_rotate;
 static unsigned int	def_mirror;
 
@@ -78,8 +71,8 @@ static struct caps_table_struct {
         unsigned long flag;
         const char *name;
 } omapfb_caps_table[] = {
-	{ FBCAPS_MANUAL_UPDATE, "manual update" },
-	{ FBCAPS_SET_BACKLIGHT, "backlight setting" },
+	{ OMAPFB_CAPS_MANUAL_UPDATE, "manual update" },
+	{ OMAPFB_CAPS_SET_BACKLIGHT, "backlight setting" },
 };
 
 /*
@@ -87,6 +80,16 @@ static struct caps_table_struct {
  * LCD panel
  * ---------------------------------------------------------------------------
  */
+extern struct lcd_panel h4_panel;
+extern struct lcd_panel h3_panel;
+extern struct lcd_panel h2_panel;
+extern struct lcd_panel p2_panel;
+extern struct lcd_panel osk_panel;
+extern struct lcd_panel palmte_panel;
+extern struct lcd_panel innovator1610_panel;
+extern struct lcd_panel innovator1510_panel;
+extern struct lcd_panel lph8923_panel;
+
 static struct lcd_panel *panels[] = {
 #ifdef CONFIG_MACH_OMAP_H2
 	&h2_panel,
@@ -94,367 +97,62 @@ static struct lcd_panel *panels[] = {
 #ifdef CONFIG_MACH_OMAP_H3
 	&h3_panel,
 #endif
+#ifdef CONFIG_MACH_OMAP_H4
+	&h4_panel,
+#endif
 #ifdef CONFIG_MACH_OMAP_PERSEUS2
 	&p2_panel,
 #endif
 #ifdef CONFIG_MACH_OMAP_OSK
 	&osk_panel,
 #endif
+#ifdef CONFIG_MACH_OMAP_PALMTE
+	&palmte_panel,
+#endif
+
 #ifdef CONFIG_MACH_OMAP_INNOVATOR
+
 #ifdef CONFIG_ARCH_OMAP15XX
 	&innovator1510_panel,
 #endif
 #ifdef CONFIG_ARCH_OMAP16XX
 	&innovator1610_panel,
 #endif
+
 #endif
 };
+
+extern struct lcd_ctrl omap1_int_ctrl;
+extern struct lcd_ctrl omap2_int_ctrl;
+extern struct lcd_ctrl hwa742_ctrl;
+extern struct lcd_ctrl blizzard_ctrl;
 
 static struct lcd_ctrl *ctrls[] = {
-#ifdef CONFIG_FB_OMAP_INTERNAL_LCDC
-	&omapfb_lcdc_ctrl,
+#ifdef CONFIG_FB_OMAP_LCDC_INTERNAL
+#ifdef CONFIG_ARCH_OMAP1
+	&omap1_int_ctrl,
+#else
+	&omap2_int_ctrl,
+#endif
 #endif
 };
 
-static struct omapfb_request *omapfb_rqueue_alloc_req(struct omapfb_rqueue *rq)
-{
-	struct omapfb_request *req;
-
-	down(&rq->free_sema);
-	spin_lock(&rq->lock);
-	req = list_entry(rq->free_list.next, struct omapfb_request, entry);
-	list_del(&req->entry);
-	spin_unlock(&rq->lock);
-	return req;
-}
-
-static void __omapfb_rqueue_free_req(struct omapfb_rqueue *rq,
-				     struct omapfb_request *req)
-{
-	list_add(&req->entry, &rq->free_list);
-	up(&rq->free_sema);
-}
-
-static void omapfb_rqueue_process(void *data)
-{
-	struct omapfb_rqueue *rq = data;
-
-	spin_lock(&rq->lock);
-	while (!list_empty(&rq->pending_list)) {
-		struct omapfb_request *req;
-
-		req = list_entry(rq->pending_list.next,
-				   struct omapfb_request, entry);
-		list_del(&req->entry);
-		spin_unlock(&rq->lock);
-		rq->status |= req->function(&req->par);
-		spin_lock(&rq->lock);
-		__omapfb_rqueue_free_req(rq, req);
-	}
-	complete(&rq->rqueue_empty);
-	spin_unlock(&rq->lock);
-}
-
-static void omapfb_rqueue_schedule_req(struct omapfb_rqueue *rq,
-				       struct omapfb_request *req)
-{
-	spin_lock(&rq->lock);
-	list_add_tail(&req->entry, &rq->pending_list);
-	spin_unlock(&rq->lock);
-	schedule_work(&rq->work);
-}
-
-static void omapfb_rqueue_sync(struct omapfb_rqueue *rq)
-{
-	int wait = 0;
-
-	spin_lock(&rq->lock);
-	if (!list_empty(&rq->pending_list)) {
-		wait = 1;
-		init_completion(&rq->rqueue_empty);
-	}
-	spin_unlock(&rq->lock);
-	if (wait)
-		wait_for_completion(&rq->rqueue_empty);
-}
-
-static void omapfb_rqueue_reset(struct omapfb_rqueue *rq, unsigned long *status)
-{
-	omapfb_rqueue_sync(rq);
-	spin_lock(&rq->lock);
-	*status = rq->status;
-	rq->status = 0;
-	spin_unlock(&rq->lock);
-}
-
-static void omapfb_rqueue_init(struct omapfb_rqueue *rq)
-{
-	int i;
-
-	spin_lock_init(&rq->lock);
-	sema_init(&rq->free_sema, OMAPFB_RQUEUE_SIZE);
-	init_completion(&rq->rqueue_empty);
-	INIT_WORK(&rq->work, omapfb_rqueue_process, rq);
-	INIT_LIST_HEAD(&rq->free_list);
-	INIT_LIST_HEAD(&rq->pending_list);
-	for (i = 0; i < OMAPFB_RQUEUE_SIZE; i++)
-		list_add(&rq->req_pool[i].entry, &rq->free_list);
-}
-
-static void omapfb_rqueue_cleanup(struct omapfb_rqueue *rq)
-{
-}
-
-/*
- * ---------------------------------------------------------------------------
- * gfx DMA
- * ---------------------------------------------------------------------------
- */
-/* Get a new logical channel from the gfx fifo. */
-static void inline gfxdma_get_lch(struct gfx_dma *gfx, int *lch)
-{
-	DBGENTER(3);
-
-	down(&gfx->f_free);
-
-	spin_lock_bh(&gfx->spinlock);
-
-	*lch = gfx->f_tail->lch_num;
-	gfx->f_tail = gfx->f_tail->next;
-
-	spin_unlock_bh(&gfx->spinlock);
-
-	DBGLEAVE(3);
-}
-
-/* Set basic transfer params for the logical channel */
-static inline void gfxdma_set_lch_params(int lch, int data_type,
-					 int enumber, int fnumber,
-				       	 unsigned long src_start, int src_amode,
-				         unsigned long dst_start, int dst_amode)
-{
-	omap_set_dma_transfer_params(lch, data_type, enumber, fnumber, 0);
-	omap_set_dma_src_params(lch, OMAP_DMA_PORT_EMIFF,
-				src_amode, src_start);
-	omap_set_dma_dest_params(lch, OMAP_DMA_PORT_EMIFF,
-				 dst_amode, dst_start);
-}
-
-/* Set element and frame indexes for the logical channel, to support
- * image transformations
- */
-static inline void gfxdma_set_lch_index(int lch, int src_eidx, int src_fidx,
-					int dst_eidx, int dst_fidx)
-{
-	omap_set_dma_src_index(lch, src_eidx, src_fidx);
-	omap_set_dma_dest_index(lch, dst_eidx, dst_fidx);
-}
-
-/* Set color parameter for the logical channel, to support constant fill and
- * transparent copy operations
- */
-static inline void gfxdma_set_lch_color(int lch, u32 color,
-					enum omap_dma_color_mode mode)
-{
-	omap_set_dma_color_mode(lch, mode, color);
-}
-
-
-/* Start a new transfer consisting of a single DMA logical channel,
- * or a chain (f_run > 1). Can be called in interrupt context.
- * gfx->spinlock must be held.
- */
-static void inline gfxdma_start_chain(struct gfx_dma *gfx)
-{
-	DBGENTER(3);
-
-	gfx->f_run = gfx->f_wait;
-#ifdef OMAPFB_DBG_FIFO
-	stat.f_run[gfx->f_run - 1]++;
+#ifdef CONFIG_FB_OMAP_LCDC_EXTERNAL
+#ifdef CONFIG_ARCH_OMAP1
+extern struct lcd_ctrl_extif sossi_extif;
+#else
+extern struct lcd_ctrl_extif rfbi_extif;
 #endif
-	gfx->f_wait = 0;
-	omap_enable_dma_irq(gfx->f_chain_end->lch_num, OMAP_DMA_BLOCK_IRQ);
-	/* Let it go */
-	DBGPRINT(1, "start %d\n", gfx->f_head->lch_num);
-	omap_start_dma(gfx->f_head->lch_num);
-	gfx->f_chain_end = gfx->f_chain_end->next;
+#endif
 
-	DBGLEAVE(3);
+static void omapfb_rqueue_lock(struct omapfb_device *fbdev)
+{
+	down(&fbdev->rqueue_sema);
 }
 
-/* Enqueue a logical channel, that has been set up. If no other transfers
- * are pending start this new one right away. */
-static void inline gfxdma_enqueue(struct gfx_dma *gfx, int lch)
+static void omapfb_rqueue_unlock(struct omapfb_device *fbdev)
 {
-	DBGENTER(3);
-
-	spin_lock_bh(&gfx->spinlock);
-	DBGPRINT(3, "run:%d wait:%d\n", gfx->f_run, gfx->f_wait);
-	if (gfx->f_wait) {
-		DBGPRINT(1, "link %d, %d\n", gfx->f_chain_end->lch_num, lch);
-		omap_dma_link_lch(gfx->f_chain_end->lch_num, lch);
-		gfx->f_chain_end = gfx->f_chain_end->next;
-	}
-	omap_disable_dma_irq(lch, OMAP_DMA_BLOCK_IRQ);
-
-	gfx->f_wait++;
-
-	if (!gfx->f_run)
-		gfxdma_start_chain(gfx);
-	spin_unlock_bh(&gfx->spinlock);
-
-	DBGLEAVE(3);
-}
-
-/* Called by DMA core when the last transfer ended, or there is an error
- * condition. We dispatch handling of the end of transfer case to a tasklet.
- * Called in interrupt context.
- */
-static void gfxdma_handler(int lch, u16 ch_status, void *data)
-{
-	struct gfx_dma *gfx = (struct gfx_dma *)data;
-	int done = 0;
-
-	DBGENTER(3);
-
-	DBGPRINT(4, "lch=%d status=%#010x\n", lch, ch_status);
-	if (unlikely(ch_status & (OMAP_DMA_TOUT_IRQ | OMAP_DMA_DROP_IRQ))) {
-		PRNERR("gfx DMA error. status=%#010x\n", ch_status);
-		done = 1;
-	} else if (likely(ch_status & OMAP_DMA_BLOCK_IRQ))
-		done = 1;
-	if (likely(done)) {
-		gfx->done = 1;
-		tasklet_schedule(&gfx->dequeue_tasklet);
-	}
-
-	DBGLEAVE(3);
-}
-
-/* Let the DMA core know that the last transfer has ended. If there are
- * pending transfers in the fifo start them now.
- * Called in interrupt context.
- */
-static void gfxdma_dequeue_tasklet(unsigned long data)
-{
-	struct gfx_dma *gfx = (struct gfx_dma *)data;
-	struct gfx_lchannel *f_chain;
-
-	DBGENTER(3);
-
-	/* start an already programmed transfer
-	 */
-	while (likely(gfx->done)) {
-		gfx->done = 0;
-		spin_lock(&gfx->spinlock);
-		f_chain = gfx->f_head;
-		omap_stop_dma(f_chain->lch_num);
-		/* Would be better w/o a loop.. */
-		while (gfx->f_run--) {
-			if (gfx->f_run)
-				omap_dma_unlink_lch(f_chain->lch_num,
-						    f_chain->next->lch_num);
-			f_chain = f_chain->next;
-			up(&gfx->f_free);
-		}
-		gfx->f_run = 0;
-		gfx->f_head = f_chain;
-		if (likely(gfx->f_wait))
-			gfxdma_start_chain(gfx);
-		else
-			complete(&gfx->sync_complete);
-		spin_unlock(&gfx->spinlock);
-	}
-
-	DBGLEAVE(3);
-}
-
-/* Wait till any pending transfers end. */
-static void gfxdma_sync(struct gfx_dma *gfx)
-{
-	int wait = 0;
-
-	DBGENTER(1);
-
-	for (;;) {
-		spin_lock_bh(&gfx->spinlock);
-		if (gfx->f_run + gfx->f_wait) {
-			wait = 1;
-			init_completion(&gfx->sync_complete);
-		}
-		spin_unlock_bh(&gfx->spinlock);
-		if (wait) {
-			wait_for_completion(&gfx->sync_complete);
-			wait = 0;
-		} else
-			break;
-	}
-
-	DBGLEAVE(1);
-}
-
-/* Initialize the gfx DMA object.
- * Allocate DMA logical channels according to the fifo size.
- * Set the channel parameters that will be the same for all transfers.
- */
-static int gfxdma_init(struct gfx_dma *gfx)
-{
-	int			r = 0;
-	int			i;
-
-	DBGENTER(1);
-
-	for (i = 0; i < GFX_FIFO_SIZE; i++) {
-		int next_idx;
-		int lch_num;
-
-		r = omap_request_dma(0, OMAPFB_DRIVER,
-				     gfxdma_handler, gfx, &lch_num);
-		if (r) {
-			int j;
-
-			PRNERR("unable to get GFX DMA %d\n", i);
-			for (j = 0; j < i; j++)
-				omap_free_dma(lch_num);
-			r = -1;
-			goto exit;
-		}
-		omap_set_dma_src_data_pack(lch_num, 1);
-		omap_set_dma_src_burst_mode(lch_num, OMAP_DMA_DATA_BURST_4);
-		omap_set_dma_dest_data_pack(lch_num, 1);
-		omap_set_dma_dest_burst_mode(lch_num, OMAP_DMA_DATA_BURST_4);
-
-		gfx->fifo[i].lch_num = lch_num;
-
-		next_idx = i < GFX_FIFO_SIZE - 1 ? i + 1 : 0;
-		gfx->fifo[next_idx].prev = &gfx->fifo[i];
-		gfx->fifo[i].next = &gfx->fifo[next_idx];
-	}
-	gfx->f_head = gfx->f_tail = gfx->f_chain_end = &gfx->fifo[0];
-	sema_init(&gfx->f_free, GFX_FIFO_SIZE);
-
-	spin_lock_init(&gfx->spinlock);
-
-	tasklet_init(&gfx->dequeue_tasklet, gfxdma_dequeue_tasklet,
-		     (unsigned long)gfx);
-
-	init_completion(&gfx->sync_complete);
-exit:
-	DBGLEAVE(1);
-	return r;
-}
-
-/* Clean up the gfx DMA object */
-static void gfxdma_cleanup(struct gfx_dma *gfx)
-{
-	int i;
-
-	DBGENTER(1);
-
-	for (i = 0; i < GFX_FIFO_SIZE; i++)
-		omap_free_dma(gfx->fifo[i].lch_num);
-
-	DBGLEAVE(1);
+	up(&fbdev->rqueue_sema);
 }
 
 /*
@@ -478,48 +176,26 @@ static const int dma_elem_type[] = {
  */
 static int ctrl_init(struct omapfb_device *fbdev)
 {
-	unsigned long mem_size;
 	int r;
 
 	DBGENTER(1);
 
-	r = fbdev->ctrl->init(fbdev);
-	if (r < 0)
+	r = fbdev->ctrl->init(fbdev, 0, def_vram);
+	if (r < 0) {
+		pr_err("controller initialization failed\n");
 		goto exit;
-	fbdev->ctrl->get_mem_layout(fbdev, &mem_size, &fbdev->frame0_org);
-
-	if (def_vram) {
-		if (mem_size > def_vram) {
-			PRNERR("specified frame buffer memory too small\n");
-			r = -ENOMEM;
-			goto cleanup_ctrl;
-		}
-		mem_size = def_vram;
-	}
-	fbdev->lcddma_mem_size = PAGE_SIZE << get_order(mem_size);
-	fbdev->lcddma_base = dma_alloc_writecombine(fbdev->dev,
-						    fbdev->lcddma_mem_size,
-						    &fbdev->lcddma_handle,
-						    GFP_KERNEL);
-	if (fbdev->lcddma_base == NULL) {
-		PRNERR("unable to allocate fb DMA memory\n");
-		r = -ENOMEM;
-		goto cleanup_ctrl;
 	}
 
-	memset(fbdev->lcddma_base, 0, fbdev->lcddma_mem_size);
+	fbdev->ctrl->get_vram_layout(&fbdev->vram_size, &fbdev->vram_virt_base,
+				     &fbdev->vram_phys_base);
+	memset((void *)fbdev->vram_virt_base, 0, fbdev->vram_size);
 
-	DBGPRINT(1, "lcddma_base=%#10x lcddma_handle=%#10x lcddma_mem_size=%d"
-		 "palette_size=%d frame0_org=%d palette_org=%d\n",
-		 fbdev->lcddma_base, fbdev->lcddma_handle,
-		 fbdev->lcddma_mem_size,
-		 fbdev->palette_size,
-		 fbdev->frame0_org, fbdev->palette_org);
+	DBGPRINT(1, "vram_phys %08x vram_virt %p vram_size=%lu\n",
+		 fbdev->vram_phys_base, fbdev->vram_virt_base,
+		 fbdev->vram_size);
 
 	DBGLEAVE(1);
 	return 0;
-cleanup_ctrl:
-        fbdev->ctrl->cleanup(fbdev);
 exit:
 	DBGLEAVE(1);
 	return r;
@@ -527,14 +203,26 @@ exit:
 
 static void ctrl_cleanup(struct omapfb_device *fbdev)
 {
-	fbdev->ctrl->cleanup(fbdev);
-	dma_free_writecombine(fbdev->dev, fbdev->lcddma_mem_size,
-			      fbdev->lcddma_base, fbdev->lcddma_handle);
+	fbdev->ctrl->cleanup();
 }
 
-static void ctrl_change_mode(struct omapfb_device *fbdev)
+static int ctrl_change_mode(struct omapfb_device *fbdev)
 {
-	fbdev->ctrl->change_mode(fbdev);
+	int r;
+	unsigned long offset;
+	struct fb_var_screeninfo *var = &fbdev->fb_info->var;
+
+	DBGPRINT(1, "xoffset %d yoffset %d line_length %d bits_per_pixel %d\n",
+		var->xoffset, var->yoffset, fbdev->fb_info->fix.line_length,
+		var->bits_per_pixel);
+	offset = var->yoffset * fbdev->fb_info->fix.line_length +
+		 var->xoffset * var->bits_per_pixel / 8;
+	r = fbdev->ctrl->setup_plane(OMAPFB_PLANE_GFX, OMAPFB_CHANNEL_OUT_LCD,
+				 offset, var->xres_virtual, 0, 0, var->xres,
+				 var->yres, fbdev->color_mode);
+	DBGLEAVE(1);
+
+	return r;
 }
 
 /*
@@ -546,39 +234,19 @@ static void ctrl_change_mode(struct omapfb_device *fbdev)
 static int omapfb_open(struct fb_info *info, int user)
 {
 	DBGENTER(1);
-
-#ifdef OMAPFB_DBG_FIFO
-	memset(&stat, 0, sizeof(stat));
-#endif
-
 	DBGLEAVE(1);
 	return 0;
 }
+
+static void omapfb_sync(struct fb_info *info);
 
 /* Called when the omapfb device is closed. We make sure that any pending
  * gfx DMA operations are ended, before we return. */
 static int omapfb_release(struct fb_info *info, int user)
 {
-	struct omapfb_device *dev = (struct omapfb_device *)info->par;
-	int sync = 0;
-
 	DBGENTER(1);
 
-	spin_lock_bh(&dev->gfx.spinlock);
-	if (dev->gfx.f_run)
-		sync = 1;
-	spin_unlock_bh(&dev->gfx.spinlock);
-	if (sync) {
-		gfxdma_sync(&dev->gfx);
-	}
-#ifdef OMAPFB_DBG_FIFO
-	{
-		int i;
-		for (i = 0; i < GFX_FIFO_SIZE; i++)
-			printk(KERN_INFO "f_run[%d]=%lu\n", i + 1,
-					stat.f_run[i]);
-	}
-#endif
+	omapfb_sync(info);
 
 	DBGLEAVE(1);
 	return 0;
@@ -588,499 +256,111 @@ static int omapfb_release(struct fb_info *info, int user)
  * palette if one is available. For now we support only 16bpp and thus store
  * the entry only to the pseudo palette.
  */
-static int omapfb_setcolreg(u_int regno, u_int red, u_int green,
-			    u_int blue, u_int transp,
-			    struct fb_info *info)
+static int _setcolreg(struct fb_info *info, u_int regno, u_int red, u_int green,
+			u_int blue, u_int transp, int update_hw_pal)
 {
+	struct omapfb_device *fbdev = (struct omapfb_device *)info->par;
 	u16 pal;
+	int r = 0;
+
+	if (regno < 16) {
+		pal = ((red >> 11) << 11) | ((green >> 10) << 5) | (blue >> 11);
+		((u32 *)(info->pseudo_palette))[regno] = pal;
+	}
+
+	if (fbdev->ctrl->setcolreg)
+		r = fbdev->ctrl->setcolreg(regno, red, green, blue, transp,
+						update_hw_pal);
+
+	return r;
+}
+
+static int omapfb_setcolreg(u_int regno, u_int red, u_int green, u_int blue,
+			    u_int transp, struct fb_info *info)
+{
 	int r = 0;
 
 	DBGENTER(2);
 
-	if (regno >= 16) {
-		r = -1;
-		goto exit;
-	}
-	pal = ((red >> 11) << 11) | ((green >> 10) << 5) | (blue >> 11);
-	((u32 *)(info->pseudo_palette))[regno] = pal;
+	_setcolreg(info, regno, red, green, blue, transp, 1);
 
-exit:
 	DBGLEAVE(2);
+
 	return r;
 }
 
-static int omapfb_suspend(struct device *dev, pm_message_t mesg, u32 level);
-static int omapfb_resume(struct device *dev, u32 level);
-
-static int omapfb_blank(int blank, struct fb_info *info)
+static int omapfb_setcmap(struct fb_cmap *cmap, struct fb_info *info)
 {
-	struct omapfb_device *fbdev = (struct omapfb_device *)info->par;
+	int count, index, r;
+	u16 *red, *green, *blue, *transp;
+	u16 trans = 0xffff;
+
+	red     = cmap->red;
+	green   = cmap->green;
+	blue    = cmap->blue;
+	transp  = cmap->transp;
+	index   = cmap->start;
+
+	for (count = 0; count < cmap->len; count++) {
+		if (transp)
+			trans = *transp++;
+		r = _setcolreg(info, index++, *red++, *green++, *blue++, trans,
+				count == cmap->len - 1);
+		if (r != 0)
+			return r;
+	}
+
+	return 0;
+}
+
+
+static void omapfb_update_full_screen(struct omapfb_device *fbdev);
+
+static int omapfb_blank(int blank, struct fb_info *fbi)
+{
+	struct omapfb_device *fbdev = (struct omapfb_device *)fbi->par;
 	int r = 0;
 
 	DBGENTER(1);
+
+	omapfb_rqueue_lock(fbdev);
 	switch (blank) {
 	case VESA_NO_BLANKING:
-		omapfb_resume(fbdev->dev, 0);
+		if (fbdev->state == OMAPFB_SUSPENDED) {
+			fbdev->panel->enable();
+			if (fbdev->ctrl->resume)
+				fbdev->ctrl->resume();
+			fbdev->state = OMAPFB_ACTIVE;
+			if (fbdev->ctrl->get_update_mode() ==
+					OMAPFB_MANUAL_UPDATE)
+				omapfb_update_full_screen(fbdev);
+		}
 		break;
 	case VESA_POWERDOWN:
-	 omapfb_suspend(fbdev->dev, PMSG_SUSPEND, 0);
+		if (fbdev->state == OMAPFB_ACTIVE) {
+			if (fbdev->ctrl->suspend)
+				fbdev->ctrl->suspend();
+			fbdev->panel->disable();
+			fbdev->state = OMAPFB_SUSPENDED;
+		}
 		break;
 	default:
 		r = -EINVAL;
 	}
+	omapfb_rqueue_unlock(fbdev);
 
 	DBGLEAVE(1);
 	return r;
 }
 
-/* Setup a constant fill DMA transfer. Destination must be elem size aligned. */
-static inline void fill_block(struct omapfb_device *fbdev,
-			      unsigned long dst, unsigned long enumber,
-			      unsigned long height, int esize, u32 color)
-{
-	unsigned long	fidx;
-	int		lch;
-
-	DBGPRINT(2, "dst:%#010x enumber:%d height:%d esize:%d color:%#010x\n",
-		 dst, enumber, height, esize, color);
-	fidx = fbdev->fb_info->fix.line_length - enumber * esize + 1;
-	gfxdma_get_lch(&fbdev->gfx, &lch);
-	gfxdma_set_lch_params(lch, dma_elem_type[esize], enumber, height,
-			      0, OMAP_DMA_AMODE_CONSTANT,
-			      dst, OMAP_DMA_AMODE_DOUBLE_IDX);
-	gfxdma_set_lch_index(lch, 0, 0, 1, fidx);
-	gfxdma_set_lch_color(lch, color, OMAP_DMA_CONSTANT_FILL);
-	gfxdma_enqueue(&fbdev->gfx, lch);
-
-	DUMP_DMA_REGS(lch);
-}
-
-/* Fill the specified rectangle with a solid color.
- * ROP_XOR and bpp<8 can't be handled by the DMA hardware.
- * When frame flipping is in effect use the destination frame.
- * We'll make our best to use the largest possible elem size, doing the fill
- * in more parts if alignment requires us to do so.
- */
-static int omapfb_fillrect(void *data)
-{
-	struct omapfb_fillrect_params *par = data;
-	struct omapfb_device *fbdev = (struct omapfb_device *)par->fbi->par;
-
-	int		dx = par->rect.dx, dy = par->rect.dy;
-	int		vxres = par->fbi->var.xres_virtual;
-	int		vyres = par->fbi->var.yres_virtual;
-	int		width = par->rect.width, height = par->rect.height;
-	unsigned long	dst;
-	u32		color;
-	int		bpp;
-	int		enumber, esize;
-	int		r = 0;
-
-	DBGENTER(2);
-	bpp = par->fbi->var.bits_per_pixel;
-	/* bpp < 8 is tbd.
-	 * We can't do ROP_XOR with DMA
-	 * If IRQs are disabled we can't use DMA
-	 */
-	if (bpp < 8 || par->rect.rop == ROP_XOR || irqs_disabled()) {
-		r = OMAPFB_FILLRECT_FAILED;
-		goto exit;
-	}
-	/* Clipping */
-	if (!width || !height || dx > vxres || dy > vyres)
-		goto exit;
-	if (dx + width > vxres)
-		width = vxres - dx;
-	if (dy + height > vyres)
-		height = vyres - dy;
-
-	if (bpp == 12)
-		bpp = 16;
-	width = width * bpp / 8;
-
-	dst = fbdev->lcddma_handle + fbdev->dst_frame_org;
-	dst += dx * bpp / 8 + dy * par->fbi->fix.line_length;
-
-	color = par->rect.color;
-	switch (bpp) {
-	case 8:
-		color |= color << 8;
-		/* Fall through */
-	case 16:
-		color |= color << 16;
-	}
-
-	if ((dst & 3) || width < 4) {
-		if (!(dst & 1) && width > 1) {
-			esize = 2;
-			enumber = 1;
-			width -= 2;
-		} else {
-			esize = 1;
-			enumber = 4 - (esize & 3);
-			if (enumber > width)
-				enumber = width;
-			width -= enumber;
-		}
-		fill_block(fbdev, dst, enumber, height, esize, color);
-		dst = (dst + 3) & ~3;
-	}
-	if (width) {
-		enumber = width / 4;
-		fill_block(fbdev, dst, enumber, height, 4, color);
-		dst += enumber * 4;
-		width -= enumber * 4;
-	}
-	if (width) {
-		if (width == 2) {
-			esize = 2;
-			enumber = 1;
-		} else {
-			esize = 1;
-			enumber = width;
-		}
-		fill_block(fbdev, dst, enumber, height, esize, color);
-	}
-
-exit:
-	DBGLEAVE(2);
-	return r;
-}
-
-static int omapfb_schedule_fillrect(struct fb_info *fbi,
-				     const struct fb_fillrect *rect)
+static void omapfb_sync(struct fb_info *fbi)
 {
 	struct omapfb_device *fbdev = (struct omapfb_device *)fbi->par;
-	struct omapfb_request *req;
 
-	if ((req = omapfb_rqueue_alloc_req(&fbdev->rqueue)) == NULL)
-		return -ENOMEM;
-	req->function = omapfb_fillrect;
-	req->par.fillrect.fbi = fbi;
-	req->par.fillrect.rect = *rect;
-	omapfb_rqueue_schedule_req(&fbdev->rqueue, req);
-	return fbdev->rqueue.status ? OMAPFB_GFX_STATUS_CHANGED : 0;
-}
-
-/* Setup a gfx DMA transfer to a rectangular area.
- * A color parameter can be specified for transparent copy.
- * Transfer direction can be setup to use either incremental or decremental
- * addresses.
- * Source and destination must be elem size aligned.
- */
-static inline void transfer_block(struct omapfb_device *fbdev,
-				  unsigned long src, unsigned long dst,
-				  unsigned long img_width,
-				  unsigned long enumber, unsigned long height,
-				  int esize, u32 trans_color, int flags)
-{
-	s16	eidx;
-	s16	s_fidx, d_fidx;
-	int	lch;
-
-	eidx = 1;
-	s_fidx = img_width - enumber * esize + 1;
-	d_fidx = fbdev->fb_info->fix.line_length - enumber * esize + 1;
-	if (flags & COPY_MODE_REV_DIR) {
-		eidx = -2 * esize + 1;
-		s_fidx = -s_fidx + eidx + 1;
-		d_fidx = -d_fidx + eidx + 1;
-	}
-
-	DBGPRINT(2, "src:%#010x dst:%#010x enumber:%d height:%d "
-		 "esize:%d eidx:%d s_fidx:%d d_fidx bg_color:%#010x flags:%d\n",
-		 src, dst, enumber, height, esize, eidx, s_fidx, d_fidx,
-		 bg_color, flags);
-
-	gfxdma_get_lch(&fbdev->gfx, &lch);
-	gfxdma_set_lch_params(lch, dma_elem_type[esize], enumber, height,
-			      src, OMAP_DMA_AMODE_DOUBLE_IDX,
-			      dst, OMAP_DMA_AMODE_DOUBLE_IDX);
-	gfxdma_set_lch_index(lch, eidx, s_fidx, eidx, d_fidx);
-	if (flags & COPY_MODE_TRANSPARENT)
-		gfxdma_set_lch_color(lch, trans_color,
-				     OMAP_DMA_TRANSPARENT_COPY);
-	else
-		gfxdma_set_lch_color(lch, 0, OMAP_DMA_COLOR_DIS);
-	gfxdma_enqueue(&fbdev->gfx, lch);
-
-	DUMP_DMA_REGS(lch);
-}
-
-/* Copy a rectangular area or an image to another rectangular area.
- * A color parameter can be specified for transparent copy.
- * Transfer direction can be setup to use either incremental or decremental
- * addresses.
- * Currently both source and destination area must be entirely contained in
- * frame buffer memory.
- * The largest possible transfer elem size will be determined according to
- * source and destination address alignment, dividing the transfer into more
- * parts if necessary.
- */
-static inline void copy_data(struct omapfb_device *fbdev,
-			     unsigned long src, unsigned long dst,
-			     unsigned long width, unsigned long height,
-			     u32 trans_color, int flags)
-{
-	struct fb_info	 *fbi = fbdev->fb_info;
-	int		 esize, stripe_esize;
-	int		 step, rest, enumber;
-	unsigned long	 img_width;
-	static const int esize_arr[] = {4, 1, 2, 1};
-	int		 rev;
-
-	/* Check alignment constraints */
-	esize = esize_arr[(src ^ dst) & 3];
-
-	rev = flags & COPY_MODE_REV_DIR;
-	if (rev) {
-		rest = src & (esize - 1);
-		if (rest > width)
-			rest = width;
-		src -= rest ? rest : esize;
-		dst -= rest ? rest : esize;
-	} else {
-		rest = esize - (src & (esize - 1));
-		if (rest > width)
-			rest = width;
-	}
-	if (width < esize)
-		rest = width;
-
-	img_width = flags & COPY_MODE_IMAGE ? width : fbi->fix.line_length;
-
-	DBGPRINT(2, "\nrev=%d src=%#010lx dst=%#010lx \n"
-		 "esize=%d width=%d rest=%d\n",
-		 rev, src, dst, esize, width, rest);
-	if (rest) {
-		/* Transfer this unaligned stripe, so that afterwards
-		 * we have both src and dst 16bit or 32bit aligned.
-		 */
-		if (rest == 2) {
-			/* Area body is 32bit aligned */
-			stripe_esize = 2;
-			enumber = 1;
-			step = rev ? -esize : 2;
-			width -= 2;
-		} else {
-			stripe_esize = 1;
-			enumber = rest;
-			step = rev ? -esize : rest;
-		}
-		transfer_block(fbdev, src, dst, img_width, enumber, height,
-			       stripe_esize, trans_color, flags);
-		src += step;
-		dst += step;
-	}
-	if (width) {
-		/* Transfer area body */
-		enumber = (width & ~(esize - 1)) / esize;
-		transfer_block(fbdev, src, dst, img_width, enumber, height,
-			       esize, trans_color, flags);
-		step = enumber * esize;
-		width -= step;
-		if (rev)
-			step = -step + esize - width;
-		src += step;
-		dst += step;
-	}
-	if (width) {
-		/* Transfer the remaining unaligned stripe */
-		if (width == 2) {
-			stripe_esize = 2;
-			enumber = 1;
-		} else {
-			stripe_esize = 1;
-			enumber = width;
-		}
-		transfer_block(fbdev, src, dst, img_width, enumber, height,
-			       stripe_esize, trans_color, flags);
-	}
-
-	DBGLEAVE(2);
-}
-
-/* Copy a rectangular area in the frame buffer to another rectangular area.
- * Calculate the source and destination addresses.
- * Transfer direction will be determined taking care of possible area
- * overlapping.
- * Currently both source and destination area must be entirely contained in
- * frame buffer memory, in case of frame flipping source and destination frame
- * respectively.
- */
-static int omapfb_copyarea(void *data)
-{
-	struct omapfb_copyarea_params *par = data;
-	struct omapfb_device *fbdev = (struct omapfb_device *)par->fbi->par;
-
-	int		width = par->area.width, height = par->area.height;
-	int		sx = par->area.sx, sy = par->area.sy;
-	int		dx = par->area.dx, dy = par->area.dy;
-	unsigned long	dst, dst_ofs, src, src_ofs;
-	unsigned long	end_ofs;
-	int		bpp = par->fbi->var.bits_per_pixel;
-	int		flags;
-	int		r = 0;
-
-	DBGENTER(2);
-
-	if (!width || !height)
-		goto exit;
-
-	/* Bpp < 8 is tbd. If IRQs are disabled we can't use DMA */
-	if (bpp < 8 || irqs_disabled()) {
-		r = OMAPFB_COPYAREA_FAILED;
-		goto exit;
-	}
-
-	src = fbdev->lcddma_handle;
-	dst = src;
-	src_ofs = fbdev->src_frame_org + sx * bpp / 8 +
-		  sy * par->fbi->fix.line_length;
-	dst_ofs = fbdev->dst_frame_org + dx * bpp / 8 +
-		  dy * par->fbi->fix.line_length;
-	end_ofs = (height - 1) * par->fbi->fix.line_length + width * bpp / 8;
-	src += src_ofs;
-	dst += dst_ofs;
-
-	DBGPRINT(2, "src:%#010lx dst:%#010lx end_ofs:%#010lx\n",
-		    src, dst, end_ofs);
-
-	/* Currently we support only transfers where both source and destination
-	 * area is contained entirely in fbmem. This is because of DMA memory
-	 * constraints.
-	 */
-	if (src_ofs + end_ofs > fbdev->lcddma_mem_size ||
-	    dst_ofs + end_ofs > fbdev->lcddma_mem_size) {
-		r = OMAPFB_COPYAREA_FAILED;
-		goto exit;
-	}
-
-	flags = 0;
-	if (par->area.rev_dir) {
-		flags = COPY_MODE_REV_DIR;
-		src += end_ofs;
-		dst += end_ofs;
-	}
-	if (par->area.trans_color != -1)
-		flags |= COPY_MODE_TRANSPARENT;
-
-	width = width * bpp / 8;
-	copy_data(fbdev, src, dst, width, height, par->area.trans_color, flags);
-exit:
-	DBGLEAVE(2);
-	return r;
-}
-
-static int omapfb_schedule_copyarea(struct fb_info *fbi,
-				     const struct fb_copyarea_ext *area)
-{
-	struct omapfb_device *fbdev = (struct omapfb_device *)fbi->par;
-	struct omapfb_request *req;
-
-	if ((req = omapfb_rqueue_alloc_req(&fbdev->rqueue)) == NULL)
-		return -ENOMEM;
-	req->function = omapfb_copyarea;
-	req->par.copyarea.fbi = fbi;
-	req->par.copyarea.area = *area;
-	omapfb_rqueue_schedule_req(&fbdev->rqueue, req);
-	return fbdev->rqueue.status ? OMAPFB_GFX_STATUS_CHANGED : 0;
-}
-
-/* Copy an image to a rectangular area in the frame buffer.
- * A color parameter can be specified for transparent copy.
- * Calculate the source and destination addresses.
- * Transfer direction will be determined taking care of possible area
- * overlapping.
- * Currently both source and destination area must be entirely contained in
- * frame buffer memory, in case of frame flipping source and destination frame
- * respectively.
- */
-static int do_imageblit(void *data)
-{
-	struct omapfb_imageblit_params *par = data;
-	struct omapfb_device *fbdev = (struct omapfb_device *)par->fbi->par;
-
-	int		width = par->image.width, height = par->image.height;
-	int		dx = par->image.dx, dy = par->image.dy;
-	const char	*img_data = par->image.data;
-	unsigned long	dst, dst_ofs;
-	unsigned long	dst_end_ofs;
-	int		bpp = par->fbi->var.bits_per_pixel;
-	u32		bg_color;
-	int		r = 0;
-
-	DBGENTER(2);
-
-	if (!width || !height)
-		goto exit;
-
-	/* bpp conversion is not supported, let the default function handle it.
-	 * Note that image->depth is either 1 for monochrome image, or equals
-	 * bpp of the current video mode, so we can't rely on it.
-	 * If IRQs are disabled we can't use DMA.
-	 */
-	if (bpp < 8 || par->image.depth != bpp || irqs_disabled()) {
-		r = OMAPFB_IMGBLIT_FAILED;
-		goto exit;
-	}
-
-	dst = fbdev->lcddma_handle;
-	dst_ofs = fbdev->dst_frame_org +
-		  dx * bpp / 8 + dy * par->fbi->fix.line_length;
-	dst_end_ofs = (height - 1) * par->fbi->fix.line_length +
-		  width * bpp / 8;
-	dst += dst_ofs;
-
-	DBGPRINT(2, "data:%#010lx dst:%#010lx dst_end_ofs:%#010lx\n",
-		    img_data, dst, dst_end_ofs);
-
-	 /* Check that both source and destination is DMA -able */
-	if (dst_ofs + dst_end_ofs > fbdev->lcddma_mem_size) {
-		r = OMAPFB_IMGBLIT_FAILED;
-		goto exit;
-	}
-
-	if (((unsigned long)img_data < (unsigned long)fbdev->lcddma_base) ||
-	    ((unsigned long)img_data + width * bpp / 8 * height >
-	     (unsigned long)fbdev->lcddma_base + fbdev->lcddma_mem_size)) {
-		r = OMAPFB_IMGBLIT_FAILED;
-		goto exit;
-	}
-
-	bg_color = par->image.bg_color;
-	if (par->flags & COPY_MODE_TRANSPARENT) {
-		switch (bpp) {
-		case 8:
-			bg_color |= bg_color << 8;
-			/* Fall through */
-		case 16:
-			bg_color |= bg_color << 16;
-		}
-	}
-
-	width = width * bpp / 8;
-	copy_data(fbdev, (unsigned long)img_data, dst, width, height,
-		  bg_color, par->flags | COPY_MODE_IMAGE);
-exit:
-	DBGLEAVE(2);
-	return r;
-}
-
-static int omapfb_schedule_imageblit(struct fb_info *fbi,
-				      const struct fb_image *image, int flags)
-{
-	struct omapfb_device *fbdev = (struct omapfb_device *)fbi->par;
-	struct omapfb_request *req;
-
-	if ((req = omapfb_rqueue_alloc_req(&fbdev->rqueue)) == NULL)
-		return -ENOMEM;
-	req->function = do_imageblit;
-	req->par.imageblit.fbi = fbi;
-	req->par.imageblit.image = *image;
-	req->par.imageblit.flags = flags;
-	omapfb_rqueue_schedule_req(&fbdev->rqueue, req);
-	return fbdev->rqueue.status ? OMAPFB_GFX_STATUS_CHANGED : 0;
+	omapfb_rqueue_lock(fbdev);
+	if (fbdev->ctrl->sync)
+		fbdev->ctrl->sync();
+	omapfb_rqueue_unlock(fbdev);
 }
 
 /* Set fb_info.fix fields and also updates fbdev.
@@ -1091,10 +371,9 @@ static void set_fb_fix(struct omapfb_device *fbdev)
 	struct fb_info		 *fbi = fbdev->fb_info;
 	struct fb_fix_screeninfo *fix = &fbi->fix;
 	struct fb_var_screeninfo *var = &fbi->var;
-	int frame_size;
 
 	strncpy(fix->id, OMAPFB_DRIVER, sizeof(fix->id));
-	fix->type		= FB_TYPE_PACKED_PIXELS;
+	fix->type = FB_TYPE_PACKED_PIXELS;
 	switch (var->bits_per_pixel) {
 	case 16:
 		fix->visual = FB_VISUAL_TRUECOLOR;
@@ -1108,20 +387,8 @@ static void set_fb_fix(struct omapfb_device *fbdev)
 	}
 	fix->accel		= FB_ACCEL_OMAP1610;
 	fix->line_length	= var->xres_virtual * var->bits_per_pixel / 8;
-	fix->smem_len		= fbdev->lcddma_mem_size - fbdev->frame0_org;
-	fix->smem_start 	= fbdev->lcddma_handle + fbdev->frame0_org;
-
-	/* Set the second frame buffer offset for flipping if there is
-	 * room for it. */
-	frame_size = fix->line_length * var->yres;
-	fbdev->frame1_org = fbdev->frame0_org + frame_size;
-	if (fbdev->frame1_org + frame_size > fbdev->lcddma_mem_size)
-		fbdev->frame1_org = 0;
-	fbdev->vis_frame_org = fbdev->src_frame_org = fbdev->dst_frame_org =
-		fbdev->frame0_org;
-
-	fbdev->view_org = var->yoffset * fix->line_length +
-			  var->xoffset * var->bits_per_pixel / 8;
+	fix->smem_len		= fbdev->vram_size;
+	fix->smem_start		= fbdev->vram_phys_base;
 }
 
 /* Check the values in var against our capabilities and in case of out of
@@ -1133,30 +400,41 @@ static int set_fb_var(struct omapfb_device *fbdev,
 	int		bpp;
 	unsigned long	max_frame_size;
 	unsigned long	line_size;
+	struct lcd_panel *panel = fbdev->panel;
 
-	bpp = var->bits_per_pixel = fbdev->panel->video_mode->bpp;
-	if (bpp != 16)
-		/* Not yet supported */
-		return -1;
+	bpp = var->bits_per_pixel = panel->bpp;
+
+	switch (bpp) {
+	case 16:
+		fbdev->color_mode = OMAPFB_COLOR_RGB565;
+		break;
+	case 8:
+		fbdev->color_mode = OMAPFB_COLOR_CLUT_8BPP;
+		break;
+	default:
+		/* FIXME: other BPPs not yet supported */
+		return -EINVAL;
+	}
+
 	switch (var->rotate) {
 	case 0:
 	case 180:
-		var->xres = fbdev->panel->video_mode->x_res;
-		var->yres = fbdev->panel->video_mode->y_res;
+		var->xres = fbdev->panel->x_res;
+		var->yres = fbdev->panel->y_res;
 		break;
 	case 90:
 	case 270:
-		var->xres = fbdev->panel->video_mode->y_res;
-		var->yres = fbdev->panel->video_mode->x_res;
+		var->xres = fbdev->panel->y_res;
+		var->yres = fbdev->panel->x_res;
 		break;
 	default:
-		return -1;
+		return -EINVAL;
 	}
 	if (var->xres_virtual < var->xres)
 		var->xres_virtual = var->xres;
 	if (var->yres_virtual < var->yres)
 		var->yres_virtual = var->yres;
-	max_frame_size = fbdev->lcddma_mem_size - fbdev->frame0_org;
+	max_frame_size = fbdev->vram_size;
 	line_size = var->xres_virtual * bpp / 8;
 	if (line_size * var->yres_virtual > max_frame_size) {
 		/* Try to keep yres_virtual first */
@@ -1184,15 +462,16 @@ static int set_fb_var(struct omapfb_device *fbdev,
 	var->grayscale		= 0;
 	var->nonstd		= 0;
 
-	/* TODO: video timing params, sync */
-	var->pixclock		= -1;
-	var->left_margin	= -1;
-	var->right_margin	= -1;
-	var->upper_margin	= -1;
-	var->lower_margin	= -1;
-	var->hsync_len		= -1;
-	var->vsync_len		= -1;
+	/* pixclock in ps, the rest in pixclock */
+	var->pixclock		= 10000000 / (panel->pixel_clock / 100);
+	var->left_margin	= panel->hfp;
+	var->right_margin	= panel->hbp;
+	var->upper_margin	= panel->vfp;
+	var->lower_margin	= panel->vbp;
+	var->hsync_len		= panel->hsw;
+	var->vsync_len		= panel->vsw;
 
+	/* TODO: get these from panel->config */
 	var->vmode		= FB_VMODE_NONINTERLACED;
 	var->sync		= 0;
 
@@ -1214,7 +493,6 @@ static void omapfb_rotate(struct fb_info *fbi, int rotate)
 		if (set_fb_var(fbdev, &new_var) == 0 &&
 		    memcmp(&new_var, &fbi->var, sizeof(new_var))) {
 			memcpy(&fbi->var, &new_var, sizeof(new_var));
-			set_fb_fix(fbdev);
 			ctrl_change_mode(fbdev);
 		}
 	}
@@ -1242,7 +520,6 @@ static int omapfb_pan_display(struct fb_var_screeninfo *var,
 			r = -EINVAL;
 		else {
 			memcpy(&fbi->var, &new_var, sizeof(new_var));
-			set_fb_fix(fbdev);
 			ctrl_change_mode(fbdev);
 		}
 	}
@@ -1252,9 +529,8 @@ static int omapfb_pan_display(struct fb_var_screeninfo *var,
 }
 
 /* Set mirror to vertical axis and switch to the new mode. */
-static int omapfb_mirror(struct fb_info *fbi, int mirror)
+static int omapfb_mirror(struct omapfb_device *fbdev, int mirror)
 {
-	struct omapfb_device *fbdev = (struct omapfb_device *)fbi->par;
 	int r = 0;
 
 	DBGENTER(1);
@@ -1264,33 +540,7 @@ static int omapfb_mirror(struct fb_info *fbi, int mirror)
 		r = -EINVAL;
 	else if (mirror != fbdev->mirror) {
 		fbdev->mirror = mirror;
-		ctrl_change_mode(fbdev);
-	}
-
-	DBGLEAVE(1);
-	return r;
-}
-
-/* Set x,y scale and switch to the new mode */
-static int omapfb_scale(struct fb_info *fbi,
-		      unsigned int xscale, unsigned int yscale)
-{
-	struct omapfb_device *fbdev = (struct omapfb_device *)fbi->par;
-	int r = 0;
-
-	DBGENTER(1);
-
-	if (cpu_is_omap1510())
-		r = -EINVAL;
-	else if (xscale != fbdev->xscale || yscale != fbdev->yscale) {
-		if (fbi->var.xres * xscale > fbi->var.xres_virtual ||
-		    fbi->var.yres * yscale > fbi->var.yres_virtual)
-			r = -EINVAL;
-		else {
-			fbdev->xscale = xscale;
-			fbdev->yscale = yscale;
-			ctrl_change_mode(fbdev);
-		}
+		r = ctrl_change_mode(fbdev);
 	}
 
 	DBGLEAVE(1);
@@ -1318,114 +568,122 @@ static int omapfb_check_var(struct fb_var_screeninfo *var, struct fb_info *fbi)
  */
 static int omapfb_set_par(struct fb_info *fbi)
 {
+	int r;
 	struct omapfb_device *fbdev = (struct omapfb_device *)fbi->par;
 
 	DBGENTER(1);
 
 	set_fb_fix(fbdev);
-	ctrl_change_mode(fbdev);
+	r = ctrl_change_mode(fbdev);
 
 	DBGLEAVE(1);
-	return 0;
+	return r;
 }
 
-/* Frame flipping support. Assign the primary or the secondary frame to the
- * visible frame, as well as the source and destination frames for graphics
- * operations like rectangle fill and area copy. Flipping is only possible
- * if we have enough video memory for the secondary frame.
- */
-static int omapfb_select_vis_frame(struct fb_info *fbi, unsigned int vis_idx)
+static int omapfb_update_win(struct omapfb_device *fbdev,
+				struct omapfb_update_window *win)
 {
-	struct omapfb_device *fbdev = (struct omapfb_device *)fbi->par;
+	struct fb_var_screeninfo *var = &fbdev->fb_info->var;
+	int ret;
 
-	if (vis_idx > 1 || (vis_idx == 1 && !fbdev->frame1_org))
+	if (win->x >= var->xres || win->y >= var->yres)
 		return -EINVAL;
-	fbdev->vis_frame_org = vis_idx ? fbdev->frame1_org : fbdev->frame0_org;
-	ctrl_change_mode(fbdev);
-	return 0;
-}
-
-static int omapfb_select_src_frame(struct fb_info *fbi, unsigned int src_idx)
-{
-	struct omapfb_device *fbdev = (struct omapfb_device *)fbi->par;
-
-	if (src_idx > 1 || (src_idx == 1 && !fbdev->frame1_org))
-		return -EINVAL;
-	fbdev->src_frame_org = src_idx ? fbdev->frame1_org : fbdev->frame0_org;
-	return 0;
-}
-
-static int omapfb_select_dst_frame(struct fb_info *fbi, unsigned int dst_idx)
-{
-	struct omapfb_device *fbdev = (struct omapfb_device *)fbi->par;
-
-	if (dst_idx > 1 || (dst_idx == 1 && !fbdev->frame1_org))
-		return -EINVAL;
-	fbdev->dst_frame_org = dst_idx ? fbdev->frame1_org : fbdev->frame0_org;
-	DBGPRINT(1, "dst_frame_org=%#010x\n", fbdev->dst_frame_org);
-	return 0;
-}
-
-/* Get the address of the primary and secondary frames */
-static int omapfb_get_frame_offset(struct fb_info *fbi,
-				   struct fb_frame_offset *fb_offset)
-{
-	struct omapfb_device *fbdev = (struct omapfb_device *)fbi->par;
-
-	if (fb_offset->idx > 1)
-		return -EINVAL;
-	if (fb_offset->idx == 1 && !fbdev->frame1_org)
-		return -EINVAL;
-	fb_offset->offset = fb_offset->idx ? fbdev->frame1_org :
-		fbdev->frame0_org;
-	return 0;
-}
-
-static int omapfb_update_window(void *data)
-{
-	struct omapfb_update_window_params *par = data;
-	struct omapfb_device *fbdev = (struct omapfb_device *)par->fbi->par;
-
-	gfxdma_sync(&fbdev->gfx);
-	if (fbdev->ctrl->update_window(fbdev, &par->win))
-		return OMAPFB_UPDATE_FAILED;
-	else
-		return 0;
-}
-
-static int omapfb_schedule_update_window(struct fb_info *fbi,
-					 struct fb_update_window *win)
-{
-	struct omapfb_device *fbdev = (struct omapfb_device *)fbi->par;
-	struct omapfb_request *req;
 
 	if (!fbdev->ctrl->update_window ||
-	    win->x >= fbi->var.xres || win->y >= fbi->var.yres)
-		return -EINVAL;
-	if (win->x + win->width >= fbi->var.xres)
-		win->width = fbi->var.xres - win->x;
-	if (win->y + win->height >= fbi->var.yres)
-		win->height = fbi->var.yres - win->y;
+	    fbdev->ctrl->get_update_mode() != OMAPFB_MANUAL_UPDATE)
+		return -ENODEV;
+
+	if (win->x + win->width >= var->xres)
+		win->width = var->xres - win->x;
+	if (win->y + win->height >= var->yres)
+		win->height = var->yres - win->y;
 	if (!win->width || !win->height)
 		return 0;
-	if ((req = omapfb_rqueue_alloc_req(&fbdev->rqueue)) == NULL)
-		return -ENOMEM;
-	req->function = omapfb_update_window;
-	req->par.update_window.fbi = fbi;
-	req->par.update_window.win = *win;
-	omapfb_rqueue_schedule_req(&fbdev->rqueue, req);
-	return fbdev->rqueue.status ? OMAPFB_GFX_STATUS_CHANGED : 0;
+
+	omapfb_rqueue_lock(fbdev);
+	ret = fbdev->ctrl->update_window(win, NULL, 0);
+	omapfb_rqueue_unlock(fbdev);
+
+	return ret;
 }
 
-static int omapfb_schedule_full_update(struct fb_info *fbi)
+static void omapfb_update_full_screen(struct omapfb_device *fbdev)
 {
-	struct fb_update_window win;
+	struct omapfb_update_window win;
 
 	win.x = 0;
 	win.y = 0;
-	win.width = fbi->var.xres;
-	win.height = fbi->var.yres;
-	return omapfb_schedule_update_window(fbi, &win);
+	win.width = fbdev->panel->x_res;
+	win.height = fbdev->panel->y_res;
+	win.format = 0;
+
+	omapfb_rqueue_lock(fbdev);
+	fbdev->ctrl->update_window(&win, NULL, 0);
+	omapfb_rqueue_unlock(fbdev);
+}
+
+static int omapfb_setup_plane(struct omapfb_device *fbdev,
+			      struct omapfb_setup_plane *sp)
+{
+	int r;
+
+	omapfb_rqueue_lock(fbdev);
+	r = fbdev->ctrl->setup_plane(sp->plane, sp->channel_out, sp->offset,
+				 sp->width, sp->pos_x, sp->pos_y, sp->width,
+				 sp->height, sp->color_mode);
+	omapfb_rqueue_unlock(fbdev);
+
+	return r;
+}
+
+static int omapfb_enable_plane(struct omapfb_device *fbdev, int plane,
+				int enable)
+{
+	int r;
+
+	omapfb_rqueue_lock(fbdev);
+	r = fbdev->ctrl->enable_plane(plane, enable);
+	omapfb_rqueue_unlock(fbdev);
+
+	return r;
+}
+
+static int omapfb_set_color_key(struct omapfb_device *fbdev,
+				struct omapfb_color_key *ck)
+{
+	int r;
+
+	if (!fbdev->ctrl->set_color_key)
+		return -ENODEV;
+
+	omapfb_rqueue_lock(fbdev);
+	r = fbdev->ctrl->set_color_key(ck);
+	omapfb_rqueue_unlock(fbdev);
+
+	return r;
+}
+
+static int omapfb_set_update_mode(struct omapfb_device *fbdev,
+				   enum omapfb_update_mode mode)
+{
+	int r;
+
+	omapfb_rqueue_lock(fbdev);
+	r = fbdev->ctrl->set_update_mode(mode);
+	omapfb_rqueue_unlock(fbdev);
+
+	return r;
+}
+
+static enum omapfb_update_mode omapfb_get_update_mode(struct omapfb_device *fbdev)
+{
+	int r;
+
+	omapfb_rqueue_lock(fbdev);
+	r = fbdev->ctrl->get_update_mode();
+	omapfb_rqueue_unlock(fbdev);
+
+	return r;
 }
 
 static unsigned long omapfb_get_caps(struct fb_info *fbi)
@@ -1434,15 +692,29 @@ static unsigned long omapfb_get_caps(struct fb_info *fbi)
 	unsigned long caps;
 
 	caps = 0;
-	caps |= fbdev->panel->get_caps(fbdev->panel);
-	caps |= fbdev->ctrl->get_caps(fbdev);
+	caps |= fbdev->panel->get_caps();
+	caps |= fbdev->ctrl->get_caps();
 	return caps;
 }
 
-static int omapfb_set_update_mode(struct omapfb_device *fbdev,
-				  enum fb_update_mode new_mode);
+/* For lcd testing */
+void omapfb_write_first_pixel(struct omapfb_device *fbdev, u16 pixval)
+{
+	omapfb_rqueue_lock(fbdev);
+	*(u16 *)fbdev->vram_virt_base = pixval;
+	if (fbdev->ctrl->get_update_mode() == OMAPFB_MANUAL_UPDATE) {
+		struct omapfb_update_window win;
 
-static enum fb_update_mode omapfb_get_update_mode(struct omapfb_device *fbdev);
+		win.x = 0;
+		win.y = 0;
+		win.width = 1;
+		win.height = 1;
+		win.format = 0;
+		fbdev->ctrl->update_window(&win, NULL, 0);
+	}
+	omapfb_rqueue_unlock(fbdev);
+}
+EXPORT_SYMBOL(omapfb_write_first_pixel);
 
 /* Ioctl interface. Part of the kernel mode frame buffer API is duplicated
  * here to be accessible by user mode code. In addition transparent copy
@@ -1456,19 +728,15 @@ static int omapfb_ioctl(struct inode *inode, struct file *file,
 	struct omapfb_device	*fbdev = (struct omapfb_device *)fbi->par;
 	struct fb_ops		*ops = fbi->fbops;
 	union {
-		struct fb_fillrect	rect;
-		struct fb_copyarea_ext	area;
-		struct fb_image		image;
-		struct fb_scale		scale;
-		struct fb_frame_offset	frame_offset;
-		struct fb_update_window	update_window;
-		unsigned int		frame_idx;
-		unsigned int		mirror;
-		enum fb_update_mode	update_mode;
+		struct omapfb_update_window	update_window;
+		struct omapfb_setup_plane	setup_plane;
+		struct omapfb_enable_plane	enable_plane;
+		struct omapfb_color_key		color_key;
+		enum omapfb_update_mode		update_mode;
 		unsigned long		caps;
-		unsigned long		rqueue_status;
+		unsigned int		mirror;
 	} p;
-	int			r = 0;
+	int r = 0;
 
 	DBGENTER(2);
 
@@ -1476,84 +744,16 @@ static int omapfb_ioctl(struct inode *inode, struct file *file,
 	DBGPRINT(2, "cmd=%010x\n", cmd);
 	switch (cmd)
 	{
-	case OMAPFB_FILLRECT:
-		if (copy_from_user(&p.rect, (void __user *)arg, sizeof(p.rect)))
-			r = -EFAULT;
-		else
-			r = omapfb_schedule_fillrect(fbi, &p.rect);
-		break;
-	case OMAPFB_COPYAREA:
-		if (copy_from_user(&p.area, (void __user *)arg, sizeof(p.area)))
-			r = -EFAULT;
-		else
-			r = omapfb_schedule_copyarea(fbi, &p.area);
-		break;
-	case OMAPFB_IMAGEBLIT:
-		if (copy_from_user(&p.image, (void __user *)arg,
-						sizeof(p.image)))
-			r = -EFAULT;
-		else
-			r = omapfb_schedule_imageblit(fbi, &p.image, 0);
-		break;
-	case OMAPFB_TRANSPARENT_BLIT:
-		if (copy_from_user(&p.image, (void __user *)arg,
-						sizeof(p.image)))
-			r = -EFAULT;
-		else
-			r = omapfb_schedule_imageblit(fbi, &p.image,
-						      COPY_MODE_TRANSPARENT);
-		break;
 	case OMAPFB_MIRROR:
 		if (get_user(p.mirror, (int __user *)arg))
 			r = -EFAULT;
 		else
-			omapfb_mirror(fbi, p.mirror);
-		break;
-	case OMAPFB_SCALE:
-		if (copy_from_user(&p.scale, (void __user *)arg,
-						sizeof(p.scale)))
-			r = -EFAULT;
-		else
-			r = omapfb_scale(fbi, p.scale.xscale, p.scale.yscale);
-		break;
-	case OMAPFB_SELECT_VIS_FRAME:
-		if (get_user(p.frame_idx, (int __user *)arg))
-			r = -EFAULT;
-		else
-			r = omapfb_select_vis_frame(fbi, p.frame_idx);
-		break;
-	case OMAPFB_SELECT_SRC_FRAME:
-		if (get_user(p.frame_idx, (int __user *)arg))
-			r = - EFAULT;
-		else
-			r = omapfb_select_src_frame(fbi, p.frame_idx);
-		break;
-	case OMAPFB_SELECT_DST_FRAME:
-		if (get_user(p.frame_idx, (int __user *)arg))
-			r = -EFAULT;
-		else
-			r = omapfb_select_dst_frame(fbi, p.frame_idx);
-		break;
-	case OMAPFB_GET_FRAME_OFFSET:
-		if (copy_from_user(&p.frame_offset, (void __user *)arg,
-				   sizeof(p.frame_offset)))
-			r = -EFAULT;
-		else {
-			r = omapfb_get_frame_offset(fbi, &p.frame_offset);
-			if (copy_to_user((void __user *)arg, &p.frame_offset,
-					 sizeof(p.frame_offset)))
-				r = -EFAULT;
-		}
+			omapfb_mirror(fbdev, p.mirror);
 		break;
 	case OMAPFB_SYNC_GFX:
-		omapfb_rqueue_sync(&fbdev->rqueue);
+		omapfb_sync(fbi);
 		break;
 	case OMAPFB_VSYNC:
-		break;
-	case OMAPFB_LATE_ACTIVATE:
-		printk(KERN_WARNING OMAPFB_DRIVER
-			": LATE_ACTIVATE obsoleted by SET_UPDATE_MODE.\n");
-//		r = -EINVAL;
 		break;
 	case OMAPFB_SET_UPDATE_MODE:
 		if (get_user(p.update_mode, (int __user *)arg))
@@ -1563,7 +763,8 @@ static int omapfb_ioctl(struct inode *inode, struct file *file,
 		break;
 	case OMAPFB_GET_UPDATE_MODE:
 		p.update_mode = omapfb_get_update_mode(fbdev);
-		if (put_user(p.update_mode, (enum fb_update_mode __user *)arg))
+		if (put_user(p.update_mode,
+					(enum omapfb_update_mode __user *)arg))
 			r = -EFAULT;
 		break;
 	case OMAPFB_UPDATE_WINDOW:
@@ -1571,18 +772,65 @@ static int omapfb_ioctl(struct inode *inode, struct file *file,
 				   sizeof(p.update_window)))
 			r = -EFAULT;
 		else
-			r = omapfb_schedule_update_window(fbi, &p.update_window);
+			r = omapfb_update_win(fbdev, &p.update_window);
+		break;
+	case OMAPFB_SETUP_PLANE:
+		if (copy_from_user(&p.setup_plane, (void __user *)arg,
+				   sizeof(p.setup_plane)))
+			r = -EFAULT;
+		else
+			r = omapfb_setup_plane(fbdev, &p.setup_plane);
+		break;
+	case OMAPFB_ENABLE_PLANE:
+		if (copy_from_user(&p.enable_plane, (void __user *)arg,
+				   sizeof(p.enable_plane)))
+			r = -EFAULT;
+		else
+			r = omapfb_enable_plane(fbdev,
+				p.enable_plane.plane, p.enable_plane.enable);
+		break;
+	case OMAPFB_SET_COLOR_KEY:
+		if (copy_from_user(&p.color_key, (void __user *)arg,
+				   sizeof(p.color_key)))
+			r = -EFAULT;
+		else
+			r = omapfb_set_color_key(fbdev, &p.color_key);
 		break;
 	case OMAPFB_GET_CAPS:
 		p.caps = omapfb_get_caps(fbi);
 		if (put_user(p.caps, (unsigned long __user *)arg))
 			r = -EFAULT;
 		break;
-	case OMAPFB_GET_GFX_STATUS:
-		omapfb_rqueue_reset(&fbdev->rqueue, &p.rqueue_status);
-		if (put_user(p.rqueue_status, (unsigned long *)arg))
-			r = -EFAULT;
-		break;
+	case OMAPFB_LCD_TEST:
+		{
+			int test_num;
+
+			if (get_user(test_num, (int __user *)arg)) {
+				r = -EFAULT;
+				break;
+			}
+			if (!fbdev->panel->run_test) {
+				r = -EINVAL;
+				break;
+			}
+			r = fbdev->panel->run_test(test_num);
+			break;
+		}
+	case OMAPFB_CTRL_TEST:
+		{
+			int test_num;
+
+			if (get_user(test_num, (int __user *)arg)) {
+				r = -EFAULT;
+				break;
+			}
+			if (!fbdev->ctrl->run_test) {
+				r = -EINVAL;
+				break;
+			}
+			r = fbdev->ctrl->run_test(test_num);
+			break;
+		}
 	default:
 		r = -EINVAL;
 	}
@@ -1599,6 +847,7 @@ static struct fb_ops omapfb_ops = {
 	.fb_open        = omapfb_open,
 	.fb_release     = omapfb_release,
 	.fb_setcolreg	= omapfb_setcolreg,
+	.fb_setcmap	= omapfb_setcmap,
 	.fb_fillrect	= cfb_fillrect,
 	.fb_copyarea	= cfb_copyarea,
 	.fb_imageblit	= cfb_imageblit,
@@ -1613,7 +862,7 @@ static struct fb_ops omapfb_ops = {
 
 /*
  * ---------------------------------------------------------------------------
- * Sysfs interface 
+ * Sysfs interface
  * ---------------------------------------------------------------------------
  */
 /* omapfbX sysfs entries */
@@ -1646,27 +895,31 @@ static DEVICE_ATTR(caps_num, 0444, omapfb_show_caps_num, NULL);
 static DEVICE_ATTR(caps_text, 0444, omapfb_show_caps_text, NULL);
 
 /* panel sysfs entries */
-static ssize_t omapfb_show_panel_name(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t omapfb_show_panel_name(struct device *dev,
+				      struct device_attribute *attr, char *buf)
 {
 	struct omapfb_device *fbdev = (struct omapfb_device *)dev->driver_data;
 
 	return snprintf(buf, PAGE_SIZE, "%s\n", fbdev->panel->name);
 }
 
-static ssize_t omapfb_show_bklight_level(struct device *dev,struct device_attribute *attr, char *buf)
+static ssize_t omapfb_show_bklight_level(struct device *dev,
+					 struct device_attribute *attr,
+					 char *buf)
 {
 	struct omapfb_device *fbdev = (struct omapfb_device *)dev->driver_data;
 	int r;
 
 	if (fbdev->panel->get_bklight_level) {
 		r = snprintf(buf, PAGE_SIZE, "%d\n",
-			     fbdev->panel->get_bklight_level(fbdev->panel));
+			     fbdev->panel->get_bklight_level());
 	} else
 		r = -ENODEV;
 	return r;
 }
 
-static ssize_t omapfb_store_bklight_level(struct device *dev, struct device_attribute *attr,
+static ssize_t omapfb_store_bklight_level(struct device *dev,
+					  struct device_attribute *attr,
 					  const char *buf, size_t size)
 {
 	struct omapfb_device *fbdev = (struct omapfb_device *)dev->driver_data;
@@ -1676,8 +929,7 @@ static ssize_t omapfb_store_bklight_level(struct device *dev, struct device_attr
 		unsigned int level;
 
 		if (sscanf(buf, "%10d", &level) == 1) {
-			r = fbdev->panel->set_bklight_level(fbdev->panel,
-							    level);
+			r = fbdev->panel->set_bklight_level(level);
 		} else
 			r = -EINVAL;
 	} else
@@ -1685,14 +937,15 @@ static ssize_t omapfb_store_bklight_level(struct device *dev, struct device_attr
 	return r ? r : size;
 }
 
-static ssize_t omapfb_show_bklight_max(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t omapfb_show_bklight_max(struct device *dev,
+				       struct device_attribute *attr, char *buf)
 {
 	struct omapfb_device *fbdev = (struct omapfb_device *)dev->driver_data;
 	int r;
 
 	if (fbdev->panel->get_bklight_level) {
 		r = snprintf(buf, PAGE_SIZE, "%d\n",
-			     fbdev->panel->get_bklight_max(fbdev->panel));
+			     fbdev->panel->get_bklight_max());
 	} else
 		r = -ENODEV;
 	return r;
@@ -1717,7 +970,8 @@ static struct attribute_group panel_attr_grp = {
 };
 
 /* ctrl sysfs entries */
-static ssize_t omapfb_show_ctrl_name(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t omapfb_show_ctrl_name(struct device *dev,
+				     struct device_attribute *attr, char *buf)
 {
 	struct omapfb_device *fbdev = (struct omapfb_device *)dev->driver_data;
 
@@ -1743,7 +997,7 @@ static int omapfb_register_sysfs(struct omapfb_device *fbdev)
 
 	if ((r = device_create_file(fbdev->dev, &dev_attr_caps_num)))
 		goto fail0;
-	
+
 	if ((r = device_create_file(fbdev->dev, &dev_attr_caps_text)))
 		goto fail1;
 
@@ -1761,7 +1015,7 @@ fail2:
 fail1:
 	device_remove_file(fbdev->dev, &dev_attr_caps_num);
 fail0:
-	PRNERR("unable to register sysfs interface\n");
+	pr_err("unable to register sysfs interface\n");
 	return r;
 }
 
@@ -1789,11 +1043,12 @@ static int fbinfo_init(struct omapfb_device *fbdev)
 
 	DBGENTER(1);
 
-	BUG_ON(!fbdev->lcddma_base);
+	BUG_ON(!fbdev->vram_virt_base);
+
 	info->fbops = &omapfb_ops;
 	info->flags = FBINFO_FLAG_DEFAULT;
-	info->screen_base = (char __iomem *) fbdev->lcddma_base
-				+ fbdev->frame0_org;
+	info->screen_base = (char __iomem *)fbdev->vram_virt_base;
+
 	info->pseudo_palette = fbdev->pseudo_palette;
 
 	var->accel_flags  = def_accel ? FB_ACCELF_TEXT : 0;
@@ -1808,7 +1063,7 @@ static int fbinfo_init(struct omapfb_device *fbdev)
 
 	r = fb_alloc_cmap(&info->cmap, 16, 0);
 	if (r != 0)
-		PRNERR("unable to allocate color map memory\n");
+		pr_err("unable to allocate color map memory\n");
 
 	DBGLEAVE(1);
 	return r;
@@ -1832,22 +1087,18 @@ static void omapfb_free_resources(struct omapfb_device *fbdev, int state)
 	switch (state) {
 	case OMAPFB_ACTIVE:
 		unregister_framebuffer(fbdev->fb_info);
-	case 8:
-		omapfb_unregister_sysfs(fbdev);
-	case 7:
-		omapfb_set_update_mode(fbdev, FB_UPDATE_DISABLED);
 	case 6:
-		fbdev->panel->disable(fbdev->panel);
+		omapfb_unregister_sysfs(fbdev);
+		omapfb_set_update_mode(fbdev, OMAPFB_UPDATE_DISABLED);
 	case 5:
-		gfxdma_cleanup(&fbdev->gfx);
+		fbdev->panel->disable();
 	case 4:
 		fbinfo_cleanup(fbdev);
 	case 3:
 		ctrl_cleanup(fbdev);
 	case 2:
-		fbdev->panel->cleanup(fbdev->panel);
+		fbdev->panel->cleanup();
 	case 1:
-		omapfb_rqueue_cleanup(&fbdev->rqueue);
 		dev_set_drvdata(fbdev->dev, NULL);
 		framebuffer_release(fbdev->fb_info);
 	case 0:
@@ -1860,32 +1111,16 @@ static void omapfb_free_resources(struct omapfb_device *fbdev, int state)
 
 static int omapfb_find_panel(struct omapfb_device *fbdev)
 {
-	const struct omap_lcd_config *cfg;
+	const struct omap_lcd_config *conf;
 	char name[17];
 	int i;
 
+	conf = (struct omap_lcd_config *)fbdev->dev->platform_data;
 	fbdev->panel = NULL;
-	cfg = omap_get_config(OMAP_TAG_LCD, struct omap_lcd_config);
-	if (cfg == NULL) {
-		const char *def_name = NULL;
+	if (conf == NULL)
+		return -1;
 
-		if (machine_is_omap_h2())
-			def_name = "h2";
-		if (machine_is_omap_h3())
-			def_name = "h3";
-		if (machine_is_omap_perseus2())
-			def_name = "p2";
-		if (machine_is_omap_osk())
-			def_name = "osk";
-		if (machine_is_omap_innovator() && cpu_is_omap1610())
-			def_name = "inn1610";
-		if (machine_is_omap_innovator() && cpu_is_omap1510())
-			def_name = "inn1510";
-		if (def_name == NULL)
-			return -1;
-		strncpy(name, def_name, sizeof(name) - 1);
-	} else
-		strncpy(name, cfg->panel_name, sizeof(name) - 1);
+	strncpy(name, conf->panel_name, sizeof(name) - 1);
 	name[sizeof(name) - 1] = 0;
 	for (i = 0; i < ARRAY_SIZE(panels); i++) {
 		if (strcmp(panels[i]->name, name) == 0) {
@@ -1893,56 +1128,57 @@ static int omapfb_find_panel(struct omapfb_device *fbdev)
 			break;
 		}
 	}
+
 	if (fbdev->panel == NULL)
 		return -1;
- 	return 0;
+
+	return 0;
 }
 
 static int omapfb_find_ctrl(struct omapfb_device *fbdev)
 {
-	const struct omap_lcd_config *cfg;
+	struct omap_lcd_config *conf;
 	char name[17];
 	int i;
 
+	conf = (struct omap_lcd_config *)fbdev->dev->platform_data;
+
 	fbdev->ctrl = NULL;
-	cfg = omap_get_config(OMAP_TAG_LCD, struct omap_lcd_config);
-	if (cfg == NULL) {
-		strcpy(name, "internal");
-	} else
-		strncpy(name, cfg->ctrl_name, sizeof(name) - 1);
-	name[sizeof(name) - 1] = 0;
+	if (conf == NULL)
+		return -1;
+
+	strncpy(name, conf->ctrl_name, sizeof(name) - 1);
+	name[sizeof(name) - 1] = '\0';
+
+	if (strcmp(name, "internal") == 0) {
+		fbdev->ctrl = fbdev->int_ctrl;
+		return 0;
+	}
+
 	for (i = 0; i < ARRAY_SIZE(ctrls); i++) {
 		if (strcmp(ctrls[i]->name, name) == 0) {
 			fbdev->ctrl = ctrls[i];
 			break;
 		}
 	}
+
 	if (fbdev->ctrl == NULL)
 		return -1;
+
 	return 0;
 }
 
 static void check_required_callbacks(struct omapfb_device *fbdev)
 {
-#define _C(x) (fbdev->ctrl->x)
-#define _P(x) (fbdev->panel->x)
+#define _C(x) (fbdev->ctrl->x != NULL)
+#define _P(x) (fbdev->panel->x != NULL)
+	BUG_ON(fbdev->ctrl == NULL || fbdev->panel == NULL);
 	BUG_ON(!(_C(init) && _C(cleanup) && _C(get_caps) &&
-		 _C(get_mem_layout) && _C(set_update_mode) && _C(change_mode) &&
+		 _C(set_update_mode) && _C(setup_plane) && _C(enable_plane) &&
 		 _P(init) && _P(cleanup) && _P(enable) && _P(disable) &&
 		 _P(get_caps)));
 #undef _P
 #undef _C
-}
-
-static int omapfb_set_update_mode(struct omapfb_device *fbdev,
-				  enum fb_update_mode mode)
-{
-	return fbdev->ctrl->set_update_mode(fbdev, mode);
-}
-
-static enum fb_update_mode omapfb_get_update_mode(struct omapfb_device *fbdev)
-{
-	return fbdev->ctrl->get_update_mode(fbdev);
 }
 
 /* Called by LDM binding to probe and attach a new device.
@@ -1963,7 +1199,9 @@ static int omapfb_probe(struct device *dev)
 	struct omapfb_device	*fbdev = NULL;
 	struct fb_info		*fbi;
 	int			init_state;
-	int 			r = 0;
+	unsigned long		phz, hhz, vhz;
+	struct lcd_panel	*panel;
+	int			r = 0;
 
 	DBGENTER(1);
 
@@ -1971,43 +1209,55 @@ static int omapfb_probe(struct device *dev)
 
 	pdev = to_platform_device(dev);
 	if (pdev->num_resources != 0) {
-		PRNERR("probed for an unknown device\n");
+		pr_err("probed for an unknown device\n");
 		r = -ENODEV;
 		goto cleanup;
 	}
 
 	fbi = framebuffer_alloc(sizeof(struct omapfb_device), dev);
-	if (!fbi) {
-		PRNERR("unable to allocate memory for device info\n");
+	if (fbi == NULL) {
+		pr_err("unable to allocate memory for device info\n");
 		r = -ENOMEM;
 		goto cleanup;
 	}
+	init_state++;
 
 	fbdev = (struct omapfb_device *)fbi->par;
 	fbdev->fb_info = fbi;
 	fbdev->dev = dev;
 	dev_set_drvdata(dev, fbdev);
 
-	init_state++;
+	init_MUTEX(&fbdev->rqueue_sema);
+
+#ifdef CONFIG_ARCH_OMAP1
+	fbdev->int_ctrl = &omap1_int_ctrl;
+#ifdef CONFIG_FB_OMAP_LCDC_EXTERNAL
+	fbdev->ext_if = &sossi_extif;
+#endif
+#else	/* OMAP2 */
+	fbdev->int_ctrl = &omap2_int_ctrl;
+#ifdef CONFIG_FB_OMAP_LCDC_EXTERNAL
+	fbdev->ext_if = &rfbi_extif;
+#endif
+#endif
 	if (omapfb_find_ctrl(fbdev) < 0) {
-		PRNERR("LCD controller not found, board not supported\n");
+		pr_err("LCD controller not found, board not supported\n");
 		r = -ENODEV;
 		goto cleanup;
-	}		
+	}
+
 	if (omapfb_find_panel(fbdev) < 0) {
-		PRNERR("LCD panel not found, board not supported\n");
+		pr_err("LCD panel not found, board not supported\n");
 		r = -ENODEV;
 		goto cleanup;
 	}
 
 	check_required_callbacks(fbdev);
-	
-	printk(KERN_INFO OMAPFB_DRIVER ": configured for panel %s\n",
-	       fbdev->panel->name);
 
-	omapfb_rqueue_init(&fbdev->rqueue);
 
-	r = fbdev->panel->init(fbdev->panel);
+	pr_info(MODULE_NAME ": configured for panel %s\n", fbdev->panel->name);
+
+	r = fbdev->panel->init(fbdev);
 	if (r)
 		goto cleanup;
 	init_state++;
@@ -2022,26 +1272,26 @@ static int omapfb_probe(struct device *dev)
 		goto cleanup;
 	init_state++;
 
-	r = gfxdma_init(&fbdev->gfx);
-	if (r)
-		goto cleanup;
-	init_state++;
-
 #ifdef CONFIG_FB_OMAP_DMA_TUNE
 	/* Set DMA priority for EMIFF access to highest */
 	omap_set_dma_priority(OMAP_DMA_PORT_EMIFF, 15);
 #endif
 
-	r = fbdev->panel->enable(fbdev->panel);
+	r = fbdev->panel->enable();
 	if (r)
 		goto cleanup;
 	init_state++;
 
-	r = omapfb_set_update_mode(fbdev, manual_update ?
-				   FB_MANUAL_UPDATE : FB_AUTO_UPDATE);
-	if (r)
+	r = ctrl_change_mode(fbdev);
+	if (r) {
+		pr_err("mode setting failed\n");
 		goto cleanup;
-	init_state++;
+	}
+
+	omapfb_enable_plane(fbdev, 0, 1);
+
+	omapfb_set_update_mode(fbdev, manual_update ?
+				   OMAPFB_MANUAL_UPDATE : OMAPFB_AUTO_UPDATE);
 
 	r = omapfb_register_sysfs(fbdev);
 	if (r)
@@ -2050,14 +1300,21 @@ static int omapfb_probe(struct device *dev)
 
 	r = register_framebuffer(fbdev->fb_info);
 	if (r != 0) {
-		PRNERR("register_framebuffer failed\n");
+		pr_err("register_framebuffer failed\n");
 		goto cleanup;
 	}
 
 	fbdev->state = OMAPFB_ACTIVE;
 
-	printk(KERN_INFO "OMAP framebuffer initialized vram=%lu\n",
-			 fbdev->lcddma_mem_size);
+	panel = fbdev->panel;
+	phz = panel->pixel_clock * 1000;
+	hhz = phz * 10 / (panel->hfp + panel->x_res + panel->hbp + panel->hsw);
+	vhz = hhz / (panel->vfp + panel->y_res + panel->vbp + panel->vsw);
+
+	pr_info(MODULE_NAME ": initialized vram=%lu "
+			"pixclock %lu kHz hfreq %lu.%lu kHz vfreq %lu.%lu Hz\n",
+			fbdev->vram_size,
+			phz / 1000, hhz / 10000, hhz % 10, vhz / 10, vhz % 10);
 
 	DBGLEAVE(1);
 	return 0;
@@ -2092,14 +1349,10 @@ static int omapfb_suspend(struct device *dev, pm_message_t mesg, u32 level)
 
 	DBGENTER(1);
 
-	if (fbdev->state == OMAPFB_ACTIVE) {
-		if (fbdev->ctrl->suspend)
-			fbdev->ctrl->suspend(fbdev);
-		fbdev->panel->disable(fbdev->panel);
-		fbdev->state = OMAPFB_SUSPENDED;
-	}
+	omapfb_blank(VESA_POWERDOWN, fbdev->fb_info);
 
 	DBGLEAVE(1);
+
 	return 0;
 }
 
@@ -2110,40 +1363,14 @@ static int omapfb_resume(struct device *dev, u32 level)
 
 	DBGENTER(1);
 
-	if (fbdev->state == OMAPFB_SUSPENDED) {
-		fbdev->panel->enable(fbdev->panel);
-		if (fbdev->ctrl->resume)
-			fbdev->ctrl->resume(fbdev);
-		fbdev->state = OMAPFB_ACTIVE;
-		if (manual_update)
-			omapfb_schedule_full_update(fbdev->fb_info);
-	}
+	omapfb_blank(VESA_NO_BLANKING, fbdev->fb_info);
 
 	DBGLEAVE(1);
 	return 0;
 }
 
-static void omapfb_release_dev(struct device *dev)
-{
-	DBGENTER(1);
-	DBGLEAVE(1);
-}
-
-static u64 omapfb_dmamask = ~(u32)0;
-
-static struct platform_device omapfb_device = {
-	.name		= OMAPFB_DEVICE,
-	.id		= -1,
-	.dev = {
-		.release  = omapfb_release_dev,
-		.dma_mask = &omapfb_dmamask,
-		.coherent_dma_mask = 0xffffffff,
-	},
-	.num_resources = 0,
-};
-
 static struct device_driver omapfb_driver = {
-	.name   	= OMAPFB_DRIVER,
+	.name		= OMAPFB_DRIVER,
 	.bus		= &platform_bus_type,
 	.probe          = omapfb_probe,
 	.remove         = omapfb_remove,
@@ -2171,16 +1398,18 @@ static int __init omapfb_setup(char *options)
 			char *suffix;
 			def_vram = (simple_strtoul(this_opt + 5, &suffix, 0));
 			switch (suffix[0]) {
+			case '\0':
+				break;
 			case 'm':
 			case 'M':
-				def_vram *= 1024 * 1024;
-				break;
+				def_vram *= 1024;
+				/* Fall through */
 			case 'k':
 			case 'K':
 				def_vram *= 1024;
 				break;
 			default:
-				PRNERR("invalid vram suffix\n");
+				pr_err("invalid vram suffix\n");
 				r = -1;
 			}
 		}
@@ -2195,7 +1424,7 @@ static int __init omapfb_setup(char *options)
 		else if (!strncmp(this_opt, "manual_update", 13))
 			manual_update = 1;
 		else {
-			PRNERR("invalid option\n");
+			pr_err("invalid option\n");
 			r = -1;
 		}
 	}
@@ -2216,7 +1445,7 @@ static int __init omapfb_init(void)
 #ifndef MODULE
 	{
 		char *option;
-		
+
 		if (fb_get_options("omapfb", &option)) {
 			r = -ENODEV;
 			goto exit;
@@ -2224,16 +1453,9 @@ static int __init omapfb_init(void)
 		omapfb_setup(option);
 	}
 #endif
-	/* Register the device with LDM */
-	if (platform_device_register(&omapfb_device)) {
-		PRNERR("failed to register omapfb device\n");
-		r = -ENODEV;
-		goto exit;
-	}
 	/* Register the driver with LDM */
 	if (driver_register(&omapfb_driver)) {
-		PRNERR("failed to register omapfb driver\n");
-		platform_device_unregister(&omapfb_device);
+		pr_err("failed to register omapfb driver\n");
 		r = -ENODEV;
 		goto exit;
 	}
@@ -2248,7 +1470,6 @@ static void __exit omapfb_cleanup(void)
 	DBGENTER(1);
 
 	driver_unregister(&omapfb_driver);
-	platform_device_unregister(&omapfb_device);
 
 	DBGLEAVE(1);
 }

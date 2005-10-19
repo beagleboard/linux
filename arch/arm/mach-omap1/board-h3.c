@@ -170,10 +170,16 @@ static struct omap_uart_config h3_uart_config __initdata = {
 	.enabled_uarts = ((1 << 0) | (1 << 1) | (1 << 2)),
 };
 
+static struct omap_lcd_config h3_lcd_config __initdata = {
+	.panel_name	= "h3",
+	.ctrl_name	= "internal",
+};
+
 static struct omap_board_config_kernel h3_config[] = {
 	{ OMAP_TAG_USB,		&h3_usb_config },
 	{ OMAP_TAG_MMC,		&h3_mmc_config },
 	{ OMAP_TAG_UART,	&h3_uart_config },
+	{ OMAP_TAG_LCD,		&h3_lcd_config },
 };
 
 static void __init h3_init(void)

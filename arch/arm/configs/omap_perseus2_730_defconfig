@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.14-rc4-omap1
-# Wed Oct 12 15:10:00 2005
+# Tue Oct 18 17:57:11 2005
 #
 CONFIG_ARM=y
 CONFIG_MMU=y
@@ -623,8 +623,8 @@ CONFIG_FB_MODE_HELPERS=y
 # CONFIG_FB_TILEBLITTING is not set
 # CONFIG_FB_S1D13XXX is not set
 CONFIG_FB_OMAP=y
-CONFIG_FB_OMAP_INTERNAL_LCDC=y
-# CONFIG_FB_OMAP_EXTERNAL_LCDC is not set
+CONFIG_FB_OMAP_LCDC_INTERNAL=y
+# CONFIG_FB_OMAP_LCDC_EXTERNAL is not set
 # CONFIG_FB_OMAP_DMA_TUNE is not set
 CONFIG_FB_VIRTUAL=y
 

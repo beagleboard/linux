@@ -53,9 +53,15 @@ static struct omap_mmc_config palmte_mmc_config __initdata = {
 	},
 };
 
+static struct omap_lcd_config palmte_lcd_config __initdata = {
+	.panel_name	= "palmte",
+	.ctrl_name	= "internal",
+};
+
 static struct omap_board_config_kernel palmte_config[] = {
 	{ OMAP_TAG_USB, &palmte_usb_config },
 	{ OMAP_TAG_MMC,	&palmte_mmc_config },
+	{ OMAP_TAG_LCD,	&palmte_lcd_config },
 };
 
 static void __init omap_generic_init(void)

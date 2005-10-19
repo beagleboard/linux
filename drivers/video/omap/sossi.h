@@ -5,7 +5,8 @@
 #define SOSSI_FLAG_VS_INVERTED          0x02
 
 extern int sossi_init(void);
-extern void sossi_set_xfer_params(int tw0, int tw1, int bus_pick_count, int bus_pick_width);
+extern void sossi_set_xfer_params(int bus_pick_count, int bus_pick_width);
+extern void sossi_set_timings(int tick_ns, int tw0_ns, int tw1_ns);
 extern void sossi_start_transfer(void);
 extern void sossi_stop_transfer(void);
 extern void sossi_send_cmd(const void *data, unsigned int len);

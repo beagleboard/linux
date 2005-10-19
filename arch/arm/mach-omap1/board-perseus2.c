@@ -114,8 +114,14 @@ static struct omap_uart_config perseus2_uart_config __initdata = {
 	.enabled_uarts = ((1 << 0) | (1 << 1)),
 };
 
+static struct omap_lcd_config perseus2_lcd_config __initdata = {
+	.panel_name	= "p2",
+	.ctrl_name	= "internal",
+};
+
 static struct omap_board_config_kernel perseus2_config[] = {
 	{ OMAP_TAG_UART,	&perseus2_uart_config },
+	{ OMAP_TAG_LCD,		&perseus2_lcd_config },
 };
 
 static void __init omap_perseus2_init(void)

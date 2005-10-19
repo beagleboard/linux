@@ -162,10 +162,16 @@ static struct omap_uart_config h2_uart_config __initdata = {
 	.enabled_uarts = ((1 << 0) | (1 << 1) | (1 << 2)),
 };
 
+static struct omap_lcd_config h2_lcd_config __initdata = {
+	.panel_name	= "h2",
+	.ctrl_name	= "internal",
+};
+
 static struct omap_board_config_kernel h2_config[] = {
 	{ OMAP_TAG_USB,           &h2_usb_config },
 	{ OMAP_TAG_MMC,           &h2_mmc_config },
 	{ OMAP_TAG_UART,	&h2_uart_config },
+	{ OMAP_TAG_LCD,		&h2_lcd_config },
 };
 
 static void __init h2_init(void)

@@ -1,13 +1,13 @@
 /*
- * File: drivers/video/omap_new/lcd-p2.c
+ * File: drivers/video/omap/lcd-p2.c
  *
- * LCD panel support for the TI OMAP P2 board 
+ * LCD panel support for the TI OMAP P2 board
  *
  * Authors:
  *   jekyll <jekyll@mail.jekyll.idv.tw>
  *   B Jp <lastjp_fr@yahoo.fr>
  *   Brian Swetland <swetland@android.com>
- * 
+ *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
  * Free Software Foundation; either version 2 of the License, or (at your
@@ -25,10 +25,10 @@
 
 #include <linux/module.h>
 #include <linux/delay.h>
+
 #include <asm/arch/mux.h>
 #include <asm/arch/gpio.h>
-
-#include "omapfb.h"
+#include <asm/arch/omapfb.h>
 
 /*
  * File: epson-md-tft.h
@@ -152,20 +152,20 @@ const unsigned short INIT_SCSTART[2] = { 0x00, 0x00 };
 
 #define LCD_UWIRE_CS 0
 
-static int p2_panel_init(struct lcd_panel *panel)
+static int p2_panel_init(struct omapfb_device *fbdev)
 {
 	DBGENTER(1);
 	DBGLEAVE(1);
 	return 0;
 }
 
-static void p2_panel_cleanup(struct lcd_panel *panel)
+static void p2_panel_cleanup(void)
 {
 	DBGENTER(1);
 	DBGLEAVE(1);
 }
 
-static int p2_panel_enable(struct lcd_panel *panel)
+static int p2_panel_enable(void)
 {
 	int i;
 	unsigned long value;
@@ -195,8 +195,8 @@ static int p2_panel_enable(struct lcd_panel *panel)
 	omap_uwire_data_transfer(LCD_UWIRE_CS, LCD_GSSET, 9, 0,NULL,1);
 	omap_uwire_data_transfer(LCD_UWIRE_CS, (INIT_GSSET | 0x100), 9, 0,NULL,1);
 
-	/* DISCTL */ 
-	omap_uwire_data_transfer(LCD_UWIRE_CS, LCD_DISCTL, 9, 0,NULL,1); 
+	/* DISCTL */
+	omap_uwire_data_transfer(LCD_UWIRE_CS, LCD_DISCTL, 9, 0,NULL,1);
 	for (i = 0; i < (sizeof(INIT_DISCTL)/sizeof(unsigned short)); i++)
 		omap_uwire_data_transfer(LCD_UWIRE_CS, (INIT_DISCTL[i] | 0x100), 9, 0,NULL,1);
 
@@ -209,7 +209,7 @@ static int p2_panel_enable(struct lcd_panel *panel)
 	omap_uwire_data_transfer(LCD_UWIRE_CS, LCD_GCP16, 9, 0,NULL,1);
 	for (i = 0; i < (sizeof(INIT_GCP16)/sizeof(unsigned short)); i++)
 		omap_uwire_data_transfer(LCD_UWIRE_CS, (INIT_GCP16[i] | 0x100), 9, 0,NULL,1);
-	
+
 	/* MD_CSET */
 	omap_uwire_data_transfer(LCD_UWIRE_CS, LCD_MD_CSET, 9, 0,NULL,1);
 	for (i = 0; i < (sizeof(INIT_MD_CSET)/sizeof(unsigned short)); i++)
@@ -251,16 +251,16 @@ static int p2_panel_enable(struct lcd_panel *panel)
 
 	/* 3500KEND */
 	omap_uwire_data_transfer(LCD_UWIRE_CS, LCD_3500KEND, 9, 0,NULL,1);
-	
+
 	omap_uwire_data_transfer(LCD_UWIRE_CS, LCD_SLPOUT, 9, 0,NULL,1);
-	
+
 	omap_uwire_data_transfer(LCD_UWIRE_CS, LCD_VOLCTL, 9, 0,NULL,1);
 	omap_uwire_data_transfer(LCD_UWIRE_CS, (INIT_VOLCTL_Ton | 0x100), 9, 0,NULL,1);
-	
+
 	omap_uwire_data_transfer(LCD_UWIRE_CS, LCD_VOLCTL, 9, 0,NULL,1);
 
 	omap_uwire_data_transfer(LCD_UWIRE_CS, (INIT_VOLCTL | 0x100), 9, 0,NULL,1);
-	
+
 	omap_uwire_data_transfer(LCD_UWIRE_CS, LCD_DISON, 9, 0,NULL,1);
 
 	/* enable backlight */
@@ -271,41 +271,37 @@ static int p2_panel_enable(struct lcd_panel *panel)
 	return 0;
 }
 
-static void p2_panel_disable(struct lcd_panel *panel)
+static void p2_panel_disable(void)
 {
 	DBGENTER(1);
 	DBGLEAVE(1);
 }
 
-static unsigned long p2_panel_get_caps(struct lcd_panel *panel)
+static unsigned long p2_panel_get_caps(void)
 {
 	return 0;
 }
 
-static struct lcdc_video_mode mode176x220 = {
-	.x_res = 176,
-	.y_res = 220,
-	.pixel_clock = 12500,
-	.bpp = 16,
-	.hsw = 5,
-	.hfp = 1,
-	.hbp = 1,
-	.vsw = 2,
-	.vfp = 12,
-	.vbp = 1,
-	.pcd = 4,
-	.flags = OMAP_LCDC_INV_PIX_CLOCK,
-};
-
 struct lcd_panel p2_panel = {
-	.name       = "p2",
-	.config     = LCD_PANEL_TFT,
-	.video_mode = &mode176x220,
-	
-	.init	 = p2_panel_init,
-	.cleanup = p2_panel_cleanup,
-	.enable  = p2_panel_enable,
-	.disable = p2_panel_disable,
-	.get_caps= p2_panel_get_caps,
+	.name		= "p2",
+	.config		= OMAP_LCDC_PANEL_TFT | OMAP_LCDC_INV_PIX_CLOCK,
+
+	.bpp		= 16,
+	.data_lines	= 16,
+	.x_res		= 176,
+	.y_res		= 220,
+	.pixel_clock	= 12500,
+	.hsw		= 5,
+	.hfp		= 1,
+	.hbp		= 1,
+	.vsw		= 2,
+	.vfp		= 12,
+	.vbp		= 1,
+
+	.init		= p2_panel_init,
+	.cleanup	= p2_panel_cleanup,
+	.enable		= p2_panel_enable,
+	.disable	= p2_panel_disable,
+	.get_caps	= p2_panel_get_caps,
 };
 
