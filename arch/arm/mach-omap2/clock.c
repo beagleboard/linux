@@ -298,10 +298,13 @@ static inline u32 omap2_divider_from_table(u32 size, u32 *div_array,
  * Note that this will not work for clocks which are part of CONFIG_PARTICIPANT,
  * they are only settable as part of virtual_prcm set.
  */
-static u32 omap2_clksel_round_rate(struct clk *tclk, u32 target_rate)
+static u32 omap2_clksel_round_rate(struct clk *tclk, u32 target_rate,
+	u32 *new_div)
 {
 	u32 gfx_div[] = {2, 3, 4};
 	u32 sysclkout_div[] = {1, 2, 4, 8, 16};
+	u32 dss1_div[] = {1, 2, 3, 4, 5, 6, 8, 9, 12, 16};
+	u32 vylnq_div[] = {1, 2, 3, 4, 6, 8, 9, 12, 16, 18};
 	u32 best_div = ~0, asize = 0;
 	u32 *div_array = NULL;
 	
@@ -316,26 +319,49 @@ static u32 omap2_clksel_round_rate(struct clk *tclk, u32 target_rate)
 		asize = 5;
 		div_array = sysclkout_div;
 		break;
+	case CM_CORE_SEL1:
+		if(tclk == &dss1_fck){
+			if(tclk->parent == &core_ck){
+				asize = 10;
+				div_array = dss1_div;
+			} else {
+				*new_div = 0; /* fixed clk */
+				return(tclk->parent->rate);
+			}
+		} else if((tclk == &vlynq_fck) && cpu_is_omap2420()){
+			if(tclk->parent == &core_ck){
+				asize = 10;
+				div_array = vylnq_div;
+			} else {
+				*new_div = 0; /* fixed clk */
+				return(tclk->parent->rate);
+			}
+		}
+		break;
 	}
 
 	best_div = omap2_divider_from_table(asize, div_array,
-					    tclk->parent->rate, tclk->rate);
-	if (best_div == ~0)
-		return best_div;
+	 tclk->parent->rate, target_rate);
+	if (best_div == ~0){
+		*new_div = 1;
+		return best_div; /* signal error */
+	}
 
+	*new_div = best_div;
 	return (tclk->parent->rate / best_div);
 }
 
 /* Given a clock and a rate apply a clock specific rounding function */
 static long omap2_clk_round_rate(struct clk *clk, unsigned long rate)
 {
+	u32 new_div = 0;
 	int valid_rate;
 
 	if (clk->flags & RATE_FIXED)
 		return clk->rate;
 
 	if (clk->flags & RATE_CKCTL) {
-		valid_rate = omap2_clksel_round_rate(clk, rate);
+		valid_rate = omap2_clksel_round_rate(clk, rate, &new_div);
 		return valid_rate;
 	}
 
@@ -548,8 +574,7 @@ static long omap2_round_to_table_rate(struct clk * clk, unsigned long rate)
 /*
  * omap2_convert_field_to_div() - turn field value into integer divider
  */
-static u32 omap2_clksel_to_divisor(u32 div_sel, u32 field_val,
-				   u32 field_mask)
+static u32 omap2_clksel_to_divisor(u32 div_sel, u32 field_val)
 {
 	u32 i;
 	u32 clkout_array[] = {1, 2, 4, 8, 16};
@@ -666,17 +691,19 @@ static u32 omap2_clksel_get_divisor(struct clk *clk)
 		return ret;
 
 	div_sel = (SRC_RATE_SEL_MASK & clk->flags);
-	div = omap2_clksel_to_divisor(div_sel, field_val, field_mask);
+	div = omap2_clksel_to_divisor(div_sel, field_val);
 
 	return div;
 }
 
 /* Set the clock rate for a clock source */
 static int omap2_clk_set_rate(struct clk *clk, unsigned long rate)
+
 {
 	int ret = -EINVAL;
 	void __iomem * reg;
 	u32 div_sel, div_off, field_mask, field_val, reg_val, validrate;
+	u32 new_div = 0;
 
 	if (!(clk->flags & CONFIG_PARTICIPANT) && (clk->flags & RATE_CKCTL)) {
 		if (clk == &dpll_ck)
@@ -686,13 +713,25 @@ static int omap2_clk_set_rate(struct clk *clk, unsigned long rate)
 		div_sel = (SRC_RATE_SEL_MASK & clk->flags);
 		div_off = clk->src_offset;
 
-		validrate = omap2_clksel_round_rate(clk, rate);
+		validrate = omap2_clksel_round_rate(clk, rate, &new_div);
 		if(validrate != rate)
 			return(ret);
 
 		field_val = omap2_get_clksel(&div_sel, &field_mask, clk);
 		if (div_sel == 0)
 			return ret;
+
+		if(clk->flags & CM_SYSCLKOUT_SEL1){
+			switch(new_div){
+			case 16: field_val = 4; break;
+			case 8:  field_val = 3; break;
+			case 4:  field_val = 2; break;
+			case 2:  field_val = 1; break;
+			case 1:  field_val = 0; break;
+			}
+		}
+		else
+			field_val = new_div;
 
 		reg = (void __iomem *)div_sel;
 
@@ -737,6 +776,12 @@ static u32 omap2_get_src_field(u32 *type_to_addr, u32 reg_offset,
 				val = 0;
 			else if (src_clk == &core_ck)	/* divided clock */
 				val = 0x10;		/* rate needs fixing */
+		} else if ((reg_offset == 15) && cpu_is_omap2420()){ /*vlnyq*/
+			mask = 0x1F;
+			if(src_clk == &func_96m_ck)
+				val = 0;
+			else if (src_clk == &core_ck)
+				val = 0x10;
 		}
 		break;
 	case CM_CORE_SEL2:

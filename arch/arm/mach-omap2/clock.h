@@ -29,8 +29,7 @@ static int omap2_select_table_rate(struct clk * clk, unsigned long rate);
 static long omap2_round_to_table_rate(struct clk * clk, unsigned long rate);
 static void omap2_clk_unuse(struct clk *clk);
 static void omap2_sys_clk_recalc(struct clk * clk);
-static u32 omap2_clksel_to_divisor(u32 div_sel, u32 field_val,
-				   u32 field_mask);
+static u32 omap2_clksel_to_divisor(u32 div_sel, u32 field_val);
 static u32 omap2_clksel_get_divisor(struct clk *clk);
 
 
@@ -479,10 +478,10 @@ static struct prcm_config rate_table[] = {
 		RATE_IN_242X},
 
 	/* PRCM #3 - ratio2 (ES2) - FAST */
-	{S13M, S660M, S330M, R1_CM_CLKSEL_MPU_VAL,		/* 330MHz ARM */
-		R1_CM_CLKSEL_DSP_VAL, R1_CM_CLKSEL_GFX_VAL,
-		R1_CM_CLKSEL1_CORE_VAL, M3_CM_CLKSEL1_PLL_13_VAL,
-		MX_CLKSEL2_PLL_2x_VAL, R1_CM_CLKSEL_MDM_VAL,
+	{S13M, S660M, S330M, R2_CM_CLKSEL_MPU_VAL,		/* 330MHz ARM */
+		R2_CM_CLKSEL_DSP_VAL, R2_CM_CLKSEL_GFX_VAL,
+		R2_CM_CLKSEL1_CORE_VAL, M3_CM_CLKSEL1_PLL_13_VAL,
+		MX_CLKSEL2_PLL_2x_VAL, R2_CM_CLKSEL_MDM_VAL,
 		V24XX_SDRC_RFR_CTRL_110MHz,
 		RATE_IN_243X},
 
@@ -503,10 +502,10 @@ static struct prcm_config rate_table[] = {
 		RATE_IN_243X},
 
 	/* PRCM #3 - ratio2 (ES2) - SLOW */
-	{S13M, S330M, S165M, R1_CM_CLKSEL_MPU_VAL,		/* 165MHz ARM */
-		R1_CM_CLKSEL_DSP_VAL, R1_CM_CLKSEL_GFX_VAL,
-		R1_CM_CLKSEL1_CORE_VAL, M3_CM_CLKSEL1_PLL_13_VAL,
-		MX_CLKSEL2_PLL_1x_VAL, R1_CM_CLKSEL_MDM_VAL,
+	{S13M, S330M, S165M, R2_CM_CLKSEL_MPU_VAL,		/* 165MHz ARM */
+		R2_CM_CLKSEL_DSP_VAL, R2_CM_CLKSEL_GFX_VAL,
+		R2_CM_CLKSEL1_CORE_VAL, M3_CM_CLKSEL1_PLL_13_VAL,
+		MX_CLKSEL2_PLL_1x_VAL, R2_CM_CLKSEL_MDM_VAL,
 		V24XX_SDRC_RFR_CTRL_110MHz,
 		RATE_IN_243X},
 
@@ -956,7 +955,7 @@ static struct clk mdm_osc_ck = {
 	.name		= "mdm_osc_ck",
 	.rate		= 26000000,
 	.parent		= &osc_ck,
-	.flags		= CLOCK_IN_OMAP243X | RATE_FIXED | ALWAYS_ENABLED,
+	.flags		= CLOCK_IN_OMAP243X | RATE_FIXED,
 	.enable_reg	= (void __iomem *)&CM_FCLKEN_MDM,
 	.enable_bit	= 1,
 	.recalc		= &omap2_followparent_recalc,
@@ -1771,9 +1770,10 @@ static struct clk vlynq_ick = {
 static struct clk vlynq_fck = {
 	.name		= "vlynq_fck",
 	.parent		= &func_96m_ck,
-	.flags		= CLOCK_IN_OMAP242X,
+	.flags		= CLOCK_IN_OMAP242X  | RATE_CKCTL | CM_CORE_SEL1 | DELAYED_APP,
 	.enable_reg	= (void __iomem *)&CM_FCLKEN1_CORE,
 	.enable_bit	= 3,
+	.src_offset	= 15,
 	.recalc		= &omap2_followparent_recalc,
 };
 
