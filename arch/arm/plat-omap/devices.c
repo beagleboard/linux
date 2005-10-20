@@ -93,6 +93,8 @@ static void omap_init_i2c(void)
 	(void) platform_device_register(&omap_i2c_device1);
 }
 
+#else
+static inline void omap_init_i2c(void) {}
 #endif
 
 /*-------------------------------------------------------------------------*/
