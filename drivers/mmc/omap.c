@@ -4,6 +4,7 @@
  *  Copyright (C) 2004 Nokia Corporation
  *  Written by Tuukka Tikkanen and Juha Yrjölä <juha.yrjola@nokia.com>
  *  Misc hacks here and there by Tony Lindgren <tony@atomide.com>
+ *  Other hacks (DMA, SD, etc) by David Brownell
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -767,9 +768,6 @@ static void mmc_omap_dma_cb(int lch, u16 ch_status, void *data)
 
 	host->sg_idx++;
 	if (host->sg_idx < host->sg_len) {
-		/* REVISIT we only checked the first segment
-		 * for being a dma candidate ...
-		 */
 		mmc_omap_prepare_dma(host, host->data);
 		omap_start_dma(host->dma_ch);
 	} else
@@ -1089,9 +1087,10 @@ static void mmc_omap_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		if (dsor > 250)
 			dsor = 250;
 		dsor++;
-	}
 
-	/* REVISIT:  if (ios->bus_width == MMC_BUS_WIDTH_4) dsor |= 1 << 15; */
+		if (ios->bus_width == MMC_BUS_WIDTH_4)
+			dsor |= 1 << 15;
+	}
 
 	switch (ios->power_mode) {
 	case MMC_POWER_OFF:
@@ -1132,9 +1131,17 @@ static void mmc_omap_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	clk_unuse(host->fclk);
 }
 
+static int mmc_omap_get_ro(struct mmc_host *mmc)
+{
+	struct mmc_omap_host *host = mmc_priv(mmc);
+
+	return host->wp_pin && omap_get_gpio_datain(host->wp_pin);
+}
+
 static struct mmc_host_ops mmc_omap_ops = {
 	.request	= mmc_omap_request,
 	.set_ios	= mmc_omap_set_ios,
+	.get_ro		= mmc_omap_get_ro,
 };
 
 static int __init mmc_omap_probe(struct device *dev)
@@ -1192,9 +1199,7 @@ static int __init mmc_omap_probe(struct device *dev)
 		goto out;
 	}
 
-	/* REVISIT:  SD-only support, when core merged
-	 *  - if (minfo->wire4) mmc->caps |= MMC_CAP_4_BIT_DATA;
-	 *  - mmc_omap_ops.get_ro uses wp_pin to sense slider
+	/* REVISIT:
 	 * Also, use minfo->cover to decide how to manage
 	 * the card detect sensing.
 	 */
@@ -1211,6 +1216,9 @@ static int __init mmc_omap_probe(struct device *dev)
 
 	host->irq = pdev->resource[1].start;
 	host->base = (void __iomem *)pdev->resource[0].start;
+
+	 if (minfo->wire4)
+		 mmc->caps |= MMC_CAP_4_BIT_DATA;
 
 	mmc->ops = &mmc_omap_ops;
 	mmc->f_min = 400000;
