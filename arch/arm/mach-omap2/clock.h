@@ -1469,7 +1469,7 @@ static struct clk uart3_ick = {
 	.parent		= &l4_ck,
 	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X,
 	.enable_reg	= (void __iomem *)&CM_ICLKEN2_CORE,
-	.enable_bit	= 3,
+	.enable_bit	= 2,
 	.recalc		= &omap2_followparent_recalc,
 };
 
@@ -1478,7 +1478,7 @@ static struct clk uart3_fck = {
 	.parent		= &func_48m_ck,
 	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X,
 	.enable_reg	= (void __iomem *)&CM_FCLKEN2_CORE,
-	.enable_bit	= 3,
+	.enable_bit	= 2,
 	.recalc		= &omap2_followparent_recalc,
 };
 
