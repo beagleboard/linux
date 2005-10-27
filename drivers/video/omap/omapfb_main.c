@@ -260,18 +260,40 @@ static int _setcolreg(struct fb_info *info, u_int regno, u_int red, u_int green,
 			u_int blue, u_int transp, int update_hw_pal)
 {
 	struct omapfb_device *fbdev = (struct omapfb_device *)info->par;
-	u16 pal;
 	int r = 0;
 
-	if (regno < 16) {
-		pal = ((red >> 11) << 11) | ((green >> 10) << 5) | (blue >> 11);
-		((u32 *)(info->pseudo_palette))[regno] = pal;
+	switch (fbdev->color_mode) {
+	case OMAPFB_COLOR_YUV422:
+	case OMAPFB_COLOR_YUV420:
+		r = -EINVAL;
+		break;
+	case OMAPFB_COLOR_CLUT_8BPP:
+	case OMAPFB_COLOR_CLUT_4BPP:
+	case OMAPFB_COLOR_CLUT_2BPP:
+	case OMAPFB_COLOR_CLUT_1BPP:
+		if (fbdev->ctrl->setcolreg)
+			r = fbdev->ctrl->setcolreg(regno, red, green, blue,
+							transp, update_hw_pal);
+		/* Fallthrough */
+	case OMAPFB_COLOR_RGB565:
+		if (r != 0)
+			break;
+
+		if (regno < 0) {
+			r = -EINVAL;
+			break;
+		}
+
+		if (regno < 16) {
+			u16 pal;
+			pal = ((red >> 11) << 11) | ((green >> 10) << 5) |
+				(blue >> 11);
+			((u32 *)(info->pseudo_palette))[regno] = pal;
+		}
+		break;
+	default:
+		BUG();
 	}
-
-	if (fbdev->ctrl->setcolreg)
-		r = fbdev->ctrl->setcolreg(regno, red, green, blue, transp,
-						update_hw_pal);
-
 	return r;
 }
 
