@@ -221,7 +221,7 @@ void omap_set_dma_src_burst_mode(int lch, enum omap_dma_burst_mode burst_mode)
 	case OMAP_DMA_DATA_BURST_DIS:
 		break;
 	case OMAP_DMA_DATA_BURST_4:
-		w |= (0x01 << 7);
+		w |= (0x02 << 7);
 		break;
 	case OMAP_DMA_DATA_BURST_8:
 		/* not supported by current hardware
@@ -277,7 +277,7 @@ void omap_set_dma_dest_burst_mode(int lch, enum omap_dma_burst_mode burst_mode)
 	case OMAP_DMA_DATA_BURST_DIS:
 		break;
 	case OMAP_DMA_DATA_BURST_4:
-		w |= (0x01 << 14);
+		w |= (0x02 << 14);
 		break;
 	case OMAP_DMA_DATA_BURST_8:
 		w |= (0x03 << 14);
