@@ -166,14 +166,16 @@ static int omap1610_irda_set_speed(struct net_device *dev, int speed);
 static void omap1610_irda_start_rx_dma(struct omap1610_irda *si)
 {
 	/* Configure DMA */
-	omap_set_dma_src_params(si->rx_dma_channel, 0x3, 0x0, (unsigned long)UART3_RHR);
+	omap_set_dma_src_params(si->rx_dma_channel, 0x3, 0x0, (unsigned long)UART3_RHR,
+				0, 0);
 
 	omap_enable_dma_irq(si->rx_dma_channel, 0x01);
 
 	omap_set_dma_dest_params(si->rx_dma_channel, 0x0, 0x1,
-				 si->rx_buf_dma_phys);
+				 si->rx_buf_dma_phys,
+				 0, 0);
 
-	omap_set_dma_transfer_params(si->rx_dma_channel, 0x0, 4096, 0x1, 0x0);
+	omap_set_dma_transfer_params(si->rx_dma_channel, 0x0, 4096, 0x1, 0x0, 0, 0);
 
 	omap_start_dma(si->rx_dma_channel);
 }
@@ -183,14 +185,15 @@ static void omap1610_start_tx_dma(struct omap1610_irda *si, int size)
 	__ECHO_IN;
 
 	/* Configure DMA */
-	omap_set_dma_dest_params(si->tx_dma_channel, 0x03, 0x0, (unsigned long)UART3_THR);
-
+	omap_set_dma_dest_params(si->tx_dma_channel, 0x03, 0x0, (unsigned long)UART3_THR,
+					0, 0);
 	omap_enable_dma_irq(si->tx_dma_channel, 0x01);
 
 	omap_set_dma_src_params(si->tx_dma_channel, 0x0, 0x1,
-				si->tx_buf_dma_phys);
+				si->tx_buf_dma_phys,
+				0, 0);
 
-	omap_set_dma_transfer_params(si->tx_dma_channel, 0x0, size, 0x1, 0x0);
+	omap_set_dma_transfer_params(si->tx_dma_channel, 0x0, size, 0x1, 0x0, 0, 0);
 
 	HDBG1(1);
 

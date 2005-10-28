@@ -232,25 +232,30 @@ static inline int omap_nand_dma_transfer(struct mtd_info *mtd, void *addr,
 	fifo_reg = NAND_BASE + NND_FIFO;
 	if (is_write) {
 		omap_set_dma_dest_params(dma_ch, OMAP_DMA_PORT_TIPB,
-					 OMAP_DMA_AMODE_CONSTANT, fifo_reg);
+					 OMAP_DMA_AMODE_CONSTANT, fifo_reg,
+					 0, 0);
 		omap_set_dma_src_params(dma_ch, OMAP_DMA_PORT_EMIFF,
 					OMAP_DMA_AMODE_POST_INC,
-					virt_to_phys(addr));
+					virt_to_phys(addr),
+					0, 0);
 //		omap_set_dma_src_burst_mode(dma_ch, OMAP_DMA_DATA_BURST_4);
 		/* Set POSTWRITE bit */
 		nand_write_reg(NND_CTRL, nand_read_reg(NND_CTRL) | (1 << 16));
 	} else {
 		omap_set_dma_src_params(dma_ch, OMAP_DMA_PORT_TIPB,
-					OMAP_DMA_AMODE_CONSTANT, fifo_reg);
+					OMAP_DMA_AMODE_CONSTANT, fifo_reg,
+					0, 0);
 		omap_set_dma_dest_params(dma_ch, OMAP_DMA_PORT_EMIFF,
 					 OMAP_DMA_AMODE_POST_INC,
-					 virt_to_phys(addr));
+					 virt_to_phys(addr),
+					 0, 0);
 //		omap_set_dma_dest_burst_mode(dma_ch, OMAP_DMA_DATA_BURST_8);
 		/* Set PREFETCH bit */
 		nand_write_reg(NND_CTRL, nand_read_reg(NND_CTRL) | (1 << 17));
 	}
 	omap_set_dma_transfer_params(dma_ch, OMAP_DMA_DATA_TYPE_S32, block_size / 4,
-				     block_count, OMAP_DMA_SYNC_FRAME);
+				     block_count, OMAP_DMA_SYNC_FRAME,
+				     0, 0);
 	init_completion(&comp);
 
 	len = u32_count << 2;

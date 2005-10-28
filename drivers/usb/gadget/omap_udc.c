@@ -622,17 +622,19 @@ static void next_in_dma(struct omap_ep *ep, struct omap_req *req)
 			|| (cpu_is_omap15xx() && length < ep->maxpacket)) {
 		txdma_ctrl = UDC_TXN_EOT | length;
 		omap_set_dma_transfer_params(ep->lch, OMAP_DMA_DATA_TYPE_S8,
-				length, 1, sync_mode);
+				length, 1, sync_mode, 0, 0);
 	} else {
 		length = min(length / ep->maxpacket,
 				(unsigned) UDC_TXN_TSC + 1);
  		txdma_ctrl = length;
 		omap_set_dma_transfer_params(ep->lch, OMAP_DMA_DATA_TYPE_S16,
-				ep->ep.maxpacket >> 1, length, sync_mode);
+				ep->ep.maxpacket >> 1, length, sync_mode,
+				0, 0);
 		length *= ep->maxpacket;
 	}
 	omap_set_dma_src_params(ep->lch, OMAP_DMA_PORT_EMIFF,
-		OMAP_DMA_AMODE_POST_INC, req->req.dma + req->req.actual);
+		OMAP_DMA_AMODE_POST_INC, req->req.dma + req->req.actual,
+		0, 0);
 
 	omap_start_dma(ep->lch);
 	ep->dma_counter = dma_csac(ep->lch);
@@ -677,9 +679,11 @@ static void next_out_dma(struct omap_ep *ep, struct omap_req *req)
 	req->dma_bytes = packets * ep->ep.maxpacket;
 	omap_set_dma_transfer_params(ep->lch, OMAP_DMA_DATA_TYPE_S16,
 			ep->ep.maxpacket >> 1, packets,
-			OMAP_DMA_SYNC_ELEMENT);
+			OMAP_DMA_SYNC_ELEMENT,
+			0, 0);
 	omap_set_dma_dest_params(ep->lch, OMAP_DMA_PORT_EMIFF,
-		OMAP_DMA_AMODE_POST_INC, req->req.dma + req->req.actual);
+		OMAP_DMA_AMODE_POST_INC, req->req.dma + req->req.actual,
+		0, 0);
 	ep->dma_counter = DMA_DEST_LAST(ep->lch);
 
 	UDC_RXDMA_REG(ep->dma_channel) = UDC_RXN_STOP | (packets - 1);
@@ -822,7 +826,8 @@ static void dma_channel_claim(struct omap_ep *ep, unsigned channel)
 			omap_set_dma_dest_params(ep->lch,
 				OMAP_DMA_PORT_TIPB,
 				OMAP_DMA_AMODE_CONSTANT,
-				(unsigned long) io_v2p((u32)&UDC_DATA_DMA_REG));
+				(unsigned long) io_v2p((u32)&UDC_DATA_DMA_REG),
+				0, 0);
 		}
 	} else {
 		status = omap_request_dma(OMAP_DMA_USB_W2FC_RX0 - 1 + channel,
@@ -833,7 +838,8 @@ static void dma_channel_claim(struct omap_ep *ep, unsigned channel)
 			omap_set_dma_src_params(ep->lch,
 				OMAP_DMA_PORT_TIPB,
 				OMAP_DMA_AMODE_CONSTANT,
-				(unsigned long) io_v2p((u32)&UDC_DATA_DMA_REG));
+				(unsigned long) io_v2p((u32)&UDC_DATA_DMA_REG),
+				0, 0);
 			/* EMIFF */
 			omap_set_dma_dest_burst_mode(ep->lch,
 						OMAP_DMA_DATA_BURST_4);

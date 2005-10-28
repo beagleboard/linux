@@ -493,17 +493,20 @@ int omap_mcbsp_xmit_buffer(unsigned int id, dma_addr_t buffer, unsigned int leng
 	omap_set_dma_transfer_params(mcbsp[id].dma_tx_lch,
 				     OMAP_DMA_DATA_TYPE_S16,
 				     length >> 1, 1,
-				     OMAP_DMA_SYNC_ELEMENT);
+				     OMAP_DMA_SYNC_ELEMENT,
+				     0, 0);
 
 	omap_set_dma_dest_params(mcbsp[id].dma_tx_lch,
 				 OMAP_DMA_PORT_TIPB,
 				 OMAP_DMA_AMODE_CONSTANT,
-				 mcbsp[id].io_base + OMAP_MCBSP_REG_DXR1);
+				 mcbsp[id].io_base + OMAP_MCBSP_REG_DXR1,
+				 0, 0);
 
 	omap_set_dma_src_params(mcbsp[id].dma_tx_lch,
 				OMAP_DMA_PORT_EMIFF,
 				OMAP_DMA_AMODE_POST_INC,
-				buffer);
+				buffer,
+				0, 0);
 
 	omap_start_dma(mcbsp[id].dma_tx_lch);
 	wait_for_completion(&(mcbsp[id].tx_dma_completion));
@@ -533,17 +536,20 @@ int omap_mcbsp_recv_buffer(unsigned int id, dma_addr_t buffer, unsigned int leng
 	omap_set_dma_transfer_params(mcbsp[id].dma_rx_lch,
 				     OMAP_DMA_DATA_TYPE_S16,
 				     length >> 1, 1,
-				     OMAP_DMA_SYNC_ELEMENT);
+				     OMAP_DMA_SYNC_ELEMENT,
+				     0, 0);
 
 	omap_set_dma_src_params(mcbsp[id].dma_rx_lch,
 				OMAP_DMA_PORT_TIPB,
 				OMAP_DMA_AMODE_CONSTANT,
-				mcbsp[id].io_base + OMAP_MCBSP_REG_DRR1);
+				mcbsp[id].io_base + OMAP_MCBSP_REG_DRR1,
+				0, 0);
 
 	omap_set_dma_dest_params(mcbsp[id].dma_rx_lch,
 				 OMAP_DMA_PORT_EMIFF,
 				 OMAP_DMA_AMODE_POST_INC,
-				 buffer);
+				 buffer,
+				 0, 0);
 
 	omap_start_dma(mcbsp[id].dma_rx_lch);
 	wait_for_completion(&(mcbsp[id].rx_dma_completion));

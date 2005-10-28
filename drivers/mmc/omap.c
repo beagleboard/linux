@@ -704,20 +704,24 @@ mmc_omap_prepare_dma(struct mmc_omap_host *host, struct mmc_data *data)
 		buf = 0x800f | ((frame - 1) << 8);
 		omap_set_dma_src_params(dma_ch, OMAP_DMA_PORT_TIPB,
 					OMAP_DMA_AMODE_CONSTANT,
-					data_addr);
+					data_addr,
+					0, 0);
 		omap_set_dma_dest_params(dma_ch, OMAP_DMA_PORT_EMIFF,
 					OMAP_DMA_AMODE_POST_INC,
-					sg_dma_address(sg));
+					sg_dma_address(sg),
+					0, 0);
 		omap_set_dma_dest_data_pack(dma_ch, 1);
 		omap_set_dma_dest_burst_mode(dma_ch, OMAP_DMA_DATA_BURST_4);
 	} else {
 		buf = 0x0f80 | ((frame - 1) << 0);
 		omap_set_dma_dest_params(dma_ch, OMAP_DMA_PORT_TIPB,
 					OMAP_DMA_AMODE_CONSTANT,
-					data_addr);
+					data_addr,
+					0, 0);
 		omap_set_dma_src_params(dma_ch, OMAP_DMA_PORT_EMIFF,
 					OMAP_DMA_AMODE_POST_INC,
-					sg_dma_address(sg));
+					sg_dma_address(sg),
+					0, 0);
 		omap_set_dma_src_data_pack(dma_ch, 1);
 		omap_set_dma_src_burst_mode(dma_ch, OMAP_DMA_DATA_BURST_4);
 	}
@@ -728,7 +732,8 @@ mmc_omap_prepare_dma(struct mmc_omap_host *host, struct mmc_data *data)
 
 	OMAP_MMC_WRITE(host->base, BUF, buf);
 	omap_set_dma_transfer_params(dma_ch, OMAP_DMA_DATA_TYPE_S16,
-			frame, count, OMAP_DMA_SYNC_FRAME);
+			frame, count, OMAP_DMA_SYNC_FRAME,
+			0, 0);
 }
 
 /* a scatterlist segment completed */

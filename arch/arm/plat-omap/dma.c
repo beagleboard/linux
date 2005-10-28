@@ -121,7 +121,8 @@ void omap_set_dma_priority(int dst_port, int priority)
 }
 
 void omap_set_dma_transfer_params(int lch, int data_type, int elem_count,
-				  int frame_count, int sync_mode)
+				  int frame_count, int sync_mode,
+				  int dma_trigger, int src_or_dst_synch)
 {
 	u16 w;
 
@@ -177,9 +178,9 @@ void omap_set_dma_color_mode(int lch, enum omap_dma_color_mode mode, u32 color)
 	omap_writew(w, OMAP_DMA_LCH_CTRL(lch));
 }
 
-
 void omap_set_dma_src_params(int lch, int src_port, int src_amode,
-			     unsigned long src_start)
+			     unsigned long src_start,
+			     int src_ei, int src_fi)
 {
 	u16 w;
 
@@ -235,7 +236,8 @@ void omap_set_dma_src_burst_mode(int lch, enum omap_dma_burst_mode burst_mode)
 }
 
 void omap_set_dma_dest_params(int lch, int dest_port, int dest_amode,
-			      unsigned long dest_start)
+			      unsigned long dest_start,
+			      int dst_ei, int dst_fi)
 {
 	u16 w;
 

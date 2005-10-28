@@ -217,19 +217,22 @@ extern void omap_start_dma(int lch);
 extern void omap_stop_dma(int lch);
 extern void omap_set_dma_transfer_params(int lch, int data_type,
 					 int elem_count, int frame_count,
-					 int sync_mode);
+					 int sync_mode,
+					 int dma_trigger, int src_or_dst_synch);
 extern void omap_set_dma_color_mode(int lch, enum omap_dma_color_mode mode,
 				    u32 color);
 
 extern void omap_set_dma_src_params(int lch, int src_port, int src_amode,
-				    unsigned long src_start);
+				    unsigned long src_start,
+				    int src_ei, int src_fi);
 extern void omap_set_dma_src_index(int lch, int eidx, int fidx);
 extern void omap_set_dma_src_data_pack(int lch, int enable);
 extern void omap_set_dma_src_burst_mode(int lch,
 					enum omap_dma_burst_mode burst_mode);
 
 extern void omap_set_dma_dest_params(int lch, int dest_port, int dest_amode,
-				     unsigned long dest_start);
+				     unsigned long dest_start,
+				     int dst_ei, int dst_fi);
 extern void omap_set_dma_dest_index(int lch, int eidx, int fidx);
 extern void omap_set_dma_dest_data_pack(int lch, int enable);
 extern void omap_set_dma_dest_burst_mode(int lch,

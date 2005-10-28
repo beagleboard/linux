@@ -325,18 +325,22 @@ omap16xxcam_start_dma(struct sgdma_state *sgdma,
 	
 	if (machine_is_omap_h3())
 		omap_set_dma_src_params(dmach, OMAP_DMA_PORT_OCP_T1,
-			    OMAP_DMA_AMODE_CONSTANT, CAM_CAMDATA_REG);
+			    OMAP_DMA_AMODE_CONSTANT, CAM_CAMDATA_REG,
+			    0, 0);
 	else
 		omap_set_dma_src_params(dmach, OMAP_DMA_PORT_TIPB,
-			    OMAP_DMA_AMODE_CONSTANT, CAM_CAMDATA_REG);
+			    OMAP_DMA_AMODE_CONSTANT, CAM_CAMDATA_REG,
+			    0, 0);
 
 	omap_set_dma_dest_params(dmach, OMAP_DMA_PORT_EMIFF,
-	                     OMAP_DMA_AMODE_POST_INC, sg_dma_address(sglist));
+	                     OMAP_DMA_AMODE_POST_INC, sg_dma_address(sglist),
+			     0, 0);
 
 	omap_set_dma_transfer_params(dmach, OMAP_DMA_DATA_TYPE_S32,
 			FIFO_TRIGGER_LVL, 
 			sg_dma_len(sglist)/(4 * FIFO_TRIGGER_LVL), 
- 			OMAP_DMA_SYNC_FRAME);
+ 			OMAP_DMA_SYNC_FRAME,
+			0, 0);
 	
 
 	omap_writew(omap_readw(OMAP_DMA_CLNK_CTRL(dmach)) & ~(1<<15), 

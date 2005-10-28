@@ -701,9 +701,10 @@ static int audio_set_dma_params_play(int channel, dma_addr_t dma_ptr,
 	int cfn = dma_size / (2 * cen);
 	FN_IN;
 	omap_set_dma_dest_params(channel, 0x05, 0x00,
-				 (OMAP1610_MCBSP1_BASE + 0x806));
-	omap_set_dma_src_params(channel, 0x00, 0x01, dma_ptr);
-	omap_set_dma_transfer_params(channel, dt, cen, cfn, 0x00);
+				 (OMAP1610_MCBSP1_BASE + 0x806),
+				 0, 0);
+	omap_set_dma_src_params(channel, 0x00, 0x01, dma_ptr, 0, 0);
+	omap_set_dma_transfer_params(channel, dt, cen, cfn, 0x00, 0, 0);
 	FN_OUT(0);
 	return 0;
 }
@@ -716,9 +717,10 @@ static int audio_set_dma_params_capture(int channel, dma_addr_t dma_ptr,
 	int cfn = dma_size / (2 * cen);
 	FN_IN;
 	omap_set_dma_src_params(channel, 0x05, 0x00,
-				(OMAP1610_MCBSP1_BASE + 0x802));
-	omap_set_dma_dest_params(channel, 0x00, 0x01, dma_ptr);
-	omap_set_dma_transfer_params(channel, dt, cen, cfn, 0x00);
+				(OMAP1610_MCBSP1_BASE + 0x802),
+				0, 0);
+	omap_set_dma_dest_params(channel, 0x00, 0x01, dma_ptr, 0, 0);
+	omap_set_dma_transfer_params(channel, dt, cen, cfn, 0x00, 0, 0);
 	FN_OUT(0);
 	return 0;
 }
