@@ -59,6 +59,10 @@ static struct platform_device omap_i2c_device2 = {
 /* See also arch/arm/plat-omap/devices.c for first I2C on 24xx */
 static void omap_init_i2c(void)
 {
+	/* REVISIT: Second I2C not in use on H4? */
+	if (machine_is_omap_h4())
+		return;
+
 	omap_cfg_reg(J15_24XX_I2C2_SCL);
 	omap_cfg_reg(H19_24XX_I2C2_SDA);
 	(void) platform_device_register(&omap_i2c_device2);
