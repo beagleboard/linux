@@ -22,6 +22,7 @@
 
 extern void omap_sram_init(void);
 extern int omap2_clk_init(void);
+extern void omap2_check_revision(void);
 
 /*
  * The machine specific code may provide the extra mapping besides the
@@ -35,6 +36,7 @@ static struct map_desc omap2_io_desc[] __initdata = {
 void __init omap_map_common_io(void)
 {
 	iotable_init(omap2_io_desc, ARRAY_SIZE(omap2_io_desc));
+	omap2_check_revision();
 	omap_sram_init();
 	omap2_mux_init();
 	omap2_clk_init();

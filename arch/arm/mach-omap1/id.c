@@ -18,6 +18,13 @@
 
 #include <asm/io.h>
 
+#define OMAP_DIE_ID_0		0xfffe1800
+#define OMAP_DIE_ID_1		0xfffe1804
+#define OMAP_PRODUCTION_ID_0	0xfffe2000
+#define OMAP_PRODUCTION_ID_1	0xfffe2004
+#define OMAP32_ID_0		0xfffed400
+#define OMAP32_ID_1		0xfffed404
+
 struct omap_id {
 	u16	jtag_id;	/* Used to determine OMAP type */
 	u8	die_rev;	/* Processor revision */
