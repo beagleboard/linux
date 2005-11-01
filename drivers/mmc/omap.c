@@ -677,9 +677,11 @@ mmc_omap_prepare_dma(struct mmc_omap_host *host, struct mmc_data *data)
 	u16 buf, frame;
 	u32 count;
 	struct scatterlist *sg = &data->sg[host->sg_idx];
+	int src_port = 0;
+	int dst_port = 0;
+	int sync_dev = 0;
 
-	data_addr = virt_to_phys((void __force *) host->base)
-				+ OMAP_MMC_REG_DATA;
+	data_addr = io_v2p((void __force *) host->base) + OMAP_MMC_REG_DATA;
 	frame = 1 << data->blksz_bits;
 	count = sg_dma_len(sg);
 
@@ -702,26 +704,38 @@ mmc_omap_prepare_dma(struct mmc_omap_host *host, struct mmc_data *data)
 
 	if (!(data->flags & MMC_DATA_WRITE)) {
 		buf = 0x800f | ((frame - 1) << 8);
-		omap_set_dma_src_params(dma_ch, OMAP_DMA_PORT_TIPB,
+
+		if (cpu_class_is_omap1()) {
+			src_port = OMAP_DMA_PORT_TIPB;
+			dst_port = OMAP_DMA_PORT_EMIFF;
+		}
+		if (cpu_is_omap24xx())
+			sync_dev = OMAP24XX_DMA_MMC1_RX;
+
+		omap_set_dma_src_params(dma_ch, src_port,
 					OMAP_DMA_AMODE_CONSTANT,
-					data_addr,
-					0, 0);
-		omap_set_dma_dest_params(dma_ch, OMAP_DMA_PORT_EMIFF,
-					OMAP_DMA_AMODE_POST_INC,
-					sg_dma_address(sg),
-					0, 0);
+					data_addr, 0, 0);
+		omap_set_dma_dest_params(dma_ch, dst_port,
+					 OMAP_DMA_AMODE_POST_INC,
+					 sg_dma_address(sg), 0, 0);
 		omap_set_dma_dest_data_pack(dma_ch, 1);
 		omap_set_dma_dest_burst_mode(dma_ch, OMAP_DMA_DATA_BURST_4);
 	} else {
 		buf = 0x0f80 | ((frame - 1) << 0);
-		omap_set_dma_dest_params(dma_ch, OMAP_DMA_PORT_TIPB,
-					OMAP_DMA_AMODE_CONSTANT,
-					data_addr,
-					0, 0);
-		omap_set_dma_src_params(dma_ch, OMAP_DMA_PORT_EMIFF,
+
+		if (cpu_class_is_omap1()) {
+			src_port = OMAP_DMA_PORT_EMIFF;
+			dst_port = OMAP_DMA_PORT_TIPB;
+		}
+		if (cpu_is_omap24xx())
+			sync_dev = OMAP24XX_DMA_MMC1_TX;
+
+		omap_set_dma_dest_params(dma_ch, dst_port,
+					 OMAP_DMA_AMODE_CONSTANT,
+					 data_addr, 0, 0);
+		omap_set_dma_src_params(dma_ch, src_port,
 					OMAP_DMA_AMODE_POST_INC,
-					sg_dma_address(sg),
-					0, 0);
+					sg_dma_address(sg), 0, 0);
 		omap_set_dma_src_data_pack(dma_ch, 1);
 		omap_set_dma_src_burst_mode(dma_ch, OMAP_DMA_DATA_BURST_4);
 	}
@@ -732,8 +746,8 @@ mmc_omap_prepare_dma(struct mmc_omap_host *host, struct mmc_data *data)
 
 	OMAP_MMC_WRITE(host->base, BUF, buf);
 	omap_set_dma_transfer_params(dma_ch, OMAP_DMA_DATA_TYPE_S16,
-			frame, count, OMAP_DMA_SYNC_FRAME,
-			0, 0);
+				     frame, count, OMAP_DMA_SYNC_FRAME,
+				     sync_dev, 0);
 }
 
 /* a scatterlist segment completed */
@@ -760,7 +774,7 @@ static void mmc_omap_dma_cb(int lch, u16 ch_status, void *data)
 		/* REVISIT we should be able to avoid getting IRQs with
 		 * just SYNC status ...
 		 */
-		if ((ch_status & ~OMAP_DMA_SYNC_IRQ))
+		if ((ch_status & ~OMAP1_DMA_SYNC_IRQ))
 			pr_debug("MMC%d: DMA channel status: %04x\n",
 			       host->id, ch_status);
 		return;
