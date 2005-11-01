@@ -473,6 +473,9 @@ int omap_request_dma(int dev_id, const char *dev_name,
 	chan->enabled_irqs = OMAP_DMA_TOUT_IRQ | OMAP_DMA_DROP_IRQ |
 				OMAP_DMA_BLOCK_IRQ;
 
+	if (cpu_is_omap24xx())
+		chan->enabled_irqs |= OMAP2_DMA_TRANS_ERR_IRQ;
+
 	if (cpu_is_omap16xx()) {
 		/* If the sync device is set, configure it dynamically. */
 		if (dev_id != 0) {
@@ -836,19 +839,25 @@ static irqreturn_t omap1_dma_irq_handler(int irq, void *dev_id,
 
 static int omap2_dma_handle_ch(int ch)
 {
-	u32 val = OMAP_DMA_CSR_REG(ch);
+	u32 status = OMAP_DMA_CSR_REG(ch);
+	u32 val;
 
-	if (!val)
+	if (!status)
 		return 0;
 	if (unlikely(dma_chan[ch].dev_id == -1))
 		return 0;
-	if (unlikely(val & OMAP_DMA_TOUT_IRQ))
+	/* REVISIT: According to 24xx TRM, there's no TOUT_IE */
+	if (unlikely(status & OMAP_DMA_TOUT_IRQ))
 		printk(KERN_INFO "DMA timeout with device %d\n",
 		       dma_chan[ch].dev_id);
-	if (unlikely(val & OMAP_DMA_DROP_IRQ))
+	if (unlikely(status & OMAP_DMA_DROP_IRQ))
 		printk(KERN_INFO
 		       "DMA synchronization event drop occurred with device "
 		       "%d\n", dma_chan[ch].dev_id);
+
+	if (unlikely(status & OMAP2_DMA_TRANS_ERR_IRQ))
+		printk(KERN_INFO "DMA transaction error with device %d\n",
+		       dma_chan[ch].dev_id);
 
 	OMAP_DMA_CSR_REG(ch) = 0x20;
 
@@ -857,10 +866,8 @@ static int omap2_dma_handle_ch(int ch)
 	val = 1 << (ch);
 	omap_writel(val, OMAP_DMA4_IRQSTATUS_L0);
 
-	if (likely(dma_chan[ch].callback != NULL)){
-		val = OMAP_DMA_CSR_REG(ch);
-		dma_chan[ch].callback(ch, val, dma_chan[ch].data);
-	}
+	if (likely(dma_chan[ch].callback != NULL))
+		dma_chan[ch].callback(ch, status, dma_chan[ch].data);
 
 	return 0;
 }

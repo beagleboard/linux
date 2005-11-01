@@ -276,13 +276,18 @@
 #define OMAP1610_DMA_LCD_LCH_CTRL	(OMAP1610_DMA_LCD_BASE + 0xea)
 #define OMAP1610_DMA_LCD_SRC_FI_B1_U	(OMAP1610_DMA_LCD_BASE + 0xf4)
 
-#define OMAP_DMA_TOUT_IRQ		(1 << 0)
+#define OMAP_DMA_TOUT_IRQ		(1 << 0)	/* Only on omap1 */
 #define OMAP_DMA_DROP_IRQ		(1 << 1)
 #define OMAP_DMA_HALF_IRQ		(1 << 2)
 #define OMAP_DMA_FRAME_IRQ		(1 << 3)
 #define OMAP_DMA_LAST_IRQ		(1 << 4)
 #define OMAP_DMA_BLOCK_IRQ		(1 << 5)
-#define OMAP_DMA_SYNC_IRQ		(1 << 6)
+#define OMAP1_DMA_SYNC_IRQ		(1 << 6)
+#define OMAP2_DMA_PKT_IRQ		(1 << 7)
+#define OMAP2_DMA_TRANS_ERR_IRQ		(1 << 8)
+#define OMAP2_DMA_SECURE_ERR_IRQ	(1 << 9)
+#define OMAP2_DMA_SUPERVISOR_ERR_IRQ	(1 << 10)
+#define OMAP2_DMA_MISALIGNED_ERR_IRQ	(1 << 11)
 
 #define OMAP_DMA_DATA_TYPE_S8		0x00
 #define OMAP_DMA_DATA_TYPE_S16		0x01
