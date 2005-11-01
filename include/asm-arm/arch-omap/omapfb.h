@@ -189,7 +189,7 @@ struct extif_timings {
 struct lcd_ctrl_extif {
 	int  (*init)		(void);
 	void (*cleanup)		(void);
-	void (*set_timings)	(struct extif_timings timings);
+	void (*set_timings)	(const struct extif_timings *timings);
 	void (*write_command)	(u32 cmd);
 	u32  (*read_data)	(void);
 	void (*write_data)	(u32 data);

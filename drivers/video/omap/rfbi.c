@@ -80,7 +80,7 @@ static inline u32 rfbi_read_reg(int idx)
 	return __raw_readl(rfbi.base + idx);
 }
 
-static int ns_to_dss_ticks(int time)
+static int ns_to_l4_ticks(int time)
 {
 	unsigned long tick_ps;
 	int ret;
@@ -93,6 +93,7 @@ static int ns_to_dss_ticks(int time)
 	return ret * 2;
 }
 
+#ifdef OMAPFB_DBG
 static void print_timings(void)
 {
 	u32 l;
@@ -108,6 +109,7 @@ static void print_timings(void)
 	       "ACCESSTIME %d\n",
 	       (l & 0x3f), (l >> 6) & 0x3f, (l >> 12) & 0x3f, (l >> 22) & 0x3f);
 }
+#endif
 
 static void rfbi_set_timings(const struct extif_timings *t)
 {
@@ -165,7 +167,7 @@ static void rfbi_transfer_area(int width, int height,
 
 	BUG_ON(callback == NULL);
 
-	dispc_set_lcd_size(width, height);
+	omap_dispc_set_lcd_size(width, height);
 
 	rfbi.lcdc_callback = callback;
 	rfbi.lcdc_callback_data = data;
@@ -176,7 +178,7 @@ static void rfbi_transfer_area(int width, int height,
 	/* Enable, Internal trigger */
 	rfbi_write_reg(RFBI_CONTROL, w | (1 << 0) | (1 << 4));
 
-	dispc_enable_lcd_out(1);
+	omap_dispc_enable_lcd_out(1);
 }
 
 static inline void _stop_transfer(void)
@@ -237,7 +239,7 @@ static int rfbi_init(void)
 	l = (0x01 << 2);
 	rfbi_write_reg(RFBI_CONTROL, l);
 
-	if ((r = dispc_request_irq(rfbi_dma_callback, NULL)) < 0) {
+	if ((r = omap_dispc_request_irq(rfbi_dma_callback, NULL)) < 0) {
 		pr_err("can't get DISPC irq\n");
 		return r;
 	}
@@ -247,7 +249,7 @@ static int rfbi_init(void)
 
 static void rfbi_cleanup(void)
 {
-	dispc_free_irq();
+	omap_dispc_free_irq();
 }
 
 struct lcd_ctrl_extif rfbi_extif = {
