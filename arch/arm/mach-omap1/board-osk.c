@@ -153,7 +153,7 @@ static void __init osk_init_smc91x(void)
 	}
 
 	/* Check EMIFS wait states to fix errors with SMC_GET_PKT_HDR */
-	EMIFS_CCS(1) |= 0x2;
+	EMIFS_CCS(1) |= 0x3;
 }
 
 static void __init osk_init_cf(void)
