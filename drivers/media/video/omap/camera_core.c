@@ -37,6 +37,7 @@
 #include <linux/interrupt.h>
 #include <linux/videodev.h>
 #include <linux/pci.h>
+#include <linux/version.h>
 #include <asm/semaphore.h>
 #include <asm/processor.h>
 #include <linux/dma-mapping.h>
