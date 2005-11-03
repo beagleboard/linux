@@ -663,8 +663,10 @@ static int __init omap_pm_init(void)
 	omap_pm_init_proc();
 #endif
 
-	/* configure LOW_PWR pin */
-	omap_cfg_reg(T20_1610_LOW_PWR);
+	if (cpu_is_omap16xx()) {
+		/* configure LOW_PWR pin */
+		omap_cfg_reg(T20_1610_LOW_PWR);
+	}
 
 	return 0;
 }
