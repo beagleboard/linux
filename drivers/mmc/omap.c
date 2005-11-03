@@ -1225,12 +1225,7 @@ static int __init mmc_omap_probe(struct device *dev)
 	host->power_pin = minfo->power_pin;
 	host->switch_pin = minfo->switch_pin;
 	host->wp_pin = minfo->wp_pin;
-
-	/* FIXME: Remove once DMA works on 24xx */
-	if (cpu_is_omap24xx())
-		host->use_dma = 0;
-	else
-		host->use_dma = 1;
+	host->use_dma = 1;
 	host->dma_ch = -1;
 
 	host->irq = pdev->resource[1].start;
