@@ -25,6 +25,7 @@
 #include <linux/config.h>
 #include <linux/module.h>
 #include <linux/init.h>
+#include <linux/kernel.h>
 #include <asm/system.h>
 #include <asm/io.h>
 #include <linux/spinlock.h>
@@ -70,6 +71,7 @@ int __init_or_module omap_cfg_reg(const unsigned long index)
 	if (index >= pin_table_sz) {
 		printk(KERN_ERR "Invalid pin mux index: %lu (%lu)\n",
 		       index, pin_table_sz);
+		dump_stack();
 		return -ENODEV;
 	}
 
