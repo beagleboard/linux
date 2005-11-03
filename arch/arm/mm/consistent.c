@@ -432,7 +432,7 @@ core_initcall(consistent_init);
 void consistent_sync(void *vaddr, size_t size, int direction)
 {
 	unsigned long start = (unsigned long)vaddr;
-	unsigned long end   = start + size - 1;
+	unsigned long end   = start + size;
 
 	switch (direction) {
 	case DMA_FROM_DEVICE:		/* invalidate only */
