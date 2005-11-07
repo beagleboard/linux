@@ -605,6 +605,14 @@ static int __init omap1_late_clk_reset(void)
 			p->enable_reg == 0)
 			continue;
 
+		/* Clocks in the DSP domain need api_ck. Just assume bootloader
+		 * has not enabled any DSP clocks */
+		if (p->enable_reg == DSP_IDLECT2) {
+			printk(KERN_INFO "Skipping reset check for DSP domain clock \"%s\"\n",
+			       p->name);
+			continue;
+		}
+
 		/* Is the clock already disabled? */
 		if (p->flags & ENABLE_REG_32BIT) {
 			if (p->flags & VIRTUAL_IO_ADDRESS)
