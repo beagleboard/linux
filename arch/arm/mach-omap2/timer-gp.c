@@ -20,9 +20,11 @@
 #include <linux/init.h>
 #include <linux/time.h>
 #include <linux/interrupt.h>
+#include <linux/err.h>
 #include <asm/mach/time.h>
 #include <asm/delay.h>
 #include <asm/io.h>
+#include <asm/hardware/clock.h>
 
 #define OMAP2_GP_TIMER1_BASE	0x48028000
 #define OMAP2_GP_TIMER2_BASE	0x4802a000
@@ -56,6 +58,7 @@ static inline void timer_write_reg(int nr, unsigned int reg, unsigned int val)
 	__raw_writel(val, timer_base[nr] + reg);
 }
 
+/* Note that we always enable the clock prescale divider bit */
 static inline void omap2_gp_timer_start(int nr, unsigned long load_val)
 {
 	unsigned int tmp;
@@ -87,11 +90,26 @@ static struct irqaction omap2_gp_timer_irq = {
 	.handler	= omap2_gp_timer_interrupt,
 };
 
-#define MPU_TIMER_TICK_PERIOD	(192000 - 1)
-
 static void __init omap2_gp_timer_init(void)
 {
+	struct clk * osc_ck;
+	u32 tick_period = 120000;
 	u32 l;
+
+	/* Reset clock and prescale value */
+	timer_write_reg(OS_TIMER_NR, GP_TIMER_TCLR, 0);
+
+	osc_ck = clk_get(NULL, "osc_ck");
+	if (IS_ERR(osc_ck))
+		printk(KERN_ERR "Could not get osc_ck\n");
+	else {
+		clk_use(osc_ck);
+		tick_period = clk_get_rate(osc_ck) / 100;
+		clk_put(osc_ck);
+	}
+
+	tick_period /= 2;	/* Minimum prescale divider is 2 */
+	tick_period -= 1;
 
 	l = timer_read_reg(OS_TIMER_NR, GP_TIMER_TIDR);
 	printk(KERN_INFO "OMAP2 GP timer (HW version %d.%d)\n",
@@ -99,7 +117,7 @@ static void __init omap2_gp_timer_init(void)
 
 	setup_irq(38, &omap2_gp_timer_irq);
 
-	omap2_gp_timer_start(OS_TIMER_NR, MPU_TIMER_TICK_PERIOD);
+	omap2_gp_timer_start(OS_TIMER_NR, tick_period);
 }
 
 struct sys_timer omap_timer = {
