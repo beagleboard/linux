@@ -2247,6 +2247,12 @@ S: 249 Nichols Avenue
 S: Syracuse, New York 13206
 S: USA
 
+N: Kyle McMartin
+E: kyle@parisc-linux.org
+D: Linux/PARISC hacker
+D: AD1889 sound driver
+S: Ottawa, Canada
+
 N: Dirk Melchers
 E: dirk@merlin.nbg.sub.org
 D: 8 bit XT hard disk driver for OMTI5520
@@ -3636,11 +3642,9 @@ S: Beaverton, OR 97005
 S: USA
 
 N: Michal Wronski
-E: wrona@mat.uni.torun.pl
-W: http://www.mat.uni.torun.pl/~wrona
+E: Michal.Wronski@motorola.com
 D: POSIX message queues fs (with K. Benedyczak)
-S: ul. Teczowa 23/12
-S: 80-680 Gdansk-Sobieszewo
+S: Krakow
 S: Poland
 
 N: Frank Xia

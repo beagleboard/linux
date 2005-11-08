@@ -7,6 +7,7 @@
 #include <linux/pci.h>
 #include <linux/init.h>
 #include <linux/agp_backend.h>
+#include <asm/page.h>		/* PAGE_SIZE */
 #include "agp.h"
 
 #define ALI_AGPCTRL	0xb8
@@ -388,6 +389,7 @@ static struct pci_device_id agp_ali_pci_table[] = {
 MODULE_DEVICE_TABLE(pci, agp_ali_pci_table);
 
 static struct pci_driver agp_ali_pci_driver = {
+	.owner		= THIS_MODULE,
 	.name		= "agpgart-ali",
 	.id_table	= agp_ali_pci_table,
 	.probe		= agp_ali_probe,

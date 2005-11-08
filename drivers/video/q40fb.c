@@ -18,6 +18,7 @@
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
+#include <linux/platform_device.h>
 
 #include <asm/uaccess.h>
 #include <asm/setup.h>
@@ -83,7 +84,6 @@ static struct fb_ops q40fb_ops = {
 	.fb_fillrect	= cfb_fillrect,
 	.fb_copyarea	= cfb_copyarea,
 	.fb_imageblit	= cfb_imageblit,
-	.fb_cursor	= soft_cursor,
 };
 
 static int __init q40fb_probe(struct device *device)

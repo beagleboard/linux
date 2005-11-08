@@ -69,7 +69,7 @@ extern int journal_enable_debug;
 #define jbd_debug(f, a...)	/**/
 #endif
 
-extern void * __jbd_kmalloc (const char *where, size_t size, int flags, int retry);
+extern void * __jbd_kmalloc (const char *where, size_t size, gfp_t flags, int retry);
 #define jbd_kmalloc(size, flags) \
 	__jbd_kmalloc(__FUNCTION__, (size), (flags), journal_oom_retry)
 #define jbd_rep_kmalloc(size, flags) \
@@ -611,6 +611,9 @@ struct transaction_s
  * @j_revoke: The revoke table - maintains the list of revoked blocks in the
  *     current transaction.
  * @j_revoke_table: alternate revoke tables for j_revoke
+ * @j_wbuf: array of buffer_heads for journal_commit_transaction
+ * @j_wbufsize: maximum number of buffer_heads allowed in j_wbuf, the
+ *	number that will fit in j_blocksize
  * @j_private: An opaque pointer to fs-private information.
  */
 
@@ -890,7 +893,7 @@ extern int	 journal_forget (handle_t *, struct buffer_head *);
 extern void	 journal_sync_buffer (struct buffer_head *);
 extern int	 journal_invalidatepage(journal_t *,
 				struct page *, unsigned long);
-extern int	 journal_try_to_free_buffers(journal_t *, struct page *, int);
+extern int	 journal_try_to_free_buffers(journal_t *, struct page *, gfp_t);
 extern int	 journal_stop(handle_t *);
 extern int	 journal_flush (journal_t *);
 extern void	 journal_lock_updates (journal_t *);

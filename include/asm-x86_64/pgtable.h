@@ -105,6 +105,8 @@ static inline void pgd_clear (pgd_t * pgd)
 
 #define ptep_get_and_clear(mm,addr,xp)	__pte(xchg(&(xp)->pte, 0))
 
+struct mm_struct;
+
 static inline pte_t ptep_get_and_clear_full(struct mm_struct *mm, unsigned long addr, pte_t *ptep, int full)
 {
 	pte_t pte;
@@ -317,8 +319,6 @@ static inline int pmd_large(pmd_t pte) {
  * Conversion functions: convert a page and protection to a page entry,
  * and a page entry and page directory to the page they refer to.
  */
-
-#define page_pte(page) page_pte_prot(page, __pgprot(0))
 
 /*
  * Level 4 access.

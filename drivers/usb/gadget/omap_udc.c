@@ -38,7 +38,7 @@
 #include <linux/proc_fs.h>
 #include <linux/mm.h>
 #include <linux/moduleparam.h>
-#include <linux/device.h>
+#include <linux/platform_device.h>
 #include <linux/usb_ch9.h>
 #include <linux/usb_gadget.h>
 #include <linux/usb_otg.h>
@@ -269,7 +269,7 @@ static int omap_ep_disable(struct usb_ep *_ep)
 /*-------------------------------------------------------------------------*/
 
 static struct usb_request *
-omap_alloc_request(struct usb_ep *ep, unsigned gfp_flags)
+omap_alloc_request(struct usb_ep *ep, gfp_t gfp_flags)
 {
 	struct omap_req	*req;
 
@@ -298,7 +298,7 @@ omap_alloc_buffer(
 	struct usb_ep	*_ep,
 	unsigned	bytes,
 	dma_addr_t	*dma,
-	unsigned	gfp_flags
+	gfp_t		gfp_flags
 )
 {
 	void		*retval;
@@ -945,7 +945,7 @@ static void dma_channel_release(struct omap_ep *ep)
 /*-------------------------------------------------------------------------*/
 
 static int
-omap_ep_queue(struct usb_ep *_ep, struct usb_request *_req, unsigned gfp_flags)
+omap_ep_queue(struct usb_ep *_ep, struct usb_request *_req, gfp_t gfp_flags)
 {
 	struct omap_ep	*ep = container_of(_ep, struct omap_ep, ep);
 	struct omap_req	*req = container_of(_req, struct omap_req, req);
@@ -1794,8 +1794,12 @@ static void devstate_irq(struct omap_udc *udc, u16 irq_src)
 					udc->driver->suspend(&udc->gadget);
 					spin_lock(&udc->lock);
 				}
+				if (udc->transceiver)
+					otg_set_suspend(udc->transceiver, 1);
 			} else {
 				VDBG("resume\n");
+				if (udc->transceiver)
+					otg_set_suspend(udc->transceiver, 0);
 				if (udc->gadget.speed == USB_SPEED_FULL
 						&& udc->driver->resume) {
 					spin_unlock(&udc->lock);
@@ -2917,12 +2921,10 @@ static int __exit omap_udc_remove(struct device *dev)
  * may involve talking to an external transceiver (e.g. isp1301).
  */
 
-static int omap_udc_suspend(struct device *dev, pm_message_t message, u32 level)
+static int omap_udc_suspend(struct device *dev, pm_message_t message)
 {
 	u32	devstat;
 
-	if (level != SUSPEND_POWER_DOWN)
-		return 0;
 	devstat = UDC_DEVSTAT_REG;
 
 	/* we're requesting 48 MHz clock if the pullup is enabled
@@ -2939,11 +2941,8 @@ static int omap_udc_suspend(struct device *dev, pm_message_t message, u32 level)
 	return 0;
 }
 
-static int omap_udc_resume(struct device *dev, u32 level)
+static int omap_udc_resume(struct device *dev)
 {
-	if (level != RESUME_POWER_ON)
-		return 0;
-
 	DBG("resume + wakeup/SRP\n");
 	omap_pullup(&udc->gadget, 1);
 
@@ -2956,6 +2955,7 @@ static int omap_udc_resume(struct device *dev, u32 level)
 
 static struct device_driver udc_driver = {
 	.name		= (char *) driver_name,
+	.owner		= THIS_MODULE,
 	.bus		= &platform_bus_type,
 	.probe		= omap_udc_probe,
 	.remove		= __exit_p(omap_udc_remove),

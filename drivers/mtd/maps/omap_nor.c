@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2001-2002 MontaVista Software Inc.
  * Copyright (C) 2003-2004 Texas Instruments
- * Copyright (C) 2004 Nokia Corporation 
+ * Copyright (C) 2004 Nokia Corporation
  *
  *	Assembled using driver code copyright the companies above
  *	and written by David Brownell, Jian Zhang <jzhang@ti.com>,
@@ -30,12 +30,14 @@
  * 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#include <linux/device.h>
+#include <linux/platform_device.h>
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/ioport.h>
+#include <linux/slab.h>
+
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/map.h>
 #include <linux/mtd/partitions.h>

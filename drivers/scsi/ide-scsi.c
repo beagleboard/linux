@@ -184,13 +184,16 @@ static void idescsi_input_buffers (ide_drive_t *drive, idescsi_pc_t *pc, unsigne
 			unsigned long flags;
 
 			local_irq_save(flags);
-			buf = kmap_atomic(pc->sg->page, KM_IRQ0) + pc->sg->offset;
-			drive->hwif->atapi_input_bytes(drive, buf + pc->b_count, count);
+			buf = kmap_atomic(pc->sg->page, KM_IRQ0) +
+					pc->sg->offset;
+			drive->hwif->atapi_input_bytes(drive,
+						buf + pc->b_count, count);
 			kunmap_atomic(buf - pc->sg->offset, KM_IRQ0);
 			local_irq_restore(flags);
 		} else {
 			buf = page_address(pc->sg->page) + pc->sg->offset;
-			drive->hwif->atapi_input_bytes(drive, buf + pc->b_count, count);
+			drive->hwif->atapi_input_bytes(drive,
+						buf + pc->b_count, count);
 		}
 		bcount -= count; pc->b_count += count;
 		if (pc->b_count == pc->sg->length) {
@@ -216,13 +219,16 @@ static void idescsi_output_buffers (ide_drive_t *drive, idescsi_pc_t *pc, unsign
 			unsigned long flags;
 
 			local_irq_save(flags);
-			buf = kmap_atomic(pc->sg->page, KM_IRQ0) + pc->sg->offset;
-			drive->hwif->atapi_output_bytes(drive, buf + pc->b_count, count);
+			buf = kmap_atomic(pc->sg->page, KM_IRQ0) +
+						pc->sg->offset;
+			drive->hwif->atapi_output_bytes(drive,
+						buf + pc->b_count, count);
 			kunmap_atomic(buf - pc->sg->offset, KM_IRQ0);
 			local_irq_restore(flags);
 		} else {
 			buf = page_address(pc->sg->page) + pc->sg->offset;
-			drive->hwif->atapi_output_bytes(drive, buf + pc->b_count, count);
+			drive->hwif->atapi_output_bytes(drive,
+						buf + pc->b_count, count);
 		}
 		bcount -= count; pc->b_count += count;
 		if (pc->b_count == pc->sg->length) {
@@ -325,9 +331,9 @@ static int idescsi_check_condition(ide_drive_t *drive, struct request *failed_co
 	rq = kmalloc (sizeof (struct request), GFP_ATOMIC);
 	buf = kmalloc(SCSI_SENSE_BUFFERSIZE, GFP_ATOMIC);
 	if (pc == NULL || rq == NULL || buf == NULL) {
-		if (pc) kfree(pc);
-		if (rq) kfree(rq);
-		if (buf) kfree(buf);
+		kfree(buf);
+		kfree(rq);
+		kfree(pc);
 		return -ENOMEM;
 	}
 	memset (pc, 0, sizeof (idescsi_pc_t));
@@ -893,7 +899,7 @@ static int idescsi_queue (struct scsi_cmnd *cmd,
 	idescsi_pc_t *pc = NULL;
 
 	if (!drive) {
-		printk (KERN_ERR "ide-scsi: drive id %d not present\n", cmd->device->id);
+		scmd_printk (KERN_ERR, cmd, "drive not present\n");
 		goto abort;
 	}
 	scsi = drive_to_idescsi(drive);
@@ -943,8 +949,8 @@ static int idescsi_queue (struct scsi_cmnd *cmd,
 	spin_lock_irq(host->host_lock);
 	return 0;
 abort:
-	if (pc) kfree (pc);
-	if (rq) kfree (rq);
+	kfree (pc);
+	kfree (rq);
 	cmd->result = DID_ERROR << 16;
 	done(cmd);
 	return 0;

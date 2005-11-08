@@ -28,10 +28,11 @@
 #include <asm/time.h>
 #include <asm/systemcfg.h>
 #include <asm/machdep.h>
+#include <asm/smp.h>
 
 extern void power4_idle(void);
 
-int default_idle(void)
+void default_idle(void)
 {
 	long oldval;
 	unsigned int cpu = smp_processor_id();
@@ -64,11 +65,9 @@ int default_idle(void)
 		if (cpu_is_offline(cpu) && system_state == SYSTEM_RUNNING)
 			cpu_die();
 	}
-
-	return 0;
 }
 
-int native_idle(void)
+void native_idle(void)
 {
 	while (1) {
 		ppc64_runlatch_off();
@@ -85,8 +84,6 @@ int native_idle(void)
 		    system_state == SYSTEM_RUNNING)
 			cpu_die();
 	}
-
-	return 0;
 }
 
 void cpu_idle(void)

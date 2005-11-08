@@ -127,6 +127,7 @@
 
 # ifndef __ASSEMBLY__
 
+#include <linux/sched.h>	/* for mm_struct */
 #include <asm/bitops.h>
 #include <asm/cacheflush.h>
 #include <asm/mmu_context.h>
@@ -235,9 +236,6 @@ ia64_phys_addr_valid (unsigned long addr)
 
 #define pte_modify(_pte, newprot) \
 	(__pte((pte_val(_pte) & ~_PAGE_CHG_MASK) | (pgprot_val(newprot) & _PAGE_CHG_MASK)))
-
-#define page_pte_prot(page,prot)	mk_pte(page, prot)
-#define page_pte(page)			page_pte_prot(page, __pgprot(0))
 
 #define pte_none(pte) 			(!pte_val(pte))
 #define pte_present(pte)		(pte_val(pte) & (_PAGE_P | _PAGE_PROTNONE))

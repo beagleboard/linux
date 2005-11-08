@@ -36,6 +36,8 @@
 #include <linux/moduleparam.h>
 #include <linux/init.h>
 #include <linux/delay.h>
+#include <linux/string.h>
+#include <linux/slab.h>
 #include <asm/byteorder.h>
 
 #include "dvb_frontend.h"
@@ -575,8 +577,7 @@ struct dvb_frontend* or51132_attach(const struct or51132_config* config,
 	return &state->frontend;
 
 error:
-	if (state)
-		kfree(state);
+	kfree(state);
 	return NULL;
 }
 

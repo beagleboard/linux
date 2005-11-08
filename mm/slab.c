@@ -368,7 +368,7 @@ static inline void kmem_list3_init(struct kmem_list3 *parent)
  * manages a cache.
  */
 	
-struct kmem_cache_s {
+struct kmem_cache {
 /* 1) per-cpu data, touched during every alloc/free */
 	struct array_cache	*array[NR_CPUS];
 	unsigned int		batchcount;
@@ -386,7 +386,7 @@ struct kmem_cache_s {
 	unsigned int		gfporder;
 
 	/* force GFP flags, e.g. GFP_DMA */
-	unsigned int		gfpflags;
+	gfp_t			gfpflags;
 
 	size_t			colour;		/* cache colouring range */
 	unsigned int		colour_off;	/* colour offset */
@@ -1502,6 +1502,7 @@ kmem_cache_create (const char *name, size_t size, size_t align,
 {
 	size_t left_over, slab_size, ralign;
 	kmem_cache_t *cachep = NULL;
+	struct list_head *p;
 
 	/*
 	 * Sanity checks... these are all serious usage bugs.
@@ -1515,6 +1516,35 @@ kmem_cache_create (const char *name, size_t size, size_t align,
 					__FUNCTION__, name);
 			BUG();
 		}
+
+	down(&cache_chain_sem);
+
+	list_for_each(p, &cache_chain) {
+		kmem_cache_t *pc = list_entry(p, kmem_cache_t, next);
+		mm_segment_t old_fs = get_fs();
+		char tmp;
+		int res;
+
+		/*
+		 * This happens when the module gets unloaded and doesn't
+		 * destroy its slab cache and no-one else reuses the vmalloc
+		 * area of the module.  Print a warning.
+		 */
+		set_fs(KERNEL_DS);
+		res = __get_user(tmp, pc->name);
+		set_fs(old_fs);
+		if (res) {
+			printk("SLAB: cache with size %d has lost its name\n",
+					pc->objsize);
+			continue;
+		}
+
+		if (!strcmp(pc->name,name)) {
+			printk("kmem_cache_create: duplicate cache %s\n", name);
+			dump_stack();
+			goto oops;
+		}
+	}
 
 #if DEBUG
 	WARN_ON(strchr(name, ' '));	/* It confuses parsers */
@@ -1592,7 +1622,7 @@ kmem_cache_create (const char *name, size_t size, size_t align,
 	/* Get cache's description obj. */
 	cachep = (kmem_cache_t *) kmem_cache_alloc(&cache_cache, SLAB_KERNEL);
 	if (!cachep)
-		goto opps;
+		goto oops;
 	memset(cachep, 0, sizeof(kmem_cache_t));
 
 #if DEBUG
@@ -1686,7 +1716,7 @@ next:
 		printk("kmem_cache_create: couldn't create cache %s.\n", name);
 		kmem_cache_free(&cache_cache, cachep);
 		cachep = NULL;
-		goto opps;
+		goto oops;
 	}
 	slab_size = ALIGN(cachep->num*sizeof(kmem_bufctl_t)
 				+ sizeof(struct slab), align);
@@ -1781,43 +1811,14 @@ next:
 		cachep->limit = BOOT_CPUCACHE_ENTRIES;
 	} 
 
-	/* Need the semaphore to access the chain. */
-	down(&cache_chain_sem);
-	{
-		struct list_head *p;
-		mm_segment_t old_fs;
-
-		old_fs = get_fs();
-		set_fs(KERNEL_DS);
-		list_for_each(p, &cache_chain) {
-			kmem_cache_t *pc = list_entry(p, kmem_cache_t, next);
-			char tmp;
-			/* This happens when the module gets unloaded and doesn't
-			   destroy its slab cache and noone else reuses the vmalloc
-			   area of the module. Print a warning. */
-			if (__get_user(tmp,pc->name)) { 
-				printk("SLAB: cache with size %d has lost its name\n", 
-					pc->objsize); 
-				continue; 
-			} 	
-			if (!strcmp(pc->name,name)) { 
-				printk("kmem_cache_create: duplicate cache %s\n",name); 
-				up(&cache_chain_sem); 
-				unlock_cpu_hotplug();
-				BUG(); 
-			}	
-		}
-		set_fs(old_fs);
-	}
-
 	/* cache setup completed, link it into the list */
 	list_add(&cachep->next, &cache_chain);
-	up(&cache_chain_sem);
 	unlock_cpu_hotplug();
-opps:
+oops:
 	if (!cachep && (flags & SLAB_PANIC))
 		panic("kmem_cache_create(): failed to create slab `%s'\n",
 			name);
+	up(&cache_chain_sem);
 	return cachep;
 }
 EXPORT_SYMBOL(kmem_cache_create);
@@ -2117,7 +2118,7 @@ static void cache_init_objs(kmem_cache_t *cachep,
 	slabp->free = 0;
 }
 
-static void kmem_flagcheck(kmem_cache_t *cachep, unsigned int flags)
+static void kmem_flagcheck(kmem_cache_t *cachep, gfp_t flags)
 {
 	if (flags & SLAB_DMA) {
 		if (!(cachep->gfpflags & GFP_DMA))
@@ -2152,7 +2153,7 @@ static int cache_grow(kmem_cache_t *cachep, gfp_t flags, int nodeid)
 	struct slab	*slabp;
 	void		*objp;
 	size_t		 offset;
-	unsigned int	 local_flags;
+	gfp_t	 	 local_flags;
 	unsigned long	 ctor_flags;
 	struct kmem_list3 *l3;
 
@@ -2419,6 +2420,7 @@ retry:
 			next = slab_bufctl(slabp)[slabp->free];
 #if DEBUG
 			slab_bufctl(slabp)[slabp->free] = BUFCTL_FREE;
+			WARN_ON(numa_node_id() != slabp->nodeid);
 #endif
 		       	slabp->free = next;
 		}
@@ -2546,7 +2548,7 @@ static inline void *__cache_alloc(kmem_cache_t *cachep, gfp_t flags)
 /*
  * A interface to enable slab creation on nodeid
  */
-static void *__cache_alloc_node(kmem_cache_t *cachep, int flags, int nodeid)
+static void *__cache_alloc_node(kmem_cache_t *cachep, gfp_t flags, int nodeid)
 {
 	struct list_head *entry;
  	struct slab *slabp;
@@ -2633,8 +2635,10 @@ static void free_block(kmem_cache_t *cachep, void **objpp, int nr_objects, int n
 		check_spinlock_acquired_node(cachep, node);
 		check_slabp(cachep, slabp);
 
-
 #if DEBUG
+		/* Verify that the slab belongs to the intended node */
+		WARN_ON(slabp->nodeid != node);
+
 		if (slab_bufctl(slabp)[objnr] != BUFCTL_FREE) {
 			printk(KERN_ERR "slab: double free detected in cache "
 					"'%s', objp %p\n", cachep->name, objp);
@@ -3259,6 +3263,7 @@ static void drain_array_locked(kmem_cache_t *cachep,
 
 /**
  * cache_reap - Reclaim memory from caches.
+ * @unused: unused parameter
  *
  * Called from workqueue/eventd every few seconds.
  * Purpose:
@@ -3275,7 +3280,7 @@ static void cache_reap(void *unused)
 
 	if (down_trylock(&cache_chain_sem)) {
 		/* Give up. Setup the next iteration. */
-		schedule_delayed_work(&__get_cpu_var(reap_work), REAPTIMEOUT_CPUC + smp_processor_id());
+		schedule_delayed_work(&__get_cpu_var(reap_work), REAPTIMEOUT_CPUC);
 		return;
 	}
 
@@ -3344,7 +3349,7 @@ next:
 	up(&cache_chain_sem);
 	drain_remote_pages();
 	/* Setup the next iteration */
-	schedule_delayed_work(&__get_cpu_var(reap_work), REAPTIMEOUT_CPUC + smp_processor_id());
+	schedule_delayed_work(&__get_cpu_var(reap_work), REAPTIMEOUT_CPUC);
 }
 
 #ifdef CONFIG_PROC_FS

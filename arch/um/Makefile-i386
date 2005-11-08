@@ -17,8 +17,6 @@ ifeq ("$(origin SUBARCH)", "command line")
 ifneq ("$(shell uname -m | sed -e s/i.86/i386/)", "$(SUBARCH)")
 CFLAGS			+= $(call cc-option,-m32)
 USER_CFLAGS		+= $(call cc-option,-m32)
-HOSTCFLAGS		+= $(call cc-option,-m32)
-HOSTLDFLAGS		+= $(call cc-option,-m32)
 AFLAGS			+= $(call cc-option,-m32)
 LINK-y			+= $(call cc-option,-m32)
 UML_OBJCOPYFLAGS	+= -F $(ELF_FORMAT)
@@ -29,6 +27,12 @@ endif
 
 CFLAGS += -U__$(SUBARCH)__ -U$(SUBARCH)
 
-ifneq ($(CONFIG_GPROF),y)
-ARCH_CFLAGS += -DUM_FASTCALL
-endif
+# First of all, tune CFLAGS for the specific CPU. This actually sets cflags-y.
+include $(srctree)/arch/i386/Makefile.cpu
+
+# prevent gcc from keeping the stack 16 byte aligned. Taken from i386.
+cflags-y += $(call cc-option,-mpreferred-stack-boundary=2)
+
+CFLAGS += $(cflags-y)
+USER_CFLAGS += $(cflags-y)
+

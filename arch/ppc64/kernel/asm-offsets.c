@@ -31,7 +31,7 @@
 
 #include <asm/paca.h>
 #include <asm/lppaca.h>
-#include <asm/iSeries/HvLpEvent.h>
+#include <asm/iseries/hv_lp_event.h>
 #include <asm/rtas.h>
 #include <asm/cputable.h>
 #include <asm/cache.h>
@@ -46,8 +46,6 @@
 int main(void)
 {
 	/* thread struct on stack */
-	DEFINE(THREAD_SHIFT, THREAD_SHIFT);
-	DEFINE(THREAD_SIZE, THREAD_SIZE);
 	DEFINE(TI_FLAGS, offsetof(struct thread_info, flags));
 	DEFINE(TI_PREEMPT, offsetof(struct thread_info, preempt_count));
 	DEFINE(TI_SC_NOERR, offsetof(struct thread_info, syscall_noerror));
@@ -77,6 +75,7 @@ int main(void)
 	DEFINE(ICACHEL1LOGLINESIZE, offsetof(struct ppc64_caches, log_iline_size));
 	DEFINE(ICACHEL1LINESPERPAGE, offsetof(struct ppc64_caches, ilines_per_page));
 	DEFINE(PLATFORM, offsetof(struct systemcfg, platform));
+	DEFINE(PLATFORM_LPAR, PLATFORM_LPAR);
 
 	/* paca */
         DEFINE(PACA_SIZE, sizeof(struct paca_struct));
@@ -94,6 +93,9 @@ int main(void)
 	DEFINE(PACASLBCACHE, offsetof(struct paca_struct, slb_cache));
 	DEFINE(PACASLBCACHEPTR, offsetof(struct paca_struct, slb_cache_ptr));
 	DEFINE(PACACONTEXTID, offsetof(struct paca_struct, context.id));
+#ifdef CONFIG_PPC_64K_PAGES
+	DEFINE(PACAPGDIR, offsetof(struct paca_struct, pgdir));
+#endif
 #ifdef CONFIG_HUGETLB_PAGE
 	DEFINE(PACALOWHTLBAREAS, offsetof(struct paca_struct, context.low_htlb_areas));
 	DEFINE(PACAHIGHHTLBAREAS, offsetof(struct paca_struct, context.high_htlb_areas));

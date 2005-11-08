@@ -30,7 +30,7 @@
 
 #include <linux/config.h>
 #include <linux/module.h>
-#include <linux/device.h>
+#include <linux/platform_device.h>
 #include <linux/delay.h>
 
 #include <linux/types.h>
@@ -388,7 +388,6 @@ static struct fb_ops s1d13xxxfb_fbops = {
 	.fb_fillrect	= cfb_fillrect,
 	.fb_copyarea	= cfb_copyarea,
 	.fb_imageblit	= cfb_imageblit,
-	.fb_cursor	= soft_cursor
 };
 
 static int s1d13xxxfb_width_tab[2][4] __devinitdata = {
@@ -655,7 +654,7 @@ bail:
 }
 
 #ifdef CONFIG_PM
-static int s1d13xxxfb_suspend(struct device *dev, pm_message_t state, u32 level)
+static int s1d13xxxfb_suspend(struct device *dev, pm_message_t state)
 {
 	struct fb_info *info = dev_get_drvdata(dev);
 	struct s1d13xxxfb_par *s1dfb = info->par;
@@ -702,14 +701,11 @@ static int s1d13xxxfb_suspend(struct device *dev, pm_message_t state, u32 level)
 		return 0;
 }
 
-static int s1d13xxxfb_resume(struct device *dev, u32 level)
+static int s1d13xxxfb_resume(struct device *dev)
 {
 	struct fb_info *info = dev_get_drvdata(dev);
 	struct s1d13xxxfb_par *s1dfb = info->par;
 	struct s1d13xxxfb_pdata *pdata = NULL;
-
-	if (level != RESUME_ENABLE)
-		return 0;
 
 	/* awaken the chip */
 	s1d13xxxfb_writereg(s1dfb, S1DREG_PS_CNF, 0x10);

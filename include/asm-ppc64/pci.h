@@ -162,13 +162,21 @@ pcibios_fixup_device_resources(struct pci_dev *dev, struct pci_bus *bus);
 
 extern struct pci_controller *init_phb_dynamic(struct device_node *dn);
 
+extern struct pci_dev *of_create_pci_dev(struct device_node *node,
+					struct pci_bus *bus, int devfn);
+
+extern void of_scan_pci_bridge(struct device_node *node,
+				struct pci_dev *dev);
+
+extern void of_scan_bus(struct device_node *node, struct pci_bus *bus);
+
 extern int pci_read_irq_line(struct pci_dev *dev);
 
 extern void pcibios_add_platform_entries(struct pci_dev *dev);
 
 struct file;
 extern pgprot_t	pci_phys_mem_access_prot(struct file *file,
-					 unsigned long offset,
+					 unsigned long pfn,
 					 unsigned long size,
 					 pgprot_t prot);
 

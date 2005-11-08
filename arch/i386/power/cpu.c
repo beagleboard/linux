@@ -51,15 +51,13 @@ void save_processor_state(void)
 	__save_processor_state(&saved_context);
 }
 
-static void
-do_fpu_end(void)
+static void do_fpu_end(void)
 {
-        /* restore FPU regs if necessary */
-	/* Do it out of line so that gcc does not move cr0 load to some stupid place */
-        kernel_fpu_end();
-	mxcsr_feature_mask_init();
+	/*
+	 * Restore FPU regs if necessary.
+	 */
+	kernel_fpu_end();
 }
-
 
 static void fix_processor_context(void)
 {
@@ -120,6 +118,7 @@ void __restore_processor_state(struct saved_context *ctxt)
 	fix_processor_context();
 	do_fpu_end();
 	mtrr_ap_init();
+	mcheck_init(&boot_cpu_data);
 }
 
 void restore_processor_state(void)

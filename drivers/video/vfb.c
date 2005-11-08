@@ -20,6 +20,8 @@
 #include <linux/vmalloc.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
+#include <linux/platform_device.h>
+
 #include <asm/uaccess.h>
 #include <linux/fb.h>
 #include <linux/init.h>
@@ -90,7 +92,6 @@ static struct fb_ops vfb_ops = {
 	.fb_fillrect	= cfb_fillrect,
 	.fb_copyarea	= cfb_copyarea,
 	.fb_imageblit	= cfb_imageblit,
-	.fb_cursor	= soft_cursor,
 	.fb_mmap	= vfb_mmap,
 };
 

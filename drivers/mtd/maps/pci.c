@@ -7,8 +7,8 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  *
- *  $Id: pci.c,v 1.10 2005/03/18 14:04:35 gleixner Exp $
- * 
+ *  $Id: pci.c,v 1.13 2005/11/07 11:14:27 gleixner Exp $
+ *
  * Generic PCI memory map driver.  We support the following boards:
  *  - Intel IQ80310 ATU.
  *  - Intel EBSA285 (blank rom programming mode). Tested working 27/09/2001
@@ -17,6 +17,7 @@
 #include <linux/kernel.h>
 #include <linux/pci.h>
 #include <linux/init.h>
+#include <linux/slab.h>
 
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/map.h>
@@ -37,7 +38,7 @@ struct map_pci_info {
 	void (*exit)(struct pci_dev *dev, struct map_pci_info *map);
 	unsigned long (*translate)(struct map_pci_info *map, unsigned long ofs);
 	struct pci_dev *dev;
-};	
+};
 
 static map_word mtd_pci_read8(struct map_info *_map, unsigned long ofs)
 {

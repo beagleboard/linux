@@ -14,6 +14,7 @@
  * option) any later version.
  */
 
+#include <linux/string.h>
 #include <asm/ppc_sys.h>
 
 int (*ppc_sys_device_fixup) (struct platform_device * pdev);
@@ -69,6 +70,9 @@ static int __init find_chip_by_name_and_id(char *name, u32 id)
 			matched[j++] = i;
 		i++;
 	}
+
+	ret = i;
+
 	if (j != 0) {
 		for (i = 0; i < j; i++) {
 			if ((ppc_sys_specs[matched[i]].mask & id) ==

@@ -54,6 +54,8 @@
 #include <linux/fb.h>
 #include <linux/init.h>
 #include <linux/ioport.h>
+#include <linux/platform_device.h>
+
 #include <asm/types.h>
 #include <asm/io.h>
 #include <asm/uaccess.h>
@@ -482,7 +484,6 @@ static struct fb_ops epson1355fb_fbops = {
 	.fb_imageblit 	= cfb_imageblit,
 	.fb_read 	= epson1355fb_read,
 	.fb_write 	= epson1355fb_write,
-	.fb_cursor 	= soft_cursor,
 };
 
 /* ------------------------------------------------------------------------- */

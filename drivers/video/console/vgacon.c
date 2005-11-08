@@ -448,7 +448,8 @@ static void vgacon_cursor(struct vc_data *c, int mode)
 		vgacon_scrolldelta(c, 0);
 	switch (mode) {
 	case CM_ERASE:
-		write_vga(14, (vga_vram_end - vga_vram_base - 1) / 2);
+		write_vga(14, (c->vc_pos - vga_vram_base) / 2);
+		vgacon_set_cursor_size(c->vc_x, 31, 30);
 		break;
 
 	case CM_MOVE:
@@ -579,6 +580,7 @@ static void vga_set_palette(struct vc_data *vc, unsigned char *table)
 {
 	int i, j;
 
+	vga_w(state.vgabase, VGA_PEL_MSK, 0xff);
 	for (i = j = 0; i < 16; i++) {
 		vga_w(state.vgabase, VGA_PEL_IW, table[i]);
 		vga_w(state.vgabase, VGA_PEL_D, vc->vc_palette[j++] >> 2);
@@ -721,6 +723,7 @@ static void vga_pal_blank(struct vgastate *state)
 {
 	int i;
 
+	vga_w(state->vgabase, VGA_PEL_MSK, 0xff);
 	for (i = 0; i < 16; i++) {
 		vga_w(state->vgabase, VGA_PEL_IW, i);
 		vga_w(state->vgabase, VGA_PEL_D, 0);

@@ -48,6 +48,7 @@
 #include <linux/syscalls.h>
 #include <linux/rmap.h>
 #include <linux/acct.h>
+#include <linux/cn_proc.h>
 
 #include <asm/uaccess.h>
 #include <asm/mmu_context.h>
@@ -126,8 +127,7 @@ asmlinkage long sys_uselib(const char __user * library)
 	struct nameidata nd;
 	int error;
 
-	nd.intent.open.flags = FMODE_READ;
-	error = __user_walk(library, LOOKUP_FOLLOW|LOOKUP_OPEN, &nd);
+	error = __user_path_lookup_open(library, LOOKUP_FOLLOW, &nd, FMODE_READ);
 	if (error)
 		goto out;
 
@@ -139,7 +139,7 @@ asmlinkage long sys_uselib(const char __user * library)
 	if (error)
 		goto exit;
 
-	file = dentry_open(nd.dentry, nd.mnt, O_RDONLY);
+	file = nameidata_to_filp(&nd, O_RDONLY);
 	error = PTR_ERR(file);
 	if (IS_ERR(file))
 		goto out;
@@ -167,6 +167,7 @@ asmlinkage long sys_uselib(const char __user * library)
 out:
   	return error;
 exit:
+	release_open_intent(&nd);
 	path_release(&nd);
 	goto out;
 }
@@ -309,40 +310,36 @@ void install_arg_page(struct vm_area_struct *vma,
 	pud_t * pud;
 	pmd_t * pmd;
 	pte_t * pte;
+	spinlock_t *ptl;
 
 	if (unlikely(anon_vma_prepare(vma)))
-		goto out_sig;
+		goto out;
 
 	flush_dcache_page(page);
 	pgd = pgd_offset(mm, address);
-
-	spin_lock(&mm->page_table_lock);
 	pud = pud_alloc(mm, pgd, address);
 	if (!pud)
 		goto out;
 	pmd = pmd_alloc(mm, pud, address);
 	if (!pmd)
 		goto out;
-	pte = pte_alloc_map(mm, pmd, address);
+	pte = pte_alloc_map_lock(mm, pmd, address, &ptl);
 	if (!pte)
 		goto out;
 	if (!pte_none(*pte)) {
-		pte_unmap(pte);
+		pte_unmap_unlock(pte, ptl);
 		goto out;
 	}
-	inc_mm_counter(mm, rss);
+	inc_mm_counter(mm, anon_rss);
 	lru_cache_add_active(page);
 	set_pte_at(mm, address, pte, pte_mkdirty(pte_mkwrite(mk_pte(
 					page, vma->vm_page_prot))));
 	page_add_anon_rmap(page, vma, address);
-	pte_unmap(pte);
-	spin_unlock(&mm->page_table_lock);
+	pte_unmap_unlock(pte, ptl);
 
 	/* no need for flush_tlb */
 	return;
 out:
-	spin_unlock(&mm->page_table_lock);
-out_sig:
 	__free_page(page);
 	force_sig(SIGKILL, current);
 }
@@ -490,8 +487,7 @@ struct file *open_exec(const char *name)
 	int err;
 	struct file *file;
 
-	nd.intent.open.flags = FMODE_READ;
-	err = path_lookup(name, LOOKUP_FOLLOW|LOOKUP_OPEN, &nd);
+	err = path_lookup_open(name, LOOKUP_FOLLOW, &nd, FMODE_READ);
 	file = ERR_PTR(err);
 
 	if (!err) {
@@ -504,7 +500,7 @@ struct file *open_exec(const char *name)
 				err = -EACCES;
 			file = ERR_PTR(err);
 			if (!err) {
-				file = dentry_open(nd.dentry, nd.mnt, O_RDONLY);
+				file = nameidata_to_filp(&nd, O_RDONLY);
 				if (!IS_ERR(file)) {
 					err = deny_write_access(file);
 					if (err) {
@@ -516,6 +512,7 @@ out:
 				return file;
 			}
 		}
+		release_open_intent(&nd);
 		path_release(&nd);
 	}
 	goto out;
@@ -634,10 +631,9 @@ static inline int de_thread(struct task_struct *tsk)
 	/*
 	 * Account for the thread group leader hanging around:
 	 */
-	count = 2;
-	if (thread_group_leader(current))
-		count = 1;
-	else {
+	count = 1;
+	if (!thread_group_leader(current)) {
+		count = 2;
 		/*
 		 * The SIGALRM timer survives the exec, but needs to point
 		 * at us as the new group leader now.  We have a race with
@@ -646,8 +642,10 @@ static inline int de_thread(struct task_struct *tsk)
 		 * before we can safely let the old group leader die.
 		 */
 		sig->real_timer.data = (unsigned long)current;
+		spin_unlock_irq(lock);
 		if (del_timer_sync(&sig->real_timer))
 			add_timer(&sig->real_timer);
+		spin_lock_irq(lock);
 	}
 	while (atomic_read(&sig->count) > count) {
 		sig->group_exit_task = current;
@@ -659,7 +657,6 @@ static inline int de_thread(struct task_struct *tsk)
 	}
 	sig->group_exit_task = NULL;
 	sig->notify_count = 0;
-	sig->real_timer.data = (unsigned long)current;
 	spin_unlock_irq(lock);
 
 	/*
@@ -1100,6 +1097,7 @@ int search_binary_handler(struct linux_binprm *bprm,struct pt_regs *regs)
 					fput(bprm->file);
 				bprm->file = NULL;
 				current->did_exec = 1;
+				proc_exec_connector(current);
 				return retval;
 			}
 			read_lock(&binfmt_lock);
@@ -1207,7 +1205,6 @@ int do_execve(char * filename,
 		/* execve success */
 		security_bprm_free(bprm);
 		acct_update_integrals(current);
-		update_mem_hiwater(current);
 		kfree(bprm);
 		return retval;
 	}
@@ -1422,19 +1419,16 @@ static void zap_threads (struct mm_struct *mm)
 static void coredump_wait(struct mm_struct *mm)
 {
 	DECLARE_COMPLETION(startup_done);
+	int core_waiters;
 
-	mm->core_waiters++; /* let other threads block */
 	mm->core_startup_done = &startup_done;
 
-	/* give other threads a chance to run: */
-	yield();
-
 	zap_threads(mm);
-	if (--mm->core_waiters) {
-		up_write(&mm->mmap_sem);
+	core_waiters = mm->core_waiters;
+	up_write(&mm->mmap_sem);
+
+	if (core_waiters)
 		wait_for_completion(&startup_done);
-	} else
-		up_write(&mm->mmap_sem);
 	BUG_ON(mm->core_waiters);
 }
 
@@ -1468,11 +1462,21 @@ int do_coredump(long signr, int exit_code, struct pt_regs * regs)
 		current->fsuid = 0;	/* Dump root private */
 	}
 	mm->dumpable = 0;
-	init_completion(&mm->core_done);
+
+	retval = -EAGAIN;
 	spin_lock_irq(&current->sighand->siglock);
-	current->signal->flags = SIGNAL_GROUP_EXIT;
-	current->signal->group_exit_code = exit_code;
+	if (!(current->signal->flags & SIGNAL_GROUP_EXIT)) {
+		current->signal->flags = SIGNAL_GROUP_EXIT;
+		current->signal->group_exit_code = exit_code;
+		retval = 0;
+	}
 	spin_unlock_irq(&current->sighand->siglock);
+	if (retval) {
+		up_write(&mm->mmap_sem);
+		goto fail;
+	}
+
+	init_completion(&mm->core_done);
 	coredump_wait(mm);
 
 	/*
@@ -1507,7 +1511,7 @@ int do_coredump(long signr, int exit_code, struct pt_regs * regs)
 		goto close_fail;
 	if (!file->f_op->write)
 		goto close_fail;
-	if (do_truncate(file->f_dentry, 0) != 0)
+	if (do_truncate(file->f_dentry, 0, file) != 0)
 		goto close_fail;
 
 	retval = binfmt->core_dump(signr, regs, file);
