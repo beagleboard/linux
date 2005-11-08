@@ -693,11 +693,13 @@ mmc_omap_prepare_dma(struct mmc_omap_host *host, struct mmc_data *data)
 	}
 	host->dma_len = count;
 
-	/* FIFO is 32x2 bytes; use 32 word frames when the blocksize is
-	 * at least that large.  Blocksize is usually 512 bytes; but
-	 * not for some SD reads.
+	/* FIFO is 16x2 bytes on 15xx, and 32x2 bytes on 16xx and 24xx.
+	 * Use 16 or 32 word frames when the blocksize is at least that large.
+	 * Blocksize is usually 512 bytes; but not for some SD reads.
 	 */
-	if (frame > 64)
+	if (cpu_is_omap15xx() && frame > 32)
+		frame = 32;
+	else if (frame > 64)
 		frame = 64;
 	count /= frame;
 	frame >>= 1;
