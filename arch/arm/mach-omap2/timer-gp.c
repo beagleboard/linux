@@ -92,20 +92,20 @@ static struct irqaction omap2_gp_timer_irq = {
 
 static void __init omap2_gp_timer_init(void)
 {
-	struct clk * osc_ck;
+	struct clk * sys_ck;
 	u32 tick_period = 120000;
 	u32 l;
 
 	/* Reset clock and prescale value */
 	timer_write_reg(OS_TIMER_NR, GP_TIMER_TCLR, 0);
 
-	osc_ck = clk_get(NULL, "osc_ck");
-	if (IS_ERR(osc_ck))
-		printk(KERN_ERR "Could not get osc_ck\n");
+	sys_ck = clk_get(NULL, "sys_ck");
+	if (IS_ERR(sys_ck))
+		printk(KERN_ERR "Could not get sys_ck\n");
 	else {
-		clk_use(osc_ck);
-		tick_period = clk_get_rate(osc_ck) / 100;
-		clk_put(osc_ck);
+		clk_use(sys_ck);
+		tick_period = clk_get_rate(sys_ck) / 100;
+		clk_put(sys_ck);
 	}
 
 	tick_period /= 2;	/* Minimum prescale divider is 2 */

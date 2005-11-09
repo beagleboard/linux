@@ -91,6 +91,8 @@ EXPORT_SYMBOL(otg_set_transceiver);
 
 /*-------------------------------------------------------------------------*/
 
+#if defined(CONFIG_ARCH_OMAP_OTG) || defined(CONFIG_ARCH_OMAP15XX)
+
 static u32 __init omap_usb0_init(unsigned nwires, unsigned is_device)
 {
 	u32	syscon1 = 0;
@@ -270,6 +272,8 @@ static u32 __init omap_usb2_init(unsigned nwires, unsigned alt_pingroup)
 	}
 	return syscon1 << 24;
 }
+
+#endif
 
 /*-------------------------------------------------------------------------*/
 

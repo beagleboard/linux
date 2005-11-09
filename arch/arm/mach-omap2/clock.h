@@ -17,9 +17,6 @@
 #ifndef __ARCH_ARM_MACH_OMAP2_CLOCK_H
 #define __ARCH_ARM_MACH_OMAP2_CLOCK_H
 
-/* FIXME: This will go away when the cpu detection is done for 24xx */
-#define cpu_is_omap2430()	0
-
 static void omap2_sys_clk_recalc(struct clk * clk);
 static void omap2_clksel_recalc(struct clk * clk);
 static void omap2_followparent_recalc(struct clk * clk);
