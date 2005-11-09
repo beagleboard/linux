@@ -913,7 +913,7 @@ static int omap2_clk_set_parent(struct clk *clk, struct clk *new_parent)
 static int omap2_select_table_rate(struct clk * clk, unsigned long rate)
 {
 	u32 flags, cur_rate, done_rate, bypass = 0;
-	u8 cpu_mask;
+	u8 cpu_mask = 0;
 	struct prcm_config *prcm;
 	unsigned long found_speed = 0;
 
@@ -929,7 +929,7 @@ static int omap2_select_table_rate(struct clk * clk, unsigned long rate)
 	for (prcm = rate_table; prcm->mpu_speed; prcm++) {
 		if (!(prcm->flags & cpu_mask))
 			continue;
-			
+
 		if (prcm->xtal_speed != sys_ck.rate)
 			continue;
 
@@ -941,7 +941,7 @@ static int omap2_select_table_rate(struct clk * clk, unsigned long rate)
 
 	if (!found_speed) {
 		printk(KERN_INFO "Could not set MPU rate to %luMHz\n",
-		       rate / 1000000); 
+	 rate / 1000000);
 		return -EINVAL;
 	}
 
