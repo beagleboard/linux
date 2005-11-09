@@ -174,10 +174,10 @@ omap16xx_cam_link_open(struct omap16xxcam *data)
                 return ret;
         }
  	data->next_dmach = data->dma_channel_number1;
-	omap_writew(data->dma_channel_number2, 
-				OMAP_DMA_CLNK_CTRL(data->dma_channel_number1));
-	omap_writew(data->dma_channel_number1, 
-				OMAP_DMA_CLNK_CTRL(data->dma_channel_number2));
+	OMAP_DMA_CLNK_CTRL_REG(data->dma_channel_number1) =
+		data->dma_channel_number2;
+	OMAP_DMA_CLNK_CTRL_REG(data->dma_channel_number2) =
+		data->dma_channel_number1;
 
 	return 0;
 }
@@ -222,7 +222,7 @@ omap16xx_cam_dma_link_callback(int lch, unsigned short ch_status, void *data)
 
 	while (cam->free_dmach < 2)
 	{
-		if ((omap_readw(OMAP_DMA_CCR(lch)) & (1 << 7) ))
+		if (OMAP_DMA_CCR_REG(lch) & (1 << 7))
 			break;	
 
 		count = (lch == cam->dma_channel_number2) ? 1 : 0;
@@ -341,10 +341,8 @@ omap16xxcam_start_dma(struct sgdma_state *sgdma,
 			sg_dma_len(sglist)/(4 * FIFO_TRIGGER_LVL), 
  			OMAP_DMA_SYNC_FRAME,
 			0, 0);
-	
 
-	omap_writew(omap_readw(OMAP_DMA_CLNK_CTRL(dmach)) & ~(1<<15), 
-					OMAP_DMA_CLNK_CTRL(dmach));
+	OMAP_DMA_CLNK_CTRL_REG(dmach) &= ~( 1<< 15);
 
 	prev_dmach = (dmach == data->dma_channel_number2) ? 
 		data->dma_channel_number1 : data->dma_channel_number2;
@@ -353,11 +351,8 @@ omap16xxcam_start_dma(struct sgdma_state *sgdma,
 		data->new = 0;
 		omap16xx_cam_waitfor_syncedge(data, EN_V_UP);
 	} else {
-		if (omap_readw(OMAP_DMA_CCR(prev_dmach)) & (1 << 7)) {
-			omap_writew((omap_readw(OMAP_DMA_CLNK_CTRL(prev_dmach)) |
-					 (1 << 15)),
-			OMAP_DMA_CLNK_CTRL(prev_dmach));
-		}
+		if (OMAP_DMA_CCR_REG(prev_dmach) & (1 << 7))
+			OMAP_DMA_CLNK_CTRL_REG(prev_dmach) |= (1 << 15);
 		else {
 			/* no transfer is in progress */
   			omap_start_dma(dmach);

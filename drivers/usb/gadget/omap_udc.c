@@ -544,9 +544,9 @@ static inline dma_addr_t dma_csac(unsigned lch)
 	/* omap 3.2/3.3 erratum: sometimes 0 is returned if CSAC/CDAC is
 	 * read before the DMA controller finished disabling the channel.
 	 */
-	csac = omap_readw(OMAP_DMA_CSAC(lch));
+	csac = OMAP_DMA_CSAC_REG(lch);
 	if (csac == 0)
-		csac = omap_readw(OMAP_DMA_CSAC(lch));
+		csac = OMAP_DMA_CSAC_REG(lch);
 	return csac;
 }
 
@@ -557,9 +557,9 @@ static inline dma_addr_t dma_cdac(unsigned lch)
 	/* omap 3.2/3.3 erratum: sometimes 0 is returned if CSAC/CDAC is
 	 * read before the DMA controller finished disabling the channel.
 	 */
-	cdac = omap_readw(OMAP_DMA_CDAC(lch));
+	cdac = OMAP_DMA_CDAC_REG(lch);
 	if (cdac == 0)
-		cdac = omap_readw(OMAP_DMA_CDAC(lch));
+		cdac = OMAP_DMA_CDAC_REG(lch);
 	return cdac;
 }
 
@@ -584,7 +584,7 @@ static u16 dma_src_len(struct omap_ep *ep, dma_addr_t start)
 }
 
 #define DMA_DEST_LAST(x) (cpu_is_omap15xx() \
-		? omap_readw(OMAP_DMA_CSAC(x)) /* really: CPC */ \
+		? OMAP_DMA_CSAC_REG(x) /* really: CPC */ \
 		: dma_cdac(x))
 
 static u16 dma_dest_len(struct omap_ep *ep, dma_addr_t start)
@@ -854,7 +854,7 @@ static void dma_channel_claim(struct omap_ep *ep, unsigned channel)
 
 		/* channel type P: hw synch (fifo) */
 		if (!cpu_is_omap15xx())
-			omap_writew(2, OMAP_DMA_LCH_CTRL(ep->lch));
+			OMAP1_DMA_LCH_CTRL_REG(ep->lch) = 2;
 	}
 
 just_restart:
@@ -901,7 +901,7 @@ static void dma_channel_release(struct omap_ep *ep)
 	else
 		req = NULL;
 
-	active = ((1 << 7) & omap_readl(OMAP_DMA_CCR(ep->lch))) != 0;
+	active = ((1 << 7) & OMAP_DMA_CCR_REG(ep->lch)) != 0;
 
 	DBG("%s release %s %cxdma%d %p\n", ep->ep.name,
 			active ? "active" : "idle",

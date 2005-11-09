@@ -847,8 +847,7 @@ static void sound_dma_irq_handler(int sound_curr_lch, u16 ch_status, void *data)
 		ch_status, dma_status, data);
 
 	if (dma_status & (DCSR_ERROR)) {
-		omap_writew(omap_readw(OMAP_DMA_CCR(sound_curr_lch)) & ~DCCR_EN,
-			    OMAP_DMA_CCR(sound_curr_lch));
+		OMAP_DMA_CCR_REG(sound_curr_lch) &= ~DCCR_EN;
 		ERR("DCSR_ERROR!\n");
 		FN_OUT(-1);
 		return;
