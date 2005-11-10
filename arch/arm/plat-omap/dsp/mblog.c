@@ -26,7 +26,7 @@
 
 #include <linux/module.h>
 #include <linux/sched.h>
-#include <linux/device.h>
+#include <linux/platform_device.h>
 #include <linux/init.h>
 #include <asm/irq.h>
 #include <asm/arch/dsp.h>

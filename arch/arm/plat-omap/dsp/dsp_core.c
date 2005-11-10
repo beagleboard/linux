@@ -27,7 +27,7 @@
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/slab.h>
-#include <linux/device.h>
+#include <linux/platform_device.h>
 #include <linux/devfs_fs_kernel.h>
 #include <linux/sched.h>
 #include <linux/interrupt.h>
@@ -696,31 +696,16 @@ static int dsp_drv_remove(struct device *dev)
 }
 
 #ifdef CONFIG_PM
-static int dsp_drv_suspend(struct device *dev, pm_message_t state, u32 level)
+static int dsp_drv_suspend(struct device *dev, pm_message_t state)
 {
-	switch(level) {
-	case SUSPEND_NOTIFY:
-	case SUSPEND_DISABLE:
-	case SUSPEND_SAVE_STATE:
-		break;
-	case SUSPEND_POWER_DOWN:
-		dsp_suspend();
-		break;
-	}
+	dsp_suspend();
 
 	return 0;
 }
 
-static int dsp_drv_resume(struct device *dev, u32 level)
+static int dsp_drv_resume(struct device *dev)
 {
-	switch(level) {
-	case RESUME_POWER_ON:
-		dsp_resume();
-		break;
-	case RESUME_RESTORE_STATE:
-	case RESUME_ENABLE:
-		break;
-	}
+	dsp_resume();
 
 	return 0;
 }

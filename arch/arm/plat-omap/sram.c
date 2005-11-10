@@ -54,15 +54,8 @@ void __init omap_detect_sram(void)
 		omap_sram_size = 0x4000;	/* 16K */
 	else if (cpu_is_omap1611())
 		omap_sram_size = 0x3e800;	/* 250K */
-#if 0	/* FIXME: Enable after adding 24xx cpu detection */
-	else if (cpu_is_omap2410())
-		omap_sram_size = 0x10000;	/* 64K */
 	else if (cpu_is_omap2420())
 		omap_sram_size = 0xa0014;	/* 640K */
-#else
-	else if (cpu_is_omap24xx())
-		omap_sram_size = 0x10000;	/* 64K */
-#endif
 	else {
 		printk(KERN_ERR "Could not detect SRAM size\n");
 		omap_sram_size = 0x4000;
@@ -72,7 +65,11 @@ void __init omap_detect_sram(void)
 }
 
 static struct map_desc omap_sram_io_desc[] __initdata = {
-	{ OMAP1_SRAM_VA, OMAP1_SRAM_PA, 0, MT_DEVICE }
+	{	/* .length gets filled in at runtime */
+		.virtual	= OMAP1_SRAM_VA,
+		.pfn		= __phys_to_pfn(OMAP1_SRAM_PA),
+		.type		= MT_DEVICE
+	}
 };
 
 /*
@@ -87,7 +84,7 @@ void __init omap_map_sram(void)
 
 	if (cpu_is_omap24xx()) {
 		omap_sram_io_desc[0].virtual = OMAP2_SRAM_VA;
-		omap_sram_io_desc[0].physical = OMAP2_SRAM_PA;
+		omap_sram_io_desc[0].pfn = __phys_to_pfn(OMAP2_SRAM_PA);
 	}
 
 	omap_sram_io_desc[0].length = (omap_sram_size + PAGE_SIZE-1)/PAGE_SIZE;
@@ -95,7 +92,7 @@ void __init omap_map_sram(void)
 	iotable_init(omap_sram_io_desc, ARRAY_SIZE(omap_sram_io_desc));
 
 	printk(KERN_INFO "SRAM: Mapped pa 0x%08lx to va 0x%08lx size: 0x%lx\n",
-	       omap_sram_io_desc[0].physical, omap_sram_io_desc[0].virtual,
+	       omap_sram_io_desc[0].pfn, omap_sram_io_desc[0].virtual,
 	       omap_sram_io_desc[0].length);
 
 	/*

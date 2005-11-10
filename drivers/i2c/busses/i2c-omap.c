@@ -39,6 +39,7 @@
 #include <linux/i2c.h>
 #include <linux/err.h>
 #include <linux/interrupt.h>
+#include <linux/platform_device.h>
 
 #include <asm/io.h>
 #include <asm/hardware/clock.h>

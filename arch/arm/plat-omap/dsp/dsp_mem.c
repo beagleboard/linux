@@ -33,6 +33,7 @@
 #include <linux/fb.h>
 #include <linux/interrupt.h>
 #include <linux/delay.h>
+#include <linux/platform_device.h>
 #include <asm/uaccess.h>
 #include <asm/io.h>
 #include <asm/ioctls.h>
@@ -187,7 +188,7 @@ struct kmem_pool {
 
 #define KMEM_POOL_INIT(name) \
 { \
-	.sem = __MUTEX_INITIALIZER((name).sem), \
+	.sem = __SEMAPHORE_INIT((name).sem, 1), \
 }
 #define DECLARE_KMEM_POOL(name) \
 	struct kmem_pool name = KMEM_POOL_INIT(name)

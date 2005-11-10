@@ -54,7 +54,7 @@
 #include <linux/poll.h>
 #include <linux/proc_fs.h>
 #include <linux/spinlock.h>
-#include <linux/device.h>
+#include <linux/platform_device.h>
 #include <linux/interrupt.h>
 #include <linux/rtc.h>
 #include <linux/bcd.h>
@@ -709,36 +709,30 @@ static void set_rtc_irq_bit(unsigned char bit)
 #ifdef CONFIG_PM
 static struct timespec rtc_delta;
 
-static int rtc_suspend(struct device *dev, pm_message_t message, u32 level)
+static int rtc_suspend(struct device *dev, pm_message_t state)
 {
 	struct rtc_time rtc_tm;
 	struct timespec time;
 
-	if (level == SUSPEND_POWER_DOWN)
-	{
-		time.tv_nsec = 0;
-		get_rtc_time(&rtc_tm);
-		rtc_tm_to_time(&rtc_tm, &time.tv_sec);
+	time.tv_nsec = 0;
+	get_rtc_time(&rtc_tm);
+	rtc_tm_to_time(&rtc_tm, &time.tv_sec);
 
-		save_time_delta(&rtc_delta, &time);
-	}
+	save_time_delta(&rtc_delta, &time);
 
 	return 0;
 }
 
-static int rtc_resume(struct device *dev, u32 level)
+static int rtc_resume(struct device *dev)
 {
 	struct rtc_time rtc_tm;
 	struct timespec time;
 
-	if (level == RESUME_POWER_ON)
-	{
-		time.tv_nsec = 0;
-		get_rtc_time(&rtc_tm);
-		rtc_tm_to_time(&rtc_tm, &time.tv_sec);
+	time.tv_nsec = 0;
+	get_rtc_time(&rtc_tm);
+	rtc_tm_to_time(&rtc_tm, &time.tv_sec);
 
-		restore_time_delta(&rtc_delta, &time);
-	}
+	restore_time_delta(&rtc_delta, &time);
 
 	return 0;
 }

@@ -196,22 +196,14 @@ static int __exit omap_ts_remove(struct device *dev)
 	return 0;
 }
 
-static int omap_ts_suspend(struct device *dev, pm_message_t mesg, u32 level)
+static int omap_ts_suspend(struct device *dev, pm_message_t state)
 {
-	if (level != SUSPEND_POWER_DOWN) {
-		return 0;
-	}
-
 	ts_omap.dev->disable();
 	return 0;
 }
 
-static int omap_ts_resume(struct device *dev, u32 level)
+static int omap_ts_resume(struct device *dev)
 {
-	if (level != RESUME_POWER_ON) {
-		return 0;
-	}
-
 	ts_omap.dev->enable();
 	return 0;
 }

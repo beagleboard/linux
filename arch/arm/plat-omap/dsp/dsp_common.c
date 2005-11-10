@@ -58,7 +58,7 @@ struct cpustat {
 	void (*mem_rel_cb)(void);
 };
 struct cpustat cpustat = {
-	.sem = __MUTEX_INITIALIZER(cpustat.sem),
+	.sem = __SEMAPHORE_INIT(cpustat.sem, 1),
 	.stat = CPUSTAT_RESET,
 	.icrmask = 0xffff,
 };

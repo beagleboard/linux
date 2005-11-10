@@ -22,7 +22,7 @@
 #include <linux/moduleparam.h>
 #include <linux/init.h>
 #include <linux/ioport.h>
-#include <linux/device.h>
+#include <linux/platform_device.h>
 #include <linux/interrupt.h>
 #include <linux/dma-mapping.h>
 #include <linux/delay.h>
@@ -618,8 +618,6 @@ static void mmc_omap_switch_timer(unsigned long arg)
  * for MMC state? */
 static void mmc_omap_switch_callback(unsigned long data, u8 mmc_mask)
 {
-	struct mmc_omap_host *host = (struct mmc_omap_host *) data;
-
 	if (machine_is_omap_h4()) {
 		if (mmc_mask & 0x1)
 			printk("XXX card in slot 1\n");
@@ -683,7 +681,7 @@ mmc_omap_prepare_dma(struct mmc_omap_host *host, struct mmc_data *data)
 
 	data_addr = io_v2p((void __force *) host->base) + OMAP_MMC_REG_DATA;
 	frame = 1 << data->blksz_bits;
-	count = sg_dma_len(sg);
+	count = (u32)sg_dma_len(sg);
 
 	/* the MMC layer is confused about single block writes... */
 	if ((data->blocks == 1) && (count > (1 << data->blksz_bits))) {
@@ -1367,7 +1365,7 @@ static int __exit mmc_omap_remove(struct device *dev)
 }
 
 #ifdef CONFIG_PM
-static int mmc_omap_suspend(struct device *dev, pm_message_t mesg, u32 level)
+static int mmc_omap_suspend(struct device *dev, pm_message_t mesg)
 {
 	int ret = 0;
 	struct mmc_omap_host *host = dev_get_drvdata(dev);
@@ -1386,7 +1384,7 @@ static int mmc_omap_suspend(struct device *dev, pm_message_t mesg, u32 level)
 	return ret;
 }
 
-static int mmc_omap_resume(struct device *dev, u32 level)
+static int mmc_omap_resume(struct device *dev)
 {
 	int ret = 0;
 	struct mmc_omap_host *host = dev_get_drvdata(dev);

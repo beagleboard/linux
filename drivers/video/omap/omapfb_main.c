@@ -32,7 +32,7 @@
 #include <linux/mm.h>
 #include <linux/init.h>
 #include <linux/delay.h>
-#include <linux/device.h>
+#include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
 
 #include <asm/uaccess.h>
@@ -873,7 +873,6 @@ static struct fb_ops omapfb_ops = {
 	.fb_fillrect	= cfb_fillrect,
 	.fb_copyarea	= cfb_copyarea,
 	.fb_imageblit	= cfb_imageblit,
-	.fb_cursor	= soft_cursor,
 	.fb_blank       = omapfb_blank,
 	.fb_ioctl	= omapfb_ioctl,
 	.fb_check_var	= omapfb_check_var,
@@ -1365,7 +1364,7 @@ static int omapfb_remove(struct device *dev)
 }
 
 /* PM suspend */
-static int omapfb_suspend(struct device *dev, pm_message_t mesg, u32 level)
+static int omapfb_suspend(struct device *dev, pm_message_t mesg)
 {
 	struct omapfb_device *fbdev = dev_get_drvdata(dev);
 
@@ -1379,7 +1378,7 @@ static int omapfb_suspend(struct device *dev, pm_message_t mesg, u32 level)
 }
 
 /* PM resume */
-static int omapfb_resume(struct device *dev, u32 level)
+static int omapfb_resume(struct device *dev)
 {
 	struct omapfb_device *fbdev = dev_get_drvdata(dev);
 

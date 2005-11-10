@@ -86,6 +86,7 @@ int __init dsp_ctl_core_init(void)
 {
 	int retval;
 	int i;
+	struct class_device *cdev;
 
 	retval = register_chrdev(OMAP_DSP_CTL_MAJOR, "dspctl",
 				 &dsp_ctl_core_fops);
@@ -98,7 +99,7 @@ int __init dsp_ctl_core_init(void)
 
 	dsp_ctl_class = class_create(THIS_MODULE, "dspctl");
 	for (i = 0; i < ARRAY_SIZE(dev_list); i++) {
-		class_device_create(dsp_ctl_class,
+		cdev = class_device_create(dsp_ctl_class, NULL,
 				    MKDEV(OMAP_DSP_CTL_MAJOR,
 					  dev_list[i].minor),
 				    NULL, dev_list[i].devname);

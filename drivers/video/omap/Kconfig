@@ -1,7 +1,6 @@
 config FB_OMAP
 	tristate "OMAP frame buffer support (EXPERIMENTAL)"
         depends on FB
-	select FB_SOFT_CURSOR
         help
           Frame buffer driver for OMAP based boards.
 

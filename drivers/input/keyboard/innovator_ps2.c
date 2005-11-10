@@ -93,7 +93,7 @@
 #include <linux/poll.h>
 #include <linux/string.h>
 #include <linux/ioport.h>
-#include <linux/device.h>
+#include <linux/platform_device.h>
 
 #include <asm/io.h>
 #include <asm/hardware.h>
@@ -1148,57 +1148,45 @@ static void innovator_ps2_device_release(struct device *dev)
 	/* Nothing */
 }
 
-static int innovator_ps2_suspend(struct device *dev, u32 state, u32 level)
+static int innovator_ps2_suspend(struct device *dev, pm_message_t state)
 {
 	u8 pmcomm;
 
-	
-	switch(level) {
-	case SUSPEND_DISABLE:
+	/*
+	 * Set SUS_STATE in REG_PM_COMM (Page 0 R0).  This will cause
+	 * PM_MOD bits of REG_PM_STATUS to show suspended state,
+	 * but the SUS_STAT bit of REG_PM_STATUS will continue to
+	 * reflect the state of the _HSUS pin.
+	 */
 
-		/*
-		 * Set SUS_STATE in REG_PM_COMM (Page 0 R0).  This will cause
-		 * PM_MOD bits of REG_PM_STATUS to show suspended state,
-		 * but the SUS_STAT bit of REG_PM_STATUS will continue to
-		 * reflect the state of the _HSUS pin.
-		 */
+	if (write_reg(REG_PAGENO, 0) < 0)
+		printk("ps2 suspend: write_reg REG_PAGENO error\n");
 
-		if (write_reg(REG_PAGENO, 0) < 0)
-			printk("ps2 suspend: write_reg REG_PAGENO error\n");
-
-		if (read_reg(REG_PM_COMM, &pmcomm) < 0)
-			printk("ps2 suspend: read_reg REG_PM_COMM error\n");
+	if (read_reg(REG_PM_COMM, &pmcomm) < 0)
+		printk("ps2 suspend: read_reg REG_PM_COMM error\n");
 		
-		if (write_reg(REG_PM_COMM, pmcomm | SUS_STATE) < 0)
-			printk("ps2 suspend: write_reg REG_PM_COMM error\n");
-		break;
-	}
+	if (write_reg(REG_PM_COMM, pmcomm | SUS_STATE) < 0)
+		printk("ps2 suspend: write_reg REG_PM_COMM error\n");
 
 	return 0;
 }
 
-static int innovator_ps2_resume(struct device *dev, u32 level)
+static int innovator_ps2_resume(struct device *dev)
 {
 	u8 pmcomm;
 
-	switch(level) {
-	case RESUME_ENABLE:
+	/*
+	 * Clear SUS_STATE from REG_PM_COMM (Page 0 R0).
+	 */
 
-		/*
-		 * Clear SUS_STATE from REG_PM_COMM (Page 0 R0).
-		 */
+	if (write_reg(REG_PAGENO, 0) < 0)
+		printk("ps2 resume: write_reg REG_PAGENO error\n");
 
-		if (write_reg(REG_PAGENO, 0) < 0)
-			printk("ps2 resume: write_reg REG_PAGENO error\n");
-		
-		if (read_reg(REG_PM_COMM, &pmcomm) < 0)
-			printk("ps2 resume: read_reg REG_PM_COMM error\n");
+	if (read_reg(REG_PM_COMM, &pmcomm) < 0)
+		printk("ps2 resume: read_reg REG_PM_COMM error\n");
 
-		if (write_reg(REG_PM_COMM, pmcomm & ~SUS_STATE) < 0)
-			printk("ps2 resume: write_reg REG_PM_COMM error\n");
-
-		break;
-	}
+	if (write_reg(REG_PM_COMM, pmcomm & ~SUS_STATE) < 0)
+		printk("ps2 resume: write_reg REG_PM_COMM error\n");
 
 	return 0;
 }

@@ -38,7 +38,7 @@
 #include <linux/smp_lock.h>
 #include <linux/init.h>
 #include <linux/err.h>
-#include <linux/device.h>
+#include <linux/platform_device.h>
 #include <linux/moduleparam.h>
 
 #include <asm/io.h>
@@ -335,16 +335,16 @@ static int __exit omap_wdt_remove(struct device *dev)
  * may not play well enough with NOWAYOUT...
  */
 
-static int omap_wdt_suspend(struct device *dev, pm_message_t mesg, u32 level)
+static int omap_wdt_suspend(struct device *dev, pm_message_t state)
 {
-	if (level == SUSPEND_POWER_DOWN && omap_wdt_users)
+	if (omap_wdt_users)
 		omap_wdt_disable();
 	return 0;
 }
 
-static int omap_wdt_resume(struct device *dev, u32 level)
+static int omap_wdt_resume(struct device *dev)
 {
-	if (level == RESUME_POWER_ON && omap_wdt_users) {
+	if (omap_wdt_users) {
 		omap_wdt_enable();
 		omap_wdt_ping();
 	}

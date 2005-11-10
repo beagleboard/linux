@@ -914,48 +914,39 @@ camera_core_open(struct inode *inode, struct file *file)
 }
 
 #ifdef CONFIG_PM
-static int camera_core_suspend(struct device *dev, u32 state, u32 level)
+static int camera_core_suspend(struct device *dev, pm_message_t state)
 {
 	struct camera_device *cam = dev_get_drvdata(dev);
 	int ret = 0;
 
 	spin_lock(&cam->img_lock);
-	switch (level) {
-	case SUSPEND_POWER_DOWN:
-		if (cam->active) {
-			cam->cam_hardware->close(cam->hardware_data);
-		}
-		cam->cam_sensor->power_off(cam->sensor_data);
-		break;
+	if (cam->active) {
+		cam->cam_hardware->close(cam->hardware_data);
 	}
-
+	cam->cam_sensor->power_off(cam->sensor_data);
 	spin_unlock(&cam->img_lock);
 	return ret;
 }
 
-static int camera_core_resume(struct device *dev, u32 level)
+static int camera_core_resume(struct device *dev)
 {
 	struct camera_device *cam = dev_get_drvdata(dev);
 	int ret = 0;
 
 	spin_lock(&cam->img_lock);
-	switch (level) {
-	case RESUME_POWER_ON:
-		cam->cam_sensor->power_on(cam->sensor_data);
-		if (cam->active) {
-			cam->capture_completed = 1;
-			cam->cam_hardware->open(cam->hardware_data);
-			cam->cam_hardware->set_xclk(cam->xclk, cam->hardware_data);
+	cam->cam_sensor->power_on(cam->sensor_data);
+	if (cam->active) {
+		cam->capture_completed = 1;
+		cam->cam_hardware->open(cam->hardware_data);
+		cam->cam_hardware->set_xclk(cam->xclk, cam->hardware_data);
 
-			cam->cam_sensor->configure(&cam->pix, cam->xclk,
-				&cam->cparm.timeperframe, cam->sensor_data);
-
-			camera_core_sgdma_process(cam);
-		}
-		break;
+		cam->cam_sensor->configure(&cam->pix, cam->xclk,
+					   &cam->cparm.timeperframe,
+					   cam->sensor_data);
+		camera_core_sgdma_process(cam);
 	}
-
 	spin_unlock(&cam->img_lock);
+
 	return ret;
 }
 #endif	/* CONFIG_PM */

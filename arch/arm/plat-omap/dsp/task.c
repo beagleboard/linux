@@ -31,7 +31,7 @@
 #include <linux/major.h>
 #include <linux/fs.h>
 #include <linux/poll.h>
-#include <linux/device.h>
+#include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/sched.h>
 #include <linux/mm.h>
@@ -1738,6 +1738,8 @@ static void dsptask_dev_release(struct device *dev)
 
 static int taskdev_init(struct taskdev *dev, char *name, unsigned char minor)
 {
+	struct class_device *cdev;
+
 	taskdev[minor] = dev;
 
 	INIT_LIST_HEAD(&dev->proc_list);
@@ -1765,8 +1767,9 @@ static int taskdev_init(struct taskdev *dev, char *name, unsigned char minor)
 	device_create_file(&dev->dev, &dev_attr_devname);
 	device_create_file(&dev->dev, &dev_attr_devstate);
 	device_create_file(&dev->dev, &dev_attr_proc_list);
-	class_device_create(dsp_task_class, MKDEV(OMAP_DSP_TASK_MAJOR, minor),
-			    NULL, "dsptask%d", minor);
+	cdev = class_device_create(dsp_task_class, NULL,
+				   MKDEV(OMAP_DSP_TASK_MAJOR, minor),
+				   NULL, "dsptask%d", minor);
 
 	init_waitqueue_head(&dev->state_wait_q);
 	spin_lock_init(&dev->state_lock);

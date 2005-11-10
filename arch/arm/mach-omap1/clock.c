@@ -607,9 +607,9 @@ static int __init omap1_late_clk_reset(void)
 
 		/* Clocks in the DSP domain need api_ck. Just assume bootloader
 		 * has not enabled any DSP clocks */
-		if (p->enable_reg == DSP_IDLECT2) {
-			printk(KERN_INFO "Skipping reset check for DSP domain clock \"%s\"\n",
-			       p->name);
+		if ((u32)p->enable_reg == DSP_IDLECT2) {
+			printk(KERN_INFO "Skipping reset check for DSP domain "
+			       "clock \"%s\"\n", p->name);
 			continue;
 		}
 
