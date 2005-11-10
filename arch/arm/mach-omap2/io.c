@@ -29,8 +29,18 @@ extern void omap2_check_revision(void);
  * default mapping provided here.
  */
 static struct map_desc omap2_io_desc[] __initdata = {
-	{ L3_24XX_VIRT,	L3_24XX_PHYS,	L3_24XX_SIZE,	MT_DEVICE },
-	{ L4_24XX_VIRT,	L4_24XX_PHYS,	L4_24XX_SIZE,	MT_DEVICE },
+	{
+		.virtual	= L3_24XX_VIRT,
+		.pfn		= __phys_to_pfn(L3_24XX_PHYS),
+		.length		= L3_24XX_SIZE,
+		.type		= MT_DEVICE
+	},
+	{
+		.virtual	= L4_24XX_VIRT,
+		.pfn		= __phys_to_pfn(L4_24XX_PHYS),
+		.length		= L4_24XX_SIZE,
+		.type		= MT_DEVICE
+	}
 };
 
 void __init omap_map_common_io(void)
