@@ -405,7 +405,7 @@ omap1610_irda_irq(int irq, void *dev_id, struct pt_regs *hw_regs)
 		skb_reserve(skb, 1);
 
 		w = OMAP_DMA_CDAC_REG(si->rx_dma_channel);
-		w -= OMAP_DMA_CDSA_L_REG(si->rx_dma_channel);
+		w -= OMAP1_DMA_CDSA_L_REG(si->rx_dma_channel);
 
 		if (si->speed != 4000000) {
 			memcpy(skb_put(skb, w - 2), si->rx_buf_dma_virt, w - 2);	/* Copy DMA buffer to skb */
@@ -605,7 +605,7 @@ static int omap1610_irda_start(struct net_device *dev)
 	 * Setup the serial port for the specified config.
 	 */
 
-#if CONFIG_MACH_OMAP_H3
+#ifdef CONFIG_MACH_OMAP_H3
 
 	if ((err = read_gpio_expa(&ioExpanderVal, 0x26))) {
 		printk(KERN_ERR "Error reading from I/O EXPANDER \n");
