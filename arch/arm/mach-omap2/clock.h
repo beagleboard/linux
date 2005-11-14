@@ -236,7 +236,7 @@ struct prcm_config {
 #define MX_APLLS_CLIKIN_13		(2 << 23)
 #define MX_APLLS_CLIKIN_19_2		(0 << 23)
 
-/* 
+/*
  * 2430 - standalone, 2*ref*M/(n+1), M/N is for exactness not relock speed
  * #2	(ratio1) baseport-target
  * #5a	(ratio1) baseport-target, target DPLL = 266*2 = 532MHz

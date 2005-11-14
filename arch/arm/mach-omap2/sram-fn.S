@@ -31,9 +31,9 @@
 #include <asm/arch/prcm.h>
 
 #define TIMER_32KSYNCT_CR_V	IO_ADDRESS(OMAP24XX_32KSYNCT_BASE + 0x010)
-	
+
 #define CM_CLKSEL2_PLL_V	IO_ADDRESS(OMAP24XX_PRCM_BASE + 0x544)
-#define PRCM_VOLTCTRL_V		IO_ADDRESS(OMAP24XX_PRCM_BASE + 0x050)	
+#define PRCM_VOLTCTRL_V		IO_ADDRESS(OMAP24XX_PRCM_BASE + 0x050)
 #define PRCM_CLKCFG_CTRL_V	IO_ADDRESS(OMAP24XX_PRCM_BASE + 0x080)
 #define CM_CLKEN_PLL_V		IO_ADDRESS(OMAP24XX_PRCM_BASE + 0x500)
 #define CM_IDLEST_CKGEN_V	IO_ADDRESS(OMAP24XX_PRCM_BASE + 0x520)
@@ -147,7 +147,7 @@ ENTRY(sram_ddr_init_sz)
 /*
  * Reprograms memory timings.
  * r0 = [PRCM_FULL | PRCM_HALF] r1 = SDRC_DLLA_CTRL value r2 = [DDR | SDR]
- * PRCM_FULL = 2, PRCM_HALF = 1, DDR = 1, SDR = 0 
+ * PRCM_FULL = 2, PRCM_HALF = 1, DDR = 1, SDR = 0
  */
 ENTRY(sram_reprogram_sdrc)
 	stmfd	sp!, {r0 - r10, lr}	@ save registers on stack
@@ -194,7 +194,7 @@ ENTRY(sram_reprogram_sdrc)
 	str	r1, [r2]		@ write out new SDRC_DLLA_CTRL
 	add	r2, r2, #0x8		@ addr to SDRC_DLLB_CTRL
 	str	r1, [r2]		@ commit to SDRC_DLLB_CTRL
-	mov	r1, #0x2000		@ wait DLL relock, min 0x400 L3 clocks 
+	mov	r1, #0x2000		@ wait DLL relock, min 0x400 L3 clocks
 dll_wait:
 	subs	r1, r1, #0x1
 	bne	dll_wait
@@ -241,7 +241,7 @@ ddr_timer_32ksynct:
 ENTRY(sram_reprogram_sdrc_sz)
 	.word	. - sram_reprogram_sdrc
 
-/* 
+/*
  * Set dividers and pll. Also recalculate DLL value for DDR and unlock mode.
  */
 ENTRY(sram_set_prcm)

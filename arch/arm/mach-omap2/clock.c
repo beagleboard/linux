@@ -292,7 +292,7 @@ static inline u32 omap2_divider_from_table(u32 size, u32 *div_array,
 	return ~0;	/* No acceptable divider */
 }
 
-/* 
+/*
  * Find divisor for the given clock and target rate.
  *
  * Note that this will not work for clocks which are part of CONFIG_PARTICIPANT,
@@ -307,7 +307,7 @@ static u32 omap2_clksel_round_rate(struct clk *tclk, u32 target_rate,
 	u32 vylnq_div[] = {1, 2, 3, 4, 6, 8, 9, 12, 16, 18};
 	u32 best_div = ~0, asize = 0;
 	u32 *div_array = NULL;
-	
+
 	switch (tclk->flags & SRC_RATE_SEL_MASK) {
 	case CM_GFX_SEL1:
 		asize = 3;
@@ -684,7 +684,7 @@ static u32 omap2_clksel_get_divisor(struct clk *clk)
 
 	/* isolate control register */
 	div_sel = (SRC_RATE_SEL_MASK & clk->flags);
-	
+
 	div_off = clk->rate_offset;
 	field_val = omap2_get_clksel(&div_sel, &field_mask, clk);
 	if (div_sel == 0)
@@ -1059,7 +1059,7 @@ static int __init omap2_clk_arch_init(void)
 {
 	if (!mpurate)
 		return -EINVAL;
-	
+
 	if (omap2_select_table_rate(&virt_prcm_set, mpurate))
 		printk(KERN_ERR "Could not find matching MPU rate\n");
 

@@ -707,7 +707,7 @@ DCCP PROTOCOL
 P:	Arnaldo Carvalho de Melo
 M:	acme@mandriva.com
 L:	dccp@vger.kernel.org
-W:	http://www.wlug.org.nz/DCCP
+W:	http://linux-net.osdl.org/index.php/DCCP
 S:	Maintained
 
 DECnet NETWORK LAYER
@@ -1565,7 +1565,7 @@ S:	Maintained
 
 LINUX FOR POWERPC EMBEDDED PPC83XX AND PPC85XX
 P:     Kumar Gala
-M:     kumar.gala@freescale.com
+M:     galak@kernel.crashing.org
 W:     http://www.penguinppc.org/
 L:     linuxppc-embedded@ozlabs.org
 S:     Maintained
@@ -1873,6 +1873,16 @@ L:	linux-tr@linuxtr.net
 W:	http://www.linuxtr.net
 S:	Maintained
 
+OMNIKEY CARDMAN 4000 DRIVER
+P:	Harald Welte
+M:	laforge@gnumonks.org
+S:	Maintained
+
+OMNIKEY CARDMAN 4040 DRIVER
+P:	Harald Welte
+M:	laforge@gnumonks.org
+S:	Maintained
+
 ONSTREAM SCSI TAPE DRIVER
 P:	Willem Riede
 M:	osst@riede.org
@@ -1988,7 +1998,6 @@ PKTCDVD DRIVER
 P:	Peter Osterlund
 M:	petero2@telia.com
 L:	linux-kernel@vger.kernel.org
-L:	packet-writing@suse.com
 S:	Maintained
 
 POSIX CLOCKS and TIMERS
