@@ -12,7 +12,7 @@
 
 #if defined(CONFIG_ARCH_OMAP730) && \
 	(defined(CONFIG_ARCH_OMAP15XX) || defined(CONFIG_ARCH_OMAP16XX))
-#error "FIXME: OMAP730 doesn't support multiple-OMAP"	
+#error "FIXME: OMAP730 doesn't support multiple-OMAP"
 #elif defined(CONFIG_ARCH_OMAP730)
 #define INT_IH2_IRQ		INT_730_IH2_IRQ
 #elif defined(CONFIG_ARCH_OMAP15XX)

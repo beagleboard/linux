@@ -134,7 +134,7 @@ static void omap_pm_wakeup_setup(void)
 		level1_wake = OMAP_IRQ_BIT(INT_730_GPIO_BANK1) |
 			OMAP_IRQ_BIT(INT_730_IH2_IRQ);
 	else if (cpu_is_omap1510())
-		level1_wake = OMAP_IRQ_BIT(INT_GPIO_BANK1) | 
+		level1_wake = OMAP_IRQ_BIT(INT_GPIO_BANK1) |
 			OMAP_IRQ_BIT(INT_1510_IH2_IRQ);
 	else if (cpu_is_omap16xx())
 		level1_wake = OMAP_IRQ_BIT(INT_GPIO_BANK1) |

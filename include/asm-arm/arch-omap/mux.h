@@ -104,11 +104,11 @@
 },
 
 
-/* 
+/*
  * OMAP730 has a slightly different config for the pin mux.
- * - config regs are the OMAP730_IO_CONF_x regs (see omap730.h) regs and 
+ * - config regs are the OMAP730_IO_CONF_x regs (see omap730.h) regs and
  *   not the FUNC_MUX_CTRL_x regs from hardware.h
- * - for pull-up/down, only has one enable bit which is is in the same register 
+ * - for pull-up/down, only has one enable bit which is is in the same register
  *   as mux config
  */
 #define MUX_CFG_730(desc, mux_reg, mode_offset, mode,	\
@@ -131,8 +131,8 @@
 	.mask		= mode,					\
 	.pull_val	= pull_en,				\
 	.pu_pd_val	= pull_mode,				\
-},	
-	 
+},
+
 
 #define PULL_DISABLED	0
 #define PULL_ENABLED	1

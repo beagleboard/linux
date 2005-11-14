@@ -35,7 +35,7 @@ putstr(const char *s)
 {
 	volatile u8 * uart = 0;
 	int shift = 2;
-	
+
 #ifdef CONFIG_MACH_OMAP_PALMTE
 	return;
 #endif

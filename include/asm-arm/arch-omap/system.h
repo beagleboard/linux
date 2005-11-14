@@ -54,7 +54,7 @@ static inline void arch_reset(char mode)
 	if (!cpu_is_omap24xx())
 		omap1_arch_reset(mode);
 	else
-		omap2_arch_reset(mode);			
+		omap2_arch_reset(mode);
 }
 
 #endif

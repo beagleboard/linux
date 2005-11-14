@@ -153,7 +153,7 @@ void omap_set_dma_transfer_params(int lch, int data_type, int elem_count,
 	OMAP_DMA_CSDP_REG(lch) &= ~0x03;
 	OMAP_DMA_CSDP_REG(lch) |= data_type;
 
-	if (cpu_class_is_omap1()) {	
+	if (cpu_class_is_omap1()) {
 		OMAP_DMA_CCR_REG(lch) &= ~(1 << 5);
 		if (sync_mode == OMAP_DMA_SYNC_FRAME)
 			OMAP_DMA_CCR_REG(lch) |= 1 << 5;
@@ -247,7 +247,7 @@ void omap_set_dma_src_params(int lch, int src_port, int src_amode,
 
 	if (cpu_is_omap24xx())
 		OMAP2_DMA_CSSA_REG(lch) = src_start;
-		
+
 	OMAP_DMA_CSEI_REG(lch) = src_ei;
 	OMAP_DMA_CSFI_REG(lch) = src_fi;
 }
@@ -323,7 +323,7 @@ void omap_set_dma_dest_params(int lch, int dest_port, int dest_amode,
 	}
 
 	if (cpu_is_omap24xx())
-		OMAP2_DMA_CDSA_REG(lch) = dest_start;	
+		OMAP2_DMA_CDSA_REG(lch) = dest_start;
 
 	OMAP_DMA_CDEI_REG(lch) = dst_ei;
 	OMAP_DMA_CDFI_REG(lch) = dst_fi;
@@ -491,7 +491,7 @@ int omap_request_dma(int dev_id, const char *dev_name,
 
 	if (cpu_is_omap24xx()) {
 		omap2_enable_irq_lch(free_ch);
-		
+
 		omap_enable_channel_irq(free_ch);
 		/* Clear the CSR register and IRQ status register */
 		OMAP_DMA_CSR_REG(free_ch) = 0x0;
