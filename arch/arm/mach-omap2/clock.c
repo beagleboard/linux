@@ -424,7 +424,8 @@ static void omap2_init_memory_params(u32 force_lock_to_unlock_mode)
 		fast_dll &= ~0xff00;
 		fast_dll |= dll_cnt;		/* Current lock mode */
 	}
-	mem_timings.fast_dll_ctrl = fast_dll;
+	/* set fast timings with DLL filter disabled */
+	mem_timings.fast_dll_ctrl = (fast_dll | (3 << 8));
 
 	/* No disruptions, DDR will be offline & C-ABI not followed */
 	omap2_sram_ddr_init(&mem_timings.slow_dll_ctrl,
@@ -437,8 +438,8 @@ static void omap2_init_memory_params(u32 force_lock_to_unlock_mode)
 	mem_timings.slow_dll_ctrl |=
 		((mem_timings.fast_dll_ctrl & 0xF) | (1 << 2));
 
-	/* 90 degree phase for anything below 133Mhz */
-	mem_timings.slow_dll_ctrl |= (1 << 1);
+	/* 90 degree phase for anything below 133Mhz + disable DLL filter */
+	mem_timings.slow_dll_ctrl |= ((1 << 1) | (3 << 8));
 }
 
 static u32 omap2_reprogram_sdrc(u32 level, u32 force)

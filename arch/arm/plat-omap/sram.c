@@ -25,13 +25,52 @@
 #define OMAP1_SRAM_PA		0x20000000
 #define OMAP1_SRAM_VA		0xd0000000
 #define OMAP2_SRAM_PA		0x40200000
+#define OMAP2_SRAM_PUB_PA	0x4020f800
 #define OMAP2_SRAM_VA		0xd0000000
+#define OMAP2_SRAM_PUB_VA	0xd0000800
 
+#if defined(CONFIG_ARCH_OMAP24XX)
+#define SRAM_BOOTLOADER_SZ	0x00
+#else
 #define SRAM_BOOTLOADER_SZ	0x80
+#endif
+
+#define VA_REQINFOPERM0		IO_ADDRESS(0x68005048)
+#define VA_READPERM0		IO_ADDRESS(0x68005050)
+#define VA_WRITEPERM0		IO_ADDRESS(0x68005058)
+#define VA_CONTROL_STAT		IO_ADDRESS(0x480002F8)
+#define GP_DEVICE		0x300
+#define TYPE_MASK		0x700
+
+#define ROUND_DOWN(value,boundary)	((value) & (~((boundary)-1)))
 
 static unsigned long omap_sram_base;
 static unsigned long omap_sram_size;
 static unsigned long omap_sram_ceil;
+
+/* Depending on the target RAMFS firewall setup, the public usable amount of
+ * SRAM varies.  The default accessable size for all device types is 2k. A GP
+ * device allows ARM11 but not other initators for full size. This
+ * functionality seems ok until some nice security API happens.
+ */
+static int is_sram_locked(void)
+{
+	int type = 0;
+
+	if (cpu_is_omap242x())
+		type = __raw_readl(VA_CONTROL_STAT) & TYPE_MASK;
+
+	if (type == GP_DEVICE) {
+		/* RAMFW: R/W access to all initators for all qualifier sets */
+		if (cpu_is_omap242x()) {
+			__raw_writel(0xFF, VA_REQINFOPERM0); /* all q-vects */
+			__raw_writel(0xCFDE, VA_READPERM0);  /* all i-read */
+			__raw_writel(0xCFDE, VA_WRITEPERM0); /* all i-write */
+		}
+		return 0;
+	} else
+		return 1; /* assume locked with no PPA or security driver */
+}
 
 /*
  * The amount of SRAM depends on the core type.
@@ -41,26 +80,34 @@ static unsigned long omap_sram_ceil;
  */
 void __init omap_detect_sram(void)
 {
-	if (!cpu_is_omap24xx())
+	if (cpu_is_omap24xx()) {
+		if (is_sram_locked()) {
+			omap_sram_base = OMAP2_SRAM_PUB_VA;
+			omap_sram_size = 0x800; /* 2K */
+		} else {
+			omap_sram_base = OMAP2_SRAM_VA;
+			if (cpu_is_omap242x())
+				omap_sram_size = 0xa0000; /* 640K */
+			else if (cpu_is_omap243x())
+				omap_sram_size = 0x10000; /* 64K */
+		}
+	} else {
 		omap_sram_base = OMAP1_SRAM_VA;
-	else
-		omap_sram_base = OMAP2_SRAM_VA;
 
-	if (cpu_is_omap730())
-		omap_sram_size = 0x32000;	/* 200K */
-	else if (cpu_is_omap15xx())
-		omap_sram_size = 0x30000;	/* 192K */
-	else if (cpu_is_omap1610() || cpu_is_omap1621() || cpu_is_omap1710())
-		omap_sram_size = 0x4000;	/* 16K */
-	else if (cpu_is_omap1611())
-		omap_sram_size = 0x3e800;	/* 250K */
-	else if (cpu_is_omap2420())
-		omap_sram_size = 0xa0014;	/* 640K */
-	else {
-		printk(KERN_ERR "Could not detect SRAM size\n");
-		omap_sram_size = 0x4000;
+		if (cpu_is_omap730())
+			omap_sram_size = 0x32000;	/* 200K */
+		else if (cpu_is_omap15xx())
+			omap_sram_size = 0x30000;	/* 192K */
+		else if (cpu_is_omap1610() || cpu_is_omap1621() ||
+		     cpu_is_omap1710())
+			omap_sram_size = 0x4000;	/* 16K */
+		else if (cpu_is_omap1611())
+			omap_sram_size = 0x3e800;	/* 250K */
+		else {
+			printk(KERN_ERR "Could not detect SRAM size\n");
+			omap_sram_size = 0x4000;
+		}
 	}
-
 	omap_sram_ceil = omap_sram_base + omap_sram_size;
 }
 
@@ -79,12 +126,20 @@ static struct map_desc omap_sram_io_desc[] __initdata = {
  */
 void __init omap_map_sram(void)
 {
+	unsigned long base;
+
 	if (omap_sram_size == 0)
 		return;
 
 	if (cpu_is_omap24xx()) {
 		omap_sram_io_desc[0].virtual = OMAP2_SRAM_VA;
-		omap_sram_io_desc[0].pfn = __phys_to_pfn(OMAP2_SRAM_PA);
+
+		if (is_sram_locked())
+			base = OMAP2_SRAM_PUB_PA;
+		else
+			base = OMAP2_SRAM_PA;
+		base = ROUND_DOWN(base, PAGE_SIZE);
+		omap_sram_io_desc[0].pfn = __phys_to_pfn(base);
 	}
 
 	omap_sram_io_desc[0].length = (omap_sram_size + PAGE_SIZE-1)/PAGE_SIZE;
@@ -109,8 +164,9 @@ void * omap_sram_push(void * start, unsigned long size)
 		printk(KERN_ERR "Not enough space in SRAM\n");
 		return NULL;
 	}
+
 	omap_sram_ceil -= size;
-	omap_sram_ceil &= ~0x3;
+	omap_sram_ceil = ROUND_DOWN(omap_sram_ceil, sizeof(void *));
 	memcpy((void *)omap_sram_ceil, start, size);
 
 	return (void *)omap_sram_ceil;
