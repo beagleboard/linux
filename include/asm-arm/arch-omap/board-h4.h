@@ -34,7 +34,16 @@
 #define OMAP24XX_ETHR_START             0x08000300
 #define OMAP24XX_ETHR_GPIO_IRQ		92
 
+<<<<<<< include/asm-arm/arch-omap/board-h4.h
 #define H4_CS0_BASE		     0x04000000
 
+=======
+#define H4_CS0_BASE		     0x04000000
+
+#define H4_CS0_BASE		     0x04000000
+
+#define H4_CS0_BASE		     0x04000000
+
+>>>>>>> .merge_file_d153T1
 #endif /*  __ASM_ARCH_OMAP_H4_H */
 
