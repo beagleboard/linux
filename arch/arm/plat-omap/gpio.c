@@ -491,7 +491,9 @@ static int gpio_irq_type(unsigned irq, unsigned type)
 	if (check_gpio(gpio) < 0)
 		return -EINVAL;
 
-	if (type & (__IRQT_LOWLVL|__IRQT_HIGHLVL|IRQT_PROBE))
+	if (type & IRQT_PROBE)
+		return -EINVAL;
+	if (!cpu_is_omap24xx() && (type & (__IRQT_LOWLVL|__IRQT_HIGHLVL)))
 		return -EINVAL;
 
 	bank = get_gpio_bank(gpio);
@@ -757,10 +759,19 @@ static void gpio_irq_handler(unsigned int irq, struct irqdesc *desc,
 #endif
 
 	while(1) {
-		isr = __raw_readl(isr_reg);
-		_enable_gpio_irqbank(bank, isr, 0);
-		_clear_gpio_irqbank(bank, isr);
-		_enable_gpio_irqbank(bank, isr, 1);
+		u32 isr_saved, level_mask = 0;
+
+		isr_saved = isr = __raw_readl(isr_reg);
+		if (cpu_is_omap24xx())
+			level_mask = __raw_readl(bank->base +
+				OMAP24XX_GPIO_LEVELDETECT0) |
+				__raw_readl(bank->base +
+				OMAP24XX_GPIO_LEVELDETECT1);
+
+		/* clear edge sensitive interrupts before handler(s) */
+		_enable_gpio_irqbank(bank, isr_saved & ~level_mask, 0);
+		_clear_gpio_irqbank(bank, isr_saved & ~level_mask);
+		_enable_gpio_irqbank(bank, isr_saved & ~level_mask, 1);
 		desc->chip->unmask(irq);
 
 		if (!isr)
@@ -773,6 +784,12 @@ static void gpio_irq_handler(unsigned int irq, struct irqdesc *desc,
 				continue;
 			d = irq_desc + gpio_irq;
 			desc_handle_irq(gpio_irq, d, regs);
+		}
+		/* clear level sensitive interrupts after handler(s) */
+		if (cpu_is_omap24xx()) {
+			_enable_gpio_irqbank(bank, isr_saved & level_mask, 0);
+			_clear_gpio_irqbank(bank, isr_saved & level_mask);
+			_enable_gpio_irqbank(bank, isr_saved & level_mask, 1);
 		}
 	}
 }
