@@ -859,7 +859,7 @@ static struct clk core_l3_ck = {	/* Used for ick and fck, interconnect */
 
 static struct clk usb_l4_ick = {	/* FS-USB interface clock */
 	.name		= "usb_l4_ick",
-	.parent		= &core_ck,
+	.parent		= &core_l3_ck,
 	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X |
 				RATE_CKCTL | CM_CORE_SEL1 | DELAYED_APP |
 				CONFIG_PARTICIPANT,
@@ -1839,7 +1839,7 @@ static struct clk usb_fck = {
 
 static struct clk usbhs_ick = {
 	.name		= "usbhs_ick",
-	.parent		= &l4_ck,
+	.parent		= &core_l3_ck,
 	.flags		= CLOCK_IN_OMAP243X,
 	.enable_reg	= (void __iomem *)&CM_ICLKEN2_CORE,
 	.enable_bit	= 6,

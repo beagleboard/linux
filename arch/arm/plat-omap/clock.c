@@ -302,3 +302,65 @@ int __init clk_init(struct clk_functions * custom_clocks)
 
 	return 0;
 }
+
+#ifdef CONFIG_PROC_FS
+#include <linux/proc_fs.h>
+#include <linux/seq_file.h>
+
+static void *omap_ck_start(struct seq_file *m, loff_t *pos)
+{
+	return *pos < 1 ? (void *)1 : NULL;
+}
+
+static void *omap_ck_next(struct seq_file *m, void *v, loff_t *pos)
+{
+	++*pos;
+	return NULL;
+}
+
+static void omap_ck_stop(struct seq_file *m, void *v)
+{
+}
+
+int omap_ck_show(struct seq_file *m, void *v)
+{
+	struct clk *cp;
+
+	list_for_each_entry(cp, &clocks, node)
+		seq_printf(m,"%s %ld %d\n", cp->name, cp->rate, cp->usecount);
+
+	return 0;
+}
+
+static struct seq_operations omap_ck_op = {
+	.start =	omap_ck_start,
+	.next =		omap_ck_next,
+	.stop =		omap_ck_stop,
+	.show =		omap_ck_show
+};
+
+static int omap_ck_open(struct inode *inode, struct file *file)
+{
+	return seq_open(file, &omap_ck_op);
+}
+
+static struct file_operations proc_omap_ck_operations = {
+	.open		= omap_ck_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= seq_release,
+};
+
+int __init omap_ck_init(void)
+{
+    struct proc_dir_entry *entry;
+
+	entry = create_proc_entry("omap_clocks", 0, NULL);
+	if (entry)
+		entry->proc_fops = &proc_omap_ck_operations;
+	return 0;
+
+}
+__initcall(omap_ck_init);
+#endif /* CONFIG_DEBUG_PROC_FS */
+

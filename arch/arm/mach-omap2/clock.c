@@ -651,7 +651,7 @@ static u32 omap2_get_clksel(u32 *div_sel, u32 *field_mask,
 		case 13:				/* dss2 */
 			mask = 0x1; break;
 		case 25:				/* usb */
-			mask = 0xf; break;
+			mask = 0x7; break;
 		}
 	}
 
