@@ -39,7 +39,7 @@
 #include <linux/config.h>
 #include <sound/driver.h>
 #include <linux/module.h>
-#include <linux/device.h>
+#include <linux/platform_device.h>
 #include <linux/moduleparam.h>
 #include <linux/init.h>
 #include <linux/errno.h>
@@ -668,7 +668,7 @@ static int snd_omap_aic23_resume(snd_card_t * card)
 /*
  * Driver suspend/resume - calls alsa functions. Some hints from aaci.c
  */
-static int omap_aic23_suspend(struct device *dev, pm_message_t state, u32 level)
+static int omap_aic23_suspend(struct device *dev, pm_message_t state)
 {
 	snd_card_t *card = dev_get_drvdata(dev);
 	
@@ -678,7 +678,7 @@ static int omap_aic23_suspend(struct device *dev, pm_message_t state, u32 level)
 	return 0;
 }
 
-static int omap_aic23_resume(struct device *dev, u32 level)
+static int omap_aic23_resume(struct device *dev)
 {
 	snd_card_t *card = dev_get_drvdata(dev);
 

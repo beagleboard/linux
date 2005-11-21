@@ -35,7 +35,7 @@
 #include <linux/wait.h>
 #include <linux/interrupt.h>
 #include <linux/suspend.h>
-#include <linux/device.h>
+#include <linux/platform_device.h>
 
 #include <asm/mach-types.h>
 
