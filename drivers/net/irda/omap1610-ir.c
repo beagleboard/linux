@@ -54,6 +54,7 @@
 #include <linux/delay.h>
 #include <linux/ioport.h>
 #include <linux/dma-mapping.h>
+#include <linux/platform_device.h>
 
 #include <net/irda/irda.h>
 #include <net/irda/irmod.h>

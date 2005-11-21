@@ -1152,19 +1152,19 @@ ov9640sensor_init(struct v4l2_pix_format *pix)
 }
 
 struct camera_sensor camera_sensor_if = {
-	version: 	0x01,
-	name:		"OV9640",
-	init: 		ov9640sensor_init,
-	cleanup:	ov9640sensor_cleanup, 
-	enum_pixformat:	ov9640sensor_enum_pixformat,
-	try_format:	ov9640sensor_try_format,
-	calc_xclk:	ov9640sensor_calc_xclk,
-	configure:	ov9640sensor_configure,
-	query_control:	ov9640sensor_query_control, 
-	get_control:	ov9640sensor_get_control, 
-	set_control:	ov9640sensor_set_control,
-	power_on:	ov9640sensor_power_on,
-	power_off:	ov9640sensor_power_off,
+	.version	= 0x01,
+	.name		= "OV9640",
+	.init		= ov9640sensor_init,
+	.cleanup	= ov9640sensor_cleanup,
+	.enum_pixformat = ov9640sensor_enum_pixformat,
+	.try_format	= ov9640sensor_try_format,
+	.calc_xclk	= ov9640sensor_calc_xclk,
+	.configure	= ov9640sensor_configure,
+	.query_control	= ov9640sensor_query_control,
+	.get_control	= ov9640sensor_get_control,
+	.set_control	= ov9640sensor_set_control,
+	.power_on	= ov9640sensor_power_on,
+	.power_off	= ov9640sensor_power_off,
 };
 
 void print_ov9640_regs(void *priv)

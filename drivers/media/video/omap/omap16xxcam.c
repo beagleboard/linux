@@ -566,18 +566,18 @@ omap16xxcam_init(void)
 }
 
 struct camera_hardware camera_hardware_if = {
-	version		: 0x01, 
-	name		: "OMAP16xx Camera Parallel", 
-	init		: omap16xxcam_init,
-	cleanup		: omap16xxcam_cleanup,
-	open 		: omap16xxcam_open, 
-	close  		: omap16xxcam_close,
-	enable 		: omap16xxcam_enable, 
-	disable  	: omap16xxcam_disable,
-	abort		: omap16xxcam_abort,
-	set_xclk	: omap16xxcam_set_xclk,
-	init_dma	: omap16xxcam_init_dma,
-	start_dma	: omap16xxcam_start_dma,
-	finish_dma	: omap16xxcam_finish_dma,
+	.version	= 0x01,
+	.name		= "OMAP16xx Camera Parallel",
+	.init		= omap16xxcam_init,
+	.cleanup	= omap16xxcam_cleanup,
+	.open		= omap16xxcam_open,
+	.close		= omap16xxcam_close,
+	.enable		= omap16xxcam_enable,
+	.disable	= omap16xxcam_disable,
+	.abort		= omap16xxcam_abort,
+	.set_xclk	= omap16xxcam_set_xclk,
+	.init_dma	= omap16xxcam_init_dma,
+	.start_dma	= omap16xxcam_start_dma,
+	.finish_dma	= omap16xxcam_finish_dma,
 };
 

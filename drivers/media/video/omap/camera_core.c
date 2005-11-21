@@ -32,7 +32,7 @@
 #include <linux/ctype.h>
 #include <linux/pagemap.h>
 #include <linux/mm.h>
-#include <linux/device.h>
+#include <linux/platform_device.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
 #include <linux/videodev.h>
