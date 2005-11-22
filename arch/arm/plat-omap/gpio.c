@@ -757,22 +757,28 @@ static void gpio_irq_handler(unsigned int irq, struct irqdesc *desc,
 	if (bank->method == METHOD_GPIO_24XX)
 		isr_reg = bank->base + OMAP24XX_GPIO_IRQSTATUS1;
 #endif
-
 	while(1) {
 		u32 isr_saved, level_mask = 0;
 
 		isr_saved = isr = __raw_readl(isr_reg);
 		if (cpu_is_omap24xx())
-			level_mask = __raw_readl(bank->base +
-				OMAP24XX_GPIO_LEVELDETECT0) |
+			level_mask =
 				__raw_readl(bank->base +
-				OMAP24XX_GPIO_LEVELDETECT1);
+					OMAP24XX_GPIO_LEVELDETECT0) |
+				__raw_readl(bank->base +
+					OMAP24XX_GPIO_LEVELDETECT1);
 
-		/* clear edge sensitive interrupts before handler(s) */
+		/* clear edge sensitive interrupts before handler(s) are
+		called so that we don't miss any interrupt occurred while
+		executing them */
 		_enable_gpio_irqbank(bank, isr_saved & ~level_mask, 0);
 		_clear_gpio_irqbank(bank, isr_saved & ~level_mask);
 		_enable_gpio_irqbank(bank, isr_saved & ~level_mask, 1);
-		desc->chip->unmask(irq);
+
+		/* if there is only edge sensitive GPIO pin interrupts
+		configured, we could unmask GPIO bank interrupt immediately */
+		if (!level_mask)
+			desc->chip->unmask(irq);
 
 		if (!isr)
 			break;
@@ -785,12 +791,20 @@ static void gpio_irq_handler(unsigned int irq, struct irqdesc *desc,
 			d = irq_desc + gpio_irq;
 			desc_handle_irq(gpio_irq, d, regs);
 		}
-		/* clear level sensitive interrupts after handler(s) */
+
 		if (cpu_is_omap24xx()) {
+			/* clear level sensitive interrupts after handler(s) */
 			_enable_gpio_irqbank(bank, isr_saved & level_mask, 0);
 			_clear_gpio_irqbank(bank, isr_saved & level_mask);
 			_enable_gpio_irqbank(bank, isr_saved & level_mask, 1);
 		}
+
+		/* if bank has any level sensitive GPIO pin interrupt
+		configured, we must unmask the bank interrupt only after
+		handler(s) are executed in order to avoid spurious bank
+		interrupt */
+		if (level_mask)
+			desc->chip->unmask(irq);
 	}
 }
 
