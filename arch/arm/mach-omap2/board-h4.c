@@ -29,7 +29,7 @@
 #include <asm/arch/usb.h>
 #include <asm/arch/board.h>
 #include <asm/arch/common.h>
-#include <asm/arch/prcm.h>
+#include "prcm-regs.h"
 
 #include <asm/io.h>
 #include <asm/delay.h>

@@ -47,9 +47,7 @@
 #include <asm/bitops.h>
 #include <asm/hardware/clock.h>
 
-#ifdef CONFIG_ARCH_OMAP24XX
 #include <asm/arch/prcm.h>
-#endif
 
 #include "omap_wdt.h"
 
@@ -205,7 +203,8 @@ omap_wdt_ioctl(struct inode *inode, struct file *file,
 			return put_user(omap_readw(ARM_SYSST),
 					(int __user *)arg);
 		if (cpu_is_omap24xx())
-			return put_user(RM_RSTST_WKUP, (int __user *)arg);
+			return put_user(omap_prcm_get_reset_sources(),
+					(int __user *)arg);
 	case WDIOC_KEEPALIVE:
 		omap_wdt_ping();
 		return 0;

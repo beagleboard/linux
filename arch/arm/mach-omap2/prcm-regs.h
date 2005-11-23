@@ -1,5 +1,7 @@
 /*
- * prcm.h - Access definations for use in OMAP24XX clock and power management
+ * linux/arch/arm/mach-omap2/prcm-reg.h
+ *
+ * OMAP24XX Power Reset and Clock Management (PRCM) registers
  *
  * Copyright (C) 2005 Texas Instruments, Inc.
  *
@@ -18,8 +20,8 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 
-#ifndef __ASM_ARM_ARCH_DPM_PRCM_H
-#define __ASM_ARM_ARCH_DPM_PRCM_H
+#ifndef __ARCH_ARM_MACH_OMAP2_PRCM_H
+#define __ARCH_ARM_MACH_OMAP2_PRCM_H
 
 /* SET_PERFORMANCE_LEVEL PARAMETERS */
 #define PRCM_HALF_SPEED 1
@@ -165,6 +167,7 @@
 #define DISP_BASE		(OMAP24XX_L4_IO_BASE+0x50000)
 #define DISP_REG32(offset)	__REG32(DISP_BASE + (offset))
 
+#define OMAP24XX_GPMC_BASE	(L3_24XX_BASE + 0xa000)
 #define GPMC_BASE		(OMAP24XX_GPMC_BASE)
 #define GPMC_REG32(offset)	__REG32(GPMC_BASE + (offset))
 
@@ -372,6 +375,15 @@
 #define GPMC_CONFIG5_0		GPMC_REG32(0x070)
 #define GPMC_CONFIG6_0		GPMC_REG32(0x074)
 #define GPMC_CONFIG7_0		GPMC_REG32(0x078)
+
+/* GPMC CS1 */
+#define GPMC_CONFIG1_1		GPMC_REG32(0x090)
+#define GPMC_CONFIG2_1		GPMC_REG32(0x094)
+#define GPMC_CONFIG3_1		GPMC_REG32(0x098)
+#define GPMC_CONFIG4_1		GPMC_REG32(0x09C)
+#define GPMC_CONFIG5_1		GPMC_REG32(0x0a0)
+#define GPMC_CONFIG6_1		GPMC_REG32(0x0a4)
+#define GPMC_CONFIG7_1		GPMC_REG32(0x0a8)
 
 /* DSS */
 #define DSS_CONTROL		DISP_REG32(0x040)

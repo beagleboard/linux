@@ -28,8 +28,8 @@
 #include <asm/hardware/clock.h>
 #include <asm/arch/clock.h>
 #include <asm/arch/sram.h>
-#include <asm/arch/prcm.h>
 
+#include "prcm-regs.h"
 #include "clock.h"
 
 //#define DOWN_VARIABLE_DPLL 1			/* Experimental */

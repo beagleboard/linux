@@ -3,7 +3,7 @@
 #
 
 # Common support
-obj-y := irq.o id.o io.o sram-fn.o clock.o mux.o devices.o serial.o
+obj-y := irq.o id.o io.o sram-fn.o prcm.o clock.o mux.o devices.o serial.o
 
 obj-$(CONFIG_OMAP_MPU_TIMER)		+= timer-gp.o
 
