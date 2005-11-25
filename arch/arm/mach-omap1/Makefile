@@ -3,7 +3,10 @@
 #
 
 # Common support
-obj-y := io.o id.o clock.o irq.o time.o mux.o serial.o devices.o
+obj-y := io.o id.o clock.o irq.o mux.o serial.o devices.o
+
+obj-$(CONFIG_OMAP_MPU_TIMER)		+= time.o
+
 led-y := leds.o
 
 # Specific board support

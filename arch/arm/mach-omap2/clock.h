@@ -1045,7 +1045,7 @@ static struct clk gpt1_ick = {
 	.name		= "gpt1_ick",
 	.parent		= &l4_ck,
 	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X,
-	.enable_reg	= (void __iomem *)&CM_ICLKEN_WKUP,	/* Bit4 */
+	.enable_reg	= (void __iomem *)&CM_ICLKEN_WKUP,	/* Bit0 */
 	.enable_bit	= 0,
 	.recalc		= &omap2_followparent_recalc,
 };
@@ -1055,7 +1055,7 @@ static struct clk gpt1_fck = {
 	.parent		= &func_32k_ck,
 	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X |
 				CM_WKUP_SEL1,
-	.enable_reg	= (void __iomem *)&CM_FCLKEN_WKUP,
+	.enable_reg	= (void __iomem *)&CM_FCLKEN_WKUP,	/* Bit0 */
 	.enable_bit	= 0,
 	.src_offset	= 0,
 	.recalc		= &omap2_followparent_recalc,
@@ -1065,7 +1065,7 @@ static struct clk gpt2_ick = {
 	.name		= "gpt2_ick",
 	.parent		= &l4_ck,
 	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X,
-	.enable_reg	= (void __iomem *)&CM_ICLKEN1_CORE,	/* bit4 */
+	.enable_reg	= (void __iomem *)&CM_ICLKEN1_CORE,	/* Bit4 */
 	.enable_bit	= 0,
 	.recalc		= &omap2_followparent_recalc,
 };
