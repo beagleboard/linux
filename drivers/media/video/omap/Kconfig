@@ -1,7 +1,7 @@
 config VIDEO_OMAP_CAMERA
 	tristate "OMAP Camera support (EXPERIMENTAL)"
 	select VIDEO_BUF
-	depends on VIDEO_DEV &amp;&amp; (ARCH_OMAP16XX || ARCH_OMAP24XX)
+	depends on VIDEO_DEV && (ARCH_OMAP16XX || ARCH_OMAP24XX)
 	help
 	  V4L2 camera driver support for OMAP1/2 based boards.
 	
