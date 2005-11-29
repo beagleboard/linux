@@ -112,14 +112,13 @@
  *   as mux config
  */
 #define MUX_CFG_730(desc, mux_reg, mode_offset, mode,	\
-		   pull_reg, pull_bit, pull_status,	\
-		   pu_pd_reg, pu_pd_status, debug_status)\
+		   pull_bit, pull_status, debug_status)\
 {							\
 	.name =	 desc,					\
 	.debug = debug_status,				\
 	MUX_REG_730(mux_reg, mode_offset, mode)		\
 	PULL_REG_730(mux_reg, pull_bit, pull_status)	\
-	PU_PD_REG(pu_pd_reg, pu_pd_status)		\
+	PU_PD_REG(NA, 0)		\
 },
 
 #define MUX_CFG_24XX(desc, reg_offset, mode,			\
@@ -172,6 +171,11 @@ enum omap730_index {
 	E4_730_KBC2,
 	F4_730_KBC3,
 	E3_730_KBC4,
+    
+	/* USB */
+	AA17_730_USB_DM,
+	W16_730_USB_PU_EN,
+	W17_730_USB_VBUSI,
 };
 
 enum omap1xxx_index {
