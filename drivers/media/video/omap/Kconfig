@@ -1,0 +1,12 @@
+config VIDEO_OMAP_CAMERA
+	tristate "OMAP Camera support (EXPERIMENTAL)"
+	select VIDEO_BUF
+	depends on VIDEO_DEV &amp;&amp; (ARCH_OMAP16XX || ARCH_OMAP24XX)
+	help
+	  V4L2 camera driver support for OMAP1/2 based boards.
+	
+config VIDEO_CAMERA_SENSOR_OV9640
+	tristate "OV9640 sensor support"
+	depends on VIDEO_OMAP_CAMERA
+	help
+	  OmniVision 9640 camera sensor support
