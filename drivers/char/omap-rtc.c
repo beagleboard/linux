@@ -71,6 +71,9 @@
 
 extern spinlock_t rtc_lock;
 
+static int omap_rtc_alarm = NO_IRQ;
+static int omap_rtc_timer = NO_IRQ;
+
 
 /* OMAP RTC register access macros: */
 
@@ -441,6 +444,20 @@ static int __init omap_rtc_probe(struct device *dev)
 	struct platform_device	*pdev = to_platform_device(dev);
 	struct resource		*res, *mem;
 
+	/* find the IRQs */
+
+	omap_rtc_timer = platform_get_irq(pdev, 0);
+	if (omap_rtc_timer <= 0) {
+		dev_err(&pdev->dev, "no irq for rtc timer\n");
+		return -ENOENT;
+	}
+
+	omap_rtc_alarm = platform_get_irq(pdev, 1);
+	if (omap_rtc_alarm <= 0) {
+		dev_err(&pdev->dev, "no irq for alarm\n");
+		return -ENOENT;
+	}
+
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (res)
 		mem = request_mem_region(res->start,
@@ -469,18 +486,18 @@ static int __init omap_rtc_probe(struct device *dev)
 		CMOS_WRITE(OMAP_RTC_STATUS_ALARM, OMAP_RTC_STATUS_REG);
 	}
 
-	if (request_irq(INT_RTC_TIMER, rtc_interrupt, SA_INTERRUPT,
+	if (request_irq(omap_rtc_timer, rtc_interrupt, SA_INTERRUPT,
 			pdev->name, NULL)) {
 		pr_debug("%s: RTC timer interrupt IRQ%d is not free.\n",
-			pdev->name, INT_RTC_TIMER);
+			pdev->name, omap_rtc_timer);
 		goto fail;
 	}
 
-	if (request_irq(INT_RTC_ALARM, rtc_interrupt, SA_INTERRUPT,
+	if (request_irq(omap_rtc_alarm, rtc_interrupt, SA_INTERRUPT,
 			pdev->name, NULL)) {
 		pr_debug("%s: RTC alarm interrupt IRQ%d is not free.\n",
-			pdev->name, INT_RTC_ALARM);
-		free_irq(INT_RTC_TIMER, NULL);
+			pdev->name, omap_rtc_alarm);
+		free_irq(omap_rtc_timer, NULL);
 		goto fail;
 	}
 
@@ -504,8 +521,8 @@ fail:
 
 static int __exit omap_rtc_remove(struct device *dev)
 {
-	free_irq (INT_RTC_TIMER, NULL);
-	free_irq (INT_RTC_ALARM, NULL);
+	free_irq (omap_rtc_timer, NULL);
+	free_irq (omap_rtc_alarm, NULL);
 
 	remove_proc_entry ("driver/rtc", NULL);
 	misc_deregister(&rtc_dev);
