@@ -1214,9 +1214,8 @@ static void check_required_callbacks(struct omapfb_device *fbdev)
  *      start LCD frame transfer
  *   7. register system fb_info structure
  */
-static int omapfb_probe(struct device *dev)
+static int omapfb_probe(struct platform_device *pdev)
 {
-	struct platform_device	*pdev;
 	struct omapfb_device	*fbdev = NULL;
 	struct fb_info		*fbi;
 	int			init_state;
@@ -1228,14 +1227,13 @@ static int omapfb_probe(struct device *dev)
 
 	init_state = 0;
 
-	pdev = to_platform_device(dev);
 	if (pdev->num_resources != 0) {
 		pr_err("probed for an unknown device\n");
 		r = -ENODEV;
 		goto cleanup;
 	}
 
-	fbi = framebuffer_alloc(sizeof(struct omapfb_device), dev);
+	fbi = framebuffer_alloc(sizeof(struct omapfb_device), &pdev->dev);
 	if (fbi == NULL) {
 		pr_err("unable to allocate memory for device info\n");
 		r = -ENOMEM;
@@ -1245,8 +1243,8 @@ static int omapfb_probe(struct device *dev)
 
 	fbdev = (struct omapfb_device *)fbi->par;
 	fbdev->fb_info = fbi;
-	fbdev->dev = dev;
-	dev_set_drvdata(dev, fbdev);
+	fbdev->dev = &pdev->dev;
+	platform_set_drvdata(pdev, fbdev);
 
 	init_MUTEX(&fbdev->rqueue_sema);
 
@@ -1348,9 +1346,9 @@ cleanup:
 }
 
 /* Called when the device is being detached from the driver */
-static int omapfb_remove(struct device *dev)
+static int omapfb_remove(struct platform_device *pdev)
 {
-	struct omapfb_device *fbdev = dev_get_drvdata(dev);
+	struct omapfb_device *fbdev = platform_get_drvdata(pdev);
 	enum omapfb_state saved_state = fbdev->state;
 
 	DBGENTER(1);
@@ -1364,9 +1362,9 @@ static int omapfb_remove(struct device *dev)
 }
 
 /* PM suspend */
-static int omapfb_suspend(struct device *dev, pm_message_t mesg)
+static int omapfb_suspend(struct platform_device *pdev, pm_message_t mesg)
 {
-	struct omapfb_device *fbdev = dev_get_drvdata(dev);
+	struct omapfb_device *fbdev = platform_get_drvdata(pdev);
 
 	DBGENTER(1);
 
@@ -1378,9 +1376,9 @@ static int omapfb_suspend(struct device *dev, pm_message_t mesg)
 }
 
 /* PM resume */
-static int omapfb_resume(struct device *dev)
+static int omapfb_resume(struct platform_device *pdev)
 {
-	struct omapfb_device *fbdev = dev_get_drvdata(dev);
+	struct omapfb_device *fbdev = platform_get_drvdata(pdev);
 
 	DBGENTER(1);
 
@@ -1390,13 +1388,15 @@ static int omapfb_resume(struct device *dev)
 	return 0;
 }
 
-static struct device_driver omapfb_driver = {
-	.name		= OMAPFB_DRIVER,
-	.bus		= &platform_bus_type,
-	.probe          = omapfb_probe,
-	.remove         = omapfb_remove,
+static struct platform_driver omapfb_driver = {
+	.probe		= omapfb_probe,
+	.remove		= omapfb_remove,
 	.suspend	= omapfb_suspend,
-	.resume		= omapfb_resume
+	.resume		= omapfb_resume,
+	.driver		= {
+		.name	= OMAPFB_DRIVER,
+		.owner	= THIS_MODULE,
+	},
 };
 
 #ifndef MODULE
@@ -1475,7 +1475,7 @@ static int __init omapfb_init(void)
 	}
 #endif
 	/* Register the driver with LDM */
-	if (driver_register(&omapfb_driver)) {
+	if (platform_driver_register(&omapfb_driver)) {
 		pr_err("failed to register omapfb driver\n");
 		r = -ENODEV;
 		goto exit;
@@ -1490,7 +1490,7 @@ static void __exit omapfb_cleanup(void)
 {
 	DBGENTER(1);
 
-	driver_unregister(&omapfb_driver);
+	platform_driver_unregister(&omapfb_driver);
 
 	DBGLEAVE(1);
 }
