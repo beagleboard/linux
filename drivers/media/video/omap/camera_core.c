@@ -1032,12 +1032,11 @@ camera_core_init(void)
 	struct camera_device *cam;
 	struct video_device *vfd;
 
-	cam = kmalloc(sizeof(struct camera_device), GFP_KERNEL);
+	cam = kzalloc(sizeof(struct camera_device), GFP_KERNEL);
 	if (!cam) {
 		printk(KERN_ERR CAM_NAME ": could not allocate memory\n");
 		goto init_error;
 	}
-	memset(cam, 0, sizeof(struct camera_device));
 	
 	/* Save the pointer to camera device in a global variable */
 	camera_dev = cam;

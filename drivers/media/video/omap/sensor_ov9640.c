@@ -20,10 +20,10 @@
 #include <media/video-buf.h>
 #include <linux/delay.h>
 #include <asm/mach-types.h>
-#include <asm/arch/gpioexpander.h>
 
 #include "sensor_if.h"
 #include "ov9640.h"
+#include "h3sensorpower.h"
 
 #define CAMERA_OV9640
 #ifdef CAMERA_OV9640
@@ -669,21 +669,15 @@ ov9640_configure(struct i2c_client *client,
 static int
 ov9640_powerup(void)
 {
-	unsigned char expa;
 	int err;
 
 	if (machine_is_omap_h2())
 		return 0;
 
-	/* read the current state of GPIO EXPA output */
-	if (( err = read_gpio_expa(&expa, 0x27))){
-		printk(KERN_ERR "Error reading GPIO EXPA \n");
-		return err;
-	}
-	/* set GPIO EXPA P7 CAMERA_MOD_EN to power-up sensor */
-	if ((err = write_gpio_expa(expa | 0x80, 0x27))) {
-		printk(KERN_ERR "Error writing to GPIO EXPA \n");
-		return err;
+	if (machine_is_omap_h3()) {
+		err = h3_sensor_powerup();
+		if (err)
+			return err;
 	}
 
 	return 0;
@@ -691,22 +685,17 @@ ov9640_powerup(void)
 static int
 ov9640_powerdown(void)
 {
-	unsigned char expa;
 	int err;
 
 	if (machine_is_omap_h2())
 		return 0;
 
-	/* read the current state of GPIO EXPA output */
-	if (( err = read_gpio_expa(&expa, 0x27))){
-		printk(KERN_ERR "Error reading GPIO EXPA \n");
-		return err;
+	if (machine_is_omap_h3()) {
+		err = h3_sensor_powerdown();
+		if (err)
+			return err;
 	}
-	/* clear GPIO EXPA P7 CAMERA_MOD_EN to power-up sensor */
-	if ((err = write_gpio_expa(expa & ~0x80, 0x27))) {
-		printk(KERN_ERR "Error writing to GPIO EXPA \n");
-		return err;
-	}
+
 	return 0;
 }
 

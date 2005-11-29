@@ -347,9 +347,6 @@ config VIDEO_DECODER
 	  Say Y here to compile drivers for SAA7115, SAA7127 and CX25840
 	  video  decoders.
 
-config VIDEO_OMAP_CAMERA
-	tristate "OMAP Video for Linux camera driver"
-	depends on VIDEO_DEV && ARCH_OMAP16XX
-	select VIDEO_BUF
+source drivers/media/video/omap/Kconfig
 
 endmenu
