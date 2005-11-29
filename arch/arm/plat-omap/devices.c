@@ -98,6 +98,41 @@ static inline void omap_init_i2c(void) {}
 #endif
 
 /*-------------------------------------------------------------------------*/
+#if	defined(CONFIG_KEYBOARD_OMAP) || defined(CONFIG_KEYBOARD_OMAP_MODULE)
+static void omap_init_kp(void)
+{
+	if (machine_is_omap_h2() || machine_is_omap_h3()) {
+		omap_cfg_reg(F18_1610_KBC0);
+		omap_cfg_reg(D20_1610_KBC1);
+		omap_cfg_reg(D19_1610_KBC2);
+		omap_cfg_reg(E18_1610_KBC3);
+		omap_cfg_reg(C21_1610_KBC4);
+
+		omap_cfg_reg(G18_1610_KBR0);
+		omap_cfg_reg(F19_1610_KBR1);
+		omap_cfg_reg(H14_1610_KBR2);
+		omap_cfg_reg(E20_1610_KBR3);
+		omap_cfg_reg(E19_1610_KBR4);
+		omap_cfg_reg(N19_1610_KBR5);
+	} else if (machine_is_omap_perseus2()) {
+		omap_cfg_reg(E2_730_KBR0);
+		omap_cfg_reg(J7_730_KBR1);
+		omap_cfg_reg(E1_730_KBR2);
+		omap_cfg_reg(F3_730_KBR3);
+		omap_cfg_reg(D2_730_KBR4);
+
+		omap_cfg_reg(C2_730_KBC0);
+		omap_cfg_reg(D3_730_KBC1);
+		omap_cfg_reg(E4_730_KBC2);
+		omap_cfg_reg(F4_730_KBC3);
+		omap_cfg_reg(E3_730_KBC4);
+	}
+}
+#else
+static inline void omap_init_kp(void) {}
+#endif
+
+/*-------------------------------------------------------------------------*/
 
 #if	defined(CONFIG_MMC_OMAP) || defined(CONFIG_MMC_OMAP_MODULE)
 
@@ -371,6 +406,7 @@ static int __init omap_init_devices(void)
 	 */
 	omap_init_fb();
 	omap_init_i2c();
+	omap_init_kp();
 	omap_init_mmc();
 	omap_init_wdt();
 	omap_init_rng();
