@@ -588,7 +588,7 @@ static void dsp_dev_release(struct device *dev)
 #	define INT_D2A_MB2 INT_DSP_MAILBOX1
 #endif
 
-static int __init dsp_drv_probe(struct device *dev)
+static int __init dsp_drv_probe(struct platform_device *pdev)
 {
 	int ret;
 
@@ -611,7 +611,7 @@ static int __init dsp_drv_probe(struct device *dev)
 	 * mailbox interrupt handlers registration
 	 */
 	ret = request_irq(INT_D2A_MB1, mbx1_interrupt, SA_INTERRUPT, "dsp",
-			  dev);
+			  &pdev->dev);
 	if (ret) {
 		printk(KERN_ERR
 		       "failed to register mailbox1 interrupt: %d\n", ret);
@@ -619,7 +619,7 @@ static int __init dsp_drv_probe(struct device *dev)
 	}
 
 	ret = request_irq(INT_D2A_MB2, mbx2_interrupt, SA_INTERRUPT, "dsp",
-			  dev);
+			  &pdev->dev);
 	if (ret) {
 		printk(KERN_ERR
 		       "failed to register mailbox2 interrupt: %d\n", ret);
@@ -627,7 +627,7 @@ static int __init dsp_drv_probe(struct device *dev)
 	}
 
 	ret = request_irq(INT_DSP_MMU, dsp_mmu_interrupt, SA_INTERRUPT, "dsp",
-			  dev);
+			  &pdev->dev);
 	if (ret) {
 		printk(KERN_ERR
 		       "failed to register DSP MMU interrupt: %d\n", ret);
@@ -649,9 +649,9 @@ static int __init dsp_drv_probe(struct device *dev)
 	return 0;
 
 fail6:
-	free_irq(INT_D2A_MB2, dev);
+	free_irq(INT_D2A_MB2, &pdev->dev);
 fail5:
-	free_irq(INT_D2A_MB1, dev);
+	free_irq(INT_D2A_MB1, &pdev->dev);
 fail4:
 	dsp_taskmod_exit();
 fail3:
@@ -667,16 +667,16 @@ fail1:
 	return ret;
 }
 
-static int dsp_drv_remove(struct device *dev)
+static int dsp_drv_remove(struct platform_device *pdev)
 {
 	dsp_cpustat_request(CPUSTAT_RESET);
 
 #if 0
 	free_irq(INT_MPUIO, dev);
 #endif
-	free_irq(INT_DSP_MMU, dev);
-	free_irq(INT_D2A_MB2, dev);
-	free_irq(INT_D2A_MB1, dev);
+	free_irq(INT_DSP_MMU, &pdev->dev);
+	free_irq(INT_D2A_MB2, &pdev->dev);
+	free_irq(INT_D2A_MB1, &pdev->dev);
 
 	/* recover disable_depth */
 	enable_irq(INT_DSP_MMU);
@@ -696,19 +696,22 @@ static int dsp_drv_remove(struct device *dev)
 }
 
 #ifdef CONFIG_PM
-static int dsp_drv_suspend(struct device *dev, pm_message_t state)
+static int dsp_drv_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	dsp_suspend();
 
 	return 0;
 }
 
-static int dsp_drv_resume(struct device *dev)
+static int dsp_drv_resume(struct platform_device *pdev)
 {
 	dsp_resume();
 
 	return 0;
 }
+#else
+#define dsp_drv_suspend		NULL
+#define dsp_drv_resume		NULL
 #endif /* CONFIG_PM */
 
 static struct resource dsp_resources[] = {
@@ -736,15 +739,14 @@ struct platform_device dsp_device = {
 	.resource	= dsp_resources,
 };
 
-static struct device_driver dsp_driver = {
-	.name		= "dsp",
-	.bus		= &platform_bus_type,
+static struct platform_driver dsp_driver = {
 	.probe		= dsp_drv_probe,
 	.remove		= dsp_drv_remove,
-#ifdef CONFIG_PM
 	.suspend	= dsp_drv_suspend,
 	.resume		= dsp_drv_resume,
-#endif
+	.driver		= {
+		.name	= "dsp",
+	},
 };
 
 static int __init omap_dsp_mod_init(void)
@@ -757,7 +759,7 @@ static int __init omap_dsp_mod_init(void)
 		goto fail1;
 	}
 
-	ret = driver_register(&dsp_driver);
+	ret = platform_driver_register(&dsp_driver);
 	if (ret) {
 		printk(KERN_ERR "failed to register the DSP driver: %d\n", ret);
 		goto fail2;
@@ -773,7 +775,7 @@ fail1:
 
 static void __exit omap_dsp_mod_exit(void)
 {
-	driver_unregister(&dsp_driver);
+	platform_driver_unregister(&dsp_driver);
 	platform_device_unregister(&dsp_device);
 }
 
