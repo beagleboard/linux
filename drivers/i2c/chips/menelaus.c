@@ -255,7 +255,7 @@ static int menelaus_mmc_cd_work(struct menelaus_chip *menelaus)
 }
 
 /* Initializes MMC slots */
-void menelaus_mmc_register(void (*callback)(u8 card_mask), unsigned long data)
+void menelaus_mmc_register(void (*callback)(unsigned long data, u8 card_mask), unsigned long data)
 {
 	int reg;
 
