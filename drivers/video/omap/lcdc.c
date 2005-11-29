@@ -439,7 +439,7 @@ static void inline setup_regs(void)
 #ifdef CONFIG_MACH_OMAP_PALMTE
 /* FIXME:if (machine_is_omap_palmte()) { */
 		/* PalmTE uses alternate TFT setting in 8BPP mode */
-		l |= (tft && fbdev->panel->video_mode->bpp == 8) ? 0x810000 : 0;
+		l |= (is_tft && panel->bpp == 8) ? 0x810000 : 0;
 /*	} */
 #endif
 	omap_writel(l, OMAP_LCDC_CONTROL);
