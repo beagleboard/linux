@@ -24,6 +24,7 @@
 #include <linux/platform_device.h>
 #include <linux/delay.h>
 #include <linux/mtd/mtd.h>
+#include <linux/mtd/nand.h>
 #include <linux/mtd/partitions.h>
 
 #include <asm/hardware.h>
@@ -40,7 +41,7 @@
 
 extern int omap_gpio_init(void);
 
-static struct mtd_partition h2_partitions[] = {
+static struct mtd_partition h2_nor_partitions[] = {
 	/* bootloader (U-Boot, etc) in first sector */
 	{
 	      .name		= "bootloader",
@@ -71,26 +72,83 @@ static struct mtd_partition h2_partitions[] = {
 	}
 };
 
-static struct flash_platform_data h2_flash_data = {
+static struct flash_platform_data h2_nor_data = {
 	.map_name	= "cfi_probe",
 	.width		= 2,
-	.parts		= h2_partitions,
-	.nr_parts	= ARRAY_SIZE(h2_partitions),
+	.parts		= h2_nor_partitions,
+	.nr_parts	= ARRAY_SIZE(h2_nor_partitions),
 };
 
-static struct resource h2_flash_resource = {
+static struct resource h2_nor_resource = {
 	/* This is on CS3, wherever it's mapped */
 	.flags		= IORESOURCE_MEM,
 };
 
-static struct platform_device h2_flash_device = {
+static struct platform_device h2_nor_device = {
 	.name		= "omapflash",
 	.id		= 0,
 	.dev		= {
-		.platform_data	= &h2_flash_data,
+		.platform_data	= &h2_nor_data,
 	},
 	.num_resources	= 1,
-	.resource	= &h2_flash_resource,
+	.resource	= &h2_nor_resource,
+};
+
+static struct mtd_partition h2_nand_partitions[] = {
+#if 0
+	/* REVISIT:  enable these partitions if you make NAND BOOT
+	 * work on your H2 (rev C or newer); published versions of
+	 * x-load only support P2 and H3.
+	 */
+	{
+		.name		= "xloader",
+		.offset		= 0,
+		.size		= 64 * 1024,
+		.mask_flags	= MTD_WRITEABLE,	/* force read-only */
+	},
+	{
+		.name		= "bootloader",
+		.offset		= MTDPART_OFS_APPEND,
+		.size		= 256 * 1024,
+		.mask_flags	= MTD_WRITEABLE,	/* force read-only */
+	},
+	{
+		.name		= "params",
+		.offset		= MTDPART_OFS_APPEND,
+		.size		= 192 * 1024,
+	},
+	{
+		.name		= "kernel",
+		.offset		= MTDPART_OFS_APPEND,
+		.size		= 2 * SZ_1M,
+	},
+#endif
+	{
+		.name		= "filesystem",
+		.size		= MTDPART_SIZ_FULL,
+		.offset		= MTDPART_OFS_APPEND,
+	},
+};
+
+/* dip switches control NAND chip access:  8 bit, 16 bit, or neither */
+static struct nand_platform_data h2_nand_data = {
+	.options	= NAND_SAMSUNG_LP_OPTIONS,
+	.parts		= h2_nand_partitions,
+	.nr_parts	= ARRAY_SIZE(h2_nand_partitions),
+};
+
+static struct resource h2_nand_resource = {
+	.flags		= IORESOURCE_MEM,
+};
+
+static struct platform_device h2_nand_device = {
+	.name		= "omapnand",
+	.id		= 0,
+	.dev		= {
+		.platform_data	= &h2_nand_data,
+	},
+	.num_resources	= 1,
+	.resource	= &h2_nand_resource,
 };
 
 static struct resource h2_smc91x_resources[] = {
@@ -114,7 +172,8 @@ static struct platform_device h2_smc91x_device = {
 };
 
 static struct platform_device *h2_devices[] __initdata = {
-	&h2_flash_device,
+	&h2_nor_device,
+	&h2_nand_device,
 	&h2_smc91x_device,
 };
 
@@ -174,13 +233,34 @@ static struct omap_board_config_kernel h2_config[] = {
 	{ OMAP_TAG_LCD,		&h2_lcd_config },
 };
 
+#define H2_NAND_RB_GPIO_PIN	62
+
+static int h2_nand_dev_ready(struct nand_platform_data *data)
+{
+	return omap_get_gpio_datain(H2_NAND_RB_GPIO_PIN);
+}
+
 static void __init h2_init(void)
 {
-	/* NOTE: revC boards support NAND-boot, which can put NOR on CS2B
-	 * and NAND (either 16bit or 8bit) on CS3.
+	/* Here we assume the NOR boot config:  NOR on CS3 (possibly swapped
+	 * to address 0 by a dip switch), NAND on CS2B.  The NAND driver will
+	 * notice whether a NAND chip is enabled at probe time.
+	 *
+	 * FIXME revC boards (and H3) support NAND-boot, with a dip switch to
+	 * put NOR on CS2B and NAND (which on H2 may be 16bit) on CS3.  Try
+	 * detecting that in code here, to avoid probing every possible flash
+	 * configuration...
 	 */
-	h2_flash_resource.end = h2_flash_resource.start = omap_cs3_phys();
-	h2_flash_resource.end += SZ_32M - 1;
+	h2_nor_resource.end = h2_nor_resource.start = omap_cs3_phys();
+	h2_nor_resource.end += SZ_32M - 1;
+
+	h2_nand_resource.end = h2_nand_resource.start = OMAP_CS2B_PHYS;
+	h2_nand_resource.end += SZ_4K - 1;
+	if (!(omap_request_gpio(H2_NAND_RB_GPIO_PIN)))
+		h2_nand_data.dev_ready = h2_nand_dev_ready;
+
+	omap_cfg_reg(L3_1610_FLASH_CS2B_OE);
+	omap_cfg_reg(M8_1610_FLASH_CS2B_WE);
 
 	/* MMC:  card detect and WP */
 	// omap_cfg_reg(U19_ARMIO1);		/* CD */

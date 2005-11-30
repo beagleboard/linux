@@ -22,6 +22,7 @@
 #include <linux/platform_device.h>
 #include <linux/errno.h>
 #include <linux/mtd/mtd.h>
+#include <linux/mtd/nand.h>
 #include <linux/mtd/partitions.h>
 
 #include <asm/setup.h>
@@ -41,7 +42,7 @@
 
 extern int omap_gpio_init(void);
 
-static struct mtd_partition h3_partitions[] = {
+static struct mtd_partition nor_partitions[] = {
 	/* bootloader (U-Boot, etc) in first sector */
 	{
 	      .name		= "bootloader",
@@ -72,26 +73,80 @@ static struct mtd_partition h3_partitions[] = {
 	}
 };
 
-static struct flash_platform_data h3_flash_data = {
+static struct flash_platform_data nor_data = {
 	.map_name	= "cfi_probe",
 	.width		= 2,
-	.parts		= h3_partitions,
-	.nr_parts	= ARRAY_SIZE(h3_partitions),
+	.parts		= nor_partitions,
+	.nr_parts	= ARRAY_SIZE(nor_partitions),
 };
 
-static struct resource h3_flash_resource = {
+static struct resource nor_resource = {
 	/* This is on CS3, wherever it's mapped */
 	.flags		= IORESOURCE_MEM,
 };
 
-static struct platform_device flash_device = {
+static struct platform_device nor_device = {
 	.name		= "omapflash",
 	.id		= 0,
 	.dev		= {
-		.platform_data	= &h3_flash_data,
+		.platform_data	= &nor_data,
 	},
 	.num_resources	= 1,
-	.resource	= &h3_flash_resource,
+	.resource	= &nor_resource,
+};
+
+static struct mtd_partition nand_partitions[] = {
+#if 0
+	/* REVISIT: enable these partitions if you make NAND BOOT work */
+	{
+		.name		= "xloader",
+		.offset		= 0,
+		.size		= 64 * 1024,
+		.mask_flags	= MTD_WRITEABLE,	/* force read-only */
+	},
+	{
+		.name		= "bootloader",
+		.offset		= MTDPART_OFS_APPEND,
+		.size		= 256 * 1024,
+		.mask_flags	= MTD_WRITEABLE,	/* force read-only */
+	},
+	{
+		.name		= "params",
+		.offset		= MTDPART_OFS_APPEND,
+		.size		= 192 * 1024,
+	},
+	{
+		.name		= "kernel",
+		.offset		= MTDPART_OFS_APPEND,
+		.size		= 2 * SZ_1M,
+	},
+#endif
+	{
+		.name		= "filesystem",
+		.size		= MTDPART_SIZ_FULL,
+		.offset		= MTDPART_OFS_APPEND,
+	},
+};
+
+/* dip switches control NAND chip access:  8 bit, 16 bit, or neither */
+static struct nand_platform_data nand_data = {
+	.options	= NAND_SAMSUNG_LP_OPTIONS,
+	.parts		= nand_partitions,
+	.nr_parts	= ARRAY_SIZE(nand_partitions),
+};
+
+static struct resource nand_resource = {
+	.flags		= IORESOURCE_MEM,
+};
+
+static struct platform_device nand_device = {
+	.name		= "omapnand",
+	.id		= 0,
+	.dev		= {
+		.platform_data	= &nand_data,
+	},
+	.num_resources	= 1,
+	.resource	= &nand_resource,
 };
 
 static struct resource smc91x_resources[] = {
@@ -139,7 +194,8 @@ static struct platform_device intlat_device = {
 };
 
 static struct platform_device *devices[] __initdata = {
-	&flash_device,
+	&nor_device,
+	&nand_device,
         &smc91x_device,
 	&intlat_device,
 };
@@ -182,11 +238,36 @@ static struct omap_board_config_kernel h3_config[] = {
 	{ OMAP_TAG_LCD,		&h3_lcd_config },
 };
 
+#define H3_NAND_RB_GPIO_PIN	10
+
+static int nand_dev_ready(struct nand_platform_data *data)
+{
+	return omap_get_gpio_datain(H3_NAND_RB_GPIO_PIN);
+}
+
 static void __init h3_init(void)
 {
-	h3_flash_resource.end = h3_flash_resource.start = omap_cs3_phys();
-	h3_flash_resource.end += OMAP_CS3_SIZE - 1;
-	(void) platform_add_devices(devices, ARRAY_SIZE(devices));
+	/* Here we assume the NOR boot config:  NOR on CS3 (possibly swapped
+	 * to address 0 by a dip switch), NAND on CS2B.  The NAND driver will
+	 * notice whether a NAND chip is enabled at probe time.
+	 *
+	 * H3 support NAND-boot, with a dip switch to put NOR on CS2B and NAND
+	 * (which on H2 may be 16bit) on CS3.  Try detecting that in code here,
+	 * to avoid probing every possible flash configuration...
+	 */
+	nor_resource.end = nor_resource.start = omap_cs3_phys();
+	nor_resource.end += SZ_32M - 1;
+
+	nand_resource.end = nand_resource.start = OMAP_CS2B_PHYS;
+	nand_resource.end += SZ_4K - 1;
+	if (!(omap_request_gpio(H3_NAND_RB_GPIO_PIN)))
+		nand_data.dev_ready = nand_dev_ready;
+
+	/* GPIO10 Func_MUX_CTRL reg bit 29:27, Configure V2 to mode1 as GPIO */
+	/* GPIO10 pullup/down register, Enable pullup on GPIO10 */
+	omap_cfg_reg(V2_1710_GPIO10);
+
+	platform_add_devices(devices, ARRAY_SIZE(devices));
 	omap_board_config = h3_config;
 	omap_board_config_size = ARRAY_SIZE(h3_config);
 	omap_serial_init();

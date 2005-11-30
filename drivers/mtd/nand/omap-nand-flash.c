@@ -1,323 +1,183 @@
 /*
- *  drivers/mtd/nand/omap-nand-flash.c
+ * drivers/mtd/nand/omap-nand-flash.c
  *
- *  Copyright (c) 2004 Texas Instruments
- *  Jian Zhang <jzhang@ti.com>
- *  Copyright (c) 2004 David Brownell
- *
- *  Derived from drivers/mtd/autcpu12.c
- *
- *  Copyright (c) 2002 Thomas Gleixner <tgxl@linutronix.de>
+ * Copyright (c) 2004 Texas Instruments, Jian Zhang <jzhang@ti.com>
+ * Copyright (c) 2004 David Brownell
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
- *
- *  Overview:
- *   This is a device driver for the NAND flash device found on the
- *   TI H3/H2  boards. It supports 16-bit 32MiB Samsung k9f5616 chip.
- *
  */
 
-#include <linux/slab.h>
 #include <linux/init.h>
+#include <linux/ioport.h>
+#include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/delay.h>
+#include <linux/platform_device.h>
+#include <linux/types.h>
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/nand.h>
 #include <linux/mtd/partitions.h>
+
+#include <asm/io.h>
+#include <asm/hardware.h>
+#include <asm/mach-types.h>
+#include <asm/mach/flash.h>
+#include <asm/arch/tc.h>
+
 #include <asm/io.h>
 #include <asm/arch/hardware.h>
-#include <asm/arch/gpio.h>
-#include <asm/arch/mux.h>
-#include <asm/arch/tc.h>
-#include <asm/sizes.h>
-#include <asm/mach-types.h>
 
-#define H3_NAND_RB_GPIO_PIN		10
-#define H2_NAND_RB_GPIO_PIN		62
-#define P2_NAND_RB_GPIO_PIN		62
-#define NETSTAR_NAND_RB_GPIO_PIN	 1
-/*
- * MTD structure for H3 board
- */
-static struct mtd_info *omap_nand_mtd = NULL;
-
-static void __iomem *omap_nand_flash_base;
-
-/*
- * Define partitions for flash devices
- */
+#define	DRIVER_NAME	"omapnand"
 
 #ifdef CONFIG_MTD_PARTITIONS
-static struct mtd_partition static_partition[] = {
-	{ .name = "Booting Image",
-	  .offset =	0,
-	  .size = 64 * 1024,
-	  .mask_flags =	MTD_WRITEABLE  /* force read-only */
- 	},
-	{ .name = "U-Boot",
-	  .offset =	MTDPART_OFS_APPEND,
-	  .size = 256 * 1024,
-          .mask_flags = MTD_WRITEABLE  /* force read-only */
- 	},
-	{ .name = "U-Boot Environment",
-	  .offset =	MTDPART_OFS_APPEND,
-	  .size = 192 * 1024
-	},
-	{ .name = "Kernel",
-	  .offset =	MTDPART_OFS_APPEND,
-	  .size = 2 * SZ_1M
-	},
-	{ .name = "File System",
-	  .size = MTDPART_SIZ_FULL,
-	  .offset =	MTDPART_OFS_APPEND,
-	},
-};
-
-const char *part_probes[] = { "cmdlinepart", NULL,  };
-
+static const char *part_probes[] = { "cmdlinepart", NULL };
 #endif
 
-/* H2/H3 maps two address LSBs to CLE and ALE; MSBs make CS_2B */
+struct omap_nand_info {
+	struct nand_platform_data *pdata;
+	struct mtd_partition	*parts;
+	struct mtd_info		mtd;
+	struct nand_chip	nand;
+};
+
+/*
+ *	hardware specific access to control-lines
+ *	NOTE:  boards may use different bits for these!!
+ */
 #define	MASK_CLE	0x02
 #define	MASK_ALE	0x04
-
-
-/* 
- *	hardware specific access to control-lines
-*/
 static void omap_nand_hwcontrol(struct mtd_info *mtd, int cmd)
 {
 	struct nand_chip *this = mtd->priv;
-	u32 IO_ADDR_W = (u32) this->IO_ADDR_W;
+	unsigned long IO_ADDR_W = (unsigned long) this->IO_ADDR_W;
 
-	IO_ADDR_W &= ~(MASK_ALE|MASK_CLE);
-	switch(cmd){
+	switch (cmd) {
 		case NAND_CTL_SETCLE: IO_ADDR_W |= MASK_CLE; break;
+		case NAND_CTL_CLRCLE: IO_ADDR_W &= ~MASK_CLE; break;
 		case NAND_CTL_SETALE: IO_ADDR_W |= MASK_ALE; break;
+		case NAND_CTL_CLRALE: IO_ADDR_W &= ~MASK_ALE; break;
 	}
 	this->IO_ADDR_W = (void __iomem *) IO_ADDR_W;
 }
 
-/*
- *	chip busy R/B detection
- */
-static int omap_nand_ready(struct mtd_info *mtd)
+static int omap_nand_dev_ready(struct mtd_info *mtd)
 {
-	if (machine_is_omap_h3())
-		return omap_get_gpio_datain(H3_NAND_RB_GPIO_PIN);
-	if (machine_is_omap_h2())
-		return omap_get_gpio_datain(H2_NAND_RB_GPIO_PIN);
-	if (machine_is_omap_perseus2())
-		return omap_get_gpio_datain(H2_NAND_RB_GPIO_PIN);
-	if (machine_is_netstar())
-		return omap_get_gpio_datain(NETSTAR_NAND_RB_GPIO_PIN);
-	return 0;
+	struct omap_nand_info *info = container_of(mtd, struct omap_nand_info, mtd);
+
+	return info->pdata->dev_ready(info->pdata);
 }
 
-/* Scan to find existance of the device at omap_nand_flash_base.
-   This also allocates oob and data internal buffers */
-static int __init probe_nand_chip(void)
+static int __devinit omap_nand_probe(struct device *dev)
 {
-        struct nand_chip *this;
+	struct omap_nand_info		*info;
+	struct platform_device		*pdev = to_platform_device(dev);
+	struct nand_platform_data	*pdata = pdev->dev.platform_data;
+	struct resource			*res = pdev->resource;
+	unsigned long			size = res->end - res->start + 1;
+	int				err;
 
-        this = (struct nand_chip *) (&omap_nand_mtd[1]);
-       
-	/* Initialize structures */
-        memset((char *) this, 0, sizeof(struct nand_chip));
-        
-	this->IO_ADDR_R = omap_nand_flash_base;
-        this->IO_ADDR_W = omap_nand_flash_base;
-        this->options = NAND_SAMSUNG_LP_OPTIONS;
-        this->hwcontrol = omap_nand_hwcontrol;
-        this->eccmode = NAND_ECC_SOFT;
+	info = kmalloc(sizeof(struct omap_nand_info), GFP_KERNEL);
+	if (!info)
+		return -ENOMEM;
 
-        /* try 16-bit chip first */
-	this->options |= NAND_BUSWIDTH_16;
-        if (nand_scan (omap_nand_mtd, 1)) {
-		if (machine_is_omap_h3()) 
-			return -ENXIO;
+	memset(info, 0, sizeof(struct omap_nand_info));
 
-		/* then try 8-bit chip for H2 */
-        	memset((char *) this, 0, sizeof(struct nand_chip));
-        	this->IO_ADDR_R = omap_nand_flash_base;
-        	this->IO_ADDR_W = omap_nand_flash_base;
-		this->options = NAND_SAMSUNG_LP_OPTIONS;
-		this->hwcontrol = omap_nand_hwcontrol;
-        	this->eccmode = NAND_ECC_SOFT;
-                if (nand_scan (omap_nand_mtd, 1)) {
-                        return -ENXIO;
-                }
-        }
+	if (!request_mem_region(res->start, size, dev->driver->name)) {
+		err = -EBUSY;
+		goto out_free_info;
+	}
 
-	return 0;
-}
-
-static char nand1_name [] = "nand";
-
-/*
- * Main initialization routine
- */
-int __init omap_nand_init (void)
-{
-	struct nand_chip *this;
-	struct mtd_partition *dynamic_partition = 0;
-	int err = 0;
-	int nandboot = 0;
-
-	if (!(machine_is_omap_h2() || machine_is_omap_h3() || machine_is_netstar() || machine_is_omap_perseus2()))
-		return -ENODEV;
-
-	/* Allocate memory for MTD device structure and private data */
-	omap_nand_mtd = kmalloc (sizeof(struct mtd_info) + sizeof (struct nand_chip),
-				GFP_KERNEL);
-	if (!omap_nand_mtd) {
-		printk (KERN_WARNING "Unable to allocate NAND MTD device structure.\n");
+	info->nand.IO_ADDR_R = ioremap(res->start, size);
+	if (!info->nand.IO_ADDR_R) {
 		err = -ENOMEM;
-		goto out;
+		goto out_release_mem_region;
 	}
+	info->nand.IO_ADDR_W = info->nand.IO_ADDR_R;
+	info->nand.hwcontrol = omap_nand_hwcontrol;
+	info->nand.eccmode = NAND_ECC_SOFT;
+	info->nand.options = pdata->options;
+	if (pdata->dev_ready)
+		info->nand.dev_ready = omap_nand_dev_ready;
+	else
+		info->nand.chip_delay = 20;
 
-	/* Get pointer to private data */
-	this = (struct nand_chip *) (&omap_nand_mtd[1]);
+	info->mtd.name = pdev->dev.bus_id;
+	info->mtd.priv = &info->nand;
 
-	/* Initialize structures */
-	memset((char *) omap_nand_mtd, 0, sizeof(struct mtd_info) + sizeof(struct nand_chip));
+	info->pdata = pdata;
 
-	/* Link the private data with the MTD structure */
-	omap_nand_mtd->priv = this;
-
-	if (machine_is_omap_h2() || machine_is_omap_perseus2()) {
-		/* FIXME on H2, R/B needs M7_1610_GPIO62 ... */
-		this->chip_delay = 15;
-		omap_cfg_reg(L3_1610_FLASH_CS2B_OE);
-		omap_cfg_reg(M8_1610_FLASH_CS2B_WE);
-	} else if (machine_is_omap_h3()) {
-		if (omap_request_gpio(H3_NAND_RB_GPIO_PIN) != 0) {
-			printk(KERN_ERR "NAND: Unable to get GPIO pin for R/B, use delay\n");
-        		/* 15 us command delay time */
-        		this->chip_delay = 15;
-		} else {
-			/* GPIO10 for input. it is in GPIO1 module */
-			omap_set_gpio_direction(H3_NAND_RB_GPIO_PIN, 1);
-		
-			/* GPIO10 Func_MUX_CTRL reg bit 29:27, Configure V2 to mode1 as GPIO */
-			/* GPIO10 pullup/down register, Enable pullup on GPIO10 */
-			omap_cfg_reg(V2_1710_GPIO10);
-
-			this->dev_ready = omap_nand_ready;
-		}
-	} else if (machine_is_netstar()) {
-		if (omap_request_gpio(NETSTAR_NAND_RB_GPIO_PIN) != 0) {
-			printk(KERN_ERR "NAND: Unable to get GPIO pin for R/B, use delay\n");
-			/* 15 us command delay time */
-			this->chip_delay = 15;
-		} else {
-			omap_set_gpio_direction(NETSTAR_NAND_RB_GPIO_PIN, 1);
-			this->dev_ready = omap_nand_ready;
+	/* DIP switches on H2 and some other boards change between 8 and 16 bit
+	 * bus widths for flash.  Try the other width if the first try fails.
+	 */
+	if (nand_scan(&info->mtd, 1)) {
+		info->nand.options ^= NAND_BUSWIDTH_16;
+		if (nand_scan(&info->mtd, 1)) {
+			err = -ENXIO;
+			goto out_iounmap;
 		}
 	}
+	info->mtd.owner = THIS_MODULE;
 
-        /* try the first address */
-	omap_nand_flash_base = ioremap(OMAP_NAND_FLASH_START1, SZ_4K);
-	omap_nand_mtd->name = nand1_name;
-	if (probe_nand_chip()){
-		nandboot = 1;
-		/* try the second address */
-		iounmap(omap_nand_flash_base);
-		omap_nand_flash_base = ioremap(OMAP_NAND_FLASH_START2, SZ_4K);
-		if (probe_nand_chip()){
-			iounmap(omap_nand_flash_base);
-                        err = -ENXIO;
-                        goto out_mtd;
-		}
-	}
-
-	/* Register the partitions */
-	switch(omap_nand_mtd->size) {
-	case SZ_128M:
-		if (!(machine_is_netstar()))
-			goto out_unsupported;
-		/* fall through */
-	case SZ_64M:
-		if (!(machine_is_netstar() || machine_is_omap_perseus2()))
-			goto out_unsupported;
-		/* fall through */
-	case SZ_32M:
 #ifdef CONFIG_MTD_PARTITIONS
-		err = parse_mtd_partitions(omap_nand_mtd, part_probes,
-					&dynamic_partition, 0);
-		if (err > 0)
-			err = add_mtd_partitions(omap_nand_mtd,
-					dynamic_partition, err);
-		else if (nandboot)
-			err = add_mtd_partitions(omap_nand_mtd,
-					static_partition,
-					ARRAY_SIZE(static_partition));
-		else
+	err = parse_mtd_partitions(&info->mtd, part_probes, &info->parts, 0);
+	if (err > 0)
+		add_mtd_partitions(&info->mtd, info->parts, err);
+	else if (err < 0 && pdata->parts)
+		add_mtd_partitions(&info->mtd, pdata->parts, pdata->nr_parts);
+	else
 #endif
-			err = add_mtd_device(omap_nand_mtd);
-		if (err)
-			goto out_buf;
-		break;
-out_unsupported:
-	default:
-		printk(KERN_WARNING "Unsupported NAND device\n");
-		err = -ENXIO;
-		goto out_buf;
-	}
+		add_mtd_device(&info->mtd);
 
-	goto out;
+	dev_set_drvdata(&pdev->dev, info);
 
-out_buf:
-	nand_release (omap_nand_mtd);
-	if (this->dev_ready) {
-		if (machine_is_omap_h2())
-			omap_free_gpio(H2_NAND_RB_GPIO_PIN);
-		else if (machine_is_omap_perseus2())
-			omap_free_gpio(P2_NAND_RB_GPIO_PIN);
-		else if (machine_is_omap_h3())
-	 		omap_free_gpio(H3_NAND_RB_GPIO_PIN);
-		else if (machine_is_netstar())
-			omap_free_gpio(NETSTAR_NAND_RB_GPIO_PIN);
-	}
-	iounmap(omap_nand_flash_base);
+	return 0;
 
-out_mtd:
-	kfree (omap_nand_mtd);
-out:
+out_iounmap:
+	iounmap(info->nand.IO_ADDR_R);
+out_release_mem_region:
+	release_mem_region(res->start, size);
+out_free_info:
+	kfree(info);
+
 	return err;
 }
 
-module_init(omap_nand_init);
-
-/*
- * Clean up routine
- */
-static void __exit omap_nand_cleanup (void)
+static int __devexit omap_nand_remove(struct device *dev)
 {
-        struct nand_chip *this = omap_nand_mtd->priv;
-	if (this->dev_ready) {
-		if (machine_is_omap_h2())
-			omap_free_gpio(H2_NAND_RB_GPIO_PIN);
-		else if (machine_is_omap_h2())
-			omap_free_gpio(H2_NAND_RB_GPIO_PIN);
-		else if (machine_is_omap_h3())
-	 		omap_free_gpio(H3_NAND_RB_GPIO_PIN);
-		else if (machine_is_netstar())
-			omap_free_gpio(NETSTAR_NAND_RB_GPIO_PIN);
-	}
+	struct platform_device *pdev = to_platform_device(dev);
+	struct omap_nand_info *info = dev_get_drvdata(&pdev->dev);
 
-	/* nand_release frees MTD partitions, MTD structure
-	   and nand internal buffers*/
-	nand_release (omap_nand_mtd);
-	kfree (omap_nand_mtd);
- 
-	iounmap(omap_nand_flash_base);
+	dev_set_drvdata(&pdev->dev, NULL);
+	/* Release NAND device, its internal structures and partitions */
+	nand_release(&info->mtd);
+	iounmap(info->nand.IO_ADDR_R);
+	kfree(info);
+	return 0;
 }
 
-module_exit(omap_nand_cleanup);
+static struct device_driver omap_nand_driver = {
+	.name	= DRIVER_NAME,
+	.bus	= &platform_bus_type,
+	.probe	= omap_nand_probe,
+	.remove	= __devexit_p(omap_nand_remove),
+};
+MODULE_ALIAS(DRIVER_NAME);
+
+static int __init omap_nand_init(void)
+{
+	return driver_register(&omap_nand_driver);
+}
+
+static void __exit omap_nand_exit(void)
+{
+	driver_unregister(&omap_nand_driver);
+}
+
+module_init(omap_nand_init);
+module_exit(omap_nand_exit);
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Jian Zhang <jzhang@ti.com>");
-MODULE_DESCRIPTION("Glue layer for NAND flash on H2/H3 boards");
+MODULE_AUTHOR("Jian Zhang <jzhang@ti.com> (and others)");
+MODULE_DESCRIPTION("Glue layer for NAND flash on TI OMAP boards");
+

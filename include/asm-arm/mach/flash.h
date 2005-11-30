@@ -36,4 +36,18 @@ struct flash_platform_data {
 	unsigned int	nr_parts;
 };
 
+/**
+ * struct nand_platform_data - platform data describing NAND flash banks
+ * @dev_ready:	tests if the NAND flash is ready (READY signal is high)
+ * @options:	bitmask for nand_chip.options
+ * @parts:	optional array of mtd_partitions for static partitioning
+ * @nr_parts:	number of mtd_partitions for static partitoning
+ */
+struct nand_platform_data {
+	int		(*dev_ready)(struct nand_platform_data *data);
+	unsigned int	options;
+	struct mtd_partition *parts;
+	unsigned int	nr_parts;
+};
+
 #endif

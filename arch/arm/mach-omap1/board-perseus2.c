@@ -16,6 +16,7 @@
 #include <linux/platform_device.h>
 #include <linux/delay.h>
 #include <linux/mtd/mtd.h>
+#include <linux/mtd/nand.h>
 #include <linux/mtd/partitions.h>
 
 #include <asm/hardware.h>
@@ -44,7 +45,7 @@ static struct resource smc91x_resources[] = {
 	},
 };
 
-static struct mtd_partition p2_partitions[] = {
+static struct mtd_partition nor_partitions[] = {
 	/* bootloader (U-Boot, etc) in first sector */
 	{
 	      .name		= "bootloader",
@@ -75,27 +76,47 @@ static struct mtd_partition p2_partitions[] = {
 	},
 };
 
-static struct flash_platform_data p2_flash_data = {
+static struct flash_platform_data nor_data = {
 	.map_name	= "cfi_probe",
 	.width		= 2,
-	.parts		= p2_partitions,
-	.nr_parts	= ARRAY_SIZE(p2_partitions),
+	.parts		= nor_partitions,
+	.nr_parts	= ARRAY_SIZE(nor_partitions),
 };
 
-static struct resource p2_flash_resource = {
+static struct resource nor_resource = {
 	.start		= OMAP_CS0_PHYS,
 	.end		= OMAP_CS0_PHYS + SZ_32M - 1,
 	.flags		= IORESOURCE_MEM,
 };
 
-static struct platform_device p2_flash_device = {
+static struct platform_device nor_device = {
 	.name		= "omapflash",
 	.id		= 0,
 	.dev		= {
-		.platform_data	= &p2_flash_data,
+		.platform_data	= &nor_data,
 	},
 	.num_resources	= 1,
-	.resource	= &p2_flash_resource,
+	.resource	= &nor_resource,
+};
+
+static struct nand_platform_data nand_data = {
+	.options	= NAND_SAMSUNG_LP_OPTIONS,
+};
+
+static struct resource nand_resource = {
+	.start		= OMAP_CS3_PHYS,
+	.end		= OMAP_CS3_PHYS + SZ_4K - 1,
+	.flags		= IORESOURCE_MEM,
+};
+
+static struct platform_device nand_device = {
+	.name		= "omapnand",
+	.id		= 0,
+	.dev		= {
+		.platform_data	= &nand_data,
+	},
+	.num_resources	= 1,
+	.resource	= &nand_resource,
 };
 
 static struct platform_device smc91x_device = {
@@ -106,9 +127,17 @@ static struct platform_device smc91x_device = {
 };
 
 static struct platform_device *devices[] __initdata = {
-	&p2_flash_device,
+	&nor_device,
+	&nand_device,
 	&smc91x_device,
 };
+
+#define P2_NAND_RB_GPIO_PIN	62
+
+static int nand_dev_ready(struct nand_platform_data *data)
+{
+	return omap_get_gpio_datain(P2_NAND_RB_GPIO_PIN);
+}
 
 static struct omap_uart_config perseus2_uart_config __initdata = {
 	.enabled_uarts = ((1 << 0) | (1 << 1)),
@@ -126,7 +155,13 @@ static struct omap_board_config_kernel perseus2_config[] = {
 
 static void __init omap_perseus2_init(void)
 {
-	(void) platform_add_devices(devices, ARRAY_SIZE(devices));
+	if (!(omap_request_gpio(P2_NAND_RB_GPIO_PIN)))
+		nand_data.dev_ready = nand_dev_ready;
+
+	omap_cfg_reg(L3_1610_FLASH_CS2B_OE);
+	omap_cfg_reg(M8_1610_FLASH_CS2B_WE);
+
+	platform_add_devices(devices, ARRAY_SIZE(devices));
 
 	omap_board_config = perseus2_config;
 	omap_board_config_size = ARRAY_SIZE(perseus2_config);
