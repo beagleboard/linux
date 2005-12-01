@@ -7,10 +7,10 @@ obj-y := io.o id.o clock.o irq.o mux.o serial.o devices.o
 
 obj-$(CONFIG_OMAP_MPU_TIMER)		+= time.o
 
-led-y := leds.o
-
 # Power Management
 obj-$(CONFIG_PM) += pm.o sleep.o
+
+led-y := leds.o
 
 # Specific board support
 obj-$(CONFIG_MACH_OMAP_H2)		+= board-h2.o
