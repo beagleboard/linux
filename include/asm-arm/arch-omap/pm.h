@@ -112,6 +112,24 @@
 #endif
 
 #ifndef __ASSEMBLER__
+
+#include <asm/hardware/clock.h>
+
+extern void prevent_idle_sleep(void);
+extern void allow_idle_sleep(void);
+
+/**
+ * clk_deny_idle - Prevents the clock from being idled during MPU idle
+ * @clk: clock signal handle
+ */
+void clk_deny_idle(struct clk *clk);
+
+/**
+ * clk_allow_idle - Counters previous clk_deny_idle
+ * @clk: clock signal handle
+ */
+void clk_deny_idle(struct clk *clk);
+
 extern void omap_pm_idle(void);
 extern void omap_pm_suspend(void);
 extern void omap730_cpu_suspend(unsigned short, unsigned short);
@@ -124,6 +142,7 @@ extern void omap1610_idle_loop_suspend(void);
 #ifdef CONFIG_OMAP_SERIAL_WAKE
 extern void omap_serial_wake_trigger(int enable);
 #else
+#define omap_serial_wakeup_init()	{}
 #define omap_serial_wake_trigger(x)	{}
 #endif	/* CONFIG_OMAP_SERIAL_WAKE */
 
