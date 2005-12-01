@@ -9,6 +9,9 @@ obj-$(CONFIG_OMAP_MPU_TIMER)		+= time.o
 
 led-y := leds.o
 
+# Power Management
+obj-$(CONFIG_PM) += pm.o sleep.o
+
 # Specific board support
 obj-$(CONFIG_MACH_OMAP_H2)		+= board-h2.o
 obj-$(CONFIG_MACH_OMAP_INNOVATOR)	+= board-innovator.o
