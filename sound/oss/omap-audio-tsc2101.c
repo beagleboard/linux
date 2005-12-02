@@ -311,7 +311,7 @@ static audio_state_t tsc2101_state = {
 	.hw_remove      = omap_tsc2101_remove,
 	.hw_suspend     = omap_tsc2101_suspend,
 	.hw_resume      = omap_tsc2101_resume,
-	.sem            = __MUTEX_INITIALIZER(tsc2101_state.sem),
+	.sem		= __SEMAPHORE_INIT(tsc2101_state.sem, 1),
 };
 
 /* This will be defined in the Audio.h */

@@ -44,7 +44,7 @@
 #include <linux/soundcard.h>
 #include <linux/sysrq.h>
 #include <linux/delay.h>
-#include <linux/device.h>
+#include <linux/platform_device.h>
 #include <linux/completion.h>
 
 #include <asm/uaccess.h>
@@ -106,15 +106,15 @@ static int audio_open(struct inode *inode, struct file *file);
 
 static int audio_release(struct inode *inode, struct file *file);
 
-static int audio_probe(struct device *dev);
+static int audio_probe(struct platform_device *pdev);
 
-static int audio_remove(struct device *dev);
+static int audio_remove(struct platform_device *pdev);
 
-static void audio_shutdown(struct device *dev);
+static void audio_shutdown(struct platform_device *pdev);
 
-static int audio_suspend(struct device *dev, pm_message_t mesg, u32 level);
+static int audio_suspend(struct platform_device *pdev, pm_message_t mesg);
 
-static int audio_resume(struct device *dev, u32 level);
+static int audio_resume(struct platform_device *pdev);
 
 static void audio_free(struct device *dev);
 
@@ -142,14 +142,15 @@ static struct file_operations omap_audio_fops = {
 };
 
 /* Driver information */
-static struct device_driver omap_audio_driver = {
-	.name		= OMAP_AUDIO_NAME,
-	.bus		= &platform_bus_type,
+static struct platform_driver omap_audio_driver = {
 	.probe		= audio_probe,
 	.remove		= audio_remove,
 	.suspend	= audio_suspend,
-	.resume		= audio_resume,
 	.shutdown	= audio_shutdown,
+	.resume		= audio_resume,
+	.driver		= {
+		.name	= OMAP_AUDIO_NAME,
+	},
 };
 
 /* Device Information */
@@ -283,7 +284,7 @@ static void audio_free(struct device *dev)
  * WARNING!!!!  : It is expected that the codec would have registered with us by now
  *
  *********************************************************************************/
-static int audio_probe(struct device *dev)
+static int audio_probe(struct platform_device *pdev)
 {
 	int ret;
 	FN_IN;
@@ -301,7 +302,7 @@ static int audio_probe(struct device *dev)
  * audio_remove() Function to handle removal operations
  *
  *********************************************************************************/
-static int audio_remove(struct device *dev)
+static int audio_remove(struct platform_device *pdev)
 {
 	FN_IN;
 	if (audio_state.hw_remove) {
@@ -316,7 +317,7 @@ static int audio_remove(struct device *dev)
  * audio_shutdown(): Function to handle shutdown operations
  *
  *********************************************************************************/
-static void audio_shutdown(struct device *dev)
+static void audio_shutdown(struct platform_device *pdev)
 {
 	FN_IN;
 	if (audio_state.hw_cleanup) {
@@ -331,16 +332,13 @@ static void audio_shutdown(struct device *dev)
  * audio_suspend(): Function to handle suspend operations 
  *
  *********************************************************************************/
-static int audio_suspend(struct device *dev, pm_message_t mesg, u32 level)
+static int audio_suspend(struct platform_device *pdev, pm_message_t mesg)
 {
 	int ret = 0;
 
 #ifdef CONFIG_PM
-	void *data = dev->driver_data;
+	void *data = pdev->dev.driver_data;
 	FN_IN;
-	if (level != SUSPEND_POWER_DOWN) {
-		return 0;
-	}
 	if (audio_state.hw_suspend) {
 		ret = audio_ldm_suspend(data);
 		if (ret == 0)
@@ -362,16 +360,13 @@ static int audio_suspend(struct device *dev, pm_message_t mesg, u32 level)
  * audio_resume(): Function to handle resume operations
  *
  *********************************************************************************/
-static int audio_resume(struct device *dev, u32 level)
+static int audio_resume(struct platform_device *dev)
 {
 	int ret = 0;
 
 #ifdef	CONFIG_PM
-	void *data = dev->driver_data;
+	void *data = pdev->dev.driver_data;
 	FN_IN;
-	if (level != RESUME_POWER_ON) {
-		return 0;
-	}
 	if (audio_state.hw_resume) {
 		ret = audio_ldm_resume(data);
 		if (ret == 0)
@@ -452,7 +447,7 @@ int audio_register_codec(audio_state_t * codec_state)
 		goto register_out;
 	}
 
-	ret = driver_register(&omap_audio_driver);
+	ret = platform_driver_register(&omap_audio_driver);
 	if (ret != 0) {
 		printk(KERN_ERR "Device Register failed =%d\n", ret);
 		ret = -ENODEV;
@@ -487,7 +482,7 @@ int audio_unregister_codec(audio_state_t * codec_state)
 		return -EPERM;
 	}
 
-	driver_unregister(&omap_audio_driver);
+	platform_driver_unregister(&omap_audio_driver);
 	platform_device_unregister(&omap_audio_device);
 
 	memset(&audio_state, 0, sizeof(audio_state_t));

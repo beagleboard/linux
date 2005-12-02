@@ -224,7 +224,7 @@ static audio_state_t aic23_state = {
         .hw_remove      =  __exit_p(omap_aic23_remove),
         .hw_suspend     = omap_aic23_suspend,
         .hw_resume      = omap_aic23_resume,
-        .sem            = __MUTEX_INITIALIZER(aic23_state.sem),
+	.sem	    = __SEMAPHORE_INIT(aic23_state.sem, 1),
 };
 
 /* This will be defined in the audio.h */
