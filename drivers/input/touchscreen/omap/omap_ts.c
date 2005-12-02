@@ -128,7 +128,7 @@ static irqreturn_t omap_ts_handler(int irq, void *dev_id, struct pt_regs *regs)
 	return IRQ_HANDLED;
 }
 
-static int __init omap_ts_probe(struct device *dev)
+static int __init omap_ts_probe(struct platform_device *pdev)
 {
 	int i;
 	int status = -ENODEV;
@@ -170,7 +170,7 @@ static int __init omap_ts_probe(struct device *dev)
 
 	init_input_dev(&(ts_omap.inputdevice));
 	ts_omap.inputdevice.name = OMAP_TS_NAME;
-	ts_omap.inputdevice.dev = dev;
+	ts_omap.inputdevice.dev = &pdev->dev;
 	ts_omap.inputdevice.evbit[0] = BIT(EV_KEY) | BIT(EV_ABS);
 	ts_omap.inputdevice.keybit[LONG(BTN_TOUCH)] |= BIT(BTN_TOUCH);
 	ts_omap.inputdevice.absbit[0] =
@@ -184,7 +184,7 @@ static int __init omap_ts_probe(struct device *dev)
 	return 0;
 }
 
-static int __exit omap_ts_remove(struct device *dev)
+static int omap_ts_remove(struct platform_device *pdev)
 {
 	ts_omap.dev->disable();
 	input_unregister_device(&ts_omap.inputdevice);
@@ -196,13 +196,13 @@ static int __exit omap_ts_remove(struct device *dev)
 	return 0;
 }
 
-static int omap_ts_suspend(struct device *dev, pm_message_t state)
+static int omap_ts_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	ts_omap.dev->disable();
 	return 0;
 }
 
-static int omap_ts_resume(struct device *dev)
+static int omap_ts_resume(struct platform_device *pdev)
 {
 	ts_omap.dev->enable();
 	return 0;
@@ -212,14 +212,14 @@ static void omap_ts_device_release(struct device *dev)
 {
 	/* Nothing */
 }
-
-static struct device_driver omap_ts_driver = {
-	.name 		= OMAP_TS_NAME,
-	.bus 		= &platform_bus_type,
+static struct platform_driver omap_ts_driver = {
 	.probe 		= omap_ts_probe,
-	.remove 	= __exit_p(omap_ts_remove),
+	.remove 	= omap_ts_remove,
 	.suspend 	= omap_ts_suspend,
 	.resume 	= omap_ts_resume,
+	.driver {
+		.name	= OMAP_TS_NAME,
+	},
 };
 
 static struct platform_device omap_ts_device = {
@@ -238,7 +238,7 @@ static int __init omap_ts_init(void)
 	if (ret != 0)
 		return -ENODEV;
 
-	ret = driver_register(&omap_ts_driver);
+	ret = platform_driver_register(&omap_ts_driver);
 	if (ret != 0) {
 		platform_device_unregister(&omap_ts_device);
 		return -ENODEV;
@@ -249,7 +249,7 @@ static int __init omap_ts_init(void)
 
 static void __exit omap_ts_exit(void)
 {
-	driver_unregister(&omap_ts_driver);
+	platform_driver_unregister(&omap_ts_driver);
 	platform_device_unregister(&omap_ts_device);
 }
 
