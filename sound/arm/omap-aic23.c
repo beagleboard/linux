@@ -668,9 +668,9 @@ static int snd_omap_aic23_resume(snd_card_t * card)
 /*
  * Driver suspend/resume - calls alsa functions. Some hints from aaci.c
  */
-static int omap_aic23_suspend(struct device *dev, pm_message_t state)
+static int omap_aic23_suspend(struct platform_device *pdev, pm_message_t state)
 {
-	snd_card_t *card = dev_get_drvdata(dev);
+	snd_card_t *card = platform_get_drvdata(pdev);
 	
 	if (card->power_state != SNDRV_CTL_POWER_D3hot) {
 		snd_omap_aic23_suspend(card, PMSG_SUSPEND);
@@ -678,9 +678,9 @@ static int omap_aic23_suspend(struct device *dev, pm_message_t state)
 	return 0;
 }
 
-static int omap_aic23_resume(struct device *dev)
+static int omap_aic23_resume(struct platform_device *pdev)
 {
-	snd_card_t *card = dev_get_drvdata(dev);
+	snd_card_t *card = platform_get_drvdata(pdev);
 
 	if (card->power_state != SNDRV_CTL_POWER_D0) {
 		snd_omap_aic23_resume(card);
@@ -801,7 +801,7 @@ int omap_aic23_clock_off(void)
 /* 
  *  Inits alsa soudcard structure
  */
-static int __init snd_omap_aic23_probe(struct device *dev)
+static int __init snd_omap_aic23_probe(struct platform_device *pdev)
 {
 	int err = 0;
 	snd_card_t *card;
@@ -847,7 +847,7 @@ static int __init snd_omap_aic23_probe(struct device *dev)
 	
 	if ((err = snd_card_register(card)) == 0) {
 		printk(KERN_INFO "OSK audio support initialized\n");
-		dev_set_drvdata(dev, card); 
+		platform_set_drvdata(pdev, card);
 		return 0;
 	}
 	
@@ -857,9 +857,9 @@ nodev:
 	return err;
 }
 
-static int snd_omap_aic23_remove(struct device *dev)
+static int snd_omap_aic23_remove(struct platform_device *pdev)
 {
-	snd_card_t *card = dev_get_drvdata(dev);
+	snd_card_t *card = platform_get_drvdata(pdev);
 	struct snd_card_omap_aic23 *chip = card->private_data;
 	
 	snd_card_free(card);
@@ -868,19 +868,20 @@ static int snd_omap_aic23_remove(struct device *dev)
 	card->private_data = NULL;
 	kfree(chip);
 	
-	dev_set_drvdata(dev, NULL); 
+	platform_set_drvdata(pdev, NULL);
 	
 	return 0;
 	
 }
 
-static struct device_driver omap_alsa_driver = {
-	.name =		"omap_mcbsp",
-	.bus =		&platform_bus_type,
+static struct platform_driver omap_alsa_driver = {
 	.probe =	snd_omap_aic23_probe,
 	.remove =	snd_omap_aic23_remove,
 	.suspend =	omap_aic23_suspend, 
 	.resume =	omap_aic23_resume, 
+	.driver = {
+		.name =	"omap_mcbsp",
+	},
 };
 
 static int __init omap_aic23_init(void)
@@ -888,7 +889,7 @@ static int __init omap_aic23_init(void)
 	int err;
 	ADEBUG();
 
-	err = driver_register(&omap_alsa_driver);
+	err = platform_driver_register(&omap_alsa_driver);
 
 	return err;
 }
@@ -897,7 +898,7 @@ static void __exit omap_aic23_exit(void)
 {
 	ADEBUG();
 	
-	driver_unregister(&omap_alsa_driver);
+	platform_driver_unregister(&omap_alsa_driver);
 }
 
 module_init(omap_aic23_init);
