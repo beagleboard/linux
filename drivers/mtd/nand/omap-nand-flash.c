@@ -68,10 +68,9 @@ static int omap_nand_dev_ready(struct mtd_info *mtd)
 	return info->pdata->dev_ready(info->pdata);
 }
 
-static int __devinit omap_nand_probe(struct device *dev)
+static int __devinit omap_nand_probe(struct platform_device *pdev)
 {
 	struct omap_nand_info		*info;
-	struct platform_device		*pdev = to_platform_device(dev);
 	struct nand_platform_data	*pdata = pdev->dev.platform_data;
 	struct resource			*res = pdev->resource;
 	unsigned long			size = res->end - res->start + 1;
@@ -83,7 +82,7 @@ static int __devinit omap_nand_probe(struct device *dev)
 
 	memset(info, 0, sizeof(struct omap_nand_info));
 
-	if (!request_mem_region(res->start, size, dev->driver->name)) {
+	if (!request_mem_region(res->start, size, pdev->dev.driver->name)) {
 		err = -EBUSY;
 		goto out_free_info;
 	}
@@ -129,7 +128,7 @@ static int __devinit omap_nand_probe(struct device *dev)
 #endif
 		add_mtd_device(&info->mtd);
 
-	dev_set_drvdata(&pdev->dev, info);
+	platform_set_drvdata(pdev, info);
 
 	return 0;
 
@@ -143,12 +142,11 @@ out_free_info:
 	return err;
 }
 
-static int __devexit omap_nand_remove(struct device *dev)
+static int omap_nand_remove(struct platform_device *pdev)
 {
-	struct platform_device *pdev = to_platform_device(dev);
-	struct omap_nand_info *info = dev_get_drvdata(&pdev->dev);
+	struct omap_nand_info *info = platform_get_drvdata(pdev);
 
-	dev_set_drvdata(&pdev->dev, NULL);
+	platform_set_drvdata(pdev, NULL);
 	/* Release NAND device, its internal structures and partitions */
 	nand_release(&info->mtd);
 	iounmap(info->nand.IO_ADDR_R);
@@ -156,22 +154,23 @@ static int __devexit omap_nand_remove(struct device *dev)
 	return 0;
 }
 
-static struct device_driver omap_nand_driver = {
-	.name	= DRIVER_NAME,
-	.bus	= &platform_bus_type,
-	.probe	= omap_nand_probe,
-	.remove	= __devexit_p(omap_nand_remove),
+static struct platform_driver omap_nand_driver = {
+	.probe		= omap_nand_probe,
+	.remove		= omap_nand_remove,
+	.driver		= {
+		.name	= DRIVER_NAME,
+	},
 };
 MODULE_ALIAS(DRIVER_NAME);
 
 static int __init omap_nand_init(void)
 {
-	return driver_register(&omap_nand_driver);
+	return platform_driver_register(&omap_nand_driver);
 }
 
 static void __exit omap_nand_exit(void)
 {
-	driver_unregister(&omap_nand_driver);
+	platform_driver_unregister(&omap_nand_driver);
 }
 
 module_init(omap_nand_init);
