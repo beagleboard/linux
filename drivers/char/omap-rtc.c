@@ -439,9 +439,8 @@ static struct miscdevice rtc_dev = {
 	.fops		= &rtc_fops,
 };
 
-static int __init omap_rtc_probe(struct device *dev)
+static int __init omap_rtc_probe(struct platform_device *pdev)
 {
-	struct platform_device	*pdev = to_platform_device(dev);
 	struct resource		*res, *mem;
 
 	/* find the IRQs */
@@ -470,7 +469,7 @@ static int __init omap_rtc_probe(struct device *dev)
 			pdev->name, OMAP_RTC_BASE);
 		return -EBUSY;
 	}
-	dev_set_drvdata(dev, mem);
+	platform_set_drvdata(pdev, mem);
 
 	if (CMOS_READ(OMAP_RTC_STATUS_REG) & OMAP_RTC_STATUS_POWER_UP) {
 		pr_info("%s: RTC power up reset detected.\n",
@@ -519,7 +518,7 @@ fail:
 	return -EIO;
 }
 
-static int __exit omap_rtc_remove(struct device *dev)
+static int omap_rtc_remove(struct platform_device *pdev)
 {
 	free_irq (omap_rtc_timer, NULL);
 	free_irq (omap_rtc_alarm, NULL);
@@ -527,7 +526,7 @@ static int __exit omap_rtc_remove(struct device *dev)
 	remove_proc_entry ("driver/rtc", NULL);
 	misc_deregister(&rtc_dev);
 
-	release_resource(dev_get_drvdata(dev));
+	release_resource(platform_get_drvdata(pdev));
 	return 0;
 }
 
@@ -726,7 +725,7 @@ static void set_rtc_irq_bit(unsigned char bit)
 #ifdef CONFIG_PM
 static struct timespec rtc_delta;
 
-static int rtc_suspend(struct device *dev, pm_message_t state)
+static int omap_rtc_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	struct rtc_time rtc_tm;
 	struct timespec time;
@@ -740,7 +739,7 @@ static int rtc_suspend(struct device *dev, pm_message_t state)
 	return 0;
 }
 
-static int rtc_resume(struct device *dev)
+static int omap_rtc_resume(struct platform_device *pdev)
 {
 	struct rtc_time rtc_tm;
 	struct timespec time;
@@ -754,27 +753,32 @@ static int rtc_resume(struct device *dev)
 	return 0;
 }
 #else
-#define rtc_suspend NULL
-#define rtc_resume  NULL
+#define omap_rtc_suspend NULL
+#define omap_rtc_resume  NULL
 #endif
 
-static struct device_driver omap_rtc_driver = {
-	.name		= "omap_rtc",
-	.bus		= &platform_bus_type,
+static struct platform_driver omap_rtc_driver = {
 	.probe		= omap_rtc_probe,
-	.remove		= __exit_p(omap_rtc_remove),
-	.suspend	= rtc_suspend,
-	.resume		= rtc_resume,
+	.remove		= omap_rtc_remove,
+	.suspend	= omap_rtc_suspend,
+	.resume		= omap_rtc_resume,
+	.driver		= {
+		.name	= "omap_rtc",
+		.owner	= THIS_MODULE,
+	},
 };
+
+static char __initdata banner[] = KERN_INFO "OMAP RTC Driver\n";
 
 static int __init rtc_init(void)
 {
-	return driver_register(&omap_rtc_driver);
+	printk(banner);
+	return platform_driver_register(&omap_rtc_driver);
 }
 
 static void __exit rtc_exit(void)
 {
-	driver_unregister(&omap_rtc_driver);
+	platform_driver_unregister(&omap_rtc_driver);
 }
 
 module_init(rtc_init);
