@@ -15,7 +15,7 @@
 #include <linux/list.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
-#include <linux/device.h>
+#include <linux/platform_device.h>
 #include <linux/timer.h>
 #include <linux/err.h>
 #include <asm/arch/hardware.h>
@@ -29,7 +29,6 @@ struct gpio_switch {
 	u16		gpio;
 	int		flags;
 	int		type;
-	int		key_code;
 	int		state;
 
 	struct work_struct	work;
@@ -228,7 +227,6 @@ static int __init add_atag_switches(void)
 		sw->gpio = cfg->gpio;
 		sw->flags = cfg->flags;
 		sw->type = cfg->type;
-		sw->key_code = cfg->key_code;
 		sw->state = gpio_sw_get_state(sw);
 		if ((r = new_switch(sw)) < 0) {
 			kfree(sw);
