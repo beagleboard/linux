@@ -748,6 +748,10 @@ source "drivers/mmc/Kconfig"
 
 source "drivers/ssi/Kconfig"
 
+if ARCH_OMAP
+source "drivers/cbus/Kconfig"
+endif
+
 endmenu
 
 source "fs/Kconfig"
