@@ -241,6 +241,7 @@ int __init cbus_bus_init(void)
 	chost->dat_gpio = cbus_config->dat_gpio;
 	chost->sel_gpio = cbus_config->sel_gpio;
 
+#ifdef CONFIG_ARCH_OMAP1
 	if (!OMAP_GPIO_IS_MPUIO(chost->clk_gpio) ||
 	    !OMAP_GPIO_IS_MPUIO(chost->dat_gpio) ||
 	    !OMAP_GPIO_IS_MPUIO(chost->sel_gpio)) {
@@ -248,6 +249,7 @@ int __init cbus_bus_init(void)
 		ret = -ENODEV;
 		goto exit1;
 	}
+#endif
 
 	if ((ret = omap_request_gpio(chost->clk_gpio)) < 0)
 		goto exit1;

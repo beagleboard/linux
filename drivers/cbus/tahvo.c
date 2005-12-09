@@ -50,6 +50,7 @@
 
 static int tahvo_initialized;
 static int tahvo_irq_pin;
+static int tahvo_is_betty;
 
 static struct tasklet_struct tahvo_tasklet;
 spinlock_t tahvo_lock = SPIN_LOCK_UNLOCKED;
@@ -268,7 +269,7 @@ void tahvo_free_irq(int id)
 static int __devinit tahvo_probe(struct device *dev)
 {
 	const struct omap_em_asic_bb5_config * em_asic_config;
-	int rev, ret;
+	int rev, id, ret;
 
 	/* Prepare tasklet */
 	tasklet_init(&tahvo_tasklet, tahvo_tasklet_handler, 0);
@@ -283,14 +284,21 @@ static int __devinit tahvo_probe(struct device *dev)
 	tahvo_initialized = 1;
 
 	rev = tahvo_read_reg(TAHVO_REG_ASICR);
-	if (((rev >> 8) & 0x0f) != 0x03) {
-		printk(KERN_ERR PFX "Tahvo chip not found\n");
+
+	id = (rev >> 8) & 0xff;
+	if (id == 0x03) {
+		if ((rev & 0xff) >= 0x50)
+			tahvo_7bit_backlight = 1;
+	} else if (id == 0x0b) {
+		tahvo_is_betty = 1;
+		tahvo_7bit_backlight = 1;
+	} else {
+		printk(KERN_ERR "Tahvo/Betty chip not found");
 		return -ENODEV;
 	}
-	rev &= 0xff;
-	if (rev >= 0x50)
-		tahvo_7bit_backlight = 1;
-	printk(KERN_INFO "Tahvo v%d.%d found\n", rev >> 4, rev & 0x0f);
+
+	printk(KERN_INFO "%s v%d.%d found\n", tahvo_is_betty ? "Betty" : "Tahvo",
+	       (rev >> 4) & 0x0f, rev & 0x0f);
 
 	tahvo_irq_pin = em_asic_config->tahvo_irq_gpio;
 
@@ -370,7 +378,7 @@ static int __init tahvo_init(void)
 {
 	int ret = 0;
 
-	printk(KERN_INFO "Tahvo driver initialising\n");
+	printk(KERN_INFO "Tahvo/Betty driver initialising\n");
 
 	init_completion(&device_release);
 
