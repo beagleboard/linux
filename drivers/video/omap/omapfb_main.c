@@ -349,9 +349,9 @@ static int omapfb_blank(int blank, struct fb_info *fbi)
 	switch (blank) {
 	case VESA_NO_BLANKING:
 		if (fbdev->state == OMAPFB_SUSPENDED) {
-			fbdev->panel->enable();
 			if (fbdev->ctrl->resume)
 				fbdev->ctrl->resume();
+			fbdev->panel->enable();
 			fbdev->state = OMAPFB_ACTIVE;
 			if (fbdev->ctrl->get_update_mode() ==
 					OMAPFB_MANUAL_UPDATE)
@@ -360,9 +360,9 @@ static int omapfb_blank(int blank, struct fb_info *fbi)
 		break;
 	case VESA_POWERDOWN:
 		if (fbdev->state == OMAPFB_ACTIVE) {
+			fbdev->panel->disable();
 			if (fbdev->ctrl->suspend)
 				fbdev->ctrl->suspend();
-			fbdev->panel->disable();
 			fbdev->state = OMAPFB_SUSPENDED;
 		}
 		break;
@@ -1108,11 +1108,12 @@ static void omapfb_free_resources(struct omapfb_device *fbdev, int state)
 	switch (state) {
 	case OMAPFB_ACTIVE:
 		unregister_framebuffer(fbdev->fb_info);
-	case 6:
+	case 7:
 		omapfb_unregister_sysfs(fbdev);
-		omapfb_set_update_mode(fbdev, OMAPFB_UPDATE_DISABLED);
-	case 5:
+	case 6:
 		fbdev->panel->disable();
+	case 5:
+		omapfb_set_update_mode(fbdev, OMAPFB_UPDATE_DISABLED);
 	case 4:
 		fbinfo_cleanup(fbdev);
 	case 3:
@@ -1296,11 +1297,6 @@ static int omapfb_probe(struct platform_device *pdev)
 	omap_set_dma_priority(OMAP_DMA_PORT_EMIFF, 15);
 #endif
 
-	r = fbdev->panel->enable();
-	if (r)
-		goto cleanup;
-	init_state++;
-
 	r = ctrl_change_mode(fbdev);
 	if (r) {
 		pr_err("mode setting failed\n");
@@ -1311,6 +1307,12 @@ static int omapfb_probe(struct platform_device *pdev)
 
 	omapfb_set_update_mode(fbdev, manual_update ?
 				   OMAPFB_MANUAL_UPDATE : OMAPFB_AUTO_UPDATE);
+	init_state++;
+
+	r = fbdev->panel->enable();
+	if (r)
+		goto cleanup;
+	init_state++;
 
 	r = omapfb_register_sysfs(fbdev);
 	if (r)
