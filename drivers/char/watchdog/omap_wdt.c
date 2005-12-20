@@ -362,7 +362,7 @@ static struct platform_driver omap_wdt_driver = {
 	.resume		= omap_wdt_resume,
 	.driver		= {
 		.owner	= THIS_MODULE,
-		.name	= "omap-wdt",
+		.name	= "omap_wdt",
 	},
 };
 
