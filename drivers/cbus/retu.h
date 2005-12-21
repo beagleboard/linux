@@ -26,7 +26,7 @@
 #include <linux/types.h>
 
 /* Registers */
-#define RETU_REG_ASICID		0x00	/* ASIC ID & revision */
+#define RETU_REG_ASICR		0x00	/* ASIC ID & revision */
 #define RETU_REG_IDR		0x01	/* Interrupt ID */
 #define RETU_REG_IMR		0x02	/* Interrupt mask */
 #define RETU_REG_RTCDSR		0x03	/* RTC seconds register */

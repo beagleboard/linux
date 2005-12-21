@@ -50,6 +50,7 @@
 
 static int retu_initialized;
 static int retu_irq_pin;
+static int retu_is_vilma;
 
 static struct tasklet_struct retu_tasklet;
 spinlock_t retu_lock = SPIN_LOCK_UNLOCKED;
@@ -295,7 +296,7 @@ static void retu_power_off(void)
 static int __devinit retu_probe(struct device *dev)
 {
 	const struct omap_em_asic_bb5_config * em_asic_config;
-	int ret;
+	int rev, ret;
 
 	/* Prepare tasklet */
 	tasklet_init(&retu_tasklet, retu_tasklet_handler, 0);
@@ -321,6 +322,14 @@ static int __devinit retu_probe(struct device *dev)
 	set_irq_type(OMAP_GPIO_IRQ(retu_irq_pin), IRQT_RISING);
 
 	retu_initialized = 1;
+
+	rev = retu_read_reg(RETU_REG_ASICR) & 0xff;
+	if (rev & (1 << 7))
+		retu_is_vilma = 1;
+
+	printk(KERN_INFO "%s v%d.%d found\n", retu_is_vilma ? "Vilma" : "Retu",
+	       (rev >> 4) & 0x07, rev & 0x0f);
+
 	/* Mask all RETU interrupts */
 	retu_write_reg(RETU_REG_IMR, 0xffff);
 
@@ -392,7 +401,7 @@ static int __init retu_init(void)
 {
 	int ret = 0;
 
-	printk(KERN_INFO "Retu driver initialising\n");
+	printk(KERN_INFO "Retu/Vilma driver initialising\n");
 
 	init_completion(&device_release);
 
