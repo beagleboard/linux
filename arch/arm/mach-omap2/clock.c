@@ -54,11 +54,13 @@ static void omap2_sys_clk_recalc(struct clk * clk)
 
 static u32 omap2_get_dpll_rate(struct clk * tclk)
 {
-	int dpll_clk, dpll_mult, dpll_div, amult;
+	long long dpll_clk;
+	int dpll_mult, dpll_div, amult;
 
 	dpll_mult = (CM_CLKSEL1_PLL >> 12) & 0x03ff;	/* 10 bits */
 	dpll_div = (CM_CLKSEL1_PLL >> 8) & 0x0f;	/* 4 bits */
-	dpll_clk = (tclk->parent->rate * dpll_mult) / (dpll_div + 1);
+	dpll_clk = (long long)tclk->parent->rate * dpll_mult;
+	do_div(dpll_clk, dpll_div + 1);
 	amult = CM_CLKSEL2_PLL & 0x3;
 	dpll_clk *= amult;
 
