@@ -128,7 +128,7 @@
 					     DISPC_IRQ_VID2_FIFO_UNDERFLOW | \
 					     DISPC_IRQ_SYNC_LOST)
 
-#define MAX_PALETTE_SIZE		256 * 16
+#define MAX_PALETTE_SIZE		(256 * 16)
 
 #define pr_err(fmt, args...) printk(KERN_ERR MODULE_NAME ": " fmt, ## args)
 
