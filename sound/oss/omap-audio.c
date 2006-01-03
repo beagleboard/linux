@@ -360,7 +360,7 @@ static int audio_suspend(struct platform_device *pdev, pm_message_t mesg)
  * audio_resume(): Function to handle resume operations
  *
  *********************************************************************************/
-static int audio_resume(struct platform_device *dev)
+static int audio_resume(struct platform_device *pdev)
 {
 	int ret = 0;
 
