@@ -120,8 +120,7 @@ static irqreturn_t omap_ts_handler(int irq, void *dev_id, struct pt_regs *regs)
 		disable_irq(irq);
 	}
 	// restart acquire
-	ts_omap.ts_timer.expires = jiffies + HZ / 100;
-	add_timer(&(ts_omap.ts_timer));
+	mod_timer(&ts_omap.ts_timer, jiffies + HZ / 100);
 
 	spin_unlock(&ts_omap.lock);
 
