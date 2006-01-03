@@ -99,6 +99,11 @@ static inline void omap_init_i2c(void) {}
 
 /*-------------------------------------------------------------------------*/
 #if	defined(CONFIG_KEYBOARD_OMAP) || defined(CONFIG_KEYBOARD_OMAP_MODULE)
+static struct platform_device omap_kp_device = {
+	.name	   = "omap-keypad",
+	.id	     = -1,
+};
+
 static void omap_init_kp(void)
 {
 	if (machine_is_omap_h2() || machine_is_omap_h3()) {
@@ -127,6 +132,8 @@ static void omap_init_kp(void)
 		omap_cfg_reg(F4_730_KBC3);
 		omap_cfg_reg(E3_730_KBC4);
 	}
+
+	(void) platform_device_register(&omap_kp_device);
 }
 #else
 static inline void omap_init_kp(void) {}

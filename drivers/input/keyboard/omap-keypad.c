@@ -331,6 +331,7 @@ static int __init omap_kp_probe(struct platform_device *pdev)
 
 	/* get the irq and init timer*/
 	tasklet_enable(&kp_tasklet);
+	kp_tasklet.data = (unsigned long) omap_kp;
 	if (request_irq(keypad_irq, omap_kp_interrupt, 0,
 			"omap-keypad", 0) < 0)
 		return -EINVAL;
