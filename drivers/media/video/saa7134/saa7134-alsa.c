@@ -51,6 +51,7 @@ MODULE_PARM_DESC(debug,"enable debug messages [alsa]");
 #define MIXER_ADDR_LINE2	2
 #define MIXER_ADDR_LAST		2
 
+
 static int index[SNDRV_CARDS] = SNDRV_DEFAULT_IDX;	/* Index 0-MAX */
 static char *id[SNDRV_CARDS] = SNDRV_DEFAULT_STR;	/* ID for this card */
 static int enable[SNDRV_CARDS] = {1, [1 ... (SNDRV_CARDS - 1)] = 0};
@@ -58,14 +59,15 @@ static int enable[SNDRV_CARDS] = {1, [1 ... (SNDRV_CARDS - 1)] = 0};
 module_param_array(index, int, NULL, 0444);
 MODULE_PARM_DESC(index, "Index value for SAA7134 capture interface(s).");
 
-int position;
-
 #define dprintk(fmt, arg...)    if (debug) \
-        printk(KERN_DEBUG "%s/alsa: " fmt, dev->name , ## arg)
+	printk(KERN_DEBUG "%s/alsa: " fmt, dev->name , ##arg)
+
+
 
 /*
  * Main chip structure
  */
+
 typedef struct snd_card_saa7134 {
 	snd_card_t *card;
 	spinlock_t mixer_lock;
@@ -140,7 +142,8 @@ static void saa7134_dma_start(struct saa7134_dev *dev)
  *
  */
 
-void saa7134_irq_alsa_done(struct saa7134_dev *dev, unsigned long status)
+static void saa7134_irq_alsa_done(struct saa7134_dev *dev,
+				  unsigned long status)
 {
 	int next_blk, reg = 0;
 
@@ -209,8 +212,8 @@ void saa7134_irq_alsa_done(struct saa7134_dev *dev, unsigned long status)
 
 static irqreturn_t saa7134_alsa_irq(int irq, void *dev_id, struct pt_regs *regs)
 {
-        struct saa7134_dmasound *dmasound = dev_id;
-        struct saa7134_dev *dev = dmasound->priv_data;
+	struct saa7134_dmasound *dmasound = dev_id;
+	struct saa7134_dev *dev = dmasound->priv_data;
 
 	unsigned long report, status;
 	int loop, handled = 0;
@@ -881,7 +884,7 @@ static void snd_saa7134_free(snd_card_t * card)
  *
  */
 
-int alsa_card_saa7134_create(struct saa7134_dev *dev, int devnum)
+static int alsa_card_saa7134_create(struct saa7134_dev *dev, int devnum)
 {
 
 	snd_card_t *card;
@@ -945,6 +948,8 @@ int alsa_card_saa7134_create(struct saa7134_dev *dev, int devnum)
 	sprintf(card->longname, "%s at 0x%lx irq %d",
 		chip->dev->name, chip->iobase, chip->irq);
 
+	printk(KERN_INFO "%s/alsa: %s registered as card %d\n",dev->name,card->longname,index[devnum]);
+
 	if ((err = snd_card_register(card)) == 0) {
 		snd_saa7134_cards[devnum] = card;
 		return 0;
@@ -953,6 +958,22 @@ int alsa_card_saa7134_create(struct saa7134_dev *dev, int devnum)
 __nodev:
 	snd_card_free(card);
 	return err;
+}
+
+
+static int alsa_device_init(struct saa7134_dev *dev)
+{
+	dev->dmasound.priv_data = dev;
+	alsa_card_saa7134_create(dev,dev->nr);
+	return 1;
+}
+
+static int alsa_device_exit(struct saa7134_dev *dev)
+{
+
+	snd_card_free(snd_saa7134_cards[dev->nr]);
+	snd_saa7134_cards[dev->nr] = NULL;
+	return 1;
 }
 
 /*
@@ -968,16 +989,20 @@ static int saa7134_alsa_init(void)
 	struct saa7134_dev *dev = NULL;
 	struct list_head *list;
 
-	position = 0;
+	if (!dmasound_init && !dmasound_exit) {
+		dmasound_init = alsa_device_init;
+		dmasound_exit = alsa_device_exit;
+	} else {
+		printk(KERN_WARNING "saa7134 ALSA: can't load, DMA sound handler already assigned (probably to OSS)\n");
+		return -EBUSY;
+	}
 
-        printk(KERN_INFO "saa7134 ALSA driver for DMA sound loaded\n");
+	printk(KERN_INFO "saa7134 ALSA driver for DMA sound loaded\n");
 
 	list_for_each(list,&saa7134_devlist) {
 		dev = list_entry(list, struct saa7134_dev, devlist);
 		if (dev->dmasound.priv_data == NULL) {
-			dev->dmasound.priv_data = dev;
-			alsa_card_saa7134_create(dev,position);
-			position++;
+			alsa_device_init(dev);
 		} else {
 			printk(KERN_ERR "saa7134 ALSA: DMA sound is being handled by OSS. ignoring %s\n",dev->name);
 			return -EBUSY;
@@ -988,13 +1013,14 @@ static int saa7134_alsa_init(void)
 		printk(KERN_INFO "saa7134 ALSA: no saa7134 cards found\n");
 
 	return 0;
+
 }
 
 /*
  * Module destructor
  */
 
-void saa7134_alsa_exit(void)
+static void saa7134_alsa_exit(void)
 {
 	int idx;
 
@@ -1002,12 +1028,18 @@ void saa7134_alsa_exit(void)
 		snd_card_free(snd_saa7134_cards[idx]);
 	}
 
+	dmasound_init = NULL;
+	dmasound_exit = NULL;
 	printk(KERN_INFO "saa7134 ALSA driver for DMA sound unloaded\n");
 
 	return;
 }
 
-module_init(saa7134_alsa_init);
+/* We initialize this late, to make sure the sound system is up and running */
+late_initcall(saa7134_alsa_init);
 module_exit(saa7134_alsa_exit);
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Ricardo Cerqueira");
+
+
+

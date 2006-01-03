@@ -223,7 +223,7 @@ static const struct i2c_reg_value saa7127_init_config_60hz[] = {
 };
 
 #define SAA7127_50HZ_DAC_CONTROL 0x02
-struct i2c_reg_value saa7127_init_config_50hz[] = {
+static struct i2c_reg_value saa7127_init_config_50hz[] = {
 	{ SAA7127_REG_BURST_START, 			0x21 },
 	/* BURST_END is also used as a chip ID in saa7127_detect_client */
 	{ SAA7127_REG_BURST_END, 			0x1d },
@@ -389,7 +389,7 @@ static int saa7127_set_vps(struct i2c_client *client, struct v4l2_sliced_vbi_dat
 static int saa7127_set_cc(struct i2c_client *client, struct v4l2_sliced_vbi_data *data)
 {
 	struct saa7127_state *state = i2c_get_clientdata(client);
-	u16 cc = data->data[0] << 8 | data->data[1];
+	u16 cc = data->data[1] << 8 | data->data[0];
 	int enable = (data->line != 0);
 
 	if (enable && (data->field != 0 || data->line != 21))
@@ -397,7 +397,7 @@ static int saa7127_set_cc(struct i2c_client *client, struct v4l2_sliced_vbi_data
 	if (state->cc_enable != enable) {
 		saa7127_dbg("Turn CC %s\n", enable ? "on" : "off");
 		saa7127_write(client, SAA7127_REG_CLOSED_CAPTION,
-				(enable << 6) | 0x11);
+				(state->xds_enable << 7) | (enable << 6) | 0x11);
 		state->cc_enable = enable;
 	}
 	if (!enable)
@@ -423,7 +423,7 @@ static int saa7127_set_xds(struct i2c_client *client, struct v4l2_sliced_vbi_dat
 	if (state->xds_enable != enable) {
 		saa7127_dbg("Turn XDS %s\n", enable ? "on" : "off");
 		saa7127_write(client, SAA7127_REG_CLOSED_CAPTION,
-				(enable << 7) | 0x11);
+				(enable << 7) | (state->cc_enable << 6) | 0x11);
 		state->xds_enable = enable;
 	}
 	if (!enable)
@@ -696,7 +696,7 @@ static int saa7127_command(struct i2c_client *client,
 
 /* ----------------------------------------------------------------------- */
 
-struct i2c_driver i2c_driver_saa7127;
+static struct i2c_driver i2c_driver_saa7127;
 
 /* ----------------------------------------------------------------------- */
 
@@ -818,7 +818,7 @@ static int saa7127_detach(struct i2c_client *client)
 
 /* ----------------------------------------------------------------------- */
 
-struct i2c_driver i2c_driver_saa7127 = {
+static struct i2c_driver i2c_driver_saa7127 = {
 	.name = "saa7127",
 	.id = I2C_DRIVERID_SAA7127,
 	.flags = I2C_DF_NOTIFY,

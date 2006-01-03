@@ -59,7 +59,6 @@ __rpc_purge_upcall(struct inode *inode, int err)
 	struct rpc_inode *rpci = RPC_I(inode);
 
 	__rpc_purge_list(rpci, &rpci->pipe, err);
-	__rpc_purge_list(rpci, &rpci->in_upcall, err);
 	rpci->pipelen = 0;
 	wake_up(&rpci->waitq);
 }
@@ -119,6 +118,7 @@ rpc_close_pipes(struct inode *inode)
 	down(&inode->i_sem);
 	if (rpci->ops != NULL) {
 		rpci->nreaders = 0;
+		__rpc_purge_list(rpci, &rpci->in_upcall, -EPIPE);
 		__rpc_purge_upcall(inode, -EPIPE);
 		rpci->nwriters = 0;
 		if (rpci->ops->release_pipe)
@@ -174,7 +174,7 @@ rpc_pipe_release(struct inode *inode, struct file *filp)
 		goto out;
 	msg = (struct rpc_pipe_msg *)filp->private_data;
 	if (msg != NULL) {
-		msg->errno = -EPIPE;
+		msg->errno = -EAGAIN;
 		list_del_init(&msg->list);
 		rpci->ops->destroy_msg(msg);
 	}
@@ -183,7 +183,7 @@ rpc_pipe_release(struct inode *inode, struct file *filp)
 	if (filp->f_mode & FMODE_READ)
 		rpci->nreaders --;
 	if (!rpci->nreaders)
-		__rpc_purge_upcall(inode, -EPIPE);
+		__rpc_purge_upcall(inode, -EAGAIN);
 	if (rpci->ops->release_pipe)
 		rpci->ops->release_pipe(inode);
 out:
