@@ -28,6 +28,8 @@
  * 2004-11-01   Nishanth Menon  - 16xx platform code base modified to support multi channel chaining.
  *
  * 2004-12-15   Nishanth Menon  - Improved 16xx platform channel logic introduced - tasklets, queue handling updated
+ *
+ * 2005-12-10   Dirk Behme      - Added L/R Channel Interchange fix as proposed by Ajaya Babu
  */
 
 #include <linux/config.h>
@@ -730,8 +732,10 @@ static int audio_start_dma_chain(audio_stream_t * s)
 	int channel = s->lch[s->dma_q_head];
 	FN_IN;
 	if (!s->started) {
+	 s->hw_stop();	    /* stops McBSP Interface */
 		omap_start_dma(channel);
 		s->started = 1;
+		s->hw_start();	   /* start McBSP interface */
 	}
 	/* else the dma itself will progress forward with out our help */
 	FN_OUT(0);

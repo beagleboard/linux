@@ -20,6 +20,8 @@
  *  2004/08/12 Nishanth Menon - Modified to integrate Audio requirements on 1610,1710 platforms
  *
  *  2004/04/04 Nishanth menon - Added hooks for power management
+ *
+ *  2005/12/10 Dirk Behme     - Added L/R Channel Interchange fix as proposed by Ajaya Babu
  */
 
 #ifndef __OMAP_AUDIO_H
@@ -75,6 +77,8 @@ typedef struct {
 	unsigned stopped:1;	/* might be active but stopped */
 	unsigned spin_idle:1;	/* have DMA spin on zeros when idle */
 	unsigned linked:1;	/* dma channels linked */
+	int (*hw_start)(void);  /* interface to start HW interface, e.g. McBSP */
+	int (*hw_stop)(void);   /* interface to stop HW interface, e.g. McBSP */
 } audio_stream_t;
 
 /*

@@ -111,16 +111,35 @@
 
 #define NUMBER_SAMPLE_RATES_SUPPORTED 9
 
+/*
+ * HW interface start and stop helper functions
+ */
+static int audio_ifc_start(void)
+{
+	omap_mcbsp_start(AUDIO_MCBSP);
+	return 0;
+}
+
+static int audio_ifc_stop(void)
+{
+	omap_mcbsp_stop(AUDIO_MCBSP);
+	return 0;
+}
+
 static audio_stream_t output_stream = {
         .id              = "AIC23 out",
         .dma_dev         = OMAP_DMA_MCBSP1_TX,
-        .input_or_output = FMODE_WRITE
+	.input_or_output = FMODE_WRITE,
+	.hw_start	= audio_ifc_start,
+	.hw_stop	 = audio_ifc_stop
 };
 
 static audio_stream_t input_stream = {
         .id              = "AIC23 in",
         .dma_dev         = OMAP_DMA_MCBSP1_RX,
-        .input_or_output = FMODE_READ
+	.input_or_output = FMODE_READ,
+	.hw_start	= audio_ifc_start,
+	.hw_stop	 = audio_ifc_stop
 };
 
 static struct clk *aic23_mclk = 0;
