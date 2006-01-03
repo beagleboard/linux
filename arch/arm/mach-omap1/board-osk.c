@@ -254,8 +254,18 @@ static void __init osk_mistral_init(void)
 static void __init osk_mistral_init(void) { }
 #endif
 
+#define EMFIS_CS3_VAL (0x30003361)
+
 static void __init osk_init(void)
 {
+	/* Workaround for wrong CS3 (NOR flash) timing
+	 * There are some U-Boot versions out there which configure
+	 * wrong CS3 memory timings. This mainly leads to CRC
+	 * or similiar errors if you use NOR flash (e.g. with JFFS2)
+	 */
+	if (EMIFS_CCS(3) != EMIFS_CS3_VAL)
+		EMIFS_CCS(3) = EMIFS_CS3_VAL;
+
 	osk_flash_resource.end = osk_flash_resource.start = omap_cs3_phys();
 	osk_flash_resource.end += SZ_32M - 1;
 	platform_add_devices(osk5912_devices, ARRAY_SIZE(osk5912_devices));
