@@ -111,7 +111,9 @@ void omap_pm_idle(void)
 {
 	extern __u32 arm_idlect1_mask;
 	__u32 use_idlect1 = arm_idlect1_mask;
+#ifndef CONFIG_OMAP_MPU_TIMER
 	int do_sleep;
+#endif
 
 	local_irq_disable();
 	local_fiq_disable();
