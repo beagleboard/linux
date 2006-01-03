@@ -1250,7 +1250,9 @@ static int omapfb_probe(struct platform_device *pdev)
 	init_MUTEX(&fbdev->rqueue_sema);
 
 #ifdef CONFIG_ARCH_OMAP1
+#ifdef CONFIG_FB_OMAP_LCDC_INTERNAL
 	fbdev->int_ctrl = &omap1_int_ctrl;
+#endif
 #ifdef CONFIG_FB_OMAP_LCDC_EXTERNAL
 	fbdev->ext_if = &sossi_extif;
 #endif
