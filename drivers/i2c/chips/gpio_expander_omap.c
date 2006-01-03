@@ -19,16 +19,6 @@
 int read_gpio_expa(u8 * val, int addr);
 int write_gpio_expa(u8 val, int addr);
 
-#define OMAP_IRDA_DEBUG	0	
-
-#if (OMAP_IRDA_DEBUG > 0)
-#define DBG(format, args...) printk(KERN_ERR "%s(): " format, __FUNCTION__, ## args);
-#define DBG_IRQ(format, args...) printk(KERN_ERR "%s(): " format, __FUNCTION__, ## args);
-#else
-#define DBG(format, args...)
-#define DBG_IRQ(format, args...)
-#endif
-
 int write_gpio_expa(u8 val, int addr)
 {
 	struct i2c_adapter *adap;
@@ -71,7 +61,6 @@ int read_gpio_expa(u8 * val, int addr)
 	err = i2c_transfer(adap, msg, 1);
 	*val = data[0];
 
-	DBG("I2C: Read data is %x\n", (u8) * data);
 	if (err >= 0)
 		return 0;
 	return err;
