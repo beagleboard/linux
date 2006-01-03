@@ -66,15 +66,20 @@ extern int usb_disabled(void);
 extern int ocpi_enable(void);
 
 static struct clk *usb_host_ck;
+static struct clk *usb_dc_ck;
+static int host_enabled;
+static int host_initialized;
 
 static void omap_ohci_clock_power(int on)
 {
 	if (on) {
+		clk_use(usb_dc_ck);
 		clk_use(usb_host_ck);
 		/* guesstimate for T5 == 1x 32K clock + APLL lock time */
 		udelay(100);
 	} else {
 		clk_unuse(usb_host_ck);
+		clk_unuse(usb_dc_ck);
 	}
 }
 
@@ -280,6 +285,43 @@ void usb_hcd_omap_remove (struct usb_hcd *, struct platform_device *);
 /* always called with process context; sleeping is OK */
 
 
+int ohci_omap_host_enable(struct usb_bus *host, int enable)
+{
+	struct usb_hcd *hcd;
+	struct ohci_hcd *ohci;
+	int retval;
+
+	if (host_enabled == enable)
+		return 0;
+
+	host_enabled = enable;
+
+	if (!host_initialized)
+		return 0;
+
+	hcd = (struct usb_hcd *)host->hcpriv;
+	ohci = hcd_to_ohci(hcd);
+	if (enable) {
+		omap_ohci_clock_power(1);
+		if ((retval = ohci_init(ohci)) < 0) {
+			dev_err(hcd->self.controller, "init error %d\n",
+				retval);
+			return retval;
+		}
+		if ((retval = hcd->driver->start(hcd)) < 0) {
+			dev_err(hcd->self.controller, "startup error %d\n",
+				retval);
+			return retval;
+		}
+	} else {
+		usb_disconnect(&hcd->self.root_hub);
+		hcd->driver->stop(hcd);
+		omap_ohci_clock_power(0);
+	}
+
+	return 0;
+}
+
 /**
  * usb_hcd_omap_probe - initialize OMAP-based HCDs
  * Context: !in_interrupt()
@@ -311,6 +353,13 @@ int usb_hcd_omap_probe (const struct hc_driver *driver,
 	if (IS_ERR(usb_host_ck))
 		return PTR_ERR(usb_host_ck);
 
+	usb_dc_ck = clk_get(0, "usb_dc_ck");
+	if (IS_ERR(usb_dc_ck)) {
+		clk_put(usb_host_ck);
+		return PTR_ERR(usb_dc_ck);
+	}
+
+
 	hcd = usb_create_hcd (driver, &pdev->dev, pdev->dev.bus_id);
 	if (!hcd) {
 		retval = -ENOMEM;
@@ -330,20 +379,32 @@ int usb_hcd_omap_probe (const struct hc_driver *driver,
 	ohci = hcd_to_ohci(hcd);
 	ohci_hcd_init(ohci);
 
+	host_initialized = 0;
+	host_enabled = 1;
+
 	retval = omap_start_hc(ohci, pdev);
 	if (retval < 0)
 		goto err2;
 
 	retval = usb_add_hcd(hcd, platform_get_irq(pdev, 0), SA_INTERRUPT);
-	if (retval == 0)
-		return retval;
 
+	if (retval)
+		goto err3;
+
+	host_initialized = 1;
+
+	if (!host_enabled)
+		omap_ohci_clock_power(0);
+
+	return 0;
+err3:
 	omap_stop_hc(pdev);
 err2:
 	release_mem_region(hcd->rsrc_start, hcd->rsrc_len);
 err1:
 	usb_put_hcd(hcd);
 err0:
+	clk_put(usb_dc_ck);
 	clk_put(usb_host_ck);
 	return retval;
 }
@@ -369,18 +430,21 @@ void usb_hcd_omap_remove (struct usb_hcd *hcd, struct platform_device *pdev)
 	omap_stop_hc(pdev);
 	release_mem_region(hcd->rsrc_start, hcd->rsrc_len);
 	usb_put_hcd(hcd);
+	clk_put(usb_dc_ck);
 	clk_put(usb_host_ck);
 }
 
 /*-------------------------------------------------------------------------*/
 
-static int __devinit
+static int
 ohci_omap_start (struct usb_hcd *hcd)
 {
 	struct omap_usb_config *config;
 	struct ohci_hcd	*ohci = hcd_to_ohci (hcd);
 	int		ret;
 
+	if (!host_enabled)
+		return 0;
 	config = hcd->self.controller->platform_data;
 	if (config->otg || config->rwc)
 		writel(OHCI_CTRL_RWC, &ohci->regs->control);

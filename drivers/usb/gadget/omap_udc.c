@@ -50,6 +50,7 @@
 #include <asm/system.h>
 #include <asm/unaligned.h>
 #include <asm/mach-types.h>
+#include <asm/hardware/clock.h>
 
 #include <asm/arch/dma.h>
 #include <asm/arch/usb.h>
@@ -1306,6 +1307,23 @@ static void pullup_disable(struct omap_udc *udc)
 	UDC_SYSCON1_REG &= ~UDC_PULLUP_EN;
 }
 
+static struct omap_udc *udc;
+
+static void omap_udc_enable_clock(int enable)
+{
+	if (udc == NULL || udc->dc_clk == NULL || udc->hhc_clk == NULL)
+		return;
+
+	if (enable) {
+		clk_use(udc->dc_clk);
+		clk_use(udc->hhc_clk);
+		udelay(100);
+	} else {
+		clk_unuse(udc->hhc_clk);
+		clk_unuse(udc->dc_clk);
+	}
+}
+
 /*
  * Called by whatever detects VBUS sessions:  external transceiver
  * driver, or maybe GPIO0 VBUS IRQ.  May request 48 MHz clock.
@@ -1326,10 +1344,22 @@ static int omap_vbus_session(struct usb_gadget *gadget, int is_active)
 		else
 			FUNC_MUX_CTRL_0_REG &= ~VBUS_CTRL_1510;
 	}
+	if (udc->dc_clk != NULL && is_active) {
+		if (!udc->clk_requested) {
+			omap_udc_enable_clock(1);
+			udc->clk_requested = 1;
+		}
+	}
 	if (can_pullup(udc))
 		pullup_enable(udc);
 	else
 		pullup_disable(udc);
+	if (udc->dc_clk != NULL && !is_active) {
+		if (udc->clk_requested) {
+			omap_udc_enable_clock(0);
+			udc->clk_requested = 0;
+		}
+	}
 	spin_unlock_irqrestore(&udc->lock, flags);
 	return 0;
 }
@@ -2039,7 +2069,6 @@ omap_udc_iso_irq(int irq, void *_dev, struct pt_regs *r)
 
 /*-------------------------------------------------------------------------*/
 
-static struct omap_udc *udc;
 
 int usb_gadget_register_driver (struct usb_gadget_driver *driver)
 {
@@ -2082,6 +2111,9 @@ int usb_gadget_register_driver (struct usb_gadget_driver *driver)
 	udc->gadget.dev.driver = &driver->driver;
 	spin_unlock_irqrestore(&udc->lock, flags);
 
+	if (udc->dc_clk != NULL)
+		omap_udc_enable_clock(1);
+
 	status = driver->bind (&udc->gadget);
 	if (status) {
 		DBG("bind to %s --> %d\n", driver->driver.name, status);
@@ -2117,6 +2149,8 @@ int usb_gadget_register_driver (struct usb_gadget_driver *driver)
 		omap_vbus_session(&udc->gadget, 1);
 
 done:
+	if (udc->dc_clk != NULL)
+		omap_udc_enable_clock(0);
 	return status;
 }
 EXPORT_SYMBOL(usb_gadget_register_driver);
@@ -2130,6 +2164,9 @@ int usb_gadget_unregister_driver (struct usb_gadget_driver *driver)
 		return -ENODEV;
 	if (!driver || driver != udc->driver)
 		return -EINVAL;
+
+	if (udc->dc_clk != NULL)
+		omap_udc_enable_clock(1);
 
 	if (machine_is_omap_innovator() || machine_is_omap_osk())
 		omap_vbus_session(&udc->gadget, 0);
@@ -2147,6 +2184,8 @@ int usb_gadget_unregister_driver (struct usb_gadget_driver *driver)
 	udc->gadget.dev.driver = NULL;
 	udc->driver = NULL;
 
+	if (udc->dc_clk != NULL)
+		omap_udc_enable_clock(0);
 	DBG("unregistered driver '%s'\n", driver->driver.name);
 	return status;
 }
@@ -2720,6 +2759,8 @@ static int __init omap_udc_probe(struct platform_device *pdev)
 	struct otg_transceiver	*xceiv = NULL;
 	const char		*type = NULL;
 	struct omap_usb_config	*config = pdev->dev.platform_data;
+	struct clk		*dc_clk;
+	struct clk		*hhc_clk;
 
 	/* NOTE:  "knows" the order of the resources! */
 	if (!request_mem_region(pdev->resource[0].start, 
@@ -2727,6 +2768,16 @@ static int __init omap_udc_probe(struct platform_device *pdev)
 			driver_name)) {
 		DBG("request_mem_region failed\n");
 		return -EBUSY;
+	}
+
+	if (cpu_is_omap16xx()) {
+		dc_clk = clk_get(dev, "usb_dc_ck");
+		hhc_clk = clk_get(dev, "usb_hhc_ck");
+		BUG_ON(IS_ERR(dc_clk) || IS_ERR(hhc_clk));
+		/* can't use omap_udc_enable_clock yet */
+		clk_use(dc_clk);
+		clk_use(hhc_clk);
+		udelay(100);
 	}
 
 	INFO("OMAP UDC rev %d.%d%s\n",
@@ -2851,6 +2902,12 @@ bad_on_1710:
 		goto cleanup3;
 	}
 #endif
+	if (cpu_is_omap16xx()) {
+		udc->dc_clk = dc_clk;
+		udc->hhc_clk = hhc_clk;
+		clk_unuse(hhc_clk);
+		clk_unuse(dc_clk);
+	}
 
 	create_proc_file();
 	device_add(&udc->gadget.dev);
@@ -2871,8 +2928,17 @@ cleanup1:
 cleanup0:
 	if (xceiv)
 		put_device(xceiv->dev);
+
+ 	if (cpu_is_omap16xx()) {
+ 		clk_unuse(hhc_clk);
+ 		clk_unuse(dc_clk);
+ 		clk_put(hhc_clk);
+ 		clk_put(dc_clk);
+ 	}
+
 	release_mem_region(pdev->resource[0].start,
 			pdev->resource[0].end - pdev->resource[0].start + 1);
+
 	return status;
 }
 
@@ -2899,6 +2965,13 @@ static int __exit omap_udc_remove(struct platform_device *pdev)
 #endif
 	free_irq(pdev->resource[2].start, udc);
 	free_irq(pdev->resource[1].start, udc);
+
+	if (udc->dc_clk) {
+ 		if (udc->clk_requested)
+ 			omap_udc_enable_clock(0);
+ 		clk_put(udc->hhc_clk);
+ 		clk_put(udc->dc_clk);
+ 	}
 
 	release_mem_region(pdev->resource[0].start,
 			pdev->resource[0].end - pdev->resource[0].start + 1);
