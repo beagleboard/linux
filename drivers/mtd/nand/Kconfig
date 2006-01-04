@@ -50,10 +50,10 @@ config MTD_NAND_SPIA
 	  If you had to ask, you don't have one. Say 'N'.
 
 config MTD_NAND_OMAP
-        tristate "NAND Flash device on OMAP H3/H2/P2 or NETSTAR boards"
-	depends on ARM && ARCH_OMAP1 && MTD_NAND && (MACH_OMAP_H2 || MACH_OMAP_H3 || MACH_NETSTAR || MACH_OMAP_PERSEUS2)
-        help
-          Support for NAND flash on Texas Instruments H3/H2/P2/NETSTAR platforms.
+	tristate "NAND Flash device on OMAP H3/H2/P2 boards"
+	depends on ARM && ARCH_OMAP1 && MTD_NAND && (MACH_OMAP_H2 || MACH_OMAP_H3 || MACH_OMAP_PERSEUS2)
+	help
+	  Support for NAND flash on Texas Instruments H3/H2/P2 platforms.
 
 config MTD_NAND_TOTO
 	tristate "NAND Flash device on TOTO board"
