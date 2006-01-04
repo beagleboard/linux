@@ -137,11 +137,12 @@ out_free_info:
 static int __devexit omapflash_remove(struct platform_device *pdev)
 {
 	struct omapflash_info *info = platform_get_drvdata(pdev);
+	struct flash_platform_data *pdata = pdev->dev.platform_data;
 
 	platform_set_drvdata(pdev, NULL);
 
 	if (info) {
-		if (info->parts) {
+		if (info->parts || (pdata && pdata->parts)) {
 			del_mtd_partitions(info->mtd);
 			kfree(info->parts);
 		} else
