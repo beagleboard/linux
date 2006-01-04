@@ -155,9 +155,9 @@ static struct omap_uart_config voiceblue_uart_config __initdata = {
 };
 
 static struct omap_board_config_kernel voiceblue_config[] = {
-	{ OMAP_TAG_USB, &voiceblue_usb_config },
-	{ OMAP_TAG_MMC, &voiceblue_mmc_config },
-	{ OMAP_TAG_UART,	&voiceblue_uart_config },
+	{ OMAP_TAG_USB,  &voiceblue_usb_config },
+	{ OMAP_TAG_MMC,  &voiceblue_mmc_config },
+	{ OMAP_TAG_UART, &voiceblue_uart_config },
 };
 
 static void __init voiceblue_init_irq(void)
