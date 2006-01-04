@@ -2771,8 +2771,8 @@ static int __init omap_udc_probe(struct platform_device *pdev)
 	}
 
 	if (cpu_is_omap16xx()) {
-		dc_clk = clk_get(dev, "usb_dc_ck");
-		hhc_clk = clk_get(dev, "usb_hhc_ck");
+		dc_clk = clk_get(&pdev->dev, "usb_dc_ck");
+		hhc_clk = clk_get(&pdev->dev, "usb_hhc_ck");
 		BUG_ON(IS_ERR(dc_clk) || IS_ERR(hhc_clk));
 		/* can't use omap_udc_enable_clock yet */
 		clk_use(dc_clk);
