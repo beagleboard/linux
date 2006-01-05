@@ -11,7 +11,7 @@ NAME=Sliding Snow Leopard
 # expect to learn how to build the kernel reading this file.
 
 # Add custom flags here to avoid conflict with updates
-EXTRAVERSION :=  $(EXTRAVERSION)-omap1
+EXTRAVERSION := $(EXTRAVERSION)-omap1
 
 # Do not print "Entering directory ..."
 MAKEFLAGS += --no-print-directory
