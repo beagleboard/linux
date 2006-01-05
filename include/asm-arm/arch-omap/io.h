@@ -119,6 +119,9 @@ typedef struct { volatile u32 offset[4096]; } __regbase32;
 extern void omap1_map_common_io(void);
 extern void omap1_init_common_hw(void);
 
+extern void omap2_map_common_io(void);
+extern void omap2_init_common_hw(void);
+
 #else
 
 #define __REG8(paddr)		io_p2v(paddr)
