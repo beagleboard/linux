@@ -137,9 +137,9 @@ void omap_pm_idle(void)
 
 	do_sleep = 0;
 	while (enable_dyn_sleep) {
-		extern int vbus_active;
 
 #ifdef CONFIG_CBUS_TAHVO_USB
+		extern int vbus_active;
 		/* Clock requirements? */
 		if (vbus_active)
 			break;
