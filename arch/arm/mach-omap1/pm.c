@@ -1,5 +1,5 @@
 /*
- * linux/arch/arm/plat-omap/pm.c
+ * linux/arch/arm/mach-omap1/pm.c
  *
  * OMAP Power Management Routines
  *
