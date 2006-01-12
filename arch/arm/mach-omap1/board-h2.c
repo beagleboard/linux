@@ -36,6 +36,7 @@
 #include <asm/arch/gpio.h>
 #include <asm/arch/mux.h>
 #include <asm/arch/tc.h>
+#include <asm/arch/irda.h>
 #include <asm/arch/usb.h>
 #include <asm/arch/common.h>
 
@@ -171,10 +172,44 @@ static struct platform_device h2_smc91x_device = {
 	.resource	= h2_smc91x_resources,
 };
 
+#define H2_IRDA_FIRSEL_GPIO_PIN	17
+
+static int h2_transceiver_mode(struct device *dev, int state)
+{
+	if (state & IR_SIRMODE)
+		omap_set_gpio_dataout(H2_IRDA_FIRSEL_GPIO_PIN, 0);
+	else    /* MIR/FIR */
+		omap_set_gpio_dataout(H2_IRDA_FIRSEL_GPIO_PIN, 1);
+
+	return 0;
+}
+
+static struct omap_irda_config h2_irda_data = {
+	.transceiver_cap	= IR_SIRMODE | IR_MIRMODE | IR_FIRMODE,
+};
+
+static struct resource h2_irda_resources[] = {
+	[0] = {
+		.start	= INT_UART3,
+		.end	= INT_UART3,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+static struct platform_device h2_irda_device = {
+	.name		= "omapirda",
+	.id		= 0,
+	.dev		= {
+		.platform_data	= &h2_irda_data,
+	},
+	.num_resources	= ARRAY_SIZE(h2_irda_resources),
+	.resource	= h2_irda_resources,
+};
+
 static struct platform_device *h2_devices[] __initdata = {
 	&h2_nor_device,
 	&h2_nand_device,
 	&h2_smc91x_device,
+	&h2_irda_device,
 };
 
 static void __init h2_init_smc91x(void)
@@ -266,6 +301,15 @@ static void __init h2_init(void)
 	/* MMC:  card detect and WP */
 	// omap_cfg_reg(U19_ARMIO1);		/* CD */
 	omap_cfg_reg(BALLOUT_V8_ARMIO3);	/* WP */
+
+	/* Irda */
+#if defined(CONFIG_OMAP_IR) || defined(CONFIG_OMAP_IR_MODULE)
+	omap_writel(omap_readl(FUNC_MUX_CTRL_A) | 7, FUNC_MUX_CTRL_A);
+	if (!(omap_request_gpio(H2_IRDA_FIRSEL_GPIO_PIN))) {
+		omap_set_gpio_direction(H2_IRDA_FIRSEL_GPIO_PIN, 0);
+		h2_irda_data.transceiver_mode = h2_transceiver_mode;
+	}
+#endif
 
 	platform_add_devices(h2_devices, ARRAY_SIZE(h2_devices));
 	omap_board_config = h2_config;

@@ -43,7 +43,7 @@ obj-$(CONFIG_OLD_BELKIN_DONGLE)	+= old_belkin-sir.o
 obj-$(CONFIG_MCP2120_DONGLE)	+= mcp2120-sir.o
 obj-$(CONFIG_ACT200L_DONGLE)	+= act200l-sir.o
 obj-$(CONFIG_MA600_DONGLE)	+= ma600-sir.o
-obj-$(CONFIG_OMAP1610_IR)       += omap1610-ir.o
+obj-$(CONFIG_OMAP_IR)		+= omap-ir.o
 
 
 # The SIR helper module

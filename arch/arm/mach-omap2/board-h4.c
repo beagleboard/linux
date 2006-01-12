@@ -17,6 +17,7 @@
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
 #include <linux/delay.h>
+#include <linux/workqueue.h>
 
 #include <asm/hardware.h>
 #include <asm/mach-types.h>
@@ -25,8 +26,10 @@
 #include <asm/mach/flash.h>
 
 #include <asm/arch/gpio.h>
+#include <asm/arch/gpioexpander.h>
 #include <asm/arch/mux.h>
 #include <asm/arch/usb.h>
+#include <asm/arch/irda.h>
 #include <asm/arch/board.h>
 #include <asm/arch/common.h>
 #include "prcm-regs.h"
@@ -108,9 +111,93 @@ static struct platform_device h4_smc91x_device = {
 	.resource	= h4_smc91x_resources,
 };
 
+/* Select between the IrDA and aGPS module
+ */
+static int h4_select_irda(struct device *dev, int state)
+{
+	unsigned char expa;
+	int err = 0;
+
+	if ((err = read_gpio_expa(&expa, 0x21))) {
+		printk(KERN_ERR "Error reading from I/O expander\n");
+		return err;
+	}
+
+	/* 'P6' enable/disable IRDA_TX and IRDA_RX */
+	if (state & IR_SEL) {	/* IrDa */
+		if ((err = write_gpio_expa(expa | 0x01, 0x21))) {
+			printk(KERN_ERR "Error writing to I/O expander\n");
+			return err;
+		}
+	} else {
+		if ((err = write_gpio_expa(expa & ~0x01, 0x21))) {
+			printk(KERN_ERR "Error writing to I/O expander\n");
+			return err;
+		}
+	}
+	return err;
+}
+
+static void set_trans_mode(void *data)
+{
+	int *mode = data;
+	unsigned char expa;
+	int err = 0;
+
+	if ((err = read_gpio_expa(&expa, 0x20)) != 0) {
+		printk(KERN_ERR "Error reading from I/O expander\n");
+	}
+
+	expa &= ~0x01;
+
+	if (!(*mode & IR_SIRMODE)) { /* MIR/FIR */
+		expa |= 0x01;
+	}
+
+	if ((err = write_gpio_expa(expa, 0x20)) != 0) {
+		printk(KERN_ERR "Error writing to I/O expander\n");
+	}
+}
+
+static int h4_transceiver_mode(struct device *dev, int mode)
+{
+	struct omap_irda_config *irda_config = dev->platform_data;
+
+	cancel_delayed_work(&irda_config->gpio_expa);
+	PREPARE_WORK(&irda_config->gpio_expa, set_trans_mode, &mode);
+	schedule_work(&irda_config->gpio_expa);
+
+	return 0;
+}
+
+static struct omap_irda_config h4_irda_data = {
+	.transceiver_cap	= IR_SIRMODE | IR_MIRMODE | IR_FIRMODE,
+	.transceiver_mode	= h4_transceiver_mode,
+	.select_irda	 	= h4_select_irda,
+};
+
+static struct resource h4_irda_resources[] = {
+	[0] = {
+		.start	= INT_24XX_UART3_IRQ,
+		.end	= INT_24XX_UART3_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device h4_irda_device = {
+	.name		= "omapirda",
+	.id		= -1,
+	.dev		= {
+		.platform_data	= &h4_irda_data,
+	},
+	.num_resources	= 1,
+	.resource	= h4_irda_resources,
+};
+
 static struct platform_device *h4_devices[] __initdata = {
 	&h4_smc91x_device,
 	&h4_flash_device,
+	&h4_irda_device,
 };
 
 static inline void __init h4_init_smc91x(void)
@@ -174,6 +261,10 @@ static void __init omap_h4_init(void)
 	 * You have to mux them off in device drivers later on
 	 * if not needed.
 	 */
+#if defined(CONFIG_OMAP_IR) || defined(CONFIG_OMAP_IR_MODULE)
+	omap_cfg_reg(K15_24XX_UART3_TX);
+	omap_cfg_reg(K14_24XX_UART3_RX);
+#endif
 	platform_add_devices(h4_devices, ARRAY_SIZE(h4_devices));
 	omap_board_config = h4_config;
 	omap_board_config_size = ARRAY_SIZE(h4_config);

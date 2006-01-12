@@ -410,6 +410,11 @@ enum omap24xx_index {
 	/* 24xx GPIO */
 	Y20_24XX_GPIO60,
 	M15_24XX_GPIO92,
+
+	/* UART3 */
+	K15_24XX_UART3_TX,
+	K14_24XX_UART3_RX,
+
 };
 
 #ifdef	CONFIG_OMAP_MUX

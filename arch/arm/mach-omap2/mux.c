@@ -54,6 +54,10 @@ MUX_CFG_24XX("W19_24XX_SYS_NIRQ",	0x12c,	0,	1,	1,	1)
 MUX_CFG_24XX("Y20_24XX_GPIO60",		0x12c,	3,	0,	0,	1)
 MUX_CFG_24XX("M15_24XX_GPIO92",		0x10a,	3,	0,	0,	1)
 
+/* UART3  */
+MUX_CFG_24XX("K15_24XX_UART3_TX",	0x118,	0,	0,	0,	1)
+MUX_CFG_24XX("K14_24XX_UART3_RX",	0x119,	0,	0,	0,	1)
+
 };
 
 int __init omap2_mux_init(void)

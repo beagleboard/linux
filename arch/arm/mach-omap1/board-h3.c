@@ -21,6 +21,7 @@
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
 #include <linux/errno.h>
+#include <linux/workqueue.h>
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/nand.h>
 #include <linux/mtd/partitions.h>
@@ -34,9 +35,11 @@
 #include <asm/mach/map.h>
 
 #include <asm/arch/gpio.h>
+#include <asm/arch/gpioexpander.h>
 #include <asm/arch/irqs.h>
 #include <asm/arch/mux.h>
 #include <asm/arch/tc.h>
+#include <asm/arch/irda.h>
 #include <asm/arch/usb.h>
 #include <asm/arch/common.h>
 
@@ -193,11 +196,96 @@ static struct platform_device intlat_device = {
 	.resource       = intlat_resources,
 };
 
+/* Select between the IrDA and aGPS module
+ */
+static int h3_select_irda(struct device *dev, int state)
+{
+	unsigned char expa;
+	int err = 0;
+
+	if ((err = read_gpio_expa(&expa, 0x26))) {
+		printk(KERN_ERR "Error reading from I/O EXPANDER \n");
+		return err;
+	}
+
+	/* 'P6' enable/disable IRDA_TX and IRDA_RX */
+	if (state & IR_SEL) { /* IrDA */
+		if ((err = write_gpio_expa(expa | 0x40, 0x26))) {
+			printk(KERN_ERR "Error writing to I/O EXPANDER \n");
+			return err;
+		}
+	} else {
+		if ((err = write_gpio_expa(expa & ~0x40, 0x26))) {
+			printk(KERN_ERR "Error writing to I/O EXPANDER \n");
+			return err;
+		}
+	}
+	return err;
+}
+
+static void set_trans_mode(void *data)
+{
+	int *mode = data;
+	unsigned char expa;
+	int err = 0;
+
+	if ((err = read_gpio_expa(&expa, 0x27)) != 0) {
+		printk(KERN_ERR "Error reading from I/O expander\n");
+	}
+
+	expa &= ~0x03;
+
+	if (*mode & IR_SIRMODE) {
+		expa |= 0x01;
+	} else { /* MIR/FIR */
+		expa |= 0x03;
+	}
+
+	if ((err = write_gpio_expa(expa, 0x27)) != 0) {
+		printk(KERN_ERR "Error writing to I/O expander\n");
+	}
+}
+
+static int h3_transceiver_mode(struct device *dev, int mode)
+{
+	struct omap_irda_config *irda_config = dev->platform_data;
+
+	cancel_delayed_work(irda_config->gpio_expa);
+	PREPARE_WORK(irda_config->gpio_expa, set_trans_mode, &mode);
+	schedule_work(irda_config->gpio_expa);
+
+	return 0;
+}
+
+static struct omap_irda_config h3_irda_data = {
+	.transceiver_cap	= IR_SIRMODE | IR_MIRMODE | IR_FIRMODE,
+	.transceiver_mode	= h3_transceiver_mode,
+	.select_irda	 	= h3_select_irda,
+};
+
+static struct resource h3_irda_resources[] = {
+	[0] = {
+		.start	= INT_UART3,
+		.end	= INT_UART3,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+static struct platform_device h3_irda_device = {
+	.name		= "omapirda",
+	.id		= 0,
+	.dev		= {
+		.platform_data	= &h3_irda_data,
+	},
+	.num_resources	= ARRAY_SIZE(h3_irda_resources),
+	.resource	= h3_irda_resources,
+};
+
 static struct platform_device *devices[] __initdata = {
 	&nor_device,
 	&nand_device,
         &smc91x_device,
 	&intlat_device,
+	&h3_irda_device,
 };
 
 static struct omap_usb_config h3_usb_config __initdata = {
