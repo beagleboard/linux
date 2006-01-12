@@ -293,13 +293,13 @@ static __init void omap_init_32k_timer(void)
 		if (IS_ERR(gpt1_ick))
 			printk(KERN_ERR "Could not get gpt1_ick\n");
 		else
-			clk_use(gpt1_ick);
+			clk_enable(gpt1_ick);
 
 		gpt1_fck = clk_get(NULL, "gpt1_fck");
 		if (IS_ERR(gpt1_fck))
 			printk(KERN_ERR "Could not get gpt1_fck\n");
 		else
-			clk_use(gpt1_fck);
+			clk_enable(gpt1_fck);
 
 		mdelay(100);		/* Wait for clocks to stabilize */
 

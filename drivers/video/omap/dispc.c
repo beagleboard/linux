@@ -638,20 +638,20 @@ static void put_dss_clocks(void)
 static void enable_lcd_clocks(int enable)
 {
 	if (enable) {
-		clk_use(dispc.dss_ick);
-		clk_use(dispc.dss1_fck);
+		clk_enable(dispc.dss_ick);
+		clk_enable(dispc.dss1_fck);
 	} else {
-		clk_unuse(dispc.dss1_fck);
-		clk_unuse(dispc.dss_ick);
+		clk_disable(dispc.dss1_fck);
+		clk_disable(dispc.dss_ick);
 	}
 }
 
 static void enable_digit_clocks(int enable)
 {
 	if (enable)
-		clk_use(dispc.dss_54m_fck);
+		clk_enable(dispc.dss_54m_fck);
 	else
-		clk_unuse(dispc.dss_54m_fck);
+		clk_disable(dispc.dss_54m_fck);
 }
 
 static void omap_dispc_suspend(void)

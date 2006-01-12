@@ -759,7 +759,7 @@ int omap_aic23_clock_on(void)
 		return -ECANCELED;
 	}
 
-	clk_use(aic23_mclk);
+	clk_enable(aic23_mclk);
 
 	printk(KERN_DEBUG
 		"MCLK = %d [%d], usecount = %d\n",
@@ -787,7 +787,7 @@ int omap_aic23_clock_off(void)
 			       CODEC_CLOCK);
 		}
 
-		clk_unuse(aic23_mclk);
+		clk_disable(aic23_mclk);
 	}
 	
 	audio_aic23_write(POWER_DOWN_CONTROL_ADDR,

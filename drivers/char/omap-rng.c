@@ -83,7 +83,7 @@ static int __init rng_init(void)
 			printk(KERN_ERR "omap-rng.c: Could not get rng_ick\n");
 			return PTR_ERR(rng_ick);
 		}
-		clk_use(rng_ick);
+		clk_enable(rng_ick);
 	}
 
 	printk("OMAP Random Number Generator ver. %02x\n",

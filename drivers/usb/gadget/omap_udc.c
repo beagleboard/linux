@@ -1315,12 +1315,12 @@ static void omap_udc_enable_clock(int enable)
 		return;
 
 	if (enable) {
-		clk_use(udc->dc_clk);
-		clk_use(udc->hhc_clk);
+		clk_enable(udc->dc_clk);
+		clk_enable(udc->hhc_clk);
 		udelay(100);
 	} else {
-		clk_unuse(udc->hhc_clk);
-		clk_unuse(udc->dc_clk);
+		clk_disable(udc->hhc_clk);
+		clk_disable(udc->dc_clk);
 	}
 }
 
@@ -2775,8 +2775,8 @@ static int __init omap_udc_probe(struct platform_device *pdev)
 		hhc_clk = clk_get(&pdev->dev, "usb_hhc_ck");
 		BUG_ON(IS_ERR(dc_clk) || IS_ERR(hhc_clk));
 		/* can't use omap_udc_enable_clock yet */
-		clk_use(dc_clk);
-		clk_use(hhc_clk);
+		clk_enable(dc_clk);
+		clk_enable(hhc_clk);
 		udelay(100);
 	}
 
@@ -2905,8 +2905,8 @@ bad_on_1710:
 	if (cpu_is_omap16xx()) {
 		udc->dc_clk = dc_clk;
 		udc->hhc_clk = hhc_clk;
-		clk_unuse(hhc_clk);
-		clk_unuse(dc_clk);
+		clk_disable(hhc_clk);
+		clk_disable(dc_clk);
 	}
 
 	create_proc_file();
@@ -2930,8 +2930,8 @@ cleanup0:
 		put_device(xceiv->dev);
 
  	if (cpu_is_omap16xx()) {
- 		clk_unuse(hhc_clk);
- 		clk_unuse(dc_clk);
+ 		clk_disable(hhc_clk);
+ 		clk_disable(dc_clk);
  		clk_put(hhc_clk);
  		clk_put(dc_clk);
  	}

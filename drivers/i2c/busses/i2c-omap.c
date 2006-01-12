@@ -555,11 +555,11 @@ static void omap_i2c_24xx_enable_clocks(struct omap_i2c_dev *omap_i2c_dev,
 {
 	if (cpu_is_omap24xx()) {
 		if (enable) {
-			clk_use(omap_i2c_dev->iclk);
-			clk_use(omap_i2c_dev->fclk);
+			clk_enable(omap_i2c_dev->iclk);
+			clk_enable(omap_i2c_dev->fclk);
 		} else {
-			clk_unuse(omap_i2c_dev->iclk);
-			clk_unuse(omap_i2c_dev->fclk);
+			clk_disable(omap_i2c_dev->iclk);
+			clk_disable(omap_i2c_dev->fclk);
 		}
 	}
 }

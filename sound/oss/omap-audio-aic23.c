@@ -689,7 +689,7 @@ static int __init audio_aic23_init(void)
 			}
 		}
 
-                clk_use( aic23_mclk );
+                clk_enable( aic23_mclk );
 
                 DPRINTK("MCLK = %d [%d], usecount = %d\n",(uint)clk_get_rate( aic23_mclk ), 
                         CODEC_CLOCK, clk_get_usecount( aic23_mclk));

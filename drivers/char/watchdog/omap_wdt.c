@@ -120,12 +120,12 @@ static int omap_wdt_open(struct inode *inode, struct file *file)
 		return -EBUSY;
 
 	if (cpu_is_omap16xx()) {
-		clk_use(armwdt_ck);	/* Enable the clock */
+		clk_enable(armwdt_ck);	/* Enable the clock */
 	}
 
 	if (cpu_is_omap24xx()) {
-		clk_use(mpu_wdt_ick);	/* Enable the interface clock */
-		clk_use(mpu_wdt_fck);	/* Enable the functional clock */
+		clk_enable(mpu_wdt_ick);	/* Enable the interface clock */
+		clk_enable(mpu_wdt_fck);	/* Enable the functional clock */
 	}
 
 	/* initialize prescaler */
@@ -149,14 +149,14 @@ static int omap_wdt_release(struct inode *inode, struct file *file)
 	omap_wdt_disable();
 
 	if (cpu_is_omap16xx()) {
-		clk_unuse(armwdt_ck);	/* Disable the clock */
+		clk_disable(armwdt_ck);	/* Disable the clock */
 		clk_put(armwdt_ck);
 		armwdt_ck = NULL;
 	}
 
 	if (cpu_is_omap24xx()) {
-		clk_unuse(mpu_wdt_ick);	/* Disable the clock */
-		clk_unuse(mpu_wdt_fck);	/* Disable the clock */
+		clk_disable(mpu_wdt_ick);	/* Disable the clock */
+		clk_disable(mpu_wdt_fck);	/* Disable the clock */
 		clk_put(mpu_wdt_ick);
 		clk_put(mpu_wdt_fck);
 		mpu_wdt_ick = NULL;

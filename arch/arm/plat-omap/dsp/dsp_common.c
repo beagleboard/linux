@@ -171,7 +171,7 @@ static void dsp_gbl_idle(void)
 	unsigned char idle_text[GBL_IDLE_TEXT_SIZE] = GBL_IDLE_TEXT_INIT;
 
 	__dsp_reset();
-	clk_use(api_ck_handle);
+	clk_enable(api_ck_handle);
 
 #if 0
 	omap_writew(MPUI_DSP_BOOT_CONFIG_IDLE, MPUI_DSP_BOOT_CONFIG);
@@ -185,7 +185,7 @@ static void dsp_gbl_idle(void)
 
 	__dsp_run();
 	udelay(100);	/* to make things stable */
-	clk_unuse(api_ck_handle);
+	clk_disable(api_ck_handle);
 }
 
 static void dsp_cpu_idle(void)
@@ -194,7 +194,7 @@ static void dsp_cpu_idle(void)
 	unsigned char icrh, icrl;
 
 	__dsp_reset();
-	clk_use(api_ck_handle);
+	clk_enable(api_ck_handle);
 
 	/*
 	 * icr settings:
@@ -216,7 +216,7 @@ static void dsp_cpu_idle(void)
 		dsp_set_rstvect(idle_boot_base);
 	__dsp_run();
 	udelay(100);	/* to make things stable */
-	clk_unuse(api_ck_handle);
+	clk_disable(api_ck_handle);
 }
 
 void dsp_set_idle_boot_base(unsigned long adr, size_t size)
@@ -243,7 +243,7 @@ static int init_done;
 
 /*
  * note: if we are in pm_suspend / pm_resume function,
- * we are out of clk_use() management.
+ * we are out of clk_enable() management.
  */
 void omap_dsp_pm_suspend(void)
 {
@@ -255,6 +255,8 @@ void omap_dsp_pm_suspend(void)
 	if (! init_done)
 		return;
 
+	/* DSP code may have turned this on, make sure it gets turned off */
+	clk_enable(dsp_ck_handle);
 	clk_disable(dsp_ck_handle);
 
 	/* Stop any DSP domain clocks */
@@ -263,6 +265,7 @@ void omap_dsp_pm_suspend(void)
 	save_dsp_idlect2 = __raw_readw(DSP_IDLECT2);
 	__raw_writew(0, DSP_IDLECT2);
 	omap_writew(save_arm_idlect2, ARM_IDLECT2);
+	clk_disable(api_ck_handle);
 }
 
 void omap_dsp_pm_resume(void)
@@ -277,6 +280,7 @@ void omap_dsp_pm_resume(void)
 	clk_enable(api_ck_handle);
 	__raw_writew(save_dsp_idlect2, DSP_IDLECT2);
 	omap_writew(save_arm_idlect2, ARM_IDLECT2);
+	clk_disable(api_ck_handle);
 
 	/* Run DSP, if it was running */
 	if (cpustat.stat != CPUSTAT_RESET)
@@ -340,7 +344,7 @@ static void dsp_cpustat_update(void)
 	if (cpustat.req == CPUSTAT_RUN) {
 		if (cpustat.stat < CPUSTAT_RUN) {
 			__dsp_reset();
-			clk_use(api_ck_handle);
+			clk_enable(api_ck_handle);
 			udelay(10);
 			__dsp_run();
 			cpustat.stat = CPUSTAT_RUN;
@@ -353,7 +357,7 @@ static void dsp_cpustat_update(void)
 
 	if (cpustat.stat == CPUSTAT_RUN) {
 		disable_irq(INT_DSP_MMU);
-		clk_unuse(api_ck_handle);
+		clk_disable(api_ck_handle);
 	}
 
 	/*

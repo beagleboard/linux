@@ -240,7 +240,7 @@ mmc_omap_start_command(struct mmc_omap_host *host, struct mmc_command *cmd)
 	if (host->data && !(host->data->flags & MMC_DATA_WRITE))
 		cmdreg |= 1 << 15;
 
-	clk_use(host->fclk);
+	clk_enable(host->fclk);
 
 	OMAP_MMC_WRITE(host->base, CTO, 200);
 	OMAP_MMC_WRITE(host->base, ARGL, cmd->arg & 0xffff);
@@ -274,7 +274,7 @@ mmc_omap_xfer_done(struct mmc_omap_host *host, struct mmc_data *data)
 	}
 	host->data = NULL;
 	host->sg_len = 0;
-	clk_unuse(host->fclk);
+	clk_disable(host->fclk);
 
 	/* NOTE:  MMC layer will sometimes poll-wait CMD13 next, issuing
 	 * dozens of requests until the card finishes writing data.
@@ -378,7 +378,7 @@ mmc_omap_cmd_done(struct mmc_omap_host *host, struct mmc_command *cmd)
 	if (host->data == NULL || cmd->error != MMC_ERR_NONE) {
 		DBG("MMC%d: End request, err %x\n", host->id, cmd->error);
 		host->mrq = NULL;
-		clk_unuse(host->fclk);
+		clk_disable(host->fclk);
 		mmc_request_done(host->mmc, cmd->mrq);
 	}
 }
@@ -1131,7 +1131,7 @@ static void mmc_omap_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	}
 	host->hw_bus_mode = host->bus_mode;
 
-	clk_use(host->fclk);
+	clk_enable(host->fclk);
 
 	/* On insanely high arm_per frequencies something sometimes
 	 * goes somehow out of sync, and the POW bit is not being set,
@@ -1147,7 +1147,7 @@ static void mmc_omap_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		while (0 == (OMAP_MMC_READ(host->base, STAT) & 1));
 		OMAP_MMC_WRITE(host->base, STAT, 1);
 	}
-	clk_unuse(host->fclk);
+	clk_disable(host->fclk);
 }
 
 static int mmc_omap_get_ro(struct mmc_host *mmc)
@@ -1203,7 +1203,7 @@ static int __init mmc_omap_probe(struct platform_device *pdev)
 		host->iclk = clk_get(&pdev->dev, "mmc_ick");
 		if (IS_ERR(host->iclk))
 			goto out;
-		clk_use(host->iclk);
+		clk_enable(host->iclk);
 	}
 
 	if (!cpu_is_omap24xx())

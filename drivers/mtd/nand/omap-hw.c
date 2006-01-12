@@ -740,7 +740,7 @@ static int __init omap_nand_init(void)
 
 	omap_nand_clk = clk_get(NULL, "armper_ck");
 	BUG_ON(omap_nand_clk == NULL);
-	clk_use(omap_nand_clk);
+	clk_enable(omap_nand_clk);
 
 	l = nand_read_reg(NND_REVISION);	
 	printk(KERN_INFO "omap-hw-nand: OMAP NAND Controller rev. %d.%d\n", l>>4, l & 0xf);
@@ -838,7 +838,7 @@ module_init(omap_nand_init);
  */
 static void __exit omap_nand_cleanup (void)
 {
-	clk_unuse(omap_nand_clk);
+	clk_disable(omap_nand_clk);
 	clk_put(omap_nand_clk);
 	nand_release(omap_mtd);
 	kfree(omap_mtd);

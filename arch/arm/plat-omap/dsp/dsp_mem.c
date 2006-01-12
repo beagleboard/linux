@@ -662,7 +662,7 @@ static int dsp_mmu_load_tlb(unsigned long vadr, unsigned long padr,
 	int lbase, victim;
 	unsigned short cam_l_va_mask;
 
-	clk_use(dsp_ck_handle);
+	clk_enable(dsp_ck_handle);
 
 	get_tlb_lock(&lbase, NULL);
 	for (victim = 0; victim < lbase; victim++) {
@@ -700,7 +700,7 @@ found_victim:
 		lbase++;
 	set_tlb_lock(lbase, lbase);
 
-	clk_unuse(dsp_ck_handle);
+	clk_disable(dsp_ck_handle);
 	return 0;
 }
 
@@ -710,7 +710,7 @@ static int dsp_mmu_clear_tlb(unsigned long vadr)
 	int i;
 	int max_valid = 0;
 
-	clk_use(dsp_ck_handle);
+	clk_enable(dsp_ck_handle);
 
 	get_tlb_lock(&lbase, NULL);
 	for (i = 0; i < lbase; i++) {
@@ -740,18 +740,18 @@ static int dsp_mmu_clear_tlb(unsigned long vadr)
 	/* set new lock base */
 	set_tlb_lock(max_valid+1, max_valid+1);
 
-	clk_unuse(dsp_ck_handle);
+	clk_disable(dsp_ck_handle);
 	return 0;
 }
 
 static void dsp_mmu_gflush(void)
 {
-	clk_use(dsp_ck_handle);
+	clk_enable(dsp_ck_handle);
 
 	__dsp_mmu_gflush();
 	set_tlb_lock(1, 1);
 
-	clk_unuse(dsp_ck_handle);
+	clk_disable(dsp_ck_handle);
 }
 
 /*
@@ -1149,7 +1149,7 @@ static void dsp_mmu_init(void)
 	unsigned long phys;
 	void *virt;
 
-	clk_use(dsp_ck_handle);
+	clk_enable(dsp_ck_handle);
 	down_write(&exmap_sem);
 
 	dsp_mmu_disable();	/* clear all */
@@ -1173,7 +1173,7 @@ static void dsp_mmu_init(void)
 	dsp_mmu_load_tlb(DSP_INIT_PAGE, phys, DSPMMU_CAM_L_SLST_4KB,
 			 DSPMMU_CAM_L_P, DSPMMU_RAM_L_AP_FA);
 	up_write(&exmap_sem);
-	clk_unuse(dsp_ck_handle);
+	clk_disable(dsp_ck_handle);
 }
 
 static void dsp_mmu_shutdown(void)
@@ -1279,7 +1279,7 @@ static ssize_t intmem_read(struct file *file, char *buf, size_t count,
 
 	if (p >= size)
 		return 0;
-	clk_use(api_ck_handle);
+	clk_enable(api_ck_handle);
 	read = count;
 	if (count > size - p)
 		read = size - p;
@@ -1289,7 +1289,7 @@ static ssize_t intmem_read(struct file *file, char *buf, size_t count,
 	}
 	*ppos += read;
 out:
-	clk_unuse(api_ck_handle);
+	clk_disable(api_ck_handle);
 	return read;
 }
 
@@ -1341,7 +1341,7 @@ static ssize_t intmem_write(struct file *file, const char *buf, size_t count,
 
 	if (p >= size)
 		return 0;
-	clk_use(api_ck_handle);
+	clk_enable(api_ck_handle);
 	written = count;
 	if (count > size - p)
 		written = size - p;
@@ -1351,7 +1351,7 @@ static ssize_t intmem_write(struct file *file, const char *buf, size_t count,
 	}
 	*ppos += written;
 out:
-	clk_unuse(api_ck_handle);
+	clk_disable(api_ck_handle);
 	return written;
 }
 
@@ -1481,7 +1481,7 @@ static ssize_t mmu_show(struct device *dev, struct device_attribute *attr,
 	int lbase, victim;
 	int i;
 
-	clk_use(dsp_ck_handle);
+	clk_enable(dsp_ck_handle);
 	down_read(&exmap_sem);
 
 	get_tlb_lock(&lbase, &victim);
@@ -1534,7 +1534,7 @@ static ssize_t mmu_show(struct device *dev, struct device_attribute *attr,
 	set_tlb_lock(lbase, victim);
 
 	up_read(&exmap_sem);
-	clk_unuse(dsp_ck_handle);
+	clk_disable(dsp_ck_handle);
 	return len;
 }
 

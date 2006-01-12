@@ -73,13 +73,13 @@ static int host_initialized;
 static void omap_ohci_clock_power(int on)
 {
 	if (on) {
-		clk_use(usb_dc_ck);
-		clk_use(usb_host_ck);
+		clk_enable(usb_dc_ck);
+		clk_enable(usb_host_ck);
 		/* guesstimate for T5 == 1x 32K clock + APLL lock time */
 		udelay(100);
 	} else {
-		clk_unuse(usb_host_ck);
-		clk_unuse(usb_dc_ck);
+		clk_disable(usb_host_ck);
+		clk_disable(usb_dc_ck);
 	}
 }
 

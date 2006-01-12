@@ -603,7 +603,7 @@ static int omap_lcdc_init(struct omapfb_device *fbdev, int ext_mode,
 		pr_err("failed to adjust LCD rate\n");
 		goto fail1;
 	}
-	clk_use(omap_lcdc.lcd_ck);
+	clk_enable(omap_lcdc.lcd_ck);
 
 	r = request_irq(OMAP_LCDC_IRQ, lcdc_irq_handler, 0, "omap-lcdc",
 			omap_lcdc.fbdev);
@@ -638,7 +638,7 @@ fail4:
 fail3:
 	free_irq(OMAP_LCDC_IRQ, omap_lcdc.fbdev);
 fail2:
-	clk_unuse(omap_lcdc.lcd_ck);
+	clk_disable(omap_lcdc.lcd_ck);
 fail1:
 	clk_put(omap_lcdc.lcd_ck);
 fail0:
@@ -652,7 +652,7 @@ static void omap_lcdc_cleanup(void)
 			      omap_lcdc.vram_virt, omap_lcdc.vram_phys);
 	omap_free_lcd_dma();
 	free_irq(OMAP_LCDC_IRQ, omap_lcdc.fbdev);
-	clk_unuse(omap_lcdc.lcd_ck);
+	clk_disable(omap_lcdc.lcd_ck);
 	clk_put(omap_lcdc.lcd_ck);
 }
 

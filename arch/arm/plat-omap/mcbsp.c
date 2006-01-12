@@ -192,11 +192,11 @@ static void omap_mcbsp_dsp_request(void)
 {
 	if (cpu_is_omap1510() || cpu_is_omap16xx()) {
 		omap_dsp_request_mem();
-		clk_use(mcbsp_dsp_ck);
-		clk_use(mcbsp_api_ck);
+		clk_enable(mcbsp_dsp_ck);
+		clk_enable(mcbsp_api_ck);
 
 		/* enable 12MHz clock to mcbsp 1 & 3 */
-		clk_use(mcbsp_dspxor_ck);
+		clk_enable(mcbsp_dspxor_ck);
 
 		/*
 		 * DSP external peripheral reset
@@ -211,9 +211,9 @@ static void omap_mcbsp_dsp_free(void)
 {
 	if (cpu_is_omap1510() || cpu_is_omap16xx()) {
 		omap_dsp_release_mem();
-		clk_unuse(mcbsp_dspxor_ck);
-		clk_unuse(mcbsp_dsp_ck);
-		clk_unuse(mcbsp_api_ck);
+		clk_disable(mcbsp_dspxor_ck);
+		clk_disable(mcbsp_dsp_ck);
+		clk_disable(mcbsp_api_ck);
 	}
 }
 
