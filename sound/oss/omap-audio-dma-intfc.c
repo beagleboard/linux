@@ -701,12 +701,25 @@ static int audio_set_dma_params_play(int channel, dma_addr_t dma_ptr,
 	int dt = 0x1;		/* data type 16 */
 	int cen = 32;		/* Stereo */
 	int cfn = dma_size / (2 * cen);
+	unsigned long dest_start;
+	int dest_port = 0;
+	int sync_dev = 0;
+
 	FN_IN;
-	omap_set_dma_dest_params(channel, 0x05, 0x00,
-				 (OMAP1610_MCBSP1_BASE + 0x806),
-				 0, 0);
-	omap_set_dma_src_params(channel, 0x00, 0x01, dma_ptr, 0, 0);
-	omap_set_dma_transfer_params(channel, dt, cen, cfn, 0x00, 0, 0);
+
+	if (cpu_is_omap16xx()) {
+		dest_start = (OMAP1610_MCBSP1_BASE + 0x806);
+		dest_port = OMAP_DMA_PORT_MPUI;
+	}
+	if (cpu_is_omap24xx()) {
+		dest_start = AUDIO_MCBSP_DATAWRITE;
+		sync_dev = AUDIO_DMA_TX;
+	}
+
+	omap_set_dma_dest_params(channel, dest_port, OMAP_DMA_AMODE_CONSTANT, dest_start, 0, 0);
+	omap_set_dma_src_params(channel, 0, OMAP_DMA_AMODE_POST_INC, dma_ptr, 0, 0);
+	omap_set_dma_transfer_params(channel, dt, cen, cfn, OMAP_DMA_SYNC_ELEMENT, sync_dev, 0);
+
 	FN_OUT(0);
 	return 0;
 }
@@ -717,12 +730,27 @@ static int audio_set_dma_params_capture(int channel, dma_addr_t dma_ptr,
 	int dt = 0x1;		/* data type 16 */
 	int cen = 16;		/* mono */
 	int cfn = dma_size / (2 * cen);
+	unsigned long src_start;
+	int src_port = 0;
+	int sync_dev = 0;
+	int src_sync = 0;
+
 	FN_IN;
-	omap_set_dma_src_params(channel, 0x05, 0x00,
-				(OMAP1610_MCBSP1_BASE + 0x802),
-				0, 0);
-	omap_set_dma_dest_params(channel, 0x00, 0x01, dma_ptr, 0, 0);
-	omap_set_dma_transfer_params(channel, dt, cen, cfn, 0x00, 0, 0);
+
+	if (cpu_is_omap16xx()) {
+		src_start = (OMAP1610_MCBSP1_BASE + 0x802);
+		src_port = OMAP_DMA_PORT_MPUI;
+	}
+	if (cpu_is_omap24xx()) {
+		src_start = AUDIO_MCBSP_DATAREAD;
+		sync_dev = AUDIO_DMA_RX;
+		src_sync = 1;
+	}
+
+	omap_set_dma_src_params(channel, src_port, OMAP_DMA_AMODE_CONSTANT, src_start, 0, 0);
+	omap_set_dma_dest_params(channel, 0, OMAP_DMA_AMODE_POST_INC, dma_ptr, 0, 0);
+	omap_set_dma_transfer_params(channel, dt, cen, cfn, OMAP_DMA_SYNC_ELEMENT, sync_dev, src_sync);
+
 	FN_OUT(0);
 	return 0;
 }
@@ -732,10 +760,10 @@ static int audio_start_dma_chain(audio_stream_t * s)
 	int channel = s->lch[s->dma_q_head];
 	FN_IN;
 	if (!s->started) {
-	 s->hw_stop();	    /* stops McBSP Interface */
+		s->hw_stop();		/* stops McBSP Interface */
 		omap_start_dma(channel);
 		s->started = 1;
-		s->hw_start();	   /* start McBSP interface */
+		s->hw_start();		/* start McBSP interface */
 	}
 	/* else the dma itself will progress forward with out our help */
 	FN_OUT(0);
@@ -850,8 +878,9 @@ static void sound_dma_irq_handler(int sound_curr_lch, u16 ch_status, void *data)
 	DPRINTK("lch=%d,status=0x%x, dma_status=%d, data=%p\n", sound_curr_lch,
 		ch_status, dma_status, data);
 
-	if (dma_status & (DCSR_ERROR)) {
-		OMAP_DMA_CCR_REG(sound_curr_lch) &= ~DCCR_EN;
+	if (dma_status) {
+		if (cpu_is_omap16xx() && (dma_status & (DCSR_ERROR)))
+			OMAP_DMA_CCR_REG(sound_curr_lch) &= ~DCCR_EN;
 		ERR("DCSR_ERROR!\n");
 		FN_OUT(-1);
 		return;

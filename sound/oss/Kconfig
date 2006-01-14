@@ -13,13 +13,17 @@ config SOUND_OMAP
 
 config SOUND_OMAP_TSC2101
 	tristate "TSC2101 Stereo Codec"
-	depends on SOUND_OMAP && ( MACH_OMAP_H2 || MACH_OMAP_H3 )
-	select OMAP_TSC2101
-	select OMAP_UWIRE if ARCH_OMAP
+	depends on SOUND_OMAP && ( MACH_OMAP_H2 || MACH_OMAP_H3 || MACH_OMAP_H4)
+	select OMAP_TSC2101 if ( MACH_OMAP_H2 || MACH_OMAP_H3 )
+	select OMAP_UWIRE if ARCH_OMAP1
 	---help---
 	  Tsc2101 Audio Codec Driver for OMAP will be enabled.
 	  Will also Enable the following:
+	  case OMAP1:
 	  1. uWire Driver based on Platform
+	  2. TSC2101 Glue driver
+	  case OMAP2:
+	  1. McSPI Driver based on Platform
 	  2. TSC2101 Glue driver
 
 config SOUND_OMAP_AIC23

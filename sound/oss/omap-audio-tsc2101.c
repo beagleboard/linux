@@ -48,9 +48,10 @@
 #include "omap-audio.h"
 #include "omap-audio-dma-intfc.h"
 #include <asm/arch/mcbsp.h>
-#if CONFIG_ARCH_OMAP16XX
+#ifdef CONFIG_ARCH_OMAP16XX
 #include <../drivers/ssi/omap-uwire.h>
 #include <asm/arch/dsp_common.h>
+#elif defined(CONFIG_ARCH_OMAP24XX)
 #else
 #error "Unsupported configuration"
 #endif
@@ -70,12 +71,10 @@
 
 #define CODEC_NAME		 "TSC2101"
 
-#if CONFIG_ARCH_OMAP16XX
+#ifdef CONFIG_ARCH_OMAP16XX
 #define PLATFORM_NAME "OMAP16XX"
-#endif
-
-#if CONFIG_ARCH_OMAP16XX
-#define OMAP_DSP_BASE        0xE0000000
+#elif defined(CONFIG_ARCH_OMAP24XX)
+#define PLATFORM_NAME "OMAP2"
 #endif
 
 /* Define to set the tsc as the master w.r.t McBSP */
@@ -90,9 +89,9 @@
 #define LEAVE_CS 			          0x80
 
 /* Select the McBSP For Audio */
-#if CONFIG_ARCH_OMAP16XX
-#define AUDIO_MCBSP                   OMAP_MCBSP1
-#else
+/* 16XX is MCBSP1 and 24XX is MCBSP2*/
+/* see include/asm-arm/arch-omap/mcbsp.h */
+#ifndef AUDIO_MCBSP
 #error "UnSupported Configuration"
 #endif
 
@@ -147,16 +146,32 @@
 
 /***************************** Data Structures **********************************/
 
+static int audio_ifc_start(void)
+{
+	omap_mcbsp_start(AUDIO_MCBSP);
+	return 0;
+}
+
+static int audio_ifc_stop(void)
+{
+	omap_mcbsp_stop(AUDIO_MCBSP);
+	return 0;
+}
+
 static audio_stream_t output_stream = {
-	.id              = "TSC2101 out",
-	.dma_dev         = OMAP_DMA_MCBSP1_TX,
-	.input_or_output = FMODE_WRITE
+	.id			= "TSC2101 out",
+	.dma_dev		= AUDIO_DMA_TX,
+	.input_or_output	= FMODE_WRITE,
+	.hw_start		= audio_ifc_start,
+	.hw_stop		= audio_ifc_stop,
 };
 
 static audio_stream_t input_stream = {
-	.id              = "TSC2101 in",
-	.dma_dev         = OMAP_DMA_MCBSP1_RX,
-	.input_or_output = FMODE_READ
+	.id			= "TSC2101 in",
+	.dma_dev		= AUDIO_DMA_RX,
+	.input_or_output	= FMODE_READ,
+	.hw_start		= audio_ifc_start,
+	.hw_stop		= audio_ifc_stop,
 };
 
 static int audio_dev_id, mixer_dev_id;
@@ -227,9 +242,9 @@ static struct omap_mcbsp_reg_cfg initial_config = {
 	.srgr2 = GSYNC | CLKSP | FSGM | FPER(31),
 
 	/* platform specific initialization */
-#if CONFIG_MACH_OMAP_H2
+#ifdef CONFIG_MACH_OMAP_H2
 	.pcr0  = CLKXM | CLKRM | FSXP | FSRP | CLKXP | CLKRP,
-#elif CONFIG_MACH_OMAP_H3
+#elif defined(CONFIG_MACH_OMAP_H3) || defined(CONFIG_MACH_OMAP_H4)
 
 #ifndef TSC_MASTER
 	.pcr0  = FSXM | FSRM | CLKXM | CLKRM | CLKXP | CLKRP,
