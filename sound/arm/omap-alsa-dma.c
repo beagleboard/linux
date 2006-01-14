@@ -34,7 +34,9 @@
  * 2005-07-19	INdT Kernel Team - Alsa port. Creation of new file omap-alsa-dma.c based in
  * 				   omap-audio-dma-intfc.c oss file. Support for aic23 codec.
  * 				   Removal of buffer handling (Alsa does that), modifications
- * 				   in dma handling and port to alsa structures. 
+ *	in dma handling and port to alsa structures.
+ *
+ * 2005-12-18   Dirk Behme      - Added L/R Channel Interchange fix as proposed by Ajaya Babu
  */
 
 #include <linux/config.h>
@@ -356,8 +358,10 @@ static int audio_start_dma_chain(struct audio_stream *s)
 	int channel = s->lch[s->dma_q_head];
 	FN_IN;
 	if (!s->started) {
+	 s->hw_stop();	    /* stops McBSP Interface */
 		omap_start_dma(channel);
 		s->started = 1;
+		s->hw_start();	   /* start McBSP interface */
 	}
 	/* else the dma itself will progress forward with out our help */
 	FN_OUT(0);

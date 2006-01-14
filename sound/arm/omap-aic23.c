@@ -34,6 +34,8 @@
  *
  * 2005-07-29   INdT Kernel Team - Alsa driver for omap osk. Creation of new 
  *                                 file omap-aic23.c
+ *
+ * 2005-12-18   Dirk Behme      - Added L/R Channel Interchange fix as proposed by Ajaya Babu
  */
 
 #include <linux/config.h>
@@ -156,6 +158,20 @@ static snd_pcm_hw_constraint_list_t hw_constraints_rates = {
 	.mask = 0,
 };
 
+/*
+ * HW interface start and stop helper functions
+ */
+static int audio_ifc_start(void)
+{
+	omap_mcbsp_start(AUDIO_MCBSP);
+	return 0;
+}
+
+static int audio_ifc_stop(void)
+{
+	omap_mcbsp_stop(AUDIO_MCBSP);
+	return 0;
+}
 
 /*
  * Codec/mcbsp init and configuration section
@@ -243,12 +259,20 @@ static void omap_aic23_audio_init(struct snd_card_omap_aic23 *omap_aic23)
 	    SNDRV_PCM_STREAM_PLAYBACK;
 	omap_aic23->s[SNDRV_PCM_STREAM_PLAYBACK].dma_dev =
 	    OMAP_DMA_MCBSP1_TX;
+	omap_aic23->s[SNDRV_PCM_STREAM_PLAYBACK].hw_start =
+	    audio_ifc_start;
+	omap_aic23->s[SNDRV_PCM_STREAM_PLAYBACK].hw_stop =
+	    audio_ifc_stop;
 
 	omap_aic23->s[SNDRV_PCM_STREAM_CAPTURE].id = "Alsa AIC23 in";
 	omap_aic23->s[SNDRV_PCM_STREAM_CAPTURE].stream_id =
 	    SNDRV_PCM_STREAM_CAPTURE;
 	omap_aic23->s[SNDRV_PCM_STREAM_CAPTURE].dma_dev =
 	    OMAP_DMA_MCBSP1_RX;
+	omap_aic23->s[SNDRV_PCM_STREAM_CAPTURE].hw_start =
+	    audio_ifc_start;
+	omap_aic23->s[SNDRV_PCM_STREAM_CAPTURE].hw_stop =
+	    audio_ifc_stop;
 
 	/* configuring the McBSP */
 	omap_mcbsp_request(AUDIO_MCBSP);

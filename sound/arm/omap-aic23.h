@@ -33,7 +33,8 @@
  *  2005/07/25 INdT-10LE Kernel Team - 	Alsa driver for omap osk,
  *  					original version based in sa1100 driver
  *  					and omap oss driver.
- *  
+ *
+ *  2005-12-18   Dirk Behme      - Added L/R Channel Interchange fix as proposed by Ajaya Babu
  */
 
 #ifndef __OMAP_AIC23_H
@@ -85,6 +86,8 @@ struct audio_stream {
 	snd_pcm_substream_t *stream;	/* the pcm stream */
 	unsigned linked:1;	/* dma channels linked */
 	int offset;		/* store start position of the last period in the alsa buffer */
+	int (*hw_start)(void);  /* interface to start HW interface, e.g. McBSP */
+	int (*hw_stop)(void);   /* interface to stop HW interface, e.g. McBSP */
 };
 
 /*
