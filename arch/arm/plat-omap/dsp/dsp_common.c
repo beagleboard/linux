@@ -238,50 +238,19 @@ void dsp_set_idle_boot_base(unsigned long adr, size_t size)
 		dsp_cpu_idle();
 }
 
-static unsigned short save_dsp_idlect2;
 static int init_done;
 
 /*
  * note: if we are in pm_suspend / pm_resume function,
- * we are out of clk_enable() management.
  */
 void omap_dsp_pm_suspend(void)
 {
-	unsigned short save_arm_idlect2;
-
 	/* Reset DSP */
 	__dsp_reset();
-
-	if (! init_done)
-		return;
-
-	/* DSP code may have turned this on, make sure it gets turned off */
-	clk_enable(dsp_ck_handle);
-	clk_disable(dsp_ck_handle);
-
-	/* Stop any DSP domain clocks */
-	save_arm_idlect2 = omap_readw(ARM_IDLECT2); // api_ck is in ARM_IDLECT2
-	clk_enable(api_ck_handle);
-	save_dsp_idlect2 = __raw_readw(DSP_IDLECT2);
-	__raw_writew(0, DSP_IDLECT2);
-	omap_writew(save_arm_idlect2, ARM_IDLECT2);
-	clk_disable(api_ck_handle);
 }
 
 void omap_dsp_pm_resume(void)
 {
-	unsigned short save_arm_idlect2;
-
-	if (! init_done)
-		return;
-
-	/* Restore DSP domain clocks */
-	save_arm_idlect2 = omap_readw(ARM_IDLECT2); // api_ck is in ARM_IDLECT2
-	clk_enable(api_ck_handle);
-	__raw_writew(save_dsp_idlect2, DSP_IDLECT2);
-	omap_writew(save_arm_idlect2, ARM_IDLECT2);
-	clk_disable(api_ck_handle);
-
 	/* Run DSP, if it was running */
 	if (cpustat.stat != CPUSTAT_RESET)
 		__dsp_run();

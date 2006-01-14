@@ -161,6 +161,10 @@ extern void omap_serial_wake_trigger(int enable);
 #define ARM_RESTORE(x) omap_writel((arm_sleep_save[ARM_SLEEP_SAVE_##x]), (x))
 #define ARM_SHOW(x) arm_sleep_save[ARM_SLEEP_SAVE_##x]
 
+#define DSP_SAVE(x) dsp_sleep_save[DSP_SLEEP_SAVE_##x] = __raw_readw(x)
+#define DSP_RESTORE(x) __raw_writew((dsp_sleep_save[DSP_SLEEP_SAVE_##x]), (x))
+#define DSP_SHOW(x) dsp_sleep_save[DSP_SLEEP_SAVE_##x]
+
 #define ULPD_SAVE(x) ulpd_sleep_save[ULPD_SLEEP_SAVE_##x] = omap_readw(x)
 #define ULPD_RESTORE(x) omap_writew((ulpd_sleep_save[ULPD_SLEEP_SAVE_##x]), (x))
 #define ULPD_SHOW(x) ulpd_sleep_save[ULPD_SLEEP_SAVE_##x]
@@ -201,6 +205,15 @@ enum arm_save_state {
 	ARM_SLEEP_SAVE_ARM_RSTCT2,
 	ARM_SLEEP_SAVE_ARM_SYSST,
 	ARM_SLEEP_SAVE_SIZE
+};
+
+enum dsp_save_state {
+	DSP_SLEEP_SAVE_START = 0,
+	/*
+	 * DSP registers 16 bits
+	 */
+	DSP_SLEEP_SAVE_DSP_IDLECT2,
+	DSP_SLEEP_SAVE_SIZE
 };
 
 enum ulpd_save_state {

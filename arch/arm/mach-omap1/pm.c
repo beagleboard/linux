@@ -62,6 +62,7 @@
 #include <asm/arch/dmtimer.h>
 
 static unsigned int arm_sleep_save[ARM_SLEEP_SAVE_SIZE];
+static unsigned short dsp_sleep_save[DSP_SLEEP_SAVE_SIZE];
 static unsigned short ulpd_sleep_save[ULPD_SLEEP_SAVE_SIZE];
 static unsigned int mpui730_sleep_save[MPUI730_SLEEP_SAVE_SIZE];
 static unsigned int mpui1510_sleep_save[MPUI1510_SLEEP_SAVE_SIZE];
@@ -236,6 +237,9 @@ static void omap_pm_wakeup_setup(void)
  	omap_writel(1, OMAP_IH1_CONTROL);
 }
 
+#define EN_DSPCK	13	/* ARM_CKCTL */
+#define EN_APICK	6	/* ARM_IDLECT2 */
+
 void omap_pm_suspend(void)
 {
 	unsigned long arg0 = 0, arg1 = 0;
@@ -318,7 +322,20 @@ void omap_pm_suspend(void)
 	 * Step 4: OMAP DSP Shutdown
 	 */
 
+	/* stop DSP */
 	omap_dsp_pm_suspend();
+
+	/* shut down dsp_ck */
+	omap_writew(omap_readw(ARM_CKCTL) & ~(1 << EN_DSPCK), ARM_CKCTL);
+
+	/* temporarily enabling api_ck to access DSP registers */
+	omap_writew(omap_readw(ARM_IDLECT2) | 1 << EN_APICK, ARM_IDLECT2);
+
+	/* save DSP registers */
+	DSP_SAVE(DSP_IDLECT2);
+
+	/* Stop all DSP domain clocks */
+	__raw_writew(0, DSP_IDLECT2);
 
 	/*
 	 * Step 5: Wakeup Event Setup
@@ -361,7 +378,17 @@ void omap_pm_suspend(void)
 	 * If we are here, processor is woken up!
 	 */
 
-	/* Restore DSP clocks */
+	/*
+	 * Restore DSP clocks
+	 */
+
+	/* again temporarily enabling api_ck to access DSP registers */
+	omap_writew(omap_readw(ARM_IDLECT2) | 1 << EN_APICK, ARM_IDLECT2);
+
+	/* Restore DSP domain clocks */
+	DSP_RESTORE(DSP_IDLECT2);
+
+	/* resume DSP */
 	omap_dsp_pm_resume();
 
 	/*
