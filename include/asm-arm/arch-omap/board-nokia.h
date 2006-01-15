@@ -34,7 +34,7 @@ struct omap_bluetooth_config {
 };
 
 struct omap_wlan_cx3110x_config {
-	s16 antenna_sw_gpio;
+	u8  chip_type;
 	s16 power_gpio;
 	s16 irq_gpio;
 	s16 spi_cs_gpio;
