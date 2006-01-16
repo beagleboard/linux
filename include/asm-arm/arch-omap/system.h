@@ -5,6 +5,8 @@
 #ifndef __ASM_ARCH_SYSTEM_H
 #define __ASM_ARCH_SYSTEM_H
 #include <linux/config.h>
+#include <linux/clk.h>
+
 #include <asm/mach-types.h>
 #include <asm/hardware.h>
 

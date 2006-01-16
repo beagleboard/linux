@@ -11,6 +11,7 @@
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <linux/proc_fs.h>
+#include <linux/capability.h>
 #include <linux/device.h>
 #include <linux/delay.h>
 #include <asm/system.h>
@@ -65,7 +66,7 @@ static int tiocx_match(struct device *dev, struct device_driver *drv)
 
 }
 
-static int tiocx_hotplug(struct device *dev, char **envp, int num_envp,
+static int tiocx_uevent(struct device *dev, char **envp, int num_envp,
 			 char *buffer, int buffer_size)
 {
 	return -ENODEV;
@@ -75,12 +76,6 @@ static void tiocx_bus_release(struct device *dev)
 {
 	kfree(to_cx_dev(dev));
 }
-
-struct bus_type tiocx_bus_type = {
-	.name = "tiocx",
-	.match = tiocx_match,
-	.hotplug = tiocx_hotplug,
-};
 
 /**
  * cx_device_match - Find cx_device in the id table.
@@ -148,6 +143,14 @@ static int cx_driver_remove(struct device *dev)
 	return 0;
 }
 
+struct bus_type tiocx_bus_type = {
+	.name = "tiocx",
+	.match = tiocx_match,
+	.uevent = tiocx_uevent,
+	.probe = cx_device_probe,
+	.remove = cx_driver_remove,
+};
+
 /**
  * cx_driver_register - Register the driver.
  * @cx_driver: driver table (cx_drv struct) from driver
@@ -161,8 +164,6 @@ int cx_driver_register(struct cx_drv *cx_driver)
 {
 	cx_driver->driver.name = cx_driver->name;
 	cx_driver->driver.bus = &tiocx_bus_type;
-	cx_driver->driver.probe = cx_device_probe;
-	cx_driver->driver.remove = cx_driver_remove;
 
 	return driver_register(&cx_driver->driver);
 }
