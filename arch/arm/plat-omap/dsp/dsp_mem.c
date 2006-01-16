@@ -1252,7 +1252,7 @@ static loff_t dsp_mem_lseek(struct file *file, loff_t offset, int orig)
 {
 	loff_t ret;
 
-	down(&file->f_dentry->d_inode->i_sem);
+	mutex_lock(&file->f_dentry->d_inode->i_mutex);
 	switch (orig) {
 	case 0:
 		file->f_pos = offset;
@@ -1265,7 +1265,7 @@ static loff_t dsp_mem_lseek(struct file *file, loff_t offset, int orig)
 	default:
 		ret = -EINVAL;
 	}
-	up(&file->f_dentry->d_inode->i_sem);
+	mutex_unlock(&file->f_dentry->d_inode->i_mutex);
 	return ret;
 }
 
