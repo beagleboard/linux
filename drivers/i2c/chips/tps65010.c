@@ -44,7 +44,7 @@
 /*-------------------------------------------------------------------------*/
 
 #define	DRIVER_VERSION	"2 May 2005"
-#define	DRIVER_NAME	(tps65010_driver.name)
+#define	DRIVER_NAME	(tps65010_driver.driver.name)
 
 MODULE_DESCRIPTION("TPS6501x Power Management Driver");
 MODULE_LICENSE("GPL");
@@ -641,10 +641,10 @@ static int __init tps65010_scan_bus(struct i2c_adapter *bus)
 }
 
 static struct i2c_driver tps65010_driver = {
-	.owner		= THIS_MODULE,
-	.name		= "tps65010",
+	.driver = {
+		.name		= "tps65010",
+	},
 	.id		= 888,		/* FIXME assign "official" value */
-	.flags		= I2C_DF_NOTIFY,
 	.attach_adapter	= tps65010_scan_bus,
 	.detach_client	= __exit_p(tps65010_detach_client),
 };

@@ -105,6 +105,8 @@
 #define I2C_DRIVERID_INFRARED	75	/* I2C InfraRed on Video boards */
 #define I2C_DRIVERID_TVP5150	76	/* TVP5150 video decoder        */
 
+#define I2C_DRIVERID_MISC	99	/* Whatever until sorted out	*/
+
 #define I2C_DRIVERID_I2CDEV	900
 #define I2C_DRIVERID_ARP        902    /* SMBus ARP Client              */
 #define I2C_DRIVERID_ALERT      903    /* SMBus Alert Responder Client  */

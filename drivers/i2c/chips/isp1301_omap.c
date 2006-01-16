@@ -49,7 +49,7 @@
 
 
 #define	DRIVER_VERSION	"24 August 2004"
-#define	DRIVER_NAME	(isp1301_driver.name)
+#define	DRIVER_NAME	(isp1301_driver.driver.name)
 
 MODULE_DESCRIPTION("ISP1301 USB OTG Transceiver Driver");
 MODULE_LICENSE("GPL");

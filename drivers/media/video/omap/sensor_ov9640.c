@@ -768,7 +768,6 @@ ov9640_i2c_attach_client(struct i2c_adapter *adap, int addr, int probe)
 		return -EBUSY;	/* our client is already attached */
 
 	client->addr = addr;
-	client->flags = I2C_CLIENT_ALLOW_USE;
 	client->driver = &sensor->driver;
 	client->adapter = adap;
 
@@ -1109,10 +1108,8 @@ ov9640sensor_init(struct v4l2_pix_format *pix)
 	if (ov9640_powerup())
 		return NULL;
 
-	driver->owner = THIS_MODULE;
-	strlcpy(driver->name, "OV9640 I2C driver", sizeof(driver->name));
-	driver->id = I2C_DRIVERID_EXP0;
-	driver->flags = I2C_DF_NOTIFY;
+	strlcpy(driver->driver.name, "OV9640 I2C driver", sizeof(driver->driver.name));
+	driver->id = I2C_DRIVERID_MISC;
 	driver->attach_adapter = ov9640_i2c_probe_adapter;
 	driver->detach_client = ov9640_i2c_detach_client;
 

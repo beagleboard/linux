@@ -125,10 +125,10 @@ static int tlv320aic23_attach_adapter(struct i2c_adapter *adapter)
 /*-----------------------------------------------------------------------*/
 
 static struct i2c_driver tlv320aic23_driver = {
-	.owner          = THIS_MODULE, 
-        .name           = "OMAP+TLV320AIC23 codec",
-        .id		= I2C_DRIVERID_EXP0,           /* Experimental ID */
-        .flags		= I2C_DF_NOTIFY,
+	.driver {
+		.name           = "OMAP+TLV320AIC23 codec",
+	},
+        .id		= I2C_DRIVERID_MISC,           /* Experimental ID */
         .attach_adapter	= tlv320aic23_attach_adapter,
         .detach_client	= tlv320aic23_detach_client,
 };
