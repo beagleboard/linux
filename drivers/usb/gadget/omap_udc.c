@@ -43,6 +43,7 @@
 #include <linux/usb_gadget.h>
 #include <linux/usb_otg.h>
 #include <linux/dma-mapping.h>
+#include <linux/clk.h>
 
 #include <asm/byteorder.h>
 #include <asm/io.h>
@@ -50,7 +51,6 @@
 #include <asm/system.h>
 #include <asm/unaligned.h>
 #include <asm/mach-types.h>
-#include <asm/hardware/clock.h>
 
 #include <asm/arch/dma.h>
 #include <asm/arch/usb.h>

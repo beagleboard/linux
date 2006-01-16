@@ -34,7 +34,7 @@ DEFINE_SPINLOCK(clockfw_lock);
 static struct clk_functions *arch_clock;
 
 /*-------------------------------------------------------------------------
- * Standard clock functions defined in asm/hardware/clock.h
+ * Standard clock functions defined in include/linux/clk.h
  *-------------------------------------------------------------------------*/
 
 struct clk * clk_get(struct device *dev, const char *id)
@@ -113,7 +113,7 @@ void clk_put(struct clk *clk)
 EXPORT_SYMBOL(clk_put);
 
 /*-------------------------------------------------------------------------
- * Optional clock functions defined in asm/hardware/clock.h
+ * Optional clock functions defined in include/linux/clk.h
  *-------------------------------------------------------------------------*/
 
 long clk_round_rate(struct clk *clk, unsigned long rate)

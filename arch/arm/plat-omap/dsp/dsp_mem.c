@@ -34,13 +34,13 @@
 #include <linux/interrupt.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
+#include <linux/clk.h>
 #include <asm/uaccess.h>
 #include <asm/io.h>
 #include <asm/ioctls.h>
 #include <asm/irq.h>
 #include <asm/pgalloc.h>
 #include <asm/pgtable.h>
-#include <asm/hardware/clock.h>
 #include <asm/arch/tc.h>
 #include <asm/arch/dsp.h>
 #include <asm/arch/dsp_common.h>

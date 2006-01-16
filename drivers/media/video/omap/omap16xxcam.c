@@ -27,6 +27,7 @@
 #include <linux/device.h>
 #include <linux/dma-mapping.h>
 #include <linux/interrupt.h>
+#include <linux/clk.h>
 
 #include <asm/arch/irqs.h>
 #include <asm/arch/dma.h>
@@ -34,7 +35,6 @@
 #include <asm/io.h>
 #include <asm/scatterlist.h>
 #include <asm/mach-types.h>
-#include <asm/hardware/clock.h>
 
 #include "omap16xxcam.h"
 #include "camera_hw_if.h"

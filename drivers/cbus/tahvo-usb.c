@@ -37,11 +37,11 @@
 #include <linux/i2c.h>
 #include <linux/workqueue.h>
 #include <linux/kobject_uevent.h>
+#include <linux/clk.h>
 
 #include <asm/irq.h>
 #include <asm/semaphore.h>
 #include <asm/arch/usb.h>
-#include <asm/hardware/clock.h>
 
 #include "cbus.h"
 #include "tahvo.h"

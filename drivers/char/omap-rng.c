@@ -16,9 +16,9 @@
 #include <linux/init.h>
 #include <linux/random.h>
 #include <linux/err.h>
+#include <linux/clk.h>
 
 #include <asm/io.h>
-#include <asm/hardware/clock.h>
 
 #if defined (CONFIG_ARCH_OMAP16XX)
 #define RNG_BASE		0xfffe5000

@@ -30,12 +30,12 @@
 #include <linux/sched.h>
 #include <linux/delay.h>
 #include <linux/mm.h>
+#include <linux/clk.h>
 #include <asm/io.h>
 #include <asm/tlbflush.h>
 #include <asm/irq.h>
 #include <asm/arch/dsp.h>
 #include <asm/arch/tc.h>
-#include <asm/hardware/clock.h>
 #include "dsp_common.h"
 
 struct clk *dsp_ck_handle;

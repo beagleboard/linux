@@ -37,6 +37,7 @@
 #include <linux/errno.h>
 #include <linux/sound.h>
 #include <linux/soundcard.h>
+#include <linux/clk.h>
 
 #include <asm/uaccess.h>
 #include <asm/hardware.h>
@@ -46,8 +47,6 @@
 #include <asm/arch/mcbsp.h>
 #include <asm/arch/fpga.h>
 #include <asm/arch/aic23.h>
-
-#include <asm/hardware/clock.h>
 
 #include "omap-audio.h"
 #include "omap-audio-dma-intfc.h"

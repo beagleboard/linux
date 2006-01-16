@@ -113,7 +113,7 @@
 
 #ifndef __ASSEMBLER__
 
-#include <asm/hardware/clock.h>
+#include <linux/clk.h>
 
 extern void prevent_idle_sleep(void);
 extern void allow_idle_sleep(void);

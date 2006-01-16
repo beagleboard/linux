@@ -41,6 +41,7 @@
 #include <linux/sched.h>
 #include <linux/spinlock.h>
 #include <linux/err.h>
+#include <linux/clk.h>
 
 #include <asm/system.h>
 #include <asm/hardware.h>
@@ -49,7 +50,6 @@
 #include <asm/irq.h>
 #include <asm/mach/irq.h>
 #include <asm/mach/time.h>
-#include <asm/hardware/clock.h>
 
 struct sys_timer omap_timer;
 

@@ -23,13 +23,13 @@
 #include <linux/sched.h>
 #include <linux/errno.h>
 #include <linux/delay.h>
+#include <linux/clk.h>
 
 #include <asm/system.h>
 #include <asm/irq.h>
 #include <asm/io.h>
 #include <asm/mach-types.h>
 #include <asm/hardware.h>
-#include <asm/hardware/clock.h>
 
 #include <asm/arch/mux.h>
 #include <asm/arch/io.h>

@@ -30,12 +30,12 @@
 #include <linux/mm.h>
 #include <linux/fb.h>
 #include <linux/dma-mapping.h>
+#include <linux/clk.h>
 
 #include <asm/arch/dma.h>
 #include <asm/arch/omapfb.h>
 
 #include <asm/mach-types.h>
-#include <asm/hardware/clock.h>
 
 /* #define OMAPFB_DBG 2 */
 

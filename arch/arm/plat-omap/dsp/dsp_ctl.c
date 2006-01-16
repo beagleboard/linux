@@ -34,10 +34,10 @@
 #include <linux/sched.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
+#include <linux/clk.h>
 #include <asm/uaccess.h>
 #include <asm/io.h>
 #include <asm/ioctls.h>
-#include <asm/hardware/clock.h>
 #include <asm/arch/dsp.h>
 #include "hardware_dsp.h"
 #include "dsp.h"

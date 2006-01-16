@@ -45,9 +45,9 @@
 #include <linux/interrupt.h>
 #include <linux/completion.h>
 #include <linux/platform_device.h>
+#include <linux/clk.h>
 
 #include <asm/io.h>
-#include <asm/hardware/clock.h>
 
 /* ----- global defines ----------------------------------------------- */
 static const char driver_name[] = "i2c_omap";

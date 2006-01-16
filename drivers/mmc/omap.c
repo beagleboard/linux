@@ -31,6 +31,7 @@
 #include <linux/mmc/host.h>
 #include <linux/mmc/protocol.h>
 #include <linux/mmc/card.h>
+#include <linux/clk.h>
 
 #include <asm/io.h>
 #include <asm/irq.h>
@@ -44,8 +45,6 @@
 #include <asm/arch/fpga.h>
 #include <asm/arch/tps65010.h>
 #include <asm/arch/menelaus.h>
-
-#include <asm/hardware/clock.h>
 
 #include "omap.h"
 

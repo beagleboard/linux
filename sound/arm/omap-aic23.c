@@ -48,6 +48,7 @@
 #include <linux/ioctl.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
+#include <linux/clk.h>
 
 #ifdef CONFIG_PM
 #include <linux/pm.h>
@@ -57,7 +58,6 @@
 #include <asm/mach-types.h>
 #include <asm/arch/dma.h>
 #include <asm/arch/aic23.h>
-#include <asm/hardware/clock.h>
 #include <asm/arch/mcbsp.h>
 
 #include <sound/core.h>

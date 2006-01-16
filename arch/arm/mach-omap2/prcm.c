@@ -16,7 +16,7 @@
 #include <linux/config.h>
 #include <linux/module.h>
 #include <linux/init.h>
-#include <asm/hardware/clock.h>
+#include <linux/clk.h>
 
 #include "prcm-regs.h"
 

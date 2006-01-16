@@ -24,7 +24,8 @@
 #include <linux/config.h>
 #include <linux/module.h>
 #include <linux/mm.h>
-#include <asm/hardware/clock.h>
+#include <linux/clk.h>
+
 #include <asm/io.h>
 
 #include "sossi.h"

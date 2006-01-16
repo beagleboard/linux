@@ -23,12 +23,11 @@
 
 #include <linux/kernel.h>
 #include <linux/dma-mapping.h>
+#include <linux/clk.h>
 
 #include <asm/io.h>
 
 #include <asm/arch/omapfb.h>
-
-#include <asm/hardware/clock.h>
 
 #include "dispc.h"
 

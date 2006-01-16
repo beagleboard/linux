@@ -40,12 +40,12 @@
 #include <linux/err.h>
 #include <linux/platform_device.h>
 #include <linux/moduleparam.h>
+#include <linux/clk.h>
 
 #include <asm/io.h>
 #include <asm/uaccess.h>
 #include <asm/hardware.h>
 #include <asm/bitops.h>
-#include <asm/hardware/clock.h>
 
 #include <asm/arch/prcm.h>
 

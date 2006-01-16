@@ -42,12 +42,12 @@
 #include <linux/mtd/partitions.h>
 #include <linux/mtd/nand_ecc.h>
 #include <linux/dma-mapping.h>
+#include <linux/clk.h>
 
 #include <asm/io.h>
 
 #include <asm/arch/board.h>
 #include <asm/arch/dma.h>
-#include <asm/hardware/clock.h>
 
 #define NAND_BASE		0xfffbcc00
 #define NND_REVISION		0x00
