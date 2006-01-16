@@ -203,8 +203,8 @@ static void omap_i2c_disable_clocks(struct omap_i2c_dev *dev)
 
 #else
 #define omap_i2c_get_clocks(x, y)		0
-#define omap_i2c_enable_clocks(x, y)	do {} while (0)
-#define omap_i2c_disable_clocks(x, y)	do {} while (0)
+#define omap_i2c_enable_clocks(x)	do {} while (0)
+#define omap_i2c_disable_clocks(x)	do {} while (0)
 #define omap_i2c_put_clocks(x)		do {} while (0)
 #endif
 
