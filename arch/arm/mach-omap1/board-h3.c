@@ -250,9 +250,9 @@ static int h3_transceiver_mode(struct device *dev, int mode)
 {
 	struct omap_irda_config *irda_config = dev->platform_data;
 
-	cancel_delayed_work(irda_config->gpio_expa);
-	PREPARE_WORK(irda_config->gpio_expa, set_trans_mode, &mode);
-	schedule_work(irda_config->gpio_expa);
+	cancel_delayed_work(&irda_config->gpio_expa);
+	PREPARE_WORK(&irda_config->gpio_expa, set_trans_mode, &mode);
+	schedule_work(&irda_config->gpio_expa);
 
 	return 0;
 }
