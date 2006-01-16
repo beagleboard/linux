@@ -240,22 +240,6 @@ void dsp_set_idle_boot_base(unsigned long adr, size_t size)
 
 static int init_done;
 
-/*
- * note: if we are in pm_suspend / pm_resume function,
- */
-void omap_dsp_pm_suspend(void)
-{
-	/* Reset DSP */
-	__dsp_reset();
-}
-
-void omap_dsp_pm_resume(void)
-{
-	/* Run DSP, if it was running */
-	if (cpustat.stat != CPUSTAT_RESET)
-		__dsp_run();
-}
-
 static int __init omap_dsp_init(void)
 {
 	dspmem_size = 0;
@@ -503,8 +487,6 @@ void dsp_unregister_mem_cb(void)
 
 arch_initcall(omap_dsp_init);
 
-EXPORT_SYMBOL(omap_dsp_pm_suspend);
-EXPORT_SYMBOL(omap_dsp_pm_resume);
 EXPORT_SYMBOL(omap_dsp_request_mpui);
 EXPORT_SYMBOL(omap_dsp_release_mpui);
 EXPORT_SYMBOL(omap_dsp_request_mem);

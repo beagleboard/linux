@@ -239,6 +239,7 @@ static void omap_pm_wakeup_setup(void)
 
 #define EN_DSPCK	13	/* ARM_CKCTL */
 #define EN_APICK	6	/* ARM_IDLECT2 */
+#define DSP_EN		1	/* ARM_RSTCT1 */
 
 void omap_pm_suspend(void)
 {
@@ -323,7 +324,7 @@ void omap_pm_suspend(void)
 	 */
 
 	/* stop DSP */
-	omap_dsp_pm_suspend();
+	omap_writew(omap_readw(ARM_RSTCT1) & ~(1 << DSP_EN), ARM_RSTCT1);
 
 	/* shut down dsp_ck */
 	omap_writew(omap_readw(ARM_CKCTL) & ~(1 << EN_DSPCK), ARM_CKCTL);
@@ -387,9 +388,6 @@ void omap_pm_suspend(void)
 
 	/* Restore DSP domain clocks */
 	DSP_RESTORE(DSP_IDLECT2);
-
-	/* resume DSP */
-	omap_dsp_pm_resume();
 
 	/*
 	 * Restore ARM state, except ARM_IDLECT1/2 which omap_cpu_suspend did
