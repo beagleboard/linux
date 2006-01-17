@@ -642,7 +642,7 @@ static void mmc_omap_switch_handler(void *data)
 		return;
 	cover_open = mmc_omap_cover_is_open(host);
 	if (cover_open != host->switch_last_state) {
-		kobject_uevent(&host->dev->kobj, KOBJ_CHANGE, &dev_attr_cover_switch.attr);
+		kobject_uevent(&host->dev->kobj, KOBJ_CHANGE);
 		host->switch_last_state = cover_open;
 	}
 	DBG("MMC cover switch handler started\n");
