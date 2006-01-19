@@ -448,11 +448,14 @@ static int _set_gpio_triggering(struct gpio_bank *bank, int gpio, int trigger)
 		/* We allow only edge triggering, i.e. two lowest bits */
 		if (trigger & ~IRQT_BOTHEDGE)
 			BUG();
-		/* NOTE: knows __IRQT_{FAL,RIS}EDGE match OMAP hardware */
-		trigger &= 0x03;
 		l = __raw_readl(reg);
 		l &= ~(3 << (gpio << 1));
-		l |= trigger << (gpio << 1);
+		if (trigger == IRQT_RISING)
+			l |= 2 << gpio;
+		else if (trigger == IRQT_FALLING)
+			l |= 1 << gpio;
+		else
+			goto bad;
 		break;
 	case METHOD_GPIO_730:
 		reg += OMAP730_GPIO_INT_CONTROL;
