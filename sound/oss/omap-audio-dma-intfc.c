@@ -683,13 +683,6 @@ void omap_clear_sound_dma(audio_stream_t * s)
 	return;
 }
 
-/*********************************** MODULE FUNCTIONS DEFINTIONS ***********************/
-
-#ifdef OMAP1610_MCBSP1_BASE
-#undef OMAP1610_MCBSP1_BASE
-#endif
-#define OMAP1610_MCBSP1_BASE    0xE1011000
-
 /***************************************************************************************
  *
  * DMA related functions
@@ -707,8 +700,8 @@ static int audio_set_dma_params_play(int channel, dma_addr_t dma_ptr,
 
 	FN_IN;
 
-	if (cpu_is_omap16xx()) {
-		dest_start = (OMAP1610_MCBSP1_BASE + 0x806);
+	if (cpu_is_omap1510() || cpu_is_omap16xx()) {
+		dest_start = AUDIO_MCBSP_DATAWRITE;
 		dest_port = OMAP_DMA_PORT_MPUI;
 	}
 	if (cpu_is_omap24xx()) {
@@ -737,8 +730,8 @@ static int audio_set_dma_params_capture(int channel, dma_addr_t dma_ptr,
 
 	FN_IN;
 
-	if (cpu_is_omap16xx()) {
-		src_start = (OMAP1610_MCBSP1_BASE + 0x802);
+	if (cpu_is_omap1510() || cpu_is_omap16xx()) {
+		src_start = AUDIO_MCBSP_DATAREAD;
 		src_port = OMAP_DMA_PORT_MPUI;
 	}
 	if (cpu_is_omap24xx()) {
@@ -878,8 +871,8 @@ static void sound_dma_irq_handler(int sound_curr_lch, u16 ch_status, void *data)
 	DPRINTK("lch=%d,status=0x%x, dma_status=%d, data=%p\n", sound_curr_lch,
 		ch_status, dma_status, data);
 
-	if (dma_status) {
-		if (cpu_is_omap16xx() && (dma_status & (DCSR_ERROR)))
+	if (dma_status & (DCSR_ERROR)) {
+		if (cpu_is_omap1510() || cpu_is_omap16xx())
 			OMAP_DMA_CCR_REG(sound_curr_lch) &= ~DCCR_EN;
 		ERR("DCSR_ERROR!\n");
 		FN_OUT(-1);
