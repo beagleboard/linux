@@ -183,7 +183,7 @@ static int omap_mcbsp_check(unsigned int id)
 		return 0;
 	}
 
-	if (cpu_is_omap1510() || cpu_is_omap16xx() || cpu_is_omap24xx()) {
+	if (cpu_is_omap15xx() || cpu_is_omap16xx() || cpu_is_omap24xx()) {
 		if (id > OMAP_MAX_MCBSP_COUNT) {
 			printk(KERN_ERR "OMAP-McBSP: McBSP%d doesn't exist\n", id + 1);
 			return -1;
@@ -197,7 +197,7 @@ static int omap_mcbsp_check(unsigned int id)
 #ifdef CONFIG_ARCH_OMAP1
 static void omap_mcbsp_dsp_request(void)
 {
-	if (cpu_is_omap1510() || cpu_is_omap16xx()) {
+	if (cpu_is_omap15xx() || cpu_is_omap16xx()) {
 		omap_dsp_request_mem();
 		clk_enable(mcbsp_dsp_ck);
 		clk_enable(mcbsp_api_ck);
@@ -216,7 +216,7 @@ static void omap_mcbsp_dsp_request(void)
 
 static void omap_mcbsp_dsp_free(void)
 {
-	if (cpu_is_omap1510() || cpu_is_omap16xx()) {
+	if (cpu_is_omap15xx() || cpu_is_omap16xx()) {
 		omap_dsp_release_mem();
 		clk_disable(mcbsp_dspxor_ck);
 		clk_disable(mcbsp_dsp_ck);
@@ -832,7 +832,7 @@ static int __init omap_mcbsp_init(void)
 	}
 #endif
 #ifdef CONFIG_ARCH_OMAP15XX
-	if (cpu_is_omap1510()) {
+	if (cpu_is_omap15xx()) {
 		mcbsp_info = mcbsp_1510;
 		mcbsp_count = ARRAY_SIZE(mcbsp_1510);
 	}

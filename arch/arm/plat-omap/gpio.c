@@ -174,7 +174,7 @@ static int gpio_bank_count;
 static inline struct gpio_bank *get_gpio_bank(int gpio)
 {
 #ifdef CONFIG_ARCH_OMAP15XX
-	if (cpu_is_omap1510()) {
+	if (cpu_is_omap15xx()) {
 		if (OMAP_GPIO_IS_MPUIO(gpio))
 			return &gpio_bank[0];
 		return &gpio_bank[1];
@@ -223,7 +223,7 @@ static inline int gpio_valid(int gpio)
 		return 0;
 	}
 #ifdef CONFIG_ARCH_OMAP15XX
-	if (cpu_is_omap1510() && gpio < 16)
+	if (cpu_is_omap15xx() && gpio < 16)
 		return 0;
 #endif
 #if defined(CONFIG_ARCH_OMAP16XX)
@@ -886,7 +886,7 @@ static int __init _omap_gpio_init(void)
 
 	initialized = 1;
 
-	if (cpu_is_omap1510()) {
+	if (cpu_is_omap15xx()) {
 		gpio_ick = clk_get(NULL, "arm_gpio_ck");
 		if (IS_ERR(gpio_ick))
 			printk("Could not get arm_gpio_ck\n");
@@ -907,7 +907,7 @@ static int __init _omap_gpio_init(void)
 	}
 
 #ifdef CONFIG_ARCH_OMAP15XX
-	if (cpu_is_omap1510()) {
+	if (cpu_is_omap15xx()) {
 		printk(KERN_INFO "OMAP1510 GPIO hardware\n");
 		gpio_bank_count = 2;
 		gpio_bank = gpio_bank_1510;

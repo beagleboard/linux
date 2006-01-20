@@ -165,7 +165,7 @@ void omap_pm_idle(void)
 	if ((use_idlect1 != ~0) || !do_sleep) {
 
 		__u32 saved_idlect1 = omap_readl(ARM_IDLECT1);
-		if (cpu_is_omap1510())
+		if (cpu_is_omap15xx())
 			use_idlect1 &= OMAP1510_BIG_SLEEP_REQUEST;
 		else
 			use_idlect1 &= OMAP1610_IDLECT1_SLEEP_VAL;
@@ -204,7 +204,7 @@ static void omap_pm_wakeup_setup(void)
 	if (cpu_is_omap730())
 		level1_wake = OMAP_IRQ_BIT(INT_730_GPIO_BANK1) |
 			OMAP_IRQ_BIT(INT_730_IH2_IRQ);
-	else if (cpu_is_omap1510())
+	else if (cpu_is_omap15xx())
 		level1_wake = OMAP_IRQ_BIT(INT_GPIO_BANK1) |
 			OMAP_IRQ_BIT(INT_1510_IH2_IRQ);
 	else if (cpu_is_omap16xx())
@@ -218,7 +218,7 @@ static void omap_pm_wakeup_setup(void)
 		omap_writel(~(OMAP_IRQ_BIT(INT_730_WAKE_UP_REQ) |
 				OMAP_IRQ_BIT(INT_730_MPUIO_KEYPAD)),
 				OMAP_IH2_1_MIR);
-	} else if (cpu_is_omap1510()) {
+	} else if (cpu_is_omap15xx()) {
 		level2_wake |= OMAP_IRQ_BIT(INT_KEYBOARD);
 		omap_writel(~level2_wake,  OMAP_IH2_MIR);
 	} else if (cpu_is_omap16xx()) {
@@ -284,7 +284,7 @@ void omap_pm_suspend(void)
 		MPUI730_SAVE(EMIFS_CONFIG);
 		MPUI730_SAVE(EMIFF_SDRAM_CONFIG);
 
-	} else if (cpu_is_omap1510()) {
+	} else if (cpu_is_omap15xx()) {
 		MPUI1510_SAVE(OMAP_IH1_MIR);
 		MPUI1510_SAVE(OMAP_IH2_MIR);
 		MPUI1510_SAVE(MPUI_CTRL);
@@ -308,7 +308,7 @@ void omap_pm_suspend(void)
 	ARM_SAVE(ARM_CKCTL);
 	ARM_SAVE(ARM_IDLECT1);
 	ARM_SAVE(ARM_IDLECT2);
-	if (!(cpu_is_omap1510()))
+	if (!(cpu_is_omap15xx()))
 		ARM_SAVE(ARM_IDLECT3);
 	ARM_SAVE(ARM_EWUPCT);
 	ARM_SAVE(ARM_RSTCT1);
@@ -393,7 +393,7 @@ void omap_pm_suspend(void)
 	 * Restore ARM state, except ARM_IDLECT1/2 which omap_cpu_suspend did
 	 */
 
-	if (!(cpu_is_omap1510()))
+	if (!(cpu_is_omap15xx()))
 		ARM_RESTORE(ARM_IDLECT3);
 	ARM_RESTORE(ARM_CKCTL);
 	ARM_RESTORE(ARM_EWUPCT);
@@ -409,7 +409,7 @@ void omap_pm_suspend(void)
 		MPUI730_RESTORE(OMAP_IH1_MIR);
 		MPUI730_RESTORE(OMAP_IH2_0_MIR);
 		MPUI730_RESTORE(OMAP_IH2_1_MIR);
-	} else if (cpu_is_omap1510()) {
+	} else if (cpu_is_omap15xx()) {
 		MPUI1510_RESTORE(MPUI_CTRL);
 		MPUI1510_RESTORE(MPUI_DSP_BOOT_CONFIG);
 		MPUI1510_RESTORE(MPUI_DSP_API_CONFIG);
@@ -470,7 +470,7 @@ static int omap_pm_read_proc(
 	ARM_SAVE(ARM_CKCTL);
 	ARM_SAVE(ARM_IDLECT1);
 	ARM_SAVE(ARM_IDLECT2);
-	if (!(cpu_is_omap1510()))
+	if (!(cpu_is_omap15xx()))
 		ARM_SAVE(ARM_IDLECT3);
 	ARM_SAVE(ARM_EWUPCT);
 	ARM_SAVE(ARM_RSTCT1);
@@ -491,7 +491,7 @@ static int omap_pm_read_proc(
 		MPUI730_SAVE(MPUI_DSP_API_CONFIG);
 		MPUI730_SAVE(EMIFF_SDRAM_CONFIG);
 		MPUI730_SAVE(EMIFS_CONFIG);
-	} else if (cpu_is_omap1510()) {
+	} else if (cpu_is_omap15xx()) {
 		MPUI1510_SAVE(MPUI_CTRL);
 		MPUI1510_SAVE(MPUI_DSP_STATUS);
 		MPUI1510_SAVE(MPUI_DSP_BOOT_CONFIG);
@@ -554,7 +554,7 @@ static int omap_pm_read_proc(
 			   MPUI730_SHOW(MPUI_DSP_API_CONFIG),
 			   MPUI730_SHOW(EMIFF_SDRAM_CONFIG),
 			   MPUI730_SHOW(EMIFS_CONFIG));
-		} else if (cpu_is_omap1510()) {
+		} else if (cpu_is_omap15xx()) {
 			my_buffer_offset += sprintf(my_base + my_buffer_offset,
 			   "MPUI1510_CTRL_REG             0x%-8x \n"
 			   "MPUI1510_DSP_STATUS_REG:      0x%-8x \n"
@@ -714,7 +714,7 @@ static int __init omap_pm_init(void)
 						omap730_idle_loop_suspend_sz);
 		omap_sram_suspend = omap_sram_push(omap730_cpu_suspend,
 						   omap730_cpu_suspend_sz);
-	} else if (cpu_is_omap1510()) {
+	} else if (cpu_is_omap15xx()) {
 		omap_sram_idle = omap_sram_push(omap1510_idle_loop_suspend,
 						omap1510_idle_loop_suspend_sz);
 		omap_sram_suspend = omap_sram_push(omap1510_cpu_suspend,
