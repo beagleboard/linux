@@ -47,6 +47,7 @@
 #include <asm/arch/mcbsp.h>
 #include <asm/arch/fpga.h>
 #include <asm/arch/aic23.h>
+#include <asm/arch/clock.h>
 
 #include "omap-audio.h"
 #include "omap-audio-dma-intfc.h"

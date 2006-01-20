@@ -57,6 +57,7 @@ extern void propagate_rate(struct clk *clk);
 extern void followparent_recalc(struct clk * clk);
 extern void clk_allow_idle(struct clk *clk);
 extern void clk_deny_idle(struct clk *clk);
+extern int clk_get_usecount(struct clk *clk);
 
 /* Clock flags */
 #define RATE_CKCTL		(1 << 0)	/* Main fixed ratio clocks */
