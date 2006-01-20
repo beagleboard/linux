@@ -687,6 +687,11 @@ int __init omap1_clk_init(void)
 			clk_register(*clkp);
 			continue;
 		}
+
+		if (((*clkp)->flags &CLOCK_IN_OMAP310) && cpu_is_omap310()) {
+			clk_register(*clkp);
+			continue;
+		}
 	}
 
 	info = omap_get_config(OMAP_TAG_CLOCK, struct omap_clock_config);
@@ -784,7 +789,7 @@ int __init omap1_clk_init(void)
 	clk_enable(&armxor_ck.clk);
 	clk_enable(&armtim_ck.clk); /* This should be done by timer code */
 
-	if (cpu_is_omap1510())
+	if (cpu_is_omap15xx())
 		clk_enable(&arm_gpio_ck);
 
 	return 0;

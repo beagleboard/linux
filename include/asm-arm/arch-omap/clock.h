@@ -81,10 +81,11 @@ extern int clk_get_usecount(struct clk *clk);
 #define CM_PLL_SEL1		(1 << 18)
 #define CM_PLL_SEL2		(1 << 19)
 #define CM_SYSCLKOUT_SEL1	(1 << 20)
-#define CLOCK_IN_OMAP730	(1 << 21)
-#define CLOCK_IN_OMAP1510	(1 << 22)
-#define CLOCK_IN_OMAP16XX	(1 << 23)
-#define CLOCK_IN_OMAP242X	(1 << 24)
-#define CLOCK_IN_OMAP243X	(1 << 25)
+#define CLOCK_IN_OMAP310	(1 << 21)
+#define CLOCK_IN_OMAP730	(1 << 22)
+#define CLOCK_IN_OMAP1510	(1 << 23)
+#define CLOCK_IN_OMAP16XX	(1 << 24)
+#define CLOCK_IN_OMAP242X	(1 << 25)
+#define CLOCK_IN_OMAP243X	(1 << 26)
 
 #endif
