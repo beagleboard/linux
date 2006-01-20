@@ -764,6 +764,10 @@ static void gpio_irq_handler(unsigned int irq, struct irqdesc *desc,
 		u32 isr_saved, level_mask = 0;
 
 		isr_saved = isr = __raw_readl(isr_reg);
+
+		if (cpu_is_omap15xx() && (bank->method == METHOD_MPUIO))
+			isr &= 0x0000ffff;
+
 		if (cpu_is_omap24xx())
 			level_mask =
 				__raw_readl(bank->base +
