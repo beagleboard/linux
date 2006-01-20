@@ -743,9 +743,8 @@ EXPORT_SYMBOL(omapfb_write_first_pixel);
  * graphics transformations, frame flipping support is provided through this
  * interface.
  */
-static int omapfb_ioctl(struct inode *inode, struct file *file,
-			unsigned int cmd, unsigned long arg,
-			struct fb_info *fbi)
+static int omapfb_ioctl(struct fb_info *fbi, unsigned int cmd,
+			unsigned long arg)
 {
 	struct omapfb_device	*fbdev = (struct omapfb_device *)fbi->par;
 	struct fb_ops		*ops = fbi->fbops;
