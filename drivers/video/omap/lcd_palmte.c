@@ -24,9 +24,9 @@
 #include <linux/module.h>
 
 #include <asm/io.h>
-#include <asm/arch/fpga.h>
 
-#include "omapfb.h"
+#include <asm/arch/fpga.h>
+#include <asm/arch/omapfb.h>
 
 /* #define OMAPFB_DBG 1 */
 
@@ -67,11 +67,11 @@ struct lcd_panel palmte_panel = {
 	.name		= "palmte",
 	.config		= OMAP_LCDC_PANEL_TFT | OMAP_LCDC_INV_VSYNC |
 			  OMAP_LCDC_INV_HSYNC | OMAP_LCDC_HSVS_RISING_EDGE |
-			  OMAP_LCDC_HSVS_OPPOSITE;
+			  OMAP_LCDC_HSVS_OPPOSITE,
 
 	.data_lines	= 16,
 	.bpp		= 8,
-	.pixel_clock	= 12500,
+	.pixel_clock	= 12000,
 	.x_res		= 320,
 	.y_res		= 320,
 	.hsw		= 4,
@@ -80,7 +80,7 @@ struct lcd_panel palmte_panel = {
 	.vsw		= 1,
 	.vfp		= 8,
 	.vbp		= 7,
-	.pcd		= 5,
+	.pcd		= 0,
 
 	.init		= palmte_panel_init,
 	.cleanup	= palmte_panel_cleanup,
