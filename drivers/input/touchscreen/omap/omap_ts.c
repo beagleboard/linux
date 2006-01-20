@@ -133,6 +133,12 @@ static int __init omap_ts_probe(struct platform_device *pdev)
 	int status = -ENODEV;
 
 	memset(&ts_omap, 0, sizeof(ts_omap));
+
+	ts_omap.inputdevice = input_allocate_device();
+	if (!ts_omap.inputdevice) {
+		return -ENOMEM;
+	}
+
 	spin_lock_init(&ts_omap.lock);
 
 	for (i = 0; i < ARRAY_SIZE(ts_devs); i++) {
@@ -145,8 +151,10 @@ static int __init omap_ts_probe(struct platform_device *pdev)
 		}
 	}
 
-	if (status != 0)
+	if (status != 0) {
+	    	input_free_device(ts_omap.inputdevice);
 		return status;
+	}
 
 	// Init acquisition timer function
 	init_timer(&ts_omap.ts_timer);
@@ -159,15 +167,18 @@ static int __init omap_ts_probe(struct platform_device *pdev)
 			printk(KERN_ERR
 	  "omap_ts.c: Could not allocate touchscreen IRQ!\n");
 			ts_omap.irq = -1;
+			ts_omap.dev->remove();
+			input_free_device(ts_omap.inputdevice);
 			return -EINVAL;
 		}
 		ts_omap.irq_enabled = 1;
 	} else {
 		printk(KERN_ERR "omap_ts.c: No touchscreen IRQ assigned!\n");
+		ts_omap.dev->remove();
+		input_free_device(ts_omap.inputdevice);
 		return -EINVAL;
 	}
 
-	ts_omap.inputdevice = input_allocate_device();
 	ts_omap.inputdevice->name = OMAP_TS_NAME;
 	ts_omap.inputdevice->dev = &pdev->dev;
 	ts_omap.inputdevice->evbit[0] = BIT(EV_KEY) | BIT(EV_ABS);
