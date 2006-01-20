@@ -18,6 +18,7 @@
 #include <linux/mtd/partitions.h>
 #include <linux/delay.h>
 #include <linux/workqueue.h>
+#include <linux/input.h>
 
 #include <asm/hardware.h>
 #include <asm/mach-types.h>
@@ -32,10 +33,48 @@
 #include <asm/arch/irda.h>
 #include <asm/arch/board.h>
 #include <asm/arch/common.h>
+#include <asm/arch/keypad.h>
 #include "prcm-regs.h"
 
 #include <asm/io.h>
 #include <asm/delay.h>
+
+static unsigned int row_gpios[6] = { 88, 89, 124, 11, 6, 96 };
+static unsigned int col_gpios[7] = { 90, 91, 100, 36, 12, 97, 98 };
+
+static int h4_keymap[] = {
+	KEY(0, 0, KEY_LEFT),
+	KEY(0, 1, KEY_RIGHT),
+	KEY(0, 2, KEY_A),
+	KEY(0, 3, KEY_B),
+	KEY(0, 4, KEY_C),
+	KEY(1, 0, KEY_DOWN),
+	KEY(1, 1, KEY_UP),
+	KEY(1, 2, KEY_E),
+	KEY(1, 3, KEY_F),
+	KEY(1, 4, KEY_G),
+	KEY(2, 0, KEY_ENTER),
+	KEY(2, 1, KEY_I),
+	KEY(2, 2, KEY_J),
+	KEY(2, 3, KEY_K),
+	KEY(2, 4, KEY_3),
+	KEY(3, 0, KEY_M),
+	KEY(3, 1, KEY_N),
+	KEY(3, 2, KEY_O),
+	KEY(3, 3, KEY_P),
+	KEY(3, 4, KEY_Q),
+	KEY(4, 0, KEY_R),
+	KEY(4, 1, KEY_4),
+	KEY(4, 2, KEY_T),
+	KEY(4, 3, KEY_U),
+	KEY(4, 4, KEY_ENTER),
+	KEY(5, 0, KEY_V),
+	KEY(5, 1, KEY_W),
+	KEY(5, 2, KEY_L),
+	KEY(5, 3, KEY_S),
+	KEY(5, 4, KEY_ENTER),
+	0
+};
 
 static struct mtd_partition h4_partitions[] = {
 	/* bootloader (U-Boot, etc) in first sector */
@@ -194,10 +233,28 @@ static struct platform_device h4_irda_device = {
 	.resource	= h4_irda_resources,
 };
 
+static struct omap_kp_platform_data h4_kp_data = {
+	.rows		= 6,
+	.cols		= 7,
+	.keymap 	= h4_keymap,
+	.rep		= 1,
+	.row_gpios 	= row_gpios,
+	.col_gpios 	= col_gpios,
+};
+
+static struct platform_device h4_kp_device = {
+	.name		= "omap-keypad",
+	.id		= -1,
+	.dev		= {
+		.platform_data = &h4_kp_data,
+	},
+};
+
 static struct platform_device *h4_devices[] __initdata = {
 	&h4_smc91x_device,
 	&h4_flash_device,
 	&h4_irda_device,
+	&h4_kp_device,
 };
 
 static inline void __init h4_init_smc91x(void)

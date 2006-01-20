@@ -33,6 +33,7 @@
 
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
+#include <linux/input.h>
 
 #include <asm/hardware.h>
 #include <asm/mach-types.h>
@@ -44,7 +45,22 @@
 #include <asm/arch/usb.h>
 #include <asm/arch/mux.h>
 #include <asm/arch/tc.h>
+#include <asm/arch/keypad.h>
 #include <asm/arch/common.h>
+
+static int osk_keymap[] = {
+	KEY(0, 0, KEY_F1),
+	KEY(0, 3, KEY_UP),
+	KEY(1, 1, KEY_LEFTCTRL),
+	KEY(1, 2, KEY_LEFT),
+	KEY(2, 0, KEY_SPACE),
+	KEY(2, 1, KEY_ESC),
+	KEY(2, 2, KEY_DOWN),
+	KEY(3, 2, KEY_ENTER),
+	KEY(3, 3, KEY_RIGHT),
+	0
+};
+
 
 static struct mtd_partition osk_partitions[] = {
 	/* bootloader (U-Boot, etc) in first sector */
@@ -138,11 +154,36 @@ static struct platform_device osk5912_mcbsp1_device = {
 	.id		= 1,
 };
 
+static struct resource osk5912_kp_resources[] = {
+	[0] = {
+		.start	= INT_KEYBOARD,
+		.end	= INT_KEYBOARD,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct omap_kp_platform_data osk_kp_data = {
+	.rows	= 8,
+	.cols	= 8,
+	.keymap = osk_keymap,
+};
+
+static struct platform_device osk5912_kp_device = {
+	.name		= "omap-keypad",
+	.id		= -1,
+	.dev		= {
+		.platform_data = &osk_kp_data,
+	},
+	.num_resources	= ARRAY_SIZE(osk5912_kp_resources),
+	.resource	= osk5912_kp_resources,
+};
+
 static struct platform_device *osk5912_devices[] __initdata = {
 	&osk5912_flash_device,
 	&osk5912_smc91x_device,
 	&osk5912_cf_device,
 	&osk5912_mcbsp1_device,
+	&osk5912_kp_device,
 };
 
 static void __init osk_init_smc91x(void)

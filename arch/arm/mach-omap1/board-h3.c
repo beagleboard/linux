@@ -25,6 +25,7 @@
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/nand.h>
 #include <linux/mtd/partitions.h>
+#include <linux/input.h>
 
 #include <asm/setup.h>
 #include <asm/page.h>
@@ -41,9 +42,50 @@
 #include <asm/arch/tc.h>
 #include <asm/arch/irda.h>
 #include <asm/arch/usb.h>
+#include <asm/arch/keypad.h>
 #include <asm/arch/common.h>
 
 extern int omap_gpio_init(void);
+
+static int h3_keymap[] = {
+	KEY(0, 0, KEY_LEFT),
+	KEY(0, 1, KEY_RIGHT),
+	KEY(0, 2, KEY_3),
+	KEY(0, 3, KEY_F10),
+	KEY(0, 4, KEY_F5),
+	KEY(0, 5, KEY_9),
+	KEY(1, 0, KEY_DOWN),
+	KEY(1, 1, KEY_UP),
+	KEY(1, 2, KEY_2),
+	KEY(1, 3, KEY_F9),
+	KEY(1, 4, KEY_F7),
+	KEY(1, 5, KEY_0),
+	KEY(2, 0, KEY_ENTER),
+	KEY(2, 1, KEY_6),
+	KEY(2, 2, KEY_1),
+	KEY(2, 3, KEY_F2),
+	KEY(2, 4, KEY_F6),
+	KEY(2, 5, KEY_HOME),
+	KEY(3, 0, KEY_8),
+	KEY(3, 1, KEY_5),
+	KEY(3, 2, KEY_F12),
+	KEY(3, 3, KEY_F3),
+	KEY(3, 4, KEY_F8),
+	KEY(3, 5, KEY_END),
+	KEY(4, 0, KEY_7),
+	KEY(4, 1, KEY_4),
+	KEY(4, 2, KEY_F11),
+	KEY(4, 3, KEY_F1),
+	KEY(4, 4, KEY_F4),
+	KEY(4, 5, KEY_ESC),
+	KEY(5, 0, KEY_F13),
+	KEY(5, 1, KEY_F14),
+	KEY(5, 2, KEY_F15),
+	KEY(5, 3, KEY_F16),
+	KEY(5, 4, KEY_SLEEP),
+	0
+};
+
 
 static struct mtd_partition nor_partitions[] = {
 	/* bootloader (U-Boot, etc) in first sector */
@@ -196,6 +238,32 @@ static struct platform_device intlat_device = {
 	.resource       = intlat_resources,
 };
 
+static struct resource h3_kp_resources[] = {
+	[0] = {
+		.start	= INT_KEYBOARD,
+		.end	= INT_KEYBOARD,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct omap_kp_platform_data h3_kp_data = {
+	.rows	= 8,
+	.cols	= 8,
+	.keymap = h3_keymap,
+	.rep	= 1,
+};
+
+static struct platform_device h3_kp_device = {
+	.name		= "omap-keypad",
+	.id		= -1,
+	.dev		= {
+		.platform_data = &h3_kp_data,
+	},
+	.num_resources	= ARRAY_SIZE(h3_kp_resources),
+	.resource	= h3_kp_resources,
+};
+
+
 /* Select between the IrDA and aGPS module
  */
 static int h3_select_irda(struct device *dev, int state)
@@ -270,6 +338,7 @@ static struct resource h3_irda_resources[] = {
 		.flags	= IORESOURCE_IRQ,
 	},
 };
+
 static struct platform_device h3_irda_device = {
 	.name		= "omapirda",
 	.id		= 0,
@@ -286,6 +355,7 @@ static struct platform_device *devices[] __initdata = {
         &smc91x_device,
 	&intlat_device,
 	&h3_irda_device,
+	&h3_kp_device,
 };
 
 static struct omap_usb_config h3_usb_config __initdata = {

@@ -24,6 +24,7 @@
 #include <asm/arch/board.h>
 #include <asm/arch/mux.h>
 #include <asm/arch/gpio.h>
+#include <asm/arch/menelaus.h>
 
 
 void omap_nop_release(struct device *dev)
@@ -99,10 +100,6 @@ static inline void omap_init_i2c(void) {}
 
 /*-------------------------------------------------------------------------*/
 #if	defined(CONFIG_KEYBOARD_OMAP) || defined(CONFIG_KEYBOARD_OMAP_MODULE)
-static struct platform_device omap_kp_device = {
-	.name	   = "omap-keypad",
-	.id	     = -1,
-};
 
 static void omap_init_kp(void)
 {
@@ -131,9 +128,27 @@ static void omap_init_kp(void)
 		omap_cfg_reg(E4_730_KBC2);
 		omap_cfg_reg(F4_730_KBC3);
 		omap_cfg_reg(E3_730_KBC4);
+	} else if (machine_is_omap_h4()) {
+		omap_cfg_reg(T19_24XX_KBR0);
+		omap_cfg_reg(R19_24XX_KBR1);
+		omap_cfg_reg(V18_24XX_KBR2);
+		omap_cfg_reg(M21_24XX_KBR3);
+		omap_cfg_reg(E5__24XX_KBR4);
+		if (omap_has_menelaus()) {
+			omap_cfg_reg(B3__24XX_KBR5);
+			omap_cfg_reg(AA4_24XX_KBC2);
+			omap_cfg_reg(B13_24XX_KBC6);
+		} else {
+			omap_cfg_reg(M18_24XX_KBR5);
+			omap_cfg_reg(H19_24XX_KBC2);
+			omap_cfg_reg(N19_24XX_KBC6);
+		}
+		omap_cfg_reg(R20_24XX_KBC0);
+		omap_cfg_reg(M14_24XX_KBC1);
+		omap_cfg_reg(V17_24XX_KBC3);
+		omap_cfg_reg(P21_24XX_KBC4);
+		omap_cfg_reg(L14_24XX_KBC5);
 	}
-
-	(void) platform_device_register(&omap_kp_device);
 }
 #else
 static inline void omap_init_kp(void) {}
