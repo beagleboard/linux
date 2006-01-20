@@ -59,6 +59,7 @@
 #include <asm/arch/dma.h>
 #include <asm/arch/aic23.h>
 #include <asm/arch/mcbsp.h>
+#include <asm/arch/clock.h>
 
 #include <sound/core.h>
 #include <sound/pcm.h>
@@ -658,7 +659,7 @@ static int __init snd_card_omap_aic23_pcm(struct snd_card_omap_aic23
 
 static int snd_omap_aic23_suspend(snd_card_t * card, pm_message_t state)
 {
-	struct snd_card_omap_aic23 *chip = card->pm_private_data;
+	struct snd_card_omap_aic23 *chip = card->private_data;
 	ADEBUG();
 
 	if (chip->card->power_state != SNDRV_CTL_POWER_D3hot) {
@@ -677,7 +678,7 @@ static int snd_omap_aic23_suspend(snd_card_t * card, pm_message_t state)
  */
 static int snd_omap_aic23_resume(snd_card_t * card)
 {
-	struct snd_card_omap_aic23 *chip = card->pm_private_data;
+	struct snd_card_omap_aic23 *chip = card->private_data;
 	ADEBUG();
 	
 	if (chip->card->power_state != SNDRV_CTL_POWER_D0) {
@@ -860,14 +861,13 @@ static int __init snd_omap_aic23_probe(struct platform_device *pdev)
 	if ((err = snd_card_omap_aic23_pcm(omap_aic23, 0)) < 0)
 		goto nodev;
 
-	snd_card_set_pm_callback(card, snd_omap_aic23_suspend,
-				 snd_omap_aic23_resume, omap_aic23);
-
 	strcpy(card->driver, "AIC23");
 	strcpy(card->shortname, "OSK AIC23");
 	sprintf(card->longname, "OMAP OSK with AIC23");
 
 	snd_omap_init_mixer();
+
+	snd_card_set_dev(card, &pdev->dev);
 	
 	if ((err = snd_card_register(card)) == 0) {
 		printk(KERN_INFO "OSK audio support initialized\n");
