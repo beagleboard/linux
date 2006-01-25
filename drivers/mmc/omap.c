@@ -678,7 +678,7 @@ mmc_omap_prepare_dma(struct mmc_omap_host *host, struct mmc_data *data)
 	int dst_port = 0;
 	int sync_dev = 0;
 
-	data_addr = io_v2p((void __force *) host->base) + OMAP_MMC_REG_DATA;
+	data_addr = (unsigned long)io_v2p((void __force *) host->base) + OMAP_MMC_REG_DATA;
 	frame = 1 << data->blksz_bits;
 	count = (u32)sg_dma_len(sg);
 
@@ -1306,7 +1306,8 @@ static int __init mmc_omap_probe(struct platform_device *pdev)
 	}
 
 	if (omap_has_menelaus())
-		menelaus_mmc_register(mmc_omap_switch_callback, &host);
+		menelaus_mmc_register(mmc_omap_switch_callback,
+	  (unsigned long)&host);
 
 no_switch:
 	return 0;
