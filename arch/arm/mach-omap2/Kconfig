@@ -21,3 +21,6 @@ config MACH_OMAP_H4
 	depends on ARCH_OMAP2 && ARCH_OMAP24XX
 	select GPIOEXPANDER_OMAP
 
+config MACH_OMAP_APOLLON
+	bool "OMAP 2420 Apollon board"
+	depends on ARCH_OMAP2 && ARCH_OMAP24XX

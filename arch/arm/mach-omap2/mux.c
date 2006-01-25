@@ -60,7 +60,15 @@ MUX_CFG_24XX("W15_24XX_MCBSP2_DR",	0x126,	1,	1,	0,	1)
 MUX_CFG_24XX("V15_24XX_MCBSP2_DX",	0x127,	1,	1,	0,	1)
 
 /* 24xx GPIO */
+MUX_CFG_24XX("M21_242X_GPIO11",	 0x0c9,  3,      1,      1,      1)
+MUX_CFG_24XX("AA10_242X_GPIO13",	0x0e5,  3,      0,      0,      1)
+MUX_CFG_24XX("AA6_242X_GPIO14",	 0x0e6,  3,      0,      0,      1)
+MUX_CFG_24XX("AA4_242X_GPIO15",	 0x0e7,  3,      0,      0,      1)
+MUX_CFG_24XX("Y11_242X_GPIO16",	 0x0e8,  3,      0,      0,      1)
+MUX_CFG_24XX("AA12_242X_GPIO17",	0x0e9,  3,      0,      0,      1)
+MUX_CFG_24XX("AA8_242X_GPIO58",	 0x0ea,  3,      0,      0,      1)
 MUX_CFG_24XX("Y20_24XX_GPIO60",		0x12c,	3,	0,	0,	1)
+MUX_CFG_24XX("W4__24XX_GPIO74",	 0x0f2,  3,      0,      0,      1)
 MUX_CFG_24XX("M15_24XX_GPIO92",		0x10a,	3,	0,	0,	1)
 MUX_CFG_24XX("V14_24XX_GPIO117",	0x128,	3,	1,	0,	1)
 

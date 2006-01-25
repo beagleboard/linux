@@ -244,7 +244,7 @@ static struct omap_mcbsp_reg_cfg initial_config = {
 	/* platform specific initialization */
 #ifdef CONFIG_MACH_OMAP_H2
 	.pcr0  = CLKXM | CLKRM | FSXP | FSRP | CLKXP | CLKRP,
-#elif defined(CONFIG_MACH_OMAP_H3) || defined(CONFIG_MACH_OMAP_H4)
+#elif defined(CONFIG_MACH_OMAP_H3) || defined(CONFIG_MACH_OMAP_H4) || defined(CONFIG_MACH_OMAP_APOLLON)
 
 #ifndef TSC_MASTER
 	.pcr0  = FSXM | FSRM | CLKXM | CLKRM | CLKXP | CLKRP,

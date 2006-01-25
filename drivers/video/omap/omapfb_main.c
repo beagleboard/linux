@@ -89,6 +89,7 @@ extern struct lcd_panel palmte_panel;
 extern struct lcd_panel innovator1610_panel;
 extern struct lcd_panel innovator1510_panel;
 extern struct lcd_panel lph8923_panel;
+extern struct lcd_panel apollon_panel;
 
 static struct lcd_panel *panels[] = {
 #ifdef CONFIG_MACH_OMAP_H2
@@ -119,6 +120,9 @@ static struct lcd_panel *panels[] = {
 	&innovator1610_panel,
 #endif
 
+#endif
+#ifdef CONFIG_MACH_OMAP_APOLLON
+	&apollon_panel,
 #endif
 };
 

@@ -13,7 +13,7 @@ config SOUND_OMAP
 
 config SOUND_OMAP_TSC2101
 	tristate "TSC2101 Stereo Codec"
-	depends on SOUND_OMAP && ( MACH_OMAP_H2 || MACH_OMAP_H3 || MACH_OMAP_H4)
+	depends on SOUND_OMAP && ( MACH_OMAP_H2 || MACH_OMAP_H3 || MACH_OMAP_H4 || MACH_OMAP_APOLLON)
 	select OMAP_TSC2101 if ( MACH_OMAP_H2 || MACH_OMAP_H3 )
 	select OMAP_UWIRE if ARCH_OMAP1
 	---help---
