@@ -114,7 +114,7 @@ config GPIOEXPANDER_OMAP
 	depends on I2C && (ARCH_OMAP16XX || ARCH_OMAP24XX)
 	help
 	  If you say yes here you get support for I/O expander calls
-	  to configure IrDA, Camera and audio devices endmenu
+	  to configure IrDA, Camera and audio devices.
 
 config MENELAUS
 	bool "Menelaus PM chip"
