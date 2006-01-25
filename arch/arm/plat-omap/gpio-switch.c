@@ -129,11 +129,9 @@ static void gpio_sw_handler(void *data)
 		return;
 
 	if (sw->type == OMAP_GPIO_SWITCH_TYPE_CONNECTION)
-		kobject_uevent(&sw->pdev.dev.kobj, KOBJ_CHANGE,
-			       &dev_attr_connection_switch.attr);
+		kobject_uevent(&sw->pdev.dev.kobj, KOBJ_CHANGE);
 	else
-		kobject_uevent(&sw->pdev.dev.kobj, KOBJ_CHANGE,
-			       &dev_attr_cover_switch.attr);
+		kobject_uevent(&sw->pdev.dev.kobj, KOBJ_CHANGE);
 	sw->state = state;
 	if (omap_get_gpio_datain(sw->gpio))
 		set_irq_type(OMAP_GPIO_IRQ(sw->gpio), IRQT_FALLING);
