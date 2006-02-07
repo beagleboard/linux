@@ -184,25 +184,16 @@ mmc_omap_start_command(struct mmc_omap_host *host, struct mmc_command *cmd)
 		host->hw_bus_mode = host->bus_mode;
 	}
 
-	/* Protocol layer does not provide response type,
-	 * but our hardware needs to know exact type, not just size!
-	 */
-	switch (cmd->flags & MMC_RSP_MASK) {
-	case MMC_RSP_NONE:
-		/* resp 0 */
-		break;
-	case MMC_RSP_SHORT:
-		/* resp 1, resp 1b */
-		/* OR resp 3!! (assume this if bus is set opendrain) */
+	if (!(cmd->flags & MMC_RSP_PRESENT))
+		resptype = 0;			/* Resp 0 */
+
+	if (cmd->flags & MMC_RSP_136)
+		resptype = 2;			/* Resp 2 */
+	else {
 		if (host->bus_mode == MMC_BUSMODE_OPENDRAIN)
-			resptype = 3;
+			resptype = 3;		/* Resp 3 */
 		else
-			resptype = 1;
-		break;
-	case MMC_RSP_LONG:
-		/* resp 2 */
-		resptype = 2;
-		break;
+			resptype = 1;		/* Resp 1, Resp 1b */
 	}
 
 	/* Protocol layer does not provide command type, but our hardware
@@ -343,19 +334,8 @@ mmc_omap_cmd_done(struct mmc_omap_host *host, struct mmc_command *cmd)
 {
 	host->cmd = NULL;
 
-	switch (cmd->flags & MMC_RSP_MASK) {
-	case MMC_RSP_NONE:
-		/* resp 0 */
-		break;
-	case MMC_RSP_SHORT:
-		/* response types 1, 1b, 3, 4, 5, 6 */
-		cmd->resp[0] =
-			OMAP_MMC_READ(host->base, RSP6) |
-			(OMAP_MMC_READ(host->base, RSP7) << 16);
-		DBG("MMC%d: Response %08x\n", host->id, cmd->resp[0]);
-		break;
-	case MMC_RSP_LONG:
-		/* response type 2 */
+	if (cmd->flags & MMC_RSP_136) {
+		/* Response type 2 */
 		cmd->resp[3] =
 			OMAP_MMC_READ(host->base, RSP0) |
 			(OMAP_MMC_READ(host->base, RSP1) << 16);
@@ -371,7 +351,12 @@ mmc_omap_cmd_done(struct mmc_omap_host *host, struct mmc_command *cmd)
 		DBG("MMC%d: Response %08x %08x %08x %08x\n", host->id,
 		    cmd->resp[0], cmd->resp[1],
 		    cmd->resp[2], cmd->resp[3]);
-		break;
+	} else {
+		/* Response types 1, 1b, 3, 4, 5, 6 */
+		cmd->resp[0] =
+			OMAP_MMC_READ(host->base, RSP6) |
+			(OMAP_MMC_READ(host->base, RSP7) << 16);
+		DBG("MMC%d: Response %08x\n", host->id, cmd->resp[0]);
 	}
 
 	if (host->data == NULL || cmd->error != MMC_ERR_NONE) {
