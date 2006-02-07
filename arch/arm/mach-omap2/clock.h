@@ -717,6 +717,16 @@ static struct clk sys_clkout2 = {
 	.recalc		= &omap2_clksel_recalc,
 };
 
+static struct clk emul_ck = {
+	.name		= "emul_ck",
+	.parent		= &func_54m_ck,
+	.flags		= CLOCK_IN_OMAP242X,
+	.enable_reg	= (void __iomem *)&PRCM_CLKEMUL_CTRL,
+	.enable_bit	= 0,
+	.recalc		= &omap2_propagate_rate,
+
+};
+
 /*
  * MPU clock domain
  *	Clocks:
@@ -1957,6 +1967,7 @@ static struct clk *onchip_clks[] = {
 	&wdt1_osc_ck,
 	&sys_clkout,
 	&sys_clkout2,
+	&emul_ck,
 	/* mpu domain clocks */
 	&mpu_ck,
 	/* dsp domain clocks */
