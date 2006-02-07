@@ -403,7 +403,7 @@ omap_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 			break;
 	}
 
-	if (r == 0 && num > 1)
+	if (r == 0)
 		r = num;
 out:
 	omap_i2c_disable_clocks(dev);
