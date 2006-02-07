@@ -60,6 +60,7 @@ struct isp1301 {
 	void			(*i2c_release)(struct device *dev);
 
 	int			irq;
+	int			irq_type;
 
 	u32			last_otg_ctrl;
 	unsigned		working:1;
@@ -1526,6 +1527,7 @@ static int isp1301_probe(struct i2c_adapter *bus, int address, int kind)
 	isp->timer.data = (unsigned long) isp;
 
 	isp->irq = -1;
+	isp->irq_type = SA_SAMPLE_RANDOM;
 	isp->client.addr = address;
 	i2c_set_clientdata(&isp->client, isp);
 	isp->client.adapter = bus;
@@ -1602,7 +1604,7 @@ fail1:
 		isp->irq = OMAP_GPIO_IRQ(2);
 		omap_request_gpio(2);
 		omap_set_gpio_direction(2, 1);
-		set_irq_type(isp->irq, IRQT_FALLING);
+		isp->irq_type = SA_TRIGGER_FALLING;
 	}
 
 	if (machine_is_omap_h3()) {
@@ -1611,11 +1613,11 @@ fail1:
 		isp->irq = OMAP_GPIO_IRQ(14);
 		omap_request_gpio(14);
 		omap_set_gpio_direction(14, 1);
-		set_irq_type(isp->irq, IRQT_FALLING);
+		isp->irq_type = SA_TRIGGER_FALLING;
 	}
 
 	status = request_irq(isp->irq, isp1301_irq,
-			SA_SAMPLE_RANDOM, DRIVER_NAME, isp);
+			isp->irq_type, DRIVER_NAME, isp);
 	if (status < 0) {
 		dev_dbg(&i2c->dev, "can't get IRQ %d, err %d\n",
 				isp->irq, status);

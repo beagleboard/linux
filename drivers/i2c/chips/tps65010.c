@@ -87,6 +87,7 @@ struct tps65010 {
 	struct i2c_client	client;
 	struct semaphore	lock;
 	int			irq;
+	int			irq_type;
 	struct work_struct	work;
 	struct dentry		*file;
 	unsigned		charging:1;
@@ -526,6 +527,8 @@ fail1:
 		return 0;
 	}
 
+	tps->irq_type = SA_SAMPLE_RANDOM;
+
 #ifdef	CONFIG_ARM
 	if (machine_is_omap_h2()) {
 		tps->model = TPS65010;
@@ -533,7 +536,7 @@ fail1:
 		tps->irq = OMAP_GPIO_IRQ(58);
 		omap_request_gpio(58);
 		omap_set_gpio_direction(58, 1);
-		set_irq_type(tps->irq, IRQT_FALLING);
+		tps->irq_type = SA_TRIGGER_FALLING;
 	}
 	if (machine_is_omap_osk()) {
 		tps->model = TPS65010;
@@ -541,21 +544,18 @@ fail1:
 		tps->irq = OMAP_GPIO_IRQ(OMAP_MPUIO(1));
 		omap_request_gpio(OMAP_MPUIO(1));
 		omap_set_gpio_direction(OMAP_MPUIO(1), 1);
-		set_irq_type(tps->irq, IRQT_FALLING);
+		tps->irq_type = SA_TRIGGER_FALLING;
 	}
 	if (machine_is_omap_h3()) {
 		tps->model = TPS65013;
 
 		// FIXME set up this board's IRQ ...
 	}
-#else
-#define set_irq_type(num,trigger)	do{}while(0)
 #endif
 
 	if (tps->irq > 0) {
-		set_irq_type(tps->irq, IRQT_LOW);
 		status = request_irq(tps->irq, tps65010_irq,
-			SA_SAMPLE_RANDOM, DRIVER_NAME, tps);
+			 tps->irq_type, DRIVER_NAME, tps);
 		if (status < 0) {
 			dev_dbg(&tps->client.dev, "can't get IRQ %d, err %d\n",
 					tps->irq, status);

@@ -365,10 +365,9 @@ static int __init omap_kp_probe(struct platform_device *pdev)
 		omap_writew(0, OMAP_MPUIO_BASE + OMAP_MPUIO_KBD_MASKIT);
 	} else {
 		for (i = 0; i < omap_kp->rows; i++) {
-			if (request_irq(OMAP_GPIO_IRQ(row_gpios[i]), omap_kp_interrupt, 0,
-						"omap-keypad", omap_kp) < 0)
+			if (request_irq(OMAP_GPIO_IRQ(row_gpios[i]), omap_kp_interrupt,
+					SA_TRIGGER_FALLING, "omap-keypad", omap_kp) < 0)
 				return -EINVAL;
-			set_irq_type(OMAP_GPIO_IRQ(row_gpios[i]), IRQT_FALLING);
 		}
 	}
 

@@ -1262,9 +1262,8 @@ static int __init mmc_omap_probe(struct platform_device *pdev)
 		}
 
 		omap_set_gpio_direction(host->switch_pin, 1);
-		set_irq_type(OMAP_GPIO_IRQ(host->switch_pin), IRQT_RISING);
 		ret = request_irq(OMAP_GPIO_IRQ(host->switch_pin),
-				  mmc_omap_switch_irq, 0, DRIVER_NAME, host);
+				  mmc_omap_switch_irq, SA_TRIGGER_RISING, DRIVER_NAME, host);
 		if (ret) {
 			printk(KERN_WARNING "MMC%d: Unable to get IRQ for MMC cover switch\n",
 			       host->id);

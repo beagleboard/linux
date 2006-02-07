@@ -91,7 +91,7 @@ static int  __init osk_ts_probe(struct omap_ts_t *ts)
         omap_cfg_reg(P20_1610_GPIO4);
 	omap_request_gpio(4);
 	omap_set_gpio_direction(4, 1);
-	set_irq_type(OMAP_GPIO_IRQ(4), IRQT_FALLING);
+	ts->irq_type = SA_TRIGGER_FALLING;
 
 	ts->irq = PEN_IRQ;
 

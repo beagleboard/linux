@@ -46,6 +46,7 @@ struct omap_ts_t{
 	struct timer_list ts_timer;      // Timer for triggering acquisitions
 	int touched;
 	int irq;
+	int irq_type;
 	int irq_enabled;
 	struct ts_device *dev;
 	spinlock_t lock;
