@@ -402,13 +402,13 @@ static inline void set_24xx_gpio_triggering(void __iomem *base, int gpio, int tr
 	u32 gpio_bit = 1 << gpio;
 
 	MOD_REG_BIT(OMAP24XX_GPIO_LEVELDETECT0, gpio_bit,
-		trigger & IRQT_LOW);
+		trigger & __IRQT_LOWLVL);
 	MOD_REG_BIT(OMAP24XX_GPIO_LEVELDETECT1, gpio_bit,
-		trigger & IRQT_HIGH);
+		trigger & __IRQT_HIGHLVL);
 	MOD_REG_BIT(OMAP24XX_GPIO_RISINGDETECT, gpio_bit,
-		trigger & IRQT_RISING);
+		trigger & __IRQT_RISEDGE);
 	MOD_REG_BIT(OMAP24XX_GPIO_FALLINGDETECT, gpio_bit,
-		trigger & IRQT_FALLING);
+		trigger & __IRQT_FALEDGE);
 	/* FIXME: Possibly do 'set_irq_handler(j, do_level_IRQ)' if only level
 	 * triggering requested. */
 }
@@ -422,9 +422,9 @@ static int _set_gpio_triggering(struct gpio_bank *bank, int gpio, int trigger)
 	case METHOD_MPUIO:
 		reg += OMAP_MPUIO_GPIO_INT_EDGE;
 		l = __raw_readl(reg);
-		if (trigger == IRQT_RISING)
+		if (trigger & __IRQT_RISEDGE)
 			l |= 1 << gpio;
-		else if (trigger == IRQT_FALLING)
+		else if (trigger & __IRQT_FALEDGE)
 			l &= ~(1 << gpio);
 		else
 			goto bad;
@@ -432,9 +432,9 @@ static int _set_gpio_triggering(struct gpio_bank *bank, int gpio, int trigger)
 	case METHOD_GPIO_1510:
 		reg += OMAP1510_GPIO_INT_CONTROL;
 		l = __raw_readl(reg);
-		if (trigger == IRQT_RISING)
+		if (trigger & __IRQT_RISEDGE)
 			l |= 1 << gpio;
-		else if (trigger == IRQT_FALLING)
+		else if (trigger & __IRQT_FALEDGE)
 			l &= ~(1 << gpio);
 		else
 			goto bad;
@@ -450,9 +450,9 @@ static int _set_gpio_triggering(struct gpio_bank *bank, int gpio, int trigger)
 			BUG();
 		l = __raw_readl(reg);
 		l &= ~(3 << (gpio << 1));
-		if (trigger == IRQT_RISING)
+		if (trigger & __IRQT_RISEDGE)
 			l |= 2 << gpio;
-		else if (trigger == IRQT_FALLING)
+		else if (trigger & __IRQT_FALEDGE)
 			l |= 1 << gpio;
 		else
 			goto bad;
@@ -460,9 +460,9 @@ static int _set_gpio_triggering(struct gpio_bank *bank, int gpio, int trigger)
 	case METHOD_GPIO_730:
 		reg += OMAP730_GPIO_INT_CONTROL;
 		l = __raw_readl(reg);
-		if (trigger == IRQT_RISING)
+		if (trigger & __IRQT_RISEDGE)
 			l |= 1 << gpio;
-		else if (trigger == IRQT_FALLING)
+		else if (trigger & __IRQT_FALEDGE)
 			l &= ~(1 << gpio);
 		else
 			goto bad;
