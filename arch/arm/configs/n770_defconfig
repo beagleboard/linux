@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.16-rc2-omap1
-# Wed Feb  8 18:02:17 2006
+# Wed Feb  8 18:52:38 2006
 #
 CONFIG_ARM=y
 CONFIG_MMU=y
@@ -145,7 +145,8 @@ CONFIG_ARCH_OMAP16XX=y
 # CONFIG_MACH_OMAP_H2 is not set
 # CONFIG_MACH_OMAP_H3 is not set
 # CONFIG_MACH_OMAP_OSK is not set
-CONFIG_MACH_OMAP_GENERIC=y
+CONFIG_MACH_NOKIA770=y
+# CONFIG_MACH_OMAP_GENERIC is not set
 
 #
 # OMAP CPU Speed
