@@ -85,6 +85,12 @@ config SPI_BUTTERFLY
 	  inexpensive battery powered microcontroller evaluation board.
 	  This same cable can be used to flash new firmware.
 
+config SPI_OMAP24XX
+	bool "McSPI driver for OMAP24xx"
+	depends on SPI_MASTER && ARCH_OMAP24XX
+	help
+	  SPI master controller for OMAP24xx McSPI modules.
+
 #
 # Add new SPI master controllers in alphabetical order above this line
 #
