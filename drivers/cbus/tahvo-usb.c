@@ -29,14 +29,14 @@
 #include <linux/init.h>
 #include <linux/slab.h>
 #include <linux/interrupt.h>
-#include <linux/device.h>
+#include <linux/platform_device.h>
 #include <linux/usb_ch9.h>
 #include <linux/usb_gadget.h>
 #include <linux/usb.h>
 #include <linux/usb_otg.h>
 #include <linux/i2c.h>
 #include <linux/workqueue.h>
-#include <linux/kobject_uevent.h>
+#include <linux/kobject.h>
 #include <linux/clk.h>
 
 #include <asm/irq.h>
@@ -212,7 +212,8 @@ struct device_driver omap_otg_driver = {
  * which are copied from isp1301.c
  * ---------------------------------------------------------------------------
  */
-static ssize_t vbus_state_show(struct device *device, char *buf)
+static ssize_t vbus_state_show(struct device *device,
+			       struct device_attribute *attr, char *buf)
 {
 	struct tahvo_usb *tu = (struct tahvo_usb*) device->driver_data;
 	return sprintf(buf, "%d\n", tu->vbus_state);
@@ -272,11 +273,8 @@ static void check_vbus_state(struct tahvo_usb *tu)
 
 	prev_state = tu->vbus_state;
 	tu->vbus_state = reg & 0x01;
-	if (prev_state != tu->vbus_state) {
-		kobject_uevent_atomic(&tu->pt_dev->dev.kobj,
-				      KOBJ_CHANGE,
-				      &dev_attr_vbus_state.attr);
-	}
+	if (prev_state != tu->vbus_state)
+		kobject_uevent(&tu->pt_dev->dev.kobj, KOBJ_CHANGE);
 }
 
 static void tahvo_usb_become_host(struct tahvo_usb *tu)
@@ -494,7 +492,8 @@ static void tahvo_usb_vbus_interrupt(unsigned long arg)
 }
 
 #ifdef CONFIG_USB_OTG
-static ssize_t otg_mode_show(struct device *device, char *buf)
+static ssize_t otg_mode_show(struct device *device,
+			     struct device_attribute *attr, char *buf)
 {
 	struct tahvo_usb *tu = (struct tahvo_usb*) device->driver_data;
 	switch (tu->tahvo_mode) {
@@ -506,7 +505,9 @@ static ssize_t otg_mode_show(struct device *device, char *buf)
 	return sprintf(buf, "unknown\n");
 }
 
-static ssize_t otg_mode_store(struct device *device, const char *buf, size_t count)
+static ssize_t otg_mode_store(struct device *device,
+			      struct device_attribute *attr,
+			      const char *buf, size_t count)
 {
 	struct tahvo_usb *tu = (struct tahvo_usb*) device->driver_data;
 	int r;
