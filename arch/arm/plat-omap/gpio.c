@@ -451,9 +451,9 @@ static int _set_gpio_triggering(struct gpio_bank *bank, int gpio, int trigger)
 		l = __raw_readl(reg);
 		l &= ~(3 << (gpio << 1));
 		if (trigger & __IRQT_RISEDGE)
-			l |= 2 << gpio;
+			l |= 2 << (gpio << 1);
 		else if (trigger & __IRQT_FALEDGE)
-			l |= 1 << gpio;
+			l |= 1 << (gpio << 1);
 		else
 			goto bad;
 		break;
