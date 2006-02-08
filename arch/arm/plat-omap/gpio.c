@@ -446,7 +446,7 @@ static int _set_gpio_triggering(struct gpio_bank *bank, int gpio, int trigger)
 			reg += OMAP1610_GPIO_EDGE_CTRL1;
 		gpio &= 0x07;
 		/* We allow only edge triggering, i.e. two lowest bits */
-		if (trigger & ~IRQT_BOTHEDGE)
+		if (trigger & (__IRQT_LOWLVL | __IRQT_HIGHLVL))
 			BUG();
 		l = __raw_readl(reg);
 		l &= ~(3 << (gpio << 1));
