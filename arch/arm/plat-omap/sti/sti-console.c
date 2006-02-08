@@ -15,12 +15,13 @@
 #include <linux/tty.h>
 #include <linux/tty_driver.h>
 #include <asm/arch/sti.h>
+#include <asm/arch/board.h>
 
 #define DRV_NAME "sticon"
 
 static struct tty_driver *tty_driver;
 static DEFINE_SPINLOCK(sti_console_lock);
-static unsigned int sti_console_channel = 32;
+static unsigned int sti_console_channel;
 static int sti_line_done = -1;
 
 /*
@@ -132,6 +133,16 @@ static struct console sti_console = {
 
 static int __init sti_console_init(void)
 {
+	const struct omap_sti_console_config *info;
+
+	info = omap_get_config(OMAP_TAG_STI_CONSOLE,
+			       struct omap_sti_console_config);
+	if (info && info->enable) {
+		add_preferred_console(DRV_NAME, 0, NULL);
+
+		sti_console_channel = info->channel;
+	}
+
 	register_console(&sti_console);
 	return 0;
 }

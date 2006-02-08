@@ -21,6 +21,7 @@
 #define OMAP_TAG_LCD		0x4f05
 #define OMAP_TAG_GPIO_SWITCH	0x4f06
 #define OMAP_TAG_UART		0x4f07
+#define OMAP_TAG_STI_CONSOLE	0x4f09
 
 #define OMAP_TAG_BOOT_REASON    0x4f80
 #define OMAP_TAG_FLASH_PART	0x4f81
@@ -53,6 +54,11 @@ struct omap_mmc_config {
 struct omap_serial_console_config {
 	u8 console_uart;
 	u32 console_speed;
+};
+
+struct omap_sti_console_config {
+	unsigned enable:1;
+	u8 channel;
 };
 
 struct omap_usb_config {
