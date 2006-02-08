@@ -85,6 +85,13 @@ config SPI_BUTTERFLY
 	  inexpensive battery powered microcontroller evaluation board.
 	  This same cable can be used to flash new firmware.
 
+config SPI_OMAP_UWIRE
+	tristate "OMAP MicroWire"
+	depends on SPI_MASTER && ARCH_OMAP
+	select SPI_BITBANG
+	help
+	  This hooks up to the MicroWire controller on OMAP chips.
+
 config SPI_OMAP24XX
 	bool "McSPI driver for OMAP24xx"
 	depends on SPI_MASTER && ARCH_OMAP24XX

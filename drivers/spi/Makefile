@@ -14,6 +14,7 @@ obj-$(CONFIG_SPI_MASTER)		+= spi.o
 obj-$(CONFIG_SPI_BITBANG)		+= spi_bitbang.o
 obj-$(CONFIG_SPI_BUTTERFLY)		+= spi_butterfly.o
 obj-$(CONFIG_SPI_OMAP24XX)		+= omap2_mcspi.o
+obj-$(CONFIG_SPI_OMAP_UWIRE)		+= omap_uwire.o
 # 	... add above this line ...
 
 # SPI protocol drivers (device/link on bus)
