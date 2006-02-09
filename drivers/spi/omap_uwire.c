@@ -290,9 +290,12 @@ eio:
 static int uwire_setup(struct spi_device *spi)
 {
 	struct uwire_spi	*uwire;
-	unsigned 		flags = 0;
+	unsigned		flags = 0;
 	unsigned long		rate;
-	u16			div1;
+	int			div1_idx;
+	int			div1;
+	int			div2;
+	u16			w;
 	int			status;
 
 	uwire = spi_master_get_devdata(spi->master);
@@ -335,36 +338,60 @@ static int uwire_setup(struct spi_device *spi)
 	rate = clk_get_rate(uwire->ck);
 
 	/* F_INT = mpu_per_clk / DIV1 */
-	div1 = (uwire_read_reg(UWIRE_SR3) >> 1) & 0x3;
-	switch (div1) {
-	case 0:	rate /= 2; break;
-	case 1:	rate /= 4; break;
-	case 2:	rate /= 7; break;
-	case 3:	rate /= 10; break;
+	for (div1_idx = 0; div1_idx < 4; div1_idx++) {
+		switch (div1_idx) {
+		case 0:
+			div1 = 2;
+			break;
+		case 1:
+			div1 = 4;
+			break;
+		case 2:
+			div1 = 7;
+			break;
+		default:
+		case 3:
+			div1 = 10;
+			break;
+		}
+		div2 = (rate / div1 + spi->max_speed_hz - 1) /
+			spi->max_speed_hz;
+		if (div2 <= 8)
+			break;
+	}
+	if (div1_idx == 4) {
+		pr_debug("%s: lowest clock %ld, need %d\n",
+			spi->dev.bus_id, rate / 10 / 8, spi->max_speed_hz);
+			status = -EDOM;
+			goto done;
 	}
 
-	/* SCLK = F_INT / DIV2 */
-	rate >>= 1;
-	if (rate <= spi->max_speed_hz)
+	w = uwire_read_reg(UWIRE_SR3);
+	w &= ~(0x03 << 1);
+	w |= div1_idx << 1;
+	uwire_write_reg(UWIRE_SR3, w);
+
+	rate /= div1;
+
+	switch (div2) {
+	case 0:
+	case 1:
+	case 2:
 		flags |= UWIRE_FREQ_DIV_2;
-	else {
-		rate >>= 1;
-		if (rate <= spi->max_speed_hz)
-			flags |= UWIRE_FREQ_DIV_4;
-		else {
-			rate >>= 1;
-			if (rate <= spi->max_speed_hz)
-				flags |= UWIRE_FREQ_DIV_8;
-			else {
-				/* REVISIT:  we could change DIV2 */
-				pr_debug("%s: lowest clock %ld, need %d, "
-						"div1 %d\n",
-					spi->dev.bus_id, rate,
-					spi->max_speed_hz, div1);
-				status = -EDOM;
-				goto done;
-			}
-		}
+		rate /= 2;
+		break;
+	case 3:
+	case 4:
+		flags |= UWIRE_FREQ_DIV_4;
+		rate /= 4;
+		break;
+	case 5:
+	case 6:
+	case 7:
+	case 8:
+		flags |= UWIRE_FREQ_DIV_8;
+		rate /= 8;
+		break;
 	}
 	omap_uwire_configure_mode(spi->chip_select, flags);
 	pr_debug("%s: uwire flags %02x, armper %lu KHz, SCK %lu KHz\n",
