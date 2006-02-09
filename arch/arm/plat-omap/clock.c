@@ -59,6 +59,9 @@ int clk_enable(struct clk *clk)
 	unsigned long flags;
 	int ret = 0;
 
+	if (clk == NULL || IS_ERR(clk))
+		return -ENODEV;
+
 	spin_lock_irqsave(&clockfw_lock, flags);
 	if (arch_clock->clk_enable)
 		ret = arch_clock->clk_enable(clk);
@@ -72,6 +75,9 @@ void clk_disable(struct clk *clk)
 {
 	unsigned long flags;
 
+	if (clk == NULL || IS_ERR(clk))
+		return;
+
 	spin_lock_irqsave(&clockfw_lock, flags);
 	if (arch_clock->clk_disable)
 		arch_clock->clk_disable(clk);
@@ -83,6 +89,9 @@ int clk_get_usecount(struct clk *clk)
 {
 	unsigned long flags;
 	int ret = 0;
+
+	if (clk == NULL || IS_ERR(clk))
+		return 0;
 
 	spin_lock_irqsave(&clockfw_lock, flags);
 	ret = clk->usecount;
@@ -96,6 +105,9 @@ unsigned long clk_get_rate(struct clk *clk)
 {
 	unsigned long flags;
 	unsigned long ret = 0;
+
+	if (clk == NULL || IS_ERR(clk))
+		return 0;
 
 	spin_lock_irqsave(&clockfw_lock, flags);
 	ret = clk->rate;
