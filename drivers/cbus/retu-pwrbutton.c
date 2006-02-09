@@ -41,7 +41,7 @@
 #define PWRBTN_PRESSED		1
 
 static int pwrbtn_state;
-static struct input_dev pwrbtn_dev;
+static struct input_dev *pwrbtn_dev;
 static struct timer_list pwrbtn_timer;
 
 static void retubutton_timer_func(unsigned long arg)
@@ -54,7 +54,7 @@ static void retubutton_timer_func(unsigned long arg)
 		state = PWRBTN_PRESSED;
 
 	if (pwrbtn_state != state) {
-		input_report_key(&pwrbtn_dev, KEY_POWER, state);
+		input_report_key(pwrbtn_dev, KEY_POWER, state);
 		pwrbtn_state = state;
 	}
 }
@@ -89,11 +89,15 @@ static int __init retubutton_init(void)
 		return -EBUSY;
 	}
 
-	pwrbtn_dev.evbit[0] = BIT(EV_KEY);
-	pwrbtn_dev.keybit[LONG(KEY_POWER)] = BIT(KEY_POWER);
-	pwrbtn_dev.name = "retu-pwrbutton";
+	pwrbtn_dev = input_allocate_device();
+	if (!pwrbtn_dev)
+		return -ENOMEM;
+	
+	pwrbtn_dev->evbit[0] = BIT(EV_KEY);
+	pwrbtn_dev->keybit[LONG(KEY_POWER)] = BIT(KEY_POWER);
+	pwrbtn_dev->name = "retu-pwrbutton";
 
-	input_register_device(&pwrbtn_dev);
+	input_register_device(pwrbtn_dev);
 
 	return 0;
 }
@@ -105,7 +109,7 @@ static void __exit retubutton_exit(void)
 {
 	retu_free_irq(RETU_INT_PWR);
 	del_timer_sync(&pwrbtn_timer);
-	input_unregister_device(&pwrbtn_dev);
+	input_unregister_device(pwrbtn_dev);
 }
 
 module_init(retubutton_init);
