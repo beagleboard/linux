@@ -19,6 +19,7 @@ obj-$(CONFIG_OMAP_STI) += sti/
 obj-$(CONFIG_CPU_FREQ) += cpu-omap.o
 obj-$(CONFIG_OMAP_DM_TIMER) += dmtimer.o
 obj-$(CONFIG_OMAP_BOOT_REASON) += bootreason.o
+obj-$(CONFIG_OMAP_COMPONENT_VERSION) += component-version.o
 obj-$(CONFIG_OMAP_GPIO_SWITCH) += gpio-switch.o
 
 # DSP subsystem

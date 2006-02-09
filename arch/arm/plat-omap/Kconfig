@@ -47,6 +47,14 @@ config OMAP_BOOT_REASON
           Say Y, if you want to have a procfs entry for reading the boot
           reason in user-space.
 
+config OMAP_COMPONENT_VERSION
+	bool "Support for component version display"
+	depends on OMAP_BOOT_TAG && PROC_FS
+	default n
+	help
+	  Say Y, if you want to have a procfs entry for reading component
+	  versions (supplied by the bootloader) in user-space.
+
 config OMAP_GPIO_SWITCH
 	bool "GPIO switch support"
         depends on OMAP_BOOT_TAG
