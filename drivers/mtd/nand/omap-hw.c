@@ -1,15 +1,12 @@
 /*
  *  drivers/mtd/nand/omap-hw.c
  *
- *  This is the MTD driver for OMAP 1710 internal HW nand controller.
+ *  This is the MTD driver for OMAP1710 internal HW NAND controller.
  *
- *  Copyright (C) 2004 Nokia Corporation
- * 
- *  Author: Jarkko Lavinen <jarkko.lavinen@nokia.com>
+ *  Copyright (C) 2004-2006 Nokia Corporation
  *
- *  Dma patches by Juha Yrjölä <juha.yrjola@nokia.com>
- * 
- *  $Id: omap-hw.c,v 1.1 2004/12/08 00:00:01 jlavi Exp $
+ *  Author: Jarkko Lavinen <jarkko.lavinen@nokia.com> and
+ *          Juha Yrjölä <juha.yrjola@nokia.com>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
@@ -166,8 +163,9 @@ extern struct nand_oobinfo jffs2_oobinfo;
  */
 static struct mtd_info *omap_mtd;
 static struct clk *omap_nand_clk;
+static int omap_nand_dma_ch;
+static struct completion omap_nand_dma_comp;
 static unsigned long omap_nand_base = io_p2v(NAND_BASE);
-
 
 static inline u32 nand_read_reg(int idx)
 {
@@ -215,19 +213,18 @@ static void nand_dma_cb(int lch, u16 ch_status, void *data)
 	complete((struct completion *) data);
 }
 
-static inline int omap_nand_dma_transfer(struct mtd_info *mtd, void *addr,
+static void omap_nand_dma_transfer(struct mtd_info *mtd, void *addr,
                                          unsigned int u32_count, int is_write)
 {
 	const int block_size = 16;
 	unsigned int block_count, len;
-	int r, dma_ch;
-	struct completion comp;
-	unsigned long fifo_reg;
+	int dma_ch;
+	unsigned long fifo_reg, timeout, jiffies_before, jiffies_spent;
+	static unsigned long max_jiffies = 0;
 
-	r = omap_request_dma(OMAP_DMA_NAND, "NAND", nand_dma_cb, &comp, &dma_ch);
-	if (r < 0)
-		return r;
+	dma_ch = omap_nand_dma_ch;
 	block_count = u32_count * 4 / block_size;
+	nand_write_reg(NND_STATUS, 0x0f);
 	nand_write_reg(NND_FIFOCTRL, (block_size << 24) | block_count);
 	fifo_reg = NAND_BASE + NND_FIFO;
 	if (is_write) {
@@ -256,18 +253,35 @@ static inline int omap_nand_dma_transfer(struct mtd_info *mtd, void *addr,
 	omap_set_dma_transfer_params(dma_ch, OMAP_DMA_DATA_TYPE_S32, block_size / 4,
 				     block_count, OMAP_DMA_SYNC_FRAME,
 				     0, 0);
-	init_completion(&comp);
+	init_completion(&omap_nand_dma_comp);
 
 	len = u32_count << 2;
 	consistent_sync(addr, len, DMA_TO_DEVICE);
 	omap_start_dma(dma_ch);
-	wait_for_completion(&comp);
-	omap_free_dma(dma_ch);
+	jiffies_before = jiffies;
+	timeout = wait_for_completion_timeout(&omap_nand_dma_comp,
+					      msecs_to_jiffies(1000));
+	jiffies_spent = (unsigned long)((long)jiffies - (long)jiffies_before);
+	if (jiffies_spent > max_jiffies)
+		max_jiffies = jiffies_spent;
+
+	if (timeout == 0) {
+		printk(KERN_WARNING "omap-hw-nand: DMA timeout after %u ms, max. seen latency %u ms\n",
+		       jiffies_to_msecs(jiffies_spent),
+		       jiffies_to_msecs(max_jiffies));
+		if (omap_readw(OMAP_DMA_CCR_REG(dma_ch)) & (1 << 7)) {
+			/* If the DMA transfer is still running, something
+			 * is really wrong. */
+			printk(KERN_ERR "omap-hw-nand: DMA transfer still running. Not good.\n");
+			printk(KERN_INFO "DMA ch %d: CCR %04x, CSR %04x, CCDEN_L %04x\n",
+			       dma_ch, omap_readw(OMAP_DMA_CCR_REG(dma_ch)), omap_readw(OMAP_DMA_CSR_REG(dma_ch)),
+			       omap_readw(OMAP_DMA_BASE + 0x40 * (dma_ch) + 0x34));
+		}
+	}
 	if (!is_write)
 		consistent_sync(addr, len, DMA_FROM_DEVICE);
 
 	nand_write_reg(NND_CTRL, nand_read_reg(NND_CTRL) & ~((1 << 16) | (1 << 17)));
-	return 0;
 }
 
 static void fifo_read(u32 *out, unsigned int len)
@@ -308,10 +322,10 @@ static void omap_nand_read_buf(struct mtd_info *mtd, u_char *buf, int len)
 		 * 16, we try to use DMA transfer, or FIFO copy in case of
 		 * DMA failure (e.g. all channels busy) */
 		if (u32_count > 64 && (u32_count & 3) == 0) {
-#if 1
-			if (omap_nand_dma_transfer(mtd, buf, u32_count, 0) == 0)
+			if (omap_nand_dma_ch >= 0) {
+				omap_nand_dma_transfer(mtd, buf, u32_count, 0);
 				return;
-#endif
+			}
 			/* In case of an error, fallback to FIFO copy */
 			fifo_read((u32 *) buf, u32_count);
 			return;
@@ -424,7 +438,6 @@ static void omap_nand_command(struct mtd_info *mtd, unsigned command, int column
 		}
 		nand_write_command(readcmd, 0, 0);
 	}
-
 	switch (command) {
 	case NAND_CMD_RESET:
 	case NAND_CMD_PAGEPROG:
@@ -432,11 +445,9 @@ static void omap_nand_command(struct mtd_info *mtd, unsigned command, int column
 	case NAND_CMD_ERASE2:
 		nand_write_command(command, 0, 0);
 		break;
-
 	case NAND_CMD_ERASE1:
 		nand_write_command(command, ((page_addr & 0xFFFFFF00) << 1) | (page_addr & 0XFF), 1);
 		break;
-
 	default:
 		nand_write_command(command, (page_addr << this->page_shift) | column, 1);
 	}
@@ -548,7 +559,7 @@ static int omap_nand_compare_ecc(u8 *ecc_data1,   /* read from NAND memory */
 	for (i = 0; i < 8; i++) {
 		tmp1_bit[i]      = *(ecc_data1 + 1) % 2;
 		*(ecc_data1 + 1) = *(ecc_data1 + 1) / 2;
-        }
+	}
 
 	for (i = 0; i < 8; i++) {
 		tmp2_bit[i]      = *(ecc_data1 + 2) % 2;
@@ -653,11 +664,6 @@ static void omap_nand_enable_hwecc(struct mtd_info *mtd, int mode)
 	nand_write_reg(NND_RESET, 0x01);
 }
 
-static int omap_nand_scan_bbt(struct mtd_info *mtd)
-{
-	return 0;
-}
-
 #ifdef CONFIG_MTD_CMDLINE_PARTS
 
 extern int mtdpart_setup(char *);
@@ -718,8 +724,8 @@ static void set_psc_regs(int psc_ns, int psc1_ns, int psc2_ns)
 	psc[1] = calc_psc(psc1_ns, ps);
 	psc[2] = calc_psc(psc2_ns, ps);
 	for (i = 0; i < 3; i++) {
-		if (psc[i] == 0)
-			psc[i] = 1;
+		if (psc[i] < 2)
+			psc[i] = 2;
 		else if (psc[i] > 256)
 			psc[i] = 256;
 	}
@@ -763,7 +769,16 @@ static int __init omap_nand_init(void)
 		err = -ENOMEM;
 		goto free_clock;
 	}
-
+#if 1
+	err = omap_request_dma(OMAP_DMA_NAND, "NAND", nand_dma_cb,
+			       &omap_nand_dma_comp, &omap_nand_dma_ch);
+	if (err < 0) {
+		printk(KERN_WARNING "omap-hw-nand: Unable to reserve DMA channel\n");
+		omap_nand_dma_ch = -1;
+	}
+#else
+	omap_nand_dma_ch = -1;
+#endif
 	/* Get pointer to private data */
 	this = (struct nand_chip *) (&omap_mtd[1]);
 
@@ -774,6 +789,8 @@ static int __init omap_nand_init(void)
 	/* Link the private data with the MTD structure */
 	omap_mtd->priv = this;
 	omap_mtd->name = "omap-nand";
+
+	this->options = NAND_SKIP_BBTSCAN;
 
 	/* Used from chip select and nand_command() */
 	this->read_byte = omap_nand_read_byte;
@@ -790,8 +807,8 @@ static int __init omap_nand_init(void)
 	this->calculate_ecc = omap_nand_calculate_ecc;
 	this->correct_data = omap_nand_correct_data;
 	this->enable_hwecc = omap_nand_enable_hwecc;
-	this->scan_bbt = omap_nand_scan_bbt;
 
+	nand_write_reg(NND_SYSCFG, 0x1); /* Enable auto idle */
 	nand_write_reg(NND_PSC_CLK, 10);
 	/* Scan to find existance of the device */
 	if (nand_scan(omap_mtd, 1)) {
@@ -813,7 +830,11 @@ static int __init omap_nand_init(void)
 		nand_write_reg(NND_ECC_SELECT, 6);
 	}
 
-	this->options |= NAND_NO_AUTOINCR;
+	/* We have to do bbt scanning ourselves */
+	if (this->scan_bbt (omap_mtd)) {
+		err = -ENXIO;
+		goto out_mtd;
+	}
 
 	err = add_dynamic_parts(omap_mtd);
 	if (err < 0) {
@@ -825,6 +846,8 @@ static int __init omap_nand_init(void)
 	/* init completed */
 	return 0;
 out_mtd:
+	if (omap_nand_dma_ch >= 0)
+		omap_free_dma(omap_nand_dma_ch);
 	kfree(omap_mtd);
 free_clock:
 	clk_put(omap_nand_clk);
