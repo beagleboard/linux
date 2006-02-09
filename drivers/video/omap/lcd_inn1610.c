@@ -121,3 +121,52 @@ struct lcd_panel innovator1610_panel = {
 	.get_caps	= innovator1610_panel_get_caps,
 };
 
+static int innovator1610_panel_probe(struct platform_device *pdev)
+{
+	DBGENTER(1);
+	omapfb_register_panel(&innovator1610_panel);
+	return 0;
+}
+
+static int innovator1610_panel_remove(struct platform_device *pdev)
+{
+	DBGENTER(1);
+	return 0;
+}
+
+static int innovator1610_panel_suspend(struct platform_device *pdev, pm_message_t mesg)
+{
+	DBGENTER(1);
+	return 0;
+}
+
+static int innovator1610_panel_resume(struct platform_device *pdev)
+{
+	DBGENTER(1);
+	return 0;
+}
+
+struct platform_driver innovator1610_panel_driver = {
+	.probe		= innovator1610_panel_probe,
+	.remove		= innovator1610_panel_remove,
+	.suspend	= innovator1610_panel_suspend,
+	.resume		= innovator1610_panel_resume,
+	.driver		= {
+		.name	= "lcd_inn1610",
+		.owner	= THIS_MODULE,
+	},
+};
+
+static int innovator1610_panel_drv_init(void)
+{
+	return platform_driver_register(&innovator1610_panel_driver);
+}
+
+static void innovator1610_panel_drv_cleanup(void)
+{
+	platform_driver_unregister(&innovator1610_panel_driver);
+}
+
+module_init(innovator1610_panel_drv_init);
+module_exit(innovator1610_panel_drv_cleanup);
+

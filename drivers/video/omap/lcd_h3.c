@@ -22,6 +22,7 @@
  */
 
 #include <linux/module.h>
+#include <linux/platform_device.h>
 
 #include <asm/arch/gpio.h>
 #include <asm/arch/tps65010.h>
@@ -109,4 +110,53 @@ struct lcd_panel h3_panel = {
 	.disable	= h3_panel_disable,
 	.get_caps	= h3_panel_get_caps,
 };
+
+static int h3_panel_probe(struct platform_device *pdev)
+{
+	DBGENTER(1);
+	omapfb_register_panel(&h3_panel);
+	return 0;
+}
+
+static int h3_panel_remove(struct platform_device *pdev)
+{
+	DBGENTER(1);
+	return 0;
+}
+
+static int h3_panel_suspend(struct platform_device *pdev, pm_message_t mesg)
+{
+	DBGENTER(1);
+	return 0;
+}
+
+static int h3_panel_resume(struct platform_device *pdev)
+{
+	DBGENTER(1);
+	return 0;
+}
+
+struct platform_driver h3_panel_driver = {
+	.probe		= h3_panel_probe,
+	.remove		= h3_panel_remove,
+	.suspend	= h3_panel_suspend,
+	.resume		= h3_panel_resume,
+	.driver		= {
+		.name	= "lcd_h3",
+		.owner	= THIS_MODULE,
+	},
+};
+
+static int h3_panel_drv_init(void)
+{
+	return platform_driver_register(&h3_panel_driver);
+}
+
+static void h3_panel_drv_cleanup(void)
+{
+	platform_driver_unregister(&h3_panel_driver);
+}
+
+module_init(h3_panel_drv_init);
+module_exit(h3_panel_drv_cleanup);
 

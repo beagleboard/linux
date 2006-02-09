@@ -22,6 +22,7 @@
  */
 
 #include <linux/module.h>
+#include <linux/platform_device.h>
 
 #include <asm/io.h>
 
@@ -92,4 +93,53 @@ struct lcd_panel innovator1510_panel = {
 	.disable	= innovator1510_panel_disable,
 	.get_caps	= innovator1510_panel_get_caps,
 };
+
+static int innovator1510_panel_probe(struct platform_device *pdev)
+{
+	DBGENTER(1);
+	omapfb_register_panel(&innovator1510_panel);
+	return 0;
+}
+
+static int innovator1510_panel_remove(struct platform_device *pdev)
+{
+	DBGENTER(1);
+	return 0;
+}
+
+static int innovator1510_panel_suspend(struct platform_device *pdev, pm_message_t mesg)
+{
+	DBGENTER(1);
+	return 0;
+}
+
+static int innovator1510_panel_resume(struct platform_device *pdev)
+{
+	DBGENTER(1);
+	return 0;
+}
+
+struct platform_driver innovator1510_panel_driver = {
+	.probe		= innovator1510_panel_probe,
+	.remove		= innovator1510_panel_remove,
+	.suspend	= innovator1510_panel_suspend,
+	.resume		= innovator1510_panel_resume,
+	.driver		= {
+		.name	= "lcd_inn1510",
+		.owner	= THIS_MODULE,
+	},
+};
+
+static int innovator1510_panel_drv_init(void)
+{
+	return platform_driver_register(&innovator1510_panel_driver);
+}
+
+static void innovator1510_panel_drv_cleanup(void)
+{
+	platform_driver_unregister(&innovator1510_panel_driver);
+}
+
+module_init(innovator1510_panel_drv_init);
+module_exit(innovator1510_panel_drv_cleanup);
 

@@ -4,19 +4,19 @@ config FB_OMAP
         help
           Frame buffer driver for OMAP based boards.
 
-config FB_OMAP_LCDC_INTERNAL
-	bool "Internal LCD controller support"
-	depends on FB_OMAP
-	help
-	  Say Y here, if you want to have support for the internal OMAP
-	  LCD controller. If unsure, say Y.
-
 config FB_OMAP_LCDC_EXTERNAL
 	bool "External LCD controller support"
 	depends on FB_OMAP
 	help
 	  Say Y here, if you want to have support for boards with an
 	  external LCD controller connected to the SoSSI/RFBI interface. 
+
+config FB_OMAP_LCDC_HWA742
+	bool "Epson HWA742 LCD controller support"
+	depends on FB_OMAP && FB_OMAP_LCDC_EXTERNAL
+	help
+	  Say Y here if you want to have support for the external
+	  Epson HWA742 LCD controller.
 
 config FB_OMAP_MANUAL_UPDATE
 	bool "Default to manual update mode"
@@ -27,6 +27,21 @@ config FB_OMAP_MANUAL_UPDATE
           the frame buffer content and thus a reload of the image data to
 	  the external frame buffer is required. If unsure, say N.
 
+config FB_OMAP_LCD_LPH8923
+	bool "Philips LPH8923 LCD support"
+	depends on FB_OMAP
+	help
+	  Say Y here if you want to have support for the Philips
+	  LPH8923 LCD.
+
+config FB_OMAP_BOOTLOADER_INIT
+	bool "Check bootloader initializaion"
+	depends on FB_OMAP
+	help
+	  Say Y here if you want to enable checking if the bootloader has
+	  already initialized the display controller. In this case the
+	  driver will skip the initialization.
+
 config FB_OMAP_DMA_TUNE
         bool "Set DMA SDRAM access priority high"
         depends on FB_OMAP && ARCH_OMAP1
@@ -36,4 +51,5 @@ config FB_OMAP_DMA_TUNE
           If you have such a system and want to use rotation
           answer yes. Answer no if you have a dedicated video
           memory, or don't use any of the accelerated features.
+
 

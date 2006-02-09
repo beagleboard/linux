@@ -120,9 +120,15 @@ static struct platform_device apollon_smc91x_device = {
 	.resource	= apollon_smc91x_resources,
 };
 
+static struct platform_device apollon_lcd_device = {
+	.name		= "apollon_lcd",
+	.id		= -1,
+};
+
 static struct platform_device *apollon_devices[] __initdata = {
 	&apollon_onenand_device,
 	&apollon_smc91x_device,
+	&apollon_lcd_device,
 };
 
 static inline void __init apollon_init_smc91x(void)
@@ -169,7 +175,6 @@ static struct omap_mmc_config apollon_mmc_config __initdata = {
 };
 
 static struct omap_lcd_config apollon_lcd_config __initdata = {
-	.panel_name	= "apollon",
 	.ctrl_name	= "internal",
 };
 

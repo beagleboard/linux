@@ -21,6 +21,7 @@
 #define OMAP_TAG_LCD		0x4f05
 #define OMAP_TAG_GPIO_SWITCH	0x4f06
 #define OMAP_TAG_UART		0x4f07
+#define OMAP_TAG_FBMEM		0x4f08
 #define OMAP_TAG_STI_CONSOLE	0x4f09
 
 #define OMAP_TAG_BOOT_REASON    0x4f80
@@ -92,6 +93,13 @@ struct omap_usb_config {
 struct omap_lcd_config {
 	char panel_name[16];
 	char ctrl_name[16];
+};
+
+struct omap_fbmem_config {
+	u32 fb_sram_start;
+	u32 fb_sram_size;
+	u32 fb_sdram_start;
+	u32 fb_sdram_size;
 };
 
 /* Cover:

@@ -349,6 +349,11 @@ static struct platform_device h3_irda_device = {
 	.resource	= h3_irda_resources,
 };
 
+static struct platform_device h3_lcd_device = {
+	.name		= "lcd_h3",
+	.id		= -1,
+};
+
 static struct platform_device *devices[] __initdata = {
 	&nor_device,
 	&nand_device,
@@ -356,6 +361,7 @@ static struct platform_device *devices[] __initdata = {
 	&intlat_device,
 	&h3_irda_device,
 	&h3_kp_device,
+	&h3_lcd_device,
 };
 
 static struct omap_usb_config h3_usb_config __initdata = {
@@ -385,7 +391,6 @@ static struct omap_uart_config h3_uart_config __initdata = {
 };
 
 static struct omap_lcd_config h3_lcd_config __initdata = {
-	.panel_name	= "h3",
 	.ctrl_name	= "internal",
 };
 

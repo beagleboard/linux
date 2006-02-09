@@ -30,6 +30,15 @@ static void __init omap_nokia770_init_irq(void)
 	omap_init_irq();
 }
 
+static struct spi_board_info nokia770_spi_board_info[] __initdata = {
+	[0] = {
+		.modalias       = "lcd_lph8923",
+		.bus_num        = 2,
+		.chip_select    = 3,
+		.max_speed_hz   = 12000000,
+	},
+};
+
 static struct platform_device *nokia770_devices[] __initdata = {
 };
 
@@ -70,6 +79,8 @@ static void __init omap_nokia770_init(void)
 	nokia770_config[0].data = &nokia770_usb_config;
 
 	platform_add_devices(nokia770_devices, ARRAY_SIZE(nokia770_devices));
+	spi_register_board_info(nokia770_spi_board_info,
+				ARRAY_SIZE(nokia770_spi_board_info));
 	omap_board_config = nokia770_config;
 	omap_board_config_size = ARRAY_SIZE(nokia770_config);
 	omap_serial_init();

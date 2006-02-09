@@ -18,6 +18,7 @@
 #include <asm/io.h>
 #include <asm/arch/mux.h>
 #include <asm/arch/tc.h>
+#include <asm/arch/omapfb.h>
 
 extern int omap1_clk_init(void);
 extern void omap_check_revision(void);
@@ -121,6 +122,7 @@ void __init omap1_map_common_io(void)
 #endif
 
 	omap_sram_init();
+	omapfb_reserve_mem();
 }
 
 /*

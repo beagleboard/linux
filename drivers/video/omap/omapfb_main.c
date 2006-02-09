@@ -80,64 +80,20 @@ static struct caps_table_struct {
  * LCD panel
  * ---------------------------------------------------------------------------
  */
-extern struct lcd_panel h4_panel;
-extern struct lcd_panel h3_panel;
-extern struct lcd_panel h2_panel;
-extern struct lcd_panel p2_panel;
-extern struct lcd_panel osk_panel;
-extern struct lcd_panel palmte_panel;
-extern struct lcd_panel innovator1610_panel;
-extern struct lcd_panel innovator1510_panel;
-extern struct lcd_panel lph8923_panel;
-extern struct lcd_panel apollon_panel;
-
-static struct lcd_panel *panels[] = {
-#ifdef CONFIG_MACH_OMAP_H2
-	&h2_panel,
-#endif
-#ifdef CONFIG_MACH_OMAP_H3
-	&h3_panel,
-#endif
-#ifdef CONFIG_MACH_OMAP_H4
-	&h4_panel,
-#endif
-#ifdef CONFIG_MACH_OMAP_PERSEUS2
-	&p2_panel,
-#endif
-#ifdef CONFIG_MACH_OMAP_OSK
-	&osk_panel,
-#endif
-#ifdef CONFIG_MACH_OMAP_PALMTE
-	&palmte_panel,
-#endif
-
-#ifdef CONFIG_MACH_OMAP_INNOVATOR
-
-#ifdef CONFIG_ARCH_OMAP15XX
-	&innovator1510_panel,
-#endif
-#ifdef CONFIG_ARCH_OMAP16XX
-	&innovator1610_panel,
-#endif
-
-#endif
-#ifdef CONFIG_MACH_OMAP_APOLLON
-	&apollon_panel,
-#endif
-};
-
 extern struct lcd_ctrl omap1_int_ctrl;
 extern struct lcd_ctrl omap2_int_ctrl;
 extern struct lcd_ctrl hwa742_ctrl;
 extern struct lcd_ctrl blizzard_ctrl;
 
 static struct lcd_ctrl *ctrls[] = {
-#ifdef CONFIG_FB_OMAP_LCDC_INTERNAL
 #ifdef CONFIG_ARCH_OMAP1
 	&omap1_int_ctrl,
 #else
 	&omap2_int_ctrl,
 #endif
+
+#ifdef CONFIG_FB_OMAP_LCDC_HWA742
+	&hwa742_ctrl,
 #endif
 };
 
@@ -192,7 +148,6 @@ static int ctrl_init(struct omapfb_device *fbdev)
 
 	fbdev->ctrl->get_vram_layout(&fbdev->vram_size, &fbdev->vram_virt_base,
 				     &fbdev->vram_phys_base);
-	memset((void *)fbdev->vram_virt_base, 0, fbdev->vram_size);
 
 	DBGPRINT(1, "vram_phys %08x vram_virt %p vram_size=%lu\n",
 		 fbdev->vram_phys_base, fbdev->vram_virt_base,
@@ -339,12 +294,24 @@ static int omapfb_setcmap(struct fb_cmap *cmap, struct fb_info *info)
 	return 0;
 }
 
+static int omapfb_mmap(struct fb_info *info, struct vm_area_struct *vma)
+{
+	struct omapfb_device *fbdev = info->par;
+	int r;
+
+	omapfb_rqueue_lock(fbdev);
+	r = fbdev->ctrl->mmap(vma);
+	omapfb_rqueue_unlock(fbdev);
+
+	return r;
+}
 
 static void omapfb_update_full_screen(struct omapfb_device *fbdev);
 
 static int omapfb_blank(int blank, struct fb_info *fbi)
 {
 	struct omapfb_device *fbdev = (struct omapfb_device *)fbi->par;
+	int do_update = 0;
 	int r = 0;
 
 	DBGENTER(1);
@@ -359,7 +326,7 @@ static int omapfb_blank(int blank, struct fb_info *fbi)
 			fbdev->state = OMAPFB_ACTIVE;
 			if (fbdev->ctrl->get_update_mode() ==
 					OMAPFB_MANUAL_UPDATE)
-				omapfb_update_full_screen(fbdev);
+				do_update = 1;
 		}
 		break;
 	case VESA_POWERDOWN:
@@ -374,6 +341,9 @@ static int omapfb_blank(int blank, struct fb_info *fbi)
 		r = -EINVAL;
 	}
 	omapfb_rqueue_unlock(fbdev);
+
+	if (do_update)
+		omapfb_update_full_screen(fbdev);
 
 	DBGLEAVE(1);
 	return r;
@@ -763,8 +733,6 @@ static int omapfb_ioctl(struct fb_info *fbi, unsigned int cmd,
 	} p;
 	int r = 0;
 
-	DBGENTER(2);
-
 	BUG_ON(!ops);
 	DBGPRINT(2, "cmd=%010x\n", cmd);
 	switch (cmd)
@@ -791,6 +759,15 @@ static int omapfb_ioctl(struct fb_info *fbi, unsigned int cmd,
 		if (put_user(p.update_mode,
 					(enum omapfb_update_mode __user *)arg))
 			r = -EFAULT;
+		break;
+	case OMAPFB_UPDATE_WINDOW_OLD:
+		if (copy_from_user(&p.update_window, (void __user *)arg,
+				   sizeof(struct omapfb_update_window_old)))
+			r = -EFAULT;
+		else {
+			p.update_window.format = 0;
+			r = omapfb_update_win(fbdev, &p.update_window);
+		}
 		break;
 	case OMAPFB_UPDATE_WINDOW:
 		if (copy_from_user(&p.update_window, (void __user *)arg,
@@ -1134,45 +1111,21 @@ static void omapfb_free_resources(struct omapfb_device *fbdev, int state)
 	}
 }
 
-static int omapfb_find_panel(struct omapfb_device *fbdev)
-{
-	const struct omap_lcd_config *conf;
-	char name[17];
-	int i;
-
-	conf = (struct omap_lcd_config *)fbdev->dev->platform_data;
-	fbdev->panel = NULL;
-	if (conf == NULL)
-		return -1;
-
-	strncpy(name, conf->panel_name, sizeof(name) - 1);
-	name[sizeof(name) - 1] = 0;
-	for (i = 0; i < ARRAY_SIZE(panels); i++) {
-		if (strcmp(panels[i]->name, name) == 0) {
-			fbdev->panel = panels[i];
-			break;
-		}
-	}
-
-	if (fbdev->panel == NULL)
-		return -1;
-
-	return 0;
-}
-
 static int omapfb_find_ctrl(struct omapfb_device *fbdev)
 {
-	struct omap_lcd_config *conf;
+	struct omapfb_platform_data *conf;
 	char name[17];
 	int i;
 
-	conf = (struct omap_lcd_config *)fbdev->dev->platform_data;
+	conf = (struct omapfb_platform_data *)fbdev->dev->platform_data;
 
 	fbdev->ctrl = NULL;
-	if (conf == NULL)
+	if (conf == NULL) {
+		DBGPRINT(1, "omap_lcd_config not found\n");
 		return -1;
+	}
 
-	strncpy(name, conf->ctrl_name, sizeof(name) - 1);
+	strncpy(name, conf->lcd.ctrl_name, sizeof(name) - 1);
 	name[sizeof(name) - 1] = '\0';
 
 	if (strcmp(name, "internal") == 0) {
@@ -1181,14 +1134,17 @@ static int omapfb_find_ctrl(struct omapfb_device *fbdev)
 	}
 
 	for (i = 0; i < ARRAY_SIZE(ctrls); i++) {
+		DBGPRINT(1, "ctrl %s\n", ctrls[i]->name);
 		if (strcmp(ctrls[i]->name, name) == 0) {
 			fbdev->ctrl = ctrls[i];
 			break;
 		}
 	}
 
-	if (fbdev->ctrl == NULL)
+	if (fbdev->ctrl == NULL) {
+		DBGPRINT(1, "ctrl %s not supported\n", name);
 		return -1;
+	}
 
 	return 0;
 }
@@ -1218,13 +1174,12 @@ static void check_required_callbacks(struct omapfb_device *fbdev)
  *      start LCD frame transfer
  *   7. register system fb_info structure
  */
-static int omapfb_probe(struct platform_device *pdev)
+static int omapfb_do_probe(struct platform_device *pdev, struct lcd_panel *panel)
 {
 	struct omapfb_device	*fbdev = NULL;
 	struct fb_info		*fbi;
 	int			init_state;
 	unsigned long		phz, hhz, vhz;
-	struct lcd_panel	*panel;
 	int			r = 0;
 
 	DBGENTER(1);
@@ -1248,14 +1203,13 @@ static int omapfb_probe(struct platform_device *pdev)
 	fbdev = (struct omapfb_device *)fbi->par;
 	fbdev->fb_info = fbi;
 	fbdev->dev = &pdev->dev;
+	fbdev->panel = panel;
 	platform_set_drvdata(pdev, fbdev);
 
 	init_MUTEX(&fbdev->rqueue_sema);
 
 #ifdef CONFIG_ARCH_OMAP1
-#ifdef CONFIG_FB_OMAP_LCDC_INTERNAL
 	fbdev->int_ctrl = &omap1_int_ctrl;
-#endif
 #ifdef CONFIG_FB_OMAP_LCDC_EXTERNAL
 	fbdev->ext_if = &sossi_extif;
 #endif
@@ -1271,15 +1225,6 @@ static int omapfb_probe(struct platform_device *pdev)
 		goto cleanup;
 	}
 
-	if (omapfb_find_panel(fbdev) < 0) {
-		pr_err("LCD panel not found, board not supported\n");
-		r = -ENODEV;
-		goto cleanup;
-	}
-
-	check_required_callbacks(fbdev);
-
-
 	pr_info(MODULE_NAME ": configured for panel %s\n", fbdev->panel->name);
 
 	r = fbdev->panel->init(fbdev);
@@ -1291,6 +1236,14 @@ static int omapfb_probe(struct platform_device *pdev)
 	if (r)
 		goto cleanup;
 	init_state++;
+
+	/* We depend on doing this after ctrl_init, since it can redefine
+	 * member functions.
+	 */
+	if (fbdev->ctrl->mmap)
+		omapfb_ops.fb_mmap = omapfb_mmap;
+
+	check_required_callbacks(fbdev);
 
 	r = fbinfo_init(fbdev);
 	if (r)
@@ -1308,7 +1261,8 @@ static int omapfb_probe(struct platform_device *pdev)
 		goto cleanup;
 	}
 
-	omapfb_enable_plane(fbdev, 0, 1);
+	if (!manual_update)
+		omapfb_enable_plane(fbdev, OMAPFB_PLANE_GFX, 1);
 
 	omapfb_set_update_mode(fbdev, manual_update ?
 				   OMAPFB_MANUAL_UPDATE : OMAPFB_AUTO_UPDATE);
@@ -1350,6 +1304,30 @@ cleanup:
 
 	DBGLEAVE(1);
 	return r;
+}
+
+static struct platform_device	*fbdev_pdev;
+static struct lcd_panel		*fbdev_panel;
+
+static int omapfb_probe(struct platform_device *pdev)
+{
+	BUG_ON(fbdev_pdev != NULL);
+
+	DBGENTER(1);
+	fbdev_pdev = pdev;
+	if (fbdev_panel != NULL)
+		omapfb_do_probe(fbdev_pdev, fbdev_panel);
+	return 0;
+}
+
+void omapfb_register_panel(struct lcd_panel *panel)
+{
+	BUG_ON(fbdev_panel != NULL);
+
+	DBGENTER(1);
+	fbdev_panel = panel;
+	if (fbdev_pdev != NULL)
+		omapfb_do_probe(fbdev_pdev, fbdev_panel);
 }
 
 /* Called when the device is being detached from the driver */

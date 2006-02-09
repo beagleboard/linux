@@ -22,6 +22,7 @@
 #include <asm/mach/map.h>
 
 #include <asm/arch/mux.h>
+#include <asm/arch/omapfb.h>
 
 extern void omap_sram_init(void);
 extern int omap2_clk_init(void);
@@ -59,6 +60,7 @@ void __init omap2_map_common_io(void)
 
 	omap2_check_revision();
 	omap_sram_init();
+	omapfb_reserve_mem();
 }
 
 void __init omap2_init_common_hw(void)

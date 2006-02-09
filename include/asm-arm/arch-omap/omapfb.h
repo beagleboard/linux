@@ -35,6 +35,7 @@
 #define OMAPFB_SYNC_GFX		OMAP_IO(37)
 #define OMAPFB_VSYNC		OMAP_IO(38)
 #define OMAPFB_SET_UPDATE_MODE	OMAP_IOW(40, enum omapfb_update_mode)
+#define OMAPFB_UPDATE_WINDOW_OLD OMAP_IOW(41, struct omapfb_update_window_old)
 #define OMAPFB_GET_CAPS		OMAP_IOR(42, unsigned long)
 #define OMAPFB_GET_UPDATE_MODE	OMAP_IOW(43, enum omapfb_update_mode)
 #define OMAPFB_LCD_TEST		OMAP_IOW(45, int)
@@ -69,6 +70,11 @@ struct omapfb_update_window {
 	u32 x, y;
 	u32 width, height;
 	u32 format;
+};
+
+struct omapfb_update_window_old {
+	u32 x, y;
+	u32 width, height;
 };
 
 enum omapfb_plane {
@@ -120,6 +126,8 @@ enum omapfb_update_mode {
 #include <linux/completion.h>
 #include <linux/interrupt.h>
 #include <linux/fb.h>
+
+#include <asm/arch/board.h>
 
 #define OMAP_LCDC_INV_VSYNC             0x0001
 #define OMAP_LCDC_INV_HSYNC             0x0002
@@ -184,17 +192,27 @@ struct extif_timings {
 	int re_cycle_time;
 	int cs_pulse_width;
 	int access_time;
+
+	int clk_div;
+
+	u32 tim[5];		/* set by extif->convert_timings */
+
+	int converted;
 };
 
 struct lcd_ctrl_extif {
 	int  (*init)		(void);
 	void (*cleanup)		(void);
+	void (*get_clk_info)	(u32 *clk_period, u32 *max_clk_div);
+	int  (*convert_timings)	(struct extif_timings *timings);
 	void (*set_timings)	(const struct extif_timings *timings);
-	void (*write_command)	(u32 cmd);
-	u32  (*read_data)	(void);
-	void (*write_data)	(u32 data);
+	void (*set_bits_per_cycle)(int bpc);
+	void (*write_command)	(const void *buf, unsigned int len);
+	void (*read_data)	(void *buf, unsigned int len);
+	void (*write_data)	(const void *buf, unsigned int len);
 	void (*transfer_area)	(int width, int height,
 				 void (callback)(void * data), void *data);
+	unsigned long		max_transmit_size;
 };
 
 struct lcd_ctrl {
@@ -207,6 +225,7 @@ struct lcd_ctrl {
 	void		(*get_vram_layout)(unsigned long *size,
 					   void **virt_base,
 					   dma_addr_t *phys_base);
+	int		(*mmap)		  (struct vm_area_struct *vma);
 	unsigned long	(*get_caps)	  (void);
 	int		(*set_update_mode)(enum omapfb_update_mode mode);
 	enum omapfb_update_mode (*get_update_mode)(void);
@@ -261,12 +280,10 @@ struct omapfb_device {
 	struct device		*dev;
 };
 
-extern struct lcd_panel h3_panel;
-extern struct lcd_panel h2_panel;
-extern struct lcd_panel p2_panel;
-extern struct lcd_panel osk_panel;
-extern struct lcd_panel innovator1610_panel;
-extern struct lcd_panel innovator1510_panel;
+struct omapfb_platform_data {
+	struct omap_lcd_config   lcd;
+	struct omap_fbmem_config fbmem;
+};
 
 #ifdef CONFIG_ARCH_OMAP1
 extern struct lcd_ctrl omap1_lcd_ctrl;
@@ -274,7 +291,11 @@ extern struct lcd_ctrl omap1_lcd_ctrl;
 extern struct lcd_ctrl omap2_disp_ctrl;
 #endif
 
+extern void omapfb_register_panel(struct lcd_panel *panel);
 extern void omapfb_write_first_pixel(struct omapfb_device *fbdev, u16 pixval);
+
+/* in arch/arm/plat-omap/devices.c */
+extern void omapfb_reserve_mem(void);
 
 #endif /* __KERNEL__ */
 

@@ -23,6 +23,7 @@
  */
 
 #include <linux/module.h>
+#include <linux/platform_device.h>
 
 #include <asm/arch/gpio.h>
 #include <asm/arch/mux.h>
@@ -112,4 +113,53 @@ struct lcd_panel osk_panel = {
 	.disable	= osk_panel_disable,
 	.get_caps	= osk_panel_get_caps,
 };
+
+static int osk_panel_probe(struct platform_device *pdev)
+{
+	DBGENTER(1);
+	omapfb_register_panel(&osk_panel);
+	return 0;
+}
+
+static int osk_panel_remove(struct platform_device *pdev)
+{
+	DBGENTER(1);
+	return 0;
+}
+
+static int osk_panel_suspend(struct platform_device *pdev, pm_message_t mesg)
+{
+	DBGENTER(1);
+	return 0;
+}
+
+static int osk_panel_resume(struct platform_device *pdev)
+{
+	DBGENTER(1);
+	return 0;
+}
+
+struct platform_driver osk_panel_driver = {
+	.probe		= osk_panel_probe,
+	.remove		= osk_panel_remove,
+	.suspend	= osk_panel_suspend,
+	.resume		= osk_panel_resume,
+	.driver		= {
+		.name	= "lcd_osk",
+		.owner	= THIS_MODULE,
+	},
+};
+
+static int osk_panel_drv_init(void)
+{
+	return platform_driver_register(&osk_panel_driver);
+}
+
+static void osk_panel_drv_cleanup(void)
+{
+	platform_driver_unregister(&osk_panel_driver);
+}
+
+module_init(osk_panel_drv_init);
+module_exit(osk_panel_drv_cleanup);
 

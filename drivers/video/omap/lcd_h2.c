@@ -22,6 +22,7 @@
  */
 
 #include <linux/module.h>
+#include <linux/platform_device.h>
 
 #include <asm/arch/mux.h>
 #include <asm/arch/omapfb.h>
@@ -130,4 +131,53 @@ struct lcd_panel h2_panel = {
 	.disable	= h2_panel_disable,
 	.get_caps	= h2_panel_get_caps,
 };
+
+static int h2_panel_probe(struct platform_device *pdev)
+{
+	DBGENTER(1);
+	omapfb_register_panel(&h2_panel);
+	return 0;
+}
+
+static int h2_panel_remove(struct platform_device *pdev)
+{
+	DBGENTER(1);
+	return 0;
+}
+
+static int h2_panel_suspend(struct platform_device *pdev, pm_message_t mesg)
+{
+	DBGENTER(1);
+	return 0;
+}
+
+static int h2_panel_resume(struct platform_device *pdev)
+{
+	DBGENTER(1);
+	return 0;
+}
+
+struct platform_driver h2_panel_driver = {
+	.probe		= h2_panel_probe,
+	.remove		= h2_panel_remove,
+	.suspend	= h2_panel_suspend,
+	.resume		= h2_panel_resume,
+	.driver		= {
+		.name	= "lcd_h2",
+		.owner	= THIS_MODULE,
+	},
+};
+
+static int h2_panel_drv_init(void)
+{
+	return platform_driver_register(&h2_panel_driver);
+}
+
+static void h2_panel_drv_cleanup(void)
+{
+	platform_driver_unregister(&h2_panel_driver);
+}
+
+module_init(h2_panel_drv_init);
+module_exit(h2_panel_drv_cleanup);
 

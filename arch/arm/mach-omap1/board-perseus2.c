@@ -186,11 +186,17 @@ static struct platform_device kp_device = {
 	.resource	= kp_resources,
 };
 
+static struct platform_device lcd_device = {
+	.name		= "lcd_p2",
+	.id		= -1,
+};
+
 static struct platform_device *devices[] __initdata = {
 	&nor_device,
 	&nand_device,
 	&smc91x_device,
 	&kp_device,
+	&lcd_device,
 };
 
 #define P2_NAND_RB_GPIO_PIN	62
@@ -205,7 +211,6 @@ static struct omap_uart_config perseus2_uart_config __initdata = {
 };
 
 static struct omap_lcd_config perseus2_lcd_config __initdata = {
-	.panel_name	= "p2",
 	.ctrl_name	= "internal",
 };
 

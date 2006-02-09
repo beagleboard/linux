@@ -24,8 +24,6 @@
 #ifndef __OMAPFB_DEBUG_H
 #define __OMAPFB_DEBUG_H
 
-#include <asm/io.h>
-
 #ifdef OMAPFB_DBG
 
 #define DBGPRINT(level, fmt, ...) if (level <= OMAPFB_DBG) do { \
@@ -35,37 +33,11 @@
 #define DBGENTER(level) DBGPRINT(level, "Enter\n")
 #define DBGLEAVE(level)	DBGPRINT(level, "Leave\n")
 
-static inline void dump_dma_regs(int lch)
-{
-#ifdef CONFIG_ARCH_OMAP1
-#define _R(x) __REG16(OMAP_DMA_##x(lch))
-
-	DBGPRINT(4, "\nCSDP  :%#06x CCR      :%#06x CSSA_U  :%#06x "
-		    "\nCDSA_L:%#06x CDSA_U   :%#06x CEN     :%#06x "
-		    "\nCFN   :%#06x CSFI     :%#06x CSEI    :%#06x "
-		    "\nCSAC  :%#06x CICR     :%#06x CSR     :%04x "
-		    "\nCSSA_L:%#06x CDAC     :%#06x CDEI    :%#06x "
-		    "\nCDFI  :%#06x COLOR_L  :%#06x COLOR_U :%#06x "
-		    "\nCCR2  :%#06x CLNK_CTRL:%#06x LCH_CTRL:%#06x\n",
-		    _R(CSDP), _R(CCR), _R(CSSA_U),
-		    _R(CDSA_L), _R(CDSA_U), _R(CEN),
-		    _R(CFN), _R(CSFI), _R(CSEI),
-		    _R(CSAC), _R(CICR), 0, /* _R(CSR), */
-		    _R(CSSA_L), _R(CDAC), _R(CDEI),
-		    _R(CDFI), _R(COLOR_L), _R(COLOR_U),
-		    _R(CCR2), _R(CLNK_CTRL), _R(LCH_CTRL));
-#undef _R
-#endif
-}
-
-#define DUMP_DMA_REGS(lch) dump_dma_regs(lch)
-
 #else	/* OMAPFB_DBG */
 
 #define DBGPRINT(level, format, ...)
 #define DBGENTER(level)
 #define DBGLEAVE(level)
-#define DUMP_DMA_REGS(lch)
 
 #endif	/* OMAPFB_DBG */
 

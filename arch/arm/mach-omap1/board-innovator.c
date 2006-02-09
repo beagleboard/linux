@@ -169,10 +169,16 @@ static struct platform_device innovator1510_smc91x_device = {
 	.resource	= innovator1510_smc91x_resources,
 };
 
+static struct platform_device innovator1510_lcd_device = {
+	.name		= "lcd_inn1510",
+	.id		= -1,
+};
+
 static struct platform_device *innovator1510_devices[] __initdata = {
 	&innovator_flash_device,
 	&innovator1510_smc91x_device,
 	&innovator_kp_device,
+	&innovator1510_lcd_device,
 };
 
 #endif /* CONFIG_ARCH_OMAP15XX */
@@ -199,10 +205,16 @@ static struct platform_device innovator1610_smc91x_device = {
 	.resource	= innovator1610_smc91x_resources,
 };
 
+static struct platform_device innovator1610_lcd_device = {
+	.name		= "inn1610_lcd",
+	.id		= -1,
+};
+
 static struct platform_device *innovator1610_devices[] __initdata = {
 	&innovator_flash_device,
 	&innovator1610_smc91x_device,
 	&innovator_kp_device,
+	&innovator1610_lcd_device,
 };
 
 #endif /* CONFIG_ARCH_OMAP16XX */
@@ -248,7 +260,6 @@ static struct omap_usb_config innovator1510_usb_config __initdata = {
 };
 
 static struct omap_lcd_config innovator1510_lcd_config __initdata = {
-	.panel_name	= "inn1510",
 	.ctrl_name	= "internal",
 };
 #endif
@@ -270,7 +281,6 @@ static struct omap_usb_config h2_usb_config __initdata = {
 };
 
 static struct omap_lcd_config innovator1610_lcd_config __initdata = {
-	.panel_name	= "inn1610",
 	.ctrl_name	= "internal",
 };
 #endif

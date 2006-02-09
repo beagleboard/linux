@@ -23,15 +23,18 @@
 
 #include <linux/kernel.h>
 #include <linux/dma-mapping.h>
+#include <linux/vmalloc.h>
 #include <linux/clk.h>
 
 #include <asm/io.h>
 
+#include <asm/arch/sram.h>
 #include <asm/arch/omapfb.h>
+#include <asm/arch/board.h>
 
 #include "dispc.h"
 
-/* #define OMAPFB_DBG	2 */
+/* #define OMAPFB_DBG	1 */
 
 #include "debug.h"
 
@@ -127,6 +130,8 @@
 					     DISPC_IRQ_VID2_FIFO_UNDERFLOW | \
 					     DISPC_IRQ_SYNC_LOST)
 
+#define RFBI_CONTROL			0x48050040
+
 #define MAX_PALETTE_SIZE		(256 * 16)
 
 #define pr_err(fmt, args...) printk(KERN_ERR MODULE_NAME ": " fmt, ## args)
@@ -138,11 +143,25 @@
 
 static struct {
 	u32		base;
-	void		*vram_virt;
-	dma_addr_t	vram_phys;
-	int		vram_size;
+
+	dma_addr_t	fb_sram_paddr;
+	u32		fb_sram_size;
+	int		fb_sram_lines;
+
+	dma_addr_t	fb_sdram_paddr;
+	void		*fb_sdram_vaddr;
+	u32		fb_sdram_size;
+	int		fb_sdram_lines;
+
+	dma_addr_t	palette_paddr;
+	void		*palette_vaddr;
+
+	void		*fb_kern_vaddr;
+
+	int		multiplane_head;
 
 	int		ext_mode;
+	int		fbmem_allocated;
 
 	unsigned long	enabled_irqs;
 	void		(*irq_callback)(void *);
@@ -151,8 +170,6 @@ static struct {
 
 	struct clk	*dss_ick, *dss1_fck;
 	struct clk	*dss_54m_fck;
-
-	int		active_plane_mask;
 
 	enum omapfb_update_mode	update_mode;
 	struct omapfb_device	*fbdev;
@@ -182,6 +199,11 @@ static void enable_rfbi_mode(int enable)
 	l |= 1 << 15;
 	l |= enable ? 0 : (1 << 16);
 	dispc_write_reg(DISPC_CONTROL, l);
+
+	/* Set bypass mode in RFBI module */
+	l = __raw_readl(io_p2v(RFBI_CONTROL));
+	l |= enable ? 0 : (1 << 1);
+	__raw_writel(l, io_p2v(RFBI_CONTROL));
 }
 
 static void set_lcd_data_lines(int data_lines)
@@ -267,8 +289,8 @@ void omap_dispc_enable_digit_out(int enable)
 }
 EXPORT_SYMBOL(omap_dispc_enable_digit_out);
 
-static int omap_dispc_setup_plane(int plane, int channel_out,
-				  unsigned long offset, int screen_width,
+static inline int _setup_plane(int plane, int channel_out,
+				  u32 paddr, int screen_width,
 				  int pos_x, int pos_y, int width, int height,
 				  int color_mode)
 {
@@ -291,7 +313,10 @@ static int omap_dispc_setup_plane(int plane, int channel_out,
 	int bpp;
 	u32 l;
 
-	DBGENTER(1);
+	DBGPRINT(2, "plane %d channel %d paddr %u scr_width %d pos_x %d pos_y %d "
+		    "width %d height %d color_mode %d\n",
+		    plane, channel_out, paddr, screen_width, pos_x, pos_y,
+		    width, height, color_mode);
 
 	switch (plane) {
 	case OMAPFB_PLANE_GFX:
@@ -352,10 +377,7 @@ static int omap_dispc_setup_plane(int plane, int channel_out,
 
 	dispc_write_reg(at_reg[plane], l);
 
-
-	dispc_write_reg(ba_reg[plane],
-		       dispc.vram_phys + PAGE_ALIGN(MAX_PALETTE_SIZE) + offset);
-
+	dispc_write_reg(ba_reg[plane], paddr);
 	MOD_REG_FLD(ps_reg[plane],
 		    FLD_MASK(16, 11) | FLD_MASK(0, 11), (pos_y << 16) | pos_x);
 
@@ -363,6 +385,52 @@ static int omap_dispc_setup_plane(int plane, int channel_out,
 			((height - 1) << 16) | (width - 1));
 
 	dispc_write_reg(ri_reg[plane], (screen_width - width) * bpp / 8 + 1);
+
+	return height * screen_width * bpp / 8;
+}
+
+static int omap_dispc_setup_plane(int plane, int channel_out,
+				  unsigned long offset, int screen_width,
+				  int pos_x, int pos_y, int width, int height,
+				  int color_mode)
+{
+	int yspan;
+	u32 paddr;
+	int mp_head = -1;
+	int r;
+
+	if (offset > dispc.fb_sram_size + dispc.fb_sdram_size)
+		return -EINVAL;
+
+	if (offset < dispc.fb_sram_size) {
+		paddr = dispc.fb_sram_paddr + offset;
+		yspan = min_t(int, height, dispc.fb_sram_lines);
+		if (yspan) {
+			if ((r = _setup_plane(plane, channel_out, paddr,
+					screen_width, pos_x, pos_y,
+					width, height, color_mode)) < 0)
+				return r;
+			offset += r;
+			height -= yspan;
+			pos_y += yspan;
+			mp_head = plane;
+			if (++plane > 2)
+				plane = OMAPFB_PLANE_GFX;
+		}
+	}
+	if (height) {
+		offset -= dispc.fb_sram_size;
+		paddr = dispc.fb_sdram_paddr + offset;
+		yspan = min_t(int, height, dispc.fb_sdram_lines);
+		if (yspan) {
+			if ((r = _setup_plane(plane, channel_out, paddr,
+					screen_width, pos_x, pos_y,
+					width, height, color_mode)) < 0)
+				return r;
+			if (mp_head != -1)
+				dispc.multiplane_head = mp_head;
+		}
+	}
 
 	return 0;
 }
@@ -372,11 +440,16 @@ static int omap_dispc_enable_plane(int plane, int enable)
 	const u32 at_reg[] = { DISPC_GFX_ATTRIBUTES,
 				DISPC_VID1_BASE + DISPC_VID_ATTRIBUTES,
 			        DISPC_VID2_BASE + DISPC_VID_ATTRIBUTES };
-	DBGENTER(1);
+	DBGENTER(2);
 
 	if ((unsigned int)plane > 2)
 		return -EINVAL;
 	MOD_REG_FLD(at_reg[plane], 1, enable ? 1 : 0);
+	if (plane == dispc.multiplane_head) {
+		if (++plane > 2)
+			plane = OMAPFB_PLANE_GFX;
+		MOD_REG_FLD(at_reg[plane], 1, enable ? 1 : 0);
+	}
 
 	return 0;
 }
@@ -435,6 +508,7 @@ static int omap_dispc_set_update_mode(enum omapfb_update_mode mode)
 	if (mode != dispc.update_mode) {
 		switch (mode) {
 		case OMAPFB_AUTO_UPDATE:
+		case OMAPFB_MANUAL_UPDATE:
 			omap_dispc_enable_lcd_out(1);
 			dispc.update_mode = mode;
 			break;
@@ -470,7 +544,7 @@ static void calc_ck_div(int is_tft, int pck, int *lck_div, int *pck_div)
 	pck = max(1, pck);
 	fck = clk_get_rate(dispc.dss1_fck);
 	lck = fck;
-	*pck_div = lck / pck;
+	*pck_div = (lck + pck - 1) / pck;
 	if (is_tft)
 		*pck_div = max(2, *pck_div);
 	else
@@ -489,6 +563,14 @@ static void calc_ck_div(int is_tft, int pck, int *lck_div, int *pck_div)
 	}
 }
 
+static void set_lcd_tft_mode(int enable)
+{
+	u32 mask;
+
+	mask = 1 << 3;
+	MOD_REG_FLD(DISPC_CONTROL, mask, enable ? mask : 0);
+}
+
 static void set_lcd_timings(void)
 {
 	u32 l;
@@ -498,10 +580,6 @@ static void set_lcd_timings(void)
 	unsigned long fck;
 
 	DBGENTER(1);
-
-	/* TFT dither, TFT/STN */
-	l = (1 << 7) | (1 << 3);
-	MOD_REG_FLD(DISPC_CONTROL, l, is_tft ? l : 0);
 
 	l = dispc_read_reg(DISPC_TIMING_H);
 	l &= ~(FLD_MASK(0, 6) | FLD_MASK(8, 8) | FLD_MASK(20, 8));
@@ -588,7 +666,7 @@ static irqreturn_t omap_dispc_irq_handler(int irq, void *dev, struct pt_regs *re
 
 	if (stat & DISPC_IRQ_MASK_ERROR) {
 		if (jabber++ < 5) {
-			pr_err("irq error status %04x\n", stat);
+			pr_err("irq error status %04x\n", stat & 0x7fff);
 		} else {
 			pr_err("disable irq\n");
 			dispc_write_reg(DISPC_IRQENABLE, 0);
@@ -684,8 +762,191 @@ static void omap_dispc_resume(void)
 	DBGLEAVE(1);
 }
 
-/* Called when used in bypass mode */
-static int alloc_vram(int req_size)
+
+static int omap_dispc_update_window(struct omapfb_update_window *win,
+				 void (*complete_callback)(void *arg),
+				 void *complete_callback_data)
+{
+	return dispc.update_mode == OMAPFB_UPDATE_DISABLED ? -ENODEV : 0;
+}
+
+/* Greatest common divisor */
+static int calc_gcd(int a, int b)
+{
+	int tmp;
+
+	if (a < b) {
+		tmp = a;
+		a = b;
+		b = tmp;
+	}
+	for (;;) {
+		tmp = a % b;
+		if (tmp != 0) {
+			a = b;
+			b = tmp;
+		} else
+			break;
+	}
+
+	return b;
+}
+
+/* Least common multiple */
+static int calc_lcm(int a, int b)
+{
+	return a * b / calc_gcd(a, b);
+}
+
+static void omap_dispc_get_vram_layout(unsigned long *size, void **virt,
+					dma_addr_t *phys)
+{
+	*size = dispc.fb_sram_size + dispc.fb_sdram_size;
+	*virt = dispc.fb_kern_vaddr;
+	/* Physical vram might not be contiguous. No one except own mmap
+	 * should use this addr.
+	 */
+	*phys = 0;
+}
+
+static int omap_dispc_mmap_user(struct vm_area_struct *vma)
+{
+	unsigned long len;
+	unsigned long offset;
+	unsigned long vaddr;
+	int r;
+
+	DBGPRINT(1, "vm_pgoff 0x%08lx vm_start 0x%08lx vm_end 0x%08lx\n",
+			vma->vm_pgoff, vma->vm_start, vma->vm_end);
+
+	if (vma->vm_pgoff > (~0UL >> PAGE_SHIFT))
+		return -EINVAL;
+	offset = vma->vm_pgoff << PAGE_SHIFT;
+
+	if (offset >= dispc.fb_sram_size + dispc.fb_sdram_size)
+		return -EINVAL;
+
+	len = vma->vm_end - vma->vm_start;
+	if (offset + len > dispc.fb_sram_size + dispc.fb_sdram_size)
+		return -EINVAL;
+
+	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
+	vma->vm_flags |= VM_PFNMAP;
+
+	vaddr = vma->vm_start;
+
+	if (dispc.fb_sram_size) {
+		if (offset < dispc.fb_sram_size) {
+			int chunk = min_t(int, dispc.fb_sram_size - offset, len);
+			DBGPRINT(1, "map sram va %08lx pa %08lx size %d\n",
+				 vaddr, dispc.fb_sram_paddr + offset, chunk);
+			r = io_remap_pfn_range(vma, vaddr,
+					   (dispc.fb_sram_paddr +
+					   offset) >> PAGE_SHIFT, chunk,
+					   vma->vm_page_prot);
+			if (r == -EINVAL)
+				return r;
+			if (r < 0)
+				return -EAGAIN;
+
+			vaddr += chunk;
+			len -= chunk;
+			offset = 0;
+		} else
+			offset -= dispc.fb_sram_size;
+	}
+
+	if (len) {
+		DBGPRINT(1, "map sdram va %08lx pa %08lx size %ld\n",
+				 vaddr, dispc.fb_sdram_paddr + offset, len);
+		BUG_ON(offset > dispc.fb_sdram_size ||
+			offset + len > dispc.fb_sdram_size ||
+			vma->vm_end - vaddr != len);
+		r = io_remap_pfn_range(vma, vaddr, (dispc.fb_sdram_paddr +
+				   offset) >> PAGE_SHIFT, len,
+				   vma->vm_page_prot);
+		/* no teardown of the previous mapping here.
+		 * do_mmap_pgoff will take core of that. */
+		if (r == -EINVAL)
+			return r;
+		if (r < 0)
+			return -EAGAIN;
+	}
+
+	return 0;
+}
+
+static int mmap_kern(void)
+{
+	struct vm_struct	*kvma;
+	struct vm_area_struct	vma;
+	pgprot_t		pgprot;
+	unsigned long		vaddr;
+
+	DBGENTER(1);
+
+	kvma = get_vm_area(dispc.fb_sram_size + dispc.fb_sdram_size, VM_IOREMAP);
+	if (kvma == NULL) {
+		pr_err("can't get kernel vm area\n");
+		return -ENOMEM;
+	}
+	vma.vm_mm = &init_mm;
+
+	dispc.fb_kern_vaddr = kvma->addr;
+	vaddr = (unsigned long)kvma->addr;
+
+	pgprot = pgprot_writecombine(pgprot_kernel);
+	if (dispc.fb_sram_size) {
+		vma.vm_start = vaddr;
+		vma.vm_end = vaddr + dispc.fb_sram_size;
+		if (io_remap_pfn_range(&vma, vaddr,
+				   dispc.fb_sram_paddr >> PAGE_SHIFT,
+				   dispc.fb_sram_size, pgprot) < 0) {
+			pr_err("kernel mmap for FBMEM failed\n");
+			return -EAGAIN;
+		}
+		vaddr += dispc.fb_sram_size;
+	}
+	if (dispc.fb_sdram_size) {
+		vma.vm_start = vaddr;
+		vma.vm_end = vaddr + dispc.fb_sdram_size;
+		if (io_remap_pfn_range(&vma, vaddr,
+				   dispc.fb_sdram_paddr >> PAGE_SHIFT,
+				   dispc.fb_sdram_size, pgprot) < 0) {
+			pr_err("kernel mmap for FBMEM failed\n");
+			return -EAGAIN;
+		}
+	}
+
+	DBGLEAVE(1);
+
+	return 0;
+}
+
+static void unmap_kern(void)
+{
+	vunmap(dispc.fb_kern_vaddr);
+}
+
+static int alloc_palette_ram(void)
+{
+	dispc.palette_vaddr = dma_alloc_writecombine(dispc.fbdev->dev,
+		MAX_PALETTE_SIZE, &dispc.palette_paddr, GFP_KERNEL);
+	if (dispc.palette_vaddr == NULL) {
+		pr_err("failed to alloc palette memory\n");
+		return -ENOMEM;
+	}
+
+	return 0;
+}
+
+static void free_palette_ram(void)
+{
+	dma_free_writecombine(dispc.fbdev->dev, MAX_PALETTE_SIZE,
+			dispc.palette_vaddr, dispc.palette_paddr);
+}
+
+static int alloc_fbmem(int req_size)
 {
 	int frame_size;
 	struct lcd_panel *panel = dispc.fbdev->panel;
@@ -693,11 +954,11 @@ static int alloc_vram(int req_size)
 	frame_size = PAGE_ALIGN(panel->x_res * panel->bpp / 8 * panel->y_res);
 	if (req_size > frame_size)
 		frame_size = req_size;
-	dispc.vram_size = PAGE_ALIGN(MAX_PALETTE_SIZE) + frame_size;
-	dispc.vram_virt = dma_alloc_writecombine(dispc.fbdev->dev,
-			dispc.vram_size, &dispc.vram_phys, GFP_KERNEL);
+	dispc.fb_sdram_size = PAGE_ALIGN(MAX_PALETTE_SIZE) + frame_size;
+	dispc.fb_kern_vaddr = dma_alloc_writecombine(dispc.fbdev->dev,
+			dispc.fb_sdram_size, &dispc.fb_sdram_paddr, GFP_KERNEL);
 
-	if (dispc.vram_virt == 0) {
+	if (dispc.fb_kern_vaddr == 0) {
 		pr_err("unable to allocate fb DMA memory\n");
 		return -ENOMEM;
 	}
@@ -705,18 +966,75 @@ static int alloc_vram(int req_size)
 	return 0;
 }
 
-static void free_vram(void)
+static void free_fbmem(void)
 {
-	dma_free_writecombine(dispc.fbdev->dev, dispc.vram_size,
-			      dispc.vram_virt, dispc.vram_phys);
+	dma_free_writecombine(dispc.fbdev->dev, dispc.fb_sdram_size,
+			      dispc.fb_kern_vaddr, dispc.fb_sdram_paddr);
 }
 
-static void omap_dispc_get_vram_layout(unsigned long *size, void **virt,
-					dma_addr_t *phys)
+static int setup_fbmem(int req_size)
 {
-	*size = dispc.vram_size - PAGE_ALIGN(MAX_PALETTE_SIZE);
-	*virt = (u8 *)dispc.vram_virt + PAGE_ALIGN(MAX_PALETTE_SIZE);
-	*phys = dispc.vram_phys + PAGE_ALIGN(MAX_PALETTE_SIZE);
+	struct lcd_panel *panel = dispc.fbdev->panel;
+	struct omapfb_platform_data *conf;
+	unsigned long size_align;
+	int line_size;
+	int frame_size;
+	int lines;
+	int r;
+
+	conf = dispc.fbdev->dev->platform_data;
+
+	if (conf->fbmem.fb_sram_size + conf->fbmem.fb_sdram_size == 0) {
+		if ((r = alloc_fbmem(req_size)) < 0)
+			return r;
+		dispc.fbmem_allocated = 1;
+		dispc.fb_sdram_lines = panel->y_res;
+		return 0;
+	}
+
+	dispc.fb_sram_paddr = conf->fbmem.fb_sram_start;
+	dispc.fb_sram_size = conf->fbmem.fb_sram_size;
+	dispc.fb_sdram_paddr = conf->fbmem.fb_sdram_start;
+	dispc.fb_sdram_size = conf->fbmem.fb_sdram_size;
+
+	line_size = panel->x_res * panel->bpp / 8;
+	frame_size = PAGE_ALIGN(line_size * panel->y_res);
+
+	size_align = calc_lcm(line_size, PAGE_SIZE);
+
+	if (dispc.fb_sram_size + dispc.fb_sdram_size < frame_size ||
+	    (dispc.fb_sdram_size && (dispc.fb_sram_size % size_align))) {
+		pr_err("Invalid FB memory configuration\n");
+		return -EINVAL;
+	}
+
+	if (dispc.fb_sram_size + dispc.fb_sdram_size < req_size) {
+		pr_err("%d vram was requested, but only %u is available\n",
+			req_size, dispc.fb_sram_size + dispc.fb_sdram_size);
+	}
+
+	lines = dispc.fb_sram_size / line_size;
+	lines = min_t(int, panel->y_res, lines);
+	dispc.fb_sram_lines = lines;
+	lines = panel->y_res - lines;
+	dispc.fb_sdram_lines = lines;
+
+	if ((r = mmap_kern()) < 0)
+		return r;
+
+	DBGPRINT(1, "fb_sram %08x size %08x fb_sdram %08x size %08x\n",
+		 dispc.fb_sram_paddr, dispc.fb_sram_size,
+		 dispc.fb_sdram_paddr, dispc.fb_sdram_size);
+
+	return 0;
+}
+
+static void cleanup_fbmem(void)
+{
+	if (dispc.fbmem_allocated)
+		free_fbmem();
+	else
+		unmap_kern();
 }
 
 static int omap_dispc_init(struct omapfb_device *fbdev, int ext_mode,
@@ -726,6 +1044,7 @@ static int omap_dispc_init(struct omapfb_device *fbdev, int ext_mode,
 	u32 l;
 	struct lcd_panel *panel = fbdev->panel;
 	int tmo = 10000;
+	int skip_init = 0;
 
 	DBGENTER(1);
 
@@ -735,39 +1054,50 @@ static int omap_dispc_init(struct omapfb_device *fbdev, int ext_mode,
 	dispc.fbdev = fbdev;
 	dispc.ext_mode = ext_mode;
 
+	dispc.multiplane_head = -1;
+
+	if (fbdev->dev->platform_data == NULL) {
+		pr_err("missing FB configuration\n");
+		return -ENOENT;
+	}
+
+	init_completion(&dispc.frame_done);
+
 	if ((r = get_dss_clocks()) < 0)
-		goto fail0;
+		return r;
 
 	enable_lcd_clocks(1);
-	/* Reset monitoring works only w/ the 54M clk */
-	enable_digit_clocks(1);
 
 	l = dispc_read_reg(DISPC_REVISION);
 	pr_info(MODULE_NAME ": version %d.%d\n", l >> 4 & 0x0f, l & 0x0f);
 
-	/* Soft reset */
-	MOD_REG_FLD(DISPC_SYSCONFIG, 1 << 1, 1 << 1);
-
-	while (!(dispc_read_reg(DISPC_SYSSTATUS) & 1)) {
-		if (!--tmo) {
-			pr_err("soft reset failed\n");
-			r = -ENODEV;
-			enable_digit_clocks(0);
-			goto fail1;
-		}
+#ifdef CONFIG_FB_OMAP_BOOTLOADER_INIT
+	l = dispc_read_reg(DISPC_CONTROL);
+	/* LCD enabled ? */
+	if (l & 1) {
+		pr_info(MODULE_NAME ": skipping hardware initialization\n");
+		skip_init = 1;
 	}
+#endif
 
-	enable_digit_clocks(0);
+	if (!skip_init) {
+		/* Reset monitoring works only w/ the 54M clk */
+		enable_digit_clocks(1);
 
-	if (!ext_mode && (r = alloc_vram(req_vram_size)) < 0)
-		goto fail1;
+		/* Soft reset */
+		MOD_REG_FLD(DISPC_SYSCONFIG, 1 << 1, 1 << 1);
 
-	/* Set logic clock to the fck for now */
-	MOD_REG_FLD(DISPC_DIVISOR, FLD_MASK(16, 8), 1);
+		while (!(dispc_read_reg(DISPC_SYSSTATUS) & 1)) {
+			if (!--tmo) {
+				pr_err("soft reset failed\n");
+				r = -ENODEV;
+				enable_digit_clocks(0);
+				goto fail1;
+			}
+		}
 
-	setup_plane_fifo(0);
-	setup_plane_fifo(1);
-	setup_plane_fifo(2);
+		enable_digit_clocks(0);
+	}
 
 	l = dispc_read_reg(DISPC_IRQSTATUS);
 	dispc_write_reg(l, DISPC_IRQSTATUS);
@@ -778,38 +1108,60 @@ static int omap_dispc_init(struct omapfb_device *fbdev, int ext_mode,
 	if ((r = request_irq(INT_24XX_DSS_IRQ, omap_dispc_irq_handler,
 			   0, MODULE_NAME, NULL)) < 0) {
 		pr_err("can't get DSS IRQ\n");
+		goto fail1;
+	}
+
+	/* L3 firewall setting: enable access to OCM RAM */
+	__raw_writel(0x402000b0, io_p2v(0x680050a0));
+
+	if ((r = alloc_palette_ram()) < 0)
 		goto fail2;
+
+	if ((r = setup_fbmem(req_vram_size)) < 0)
+		goto fail3;
+
+	if (!skip_init) {
+		memset(dispc.fb_kern_vaddr, 0,
+			dispc.fb_sram_size + dispc.fb_sdram_size);
+
+		/* Set logic clock to fck, pixel clock to fck/2 for now */
+		MOD_REG_FLD(DISPC_DIVISOR, FLD_MASK(16, 8), 1 << 16);
+		MOD_REG_FLD(DISPC_DIVISOR, FLD_MASK(0, 8), 2 << 0);
+
+		setup_plane_fifo(0);
+		setup_plane_fifo(1);
+		setup_plane_fifo(2);
+
+		set_lcd_tft_mode(panel->config & OMAP_LCDC_PANEL_TFT);
+		set_lcd_data_lines(panel->data_lines);
+		set_load_mode(DISPC_LOAD_FRAME_ONLY);
+
+		if (!ext_mode) {
+			omap_dispc_set_lcd_size(panel->x_res, panel->y_res);
+			set_lcd_timings();
+		}
+		enable_rfbi_mode(ext_mode);
 	}
 
-	set_lcd_data_lines(panel->data_lines);
-	set_load_mode(DISPC_LOAD_FRAME_ONLY);
-
-	if (!ext_mode) {
-		omap_dispc_set_lcd_size(panel->x_res, panel->y_res);
-		set_lcd_timings();
-	}
-	enable_rfbi_mode(ext_mode);
-
-	DBGLEAVE(1);
 	return 0;
+fail3:
+	free_palette_ram();
 fail2:
-	if (ext_mode)
-		free_vram();
+	free_irq(INT_24XX_DSS_IRQ, NULL);
 fail1:
 	enable_lcd_clocks(0);
 	put_dss_clocks();
-fail0:
-	DBGLEAVE(1);
-        return r;
+
+	return r;
 }
 
 static void omap_dispc_cleanup(void)
 {
+	cleanup_fbmem();
+	free_palette_ram();
 	free_irq(INT_24XX_DSS_IRQ, NULL);
 	enable_lcd_clocks(0);
 	put_dss_clocks();
-	if (dispc.ext_mode)
-		free_vram();
 }
 
 static unsigned long omap_dispc_get_caps(void)
@@ -822,10 +1174,11 @@ struct lcd_ctrl omap2_int_ctrl = {
 	.init			= omap_dispc_init,
 	.cleanup		= omap_dispc_cleanup,
 	.get_vram_layout	= omap_dispc_get_vram_layout,
+	.mmap			= omap_dispc_mmap_user,
 	.get_caps		= omap_dispc_get_caps,
 	.set_update_mode	= omap_dispc_set_update_mode,
 	.get_update_mode	= omap_dispc_get_update_mode,
-	.update_window		= NULL,
+	.update_window		= omap_dispc_update_window,
 	.suspend		= omap_dispc_suspend,
 	.resume			= omap_dispc_resume,
 	.setup_plane		= omap_dispc_setup_plane,

@@ -178,12 +178,18 @@ static struct platform_device osk5912_kp_device = {
 	.resource	= osk5912_kp_resources,
 };
 
+static struct platform_device osk5912_lcd_device = {
+	.name		= "lcd_osk",
+	.id		= -1,
+};
+
 static struct platform_device *osk5912_devices[] __initdata = {
 	&osk5912_flash_device,
 	&osk5912_smc91x_device,
 	&osk5912_cf_device,
 	&osk5912_mcbsp1_device,
 	&osk5912_kp_device,
+	&osk5912_lcd_device,
 };
 
 static void __init osk_init_smc91x(void)
@@ -238,7 +244,6 @@ static struct omap_uart_config osk_uart_config __initdata = {
 };
 
 static struct omap_lcd_config osk_lcd_config __initdata = {
-	.panel_name	= "osk",
 	.ctrl_name	= "internal",
 };
 

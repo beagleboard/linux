@@ -250,11 +250,17 @@ static struct platform_device h4_kp_device = {
 	},
 };
 
+static struct platform_device h4_lcd_device = {
+	.name		= "lcd_h4",
+	.id		= -1,
+};
+
 static struct platform_device *h4_devices[] __initdata = {
 	&h4_smc91x_device,
 	&h4_flash_device,
 	&h4_irda_device,
 	&h4_kp_device,
+	&h4_lcd_device,
 };
 
 static inline void __init h4_init_smc91x(void)
@@ -301,7 +307,6 @@ static struct omap_mmc_config h4_mmc_config __initdata = {
 };
 
 static struct omap_lcd_config h4_lcd_config __initdata = {
-	.panel_name	= "h4",
 	.ctrl_name	= "internal",
 };
 

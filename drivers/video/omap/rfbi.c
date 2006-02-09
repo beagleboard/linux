@@ -35,6 +35,10 @@
 
 #include "dispc.h"
 
+/* #define OMAPFB_DBG 1 */
+
+#include "debug.h"
+
 #define MODULE_NAME "omapfb-rfbi"
 
 #define pr_err(fmt, args...) printk(KERN_ERR MODULE_NAME ": " fmt, ## args)
@@ -68,7 +72,10 @@ static struct {
 	void		(*lcdc_callback)(void *data);
 	void		*lcdc_callback_data;
 	unsigned long	l4_khz;
+	int		bits_per_cycle;
 } rfbi;
+
+struct lcd_ctrl_extif rfbi_extif;
 
 static inline void rfbi_write_reg(int idx, u32 val)
 {
@@ -80,25 +87,18 @@ static inline u32 rfbi_read_reg(int idx)
 	return __raw_readl(rfbi.base + idx);
 }
 
-static int ns_to_l4_ticks(int time)
-{
-	unsigned long tick_ps;
-	int ret;
-
-	/* Calculate in picosecs to yield more exact results */
-	tick_ps = 1000000000 / (rfbi.l4_khz);
-
-	ret = (time * 1000 + tick_ps - 1) / tick_ps;
-
-	return ret * 2;
-}
-
 #ifdef OMAPFB_DBG
-static void print_timings(void)
+static void rfbi_print_timings(void)
 {
 	u32 l;
+	u32 time;
 
-	DBGPRINT(1, "Tick time %lu ps\n", 1000000000 / rfbi.l4_khz);
+	l = rfbi_read_reg(RFBI_CONFIG0);
+	time = 1000000000 / rfbi.l4_khz;
+	if (l & (1 << 4))
+		time *= 2;
+
+	DBGPRINT(1, "Tick time %u ps\n", time);
 	l = rfbi_read_reg(RFBI_ONOFF_TIME0);
 	DBGPRINT(1, "CSONTIME %d, CSOFFTIME %d, WEONTIME %d, WEOFFTIME %d, "
 	       "REONTIME %d, REOFFTIME %d\n",
@@ -109,55 +109,181 @@ static void print_timings(void)
 	       "ACCESSTIME %d\n",
 	       (l & 0x3f), (l >> 6) & 0x3f, (l >> 12) & 0x3f, (l >> 22) & 0x3f);
 }
+#else
+static void rfbi_print_timings(void) {}
 #endif
 
 static void rfbi_set_timings(const struct extif_timings *t)
 {
 	u32 l;
-	int on, off;
 
-	on = ns_to_l4_ticks(t->cs_on_time) & 0x0f;
-	l = on;
-	off = ns_to_l4_ticks(t->cs_off_time) & 0x3f;
-	if (off <= on)
-		off = on + 2;
-	l |= off << 4;
+	BUG_ON(!t->converted);
 
-	on = ns_to_l4_ticks(t->we_on_time) & 0x0f;
-	l |= on << 10;
-	off = ns_to_l4_ticks(t->we_off_time) & 0x3f;
-	if (off <= on)
-		off = on + 2;
-	l |= off << 14;
+	rfbi_write_reg(RFBI_ONOFF_TIME0, t->tim[0]);
+	rfbi_write_reg(RFBI_CYCLE_TIME0, t->tim[1]);
 
-	l |= (ns_to_l4_ticks(t->re_on_time) & 0x0f) << 20;
-	l |= (ns_to_l4_ticks(t->re_off_time) & 0x3f) << 24;
-	rfbi_write_reg(RFBI_ONOFF_TIME0, l);
+	l = rfbi_read_reg(RFBI_CONFIG0);
+	l &= ~(1 << 4);
+	l |= (t->tim[2] ? 1 : 0) << 4;
+	rfbi_write_reg(RFBI_CONFIG0, l);
 
-	l = ns_to_l4_ticks(t->we_cycle_time) & 0x3f;
-	l |= (ns_to_l4_ticks(t->re_cycle_time) & 0x3f) << 6;
-	l |= (ns_to_l4_ticks(t->cs_pulse_width) & 0x3f) << 12;
-	l |= (ns_to_l4_ticks(t->access_time) & 0x3f) << 22;
-	rfbi_write_reg(RFBI_CYCLE_TIME0, l);
+	rfbi_print_timings();
 }
 
-static void rfbi_write_command(u32 cmd)
+static void rfbi_get_clk_info(u32 *clk_period, u32 *max_clk_div)
 {
-	rfbi_write_reg(RFBI_CMD, cmd);
+	*clk_period = 1000000000 / rfbi.l4_khz;
+	*max_clk_div = 2;
 }
 
-static u32 rfbi_read_data(void)
+static int ps_to_rfbi_ticks(int time, int div)
 {
-	u32 val;
+	unsigned long tick_ps;
+	int ret;
 
-	rfbi_write_reg(RFBI_READ, 0);
-	val = rfbi_read_reg(RFBI_READ);
-	return val;
+	/* Calculate in picosecs to yield more exact results */
+	tick_ps = 1000000000 / (rfbi.l4_khz) * div;
+
+	ret = (time + tick_ps - 1) / tick_ps;
+
+	return ret;
 }
 
-static void rfbi_write_data(u32 val)
+static int rfbi_convert_timings(struct extif_timings *t)
 {
-	rfbi_write_reg(RFBI_PARAM, val);
+	u32 l;
+	int reon, reoff, weon, weoff, cson, csoff, cs_pulse;
+	int actim, recyc, wecyc;
+	int div = t->clk_div;
+
+	if (div <= 0 || div > 2)
+		return -1;
+
+	/* Make sure that after conversion it still holds that:
+	 * weoff > weon, reoff > reon, recyc >= reoff, wecyc >= weoff,
+	 * csoff > cson, csoff >= max(weoff, reoff), actim > reon
+	 */
+	weon = ps_to_rfbi_ticks(t->we_on_time, div);
+	weoff = ps_to_rfbi_ticks(t->we_off_time, div);
+	if (weoff <= weon)
+		weoff = weon + 1;
+	if (weon > 0x0f)
+		return -1;
+	if (weoff > 0x3f)
+		return -1;
+
+	reon = ps_to_rfbi_ticks(t->re_on_time, div);
+	reoff = ps_to_rfbi_ticks(t->re_off_time, div);
+	if (reoff <= reon)
+		reoff = reon + 1;
+	if (reon > 0x0f)
+		return -1;
+	if (reoff > 0x3f)
+		return -1;
+
+	cson = ps_to_rfbi_ticks(t->cs_on_time, div);
+	csoff = ps_to_rfbi_ticks(t->cs_off_time, div);
+	if (csoff <= cson)
+		csoff = cson + 1;
+	if (csoff < max(weoff, reoff))
+		csoff = max(weoff, reoff);
+	if (cson > 0x0f)
+		return -1;
+	if (csoff > 0x3f)
+		return -1;
+
+	l =  cson;
+	l |= csoff << 4;
+	l |= weon  << 10;
+	l |= weoff << 14;
+	l |= reon  << 20;
+	l |= reoff << 24;
+
+	t->tim[0] = l;
+
+	actim = ps_to_rfbi_ticks(t->access_time, div);
+	if (actim <= reon)
+		actim = reon + 1;
+	if (actim > 0x3f)
+		return -1;
+
+	wecyc = ps_to_rfbi_ticks(t->we_cycle_time, div);
+	if (wecyc < weoff)
+		wecyc = weoff;
+	if (wecyc > 0x3f)
+		return -1;
+
+	recyc = ps_to_rfbi_ticks(t->re_cycle_time, div);
+	if (recyc < reoff)
+		recyc = reoff;
+	if (recyc > 0x3f)
+		return -1;
+
+	cs_pulse = ps_to_rfbi_ticks(t->cs_pulse_width, div);
+	if (cs_pulse > 0x3f)
+		return -1;
+
+	l =  wecyc;
+	l |= recyc    << 6;
+	l |= cs_pulse << 12;
+	l |= actim    << 22;
+
+	t->tim[1] = l;
+
+	t->tim[2] = div - 1;
+
+	t->converted = 1;
+
+	return 0;
+}
+
+static void rfbi_write_command(const void *buf, unsigned int len)
+{
+	if (rfbi.bits_per_cycle == 16) {
+		const u16 *w = buf;
+		BUG_ON(len & 1);
+		for (; len; len -= 2)
+			rfbi_write_reg(RFBI_CMD, *w++);
+	} else {
+		const u8 *b = buf;
+		BUG_ON(rfbi.bits_per_cycle != 8);
+		for (; len; len--)
+			rfbi_write_reg(RFBI_CMD, *b++);
+	}
+}
+
+static void rfbi_read_data(void *buf, unsigned int len)
+{
+	if (rfbi.bits_per_cycle == 16) {
+		u16 *w = buf;
+		BUG_ON(len & ~1);
+		for (; len; len -= 2) {
+			rfbi_write_reg(RFBI_READ, 0);
+			*w++ = rfbi_read_reg(RFBI_READ);
+		}
+	} else {
+		u8 *b = buf;
+		BUG_ON(rfbi.bits_per_cycle != 8);
+		for (; len; len--) {
+			rfbi_write_reg(RFBI_READ, 0);
+			*b++ = rfbi_read_reg(RFBI_READ);
+		}
+	}
+}
+
+static void rfbi_write_data(const void *buf, unsigned int len)
+{
+	if (rfbi.bits_per_cycle == 16) {
+		const u16 *w = buf;
+		BUG_ON(len & 1);
+		for (; len; len -= 2)
+			rfbi_write_reg(RFBI_PARAM, *w++);
+	} else {
+		const u8 *b = buf;
+		BUG_ON(rfbi.bits_per_cycle != 8);
+		for (; len; len--)
+			rfbi_write_reg(RFBI_PARAM, *b++);
+	}
 }
 
 static void rfbi_transfer_area(int width, int height,
@@ -195,13 +321,32 @@ static void rfbi_dma_callback(void *data)
 	rfbi.lcdc_callback(rfbi.lcdc_callback_data);
 }
 
+static void rfbi_set_bits_per_cycle(int bpc)
+{
+	u32 l;
+
+	l = rfbi_read_reg(RFBI_CONFIG0);
+	l &= ~(0x03 << 0);
+	switch (bpc)
+	{
+	case 8:
+		break;
+	case 16:
+		l |= 3;
+		break;
+	default:
+		BUG();
+	}
+	rfbi_write_reg(RFBI_CONFIG0, l);
+	rfbi.bits_per_cycle = bpc;
+}
+
 static int rfbi_init(void)
 {
 	u32 l;
 	int r;
 	struct clk *dss_ick;
 
-	memset(&rfbi, 0, sizeof(rfbi));
 	rfbi.base = io_p2v(RFBI_BASE);
 
 	l = rfbi_read_reg(RFBI_REVISION);
@@ -212,6 +357,7 @@ static int rfbi_init(void)
 		pr_err("can't get dss_ick\n");
 		return PTR_ERR(dss_ick);
 	}
+
 	rfbi.l4_khz = clk_get_rate(dss_ick) / 1000;
 	clk_put(dss_ick);
 
@@ -229,13 +375,10 @@ static int rfbi_init(void)
 	l |= (0 << 9) | (1 << 20) | (1 << 21);
 	rfbi_write_reg(RFBI_CONFIG0, l);
 
-	l = 0x10;
-	rfbi_write_reg(RFBI_DATA_CYCLE1_0, l);
-	rfbi_write_reg(RFBI_DATA_CYCLE2_0, l);
-	rfbi_write_reg(RFBI_DATA_CYCLE3_0, l);
+	rfbi_write_reg(RFBI_DATA_CYCLE1_0, 0x00000010);
 
 	l = rfbi_read_reg(RFBI_CONTROL);
-	/* Select CS0 */
+	/* Select CS0, clear bypass mode */
 	l = (0x01 << 2);
 	rfbi_write_reg(RFBI_CONTROL, l);
 
@@ -255,10 +398,14 @@ static void rfbi_cleanup(void)
 struct lcd_ctrl_extif rfbi_extif = {
 	.init			= rfbi_init,
 	.cleanup		= rfbi_cleanup,
+	.get_clk_info		= rfbi_get_clk_info,
+	.set_bits_per_cycle	= rfbi_set_bits_per_cycle,
+	.convert_timings	= rfbi_convert_timings,
 	.set_timings		= rfbi_set_timings,
 	.write_command		= rfbi_write_command,
 	.read_data		= rfbi_read_data,
 	.write_data		= rfbi_write_data,
 	.transfer_area		= rfbi_transfer_area,
+	.max_transmit_size	= (u32)~0,
 };
 

@@ -25,6 +25,7 @@
 
 #include <linux/module.h>
 #include <linux/delay.h>
+#include <linux/platform_device.h>
 
 #include <asm/arch/mux.h>
 #include <asm/arch/gpio.h>
@@ -304,4 +305,53 @@ struct lcd_panel p2_panel = {
 	.disable	= p2_panel_disable,
 	.get_caps	= p2_panel_get_caps,
 };
+
+static int p2_panel_probe(struct platform_device *pdev)
+{
+	DBGENTER(1);
+	omapfb_register_panel(&p2_panel);
+	return 0;
+}
+
+static int p2_panel_remove(struct platform_device *pdev)
+{
+	DBGENTER(1);
+	return 0;
+}
+
+static int p2_panel_suspend(struct platform_device *pdev, pm_message_t mesg)
+{
+	DBGENTER(1);
+	return 0;
+}
+
+static int p2_panel_resume(struct platform_device *pdev)
+{
+	DBGENTER(1);
+	return 0;
+}
+
+struct platform_driver p2_panel_driver = {
+	.probe		= p2_panel_probe,
+	.remove		= p2_panel_remove,
+	.suspend	= p2_panel_suspend,
+	.resume		= p2_panel_resume,
+	.driver		= {
+		.name	= "lcd_p2",
+		.owner	= THIS_MODULE,
+	},
+};
+
+static int p2_panel_drv_init(void)
+{
+	return platform_driver_register(&p2_panel_driver);
+}
+
+static void p2_panel_drv_cleanup(void)
+{
+	platform_driver_unregister(&p2_panel_driver);
+}
+
+module_init(p2_panel_drv_init);
+module_exit(p2_panel_drv_cleanup);
 
