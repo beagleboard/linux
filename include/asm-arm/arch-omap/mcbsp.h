@@ -253,6 +253,10 @@ typedef enum {
 	OMAP_MCBSP3,
 } omap_mcbsp_id;
 
+typedef int __bitwise omap_mcbsp_io_type_t;
+#define OMAP_MCBSP_IRQ_IO ((__force omap_mcbsp_io_type_t) 1)
+#define OMAP_MCBSP_POLL_IO ((__force omap_mcbsp_io_type_t) 2)
+
 typedef enum {
 	OMAP_MCBSP_WORD_8 = 0,
 	OMAP_MCBSP_WORD_12,
@@ -304,6 +308,9 @@ u32 omap_mcbsp_recv_word(unsigned int id);
 
 int omap_mcbsp_xmit_buffer(unsigned int id, dma_addr_t buffer, unsigned int length);
 int omap_mcbsp_recv_buffer(unsigned int id, dma_addr_t buffer, unsigned int length);
+int omap_mcbsp_spi_master_xmit_word_poll(unsigned int id, u32 word);
+int omap_mcbsp_spi_master_recv_word_poll(unsigned int id, u32 * word);
+
 
 /* SPI specific API */
 void omap_mcbsp_set_spi_mode(unsigned int id, const struct omap_mcbsp_spi_cfg * spi_cfg);

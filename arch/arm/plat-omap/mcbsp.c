@@ -44,6 +44,7 @@ struct omap_mcbsp {
 	omap_mcbsp_word_length       rx_word_length;
 	omap_mcbsp_word_length       tx_word_length;
 
+	omap_mcbsp_io_type_t         io_type; /* IRQ or poll */
 	/* IRQ based TX/RX */
 	int                          rx_irq;
 	int                          tx_irq;
@@ -237,6 +238,30 @@ static void omap2_mcbsp2_mux_setup(void)
 }
 #endif
 
+/*
+ * We can choose between IRQ based or polled IO.
+ * This needs to be called before omap_mcbsp_request().
+ */
+int omap_mcbsp_set_io_type(unsigned int id, omap_mcbsp_io_type_t io_type)
+{
+	if (omap_mcbsp_check(id) < 0)
+		return -EINVAL;
+
+	spin_lock(&mcbsp[id].lock);
+
+	if (!mcbsp[id].free) {
+		printk (KERN_ERR "OMAP-McBSP: McBSP%d is currently in use\n", id + 1);
+		spin_unlock(&mcbsp[id].lock);
+		return -EINVAL;
+	}
+
+	mcbsp[id].io_type = io_type;
+
+	spin_unlock(&mcbsp[id].lock);
+
+	return 0;
+}
+
 int omap_mcbsp_request(unsigned int id)
 {
 	int err;
@@ -275,30 +300,33 @@ int omap_mcbsp_request(unsigned int id)
 	mcbsp[id].free = 0;
 	spin_unlock(&mcbsp[id].lock);
 
-	/* We need to get IRQs here */
-	err = request_irq(mcbsp[id].tx_irq, omap_mcbsp_tx_irq_handler, 0,
-			  "McBSP",
-			  (void *) (&mcbsp[id]));
-	if (err != 0) {
-		printk(KERN_ERR "OMAP-McBSP: Unable to request TX IRQ %d for McBSP%d\n",
-		       mcbsp[id].tx_irq, mcbsp[id].id);
-		return err;
+	if (mcbsp[id].io_type == OMAP_MCBSP_IRQ_IO) {
+		/* We need to get IRQs here */
+		err = request_irq(mcbsp[id].tx_irq, omap_mcbsp_tx_irq_handler, 0,
+				  "McBSP",
+				  (void *) (&mcbsp[id]));
+		if (err != 0) {
+			printk(KERN_ERR "OMAP-McBSP: Unable to request TX IRQ %d for McBSP%d\n",
+			       mcbsp[id].tx_irq, mcbsp[id].id);
+			return err;
+		}
+		
+		init_completion(&(mcbsp[id].tx_irq_completion));
+		
+		
+		err = request_irq(mcbsp[id].rx_irq, omap_mcbsp_rx_irq_handler, 0,
+				  "McBSP",
+				  (void *) (&mcbsp[id]));
+		if (err != 0) {
+			printk(KERN_ERR "OMAP-McBSP: Unable to request RX IRQ %d for McBSP%d\n",
+			       mcbsp[id].rx_irq, mcbsp[id].id);
+			free_irq(mcbsp[id].tx_irq, (void *) (&mcbsp[id]));
+			return err;
+		}
+		
+		init_completion(&(mcbsp[id].rx_irq_completion));
 	}
-
-	init_completion(&(mcbsp[id].tx_irq_completion));
-
-
-	err = request_irq(mcbsp[id].rx_irq, omap_mcbsp_rx_irq_handler, 0,
-			  "McBSP",
-			  (void *) (&mcbsp[id]));
-	if (err != 0) {
-		printk(KERN_ERR "OMAP-McBSP: Unable to request RX IRQ %d for McBSP%d\n",
-		       mcbsp[id].rx_irq, mcbsp[id].id);
-		free_irq(mcbsp[id].tx_irq, (void *) (&mcbsp[id]));
-		return err;
-	}
-
-	init_completion(&(mcbsp[id].rx_irq_completion));
+	
 	return 0;
 
 }
@@ -336,10 +364,12 @@ void omap_mcbsp_free(unsigned int id)
 
 	mcbsp[id].free = 1;
 	spin_unlock(&mcbsp[id].lock);
-
-	/* Free IRQs */
-	free_irq(mcbsp[id].rx_irq, (void *) (&mcbsp[id]));
-	free_irq(mcbsp[id].tx_irq, (void *) (&mcbsp[id]));
+	
+	if (mcbsp[id].io_type == OMAP_MCBSP_IRQ_IO) {
+		/* Free IRQs */
+		free_irq(mcbsp[id].rx_irq, (void *) (&mcbsp[id]));
+		free_irq(mcbsp[id].tx_irq, (void *) (&mcbsp[id]));
+	}
 }
 
 /*
@@ -511,6 +541,115 @@ u32 omap_mcbsp_recv_word(unsigned int id)
 	word_lsb = OMAP_MCBSP_READ(io_base, DRR1);
 
 	return (word_lsb | (word_msb << 16));
+}
+
+
+int omap_mcbsp_spi_master_xmit_word_poll(unsigned int id, u32 word)
+{
+	u32 io_base = mcbsp[id].io_base;
+	omap_mcbsp_word_length tx_word_length = mcbsp[id].tx_word_length;
+	omap_mcbsp_word_length rx_word_length = mcbsp[id].rx_word_length;
+	u16 spcr2, spcr1, attempts = 0, word_lsb, word_msb = 0;
+
+	if (tx_word_length != rx_word_length)
+		return -EINVAL;
+
+	/* First we wait for the transmitter to be ready */
+	spcr2 = OMAP_MCBSP_READ(io_base, SPCR2);
+	while (!(spcr2 & XRDY)) {
+		spcr2 = OMAP_MCBSP_READ(io_base, SPCR2);
+		if (attempts++ > 1000) {
+			/* We must reset the transmitter */
+			OMAP_MCBSP_WRITE(io_base, SPCR2, spcr2 & (~XRST));
+			udelay(10);
+			OMAP_MCBSP_WRITE(io_base, SPCR2, spcr2 | XRST);
+			udelay(10);
+			printk("McBSP transmitter not ready\n");
+			return -EAGAIN;
+		}
+	}
+
+	/* Now we can push the data */
+	if (tx_word_length > OMAP_MCBSP_WORD_16)
+		OMAP_MCBSP_WRITE(io_base, DXR2, word >> 16);
+	OMAP_MCBSP_WRITE(io_base, DXR1, word & 0xffff);
+
+	/* We wait for the receiver to be ready */
+	spcr1 = OMAP_MCBSP_READ(io_base, SPCR1);
+	while (!(spcr1 & RRDY)) {
+		spcr1 = OMAP_MCBSP_READ(io_base, SPCR1);
+		if (attempts++ > 1000) {
+			/* We must reset the receiver */
+			OMAP_MCBSP_WRITE(io_base, SPCR1, spcr1 & (~RRST));
+			udelay(10);
+			OMAP_MCBSP_WRITE(io_base, SPCR1, spcr1 | RRST);
+			udelay(10);
+			printk("McBSP receiver not ready\n");
+			return -EAGAIN;
+		}
+	}
+
+	/* Receiver is ready, let's read the dummy data */
+	if (rx_word_length > OMAP_MCBSP_WORD_16)
+		word_msb = OMAP_MCBSP_READ(io_base, DRR2);
+	word_lsb = OMAP_MCBSP_READ(io_base, DRR1);
+
+	return 0;
+}
+
+int omap_mcbsp_spi_master_recv_word_poll(unsigned int id, u32 * word)
+{
+	u32 io_base = mcbsp[id].io_base, clock_word = 0;
+	omap_mcbsp_word_length tx_word_length = mcbsp[id].tx_word_length;
+	omap_mcbsp_word_length rx_word_length = mcbsp[id].rx_word_length;
+	u16 spcr2, spcr1, attempts = 0, word_lsb, word_msb = 0;
+
+	if (tx_word_length != rx_word_length)
+		return -EINVAL;
+
+	/* First we wait for the transmitter to be ready */
+	spcr2 = OMAP_MCBSP_READ(io_base, SPCR2);
+	while (!(spcr2 & XRDY)) {
+		spcr2 = OMAP_MCBSP_READ(io_base, SPCR2);
+		if (attempts++ > 1000) {
+			/* We must reset the transmitter */
+			OMAP_MCBSP_WRITE(io_base, SPCR2, spcr2 & (~XRST));
+			udelay(10);
+			OMAP_MCBSP_WRITE(io_base, SPCR2, spcr2 | XRST);
+			udelay(10);
+			printk("McBSP transmitter not ready\n");
+			return -EAGAIN;
+		}
+	}
+
+	/* We first need to enable the bus clock */
+	if (tx_word_length > OMAP_MCBSP_WORD_16)
+		OMAP_MCBSP_WRITE(io_base, DXR2, clock_word >> 16);
+	OMAP_MCBSP_WRITE(io_base, DXR1, clock_word & 0xffff);
+
+	/* We wait for the receiver to be ready */
+	spcr1 = OMAP_MCBSP_READ(io_base, SPCR1);
+	while (!(spcr1 & RRDY)) {
+		spcr1 = OMAP_MCBSP_READ(io_base, SPCR1);
+		if (attempts++ > 1000) {
+			/* We must reset the receiver */
+			OMAP_MCBSP_WRITE(io_base, SPCR1, spcr1 & (~RRST));
+			udelay(10);
+			OMAP_MCBSP_WRITE(io_base, SPCR1, spcr1 | RRST);
+			udelay(10);
+			printk("McBSP receiver not ready\n");
+			return -EAGAIN;
+		}
+	}
+
+	/* Receiver is ready, there is something for us */
+	if (rx_word_length > OMAP_MCBSP_WORD_16)
+		word_msb = OMAP_MCBSP_READ(io_base, DRR2);
+	word_lsb = OMAP_MCBSP_READ(io_base, DRR1);
+
+	word[0] = (word_lsb | (word_msb << 16));
+
+	return 0;
 }
 
 
@@ -868,6 +1007,7 @@ static int __init omap_mcbsp_init(void)
 		mcbsp[i].dma_rx_lch = -1;
 
 		mcbsp[i].io_base = mcbsp_info[i].virt_base;
+		mcbsp[i].io_type = OMAP_MCBSP_IRQ_IO; /* Default I/O is IRQ based */
 		mcbsp[i].tx_irq = mcbsp_info[i].tx_irq;
 		mcbsp[i].rx_irq = mcbsp_info[i].rx_irq;
 		mcbsp[i].dma_rx_sync = mcbsp_info[i].dma_rx_sync;
@@ -882,6 +1022,7 @@ arch_initcall(omap_mcbsp_init);
 
 EXPORT_SYMBOL(omap_mcbsp_config);
 EXPORT_SYMBOL(omap_mcbsp_request);
+EXPORT_SYMBOL(omap_mcbsp_set_io_type);
 EXPORT_SYMBOL(omap_mcbsp_free);
 EXPORT_SYMBOL(omap_mcbsp_start);
 EXPORT_SYMBOL(omap_mcbsp_stop);
@@ -889,4 +1030,6 @@ EXPORT_SYMBOL(omap_mcbsp_xmit_word);
 EXPORT_SYMBOL(omap_mcbsp_recv_word);
 EXPORT_SYMBOL(omap_mcbsp_xmit_buffer);
 EXPORT_SYMBOL(omap_mcbsp_recv_buffer);
+EXPORT_SYMBOL(omap_mcbsp_spi_master_xmit_word_poll);
+EXPORT_SYMBOL(omap_mcbsp_spi_master_recv_word_poll);
 EXPORT_SYMBOL(omap_mcbsp_set_spi_mode);
