@@ -274,7 +274,7 @@ static int uwire_txrx(struct spi_device *spi, struct spi_transfer *t)
 			*buf++ = (u8) val;
 			if (bytes == 2)
 				*buf++ = val >> 8;
-			status += len;
+			status += bytes;
 #ifdef	VERBOSE
 			pr_debug("%s: read-%d =%04x\n",
 					spi->dev.bus_id, bits, val);
