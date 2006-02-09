@@ -26,20 +26,18 @@
 
 struct proc_list {
 	struct list_head list_head;
-	struct task_struct *tsk;
+	pid_t pid;
 	unsigned int cnt;
 };
 
 static __inline__ void proc_list_add(struct list_head *list,
 				     struct task_struct *tsk)
 {
-	struct list_head *ptr;
 	struct proc_list *pl;
 	struct proc_list *new;
 
-	list_for_each(ptr, list) {
-		pl = list_entry(ptr, struct proc_list, list_head);
-		if (pl->tsk == tsk) {
+	list_for_each_entry(pl, list, list_head) {
+		if (pl->pid == tsk->pid) {
 			/*
 			 * this process has opened DSP devices multi time
 			 */
@@ -49,7 +47,7 @@ static __inline__ void proc_list_add(struct list_head *list,
 	}
 
 	new = kmalloc(sizeof(struct proc_list), GFP_KERNEL);
-	new->tsk = tsk;
+	new->pid = tsk->pid;
 	new->cnt = 1;
 	list_add_tail(&new->list_head, list);
 }
@@ -57,12 +55,10 @@ static __inline__ void proc_list_add(struct list_head *list,
 static __inline__ void proc_list_del(struct list_head *list,
 				     struct task_struct *tsk)
 {
-	struct list_head *ptr;
-	struct proc_list *pl;
+	struct proc_list *pl, *next;
 
-	list_for_each(ptr, list) {
-		pl = list_entry(ptr, struct proc_list, list_head);
-		if (pl->tsk == tsk) {
+	list_for_each_entry(pl, list, list_head) {
+		if (pl->pid == tsk->pid) {
 			if (--pl->cnt == 0) {
 				list_del(&pl->list_head);
 				kfree(pl);
@@ -70,6 +66,23 @@ static __inline__ void proc_list_del(struct list_head *list,
 			return;
 		}
 	}
+
+	/*
+	 * correspinding pid wasn't found in the list
+	 * -- this means the caller of proc_list_del is different from
+	 * the proc_list_add's caller. in this case, the parent is
+	 * cleaning up the context of a killed child.
+	 * let's delete exiting task from the list.
+	 */
+	/* need to lock tasklist_lock before calling find_task_by_pid_type. */
+	read_lock(&tasklist_lock);
+	list_for_each_entry_safe(pl, next, list, list_head) {
+		if (find_task_by_pid_type(PIDTYPE_PID, pl->pid) == NULL) {
+			list_del(&pl->list_head);
+			kfree(pl);
+		}
+	}
+	read_unlock(&tasklist_lock);
 }
 
 static __inline__ void proc_list_flush(struct list_head *list)

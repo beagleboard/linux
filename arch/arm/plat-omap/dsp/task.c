@@ -273,6 +273,26 @@ static __inline__ int down_tasksem_interruptible(struct taskdev *dev,
 	return ret;
 }
 
+static void proclist_send_sigbus(struct list_head *list)
+{
+	siginfo_t info;
+	struct proc_list *pl;
+	struct task_struct *tsk;
+
+	info.si_signo = SIGBUS;
+	info.si_errno = 0;
+	info.si_code = SI_KERNEL;
+	info._sifields._sigfault._addr = NULL;
+
+	/* need to lock tasklist_lock before calling find_task_by_pid_type. */
+	read_lock(&tasklist_lock);
+	list_for_each_entry(pl, list, list_head) {
+		if ((tsk = find_task_by_pid_type(PIDTYPE_PID, pl->pid)) != NULL)
+			send_sig_info(SIGBUS, &info, tsk);
+	}
+	read_unlock(&tasklist_lock);
+}
+
 static int dsp_task_flush_buf(struct dsptask *task)
 {
 	unsigned short ttyp = task->ttyp;
@@ -1666,22 +1686,11 @@ static int dsp_rmdev_minor(unsigned char minor)
 
 	case OMAP_DSP_DEVSTATE_ATTACHED:
 		/* task is working. kill it. */
-		{
-			siginfo_t info;
-			struct proc_list *pl;
-
-			dev->state = OMAP_DSP_DEVSTATE_KILLING;
-			info.si_signo = SIGBUS;
-			info.si_errno = 0;
-			info.si_code = SI_KERNEL;
-			info._sifields._sigfault._addr = NULL;
-			list_for_each_entry(pl, &dev->proc_list, list_head) {
-				send_sig_info(SIGBUS, &info, pl->tsk);
-			}
-			spin_unlock(&dev->state_lock);
-			dsp_tdel_bh(minor, OMAP_DSP_MBCMD_TDEL_KILL);
-			goto invalidate;
-		}
+		dev->state = OMAP_DSP_DEVSTATE_KILLING;
+		proclist_send_sigbus(&dev->proc_list);
+		spin_unlock(&dev->state_lock);
+		dsp_tdel_bh(minor, OMAP_DSP_MBCMD_TDEL_KILL);
+		goto invalidate;
 
 	case OMAP_DSP_DEVSTATE_ADDREQ:
 		/* open() is waiting. drain it. */
@@ -2003,8 +2012,6 @@ int dsp_tdel(unsigned char minor)
 int dsp_tkill(unsigned char minor)
 {
 	struct taskdev *dev;
-	siginfo_t info;
-	struct proc_list *pl;
 
 	if ((minor >= TASKDEV_MAX) || ((dev = taskdev[minor]) == NULL)) {
 		printk(KERN_ERR
@@ -2020,13 +2027,7 @@ int dsp_tkill(unsigned char minor)
 		return -EINVAL;
 	}
 	dev->state = OMAP_DSP_DEVSTATE_KILLING;
-	info.si_signo = SIGBUS;
-	info.si_errno = 0;
-	info.si_code = SI_KERNEL;
-	info._sifields._sigfault._addr = NULL;
-	list_for_each_entry(pl, &dev->proc_list, list_head) {
-		send_sig_info(SIGBUS, &info, pl->tsk);
-	}
+	proclist_send_sigbus(&dev->proc_list);
 	spin_unlock(&dev->state_lock);
 
 	return dsp_tdel_bh(minor, OMAP_DSP_MBCMD_TDEL_KILL);
@@ -2437,22 +2438,14 @@ void mbx1_tdel(struct mbcmd *mb)
 void mbx1_err_fatal(unsigned char tid)
 {
 	struct dsptask *task = dsptask[tid];
-	struct proc_list *pl;
-	siginfo_t info;
 
 	if ((tid >= TASKDEV_MAX) || (task == NULL)) {
 		printk(KERN_ERR "mbx: FATAL ERR with illegal tid! %d\n", tid);
 		return;
 	}
 
-	info.si_signo = SIGBUS;
-	info.si_errno = 0;
-	info.si_code = SI_KERNEL;
-	info._sifields._sigfault._addr = NULL;
 	spin_lock(&task->dev->state_lock);
-	list_for_each_entry(pl, &task->dev->proc_list, list_head) {
-		send_sig_info(SIGBUS, &info, pl->tsk);
-	}
+	proclist_send_sigbus(&task->dev->proc_list);
 	spin_unlock(&task->dev->state_lock);
 }
 
@@ -2656,7 +2649,7 @@ static ssize_t proc_list_show(struct device *d, struct device_attribute *attr,
 	dev = to_taskdev(d);
 	spin_lock(&dev->state_lock);
 	list_for_each_entry(pl, &dev->proc_list, list_head) {
-		len += sprintf(buf + len, "%d\n", pl->tsk->pid);
+		len += sprintf(buf + len, "%d\n", pl->pid);
 	}
 	spin_unlock(&dev->state_lock);
 

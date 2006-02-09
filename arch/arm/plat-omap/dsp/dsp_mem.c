@@ -7,6 +7,9 @@
  *
  * Written by Toshihiro Kobayashi <toshihiro.kobayashi@nokia.com>
  *
+ * Conversion to mempool API and ARM MMU section mapping
+ * by Paul Mundt <paul.mundt@nokia.com>
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -33,6 +36,7 @@
 #include <linux/fb.h>
 #include <linux/interrupt.h>
 #include <linux/delay.h>
+#include <linux/mempool.h>
 #include <linux/platform_device.h>
 #include <linux/clk.h>
 #include <asm/uaccess.h>
@@ -118,6 +122,20 @@ static void *dspvect_page;
 static unsigned long dsp_fault_adr;
 static struct mem_sync_struct mem_sync;
 
+static void *mempool_alloc_from_pool(mempool_t *pool,
+				     unsigned int __nocast gfp_mask)
+{
+	spin_lock_irq(&pool->lock);
+	if (likely(pool->curr_nr)) {
+		void *element = pool->elements[--pool->curr_nr];
+		spin_unlock_irq(&pool->lock);
+		return element;
+	}
+
+	spin_unlock_irq(&pool->lock);
+	return mempool_alloc(pool, gfp_mask);
+}
+
 static __inline__ unsigned long lineup_offset(unsigned long adr,
 					      unsigned long ref,
 					      unsigned long mask)
@@ -171,60 +189,35 @@ int dsp_mem_sync_config(struct mem_sync_struct *sync)
 	return 0;
 }
 
-/*
- * kmem_reserve(), kmem_release():
- * reserve or release kernel memory for exmap().
- *
- * exmap() might request consecutive 1MB or 64kB,
- * but it will be difficult after memory pages are fragmented.
- * So, user can reserve such memory blocks in the early phase
- * through kmem_reserve().
- */
-struct kmem_pool {
-	struct semaphore sem;
-	unsigned long buf[16];
-	int count;
-};
+static mempool_t *kmem_pool_1M;
+static mempool_t *kmem_pool_64K;
 
-#define KMEM_POOL_INIT(name) \
-{ \
-	.sem = __SEMAPHORE_INIT((name).sem, 1), \
+static void *dsp_pool_alloc(unsigned int __nocast gfp, void *order)
+{
+	return (void *)__get_dma_pages(gfp, (unsigned int)order);
 }
-#define DECLARE_KMEM_POOL(name) \
-	struct kmem_pool name = KMEM_POOL_INIT(name)
 
-DECLARE_KMEM_POOL(kmem_pool_1M);
-DECLARE_KMEM_POOL(kmem_pool_64K);
+static void dsp_pool_free(void *buf, void *order)
+{
+	free_pages((unsigned long)buf, (unsigned int)order);
+}
 
 static void dsp_kmem_release(void)
 {
-	int i;
-
-	down(&kmem_pool_1M.sem);
-	for (i = 0; i < kmem_pool_1M.count; i++) {
-		if (kmem_pool_1M.buf[i])
-			free_pages(kmem_pool_1M.buf[i], ORDER_1MB);
+	if (kmem_pool_64K) {
+		mempool_destroy(kmem_pool_64K);
+		kmem_pool_64K = NULL;
 	}
-	kmem_pool_1M.count = 0;
-	up(&kmem_pool_1M.sem);
 
-	down(&kmem_pool_64K.sem);
-	for (i = 0; i < kmem_pool_64K.count; i++) {
-		if (kmem_pool_64K.buf[i])
-			free_pages(kmem_pool_64K.buf[i], ORDER_64KB);
+	if (kmem_pool_1M) {
+		mempool_destroy(kmem_pool_1M);
+		kmem_pool_1M = NULL;
 	}
-	kmem_pool_64K.count = 0;
-	up(&kmem_pool_1M.sem);
 }
 
 static int dsp_kmem_reserve(unsigned long size)
 {
-	unsigned long buf;
-	unsigned int order;
-	unsigned long unit;
-	unsigned long _size;
-	struct kmem_pool *pool;
-	int i;
+	unsigned long len = size;
 
 	/* alignment check */
 	if (!is_aligned(size, SZ_64KB)) {
@@ -239,115 +232,109 @@ static int dsp_kmem_reserve(unsigned long size)
 		return -EINVAL;
 	}
 
-	for (_size = size; _size; _size -= unit) {
-		if (_size >= SZ_1MB) {
-			unit = SZ_1MB;
-			order = ORDER_1MB;
-			pool = &kmem_pool_1M;
-		} else {
-			unit = SZ_64KB;
-			order = ORDER_64KB;
-			pool = &kmem_pool_64K;
-		}
+	if (size >= SZ_1MB) {
+		int nr = size >> 20;
 
-		buf = __get_dma_pages(GFP_KERNEL, order);
-		if (!buf)
-			return size - _size;
-		down(&pool->sem);
-		for (i = 0; i < 16; i++) {
-			if (!pool->buf[i]) {
-				pool->buf[i] = buf;
-				pool->count++;
-				buf = 0;
-				break;
-			}
-		}
-		up(&pool->sem);
+		if (likely(!kmem_pool_1M))
+			kmem_pool_1M = mempool_create(nr,
+						      dsp_pool_alloc,
+						      dsp_pool_free,
+						      (void *)ORDER_1MB);
+		else
+			mempool_resize(kmem_pool_1M, kmem_pool_1M->min_nr + nr,
+				       GFP_KERNEL);
 
-		if (buf) {	/* pool is full */
-			free_pages(buf, order);
-			return size - _size;
-		}
+		size &= ~(0xf << 20);
 	}
 
-	return size;
-}
+	if (size >= SZ_64KB) {
+		int nr = size >> 16;
 
-static unsigned long dsp_mem_get_dma_pages(unsigned int order)
-{
-	struct kmem_pool *pool;
-	unsigned long buf = 0;
-	int i;
+		if (likely(!kmem_pool_64K))
+			kmem_pool_64K = mempool_create(nr,
+						       dsp_pool_alloc,
+						       dsp_pool_free,
+						       (void *)ORDER_64KB);
+		else
+			mempool_resize(kmem_pool_64K,
+				       kmem_pool_64K->min_nr + nr, GFP_KERNEL);
 
-	switch (order) {
-		case ORDER_1MB:
-			pool = &kmem_pool_1M;
-			break;
-		case ORDER_64KB:
-			pool = &kmem_pool_64K;
-			break;
-		default:
-			pool = NULL;
+		size &= ~(0xf << 16);
 	}
 
-	if (pool) {
-		down(&pool->sem);
-		for (i = 0; i < pool->count; i++) {
-			if (pool->buf[i]) {
-				buf = pool->buf[i];
-				pool->buf[i] = 0;
-				break;
-			}
-		}
-		up(&pool->sem);
-		if (buf)
-			return buf;
-	}
+	if (size)
+		len -= size;
 
-	/* other size or not found in pool */
-	return __get_dma_pages(GFP_KERNEL, order);
+	return len;
 }
 
 static void dsp_mem_free_pages(unsigned long buf, unsigned int order)
 {
-	struct kmem_pool *pool;
 	struct page *page, *ps, *pe;
-	int i;
 
 	ps = virt_to_page(buf);
 	pe = virt_to_page(buf + (1 << (PAGE_SHIFT + order)));
-	for (page = ps; page < pe; page++) {
+
+	for (page = ps; page < pe; page++)
 		ClearPageReserved(page);
+
+	if (buf) {
+		if ((order == ORDER_64KB) && likely(kmem_pool_64K))
+			mempool_free((void *)buf, kmem_pool_64K);
+		else if ((order == ORDER_1MB) && likely(kmem_pool_1M))
+			mempool_free((void *)buf, kmem_pool_1M);
+		else
+			free_pages(buf, order);
+	}
+}
+
+static inline void
+exmap_alloc_pte(unsigned long virt, unsigned long phys, pgprot_t prot)
+{
+	pgd_t *pgd;
+	pud_t *pud;
+	pmd_t *pmd;
+	pte_t *pte;
+
+	pgd = pgd_offset_k(virt);
+	pud = pud_offset(pgd, virt);
+	pmd = pmd_offset(pud, virt);
+
+	if (pmd_none(*pmd)) {
+		pte = pte_alloc_one_kernel(&init_mm, 0);
+		if (!pte)
+			return;
+
+		/* note: two PMDs will be set  */
+		pmd_populate_kernel(&init_mm, pmd, pte);
 	}
 
-	/*
-	 * return buffer to kmem_pool or paging system
-	 */
-	switch (order) {
-		case ORDER_1MB:
-			pool = &kmem_pool_1M;
-			break;
-		case ORDER_64KB:
-			pool = &kmem_pool_64K;
-			break;
-		default:
-			pool = NULL;
-	}
+	pte = pte_offset_kernel(pmd, virt);
+	set_pte(pte, pfn_pte(phys >> PAGE_SHIFT, prot));
+}
 
-	if (pool) {
-		down(&pool->sem);
-		for (i = 0; i < pool->count; i++) {
-			if (!pool->buf[i]) {
-				pool->buf[i] = buf;
-				buf = 0;
-			}
-		}
-		up(&pool->sem);
-	}
+static inline int
+exmap_alloc_sect(unsigned long virt, unsigned long phys, int prot)
+{
+	pgd_t *pgd;
+	pud_t *pud;
+	pmd_t *pmd;
 
-	/* other size or pool is filled */
-	if (buf)
-		free_pages(buf, order);
+	pgd = pgd_offset_k(virt);
+	pud = pud_alloc(&init_mm, pgd, virt);
+	pmd = pmd_alloc(&init_mm, pud, virt);
+
+	if (virt & (1 << 20))
+		pmd++;
+
+	if (!pmd_none(*pmd))
+		/* No good, fall back on smaller mappings. */
+		return -EINVAL;
+
+	*pmd = __pmd(phys | prot);
+	flush_pmd_entry(pmd);
+
+	return 0;
 }
 
 /*
@@ -357,59 +344,130 @@ static int exmap_set_armmmu(unsigned long virt, unsigned long phys,
 			    unsigned long size)
 {
 	long off;
-	unsigned long sz_left;
-	pmd_t *pmdp;
-	pte_t *ptep;
-	int prot_pmd, prot_pte;
+	pgprot_t prot_pte;
+	int prot_sect;
 
 	printk(KERN_DEBUG
 	       "omapdsp: mapping in ARM MMU, v=0x%08lx, p=0x%08lx, sz=0x%lx\n",
 	       virt, phys, size);
 
-	prot_pmd = PMD_TYPE_TABLE | PMD_DOMAIN(DOMAIN_IO);
-	prot_pte = L_PTE_PRESENT | L_PTE_YOUNG | L_PTE_DIRTY | L_PTE_WRITE;
+	prot_pte = __pgprot(L_PTE_PRESENT | L_PTE_YOUNG |
+			    L_PTE_DIRTY | L_PTE_WRITE);
 
-	pmdp = pmd_offset(pgd_offset_k(virt), virt);
-	if (pmd_none(*pmdp)) {
-		ptep = pte_alloc_one_kernel(&init_mm, 0);
-		if (ptep == NULL)
-			return -ENOMEM;
-		/* note: two PMDs will be set  */
-		pmd_populate_kernel(&init_mm, pmdp, ptep);
-	}
+	prot_sect = PMD_TYPE_SECT | PMD_SECT_UNCACHED |
+		    PMD_SECT_AP_WRITE | PMD_DOMAIN(DOMAIN_IO);
+
+	if (cpu_architecture() <= CPU_ARCH_ARMv5)
+		prot_sect |= PMD_BIT4;
 
 	off = phys - virt;
-	for (sz_left = size;
-	     sz_left >= PAGE_SIZE;
-	     sz_left -= PAGE_SIZE, virt += PAGE_SIZE) {
-		ptep = pte_offset_kernel(pmdp, virt);
-		set_pte(ptep, __pte((virt + off) | prot_pte));
+
+	while ((virt & 0xfffff || (virt + off) & 0xfffff) && size >= PAGE_SIZE) {
+		exmap_alloc_pte(virt, virt + off, prot_pte);
+
+		virt += PAGE_SIZE;
+		size -= PAGE_SIZE;
 	}
-	if (sz_left)
-		BUG();
+
+	/* XXX: Not yet.. confuses dspfb -- PFM. */
+#if 0
+	while (size >= (PGDIR_SIZE / 2)) {
+		if (exmap_alloc_sect(virt, virt + off, prot_sect) < 0)
+			break;
+
+		virt += (PGDIR_SIZE / 2);
+		size -= (PGDIR_SIZE / 2);
+	}
+#endif
+
+	while (size >= PAGE_SIZE) {
+		exmap_alloc_pte(virt, virt + off, prot_pte);
+
+		virt += PAGE_SIZE;
+		size -= PAGE_SIZE;
+	}
+
+	BUG_ON(size);
 
 	return 0;
 }
 
+static inline void
+exmap_clear_pte_range(pmd_t *pmd, unsigned long addr, unsigned long end)
+{
+	pte_t *pte;
+
+	pte = pte_offset_map(pmd, addr);
+	do {
+		if (pte_none(*pte))
+			continue;
+
+		pte_clear(&init_mm, addr, pte);
+	} while (pte++, addr += PAGE_SIZE, addr != end);
+
+	pte_unmap(pte - 1);
+}
+
+static inline void
+exmap_clear_pmd_range(pud_t *pud, unsigned long addr, unsigned long end)
+{
+	pmd_t *pmd;
+	unsigned long next;
+
+	pmd = pmd_offset(pud, addr);
+	do {
+		next = pmd_addr_end(addr, end);
+
+		if (addr & (1 << 20))
+			pmd++;
+
+		if ((pmd_val(*pmd) & PMD_TYPE_MASK) == PMD_TYPE_SECT) {
+			*pmd = __pmd(0);
+			clean_pmd_entry(pmd);
+			continue;
+		}
+
+		if (pmd_none_or_clear_bad(pmd))
+			continue;
+
+		exmap_clear_pte_range(pmd, addr, next);
+	} while (pmd++, addr = next, addr != end);
+}
+
+static inline void
+exmap_clear_pud_range(pgd_t *pgd, unsigned long addr, unsigned long end)
+{
+	pud_t *pud;
+	unsigned long next;
+
+	pud = pud_offset(pgd, addr);
+	do {
+		next = pud_addr_end(addr, end);
+		if (pud_none_or_clear_bad(pud))
+			continue;
+
+		exmap_clear_pmd_range(pud, addr, next);
+	} while (pud++, addr = next, addr != end);
+}
+
 static void exmap_clear_armmmu(unsigned long virt, unsigned long size)
 {
-	unsigned long sz_left;
-	pmd_t *pmdp;
-	pte_t *ptep;
+	unsigned long next, end;
+	pgd_t *pgd;
 
 	printk(KERN_DEBUG
 	       "omapdsp: unmapping in ARM MMU, v=0x%08lx, sz=0x%lx\n",
 	       virt, size);
 
-	for (sz_left = size;
-	     sz_left >= PAGE_SIZE;
-	     sz_left -= PAGE_SIZE, virt += PAGE_SIZE) {
-		pmdp = pmd_offset(pgd_offset_k(virt), virt);
-		ptep = pte_offset_kernel(pmdp, virt);
-		pte_clear(&init_mm, virt, ptep);
-	}
-	if (sz_left)
-		BUG();
+	pgd = pgd_offset_k(virt);
+	end = virt + size;
+	do {
+		next = pgd_addr_end(virt, end);
+		if (pgd_none_or_clear_bad(pgd))
+			continue;
+
+		exmap_clear_pud_range(pgd, virt, next);
+	} while (pgd++, virt = next, virt != end);
 }
 
 static int exmap_valid(void *vadr, size_t len)
@@ -848,41 +906,41 @@ found_free:
 	    is_aligned(_dspadr, SZ_1MB)) {
 		unit = SZ_1MB;
 		slst = DSPMMU_CAM_L_SLST_1MB;
-		order = ORDER_1MB;
 	} else if ((_size >= SZ_64KB) &&
 		   (is_aligned(_padr, SZ_64KB) || (padr == 0)) &&
 		   is_aligned(_dspadr, SZ_64KB)) {
 		unit = SZ_64KB;
 		slst = DSPMMU_CAM_L_SLST_64KB;
-		order = ORDER_64KB;
-	} else /* if (_size >= SZ_4KB) */ {
+	} else {
 		unit = SZ_4KB;
 		slst = DSPMMU_CAM_L_SLST_4KB;
-		order = ORDER_4KB;
 	}
-#if 0	/* 1KB is not enabled */
-	else if (_size >= SZ_1KB) {
-		unit = SZ_1KB;
-		slst = DSPMMU_CAM_L_SLST_1KB;
-		order = XXX;
-	}
-#endif
+
+	order = get_order(unit);
 
 	/* buffer allocation */
 	if (type == EXMAP_TYPE_MEM) {
 		struct page *page, *ps, *pe;
 
-		buf = (void *)dsp_mem_get_dma_pages(order);
-		if (buf == NULL) {
-			status = -ENOMEM;
-			goto fail;
+		if ((order == ORDER_1MB) && likely(kmem_pool_1M))
+			buf = mempool_alloc_from_pool(kmem_pool_1M, GFP_KERNEL);
+		else if ((order == ORDER_64KB) && likely(kmem_pool_64K))
+			buf = mempool_alloc_from_pool(kmem_pool_64K,GFP_KERNEL);
+		else {
+			buf = (void *)__get_dma_pages(GFP_KERNEL, order);
+			if (buf == NULL) {
+				status = -ENOMEM;
+				goto fail;
+			}
 		}
+
 		/* mark the pages as reserved; this is needed for mmap */
 		ps = virt_to_page(buf);
 		pe = virt_to_page(buf + unit);
-		for (page = ps; page < pe; page++) {
+
+		for (page = ps; page < pe; page++)
 			SetPageReserved(page);
-		}
+
 		_padr = __pa(buf);
 	}
 
@@ -1569,13 +1627,13 @@ static struct device_attribute dev_attr_exmap = __ATTR_RO(exmap);
 static ssize_t kmem_pool_show(struct device *dev,
 			      struct device_attribute *attr, char *buf)
 {
-	int count_1M, count_64K, total;
+	int nr_1M, nr_64K, total;
 
-	count_1M = kmem_pool_1M.count;
-	count_64K = kmem_pool_64K.count;
-	total = count_1M * SZ_1MB + count_64K * SZ_64KB;
+	nr_1M = kmem_pool_1M->min_nr;
+	nr_64K = kmem_pool_64K->min_nr;
+	total = nr_1M * SZ_1MB + nr_64K * SZ_64KB;
 
-	return sprintf(buf, "0x%x %d %d\n", total, count_1M, count_64K);
+	return sprintf(buf, "0x%x %d %d\n", total, nr_1M, nr_64K);
 }
 
 static struct device_attribute dev_attr_kmem_pool = __ATTR_RO(kmem_pool);

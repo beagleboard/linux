@@ -280,14 +280,25 @@ static int __init omap_dsp_init(void)
 		return PTR_ERR(api_ck_handle);
 	}
 
+	/* This is needed for McBSP init, released in late_initcall */
+	clk_enable(api_ck_handle);
+
 	__dsp_enable();
 	mpui_byteswap_off();
 	mpui_wordswap_on();
 	tc_wordswap();
 
 	init_done = 1;
+	printk(KERN_INFO "omap_dsp_init() done\n");
 	return 0;
 }
+
+static int dsp_late_init(void)
+{
+	clk_disable(api_ck_handle);
+	return 0;
+}
+late_initcall(dsp_late_init);
 
 static void dsp_cpustat_update(void)
 {
