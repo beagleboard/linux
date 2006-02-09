@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.16-rc2-omap1
-# Wed Feb  8 19:07:23 2006
+# Thu Feb  9 09:31:00 2006
 #
 CONFIG_ARM=y
 CONFIG_MMU=y
@@ -364,6 +364,7 @@ CONFIG_BT_HIDP=y
 # CONFIG_BT_HCIBCM203X is not set
 # CONFIG_BT_HCIBPA10X is not set
 # CONFIG_BT_HCIBFUSB is not set
+# CONFIG_BT_HCIBRF6150 is not set
 # CONFIG_BT_HCIVHCI is not set
 # CONFIG_IEEE80211 is not set
 
@@ -773,6 +774,7 @@ CONFIG_SPI_MASTER=y
 # SPI Master Controller Drivers
 #
 CONFIG_SPI_BITBANG=y
+CONFIG_SPI_OMAP_UWIRE=y
 
 #
 # SPI Protocol Masters
