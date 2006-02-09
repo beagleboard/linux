@@ -142,7 +142,7 @@ static void gpio_sw_handler(void *data)
 
 static int __init new_switch(struct gpio_switch *sw)
 {
-	int r, direction;
+	int r, direction, trigger;
 
 	sw->pdev.name	= sw->name;
 	sw->pdev.id	= -1;
@@ -166,11 +166,6 @@ static int __init new_switch(struct gpio_switch *sw)
 	direction = !(sw->flags & OMAP_GPIO_SWITCH_FLAG_OUTPUT);
 	omap_set_gpio_direction(sw->gpio, direction);
 
-	if (omap_get_gpio_datain(sw->gpio))
-		set_irq_type(OMAP_GPIO_IRQ(sw->gpio), IRQT_FALLING);
-	else
-		set_irq_type(OMAP_GPIO_IRQ(sw->gpio), IRQT_RISING);
-
 	switch (sw->type) {
 	case OMAP_GPIO_SWITCH_TYPE_COVER:
 		device_create_file(&sw->pdev.dev, &dev_attr_cover_switch);
@@ -185,8 +180,12 @@ static int __init new_switch(struct gpio_switch *sw)
 	if (!direction)
 		return 0;
 
-	r = request_irq(OMAP_GPIO_IRQ(sw->gpio), gpio_sw_irq_handler, SA_SHIRQ,
-			sw->name, sw);
+	if (omap_get_gpio_datain(sw->gpio))
+		trigger = SA_TRIGGER_FALLING;
+	else
+		trigger = SA_TRIGGER_RISING;
+	r = request_irq(OMAP_GPIO_IRQ(sw->gpio), gpio_sw_irq_handler,
+			SA_SHIRQ | trigger, sw->name, sw);
 	if (r < 0) {
 		printk(KERN_ERR "gpio-switch: request_irq() failed "
 				"for GPIO %d\n", sw->gpio);
