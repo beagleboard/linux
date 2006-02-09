@@ -21,6 +21,7 @@
 #include <linux/string.h>
 #include <linux/clk.h>
 #include <linux/mutex.h>
+#include <linux/platform_device.h>
 
 #include <asm/io.h>
 #include <asm/semaphore.h>
@@ -37,17 +38,37 @@ static struct clk_functions *arch_clock;
  * Standard clock functions defined in include/linux/clk.h
  *-------------------------------------------------------------------------*/
 
+/*
+ * Returns a clock. Note that we first try to use device id on the bus
+ * and clock name. If this fails, we try to use clock name only.
+ */
 struct clk * clk_get(struct device *dev, const char *id)
 {
 	struct clk *p, *clk = ERR_PTR(-ENOENT);
+	int idno;
+
+	if (dev == NULL || dev->bus != &platform_bus_type)
+		idno = -1;
+	else
+		idno = to_platform_device(dev)->id;
 
 	mutex_lock(&clocks_mutex);
+
+	list_for_each_entry(p, &clocks, node) {
+		if (p->id == idno &&
+		    strcmp(id, p->name) == 0 && try_module_get(p->owner)) {
+			clk = p;
+			break;
+		}
+	}
+
 	list_for_each_entry(p, &clocks, node) {
 		if (strcmp(id, p->name) == 0 && try_module_get(p->owner)) {
 			clk = p;
 			break;
 		}
-	}
+	}	
+
 	mutex_unlock(&clocks_mutex);
 
 	return clk;

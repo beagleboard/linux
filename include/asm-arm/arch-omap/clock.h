@@ -19,6 +19,7 @@ struct clk {
 	struct list_head	node;
 	struct module		*owner;
 	const char		*name;
+	int			id;
 	struct clk		*parent;
 	unsigned long		rate;
 	__u32			flags;

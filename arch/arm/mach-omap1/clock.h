@@ -687,7 +687,8 @@ static struct clk bclk_16xx = {
 };
 
 static struct clk mmc1_ck = {
-	.name		= "mmc1_ck",
+	.name		= "mmc_ck",
+	.id		= 1,
 	/* Functional clock is direct from ULPD, interface clock is ARMPER */
 	.parent		= &armper_ck.clk,
 	.rate		= 48000000,
@@ -701,7 +702,8 @@ static struct clk mmc1_ck = {
 };
 
 static struct clk mmc2_ck = {
-	.name		= "mmc2_ck",
+	.name		= "mmc_ck",
+	.id		= 2,
 	/* Functional clock is direct from ULPD, interface clock is ARMPER */
 	.parent		= &armper_ck.clk,
 	.rate		= 48000000,
