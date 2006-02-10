@@ -11,8 +11,10 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/platform_device.h>
-#include <linux/spi/spi.h>
 #include <linux/input.h>
+
+#include <linux/spi/spi.h>
+#include <linux/spi/ads7846.h>
 
 #include <asm/hardware.h>
 #include <asm/mach-types.h>
@@ -71,6 +73,18 @@ static struct platform_device nokia770_kp_device = {
 	.resource	= nokia770_kp_resources,
 };
 
+static struct platform_device *nokia770_devices[] __initdata = {
+        &nokia770_kp_device,
+};
+
+static struct ads7846_platform_data nokia770_ads7846_platform_data __initdata = {
+	.x_max		= 0x0fff,
+	.y_max		= 0x0fff,
+	.x_plate_ohms	= 120,
+	.pressure_max	= 200,
+
+};
+
 static struct spi_board_info nokia770_spi_board_info[] __initdata = {
 	[0] = {
 		.modalias       = "lcd_lph8923",
@@ -78,11 +92,16 @@ static struct spi_board_info nokia770_spi_board_info[] __initdata = {
 		.chip_select    = 3,
 		.max_speed_hz   = 12000000,
 	},
+	[1] = {
+		.modalias       = "ads7846",
+		.bus_num        = 2,
+		.chip_select    = 0,
+		.max_speed_hz   = 2500000,
+		.irq		= OMAP_GPIO_IRQ(15),
+		.platform_data	= &nokia770_ads7846_platform_data,
+	},
 };
 
-static struct platform_device *nokia770_devices[] __initdata = {
-        &nokia770_kp_device,
-};
 
 /* assume no Mini-AB port */
 
