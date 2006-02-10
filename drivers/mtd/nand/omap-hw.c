@@ -269,7 +269,7 @@ static void omap_nand_dma_transfer(struct mtd_info *mtd, void *addr,
 		printk(KERN_WARNING "omap-hw-nand: DMA timeout after %u ms, max. seen latency %u ms\n",
 		       jiffies_to_msecs(jiffies_spent),
 		       jiffies_to_msecs(max_jiffies));
-		if (omap_readw(OMAP_DMA_CCR_REG(dma_ch)) & (1 << 7)) {
+		if (OMAP_DMA_CCR_REG(dma_ch) & (1 << 7)) {
 			/* If the DMA transfer is still running, something
 			 * is really wrong. */
 			printk(KERN_ERR "omap-hw-nand: DMA transfer still running. Not good.\n");
