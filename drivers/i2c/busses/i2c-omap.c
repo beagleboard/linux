@@ -53,7 +53,7 @@
 static const char driver_name[] = "i2c_omap";
 
 #define MODULE_NAME "OMAP I2C"
-#define OMAP_I2C_TIMEOUT (msecs_to_jiffies(500)) /* timeout waiting for the controller to respond */
+#define OMAP_I2C_TIMEOUT (msecs_to_jiffies(1000)) /* timeout waiting for the controller to respond */
 
 #define DEFAULT_OWN		1	/* default own I2C address */
 #define MAX_MESSAGES		65536	/* max number of messages */
