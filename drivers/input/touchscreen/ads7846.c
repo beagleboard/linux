@@ -257,10 +257,10 @@ static void ads7846_rx(void *ads)
 	/* adjust:  12 bit samples (left aligned), built from
 	 * two 8 bit values writen msb-first.
 	 */
-	x = be16_to_cpu(ts->tc.x) >> 4;
-	y = be16_to_cpu(ts->tc.y) >> 4;
-	z1 = be16_to_cpu(ts->tc.z1) >> 4;
-	z2 = be16_to_cpu(ts->tc.z2) >> 4;
+	x = ts->tc.x >> 3;
+	y = ts->tc.y >> 3;
+	z1 = ts->tc.z1 >> 3;
+	z2 = ts->tc.z2 >> 3;
 
 	/* range filtering */
 	if (x == MAX_12BIT)
