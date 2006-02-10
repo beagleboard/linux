@@ -163,7 +163,7 @@ static int ads7846_read12_ser(struct device *dev, unsigned command)
 	if (!req)
 		return -ENOMEM;
 
-	INIT_LIST_HEAD(&req->msg.transfers);
+	spi_message_init(&req->msg);
 
 	/* activate reference, so it has time to settle; */
 	req->ref_on = REF_ON;
@@ -476,7 +476,7 @@ static int __devinit ads7846_probe(struct spi_device *spi)
 	/* set up the transfers to read touchscreen state; this assumes we
 	 * use formula #2 for pressure, not #3.
 	 */
-	INIT_LIST_HEAD(&ts->msg.transfers);
+	spi_message_init(&ts->msg);
 	x = ts->xfer;
 
 	/* y- still on; turn on only y+ (and ADC) */
