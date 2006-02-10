@@ -16,6 +16,7 @@
 #define STI_IRQCLREN		0x20
 #define STI_ER			0x24
 #define STI_DR			0x28
+#define STI_RX_DR		0x2c
 #define STI_RX_STATUS		0x30
 #define STI_CLK_CTRL		0x34
 #define STI_IOBOTT0		0x4c
@@ -102,7 +103,8 @@ enum {
 #define STI_RX_STATUS		XTI_SYSSTATUS
 #define STI_IRQCLREN		STI_IRQSETEN
 #define STI_ER			XTI_TRACESELECT
-#define STI_DR			XTI_RXDATA
+#define STI_DR			XTI_TRACESELECT
+#define STI_RX_DR		XTI_RXDATA
 #define STI_CLK_CTRL		XTI_SCLKCRTL
 #define STI_SERIAL_CFG		XTI_SCONFIG
 

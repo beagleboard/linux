@@ -77,7 +77,7 @@ static void sti_fifo_irq(unsigned long arg)
 	while (!(sti_readl(STI_RX_STATUS) & STI_RXFIFO_EMPTY)) {
 		unsigned int pos = sti_buf_pos(sti_crb->datalen);
 
-		sti_crb->buf[pos] = sti_readl(STI_DR);
+		sti_crb->buf[pos] = sti_readl(STI_RX_DR);
 		sti_crb->datalen++;
 	}
 

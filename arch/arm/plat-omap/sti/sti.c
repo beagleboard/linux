@@ -262,8 +262,16 @@ static void __sti_trace_disable(int event)
 	u32 tmp;
 
 	tmp = sti_readl(STI_DR);
-	tmp |= event;
-	tmp &= ~sti_kern_mask;
+
+	if (cpu_is_omap16xx()) {
+		tmp |= event;
+		tmp &= ~sti_kern_mask;
+	} else if (cpu_is_omap24xx()) {
+		tmp &= ~event;
+		tmp |= sti_kern_mask;
+	} else
+		BUG();
+
 	sti_writel(tmp, STI_DR);
 }
 
