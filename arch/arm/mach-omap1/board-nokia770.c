@@ -12,6 +12,7 @@
 #include <linux/init.h>
 #include <linux/platform_device.h>
 #include <linux/spi/spi.h>
+#include <linux/input.h>
 
 #include <asm/hardware.h>
 #include <asm/mach-types.h>
@@ -22,6 +23,7 @@
 #include <asm/arch/mux.h>
 #include <asm/arch/usb.h>
 #include <asm/arch/board.h>
+#include <asm/arch/keypad.h>
 #include <asm/arch/common.h>
 
 static void __init omap_nokia770_init_irq(void)
@@ -29,6 +31,45 @@ static void __init omap_nokia770_init_irq(void)
 	omap1_init_common_hw();
 	omap_init_irq();
 }
+
+static int nokia770_keymap[] = {
+	KEY(0, 1, KEY_UP),
+	KEY(0, 2, KEY_F5),
+	KEY(1, 0, KEY_LEFT),
+	KEY(1, 1, KEY_ENTER),
+	KEY(1, 2, KEY_RIGHT),
+	KEY(2, 0, KEY_ESC),
+	KEY(2, 1, KEY_DOWN),
+	KEY(2, 2, KEY_F4),
+	KEY(3, 0, KEY_F7),
+	KEY(3, 1, KEY_F8),
+	KEY(3, 2, KEY_F6),
+	0
+};
+
+static struct resource nokia770_kp_resources[] = {
+	[0] = {
+		.start	= INT_KEYBOARD,
+		.end	= INT_KEYBOARD,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct omap_kp_platform_data nokia770_kp_data = {
+	.rows   = 8,
+	.cols   = 8,
+	.keymap = nokia770_keymap
+};
+
+static struct platform_device nokia770_kp_device = {
+	.name		= "omap-keypad",
+	.id		= -1,
+	.dev		= {
+		.platform_data = &nokia770_kp_data,
+	},
+	.num_resources	= ARRAY_SIZE(nokia770_kp_resources),
+	.resource	= nokia770_kp_resources,
+};
 
 static struct spi_board_info nokia770_spi_board_info[] __initdata = {
 	[0] = {
@@ -40,6 +81,7 @@ static struct spi_board_info nokia770_spi_board_info[] __initdata = {
 };
 
 static struct platform_device *nokia770_devices[] __initdata = {
+        &nokia770_kp_device,
 };
 
 /* assume no Mini-AB port */
