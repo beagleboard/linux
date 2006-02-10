@@ -1191,8 +1191,7 @@ static int __init mmc_omap_probe(struct platform_device *pdev)
 	}
 
 	if (!cpu_is_omap24xx())
-		host->fclk = clk_get(&pdev->dev,
-				    (host->id == 1) ? "mmc1_ck" : "mmc2_ck");
+		host->fclk = clk_get(&pdev->dev, "mmc_ck");
 	else
 		host->fclk = clk_get(&pdev->dev, "mmc_fck");
 
