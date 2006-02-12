@@ -35,17 +35,17 @@ static void __init omap_nokia770_init_irq(void)
 }
 
 static int nokia770_keymap[] = {
-	KEY(0, 1, KEY_UP),
-	KEY(0, 2, KEY_F5),
-	KEY(1, 0, KEY_LEFT),
-	KEY(1, 1, KEY_ENTER),
-	KEY(1, 2, KEY_RIGHT),
-	KEY(2, 0, KEY_ESC),
-	KEY(2, 1, KEY_DOWN),
-	KEY(2, 2, KEY_F4),
-	KEY(3, 0, KEY_F7),
-	KEY(3, 1, KEY_F8),
-	KEY(3, 2, KEY_F6),
+	KEY(0, 1, GROUP_0 | KEY_UP),
+	KEY(0, 2, GROUP_1 | KEY_F5),
+	KEY(1, 0, GROUP_0 | KEY_LEFT),
+	KEY(1, 1, GROUP_0 | KEY_ENTER),
+	KEY(1, 2, GROUP_0 | KEY_RIGHT),
+	KEY(2, 0, GROUP_1 | KEY_ESC),
+	KEY(2, 1, GROUP_0 | KEY_DOWN),
+	KEY(2, 2, GROUP_1 | KEY_F4),
+	KEY(3, 0, GROUP_2 | KEY_F7),
+	KEY(3, 1, GROUP_2 | KEY_F8),
+	KEY(3, 2, GROUP_2 | KEY_F6),
 	0
 };
 

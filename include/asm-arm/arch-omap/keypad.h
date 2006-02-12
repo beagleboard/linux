@@ -20,6 +20,16 @@ struct omap_kp_platform_data {
 	unsigned int *col_gpios;
 };
 
+/* Group (0..3) -- when multiple keys are pressed, only the
+ * keys pressed in the same group are considered as pressed. This is
+ * in order to workaround certain crappy HW designs that produce ghost
+ * keypresses. */
+#define GROUP_0		(0 << 10)
+#define GROUP_1		(1 << 10)
+#define GROUP_2		(2 << 10)
+#define GROUP_3		(3 << 10)
+#define GROUP_MASK	GROUP_3
+
 #define KEY(col, row, val) (((col) << 28) | ((row) << 24) | (val))
 
 #endif
