@@ -62,21 +62,6 @@ struct omap_kp {
 
 DECLARE_TASKLET_DISABLED(kp_tasklet, omap_kp_tasklet, 0);
 
-#define KEY(col, row, val) (((col) << 28) | ((row) << 24) | (val))
-
-static int test_keymap[] = {
-	KEY(0, 0, KEY_F4),
-	KEY(1, 0, KEY_LEFT),
-	KEY(2, 0, KEY_F1),
-	KEY(0, 1, KEY_DOWN),
-	KEY(1, 1, KEY_ENTER),
-	KEY(2, 1, KEY_UP),
-	KEY(0, 2, KEY_F3),
-	KEY(1, 2, KEY_RIGHT),
-	KEY(2, 2, KEY_F2),
-	0
-};
-
 static int *keymap;
 static unsigned int *row_gpios;
 static unsigned int *col_gpios;
@@ -221,8 +206,8 @@ static void omap_kp_tasklet(unsigned long data)
 				continue;
 
 			kp_cur_group = key & GROUP_MASK;
-			input_report_key(omap_kp_data->input, key,
-					 new_state[col] & (1 << row));
+			input_report_key(omap_kp_data->input, key & ~GROUP_MASK,
+					 !!(new_state[col] & (1 << row)));
 #endif
 		}
 	}
@@ -306,8 +291,8 @@ static int __init omap_kp_probe(struct platform_device *pdev)
 	struct omap_kp_platform_data *pdata =  pdev->dev.platform_data;
 	int i;
 
-	if (!pdata->rows || !pdata->cols) {
-		printk(KERN_ERR "No rows and cols from pdata\n");
+	if (!pdata->rows || !pdata->cols || !pdata->keymap) {
+		printk(KERN_ERR "No rows, cols or keymap from pdata\n");
 		return -EINVAL;
 	}
 
@@ -327,10 +312,7 @@ static int __init omap_kp_probe(struct platform_device *pdev)
 	if (!cpu_is_omap24xx())
 		omap_writew(1, OMAP_MPUIO_BASE + OMAP_MPUIO_KBD_MASKIT);
 
-	if (!pdata->keymap)
-		keymap = test_keymap;
-	else
-		keymap = pdata->keymap;
+	keymap = pdata->keymap;
 
 	if (pdata->rep)
 		set_bit(EV_REP, input_dev->evbit);
@@ -386,7 +368,7 @@ static int __init omap_kp_probe(struct platform_device *pdev)
 	/* setup input device */
 	set_bit(EV_KEY, input_dev->evbit);
 	for (i = 0; keymap[i] != 0; i++)
-		set_bit(keymap[i] & 0x00ffffff, input_dev->keybit);
+		set_bit(keymap[i] & KEY_MAX, input_dev->keybit);
 	input_dev->name = "omap-keypad";
 	input_dev->cdev.dev = &pdev->dev;
 	input_dev->private = omap_kp;
