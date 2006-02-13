@@ -349,13 +349,12 @@ static void lph8923_panel_cleanup(void)
 
 static int lph8923_panel_set_bklight_level(unsigned int level)
 {
-	if (level > 0xf)
+	if (level > tahvo_get_max_backlight_level())
 		return -EINVAL;
 	if (!lph8923.enabled) {
 		lph8923.saved_bklight_level = level;
 		return 0;
 	}
-	level = level * tahvo_get_max_backlight_level() / 0x0f;
 	tahvo_set_backlight_level(level);
 
 	return 0;
@@ -363,13 +362,12 @@ static int lph8923_panel_set_bklight_level(unsigned int level)
 
 static unsigned int lph8923_panel_get_bklight_level(void)
 {
-	return tahvo_get_backlight_level() * 0x0f /
-		tahvo_get_max_backlight_level();
+	return tahvo_get_backlight_level();
 }
 
 static unsigned int lph8923_panel_get_bklight_max(void)
 {
-	return 0x0f;
+	return tahvo_get_max_backlight_level();
 }
 
 static int lph8923_panel_enable(void)
