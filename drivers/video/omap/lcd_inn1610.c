@@ -22,6 +22,7 @@
  */
 
 #include <linux/module.h>
+#include <linux/platform_device.h>
 
 #include <asm/arch/gpio.h>
 #include <asm/arch/omapfb.h>

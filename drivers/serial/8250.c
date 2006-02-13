@@ -2246,10 +2246,8 @@ serial8250_console_write(struct console *co, const char *s, unsigned int count)
 	 *	and restore the IER
 	 */
 	wait_for_xmitr(up, BOTH_EMPTY);
-	/* FIXME: This causes "too much work" on omap
-	 * commit f91a3715db2bb44fcf08cec642e68f919b70f7f4 */
-	//serial_out(up, UART_IER, ier | UART_IER_THRI);
-	serial_out(up, UART_IER, ier);
+	up->ier |= UART_IER_THRI;
+	serial_out(up, UART_IER, ier | UART_IER_THRI);
 }
 
 static int serial8250_console_setup(struct console *co, char *options)
