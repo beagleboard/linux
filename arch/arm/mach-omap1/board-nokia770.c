@@ -82,7 +82,8 @@ static struct ads7846_platform_data nokia770_ads7846_platform_data __initdata = 
 	.y_max		= 0x0fff,
 	.x_plate_ohms	= 120,
 	.pressure_max	= 200,
-
+	.debounce_max	= 10,
+	.debounce_tol	= 3,
 };
 
 static struct spi_board_info nokia770_spi_board_info[] __initdata = {
