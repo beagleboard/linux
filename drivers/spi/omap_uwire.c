@@ -156,10 +156,18 @@ static int wait_uwire_csr_flag(u16 mask, u16 val, int might_not_catch)
 static void uwire_chipselect(struct spi_device *spi, int value)
 {
 	u16	w;
+	int	old_cs;
 
 	BUG_ON(wait_uwire_csr_flag(CSRB, 0, 0));
 
-	/* activate/deactivate specfied chipselect */
+	w = uwire_read_reg(UWIRE_CSR);
+	old_cs = (w >> 10) & 0x03;
+	if (value == BITBANG_CS_INACTIVE || old_cs != spi->chip_select) {
+		/* Deselect this CS, or the previous CS */
+		w &= ~CS_CMD;
+		uwire_write_reg(UWIRE_CSR, w);
+	}
+	/* activate specfied chipselect */
 	if (value == BITBANG_CS_ACTIVE) {
 		/* invert clock? */
 		if (spi->mode & SPI_CPOL)
@@ -169,9 +177,8 @@ static void uwire_chipselect(struct spi_device *spi, int value)
 
 		w = spi->chip_select << 10;
 		w |= CS_CMD;
-	} else
-		w = 0;
-	uwire_write_reg(UWIRE_CSR, w);
+		uwire_write_reg(UWIRE_CSR, w);
+	}
 }
 
 static int uwire_txrx(struct spi_device *spi, struct spi_transfer *t)
