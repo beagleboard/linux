@@ -163,13 +163,7 @@ static void lph8923_write(int cmd, const u8 *buf, int len)
 
 	spi_message_init(&m);
 	m.spi = lph8923.spi;
-
-	if (len > 1) {
-		cmd <<= 1;
-		set_spi_data_width(10);
-	} else {
-		set_spi_data_width(9);
-	}
+	set_spi_data_width(9);
 
 	t.cs_change	= 0;
 	w		= cmd;
@@ -183,12 +177,8 @@ static void lph8923_write(int cmd, const u8 *buf, int len)
 	if (!len)
 		return;
 
-	set_spi_data_width(9);
-
 	t.tx_buf = &w;
 	for (i = 0; i < len; i++) {
-		u16 w;
-
 		spi_message_init(&m);
 		m.spi = lph8923.spi;
 		spi_message_add_tail(&t, &m);
