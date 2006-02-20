@@ -227,7 +227,7 @@ static struct platform_driver omap_ts_driver = {
 	.remove 	= omap_ts_remove,
 	.suspend 	= omap_ts_suspend,
 	.resume 	= omap_ts_resume,
-	.driver {
+	.driver = {
 		.name	= OMAP_TS_NAME,
 	},
 };
