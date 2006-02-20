@@ -1527,7 +1527,7 @@ static int isp1301_probe(struct i2c_adapter *bus, int address, int kind)
 	isp->timer.data = (unsigned long) isp;
 
 	isp->irq = -1;
-	isp->irq_type = SA_SAMPLE_RANDOM;
+	isp->irq_type = 0;
 	isp->client.addr = address;
 	i2c_set_clientdata(&isp->client, isp);
 	isp->client.adapter = bus;
