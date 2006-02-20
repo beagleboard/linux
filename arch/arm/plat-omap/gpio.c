@@ -452,10 +452,8 @@ static int _set_gpio_triggering(struct gpio_bank *bank, int gpio, int trigger)
 		l &= ~(3 << (gpio << 1));
 		if (trigger & __IRQT_RISEDGE)
 			l |= 2 << (gpio << 1);
-		else if (trigger & __IRQT_FALEDGE)
+		if (trigger & __IRQT_FALEDGE)
 			l |= 1 << (gpio << 1);
-		else
-			goto bad;
 		break;
 	case METHOD_GPIO_730:
 		reg += OMAP730_GPIO_INT_CONTROL;
