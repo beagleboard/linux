@@ -215,6 +215,15 @@ struct lcd_ctrl_extif {
 	unsigned long		max_transmit_size;
 };
 
+struct omapfb_notifier_block {
+	struct notifier_block	nb;
+	void			*data;
+};
+
+typedef int (*omapfb_notifier_callback_t)(struct omapfb_notifier_block *,
+					   unsigned long event,
+					   struct omapfb_device *fbdev);
+
 struct lcd_ctrl {
 	const char	*name;
 	void		*data;
@@ -222,6 +231,7 @@ struct lcd_ctrl {
 	int		(*init)		  (struct omapfb_device *fbdev,
 					   int ext_mode, int req_vram_size);
 	void		(*cleanup)	  (void);
+	void		(*bind_client)	  (struct omapfb_notifier_block *nb);
 	void		(*get_vram_layout)(unsigned long *size,
 					   void **virt_base,
 					   dma_addr_t *phys_base);
@@ -285,6 +295,9 @@ struct omapfb_platform_data {
 	struct omap_fbmem_config fbmem;
 };
 
+#define OMAPFB_EVENT_READY	1
+#define OMAPFB_EVENT_DISABLED	2
+
 #ifdef CONFIG_ARCH_OMAP1
 extern struct lcd_ctrl omap1_lcd_ctrl;
 #else
@@ -293,6 +306,15 @@ extern struct lcd_ctrl omap2_disp_ctrl;
 
 extern void omapfb_register_panel(struct lcd_panel *panel);
 extern void omapfb_write_first_pixel(struct omapfb_device *fbdev, u16 pixval);
+extern void omapfb_notify_clients(struct omapfb_device *fbdev,
+				  unsigned long event);
+extern int  omapfb_register_client(struct omapfb_notifier_block *nb,
+				    omapfb_notifier_callback_t callback,
+				    void *callback_data);
+extern int  omapfb_unregister_client(struct omapfb_notifier_block *nb);
+extern int  omapfb_update_window_async(struct omapfb_update_window *win,
+					void (*callback)(void *),
+					void *callback_data);
 
 /* in arch/arm/plat-omap/devices.c */
 extern void omapfb_reserve_mem(void);

@@ -437,11 +437,15 @@ static DECLARE_WORK(mbx1_work, (void (*)(void *))do_mbx1, NULL);
 /*
  * kernel function dispatcher
  */
+extern void mbx1_fbctl_upd(void);
 extern void mbx1_fbctl_disable(void);
 
 static void mbx1_kfunc_fbctl(unsigned short data)
 {
 	switch (data) {
+	case OMAP_DSP_MBCMD_FBCTL_UPD:
+		mbx1_fbctl_upd();
+		break;
 	case OMAP_DSP_MBCMD_FBCTL_DISABLE:
 		mbx1_fbctl_disable();
 		break;

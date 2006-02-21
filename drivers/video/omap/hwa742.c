@@ -34,7 +34,6 @@
 
 /* #define OMAPFB_DBG 1 */
 
-#include "hwa742.h"
 #include "debug.h"
 
 #define MODULE_NAME			"omapfb-hwa742"
@@ -158,13 +157,6 @@ static void hwa742_write_reg(u8 reg, u8 data)
 	hwa742.extif->write_command(&reg, 1);
 	hwa742.extif->write_data(&data, 1);
 }
-
-void hwa742_read_id(int *rev_code, int *config)
-{
-	*rev_code = hwa742_read_reg(HWA742_REV_CODE_REG);
-	*config = hwa742_read_reg(HWA742_CONFIG_REG);
-}
-EXPORT_SYMBOL(hwa742_read_id);
 
 static void set_window_regs(int x_start, int y_start, int x_end, int y_end)
 {
@@ -471,10 +463,12 @@ int hwa742_update_window_async(struct omapfb_update_window *win,
 	DBGENTER(2);
 
 	if (hwa742.update_mode != OMAPFB_MANUAL_UPDATE) {
+		DBGPRINT(1, "invalid update mode\n");
 		r = -EINVAL;
 		goto out;
 	}
 	if (unlikely(win->format & ~(0x03 | OMAPFB_FORMAT_FLAG_DOUBLE))) {
+		DBGPRINT(1, "invalid window flag");
 		r = -EINVAL;
 		goto out;
 	}
@@ -544,37 +538,13 @@ static void hwa742_sync(void)
 	DBGLEAVE(2);
 }
 
-static struct notifier_block *hwa742_client_list;
-
-int hwa742_register_client(struct hwa742_notifier_block *hwa742_nb,
-			    hwa742_notifier_callback_t callback,
-			    void *callback_data)
+static void hwa742_bind_client(struct omapfb_notifier_block *nb)
 {
-	int r;
-
 	DBGPRINT(1, "update_mode %d\n", hwa742.update_mode);
-	hwa742_nb->nb.notifier_call = (int (*)(struct notifier_block *,
-					unsigned long, void *))callback;
-	hwa742_nb->data = callback_data;
-	r = notifier_chain_register(&hwa742_client_list, &hwa742_nb->nb);
-	if (r)
-		return r;
 	if (hwa742.update_mode == OMAPFB_MANUAL_UPDATE) {
-		DBGPRINT(1, "calling client list\n");
-		notifier_call_chain(&hwa742_client_list,
-				    HWA742_EVENT_READY,
-				    hwa742.fbdev);
+		omapfb_notify_clients(hwa742.fbdev, OMAPFB_EVENT_READY);
 	}
-	return 0;
 }
-EXPORT_SYMBOL(hwa742_register_client);
-
-int hwa742_unregister_client(struct hwa742_notifier_block *hwa742_nb)
-{
-	return notifier_chain_unregister(&hwa742_client_list,
-					 &hwa742_nb->nb);
-}
-EXPORT_SYMBOL(hwa742_unregister_client);
 
 static int hwa742_set_update_mode(enum omapfb_update_mode mode)
 {
@@ -597,9 +567,7 @@ static int hwa742_set_update_mode(enum omapfb_update_mode mode)
 
 	switch (hwa742.update_mode) {
 	case OMAPFB_MANUAL_UPDATE:
-		notifier_call_chain(&hwa742_client_list,
-				    HWA742_EVENT_DISABLED,
-				    hwa742.fbdev);
+		omapfb_notify_clients(hwa742.fbdev, OMAPFB_EVENT_DISABLED);
 		break;
 	case OMAPFB_AUTO_UPDATE:
 		hwa742.stop_auto_update = 1;
@@ -615,9 +583,7 @@ static int hwa742_set_update_mode(enum omapfb_update_mode mode)
 
 	switch (mode) {
 	case OMAPFB_MANUAL_UPDATE:
-		notifier_call_chain(&hwa742_client_list,
-				    HWA742_EVENT_READY,
-				    hwa742.fbdev);
+		omapfb_notify_clients(hwa742.fbdev, OMAPFB_EVENT_READY);
 		break;
 	case OMAPFB_AUTO_UPDATE:
 		hwa742_update_window_auto(0);
@@ -915,6 +881,7 @@ struct lcd_ctrl hwa742_ctrl = {
 	.name			= "hwa742",
 	.init			= hwa742_init,
 	.cleanup		= hwa742_cleanup,
+	.bind_client		= hwa742_bind_client,
 	.get_caps		= hwa742_get_caps,
 	.set_update_mode	= hwa742_set_update_mode,
 	.get_update_mode	= hwa742_get_update_mode,

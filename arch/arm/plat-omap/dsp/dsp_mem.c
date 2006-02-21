@@ -46,9 +46,11 @@
 #include <asm/pgalloc.h>
 #include <asm/pgtable.h>
 #include <asm/arch/tc.h>
+#include <asm/arch/omapfb.h>
 #include <asm/arch/dsp.h>
 #include <asm/arch/dsp_common.h>
 #include "uaccess_dsp.h"
+#include "ipbuf.h"
 #include "dsp.h"
 
 #define SZ_1MB	0x100000
@@ -115,6 +117,11 @@ struct exmap_tbl {
 #define DSPMMU_TLB_LINES	32
 static struct exmap_tbl exmap_tbl[DSPMMU_TLB_LINES];
 static DECLARE_RWSEM(exmap_sem);
+
+#ifdef CONFIG_FB_OMAP_LCDC_EXTERNAL
+static struct omapfb_notifier_block *omapfb_nb;
+static int omapfb_ready;
+#endif
 
 static int dsp_exunmap(unsigned long dspadr);
 
@@ -1002,6 +1009,23 @@ static unsigned long unmap_free_arm(struct exmap_tbl *ent)
 		       "omapdsp: freeing 0x%lx bytes @ adr 0x%8p\n",
 		       size, ent->buf);
 	}
+#ifdef CONFIG_FB_OMAP_LCDC_EXTERNAL
+	else if (ent->type == EXMAP_TYPE_FB) {
+		int status;
+		if (omapfb_nb) {
+			status = omapfb_unregister_client(omapfb_nb);
+			if (!status)
+				printk("omapfb_unregister_client(): "
+				       "success\n");
+			else
+				printk("omapfb_runegister_client(): "
+				       "failure(%d)\n", status);
+			kfree(omapfb_nb);
+			omapfb_nb = NULL;
+			omapfb_ready = 0;
+		}
+	}
+#endif
 
 	return size;
 }
@@ -1104,13 +1128,40 @@ static void exmap_flush(void)
 #error You configured OMAP_DSP_FBEXPORT, but FB was not configured!
 #endif /* CONFIG_FB */
 
+#ifdef CONFIG_FB_OMAP_LCDC_EXTERNAL
+static int omapfb_notifier_cb(struct omapfb_notifier_block *omapfb_nb,
+			       unsigned long event, struct omapfb_device *fbdev)
+{
+	/* XXX */
+	printk("omapfb_notifier_cb(): event = %s\n",
+	       (event == OMAPFB_EVENT_READY)    ? "READY" :
+	       (event == OMAPFB_EVENT_DISABLED) ? "DISABLED" : "Unknown");
+	if (event == OMAPFB_EVENT_READY)
+		omapfb_ready = 1;
+	else if (event == OMAPFB_EVENT_DISABLED)
+		omapfb_ready = 0;
+	return 0;
+}
+#endif
+
 static int dsp_fbexport(unsigned long *dspadr)
 {
 	unsigned long dspadr_actual;
 	unsigned long padr_sys, padr, fbsz_sys, fbsz;
 	int cnt;
+#ifdef CONFIG_FB_OMAP_LCDC_EXTERNAL
+	int status;
+#endif
 
 	printk(KERN_DEBUG "omapdsp: frame buffer export\n");
+
+#ifdef CONFIG_FB_OMAP_LCDC_EXTERNAL
+	if (omapfb_nb) {
+		printk(KERN_WARNING
+		       "omapdsp: frame buffer has been exported already!\n");
+		return -EBUSY;
+	}
+#endif
 
 	if (num_registered_fb == 0) {
 		printk(KERN_INFO "omapdsp: frame buffer not registered.\n");
@@ -1168,6 +1219,21 @@ static int dsp_fbexport(unsigned long *dspadr)
 
 	/* increase the DMA priority */
 	set_emiff_dma_prio(15);
+
+#ifdef CONFIG_FB_OMAP_LCDC_EXTERNAL
+	omapfb_nb = kmalloc(sizeof(struct omapfb_notifier_block), GFP_KERNEL);
+	if (omapfb_nb == NULL) {
+		printk(KERN_ERR
+		       "omapdsp: failed to allocate memory for omapfb_nb!\n");
+		dsp_exunmap(dspadr_actual);
+		return -ENOMEM;
+	}
+	status = omapfb_register_client(omapfb_nb, omapfb_notifier_cb, NULL);
+	if (!status)
+		printk("omapfb_register_client(): success\n");
+	else
+		printk("omapfb_register_client(): failure(%d)\n", status);
+#endif
 
 	return cnt;
 }
@@ -1528,6 +1594,68 @@ static int dsp_mem_release(struct inode *inode, struct file *file)
 {
 	return 0;
 }
+
+#ifdef CONFIG_FB_OMAP_LCDC_EXTERNAL
+/*
+ * fb update functions:
+ * fbupd_response() is executed by the workqueue.
+ * fbupd_cb() is called when fb update is done, in interrupt context.
+ * mbx1_fbupd() is called when KFUNC:FBCTL:UPD is received from DSP.
+ */
+static void fbupd_response(void *arg)
+{
+	int status;
+
+	status = dsp_mbsend(MBCMD(KFUNC), OMAP_DSP_MBCMD_KFUNC_FBCTL,
+			    OMAP_DSP_MBCMD_FBCTL_UPD);
+	if (status < 0) {
+		/* FIXME: DSP is busy !! */
+		printk(KERN_ERR
+		       "omapdsp: DSP is busy when trying to send FBCTL:UPD "
+		       "response!\n");
+	}
+}
+
+static DECLARE_WORK(fbupd_response_work, (void (*)(void *))fbupd_response,
+		    NULL);
+
+static void fbupd_cb(void *arg)
+{
+	schedule_work(&fbupd_response_work);
+}
+
+void mbx1_fbctl_upd(void)
+{
+	struct omapfb_update_window win;
+	volatile unsigned short *buf = ipbuf_sys_da->d;
+
+	/* FIXME: try count sometimes exceeds 1000. */
+	if (sync_with_dsp(&ipbuf_sys_da->s, OMAP_DSP_TID_ANON, 5000) < 0) {
+		printk(KERN_ERR "mbx: FBCTL:UPD - IPBUF sync failed!\n");
+		return;
+	}
+	win.x = buf[0];
+	win.y = buf[1];
+	win.width = buf[2];
+	win.height = buf[3];
+	win.format = buf[4];
+	release_ipbuf_pvt(ipbuf_sys_da);
+
+	if (!omapfb_ready) {
+		printk(KERN_WARNING
+		       "omapdsp: fbupd() called while HWA742 is not ready!\n");
+		return;
+	}
+	//printk("calling omapfb_update_window_async()\n");
+	omapfb_update_window_async(&win, fbupd_cb, NULL);
+}
+
+#else /* CONFIG_FB_OMAP_LCDC_EXTERNAL */
+
+void mbx1_fbctl_upd(void)
+{
+}
+#endif /* CONFIG_FB_OMAP_LCDC_EXTERNAL */
 
 /*
  * sysfs files

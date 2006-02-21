@@ -67,6 +67,10 @@ static int		manual_update = 1;
 static int		manual_update;
 #endif
 
+static struct platform_device	*fbdev_pdev;
+static struct lcd_panel		*fbdev_panel;
+static struct omapfb_device	*omapfb_dev;
+
 static struct caps_table_struct {
         unsigned long flag;
         const char *name;
@@ -576,28 +580,52 @@ static int omapfb_set_par(struct fb_info *fbi)
 	return r;
 }
 
-static int omapfb_update_win(struct omapfb_device *fbdev,
-				struct omapfb_update_window *win)
+int omapfb_update_window_async(struct omapfb_update_window *win,
+					void (*callback)(void *),
+					void *callback_data)
 {
-	struct fb_var_screeninfo *var = &fbdev->fb_info->var;
-	int ret;
+	struct omapfb_device *fbdev = omapfb_dev;
+	struct fb_var_screeninfo *var;
 
-	if (win->x >= var->xres || win->y >= var->yres)
+	DBGENTER(2);
+	if (fbdev == NULL) {
+		DBGPRINT(1, "no fbdev\n");
+		return -ENODEV;
+	}
+
+	var = &fbdev->fb_info->var;
+
+	if (win->x >= var->xres || win->y >= var->yres) {
+		DBGPRINT(1, "invalid x %d, y %d\n", win->x, win->y);
 		return -EINVAL;
+	}
 
 	if (!fbdev->ctrl->update_window ||
-	    fbdev->ctrl->get_update_mode() != OMAPFB_MANUAL_UPDATE)
+	    fbdev->ctrl->get_update_mode() != OMAPFB_MANUAL_UPDATE) {
+		DBGPRINT(1, "invalid update mode\n");
 		return -ENODEV;
+	}
 
 	if (win->x + win->width >= var->xres)
 		win->width = var->xres - win->x;
 	if (win->y + win->height >= var->yres)
 		win->height = var->yres - win->y;
-	if (!win->width || !win->height)
+	if (!win->width || !win->height) {
+		DBGPRINT(1, "zero size window\n");
 		return 0;
+	}
+
+	return fbdev->ctrl->update_window(win, callback, callback_data);
+}
+EXPORT_SYMBOL(omapfb_update_window_async);
+
+static int omapfb_update_win(struct omapfb_device *fbdev,
+				struct omapfb_update_window *win)
+{
+	int ret;
 
 	omapfb_rqueue_lock(fbdev);
-	ret = fbdev->ctrl->update_window(win, NULL, 0);
+	ret = omapfb_update_window_async(win, NULL, 0);
 	omapfb_rqueue_unlock(fbdev);
 
 	return ret;
@@ -658,6 +686,45 @@ static int omapfb_set_color_key(struct omapfb_device *fbdev,
 
 	return r;
 }
+
+static struct notifier_block *omapfb_client_list;
+
+int omapfb_register_client(struct omapfb_notifier_block *omapfb_nb,
+			    omapfb_notifier_callback_t callback,
+			    void *callback_data)
+{
+	int r;
+
+	DBGENTER(1);
+
+	omapfb_nb->nb.notifier_call = (int (*)(struct notifier_block *,
+					unsigned long, void *))callback;
+	omapfb_nb->data = callback_data;
+	r = notifier_chain_register(&omapfb_client_list, &omapfb_nb->nb);
+	if (r)
+		return r;
+	if (omapfb_dev != NULL &&
+	    omapfb_dev->ctrl && omapfb_dev->ctrl->bind_client) {
+		omapfb_dev->ctrl->bind_client(omapfb_nb);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(omapfb_register_client);
+
+int omapfb_unregister_client(struct omapfb_notifier_block *omapfb_nb)
+{
+	return notifier_chain_unregister(&omapfb_client_list,
+					 &omapfb_nb->nb);
+}
+EXPORT_SYMBOL(omapfb_unregister_client);
+
+void omapfb_notify_clients(struct omapfb_device *fbdev, unsigned long event)
+{
+	DBGENTER(1);
+	notifier_call_chain(&omapfb_client_list, event, fbdev);
+}
+EXPORT_SYMBOL(omapfb_notify_clients);
 
 static int omapfb_set_update_mode(struct omapfb_device *fbdev,
 				   enum omapfb_update_mode mode)
@@ -1291,6 +1358,8 @@ static int omapfb_do_probe(struct platform_device *pdev, struct lcd_panel *panel
 	hhz = phz * 10 / (panel->hfp + panel->x_res + panel->hbp + panel->hsw);
 	vhz = hhz / (panel->vfp + panel->y_res + panel->vbp + panel->vsw);
 
+	omapfb_dev = fbdev;
+
 	pr_info(MODULE_NAME ": initialized vram=%lu "
 			"pixclock %lu kHz hfreq %lu.%lu kHz vfreq %lu.%lu Hz\n",
 			fbdev->vram_size,
@@ -1305,9 +1374,6 @@ cleanup:
 	DBGLEAVE(1);
 	return r;
 }
-
-static struct platform_device	*fbdev_pdev;
-static struct lcd_panel		*fbdev_panel;
 
 static int omapfb_probe(struct platform_device *pdev)
 {
