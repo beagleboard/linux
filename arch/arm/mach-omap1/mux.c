@@ -77,8 +77,8 @@ MUX_CFG("UART3_BCLK",		 A,    0,    0,	  2,   6,   0,	 NA,	 0,  0)
 MUX_CFG("Y15_1610_UART3_RTS",	 A,    0,    1,	  2,   6,   0,	 NA,	 0,  0)
 
 /* PWT & PWL, conflicts with UART3 */
-MUX_CFG("PWT",		 	 6,    0,    2,	  0,  30,   0,	 NA,	 0,  0)
-MUX_CFG("PWL",		 	 6,    3,    1,	  0,  31,   1,	 NA,	 0,  0)
+MUX_CFG("PWT",			 6,    0,    2,	  0,  30,   0,	 NA,	 0,  0)
+MUX_CFG("PWL",			 6,    3,    1,	  0,  31,   1,	 NA,	 0,  0)
 
 /* USB internal master generic */
 MUX_CFG("R18_USB_VBUS",		 7,    9,    2,	  1,  11,   0,	 NA,	 0,  1)
@@ -155,7 +155,7 @@ MUX_CFG("MCBSP3_CLKX",		 9,    3,    1,	  1,  29,   0,	 NA,	 0,  1)
 
 /* Misc ballouts */
 MUX_CFG("BALLOUT_V8_ARMIO3",	 B,   18,    0,	  2,  25,   1,	 NA,	 0,  1)
-MUX_CFG("N20_HDQ",	       6,   18,    1,   1,   4,   0,    1,     4,  0)
+MUX_CFG("N20_HDQ",		 6,   18,    1,   1,   4,   0,    1,     4,  0)
 
 /* OMAP-1610 MMC2 */
 MUX_CFG("W8_1610_MMC2_DAT0",	 B,   21,    6,	  2,  23,   1,	  2,	 1,  1)

@@ -34,6 +34,7 @@
 #include <asm/arch/board.h>
 #include <asm/arch/common.h>
 #include <asm/arch/keypad.h>
+#include <asm/arch/menelaus.h>
 #include "prcm-regs.h"
 
 #include <asm/io.h>
@@ -327,6 +328,15 @@ static void __init omap_h4_init(void)
 	omap_cfg_reg(K15_24XX_UART3_TX);
 	omap_cfg_reg(K14_24XX_UART3_RX);
 #endif
+
+#if defined(CONFIG_KEYBOARD_OMAP) || defined(CONFIG_KEYBOARD_OMAP_MODULE)
+	if (omap_has_menelaus()) {
+		row_gpios[5] = 0;
+		col_gpios[2] = 15;
+		col_gpios[6] = 18;
+	}
+#endif
+
 	platform_add_devices(h4_devices, ARRAY_SIZE(h4_devices));
 	omap_board_config = h4_config;
 	omap_board_config_size = ARRAY_SIZE(h4_config);

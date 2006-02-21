@@ -345,7 +345,7 @@ static unsigned calc_ext_dsor(unsigned long rate)
 	 */
 	for (dsor = 2; dsor < 96; ++dsor) {
 		if ((dsor & 1) && dsor > 8)
-		  	continue;
+			continue;
 		if (rate >= 96000000 / dsor)
 			break;
 	}

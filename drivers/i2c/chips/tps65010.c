@@ -527,7 +527,7 @@ fail1:
 		return 0;
 	}
 
-	tps->irq_type = SA_SAMPLE_RANDOM;
+	tps->irq_type = 0;
 
 #ifdef	CONFIG_ARM
 	if (machine_is_omap_h2()) {

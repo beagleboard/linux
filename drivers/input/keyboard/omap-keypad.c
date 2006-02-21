@@ -83,7 +83,7 @@ static u8 get_row_gpio_val(struct omap_kp *omap_kp)
 	int row;
 	u8 value = 0;
 
-	for (row = 0; row < omap_kp->cols; row++) {
+	for (row = 0; row < omap_kp->rows; row++) {
 		if (omap_get_gpio_datain(row_gpios[row]))
 			value |= (1 << row);
 	}

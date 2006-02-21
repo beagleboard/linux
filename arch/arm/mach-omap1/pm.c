@@ -234,7 +234,7 @@ static void omap_pm_wakeup_setup(void)
 
 	/*  New IRQ agreement, recalculate in cascade order */
 	omap_writel(1, OMAP_IH2_CONTROL);
- 	omap_writel(1, OMAP_IH1_CONTROL);
+	omap_writel(1, OMAP_IH1_CONTROL);
 }
 
 #define EN_DSPCK	13	/* ARM_CKCTL */
@@ -271,7 +271,7 @@ void omap_pm_suspend(void)
 	 * We have to save and restore very little register state to
 	 * idle the omap.
          *
- 	 * Save interrupt, MPUI, ARM and UPLD control registers.
+	 * Save interrupt, MPUI, ARM and UPLD control registers.
 	 */
 
 	if (cpu_is_omap730()) {
@@ -371,7 +371,7 @@ void omap_pm_suspend(void)
 	 * Step 6c: ARM and Traffic controller shutdown
 	 *
 	 * Jump to assembly code. The processor will stay there
- 	 * until wake up.
+	 * until wake up.
 	 */
         omap_sram_suspend(arg0, arg1);
 
@@ -559,29 +559,29 @@ static int omap_pm_read_proc(
 			   "MPUI1510_CTRL_REG             0x%-8x \n"
 			   "MPUI1510_DSP_STATUS_REG:      0x%-8x \n"
 			   "MPUI1510_DSP_BOOT_CONFIG_REG: 0x%-8x \n"
-		   	   "MPUI1510_DSP_API_CONFIG_REG:  0x%-8x \n"
-		   	   "MPUI1510_SDRAM_CONFIG_REG:    0x%-8x \n"
-		   	   "MPUI1510_EMIFS_CONFIG_REG:    0x%-8x \n",
-		   	   MPUI1510_SHOW(MPUI_CTRL),
-		   	   MPUI1510_SHOW(MPUI_DSP_STATUS),
-		   	   MPUI1510_SHOW(MPUI_DSP_BOOT_CONFIG),
-		   	   MPUI1510_SHOW(MPUI_DSP_API_CONFIG),
-		   	   MPUI1510_SHOW(EMIFF_SDRAM_CONFIG),
-		   	   MPUI1510_SHOW(EMIFS_CONFIG));
+			   "MPUI1510_DSP_API_CONFIG_REG:  0x%-8x \n"
+			   "MPUI1510_SDRAM_CONFIG_REG:    0x%-8x \n"
+			   "MPUI1510_EMIFS_CONFIG_REG:    0x%-8x \n",
+			   MPUI1510_SHOW(MPUI_CTRL),
+			   MPUI1510_SHOW(MPUI_DSP_STATUS),
+			   MPUI1510_SHOW(MPUI_DSP_BOOT_CONFIG),
+			   MPUI1510_SHOW(MPUI_DSP_API_CONFIG),
+			   MPUI1510_SHOW(EMIFF_SDRAM_CONFIG),
+			   MPUI1510_SHOW(EMIFS_CONFIG));
 		} else if (cpu_is_omap16xx()) {
 			my_buffer_offset += sprintf(my_base + my_buffer_offset,
 			   "MPUI1610_CTRL_REG             0x%-8x \n"
 			   "MPUI1610_DSP_STATUS_REG:      0x%-8x \n"
 			   "MPUI1610_DSP_BOOT_CONFIG_REG: 0x%-8x \n"
-		   	   "MPUI1610_DSP_API_CONFIG_REG:  0x%-8x \n"
-		   	   "MPUI1610_SDRAM_CONFIG_REG:    0x%-8x \n"
-		   	   "MPUI1610_EMIFS_CONFIG_REG:    0x%-8x \n",
-		   	   MPUI1610_SHOW(MPUI_CTRL),
-		   	   MPUI1610_SHOW(MPUI_DSP_STATUS),
-		   	   MPUI1610_SHOW(MPUI_DSP_BOOT_CONFIG),
-		   	   MPUI1610_SHOW(MPUI_DSP_API_CONFIG),
-		   	   MPUI1610_SHOW(EMIFF_SDRAM_CONFIG),
-		   	   MPUI1610_SHOW(EMIFS_CONFIG));
+			   "MPUI1610_DSP_API_CONFIG_REG:  0x%-8x \n"
+			   "MPUI1610_SDRAM_CONFIG_REG:    0x%-8x \n"
+			   "MPUI1610_EMIFS_CONFIG_REG:    0x%-8x \n",
+			   MPUI1610_SHOW(MPUI_CTRL),
+			   MPUI1610_SHOW(MPUI_DSP_STATUS),
+			   MPUI1610_SHOW(MPUI_DSP_BOOT_CONFIG),
+			   MPUI1610_SHOW(MPUI_DSP_API_CONFIG),
+			   MPUI1610_SHOW(EMIFF_SDRAM_CONFIG),
+			   MPUI1610_SHOW(EMIFS_CONFIG));
 		}
 
 		g_read_completed++;
@@ -694,10 +694,10 @@ static struct irqaction omap_wakeup_irq = {
 
 
 static struct pm_ops omap_pm_ops ={
-	.pm_disk_mode = 0,
-        .prepare        = omap_pm_prepare,
-        .enter          = omap_pm_enter,
-        .finish         = omap_pm_finish,
+	.pm_disk_mode	= 0,
+	.prepare	= omap_pm_prepare,
+	.enter		= omap_pm_enter,
+	.finish		= omap_pm_finish,
 };
 
 static int __init omap_pm_init(void)

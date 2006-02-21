@@ -176,7 +176,7 @@ static int __init inn1510_ts_probe(struct omap_ts_t *ts)
 		return -ENODEV;
 
 	ts->irq = OMAP1510_INT_FPGA_TS;
-	ts->irq_type = SA_SAMPLE_RANDOM;
+	ts->irq_type = 0;
 	
 	return 0;
 }

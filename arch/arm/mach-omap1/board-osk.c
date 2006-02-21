@@ -301,7 +301,7 @@ static void __init osk_mistral_init(void)
 static void __init osk_mistral_init(void) { }
 #endif
 
-#define EMIFS_CS3_VAL	(0x30003361)
+#define EMIFS_CS3_VAL	(0x88013141)
 
 static void __init osk_init(void)
 {
