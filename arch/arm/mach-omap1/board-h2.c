@@ -240,6 +240,7 @@ static struct platform_device h2_kp_device = {
 
 #define H2_IRDA_FIRSEL_GPIO_PIN	17
 
+#if defined(CONFIG_OMAP_IR) || defined(CONFIG_OMAP_IR_MODULE)
 static int h2_transceiver_mode(struct device *dev, int state)
 {
 	if (state & IR_SIRMODE)
@@ -249,6 +250,7 @@ static int h2_transceiver_mode(struct device *dev, int state)
 
 	return 0;
 }
+#endif
 
 static struct omap_irda_config h2_irda_data = {
 	.transceiver_cap	= IR_SIRMODE | IR_MIRMODE | IR_FIRMODE,
