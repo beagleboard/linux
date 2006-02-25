@@ -505,6 +505,79 @@ ktime_t hrtimer_get_remaining(const struct hrtimer *timer)
 	return rem;
 }
 
+#ifdef CONFIG_NO_IDLE_HZ
+
+/**
+ * hrtimer_get_next - get next hrtimer to expire
+ *
+ * @bases:	ktimer base array
+ */
+static inline struct hrtimer * hrtimer_get_next(struct hrtimer_base *bases)
+{
+	unsigned long flags;
+	struct hrtimer *timer = NULL;
+	int i;
+
+	for (i = 0; i < MAX_HRTIMER_BASES; i++) {
+		struct hrtimer_base *base;
+		struct hrtimer *cur;
+
+		base = &bases[i];
+		spin_lock_irqsave(&base->lock, flags);
+		cur = rb_entry(base->first, struct hrtimer, node);
+		spin_unlock_irqrestore(&base->lock, flags);
+
+		if (cur == NULL)
+			continue;
+
+		if (timer == NULL || cur->expires.tv64 < timer->expires.tv64)
+			timer = cur;
+	}
+
+	return timer;
+}
+
+/**
+ * ktime_to_jiffies - converts ktime to jiffies
+ *
+ * @event:	ktime event to be converted to jiffies
+ *
+ * Caller must take care xtime locking.
+ */
+static inline unsigned long ktime_to_jiffies(const ktime_t event)
+{
+	ktime_t now, delta;
+
+	now = timespec_to_ktime(xtime);
+	delta = ktime_sub(event, now);
+
+	return jiffies + (((delta.tv64 * NSEC_CONVERSION) >>
+			(NSEC_JIFFIE_SC - SEC_JIFFIE_SC)) >> SEC_JIFFIE_SC);
+}
+
+/**
+ * hrtimer_next_jiffie - get next hrtimer event in jiffies
+ *
+ * Called from next_timer_interrupt() to get the next hrtimer event.
+ * Eventually we should change next_timer_interrupt() to return
+ * results in nanoseconds instead of jiffies. Caller must host xtime_lock.
+ */
+int hrtimer_next_jiffie(unsigned long *next_jiffie)
+{
+	struct hrtimer_base *base = __get_cpu_var(hrtimer_bases);
+	struct hrtimer * timer;
+
+	timer = hrtimer_get_next(base);
+	if (timer == NULL)
+		return -EAGAIN;
+
+	*next_jiffie = ktime_to_jiffies(timer->expires);
+
+	return 0;
+}
+
+#endif
+
 /**
  * hrtimer_init - initialize a timer to the given clock
  *

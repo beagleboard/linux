@@ -478,6 +478,7 @@ static inline void __run_timers(tvec_base_t *base)
 }
 
 #ifdef CONFIG_NO_IDLE_HZ
+
 /*
  * Find out when the next timer event is due to happen. This
  * is used on S/390 to stop all activity when a cpus is idle.
@@ -489,8 +490,14 @@ unsigned long next_timer_interrupt(void)
 	struct list_head *list;
 	struct timer_list *nte;
 	unsigned long expires;
+	unsigned long hr_expires = jiffies + 10 * HZ;	/* Anything far ahead */
 	tvec_t *varray[4];
 	int i, j;
+
+	/* Look for timer events in hrtimer. */
+	if ((hrtimer_next_jiffie(&hr_expires) == 0)
+		&& (time_before(hr_expires, jiffies + 2)))
+			return hr_expires;
 
 	base = &__get_cpu_var(tvec_bases);
 	spin_lock(&base->t_base.lock);
@@ -542,6 +549,10 @@ found:
 		}
 	}
 	spin_unlock(&base->t_base.lock);
+
+	if (time_before(hr_expires, expires))
+		expires = hr_expires;
+
 	return expires;
 }
 #endif
