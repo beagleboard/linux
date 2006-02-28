@@ -115,7 +115,6 @@ extern int hrtimer_try_to_cancel(struct hrtimer *timer);
 /* Query timers: */
 extern ktime_t hrtimer_get_remaining(const struct hrtimer *timer);
 extern int hrtimer_get_res(const clockid_t which_clock, struct timespec *tp);
-extern int hrtimer_next_jiffie(unsigned long *next_jiffie);
 
 static inline int hrtimer_active(const struct hrtimer *timer)
 {
