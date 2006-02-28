@@ -162,19 +162,17 @@ static inline u16 omap_i2c_read_reg(struct omap_i2c_dev *i2c_dev, int reg)
 }
 
 #ifdef CONFIG_ARCH_OMAP24XX
-static int omap_i2c_get_clocks(struct omap_i2c_dev *dev, int bus)
+static int omap_i2c_get_clocks(struct omap_i2c_dev *dev)
 {
 	if (!cpu_is_omap24xx())
 		return 0;
 
-	dev->iclk = clk_get(NULL,
-		bus == 1 ? "i2c1_ick" : "i2c2_ick");
+	dev->iclk = clk_get(dev->dev, "i2c_ick");
 	if (IS_ERR(dev->iclk)) {
 		return -ENODEV;
 	}
 
-	dev->fclk = clk_get(NULL,
-		bus == 1 ? "i2c1_fck" : "i2c2_fck");
+	dev->fclk = clk_get(dev->dev, "i2c_fck");
 	if (IS_ERR(dev->fclk)) {
 		clk_put(dev->fclk);
 		return -ENODEV;
@@ -202,7 +200,7 @@ static void omap_i2c_disable_clocks(struct omap_i2c_dev *dev)
 }
 
 #else
-#define omap_i2c_get_clocks(x, y)		0
+#define omap_i2c_get_clocks(x)		0
 #define omap_i2c_enable_clocks(x)	do {} while (0)
 #define omap_i2c_disable_clocks(x)	do {} while (0)
 #define omap_i2c_put_clocks(x)		do {} while (0)
@@ -619,7 +617,7 @@ omap_i2c_probe(struct platform_device *pdev)
 	dev->base = (void __iomem *) IO_ADDRESS(mem->start);
 	platform_set_drvdata(pdev, dev);
 
-	if ((r = omap_i2c_get_clocks(dev, pdev->id)) != 0)
+	if ((r = omap_i2c_get_clocks(dev)) != 0)
 		goto do_free_mem;
 
 	omap_i2c_enable_clocks(dev);
