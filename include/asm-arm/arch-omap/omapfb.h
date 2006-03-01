@@ -34,10 +34,10 @@
 #define OMAPFB_MIRROR		OMAP_IOW(31, int)
 #define OMAPFB_SYNC_GFX		OMAP_IO(37)
 #define OMAPFB_VSYNC		OMAP_IO(38)
-#define OMAPFB_SET_UPDATE_MODE	OMAP_IOW(40, enum omapfb_update_mode)
+#define OMAPFB_SET_UPDATE_MODE	OMAP_IOW(40, int)
 #define OMAPFB_UPDATE_WINDOW_OLD OMAP_IOW(41, struct omapfb_update_window_old)
 #define OMAPFB_GET_CAPS		OMAP_IOR(42, unsigned long)
-#define OMAPFB_GET_UPDATE_MODE	OMAP_IOW(43, enum omapfb_update_mode)
+#define OMAPFB_GET_UPDATE_MODE	OMAP_IOW(43, int)
 #define OMAPFB_LCD_TEST		OMAP_IOW(45, int)
 #define OMAPFB_CTRL_TEST	OMAP_IOW(46, int)
 #define OMAPFB_UPDATE_WINDOW	OMAP_IOW(47, struct omapfb_update_window)
@@ -67,14 +67,14 @@ enum omapfb_color_format {
 };
 
 struct omapfb_update_window {
-	u32 x, y;
-	u32 width, height;
-	u32 format;
+	__u32 x, y;
+	__u32 width, height;
+	__u32 format;
 };
 
 struct omapfb_update_window_old {
-	u32 x, y;
-	u32 width, height;
+	__u32 x, y;
+	__u32 width, height;
 };
 
 enum omapfb_plane {
@@ -89,17 +89,17 @@ enum omapfb_channel_out {
 };
 
 struct omapfb_setup_plane {
-	u8  plane;
-	u8  channel_out;
-	u32 offset;
-	u32 pos_x, pos_y;
-	u32 width, height;
-	u32 color_mode;
+	__u8  plane;
+	__u8  channel_out;
+	__u32 offset;
+	__u32 pos_x, pos_y;
+	__u32 width, height;
+	__u32 color_mode;
 };
 
 struct omapfb_enable_plane {
-	u8  plane;
-	u8  enable;
+	__u8  plane;
+	__u8  enable;
 };
 
 enum omapfb_color_key_type {
@@ -109,10 +109,10 @@ enum omapfb_color_key_type {
 };
 
 struct omapfb_color_key {
-	u8  channel_out;
-	u32 background;
-	u32 trans_key;
-	u8  key_type;
+	__u8  channel_out;
+	__u32 background;
+	__u32 trans_key;
+	__u8  key_type;
 };
 
 enum omapfb_update_mode {
