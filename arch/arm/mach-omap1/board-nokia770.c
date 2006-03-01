@@ -12,6 +12,7 @@
 #include <linux/init.h>
 #include <linux/platform_device.h>
 #include <linux/input.h>
+#include <linux/clk.h>
 
 #include <linux/spi/spi.h>
 #include <linux/spi/ads7846.h>
@@ -27,6 +28,9 @@
 #include <asm/arch/board.h>
 #include <asm/arch/keypad.h>
 #include <asm/arch/common.h>
+#include <asm/arch/dsp_common.h>
+#include <asm/arch/aic23.h>
+#include <asm/arch/gpio.h>
 
 static void __init omap_nokia770_init_irq(void)
 {
@@ -136,6 +140,95 @@ static struct omap_board_config_kernel nokia770_config[] = {
 	{ OMAP_TAG_MMC,		&nokia770_mmc_config },
 };
 
+/*
+ * audio power control
+ */
+#define	HEADPHONE_GPIO		14
+#define	AMPLIFIER_CTRL_GPIO	58
+
+static struct clk *dspxor_ck;
+static DECLARE_MUTEX(audio_pwr_sem);
+/*
+ * audio_pwr_state
+ * +--+-------------------------+---------------------------------------+
+ * |-1|down			|power-up request -> 0			|
+ * +--+-------------------------+---------------------------------------+
+ * | 0|up			|power-down(1) request -> 1		|
+ * |  |				|power-down(2) request -> (ignore)	|
+ * +--+-------------------------+---------------------------------------+
+ * | 1|up,			|power-up request -> 0			|
+ * |  |received down(1) request	|power-down(2) request -> -1		|
+ * +--+-------------------------+---------------------------------------+
+ */
+static int audio_pwr_state = -1;
+
+/*
+ * audio_pwr_up / down should be called under audio_pwr_sem
+ */
+static void nokia770_audio_pwr_up(void)
+{
+	clk_enable(dspxor_ck);
+
+	/* Turn on codec */
+	tlv320aic23_power_up();
+
+	if (omap_get_gpio_datain(HEADPHONE_GPIO))
+		/* HP not connected, turn on amplifier */
+		omap_set_gpio_dataout(AMPLIFIER_CTRL_GPIO, 1);
+	else
+		/* HP connected, do not turn on amplifier */
+		printk("HP connected\n");
+}
+
+static void codec_delayed_power_down(void *arg)
+{
+	down(&audio_pwr_sem);
+	if (audio_pwr_state == -1)
+		tlv320aic23_power_down();
+	up(&audio_pwr_sem);
+}
+
+static DECLARE_WORK(codec_power_down_work, codec_delayed_power_down, NULL);
+
+static void nokia770_audio_pwr_down(void)
+{
+	clk_disable(dspxor_ck);
+
+	/* Turn off amplifier */
+	omap_set_gpio_dataout(AMPLIFIER_CTRL_GPIO, 0);
+
+	/* Turn off codec: schedule delayed work */
+	schedule_delayed_work(&codec_power_down_work, HZ / 20);	/* 50ms */
+}
+
+void nokia770_audio_pwr_up_request(int stage)
+{
+	down(&audio_pwr_sem);
+	if (audio_pwr_state == -1)
+		nokia770_audio_pwr_up();
+	/* force audio_pwr_state = 0, even if it was 1. */
+	audio_pwr_state = 0;
+	up(&audio_pwr_sem);
+}
+
+void nokia770_audio_pwr_down_request(int stage)
+{
+	down(&audio_pwr_sem);
+	switch (stage) {
+		case 1:
+			if (audio_pwr_state == 0)
+				audio_pwr_state = 1;
+			break;
+		case 2:
+			if (audio_pwr_state == 1) {
+				nokia770_audio_pwr_down();
+				audio_pwr_state = -1;
+			}
+			break;
+	}
+	up(&audio_pwr_sem);
+}
+
 static void __init omap_nokia770_init(void)
 {
 	nokia770_config[0].data = &nokia770_usb_config;
@@ -146,6 +239,9 @@ static void __init omap_nokia770_init(void)
 	omap_board_config = nokia770_config;
 	omap_board_config_size = ARRAY_SIZE(nokia770_config);
 	omap_serial_init();
+	omap_dsp_audio_pwr_up_request = nokia770_audio_pwr_up_request;
+	omap_dsp_audio_pwr_down_request = nokia770_audio_pwr_down_request;
+	dspxor_ck = clk_get(0, "dspxor_ck");
 }
 
 static void __init omap_nokia770_map_io(void)

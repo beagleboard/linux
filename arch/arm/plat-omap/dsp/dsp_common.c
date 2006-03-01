@@ -496,6 +496,26 @@ void dsp_unregister_mem_cb(void)
 	up(&cpustat.sem);
 }
 
+/*
+ * Audio power control function prototypes and defaults
+ * (To be overridden with board specific functions)
+ */
+static void generic_audio_pwr_up_request(int stage)
+{
+	printk(KERN_ERR "audio power-up request function is not defined.\n");
+}
+
+void (*omap_dsp_audio_pwr_up_request)(int stage) = generic_audio_pwr_up_request;
+EXPORT_SYMBOL(omap_dsp_audio_pwr_up_request);
+
+static void generic_audio_pwr_down_request(int stage)
+{
+	printk(KERN_ERR "audio power-down request function is not defined.\n");
+}
+
+void (*omap_dsp_audio_pwr_down_request)(int stage) = generic_audio_pwr_down_request;
+EXPORT_SYMBOL(omap_dsp_audio_pwr_down_request);
+
 arch_initcall(omap_dsp_init);
 
 EXPORT_SYMBOL(omap_dsp_request_mpui);

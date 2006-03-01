@@ -59,7 +59,8 @@ char *subcmd_name(struct mbcmd *mb)
 		    NULL;
 		break;
 	case MBCMD(KFUNC):
-		s = (cmd_l == KFUNCCMD(FBCTL)) ? "FBCTL":
+		s = (cmd_l == KFUNCCMD(FBCTL))     ? "FBCTL":
+		    (cmd_l == KFUNCCMD(AUDIO_PWR)) ? "AUDIO_PWR":
 		    NULL;
 		break;
 	case MBCMD(DSPCFG):

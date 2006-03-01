@@ -37,6 +37,7 @@
 #include <asm/signal.h>
 #include <asm/delay.h>
 #include <asm/irq.h>
+#include <asm/arch/dsp_common.h>
 #include <asm/arch/dsp.h>
 #include "hardware_dsp.h"
 #include "dsp.h"
@@ -455,13 +456,39 @@ static void mbx1_kfunc_fbctl(unsigned short data)
 	}
 }
 
+static void mbx1_kfunc_audio_pwr(unsigned short data)
+{
+	struct mbcmd mb;
+
+	switch (data) {
+	case OMAP_DSP_MBCMD_AUDIO_PWR_UP:
+		omap_dsp_audio_pwr_up_request(0);
+		/* send back ack */
+		mbcmd_set(mb, MBCMD(KFUNC), OMAP_DSP_MBCMD_KFUNC_AUDIO_PWR,
+			  OMAP_DSP_MBCMD_AUDIO_PWR_UP);
+		dsp_mbcmd_send(&mb);
+		break;
+	case OMAP_DSP_MBCMD_AUDIO_PWR_DOWN1:
+		omap_dsp_audio_pwr_down_request(1);
+		break;
+	case OMAP_DSP_MBCMD_AUDIO_PWR_DOWN2:
+		omap_dsp_audio_pwr_down_request(2);
+		break;
+	default:
+		printk(KERN_ERR
+		       "mailbox: Unknown AUDIO_PWR from DSP: 0x%04x\n", data);
+	}
+}
+
 static void mbx1_kfunc(struct mbcmd *mb)
 {
 	switch (mb->cmd_l) {
 	case OMAP_DSP_MBCMD_KFUNC_FBCTL:
 		mbx1_kfunc_fbctl(mb->data);
 		break;
-
+	case OMAP_DSP_MBCMD_KFUNC_AUDIO_PWR:
+		mbx1_kfunc_audio_pwr(mb->data);
+		break;
 	default:
 		printk(KERN_ERR
 		       "mailbox: Unknown kfunc from DSP: 0x%02x\n", mb->cmd_l);
