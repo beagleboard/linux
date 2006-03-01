@@ -161,21 +161,24 @@ static inline u16 omap_i2c_read_reg(struct omap_i2c_dev *i2c_dev, int reg)
 	return __raw_readw(i2c_dev->base + reg);
 }
 
-#ifdef CONFIG_ARCH_OMAP24XX
 static int omap_i2c_get_clocks(struct omap_i2c_dev *dev)
 {
-	if (!cpu_is_omap24xx())
-		return 0;
-
-	dev->iclk = clk_get(dev->dev, "i2c_ick");
-	if (IS_ERR(dev->iclk)) {
-		return -ENODEV;
+	if (cpu_is_omap24xx()) {
+		dev->iclk = clk_get(dev->dev, "i2c_ick");
+		if (IS_ERR(dev->iclk)) {
+			return -ENODEV;
+		}
+		dev->fclk = clk_get(dev->dev, "i2c_fck");
+		if (IS_ERR(dev->fclk)) {
+			clk_put(dev->fclk);
+			return -ENODEV;
+		}
 	}
 
-	dev->fclk = clk_get(dev->dev, "i2c_fck");
-	if (IS_ERR(dev->fclk)) {
-		clk_put(dev->fclk);
-		return -ENODEV;
+	if (cpu_class_is_omap1()) {
+		dev->fclk = clk_get(dev->dev, "i2c_fck");
+		if (IS_ERR(dev->fclk))
+			return -ENODEV;
 	}
 
 	return 0;
@@ -184,27 +187,26 @@ static int omap_i2c_get_clocks(struct omap_i2c_dev *dev)
 static void omap_i2c_put_clocks(struct omap_i2c_dev *dev)
 {
 	clk_put(dev->fclk);
-	clk_put(dev->iclk);
+	dev->fclk = NULL;
+	if (dev->iclk != NULL) {
+		clk_put(dev->iclk);
+		dev->iclk = NULL;
+	}
 }
 
 static void omap_i2c_enable_clocks(struct omap_i2c_dev *dev)
 {
-	clk_enable(dev->iclk);
+	if (dev->iclk != NULL)
+		clk_enable(dev->iclk);
 	clk_enable(dev->fclk);
 }
 
 static void omap_i2c_disable_clocks(struct omap_i2c_dev *dev)
 {
-	clk_disable(dev->iclk);
+	if (dev->iclk != NULL)
+		clk_disable(dev->iclk);
 	clk_disable(dev->fclk);
 }
-
-#else
-#define omap_i2c_get_clocks(x)		0
-#define omap_i2c_enable_clocks(x)	do {} while (0)
-#define omap_i2c_disable_clocks(x)	do {} while (0)
-#define omap_i2c_put_clocks(x)		do {} while (0)
-#endif
 
 static void omap_i2c_reset(struct omap_i2c_dev *dev)
 {
@@ -665,7 +667,7 @@ omap_i2c_probe(struct platform_device *pdev)
 do_free_irq:
 	free_irq(dev->irq, dev);
 do_unuse_clocks:
-	omap_i2c_enable_clocks(dev);
+	omap_i2c_disable_clocks(dev);
 	omap_i2c_put_clocks(dev);
 do_free_mem:
 	kfree(dev);
