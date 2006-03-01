@@ -727,6 +727,20 @@ static struct clk virtual_ck_mpu = {
 	.disable	= &omap1_clk_disable_generic,
 };
 
+/* virtual functional clock domain for I2C. Just for making sure that ARMXOR_CK
+remains active during MPU idle whenever this is enabled */
+static struct clk i2c_fck = {
+	.name		= "i2c_fck",
+	.id		= 1,
+	.flags		= CLOCK_IN_OMAP1510 | CLOCK_IN_OMAP16XX |
+			  VIRTUAL_CLOCK | CLOCK_NO_IDLE_PARENT |
+			  ALWAYS_ENABLED,
+	.parent		= &armxor_ck.clk,
+	.recalc		= &followparent_recalc,
+	.enable		= &omap1_clk_enable_generic,
+	.disable	= &omap1_clk_disable_generic,
+};
+
 static struct clk * onchip_clks[] = {
 	/* non-ULPD clocks */
 	&ck_ref,
@@ -775,6 +789,7 @@ static struct clk * onchip_clks[] = {
 	&mmc2_ck,
 	/* Virtual clocks */
 	&virtual_ck_mpu,
+	&i2c_fck,
 };
 
 #endif
