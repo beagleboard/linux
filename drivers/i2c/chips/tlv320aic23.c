@@ -52,11 +52,11 @@ static unsigned short normal_i2c[] = { TLV320AIC23ID1, TLV320AIC23ID2, \
 /* This makes all addr_data:s */
 I2C_CLIENT_INSMOD;
 
-static struct i2c_driver tlv320aic23_driver;
+static struct i2c_driver aic23_driver;
 static struct i2c_client *new_client;
 static int selftest;
 
-static struct tlv320aic23_info {
+static struct aic23_info {
 	u16 volume_reg_left;
 	u16 volume_reg_right;
 	u16 input_gain_reg_left;
@@ -67,10 +67,10 @@ static struct tlv320aic23_info {
 	int mic_enable;
 	int sta;
 	int power_down;
-	int initialization;
-} tlv320aic23_info_l;
+	int initialized;
+} aic23_info_l;
 
-static int _tlv320aic23_write_value(struct i2c_client *client, u8 reg, u16 value)
+static int _aic23_write_value(struct i2c_client *client, u8 reg, u16 value)
 {
 	u8 val, wreg;
 
@@ -87,16 +87,16 @@ static int _tlv320aic23_write_value(struct i2c_client *client, u8 reg, u16 value
 	return i2c_smbus_write_byte_data(client, wreg, val);
 }
 
-int tlv320aic23_write_value(u8 reg, u16 value)
+int aic23_write_value(u8 reg, u16 value)
 {
 	static struct i2c_client *client;
 	client = new_client;
-	_tlv320aic23_write_value(client, reg, value);
+	_aic23_write_value(client, reg, value);
 
 	return 0;
 }
 
-static int tlv320aic23_detect_client(struct i2c_adapter *adapter, int address,
+static int aic23_detect_client(struct i2c_adapter *adapter, int address,
 				     int kind)
 {
 	int err = 0;
@@ -120,7 +120,7 @@ static int tlv320aic23_detect_client(struct i2c_adapter *adapter, int address,
 	memset(new_client, 0x00, sizeof(struct i2c_client));
 	new_client->addr = address;
 	new_client->adapter = adapter;
-	new_client->driver = &tlv320aic23_driver;
+	new_client->driver = &aic23_driver;
 	new_client->flags = 0;
 	strlcpy(new_client->name, client_name, I2C_NAME_SIZE);
 
@@ -132,12 +132,12 @@ static int tlv320aic23_detect_client(struct i2c_adapter *adapter, int address,
 	return 0;
 }
 
-static int tlv320aic23_detach_client(struct i2c_client *client)
+static int aic23_detach_client(struct i2c_client *client)
 {
 	int err;
 
 	if ((err = i2c_detach_client(client))) {
-		printk("tlv320aic23.o: Client deregistration failed, \
+		printk("aic23.o: Client deregistration failed, \
 		       client not detached.\n");
 		return err;
 	}
@@ -145,22 +145,22 @@ static int tlv320aic23_detach_client(struct i2c_client *client)
 	return 0;
 }
 
-static int tlv320aic23_attach_adapter(struct i2c_adapter *adapter)
+static int aic23_attach_adapter(struct i2c_adapter *adapter)
 {
 	int res;
 
-	res = i2c_probe(adapter, &addr_data, &tlv320aic23_detect_client);
+	res = i2c_probe(adapter, &addr_data, &aic23_detect_client);
 	return res;
 }
 
-static struct i2c_driver tlv320aic23_driver = {
+static struct i2c_driver aic23_driver = {
 	.driver {
 		.name	= "OMAP+TLV320AIC23 codec",
 		/*.flags	= I2C_DF_NOTIFY,*/
 	},
 	.id		= I2C_DRIVERID_MISC, /* Experimental ID */
-	.attach_adapter	= tlv320aic23_attach_adapter,
-	.detach_client	= tlv320aic23_detach_client,
+	.attach_adapter	= aic23_attach_adapter,
+	.detach_client	= aic23_detach_client,
 };
 
 /*
@@ -168,30 +168,30 @@ static struct i2c_driver tlv320aic23_driver = {
  * The input clock rate from DSP is 12MHz.
  * The DSP clock must be on before this is called. 
  */
-static int omap_mcbsp3_tlv320aic23_clock_init(void)
+static int omap_mcbsp3_aic23_clock_init(void)
 {
 	u16 w;
-	
+
 	/* enable 12MHz clock to mcbsp 1 & 3 */
 	__raw_writew(__raw_readw(DSP_IDLECT2) | (1<<1), DSP_IDLECT2);
 	__raw_writew(__raw_readw(DSP_RSTCT2) | 1 | 1<<1, DSP_RSTCT2);
 
 	/* disable sample rate generator */
-	OMAP_MCBSP_WRITE(OMAP1610_MCBSP3_BASE, SPCR1, 0x0000); 
+	OMAP_MCBSP_WRITE(OMAP1610_MCBSP3_BASE, SPCR1, 0x0000);
 	OMAP_MCBSP_WRITE(OMAP1610_MCBSP3_BASE, SPCR2, 0x0000);
-	
+
 	/* pin control register */
 	OMAP_MCBSP_WRITE(OMAP1610_MCBSP3_BASE, PCR0,(CLKXM | CLKXP | CLKRP));
-	
+
 	/* configure srg to send 12MHz pulse from dsp peripheral clock */
-	OMAP_MCBSP_WRITE(OMAP1610_MCBSP3_BASE, SRGR1, 0x0000); 
-	OMAP_MCBSP_WRITE(OMAP1610_MCBSP3_BASE, SRGR2, CLKSM); 
-	
+	OMAP_MCBSP_WRITE(OMAP1610_MCBSP3_BASE, SRGR1, 0x0000);
+	OMAP_MCBSP_WRITE(OMAP1610_MCBSP3_BASE, SRGR2, CLKSM);
+
 	/* enable sample rate generator */
 	w = OMAP_MCBSP_READ(OMAP1610_MCBSP3_BASE, SPCR2);
-	OMAP_MCBSP_WRITE(OMAP1610_MCBSP3_BASE, SPCR2, (w | FREE | GRST)); 
+	OMAP_MCBSP_WRITE(OMAP1610_MCBSP3_BASE, SPCR2, (w | FREE | GRST));
 	printk("Clock enabled to MCBSP1 & 3 \n");
-	
+
 	return 0;
 }
 
@@ -199,16 +199,16 @@ static void update_volume_left(int volume)
 {
 	u16 val = 0;
 	val = ((volume * OUTPUT_VOLUME_RANGE) / 100) + OUTPUT_VOLUME_MIN;
-	tlv320aic23_write_value(LEFT_CHANNEL_VOLUME_ADDR, val);
-	tlv320aic23_info_l.volume_reg_left = volume;
+	aic23_write_value(LEFT_CHANNEL_VOLUME_ADDR, val);
+	aic23_info_l.volume_reg_left = volume;
 }
 
 static void update_volume_right(int volume)
 {
 	u16 val = 0;
 	val = ((volume * OUTPUT_VOLUME_RANGE) / 100) + OUTPUT_VOLUME_MIN;
-	tlv320aic23_write_value(RIGHT_CHANNEL_VOLUME_ADDR, val);
-	tlv320aic23_info_l.volume_reg_right = volume;
+	aic23_write_value(RIGHT_CHANNEL_VOLUME_ADDR, val);
+	aic23_info_l.volume_reg_right = volume;
 }
 
 static void set_mic(int mic_en)
@@ -216,70 +216,74 @@ static void set_mic(int mic_en)
 	u16 dg_ctrl;
 
 	if (mic_en) {
-		tlv320aic23_info_l.power = OSC_OFF | LINE_OFF;
+		aic23_info_l.power = OSC_OFF | LINE_OFF;
 		dg_ctrl = ADCHP_ON;
-		tlv320aic23_info_l.mask &= ~MICM_MUTED;
-		tlv320aic23_info_l.mask |= MICB_20DB; /* STE_ENABLED */
+		aic23_info_l.mask &= ~MICM_MUTED;
+		aic23_info_l.mask |= MICB_20DB; /* STE_ENABLED */
 	} else {
-		tlv320aic23_info_l.power =
+		aic23_info_l.power =
 			OSC_OFF | ADC_OFF | MIC_OFF | LINE_OFF;
 		dg_ctrl = 0x00;
-		tlv320aic23_info_l.mask = 
+		aic23_info_l.mask = 
 			DAC_SELECTED | INSEL_MIC | MICM_MUTED;
 	}
-	tlv320aic23_write_value(POWER_DOWN_CONTROL_ADDR,
-				tlv320aic23_info_l.power);
-	tlv320aic23_write_value(DIGITAL_AUDIO_CONTROL_ADDR, dg_ctrl);
-	tlv320aic23_write_value(ANALOG_AUDIO_CONTROL_ADDR,
-				tlv320aic23_info_l.mask);
-	tlv320aic23_info_l.mic_enable = mic_en;
+	aic23_write_value(POWER_DOWN_CONTROL_ADDR,
+				aic23_info_l.power);
+	aic23_write_value(DIGITAL_AUDIO_CONTROL_ADDR, dg_ctrl);
+	aic23_write_value(ANALOG_AUDIO_CONTROL_ADDR,
+				aic23_info_l.mask);
+	aic23_info_l.mic_enable = mic_en;
 
-	printk(KERN_INFO "tlv320aic23 mic state: %i\n", mic_en);
+	printk(KERN_INFO "aic23 mic state: %i\n", mic_en);
 }
 
-static void tlv320aic23_init_power(void)
+static void aic23_init_power(void)
 {
-	tlv320aic23_write_value(RESET_CONTROL_ADDR, 0x00);
+	aic23_write_value(RESET_CONTROL_ADDR, 0x00);
 	
-	if (tlv320aic23_info_l.initialization == 0) {
-		tlv320aic23_write_value(LEFT_CHANNEL_VOLUME_ADDR, LHV_MIN);
-		tlv320aic23_write_value(RIGHT_CHANNEL_VOLUME_ADDR, LHV_MIN);
+	if (aic23_info_l.initialized == 0) {
+		aic23_write_value(LEFT_CHANNEL_VOLUME_ADDR, LHV_MIN);
+		aic23_write_value(RIGHT_CHANNEL_VOLUME_ADDR, LHV_MIN);
 	}
 	else {
-		update_volume_left(tlv320aic23_info_l.volume_reg_left);
-		update_volume_right(tlv320aic23_info_l.volume_reg_right);
+		update_volume_left(aic23_info_l.volume_reg_left);
+		update_volume_right(aic23_info_l.volume_reg_right);
 	}
 	
-	tlv320aic23_info_l.mask = DAC_SELECTED | INSEL_MIC | MICM_MUTED;
-	tlv320aic23_write_value(ANALOG_AUDIO_CONTROL_ADDR,
-			        tlv320aic23_info_l.mask);
-	tlv320aic23_write_value(DIGITAL_AUDIO_CONTROL_ADDR, 0x00);
-	tlv320aic23_write_value(DIGITAL_AUDIO_FORMAT_ADDR, LRP_ON | FOR_DSP);
-	tlv320aic23_write_value(SAMPLE_RATE_CONTROL_ADDR, USB_CLK_ON);
-	tlv320aic23_write_value(DIGITAL_INTERFACE_ACT_ADDR, ACT_ON);
-	tlv320aic23_info_l.power = OSC_OFF | ADC_OFF | MIC_OFF | LINE_OFF;
-	tlv320aic23_write_value(POWER_DOWN_CONTROL_ADDR,
-			        tlv320aic23_info_l.power);
+	aic23_info_l.mask = DAC_SELECTED | INSEL_MIC | MICM_MUTED;
+	aic23_write_value(ANALOG_AUDIO_CONTROL_ADDR,
+			        aic23_info_l.mask);
+	aic23_write_value(DIGITAL_AUDIO_CONTROL_ADDR, 0x00);
+	aic23_write_value(DIGITAL_AUDIO_FORMAT_ADDR, LRP_ON | FOR_DSP);
+	aic23_write_value(SAMPLE_RATE_CONTROL_ADDR, USB_CLK_ON);
+	aic23_write_value(DIGITAL_INTERFACE_ACT_ADDR, ACT_ON);
+	aic23_info_l.power = OSC_OFF | ADC_OFF | MIC_OFF | LINE_OFF;
+	aic23_write_value(POWER_DOWN_CONTROL_ADDR,
+			        aic23_info_l.power);
 
 	/* enable mic input */
-	if (tlv320aic23_info_l.mic_enable)
-		set_mic(tlv320aic23_info_l.mic_enable);
+	if (aic23_info_l.mic_enable)
+		set_mic(aic23_info_l.mic_enable);
 
-	printk(KERN_INFO "tlv320aic23_init_power() done\n");
+	printk(KERN_INFO "aic23_init_power() done\n");
 }
 
-void tlv320aic23_power_down(void)
+void aic23_power_down(void)
 {
-	printk("tlv320aic23 powering down\n");
-	tlv320aic23_write_value(POWER_DOWN_CONTROL_ADDR, 0xff);
-	tlv320aic23_info_l.power_down = 1;
+	if (aic23_info_l.initialized) {
+		printk("aic23 powering down\n");
+		aic23_write_value(POWER_DOWN_CONTROL_ADDR, 0xff);
+	}
+	aic23_info_l.power_down = 1;
 }
 
-void tlv320aic23_power_up(void)
+void aic23_power_up(void)
 {
-	printk("tlv320aic23 powering up\n");
-	tlv320aic23_init_power();
-	tlv320aic23_info_l.power_down = 0;
+	if (aic23_info_l.initialized) {
+		printk("aic23 powering up\n");
+		aic23_init_power();
+	}
+	aic23_info_l.power_down = 0;
 }
 
 /*----------------------------------------------------------------------*/
@@ -295,11 +299,11 @@ static ssize_t store_volume_left(struct device *dev,
 	sscanf(buf, "%i", &volume);
 
 	if (volume < MIN_VOL) {
-		tlv320aic23_power_down();
+		aic23_power_down();
 		return count;
-	} else if (volume > MIN_VOL && tlv320aic23_info_l.power_down) {
-		tlv320aic23_info_l.volume_reg_left = volume;
-		tlv320aic23_power_up();
+	} else if (volume > MIN_VOL && aic23_info_l.power_down) {
+		aic23_info_l.volume_reg_left = volume;
+		aic23_power_up();
 		return count;
 	}
 	if (volume > MAX_VOL)
@@ -312,7 +316,7 @@ static ssize_t store_volume_left(struct device *dev,
 static ssize_t show_volume_left(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
-	return sprintf(buf, "%u\n", tlv320aic23_info_l.volume_reg_left);
+	return sprintf(buf, "%u\n", aic23_info_l.volume_reg_left);
 }
 
 static DEVICE_ATTR(volume_left, S_IRUGO | S_IWUGO,
@@ -326,11 +330,11 @@ static ssize_t store_volume_right(struct device *dev,
 
 	sscanf(buf, "%i", &volume);
 	if (volume < MIN_VOL) {
-		tlv320aic23_power_down();
+		aic23_power_down();
 		return count;
-	} else if (volume > MIN_VOL && tlv320aic23_info_l.power_down) {
-		tlv320aic23_info_l.volume_reg_right = volume;
-		tlv320aic23_power_up();
+	} else if (volume > MIN_VOL && aic23_info_l.power_down) {
+		aic23_info_l.volume_reg_right = volume;
+		aic23_power_up();
 		return count;
 	}
 	if (volume > MAX_VOL)
@@ -343,7 +347,7 @@ static ssize_t store_volume_right(struct device *dev,
 static ssize_t show_volume_right(struct device *dev,
 				 struct device_attribute *attr, char *buf)
 {
-	return sprintf(buf, "%u\n", tlv320aic23_info_l.volume_reg_right);
+	return sprintf(buf, "%u\n", aic23_info_l.volume_reg_right);
 }
 
 static DEVICE_ATTR(volume_right, S_IRUGO | S_IWUGO,
@@ -361,8 +365,8 @@ static ssize_t store_gain_left(struct device *dev,
 		gain = MAX_VOL;
 
 	val = ((gain * INPUT_VOLUME_RANGE) / 100) + INPUT_VOLUME_MIN;
-	tlv320aic23_write_value(LEFT_LINE_VOLUME_ADDR, val);
-	tlv320aic23_info_l.input_gain_reg_left = gain;
+	aic23_write_value(LEFT_LINE_VOLUME_ADDR, val);
+	aic23_info_l.input_gain_reg_left = gain;
 
 	return count;
 }
@@ -370,7 +374,7 @@ static ssize_t store_gain_left(struct device *dev,
 static ssize_t show_gain_left(struct device *dev,
 			      struct device_attribute *attr, char *buf)
 {
-	return sprintf(buf, "%u\n", tlv320aic23_info_l.input_gain_reg_left);
+	return sprintf(buf, "%u\n", aic23_info_l.input_gain_reg_left);
 }
 
 static DEVICE_ATTR(gain_left, S_IRUGO | S_IWUSR, show_gain_left,
@@ -388,8 +392,8 @@ static ssize_t store_gain_right(struct device *dev,
 		gain = MAX_VOL;
 
 	val = ((gain * INPUT_VOLUME_RANGE) / 100) + INPUT_VOLUME_MIN;
-	tlv320aic23_write_value(RIGHT_LINE_VOLUME_ADDR, val);
-	tlv320aic23_info_l.input_gain_reg_right = gain;
+	aic23_write_value(RIGHT_LINE_VOLUME_ADDR, val);
+	aic23_info_l.input_gain_reg_right = gain;
 
 	return count;
 }
@@ -397,7 +401,7 @@ static ssize_t store_gain_right(struct device *dev,
 static ssize_t show_gain_right(struct device *dev,
 			       struct device_attribute *attr, char *buf)
 {
-	return sprintf(buf, "%u\n", tlv320aic23_info_l.input_gain_reg_right);
+	return sprintf(buf, "%u\n", aic23_info_l.input_gain_reg_right);
 }
 
 static DEVICE_ATTR(gain_right, S_IRUGO | S_IWUSR, show_gain_right,
@@ -411,20 +415,20 @@ static ssize_t store_mic_loopback(struct device *dev,
 
 	sscanf(buf, "%i", &mic);
 	if (mic > 0) {
-		tlv320aic23_write_value(POWER_DOWN_CONTROL_ADDR, \
+		aic23_write_value(POWER_DOWN_CONTROL_ADDR, \
 					OSC_OFF | ADC_OFF | LINE_OFF);
-		tlv320aic23_info_l.mask = STE_ENABLED | DAC_SELECTED \
+		aic23_info_l.mask = STE_ENABLED | DAC_SELECTED \
 					  | INSEL_MIC | MICB_20DB;
-		tlv320aic23_write_value(ANALOG_AUDIO_CONTROL_ADDR, 
-					tlv320aic23_info_l.mask);
+		aic23_write_value(ANALOG_AUDIO_CONTROL_ADDR, 
+					aic23_info_l.mask);
 		mic = 1;
 	}
 	else {
-		tlv320aic23_write_value(POWER_DOWN_CONTROL_ADDR, \
+		aic23_write_value(POWER_DOWN_CONTROL_ADDR, \
 					OSC_OFF | ADC_OFF | MIC_OFF | LINE_OFF);
 		mic = 0;
 	}
-	tlv320aic23_info_l.mic_loopback = mic;
+	aic23_info_l.mic_loopback = mic;
 
 	return count;
 }
@@ -432,7 +436,7 @@ static ssize_t store_mic_loopback(struct device *dev,
 static ssize_t show_mic_loopback(struct device *dev,
 				 struct device_attribute *attr, char *buf)
 {
-	return sprintf(buf, "%i\n", tlv320aic23_info_l.mic_loopback);
+	return sprintf(buf, "%i\n", aic23_info_l.mic_loopback);
 }
 
 static DEVICE_ATTR(mic_loopback, S_IRUGO | S_IWUSR,
@@ -449,13 +453,13 @@ static ssize_t store_st_attenuation(struct device *dev,
 	if (sta > 3)
 		sta = 3;
 
-	tmp = tlv320aic23_info_l.mask;
+	tmp = aic23_info_l.mask;
 	tmp &= 0x3f;
 
-	tlv320aic23_info_l.mask =  tmp | STA_REG(sta);
-	tlv320aic23_write_value(ANALOG_AUDIO_CONTROL_ADDR,
-				tlv320aic23_info_l.mask);
-	tlv320aic23_info_l.sta = sta;
+	aic23_info_l.mask =  tmp | STA_REG(sta);
+	aic23_write_value(ANALOG_AUDIO_CONTROL_ADDR,
+				aic23_info_l.mask);
+	aic23_info_l.sta = sta;
 
 	return count;
 }
@@ -463,7 +467,7 @@ static ssize_t store_st_attenuation(struct device *dev,
 static ssize_t show_st_attenuation(struct device *dev,
 				   struct device_attribute *attr, char *buf)
 {
-	return sprintf(buf, "%i\n", tlv320aic23_info_l.sta);
+	return sprintf(buf, "%i\n", aic23_info_l.sta);
 }
 
 static DEVICE_ATTR(st_attenuation, S_IRUGO | S_IWUSR,
@@ -484,7 +488,7 @@ static ssize_t store_mic_enable(struct device *dev,
 static ssize_t show_mic_enable(struct device *dev,
 			       struct device_attribute *attr, char *buf)
 {
-	return sprintf(buf, "%i\n", tlv320aic23_info_l.mic_enable);
+	return sprintf(buf, "%i\n", aic23_info_l.mic_enable);
 }
 
 static DEVICE_ATTR(mic_enable, S_IRUGO | S_IWUSR,
@@ -569,9 +573,9 @@ static void audio_i2c_shutdown(struct platform_device *dev)
 	/* Let's mute the codec before powering off to prevent
 	* glitch in the sound
 	*/
-	tlv320aic23_write_value(LEFT_CHANNEL_VOLUME_ADDR, LHV_MIN);
-	tlv320aic23_write_value(RIGHT_CHANNEL_VOLUME_ADDR, LHV_MIN);
-	tlv320aic23_power_down();
+	aic23_write_value(LEFT_CHANNEL_VOLUME_ADDR, LHV_MIN);
+	aic23_write_value(RIGHT_CHANNEL_VOLUME_ADDR, LHV_MIN);
+	aic23_power_down();
 }
 
 static int audio_i2c_suspend(struct platform_device *dev, pm_message_t state)
@@ -579,16 +583,16 @@ static int audio_i2c_suspend(struct platform_device *dev, pm_message_t state)
 	/* Let's mute the codec before powering off to prevent
 	 * glitch in the sound
 	 */
-	tlv320aic23_write_value(LEFT_CHANNEL_VOLUME_ADDR, LHV_MIN);
-	tlv320aic23_write_value(RIGHT_CHANNEL_VOLUME_ADDR, LHV_MIN);
-	tlv320aic23_power_down();
+	aic23_write_value(LEFT_CHANNEL_VOLUME_ADDR, LHV_MIN);
+	aic23_write_value(RIGHT_CHANNEL_VOLUME_ADDR, LHV_MIN);
+	aic23_power_down();
 
 	return 0;
 }
 
 static int audio_i2c_resume(struct platform_device *dev)
 {
-	tlv320aic23_power_up();
+	aic23_power_up();
 
 	return 0;
 }
@@ -612,15 +616,15 @@ static struct platform_device audio_i2c_device = {
 
 /*----------------------------------------------------------------*/
 
-static int __init tlv320aic23_init(void)
+static int __init aic23_init(void)
 {
 	selftest =  0;
-	tlv320aic23_info_l.initialization = 0;
+	aic23_info_l.initialized = 0;
 
-	if (i2c_add_driver(&tlv320aic23_driver)) {
-		printk("tlv320aic23 i2c: Driver registration failed, \
+	if (i2c_add_driver(&aic23_driver)) {
+		printk("aic23 i2c: Driver registration failed, \
 		      module not inserted.\n");
-		selftest= -ENODEV;
+		selftest = -ENODEV;
 		return selftest;
 	}
 
@@ -636,22 +640,24 @@ static int __init tlv320aic23_init(void)
 		selftest = -ENODEV;
 		return selftest;
 	}
-	omap_mcbsp3_tlv320aic23_clock_init();
-	tlv320aic23_power_up();
-	tlv320aic23_info_l.initialization = 1;
+	/* FIXME: Do in board-specific file */
+	omap_mcbsp3_aic23_clock_init();
+	if (!aic23_info_l.power_down)
+		aic23_power_up();
+	aic23_info_l.initialized = 1;
 	printk("TLV320AIC23 I2C version %s (%s)\n", 
 	       TLV320AIC23_VERSION, TLV320AIC23_DATE);
 
 	return selftest;
 }
 
-static void __exit tlv320aic23_exit(void)
+static void __exit aic23_exit(void)
 {
 	int res;
 
-	tlv320aic23_power_down();
-	if ((res = i2c_del_driver(&tlv320aic23_driver))) 
-		printk("tlv320aic23 i2c: Driver remove failed, module not removed.\n");
+	aic23_power_down();
+	if ((res = i2c_del_driver(&aic23_driver))) 
+		printk("aic23 i2c: Driver remove failed, module not removed.\n");
 
 	platform_device_unregister(&audio_i2c_device);
 	platform_driver_unregister(&audio_i2c_driver);
@@ -661,9 +667,9 @@ MODULE_AUTHOR("Kai Svahn <kai.svahn@nokia.com>");
 MODULE_DESCRIPTION("I2C interface for TLV320AIC23 codec.");
 MODULE_LICENSE("GPL");
 
-module_init(tlv320aic23_init)
-module_exit(tlv320aic23_exit)
+module_init(aic23_init)
+module_exit(aic23_exit)
 
-EXPORT_SYMBOL(tlv320aic23_write_value);
-EXPORT_SYMBOL(tlv320aic23_power_up);
-EXPORT_SYMBOL(tlv320aic23_power_down);
+EXPORT_SYMBOL(aic23_write_value);
+EXPORT_SYMBOL(aic23_power_up);
+EXPORT_SYMBOL(aic23_power_down);

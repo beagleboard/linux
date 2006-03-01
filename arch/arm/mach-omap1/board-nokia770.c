@@ -170,7 +170,7 @@ static void nokia770_audio_pwr_up(void)
 	clk_enable(dspxor_ck);
 
 	/* Turn on codec */
-	tlv320aic23_power_up();
+	aic23_power_up();
 
 	if (omap_get_gpio_datain(HEADPHONE_GPIO))
 		/* HP not connected, turn on amplifier */
@@ -184,7 +184,7 @@ static void codec_delayed_power_down(void *arg)
 {
 	down(&audio_pwr_sem);
 	if (audio_pwr_state == -1)
-		tlv320aic23_power_down();
+		aic23_power_down();
 	up(&audio_pwr_sem);
 }
 
