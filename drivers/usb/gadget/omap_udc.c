@@ -1905,7 +1905,7 @@ static void pio_out_timer(unsigned long _ep)
 
 	spin_lock_irqsave(&ep->udc->lock, flags);
 	if (!list_empty(&ep->queue) && ep->ackwait) {
-		use_ep(ep, 0);
+		use_ep(ep, UDC_EP_SEL);
 		stat_flg = UDC_STAT_FLG_REG;
 
 		if ((stat_flg & UDC_ACK) && (!(stat_flg & UDC_FIFO_EN)
@@ -1915,11 +1915,13 @@ static void pio_out_timer(unsigned long _ep)
 			VDBG("%s: lose, %04x\n", ep->ep.name, stat_flg);
 			req = container_of(ep->queue.next,
 					struct omap_req, queue);
-			UDC_EP_NUM_REG = ep->bEndpointAddress | UDC_EP_SEL;
 			(void) read_fifo(ep, req);
 			UDC_EP_NUM_REG = ep->bEndpointAddress;
 			UDC_CTRL_REG = UDC_SET_FIFO_EN;
 			ep->ackwait = 1 + ep->double_buf;
+		}
+		else {
+		    deselect_ep();
 		}
 	}
 	mod_timer(&ep->timer, PIO_OUT_TIMEOUT);
