@@ -35,6 +35,7 @@
 #include <asm/arch/common.h>
 #include <asm/arch/keypad.h>
 #include <asm/arch/menelaus.h>
+#include <asm/arch/dma.h>
 #include "prcm-regs.h"
 
 #include <asm/io.h>
@@ -214,6 +215,12 @@ static struct omap_irda_config h4_irda_data = {
 	.transceiver_cap	= IR_SIRMODE | IR_MIRMODE | IR_FIRMODE,
 	.transceiver_mode	= h4_transceiver_mode,
 	.select_irda	 	= h4_select_irda,
+	.rx_channel		= OMAP24XX_DMA_UART3_RX,
+	.tx_channel		= OMAP24XX_DMA_UART3_TX,
+	.dest_start		= OMAP_UART3_BASE,
+	.src_start		= OMAP_UART3_BASE,
+	.tx_trigger		= OMAP24XX_DMA_UART3_TX,
+	.rx_trigger		= OMAP24XX_DMA_UART3_RX,
 };
 
 static struct resource h4_irda_resources[] = {

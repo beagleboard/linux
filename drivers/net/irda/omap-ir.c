@@ -157,21 +157,9 @@ static int omap_irda_set_speed(struct net_device *dev, int speed);
 
 static void omap_irda_start_rx_dma(struct omap_irda *si)
 {
-	/* default for h2/h3 */
-	unsigned long src_start = 0xfffb9800;
-	unsigned int trigger = 0;
-
-	if (machine_is_omap_h2() || machine_is_omap_h3()) {
-		src_start = UART3_RHR;
-		trigger = 0;
-	}
-	if (machine_is_omap_h4()) {
-		src_start = OMAP_UART3_BASE;
-		trigger = OMAP24XX_DMA_UART3_RX;
-	}
-
 	/* Configure DMA */
-    	omap_set_dma_src_params(si->rx_dma_channel, 0x3, 0x0, src_start,
+    	omap_set_dma_src_params(si->rx_dma_channel, 0x3, 0x0,
+				si->pdata->src_start,
 				0, 0);
 
 	omap_enable_dma_irq(si->rx_dma_channel, 0x01);
@@ -182,29 +170,17 @@ static void omap_irda_start_rx_dma(struct omap_irda *si)
 
 	omap_set_dma_transfer_params(si->rx_dma_channel, 0x0,
 				IRDA_FRAME_SIZE_LIMIT, 0x1,
-				0x0, trigger, 0);
+				0x0, si->pdata->rx_trigger, 0);
 
 	omap_start_dma(si->rx_dma_channel);
 }
 
 static void omap_start_tx_dma(struct omap_irda *si, int size)
 {
-	/* default for h2/h3 */
-	unsigned long dest_start = 0xfffb9800;
-	unsigned int trigger = 0;
-
-	if (machine_is_omap_h2() || machine_is_omap_h3()) {
-		dest_start = UART3_THR;
-		trigger = 0;
-	}
-	if (machine_is_omap_h4()) {
-		dest_start = OMAP_UART3_BASE;
-		trigger = OMAP24XX_DMA_UART3_TX;
-	}
-
 	/* Configure DMA */
 	omap_set_dma_dest_params(si->tx_dma_channel, 0x03, 0x0,
-				dest_start, 0, 0);
+				si->pdata->dest_start, 0, 0);
+
 	omap_enable_dma_irq(si->tx_dma_channel, 0x01);
 
 	omap_set_dma_src_params(si->tx_dma_channel, 0x0, 0x1,
@@ -212,7 +188,7 @@ static void omap_start_tx_dma(struct omap_irda *si, int size)
 				0, 0);
 
 	omap_set_dma_transfer_params(si->tx_dma_channel, 0x0, size, 0x1,
-				0x0, trigger, 0);
+				0x0, si->pdata->tx_trigger, 0);
 
 	/* Start DMA */
 	omap_start_dma(si->tx_dma_channel);
@@ -454,10 +430,8 @@ static int omap_irda_hard_xmit(struct sk_buff *skb, struct net_device *dev)
 	if (speed != si->speed && speed != -1)
 		si->newspeed = speed;
 
-	if (xbofs) {
-		/* Set number of addtional BOFS */
+	if (xbofs) /* Set number of addtional BOFS */
 		uart_reg_out(UART3_EBLR, xbofs + 1);
-	}
 
 	/*
 	 * If this is an empty frame, we can bypass a lot.
@@ -514,10 +488,10 @@ omap_irda_ioctl(struct net_device *dev, struct ifreq *ifreq, int cmd)
 			 * We are unable to set the speed if the
 			 * device is not running.
 			 */
-			if (si->open) {
+			if (si->open)
 				ret = omap_irda_set_speed(dev,
 						rq->ifr_baudrate);
-			} else {
+			else {
 				printk(KERN_ERR "omap_irda_ioctl: SIOCSBANDWIDTH: !netif_running\n");
 				ret = 0;
 			}
@@ -553,8 +527,6 @@ static int omap_irda_start(struct net_device *dev)
 {
 	struct omap_irda *si = dev->priv;
 	int err;
-	int rx_channel = OMAP_DMA_NO_DEVICE;
-	int tx_channel = OMAP_DMA_NO_DEVICE;
 
 	si->speed = 9600;
 
@@ -567,27 +539,15 @@ static int omap_irda_start(struct net_device *dev)
 	 */
 	disable_irq(dev->irq);
 
-	/* FIXME: These info can come from board-* files, if no one
-	 * objects
-	 */
-	if (machine_is_omap_h2() || machine_is_omap_h3()) {
-		rx_channel = OMAP_DMA_UART3_RX;
-		tx_channel = OMAP_DMA_UART3_TX;
-	}
-	if (machine_is_omap_h4()) {
-		rx_channel = OMAP24XX_DMA_UART3_RX;
-		tx_channel = OMAP24XX_DMA_UART3_TX;
-	}
-
 	/*  Request DMA channels for IrDA hardware */
-	if (omap_request_dma(rx_channel, "IrDA Rx DMA",
+	if (omap_request_dma(si->pdata->rx_channel, "IrDA Rx DMA",
 			(void *)omap_irda_rx_dma_callback,
 			dev, &(si->rx_dma_channel))) {
 		printk(KERN_ERR "Failed to request IrDA Rx DMA\n");
 		goto err_irq;
 	}
 
-	if (omap_request_dma(tx_channel, "IrDA Tx DMA",
+	if (omap_request_dma(si->pdata->tx_channel, "IrDA Tx DMA",
 			(void *)omap_irda_tx_dma_callback,
 			dev, &(si->tx_dma_channel))) {
 		printk(KERN_ERR "Failed to request IrDA Tx DMA\n");
@@ -600,10 +560,20 @@ static int omap_irda_start(struct net_device *dev)
 				&(si->rx_buf_dma_phys),
 				GFP_KERNEL);
 
+	if (!si->rx_buf_dma_virt) {
+		printk(KERN_ERR "Unable to allocate memory for rx_buf_dma\n");
+		goto err_irq;
+	}
+
 	si->tx_buf_dma_virt =
 		dma_alloc_coherent(NULL, IRDA_FRAME_SIZE_LIMIT,
 				&(si->tx_buf_dma_phys),
 				GFP_KERNEL);
+
+	if (!si->tx_buf_dma_virt) {
+		printk(KERN_ERR "Unable to allocate memory for tx_buf_dma\n");
+		goto err_mem1;
+	}
 
 	/*
 	 * Setup the serial port for the specified config.
@@ -642,6 +612,11 @@ err_irlap:
 	si->open = 0;
 	omap_irda_shutdown(si);
 err_startup:
+	dma_free_coherent(NULL, IRDA_FRAME_SIZE_LIMIT,
+			si->tx_buf_dma_virt, si->tx_buf_dma_phys);
+err_mem1:
+	dma_free_coherent(NULL, IRDA_FRAME_SIZE_LIMIT,
+			si->rx_buf_dma_virt, si->rx_buf_dma_phys);
 err_irq:
 	free_irq(dev->irq, dev);
 	return err;
@@ -819,18 +794,20 @@ static int omap_irda_probe(struct platform_device *pdev)
 {
 	struct net_device *dev;
 	struct omap_irda *si;
+	struct omap_irda_config *pdata = pdev->dev.platform_data;
 	unsigned int baudrate_mask;
 	int err = 0;
 	int irq = NO_IRQ;
 
-	if (!pdev->dev.platform_data) {
+	if (!pdata) {
 		printk(KERN_ERR "IrDA Platform data not supplied\n");
 		return -ENOENT;
 	}
 
-	dev = alloc_irdadev(sizeof(struct omap_irda));
-	if (!dev)
-		goto err_mem_1;
+	if (!pdata->rx_channel || !pdata->tx_channel) {
+		printk(KERN_ERR "IrDA invalid rx/tx channel value\n");
+		return -ENOENT;
+	}
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq <= 0) {
@@ -838,9 +815,14 @@ static int omap_irda_probe(struct platform_device *pdev)
 		return -ENOENT;
 	}
 
+	dev = alloc_irdadev(sizeof(struct omap_irda));
+	if (!dev)
+		goto err_mem_1;
+
+
 	si = dev->priv;
 	si->dev = &pdev->dev;
-	si->pdata = pdev->dev.platform_data;
+	si->pdata = pdata;
 
 	dev->hard_start_xmit	= omap_irda_hard_xmit;
 	dev->open		= omap_irda_start;
@@ -865,9 +847,8 @@ static int omap_irda_probe(struct platform_device *pdev)
 	irda_qos_bits_to_value(&si->qos);
 
 	/* Any better way to avoid this? No. */
-	if (machine_is_omap_h3() || machine_is_omap_h4()) {
+	if (machine_is_omap_h3() || machine_is_omap_h4())
 		INIT_WORK(&si->pdata->gpio_expa, NULL, NULL);
-	}
 
 	err = register_netdev(dev);
 	if (!err)
@@ -900,7 +881,7 @@ static struct platform_driver omapir_driver = {
 	},
 };
 
-static char __initdata banner[] = KERN_INFO "OMAP IrDA driver\n";
+static char __initdata banner[] = KERN_INFO "OMAP IrDA driver initializing\n";
 
 static int __init omap_irda_init(void)
 {
