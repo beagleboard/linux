@@ -43,6 +43,7 @@
 #include <asm/arch/irda.h>
 #include <asm/arch/usb.h>
 #include <asm/arch/keypad.h>
+#include <asm/arch/dma.h>
 #include <asm/arch/common.h>
 
 extern int omap_gpio_init(void);
@@ -329,6 +330,12 @@ static struct omap_irda_config h3_irda_data = {
 	.transceiver_cap	= IR_SIRMODE | IR_MIRMODE | IR_FIRMODE,
 	.transceiver_mode	= h3_transceiver_mode,
 	.select_irda	 	= h3_select_irda,
+	.rx_channel		= OMAP_DMA_UART3_RX,
+	.tx_channel		= OMAP_DMA_UART3_TX,
+	.dest_start		= UART3_THR,
+	.src_start		= UART3_RHR,
+	.tx_trigger		= 0,
+	.rx_trigger		= 0,
 };
 
 static struct resource h3_irda_resources[] = {

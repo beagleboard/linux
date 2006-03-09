@@ -1,7 +1,7 @@
 /*
  *  linux/include/asm-arm/arch-omap/irda.h
  *
- *  Copyright (C) 2005 Komal Shah <komal_shah802003@yahoo.com>
+ *  Copyright (C) 2005-2006 Komal Shah <komal_shah802003@yahoo.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -25,6 +25,12 @@ struct omap_irda_config {
 	 * having calls which can sleep in irda_set_speed.
 	 */
 	struct work_struct gpio_expa;
+	int rx_channel;
+	int tx_channel;
+	unsigned long dest_start;
+	unsigned long src_start;
+	int tx_trigger;
+	int rx_trigger;
 };
 
 #endif
