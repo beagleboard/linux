@@ -34,6 +34,15 @@
 
 static void __init omap_nokia770_init_irq(void)
 {
+	/* On Nokia 770, the SleepX signal is masked with an
+	 * MPUIO line by default.  It has to be unmasked for it
+	 * to become functional */
+
+	/* SleepX mask direction */
+	omap_writew((omap_readw(0xfffb5008) & ~2), 0xfffb5008);
+	/* Unmask SleepX signal */
+	omap_writew((omap_readw(0xfffb5004) & ~2), 0xfffb5004);
+
 	omap1_init_common_hw();
 	omap_init_irq();
 }

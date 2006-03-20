@@ -738,15 +738,6 @@ static int __init omap_pm_init(void)
 	else if (cpu_is_omap16xx())
 		setup_irq(INT_1610_WAKE_UP_REQ, &omap_wakeup_irq);
 
-#if 0
-	/* --- BEGIN BOARD-DEPENDENT CODE --- */
-	/* Sleepx mask direction */
-	omap_writew((omap_readw(0xfffb5008) & ~2), 0xfffb5008);
-	/* Unmask sleepx signal */
-	omap_writew((omap_readw(0xfffb5004) & ~2), 0xfffb5004);
-	/* --- END BOARD-DEPENDENT CODE --- */
-#endif
-
 	/* Program new power ramp-up time
 	 * (0 for most boards since we don't lower voltage when in deep sleep)
 	 */
