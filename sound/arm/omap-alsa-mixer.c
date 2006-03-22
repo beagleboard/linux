@@ -474,7 +474,7 @@ void snd_omap_resume_mixer(void)
 }
 #endif
 
-int snd_omap_mixer(struct snd_card_omap_aic23 *chip)
+int snd_omap_mixer(struct snd_card_omap_codec *chip)
 {
 	snd_card_t *card;
 	unsigned int idx;

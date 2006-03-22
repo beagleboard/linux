@@ -93,17 +93,15 @@ struct audio_stream {
 /*
  * Alsa card structure for aic23
  */
-struct snd_card_omap_aic23 {
+struct snd_card_omap_codec {
 	snd_card_t *card;
 	snd_pcm_t *pcm;
 	long samplerate;
 	struct audio_stream s[2];	/* playback & capture */
 };
 
-/*********** Function Prototypes *************************/
-
-void audio_dma_callback(void *);
-int snd_omap_mixer(struct snd_card_omap_aic23 *);
+/*********** Mixer function prototypes *************************/
+int snd_omap_mixer(struct snd_card_omap_codec *);
 void snd_omap_init_mixer(void);
 /* Clock functions */
 int omap_aic23_clock_on(void);
@@ -113,6 +111,9 @@ int omap_aic23_clock_off(void);
 void snd_omap_suspend_mixer(void);
 void snd_omap_resume_mixer(void);
 #endif
+
+/*********** function prototype to function called from the dma interrupt handler ******/
+void callback_omap_alsa_sound_dma(void *);
 
 /* Codec AIC23 */
 #if defined(CONFIG_SENSORS_TLV320AIC23) || defined (CONFIG_SENSORS_TLV320AIC23_MODULE)

@@ -98,7 +98,7 @@ MODULE_ALIAS("omap_mcbsp.1");
 static char *id = NULL;	
 MODULE_PARM_DESC(id, "OMAP OSK ALSA Driver for AIC23 chip.");
 
-static struct snd_card_omap_aic23 *omap_aic23 = NULL;
+static struct snd_card_omap_codec *omap_aic23 = NULL;
 
 static struct clk *aic23_mclk = 0;
 
@@ -182,7 +182,7 @@ static int audio_ifc_stop(void)
 /*
  * Sample rate changing
  */
-static void omap_aic23_set_samplerate(struct snd_card_omap_aic23
+static void omap_aic23_set_samplerate(struct snd_card_omap_codec
 				      *omap_aic23, long rate)
 {
 	u8 count = 0;
@@ -252,7 +252,7 @@ static inline void aic23_configure(void)
 
 }
 
-static void omap_aic23_audio_init(struct snd_card_omap_aic23 *omap_aic23)
+static void omap_aic23_audio_init(struct snd_card_omap_codec *omap_aic23)
 {
 	/* Setup DMA stuff */
 	omap_aic23->s[SNDRV_PCM_STREAM_PLAYBACK].id = "Alsa AIC23 out";
@@ -298,7 +298,7 @@ static int audio_dma_request(struct audio_stream *s,
 {
 	int err;
 
-	err = omap_request_sound_dma(s->dma_dev, s->id, s, &s->lch);
+	err = omap_request_alsa_sound_dma(s->dma_dev, s->id, s, &s->lch);
 	if (err < 0)
 		printk(KERN_ERR "unable to grab audio dma 0x%x\n",
 		       s->dma_dev);
@@ -309,7 +309,7 @@ static int audio_dma_free(struct audio_stream *s)
 {
 	int err = 0;
 
-	err = omap_free_sound_dma(s, &s->lch);
+	err = omap_free_alsa_sound_dma(s, &s->lch);
 	if (err < 0)
 		printk(KERN_ERR "Unable to free audio dma channels!\n");
 	return err;
@@ -360,9 +360,10 @@ static void audio_stop_dma(struct audio_stream *s)
 	s->periods = 0;
 
 	/* this stops the dma channel and clears the buffer ptrs */
-	omap_audio_stop_dma(s);
+	/* this stops the dma channel and clears the buffer ptrs */
+	omap_stop_alsa_sound_dma(s);
 
-	omap_clear_sound_dma(s);
+	omap_clear_alsa_sound_dma(s);
 
 	spin_unlock_irqrestore(&s->dma_lock, flags);
 }
@@ -383,8 +384,7 @@ static void audio_process_dma(struct audio_stream *s)
 		dma_size = frames_to_bytes(runtime, runtime->period_size);
 		offset = dma_size * s->period;
 		snd_assert(dma_size <= DMA_BUF_SIZE,);
-		ret =
-		    omap_start_sound_dma(s,
+		ret = omap_start_alsa_sound_dma(s,
 					 (dma_addr_t) runtime->dma_area +
 					 offset, dma_size);
 		if (ret) {
@@ -404,7 +404,7 @@ static void audio_process_dma(struct audio_stream *s)
 /* 
  *  This is called when dma IRQ occurs at the end of each transmited block
  */
-void audio_dma_callback(void *data)
+void callback_omap_alsa_sound_dma(void *data)
 {
 	struct audio_stream *s = data;
 
@@ -429,9 +429,9 @@ void audio_dma_callback(void *data)
  * PCM settings and callbacks
  */
 
-static int snd_omap_aic23_trigger(snd_pcm_substream_t * substream, int cmd)
+static int snd_omap_alsa_trigger(snd_pcm_substream_t * substream, int cmd)
 {
-	struct snd_card_omap_aic23 *chip =
+	struct snd_card_omap_codec *chip =
 	    snd_pcm_substream_chip(substream);
 	int stream_id = substream->pstr->stream;
 	struct audio_stream *s = &chip->s[stream_id];
@@ -459,9 +459,9 @@ static int snd_omap_aic23_trigger(snd_pcm_substream_t * substream, int cmd)
 	return err;
 }
 
-static int snd_omap_aic23_prepare(snd_pcm_substream_t * substream)
+static int snd_omap_alsa_prepare(snd_pcm_substream_t * substream)
 {
-	struct snd_card_omap_aic23 *chip =
+	struct snd_card_omap_codec *chip =
 	    snd_pcm_substream_chip(substream);
 	snd_pcm_runtime_t *runtime = substream->runtime;
 	struct audio_stream *s = &chip->s[substream->pstr->stream];
@@ -475,10 +475,10 @@ static int snd_omap_aic23_prepare(snd_pcm_substream_t * substream)
 	return 0;
 }
 
-static snd_pcm_uframes_t snd_omap_aic23_pointer(snd_pcm_substream_t *
+static snd_pcm_uframes_t snd_omap_alsa_pointer(snd_pcm_substream_t *
 						substream)
 {
-	struct snd_card_omap_aic23 *chip =
+	struct snd_card_omap_codec *chip =
 	    snd_pcm_substream_chip(substream);
 	
 	return audio_get_dma_pos(&chip->s[substream->pstr->stream]);
@@ -486,7 +486,7 @@ static snd_pcm_uframes_t snd_omap_aic23_pointer(snd_pcm_substream_t *
 
 /* Hardware capabilities */
 
-static snd_pcm_hardware_t snd_omap_aic23_capture = {
+static snd_pcm_hardware_t snd_omap_alsa_capture = {
 	.info = (SNDRV_PCM_INFO_INTERLEAVED | SNDRV_PCM_INFO_BLOCK_TRANSFER |
 		 SNDRV_PCM_INFO_MMAP | SNDRV_PCM_INFO_MMAP_VALID),
 	.formats = (SNDRV_PCM_FMTBIT_S16_LE),
@@ -507,7 +507,7 @@ static snd_pcm_hardware_t snd_omap_aic23_capture = {
 	.fifo_size = 0,
 };
 
-static snd_pcm_hardware_t snd_omap_aic23_playback = {
+static snd_pcm_hardware_t snd_omap_alsa_playback = {
 	.info = (SNDRV_PCM_INFO_INTERLEAVED | SNDRV_PCM_INFO_BLOCK_TRANSFER |
 		 SNDRV_PCM_INFO_MMAP | SNDRV_PCM_INFO_MMAP_VALID),	
 	.formats = (SNDRV_PCM_FMTBIT_S16_LE),
@@ -528,9 +528,9 @@ static snd_pcm_hardware_t snd_omap_aic23_playback = {
 	.fifo_size = 0,
 };
 
-static int snd_card_omap_aic23_open(snd_pcm_substream_t * substream)
+static int snd_card_omap_alsa_open(snd_pcm_substream_t * substream)
 {
-	struct snd_card_omap_aic23 *chip =
+	struct snd_card_omap_codec *chip =
 	    snd_pcm_substream_chip(substream);
 	snd_pcm_runtime_t *runtime = substream->runtime;
 	int stream_id = substream->pstr->stream;
@@ -542,9 +542,9 @@ static int snd_card_omap_aic23_open(snd_pcm_substream_t * substream)
 	omap_aic23_clock_on();
 	
 	if (stream_id == SNDRV_PCM_STREAM_PLAYBACK)
-		runtime->hw = snd_omap_aic23_playback;
+		runtime->hw = snd_omap_alsa_playback;
 	else
-		runtime->hw = snd_omap_aic23_capture;
+		runtime->hw = snd_omap_alsa_capture;
 	if ((err =
 	     snd_pcm_hw_constraint_integer(runtime,
 					   SNDRV_PCM_HW_PARAM_PERIODS)) <
@@ -559,9 +559,9 @@ static int snd_card_omap_aic23_open(snd_pcm_substream_t * substream)
 	return 0;
 }
 
-static int snd_card_omap_aic23_close(snd_pcm_substream_t * substream)
+static int snd_card_omap_alsa_close(snd_pcm_substream_t * substream)
 {
-	struct snd_card_omap_aic23 *chip =
+	struct snd_card_omap_codec *chip =
 	    snd_pcm_substream_chip(substream);
 	ADEBUG();
 	
@@ -573,40 +573,39 @@ static int snd_card_omap_aic23_close(snd_pcm_substream_t * substream)
 
 /* HW params & free */
 
-static int snd_omap_aic23_hw_params(snd_pcm_substream_t * substream,
+static int snd_omap_alsa_hw_params(snd_pcm_substream_t * substream,
 				    snd_pcm_hw_params_t * hw_params)
 {
 	return snd_pcm_lib_malloc_pages(substream,
 					params_buffer_bytes(hw_params));
 }
 
-static int snd_omap_aic23_hw_free(snd_pcm_substream_t * substream)
+static int snd_omap_alsa_hw_free(snd_pcm_substream_t * substream)
 {
 	return snd_pcm_lib_free_pages(substream);
 }
 
 /* pcm operations */
-
-static snd_pcm_ops_t snd_card_omap_aic23_playback_ops = {
-	.open =		snd_card_omap_aic23_open,
-	.close =	snd_card_omap_aic23_close,
+static snd_pcm_ops_t snd_card_omap_alsa_playback_ops = {
+	.open =		snd_card_omap_alsa_open,
+	.close =	snd_card_omap_alsa_close,
 	.ioctl =	snd_pcm_lib_ioctl,
-	.hw_params =	snd_omap_aic23_hw_params,
-	.hw_free =	snd_omap_aic23_hw_free,
-	.prepare =	snd_omap_aic23_prepare,
-	.trigger =	snd_omap_aic23_trigger,
-	.pointer =	snd_omap_aic23_pointer,
+	.hw_params =	snd_omap_alsa_hw_params,
+	.hw_free =	snd_omap_alsa_hw_free,
+	.prepare =	snd_omap_alsa_prepare,
+	.trigger =	snd_omap_alsa_trigger,
+	.pointer =	snd_omap_alsa_pointer,
 };
 
-static snd_pcm_ops_t snd_card_omap_aic23_capture_ops = {
-	.open =		snd_card_omap_aic23_open,
-	.close =	snd_card_omap_aic23_close,
+static snd_pcm_ops_t snd_card_omap_alsa_capture_ops = {
+	.open =		snd_card_omap_alsa_open,
+	.close =	snd_card_omap_alsa_close,
 	.ioctl =	snd_pcm_lib_ioctl,
-	.hw_params =	snd_omap_aic23_hw_params,
-	.hw_free =	snd_omap_aic23_hw_free,
-	.prepare =	snd_omap_aic23_prepare,
-	.trigger =	snd_omap_aic23_trigger,
-	.pointer =	snd_omap_aic23_pointer,
+	.hw_params =	snd_omap_alsa_hw_params,
+	.hw_free =	snd_omap_alsa_hw_free,
+	.prepare =	snd_omap_alsa_prepare,
+	.trigger =	snd_omap_alsa_trigger,
+	.pointer =	snd_omap_alsa_pointer,
 };
 
 /*
@@ -614,8 +613,8 @@ static snd_pcm_ops_t snd_card_omap_aic23_capture_ops = {
  *  
  *  Inits pcm alsa structures, allocate the alsa buffer, suspend, resume
  */
-static int __init snd_card_omap_aic23_pcm(struct snd_card_omap_aic23
-					  *omap_aic23, int device)
+static int __init snd_card_omap_alsa_pcm(struct snd_card_omap_codec *omap_alsa,
+					int device)
 {
 	snd_pcm_t *pcm;
 	int err;
@@ -634,9 +633,9 @@ static int __init snd_card_omap_aic23_pcm(struct snd_card_omap_aic23
 					      128 * 1024, 128 * 1024);
 
 	snd_pcm_set_ops(pcm, SNDRV_PCM_STREAM_PLAYBACK,
-			&snd_card_omap_aic23_playback_ops);
+			&snd_card_omap_alsa_playback_ops);
 	snd_pcm_set_ops(pcm, SNDRV_PCM_STREAM_CAPTURE,
-			&snd_card_omap_aic23_capture_ops);
+			&snd_card_omap_alsa_capture_ops);
 	pcm->private_data = omap_aic23;
 	pcm->info_flags = 0;
 	strcpy(pcm->name, "omap aic23 pcm");
@@ -645,87 +644,63 @@ static int __init snd_card_omap_aic23_pcm(struct snd_card_omap_aic23
 
 	/* setup DMA controller */
 	audio_dma_request(&omap_aic23->s[SNDRV_PCM_STREAM_PLAYBACK],
-			  audio_dma_callback);
+			  callback_omap_alsa_sound_dma);
 	audio_dma_request(&omap_aic23->s[SNDRV_PCM_STREAM_CAPTURE],
-			  audio_dma_callback);
+			  callback_omap_alsa_sound_dma);
 
 	omap_aic23->pcm = pcm;
 
 	return 0;
 }
 
-
 #ifdef CONFIG_PM
-
-static int snd_omap_aic23_suspend(snd_card_t * card, pm_message_t state)
-{
-	struct snd_card_omap_aic23 *chip = card->private_data;
-	ADEBUG();
-
-	if (chip->card->power_state != SNDRV_CTL_POWER_D3hot) {
-		snd_power_change_state(chip->card, SNDRV_CTL_POWER_D3hot);
-		snd_pcm_suspend_all(chip->pcm);
-		/* Mutes and turn clock off */
-		omap_aic23_clock_off();
-		snd_omap_suspend_mixer();
-	}
-
-	return 0;
-}
-
-/*
- *  Prepare hardware for resume
- */
-static int snd_omap_aic23_resume(snd_card_t * card)
-{
-	struct snd_card_omap_aic23 *chip = card->private_data;
-	ADEBUG();
-	
-	if (chip->card->power_state != SNDRV_CTL_POWER_D0) {
-		snd_power_change_state(chip->card, SNDRV_CTL_POWER_D0);
-		omap_aic23_clock_on();
-		snd_omap_resume_mixer();
-	}
-
-	return 0;
-}
-
 /*
  * Driver suspend/resume - calls alsa functions. Some hints from aaci.c
  */
-static int omap_aic23_suspend(struct platform_device *pdev, pm_message_t state)
+int snd_omap_alsa_suspend(struct platform_device *pdev, pm_message_t state)
 {
+	struct snd_card_omap_codec *chip;
 	snd_card_t *card = platform_get_drvdata(pdev);
 	
 	if (card->power_state != SNDRV_CTL_POWER_D3hot) {
-		snd_omap_aic23_suspend(card, PMSG_SUSPEND);
+		chip = card->private_data;
+		if (chip->card->power_state != SNDRV_CTL_POWER_D3hot) {
+			snd_power_change_state(chip->card, SNDRV_CTL_POWER_D3hot);
+			snd_pcm_suspend_all(chip->pcm);
+			/* Mutes and turn clock off */
+			omap_aic23_clock_off();
+			snd_omap_suspend_mixer();
+		}
 	}
 	return 0;
 }
 
-static int omap_aic23_resume(struct platform_device *pdev)
+int snd_omap_alsa_resume(struct platform_device *pdev)
 {
+	struct snd_card_omap_codec *chip;
 	snd_card_t *card = platform_get_drvdata(pdev);
 
 	if (card->power_state != SNDRV_CTL_POWER_D0) {
-		snd_omap_aic23_resume(card);
+		chip = card->private_data;
+		if (chip->card->power_state != SNDRV_CTL_POWER_D0) {
+			snd_power_change_state(chip->card, SNDRV_CTL_POWER_D0);
+			omap_aic23_clock_on();
+			snd_omap_resume_mixer();
+		}
 	}
 	return 0;
 }
 
 #else
-#define snd_omap_aic23_suspend	NULL
-#define snd_omap_aic23_resume	NULL
-#define omap_aic23_suspend	NULL
-#define omap_aic23_resume	NULL
-
+#define snd_omap_alsa_suspend	NULL
+#define snd_omap_alsa_resume	NULL
 #endif	/* CONFIG_PM */
 
 /* 
  */
-void snd_omap_aic23_free(snd_card_t * card)
+void snd_omap_alsa_free(snd_card_t * card)
 {
-	struct snd_card_omap_aic23 *chip = card->private_data;
+	struct snd_card_omap_codec *chip = card->private_data;
 	ADEBUG();
 	
 	/*
@@ -826,7 +801,7 @@ int omap_aic23_clock_off(void)
 /* 
  *  Inits alsa soudcard structure
  */
-static int __init snd_omap_aic23_probe(struct platform_device *pdev)
+static int __init snd_omap_alsa_aic23_probe(struct platform_device *pdev)
 {
 	int err = 0;
 	snd_card_t *card;
@@ -845,7 +820,7 @@ static int __init snd_omap_aic23_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	card->private_data = (void *) omap_aic23;
-	card->private_free = snd_omap_aic23_free;
+	card->private_free = snd_omap_alsa_free;
 
 	omap_aic23->card = card;
 	omap_aic23->samplerate = AUDIO_RATE_DEFAULT;
@@ -858,7 +833,7 @@ static int __init snd_omap_aic23_probe(struct platform_device *pdev)
 		goto nodev;
 
 	/* PCM */
-	if ((err = snd_card_omap_aic23_pcm(omap_aic23, 0)) < 0)
+	if ((err = snd_card_omap_alsa_pcm(omap_aic23, 0)) < 0)
 		goto nodev;
 
 	strcpy(card->driver, "AIC23");
@@ -876,15 +851,15 @@ static int __init snd_omap_aic23_probe(struct platform_device *pdev)
 	}
 	
 nodev:
-	snd_omap_aic23_free(card);
+	snd_card_free(card);
 	
 	return err;
 }
 
-static int snd_omap_aic23_remove(struct platform_device *pdev)
+static int snd_omap_alsa_remove(struct platform_device *pdev)
 {
 	snd_card_t *card = platform_get_drvdata(pdev);
-	struct snd_card_omap_aic23 *chip = card->private_data;
+	struct snd_card_omap_codec *chip = card->private_data;
 	
 	snd_card_free(card);
 
@@ -899,16 +874,16 @@ static int snd_omap_aic23_remove(struct platform_device *pdev)
 }
 
 static struct platform_driver omap_alsa_driver = {
-	.probe =	snd_omap_aic23_probe,
-	.remove =	snd_omap_aic23_remove,
-	.suspend =	omap_aic23_suspend, 
-	.resume =	omap_aic23_resume, 
+	.probe		= snd_omap_alsa_aic23_probe,
+	.remove 	= snd_omap_alsa_remove,
+	.suspend	= snd_omap_alsa_suspend,
+	.resume		= snd_omap_alsa_resume,
 	.driver = {
 		.name =	"omap_mcbsp",
 	},
 };
 
-static int __init omap_aic23_init(void)
+static int __init omap_alsa_aic23_init(void)
 {
 	int err;
 	ADEBUG();
@@ -918,12 +893,12 @@ static int __init omap_aic23_init(void)
 	return err;
 }
 
-static void __exit omap_aic23_exit(void)
+static void __exit omap_alsa_aic23_exit(void)
 {
 	ADEBUG();
 	
 	platform_driver_unregister(&omap_alsa_driver);
 }
 
-module_init(omap_aic23_init);
-module_exit(omap_aic23_exit);
+module_init(omap_alsa_aic23_init);
+module_exit(omap_alsa_aic23_exit);
