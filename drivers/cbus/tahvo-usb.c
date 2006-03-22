@@ -193,8 +193,9 @@ static int omap_otg_probe(struct device *dev)
 
 static int omap_otg_remove(struct device *dev)
 {
-	tahvo_otg_dev = NULL;
 	free_irq(tahvo_otg_dev->resource[1].start, &tahvo_usb_device);
+	tahvo_otg_dev = NULL;
+
 	return 0;
 }
 
