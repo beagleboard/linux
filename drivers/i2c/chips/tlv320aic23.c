@@ -154,7 +154,7 @@ static int tlv320aic23_attach_adapter(struct i2c_adapter *adapter)
 }
 
 static struct i2c_driver tlv320aic23_driver = {
-	.driver {
+	.driver = {
 		.name	= "OMAP+TLV320AIC23 codec",
 		/*.flags	= I2C_DF_NOTIFY,*/
 	},
@@ -594,7 +594,7 @@ static int audio_i2c_resume(struct platform_device *dev)
 }
 
 static struct platform_driver audio_i2c_driver = {
-	.driver {
+	.driver = {
 		.owner	= THIS_MODULE,
 		.name	= "audio-i2c",
 	},

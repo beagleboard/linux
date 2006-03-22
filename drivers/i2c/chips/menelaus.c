@@ -450,7 +450,7 @@ static int menelaus_scan_bus(struct i2c_adapter *bus)
 }
 
 static struct i2c_driver menelaus_i2c_driver = {
-	.driver {
+	.driver = {
 		.name		= DRIVER_NAME,
 	},
 	.id		= I2C_DRIVERID_MISC, /*FIXME:accroding to i2c-ids.h */
