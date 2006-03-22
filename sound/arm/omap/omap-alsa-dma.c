@@ -1,5 +1,5 @@
 /*
- * sound/arm/omap-alsa-dma.c
+ * sound/arm/omap/omap-alsa-dma.c
  *
  * Common audio DMA handling for the OMAP processors
  *
@@ -68,18 +68,9 @@
 
 #include <asm/arch/mcbsp.h>
 
-#undef DEBUG
-#define DEBUG
-#ifdef DEBUG
-#define DPRINTK(ARGS...)  printk(KERN_INFO "<%s>: ",__FUNCTION__);printk(ARGS)
-#define FN_IN printk(KERN_INFO "[%s]: start\n", __FUNCTION__)
-#define FN_OUT(n) printk(KERN_INFO "[%s]: end(%u)\n",__FUNCTION__, n)
-#else
+#include <asm/arch/omap-alsa.h>
 
-#define DPRINTK( x... )
-#define FN_IN
-#define FN_OUT(x)
-#endif
+#undef DEBUG
 
 #define ERR(ARGS...) printk(KERN_ERR "{%s}-ERROR: ", __FUNCTION__);printk(ARGS);
 
@@ -186,9 +177,9 @@ int omap_request_alsa_sound_dma(int device_id, const char *device_name,
 	}
 	spin_lock(&dma_list_lock);
 	for (i = 0; i < nr_linked_channels; i++) {
-		err = omap_request_dma(device_id,
+		err = omap_request_dma(device_id, 
 				device_name,
-				sound_dma_irq_handler,
+				sound_dma_irq_handler, 
 				data,
 				&chan[i]);
 
@@ -248,7 +239,7 @@ int omap_free_alsa_sound_dma(void *data, int **channels)
 {
 	int i;
 	int *chan = NULL;
-
+	
 	FN_IN;
 	if (unlikely(NULL == channels)) {
 		BUG();
@@ -282,7 +273,7 @@ void omap_stop_alsa_sound_dma(struct audio_stream *s)
 {
 	int *chan = s->lch;
 	int i;
-
+	
 	FN_IN;
 	if (unlikely(NULL == chan)) {
 		BUG();
@@ -320,7 +311,7 @@ static int audio_set_dma_params_play(int channel, dma_addr_t dma_ptr,
 	int dt = 0x1;		/* data type 16 */
 	int cen = 32;		/* Stereo */
 	int cfn = dma_size / (2 * cen);
-
+	
 	FN_IN;
 	omap_set_dma_dest_params(channel, 0x05, 0x00,
 				 (OMAP1510_MCBSP1_BASE + 0x06),
@@ -338,7 +329,7 @@ static int audio_set_dma_params_capture(int channel, dma_addr_t dma_ptr,
 	int dt = 0x1;		/* data type 16 */
 	int cen = 32;		/* stereo */
 	int cfn = dma_size / (2 * cen);
-
+	
 	FN_IN;
 	omap_set_dma_src_params(channel, 0x05, 0x00,
 				(OMAP1510_MCBSP1_BASE + 0x02),
@@ -368,8 +359,8 @@ static int audio_start_dma_chain(struct audio_stream *s)
  * Do the initial set of work to initialize all the channels as required.
  * We shall then initate a transfer
  */
-int omap_start_alsa_sound_dma(struct audio_stream *s,
-			dma_addr_t dma_ptr,
+int omap_start_alsa_sound_dma(struct audio_stream *s, 
+			dma_addr_t dma_ptr, 
 			u_int dma_size)
 {
 	int ret = -EPERM;

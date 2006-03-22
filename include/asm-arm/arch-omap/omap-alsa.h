@@ -1,7 +1,9 @@
 /*
- * sound/arm/omap-aic23.h
+ * linux/include/asm-arm/arch-omap/omap-alsa.h
  * 
- * Alsa Driver for AIC23 codec on OSK5912 platform board
+ * Alsa Driver for AIC23 and TSC2101 codecs on OMAP platform boards.
+ *
+ * Copyright (C) 2006 Mika Laitio <lamikr@cc.jyu.fi>
  *
  * Copyright (C) 2005 Instituto Nokia de Tecnologia - INdT - Manaus Brazil
  * Written by Daniel Petrini, David Cohen, Anderson Briglia
@@ -33,39 +35,38 @@
  *  2005/07/25 INdT-10LE Kernel Team - 	Alsa driver for omap osk,
  *  					original version based in sa1100 driver
  *  					and omap oss driver.
- *
- *  2005-12-18   Dirk Behme      - Added L/R Channel Interchange fix as proposed by Ajaya Babu
  */
 
-#ifndef __OMAP_AIC23_H
-#define __OMAP_AIC23_H
+#ifndef __OMAP_ALSA_H
+#define __OMAP_ALSA_H
 
 #include <sound/driver.h>
 #include <asm/arch/dma.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
+#include <asm/arch/mcbsp.h>
+#include <linux/platform_device.h>
+/*
+ * Debug functions
+ */
+#undef DEBUG
+//#define DEBUG
 
-#define DEFAULT_OUTPUT_VOLUME         0x60
-#define DEFAULT_INPUT_VOLUME          0x00	/* 0 ==> mute line in */
+#define ERR(ARGS...) printk(KERN_ERR "{%s}-ERROR: ", __FUNCTION__);printk(ARGS);
 
-#define OUTPUT_VOLUME_MIN             LHV_MIN
-#define OUTPUT_VOLUME_MAX             LHV_MAX
-#define OUTPUT_VOLUME_RANGE           (OUTPUT_VOLUME_MAX - OUTPUT_VOLUME_MIN)
-#define OUTPUT_VOLUME_MASK            OUTPUT_VOLUME_MAX
+#ifdef DEBUG
+#define DPRINTK(ARGS...)  printk(KERN_INFO "<%s>: ",__FUNCTION__);printk(ARGS)
+#define ADEBUG() printk("XXX Alsa debug f:%s, l:%d\n", __FUNCTION__, __LINE__)
+#define FN_IN printk(KERN_INFO "[%s]: start\n", __FUNCTION__)
+#define FN_OUT(n) printk(KERN_INFO "[%s]: end(%u)\n",__FUNCTION__, n)
+#else
+#define DPRINTK(ARGS...)	/* nop */
+#define ADEBUG()		/* nop */
+#define FN_IN			/* nop */
+#define FN_OUT(n)		/* nop */
+#endif
 
-#define INPUT_VOLUME_MIN 	      LIV_MIN
-#define INPUT_VOLUME_MAX 	      LIV_MAX
-#define INPUT_VOLUME_RANGE 	      (INPUT_VOLUME_MAX - INPUT_VOLUME_MIN)
-#define INPUT_VOLUME_MASK 	      INPUT_VOLUME_MAX
-
-#define SIDETONE_MASK                 0x1c0
-#define SIDETONE_0                    0x100
-#define SIDETONE_6                    0x000
-#define SIDETONE_9                    0x040
-#define SIDETONE_12                   0x080
-#define SIDETONE_18                   0x0c0
-
-#define DEFAULT_ANALOG_AUDIO_CONTROL  DAC_SELECTED | STE_ENABLED | BYPASS_ON | INSEL_MIC | MICB_20DB
+#define DMA_BUF_SIZE	(1024 * 8)
 
 /*
  * Buffer management for alsa and dma
@@ -100,32 +101,44 @@ struct snd_card_omap_codec {
 	struct audio_stream s[2];	/* playback & capture */
 };
 
+/* Codec specific information and function pointers. 
+ * Codec (omap-alsa-aic23.c and omap-alsa-tsc2101.c)
+ * are responsible for defining the function pointers.
+ */
+struct omap_alsa_codec_config {
+	char 	*name;
+	struct	omap_mcbsp_reg_cfg *mcbsp_regs_alsa;
+	snd_pcm_hw_constraint_list_t *hw_constraints_rates;
+	snd_pcm_hardware_t *snd_omap_alsa_playback;
+	snd_pcm_hardware_t *snd_omap_alsa_capture;
+	void	(*codec_configure_dev)(void);
+	void	(*codec_set_samplerate)(long);
+	void	(*codec_clock_setup)(void);
+	int	(*codec_clock_on)(void);
+	int 	(*codec_clock_off)(void);
+	int	(*get_default_samplerate)(void);
+};
+
 /*********** Mixer function prototypes *************************/
 int snd_omap_mixer(struct snd_card_omap_codec *);
 void snd_omap_init_mixer(void);
-/* Clock functions */
-int omap_aic23_clock_on(void);
-int omap_aic23_clock_off(void);
 
 #ifdef CONFIG_PM
 void snd_omap_suspend_mixer(void);
 void snd_omap_resume_mixer(void);
 #endif
 
+int snd_omap_alsa_post_probe(struct platform_device *pdev, struct omap_alsa_codec_config *config);
+int snd_omap_alsa_remove(struct platform_device *pdev);
+#ifdef CONFIG_PM
+int snd_omap_alsa_suspend(struct platform_device *pdev, pm_message_t state);
+int snd_omap_alsa_resume(struct platform_device *pdev);
+#else
+#define snd_omap_alsa_suspend	NULL
+#define snd_omap_alsa_resume	NULL
+#endif
+
 /*********** function prototype to function called from the dma interrupt handler ******/
 void callback_omap_alsa_sound_dma(void *);
-
-/* Codec AIC23 */
-#if defined(CONFIG_SENSORS_TLV320AIC23) || defined (CONFIG_SENSORS_TLV320AIC23_MODULE)
-
-extern int tlv320aic23_write_value(u8 reg, u16 value);
-
-/* TLV320AIC23 is a write only device */
-static __inline__ void audio_aic23_write(u8 address, u16 data)
-{
-	tlv320aic23_write_value(address, data);
-}
-
-#endif /* CONFIG_SENSORS_TLV320AIC23 */
 
 #endif

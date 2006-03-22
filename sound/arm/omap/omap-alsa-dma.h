@@ -1,5 +1,5 @@
 /*  
- * sound/arm/omap-alsa-dma.h
+ * linux/sound/arm/omap/omap-alsa-dma.h
  *
  * Common audio DMA handling for the OMAP processors
  *
@@ -32,7 +32,7 @@
 
 /************************** INCLUDES *************************************/
 
-#include "omap-aic23.h"
+#include <asm/arch/omap-alsa.h>
 
 /************************** GLOBAL DATA STRUCTURES *********************************/
 
