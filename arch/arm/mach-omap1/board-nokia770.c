@@ -94,7 +94,7 @@ static struct ads7846_platform_data nokia770_ads7846_platform_data __initdata = 
 	.x_max		= 0x0fff,
 	.y_max		= 0x0fff,
 	.x_plate_ohms	= 180,
-	.pressure_max	= 200,
+	.pressure_max	= 255,
 	.debounce_max	= 10,
 	.debounce_tol	= 3,
 };
