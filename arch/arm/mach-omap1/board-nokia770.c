@@ -194,6 +194,7 @@ static void codec_delayed_power_down(void *arg)
 	down(&audio_pwr_sem);
 	if (audio_pwr_state == -1)
 		tlv320aic23_power_down();
+	clk_disable(dspxor_ck);
 	up(&audio_pwr_sem);
 }
 
@@ -201,8 +202,6 @@ static DECLARE_WORK(codec_power_down_work, codec_delayed_power_down, NULL);
 
 static void nokia770_audio_pwr_down(void)
 {
-	clk_disable(dspxor_ck);
-
 	/* Turn off amplifier */
 	omap_set_gpio_dataout(AMPLIFIER_CTRL_GPIO, 0);
 
@@ -224,16 +223,16 @@ void nokia770_audio_pwr_down_request(int stage)
 {
 	down(&audio_pwr_sem);
 	switch (stage) {
-		case 1:
-			if (audio_pwr_state == 0)
-				audio_pwr_state = 1;
-			break;
-		case 2:
-			if (audio_pwr_state == 1) {
-				nokia770_audio_pwr_down();
-				audio_pwr_state = -1;
-			}
-			break;
+	case 1:
+		if (audio_pwr_state == 0)
+			audio_pwr_state = 1;
+		break;
+	case 2:
+		if (audio_pwr_state == 1) {
+			nokia770_audio_pwr_down();
+			audio_pwr_state = -1;
+		}
+		break;
 	}
 	up(&audio_pwr_sem);
 }
