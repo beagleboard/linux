@@ -1,5 +1,5 @@
 /*
- * sound/arm/omap-alsa-mixer.c
+ * sound/arm/omap/omap-alsa-aic23-mixer.c
  * 
  * Alsa Driver Mixer for generic codecs for omap boards
  *
@@ -39,20 +39,10 @@
 
 #include <linux/config.h>
 #include <sound/driver.h>
-#include <linux/module.h>
-#include <linux/device.h>
-#include <linux/init.h>
-#include <linux/errno.h>
-#include <linux/ioctl.h>
-#include <linux/delay.h>
-#include <linux/slab.h>
-
-#include <asm/hardware.h>
-#include <asm/mach-types.h>
-#include <asm/arch/dma.h>
 #include <asm/arch/aic23.h>
 
-#include "omap-aic23.h"
+#include <asm/arch/omap-alsa.h>
+#include "omap-alsa-aic23.h"
 #include <sound/initval.h>
 #include <sound/control.h>
 
@@ -67,7 +57,7 @@ MODULE_DESCRIPTION("OMAP Alsa mixer driver for ALSA");
 /* Codec AIC23 */
 #if defined(CONFIG_SENSORS_TLV320AIC23) || defined (CONFIG_SENSORS_TLV320AIC23_MODULE)
 
-extern __inline__ void audio_aic23_write(u8, u16);
+extern void audio_aic23_write(u8, u16);
 
 #define MIXER_NAME		     "Mixer AIC23"
 #define SND_OMAP_WRITE(reg, val)     audio_aic23_write(reg, val)
@@ -411,31 +401,6 @@ static snd_kcontrol_new_t snd_omap_controls[] = {
 	OMAP_MUX("Capture Source", ANALOG_AUDIO_CONTROL_ADDR, AAC_INDEX, INSEL_MIC),
 };
 
-void snd_omap_init_mixer(void)
-{
-	u16 vol_reg;
-
-	/* Line's default values */
-	omap_regs[LINE_INDEX].l_reg = DEFAULT_INPUT_VOLUME & INPUT_VOLUME_MASK;
-	omap_regs[LINE_INDEX].r_reg = DEFAULT_INPUT_VOLUME & INPUT_VOLUME_MASK;
-	omap_regs[LINE_INDEX].sw = 0;
-	SND_OMAP_WRITE(LEFT_LINE_VOLUME_ADDR, DEFAULT_INPUT_VOLUME & INPUT_VOLUME_MASK);
-	SND_OMAP_WRITE(RIGHT_LINE_VOLUME_ADDR, DEFAULT_INPUT_VOLUME & INPUT_VOLUME_MASK);
-	
-	/* Analog Audio Control's default values */
-	omap_regs[AAC_INDEX].l_reg = DEFAULT_ANALOG_AUDIO_CONTROL;
-	
-	/* Headphone's default values */
-	vol_reg = LZC_ON;
-	vol_reg &= ~OUTPUT_VOLUME_MASK;
-	vol_reg |= DEFAULT_OUTPUT_VOLUME;
-	omap_regs[PCM_INDEX].l_reg = DEFAULT_OUTPUT_VOLUME;
-	omap_regs[PCM_INDEX].r_reg = DEFAULT_OUTPUT_VOLUME;
-	omap_regs[PCM_INDEX].sw = 1;
-	SND_OMAP_WRITE(LEFT_CHANNEL_VOLUME_ADDR, vol_reg);
-	SND_OMAP_WRITE(RIGHT_CHANNEL_VOLUME_ADDR, vol_reg);
-}
-
 #ifdef CONFIG_PM
 
 void snd_omap_suspend_mixer(void)
@@ -474,7 +439,32 @@ void snd_omap_resume_mixer(void)
 }
 #endif
 
-int snd_omap_mixer(struct snd_card_omap_aic23 *chip)
+void snd_omap_init_mixer(void)
+{
+	u16 vol_reg;
+
+	/* Line's default values */
+	omap_regs[LINE_INDEX].l_reg = DEFAULT_INPUT_VOLUME & INPUT_VOLUME_MASK;
+	omap_regs[LINE_INDEX].r_reg = DEFAULT_INPUT_VOLUME & INPUT_VOLUME_MASK;
+	omap_regs[LINE_INDEX].sw = 0;
+	SND_OMAP_WRITE(LEFT_LINE_VOLUME_ADDR, DEFAULT_INPUT_VOLUME & INPUT_VOLUME_MASK);
+	SND_OMAP_WRITE(RIGHT_LINE_VOLUME_ADDR, DEFAULT_INPUT_VOLUME & INPUT_VOLUME_MASK);
+	
+	/* Analog Audio Control's default values */
+	omap_regs[AAC_INDEX].l_reg = DEFAULT_ANALOG_AUDIO_CONTROL;
+	
+	/* Headphone's default values */
+	vol_reg = LZC_ON;
+	vol_reg &= ~OUTPUT_VOLUME_MASK;
+	vol_reg |= DEFAULT_OUTPUT_VOLUME;
+	omap_regs[PCM_INDEX].l_reg = DEFAULT_OUTPUT_VOLUME;
+	omap_regs[PCM_INDEX].r_reg = DEFAULT_OUTPUT_VOLUME;
+	omap_regs[PCM_INDEX].sw = 1;
+	SND_OMAP_WRITE(LEFT_CHANNEL_VOLUME_ADDR, vol_reg);
+	SND_OMAP_WRITE(RIGHT_CHANNEL_VOLUME_ADDR, vol_reg);
+}
+
+int snd_omap_mixer(struct snd_card_omap_codec *chip)
 {
 	snd_card_t *card;
 	unsigned int idx;
@@ -493,4 +483,3 @@ int snd_omap_mixer(struct snd_card_omap_aic23 *chip)
 
 	return 0;
 }
-

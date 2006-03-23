@@ -1,7 +1,9 @@
 /*
- * sound/arm/omap-alsa-dma.c
+ * sound/arm/omap/omap-alsa-dma.c
  *
  * Common audio DMA handling for the OMAP processors
+ *
+ * Copyright (C) 2006 Mika Laitio <lamikr@cc.jyu.fi>
  *
  * Copyright (C) 2005 Instituto Nokia de Tecnologia - INdT - Manaus Brazil
  * 
@@ -66,20 +68,9 @@
 
 #include <asm/arch/mcbsp.h>
 
-#include "omap-aic23.h"
+#include <asm/arch/omap-alsa.h>
 
 #undef DEBUG
-//#define DEBUG
-#ifdef DEBUG
-#define DPRINTK(ARGS...)  printk(KERN_INFO "<%s>: ",__FUNCTION__);printk(ARGS)
-#define FN_IN printk(KERN_INFO "[%s]: start\n", __FUNCTION__)
-#define FN_OUT(n) printk(KERN_INFO "[%s]: end(%u)\n",__FUNCTION__, n)
-#else
-
-#define DPRINTK( x... )
-#define FN_IN
-#define FN_OUT(x)
-#endif
 
 #define ERR(ARGS...) printk(KERN_ERR "{%s}-ERROR: ", __FUNCTION__);printk(ARGS);
 
@@ -165,7 +156,7 @@ static void omap_sound_dma_link_lch(void *data)
 	FN_OUT(0);
 }
 
-int omap_request_sound_dma(int device_id, const char *device_name,
+int omap_request_alsa_sound_dma(int device_id, const char *device_name,
 			   void *data, int **channels)
 {
 	int i, err = 0;
@@ -186,10 +177,11 @@ int omap_request_sound_dma(int device_id, const char *device_name,
 	}
 	spin_lock(&dma_list_lock);
 	for (i = 0; i < nr_linked_channels; i++) {
-		err =
-		    omap_request_dma(device_id, device_name,
-				     sound_dma_irq_handler, data,
-				     &chan[i]);
+		err = omap_request_dma(device_id, 
+				device_name,
+				sound_dma_irq_handler, 
+				data,
+				&chan[i]);
 
 		/* Handle Failure condition here */
 		if (err < 0) {
@@ -223,7 +215,7 @@ int omap_request_sound_dma(int device_id, const char *device_name,
  **************************************************************************************/
 static void omap_sound_dma_unlink_lch(void *data)
 {
-	struct audio_stream *s = (struct audio_stream *) data;
+	struct audio_stream *s = (struct audio_stream *)data;
 	int *chan = s->lch;
 	int i;
 
@@ -243,11 +235,11 @@ static void omap_sound_dma_unlink_lch(void *data)
 	FN_OUT(0);
 }
 
-int omap_free_sound_dma(void *data, int **channels)
+int omap_free_alsa_sound_dma(void *data, int **channels)
 {
-
 	int i;
 	int *chan = NULL;
+	
 	FN_IN;
 	if (unlikely(NULL == channels)) {
 		BUG();
@@ -277,10 +269,11 @@ int omap_free_sound_dma(void *data, int **channels)
  * Stop all the DMA channels of the stream
  *
  **************************************************************************************/
-void omap_audio_stop_dma(struct audio_stream *s)
+void omap_stop_alsa_sound_dma(struct audio_stream *s)
 {
 	int *chan = s->lch;
 	int i;
+	
 	FN_IN;
 	if (unlikely(NULL == chan)) {
 		BUG();
@@ -299,20 +292,13 @@ void omap_audio_stop_dma(struct audio_stream *s)
  * Clear any pending transfers
  *
  **************************************************************************************/
-void omap_clear_sound_dma(struct audio_stream * s)
+void omap_clear_alsa_sound_dma(struct audio_stream * s)
 {
 	FN_IN;
 	omap_clear_dma(s->lch[s->dma_q_head]);
 	FN_OUT(0);
 	return;
 }
-
-/*********************************** MODULE FUNCTIONS DEFINTIONS ***********************/
-
-#ifdef OMAP1610_MCBSP1_BASE
-#undef OMAP1610_MCBSP1_BASE
-#endif
-#define OMAP1610_MCBSP1_BASE    0xE1011000
 
 /***************************************************************************************
  *
@@ -325,9 +311,10 @@ static int audio_set_dma_params_play(int channel, dma_addr_t dma_ptr,
 	int dt = 0x1;		/* data type 16 */
 	int cen = 32;		/* Stereo */
 	int cfn = dma_size / (2 * cen);
+	
 	FN_IN;
 	omap_set_dma_dest_params(channel, 0x05, 0x00,
-				 (OMAP1610_MCBSP1_BASE + 0x806),
+				 (OMAP1510_MCBSP1_BASE + 0x06),
 				 0, 0);
 	omap_set_dma_src_params(channel, 0x00, 0x01, dma_ptr,
 				0, 0);
@@ -341,11 +328,11 @@ static int audio_set_dma_params_capture(int channel, dma_addr_t dma_ptr,
 {
 	int dt = 0x1;		/* data type 16 */
 	int cen = 32;		/* stereo */
-	
 	int cfn = dma_size / (2 * cen);
+	
 	FN_IN;
 	omap_set_dma_src_params(channel, 0x05, 0x00,
-				(OMAP1610_MCBSP1_BASE + 0x802),
+				(OMAP1510_MCBSP1_BASE + 0x02),
 				0, 0);
 	omap_set_dma_dest_params(channel, 0x00, 0x01, dma_ptr, 0, 0);
 	omap_set_dma_transfer_params(channel, dt, cen, cfn, 0x00, 0, 0);
@@ -358,7 +345,7 @@ static int audio_start_dma_chain(struct audio_stream *s)
 	int channel = s->lch[s->dma_q_head];
 	FN_IN;
 	if (!s->started) {
-	 s->hw_stop();	    /* stops McBSP Interface */
+	 	s->hw_stop();	   /* stops McBSP Interface */
 		omap_start_dma(channel);
 		s->started = 1;
 		s->hw_start();	   /* start McBSP interface */
@@ -372,8 +359,9 @@ static int audio_start_dma_chain(struct audio_stream *s)
  * Do the initial set of work to initialize all the channels as required.
  * We shall then initate a transfer
  */
-int omap_start_sound_dma(struct audio_stream *s, dma_addr_t dma_ptr,
-			 u_int dma_size)
+int omap_start_alsa_sound_dma(struct audio_stream *s, 
+			dma_addr_t dma_ptr, 
+			u_int dma_size)
 {
 	int ret = -EPERM;
 
@@ -439,18 +427,17 @@ static void sound_dma_irq_handler(int sound_curr_lch, u16 ch_status,
 	}
 
 	if (ch_status & DCSR_END_BLOCK) 
-		audio_dma_callback(s);
+		callback_omap_alsa_sound_dma(s);
 	FN_OUT(0);
 	return;
 }
 
 MODULE_AUTHOR("Texas Instruments");
-MODULE_DESCRIPTION
-    ("Common DMA handling for Audio driver on OMAP processors");
+MODULE_DESCRIPTION("Common DMA handling for Audio driver on OMAP processors");
 MODULE_LICENSE("GPL");
 
-EXPORT_SYMBOL(omap_start_sound_dma);
-EXPORT_SYMBOL(omap_clear_sound_dma);
-EXPORT_SYMBOL(omap_request_sound_dma);
-EXPORT_SYMBOL(omap_free_sound_dma);
-EXPORT_SYMBOL(omap_audio_stop_dma);
+EXPORT_SYMBOL(omap_start_alsa_sound_dma);
+EXPORT_SYMBOL(omap_clear_alsa_sound_dma);
+EXPORT_SYMBOL(omap_request_alsa_sound_dma);
+EXPORT_SYMBOL(omap_free_alsa_sound_dma);
+EXPORT_SYMBOL(omap_stop_alsa_sound_dma);
