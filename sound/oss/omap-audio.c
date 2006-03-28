@@ -46,11 +46,11 @@
 #include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <linux/completion.h>
+#include <linux/mutex.h>
 
 #include <asm/uaccess.h>
 #include <asm/io.h>
 #include <asm/hardware.h>
-#include <asm/semaphore.h>
 
 #include "omap-audio-dma-intfc.h"
 #include "omap-audio.h"
@@ -438,7 +438,7 @@ int audio_register_codec(audio_state_t * codec_state)
 	}
 
 	memcpy(&audio_state, codec_state, sizeof(audio_state_t));
-	sema_init(&audio_state.sem, 1);
+	mutex_init(&audio_state.mutex);
 
 	ret = platform_device_register(&omap_audio_device);
 	if (ret != 0) {
@@ -1024,7 +1024,7 @@ static int audio_open(struct inode *inode, struct file *file)
 		return -ESTALE;
 	}
 
-	down(&state->sem);
+	mutex_lock(&state->mutex);
 
 	/* access control */
 	err = -ENODEV;
@@ -1092,7 +1092,7 @@ static int audio_open(struct inode *inode, struct file *file)
 	err = 0;
 
       out:
-	up(&state->sem);
+	mutex_unlock(&state->mutex);
 	if (err) {
 		module_put(state->owner);
 		module_put(THIS_MODULE);
@@ -1114,7 +1114,7 @@ static int audio_release(struct inode *inode, struct file *file)
 
 	FN_IN;
 
-	down(&state->sem);
+	mutex_lock(&state->mutex);
 
 	if (file->f_mode & FMODE_READ) {
 		audio_discard_buf(is);
@@ -1145,7 +1145,7 @@ static int audio_release(struct inode *inode, struct file *file)
 			state->hw_shutdown(state->data);
 	}
 
-	up(&state->sem);
+	mutex_unlock(&state->mutex);
 
 	module_put(state->owner);
 	module_put(THIS_MODULE);
