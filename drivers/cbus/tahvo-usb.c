@@ -38,9 +38,9 @@
 #include <linux/workqueue.h>
 #include <linux/kobject.h>
 #include <linux/clk.h>
+#include <linux/mutex.h>
 
 #include <asm/irq.h>
-#include <asm/semaphore.h>
 #include <asm/arch/usb.h>
 
 #include "cbus.h"
@@ -92,7 +92,7 @@ struct tahvo_usb {
 	struct otg_transceiver otg;
 	int vbus_state;
 	struct work_struct irq_work;
-	struct semaphore serialize;
+	struct mutex serialize;
 #ifdef CONFIG_USB_OTG
 	int tahvo_mode;
 #endif
@@ -414,13 +414,13 @@ static int tahvo_usb_set_host(struct otg_transceiver *otg, struct usb_bus *host)
 
 #if defined(CONFIG_USB_OTG) || !defined(CONFIG_USB_GADGET_OMAP)
 
-	down(&tu->serialize);
+	mutex_lock(&tu->serialize);
 
 	if (!host) {
 		if (TAHVO_MODE(tu) == TAHVO_MODE_HOST)
 			tahvo_usb_power_off(tu);
 		tu->otg.host = 0;
-		up(&tu->serialize);
+		mutex_unlock(&tu->serialize);
 		return 0;
 	}
 
@@ -432,7 +432,7 @@ static int tahvo_usb_set_host(struct otg_transceiver *otg, struct usb_bus *host)
 
 	tu->otg.host = host;
 
-	up(&tu->serialize);
+	mutex_unlock(&tu->serialize);
 #else
 	/* No host mode configured, so do not allow host controlled to be set */
 	return -EINVAL;
@@ -450,13 +450,13 @@ static int tahvo_usb_set_peripheral(struct otg_transceiver *otg, struct usb_gadg
 
 #if defined(CONFIG_USB_OTG) || defined(CONFIG_USB_GADGET_OMAP)
 
-	down(&tu->serialize);
+	mutex_lock(&tu->serialize);
 
 	if (!gadget) {
 		if (TAHVO_MODE(tu) == TAHVO_MODE_PERIPHERAL)
 			tahvo_usb_power_off(tu);
 		tu->otg.gadget = 0;
-		up(&tu->serialize);
+		mutex_unlock(&tu->serialize);
 		return 0;
 	}
 
@@ -464,7 +464,7 @@ static int tahvo_usb_set_peripheral(struct otg_transceiver *otg, struct usb_gadg
 	if (TAHVO_MODE(tu) == TAHVO_MODE_PERIPHERAL)
 		tahvo_usb_become_peripheral(tu);
 
-	up(&tu->serialize);
+	mutex_unlock(&tu->serialize);
 #else
 	/* No gadget mode configured, so do not allow host controlled to be set */
 	return -EINVAL;
@@ -477,9 +477,9 @@ static void tahvo_usb_irq_work(void *data)
 {
 	struct tahvo_usb *tu = (struct tahvo_usb *)data;
 
-	down(&tu->serialize);
+	mutex_lock(&tu->serialize);
 	check_vbus_state(tu);
-	up(&tu->serialize);
+	mutex_unlock(&tu->serialize);
 }
 
 static void tahvo_usb_vbus_interrupt(unsigned long arg)
@@ -514,7 +514,7 @@ static ssize_t otg_mode_store(struct device *device,
 	int r;
 
 	r = strlen(buf);
-	down(&tu->serialize);
+	mutex_lock(&tu->serialize);
 	if (strncmp(buf, "host", 4) == 0) {
 		if (tu->tahvo_mode == TAHVO_MODE_PERIPHERAL)
 			tahvo_usb_stop_peripheral(tu);
@@ -540,7 +540,7 @@ static ssize_t otg_mode_store(struct device *device,
 	} else
 		r = -EINVAL;
 
-	up(&tu->serialize);
+	mutex_unlock(&tu->serialize);
 	return r;
 }
 
@@ -568,7 +568,7 @@ static int tahvo_usb_probe(struct device *dev)
 #endif
 
 	INIT_WORK(&tu->irq_work, tahvo_usb_irq_work, tu);
-	init_MUTEX(&tu->serialize);
+	mutex_init(&tu->serialize);
 
 	/* Set initial state, so that we generate kevents only on
 	 * state changes */
