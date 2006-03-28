@@ -126,6 +126,7 @@ enum omapfb_update_mode {
 #include <linux/completion.h>
 #include <linux/interrupt.h>
 #include <linux/fb.h>
+#include <linux/mutex.h>
 
 #include <asm/arch/board.h>
 
@@ -269,7 +270,7 @@ struct omapfb_device {
 	int			state;
 	int                     ext_lcdc;               /* Using external
                                                            LCD controller */
-	struct semaphore	rqueue_sema;
+	struct mutex		rqueue_mutex;
 
 	void			*vram_virt_base;
 	dma_addr_t		vram_phys_base;

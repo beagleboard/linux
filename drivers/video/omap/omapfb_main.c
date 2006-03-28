@@ -111,12 +111,12 @@ extern struct lcd_ctrl_extif rfbi_extif;
 
 static void omapfb_rqueue_lock(struct omapfb_device *fbdev)
 {
-	down(&fbdev->rqueue_sema);
+	mutex_lock(&fbdev->rqueue_mutex);
 }
 
 static void omapfb_rqueue_unlock(struct omapfb_device *fbdev)
 {
-	up(&fbdev->rqueue_sema);
+	mutex_unlock(&fbdev->rqueue_mutex);
 }
 
 /*
@@ -1273,7 +1273,7 @@ static int omapfb_do_probe(struct platform_device *pdev, struct lcd_panel *panel
 	fbdev->panel = panel;
 	platform_set_drvdata(pdev, fbdev);
 
-	init_MUTEX(&fbdev->rqueue_sema);
+	mutex_init(&fbdev->rqueue_mutex);
 
 #ifdef CONFIG_ARCH_OMAP1
 	fbdev->int_ctrl = &omap1_int_ctrl;
