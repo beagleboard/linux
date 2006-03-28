@@ -31,6 +31,7 @@
 #include <linux/poll.h>
 #include <linux/list.h>
 #include <linux/spinlock.h>
+#include <linux/mutex.h>
 
 #include <asm/uaccess.h>
 
@@ -64,7 +65,7 @@ static LIST_HEAD(retu_irqs_reserve);
 DECLARE_WAIT_QUEUE_HEAD(retu_user_waitqueue);
 
 /* Semaphore to protect irq subscription sequence */
-static struct semaphore retu_sem;
+static struct mutex retu_mutex;
 
 /* This array specifies RETU register types (read/write/toggle) */
 static const u8 retu_access_bits[] = {
@@ -135,14 +136,14 @@ static int retu_user_subscribe_to_irq(int id, struct file *filp)
 {
 	int ret;
 
-	down(&retu_sem);
+	mutex_lock(&retu_mutex);
 	if ((retu_irq_subscr != NULL) && (retu_irq_subscr != filp)) {
-		up(&retu_sem);
+		mutex_unlock(&retu_mutex);
 		return -EBUSY;
 	}
 	/* Store the file pointer of the first user process registering IRQs */
 	retu_irq_subscr = filp;
-	up(&retu_sem);
+	mutex_unlock(&retu_mutex);
 
 	if (retu_irq_bits & (1 << id))
 		return 0;
@@ -384,7 +385,7 @@ int retu_user_init(void)
 	retu_irq_block = irq;
 
 	spin_lock_init(&retu_irqs_lock);
-	sema_init(&retu_sem, 1);
+	mutex_init(&retu_mutex);
 
 	/* Request a misc device */
 	res = misc_register(&retu_device);
