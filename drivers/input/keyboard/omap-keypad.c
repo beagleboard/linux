@@ -32,6 +32,7 @@
 #include <linux/kernel.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
+#include <linux/mutex.h>
 #include <asm/arch/irqs.h>
 #include <asm/arch/gpio.h>
 #include <asm/arch/hardware.h>
@@ -48,7 +49,7 @@ static void omap_kp_tasklet(unsigned long);
 static void omap_kp_timer(unsigned long);
 
 static unsigned char keypad_state[8];
-static DECLARE_MUTEX(kp_enable_mutex);
+static DEFINE_MUTEX(kp_enable_mutex);
 static int kp_enable = 1;
 static int kp_cur_group = -1;
 
@@ -250,7 +251,7 @@ static ssize_t omap_kp_enable_store(struct device *dev, struct device_attribute 
 	if ((state != 1) && (state != 0))
 		return -EINVAL;
 
-	down(&kp_enable_mutex);
+	mutex_lock(&kp_enable_mutex);
 	if (state != kp_enable) {
 		if (state)
 			enable_irq(INT_KEYBOARD);
@@ -258,7 +259,7 @@ static ssize_t omap_kp_enable_store(struct device *dev, struct device_attribute 
 			disable_irq(INT_KEYBOARD);
 		kp_enable = state;
 	}
-	up(&kp_enable_mutex);
+	mutex_unlock(&kp_enable_mutex);
 
 	return strnlen(buf, count);
 }
