@@ -56,7 +56,7 @@ static int kp_cur_group = -1;
 struct omap_kp {
 	struct input_dev *input;
 	struct timer_list timer;
-	unsigned int irq;
+	int irq;
 	unsigned int rows;
 	unsigned int cols;
 };
@@ -358,7 +358,7 @@ static int __init omap_kp_probe(struct platform_device *pdev)
 	kp_tasklet.data = (unsigned long) omap_kp;
 
 	omap_kp->irq = platform_get_irq(pdev, 0);
-	if (omap_kp->irq) {
+	if (omap_kp->irq >= 0) {
 		if (request_irq(omap_kp->irq, omap_kp_interrupt, 0,
 				"omap-keypad", omap_kp) < 0)
 			return -EINVAL;
