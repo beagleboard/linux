@@ -163,22 +163,17 @@ static inline u16 omap_i2c_read_reg(struct omap_i2c_dev *i2c_dev, int reg)
 
 static int omap_i2c_get_clocks(struct omap_i2c_dev *dev)
 {
-	if (cpu_is_omap24xx()) {
+	if (cpu_is_omap16xx() || cpu_is_omap24xx()) {
 		dev->iclk = clk_get(dev->dev, "i2c_ick");
-		if (IS_ERR(dev->iclk)) {
+		if (IS_ERR(dev->iclk))
 			return -ENODEV;
-		}
-		dev->fclk = clk_get(dev->dev, "i2c_fck");
-		if (IS_ERR(dev->fclk)) {
-			clk_put(dev->fclk);
-			return -ENODEV;
-		}
 	}
 
-	if (cpu_class_is_omap1()) {
-		dev->fclk = clk_get(dev->dev, "i2c_fck");
-		if (IS_ERR(dev->fclk))
-			return -ENODEV;
+	dev->fclk = clk_get(dev->dev, "i2c_fck");
+	if (IS_ERR(dev->fclk)) {
+		if (dev->iclk != NULL)
+			clk_put(dev->iclk);
+		return -ENODEV;
 	}
 
 	return 0;
