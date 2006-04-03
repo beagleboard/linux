@@ -67,7 +67,7 @@ struct clk * clk_get(struct device *dev, const char *id)
 			clk = p;
 			break;
 		}
-	}	
+	}
 
 	mutex_unlock(&clocks_mutex);
 

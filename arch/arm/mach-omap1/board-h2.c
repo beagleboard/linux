@@ -286,13 +286,13 @@ static struct platform_device h2_lcd_device = {
 	.id		= -1,
 };
 
-static struct omap_mcbsp_reg_cfg mcbsp_regs = { 
+static struct omap_mcbsp_reg_cfg mcbsp_regs = {
 	.spcr2 = FREE | FRST | GRST | XRST | XINTM(3),
 	.spcr1 = RINTM(3) | RRST,
 	.rcr2  = RPHASE | RFRLEN2(OMAP_MCBSP_WORD_8) |
                 RWDLEN2(OMAP_MCBSP_WORD_16) | RDATDLY(1),
 	.rcr1  = RFRLEN1(OMAP_MCBSP_WORD_8) | RWDLEN1(OMAP_MCBSP_WORD_16),
-	.xcr2  = XPHASE | XFRLEN2(OMAP_MCBSP_WORD_8) | 
+	.xcr2  = XPHASE | XFRLEN2(OMAP_MCBSP_WORD_8) |
                 XWDLEN2(OMAP_MCBSP_WORD_16) | XDATDLY(1) | XFIG,
 	.xcr1  = XFRLEN1(OMAP_MCBSP_WORD_8) | XWDLEN1(OMAP_MCBSP_WORD_16),
 	.srgr1 = FWID(15),
@@ -301,7 +301,7 @@ static struct omap_mcbsp_reg_cfg mcbsp_regs = {
 	.pcr0  = CLKXM | CLKRM | FSXP | FSRP | CLKXP | CLKRP,
 	//.pcr0 = CLKXP | CLKRP,        /* mcbsp: slave */
 };
- 
+
 static struct omap_alsa_codec_config alsa_config = {
 	.name                   = "H2 TSC2101",
 	.mcbsp_regs_alsa        = &mcbsp_regs,
@@ -311,15 +311,15 @@ static struct omap_alsa_codec_config alsa_config = {
 	.codec_clock_on         = NULL, // tsc2101_clock_on,
 	.codec_clock_off        = NULL, // tsc2101_clock_off,
 	.get_default_samplerate = NULL, // tsc2101_get_default_samplerate,
-};    
+};
 
 static struct platform_device h2_mcbsp1_device = {
 	.name	= "omap_alsa_mcbsp",
 	.id	= 1,
 	.dev = {
 		.platform_data	= &alsa_config,
-	}, 
-};    
+	},
+};
 
 static struct platform_device *h2_devices[] __initdata = {
 	&h2_nor_device,

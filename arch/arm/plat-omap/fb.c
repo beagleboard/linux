@@ -20,14 +20,10 @@ static struct omapfb_platform_data omapfb_config;
 
 static u64 omap_fb_dma_mask = ~(u32)0;
 
-/* in devices.c */
-extern void omap_nop_release(struct device *dev);
-
 static struct platform_device omap_fb_device = {
 	.name		= "omapfb",
 	.id		= -1,
 	.dev = {
-		.release		= omap_nop_release,
 		.dma_mask		= &omap_fb_dma_mask,
 		.coherent_dma_mask	= ~(u32)0,
 		.platform_data		= &omapfb_config,

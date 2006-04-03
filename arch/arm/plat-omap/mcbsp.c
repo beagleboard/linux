@@ -310,10 +310,10 @@ int omap_mcbsp_request(unsigned int id)
 			       mcbsp[id].tx_irq, mcbsp[id].id);
 			return err;
 		}
-		
+
 		init_completion(&(mcbsp[id].tx_irq_completion));
-		
-		
+
+
 		err = request_irq(mcbsp[id].rx_irq, omap_mcbsp_rx_irq_handler, 0,
 				  "McBSP",
 				  (void *) (&mcbsp[id]));
@@ -323,10 +323,10 @@ int omap_mcbsp_request(unsigned int id)
 			free_irq(mcbsp[id].tx_irq, (void *) (&mcbsp[id]));
 			return err;
 		}
-		
+
 		init_completion(&(mcbsp[id].rx_irq_completion));
 	}
-	
+
 	return 0;
 
 }
@@ -364,7 +364,7 @@ void omap_mcbsp_free(unsigned int id)
 
 	mcbsp[id].free = 1;
 	spin_unlock(&mcbsp[id].lock);
-	
+
 	if (mcbsp[id].io_type == OMAP_MCBSP_IRQ_IO) {
 		/* Free IRQs */
 		free_irq(mcbsp[id].rx_irq, (void *) (&mcbsp[id]));

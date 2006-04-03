@@ -1,6 +1,6 @@
 /*
  * linux/include/asm-arm/arch-omap/omap-alsa.h
- * 
+ *
  * Alsa Driver for AIC23 and TSC2101 codecs on OMAP platform boards.
  *
  * Copyright (C) 2006 Mika Laitio <lamikr@cc.jyu.fi>
