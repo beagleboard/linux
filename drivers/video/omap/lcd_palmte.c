@@ -33,33 +33,33 @@
 
 #include "debug.h"
 
-static int palmte_panel_init(struct lcd_panel *panel)
+static int palmte_panel_init(struct omapfb_device *panel)
 {
 	DBGENTER(1);
 	DBGLEAVE(1);
 	return 0;
 }
 
-static void palmte_panel_cleanup(struct lcd_panel *panel)
+static void palmte_panel_cleanup(void)
 {
 	DBGENTER(1);
 	DBGLEAVE(1);
 }
 
-static int palmte_panel_enable(struct lcd_panel *panel)
+static int palmte_panel_enable(void)
 {
 	DBGENTER(1);
 	DBGLEAVE(1);
 	return 0;
 }
 
-static void palmte_panel_disable(struct lcd_panel *panel)
+static void palmte_panel_disable(void)
 {
 	DBGENTER(1);
 	DBGLEAVE(1);
 }
 
-static unsigned long palmte_panel_get_caps(struct lcd_panel *panel)
+static unsigned long palmte_panel_get_caps(void)
 {
 	return 0;
 }
@@ -138,4 +138,3 @@ static void palmte_panel_drv_cleanup(void)
 
 module_init(palmte_panel_drv_init);
 module_exit(palmte_panel_drv_cleanup);
-
