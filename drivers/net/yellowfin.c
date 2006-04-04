@@ -69,8 +69,8 @@ static int fifo_cfg = 0x0020;				/* Bypass external Tx FIFO. */
 static int dma_ctrl = 0x00CAC277;			/* Override when loading module! */
 static int fifo_cfg = 0x0028;
 #else
-static int dma_ctrl = 0x004A0263; 			/* Constrained by errata */
-static int fifo_cfg = 0x0020;				/* Bypass external Tx FIFO. */
+static const int dma_ctrl = 0x004A0263; 			/* Constrained by errata */
+static const int fifo_cfg = 0x0020;				/* Bypass external Tx FIFO. */
 #endif
 
 /* Set the copy breakpoint for the copy-only-tiny-frames scheme.
@@ -266,7 +266,7 @@ struct pci_id_info {
         int drv_flags;                          /* Driver use, intended as capability flags. */
 };
 
-static struct pci_id_info pci_id_tbl[] = {
+static const struct pci_id_info pci_id_tbl[] = {
 	{"Yellowfin G-NIC Gigabit Ethernet", { 0x07021000, 0xffffffff},
 	 PCI_IOTYPE, YELLOWFIN_SIZE,
 	 FullTxStatus | IsGigabit | HasMulticastBug | HasMACAddrBug | DontUseEeprom},
@@ -1441,8 +1441,7 @@ static void __devexit yellowfin_remove_one (struct pci_dev *pdev)
 	struct net_device *dev = pci_get_drvdata(pdev);
 	struct yellowfin_private *np;
 
-	if (!dev)
-		BUG();
+	BUG_ON(!dev);
 	np = netdev_priv(dev);
 
         pci_free_consistent(pdev, STATUS_TOTAL_SIZE, np->tx_status, 

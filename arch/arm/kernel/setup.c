@@ -252,6 +252,9 @@ static void __init dump_cpu_info(int cpu)
 			dump_cache("cache", cpu, CACHE_ISIZE(info));
 		}
 	}
+
+	if (arch_is_coherent())
+		printk("Cache coherency enabled\n");
 }
 
 int cpu_architecture(void)
@@ -278,7 +281,7 @@ int cpu_architecture(void)
  * These functions re-use the assembly code in head.S, which
  * already provide the required functionality.
  */
-extern struct proc_info_list *lookup_processor_type(void);
+extern struct proc_info_list *lookup_processor_type(unsigned int);
 extern struct machine_desc *lookup_machine_type(unsigned int);
 
 static void __init setup_processor(void)
@@ -290,7 +293,7 @@ static void __init setup_processor(void)
 	 * types.  The linker builds this table for us from the
 	 * entries in arch/arm/mm/proc-*.S
 	 */
-	list = lookup_processor_type();
+	list = lookup_processor_type(processor_id);
 	if (!list) {
 		printk("CPU configuration botched (ID %08x), unable "
 		       "to continue.\n", processor_id);

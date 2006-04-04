@@ -52,7 +52,6 @@ struct tda1004x_state {
 	struct dvb_frontend frontend;
 
 	/* private demod data */
-	u8 initialised;
 	enum tda1004x_demod demod_type;
 };
 
@@ -229,7 +228,7 @@ static int tda1004x_enable_tuner_i2c(struct tda1004x_state *state)
 	dprintk("%s\n", __FUNCTION__);
 
 	result = tda1004x_write_mask(state, TDA1004X_CONFC4, 2, 2);
-	msleep(1);
+	msleep(20);
 	return result;
 }
 
@@ -502,7 +501,12 @@ static int tda10046_fwupload(struct dvb_frontend* fe)
 	const struct firmware *fw;
 
 	/* reset + wake up chip */
-	tda1004x_write_byteI(state, TDA1004X_CONFC4, 0);
+	if (state->config->xtal_freq == TDA10046_XTAL_4M) {
+		tda1004x_write_byteI(state, TDA1004X_CONFC4, 0);
+	} else {
+		dprintk("%s: 16MHz Xtal, reducing I2C speed\n", __FUNCTION__);
+		tda1004x_write_byteI(state, TDA1004X_CONFC4, 0x80);
+	}
 	tda1004x_write_mask(state, TDA10046H_CONF_TRISTATE1, 1, 0);
 	/* let the clocks recover from sleep */
 	msleep(5);
@@ -589,9 +593,6 @@ static int tda10045_init(struct dvb_frontend* fe)
 
 	dprintk("%s\n", __FUNCTION__);
 
-	if (state->initialised)
-		return 0;
-
 	if (tda10045_fwupload(fe)) {
 		printk("tda1004x: firmware upload failed\n");
 		return -EIO;
@@ -621,7 +622,6 @@ static int tda10045_init(struct dvb_frontend* fe)
 
 	tda1004x_write_mask(state, 0x1f, 0x01, state->config->invert_oclk);
 
-	state->initialised = 1;
 	return 0;
 }
 
@@ -629,9 +629,6 @@ static int tda10046_init(struct dvb_frontend* fe)
 {
 	struct tda1004x_state* state = fe->demodulator_priv;
 	dprintk("%s\n", __FUNCTION__);
-
-	if (state->initialised)
-		return 0;
 
 	if (tda10046_fwupload(fe)) {
 		printk("tda1004x: firmware upload failed\n");
@@ -651,7 +648,7 @@ static int tda10046_init(struct dvb_frontend* fe)
 	// tda setup
 	tda1004x_write_mask(state, TDA1004X_CONFC4, 0x20, 0); // disable DSP watchdog timer
 	tda1004x_write_byteI(state, TDA1004X_AUTO, 0x87);    // 100 ppm crystal, select HP stream
-	tda1004x_write_byteI(state, TDA1004X_CONFC1, 8);      // disable pulse killer
+	tda1004x_write_byteI(state, TDA1004X_CONFC1, 0x88);      // enable pulse killer
 
 	switch (state->config->agc_config) {
 	case TDA10046_AGC_DEFAULT:
@@ -672,6 +669,12 @@ static int tda10046_init(struct dvb_frontend* fe)
 		tda1004x_write_byteI(state, TDA10046H_AGC_RENORM, 0x08); // Gain Renormalize
 		tda1004x_write_byteI(state, TDA10046H_CONF_POLARITY, 0x6a); // set AGC polarities
 		break;
+	case TDA10046_AGC_TDA827X_GPL:
+		tda1004x_write_byteI(state, TDA10046H_AGC_CONF, 0x02);   // AGC setup
+		tda1004x_write_byteI(state, TDA10046H_AGC_THR, 0x70);    // AGC Threshold
+		tda1004x_write_byteI(state, TDA10046H_AGC_RENORM, 0x08); // Gain Renormalize
+		tda1004x_write_byteI(state, TDA10046H_CONF_POLARITY, 0x60); // set AGC polarities
+		break;
 	}
 	tda1004x_write_byteI(state, TDA1004X_CONFADC2, 0x38);
 	tda1004x_write_byteI(state, TDA10046H_CONF_TRISTATE1, 0x61); // Turn both AGC outputs on
@@ -683,9 +686,9 @@ static int tda10046_init(struct dvb_frontend* fe)
 	tda1004x_write_byteI(state, TDA10046H_CVBER_CTRL, 0x1a); // 10^6 VBER measurement bits
 	tda1004x_write_byteI(state, TDA1004X_CONF_TS1, 7); // MPEG2 interface config
 	tda1004x_write_byteI(state, TDA1004X_CONF_TS2, 0xc0); // MPEG2 interface config
+	// tda1004x_write_mask(state, 0x50, 0x80, 0x80);         // handle out of guard echoes
 	tda1004x_write_mask(state, 0x3a, 0x80, state->config->invert_oclk << 7);
 
-	state->initialised = 1;
 	return 0;
 }
 
@@ -1027,6 +1030,7 @@ static int tda1004x_read_status(struct dvb_frontend* fe, fe_status_t * fe_status
 		if (status == -1)
 			return -EIO;
 		cber |= (status << 8);
+		// The address 0x20 should be read to cope with a TDA10046 bug
 		tda1004x_read_byte(state, TDA1004X_CBER_RESET);
 
 		if (cber != 65535)
@@ -1047,7 +1051,8 @@ static int tda1004x_read_status(struct dvb_frontend* fe, fe_status_t * fe_status
 		status = tda1004x_read_byte(state, TDA1004X_VBER_MSB);
 		if (status == -1)
 			return -EIO;
-		vber |= ((status << 16) & 0x0f);
+		vber |= (status & 0x0f) << 16;
+		// The CVBER_LUT should be read to cope with TDA10046 hardware bug
 		tda1004x_read_byte(state, TDA1004X_CVBER_LUT);
 
 		// if RS has passed some valid TS packets, then we must be
@@ -1161,6 +1166,7 @@ static int tda1004x_read_ber(struct dvb_frontend* fe, u32* ber)
 	if (tmp < 0)
 		return -EIO;
 	*ber |= (tmp << 9);
+	// The address 0x20 should be read to cope with a TDA10046 bug
 	tda1004x_read_byte(state, TDA1004X_CBER_RESET);
 
 	dprintk("%s: ber=0x%x\n", __FUNCTION__, *ber);
@@ -1187,10 +1193,11 @@ static int tda1004x_sleep(struct dvb_frontend* fe)
 				tda1004x_disable_tuner_i2c(state);
 			}
 		}
+		/* set outputs to tristate */
+		tda1004x_write_byteI(state, TDA10046H_CONF_TRISTATE1, 0xff);
 		tda1004x_write_mask(state, TDA1004X_CONFC4, 1, 1);
 		break;
 	}
-	state->initialised = 0;
 
 	return 0;
 }
@@ -1254,7 +1261,6 @@ struct dvb_frontend* tda10045_attach(const struct tda1004x_config* config,
 	state->config = config;
 	state->i2c = i2c;
 	memcpy(&state->ops, &tda10045_ops, sizeof(struct dvb_frontend_ops));
-	state->initialised = 0;
 	state->demod_type = TDA1004X_DEMOD_TDA10045;
 
 	/* check if the demod is there */
@@ -1313,7 +1319,6 @@ struct dvb_frontend* tda10046_attach(const struct tda1004x_config* config,
 	state->config = config;
 	state->i2c = i2c;
 	memcpy(&state->ops, &tda10046_ops, sizeof(struct dvb_frontend_ops));
-	state->initialised = 0;
 	state->demod_type = TDA1004X_DEMOD_TDA10046;
 
 	/* check if the demod is there */

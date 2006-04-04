@@ -16,30 +16,7 @@ config VIDEO_ADV_DEBUG
 	  V4L devices.
 	  In doubt, say N.
 
-config VIDEO_BT848
-	tristate "BT848 Video For Linux"
-	depends on VIDEO_DEV && PCI && I2C
-	select I2C_ALGOBIT
-	select FW_LOADER
-	select VIDEO_BTCX
-	select VIDEO_BUF
-	select VIDEO_IR
-	select VIDEO_TUNER
-	select VIDEO_TVEEPROM
-	---help---
-	  Support for BT848 based frame grabber/overlay boards. This includes
-	  the Miro, Hauppauge and STB boards. Please read the material in
-	  <file:Documentation/video4linux/bttv/> for more information.
-
-	  To compile this driver as a module, choose M here: the
-	  module will be called bttv.
-
-config VIDEO_BT848_DVB
-	bool "DVB/ATSC Support for bt878 based TV cards"
-	depends on VIDEO_BT848 && DVB_CORE
-	select DVB_BT8XX
-	---help---
-	  This adds support for DVB/ATSC cards based on the BT878 chip.
+source "drivers/media/video/bt8xx/Kconfig"
 
 config VIDEO_SAA6588
 	tristate "SAA6588 Radio Chip RDS decoder support on BT848 cards"
@@ -141,6 +118,8 @@ config VIDEO_CPIA_USB
 	  If you have the USB version of one of these cameras, say Y here,
 	  otherwise say N. This will not work with the Creative Webcam III.
 	  It is also available as a module (cpia_usb).
+
+source "drivers/media/video/cpia2/Kconfig"
 
 config VIDEO_SAA5246A
 	tristate "SAA5246A, SAA5281 Teletext processor"
@@ -312,8 +291,6 @@ config VIDEO_HEXIUM_GEMINI
 
 source "drivers/media/video/cx88/Kconfig"
 
-source "drivers/media/video/em28xx/Kconfig"
-
 config VIDEO_OVCAMCHIP
 	tristate "OmniVision Camera Chip support"
 	depends on VIDEO_DEV && I2C
@@ -323,7 +300,7 @@ config VIDEO_OVCAMCHIP
 	  camera drivers.
 
 	  To compile this driver as a module, choose M here: the
-	  module will be called ovcamchip
+	  module will be called ovcamchip.
 
 config VIDEO_M32R_AR
 	tristate "AR devices"
@@ -339,19 +316,181 @@ config VIDEO_M32R_AR_M64278
 	  Say Y here to use the Renesas M64278E-800 camera module,
 	  which supports VGA(640x480 pixcels) size of images.
 
-config VIDEO_AUDIO_DECODER
-	tristate "Add support for additional audio chipsets"
-	depends on VIDEO_DEV && I2C && EXPERIMENTAL
-	---help---
-	  Say Y here to compile drivers for WM8775 and CS53L32A audio
-	  decoders.
+#
+# Encoder / Decoder module configuration
+#
 
-config VIDEO_DECODER
-	tristate "Add support for additional video chipsets"
+menu "Encoders and Decoders"
+	depends on VIDEO_DEV
+
+config VIDEO_MSP3400
+	tristate "Micronas MSP34xx audio decoders"
+	depends on VIDEO_DEV && I2C
+	---help---
+	  Support for the Micronas MSP34xx series of audio decoders.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called msp3400.
+
+config VIDEO_CS53L32A
+	tristate "Cirrus Logic CS53L32A audio ADC"
 	depends on VIDEO_DEV && I2C && EXPERIMENTAL
 	---help---
-	  Say Y here to compile drivers for SAA7115, SAA7127 and CX25840
-	  video decoders.
+	  Support for the Cirrus Logic CS53L32A low voltage
+	  stereo A/D converter.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called cs53l32a.
+
+config VIDEO_WM8775
+	tristate "Wolfson Microelectronics WM8775 audio ADC with input mixer"
+	depends on VIDEO_DEV && I2C && EXPERIMENTAL
+	---help---
+	  Support for the Wolfson Microelectronics WM8775 high
+	  performance stereo A/D Converter with a 4 channel input mixer.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called wm8775.
+
+config VIDEO_WM8739
+	tristate "Wolfson Microelectronics WM8739 stereo audio ADC"
+	depends on VIDEO_DEV && I2C && EXPERIMENTAL
+	---help---
+	  Support for the Wolfson Microelectronics WM8739
+	  stereo A/D Converter.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called wm8739.
+
+source "drivers/media/video/cx25840/Kconfig"
+
+config VIDEO_SAA711X
+	tristate "Philips SAA7113/4/5 video decoders"
+	depends on VIDEO_DEV && I2C && EXPERIMENTAL
+	---help---
+	  Support for the Philips SAA7113/4/5 video decoders.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called saa7115.
+
+config VIDEO_SAA7127
+	tristate "Philips SAA7127/9 digital video encoders"
+	depends on VIDEO_DEV && I2C && EXPERIMENTAL
+	---help---
+	  Support for the Philips SAA7127/9 digital video encoders.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called saa7127.
+
+config VIDEO_UPD64031A
+	tristate "NEC Electronics uPD64031A Ghost Reduction"
+	depends on VIDEO_DEV && I2C && EXPERIMENTAL
+	---help---
+	  Support for the NEC Electronics uPD64031A Ghost Reduction
+	  video chip. It is most often found in NTSC TV cards made for
+	  Japan and is used to reduce the 'ghosting' effect that can
+	  be present in analog TV broadcasts.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called upd64031a.
+
+config VIDEO_UPD64083
+	tristate "NEC Electronics uPD64083 3-Dimensional Y/C separation"
+	depends on VIDEO_DEV && I2C && EXPERIMENTAL
+	---help---
+	  Support for the NEC Electronics uPD64083 3-Dimensional Y/C
+	  separation video chip. It is used to improve the quality of
+	  the colors of a composite signal.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called upd64083.
+
+endmenu # encoder / decoder chips
+
+#
+# USB Multimedia device configuration
+#
+
+menu "V4L USB devices"
+	depends on USB && VIDEO_DEV
+
+source "drivers/media/video/em28xx/Kconfig"
+
+config USB_DSBR
+	tristate "D-Link USB FM radio support (EXPERIMENTAL)"
+	depends on USB && VIDEO_DEV && EXPERIMENTAL
+	---help---
+	  Say Y here if you want to connect this type of radio to your
+	  computer's USB port. Note that the audio is not digital, and
+	  you must connect the line out connector to a sound card or a
+	  set of speakers.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called dsbr100.
+
+source "drivers/media/video/usbvideo/Kconfig"
+
+source "drivers/media/video/et61x251/Kconfig"
+
+config USB_OV511
+	tristate "USB OV511 Camera support"
+	depends on USB && VIDEO_DEV
+	---help---
+	  Say Y here if you want to connect this type of camera to your
+	  computer's USB port. See <file:Documentation/video4linux/ov511.txt>
+	  for more information and for a list of supported cameras.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ov511.
+
+config USB_SE401
+	tristate "USB SE401 Camera support"
+	depends on USB && VIDEO_DEV
+	---help---
+	  Say Y here if you want to connect this type of camera to your
+	  computer's USB port. See <file:Documentation/video4linux/se401.txt>
+	  for more information and for a list of supported cameras.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called se401.
+
+source "drivers/media/video/sn9c102/Kconfig"
+
+config USB_STV680
+	tristate "USB STV680 (Pencam) Camera support"
+	depends on USB && VIDEO_DEV
+	---help---
+	  Say Y here if you want to connect this type of camera to your
+	  computer's USB port. This includes the Pencam line of cameras.
+	  See <file:Documentation/video4linux/stv680.txt> for more information
+	  and for a list of supported cameras.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called stv680.
+
+config USB_W9968CF
+	tristate "USB W996[87]CF JPEG Dual Mode Camera support"
+	depends on USB && VIDEO_DEV && I2C
+	select VIDEO_OVCAMCHIP
+	---help---
+	  Say Y here if you want support for cameras based on OV681 or
+	  Winbond W9967CF/W9968CF JPEG USB Dual Mode Camera Chips.
+
+	  This driver has an optional plugin, which is distributed as a
+	  separate module only (released under GPL). It allows to use higher
+	  resolutions and framerates, but cannot be included in the official
+	  Linux kernel for performance purposes.
+
+	  See <file:Documentation/video4linux/w9968cf.txt> for more info.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called w9968cf.
+
+source "drivers/media/video/zc0301/Kconfig"
+
+source "drivers/media/video/pwc/Kconfig"
+
+endmenu # V4L USB devices
 
 source drivers/media/video/omap/Kconfig
 

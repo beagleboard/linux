@@ -20,6 +20,7 @@
 
 struct getbmap;
 struct xfs_bmbt_irec;
+struct xfs_ifork;
 struct xfs_inode;
 struct xfs_mount;
 struct xfs_trans;
@@ -347,8 +348,20 @@ xfs_bmap_count_blocks(
  */
 int
 xfs_check_nostate_extents(
-	xfs_bmbt_rec_t		*ep,
+	struct xfs_ifork	*ifp,
+	xfs_extnum_t		idx,
 	xfs_extnum_t		num);
+
+/*
+ * Search the extent records for the entry containing block bno.
+ * If bno lies in a hole, point to the next entry.  If bno lies
+ * past eof, *eofp will be set, and *prevp will contain the last
+ * entry (null if none).  Else, *lastxp will be set to the index
+ * of the found entry; *gotp will contain the entry.
+ */
+xfs_bmbt_rec_t *
+xfs_bmap_search_multi_extents(struct xfs_ifork *, xfs_fileoff_t, int *,
+			xfs_extnum_t *, xfs_bmbt_irec_t *, xfs_bmbt_irec_t *);
 
 #endif	/* __KERNEL__ */
 

@@ -389,6 +389,17 @@ void __init build_mem_type_table(void)
 	kern_pgprot = user_pgprot = cp->pte;
 
 	/*
+	 * Enable CPU-specific coherency if supported.
+	 * (Only available on XSC3 at the moment.)
+	 */
+	if (arch_is_coherent()) {
+		if (cpu_is_xsc3()) {
+			mem_types[MT_MEMORY].prot_sect |= PMD_SECT_S;
+			mem_types[MT_MEMORY].prot_pte |= L_PTE_COHERENT;
+		}
+	}
+
+	/*
 	 * ARMv6 and above have extended page tables.
 	 */
 	if (cpu_arch >= CPU_ARCH_ARMv6 && (cr & CR_XP)) {
@@ -557,7 +568,8 @@ void __init create_mapping(struct map_desc *md)
 	 *	supersections are only allocated for domain 0 regardless
 	 *	of the actual domain assignments in use.
 	 */
-	if (cpu_architecture() >= CPU_ARCH_ARMv6 && domain == 0) {
+	if ((cpu_architecture() >= CPU_ARCH_ARMv6 || cpu_is_xsc3())
+		&& domain == 0) {
 		/*
 		 * Align to supersection boundary if !high pages.
 		 * High pages have already been checked for proper

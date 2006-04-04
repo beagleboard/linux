@@ -60,11 +60,11 @@ struct budget_av {
 	struct dvb_ca_en50221 ca;
 };
 
-/* GPIO CI Connections:
- * 0 - Vcc/Reset (Reset is controlled by capacitor)
- * 1 - Attribute Memory
- * 2 - Card Enable (Active Low)
- * 3 - Card Detect
+/* GPIO Connections:
+ * 0 - Vcc/Reset (Reset is controlled by capacitor). Resets the frontend *AS WELL*!
+ * 1 - CI memory select 0=>IO memory, 1=>Attribute Memory
+ * 2 - CI Card Enable (Active Low)
+ * 3 - CI Card Detect
  */
 
 /****************************************************************************
@@ -213,6 +213,9 @@ static int ciintf_slot_reset(struct dvb_ca_en50221 *ca, int slot)
 	 * but AFAICS it is not routed to the saa7146 */
 	while (--timeout > 0 && ciintf_read_attribute_mem(ca, slot, 0) != 0x1d)
 		msleep(100);
+
+	/* reinitialise the frontend */
+	dvb_frontend_reinitialise(budget_av->budget.dvb_frontend);
 
 	if (timeout <= 0)
 	{
@@ -1000,6 +1003,7 @@ static u8 read_pwm(struct budget_av *budget_av)
 
 #define SUBID_DVBS_TV_STAR	0x0014
 #define SUBID_DVBS_TV_STAR_CI	0x0016
+#define SUBID_DVBS_EASYWATCH	0x001e
 #define SUBID_DVBC_KNC1		0x0020
 #define SUBID_DVBC_KNC1_PLUS	0x0021
 #define SUBID_DVBC_CINERGY1200	0x1156
@@ -1038,6 +1042,7 @@ static void frontend_init(struct budget_av *budget_av)
 	case SUBID_DVBS_TV_STAR:
 	case SUBID_DVBS_TV_STAR_CI:
 	case SUBID_DVBS_CYNERGY1200N:
+	case SUBID_DVBS_EASYWATCH:
 		fe = stv0299_attach(&philips_sd1878_config,
 				&budget_av->budget.i2c_adap);
 		break;
@@ -1285,6 +1290,7 @@ MAKE_BUDGET_INFO(knc1s, "KNC1 DVB-S", BUDGET_KNC1S);
 MAKE_BUDGET_INFO(knc1c, "KNC1 DVB-C", BUDGET_KNC1C);
 MAKE_BUDGET_INFO(knc1t, "KNC1 DVB-T", BUDGET_KNC1T);
 MAKE_BUDGET_INFO(kncxs, "KNC TV STAR DVB-S", BUDGET_TVSTAR);
+MAKE_BUDGET_INFO(satewpls, "Satelco EasyWatch DVB-S light", BUDGET_TVSTAR);
 MAKE_BUDGET_INFO(knc1sp, "KNC1 DVB-S Plus", BUDGET_KNC1SP);
 MAKE_BUDGET_INFO(knc1cp, "KNC1 DVB-C Plus", BUDGET_KNC1CP);
 MAKE_BUDGET_INFO(knc1tp, "KNC1 DVB-T Plus", BUDGET_KNC1TP);
@@ -1300,6 +1306,7 @@ static struct pci_device_id pci_tbl[] = {
 	MAKE_EXTENSION_PCI(knc1sp, 0x1131, 0x0011),
 	MAKE_EXTENSION_PCI(kncxs, 0x1894, 0x0014),
 	MAKE_EXTENSION_PCI(kncxs, 0x1894, 0x0016),
+	MAKE_EXTENSION_PCI(satewpls, 0x1894, 0x001e),
 	MAKE_EXTENSION_PCI(knc1c, 0x1894, 0x0020),
 	MAKE_EXTENSION_PCI(knc1cp, 0x1894, 0x0021),
 	MAKE_EXTENSION_PCI(knc1t, 0x1894, 0x0030),

@@ -116,6 +116,7 @@
 #include <linux/timer.h>
 #include <linux/if_vlan.h>
 #include <linux/rtnetlink.h>
+#include <linux/jiffies.h>
 
 #include <asm/io.h>
 #include <asm/uaccess.h>
@@ -567,8 +568,7 @@ static inline int ns83820_add_rx_skb(struct ns83820 *dev, struct sk_buff *skb)
 #endif
 
 	sg = dev->rx_info.descs + (next_empty * DESC_SIZE);
-	if (unlikely(NULL != dev->rx_info.skbs[next_empty]))
-		BUG();
+	BUG_ON(NULL != dev->rx_info.skbs[next_empty]);
 	dev->rx_info.skbs[next_empty] = skb;
 
 	dev->rx_info.next_empty = (next_empty + 1) % NR_RX_DESC;
@@ -651,7 +651,7 @@ static void FASTCALL(phy_intr(struct net_device *ndev));
 static void fastcall phy_intr(struct net_device *ndev)
 {
 	struct ns83820 *dev = PRIV(ndev);
-	static char *speeds[] = { "10", "100", "1000", "1000(?)", "1000F" };
+	static const char *speeds[] = { "10", "100", "1000", "1000(?)", "1000F" };
 	u32 cfg, new_cfg;
 	u32 tbisr, tanar, tanlpar;
 	int speed, fullduplex, newlinkstate;
@@ -1607,7 +1607,7 @@ static void ns83820_run_bist(struct net_device *ndev, const char *name, u32 enab
 {
 	struct ns83820 *dev = PRIV(ndev);
 	int timed_out = 0;
-	long start;
+	unsigned long start;
 	u32 status;
 	int loops = 0;
 
@@ -1625,7 +1625,7 @@ static void ns83820_run_bist(struct net_device *ndev, const char *name, u32 enab
 			break;
 		if (status & fail)
 			break;
-		if ((jiffies - start) >= HZ) {
+		if (time_after_eq(jiffies, start + HZ)) {
 			timed_out = 1;
 			break;
 		}
@@ -1827,10 +1827,10 @@ static int __devinit ns83820_init_one(struct pci_dev *pci_dev, const struct pci_
 	int using_dac = 0;
 
 	/* See if we can set the dma mask early on; failure is fatal. */
-	if (sizeof(dma_addr_t) == 8 && 
-	 	!pci_set_dma_mask(pci_dev, 0xffffffffffffffffULL)) {
+	if (sizeof(dma_addr_t) == 8 &&
+	 	!pci_set_dma_mask(pci_dev, DMA_64BIT_MASK)) {
 		using_dac = 1;
-	} else if (!pci_set_dma_mask(pci_dev, 0xffffffff)) {
+	} else if (!pci_set_dma_mask(pci_dev, DMA_32BIT_MASK)) {
 		using_dac = 0;
 	} else {
 		printk(KERN_WARNING "ns83820.c: pci_set_dma_mask failed!\n");

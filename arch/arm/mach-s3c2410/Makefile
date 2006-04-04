@@ -38,6 +38,7 @@ obj-$(CONFIG_BAST_PC104_IRQ)	+= bast-irq.o
 # machine specific support
 
 obj-$(CONFIG_MACH_ANUBIS)	+= mach-anubis.o
+obj-$(CONFIG_MACH_OSIRIS)	+= mach-osiris.o
 obj-$(CONFIG_ARCH_BAST)		+= mach-bast.o usb-simtec.o
 obj-$(CONFIG_ARCH_H1940)	+= mach-h1940.o
 obj-$(CONFIG_MACH_N30)		+= mach-n30.o
@@ -47,3 +48,5 @@ obj-$(CONFIG_MACH_VR1000)	+= mach-vr1000.o usb-simtec.o
 obj-$(CONFIG_MACH_RX3715)	+= mach-rx3715.o
 obj-$(CONFIG_MACH_OTOM)		+= mach-otom.o
 obj-$(CONFIG_MACH_NEXCODER_2440) += mach-nexcoder.o
+
+obj-$(CONFIG_MACH_SMDK)		+= common-smdk.o

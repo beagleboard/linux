@@ -21,7 +21,6 @@
 
 #include <media/tuner.h>
 #include <media/v4l2-common.h>
-#include <media/audiochip.h>
 
 #define UNSET (-1U)
 
@@ -173,7 +172,6 @@ static void set_type(struct i2c_client *c, unsigned int type,
 	}
 
 	t->type = type;
-
 	switch (t->type) {
 	case TUNER_MT2032:
 		microtune_init(c);
@@ -403,16 +401,17 @@ static void tuner_status(struct i2c_client *client)
 	}
 	tuner_info("Tuner mode:      %s\n", p);
 	tuner_info("Frequency:       %lu.%02lu MHz\n", freq, freq_fraction);
-	tuner_info("Standard:        0x%08llx\n", t->std);
-	if (t->mode == V4L2_TUNER_RADIO) {
-		if (t->has_signal) {
-			tuner_info("Signal strength: %d\n", t->has_signal(client));
-		}
-		if (t->is_stereo) {
-			tuner_info("Stereo:          %s\n", t->is_stereo(client) ? "yes" : "no");
-		}
+	tuner_info("Standard:        0x%08lx\n", (unsigned long)t->std);
+	if (t->mode != V4L2_TUNER_RADIO)
+	       return;
+	if (t->has_signal) {
+		tuner_info("Signal strength: %d\n", t->has_signal(client));
+	}
+	if (t->is_stereo) {
+		tuner_info("Stereo:          %s\n", t->is_stereo(client) ? "yes" : "no");
 	}
 }
+
 /* ---------------------------------------------------------------------- */
 
 /* static var Used only in tuner_attach and tuner_probe */
@@ -559,10 +558,10 @@ static inline int set_mode(struct i2c_client *client, struct tuner *t, int mode,
 
 static inline int check_v4l2(struct tuner *t)
 {
-	if (t->using_v4l2) {
-		tuner_dbg ("ignore v4l1 call\n");
-		return EINVAL;
-	}
+	/* bttv still uses both v4l1 and v4l2 calls to the tuner (v4l2 for
+	   TV, v4l1 for radio), until that is fixed this code is disabled.
+	   Otherwise the radio (v4l1) wouldn't tune after using the TV (v4l2)
+	   first. */
 	return 0;
 }
 
@@ -744,33 +743,31 @@ static int tuner_command(struct i2c_client *client, unsigned int cmd, void *arg)
 				return 0;
 			switch_v4l2();
 
-			if (V4L2_TUNER_RADIO == t->mode) {
-
-				if (t->has_signal)
-					tuner->signal = t->has_signal(client);
-
-				if (t->is_stereo) {
-					if (t->is_stereo(client)) {
-						tuner->rxsubchans =
-						    V4L2_TUNER_SUB_STEREO |
-						    V4L2_TUNER_SUB_MONO;
-					} else {
-						tuner->rxsubchans =
-						    V4L2_TUNER_SUB_MONO;
-					}
-				}
-
-				tuner->capability |=
-				    V4L2_TUNER_CAP_LOW | V4L2_TUNER_CAP_STEREO;
-
-				tuner->audmode = t->audmode;
-
-				tuner->rangelow = radio_range[0] * 16000;
-				tuner->rangehigh = radio_range[1] * 16000;
-			} else {
+			tuner->type = t->mode;
+			if (t->mode == V4L2_TUNER_ANALOG_TV)
+				tuner->capability |= V4L2_TUNER_CAP_NORM;
+			if (t->mode != V4L2_TUNER_RADIO) {
 				tuner->rangelow = tv_range[0] * 16;
 				tuner->rangehigh = tv_range[1] * 16;
+				break;
 			}
+
+			/* radio mode */
+			if (t->has_signal)
+				tuner->signal = t->has_signal(client);
+
+			tuner->rxsubchans =
+				V4L2_TUNER_SUB_MONO | V4L2_TUNER_SUB_STEREO;
+			if (t->is_stereo) {
+				tuner->rxsubchans = t->is_stereo(client) ?
+					V4L2_TUNER_SUB_STEREO : V4L2_TUNER_SUB_MONO;
+			}
+
+			tuner->capability |=
+			    V4L2_TUNER_CAP_LOW | V4L2_TUNER_CAP_STEREO;
+			tuner->audmode = t->audmode;
+			tuner->rangelow = radio_range[0] * 16000;
+			tuner->rangehigh = radio_range[1] * 16000;
 			break;
 		}
 	case VIDIOC_S_TUNER:
@@ -782,10 +779,11 @@ static int tuner_command(struct i2c_client *client, unsigned int cmd, void *arg)
 
 			switch_v4l2();
 
-			if (V4L2_TUNER_RADIO == t->mode) {
-				t->audmode = tuner->audmode;
-				set_radio_freq(client, t->radio_freq);
-			}
+			/* do nothing unless we're a radio tuner */
+			if (t->mode != V4L2_TUNER_RADIO)
+				break;
+			t->audmode = tuner->audmode;
+			set_radio_freq(client, t->radio_freq);
 			break;
 		}
 	case VIDIOC_LOG_STATUS:

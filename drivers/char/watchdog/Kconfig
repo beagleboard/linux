@@ -60,6 +60,13 @@ config SOFT_WATCHDOG
 
 # ARM Architecture
 
+config AT91_WATCHDOG
+	tristate "AT91RM9200 watchdog"
+	depends on WATCHDOG && ARCH_AT91RM9200
+	help
+	  Watchdog timer embedded into AT91RM9200 chips. This will reboot your
+	  system when the timeout is reached.
+
 config 21285_WATCHDOG
 	tristate "DC21285 watchdog"
 	depends on WATCHDOG && FOOTBRIDGE
@@ -147,6 +154,16 @@ config MPCORE_WATCHDOG
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called mpcore_wdt.
+
+config EP93XX_WATCHDOG
+	tristate "EP93xx Watchdog"
+	depends on WATCHDOG && ARCH_EP93XX
+	help
+	  Say Y here if to include support for the watchdog timer
+	  embedded in the Cirrus Logic EP93xx family of devices.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ep93xx_wdt.
 
 # X86 (i386 + ia64 + x86_64) Architecture
 

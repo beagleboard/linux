@@ -26,8 +26,8 @@
 #include <net/xfrm.h>
 #include <net/ip.h>
 
-DECLARE_MUTEX(xfrm_cfg_sem);
-EXPORT_SYMBOL(xfrm_cfg_sem);
+DEFINE_MUTEX(xfrm_cfg_mutex);
+EXPORT_SYMBOL(xfrm_cfg_mutex);
 
 static DEFINE_RWLOCK(xfrm_policy_lock);
 
@@ -203,7 +203,7 @@ static void xfrm_policy_timer(unsigned long data)
 	}
 
 	if (warn)
-		km_policy_expired(xp, dir, 0);
+		km_policy_expired(xp, dir, 0, 0);
 	if (next != LONG_MAX &&
 	    !mod_timer(&xp->timer, jiffies + make_jiffies(next)))
 		xfrm_pol_hold(xp);
@@ -216,7 +216,7 @@ out:
 expired:
 	read_unlock(&xp->lock);
 	if (!xfrm_policy_delete(xp, dir))
-		km_policy_expired(xp, dir, 1);
+		km_policy_expired(xp, dir, 1, 0);
 	xfrm_pol_put(xp);
 }
 
@@ -621,6 +621,7 @@ int xfrm_policy_delete(struct xfrm_policy *pol, int dir)
 	}
 	return -ENOENT;
 }
+EXPORT_SYMBOL(xfrm_policy_delete);
 
 int xfrm_sk_policy_insert(struct sock *sk, int dir, struct xfrm_policy *pol)
 {
@@ -942,9 +943,9 @@ xfrm_policy_ok(struct xfrm_tmpl *tmpl, struct sec_path *sp, int start,
 	} else
 		start = -1;
 	for (; idx < sp->len; idx++) {
-		if (xfrm_state_ok(tmpl, sp->x[idx].xvec, family))
+		if (xfrm_state_ok(tmpl, sp->xvec[idx], family))
 			return ++idx;
-		if (sp->x[idx].xvec->props.mode)
+		if (sp->xvec[idx]->props.mode)
 			break;
 	}
 	return start;
@@ -967,7 +968,7 @@ EXPORT_SYMBOL(xfrm_decode_session);
 static inline int secpath_has_tunnel(struct sec_path *sp, int k)
 {
 	for (; k < sp->len; k++) {
-		if (sp->x[k].xvec->props.mode)
+		if (sp->xvec[k]->props.mode)
 			return 1;
 	}
 
@@ -993,8 +994,8 @@ int __xfrm_policy_check(struct sock *sk, int dir, struct sk_buff *skb,
 		int i;
 
 		for (i=skb->sp->len-1; i>=0; i--) {
-			struct sec_decap_state *xvec = &(skb->sp->x[i]);
-			if (!xfrm_selector_match(&xvec->xvec->sel, &fl, family))
+			struct xfrm_state *x = skb->sp->xvec[i];
+			if (!xfrm_selector_match(&x->sel, &fl, family))
 				return 0;
 		}
 	}

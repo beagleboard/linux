@@ -116,8 +116,14 @@ typedef enum {
 /*
  * Vnode to Linux inode mapping.
  */
-#define LINVFS_GET_VP(inode)	((vnode_t *)list_entry(inode, vnode_t, v_inode))
-#define LINVFS_GET_IP(vp)	(&(vp)->v_inode)
+static inline struct vnode *vn_from_inode(struct inode *inode)
+{
+	return (vnode_t *)list_entry(inode, vnode_t, v_inode);
+}
+static inline struct inode *vn_to_inode(struct vnode *vnode)
+{
+	return &vnode->v_inode;
+}
 
 /*
  * Vnode flags.
@@ -167,6 +173,12 @@ typedef ssize_t (*vop_write_t)(bhv_desc_t *, struct kiocb *,
 typedef ssize_t (*vop_sendfile_t)(bhv_desc_t *, struct file *,
 				loff_t *, int, size_t, read_actor_t,
 				void *, struct cred *);
+typedef ssize_t (*vop_splice_read_t)(bhv_desc_t *, struct file *,
+				struct inode *, size_t, int, int,
+				struct cred *);
+typedef ssize_t (*vop_splice_write_t)(bhv_desc_t *, struct inode *,
+				struct file *, size_t, int, int,
+				struct cred *);
 typedef int	(*vop_ioctl_t)(bhv_desc_t *, struct inode *, struct file *,
 				int, unsigned int, void __user *);
 typedef int	(*vop_getattr_t)(bhv_desc_t *, struct vattr *, int,
@@ -225,6 +237,8 @@ typedef struct vnodeops {
 	vop_read_t		vop_read;
 	vop_write_t		vop_write;
 	vop_sendfile_t		vop_sendfile;
+	vop_splice_read_t	vop_splice_read;
+	vop_splice_write_t	vop_splice_write;
 	vop_ioctl_t		vop_ioctl;
 	vop_getattr_t		vop_getattr;
 	vop_setattr_t		vop_setattr;
@@ -270,6 +284,10 @@ typedef struct vnodeops {
 	rv = _VOP_(vop_write, vp)((vp)->v_fbhv,file,iov,segs,offset,ioflags,cr)
 #define VOP_SENDFILE(vp,f,off,ioflags,cnt,act,targ,cr,rv)		\
 	rv = _VOP_(vop_sendfile, vp)((vp)->v_fbhv,f,off,ioflags,cnt,act,targ,cr)
+#define VOP_SPLICE_READ(vp,f,pipe,cnt,fl,iofl,cr,rv)			\
+	rv = _VOP_(vop_splice_read, vp)((vp)->v_fbhv,f,pipe,cnt,fl,iofl,cr)
+#define VOP_SPLICE_WRITE(vp,f,pipe,cnt,fl,iofl,cr,rv)			\
+	rv = _VOP_(vop_splice_write, vp)((vp)->v_fbhv,f,pipe,cnt,fl,iofl,cr)
 #define VOP_BMAP(vp,of,sz,rw,b,n,rv)					\
 	rv = _VOP_(vop_bmap, vp)((vp)->v_fbhv,of,sz,rw,b,n)
 #define VOP_OPEN(vp, cr, rv)						\
@@ -490,6 +508,7 @@ typedef struct vnode_map {
 			 (vmap).v_ino	 = (vp)->v_inode.i_ino; }
 
 extern int	vn_revalidate(struct vnode *);
+extern int	__vn_revalidate(struct vnode *, vattr_t *);
 extern void	vn_revalidate_core(struct vnode *, vattr_t *);
 
 extern void	vn_iowait(struct vnode *vp);
@@ -497,7 +516,7 @@ extern void	vn_iowake(struct vnode *vp);
 
 static inline int vn_count(struct vnode *vp)
 {
-	return atomic_read(&LINVFS_GET_IP(vp)->i_count);
+	return atomic_read(&vn_to_inode(vp)->i_count);
 }
 
 /*
@@ -511,16 +530,16 @@ extern vnode_t	*vn_hold(struct vnode *);
 	  vn_trace_hold(vp, __FILE__, __LINE__, (inst_t *)__return_address))
 #define VN_RELE(vp)		\
 	  (vn_trace_rele(vp, __FILE__, __LINE__, (inst_t *)__return_address), \
-	   iput(LINVFS_GET_IP(vp)))
+	   iput(vn_to_inode(vp)))
 #else
 #define VN_HOLD(vp)		((void)vn_hold(vp))
-#define VN_RELE(vp)		(iput(LINVFS_GET_IP(vp)))
+#define VN_RELE(vp)		(iput(vn_to_inode(vp)))
 #endif
 
 static inline struct vnode *vn_grab(struct vnode *vp)
 {
-	struct inode *inode = igrab(LINVFS_GET_IP(vp));
-	return inode ? LINVFS_GET_VP(inode) : NULL;
+	struct inode *inode = igrab(vn_to_inode(vp));
+	return inode ? vn_from_inode(inode) : NULL;
 }
 
 /*
@@ -528,7 +547,7 @@ static inline struct vnode *vn_grab(struct vnode *vp)
  */
 #define VNAME(dentry)		((char *) (dentry)->d_name.name)
 #define VNAMELEN(dentry)	((dentry)->d_name.len)
-#define VNAME_TO_VNODE(dentry)	(LINVFS_GET_VP((dentry)->d_inode))
+#define VNAME_TO_VNODE(dentry)	(vn_from_inode((dentry)->d_inode))
 
 /*
  * Vnode spinlock manipulation.
@@ -557,12 +576,12 @@ static __inline__ void vn_flagclr(struct vnode *vp, uint flag)
  */
 static inline void vn_mark_bad(struct vnode *vp)
 {
-	make_bad_inode(LINVFS_GET_IP(vp));
+	make_bad_inode(vn_to_inode(vp));
 }
 
 static inline int VN_BAD(struct vnode *vp)
 {
-	return is_bad_inode(LINVFS_GET_IP(vp));
+	return is_bad_inode(vn_to_inode(vp));
 }
 
 /*
@@ -587,9 +606,9 @@ static inline void vn_atime_to_time_t(struct vnode *vp, time_t *tt)
 /*
  * Some useful predicates.
  */
-#define VN_MAPPED(vp)	mapping_mapped(LINVFS_GET_IP(vp)->i_mapping)
-#define VN_CACHED(vp)	(LINVFS_GET_IP(vp)->i_mapping->nrpages)
-#define VN_DIRTY(vp)	mapping_tagged(LINVFS_GET_IP(vp)->i_mapping, \
+#define VN_MAPPED(vp)	mapping_mapped(vn_to_inode(vp)->i_mapping)
+#define VN_CACHED(vp)	(vn_to_inode(vp)->i_mapping->nrpages)
+#define VN_DIRTY(vp)	mapping_tagged(vn_to_inode(vp)->i_mapping, \
 					PAGECACHE_TAG_DIRTY)
 #define VMODIFY(vp)	VN_FLAGSET(vp, VMODIFIED)
 #define VUNMODIFY(vp)	VN_FLAGCLR(vp, VMODIFIED)

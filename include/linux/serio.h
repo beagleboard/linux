@@ -18,6 +18,7 @@
 #include <linux/interrupt.h>
 #include <linux/list.h>
 #include <linux/spinlock.h>
+#include <linux/mutex.h>
 #include <linux/device.h>
 #include <linux/mod_devicetable.h>
 
@@ -42,7 +43,7 @@ struct serio {
 	struct serio *parent, *child;
 
 	struct serio_driver *drv;	/* accessed from interrupt, must be protected by serio->lock and serio->sem */
-	struct semaphore drv_sem;	/* protects serio->drv so attributes can pin driver */
+	struct mutex drv_mutex;		/* protects serio->drv so attributes can pin driver */
 
 	struct device dev;
 	unsigned int registered;	/* port has been fully registered with driver core */
@@ -119,7 +120,7 @@ static inline void serio_cleanup(struct serio *serio)
 }
 
 /*
- * Use the following fucntions to manipulate serio's per-port
+ * Use the following functions to manipulate serio's per-port
  * driver-specific data.
  */
 static inline void *serio_get_drvdata(struct serio *serio)
@@ -133,7 +134,7 @@ static inline void serio_set_drvdata(struct serio *serio, void *data)
 }
 
 /*
- * Use the following fucntions to protect critical sections in
+ * Use the following functions to protect critical sections in
  * driver code from port's interrupt handler
  */
 static inline void serio_pause_rx(struct serio *serio)
@@ -147,21 +148,21 @@ static inline void serio_continue_rx(struct serio *serio)
 }
 
 /*
- * Use the following fucntions to pin serio's driver in process context
+ * Use the following functions to pin serio's driver in process context
  */
 static inline int serio_pin_driver(struct serio *serio)
 {
-	return down_interruptible(&serio->drv_sem);
+	return mutex_lock_interruptible(&serio->drv_mutex);
 }
 
 static inline void serio_pin_driver_uninterruptible(struct serio *serio)
 {
-	down(&serio->drv_sem);
+	mutex_lock(&serio->drv_mutex);
 }
 
 static inline void serio_unpin_driver(struct serio *serio)
 {
-	up(&serio->drv_sem);
+	mutex_unlock(&serio->drv_mutex);
 }
 
 
