@@ -153,7 +153,7 @@ static struct platform_device osk5912_cf_device = {
 
 #define DEFAULT_BITPERSAMPLE 16
 
-static struct omap_mcbsp_reg_cfg mcbsp_regs = { 
+static struct omap_mcbsp_reg_cfg mcbsp_regs = {
 	.spcr2 = FREE | FRST | GRST | XRST | XINTM(3),
 	.spcr1 = RINTM(3) | RRST,
 	.rcr2 = RPHASE | RFRLEN2(OMAP_MCBSP_WORD_8) |
@@ -176,7 +176,7 @@ static struct omap_alsa_codec_config alsa_config = {
 	.codec_clock_setup	= NULL, // aic23_clock_setup,
 	.codec_clock_on		= NULL, // aic23_clock_on,
 	.codec_clock_off	= NULL, // aic23_clock_off,
-	.get_default_samplerate	= NULL, // aic23_get_default_samplerate,	
+	.get_default_samplerate	= NULL, // aic23_get_default_samplerate,
 };
 
 static struct platform_device osk5912_mcbsp1_device = {

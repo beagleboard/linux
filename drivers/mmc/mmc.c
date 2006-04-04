@@ -700,7 +700,6 @@ static void mmc_power_up(struct mmc_host *host)
 	int bit = fls(host->ocr_avail) - 1;
 
 	host->ios.vdd = bit;
-	host->ios.clock = host->f_min;
 	host->ios.bus_mode = MMC_BUSMODE_OPENDRAIN;
 	host->ios.chip_select = MMC_CS_DONTCARE;
 	host->ios.power_mode = MMC_POWER_UP;
@@ -709,6 +708,7 @@ static void mmc_power_up(struct mmc_host *host)
 
 	mmc_delay(1);
 
+	host->ios.clock = host->f_min;
 	host->ios.power_mode = MMC_POWER_ON;
 	host->ops->set_ios(host, &host->ios);
 
@@ -742,7 +742,7 @@ static int mmc_send_op_cond(struct mmc_host *host, u32 ocr, u32 *rocr)
 
 		if (cmd.resp[0] & MMC_CARD_BUSY || ocr == 0)
 			break;
-		mmc_delay(1);
+
 		err = MMC_ERR_TIMEOUT;
 
 		mmc_delay(10);
@@ -1083,14 +1083,6 @@ static void mmc_setup(struct mmc_host *host)
 	 */
 	host->ios.bus_mode = MMC_BUSMODE_PUSHPULL;
 	host->ops->set_ios(host, &host->ios);
-
-	/*
-	 * Some already detectd cards get confused in the card identification
-	 * mode and futher commands can fail.  Doing an extra status inquiry
-	 * after the identification mode seems to get cards back to their
-	 * senses.
-	 */
-	mmc_check_cards(host);
 
 	mmc_read_csds(host);
 

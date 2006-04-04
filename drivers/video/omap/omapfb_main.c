@@ -687,7 +687,7 @@ static int omapfb_set_color_key(struct omapfb_device *fbdev,
 	return r;
 }
 
-static struct notifier_block *omapfb_client_list;
+static BLOCKING_NOTIFIER_HEAD(omapfb_notifier_list);
 
 int omapfb_register_client(struct omapfb_notifier_block *omapfb_nb,
 			    omapfb_notifier_callback_t callback,
@@ -700,7 +700,7 @@ int omapfb_register_client(struct omapfb_notifier_block *omapfb_nb,
 	omapfb_nb->nb.notifier_call = (int (*)(struct notifier_block *,
 					unsigned long, void *))callback;
 	omapfb_nb->data = callback_data;
-	r = notifier_chain_register(&omapfb_client_list, &omapfb_nb->nb);
+	r = blocking_notifier_chain_register(&omapfb_notifier_list, &omapfb_nb->nb);
 	if (r)
 		return r;
 	if (omapfb_dev != NULL &&
@@ -714,15 +714,15 @@ EXPORT_SYMBOL(omapfb_register_client);
 
 int omapfb_unregister_client(struct omapfb_notifier_block *omapfb_nb)
 {
-	return notifier_chain_unregister(&omapfb_client_list,
-					 &omapfb_nb->nb);
+	return blocking_notifier_chain_unregister(&omapfb_notifier_list,
+						&omapfb_nb->nb);
 }
 EXPORT_SYMBOL(omapfb_unregister_client);
 
 void omapfb_notify_clients(struct omapfb_device *fbdev, unsigned long event)
 {
 	DBGENTER(1);
-	notifier_call_chain(&omapfb_client_list, event, fbdev);
+	blocking_notifier_call_chain(&omapfb_notifier_list, event, fbdev);
 }
 EXPORT_SYMBOL(omapfb_notify_clients);
 
