@@ -29,23 +29,6 @@ config MMC_BLOCK
 	  mount the filesystem. Almost everyone wishing MMC support
 	  should say Y or M here.
 
-config MMC_BLOCK_BROKEN_RFD
-	boolean "Write work-around for incompatible cards"
-	depends on MMC_BLOCK
-	default n
-	help
-	  Say y here if your MMC card fails write operations. Some cards
-	  lie about being ready to receive data while they actually are not.
-
-config MMC_BULKTRANSFER
-	bool "Multi-block writes (EXPERIMENTAL)"
-	depends on MMC_BLOCK != n && EXPERIMENTAL
-	default n
-	help
-	  By default all writes are done one sector at a time. Enable
-	  this option to transfer as large blocks as the host supports.
-	  The transfer speed is in most cases doubled.
-
 config MMC_ARMMMCI
 	tristate "ARM AMBA Multimedia Card Interface support"
 	depends on ARM_AMBA && MMC
@@ -63,6 +46,17 @@ config MMC_PXA
 	  This selects the Intel(R) PXA(R) Multimedia card Interface.
 	  If you have a PXA(R) platform with a Multimedia Card slot,
 	  say Y or M here.
+
+	  If unsure, say N.
+
+config MMC_SDHCI
+	tristate "Secure Digital Host Controller Interface support  (EXPERIMENTAL)"
+	depends on PCI && MMC && EXPERIMENTAL
+	help
+	  This select the generic Secure Digital Host Controller Interface.
+	  It is used by manufacturers such as Texas Instruments(R), Ricoh(R)
+	  and Toshiba(R). Most controllers found in laptops are of this type.
+	  If you have a controller with this interface, say Y or M here.
 
 	  If unsure, say N.
 
@@ -94,6 +88,24 @@ config MMC_AU1X
 	help
 	  This selects the AMD Alchemy(R) Multimedia card interface.
 	  If you have a Alchemy platform with a MMC slot, say Y or M here.
+
+	  If unsure, say N.
+
+config MMC_AT91RM9200
+	tristate "AT91RM9200 SD/MMC Card Interface support"
+	depends on ARCH_AT91RM9200 && MMC
+	help
+	  This selects the AT91RM9200 MCI controller.
+
+	  If unsure, say N.
+
+config MMC_IMX
+	tristate "Motorola i.MX Multimedia Card Interface support"
+	depends on ARCH_IMX && MMC
+	help
+	  This selects the Motorola i.MX Multimedia card Interface.
+	  If you have a i.MX platform with a Multimedia Card slot,
+	  say Y or M here.
 
 	  If unsure, say N.
 
