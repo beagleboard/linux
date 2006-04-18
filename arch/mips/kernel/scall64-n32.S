@@ -195,7 +195,7 @@ EXPORT(sysn32_call_table)
 	PTR	sys_fdatasync
 	PTR	sys_truncate
 	PTR	sys_ftruncate			/* 6075 */
-	PTR	sys32_getdents
+	PTR	compat_sys_getdents
 	PTR	sys_getcwd
 	PTR	sys_chdir
 	PTR	sys_fchdir
@@ -273,7 +273,7 @@ EXPORT(sysn32_call_table)
 	PTR	sys_pivot_root
 	PTR	sys32_sysctl
 	PTR	sys_prctl
-	PTR	sys32_adjtimex
+	PTR	compat_sys_adjtimex
 	PTR	compat_sys_setrlimit		/* 6155 */
 	PTR	sys_chroot
 	PTR	sys_sync

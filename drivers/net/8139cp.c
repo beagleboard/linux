@@ -539,8 +539,7 @@ rx_status_loop:
 		unsigned buflen;
 
 		skb = cp->rx_skb[rx_tail].skb;
-		if (!skb)
-			BUG();
+		BUG_ON(!skb);
 
 		desc = &cp->rx_ring[rx_tail];
 		status = le32_to_cpu(desc->opts1);
@@ -723,8 +722,7 @@ static void cp_tx (struct cp_private *cp)
 			break;
 
 		skb = cp->tx_skb[tx_tail].skb;
-		if (!skb)
-			BUG();
+		BUG_ON(!skb);
 
 		pci_unmap_single(cp->pdev, cp->tx_skb[tx_tail].mapping,
 				 cp->tx_skb[tx_tail].len, PCI_DMA_TODEVICE);
@@ -1118,13 +1116,18 @@ err_out:
 	return -ENOMEM;
 }
 
+static void cp_init_rings_index (struct cp_private *cp)
+{
+	cp->rx_tail = 0;
+	cp->tx_head = cp->tx_tail = 0;
+}
+
 static int cp_init_rings (struct cp_private *cp)
 {
 	memset(cp->tx_ring, 0, sizeof(struct cp_desc) * CP_TX_RING_SIZE);
 	cp->tx_ring[CP_TX_RING_SIZE - 1].opts1 = cpu_to_le32(RingEnd);
 
-	cp->rx_tail = 0;
-	cp->tx_head = cp->tx_tail = 0;
+	cp_init_rings_index(cp);
 
 	return cp_refill_rx (cp);
 }
@@ -1271,7 +1274,7 @@ static int cp_change_mtu(struct net_device *dev, int new_mtu)
 }
 #endif /* BROKEN */
 
-static char mii_2_8139_map[8] = {
+static const char mii_2_8139_map[8] = {
 	BasicModeCtrl,
 	BasicModeStatus,
 	0,
@@ -1545,8 +1548,7 @@ static void cp_get_ethtool_stats (struct net_device *dev,
 	tmp_stats[i++] = le16_to_cpu(nic_stats->tx_abort);
 	tmp_stats[i++] = le16_to_cpu(nic_stats->tx_underrun);
 	tmp_stats[i++] = cp->cp_stats.rx_frags;
-	if (i != CP_NUM_STATS)
-		BUG();
+	BUG_ON(i != CP_NUM_STATS);
 
 	pci_free_consistent(cp->pdev, sizeof(*nic_stats), nic_stats, dma);
 }
@@ -1851,8 +1853,7 @@ static void cp_remove_one (struct pci_dev *pdev)
 	struct net_device *dev = pci_get_drvdata(pdev);
 	struct cp_private *cp = netdev_priv(dev);
 
-	if (!dev)
-		BUG();
+	BUG_ON(!dev);
 	unregister_netdev(dev);
 	iounmap(cp->regs);
 	if (cp->wol_enabled) pci_set_power_state (pdev, PCI_D0);
@@ -1886,30 +1887,30 @@ static int cp_suspend (struct pci_dev *pdev, pm_message_t state)
 
 	spin_unlock_irqrestore (&cp->lock, flags);
 
-	if (cp->pdev && cp->wol_enabled) {
-		pci_save_state (cp->pdev);
-		cp_set_d3_state (cp);
-	}
+	pci_save_state(pdev);
+	pci_enable_wake(pdev, pci_choose_state(pdev, state), cp->wol_enabled);
+	pci_set_power_state(pdev, pci_choose_state(pdev, state));
 
 	return 0;
 }
 
 static int cp_resume (struct pci_dev *pdev)
 {
-	struct net_device *dev;
-	struct cp_private *cp;
+	struct net_device *dev = pci_get_drvdata (pdev);
+	struct cp_private *cp = netdev_priv(dev);
 	unsigned long flags;
 
-	dev = pci_get_drvdata (pdev);
-	cp  = netdev_priv(dev);
+	if (!netif_running(dev))
+		return 0;
 
 	netif_device_attach (dev);
-	
-	if (cp->pdev && cp->wol_enabled) {
-		pci_set_power_state (cp->pdev, PCI_D0);
-		pci_restore_state (cp->pdev);
-	}
-	
+
+	pci_set_power_state(pdev, PCI_D0);
+	pci_restore_state(pdev);
+	pci_enable_wake(pdev, PCI_D0, 0);
+
+	/* FIXME: sh*t may happen if the Rx ring buffer is depleted */
+	cp_init_rings_index (cp);
 	cp_init_hw (cp);
 	netif_start_queue (dev);
 

@@ -330,13 +330,10 @@ typedef struct _kdb_report_t {
 
 
 static u8 buffer[JUNO_BUFFER_SIZE];
-static u8 block[JUNO_BLOCK_SIZE];
 
 static void do_hid_tasklet(unsigned long);
 DECLARE_TASKLET(hid_tasklet, do_hid_tasklet, 0);
 static struct innovator_hid_dev *hid;
-static spinlock_t innovator_fpga_hid_lock = SPIN_LOCK_UNLOCKED;
-static atomic_t innovator_fpga_hid_busy = ATOMIC_INIT(0);
 
 struct innovator_hid_dev {
 	struct input_dev mouse, keyboard;
@@ -376,12 +373,6 @@ static void
 innovator_fpga_hid_set_bits(u8 x)
 {
 	innovator_fpga_hid_frob(x, x);
-}
-
-static void
-innovator_fpga_hid_clear_bits(u8 x)
-{
-	innovator_fpga_hid_frob(x, 0);
 }
 
 static void
@@ -696,13 +687,6 @@ report_async(void * p, int n)
 
 	return ret;
 }
-
-static int
-verify_init(u8 * p)
-{
-	return (((simple_t *)p)->cmd_code == 0x01) ? 0 : -1;
-}
-
 
 /*
  * Host command helper functions:
@@ -1150,7 +1134,7 @@ static void innovator_ps2_device_release(struct device *dev)
 
 static int innovator_ps2_suspend(struct device *dev, pm_message_t state)
 {
-	u8 pmcomm;
+	u8 pmcomm = 0;
 
 	/*
 	 * Set SUS_STATE in REG_PM_COMM (Page 0 R0).  This will cause
@@ -1173,7 +1157,7 @@ static int innovator_ps2_suspend(struct device *dev, pm_message_t state)
 
 static int innovator_ps2_resume(struct device *dev)
 {
-	u8 pmcomm;
+	u8 pmcomm = 0;
 
 	/*
 	 * Clear SUS_STATE from REG_PM_COMM (Page 0 R0).

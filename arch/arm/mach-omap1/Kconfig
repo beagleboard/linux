@@ -87,6 +87,13 @@ config MACH_NOKIA770
 	  Support for the Nokia 770 Internet Tablet. Say Y here if you
 	  have such a device.
 
+config MACH_AMS_DELTA
+	bool "Amstrad E3 (Delta)"
+	depends on ARCH_OMAP1 && ARCH_OMAP15XX
+	help
+	  Support for the Amstrad E3 (codename Delta) videophone. Say Y here
+	  if you have such a device.
+
 config MACH_OMAP_GENERIC
 	bool "Generic OMAP board"
 	depends on ARCH_OMAP1 && (ARCH_OMAP15XX || ARCH_OMAP16XX)

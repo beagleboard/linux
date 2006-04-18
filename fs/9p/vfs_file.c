@@ -7,9 +7,8 @@
  *  Copyright (C) 2002 by Ron Minnich <rminnich@lanl.gov>
  *
  *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ *  it under the terms of the GNU General Public License version 2
+ *  as published by the Free Software Foundation.
  *
  *  This program is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -53,94 +52,68 @@
 int v9fs_file_open(struct inode *inode, struct file *file)
 {
 	struct v9fs_session_info *v9ses = v9fs_inode2v9ses(inode);
-	struct v9fs_fid *v9fid, *fid;
+	struct v9fs_fid *vfid;
 	struct v9fs_fcall *fcall = NULL;
-	int open_mode = 0;
-	unsigned int iounit = 0;
-	int newfid = -1;
-	long result = -1;
+	int omode;
+	int fid = V9FS_NOFID;
+	int err;
 
 	dprintk(DEBUG_VFS, "inode: %p file: %p \n", inode, file);
 
-	v9fid = v9fs_fid_get_created(file->f_dentry);
-	if (!v9fid)
-		v9fid = v9fs_fid_lookup(file->f_dentry);
-
-	if (!v9fid) {
+	vfid = v9fs_fid_lookup(file->f_dentry);
+	if (!vfid) {
 		dprintk(DEBUG_ERROR, "Couldn't resolve fid from dentry\n");
 		return -EBADF;
 	}
 
-	if (!v9fid->fidcreate) {
-		fid = kmalloc(sizeof(struct v9fs_fid), GFP_KERNEL);
-		if (fid == NULL) {
-			dprintk(DEBUG_ERROR, "Out of Memory\n");
-			return -ENOMEM;
-		}
-
-		fid->fidopen = 0;
-		fid->fidcreate = 0;
-		fid->fidclunked = 0;
-		fid->iounit = 0;
-		fid->v9ses = v9ses;
-
-		newfid = v9fs_get_idpool(&v9ses->fidpool);
-		if (newfid < 0) {
-			eprintk(KERN_WARNING, "newfid fails!\n");
-			return -ENOSPC;
-		}
-
-		result =
-		    v9fs_t_walk(v9ses, v9fid->fid, newfid, NULL, NULL);
-
-		if (result < 0) {
-			v9fs_put_idpool(newfid, &v9ses->fidpool);
-			dprintk(DEBUG_ERROR, "rewalk didn't work\n");
-			return -EBADF;
-		}
-
-		fid->fid = newfid;
-		v9fid = fid;
-		/* TODO: do special things for O_EXCL, O_NOFOLLOW, O_SYNC */
-		/* translate open mode appropriately */
-		open_mode = file->f_flags & 0x3;
-
-		if (file->f_flags & O_EXCL)
-			open_mode |= V9FS_OEXCL;
-
-		if (v9ses->extended) {
-			if (file->f_flags & O_TRUNC)
-				open_mode |= V9FS_OTRUNC;
-
-			if (file->f_flags & O_APPEND)
-				open_mode |= V9FS_OAPPEND;
-		}
-
-		result = v9fs_t_open(v9ses, newfid, open_mode, &fcall);
-		if (result < 0) {
-			PRINT_FCALL_ERROR("open failed", fcall);
-			kfree(fcall);
-			return result;
-		}
-
-		iounit = fcall->params.ropen.iounit;
-		kfree(fcall);
-	} else {
-		/* create case */
-		newfid = v9fid->fid;
-		iounit = v9fid->iounit;
-		v9fid->fidcreate = 0;
+	fid = v9fs_get_idpool(&v9ses->fidpool);
+	if (fid < 0) {
+		eprintk(KERN_WARNING, "newfid fails!\n");
+		return -ENOSPC;
 	}
 
-	file->private_data = v9fid;
+	err = v9fs_t_walk(v9ses, vfid->fid, fid, NULL, NULL);
+	if (err < 0) {
+		dprintk(DEBUG_ERROR, "rewalk didn't work\n");
+		goto put_fid;
+	}
 
-	v9fid->rdir_pos = 0;
-	v9fid->rdir_fcall = NULL;
-	v9fid->fidopen = 1;
-	v9fid->filp = file;
-	v9fid->iounit = iounit;
+	/* TODO: do special things for O_EXCL, O_NOFOLLOW, O_SYNC */
+	/* translate open mode appropriately */
+	omode = v9fs_uflags2omode(file->f_flags);
+	err = v9fs_t_open(v9ses, fid, omode, &fcall);
+	if (err < 0) {
+		PRINT_FCALL_ERROR("open failed", fcall);
+		goto clunk_fid;
+	}
+
+	vfid = kmalloc(sizeof(struct v9fs_fid), GFP_KERNEL);
+	if (vfid == NULL) {
+		dprintk(DEBUG_ERROR, "out of memory\n");
+		err = -ENOMEM;
+		goto clunk_fid;
+	}
+
+	file->private_data = vfid;
+	vfid->fid = fid;
+	vfid->fidopen = 1;
+	vfid->fidclunked = 0;
+	vfid->iounit = fcall->params.ropen.iounit;
+	vfid->rdir_pos = 0;
+	vfid->rdir_fcall = NULL;
+	vfid->filp = file;
+	kfree(fcall);
 
 	return 0;
+
+clunk_fid:
+	v9fs_t_clunk(v9ses, fid);
+
+put_fid:
+	v9fs_put_idpool(fid, &v9ses->fidpool);
+	kfree(fcall);
+
+	return err;
 }
 
 /**
@@ -289,13 +262,11 @@ v9fs_file_write(struct file *filp, const char __user * data,
 		total += result;
 	} while (count);
 
-	if(inode->i_mapping->nrpages)
 		invalidate_inode_pages2(inode->i_mapping);
-
 	return total;
 }
 
-struct file_operations v9fs_file_operations = {
+const struct file_operations v9fs_file_operations = {
 	.llseek = generic_file_llseek,
 	.read = v9fs_file_read,
 	.write = v9fs_file_write,

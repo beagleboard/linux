@@ -6,6 +6,7 @@
  * Copyright (C) Hidetoshi Seto (seto.hidetoshi@jp.fujitsu.com)
  * Copyright (C) 2005 Silicon Graphics, Inc
  * Copyright (C) 2005 Keith Owens <kaos@sgi.com>
+ * Copyright (C) 2006 Russ Anderson <rja@sgi.com>
  */
 #include <linux/config.h>
 #include <linux/types.h>
@@ -121,10 +122,12 @@ mca_page_isolate(unsigned long paddr)
  */
 
 void
-mca_handler_bh(unsigned long paddr)
+mca_handler_bh(unsigned long paddr, void *iip, unsigned long ipsr)
 {
-	printk(KERN_DEBUG "OS_MCA: process [pid: %d](%s) encounters MCA.\n",
-		current->pid, current->comm);
+	printk(KERN_ERR "OS_MCA: process [cpu %d, pid: %d, uid: %d, "
+		"iip: %p, psr: 0x%lx,paddr: 0x%lx](%s) encounters MCA.\n",
+		raw_smp_processor_id(), current->pid, current->uid,
+		iip, ipsr, paddr, current->comm);
 
 	spin_lock(&mca_bh_lock);
 	switch (mca_page_isolate(paddr)) {
@@ -132,7 +135,7 @@ mca_handler_bh(unsigned long paddr)
 		printk(KERN_DEBUG "Page isolation: ( %lx ) success.\n", paddr);
 		break;
 	case ISOLATE_NG:
-		printk(KERN_DEBUG "Page isolation: ( %lx ) failure.\n", paddr);
+		printk(KERN_CRIT "Page isolation: ( %lx ) failure.\n", paddr);
 		break;
 	default:
 		break;
@@ -441,21 +444,26 @@ recover_from_read_error(slidx_table_t *slidx,
 	if (!peidx_bottom(peidx) || !(peidx_bottom(peidx)->valid.minstate))
 		return 0;
 	psr1 =(struct ia64_psr *)&(peidx_minstate_area(peidx)->pmsa_ipsr);
+	psr2 =(struct ia64_psr *)&(peidx_minstate_area(peidx)->pmsa_xpsr);
 
 	/*
 	 *  Check the privilege level of interrupted context.
 	 *   If it is user-mode, then terminate affected process.
 	 */
-	if (psr1->cpl != 0) {
+
+	pmsa = sos->pal_min_state;
+	if (psr1->cpl != 0 ||
+	   ((psr2->cpl != 0) && mca_recover_range(pmsa->pmsa_iip))) {
 		smei = peidx_bus_check(peidx, 0);
 		if (smei->valid.target_identifier) {
 			/*
 			 *  setup for resume to bottom half of MCA,
 			 * "mca_handler_bhhook"
 			 */
-			pmsa = sos->pal_min_state;
-			/* pass to bhhook as 1st argument (gr8) */
+			/* pass to bhhook as argument (gr8, ...) */
 			pmsa->pmsa_gr[8-1] = smei->target_identifier;
+			pmsa->pmsa_gr[9-1] = pmsa->pmsa_iip;
+			pmsa->pmsa_gr[10-1] = pmsa->pmsa_ipsr;
 			/* set interrupted return address (but no use) */
 			pmsa->pmsa_br0 = pmsa->pmsa_iip;
 			/* change resume address to bottom half */
@@ -465,6 +473,7 @@ recover_from_read_error(slidx_table_t *slidx,
 			psr2 = (struct ia64_psr *)&pmsa->pmsa_ipsr;
 			psr2->cpl = 0;
 			psr2->ri  = 0;
+			psr2->bn  = 1;
 			psr2->i  = 0;
 
 			return 1;
@@ -567,10 +576,15 @@ recover_from_processor_error(int platform, slidx_table_t *slidx,
 		return 0;
 
 	/*
-	 * If there is no bus error, record is weird but we need not to recover.
+	 * The cache check and bus check bits have four possible states
+	 *   cc bc
+	 *    0  0	Weird record, not recovered
+	 *    1  0	Cache error, not recovered
+	 *    0  1	I/O error, attempt recovery
+	 *    1  1	Memory error, attempt recovery
 	 */
 	if (psp->bc == 0 || pbci == NULL)
-		return 1;
+		return 0;
 
 	/*
 	 * Sorry, we cannot handle so many.

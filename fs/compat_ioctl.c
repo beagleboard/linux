@@ -72,6 +72,7 @@
 #include <linux/i2c-dev.h>
 #include <linux/wireless.h>
 #include <linux/atalk.h>
+#include <linux/blktrace_api.h>
 
 #include <net/sock.h>          /* siocdevprivate_ioctl */
 #include <net/bluetooth/bluetooth.h>
@@ -446,7 +447,7 @@ static int dev_ifconf(unsigned int fd, unsigned int cmd, unsigned long arg)
 	ifr = ifc.ifc_req;
 	ifr32 = compat_ptr(ifc32.ifcbuf);
 	for (i = 0, j = 0;
-             i + sizeof (struct ifreq32) < ifc32.ifc_len && j < ifc.ifc_len;
+             i + sizeof (struct ifreq32) <= ifc32.ifc_len && j < ifc.ifc_len;
 	     i += sizeof (struct ifreq32), j += sizeof (struct ifreq)) {
 		if (copy_in_user(ifr32, ifr, sizeof (struct ifreq32)))
 			return -EFAULT;
@@ -1521,8 +1522,7 @@ static struct {
 	{ ATM_QUERYLOOP32,   ATM_QUERYLOOP }
 };
 
-#define NR_ATM_IOCTL (sizeof(atm_ioctl_map)/sizeof(atm_ioctl_map[0]))
-
+#define NR_ATM_IOCTL ARRAY_SIZE(atm_ioctl_map)
 
 static int do_atm_iobuf(unsigned int fd, unsigned int cmd, unsigned long arg)
 {
@@ -1823,7 +1823,7 @@ static struct {
 	{ FDWERRORGET32, FDWERRORGET }
 };
 
-#define NR_FD_IOCTL_TRANS (sizeof(fd_ioctl_trans_table)/sizeof(fd_ioctl_trans_table[0]))
+#define NR_FD_IOCTL_TRANS ARRAY_SIZE(fd_ioctl_trans_table)
 
 static int fd_ioctl_trans(unsigned int fd, unsigned int cmd, unsigned long arg)
 {

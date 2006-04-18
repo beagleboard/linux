@@ -35,6 +35,8 @@
 #include <linux/platform_device.h>
 #include <linux/mutex.h>
 
+#include <asm/prom.h>
+
 #include "windfarm.h"
 
 #define VERSION "0.2"
@@ -50,7 +52,7 @@
 static LIST_HEAD(wf_controls);
 static LIST_HEAD(wf_sensors);
 static DEFINE_MUTEX(wf_lock);
-static struct notifier_block *wf_client_list;
+static BLOCKING_NOTIFIER_HEAD(wf_client_list);
 static int wf_client_count;
 static unsigned int wf_overtemp;
 static unsigned int wf_overtemp_counter;
@@ -66,7 +68,7 @@ static struct platform_device wf_platform_device = {
 
 static inline void wf_notify(int event, void *param)
 {
-	notifier_call_chain(&wf_client_list, event, param);
+	blocking_notifier_call_chain(&wf_client_list, event, param);
 }
 
 int wf_critical_overtemp(void)
@@ -396,7 +398,7 @@ int wf_register_client(struct notifier_block *nb)
 	struct wf_sensor *sr;
 
 	mutex_lock(&wf_lock);
-	rc = notifier_chain_register(&wf_client_list, nb);
+	rc = blocking_notifier_chain_register(&wf_client_list, nb);
 	if (rc != 0)
 		goto bail;
 	wf_client_count++;
@@ -415,7 +417,7 @@ EXPORT_SYMBOL_GPL(wf_register_client);
 int wf_unregister_client(struct notifier_block *nb)
 {
 	mutex_lock(&wf_lock);
-	notifier_chain_unregister(&wf_client_list, nb);
+	blocking_notifier_chain_unregister(&wf_client_list, nb);
 	wf_client_count++;
 	if (wf_client_count == 0)
 		wf_stop_thread();
@@ -465,6 +467,11 @@ static int __init windfarm_core_init(void)
 {
 	DBG("wf: core loaded\n");
 
+	/* Don't register on old machines that use therm_pm72 for now */
+	if (machine_is_compatible("PowerMac7,2") ||
+	    machine_is_compatible("PowerMac7,3") ||
+	    machine_is_compatible("RackMac3,1"))
+		return -ENODEV;
 	platform_device_register(&wf_platform_device);
 	return 0;
 }

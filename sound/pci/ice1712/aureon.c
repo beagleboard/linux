@@ -53,6 +53,8 @@
 #include <linux/interrupt.h>
 #include <linux/init.h>
 #include <linux/slab.h>
+#include <linux/mutex.h>
+
 #include <sound/core.h>
 
 #include "ice1712.h"
@@ -85,7 +87,151 @@
 #define CS8415_C_BUFFER	0x20
 #define CS8415_ID		0x7F
 
-static void aureon_ac97_write(struct snd_ice1712 *ice, unsigned short reg, unsigned short val) {
+/* PCA9554 registers */
+#define PCA9554_DEV     0x40            /* I2C device address */
+#define PCA9554_IN      0x00            /* input port */
+#define PCA9554_OUT     0x01            /* output port */
+#define PCA9554_INVERT  0x02            /* input invert */
+#define PCA9554_DIR     0x03            /* port directions */
+
+/*
+ * Aureon Universe additional controls using PCA9554
+ */
+
+/*
+ * Send data to pca9554
+ */
+static void aureon_pca9554_write(struct snd_ice1712 *ice, unsigned char reg,
+				 unsigned char data)
+{
+	unsigned int tmp;
+	int i, j;
+	unsigned char dev = PCA9554_DEV;  /* ID 0100000, write */
+	unsigned char val = 0;
+
+	tmp = snd_ice1712_gpio_read(ice);
+
+	snd_ice1712_gpio_set_mask(ice, ~(AUREON_SPI_MOSI|AUREON_SPI_CLK|
+					 AUREON_WM_RW|AUREON_WM_CS|
+					 AUREON_CS8415_CS));
+	tmp |= AUREON_WM_RW;
+	tmp |= AUREON_CS8415_CS | AUREON_WM_CS; /* disable SPI devices */
+
+	tmp &= ~AUREON_SPI_MOSI;
+	tmp &= ~AUREON_SPI_CLK;
+	snd_ice1712_gpio_write(ice, tmp);
+	udelay(50);
+
+	/* 
+	 * send i2c stop condition and start condition
+	 * to obtain sane state
+	 */
+	tmp |= AUREON_SPI_CLK;
+	snd_ice1712_gpio_write(ice, tmp);
+	udelay(50);
+	tmp |= AUREON_SPI_MOSI;
+	snd_ice1712_gpio_write(ice, tmp);
+	udelay(100);
+	tmp &= ~AUREON_SPI_MOSI;
+	snd_ice1712_gpio_write(ice, tmp);
+	udelay(50);
+	tmp &= ~AUREON_SPI_CLK;
+	snd_ice1712_gpio_write(ice, tmp);
+	udelay(100);
+	/*
+	 * send device address, command and value,
+	 * skipping ack cycles inbetween
+	 */
+	for (j = 0; j < 3; j++) {
+		switch(j) {
+		case 0: val = dev; break;
+		case 1: val = reg; break;
+		case 2: val = data; break;
+		}
+		for (i = 7; i >= 0; i--) {
+			tmp &= ~AUREON_SPI_CLK;
+			snd_ice1712_gpio_write(ice, tmp);
+			udelay(40);
+			if (val & (1 << i))
+				tmp |= AUREON_SPI_MOSI;
+			else
+				tmp &= ~AUREON_SPI_MOSI;
+			snd_ice1712_gpio_write(ice, tmp);
+			udelay(40);
+			tmp |= AUREON_SPI_CLK;
+			snd_ice1712_gpio_write(ice, tmp);
+			udelay(40);
+		}
+                tmp &= ~AUREON_SPI_CLK;
+		snd_ice1712_gpio_write(ice, tmp);
+		udelay(40);
+		tmp |= AUREON_SPI_CLK;
+		snd_ice1712_gpio_write(ice, tmp);
+		udelay(40);
+		tmp &= ~AUREON_SPI_CLK;
+		snd_ice1712_gpio_write(ice, tmp);
+		udelay(40);
+	}
+	tmp &= ~AUREON_SPI_CLK;
+	snd_ice1712_gpio_write(ice, tmp);
+	udelay(40);
+	tmp &= ~AUREON_SPI_MOSI;
+	snd_ice1712_gpio_write(ice, tmp);
+	udelay(40);
+	tmp |= AUREON_SPI_CLK;
+	snd_ice1712_gpio_write(ice, tmp);
+	udelay(50);
+	tmp |= AUREON_SPI_MOSI;
+	snd_ice1712_gpio_write(ice, tmp);
+	udelay(100);
+}
+
+static int aureon_universe_inmux_info(struct snd_kcontrol *kcontrol,
+				      struct snd_ctl_elem_info *uinfo)
+{
+	char *texts[3] = {"Internal Aux", "Wavetable", "Rear Line-In"};
+
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_ENUMERATED;
+	uinfo->count = 1;
+	uinfo->value.enumerated.items = 3;
+	if(uinfo->value.enumerated.item >= uinfo->value.enumerated.items)
+		uinfo->value.enumerated.item = uinfo->value.enumerated.items - 1;
+	strcpy(uinfo->value.enumerated.name, texts[uinfo->value.enumerated.item]);
+	return 0;
+}
+
+static int aureon_universe_inmux_get(struct snd_kcontrol *kcontrol,
+				     struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_ice1712 *ice = snd_kcontrol_chip(kcontrol);
+	ucontrol->value.integer.value[0] = ice->spec.aureon.pca9554_out;
+	return 0;
+}
+
+static int aureon_universe_inmux_put(struct snd_kcontrol *kcontrol,
+				     struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_ice1712 *ice = snd_kcontrol_chip(kcontrol);
+	unsigned char oval, nval;
+	int change;
+
+	snd_ice1712_save_gpio_status(ice);
+	
+	oval = ice->spec.aureon.pca9554_out;
+	nval = ucontrol->value.integer.value[0];
+	if ((change = (oval != nval))) {
+		aureon_pca9554_write(ice, PCA9554_OUT, nval);
+		ice->spec.aureon.pca9554_out = nval;
+	}
+	snd_ice1712_restore_gpio_status(ice);
+	
+	return change;
+}
+
+
+static void aureon_ac97_write(struct snd_ice1712 *ice, unsigned short reg,
+			      unsigned short val)
+{
 	unsigned int tmp;
 
 	/* Send address to XILINX chip */
@@ -144,7 +290,8 @@ static unsigned short aureon_ac97_read(struct snd_ice1712 *ice, unsigned short r
 /*
  * Initialize STAC9744 chip
  */
-static int aureon_ac97_init (struct snd_ice1712 *ice) {
+static int aureon_ac97_init (struct snd_ice1712 *ice)
+{
 	int i;
 	static unsigned short ac97_defaults[] = {
 		0x00, 0x9640,
@@ -210,14 +357,14 @@ static int aureon_ac97_vol_get(struct snd_kcontrol *kcontrol, struct snd_ctl_ele
 	struct snd_ice1712 *ice = snd_kcontrol_chip(kcontrol);
 	unsigned short vol;
 
-	down(&ice->gpio_mutex);
+	mutex_lock(&ice->gpio_mutex);
 
 	vol = aureon_ac97_read(ice, kcontrol->private_value & 0x7F);
 	ucontrol->value.integer.value[0] = 0x1F - (vol & 0x1F);
 	if (kcontrol->private_value & AUREON_AC97_STEREO)
 		ucontrol->value.integer.value[1] = 0x1F - ((vol >> 8) & 0x1F);
 
-	up(&ice->gpio_mutex);
+	mutex_unlock(&ice->gpio_mutex);
 	return 0;
 }
 
@@ -252,11 +399,11 @@ static int aureon_ac97_mute_get(struct snd_kcontrol *kcontrol, struct snd_ctl_el
 {
 	struct snd_ice1712 *ice = snd_kcontrol_chip(kcontrol);
 
-	down(&ice->gpio_mutex);
+	mutex_lock(&ice->gpio_mutex);
 
 	ucontrol->value.integer.value[0] = aureon_ac97_read(ice, kcontrol->private_value & 0x7F) & 0x8000 ? 0 : 1;
 
-	up(&ice->gpio_mutex);
+	mutex_unlock(&ice->gpio_mutex);
 	return 0;
 }
 
@@ -288,11 +435,11 @@ static int aureon_ac97_micboost_get(struct snd_kcontrol *kcontrol, struct snd_ct
 {
 	struct snd_ice1712 *ice = snd_kcontrol_chip(kcontrol);
 
-	down(&ice->gpio_mutex);
+	mutex_lock(&ice->gpio_mutex);
 
 	ucontrol->value.integer.value[0] = aureon_ac97_read(ice, AC97_MIC) & 0x0020 ? 0 : 1;
 
-	up(&ice->gpio_mutex);
+	mutex_unlock(&ice->gpio_mutex);
 	return 0;
 }
 
@@ -322,36 +469,48 @@ static void aureon_spi_write(struct snd_ice1712 *ice, unsigned int cs, unsigned 
 {
 	unsigned int tmp;
 	int i;
+	unsigned int mosi, clk;
 
 	tmp = snd_ice1712_gpio_read(ice);
 
-	snd_ice1712_gpio_set_mask(ice, ~(AUREON_WM_RW|AUREON_SPI_MOSI|AUREON_SPI_CLK|
-					 AUREON_WM_CS|AUREON_CS8415_CS));
-	tmp |= AUREON_WM_RW;
+	if (ice->eeprom.subvendor == VT1724_SUBDEVICE_PRODIGY71LT) {
+		snd_ice1712_gpio_set_mask(ice, ~(PRODIGY_SPI_MOSI|PRODIGY_SPI_CLK|PRODIGY_WM_CS));
+		mosi = PRODIGY_SPI_MOSI;
+		clk = PRODIGY_SPI_CLK;
+	}
+	else {
+		snd_ice1712_gpio_set_mask(ice, ~(AUREON_WM_RW|AUREON_SPI_MOSI|AUREON_SPI_CLK|
+						 AUREON_WM_CS|AUREON_CS8415_CS));
+		mosi = AUREON_SPI_MOSI;
+		clk = AUREON_SPI_CLK;
+		
+		tmp |= AUREON_WM_RW;
+	}
+	
 	tmp &= ~cs;
 	snd_ice1712_gpio_write(ice, tmp);
 	udelay(1);
 
 	for (i = bits - 1; i >= 0; i--) {
-		tmp &= ~AUREON_SPI_CLK;
+		tmp &= ~clk;
 		snd_ice1712_gpio_write(ice, tmp);
 		udelay(1);
 		if (data & (1 << i))
-			tmp |= AUREON_SPI_MOSI;
+			tmp |= mosi;
 		else
-			tmp &= ~AUREON_SPI_MOSI;
+			tmp &= ~mosi;
 		snd_ice1712_gpio_write(ice, tmp);
 		udelay(1);
-		tmp |= AUREON_SPI_CLK;
+		tmp |= clk;
 		snd_ice1712_gpio_write(ice, tmp);
 		udelay(1);
 	}
 
-	tmp &= ~AUREON_SPI_CLK;
+	tmp &= ~clk;
 	tmp |= cs;
 	snd_ice1712_gpio_write(ice, tmp);
 	udelay(1);
-	tmp |= AUREON_SPI_CLK;
+	tmp |= clk;
 	snd_ice1712_gpio_write(ice, tmp);
 	udelay(1);
 }
@@ -440,7 +599,9 @@ static unsigned short wm_get(struct snd_ice1712 *ice, int reg)
  */
 static void wm_put_nocache(struct snd_ice1712 *ice, int reg, unsigned short val)
 {
-	aureon_spi_write(ice, AUREON_WM_CS, (reg << 9) | (val & 0x1ff), 16);
+	aureon_spi_write(ice,
+			(ice->eeprom.subvendor == VT1724_SUBDEVICE_PRODIGY71LT ? PRODIGY_WM_CS : AUREON_WM_CS),
+			(reg << 9) | (val & 0x1ff), 16);
 }
 
 /*
@@ -474,11 +635,11 @@ static int aureon_ac97_mmute_get(struct snd_kcontrol *kcontrol, struct snd_ctl_e
 {
 	struct snd_ice1712 *ice = snd_kcontrol_chip(kcontrol);
 
-	down(&ice->gpio_mutex);
+	mutex_lock(&ice->gpio_mutex);
 
 	ucontrol->value.integer.value[0] = (wm_get(ice, WM_OUT_MUX1) >> 1) & 0x01;
 
-	up(&ice->gpio_mutex);
+	mutex_unlock(&ice->gpio_mutex);
 	return 0;
 }
 
@@ -543,9 +704,9 @@ static int wm_pcm_mute_get(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_va
 {
 	struct snd_ice1712 *ice = snd_kcontrol_chip(kcontrol);
 
-	down(&ice->gpio_mutex);
+	mutex_lock(&ice->gpio_mutex);
 	ucontrol->value.integer.value[0] = (wm_get(ice, WM_MUTE) & 0x10) ? 0 : 1;
-	up(&ice->gpio_mutex);
+	mutex_unlock(&ice->gpio_mutex);
 	return 0;
 }
 
@@ -768,11 +929,11 @@ static int wm_pcm_vol_get(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_val
 	struct snd_ice1712 *ice = snd_kcontrol_chip(kcontrol);
 	unsigned short val;
 
-	down(&ice->gpio_mutex);
+	mutex_lock(&ice->gpio_mutex);
 	val = wm_get(ice, WM_DAC_DIG_MASTER_ATTEN) & 0xff;
 	val = val > PCM_MIN ? (val - PCM_MIN) : 0;
 	ucontrol->value.integer.value[0] = val;
-	up(&ice->gpio_mutex);
+	mutex_unlock(&ice->gpio_mutex);
 	return 0;
 }
 
@@ -813,12 +974,12 @@ static int wm_adc_mute_get(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_va
 	unsigned short val;
 	int i;
 
-	down(&ice->gpio_mutex);
+	mutex_lock(&ice->gpio_mutex);
 	for (i = 0; i < 2; i++) {
 		val = wm_get(ice, WM_ADC_GAIN + i);
 		ucontrol->value.integer.value[i] = ~val>>5 & 0x1;
 	}
-	up(&ice->gpio_mutex);
+	mutex_unlock(&ice->gpio_mutex);
 	return 0;
 }
 
@@ -860,13 +1021,13 @@ static int wm_adc_vol_get(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_val
 	int i, idx;
 	unsigned short vol;
 
-	down(&ice->gpio_mutex);
+	mutex_lock(&ice->gpio_mutex);
 	for (i = 0; i < 2; i++) {
 		idx = WM_ADC_GAIN + i;
 		vol = wm_get(ice, idx) & 0x1f;
 		ucontrol->value.integer.value[i] = vol;
 	}
-	up(&ice->gpio_mutex);
+	mutex_unlock(&ice->gpio_mutex);
 	return 0;
 }
 
@@ -937,11 +1098,11 @@ static int wm_adc_mux_get(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_val
 	struct snd_ice1712 *ice = snd_kcontrol_chip(kcontrol);
 	unsigned short val;
 
-	down(&ice->gpio_mutex);
+	mutex_lock(&ice->gpio_mutex);
 	val = wm_get(ice, WM_ADC_MUX);
-	ucontrol->value.integer.value[0] = val & 7;
-	ucontrol->value.integer.value[1] = (val >> 4) & 7;
-	up(&ice->gpio_mutex);
+	ucontrol->value.enumerated.item[0] = val & 7;
+	ucontrol->value.enumerated.item[1] = (val >> 4) & 7;
+	mutex_unlock(&ice->gpio_mutex);
 	return 0;
 }
 
@@ -954,8 +1115,8 @@ static int wm_adc_mux_put(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_val
 	snd_ice1712_save_gpio_status(ice);
 	oval = wm_get(ice, WM_ADC_MUX);
 	nval = oval & ~0x77;
-	nval |= ucontrol->value.integer.value[0] & 7;
-	nval |= (ucontrol->value.integer.value[1] & 7) << 4;
+	nval |= ucontrol->value.enumerated.item[0] & 7;
+	nval |= (ucontrol->value.enumerated.item[1] & 7) << 4;
 	change = (oval != nval);
 	if (change)
 		wm_put(ice, WM_ADC_MUX, nval);
@@ -995,7 +1156,7 @@ static int aureon_cs8415_mux_get(struct snd_kcontrol *kcontrol, struct snd_ctl_e
 
 	//snd_ice1712_save_gpio_status(ice);
 	//val = aureon_cs8415_get(ice, CS8415_CTRL2);
-	ucontrol->value.integer.value[0] = ice->spec.aureon.cs8415_mux;
+	ucontrol->value.enumerated.item[0] = ice->spec.aureon.cs8415_mux;
 	//snd_ice1712_restore_gpio_status(ice);
 	return 0;
 }
@@ -1009,12 +1170,12 @@ static int aureon_cs8415_mux_put(struct snd_kcontrol *kcontrol, struct snd_ctl_e
 	snd_ice1712_save_gpio_status(ice);
 	oval = aureon_cs8415_get(ice, CS8415_CTRL2);
 	nval = oval & ~0x07;
-	nval |= ucontrol->value.integer.value[0] & 7;
+	nval |= ucontrol->value.enumerated.item[0] & 7;
 	change = (oval != nval);
 	if (change)
 		aureon_cs8415_put(ice, CS8415_CTRL2, nval);
 	snd_ice1712_restore_gpio_status(ice);
-	ice->spec.aureon.cs8415_mux = ucontrol->value.integer.value[0];
+	ice->spec.aureon.cs8415_mux = ucontrol->value.enumerated.item[0];
 	return change;
 }
 
@@ -1582,7 +1743,15 @@ static struct snd_kcontrol_new universe_ac97_controls[] __devinitdata = {
  		.get = aureon_ac97_vol_get,
  		.put = aureon_ac97_vol_put,
  		.private_value = AC97_VIDEO|AUREON_AC97_STEREO
- 	}
+ 	},
+	{
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name = "Aux Source",
+		.info = aureon_universe_inmux_info,
+		.get = aureon_universe_inmux_get,
+		.put = aureon_universe_inmux_put
+	}
+
 };
 
 	
@@ -1659,7 +1828,7 @@ static int __devinit aureon_add_controls(struct snd_ice1712 *ice)
 				return err;
 		}
 	}
-	else {
+	else if (ice->eeprom.subvendor != VT1724_SUBDEVICE_PRODIGY71LT) {
 		for (i = 0; i < ARRAY_SIZE(ac97_controls); i++) {
 			err = snd_ctl_add(ice->card, snd_ctl_new1(&ac97_controls[i], ice));
 			if (err < 0)
@@ -1667,7 +1836,7 @@ static int __devinit aureon_add_controls(struct snd_ice1712 *ice)
 		}
 	}
 
-	{
+	if (ice->eeprom.subvendor != VT1724_SUBDEVICE_PRODIGY71LT) {
 		unsigned char id;
 		snd_ice1712_save_gpio_status(ice);
 		id = aureon_cs8415_get(ice, CS8415_ID);
@@ -1822,7 +1991,8 @@ static int __devinit aureon_init(struct snd_ice1712 *ice)
 	udelay(1);
 
 	/* initialize WM8770 codec */
-	if (ice->eeprom.subvendor == VT1724_SUBDEVICE_PRODIGY71)
+	if (ice->eeprom.subvendor == VT1724_SUBDEVICE_PRODIGY71 ||
+		ice->eeprom.subvendor == VT1724_SUBDEVICE_PRODIGY71LT)
 		p = wm_inits_prodigy;
 	else
 		p = wm_inits_aureon;
@@ -1830,13 +2000,19 @@ static int __devinit aureon_init(struct snd_ice1712 *ice)
 		wm_put(ice, p[0], p[1]);
 
 	/* initialize CS8415A codec */
-	for (p = cs_inits; *p != (unsigned short)-1; p++)
-		aureon_spi_write(ice, AUREON_CS8415_CS, *p | 0x200000, 24);
-	ice->spec.aureon.cs8415_mux = 1;
+	if (ice->eeprom.subvendor != VT1724_SUBDEVICE_PRODIGY71LT) {
+		for (p = cs_inits; *p != (unsigned short)-1; p++)
+			aureon_spi_write(ice, AUREON_CS8415_CS, *p | 0x200000, 24);
+		ice->spec.aureon.cs8415_mux = 1;
 
-	aureon_set_headphone_amp(ice, 1);
+		aureon_set_headphone_amp(ice, 1);
+	}
 
 	snd_ice1712_restore_gpio_status(ice);
+
+        /* initialize PCA9554 pin directions & set default input*/
+	aureon_pca9554_write(ice, PCA9554_DIR, 0x00);
+	aureon_pca9554_write(ice, PCA9554_OUT, 0x00);   /* internal AUX */
 	
 	ice->spec.aureon.master[0] = WM_VOL_MUTE;
 	ice->spec.aureon.master[1] = WM_VOL_MUTE;
@@ -1902,6 +2078,23 @@ static unsigned char prodigy71_eeprom[] __devinitdata = {
 	0x00,	/* GPIO_STATE2 */
 };
 
+static unsigned char prodigy71lt_eeprom[] __devinitdata = {
+	0x0b,	/* SYSCINF: clock 512, spdif-in/ADC, 4DACs */
+	0x80,	/* ACLINK: I2S */
+	0xfc,	/* I2S: vol, 96k, 24bit, 192k */
+	0xc3,	/* SPDUF: out-en, out-int */
+	0x00,	/* GPIO_DIR */
+	0x07,	/* GPIO_DIR1 */
+	0x00,	/* GPIO_DIR2 */
+	0xff,	/* GPIO_MASK */
+	0xf8,	/* GPIO_MASK1 */
+	0xff,	/* GPIO_MASK2 */
+	0x00,	/* GPIO_STATE */
+	0x00,	/* GPIO_STATE1 */
+	0x00,	/* GPIO_STATE2 */
+};
+	
+
 /* entry point */
 struct snd_ice1712_card_info snd_vt1724_aureon_cards[] __devinitdata = {
 	{
@@ -1943,6 +2136,16 @@ struct snd_ice1712_card_info snd_vt1724_aureon_cards[] __devinitdata = {
 		.eeprom_size = sizeof(prodigy71_eeprom),
 		.eeprom_data = prodigy71_eeprom,
 		.driver = "Prodigy71", /* should be identical with Aureon71 */
+	},
+	{
+		.subvendor = VT1724_SUBDEVICE_PRODIGY71LT,
+		.name = "Audiotrak Prodigy 7.1 LT",
+		.model = "prodigy71lt",
+		.chip_init = aureon_init,
+		.build_controls = aureon_add_controls,
+		.eeprom_size = sizeof(prodigy71lt_eeprom),
+		.eeprom_data = prodigy71lt_eeprom,
+		.driver = "Prodigy71LT",
 	},
 	{ } /* terminator */
 };

@@ -1,15 +1,9 @@
 /*
- * File...........: linux/fs/partitions/ibm.c      
+ * File...........: linux/fs/partitions/ibm.c
  * Author(s)......: Holger Smolinski <Holger.Smolinski@de.ibm.com>
  *                  Volker Sameske <sameske@de.ibm.com>
  * Bugreports.to..: <Linux390@de.ibm.com>
  * (C) IBM Corporation, IBM Deutschland Entwicklung GmbH, 1999,2000
-
- * History of changes (starts July 2000)
- * 07/10/00 Fixed detection of CMS formatted disks     
- * 02/13/00 VTOC partition support added
- * 12/27/01 fixed PL030593 (CMS reserved minidisk not detected on 64 bit)
- * 07/24/03 no longer using contents of freed page for CMS label recognition (BZ3611)
  */
 
 #include <linux/config.h>
@@ -25,7 +19,7 @@
 #include "ibm.h"
 
 /*
- * compute the block number from a 
+ * compute the block number from a
  * cyl-cyl-head-head structure
  */
 static inline int
@@ -34,9 +28,8 @@ cchh2blk (struct vtoc_cchh *ptr, struct hd_geometry *geo) {
 	       ptr->hh * geo->sectors;
 }
 
-
 /*
- * compute the block number from a 
+ * compute the block number from a
  * cyl-cyl-head-head-block structure
  */
 static inline int
@@ -48,10 +41,11 @@ cchhb2blk (struct vtoc_cchhb *ptr, struct hd_geometry *geo) {
 
 /*
  */
-int 
+int
 ibm_partition(struct parsed_partitions *state, struct block_device *bdev)
 {
 	int blocksize, offset, size;
+	loff_t i_size;
 	dasd_information_t *info;
 	struct hd_geometry *geo;
 	char type[5] = {0,};
@@ -63,19 +57,23 @@ ibm_partition(struct parsed_partitions *state, struct block_device *bdev)
 	unsigned char *data;
 	Sector sect;
 
+	blocksize = bdev_hardsect_size(bdev);
+	if (blocksize <= 0)
+		return 0;
+	i_size = i_size_read(bdev->bd_inode);
+	if (i_size == 0)
+		return 0;
+
 	if ((info = kmalloc(sizeof(dasd_information_t), GFP_KERNEL)) == NULL)
 		goto out_noinfo;
 	if ((geo = kmalloc(sizeof(struct hd_geometry), GFP_KERNEL)) == NULL)
 		goto out_nogeo;
 	if ((label = kmalloc(sizeof(union label_t), GFP_KERNEL)) == NULL)
 		goto out_nolab;
-	
+
 	if (ioctl_by_bdev(bdev, BIODASDINFO, (unsigned long)info) != 0 ||
 	    ioctl_by_bdev(bdev, HDIO_GETGEO, (unsigned long)geo) != 0)
 		goto out_noioctl;
-	
-	if ((blocksize = bdev_hardsect_size(bdev)) <= 0)
-		goto out_badsect;
 
 	/*
 	 * Get volume label, extract name and type.
@@ -111,7 +109,7 @@ ibm_partition(struct parsed_partitions *state, struct block_device *bdev)
 		} else {
 			printk("CMS1/%8s:", name);
 			offset = (info->label_block + 1);
-			size = bdev->bd_inode->i_size >> 9;
+			size = i_size >> 9;
 		}
 		put_partition(state, 1, offset*(blocksize >> 9),
 				 size-offset*(blocksize >> 9));
@@ -149,13 +147,13 @@ ibm_partition(struct parsed_partitions *state, struct block_device *bdev)
 
 			/* OK, we got valid partition data */
 		        offset = cchh2blk(&f1.DS1EXT1.llimit, geo);
-			size  = cchh2blk(&f1.DS1EXT1.ulimit, geo) - 
+			size  = cchh2blk(&f1.DS1EXT1.ulimit, geo) -
 				offset + geo->sectors;
 			if (counter >= state->limit)
 				break;
-			put_partition(state, counter + 1, 
-					 offset * (blocksize >> 9),
-					 size * (blocksize >> 9));
+			put_partition(state, counter + 1,
+				      offset * (blocksize >> 9),
+				      size * (blocksize >> 9));
 			counter++;
 			blk++;
 		}
@@ -168,9 +166,9 @@ ibm_partition(struct parsed_partitions *state, struct block_device *bdev)
 		else
 			printk("(nonl)/%8s:", name);
 		offset = (info->label_block + 1);
-		size = (bdev->bd_inode->i_size >> 9);
+		size = i_size >> 9;
 		put_partition(state, 1, offset*(blocksize >> 9),
-				 size-offset*(blocksize >> 9));
+			      size-offset*(blocksize >> 9));
 	}
 
 	printk("\n");
@@ -178,9 +176,8 @@ ibm_partition(struct parsed_partitions *state, struct block_device *bdev)
 	kfree(geo);
 	kfree(info);
 	return 1;
-	
+
 out_readerr:
-out_badsect:
 out_noioctl:
 	kfree(label);
 out_nolab:

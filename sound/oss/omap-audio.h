@@ -101,7 +101,7 @@ typedef struct {
 	int (*hw_suspend) (void);
 	int (*hw_resume) (void);
 	struct pm_dev *pm_dev;
-	struct semaphore sem;	/* to protect against races in attach() */
+	struct mutex mutex;	/* to protect against races in attach() */
 } audio_state_t;
 
 #ifdef AUDIO_PM

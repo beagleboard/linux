@@ -171,7 +171,7 @@ enum omap730_index {
 	E4_730_KBC2,
 	F4_730_KBC3,
 	E3_730_KBC4,
-    
+
 	/* USB */
 	AA17_730_USB_DM,
 	W16_730_USB_PU_EN,

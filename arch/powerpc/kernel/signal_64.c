@@ -1,6 +1,4 @@
 /*
- *  linux/arch/ppc64/kernel/signal.c
- *
  *  PowerPC version 
  *    Copyright (C) 1995-1996 Gary Thomas (gdt@linuxppc.org)
  *
@@ -35,6 +33,7 @@
 #include <asm/pgtable.h>
 #include <asm/unistd.h>
 #include <asm/cacheflush.h>
+#include <asm/syscalls.h>
 #include <asm/vdso.h>
 
 #define DEBUG_SIG 0
@@ -118,14 +117,7 @@ static long setup_sigcontext(struct sigcontext __user *sc, struct pt_regs *regs,
 	err |= __put_user(0, &sc->v_regs);
 #endif /* CONFIG_ALTIVEC */
 	err |= __put_user(&sc->gp_regs, &sc->regs);
-	if (!FULL_REGS(regs)) {
-		/* Zero out the unsaved GPRs to avoid information
-		   leak, and set TIF_SAVE_NVGPRS to ensure that the
-		   registers do actually get saved later. */
-		memset(&regs->gpr[14], 0, 18 * sizeof(unsigned long));
-		set_thread_flag(TIF_SAVE_NVGPRS);
-		current_thread_info()->nvgprs_frame = &sc->gp_regs;
-	}
+	WARN_ON(!FULL_REGS(regs));
 	err |= __copy_to_user(&sc->gp_regs, regs, GP_REGS_SIZE);
 	err |= __copy_to_user(&sc->fp_regs, &current->thread.fpr, FP_REGS_SIZE);
 	err |= __put_user(signr, &sc->signal);
@@ -220,7 +212,7 @@ static inline void __user * get_sigframe(struct k_sigaction *ka, struct pt_regs 
         /* Default to using normal stack */
         newsp = regs->gpr[1];
 
-	if (ka->sa.sa_flags & SA_ONSTACK) {
+	if ((ka->sa.sa_flags & SA_ONSTACK) && current->sas_ss_size) {
 		if (! on_sig_stack(regs->gpr[1]))
 			newsp = (current->sas_ss_sp + current->sas_ss_size);
 	}

@@ -58,7 +58,7 @@ struct clk * clk_get(struct device *dev, const char *id)
 		if (p->id == idno &&
 		    strcmp(id, p->name) == 0 && try_module_get(p->owner)) {
 			clk = p;
-			break;
+			goto found;
 		}
 	}
 
@@ -67,8 +67,9 @@ struct clk * clk_get(struct device *dev, const char *id)
 			clk = p;
 			break;
 		}
-	}	
+	}
 
+found:
 	mutex_unlock(&clocks_mutex);
 
 	return clk;

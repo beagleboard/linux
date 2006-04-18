@@ -21,6 +21,14 @@ config RWSEM_GENERIC_SPINLOCK
 config RWSEM_XCHGADD_ALGORITHM
 	bool
 
+config GENERIC_FIND_NEXT_BIT
+	bool
+	default y
+
+config GENERIC_HWEIGHT
+	bool
+	default y
+
 config GENERIC_HARDIRQS
 	bool
 	default y
@@ -392,9 +400,9 @@ config SH_TMU
 
 endmenu
 
-source "arch/sh/boards/renesas/hs7751rvoip/Kconfig"
+#source "arch/sh/boards/renesas/hs7751rvoip/Kconfig"
 
-source "arch/sh/boards/renesas/rts7751r2d/Kconfig"
+#source "arch/sh/boards/renesas/rts7751r2d/Kconfig"
 
 config SH_PCLK_FREQ
 	int "Peripheral clock frequency (in Hz)"

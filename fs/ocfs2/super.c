@@ -950,16 +950,18 @@ static void ocfs2_inode_init_once(void *data,
 static int ocfs2_initialize_mem_caches(void)
 {
 	ocfs2_inode_cachep = kmem_cache_create("ocfs2_inode_cache",
-					       sizeof(struct ocfs2_inode_info),
-					       0, SLAB_HWCACHE_ALIGN|SLAB_RECLAIM_ACCOUNT,
-					       ocfs2_inode_init_once, NULL);
+				       sizeof(struct ocfs2_inode_info),
+				       0,
+				       (SLAB_HWCACHE_ALIGN|SLAB_RECLAIM_ACCOUNT|
+						SLAB_MEM_SPREAD),
+				       ocfs2_inode_init_once, NULL);
 	if (!ocfs2_inode_cachep)
 		return -ENOMEM;
 
 	ocfs2_lock_cache = kmem_cache_create("ocfs2_lock",
 					     sizeof(struct ocfs2_journal_lock),
 					     0,
-					     SLAB_NO_REAP|SLAB_HWCACHE_ALIGN,
+					     SLAB_HWCACHE_ALIGN,
 					     NULL, NULL);
 	if (!ocfs2_lock_cache)
 		return -ENOMEM;
@@ -1325,6 +1327,16 @@ static int ocfs2_initialize_super(struct super_block *sb,
 	}
 	mlog(ML_NOTICE, "max_slots for this device: %u\n", osb->max_slots);
 
+	init_waitqueue_head(&osb->osb_wipe_event);
+	osb->osb_orphan_wipes = kcalloc(osb->max_slots,
+					sizeof(*osb->osb_orphan_wipes),
+					GFP_KERNEL);
+	if (!osb->osb_orphan_wipes) {
+		status = -ENOMEM;
+		mlog_errno(status);
+		goto bail;
+	}
+
 	osb->s_feature_compat =
 		le32_to_cpu(OCFS2_RAW_SB(di)->s_feature_compat);
 	osb->s_feature_ro_compat =
@@ -1416,8 +1428,9 @@ static int ocfs2_initialize_super(struct super_block *sb,
 	osb->fs_generation = le32_to_cpu(di->i_fs_generation);
 	mlog(0, "vol_label: %s\n", osb->vol_label);
 	mlog(0, "uuid: %s\n", osb->uuid_str);
-	mlog(0, "root_blkno=%"MLFu64", system_dir_blkno=%"MLFu64"\n",
-	     osb->root_blkno, osb->system_dir_blkno);
+	mlog(0, "root_blkno=%llu, system_dir_blkno=%llu\n",
+	     (unsigned long long)osb->root_blkno,
+	     (unsigned long long)osb->system_dir_blkno);
 
 	osb->osb_dlm_debug = ocfs2_new_dlm_debug();
 	if (!osb->osb_dlm_debug) {
@@ -1460,8 +1473,8 @@ static int ocfs2_initialize_super(struct super_block *sb,
 	osb->bitmap_cpg = le16_to_cpu(di->id2.i_chain.cl_cpg);
 	osb->num_clusters = le32_to_cpu(di->id1.bitmap1.i_total);
 	brelse(bitmap_bh);
-	mlog(0, "cluster bitmap inode: %"MLFu64", clusters per group: %u\n",
-	     osb->bitmap_blkno, osb->bitmap_cpg);
+	mlog(0, "cluster bitmap inode: %llu, clusters per group: %u\n",
+	     (unsigned long long)osb->bitmap_blkno, osb->bitmap_cpg);
 
 	status = ocfs2_init_slot_info(osb);
 	if (status < 0) {
@@ -1519,8 +1532,9 @@ static int ocfs2_verify_volume(struct ocfs2_dinode *di,
 			     OCFS2_MINOR_REV_LEVEL);
 		} else if (bh->b_blocknr != le64_to_cpu(di->i_blkno)) {
 			mlog(ML_ERROR, "bad block number on superblock: "
-			     "found %"MLFu64", should be %llu\n",
-			     di->i_blkno, (unsigned long long)bh->b_blocknr);
+			     "found %llu, should be %llu\n",
+			     (unsigned long long)di->i_blkno,
+			     (unsigned long long)bh->b_blocknr);
 		} else if (le32_to_cpu(di->id2.i_super.s_clustersize_bits) < 12 ||
 			    le32_to_cpu(di->id2.i_super.s_clustersize_bits) > 20) {
 			mlog(ML_ERROR, "bad cluster size found: %u\n",
@@ -1638,6 +1652,7 @@ static void ocfs2_delete_osb(struct ocfs2_super *osb)
 	if (osb->slot_info)
 		ocfs2_free_slot_info(osb->slot_info);
 
+	kfree(osb->osb_orphan_wipes);
 	/* FIXME
 	 * This belongs in journal shutdown, but because we have to
 	 * allocate osb->journal at the start of ocfs2_initalize_osb(),

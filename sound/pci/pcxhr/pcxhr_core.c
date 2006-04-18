@@ -274,12 +274,9 @@ int pcxhr_load_xilinx_binary(struct pcxhr_mgr *mgr, const struct firmware *xilin
 
 	/* test first xilinx */
 	chipsc = PCXHR_INPL(mgr, PCXHR_PLX_CHIPSC);
-	if (!second) {
-		if (chipsc & PCXHR_CHIPSC_GPI_USERI) {
-			snd_printdd("no need to load first xilinx\n");
-			return 0; /* first xilinx is already present and cannot be reset */
-		}
-	} else {
+	/* REV01 cards do not support the PCXHR_CHIPSC_GPI_USERI bit anymore */
+	/* this bit will always be 1; no possibility to test presence of first xilinx */
+	if(second) {
 		if ((chipsc & PCXHR_CHIPSC_GPI_USERI) == 0) {
 			snd_printk(KERN_ERR "error loading first xilinx\n");
 			return -EINVAL;
@@ -1176,7 +1173,7 @@ irqreturn_t pcxhr_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 		mgr->dsp_time_last = dsp_time_new;
 
 		if (timer_toggle == mgr->timer_toggle)
-			snd_printk(KERN_ERR "ERROR TIMER TOGGLE\n");
+			snd_printdd("ERROR TIMER TOGGLE\n");
 		mgr->timer_toggle = timer_toggle;
 
 		reg &= ~PCXHR_IRQ_TIMER;

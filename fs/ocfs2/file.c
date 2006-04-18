@@ -220,8 +220,9 @@ static int ocfs2_truncate_file(struct inode *inode,
 	struct ocfs2_super *osb = OCFS2_SB(inode->i_sb);
 	struct ocfs2_truncate_context *tc = NULL;
 
-	mlog_entry("(inode = %"MLFu64", new_i_size = %"MLFu64"\n",
-		   OCFS2_I(inode)->ip_blkno, new_i_size);
+	mlog_entry("(inode = %llu, new_i_size = %llu\n",
+		   (unsigned long long)OCFS2_I(inode)->ip_blkno,
+		   (unsigned long long)new_i_size);
 
 	truncate_inode_pages(inode->i_mapping, new_i_size);
 
@@ -233,23 +234,26 @@ static int ocfs2_truncate_file(struct inode *inode,
 	}
 
 	mlog_bug_on_msg(le64_to_cpu(fe->i_size) != i_size_read(inode),
-			"Inode %"MLFu64", inode i_size = %lld != di "
-			"i_size = %"MLFu64", i_flags = 0x%x\n",
-			OCFS2_I(inode)->ip_blkno,
+			"Inode %llu, inode i_size = %lld != di "
+			"i_size = %llu, i_flags = 0x%x\n",
+			(unsigned long long)OCFS2_I(inode)->ip_blkno,
 			i_size_read(inode),
-			le64_to_cpu(fe->i_size), le32_to_cpu(fe->i_flags));
+			(unsigned long long)le64_to_cpu(fe->i_size),
+			le32_to_cpu(fe->i_flags));
 
 	if (new_i_size > le64_to_cpu(fe->i_size)) {
-		mlog(0, "asked to truncate file with size (%"MLFu64") "
-		     "to size (%"MLFu64")!\n",
-		     le64_to_cpu(fe->i_size), new_i_size);
+		mlog(0, "asked to truncate file with size (%llu) to size (%llu)!\n",
+		     (unsigned long long)le64_to_cpu(fe->i_size),
+		     (unsigned long long)new_i_size);
 		status = -EINVAL;
 		mlog_errno(status);
 		goto bail;
 	}
 
-	mlog(0, "inode %"MLFu64", i_size = %"MLFu64", new_i_size = %"MLFu64"\n",
-	     le64_to_cpu(fe->i_blkno), le64_to_cpu(fe->i_size), new_i_size);
+	mlog(0, "inode %llu, i_size = %llu, new_i_size = %llu\n",
+	     (unsigned long long)le64_to_cpu(fe->i_blkno),
+	     (unsigned long long)le64_to_cpu(fe->i_size),
+	     (unsigned long long)new_i_size);
 
 	/* lets handle the simple truncate cases before doing any more
 	 * cluster locking. */
@@ -378,8 +382,8 @@ int ocfs2_do_extend_allocation(struct ocfs2_super *osb,
 	}
 
 	block = ocfs2_clusters_to_blocks(osb->sb, bit_off);
-	mlog(0, "Allocating %u clusters at block %u for inode %"MLFu64"\n",
-	     num_bits, bit_off, OCFS2_I(inode)->ip_blkno);
+	mlog(0, "Allocating %u clusters at block %u for inode %llu\n",
+	     num_bits, bit_off, (unsigned long long)OCFS2_I(inode)->ip_blkno);
 	status = ocfs2_insert_extent(osb, handle, inode, fe_bh, block,
 				     num_bits, meta_ac);
 	if (status < 0) {
@@ -449,9 +453,9 @@ static int ocfs2_extend_allocation(struct inode *inode,
 restart_all:
 	BUG_ON(le32_to_cpu(fe->i_clusters) != OCFS2_I(inode)->ip_clusters);
 
-	mlog(0, "extend inode %"MLFu64", i_size = %lld, fe->i_clusters = %u, "
+	mlog(0, "extend inode %llu, i_size = %lld, fe->i_clusters = %u, "
 	     "clusters_to_add = %u\n",
-	     OCFS2_I(inode)->ip_blkno, i_size_read(inode),
+	     (unsigned long long)OCFS2_I(inode)->ip_blkno, i_size_read(inode),
 	     fe->i_clusters, clusters_to_add);
 
 	handle = ocfs2_alloc_handle(osb);
@@ -569,8 +573,8 @@ restarted_transaction:
 		}
 	}
 
-	mlog(0, "fe: i_clusters = %u, i_size=%"MLFu64"\n",
-	     fe->i_clusters, fe->i_size);
+	mlog(0, "fe: i_clusters = %u, i_size=%llu\n",
+	     fe->i_clusters, (unsigned long long)fe->i_size);
 	mlog(0, "inode: ip_clusters=%u, i_size=%lld\n",
 	     OCFS2_I(inode)->ip_clusters, i_size_read(inode));
 
@@ -865,8 +869,8 @@ static int ocfs2_write_remove_suid(struct inode *inode)
 	struct ocfs2_super *osb = OCFS2_SB(inode->i_sb);
 	struct ocfs2_dinode *di;
 
-	mlog_entry("(Inode %"MLFu64", mode 0%o)\n", oi->ip_blkno,
-		   inode->i_mode);
+	mlog_entry("(Inode %llu, mode 0%o)\n",
+		   (unsigned long long)oi->ip_blkno, inode->i_mode);
 
 	handle = ocfs2_start_trans(osb, NULL, OCFS2_INODE_UPDATE_CREDITS);
 	if (handle == NULL) {
@@ -933,9 +937,6 @@ static ssize_t ocfs2_file_aio_write(struct kiocb *iocb,
 	struct file *filp = iocb->ki_filp;
 	struct inode *inode = filp->f_dentry->d_inode;
 	loff_t newsize, saved_pos;
-#ifdef OCFS2_ORACORE_WORKAROUNDS
-	struct ocfs2_super *osb = OCFS2_SB(inode->i_sb);
-#endif
 
 	mlog_entry("(0x%p, 0x%p, %u, '%.*s')\n", filp, buf,
 		   (unsigned int)count,
@@ -950,14 +951,6 @@ static ssize_t ocfs2_file_aio_write(struct kiocb *iocb,
 		mlog(0, "bad inode\n");
 		return -EIO;
 	}
-
-#ifdef OCFS2_ORACORE_WORKAROUNDS
-	/* ugh, work around some applications which open everything O_DIRECT +
-	 * O_APPEND and really don't mean to use O_DIRECT. */
-	if (osb->s_mount_opt & OCFS2_MOUNT_COMPAT_OCFS &&
-	    (filp->f_flags & O_APPEND) && (filp->f_flags & O_DIRECT)) 
-		filp->f_flags &= ~O_DIRECT;
-#endif
 
 	mutex_lock(&inode->i_mutex);
 	/* to match setattr's i_mutex -> i_alloc_sem -> rw_lock ordering */
@@ -1079,27 +1072,7 @@ static ssize_t ocfs2_file_aio_write(struct kiocb *iocb,
 	/* communicate with ocfs2_dio_end_io */
 	ocfs2_iocb_set_rw_locked(iocb);
 
-#ifdef OCFS2_ORACORE_WORKAROUNDS
-	if (osb->s_mount_opt & OCFS2_MOUNT_COMPAT_OCFS &&
-	    filp->f_flags & O_DIRECT) {
-		unsigned int saved_flags = filp->f_flags;
-		int sector_size = 1 << osb->s_sectsize_bits;
-
-		if ((saved_pos & (sector_size - 1)) ||
-		    (count & (sector_size - 1)) ||
-		    ((unsigned long)buf & (sector_size - 1))) {
-			filp->f_flags |= O_SYNC;
-			filp->f_flags &= ~O_DIRECT;
-		}
-
-		ret = generic_file_aio_write_nolock(iocb, &local_iov, 1,
-						    &iocb->ki_pos);
-
-		filp->f_flags = saved_flags;
-	} else
-#endif
-		ret = generic_file_aio_write_nolock(iocb, &local_iov, 1,
-						    &iocb->ki_pos);
+	ret = generic_file_aio_write_nolock(iocb, &local_iov, 1, &iocb->ki_pos);
 
 	/* buffered aio wouldn't have proper lock coverage today */
 	BUG_ON(ret == -EIOCBQUEUED && !(filp->f_flags & O_DIRECT));
@@ -1140,9 +1113,6 @@ static ssize_t ocfs2_file_aio_read(struct kiocb *iocb,
 	int ret = 0, rw_level = -1, have_alloc_sem = 0;
 	struct file *filp = iocb->ki_filp;
 	struct inode *inode = filp->f_dentry->d_inode;
-#ifdef OCFS2_ORACORE_WORKAROUNDS
-	struct ocfs2_super *osb = OCFS2_SB(inode->i_sb);
-#endif
 
 	mlog_entry("(0x%p, 0x%p, %u, '%.*s')\n", filp, buf,
 		   (unsigned int)count,
@@ -1154,21 +1124,6 @@ static ssize_t ocfs2_file_aio_read(struct kiocb *iocb,
 		mlog_errno(ret);
 		goto bail;
 	}
-
-#ifdef OCFS2_ORACORE_WORKAROUNDS
-	if (osb->s_mount_opt & OCFS2_MOUNT_COMPAT_OCFS) {
-		if (filp->f_flags & O_DIRECT) {
-			int sector_size = 1 << osb->s_sectsize_bits;
-
-			if ((pos & (sector_size - 1)) ||
-			    (count & (sector_size - 1)) ||
-			    ((unsigned long)buf & (sector_size - 1)) ||
-			    (i_size_read(inode) & (sector_size -1))) {
-				filp->f_flags &= ~O_DIRECT;
-			}
-		}
-	}
-#endif
 
 	/* 
 	 * buffered reads protect themselves in ->readpage().  O_DIRECT reads
@@ -1221,7 +1176,7 @@ struct inode_operations ocfs2_special_file_iops = {
 	.getattr	= ocfs2_getattr,
 };
 
-struct file_operations ocfs2_fops = {
+const struct file_operations ocfs2_fops = {
 	.read		= do_sync_read,
 	.write		= do_sync_write,
 	.sendfile	= generic_file_sendfile,
@@ -1233,7 +1188,7 @@ struct file_operations ocfs2_fops = {
 	.aio_write	= ocfs2_file_aio_write,
 };
 
-struct file_operations ocfs2_dops = {
+const struct file_operations ocfs2_dops = {
 	.read		= generic_read_dir,
 	.readdir	= ocfs2_readdir,
 	.fsync		= ocfs2_sync_file,

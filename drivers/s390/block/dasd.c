@@ -43,7 +43,6 @@ MODULE_AUTHOR("Holger Smolinski <Holger.Smolinski@de.ibm.com>");
 MODULE_DESCRIPTION("Linux on S/390 DASD device driver,"
 		   " Copyright 2000 IBM Corporation");
 MODULE_SUPPORTED_DEVICE("dasd");
-MODULE_PARM(dasd, "1-" __MODULE_STRING(256) "s");
 MODULE_LICENSE("GPL");
 
 /*
@@ -71,10 +70,9 @@ dasd_alloc_device(void)
 {
 	struct dasd_device *device;
 
-	device = kmalloc(sizeof (struct dasd_device), GFP_ATOMIC);
+	device = kzalloc(sizeof (struct dasd_device), GFP_ATOMIC);
 	if (device == NULL)
 		return ERR_PTR(-ENOMEM);
-	memset(device, 0, sizeof (struct dasd_device));
 	/* open_count = 0 means device online but not in use */
 	atomic_set(&device->open_count, -1);
 
@@ -151,6 +149,8 @@ dasd_state_new_to_known(struct dasd_device *device)
 static inline void
 dasd_state_known_to_new(struct dasd_device * device)
 {
+	/* Disable extended error reporting for this device. */
+	dasd_eer_disable(device);
 	/* Forget the discipline information. */
 	if (device->discipline)
 		module_put(device->discipline->owner);
@@ -215,9 +215,10 @@ dasd_state_basic_to_known(struct dasd_device * device)
  * interrupt for this detection ccw uses the kernel event daemon to
  * trigger the call to dasd_change_state. All this is done in the
  * discipline code, see dasd_eckd.c.
- * After the analysis ccw is done (do_analysis returned 0 or error)
- * the block device is setup. Either a fake disk is added to allow
- * formatting or a proper device request queue is created.
+ * After the analysis ccw is done (do_analysis returned 0) the block
+ * device is setup.
+ * In case the analysis returns an error, the device setup is stopped
+ * (a fake disk was already added to allow formatting).
  */
 static inline int
 dasd_state_basic_to_ready(struct dasd_device * device)
@@ -227,13 +228,19 @@ dasd_state_basic_to_ready(struct dasd_device * device)
 	rc = 0;
 	if (device->discipline->do_analysis != NULL)
 		rc = device->discipline->do_analysis(device);
-	if (rc)
+	if (rc) {
+		if (rc != -EAGAIN)
+			device->state = DASD_STATE_UNFMT;
 		return rc;
+	}
+	/* make disk known with correct capacity */
 	dasd_setup_queue(device);
+	set_capacity(device->gdp, device->blocks << device->s2b_shift);
 	device->state = DASD_STATE_READY;
-	if (dasd_scan_partitions(device) != 0)
+	rc = dasd_scan_partitions(device);
+	if (rc)
 		device->state = DASD_STATE_BASIC;
-	return 0;
+	return rc;
 }
 
 /*
@@ -250,6 +257,15 @@ dasd_state_ready_to_basic(struct dasd_device * device)
 	device->blocks = 0;
 	device->bp_block = 0;
 	device->s2b_shift = 0;
+	device->state = DASD_STATE_BASIC;
+}
+
+/*
+ * Back to basic.
+ */
+static inline void
+dasd_state_unfmt_to_basic(struct dasd_device * device)
+{
 	device->state = DASD_STATE_BASIC;
 }
 
@@ -319,8 +335,12 @@ dasd_decrease_state(struct dasd_device *device)
 	if (device->state == DASD_STATE_READY &&
 	    device->target <= DASD_STATE_BASIC)
 		dasd_state_ready_to_basic(device);
-	
-	if (device->state == DASD_STATE_BASIC && 
+
+	if (device->state == DASD_STATE_UNFMT &&
+	    device->target <= DASD_STATE_BASIC)
+		dasd_state_unfmt_to_basic(device);
+
+	if (device->state == DASD_STATE_BASIC &&
 	    device->target <= DASD_STATE_KNOWN)
 		dasd_state_basic_to_known(device);
 	
@@ -521,33 +541,29 @@ dasd_kmalloc_request(char *magic, int cplength, int datasize,
 	struct dasd_ccw_req *cqr;
 
 	/* Sanity checks */
-	if ( magic == NULL || datasize > PAGE_SIZE ||
-	     (cplength*sizeof(struct ccw1)) > PAGE_SIZE)
-		BUG();
+	BUG_ON( magic == NULL || datasize > PAGE_SIZE ||
+	     (cplength*sizeof(struct ccw1)) > PAGE_SIZE);
 
-	cqr = kmalloc(sizeof(struct dasd_ccw_req), GFP_ATOMIC);
+	cqr = kzalloc(sizeof(struct dasd_ccw_req), GFP_ATOMIC);
 	if (cqr == NULL)
 		return ERR_PTR(-ENOMEM);
-	memset(cqr, 0, sizeof(struct dasd_ccw_req));
 	cqr->cpaddr = NULL;
 	if (cplength > 0) {
-		cqr->cpaddr = kmalloc(cplength*sizeof(struct ccw1),
+		cqr->cpaddr = kcalloc(cplength, sizeof(struct ccw1),
 				      GFP_ATOMIC | GFP_DMA);
 		if (cqr->cpaddr == NULL) {
 			kfree(cqr);
 			return ERR_PTR(-ENOMEM);
 		}
-		memset(cqr->cpaddr, 0, cplength*sizeof(struct ccw1));
 	}
 	cqr->data = NULL;
 	if (datasize > 0) {
-		cqr->data = kmalloc(datasize, GFP_ATOMIC | GFP_DMA);
+		cqr->data = kzalloc(datasize, GFP_ATOMIC | GFP_DMA);
 		if (cqr->data == NULL) {
 			kfree(cqr->cpaddr);
 			kfree(cqr);
 			return ERR_PTR(-ENOMEM);
 		}
-		memset(cqr->data, 0, datasize);
 	}
 	strncpy((char *) &cqr->magic, magic, 4);
 	ASCEBC((char *) &cqr->magic, 4);
@@ -566,9 +582,8 @@ dasd_smalloc_request(char *magic, int cplength, int datasize,
 	int size;
 
 	/* Sanity checks */
-	if ( magic == NULL || datasize > PAGE_SIZE ||
-	     (cplength*sizeof(struct ccw1)) > PAGE_SIZE)
-		BUG();
+	BUG_ON( magic == NULL || datasize > PAGE_SIZE ||
+	     (cplength*sizeof(struct ccw1)) > PAGE_SIZE);
 
 	size = (sizeof(struct dasd_ccw_req) + 7L) & -8L;
 	if (cplength > 0)
@@ -872,6 +887,9 @@ dasd_handle_state_change_pending(struct dasd_device *device)
 	struct dasd_ccw_req *cqr;
 	struct list_head *l, *n;
 
+	/* First of all start sense subsystem status request. */
+	dasd_eer_snss(device);
+
 	device->stopped &= ~DASD_STOPPED_PENDING;
 
         /* restart all 'running' IO on queue */
@@ -1091,6 +1109,19 @@ restart:
 			}
 			goto restart;
 		}
+
+		/* First of all call extended error reporting. */
+		if (dasd_eer_enabled(device) &&
+		    cqr->status == DASD_CQR_FAILED) {
+			dasd_eer_write(device, cqr, DASD_EER_FATALERROR);
+
+			/* restart request  */
+			cqr->status = DASD_CQR_QUEUED;
+			cqr->retries = 255;
+			device->stopped |= DASD_STOPPED_QUIESCE;
+			goto restart;
+		}
+
 		/* Process finished ERP request. */
 		if (cqr->refers) {
 			__dasd_process_erp(device, cqr);
@@ -1228,7 +1259,8 @@ __dasd_start_head(struct dasd_device * device)
 	cqr = list_entry(device->ccw_queue.next, struct dasd_ccw_req, list);
         /* check FAILFAST */
 	if (device->stopped & ~DASD_STOPPED_PENDING &&
-	    test_bit(DASD_CQR_FLAGS_FAILFAST, &cqr->flags)) {
+	    test_bit(DASD_CQR_FLAGS_FAILFAST, &cqr->flags) &&
+	    (!dasd_eer_enabled(device))) {
 		cqr->status = DASD_CQR_FAILED;
 		dasd_schedule_bh(device);
 	}
@@ -1722,7 +1754,7 @@ dasd_open(struct inode *inp, struct file *filp)
 		goto out;
 	}
 
-	if (device->state < DASD_STATE_BASIC) {
+	if (device->state <= DASD_STATE_BASIC) {
 		DBF_DEV_EVENT(DBF_ERR, device, " %s",
 			      " Cannot open unrecognized device");
 		rc = -ENODEV;
@@ -1787,7 +1819,7 @@ dasd_exit(void)
 #ifdef CONFIG_PROC_FS
 	dasd_proc_exit();
 #endif
-	dasd_ioctl_exit();
+	dasd_eer_exit();
         if (dasd_page_cache != NULL) {
 		kmem_cache_destroy(dasd_page_cache);
 		dasd_page_cache = NULL;
@@ -1984,6 +2016,9 @@ dasd_generic_notify(struct ccw_device *cdev, int event)
 	switch (event) {
 	case CIO_GONE:
 	case CIO_NO_PATH:
+		/* First of all call extended error reporting. */
+		dasd_eer_write(device, NULL, DASD_EER_NOPATH);
+
 		if (device->state < DASD_STATE_BASIC)
 			break;
 		/* Device is active. We want to keep it. */
@@ -2041,6 +2076,7 @@ dasd_generic_auto_online (struct ccw_driver *dasd_discipline_driver)
 	put_driver(drv);
 }
 
+
 static int __init
 dasd_init(void)
 {
@@ -2073,7 +2109,7 @@ dasd_init(void)
 	rc = dasd_parse();
 	if (rc)
 		goto failed;
-	rc = dasd_ioctl_init();
+	rc = dasd_eer_init();
 	if (rc)
 		goto failed;
 #ifdef CONFIG_PROC_FS

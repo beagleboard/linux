@@ -167,8 +167,8 @@ int smp_call_function (void (*func) (void *info), void *info, int retry,
 	mb();
 
 	/* Send a message to all other CPUs and wait for them to respond */
-	for (i = 0; i < NR_CPUS; i++)
-		if (cpu_online(i) && i != cpu)
+	for_each_online_cpu(i)
+		if (i != cpu)
 			core_send_ipi(i, SMP_CALL_FUNCTION);
 
 	/* Wait for response */
@@ -236,7 +236,7 @@ void __init smp_prepare_cpus(unsigned int max_cpus)
 	init_new_context(current, &init_mm);
 	current_thread_info()->cpu = 0;
 	smp_tune_scheduling();
-	prom_prepare_cpus(max_cpus);
+	plat_prepare_cpus(max_cpus);
 }
 
 /* preload SMP state for boot cpu */

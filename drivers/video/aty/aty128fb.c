@@ -67,6 +67,7 @@
 #include <asm/io.h>
 
 #ifdef CONFIG_PPC_PMAC
+#include <asm/machdep.h>
 #include <asm/pmac_feature.h>
 #include <asm/prom.h>
 #include <asm/pci-bridge.h>
@@ -1326,7 +1327,7 @@ static int aty128_var_to_pll(u32 period_in_ps, struct aty128_pll *pll,
 	unsigned char post_dividers[] = {1,2,4,8,3,6,12};
 	u32 output_freq;
 	u32 vclk;        /* in .01 MHz */
-	int i;
+	int i = 0;
 	u32 n, d;
 
 	vclk = 100000000 / period_in_ps;	/* convert units to 10 kHz */
@@ -1340,15 +1341,16 @@ static int aty128_var_to_pll(u32 period_in_ps, struct aty128_pll *pll,
 	/* now, find an acceptable divider */
 	for (i = 0; i < sizeof(post_dividers); i++) {
 		output_freq = post_dividers[i] * vclk;
-		if (output_freq >= c.ppll_min && output_freq <= c.ppll_max)
+		if (output_freq >= c.ppll_min && output_freq <= c.ppll_max) {
+			pll->post_divider = post_dividers[i];
 			break;
+		}
 	}
 
 	/* calculate feedback divider */
 	n = c.ref_divider * output_freq;
 	d = c.ref_clk;
 
-	pll->post_divider = post_dividers[i];
 	pll->feedback_divider = round_div(n, d);
 	pll->vclk = vclk;
 
@@ -1724,9 +1726,9 @@ static int __init aty128_init(struct pci_dev *pdev, const struct pci_device_id *
 	strcpy(video_card, "Rage128 XX ");
 	video_card[8] = ent->device >> 8;
 	video_card[9] = ent->device & 0xFF;
-	    
+
 	/* range check to make sure */
-	if (ent->driver_data < (sizeof(r128_family)/sizeof(char *)))
+	if (ent->driver_data < ARRAY_SIZE(r128_family))
 	    strncat(video_card, r128_family[ent->driver_data], sizeof(video_card));
 
 	printk(KERN_INFO "aty128fb: %s [chip rev 0x%x] ", video_card, chip_rev);
@@ -1747,7 +1749,7 @@ static int __init aty128_init(struct pci_dev *pdev, const struct pci_device_id *
 
 	var = default_var;
 #ifdef CONFIG_PPC_PMAC
-	if (_machine == _MACH_Pmac) {
+	if (machine_is(powermac)) {
 		/* Indicate sleep capability */
 		if (par->chip_gen == rage_M3) {
 			pmac_call_feature(PMAC_FTR_DEVICE_CAN_WAKE, NULL, 0, 1);
@@ -2010,7 +2012,7 @@ static int aty128fb_blank(int blank, struct fb_info *fb)
 		return 0;
 
 #ifdef CONFIG_PMAC_BACKLIGHT
-	if ((_machine == _MACH_Pmac) && blank)
+	if (machine_is(powermac) && blank)
 		set_backlight_enable(0);
 #endif /* CONFIG_PMAC_BACKLIGHT */
 
@@ -2028,7 +2030,7 @@ static int aty128fb_blank(int blank, struct fb_info *fb)
 		aty128_set_lcd_enable(par, par->lcd_on && !blank);
 	}
 #ifdef CONFIG_PMAC_BACKLIGHT
-	if ((_machine == _MACH_Pmac) && !blank)
+	if (machine_is(powermac) && !blank)
 		set_backlight_enable(1);
 #endif /* CONFIG_PMAC_BACKLIGHT */
 	return 0;

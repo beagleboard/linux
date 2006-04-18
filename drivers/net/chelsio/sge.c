@@ -1021,7 +1021,7 @@ static void restart_tx_queues(struct sge *sge)
 			if (test_and_clear_bit(nd->if_port,
 					       &sge->stopped_tx_queues) &&
 			    netif_running(nd)) {
-				sge->stats.cmdQ_restarted[3]++;
+				sge->stats.cmdQ_restarted[2]++;
 				netif_wake_queue(nd);
 			}
 		}
@@ -1093,8 +1093,7 @@ static int process_responses(struct adapter *adapter, int budget)
 		if (likely(e->DataValid)) {
 			struct freelQ *fl = &sge->freelQ[e->FreelistQid];
 
-			if (unlikely(!e->Sop || !e->Eop))
-				BUG();
+			BUG_ON(!e->Sop || !e->Eop);
 			if (unlikely(e->Offload))
 				unexpected_offload(adapter, fl);
 			else
@@ -1350,7 +1349,7 @@ static int t1_sge_tx(struct sk_buff *skb, struct adapter *adapter,
 	 	if (unlikely(credits < count)) {
 			netif_stop_queue(dev);
 			set_bit(dev->if_port, &sge->stopped_tx_queues);
-			sge->stats.cmdQ_full[3]++;
+			sge->stats.cmdQ_full[2]++;
 			spin_unlock(&q->lock);
 			if (!netif_queue_stopped(dev))
 				CH_ERR("%s: Tx ring full while queue awake!\n",
@@ -1358,7 +1357,7 @@ static int t1_sge_tx(struct sk_buff *skb, struct adapter *adapter,
 			return NETDEV_TX_BUSY;
 		}
 		if (unlikely(credits - count < q->stop_thres)) {
-			sge->stats.cmdQ_full[3]++;
+			sge->stats.cmdQ_full[2]++;
 			netif_stop_queue(dev);
 			set_bit(dev->if_port, &sge->stopped_tx_queues);
 		}

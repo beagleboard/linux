@@ -24,6 +24,7 @@
 #include "sensor_if.h"
 #include "ov9640.h"
 #include "h3sensorpower.h"
+#include "h4sensorpower.h"
 
 #define CAMERA_OV9640
 #ifdef CAMERA_OV9640
@@ -31,7 +32,6 @@
 struct ov9640_sensor {
 	/* I2C parameters */
 	struct i2c_client client;
-	struct i2c_driver driver;
 	int ver; /* OV9640 version */
 };
 
@@ -680,6 +680,12 @@ ov9640_powerup(void)
 			return err;
 	}
 
+	if (machine_is_omap_h4()) {
+		err = h4_sensor_powerup();
+		if (err)
+			return err;
+	}
+
 	return 0;
 }
 static int
@@ -692,6 +698,12 @@ ov9640_powerdown(void)
 
 	if (machine_is_omap_h3()) {
 		err = h3_sensor_powerdown();
+		if (err)
+			return err;
+	}
+
+	if (machine_is_omap_h4()) {
+		err = h4_sensor_powerdown();
 		if (err)
 			return err;
 	}
@@ -750,6 +762,8 @@ ov9640_detect(struct i2c_client *client)
 	return ver;
 }
 
+static struct i2c_driver ov9640sensor_i2c_driver;
+
 /* This function registers an I2C client via i2c_attach_client() for an OV9640 
  * sensor device.  If 'probe' is non-zero, then the I2C client is only 
  * registered if the device can be detected.  If 'probe' is zero, then no 
@@ -768,7 +782,7 @@ ov9640_i2c_attach_client(struct i2c_adapter *adap, int addr, int probe)
 		return -EBUSY;	/* our client is already attached */
 
 	client->addr = addr;
-	client->driver = &sensor->driver;
+	client->driver = &ov9640sensor_i2c_driver;
 	client->adapter = adap;
 
 	err = i2c_attach_client(client);
@@ -1081,11 +1095,22 @@ ov9640sensor_cleanup(void *priv)
 	struct ov9640_sensor *sensor = (struct ov9640_sensor *) priv;
 
 	if (sensor) {
-		i2c_del_driver(&sensor->driver);
+		i2c_del_driver(&ov9640sensor_i2c_driver);
 		ov9640_powerdown();
  	}
 	return 0;
 }
+
+
+static struct i2c_driver ov9640sensor_i2c_driver = {
+	.driver {
+		.name		= "ov9640",
+	},
+	.id		= I2C_DRIVERID_MISC, /*FIXME:accroding to i2c-ids.h */
+	.attach_adapter	= ov9640_i2c_probe_adapter,
+	.detach_client	= ov9640_i2c_detach_client,
+};
+
 
 /* Initialize the OV9640 sensor.
  * This routine allocates and initializes the data structure for the sensor, 
@@ -1099,7 +1124,6 @@ static void *
 ov9640sensor_init(struct v4l2_pix_format *pix)
 {
 	struct ov9640_sensor *sensor = &ov9640;
-	struct i2c_driver *driver = &sensor->driver;
  	int err;
 
 	memset(sensor, 0, sizeof(*sensor));
@@ -1108,12 +1132,7 @@ ov9640sensor_init(struct v4l2_pix_format *pix)
 	if (ov9640_powerup())
 		return NULL;
 
-	strlcpy(driver->driver.name, "OV9640 I2C driver", sizeof(driver->driver.name));
-	driver->id = I2C_DRIVERID_MISC;
-	driver->attach_adapter = ov9640_i2c_probe_adapter;
-	driver->detach_client = ov9640_i2c_detach_client;
-
-	err = i2c_add_driver(driver);
+	err = i2c_add_driver(&ov9640sensor_i2c_driver);
 	if (err) {
 		printk(KERN_ERR "Failed to register OV9640 I2C client.\n");
 		return NULL;

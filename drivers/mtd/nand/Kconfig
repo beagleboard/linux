@@ -55,6 +55,13 @@ config MTD_NAND_OMAP
 	help
 	  Support for NAND flash on Texas Instruments H3/H2/P2 platforms.
 
+config MTD_NAND_OMAP_HW
+	bool "OMAP HW NAND Flash controller support"
+        depends on ARM && ARCH_OMAP16XX && MTD_NAND
+
+	help
+	  Driver for TI OMAP16xx hardware NAND flash controller.
+
 config MTD_NAND_TOTO
 	tristate "NAND Flash device on TOTO board"
 	depends on ARCH_OMAP && MTD_NAND
@@ -184,24 +191,16 @@ config MTD_NAND_DISKONCHIP_BBTWRITE
 	  Even if you leave this disabled, you can enable BBT writes at module
 	  load time (assuming you build diskonchip as a module) with the module
 	  parameter "inftl_bbt_write=1".
-	  
- config MTD_NAND_SHARPSL
- 	bool "Support for NAND Flash on Sharp SL Series (C7xx + others)"
- 	depends on MTD_NAND && ARCH_PXA
- 
- config MTD_NAND_NANDSIM
- 	bool "Support for NAND Flash Simulator"
- 	depends on MTD_NAND && MTD_PARTITIONS
 
+config MTD_NAND_SHARPSL
+	tristate "Support for NAND Flash on Sharp SL Series (C7xx + others)"
+	depends on MTD_NAND && ARCH_PXA
+
+config MTD_NAND_NANDSIM
+	tristate "Support for NAND Flash Simulator"
+	depends on MTD_NAND && MTD_PARTITIONS
 	help
 	  The simulator may simulate verious NAND flash chips for the
 	  MTD nand layer.
-
-config MTD_NAND_OMAP_HW
-	bool "OMAP HW NAND Flash controller support"
-        depends on ARM && ARCH_OMAP16XX && MTD_NAND
-
-	help
-	  Driver for TI OMAP16xx hardware NAND flash controller.
 
 endmenu

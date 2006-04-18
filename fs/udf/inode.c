@@ -312,12 +312,10 @@ static int udf_get_block(struct inode *inode, sector_t block, struct buffer_head
 	err = 0;
 
 	bh = inode_getblk(inode, block, &err, &phys, &new);
-	if (bh)
-		BUG();
+	BUG_ON(bh);
 	if (err)
 		goto abort;
-	if (!phys)
-		BUG();
+	BUG_ON(!phys);
 
 	if (new)
 		set_buffer_new(bh_result);
@@ -1045,10 +1043,14 @@ static void udf_fill_inode(struct inode *inode, struct buffer_head *bh)
 	}
 
 	inode->i_uid = le32_to_cpu(fe->uid);
-	if ( inode->i_uid == -1 ) inode->i_uid = UDF_SB(inode->i_sb)->s_uid;
+	if (inode->i_uid == -1 || UDF_QUERY_FLAG(inode->i_sb,
+					UDF_FLAG_UID_IGNORE))
+		inode->i_uid = UDF_SB(inode->i_sb)->s_uid;
 
 	inode->i_gid = le32_to_cpu(fe->gid);
-	if ( inode->i_gid == -1 ) inode->i_gid = UDF_SB(inode->i_sb)->s_gid;
+	if (inode->i_gid == -1 || UDF_QUERY_FLAG(inode->i_sb,
+					UDF_FLAG_GID_IGNORE))
+		inode->i_gid = UDF_SB(inode->i_sb)->s_gid;
 
 	inode->i_nlink = le16_to_cpu(fe->fileLinkCount);
 	if (!inode->i_nlink)
@@ -1335,11 +1337,13 @@ udf_update_inode(struct inode *inode, int do_sync)
 		return err;
 	}
 
-	if (inode->i_uid != UDF_SB(inode->i_sb)->s_uid)
-		fe->uid = cpu_to_le32(inode->i_uid);
+	if (UDF_QUERY_FLAG(inode->i_sb, UDF_FLAG_UID_FORGET))
+		fe->uid = cpu_to_le32(-1);
+	else fe->uid = cpu_to_le32(inode->i_uid);
 
-	if (inode->i_gid != UDF_SB(inode->i_sb)->s_gid)
-		fe->gid = cpu_to_le32(inode->i_gid);
+	if (UDF_QUERY_FLAG(inode->i_sb, UDF_FLAG_GID_FORGET))
+		fe->gid = cpu_to_le32(-1);
+	else fe->gid = cpu_to_le32(inode->i_gid);
 
 	udfperms =	((inode->i_mode & S_IRWXO)     ) |
 			((inode->i_mode & S_IRWXG) << 2) |

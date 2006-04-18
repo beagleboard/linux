@@ -31,6 +31,7 @@
 #include <linux/poll.h>
 #include <linux/list.h>
 #include <linux/spinlock.h>
+#include <linux/mutex.h>
 
 #include <asm/uaccess.h>
 
@@ -64,7 +65,7 @@ static LIST_HEAD(tahvo_irqs_reserve);
 DECLARE_WAIT_QUEUE_HEAD(tahvo_user_waitqueue);
 
 /* Semaphore to protect irq subscription sequence */
-static struct semaphore tahvo_sem;
+static struct mutex tahvo_mutex;
 
 /* This array specifies TAHVO register types (read/write/toggle) */
 static const u8 tahvo_access_bits[] = {
@@ -120,14 +121,14 @@ static int tahvo_user_subscribe_to_irq(int id, struct file *filp)
 {
 	int ret;
 
-	down(&tahvo_sem);
+	mutex_lock(&tahvo_mutex);
 	if ((tahvo_irq_subscr != NULL) && (tahvo_irq_subscr != filp)) {
-		up(&tahvo_sem);
+		mutex_unlock(&tahvo_mutex);
 		return -EBUSY;
 	}
 	/* Store the file pointer of the first user process registering IRQs */
 	tahvo_irq_subscr = filp;
-	up(&tahvo_sem);
+	mutex_unlock(&tahvo_mutex);
 
 	if (tahvo_irq_bits & (1 << id))
 		return 0;
@@ -365,7 +366,7 @@ int tahvo_user_init(void)
 	tahvo_irq_block = irq;
 
 	spin_lock_init(&tahvo_irqs_lock);
-	sema_init(&tahvo_sem, 1);
+	mutex_init(&tahvo_mutex);
 
 	/* Request a misc device */
 	res = misc_register(&tahvo_device);

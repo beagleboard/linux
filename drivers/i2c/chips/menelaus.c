@@ -33,6 +33,7 @@
 #include <linux/i2c.h>
 #include <linux/interrupt.h>
 #include <linux/sched.h>
+#include <linux/mutex.h>
 
 #include <asm/mach-types.h>
 #include <asm/mach/irq.h>
@@ -133,7 +134,7 @@ I2C_CLIENT_INSMOD;
 
 struct menelaus_chip {
 	unsigned long		initialized;
-	struct semaphore	lock;
+	struct mutex		lock;
 	struct i2c_client	client;
 	struct work_struct	work;
 	int			irq;
@@ -193,10 +194,10 @@ static void menelaus_ack_irq(int irq)
 /* Adds a handler for an interrupt. Does not run in interrupt context */
 static int menelaus_add_irq_work(int irq, void * handler)
 {
-	down(&menelaus.lock);
+	mutex_lock(&menelaus.lock);
 	menelaus.handlers[irq] = handler;
 	menelaus_enable_irq(irq);
-	up(&menelaus.lock);
+	mutex_unlock(&menelaus.lock);
 
 	return 0;
 }
@@ -204,10 +205,10 @@ static int menelaus_add_irq_work(int irq, void * handler)
 /* Removes handler for an interrupt */
 static void menelaus_remove_irq_work(int irq)
 {
-	down(&menelaus.lock);
+	mutex_lock(&menelaus.lock);
 	menelaus_disable_irq(irq);
 	menelaus.handlers[irq] = NULL;
-	up(&menelaus.lock);
+	mutex_unlock(&menelaus.lock);
 }
 
 /*-----------------------------------------------------------------------*/
@@ -332,7 +333,7 @@ static void menelaus_work(void * _menelaus)
 
 		for (i = 0; i < IH_MENELAUS_IRQS; i++) {
 			if (isr & (1 << i)) {
-				down(&menelaus->lock);
+				mutex_lock(&menelaus->lock);
 				menelaus_disable_irq(i);
 				menelaus_ack_irq(i);
 				if (menelaus->handlers[i]) {
@@ -340,7 +341,7 @@ static void menelaus_work(void * _menelaus)
 					handler(menelaus);
 				}
 				menelaus_enable_irq(i);
-				up(&menelaus->lock);
+				mutex_unlock(&menelaus->lock);
 			}
 		}
 	}
@@ -405,7 +406,7 @@ static int menelaus_probe(struct i2c_adapter *adapter, int address, int kind)
 	if (err)
 		printk(KERN_ERR "Could not get Menelaus IRQ\n");
 
-	init_MUTEX(&menelaus.lock);
+	mutex_init(&menelaus.lock);
 	INIT_WORK(&menelaus.work, menelaus_work, &menelaus);
 
 	if (kind < 0)
@@ -450,7 +451,7 @@ static int menelaus_scan_bus(struct i2c_adapter *bus)
 }
 
 static struct i2c_driver menelaus_i2c_driver = {
-	.driver {
+	.driver = {
 		.name		= DRIVER_NAME,
 	},
 	.id		= I2C_DRIVERID_MISC, /*FIXME:accroding to i2c-ids.h */

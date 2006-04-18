@@ -741,6 +741,18 @@ static struct clk i2c_fck = {
 	.disable	= &omap1_clk_disable_generic,
 };
 
+static struct clk i2c_ick = {
+	.name		= "i2c_ick",
+	.id		= 1,
+	.flags		= CLOCK_IN_OMAP16XX |
+			  VIRTUAL_CLOCK | CLOCK_NO_IDLE_PARENT |
+			  ALWAYS_ENABLED,
+	.parent		= &armper_ck.clk,
+	.recalc		= &followparent_recalc,
+	.enable		= &omap1_clk_enable_generic,
+	.disable	= &omap1_clk_disable_generic,
+};
+
 static struct clk * onchip_clks[] = {
 	/* non-ULPD clocks */
 	&ck_ref,
@@ -790,6 +802,7 @@ static struct clk * onchip_clks[] = {
 	/* Virtual clocks */
 	&virtual_ck_mpu,
 	&i2c_fck,
+	&i2c_ick,
 };
 
 #endif

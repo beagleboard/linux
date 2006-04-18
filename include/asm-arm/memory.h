@@ -172,9 +172,7 @@ static inline __deprecated void *bus_to_virt(unsigned long x)
  *  virt_addr_valid(k)	indicates whether a virtual address is valid
  */
 #ifndef CONFIG_DISCONTIGMEM
-
-#define page_to_pfn(page)	(((page) - mem_map) + PHYS_PFN_OFFSET)
-#define pfn_to_page(pfn)	((mem_map + (pfn)) - PHYS_PFN_OFFSET)
+#define ARCH_PFN_OFFSET		(PHYS_PFN_OFFSET)
 #define pfn_valid(pfn)		((pfn) >= PHYS_PFN_OFFSET && (pfn) < (PHYS_PFN_OFFSET + max_mapnr))
 
 #define virt_to_page(kaddr)	(pfn_to_page(__pa(kaddr) >> PAGE_SHIFT))
@@ -189,13 +187,8 @@ static inline __deprecated void *bus_to_virt(unsigned long x)
  * around in memory.
  */
 #include <linux/numa.h>
-
-#define page_to_pfn(page)					\
-	(( (page) - page_zone(page)->zone_mem_map)		\
-	  + page_zone(page)->zone_start_pfn)
-
-#define pfn_to_page(pfn)					\
-	(PFN_TO_MAPBASE(pfn) + LOCAL_MAP_NR((pfn) << PAGE_SHIFT))
+#define arch_pfn_to_nid(pfn)	(PFN_TO_NID(pfn))
+#define arch_local_page_offset(pfn, nid) (LOCAL_MAP_NR((pfn) << PAGE_OFFSET))
 
 #define pfn_valid(pfn)						\
 	({							\
@@ -241,6 +234,16 @@ static inline __deprecated void *bus_to_virt(unsigned long x)
 #define virt_to_dma(dev, addr)		(__arch_virt_to_dma(dev, addr))
 #endif
 
+/*
+ * Optional coherency support.  Currently used only by selected
+ * Intel XSC3-based systems.
+ */
+#ifndef arch_is_coherent
+#define arch_is_coherent()		0
 #endif
+
+#endif
+
+#include <asm-generic/memory_model.h>
 
 #endif

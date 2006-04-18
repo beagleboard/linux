@@ -191,9 +191,7 @@ static void smp_psurge_message_pass(int target, int msg)
 	if (num_online_cpus() < 2)
 		return;
 
-	for (i = 0; i < NR_CPUS; i++) {
-		if (!cpu_online(i))
-			continue;
+	for_each_online_cpu(i) {
 		if (target == MSG_ALL
 		    || (target == MSG_ALL_BUT_SELF && i != smp_processor_id())
 		    || target == i) {
@@ -435,7 +433,7 @@ struct smp_ops_t psurge_smp_ops = {
  */
 
 static void (*pmac_tb_freeze)(int freeze);
-static unsigned long timebase;
+static u64 timebase;
 static int tb_req;
 
 static void smp_core99_give_timebase(void)

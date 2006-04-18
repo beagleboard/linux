@@ -598,7 +598,7 @@ static int audio_i2c_resume(struct platform_device *dev)
 }
 
 static struct platform_driver audio_i2c_driver = {
-	.driver {
+	.driver = {
 		.owner	= THIS_MODULE,
 		.name	= "audio-i2c",
 	},

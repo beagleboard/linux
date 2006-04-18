@@ -306,8 +306,8 @@ static int get_relative_value(struct usb_mixer_elem_info *cval, int val)
 		cval->res = 1;
 	if (val < cval->min)
 		return 0;
-	else if (val > cval->max)
-		return (cval->max - cval->min) / cval->res;
+	else if (val >= cval->max)
+		return (cval->max - cval->min + cval->res - 1) / cval->res;
 	else
 		return (val - cval->min) / cval->res;
 }
@@ -434,7 +434,6 @@ static int add_control_to_empty(struct mixer_build *state, struct snd_kcontrol *
 		kctl->id.index++;
 	if ((err = snd_ctl_add(state->chip->card, kctl)) < 0) {
 		snd_printd(KERN_ERR "cannot add control (err = %d)\n", err);
-		snd_ctl_free_one(kctl);
 		return err;
 	}
 	cval->elem_id = &kctl->id;
@@ -671,6 +670,36 @@ static int get_min_max(struct usb_mixer_elem_info *cval, int default_min)
 		}
 		if (cval->res == 0)
 			cval->res = 1;
+
+		/* Additional checks for the proper resolution
+		 *
+		 * Some devices report smaller resolutions than actually
+		 * reacting.  They don't return errors but simply clip
+		 * to the lower aligned value.
+		 */
+		if (cval->min + cval->res < cval->max) {
+			int last_valid_res = cval->res;
+			int saved, test, check;
+			get_cur_mix_value(cval, minchn, &saved);
+			for (;;) {
+				test = saved;
+				if (test < cval->max)
+					test += cval->res;
+				else
+					test -= cval->res;
+				if (test < cval->min || test > cval->max ||
+				    set_cur_mix_value(cval, minchn, test) ||
+				    get_cur_mix_value(cval, minchn, &check)) {
+					cval->res = last_valid_res;
+					break;
+				}
+				if (test == check)
+					break;
+				cval->res *= 2;
+			}
+			set_cur_mix_value(cval, minchn, saved);
+		}
+
 		cval->initialized = 1;
 	}
 	return 0;
@@ -696,7 +725,8 @@ static int mixer_ctl_feature_info(struct snd_kcontrol *kcontrol, struct snd_ctl_
 		if (! cval->initialized)
 			get_min_max(cval,  0);
 		uinfo->value.integer.min = 0;
-		uinfo->value.integer.max = (cval->max - cval->min) / cval->res;
+		uinfo->value.integer.max =
+			(cval->max - cval->min + cval->res - 1) / cval->res;
 	}
 	return 0;
 }
@@ -1469,6 +1499,7 @@ static int parse_audio_selector_unit(struct mixer_build *state, int unitid, unsi
 	kctl = snd_ctl_new1(&mixer_selectunit_ctl, cval);
 	if (! kctl) {
 		snd_printk(KERN_ERR "cannot malloc kcontrol\n");
+		kfree(namelist);
 		kfree(cval);
 		return -ENOMEM;
 	}

@@ -55,6 +55,7 @@ static inline int atomic_inc_and_test(atomic_t *v)
 }
 
 #ifdef CONFIG_RMW_INSNS
+
 static inline int atomic_add_return(int i, atomic_t *v)
 {
 	int t, tmp;
@@ -82,7 +83,12 @@ static inline int atomic_sub_return(int i, atomic_t *v)
 			: "g" (i), "2" (atomic_read(v)));
 	return t;
 }
+
+#define atomic_cmpxchg(v, o, n) ((int)cmpxchg(&((v)->counter), (o), (n)))
+#define atomic_xchg(v, new) (xchg(&((v)->counter), new))
+
 #else /* !CONFIG_RMW_INSNS */
+
 static inline int atomic_add_return(int i, atomic_t * v)
 {
 	unsigned long flags;
@@ -110,6 +116,32 @@ static inline int atomic_sub_return(int i, atomic_t * v)
 
 	return t;
 }
+
+static inline int atomic_cmpxchg(atomic_t *v, int old, int new)
+{
+	unsigned long flags;
+	int prev;
+
+	local_irq_save(flags);
+	prev = atomic_read(v);
+	if (prev == old)
+		atomic_set(v, new);
+	local_irq_restore(flags);
+	return prev;
+}
+
+static inline int atomic_xchg(atomic_t *v, int new)
+{
+	unsigned long flags;
+	int prev;
+
+	local_irq_save(flags);
+	prev = atomic_read(v);
+	atomic_set(v, new);
+	local_irq_restore(flags);
+	return prev;
+}
+
 #endif /* !CONFIG_RMW_INSNS */
 
 #define atomic_dec_return(v)	atomic_sub_return(1, (v))
@@ -139,15 +171,18 @@ static inline void atomic_set_mask(unsigned long mask, unsigned long *v)
 	__asm__ __volatile__("orl %1,%0" : "+m" (*v) : "id" (mask));
 }
 
-#define atomic_cmpxchg(v, o, n) ((int)cmpxchg(&((v)->counter), (o), (n)))
-#define atomic_xchg(v, new) (xchg(&((v)->counter), new))
-
 #define atomic_add_unless(v, a, u)				\
 ({								\
 	int c, old;						\
 	c = atomic_read(v);					\
-	while (c != (u) && (old = atomic_cmpxchg((v), c, c + (a))) != c) \
+	for (;;) {						\
+		if (unlikely(c == (u)))				\
+			break;					\
+		old = atomic_cmpxchg((v), c, c + (a));		\
+		if (likely(old == c))				\
+			break;					\
 		c = old;					\
+	}							\
 	c != (u);						\
 })
 #define atomic_inc_not_zero(v) atomic_add_unless((v), 1, 0)

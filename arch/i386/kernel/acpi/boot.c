@@ -44,6 +44,9 @@ extern void __init clustered_apic_check(void);
 extern int gsi_irq_sharing(int gsi);
 #include <asm/proto.h>
 
+static inline int acpi_madt_oem_check(char *oem_id, char *oem_table_id) { return 0; }
+
+
 #else				/* X86 */
 
 #ifdef	CONFIG_X86_LOCAL_APIC
@@ -665,10 +668,10 @@ unsigned long __init acpi_find_rsdp(void)
 	unsigned long rsdp_phys = 0;
 
 	if (efi_enabled) {
-		if (efi.acpi20)
-			return __pa(efi.acpi20);
-		else if (efi.acpi)
-			return __pa(efi.acpi);
+		if (efi.acpi20 != EFI_INVALID_TABLE_ADDR)
+			return efi.acpi20;
+		else if (efi.acpi != EFI_INVALID_TABLE_ADDR)
+			return efi.acpi;
 	}
 	/*
 	 * Scan memory looking for the RSDP signature. First search EBDA (low
@@ -1108,9 +1111,6 @@ int __init acpi_boot_table_init(void)
 		disable_acpi();
 		return error;
 	}
-#ifdef __i386__
-	check_acpi_pci();
-#endif
 
 	acpi_table_parse(ACPI_BOOT, acpi_parse_sbf);
 

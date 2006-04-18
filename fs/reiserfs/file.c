@@ -1464,19 +1464,19 @@ static ssize_t reiserfs_file_write(struct file *file,	/* the file we are going t
 		   partially overwritten pages, if needed. And lock the pages,
 		   so that nobody else can access these until we are done.
 		   We get number of actual blocks needed as a result. */
-		blocks_to_allocate =
-		    reiserfs_prepare_file_region_for_write(inode, pos,
-							   num_pages,
-							   write_bytes,
-							   prepared_pages);
-		if (blocks_to_allocate < 0) {
-			res = blocks_to_allocate;
+		res = reiserfs_prepare_file_region_for_write(inode, pos,
+							     num_pages,
+							     write_bytes,
+							     prepared_pages);
+		if (res < 0) {
 			reiserfs_release_claimed_blocks(inode->i_sb,
 							num_pages <<
 							(PAGE_CACHE_SHIFT -
 							 inode->i_blkbits));
 			break;
 		}
+
+		blocks_to_allocate = res;
 
 		/* First we correct our estimate of how many blocks we need */
 		reiserfs_release_claimed_blocks(inode->i_sb,
@@ -1532,7 +1532,7 @@ static ssize_t reiserfs_file_write(struct file *file,	/* the file we are going t
 		buf += write_bytes;
 		*ppos = pos += write_bytes;
 		count -= write_bytes;
-		balance_dirty_pages_ratelimited(inode->i_mapping);
+		balance_dirty_pages_ratelimited_nr(inode->i_mapping, num_pages);
 	}
 
 	/* this is only true on error */
@@ -1546,10 +1546,10 @@ static ssize_t reiserfs_file_write(struct file *file,	/* the file we are going t
 		}
 	}
 
-	if ((file->f_flags & O_SYNC) || IS_SYNC(inode))
-		res =
-		    generic_osync_inode(inode, file->f_mapping,
-					OSYNC_METADATA | OSYNC_DATA);
+	if (likely(res >= 0) &&
+	    (unlikely((file->f_flags & O_SYNC) || IS_SYNC(inode))))
+		res = generic_osync_inode(inode, file->f_mapping,
+		                          OSYNC_METADATA | OSYNC_DATA);
 
 	mutex_unlock(&inode->i_mutex);
 	reiserfs_async_progress_wait(inode->i_sb);
@@ -1566,7 +1566,7 @@ static ssize_t reiserfs_aio_write(struct kiocb *iocb, const char __user * buf,
 	return generic_file_aio_write(iocb, buf, count, pos);
 }
 
-struct file_operations reiserfs_file_operations = {
+const struct file_operations reiserfs_file_operations = {
 	.read = generic_file_read,
 	.write = reiserfs_file_write,
 	.ioctl = reiserfs_ioctl,
@@ -1576,6 +1576,8 @@ struct file_operations reiserfs_file_operations = {
 	.sendfile = generic_file_sendfile,
 	.aio_read = generic_file_aio_read,
 	.aio_write = reiserfs_aio_write,
+	.splice_read = generic_file_splice_read,
+	.splice_write = generic_file_splice_write,
 };
 
 struct inode_operations reiserfs_file_inode_operations = {

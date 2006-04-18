@@ -74,12 +74,14 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/sched.h>
+#include <linux/cpumask.h>
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 #include <linux/miscdevice.h>
 #include <linux/spinlock.h>
 #include <linux/mm.h>
+#include <linux/mutex.h>
 
 #include <asm/msr.h>
 #include <asm/uaccess.h>
@@ -113,7 +115,7 @@ MODULE_LICENSE("GPL");
 static DEFINE_SPINLOCK(microcode_update_lock);
 
 /* no concurrent ->write()s are allowed on /dev/cpu/microcode */
-static DECLARE_MUTEX(microcode_sem);
+static DEFINE_MUTEX(microcode_mutex);
 
 static void __user *user_buffer;	/* user area microcode data buffer */
 static unsigned int user_buffer_size;	/* it's size */
@@ -201,8 +203,6 @@ static inline void mark_microcode_update (int cpu_num, microcode_header_t *mc_he
 	} else if (mc_header->rev == uci->rev) {
 		/* notify the caller of success on this cpu */
 		uci->err = MC_SUCCESS;
-		printk(KERN_ERR "microcode: CPU%d already at revision"
-			" 0x%x (current=0x%x)\n", cpu_num, mc_header->rev, uci->rev);
 		goto out;
 	}
 
@@ -250,8 +250,8 @@ static int find_matching_ucodes (void)
 			error = -EINVAL;
 			goto out;
 		}
-		
-		for (cpu_num = 0; cpu_num < num_online_cpus(); cpu_num++) {
+
+		for_each_online_cpu(cpu_num) {
 			struct ucode_cpu_info *uci = ucode_cpu_info + cpu_num;
 			if (uci->err != MC_NOTFOUND) /* already found a match or not an online cpu*/
 				continue;
@@ -293,7 +293,7 @@ static int find_matching_ucodes (void)
 					error = -EFAULT;
 					goto out;
 				}
-				for (cpu_num = 0; cpu_num < num_online_cpus(); cpu_num++) {
+				for_each_online_cpu(cpu_num) {
 					struct ucode_cpu_info *uci = ucode_cpu_info + cpu_num;
 					if (uci->err != MC_NOTFOUND) /* already found a match or not an online cpu*/
 						continue;
@@ -304,7 +304,9 @@ static int find_matching_ucodes (void)
 			}
 		}
 		/* now check if any cpu has matched */
-		for (cpu_num = 0, allocated_flag = 0, sum = 0; cpu_num < num_online_cpus(); cpu_num++) {
+		allocated_flag = 0;
+		sum = 0;
+		for_each_online_cpu(cpu_num) {
 			if (ucode_cpu_info[cpu_num].err == MC_MARKED) { 
 				struct ucode_cpu_info *uci = ucode_cpu_info + cpu_num;
 				if (!allocated_flag) {
@@ -366,7 +368,6 @@ static void do_update_one (void * unused)
 	struct ucode_cpu_info *uci = ucode_cpu_info + cpu_num;
 
 	if (uci->mc == NULL) {
-		printk(KERN_INFO "microcode: No new microcode data for CPU%d\n", cpu_num);
 		return;
 	}
 
@@ -415,12 +416,12 @@ static int do_microcode_update (void)
 	}
 
 out_free:
-	for (i = 0; i < num_online_cpus(); i++) {
+	for_each_online_cpu(i) {
 		if (ucode_cpu_info[i].mc) {
 			int j;
 			void *tmp = ucode_cpu_info[i].mc;
 			vfree(tmp);
-			for (j = i; j < num_online_cpus(); j++) {
+			for_each_online_cpu(j) {
 				if (ucode_cpu_info[j].mc == tmp)
 					ucode_cpu_info[j].mc = NULL;
 			}
@@ -444,7 +445,7 @@ static ssize_t microcode_write (struct file *file, const char __user *buf, size_
 		return -EINVAL;
 	}
 
-	down(&microcode_sem);
+	mutex_lock(&microcode_mutex);
 
 	user_buffer = (void __user *) buf;
 	user_buffer_size = (int) len;
@@ -453,31 +454,14 @@ static ssize_t microcode_write (struct file *file, const char __user *buf, size_
 	if (!ret)
 		ret = (ssize_t)len;
 
-	up(&microcode_sem);
+	mutex_unlock(&microcode_mutex);
 
 	return ret;
-}
-
-static int microcode_ioctl (struct inode *inode, struct file *file, 
-		unsigned int cmd, unsigned long arg)
-{
-	switch (cmd) {
-		/* 
-		 *  XXX: will be removed after microcode_ctl 
-		 *  is updated to ignore failure of this ioctl()
-		 */
-		case MICROCODE_IOCFREE:
-			return 0;
-		default:
-			return -EINVAL;
-	}
-	return -EINVAL;
 }
 
 static struct file_operations microcode_fops = {
 	.owner		= THIS_MODULE,
 	.write		= microcode_write,
-	.ioctl		= microcode_ioctl,
 	.open		= microcode_open,
 };
 
@@ -508,7 +492,6 @@ static int __init microcode_init (void)
 static void __exit microcode_exit (void)
 {
 	misc_deregister(&microcode_dev);
-	printk(KERN_INFO "IA-32 Microcode Update Driver v" MICROCODE_VERSION " unregistered\n");
 }
 
 module_init(microcode_init)

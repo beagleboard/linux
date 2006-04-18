@@ -94,6 +94,7 @@ static int esp6_output(struct xfrm_state *x, struct sk_buff *skb)
 
 	esph->spi = x->id.spi;
 	esph->seq_no = htonl(++x->replay.oseq);
+	xfrm_aevent_doreplay(x);
 
 	if (esp->conf.ivlen)
 		crypto_cipher_set_iv(tfm, esp->conf.ivec, crypto_tfm_alg_ivsize(tfm));
@@ -129,7 +130,7 @@ error:
 	return err;
 }
 
-static int esp6_input(struct xfrm_state *x, struct xfrm_decap_state *decap, struct sk_buff *skb)
+static int esp6_input(struct xfrm_state *x, struct sk_buff *skb)
 {
 	struct ipv6hdr *iph;
 	struct ipv6_esp_hdr *esph;
@@ -304,11 +305,9 @@ static int esp6_init_state(struct xfrm_state *x)
 	if (x->encap)
 		goto error;
 
-	esp = kmalloc(sizeof(*esp), GFP_KERNEL);
+	esp = kzalloc(sizeof(*esp), GFP_KERNEL);
 	if (esp == NULL)
 		return -ENOMEM;
-
-	memset(esp, 0, sizeof(*esp));
 
 	if (x->aalg) {
 		struct xfrm_algo_desc *aalg_desc;

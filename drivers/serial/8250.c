@@ -1529,7 +1529,7 @@ static int serial8250_startup(struct uart_port *port)
 
 	/*
 	 * Clear the FIFO buffers and disable them.
-	 * (they will be reeanbled in set_termios())
+	 * (they will be reenabled in set_termios())
 	 */
 	serial8250_clear_fifos(up);
 
@@ -2212,6 +2212,14 @@ static inline void wait_for_xmitr(struct uart_8250_port *up, int bits)
 	}
 }
 
+static void serial8250_console_putchar(struct uart_port *port, int ch)
+{
+	struct uart_8250_port *up = (struct uart_8250_port *)port;
+
+	wait_for_xmitr(up, UART_LSR_THRE);
+	serial_out(up, UART_TX, ch);
+}
+
 /*
  *	Print a string to the serial port trying not to disturb
  *	any possible real use of the port...
@@ -2223,7 +2231,6 @@ serial8250_console_write(struct console *co, const char *s, unsigned int count)
 {
 	struct uart_8250_port *up = &serial8250_ports[co->index];
 	unsigned int ier;
-	int i;
 
 	touch_nmi_watchdog();
 
@@ -2237,22 +2244,7 @@ serial8250_console_write(struct console *co, const char *s, unsigned int count)
 	else
 		serial_out(up, UART_IER, 0);
 
-	/*
-	 *	Now, do each character
-	 */
-	for (i = 0; i < count; i++, s++) {
-		wait_for_xmitr(up, UART_LSR_THRE);
-
-		/*
-		 *	Send the character out.
-		 *	If a LF, also do CR...
-		 */
-		serial_out(up, UART_TX, *s);
-		if (*s == 10) {
-			wait_for_xmitr(up, UART_LSR_THRE);
-			serial_out(up, UART_TX, 13);
-		}
-	}
+	uart_console_write(&up->port, s, count, serial8250_console_putchar);
 
 	/*
 	 *	Finally, wait for transmitter to become empty

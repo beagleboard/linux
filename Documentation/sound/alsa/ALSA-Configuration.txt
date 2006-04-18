@@ -120,6 +120,34 @@ Prior to version 0.9.0rc4 options had a 'snd_' prefix. This was removed.
     enable  	- enable card
 		- Default: enabled, for PCI and ISA PnP cards
 
+  Module snd-adlib
+  ----------------
+
+    Module for AdLib FM cards.
+
+    port	- port # for OPL chip
+
+    This module supports multiple cards. It does not support autoprobe, so
+    the port must be specified. For actual AdLib FM cards it will be 0x388.
+    Note that this card does not have PCM support and no mixer; only FM
+    synthesis.
+
+    Make sure you have "sbiload" from the alsa-tools package available and,
+    after loading the module, find out the assigned ALSA sequencer port
+    number through "sbiload -l". Example output:
+
+      Port     Client name                       Port name
+      64:0     OPL2 FM synth                     OPL2 FM Port
+
+    Load the std.sb and drums.sb patches also supplied by sbiload:
+
+      sbiload -p 64:0 std.sb drums.sb
+
+    If you use this driver to drive an OPL3, you can use std.o3 and drums.o3
+    instead. To have the card produce sound, use aplaymidi from alsa-utils:
+
+      aplaymidi -p 64:0 foo.mid
+
   Module snd-ad1816a
   ------------------
 
@@ -187,6 +215,15 @@ Prior to version 0.9.0rc4 options had a 'snd_' prefix. This was removed.
     fm_port	- port # for OPL3 FM (PnP setup)
     
     This module supports multiple cards, autoprobe and PnP.
+
+    The power-management is supported.
+
+  Module snd-als300
+  -----------------
+
+    Module for  Avance Logic ALS300 and ALS300+
+
+    This module supports multiple cards.
 
     The power-management is supported.
 
@@ -513,6 +550,8 @@ Prior to version 0.9.0rc4 options had a 'snd_' prefix. This was removed.
 
     This module supports multiple cards and autoprobe.
     
+    The power-management is supported.
+
   Module snd-ens1371
   ------------------
 
@@ -526,6 +565,8 @@ Prior to version 0.9.0rc4 options had a 'snd_' prefix. This was removed.
 
     This module supports multiple cards and autoprobe.
     
+    The power-management is supported.
+
   Module snd-es968
   ----------------
 
@@ -671,6 +712,8 @@ Prior to version 0.9.0rc4 options had a 'snd_' prefix. This was removed.
 
     model	- force the model name
     position_fix - Fix DMA pointer (0 = auto, 1 = none, 2 = POSBUF, 3 = FIFO size)
+    single_cmd  - Use single immediate commands to communicate with
+		codecs (for debugging only)
 
     This module supports one card and autoprobe.
 
@@ -694,13 +737,35 @@ Prior to version 0.9.0rc4 options had a 'snd_' prefix. This was removed.
 	  asus		3-jack
 	  uniwill	3-jack
 	  F1734		2-jack
+	  lg		LG laptop (m1 express dual)
+	  lg-lw		LG LW20 laptop
 	  test		for testing/debugging purpose, almost all controls can be
 			adjusted.  Appearing only when compiled with
 			$CONFIG_SND_DEBUG=y
+	  auto		auto-config reading BIOS (default)
 
 	ALC260
 	  hp		HP machines
 	  fujitsu	Fujitsu S7020
+	  acer		Acer TravelMate
+	  basic		fixed pin assignment (old default model)
+	  auto		auto-config reading BIOS (default)
+
+	ALC262
+	  fujitsu	Fujitsu Laptop
+	  basic		fixed pin assignment w/o SPDIF
+	  auto		auto-config reading BIOS (default)
+
+	ALC882/883/885
+	  3stack-dig	3-jack with SPDIF I/O
+	  6stck-dig	6-jack digital with SPDIF I/O
+	  auto		auto-config reading BIOS (default)
+
+	ALC861
+	  3stack	3-jack
+	  3stack-dig	3-jack with SPDIF I/O
+	  6stack-dig	6-jack with SPDIF I/O
+	  auto		auto-config reading BIOS (default)
 
 	CMI9880
 	  minimal	3-jack in back
@@ -709,6 +774,28 @@ Prior to version 0.9.0rc4 options had a 'snd_' prefix. This was removed.
 	  full_dig	6-jack in back, 2-jack in front, SPDIF I/O
 	  allout	5-jack in back, 2-jack in front, SPDIF out
 	  auto		auto-config reading BIOS (default)
+
+	AD1981
+	  basic		3-jack (default)
+	  hp		HP nx6320
+
+	AD1986A
+	  6stack	6-jack, separate surrounds (default)
+	  3stack	3-stack, shared surrounds
+	  laptop	2-channel only (FSC V2060, Samsung M50)
+	  laptop-eapd	2-channel with EAPD (Samsung R65, ASUS A6J)
+
+	AD1988
+	  6stack	6-jack
+	  6stack-dig	ditto with SPDIF
+	  3stack	3-jack
+	  3stack-dig	ditto with SPDIF
+	  laptop	3-jack with hp-jack automute
+	  laptop-dig	ditto with SPDIF
+	  auto		auto-confgi reading BIOS (default)
+
+	STAC7661(?)
+	  vaio		Setup for VAIO FE550G/SZ110
 
     If the default configuration doesn't work and one of the above
     matches with your device, report it together with the PCI
@@ -723,6 +810,17 @@ Prior to version 0.9.0rc4 options had a 'snd_' prefix. This was removed.
 	    (Usually SD_LPLIB register is more accurate than the
 	    position buffer.)
 
+    NB: If you get many "azx_get_response timeout" messages at
+    loading, it's likely a problem of interrupts (e.g. ACPI irq
+    routing).  Try to boot with options like "pci=noacpi".  Also, you
+    can try "single_cmd=1" module option.  This will switch the
+    communication method between HDA controller and codecs to the
+    single immediate commands instead of CORB/RIRB.  Basically, the
+    single command mode is provided only for BIOS, and you won't get
+    unsolicited events, too.  But, at least, this works independently
+    from the irq.  Remember this is a last resort, and should be
+    avoided as much as possible...
+    
     The power-management is supported.
 
   Module snd-hdsp
@@ -802,6 +900,7 @@ Prior to version 0.9.0rc4 options had a 'snd_' prefix. This was removed.
   ------------------
 
     Module for Envy24HT (VT/ICE1724), Envy24PT (VT1720) based PCI sound cards.
+			* MidiMan M Audio Revolution 5.1
 			* MidiMan M Audio Revolution 7.1
 			* AMP Ltd AUDIO2000
 			* TerraTec Aureon 5.1 Sky
@@ -810,6 +909,7 @@ Prior to version 0.9.0rc4 options had a 'snd_' prefix. This was removed.
 			* TerraTec Phase 22
 			* TerraTec Phase 28
 			* AudioTrak Prodigy 7.1
+			* AudioTrak Prodigy 7.1LT
 			* AudioTrak Prodigy 192
 			* Pontis MS300
 			* Albatron K8X800 Pro II 
@@ -820,9 +920,9 @@ Prior to version 0.9.0rc4 options had a 'snd_' prefix. This was removed.
 			* Shuttle SN25P
 
     model       - Use the given board model, one of the following:
-		  revo71, amp2000, prodigy71, prodigy192, aureon51,
-		  aureon71, universe, k8x800, phase22, phase28, ms300,
-		  av710
+		  revo51, revo71, amp2000, prodigy71, prodigy71lt,
+		  prodigy192, aureon51, aureon71, universe,
+		  k8x800, phase22, phase28, ms300, av710
 
     This module supports multiple cards and autoprobe.
 
@@ -950,6 +1050,23 @@ Prior to version 0.9.0rc4 options had a 'snd_' prefix. This was removed.
     option.
 
     The power-management is supported.
+
+  Module snd-miro
+  ---------------
+
+    Module for Miro soundcards: miroSOUND PCM 1 pro, 
+				miroSOUND PCM 12,
+				miroSOUND PCM 20 Radio.
+
+    port	- Port # (0x530,0x604,0xe80,0xf40)
+    irq		- IRQ # (5,7,9,10,11)
+    dma1	- 1st dma # (0,1,3)
+    dma2	- 2nd dma # (0,1)
+    mpu_port	- MPU-401 port # (0x300,0x310,0x320,0x330)
+    mpu_irq	- MPU-401 irq # (5,7,9,10)
+    fm_port	- FM Port # (0x388)
+    wss		- enable WSS mode
+    ide		- enable onboard ide support
 
   Module snd-mixart
   -----------------
@@ -1139,6 +1256,20 @@ Prior to version 0.9.0rc4 options had a 'snd_' prefix. This was removed.
     For ARM architecture only.
 
     The power-management is supported.
+
+  Module snd-riptide
+  ------------------
+
+    Module for Conexant Riptide chip
+
+      joystick_port	- Joystick port # (default: 0x200)
+      mpu_port		- MPU401 port # (default: 0x330)
+      opl3_port		- OPL3 port # (default: 0x388)
+
+    This module supports multiple cards.
+    The driver requires the firmware loader support on kernel.
+    You need to install the firmware file "riptide.hex" to the standard
+    firmware path (e.g. /lib/firmware).
 
   Module snd-rme32
   ----------------
@@ -1353,6 +1484,9 @@ Prior to version 0.9.0rc4 options had a 'snd_' prefix. This was removed.
 
     vid             - Vendor ID for the device (optional)
     pid             - Product ID for the device (optional)
+    device_setup    - Device specific magic number (optional)
+                    - Influence depends on the device
+                    - Default: 0x0000 
 
     This module supports multiple devices, autoprobe and hotplugging.
 

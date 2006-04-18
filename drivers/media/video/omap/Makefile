@@ -7,6 +7,7 @@ objs-yy := camera_core.o
 
 objs-y$(CONFIG_ARCH_OMAP16XX) += omap16xxcam.o
 objs-y$(CONFIG_MACH_OMAP_H3) += h3_sensor_power.o
+objs-y$(CONFIG_MACH_OMAP_H4) += h4_sensor_power.o
 
 omapcamera-objs := $(objs-yy)
 

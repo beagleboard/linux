@@ -27,12 +27,6 @@
 
 #include "mmc.h"
 
-#ifdef CONFIG_MMC_DEBUG
-#define DBG(x...)	printk(KERN_DEBUG x)
-#else
-#define DBG(x...)	do { } while (0)
-#endif
-
 #define CMD_RETRIES	3
 
 /*
@@ -77,8 +71,9 @@ void mmc_request_done(struct mmc_host *host, struct mmc_request *mrq)
 {
 	struct mmc_command *cmd = mrq->cmd;
 	int err = mrq->cmd->error;
-	DBG("MMC: req done (%02x): %d: %08x %08x %08x %08x\n", cmd->opcode,
-	    err, cmd->resp[0], cmd->resp[1], cmd->resp[2], cmd->resp[3]);
+	pr_debug("MMC: req done (%02x): %d: %08x %08x %08x %08x\n",
+		 cmd->opcode, err, cmd->resp[0], cmd->resp[1],
+		 cmd->resp[2], cmd->resp[3]);
 
 	if (err && cmd->retries) {
 		cmd->retries--;
@@ -102,8 +97,8 @@ EXPORT_SYMBOL(mmc_request_done);
 void
 mmc_start_request(struct mmc_host *host, struct mmc_request *mrq)
 {
-	DBG("MMC: starting cmd %02x arg %08x flags %08x\n",
-	    mrq->cmd->opcode, mrq->cmd->arg, mrq->cmd->flags);
+	pr_debug("MMC: starting cmd %02x arg %08x flags %08x\n",
+		 mrq->cmd->opcode, mrq->cmd->arg, mrq->cmd->flags);
 
 	WARN_ON(host->card_busy == NULL);
 
@@ -705,7 +700,6 @@ static void mmc_power_up(struct mmc_host *host)
 	int bit = fls(host->ocr_avail) - 1;
 
 	host->ios.vdd = bit;
-	host->ios.clock = host->f_min;
 	host->ios.bus_mode = MMC_BUSMODE_OPENDRAIN;
 	host->ios.chip_select = MMC_CS_DONTCARE;
 	host->ios.power_mode = MMC_POWER_UP;
@@ -714,6 +708,7 @@ static void mmc_power_up(struct mmc_host *host)
 
 	mmc_delay(1);
 
+	host->ios.clock = host->f_min;
 	host->ios.power_mode = MMC_POWER_ON;
 	host->ops->set_ios(host, &host->ios);
 
@@ -747,7 +742,7 @@ static int mmc_send_op_cond(struct mmc_host *host, u32 ocr, u32 *rocr)
 
 		if (cmd.resp[0] & MMC_CARD_BUSY || ocr == 0)
 			break;
-		mmc_delay(1);
+
 		err = MMC_ERR_TIMEOUT;
 
 		mmc_delay(10);
@@ -976,8 +971,8 @@ static unsigned int mmc_calculate_clock(struct mmc_host *host)
 		if (!mmc_card_dead(card) && max_dtr > card->csd.max_dtr)
 			max_dtr = card->csd.max_dtr;
 
-	DBG("MMC: selected %d.%03dMHz transfer rate\n",
-	    max_dtr / 1000000, (max_dtr / 1000) % 1000);
+	pr_debug("MMC: selected %d.%03dMHz transfer rate\n",
+		 max_dtr / 1000000, (max_dtr / 1000) % 1000);
 
 	return max_dtr;
 }
@@ -1088,14 +1083,6 @@ static void mmc_setup(struct mmc_host *host)
 	 */
 	host->ios.bus_mode = MMC_BUSMODE_PUSHPULL;
 	host->ops->set_ios(host, &host->ios);
-
-	/*
-	 * Some already detectd cards get confused in the card identification
-	 * mode and futher commands can fail.  Doing an extra status inquiry
-	 * after the identification mode seems to get cards back to their
-	 * senses.
-	 */
-	mmc_check_cards(host);
 
 	mmc_read_csds(host);
 

@@ -34,6 +34,15 @@
 
 static void __init omap_nokia770_init_irq(void)
 {
+	/* On Nokia 770, the SleepX signal is masked with an
+	 * MPUIO line by default.  It has to be unmasked for it
+	 * to become functional */
+
+	/* SleepX mask direction */
+	omap_writew((omap_readw(0xfffb5008) & ~2), 0xfffb5008);
+	/* Unmask SleepX signal */
+	omap_writew((omap_readw(0xfffb5004) & ~2), 0xfffb5004);
+
 	omap1_init_common_hw();
 	omap_init_irq();
 }
@@ -84,8 +93,8 @@ static struct platform_device *nokia770_devices[] __initdata = {
 static struct ads7846_platform_data nokia770_ads7846_platform_data __initdata = {
 	.x_max		= 0x0fff,
 	.y_max		= 0x0fff,
-	.x_plate_ohms	= 120,
-	.pressure_max	= 200,
+	.x_plate_ohms	= 180,
+	.pressure_max	= 255,
 	.debounce_max	= 10,
 	.debounce_tol	= 3,
 };
@@ -185,6 +194,7 @@ static void codec_delayed_power_down(void *arg)
 	down(&audio_pwr_sem);
 	if (audio_pwr_state == -1)
 		aic23_power_down();
+	clk_disable(dspxor_ck);
 	up(&audio_pwr_sem);
 }
 
@@ -192,8 +202,6 @@ static DECLARE_WORK(codec_power_down_work, codec_delayed_power_down, NULL);
 
 static void nokia770_audio_pwr_down(void)
 {
-	clk_disable(dspxor_ck);
-
 	/* Turn off amplifier */
 	omap_set_gpio_dataout(AMPLIFIER_CTRL_GPIO, 0);
 
@@ -215,16 +223,16 @@ void nokia770_audio_pwr_down_request(int stage)
 {
 	down(&audio_pwr_sem);
 	switch (stage) {
-		case 1:
-			if (audio_pwr_state == 0)
-				audio_pwr_state = 1;
-			break;
-		case 2:
-			if (audio_pwr_state == 1) {
-				nokia770_audio_pwr_down();
-				audio_pwr_state = -1;
-			}
-			break;
+	case 1:
+		if (audio_pwr_state == 0)
+			audio_pwr_state = 1;
+		break;
+	case 2:
+		if (audio_pwr_state == 1) {
+			nokia770_audio_pwr_down();
+			audio_pwr_state = -1;
+		}
+		break;
 	}
 	up(&audio_pwr_sem);
 }

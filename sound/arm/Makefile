@@ -14,5 +14,4 @@ snd-pxa2xx-pcm-objs		:= pxa2xx-pcm.o
 obj-$(CONFIG_SND_PXA2XX_AC97)	+= snd-pxa2xx-ac97.o
 snd-pxa2xx-ac97-objs		:= pxa2xx-ac97.o
 
-obj-$(CONFIG_SND_OMAP_AIC23) += snd-omap-aic23.o
-snd-omap-aic23-objs := omap-aic23.o omap-alsa-dma.o omap-alsa-mixer.o
+obj-$(CONFIG_SND) += omap/

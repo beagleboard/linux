@@ -30,11 +30,14 @@
 #include <asm/system.h>
 #include <asm/pgtable.h>
 
+void (*pm_power_off)(void) = NULL;
+EXPORT_SYMBOL(pm_power_off);
+
 extern void ret_from_fork (void);
 
 
 /* The idle loop.  */
-void default_idle (void)
+static void default_idle (void)
 {
 	while (! need_resched ())
 		asm ("halt; nop; nop; nop; nop; nop" ::: "cc");

@@ -174,9 +174,6 @@ enum ocfs2_mount_options
 	OCFS2_MOUNT_NOINTR  = 1 << 2,   /* Don't catch signals */
 	OCFS2_MOUNT_ERRORS_PANIC = 1 << 3, /* Panic on errors */
 	OCFS2_MOUNT_DATA_WRITEBACK = 1 << 4, /* No data ordering */
-#ifdef OCFS2_ORACORE_WORKAROUNDS
-	OCFS2_MOUNT_COMPAT_OCFS = 1 << 30, /* ocfs1 compatibility mode */
-#endif
 };
 
 #define OCFS2_OSB_SOFT_RO	0x0001
@@ -290,6 +287,10 @@ struct ocfs2_super
 	struct inode			*osb_tl_inode;
 	struct buffer_head		*osb_tl_bh;
 	struct work_struct		osb_truncate_log_wq;
+
+	struct ocfs2_node_map		osb_recovering_orphan_dirs;
+	unsigned int			*osb_orphan_wipes;
+	wait_queue_head_t		osb_wipe_event;
 };
 
 #define OCFS2_SB(sb)	    ((struct ocfs2_super *)(sb)->s_fs_info)
@@ -356,8 +357,8 @@ static inline int ocfs2_is_soft_readonly(struct ocfs2_super *osb)
 #define OCFS2_RO_ON_INVALID_DINODE(__sb, __di)	do {			\
 	typeof(__di) ____di = (__di);					\
 	ocfs2_error((__sb), 						\
-		"Dinode # %"MLFu64" has bad signature %.*s",		\
-		(____di)->i_blkno, 7,					\
+		"Dinode # %llu has bad signature %.*s",			\
+		(unsigned long long)(____di)->i_blkno, 7,		\
 		(____di)->i_signature);					\
 } while (0);
 
@@ -367,8 +368,8 @@ static inline int ocfs2_is_soft_readonly(struct ocfs2_super *osb)
 #define OCFS2_RO_ON_INVALID_EXTENT_BLOCK(__sb, __eb)	do {		\
 	typeof(__eb) ____eb = (__eb);					\
 	ocfs2_error((__sb), 						\
-		"Extent Block # %"MLFu64" has bad signature %.*s",	\
-		(____eb)->h_blkno, 7,					\
+		"Extent Block # %llu has bad signature %.*s",		\
+		(unsigned long long)(____eb)->h_blkno, 7,		\
 		(____eb)->h_signature);					\
 } while (0);
 
@@ -378,8 +379,8 @@ static inline int ocfs2_is_soft_readonly(struct ocfs2_super *osb)
 #define OCFS2_RO_ON_INVALID_GROUP_DESC(__sb, __gd)	do {		\
 	typeof(__gd) ____gd = (__gd);					\
 		ocfs2_error((__sb),					\
-		"Group Descriptor # %"MLFu64" has bad signature %.*s",	\
-		(____gd)->bg_blkno, 7,					\
+		"Group Descriptor # %llu has bad signature %.*s",	\
+		(unsigned long long)(____gd)->bg_blkno, 7,		\
 		(____gd)->bg_signature);				\
 } while (0);
 

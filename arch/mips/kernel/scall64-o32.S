@@ -293,7 +293,7 @@ sys_call_table:
 	PTR	sys_uselib
 	PTR	sys_swapon
 	PTR	sys_reboot
-	PTR	sys32_readdir
+	PTR	compat_sys_old_readdir
 	PTR	old_mmap			/* 4090 */
 	PTR	sys_munmap
 	PTR	sys_truncate
@@ -328,7 +328,7 @@ sys_call_table:
 	PTR	sys_setdomainname
 	PTR	sys32_newuname
 	PTR	sys_ni_syscall			/* sys_modify_ldt */
-	PTR	sys32_adjtimex
+	PTR	compat_sys_adjtimex
 	PTR	sys_mprotect			/* 4125 */
 	PTR	compat_sys_sigprocmask
 	PTR	sys_ni_syscall			/* was creat_module */
@@ -345,7 +345,7 @@ sys_call_table:
 	PTR	sys_setfsuid
 	PTR	sys_setfsgid
 	PTR	sys32_llseek			/* 4140 */
-	PTR	sys32_getdents
+	PTR	compat_sys_getdents
 	PTR	compat_sys_select
 	PTR	sys_flock
 	PTR	sys_msync

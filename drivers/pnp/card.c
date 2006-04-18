@@ -47,7 +47,7 @@ static void card_remove(struct pnp_dev * dev)
 {
 	dev->card_link = NULL;
 }
- 
+
 static void card_remove_first(struct pnp_dev * dev)
 {
 	struct pnp_card_driver * drv = to_pnp_card_driver(dev->driver);
@@ -303,13 +303,11 @@ found:
 	down_write(&dev->dev.bus->subsys.rwsem);
 	dev->card_link = clink;
 	dev->dev.driver = &drv->link.driver;
-	if (drv->link.driver.probe) {
-		if (drv->link.driver.probe(&dev->dev)) {
-			dev->dev.driver = NULL;
-			dev->card_link = NULL;
-			up_write(&dev->dev.bus->subsys.rwsem);
-			return NULL;
-		}
+	if (pnp_bus_type.probe(&dev->dev)) {
+		dev->dev.driver = NULL;
+		dev->card_link = NULL;
+		up_write(&dev->dev.bus->subsys.rwsem);
+		return NULL;
 	}
 	device_bind_driver(&dev->dev);
 	up_write(&dev->dev.bus->subsys.rwsem);
@@ -363,7 +361,7 @@ static int card_resume(struct pnp_dev *dev)
 
 int pnp_register_card_driver(struct pnp_card_driver * drv)
 {
-	int count;
+	int error;
 	struct list_head *pos, *temp;
 
 	drv->link.name = drv->name;
@@ -374,21 +372,19 @@ int pnp_register_card_driver(struct pnp_card_driver * drv)
 	drv->link.suspend = drv->suspend ? card_suspend : NULL;
 	drv->link.resume = drv->resume ? card_resume : NULL;
 
-	count = pnp_register_driver(&drv->link);
-	if (count < 0)
-		return count;
+	error = pnp_register_driver(&drv->link);
+	if (error < 0)
+		return error;
 
 	spin_lock(&pnp_lock);
 	list_add_tail(&drv->global_list, &pnp_card_drivers);
 	spin_unlock(&pnp_lock);
 
-	count = 0;
-
 	list_for_each_safe(pos,temp,&pnp_cards){
 		struct pnp_card *card = list_entry(pos, struct pnp_card, global_list);
-		count += card_probe(card,drv);
+		card_probe(card,drv);
 	}
-	return count;
+	return 0;
 }
 
 /**

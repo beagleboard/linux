@@ -272,7 +272,7 @@ static struct clk * gpt1_ick;
 static struct clk * gpt1_fck;
 
 static __init void omap_init_32k_timer(void)
-{	
+{
 #ifdef CONFIG_NO_IDLE_HZ
 	omap_timer.dyn_tick = &omap_dyn_tick_timer;
 #endif

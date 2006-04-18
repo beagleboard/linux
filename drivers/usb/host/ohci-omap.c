@@ -333,7 +333,7 @@ int ohci_omap_host_enable(struct usb_bus *host, int enable)
 int usb_hcd_omap_probe (const struct hc_driver *driver,
 			  struct platform_device *pdev)
 {
-	int retval;
+	int retval, irq;
 	struct usb_hcd *hcd = 0;
 	struct ohci_hcd *ohci;
 
@@ -353,7 +353,11 @@ int usb_hcd_omap_probe (const struct hc_driver *driver,
 	if (IS_ERR(usb_host_ck))
 		return PTR_ERR(usb_host_ck);
 
-	usb_dc_ck = clk_get(0, "usb_dc_ck");
+	if (!cpu_is_omap1510())
+		usb_dc_ck = clk_get(0, "usb_dc_ck");
+	else
+		usb_dc_ck = clk_get(0, "lb_ck");
+
 	if (IS_ERR(usb_dc_ck)) {
 		clk_put(usb_host_ck);
 		return PTR_ERR(usb_dc_ck);
@@ -386,8 +390,12 @@ int usb_hcd_omap_probe (const struct hc_driver *driver,
 	if (retval < 0)
 		goto err2;
 
-	retval = usb_add_hcd(hcd, platform_get_irq(pdev, 0), SA_INTERRUPT);
-
+	irq = platform_get_irq(pdev, 0);
+	if (irq < 0) {
+		retval = -ENXIO;
+		goto err2;
+	}
+	retval = usb_add_hcd(hcd, irq, SA_INTERRUPT);
 	if (retval)
 		goto err3;
 

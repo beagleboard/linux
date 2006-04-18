@@ -1,6 +1,4 @@
 /*
- *  linux/arch/ppc64/kernel/vdso.c
- *
  *    Copyright (C) 2004 Benjamin Herrenschmidt, IBM Corp.
  *			 <benh@kernel.crashing.org>
  *
@@ -35,6 +33,7 @@
 #include <asm/machdep.h>
 #include <asm/cputable.h>
 #include <asm/sections.h>
+#include <asm/firmware.h>
 #include <asm/vdso.h>
 #include <asm/vdso_datapage.h>
 
@@ -182,8 +181,8 @@ static struct page * vdso_vma_nopage(struct vm_area_struct * vma,
 	unsigned long offset = address - vma->vm_start;
 	struct page *pg;
 #ifdef CONFIG_PPC64
-	void *vbase = test_thread_flag(TIF_32BIT) ?
-		vdso32_kbase : vdso64_kbase;
+	void *vbase = (vma->vm_mm->task_size > TASK_SIZE_USER32) ?
+		vdso64_kbase : vdso32_kbase;
 #else
 	void *vbase = vdso32_kbase;
 #endif
@@ -669,7 +668,13 @@ void __init vdso_init(void)
 	vdso_data->version.major = SYSTEMCFG_MAJOR;
 	vdso_data->version.minor = SYSTEMCFG_MINOR;
 	vdso_data->processor = mfspr(SPRN_PVR);
-	vdso_data->platform = _machine;
+	/*
+	 * Fake the old platform number for pSeries and iSeries and add
+	 * in LPAR bit if necessary
+	 */
+	vdso_data->platform = machine_is(iseries) ? 0x200 : 0x100;
+	if (firmware_has_feature(FW_FEATURE_LPAR))
+		vdso_data->platform |= 1;
 	vdso_data->physicalMemorySize = lmb_phys_mem_size();
 	vdso_data->dcache_size = ppc64_caches.dsize;
 	vdso_data->dcache_line_size = ppc64_caches.dline_size;

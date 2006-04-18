@@ -136,6 +136,8 @@ SIGN1(sys32_getpeername, sys_getpeername, %o0)
 SIGN1(sys32_getsockname, sys_getsockname, %o0)
 SIGN2(sys32_ioprio_get, sys_ioprio_get, %o0, %o1)
 SIGN3(sys32_ioprio_set, sys_ioprio_set, %o0, %o1, %o2)
+SIGN2(sys32_splice, sys_splice, %o0, %o1)
+SIGN2(sys32_sync_file_range, compat_sync_file_range, %o0, %o5)
 
 	.globl		sys32_mmap2
 sys32_mmap2:
@@ -318,7 +320,7 @@ do_sys_recvmsg: /* compat_sys_recvmsg(int, struct compat_msghdr *, unsigned int)
 	nop
 	nop
 
-	.section	__ex_table
+	.section	__ex_table,"a"
 	.align		4
 	.word		1b, __retl_efault, 2b, __retl_efault
 	.word		3b, __retl_efault, 4b, __retl_efault

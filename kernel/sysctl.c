@@ -50,6 +50,9 @@
 #include <asm/uaccess.h>
 #include <asm/processor.h>
 
+extern int proc_nr_files(ctl_table *table, int write, struct file *filp,
+                     void __user *buffer, size_t *lenp, loff_t *ppos);
+
 #if defined(CONFIG_SYSCTL)
 
 /* External variables not in a header file. */
@@ -122,6 +125,10 @@ extern int sysctl_hz_timer;
 
 #ifdef CONFIG_BSD_PROCESS_ACCT
 extern int acct_parm[];
+#endif
+
+#ifdef CONFIG_IA64
+extern int no_unaligned_warning;
 #endif
 
 static int parse_table(int __user *, int, void __user *, size_t __user *, void __user *, size_t,
@@ -663,6 +670,16 @@ static ctl_table kern_table[] = {
 		.data		= &acpi_video_flags,
 		.maxlen		= sizeof (unsigned long),
 		.mode		= 0644,
+		.proc_handler	= &proc_doulongvec_minmax,
+	},
+#endif
+#ifdef CONFIG_IA64
+	{
+		.ctl_name	= KERN_IA64_UNALIGNED,
+		.procname	= "ignore-unaligned-usertrap",
+		.data		= &no_unaligned_warning,
+		.maxlen		= sizeof (int),
+	 	.mode		= 0644,
 		.proc_handler	= &proc_dointvec,
 	},
 #endif
@@ -725,18 +742,18 @@ static ctl_table vm_table[] = {
 	{
 		.ctl_name	= VM_DIRTY_WB_CS,
 		.procname	= "dirty_writeback_centisecs",
-		.data		= &dirty_writeback_centisecs,
-		.maxlen		= sizeof(dirty_writeback_centisecs),
+		.data		= &dirty_writeback_interval,
+		.maxlen		= sizeof(dirty_writeback_interval),
 		.mode		= 0644,
 		.proc_handler	= &dirty_writeback_centisecs_handler,
 	},
 	{
 		.ctl_name	= VM_DIRTY_EXPIRE_CS,
 		.procname	= "dirty_expire_centisecs",
-		.data		= &dirty_expire_centisecs,
-		.maxlen		= sizeof(dirty_expire_centisecs),
+		.data		= &dirty_expire_interval,
+		.maxlen		= sizeof(dirty_expire_interval),
 		.mode		= 0644,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_userhz_jiffies,
 	},
 	{
 		.ctl_name	= VM_NR_PDFLUSH_THREADS,
@@ -831,9 +848,8 @@ static ctl_table vm_table[] = {
 		.data		= &laptop_mode,
 		.maxlen		= sizeof(laptop_mode),
 		.mode		= 0644,
-		.proc_handler	= &proc_dointvec,
-		.strategy	= &sysctl_intvec,
-		.extra1		= &zero,
+		.proc_handler	= &proc_dointvec_jiffies,
+		.strategy	= &sysctl_jiffies,
 	},
 	{
 		.ctl_name	= VM_BLOCK_DUMP,
@@ -929,7 +945,7 @@ static ctl_table fs_table[] = {
 		.data		= &files_stat,
 		.maxlen		= 3*sizeof(int),
 		.mode		= 0444,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_nr_files,
 	},
 	{
 		.ctl_name	= FS_MAXFILE,
@@ -2037,6 +2053,8 @@ static int do_proc_dointvec_jiffies_conv(int *negp, unsigned long *lvalp,
 					 int write, void *data)
 {
 	if (write) {
+		if (*lvalp > LONG_MAX / HZ)
+			return 1;
 		*valp = *negp ? -(*lvalp*HZ) : (*lvalp*HZ);
 	} else {
 		int val = *valp;
@@ -2058,6 +2076,8 @@ static int do_proc_dointvec_userhz_jiffies_conv(int *negp, unsigned long *lvalp,
 						int write, void *data)
 {
 	if (write) {
+		if (USER_HZ < HZ && *lvalp > (LONG_MAX / HZ) * USER_HZ)
+			return 1;
 		*valp = clock_t_to_jiffies(*negp ? -*lvalp : *lvalp);
 	} else {
 		int val = *valp;

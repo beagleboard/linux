@@ -47,15 +47,16 @@
 #include <linux/notifier.h>
 #include <linux/rcupdate.h>
 #include <linux/cpu.h>
+#include <linux/mutex.h>
 
 /* Definition for rcupdate control block. */
-struct rcu_ctrlblk rcu_ctrlblk = {
+static struct rcu_ctrlblk rcu_ctrlblk = {
 	.cur = -300,
 	.completed = -300,
 	.lock = SPIN_LOCK_UNLOCKED,
 	.cpumask = CPU_MASK_NONE,
 };
-struct rcu_ctrlblk rcu_bh_ctrlblk = {
+static struct rcu_ctrlblk rcu_bh_ctrlblk = {
 	.cur = -300,
 	.completed = -300,
 	.lock = SPIN_LOCK_UNLOCKED,
@@ -67,7 +68,43 @@ DEFINE_PER_CPU(struct rcu_data, rcu_bh_data) = { 0L };
 
 /* Fake initialization required by compiler */
 static DEFINE_PER_CPU(struct tasklet_struct, rcu_tasklet) = {NULL};
-static int maxbatch = 10000;
+static int blimit = 10;
+static int qhimark = 10000;
+static int qlowmark = 100;
+#ifdef CONFIG_SMP
+static int rsinterval = 1000;
+#endif
+
+static atomic_t rcu_barrier_cpu_count;
+static DEFINE_MUTEX(rcu_barrier_mutex);
+static struct completion rcu_barrier_completion;
+
+#ifdef CONFIG_SMP
+static void force_quiescent_state(struct rcu_data *rdp,
+			struct rcu_ctrlblk *rcp)
+{
+	int cpu;
+	cpumask_t cpumask;
+	set_need_resched();
+	if (unlikely(rdp->qlen - rdp->last_rs_qlen > rsinterval)) {
+		rdp->last_rs_qlen = rdp->qlen;
+		/*
+		 * Don't send IPI to itself. With irqs disabled,
+		 * rdp->cpu is the current cpu.
+		 */
+		cpumask = rcp->cpumask;
+		cpu_clear(rdp->cpu, cpumask);
+		for_each_cpu_mask(cpu, cpumask)
+			smp_send_reschedule(cpu);
+	}
+}
+#else
+static inline void force_quiescent_state(struct rcu_data *rdp,
+			struct rcu_ctrlblk *rcp)
+{
+	set_need_resched();
+}
+#endif
 
 /**
  * call_rcu - Queue an RCU callback for invocation after a grace period.
@@ -92,16 +129,12 @@ void fastcall call_rcu(struct rcu_head *head,
 	rdp = &__get_cpu_var(rcu_data);
 	*rdp->nxttail = head;
 	rdp->nxttail = &head->next;
-
-	if (unlikely(++rdp->count > 10000))
-		set_need_resched();
-
+	if (unlikely(++rdp->qlen > qhimark)) {
+		rdp->blimit = INT_MAX;
+		force_quiescent_state(rdp, &rcu_ctrlblk);
+	}
 	local_irq_restore(flags);
 }
-
-static atomic_t rcu_barrier_cpu_count;
-static struct semaphore rcu_barrier_sema;
-static struct completion rcu_barrier_completion;
 
 /**
  * call_rcu_bh - Queue an RCU for invocation after a quicker grace period.
@@ -131,12 +164,12 @@ void fastcall call_rcu_bh(struct rcu_head *head,
 	rdp = &__get_cpu_var(rcu_bh_data);
 	*rdp->nxttail = head;
 	rdp->nxttail = &head->next;
-	rdp->count++;
-/*
- *  Should we directly call rcu_do_batch() here ?
- *  if (unlikely(rdp->count > 10000))
- *      rcu_do_batch(rdp);
- */
+
+	if (unlikely(++rdp->qlen > qhimark)) {
+		rdp->blimit = INT_MAX;
+		force_quiescent_state(rdp, &rcu_bh_ctrlblk);
+	}
+
 	local_irq_restore(flags);
 }
 
@@ -175,13 +208,13 @@ static void rcu_barrier_func(void *notused)
 void rcu_barrier(void)
 {
 	BUG_ON(in_interrupt());
-	/* Take cpucontrol semaphore to protect against CPU hotplug */
-	down(&rcu_barrier_sema);
+	/* Take cpucontrol mutex to protect against CPU hotplug */
+	mutex_lock(&rcu_barrier_mutex);
 	init_completion(&rcu_barrier_completion);
 	atomic_set(&rcu_barrier_cpu_count, 0);
 	on_each_cpu(rcu_barrier_func, NULL, 0, 1);
 	wait_for_completion(&rcu_barrier_completion);
-	up(&rcu_barrier_sema);
+	mutex_unlock(&rcu_barrier_mutex);
 }
 EXPORT_SYMBOL_GPL(rcu_barrier);
 
@@ -199,10 +232,12 @@ static void rcu_do_batch(struct rcu_data *rdp)
 		next = rdp->donelist = list->next;
 		list->func(list);
 		list = next;
-		rdp->count--;
-		if (++count >= maxbatch)
+		rdp->qlen--;
+		if (++count >= rdp->blimit)
 			break;
 	}
+	if (rdp->blimit == INT_MAX && rdp->qlen <= qlowmark)
+		rdp->blimit = blimit;
 	if (!rdp->donelist)
 		rdp->donetail = &rdp->donelist;
 	else
@@ -381,8 +416,8 @@ static void __rcu_process_callbacks(struct rcu_ctrlblk *rcp,
 		rdp->curtail = &rdp->curlist;
 	}
 
-	local_irq_disable();
 	if (rdp->nxtlist && !rdp->curlist) {
+		local_irq_disable();
 		rdp->curlist = rdp->nxtlist;
 		rdp->curtail = rdp->nxttail;
 		rdp->nxtlist = NULL;
@@ -407,9 +442,8 @@ static void __rcu_process_callbacks(struct rcu_ctrlblk *rcp,
 			rcu_start_batch(rcp);
 			spin_unlock(&rcp->lock);
 		}
-	} else {
-		local_irq_enable();
 	}
+
 	rcu_check_quiescent_state(rcp, rdp);
 	if (rdp->donelist)
 		rcu_do_batch(rdp);
@@ -473,6 +507,7 @@ static void rcu_init_percpu_data(int cpu, struct rcu_ctrlblk *rcp,
 	rdp->quiescbatch = rcp->completed;
 	rdp->qs_pending = 0;
 	rdp->cpu = cpu;
+	rdp->blimit = blimit;
 }
 
 static void __devinit rcu_online_cpu(int cpu)
@@ -514,7 +549,6 @@ static struct notifier_block __devinitdata rcu_nb = {
  */
 void __init rcu_init(void)
 {
-	sema_init(&rcu_barrier_sema, 1);
 	rcu_cpu_notify(&rcu_nb, CPU_UP_PREPARE,
 			(void *)(long)smp_processor_id());
 	/* Register notifier for non-boot CPUs */
@@ -567,9 +601,14 @@ void synchronize_kernel(void)
 	synchronize_rcu();
 }
 
-module_param(maxbatch, int, 0);
+module_param(blimit, int, 0);
+module_param(qhimark, int, 0);
+module_param(qlowmark, int, 0);
+#ifdef CONFIG_SMP
+module_param(rsinterval, int, 0);
+#endif
 EXPORT_SYMBOL_GPL(rcu_batches_completed);
-EXPORT_SYMBOL(call_rcu);  /* WARNING: GPL-only in April 2006. */
-EXPORT_SYMBOL(call_rcu_bh);  /* WARNING: GPL-only in April 2006. */
+EXPORT_SYMBOL_GPL_FUTURE(call_rcu);	/* WARNING: GPL-only in April 2006. */
+EXPORT_SYMBOL_GPL_FUTURE(call_rcu_bh);	/* WARNING: GPL-only in April 2006. */
 EXPORT_SYMBOL_GPL(synchronize_rcu);
-EXPORT_SYMBOL(synchronize_kernel);  /* WARNING: GPL-only in April 2006. */
+EXPORT_SYMBOL_GPL_FUTURE(synchronize_kernel); /* WARNING: GPL-only in April 2006. */

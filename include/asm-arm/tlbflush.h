@@ -11,6 +11,13 @@
 #define _ASMARM_TLBFLUSH_H
 
 #include <linux/config.h>
+
+#ifndef CONFIG_MMU
+
+#define tlb_flush(tlb)	((void) tlb)
+
+#else /* CONFIG_MMU */
+
 #include <asm/glue.h>
 
 #define TLB_V3_PAGE	(1 << 0)
@@ -340,6 +347,12 @@ static inline void local_flush_tlb_kernel_page(unsigned long kaddr)
 		asm("mcr%? p15, 0, %0, c8, c6, 1" : : "r" (kaddr));
 	if (tlb_flag(TLB_V6_I_PAGE))
 		asm("mcr%? p15, 0, %0, c8, c5, 1" : : "r" (kaddr));
+
+	/* The ARM ARM states that the completion of a TLB maintenance
+	 * operation is only guaranteed by a DSB instruction
+	 */
+	if (tlb_flag(TLB_V6_U_PAGE | TLB_V6_D_PAGE | TLB_V6_I_PAGE))
+		asm("mcr%? p15, 0, %0, c7, c10, 4" : : "r" (zero));
 }
 
 /*
@@ -416,5 +429,7 @@ extern void update_mmu_cache(struct vm_area_struct *vma, unsigned long addr, pte
 #define flush_tlb_pgtables(mm,start,end)	do { } while (0)
 
 #endif
+
+#endif /* CONFIG_MMU */
 
 #endif

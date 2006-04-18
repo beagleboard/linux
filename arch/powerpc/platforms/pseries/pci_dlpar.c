@@ -27,6 +27,8 @@
 
 #include <linux/pci.h>
 #include <asm/pci-bridge.h>
+#include <asm/ppc-pci.h>
+#include <asm/firmware.h>
 
 static struct pci_bus *
 find_bus_among_children(struct pci_bus *bus,
@@ -106,6 +108,8 @@ pcibios_fixup_new_pci_devices(struct pci_bus *bus, int fix_bus)
 			}
 		}
 	}
+
+	eeh_add_device_tree_late(bus);
 }
 EXPORT_SYMBOL_GPL(pcibios_fixup_new_pci_devices);
 
@@ -114,7 +118,6 @@ pcibios_pci_config_bridge(struct pci_dev *dev)
 {
 	u8 sec_busno;
 	struct pci_bus *child_bus;
-	struct pci_dev *child_dev;
 
 	/* Get busno of downstream bus */
 	pci_read_config_byte(dev, PCI_SECONDARY_BUS, &sec_busno);
@@ -128,10 +131,6 @@ pcibios_pci_config_bridge(struct pci_dev *dev)
 	sprintf(child_bus->name, "PCI Bus #%02x", child_bus->number);
 
 	pci_scan_child_bus(child_bus);
-
-	list_for_each_entry(child_dev, &child_bus->devices, bus_list) {
-		eeh_add_device_late(child_dev);
-	}
 
 	/* Fixup new pci devices without touching bus struct */
 	pcibios_fixup_new_pci_devices(child_bus, 0);
@@ -154,24 +153,62 @@ pcibios_pci_config_bridge(struct pci_dev *dev)
 void
 pcibios_add_pci_devices(struct pci_bus * bus)
 {
-	int slotno, num;
+	int slotno, num, mode;
 	struct pci_dev *dev;
 	struct device_node *dn = pci_bus_to_OF_node(bus);
 
 	eeh_add_device_tree_early(dn);
 
-	/* pci_scan_slot should find all children */
-	slotno = PCI_SLOT(PCI_DN(dn->child)->devfn);
-	num = pci_scan_slot(bus, PCI_DEVFN(slotno, 0));
-	if (num) {
-		pcibios_fixup_new_pci_devices(bus, 1);
-		pci_bus_add_devices(bus);
-	}
+	mode = PCI_PROBE_NORMAL;
+	if (ppc_md.pci_probe_mode)
+		mode = ppc_md.pci_probe_mode(bus);
 
-	list_for_each_entry(dev, &bus->devices, bus_list) {
-		eeh_add_device_late (dev);
-		if (dev->hdr_type == PCI_HEADER_TYPE_BRIDGE)
-			pcibios_pci_config_bridge(dev);
+	if (mode == PCI_PROBE_DEVTREE) {
+		/* use ofdt-based probe */
+		of_scan_bus(dn, bus);
+		if (!list_empty(&bus->devices)) {
+			pcibios_fixup_new_pci_devices(bus, 0);
+			pci_bus_add_devices(bus);
+		}
+	} else if (mode == PCI_PROBE_NORMAL) {
+		/* use legacy probe */
+		slotno = PCI_SLOT(PCI_DN(dn->child)->devfn);
+		num = pci_scan_slot(bus, PCI_DEVFN(slotno, 0));
+		if (num) {
+			pcibios_fixup_new_pci_devices(bus, 1);
+			pci_bus_add_devices(bus);
+		}
+
+		list_for_each_entry(dev, &bus->devices, bus_list)
+			if (dev->hdr_type == PCI_HEADER_TYPE_BRIDGE)
+				pcibios_pci_config_bridge(dev);
 	}
 }
 EXPORT_SYMBOL_GPL(pcibios_add_pci_devices);
+
+struct pci_controller * __devinit init_phb_dynamic(struct device_node *dn)
+{
+	struct pci_controller *phb;
+	int primary;
+
+	primary = list_empty(&hose_list);
+	phb = pcibios_alloc_controller(dn);
+	if (!phb)
+		return NULL;
+	setup_phb(dn, phb);
+	pci_process_bridge_OF_ranges(phb, dn, 0);
+
+	pci_setup_phb_io_dynamic(phb, primary);
+
+	pci_devs_phb_init_dynamic(phb);
+
+	if (dn->child)
+		eeh_add_device_tree_early(dn);
+
+	scan_phb(phb);
+	pcibios_fixup_new_pci_devices(phb->bus, 0);
+	pci_bus_add_devices(phb->bus);
+
+	return phb;
+}
+EXPORT_SYMBOL_GPL(init_phb_dynamic);

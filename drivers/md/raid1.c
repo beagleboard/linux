@@ -306,6 +306,7 @@ static int raid1_end_write_request(struct bio *bio, unsigned int bytes_done, int
 	r1bio_t * r1_bio = (r1bio_t *)(bio->bi_private);
 	int mirror, behind = test_bit(R1BIO_BehindIO, &r1_bio->state);
 	conf_t *conf = mddev_to_conf(r1_bio->mddev);
+	struct bio *to_put = NULL;
 
 	if (bio->bi_size)
 		return 1;
@@ -323,6 +324,7 @@ static int raid1_end_write_request(struct bio *bio, unsigned int bytes_done, int
 		 * this branch is our 'one mirror IO has finished' event handler:
 		 */
 		r1_bio->bios[mirror] = NULL;
+		to_put = bio;
 		if (!uptodate) {
 			md_error(r1_bio->mddev, conf->mirrors[mirror].rdev);
 			/* an I/O failed, we can't clear the bitmap */
@@ -375,7 +377,7 @@ static int raid1_end_write_request(struct bio *bio, unsigned int bytes_done, int
 			/* Don't dec_pending yet, we want to hold
 			 * the reference over the retry
 			 */
-			return 0;
+			goto out;
 		}
 		if (test_bit(R1BIO_BehindIO, &r1_bio->state)) {
 			/* free extra copy of the data pages */
@@ -392,10 +394,11 @@ static int raid1_end_write_request(struct bio *bio, unsigned int bytes_done, int
 		raid_end_bio_io(r1_bio);
 	}
 
-	if (r1_bio->bios[mirror]==NULL)
-		bio_put(bio);
-
 	rdev_dec_pending(conf->mirrors[mirror].rdev, conf->mddev);
+ out:
+	if (to_put)
+		bio_put(to_put);
+
 	return 0;
 }
 
@@ -857,7 +860,7 @@ static int make_request(request_queue_t *q, struct bio * bio)
 	atomic_set(&r1_bio->remaining, 0);
 	atomic_set(&r1_bio->behind_remaining, 0);
 
-	do_barriers = bio->bi_rw & BIO_RW_BARRIER;
+	do_barriers = bio_barrier(bio);
 	if (do_barriers)
 		set_bit(R1BIO_Barrier, &r1_bio->state);
 
@@ -1132,8 +1135,19 @@ static int end_sync_write(struct bio *bio, unsigned int bytes_done, int error)
 			mirror = i;
 			break;
 		}
-	if (!uptodate)
+	if (!uptodate) {
+		int sync_blocks = 0;
+		sector_t s = r1_bio->sector;
+		long sectors_to_go = r1_bio->sectors;
+		/* make sure these bits doesn't get cleared. */
+		do {
+			bitmap_end_sync(mddev->bitmap, r1_bio->sector,
+					&sync_blocks, 1);
+			s += sync_blocks;
+			sectors_to_go -= sync_blocks;
+		} while (sectors_to_go > 0);
 		md_error(mddev, conf->mirrors[mirror].rdev);
+	}
 
 	update_head_pos(mirror, r1_bio);
 
@@ -1399,6 +1413,9 @@ static void raid1d(mddev_t *mddev)
 			clear_bit(R1BIO_BarrierRetry, &r1_bio->state);
 			clear_bit(R1BIO_Barrier, &r1_bio->state);
 			for (i=0; i < conf->raid_disks; i++)
+				if (r1_bio->bios[i])
+					atomic_inc(&r1_bio->remaining);
+			for (i=0; i < conf->raid_disks; i++)
 				if (r1_bio->bios[i]) {
 					struct bio_vec *bvec;
 					int j;
@@ -1541,8 +1558,7 @@ static int init_resync(conf_t *conf)
 	int buffs;
 
 	buffs = RESYNC_WINDOW / RESYNC_BLOCK_SIZE;
-	if (conf->r1buf_pool)
-		BUG();
+	BUG_ON(conf->r1buf_pool);
 	conf->r1buf_pool = mempool_create(buffs, r1buf_pool_alloc, r1buf_pool_free,
 					  conf->poolinfo);
 	if (!conf->r1buf_pool)
@@ -1715,8 +1731,7 @@ static sector_t sync_request(mddev_t *mddev, sector_t sector_nr, int *skipped, i
 			    !conf->fullsync &&
 			    !test_bit(MD_RECOVERY_REQUESTED, &mddev->recovery))
 				break;
-			if (sync_blocks < (PAGE_SIZE>>9))
-				BUG();
+			BUG_ON(sync_blocks < (PAGE_SIZE>>9));
 			if (len > (sync_blocks<<9))
 				len = sync_blocks<<9;
 		}
@@ -1784,6 +1799,11 @@ static int run(mddev_t *mddev)
 	if (mddev->level != 1) {
 		printk("raid1: %s: raid level not set to mirroring (%d)\n",
 		       mdname(mddev), mddev->level);
+		goto out;
+	}
+	if (mddev->reshape_position != MaxSector) {
+		printk("raid1: %s: reshape_position set but not supported\n",
+		       mdname(mddev));
 		goto out;
 	}
 	/*
@@ -1968,7 +1988,7 @@ static int raid1_resize(mddev_t *mddev, sector_t sectors)
 	return 0;
 }
 
-static int raid1_reshape(mddev_t *mddev, int raid_disks)
+static int raid1_reshape(mddev_t *mddev)
 {
 	/* We need to:
 	 * 1/ resize the r1bio_pool
@@ -1985,9 +2005,21 @@ static int raid1_reshape(mddev_t *mddev, int raid_disks)
 	struct pool_info *newpoolinfo;
 	mirror_info_t *newmirrors;
 	conf_t *conf = mddev_to_conf(mddev);
-	int cnt;
+	int cnt, raid_disks;
 
 	int d, d2;
+
+	/* Cannot change chunk_size, layout, or level */
+	if (mddev->chunk_size != mddev->new_chunk ||
+	    mddev->layout != mddev->new_layout ||
+	    mddev->level != mddev->new_level) {
+		mddev->new_chunk = mddev->chunk_size;
+		mddev->new_layout = mddev->layout;
+		mddev->new_level = mddev->level;
+		return -EINVAL;
+	}
+
+	raid_disks = mddev->raid_disks + mddev->delta_disks;
 
 	if (raid_disks < conf->raid_disks) {
 		cnt=0;
@@ -2035,6 +2067,7 @@ static int raid1_reshape(mddev_t *mddev, int raid_disks)
 
 	mddev->degraded += (raid_disks - conf->raid_disks);
 	conf->raid_disks = mddev->raid_disks = raid_disks;
+	mddev->delta_disks = 0;
 
 	conf->last_used = 0; /* just make sure it is in-range */
 	lower_barrier(conf);
@@ -2076,7 +2109,7 @@ static struct mdk_personality raid1_personality =
 	.spare_active	= raid1_spare_active,
 	.sync_request	= sync_request,
 	.resize		= raid1_resize,
-	.reshape	= raid1_reshape,
+	.check_reshape	= raid1_reshape,
 	.quiesce	= raid1_quiesce,
 };
 

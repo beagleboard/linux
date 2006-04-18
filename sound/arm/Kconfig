@@ -44,5 +44,19 @@ config SND_OMAP_AIC23
 
 	  To compile this driver as a module, choose M here: the module
 	  will be called snd-omap-aic23.
+	  
+config SND_OMAP_TSC2101
+ 	tristate "OMAP TSC2101 alsa driver"
+ 	depends on ARCH_OMAP && SND
+ 	select SND_PCM
+         select OMAP_TSC2101
+         select OMAP_UWIRE if ARCH_OMAP
+ 	help
+ 	  Say Y here if you have a OMAP platform board
+ 	  and want to use its TSC2101 audio chip. Driver has
+ 	  been tested with H2 and iPAQ h6300.
+ 
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called snd-omap-tsc2101.
 
 endmenu
