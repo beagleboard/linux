@@ -96,7 +96,11 @@ static const struct tsc2101_samplerate_reg_info
 static snd_pcm_hardware_t tsc2101_snd_omap_alsa_playback = {
 	.info = (SNDRV_PCM_INFO_INTERLEAVED | SNDRV_PCM_INFO_BLOCK_TRANSFER |
 		 SNDRV_PCM_INFO_MMAP | SNDRV_PCM_INFO_MMAP_VALID),	
-	.formats = (SNDRV_PCM_FMTBIT_S16_LE),
+#ifdef CONFIG_MACH_OMAP_H6300
+	.formats = (SNDRV_PCM_FMTBIT_S8),
+#else
+ 	.formats = (SNDRV_PCM_FMTBIT_S16_LE),
+#endif
 	.rates = (SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_11025 |
 		  SNDRV_PCM_RATE_16000 |
 		  SNDRV_PCM_RATE_22050 | SNDRV_PCM_RATE_32000 |
