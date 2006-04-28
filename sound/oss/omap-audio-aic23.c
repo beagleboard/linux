@@ -38,6 +38,7 @@
 #include <linux/sound.h>
 #include <linux/soundcard.h>
 #include <linux/clk.h>
+#include <linux/mutex.h>
 
 #include <asm/uaccess.h>
 #include <asm/hardware.h>
@@ -243,7 +244,7 @@ static audio_state_t aic23_state = {
         .hw_remove      =  __exit_p(omap_aic23_remove),
         .hw_suspend     = omap_aic23_suspend,
         .hw_resume      = omap_aic23_resume,
-	.sem	    = __SEMAPHORE_INIT(aic23_state.sem, 1),
+	.mutex	    = __MUTEX_INITIALIZER(aic23_state.mutex),
 };
 
 /* This will be defined in the audio.h */
