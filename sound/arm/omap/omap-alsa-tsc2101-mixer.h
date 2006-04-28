@@ -62,14 +62,14 @@
 
 /* following are used for register 03h Mixer PGA control bits D7-D5 for selecting record source */
 #define REC_SRC_TARGET_COUNT		0x08
-#define REC_SRC_SINGLE_ENDED_MICIN_HED	MPC_MICSEL(0)	// oss code referred to MIXER_LINE
-#define REC_SRC_SINGLE_ENDED_MICIN_HND	MPC_MICSEL(1)	// oss code referred to MIXER_MIC
-#define REC_SRC_SINGLE_ENDED_AUX1	MPC_MICSEL(2)
-#define REC_SRC_SINGLE_ENDED_AUX2	MPC_MICSEL(3)
-#define REC_SRC_MICIN_HED_AND_AUX1	MPC_MICSEL(4)
-#define REC_SRC_MICIN_HED_AND_AUX2	MPC_MICSEL(5)
-#define REC_SRC_MICIN_HND_AND_AUX1	MPC_MICSEL(6)
-#define REC_SRC_MICIN_HND_AND_AUX2	MPC_MICSEL(7)
+#define REC_SRC_SINGLE_ENDED_MICIN_HED	0x00	// oss code referred to MIXER_LINE
+#define REC_SRC_SINGLE_ENDED_MICIN_HND	0x01	// oss code referred to MIXER_MIC
+#define REC_SRC_SINGLE_ENDED_AUX1	0x02
+#define REC_SRC_SINGLE_ENDED_AUX2	0x03
+#define REC_SRC_MICIN_HED_AND_AUX1	0x04
+#define REC_SRC_MICIN_HED_AND_AUX2	0x05
+#define REC_SRC_MICIN_HND_AND_AUX1	0x06
+#define REC_SRC_MICIN_HND_AND_AUX2	0x07
 
 #define DEFAULT_OUTPUT_VOLUME		90	// default output volume to dac dgc
 #define DEFAULT_INPUT_VOLUME		20	// default record volume
