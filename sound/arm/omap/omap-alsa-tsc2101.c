@@ -136,7 +136,7 @@ static snd_pcm_hardware_t tsc2101_snd_omap_alsa_capture = {
 };
 
 /* 
- * Simplified write for tsc Audio
+ * Simplified write for tsc2101 audio registers.
  */
 inline void tsc2101_audio_write(u8 address, u16 data)
 {
@@ -144,7 +144,7 @@ inline void tsc2101_audio_write(u8 address, u16 data)
 }
 
 /* 
- * Simplified read for tsc  Audio
+ * Simplified read for tsc2101 audio registers.
  */
 inline u16 tsc2101_audio_read(u8 address)
 {
@@ -246,14 +246,17 @@ void tsc2101_set_samplerate(long sample_rate)
 #endif				/* #ifdef TSC_MASTER */
 	tsc2101_audio_write(TSC2101_AUDIO_CTRL_3, data);
 
-	/* program the PLLs */
+	/* Program the PLLs. This code assumes that the 12 Mhz MCLK is in use.
+         * If MCLK rate is something else, these values must be changed.
+	 * See the tsc2101 specification for the details.
+	 */
 	if (rate_reg_info[count].fs_44kHz) {
-		/* 44.1 khz - 12 MHz Mclk */
+		/* samplerate = (44.1kHZ / x), where x is int. */
 		tsc2101_audio_write(TSC2101_PLL_PROG_1, PLL1_PLLSEL |
 				PLL1_PVAL(1) | PLL1_I_VAL(7));	/* PVAL 1; I_VAL 7 */
 		tsc2101_audio_write(TSC2101_PLL_PROG_2, PLL2_D_VAL(0x1490));	/* D_VAL 5264 */
 	} else {
-		/* 48 khz - 12 Mhz Mclk */
+		/* samplerate = (48.kHZ / x), where x is int. */
 		tsc2101_audio_write(TSC2101_PLL_PROG_1, PLL1_PLLSEL |
 			       PLL1_PVAL(1) | PLL1_I_VAL(8));	/* PVAL 1; I_VAL 8 */
 		tsc2101_audio_write(TSC2101_PLL_PROG_2, PLL2_D_VAL(0x780));	/* D_VAL 1920 */
@@ -317,20 +320,13 @@ int tsc2101_clock_on(void)
 		       CODEC_CLOCK);
 	}
 	curRate	= (uint)clk_get_rate(tsc2101_mclk);
-	DPRINTK("old clock rate = %d\n", curRate);
 	if (curRate != CODEC_CLOCK) {
 		err	= clk_set_rate(tsc2101_mclk, CODEC_CLOCK);
 		if (err) {
 			printk(KERN_WARNING
 			       "Cannot set MCLK clock rate for TSC2101 CODEC, error code = %d\n", err);
-			//return -ECANCELED;
+			return -ECANCELED;
 		}
-	}
-	else
-	{
-		printk(KERN_INFO
-		       "omap_alsa_tsc2101_clock_on(), no need to change rate, no need to change clock rate, rate already %d Hz.\n",
-		       CODEC_CLOCK);
 	}
 	err		= clk_enable(tsc2101_mclk);
 	curRate		= (uint)clk_get_rate(tsc2101_mclk);
@@ -349,8 +345,7 @@ int tsc2101_clock_on(void)
 }
 
 /*
- * Do some sanity check, turn clock off and then turn
- *  codec audio off
+ * Do some sanity check, turn clock off and then turn codec audio off
  */
 int tsc2101_clock_off(void) 
 {
@@ -374,10 +369,6 @@ int tsc2101_clock_off(void)
 	tsc2101_audio_write(TSC2101_CODEC_POWER_CTRL,
 			    ~(CPC_SP1PWDN | CPC_SP2PWDN | CPC_BASSBC));
 	DPRINTK("audio codec off\n");
-#ifdef DUMP_TSC2101_AUDIO_REGISTERS
-	printk("tsc2101_clock_off()\n");
-	dump_tsc2101_audio_reg();
-#endif	
 	return 0;	
 }
 
@@ -420,18 +411,22 @@ static struct platform_driver omap_alsa_driver = {
 };
 
 static int __init omap_alsa_tsc2101_init(void)
-{
-	int err;
-	
+{	
 	ADEBUG();
-	err = platform_driver_register(&omap_alsa_driver);
-
-	return err;
+#ifdef DUMP_TSC2101_AUDIO_REGISTERS
+	printk("omap_alsa_tsc2101_init()\n");
+	dump_tsc2101_audio_reg();
+#endif
+	return platform_driver_register(&omap_alsa_driver);
 }
 
 static void __exit omap_alsa_tsc2101_exit(void)
 {
 	ADEBUG();
+#ifdef DUMP_TSC2101_AUDIO_REGISTERS
+	printk("omap_alsa_tsc2101_exit()\n");
+	dump_tsc2101_audio_reg();
+#endif
 	platform_driver_unregister(&omap_alsa_driver);
 }
 
