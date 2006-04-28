@@ -323,3 +323,10 @@ COMPAT_SYS(pselect6)
 COMPAT_SYS(ppoll)
 SYSCALL(unshare)
 SYSCALL(splice)
+SYSCALL(tee)
+SYSCALL(vmsplice)
+
+/*
+ * please add new calls to arch/powerpc/platforms/cell/spu_callbacks.c
+ * as well when appropriate.
+ */
