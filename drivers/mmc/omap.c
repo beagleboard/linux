@@ -899,9 +899,16 @@ static void mmc_omap_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	int dsor;
 	int realclock, i;
 
-	realclock = ios->clock;
+	/* According to the MMC spec we must not enable clock prior to
+	 * power stabilizing. But at least omap16xx needs clock dsor
+	 * configured during MMC_POWER_UP.
+	 */
+	if ((ios->power_mode == MMC_POWER_UP) && (ios->clock == 0))
+		realclock = mmc->f_min;
+	else
+		realclock = ios->clock;
 
-	if (ios->clock == 0)
+	if (realclock == 0)
 		dsor = 0;
 	else {
 		int func_clk_rate = clk_get_rate(host->fclk);
