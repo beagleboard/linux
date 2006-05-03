@@ -154,7 +154,7 @@ static int aic23_attach_adapter(struct i2c_adapter *adapter)
 }
 
 static struct i2c_driver aic23_driver = {
-	.driver {
+	.driver = {
 		.name	= "OMAP+TLV320AIC23 codec",
 		/*.flags	= I2C_DF_NOTIFY,*/
 	},
