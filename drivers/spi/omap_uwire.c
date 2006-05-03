@@ -196,6 +196,9 @@ static int uwire_txrx(struct spi_device *spi, struct spi_transfer *t)
 	if (t->tx_buf && t->rx_buf)
 		return -EPERM;
 
+	if (!bits)
+		bits = 8;
+
 	w = spi->chip_select << 10;
 	w |= CS_CMD;
 
@@ -206,18 +209,15 @@ static int uwire_txrx(struct spi_device *spi, struct spi_transfer *t)
 
 		/* write one or two bytes at a time */
 		while (len >= 1) {
-			/* tx is msb-aligned */
+			/* tx bit 15 is first sent; we byteswap multibyte words
+			 * (msb-first) on the way out from memory.
+			 */
 			val = *buf++;
-			if (len > 1 && (!bits || bits > 8)) {
-				if (!bits)
-					bits = 16;
+			if (bits > 8) {
 				bytes = 2;
 				val |= *buf++ << 8;
-			} else {
-				if (!bits || bits > 8)
-					bits = 8;
+			} else
 				bytes = 1;
-			}
 			val <<= 16 - bits;
 
 #ifdef	VERBOSE
@@ -253,15 +253,10 @@ static int uwire_txrx(struct spi_device *spi, struct spi_transfer *t)
 
 		/* read one or two bytes at a time */
 		while (len) {
-			if (len > 1 && (!bits || bits > 8)) {
-				if (!bits)
-					bits = 16;
+			if (bits > 8) {
 				bytes = 2;
-			} else {
-				if (!bits || bits > 8)
-					bits = 8;
+			} else
 				bytes = 1;
-			}
 
 			/* start read */
 			val = START | w | (bits << 0);
@@ -275,7 +270,9 @@ static int uwire_txrx(struct spi_device *spi, struct spi_transfer *t)
 						RDRB, 0))
 				goto eio;
 
-			/* rx is lsb-aligned */
+			/* rx bit 0 is last received; multibyte words will
+			 * be properly byteswapped on the way to memory.
+			 */
 			val = uwire_read_reg(UWIRE_RDR);
 			val &= (1 << bits) - 1;
 			*buf++ = (u8) val;
@@ -317,6 +314,12 @@ static int uwire_setup(struct spi_device *spi)
 		pr_debug("%s: wordsize %d?\n", spi->dev.bus_id,
 				spi->bits_per_word);
 		status = -ENODEV;
+		goto done;
+	}
+
+	if (spi->mode & SPI_LSB_FIRST) {
+		pr_debug("%s: lsb first?\n", spi->dev.bus_id);
+		status = -EINVAL;
 		goto done;
 	}
 
