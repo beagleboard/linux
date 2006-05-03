@@ -14,10 +14,13 @@ if INPUT_TOUCHSCREEN
 config TOUCHSCREEN_ADS7846
 	tristate "ADS 7846 based touchscreens"
 	depends on SPI_MASTER
+	select HWMON
 	help
 	  Say Y here if you have a touchscreen interface using the
 	  ADS7846 controller, and your board-specific initialization
-	  code includes that in its table of SPI devices.
+	  code includes that in its table of SPI devices.  You will
+	  also get hwmon interfaces for the temperature and voltage
+	  sensors this chip provides.
 
 	  If unsure, say N (but it's safe to say "Y").
 
