@@ -67,6 +67,7 @@ struct omap_cf_socket {
 	struct platform_device	*pdev;
 	unsigned long		phys_cf;
 	u_int			irq;
+	struct resource		iomem;
 };
 
 #define	POLL_INTERVAL		(2 * HZ)
@@ -112,10 +113,7 @@ static int omap_cf_get_status(struct pcmcia_socket *s, u_int *sp)
 	if (!sp)
 		return -EINVAL;
 
-	/* FIXME power management should probably be board-specific:
-	 *  - 3VCARD vs XVCARD (OSK only handles 3VCARD)
-	 *  - POWERON (switched on/off by set_socket)
-	 */
+	/* NOTE CF is always 3VCARD */
 	if (omap_cf_present()) {
 		struct omap_cf_socket	*cf;
 
@@ -254,6 +252,9 @@ static int __init omap_cf_probe(struct device *dev)
 	default:
 		goto  fail1;
 	}
+	cf->iomem.start = cf->phys_cf;
+	cf->iomem.end = cf->iomem.end + SZ_8K - 1;
+	cf->iomem.flags = IORESOURCE_MEM;
 
 	/* pcmcia layer only remaps "real" memory */
 	cf->socket.io_offset = (unsigned long)
@@ -297,6 +298,7 @@ static int __init omap_cf_probe(struct device *dev)
 	cf->socket.features = SS_CAP_PCCARD | SS_CAP_STATIC_MAP
 				| SS_CAP_MEM_ALIGN;
 	cf->socket.map_size = SZ_2K;
+	cf->socket.io[0].res = &cf->iomem;
 
 	status = pcmcia_register_socket(&cf->socket);
 	if (status < 0)
@@ -321,6 +323,7 @@ static int __devexit omap_cf_remove(struct device *dev)
 	struct omap_cf_socket *cf = dev_get_drvdata(dev);
 
 	cf->active = 0;
+	pcmcia_unregister_socket(&cf->socket);
 	del_timer_sync(&cf->timer);
 	iounmap((void __iomem *) cf->socket.io_offset);
 	release_mem_region(cf->phys_cf, SZ_8K);
@@ -334,8 +337,8 @@ static struct device_driver omap_cf_driver = {
 	.bus		= &platform_bus_type,
 	.probe		= omap_cf_probe,
 	.remove		= __devexit_p(omap_cf_remove),
-	.suspend 	= pcmcia_socket_dev_suspend,
-	.resume 	= pcmcia_socket_dev_resume,
+	.suspend	= pcmcia_socket_dev_suspend,
+	.resume		= pcmcia_socket_dev_resume,
 };
 
 static int __init omap_cf_init(void)
