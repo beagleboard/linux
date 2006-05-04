@@ -36,6 +36,7 @@
 #include <linux/sched.h>
 #include <linux/mm.h>
 #include <linux/proc_fs.h>
+#include <linux/mutex.h>
 #include <asm/uaccess.h>
 #include <asm/io.h>
 #include <asm/signal.h>
@@ -91,18 +92,18 @@ struct taskdev {
 
 	/* read stuff */
 	wait_queue_head_t read_wait_q;
-	struct semaphore read_sem;
+	struct mutex read_mutex;
 
 	/* write stuff */
 	wait_queue_head_t write_wait_q;
-	struct semaphore write_sem;
+	struct mutex write_mutex;
 
 	/* ioctl stuff */
 	wait_queue_head_t ioctl_wait_q;
-	struct semaphore ioctl_sem;
+	struct mutex ioctl_mutex;
 
 	/* device lock */
-	struct semaphore lock_sem;
+	struct mutex lock;
 	pid_t lock_pid;
 };
 
@@ -206,7 +207,7 @@ static struct bus_type dsptask_bus = {
 static struct class *dsp_task_class;
 static struct taskdev *taskdev[TASKDEV_MAX];
 static struct dsptask *dsptask[TASKDEV_MAX];
-static DECLARE_MUTEX(cfg_sem);
+static DEFINE_MUTEX(cfg_lock);
 static unsigned short cfg_cmd;
 static unsigned char cfg_tid;
 static DECLARE_WAIT_QUEUE_HEAD(cfg_wait_q);
@@ -256,19 +257,19 @@ static __inline__ void devstate_unlock(struct taskdev *dev)
 	spin_unlock(&dev->state_lock);
 }
 
-static __inline__ int down_tasksem_interruptible(struct taskdev *dev,
-						 struct semaphore *sem)
+static inline int taskdev_lock_interruptible(struct taskdev *dev,
+					     struct mutex *lock)
 {
 	int ret;
 
 	if (dev->lock_pid == current->pid) {
 		/* this process has lock */
-		ret = down_interruptible(sem);
+		ret = mutex_lock_interruptible(lock);
 	} else {
-		if ((ret = down_interruptible(&dev->lock_sem)) != 0)
+		if ((ret = mutex_lock_interruptible(&dev->lock)) != 0)
 			return ret;
-		ret = down_interruptible(sem);
-		up(&dev->lock_sem);
+		ret = mutex_lock_interruptible(lock);
+		mutex_unlock(&dev->lock);
 	}
 	return ret;
 }
@@ -358,7 +359,7 @@ static int dsp_task_set_fifosz(struct dsptask *task, unsigned long sz)
 
 static int taskdev_lock(struct taskdev *dev)
 {
-	if (down_interruptible(&dev->lock_sem))
+	if (mutex_lock_interruptible(&dev->lock))
 		return -ERESTARTSYS;
 	dev->lock_pid = current->pid;
 	return 0;
@@ -373,7 +374,7 @@ static int taskdev_unlock(struct taskdev *dev)
 		return -EINVAL;
 	}
 	dev->lock_pid = 0;
-	up(&dev->lock_sem);
+	mutex_unlock(&dev->lock);
 	return 0;
 }
 
@@ -388,7 +389,7 @@ static int dsp_task_config(struct dsptask *task, unsigned char tid)
 
 	/* TCFG request */
 	task->state = TASK_STATE_CFGREQ;
-	if (down_interruptible(&cfg_sem)) {
+	if (mutex_lock_interruptible(&cfg_lock)) {
 		ret = -ERESTARTSYS;
 		goto fail_out;
 	}
@@ -396,7 +397,7 @@ static int dsp_task_config(struct dsptask *task, unsigned char tid)
 	mbcmd_set(mb, MBCMD(TCFG), tid, 0);
 	dsp_mbcmd_send_and_wait(&mb, &cfg_wait_q);
 	cfg_cmd = 0;
-	up(&cfg_sem);
+	mutex_unlock(&cfg_lock);
 
 	if (task->state != TASK_STATE_READY) {
 		printk(KERN_ERR "omapdsp: task %d configuration error!\n", tid);
@@ -652,7 +653,7 @@ static ssize_t dsp_task_read_wd_acv(struct file *file, char *buf, size_t count,
 		return -EINVAL;
 	}
 
-	if (down_tasksem_interruptible(dev, &dev->read_sem))
+	if (taskdev_lock_interruptible(dev, &dev->read_mutex))
 		return -ERESTARTSYS;
 	if (devstate_lock(dev, OMAP_DSP_DEVSTATE_ATTACHED) < 0) {
 		ret = -ERESTARTSYS;
@@ -693,7 +694,7 @@ static ssize_t dsp_task_read_wd_acv(struct file *file, char *buf, size_t count,
 up_out:
 	if (have_devstate_lock)
 		devstate_unlock(dev);
-	up(&dev->read_sem);
+	mutex_unlock(&dev->read_mutex);
 	return ret;
 }
 
@@ -719,7 +720,7 @@ static ssize_t dsp_task_read_bk_acv(struct file *file, char *buf, size_t count,
 		return -EINVAL;
 	}
 
-	if (down_tasksem_interruptible(dev, &dev->read_sem))
+	if (taskdev_lock_interruptible(dev, &dev->read_mutex))
 		return -ERESTARTSYS;
 	if (devstate_lock(dev, OMAP_DSP_DEVSTATE_ATTACHED) < 0) {
 		ret = -ERESTARTSYS;
@@ -851,7 +852,7 @@ gb_out:
 up_out:
 	if (have_devstate_lock)
 		devstate_unlock(dev);
-	up(&dev->read_sem);
+	mutex_unlock(&dev->read_mutex);
 	return ret;
 }
 
@@ -875,7 +876,7 @@ static ssize_t dsp_task_read_wd_psv(struct file *file, char *buf, size_t count,
 		count = 2;
 	}
 
-	if (down_tasksem_interruptible(dev, &dev->read_sem))
+	if (taskdev_lock_interruptible(dev, &dev->read_mutex))
 		return -ERESTARTSYS;
 	if (devstate_lock(dev, OMAP_DSP_DEVSTATE_ATTACHED) < 0) {
 		ret = -ERESTARTSYS;
@@ -903,7 +904,7 @@ static ssize_t dsp_task_read_wd_psv(struct file *file, char *buf, size_t count,
 unlock_out:
 	devstate_unlock(dev);
 up_out:
-	up(&dev->read_sem);
+	mutex_unlock(&dev->read_mutex);
 	return ret;
 }
 
@@ -930,7 +931,7 @@ static ssize_t dsp_task_read_bk_psv(struct file *file, char *buf, size_t count,
 		return -EINVAL;
 	}
 
-	if (down_tasksem_interruptible(dev, &dev->read_sem))
+	if (taskdev_lock_interruptible(dev, &dev->read_mutex))
 		return -ERESTARTSYS;
 	if (devstate_lock(dev, OMAP_DSP_DEVSTATE_ATTACHED) < 0) {
 		ret = -ERESTARTSYS;
@@ -1023,7 +1024,7 @@ gb_out:
 unlock_out:
 	devstate_unlock(dev);
 up_out:
-	up(&dev->read_sem);
+	mutex_unlock(&dev->read_mutex);
 	return ret;
 }
 
@@ -1047,7 +1048,7 @@ static ssize_t dsp_task_write_wd(struct file *file, const char *buf,
 		count = 2;
 	}
 
-	if (down_tasksem_interruptible(dev, &dev->write_sem))
+	if (taskdev_lock_interruptible(dev, &dev->write_mutex))
 		return -ERESTARTSYS;
 	if (devstate_lock(dev, OMAP_DSP_DEVSTATE_ATTACHED) < 0) {
 		ret = -ERESTARTSYS;
@@ -1102,7 +1103,7 @@ static ssize_t dsp_task_write_wd(struct file *file, const char *buf,
 up_out:
 	if (have_devstate_lock)
 		devstate_unlock(dev);
-	up(&dev->write_sem);
+	mutex_unlock(&dev->write_mutex);
 	return ret;
 }
 
@@ -1127,7 +1128,7 @@ static ssize_t dsp_task_write_bk(struct file *file, const char *buf,
 		return -EINVAL;
 	}
 
-	if (down_tasksem_interruptible(dev, &dev->write_sem))
+	if (taskdev_lock_interruptible(dev, &dev->write_mutex))
 		return -ERESTARTSYS;
 	if (devstate_lock(dev, OMAP_DSP_DEVSTATE_ATTACHED) < 0) {
 		ret = -ERESTARTSYS;
@@ -1239,7 +1240,7 @@ gb_out:
 up_out:
 	if (have_devstate_lock)
 		devstate_unlock(dev);
-	up(&dev->write_sem);
+	mutex_unlock(&dev->write_mutex);
 	return ret;
 }
 
@@ -1288,9 +1289,9 @@ static int dsp_task_ioctl(struct inode *inode, struct file *file,
 
 	/*
 	 * actually only interractive commands need to lock
-	 * the semaphore, but here all commands do it for simplicity.
+	 * the mutex, but here all commands do it for simplicity.
 	 */
-	if (down_tasksem_interruptible(dev, &dev->ioctl_sem))
+	if (taskdev_lock_interruptible(dev, &dev->ioctl_mutex))
 		return -ERESTARTSYS;
 	if (devstate_lock(dev, OMAP_DSP_DEVSTATE_ATTACHED) < 0) {
 		ret = -ERESTARTSYS;
@@ -1417,7 +1418,7 @@ static int dsp_task_ioctl(struct inode *inode, struct file *file,
 unlock_out:
 	devstate_unlock(dev);
 up_out:
-	up(&dev->ioctl_sem);
+	mutex_unlock(&dev->ioctl_mutex);
 	return ret;
 }
 
@@ -1755,10 +1756,10 @@ static int taskdev_init(struct taskdev *dev, char *name, unsigned char minor)
 	init_waitqueue_head(&dev->read_wait_q);
 	init_waitqueue_head(&dev->write_wait_q);
 	init_waitqueue_head(&dev->ioctl_wait_q);
-	init_MUTEX(&dev->read_sem);
-	init_MUTEX(&dev->write_sem);
-	init_MUTEX(&dev->ioctl_sem);
-	init_MUTEX(&dev->lock_sem);
+	mutex_init(&dev->read_mutex);
+	mutex_init(&dev->write_mutex);
+	mutex_init(&dev->ioctl_mutex);
+	mutex_init(&dev->lock);
 	dev->lock_pid = 0;
 
 	strncpy(dev->name, name, OMAP_DSP_TNM_LEN);
@@ -1901,7 +1902,7 @@ int dsp_tadd(unsigned char minor, unsigned long adr)
 	argv[0] = adr >> 16;	/* addrh */
 	argv[1] = adr & 0xffff;	/* addrl */
 
-	if (down_interruptible(&cfg_sem)) {
+	if (mutex_lock_interruptible(&cfg_lock)) {
 		ret = -ERESTARTSYS;
 		goto fail_out;
 	}
@@ -1918,7 +1919,7 @@ int dsp_tadd(unsigned char minor, unsigned long adr)
 	tid = cfg_tid;
 	cfg_tid = OMAP_DSP_TID_ANON;
 	cfg_cmd = 0;
-	up(&cfg_sem);
+	mutex_unlock(&cfg_lock);
 
 	if (tid == OMAP_DSP_TID_ANON) {
 		printk(KERN_ERR "omapdsp: tadd failed!\n");
@@ -1962,7 +1963,7 @@ del_out:
 
 	dev->state = OMAP_DSP_DEVSTATE_DELING;
 
-	if (down_interruptible(&cfg_sem)) {
+	if (mutex_lock_interruptible(&cfg_lock)) {
 		printk(KERN_ERR "omapdsp: aborting tdel process. "
 				"DSP side could be corrupted.\n");
 		goto fail_out;
@@ -1974,7 +1975,7 @@ del_out:
 	tid_response = cfg_tid;
 	cfg_tid = OMAP_DSP_TID_ANON;
 	cfg_cmd = 0;
-	up(&cfg_sem);
+	mutex_unlock(&cfg_lock);
 
 	if (tid_response != tid)
 		printk(KERN_ERR "omapdsp: tdel failed. "
@@ -2043,7 +2044,7 @@ static int dsp_tdel_bh(unsigned char minor, unsigned short type)
 
 	task = dev->task;
 	tid = task->tid;
-	if (down_interruptible(&cfg_sem)) {
+	if (mutex_lock_interruptible(&cfg_lock)) {
 		if (type == OMAP_DSP_MBCMD_TDEL_SAFE) {
 			dev->state = OMAP_DSP_DEVSTATE_DELREQ;
 			return -ERESTARTSYS;
@@ -2060,7 +2061,7 @@ static int dsp_tdel_bh(unsigned char minor, unsigned short type)
 	tid_response = cfg_tid;
 	cfg_tid = OMAP_DSP_TID_ANON;
 	cfg_cmd = 0;
-	up(&cfg_sem);
+	mutex_unlock(&cfg_lock);
 
 detach_out:
 	taskdev_detach_task(dev);

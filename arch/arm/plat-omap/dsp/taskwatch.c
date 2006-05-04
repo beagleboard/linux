@@ -31,6 +31,7 @@
 #include <linux/poll.h>
 #include <linux/interrupt.h>
 #include <linux/sched.h>
+#include <linux/mutex.h>
 #include <asm/uaccess.h>
 #include <asm/io.h>
 #include <asm/arch/dsp.h>
@@ -111,10 +112,10 @@ static unsigned int dsp_twch_poll(struct file *file, poll_table *wait)
 static int dsp_twch_ioctl(struct inode *inode, struct file *file,
 			  unsigned int cmd, unsigned long arg)
 {
-	static DECLARE_MUTEX(ioctl_sem);
+	static DEFINE_MUTEX(ioctl_lock);
 	int ret;
 
-	if (down_interruptible(&ioctl_sem))
+	if (mutex_lock_interruptible(&ioctl_lock))
 		return -ERESTARTSYS;
 
 	switch (cmd) {
@@ -166,7 +167,7 @@ static int dsp_twch_ioctl(struct inode *inode, struct file *file,
 	}
 
 up_out:
-	up(&ioctl_sem);
+	mutex_unlock(&ioctl_lock);
 	return ret;
 }
 

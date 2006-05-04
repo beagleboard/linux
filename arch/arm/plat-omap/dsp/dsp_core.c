@@ -32,6 +32,7 @@
 #include <linux/sched.h>
 #include <linux/interrupt.h>
 #include <linux/proc_fs.h>
+#include <linux/mutex.h>
 #include <asm/uaccess.h>
 #include <asm/io.h>
 #include <asm/signal.h>
@@ -248,7 +249,7 @@ int __mbcmd_send(struct mbcmd *mb)
  */
 int __dsp_mbcmd_send(struct mbcmd *mb, struct mb_exarg *arg, int recovery_flag)
 {
-	static DECLARE_MUTEX(mbsend_sem);
+	static DEFINE_MUTEX(mbsend_lock);
 	int ret = 0;
 
 	/*
@@ -260,14 +261,14 @@ int __dsp_mbcmd_send(struct mbcmd *mb, struct mb_exarg *arg, int recovery_flag)
 		return -1;
 	}
 
-	if (down_interruptible(&mbsend_sem) < 0)
+	if (mutex_lock_interruptible(&mbsend_lock) < 0)
 		return -1;
 
 	if (arg) {	/* we have extra argument */
 		int i;
 
 		/*
-		 * even if ipbuf_sys_ad is in DSP internal memory, 
+		 * even if ipbuf_sys_ad is in DSP internal memory,
 		 * dsp_mem_enable() never cause to call PM mailbox command
 		 * because in that case DSP memory should be always enabled.
 		 * (see ipbuf_sys_hold_mem_active in ipbuf.c)
@@ -291,7 +292,7 @@ int __dsp_mbcmd_send(struct mbcmd *mb, struct mb_exarg *arg, int recovery_flag)
 	ret = __mbcmd_send(mb);
 
 out:
-	up(&mbsend_sem);
+	mutex_unlock(&mbsend_lock);
 	return ret;
 }
 

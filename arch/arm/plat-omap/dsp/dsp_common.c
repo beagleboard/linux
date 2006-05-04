@@ -31,6 +31,7 @@
 #include <linux/delay.h>
 #include <linux/mm.h>
 #include <linux/clk.h>
+#include <linux/mutex.h>
 #include <asm/io.h>
 #include <asm/tlbflush.h>
 #include <asm/irq.h>
@@ -45,7 +46,7 @@ unsigned long dspmem_base, dspmem_size,
 	      saram_base, saram_size;
 
 struct cpustat {
-	struct semaphore sem;
+	struct mutex lock;
 	enum e_cpustat stat;
 	enum e_cpustat req;
 	unsigned short icrmask;
@@ -58,7 +59,7 @@ struct cpustat {
 	void (*mem_rel_cb)(void);
 };
 struct cpustat cpustat = {
-	.sem = __SEMAPHORE_INIT(cpustat.sem, 1),
+	.lock = __MUTEX_INITIALIZER(cpustat.lock),
 	.stat = CPUSTAT_RESET,
 	.icrmask = 0xffff,
 };
@@ -364,10 +365,10 @@ static void dsp_cpustat_update(void)
 
 void dsp_cpustat_request(enum e_cpustat req)
 {
-	down(&cpustat.sem);
+	mutex_lock(&cpustat.lock);
 	cpustat.req = req;
 	dsp_cpustat_update();
-	up(&cpustat.sem);
+	mutex_unlock(&cpustat.lock);
 }
 
 enum e_cpustat dsp_cpustat_get_stat(void)
@@ -382,23 +383,23 @@ unsigned short dsp_cpustat_get_icrmask(void)
 
 void dsp_cpustat_set_icrmask(unsigned short mask)
 {
-	down(&cpustat.sem);
+	mutex_lock(&cpustat.lock);
 	cpustat.icrmask = mask;
 	dsp_cpustat_update();
-	up(&cpustat.sem);
+	mutex_unlock(&cpustat.lock);
 }
 
 void omap_dsp_request_mpui(void)
 {
-	down(&cpustat.sem);
+	mutex_lock(&cpustat.lock);
 	if (cpustat.usecount.mpui++ == 0)
 		dsp_cpustat_update();
-	up(&cpustat.sem);
+	mutex_unlock(&cpustat.lock);
 }
 
 void omap_dsp_release_mpui(void)
 {
-	down(&cpustat.sem);
+	mutex_lock(&cpustat.lock);
 	if (cpustat.usecount.mpui-- == 0) {
 		printk(KERN_ERR
 		       "omapdsp: unbalanced mpui request/release detected.\n"
@@ -408,14 +409,14 @@ void omap_dsp_release_mpui(void)
 	}
 	if (cpustat.usecount.mpui == 0)
 		dsp_cpustat_update();
-	up(&cpustat.sem);
+	mutex_unlock(&cpustat.lock);
 }
 
 int omap_dsp_request_mem(void)
 {
 	int ret = 0;
 
-	down(&cpustat.sem);
+	mutex_lock(&cpustat.lock);
 	if ((cpustat.usecount.mem++ == 0) &&
 	    (cpustat.usecount.mem_delayed == 0)) {
 		if (cpustat.mem_req_cb) {
@@ -427,7 +428,7 @@ int omap_dsp_request_mem(void)
 		dsp_cpustat_update();
 	}
 out:
-	up(&cpustat.sem);
+	mutex_unlock(&cpustat.lock);
 
 	return ret;
 }
@@ -435,22 +436,23 @@ out:
 /*
  * release_mem will be delayed.
  */
-static void do_release_mem(void) {
-	down(&cpustat.sem);
+static void do_release_mem(void)
+{
+	mutex_lock(&cpustat.lock);
 	cpustat.usecount.mem_delayed = 0;
 	if (cpustat.usecount.mem == 0) {
 		dsp_cpustat_update();
 		if (cpustat.mem_rel_cb)
 			cpustat.mem_rel_cb();
 	}
-	up(&cpustat.sem);
+	mutex_unlock(&cpustat.lock);
 }
 
 static DECLARE_WORK(mem_rel_work, (void (*)(void *))do_release_mem, NULL);
 
 int omap_dsp_release_mem(void)
 {
-	down(&cpustat.sem);
+	mutex_lock(&cpustat.lock);
 
 	/* cancel previous release work */
 	cancel_delayed_work(&mem_rel_work);
@@ -468,14 +470,14 @@ int omap_dsp_release_mem(void)
 		schedule_delayed_work(&mem_rel_work, HZ);
 	}
 
-	up(&cpustat.sem);
+	mutex_unlock(&cpustat.lock);
 
 	return 0;
 }
 
 void dsp_register_mem_cb(int (*req_cb)(void), void (*rel_cb)(void))
 {
-	down(&cpustat.sem);
+	mutex_lock(&cpustat.lock);
 
 	cpustat.mem_req_cb = req_cb;
 	cpustat.mem_rel_cb = rel_cb;
@@ -485,15 +487,15 @@ void dsp_register_mem_cb(int (*req_cb)(void), void (*rel_cb)(void))
 	 */
 	BUG_ON(cpustat.usecount.mem == 0);
 
-	up(&cpustat.sem);
+	mutex_unlock(&cpustat.lock);
 }
 
 void dsp_unregister_mem_cb(void)
 {
-	down(&cpustat.sem);
+	mutex_lock(&cpustat.lock);
 	cpustat.mem_req_cb = NULL;
 	cpustat.mem_rel_cb = NULL;
-	up(&cpustat.sem);
+	mutex_unlock(&cpustat.lock);
 }
 
 /*

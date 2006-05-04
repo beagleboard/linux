@@ -35,6 +35,7 @@
 #include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <linux/clk.h>
+#include <linux/mutex.h>
 #include <asm/uaccess.h>
 #include <asm/io.h>
 #include <asm/ioctls.h>
@@ -56,7 +57,7 @@ static enum cfgstat {
 int mbx_revision;
 static DECLARE_WAIT_QUEUE_HEAD(ioctl_wait_q);
 static unsigned short ioctl_wait_cmd;
-static DECLARE_MUTEX(ioctl_sem);
+static DEFINE_MUTEX(ioctl_lock);
 
 static unsigned char n_stask;
 
@@ -71,7 +72,7 @@ static int dsp_regread(unsigned short cmd_l, unsigned short adr,
 	struct mbcmd mb;
 	int ret = 0;
 
-	if (down_interruptible(&ioctl_sem))
+	if (mutex_lock_interruptible(&ioctl_lock))
 		return -ERESTARTSYS;
 
 	ioctl_wait_cmd = MBCMD(REGRW);
@@ -87,7 +88,7 @@ static int dsp_regread(unsigned short cmd_l, unsigned short adr,
 	*val = varread_val[0];
 
 up_out:
-	up(&ioctl_sem);
+	mutex_unlock(&ioctl_lock);
 	return ret;
 }
 
@@ -111,7 +112,7 @@ static int dsp_getvar(unsigned char varid, unsigned short *val, int sz)
 	struct mbcmd mb;
 	int ret = 0;
 
-	if (down_interruptible(&ioctl_sem))
+	if (mutex_lock_interruptible(&ioctl_lock))
 		return -ERESTARTSYS;
 
 	ioctl_wait_cmd = MBCMD(GETVAR);
@@ -127,7 +128,7 @@ static int dsp_getvar(unsigned char varid, unsigned short *val, int sz)
 	memcpy(val, varread_val, sz * sizeof(short));
 
 up_out:
-	up(&ioctl_sem);
+	mutex_unlock(&ioctl_lock);
 	return ret;
 }
 
@@ -142,7 +143,7 @@ static int dspcfg(void)
 	struct mbcmd mb;
 	int ret = 0;
 
-	if (down_interruptible(&ioctl_sem))
+	if (mutex_lock_interruptible(&ioctl_lock))
 		return -ERESTARTSYS;
 
 	if (cfgstat != CFG_ERR) {
@@ -192,7 +193,7 @@ static int dspcfg(void)
 #endif
 
 	if ((ret = dsp_task_config_all(n_stask)) < 0) {
-		up(&ioctl_sem);
+		mutex_unlock(&ioctl_lock);
 		dspuncfg();
 		dsp_mem_disable((void *)dspmem_base);
 		return -EINVAL;
@@ -211,7 +212,7 @@ static int dspcfg(void)
 
 up_out:
 	dsp_mem_disable((void *)dspmem_base);
-	up(&ioctl_sem);
+	mutex_unlock(&ioctl_lock);
 	return ret;
 }
 
@@ -222,7 +223,7 @@ int dspuncfg(void)
 		return -EBUSY;
 	}
 
-	if (down_interruptible(&ioctl_sem))
+	if (mutex_lock_interruptible(&ioctl_lock))
 		return -ERESTARTSYS;
 
 	/* FIXME: lock task module */
@@ -240,7 +241,7 @@ int dspuncfg(void)
 	ipbuf_stop();
 	cfgstat = CFG_ERR;
 
-	up(&ioctl_sem);
+	mutex_unlock(&ioctl_lock);
 	return 0;
 }
 
@@ -257,7 +258,7 @@ int dsp_poll(void)
 	struct mbcmd mb;
 	int ret = 0;
 
-	if (down_interruptible(&ioctl_sem))
+	if (mutex_lock_interruptible(&ioctl_lock))
 		return -ERESTARTSYS;
 
 	ioctl_wait_cmd = MBCMD(POLL);
@@ -271,7 +272,7 @@ int dsp_poll(void)
 	}
 
 up_out:
-	up(&ioctl_sem);
+	mutex_unlock(&ioctl_lock);
 	return ret;
 }
 
@@ -301,7 +302,7 @@ int dsp_suspend(void)
 		return -EINVAL;
 	}
 
-	if (down_interruptible(&ioctl_sem))
+	if (mutex_lock_interruptible(&ioctl_lock))
 		return -ERESTARTSYS;
 
 	cfgstat_save_suspend = cfgstat;
@@ -330,7 +331,7 @@ int dsp_suspend(void)
 transition:
 	cfgstat = CFG_SUSPEND;
 up_out:
-	up(&ioctl_sem);
+	mutex_unlock(&ioctl_lock);
 	return ret;
 }
 
@@ -356,7 +357,7 @@ static int dsp_fbctl_disable(void)
 	int ret = 0;
 	struct mbcmd mb;
 
-	if (down_interruptible(&ioctl_sem))
+	if (mutex_lock_interruptible(&ioctl_lock))
 		return -ERESTARTSYS;
 
 	ioctl_wait_cmd = MBCMD(KFUNC);
@@ -367,7 +368,7 @@ static int dsp_fbctl_disable(void)
 		printk(KERN_ERR "omapdsp: fb disable error!\n");
 		ret = -EINVAL;
 	}
-	up(&ioctl_sem);
+	mutex_unlock(&ioctl_lock);
 
 	return ret;
 }
