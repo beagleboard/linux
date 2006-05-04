@@ -1,7 +1,7 @@
 /*
  * OMAP STI/XTI communications interface via netlink socket.
  *
- * Copyright (C) 2004, 2005 Nokia Corporation
+ * Copyright (C) 2004, 2005, 2006 Nokia Corporation
  * Written by: Paul Mundt <paul.mundt@nokia.com>
  *
  * This file is subject to the terms and conditions of the GNU General Public
@@ -13,11 +13,12 @@
 #include <linux/netlink.h>
 #include <linux/socket.h>
 #include <linux/skbuff.h>
+#include <linux/mutex.h>
 #include <net/sock.h>
 #include <asm/arch/sti.h>
 
 static struct sock *sti_sock;
-static DECLARE_MUTEX(sti_netlink_sem);
+static DEFINE_MUTEX(sti_netlink_mutex);
 
 enum {
 	STI_READ,
@@ -126,7 +127,7 @@ static void sti_netlink_receive(struct sock *sk, int len)
 {
 	struct sk_buff *skb;
 
-	if (down_trylock(&sti_netlink_sem))
+	if (!mutex_trylock(&sti_netlink_mutex))
 		return;
 
 	while ((skb = skb_dequeue(&sk->sk_receive_queue)))
@@ -135,7 +136,7 @@ static void sti_netlink_receive(struct sock *sk, int len)
 		else
 			kfree_skb(skb);
 
-	up(&sti_netlink_sem);
+	mutex_unlock(&sti_netlink_mutex);
 }
 
 static int __init sti_netlink_init(void)
