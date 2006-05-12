@@ -317,12 +317,6 @@ static int uwire_setup(struct spi_device *spi)
 		goto done;
 	}
 
-	if (spi->mode & SPI_LSB_FIRST) {
-		pr_debug("%s: lsb first?\n", spi->dev.bus_id);
-		status = -EINVAL;
-		goto done;
-	}
-
 	/* mode 0..3, clock inverted separately;
 	 * standard nCS signaling;
 	 * don't treat DI=high as "not ready"
