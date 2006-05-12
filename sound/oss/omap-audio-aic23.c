@@ -250,12 +250,12 @@ static audio_state_t aic23_state = {
 /* This will be defined in the audio.h */
 static struct file_operations *omap_audio_fops;
 
-extern int tlv320aic23_write_value(u8 reg, u16 value);
+extern int aic23_write_value(u8 reg, u16 value);
 
 /* TLV320AIC23 is a write only device */
 static __inline__ void audio_aic23_write(u8 address, u16 data)
 {
-        tlv320aic23_write_value(address, data);
+        aic23_write_value(address, data);
 }
 
 static int aic23_update(int flag, int val)

@@ -113,12 +113,12 @@ static snd_pcm_hardware_t aic23_snd_omap_alsa_capture = {
  * codec dependent code.
  */
 
-extern int tlv320aic23_write_value(u8 reg, u16 value);
+extern int aic23_write_value(u8 reg, u16 value);
 
 /* TLV320AIC23 is a write only device */
 void audio_aic23_write(u8 address, u16 data)
 {
-	tlv320aic23_write_value(address, data);
+	aic23_write_value(address, data);
 }
 EXPORT_SYMBOL_GPL(audio_aic23_write);
 
