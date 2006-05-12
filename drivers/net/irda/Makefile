@@ -48,4 +48,4 @@ obj-$(CONFIG_OMAP_IR)		+= omap-ir.o
 
 
 # The SIR helper module
-sir-dev-objs := sir_dev.o sir_dongle.o sir_kthread.o
+sir-dev-objs := sir_dev.o sir_dongle.o
