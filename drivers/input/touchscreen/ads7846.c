@@ -335,19 +335,18 @@ static ssize_t ads7846_disable_store(struct device *dev,
 				     const char *buf, size_t count)
 {
 	struct ads7846 *ts = dev_get_drvdata(dev);
-	unsigned long flags;
 	char *endp;
 	int i;
 
 	i = simple_strtoul(buf, &endp, 10);
-	spin_lock_irqsave(&ts->lock, flags);
+	spin_lock_irq(&ts->lock);
 
 	if (i)
 		ads7846_disable(ts);
 	else
 		ads7846_enable(ts);
 
-	spin_unlock_irqrestore(&ts->lock, flags);
+	spin_unlock_irq(&ts->lock);
 
 	return count;
 }
@@ -532,8 +531,6 @@ static void ads7846_disable(struct ads7846 *ts)
 			disable_irq(ts->spi->irq);
 		}
 	} else {
-		unsigned long flags;
-
 		/* polling; force a final SPI completion;
 		 * that will clean things up neatly
 		 */
@@ -541,9 +538,9 @@ static void ads7846_disable(struct ads7846 *ts)
 			mod_timer(&ts->timer, jiffies);
 
 		while (ts->pendown || ts->pending) {
-			spin_unlock_irqrestore(&ts->lock, flags);
+			spin_unlock_irq(&ts->lock);
 			msleep(1);
-			spin_lock_irqsave(&ts->lock, flags);
+			spin_lock_irq(&ts->lock);
 		}
 	}
 
@@ -568,14 +565,13 @@ static void ads7846_enable(struct ads7846 *ts)
 static int ads7846_suspend(struct spi_device *spi, pm_message_t message)
 {
 	struct ads7846 *ts = dev_get_drvdata(&spi->dev);
-	unsigned long	flags;
 
-	spin_lock_irqsave(&ts->lock, flags);
+	spin_lock_irq(&ts->lock);
 
 	spi->dev.power.power_state = message;
 	ads7846_disable(ts);
 
-	spin_unlock_irqrestore(&ts->lock, flags);
+	spin_unlock_irq(&ts->lock);
 
 	return 0;
 
@@ -584,14 +580,13 @@ static int ads7846_suspend(struct spi_device *spi, pm_message_t message)
 static int ads7846_resume(struct spi_device *spi)
 {
 	struct ads7846 *ts = dev_get_drvdata(&spi->dev);
-	unsigned long flags;
 
-	spin_lock_irqsave(&ts->lock, flags);
+	spin_lock_irq(&ts->lock);
 
 	spi->dev.power.power_state = PMSG_ON;
 	ads7846_enable(ts);
 
-	spin_unlock_irqrestore(&ts->lock, flags);
+	spin_unlock_irq(&ts->lock);
 
 	return 0;
 }
