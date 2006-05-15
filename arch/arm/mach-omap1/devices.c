@@ -25,35 +25,6 @@
 #include <asm/arch/mux.h>
 #include <asm/arch/gpio.h>
 
-#if	defined(CONFIG_OMAP1610_IR) || defined(CONFIG_OMAP161O_IR_MODULE)
-
-static u64 irda_dmamask = 0xffffffff;
-
-static struct platform_device omap1610ir_device = {
-	.name = "omap1610-ir",
-	.id = -1,
-	.dev = {
-		.dma_mask	= &irda_dmamask,
-	},
-};
-
-static void omap_init_irda(void)
-{
-	/* FIXME define and use a boot tag, members something like:
-	 *  u8		uart;		// uart1, or uart3
-	 * ... but driver only handles uart3 for now
-	 *  s16		fir_sel;	// gpio for SIR vs FIR
-	 * ... may prefer a callback for SIR/MIR/FIR mode select;
-	 * while h2 uses a GPIO, H3 uses a gpio expander
-	 */
-	if (machine_is_omap_h2()
-			|| machine_is_omap_h3())
-		(void) platform_device_register(&omap1610ir_device);
-}
-#else
-static inline void omap_init_irda(void) {}
-#endif
-
 /*-------------------------------------------------------------------------*/
 
 #if	defined(CONFIG_OMAP_RTC) || defined(CONFIG_OMAP_RTC)
@@ -155,7 +126,6 @@ static int __init omap1_init_devices(void)
 	/* please keep these calls, and their implementations above,
 	 * in alphabetical order so they're easier to sort through.
 	 */
-	omap_init_irda();
 	omap_init_rtc();
 	omap_init_sti();
 
