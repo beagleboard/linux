@@ -2,7 +2,8 @@
  * ADS7846 based touchscreen and sensor driver
  *
  * Copyright (c) 2005 David Brownell
- * Copyright (c) 2006 Imre Deak <imre.deak@nokia.com>
+ * Copyright (c) 2006 Nokia Corporation
+ * Various changes: Imre Deak <imre.deak@nokia.com>
  *
  * Using code from:
  *  - corgi_ts.c
@@ -44,7 +45,7 @@
  * edge triggered IRQs on some platforms like the OMAP1/2. These
  * platforms don't handle the ARM lazy IRQ disabling properly, thus we
  * have to maintain our own SW IRQ disabled status. This should be
- * removed as soon as the affected platforms' IRQ handling is fixed.
+ * removed as soon as the affected platform's IRQ handling is fixed.
  *
  * app note sbaa036 talks in more detail about accurate sampling...
  * that ought to help in situations like LCDs inducing noise (which
@@ -458,10 +459,11 @@ static void ads7846_debounce(void *ads)
 	t = list_entry(m->transfers.prev, struct spi_transfer, transfer_list);
 	val = (*(u16 *)t->rx_buf) >> 3;
 
-	if (!ts->read_cnt || (abs(ts->last_read - val) > ts->debounce_tol &&
-			      ts->read_cnt < ts->debounce_max)) {
+	if (!ts->read_cnt || (abs(ts->last_read - val) > ts->debounce_tol
+				&& ts->read_cnt < ts->debounce_max)) {
 		/* Repeat it, if this was the first read or the read wasn't
-		 * consistent enough */
+		 * consistent enough
+		 */
 		ts->read_cnt++;
 		ts->last_read = val;
 	} else {
@@ -495,10 +497,14 @@ static irqreturn_t ads7846_irq(int irq, void *handle, struct pt_regs *regs)
 	spin_lock_irqsave(&ts->lock, flags);
 	if (likely(!ts->irq_disabled && !ts->disabled)) {
 		if (!ts->irq_disabled) {
+			/* REVISIT irq logic for many ARM chips has cloned a
+			 * bug wherein disabling an irq in its handler won't
+			 * work;(it's disabled lazily, and too late to work.
+			 * until all their irq logic is fixed, we must shadow
+			 * that state here.
+			 */
 			ts->irq_disabled = 1;
-			/* The following has at the moment no effect whatsoever
-			 * on OMAP, that's why we maintain the disabled
-			 * state ourselves */
+
 			disable_irq(ts->spi->irq);
 		}
 		if (!ts->pending) {
