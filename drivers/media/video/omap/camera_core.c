@@ -1054,7 +1054,7 @@ static int __init camera_core_probe(struct platform_device *pdev)
 	cam->xclk = cam->cam_hardware->set_xclk(cam->xclk, cam->hardware_data);
 
 	/* initialize the sensor and define a default capture format cam->pix */
-	cam->sensor_data = cam->cam_sensor->init(&cam->pix);
+	cam->sensor_data = cam->cam_sensor->init(&cam->pix, &cam->pix2);
 	if (!cam->sensor_data) {
 		cam->cam_hardware->disable(cam->hardware_data);
 		printk(KERN_ERR CAM_NAME ": cannot initialize sensor\n");

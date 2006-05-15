@@ -102,8 +102,12 @@ const static struct v4l2_fmtdesc ov9640_formats[] = {
 	}
 };
 
-#define NUM_CAPTURE_FORMATS (sizeof(ov9640_formats)/sizeof(ov9640_formats[0]))
+#define NUM_CAPTURE_FORMATS ARRAY_SIZE(ov9640_formats)
+#ifdef CONFIG_ARCH_OMAP24XX
+#define NUM_OVERLAY_FORMATS 4
+#else
 #define NUM_OVERLAY_FORMATS 2
+#endif
 
 /* register initialization tables for OV9640 */
 
@@ -114,9 +118,15 @@ const static struct v4l2_fmtdesc ov9640_formats[] = {
  * and frame rates
  */
 const static struct ov9640_reg ov9640_common[] = {
+#ifdef CONFIG_ARCH_OMAP24XX
+	{ 0x12, 0x80 }, { 0x11, 0x80 }, { 0x13, 0x8F },	/* COM7, CLKRC, COM8 */
+	{ 0x01, 0x80 }, { 0x02, 0x80 }, { 0x04, 0x00 },	/* BLUE, RED, COM1 */
+	{ 0x0E, 0x81 }, { 0x0F, 0x4F }, { 0x14, 0x4A },	/* COM5, COM6, COM9 */
+#else
 	{ 0x12, 0x80 }, { 0x11, 0x80 }, { 0x13, 0x88 },	/* COM7, CLKRC, COM8 */
 	{ 0x01, 0x58 }, { 0x02, 0x24 }, { 0x04, 0x00 },	/* BLUE, RED, COM1 */
 	{ 0x0E, 0x81 }, { 0x0F, 0x4F }, { 0x14, 0xcA },	/* COM5, COM6, COM9 */
+#endif
 	{ 0x16, 0x02 }, { 0x1B, 0x01 }, { 0x24, 0x70 },	/* ?, PSHFT, AEW */
 	{ 0x25, 0x68 }, { 0x26, 0xD3 }, { 0x27, 0x90 },	/* AEB, VPT, BBIAS */
 	{ 0x2A, 0x00 }, { 0x2B, 0x00 }, { 0x32, 0x24 },	/* EXHCH, EXHCL, HREF */
@@ -143,8 +153,12 @@ const static struct ov9640_reg ov9640_common[] = {
 	{ 0x81, 0x44 }, { 0x82, 0x52 }, { 0x83, 0x60 },	/* GST6, GST7, GST8 */
 	{ 0x84, 0x6C }, { 0x85, 0x78 }, { 0x86, 0x8C },	/* GST9, GST10,GST11 */
 	{ 0x87, 0x9E }, { 0x88, 0xBB }, { 0x89, 0xD2 },	/* GST12,GST13,GST14 */
+#ifdef CONFIG_ARCH_OMAP24XX
+	{ 0x8A, 0xE6 }, { 0x13, 0x8F }, { 0x00, 0x7F },	/* GST15, COM8 */
+#else
 	{ 0x8A, 0xE6 }, { 0x13, 0xaF }, { 0x15, 0x02 },	/* GST15, COM8 */
 	{ 0x22, 0x8a }, /* GROS */
+#endif
 	{ OV9640_REG_TERM, OV9640_VAL_TERM }
 };
 
@@ -419,7 +433,7 @@ static struct vcontrol {
           0, OV9640_MVFP, 0x10, 4 },
 };
 
-#define NUM_CONTROLS (sizeof(control)/sizeof(control[0]))
+#define NUM_CONTROLS ARRAY_SIZE(control)
 
 const static struct ov9640_reg *
 	ov9640_reg_init[NUM_PIXEL_FORMATS][NUM_IMAGE_SIZES] =
@@ -493,9 +507,9 @@ ov9640_write_reg_mask(struct i2c_client *client, u8 reg, u8 *val, u8 mask)
 	u8 oldval, newval;
 	int rc;
 
-	if (mask == 0xff) {
+	if (mask == 0xff)
 		newval = *val;
-	} else {
+	else {
 		/* need to do read - modify - write */
 		if ((rc = ov9640_read_reg(client, reg, &oldval)))
 			return rc;
@@ -581,8 +595,16 @@ ov9640_clkrc(enum image_size isize, unsigned long xclk, struct v4l2_fract *fper)
 	unsigned long fpm, fpm_max;	/* frames per minute */
 	unsigned long divisor;
 	const unsigned long divisor_max = 64;
+#ifdef CONFIG_ARCH_OMAP24XX
+	const static unsigned long clks_per_frame[] =
+		{ 200000, 400000, 200000, 400000, 400000, 800000, 3200000 };
+      /*         QQCIF   QQVGA    QCIF    QVGA  CIF     VGA   	SXGA
+       *         199680,400000, 199680, 400000, 399360, 800000, 3200000
+       */
+#else
 	const static unsigned long clks_per_frame[] = 
 		{ 200000, 200000, 200000, 200000, 400000, 800000, 3200000 };
+#endif
 
 	if (fper->numerator > 0)
 		fpm = (fper->denominator*60)/fper->numerator;
@@ -1121,7 +1143,7 @@ static struct i2c_driver ov9640sensor_i2c_driver = {
  * initialization is successful.
  */
 static void *
-ov9640sensor_init(struct v4l2_pix_format *pix)
+ov9640sensor_init(struct v4l2_pix_format *pix, struct v4l2_pix_format *pix2)
 {
 	struct ov9640_sensor *sensor = &ov9640;
  	int err;
@@ -1142,10 +1164,9 @@ ov9640sensor_init(struct v4l2_pix_format *pix)
 			"Failed to detect OV9640 sensor chip.\n");
 		return NULL;
 	}
-	else {
+	else
 		printk(KERN_INFO 
 			"OV9640 sensor chip version 0x%02x detected\n", sensor->ver);
-	}
 
 	/* Make the default capture format QCIF RGB565 */
 	pix->width = ov9640_sizes[QCIF].width;
@@ -1159,6 +1180,10 @@ ov9640sensor_init(struct v4l2_pix_format *pix)
 struct camera_sensor camera_sensor_if = {
 	.version	= 0x01,
 	.name		= "OV9640",
+	.parallel_mode	= PAR_MODE_NOBT8,
+	.hs_polarity	= SYNC_ACTIVE_HIGH,
+	.vs_polarity	= SYNC_ACTIVE_LOW,
+	.image_swap 	= 0,
 	.init		= ov9640sensor_init,
 	.cleanup	= ov9640sensor_cleanup,
 	.enum_pixformat = ov9640sensor_enum_pixformat,

@@ -104,6 +104,7 @@ struct camera_device {
 	 * VIDIOC_S_FMT/VIDIOC_G_FMT ioctls with a CAPTURE buffer type.
 	 */
 	struct v4l2_pix_format pix;
+	struct v4l2_pix_format pix2;
 
 	/* crop defines the size and offset of the video overlay source window 
 	 * within the framebuffer.  These parameters are set/queried by the 
