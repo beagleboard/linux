@@ -79,14 +79,10 @@ struct ads7846 {
 	u16			model;
 	u16			vref_delay_usecs;
 	u16			x_plate_ohms;
-	u16			pressure_max;
 
 	u8			read_x, read_y, read_z1, read_z2, pwrdown;
 	u16			dummy;		/* for the pwrdown read */
 	struct ts_event		tc;
-	u16			last_x;
-	u16			last_y;
-	u16			last_pressure;
 
 	struct spi_transfer	xfer[10];
 	struct spi_message	msg[5];
@@ -399,18 +395,6 @@ static void ads7846_rx(void *ads)
 	} else
 		Rt = 0;
 
-	if (Rt > ts->pressure_max) {
-		if (ts->last_pressure) {
-			x = ts->last_x;
-			y = ts->last_y;
-		}
-		Rt = ts->pressure_max;
-	}
-
-	ts->last_x = x;
-	ts->last_y = y;
-	ts->last_pressure = Rt;
-
 	/* NOTE:  "pendown" is inferred from pressure; we don't rely on
 	 * being able to check nPENIRQ status, or "friendly" trigger modes
 	 * (both-edges is much better than just-falling or low-level).
@@ -664,7 +648,6 @@ static int __devinit ads7846_probe(struct spi_device *spi)
 	ts->model = pdata->model ? : 7846;
 	ts->vref_delay_usecs = pdata->vref_delay_usecs ? : 100;
 	ts->x_plate_ohms = pdata->x_plate_ohms ? : 400;
-	ts->pressure_max = pdata->pressure_max ? : ~0;
 	ts->debounce_max = pdata->debounce_max ? : 1;
 	ts->debounce_tol = pdata->debounce_tol ? : 10;
 
