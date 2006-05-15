@@ -88,6 +88,7 @@ struct omap2_mcspi {
 
 struct omap2_mcspi_cs {
 	u8 transmit_mode;
+	int word_len;
 };
 
 #define MOD_REG_BIT(val, mask, set) do { \
@@ -164,12 +165,15 @@ static void omap2_mcspi_set_master_mode(struct spi_device *spi, int single_chann
 
 static void omap2_mcspi_txrx(struct spi_device *spi, struct spi_transfer *xfer)
 {
+	struct omap2_mcspi_cs *cs = spi->controller_state;
 	unsigned int		count, c;
 	u32                     l;
 	unsigned long		base, tx_reg, rx_reg, chstat_reg;
+	int			word_len;
 
 	count = xfer->len;
 	c = count;
+	word_len = cs->word_len;
 
 	l = mcspi_read_cs_reg(spi, OMAP2_MCSPI_CHCONF0);
 	l &= ~OMAP2_MCSPI_CHCONF_TRM_MASK;
@@ -192,7 +196,7 @@ static void omap2_mcspi_txrx(struct spi_device *spi, struct spi_transfer *xfer)
 	if (xfer->tx_buf == NULL)
 		__raw_writel(0, tx_reg);
 
-	if (spi->bits_per_word <= 8) {
+	if (word_len <= 8) {
 		u8		*rx;
 		const u8	*tx;
 
@@ -211,7 +215,7 @@ static void omap2_mcspi_txrx(struct spi_device *spi, struct spi_transfer *xfer)
 				*rx++ = __raw_readl(rx_reg);
 			}
 		}
-	} else if (spi->bits_per_word <= 16) {
+	} else if (word_len <= 16) {
 		u16		*rx;
 		const u16	*tx;
 
@@ -230,7 +234,7 @@ static void omap2_mcspi_txrx(struct spi_device *spi, struct spi_transfer *xfer)
 				*rx++ = __raw_readl(rx_reg);
 			}
 		}
-	} else if (spi->bits_per_word <= 32) {
+	} else if (word_len <= 32) {
 		u32		*rx;
 		const u32	*tx;
 
@@ -258,25 +262,22 @@ static void omap2_mcspi_txrx(struct spi_device *spi, struct spi_transfer *xfer)
 	}
 }
 
-static int omap2_mcspi_setup(struct spi_device *spi)
+static int omap2_mcspi_setup_transfer(struct spi_device *spi,
+				      struct spi_transfer *t)
 {
 	struct omap2_mcspi_cs *cs = spi->controller_state;
 	struct omap2_mcspi_device_config *conf;
 	u32 l = 0, div = 0;
 	u8 word_len = spi->bits_per_word;
 
+	if (t != NULL && t->bits_per_word)
+		word_len = t->bits_per_word;
 	if (!word_len)
-		return 0;
-
-	if (!cs) {
-		cs = kzalloc(sizeof *cs, SLAB_KERNEL);
-		if (!cs)
-			return -ENOMEM;
-		spi->controller_state = cs;
-	}
+		word_len = 8;
 
 	if (spi->bits_per_word > 32)
 		return -EINVAL;
+	cs->word_len = word_len;
 
 	conf = (struct omap2_mcspi_device_config *) spi->controller_data;
 
@@ -317,6 +318,20 @@ static int omap2_mcspi_setup(struct spi_device *spi)
 	return 0;
 }
 
+static int omap2_mcspi_setup(struct spi_device *spi)
+{
+	struct omap2_mcspi_cs *cs = spi->controller_state;
+
+	if (!cs) {
+		cs = kzalloc(sizeof *cs, SLAB_KERNEL);
+		if (!cs)
+			return -ENOMEM;
+		spi->controller_state = cs;
+	}
+
+	return omap2_mcspi_setup_transfer(spi, NULL);
+}
+
 static void omap2_mcspi_cleanup(const struct spi_device *spi)
 {
 	if (spi->controller_state != NULL)
@@ -337,6 +352,7 @@ static void omap2_mcspi_work(unsigned long arg)
 		int				cs_active;
 		struct omap2_mcspi_device_config *conf;
 		struct omap2_mcspi_cs		*cs;
+		int				par_override = 0;
 		int status = 0;
 
 		m = container_of(mcspi->msg_queue.next, struct spi_message,
@@ -357,6 +373,14 @@ static void omap2_mcspi_work(unsigned long arg)
 				status = -EINVAL;
 				break;
 			}
+			if (par_override || t->speed_hz || t->bits_per_word) {
+				par_override = 1;
+				status = omap2_mcspi_setup_transfer(spi, t);
+				if (status < 0)
+					break;
+				if (!t->speed_hz && !t->bits_per_word)
+					par_override = 0;
+			}
 
 			if (!cs_active) {
 				omap2_mcspi_force_cs(spi, 1);
@@ -369,6 +393,12 @@ static void omap2_mcspi_work(unsigned long arg)
 				omap2_mcspi_force_cs(spi, 0);
 				cs_active = 0;
 			}
+		}
+
+		/* Restore defaults they are overriden */
+		if (par_override) {
+			par_override = 0;
+			status = omap2_mcspi_setup_transfer(spi, NULL);
 		}
 
 		if (cs_active)
