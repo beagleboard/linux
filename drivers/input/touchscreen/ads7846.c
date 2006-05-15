@@ -471,7 +471,7 @@ static void ads7846_debounce(void *ads)
 
 	m = &ts->msg[ts->msg_idx];
 	t = list_entry(m->transfers.prev, struct spi_transfer, transfer_list);
-	val = (*(u16 *)t->rx_buf) >> 3;
+	val = (be16_to_cpu(*(__be16 *)t->rx_buf) >> 3) & 0x0fff;
 	if (!ts->read_cnt || (abs(ts->last_read - val) > ts->debounce_tol)) {
 		/* Repeat it, if this was the first read or the read
 		 * wasn't consistent enough. */
