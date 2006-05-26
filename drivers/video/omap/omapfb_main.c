@@ -223,6 +223,7 @@ static int _setcolreg(struct fb_info *info, u_int regno, u_int red, u_int green,
 			u_int blue, u_int transp, int update_hw_pal)
 {
 	struct omapfb_device *fbdev = (struct omapfb_device *)info->par;
+	struct fb_var_screeninfo *var = &info->var;
 	int r = 0;
 
 	switch (fbdev->color_mode) {
@@ -239,6 +240,7 @@ static int _setcolreg(struct fb_info *info, u_int regno, u_int red, u_int green,
 							transp, update_hw_pal);
 		/* Fallthrough */
 	case OMAPFB_COLOR_RGB565:
+	case OMAPFB_COLOR_RGB444:
 		if (r != 0)
 			break;
 
@@ -249,8 +251,9 @@ static int _setcolreg(struct fb_info *info, u_int regno, u_int red, u_int green,
 
 		if (regno < 16) {
 			u16 pal;
-			pal = ((red >> 11) << 11) | ((green >> 10) << 5) |
-				(blue >> 11);
+			pal = ((red >> (16 - var->red.length)) << var->red.offset) |
+				((green >> (16 - var->green.length)) << var->green.offset) |
+				(blue >> (16 - var->blue.length));
 			((u32 *)(info->pseudo_palette))[regno] = pal;
 		}
 		break;
@@ -402,11 +405,17 @@ static int set_fb_var(struct omapfb_device *fbdev,
 	unsigned long	line_size;
 	struct lcd_panel *panel = fbdev->panel;
 
-	bpp = var->bits_per_pixel = panel->bpp;
+	if (panel->bpp == 12)
+		bpp = var->bits_per_pixel = 16;	/* 12-bit bpp mode stores colours in 16-bits */
+	else
+		bpp = var->bits_per_pixel = panel->bpp;
 
-	switch (bpp) {
+	switch (panel->bpp) {
 	case 16:
 		fbdev->color_mode = OMAPFB_COLOR_RGB565;
+		break;
+	case 12:
+		fbdev->color_mode = OMAPFB_COLOR_RGB444;
 		break;
 	case 8:
 		fbdev->color_mode = OMAPFB_COLOR_CLUT_8BPP;
@@ -453,9 +462,18 @@ static int set_fb_var(struct omapfb_device *fbdev,
 		var->yoffset = var->yres_virtual - var->yres;
 	line_size = var->xres * bpp / 8;
 
-	var->red.offset	 = 11; var->red.length	 = 5; var->red.msb_right   = 0;
-	var->green.offset= 5;  var->green.length = 6; var->green.msb_right = 0;
-	var->blue.offset = 0;  var->blue.length  = 5; var->blue.msb_right  = 0;
+	if (fbdev->color_mode == OMAPFB_COLOR_RGB444)
+	{
+		var->red.offset	 = 8; var->red.length	 = 4; var->red.msb_right   = 0;
+		var->green.offset= 4;  var->green.length = 4; var->green.msb_right = 0;
+		var->blue.offset = 0;  var->blue.length  = 4; var->blue.msb_right  = 0;
+	}
+	else
+	{
+		var->red.offset	 = 11; var->red.length	 = 5; var->red.msb_right   = 0;
+		var->green.offset= 5;  var->green.length = 6; var->green.msb_right = 0;
+		var->blue.offset = 0;  var->blue.length  = 5; var->blue.msb_right  = 0;
+	}
 
 	var->height		= -1;
 	var->width		= -1;

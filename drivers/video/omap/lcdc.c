@@ -357,6 +357,11 @@ static int omap_lcdc_setup_plane(int plane, int channel_out,
 		omap_lcdc.palette_code = 0x4000;
 		omap_lcdc.palette_size = 32;
 		break;
+	case OMAPFB_COLOR_RGB444:
+		omap_lcdc.bpp = 16;
+		omap_lcdc.palette_code = 0x4000;
+		omap_lcdc.palette_size = 32;
+		break;
 	case OMAPFB_COLOR_YUV420:
 		if (omap_lcdc.ext_mode) {
 			omap_lcdc.bpp = 12;
@@ -764,7 +769,10 @@ static int setup_fbmem(int req_size)
 		return 0;
 	}
 
-	frame_size = PAGE_ALIGN(panel->x_res * panel->bpp / 8 * panel->y_res);
+	if (panel->bpp == 12)
+		frame_size = PAGE_ALIGN(panel->x_res * 16 / 8 * panel->y_res);
+	else
+		frame_size = PAGE_ALIGN(panel->x_res * panel->bpp / 8 * panel->y_res);
 
 	if (conf->fbmem.fb_sdram_size < frame_size) {
 		pr_err("invalid FB memory configuration\n");

@@ -64,6 +64,7 @@ enum omapfb_color_format {
 	OMAPFB_COLOR_CLUT_4BPP,
 	OMAPFB_COLOR_CLUT_2BPP,
 	OMAPFB_COLOR_CLUT_1BPP,
+	OMAPFB_COLOR_RGB444,
 };
 
 struct omapfb_update_window {
