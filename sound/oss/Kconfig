@@ -29,6 +29,8 @@ config SOUND_OMAP_TSC2101
 config SOUND_OMAP_AIC23
 	tristate "AIC23 Stereo Codec"
 	depends on SOUND_OMAP && ( MACH_OMAP_INNOVATOR || MACH_OMAP_OSK )
+	select I2C
+	select I2C_OMAP if ARCH_OMAP
 	select SENSORS_TLV320AIC23 if ARCH_OMAP
 	---help---
 	  AIC23 Audio Codec Driver for OMAP will be enabled.

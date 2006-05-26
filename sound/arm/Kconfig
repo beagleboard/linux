@@ -37,6 +37,8 @@ config SND_OMAP_AIC23
 	tristate "OMAP AIC23 alsa driver (osk5912)"
 	depends on ARCH_OMAP && SND
 	select SND_PCM
+	select I2C
+	select I2C_OMAP if ARCH_OMAP
 	select SENSORS_TLV320AIC23
 	help
 	  Say Y here if you have a OSK platform board
