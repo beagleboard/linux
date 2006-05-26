@@ -167,9 +167,11 @@ int spi_bitbang_setup_transfer(struct spi_device *spi, struct spi_transfer *t)
 	/* nsecs = (clock period)/2 */
 	if (!hz)
 		hz = spi->max_speed_hz;
-	cs->nsecs = (1000000000/2) / hz;
-	if (cs->nsecs > MAX_UDELAY_MS * 1000)
-		return -EINVAL;
+	if (hz) {
+		cs->nsecs = (1000000000/2) / hz;
+		if (cs->nsecs > (MAX_UDELAY_MS * 1000 * 1000))
+			return -EINVAL;
+	}
 
 	return 0;
 }
@@ -184,7 +186,14 @@ int spi_bitbang_setup(struct spi_device *spi)
 	struct spi_bitbang	*bitbang;
 	int			retval;
 
-	if (!spi->max_speed_hz)
+	bitbang = spi_master_get_devdata(spi->master);
+
+	/* REVISIT: some systems will want to support devices using lsb-first
+	 * bit encodings on the wire.  In pure software that would be trivial,
+	 * just bitbang_txrx_le_cphaX() routines shifting the other way, and
+	 * some hardware controllers also have this support.
+	 */
+	if ((spi->mode & SPI_LSB_FIRST) != 0)
 		return -EINVAL;
 
 	if (!cs) {
@@ -193,7 +202,6 @@ int spi_bitbang_setup(struct spi_device *spi)
 			return -ENOMEM;
 		spi->controller_state = cs;
 	}
-	bitbang = spi_master_get_devdata(spi->master);
 
 	if (!spi->bits_per_word)
 		spi->bits_per_word = 8;
@@ -207,7 +215,7 @@ int spi_bitbang_setup(struct spi_device *spi)
 	if (retval < 0)
 		return retval;
 
-	dev_dbg(&spi->dev, "%s, mode %d, %u bits/w, %u nsec\n",
+	dev_dbg(&spi->dev, "%s, mode %d, %u bits/w, %u nsec/bit\n",
 			__FUNCTION__, spi->mode & (SPI_CPOL | SPI_CPHA),
 			spi->bits_per_word, 2 * cs->nsecs);
 
@@ -396,6 +404,7 @@ int spi_bitbang_transfer(struct spi_device *spi, struct spi_message *m)
 {
 	struct spi_bitbang	*bitbang;
 	unsigned long		flags;
+	int			status = 0;
 
 	m->actual_length = 0;
 	m->status = -EINPROGRESS;
@@ -405,11 +414,15 @@ int spi_bitbang_transfer(struct spi_device *spi, struct spi_message *m)
 		return -ESHUTDOWN;
 
 	spin_lock_irqsave(&bitbang->lock, flags);
-	list_add_tail(&m->queue, &bitbang->queue);
-	queue_work(bitbang->workqueue, &bitbang->work);
+	if (!spi->max_speed_hz)
+		status = -ENETDOWN;
+	else {
+		list_add_tail(&m->queue, &bitbang->queue);
+		queue_work(bitbang->workqueue, &bitbang->work);
+	}
 	spin_unlock_irqrestore(&bitbang->lock, flags);
 
-	return 0;
+	return status;
 }
 EXPORT_SYMBOL_GPL(spi_bitbang_transfer);
 

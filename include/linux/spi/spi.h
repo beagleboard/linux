@@ -35,16 +35,19 @@ extern struct bus_type spi_bus_type;
  * @chip-select: Chipselect, distinguishing chips handled by "master".
  * @mode: The spi mode defines how data is clocked out and in.
  *	This may be changed by the device's driver.
+ *	The "active low" default for chipselect mode can be overridden,
+ *	as can the "MSB first" default for each word in a transfer.
  * @bits_per_word: Data transfers involve one or more words; word sizes
- * 	like eight or 12 bits are common.  In-memory wordsizes are
+ *	like eight or 12 bits are common.  In-memory wordsizes are
  *	powers of two bytes (e.g. 20 bit samples use 32 bits).
- *	This may be changed by the device's driver.
+ *	This may be changed by the device's driver, or left at the
+ *	default (0) indicating protocol words are eight bit bytes.
  *	The spi_transfer.bits_per_word can override this for each transfer.
  * @irq: Negative, or the number passed to request_irq() to receive
- * 	interrupts from this device.
+ *	interrupts from this device.
  * @controller_state: Controller's runtime state
  * @controller_data: Board-specific definitions for controller, such as
- * 	FIFO initialization parameters; from board_info.controller_data
+ *	FIFO initialization parameters; from board_info.controller_data
  *
  * An spi_device is used to interchange data between an SPI slave
  * (usually a discrete chip) and CPU memory.
@@ -67,6 +70,7 @@ struct spi_device {
 #define	SPI_MODE_2	(SPI_CPOL|0)
 #define	SPI_MODE_3	(SPI_CPOL|SPI_CPHA)
 #define	SPI_CS_HIGH	0x04			/* chipselect active high? */
+#define	SPI_LSB_FIRST	0x08			/* per-word bits-on-wire */
 	u8			bits_per_word;
 	int			irq;
 	void			*controller_state;
@@ -75,7 +79,6 @@ struct spi_device {
 
 	// likely need more hooks for more protocol options affecting how
 	// the controller talks to each chip, like:
-	//  - bit order (default is wordwise msb-first)
 	//  - memory packing (12 bit samples into low bits, others zeroed)
 	//  - priority
 	//  - drop chipselect after each word
@@ -145,13 +148,13 @@ static inline void spi_unregister_driver(struct spi_driver *sdrv)
  * struct spi_master - interface to SPI master controller
  * @cdev: class interface to this driver
  * @bus_num: board-specific (and often SOC-specific) identifier for a
- * 	given SPI controller.
+ *	given SPI controller.
  * @num_chipselect: chipselects are used to distinguish individual
- * 	SPI slaves, and are numbered from zero to num_chipselects.
- * 	each slave has a chipselect signal, but it's common that not
- * 	every chipselect is connected to a slave.
+ *	SPI slaves, and are numbered from zero to num_chipselects.
+ *	each slave has a chipselect signal, but it's common that not
+ *	every chipselect is connected to a slave.
  * @setup: updates the device mode and clocking records used by a
- * 	device's SPI controller; protocol code may call this.
+ *	device's SPI controller; protocol code may call this.
  * @transfer: adds a message to the controller's transfer queue.
  * @cleanup: frees controller-specific state
  *
@@ -169,13 +172,13 @@ static inline void spi_unregister_driver(struct spi_driver *sdrv)
 struct spi_master {
 	struct class_device	cdev;
 
-	/* other than zero (== assign one dynamically), bus_num is fully
+	/* other than negative (== assign one dynamically), bus_num is fully
 	 * board-specific.  usually that simplifies to being SOC-specific.
-	 * example:  one SOC has three SPI controllers, numbered 1..3,
+	 * example:  one SOC has three SPI controllers, numbered 0..2,
 	 * and one board's schematics might show it using SPI-2.  software
 	 * would normally use bus_num=2 for that controller.
 	 */
-	u16			bus_num;
+	s16			bus_num;
 
 	/* chipselects will be integral to many controllers; some others
 	 * might use board-specific GPIOs.
@@ -276,8 +279,8 @@ extern struct spi_master *spi_busnum_to_master(u16 busnum);
  *      for this transfer. If 0 the default (from spi_device) is used.
  * @cs_change: affects chipselect after this transfer completes
  * @delay_usecs: microseconds to delay after this transfer before
- * 	(optionally) changing the chipselect status, then starting
- * 	the next transfer or completing this spi_message.
+ *	(optionally) changing the chipselect status, then starting
+ *	the next transfer or completing this spi_message.
  * @transfer_list: transfers are sequenced through spi_message.transfers
  *
  * SPI transfers always write the same number of bytes as they read.
@@ -364,7 +367,7 @@ struct spi_transfer {
  * and its transfers, ignore them until its completion callback.
  */
 struct spi_message {
-	struct list_head 	transfers;
+	struct list_head	transfers;
 
 	struct spi_device	*spi;
 
@@ -382,7 +385,7 @@ struct spi_message {
 	 */
 
 	/* completion is reported through a callback */
-	void 			(*complete)(void *context);
+	void			(*complete)(void *context);
 	void			*context;
 	unsigned		actual_length;
 	int			status;
