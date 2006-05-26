@@ -683,6 +683,10 @@ static int __devinit ads7846_probe(struct spi_device *spi)
 
 	dev_set_drvdata(&spi->dev, ts);
 	spi->dev.power.power_state = PMSG_ON;
+	spi->mode = SPI_MODE_1;
+	err = spi_setup(spi);
+	if (err < 0)
+		goto err_free_mem;
 
 	ts->spi = spi;
 	ts->input = input_dev;
