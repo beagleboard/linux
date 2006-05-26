@@ -307,12 +307,18 @@ static int omap2_mcspi_setup_transfer(struct spi_device *spi,
 	l |= (word_len - 1) << 7;
 	if (!(spi->mode & SPI_CS_HIGH))
 		l |= OMAP2_MCSPI_CHCONF_EPOL;
+	else
+		l &= ~OMAP2_MCSPI_CHCONF_EPOL;
 	l &= ~OMAP2_MCSPI_CHCONF_CLKD_MASK;
 	l |= div << 2;
 	if (spi->mode & SPI_CPOL)
 		l |= OMAP2_MCSPI_CHCONF_POL;
+	else
+		l &= ~OMAP2_MCSPI_CHCONF_POL;
 	if (spi->mode & SPI_CPHA)
 		l |= OMAP2_MCSPI_CHCONF_PHA;
+	else
+		l &= ~OMAP2_MCSPI_CHCONF_PHA;
 	mcspi_write_cs_reg(spi, OMAP2_MCSPI_CHCONF0, l);
 
 	return 0;
@@ -349,7 +355,7 @@ static void omap2_mcspi_work(unsigned long arg)
 		struct spi_message		*m;
 		struct spi_device		*spi;
 		struct spi_transfer		*t = NULL;
-		int				cs_active;
+		int				cs_active = 0;
 		struct omap2_mcspi_device_config *conf;
 		struct omap2_mcspi_cs		*cs;
 		int				par_override = 0;
@@ -364,9 +370,6 @@ static void omap2_mcspi_work(unsigned long arg)
 		spi = m->spi;
 		conf = (struct omap2_mcspi_device_config *) spi->controller_data;
 		cs = (struct omap2_mcspi_cs *) spi->controller_state;
-
-		omap2_mcspi_force_cs(spi, 1);
-		cs_active = 1;
 
 		list_for_each_entry(t, &m->transfers, transfer_list) {
 			if (t->tx_buf == NULL && t->rx_buf == NULL && t->len) {
