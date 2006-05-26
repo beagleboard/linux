@@ -76,8 +76,8 @@
 #define	CS_CMD	(1 << 12)
 
 /* SR1 or SR2 bits */
-#define UWIRE_READ_FALLING_EDGE		0x0000
-#define UWIRE_READ_RISING_EDGE		0x0001
+#define UWIRE_READ_FALLING_EDGE		0x0001
+#define UWIRE_READ_RISING_EDGE		0x0000
 #define UWIRE_WRITE_FALLING_EDGE	0x0000
 #define UWIRE_WRITE_RISING_EDGE		0x0002
 #define UWIRE_CS_ACTIVE_LOW		0x0000
@@ -355,7 +355,7 @@ static int uwire_setup_transfer(struct spi_device *spi, struct spi_transfer *t)
 	switch (spi->mode & (SPI_CPOL | SPI_CPHA)) {
 	case SPI_MODE_0:
 	case SPI_MODE_3:
-		flags |= UWIRE_WRITE_FALLING_EDGE | UWIRE_READ_FALLING_EDGE;
+		flags |= UWIRE_WRITE_RISING_EDGE | UWIRE_READ_FALLING_EDGE;
 		break;
 	case SPI_MODE_1:
 	case SPI_MODE_2:
