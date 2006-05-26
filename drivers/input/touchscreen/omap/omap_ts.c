@@ -49,12 +49,6 @@ static struct ts_device *__initdata ts_devs[] = {
 #if defined(CONFIG_MACH_OMAP_H2) || defined(CONFIG_MACH_OMAP_H3)
 	&hx_ts,
 #endif
-#ifdef CONFIG_MACH_OMAP_OSK
-	&osk_ts,
-#endif
-#if defined(CONFIG_MACH_OMAP_INNOVATOR) && defined(CONFIG_ARCH_OMAP15XX)
-	&innovator1510_ts,
-#endif
 };
 
 static struct omap_ts_t ts_omap;
@@ -244,6 +238,9 @@ static struct platform_device omap_ts_device = {
 static int __init omap_ts_init(void)
 {
 	int ret;
+
+	if (machine_is_omap_osk() || machine_is_omap_innovator())
+		return -ENODEV;
 
 	ret = platform_device_register(&omap_ts_device);
 	if (ret != 0)

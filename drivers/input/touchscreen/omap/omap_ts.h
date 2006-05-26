@@ -53,7 +53,5 @@ struct omap_ts_t{
 };
 
 extern struct ts_device hx_ts;
-extern struct ts_device osk_ts;
-extern struct ts_device innovator1510_ts;
 
 #endif /* __OMAP_TS_H */
