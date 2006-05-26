@@ -212,6 +212,8 @@ void aic23_clock_setup(void)
  */
 int aic23_clock_on(void)
 {
+	uint	curRate;
+
 	if (clk_get_usecount(aic23_mclk) > 0) {
 		/* MCLK is already in use */
 		printk(KERN_WARNING
@@ -219,13 +221,14 @@ int aic23_clock_on(void)
 		       (uint) clk_get_rate(aic23_mclk),
 		       CODEC_CLOCK);
 	}
-	
-	if (clk_set_rate(aic23_mclk, CODEC_CLOCK)) {
-		printk(KERN_ERR
-		       "Cannot set MCLK for AIC23 CODEC\n");
-		return -ECANCELED;
+	curRate	= (uint)clk_get_rate(aic23_mclk);
+	if (curRate != CODEC_CLOCK) {
+		if (clk_set_rate(aic23_mclk, CODEC_CLOCK)) {
+			printk(KERN_ERR
+			       "Cannot set MCLK for AIC23 CODEC\n");
+			return -ECANCELED;
+		}
 	}
-
 	clk_enable(aic23_mclk);
 
 	printk(KERN_DEBUG
@@ -239,6 +242,7 @@ int aic23_clock_on(void)
 			  ~ADC_OFF & ~MIC_OFF & ~LINE_OFF);	
 	return 0;
 }
+
 /*
  * Do some sanity check, turn clock off and then turn
  *  codec audio off
