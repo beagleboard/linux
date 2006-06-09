@@ -240,12 +240,13 @@ static int uwire_txrx(struct spi_device *spi, struct spi_transfer *t)
 			pr_debug("%s: write-%d =%04x\n",
 					spi->dev.bus_id, bits, val);
 #endif
+			if (wait_uwire_csr_flag(CSRB, 0, 0))
+				goto eio;
+
 			uwire_write_reg(UWIRE_TDR, val);
 
 			/* start write */
 			val = START | w | (bits << 5);
-			if (wait_uwire_csr_flag(CSRB, 0, 0))
-				goto eio;
 
 			uwire_write_reg(UWIRE_CSR, val);
 			len -= bytes;
