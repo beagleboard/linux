@@ -1337,7 +1337,8 @@ static int omapfb_do_probe(struct platform_device *pdev, struct lcd_panel *panel
 
 #ifdef CONFIG_FB_OMAP_DMA_TUNE
 	/* Set DMA priority for EMIFF access to highest */
-	omap_set_dma_priority(OMAP_DMA_PORT_EMIFF, 15);
+	if (cpu_class_is_omap1())
+		omap_set_dma_priority(0, OMAP_DMA_PORT_EMIFF, 15);
 #endif
 
 	r = ctrl_change_mode(fbdev);
