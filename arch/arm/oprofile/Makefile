@@ -8,4 +8,5 @@ DRIVER_OBJS = $(addprefix ../../../drivers/oprofile/, \
 
 oprofile-y				:= $(DRIVER_OBJS) common.o backtrace.o
 oprofile-$(CONFIG_CPU_XSCALE)		+= op_model_xscale.o
+oprofile-$(CONFIG_CPU_V6)		+= op_model_v6.o
 

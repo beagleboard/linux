@@ -24,6 +24,10 @@ struct op_arm_model_spec {
 extern struct op_arm_model_spec op_xscale_spec;
 #endif
 
+#ifdef CONFIG_CPU_V6
+extern struct op_arm_model_spec op_arm11_spec;
+#endif
+
 extern void arm_backtrace(struct pt_regs * const regs, unsigned int depth);
 
 extern int __init op_arm_init(struct oprofile_operations *ops, struct op_arm_model_spec *spec);

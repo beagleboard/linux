@@ -135,6 +135,10 @@ int __init oprofile_arch_init(struct oprofile_operations *ops)
 	spec = &op_xscale_spec;
 #endif
 
+#ifdef CONFIG_CPU_V6
+	spec = &op_arm11_spec;
+#endif
+
 	if (spec) {
 		ret = spec->init();
 		if (ret < 0)
