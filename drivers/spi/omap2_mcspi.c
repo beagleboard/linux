@@ -28,6 +28,8 @@
 #include <linux/device.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
+#include <linux/err.h>
+#include <linux/clk.h>
 
 #include <linux/spi/spi.h>
 
@@ -84,6 +86,8 @@ struct omap2_mcspi {
 	spinlock_t		lock;
 	struct list_head	msg_queue;
 	struct spi_master	*master;
+	struct clk		*ick;
+	struct clk		*fck;
 };
 
 struct omap2_mcspi_cs {
@@ -456,7 +460,7 @@ static int __devinit omap2_mcspi_probe(struct platform_device *pdev)
 		return -EINVAL;
 
 	master = spi_alloc_master(&pdev->dev, sizeof *mcspi);
-	if (!master) {
+	if (master == NULL) {
 		dev_err(&pdev->dev, "master allocation failed\n");
 		return -ENOMEM;
 	}
@@ -485,28 +489,56 @@ static int __devinit omap2_mcspi_probe(struct platform_device *pdev)
 	spin_lock_init(&mcspi->lock);
 	INIT_LIST_HEAD(&mcspi->msg_queue);
 
+	mcspi->ick = clk_get(&pdev->dev, "mcspi_ick");
+	if (IS_ERR(mcspi->ick)) {
+		dev_err(&pdev->dev, "can't get mcspi_ick\n");
+		status = PTR_ERR(mcspi->ick);
+		goto err1;
+	}
+	clk_enable(mcspi->ick);
+	mcspi->fck = clk_get(&pdev->dev, "mcspi_fck");
+	if (IS_ERR(mcspi->fck)) {
+		dev_err(&pdev->dev, "can't get mcspi_fck\n");
+		status = PTR_ERR(mcspi->fck);
+		goto err2;
+	}
+	clk_enable(mcspi->fck);
+
 	if (omap2_mcspi_reset(master) < 0)
-                goto err1;
+                goto err3;
 
 	status = spi_register_master(master);
 	if (status < 0)
-		goto err1;
+		goto err3;
 
 	return status;
 
- err1:
+err3:
+	clk_disable(mcspi->fck);
+	clk_put(mcspi->fck);
+err2:
+	clk_disable(mcspi->ick);
+	clk_put(mcspi->ick);
+err1:
 	class_device_put(&master->cdev);
- err0:
+err0:
 	return status;
 }
 
 static int __devexit omap2_mcspi_remove(struct platform_device *pdev)
 {
 	struct spi_master		*master;
+	struct omap2_mcspi		*mcspi;
 
 	master = dev_get_drvdata(&pdev->dev);
 
 	spi_unregister_master(master);
+	mcspi = class_get_devdata(&master->cdev);
+	clk_disable(mcspi->fck);
+	clk_put(mcspi->fck);
+	clk_disable(mcspi->ick);
+	clk_put(mcspi->ick);
+	class_device_put(&master->cdev);
 
 	return 0;
 }
