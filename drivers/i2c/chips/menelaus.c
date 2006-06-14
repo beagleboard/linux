@@ -145,70 +145,84 @@ struct menelaus_chip {
 
 static struct menelaus_chip menelaus;
 
-static void menelaus_write(u8 value, u8 reg)
+static int menelaus_write_reg(int reg, u8 value)
 {
-	if (i2c_smbus_write_byte_data(&menelaus.client, reg, value) < 0)
+	int val = i2c_smbus_write_byte_data(&menelaus.client, reg, value);
+
+	if (val < 0) {
 		pr_err("write error");
+		return val;
+	}
+
+	return 0;
 }
 
-static u8 menelaus_read(u8 reg)
+static int menelaus_read_reg(int reg)
 {
 	int val = i2c_smbus_read_byte_data(&menelaus.client, reg);
 
-	if (val < 0) {
+	if (val < 0)
 		pr_err("read error");
-		return 0;
-	}
 
 	return val;
 }
 
-static void menelaus_enable_irq(int irq)
+static int menelaus_enable_irq(int irq)
 {
 	if (irq > 7)
-		menelaus_write(menelaus_read(MENELAUS_INT_MASK2) &
-			       ~(1 << (irq - 8)), MENELAUS_INT_MASK2);
+		return menelaus_write_reg(MENELAUS_INT_MASK2,
+					  menelaus_read_reg(MENELAUS_INT_MASK2)
+					  & ~(1 << (irq - 8)));
 	else
-		menelaus_write(menelaus_read(MENELAUS_INT_MASK1) &
-			       ~(1 << irq), MENELAUS_INT_MASK1);
+		return menelaus_write_reg(MENELAUS_INT_MASK1,
+					  menelaus_read_reg(MENELAUS_INT_MASK1)
+					  & ~(1 << irq));
 }
 
-static void menelaus_disable_irq(int irq)
+static int menelaus_disable_irq(int irq)
 {
 	if (irq > 7)
-		menelaus_write(menelaus_read(MENELAUS_INT_MASK2)
-			       | (1 << (irq - 8)), MENELAUS_INT_MASK2);
+		return menelaus_write_reg(menelaus_read_reg(MENELAUS_INT_MASK2)
+					  | (1 << (irq - 8)),
+					  MENELAUS_INT_MASK2);
 	else
-		menelaus_write(menelaus_read(MENELAUS_INT_MASK1)
-			       | (1 << irq), MENELAUS_INT_MASK1);
+		return menelaus_write_reg(MENELAUS_INT_MASK1,
+					  menelaus_read_reg(MENELAUS_INT_MASK1)
+					  | (1 << irq));
 }
 
-static void menelaus_ack_irq(int irq)
+static int menelaus_ack_irq(int irq)
 {
 	if (irq > 7)
-		menelaus_write(1 << (irq - 8), MENELAUS_INT_ACK2);
+		return menelaus_write_reg(MENELAUS_INT_ACK2, 1 << (irq - 8));
 	else
-		menelaus_write(1 << irq, MENELAUS_INT_ACK1);	
+		return menelaus_write_reg(MENELAUS_INT_ACK1, 1 << irq);	
 }
 
 /* Adds a handler for an interrupt. Does not run in interrupt context */
 static int menelaus_add_irq_work(int irq, void * handler)
 {
+	int ret = 0;
+
 	mutex_lock(&menelaus.lock);
 	menelaus.handlers[irq] = handler;
-	menelaus_enable_irq(irq);
+	ret = menelaus_enable_irq(irq);
 	mutex_unlock(&menelaus.lock);
 
-	return 0;
+	return ret;
 }
 
 /* Removes handler for an interrupt */
-static void menelaus_remove_irq_work(int irq)
+static int menelaus_remove_irq_work(int irq)
 {
+	int ret = 0;
+
 	mutex_lock(&menelaus.lock);
-	menelaus_disable_irq(irq);
+	ret = menelaus_disable_irq(irq);
 	menelaus.handlers[irq] = NULL;
 	mutex_unlock(&menelaus.lock);
+
+	return ret;
 }
 
 /*-----------------------------------------------------------------------*/
@@ -217,16 +231,26 @@ static void menelaus_remove_irq_work(int irq)
  * Toggles the MMC slots between open-drain and push-pull mode.
  * We always set both slots the same way.
  */
-void menelaus_mmc_opendrain(int enable)
+int menelaus_mmc_opendrain(int enable)
 {
-	unsigned char reg = menelaus_read(MENELAUS_MCT_CTRL1);
+	int reg, ret = 0;
+	
+	mutex_lock(&menelaus.lock);
+	reg = menelaus_read_reg(MENELAUS_MCT_CTRL1);
+	if (reg < 0) {
+		mutex_unlock(&menelaus.lock);
+		return reg;
+	}
 
 	if (enable)
 		reg |= (0x3 << 2);
 	else
 		reg &= ~(0x3 << 2);
 
-	menelaus_write(reg, MENELAUS_MCT_CTRL1);
+	ret = menelaus_write_reg(MENELAUS_MCT_CTRL1, reg);
+	mutex_unlock(&menelaus.lock);
+
+	return ret;
 }
 EXPORT_SYMBOL(menelaus_mmc_opendrain);
 
@@ -236,12 +260,14 @@ EXPORT_SYMBOL(menelaus_mmc_opendrain);
  * in each slot. In this case the cards are not seen by menelaus.
  * FIXME: Add handling for D1 too
  */
-static int menelaus_mmc_cd_work(struct menelaus_chip *menelaus)
+static int menelaus_mmc_cd_work(struct menelaus_chip * menelaus_hw)
 {
-	unsigned char reg;
+	int reg;
 	unsigned char card_mask = 0;
 
-	reg = menelaus_read(MENELAUS_MCT_PIN_ST);
+	reg = menelaus_read_reg(MENELAUS_MCT_PIN_ST);
+	if (reg < 0)
+		return reg;
 
 	if (!(reg & 0x1))
 		card_mask |= (1 << 0);
@@ -249,69 +275,220 @@ static int menelaus_mmc_cd_work(struct menelaus_chip *menelaus)
 	if (!(reg & 0x2))
 		card_mask |= (1 << 1);
 
-	if (menelaus->mmc_callback)
-		menelaus->mmc_callback(menelaus->mmc_callback_data, card_mask);
+	if (menelaus_hw->mmc_callback)
+		menelaus_hw->mmc_callback(menelaus_hw->mmc_callback_data,
+					  card_mask);
 
 	return 0;
 }
 
 /* Initializes MMC slots */
-void menelaus_mmc_register(void (*callback)(unsigned long data, u8 card_mask), unsigned long data)
+int menelaus_mmc_register(void (*callback)(unsigned long data, u8 card_mask),
+			  unsigned long data)
 {
-	int reg;
+	int reg, ret = 0;
+
+	mutex_lock(&menelaus.lock);
 
 	/* DCDC3 to 3V */
-	reg = menelaus_read(MENELAUS_DCDC_CTRL1);
+	reg = menelaus_read_reg(MENELAUS_DCDC_CTRL1);
+	if (reg < 0)
+		goto err_out;
 	reg |= 0x6 << 4;
-	menelaus_write(reg, MENELAUS_DCDC_CTRL1);
+	ret = menelaus_write_reg(MENELAUS_DCDC_CTRL1, reg);
+	if (ret < 0)
+		goto err_out;
 
-	reg = menelaus_read(MENELAUS_DCDC_CTRL3);
+	reg = menelaus_read_reg(MENELAUS_DCDC_CTRL3);
+	if (reg < 0)		
+		goto err_out;
 	reg |= 0x6;
-	menelaus_write(reg, MENELAUS_DCDC_CTRL3);
-
+	ret = menelaus_write_reg(MENELAUS_DCDC_CTRL3, reg);
+	if (ret < 0)
+		goto err_out;
+	
 	/* Enable both slots, do not set auto shutdown */
-	reg = menelaus_read(MENELAUS_MCT_CTRL3);
+	reg = menelaus_read_reg(MENELAUS_MCT_CTRL3);
+	if (reg < 0)
+		goto err_out;
 	reg |= 0x3;
-	menelaus_write(reg, MENELAUS_MCT_CTRL3);
+	ret = menelaus_write_reg(MENELAUS_MCT_CTRL3, reg);
+	if (ret < 0)
+		goto err_out;
 
 	/* Enable card detect for both slots, slot 2 powered from DCDC3 */
-	reg = menelaus_read(MENELAUS_MCT_CTRL2);
+	reg = menelaus_read_reg(MENELAUS_MCT_CTRL2);
+	if (reg < 0)
+		goto err_out;
 	reg |= 0xf0;
-	menelaus_write(reg, MENELAUS_MCT_CTRL2);
+	ret = menelaus_write_reg(MENELAUS_MCT_CTRL2, reg);
+	if (ret < 0)
+		goto err_out;
 
 	/* Set both slots in open-drain mode, card detect normally closed */
-	reg = menelaus_read(MENELAUS_MCT_CTRL1);
+	reg = menelaus_read_reg(MENELAUS_MCT_CTRL1);
+	if (reg < 0)
+		goto err_out;
 	reg |= 0xfc;
-	menelaus_write(reg, MENELAUS_MCT_CTRL1);
+	ret = menelaus_write_reg(MENELAUS_MCT_CTRL1, reg);
+	if (ret < 0)
+		goto err_out;
 
 	/* Set MMC voltage */
-	reg = menelaus_read(MENELAUS_LDO_CTRL7);
+	reg = menelaus_read_reg(MENELAUS_LDO_CTRL7);
+	if (reg < 0)
+		goto err_out;
 	reg |= 0x03;
-	menelaus_write(reg, MENELAUS_LDO_CTRL7);
+	ret = menelaus_write_reg(MENELAUS_LDO_CTRL7, reg);
+	if (ret < 0)
+		goto err_out;
+
+	mutex_unlock(&menelaus.lock);
 
 	menelaus.mmc_callback_data = data;
 	menelaus.mmc_callback = callback;
 
-	menelaus_add_irq_work(MENELAUS_MMC_S1CD_IRQ, menelaus_mmc_cd_work);
-	menelaus_add_irq_work(MENELAUS_MMC_S2CD_IRQ, menelaus_mmc_cd_work);
-	menelaus_add_irq_work(MENELAUS_MMC_S1D1_IRQ, menelaus_mmc_cd_work);
-	menelaus_add_irq_work(MENELAUS_MMC_S2D1_IRQ, menelaus_mmc_cd_work);
+	ret = menelaus_add_irq_work(MENELAUS_MMC_S1CD_IRQ,
+				    menelaus_mmc_cd_work);
+	if (ret < 0)
+		return ret;
+	ret = menelaus_add_irq_work(MENELAUS_MMC_S2CD_IRQ,
+				    menelaus_mmc_cd_work);
+	if (ret < 0)
+		return ret;
+	ret = menelaus_add_irq_work(MENELAUS_MMC_S1D1_IRQ,
+				    menelaus_mmc_cd_work);
+	if (ret < 0)
+		return ret;
+	ret = menelaus_add_irq_work(MENELAUS_MMC_S2D1_IRQ,
+				    menelaus_mmc_cd_work);
+	if (ret < 0)
+		return ret;
+	
+	return 0;
+
+ err_out:
+	mutex_unlock(&menelaus.lock);
+	if (ret < 0)
+		return ret;
+	return reg;
 }
 EXPORT_SYMBOL(menelaus_mmc_register);
 
-void menelaus_mmc_remove(void)
+int menelaus_mmc_remove(void)
 {
-	menelaus_remove_irq_work(MENELAUS_MMC_S1CD_IRQ);
-	menelaus_remove_irq_work(MENELAUS_MMC_S2CD_IRQ);
-	menelaus_remove_irq_work(MENELAUS_MMC_S1D1_IRQ);
-	menelaus_remove_irq_work(MENELAUS_MMC_S2D1_IRQ);
+	int ret;
+
+	ret = menelaus_remove_irq_work(MENELAUS_MMC_S1CD_IRQ);
+	if (ret < 0)
+		return ret;
+	ret = menelaus_remove_irq_work(MENELAUS_MMC_S2CD_IRQ);
+	if (ret < 0)
+		return ret;
+	ret = menelaus_remove_irq_work(MENELAUS_MMC_S1D1_IRQ);
+	if (ret < 0)
+		return ret;
+	ret = menelaus_remove_irq_work(MENELAUS_MMC_S2D1_IRQ);
+	if (ret < 0)
+		return ret;
 
 	menelaus.mmc_callback = NULL;
 	menelaus.mmc_callback_data = 0;
 
+	return 0;
+
 	/* FIXME: Shutdown MMC components of Menelaus */
 }
 EXPORT_SYMBOL(menelaus_mmc_remove);
+
+/*-----------------------------------------------------------------------*/
+int menelaus_set_vmem(unsigned int mV)
+{
+	int reg, ret;
+
+	if (!mV)
+		/* We turn it off here */
+		return menelaus_write_reg(MENELAUS_LDO_CTRL3, 0);
+
+	mutex_lock(&menelaus.lock);
+	reg = menelaus_read_reg(MENELAUS_LDO_CTRL1);
+
+	/* VMEM is on LDO_CTRL1, bits 0 and 1 */
+	reg &= 0xfffc;
+
+	switch(mV) {
+	case 1500:
+		break;
+	case 1800:
+		reg |= 0x1;
+		break;
+	case 2500:
+		reg |= 0x2;
+		break;
+	case 2800:
+		reg |= 0x3;
+		break;
+	default:
+		mutex_unlock(&menelaus.lock);
+		return -EINVAL;
+	}
+
+	ret = menelaus_write_reg(MENELAUS_LDO_CTRL1, reg);
+	if (ret == 0)
+		/* We turn it on */
+		ret = menelaus_write_reg(MENELAUS_LDO_CTRL3, 0x2);
+
+	mutex_unlock(&menelaus.lock);
+
+	return ret;
+}
+EXPORT_SYMBOL(menelaus_set_vmem);
+
+int menelaus_set_vio(unsigned int mV)
+{
+	int reg, ret;
+
+	if (!mV)
+		/* We turn it off here */
+		return menelaus_write_reg(MENELAUS_LDO_CTRL4, 0);
+
+	mutex_lock(&menelaus.lock);
+	reg = menelaus_read_reg(MENELAUS_LDO_CTRL1);
+	if (reg < 0) {
+		mutex_unlock(&menelaus.lock);
+		return reg;
+	}
+
+	/* VIO is on LDO_CTRL1, bits 2 and 3 */
+	reg &= 0xfff3;
+
+	switch(mV) {
+	case 1500:
+		break;
+	case 1800:
+		reg |= (0x1 << 2);
+		break;
+	case 2500:
+		reg |= (0x2 << 2);
+		break;
+	case 2800:
+		reg |= (0x3 << 2);
+		break;
+	default:
+		mutex_unlock(&menelaus.lock);
+		return -EINVAL;
+	}
+	
+	ret = menelaus_write_reg(MENELAUS_LDO_CTRL1, reg);
+	if (ret == 0)
+		/* We turn it on */
+		ret = menelaus_write_reg(MENELAUS_LDO_CTRL4, 0x2);
+
+	mutex_unlock(&menelaus.lock);
+
+	return ret;
+}
+EXPORT_SYMBOL(menelaus_set_vio);
 
 /*-----------------------------------------------------------------------*/
 
@@ -320,13 +497,13 @@ static void menelaus_work(void * _menelaus)
 {
 	struct menelaus_chip *menelaus = _menelaus;
 	int (*handler)(struct menelaus_chip *menelaus);
- 
+
 	while (1) {
 		int i;
 		unsigned char isr;
 
-		isr = menelaus_read(MENELAUS_INT_STATUS1) |
-		      (menelaus_read(MENELAUS_INT_STATUS2) << 8);
+		isr = menelaus_read_reg(MENELAUS_INT_STATUS1) |
+		      (menelaus_read_reg(MENELAUS_INT_STATUS2) << 8);
 
 		if (!isr)
 			break;
@@ -385,7 +562,7 @@ static int menelaus_probe(struct i2c_adapter *adapter, int address, int kind)
 	}
 
 	/* If a true probe check the device */
-	if (kind < 0 && (rev = menelaus_read(MENELAUS_REV)) < 0) {
+	if (kind < 0 && (rev = menelaus_read_reg(MENELAUS_REV)) < 0) {
 		pr_err("device not found");
 		err = -ENODEV;
 		goto fail2;
