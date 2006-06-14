@@ -1143,7 +1143,7 @@ static struct i2c_driver ov9640sensor_i2c_driver = {
  * initialization is successful.
  */
 static void *
-ov9640sensor_init(struct v4l2_pix_format *pix, struct v4l2_pix_format *pix2)
+ov9640sensor_init(struct v4l2_pix_format *pix)
 {
 	struct ov9640_sensor *sensor = &ov9640;
  	int err;
@@ -1177,7 +1177,7 @@ ov9640sensor_init(struct v4l2_pix_format *pix, struct v4l2_pix_format *pix2)
 	return (void *)sensor;
 }
 
-struct camera_sensor camera_sensor_if = {
+struct omap_camera_sensor camera_sensor_if = {
 	.version	= 0x01,
 	.name		= "OV9640",
 	.parallel_mode	= PAR_MODE_NOBT8,
