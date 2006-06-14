@@ -39,7 +39,57 @@
 #include <asm/arch/fpga.h>
 #include <asm/arch/tps65010.h>
 
-#include "omap.h"
+#define	OMAP_MMC_REG_CMD	0x00
+#define	OMAP_MMC_REG_ARGL	0x04
+#define	OMAP_MMC_REG_ARGH	0x08
+#define	OMAP_MMC_REG_CON	0x0c
+#define	OMAP_MMC_REG_STAT	0x10
+#define	OMAP_MMC_REG_IE		0x14
+#define	OMAP_MMC_REG_CTO	0x18
+#define	OMAP_MMC_REG_DTO	0x1c
+#define	OMAP_MMC_REG_DATA	0x20
+#define	OMAP_MMC_REG_BLEN	0x24
+#define	OMAP_MMC_REG_NBLK	0x28
+#define	OMAP_MMC_REG_BUF	0x2c
+#define OMAP_MMC_REG_SDIO	0x34
+#define	OMAP_MMC_REG_REV	0x3c
+#define	OMAP_MMC_REG_RSP0	0x40
+#define	OMAP_MMC_REG_RSP1	0x44
+#define	OMAP_MMC_REG_RSP2	0x48
+#define	OMAP_MMC_REG_RSP3	0x4c
+#define	OMAP_MMC_REG_RSP4	0x50
+#define	OMAP_MMC_REG_RSP5	0x54
+#define	OMAP_MMC_REG_RSP6	0x58
+#define	OMAP_MMC_REG_RSP7	0x5c
+#define	OMAP_MMC_REG_IOSR	0x60
+#define	OMAP_MMC_REG_SYSC	0x64
+#define	OMAP_MMC_REG_SYSS	0x68
+
+#define	OMAP_MMC_STAT_CARD_ERR		(1 << 14)
+#define	OMAP_MMC_STAT_CARD_IRQ		(1 << 13)
+#define	OMAP_MMC_STAT_OCR_BUSY		(1 << 12)
+#define	OMAP_MMC_STAT_A_EMPTY		(1 << 11)
+#define	OMAP_MMC_STAT_A_FULL		(1 << 10)
+#define	OMAP_MMC_STAT_CMD_CRC		(1 <<  8)
+#define	OMAP_MMC_STAT_CMD_TOUT		(1 <<  7)
+#define	OMAP_MMC_STAT_DATA_CRC		(1 <<  6)
+#define	OMAP_MMC_STAT_DATA_TOUT		(1 <<  5)
+#define	OMAP_MMC_STAT_END_BUSY		(1 <<  4)
+#define	OMAP_MMC_STAT_END_OF_DATA	(1 <<  3)
+#define	OMAP_MMC_STAT_CARD_BUSY		(1 <<  2)
+#define	OMAP_MMC_STAT_END_OF_CMD	(1 <<  0)
+
+#define OMAP_MMC_READ(host, reg)	__raw_readw((host)->virt_base + OMAP_MMC_REG_##reg)
+#define OMAP_MMC_WRITE(host, reg, val)	__raw_writew((val), (host)->virt_base + OMAP_MMC_REG_##reg)
+
+/*
+ * Command types
+ */
+#define OMAP_MMC_CMDTYPE_BC	0
+#define OMAP_MMC_CMDTYPE_BCR	1
+#define OMAP_MMC_CMDTYPE_AC	2
+#define OMAP_MMC_CMDTYPE_ADTC	3
+
 
 #define DRIVER_NAME "mmci-omap"
 #define RSP_TYPE(x)	((x) & ~(MMC_RSP_BUSY|MMC_RSP_OPCODE))
@@ -61,8 +111,9 @@ struct mmc_omap_host {
 	unsigned char		id; /* 16xx chips have 2 MMC blocks */
 	struct clk *		iclk;
 	struct clk *		fclk;
-	struct resource		*res;
-	void __iomem		*base;
+	struct resource		*mem_res;
+	void __iomem		*virt_base;
+	unsigned int		phys_base;
 	int			irq;
 	unsigned char		bus_mode;
 	unsigned char		hw_bus_mode;
@@ -192,16 +243,16 @@ mmc_omap_start_command(struct mmc_omap_host *host, struct mmc_command *cmd)
 
 	clk_enable(host->fclk);
 
-	OMAP_MMC_WRITE(host->base, CTO, 200);
-	OMAP_MMC_WRITE(host->base, ARGL, cmd->arg & 0xffff);
-	OMAP_MMC_WRITE(host->base, ARGH, cmd->arg >> 16);
-	OMAP_MMC_WRITE(host->base, IE,
+	OMAP_MMC_WRITE(host, CTO, 200);
+	OMAP_MMC_WRITE(host, ARGL, cmd->arg & 0xffff);
+	OMAP_MMC_WRITE(host, ARGH, cmd->arg >> 16);
+	OMAP_MMC_WRITE(host, IE,
 		       OMAP_MMC_STAT_A_EMPTY    | OMAP_MMC_STAT_A_FULL    |
 		       OMAP_MMC_STAT_CMD_CRC    | OMAP_MMC_STAT_CMD_TOUT  |
 		       OMAP_MMC_STAT_DATA_CRC   | OMAP_MMC_STAT_DATA_TOUT |
 		       OMAP_MMC_STAT_END_OF_CMD | OMAP_MMC_STAT_CARD_ERR  |
 		       OMAP_MMC_STAT_END_OF_DATA);
-	OMAP_MMC_WRITE(host->base, CMD, cmdreg);
+	OMAP_MMC_WRITE(host, CMD, cmdreg);
 }
 
 static void
@@ -297,22 +348,22 @@ mmc_omap_cmd_done(struct mmc_omap_host *host, struct mmc_command *cmd)
 		if (cmd->flags & MMC_RSP_136) {
 			/* response type 2 */
 			cmd->resp[3] =
-				OMAP_MMC_READ(host->base, RSP0) |
-				(OMAP_MMC_READ(host->base, RSP1) << 16);
+				OMAP_MMC_READ(host, RSP0) |
+				(OMAP_MMC_READ(host, RSP1) << 16);
 			cmd->resp[2] =
-				OMAP_MMC_READ(host->base, RSP2) |
-				(OMAP_MMC_READ(host->base, RSP3) << 16);
+				OMAP_MMC_READ(host, RSP2) |
+				(OMAP_MMC_READ(host, RSP3) << 16);
 			cmd->resp[1] =
-				OMAP_MMC_READ(host->base, RSP4) |
-				(OMAP_MMC_READ(host->base, RSP5) << 16);
+				OMAP_MMC_READ(host, RSP4) |
+				(OMAP_MMC_READ(host, RSP5) << 16);
 			cmd->resp[0] =
-				OMAP_MMC_READ(host->base, RSP6) |
-				(OMAP_MMC_READ(host->base, RSP7) << 16);
+				OMAP_MMC_READ(host, RSP6) |
+				(OMAP_MMC_READ(host, RSP7) << 16);
 		} else {
 			/* response types 1, 1b, 3, 4, 5, 6 */
 			cmd->resp[0] =
-				OMAP_MMC_READ(host->base, RSP6) |
-				(OMAP_MMC_READ(host->base, RSP7) << 16);
+				OMAP_MMC_READ(host, RSP6) |
+				(OMAP_MMC_READ(host, RSP7) << 16);
 		}
 	}
 
@@ -355,9 +406,9 @@ mmc_omap_xfer_data(struct mmc_omap_host *host, int write)
 	host->data->bytes_xfered += n;
 
 	if (write) {
-		__raw_writesw(host->base + OMAP_MMC_REG_DATA, host->buffer, n);
+		__raw_writesw(host->virt_base + OMAP_MMC_REG_DATA, host->buffer, n);
 	} else {
-		__raw_readsw(host->base + OMAP_MMC_REG_DATA, host->buffer, n);
+		__raw_readsw(host->virt_base + OMAP_MMC_REG_DATA, host->buffer, n);
 	}
 }
 
@@ -387,11 +438,11 @@ static irqreturn_t mmc_omap_irq(int irq, void *dev_id, struct pt_regs *regs)
 	int transfer_error;
 
 	if (host->cmd == NULL && host->data == NULL) {
-		status = OMAP_MMC_READ(host->base, STAT);
+		status = OMAP_MMC_READ(host, STAT);
 		dev_info(mmc_dev(host->mmc),"spurious irq 0x%04x\n", status);
 		if (status != 0) {
-			OMAP_MMC_WRITE(host->base, STAT, status);
-			OMAP_MMC_WRITE(host->base, IE, 0);
+			OMAP_MMC_WRITE(host, STAT, status);
+			OMAP_MMC_WRITE(host, IE, 0);
 		}
 		return IRQ_HANDLED;
 	}
@@ -400,8 +451,8 @@ static irqreturn_t mmc_omap_irq(int irq, void *dev_id, struct pt_regs *regs)
 	end_transfer = 0;
 	transfer_error = 0;
 
-	while ((status = OMAP_MMC_READ(host->base, STAT)) != 0) {
-		OMAP_MMC_WRITE(host->base, STAT, status);
+	while ((status = OMAP_MMC_READ(host, STAT)) != 0) {
+		OMAP_MMC_WRITE(host, STAT, status);
 #ifdef CONFIG_MMC_DEBUG
 		dev_dbg(mmc_dev(host->mmc), "MMC IRQ %04x (CMD %d): ",
 			status, host->cmd != NULL ? host->cmd->opcode : -1);
@@ -471,8 +522,8 @@ static irqreturn_t mmc_omap_irq(int irq, void *dev_id, struct pt_regs *regs)
 
 		if (status & OMAP_MMC_STAT_CARD_ERR) {
 			if (host->cmd && host->cmd->opcode == MMC_STOP_TRANSMISSION) {
-				u32 response = OMAP_MMC_READ(host->base, RSP6)
-					| (OMAP_MMC_READ(host->base, RSP7) << 16);
+				u32 response = OMAP_MMC_READ(host, RSP6)
+					| (OMAP_MMC_READ(host, RSP7) << 16);
 				/* STOP sometimes sets must-ignore bits */
 				if (!(response & (R1_CC_ERROR
 								| R1_ILLEGAL_COMMAND
@@ -582,7 +633,7 @@ mmc_omap_prepare_dma(struct mmc_omap_host *host, struct mmc_data *data)
 	int dst_port = 0;
 	int sync_dev = 0;
 
-	data_addr = io_v2p((u32) host->base) + OMAP_MMC_REG_DATA;
+	data_addr = host->phys_base + OMAP_MMC_REG_DATA;
 	frame = 1 << data->blksz_bits;
 	count = sg_dma_len(sg);
 
@@ -644,7 +695,7 @@ mmc_omap_prepare_dma(struct mmc_omap_host *host, struct mmc_data *data)
 	if (unlikely(count > 0xffff))
 		BUG();
 
-	OMAP_MMC_WRITE(host->base, BUF, buf);
+	OMAP_MMC_WRITE(host, BUF, buf);
 	omap_set_dma_transfer_params(dma_ch, OMAP_DMA_DATA_TYPE_S16,
 				     frame, count, OMAP_DMA_SYNC_FRAME,
 				     sync_dev, 0);
@@ -729,11 +780,11 @@ static inline void set_cmd_timeout(struct mmc_omap_host *host, struct mmc_reques
 {
 	u16 reg;
 
-	reg = OMAP_MMC_READ(host->base, SDIO);
+	reg = OMAP_MMC_READ(host, SDIO);
 	reg &= ~(1 << 5);
-	OMAP_MMC_WRITE(host->base, SDIO, reg);
+	OMAP_MMC_WRITE(host, SDIO, reg);
 	/* Set maximum timeout */
-	OMAP_MMC_WRITE(host->base, CTO, 0xff);
+	OMAP_MMC_WRITE(host, CTO, 0xff);
 }
 
 static inline void set_data_timeout(struct mmc_omap_host *host, struct mmc_request *req)
@@ -747,14 +798,14 @@ static inline void set_data_timeout(struct mmc_omap_host *host, struct mmc_reque
 	timeout = req->data->timeout_clks + req->data->timeout_ns / 500;
 
 	/* Check if we need to use timeout multiplier register */
-	reg = OMAP_MMC_READ(host->base, SDIO);
+	reg = OMAP_MMC_READ(host, SDIO);
 	if (timeout > 0xffff) {
 		reg |= (1 << 5);
 		timeout /= 1024;
 	} else
 		reg &= ~(1 << 5);
-	OMAP_MMC_WRITE(host->base, SDIO, reg);
-	OMAP_MMC_WRITE(host->base, DTO, timeout);
+	OMAP_MMC_WRITE(host, SDIO, reg);
+	OMAP_MMC_WRITE(host, DTO, timeout);
 }
 
 static void
@@ -766,9 +817,9 @@ mmc_omap_prepare_data(struct mmc_omap_host *host, struct mmc_request *req)
 
 	host->data = data;
 	if (data == NULL) {
-		OMAP_MMC_WRITE(host->base, BLEN, 0);
-		OMAP_MMC_WRITE(host->base, NBLK, 0);
-		OMAP_MMC_WRITE(host->base, BUF, 0);
+		OMAP_MMC_WRITE(host, BLEN, 0);
+		OMAP_MMC_WRITE(host, NBLK, 0);
+		OMAP_MMC_WRITE(host, BUF, 0);
 		host->dma_in_use = 0;
 		set_cmd_timeout(host, req);
 		return;
@@ -777,8 +828,8 @@ mmc_omap_prepare_data(struct mmc_omap_host *host, struct mmc_request *req)
 
 	block_size = 1 << data->blksz_bits;
 
-	OMAP_MMC_WRITE(host->base, NBLK, data->blocks - 1);
-	OMAP_MMC_WRITE(host->base, BLEN, block_size - 1);
+	OMAP_MMC_WRITE(host, NBLK, data->blocks - 1);
+	OMAP_MMC_WRITE(host, BLEN, block_size - 1);
 	set_data_timeout(host, req);
 
 	/* cope with calling layer confusion; it issues "single
@@ -820,7 +871,7 @@ mmc_omap_prepare_data(struct mmc_omap_host *host, struct mmc_request *req)
 
 	/* Revert to PIO? */
 	if (!use_dma) {
-		OMAP_MMC_WRITE(host->base, BUF, 0x1f1f);
+		OMAP_MMC_WRITE(host, BUF, 0x1f1f);
 		host->total_bytes_left = data->blocks * block_size;
 		host->sg_len = sg_len;
 		mmc_omap_sg_to_buf(host);
@@ -846,7 +897,6 @@ static void mmc_omap_request(struct mmc_host *mmc, struct mmc_request *req)
 static void innovator_fpga_socket_power(int on)
 {
 #if defined(CONFIG_MACH_OMAP_INNOVATOR) && defined(CONFIG_ARCH_OMAP15XX)
-
 	if (on) {
 		fpga_write(fpga_read(OMAP1510_FPGA_POWER) | (1 << 3),
 		     OMAP1510_FPGA_POWER);
@@ -872,11 +922,12 @@ static void mmc_omap_power(struct mmc_omap_host *host, int on)
 			/* GPIO 4 of TPS65010 sends SD_EN signal */
 			tps65010_set_gpio_out_value(GPIO4, HIGH);
 		else if (cpu_is_omap24xx()) {
-			u16 reg = OMAP_MMC_READ(host->base, CON);
-			OMAP_MMC_WRITE(host->base, CON, reg | (1 << 11));
+			u16 reg = OMAP_MMC_READ(host, CON);
+			OMAP_MMC_WRITE(host, CON, reg | (1 << 11));
 		} else
 			if (host->power_pin >= 0)
 				omap_set_gpio_dataout(host->power_pin, 1);
+		msleep(1);
 	} else {
 		if (machine_is_omap_innovator())
 			innovator_fpga_socket_power(0);
@@ -885,8 +936,8 @@ static void mmc_omap_power(struct mmc_omap_host *host, int on)
 		else if (machine_is_omap_h3())
 			tps65010_set_gpio_out_value(GPIO4, LOW);
 		else if (cpu_is_omap24xx()) {
-			u16 reg = OMAP_MMC_READ(host->base, CON);
-			OMAP_MMC_WRITE(host->base, CON, reg & ~(1 << 11));
+			u16 reg = OMAP_MMC_READ(host, CON);
+			OMAP_MMC_WRITE(host, CON, reg & ~(1 << 11));
 		} else
 			if (host->power_pin >= 0)
 				omap_set_gpio_dataout(host->power_pin, 0);
@@ -896,30 +947,31 @@ static void mmc_omap_power(struct mmc_omap_host *host, int on)
 static void mmc_omap_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 {
 	struct mmc_omap_host *host = mmc_priv(mmc);
+	int fclk_rate;
 	int dsor;
-	int realclock, i;
+	int freq, i;
 
-	realclock = ios->clock;
+	freq = ios->clock;
 
-	if (ios->clock == 0)
-		dsor = 0;
-	else {
-		int func_clk_rate = clk_get_rate(host->fclk);
+	/* At least on OMAP2420, the divisor must be != 0 for the
+	 * initialization sequence to complete successfully. */
+	if (freq == 0)
+		freq = 4000000;
 
-		dsor = func_clk_rate / realclock;
-		if (dsor < 1)
-			dsor = 1;
+	fclk_rate = clk_get_rate(host->fclk);
+	dsor = fclk_rate / freq;
+	if (dsor < 1)
+		dsor = 1;
 
-		if (func_clk_rate / dsor > realclock)
-			dsor++;
-
-		if (dsor > 250)
-			dsor = 250;
+	if (fclk_rate / dsor > freq)
 		dsor++;
 
-		if (ios->bus_width == MMC_BUS_WIDTH_4)
-			dsor |= 1 << 15;
-	}
+	if (dsor > 250)
+		dsor = 250;
+	dsor++;
+
+	if (ios->bus_width == MMC_BUS_WIDTH_4)
+		dsor |= 1 << 15;
 
 	switch (ios->power_mode) {
 	case MMC_POWER_OFF:
@@ -928,7 +980,7 @@ static void mmc_omap_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	case MMC_POWER_UP:
 	case MMC_POWER_ON:
 		mmc_omap_power(host, 1);
-		dsor |= 1<<11;
+		dsor |= 1 << 11;
 		break;
 	}
 
@@ -942,14 +994,15 @@ static void mmc_omap_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	 * which results in the while loop below getting stuck.
 	 * Writing to the CON register twice seems to do the trick. */
 	for (i = 0; i < 2; i++)
-		OMAP_MMC_WRITE(host->base, CON, dsor);
+		OMAP_MMC_WRITE(host, CON, dsor);
 	if (ios->power_mode == MMC_POWER_UP) {
 		/* Send clock cycles, poll completion */
-		OMAP_MMC_WRITE(host->base, IE, 0);
-		OMAP_MMC_WRITE(host->base, STAT, 0xffff);
-		OMAP_MMC_WRITE(host->base, CMD, 1<<7);
-		while (0 == (OMAP_MMC_READ(host->base, STAT) & 1));
-		OMAP_MMC_WRITE(host->base, STAT, 1);
+		OMAP_MMC_WRITE(host, IE, 0);
+		OMAP_MMC_WRITE(host, STAT, 0xffff);
+		OMAP_MMC_WRITE(host, CMD, 1 << 7);
+		printk("CMD %04x\n", OMAP_MMC_READ(host, CMD));
+		while ((OMAP_MMC_READ(host, STAT) & 1) == 0);
+		OMAP_MMC_WRITE(host, STAT, 1);
 	}
 	clk_disable(host->fclk);
 }
@@ -972,25 +1025,29 @@ static int __init mmc_omap_probe(struct platform_device *pdev)
 	struct omap_mmc_conf *minfo = pdev->dev.platform_data;
 	struct mmc_host *mmc;
 	struct mmc_omap_host *host = NULL;
-	struct resource *r;
+	struct resource *res;
 	int ret = 0;
 	int irq;
-	
-	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+
+	if (minfo == NULL) {
+		dev_err(&pdev->dev, "platform data missing\n");
+		return -ENXIO;
+	}
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	irq = platform_get_irq(pdev, 0);
-	if (!r || irq < 0)
+	if (res == NULL || irq < 0)
 		return -ENXIO;
 
-	r = request_mem_region(pdev->resource[0].start,
-				pdev->resource[0].end - pdev->resource[0].start + 1,
-			       pdev->name);
-	if (!r)
+	res = request_mem_region(res->start, res->end - res->start + 1,
+				 pdev->name);
+	if (res == NULL)
 		return -EBUSY;
 
 	mmc = mmc_alloc_host(sizeof(struct mmc_omap_host), &pdev->dev);
-	if (!mmc) {
+	if (mmc == NULL) {
 		ret = -ENOMEM;
-		goto out;
+		goto err_free_mem_region;
 	}
 
 	host = mmc_priv(mmc);
@@ -998,17 +1055,18 @@ static int __init mmc_omap_probe(struct platform_device *pdev)
 
 	spin_lock_init(&host->dma_lock);
 	init_timer(&host->dma_timer);
+
 	host->dma_timer.function = mmc_omap_dma_timer;
 	host->dma_timer.data = (unsigned long) host;
 
 	host->id = pdev->id;
-	host->res = r;
+	host->mem_res = res;
 	host->irq = irq;
 
 	if (cpu_is_omap24xx()) {
 		host->iclk = clk_get(&pdev->dev, "mmc_ick");
 		if (IS_ERR(host->iclk))
-			goto out;
+			goto err_free_mmc_host;
 		clk_enable(host->iclk);
 	}
 
@@ -1016,10 +1074,9 @@ static int __init mmc_omap_probe(struct platform_device *pdev)
 		host->fclk = clk_get(&pdev->dev, "mmc_ck");
 	else
 		host->fclk = clk_get(&pdev->dev, "mmc_fck");
-
 	if (IS_ERR(host->fclk)) {
 		ret = PTR_ERR(host->fclk);
-		goto out;
+		goto err_free_iclk;
 	}
 
 	/* REVISIT:
@@ -1032,8 +1089,9 @@ static int __init mmc_omap_probe(struct platform_device *pdev)
 	host->use_dma = 1;
 	host->dma_ch = -1;
 
-	host->irq = pdev->resource[1].start;
-	host->base = (void __iomem*)IO_ADDRESS(r->start);
+	host->irq = irq;
+	host->phys_base = host->mem_res->start;
+	host->virt_base = (void __iomem *) IO_ADDRESS(host->phys_base);
 
 	if (minfo->wire4)
 		 mmc->caps |= MMC_CAP_4_BIT_DATA;
@@ -1041,7 +1099,7 @@ static int __init mmc_omap_probe(struct platform_device *pdev)
 	mmc->ops = &mmc_omap_ops;
 	mmc->f_min = 400000;
 	mmc->f_max = 24000000;
-	mmc->ocr_avail = MMC_VDD_32_33|MMC_VDD_33_34;
+	mmc->ocr_avail = MMC_VDD_32_33 | MMC_VDD_33_34;
 
 	/* Use scatterlist DMA to reduce per-transfer costs.
 	 * NOTE max_seg_size assumption that small blocks aren't
@@ -1056,19 +1114,17 @@ static int __init mmc_omap_probe(struct platform_device *pdev)
 		if ((ret = omap_request_gpio(host->power_pin)) != 0) {
 			dev_err(mmc_dev(host->mmc),
 				"Unable to get GPIO pin for MMC power\n");
-			goto out;
+			goto err_free_fclk;
 		}
 		omap_set_gpio_direction(host->power_pin, 0);
 	}
 
 	ret = request_irq(host->irq, mmc_omap_irq, 0, DRIVER_NAME, host);
 	if (ret)
-		goto out;
+		goto err_free_power_gpio;
 
 	host->dev = &pdev->dev;
 	platform_set_drvdata(pdev, host);
-
-	mmc_add_host(mmc);
 
 	if (host->switch_pin >= 0) {
 		INIT_WORK(&host->switch_work, mmc_omap_switch_handler, host);
@@ -1107,10 +1163,10 @@ static int __init mmc_omap_probe(struct platform_device *pdev)
 			schedule_work(&host->switch_work);
 	}
 
+	mmc_add_host(mmc);
+
 no_switch:
 	return 0;
-
-out:
 	/* FIXME: Free other resources too. */
 	if (host) {
 		if (host->iclk && !IS_ERR(host->iclk))
@@ -1119,6 +1175,21 @@ out:
 			clk_put(host->fclk);
 		mmc_free_host(host->mmc);
 	}
+
+err_free_power_gpio:
+	if (host->power_pin >= 0)
+		omap_free_gpio(host->power_pin);
+err_free_fclk:
+	clk_put(host->fclk);
+err_free_iclk:
+	if (host->iclk != NULL) {
+		clk_disable(host->iclk);
+		clk_put(host->iclk);
+	}
+err_free_mmc_host:
+	mmc_free_host(host->mmc);
+err_free_mem_region:
+	release_mem_region(res->start, res->end - res->start + 1);
 	return ret;
 }
 
@@ -1128,30 +1199,31 @@ static int mmc_omap_remove(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, NULL);
 
-	if (host) {
-		mmc_remove_host(host->mmc);
-		free_irq(host->irq, host);
+	BUG_ON(host == NULL);
 
-		if (host->power_pin >= 0)
-			omap_free_gpio(host->power_pin);
-		if (host->switch_pin >= 0) {
-			device_remove_file(&pdev->dev, &dev_attr_enable_poll);
-			device_remove_file(&pdev->dev, &dev_attr_cover_switch);
-			free_irq(OMAP_GPIO_IRQ(host->switch_pin), host);
-			omap_free_gpio(host->switch_pin);
-			host->switch_pin = -1;
-			del_timer_sync(&host->switch_timer);
-			flush_scheduled_work();
-		}
-		if (host->iclk && !IS_ERR(host->iclk))
-			clk_put(host->iclk);
-		if (host->fclk && !IS_ERR(host->fclk))
-			clk_put(host->fclk);
-		mmc_free_host(host->mmc);
+	mmc_remove_host(host->mmc);
+	free_irq(host->irq, host);
+
+	if (host->power_pin >= 0)
+		omap_free_gpio(host->power_pin);
+	if (host->switch_pin >= 0) {
+		device_remove_file(&pdev->dev, &dev_attr_enable_poll);
+		device_remove_file(&pdev->dev, &dev_attr_cover_switch);
+		free_irq(OMAP_GPIO_IRQ(host->switch_pin), host);
+		omap_free_gpio(host->switch_pin);
+		host->switch_pin = -1;
+		del_timer_sync(&host->switch_timer);
+		flush_scheduled_work();
 	}
+	if (host->iclk && !IS_ERR(host->iclk))
+		clk_put(host->iclk);
+	if (host->fclk && !IS_ERR(host->fclk))
+		clk_put(host->fclk);
 
 	release_mem_region(pdev->resource[0].start,
-			pdev->resource[0].end - pdev->resource[0].start + 1);
+			   pdev->resource[0].end - pdev->resource[0].start + 1);
+
+	mmc_free_host(host->mmc);
 
 	return 0;
 }
