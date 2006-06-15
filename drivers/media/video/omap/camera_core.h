@@ -90,7 +90,7 @@ struct camera_device {
 	unsigned long xclk;
 
 	/* Pointer to the sensor interface ops */
-	struct camera_sensor *cam_sensor;
+	struct omap_camera_sensor *cam_sensor;
 	void *sensor_data;
 	
 	/* Pointer to the camera interface hardware ops */

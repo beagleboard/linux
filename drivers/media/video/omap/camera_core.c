@@ -52,7 +52,7 @@
 #include "camera_core.h"
  
 struct camera_device *camera_dev;
-extern struct camera_sensor camera_sensor_if;
+extern struct omap_camera_sensor camera_sensor_if;
 extern struct camera_hardware camera_hardware_if;
  
 static void camera_core_sgdma_process(struct camera_device *cam);
@@ -324,7 +324,7 @@ static void
 camera_core_vbq_release(struct videobuf_queue *q, struct videobuf_buffer *vb)
 {
 	videobuf_waiton(vb, 0, 0);
-	videobuf_dma_pci_unmap(NULL, &vb->dma);
+	videobuf_dma_unmap(q, &vb->dma);
 	videobuf_dma_free(&vb->dma);
 
 	vb->state = STATE_NEEDS_INIT;
@@ -374,7 +374,7 @@ camera_core_vbq_prepare(struct videobuf_queue *q, struct videobuf_buffer *vb,
 	spin_unlock(&cam->img_lock);
 
 	if (vb->state == STATE_NEEDS_INIT)
-		err = videobuf_iolock(NULL, vb, NULL);
+		err = videobuf_iolock(q, vb, NULL);
 
 	if (!err)
 		vb->state = STATE_PREPARED;
@@ -1054,7 +1054,7 @@ static int __init camera_core_probe(struct platform_device *pdev)
 	cam->xclk = cam->cam_hardware->set_xclk(cam->xclk, cam->hardware_data);
 
 	/* initialize the sensor and define a default capture format cam->pix */
-	cam->sensor_data = cam->cam_sensor->init(&cam->pix, &cam->pix2);
+	cam->sensor_data = cam->cam_sensor->init(&cam->pix);
 	if (!cam->sensor_data) {
 		cam->cam_hardware->disable(cam->hardware_data);
 		printk(KERN_ERR CAM_NAME ": cannot initialize sensor\n");

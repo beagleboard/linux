@@ -1,4 +1,3 @@
-
 /*
  * drivers/media/video/omap/sensor_if.h
  *
@@ -18,12 +17,12 @@
  
 #ifndef OMAP_SENSOR_IF_H
 #define OMAP_SENSOR_IF_H
- 
-#define LEN_SENSOR_NAME		31
 
-struct camera_sensor {
+#define OMAP_SENSOR_NAME_LEN		31
+
+struct omap_camera_sensor {
 	unsigned int version;
-	char name[LEN_SENSOR_NAME + 1];
+	char name[OMAP_SENSOR_NAME_LEN + 1];
 
 	void *(*init)(struct v4l2_pix_format *);
 	int (*cleanup)(void *);
@@ -32,17 +31,17 @@ struct camera_sensor {
 	int (*power_off)(void *);
 
 	int (*enum_pixformat)(struct v4l2_fmtdesc *, void *);
-	int (*try_format) (struct v4l2_pix_format *, void *);
+	int (*try_format)(struct v4l2_pix_format *, void *);
 
-	unsigned long (*calc_xclk) (struct v4l2_pix_format *,
-		struct v4l2_fract *, void *);
+	unsigned long (*calc_xclk)(struct v4l2_pix_format *,
+				   struct v4l2_fract *, void *);
 
-	int (*configure) (struct v4l2_pix_format *, unsigned long,
-					  struct v4l2_fract *, void *);
+	int (*configure)(struct v4l2_pix_format *, unsigned long,
+			 struct v4l2_fract *, void *);
 
 	int (*query_control) (struct v4l2_queryctrl *, void *);
-	int (*get_control) (struct  v4l2_control *, void *);
-	int (*set_control) (struct  v4l2_control *, void *);
+	int (*get_control)(struct v4l2_control *, void *);
+	int (*set_control)(struct v4l2_control *, void *);
 
 };
 	
