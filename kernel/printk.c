@@ -435,11 +435,23 @@ static void zap_locks(void)
 	init_MUTEX(&console_sem);
 }
 
-#if defined(CONFIG_PRINTK_TIME)
-static int printk_time = 1;
-#else
 static int printk_time = 0;
-#endif
+
+#ifdef CONFIG_PRINTK_TIME
+
+/*
+ * Initialize printk time. Note that on some systems sched_clock()
+ * does not work until timer is initialized.
+ */
+static int __init printk_time_init(void)
+{
+	printk_time = 1;
+
+	return 0;
+}
+subsys_initcall(printk_time_init);
+
+#else
 
 static int __init printk_time_setup(char *str)
 {
@@ -450,6 +462,8 @@ static int __init printk_time_setup(char *str)
 }
 
 __setup("time", printk_time_setup);
+
+#endif
 
 __attribute__((weak)) unsigned long long printk_clock(void)
 {
