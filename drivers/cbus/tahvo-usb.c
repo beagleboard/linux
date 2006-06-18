@@ -3,7 +3,11 @@
  *
  * Tahvo USB transeiver
  *
- * Copyright (C) 2005 Nokia Corporation
+ * Copyright (C) 2005-2006 Nokia Corporation
+ *
+ * Parts copied from drivers/i2c/chips/isp1301_omap.c
+ * Copyright (C) 2004 Texas Instruments
+ * Copyright (C) 2004 David Brownell
  *
  * Written by Juha Yrjölä <juha.yrjola@nokia.com>,
  *	      Tony Lindgren <tony@atomide.com>, and
@@ -85,8 +89,6 @@
 #define TAHVO_MODE(tu)		TAHVO_MODE_HOST
 #endif
 
-extern int ohci_omap_host_enable(struct usb_bus *host, int enable);
-
 struct tahvo_usb {
 	struct platform_device *pt_dev;
 	struct otg_transceiver otg;
@@ -130,14 +132,12 @@ static irqreturn_t omap_otg_irq(int irq, void *arg, struct pt_regs *regs)
 	} else if (otg_irq & A_VBUS_ERR) {
 		OTG_IRQ_SRC_REG = A_VBUS_ERR;
 	} else if (otg_irq & DRIVER_SWITCH) {
-
 		if ((!(OTG_CTRL_REG & OTG_DRIVER_SEL)) &&
 		   tu->otg.host && tu->otg.state == OTG_STATE_A_HOST) {
 			/* role is host */
 			usb_bus_start_enum(tu->otg.host,
 					   tu->otg.host->otg_port);
 		}
-
 		OTG_IRQ_SRC_REG = DRIVER_SWITCH;
 	} else
 		return IRQ_NONE;
@@ -155,7 +155,6 @@ static int omap_otg_init(void)
 		return -ENODEV;
 	}
 #endif
-
 	/* some of these values are board-specific... */
 	OTG_SYSCON_2_REG |= OTG_EN
 		/* for B-device: */
@@ -223,6 +222,47 @@ static DEVICE_ATTR(vbus_state, 0444, vbus_state_show, NULL);
 
 int vbus_active = 0;
 
+#if 0
+
+static int host_suspend(struct tahvo_usb *tu)
+{
+	struct device	*dev;
+
+	if (!tu->otg.host)
+		return -ENODEV;
+
+	/* Currently ASSUMES only the OTG port matters;
+	 * other ports could be active...
+	 */
+	dev = tu->otg.host->controller;
+	return dev->driver->suspend(dev, PMSG_SUSPEND);
+}
+
+static int host_resume(struct tahvo_usb *tu)
+{
+	struct device	*dev;
+
+	if (!tu->otg.host)
+		return -ENODEV;
+
+	dev = tu->otg.host->controller;
+	return dev->driver->resume(dev);
+}
+
+#else
+
+static int host_suspend(struct tahvo_usb *tu)
+{
+	return 0;
+}
+
+static int host_resume(struct tahvo_usb *tu)
+{
+	return 0;
+}
+
+#endif
+
 static void check_vbus_state(struct tahvo_usb *tu)
 {
 	int reg, prev_state;
@@ -244,32 +284,27 @@ static void check_vbus_state(struct tahvo_usb *tu)
 		case OTG_STATE_A_IDLE:
 			/* Session is now valid assuming the USB hub is driving Vbus */
 			tu->otg.state = OTG_STATE_A_HOST;
-			if (tu->otg.host)
-				ohci_omap_host_enable(tu->otg.host, 1);
+			host_resume(tu);
 			break;
 		default:
 			break;
 		}
 		printk("USB cable connected\n");
 	} else {
-		vbus_active = 0;
 		switch (tu->otg.state) {
 		case OTG_STATE_B_PERIPHERAL:
-			OTG_CTRL_REG = (OTG_CTRL_REG & ~OTG_BSESSVLD) | OTG_BSESSEND;
 			if (tu->otg.gadget)
 				usb_gadget_vbus_disconnect(tu->otg.gadget);
 			tu->otg.state = OTG_STATE_B_IDLE;
 			break;
 		case OTG_STATE_A_HOST:
 			tu->otg.state = OTG_STATE_A_IDLE;
-			if (tu->otg.host)
-				ohci_omap_host_enable(tu->otg.host, 0);
-
 			break;
 		default:
 			break;
 		}
 		printk("USB cable disconnected\n");
+		vbus_active = 0;
 	}
 
 	prev_state = tu->vbus_state;
@@ -280,11 +315,16 @@ static void check_vbus_state(struct tahvo_usb *tu)
 
 static void tahvo_usb_become_host(struct tahvo_usb *tu)
 {
+	u32 l;
+
 	/* Clear system and transceiver controlled bits
 	 * also mark the A-session is always valid */
 	omap_otg_init();
-	OTG_CTRL_REG = (OTG_CTRL_REG & ~(OTG_CTRL_XCVR_MASK|OTG_CTRL_SYS_MASK))
-		| OTG_ASESSVLD;
+
+	l = OTG_CTRL_REG;
+	l &= ~(OTG_CTRL_XCVR_MASK|OTG_CTRL_SYS_MASK);
+	l |= OTG_ASESSVLD;
+	OTG_CTRL_REG = l;
 
 	/* Power up the transceiver in USB host mode */
 	tahvo_write_reg(TAHVO_REG_USBR, USBR_REGOUT | USBR_NSUSPEND |
@@ -296,8 +336,7 @@ static void tahvo_usb_become_host(struct tahvo_usb *tu)
 
 static void tahvo_usb_stop_host(struct tahvo_usb *tu)
 {
-	if (tu->otg.host)
-		ohci_omap_host_enable(tu->otg.host, 0);
+	host_suspend(tu);
 	tu->otg.state = OTG_STATE_A_IDLE;
 }
 
@@ -307,7 +346,7 @@ static void tahvo_usb_become_peripheral(struct tahvo_usb *tu)
 	 * and enable ID to mark peripheral mode and
 	 * BSESSEND to mark no Vbus */
 	omap_otg_init();
-	OTG_CTRL_REG = (OTG_CTRL_REG & ~(OTG_CTRL_XCVR_MASK|OTG_CTRL_SYS_MASK))
+	OTG_CTRL_REG = (OTG_CTRL_REG & ~(OTG_CTRL_XCVR_MASK|OTG_CTRL_SYS_MASK|OTG_BSESSVLD))
 		| OTG_ID | OTG_BSESSEND;
 
 	/* Power up transceiver and set it in USB perhiperal mode */
@@ -328,24 +367,29 @@ static void tahvo_usb_stop_peripheral(struct tahvo_usb *tu)
 
 static void tahvo_usb_power_off(struct tahvo_usb *tu)
 {
+	u32 l;
 	int id;
 
 	/* Disable gadget controller if any */
 	if (tu->otg.gadget)
 		usb_gadget_vbus_disconnect(tu->otg.gadget);
 
-	if (tu->otg.host)
-		ohci_omap_host_enable(tu->otg.host, 0);
+	host_suspend(tu);
 
 	/* Disable OTG and interrupts */
 	if (TAHVO_MODE(tu) == TAHVO_MODE_PERIPHERAL)
 		id = OTG_ID;
-        else    id = 0;
-	OTG_CTRL_REG = (OTG_CTRL_REG & ~(OTG_CTRL_XCVR_MASK|OTG_CTRL_SYS_MASK)) | id;
+	else
+		id = 0;
+	l = OTG_CTRL_REG;
+	l &= ~(OTG_CTRL_XCVR_MASK | OTG_CTRL_SYS_MASK | OTG_BSESSVLD);
+	l |= id | OTG_BSESSEND;
+	OTG_CTRL_REG = l;
 	OTG_IRQ_EN_REG = 0;
-#if 0
+
 	OTG_SYSCON_2_REG &= ~OTG_EN;
-#endif
+
+	OTG_SYSCON_1_REG |= OTG_IDLE_EN;
 
 	/* Power off transceiver */
 	tahvo_write_reg(TAHVO_REG_USBR, 0);
@@ -355,6 +399,10 @@ static void tahvo_usb_power_off(struct tahvo_usb *tu)
 
 static int tahvo_usb_set_power(struct otg_transceiver *dev, unsigned mA)
 {
+	struct tahvo_usb *tu = container_of(dev, struct tahvo_usb, otg);
+
+	dev_dbg(&tu->pt_dev->dev, "set_power %d mA\n", mA);
+
 	if (dev->state == OTG_STATE_B_PERIPHERAL) {
 		/* REVISIT: Can Tahvo charge battery from VBUS? */
 	}
@@ -363,7 +411,10 @@ static int tahvo_usb_set_power(struct otg_transceiver *dev, unsigned mA)
 
 static int tahvo_usb_set_suspend(struct otg_transceiver *dev, int suspend)
 {
+	struct tahvo_usb *tu = container_of(dev, struct tahvo_usb, otg);
 	u16 w;
+
+	dev_dbg(&tu->pt_dev->dev, "set_suspend\n");
 
 	w = tahvo_read_reg(TAHVO_REG_USBR);
 	if (suspend)
@@ -380,6 +431,8 @@ static int tahvo_usb_start_srp(struct otg_transceiver *dev)
 	struct tahvo_usb *tu = container_of(dev, struct tahvo_usb, otg);
 	u32 otg_ctrl;
 
+	dev_dbg(&tu->pt_dev->dev, "start_srp\n");
+
 	if (!dev || tu->otg.state != OTG_STATE_B_IDLE)
 		return -ENODEV;
 
@@ -392,13 +445,14 @@ static int tahvo_usb_start_srp(struct otg_transceiver *dev)
 	OTG_CTRL_REG = otg_ctrl;
 	tu->otg.state = OTG_STATE_B_SRP_INIT;
 
-	pr_debug("otg: SRP, %s ... %06x\n", state_name(tu), OTG_CTRL_REG);
-
 	return 0;
 }
 
-static int tahvo_usb_start_hnp(struct otg_transceiver *dev)
+static int tahvo_usb_start_hnp(struct otg_transceiver *otg)
 {
+	struct tahvo_usb *tu = container_of(otg, struct tahvo_usb, otg);
+
+	dev_dbg(&tu->pt_dev->dev, "start_hnp\n");
 #ifdef CONFIG_USB_OTG
 	/* REVISIT: Add this for OTG */
 #endif
@@ -409,26 +463,30 @@ static int tahvo_usb_set_host(struct otg_transceiver *otg, struct usb_bus *host)
 {
 	struct tahvo_usb *tu = container_of(otg, struct tahvo_usb, otg);
 
-	if (!otg)
+	dev_dbg(&tu->pt_dev->dev, "set_host %p\n", host);
+
+	if (otg == NULL)
 		return -ENODEV;
 
 #if defined(CONFIG_USB_OTG) || !defined(CONFIG_USB_GADGET_OMAP)
 
 	mutex_lock(&tu->serialize);
 
-	if (!host) {
+	if (host == NULL) {
 		if (TAHVO_MODE(tu) == TAHVO_MODE_HOST)
 			tahvo_usb_power_off(tu);
-		tu->otg.host = 0;
+		tu->otg.host = NULL;
 		mutex_unlock(&tu->serialize);
 		return 0;
 	}
 
+	OTG_SYSCON_1_REG &= ~(OTG_IDLE_EN | HST_IDLE_EN | DEV_IDLE_EN);
+
 	if (TAHVO_MODE(tu) == TAHVO_MODE_HOST) {
-		tu->otg.host = 0;
+		tu->otg.host = NULL;
 		tahvo_usb_become_host(tu);
 	} else
-		ohci_omap_host_enable(host, 0);
+		host_suspend(tu);
 
 	tu->otg.host = host;
 
@@ -445,6 +503,8 @@ static int tahvo_usb_set_peripheral(struct otg_transceiver *otg, struct usb_gadg
 {
 	struct tahvo_usb *tu = container_of(otg, struct tahvo_usb, otg);
 
+	dev_dbg(&tu->pt_dev->dev, "set_peripheral %p\n", gadget);
+
 	if (!otg)
 		return -ENODEV;
 
@@ -455,7 +515,7 @@ static int tahvo_usb_set_peripheral(struct otg_transceiver *otg, struct usb_gadg
 	if (!gadget) {
 		if (TAHVO_MODE(tu) == TAHVO_MODE_PERIPHERAL)
 			tahvo_usb_power_off(tu);
-		tu->otg.gadget = 0;
+		tu->otg.gadget = NULL;
 		mutex_unlock(&tu->serialize);
 		return 0;
 	}
@@ -552,6 +612,8 @@ static int tahvo_usb_probe(struct device *dev)
 	struct tahvo_usb *tu;
 	int ret;
 
+	dev_dbg(dev, "probe\n");
+
 	/* Create driver data */
 	tu = kmalloc(sizeof(*tu), GFP_KERNEL);
 	if (!tu)
@@ -618,6 +680,8 @@ static int tahvo_usb_probe(struct device *dev)
 
 static int tahvo_usb_remove(struct device *dev)
 {
+	dev_dbg(dev, "remove\n");
+
 	tahvo_free_irq(TAHVO_INT_VBUSON);
 	flush_scheduled_work();
 	otg_set_transceiver(0);

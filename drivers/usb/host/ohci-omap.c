@@ -257,6 +257,10 @@ static int omap_start_hc(struct ohci_hcd *ohci, struct platform_device *pdev)
 		}
 		ohci_writel(ohci, rh, &ohci->regs->roothub.a);
 		distrust_firmware = 0;
+	} else if (machine_is_nokia770()) {
+		/* We require a self-powered hub, which should have
+		 * plenty of power. */
+		ohci_to_hcd(ohci)->power_budget = 0;
 	}
 
 	/* FIXME khubd hub requests should manage power switching */
@@ -280,47 +284,6 @@ static void omap_stop_hc(struct platform_device *pdev)
 /*-------------------------------------------------------------------------*/
 
 void usb_hcd_omap_remove (struct usb_hcd *, struct platform_device *);
-
-/* configure so an HC device and id are always provided */
-/* always called with process context; sleeping is OK */
-
-
-int ohci_omap_host_enable(struct usb_bus *host, int enable)
-{
-	struct usb_hcd *hcd;
-	struct ohci_hcd *ohci;
-	int retval;
-
-	if (host_enabled == enable)
-		return 0;
-
-	host_enabled = enable;
-
-	if (!host_initialized)
-		return 0;
-
-	hcd = (struct usb_hcd *)host->hcpriv;
-	ohci = hcd_to_ohci(hcd);
-	if (enable) {
-		omap_ohci_clock_power(1);
-		if ((retval = ohci_init(ohci)) < 0) {
-			dev_err(hcd->self.controller, "init error %d\n",
-				retval);
-			return retval;
-		}
-		if ((retval = hcd->driver->start(hcd)) < 0) {
-			dev_err(hcd->self.controller, "startup error %d\n",
-				retval);
-			return retval;
-		}
-	} else {
-		usb_disconnect(&hcd->self.root_hub);
-		hcd->driver->stop(hcd);
-		omap_ohci_clock_power(0);
-	}
-
-	return 0;
-}
 
 /**
  * usb_hcd_omap_probe - initialize OMAP-based HCDs
