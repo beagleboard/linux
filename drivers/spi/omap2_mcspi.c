@@ -210,6 +210,10 @@ static void omap2_mcspi_txrx(struct spi_device *spi, struct spi_transfer *xfer)
 		while (c--) {
 			if (tx != NULL) {
 				while (!(__raw_readl(chstat_reg) & OMAP2_MCSPI_CHSTAT_TXS));
+#ifdef VERBOSE
+				dev_dbg(&spi->dev, "write-%d %02x\n",
+						word_len, *tx);
+#endif
 				__raw_writel(*tx, tx_reg);
 			}
 			if (rx != NULL) {
@@ -217,6 +221,10 @@ static void omap2_mcspi_txrx(struct spi_device *spi, struct spi_transfer *xfer)
 				if (c == 0 && tx == NULL)
 					omap2_mcspi_set_enable(spi, 0);
 				*rx++ = __raw_readl(rx_reg);
+#ifdef VERBOSE
+				dev_dbg(&spi->dev, "read-%d %02x\n",
+						word_len, *(rx - 1));
+#endif
 			}
 		}
 	} else if (word_len <= 16) {
@@ -229,6 +237,10 @@ static void omap2_mcspi_txrx(struct spi_device *spi, struct spi_transfer *xfer)
 		while (c--) {
 			if (tx != NULL) {
 				while (!(__raw_readl(chstat_reg) & OMAP2_MCSPI_CHSTAT_TXS));
+#ifdef VERBOSE
+				dev_dbg(&spi->dev, "write-%d %04x\n",
+						word_len, *tx);
+#endif
 				__raw_writel(*tx++, tx_reg);
 			}
 			if (rx != NULL) {
@@ -236,6 +248,10 @@ static void omap2_mcspi_txrx(struct spi_device *spi, struct spi_transfer *xfer)
 				if (c == 0 && tx == NULL)
 					omap2_mcspi_set_enable(spi, 0);
 				*rx++ = __raw_readl(rx_reg);
+#ifdef VERBOSE
+				dev_dbg(&spi->dev, "read-%d %04x\n",
+						word_len, *(rx - 1));
+#endif
 			}
 		}
 	} else if (word_len <= 32) {
@@ -248,6 +264,10 @@ static void omap2_mcspi_txrx(struct spi_device *spi, struct spi_transfer *xfer)
 		while (c--) {
 			if (tx != NULL) {
 				while (!(__raw_readl(chstat_reg) & OMAP2_MCSPI_CHSTAT_TXS));
+#ifdef VERBOSE
+				dev_dbg(&spi->dev, "write-%d %04x\n",
+						word_len, *tx);
+#endif
 				__raw_writel(*tx++, tx_reg);
 			}
 			if (rx != NULL) {
@@ -255,6 +275,10 @@ static void omap2_mcspi_txrx(struct spi_device *spi, struct spi_transfer *xfer)
 				if (c == 0 && tx == NULL)
 					omap2_mcspi_set_enable(spi, 0);
 				*rx++ = __raw_readl(rx_reg);
+#ifdef VERBOSE
+				dev_dbg(&spi->dev, "read-%d %04x\n",
+						word_len, *(rx - 1));
+#endif
 			}
 		}
 	}
@@ -324,6 +348,11 @@ static int omap2_mcspi_setup_transfer(struct spi_device *spi,
 	else
 		l |= OMAP2_MCSPI_CHCONF_PHA;
 	mcspi_write_cs_reg(spi, OMAP2_MCSPI_CHCONF0, l);
+
+	dev_dbg(&spi->dev, "setup: speed %d, sample %s edge, clk %s inverted\n",
+			OMAP2_MCSPI_MAX_FREQ / (1 << div),
+			(spi->mode & SPI_CPHA) ? "odd" : "even",
+			(spi->mode & SPI_CPOL) ? "" : "not");
 
 	return 0;
 }
