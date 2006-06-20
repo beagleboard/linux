@@ -426,7 +426,10 @@ static void omap2_mcspi_work(unsigned long arg)
 			omap2_mcspi_txrx(spi, t);
 
 			if (t->cs_change) {
-				omap2_mcspi_force_cs(spi, 0);
+				/* In the last transfer entry the flag means
+				 * _leave_ CS on */
+				if (t->transfer_list.next != &m->transfers)
+					omap2_mcspi_force_cs(spi, 0);
 				cs_active = 0;
 			}
 		}
