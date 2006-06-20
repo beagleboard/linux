@@ -36,6 +36,7 @@
 #include <asm/arch/keypad.h>
 #include <asm/arch/menelaus.h>
 #include <asm/arch/dma.h>
+#include <asm/arch/gpmc.h>
 #include "prcm-regs.h"
 
 #include <asm/io.h>
@@ -134,8 +135,6 @@ static struct platform_device h4_flash_device = {
 
 static struct resource h4_smc91x_resources[] = {
 	[0] = {
-		.start  = OMAP24XX_ETHR_START,          /* Physical */
-		.end    = OMAP24XX_ETHR_START + 0xf,
 		.flags  = IORESOURCE_MEM,
 	},
 	[1] = {
@@ -290,6 +289,9 @@ static inline void __init h4_init_smc91x(void)
 		return;
 	}
 	omap_set_gpio_direction(OMAP24XX_ETHR_GPIO_IRQ, 1);
+
+	h4_smc91x_resources[0].start = gpmc_cs_get_base_addr(1) + 0x300;
+	h4_smc91x_resources[0].end   = h4_smc91x_resources[0].start + 0xf;
 }
 
 static void __init omap_h4_init_irq(void)
