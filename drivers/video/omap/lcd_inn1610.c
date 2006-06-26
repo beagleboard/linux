@@ -27,19 +27,14 @@
 #include <asm/arch/gpio.h>
 #include <asm/arch/omapfb.h>
 
-/* #define OMAPFB_DBG 1 */
-
-#include "debug.h"
-
 #define MODULE_NAME	"omapfb-lcd_h3"
 
 #define pr_err(fmt, args...) printk(KERN_ERR MODULE_NAME ": " fmt, ## args)
 
-static int innovator1610_panel_init(struct omapfb_device *fbdev)
+static int innovator1610_panel_init(struct lcd_panel *panel,
+				    struct omapfb_device *fbdev)
 {
 	int r = 0;
-
-	DBGENTER(1);
 
 	if (omap_request_gpio(14)) {
 		pr_err("can't request GPIO 14\n");
@@ -56,44 +51,31 @@ static int innovator1610_panel_init(struct omapfb_device *fbdev)
 	omap_set_gpio_direction(14, 0);
 	omap_set_gpio_direction(15, 0);
 exit:
-	DBGLEAVE(1);
 	return r;
 }
 
-static void innovator1610_panel_cleanup(void)
+static void innovator1610_panel_cleanup(struct lcd_panel *panel)
 {
-	DBGENTER(1);
-
 	omap_free_gpio(15);
 	omap_free_gpio(14);
-
-	DBGLEAVE(1);
 }
 
-static int innovator1610_panel_enable(void)
+static int innovator1610_panel_enable(struct lcd_panel *panel)
 {
-	DBGENTER(1);
-
 	/* set GPIO14 and GPIO15 high */
 	omap_set_gpio_dataout(14, 1);
 	omap_set_gpio_dataout(15, 1);
-
-	DBGLEAVE(1);
 	return 0;
 }
 
-static void innovator1610_panel_disable(void)
+static void innovator1610_panel_disable(struct lcd_panel *panel)
 {
-	DBGENTER(1);
-
 	/* set GPIO13, GPIO14 and GPIO15 low */
 	omap_set_gpio_dataout(14, 0);
 	omap_set_gpio_dataout(15, 0);
-
-	DBGLEAVE(1);
 }
 
-static unsigned long innovator1610_panel_get_caps(void)
+static unsigned long innovator1610_panel_get_caps(struct lcd_panel *panel)
 {
 	return 0;
 }
@@ -124,26 +106,22 @@ struct lcd_panel innovator1610_panel = {
 
 static int innovator1610_panel_probe(struct platform_device *pdev)
 {
-	DBGENTER(1);
 	omapfb_register_panel(&innovator1610_panel);
 	return 0;
 }
 
 static int innovator1610_panel_remove(struct platform_device *pdev)
 {
-	DBGENTER(1);
 	return 0;
 }
 
 static int innovator1610_panel_suspend(struct platform_device *pdev, pm_message_t mesg)
 {
-	DBGENTER(1);
 	return 0;
 }
 
 static int innovator1610_panel_resume(struct platform_device *pdev)
 {
-	DBGENTER(1);
 	return 0;
 }
 

@@ -148,29 +148,23 @@ const unsigned short INIT_SCSTART[2] = { 0x00, 0x00 };
 /* ----- end of epson_md_tft.h ----- */
 
 
-#include "debug.h"
 #include "../drivers/ssi/omap-uwire.h"
 
 #define LCD_UWIRE_CS 0
 
-static int p2_panel_init(struct omapfb_device *fbdev)
+static int p2_panel_init(struct lcd_panel *panel, struct omapfb_device *fbdev)
 {
-	DBGENTER(1);
-	DBGLEAVE(1);
 	return 0;
 }
 
-static void p2_panel_cleanup(void)
+static void p2_panel_cleanup(struct lcd_panel *panel)
 {
-	DBGENTER(1);
-	DBGLEAVE(1);
 }
 
-static int p2_panel_enable(void)
+static int p2_panel_enable(struct lcd_panel *panel)
 {
 	int i;
 	unsigned long value;
-	DBGENTER(1);
 
 		/* thwack the reset line */
 	omap_set_gpio_direction(19, 0);
@@ -268,17 +262,14 @@ static int p2_panel_enable(void)
 	omap_set_gpio_direction(134, 0);
 	omap_set_gpio_dataout(134, 1);
 
-	DBGLEAVE(1);
 	return 0;
 }
 
-static void p2_panel_disable(void)
+static void p2_panel_disable(struct lcd_panel *panel)
 {
-	DBGENTER(1);
-	DBGLEAVE(1);
 }
 
-static unsigned long p2_panel_get_caps(void)
+static unsigned long p2_panel_get_caps(struct lcd_panel *panel)
 {
 	return 0;
 }
@@ -308,26 +299,22 @@ struct lcd_panel p2_panel = {
 
 static int p2_panel_probe(struct platform_device *pdev)
 {
-	DBGENTER(1);
 	omapfb_register_panel(&p2_panel);
 	return 0;
 }
 
 static int p2_panel_remove(struct platform_device *pdev)
 {
-	DBGENTER(1);
 	return 0;
 }
 
 static int p2_panel_suspend(struct platform_device *pdev, pm_message_t mesg)
 {
-	DBGENTER(1);
 	return 0;
 }
 
 static int p2_panel_resume(struct platform_device *pdev)
 {
-	DBGENTER(1);
 	return 0;
 }
 

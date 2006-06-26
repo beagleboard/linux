@@ -26,38 +26,25 @@
 
 #include <asm/arch/omapfb.h>
 
-/* #define OMAPFB_DBG 1 */
-
-#include "debug.h"
-
-static int h4_panel_init(struct omapfb_device *fbdev)
+static int h4_panel_init(struct lcd_panel *panel, struct omapfb_device *fbdev)
 {
-	DBGENTER(1);
-	DBGLEAVE(1);
 	return 0;
 }
 
-static void h4_panel_cleanup(void)
+static void h4_panel_cleanup(struct lcd_panel *panel)
 {
-	DBGENTER(1);
-	DBGLEAVE(1);
 }
 
-static int h4_panel_enable(void)
+static int h4_panel_enable(struct lcd_panel *panel)
 {
-
-	DBGENTER(1);
-	DBGLEAVE(1);
 	return 0;
 }
 
-static void h4_panel_disable(void)
+static void h4_panel_disable(struct lcd_panel *panel)
 {
-	DBGENTER(1);
-	DBGLEAVE(1);
 }
 
-static unsigned long h4_panel_get_caps(void)
+static unsigned long h4_panel_get_caps(struct lcd_panel *panel)
 {
 	return 0;
 }
@@ -87,26 +74,22 @@ struct lcd_panel h4_panel = {
 
 static int h4_panel_probe(struct platform_device *pdev)
 {
-	DBGENTER(1);
 	omapfb_register_panel(&h4_panel);
 	return 0;
 }
 
 static int h4_panel_remove(struct platform_device *pdev)
 {
-	DBGENTER(1);
 	return 0;
 }
 
 static int h4_panel_suspend(struct platform_device *pdev, pm_message_t mesg)
 {
-	DBGENTER(1);
 	return 0;
 }
 
 static int h4_panel_resume(struct platform_device *pdev)
 {
-	DBGENTER(1);
 	return 0;
 }
 

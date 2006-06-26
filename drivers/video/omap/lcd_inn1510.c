@@ -29,43 +29,28 @@
 #include <asm/arch/fpga.h>
 #include <asm/arch/omapfb.h>
 
-/* #define OMAPFB_DBG 1 */
-
-#include "debug.h"
-
-static int innovator1510_panel_init(struct omapfb_device *fbdev)
+static int innovator1510_panel_init(struct lcd_panel *panel,
+				    struct omapfb_device *fbdev)
 {
-	DBGENTER(1);
-	DBGLEAVE(1);
 	return 0;
 }
 
-static void innovator1510_panel_cleanup(void)
+static void innovator1510_panel_cleanup(struct lcd_panel *panel)
 {
-	DBGENTER(1);
-	DBGLEAVE(1);
 }
 
-static int innovator1510_panel_enable(void)
+static int innovator1510_panel_enable(struct lcd_panel *panel)
 {
-	DBGENTER(1);
-
 	fpga_write(0x7, OMAP1510_FPGA_LCD_PANEL_CONTROL);
-
-	DBGLEAVE(1);
 	return 0;
 }
 
-static void innovator1510_panel_disable(void)
+static void innovator1510_panel_disable(struct lcd_panel *panel)
 {
-	DBGENTER(1);
-
 	fpga_write(0x0, OMAP1510_FPGA_LCD_PANEL_CONTROL);
-
-	DBGLEAVE(1);
 }
 
-static unsigned long innovator1510_panel_get_caps(void)
+static unsigned long innovator1510_panel_get_caps(struct lcd_panel *panel)
 {
 	return 0;
 }
@@ -96,26 +81,22 @@ struct lcd_panel innovator1510_panel = {
 
 static int innovator1510_panel_probe(struct platform_device *pdev)
 {
-	DBGENTER(1);
 	omapfb_register_panel(&innovator1510_panel);
 	return 0;
 }
 
 static int innovator1510_panel_remove(struct platform_device *pdev)
 {
-	DBGENTER(1);
 	return 0;
 }
 
 static int innovator1510_panel_suspend(struct platform_device *pdev, pm_message_t mesg)
 {
-	DBGENTER(1);
 	return 0;
 }
 
 static int innovator1510_panel_resume(struct platform_device *pdev)
 {
-	DBGENTER(1);
 	return 0;
 }
 

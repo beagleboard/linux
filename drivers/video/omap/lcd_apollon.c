@@ -30,44 +30,32 @@
 #include <asm/arch/mux.h>
 #include <asm/arch/omapfb.h>
 
-/* #define OMAPFB_DBG 1 */
-
 /* #define USE_35INCH_LCD 1 */
 
-#include "debug.h"
-
-static int apollon_panel_init(struct omapfb_device *fbdev)
+static int apollon_panel_init(struct lcd_panel *panel,
+				struct omapfb_device *fbdev)
 {
-	DBGENTER(1);
-	DBGLEAVE(1);
 	return 0;
 }
 
-static void apollon_panel_cleanup(void)
+static void apollon_panel_cleanup(struct lcd_panel *panel)
 {
-	DBGENTER(1);
-	DBGLEAVE(1);
 }
 
-static int apollon_panel_enable(void)
+static int apollon_panel_enable(struct lcd_panel *panel)
 {
-
-	DBGENTER(1);
 
 	/* configure LCD PWR_EN */
 	omap_cfg_reg(M21_242X_GPIO11);
 
-	DBGLEAVE(1);
 	return 0;
 }
 
-static void apollon_panel_disable(void)
+static void apollon_panel_disable(struct lcd_panel *panel)
 {
-	DBGENTER(1);
-	DBGLEAVE(1);
 }
 
-static unsigned long apollon_panel_get_caps(void)
+static unsigned long apollon_panel_get_caps(struct lcd_panel *panel)
 {
 	return 0;
 }
@@ -109,26 +97,22 @@ struct lcd_panel apollon_panel = {
 
 static int apollon_panel_probe(struct platform_device *pdev)
 {
-	DBGENTER(1);
 	omapfb_register_panel(&apollon_panel);
 	return 0;
 }
 
 static int apollon_panel_remove(struct platform_device *pdev)
 {
-	DBGENTER(1);
 	return 0;
 }
 
 static int apollon_panel_suspend(struct platform_device *pdev, pm_message_t mesg)
 {
-	DBGENTER(1);
 	return 0;
 }
 
 static int apollon_panel_resume(struct platform_device *pdev)
 {
-	DBGENTER(1);
 	return 0;
 }
 

@@ -29,37 +29,26 @@
 #include <asm/arch/fpga.h>
 #include <asm/arch/omapfb.h>
 
-/* #define OMAPFB_DBG 1 */
-
-#include "debug.h"
-
-static int palmte_panel_init(struct omapfb_device *panel)
+static int palmte_panel_init(struct lcd_panel *panel,
+				struct omapfb_device *fbdev)
 {
-	DBGENTER(1);
-	DBGLEAVE(1);
 	return 0;
 }
 
-static void palmte_panel_cleanup(void)
+static void palmte_panel_cleanup(struct lcd_panel *panel)
 {
-	DBGENTER(1);
-	DBGLEAVE(1);
 }
 
-static int palmte_panel_enable(void)
+static int palmte_panel_enable(struct lcd_panel *panel)
 {
-	DBGENTER(1);
-	DBGLEAVE(1);
 	return 0;
 }
 
-static void palmte_panel_disable(void)
+static void palmte_panel_disable(struct lcd_panel *panel)
 {
-	DBGENTER(1);
-	DBGLEAVE(1);
 }
 
-static unsigned long palmte_panel_get_caps(void)
+static unsigned long palmte_panel_get_caps(struct lcd_panel *panel)
 {
 	return 0;
 }
@@ -92,26 +81,22 @@ struct lcd_panel palmte_panel = {
 
 static int palmte_panel_probe(struct platform_device *pdev)
 {
-	DBGENTER(1);
 	omapfb_register_panel(&palmte_panel);
 	return 0;
 }
 
 static int palmte_panel_remove(struct platform_device *pdev)
 {
-	DBGENTER(1);
 	return 0;
 }
 
 static int palmte_panel_suspend(struct platform_device *pdev, pm_message_t mesg)
 {
-	DBGENTER(1);
 	return 0;
 }
 
 static int palmte_panel_resume(struct platform_device *pdev)
 {
-	DBGENTER(1);
 	return 0;
 }
 
@@ -138,3 +123,4 @@ static void palmte_panel_drv_cleanup(void)
 
 module_init(palmte_panel_drv_init);
 module_exit(palmte_panel_drv_cleanup);
+

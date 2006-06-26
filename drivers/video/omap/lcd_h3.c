@@ -28,32 +28,22 @@
 #include <asm/arch/tps65010.h>
 #include <asm/arch/omapfb.h>
 
-/* #define OMAPFB_DBG 1 */
-
-#include "debug.h"
-
 #define MODULE_NAME	"omapfb-lcd_h3"
 
 #define pr_err(fmt, args...) printk(KERN_ERR MODULE_NAME ": " fmt, ## args)
 
-static int h3_panel_init(struct omapfb_device *fbdev)
+static int h3_panel_init(struct lcd_panel *panel, struct omapfb_device *fbdev)
 {
-	DBGENTER(1);
-	DBGLEAVE(1);
 	return 0;
 }
 
-static void h3_panel_cleanup(void)
+static void h3_panel_cleanup(struct lcd_panel *panel)
 {
-	DBGENTER(1);
-	DBGLEAVE(1);
 }
 
-static int h3_panel_enable(void)
+static int h3_panel_enable(struct lcd_panel *panel)
 {
 	int r = 0;
-
-	DBGENTER(1);
 
 	/* GPIO1 and GPIO2 of TPS65010 send LCD_ENBKL and LCD_ENVDD signals */
 	r = tps65010_set_gpio_out_value(GPIO1, HIGH);
@@ -62,15 +52,12 @@ static int h3_panel_enable(void)
 	if (r)
 		pr_err("Unable to turn on LCD panel\n");
 
-	DBGLEAVE(1);
 	return r;
 }
 
-static void h3_panel_disable(void)
+static void h3_panel_disable(struct lcd_panel *panel)
 {
 	int r = 0;
-
-	DBGENTER(1);
 
 	/* GPIO1 and GPIO2 of TPS65010 send LCD_ENBKL and LCD_ENVDD signals */
 	r = tps65010_set_gpio_out_value(GPIO1, LOW);
@@ -78,11 +65,9 @@ static void h3_panel_disable(void)
 		tps65010_set_gpio_out_value(GPIO2, LOW);
 	if (r)
 		pr_err("Unable to turn off LCD panel\n");
-
-	DBGLEAVE(1);
 }
 
-static unsigned long h3_panel_get_caps(void)
+static unsigned long h3_panel_get_caps(struct lcd_panel *panel)
 {
 	return 0;
 }
@@ -113,26 +98,22 @@ struct lcd_panel h3_panel = {
 
 static int h3_panel_probe(struct platform_device *pdev)
 {
-	DBGENTER(1);
 	omapfb_register_panel(&h3_panel);
 	return 0;
 }
 
 static int h3_panel_remove(struct platform_device *pdev)
 {
-	DBGENTER(1);
 	return 0;
 }
 
 static int h3_panel_suspend(struct platform_device *pdev, pm_message_t mesg)
 {
-	DBGENTER(1);
 	return 0;
 }
 
 static int h3_panel_resume(struct platform_device *pdev)
 {
-	DBGENTER(1);
 	return 0;
 }
 
