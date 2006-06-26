@@ -100,13 +100,13 @@ struct omap_usb_config {
 struct omap_lcd_config {
 	char panel_name[16];
 	char ctrl_name[16];
+	s16  nreset_gpio;
+	u8   data_lines;
 };
 
 struct omap_fbmem_config {
-	u32 fb_sram_start;
-	u32 fb_sram_size;
-	u32 fb_sdram_start;
-	u32 fb_sdram_size;
+	u32 start;
+	u32 size;
 };
 
 /* Cover:
