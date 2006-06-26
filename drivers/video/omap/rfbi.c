@@ -21,7 +21,6 @@
  * with this program; if not, write to the Free Software Foundation, Inc.,
  * 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
-
 #include <linux/module.h>
 #include <linux/delay.h>
 #include <linux/i2c.h>
@@ -34,14 +33,6 @@
 #include <asm/arch/omapfb.h>
 
 #include "dispc.h"
-
-/* #define OMAPFB_DBG 1 */
-
-#include "debug.h"
-
-#define MODULE_NAME "omapfb-rfbi"
-
-#define pr_err(fmt, args...) printk(KERN_ERR MODULE_NAME ": " fmt, ## args)
 
 #define RFBI_BASE		0x48050800
 #define RFBI_REVISION		0x0000
@@ -73,9 +64,8 @@ static struct {
 	void		*lcdc_callback_data;
 	unsigned long	l4_khz;
 	int		bits_per_cycle;
+	struct omapfb_device *fbdev;
 } rfbi;
-
-struct lcd_ctrl_extif rfbi_extif;
 
 static inline void rfbi_write_reg(int idx, u32 val)
 {
@@ -87,7 +77,7 @@ static inline u32 rfbi_read_reg(int idx)
 	return __raw_readl(rfbi.base + idx);
 }
 
-#ifdef OMAPFB_DBG
+#ifdef VERBOSE
 static void rfbi_print_timings(void)
 {
 	u32 l;
@@ -98,16 +88,20 @@ static void rfbi_print_timings(void)
 	if (l & (1 << 4))
 		time *= 2;
 
-	DBGPRINT(1, "Tick time %u ps\n", time);
+	dev_dbg(rfbi.fbdev->dev, "Tick time %u ps\n", time);
 	l = rfbi_read_reg(RFBI_ONOFF_TIME0);
-	DBGPRINT(1, "CSONTIME %d, CSOFFTIME %d, WEONTIME %d, WEOFFTIME %d, "
-	       "REONTIME %d, REOFFTIME %d\n",
-	       l & 0x0f, (l >> 4) & 0x3f, (l >> 10) & 0x0f, (l >> 14) & 0x3f,
-	       (l >> 20) & 0x0f, (l >> 24) & 0x3f);
+	dev_dbg(rfbi.fbdev->dev,
+		"CSONTIME %d, CSOFFTIME %d, WEONTIME %d, WEOFFTIME %d, "
+		"REONTIME %d, REOFFTIME %d\n",
+		l & 0x0f, (l >> 4) & 0x3f, (l >> 10) & 0x0f, (l >> 14) & 0x3f,
+		(l >> 20) & 0x0f, (l >> 24) & 0x3f);
+
 	l = rfbi_read_reg(RFBI_CYCLE_TIME0);
-	DBGPRINT(1, "WECYCLETIME %d, RECYCLETIME %d, CSPULSEWIDTH %d, "
-	       "ACCESSTIME %d\n",
-	       (l & 0x3f), (l >> 6) & 0x3f, (l >> 12) & 0x3f, (l >> 22) & 0x3f);
+	dev_dbg(rfbi.fbdev->dev,
+		"WECYCLETIME %d, RECYCLETIME %d, CSPULSEWIDTH %d, "
+		"ACCESSTIME %d\n",
+		(l & 0x3f), (l >> 6) & 0x3f, (l >> 12) & 0x3f,
+		(l >> 22) & 0x3f);
 }
 #else
 static void rfbi_print_timings(void) {}
@@ -341,20 +335,18 @@ static void rfbi_set_bits_per_cycle(int bpc)
 	rfbi.bits_per_cycle = bpc;
 }
 
-static int rfbi_init(void)
+static int rfbi_init(struct omapfb_device *fbdev)
 {
 	u32 l;
 	int r;
 	struct clk *dss_ick;
 
+	rfbi.fbdev = fbdev;
 	rfbi.base = io_p2v(RFBI_BASE);
-
-	l = rfbi_read_reg(RFBI_REVISION);
-	pr_info(MODULE_NAME ": version %d.%d\n", (l >> 4) & 0x0f, l & 0x0f);
 
 	dss_ick = clk_get(NULL, "dss_ick");
 	if (IS_ERR(dss_ick)) {
-		pr_err("can't get dss_ick\n");
+		dev_err(fbdev->dev, "can't get dss_ick\n");
 		return PTR_ERR(dss_ick);
 	}
 
@@ -383,9 +375,13 @@ static int rfbi_init(void)
 	rfbi_write_reg(RFBI_CONTROL, l);
 
 	if ((r = omap_dispc_request_irq(rfbi_dma_callback, NULL)) < 0) {
-		pr_err("can't get DISPC irq\n");
+		dev_err(fbdev->dev, "can't get DISPC irq\n");
 		return r;
 	}
+
+	l = rfbi_read_reg(RFBI_REVISION);
+	pr_info("omapfb: RFBI version %d.%d initialized\n",
+		(l >> 4) & 0x0f, l & 0x0f);
 
 	return 0;
 }
@@ -395,7 +391,7 @@ static void rfbi_cleanup(void)
 	omap_dispc_free_irq();
 }
 
-struct lcd_ctrl_extif rfbi_extif = {
+const struct lcd_ctrl_extif omap2_ext_if = {
 	.init			= rfbi_init,
 	.cleanup		= rfbi_cleanup,
 	.get_clk_info		= rfbi_get_clk_info,
@@ -406,6 +402,7 @@ struct lcd_ctrl_extif rfbi_extif = {
 	.read_data		= rfbi_read_data,
 	.write_data		= rfbi_write_data,
 	.transfer_area		= rfbi_transfer_area,
+
 	.max_transmit_size	= (u32)~0,
 };
 

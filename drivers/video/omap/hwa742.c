@@ -32,11 +32,7 @@
 #include <asm/arch/dma.h>
 #include <asm/arch/omapfb.h>
 
-/* #define OMAPFB_DBG 1 */
-
-#include "debug.h"
-
-#define MODULE_NAME			"omapfb-hwa742"
+#define MODULE_NAME		  "hwa742"
 
 #define HWA742_REV_CODE_REG       0x0
 #define HWA742_CONFIG_REG         0x2
@@ -80,22 +76,20 @@
 
 #define HWA742_AUTO_UPDATE_TIME		(HZ / 20)
 
-#define pr_err(fmt, args...) printk(KERN_ERR MODULE_NAME ": " fmt, ## args)
-
 /* Reserve 4 request slots for requests in irq context */
 #define REQ_POOL_SIZE			24
 #define IRQ_REQ_POOL_SIZE		4
+
+#define REQ_FROM_IRQ_POOL 0x01
+
+#define REQ_COMPLETE	0
+#define REQ_PENDING	1
 
 struct update_param {
 	int	x, y, width, height;
 	int	color_mode;
 	int	flags;
 };
-
-#define REQ_FROM_IRQ_POOL 0x01
-
-#define REQ_COMPLETE	0
-#define REQ_PENDING	1
 
 struct hwa742_request {
 	struct list_head entry;
@@ -111,7 +105,7 @@ struct hwa742_request {
 	} par;
 };
 
-struct hwa742_struct {
+struct {
 	enum omapfb_update_mode	update_mode;
 	enum omapfb_update_mode	update_mode_before_suspend;
 
@@ -139,6 +133,8 @@ struct hwa742_struct {
 	struct lcd_ctrl_extif	*extif;
 	struct lcd_ctrl		*int_ctrl;
 } hwa742;
+
+struct lcd_ctrl hwa742_ctrl;
 
 static u8 hwa742_read_reg(u8 reg)
 {
@@ -186,10 +182,14 @@ static void set_format_regs(int conv, int transl, int flags)
 {
 	if (flags & OMAPFB_FORMAT_FLAG_DOUBLE) {
 		hwa742.window_type = ((hwa742.window_type & 0xfc) | 0x01);
-		DBGPRINT(2, "hwa742: enabled pixel doubling\n");
+#ifdef VERBOSE
+		dev_dbg(hwa742.fbdev->dev, "hwa742: enabled pixel doubling\n");
+#endif
 	} else {
 		hwa742.window_type = (hwa742.window_type & 0xfc);
-		DBGPRINT(2, "hwa742: disabled pixel doubling\n");
+#ifdef VERBOSE
+		dev_dbg(hwa742.fbdev->dev, "hwa742: disabled pixel doubling\n");
+#endif
 	}
 
 	hwa742_write_reg(HWA742_INPUT_MODE_REG, conv);
@@ -239,8 +239,6 @@ static void process_pending_requests(void)
 {
 	unsigned long flags;
 
-	DBGENTER(2);
-
 	spin_lock_irqsave(&hwa742.req_lock, flags);
 
 	while (!list_empty(&hwa742.pending_req_list)) {
@@ -266,16 +264,12 @@ static void process_pending_requests(void)
 	}
 
 	spin_unlock_irqrestore(&hwa742.req_lock, flags);
-
-	DBGLEAVE(2);
 }
 
 static void submit_req_list(struct list_head *head)
 {
 	unsigned long flags;
 	int process = 1;
-
-	DBGENTER(2);
 
 	spin_lock_irqsave(&hwa742.req_lock, flags);
 	if (likely(!list_empty(&hwa742.pending_req_list)))
@@ -285,8 +279,6 @@ static void submit_req_list(struct list_head *head)
 
 	if (process)
 		process_pending_requests();
-
-	DBGLEAVE(2);
 }
 
 static void request_complete(void *data)
@@ -320,8 +312,11 @@ static int send_frame_handler(struct hwa742_request *req)
 	int flags = par->flags;
 	int scr_width = 800;
 
-	DBGPRINT(2, "x %d y %d w %d h %d scr_width %d color_mode %d flags %d\n",
+#ifdef VERBOSE
+	dev_dbg(hwa742.fbdev->dev, "x %d y %d w %d h %d scr_width %d "
+		"color_mode %d flags %d\n",
 		x, y, w, h, scr_width, color_mode, flags);
+#endif
 
 	switch (color_mode) {
 	case OMAPFB_COLOR_YUV422:
@@ -425,21 +420,15 @@ static void create_req_list(struct omapfb_update_window *win,
 
 static void auto_update_complete(void *data)
 {
-	DBGENTER(2);
-
 	if (!hwa742.stop_auto_update)
 		mod_timer(&hwa742.auto_update_timer,
 			  jiffies + HWA742_AUTO_UPDATE_TIME);
-
-	DBGLEAVE(2);
 }
 
 static void hwa742_update_window_auto(unsigned long arg)
 {
 	LIST_HEAD(req_list);
 	struct hwa742_request *last;
-
-	DBGENTER(2);
 
 	create_req_list(&hwa742.auto_update_window, &req_list);
 	last = list_entry(req_list.prev, struct hwa742_request, entry);
@@ -448,11 +437,10 @@ static void hwa742_update_window_auto(unsigned long arg)
 	last->complete_data = NULL;
 
 	submit_req_list(&req_list);
-
-	DBGLEAVE(2);
 }
 
-int hwa742_update_window_async(struct omapfb_update_window *win,
+int hwa742_update_window_async(struct fb_info *fbi,
+				 struct omapfb_update_window *win,
 				 void (*complete_callback)(void *arg),
 				 void *complete_callback_data)
 {
@@ -460,15 +448,13 @@ int hwa742_update_window_async(struct omapfb_update_window *win,
 	struct hwa742_request *last;
 	int r = 0;
 
-	DBGENTER(2);
-
 	if (hwa742.update_mode != OMAPFB_MANUAL_UPDATE) {
-		DBGPRINT(1, "invalid update mode\n");
+		dev_dbg(hwa742.fbdev->dev, "invalid update mode\n");
 		r = -EINVAL;
 		goto out;
 	}
 	if (unlikely(win->format & ~(0x03 | OMAPFB_FORMAT_FLAG_DOUBLE))) {
-		DBGPRINT(1, "invalid window flag");
+		dev_dbg(hwa742.fbdev->dev, "invalid window flag");
 		r = -EINVAL;
 		goto out;
 	}
@@ -482,7 +468,6 @@ int hwa742_update_window_async(struct omapfb_update_window *win,
 	submit_req_list(&req_list);
 
 out:
-	DBGLEAVE(2);
 	return r;
 }
 EXPORT_SYMBOL(hwa742_update_window_async);
@@ -521,8 +506,6 @@ static void hwa742_sync(void)
 	struct hwa742_request *req;
 	struct completion comp;
 
-	DBGENTER(2);
-
 	req = alloc_req();
 
 	req->handler = sync_handler;
@@ -534,13 +517,11 @@ static void hwa742_sync(void)
 	submit_req_list(&req_list);
 
 	wait_for_completion(&comp);
-
-	DBGLEAVE(2);
 }
 
 static void hwa742_bind_client(struct omapfb_notifier_block *nb)
 {
-	DBGPRINT(1, "update_mode %d\n", hwa742.update_mode);
+	dev_dbg(hwa742.fbdev->dev, "update_mode %d\n", hwa742.update_mode);
 	if (hwa742.update_mode == OMAPFB_MANUAL_UPDATE) {
 		omapfb_notify_clients(hwa742.fbdev, OMAPFB_EVENT_READY);
 	}
@@ -548,20 +529,14 @@ static void hwa742_bind_client(struct omapfb_notifier_block *nb)
 
 static int hwa742_set_update_mode(enum omapfb_update_mode mode)
 {
-	int r = 0;
-
-	DBGENTER(1);
-
 	if (mode != OMAPFB_MANUAL_UPDATE && mode != OMAPFB_AUTO_UPDATE &&
-	    mode != OMAPFB_UPDATE_DISABLED) {
-		r = -EINVAL;
-		goto out;
-	}
+	    mode != OMAPFB_UPDATE_DISABLED)
+		return -EINVAL;
 
 	if (mode == hwa742.update_mode)
-		goto out;
+		return 0;
 
-	printk(KERN_INFO "hwa742: setting update mode to %s\n",
+	pr_info("omapfb: hwa742: setting update mode to %s\n",
 			mode == OMAPFB_UPDATE_DISABLED ? "disabled" :
 			(mode == OMAPFB_AUTO_UPDATE ? "auto" : "manual"));
 
@@ -591,10 +566,8 @@ static int hwa742_set_update_mode(enum omapfb_update_mode mode)
 	case OMAPFB_UPDATE_DISABLED:
 		break;
 	}
-out:
 
-	DBGLEAVE(1);
-	return r;
+	return 0;
 }
 
 static enum omapfb_update_mode hwa742_get_update_mode(void)
@@ -622,7 +595,7 @@ static int calc_reg_timing(unsigned long sysclk, int div)
 	 * WriteCycle = 2*SYSCLK + 2 ns,
 	 * CSPulseWidth = 10 ns */
 	systim = 1000000000 / (sysclk / 1000);
-	DBGPRINT(1, "HWA742 systim %lu ps extif_clk_period %u ps"
+	dev_dbg(hwa742.fbdev->dev, "HWA742 systim %lu ps extif_clk_period %u ps"
 		  "extif_clk_div %d\n", systim, hwa742.extif_clk_period, div);
 
 	t = &hwa742.reg_timings;
@@ -643,12 +616,12 @@ static int calc_reg_timing(unsigned long sysclk, int div)
 		t->re_cycle_time = t->re_off_time;
 	t->cs_pulse_width = 0;
 
-	DBGPRINT(1, "[reg]cson %d csoff %d reon %d reoff %d\n",
+	dev_dbg(hwa742.fbdev->dev, "[reg]cson %d csoff %d reon %d reoff %d\n",
 		 t->cs_on_time, t->cs_off_time, t->re_on_time, t->re_off_time);
-	DBGPRINT(1, "[reg]weon %d weoff %d recyc %d wecyc %d\n",
+	dev_dbg(hwa742.fbdev->dev, "[reg]weon %d weoff %d recyc %d wecyc %d\n",
 		 t->we_on_time, t->we_off_time, t->re_cycle_time,
 		 t->we_cycle_time);
-	DBGPRINT(1, "[reg]rdaccess %d cspulse %d\n",
+	dev_dbg(hwa742.fbdev->dev, "[reg]rdaccess %d cspulse %d\n",
 		 t->access_time, t->cs_pulse_width);
 
 	return hwa742.extif->convert_timings(t);
@@ -669,7 +642,7 @@ static int calc_lut_timing(unsigned long sysclk, int div)
 	 * CSPulseWidth = 10 ns
 	 */
 	systim = 1000000000 / (sysclk / 1000);
-	DBGPRINT(1, "HWA742 systim %lu ps extif_clk_period %u ps"
+	dev_dbg(hwa742.fbdev->dev, "HWA742 systim %lu ps extif_clk_period %u ps"
 		  "extif_clk_div %d\n", systim, hwa742.extif_clk_period, div);
 
 	t = &hwa742.lut_timings;
@@ -694,12 +667,12 @@ static int calc_lut_timing(unsigned long sysclk, int div)
 		t->re_cycle_time = t->re_off_time;
 	t->cs_pulse_width = 0;
 
-	DBGPRINT(1, "[lut]cson %d csoff %d reon %d reoff %d\n",
+	dev_dbg(hwa742.fbdev->dev, "[lut]cson %d csoff %d reon %d reoff %d\n",
 		 t->cs_on_time, t->cs_off_time, t->re_on_time, t->re_off_time);
-	DBGPRINT(1, "[lut]weon %d weoff %d recyc %d wecyc %d\n",
+	dev_dbg(hwa742.fbdev->dev, "[lut]weon %d weoff %d recyc %d wecyc %d\n",
 		 t->we_on_time, t->we_off_time, t->re_cycle_time,
 		 t->we_cycle_time);
-	DBGPRINT(1, "[lut]rdaccess %d cspulse %d\n",
+	dev_dbg(hwa742.fbdev->dev, "[lut]rdaccess %d cspulse %d\n",
 		 t->access_time, t->cs_pulse_width);
 
 	return hwa742.extif->convert_timings(t);
@@ -727,7 +700,7 @@ static int calc_extif_timings(unsigned long sysclk)
 		return 0;
 
 err:
-	pr_err("can't setup timings\n");
+	dev_err(hwa742.fbdev->dev, "can't setup timings\n");
 	return -1;
 }
 
@@ -748,7 +721,7 @@ static void hwa742_suspend(void)
 static void hwa742_resume(void)
 {
 	if (clk_enable(hwa742.sys_ck) != 0)
-		pr_err("failed to enable SYS clock\n");
+		dev_err(hwa742.fbdev->dev, "failed to enable SYS clock\n");
 	/* Disable sleep mode */
 	hwa742_write_reg(HWA742_POWER_SAVE, 0);
 	while (1) {
@@ -761,25 +734,24 @@ static void hwa742_resume(void)
 	hwa742_set_update_mode(hwa742.update_mode_before_suspend);
 }
 
-struct lcd_ctrl hwa742_ctrl;
-
-static int hwa742_init(struct omapfb_device *fbdev, int ext_mode, int req_vram_size)
+static int hwa742_init(struct omapfb_device *fbdev, int ext_mode,
+		       struct omapfb_mem_desc *req_vram)
 {
 	int r = 0, i;
 	u8 rev, conf;
 	unsigned long sysfreq;
 	int div, nd;
 
-	DBGENTER(1);
+	hwa742.fbdev = fbdev;
 
 	hwa742.sys_ck = clk_get(0, "bclk");
 	if (IS_ERR(hwa742.sys_ck)) {
-		pr_err("can't get SYS clock\n");
+		dev_err(fbdev->dev, "can't get SYS clock\n");
 		return PTR_ERR(hwa742.sys_ck);
 	}
 
 	if ((r = clk_enable(hwa742.sys_ck)) != 0) {
-		pr_err("can't enable SYS clock\n");
+		dev_err(fbdev->dev, "can't enable SYS clock\n");
 		clk_put(hwa742.sys_ck);
 		return r;
 	}
@@ -792,14 +764,11 @@ static int hwa742_init(struct omapfb_device *fbdev, int ext_mode, int req_vram_s
 
 	spin_lock_init(&hwa742.req_lock);
 
-	if ((r = hwa742.int_ctrl->init(fbdev, 1, req_vram_size)) < 0)
+	if ((r = hwa742.int_ctrl->init(fbdev, 1, req_vram)) < 0)
 		goto err1;
 
-	if ((r = hwa742.extif->init()) < 0)
+	if ((r = hwa742.extif->init(fbdev)) < 0)
 		goto err2;
-
-	hwa742_ctrl.get_vram_layout = hwa742.int_ctrl->get_vram_layout;
-	hwa742_ctrl.mmap = hwa742.int_ctrl->mmap;
 
 	sysfreq = clk_get_rate(hwa742.sys_ck);
 	if ((r = calc_extif_timings(sysfreq)) < 0)
@@ -816,17 +785,14 @@ static int hwa742_init(struct omapfb_device *fbdev, int ext_mode, int req_vram_s
 
 	rev = hwa742_read_reg(HWA742_REV_CODE_REG);
 	if ((rev & 0xfc) != 0x80) {
-		pr_err("invalid revision %02x\n", rev);
+		dev_err(fbdev->dev, "invalid revision %02x\n", rev);
 		r = -ENODEV;
 		goto err3;
 	}
 
-	conf = hwa742_read_reg(HWA742_CONFIG_REG);
-	pr_info(MODULE_NAME ": Epson HWA742 LCD controller rev. %d "
-			"initialized (CNF pins %x)\n", rev & 0x03, conf & 0x07);
-
 	if (!(hwa742_read_reg(HWA742_PLL_DIV_REG) & 0x80)) {
-		pr_err("controller not initialized by the bootloader\n");
+		dev_err(hwa742.fbdev->dev,
+			"controller not initialized by the bootloader\n");
 		r = -ENODEV;
 		goto err2;
 	}
@@ -848,14 +814,16 @@ static int hwa742_init(struct omapfb_device *fbdev, int ext_mode, int req_vram_s
 	hwa742.prev_color_mode = -1;
 	hwa742.prev_flags = 0;
 
-	hwa742.fbdev = fbdev;
-
 	INIT_LIST_HEAD(&hwa742.free_req_list);
 	INIT_LIST_HEAD(&hwa742.pending_req_list);
 	for (i = 0; i < ARRAY_SIZE(hwa742.req_pool); i++)
 		list_add(&hwa742.req_pool[i].entry, &hwa742.free_req_list);
 	BUG_ON(i <= IRQ_REQ_POOL_SIZE);
 	sema_init(&hwa742.req_sema, i - IRQ_REQ_POOL_SIZE);
+
+	conf = hwa742_read_reg(HWA742_CONFIG_REG);
+	pr_info("omapfb: hwa742 LCD controller rev. %d "
+			"initialized (CNF pins %x)\n", rev & 0x03, conf & 0x07);
 
 	return 0;
 err3:
