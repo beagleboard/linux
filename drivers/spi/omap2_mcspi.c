@@ -88,6 +88,8 @@ struct omap2_mcspi {
 	struct spi_master	*master;
 	struct clk		*ick;
 	struct clk		*fck;
+	/* This is the virtual base address of the module */
+	unsigned long           base;
 };
 
 struct omap2_mcspi_cs {
@@ -102,39 +104,38 @@ struct omap2_mcspi_cs {
 		val &= ~mask; \
 } while(0)
 
-
-#define MASTER_PDATA(master) (struct omap2_mcspi_platform_config *)((master)->cdev.dev->platform_data)
-
-static inline void mcspi_write_reg(const struct spi_master *master,
+static inline void mcspi_write_reg(struct spi_master *master,
 				   int idx, u32 val)
 {
-	struct omap2_mcspi_platform_config *pdata = MASTER_PDATA(master);
+	struct omap2_mcspi * mcspi = class_get_devdata(&master->cdev);
 
-	__raw_writel(val, pdata->base + idx);
+	__raw_writel(val, mcspi->base + idx);
 }
 
-static inline u32 mcspi_read_reg(const struct spi_master *master,
+static inline u32 mcspi_read_reg(struct spi_master *master,
 				 int idx)
 {
-	struct omap2_mcspi_platform_config *pdata = MASTER_PDATA(master);
+	struct omap2_mcspi * mcspi = class_get_devdata(&master->cdev);
 
-	return __raw_readl(pdata->base + idx);
+	return __raw_readl(mcspi->base + idx);
 }
 
 static inline void mcspi_write_cs_reg(const struct spi_device *spi,
 				      int idx, u32 val)
 {
-	struct omap2_mcspi_platform_config *pdata = MASTER_PDATA(spi->master);
+	struct omap2_mcspi * mcspi = class_get_devdata(&spi->master->cdev);
 
-	__raw_writel(val, pdata->base + spi->chip_select * 0x14 + idx);
+	__raw_writel(val,
+		     mcspi->base + spi->chip_select * 0x14 + idx);
 }
 
 static inline u32 mcspi_read_cs_reg(const struct spi_device *spi,
 				    int idx)
 {
-	struct omap2_mcspi_platform_config *pdata = MASTER_PDATA(spi->master);
+	struct omap2_mcspi * mcspi = class_get_devdata(&spi->master->cdev);
 
-	return __raw_readl(pdata->base + spi->chip_select * 0x14 + idx);
+	return __raw_readl(mcspi->base
+			   + spi->chip_select * 0x14 + idx);
 }
 
 static void omap2_mcspi_set_enable(const struct spi_device *spi, int enable)
@@ -169,12 +170,14 @@ static void omap2_mcspi_set_master_mode(struct spi_device *spi, int single_chann
 
 static void omap2_mcspi_txrx(struct spi_device *spi, struct spi_transfer *xfer)
 {
+	struct omap2_mcspi * mcspi;
 	struct omap2_mcspi_cs *cs = spi->controller_state;
 	unsigned int		count, c;
 	u32                     l;
 	unsigned long		base, tx_reg, rx_reg, chstat_reg;
 	int			word_len;
 
+	mcspi = class_get_devdata(&spi->master->cdev);
 	count = xfer->len;
 	c = count;
 	word_len = cs->word_len;
@@ -191,7 +194,7 @@ static void omap2_mcspi_txrx(struct spi_device *spi, struct spi_transfer *xfer)
 
 	/* We store the pre-calculated register addresses on stack to speed
 	 * up the transfer loop. */
-	base = (MASTER_PDATA(spi->master))->base + spi->chip_select * 0x14;
+	base = mcspi->base + spi->chip_select * 0x14;
 	tx_reg		= base + OMAP2_MCSPI_TX0;
 	rx_reg		= base + OMAP2_MCSPI_RX0;
 	chstat_reg	= base + OMAP2_MCSPI_CHSTAT0;
@@ -486,6 +489,7 @@ static int __devinit omap2_mcspi_probe(struct platform_device *pdev)
 	struct spi_master		*master;
 	struct omap2_mcspi_platform_config *pdata = pdev->dev.platform_data;
 	struct omap2_mcspi		*mcspi;
+	struct resource                 *r;
 	int				status = 0;
 
 	if (!pdata)
@@ -515,6 +519,14 @@ static int __devinit omap2_mcspi_probe(struct platform_device *pdev)
 
 	mcspi = class_get_devdata(&master->cdev);
 	mcspi->master = master;
+
+	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (r == NULL) {
+		status = -ENODEV;
+		goto err1;
+	}
+	
+	mcspi->base = io_p2v(r->start);
 
 	tasklet_init(&mcspi->tasklet, omap2_mcspi_work, (unsigned long) mcspi);
 
