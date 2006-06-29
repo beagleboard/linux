@@ -88,6 +88,13 @@ unsigned int gpmc_ns_to_ticks(unsigned int time_ns)
 	return (time_ns * 1000 + tick_ps - 1) / tick_ps;
 }
 
+unsigned int gpmc_round_ns_to_ticks(unsigned int time_ns)
+{
+	unsigned long ticks = gpmc_ns_to_ticks(time_ns);
+
+	return ticks * gpmc_get_fclk_period() / 1000;
+}
+
 #ifdef DEBUG
 static int set_gpmc_timing_reg(int cs, int reg, int st_bit, int end_bit,
 			       int time, const char *name)
@@ -141,7 +148,7 @@ int gpmc_cs_calc_divider(int cs, unsigned int sync_clk)
 	div = l / gpmc_get_fclk_period();
 	if (div > 4)
 		return -1;
-	if (div < 0)
+	if (div <= 0)
 		div = 1;
 
 	return div;
@@ -183,6 +190,7 @@ int gpmc_cs_set_timings(int cs, const struct gpmc_timings *t)
 	l = gpmc_cs_read_reg(cs, GPMC_CS_CONFIG1);
 	l &= ~0x03;
 	l |= (div - 1);
+	gpmc_cs_write_reg(cs, GPMC_CS_CONFIG1, l);
 
 	return 0;
 }
