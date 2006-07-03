@@ -55,7 +55,8 @@
  * files.
  */
 
-#define	TS_POLL_PERIOD	msecs_to_jiffies(10)
+#define TS_POLL_DELAY	(1 * 1000000)	/* ns delay before the first sample */
+#define	TS_POLL_PERIOD	(5 * 1000000)	/* ns delay between samples */
 
 /* this driver doesn't aim at the peak continuous sample rate */
 #define	SAMPLE_BITS	(8 /*cmd*/ + 16 /*sample*/ + 2 /* before, after */)
@@ -100,7 +101,7 @@ struct ads7846 {
 	u16			debounce_rep;
 
 	spinlock_t		lock;
-	struct timer_list	timer;		/* P: lock */
+	struct hrtimer		timer;
 	unsigned		pendown:1;	/* P: lock */
 	unsigned		pending:1;	/* P: lock */
 // FIXME remove "irq_disabled"
@@ -448,7 +449,8 @@ static void ads7846_rx(void *ads)
 		pr_debug("%s: ignored %d pressure %d\n",
 			ts->spi->dev.bus_id, ts->tc.ignore, Rt);
 #endif
-		mod_timer(&ts->timer, jiffies + TS_POLL_PERIOD);
+		hrtimer_start(&ts->timer, ktime_set(0, TS_POLL_PERIOD),
+			      HRTIMER_REL);
 		return;
 	}
 
@@ -468,7 +470,7 @@ static void ads7846_rx(void *ads)
 	}
 
 
-	mod_timer(&ts->timer, jiffies + TS_POLL_PERIOD);
+	hrtimer_start(&ts->timer, ktime_set(0, TS_POLL_PERIOD), HRTIMER_REL);
 }
 
 static void ads7846_debounce(void *ads)
@@ -523,9 +525,9 @@ static void ads7846_debounce(void *ads)
 				status);
 }
 
-static void ads7846_timer(unsigned long handle)
+static int ads7846_timer(struct hrtimer *handle)
 {
-	struct ads7846	*ts = (void *)handle;
+	struct ads7846	*ts = container_of(handle, struct ads7846, timer);
 	int		status = 0;
 
 	spin_lock_irq(&ts->lock);
@@ -553,6 +555,7 @@ static void ads7846_timer(unsigned long handle)
 	}
 
 	spin_unlock_irq(&ts->lock);
+	return HRTIMER_NORESTART;
 }
 
 static irqreturn_t ads7846_irq(int irq, void *handle, struct pt_regs *regs)
@@ -572,7 +575,8 @@ static irqreturn_t ads7846_irq(int irq, void *handle, struct pt_regs *regs)
 			ts->irq_disabled = 1;
 			disable_irq(ts->spi->irq);
 			ts->pending = 1;
-			mod_timer(&ts->timer, jiffies);
+			hrtimer_start(&ts->timer, ktime_set(0, TS_POLL_DELAY),
+					HRTIMER_REL);
 		}
 	}
 	spin_unlock_irqrestore(&ts->lock, flags);
@@ -709,8 +713,7 @@ static int __devinit ads7846_probe(struct spi_device *spi)
 	ts->input = input_dev;
 	ts->hwmon = hwmon;
 
-	init_timer(&ts->timer);
-	ts->timer.data = (unsigned long) ts;
+	hrtimer_init(&ts->timer, CLOCK_MONOTONIC, HRTIMER_REL);
 	ts->timer.function = ads7846_timer;
 
 	spin_lock_init(&ts->lock);
