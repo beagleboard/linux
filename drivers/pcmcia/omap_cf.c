@@ -203,7 +203,7 @@ static struct pccard_operations omap_cf_ops = {
  * "what chipselect is used".  Boards could want more.
  */
 
-static int __init omap_cf_probe(struct device *dev)
+static int __devinit omap_cf_probe(struct device *dev)
 {
 	unsigned		seg;
 	struct omap_cf_socket	*cf;
