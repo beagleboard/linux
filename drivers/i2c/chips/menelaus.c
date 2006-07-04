@@ -594,6 +594,11 @@ int menelaus_set_vmmc(unsigned int mV)
 }
 EXPORT_SYMBOL(menelaus_set_vmmc);
 
+int menelaus_get_slot_pin_states(void)
+{
+	return menelaus_read_reg(MENELAUS_MCT_PIN_ST);
+}
+EXPORT_SYMBOL(menelaus_get_slot_pin_states);
 
 /*-----------------------------------------------------------------------*/
 

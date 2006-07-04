@@ -18,6 +18,7 @@ extern int menelaus_set_vio(unsigned int mV);
 extern int menelaus_set_vmmc(unsigned int mV);
 extern int menelaus_set_vdcdc(int dcdc, unsigned int mV);
 extern int menelaus_set_slot_sel(int enable);
+extern int menelaus_get_slot_pin_states(void);
 
 #if defined(CONFIG_ARCH_OMAP24XX) && defined(CONFIG_MENELAUS)
 #define omap_has_menelaus()	1

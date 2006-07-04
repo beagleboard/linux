@@ -112,29 +112,45 @@ static inline void omap_init_sti(void) {}
 #define OMAP2_MCSPI1_BASE		0x48098000
 #define OMAP2_MCSPI2_BASE		0x4809a000
 
-/* FIXME: use resources instead */
-
 static struct omap2_mcspi_platform_config omap2_mcspi1_config = {
-	.base		= io_p2v(OMAP2_MCSPI1_BASE),
 	.num_cs		= 4,
+};
+
+static struct resource omap2_mcspi1_resources[] = {
+	{
+		.start		= OMAP2_MCSPI1_BASE,
+		.end		= OMAP2_MCSPI1_BASE + 0xff,
+		.flags		= IORESOURCE_MEM,
+	},
 };
 
 struct platform_device omap2_mcspi1 = {
 	.name		= "omap2_mcspi",
 	.id		= 1,
+	.num_resources	= ARRAY_SIZE(omap2_mcspi1_resources),
+	.resource	= omap2_mcspi1_resources,
 	.dev		= {
 		.platform_data = &omap2_mcspi1_config,
 	},
 };
 
 static struct omap2_mcspi_platform_config omap2_mcspi2_config = {
-	.base		= io_p2v(OMAP2_MCSPI2_BASE),
 	.num_cs		= 2,
+};
+
+static struct resource omap2_mcspi2_resources[] = {
+	{
+		.start		= OMAP2_MCSPI2_BASE,
+		.end		= OMAP2_MCSPI2_BASE + 0xff,
+		.flags		= IORESOURCE_MEM,
+	},
 };
 
 struct platform_device omap2_mcspi2 = {
 	.name		= "omap2_mcspi",
 	.id		= 2,
+	.num_resources	= ARRAY_SIZE(omap2_mcspi2_resources),
+	.resource	= omap2_mcspi2_resources,
 	.dev		= {
 		.platform_data = &omap2_mcspi2_config,
 	},
