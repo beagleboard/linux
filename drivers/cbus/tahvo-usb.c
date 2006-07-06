@@ -310,7 +310,7 @@ static void check_vbus_state(struct tahvo_usb *tu)
 	prev_state = tu->vbus_state;
 	tu->vbus_state = reg & 0x01;
 	if (prev_state != tu->vbus_state)
-		kobject_uevent(&tu->pt_dev->dev.kobj, KOBJ_CHANGE);
+		sysfs_notify(&tu->pt_dev->dev.kobj, NULL, "vbus_state");
 }
 
 static void tahvo_usb_become_host(struct tahvo_usb *tu)

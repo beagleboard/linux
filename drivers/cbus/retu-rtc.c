@@ -315,7 +315,7 @@ static void retu_rtca_disable(void)
 static void retu_rtca_expired(void *data)
 {
 	retu_rtca_disable();
-	kobject_uevent(&retu_rtc_driver.kobj, KOBJ_CHANGE);
+	sysfs_notify(&retu_rtc_driver.kobj, NULL, "alarm_expired");
 }
 
 DECLARE_WORK(retu_rtca_work, retu_rtca_expired, NULL);
