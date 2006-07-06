@@ -719,6 +719,7 @@ static int alloc_fbmem(struct omapfb_mem_region *region)
 	}
 	region->size = frame_size;
 	region->paddr = lcdc.vram_phys;
+	region->vaddr = lcdc.vram_virt;
 	region->alloc = 1;
 
 	memset(lcdc.vram_virt, 0, lcdc.vram_size);
