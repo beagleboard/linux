@@ -28,9 +28,9 @@
 
 #include <asm/arch/clock.h>
 
-static LIST_HEAD(clocks);
+LIST_HEAD(clocks);
+DEFINE_SPINLOCK(clockfw_lock);
 static DEFINE_MUTEX(clocks_mutex);
-static DEFINE_SPINLOCK(clockfw_lock);
 
 static struct clk_functions *arch_clock;
 
