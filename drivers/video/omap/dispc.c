@@ -244,7 +244,7 @@ void omap_dispc_set_digit_size(int x, int y)
 }
 EXPORT_SYMBOL(omap_dispc_set_digit_size);
 
-static void setup_plane_fifo(int plane)
+static void setup_plane_fifo(int plane, int ext_mode)
 {
 	const u32 ftrs_reg[] = { DISPC_GFX_FIFO_THRESHOLD,
 				DISPC_VID1_BASE + DISPC_VID_FIFO_THRESHOLD,
@@ -252,16 +252,22 @@ static void setup_plane_fifo(int plane)
 	const u32 fsz_reg[] = { DISPC_GFX_FIFO_SIZE_STATUS,
 				DISPC_VID1_BASE + DISPC_VID_FIFO_SIZE_STATUS,
 			        DISPC_VID2_BASE + DISPC_VID_FIFO_SIZE_STATUS };
-
+	int low, high;
 	u32 l;
 
 	BUG_ON(plane > 2);
 
 	l = dispc_read_reg(fsz_reg[plane]);
 	l &= FLD_MASK(0, 9);
-	/* HIGH=3/4 LOW=1/4 */
+	if (ext_mode) {
+		low = l * 3 / 4;
+		high = l;
+	} else {
+		low = l / 4;
+		high = l * 3 / 4;
+	}
 	MOD_REG_FLD(ftrs_reg[plane], FLD_MASK(16, 9) | FLD_MASK(0, 9),
-			((l * 3 / 4) << 16) | (l / 4));
+			(high << 16) | low);
 }
 
 void omap_dispc_enable_lcd_out(int enable)
@@ -1095,9 +1101,9 @@ static int omap_dispc_init(struct omapfb_device *fbdev, int ext_mode,
 		MOD_REG_FLD(DISPC_DIVISOR, FLD_MASK(16, 8), 1 << 16);
 		MOD_REG_FLD(DISPC_DIVISOR, FLD_MASK(0, 8), 2 << 0);
 
-		setup_plane_fifo(0);
-		setup_plane_fifo(1);
-		setup_plane_fifo(2);
+		setup_plane_fifo(0, ext_mode);
+		setup_plane_fifo(1, ext_mode);
+		setup_plane_fifo(2, ext_mode);
 
 		setup_color_conv_coef();
 
