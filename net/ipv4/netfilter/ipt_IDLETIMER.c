@@ -43,6 +43,7 @@ struct utimer_t {
 	char name[IFNAMSIZ];
 	struct list_head entry;
 	struct timer_list timer;
+	struct work_struct work;
 };
 
 static LIST_HEAD(active_utimer_head);
@@ -58,23 +59,31 @@ static void utimer_delete(struct utimer_t *timer)
 	kfree(timer);
 }
 
-static void utimer_expired(unsigned long data)
+static void utimer_work(void * data)
 {
 	struct utimer_t *timer = (struct utimer_t *) data;
 	struct net_device *netdev;
 
-	DEBUGP("Timer '%s' expired\n", timer->name);
 	netdev = dev_get_by_name(timer->name);
+
+	if (netdev != NULL) {
+		sysfs_notify(&netdev->class_dev.kobj, NULL,
+			     "idletimer");
+		dev_put(netdev);
+	}
+}
+
+static void utimer_expired(unsigned long data)
+{
+	struct utimer_t *timer = (struct utimer_t *) data;
+
+	DEBUGP("Timer '%s' expired\n", timer->name);
 
 	spin_lock_bh(&list_lock);
 	utimer_delete(timer);
 	spin_unlock_bh(&list_lock);
 	
-	if (netdev != NULL) {
-		kobject_uevent(&netdev->class_dev.kobj,
-			       KOBJ_CHANGE);
-		dev_put(netdev);
-	}
+	schedule_work(&timer->work);
 }
 
 static struct utimer_t *utimer_create(const char *name)
@@ -91,6 +100,8 @@ static struct utimer_t *utimer_create(const char *name)
 	init_timer(&timer->timer);
 	timer->timer.function = utimer_expired;
 	timer->timer.data = (unsigned long) timer;
+
+	INIT_WORK(&timer->work, utimer_work, timer);
 
 	DEBUGP("Created timer '%s'\n", timer->name);
 
