@@ -206,11 +206,12 @@ static void utimer_fini(void)
  * The actual iptables plugin.
  */
 static unsigned int ipt_idletimer_target(struct sk_buff **pskb,
-				     const struct net_device *in,
-				     const struct net_device *out,
-				     unsigned int hooknum,
-				     const void *targinfo,
-				     void *userinfo)
+					 const struct net_device *in,
+					 const struct net_device *out,
+					 unsigned int hooknum,
+					 const struct xt_target *xttarget,
+					 const void *targinfo,
+					 void *userinfo)
 {
 	struct ipt_idletimer_info *target = (struct ipt_idletimer_info*) targinfo;
 	unsigned long expires;
@@ -227,10 +228,11 @@ static unsigned int ipt_idletimer_target(struct sk_buff **pskb,
 }
 
 static int ipt_idletimer_checkentry(const char *tablename,
-				const void *e,
-				void *targinfo,
-				unsigned int targinfosize,
-				unsigned int hookmask)
+				    const void *e,
+				    const struct xt_target *target,
+				    void *targinfo,
+				    unsigned int targinfosize,
+				    unsigned int hookmask)
 {
 	struct ipt_idletimer_info *info =
 		(struct ipt_idletimer_info *) targinfo;
@@ -253,6 +255,7 @@ static struct ipt_target ipt_idletimer = {
 	.target		= ipt_idletimer_target,
 	.checkentry	= ipt_idletimer_checkentry,
 	.me		= THIS_MODULE,
+	.targetsize     = sizeof(struct ipt_idletimer_info),
 };
 
 static int __init init(void)
