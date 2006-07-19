@@ -31,6 +31,5 @@
 
 /* Placeholder for H4 specific defines */
 #define OMAP24XX_ETHR_GPIO_IRQ		92
-#define H4_CS0_BASE			0x04000000
 #endif /*  __ASM_ARCH_OMAP_H4_H */
 

@@ -44,6 +44,9 @@
 #include <asm/io.h>
 #include <asm/delay.h>
 
+#define H4_FLASH_CS	0
+#define H4_SMC91X_CS	1
+
 static unsigned int row_gpios[6] = { 88, 89, 124, 11, 6, 96 };
 static unsigned int col_gpios[7] = { 90, 91, 100, 36, 12, 97, 98 };
 
@@ -120,8 +123,6 @@ static struct flash_platform_data h4_flash_data = {
 };
 
 static struct resource h4_flash_resource = {
-	.start		= H4_CS0_BASE,
-	.end		= H4_CS0_BASE + SZ_64M - 1,
 	.flags		= IORESOURCE_MEM,
 };
 
@@ -297,15 +298,14 @@ static u32 is_gpmc_muxed(void)
 		return 0;
 }
 
-#define SMC91X_CS	1
-
 static inline void __init h4_init_smc91x(void)
 {
 	int eth_cs;
+	unsigned long cs_mem_base;
 	unsigned int muxed, rate;
 	struct clk *l3ck;
 
-	eth_cs	= SMC91X_CS;
+	eth_cs	= H4_SMC91X_CS;
 
 	l3ck = clk_get(NULL, "core_l3_ck");
 	if (IS_ERR(l3ck))
@@ -342,20 +342,35 @@ static inline void __init h4_init_smc91x(void)
 		gpmc_cs_write_reg(eth_cs, GPMC_CS_CONFIG6, 0x000003C2);
 	}
 
-	gpmc_cs_write_reg(eth_cs, GPMC_CS_CONFIG7,
-			  0x00000f40 | (0x08000000 >> 24));
+	if (gpmc_cs_request(eth_cs, SZ_16M, &cs_mem_base) < 0) {
+		printk(KERN_ERR "Failed to request GPMC mem for smc91x\n");
+		return;
+	}
+	h4_smc91x_resources[0].start = cs_mem_base + 0x300;
+	h4_smc91x_resources[0].end   = cs_mem_base + 0x30f;
 	udelay(100);
 
 	omap_cfg_reg(M15_24XX_GPIO92);
 	if (omap_request_gpio(OMAP24XX_ETHR_GPIO_IRQ) < 0) {
 		printk(KERN_ERR "Failed to request GPIO%d for smc91x IRQ\n",
 			OMAP24XX_ETHR_GPIO_IRQ);
+		gpmc_cs_free(eth_cs);
 		return;
 	}
 	omap_set_gpio_direction(OMAP24XX_ETHR_GPIO_IRQ, 1);
 
-	h4_smc91x_resources[0].start = gpmc_cs_get_base_addr(1) + 0x300;
-	h4_smc91x_resources[0].end   = h4_smc91x_resources[0].start + 0xf;
+}
+
+static void __init h4_init_flash(void)
+{
+	unsigned long base;
+
+	if (gpmc_cs_request(H4_FLASH_CS, SZ_64M, &base) < 0) {
+		printk("Can't request GPMC CS for flash\n");
+		return;
+	}
+	h4_flash_resource.start	= base;
+	h4_flash_resource.end	= base + SZ_64M - 1;
 }
 
 static void __init omap_h4_init_irq(void)
@@ -364,6 +379,7 @@ static void __init omap_h4_init_irq(void)
 	omap_init_irq();
 	omap_gpio_init();
 	h4_init_smc91x();
+	h4_init_flash();
 }
 
 static struct omap_uart_config h4_uart_config __initdata = {
