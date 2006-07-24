@@ -63,6 +63,13 @@ config LEDS_S3C24XX
 	  This option enables support for LEDs connected to GPIO lines
 	  on Samsung S3C24XX series CPUs, such as the S3C2410 and S3C2440.
 
+config LEDS_OMAP_PWM
+	tristate "LED Support for OMAP PWM-controlled LEDs"
+	depends on LEDS_CLASS && ARCH_OMAP && OMAP_DM_TIMER
+	help
+	  This options enables support for LEDs connected to GPIO lines
+	  controlled by a PWM timer on OMAP CPUs.
+
 comment "LED Triggers"
 
 config LEDS_TRIGGERS
