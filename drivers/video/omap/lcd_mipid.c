@@ -381,7 +381,8 @@ static void mipid_esd_start_check(struct mipid_device *md)
 
 static void mipid_esd_stop_check(struct mipid_device *md)
 {
-	cancel_rearming_delayed_work(&md->esd_work);
+	if (md->esd_check != NULL)
+		cancel_rearming_delayed_work(&md->esd_work);
 }
 
 static void mipid_esd_work(void *data)
