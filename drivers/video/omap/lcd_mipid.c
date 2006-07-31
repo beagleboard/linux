@@ -22,6 +22,7 @@
  */
 #include <linux/device.h>
 #include <linux/delay.h>
+#include <linux/workqueue.h>
 #include <linux/spi/spi.h>
 
 #include <asm/arch/omapfb.h>
@@ -65,6 +66,7 @@ struct mipid_device {
 	struct mutex		mutex;
 	struct lcd_panel	panel;
 
+	struct workqueue_struct	*esd_wq;
 	struct work_struct	esd_work;
 	void			(*esd_check)(struct mipid_device *m);
 };
@@ -120,7 +122,7 @@ static void mipid_transfer(struct mipid_device *md, int cmd, const u8 *wbuf,
 
 	r = spi_sync(md->spi, &m);
 	if (r < 0)
-		dev_dbg(md->spi->dev, "spi_sync %d\n", r);
+		dev_dbg(&md->spi->dev, "spi_sync %d\n", r);
 
 	if (rlen)
 		rbuf[0] = w & 0xff;
@@ -378,13 +380,14 @@ static void ls041y3_esd_check(struct mipid_device *md)
 static void mipid_esd_start_check(struct mipid_device *md)
 {
 	if (md->esd_check != NULL)
-		schedule_delayed_work(&md->esd_work, MIPID_ESD_CHECK_PERIOD);
+		queue_delayed_work(md->esd_wq, &md->esd_work,
+				   MIPID_ESD_CHECK_PERIOD);
 }
 
 static void mipid_esd_stop_check(struct mipid_device *md)
 {
 	if (md->esd_check != NULL)
-		cancel_rearming_delayed_work(&md->esd_work);
+		cancel_rearming_delayed_workqueue(md->esd_wq, &md->esd_work);
 }
 
 static void mipid_esd_work(void *data)
@@ -460,6 +463,11 @@ static int mipid_init(struct lcd_panel *panel,
 	struct mipid_device *md = to_mipid_device(panel);
 
 	md->fbdev = fbdev;
+	md->esd_wq = create_singlethread_workqueue("mipid_esd");
+	if (md->esd_wq == NULL) {
+		dev_err(&md->spi->dev, "can't create ESD workqueue\n");
+		return -ENOMEM;
+	}
 	INIT_WORK(&md->esd_work, mipid_esd_work, md);
 	mutex_init(&md->mutex);
 
@@ -478,6 +486,7 @@ static void mipid_cleanup(struct lcd_panel *panel)
 	struct mipid_device *md = to_mipid_device(panel);
 
 	mipid_esd_stop_check(md);
+	destroy_workqueue(md->esd_wq);
 }
 
 static struct lcd_panel mipid_panel = {
