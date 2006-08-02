@@ -1139,7 +1139,7 @@ static void omap_dispc_cleanup(void)
 {
 	cleanup_fbmem();
 	free_palette_ram();
-	free_irq(INT_24XX_DSS_IRQ, NULL);
+	free_irq(INT_24XX_DSS_IRQ, dispc.fbdev);
 	enable_lcd_clocks(0);
 	put_dss_clocks();
 }

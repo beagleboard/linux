@@ -485,7 +485,8 @@ static void mipid_cleanup(struct lcd_panel *panel)
 {
 	struct mipid_device *md = to_mipid_device(panel);
 
-	mipid_esd_stop_check(md);
+	if (md->enabled)
+		mipid_esd_stop_check(md);
 	destroy_workqueue(md->esd_wq);
 }
 
