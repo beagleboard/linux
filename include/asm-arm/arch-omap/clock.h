@@ -45,11 +45,10 @@ struct clk_functions {
 	struct clk *	(*clk_get_parent)(struct clk *clk);
 	void		(*clk_allow_idle)(struct clk *clk);
 	void		(*clk_deny_idle)(struct clk *clk);
+	void		(*clk_disable_unused)(struct clk *clk);
 };
 
 extern unsigned int mpurate;
-extern struct list_head clocks;
-extern spinlock_t clockfw_lock;
 
 extern int clk_init(struct clk_functions * custom_clocks);
 extern int clk_register(struct clk *clk);
