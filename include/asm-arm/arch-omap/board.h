@@ -117,14 +117,19 @@ struct omap_pwm_led_platform_data {
 };
 
 /* Cover:
- *      high -> closed
- *      low  -> open
+ *	high -> closed
+ *	low  -> open
  * Connection:
- *      high -> connected
- *      low  -> disconnected
+ *	high -> connected
+ *	low  -> disconnected
+ * Activity:
+ *	high -> active
+ *	low  -> inactive
+ *
  */
 #define OMAP_GPIO_SWITCH_TYPE_COVER		0x0000
 #define OMAP_GPIO_SWITCH_TYPE_CONNECTION	0x0001
+#define OMAP_GPIO_SWITCH_TYPE_ACTIVITY		0x0002
 #define OMAP_GPIO_SWITCH_FLAG_INVERTED		0x0001
 #define OMAP_GPIO_SWITCH_FLAG_OUTPUT		0x0002
 struct omap_gpio_switch_config {

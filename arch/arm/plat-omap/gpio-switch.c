@@ -1,7 +1,7 @@
 /*
  *  linux/arch/arm/plat-omap/gpio-switch.c
  *
- *  Copyright (C) 2004, 2005 Nokia Corporation
+ *  Copyright (C) 2004-2006 Nokia Corporation
  *  Written by Juha Yrjölä <juha.yrjola@nokia.com>
  *         and Paul Mundt <paul.mundt@nokia.com>
  *
@@ -44,26 +44,48 @@ static struct device_driver gpio_sw_driver;
 
 static const char *cover_str[2] = { "open", "closed" };
 static const char *connection_str[2] = { "disconnected", "connected" };
+static const char *activity_str[2] = { "inactive", "active" };
 
 /*
- * GPIO switch state poll delay in ms
+ * GPIO switch state debounce delay in ms
  */
-#define OMAP_GPIO_SW_POLL_DELAY	10
+#define OMAP_GPIO_SW_DEBOUNCE_DELAY	10
+
+static const char **get_sw_str(struct gpio_switch *sw)
+{
+	switch (sw->type) {
+	case OMAP_GPIO_SWITCH_TYPE_COVER:
+		return cover_str;
+	case OMAP_GPIO_SWITCH_TYPE_CONNECTION:
+		return connection_str;
+	case OMAP_GPIO_SWITCH_TYPE_ACTIVITY:
+		return activity_str;
+	default:
+		BUG();
+		return NULL;
+	}
+}
+
+static const char *get_sw_type(struct gpio_switch *sw)
+{
+	switch (sw->type) {
+	case OMAP_GPIO_SWITCH_TYPE_COVER:
+		return "cover";
+	case OMAP_GPIO_SWITCH_TYPE_CONNECTION:
+		return "connection";
+	case OMAP_GPIO_SWITCH_TYPE_ACTIVITY:
+		return "activity";
+	default:
+		BUG();
+		return NULL;
+	}
+}
 
 static void print_sw_state(struct gpio_switch *sw, int state)
 {
 	const char **str;
 
-	switch (sw->type) {
-	case OMAP_GPIO_SWITCH_TYPE_COVER:
-		str = cover_str;
-		break;
-	case OMAP_GPIO_SWITCH_TYPE_CONNECTION:
-		str = connection_str;
-		break;
-	default:
-		str = NULL;
-	}
+	str = get_sw_str(sw);
 	if (str != NULL)
 		printk(KERN_INFO "%s (GPIO %d) is now %s\n", sw->name, sw->gpio, str[state]);
 }
@@ -79,43 +101,87 @@ static int gpio_sw_get_state(struct gpio_switch *sw)
 	return state;
 }
 
-static ssize_t gpio_sw_store(struct device *dev,
-			     struct device_attribute *attr,
-			     const char *buf,
-			     size_t count)
+static ssize_t gpio_sw_state_store(struct device *dev,
+				   struct device_attribute *attr,
+				   const char *buf,
+				   size_t count)
 {
 	struct gpio_switch *sw = dev_get_drvdata(dev);
-	int enable = (int)simple_strtoul(buf, NULL, 10);
+	const char **str;
+	char state[16];
+	int enable;
+
+	if (!(sw->flags & OMAP_GPIO_SWITCH_FLAG_OUTPUT))
+		return -EPERM;
+
+	if (sscanf(buf, "%15s", state) != 1)
+		return -EINVAL;
+
+	str = get_sw_str(sw);
+	if (strcmp(state, str[0]) == 0)
+		enable = 0;
+	else if (strcmp(state, str[1]) == 0)
+		enable = 1;
+	else
+		return -EINVAL;
+	if (sw->flags & OMAP_GPIO_SWITCH_FLAG_INVERTED)
+		enable = !enable;
 	omap_set_gpio_dataout(sw->gpio, enable);
+
 	return count;
 }
 
-#define gpio_sw_switch_attr(name)					\
-static ssize_t gpio_sw_show_##name(struct device *dev,			\
-					struct device_attribute *attr,	\
-					char *buf)			\
-{									\
-	struct gpio_switch *sw = dev_get_drvdata(dev);			\
-	return sprintf(buf, "%s\n", name##_str[gpio_sw_get_state(sw)]);	\
-}									\
-static DEVICE_ATTR(name##_switch, S_IRUGO | S_IWUSR,			\
-		   gpio_sw_show_##name, gpio_sw_store)
+static ssize_t gpio_sw_state_show(struct device *dev,
+				  struct device_attribute *attr,
+				  char *buf)
+{
+	struct gpio_switch *sw = dev_get_drvdata(dev);
+	const char **str;
 
-gpio_sw_switch_attr(cover);
-gpio_sw_switch_attr(connection);
+	str = get_sw_str(sw);
+	return sprintf(buf, "%s\n", str[sw->state]);
+}
+
+static DEVICE_ATTR(state, S_IRUGO | S_IWUSR, gpio_sw_state_show,
+		   gpio_sw_state_store);
+
+static ssize_t gpio_sw_type_show(struct device *dev,
+				 struct device_attribute *attr,
+				 char *buf)
+{
+	struct gpio_switch *sw = dev_get_drvdata(dev);
+
+	return sprintf(buf, "%s\n", get_sw_type(sw));
+}
+
+static DEVICE_ATTR(type, S_IRUGO, gpio_sw_type_show, NULL);
+
+static ssize_t gpio_sw_direction_show(struct device *dev,
+				      struct device_attribute *attr,
+				      char *buf)
+{
+	struct gpio_switch *sw = dev_get_drvdata(dev);
+	int is_output;
+
+	is_output = sw->flags & OMAP_GPIO_SWITCH_FLAG_OUTPUT;
+	return sprintf(buf, "%s\n", is_output ? "output" : "input");
+}
+
+static DEVICE_ATTR(direction, S_IRUGO, gpio_sw_direction_show, NULL);
+
 
 static irqreturn_t gpio_sw_irq_handler(int irq, void *arg, struct pt_regs *regs)
 {
 	struct gpio_switch *sw = arg;
 
-	mod_timer(&sw->timer, jiffies + OMAP_GPIO_SW_POLL_DELAY / (1000 / HZ));
+	mod_timer(&sw->timer, jiffies + msecs_to_jiffies(OMAP_GPIO_SW_DEBOUNCE_DELAY));
 
 	return IRQ_HANDLED;
 }
 
 static void gpio_sw_timer(unsigned long arg)
 {
-	struct gpio_switch *sw = (struct gpio_switch *)arg;
+	struct gpio_switch *sw = (struct gpio_switch *) arg;
 
 	schedule_work(&sw->work);
 }
@@ -123,26 +189,34 @@ static void gpio_sw_timer(unsigned long arg)
 static void gpio_sw_handler(void *data)
 {
 	struct gpio_switch *sw = data;
-	int state = gpio_sw_get_state(sw);
+	int state;
 
+	state = gpio_sw_get_state(sw);
 	if (sw->state == state)
 		return;
 
-	if (sw->type == OMAP_GPIO_SWITCH_TYPE_CONNECTION)
-		sysfs_notify(&sw->pdev.dev.kobj, NULL, "connection");
-	else
-		sysfs_notify(&sw->pdev.dev.kobj, NULL, "cover");
 	sw->state = state;
 	if (omap_get_gpio_datain(sw->gpio))
 		set_irq_type(OMAP_GPIO_IRQ(sw->gpio), IRQT_FALLING);
 	else
 		set_irq_type(OMAP_GPIO_IRQ(sw->gpio), IRQT_RISING);
+	sysfs_notify(&sw->pdev.dev.kobj, NULL, "state");
 	print_sw_state(sw, state);
 }
 
 static int __init new_switch(struct gpio_switch *sw)
 {
 	int r, direction, trigger;
+
+	switch (sw->type) {
+	case OMAP_GPIO_SWITCH_TYPE_COVER:
+	case OMAP_GPIO_SWITCH_TYPE_CONNECTION:
+	case OMAP_GPIO_SWITCH_TYPE_ACTIVITY:
+		break;
+	default:
+		printk(KERN_ERR "invalid GPIO switch type: %d\n", sw->type);
+		return -EINVAL;
+	}
 
 	sw->pdev.name	= sw->name;
 	sw->pdev.id	= -1;
@@ -166,14 +240,9 @@ static int __init new_switch(struct gpio_switch *sw)
 	direction = !(sw->flags & OMAP_GPIO_SWITCH_FLAG_OUTPUT);
 	omap_set_gpio_direction(sw->gpio, direction);
 
-	switch (sw->type) {
-	case OMAP_GPIO_SWITCH_TYPE_COVER:
-		device_create_file(&sw->pdev.dev, &dev_attr_cover_switch);
-		break;
-	case OMAP_GPIO_SWITCH_TYPE_CONNECTION:
-		device_create_file(&sw->pdev.dev, &dev_attr_connection_switch);
-		break;
-	}
+	device_create_file(&sw->pdev.dev, &dev_attr_state);
+	device_create_file(&sw->pdev.dev, &dev_attr_type);
+	device_create_file(&sw->pdev.dev, &dev_attr_direction);
 
 	list_add(&sw->node, &gpio_switches);
 
@@ -245,12 +314,9 @@ static void gpio_sw_cleanup(void)
 
 		free_irq(OMAP_GPIO_IRQ(sw->gpio), sw);
 
-		if (sw->type == OMAP_GPIO_SWITCH_TYPE_CONNECTION)
-			device_remove_file(&sw->pdev.dev,
-					   &dev_attr_connection_switch);
-		else
-			device_remove_file(&sw->pdev.dev,
-					   &dev_attr_cover_switch);
+		device_remove_file(&sw->pdev.dev, &dev_attr_state);
+		device_remove_file(&sw->pdev.dev, &dev_attr_type);
+		device_remove_file(&sw->pdev.dev, &dev_attr_direction);
 
 		platform_device_unregister(&sw->pdev);
 		omap_free_gpio(sw->gpio);
