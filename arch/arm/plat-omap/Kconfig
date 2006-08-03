@@ -101,6 +101,14 @@ config OMAP_STI_CONSOLE
 	help
 	  This enables a console driver by way of STI/XTI.
 
+config OMAP_MCBSP
+	bool "McBSP support"
+	depends on ARCH_OMAP
+	default y
+	help
+	  Say Y here if you want support for the OMAP Multichannel
+	  Buffered Serial Port.
+
 choice
         prompt "System timer"
 	default OMAP_MPU_TIMER

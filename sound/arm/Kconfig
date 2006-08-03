@@ -39,6 +39,7 @@ config SND_OMAP_AIC23
 	select SND_PCM
 	select I2C
 	select I2C_OMAP if ARCH_OMAP
+	select OMAP_MCBSP
 	select SENSORS_TLV320AIC23
 	help
 	  Say Y here if you have a OSK platform board
@@ -53,6 +54,7 @@ config SND_OMAP_TSC2101
  	select SND_PCM
          select OMAP_TSC2101
          select OMAP_UWIRE if ARCH_OMAP
+	 select OMAP_MCBSP
  	help
  	  Say Y here if you have a OMAP platform board
  	  and want to use its TSC2101 audio chip. Driver has
