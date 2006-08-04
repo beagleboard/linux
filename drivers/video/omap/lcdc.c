@@ -810,6 +810,8 @@ static int omap_lcdc_init(struct omapfb_device *fbdev, int ext_mode,
 	rate = clk_get_rate(tc_ck);
 	clk_put(tc_ck);
 
+	if (machine_is_ams_delta())
+		rate /= 4;
 	if (machine_is_omap_h3())
 		rate /= 3;
 	r = clk_set_rate(lcdc.lcd_ck, rate);
