@@ -420,6 +420,7 @@ static int set_color_mode(struct omapfb_plane_struct *plane,
 		plane->color_mode = OMAPFB_COLOR_CLUT_8BPP;
 		return 0;
 	case 12:
+		var->bits_per_pixel = 16;
 		plane->color_mode = OMAPFB_COLOR_RGB444;
 		return 0;
 	case 16:
