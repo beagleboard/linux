@@ -44,10 +44,10 @@ static int osk_panel_enable(struct lcd_panel *panel)
 	omap_cfg_reg(PWL);
 
 	/* Enable PWL unit */
-	omap_writeb(0x01, OMAP16XX_PWL_CLK_ENABLE);
+	omap_writeb(0x01, OMAP_PWL_CLK_ENABLE);
 
 	/* Set PWL level */
-	omap_writeb(0xFF, OMAP16XX_PWL_ENABLE);
+	omap_writeb(0xFF, OMAP_PWL_ENABLE);
 
 	/* configure GPIO2 as output */
 	omap_set_gpio_direction(2, 0);
@@ -61,10 +61,10 @@ static int osk_panel_enable(struct lcd_panel *panel)
 static void osk_panel_disable(struct lcd_panel *panel)
 {
 	/* Set PWL level to zero */
-	omap_writeb(0x00, OMAP16XX_PWL_ENABLE);
+	omap_writeb(0x00, OMAP_PWL_ENABLE);
 
 	/* Disable PWL unit */
-	omap_writeb(0x00, OMAP16XX_PWL_CLK_ENABLE);
+	omap_writeb(0x00, OMAP_PWL_CLK_ENABLE);
 
 	/* set GPIO2 low */
 	omap_set_gpio_dataout(2, 0);
