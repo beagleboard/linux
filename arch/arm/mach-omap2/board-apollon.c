@@ -24,6 +24,7 @@
 #include <linux/mtd/onenand.h>
 #include <linux/interrupt.h>
 #include <linux/delay.h>
+#include <linux/leds.h>
 
 #include <asm/hardware.h>
 #include <asm/mach-types.h>
@@ -31,6 +32,7 @@
 #include <asm/mach/flash.h>
 
 #include <asm/arch/gpio.h>
+#include <asm/arch/led.h>
 #include <asm/arch/mux.h>
 #include <asm/arch/usb.h>
 #include <asm/arch/board.h>
@@ -139,10 +141,45 @@ static struct platform_device apollon_lcd_device = {
 	.id		= -1,
 };
 
+static struct omap_led_config apollon_led_config[] = {
+	{
+		.cdev	= {
+			.name	= "apollon:led0",
+		},
+		.gpio	= LED0_GPIO13,
+	},
+	{
+		.cdev	= {
+			.name	= "apollon:led1",
+		},
+		.gpio	= LED1_GPIO14,
+	},
+	{
+		.cdev	= {
+			.name	= "apollon:led2",
+		},
+		.gpio	= LED2_GPIO15,
+	},
+};
+
+static struct omap_led_platform_data apollon_led_data = {
+	.nr_leds	= ARRAY_SIZE(apollon_led_config),
+	.leds		= apollon_led_config,
+};
+
+static struct platform_device apollon_led_device = {
+	.name		= "omap-led",
+	.id		= -1,
+	.dev		= {
+		.platform_data	= &apollon_led_data,
+	},
+};
+
 static struct platform_device *apollon_devices[] __initdata = {
 	&apollon_onenand_device,
 	&apollon_smc91x_device,
 	&apollon_lcd_device,
+	&apollon_led_device,
 };
 
 static inline void __init apollon_init_smc91x(void)

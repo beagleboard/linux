@@ -70,6 +70,12 @@ config LEDS_OMAP_PWM
 	  This options enables support for LEDs connected to GPIO lines
 	  controlled by a PWM timer on OMAP CPUs.
 
+config LEDS_OMAP
+	tristate "LED Support for OMAP GPIO LEDs"
+	depends LEDS_CLASS && ARCH_OMAP
+	help
+	  This option enables support for the LEDs on OMAP processors.
+
 comment "LED Triggers"
 
 config LEDS_TRIGGERS
