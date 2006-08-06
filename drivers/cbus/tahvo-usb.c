@@ -155,6 +155,9 @@ static int omap_otg_init(void)
 		return -ENODEV;
 	}
 #endif
+	OTG_SYSCON_1_REG &= ~OTG_IDLE_EN;
+	udelay(100);
+
 	/* some of these values are board-specific... */
 	OTG_SYSCON_2_REG |= OTG_EN
 		/* for B-device: */
