@@ -12,6 +12,8 @@
 
 #include <linux/types.h>
 
+#include <asm/arch/gpio-switch.h>
+
 /* Different peripheral ids */
 #define OMAP_TAG_CLOCK		0x4f01
 #define OMAP_TAG_MMC		0x4f02
@@ -115,22 +117,7 @@ struct omap_pwm_led_platform_data {
 	void (*set_power)(struct omap_pwm_led_platform_data *self, int on_off);
 };
 
-/* Cover:
- *	high -> closed
- *	low  -> open
- * Connection:
- *	high -> connected
- *	low  -> disconnected
- * Activity:
- *	high -> active
- *	low  -> inactive
- *
- */
-#define OMAP_GPIO_SWITCH_TYPE_COVER		0x0000
-#define OMAP_GPIO_SWITCH_TYPE_CONNECTION	0x0001
-#define OMAP_GPIO_SWITCH_TYPE_ACTIVITY		0x0002
-#define OMAP_GPIO_SWITCH_FLAG_INVERTED		0x0001
-#define OMAP_GPIO_SWITCH_FLAG_OUTPUT		0x0002
+/* See include/asm-arm/arch-omap/gpio-switch.h for definitions */
 struct omap_gpio_switch_config {
 	char name[12];
 	u16 gpio;
