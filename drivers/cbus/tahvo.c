@@ -33,6 +33,7 @@
 #include <linux/miscdevice.h>
 #include <linux/poll.h>
 #include <linux/fs.h>
+#include <linux/irq.h>
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
 

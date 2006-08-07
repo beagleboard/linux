@@ -30,6 +30,7 @@
 #include <linux/serial_reg.h>
 #include <linux/skbuff.h>
 #include <linux/firmware.h>
+#include <linux/irq.h>
 #include <linux/timer.h>
 #include <linux/clk.h>
 #include <linux/platform_device.h>

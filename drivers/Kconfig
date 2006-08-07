@@ -72,6 +72,8 @@ source "drivers/edac/Kconfig"
 
 source "drivers/rtc/Kconfig"
 
+source "drivers/dma/Kconfig"
+
 source "drivers/ssi/Kconfig"
 
 endmenu

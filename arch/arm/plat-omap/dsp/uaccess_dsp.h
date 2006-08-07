@@ -33,9 +33,9 @@
 #define HAVE_ASM_COPY_FROM_USER_DSP_2B
 
 #ifdef HAVE_ASM_COPY_FROM_USER_DSP_2B
-extern unsigned long __arch_copy_from_user_dsp_2b(void *to,
+extern unsigned long __copy_from_user_dsp_2b(void *to,
 						  const void __user *from);
-extern unsigned long __arch_copy_to_user_dsp_2b(void __user *to,
+extern unsigned long __copy_to_user_dsp_2b(void __user *to,
 						const void *from);
 #endif
 
@@ -51,7 +51,7 @@ static __inline__ unsigned long copy_from_user_dsp_2b(void *to,
 {
 	unsigned short tmp;
 
-	if (__arch_copy_from_user(&tmp, from, 2))
+	if (__copy_from_user(&tmp, from, 2))
 		return 2;
 	/* expecting compiler to generate "strh" instruction */
 	*((unsigned short *)to) = tmp;
@@ -77,7 +77,7 @@ static __inline__ unsigned long copy_from_user_dsp(void *to, const void *from,
 			/* dest not aligned -- copy 2 bytes */
 			if (((unsigned long)to & 2) && (n >= 2)) {
 #ifdef HAVE_ASM_COPY_FROM_USER_DSP_2B
-				if (__arch_copy_from_user_dsp_2b(to, from))
+				if (__copy_from_user_dsp_2b(to, from))
 #else
 				if (copy_from_user_dsp_2b(to, from))
 #endif
@@ -89,14 +89,14 @@ static __inline__ unsigned long copy_from_user_dsp(void *to, const void *from,
 			/* middle 4*n bytes */
 			last_n = n & 2;
 			n4 = n - last_n;
-			if ((n = __arch_copy_from_user(to, from, n4)) != 0)
+			if ((n = __copy_from_user(to, from, n4)) != 0)
 				return n + last_n;
 			/* last 2 bytes */
 			if (last_n) {
 				to += n4;
 				from += n4;
 #ifdef HAVE_ASM_COPY_FROM_USER_DSP_2B
-				if (__arch_copy_from_user_dsp_2b(to, from))
+				if (__copy_from_user_dsp_2b(to, from))
 #else
 				if (copy_from_user_dsp_2b(to, from))
 #endif
@@ -108,7 +108,7 @@ static __inline__ unsigned long copy_from_user_dsp(void *to, const void *from,
 			 * DARAM/SARAM with 4-byte alignment or
 			 * external memory
 			 */
-			n = __arch_copy_from_user(to, from, n);
+			n = __copy_from_user(to, from, n);
 		}
 	}
 	else	/* security hole - plug it */
@@ -122,7 +122,7 @@ static __inline__ unsigned long copy_to_user_dsp_2b(void *to, const void *from)
 	/* expecting compiler to generate "strh" instruction */
 	unsigned short tmp = *(unsigned short *)from;
 
-	return __arch_copy_to_user(to, &tmp, 2);
+	return __copy_to_user(to, &tmp, 2);
 }
 #endif
 
@@ -144,7 +144,7 @@ static __inline__ unsigned long copy_to_user_dsp(void *to, const void *from,
 			/* dest not aligned -- copy 2 bytes */
 			if (((unsigned long)to & 2) && (n >= 2)) {
 #ifdef HAVE_ASM_COPY_FROM_USER_DSP_2B
-				if (__arch_copy_to_user_dsp_2b(to, from))
+				if (__copy_to_user_dsp_2b(to, from))
 #else
 				if (copy_to_user_dsp_2b(to, from))
 #endif
@@ -156,14 +156,14 @@ static __inline__ unsigned long copy_to_user_dsp(void *to, const void *from,
 			/* middle 4*n bytes */
 			last_n = n & 2;
 			n4 = n - last_n;
-			if ((n = __arch_copy_to_user(to, from, n4)) != 0)
+			if ((n = __copy_to_user(to, from, n4)) != 0)
 				return n + last_n;
 			/* last 2 bytes */
 			if (last_n) {
 				to += n4;
 				from += n4;
 #ifdef HAVE_ASM_COPY_FROM_USER_DSP_2B
-				if (__arch_copy_to_user_dsp_2b(to, from))
+				if (__copy_to_user_dsp_2b(to, from))
 #else
 				if (copy_to_user_dsp_2b(to, from))
 #endif
@@ -175,7 +175,7 @@ static __inline__ unsigned long copy_to_user_dsp(void *to, const void *from,
 			 * DARAM/SARAM with 4-byte alignment or
 			 * external memory
 			 */
-			n = __arch_copy_to_user(to, from, n);
+			n = __copy_to_user(to, from, n);
 		}
 	}
 	return n;

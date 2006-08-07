@@ -11,9 +11,12 @@ obj-$(CONFIG_LEDS_SPITZ)		+= leds-spitz.o
 obj-$(CONFIG_LEDS_IXP4XX)		+= leds-ixp4xx-gpio.o
 obj-$(CONFIG_LEDS_TOSA)			+= leds-tosa.o
 obj-$(CONFIG_LEDS_S3C24XX)		+= leds-s3c24xx.o
+obj-$(CONFIG_LEDS_AMS_DELTA)		+= leds-ams-delta.o
+obj-$(CONFIG_LEDS_NET48XX)		+= leds-net48xx.o
 obj-$(CONFIG_LEDS_OMAP)			+= leds-omap.o
 obj-$(CONFIG_LEDS_OMAP_PWM)		+= leds-omap-pwm.o
 
 # LED Triggers
 obj-$(CONFIG_LEDS_TRIGGER_TIMER)	+= ledtrig-timer.o
 obj-$(CONFIG_LEDS_TRIGGER_IDE_DISK)	+= ledtrig-ide-disk.o
+obj-$(CONFIG_LEDS_TRIGGER_HEARTBEAT)	+= ledtrig-heartbeat.o

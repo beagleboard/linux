@@ -34,7 +34,6 @@
  * 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#include <linux/config.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/delay.h>
@@ -268,7 +267,7 @@ static struct dyn_tick_timer omap_dyn_tick_timer = {
 
 static struct irqaction omap_32k_timer_irq = {
 	.name		= "32KHz timer",
-	.flags		= SA_INTERRUPT | SA_TIMER,
+	.flags		= IRQF_DISABLED | IRQF_TIMER,
 	.handler	= omap_32k_timer_interrupt,
 };
 

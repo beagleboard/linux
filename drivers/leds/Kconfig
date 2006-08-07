@@ -63,18 +63,31 @@ config LEDS_S3C24XX
 	  This option enables support for LEDs connected to GPIO lines
 	  on Samsung S3C24XX series CPUs, such as the S3C2410 and S3C2440.
 
-config LEDS_OMAP_PWM
-	tristate "LED Support for OMAP PWM-controlled LEDs"
-	depends on LEDS_CLASS && ARCH_OMAP && OMAP_DM_TIMER
+config LEDS_AMS_DELTA
+	tristate "LED Support for the Amstrad Delta (E3)"
+	depends LEDS_CLASS && MACH_AMS_DELTA
 	help
-	  This options enables support for LEDs connected to GPIO lines
-	  controlled by a PWM timer on OMAP CPUs.
+	  This option enables support for the LEDs on Amstrad Delta (E3).
+
+config LEDS_NET48XX
+	tristate "LED Support for Soekris net48xx series Error LED"
+	depends on LEDS_CLASS && SCx200_GPIO
+	help
+	  This option enables support for the Soekris net4801 and net4826 error
+	  LED.
 
 config LEDS_OMAP
 	tristate "LED Support for OMAP GPIO LEDs"
 	depends LEDS_CLASS && ARCH_OMAP
 	help
 	  This option enables support for the LEDs on OMAP processors.
+
+config LEDS_OMAP_PWM
+	tristate "LED Support for OMAP PWM-controlled LEDs"
+	depends on LEDS_CLASS && ARCH_OMAP && OMAP_DM_TIMER
+	help
+	  This options enables support for LEDs connected to GPIO lines
+	  controlled by a PWM timer on OMAP CPUs.
 
 comment "LED Triggers"
 
@@ -98,6 +111,15 @@ config LEDS_TRIGGER_IDE_DISK
 	depends LEDS_TRIGGERS && BLK_DEV_IDEDISK
 	help
 	  This allows LEDs to be controlled by IDE disk activity.
+	  If unsure, say Y.
+
+config LEDS_TRIGGER_HEARTBEAT
+	tristate "LED Heartbeat Trigger"
+	depends LEDS_TRIGGERS
+	help
+	  This allows LEDs to be controlled by a CPU load average.
+	  The flash frequency is a hyperbolic function of the 1-minute
+	  load average.
 	  If unsure, say Y.
 
 endmenu
