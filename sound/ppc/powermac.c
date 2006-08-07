@@ -94,13 +94,6 @@ static int __init snd_pmac_probe(struct platform_device *devptr)
 		if ( snd_pmac_tumbler_init(chip) < 0 || snd_pmac_tumbler_post_init() < 0)
 			goto __error;
 		break;
-	case PMAC_TOONIE:
-		strcpy(card->driver, "PMac Toonie");
-		strcpy(card->shortname, "PowerMac Toonie");
-		strcpy(card->longname, card->shortname);
-		if ((err = snd_pmac_toonie_init(chip)) < 0)
-			goto __error;
-		break;
 	case PMAC_AWACS:
 	case PMAC_SCREAMER:
 		name_ext = chip->model == PMAC_SCREAMER ? "Screamer" : "AWACS";
@@ -188,17 +181,14 @@ static int __init alsa_card_pmac_init(void)
 	if ((err = platform_driver_register(&snd_pmac_driver)) < 0)
 		return err;
 	device = platform_device_register_simple(SND_PMAC_DRIVER, -1, NULL, 0);
-	if (IS_ERR(device)) {
-		platform_driver_unregister(&snd_pmac_driver);
-		return PTR_ERR(device);
-	}
 	return 0;
 
 }
 
 static void __exit alsa_card_pmac_exit(void)
 {
-	platform_device_unregister(device);
+	if (!IS_ERR(device))
+		platform_device_unregister(device);
 	platform_driver_unregister(&snd_pmac_driver);
 }
 

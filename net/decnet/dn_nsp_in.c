@@ -45,7 +45,6 @@
     GNU General Public License for more details.
 *******************************************************************************/
 
-#include <linux/config.h>
 #include <linux/errno.h>
 #include <linux/types.h>
 #include <linux/socket.h>
@@ -801,8 +800,7 @@ got_it:
 		 * We linearize everything except data segments here.
 		 */
 		if (cb->nsp_flags & ~0x60) {
-			if (unlikely(skb_is_nonlinear(skb)) &&
-			    skb_linearize(skb, GFP_ATOMIC) != 0)
+			if (unlikely(skb_linearize(skb)))
 				goto free_out;
 		}
 

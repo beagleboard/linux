@@ -24,7 +24,6 @@
  *
  */
 
-#include <linux/config.h>
 #include <linux/net.h>
 #include <linux/module.h>
 #include <linux/socket.h>
@@ -581,12 +580,11 @@ static int dn_neigh_seq_open(struct inode *inode, struct file *file)
 {
 	struct seq_file *seq;
 	int rc = -ENOMEM;
-	struct neigh_seq_state *s = kmalloc(sizeof(*s), GFP_KERNEL);
+	struct neigh_seq_state *s = kzalloc(sizeof(*s), GFP_KERNEL);
 
 	if (!s)
 		goto out;
 
-	memset(s, 0, sizeof(*s));
 	rc = seq_open(file, &dn_neigh_seq_ops);
 	if (rc)
 		goto out_kfree;

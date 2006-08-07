@@ -19,62 +19,15 @@
 
 	Information and updates available at
 	http://www.scyld.com/network/epic100.html
+	[this link no longer provides anything useful -jgarzik]
 
 	---------------------------------------------------------------------
-	
-	Linux kernel-specific changes:
-	
-	LK1.1.2 (jgarzik):
-	* Merge becker version 1.09 (4/08/2000)
-
-	LK1.1.3:
-	* Major bugfix to 1.09 driver (Francis Romieu)
-	
-	LK1.1.4 (jgarzik):
-	* Merge becker test version 1.09 (5/29/2000)
-
-	LK1.1.5:
-	* Fix locking (jgarzik)
-	* Limit 83c175 probe to ethernet-class PCI devices (rgooch)
-
-	LK1.1.6:
-	* Merge becker version 1.11
-	* Move pci_enable_device before any PCI BAR len checks
-
-	LK1.1.7:
-	* { fill me in }
-
-	LK1.1.8:
-	* ethtool driver info support (jgarzik)
-
-	LK1.1.9:
-	* ethtool media get/set support (jgarzik)
-
-	LK1.1.10:
-	* revert MII transceiver init change (jgarzik)
-
-	LK1.1.11:
-	* implement ETHTOOL_[GS]SET, _NWAY_RST, _[GS]MSGLVL, _GLINK (jgarzik)
-	* replace some MII-related magic numbers with constants
-
-	LK1.1.12:
-	* fix power-up sequence
-
-	LK1.1.13:
-	* revert version 1.1.12, power-up sequence "fix"
-
-	LK1.1.14 (Kryzsztof Halasa):
-	* fix spurious bad initializations
-	* pound phy a la SMSC's app note on the subject
-	
-	AC1.1.14ac
-	* fix power up/down for ethtool that broke in 1.11
 
 */
 
 #define DRV_NAME        "epic100"
-#define DRV_VERSION     "1.11+LK1.1.14+AC1.1.14"
-#define DRV_RELDATE     "June 2, 2004"
+#define DRV_VERSION     "2.0"
+#define DRV_RELDATE     "June 27, 2006"
 
 /* The user-configurable values.
    These may be modified when a driver module is loaded.*/
@@ -114,7 +67,6 @@ static int rx_copybreak;
 #define TX_FIFO_THRESH 256
 #define RX_FIFO_THRESH 1		/* 0-3, 0==32, 64,96, or 3==128 bytes  */
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/string.h>
@@ -191,23 +143,10 @@ IVc. Errata
 */
 
 
-enum pci_id_flags_bits {
-        /* Set PCI command register bits before calling probe1(). */
-        PCI_USES_IO=1, PCI_USES_MEM=2, PCI_USES_MASTER=4,
-        /* Read and map the single following PCI BAR. */
-        PCI_ADDR0=0<<4, PCI_ADDR1=1<<4, PCI_ADDR2=2<<4, PCI_ADDR3=3<<4,
-        PCI_ADDR_64BITS=0x100, PCI_NO_ACPI_WAKE=0x200, PCI_NO_MIN_LATENCY=0x400,
-};
-
 enum chip_capability_flags { MII_PWRDWN=1, TYPE2_INTR=2, NO_MII=4 };
 
 #define EPIC_TOTAL_SIZE 0x100
 #define USE_IO_OPS 1
-#ifdef USE_IO_OPS
-#define EPIC_IOTYPE PCI_USES_MASTER|PCI_USES_IO|PCI_ADDR0
-#else
-#define EPIC_IOTYPE PCI_USES_MASTER|PCI_USES_MEM|PCI_ADDR1
-#endif
 
 typedef enum {
 	SMSC_83C170_0,
@@ -218,20 +157,15 @@ typedef enum {
 
 struct epic_chip_info {
 	const char *name;
-	enum pci_id_flags_bits pci_flags;
-        int io_size;                            /* Needed for I/O region check or ioremap(). */
         int drv_flags;                          /* Driver use, intended as capability flags. */
 };
 
 
 /* indexed by chip_t */
 static const struct epic_chip_info pci_id_tbl[] = {
-	{ "SMSC EPIC/100 83c170",
-	 EPIC_IOTYPE, EPIC_TOTAL_SIZE, TYPE2_INTR | NO_MII | MII_PWRDWN },
-	{ "SMSC EPIC/100 83c170",
-	 EPIC_IOTYPE, EPIC_TOTAL_SIZE, TYPE2_INTR },
-	{ "SMSC EPIC/C 83c175",
-	 EPIC_IOTYPE, EPIC_TOTAL_SIZE, TYPE2_INTR | MII_PWRDWN },
+	{ "SMSC EPIC/100 83c170",	TYPE2_INTR | NO_MII | MII_PWRDWN },
+	{ "SMSC EPIC/100 83c170",	TYPE2_INTR },
+	{ "SMSC EPIC/C 83c175",		TYPE2_INTR | MII_PWRDWN },
 };
 
 
@@ -244,7 +178,7 @@ static struct pci_device_id epic_pci_tbl[] = {
 };
 MODULE_DEVICE_TABLE (pci, epic_pci_tbl);
 
-	
+
 #ifndef USE_IO_OPS
 #undef inb
 #undef inw
@@ -370,7 +304,7 @@ static int epic_close(struct net_device *dev);
 static struct net_device_stats *epic_get_stats(struct net_device *dev);
 static void set_rx_mode(struct net_device *dev);
 
-
+
 
 static int __devinit epic_init_one (struct pci_dev *pdev,
 				    const struct pci_device_id *ent)
@@ -392,20 +326,20 @@ static int __devinit epic_init_one (struct pci_dev *pdev,
 		printk (KERN_INFO "%s" KERN_INFO "%s" KERN_INFO "%s",
 			version, version2, version3);
 #endif
-	
+
 	card_idx++;
-	
+
 	ret = pci_enable_device(pdev);
 	if (ret)
 		goto out;
 	irq = pdev->irq;
 
-	if (pci_resource_len(pdev, 0) < pci_id_tbl[chip_idx].io_size) {
-		printk (KERN_ERR "card %d: no PCI region space\n", card_idx);
+	if (pci_resource_len(pdev, 0) < EPIC_TOTAL_SIZE) {
+		dev_err(&pdev->dev, "no PCI region space\n");
 		ret = -ENODEV;
 		goto err_out_disable;
 	}
-	
+
 	pci_set_master(pdev);
 
 	ret = pci_request_regions(pdev, DRV_NAME);
@@ -416,7 +350,7 @@ static int __devinit epic_init_one (struct pci_dev *pdev,
 
 	dev = alloc_etherdev(sizeof (*ep));
 	if (!dev) {
-		printk (KERN_ERR "card %d: no memory for eth device\n", card_idx);
+		dev_err(&pdev->dev, "no memory for eth device\n");
 		goto err_out_free_res;
 	}
 	SET_MODULE_OWNER(dev);
@@ -428,7 +362,7 @@ static int __devinit epic_init_one (struct pci_dev *pdev,
 	ioaddr = pci_resource_start (pdev, 1);
 	ioaddr = (long) ioremap (ioaddr, pci_resource_len (pdev, 1));
 	if (!ioaddr) {
-		printk (KERN_ERR DRV_NAME " %d: ioremap failed\n", card_idx);
+		dev_err(&pdev->dev, "ioremap failed\n");
 		goto err_out_free_netdev;
 	}
 #endif
@@ -488,8 +422,7 @@ static int __devinit epic_init_one (struct pci_dev *pdev,
 		((u16 *)dev->dev_addr)[i] = le16_to_cpu(inw(ioaddr + LAN0 + i*4));
 
 	if (debug > 2) {
-		printk(KERN_DEBUG DRV_NAME "(%s): EEPROM contents\n",
-		       pci_name(pdev));
+		dev_printk(KERN_DEBUG, &pdev->dev, "EEPROM contents:\n");
 		for (i = 0; i < 64; i++)
 			printk(" %4.4x%s", read_eeprom(ioaddr, i),
 				   i % 16 == 15 ? "\n" : "");
@@ -498,7 +431,7 @@ static int __devinit epic_init_one (struct pci_dev *pdev,
 	ep->pci_dev = pdev;
 	ep->chip_id = chip_idx;
 	ep->chip_flags = pci_id_tbl[chip_idx].drv_flags;
-	ep->irq_mask = 
+	ep->irq_mask =
 		(ep->chip_flags & TYPE2_INTR ?  PCIBusErr175 : PCIBusErr170)
 		 | CntFull | TxUnderrun | EpicNapiEvent;
 
@@ -511,21 +444,23 @@ static int __devinit epic_init_one (struct pci_dev *pdev,
 			int mii_status = mdio_read(dev, phy, MII_BMSR);
 			if (mii_status != 0xffff  &&  mii_status != 0x0000) {
 				ep->phys[phy_idx++] = phy;
-				printk(KERN_INFO DRV_NAME "(%s): MII transceiver #%d control "
-					   "%4.4x status %4.4x.\n",
-					   pci_name(pdev), phy, mdio_read(dev, phy, 0), mii_status);
+				dev_info(&pdev->dev,
+					"MII transceiver #%d control "
+					"%4.4x status %4.4x.\n",
+					phy, mdio_read(dev, phy, 0), mii_status);
 			}
 		}
 		ep->mii_phy_cnt = phy_idx;
 		if (phy_idx != 0) {
 			phy = ep->phys[0];
 			ep->mii.advertising = mdio_read(dev, phy, MII_ADVERTISE);
-			printk(KERN_INFO DRV_NAME "(%s): Autonegotiation advertising %4.4x link "
+			dev_info(&pdev->dev,
+				"Autonegotiation advertising %4.4x link "
 				   "partner %4.4x.\n",
-				   pci_name(pdev), ep->mii.advertising, mdio_read(dev, phy, 5));
+				   ep->mii.advertising, mdio_read(dev, phy, 5));
 		} else if ( ! (ep->chip_flags & NO_MII)) {
-			printk(KERN_WARNING DRV_NAME "(%s): ***WARNING***: No MII transceiver found!\n",
-			       pci_name(pdev));
+			dev_warn(&pdev->dev,
+				"***WARNING***: No MII transceiver found!\n");
 			/* Use the known PHY address of the EPII. */
 			ep->phys[0] = 3;
 		}
@@ -540,8 +475,7 @@ static int __devinit epic_init_one (struct pci_dev *pdev,
 	/* The lower four bits are the media type. */
 	if (duplex) {
 		ep->mii.force_media = ep->mii.full_duplex = 1;
-		printk(KERN_INFO DRV_NAME "(%s):  Forced full duplex operation requested.\n",
-		       pci_name(pdev));
+		dev_info(&pdev->dev, "Forced full duplex requested.\n");
 	}
 	dev->if_port = ep->default_port = option;
 
@@ -587,7 +521,7 @@ err_out_disable:
 	pci_disable_device(pdev);
 	goto out;
 }
-
+
 /* Serial EEPROM section. */
 
 /*  EEPROM_Ctrl bits. */
@@ -709,7 +643,7 @@ static void mdio_write(struct net_device *dev, int phy_id, int loc, int value)
 
 	outw(value, ioaddr + MIIData);
 	outl((phy_id << 9) | (loc << 4) | MII_WRITEOP, ioaddr + MIICtrl);
-	for (i = 10000; i > 0; i--) { 
+	for (i = 10000; i > 0; i--) {
 		barrier();
 		if ((inl(ioaddr + MIICtrl) & MII_WRITEOP) == 0)
 			break;
@@ -717,7 +651,7 @@ static void mdio_write(struct net_device *dev, int phy_id, int loc, int value)
 	return;
 }
 
-
+
 static int epic_open(struct net_device *dev)
 {
 	struct epic_private *ep = dev->priv;
@@ -728,7 +662,7 @@ static int epic_open(struct net_device *dev)
 	/* Soft reset the chip. */
 	outl(0x4001, ioaddr + GENCTL);
 
-	if ((retval = request_irq(dev->irq, &epic_interrupt, SA_SHIRQ, dev->name, dev)))
+	if ((retval = request_irq(dev->irq, &epic_interrupt, IRQF_SHARED, dev->name, dev)))
 		return retval;
 
 	epic_init_ring(dev);
@@ -760,7 +694,7 @@ static int epic_open(struct net_device *dev)
 #endif
 
 	udelay(20); /* Looks like EPII needs that if you want reliable RX init. FIXME: pci posting bug? */
-	
+
 	for (i = 0; i < 3; i++)
 		outl(cpu_to_le16(((u16*)dev->dev_addr)[i]), ioaddr + LAN0 + i*4);
 
@@ -803,7 +737,7 @@ static int epic_open(struct net_device *dev)
 
 	/* Enable interrupts by setting the interrupt mask. */
 	outl((ep->chip_flags & TYPE2_INTR ? PCIBusErr175 : PCIBusErr170)
-		 | CntFull | TxUnderrun 
+		 | CntFull | TxUnderrun
 		 | RxError | RxHeader | EpicNapiEvent, ioaddr + INTMASK);
 
 	if (debug > 1)
@@ -831,7 +765,7 @@ static void epic_pause(struct net_device *dev)
 	struct epic_private *ep = dev->priv;
 
 	netif_stop_queue (dev);
-	
+
 	/* Disable interrupts by clearing the interrupt mask. */
 	outl(0x00000000, ioaddr + INTMASK);
 	/* Stop the chip's Tx and Rx DMA processes. */
@@ -987,7 +921,7 @@ static void epic_init_ring(struct net_device *dev)
 	for (i = 0; i < RX_RING_SIZE; i++) {
 		ep->rx_ring[i].rxstatus = 0;
 		ep->rx_ring[i].buflength = cpu_to_le32(ep->rx_buf_sz);
-		ep->rx_ring[i].next = ep->rx_ring_dma + 
+		ep->rx_ring[i].next = ep->rx_ring_dma +
 				      (i+1)*sizeof(struct epic_rx_desc);
 		ep->rx_skbuff[i] = NULL;
 	}
@@ -1002,7 +936,7 @@ static void epic_init_ring(struct net_device *dev)
 			break;
 		skb->dev = dev;			/* Mark as being used by this device. */
 		skb_reserve(skb, 2);	/* 16 byte align the IP header. */
-		ep->rx_ring[i].bufaddr = pci_map_single(ep->pci_dev, 
+		ep->rx_ring[i].bufaddr = pci_map_single(ep->pci_dev,
 			skb->data, ep->rx_buf_sz, PCI_DMA_FROMDEVICE);
 		ep->rx_ring[i].rxstatus = cpu_to_le32(DescOwn);
 	}
@@ -1013,7 +947,7 @@ static void epic_init_ring(struct net_device *dev)
 	for (i = 0; i < TX_RING_SIZE; i++) {
 		ep->tx_skbuff[i] = NULL;
 		ep->tx_ring[i].txstatus = 0x0000;
-		ep->tx_ring[i].next = ep->tx_ring_dma + 
+		ep->tx_ring[i].next = ep->tx_ring_dma +
 			(i+1)*sizeof(struct epic_tx_desc);
 	}
 	ep->tx_ring[i-1].next = ep->tx_ring_dma;
@@ -1026,12 +960,9 @@ static int epic_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	int entry, free_count;
 	u32 ctrl_word;
 	unsigned long flags;
-	
-	if (skb->len < ETH_ZLEN) {
-		skb = skb_padto(skb, ETH_ZLEN);
-		if (skb == NULL)
-			return 0;
-	}
+
+	if (skb_padto(skb, ETH_ZLEN))
+		return 0;
 
 	/* Caution: the write order is important here, set the field with the
 	   "ownership" bit last. */
@@ -1042,7 +973,7 @@ static int epic_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	entry = ep->cur_tx % TX_RING_SIZE;
 
 	ep->tx_skbuff[entry] = skb;
-	ep->tx_ring[entry].bufaddr = pci_map_single(ep->pci_dev, skb->data, 
+	ep->tx_ring[entry].bufaddr = pci_map_single(ep->pci_dev, skb->data,
 		 			            skb->len, PCI_DMA_TODEVICE);
 	if (free_count < TX_QUEUE_LEN/2) {/* Typical path */
 		ctrl_word = cpu_to_le32(0x100000); /* No interrupt */
@@ -1126,7 +1057,7 @@ static void epic_tx(struct net_device *dev, struct epic_private *ep)
 
 		/* Free the original skb. */
 		skb = ep->tx_skbuff[entry];
-		pci_unmap_single(ep->pci_dev, ep->tx_ring[entry].bufaddr, 
+		pci_unmap_single(ep->pci_dev, ep->tx_ring[entry].bufaddr,
 				 skb->len, PCI_DMA_TODEVICE);
 		dev_kfree_skb_irq(skb);
 		ep->tx_skbuff[entry] = NULL;
@@ -1281,8 +1212,8 @@ static int epic_rx(struct net_device *dev, int budget)
 							       ep->rx_buf_sz,
 							       PCI_DMA_FROMDEVICE);
 			} else {
-				pci_unmap_single(ep->pci_dev, 
-					ep->rx_ring[entry].bufaddr, 
+				pci_unmap_single(ep->pci_dev,
+					ep->rx_ring[entry].bufaddr,
 					ep->rx_buf_sz, PCI_DMA_FROMDEVICE);
 				skb_put(skb = ep->rx_skbuff[entry], pkt_len);
 				ep->rx_skbuff[entry] = NULL;
@@ -1307,7 +1238,7 @@ static int epic_rx(struct net_device *dev, int budget)
 				break;
 			skb->dev = dev;			/* Mark as being used by this device. */
 			skb_reserve(skb, 2);	/* Align IP on 16 byte boundaries */
-			ep->rx_ring[entry].bufaddr = pci_map_single(ep->pci_dev, 
+			ep->rx_ring[entry].bufaddr = pci_map_single(ep->pci_dev,
 				skb->data, ep->rx_buf_sz, PCI_DMA_FROMDEVICE);
 			work_done++;
 		}
@@ -1403,7 +1334,7 @@ static int epic_close(struct net_device *dev)
 		ep->rx_ring[i].rxstatus = 0;		/* Not owned by Epic chip. */
 		ep->rx_ring[i].buflength = 0;
 		if (skb) {
-			pci_unmap_single(ep->pci_dev, ep->rx_ring[i].bufaddr, 
+			pci_unmap_single(ep->pci_dev, ep->rx_ring[i].bufaddr,
 				 	 ep->rx_buf_sz, PCI_DMA_FROMDEVICE);
 			dev_kfree_skb(skb);
 		}
@@ -1414,7 +1345,7 @@ static int epic_close(struct net_device *dev)
 		ep->tx_skbuff[i] = NULL;
 		if (!skb)
 			continue;
-		pci_unmap_single(ep->pci_dev, ep->tx_ring[i].bufaddr, 
+		pci_unmap_single(ep->pci_dev, ep->tx_ring[i].bufaddr,
 				 skb->len, PCI_DMA_TODEVICE);
 		dev_kfree_skb(skb);
 	}
@@ -1607,7 +1538,7 @@ static void __devexit epic_remove_one (struct pci_dev *pdev)
 {
 	struct net_device *dev = pci_get_drvdata(pdev);
 	struct epic_private *ep = dev->priv;
-	
+
 	pci_free_consistent(pdev, TX_TOTAL_SIZE, ep->tx_ring, ep->tx_ring_dma);
 	pci_free_consistent(pdev, RX_TOTAL_SIZE, ep->rx_ring, ep->rx_ring_dma);
 	unregister_netdev(dev);

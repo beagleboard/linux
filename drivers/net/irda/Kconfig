@@ -357,7 +357,7 @@ config OMAP_IR
 
 config AU1000_FIR
 	tristate "Alchemy Au1000 SIR/FIR"
-	depends on MIPS_AU1000 && IRDA
+	depends on SOC_AU1000 && IRDA
 
 config SMC_IRCC_FIR
 	tristate "SMSC IrCC (EXPERIMENTAL)"
@@ -423,6 +423,21 @@ config PXA_FICP
 	  This driver relies on platform specific helper routines so
 	  available capabilities may vary from one PXA2xx target to
 	  another.
+
+config MCS_FIR
+	tristate "MosChip MCS7780 IrDA-USB dongle"
+	depends on IRDA && USB && EXPERIMENTAL
+	help
+	  Say Y or M here if you want to build support for the MosChip
+	  MCS7780 IrDA-USB bridge device driver.
+
+	  USB bridge based on the MosChip MCS7780 don't conform to the
+	  IrDA-USB device class specification, and therefore need their
+	  own specific driver. Those dongles support SIR and FIR (4Mbps)
+	  speeds.
+
+	  To compile it as a module, choose M here: the module will be called
+	  mcs7780.
 
 endmenu
 

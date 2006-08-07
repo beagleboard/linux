@@ -27,8 +27,8 @@ static void kexec_halt_all_cpus(void *);
 
 typedef void (*relocate_kernel_t) (kimage_entry_t *, unsigned long);
 
-const extern unsigned char relocate_kernel[];
-const extern unsigned long long relocate_kernel_len;
+extern const unsigned char relocate_kernel[];
+extern const unsigned long long relocate_kernel_len;
 
 int
 machine_kexec_prepare(struct kimage *image)
@@ -63,6 +63,7 @@ NORET_TYPE void
 machine_kexec(struct kimage *image)
 {
 	clear_all_subchannels();
+	cio_reset_channel_paths();
 
 	/* Disable lowcore protection */
 	ctl_clear_bit(0,28);

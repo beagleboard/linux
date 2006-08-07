@@ -55,7 +55,7 @@ static void end_r4030_irq(unsigned int irq)
 		enable_r4030_irq(irq);
 }
 
-static struct hw_interrupt_type r4030_irq_type = {
+static struct irq_chip r4030_irq_type = {
 	.typename = "R4030",
 	.startup = startup_r4030_irq,
 	.shutdown = shutdown_r4030_irq,
@@ -73,7 +73,7 @@ void __init init_r4030_ints(void)
 		irq_desc[i].status     = IRQ_DISABLED;
 		irq_desc[i].action     = 0;
 		irq_desc[i].depth      = 1;
-		irq_desc[i].handler    = &r4030_irq_type;
+		irq_desc[i].chip    = &r4030_irq_type;
 	}
 
 	r4030_write_reg16(JAZZ_IO_IRQ_ENABLE, 0);

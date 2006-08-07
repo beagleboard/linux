@@ -867,8 +867,6 @@ static int __init snd_pmac_detect(struct snd_pmac *chip)
 	unsigned int *prop, l;
 	struct macio_chip* macio;
 
-	u32 layout_id = 0;
-
 	if (!machine_is(powermac))
 		return -ENODEV;
 
@@ -929,8 +927,14 @@ static int __init snd_pmac_detect(struct snd_pmac *chip)
 	if (prop && *prop < 16)
 		chip->subframe = *prop;
 	prop = (unsigned int *) get_property(sound, "layout-id", NULL);
-	if (prop)
-		layout_id = *prop;
+	if (prop) {
+		/* partly deprecate snd-powermac, for those machines
+		 * that have a layout-id property for now */
+		printk(KERN_INFO "snd-powermac no longer handles any "
+				 "machines with a layout-id property "
+				 "in the device-tree, use snd-aoa.\n");
+		return -ENODEV;
+	}
 	/* This should be verified on older screamers */
 	if (device_is_compatible(sound, "screamer")) {
 		chip->model = PMAC_SCREAMER;
@@ -962,38 +966,6 @@ static int __init snd_pmac_detect(struct snd_pmac *chip)
 		chip->num_freqs = ARRAY_SIZE(tumbler_freqs);
 		chip->freq_table = tumbler_freqs;
 		chip->control_mask = MASK_IEPC | 0x11; /* disable IEE */
-	}
-	if (device_is_compatible(sound, "AOAKeylargo") ||
-	    device_is_compatible(sound, "AOAbase") ||
-	    device_is_compatible(sound, "AOAK2")) {
-		/* For now, only support very basic TAS3004 based machines with
-		 * single frequency until proper i2s control is implemented
-		 */
-		switch(layout_id) {
-		case 0x24:
-		case 0x29:
-		case 0x33:
-		case 0x46:
-		case 0x48:
-		case 0x50:
-		case 0x5c:
-			chip->num_freqs = ARRAY_SIZE(tumbler_freqs);
-			chip->model = PMAC_SNAPPER;
-			chip->can_byte_swap = 0; /* FIXME: check this */
-			chip->control_mask = MASK_IEPC | 0x11;/* disable IEE */
-			break;
-		case 0x3a:
-			chip->num_freqs = ARRAY_SIZE(tumbler_freqs);
-			chip->model = PMAC_TOONIE;
-			chip->can_byte_swap = 0; /* FIXME: check this */
-			chip->control_mask = MASK_IEPC | 0x11;/* disable IEE */
-			break;
-		default:
-			printk(KERN_ERR "snd: Unknown layout ID 0x%x\n",
-			       layout_id);
-			return -ENODEV;
-
-		}
 	}
 	prop = (unsigned int *)get_property(sound, "device-id", NULL);
 	if (prop)
@@ -1148,6 +1120,7 @@ int __init snd_pmac_new(struct snd_card *card, struct snd_pmac **chip_return)
 	struct snd_pmac *chip;
 	struct device_node *np;
 	int i, err;
+	unsigned int irq;
 	unsigned long ctrl_addr, txdma_addr, rxdma_addr;
 	static struct snd_device_ops ops = {
 		.dev_free =	snd_pmac_dev_free,
@@ -1181,10 +1154,6 @@ int __init snd_pmac_new(struct snd_card *card, struct snd_pmac **chip_return)
 	if (chip->is_k2) {
 		static char *rnames[] = {
 			"Sound Control", "Sound DMA" };
-		if (np->n_intrs < 3) {
-			err = -ENODEV;
-			goto __error;
-		}
 		for (i = 0; i < 2; i ++) {
 			if (of_address_to_resource(np->parent, i,
 						   &chip->rsrc[i])) {
@@ -1198,9 +1167,10 @@ int __init snd_pmac_new(struct snd_card *card, struct snd_pmac **chip_return)
 					       chip->rsrc[i].start + 1,
 					       rnames[i]) == NULL) {
 				printk(KERN_ERR "snd: can't request rsrc "
-				       " %d (%s: 0x%08lx:%08lx)\n",
-				       i, rnames[i], chip->rsrc[i].start,
-				       chip->rsrc[i].end);
+				       " %d (%s: 0x%016llx:%016llx)\n",
+				       i, rnames[i],
+				       (unsigned long long)chip->rsrc[i].start,
+				       (unsigned long long)chip->rsrc[i].end);
 				err = -ENODEV;
 				goto __error;
 			}
@@ -1212,10 +1182,6 @@ int __init snd_pmac_new(struct snd_card *card, struct snd_pmac **chip_return)
 	} else {
 		static char *rnames[] = {
 			"Sound Control", "Sound Tx DMA", "Sound Rx DMA" };
-		if (np->n_intrs < 3) {
-			err = -ENODEV;
-			goto __error;
-		}
 		for (i = 0; i < 3; i ++) {
 			if (of_address_to_resource(np, i,
 						   &chip->rsrc[i])) {
@@ -1229,9 +1195,10 @@ int __init snd_pmac_new(struct snd_card *card, struct snd_pmac **chip_return)
 					       chip->rsrc[i].start + 1,
 					       rnames[i]) == NULL) {
 				printk(KERN_ERR "snd: can't request rsrc "
-				       " %d (%s: 0x%08lx:%08lx)\n",
-				       i, rnames[i], chip->rsrc[i].start,
-				       chip->rsrc[i].end);
+				       " %d (%s: 0x%016llx:%016llx)\n",
+				       i, rnames[i],
+				       (unsigned long long)chip->rsrc[i].start,
+				       (unsigned long long)chip->rsrc[i].end);
 				err = -ENODEV;
 				goto __error;
 			}
@@ -1246,28 +1213,30 @@ int __init snd_pmac_new(struct snd_card *card, struct snd_pmac **chip_return)
 	chip->playback.dma = ioremap(txdma_addr, 0x100);
 	chip->capture.dma = ioremap(rxdma_addr, 0x100);
 	if (chip->model <= PMAC_BURGUNDY) {
-		if (request_irq(np->intrs[0].line, snd_pmac_ctrl_intr, 0,
+		irq = irq_of_parse_and_map(np, 0);
+		if (request_irq(irq, snd_pmac_ctrl_intr, 0,
 				"PMac", (void*)chip)) {
-			snd_printk(KERN_ERR "pmac: unable to grab IRQ %d\n", np->intrs[0].line);
+			snd_printk(KERN_ERR "pmac: unable to grab IRQ %d\n",
+				   irq);
 			err = -EBUSY;
 			goto __error;
 		}
-		chip->irq = np->intrs[0].line;
+		chip->irq = irq;
 	}
-	if (request_irq(np->intrs[1].line, snd_pmac_tx_intr, 0,
-			"PMac Output", (void*)chip)) {
-		snd_printk(KERN_ERR "pmac: unable to grab IRQ %d\n", np->intrs[1].line);
+	irq = irq_of_parse_and_map(np, 1);
+	if (request_irq(irq, snd_pmac_tx_intr, 0, "PMac Output", (void*)chip)){
+		snd_printk(KERN_ERR "pmac: unable to grab IRQ %d\n", irq);
 		err = -EBUSY;
 		goto __error;
 	}
-	chip->tx_irq = np->intrs[1].line;
-	if (request_irq(np->intrs[2].line, snd_pmac_rx_intr, 0,
-			"PMac Input", (void*)chip)) {
-		snd_printk(KERN_ERR "pmac: unable to grab IRQ %d\n", np->intrs[2].line);
+	chip->tx_irq = irq;
+	irq = irq_of_parse_and_map(np, 2);
+	if (request_irq(irq, snd_pmac_rx_intr, 0, "PMac Input", (void*)chip)) {
+		snd_printk(KERN_ERR "pmac: unable to grab IRQ %d\n", irq);
 		err = -EBUSY;
 		goto __error;
 	}
-	chip->rx_irq = np->intrs[2].line;
+	chip->rx_irq = irq;
 
 	snd_pmac_sound_feature(chip, 1);
 

@@ -68,8 +68,6 @@ struct scb_platform_data;
 #define FALSE 0
 #endif
 
-#define NUM_ELEMENTS(array) (sizeof(array) / sizeof(*array))
-
 #define ALL_CHANNELS '\0'
 #define ALL_TARGETS_MASK 0xFFFF
 #define INITIATOR_WILDCARD	(~0)
@@ -1489,6 +1487,7 @@ typedef enum {
 } ahd_queue_alg;
 
 void			ahd_set_tags(struct ahd_softc *ahd,
+				     struct scsi_cmnd *cmd,
 				     struct ahd_devinfo *devinfo,
 				     ahd_queue_alg alg);
 

@@ -23,10 +23,9 @@
 #define GPMC_CS_NAND_DATA	0x24
 
 #define GPMC_CONFIG1_WRAPBURST_SUPP     (1 << 31)
-#define GPMC_CONFIG1_READMULTIPLE_SUPP  (1 << 30)
+#define GPMC_CONFIG1_READMULTIPLE_SUPP  (1 << 20)
 #define GPMC_CONFIG1_READTYPE_ASYNC     (0 << 29)
 #define GPMC_CONFIG1_READTYPE_SYNC      (1 << 29)
-#define GPMC_CONFIG1_WRITEMULTIPLE_SUPP	(1 << 28)
 #define GPMC_CONFIG1_WRITETYPE_ASYNC    (0 << 27)
 #define GPMC_CONFIG1_WRITETYPE_SYNC     (1 << 27)
 #define GPMC_CONFIG1_CLKACTIVATIONTIME(val) ((val & 3) << 25)
@@ -81,13 +80,12 @@ struct gpmc_timings {
 };
 
 extern unsigned int gpmc_ns_to_ticks(unsigned int time_ns);
-extern unsigned int gpmc_round_ns_to_ticks(unsigned int time_ns);
 
 extern void gpmc_cs_write_reg(int cs, int idx, u32 val);
 extern u32 gpmc_cs_read_reg(int cs, int idx);
 extern int gpmc_cs_calc_divider(int cs, unsigned int sync_clk);
 extern int gpmc_cs_set_timings(int cs, const struct gpmc_timings *t);
-extern int gpmc_cs_request(int cs, unsigned long size, unsigned long *base);
-extern void gpmc_cs_free(int cs);
+extern unsigned long gpmc_cs_get_base_addr(int cs);
+
 
 #endif

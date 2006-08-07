@@ -17,7 +17,6 @@
    of any nature resulting due to the use of this software. This
    software is provided AS-IS with no warranties. */
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/init.h>
@@ -195,7 +194,7 @@ static int scx200_wdt_ioctl(struct inode *inode, struct file *file,
 	}
 }
 
-static struct file_operations scx200_wdt_fops = {
+static const struct file_operations scx200_wdt_fops = {
 	.owner	 = THIS_MODULE,
 	.llseek	 = no_llseek,
 	.write   = scx200_wdt_write,

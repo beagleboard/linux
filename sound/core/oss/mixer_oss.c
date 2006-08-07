@@ -988,13 +988,12 @@ static int snd_mixer_oss_build_input(struct snd_mixer_oss *mixer, struct snd_mix
 	if (ptr->index == 0 && (kctl = snd_mixer_oss_test_id(mixer, "Capture Source", 0)) != NULL) {
 		struct snd_ctl_elem_info *uinfo;
 
-		uinfo = kmalloc(sizeof(*uinfo), GFP_KERNEL);
+		uinfo = kzalloc(sizeof(*uinfo), GFP_KERNEL);
 		if (! uinfo) {
 			up_read(&mixer->card->controls_rwsem);
 			return -ENOMEM;
 		}
 			
-		memset(uinfo, 0, sizeof(*uinfo));
 		if (kctl->info(kctl, uinfo)) {
 			up_read(&mixer->card->controls_rwsem);
 			return 0;
@@ -1182,9 +1181,7 @@ static void snd_mixer_oss_proc_init(struct snd_mixer_oss *mixer)
 		return;
 	entry->content = SNDRV_INFO_CONTENT_TEXT;
 	entry->mode = S_IFREG | S_IRUGO | S_IWUSR;
-	entry->c.text.read_size = 8192;
 	entry->c.text.read = snd_mixer_oss_proc_read;
-	entry->c.text.write_size = 8192;
 	entry->c.text.write = snd_mixer_oss_proc_write;
 	entry->private_data = mixer;
 	if (snd_info_register(entry) < 0) {

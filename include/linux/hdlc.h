@@ -188,7 +188,7 @@ int hdlc_x25_ioctl(struct net_device *dev, struct ifreq *ifr);
 int hdlc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd);
 
 /* Must be used by hardware driver on module startup/exit */
-int register_hdlc_device(struct net_device *dev);
+#define register_hdlc_device(dev)	register_netdev(dev)
 void unregister_hdlc_device(struct net_device *dev);
 
 struct net_device *alloc_hdlcdev(void *priv);
@@ -224,8 +224,6 @@ static __inline__ void debug_frame(const struct sk_buff *skb)
 int hdlc_open(struct net_device *dev);
 /* Must be called by hardware driver when HDLC device is being closed */
 void hdlc_close(struct net_device *dev);
-/* Called by hardware driver when DCD line level changes */
-void hdlc_set_carrier(int on, struct net_device *dev);
 
 /* May be used by hardware driver to gain control over HDLC device */
 static __inline__ void hdlc_proto_detach(hdlc_device *hdlc)

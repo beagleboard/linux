@@ -14,7 +14,6 @@
  */
 
 #include <linux/compiler.h>
-#include <linux/config.h>
 #include <linux/errno.h>
 #include <linux/if_arp.h>
 #include <linux/in6.h>
@@ -405,9 +404,9 @@ int ieee80211_rx(struct ieee80211_device *ieee, struct sk_buff *skb,
 #endif
 
 	if (ieee->iw_mode == IW_MODE_MONITOR) {
-		ieee80211_monitor_rx(ieee, skb, rx_stats);
 		stats->rx_packets++;
 		stats->rx_bytes += skb->len;
+		ieee80211_monitor_rx(ieee, skb, rx_stats);
 		return 1;
 	}
 
@@ -1692,8 +1691,8 @@ void ieee80211_rx_mgt(struct ieee80211_device *ieee,
 				     WLAN_FC_GET_STYPE(le16_to_cpu
 						       (header->frame_ctl)));
 
-		IEEE80211_WARNING("%s: IEEE80211_REASSOC_REQ received\n",
-				  ieee->dev->name);
+		IEEE80211_DEBUG_MGMT("%s: IEEE80211_REASSOC_REQ received\n",
+				     ieee->dev->name);
 		if (ieee->handle_reassoc_request != NULL)
 			ieee->handle_reassoc_request(ieee->dev,
 						    (struct ieee80211_reassoc_request *)
@@ -1705,8 +1704,8 @@ void ieee80211_rx_mgt(struct ieee80211_device *ieee,
 				     WLAN_FC_GET_STYPE(le16_to_cpu
 						       (header->frame_ctl)));
 
-		IEEE80211_WARNING("%s: IEEE80211_ASSOC_REQ received\n",
-				  ieee->dev->name);
+		IEEE80211_DEBUG_MGMT("%s: IEEE80211_ASSOC_REQ received\n",
+				     ieee->dev->name);
 		if (ieee->handle_assoc_request != NULL)
 			ieee->handle_assoc_request(ieee->dev);
 		break;
@@ -1722,10 +1721,10 @@ void ieee80211_rx_mgt(struct ieee80211_device *ieee,
 		IEEE80211_DEBUG_MGMT("received UNKNOWN (%d)\n",
 				     WLAN_FC_GET_STYPE(le16_to_cpu
 						       (header->frame_ctl)));
-		IEEE80211_WARNING("%s: Unknown management packet: %d\n",
-				  ieee->dev->name,
-				  WLAN_FC_GET_STYPE(le16_to_cpu
-						    (header->frame_ctl)));
+		IEEE80211_DEBUG_MGMT("%s: Unknown management packet: %d\n",
+				     ieee->dev->name,
+				     WLAN_FC_GET_STYPE(le16_to_cpu
+						       (header->frame_ctl)));
 		break;
 	}
 }

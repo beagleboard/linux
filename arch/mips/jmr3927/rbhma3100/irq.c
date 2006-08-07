@@ -29,7 +29,6 @@
  *  with this program; if not, write  to the Free Software Foundation, Inc.,
  *  675 Mass Ave, Cambridge, MA 02139, USA.
  */
-#include <linux/config.h>
 #include <linux/init.h>
 
 #include <linux/errno.h>
@@ -417,7 +416,7 @@ void __init arch_init_irq(void)
 	set_c0_status(ST0_IM);	/* IE bit is still 0. */
 }
 
-static hw_irq_controller jmr3927_irq_controller = {
+static struct irq_chip jmr3927_irq_controller = {
 	.typename = "jmr3927_irq",
 	.startup = jmr3927_irq_startup,
 	.shutdown = jmr3927_irq_shutdown,
@@ -435,7 +434,7 @@ void jmr3927_irq_init(u32 irq_base)
 		irq_desc[i].status = IRQ_DISABLED;
 		irq_desc[i].action = NULL;
 		irq_desc[i].depth = 1;
-		irq_desc[i].handler = &jmr3927_irq_controller;
+		irq_desc[i].chip = &jmr3927_irq_controller;
 	}
 
 	jmr3927_irq_base = irq_base;

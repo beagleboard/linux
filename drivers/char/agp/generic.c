@@ -27,7 +27,6 @@
  * TODO:
  * - Allocate more than order 0 pages to avoid too much linear map splitting.
  */
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/pci.h>
 #include <linux/init.h>
@@ -809,12 +808,10 @@ int agp_generic_create_gatt_table(struct agp_bridge_data *bridge)
 				case U32_APER_SIZE:
 					bridge->current_size = A_IDX32(bridge);
 					break;
-					/* This case will never really happen. */
+				/* These cases will never really happen. */
 				case FIXED_APER_SIZE:
 				case LVL2_APER_SIZE:
 				default:
-					bridge->current_size =
-					    bridge->current_size;
 					break;
 				}
 				temp = bridge->current_size;

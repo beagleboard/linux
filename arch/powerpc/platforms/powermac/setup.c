@@ -23,7 +23,6 @@
  * bootup setup stuff..
  */
 
-#include <linux/config.h>
 #include <linux/init.h>
 #include <linux/errno.h>
 #include <linux/sched.h>
@@ -458,7 +457,7 @@ static int pmac_pm_finish(suspend_state_t state)
 	printk(KERN_DEBUG "%s(%d)\n", __FUNCTION__, state);
 
 	/* Restore userland MMU context */
-	set_context(current->active_mm->context, current->active_mm->pgd);
+	set_context(current->active_mm->context.id, current->active_mm->pgd);
 
 	return 0;
 }
@@ -600,13 +599,6 @@ pmac_halt(void)
  */
 static void __init pmac_init_early(void)
 {
-#ifdef CONFIG_PPC64
-	/* Initialize hash table, from now on, we can take hash faults
-	 * and call ioremap
-	 */
-	hpte_init_native();
-#endif
-
 	/* Enable early btext debug if requested */
 	if (strstr(cmd_line, "btextdbg")) {
 		udbg_adb_init_early();
@@ -621,9 +613,6 @@ static void __init pmac_init_early(void)
 	udbg_adb_init(!!strstr(cmd_line, "btextdbg"));
 
 #ifdef CONFIG_PPC64
-	/* Setup interrupt mapping options */
-	ppc64_interrupt_controller = IC_OPEN_PIC;
-
 	iommu_init_early_dart();
 #endif
 }
@@ -683,6 +672,8 @@ static int __init pmac_probe(void)
 	 * part of the cacheable linar mapping
 	 */
 	alloc_dart_table();
+
+	hpte_init_native();
 #endif
 
 #ifdef CONFIG_PPC32

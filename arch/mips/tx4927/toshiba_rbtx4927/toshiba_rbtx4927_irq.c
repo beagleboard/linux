@@ -111,7 +111,6 @@ SuperIO/PS2/Mouse, using INTR via ISA IRQ12 (mouse not currently supported)
 JP7 is not bus master -- do NOT use -- only 4 pci bus master's allowed -- SouthBridge, JP4, JP5, JP6
 */
 
-#include <linux/config.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/types.h>
@@ -252,7 +251,7 @@ static DEFINE_SPINLOCK(toshiba_rbtx4927_ioc_lock);
 
 
 #define TOSHIBA_RBTX4927_IOC_NAME "RBTX4927-IOC"
-static struct hw_interrupt_type toshiba_rbtx4927_irq_ioc_type = {
+static struct irq_chip toshiba_rbtx4927_irq_ioc_type = {
 	.typename = TOSHIBA_RBTX4927_IOC_NAME,
 	.startup = toshiba_rbtx4927_irq_ioc_startup,
 	.shutdown = toshiba_rbtx4927_irq_ioc_shutdown,
@@ -268,7 +267,7 @@ static struct hw_interrupt_type toshiba_rbtx4927_irq_ioc_type = {
 
 #ifdef CONFIG_TOSHIBA_FPCIB0
 #define TOSHIBA_RBTX4927_ISA_NAME "RBTX4927-ISA"
-static struct hw_interrupt_type toshiba_rbtx4927_irq_isa_type = {
+static struct irq_chip toshiba_rbtx4927_irq_isa_type = {
 	.typename = TOSHIBA_RBTX4927_ISA_NAME,
 	.startup = toshiba_rbtx4927_irq_isa_startup,
 	.shutdown = toshiba_rbtx4927_irq_isa_shutdown,
@@ -338,7 +337,7 @@ int toshiba_rbtx4927_irq_nested(int sw_irq)
 }
 
 //#define TOSHIBA_RBTX4927_PIC_ACTION(s) { no_action, 0, CPU_MASK_NONE, s, NULL, NULL }
-#define TOSHIBA_RBTX4927_PIC_ACTION(s) { no_action, SA_SHIRQ, CPU_MASK_NONE, s, NULL, NULL }
+#define TOSHIBA_RBTX4927_PIC_ACTION(s) { no_action, IRQF_SHARED, CPU_MASK_NONE, s, NULL, NULL }
 static struct irqaction toshiba_rbtx4927_irq_ioc_action =
 TOSHIBA_RBTX4927_PIC_ACTION(TOSHIBA_RBTX4927_IOC_NAME);
 #ifdef CONFIG_TOSHIBA_FPCIB0
@@ -368,7 +367,7 @@ static void __init toshiba_rbtx4927_irq_ioc_init(void)
 		irq_desc[i].status = IRQ_DISABLED;
 		irq_desc[i].action = 0;
 		irq_desc[i].depth = 3;
-		irq_desc[i].handler = &toshiba_rbtx4927_irq_ioc_type;
+		irq_desc[i].chip = &toshiba_rbtx4927_irq_ioc_type;
 	}
 
 	setup_irq(TOSHIBA_RBTX4927_IRQ_NEST_IOC_ON_PIC,
@@ -526,7 +525,7 @@ static void __init toshiba_rbtx4927_irq_isa_init(void)
 		irq_desc[i].action = 0;
 		irq_desc[i].depth =
 		    ((i < TOSHIBA_RBTX4927_IRQ_ISA_MID) ? (4) : (5));
-		irq_desc[i].handler = &toshiba_rbtx4927_irq_isa_type;
+		irq_desc[i].chip = &toshiba_rbtx4927_irq_isa_type;
 	}
 
 	setup_irq(TOSHIBA_RBTX4927_IRQ_NEST_ISA_ON_IOC,
@@ -692,13 +691,13 @@ void toshiba_rbtx4927_irq_dump(char *key)
 	{
 		u32 i, j = 0;
 		for (i = 0; i < NR_IRQS; i++) {
-			if (strcmp(irq_desc[i].handler->typename, "none")
+			if (strcmp(irq_desc[i].chip->typename, "none")
 			    == 0)
 				continue;
 
 			if ((i >= 1)
-			    && (irq_desc[i - 1].handler->typename ==
-				irq_desc[i].handler->typename)) {
+			    && (irq_desc[i - 1].chip->typename ==
+				irq_desc[i].chip->typename)) {
 				j++;
 			} else {
 				j = 0;
@@ -707,12 +706,12 @@ void toshiba_rbtx4927_irq_dump(char *key)
 			    (TOSHIBA_RBTX4927_IRQ_INFO,
 			     "%s irq=0x%02x/%3d s=0x%08x h=0x%08x a=0x%08x ah=0x%08x d=%1d n=%s/%02d\n",
 			     key, i, i, irq_desc[i].status,
-			     (u32) irq_desc[i].handler,
+			     (u32) irq_desc[i].chip,
 			     (u32) irq_desc[i].action,
 			     (u32) (irq_desc[i].action ? irq_desc[i].
 				    action->handler : 0),
 			     irq_desc[i].depth,
-			     irq_desc[i].handler->typename, j);
+			     irq_desc[i].chip->typename, j);
 		}
 	}
 #endif

@@ -27,7 +27,6 @@
  * 2003-06-03	R. Scott Bailey <scott.bailey@eds.com>
  *	Tighten sanity in time_init from 1% (10,000 PPM) to 250 PPM
  */
-#include <linux/config.h>
 #include <linux/errno.h>
 #include <linux/module.h>
 #include <linux/sched.h>
@@ -234,7 +233,7 @@ validate_cc_value(unsigned long cc)
 	index = cpu->type & 0xffffffff;
 
 	/* If index out of bounds, no way to validate.  */
-	if (index >= sizeof(cpu_hz)/sizeof(cpu_hz[0]))
+	if (index >= ARRAY_SIZE(cpu_hz))
 		return cc;
 
 	/* If index contains no data, no way to validate.  */

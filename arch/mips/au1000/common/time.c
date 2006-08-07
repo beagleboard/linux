@@ -33,7 +33,6 @@
  */
 
 #include <linux/types.h>
-#include <linux/config.h>
 #include <linux/init.h>
 #include <linux/kernel_stat.h>
 #include <linux/sched.h>
@@ -49,10 +48,6 @@
 
 #include <linux/mc146818rtc.h>
 #include <linux/timex.h>
-
-extern void do_softirq(void);
-extern volatile unsigned long wall_jiffies;
-unsigned long missed_heart_beats = 0;
 
 static unsigned long r4k_offset; /* Amount to increment compare reg each time */
 static unsigned long r4k_cur;    /* What counter should be at next timer irq */
@@ -388,10 +383,9 @@ static unsigned long do_fast_pm_gettimeoffset(void)
 }
 #endif
 
-void au1xxx_timer_setup(struct irqaction *irq)
+void __init plat_timer_setup(struct irqaction *irq)
 {
-        unsigned int est_freq;
-	extern unsigned long (*do_gettimeoffset)(void);
+	unsigned int est_freq;
 
 	printk("calculating r4koff... ");
 	r4k_offset = cal_r4koff();

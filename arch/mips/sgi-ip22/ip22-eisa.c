@@ -19,7 +19,6 @@
  * - Fix more bugs.
  */
 
-#include <linux/config.h>
 #include <linux/eisa.h>
 #include <linux/types.h>
 #include <linux/init.h>
@@ -145,7 +144,7 @@ static void end_eisa1_irq(unsigned int irq)
 		enable_eisa1_irq(irq);
 }
 
-static struct hw_interrupt_type ip22_eisa1_irq_type = {
+static struct irq_chip ip22_eisa1_irq_type = {
 	.typename	= "IP22 EISA",
 	.startup	= startup_eisa1_irq,
 	.shutdown	= shutdown_eisa1_irq,
@@ -207,7 +206,7 @@ static void end_eisa2_irq(unsigned int irq)
 		enable_eisa2_irq(irq);
 }
 
-static struct hw_interrupt_type ip22_eisa2_irq_type = {
+static struct irq_chip ip22_eisa2_irq_type = {
 	.typename	= "IP22 EISA",
 	.startup	= startup_eisa2_irq,
 	.shutdown	= shutdown_eisa2_irq,
@@ -279,9 +278,9 @@ int __init ip22_eisa_init(void)
 		irq_desc[i].action = 0;
 		irq_desc[i].depth = 1;
 		if (i < (SGINT_EISA + 8))
-			irq_desc[i].handler = &ip22_eisa1_irq_type;
+			irq_desc[i].chip = &ip22_eisa1_irq_type;
 		else
-			irq_desc[i].handler = &ip22_eisa2_irq_type;
+			irq_desc[i].chip = &ip22_eisa2_irq_type;
 	}
 
 	/* Cannot use request_irq because of kmalloc not being ready at such

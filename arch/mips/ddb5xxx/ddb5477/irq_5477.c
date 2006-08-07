@@ -89,7 +89,7 @@ vrc5477_irq_end(unsigned int irq)
 		ll_vrc5477_irq_enable( irq - vrc5477_irq_base);
 }
 
-hw_irq_controller vrc5477_irq_controller = {
+struct irq_chip vrc5477_irq_controller = {
 	.typename = "vrc5477_irq",
 	.startup = vrc5477_irq_startup,
 	.shutdown = vrc5477_irq_shutdown,
@@ -107,7 +107,7 @@ void __init vrc5477_irq_init(u32 irq_base)
 		irq_desc[i].status = IRQ_DISABLED;
 		irq_desc[i].action = NULL;
 		irq_desc[i].depth = 1;
-		irq_desc[i].handler = &vrc5477_irq_controller;
+		irq_desc[i].chip = &vrc5477_irq_controller;
 	}
 
 	vrc5477_irq_base = irq_base;

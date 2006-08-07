@@ -16,7 +16,6 @@
 #undef DEBUG
 
 #include <stdarg.h>
-#include <linux/config.h>
 #include <linux/kernel.h>
 #include <linux/string.h>
 #include <linux/init.h>
@@ -30,6 +29,8 @@
 #include <linux/bitops.h>
 #include <linux/module.h>
 #include <linux/kexec.h>
+#include <linux/debugfs.h>
+#include <linux/irq.h>
 
 #include <asm/prom.h>
 #include <asm/rtas.h>
@@ -50,6 +51,7 @@
 #include <asm/machdep.h>
 #include <asm/pSeries_reconfig.h>
 #include <asm/pci-bridge.h>
+#include <asm/kexec.h>
 
 #ifdef DEBUG
 #define DBG(fmt...) printk(KERN_ERR fmt)
@@ -84,424 +86,6 @@ static DEFINE_RWLOCK(devtree_lock);
 
 /* export that to outside world */
 struct device_node *of_chosen;
-
-struct device_node *dflt_interrupt_controller;
-int num_interrupt_controllers;
-
-/*
- * Wrapper for allocating memory for various data that needs to be
- * attached to device nodes as they are processed at boot or when
- * added to the device tree later (e.g. DLPAR).  At boot there is
- * already a region reserved so we just increment *mem_start by size;
- * otherwise we call kmalloc.
- */
-static void * prom_alloc(unsigned long size, unsigned long *mem_start)
-{
-	unsigned long tmp;
-
-	if (!mem_start)
-		return kmalloc(size, GFP_KERNEL);
-
-	tmp = *mem_start;
-	*mem_start += size;
-	return (void *)tmp;
-}
-
-/*
- * Find the device_node with a given phandle.
- */
-static struct device_node * find_phandle(phandle ph)
-{
-	struct device_node *np;
-
-	for (np = allnodes; np != 0; np = np->allnext)
-		if (np->linux_phandle == ph)
-			return np;
-	return NULL;
-}
-
-/*
- * Find the interrupt parent of a node.
- */
-static struct device_node * __devinit intr_parent(struct device_node *p)
-{
-	phandle *parp;
-
-	parp = (phandle *) get_property(p, "interrupt-parent", NULL);
-	if (parp == NULL)
-		return p->parent;
-	p = find_phandle(*parp);
-	if (p != NULL)
-		return p;
-	/*
-	 * On a powermac booted with BootX, we don't get to know the
-	 * phandles for any nodes, so find_phandle will return NULL.
-	 * Fortunately these machines only have one interrupt controller
-	 * so there isn't in fact any ambiguity.  -- paulus
-	 */
-	if (num_interrupt_controllers == 1)
-		p = dflt_interrupt_controller;
-	return p;
-}
-
-/*
- * Find out the size of each entry of the interrupts property
- * for a node.
- */
-int __devinit prom_n_intr_cells(struct device_node *np)
-{
-	struct device_node *p;
-	unsigned int *icp;
-
-	for (p = np; (p = intr_parent(p)) != NULL; ) {
-		icp = (unsigned int *)
-			get_property(p, "#interrupt-cells", NULL);
-		if (icp != NULL)
-			return *icp;
-		if (get_property(p, "interrupt-controller", NULL) != NULL
-		    || get_property(p, "interrupt-map", NULL) != NULL) {
-			printk("oops, node %s doesn't have #interrupt-cells\n",
-			       p->full_name);
-			return 1;
-		}
-	}
-#ifdef DEBUG_IRQ
-	printk("prom_n_intr_cells failed for %s\n", np->full_name);
-#endif
-	return 1;
-}
-
-/*
- * Map an interrupt from a device up to the platform interrupt
- * descriptor.
- */
-static int __devinit map_interrupt(unsigned int **irq, struct device_node **ictrler,
-				   struct device_node *np, unsigned int *ints,
-				   int nintrc)
-{
-	struct device_node *p, *ipar;
-	unsigned int *imap, *imask, *ip;
-	int i, imaplen, match;
-	int newintrc = 0, newaddrc = 0;
-	unsigned int *reg;
-	int naddrc;
-
-	reg = (unsigned int *) get_property(np, "reg", NULL);
-	naddrc = prom_n_addr_cells(np);
-	p = intr_parent(np);
-	while (p != NULL) {
-		if (get_property(p, "interrupt-controller", NULL) != NULL)
-			/* this node is an interrupt controller, stop here */
-			break;
-		imap = (unsigned int *)
-			get_property(p, "interrupt-map", &imaplen);
-		if (imap == NULL) {
-			p = intr_parent(p);
-			continue;
-		}
-		imask = (unsigned int *)
-			get_property(p, "interrupt-map-mask", NULL);
-		if (imask == NULL) {
-			printk("oops, %s has interrupt-map but no mask\n",
-			       p->full_name);
-			return 0;
-		}
-		imaplen /= sizeof(unsigned int);
-		match = 0;
-		ipar = NULL;
-		while (imaplen > 0 && !match) {
-			/* check the child-interrupt field */
-			match = 1;
-			for (i = 0; i < naddrc && match; ++i)
-				match = ((reg[i] ^ imap[i]) & imask[i]) == 0;
-			for (; i < naddrc + nintrc && match; ++i)
-				match = ((ints[i-naddrc] ^ imap[i]) & imask[i]) == 0;
-			imap += naddrc + nintrc;
-			imaplen -= naddrc + nintrc;
-			/* grab the interrupt parent */
-			ipar = find_phandle((phandle) *imap++);
-			--imaplen;
-			if (ipar == NULL && num_interrupt_controllers == 1)
-				/* cope with BootX not giving us phandles */
-				ipar = dflt_interrupt_controller;
-			if (ipar == NULL) {
-				printk("oops, no int parent %x in map of %s\n",
-				       imap[-1], p->full_name);
-				return 0;
-			}
-			/* find the parent's # addr and intr cells */
-			ip = (unsigned int *)
-				get_property(ipar, "#interrupt-cells", NULL);
-			if (ip == NULL) {
-				printk("oops, no #interrupt-cells on %s\n",
-				       ipar->full_name);
-				return 0;
-			}
-			newintrc = *ip;
-			ip = (unsigned int *)
-				get_property(ipar, "#address-cells", NULL);
-			newaddrc = (ip == NULL)? 0: *ip;
-			imap += newaddrc + newintrc;
-			imaplen -= newaddrc + newintrc;
-		}
-		if (imaplen < 0) {
-			printk("oops, error decoding int-map on %s, len=%d\n",
-			       p->full_name, imaplen);
-			return 0;
-		}
-		if (!match) {
-#ifdef DEBUG_IRQ
-			printk("oops, no match in %s int-map for %s\n",
-			       p->full_name, np->full_name);
-#endif
-			return 0;
-		}
-		p = ipar;
-		naddrc = newaddrc;
-		nintrc = newintrc;
-		ints = imap - nintrc;
-		reg = ints - naddrc;
-	}
-	if (p == NULL) {
-#ifdef DEBUG_IRQ
-		printk("hmmm, int tree for %s doesn't have ctrler\n",
-		       np->full_name);
-#endif
-		return 0;
-	}
-	*irq = ints;
-	*ictrler = p;
-	return nintrc;
-}
-
-static unsigned char map_isa_senses[4] = {
-	IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE,
-	IRQ_SENSE_LEVEL | IRQ_POLARITY_POSITIVE,
-	IRQ_SENSE_EDGE  | IRQ_POLARITY_NEGATIVE,
-	IRQ_SENSE_EDGE  | IRQ_POLARITY_POSITIVE
-};
-
-static unsigned char map_mpic_senses[4] = {
-	IRQ_SENSE_EDGE  | IRQ_POLARITY_POSITIVE,
-	IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE,
-	/* 2 seems to be used for the 8259 cascade... */
-	IRQ_SENSE_LEVEL | IRQ_POLARITY_POSITIVE,
-	IRQ_SENSE_EDGE  | IRQ_POLARITY_NEGATIVE,
-};
-
-static int __devinit finish_node_interrupts(struct device_node *np,
-					    unsigned long *mem_start,
-					    int measure_only)
-{
-	unsigned int *ints;
-	int intlen, intrcells, intrcount;
-	int i, j, n, sense;
-	unsigned int *irq, virq;
-	struct device_node *ic;
-	int trace = 0;
-
-	//#define TRACE(fmt...) do { if (trace) { printk(fmt); mdelay(1000); } } while(0)
-#define TRACE(fmt...)
-
-	if (!strcmp(np->name, "smu-doorbell"))
-		trace = 1;
-
-	TRACE("Finishing SMU doorbell ! num_interrupt_controllers = %d\n",
-	      num_interrupt_controllers);
-
-	if (num_interrupt_controllers == 0) {
-		/*
-		 * Old machines just have a list of interrupt numbers
-		 * and no interrupt-controller nodes.
-		 */
-		ints = (unsigned int *) get_property(np, "AAPL,interrupts",
-						     &intlen);
-		/* XXX old interpret_pci_props looked in parent too */
-		/* XXX old interpret_macio_props looked for interrupts
-		   before AAPL,interrupts */
-		if (ints == NULL)
-			ints = (unsigned int *) get_property(np, "interrupts",
-							     &intlen);
-		if (ints == NULL)
-			return 0;
-
-		np->n_intrs = intlen / sizeof(unsigned int);
-		np->intrs = prom_alloc(np->n_intrs * sizeof(np->intrs[0]),
-				       mem_start);
-		if (!np->intrs)
-			return -ENOMEM;
-		if (measure_only)
-			return 0;
-
-		for (i = 0; i < np->n_intrs; ++i) {
-			np->intrs[i].line = *ints++;
-			np->intrs[i].sense = IRQ_SENSE_LEVEL
-				| IRQ_POLARITY_NEGATIVE;
-		}
-		return 0;
-	}
-
-	ints = (unsigned int *) get_property(np, "interrupts", &intlen);
-	TRACE("ints=%p, intlen=%d\n", ints, intlen);
-	if (ints == NULL)
-		return 0;
-	intrcells = prom_n_intr_cells(np);
-	intlen /= intrcells * sizeof(unsigned int);
-	TRACE("intrcells=%d, new intlen=%d\n", intrcells, intlen);
-	np->intrs = prom_alloc(intlen * sizeof(*(np->intrs)), mem_start);
-	if (!np->intrs)
-		return -ENOMEM;
-
-	if (measure_only)
-		return 0;
-
-	intrcount = 0;
-	for (i = 0; i < intlen; ++i, ints += intrcells) {
-		n = map_interrupt(&irq, &ic, np, ints, intrcells);
-		TRACE("map, irq=%d, ic=%p, n=%d\n", irq, ic, n);
-		if (n <= 0)
-			continue;
-
-		/* don't map IRQ numbers under a cascaded 8259 controller */
-		if (ic && device_is_compatible(ic, "chrp,iic")) {
-			np->intrs[intrcount].line = irq[0];
-			sense = (n > 1)? (irq[1] & 3): 3;
-			np->intrs[intrcount].sense = map_isa_senses[sense];
-		} else {
-			virq = virt_irq_create_mapping(irq[0]);
-			TRACE("virq=%d\n", virq);
-#ifdef CONFIG_PPC64
-			if (virq == NO_IRQ) {
-				printk(KERN_CRIT "Could not allocate interrupt"
-				       " number for %s\n", np->full_name);
-				continue;
-			}
-#endif
-			np->intrs[intrcount].line = irq_offset_up(virq);
-			sense = (n > 1)? (irq[1] & 3): 1;
-
-			/* Apple uses bits in there in a different way, let's
-			 * only keep the real sense bit on macs
-			 */
-			if (machine_is(powermac))
-				sense &= 0x1;
-			np->intrs[intrcount].sense = map_mpic_senses[sense];
-		}
-
-#ifdef CONFIG_PPC64
-		/* We offset irq numbers for the u3 MPIC by 128 in PowerMac */
-		if (machine_is(powermac) && ic && ic->parent) {
-			char *name = get_property(ic->parent, "name", NULL);
-			if (name && !strcmp(name, "u3"))
-				np->intrs[intrcount].line += 128;
-			else if (!(name && (!strcmp(name, "mac-io") ||
-					    !strcmp(name, "u4"))))
-				/* ignore other cascaded controllers, such as
-				   the k2-sata-root */
-				break;
-		}
-#endif /* CONFIG_PPC64 */
-		if (n > 2) {
-			printk("hmmm, got %d intr cells for %s:", n,
-			       np->full_name);
-			for (j = 0; j < n; ++j)
-				printk(" %d", irq[j]);
-			printk("\n");
-		}
-		++intrcount;
-	}
-	np->n_intrs = intrcount;
-
-	return 0;
-}
-
-static int __devinit finish_node(struct device_node *np,
-				 unsigned long *mem_start,
-				 int measure_only)
-{
-	struct device_node *child;
-	int rc = 0;
-
-	rc = finish_node_interrupts(np, mem_start, measure_only);
-	if (rc)
-		goto out;
-
-	for (child = np->child; child != NULL; child = child->sibling) {
-		rc = finish_node(child, mem_start, measure_only);
-		if (rc)
-			goto out;
-	}
-out:
-	return rc;
-}
-
-static void __init scan_interrupt_controllers(void)
-{
-	struct device_node *np;
-	int n = 0;
-	char *name, *ic;
-	int iclen;
-
-	for (np = allnodes; np != NULL; np = np->allnext) {
-		ic = get_property(np, "interrupt-controller", &iclen);
-		name = get_property(np, "name", NULL);
-		/* checking iclen makes sure we don't get a false
-		   match on /chosen.interrupt_controller */
-		if ((name != NULL
-		     && strcmp(name, "interrupt-controller") == 0)
-		    || (ic != NULL && iclen == 0
-			&& strcmp(name, "AppleKiwi"))) {
-			if (n == 0)
-				dflt_interrupt_controller = np;
-			++n;
-		}
-	}
-	num_interrupt_controllers = n;
-}
-
-/**
- * finish_device_tree is called once things are running normally
- * (i.e. with text and data mapped to the address they were linked at).
- * It traverses the device tree and fills in some of the additional,
- * fields in each node like {n_}addrs and {n_}intrs, the virt interrupt
- * mapping is also initialized at this point.
- */
-void __init finish_device_tree(void)
-{
-	unsigned long start, end, size = 0;
-
-	DBG(" -> finish_device_tree\n");
-
-#ifdef CONFIG_PPC64
-	/* Initialize virtual IRQ map */
-	virt_irq_init();
-#endif
-	scan_interrupt_controllers();
-
-	/*
-	 * Finish device-tree (pre-parsing some properties etc...)
-	 * We do this in 2 passes. One with "measure_only" set, which
-	 * will only measure the amount of memory needed, then we can
-	 * allocate that memory, and call finish_node again. However,
-	 * we must be careful as most routines will fail nowadays when
-	 * prom_alloc() returns 0, so we must make sure our first pass
-	 * doesn't start at 0. We pre-initialize size to 16 for that
-	 * reason and then remove those additional 16 bytes
-	 */
-	size = 16;
-	finish_node(allnodes, &size, 1);
-	size -= 16;
-
-	if (0 == size)
-		end = start = 0;
-	else
-		end = start = (unsigned long)__va(lmb_alloc(size, 128));
-
-	finish_node(allnodes, &end, 0);
-	BUG_ON(end != start + size);
-
-	DBG(" <- finish_device_tree\n");
-}
 
 static inline char *find_flat_dt_string(u32 offset)
 {
@@ -836,6 +420,42 @@ static unsigned long __init unflatten_dt_node(unsigned long mem,
 	return mem;
 }
 
+static int __init early_parse_mem(char *p)
+{
+	if (!p)
+		return 1;
+
+	memory_limit = PAGE_ALIGN(memparse(p, &p));
+	DBG("memory limit = 0x%lx\n", memory_limit);
+
+	return 0;
+}
+early_param("mem", early_parse_mem);
+
+/*
+ * The device tree may be allocated below our memory limit, or inside the
+ * crash kernel region for kdump. If so, move it out now.
+ */
+static void move_device_tree(void)
+{
+	unsigned long start, size;
+	void *p;
+
+	DBG("-> move_device_tree\n");
+
+	start = __pa(initial_boot_params);
+	size = initial_boot_params->totalsize;
+
+	if ((memory_limit && (start + size) > memory_limit) ||
+			overlaps_crashkernel(start, size)) {
+		p = __va(lmb_alloc_base(size, PAGE_SIZE, lmb.rmo_size));
+		memcpy(p, initial_boot_params, size);
+		initial_boot_params = (struct boot_param_header *)p;
+		DBG("Moved device tree to 0x%p\n", p);
+	}
+
+	DBG("<- move_device_tree\n");
+}
 
 /**
  * unflattens the device-tree passed by the firmware, creating the
@@ -911,7 +531,11 @@ static struct ibm_pa_feature {
 	{CPU_FTR_CTRL, 0,		0, 3, 0},
 	{CPU_FTR_NOEXECUTE, 0,		0, 6, 0},
 	{CPU_FTR_NODSISRALIGN, 0,	1, 1, 1},
+#if 0
+	/* put this back once we know how to test if firmware does 64k IO */
 	{CPU_FTR_CI_LARGE_PAGE, 0,	1, 2, 0},
+#endif
+	{CPU_FTR_REAL_LE, PPC_FEATURE_TRUE_LE, 5, 0, 0},
 };
 
 static void __init check_cpu_pa_features(unsigned long node)
@@ -1070,6 +694,7 @@ static int __init early_init_dt_scan_chosen(unsigned long node,
 		iommu_force_on = 1;
 #endif
 
+	/* mem=x on the command line is the preferred mechanism */
  	lprop = of_get_flat_dt_prop(node, "linux,memory-limit", NULL);
  	if (lprop)
  		memory_limit = *lprop;
@@ -1082,24 +707,6 @@ static int __init early_init_dt_scan_chosen(unsigned long node,
  	if (lprop)
  		tce_alloc_end = *lprop;
 #endif
-
-#ifdef CONFIG_PPC_RTAS
-	/* To help early debugging via the front panel, we retrieve a minimal
-	 * set of RTAS infos now if available
-	 */
-	{
-		u64 *basep, *entryp, *sizep;
-
-		basep = of_get_flat_dt_prop(node, "linux,rtas-base", NULL);
-		entryp = of_get_flat_dt_prop(node, "linux,rtas-entry", NULL);
-		sizep = of_get_flat_dt_prop(node, "linux,rtas-size", NULL);
-		if (basep && entryp && sizep) {
-			rtas.base = *basep;
-			rtas.entry = *entryp;
-			rtas.size = *sizep;
-		}
-	}
-#endif /* CONFIG_PPC_RTAS */
 
 #ifdef CONFIG_KEXEC
        lprop = (u64*)of_get_flat_dt_prop(node, "linux,crashkernel-base", NULL);
@@ -1122,17 +729,6 @@ static int __init early_init_dt_scan_chosen(unsigned long node,
 #endif /* CONFIG_CMDLINE */
 
 	DBG("Command line is: %s\n", cmd_line);
-
-	if (strstr(cmd_line, "mem=")) {
-		char *p, *q;
-
-		for (q = cmd_line; (p = strstr(q, "mem=")) != 0; ) {
-			q = p + 4;
-			if (p > cmd_line && p[-1] != ' ')
-				continue;
-			memory_limit = memparse(q, &q);
-		}
-	}
 
 	/* break now */
 	return 1;
@@ -1237,9 +833,17 @@ static void __init early_reserve_mem(void)
 {
 	u64 base, size;
 	u64 *reserve_map;
+	unsigned long self_base;
+	unsigned long self_size;
 
 	reserve_map = (u64 *)(((unsigned long)initial_boot_params) +
 					initial_boot_params->off_mem_rsvmap);
+
+	/* before we do anything, lets reserve the dt blob */
+	self_base = __pa((unsigned long)initial_boot_params);
+	self_size = initial_boot_params->totalsize;
+	lmb_reserve(self_base, self_size);
+
 #ifdef CONFIG_PPC32
 	/* 
 	 * Handle the case where we might be booting from an old kexec
@@ -1254,6 +858,9 @@ static void __init early_reserve_mem(void)
 			size_32 = *(reserve_map_32++);
 			if (size_32 == 0)
 				break;
+			/* skip if the reservation is for the blob */
+			if (base_32 == self_base && size_32 == self_size)
+				continue;
 			DBG("reserving: %x -> %x\n", base_32, size_32);
 			lmb_reserve(base_32, size_32);
 		}
@@ -1265,6 +872,9 @@ static void __init early_reserve_mem(void)
 		size = *(reserve_map++);
 		if (size == 0)
 			break;
+		/* skip if the reservation is for the blob */
+		if (base == self_base && size == self_size)
+			continue;
 		DBG("reserving: %llx -> %llx\n", base, size);
 		lmb_reserve(base, size);
 	}
@@ -1282,6 +892,11 @@ void __init early_init_devtree(void *params)
 	/* Setup flat device-tree pointer */
 	initial_boot_params = params;
 
+#ifdef CONFIG_PPC_RTAS
+	/* Some machines might need RTAS info for debugging, grab it now. */
+	of_scan_flat_dt(early_init_dt_scan_rtas, NULL);
+#endif
+
 	/* Retrieve various informations from the /chosen node of the
 	 * device-tree, including the platform type, initrd location and
 	 * size, TCE reserve, and more ...
@@ -1292,17 +907,25 @@ void __init early_init_devtree(void *params)
 	lmb_init();
 	of_scan_flat_dt(early_init_dt_scan_root, NULL);
 	of_scan_flat_dt(early_init_dt_scan_memory, NULL);
+
+	/* Save command line for /proc/cmdline and then parse parameters */
+	strlcpy(saved_command_line, cmd_line, COMMAND_LINE_SIZE);
+	parse_early_param();
+
+	/* Reserve LMB regions used by kernel, initrd, dt, etc... */
+	lmb_reserve(PHYSICAL_START, __pa(klimit) - PHYSICAL_START);
+	reserve_kdump_trampoline();
+	reserve_crashkernel();
+	early_reserve_mem();
+
 	lmb_enforce_memory_limit(memory_limit);
 	lmb_analyze();
 
 	DBG("Phys. mem: %lx\n", lmb_phys_mem_size());
 
-	/* Reserve LMB regions used by kernel, initrd, dt, etc... */
-	lmb_reserve(PHYSICAL_START, __pa(klimit) - PHYSICAL_START);
-#ifdef CONFIG_CRASH_DUMP
-	lmb_reserve(0, KDUMP_RESERVE_LIMIT);
-#endif
-	early_reserve_mem();
+	/* We may need to relocate the flat tree, do it now.
+	 * FIXME .. and the initrd too? */
+	move_device_tree();
 
 	DBG("Scanning CPUs ...\n");
 
@@ -1347,27 +970,6 @@ prom_n_size_cells(struct device_node* np)
 	return 1;
 }
 EXPORT_SYMBOL(prom_n_size_cells);
-
-/**
- * Work out the sense (active-low level / active-high edge)
- * of each interrupt from the device tree.
- */
-void __init prom_get_irq_senses(unsigned char *senses, int off, int max)
-{
-	struct device_node *np;
-	int i, j;
-
-	/* default to level-triggered */
-	memset(senses, IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE, max - off);
-
-	for (np = allnodes; np != 0; np = np->allnext) {
-		for (j = 0; j < np->n_intrs; j++) {
-			i = np->intrs[j].line;
-			if (i >= off && i < max)
-				senses[i-off] = np->intrs[j].sense;
-		}
-	}
-}
 
 /**
  * Construct and return a list of the device_nodes with a given name.
@@ -1768,7 +1370,6 @@ static void of_node_release(struct kref *kref)
 			node->deadprops = NULL;
 		}
 	}
-	kfree(node->intrs);
 	kfree(node->full_name);
 	kfree(node->data);
 	kfree(node);
@@ -1841,13 +1442,7 @@ void of_detach_node(const struct device_node *np)
 #ifdef CONFIG_PPC_PSERIES
 /*
  * Fix up the uninitialized fields in a new device node:
- * name, type, n_addrs, addrs, n_intrs, intrs, and pci-specific fields
- *
- * A lot of boot-time code is duplicated here, because functions such
- * as finish_node_interrupts, interpret_pci_props, etc. cannot use the
- * slab allocator.
- *
- * This should probably be split up into smaller chunks.
+ * name, type and pci-specific fields
  */
 
 static int of_finish_dynamic_node(struct device_node *node)
@@ -1888,8 +1483,6 @@ static int prom_reconfig_notifier(struct notifier_block *nb,
 	switch (action) {
 	case PSERIES_RECONFIG_ADD:
 		err = of_finish_dynamic_node(node);
-		if (!err)
-			finish_node(node, NULL, 0);
 		if (err < 0) {
 			printk(KERN_ERR "finish_node returned %d\n", err);
 			err = NOTIFY_BAD;
@@ -1935,8 +1528,7 @@ struct property *of_find_property(struct device_node *np, const char *name,
  * Find a property with a given name for a given node
  * and return the value.
  */
-unsigned char *get_property(struct device_node *np, const char *name,
-			    int *lenp)
+void *get_property(struct device_node *np, const char *name, int *lenp)
 {
 	struct property *pp = of_find_property(np,name,lenp);
 	return pp ? pp->value : NULL;
@@ -2053,29 +1645,70 @@ int prom_update_property(struct device_node *np,
 	return 0;
 }
 
-#ifdef CONFIG_KEXEC
-/* We may have allocated the flat device tree inside the crash kernel region
- * in prom_init. If so we need to move it out into regular memory. */
-void kdump_move_device_tree(void)
+
+/* Find the device node for a given logical cpu number, also returns the cpu
+ * local thread number (index in ibm,interrupt-server#s) if relevant and
+ * asked for (non NULL)
+ */
+struct device_node *of_get_cpu_node(int cpu, unsigned int *thread)
 {
-	unsigned long start, end;
-	struct boot_param_header *new;
+	int hardid;
+	struct device_node *np;
 
-	start = __pa((unsigned long)initial_boot_params);
-	end = start + initial_boot_params->totalsize;
+	hardid = get_hard_smp_processor_id(cpu);
 
-	if (end < crashk_res.start || start > crashk_res.end)
-		return;
+	for_each_node_by_type(np, "cpu") {
+		u32 *intserv;
+		unsigned int plen, t;
 
-	new = (struct boot_param_header*)
-		__va(lmb_alloc(initial_boot_params->totalsize, PAGE_SIZE));
-
-	memcpy(new, initial_boot_params, initial_boot_params->totalsize);
-
-	initial_boot_params = new;
-
-	DBG("Flat device tree blob moved to %p\n", initial_boot_params);
-
-	/* XXX should we unreserve the old DT? */
+		/* Check for ibm,ppc-interrupt-server#s. If it doesn't exist
+		 * fallback to "reg" property and assume no threads
+		 */
+		intserv = (u32 *)get_property(np, "ibm,ppc-interrupt-server#s",
+					      &plen);
+		if (intserv == NULL) {
+			u32 *reg = (u32 *)get_property(np, "reg", NULL);
+			if (reg == NULL)
+				continue;
+			if (*reg == hardid) {
+				if (thread)
+					*thread = 0;
+				return np;
+			}
+		} else {
+			plen /= sizeof(u32);
+			for (t = 0; t < plen; t++) {
+				if (hardid == intserv[t]) {
+					if (thread)
+						*thread = t;
+					return np;
+				}
+			}
+		}
+	}
+	return NULL;
 }
-#endif /* CONFIG_KEXEC */
+
+#ifdef DEBUG
+static struct debugfs_blob_wrapper flat_dt_blob;
+
+static int __init export_flat_device_tree(void)
+{
+	struct dentry *d;
+
+	d = debugfs_create_dir("powerpc", NULL);
+	if (!d)
+		return 1;
+
+	flat_dt_blob.data = initial_boot_params;
+	flat_dt_blob.size = initial_boot_params->totalsize;
+
+	d = debugfs_create_blob("flat-device-tree", S_IFREG | S_IRUSR,
+				d, &flat_dt_blob);
+	if (!d)
+		return 1;
+
+	return 0;
+}
+__initcall(export_flat_device_tree);
+#endif

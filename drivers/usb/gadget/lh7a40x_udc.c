@@ -2107,7 +2107,7 @@ static int lh7a40x_udc_probe(struct platform_device *pdev)
 
 	/* irq setup after old hardware state is cleaned up */
 	retval =
-	    request_irq(IRQ_USBINTR, lh7a40x_udc_irq, SA_INTERRUPT, driver_name,
+	    request_irq(IRQ_USBINTR, lh7a40x_udc_irq, IRQF_DISABLED, driver_name,
 			dev);
 	if (retval != 0) {
 		DEBUG(KERN_ERR "%s: can't get irq %i, err %d\n", driver_name,
@@ -2143,7 +2143,7 @@ static int lh7a40x_udc_remove(struct platform_device *pdev)
 
 static struct platform_driver udc_driver = {
 	.probe = lh7a40x_udc_probe,
-	.remove = lh7a40x_udc_remove
+	.remove = lh7a40x_udc_remove,
 	    /* FIXME power management support */
 	    /* .suspend = ... disable UDC */
 	    /* .resume = ... re-enable UDC */

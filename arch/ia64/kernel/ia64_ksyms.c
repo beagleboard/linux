@@ -5,7 +5,6 @@
  * All other exports should be put directly after the definition.
  */
 
-#include <linux/config.h>
 #include <linux/module.h>
 
 #include <linux/string.h>
@@ -63,7 +62,7 @@ EXPORT_SYMBOL(__udivdi3);
 EXPORT_SYMBOL(__moddi3);
 EXPORT_SYMBOL(__umoddi3);
 
-#if defined(CONFIG_MD_RAID5) || defined(CONFIG_MD_RAID5_MODULE)
+#if defined(CONFIG_MD_RAID456) || defined(CONFIG_MD_RAID456_MODULE)
 extern void xor_ia64_2(void);
 extern void xor_ia64_3(void);
 extern void xor_ia64_4(void);

@@ -10,7 +10,6 @@
  * Copyright (C) 1999 Silicon Graphics, Inc.
  * Copyright (C) 2000 2001, 2002  Maciej W. Rozycki
  */
-#include <linux/config.h>
 #include <linux/errno.h>
 #include <linux/init.h>
 #include <linux/ioport.h>
@@ -25,7 +24,7 @@
 #include <linux/user.h>
 #include <linux/utsname.h>
 #include <linux/a.out.h>
-#include <linux/tty.h>
+#include <linux/screen_info.h>
 #include <linux/bootmem.h>
 #include <linux/initrd.h>
 #include <linux/major.h>
@@ -442,9 +441,54 @@ static inline void bootmem_init(void)
 #endif /* CONFIG_BLK_DEV_INITRD  */
 }
 
+/*
+ * arch_mem_init - initialize memory managment subsystem
+ *
+ *  o plat_mem_setup() detects the memory configuration and will record detected
+ *    memory areas using add_memory_region.
+ *  o parse_cmdline_early() parses the command line for mem= options which,
+ *    iff detected, will override the results of the automatic detection.
+ *
+ * At this stage the memory configuration of the system is known to the
+ * kernel but generic memory managment system is still entirely uninitialized.
+ *
+ *  o bootmem_init()
+ *  o sparse_init()
+ *  o paging_init()
+ *
+ * At this stage the bootmem allocator is ready to use.
+ *
+ * NOTE: historically plat_mem_setup did the entire platform initialization.
+ *       This was rather impractical because it meant plat_mem_setup had to
+ * get away without any kind of memory allocator.  To keep old code from
+ * breaking plat_setup was just renamed to plat_setup and a second platform
+ * initialization hook for anything else was introduced.
+ */
+
+extern void plat_mem_setup(void);
+
+static void __init arch_mem_init(char **cmdline_p)
+{
+	/* call board setup routine */
+	plat_mem_setup();
+
+	strlcpy(command_line, arcs_cmdline, sizeof(command_line));
+	strlcpy(saved_command_line, command_line, COMMAND_LINE_SIZE);
+
+	*cmdline_p = command_line;
+
+	parse_cmdline_early();
+	bootmem_init();
+	sparse_init();
+	paging_init();
+}
+
 static inline void resource_init(void)
 {
 	int i;
+
+	if (UNCAC_BASE != IO_BASE)
+		return;
 
 	code_resource.start = virt_to_phys(&_text);
 	code_resource.end = virt_to_phys(&_etext) - 1;
@@ -495,8 +539,6 @@ static inline void resource_init(void)
 #undef MAXMEM
 #undef MAXMEM_PFN
 
-extern void plat_setup(void);
-
 void __init setup_arch(char **cmdline_p)
 {
 	cpu_probe();
@@ -511,18 +553,8 @@ void __init setup_arch(char **cmdline_p)
 #endif
 #endif
 
-	/* call board setup routine */
-	plat_setup();
+	arch_mem_init(cmdline_p);
 
-	strlcpy(command_line, arcs_cmdline, sizeof(command_line));
-	strlcpy(saved_command_line, command_line, COMMAND_LINE_SIZE);
-
-	*cmdline_p = command_line;
-
-	parse_cmdline_early();
-	bootmem_init();
-	sparse_init();
-	paging_init();
 	resource_init();
 #ifdef CONFIG_SMP
 	plat_smp_setup();

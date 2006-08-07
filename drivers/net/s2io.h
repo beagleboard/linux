@@ -31,6 +31,8 @@
 #define SUCCESS 0
 #define FAILURE -1
 
+#define CHECKBIT(value, nbit) (value & (1 << nbit))
+
 /* Maximum time to flicker LED when asked to identify NIC using ethtool */
 #define MAX_FLICKER_TIME	60000 /* 60 Secs */
 
@@ -78,6 +80,11 @@ static int debug_level = ERR_DBG;
 typedef struct {
 	unsigned long long single_ecc_errs;
 	unsigned long long double_ecc_errs;
+	unsigned long long parity_err_cnt;
+	unsigned long long serious_err_cnt;
+	unsigned long long soft_reset_cnt;
+	unsigned long long fifo_full_cnt;
+	unsigned long long ring_full_cnt;
 	/* LRO statistics */
 	unsigned long long clubbed_frms_cnt;
 	unsigned long long sending_both;
@@ -86,6 +93,25 @@ typedef struct {
 	unsigned long long sum_avg_pkts_aggregated;
 	unsigned long long num_aggregations;
 } swStat_t;
+
+/* Xpak releated alarm and warnings */
+typedef struct {
+	u64 alarm_transceiver_temp_high;
+	u64 alarm_transceiver_temp_low;
+	u64 alarm_laser_bias_current_high;
+	u64 alarm_laser_bias_current_low;
+	u64 alarm_laser_output_power_high;
+	u64 alarm_laser_output_power_low;
+	u64 warn_transceiver_temp_high;
+	u64 warn_transceiver_temp_low;
+	u64 warn_laser_bias_current_high;
+	u64 warn_laser_bias_current_low;
+	u64 warn_laser_output_power_high;
+	u64 warn_laser_output_power_low;
+	u64 xpak_regs_stat;
+	u32 xpak_timer_count;
+} xpakStat_t;
+
 
 /* The statistics block of Xena */
 typedef struct stat_block {
@@ -263,7 +289,9 @@ typedef struct stat_block {
 	u32 rmac_accepted_ip_oflow;
 	u32 reserved_14;
 	u32 link_fault_cnt;
+	u8  buffer[20];
 	swStat_t sw_stat;
+	xpakStat_t xpak_stat;
 } StatInfo_t;
 
 /*
@@ -624,7 +652,7 @@ typedef struct fifo_info {
 	nic_t *nic;
 }fifo_info_t;
 
-/* Infomation related to the Tx and Rx FIFOs and Rings of Xena
+/* Information related to the Tx and Rx FIFOs and Rings of Xena
  * is maintained in this structure.
  */
 typedef struct mac_info {
@@ -659,7 +687,8 @@ typedef struct {
 } usr_addr_t;
 
 /* Default Tunable parameters of the NIC. */
-#define DEFAULT_FIFO_LEN 4096
+#define DEFAULT_FIFO_0_LEN 4096
+#define DEFAULT_FIFO_1_7_LEN 512
 #define SMALL_BLK_CNT	30
 #define LARGE_BLK_CNT	100
 
@@ -690,6 +719,7 @@ struct msix_info_st {
 /* Data structure to represent a LRO session */
 typedef struct lro {
 	struct sk_buff	*parent;
+	struct sk_buff  *last_frag;
 	u8		*l2h;
 	struct iphdr	*iph;
 	struct tcphdr	*tcph;
@@ -732,7 +762,7 @@ struct s2io_nic {
 	int device_close_flag;
 	int device_enabled_once;
 
-	char name[50];
+	char name[60];
 	struct tasklet_struct task;
 	volatile unsigned long tasklet_status;
 
@@ -800,8 +830,9 @@ struct s2io_nic {
 #define MSIX_FLG                0xA5
 	struct msix_entry *entries;
 	struct s2io_msix_entry *s2io_entries;
-	char desc1[35];
-	char desc2[35];
+	char desc[MAX_REQUESTED_MSI_X][25];
+
+	int avail_msix_vectors; /* No. of MSI-X vectors granted by system */
 
 	struct msix_info_st msix_info[0x3f];
 
@@ -824,6 +855,8 @@ struct s2io_nic {
 	spinlock_t	rx_lock;
 	atomic_t	isr_cnt;
 	u64 *ufo_in_band_v;
+#define VPD_PRODUCT_NAME_LEN 50
+	u8  product_name[VPD_PRODUCT_NAME_LEN];
 };
 
 #define RESET_ERROR 1;
@@ -848,28 +881,32 @@ static inline void writeq(u64 val, void __iomem *addr)
 	writel((u32) (val), addr);
 	writel((u32) (val >> 32), (addr + 4));
 }
+#endif
 
-/* In 32 bit modes, some registers have to be written in a
- * particular order to expect correct hardware operation. The
- * macro SPECIAL_REG_WRITE is used to perform such ordered
- * writes. Defines UF (Upper First) and LF (Lower First) will
- * be used to specify the required write order.
+/* 
+ * Some registers have to be written in a particular order to 
+ * expect correct hardware operation. The macro SPECIAL_REG_WRITE 
+ * is used to perform such ordered writes. Defines UF (Upper First) 
+ * and LF (Lower First) will be used to specify the required write order.
  */
 #define UF	1
 #define LF	2
 static inline void SPECIAL_REG_WRITE(u64 val, void __iomem *addr, int order)
 {
+	u32 ret;
+
 	if (order == LF) {
 		writel((u32) (val), addr);
+		ret = readl(addr);
 		writel((u32) (val >> 32), (addr + 4));
+		ret = readl(addr + 4);
 	} else {
 		writel((u32) (val >> 32), (addr + 4));
+		ret = readl(addr + 4);
 		writel((u32) (val), addr);
+		ret = readl(addr);
 	}
 }
-#else
-#define SPECIAL_REG_WRITE(val, addr, dummy) writeq(val, addr)
-#endif
 
 /*  Interrupt related values of Xena */
 
@@ -975,4 +1012,13 @@ static void clear_lro_session(lro_t *lro);
 static void queue_rx_frame(struct sk_buff *skb);
 static void update_L3L4_header(nic_t *sp, lro_t *lro);
 static void lro_append_pkt(nic_t *sp, lro_t *lro, struct sk_buff *skb, u32 tcp_len);
+
+#define s2io_tcp_mss(skb) skb_shinfo(skb)->gso_size
+#define s2io_udp_mss(skb) skb_shinfo(skb)->gso_size
+#define s2io_offload_type(skb) skb_shinfo(skb)->gso_type
+
+#define S2IO_PARM_INT(X, def_val) \
+	static unsigned int X = def_val;\
+		module_param(X , uint, 0);
+
 #endif				/* _S2IO_H */

@@ -19,13 +19,13 @@
  */
 
 #include <linux/capability.h>
-#include <linux/config.h>
 #include <linux/in.h>
 #include <linux/skbuff.h>
 #include <linux/kmod.h>
 #include <linux/vmalloc.h>
 #include <linux/netdevice.h>
 #include <linux/module.h>
+#include <linux/poison.h>
 #include <linux/icmpv6.h>
 #include <net/ipv6.h>
 #include <asm/uaccess.h>
@@ -377,7 +377,7 @@ ip6t_do_table(struct sk_buff **pskb,
 	} while (!hotdrop);
 
 #ifdef CONFIG_NETFILTER_DEBUG
-	((struct ip6t_entry *)table_base)->comefrom = 0xdead57ac;
+	((struct ip6t_entry *)table_base)->comefrom = NETFILTER_LINK_POISON;
 #endif
 	read_unlock_bh(&table->lock);
 
@@ -1281,7 +1281,8 @@ int ip6t_register_table(struct xt_table *table,
 		return ret;
 	}
 
-	if (xt_register_table(table, &bootstrap, newinfo) != 0) {
+	ret = xt_register_table(table, &bootstrap, newinfo);
+	if (ret != 0) {
 		xt_free_table_info(newinfo);
 		return ret;
 	}

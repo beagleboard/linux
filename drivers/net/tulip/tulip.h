@@ -16,7 +16,6 @@
 #ifndef __NET_TULIP_H__
 #define __NET_TULIP_H__
 
-#include <linux/config.h>
 #include <linux/kernel.h>
 #include <linux/types.h>
 #include <linux/spinlock.h>
@@ -259,7 +258,7 @@ enum t21143_csr6_bits {
    There are no ill effects from too-large receive rings. */
 
 #define TX_RING_SIZE	32
-#define RX_RING_SIZE	128 
+#define RX_RING_SIZE	128
 #define MEDIA_MASK     31
 
 #define PKT_BUF_SZ		1536	/* Size of each temporary Rx buffer. */

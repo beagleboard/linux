@@ -15,7 +15,6 @@
 #include <linux/errno.h>
 #include <linux/string.h>
 #include <linux/mm.h>
-#include <linux/tty.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/fb.h>
@@ -376,8 +375,6 @@ static int __init gx1fb_probe(struct pci_dev *pdev, const struct pci_device_id *
 		release_mem_region(gx1_gx_base() + 0x8300, 0x100);
 	}
 
-	pci_disable_device(pdev);
-
 	if (info)
 		framebuffer_release(info);
 	return ret;
@@ -399,7 +396,6 @@ static void gx1fb_remove(struct pci_dev *pdev)
 	iounmap(par->dc_regs);
 	release_mem_region(gx1_gx_base() + 0x8300, 0x100);
 
-	pci_disable_device(pdev);
 	pci_set_drvdata(pdev, NULL);
 
 	framebuffer_release(info);

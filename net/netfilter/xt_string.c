@@ -30,8 +30,8 @@ static int match(const struct sk_buff *skb,
 		 unsigned int protoff,
 		 int *hotdrop)
 {
+	const struct xt_string_info *conf = matchinfo;
 	struct ts_state state;
-	struct xt_string_info *conf = (struct xt_string_info *) matchinfo;
 
 	memset(&state, 0, sizeof(struct ts_state));
 
@@ -55,7 +55,10 @@ static int checkentry(const char *tablename,
 	/* Damn, can't handle this case properly with iptables... */
 	if (conf->from_offset > conf->to_offset)
 		return 0;
-
+	if (conf->algo[XT_STRING_MAX_ALGO_NAME_SIZE - 1] != '\0')
+	    	return 0;
+	if (conf->patlen > XT_STRING_MAX_PATTERN_SIZE)
+		return 0;
 	ts_conf = textsearch_prepare(conf->algo, conf->pattern, conf->patlen,
 				     GFP_KERNEL, TS_AUTOLOAD);
 	if (IS_ERR(ts_conf))

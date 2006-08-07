@@ -21,7 +21,6 @@
  * 				   mandatory if CONFIG_NET=y these days
  */
 
-#include <linux/config.h>
 #include <linux/module.h>
 
 #include <linux/capability.h>
@@ -157,7 +156,7 @@ static void netlink_sock_destruct(struct sock *sk)
 
 static void netlink_table_grab(void)
 {
-	write_lock_bh(&nl_table_lock);
+	write_lock_irq(&nl_table_lock);
 
 	if (atomic_read(&nl_table_users)) {
 		DECLARE_WAITQUEUE(wait, current);
@@ -167,9 +166,9 @@ static void netlink_table_grab(void)
 			set_current_state(TASK_UNINTERRUPTIBLE);
 			if (atomic_read(&nl_table_users) == 0)
 				break;
-			write_unlock_bh(&nl_table_lock);
+			write_unlock_irq(&nl_table_lock);
 			schedule();
-			write_lock_bh(&nl_table_lock);
+			write_lock_irq(&nl_table_lock);
 		}
 
 		__set_current_state(TASK_RUNNING);
@@ -179,7 +178,7 @@ static void netlink_table_grab(void)
 
 static __inline__ void netlink_table_ungrab(void)
 {
-	write_unlock_bh(&nl_table_lock);
+	write_unlock_irq(&nl_table_lock);
 	wake_up(&nl_table_wait);
 }
 
@@ -563,10 +562,9 @@ static int netlink_alloc_groups(struct sock *sk)
 	if (err)
 		return err;
 
-	nlk->groups = kmalloc(NLGRPSZ(groups), GFP_KERNEL);
+	nlk->groups = kzalloc(NLGRPSZ(groups), GFP_KERNEL);
 	if (nlk->groups == NULL)
 		return -ENOMEM;
-	memset(nlk->groups, 0, NLGRPSZ(groups));
 	nlk->ngroups = groups;
 	return 0;
 }
@@ -1394,11 +1392,10 @@ int netlink_dump_start(struct sock *ssk, struct sk_buff *skb,
 	struct sock *sk;
 	struct netlink_sock *nlk;
 
-	cb = kmalloc(sizeof(*cb), GFP_KERNEL);
+	cb = kzalloc(sizeof(*cb), GFP_KERNEL);
 	if (cb == NULL)
 		return -ENOBUFS;
 
-	memset(cb, 0, sizeof(*cb));
 	cb->dump = dump;
 	cb->done = done;
 	cb->nlh = nlh;
@@ -1669,7 +1666,7 @@ static int netlink_seq_open(struct inode *inode, struct file *file)
 	struct nl_seq_iter *iter;
 	int err;
 
-	iter = kmalloc(sizeof(*iter), GFP_KERNEL);
+	iter = kzalloc(sizeof(*iter), GFP_KERNEL);
 	if (!iter)
 		return -ENOMEM;
 
@@ -1679,7 +1676,6 @@ static int netlink_seq_open(struct inode *inode, struct file *file)
 		return err;
 	}
 
-	memset(iter, 0, sizeof(*iter));
 	seq = file->private_data;
 	seq->private = iter;
 	return 0;
@@ -1748,14 +1744,12 @@ static int __init netlink_proto_init(void)
 	if (sizeof(struct netlink_skb_parms) > sizeof(dummy_skb->cb))
 		netlink_skb_parms_too_large();
 
-	nl_table = kmalloc(sizeof(*nl_table) * MAX_LINKS, GFP_KERNEL);
+	nl_table = kcalloc(MAX_LINKS, sizeof(*nl_table), GFP_KERNEL);
 	if (!nl_table) {
 enomem:
 		printk(KERN_CRIT "netlink_init: Cannot allocate nl_table\n");
 		return -ENOMEM;
 	}
-
-	memset(nl_table, 0, sizeof(*nl_table) * MAX_LINKS);
 
 	if (num_physpages >= (128 * 1024))
 		max = num_physpages >> (21 - PAGE_SHIFT);

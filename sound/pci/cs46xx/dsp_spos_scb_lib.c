@@ -180,6 +180,7 @@ static void _dsp_clear_sample_buffer (struct snd_cs46xx *chip, u32 sample_buffer
 void cs46xx_dsp_remove_scb (struct snd_cs46xx *chip, struct dsp_scb_descriptor * scb)
 {
 	struct dsp_spos_instance * ins = chip->dsp_spos_instance;
+	unsigned long flags;
 
 	/* check integrety */
 	snd_assert ( (scb->index >= 0 && 
@@ -194,9 +195,9 @@ void cs46xx_dsp_remove_scb (struct snd_cs46xx *chip, struct dsp_scb_descriptor *
 		     goto _end);
 #endif
 
-	spin_lock(&scb->lock);
+	spin_lock_irqsave(&scb->lock, flags);
 	_dsp_unlink_scb (chip,scb);
-	spin_unlock(&scb->lock);
+	spin_unlock_irqrestore(&scb->lock, flags);
 
 	cs46xx_dsp_proc_free_scb_desc(scb);
 	snd_assert (scb->scb_symbol != NULL, return );
@@ -267,7 +268,6 @@ void cs46xx_dsp_proc_register_scb_desc (struct snd_cs46xx *chip,
 			entry->private_data = scb_info;
 			entry->mode = S_IFREG | S_IRUGO | S_IWUSR;
       
-			entry->c.text.read_size = 512;
 			entry->c.text.read = cs46xx_dsp_proc_scb_info_read;
       
 			if (snd_info_register(entry) < 0) {

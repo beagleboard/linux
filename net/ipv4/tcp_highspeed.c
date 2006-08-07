@@ -6,7 +6,6 @@
  * John Heffner <jheffner@psc.edu>
  */
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <net/tcp.h>
 
@@ -98,6 +97,10 @@ struct hstcp {
 	u32	ai;
 };
 
+static int max_ssthresh = 100;
+module_param(max_ssthresh, int, 0644);
+MODULE_PARM_DESC(max_ssthresh, "limited slow start threshold (RFC3742)");
+
 static void hstcp_init(struct sock *sk)
 {
 	struct tcp_sock *tp = tcp_sk(sk);
@@ -119,17 +122,36 @@ static void hstcp_cong_avoid(struct sock *sk, u32 adk, u32 rtt,
 	if (!tcp_is_cwnd_limited(sk, in_flight))
 		return;
 
-	if (tp->snd_cwnd <= tp->snd_ssthresh)
-		tcp_slow_start(tp);
-	else {
-		/* Update AIMD parameters */
+	if (tp->snd_cwnd <= tp->snd_ssthresh) {
+		/* RFC3742: limited slow start
+		 * the window is increased by 1/K MSS for each arriving ACK,
+		 * for K = int(cwnd/(0.5 max_ssthresh))
+		 */
+		if (max_ssthresh > 0 && tp->snd_cwnd > max_ssthresh) {
+			u32 k = max(tp->snd_cwnd / (max_ssthresh >> 1), 1U);
+			if (++tp->snd_cwnd_cnt >= k) {
+				if (tp->snd_cwnd < tp->snd_cwnd_clamp)
+					tp->snd_cwnd++;
+				tp->snd_cwnd_cnt = 0;
+			}
+		} else {
+			if (tp->snd_cwnd < tp->snd_cwnd_clamp)
+				tp->snd_cwnd++;
+		}
+	} else {
+		/* Update AIMD parameters.
+		 *
+		 * We want to guarantee that:
+		 *     hstcp_aimd_vals[ca->ai-1].cwnd <
+		 *     snd_cwnd <=
+		 *     hstcp_aimd_vals[ca->ai].cwnd
+		 */
 		if (tp->snd_cwnd > hstcp_aimd_vals[ca->ai].cwnd) {
 			while (tp->snd_cwnd > hstcp_aimd_vals[ca->ai].cwnd &&
 			       ca->ai < HSTCP_AIMD_MAX - 1)
 				ca->ai++;
-		} else if (tp->snd_cwnd < hstcp_aimd_vals[ca->ai].cwnd) {
-			while (tp->snd_cwnd > hstcp_aimd_vals[ca->ai].cwnd &&
-			       ca->ai > 0)
+		} else if (ca->ai && tp->snd_cwnd <= hstcp_aimd_vals[ca->ai-1].cwnd) {
+			while (ca->ai && tp->snd_cwnd <= hstcp_aimd_vals[ca->ai-1].cwnd)
 				ca->ai--;
 		}
 

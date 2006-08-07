@@ -357,7 +357,7 @@ DEB(printk("interrupt 0x%x %d\n",ITE_GPAISR, i));
 	}
 }
 
-static struct file_operations ite_gpio_fops = {
+static const struct file_operations ite_gpio_fops = {
 	.owner		= THIS_MODULE,
 	.ioctl		= ite_gpio_ioctl,
 	.open		= ite_gpio_open,
@@ -397,7 +397,7 @@ int __init ite_gpio_init(void)
 		init_waitqueue_head(&ite_gpio_wait[i]);
 	}
 
-	if (request_irq(ite_gpio_irq, ite_gpio_irq_handler, SA_SHIRQ, "gpio", 0) < 0) {
+	if (request_irq(ite_gpio_irq, ite_gpio_irq_handler, IRQF_SHARED, "gpio", 0) < 0) {
 		misc_deregister(&ite_gpio_miscdev);
 		release_region(ite_gpio_base, 0x1c);
 		return 0;

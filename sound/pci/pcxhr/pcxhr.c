@@ -73,7 +73,7 @@ enum {
 	PCI_ID_LAST
 };
 
-static struct pci_device_id pcxhr_ids[] __devinitdata = {
+static struct pci_device_id pcxhr_ids[] = {
 	{ 0x10b5, 0x9656, 0x1369, 0xb001, 0, 0, PCI_ID_VX882HR, },   /* VX882HR */
 	{ 0x10b5, 0x9656, 0x1369, 0xb101, 0, 0, PCI_ID_PCX882HR, },  /* PCX882HR */
 	{ 0x10b5, 0x9656, 0x1369, 0xb201, 0, 0, PCI_ID_VX881HR, },   /* VX881HR */
@@ -1150,9 +1150,9 @@ static void __devinit pcxhr_proc_init(struct snd_pcxhr *chip)
 	struct snd_info_entry *entry;
 
 	if (! snd_card_proc_new(chip->card, "info", &entry))
-		snd_info_set_text_ops(entry, chip, 1024, pcxhr_proc_info);
+		snd_info_set_text_ops(entry, chip, pcxhr_proc_info);
 	if (! snd_card_proc_new(chip->card, "sync", &entry))
-		snd_info_set_text_ops(entry, chip, 1024, pcxhr_proc_sync);
+		snd_info_set_text_ops(entry, chip, pcxhr_proc_sync);
 }
 /* end of proc interface */
 
@@ -1250,7 +1250,7 @@ static int __devinit pcxhr_probe(struct pci_dev *pci, const struct pci_device_id
 	mgr->pci = pci;
 	mgr->irq = -1;
 
-	if (request_irq(pci->irq, pcxhr_interrupt, SA_INTERRUPT|SA_SHIRQ,
+	if (request_irq(pci->irq, pcxhr_interrupt, IRQF_DISABLED|IRQF_SHARED,
 			card_name, mgr)) {
 		snd_printk(KERN_ERR "unable to grab IRQ %d\n", pci->irq);
 		pcxhr_free(mgr);

@@ -8,7 +8,6 @@
  *      as published by the Free Software Foundation; either version
  *      2 of the License, or (at your option) any later version.
  */
-#include <linux/config.h>
 #include <linux/types.h>
 #include <asm/udbg.h>
 #include <asm/io.h>
@@ -82,10 +81,14 @@ static int udbg_550_getc(void)
 void udbg_init_uart(void __iomem *comport, unsigned int speed,
 		    unsigned int clock)
 {
-	unsigned int dll, base_bauds = clock / 16;
+	unsigned int dll, base_bauds;
 
+	if (clock == 0)
+		clock = 1843200;
 	if (speed == 0)
 		speed = 9600;
+
+	base_bauds = clock / 16;
 	dll = base_bauds / speed;
 
 	if (comport) {

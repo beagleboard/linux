@@ -16,7 +16,6 @@
  *
  */
 
-#include <linux/config.h>
 #include <linux/init.h>
 #include <linux/string.h>
 #include <linux/kernel.h>
@@ -38,7 +37,6 @@
 
 
 extern void sim_time_init(void);
-extern void sim_timer_setup(struct irqaction *irq);
 static void __init serial_init(void);
 unsigned int _isbonito = 0;
 
@@ -50,14 +48,13 @@ const char *get_system_type(void)
 	return "MIPSsim";
 }
 
-void __init plat_setup(void)
+void __init plat_mem_setup(void)
 {
 	set_io_port_base(0xbfd00000);
 
 	serial_init();
 
 	board_time_init = sim_time_init;
-	board_timer_setup = sim_timer_setup;
 	prom_printf("Linux started...\n");
 
 #ifdef CONFIG_MT_SMP

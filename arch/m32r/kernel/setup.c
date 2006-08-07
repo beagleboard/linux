@@ -7,7 +7,6 @@
  *                            Hitoshi Yamamoto
  */
 
-#include <linux/config.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/stddef.h>
@@ -22,7 +21,7 @@
 #include <linux/root_dev.h>
 #include <linux/seq_file.h>
 #include <linux/timex.h>
-#include <linux/tty.h>
+#include <linux/screen_info.h>
 #include <linux/cpu.h>
 #include <linux/nodemask.h>
 #include <linux/pfn.h>
@@ -275,7 +274,7 @@ static int __init topology_init(void)
 	int i;
 
 	for_each_present_cpu(i)
-		register_cpu(&cpu_devices[i], i, NULL);
+		register_cpu(&cpu_devices[i], i);
 
 	return 0;
 }

@@ -1344,8 +1344,12 @@ static void mgsl_isr_io_pin( struct mgsl_struct *info )
 			} else
 				info->input_signal_events.dcd_down++;
 #ifdef CONFIG_HDLC
-			if (info->netcount)
-				hdlc_set_carrier(status & MISCSTATUS_DCD, info->netdev);
+			if (info->netcount) {
+				if (status & MISCSTATUS_DCD)
+					netif_carrier_on(info->netdev);
+				else
+					netif_carrier_off(info->netdev);
+			}
 #endif
 		}
 		if (status & MISCSTATUS_CTS_LATCHED)
@@ -7844,8 +7848,10 @@ static int hdlcdev_open(struct net_device *dev)
 	spin_lock_irqsave(&info->irq_spinlock, flags);
 	usc_get_serial_signals(info);
 	spin_unlock_irqrestore(&info->irq_spinlock, flags);
-	hdlc_set_carrier(info->serial_signals & SerialSignal_DCD, dev);
-
+	if (info->serial_signals & SerialSignal_DCD)
+		netif_carrier_on(dev);
+	else
+		netif_carrier_off(dev);
 	return 0;
 }
 
@@ -8150,7 +8156,7 @@ static int __devinit synclink_init_one (struct pci_dev *dev,
 				
 	info->bus_type = MGSL_BUS_TYPE_PCI;
 	info->io_addr_size = 8;
-	info->irq_flags = SA_SHIRQ;
+	info->irq_flags = IRQF_SHARED;
 
 	if (dev->device == 0x0210) {
 		/* Version 1 PCI9030 based universal PCI adapter */

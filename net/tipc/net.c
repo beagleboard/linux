@@ -115,7 +115,7 @@
  *     - A local spin_lock protecting the queue of subscriber events.
 */
 
-rwlock_t tipc_net_lock = RW_LOCK_UNLOCKED;
+DEFINE_RWLOCK(tipc_net_lock);
 struct network tipc_net = { NULL };
 
 struct node *tipc_net_select_remote_node(u32 addr, u32 ref) 
@@ -160,14 +160,11 @@ void tipc_net_send_external_routes(u32 dest)
 
 static int net_init(void)
 {
-	u32 sz = sizeof(struct _zone *) * (tipc_max_zones + 1);
-
 	memset(&tipc_net, 0, sizeof(tipc_net));
-	tipc_net.zones = (struct _zone **)kmalloc(sz, GFP_ATOMIC);
+	tipc_net.zones = kcalloc(tipc_max_zones + 1, sizeof(struct _zone *), GFP_ATOMIC);
 	if (!tipc_net.zones) {
 		return -ENOMEM;
 	}
-	memset(tipc_net.zones, 0, sz);
 	return TIPC_OK;
 }
 

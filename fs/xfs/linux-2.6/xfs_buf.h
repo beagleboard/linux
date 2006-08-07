@@ -18,7 +18,6 @@
 #ifndef __XFS_BUF_H__
 #define __XFS_BUF_H__
 
-#include <linux/config.h>
 #include <linux/list.h>
 #include <linux/types.h>
 #include <linux/spinlock.h>
@@ -247,8 +246,8 @@ extern void xfs_buf_trace(xfs_buf_t *, char *, void *, void *);
 #define BUF_BUSY		XBF_DONT_BLOCK
 
 #define XFS_BUF_BFLAGS(bp)	((bp)->b_flags)
-#define XFS_BUF_ZEROFLAGS(bp)	\
-	((bp)->b_flags &= ~(XBF_READ|XBF_WRITE|XBF_ASYNC|XBF_DELWRI))
+#define XFS_BUF_ZEROFLAGS(bp)	((bp)->b_flags &= \
+		~(XBF_READ|XBF_WRITE|XBF_ASYNC|XBF_DELWRI|XBF_ORDERED))
 
 #define XFS_BUF_STALE(bp)	((bp)->b_flags |= XFS_B_STALE)
 #define XFS_BUF_UNSTALE(bp)	((bp)->b_flags &= ~XFS_B_STALE)

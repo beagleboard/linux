@@ -3,13 +3,20 @@
  *
  * (C) 2004 William Irwin, Oracle
  */
-#include <linux/config.h>
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/sched.h>
 #include <linux/mm.h>
 #include <linux/wait.h>
 #include <linux/hash.h>
+
+void init_waitqueue_head(wait_queue_head_t *q)
+{
+	spin_lock_init(&q->lock);
+	INIT_LIST_HEAD(&q->task_list);
+}
+
+EXPORT_SYMBOL(init_waitqueue_head);
 
 void fastcall add_wait_queue(wait_queue_head_t *q, wait_queue_t *wait)
 {

@@ -1,7 +1,6 @@
 #ifndef _ASM_SWIOTLB_H
 #define _ASM_SWTIOLB_H 1
 
-#include <linux/config.h>
 
 #include <asm/dma-mapping.h>
 
@@ -42,6 +41,8 @@ extern void swiotlb_free_coherent (struct device *hwdev, size_t size,
 				   void *vaddr, dma_addr_t dma_handle);
 extern int swiotlb_dma_supported(struct device *hwdev, u64 mask);
 extern void swiotlb_init(void);
+
+extern int swiotlb_force;
 
 #ifdef CONFIG_SWIOTLB
 extern int swiotlb;

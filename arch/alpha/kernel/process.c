@@ -8,7 +8,6 @@
  * This file handles the architecture-dependent parts of process handling.
  */
 
-#include <linux/config.h>
 #include <linux/errno.h>
 #include <linux/module.h>
 #include <linux/sched.h>
@@ -26,6 +25,7 @@
 #include <linux/time.h>
 #include <linux/major.h>
 #include <linux/stat.h>
+#include <linux/vt.h>
 #include <linux/mman.h>
 #include <linux/elfcore.h>
 #include <linux/reboot.h>
@@ -475,7 +475,7 @@ out:
  */
 
 unsigned long
-thread_saved_pc(task_t *t)
+thread_saved_pc(struct task_struct *t)
 {
 	unsigned long base = (unsigned long)task_stack_page(t);
 	unsigned long fp, sp = task_thread_info(t)->pcb.ksp;

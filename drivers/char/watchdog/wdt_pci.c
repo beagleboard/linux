@@ -35,7 +35,6 @@
  *		Matt Domsch	:	nowayout module option
  */
 
-#include <linux/config.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
@@ -544,7 +543,7 @@ static int wdtpci_notify_sys(struct notifier_block *this, unsigned long code,
  */
 
 
-static struct file_operations wdtpci_fops = {
+static const struct file_operations wdtpci_fops = {
 	.owner		= THIS_MODULE,
 	.llseek		= no_llseek,
 	.write		= wdtpci_write,
@@ -560,7 +559,7 @@ static struct miscdevice wdtpci_miscdev = {
 };
 
 #ifdef CONFIG_WDT_501_PCI
-static struct file_operations wdtpci_temp_fops = {
+static const struct file_operations wdtpci_temp_fops = {
 	.owner		= THIS_MODULE,
 	.llseek		= no_llseek,
 	.read		= wdtpci_temp_read,
@@ -618,7 +617,7 @@ static int __devinit wdtpci_init_one (struct pci_dev *dev,
 		goto out_pci;
 	}
 
-	if (request_irq (irq, wdtpci_interrupt, SA_INTERRUPT | SA_SHIRQ,
+	if (request_irq (irq, wdtpci_interrupt, IRQF_DISABLED | IRQF_SHARED,
 			 "wdt_pci", &wdtpci_miscdev)) {
 		printk (KERN_ERR PFX "IRQ %d is not free\n", irq);
 		goto out_reg;

@@ -14,7 +14,6 @@
  * 2 of the License, or (at your option) any later version.
  */
 
-#include <linux/config.h>
 #include <linux/errno.h>
 #include <linux/types.h>
 #include <linux/string.h>
@@ -456,13 +455,9 @@ static int nf_ct_frag6_queue(struct nf_ct_frag6_queue *fq, struct sk_buff *skb,
 		DEBUGP("queue: message is too short.\n");
 		goto err;
 	}
-	if (end-offset < skb->len) {
-		if (pskb_trim(skb, end - offset)) {
-			DEBUGP("Can't trim\n");
-			goto err;
-		}
-		if (skb->ip_summed != CHECKSUM_UNNECESSARY)
-			skb->ip_summed = CHECKSUM_NONE;
+	if (pskb_trim_rcsum(skb, end - offset)) {
+		DEBUGP("Can't trim\n");
+		goto err;
 	}
 
 	/* Find out which fragments are in front and at the back of us

@@ -12,7 +12,6 @@
 *!
 *!***************************************************************************/
 
-#include <linux/config.h>
 
 #include <linux/fs.h>
 #include <linux/init.h>
@@ -283,7 +282,7 @@ get_rtc_status(char *buf)
 
 /* The various file operations we support. */
 
-static struct file_operations rtc_fops = {
+static const struct file_operations rtc_fops = {
 	.owner		= THIS_MODULE,
 	.ioctl		= rtc_ioctl,
 };

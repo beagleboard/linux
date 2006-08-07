@@ -27,7 +27,6 @@
 #ifndef _GT96100ETH_H
 #define _GT96100ETH_H
 
-#include <linux/config.h>
 #include <asm/galileo-boards/gt96100.h>
 
 #define dbg(lvl, format, arg...) \
@@ -332,7 +331,6 @@ struct gt96100_private {
 	mib_counters_t mib;
 	struct net_device_stats stats;
 
-	int io_size;
 	int port_num;  // 0 or 1
 	int chip_rev;
 	u32 port_offset;
@@ -341,7 +339,6 @@ struct gt96100_private {
 	u32 last_psr; // last value of the port status register
 
 	int options;     /* User-settable misc. driver options. */
-	int drv_flags;
 	struct timer_list timer;
 	spinlock_t lock; /* Serialise access to device */
 };

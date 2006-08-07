@@ -46,8 +46,8 @@
 #include <linux/module.h>
 #include <linux/spinlock.h>
 #include <linux/usb.h>
+#include <linux/usb/serial.h>
 #include <asm/uaccess.h>
-#include "usb-serial.h"
 
 /*
  * Version Information
@@ -373,10 +373,12 @@ static void ipw_write_bulk_callback(struct urb *urb, struct pt_regs *regs)
 
 	dbg("%s", __FUNCTION__);
 
+	port->write_urb_busy = 0;
+
 	if (urb->status)
 		dbg("%s - nonzero write bulk status received: %d", __FUNCTION__, urb->status);
 
-	schedule_work(&port->work);
+	usb_serial_port_softint(port);
 }
 
 static int ipw_write(struct usb_serial_port *port, const unsigned char *buf, int count)

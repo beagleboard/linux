@@ -11,7 +11,6 @@
  *      2 of the License, or (at your option) any later version.
  */
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/fcntl.h>
@@ -910,11 +909,10 @@ static int __init inet_diag_init(void)
 					  sizeof(struct inet_diag_handler *));
 	int err = -ENOMEM;
 
-	inet_diag_table = kmalloc(inet_diag_table_size, GFP_KERNEL);
+	inet_diag_table = kzalloc(inet_diag_table_size, GFP_KERNEL);
 	if (!inet_diag_table)
 		goto out;
 
-	memset(inet_diag_table, 0, inet_diag_table_size);
 	idiagnl = netlink_kernel_create(NETLINK_INET_DIAG, 0, inet_diag_rcv,
 					THIS_MODULE);
 	if (idiagnl == NULL)

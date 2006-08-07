@@ -15,11 +15,11 @@
 #include <asm/uaccess.h>
 
 #include <scsi/scsi.h>
+#include <scsi/scsi_cmnd.h>
 #include <scsi/scsi_device.h>
 #include <scsi/scsi_eh.h>
 #include <scsi/scsi_host.h>
 #include <scsi/scsi_ioctl.h>
-#include <scsi/scsi_request.h>
 #include <scsi/sg.h>
 #include <scsi/scsi_dbg.h>
 
@@ -110,11 +110,8 @@ static int ioctl_internal_command(struct scsi_device *sdev, char *cmd,
 				       sshdr.asc, sshdr.ascq);
 			break;
 		case NOT_READY:	/* This happens if there is no disc in drive */
-			if (sdev->removable && (cmd[0] != TEST_UNIT_READY)) {
-				printk(KERN_INFO "Device not ready. Make sure"
-				       " there is a disc in the drive.\n");
+			if (sdev->removable)
 				break;
-			}
 		case UNIT_ATTENTION:
 			if (sdev->removable) {
 				sdev->changed = 1;

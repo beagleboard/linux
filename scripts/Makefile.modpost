@@ -35,12 +35,12 @@
 PHONY := _modpost
 _modpost: __modpost
 
-include .config
+include include/config/auto.conf
 include scripts/Kbuild.include
 include scripts/Makefile.lib
 
 kernelsymfile := $(objtree)/Module.symvers
-modulesymfile := $(KBUILD_EXTMOD)/Modules.symvers
+modulesymfile := $(KBUILD_EXTMOD)/Module.symvers
 
 # Step 1), find all modules listed in $(MODVERDIR)/
 __modules := $(sort $(shell grep -h '\.ko' /dev/null $(wildcard $(MODVERDIR)/*.mod)))
@@ -72,7 +72,7 @@ $(modules:.ko=.mod.c): __modpost ;
 # Step 5), compile all *.mod.c files
 
 # modname is set to make c_flags define KBUILD_MODNAME
-modname = $(*F)
+modname = $(notdir $(@:.mod.o=))
 
 quiet_cmd_cc_o_c = CC      $@
       cmd_cc_o_c = $(CC) $(c_flags) $(CFLAGS_MODULE)	\

@@ -29,7 +29,6 @@
  *
  ********************************************************************/
 
-#include <linux/config.h>
 #include <linux/string.h>
 #include <linux/proc_fs.h>
 #include <linux/skbuff.h>
@@ -402,11 +401,9 @@ dongle_t *irda_device_dongle_init(struct net_device *dev, int type)
 	}
 
 	/* Allocate dongle info for this instance */
-	dongle = kmalloc(sizeof(dongle_t), GFP_KERNEL);
+	dongle = kzalloc(sizeof(dongle_t), GFP_KERNEL);
 	if (!dongle)
 		goto out;
-
-	memset(dongle, 0, sizeof(dongle_t));
 
 	/* Bind the registration info to this particular instance */
 	dongle->issue = reg;

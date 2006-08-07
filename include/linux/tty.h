@@ -5,25 +5,13 @@
  * 'tty.h' defines some structures used by tty_io.c and some defines.
  */
 
-/*
- * These constants are also useful for user-level apps (e.g., VC
- * resizing).
- */
-#define MIN_NR_CONSOLES 1       /* must be at least 1 */
-#define MAX_NR_CONSOLES	63	/* serial lines start at 64 */
-#define MAX_NR_USER_CONSOLES 63	/* must be root to allocate above this */
-		/* Note: the ioctl VT_GETSTATE does not work for
-		   consoles 16 and higher (since it returns a short) */
-
 #ifdef __KERNEL__
-#include <linux/config.h>
 #include <linux/fs.h>
 #include <linux/major.h>
 #include <linux/termios.h>
 #include <linux/workqueue.h>
 #include <linux/tty_driver.h>
 #include <linux/tty_ldisc.h>
-#include <linux/screen_info.h>
 #include <linux/mutex.h>
 
 #include <asm/system.h>
@@ -58,7 +46,6 @@ struct tty_buffer {
 	unsigned char *flag_buf_ptr;
 	int used;
 	int size;
-	int active;
 	int commit;
 	int read;
 	/* Data points here */
@@ -260,7 +247,6 @@ struct tty_struct {
 #define TTY_DO_WRITE_WAKEUP 	5	/* Call write_wakeup after queuing new */
 #define TTY_PUSH 		6	/* n_tty private */
 #define TTY_CLOSING 		7	/* ->close() in progress */
-#define TTY_DONT_FLIP 		8	/* Defer buffer flip */
 #define TTY_LDISC 		9	/* Line discipline attached */
 #define TTY_HW_COOK_OUT 	14	/* Hardware can do output cooking */
 #define TTY_HW_COOK_IN 		15	/* Hardware can do input cooking */
@@ -273,7 +259,6 @@ struct tty_struct {
 extern void tty_write_flush(struct tty_struct *);
 
 extern struct termios tty_std_termios;
-extern int fg_console, last_console, want_console;
 
 extern int kmsg_redirect;
 
@@ -291,7 +276,9 @@ extern int tty_register_ldisc(int disc, struct tty_ldisc *new_ldisc);
 extern int tty_unregister_ldisc(int disc);
 extern int tty_register_driver(struct tty_driver *driver);
 extern int tty_unregister_driver(struct tty_driver *driver);
-extern void tty_register_device(struct tty_driver *driver, unsigned index, struct device *dev);
+extern struct class_device *tty_register_device(struct tty_driver *driver,
+						unsigned index,
+						struct device *dev);
 extern void tty_unregister_device(struct tty_driver *driver, unsigned index);
 extern int tty_read_raw_data(struct tty_struct *tty, unsigned char *bufp,
 			     int buflen);

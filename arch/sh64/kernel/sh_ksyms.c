@@ -9,7 +9,6 @@
  *
  */
 
-#include <linux/config.h>
 #include <linux/rwsem.h>
 #include <linux/module.h>
 #include <linux/smp.h>
@@ -19,7 +18,7 @@
 #include <linux/in6.h>
 #include <linux/interrupt.h>
 #include <linux/smp_lock.h>
-#include <linux/tty.h>
+#include <linux/screen_info.h>
 
 #include <asm/semaphore.h>
 #include <asm/processor.h>

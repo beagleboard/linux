@@ -22,7 +22,6 @@
 #undef	DEBUG
 #undef	VERBOSE
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/ioport.h>
@@ -2878,7 +2877,7 @@ bad_on_1710:
 
 	/* USB general purpose IRQ:  ep0, state changes, dma, etc */
 	status = request_irq(pdev->resource[1].start, omap_udc_irq,
-			SA_SAMPLE_RANDOM, driver_name, udc);
+			IRQF_SAMPLE_RANDOM, driver_name, udc);
 	if (status != 0) {
 		ERR( "can't get irq %ld, err %d\n",
 			pdev->resource[1].start, status);
@@ -2887,7 +2886,7 @@ bad_on_1710:
 
 	/* USB "non-iso" IRQ (PIO for all but ep0) */
 	status = request_irq(pdev->resource[2].start, omap_udc_pio_irq,
-			SA_SAMPLE_RANDOM, "omap_udc pio", udc);
+			IRQF_SAMPLE_RANDOM, "omap_udc pio", udc);
 	if (status != 0) {
 		ERR( "can't get irq %ld, err %d\n",
 			pdev->resource[2].start, status);
@@ -2895,7 +2894,7 @@ bad_on_1710:
 	}
 #ifdef	USE_ISO
 	status = request_irq(pdev->resource[3].start, omap_udc_iso_irq,
-			SA_INTERRUPT, "omap_udc iso", udc);
+			IRQF_DISABLED, "omap_udc iso", udc);
 	if (status != 0) {
 		ERR("can't get irq %ld, err %d\n",
 			pdev->resource[3].start, status);

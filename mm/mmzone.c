@@ -5,7 +5,6 @@
  */
 
 
-#include <linux/config.h>
 #include <linux/stddef.h>
 #include <linux/mmzone.h>
 #include <linux/module.h>
@@ -15,7 +14,7 @@ struct pglist_data *first_online_pgdat(void)
 	return NODE_DATA(first_online_node);
 }
 
-EXPORT_SYMBOL(first_online_pgdat);
+EXPORT_UNUSED_SYMBOL(first_online_pgdat);  /*  June 2006  */
 
 struct pglist_data *next_online_pgdat(struct pglist_data *pgdat)
 {
@@ -25,7 +24,7 @@ struct pglist_data *next_online_pgdat(struct pglist_data *pgdat)
 		return NULL;
 	return NODE_DATA(nid);
 }
-EXPORT_SYMBOL(next_online_pgdat);
+EXPORT_UNUSED_SYMBOL(next_online_pgdat);  /*  June 2006  */
 
 
 /*
@@ -46,5 +45,5 @@ struct zone *next_zone(struct zone *zone)
 	}
 	return zone;
 }
-EXPORT_SYMBOL(next_zone);
+EXPORT_UNUSED_SYMBOL(next_zone);  /*  June 2006  */
 

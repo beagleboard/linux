@@ -17,7 +17,6 @@
  * 10/23/2001	S.Eranian	updated pal_perf_mon_info bug fixes
  * 03/24/2004	Ashok Raj	updated to work with CPU Hotplug
  */
-#include <linux/config.h>
 #include <linux/types.h>
 #include <linux/errno.h>
 #include <linux/init.h>
@@ -567,29 +566,23 @@ version_info(char *page)
 	pal_version_u_t min_ver, cur_ver;
 	char *p = page;
 
-	/* The PAL_VERSION call is advertised as being able to support
-	 * both physical and virtual mode calls. This seems to be a documentation
-	 * bug rather than firmware bug. In fact, it does only support physical mode.
-	 * So now the code reflects this fact and the pal_version() has been updated
-	 * accordingly.
-	 */
-	if (ia64_pal_version(&min_ver, &cur_ver) != 0) return 0;
+	if (ia64_pal_version(&min_ver, &cur_ver) != 0)
+		return 0;
 
 	p += sprintf(p,
 		     "PAL_vendor : 0x%02x (min=0x%02x)\n"
-		     "PAL_A      : %x.%x.%x (min=%x.%x.%x)\n"
-		     "PAL_B      : %x.%x.%x (min=%x.%x.%x)\n",
-		     cur_ver.pal_version_s.pv_pal_vendor, min_ver.pal_version_s.pv_pal_vendor,
-
-		     cur_ver.pal_version_s.pv_pal_a_model>>4,
-		     cur_ver.pal_version_s.pv_pal_a_model&0xf, cur_ver.pal_version_s.pv_pal_a_rev,
-		     min_ver.pal_version_s.pv_pal_a_model>>4,
-		     min_ver.pal_version_s.pv_pal_a_model&0xf, min_ver.pal_version_s.pv_pal_a_rev,
-
-		     cur_ver.pal_version_s.pv_pal_b_model>>4,
-		     cur_ver.pal_version_s.pv_pal_b_model&0xf, cur_ver.pal_version_s.pv_pal_b_rev,
-		     min_ver.pal_version_s.pv_pal_b_model>>4,
-		     min_ver.pal_version_s.pv_pal_b_model&0xf, min_ver.pal_version_s.pv_pal_b_rev);
+		     "PAL_A      : %02x.%02x (min=%02x.%02x)\n"
+		     "PAL_B      : %02x.%02x (min=%02x.%02x)\n",
+		     cur_ver.pal_version_s.pv_pal_vendor,
+		     min_ver.pal_version_s.pv_pal_vendor,
+		     cur_ver.pal_version_s.pv_pal_a_model,
+		     cur_ver.pal_version_s.pv_pal_a_rev,
+		     min_ver.pal_version_s.pv_pal_a_model,
+		     min_ver.pal_version_s.pv_pal_a_rev,
+		     cur_ver.pal_version_s.pv_pal_b_model,
+		     cur_ver.pal_version_s.pv_pal_b_rev,
+		     min_ver.pal_version_s.pv_pal_b_model,
+		     min_ver.pal_version_s.pv_pal_b_rev);
 	return p - page;
 }
 
@@ -959,9 +952,9 @@ remove_palinfo_proc_entries(unsigned int hcpu)
 	}
 }
 
+#ifdef CONFIG_HOTPLUG_CPU
 static int palinfo_cpu_callback(struct notifier_block *nfb,
-								unsigned long action,
-								void *hcpu)
+					unsigned long action, void *hcpu)
 {
 	unsigned int hotcpu = (unsigned long)hcpu;
 
@@ -969,11 +962,9 @@ static int palinfo_cpu_callback(struct notifier_block *nfb,
 	case CPU_ONLINE:
 		create_palinfo_proc_entries(hotcpu);
 		break;
-#ifdef CONFIG_HOTPLUG_CPU
 	case CPU_DEAD:
 		remove_palinfo_proc_entries(hotcpu);
 		break;
-#endif
 	}
 	return NOTIFY_OK;
 }
@@ -983,6 +974,7 @@ static struct notifier_block palinfo_cpu_notifier =
 	.notifier_call = palinfo_cpu_callback,
 	.priority = 0,
 };
+#endif
 
 static int __init
 palinfo_init(void)
@@ -998,7 +990,7 @@ palinfo_init(void)
 	}
 
 	/* Register for future delivery via notify registration */
-	register_cpu_notifier(&palinfo_cpu_notifier);
+	register_hotcpu_notifier(&palinfo_cpu_notifier);
 
 	return 0;
 }
@@ -1021,7 +1013,7 @@ palinfo_exit(void)
 	/*
 	 * Unregister from cpu notifier callbacks
 	 */
-	unregister_cpu_notifier(&palinfo_cpu_notifier);
+	unregister_hotcpu_notifier(&palinfo_cpu_notifier);
 }
 
 module_init(palinfo_init);

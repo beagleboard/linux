@@ -197,6 +197,7 @@
 #define  PCI_CAP_ID_CHSWP	0x06	/* CompactPCI HotSwap */
 #define  PCI_CAP_ID_PCIX	0x07	/* PCI-X */
 #define  PCI_CAP_ID_HT_IRQCONF	0x08	/* HyperTransport IRQ Configuration */
+#define  PCI_CAP_ID_VNDR	0x09	/* Vendor specific capability */
 #define  PCI_CAP_ID_SHPC 	0x0C	/* PCI Standard Hot-Plug Controller */
 #define  PCI_CAP_ID_EXP 	0x10	/* PCI Express */
 #define  PCI_CAP_ID_MSIX	0x11	/* MSI-X */
@@ -421,7 +422,23 @@
 #define  PCI_ERR_CAP_ECRC_CHKE	0x00000100	/* ECRC Check Enable */
 #define PCI_ERR_HEADER_LOG	28	/* Header Log Register (16 bytes) */
 #define PCI_ERR_ROOT_COMMAND	44	/* Root Error Command */
+/* Correctable Err Reporting Enable */
+#define PCI_ERR_ROOT_CMD_COR_EN		0x00000001
+/* Non-fatal Err Reporting Enable */
+#define PCI_ERR_ROOT_CMD_NONFATAL_EN	0x00000002
+/* Fatal Err Reporting Enable */
+#define PCI_ERR_ROOT_CMD_FATAL_EN	0x00000004
 #define PCI_ERR_ROOT_STATUS	48
+#define PCI_ERR_ROOT_COR_RCV		0x00000001	/* ERR_COR Received */
+/* Multi ERR_COR Received */
+#define PCI_ERR_ROOT_MULTI_COR_RCV	0x00000002
+/* ERR_FATAL/NONFATAL Recevied */
+#define PCI_ERR_ROOT_UNCOR_RCV		0x00000004
+/* Multi ERR_FATAL/NONFATAL Recevied */
+#define PCI_ERR_ROOT_MULTI_UNCOR_RCV	0x00000008
+#define PCI_ERR_ROOT_FIRST_FATAL	0x00000010	/* First Fatal */
+#define PCI_ERR_ROOT_NONFATAL_RCV	0x00000020	/* Non-Fatal Received */
+#define PCI_ERR_ROOT_FATAL_RCV		0x00000040	/* Fatal Received */
 #define PCI_ERR_ROOT_COR_SRC	52
 #define PCI_ERR_ROOT_SRC	54
 

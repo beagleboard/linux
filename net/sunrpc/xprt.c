@@ -41,7 +41,7 @@
 #include <linux/types.h>
 #include <linux/interrupt.h>
 #include <linux/workqueue.h>
-#include <linux/random.h>
+#include <linux/net.h>
 
 #include <linux/sunrpc/clnt.h>
 #include <linux/sunrpc/metrics.h>
@@ -707,12 +707,9 @@ out_unlock:
 	return err;
 }
 
-void
-xprt_abort_transmit(struct rpc_task *task)
+void xprt_end_transmit(struct rpc_task *task)
 {
-	struct rpc_xprt	*xprt = task->tk_xprt;
-
-	xprt_release_write(xprt, task);
+	xprt_release_write(task->tk_xprt, task);
 }
 
 /**
@@ -761,8 +758,6 @@ void xprt_transmit(struct rpc_task *task)
 			task->tk_status = -ENOTCONN;
 		else if (!req->rq_received)
 			rpc_sleep_on(&xprt->pending, task, NULL, xprt_timer);
-
-		xprt->ops->release_xprt(xprt, task);
 		spin_unlock_bh(&xprt->transport_lock);
 		return;
 	}
@@ -772,18 +767,8 @@ void xprt_transmit(struct rpc_task *task)
 	 *	 schedq, and being picked up by a parallel run of rpciod().
 	 */
 	task->tk_status = status;
-
-	switch (status) {
-	case -ECONNREFUSED:
+	if (status == -ECONNREFUSED)
 		rpc_sleep_on(&xprt->sending, task, NULL, NULL);
-	case -EAGAIN:
-	case -ENOTCONN:
-		return;
-	default:
-		break;
-	}
-	xprt_release_write(xprt, task);
-	return;
 }
 
 static inline void do_xprt_reserve(struct rpc_task *task)
@@ -830,7 +815,7 @@ static inline u32 xprt_alloc_xid(struct rpc_xprt *xprt)
 
 static inline void xprt_init_xid(struct rpc_xprt *xprt)
 {
-	get_random_bytes(&xprt->xid, sizeof(xprt->xid));
+	xprt->xid = net_random();
 }
 
 static void xprt_request_init(struct rpc_task *task, struct rpc_xprt *xprt)
@@ -908,9 +893,8 @@ static struct rpc_xprt *xprt_setup(int proto, struct sockaddr_in *ap, struct rpc
 	struct rpc_xprt	*xprt;
 	struct rpc_rqst	*req;
 
-	if ((xprt = kmalloc(sizeof(struct rpc_xprt), GFP_KERNEL)) == NULL)
+	if ((xprt = kzalloc(sizeof(struct rpc_xprt), GFP_KERNEL)) == NULL)
 		return ERR_PTR(-ENOMEM);
-	memset(xprt, 0, sizeof(*xprt)); /* Nnnngh! */
 
 	xprt->addr = *ap;
 

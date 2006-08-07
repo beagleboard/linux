@@ -20,7 +20,6 @@
  *
  */
 
-#include <linux/config.h>
 #include <linux/module.h>
 
 #include <linux/kernel.h>
@@ -423,6 +422,9 @@ static int dtl1_hci_send_frame(struct sk_buff *skb)
 	nsh.len = skb->len;
 
 	s = bt_skb_alloc(NSHL + skb->len + 1, GFP_ATOMIC);
+	if (!s)
+		return -ENOMEM;
+
 	skb_reserve(s, NSHL);
 	memcpy(skb_put(s, skb->len), skb->data, skb->len);
 	if (skb->len & 0x0001)
@@ -482,6 +484,7 @@ static int dtl1_open(dtl1_info_t *info)
 
 	hdev->type = HCI_PCCARD;
 	hdev->driver_data = info;
+	SET_HCIDEV_DEV(hdev, &info->p_dev->dev);
 
 	hdev->open     = dtl1_hci_open;
 	hdev->close    = dtl1_hci_close;

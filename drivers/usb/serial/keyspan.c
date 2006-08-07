@@ -95,7 +95,6 @@
 */
 
 
-#include <linux/config.h>
 #include <linux/kernel.h>
 #include <linux/jiffies.h>
 #include <linux/errno.h>
@@ -108,7 +107,7 @@
 #include <linux/spinlock.h>
 #include <asm/uaccess.h>
 #include <linux/usb.h>
-#include "usb-serial.h"
+#include <linux/usb/serial.h>
 #include "keyspan.h"
 
 static int debug;
@@ -481,7 +480,7 @@ static void	usa2x_outdat_callback(struct urb *urb, struct pt_regs *regs)
 	dbg ("%s - urb %d", __FUNCTION__, urb == p_priv->out_urbs[1]); 
 
 	if (port->open_count)
-		schedule_work(&port->work);
+		usb_serial_port_softint(port);
 }
 
 static void	usa26_inack_callback(struct urb *urb, struct pt_regs *regs)

@@ -104,7 +104,6 @@ struct frag_hdr {
 
 #ifdef __KERNEL__
 
-#include <linux/config.h>
 #include <net/sock.h>
 
 /* sysctls */
@@ -469,6 +468,9 @@ extern void			ip6_flush_pending_frames(struct sock *sk);
 extern int			ip6_dst_lookup(struct sock *sk,
 					       struct dst_entry **dst,
 					       struct flowi *fl);
+extern int			ip6_sk_dst_lookup(struct sock *sk,
+						  struct dst_entry **dst,
+						  struct flowi *fl);
 
 /*
  *	skb processing functions

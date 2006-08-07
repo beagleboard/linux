@@ -25,7 +25,6 @@
  * code to do general bookkeeping (e.g. update jiffies, run
  * bottom halves, etc.)
  */
-#include <linux/config.h>
 #include <linux/interrupt.h>
 #include <linux/sched.h>
 #include <linux/spinlock.h>
@@ -110,17 +109,18 @@ void bcm1480_timer_interrupt(struct pt_regs *regs)
 	__raw_writeq(M_SCD_TIMER_ENABLE|M_SCD_TIMER_MODE_CONTINUOUS,
 	      IOADDR(A_SCD_TIMER_REGISTER(cpu, R_SCD_TIMER_CFG)));
 
-	/*
-	 * CPU 0 handles the global timer interrupt job
-	 */
 	if (cpu == 0) {
+		/*
+		 * CPU 0 handles the global timer interrupt job
+		 */
 		ll_timer_interrupt(irq, regs);
 	}
-
-	/*
-	 * every CPU should do profiling and process accouting
-	 */
-	ll_local_timer_interrupt(irq, regs);
+	else {
+		/*
+		 * other CPUs should just do profiling and process accounting
+		 */
+		ll_local_timer_interrupt(irq, regs);
+	}
 }
 
 /*

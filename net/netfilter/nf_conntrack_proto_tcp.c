@@ -24,7 +24,6 @@
  * version 2.2
  */
 
-#include <linux/config.h>
 #include <linux/types.h>
 #include <linux/sched.h>
 #include <linux/timer.h>
@@ -828,8 +827,9 @@ static int tcp_error(struct sk_buff *skb,
 	 * and moreover root might send raw packets.
 	 */
 	/* FIXME: Source route IP option packets --RR */
-	if (((pf == PF_INET && hooknum == NF_IP_PRE_ROUTING) ||
-	     (pf == PF_INET6 && hooknum  == NF_IP6_PRE_ROUTING)) &&
+	if (nf_conntrack_checksum &&
+	    ((pf == PF_INET && hooknum == NF_IP_PRE_ROUTING) ||
+	     (pf == PF_INET6 && hooknum == NF_IP6_PRE_ROUTING)) &&
 	    nf_checksum(skb, hooknum, dataoff, IPPROTO_TCP, pf)) {
 		if (LOG_INVALID(IPPROTO_TCP))
 			nf_log_packet(pf, 0, skb, NULL, NULL, NULL,

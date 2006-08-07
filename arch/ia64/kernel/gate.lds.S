@@ -4,7 +4,6 @@
  * in one page).  This script controls its layout.
  */
 
-#include <linux/config.h>
 
 #include <asm/system.h>
 
@@ -13,6 +12,7 @@ SECTIONS
   . = GATE_ADDR + SIZEOF_HEADERS;
 
   .hash				: { *(.hash) }				:readable
+  .gnu.hash			: { *(.gnu.hash) }
   .dynsym			: { *(.dynsym) }
   .dynstr			: { *(.dynstr) }
   .gnu.version			: { *(.gnu.version) }

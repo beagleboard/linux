@@ -54,7 +54,6 @@ static u8 cmd_buf[] = {0x04,0x01,0x50,0x80,0x06}; // ATSC
 struct or51211_state {
 
 	struct i2c_adapter* i2c;
-	struct dvb_frontend_ops ops;
 
 	/* Configuration settings */
 	const struct or51211_config* config;
@@ -438,10 +437,10 @@ static int or51211_init(struct dvb_frontend* fe)
 		}
 
 		ret = or51211_load_firmware(fe, fw);
+		release_firmware(fw);
 		if (ret) {
 			printk(KERN_WARNING "or51211: Writing firmware to "
 			       "device failed!\n");
-			release_firmware(fw);
 			return ret;
 		}
 		printk(KERN_INFO "or51211: Firmware upload complete.\n");
@@ -585,12 +584,11 @@ struct dvb_frontend* or51211_attach(const struct or51211_config* config,
 	/* Setup the state */
 	state->config = config;
 	state->i2c = i2c;
-	memcpy(&state->ops, &or51211_ops, sizeof(struct dvb_frontend_ops));
 	state->initialized = 0;
 	state->current_frequency = 0;
 
 	/* Create dvb_frontend */
-	state->frontend.ops = &state->ops;
+	memcpy(&state->frontend.ops, &or51211_ops, sizeof(struct dvb_frontend_ops));
 	state->frontend.demodulator_priv = state;
 	return &state->frontend;
 

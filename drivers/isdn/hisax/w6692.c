@@ -10,7 +10,6 @@
  *
  */
 
-#include <linux/config.h>
 #include <linux/init.h>
 #include "hisax.h"
 #include "w6692.h"
@@ -45,11 +44,11 @@ static const char *w6692_revision = "$Revision: 1.18.2.4 $";
 
 #define DBUSY_TIMER_VALUE 80
 
-static char *W6692Ver[] __initdata =
+static char *W6692Ver[] =
 {"W6692 V00", "W6692 V01", "W6692 V10",
  "W6692 V11"};
 
-static void __init
+static void
 W6692Version(struct IsdnCardState *cs, char *s)
 {
 	int val;
@@ -898,7 +897,7 @@ static void resetW6692(struct IsdnCardState *cs)
 	}
 }
 
-static void __init initW6692(struct IsdnCardState *cs, int part)
+static void initW6692(struct IsdnCardState *cs, int part)
 {
 	if (part & 1) {
 		cs->setstack_d = setstack_W6692;
@@ -993,9 +992,9 @@ w6692_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 
 static int id_idx ;
 
-static struct pci_dev *dev_w6692 __initdata = NULL;
+static struct pci_dev *dev_w6692 __devinitdata = NULL;
 
-int __init 
+int __devinit
 setup_w6692(struct IsdnCard *card)
 {
 	struct IsdnCardState *cs = card->cs;
@@ -1081,7 +1080,7 @@ setup_w6692(struct IsdnCard *card)
 	cs->BC_Send_Data = &W6692B_fill_fifo;
 	cs->cardmsg = &w6692_card_msg;
 	cs->irq_func = &W6692_interrupt;
-	cs->irq_flags |= SA_SHIRQ;
+	cs->irq_flags |= IRQF_SHARED;
 	W6692Version(cs, "W6692:");
 	printk(KERN_INFO "W6692 ISTA=0x%X\n", ReadW6692(cs, W_ISTA));
 	printk(KERN_INFO "W6692 IMASK=0x%X\n", ReadW6692(cs, W_IMASK));

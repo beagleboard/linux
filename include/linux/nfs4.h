@@ -14,7 +14,6 @@
 #define _LINUX_NFS4_H
 
 #include <linux/types.h>
-#include <linux/list.h>
 
 #define NFS4_VERIFIER_SIZE	8
 #define NFS4_FHSIZE		128
@@ -97,6 +96,9 @@ enum nfs4_acl_whotype {
 	NFS4_ACL_WHO_EVERYONE,
 };
 
+#ifdef __KERNEL__
+#include <linux/list.h>
+
 struct nfs4_ace {
 	uint32_t	type;
 	uint32_t	flag;
@@ -154,6 +156,12 @@ enum nfs_opnum4 {
 	OP_RELEASE_LOCKOWNER = 39,
 	OP_ILLEGAL = 10044,
 };
+
+/*Defining first and last NFS4 operations implemented.
+Needs to be updated if more operations are defined in future.*/
+
+#define FIRST_NFS4_OP	OP_ACCESS
+#define LAST_NFS4_OP 	OP_RELEASE_LOCKOWNER
 
 enum nfsstat4 {
 	NFS4_OK = 0,
@@ -345,8 +353,6 @@ enum lock_type4 {
 #define NFS4_MINOR_VERSION 0
 #define NFS4_DEBUG 1
 
-#ifdef __KERNEL__
-
 /* Index of predefined Linux client operations */
 
 enum {
@@ -384,6 +390,7 @@ enum {
 	NFSPROC4_CLNT_DELEGRETURN,
 	NFSPROC4_CLNT_GETACL,
 	NFSPROC4_CLNT_SETACL,
+	NFSPROC4_CLNT_FS_LOCATIONS,
 };
 
 #endif

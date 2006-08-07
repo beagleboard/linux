@@ -37,7 +37,6 @@
 
 #include <linux/module.h>
 #include <linux/moduleparam.h>
-#include <linux/config.h>
 #include <linux/types.h>
 #include <linux/timer.h>
 #include <linux/miscdevice.h>
@@ -320,7 +319,7 @@ static int s3c2410wdt_ioctl(struct inode *inode, struct file *file,
 
 /* kernel interface */
 
-static struct file_operations s3c2410wdt_fops = {
+static const struct file_operations s3c2410wdt_fops = {
 	.owner		= THIS_MODULE,
 	.llseek		= no_llseek,
 	.write		= s3c2410wdt_write,

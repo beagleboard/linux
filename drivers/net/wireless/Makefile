@@ -36,7 +36,10 @@ obj-$(CONFIG_PRISM54)		+= prism54/
 
 obj-$(CONFIG_HOSTAP)		+= hostap/
 obj-$(CONFIG_BCM43XX)		+= bcm43xx/
+obj-$(CONFIG_ZD1211RW)		+= zd1211rw/
 
 # 16-bit wireless PCMCIA client drivers
 obj-$(CONFIG_PCMCIA_RAYCS)	+= ray_cs.o
 obj-$(CONFIG_PCMCIA_WL3501)	+= wl3501_cs.o
+
+obj-$(CONFIG_USB_ZD1201)	+= zd1201.o

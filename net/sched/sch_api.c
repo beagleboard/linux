@@ -15,7 +15,6 @@
  * Jamal Hadi Salim <hadi@nortelnetworks.com>: 990601: ingress support
  */
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
@@ -431,7 +430,7 @@ qdisc_create(struct net_device *dev, u32 handle, struct rtattr **tca, int *errp)
 	}
 #endif
 
-	err = -EINVAL;
+	err = -ENOENT;
 	if (ops == NULL)
 		goto err_out;
 

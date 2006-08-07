@@ -14,7 +14,6 @@
 
 */
 
-#include <linux/config.h>
 
 #define DRV_NAME	"tulip"
 #ifdef CONFIG_TULIP_NAPI
@@ -490,7 +489,7 @@ tulip_open(struct net_device *dev)
 {
 	int retval;
 
-	if ((retval = request_irq(dev->irq, &tulip_interrupt, SA_SHIRQ, dev->name, dev)))
+	if ((retval = request_irq(dev->irq, &tulip_interrupt, IRQF_SHARED, dev->name, dev)))
 		return retval;
 
 	tulip_init_ring (dev);
@@ -1224,7 +1223,7 @@ out:
  *	Chips that have the MRM/reserved bit quirk and the burst quirk. That
  *	is the DM910X and the on chip ULi devices
  */
- 
+
 static int tulip_uli_dm_quirk(struct pci_dev *pdev)
 {
 	if (pdev->vendor == 0x1282 && pdev->device == 0x9102)
@@ -1297,7 +1296,7 @@ static int __devinit tulip_init_one (struct pci_dev *pdev,
 	 */
 
 	/* 1. Intel Saturn. Switch to 8 long words burst, 8 long word cache
-	      aligned.  Aries might need this too. The Saturn errata are not 
+	      aligned.  Aries might need this too. The Saturn errata are not
 	      pretty reading but thankfully it's an old 486 chipset.
 
 	   2. The dreaded SiS496 486 chipset. Same workaround as Intel
@@ -1350,10 +1349,10 @@ static int __devinit tulip_init_one (struct pci_dev *pdev,
 	SET_MODULE_OWNER(dev);
 	SET_NETDEV_DEV(dev, &pdev->dev);
 	if (pci_resource_len (pdev, 0) < tulip_tbl[chip_idx].io_size) {
-		printk (KERN_ERR PFX "%s: I/O region (0x%lx@0x%lx) too small, "
+		printk (KERN_ERR PFX "%s: I/O region (0x%llx@0x%llx) too small, "
 			"aborting\n", pci_name(pdev),
-			pci_resource_len (pdev, 0),
-			pci_resource_start (pdev, 0));
+			(unsigned long long)pci_resource_len (pdev, 0),
+			(unsigned long long)pci_resource_start (pdev, 0));
 		goto err_out_free_netdev;
 	}
 
@@ -1483,14 +1482,6 @@ static int __devinit tulip_init_one (struct pci_dev *pdev,
 			sa_offset = 2;		/* Grrr, damn Matrox boards. */
 			multiport_cnt = 4;
 		}
-#ifdef CONFIG_DDB5476
-		if ((pdev->bus->number == 0) && (PCI_SLOT(pdev->devfn) == 6)) {
-			/* DDB5476 MAC address in first EEPROM locations. */
-                       sa_offset = 0;
-                       /* No media table either */
-                       tp->flags &= ~HAS_MEDIA_TABLE;
-               }
-#endif
 #ifdef CONFIG_DDB5477
                if ((pdev->bus->number == 0) && (PCI_SLOT(pdev->devfn) == 4)) {
                        /* DDB5477 MAC address in first EEPROM locations. */
@@ -1500,7 +1491,7 @@ static int __devinit tulip_init_one (struct pci_dev *pdev,
                }
 #endif
 #ifdef CONFIG_MIPS_COBALT
-               if ((pdev->bus->number == 0) && 
+               if ((pdev->bus->number == 0) &&
                    ((PCI_SLOT(pdev->devfn) == 7) ||
                     (PCI_SLOT(pdev->devfn) == 12))) {
                        /* Cobalt MAC address in first EEPROM locations. */
@@ -1558,10 +1549,14 @@ static int __devinit tulip_init_one (struct pci_dev *pdev,
 			dev->dev_addr[i] = last_phys_addr[i];
 		dev->dev_addr[i] = last_phys_addr[i] + 1;
 #if defined(__sparc__)
-		if ((pcp != NULL) && prom_getproplen(pcp->prom_node,
-			"local-mac-address") == 6) {
-			prom_getproperty(pcp->prom_node, "local-mac-address",
-			    dev->dev_addr, 6);
+		if (pcp) {
+			unsigned char *addr;
+			int len;
+		  
+			addr = of_get_property(pcp->prom_node,
+					       "local-mac-address", &len);
+			if (addr && len == 6)
+				memcpy(dev->dev_addr, addr, 6);
 		}
 #endif
 #if defined(__i386__) || defined(__x86_64__)	/* Patch up x86 BIOS bug. */
@@ -1775,7 +1770,7 @@ static int tulip_resume(struct pci_dev *pdev)
 
 	pci_enable_device(pdev);
 
-	if ((retval = request_irq(dev->irq, &tulip_interrupt, SA_SHIRQ, dev->name, dev))) {
+	if ((retval = request_irq(dev->irq, &tulip_interrupt, IRQF_SHARED, dev->name, dev))) {
 		printk (KERN_ERR "tulip: request_irq failed in resume\n");
 		return retval;
 	}

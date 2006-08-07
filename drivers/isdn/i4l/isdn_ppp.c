@@ -9,7 +9,6 @@
  *
  */
 
-#include <linux/config.h>
 #include <linux/isdn.h>
 #include <linux/poll.h>
 #include <linux/ppp-comp.h>
@@ -668,7 +667,7 @@ isdn_ppp_poll(struct file *file, poll_table * wait)
 
 	if (is->debug & 0x2)
 		printk(KERN_DEBUG "isdn_ppp_poll: minor: %d\n",
-				MINOR(file->f_dentry->d_inode->i_rdev));
+				iminor(file->f_dentry->d_inode));
 
 	/* just registers wait_queue hook. This doesn't really wait. */
 	poll_wait(file, &is->wq, wait);

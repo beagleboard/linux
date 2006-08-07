@@ -4,10 +4,14 @@
 #include <linux/spinlock.h>
 #include <asm/page.h>		/* pgprot_t */
 
+struct vm_area_struct;
+
 /* bits in vm_struct->flags */
 #define VM_IOREMAP	0x00000001	/* ioremap() and friends */
 #define VM_ALLOC	0x00000002	/* vmalloc() */
 #define VM_MAP		0x00000004	/* vmap()ed pages */
+#define VM_USERMAP	0x00000008	/* suitable for remap_vmalloc_range */
+#define VM_VPAGES	0x00000010	/* buffer for pages was vmalloc'ed */
 /* bits [20..32] reserved for arch specific ioremap internals */
 
 /*
@@ -32,9 +36,11 @@ struct vm_struct {
  *	Highlevel APIs for driver use
  */
 extern void *vmalloc(unsigned long size);
+extern void *vmalloc_user(unsigned long size);
 extern void *vmalloc_node(unsigned long size, int node);
 extern void *vmalloc_exec(unsigned long size);
 extern void *vmalloc_32(unsigned long size);
+extern void *vmalloc_32_user(unsigned long size);
 extern void *__vmalloc(unsigned long size, gfp_t gfp_mask, pgprot_t prot);
 extern void *__vmalloc_area(struct vm_struct *area, gfp_t gfp_mask,
 				pgprot_t prot);
@@ -45,6 +51,9 @@ extern void vfree(void *addr);
 extern void *vmap(struct page **pages, unsigned int count,
 			unsigned long flags, pgprot_t prot);
 extern void vunmap(void *addr);
+
+extern int remap_vmalloc_range(struct vm_area_struct *vma, void *addr,
+							unsigned long pgoff);
  
 /*
  *	Lowlevel-APIs (not for driver use!)

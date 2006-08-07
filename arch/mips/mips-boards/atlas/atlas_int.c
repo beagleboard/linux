@@ -73,7 +73,7 @@ static void end_atlas_irq(unsigned int irq)
 		enable_atlas_irq(irq);
 }
 
-static struct hw_interrupt_type atlas_irq_type = {
+static struct irq_chip atlas_irq_type = {
 	.typename = "Atlas",
 	.startup = startup_atlas_irq,
 	.shutdown = shutdown_atlas_irq,
@@ -215,7 +215,7 @@ void __init arch_init_irq(void)
 		irq_desc[i].status	= IRQ_DISABLED;
 		irq_desc[i].action	= 0;
 		irq_desc[i].depth	= 1;
-		irq_desc[i].handler	= &atlas_irq_type;
+		irq_desc[i].chip	= &atlas_irq_type;
 		spin_lock_init(&irq_desc[i].lock);
 	}
 }

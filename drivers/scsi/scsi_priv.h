@@ -1,22 +1,14 @@
 #ifndef _SCSI_PRIV_H
 #define _SCSI_PRIV_H
 
-#include <linux/config.h>
 #include <linux/device.h>
 
 struct request_queue;
 struct scsi_cmnd;
 struct scsi_device;
 struct scsi_host_template;
-struct scsi_request;
 struct Scsi_Host;
 
-
-/*
- * Magic values for certain scsi structs. Shouldn't ever be used.
- */
-#define SCSI_CMND_MAGIC		0xE25C23A5
-#define SCSI_REQ_MAGIC		0x75F6D354
 
 /*
  * Scsi Error Handler Flags
@@ -34,9 +26,6 @@ extern void scsi_exit_hosts(void);
 extern int scsi_dispatch_cmd(struct scsi_cmnd *cmd);
 extern int scsi_setup_command_freelist(struct Scsi_Host *shost);
 extern void scsi_destroy_command_freelist(struct Scsi_Host *shost);
-extern void scsi_init_cmd_from_req(struct scsi_cmnd *cmd,
-		struct scsi_request *sreq);
-extern void __scsi_release_request(struct scsi_request *sreq);
 extern void __scsi_done(struct scsi_cmnd *cmd);
 extern int scsi_retry_command(struct scsi_cmnd *cmd);
 #ifdef CONFIG_SCSI_LOGGING
@@ -68,7 +57,6 @@ extern int scsi_eh_scmd_add(struct scsi_cmnd *, int);
 
 /* scsi_lib.c */
 extern int scsi_maybe_unblock_host(struct scsi_device *sdev);
-extern void scsi_setup_cmd_retry(struct scsi_cmnd *cmd);
 extern void scsi_device_unbusy(struct scsi_device *sdev);
 extern int scsi_queue_insert(struct scsi_cmnd *cmd, int reason);
 extern void scsi_next_command(struct scsi_cmnd *cmd);
@@ -127,7 +115,7 @@ extern struct bus_type scsi_bus_type;
  * classes.
  */
 
-#define SCSI_DEVICE_BLOCK_MAX_TIMEOUT	(HZ*60)
+#define SCSI_DEVICE_BLOCK_MAX_TIMEOUT	600	/* units in seconds */
 extern int scsi_internal_device_block(struct scsi_device *sdev);
 extern int scsi_internal_device_unblock(struct scsi_device *sdev);
 

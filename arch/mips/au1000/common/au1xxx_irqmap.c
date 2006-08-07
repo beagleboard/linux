@@ -25,7 +25,6 @@
  *  with this program; if not, write  to the Free Software Foundation, Inc.,
  *  675 Mass Ave, Cambridge, MA 02139, USA.
  */
-#include <linux/config.h>
 #include <linux/errno.h>
 #include <linux/init.h>
 #include <linux/irq.h>
@@ -55,7 +54,7 @@
  * Careful if you change match 2 request!
  * The interrupt handler is called directly from the low level dispatch code.
  */
-au1xxx_irq_map_t au1xxx_ic0_map[] = {
+au1xxx_irq_map_t __initdata au1xxx_ic0_map[] = {
 
 #if defined(CONFIG_SOC_AU1000)
 	{ AU1000_UART0_INT, INTC_INT_HIGH_LEVEL, 0},
@@ -220,5 +219,5 @@ au1xxx_irq_map_t au1xxx_ic0_map[] = {
 
 };
 
-int au1xxx_ic0_nr_irqs = sizeof(au1xxx_ic0_map)/sizeof(au1xxx_irq_map_t);
+int __initdata au1xxx_ic0_nr_irqs = ARRAY_SIZE(au1xxx_ic0_map);
 

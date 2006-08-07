@@ -1,172 +1,182 @@
-/* 
- * Copyright (C) 2000, 2001, 2002 Jeff Dike (jdike@karaya.com)
+/*
+ * Copyright (C) 2000 Jeff Dike (jdike@karaya.com)
  * Licensed under the GPL
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <time.h>
-#include <sys/time.h>
-#include <signal.h>
-#include <errno.h>
-#include "user_util.h"
+#include "linux/kernel.h"
+#include "linux/module.h"
+#include "linux/unistd.h"
+#include "linux/stddef.h"
+#include "linux/spinlock.h"
+#include "linux/time.h"
+#include "linux/sched.h"
+#include "linux/interrupt.h"
+#include "linux/init.h"
+#include "linux/delay.h"
+#include "linux/hrtimer.h"
+#include "asm/irq.h"
+#include "asm/param.h"
+#include "asm/current.h"
 #include "kern_util.h"
-#include "user.h"
-#include "process.h"
-#include "time_user.h"
-#include "kern_constants.h"
+#include "user_util.h"
+#include "mode.h"
 #include "os.h"
 
-/* XXX This really needs to be declared and initialized in a kernel file since
- * it's in <linux/time.h>
+int hz(void)
+{
+	return(HZ);
+}
+
+/*
+ * Scheduler clock - returns current time in nanosec units.
  */
-extern struct timespec wall_to_monotonic;
-
-extern struct timeval xtime;
-
-struct timeval local_offset = { 0, 0 };
-
-void timer(void)
+unsigned long long sched_clock(void)
 {
-	gettimeofday(&xtime, NULL);
-	timeradd(&xtime, &local_offset, &xtime);
+	return (unsigned long long)jiffies_64 * (1000000000 / HZ);
 }
 
-static void set_interval(int timer_type)
+/* Changed at early boot */
+int timer_irq_inited = 0;
+
+static unsigned long long prev_nsecs;
+#ifdef CONFIG_UML_REAL_TIME_CLOCK
+static long long delta;   		/* Deviation per interval */
+#endif
+
+void timer_irq(union uml_pt_regs *regs)
 {
-	int usec = 1000000/hz();
-	struct itimerval interval = ((struct itimerval) { { 0, usec },
-							  { 0, usec } });
+	unsigned long long ticks = 0;
 
-	if(setitimer(timer_type, &interval, NULL) == -1)
-		panic("setitimer failed - errno = %d\n", errno);
-}
+#ifdef CONFIG_UML_REAL_TIME_CLOCK
+	if(prev_nsecs){
+		/* We've had 1 tick */
+		unsigned long long nsecs = os_nsecs();
 
-void enable_timer(void)
-{
-	set_interval(ITIMER_VIRTUAL);
-}
+		delta += nsecs - prev_nsecs;
+		prev_nsecs = nsecs;
 
-void prepare_timer(void * ptr)
-{
-	int usec = 1000000/hz();
-	*(struct itimerval *)ptr = ((struct itimerval) { { 0, usec },
-							 { 0, usec }});
-}
+		/* Protect against the host clock being set backwards */
+		if(delta < 0)
+			delta = 0;
 
-void disable_timer(void)
-{
-	struct itimerval disable = ((struct itimerval) { { 0, 0 }, { 0, 0 }});
-	if((setitimer(ITIMER_VIRTUAL, &disable, NULL) < 0) ||
-	   (setitimer(ITIMER_REAL, &disable, NULL) < 0))
-		printk("disnable_timer - setitimer failed, errno = %d\n",
-		       errno);
-	/* If there are signals already queued, after unblocking ignore them */
-	set_handler(SIGALRM, SIG_IGN, 0, -1);
-	set_handler(SIGVTALRM, SIG_IGN, 0, -1);
-}
-
-void switch_timers(int to_real)
-{
-	struct itimerval disable = ((struct itimerval) { { 0, 0 }, { 0, 0 }});
-	struct itimerval enable = ((struct itimerval) { { 0, 1000000/hz() },
-							{ 0, 1000000/hz() }});
-	int old, new;
-
-	if(to_real){
-		old = ITIMER_VIRTUAL;
-		new = ITIMER_REAL;
+		ticks += (delta * HZ) / BILLION;
+		delta -= (ticks * BILLION) / HZ;
 	}
-	else {
-		old = ITIMER_REAL;
-		new = ITIMER_VIRTUAL;
+	else prev_nsecs = os_nsecs();
+#else
+	ticks = 1;
+#endif
+	while(ticks > 0){
+		do_IRQ(TIMER_IRQ, regs);
+		ticks--;
 	}
-
-	if((setitimer(old, &disable, NULL) < 0) ||
-	   (setitimer(new, &enable, NULL)))
-		printk("switch_timers - setitimer failed, errno = %d\n",
-		       errno);
 }
 
-void uml_idle_timer(void)
+static DEFINE_SPINLOCK(timer_spinlock);
+
+static unsigned long long local_offset = 0;
+
+static inline unsigned long long get_time(void)
 {
-	if(signal(SIGVTALRM, SIG_IGN) == SIG_ERR)
-		panic("Couldn't unset SIGVTALRM handler");
-	
-	set_handler(SIGALRM, (__sighandler_t) alarm_handler, 
-		    SA_RESTART, SIGUSR1, SIGIO, SIGWINCH, SIGVTALRM, -1);
-	set_interval(ITIMER_REAL);
+	unsigned long long nsecs;
+	unsigned long flags;
+
+	spin_lock_irqsave(&timer_spinlock, flags);
+	nsecs = os_nsecs();
+	nsecs += local_offset;
+	spin_unlock_irqrestore(&timer_spinlock, flags);
+
+	return nsecs;
 }
 
-extern void ktime_get_ts(struct timespec *ts);
-#define do_posix_clock_monotonic_gettime(ts) ktime_get_ts(ts)
+irqreturn_t um_timer(int irq, void *dev, struct pt_regs *regs)
+{
+	unsigned long long nsecs;
+	unsigned long flags;
+
+	write_seqlock_irqsave(&xtime_lock, flags);
+
+	do_timer(regs);
+
+	nsecs = get_time() + local_offset;
+	xtime.tv_sec = nsecs / NSEC_PER_SEC;
+	xtime.tv_nsec = nsecs - xtime.tv_sec * NSEC_PER_SEC;
+
+	write_sequnlock_irqrestore(&xtime_lock, flags);
+
+	return IRQ_HANDLED;
+}
+
+static void register_timer(void)
+{
+	int err;
+
+	err = request_irq(TIMER_IRQ, um_timer, IRQF_DISABLED, "timer", NULL);
+	if(err != 0)
+		printk(KERN_ERR "timer_init : request_irq failed - "
+		       "errno = %d\n", -err);
+
+	timer_irq_inited = 1;
+
+	user_time_init();
+}
+
+extern void (*late_time_init)(void);
 
 void time_init(void)
 {
-	struct timespec now;
+	long long nsecs;
 
-	if(signal(SIGVTALRM, boot_timer_handler) == SIG_ERR)
-		panic("Couldn't set SIGVTALRM handler");
-	set_interval(ITIMER_VIRTUAL);
-
-	do_posix_clock_monotonic_gettime(&now);
-	wall_to_monotonic.tv_sec = -now.tv_sec;
-	wall_to_monotonic.tv_nsec = -now.tv_nsec;
+	nsecs = os_nsecs();
+	set_normalized_timespec(&wall_to_monotonic, -nsecs / BILLION,
+				-nsecs % BILLION);
+	late_time_init = register_timer;
 }
-
-/* Defined in linux/ktimer.h, which can't be included here */
-#define clock_was_set()		do { } while (0)
 
 void do_gettimeofday(struct timeval *tv)
 {
+	unsigned long long nsecs = get_time();
+
+	tv->tv_sec = nsecs / NSEC_PER_SEC;
+	/* Careful about calculations here - this was originally done as
+	 * (nsecs - tv->tv_sec * NSEC_PER_SEC) / NSEC_PER_USEC
+	 * which gave bogus (> 1000000) values.  Dunno why, suspect gcc
+	 * (4.0.0) miscompiled it, or there's a subtle 64/32-bit conversion
+	 * problem that I missed.
+	 */
+	nsecs -= tv->tv_sec * NSEC_PER_SEC;
+	tv->tv_usec = (unsigned long) nsecs / NSEC_PER_USEC;
+}
+
+static inline void set_time(unsigned long long nsecs)
+{
+	unsigned long long now;
 	unsigned long flags;
 
-	flags = time_lock();
-	gettimeofday(tv, NULL);
-	timeradd(tv, &local_offset, tv);
-	time_unlock(flags);
+	spin_lock_irqsave(&timer_spinlock, flags);
+	now = os_nsecs();
+	local_offset = nsecs - now;
+	spin_unlock_irqrestore(&timer_spinlock, flags);
+
 	clock_was_set();
 }
 
 int do_settimeofday(struct timespec *tv)
 {
-	struct timeval now;
-	unsigned long flags;
-	struct timeval tv_in;
+	set_time((unsigned long long) tv->tv_sec * NSEC_PER_SEC + tv->tv_nsec);
 
-	if ((unsigned long) tv->tv_nsec >= UM_NSEC_PER_SEC)
-		return -EINVAL;
-
-	tv_in.tv_sec = tv->tv_sec;
-	tv_in.tv_usec = tv->tv_nsec / 1000;
-
-	flags = time_lock();
-	gettimeofday(&now, NULL);
-	timersub(&tv_in, &now, &local_offset);
-	time_unlock(flags);
-
-	return(0);
+	return 0;
 }
 
-void idle_sleep(int secs)
+void timer_handler(int sig, union uml_pt_regs *regs)
 {
-	struct timespec ts;
-
-	ts.tv_sec = secs;
-	ts.tv_nsec = 0;
-	nanosleep(&ts, NULL);
-}
-
-/* XXX This partly duplicates init_irq_signals */
-
-void user_time_init(void)
-{
-	set_handler(SIGVTALRM, (__sighandler_t) alarm_handler,
-		    SA_ONSTACK | SA_RESTART, SIGUSR1, SIGIO, SIGWINCH,
-		    SIGALRM, SIGUSR2, -1);
-	set_handler(SIGALRM, (__sighandler_t) alarm_handler,
-		    SA_ONSTACK | SA_RESTART, SIGUSR1, SIGIO, SIGWINCH,
-		    SIGVTALRM, SIGUSR2, -1);
-	set_interval(ITIMER_VIRTUAL);
+	local_irq_disable();
+	irq_enter();
+	update_process_times(CHOOSE_MODE(
+	                     (UPT_SC(regs) && user_context(UPT_SP(regs))),
+			     (regs)->skas.is_user));
+	irq_exit();
+	local_irq_enable();
+	if(current_thread->cpu == 0)
+		timer_irq(regs);
 }

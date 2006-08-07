@@ -10,7 +10,7 @@
  * 2 of the License, or (at your option) any later version.
  */
 
-#include <linux/config.h>
+#include <linux/module.h>
 #include <linux/errno.h>
 #include <linux/sched.h>
 #include <linux/kernel.h>
@@ -26,6 +26,7 @@
 #include <linux/reboot.h>
 #include <linux/interrupt.h>
 
+#include <asm/asm-offsets.h>
 #include <asm/uaccess.h>
 #include <asm/system.h>
 #include <asm/setup.h>
@@ -38,6 +39,9 @@
 asmlinkage void ret_from_fork(void);
 
 #include <asm/pgalloc.h>
+
+void (*pm_power_off)(void);
+EXPORT_SYMBOL(pm_power_off);
 
 struct task_struct *alloc_task_struct(void)
 {
@@ -204,7 +208,7 @@ int copy_thread(int nr, unsigned long clone_flags,
 
 	regs0 = __kernel_frame0_ptr;
 	childregs0 = (struct pt_regs *)
-		(task_stack_page(p) + THREAD_SIZE - USER_CONTEXT_SIZE);
+		(task_stack_page(p) + THREAD_SIZE - FRV_FRAME0_SIZE);
 	childregs = childregs0;
 
 	/* set up the userspace frame (the only place that the USP is stored) */
@@ -246,7 +250,7 @@ int copy_thread(int nr, unsigned long clone_flags,
 /*
  * sys_execve() executes a new program.
  */
-asmlinkage int sys_execve(char *name, char **argv, char **envp)
+asmlinkage int sys_execve(char __user *name, char __user * __user *argv, char __user * __user *envp)
 {
 	int error;
 	char * filename;
@@ -366,5 +370,13 @@ int elf_check_arch(const struct elf32_hdr *hdr)
 		break;
 	}
 
+	return 1;
+}
+
+int dump_fpu(struct pt_regs *regs, elf_fpregset_t *fpregs)
+{
+	memcpy(fpregs,
+	       &current->thread.user->f,
+	       sizeof(current->thread.user->f));
 	return 1;
 }

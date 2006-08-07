@@ -50,7 +50,6 @@
  */
 
 #include <linux/kernel.h>
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/errno.h>
@@ -1124,10 +1123,9 @@ hfsc_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
 	if (rsc == NULL && fsc == NULL)
 		return -EINVAL;
 
-	cl = kmalloc(sizeof(struct hfsc_class), GFP_KERNEL);
+	cl = kzalloc(sizeof(struct hfsc_class), GFP_KERNEL);
 	if (cl == NULL)
 		return -ENOBUFS;
-	memset(cl, 0, sizeof(struct hfsc_class));
 
 	if (rsc != NULL)
 		hfsc_change_rsc(cl, rsc, 0);

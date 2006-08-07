@@ -12,7 +12,6 @@
  * published by the Free Software Foundation.
  */
 
-#include <linux/config.h>
 #include <linux/types.h>
 #include <linux/ip.h>
 #include <linux/netfilter.h>
@@ -186,6 +185,11 @@ static int ct_seq_show(struct seq_file *s, void *v)
 
 #if defined(CONFIG_IP_NF_CONNTRACK_MARK)
 	if (seq_printf(s, "mark=%u ", conntrack->mark))
+		return -ENOSPC;
+#endif
+
+#ifdef CONFIG_IP_NF_CONNTRACK_SECMARK
+	if (seq_printf(s, "secmark=%u ", conntrack->secmark))
 		return -ENOSPC;
 #endif
 
@@ -417,7 +421,7 @@ static unsigned int ip_conntrack_help(unsigned int hooknum,
 
 	/* This is where we call the helper: as the packet goes out. */
 	ct = ip_conntrack_get(*pskb, &ctinfo);
-	if (ct && ct->helper) {
+	if (ct && ct->helper && ctinfo != IP_CT_RELATED + IP_CT_IS_REPLY) {
 		unsigned int ret;
 		ret = ct->helper->help(pskb, ct, ctinfo);
 		if (ret != NF_ACCEPT)
@@ -530,6 +534,8 @@ static struct nf_hook_ops ip_conntrack_ops[] = {
 
 /* Sysctl support */
 
+int ip_conntrack_checksum = 1;
+
 #ifdef CONFIG_SYSCTL
 
 /* From ip_conntrack_core.c */
@@ -589,6 +595,14 @@ static ctl_table ip_ct_sysctl_table[] = {
 		.data		= &ip_conntrack_htable_size,
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0444,
+		.proc_handler	= &proc_dointvec,
+	},
+	{
+		.ctl_name	= NET_IPV4_NF_CONNTRACK_CHECKSUM,
+		.procname	= "ip_conntrack_checksum",
+		.data		= &ip_conntrack_checksum,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
 		.proc_handler	= &proc_dointvec,
 	},
 	{
@@ -946,6 +960,7 @@ EXPORT_SYMBOL_GPL(__ip_conntrack_helper_find_byname);
 EXPORT_SYMBOL_GPL(ip_conntrack_proto_find_get);
 EXPORT_SYMBOL_GPL(ip_conntrack_proto_put);
 EXPORT_SYMBOL_GPL(__ip_conntrack_proto_find);
+EXPORT_SYMBOL_GPL(ip_conntrack_checksum);
 #if defined(CONFIG_IP_NF_CONNTRACK_NETLINK) || \
     defined(CONFIG_IP_NF_CONNTRACK_NETLINK_MODULE)
 EXPORT_SYMBOL_GPL(ip_ct_port_tuple_to_nfattr);

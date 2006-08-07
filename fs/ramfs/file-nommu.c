@@ -27,7 +27,7 @@
 
 static int ramfs_nommu_setattr(struct dentry *, struct iattr *);
 
-struct address_space_operations ramfs_aops = {
+const struct address_space_operations ramfs_aops = {
 	.readpage		= simple_readpage,
 	.prepare_write		= simple_prepare_write,
 	.commit_write		= simple_commit_write
@@ -283,9 +283,9 @@ unsigned long ramfs_nommu_get_unmapped_area(struct file *file,
 
 /*****************************************************************************/
 /*
- * set up a mapping
+ * set up a mapping for shared memory segments
  */
 int ramfs_nommu_mmap(struct file *file, struct vm_area_struct *vma)
 {
-	return 0;
+	return vma->vm_flags & VM_SHARED ? 0 : -ENOSYS;
 }

@@ -37,16 +37,10 @@ static int doc_read(struct mtd_info *mtd, loff_t from, size_t len,
 		    size_t *retlen, u_char *buf);
 static int doc_write(struct mtd_info *mtd, loff_t to, size_t len,
 		     size_t *retlen, const u_char *buf);
-static int doc_read_ecc(struct mtd_info *mtd, loff_t from, size_t len,
-			size_t *retlen, u_char *buf, u_char *eccbuf,
-			struct nand_oobinfo *oobsel);
-static int doc_write_ecc(struct mtd_info *mtd, loff_t to, size_t len,
-			 size_t *retlen, const u_char *buf, u_char *eccbuf,
-			 struct nand_oobinfo *oobsel);
-static int doc_read_oob(struct mtd_info *mtd, loff_t ofs, size_t len,
-			size_t *retlen, u_char *buf);
-static int doc_write_oob(struct mtd_info *mtd, loff_t ofs, size_t len,
-			 size_t *retlen, const u_char *buf);
+static int doc_read_oob(struct mtd_info *mtd, loff_t ofs,
+			struct mtd_oob_ops *ops);
+static int doc_write_oob(struct mtd_info *mtd, loff_t ofs,
+			 struct mtd_oob_ops *ops);
 static int doc_erase (struct mtd_info *mtd, struct erase_info *instr);
 
 static struct mtd_info *docmillist = NULL;
@@ -324,16 +318,9 @@ static int DoCMil_is_alias(struct DiskOnChip *doc1, struct DiskOnChip *doc2)
 	return retval;
 }
 
-static const char im_name[] = "DoCMil_init";
-
-/* This routine is made available to other mtd code via
- * inter_module_register.  It must only be accessed through
- * inter_module_get which will bump the use count of this module.  The
- * addresses passed back in mtd are valid as long as the use count of
- * this module is non-zero, i.e. between inter_module_get and
- * inter_module_put.  Keith Owens <kaos@ocs.com.au> 29 Oct 2000.
- */
-static void DoCMil_init(struct mtd_info *mtd)
+/* This routine is found from the docprobe code by symbol_get(),
+ * which will bump the use count of this module. */
+void DoCMil_init(struct mtd_info *mtd)
 {
 	struct DiskOnChip *this = mtd->priv;
 	struct DiskOnChip *old = NULL;
@@ -368,7 +355,7 @@ static void DoCMil_init(struct mtd_info *mtd)
 	/* FIXME: erase size is not always 8KiB */
 	mtd->erasesize = 0x2000;
 
-	mtd->oobblock = 512;
+	mtd->writesize = 512;
 	mtd->oobsize = 16;
 	mtd->owner = THIS_MODULE;
 	mtd->erase = doc_erase;
@@ -376,8 +363,6 @@ static void DoCMil_init(struct mtd_info *mtd)
 	mtd->unpoint = NULL;
 	mtd->read = doc_read;
 	mtd->write = doc_write;
-	mtd->read_ecc = doc_read_ecc;
-	mtd->write_ecc = doc_write_ecc;
 	mtd->read_oob = doc_read_oob;
 	mtd->write_oob = doc_write_oob;
 	mtd->sync = NULL;
@@ -401,21 +386,14 @@ static void DoCMil_init(struct mtd_info *mtd)
 		return;
 	}
 }
+EXPORT_SYMBOL_GPL(DoCMil_init);
 
 static int doc_read (struct mtd_info *mtd, loff_t from, size_t len,
 		     size_t *retlen, u_char *buf)
 {
-	/* Just a special case of doc_read_ecc */
-	return doc_read_ecc(mtd, from, len, retlen, buf, NULL, NULL);
-}
-
-static int doc_read_ecc (struct mtd_info *mtd, loff_t from, size_t len,
-			 size_t *retlen, u_char *buf, u_char *eccbuf,
-			 struct nand_oobinfo *oobsel)
-{
 	int i, ret;
 	volatile char dummy;
-	unsigned char syndrome[6];
+	unsigned char syndrome[6], eccbuf[6];
 	struct DiskOnChip *this = mtd->priv;
 	void __iomem *docptr = this->virtadr;
 	struct Nand *mychip = &this->chips[from >> (this->chipshift)];
@@ -445,15 +423,9 @@ static int doc_read_ecc (struct mtd_info *mtd, loff_t from, size_t len,
 	DoC_Address(docptr, 3, from, CDSN_CTRL_WP, 0x00);
 	DoC_WaitReady(docptr);
 
-	if (eccbuf) {
-		/* init the ECC engine, see Reed-Solomon EDC/ECC 11.1 .*/
-		WriteDOC (DOC_ECC_RESET, docptr, ECCConf);
-		WriteDOC (DOC_ECC_EN, docptr, ECCConf);
-	} else {
-		/* disable the ECC engine */
-		WriteDOC (DOC_ECC_RESET, docptr, ECCConf);
-		WriteDOC (DOC_ECC_DIS, docptr, ECCConf);
-	}
+	/* init the ECC engine, see Reed-Solomon EDC/ECC 11.1 .*/
+	WriteDOC (DOC_ECC_RESET, docptr, ECCConf);
+	WriteDOC (DOC_ECC_EN, docptr, ECCConf);
 
 	/* Read the data via the internal pipeline through CDSN IO register,
 	   see Pipelined Read Operations 11.3 */
@@ -473,58 +445,56 @@ static int doc_read_ecc (struct mtd_info *mtd, loff_t from, size_t len,
 	*retlen = len;
         ret = 0;
 
-	if (eccbuf) {
-		/* Read the ECC data from Spare Data Area,
-		   see Reed-Solomon EDC/ECC 11.1 */
-		dummy = ReadDOC(docptr, ReadPipeInit);
+	/* Read the ECC data from Spare Data Area,
+	   see Reed-Solomon EDC/ECC 11.1 */
+	dummy = ReadDOC(docptr, ReadPipeInit);
 #ifndef USE_MEMCPY
-		for (i = 0; i < 5; i++) {
-			/* N.B. you have to increase the source address in this way or the
-			   ECC logic will not work properly */
-			eccbuf[i] = ReadDOC(docptr, Mil_CDSN_IO + i);
-		}
+	for (i = 0; i < 5; i++) {
+		/* N.B. you have to increase the source address in this way or the
+		   ECC logic will not work properly */
+		eccbuf[i] = ReadDOC(docptr, Mil_CDSN_IO + i);
+	}
 #else
-		memcpy_fromio(eccbuf, docptr + DoC_Mil_CDSN_IO, 5);
+	memcpy_fromio(eccbuf, docptr + DoC_Mil_CDSN_IO, 5);
 #endif
-		eccbuf[5] = ReadDOC(docptr, LastDataRead);
+	eccbuf[5] = ReadDOC(docptr, LastDataRead);
 
-		/* Flush the pipeline */
-		dummy = ReadDOC(docptr, ECCConf);
-		dummy = ReadDOC(docptr, ECCConf);
+	/* Flush the pipeline */
+	dummy = ReadDOC(docptr, ECCConf);
+	dummy = ReadDOC(docptr, ECCConf);
 
-		/* Check the ECC Status */
-		if (ReadDOC(docptr, ECCConf) & 0x80) {
-                        int nb_errors;
-			/* There was an ECC error */
+	/* Check the ECC Status */
+	if (ReadDOC(docptr, ECCConf) & 0x80) {
+		int nb_errors;
+		/* There was an ECC error */
 #ifdef ECC_DEBUG
-			printk("DiskOnChip ECC Error: Read at %lx\n", (long)from);
+		printk("DiskOnChip ECC Error: Read at %lx\n", (long)from);
 #endif
-			/* Read the ECC syndrom through the DiskOnChip ECC logic.
-			   These syndrome will be all ZERO when there is no error */
-			for (i = 0; i < 6; i++) {
-				syndrome[i] = ReadDOC(docptr, ECCSyndrome0 + i);
-			}
-                        nb_errors = doc_decode_ecc(buf, syndrome);
-#ifdef ECC_DEBUG
-			printk("ECC Errors corrected: %x\n", nb_errors);
-#endif
-                        if (nb_errors < 0) {
-				/* We return error, but have actually done the read. Not that
-				   this can be told to user-space, via sys_read(), but at least
-				   MTD-aware stuff can know about it by checking *retlen */
-				ret = -EIO;
-                        }
+		/* Read the ECC syndrom through the DiskOnChip ECC logic.
+		   These syndrome will be all ZERO when there is no error */
+		for (i = 0; i < 6; i++) {
+			syndrome[i] = ReadDOC(docptr, ECCSyndrome0 + i);
 		}
+		nb_errors = doc_decode_ecc(buf, syndrome);
+#ifdef ECC_DEBUG
+		printk("ECC Errors corrected: %x\n", nb_errors);
+#endif
+		if (nb_errors < 0) {
+			/* We return error, but have actually done the read. Not that
+			   this can be told to user-space, via sys_read(), but at least
+			   MTD-aware stuff can know about it by checking *retlen */
+			ret = -EIO;
+		}
+	}
 
 #ifdef PSYCHO_DEBUG
-		printk("ECC DATA at %lx: %2.2X %2.2X %2.2X %2.2X %2.2X %2.2X\n",
-		       (long)from, eccbuf[0], eccbuf[1], eccbuf[2], eccbuf[3],
-		       eccbuf[4], eccbuf[5]);
+	printk("ECC DATA at %lx: %2.2X %2.2X %2.2X %2.2X %2.2X %2.2X\n",
+	       (long)from, eccbuf[0], eccbuf[1], eccbuf[2], eccbuf[3],
+	       eccbuf[4], eccbuf[5]);
 #endif
 
-		/* disable the ECC engine */
-		WriteDOC(DOC_ECC_DIS, docptr , ECCConf);
-	}
+	/* disable the ECC engine */
+	WriteDOC(DOC_ECC_DIS, docptr , ECCConf);
 
 	return ret;
 }
@@ -532,15 +502,8 @@ static int doc_read_ecc (struct mtd_info *mtd, loff_t from, size_t len,
 static int doc_write (struct mtd_info *mtd, loff_t to, size_t len,
 		      size_t *retlen, const u_char *buf)
 {
-	char eccbuf[6];
-	return doc_write_ecc(mtd, to, len, retlen, buf, eccbuf, NULL);
-}
-
-static int doc_write_ecc (struct mtd_info *mtd, loff_t to, size_t len,
-			  size_t *retlen, const u_char *buf, u_char *eccbuf,
-			 struct nand_oobinfo *oobsel)
-{
 	int i,ret = 0;
+	char eccbuf[6];
 	volatile char dummy;
 	struct DiskOnChip *this = mtd->priv;
 	void __iomem *docptr = this->virtadr;
@@ -581,15 +544,9 @@ static int doc_write_ecc (struct mtd_info *mtd, loff_t to, size_t len,
 	DoC_Address(docptr, 3, to, 0x00, 0x00);
 	DoC_WaitReady(docptr);
 
-	if (eccbuf) {
-		/* init the ECC engine, see Reed-Solomon EDC/ECC 11.1 .*/
-		WriteDOC (DOC_ECC_RESET, docptr, ECCConf);
-		WriteDOC (DOC_ECC_EN | DOC_ECC_RW, docptr, ECCConf);
-	} else {
-		/* disable the ECC engine */
-		WriteDOC (DOC_ECC_RESET, docptr, ECCConf);
-		WriteDOC (DOC_ECC_DIS, docptr, ECCConf);
-	}
+	/* init the ECC engine, see Reed-Solomon EDC/ECC 11.1 .*/
+	WriteDOC (DOC_ECC_RESET, docptr, ECCConf);
+	WriteDOC (DOC_ECC_EN | DOC_ECC_RW, docptr, ECCConf);
 
 	/* Write the data via the internal pipeline through CDSN IO register,
 	   see Pipelined Write Operations 11.2 */
@@ -604,46 +561,44 @@ static int doc_write_ecc (struct mtd_info *mtd, loff_t to, size_t len,
 #endif
 	WriteDOC(0x00, docptr, WritePipeTerm);
 
-	if (eccbuf) {
-		/* Write ECC data to flash, the ECC info is generated by the DiskOnChip ECC logic
-		   see Reed-Solomon EDC/ECC 11.1 */
-		WriteDOC(0, docptr, NOP);
-		WriteDOC(0, docptr, NOP);
-		WriteDOC(0, docptr, NOP);
+	/* Write ECC data to flash, the ECC info is generated by the DiskOnChip ECC logic
+	   see Reed-Solomon EDC/ECC 11.1 */
+	WriteDOC(0, docptr, NOP);
+	WriteDOC(0, docptr, NOP);
+	WriteDOC(0, docptr, NOP);
 
-		/* Read the ECC data through the DiskOnChip ECC logic */
-		for (i = 0; i < 6; i++) {
-			eccbuf[i] = ReadDOC(docptr, ECCSyndrome0 + i);
-		}
+	/* Read the ECC data through the DiskOnChip ECC logic */
+	for (i = 0; i < 6; i++) {
+		eccbuf[i] = ReadDOC(docptr, ECCSyndrome0 + i);
+	}
 
-		/* ignore the ECC engine */
-		WriteDOC(DOC_ECC_DIS, docptr , ECCConf);
+	/* ignore the ECC engine */
+	WriteDOC(DOC_ECC_DIS, docptr , ECCConf);
 
 #ifndef USE_MEMCPY
-		/* Write the ECC data to flash */
-		for (i = 0; i < 6; i++) {
-			/* N.B. you have to increase the source address in this way or the
-			   ECC logic will not work properly */
-			WriteDOC(eccbuf[i], docptr, Mil_CDSN_IO + i);
-		}
+	/* Write the ECC data to flash */
+	for (i = 0; i < 6; i++) {
+		/* N.B. you have to increase the source address in this way or the
+		   ECC logic will not work properly */
+		WriteDOC(eccbuf[i], docptr, Mil_CDSN_IO + i);
+	}
 #else
-		memcpy_toio(docptr + DoC_Mil_CDSN_IO, eccbuf, 6);
+	memcpy_toio(docptr + DoC_Mil_CDSN_IO, eccbuf, 6);
 #endif
 
-		/* write the block status BLOCK_USED (0x5555) at the end of ECC data
-		   FIXME: this is only a hack for programming the IPL area for LinuxBIOS
-		   and should be replace with proper codes in user space utilities */
-		WriteDOC(0x55, docptr, Mil_CDSN_IO);
-		WriteDOC(0x55, docptr, Mil_CDSN_IO + 1);
+	/* write the block status BLOCK_USED (0x5555) at the end of ECC data
+	   FIXME: this is only a hack for programming the IPL area for LinuxBIOS
+	   and should be replace with proper codes in user space utilities */
+	WriteDOC(0x55, docptr, Mil_CDSN_IO);
+	WriteDOC(0x55, docptr, Mil_CDSN_IO + 1);
 
-		WriteDOC(0x00, docptr, WritePipeTerm);
+	WriteDOC(0x00, docptr, WritePipeTerm);
 
 #ifdef PSYCHO_DEBUG
-		printk("OOB data at %lx is %2.2X %2.2X %2.2X %2.2X %2.2X %2.2X\n",
-		       (long) to, eccbuf[0], eccbuf[1], eccbuf[2], eccbuf[3],
-		       eccbuf[4], eccbuf[5]);
+	printk("OOB data at %lx is %2.2X %2.2X %2.2X %2.2X %2.2X %2.2X\n",
+	       (long) to, eccbuf[0], eccbuf[1], eccbuf[2], eccbuf[3],
+	       eccbuf[4], eccbuf[5]);
 #endif
-	}
 
 	/* Commit the Page Program command and wait for ready
 	   see Software Requirement 11.4 item 1.*/
@@ -670,8 +625,8 @@ static int doc_write_ecc (struct mtd_info *mtd, loff_t to, size_t len,
 	return ret;
 }
 
-static int doc_read_oob(struct mtd_info *mtd, loff_t ofs, size_t len,
-			size_t *retlen, u_char *buf)
+static int doc_read_oob(struct mtd_info *mtd, loff_t ofs,
+			struct mtd_oob_ops *ops)
 {
 #ifndef USE_MEMCPY
 	int i;
@@ -680,6 +635,12 @@ static int doc_read_oob(struct mtd_info *mtd, loff_t ofs, size_t len,
 	struct DiskOnChip *this = mtd->priv;
 	void __iomem *docptr = this->virtadr;
 	struct Nand *mychip = &this->chips[ofs >> this->chipshift];
+	uint8_t *buf = ops->oobbuf;
+	size_t len = ops->len;
+
+	BUG_ON(ops->mode != MTD_OOB_PLACE);
+
+	ofs += ops->ooboffs;
 
 	/* Find the chip which is to be used and select it */
 	if (this->curfloor != mychip->floor) {
@@ -716,13 +677,13 @@ static int doc_read_oob(struct mtd_info *mtd, loff_t ofs, size_t len,
 #endif
 	buf[len - 1] = ReadDOC(docptr, LastDataRead);
 
-	*retlen = len;
+	ops->retlen = len;
 
 	return 0;
 }
 
-static int doc_write_oob(struct mtd_info *mtd, loff_t ofs, size_t len,
-			 size_t *retlen, const u_char *buf)
+static int doc_write_oob(struct mtd_info *mtd, loff_t ofs,
+			 struct mtd_oob_ops *ops)
 {
 #ifndef USE_MEMCPY
 	int i;
@@ -732,6 +693,12 @@ static int doc_write_oob(struct mtd_info *mtd, loff_t ofs, size_t len,
 	struct DiskOnChip *this = mtd->priv;
 	void __iomem *docptr = this->virtadr;
 	struct Nand *mychip = &this->chips[ofs >> this->chipshift];
+	uint8_t *buf = ops->oobbuf;
+	size_t len = ops->len;
+
+	BUG_ON(ops->mode != MTD_OOB_PLACE);
+
+	ofs += ops->ooboffs;
 
 	/* Find the chip which is to be used and select it */
 	if (this->curfloor != mychip->floor) {
@@ -783,12 +750,12 @@ static int doc_write_oob(struct mtd_info *mtd, loff_t ofs, size_t len,
 	if (ReadDOC(docptr, Mil_CDSN_IO) & 1) {
 		printk("Error programming oob data\n");
 		/* FIXME: implement Bad Block Replacement (in nftl.c ??) */
-		*retlen = 0;
+		ops->retlen = 0;
 		ret = -EIO;
 	}
 	dummy = ReadDOC(docptr, LastDataRead);
 
-	*retlen = len;
+	ops->retlen = len;
 
 	return ret;
 }
@@ -856,12 +823,6 @@ int doc_erase (struct mtd_info *mtd, struct erase_info *instr)
  *
  ****************************************************************************/
 
-static int __init init_doc2001(void)
-{
-	inter_module_register(im_name, THIS_MODULE, &DoCMil_init);
-	return 0;
-}
-
 static void __exit cleanup_doc2001(void)
 {
 	struct mtd_info *mtd;
@@ -877,11 +838,9 @@ static void __exit cleanup_doc2001(void)
 		kfree(this->chips);
 		kfree(mtd);
 	}
-	inter_module_unregister(im_name);
 }
 
 module_exit(cleanup_doc2001);
-module_init(init_doc2001);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("David Woodhouse <dwmw2@infradead.org> et al.");

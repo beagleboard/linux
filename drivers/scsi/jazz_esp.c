@@ -131,7 +131,7 @@ static int jazz_esp_detect(struct scsi_host_template *tpnt)
 	esp->esp_command_dvma = vdma_alloc(CPHYSADDR(cmd_buffer), sizeof (cmd_buffer));
 	
 	esp->irq = JAZZ_SCSI_IRQ;
-	request_irq(JAZZ_SCSI_IRQ, esp_intr, SA_INTERRUPT, "JAZZ SCSI",
+	request_irq(JAZZ_SCSI_IRQ, esp_intr, IRQF_DISABLED, "JAZZ SCSI",
 	            esp->ehost);
 
 	/*
@@ -257,7 +257,7 @@ static void dma_mmu_release_scsi_one (struct NCR_ESP *esp, struct scsi_cmnd *sp)
 static void dma_mmu_release_scsi_sgl (struct NCR_ESP *esp, struct scsi_cmnd *sp)
 {
     int sz = sp->use_sg - 1;
-    struct scatterlist *sg = (struct scatterlist *)sp->buffer;
+    struct scatterlist *sg = (struct scatterlist *)sp->request_buffer;
 			
     while(sz >= 0) {
 	vdma_free(sg[sz].dma_address);

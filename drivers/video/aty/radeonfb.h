@@ -1,7 +1,6 @@
 #ifndef __RADEONFB_H__
 #define __RADEONFB_H__
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/sched.h>
@@ -274,6 +273,8 @@ enum radeon_pm_mode {
 	radeon_pm_off	= 0x00000002,	/* Can resume from D3 cold */
 };
 
+typedef void (*reinit_function_ptr)(struct radeonfb_info *rinfo);
+
 struct radeonfb_info {
 	struct fb_info		*info;
 
@@ -339,7 +340,7 @@ struct radeonfb_info {
 	int			dynclk;
 	int			no_schedule;
 	enum radeon_pm_mode	pm_mode;
-	void			(*reinit_func)(struct radeonfb_info *rinfo);
+	reinit_function_ptr     reinit_func;
 
 	/* Lock on register access */
 	spinlock_t		reg_lock;
@@ -382,7 +383,7 @@ struct radeonfb_info {
 /* Note about this function: we have some rare cases where we must not schedule,
  * this typically happen with our special "wake up early" hook which allows us to
  * wake up the graphic chip (and thus get the console back) before everything else
- * on some machines that support that mecanism. At this point, interrupts are off
+ * on some machines that support that mechanism. At this point, interrupts are off
  * and scheduling is not permitted
  */
 static inline void _radeon_msleep(struct radeonfb_info *rinfo, unsigned long ms)
@@ -601,7 +602,7 @@ extern int radeon_probe_i2c_connector(struct radeonfb_info *rinfo, int conn, u8 
 /* PM Functions */
 extern int radeonfb_pci_suspend(struct pci_dev *pdev, pm_message_t state);
 extern int radeonfb_pci_resume(struct pci_dev *pdev);
-extern void radeonfb_pm_init(struct radeonfb_info *rinfo, int dynclk);
+extern void radeonfb_pm_init(struct radeonfb_info *rinfo, int dynclk, int ignore_devlist, int force_sleep);
 extern void radeonfb_pm_exit(struct radeonfb_info *rinfo);
 
 /* Monitor probe functions */
@@ -624,5 +625,14 @@ extern void radeonfb_engine_reset(struct radeonfb_info *rinfo);
 extern int radeon_screen_blank(struct radeonfb_info *rinfo, int blank, int mode_switch);
 extern void radeon_write_mode (struct radeonfb_info *rinfo, struct radeon_regs *mode,
 			       int reg_only);
+
+/* Backlight functions */
+#ifdef CONFIG_FB_RADEON_BACKLIGHT
+extern void radeonfb_bl_init(struct radeonfb_info *rinfo);
+extern void radeonfb_bl_exit(struct radeonfb_info *rinfo);
+#else
+static inline void radeonfb_bl_init(struct radeonfb_info *rinfo) {}
+static inline void radeonfb_bl_exit(struct radeonfb_info *rinfo) {}
+#endif
 
 #endif /* __RADEONFB_H__ */

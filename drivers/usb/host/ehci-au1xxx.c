@@ -16,10 +16,6 @@
 #include <linux/platform_device.h>
 #include <asm/mach-au1x00/au1000.h>
 
-#ifndef CONFIG_SOC_AU1200
-#error "this Alchemy chip doesn't have EHCI"
-#else				/* Au1200 */
-
 #define USB_HOST_CONFIG   (USB_MSR_BASE + USB_MSR_MCFG)
 #define USB_MCFG_PFEN     (1<<31)
 #define USB_MCFG_RDCOMB   (1<<30)
@@ -44,8 +40,6 @@
                          | USB_MCFG_EBMEN | USB_MCFG_EMEMEN)
 #endif
 #define USBH_DISABLE      (USB_MCFG_EBMEN | USB_MCFG_EMEMEN)
-
-#endif				/* Au1200 */
 
 extern int usb_disabled(void);
 
@@ -111,9 +105,9 @@ int usb_ehci_au1xxx_probe(const struct hc_driver *driver,
 
 	/* Au1200 AB USB does not support coherent memory */
 	if (!(read_c0_prid() & 0xff)) {
-		pr_info("%s: this is chip revision AB!\n", dev->dev.name);
+		pr_info("%s: this is chip revision AB!\n", dev->name);
 		pr_info("%s: update your board or re-configure the kernel\n",
-			dev->dev.name);
+			dev->name);
 		return -ENODEV;
 	}
 #endif
@@ -152,7 +146,7 @@ int usb_ehci_au1xxx_probe(const struct hc_driver *driver,
 	/* ehci_hcd_init(hcd_to_ehci(hcd)); */
 
 	retval =
-	    usb_add_hcd(hcd, dev->resource[1].start, SA_INTERRUPT | SA_SHIRQ);
+	    usb_add_hcd(hcd, dev->resource[1].start, IRQF_DISABLED | IRQF_SHARED);
 	if (retval == 0)
 		return retval;
 
@@ -232,9 +226,8 @@ static const struct hc_driver ehci_au1xxx_hc_driver = {
 
 /*-------------------------------------------------------------------------*/
 
-static int ehci_hcd_au1xxx_drv_probe(struct device *dev)
+static int ehci_hcd_au1xxx_drv_probe(struct platform_device *pdev)
 {
-	struct platform_device *pdev = to_platform_device(dev);
 	struct usb_hcd *hcd = NULL;
 	int ret;
 
@@ -247,10 +240,9 @@ static int ehci_hcd_au1xxx_drv_probe(struct device *dev)
 	return ret;
 }
 
-static int ehci_hcd_au1xxx_drv_remove(struct device *dev)
+static int ehci_hcd_au1xxx_drv_remove(struct platform_device *pdev)
 {
-	struct platform_device *pdev = to_platform_device(dev);
-	struct usb_hcd *hcd = dev_get_drvdata(dev);
+	struct usb_hcd *hcd = platform_get_drvdata(pdev);
 
 	usb_ehci_au1xxx_remove(hcd, pdev);
 	return 0;
@@ -272,26 +264,14 @@ static int ehci_hcd_au1xxx_drv_resume(struct device *dev)
 	return 0;
 }
 */
-static struct device_driver ehci_hcd_au1xxx_driver = {
-	.name = "au1xxx-ehci",
-	.bus = &platform_bus_type,
+MODULE_ALIAS("au1xxx-ehci");
+static struct platform_driver ehci_hcd_au1xxx_driver = {
 	.probe = ehci_hcd_au1xxx_drv_probe,
 	.remove = ehci_hcd_au1xxx_drv_remove,
 	/*.suspend      = ehci_hcd_au1xxx_drv_suspend, */
 	/*.resume       = ehci_hcd_au1xxx_drv_resume, */
+	.driver = {
+		.name = "au1xxx-ehci",
+		.bus = &platform_bus_type
+	}
 };
-
-static int __init ehci_hcd_au1xxx_init(void)
-{
-	pr_debug(DRIVER_INFO " (Au1xxx)\n");
-
-	return driver_register(&ehci_hcd_au1xxx_driver);
-}
-
-static void __exit ehci_hcd_au1xxx_cleanup(void)
-{
-	driver_unregister(&ehci_hcd_au1xxx_driver);
-}
-
-module_init(ehci_hcd_au1xxx_init);
-module_exit(ehci_hcd_au1xxx_cleanup);

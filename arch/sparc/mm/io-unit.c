@@ -4,7 +4,6 @@
  * Copyright (C) 1997,1998 Jakub Jelinek    (jj@sunsite.mff.cuni.cz)
  */
  
-#include <linux/config.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/slab.h>
@@ -65,6 +64,7 @@ iounit_init(int sbi_node, int io_node, struct sbus_bus *sbus)
 	
 	sbus->iommu = (struct iommu_struct *)iounit;
 	iounit->page_table = xpt;
+	spin_lock_init(&iounit->lock);
 	
 	for (xptend = iounit->page_table + (16 * PAGE_SIZE) / sizeof(iopte_t);
 	     xpt < xptend;)

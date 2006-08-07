@@ -17,7 +17,6 @@
 
 #include <linux/module.h>
 #include <linux/moduleparam.h>
-#include <linux/config.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/fs.h>
@@ -450,7 +449,7 @@ static int wdt_notify_sys(struct notifier_block *this, unsigned long code,
 	return NOTIFY_DONE;
 }
 
-static struct file_operations wdt_fops=
+static const struct file_operations wdt_fops=
 {
 	.owner		= THIS_MODULE,
 	.llseek		= no_llseek,

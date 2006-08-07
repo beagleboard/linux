@@ -10,7 +10,6 @@
 
 /* $Id: procfs.c,v 1.1.8.2 2001/07/15 17:08:42 god Exp $ */
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/time.h>
 #include <linux/seq_file.h>
@@ -493,9 +492,17 @@ static void add_file(struct super_block *sb, char *name,
 
 int reiserfs_proc_info_init(struct super_block *sb)
 {
+	char b[BDEVNAME_SIZE];
+	char *s;
+
+	/* Some block devices use /'s */
+	strlcpy(b, reiserfs_bdevname(sb), BDEVNAME_SIZE);
+	s = strchr(b, '/');
+	if (s)
+		*s = '!';
+
 	spin_lock_init(&__PINFO(sb).lock);
-	REISERFS_SB(sb)->procdir =
-	    proc_mkdir(reiserfs_bdevname(sb), proc_info_root);
+	REISERFS_SB(sb)->procdir = proc_mkdir(b, proc_info_root);
 	if (REISERFS_SB(sb)->procdir) {
 		REISERFS_SB(sb)->procdir->owner = THIS_MODULE;
 		REISERFS_SB(sb)->procdir->data = sb;
@@ -509,13 +516,22 @@ int reiserfs_proc_info_init(struct super_block *sb)
 		return 0;
 	}
 	reiserfs_warning(sb, "reiserfs: cannot create /proc/%s/%s",
-			 proc_info_root_name, reiserfs_bdevname(sb));
+			 proc_info_root_name, b);
 	return 1;
 }
 
 int reiserfs_proc_info_done(struct super_block *sb)
 {
 	struct proc_dir_entry *de = REISERFS_SB(sb)->procdir;
+	char b[BDEVNAME_SIZE];
+	char *s;
+
+	/* Some block devices use /'s */
+	strlcpy(b, reiserfs_bdevname(sb), BDEVNAME_SIZE);
+	s = strchr(b, '/');
+	if (s)
+		*s = '!';
+
 	if (de) {
 		remove_proc_entry("journal", de);
 		remove_proc_entry("oidmap", de);
@@ -529,7 +545,7 @@ int reiserfs_proc_info_done(struct super_block *sb)
 	__PINFO(sb).exiting = 1;
 	spin_unlock(&__PINFO(sb).lock);
 	if (proc_info_root) {
-		remove_proc_entry(reiserfs_bdevname(sb), proc_info_root);
+		remove_proc_entry(b, proc_info_root);
 		REISERFS_SB(sb)->procdir = NULL;
 	}
 	return 0;

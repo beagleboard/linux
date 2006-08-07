@@ -6,7 +6,6 @@
  * with information needed by the vt package
  */
 
-#include <linux/config.h>
 #include <linux/vt.h>
 #include <linux/kd.h>
 #include <linux/tty.h>
@@ -27,6 +26,7 @@
 
 extern void kd_mksound(unsigned int hz, unsigned int ticks);
 extern int kbd_rate(struct kbd_repeat *rep);
+extern int fg_console, last_console, want_console;
 
 /* console.c */
 

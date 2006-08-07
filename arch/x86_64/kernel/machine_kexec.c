@@ -149,8 +149,8 @@ typedef NORET_TYPE void (*relocate_new_kernel_t)(unsigned long indirection_page,
 					unsigned long start_address,
 					unsigned long pgtable) ATTRIB_NORET;
 
-const extern unsigned char relocate_new_kernel[];
-const extern unsigned long relocate_new_kernel_size;
+extern const unsigned char relocate_new_kernel[];
+extern const unsigned long relocate_new_kernel_size;
 
 int machine_kexec_prepare(struct kimage *image)
 {
@@ -207,14 +207,11 @@ NORET_TYPE void machine_kexec(struct kimage *image)
 	__flush_tlb();
 
 
-	/* The segment registers are funny things, they are
-	 * automatically loaded from a table, in memory wherever you
-	 * set them to a specific selector, but this table is never
-	 * accessed again unless you set the segment to a different selector.
-	 *
-	 * The more common model are caches where the behide
-	 * the scenes work is done, but is also dropped at arbitrary
-	 * times.
+	/* The segment registers are funny things, they have both a
+	 * visible and an invisible part.  Whenever the visible part is
+	 * set to a specific selector, the invisible part is loaded
+	 * with from a table in memory.  At no other time is the
+	 * descriptor table in memory accessed.
 	 *
 	 * I take advantage of this here by force loading the
 	 * segments, before I zap the gdt with an invalid value.

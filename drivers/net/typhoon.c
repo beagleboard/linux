@@ -340,7 +340,7 @@ enum state_values {
 #endif
 
 #if defined(NETIF_F_TSO)
-#define skb_tso_size(x)		(skb_shinfo(x)->tso_size)
+#define skb_tso_size(x)		(skb_shinfo(x)->gso_size)
 #define TSO_NUM_DESCRIPTORS	2
 #define TSO_OFFLOAD_ON		TYPHOON_OFFLOAD_TCP_SEGMENT
 #else
@@ -805,7 +805,7 @@ typhoon_start_tx(struct sk_buff *skb, struct net_device *dev)
 	 * If problems develop with TSO, check this first.
 	 */
 	numDesc = skb_shinfo(skb)->nr_frags + 1;
-	if(skb_tso_size(skb))
+	if (skb_is_gso(skb))
 		numDesc++;
 
 	/* When checking for free space in the ring, we need to also
@@ -845,7 +845,7 @@ typhoon_start_tx(struct sk_buff *skb, struct net_device *dev)
 				TYPHOON_TX_PF_VLAN_TAG_SHIFT);
 	}
 
-	if(skb_tso_size(skb)) {
+	if (skb_is_gso(skb)) {
 		first_txd->processFlags |= TYPHOON_TX_PF_TCP_SEGMENT;
 		first_txd->numDesc++;
 
@@ -2131,7 +2131,7 @@ typhoon_open(struct net_device *dev)
 		goto out_sleep;
 	}
 
-	err = request_irq(dev->irq, &typhoon_interrupt, SA_SHIRQ,
+	err = request_irq(dev->irq, &typhoon_interrupt, IRQF_SHARED,
 				dev->name, dev);
 	if(err < 0)
 		goto out_sleep;
@@ -2568,9 +2568,10 @@ typhoon_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
 
 	pci_set_drvdata(pdev, dev);
 
-	printk(KERN_INFO "%s: %s at %s 0x%lx, ",
+	printk(KERN_INFO "%s: %s at %s 0x%llx, ",
 	       dev->name, typhoon_card_info[card_id].name,
-	       use_mmio ? "MMIO" : "IO", pci_resource_start(pdev, use_mmio));
+	       use_mmio ? "MMIO" : "IO",
+	       (unsigned long long)pci_resource_start(pdev, use_mmio));
 	for(i = 0; i < 5; i++)
 		printk("%2.2x:", dev->dev_addr[i]);
 	printk("%2.2x\n", dev->dev_addr[i]);

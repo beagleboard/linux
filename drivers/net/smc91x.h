@@ -129,6 +129,24 @@
 #define SMC_insb(a, r, p, l)	readsb((a) + (r), p, (l))
 #define SMC_outsb(a, r, p, l)	writesb((a) + (r), p, (l))
 
+#elif	defined(CONFIG_MACH_LOGICPD_PXA270)
+
+#define SMC_CAN_USE_8BIT	0
+#define SMC_CAN_USE_16BIT	1
+#define SMC_CAN_USE_32BIT	0
+#define SMC_IO_SHIFT		0
+#define SMC_NOWAIT		1
+#define SMC_USE_PXA_DMA		1
+
+#define SMC_inb(a, r)		readb((a) + (r))
+#define SMC_inw(a, r)		readw((a) + (r))
+#define SMC_inl(a, r)		readl((a) + (r))
+#define SMC_outb(v, a, r)	writeb(v, (a) + (r))
+#define SMC_outw(v, a, r)	writew(v, (a) + (r))
+#define SMC_outl(v, a, r)	writel(v, (a) + (r))
+#define SMC_insw(a, r, p, l)	readsw((a) + (r), p, l)
+#define SMC_outsw(a, r, p, l)	writesw((a) + (r), p, l)
+
 #elif	defined(CONFIG_ARCH_INNOKOM) || \
 	defined(CONFIG_MACH_MAINSTONE) || \
 	defined(CONFIG_ARCH_PXA_IDP) || \
@@ -190,7 +208,7 @@ SMC_outw(u16 val, void __iomem *ioaddr, int reg)
 		|| machine_is_omap_h3() \
 		|| machine_is_omap_h4() \
 		|| (machine_is_omap_innovator() && !cpu_is_omap1510()) \
-	) ? SA_TRIGGER_FALLING : SA_TRIGGER_RISING)
+	) ? IRQF_TRIGGER_FALLING : IRQF_TRIGGER_RISING)
 
 
 #elif	defined(CONFIG_SH_SH4202_MICRODEV)
@@ -243,15 +261,17 @@ SMC_outw(u16 val, void __iomem *ioaddr, int reg)
 #define RPC_LSA_DEFAULT		RPC_LED_TX_RX
 #define RPC_LSB_DEFAULT		RPC_LED_100_10
 
-#elif	defined(CONFIG_MACH_LPD7A400) || defined(CONFIG_MACH_LPD7A404)
+#elif   defined(CONFIG_MACH_LPD79520) \
+     || defined(CONFIG_MACH_LPD7A400) \
+     || defined(CONFIG_MACH_LPD7A404)
 
-/* The LPD7A40X_IOBARRIER is necessary to overcome a mismatch between
- * the way that the CPU handles chip selects and the way that the SMC
- * chip expects the chip select to operate.  Refer to
+/* The LPD7X_IOBARRIER is necessary to overcome a mismatch between the
+ * way that the CPU handles chip selects and the way that the SMC chip
+ * expects the chip select to operate.  Refer to
  * Documentation/arm/Sharp-LH/IOBarrier for details.  The read from
- * IOBARRIER is a byte as a least-common denominator of possible
- * regions to use as the barrier.  It would be wasteful to read 32
- * bits from a byte oriented region.
+ * IOBARRIER is a byte, in order that we read the least-common
+ * denominator.  It would be wasteful to read 32 bits from an 8-bit
+ * accessible region.
  *
  * There is no explicit protection against interrupts intervening
  * between the writew and the IOBARRIER.  In SMC ISR there is a
@@ -270,25 +290,35 @@ SMC_outw(u16 val, void __iomem *ioaddr, int reg)
 #define SMC_CAN_USE_16BIT	1
 #define SMC_CAN_USE_32BIT	0
 #define SMC_NOWAIT		0
-#define LPD7A40X_IOBARRIER	readb (IOBARRIER_VIRT)
+#define LPD7X_IOBARRIER		readb (IOBARRIER_VIRT)
 
-#define SMC_inw(a,r)		readw ((void*) ((a) + (r)))
-#define SMC_insw(a,r,p,l)	readsw ((void*) ((a) + (r)), p, l)
-#define SMC_outw(v,a,r)	     ({ writew ((v), (a) + (r)); LPD7A40X_IOBARRIER; })
+#define SMC_inw(a,r)\
+   ({ unsigned short v = readw ((void*) ((a) + (r))); LPD7X_IOBARRIER; v; })
+#define SMC_outw(v,a,r)	  ({ writew ((v), (a) + (r)); LPD7X_IOBARRIER; })
 
-#define SMC_outsw		LPD7A40X_SMC_outsw
+#define SMC_insw		LPD7_SMC_insw
+static inline void LPD7_SMC_insw (unsigned char* a, int r,
+				  unsigned char* p, int l)
+{
+	unsigned short* ps = (unsigned short*) p;
+	while (l-- > 0) {
+		*ps++ = readw (a + r);
+		LPD7X_IOBARRIER;
+	}
+}
 
-static inline void LPD7A40X_SMC_outsw(unsigned long a, int r,
-				     unsigned char* p, int l)
+#define SMC_outsw		LPD7_SMC_outsw
+static inline void LPD7_SMC_outsw (unsigned char* a, int r,
+				   unsigned char* p, int l)
 {
 	unsigned short* ps = (unsigned short*) p;
 	while (l-- > 0) {
 		writew (*ps++, a + r);
-		LPD7A40X_IOBARRIER;
+		LPD7X_IOBARRIER;
 	}
 }
 
-#define SMC_INTERRUPT_PREAMBLE	LPD7A40X_IOBARRIER
+#define SMC_INTERRUPT_PREAMBLE	LPD7X_IOBARRIER
 
 #define RPC_LSA_DEFAULT		RPC_LED_TX_RX
 #define RPC_LSB_DEFAULT		RPC_LED_100_10
@@ -322,6 +352,24 @@ static inline void LPD7A40X_SMC_outsw(unsigned long a, int r,
 		while (_l-- > 0) \
 			au_writew(*_p++ , _a); \
 	} while(0)
+
+#define SMC_IRQ_FLAGS		(0)
+
+#elif	defined(CONFIG_ARCH_VERSATILE)
+
+#define SMC_CAN_USE_8BIT	1
+#define SMC_CAN_USE_16BIT	1
+#define SMC_CAN_USE_32BIT	1
+#define SMC_NOWAIT		1
+
+#define SMC_inb(a, r)		readb((a) + (r))
+#define SMC_inw(a, r)		readw((a) + (r))
+#define SMC_inl(a, r)		readl((a) + (r))
+#define SMC_outb(v, a, r)	writeb(v, (a) + (r))
+#define SMC_outw(v, a, r)	writew(v, (a) + (r))
+#define SMC_outl(v, a, r)	writel(v, (a) + (r))
+#define SMC_insl(a, r, p, l)	readsl((a) + (r), p, l)
+#define SMC_outsl(a, r, p, l)	writesl((a) + (r), p, l)
 
 #define SMC_IRQ_FLAGS		(0)
 
@@ -511,7 +559,7 @@ smc_pxa_dma_irq(int dma, void *dummy, struct pt_regs *regs)
 #endif
 
 #ifndef	SMC_IRQ_FLAGS
-#define	SMC_IRQ_FLAGS		SA_TRIGGER_RISING
+#define	SMC_IRQ_FLAGS		IRQF_TRIGGER_RISING
 #endif
 
 #ifndef SMC_INTERRUPT_PREAMBLE

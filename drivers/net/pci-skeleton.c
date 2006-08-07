@@ -85,7 +85,6 @@ IVc. Errata
 
 */
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/pci.h>
@@ -602,7 +601,7 @@ static int __devinit netdrv_init_board (struct pci_dev *pdev,
 	/* dev zeroed in alloc_etherdev */
 	dev = alloc_etherdev (sizeof (*tp));
 	if (dev == NULL) {
-		printk (KERN_ERR PFX "unable to alloc new ethernet\n");
+		dev_err(&pdev->dev, "unable to alloc new ethernet\n");
 		DPRINTK ("EXIT, returning -ENOMEM\n");
 		return -ENOMEM;
 	}
@@ -632,14 +631,14 @@ static int __devinit netdrv_init_board (struct pci_dev *pdev,
 
 	/* make sure PCI base addr 0 is PIO */
 	if (!(pio_flags & IORESOURCE_IO)) {
-		printk (KERN_ERR PFX "region #0 not a PIO resource, aborting\n");
+		dev_err(&pdev->dev, "region #0 not a PIO resource, aborting\n");
 		rc = -ENODEV;
 		goto err_out;
 	}
 
 	/* make sure PCI base addr 1 is MMIO */
 	if (!(mmio_flags & IORESOURCE_MEM)) {
-		printk (KERN_ERR PFX "region #1 not an MMIO resource, aborting\n");
+		dev_err(&pdev->dev, "region #1 not an MMIO resource, aborting\n");
 		rc = -ENODEV;
 		goto err_out;
 	}
@@ -647,12 +646,12 @@ static int __devinit netdrv_init_board (struct pci_dev *pdev,
 	/* check for weird/broken PCI region reporting */
 	if ((pio_len < NETDRV_MIN_IO_SIZE) ||
 	    (mmio_len < NETDRV_MIN_IO_SIZE)) {
-		printk (KERN_ERR PFX "Invalid PCI region size(s), aborting\n");
+		dev_err(&pdev->dev, "Invalid PCI region size(s), aborting\n");
 		rc = -ENODEV;
 		goto err_out;
 	}
 
-	rc = pci_request_regions (pdev, "pci-skeleton");
+	rc = pci_request_regions (pdev, MODNAME);
 	if (rc)
 		goto err_out;
 
@@ -664,7 +663,7 @@ static int __devinit netdrv_init_board (struct pci_dev *pdev,
 	/* ioremap MMIO region */
 	ioaddr = ioremap (mmio_start, mmio_len);
 	if (ioaddr == NULL) {
-		printk (KERN_ERR PFX "cannot remap MMIO, aborting\n");
+		dev_err(&pdev->dev, "cannot remap MMIO, aborting\n");
 		rc = -EIO;
 		goto err_out_free_res;
 	}
@@ -700,9 +699,10 @@ static int __devinit netdrv_init_board (struct pci_dev *pdev,
 		}
 
 	/* if unknown chip, assume array element #0, original RTL-8139 in this case */
-	printk (KERN_DEBUG PFX "PCI device %s: unknown chip version, assuming RTL-8139\n",
-		pci_name(pdev));
-	printk (KERN_DEBUG PFX "PCI device %s: TxConfig = 0x%lx\n", pci_name(pdev), NETDRV_R32 (TxConfig));
+	dev_printk (KERN_DEBUG, &pdev->dev,
+		"unknown chip version, assuming RTL-8139\n");
+	dev_printk (KERN_DEBUG, &pdev->dev, "TxConfig = 0x%lx\n",
+		NETDRV_R32 (TxConfig));
 	tp->chipset = 0;
 
 match:
@@ -1076,7 +1076,7 @@ static int netdrv_open (struct net_device *dev)
 
 	DPRINTK ("ENTER\n");
 
-	retval = request_irq (dev->irq, netdrv_interrupt, SA_SHIRQ, dev->name, dev);
+	retval = request_irq (dev->irq, netdrv_interrupt, IRQF_SHARED, dev->name, dev);
 	if (retval) {
 		DPRINTK ("EXIT, returning %d\n", retval);
 		return retval;

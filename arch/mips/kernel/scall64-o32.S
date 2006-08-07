@@ -13,10 +13,10 @@
  * to ABI64 calling convention.  64-bit syscalls are also processed
  * here for now.
  */
-#include <linux/config.h>
 #include <linux/errno.h>
 #include <asm/asm.h>
 #include <asm/asmmacro.h>
+#include <asm/irqflags.h>
 #include <asm/mipsregs.h>
 #include <asm/regdef.h>
 #include <asm/stackframe.h>
@@ -28,6 +28,7 @@
 NESTED(handle_sys, PT_SIZE, sp)
 	.set	noat
 	SAVE_SOME
+	TRACE_IRQS_ON
 	STI
 	.set	at
 	ld	t1, PT_EPC(sp)		# skip syscall on return
@@ -510,4 +511,7 @@ sys_call_table:
 	PTR	sys_unshare
 	PTR	sys_splice
 	PTR	sys32_sync_file_range		/* 4305 */
+	PTR	sys_tee
+	PTR	sys_vmsplice
+	PTR	compat_sys_move_pages
 	.size	sys_call_table,.-sys_call_table

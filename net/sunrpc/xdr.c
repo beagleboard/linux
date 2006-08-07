@@ -191,7 +191,6 @@ _shift_data_right_pages(struct page **pages, size_t pgto_base,
 	do {
 		/* Are any pointers crossing a page boundary? */
 		if (pgto_base == 0) {
-			flush_dcache_page(*pgto);
 			pgto_base = PAGE_CACHE_SIZE;
 			pgto--;
 		}
@@ -211,11 +210,11 @@ _shift_data_right_pages(struct page **pages, size_t pgto_base,
 		vto = kmap_atomic(*pgto, KM_USER0);
 		vfrom = kmap_atomic(*pgfrom, KM_USER1);
 		memmove(vto + pgto_base, vfrom + pgfrom_base, copy);
+		flush_dcache_page(*pgto);
 		kunmap_atomic(vfrom, KM_USER1);
 		kunmap_atomic(vto, KM_USER0);
 
 	} while ((len -= copy) != 0);
-	flush_dcache_page(*pgto);
 }
 
 /*
@@ -568,8 +567,7 @@ EXPORT_SYMBOL(xdr_inline_decode);
  *
  * Moves data beyond the current pointer position from the XDR head[] buffer
  * into the page list. Any data that lies beyond current position + "len"
- * bytes is moved into the XDR tail[]. The current pointer is then
- * repositioned at the beginning of the XDR tail.
+ * bytes is moved into the XDR tail[].
  */
 void xdr_read_pages(struct xdr_stream *xdr, unsigned int len)
 {
@@ -605,6 +603,31 @@ void xdr_read_pages(struct xdr_stream *xdr, unsigned int len)
 	xdr->end = (uint32_t *)((char *)iov->iov_base + end);
 }
 EXPORT_SYMBOL(xdr_read_pages);
+
+/**
+ * xdr_enter_page - decode data from the XDR page
+ * @xdr: pointer to xdr_stream struct
+ * @len: number of bytes of page data
+ *
+ * Moves data beyond the current pointer position from the XDR head[] buffer
+ * into the page list. Any data that lies beyond current position + "len"
+ * bytes is moved into the XDR tail[]. The current pointer is then
+ * repositioned at the beginning of the first XDR page.
+ */
+void xdr_enter_page(struct xdr_stream *xdr, unsigned int len)
+{
+	char * kaddr = page_address(xdr->buf->pages[0]);
+	xdr_read_pages(xdr, len);
+	/*
+	 * Position current pointer at beginning of tail, and
+	 * set remaining message length.
+	 */
+	if (len > PAGE_CACHE_SIZE - xdr->buf->page_base)
+		len = PAGE_CACHE_SIZE - xdr->buf->page_base;
+	xdr->p = (uint32_t *)(kaddr + xdr->buf->page_base);
+	xdr->end = (uint32_t *)((char *)xdr->p + len);
+}
+EXPORT_SYMBOL(xdr_enter_page);
 
 static struct kvec empty_iov = {.iov_base = NULL, .iov_len = 0};
 

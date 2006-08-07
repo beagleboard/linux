@@ -7,7 +7,6 @@
  *	See net/ipx/ChangeLog.
  */
 
-#include <linux/config.h>
 #include <linux/list.h>
 #include <linux/route.h>
 #include <linux/spinlock.h>
@@ -238,7 +237,7 @@ int ipxrtr_route_packet(struct sock *sk, struct sockaddr_ipx *usipx,
 	}	
 
 	/* Apply checksum. Not allowed on 802.3 links. */
-	if (sk->sk_no_check || intrfc->if_dlink_type == IPX_FRAME_8023)
+	if (sk->sk_no_check || intrfc->if_dlink_type == htons(IPX_FRAME_8023))
 		ipx->ipx_checksum = 0xFFFF;
 	else
 		ipx->ipx_checksum = ipx_cksum(ipx, len + sizeof(struct ipxhdr));

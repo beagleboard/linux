@@ -368,7 +368,7 @@ static int st_chk_result(struct scsi_tape *STp, struct st_request * SRpnt)
 		       SRpnt->cmd[0], SRpnt->cmd[1], SRpnt->cmd[2],
 		       SRpnt->cmd[3], SRpnt->cmd[4], SRpnt->cmd[5]);
 		if (cmdstatp->have_sense)
-			 __scsi_print_sense("st", SRpnt->sense, SCSI_SENSE_BUFFERSIZE);
+			 __scsi_print_sense(name, SRpnt->sense, SCSI_SENSE_BUFFERSIZE);
 	} ) /* end DEB */
 	if (!debugging) { /* Abnormal conditions for tape */
 		if (!cmdstatp->have_sense)
@@ -384,9 +384,8 @@ static int st_chk_result(struct scsi_tape *STp, struct st_request * SRpnt)
 			 scode != VOLUME_OVERFLOW &&
 			 SRpnt->cmd[0] != MODE_SENSE &&
 			 SRpnt->cmd[0] != TEST_UNIT_READY) {
-				printk(KERN_WARNING "%s: Error with sense data: ", name);
-				__scsi_print_sense("st", SRpnt->sense,
-						   SCSI_SENSE_BUFFERSIZE);
+
+			__scsi_print_sense(name, SRpnt->sense, SCSI_SENSE_BUFFERSIZE);
 		}
 	}
 
@@ -1193,7 +1192,7 @@ static int st_open(struct inode *inode, struct file *filp)
 
 
 /* Flush the tape buffer before close */
-static int st_flush(struct file *filp)
+static int st_flush(struct file *filp, fl_owner_t id)
 {
 	int result = 0, result2;
 	unsigned char cmd[MAX_COMMAND_SIZE];
@@ -2818,7 +2817,7 @@ static int st_int_ioctl(struct scsi_tape *STp, unsigned int cmd_in, unsigned lon
 		    (cmdstatp->sense_hdr.sense_key == NO_SENSE ||
 		     cmdstatp->sense_hdr.sense_key == RECOVERED_ERROR) &&
 		    undone == 0) {
-			ioctl_result = 0;	/* EOF written succesfully at EOM */
+			ioctl_result = 0;	/* EOF written successfully at EOM */
 			if (fileno >= 0)
 				fileno++;
 			STps->drv_file = fileno;
@@ -3599,7 +3598,6 @@ static struct st_buffer *
 	tb->use_sg = max_sg;
 	tb->frp = (struct st_buf_fragment *)(&(tb->sg[0]) + max_sg);
 
-	tb->in_use = 1;
 	tb->dma = need_dma;
 	tb->buffer_size = got;
 
@@ -3839,7 +3837,7 @@ static int __init st_setup(char *str)
 					break;
 				}
 			}
-			if (i >= sizeof(parms) / sizeof(struct st_dev_parm))
+			if (i >= ARRAY_SIZE(parms))
 				 printk(KERN_WARNING "st: invalid parameter in '%s'\n",
 					stp);
 			stp = strchr(stp, ',');

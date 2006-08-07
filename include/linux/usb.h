@@ -10,7 +10,6 @@
 
 #ifdef __KERNEL__
 
-#include <linux/config.h>
 #include <linux/errno.h>        /* for -ENODEV */
 #include <linux/delay.h>	/* for mdelay() */
 #include <linux/interrupt.h>	/* for in_interrupt() */
@@ -41,13 +40,15 @@ struct usb_driver;
  * Devices may also have class-specific or vendor-specific descriptors.
  */
 
+struct ep_device;
+
 /**
  * struct usb_host_endpoint - host-side endpoint descriptor and queue
  * @desc: descriptor for this endpoint, wMaxPacketSize in native byteorder
  * @urb_list: urbs queued to this endpoint; maintained by usbcore
  * @hcpriv: for use by HCD; typically holds hardware dma queue head (QH)
  *	with one or more transfer descriptors (TDs) per urb
- * @kobj: kobject for sysfs info
+ * @ep_dev: ep_device for sysfs info
  * @extra: descriptors following this endpoint in the configuration
  * @extralen: how many bytes of "extra" are valid
  *
@@ -58,7 +59,7 @@ struct usb_host_endpoint {
 	struct usb_endpoint_descriptor	desc;
 	struct list_head		urb_list;
 	void				*hcpriv;
-	struct kobject			*kobj;	/* For sysfs info */
+	struct ep_device 		*ep_dev;	/* For sysfs info */
 
 	unsigned char *extra;   /* Extra descriptors */
 	int extralen;
@@ -387,6 +388,8 @@ extern int usb_lock_device_for_reset(struct usb_device *udev,
 
 /* USB port reset for device reinitialization */
 extern int usb_reset_device(struct usb_device *dev);
+extern int usb_reset_composite_device(struct usb_device *dev,
+		struct usb_interface *iface);
 
 extern struct usb_device *usb_find_device(u16 vendor_id, u16 product_id);
 
@@ -555,6 +558,10 @@ struct usb_dynids {
  *	do (or don't) show up otherwise in the filesystem.
  * @suspend: Called when the device is going to be suspended by the system.
  * @resume: Called when the device is being resumed by the system.
+ * @pre_reset: Called by usb_reset_composite_device() when the device
+ *	is about to be reset.
+ * @post_reset: Called by usb_reset_composite_device() after the device
+ *	has been reset.
  * @id_table: USB drivers use ID table to support hotplugging.
  *	Export this with MODULE_DEVICE_TABLE(usb,...).  This must be set
  *	or your driver's probe function will never get called.
@@ -592,6 +599,9 @@ struct usb_driver {
 
 	int (*suspend) (struct usb_interface *intf, pm_message_t message);
 	int (*resume) (struct usb_interface *intf);
+
+	void (*pre_reset) (struct usb_interface *intf);
+	void (*post_reset) (struct usb_interface *intf);
 
 	const struct usb_device_id *id_table;
 
@@ -1009,6 +1019,8 @@ void usb_buffer_unmap_sg (struct usb_device *dev, unsigned pipe,
 extern int usb_control_msg(struct usb_device *dev, unsigned int pipe,
 	__u8 request, __u8 requesttype, __u16 value, __u16 index,
 	void *data, __u16 size, int timeout);
+extern int usb_interrupt_msg(struct usb_device *usb_dev, unsigned int pipe,
+	void *data, int len, int *actual_length, int timeout);
 extern int usb_bulk_msg(struct usb_device *usb_dev, unsigned int pipe,
 	void *data, int len, int *actual_length,
 	int timeout);

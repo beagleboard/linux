@@ -46,13 +46,13 @@ MODULE_SUPPORTED_DEVICE("{{Creative Labs,SB Live!/PCI512/E-mu APS},"
 static int index[SNDRV_CARDS] = SNDRV_DEFAULT_IDX;	/* Index 0-MAX */
 static char *id[SNDRV_CARDS] = SNDRV_DEFAULT_STR;	/* ID for this card */
 static int enable[SNDRV_CARDS] = SNDRV_DEFAULT_ENABLE_PNP;	/* Enable this card */
-static int extin[SNDRV_CARDS] = {[0 ... (SNDRV_CARDS - 1)] = 0};
-static int extout[SNDRV_CARDS] = {[0 ... (SNDRV_CARDS - 1)] = 0};
+static int extin[SNDRV_CARDS];
+static int extout[SNDRV_CARDS];
 static int seq_ports[SNDRV_CARDS] = {[0 ... (SNDRV_CARDS - 1)] = 4};
 static int max_synth_voices[SNDRV_CARDS] = {[0 ... (SNDRV_CARDS - 1)] = 64};
 static int max_buffer_size[SNDRV_CARDS] = {[0 ... (SNDRV_CARDS - 1)] = 128};
-static int enable_ir[SNDRV_CARDS] = {[0 ... (SNDRV_CARDS - 1)] = 0};
-static uint subsystem[SNDRV_CARDS] = {[0 ... (SNDRV_CARDS - 1)] = 0}; /* Force card subsystem model */
+static int enable_ir[SNDRV_CARDS];
+static uint subsystem[SNDRV_CARDS]; /* Force card subsystem model */
 
 module_param_array(index, int, NULL, 0444);
 MODULE_PARM_DESC(index, "Index value for the EMU10K1 soundcard.");
@@ -77,7 +77,7 @@ MODULE_PARM_DESC(subsystem, "Force card subsystem model.");
 /*
  * Class 0401: 1102:0008 (rev 00) Subsystem: 1102:1001 -> Audigy2 Value  Model:SB0400
  */
-static struct pci_device_id snd_emu10k1_ids[] __devinitdata = {
+static struct pci_device_id snd_emu10k1_ids[] = {
 	{ 0x1102, 0x0002, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },	/* EMU10K1 */
 	{ 0x1102, 0x0004, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 1 },	/* Audigy */
 	{ 0x1102, 0x0008, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 1 },	/* Audigy 2 Value SB0400 */

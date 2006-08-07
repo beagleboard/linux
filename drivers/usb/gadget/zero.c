@@ -62,7 +62,6 @@
 #define DEBUG 1
 // #define VERBOSE
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/delay.h>
@@ -1122,7 +1121,7 @@ zero_autoresume (unsigned long _dev)
 
 /*-------------------------------------------------------------------------*/
 
-static void __exit
+static void /* __init_or_exit */
 zero_unbind (struct usb_gadget *gadget)
 {
 	struct zero_dev		*dev = get_gadget_data (gadget);

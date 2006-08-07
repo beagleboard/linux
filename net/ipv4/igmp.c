@@ -72,7 +72,6 @@
  *					Vinay Kulkarni
  */
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <asm/uaccess.h>
 #include <asm/system.h>
@@ -1029,10 +1028,9 @@ static void igmpv3_add_delrec(struct in_device *in_dev, struct ip_mc_list *im)
 	 * for deleted items allows change reports to use common code with
 	 * non-deleted or query-response MCA's.
 	 */
-	pmc = kmalloc(sizeof(*pmc), GFP_KERNEL);
+	pmc = kzalloc(sizeof(*pmc), GFP_KERNEL);
 	if (!pmc)
 		return;
-	memset(pmc, 0, sizeof(*pmc));
 	spin_lock_bh(&im->lock);
 	pmc->interface = im->interface;
 	in_dev_hold(in_dev);
@@ -1530,10 +1528,9 @@ static int ip_mc_add1_src(struct ip_mc_list *pmc, int sfmode,
 		psf_prev = psf;
 	}
 	if (!psf) {
-		psf = kmalloc(sizeof(*psf), GFP_ATOMIC);
+		psf = kzalloc(sizeof(*psf), GFP_ATOMIC);
 		if (!psf)
 			return -ENOBUFS;
-		memset(psf, 0, sizeof(*psf));
 		psf->sf_inaddr = *psfsrc;
 		if (psf_prev) {
 			psf_prev->sf_next = psf;
@@ -2361,7 +2358,7 @@ static int igmp_mc_seq_show(struct seq_file *seq, void *v)
 		}
 
 		seq_printf(seq,
-			   "\t\t\t\t%08lX %5d %d:%08lX\t\t%d\n",
+			   "\t\t\t\t%08X %5d %d:%08lX\t\t%d\n",
 			   im->multiaddr, im->users,
 			   im->tm_running, im->tm_running ?
 			   jiffies_to_clock_t(im->timer.expires-jiffies) : 0,
@@ -2381,7 +2378,7 @@ static int igmp_mc_seq_open(struct inode *inode, struct file *file)
 {
 	struct seq_file *seq;
 	int rc = -ENOMEM;
-	struct igmp_mc_iter_state *s = kmalloc(sizeof(*s), GFP_KERNEL);
+	struct igmp_mc_iter_state *s = kzalloc(sizeof(*s), GFP_KERNEL);
 
 	if (!s)
 		goto out;
@@ -2391,7 +2388,6 @@ static int igmp_mc_seq_open(struct inode *inode, struct file *file)
 
 	seq = file->private_data;
 	seq->private = s;
-	memset(s, 0, sizeof(*s));
 out:
 	return rc;
 out_kfree:
@@ -2556,7 +2552,7 @@ static int igmp_mcf_seq_open(struct inode *inode, struct file *file)
 {
 	struct seq_file *seq;
 	int rc = -ENOMEM;
-	struct igmp_mcf_iter_state *s = kmalloc(sizeof(*s), GFP_KERNEL);
+	struct igmp_mcf_iter_state *s = kzalloc(sizeof(*s), GFP_KERNEL);
 
 	if (!s)
 		goto out;
@@ -2566,7 +2562,6 @@ static int igmp_mcf_seq_open(struct inode *inode, struct file *file)
 
 	seq = file->private_data;
 	seq->private = s;
-	memset(s, 0, sizeof(*s));
 out:
 	return rc;
 out_kfree:

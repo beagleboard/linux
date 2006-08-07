@@ -37,7 +37,6 @@
 
 #include <linux/init.h>
 #include <linux/kernel.h>
-#include <linux/tty.h>
 #include <linux/console.h>
 #include <linux/errno.h>
 #include <linux/vt_kern.h>
@@ -75,7 +74,7 @@ static inline void cursor_undrawn(void)
     cursor_drawn = 0;
 }
 
-static const char *__init sticon_startup(void)
+static const char *sticon_startup(void)
 {
     return "STI console";
 }

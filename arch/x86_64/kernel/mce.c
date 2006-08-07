@@ -562,7 +562,7 @@ static struct sysdev_class mce_sysclass = {
 	set_kset_name("machinecheck"),
 };
 
-static DEFINE_PER_CPU(struct sys_device, device_mce);
+DEFINE_PER_CPU(struct sys_device, device_mce);
 
 /* Why are there no generic functions for this? */
 #define ACCESSOR(name, var, start) \
@@ -615,7 +615,7 @@ static __cpuinit int mce_create_device(unsigned int cpu)
 }
 
 #ifdef CONFIG_HOTPLUG_CPU
-static __cpuinit void mce_remove_device(unsigned int cpu)
+static void mce_remove_device(unsigned int cpu)
 {
 	int i;
 
@@ -626,7 +626,6 @@ static __cpuinit void mce_remove_device(unsigned int cpu)
 	sysdev_remove_file(&per_cpu(device_mce,cpu), &attr_check_interval);
 	sysdev_unregister(&per_cpu(device_mce,cpu));
 }
-#endif
 
 /* Get notified when a cpu comes on/off. Be hotplug friendly. */
 static int
@@ -638,11 +637,9 @@ mce_cpu_callback(struct notifier_block *nfb, unsigned long action, void *hcpu)
 	case CPU_ONLINE:
 		mce_create_device(cpu);
 		break;
-#ifdef CONFIG_HOTPLUG_CPU
 	case CPU_DEAD:
 		mce_remove_device(cpu);
 		break;
-#endif
 	}
 	return NOTIFY_OK;
 }
@@ -650,6 +647,7 @@ mce_cpu_callback(struct notifier_block *nfb, unsigned long action, void *hcpu)
 static struct notifier_block mce_cpu_notifier = {
 	.notifier_call = mce_cpu_callback,
 };
+#endif
 
 static __init int mce_init_device(void)
 {
@@ -664,7 +662,7 @@ static __init int mce_init_device(void)
 		mce_create_device(i);
 	}
 
-	register_cpu_notifier(&mce_cpu_notifier);
+	register_hotcpu_notifier(&mce_cpu_notifier);
 	misc_register(&mce_log_device);
 	return err;
 }

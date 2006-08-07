@@ -14,7 +14,6 @@
 
 #include <asm-generic/pgtable-nopud.h>
 
-#include <linux/config.h>
 #include <linux/compiler.h>
 #include <asm/types.h>
 #include <asm/spitfire.h>
@@ -340,7 +339,7 @@ static inline pgprot_t pgprot_noncached(pgprot_t prot)
 	"	.section	.sun4v_2insn_patch, \"ax\"\n"
 	"	.word		661b\n"
 	"	andn		%0, %4, %0\n"
-	"	or		%0, %3, %0\n"
+	"	or		%0, %5, %0\n"
 	"	.previous\n"
 	: "=r" (val)
 	: "0" (val), "i" (_PAGE_CP_4U | _PAGE_CV_4U), "i" (_PAGE_E_4U),
@@ -756,6 +755,8 @@ extern unsigned long *sparc64_valid_addr_bitmap;
 /* Needs to be defined here and not in linux/mm.h, as it is arch dependent */
 #define kern_addr_valid(addr)	\
 	(test_bit(__pa((unsigned long)(addr))>>22, sparc64_valid_addr_bitmap))
+
+extern int page_in_phys_avail(unsigned long paddr);
 
 extern int io_remap_pfn_range(struct vm_area_struct *vma, unsigned long from,
 			       unsigned long pfn,

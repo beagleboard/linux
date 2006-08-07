@@ -290,7 +290,7 @@ out:
 static int ultra32_open(struct net_device *dev)
 {
 	int ioaddr = dev->base_addr - ULTRA32_NIC_OFFSET; /* ASIC addr */
-	int irq_flags = (inb(ioaddr + ULTRA32_CFG5) & 0x08) ? 0 : SA_SHIRQ;
+	int irq_flags = (inb(ioaddr + ULTRA32_CFG5) & 0x08) ? 0 : IRQF_SHARED;
 	int retval;
 
 	retval = request_irq(dev->irq, ei_interrupt, irq_flags, dev->name, dev);
@@ -421,7 +421,7 @@ static struct net_device *dev_ultra[MAX_ULTRA32_CARDS];
 MODULE_DESCRIPTION("SMC Ultra32 EISA ethernet driver");
 MODULE_LICENSE("GPL");
 
-int init_module(void)
+int __init init_module(void)
 {
 	int this_dev, found = 0;
 

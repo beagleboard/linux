@@ -34,7 +34,6 @@
 
 #define MAX_DEVICES 12
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/errno.h>
 #include <linux/signal.h>
@@ -988,7 +987,7 @@ static int write(struct tty_struct *tty,
 	if (sanity_check(info, tty->name, "write"))
 		goto cleanup;
 
-	if (!tty || !info->tx_buf)
+	if (!info->tx_buf)
 		goto cleanup;
 
 	if (info->params.mode == MGSL_MODE_HDLC) {
@@ -1067,7 +1066,7 @@ static void put_char(struct tty_struct *tty, unsigned char ch)
 	if (sanity_check(info, tty->name, "put_char"))
 		return;
 
-	if (!tty || !info->tx_buf)
+	if (!info->tx_buf)
 		return;
 
 	spin_lock_irqsave(&info->lock,flags);
@@ -1753,8 +1752,10 @@ static int hdlcdev_open(struct net_device *dev)
 	spin_lock_irqsave(&info->lock, flags);
 	get_signals(info);
 	spin_unlock_irqrestore(&info->lock, flags);
-	hdlc_set_carrier(info->serial_signals & SerialSignal_DCD, dev);
-
+	if (info->serial_signals & SerialSignal_DCD)
+		netif_carrier_on(dev);
+	else
+		netif_carrier_off(dev);
 	return 0;
 }
 
@@ -2523,8 +2524,12 @@ void isr_io_pin( SLMP_INFO *info, u16 status )
 			} else
 				info->input_signal_events.dcd_down++;
 #ifdef CONFIG_HDLC
-			if (info->netcount)
-				hdlc_set_carrier(status & SerialSignal_DCD, info->netdev);
+			if (info->netcount) {
+				if (status & SerialSignal_DCD)
+					netif_carrier_on(info->netdev);
+				else
+					netif_carrier_off(info->netdev);
+			}
 #endif
 		}
 		if (status & MISCSTATUS_CTS_LATCHED)
@@ -3836,7 +3841,7 @@ static SLMP_INFO *alloc_dev(int adapter_num, int port_num, struct pci_dev *pdev)
 		info->phys_statctrl_base &= ~(PAGE_SIZE-1);
 
 		info->bus_type = MGSL_BUS_TYPE_PCI;
-		info->irq_flags = SA_SHIRQ;
+		info->irq_flags = IRQF_SHARED;
 
 		init_timer(&info->tx_timer);
 		info->tx_timer.data = (unsigned long)info;

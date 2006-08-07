@@ -10,7 +10,6 @@
  * Copyright (C) 2004, 2006  Hirokazu Takata <takata at linux-m32r.org>
  */
 
-#include <linux/config.h>
 #include <asm/assembler.h>
 
 #ifdef __KERNEL__
@@ -19,7 +18,7 @@
  * switch_to(prev, next) should switch from task `prev' to `next'
  * `prev' will never be the same as `next'.
  *
- * `next' and `prev' should be task_t, but it isn't always defined
+ * `next' and `prev' should be struct task_struct, but it isn't always defined
  */
 
 #define switch_to(prev, next, last)  do { \
@@ -319,7 +318,7 @@ __cmpxchg(volatile void *ptr, unsigned long old, unsigned long new, int size)
  * does not enforce ordering, since there is no data dependency between
  * the read of "a" and the read of "b".  Therefore, on some CPUs, such
  * as Alpha, "y" could be set to 3 and "x" to 0.  Use rmb()
- * in cases like thiswhere there are no data dependencies.
+ * in cases like this where there are no data dependencies.
  **/
 
 #define read_barrier_depends()	do { } while (0)
@@ -337,7 +336,6 @@ __cmpxchg(volatile void *ptr, unsigned long old, unsigned long new, int size)
 #endif
 
 #define set_mb(var, value) do { xchg(&var, value); } while (0)
-#define set_wmb(var, value) do { var = value; wmb(); } while (0)
 
 #define arch_align_stack(x) (x)
 

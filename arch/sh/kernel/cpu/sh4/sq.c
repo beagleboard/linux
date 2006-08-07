@@ -19,7 +19,6 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/config.h>
 #include <linux/slab.h>
 #include <linux/list.h>
 #include <linux/proc_fs.h>
@@ -417,24 +416,27 @@ static struct file_operations sq_fops = {
 static struct miscdevice sq_dev = {
 	.minor		= STORE_QUEUE_MINOR,
 	.name		= "sq",
-	.devfs_name	= "cpu/sq",
 	.fops		= &sq_fops,
 };
 
 static int __init sq_api_init(void)
 {
+	int ret;
 	printk(KERN_NOTICE "sq: Registering store queue API.\n");
 
-#ifdef CONFIG_PROC_FS
 	create_proc_read_entry("sq_mapping", 0, 0, sq_mapping_read_proc, 0);
-#endif
 
-	return misc_register(&sq_dev);
+	ret = misc_register(&sq_dev);
+	if (ret)
+		remove_proc_entry("sq_mapping", NULL);
+
+	return ret;
 }
 
 static void __exit sq_api_exit(void)
 {
 	misc_deregister(&sq_dev);
+	remove_proc_entry("sq_mapping", NULL);
 }
 
 module_init(sq_api_init);

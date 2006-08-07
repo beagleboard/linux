@@ -33,7 +33,6 @@
 #include <linux/errno.h>
 #include <linux/string.h>
 #include <linux/mm.h>
-#include <linux/tty.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 #include <linux/delay.h>
@@ -231,9 +230,6 @@ static int igafb_mmap(struct fb_info *info,
 		return -ENXIO;
 
 	size = vma->vm_end - vma->vm_start;
-
-	/* To stop the swapper from even considering these pages. */
-	vma->vm_flags |= (VM_SHM | VM_LOCKED);
 
 	/* Each page, see which map applies */
 	for (page = 0; page < size; ) {

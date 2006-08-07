@@ -17,172 +17,6 @@
 	410 Severn Ave., Suite 210
 	Annapolis MD 21403
 
-	Linux Kernel Additions:
-	
- 	0.99H+lk0.9 - David S. Miller - softnet, PCI DMA updates
- 	0.99H+lk1.0 - Jeff Garzik <jgarzik@pobox.com>
-		Remove compatibility defines for kernel versions < 2.2.x.
-		Update for new 2.3.x module interface
-	LK1.1.2 (March 19, 2000)
-	* New PCI interface (jgarzik)
-
-    LK1.1.3 25 April 2000, Andrew Morton <andrewm@uow.edu.au>
-    - Merged with 3c575_cb.c
-    - Don't set RxComplete in boomerang interrupt enable reg
-    - spinlock in vortex_timer to protect mdio functions
-    - disable local interrupts around call to vortex_interrupt in
-      vortex_tx_timeout() (So vortex_interrupt can use spin_lock())
-    - Select window 3 in vortex_timer()'s write to Wn3_MAC_Ctrl
-    - In vortex_start_xmit(), move the lock to _after_ we've altered
-      vp->cur_tx and vp->tx_full.  This defeats the race between
-      vortex_start_xmit() and vortex_interrupt which was identified
-      by Bogdan Costescu.
-    - Merged back support for six new cards from various sources
-    - Set vortex_have_pci if pci_module_init returns zero (fixes cardbus
-      insertion oops)
-    - Tell it that 3c905C has NWAY for 100bT autoneg
-    - Fix handling of SetStatusEnd in 'Too much work..' code, as
-      per 2.3.99's 3c575_cb (Dave Hinds).
-    - Split ISR into two for vortex & boomerang
-    - Fix MOD_INC/DEC races
-    - Handle resource allocation failures.
-    - Fix 3CCFE575CT LED polarity
-    - Make tx_interrupt_mitigation the default
-
-    LK1.1.4 25 April 2000, Andrew Morton <andrewm@uow.edu.au>    
-    - Add extra TxReset to vortex_up() to fix 575_cb hotplug initialisation probs.
-    - Put vortex_info_tbl into __devinitdata
-    - In the vortex_error StatsFull HACK, disable stats in vp->intr_enable as well
-      as in the hardware.
-    - Increased the loop counter in issue_and_wait from 2,000 to 4,000.
-
-    LK1.1.5 28 April 2000, andrewm
-    - Added powerpc defines (John Daniel <jdaniel@etresoft.com> said these work...)
-    - Some extra diagnostics
-    - In vortex_error(), reset the Tx on maxCollisions.  Otherwise most
-      chips usually get a Tx timeout.
-    - Added extra_reset module parm
-    - Replaced some inline timer manip with mod_timer
-      (Franois romieu <Francois.Romieu@nic.fr>)
-    - In vortex_up(), don't make Wn3_config initialisation dependent upon has_nway
-      (this came across from 3c575_cb).
-
-    LK1.1.6 06 Jun 2000, andrewm
-    - Backed out the PPC defines.
-    - Use del_timer_sync(), mod_timer().
-    - Fix wrapped ulong comparison in boomerang_rx()
-    - Add IS_TORNADO, use it to suppress 3c905C checksum error msg
-      (Donald Becker, I Lee Hetherington <ilh@sls.lcs.mit.edu>)
-    - Replace union wn3_config with BFINS/BFEXT manipulation for
-      sparc64 (Pete Zaitcev, Peter Jones)
-    - In vortex_error, do_tx_reset and vortex_tx_timeout(Vortex):
-      do a netif_wake_queue() to better recover from errors. (Anders Pedersen,
-      Donald Becker)
-    - Print a warning on out-of-memory (rate limited to 1 per 10 secs)
-    - Added two more Cardbus 575 NICs: 5b57 and 6564 (Paul Wagland)
-
-    LK1.1.7 2 Jul 2000 andrewm
-    - Better handling of shared IRQs
-    - Reset the transmitter on a Tx reclaim error
-    - Fixed crash under OOM during vortex_open() (Mark Hemment)
-    - Fix Rx cessation problem during OOM (help from Mark Hemment)
-    - The spinlocks around the mdio access were blocking interrupts for 300uS.
-      Fix all this to use spin_lock_bh() within mdio_read/write
-    - Only write to TxFreeThreshold if it's a boomerang - other NICs don't
-      have one.
-    - Added 802.3x MAC-layer flow control support
-
-   LK1.1.8 13 Aug 2000 andrewm
-    - Ignore request_region() return value - already reserved if Cardbus.
-    - Merged some additional Cardbus flags from Don's 0.99Qk
-    - Some fixes for 3c556 (Fred Maciel)
-    - Fix for EISA initialisation (Jan Rekorajski)
-    - Renamed MII_XCVR_PWR and EEPROM_230 to align with 3c575_cb and D. Becker's drivers
-    - Fixed MII_XCVR_PWR for 3CCFE575CT
-    - Added INVERT_LED_PWR, used it.
-    - Backed out the extra_reset stuff
-
-   LK1.1.9 12 Sep 2000 andrewm
-    - Backed out the tx_reset_resume flags.  It was a no-op.
-    - In vortex_error, don't reset the Tx on txReclaim errors
-    - In vortex_error, don't reset the Tx on maxCollisions errors.
-      Hence backed out all the DownListPtr logic here.
-    - In vortex_error, give Tornado cards a partial TxReset on
-      maxCollisions (David Hinds).  Defined MAX_COLLISION_RESET for this.
-    - Redid some driver flags and device names based on pcmcia_cs-3.1.20.
-    - Fixed a bug where, if vp->tx_full is set when the interface
-      is downed, it remains set when the interface is upped.  Bad
-      things happen.
-
-   LK1.1.10 17 Sep 2000 andrewm
-    - Added EEPROM_8BIT for 3c555 (Fred Maciel)
-    - Added experimental support for the 3c556B Laptop Hurricane (Louis Gerbarg)
-    - Add HAS_NWAY to "3c900 Cyclone 10Mbps TPO"
-
-   LK1.1.11 13 Nov 2000 andrewm
-    - Dump MOD_INC/DEC_USE_COUNT, use SET_MODULE_OWNER
-
-   LK1.1.12 1 Jan 2001 andrewm (2.4.0-pre1)
-    - Call pci_enable_device before we request our IRQ (Tobias Ringstrom)
-    - Add 3c590 PCI latency timer hack to vortex_probe1 (from 0.99Ra)
-    - Added extended issue_and_wait for the 3c905CX.
-    - Look for an MII on PHY index 24 first (3c905CX oddity).
-    - Add HAS_NWAY to 3cSOHO100-TX (Brett Frankenberger)
-    - Don't free skbs we don't own on oom path in vortex_open().
-
-   LK1.1.13 27 Jan 2001
-    - Added explicit `medialock' flag so we can truly
-      lock the media type down with `options'.
-    - "check ioremap return and some tidbits" (Arnaldo Carvalho de Melo <acme@conectiva.com.br>)
-    - Added and used EEPROM_NORESET for 3c556B PM resumes.
-    - Fixed leakage of vp->rx_ring.
-    - Break out separate HAS_HWCKSM device capability flag.
-    - Kill vp->tx_full (ANK)
-    - Merge zerocopy fragment handling (ANK?)
-
-   LK1.1.14 15 Feb 2001
-    - Enable WOL.  Can be turned on with `enable_wol' module option.
-    - EISA and PCI initialisation fixes (jgarzik, Manfred Spraul)
-    - If a device's internalconfig register reports it has NWAY,
-      use it, even if autoselect is enabled.
-
-   LK1.1.15 6 June 2001 akpm
-    - Prevent double counting of received bytes (Lars Christensen)
-    - Add ethtool support (jgarzik)
-    - Add module parm descriptions (Andrzej M. Krzysztofowicz)
-    - Implemented alloc_etherdev() API
-    - Special-case the 'Tx error 82' message.
-
-   LK1.1.16 18 July 2001 akpm
-    - Make NETIF_F_SG dependent upon nr_free_highpages(), not on CONFIG_HIGHMEM
-    - Lessen verbosity of bootup messages
-    - Fix WOL - use new PM API functions.
-    - Use netif_running() instead of vp->open in suspend/resume.
-    - Don't reset the interface logic on open/close/rmmod.  It upsets
-      autonegotiation, and hence DHCP (from 0.99T).
-    - Back out EEPROM_NORESET flag because of the above (we do it for all
-      NICs).
-    - Correct 3c982 identification string
-    - Rename wait_for_completion() to issue_and_wait() to avoid completion.h
-      clash.
-
-   LK1.1.17 18Dec01 akpm
-    - PCI ID 9805 is a Python-T, not a dual-port Cyclone.  Apparently.
-      And it has NWAY.
-    - Mask our advertised modes (vp->advertising) with our capabilities
-	  (MII reg5) when deciding which duplex mode to use.
-    - Add `global_options' as default for options[].  Ditto global_enable_wol,
-      global_full_duplex.
-
-   LK1.1.18 01Jul02 akpm
-    - Fix for undocumented transceiver power-up bit on some 3c566B's
-      (Donald Becker, Rahul Karnik)
-
-    - See http://www.zip.com.au/~akpm/linux/#3c59x-2.3 for more details.
-    - Also see Documentation/networking/vortex.txt
-
-   LK1.1.19 10Nov02 Marc Zyngier <maz@wild-wind.fr.eu.org>
-    - EISA sysfs integration.
 */
 
 /*
@@ -236,7 +70,6 @@ static int vortex_debug = VORTEX_DEBUG;
 static int vortex_debug = 1;
 #endif
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/string.h>
@@ -375,8 +208,7 @@ limit of 4K.
    of the drivers, and will likely be provided by some future kernel.
 */
 enum pci_flags_bit {
-	PCI_USES_IO=1, PCI_USES_MEM=2, PCI_USES_MASTER=4,
-	PCI_ADDR0=0x10<<0, PCI_ADDR1=0x10<<1, PCI_ADDR2=0x10<<2, PCI_ADDR3=0x10<<3,
+	PCI_USES_MASTER=4,
 };
 
 enum {	IS_VORTEX=1, IS_BOOMERANG=2, IS_CYCLONE=4, IS_TORNADO=8,
@@ -446,95 +278,95 @@ static struct vortex_chip_info {
 	int io_size;
 } vortex_info_tbl[] __devinitdata = {
 	{"3c590 Vortex 10Mbps",
-	 PCI_USES_IO|PCI_USES_MASTER, IS_VORTEX, 32, },
+	 PCI_USES_MASTER, IS_VORTEX, 32, },
 	{"3c592 EISA 10Mbps Demon/Vortex",					/* AKPM: from Don's 3c59x_cb.c 0.49H */
-	 PCI_USES_IO|PCI_USES_MASTER, IS_VORTEX, 32, },
+	 PCI_USES_MASTER, IS_VORTEX, 32, },
 	{"3c597 EISA Fast Demon/Vortex",					/* AKPM: from Don's 3c59x_cb.c 0.49H */
-	 PCI_USES_IO|PCI_USES_MASTER, IS_VORTEX, 32, },
+	 PCI_USES_MASTER, IS_VORTEX, 32, },
 	{"3c595 Vortex 100baseTx",
-	 PCI_USES_IO|PCI_USES_MASTER, IS_VORTEX, 32, },
+	 PCI_USES_MASTER, IS_VORTEX, 32, },
 	{"3c595 Vortex 100baseT4",
-	 PCI_USES_IO|PCI_USES_MASTER, IS_VORTEX, 32, },
+	 PCI_USES_MASTER, IS_VORTEX, 32, },
 
 	{"3c595 Vortex 100base-MII",
-	 PCI_USES_IO|PCI_USES_MASTER, IS_VORTEX, 32, },
+	 PCI_USES_MASTER, IS_VORTEX, 32, },
 	{"3c900 Boomerang 10baseT",
-	 PCI_USES_IO|PCI_USES_MASTER, IS_BOOMERANG|EEPROM_RESET, 64, },
+	 PCI_USES_MASTER, IS_BOOMERANG|EEPROM_RESET, 64, },
 	{"3c900 Boomerang 10Mbps Combo",
-	 PCI_USES_IO|PCI_USES_MASTER, IS_BOOMERANG|EEPROM_RESET, 64, },
+	 PCI_USES_MASTER, IS_BOOMERANG|EEPROM_RESET, 64, },
 	{"3c900 Cyclone 10Mbps TPO",						/* AKPM: from Don's 0.99M */
-	 PCI_USES_IO|PCI_USES_MASTER, IS_CYCLONE|HAS_HWCKSM, 128, },
+	 PCI_USES_MASTER, IS_CYCLONE|HAS_HWCKSM, 128, },
 	{"3c900 Cyclone 10Mbps Combo",
-	 PCI_USES_IO|PCI_USES_MASTER, IS_CYCLONE|HAS_HWCKSM, 128, },
+	 PCI_USES_MASTER, IS_CYCLONE|HAS_HWCKSM, 128, },
 
 	{"3c900 Cyclone 10Mbps TPC",						/* AKPM: from Don's 0.99M */
-	 PCI_USES_IO|PCI_USES_MASTER, IS_CYCLONE|HAS_HWCKSM, 128, },
+	 PCI_USES_MASTER, IS_CYCLONE|HAS_HWCKSM, 128, },
 	{"3c900B-FL Cyclone 10base-FL",
-	 PCI_USES_IO|PCI_USES_MASTER, IS_CYCLONE|HAS_HWCKSM, 128, },
+	 PCI_USES_MASTER, IS_CYCLONE|HAS_HWCKSM, 128, },
 	{"3c905 Boomerang 100baseTx",
-	 PCI_USES_IO|PCI_USES_MASTER, IS_BOOMERANG|HAS_MII|EEPROM_RESET, 64, },
+	 PCI_USES_MASTER, IS_BOOMERANG|HAS_MII|EEPROM_RESET, 64, },
 	{"3c905 Boomerang 100baseT4",
-	 PCI_USES_IO|PCI_USES_MASTER, IS_BOOMERANG|HAS_MII|EEPROM_RESET, 64, },
+	 PCI_USES_MASTER, IS_BOOMERANG|HAS_MII|EEPROM_RESET, 64, },
 	{"3c905B Cyclone 100baseTx",
-	 PCI_USES_IO|PCI_USES_MASTER, IS_CYCLONE|HAS_NWAY|HAS_HWCKSM|EXTRA_PREAMBLE, 128, },
+	 PCI_USES_MASTER, IS_CYCLONE|HAS_NWAY|HAS_HWCKSM|EXTRA_PREAMBLE, 128, },
 
 	{"3c905B Cyclone 10/100/BNC",
-	 PCI_USES_IO|PCI_USES_MASTER, IS_CYCLONE|HAS_NWAY|HAS_HWCKSM, 128, },
+	 PCI_USES_MASTER, IS_CYCLONE|HAS_NWAY|HAS_HWCKSM, 128, },
 	{"3c905B-FX Cyclone 100baseFx",
-	 PCI_USES_IO|PCI_USES_MASTER, IS_CYCLONE|HAS_HWCKSM, 128, },
+	 PCI_USES_MASTER, IS_CYCLONE|HAS_HWCKSM, 128, },
 	{"3c905C Tornado",
-	PCI_USES_IO|PCI_USES_MASTER, IS_TORNADO|HAS_NWAY|HAS_HWCKSM|EXTRA_PREAMBLE, 128, },
+	PCI_USES_MASTER, IS_TORNADO|HAS_NWAY|HAS_HWCKSM|EXTRA_PREAMBLE, 128, },
 	{"3c920B-EMB-WNM (ATI Radeon 9100 IGP)",
-	 PCI_USES_IO|PCI_USES_MASTER, IS_TORNADO|HAS_MII|HAS_HWCKSM, 128, },
+	 PCI_USES_MASTER, IS_TORNADO|HAS_MII|HAS_HWCKSM, 128, },
 	{"3c980 Cyclone",
-	 PCI_USES_IO|PCI_USES_MASTER, IS_CYCLONE|HAS_HWCKSM, 128, },
+	 PCI_USES_MASTER, IS_CYCLONE|HAS_HWCKSM, 128, },
 
 	{"3c980C Python-T",
-	 PCI_USES_IO|PCI_USES_MASTER, IS_CYCLONE|HAS_NWAY|HAS_HWCKSM, 128, },
+	 PCI_USES_MASTER, IS_CYCLONE|HAS_NWAY|HAS_HWCKSM, 128, },
 	{"3cSOHO100-TX Hurricane",
-	 PCI_USES_IO|PCI_USES_MASTER, IS_CYCLONE|HAS_NWAY|HAS_HWCKSM, 128, },
+	 PCI_USES_MASTER, IS_CYCLONE|HAS_NWAY|HAS_HWCKSM, 128, },
 	{"3c555 Laptop Hurricane",
-	 PCI_USES_IO|PCI_USES_MASTER, IS_CYCLONE|EEPROM_8BIT|HAS_HWCKSM, 128, },
+	 PCI_USES_MASTER, IS_CYCLONE|EEPROM_8BIT|HAS_HWCKSM, 128, },
 	{"3c556 Laptop Tornado",
-	 PCI_USES_IO|PCI_USES_MASTER, IS_TORNADO|HAS_NWAY|EEPROM_8BIT|HAS_CB_FNS|INVERT_MII_PWR|
+	 PCI_USES_MASTER, IS_TORNADO|HAS_NWAY|EEPROM_8BIT|HAS_CB_FNS|INVERT_MII_PWR|
 									HAS_HWCKSM, 128, },
 	{"3c556B Laptop Hurricane",
-	 PCI_USES_IO|PCI_USES_MASTER, IS_TORNADO|HAS_NWAY|EEPROM_OFFSET|HAS_CB_FNS|INVERT_MII_PWR|
+	 PCI_USES_MASTER, IS_TORNADO|HAS_NWAY|EEPROM_OFFSET|HAS_CB_FNS|INVERT_MII_PWR|
 	                                WNO_XCVR_PWR|HAS_HWCKSM, 128, },
 
 	{"3c575 [Megahertz] 10/100 LAN 	CardBus",
-	PCI_USES_IO|PCI_USES_MASTER, IS_BOOMERANG|HAS_MII|EEPROM_8BIT, 128, },
+	PCI_USES_MASTER, IS_BOOMERANG|HAS_MII|EEPROM_8BIT, 128, },
 	{"3c575 Boomerang CardBus",
-	 PCI_USES_IO|PCI_USES_MASTER, IS_BOOMERANG|HAS_MII|EEPROM_8BIT, 128, },
+	 PCI_USES_MASTER, IS_BOOMERANG|HAS_MII|EEPROM_8BIT, 128, },
 	{"3CCFE575BT Cyclone CardBus",
-	 PCI_USES_IO|PCI_USES_MASTER, IS_CYCLONE|HAS_NWAY|HAS_CB_FNS|EEPROM_8BIT|
+	 PCI_USES_MASTER, IS_CYCLONE|HAS_NWAY|HAS_CB_FNS|EEPROM_8BIT|
 									INVERT_LED_PWR|HAS_HWCKSM, 128, },
 	{"3CCFE575CT Tornado CardBus",
-	 PCI_USES_IO|PCI_USES_MASTER, IS_TORNADO|HAS_NWAY|HAS_CB_FNS|EEPROM_8BIT|INVERT_MII_PWR|
+	 PCI_USES_MASTER, IS_TORNADO|HAS_NWAY|HAS_CB_FNS|EEPROM_8BIT|INVERT_MII_PWR|
 									MAX_COLLISION_RESET|HAS_HWCKSM, 128, },
 	{"3CCFE656 Cyclone CardBus",
-	 PCI_USES_IO|PCI_USES_MASTER, IS_CYCLONE|HAS_NWAY|HAS_CB_FNS|EEPROM_8BIT|INVERT_MII_PWR|
+	 PCI_USES_MASTER, IS_CYCLONE|HAS_NWAY|HAS_CB_FNS|EEPROM_8BIT|INVERT_MII_PWR|
 									INVERT_LED_PWR|HAS_HWCKSM, 128, },
 
 	{"3CCFEM656B Cyclone+Winmodem CardBus",
-	 PCI_USES_IO|PCI_USES_MASTER, IS_CYCLONE|HAS_NWAY|HAS_CB_FNS|EEPROM_8BIT|INVERT_MII_PWR|
+	 PCI_USES_MASTER, IS_CYCLONE|HAS_NWAY|HAS_CB_FNS|EEPROM_8BIT|INVERT_MII_PWR|
 									INVERT_LED_PWR|HAS_HWCKSM, 128, },
 	{"3CXFEM656C Tornado+Winmodem CardBus",			/* From pcmcia-cs-3.1.5 */
-	 PCI_USES_IO|PCI_USES_MASTER, IS_TORNADO|HAS_NWAY|HAS_CB_FNS|EEPROM_8BIT|INVERT_MII_PWR|
+	 PCI_USES_MASTER, IS_TORNADO|HAS_NWAY|HAS_CB_FNS|EEPROM_8BIT|INVERT_MII_PWR|
 									MAX_COLLISION_RESET|HAS_HWCKSM, 128, },
 	{"3c450 HomePNA Tornado",						/* AKPM: from Don's 0.99Q */
-	 PCI_USES_IO|PCI_USES_MASTER, IS_TORNADO|HAS_NWAY|HAS_HWCKSM, 128, },
+	 PCI_USES_MASTER, IS_TORNADO|HAS_NWAY|HAS_HWCKSM, 128, },
 	{"3c920 Tornado",
-	 PCI_USES_IO|PCI_USES_MASTER, IS_TORNADO|HAS_NWAY|HAS_HWCKSM, 128, },
+	 PCI_USES_MASTER, IS_TORNADO|HAS_NWAY|HAS_HWCKSM, 128, },
 	{"3c982 Hydra Dual Port A",
-	 PCI_USES_IO|PCI_USES_MASTER, IS_TORNADO|HAS_HWCKSM|HAS_NWAY, 128, },
+	 PCI_USES_MASTER, IS_TORNADO|HAS_HWCKSM|HAS_NWAY, 128, },
 
 	{"3c982 Hydra Dual Port B",
-	 PCI_USES_IO|PCI_USES_MASTER, IS_TORNADO|HAS_HWCKSM|HAS_NWAY, 128, },
+	 PCI_USES_MASTER, IS_TORNADO|HAS_HWCKSM|HAS_NWAY, 128, },
 	{"3c905B-T4",
-	 PCI_USES_IO|PCI_USES_MASTER, IS_CYCLONE|HAS_NWAY|HAS_HWCKSM|EXTRA_PREAMBLE, 128, },
+	 PCI_USES_MASTER, IS_CYCLONE|HAS_NWAY|HAS_HWCKSM|EXTRA_PREAMBLE, 128, },
 	{"3c920B-EMB-WNM Tornado",
-	 PCI_USES_IO|PCI_USES_MASTER, IS_TORNADO|HAS_NWAY|HAS_HWCKSM, 128, },
+	 PCI_USES_MASTER, IS_TORNADO|HAS_NWAY|HAS_HWCKSM, 128, },
 
 	{NULL,}, /* NULL terminated list. */
 };
@@ -998,7 +830,7 @@ static int vortex_resume(struct pci_dev *pdev)
 		pci_enable_device(pdev);
 		pci_set_master(pdev);
 		if (request_irq(dev->irq, vp->full_bus_master_rx ?
-				&boomerang_interrupt : &vortex_interrupt, SA_SHIRQ, dev->name, dev)) {
+				&boomerang_interrupt : &vortex_interrupt, IRQF_SHARED, dev->name, dev)) {
 			printk(KERN_WARNING "%s: Could not reserve IRQ %d\n", dev->name, dev->irq);
 			pci_disable_device(pdev);
 			return -EBUSY;
@@ -1382,17 +1214,12 @@ static int __devinit vortex_probe1(struct device *gendev,
 	for (i = 0; i < 6; i++)
 		iowrite8(dev->dev_addr[i], ioaddr + i);
 
-#ifdef __sparc__
-	if (print_info)
-		printk(", IRQ %s\n", __irq_itoa(dev->irq));
-#else
 	if (print_info)
 		printk(", IRQ %d\n", dev->irq);
 	/* Tell them about an invalid IRQ. */
 	if (dev->irq <= 0 || dev->irq >= NR_IRQS)
 		printk(KERN_WARNING " *** Warning: IRQ %d is unlikely to work! ***\n",
 			   dev->irq);
-#endif
 
 	EL3WINDOW(4);
 	step = (ioread8(ioaddr + Wn4_NetDiag) & 0x1e) >> 1;
@@ -1413,8 +1240,10 @@ static int __devinit vortex_probe1(struct device *gendev,
 		}
 
 		if (print_info) {
-			printk(KERN_INFO "%s: CardBus functions mapped %8.8lx->%p\n",
-				print_name, pci_resource_start(pdev, 2),
+			printk(KERN_INFO "%s: CardBus functions mapped "
+				"%16.16llx->%p\n",
+				print_name,
+				(unsigned long long)pci_resource_start(pdev, 2),
 				vp->cb_fn_base);
 		}
 		EL3WINDOW(2);
@@ -1838,7 +1667,7 @@ vortex_open(struct net_device *dev)
 
 	/* Use the now-standard shared IRQ implementation. */
 	if ((retval = request_irq(dev->irq, vp->full_bus_master_rx ?
-				&boomerang_interrupt : &vortex_interrupt, SA_SHIRQ, dev->name, dev))) {
+				&boomerang_interrupt : &vortex_interrupt, IRQF_SHARED, dev->name, dev))) {
 		printk(KERN_ERR "%s: Could not reserve IRQ %d\n", dev->name, dev->irq);
 		goto out;
 	}
@@ -1902,7 +1731,7 @@ vortex_timer(unsigned long data)
 		printk(KERN_DEBUG "dev->watchdog_timeo=%d\n", dev->watchdog_timeo);
 	}
 
-	disable_irq(dev->irq);
+	disable_irq_lockdep(dev->irq);
 	old_window = ioread16(ioaddr + EL3_CMD) >> 13;
 	EL3WINDOW(4);
 	media_status = ioread16(ioaddr + Wn4_Media);
@@ -1983,7 +1812,7 @@ leave_media_alone:
 			 dev->name, media_tbl[dev->if_port].name);
 
 	EL3WINDOW(old_window);
-	enable_irq(dev->irq);
+	enable_irq_lockdep(dev->irq);
 	mod_timer(&vp->timer, RUN_AT(next_tick));
 	if (vp->deferred)
 		iowrite16(FakeIntr, ioaddr + EL3_CMD);

@@ -28,10 +28,13 @@ struct timezone {
 #ifdef __KERNEL__
 
 /* Parameters used to convert the timespec values: */
-#define MSEC_PER_SEC		1000L
-#define USEC_PER_SEC		1000000L
-#define NSEC_PER_SEC		1000000000L
-#define NSEC_PER_USEC		1000L
+#define MSEC_PER_SEC	1000L
+#define USEC_PER_MSEC	1000L
+#define NSEC_PER_USEC	1000L
+#define NSEC_PER_MSEC	1000000L
+#define USEC_PER_SEC	1000000L
+#define NSEC_PER_SEC	1000000000L
+#define FSEC_PER_SEC	1000000000000000L
 
 static inline int timespec_equal(struct timespec *a, struct timespec *b)
 {
@@ -68,6 +71,18 @@ extern unsigned long mktime(const unsigned int year, const unsigned int mon,
 extern void set_normalized_timespec(struct timespec *ts, time_t sec, long nsec);
 
 /*
+ * sub = lhs - rhs, in normalized form
+ */
+static inline struct timespec timespec_sub(struct timespec lhs,
+						struct timespec rhs)
+{
+	struct timespec ts_delta;
+	set_normalized_timespec(&ts_delta, lhs.tv_sec - rhs.tv_sec,
+				lhs.tv_nsec - rhs.tv_nsec);
+	return ts_delta;
+}
+
+/*
  * Returns true if the timespec is norm, false if denorm:
  */
 #define timespec_valid(ts) \
@@ -76,6 +91,8 @@ extern void set_normalized_timespec(struct timespec *ts, time_t sec, long nsec);
 extern struct timespec xtime;
 extern struct timespec wall_to_monotonic;
 extern seqlock_t xtime_lock;
+
+void timekeeping_init(void);
 
 static inline unsigned long get_seconds(void)
 {
@@ -100,6 +117,7 @@ extern int do_getitimer(int which, struct itimerval *value);
 extern void getnstimeofday(struct timespec *tv);
 
 extern struct timespec timespec_trunc(struct timespec t, unsigned gran);
+extern int timekeeping_is_continuous(void);
 
 /**
  * timespec_to_ns - Convert timespec to nanoseconds
@@ -142,6 +160,20 @@ extern struct timespec ns_to_timespec(const s64 nsec);
  */
 extern struct timeval ns_to_timeval(const s64 nsec);
 
+/**
+ * timespec_add_ns - Adds nanoseconds to a timespec
+ * @a:		pointer to timespec to be incremented
+ * @ns:		unsigned nanoseconds value to be added
+ */
+static inline void timespec_add_ns(struct timespec *a, u64 ns)
+{
+	ns += a->tv_nsec;
+	while(unlikely(ns >= NSEC_PER_SEC)) {
+		ns -= NSEC_PER_SEC;
+		a->tv_sec++;
+	}
+	a->tv_nsec = ns;
+}
 #endif /* __KERNEL__ */
 
 #define NFDBITS			__NFDBITS

@@ -125,6 +125,7 @@
 #define  CHIPREV_ID_5750_A0		 0x4000
 #define  CHIPREV_ID_5750_A1		 0x4001
 #define  CHIPREV_ID_5750_A3		 0x4003
+#define  CHIPREV_ID_5750_C2		 0x4202
 #define  CHIPREV_ID_5752_A0_HW		 0x5000
 #define  CHIPREV_ID_5752_A0		 0x6000
 #define  CHIPREV_ID_5752_A1		 0x6001
@@ -760,6 +761,7 @@
 #define  RCVLPC_STATSCTRL_ENABLE	 0x00000001
 #define  RCVLPC_STATSCTRL_FASTUPD	 0x00000002
 #define RCVLPC_STATS_ENABLE		0x00002018
+#define  RCVLPC_STATSENAB_DACK_FIX	 0x00040000
 #define  RCVLPC_STATSENAB_LNGBRST_RFIX	 0x00400000
 #define RCVLPC_STATS_INCMASK		0x0000201c
 /* 0x2020 --> 0x2100 unused */
@@ -2074,12 +2076,22 @@ struct tg3 {
 
 	/* SMP locking strategy:
 	 *
-	 * lock: Held during all operations except TX packet
-	 *       processing.
+	 * lock: Held during reset, PHY access, timer, and when
+	 *       updating tg3_flags and tg3_flags2.
 	 *
-	 * tx_lock: Held during tg3_start_xmit and tg3_tx
+	 * tx_lock: Held during tg3_start_xmit and tg3_tx only
+	 *          when calling netif_[start|stop]_queue.
+	 *          tg3_start_xmit is protected by netif_tx_lock.
 	 *
 	 * Both of these locks are to be held with BH safety.
+	 *
+	 * Because the IRQ handler, tg3_poll, and tg3_start_xmit
+	 * are running lockless, it is necessary to completely
+	 * quiesce the chip with tg3_netif_stop and tg3_full_lock
+	 * before reconfiguring the device.
+	 *
+	 * indirect_lock: Held when accessing registers indirectly
+	 *                with IRQ disabling.
 	 */
 	spinlock_t			lock;
 	spinlock_t			indirect_lock;
@@ -2127,6 +2139,7 @@ struct tg3 {
 	struct tg3_rx_buffer_desc	*rx_std;
 	struct ring_info		*rx_std_buffers;
 	dma_addr_t			rx_std_mapping;
+	u32				rx_std_max_post;
 
 	struct tg3_rx_buffer_desc	*rx_jumbo;
 	struct ring_info		*rx_jumbo_buffers;
@@ -2155,11 +2168,7 @@ struct tg3 {
 #define TG3_FLAG_ENABLE_ASF		0x00000020
 #define TG3_FLAG_5701_REG_WRITE_BUG	0x00000040
 #define TG3_FLAG_POLL_SERDES		0x00000080
-#if defined(CONFIG_X86)
 #define TG3_FLAG_MBOX_WRITE_REORDER	0x00000100
-#else
-#define TG3_FLAG_MBOX_WRITE_REORDER	0	/* disables code too */
-#endif
 #define TG3_FLAG_PCIX_TARGET_HWBUG	0x00000200
 #define TG3_FLAG_WOL_SPEED_100MB	0x00000400
 #define TG3_FLAG_WOL_ENABLE		0x00000800
@@ -2172,6 +2181,7 @@ struct tg3 {
 #define TG3_FLAG_PCI_HIGH_SPEED		0x00040000
 #define TG3_FLAG_PCI_32BIT		0x00080000
 #define TG3_FLAG_SRAM_USE_CONFIG	0x00100000
+#define TG3_FLAG_TX_RECOVERY_PENDING	0x00200000
 #define TG3_FLAG_SERDES_WOL_CAP		0x00400000
 #define TG3_FLAG_JUMBO_RING_ENABLE	0x00800000
 #define TG3_FLAG_10_100_ONLY		0x01000000
@@ -2184,7 +2194,7 @@ struct tg3 {
 #define TG3_FLAG_INIT_COMPLETE		0x80000000
 	u32				tg3_flags2;
 #define TG3_FLG2_RESTART_TIMER		0x00000001
-/*					0x00000002 available */
+#define TG3_FLG2_HW_TSO_1_BUG		0x00000002
 #define TG3_FLG2_NO_ETH_WIRE_SPEED	0x00000004
 #define TG3_FLG2_IS_5788		0x00000008
 #define TG3_FLG2_MAX_RXPEND_64		0x00000010

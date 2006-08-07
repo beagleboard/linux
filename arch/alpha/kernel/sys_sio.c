@@ -10,14 +10,13 @@
  * Kenetics's Platform 2000, Avanti (AlphaStation), XL, and AlphaBook1.
  */
 
-#include <linux/config.h>
 #include <linux/kernel.h>
 #include <linux/types.h>
 #include <linux/mm.h>
 #include <linux/sched.h>
 #include <linux/pci.h>
 #include <linux/init.h>
-#include <linux/tty.h>
+#include <linux/screen_info.h>
 
 #include <asm/compiler.h>
 #include <asm/ptrace.h>

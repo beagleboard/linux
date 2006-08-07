@@ -67,7 +67,7 @@ struct xfrm_state;
 struct xfrm_user_sec_ctx;
 
 extern int cap_netlink_send(struct sock *sk, struct sk_buff *skb);
-extern int cap_netlink_recv(struct sk_buff *skb);
+extern int cap_netlink_recv(struct sk_buff *skb, int cap);
 
 /*
  * Values used in the task_security_ops calls
@@ -171,9 +171,9 @@ struct swap_info_struct;
  *	Deallocate and clear the sb->s_security field.
  *	@sb contains the super_block structure to be modified.
  * @sb_statfs:
- *	Check permission before obtaining filesystem statistics for the @sb
- *	filesystem.
- *	@sb contains the super_block structure for the filesystem.
+ *	Check permission before obtaining filesystem statistics for the @mnt
+ *	mountpoint.
+ *	@dentry is a handle on the superblock for the filesystem.
  *	Return 0 if permission is granted.  
  * @sb_mount:
  *	Check permission before an object specified by @dev_name is mounted on
@@ -567,6 +567,9 @@ struct swap_info_struct;
  *	@p.
  *	@p contains the task_struct for the process.
  *	Return 0 if permission is granted.
+ * @task_getsecid:
+ *	Retrieve the security identifier of the process @p.
+ *	@p contains the task_struct for the process and place is into @secid.
  * @task_setgroups:
  *	Check permission before setting the supplementary group set of the
  *	current process.
@@ -576,6 +579,15 @@ struct swap_info_struct;
  *	Check permission before setting the nice value of @p to @nice.
  *	@p contains the task_struct of process.
  *	@nice contains the new nice value.
+ *	Return 0 if permission is granted.
+ * @task_setioprio
+ *	Check permission before setting the ioprio value of @p to @ioprio.
+ *	@p contains the task_struct of process.
+ *	@ioprio contains the new ioprio value
+ *	Return 0 if permission is granted.
+ * @task_getioprio
+ *	Check permission before getting the ioprio value of @p.
+ *	@p contains the task_struct of process.
  *	Return 0 if permission is granted.
  * @task_setrlimit:
  *	Check permission before setting the resource limits of the current
@@ -596,6 +608,10 @@ struct swap_info_struct;
  *	@p.
  *	@p contains the task_struct for process.
  *	Return 0 if permission is granted.
+ * @task_movememory
+ *	Check permission before moving memory owned by process @p.
+ *	@p contains the task_struct for process.
+ *	Return 0 if permission is granted.
  * @task_kill:
  *	Check permission before sending signal @sig to @p.  @info can be NULL,
  *	the constant 1, or a pointer to a siginfo structure.  If @info is 1 or
@@ -606,6 +622,7 @@ struct swap_info_struct;
  *	@p contains the task_struct for process.
  *	@info contains the signal information.
  *	@sig contains the signal value.
+ *	@secid contains the sid of the process where the signal originated
  *	Return 0 if permission is granted.
  * @task_wait:
  *	Check permission before allowing a process to reap a child process @p
@@ -647,6 +664,7 @@ struct swap_info_struct;
  *	Check permission before processing the received netlink message in
  *	@skb.
  *	@skb contains the sk_buff structure for the netlink message.
+ *	@cap indicates the capability required
  *	Return 0 if permission is granted.
  *
  * Security hooks for Unix domain networking.
@@ -805,31 +823,37 @@ struct swap_info_struct;
  *	used by the XFRM system.
  *	@sec_ctx contains the security context information being provided by
  *	the user-level policy update program (e.g., setkey).
- *	Allocate a security structure to the xp->selector.security field.
+ *	Allocate a security structure to the xp->security field.
  *	The security field is initialized to NULL when the xfrm_policy is
  *	allocated.
  *	Return 0 if operation was successful (memory to allocate, legal context)
  * @xfrm_policy_clone_security:
  *	@old contains an existing xfrm_policy in the SPD.
  *	@new contains a new xfrm_policy being cloned from old.
- *	Allocate a security structure to the new->selector.security field
- *	that contains the information from the old->selector.security field.
+ *	Allocate a security structure to the new->security field
+ *	that contains the information from the old->security field.
  *	Return 0 if operation was successful (memory to allocate).
  * @xfrm_policy_free_security:
  *	@xp contains the xfrm_policy
- *	Deallocate xp->selector.security.
+ *	Deallocate xp->security.
+ * @xfrm_policy_delete_security:
+ *	@xp contains the xfrm_policy.
+ *	Authorize deletion of xp->security.
  * @xfrm_state_alloc_security:
  *	@x contains the xfrm_state being added to the Security Association
  *	Database by the XFRM system.
  *	@sec_ctx contains the security context information being provided by
  *	the user-level SA generation program (e.g., setkey or racoon).
- *	Allocate a security structure to the x->sel.security field.  The
+ *	Allocate a security structure to the x->security field.  The
  *	security field is initialized to NULL when the xfrm_state is
  *	allocated.
  *	Return 0 if operation was successful (memory to allocate, legal context).
  * @xfrm_state_free_security:
  *	@x contains the xfrm_state.
- *	Deallocate x>sel.security.
+ *	Deallocate x->security.
+ * @xfrm_state_delete_security:
+ *	@x contains the xfrm_state.
+ *	Authorize deletion of x->security.
  * @xfrm_policy_lookup:
  *	@xp contains the xfrm_policy for which the access control is being
  *	checked.
@@ -847,6 +871,7 @@ struct swap_info_struct;
  *	Permit allocation of a key and assign security data. Note that key does
  *	not have a serial number assigned at this point.
  *	@key points to the key.
+ *	@flags is the allocation flags
  *	Return 0 if permission is granted, -ve error otherwise.
  * @key_free:
  *	Notification of destruction; free security data.
@@ -1084,6 +1109,16 @@ struct swap_info_struct;
  *	@name contains the name of the security module being unstacked.
  *	@ops contains a pointer to the struct security_operations of the module to unstack.
  * 
+ * @secid_to_secctx:
+ *	Convert secid to security context.
+ *	@secid contains the security ID.
+ *	@secdata contains the pointer that stores the converted security context.
+ *
+ * @release_secctx:
+ *	Release the security context.
+ *	@secdata contains the security context.
+ *	@seclen contains the length of the security context.
+ *
  * This is the main security structure.
  */
 struct security_operations {
@@ -1121,7 +1156,7 @@ struct security_operations {
 	int (*sb_copy_data)(struct file_system_type *type,
 			    void *orig, void *copy);
 	int (*sb_kern_mount) (struct super_block *sb, void *data);
-	int (*sb_statfs) (struct super_block * sb);
+	int (*sb_statfs) (struct dentry *dentry);
 	int (*sb_mount) (char *dev_name, struct nameidata * nd,
 			 char *type, unsigned long flags, void *data);
 	int (*sb_check_sb) (struct vfsmount * mnt, struct nameidata * nd);
@@ -1202,14 +1237,18 @@ struct security_operations {
 	int (*task_setpgid) (struct task_struct * p, pid_t pgid);
 	int (*task_getpgid) (struct task_struct * p);
 	int (*task_getsid) (struct task_struct * p);
+	void (*task_getsecid) (struct task_struct * p, u32 * secid);
 	int (*task_setgroups) (struct group_info *group_info);
 	int (*task_setnice) (struct task_struct * p, int nice);
+	int (*task_setioprio) (struct task_struct * p, int ioprio);
+	int (*task_getioprio) (struct task_struct * p);
 	int (*task_setrlimit) (unsigned int resource, struct rlimit * new_rlim);
 	int (*task_setscheduler) (struct task_struct * p, int policy,
 				  struct sched_param * lp);
 	int (*task_getscheduler) (struct task_struct * p);
+	int (*task_movememory) (struct task_struct * p);
 	int (*task_kill) (struct task_struct * p,
-			  struct siginfo * info, int sig);
+			  struct siginfo * info, int sig, u32 secid);
 	int (*task_wait) (struct task_struct * p);
 	int (*task_prctl) (int option, unsigned long arg2,
 			   unsigned long arg3, unsigned long arg4,
@@ -1248,7 +1287,7 @@ struct security_operations {
 			  struct sembuf * sops, unsigned nsops, int alter);
 
 	int (*netlink_send) (struct sock * sk, struct sk_buff * skb);
-	int (*netlink_recv) (struct sk_buff * skb);
+	int (*netlink_recv) (struct sk_buff * skb, int cap);
 
 	/* allow module stacking */
 	int (*register_security) (const char *name,
@@ -1260,6 +1299,8 @@ struct security_operations {
 
  	int (*getprocattr)(struct task_struct *p, char *name, void *value, size_t size);
  	int (*setprocattr)(struct task_struct *p, char *name, void *value, size_t size);
+	int (*secid_to_secctx)(u32 secid, char **secdata, u32 *seclen);
+	void (*release_secctx)(char *secdata, u32 seclen);
 
 #ifdef CONFIG_SECURITY_NETWORK
 	int (*unix_stream_connect) (struct socket * sock,
@@ -1288,7 +1329,7 @@ struct security_operations {
 	int (*socket_shutdown) (struct socket * sock, int how);
 	int (*socket_sock_rcv_skb) (struct sock * sk, struct sk_buff * skb);
 	int (*socket_getpeersec_stream) (struct socket *sock, char __user *optval, int __user *optlen, unsigned len);
-	int (*socket_getpeersec_dgram) (struct sk_buff *skb, char **secdata, u32 *seclen);
+	int (*socket_getpeersec_dgram) (struct socket *sock, struct sk_buff *skb, u32 *secid);
 	int (*sk_alloc_security) (struct sock *sk, int family, gfp_t priority);
 	void (*sk_free_security) (struct sock *sk);
 	unsigned int (*sk_getsid) (struct sock *sk, struct flowi *fl, u8 dir);
@@ -1298,14 +1339,16 @@ struct security_operations {
 	int (*xfrm_policy_alloc_security) (struct xfrm_policy *xp, struct xfrm_user_sec_ctx *sec_ctx);
 	int (*xfrm_policy_clone_security) (struct xfrm_policy *old, struct xfrm_policy *new);
 	void (*xfrm_policy_free_security) (struct xfrm_policy *xp);
+	int (*xfrm_policy_delete_security) (struct xfrm_policy *xp);
 	int (*xfrm_state_alloc_security) (struct xfrm_state *x, struct xfrm_user_sec_ctx *sec_ctx);
 	void (*xfrm_state_free_security) (struct xfrm_state *x);
+	int (*xfrm_state_delete_security) (struct xfrm_state *x);
 	int (*xfrm_policy_lookup)(struct xfrm_policy *xp, u32 sk_sid, u8 dir);
 #endif	/* CONFIG_SECURITY_NETWORK_XFRM */
 
 	/* key management security hooks */
 #ifdef CONFIG_KEYS
-	int (*key_alloc)(struct key *key);
+	int (*key_alloc)(struct key *key, struct task_struct *tsk, unsigned long flags);
 	void (*key_free)(struct key *key);
 	int (*key_permission)(key_ref_t key_ref,
 			      struct task_struct *context,
@@ -1442,9 +1485,9 @@ static inline int security_sb_kern_mount (struct super_block *sb, void *data)
 	return security_ops->sb_kern_mount (sb, data);
 }
 
-static inline int security_sb_statfs (struct super_block *sb)
+static inline int security_sb_statfs (struct dentry *dentry)
 {
-	return security_ops->sb_statfs (sb);
+	return security_ops->sb_statfs (dentry);
 }
 
 static inline int security_sb_mount (char *dev_name, struct nameidata *nd,
@@ -1818,6 +1861,11 @@ static inline int security_task_getsid (struct task_struct *p)
 	return security_ops->task_getsid (p);
 }
 
+static inline void security_task_getsecid (struct task_struct *p, u32 *secid)
+{
+	security_ops->task_getsecid (p, secid);
+}
+
 static inline int security_task_setgroups (struct group_info *group_info)
 {
 	return security_ops->task_setgroups (group_info);
@@ -1826,6 +1874,16 @@ static inline int security_task_setgroups (struct group_info *group_info)
 static inline int security_task_setnice (struct task_struct *p, int nice)
 {
 	return security_ops->task_setnice (p, nice);
+}
+
+static inline int security_task_setioprio (struct task_struct *p, int ioprio)
+{
+	return security_ops->task_setioprio (p, ioprio);
+}
+
+static inline int security_task_getioprio (struct task_struct *p)
+{
+	return security_ops->task_getioprio (p);
 }
 
 static inline int security_task_setrlimit (unsigned int resource,
@@ -1846,10 +1904,16 @@ static inline int security_task_getscheduler (struct task_struct *p)
 	return security_ops->task_getscheduler (p);
 }
 
-static inline int security_task_kill (struct task_struct *p,
-				      struct siginfo *info, int sig)
+static inline int security_task_movememory (struct task_struct *p)
 {
-	return security_ops->task_kill (p, info, sig);
+	return security_ops->task_movememory (p);
+}
+
+static inline int security_task_kill (struct task_struct *p,
+				      struct siginfo *info, int sig,
+				      u32 secid)
+{
+	return security_ops->task_kill (p, info, sig, secid);
 }
 
 static inline int security_task_wait (struct task_struct *p)
@@ -2002,9 +2066,19 @@ static inline int security_netlink_send(struct sock *sk, struct sk_buff * skb)
 	return security_ops->netlink_send(sk, skb);
 }
 
-static inline int security_netlink_recv(struct sk_buff * skb)
+static inline int security_netlink_recv(struct sk_buff * skb, int cap)
 {
-	return security_ops->netlink_recv(skb);
+	return security_ops->netlink_recv(skb, cap);
+}
+
+static inline int security_secid_to_secctx(u32 secid, char **secdata, u32 *seclen)
+{
+	return security_ops->secid_to_secctx(secid, secdata, seclen);
+}
+
+static inline void security_release_secctx(char *secdata, u32 seclen)
+{
+	return security_ops->release_secctx(secdata, seclen);
 }
 
 /* prototypes */
@@ -2154,7 +2228,7 @@ static inline int security_sb_kern_mount (struct super_block *sb, void *data)
 	return 0;
 }
 
-static inline int security_sb_statfs (struct super_block *sb)
+static inline int security_sb_statfs (struct dentry *dentry)
 {
 	return 0;
 }
@@ -2460,12 +2534,25 @@ static inline int security_task_getsid (struct task_struct *p)
 	return 0;
 }
 
+static inline void security_task_getsecid (struct task_struct *p, u32 *secid)
+{ }
+
 static inline int security_task_setgroups (struct group_info *group_info)
 {
 	return 0;
 }
 
 static inline int security_task_setnice (struct task_struct *p, int nice)
+{
+	return 0;
+}
+
+static inline int security_task_setioprio (struct task_struct *p, int ioprio)
+{
+	return 0;
+}
+
+static inline int security_task_getioprio (struct task_struct *p)
 {
 	return 0;
 }
@@ -2488,8 +2575,14 @@ static inline int security_task_getscheduler (struct task_struct *p)
 	return 0;
 }
 
+static inline int security_task_movememory (struct task_struct *p)
+{
+	return 0;
+}
+
 static inline int security_task_kill (struct task_struct *p,
-				      struct siginfo *info, int sig)
+				      struct siginfo *info, int sig,
+				      u32 secid)
 {
 	return 0;
 }
@@ -2630,9 +2723,9 @@ static inline int security_netlink_send (struct sock *sk, struct sk_buff *skb)
 	return cap_netlink_send (sk, skb);
 }
 
-static inline int security_netlink_recv (struct sk_buff *skb)
+static inline int security_netlink_recv (struct sk_buff *skb, int cap)
 {
-	return cap_netlink_recv (skb);
+	return cap_netlink_recv (skb, cap);
 }
 
 static inline struct dentry *securityfs_create_dir(const char *name,
@@ -2654,6 +2747,14 @@ static inline void securityfs_remove(struct dentry *dentry)
 {
 }
 
+static inline int security_secid_to_secctx(u32 secid, char **secdata, u32 *seclen)
+{
+	return -EOPNOTSUPP;
+}
+
+static inline void security_release_secctx(char *secdata, u32 seclen)
+{
+}
 #endif	/* CONFIG_SECURITY */
 
 #ifdef CONFIG_SECURITY_NETWORK
@@ -2769,10 +2870,9 @@ static inline int security_socket_getpeersec_stream(struct socket *sock, char __
 	return security_ops->socket_getpeersec_stream(sock, optval, optlen, len);
 }
 
-static inline int security_socket_getpeersec_dgram(struct sk_buff *skb, char **secdata,
-						   u32 *seclen)
+static inline int security_socket_getpeersec_dgram(struct socket *sock, struct sk_buff *skb, u32 *secid)
 {
-	return security_ops->socket_getpeersec_dgram(skb, secdata, seclen);
+	return security_ops->socket_getpeersec_dgram(sock, skb, secid);
 }
 
 static inline int security_sk_alloc(struct sock *sk, int family, gfp_t priority)
@@ -2897,8 +2997,7 @@ static inline int security_socket_getpeersec_stream(struct socket *sock, char __
 	return -ENOPROTOOPT;
 }
 
-static inline int security_socket_getpeersec_dgram(struct sk_buff *skb, char **secdata,
-						   u32 *seclen)
+static inline int security_socket_getpeersec_dgram(struct socket *sock, struct sk_buff *skb, u32 *secid)
 {
 	return -ENOPROTOOPT;
 }
@@ -2934,9 +3033,19 @@ static inline void security_xfrm_policy_free(struct xfrm_policy *xp)
 	security_ops->xfrm_policy_free_security(xp);
 }
 
+static inline int security_xfrm_policy_delete(struct xfrm_policy *xp)
+{
+	return security_ops->xfrm_policy_delete_security(xp);
+}
+
 static inline int security_xfrm_state_alloc(struct xfrm_state *x, struct xfrm_user_sec_ctx *sec_ctx)
 {
 	return security_ops->xfrm_state_alloc_security(x, sec_ctx);
+}
+
+static inline int security_xfrm_state_delete(struct xfrm_state *x)
+{
+	return security_ops->xfrm_state_delete_security(x);
 }
 
 static inline void security_xfrm_state_free(struct xfrm_state *x)
@@ -2963,6 +3072,11 @@ static inline void security_xfrm_policy_free(struct xfrm_policy *xp)
 {
 }
 
+static inline int security_xfrm_policy_delete(struct xfrm_policy *xp)
+{
+	return 0;
+}
+
 static inline int security_xfrm_state_alloc(struct xfrm_state *x, struct xfrm_user_sec_ctx *sec_ctx)
 {
 	return 0;
@@ -2970,6 +3084,11 @@ static inline int security_xfrm_state_alloc(struct xfrm_state *x, struct xfrm_us
 
 static inline void security_xfrm_state_free(struct xfrm_state *x)
 {
+}
+
+static inline int security_xfrm_state_delete(struct xfrm_state *x)
+{
+	return 0;
 }
 
 static inline int security_xfrm_policy_lookup(struct xfrm_policy *xp, u32 sk_sid, u8 dir)
@@ -2980,9 +3099,11 @@ static inline int security_xfrm_policy_lookup(struct xfrm_policy *xp, u32 sk_sid
 
 #ifdef CONFIG_KEYS
 #ifdef CONFIG_SECURITY
-static inline int security_key_alloc(struct key *key)
+static inline int security_key_alloc(struct key *key,
+				     struct task_struct *tsk,
+				     unsigned long flags)
 {
-	return security_ops->key_alloc(key);
+	return security_ops->key_alloc(key, tsk, flags);
 }
 
 static inline void security_key_free(struct key *key)
@@ -2999,7 +3120,9 @@ static inline int security_key_permission(key_ref_t key_ref,
 
 #else
 
-static inline int security_key_alloc(struct key *key)
+static inline int security_key_alloc(struct key *key,
+				     struct task_struct *tsk,
+				     unsigned long flags)
 {
 	return 0;
 }

@@ -25,7 +25,6 @@
  *  with this program; if not, write  to the Free Software Foundation, Inc.,
  *  675 Mass Ave, Cambridge, MA 02139, USA.
  */
-#include <linux/config.h>
 #include <linux/init.h>
 #include <linux/sched.h>
 #include <linux/ioport.h>
@@ -49,17 +48,12 @@ extern void __init board_setup(void);
 extern void au1000_restart(char *);
 extern void au1000_halt(void);
 extern void au1000_power_off(void);
-extern struct resource ioport_resource;
-extern struct resource iomem_resource;
-extern void (*board_time_init)(void);
 extern void au1x_time_init(void);
-extern void (*board_timer_setup)(struct irqaction *irq);
 extern void au1x_timer_setup(struct irqaction *irq);
 extern void au1xxx_time_init(void);
-extern void au1xxx_timer_setup(struct irqaction *irq);
 extern void set_cpuspec(void);
 
-void __init plat_setup(void)
+void __init plat_mem_setup(void)
 {
 	struct	cpu_spec *sp;
 	char *argptr;
@@ -128,7 +122,6 @@ void __init plat_setup(void)
 	_machine_halt = au1000_halt;
 	pm_power_off = au1000_power_off;
 	board_time_init = au1xxx_time_init;
-	board_timer_setup = au1xxx_timer_setup;
 
 	/* IO/MEM resources. */
 	set_io_port_base(0);

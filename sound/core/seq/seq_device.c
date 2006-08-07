@@ -80,7 +80,7 @@ static LIST_HEAD(opslist);
 static int num_ops;
 static DEFINE_MUTEX(ops_mutex);
 #ifdef CONFIG_PROC_FS
-static struct snd_info_entry *info_entry = NULL;
+static struct snd_info_entry *info_entry;
 #endif
 
 /*
@@ -372,14 +372,19 @@ static struct ops_list * create_driver(char *id)
 {
 	struct ops_list *ops;
 
-	ops = kmalloc(sizeof(*ops), GFP_KERNEL);
+	ops = kzalloc(sizeof(*ops), GFP_KERNEL);
 	if (ops == NULL)
 		return ops;
-	memset(ops, 0, sizeof(*ops));
 
 	/* set up driver entry */
 	strlcpy(ops->id, id, sizeof(ops->id));
 	mutex_init(&ops->reg_mutex);
+	/*
+	 * The ->reg_mutex locking rules are per-driver, so we create
+	 * separate per-driver lock classes:
+	 */
+	lockdep_set_class(&ops->reg_mutex, (struct lock_class_key *)id);
+
 	ops->driver = DRIVER_EMPTY;
 	INIT_LIST_HEAD(&ops->dev_list);
 	/* lock this instance */
@@ -555,7 +560,6 @@ static int __init alsa_seq_device_init(void)
 	if (info_entry == NULL)
 		return -ENOMEM;
 	info_entry->content = SNDRV_INFO_CONTENT_TEXT;
-	info_entry->c.text.read_size = 2048;
 	info_entry->c.text.read = snd_seq_device_info;
 	if (snd_info_register(info_entry) < 0) {
 		snd_info_free_entry(info_entry);

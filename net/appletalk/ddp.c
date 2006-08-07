@@ -51,7 +51,6 @@
  * 
  */
 
-#include <linux/config.h>
 #include <linux/capability.h>
 #include <linux/module.h>
 #include <linux/if_arp.h>
@@ -228,12 +227,11 @@ static void atif_drop_device(struct net_device *dev)
 static struct atalk_iface *atif_add_device(struct net_device *dev,
 					   struct atalk_addr *sa)
 {
-	struct atalk_iface *iface = kmalloc(sizeof(*iface), GFP_KERNEL);
+	struct atalk_iface *iface = kzalloc(sizeof(*iface), GFP_KERNEL);
 
 	if (!iface)
 		goto out;
 
-	memset(iface, 0, sizeof(*iface));
 	dev_hold(dev);
 	iface->dev = dev;
 	dev->atalk_ptr = iface;
@@ -560,12 +558,11 @@ static int atrtr_create(struct rtentry *r, struct net_device *devhint)
 	}
 
 	if (!rt) {
-		rt = kmalloc(sizeof(*rt), GFP_ATOMIC);
+		rt = kzalloc(sizeof(*rt), GFP_ATOMIC);
 
 		retval = -ENOBUFS;
 		if (!rt)
 			goto out_unlock;
-		memset(rt, 0, sizeof(*rt));
 
 		rt->next = atalk_routes;
 		atalk_routes = rt;

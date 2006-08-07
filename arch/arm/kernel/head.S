@@ -11,7 +11,6 @@
  *
  *  Kernel startup code for all 32-bit CPUs
  */
-#include <linux/config.h>
 #include <linux/linkage.h>
 #include <linux/init.h>
 
@@ -71,7 +70,7 @@
 	__INIT
 	.type	stext, %function
 ENTRY(stext)
-	msr	cpsr_c, #PSR_F_BIT | PSR_I_BIT | MODE_SVC @ ensure svc mode
+	msr	cpsr_c, #PSR_F_BIT | PSR_I_BIT | SVC_MODE @ ensure svc mode
 						@ and irqs disabled
 	mrc	p15, 0, r9, c0, c0		@ get processor id
 	bl	__lookup_processor_type		@ r5=procinfo r9=cpuid
@@ -104,7 +103,7 @@ ENTRY(secondary_startup)
 	 * the processor type - there is no need to check the machine type
 	 * as it has already been validated by the primary processor.
 	 */
-	msr	cpsr_c, #PSR_F_BIT | PSR_I_BIT | MODE_SVC
+	msr	cpsr_c, #PSR_F_BIT | PSR_I_BIT | SVC_MODE
 	mrc	p15, 0, r9, c0, c0		@ get processor id
 	bl	__lookup_processor_type
 	movs	r10, r5				@ invalid processor?
@@ -115,9 +114,9 @@ ENTRY(secondary_startup)
 	 * Use the page tables supplied from  __cpu_up.
 	 */
 	adr	r4, __secondary_data
-	ldmia	r4, {r5, r6, r13}		@ address to jump to after
+	ldmia	r4, {r5, r7, r13}		@ address to jump to after
 	sub	r4, r4, r5			@ mmu has been enabled
-	ldr	r4, [r6, r4]			@ get secondary_data.pgdir
+	ldr	r4, [r7, r4]			@ get secondary_data.pgdir
 	adr	lr, __enable_mmu		@ return address
 	add	pc, r10, #12			@ initialise processor
 						@ (return control reg)
@@ -126,7 +125,7 @@ ENTRY(secondary_startup)
 	 * r6  = &secondary_data
 	 */
 ENTRY(__secondary_switched)
-	ldr	sp, [r6, #4]			@ get secondary_data.stack
+	ldr	sp, [r7, #4]			@ get secondary_data.stack
 	mov	fp, #0
 	b	secondary_start_kernel
 
@@ -221,7 +220,7 @@ __create_page_tables:
 	teq	r0, r6
 	bne	1b
 
-	ldr	r7, [r10, #PROCINFO_MMUFLAGS]	@ mmuflags
+	ldr	r7, [r10, #PROCINFO_MM_MMUFLAGS] @ mm_mmuflags
 
 	/*
 	 * Create identity mapping for first MB of kernel to
@@ -272,8 +271,7 @@ __create_page_tables:
 #endif
 
 #ifdef CONFIG_DEBUG_LL
-	bic	r7, r7, #0x0c			@ turn off cacheable
-						@ and bufferable bits
+	ldr	r7, [r10, #PROCINFO_IO_MMUFLAGS] @ io_mmuflags
 	/*
 	 * Map in IO space for serial debugging.
 	 * This allows debug messages to be output

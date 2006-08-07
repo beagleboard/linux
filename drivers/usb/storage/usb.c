@@ -47,7 +47,6 @@
  * 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#include <linux/config.h>
 #include <linux/sched.h>
 #include <linux/errno.h>
 #include <linux/suspend.h>
@@ -56,6 +55,7 @@
 #include <linux/slab.h>
 #include <linux/kthread.h>
 #include <linux/mutex.h>
+#include <linux/utsrelease.h>
 
 #include <scsi/scsi.h>
 #include <scsi/scsi_cmnd.h>
@@ -221,6 +221,37 @@ static int storage_resume(struct usb_interface *iface)
 #endif /* CONFIG_PM */
 
 /*
+ * The next two routines get called just before and just after
+ * a USB port reset, whether from this driver or a different one.
+ */
+
+static void storage_pre_reset(struct usb_interface *iface)
+{
+	struct us_data *us = usb_get_intfdata(iface);
+
+	US_DEBUGP("%s\n", __FUNCTION__);
+
+	/* Make sure no command runs during the reset */
+	mutex_lock(&us->dev_mutex);
+}
+
+static void storage_post_reset(struct usb_interface *iface)
+{
+	struct us_data *us = usb_get_intfdata(iface);
+
+	US_DEBUGP("%s\n", __FUNCTION__);
+
+	/* Report the reset to the SCSI core */
+	scsi_lock(us_to_host(us));
+	usb_stor_report_bus_reset(us);
+	scsi_unlock(us_to_host(us));
+
+	/* FIXME: Notify the subdrivers that they need to reinitialize
+	 * the device */
+	mutex_unlock(&us->dev_mutex);
+}
+
+/*
  * fill_inquiry_response takes an unsigned char array (which must
  * be at least 36 characters) and populates the vendor name,
  * product name, and revision fields. Then the array is copied
@@ -343,8 +374,12 @@ static int usb_stor_control_thread(void * __us)
 		/* lock access to the state */
 		scsi_lock(host);
 
+		/* did the command already complete because of a disconnect? */
+		if (!us->srb)
+			;		/* nothing to do */
+
 		/* indicate that the command is done */
-		if (us->srb->result != DID_ABORT << 16) {
+		else if (us->srb->result != DID_ABORT << 16) {
 			US_DEBUGP("scsi cmd done, result=0x%x\n", 
 				   us->srb->result);
 			us->srb->scsi_done(us->srb);
@@ -448,7 +483,7 @@ static struct us_unusual_dev *find_unusual(const struct usb_device_id *id)
 }
 
 /* Get the unusual_devs entries and the string descriptors */
-static void get_device_info(struct us_data *us, const struct usb_device_id *id)
+static int get_device_info(struct us_data *us, const struct usb_device_id *id)
 {
 	struct usb_device *dev = us->pusb_dev;
 	struct usb_interface_descriptor *idesc =
@@ -464,6 +499,11 @@ static void get_device_info(struct us_data *us, const struct usb_device_id *id)
 			idesc->bInterfaceProtocol :
 			unusual_dev->useTransport;
 	us->flags = USB_US_ORIG_FLAGS(id->driver_info);
+
+	if (us->flags & US_FL_IGNORE_DEVICE) {
+		printk(KERN_INFO USB_STORAGE "device ignored\n");
+		return -ENODEV;
+	}
 
 	/*
 	 * This flag is only needed when we're in high-speed, so let's
@@ -494,7 +534,8 @@ static void get_device_info(struct us_data *us, const struct usb_device_id *id)
 		if (msg >= 0 && !(us->flags & US_FL_NEED_OVERRIDE))
 			printk(KERN_NOTICE USB_STORAGE "This device "
 				"(%04x,%04x,%04x S %02x P %02x)"
-				" has %s in unusual_devs.h\n"
+				" has %s in unusual_devs.h (kernel"
+				" %s)\n"
 				"   Please send a copy of this message to "
 				"<linux-usb-devel@lists.sourceforge.net>\n",
 				le16_to_cpu(ddesc->idVendor),
@@ -502,8 +543,11 @@ static void get_device_info(struct us_data *us, const struct usb_device_id *id)
 				le16_to_cpu(ddesc->bcdDevice),
 				idesc->bInterfaceSubClass,
 				idesc->bInterfaceProtocol,
-				msgs[msg]);
+				msgs[msg],
+				UTS_RELEASE);
 	}
+
+	return 0;
 }
 
 /* Get the transport settings */
@@ -593,6 +637,15 @@ static int get_transport(struct us_data *us)
 		break;
 #endif
 
+#ifdef CONFIG_USB_STORAGE_ALAUDA
+	case US_PR_ALAUDA:
+		us->transport_name  = "Alauda Control/Bulk";
+		us->transport = alauda_transport;
+		us->transport_reset = usb_stor_Bulk_reset;
+		us->max_lun = 1;
+		break;
+#endif
+
 	default:
 		return -EIO;
 	}
@@ -645,15 +698,6 @@ static int get_protocol(struct us_data *us)
 	case US_SC_ISD200:
 		us->protocol_name = "ISD200 ATA/ATAPI";
 		us->proto_handler = isd200_ata_command;
-		break;
-#endif
-
-#ifdef CONFIG_USB_STORAGE_ALAUDA
-	case US_PR_ALAUDA:
-		us->transport_name  = "Alauda Control/Bulk";
-		us->transport = alauda_transport;
-		us->transport_reset = usb_stor_Bulk_reset;
-		us->max_lun = 1;
 		break;
 #endif
 
@@ -806,32 +850,34 @@ static void dissociate_dev(struct us_data *us)
  * the host */
 static void quiesce_and_remove_host(struct us_data *us)
 {
+	struct Scsi_Host *host = us_to_host(us);
+
 	/* Prevent new USB transfers, stop the current command, and
 	 * interrupt a SCSI-scan or device-reset delay */
+	scsi_lock(host);
 	set_bit(US_FLIDX_DISCONNECTING, &us->flags);
+	scsi_unlock(host);
 	usb_stor_stop_transport(us);
 	wake_up(&us->delay_wait);
 
 	/* It doesn't matter if the SCSI-scanning thread is still running.
 	 * The thread will exit when it sees the DISCONNECTING flag. */
 
-	/* Wait for the current command to finish, then remove the host */
-	mutex_lock(&us->dev_mutex);
-	mutex_unlock(&us->dev_mutex);
-
 	/* queuecommand won't accept any new commands and the control
 	 * thread won't execute a previously-queued command.  If there
 	 * is such a command pending, complete it with an error. */
+	mutex_lock(&us->dev_mutex);
 	if (us->srb) {
 		us->srb->result = DID_NO_CONNECT << 16;
-		scsi_lock(us_to_host(us));
+		scsi_lock(host);
 		us->srb->scsi_done(us->srb);
 		us->srb = NULL;
-		scsi_unlock(us_to_host(us));
+		scsi_unlock(host);
 	}
+	mutex_unlock(&us->dev_mutex);
 
 	/* Now we own no commands so it's safe to remove the SCSI host */
-	scsi_remove_host(us_to_host(us));
+	scsi_remove_host(host);
 }
 
 /* Second stage of disconnect processing: deallocate all resources */
@@ -930,7 +976,9 @@ static int storage_probe(struct usb_interface *intf,
 	 * of the match from the usb_device_id table, so we can find the
 	 * corresponding entry in the private table.
 	 */
-	get_device_info(us, id);
+	result = get_device_info(us, id);
+	if (result)
+		goto BadDevice;
 
 	/* Get the transport, protocol, and pipe settings */
 	result = get_transport(us);
@@ -1002,6 +1050,8 @@ static struct usb_driver usb_storage_driver = {
 	.suspend =	storage_suspend,
 	.resume =	storage_resume,
 #endif
+	.pre_reset =	storage_pre_reset,
+	.post_reset =	storage_post_reset,
 	.id_table =	storage_usb_ids,
 };
 

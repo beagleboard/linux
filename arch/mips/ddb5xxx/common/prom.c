@@ -7,7 +7,6 @@
  * Free Software Foundation;  either version 2 of the  License, or (at your
  * option) any later version.
  */
-#include <linux/config.h>
 #include <linux/init.h>
 #include <linux/mm.h>
 #include <linux/sched.h>
@@ -21,8 +20,6 @@
 const char *get_system_type(void)
 {
 	switch (mips_machtype) {
-	case MACH_NEC_DDB5074:		return "NEC DDB Vrc-5074";
-	case MACH_NEC_DDB5476:		return "NEC DDB Vrc-5476";
 	case MACH_NEC_DDB5477:		return "NEC DDB Vrc-5477";
 	case MACH_NEC_ROCKHOPPER:	return "NEC Rockhopper";
 	case MACH_NEC_ROCKHOPPERII:     return "NEC RockhopperII";
@@ -56,13 +53,7 @@ void __init prom_init(void)
 
 	mips_machgroup = MACH_GROUP_NEC_DDB;
 
-#if defined(CONFIG_DDB5074)
-	mips_machtype = MACH_NEC_DDB5074;
-	add_memory_region(0, DDB_SDRAM_SIZE, BOOT_MEM_RAM);
-#elif defined(CONFIG_DDB5476)
-	mips_machtype = MACH_NEC_DDB5476;
-	add_memory_region(0, DDB_SDRAM_SIZE, BOOT_MEM_RAM);
-#elif defined(CONFIG_DDB5477)
+#if defined(CONFIG_DDB5477)
 	ddb5477_runtime_detection();
 	add_memory_region(0, board_ram_size, BOOT_MEM_RAM);
 #endif

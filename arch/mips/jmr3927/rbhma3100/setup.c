@@ -33,7 +33,6 @@
  ***********************************************************************
  */
 
-#include <linux/config.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/kdev_t.h>
@@ -41,6 +40,7 @@
 #include <linux/sched.h>
 #include <linux/pci.h>
 #include <linux/ide.h>
+#include <linux/irq.h>
 #include <linux/ioport.h>
 #include <linux/param.h>	/* for HZ */
 #include <linux/delay.h>
@@ -82,17 +82,54 @@ struct {
     struct resource sio0;
     struct resource sio1;
 } jmr3927_resources = {
-    { "RAM0",           0,         0x01FFFFFF,  IORESOURCE_MEM },
-    { "RAM1",          0x02000000, 0x03FFFFFF,  IORESOURCE_MEM },
-    { "PCIMEM",        0x08000000, 0x07FFFFFF,  IORESOURCE_MEM },
-    { "IOB",           0x10000000, 0x13FFFFFF                  },
-    { "IOC",           0x14000000, 0x14FFFFFF                  },
-    { "PCIIO",         0x15000000, 0x15FFFFFF                  },
-    { "JMY1394",       0x1D000000, 0x1D3FFFFF                  },
-    { "ROM1",          0x1E000000, 0x1E3FFFFF                  },
-    { "ROM0",          0x1FC00000, 0x1FFFFFFF                  },
-    { "SIO0",          0xFFFEF300, 0xFFFEF3FF                  },
-    { "SIO1",          0xFFFEF400, 0xFFFEF4FF                  },
+	{
+		.start	= 0,
+		.end	= 0x01FFFFFF,
+		.name	= "RAM0",
+		.flags = IORESOURCE_MEM
+	}, {
+		.start	= 0x02000000,
+		.end	= 0x03FFFFFF,
+		.name	= "RAM1",
+		.flags = IORESOURCE_MEM
+	}, {
+		.start	= 0x08000000,
+		.end	= 0x07FFFFFF,
+		.name	= "PCIMEM",
+		.flags = IORESOURCE_MEM
+	}, {
+		.start	= 0x10000000,
+		.end	= 0x13FFFFFF,
+		.name	= "IOB"
+	}, {
+		.start	= 0x14000000,
+		.end	= 0x14FFFFFF,
+		.name	= "IOC"
+	}, {
+		.start	= 0x15000000,
+		.end	= 0x15FFFFFF,
+		.name	= "PCIIO"
+	}, {
+		.start	= 0x1D000000,
+		.end	= 0x1D3FFFFF,
+		.name	= "JMY1394"
+	}, {
+		.start	= 0x1E000000,
+		.end	= 0x1E3FFFFF,
+		.name	= "ROM1"
+	}, {
+		.start	= 0x1FC00000,
+		.end	= 0x1FFFFFFF,
+		.name	= "ROM0"
+	}, {
+		.start	= 0xFFFEF300,
+		.end	= 0xFFFEF3FF,
+		.name	= "SIO0"
+	}, {
+		.start	= 0xFFFEF400,
+		.end	= 0xFFFEF4FF,
+		.name	= "SIO1"
+	},
 };
 
 /* don't enable - see errata */
@@ -147,9 +184,8 @@ static void __init jmr3927_time_init(void)
 }
 
 unsigned long jmr3927_do_gettimeoffset(void);
-extern int setup_irq(unsigned int irq, struct irqaction *irqaction);
 
-static void __init jmr3927_timer_setup(struct irqaction *irq)
+void __init plat_timer_setup(struct irqaction *irq)
 {
 	do_gettimeoffset = jmr3927_do_gettimeoffset;
 
@@ -201,14 +237,13 @@ static void jmr3927_board_init(void);
 extern struct resource pci_io_resource;
 extern struct resource pci_mem_resource;
 
-void __init plat_setup(void)
+void __init plat_mem_setup(void)
 {
 	char *argptr;
 
 	set_io_port_base(JMR3927_PORT_BASE + JMR3927_PCIIO);
 
 	board_time_init = jmr3927_time_init;
-	board_timer_setup = jmr3927_timer_setup;
 
 	_machine_restart = jmr3927_machine_restart;
 	_machine_halt = jmr3927_machine_halt;

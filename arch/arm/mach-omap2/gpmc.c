@@ -13,8 +13,6 @@
 #include <linux/init.h>
 #include <linux/err.h>
 #include <linux/clk.h>
-#include <linux/ioport.h>
-#include <linux/spinlock.h>
 
 #include <asm/io.h>
 #include <asm/arch/gpmc.h>
@@ -42,19 +40,6 @@
 
 #define GPMC_CS0		0x60
 #define GPMC_CS_SIZE		0x30
-
-#define GPMC_CS_NUM		8
-#define GPMC_MEM_START		0x00000000
-#define GPMC_MEM_END		0x3FFFFFFF
-#define BOOT_ROM_SPACE		0x100000	/* 1MB */
-
-#define GPMC_CHUNK_SHIFT	24		/* 16 MB */
-#define GPMC_SECTION_SHIFT	28		/* 128 MB */
-
-static struct resource	gpmc_mem_root;
-static struct resource	gpmc_cs_mem[GPMC_CS_NUM];
-static spinlock_t	gpmc_mem_lock = SPIN_LOCK_UNLOCKED;
-static unsigned		gpmc_cs_map;
 
 static void __iomem *gpmc_base =
 	(void __iomem *) IO_ADDRESS(GPMC_BASE);
@@ -101,13 +86,6 @@ unsigned int gpmc_ns_to_ticks(unsigned int time_ns)
 	tick_ps = gpmc_get_fclk_period();
 
 	return (time_ns * 1000 + tick_ps - 1) / tick_ps;
-}
-
-unsigned int gpmc_round_ns_to_ticks(unsigned int time_ns)
-{
-	unsigned long ticks = gpmc_ns_to_ticks(time_ns);
-
-	return ticks * gpmc_get_fclk_period() / 1000;
 }
 
 #ifdef DEBUG
@@ -163,7 +141,7 @@ int gpmc_cs_calc_divider(int cs, unsigned int sync_clk)
 	div = l / gpmc_get_fclk_period();
 	if (div > 4)
 		return -1;
-	if (div <= 0)
+	if (div < 0)
 		div = 1;
 
 	return div;
@@ -205,173 +183,13 @@ int gpmc_cs_set_timings(int cs, const struct gpmc_timings *t)
 	l = gpmc_cs_read_reg(cs, GPMC_CS_CONFIG1);
 	l &= ~0x03;
 	l |= (div - 1);
-	gpmc_cs_write_reg(cs, GPMC_CS_CONFIG1, l);
 
 	return 0;
 }
 
-static void gpmc_cs_enable_mem(int cs, u32 base, u32 size)
+unsigned long gpmc_cs_get_base_addr(int cs)
 {
-	u32 l;
-	u32 mask;
-
-	mask = (1 << GPMC_SECTION_SHIFT) - size;
-	l = gpmc_cs_read_reg(cs, GPMC_CS_CONFIG7);
-	l &= ~0x3f;
-	l = (base >> GPMC_CHUNK_SHIFT) & 0x3f;
-	l &= ~(0x0f << 8);
-	l |= ((mask >> GPMC_CHUNK_SHIFT) & 0x0f) << 8;
-	l |= 1 << 6;		/* CSVALID */
-	gpmc_cs_write_reg(cs, GPMC_CS_CONFIG7, l);
-}
-
-static void gpmc_cs_disable_mem(int cs)
-{
-	u32 l;
-
-	l = gpmc_cs_read_reg(cs, GPMC_CS_CONFIG7);
-	l &= ~(1 << 6);		/* CSVALID */
-	gpmc_cs_write_reg(cs, GPMC_CS_CONFIG7, l);
-}
-
-static void gpmc_cs_get_memconf(int cs, u32 *base, u32 *size)
-{
-	u32 l;
-	u32 mask;
-
-	l = gpmc_cs_read_reg(cs, GPMC_CS_CONFIG7);
-	*base = (l & 0x3f) << GPMC_CHUNK_SHIFT;
-	mask = (l >> 8) & 0x0f;
-	*size = (1 << GPMC_SECTION_SHIFT) - (mask << GPMC_CHUNK_SHIFT);
-}
-
-static int gpmc_cs_mem_enabled(int cs)
-{
-	u32 l;
-
-	l = gpmc_cs_read_reg(cs, GPMC_CS_CONFIG7);
-	return l & (1 << 6);
-}
-
-static void gpmc_cs_set_reserved(int cs, int reserved)
-{
-	gpmc_cs_map &= ~(1 << cs);
-	gpmc_cs_map |= (reserved ? 1 : 0) << cs;
-}
-
-static int gpmc_cs_reserved(int cs)
-{
-	return gpmc_cs_map & (1 << cs);
-}
-
-static unsigned long gpmc_mem_align(unsigned long size)
-{
-	int order;
-
-	size = (size - 1) >> (GPMC_CHUNK_SHIFT - 1);
-	order = GPMC_CHUNK_SHIFT - 1;
-	do {
-		size >>= 1;
-		order++;
-	} while (size);
-	size = 1 << order;
-	return size;
-}
-
-static int gpmc_cs_insert_mem(int cs, unsigned long base, unsigned long size)
-{
-	struct resource	*res = &gpmc_cs_mem[cs];
-	int r;
-
-	size = gpmc_mem_align(size);
-	spin_lock(&gpmc_mem_lock);
-	res->start = base;
-	res->end = base + size - 1;
-	r = request_resource(&gpmc_mem_root, res);
-	spin_unlock(&gpmc_mem_lock);
-
-	return r;
-}
-
-int gpmc_cs_request(int cs, unsigned long size, unsigned long *base)
-{
-	struct resource *res = &gpmc_cs_mem[cs];
-	int r = -1;
-
-	if (cs > GPMC_CS_NUM)
-		return -ENODEV;
-
-	size = gpmc_mem_align(size);
-	if (size > (1 << GPMC_SECTION_SHIFT))
-		return -ENOMEM;
-
-	spin_lock(&gpmc_mem_lock);
-	if (gpmc_cs_reserved(cs)) {
-		r = -EBUSY;
-		goto out;
-	}
-	if (gpmc_cs_mem_enabled(cs))
-		r = adjust_resource(res, res->start & ~(size - 1), size);
-	if (r < 0)
-		r = allocate_resource(&gpmc_mem_root, res, size, 0, ~0,
-				      size, NULL, NULL);
-	if (r < 0)
-		goto out;
-
-	gpmc_cs_enable_mem(cs, res->start, res->end - res->start + 1);
-	*base = res->start;
-	gpmc_cs_set_reserved(cs, 1);
-out:
-	spin_unlock(&gpmc_mem_lock);
-	return r;
-}
-
-void gpmc_cs_free(int cs)
-{
-	spin_lock(&gpmc_mem_lock);
-	if (cs >= GPMC_CS_NUM || !gpmc_cs_reserved(cs)) {
-		printk(KERN_ERR "Trying to free non-reserved GPMC CS%d\n", cs);
-		BUG();
-		spin_unlock(&gpmc_mem_lock);
-		return;
-	}
-	gpmc_cs_disable_mem(cs);
-	release_resource(&gpmc_cs_mem[cs]);
-	gpmc_cs_set_reserved(cs, 0);
-	spin_unlock(&gpmc_mem_lock);
-}
-
-void __init gpmc_mem_init(void)
-{
-	int cs;
-	unsigned long boot_rom_space = 0;
-
-	if (cpu_is_omap242x()) {
-		u32 l;
-		l = omap_readl(OMAP242X_CONTROL_STATUS);
-		/* In case of internal boot the 1st MB is redirected to the
-		 * boot ROM memory space.
-		 */
-		if (l & (1 << 3))
-			boot_rom_space = BOOT_ROM_SPACE;
-	} else
-		/* We assume internal boot if the mode can't be
-		 * determined.
-		 */
-		boot_rom_space = BOOT_ROM_SPACE;
-	gpmc_mem_root.start = GPMC_MEM_START + boot_rom_space;
-	gpmc_mem_root.end = GPMC_MEM_END;
-
-	/* Reserve all regions that has been set up by bootloader */
-	for (cs = 0; cs < GPMC_CS_NUM; cs++) {
-		u32 base, size;
-
-		if (!gpmc_cs_mem_enabled(cs))
-			continue;
-		gpmc_cs_get_memconf(cs, &base, &size);
-		if (gpmc_cs_insert_mem(cs, base, size) < 0)
-			BUG();
-	}
+	return (gpmc_cs_read_reg(cs, GPMC_CS_CONFIG7) & 0x1f) << 24;
 }
 
 void __init gpmc_init(void)
@@ -388,6 +206,4 @@ void __init gpmc_init(void)
 	l &= 0x03 << 3;
 	l |= (0x02 << 3) | (1 << 0);
 	gpmc_write_reg(GPMC_SYSCONFIG, l);
-
-	gpmc_mem_init();
 }

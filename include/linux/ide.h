@@ -6,7 +6,6 @@
  *  Copyright (C) 1994-2002  Linus Torvalds & authors
  */
 
-#include <linux/config.h>
 #include <linux/init.h>
 #include <linux/ioport.h>
 #include <linux/hdreg.h>
@@ -553,7 +552,6 @@ typedef struct ide_drive_s {
 	struct hd_driveid	*id;	/* drive model identification info */
 	struct proc_dir_entry *proc;	/* /proc/ide/ directory entry */
 	struct ide_settings_s *settings;/* /proc/ide/ drive settings */
-	char		devfs_name[64];	/* devfs crap */
 
 	struct hwif_s		*hwif;	/* actually (ide_hwif_t *) */
 
@@ -573,6 +571,7 @@ typedef struct ide_drive_s {
 	u8	waiting_for_dma;	/* dma currently in progress */
 	u8	unmask;			/* okay to unmask other irqs */
 	u8	bswap;			/* byte swap data */
+	u8	noflush;		/* don't attempt flushes */
 	u8	dsc_overlap;		/* DSC overlap */
 	u8	nice1;			/* give potential excess bandwidth */
 
@@ -631,6 +630,7 @@ typedef struct ide_drive_s {
 	unsigned int	usage;		/* current "open()" count for drive */
 	unsigned int	failures;	/* current failure count */
 	unsigned int	max_failures;	/* maximum allowed failure count */
+	u64		probed_capacity;/* initial reported media capacity (ide-cd only currently) */
 
 	u64		capacity64;	/* total number of sectors */
 
@@ -793,6 +793,7 @@ typedef struct hwif_s {
 	unsigned	auto_poll  : 1; /* supports nop auto-poll */
 	unsigned	sg_mapped  : 1;	/* sg_table and sg_nents are ready */
 	unsigned	no_io_32bit : 1; /* 1 = can not do 32-bit IO ops */
+	unsigned	err_stops_fifo : 1; /* 1=data FIFO is cleared by an error */
 
 	struct device	gendev;
 	struct completion gendev_rel_comp; /* To deal with device release() */
@@ -1006,6 +1007,8 @@ extern	ide_hwif_t	ide_hwifs[];		/* master data repository */
 extern int noautodma;
 
 extern int ide_end_request (ide_drive_t *drive, int uptodate, int nrsecs);
+int ide_end_dequeued_request(ide_drive_t *drive, struct request *rq,
+			     int uptodate, int nr_sectors);
 
 /*
  * This is used on exit from the driver to designate the next irq handler
@@ -1357,7 +1360,7 @@ extern struct semaphore ide_cfg_sem;
  * ide_drive_t->hwif: constant, no locking
  */
 
-#define local_irq_set(flags)	do { local_save_flags((flags)); local_irq_enable(); } while (0)
+#define local_irq_set(flags)	do { local_save_flags((flags)); local_irq_enable_in_hardirq(); } while (0)
 
 extern struct bus_type ide_bus_type;
 

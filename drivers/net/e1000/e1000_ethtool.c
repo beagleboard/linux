@@ -1,7 +1,7 @@
 /*******************************************************************************
 
   
-  Copyright(c) 1999 - 2005 Intel Corporation. All rights reserved.
+  Copyright(c) 1999 - 2006 Intel Corporation. All rights reserved.
   
   This program is free software; you can redistribute it and/or modify it 
   under the terms of the GNU General Public License as published by the Free 
@@ -22,6 +22,7 @@
   
   Contact Information:
   Linux NICS <linux.nics@intel.com>
+  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
   Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
 
 *******************************************************************************/
@@ -108,7 +109,8 @@ e1000_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
 		                   SUPPORTED_1000baseT_Full|
 		                   SUPPORTED_Autoneg |
 		                   SUPPORTED_TP);
-
+		if (hw->phy_type == e1000_phy_ife)
+			ecmd->supported &= ~SUPPORTED_1000baseT_Full;
 		ecmd->advertising = ADVERTISED_TP;
 
 		if (hw->autoneg == 1) {
@@ -202,11 +204,9 @@ e1000_set_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
 
 	/* reset the link */
 
-	if (netif_running(adapter->netdev)) {
-		e1000_down(adapter);
-		e1000_reset(adapter);
-		e1000_up(adapter);
-	} else
+	if (netif_running(adapter->netdev))
+		e1000_reinit_locked(adapter);
+	else
 		e1000_reset(adapter);
 
 	return 0;
@@ -253,10 +253,9 @@ e1000_set_pauseparam(struct net_device *netdev,
 	hw->original_fc = hw->fc;
 
 	if (adapter->fc_autoneg == AUTONEG_ENABLE) {
-		if (netif_running(adapter->netdev)) {
-			e1000_down(adapter);
-			e1000_up(adapter);
-		} else
+		if (netif_running(adapter->netdev))
+			e1000_reinit_locked(adapter);
+		else
 			e1000_reset(adapter);
 	} else
 		return ((hw->media_type == e1000_media_type_fiber) ?
@@ -278,10 +277,9 @@ e1000_set_rx_csum(struct net_device *netdev, uint32_t data)
 	struct e1000_adapter *adapter = netdev_priv(netdev);
 	adapter->rx_csum = data;
 
-	if (netif_running(netdev)) {
-		e1000_down(adapter);
-		e1000_up(adapter);
-	} else
+	if (netif_running(netdev))
+		e1000_reinit_locked(adapter);
+	else
 		e1000_reset(adapter);
 	return 0;
 }
@@ -576,6 +574,7 @@ e1000_get_drvinfo(struct net_device *netdev,
 	case e1000_82572:
 	case e1000_82573:
 	case e1000_80003es2lan:
+	case e1000_ich8lan:
 		sprintf(firmware_version, "%d.%d-%d",
 			(eeprom_data & 0xF000) >> 12,
 			(eeprom_data & 0x0FF0) >> 4,
@@ -629,6 +628,9 @@ e1000_set_ringparam(struct net_device *netdev,
 
 	tx_ring_size = sizeof(struct e1000_tx_ring) * adapter->num_tx_queues;
 	rx_ring_size = sizeof(struct e1000_rx_ring) * adapter->num_rx_queues;
+
+	while (test_and_set_bit(__E1000_RESETTING, &adapter->flags))
+		msleep(1);
 
 	if (netif_running(adapter->netdev))
 		e1000_down(adapter);
@@ -690,8 +692,10 @@ e1000_set_ringparam(struct net_device *netdev,
 		adapter->rx_ring = rx_new;
 		adapter->tx_ring = tx_new;
 		if ((err = e1000_up(adapter)))
-			return err;
+			goto err_setup;
 	}
+
+	clear_bit(__E1000_RESETTING, &adapter->flags);
 
 	return 0;
 err_setup_tx:
@@ -700,6 +704,8 @@ err_setup_rx:
 	adapter->rx_ring = rx_old;
 	adapter->tx_ring = tx_old;
 	e1000_up(adapter);
+err_setup:
+	clear_bit(__E1000_RESETTING, &adapter->flags);
 	return err;
 }
 
@@ -753,6 +759,7 @@ e1000_reg_test(struct e1000_adapter *adapter, uint64_t *data)
 		toggle = 0x7FFFF3FF;
 		break;
 	case e1000_82573:
+	case e1000_ich8lan:
 		toggle = 0x7FFFF033;
 		break;
 	default:
@@ -772,11 +779,12 @@ e1000_reg_test(struct e1000_adapter *adapter, uint64_t *data)
 	}
 	/* restore previous status */
 	E1000_WRITE_REG(&adapter->hw, STATUS, before);
-
-	REG_PATTERN_TEST(FCAL, 0xFFFFFFFF, 0xFFFFFFFF);
-	REG_PATTERN_TEST(FCAH, 0x0000FFFF, 0xFFFFFFFF);
-	REG_PATTERN_TEST(FCT, 0x0000FFFF, 0xFFFFFFFF);
-	REG_PATTERN_TEST(VET, 0x0000FFFF, 0xFFFFFFFF);
+	if (adapter->hw.mac_type != e1000_ich8lan) {
+		REG_PATTERN_TEST(FCAL, 0xFFFFFFFF, 0xFFFFFFFF);
+		REG_PATTERN_TEST(FCAH, 0x0000FFFF, 0xFFFFFFFF);
+		REG_PATTERN_TEST(FCT, 0x0000FFFF, 0xFFFFFFFF);
+		REG_PATTERN_TEST(VET, 0x0000FFFF, 0xFFFFFFFF);
+	}
 	REG_PATTERN_TEST(RDTR, 0x0000FFFF, 0xFFFFFFFF);
 	REG_PATTERN_TEST(RDBAH, 0xFFFFFFFF, 0xFFFFFFFF);
 	REG_PATTERN_TEST(RDLEN, 0x000FFF80, 0x000FFFFF);
@@ -789,20 +797,22 @@ e1000_reg_test(struct e1000_adapter *adapter, uint64_t *data)
 	REG_PATTERN_TEST(TDLEN, 0x000FFF80, 0x000FFFFF);
 
 	REG_SET_AND_CHECK(RCTL, 0xFFFFFFFF, 0x00000000);
-	REG_SET_AND_CHECK(RCTL, 0x06DFB3FE, 0x003FFFFB);
+	before = (adapter->hw.mac_type == e1000_ich8lan ?
+			0x06C3B33E : 0x06DFB3FE);
+	REG_SET_AND_CHECK(RCTL, before, 0x003FFFFB);
 	REG_SET_AND_CHECK(TCTL, 0xFFFFFFFF, 0x00000000);
 
 	if (adapter->hw.mac_type >= e1000_82543) {
 
-		REG_SET_AND_CHECK(RCTL, 0x06DFB3FE, 0xFFFFFFFF);
+		REG_SET_AND_CHECK(RCTL, before, 0xFFFFFFFF);
 		REG_PATTERN_TEST(RDBAL, 0xFFFFFFF0, 0xFFFFFFFF);
-		REG_PATTERN_TEST(TXCW, 0xC000FFFF, 0x0000FFFF);
+		if (adapter->hw.mac_type != e1000_ich8lan)
+			REG_PATTERN_TEST(TXCW, 0xC000FFFF, 0x0000FFFF);
 		REG_PATTERN_TEST(TDBAL, 0xFFFFFFF0, 0xFFFFFFFF);
 		REG_PATTERN_TEST(TIDV, 0x0000FFFF, 0x0000FFFF);
-
-		for (i = 0; i < E1000_RAR_ENTRIES; i++) {
-			REG_PATTERN_TEST(RA + ((i << 1) << 2), 0xFFFFFFFF,
-					 0xFFFFFFFF);
+		value = (adapter->hw.mac_type == e1000_ich8lan ?
+				E1000_RAR_ENTRIES_ICH8LAN : E1000_RAR_ENTRIES);
+		for (i = 0; i < value; i++) {
 			REG_PATTERN_TEST(RA + (((i << 1) + 1) << 2), 0x8003FFFF,
 					 0xFFFFFFFF);
 		}
@@ -816,7 +826,9 @@ e1000_reg_test(struct e1000_adapter *adapter, uint64_t *data)
 
 	}
 
-	for (i = 0; i < E1000_MC_TBL_SIZE; i++)
+	value = (adapter->hw.mac_type == e1000_ich8lan ?
+			E1000_MC_TBL_SIZE_ICH8LAN : E1000_MC_TBL_SIZE);
+	for (i = 0; i < value; i++)
 		REG_PATTERN_TEST(MTA + (i << 2), 0xFFFFFFFF, 0xFFFFFFFF);
 
 	*data = 0;
@@ -864,16 +876,16 @@ static int
 e1000_intr_test(struct e1000_adapter *adapter, uint64_t *data)
 {
 	struct net_device *netdev = adapter->netdev;
- 	uint32_t mask, i=0, shared_int = TRUE;
- 	uint32_t irq = adapter->pdev->irq;
+	uint32_t mask, i=0, shared_int = TRUE;
+	uint32_t irq = adapter->pdev->irq;
 
 	*data = 0;
 
 	/* Hook up test interrupt handler just for this test */
-	if (!request_irq(irq, &e1000_test_intr, SA_PROBEIRQ, netdev->name,
-	                 netdev)) {
+	if (!request_irq(irq, &e1000_test_intr, IRQF_PROBE_SHARED,
+			 netdev->name, netdev)) {
  		shared_int = FALSE;
- 	} else if (request_irq(irq, &e1000_test_intr, SA_SHIRQ,
+ 	} else if (request_irq(irq, &e1000_test_intr, IRQF_SHARED,
 			      netdev->name, netdev)){
 		*data = 1;
 		return -1;
@@ -888,25 +900,27 @@ e1000_intr_test(struct e1000_adapter *adapter, uint64_t *data)
 	/* Test each interrupt */
 	for (; i < 10; i++) {
 
+		if (adapter->hw.mac_type == e1000_ich8lan && i == 8)
+			continue;
 		/* Interrupt to test */
 		mask = 1 << i;
 
- 		if (!shared_int) {
- 			/* Disable the interrupt to be reported in
- 			 * the cause register and then force the same
- 			 * interrupt and see if one gets posted.  If
- 			 * an interrupt was posted to the bus, the
- 			 * test failed.
- 			 */
- 			adapter->test_icr = 0;
- 			E1000_WRITE_REG(&adapter->hw, IMC, mask);
- 			E1000_WRITE_REG(&adapter->hw, ICS, mask);
- 			msec_delay(10);
+		if (!shared_int) {
+			/* Disable the interrupt to be reported in
+			 * the cause register and then force the same
+			 * interrupt and see if one gets posted.  If
+			 * an interrupt was posted to the bus, the
+			 * test failed.
+			 */
+			adapter->test_icr = 0;
+			E1000_WRITE_REG(&adapter->hw, IMC, mask);
+			E1000_WRITE_REG(&adapter->hw, ICS, mask);
+			msec_delay(10);
 
- 			if (adapter->test_icr & mask) {
- 				*data = 3;
- 				break;
- 			}
+			if (adapter->test_icr & mask) {
+				*data = 3;
+				break;
+			}
 		}
 
 		/* Enable the interrupt to be reported in
@@ -925,7 +939,7 @@ e1000_intr_test(struct e1000_adapter *adapter, uint64_t *data)
 			break;
 		}
 
- 		if (!shared_int) {
+		if (!shared_int) {
 			/* Disable the other interrupts to be reported in
 			 * the cause register and then force the other
 			 * interrupts and see if any get posted.  If
@@ -1245,18 +1259,33 @@ e1000_integrated_phy_loopback(struct e1000_adapter *adapter)
 	} else if (adapter->hw.phy_type == e1000_phy_gg82563) {
 		e1000_write_phy_reg(&adapter->hw,
 		                    GG82563_PHY_KMRN_MODE_CTRL,
-		                    0x1CE);
+		                    0x1CC);
 	}
-	/* force 1000, set loopback */
-	e1000_write_phy_reg(&adapter->hw, PHY_CTRL, 0x4140);
 
-	/* Now set up the MAC to the same speed/duplex as the PHY. */
 	ctrl_reg = E1000_READ_REG(&adapter->hw, CTRL);
-	ctrl_reg &= ~E1000_CTRL_SPD_SEL; /* Clear the speed sel bits */
-	ctrl_reg |= (E1000_CTRL_FRCSPD | /* Set the Force Speed Bit */
-		     E1000_CTRL_FRCDPX | /* Set the Force Duplex Bit */
-		     E1000_CTRL_SPD_1000 |/* Force Speed to 1000 */
-		     E1000_CTRL_FD);	 /* Force Duplex to FULL */
+
+	if (adapter->hw.phy_type == e1000_phy_ife) {
+		/* force 100, set loopback */
+		e1000_write_phy_reg(&adapter->hw, PHY_CTRL, 0x6100);
+
+		/* Now set up the MAC to the same speed/duplex as the PHY. */
+		ctrl_reg &= ~E1000_CTRL_SPD_SEL; /* Clear the speed sel bits */
+		ctrl_reg |= (E1000_CTRL_FRCSPD | /* Set the Force Speed Bit */
+			     E1000_CTRL_FRCDPX | /* Set the Force Duplex Bit */
+			     E1000_CTRL_SPD_100 |/* Force Speed to 100 */
+			     E1000_CTRL_FD);	 /* Force Duplex to FULL */
+	} else {
+		/* force 1000, set loopback */
+		e1000_write_phy_reg(&adapter->hw, PHY_CTRL, 0x4140);
+
+		/* Now set up the MAC to the same speed/duplex as the PHY. */
+		ctrl_reg = E1000_READ_REG(&adapter->hw, CTRL);
+		ctrl_reg &= ~E1000_CTRL_SPD_SEL; /* Clear the speed sel bits */
+		ctrl_reg |= (E1000_CTRL_FRCSPD | /* Set the Force Speed Bit */
+			     E1000_CTRL_FRCDPX | /* Set the Force Duplex Bit */
+			     E1000_CTRL_SPD_1000 |/* Force Speed to 1000 */
+			     E1000_CTRL_FD);	 /* Force Duplex to FULL */
+	}
 
 	if (adapter->hw.media_type == e1000_media_type_copper &&
 	   adapter->hw.phy_type == e1000_phy_m88) {
@@ -1316,6 +1345,7 @@ e1000_set_phy_loopback(struct e1000_adapter *adapter)
 	case e1000_82572:
 	case e1000_82573:
 	case e1000_80003es2lan:
+	case e1000_ich8lan:
 		return e1000_integrated_phy_loopback(adapter);
 		break;
 
@@ -1567,6 +1597,7 @@ e1000_diag_test(struct net_device *netdev,
 	struct e1000_adapter *adapter = netdev_priv(netdev);
 	boolean_t if_running = netif_running(netdev);
 
+	set_bit(__E1000_DRIVER_TESTING, &adapter->flags);
 	if (eth_test->flags == ETH_TEST_FL_OFFLINE) {
 		/* Offline tests */
 
@@ -1581,7 +1612,8 @@ e1000_diag_test(struct net_device *netdev,
 			eth_test->flags |= ETH_TEST_FL_FAILED;
 
 		if (if_running)
-			e1000_down(adapter);
+			/* indicate we're in test mode */
+			dev_close(netdev);
 		else
 			e1000_reset(adapter);
 
@@ -1606,8 +1638,9 @@ e1000_diag_test(struct net_device *netdev,
 		adapter->hw.autoneg = autoneg;
 
 		e1000_reset(adapter);
+		clear_bit(__E1000_DRIVER_TESTING, &adapter->flags);
 		if (if_running)
-			e1000_up(adapter);
+			dev_open(netdev);
 	} else {
 		/* Online tests */
 		if (e1000_link_test(adapter, &data[4]))
@@ -1618,6 +1651,8 @@ e1000_diag_test(struct net_device *netdev,
 		data[1] = 0;
 		data[2] = 0;
 		data[3] = 0;
+
+		clear_bit(__E1000_DRIVER_TESTING, &adapter->flags);
 	}
 	msleep_interruptible(4 * 1000);
 }
@@ -1777,21 +1812,18 @@ e1000_phys_id(struct net_device *netdev, uint32_t data)
 		mod_timer(&adapter->blink_timer, jiffies);
 		msleep_interruptible(data * 1000);
 		del_timer_sync(&adapter->blink_timer);
-	} else if (adapter->hw.mac_type < e1000_82573) {
-		E1000_WRITE_REG(&adapter->hw, LEDCTL,
-			(E1000_LEDCTL_LED2_BLINK_RATE |
-			 E1000_LEDCTL_LED0_BLINK | E1000_LEDCTL_LED2_BLINK |
-			 (E1000_LEDCTL_MODE_LED_ON << E1000_LEDCTL_LED2_MODE_SHIFT) |
-			 (E1000_LEDCTL_MODE_LINK_ACTIVITY << E1000_LEDCTL_LED0_MODE_SHIFT) |
-			 (E1000_LEDCTL_MODE_LED_OFF << E1000_LEDCTL_LED1_MODE_SHIFT)));
+	} else if (adapter->hw.phy_type == e1000_phy_ife) {
+		if (!adapter->blink_timer.function) {
+			init_timer(&adapter->blink_timer);
+			adapter->blink_timer.function = e1000_led_blink_callback;
+			adapter->blink_timer.data = (unsigned long) adapter;
+		}
+		mod_timer(&adapter->blink_timer, jiffies);
 		msleep_interruptible(data * 1000);
+		del_timer_sync(&adapter->blink_timer);
+		e1000_write_phy_reg(&(adapter->hw), IFE_PHY_SPECIAL_CONTROL_LED, 0);
 	} else {
-		E1000_WRITE_REG(&adapter->hw, LEDCTL,
-			(E1000_LEDCTL_LED2_BLINK_RATE |
-			 E1000_LEDCTL_LED1_BLINK | E1000_LEDCTL_LED2_BLINK |
-			 (E1000_LEDCTL_MODE_LED_ON << E1000_LEDCTL_LED2_MODE_SHIFT) |
-			 (E1000_LEDCTL_MODE_LINK_ACTIVITY << E1000_LEDCTL_LED1_MODE_SHIFT) |
-			 (E1000_LEDCTL_MODE_LED_OFF << E1000_LEDCTL_LED0_MODE_SHIFT)));
+		e1000_blink_led_start(&adapter->hw);
 		msleep_interruptible(data * 1000);
 	}
 
@@ -1806,10 +1838,8 @@ static int
 e1000_nway_reset(struct net_device *netdev)
 {
 	struct e1000_adapter *adapter = netdev_priv(netdev);
-	if (netif_running(netdev)) {
-		e1000_down(adapter);
-		e1000_up(adapter);
-	}
+	if (netif_running(netdev))
+		e1000_reinit_locked(adapter);
 	return 0;
 }
 

@@ -48,7 +48,6 @@
 /* Code originates and was built up from ftdi_sio, belkin, pl2303 and others. */
 
 
-#include <linux/config.h>
 #include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/init.h>
@@ -60,11 +59,11 @@
 #include <linux/moduleparam.h>
 #include <linux/spinlock.h>
 #include <linux/usb.h>
+#include <linux/usb/serial.h>
 #include <linux/serial.h>
 #include <linux/delay.h>
 #include <asm/uaccess.h>
 
-#include "usb-serial.h"
 #include "cypress_m8.h"
 
 
@@ -824,7 +823,7 @@ send:
 	priv->bytes_out += count; /* do not count the line control and size bytes */
 	spin_unlock_irqrestore(&priv->lock, flags);
 
-	schedule_work(&port->work);
+	usb_serial_port_softint(port);
 } /* cypress_send */
 
 

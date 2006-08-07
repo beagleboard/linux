@@ -28,13 +28,17 @@
 
 static unsigned char irq_pri_vic1[] = {
 #if defined (USE_PRIORITIES)
-IRQ_GPIO3INTR,
+	IRQ_GPIO3INTR,			/* CPLD */
+	IRQ_DMAM2P4, IRQ_DMAM2P5,	/* AC97 */
 #endif
 };
 static unsigned char irq_pri_vic2[] = {
 #if defined (USE_PRIORITIES)
-	IRQ_T3UI, IRQ_GPIO7INTR,
+	IRQ_T3UI,			/* Timer */
+	IRQ_GPIO7INTR,			/* CPLD */
 	IRQ_UART1INTR, IRQ_UART2INTR, IRQ_UART3INTR,
+	IRQ_LCDINTR,			/* LCD */
+	IRQ_TSCINTR,			/* ADC/Touchscreen */
 #endif
 };
 
@@ -72,25 +76,29 @@ static void lh7a404_vic2_ack_gpio_irq (u32 irq)
 	VIC2_INTENCLR = (1 << irq);
 }
 
-static struct irqchip lh7a404_vic1_chip = {
+static struct irq_chip lh7a404_vic1_chip = {
+	.name	= "VIC1",
 	.ack	= lh7a404_vic1_mask_irq, /* Because level-triggered */
 	.mask	= lh7a404_vic1_mask_irq,
 	.unmask	= lh7a404_vic1_unmask_irq,
 };
 
-static struct irqchip lh7a404_vic2_chip = {
+static struct irq_chip lh7a404_vic2_chip = {
+	.name	= "VIC2",
 	.ack	= lh7a404_vic2_mask_irq, /* Because level-triggered */
 	.mask	= lh7a404_vic2_mask_irq,
 	.unmask	= lh7a404_vic2_unmask_irq,
 };
 
-static struct irqchip lh7a404_gpio_vic1_chip = {
+static struct irq_chip lh7a404_gpio_vic1_chip = {
+	.name	= "GPIO-VIC1",
 	.ack	= lh7a404_vic1_ack_gpio_irq,
 	.mask	= lh7a404_vic1_mask_irq,
 	.unmask	= lh7a404_vic1_unmask_irq,
 };
 
-static struct irqchip lh7a404_gpio_vic2_chip = {
+static struct irq_chip lh7a404_gpio_vic2_chip = {
+	.name	= "GPIO-VIC2",
 	.ack	= lh7a404_vic2_ack_gpio_irq,
 	.mask	= lh7a404_vic2_mask_irq,
 	.unmask	= lh7a404_vic2_unmask_irq,
@@ -98,9 +106,18 @@ static struct irqchip lh7a404_gpio_vic2_chip = {
 
   /* IRQ initialization */
 
+#if defined (CONFIG_ARCH_LH7A400) && defined (CONFIG_ARCH_LH7A404)
+extern void* branch_irq_lh7a400;
+#endif
+
 void __init lh7a404_init_irq (void)
 {
 	int irq;
+
+#if defined (CONFIG_ARCH_LH7A400) && defined (CONFIG_ARCH_LH7A404)
+#define NOP 0xe1a00000			/* mov r0, r0 */
+	branch_irq_lh7a400 = NOP;
+#endif
 
 	VIC1_INTENCLR = 0xffffffff;
 	VIC2_INTENCLR = 0xffffffff;

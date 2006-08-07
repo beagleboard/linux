@@ -63,7 +63,7 @@ MODULE_PARM_DESC(pcm_channels, "Number of hardware channels assigned for PCM.");
 module_param_array(wavetable_size, int, NULL, 0444);
 MODULE_PARM_DESC(wavetable_size, "Maximum memory size in kB for wavetable synth.");
 
-static struct pci_device_id snd_trident_ids[] __devinitdata = {
+static struct pci_device_id snd_trident_ids[] = {
 	{PCI_DEVICE(PCI_VENDOR_ID_TRIDENT, PCI_DEVICE_ID_TRIDENT_4DWAVE_DX), 
 		PCI_CLASS_MULTIMEDIA_AUDIO << 8, 0xffff00, 0},
 	{PCI_DEVICE(PCI_VENDOR_ID_TRIDENT, PCI_DEVICE_ID_TRIDENT_4DWAVE_NX), 
@@ -148,7 +148,8 @@ static int __devinit snd_trident_probe(struct pci_dev *pci,
 	}
 	if (trident->device != TRIDENT_DEVICE_ID_SI7018 &&
 	    (err = snd_mpu401_uart_new(card, 0, MPU401_HW_TRID4DWAVE,
-				       trident->midi_port, 1,
+				       trident->midi_port,
+				       MPU401_INFO_INTEGRATED,
 				       trident->irq, 0, &trident->rmidi)) < 0) {
 		snd_card_free(card);
 		return err;

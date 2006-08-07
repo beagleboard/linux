@@ -31,7 +31,6 @@
 #include <linux/fs.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/tty.h>
 #include <linux/console.h>
 #include <linux/string.h>
 #include <linux/kd.h>
@@ -198,7 +197,7 @@ static int __init mdacon_setup(char *str)
 __setup("mdacon=", mdacon_setup);
 #endif
 
-static int __init mda_detect(void)
+static int mda_detect(void)
 {
 	int count=0;
 	u16 *p, p_save;
@@ -283,7 +282,7 @@ static int __init mda_detect(void)
 	return 1;
 }
 
-static void __init mda_initialize(void)
+static void mda_initialize(void)
 {
 	write_mda_b(97, 0x00);		/* horizontal total */
 	write_mda_b(80, 0x01);		/* horizontal displayed */
@@ -308,13 +307,13 @@ static void __init mda_initialize(void)
 	outb_p(0x00, mda_gfx_port);
 }
 
-static const char __init *mdacon_startup(void)
+static const char *mdacon_startup(void)
 {
 	mda_num_columns = 80;
 	mda_num_lines   = 25;
 
-	mda_vram_base = VGA_MAP_MEM(0xb0000);
 	mda_vram_len  = 0x01000;
+	mda_vram_base = VGA_MAP_MEM(0xb0000, mda_vram_len);
 
 	mda_index_port  = 0x3b4;
 	mda_value_port  = 0x3b5;

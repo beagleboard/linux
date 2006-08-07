@@ -52,7 +52,6 @@
 
 #define VERSION "0.407"
 
-#include <linux/config.h>
 #include <asm/uaccess.h>
 #include <asm/system.h>
 #include <asm/bitops.h>
@@ -1253,8 +1252,8 @@ fn_trie_insert(struct fib_table *tb, struct rtmsg *r, struct kern_rta *rta,
 	 */
 
 	if (!fa_head) {
-		fa_head = fib_insert_node(t, &err, key, plen);
 		err = 0;
+		fa_head = fib_insert_node(t, &err, key, plen);
 		if (err)
 			goto out_free_new_fa;
 	}

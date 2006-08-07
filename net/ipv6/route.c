@@ -25,7 +25,6 @@
  */
 
 #include <linux/capability.h>
-#include <linux/config.h>
 #include <linux/errno.h>
 #include <linux/types.h>
 #include <linux/times.h>
@@ -54,6 +53,7 @@
 #include <linux/rtnetlink.h>
 #include <net/dst.h>
 #include <net/xfrm.h>
+#include <net/netevent.h>
 
 #include <asm/uaccess.h>
 
@@ -349,7 +349,7 @@ static struct rt6_info *rt6_select(struct rt6_info **head, int oif,
 	    (strict & RT6_SELECT_F_REACHABLE) &&
 	    last && last != rt0) {
 		/* no entries matched; do round-robin */
-		static spinlock_t lock = SPIN_LOCK_UNLOCKED;
+		static DEFINE_SPINLOCK(lock);
 		spin_lock(&lock);
 		*head = rt0->u.next;
 		rt0->u.next = last->u.next;
@@ -743,6 +743,7 @@ static void ip6_rt_update_pmtu(struct dst_entry *dst, u32 mtu)
 			dst->metrics[RTAX_FEATURES-1] |= RTAX_FEATURE_ALLFRAG;
 		}
 		dst->metrics[RTAX_MTU-1] = mtu;
+		call_netevent_notifiers(NETEVENT_PMTU_UPDATE, dst);
 	}
 }
 
@@ -1156,6 +1157,7 @@ void rt6_redirect(struct in6_addr *dest, struct in6_addr *saddr,
 	struct rt6_info *rt, *nrt = NULL;
 	int strict;
 	struct fib6_node *fn;
+	struct netevent_redirect netevent;
 
 	/*
 	 * Get the "current" route for this destination and
@@ -1252,6 +1254,10 @@ restart:
 
 	if (ip6_ins_rt(nrt, NULL, NULL, NULL))
 		goto out;
+
+	netevent.old = &rt->u.dst;
+	netevent.new = &nrt->u.dst;
+	call_netevent_notifiers(NETEVENT_REDIRECT, &netevent);
 
 	if (rt->rt6i_flags&RTF_CACHE) {
 		ip6_del_rt(rt, NULL, NULL, NULL);

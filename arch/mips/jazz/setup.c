@@ -8,7 +8,6 @@
  * Copyright (C) 1996, 1997, 1998, 2001 by Ralf Baechle
  * Copyright (C) 2001 MIPS Technologies, Inc.
  */
-#include <linux/config.h>
 #include <linux/eisa.h>
 #include <linux/hdreg.h>
 #include <linux/init.h>
@@ -38,7 +37,7 @@ extern void jazz_machine_restart(char *command);
 extern void jazz_machine_halt(void);
 extern void jazz_machine_power_off(void);
 
-static void __init jazz_time_init(struct irqaction *irq)
+void __init plat_time_init(struct irqaction *irq)
 {
 	/* set the clock to 100 Hz */
 	r4030_write_reg32(JAZZ_TIMER_INTERVAL, 9);
@@ -52,7 +51,7 @@ static struct resource jazz_io_resources[] = {
 	{ "dma2", 0xc0, 0xdf, IORESOURCE_BUSY },
 };
 
-void __init plat_setup(void)
+void __init plat_mem_setup(void)
 {
 	int i;
 
@@ -76,7 +75,6 @@ void __init plat_setup(void)
 	for (i = 0; i < ARRAY_SIZE(jazz_io_resources); i++)
 		request_resource(&ioport_resource, jazz_io_resources + i);
 
-        board_timer_setup = jazz_time_init;
 	/* The RTC is outside the port address space */
 
 	_machine_restart = jazz_machine_restart;

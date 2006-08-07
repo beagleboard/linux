@@ -263,7 +263,7 @@ struct nm256 {
 /*
  * PCI ids
  */
-static struct pci_device_id snd_nm256_ids[] __devinitdata = {
+static struct pci_device_id snd_nm256_ids[] = {
 	{PCI_VENDOR_ID_NEOMAGIC, PCI_DEVICE_ID_NEOMAGIC_NM256AV_AUDIO, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
 	{PCI_VENDOR_ID_NEOMAGIC, PCI_DEVICE_ID_NEOMAGIC_NM256ZX_AUDIO, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
 	{PCI_VENDOR_ID_NEOMAGIC, PCI_DEVICE_ID_NEOMAGIC_NM256XL_PLUS_AUDIO, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
@@ -465,7 +465,7 @@ static int snd_nm256_acquire_irq(struct nm256 *chip)
 {
 	mutex_lock(&chip->irq_mutex);
 	if (chip->irq < 0) {
-		if (request_irq(chip->pci->irq, chip->interrupt, SA_INTERRUPT|SA_SHIRQ,
+		if (request_irq(chip->pci->irq, chip->interrupt, IRQF_DISABLED|IRQF_SHARED,
 				chip->card->driver, chip)) {
 			snd_printk(KERN_ERR "unable to grab IRQ %d\n", chip->pci->irq);
 			mutex_unlock(&chip->irq_mutex);

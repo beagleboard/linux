@@ -79,6 +79,7 @@ static struct iforce_device iforce_device[] = {
 	{ 0x06f8, 0x0001, "Guillemot Race Leader Force Feedback",	btn_wheel, abs_wheel, ff_iforce }, //?
 	{ 0x06f8, 0x0004, "Guillemot Force Feedback Racing Wheel",	btn_wheel, abs_wheel, ff_iforce }, //?
 	{ 0x06f8, 0x0004, "Gullemot Jet Leader 3D",			btn_joystick, abs_joystick, ff_iforce }, //?
+	{ 0x06d6, 0x29bc, "Trust Force Feedback Race Master",		btn_wheel, abs_wheel, ff_iforce },
 	{ 0x0000, 0x0000, "Unknown I-Force Device [%04x:%04x]",		btn_joystick, abs_joystick, ff_iforce }
 };
 
@@ -86,7 +87,7 @@ static struct iforce_device iforce_device[] = {
 
 static int iforce_input_event(struct input_dev *dev, unsigned int type, unsigned int code, int value)
 {
-	struct iforce* iforce = (struct iforce*)(dev->private);
+	struct iforce* iforce = dev->private;
 	unsigned char data[3];
 
 	if (type != EV_FF)
@@ -138,7 +139,7 @@ static int iforce_input_event(struct input_dev *dev, unsigned int type, unsigned
  */
 static int iforce_upload_effect(struct input_dev *dev, struct ff_effect *effect)
 {
-	struct iforce* iforce = (struct iforce*)(dev->private);
+	struct iforce* iforce = dev->private;
 	int id;
 	int ret;
 	int is_update;
@@ -218,26 +219,26 @@ static int iforce_upload_effect(struct input_dev *dev, struct ff_effect *effect)
  */
 static int iforce_erase_effect(struct input_dev *dev, int effect_id)
 {
-	struct iforce* iforce = (struct iforce*)(dev->private);
+	struct iforce* iforce = dev->private;
 	int err = 0;
 	struct iforce_core_effect* core_effect;
-
-	/* Check who is trying to erase this effect */
-	if (iforce->core_effects[effect_id].owner != current->pid) {
-		printk(KERN_WARNING "iforce-main.c: %d tried to erase an effect belonging to %d\n", current->pid, iforce->core_effects[effect_id].owner);
-		return -EACCES;
-	}
 
 	if (effect_id < 0 || effect_id >= FF_EFFECTS_MAX)
 		return -EINVAL;
 
-	core_effect = iforce->core_effects + effect_id;
+	core_effect = &iforce->core_effects[effect_id];
+
+	/* Check who is trying to erase this effect */
+	if (core_effect->owner != current->pid) {
+		printk(KERN_WARNING "iforce-main.c: %d tried to erase an effect belonging to %d\n", current->pid, core_effect->owner);
+		return -EACCES;
+	}
 
 	if (test_bit(FF_MOD1_IS_USED, core_effect->flags))
-		err = release_resource(&(iforce->core_effects[effect_id].mod1_chunk));
+		err = release_resource(&core_effect->mod1_chunk);
 
 	if (!err && test_bit(FF_MOD2_IS_USED, core_effect->flags))
-		err = release_resource(&(iforce->core_effects[effect_id].mod2_chunk));
+		err = release_resource(&core_effect->mod2_chunk);
 
 	/*TODO: remember to change that if more FF_MOD* bits are added */
 	core_effect->flags[0] = 0;

@@ -32,7 +32,6 @@
  *  with this program; if not, write  to the Free Software Foundation, Inc.,
  *  675 Mass Ave, Cambridge, MA 02139, USA.
  */
-#include <linux/config.h>
 #include <linux/init.h>
 #include <linux/sched.h>
 #include <linux/ioport.h>
@@ -55,7 +54,7 @@ extern void mips_reboot_setup(void);
 
 unsigned char mac_0_1[12];
 
-void __init plat_setup(void)
+void __init plat_mem_setup(void)
 {
 	unsigned int config = read_c0_config();
 	unsigned int status = read_c0_status();

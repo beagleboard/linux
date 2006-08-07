@@ -24,7 +24,6 @@
  *
  */
 
-#include <linux/config.h>
 #include <linux/kernel.h>
 #include <linux/jiffies.h>
 #include <linux/errno.h>
@@ -40,8 +39,8 @@
 #include <asm/uaccess.h>
 #include <asm/semaphore.h>
 #include <linux/usb.h>
+#include <linux/usb/serial.h>
 
-#include "usb-serial.h"
 #include "io_16654.h"
 #include "io_usbvend.h"
 #include "io_ti.h"

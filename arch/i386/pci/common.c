@@ -17,10 +17,6 @@
 
 #include "pci.h"
 
-#ifdef CONFIG_PCI_BIOS
-extern  void pcibios_sort(void);
-#endif
-
 unsigned int pci_probe = PCI_PROBE_BIOS | PCI_PROBE_CONF1 | PCI_PROBE_CONF2 |
 				PCI_PROBE_MMCONF;
 
@@ -288,6 +284,7 @@ int pcibios_enable_device(struct pci_dev *dev, int mask)
 
 void pcibios_disable_device (struct pci_dev *dev)
 {
+	pcibios_disable_resources(dev);
 	if (pcibios_disable_irq)
 		pcibios_disable_irq(dev);
 }

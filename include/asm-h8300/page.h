@@ -1,7 +1,6 @@
 #ifndef _H8300_PAGE_H
 #define _H8300_PAGE_H
 
-#include <linux/config.h>
 
 /* PAGE_SHIFT determines the page size */
 
@@ -66,7 +65,6 @@ extern unsigned long memory_end;
 #define pfn_to_virt(pfn)	__va((pfn) << PAGE_SHIFT)
 
 #define MAP_NR(addr)		(((unsigned long)(addr)-PAGE_OFFSET) >> PAGE_SHIFT)
-#define virt_to_page(addr)	(mem_map + (((unsigned long)(addr)-PAGE_OFFSET) >> PAGE_SHIFT))
 #define virt_to_page(addr)	(mem_map + (((unsigned long)(addr)-PAGE_OFFSET) >> PAGE_SHIFT))
 #define page_to_virt(page)	((((page) - mem_map) << PAGE_SHIFT) + PAGE_OFFSET)
 #define pfn_valid(page)	        (page < max_mapnr)

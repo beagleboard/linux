@@ -40,7 +40,6 @@
  *  675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
-#include <linux/config.h>
 #include <linux/bcd.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
@@ -210,7 +209,7 @@ int m48t37y_set_time(unsigned long sec)
 	return 0;
 }
 
-void momenco_timer_setup(struct irqaction *irq)
+void __init plat_timer_setup(struct irqaction *irq)
 {
 	setup_irq(7, irq);
 }
@@ -225,13 +224,12 @@ void momenco_time_init(void)
 #error Unknown CPU for this board
 #endif
 	printk("momenco_time_init cpu_clock=%d\n", cpu_clock);
-	board_timer_setup = momenco_timer_setup;
 
 	rtc_mips_get_time = m48t37y_get_time;
 	rtc_mips_set_time = m48t37y_set_time;
 }
 
-void __init plat_setup(void)
+void __init plat_mem_setup(void)
 {
 	unsigned int tmpword;
 
@@ -242,8 +240,8 @@ void __init plat_setup(void)
 	pm_power_off = momenco_ocelot_power_off;
 
 	/*
-	 * initrd_start = (ulong)ocelot_initrd_start;
-	 * initrd_end = (ulong)ocelot_initrd_start + (ulong)ocelot_initrd_size;
+	 * initrd_start = (unsigned long)ocelot_initrd_start;
+	 * initrd_end = (unsigned long)ocelot_initrd_start + (ulong)ocelot_initrd_size;
 	 * initrd_below_start_ok = 1;
 	 */
 

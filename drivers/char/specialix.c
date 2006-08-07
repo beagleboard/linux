@@ -75,7 +75,6 @@
  * Documentation/specialix.txt
  */
 
-#include <linux/config.h>
 #include <linux/module.h>
 
 #include <asm/io.h>
@@ -1016,9 +1015,9 @@ static inline int sx_setup_board(struct specialix_board * bp)
 		return 0;
 
 	if (bp->flags & SX_BOARD_IS_PCI)
-		error = request_irq(bp->irq, sx_interrupt, SA_INTERRUPT | SA_SHIRQ, "specialix IO8+", bp);
+		error = request_irq(bp->irq, sx_interrupt, IRQF_DISABLED | IRQF_SHARED, "specialix IO8+", bp);
 	else
-		error = request_irq(bp->irq, sx_interrupt, SA_INTERRUPT, "specialix IO8+", bp);
+		error = request_irq(bp->irq, sx_interrupt, IRQF_DISABLED, "specialix IO8+", bp);
 
 	if (error)
 		return error;
@@ -1683,7 +1682,7 @@ static int sx_write(struct tty_struct * tty,
 
 	bp = port_Board(port);
 
-	if (!tty || !port->xmit_buf || !tmp_buf) {
+	if (!port->xmit_buf || !tmp_buf) {
 		func_exit();
 		return 0;
 	}
@@ -1733,7 +1732,7 @@ static void sx_put_char(struct tty_struct * tty, unsigned char ch)
 		return;
 	}
 	dprintk (SX_DEBUG_TX, "check tty: %p %p\n", tty, port->xmit_buf);
-	if (!tty || !port->xmit_buf) {
+	if (!port->xmit_buf) {
 		func_exit();
 		return;
 	}
@@ -2477,7 +2476,7 @@ static int __init specialix_init(void)
 #endif
 
 	for (i = 0; i < SX_NBOARD; i++)
-		sx_board[i].lock = SPIN_LOCK_UNLOCKED;
+		spin_lock_init(&sx_board[i].lock);
 
 	if (sx_init_drivers()) {
 		func_exit();
@@ -2584,6 +2583,12 @@ static void __exit specialix_exit_module(void)
 
 	func_exit();
 }
+
+static struct pci_device_id specialx_pci_tbl[] __devinitdata = {
+	{ PCI_DEVICE(PCI_VENDOR_ID_SPECIALIX, PCI_DEVICE_ID_SPECIALIX_IO8) },
+	{ }
+};
+MODULE_DEVICE_TABLE(pci, specialx_pci_tbl);
 
 module_init(specialix_init_module);
 module_exit(specialix_exit_module);

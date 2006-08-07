@@ -17,7 +17,6 @@
  *
  */
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/types.h>
@@ -325,14 +324,12 @@ pcf8563_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, unsigned
 int
 pcf8563_open(struct inode *inode, struct file *filp)
 {
-	MOD_INC_USE_COUNT;
 	return 0;
 }
 
 int
 pcf8563_release(struct inode *inode, struct file *filp)
 {
-	MOD_DEC_USE_COUNT;
 	return 0;
 }
 

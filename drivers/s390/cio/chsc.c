@@ -10,7 +10,6 @@
  */
 
 #include <linux/module.h>
-#include <linux/config.h>
 #include <linux/slab.h>
 #include <linux/init.h>
 #include <linux/device.h>
@@ -244,8 +243,7 @@ s390_subchannel_remove_chpid(struct device *dev, void *data)
 
 	if ((sch->schib.scsw.actl & SCSW_ACTL_DEVACT) &&
 	    (sch->schib.scsw.actl & SCSW_ACTL_SCHACT) &&
-	    (sch->schib.pmcw.lpum == mask) &&
-	    (sch->vpm == 0)) {
+	    (sch->schib.pmcw.lpum == mask)) {
 		int cc;
 
 		cc = cio_clear(sch);
@@ -918,12 +916,13 @@ chp_measurement_read(struct kobject *kobj, char *buf, loff_t off, size_t count)
 	chp = to_channelpath(container_of(kobj, struct device, kobj));
 	css = to_css(chp->dev.parent);
 
-	size = sizeof(struct cmg_chars);
+	size = sizeof(struct cmg_entry);
 
 	/* Only allow single reads. */
 	if (off || count < size)
 		return 0;
 	chp_measurement_copy_block((struct cmg_entry *)buf, css, chp->id);
+	count = size;
 	return count;
 }
 
@@ -1465,6 +1464,40 @@ chsc_get_chp_desc(struct subchannel *sch, int chp_no)
 	return desc;
 }
 
+static int reset_channel_path(struct channel_path *chp)
+{
+	int cc;
+
+	cc = rchp(chp->id);
+	switch (cc) {
+	case 0:
+		return 0;
+	case 2:
+		return -EBUSY;
+	default:
+		return -ENODEV;
+	}
+}
+
+static void reset_channel_paths_css(struct channel_subsystem *css)
+{
+	int i;
+
+	for (i = 0; i <= __MAX_CHPID; i++) {
+		if (css->chps[i])
+			reset_channel_path(css->chps[i]);
+	}
+}
+
+void cio_reset_channel_paths(void)
+{
+	int i;
+
+	for (i = 0; i <= __MAX_CSSID; i++) {
+		if (css[i] && css[i]->valid)
+			reset_channel_paths_css(css[i]);
+	}
+}
 
 static int __init
 chsc_alloc_sei_area(void)

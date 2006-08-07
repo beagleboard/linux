@@ -50,7 +50,7 @@
     forget to unmap PCI mapped skbs.
 
     Alan Cox <alan@redhat.com>
-    Added new PCI identifiers provided by Clear Zhang at ALi 
+    Added new PCI identifiers provided by Clear Zhang at ALi
     for their 1563 ethernet device.
 
     TODO
@@ -506,7 +506,7 @@ static int dmfe_open(struct DEVICE *dev)
 
 	DMFE_DBUG(0, "dmfe_open", 0);
 
-	ret = request_irq(dev->irq, &dmfe_interrupt, SA_SHIRQ, dev->name, dev);
+	ret = request_irq(dev->irq, &dmfe_interrupt, IRQF_SHARED, dev->name, dev);
 	if (ret)
 		return ret;
 

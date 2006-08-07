@@ -1,5 +1,5 @@
 /*
- * Copytight (C) 1999, 2000, 05 Ralf Baechle (ralf@linux-mips.org)
+ * Copytight (C) 1999, 2000, 05, 06 Ralf Baechle (ralf@linux-mips.org)
  * Copytight (C) 1999, 2000 Silicon Graphics, Inc.
  */
 #include <linux/bcd.h>
@@ -89,11 +89,13 @@ static int set_rtc_mmss(unsigned long nowtime)
 }
 #endif
 
+static unsigned int rt_timer_irq;
+
 void ip27_rt_timer_interrupt(struct pt_regs *regs)
 {
 	int cpu = smp_processor_id();
 	int cpuA = cputoslice(cpu) == 0;
-	int irq = 9;				/* XXX Assign number */
+	unsigned int irq = rt_timer_irq;
 
 	irq_enter();
 	write_seqlock(&xtime_lock);
@@ -179,13 +181,73 @@ static __init unsigned long get_m48t35_time(void)
         return mktime(year, month, date, hour, min, sec);
 }
 
-static void ip27_timer_setup(struct irqaction *irq)
+static unsigned int startup_rt_irq(unsigned int irq)
 {
+	return 0;
+}
+
+static void shutdown_rt_irq(unsigned int irq)
+{
+}
+
+static void enable_rt_irq(unsigned int irq)
+{
+}
+
+static void disable_rt_irq(unsigned int irq)
+{
+}
+
+static void mask_and_ack_rt(unsigned int irq)
+{
+}
+
+static void end_rt_irq(unsigned int irq)
+{
+}
+
+static struct irq_chip rt_irq_type = {
+	.typename	= "SN HUB RT timer",
+	.startup	= startup_rt_irq,
+	.shutdown	= shutdown_rt_irq,
+	.enable		= enable_rt_irq,
+	.disable	= disable_rt_irq,
+	.ack		= mask_and_ack_rt,
+	.end		= end_rt_irq,
+};
+
+static struct irqaction rt_irqaction = {
+	.handler	= ip27_rt_timer_interrupt,
+	.flags		= IRQF_DISABLED,
+	.mask		= CPU_MASK_NONE,
+	.name		= "timer"
+};
+
+extern int allocate_irqno(void);
+
+void __init plat_timer_setup(struct irqaction *irq)
+{
+	int irqno  = allocate_irqno();
+
+	if (irqno < 0)
+		panic("Can't allocate interrupt number for timer interrupt");
+
+	irq_desc[irqno].status	= IRQ_DISABLED;
+	irq_desc[irqno].action	= NULL;
+	irq_desc[irqno].depth	= 1;
+	irq_desc[irqno].chip	= &rt_irq_type;
+
 	/* over-write the handler, we use our own way */
 	irq->handler = no_action;
 
 	/* setup irqaction */
-//	setup_irq(IP27_TIMER_IRQ, irq);		/* XXX Can't do this yet.  */
+	irq_desc[irqno].status |= IRQ_PER_CPU;
+
+	rt_timer_irq = irqno;
+	/*
+	 * Only needed to get /proc/interrupt to display timer irq stats
+	 */
+	setup_irq(irqno, &rt_irqaction);
 }
 
 void __init ip27_time_init(void)
@@ -194,8 +256,6 @@ void __init ip27_time_init(void)
 	xtime.tv_nsec = 0;
 
 	do_gettimeoffset = ip27_do_gettimeoffset;
-
-	board_timer_setup = ip27_timer_setup;
 }
 
 void __init cpu_time_init(void)

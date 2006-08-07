@@ -24,9 +24,9 @@
 #include <linux/spinlock.h>
 #include <linux/errno.h>
 #include <linux/interrupt.h>
+#include <linux/irq.h>
 
 #include <asm/system.h>
-#include <asm/irq.h>
 #include <asm/hardware.h>
 #include <asm/dma.h>
 #include <asm/io.h>
@@ -978,7 +978,7 @@ static irqreturn_t omap2_dma_irq_handler(int irq, void *dev_id,
 static struct irqaction omap24xx_dma_irq = {
 	.name = "DMA",
 	.handler = omap2_dma_irq_handler,
-	.flags = SA_INTERRUPT
+	.flags = IRQF_DISABLED
 };
 
 #else

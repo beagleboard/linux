@@ -10,7 +10,6 @@
  *
  */
 #include <linux/module.h>
-#include <linux/config.h>
 #include <linux/proc_fs.h>
 #include <linux/jhash.h>
 #include <linux/bitops.h>
@@ -173,11 +172,10 @@ clusterip_config_init(struct ipt_clusterip_tgt_info *i, u_int32_t ip,
 	struct clusterip_config *c;
 	char buffer[16];
 
-	c = kmalloc(sizeof(*c), GFP_ATOMIC);
+	c = kzalloc(sizeof(*c), GFP_ATOMIC);
 	if (!c)
 		return NULL;
 
-	memset(c, 0, sizeof(*c));
 	c->dev = dev;
 	c->clusterip = ip;
 	memcpy(&c->clustermac, &i->clustermac, ETH_ALEN);
@@ -241,25 +239,17 @@ clusterip_hashfn(struct sk_buff *skb, struct clusterip_config *config)
 	struct iphdr *iph = skb->nh.iph;
 	unsigned long hashval;
 	u_int16_t sport, dport;
-	struct tcphdr *th;
-	struct udphdr *uh;
-	struct icmphdr *ih;
+	u_int16_t *ports;
 
 	switch (iph->protocol) {
 	case IPPROTO_TCP:
-		th = (void *)iph+iph->ihl*4;
-		sport = ntohs(th->source);
-		dport = ntohs(th->dest);
-		break;
 	case IPPROTO_UDP:
-		uh = (void *)iph+iph->ihl*4;
-		sport = ntohs(uh->source);
-		dport = ntohs(uh->dest);
-		break;
+	case IPPROTO_SCTP:
+	case IPPROTO_DCCP:
 	case IPPROTO_ICMP:
-		ih = (void *)iph+iph->ihl*4;
-		sport = ntohs(ih->un.echo.id);
-		dport = (ih->type<<8)|ih->code;
+		ports = (void *)iph+iph->ihl*4;
+		sport = ports[0];
+		dport = ports[1];
 		break;
 	default:
 		if (net_ratelimit()) {

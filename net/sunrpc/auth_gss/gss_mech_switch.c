@@ -224,7 +224,8 @@ EXPORT_SYMBOL(gss_service_to_auth_domain_name);
 void
 gss_mech_put(struct gss_api_mech * gm)
 {
-	module_put(gm->gm_owner);
+	if (gm)
+		module_put(gm->gm_owner);
 }
 
 EXPORT_SYMBOL(gss_mech_put);
@@ -236,9 +237,8 @@ gss_import_sec_context(const void *input_token, size_t bufsize,
 		       struct gss_api_mech	*mech,
 		       struct gss_ctx		**ctx_id)
 {
-	if (!(*ctx_id = kmalloc(sizeof(**ctx_id), GFP_KERNEL)))
+	if (!(*ctx_id = kzalloc(sizeof(**ctx_id), GFP_KERNEL)))
 		return GSS_S_FAILURE;
-	memset(*ctx_id, 0, sizeof(**ctx_id));
 	(*ctx_id)->mech_type = gss_mech_get(mech);
 
 	return mech->gm_ops
@@ -307,8 +307,7 @@ gss_delete_sec_context(struct gss_ctx	**context_handle)
 		(*context_handle)->mech_type->gm_ops
 			->gss_delete_sec_context((*context_handle)
 							->internal_ctx_id);
-	if ((*context_handle)->mech_type)
-		gss_mech_put((*context_handle)->mech_type);
+	gss_mech_put((*context_handle)->mech_type);
 	kfree(*context_handle);
 	*context_handle=NULL;
 	return GSS_S_COMPLETE;

@@ -36,6 +36,9 @@
 #define FTDI_ACTZWAVE_PID	0xF2D0
 
 
+/* www.starting-point-systems.com µChameleon device */
+#define FTDI_MICRO_CHAMELEON_PID	0xCAA0	/* Product Id */
+
 /* www.irtrans.de device */
 #define FTDI_IRTRANS_PID 0xFC60 /* Product Id */
 
@@ -178,6 +181,10 @@
 /* USB-UIRT - An infrared receiver and transmitter using the 8U232AM chip */
 /* http://home.earthlink.net/~jrhees/USBUIRT/index.htm */
 #define FTDI_USB_UIRT_PID	0xF850	/* Product Id */
+
+/* TNC-X USB-to-packet-radio adapter, versions prior to 3.0 (DLP module) */
+
+#define FTDI_TNC_X_PID		0xEBE0
 
 /*
  * ELV USB devices submitted by Christian Abt of ELV (www.elv.de).
@@ -435,6 +442,24 @@
  * Submitted by anton -at- goto10 -dot- org.
  */
 #define FTDI_ACG_HFDUAL_PID		0xDD20	/* HF Dual ISO Reader (RFID) */
+
+/*
+ * Yost Engineering, Inc. products (www.yostengineering.com).
+ * PID 0xE050 submitted by Aaron Prose.
+ */
+#define FTDI_YEI_SERVOCENTER31_PID	0xE050	/* YEI ServoCenter3.1 USB */
+
+/*
+ * ThorLabs USB motor drivers
+ */
+#define FTDI_THORLABS_PID		0xfaf0 /* ThorLabs USB motor drivers */
+
+/*
+ * Testo products (http://www.testo.com/)
+ * Submitted by Colin Leroy
+ */
+#define TESTO_VID			0x128D
+#define TESTO_USB_INTERFACE_PID		0x0001
 
 /* Commands */
 #define FTDI_SIO_RESET 		0 /* Reset the port */

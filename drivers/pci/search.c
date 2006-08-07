@@ -13,7 +13,7 @@
 #include <linux/interrupt.h>
 #include "pci.h"
 
-DEFINE_SPINLOCK(pci_bus_lock);
+DECLARE_RWSEM(pci_bus_sem);
 
 static struct pci_bus * __devinit
 pci_do_find_bus(struct pci_bus* bus, unsigned char busnr)
@@ -41,7 +41,7 @@ pci_do_find_bus(struct pci_bus* bus, unsigned char busnr)
  * in the global list of PCI buses.  If the bus is found, a pointer to its
  * data structure is returned.  If no bus is found, %NULL is returned.
  */
-struct pci_bus * __devinit pci_find_bus(int domain, int busnr)
+struct pci_bus * pci_find_bus(int domain, int busnr)
 {
 	struct pci_bus *bus = NULL;
 	struct pci_bus *tmp_bus;
@@ -61,7 +61,7 @@ struct pci_bus * __devinit pci_find_bus(int domain, int busnr)
  * @from: Previous PCI bus found, or %NULL for new search.
  *
  * Iterates through the list of known PCI busses.  A new search is
- * initiated by passing %NULL to the @from argument.  Otherwise if
+ * initiated by passing %NULL as the @from argument.  Otherwise if
  * @from is not %NULL, searches continue from next device on the
  * global list.
  */
@@ -72,11 +72,11 @@ pci_find_next_bus(const struct pci_bus *from)
 	struct pci_bus *b = NULL;
 
 	WARN_ON(in_interrupt());
-	spin_lock(&pci_bus_lock);
+	down_read(&pci_bus_sem);
 	n = from ? from->node.next : pci_root_buses.next;
 	if (n != &pci_root_buses)
 		b = pci_bus_b(n);
-	spin_unlock(&pci_bus_lock);
+	up_read(&pci_bus_sem);
 	return b;
 }
 
@@ -124,7 +124,7 @@ struct pci_dev * pci_get_slot(struct pci_bus *bus, unsigned int devfn)
 	struct pci_dev *dev;
 
 	WARN_ON(in_interrupt());
-	spin_lock(&pci_bus_lock);
+	down_read(&pci_bus_sem);
 
 	list_for_each(tmp, &bus->devices) {
 		dev = pci_dev_b(tmp);
@@ -135,7 +135,7 @@ struct pci_dev * pci_get_slot(struct pci_bus *bus, unsigned int devfn)
 	dev = NULL;
  out:
 	pci_dev_get(dev);
-	spin_unlock(&pci_bus_lock);
+	up_read(&pci_bus_sem);
 	return dev;
 }
 
@@ -148,13 +148,14 @@ struct pci_dev * pci_get_slot(struct pci_bus *bus, unsigned int devfn)
  * @from: Previous PCI device found in search, or %NULL for new search.
  *
  * Iterates through the list of known PCI devices.  If a PCI device is
- * found with a matching @vendor, @device, @ss_vendor and @ss_device, a pointer to its
- * device structure is returned.  Otherwise, %NULL is returned.
- * A new search is initiated by passing %NULL to the @from argument.
- * Otherwise if @from is not %NULL, searches continue from next device on the global list.
+ * found with a matching @vendor, @device, @ss_vendor and @ss_device, a
+ * pointer to its device structure is returned.  Otherwise, %NULL is returned.
+ * A new search is initiated by passing %NULL as the @from argument.
+ * Otherwise if @from is not %NULL, searches continue from next device
+ * on the global list.
  *
- * NOTE: Do not use this function anymore, use pci_get_subsys() instead, as
- * the pci device returned by this function can disappear at any moment in
+ * NOTE: Do not use this function any more; use pci_get_subsys() instead, as
+ * the PCI device returned by this function can disappear at any moment in
  * time.
  */
 static struct pci_dev * pci_find_subsys(unsigned int vendor,
@@ -167,7 +168,7 @@ static struct pci_dev * pci_find_subsys(unsigned int vendor,
 	struct pci_dev *dev;
 
 	WARN_ON(in_interrupt());
-	spin_lock(&pci_bus_lock);
+	down_read(&pci_bus_sem);
 	n = from ? from->global_list.next : pci_devices.next;
 
 	while (n && (n != &pci_devices)) {
@@ -181,7 +182,7 @@ static struct pci_dev * pci_find_subsys(unsigned int vendor,
 	}
 	dev = NULL;
 exit:
-	spin_unlock(&pci_bus_lock);
+	up_read(&pci_bus_sem);
 	return dev;
 }
 
@@ -191,14 +192,15 @@ exit:
  * @device: PCI device id to match, or %PCI_ANY_ID to match all device ids
  * @from: Previous PCI device found in search, or %NULL for new search.
  *
- * Iterates through the list of known PCI devices.  If a PCI device is
- * found with a matching @vendor and @device, a pointer to its device structure is
+ * Iterates through the list of known PCI devices.  If a PCI device is found
+ * with a matching @vendor and @device, a pointer to its device structure is
  * returned.  Otherwise, %NULL is returned.
- * A new search is initiated by passing %NULL to the @from argument.
- * Otherwise if @from is not %NULL, searches continue from next device on the global list.
+ * A new search is initiated by passing %NULL as the @from argument.
+ * Otherwise if @from is not %NULL, searches continue from next device
+ * on the global list.
  * 
- * NOTE: Do not use this function anymore, use pci_get_device() instead, as
- * the pci device returned by this function can disappear at any moment in
+ * NOTE: Do not use this function any more; use pci_get_device() instead, as
+ * the PCI device returned by this function can disappear at any moment in
  * time.
  */
 struct pci_dev *
@@ -215,11 +217,11 @@ pci_find_device(unsigned int vendor, unsigned int device, const struct pci_dev *
  * @ss_device: PCI subsystem device id to match, or %PCI_ANY_ID to match all device ids
  * @from: Previous PCI device found in search, or %NULL for new search.
  *
- * Iterates through the list of known PCI devices.  If a PCI device is
- * found with a matching @vendor, @device, @ss_vendor and @ss_device, a pointer to its
+ * Iterates through the list of known PCI devices.  If a PCI device is found
+ * with a matching @vendor, @device, @ss_vendor and @ss_device, a pointer to its
  * device structure is returned, and the reference count to the device is
  * incremented.  Otherwise, %NULL is returned.  A new search is initiated by
- * passing %NULL to the @from argument.  Otherwise if @from is not %NULL,
+ * passing %NULL as the @from argument.  Otherwise if @from is not %NULL,
  * searches continue from next device on the global list.
  * The reference count for @from is always decremented if it is not %NULL.
  */
@@ -232,7 +234,7 @@ pci_get_subsys(unsigned int vendor, unsigned int device,
 	struct pci_dev *dev;
 
 	WARN_ON(in_interrupt());
-	spin_lock(&pci_bus_lock);
+	down_read(&pci_bus_sem);
 	n = from ? from->global_list.next : pci_devices.next;
 
 	while (n && (n != &pci_devices)) {
@@ -247,7 +249,7 @@ pci_get_subsys(unsigned int vendor, unsigned int device,
 	dev = NULL;
 exit:
 	dev = pci_dev_get(dev);
-	spin_unlock(&pci_bus_lock);
+	up_read(&pci_bus_sem);
 	pci_dev_put(from);
 	return dev;
 }
@@ -262,7 +264,7 @@ exit:
  * found with a matching @vendor and @device, the reference count to the
  * device is incremented and a pointer to its device structure is returned.
  * Otherwise, %NULL is returned.  A new search is initiated by passing %NULL
- * to the @from argument.  Otherwise if @from is not %NULL, searches continue
+ * as the @from argument.  Otherwise if @from is not %NULL, searches continue
  * from next device on the global list.  The reference count for @from is
  * always decremented if it is not %NULL.
  */
@@ -279,11 +281,13 @@ pci_get_device(unsigned int vendor, unsigned int device, struct pci_dev *from)
  * @device: PCI device id to match, or %PCI_ANY_ID to match all device ids
  * @from: Previous PCI device found in search, or %NULL for new search.
  *
- * Iterates through the list of known PCI devices in the reverse order of pci_find_device().
+ * Iterates through the list of known PCI devices in the reverse order of
+ * pci_find_device().
  * If a PCI device is found with a matching @vendor and @device, a pointer to
  * its device structure is returned.  Otherwise, %NULL is returned.
- * A new search is initiated by passing %NULL to the @from argument.
- * Otherwise if @from is not %NULL, searches continue from previous device on the global list.
+ * A new search is initiated by passing %NULL as the @from argument.
+ * Otherwise if @from is not %NULL, searches continue from previous device
+ * on the global list.
  */
 struct pci_dev *
 pci_find_device_reverse(unsigned int vendor, unsigned int device, const struct pci_dev *from)
@@ -292,7 +296,7 @@ pci_find_device_reverse(unsigned int vendor, unsigned int device, const struct p
 	struct pci_dev *dev;
 
 	WARN_ON(in_interrupt());
-	spin_lock(&pci_bus_lock);
+	down_read(&pci_bus_sem);
 	n = from ? from->global_list.prev : pci_devices.prev;
 
 	while (n && (n != &pci_devices)) {
@@ -304,7 +308,7 @@ pci_find_device_reverse(unsigned int vendor, unsigned int device, const struct p
 	}
 	dev = NULL;
 exit:
-	spin_unlock(&pci_bus_lock);
+	up_read(&pci_bus_sem);
 	return dev;
 }
 
@@ -317,7 +321,7 @@ exit:
  * found with a matching @class, the reference count to the device is
  * incremented and a pointer to its device structure is returned.
  * Otherwise, %NULL is returned.
- * A new search is initiated by passing %NULL to the @from argument.
+ * A new search is initiated by passing %NULL as the @from argument.
  * Otherwise if @from is not %NULL, searches continue from next device
  * on the global list.  The reference count for @from is always decremented
  * if it is not %NULL.
@@ -328,7 +332,7 @@ struct pci_dev *pci_get_class(unsigned int class, struct pci_dev *from)
 	struct pci_dev *dev;
 
 	WARN_ON(in_interrupt());
-	spin_lock(&pci_bus_lock);
+	down_read(&pci_bus_sem);
 	n = from ? from->global_list.next : pci_devices.next;
 
 	while (n && (n != &pci_devices)) {
@@ -340,7 +344,7 @@ struct pci_dev *pci_get_class(unsigned int class, struct pci_dev *from)
 	dev = NULL;
 exit:
 	dev = pci_dev_get(dev);
-	spin_unlock(&pci_bus_lock);
+	up_read(&pci_bus_sem);
 	pci_dev_put(from);
 	return dev;
 }
@@ -362,7 +366,7 @@ int pci_dev_present(const struct pci_device_id *ids)
 	int found = 0;
 
 	WARN_ON(in_interrupt());
-	spin_lock(&pci_bus_lock);
+	down_read(&pci_bus_sem);
 	while (ids->vendor || ids->subvendor || ids->class_mask) {
 		list_for_each_entry(dev, &pci_devices, global_list) {
 			if (pci_match_one_device(ids, dev)) {
@@ -372,8 +376,8 @@ int pci_dev_present(const struct pci_device_id *ids)
 		}
 		ids++;
 	}
-exit:				
-	spin_unlock(&pci_bus_lock);
+exit:
+	up_read(&pci_bus_sem);
 	return found;
 }
 EXPORT_SYMBOL(pci_dev_present);

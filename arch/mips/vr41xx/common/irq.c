@@ -22,7 +22,7 @@
 
 #include <asm/irq_cpu.h>
 #include <asm/system.h>
-#include <asm/vr41xx/vr41xx.h>
+#include <asm/vr41xx/irq.h>
 
 typedef struct irq_cascade {
 	int (*get_irq)(unsigned int, struct pt_regs *);
@@ -62,7 +62,7 @@ EXPORT_SYMBOL_GPL(cascade_irq);
 static void irq_dispatch(unsigned int irq, struct pt_regs *regs)
 {
 	irq_cascade_t *cascade;
-	irq_desc_t *desc;
+	struct irq_desc *desc;
 
 	if (irq >= NR_IRQS) {
 		atomic_inc(&irq_err_count);
@@ -73,13 +73,13 @@ static void irq_dispatch(unsigned int irq, struct pt_regs *regs)
 	if (cascade->get_irq != NULL) {
 		unsigned int source_irq = irq;
 		desc = irq_desc + source_irq;
-		desc->handler->ack(source_irq);
+		desc->chip->ack(source_irq);
 		irq = cascade->get_irq(irq, regs);
 		if (irq < 0)
 			atomic_inc(&irq_err_count);
 		else
 			irq_dispatch(irq, regs);
-		desc->handler->end(source_irq);
+		desc->chip->end(source_irq);
 	} else
 		do_IRQ(irq, regs);
 }

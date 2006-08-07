@@ -9,7 +9,6 @@
 #ifndef __ASM_CPU_FEATURES_H
 #define __ASM_CPU_FEATURES_H
 
-#include <linux/config.h>
 
 #include <asm/cpu.h>
 #include <asm/cpu-info.h>
@@ -144,12 +143,8 @@
 #define cpu_has_dsp		(cpu_data[0].ases & MIPS_ASE_DSP)
 #endif
 
-#ifdef CONFIG_MIPS_MT
 #ifndef cpu_has_mipsmt
-# define cpu_has_mipsmt		(cpu_data[0].ases & MIPS_ASE_MIPSMT)
-#endif
-#else
-# define cpu_has_mipsmt		0
+#define cpu_has_mipsmt		(cpu_data[0].ases & MIPS_ASE_MIPSMT)
 #endif
 
 #ifdef CONFIG_32BIT
@@ -188,24 +183,20 @@
 # endif
 #endif
 
-#ifdef CONFIG_CPU_MIPSR2
-# if defined(CONFIG_CPU_MIPSR2_IRQ_VI) && !defined(cpu_has_vint)
-#  define cpu_has_vint		(cpu_data[0].options & MIPS_CPU_VINT)
-# else
-#  define cpu_has_vint			0
-# endif
-# if defined(CONFIG_CPU_MIPSR2_IRQ_EI) && !defined(cpu_has_veic)
-#  define cpu_has_veic		(cpu_data[0].options & MIPS_CPU_VEIC)
-# else
-#  define cpu_has_veic			0
-# endif
-#else
+#if defined(CONFIG_CPU_MIPSR2_IRQ_VI) && !defined(cpu_has_vint)
+# define cpu_has_vint		(cpu_data[0].options & MIPS_CPU_VINT)
+#elif !defined(cpu_has_vint)
 # define cpu_has_vint			0
+#endif
+
+#if defined(CONFIG_CPU_MIPSR2_IRQ_EI) && !defined(cpu_has_veic)
+# define cpu_has_veic		(cpu_data[0].options & MIPS_CPU_VEIC)
+#elif !defined(cpu_has_veic)
 # define cpu_has_veic			0
 #endif
 
-#ifndef cpu_has_subset_pcaches
-#define cpu_has_subset_pcaches	(cpu_data[0].options & MIPS_CPU_SUBSET_CACHES)
+#ifndef cpu_has_inclusive_pcaches
+#define cpu_has_inclusive_pcaches	(cpu_data[0].options & MIPS_CPU_INCLUSIVE_CACHES)
 #endif
 
 #ifndef cpu_dcache_line_size

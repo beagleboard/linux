@@ -10,7 +10,6 @@
  * Free Software Foundation;  either version 2 of the  License, or (at your
  * option) any later version.
  */
-#include <linux/config.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
@@ -75,7 +74,6 @@ set_pci_int_attr(u32 pci, u32 intn, u32 active, u32 trigger)
 
 extern void vrc5477_irq_init(u32 base);
 extern void mips_cpu_irq_init(u32 base);
-extern int setup_irq(unsigned int irq, struct irqaction *irqaction);
 static struct irqaction irq_cascade = { no_action, 0, CPU_MASK_NONE, "cascade", NULL, NULL };
 
 void __init arch_init_irq(void)

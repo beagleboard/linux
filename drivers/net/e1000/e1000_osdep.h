@@ -1,7 +1,7 @@
 /*******************************************************************************
 
   
-  Copyright(c) 1999 - 2005 Intel Corporation. All rights reserved.
+  Copyright(c) 1999 - 2006 Intel Corporation. All rights reserved.
   
   This program is free software; you can redistribute it and/or modify it 
   under the terms of the GNU General Public License as published by the Free 
@@ -22,6 +22,7 @@
   
   Contact Information:
   Linux NICS <linux.nics@intel.com>
+  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
   Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
 
 *******************************************************************************/
@@ -125,5 +126,18 @@ typedef enum {
         (offset)))
 
 #define E1000_WRITE_FLUSH(a) E1000_READ_REG(a, STATUS)
+
+#define E1000_WRITE_ICH8_REG(a, reg, value) ( \
+    writel((value), ((a)->flash_address + reg)))
+
+#define E1000_READ_ICH8_REG(a, reg) ( \
+    readl((a)->flash_address + reg))
+
+#define E1000_WRITE_ICH8_REG16(a, reg, value) ( \
+    writew((value), ((a)->flash_address + reg)))
+
+#define E1000_READ_ICH8_REG16(a, reg) ( \
+    readw((a)->flash_address + reg))
+
 
 #endif /* _E1000_OSDEP_H_ */

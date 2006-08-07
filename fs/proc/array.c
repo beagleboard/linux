@@ -52,7 +52,6 @@
  *			 :  base.c too.
  */
 
-#include <linux/config.h>
 #include <linux/types.h>
 #include <linux/errno.h>
 #include <linux/time.h>
@@ -75,6 +74,7 @@
 #include <linux/times.h>
 #include <linux/cpuset.h>
 #include <linux/rcupdate.h>
+#include <linux/delayacct.h>
 
 #include <asm/uaccess.h>
 #include <asm/pgtable.h>
@@ -412,7 +412,7 @@ static int do_task_stat(struct task_struct *task, char * buffer, int whole)
 
 	res = sprintf(buffer,"%d (%s) %c %d %d %d %d %d %lu %lu \
 %lu %lu %lu %lu %lu %ld %ld %ld %ld %d 0 %llu %lu %ld %lu %lu %lu %lu %lu \
-%lu %lu %lu %lu %lu %lu %lu %lu %d %d %lu %lu\n",
+%lu %lu %lu %lu %lu %lu %lu %lu %d %d %lu %lu %llu\n",
 		task->pid,
 		tcomm,
 		state,
@@ -456,7 +456,8 @@ static int do_task_stat(struct task_struct *task, char * buffer, int whole)
 		task->exit_signal,
 		task_cpu(task),
 		task->rt_priority,
-		task->policy);
+		task->policy,
+		(unsigned long long)delayacct_blkio_ticks(task));
 	if(mm)
 		mmput(mm);
 	return res;

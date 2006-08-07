@@ -35,7 +35,7 @@
 
 #include <asm/io.h>
 
-#if (defined(CONFIG_SND_FM801_TEA575X) || defined(CONFIG_SND_FM801_TEA575X_MODULE)) && (defined(CONFIG_VIDEO_DEV) || defined(CONFIG_VIDEO_DEV_MODULE))
+#ifdef CONFIG_SND_FM801_TEA575X_BOOL
 #include <sound/tea575x-tuner.h>
 #define TEA575X_RADIO 1
 #endif
@@ -56,7 +56,7 @@ static int enable[SNDRV_CARDS] = SNDRV_DEFAULT_ENABLE_PNP;	/* Enable this card *
  *    3 = MediaForte 64-PCR
  *  High 16-bits are video (radio) device number + 1
  */
-static int tea575x_tuner[SNDRV_CARDS] = { [0 ... (SNDRV_CARDS-1)] = 0 };
+static int tea575x_tuner[SNDRV_CARDS];
 
 module_param_array(index, int, NULL, 0444);
 MODULE_PARM_DESC(index, "Index value for the FM801 soundcard.");
@@ -199,7 +199,7 @@ struct fm801 {
 #endif
 };
 
-static struct pci_device_id snd_fm801_ids[] __devinitdata = {
+static struct pci_device_id snd_fm801_ids[] = {
 	{ 0x1319, 0x0801, PCI_ANY_ID, PCI_ANY_ID, PCI_CLASS_MULTIMEDIA_AUDIO << 8, 0xffff00, 0, },   /* FM801 */
 	{ 0x5213, 0x0510, PCI_ANY_ID, PCI_ANY_ID, PCI_CLASS_MULTIMEDIA_AUDIO << 8, 0xffff00, 0, },   /* Gallant Odyssey Sound 4 */
 	{ 0, }
@@ -1371,7 +1371,7 @@ static int __devinit snd_fm801_create(struct snd_card *card,
 		return err;
 	}
 	chip->port = pci_resource_start(pci, 0);
-	if (request_irq(pci->irq, snd_fm801_interrupt, SA_INTERRUPT|SA_SHIRQ,
+	if (request_irq(pci->irq, snd_fm801_interrupt, IRQF_DISABLED|IRQF_SHARED,
 			"FM801", chip)) {
 		snd_printk(KERN_ERR "unable to grab IRQ %d\n", chip->irq);
 		snd_fm801_free(chip);
@@ -1448,7 +1448,8 @@ static int __devinit snd_card_fm801_probe(struct pci_dev *pci,
 		return err;
 	}
 	if ((err = snd_mpu401_uart_new(card, 0, MPU401_HW_FM801,
-				       FM801_REG(chip, MPU401_DATA), 1,
+				       FM801_REG(chip, MPU401_DATA),
+				       MPU401_INFO_INTEGRATED,
 				       chip->irq, 0, &chip->rmidi)) < 0) {
 		snd_card_free(card);
 		return err;

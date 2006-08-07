@@ -869,7 +869,7 @@ struct snd_m3 {
 /*
  * pci ids
  */
-static struct pci_device_id snd_m3_ids[] __devinitdata = {
+static struct pci_device_id snd_m3_ids[] = {
 	{PCI_VENDOR_ID_ESS, PCI_DEVICE_ID_ESS_ALLEGRO_1, PCI_ANY_ID, PCI_ANY_ID,
 	 PCI_CLASS_MULTIMEDIA_AUDIO << 8, 0xffff00, 0},
 	{PCI_VENDOR_ID_ESS, PCI_DEVICE_ID_ESS_ALLEGRO, PCI_ANY_ID, PCI_ANY_ID,
@@ -2137,7 +2137,7 @@ static int __devinit snd_m3_mixer(struct snd_m3 *chip)
  * DSP Code images
  */
 
-static const u16 assp_kernel_image[] __devinitdata = {
+static const u16 assp_kernel_image[] = {
     0x7980, 0x0030, 0x7980, 0x03B4, 0x7980, 0x03B4, 0x7980, 0x00FB, 0x7980, 0x00DD, 0x7980, 0x03B4, 
     0x7980, 0x0332, 0x7980, 0x0287, 0x7980, 0x03B4, 0x7980, 0x03B4, 0x7980, 0x03B4, 0x7980, 0x03B4, 
     0x7980, 0x031A, 0x7980, 0x03B4, 0x7980, 0x022F, 0x7980, 0x03B4, 0x7980, 0x03B4, 0x7980, 0x03B4, 
@@ -2224,7 +2224,7 @@ static const u16 assp_kernel_image[] __devinitdata = {
  * Mini sample rate converter code image
  * that is to be loaded at 0x400 on the DSP.
  */
-static const u16 assp_minisrc_image[] __devinitdata = {
+static const u16 assp_minisrc_image[] = {
 
     0xBF80, 0x101E, 0x906E, 0x006E, 0x8B88, 0x6980, 0xEF88, 0x906F, 0x0D6F, 0x6900, 0xEB08, 0x0412, 
     0xBC20, 0x696E, 0xB801, 0x906E, 0x7980, 0x0403, 0xB90E, 0x8807, 0xBE43, 0xBF01, 0xBE47, 0xBE41, 
@@ -2267,12 +2267,12 @@ static const u16 assp_minisrc_image[] __devinitdata = {
  */
 
 #define MINISRC_LPF_LEN 10
-static const u16 minisrc_lpf[MINISRC_LPF_LEN] __devinitdata = {
+static const u16 minisrc_lpf[MINISRC_LPF_LEN] = {
 	0X0743, 0X1104, 0X0A4C, 0XF88D, 0X242C,
 	0X1023, 0X1AA9, 0X0B60, 0XEFDD, 0X186F
 };
 
-static void __devinit snd_m3_assp_init(struct snd_m3 *chip)
+static void snd_m3_assp_init(struct snd_m3 *chip)
 {
 	unsigned int i;
 
@@ -2760,7 +2760,7 @@ snd_m3_create(struct snd_card *card, struct pci_dev *pci,
 
 	tasklet_init(&chip->hwvol_tq, snd_m3_update_hw_volume, (unsigned long)chip);
 
-	if (request_irq(pci->irq, snd_m3_interrupt, SA_INTERRUPT|SA_SHIRQ,
+	if (request_irq(pci->irq, snd_m3_interrupt, IRQF_DISABLED|IRQF_SHARED,
 			card->driver, chip)) {
 		snd_printk(KERN_ERR "unable to grab IRQ %d\n", pci->irq);
 		snd_m3_free(chip);
@@ -2861,7 +2861,8 @@ snd_m3_probe(struct pci_dev *pci, const struct pci_device_id *pci_id)
 #if 0 /* TODO: not supported yet */
 	/* TODO enable MIDI IRQ and I/O */
 	err = snd_mpu401_uart_new(chip->card, 0, MPU401_HW_MPU401,
-				  chip->iobase + MPU401_DATA_PORT, 1,
+				  chip->iobase + MPU401_DATA_PORT,
+				  MPU401_INFO_INTEGRATED,
 				  chip->irq, 0, &chip->rmidi);
 	if (err < 0)
 		printk(KERN_WARNING "maestro3: no MIDI support.\n");

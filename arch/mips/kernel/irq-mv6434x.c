@@ -136,7 +136,7 @@ void ll_mv64340_irq(struct pt_regs *regs)
 
 #define shutdown_mv64340_irq	disable_mv64340_irq
 
-struct hw_interrupt_type mv64340_irq_type = {
+struct irq_chip mv64340_irq_type = {
 	.typename = "MV-64340",
 	.startup = startup_mv64340_irq,
 	.shutdown = shutdown_mv64340_irq,
@@ -155,7 +155,7 @@ void __init mv64340_irq_init(unsigned int base)
 		irq_desc[i].status = IRQ_DISABLED;
 		irq_desc[i].action = 0;
 		irq_desc[i].depth = 2;
-		irq_desc[i].handler = &mv64340_irq_type;
+		irq_desc[i].chip = &mv64340_irq_type;
 	}
 
 	irq_base = base;

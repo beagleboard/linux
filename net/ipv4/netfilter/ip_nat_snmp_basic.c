@@ -43,7 +43,6 @@
  * 2000-08-06: Convert to new helper API (Harald Welte).
  *
  */
-#include <linux/config.h>
 #include <linux/in.h>
 #include <linux/module.h>
 #include <linux/types.h>
@@ -1256,9 +1255,9 @@ static int help(struct sk_buff **pskb,
 	struct udphdr *udph = (struct udphdr *)((u_int32_t *)iph + iph->ihl);
 
 	/* SNMP replies and originating SNMP traps get mangled */
-	if (udph->source == ntohs(SNMP_PORT) && dir != IP_CT_DIR_REPLY)
+	if (udph->source == htons(SNMP_PORT) && dir != IP_CT_DIR_REPLY)
 		return NF_ACCEPT;
-	if (udph->dest == ntohs(SNMP_TRAP_PORT) && dir != IP_CT_DIR_ORIGINAL)
+	if (udph->dest == htons(SNMP_TRAP_PORT) && dir != IP_CT_DIR_ORIGINAL)
 		return NF_ACCEPT;
 
 	/* No NAT? */
@@ -1348,4 +1347,4 @@ static void __exit ip_nat_snmp_basic_fini(void)
 module_init(ip_nat_snmp_basic_init);
 module_exit(ip_nat_snmp_basic_fini);
 
-module_param(debug, bool, 0600);
+module_param(debug, int, 0600);

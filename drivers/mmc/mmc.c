@@ -9,7 +9,6 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
@@ -129,7 +128,7 @@ static void mmc_wait_done(struct mmc_request *mrq)
 
 int mmc_wait_for_req(struct mmc_host *host, struct mmc_request *mrq)
 {
-	DECLARE_COMPLETION(complete);
+	DECLARE_COMPLETION_ONSTACK(complete);
 
 	mrq->done_data = &complete;
 	mrq->done = mmc_wait_done;

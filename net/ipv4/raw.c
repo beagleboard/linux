@@ -103,7 +103,7 @@ static void raw_v4_unhash(struct sock *sk)
 }
 
 struct sock *__raw_v4_lookup(struct sock *sk, unsigned short num,
-			     unsigned long raddr, unsigned long laddr,
+			     __be32 raddr, __be32 laddr,
 			     int dif)
 {
 	struct hlist_node *node;
@@ -609,6 +609,7 @@ static int raw_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
 	if (sin) {
 		sin->sin_family = AF_INET;
 		sin->sin_addr.s_addr = skb->nh.iph->saddr;
+		sin->sin_port = 0;
 		memset(&sin->sin_zero, 0, sizeof(sin->sin_zero));
 	}
 	if (inet->cmsg_flags)

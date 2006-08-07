@@ -1,7 +1,6 @@
 #ifndef _H8300_SYSTEM_H
 #define _H8300_SYSTEM_H
 
-#include <linux/config.h> /* get configuration macros */
 #include <linux/linkage.h>
 
 /*
@@ -85,7 +84,6 @@ asmlinkage void resume(void);
 #define wmb()  asm volatile (""   : : :"memory")
 #define set_rmb(var, value)    do { xchg(&var, value); } while (0)
 #define set_mb(var, value)     set_rmb(var, value)
-#define set_wmb(var, value)    do { var = value; wmb(); } while (0)
 
 #ifdef CONFIG_SMP
 #define smp_mb()	mb()

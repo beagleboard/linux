@@ -20,7 +20,6 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#include <linux/config.h>
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/mm.h>
@@ -37,64 +36,22 @@
 
 #include "generic.h"
 
-/*
- * The default interrupt priority levels (0 = lowest, 7 = highest).
- */
-static unsigned int at91rm9200_default_irq_priority[NR_AIC_IRQS] __initdata = {
-	7,	/* Advanced Interrupt Controller */
-	7,	/* System Peripheral */
-	0,	/* Parallel IO Controller A */
-	0,	/* Parallel IO Controller B */
-	0,	/* Parallel IO Controller C */
-	0,	/* Parallel IO Controller D */
-	6,	/* USART 0 */
-	6,	/* USART 1 */
-	6,	/* USART 2 */
-	6,	/* USART 3 */
-	0,	/* Multimedia Card Interface */
-	4,	/* USB Device Port */
-	0,	/* Two-Wire Interface */
-	6,	/* Serial Peripheral Interface */
-	5,	/* Serial Synchronous Controller */
-	5,	/* Serial Synchronous Controller */
-	5,	/* Serial Synchronous Controller */
-	0,	/* Timer Counter 0 */
-	0,	/* Timer Counter 1 */
-	0,	/* Timer Counter 2 */
-	0,	/* Timer Counter 3 */
-	0,	/* Timer Counter 4 */
-	0,	/* Timer Counter 5 */
-	3,	/* USB Host port */
-	3,	/* Ethernet MAC */
-	0,	/* Advanced Interrupt Controller */
-	0,	/* Advanced Interrupt Controller */
-	0,	/* Advanced Interrupt Controller */
-	0,	/* Advanced Interrupt Controller */
-	0,	/* Advanced Interrupt Controller */
-	0,	/* Advanced Interrupt Controller */
-	0	/* Advanced Interrupt Controller */
-};
 
-
-static void at91rm9200_mask_irq(unsigned int irq)
+static void at91_aic_mask_irq(unsigned int irq)
 {
 	/* Disable interrupt on AIC */
 	at91_sys_write(AT91_AIC_IDCR, 1 << irq);
 }
 
-static void at91rm9200_unmask_irq(unsigned int irq)
+static void at91_aic_unmask_irq(unsigned int irq)
 {
 	/* Enable interrupt on AIC */
 	at91_sys_write(AT91_AIC_IECR, 1 << irq);
 }
 
-static int at91rm9200_irq_type(unsigned irq, unsigned type)
+static int at91_aic_set_type(unsigned irq, unsigned type)
 {
 	unsigned int smr, srctype;
-
-	/* change triggering only for FIQ and external IRQ0..IRQ6 */
-	if ((irq < AT91_ID_IRQ0) && (irq != AT91_ID_FIQ))
-		return -EINVAL;
 
 	switch (type) {
 	case IRQT_HIGH:
@@ -104,9 +61,13 @@ static int at91rm9200_irq_type(unsigned irq, unsigned type)
 		srctype = AT91_AIC_SRCTYPE_RISING;
 		break;
 	case IRQT_LOW:
+		if ((irq > AT91_ID_FIQ) && (irq < AT91_ID_IRQ0))	/* only supported on external interrupts */
+			return -EINVAL;
 		srctype = AT91_AIC_SRCTYPE_LOW;
 		break;
 	case IRQT_FALLING:
+		if ((irq > AT91_ID_FIQ) && (irq < AT91_ID_IRQ0))	/* only supported on external interrupts */
+			return -EINVAL;
 		srctype = AT91_AIC_SRCTYPE_FALLING;
 		break;
 	default:
@@ -118,23 +79,56 @@ static int at91rm9200_irq_type(unsigned irq, unsigned type)
 	return 0;
 }
 
-static struct irqchip at91rm9200_irq_chip = {
-	.ack		= at91rm9200_mask_irq,
-	.mask		= at91rm9200_mask_irq,
-	.unmask		= at91rm9200_unmask_irq,
-	.set_type	= at91rm9200_irq_type,
+#ifdef CONFIG_PM
+
+static u32 wakeups;
+static u32 backups;
+
+static int at91_aic_set_wake(unsigned irq, unsigned value)
+{
+	if (unlikely(irq >= 32))
+		return -EINVAL;
+
+	if (value)
+		wakeups |= (1 << irq);
+	else
+		wakeups &= ~(1 << irq);
+
+	return 0;
+}
+
+void at91_irq_suspend(void)
+{
+	backups = at91_sys_read(AT91_AIC_IMR);
+	at91_sys_write(AT91_AIC_IDCR, backups);
+	at91_sys_write(AT91_AIC_IECR, wakeups);
+}
+
+void at91_irq_resume(void)
+{
+	at91_sys_write(AT91_AIC_IDCR, wakeups);
+	at91_sys_write(AT91_AIC_IECR, backups);
+}
+
+#else
+#define at91_aic_set_wake	NULL
+#endif
+
+static struct irq_chip at91_aic_chip = {
+	.name		= "AIC",
+	.ack		= at91_aic_mask_irq,
+	.mask		= at91_aic_mask_irq,
+	.unmask		= at91_aic_unmask_irq,
+	.set_type	= at91_aic_set_type,
+	.set_wake	= at91_aic_set_wake,
 };
 
 /*
  * Initialize the AIC interrupt controller.
  */
-void __init at91rm9200_init_irq(unsigned int priority[NR_AIC_IRQS])
+void __init at91_aic_init(unsigned int priority[NR_AIC_IRQS])
 {
 	unsigned int i;
-
-	/* No priority list specified for this board -> use defaults */
-	if (priority == NULL)
-		priority = at91rm9200_default_irq_priority;
 
 	/*
 	 * The IVR is used by macro get_irqnr_and_base to read and verify.
@@ -143,10 +137,10 @@ void __init at91rm9200_init_irq(unsigned int priority[NR_AIC_IRQS])
 	for (i = 0; i < NR_AIC_IRQS; i++) {
 		/* Put irq number in Source Vector Register: */
 		at91_sys_write(AT91_AIC_SVR(i), i);
-		/* Store the Source Mode Register as defined in table above */
+		/* Active Low interrupt, with the specified priority */
 		at91_sys_write(AT91_AIC_SMR(i), AT91_AIC_SRCTYPE_LOW | priority[i]);
 
-		set_irq_chip(i, &at91rm9200_irq_chip);
+		set_irq_chip(i, &at91_aic_chip);
 		set_irq_handler(i, do_level_IRQ);
 		set_irq_flags(i, IRQF_VALID | IRQF_PROBE);
 

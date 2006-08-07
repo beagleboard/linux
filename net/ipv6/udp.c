@@ -23,7 +23,6 @@
  *      2 of the License, or (at your option) any later version.
  */
 
-#include <linux/config.h>
 #include <linux/errno.h>
 #include <linux/types.h>
 #include <linux/socket.h>
@@ -783,7 +782,7 @@ do_udp_sendmsg:
 		connected = 0;
 	}
 
-	err = ip6_dst_lookup(sk, &dst, fl);
+	err = ip6_sk_dst_lookup(sk, &dst, fl);
 	if (err)
 		goto out;
 	if (final_p)

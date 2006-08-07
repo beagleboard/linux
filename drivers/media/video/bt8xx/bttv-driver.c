@@ -3923,7 +3923,12 @@ static int __devinit bttv_register_video(struct bttv *btv)
 		goto err;
 	printk(KERN_INFO "bttv%d: registered device video%d\n",
 	       btv->c.nr,btv->video_dev->minor & 0x1f);
-	video_device_create_file(btv->video_dev, &class_device_attr_card);
+	if (class_device_create_file(&btv->video_dev->class_dev,
+				     &class_device_attr_card)<0) {
+		printk(KERN_ERR "bttv%d: class_device_create_file 'card' "
+		       "failed\n", btv->c.nr);
+		goto err;
+	}
 
 	/* vbi */
 	btv->vbi_dev = vdev_init(btv, &bttv_vbi_template, "vbi");
@@ -4019,8 +4024,9 @@ static int __devinit bttv_probe(struct pci_dev *dev,
 	if (!request_mem_region(pci_resource_start(dev,0),
 				pci_resource_len(dev,0),
 				btv->c.name)) {
-		printk(KERN_WARNING "bttv%d: can't request iomem (0x%lx).\n",
-		       btv->c.nr, pci_resource_start(dev,0));
+		printk(KERN_WARNING "bttv%d: can't request iomem (0x%llx).\n",
+		       btv->c.nr,
+		       (unsigned long long)pci_resource_start(dev,0));
 		return -EBUSY;
 	}
 	pci_set_master(dev);
@@ -4031,8 +4037,9 @@ static int __devinit bttv_probe(struct pci_dev *dev,
 	pci_read_config_byte(dev, PCI_LATENCY_TIMER, &lat);
 	printk(KERN_INFO "bttv%d: Bt%d (rev %d) at %s, ",
 	       bttv_num,btv->id, btv->revision, pci_name(dev));
-	printk("irq: %d, latency: %d, mmio: 0x%lx\n",
-	       btv->c.pci->irq, lat, pci_resource_start(dev,0));
+	printk("irq: %d, latency: %d, mmio: 0x%llx\n",
+	       btv->c.pci->irq, lat,
+	       (unsigned long long)pci_resource_start(dev,0));
 	schedule();
 
 	btv->bt848_mmio=ioremap(pci_resource_start(dev,0), 0x1000);
@@ -4048,7 +4055,7 @@ static int __devinit bttv_probe(struct pci_dev *dev,
 	/* disable irqs, register irq handler */
 	btwrite(0, BT848_INT_MASK);
 	result = request_irq(btv->c.pci->irq, bttv_irq,
-			     SA_SHIRQ | SA_INTERRUPT,btv->c.name,(void *)btv);
+			     IRQF_SHARED | IRQF_DISABLED,btv->c.name,(void *)btv);
 	if (result < 0) {
 		printk(KERN_ERR "bttv%d: can't get IRQ %d\n",
 		       bttv_num,btv->c.pci->irq);
@@ -4285,6 +4292,8 @@ static struct pci_driver bttv_pci_driver = {
 
 static int bttv_init_module(void)
 {
+	int ret;
+
 	bttv_num = 0;
 
 	printk(KERN_INFO "bttv: driver version %d.%d.%d loaded\n",
@@ -4306,7 +4315,11 @@ static int bttv_init_module(void)
 
 	bttv_check_chipset();
 
-	bus_register(&bttv_sub_bus_type);
+	ret = bus_register(&bttv_sub_bus_type);
+	if (ret < 0) {
+		printk(KERN_WARNING "bttv: bus_register error: %d\n", ret);
+		return ret;
+	}
 	return pci_register_driver(&bttv_pci_driver);
 }
 

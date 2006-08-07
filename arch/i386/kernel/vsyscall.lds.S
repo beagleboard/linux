@@ -7,9 +7,10 @@
 
 SECTIONS
 {
-  . = VSYSCALL_BASE + SIZEOF_HEADERS;
+  . = VDSO_PRELINK + SIZEOF_HEADERS;
 
   .hash           : { *(.hash) }		:text
+  .gnu.hash       : { *(.gnu.hash) }
   .dynsym         : { *(.dynsym) }
   .dynstr         : { *(.dynstr) }
   .gnu.version    : { *(.gnu.version) }
@@ -20,7 +21,7 @@ SECTIONS
      For the layouts to match, we need to skip more than enough
      space for the dynamic symbol table et al.  If this amount
      is insufficient, ld -shared will barf.  Just increase it here.  */
-  . = VSYSCALL_BASE + 0x400;
+  . = VDSO_PRELINK + 0x400;
 
   .text           : { *(.text) }		:text =0x90909090
   .note		  : { *(.note.*) }		:text :note

@@ -1,7 +1,6 @@
 #ifndef __ARCH_I386_ATOMIC__
 #define __ARCH_I386_ATOMIC__
 
-#include <linux/config.h>
 #include <linux/compiler.h>
 #include <asm/processor.h>
 
@@ -47,8 +46,8 @@ static __inline__ void atomic_add(int i, atomic_t *v)
 {
 	__asm__ __volatile__(
 		LOCK_PREFIX "addl %1,%0"
-		:"=m" (v->counter)
-		:"ir" (i), "m" (v->counter));
+		:"+m" (v->counter)
+		:"ir" (i));
 }
 
 /**
@@ -62,8 +61,8 @@ static __inline__ void atomic_sub(int i, atomic_t *v)
 {
 	__asm__ __volatile__(
 		LOCK_PREFIX "subl %1,%0"
-		:"=m" (v->counter)
-		:"ir" (i), "m" (v->counter));
+		:"+m" (v->counter)
+		:"ir" (i));
 }
 
 /**
@@ -81,8 +80,8 @@ static __inline__ int atomic_sub_and_test(int i, atomic_t *v)
 
 	__asm__ __volatile__(
 		LOCK_PREFIX "subl %2,%0; sete %1"
-		:"=m" (v->counter), "=qm" (c)
-		:"ir" (i), "m" (v->counter) : "memory");
+		:"+m" (v->counter), "=qm" (c)
+		:"ir" (i) : "memory");
 	return c;
 }
 
@@ -96,8 +95,7 @@ static __inline__ void atomic_inc(atomic_t *v)
 {
 	__asm__ __volatile__(
 		LOCK_PREFIX "incl %0"
-		:"=m" (v->counter)
-		:"m" (v->counter));
+		:"+m" (v->counter));
 }
 
 /**
@@ -110,8 +108,7 @@ static __inline__ void atomic_dec(atomic_t *v)
 {
 	__asm__ __volatile__(
 		LOCK_PREFIX "decl %0"
-		:"=m" (v->counter)
-		:"m" (v->counter));
+		:"+m" (v->counter));
 }
 
 /**
@@ -128,8 +125,8 @@ static __inline__ int atomic_dec_and_test(atomic_t *v)
 
 	__asm__ __volatile__(
 		LOCK_PREFIX "decl %0; sete %1"
-		:"=m" (v->counter), "=qm" (c)
-		:"m" (v->counter) : "memory");
+		:"+m" (v->counter), "=qm" (c)
+		: : "memory");
 	return c != 0;
 }
 
@@ -147,8 +144,8 @@ static __inline__ int atomic_inc_and_test(atomic_t *v)
 
 	__asm__ __volatile__(
 		LOCK_PREFIX "incl %0; sete %1"
-		:"=m" (v->counter), "=qm" (c)
-		:"m" (v->counter) : "memory");
+		:"+m" (v->counter), "=qm" (c)
+		: : "memory");
 	return c != 0;
 }
 
@@ -167,8 +164,8 @@ static __inline__ int atomic_add_negative(int i, atomic_t *v)
 
 	__asm__ __volatile__(
 		LOCK_PREFIX "addl %2,%0; sets %1"
-		:"=m" (v->counter), "=qm" (c)
-		:"ir" (i), "m" (v->counter) : "memory");
+		:"+m" (v->counter), "=qm" (c)
+		:"ir" (i) : "memory");
 	return c;
 }
 

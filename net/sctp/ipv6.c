@@ -290,7 +290,8 @@ static void sctp_v6_get_saddr(struct sctp_association *asoc,
 	sctp_read_lock(addr_lock);
 	list_for_each(pos, &bp->address_list) {
 		laddr = list_entry(pos, struct sctp_sockaddr_entry, list);
-		if ((laddr->a.sa.sa_family == AF_INET6) &&
+		if ((laddr->use_as_src) &&
+		    (laddr->a.sa.sa_family == AF_INET6) &&
 		    (scope <= sctp_scope(&laddr->a))) {
 			bmatchlen = sctp_v6_addr_match_len(daddr, &laddr->a);
 			if (!baddr || (matchlen < bmatchlen)) {
@@ -523,7 +524,9 @@ static int sctp_v6_available(union sctp_addr *addr, struct sctp_sock *sp)
  * Return 0 - If the address is a non-unicast or an illegal address.
  * Return 1 - If the address is a unicast.
  */
-static int sctp_v6_addr_valid(union sctp_addr *addr, struct sctp_sock *sp)
+static int sctp_v6_addr_valid(union sctp_addr *addr,
+			      struct sctp_sock *sp,
+			      const struct sk_buff *skb)
 {
 	int ret = ipv6_addr_type(&addr->v6.sin6_addr);
 
@@ -537,7 +540,7 @@ static int sctp_v6_addr_valid(union sctp_addr *addr, struct sctp_sock *sp)
 		if (sp && ipv6_only_sock(sctp_opt2sk(sp)))
 			return 0;
 		sctp_v6_map_v4(addr);
-		return sctp_get_af_specific(AF_INET)->addr_valid(addr, sp);
+		return sctp_get_af_specific(AF_INET)->addr_valid(addr, sp, skb);
 	}
 
 	/* Is this a non-unicast address */

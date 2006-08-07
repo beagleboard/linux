@@ -20,7 +20,6 @@
    SOFTWARE IS DISCLAIMED.
 */
 
-#include <linux/config.h>
 #include <linux/module.h>
 
 #include <linux/types.h>
@@ -76,14 +75,12 @@
 
 static struct cmtp_application *cmtp_application_add(struct cmtp_session *session, __u16 appl)
 {
-	struct cmtp_application *app = kmalloc(sizeof(*app), GFP_KERNEL);
+	struct cmtp_application *app = kzalloc(sizeof(*app), GFP_KERNEL);
 
 	BT_DBG("session %p application %p appl %d", session, app, appl);
 
 	if (!app)
 		return NULL;
-
-	memset(app, 0, sizeof(*app));
 
 	app->state = BT_OPEN;
 	app->appl = appl;

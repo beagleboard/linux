@@ -34,6 +34,11 @@ cflags-$(CONFIG_MARCH_G5)   += $(call cc-option,-march=g5)
 cflags-$(CONFIG_MARCH_Z900) += $(call cc-option,-march=z900)
 cflags-$(CONFIG_MARCH_Z990) += $(call cc-option,-march=z990)
 
+#
+# Prevent tail-call optimizations, to get clearer backtraces:
+#
+cflags-$(CONFIG_FRAME_POINTER) += -fno-optimize-sibling-calls
+
 # old style option for packed stacks
 ifeq ($(call cc-option-yn,-mkernel-backchain),y)
 cflags-$(CONFIG_PACK_STACK)  += -mkernel-backchain -D__PACK_STACK
@@ -76,7 +81,7 @@ LDFLAGS_vmlinux := -e start
 head-y		:= arch/$(ARCH)/kernel/head.o arch/$(ARCH)/kernel/init_task.o
 
 core-y		+= arch/$(ARCH)/mm/ arch/$(ARCH)/kernel/ arch/$(ARCH)/crypto/ \
-		   arch/$(ARCH)/appldata/
+		   arch/$(ARCH)/appldata/ arch/$(ARCH)/hypfs/
 libs-y		+= arch/$(ARCH)/lib/
 drivers-y	+= drivers/s390/
 drivers-$(CONFIG_MATHEMU) += arch/$(ARCH)/math-emu/

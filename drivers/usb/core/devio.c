@@ -47,6 +47,7 @@
 #include <linux/usbdevice_fs.h>
 #include <linux/cdev.h>
 #include <linux/notifier.h>
+#include <linux/security.h>
 #include <asm/uaccess.h>
 #include <asm/byteorder.h>
 #include <linux/moduleparam.h>
@@ -68,6 +69,7 @@ struct async {
 	void __user *userbuffer;
 	void __user *userurb;
 	struct urb *urb;
+	u32 secid;
 };
 
 static int usbfs_snoop = 0;
@@ -312,7 +314,7 @@ static void async_completed(struct urb *urb, struct pt_regs *regs)
 		sinfo.si_code = SI_ASYNCIO;
 		sinfo.si_addr = as->userurb;
 		kill_proc_info_as_uid(as->signr, &sinfo, as->pid, as->uid, 
-				      as->euid);
+				      as->euid, as->secid);
 	}
 	snoop(&urb->dev->dev, "urb complete\n");
 	snoop_urb(urb, as->userurb);
@@ -572,6 +574,7 @@ static int usbdev_open(struct inode *inode, struct file *file)
 	ps->disc_euid = current->euid;
 	ps->disccontext = NULL;
 	ps->ifclaimed = 0;
+	security_task_getsecid(current, &ps->secid);
 	wmb();
 	list_add_tail(&ps->list, &dev->filelist);
 	file->private_data = ps;
@@ -823,8 +826,7 @@ static int proc_connectinfo(struct dev_state *ps, void __user *arg)
 
 static int proc_resetdevice(struct dev_state *ps)
 {
-	return usb_reset_device(ps->dev);
-
+	return usb_reset_composite_device(ps->dev, NULL);
 }
 
 static int proc_setintf(struct dev_state *ps, void __user *arg)
@@ -923,8 +925,8 @@ static int proc_do_submiturb(struct dev_state *ps, struct usbdevfs_urb *uurb,
 		if ((ep->desc.bmAttributes & USB_ENDPOINT_XFERTYPE_MASK)
 				!= USB_ENDPOINT_XFER_CONTROL)
 			return -EINVAL;
-		/* min 8 byte setup packet, max arbitrary */
-		if (uurb->buffer_length < 8 || uurb->buffer_length > PAGE_SIZE)
+		/* min 8 byte setup packet, max 8 byte setup plus an arbitrary data stage */
+		if (uurb->buffer_length < 8 || uurb->buffer_length > (8 + MAX_USBFS_BUFFER_SIZE))
 			return -EINVAL;
 		if (!(dr = kmalloc(sizeof(struct usb_ctrlrequest), GFP_KERNEL)))
 			return -ENOMEM;
@@ -982,7 +984,8 @@ static int proc_do_submiturb(struct dev_state *ps, struct usbdevfs_urb *uurb,
 			return -EFAULT;
 		}
 		for (totlen = u = 0; u < uurb->number_of_packets; u++) {
-			if (isopkt[u].length > 1023) {
+			/* arbitrary limit, sufficient for USB 2.0 high-bandwidth iso */
+			if (isopkt[u].length > 8192) {
 				kfree(isopkt);
 				return -EINVAL;
 			}
@@ -1053,6 +1056,7 @@ static int proc_do_submiturb(struct dev_state *ps, struct usbdevfs_urb *uurb,
 	as->pid = current->pid;
 	as->uid = current->uid;
 	as->euid = current->euid;
+	security_task_getsecid(current, &as->secid);
 	if (!(uurb->endpoint & USB_DIR_IN)) {
 		if (copy_from_user(as->urb->transfer_buffer, uurb->buffer, as->urb->transfer_buffer_length)) {
 			free_async(as);

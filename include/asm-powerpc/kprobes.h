@@ -50,6 +50,9 @@ typedef unsigned int kprobe_opcode_t;
 			IS_TWI(instr) || IS_TDI(instr))
 
 #define ARCH_SUPPORTS_KRETPROBES
+#define  ARCH_INACTIVE_KPROBE_COUNT 1
+#define flush_insn_slot(p)	do { } while (0)
+
 void kretprobe_trampoline(void);
 extern void arch_remove_kprobe(struct kprobe *p);
 

@@ -70,12 +70,44 @@ ieee80211softmac_wx_set_essid(struct net_device *net_dev,
 			      char *extra)
 {
 	struct ieee80211softmac_device *sm = ieee80211_priv(net_dev);
+	struct ieee80211softmac_network *n;
+	struct ieee80211softmac_auth_queue_item *authptr;
 	int length = 0;
 	unsigned long flags;
-	
+
+	/* Check if we're already associating to this or another network
+	 * If it's another network, cancel and start over with our new network
+	 * If it's our network, ignore the change, we're already doing it!
+	 */
+	if((sm->associnfo.associating || sm->associated) &&
+	   (data->essid.flags && data->essid.length && extra)) {
+		/* Get the associating network */
+		n = ieee80211softmac_get_network_by_bssid(sm, sm->associnfo.bssid);
+		if(n && n->essid.len == (data->essid.length - 1) &&
+		   !memcmp(n->essid.data, extra, n->essid.len)) {
+			dprintk(KERN_INFO PFX "Already associating or associated to "MAC_FMT"\n",
+				MAC_ARG(sm->associnfo.bssid));
+			return 0;
+		} else {
+			dprintk(KERN_INFO PFX "Canceling existing associate request!\n");
+			spin_lock_irqsave(&sm->lock,flags);
+			/* Cancel assoc work */
+			cancel_delayed_work(&sm->associnfo.work);
+			/* We don't have to do this, but it's a little cleaner */
+			list_for_each_entry(authptr, &sm->auth_queue, list)
+				cancel_delayed_work(&authptr->work);
+			sm->associnfo.bssvalid = 0;
+			sm->associnfo.bssfixed = 0;
+			spin_unlock_irqrestore(&sm->lock,flags);
+			flush_scheduled_work();
+		}
+	}
+
+
 	spin_lock_irqsave(&sm->lock, flags);
-	
+
 	sm->associnfo.static_essid = 0;
+	sm->associnfo.assoc_wait = 0;
 
 	if (data->essid.flags && data->essid.length && extra /*required?*/) {
 		length = min(data->essid.length - 1, IW_ESSID_MAX_SIZE);
@@ -211,8 +243,8 @@ ieee80211softmac_wx_set_rate(struct net_device *net_dev,
 	if (is_ofdm && !(ieee->modulation & IEEE80211_OFDM_MODULATION))
 		goto out_unlock;
 
-	mac->txrates.default_rate = rate;
-	mac->txrates.default_fallback = lower_rate(mac, rate);
+	mac->txrates.user_rate = rate;
+	ieee80211softmac_recalc_txrates(mac);
 	err = 0;
 
 out_unlock:	
@@ -388,7 +420,7 @@ ieee80211softmac_wx_set_genie(struct net_device *dev,
 		memcpy(mac->wpa.IE, extra, wrqu->data.length);
 		dprintk(KERN_INFO PFX "generic IE set to ");
 		for (i=0;i<wrqu->data.length;i++)
-			dprintk("%.2x", mac->wpa.IE[i]);
+			dprintk("%.2x", (u8)mac->wpa.IE[i]);
 		dprintk("\n");
 		mac->wpa.IElen = wrqu->data.length;
 	} else {
@@ -431,3 +463,35 @@ ieee80211softmac_wx_get_genie(struct net_device *dev,
 }
 EXPORT_SYMBOL_GPL(ieee80211softmac_wx_get_genie);
 
+int
+ieee80211softmac_wx_set_mlme(struct net_device *dev,
+			     struct iw_request_info *info,
+			     union iwreq_data *wrqu,
+			     char *extra)
+{
+	struct ieee80211softmac_device *mac = ieee80211_priv(dev);
+	struct iw_mlme *mlme = (struct iw_mlme *)extra;
+	u16 reason = cpu_to_le16(mlme->reason_code);
+	struct ieee80211softmac_network *net;
+
+	if (memcmp(mac->associnfo.bssid, mlme->addr.sa_data, ETH_ALEN)) {
+		printk(KERN_DEBUG PFX "wx_set_mlme: requested operation on net we don't use\n");
+		return -EINVAL;
+	}
+
+	switch (mlme->cmd) {
+	case IW_MLME_DEAUTH:
+		net = ieee80211softmac_get_network_by_bssid_locked(mac, mlme->addr.sa_data);
+		if (!net) {
+			printk(KERN_DEBUG PFX "wx_set_mlme: we should know the net here...\n");
+			return -EINVAL;
+		}
+		return ieee80211softmac_deauth_req(mac, net, reason);
+	case IW_MLME_DISASSOC:
+		ieee80211softmac_send_disassoc_req(mac, reason);
+		return 0;
+	default:
+		return -EOPNOTSUPP;
+	}
+}
+EXPORT_SYMBOL_GPL(ieee80211softmac_wx_set_mlme);

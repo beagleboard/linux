@@ -13,7 +13,6 @@
 #include <asm/uaccess.h>
 #include <asm/system.h>
 #include <linux/bitops.h>
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
@@ -197,10 +196,9 @@ static int tcf_act_police_locate(struct rtattr *rta, struct rtattr *est,
 		return ret;
 	}
 
-	p = kmalloc(sizeof(*p), GFP_KERNEL);
+	p = kzalloc(sizeof(*p), GFP_KERNEL);
 	if (p == NULL)
 		return -ENOMEM;
-	memset(p, 0, sizeof(*p));
 
 	ret = ACT_P_CREATED;
 	p->refcnt = 1;
@@ -430,11 +428,10 @@ struct tcf_police * tcf_police_locate(struct rtattr *rta, struct rtattr *est)
 		return p;
 	}
 
-	p = kmalloc(sizeof(*p), GFP_KERNEL);
+	p = kzalloc(sizeof(*p), GFP_KERNEL);
 	if (p == NULL)
 		return NULL;
 
-	memset(p, 0, sizeof(*p));
 	p->refcnt = 1;
 	spin_lock_init(&p->lock);
 	p->stats_lock = &p->lock;

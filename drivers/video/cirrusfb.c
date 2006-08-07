@@ -36,13 +36,11 @@
 
 #define CIRRUSFB_VERSION "2.0-pre2"
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/string.h>
 #include <linux/mm.h>
-#include <linux/tty.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/fb.h>
@@ -2227,7 +2225,6 @@ static void cirrusfb_pci_unmap (struct cirrusfb_info *cinfo)
 		release_region(0x3C0, 32);
 	pci_release_regions(pdev);
 	framebuffer_release(cinfo->info);
-	pci_disable_device(pdev);
 }
 #endif /* CONFIG_PCI */
 
@@ -2458,7 +2455,6 @@ err_release_regions:
 err_release_fb:
 	framebuffer_release(info);
 err_disable:
-	pci_disable_device(pdev);
 err_out:
 	return ret;
 }

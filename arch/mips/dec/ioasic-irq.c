@@ -93,7 +93,7 @@ static inline void end_ioasic_irq(unsigned int irq)
 		enable_ioasic_irq(irq);
 }
 
-static struct hw_interrupt_type ioasic_irq_type = {
+static struct irq_chip ioasic_irq_type = {
 	.typename = "IO-ASIC",
 	.startup = startup_ioasic_irq,
 	.shutdown = shutdown_ioasic_irq,
@@ -121,7 +121,7 @@ static inline void end_ioasic_dma_irq(unsigned int irq)
 	end_ioasic_irq(irq);
 }
 
-static struct hw_interrupt_type ioasic_dma_irq_type = {
+static struct irq_chip ioasic_dma_irq_type = {
 	.typename = "IO-ASIC-DMA",
 	.startup = startup_ioasic_dma_irq,
 	.shutdown = shutdown_ioasic_dma_irq,
@@ -144,13 +144,13 @@ void __init init_ioasic_irqs(int base)
 		irq_desc[i].status = IRQ_DISABLED;
 		irq_desc[i].action = 0;
 		irq_desc[i].depth = 1;
-		irq_desc[i].handler = &ioasic_irq_type;
+		irq_desc[i].chip = &ioasic_irq_type;
 	}
 	for (; i < base + IO_IRQ_LINES; i++) {
 		irq_desc[i].status = IRQ_DISABLED;
 		irq_desc[i].action = 0;
 		irq_desc[i].depth = 1;
-		irq_desc[i].handler = &ioasic_dma_irq_type;
+		irq_desc[i].chip = &ioasic_dma_irq_type;
 	}
 
 	ioasic_irq_base = base;

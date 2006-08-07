@@ -17,14 +17,13 @@
  * <linux/spinlock.h> we have to include <linux/spinlock.h> outside the
  * main big wrapper ...
  */
-#include <linux/config.h>
 #include <linux/spinlock.h>
 
 #ifndef _ASM_ATOMIC_H
 #define _ASM_ATOMIC_H
 
+#include <linux/irqflags.h>
 #include <asm/cpu-features.h>
-#include <asm/interrupt.h>
 #include <asm/war.h>
 
 typedef struct { volatile int counter; } atomic_t;

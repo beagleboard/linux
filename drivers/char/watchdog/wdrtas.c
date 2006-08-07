@@ -26,7 +26,6 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#include <linux/config.h>
 #include <linux/fs.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
@@ -521,7 +520,7 @@ wdrtas_reboot(struct notifier_block *this, unsigned long code, void *ptr)
 
 /*** initialization stuff */
 
-static struct file_operations wdrtas_fops = {
+static const struct file_operations wdrtas_fops = {
 	.owner		= THIS_MODULE,
 	.llseek		= no_llseek,
 	.write		= wdrtas_write,
@@ -536,7 +535,7 @@ static struct miscdevice wdrtas_miscdev = {
 	.fops =		&wdrtas_fops,
 };
 
-static struct file_operations wdrtas_temp_fops = {
+static const struct file_operations wdrtas_temp_fops = {
 	.owner		= THIS_MODULE,
 	.llseek		= no_llseek,
 	.read		= wdrtas_temp_read,

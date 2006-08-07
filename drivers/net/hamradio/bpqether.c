@@ -54,7 +54,6 @@
  *	BPQ   004	Joerg(DL1BKE)		Fixed to not lock up on ifconfig.
  */
 
-#include <linux/config.h>
 #include <linux/errno.h>
 #include <linux/types.h>
 #include <linux/socket.h>
@@ -123,6 +122,12 @@ struct bpqdev {
 
 static LIST_HEAD(bpq_devices);
 
+/*
+ * bpqether network devices are paired with ethernet devices below them, so
+ * form a special "super class" of normal ethernet devices; split their locks
+ * off into a separate class since they always nest.
+ */
+static struct lock_class_key bpq_netdev_xmit_lock_key;
 
 /* ------------------------------------------------------------------------ */
 
@@ -529,6 +534,7 @@ static int bpq_new_device(struct net_device *edev)
 	err = register_netdevice(ndev);
 	if (err)
 		goto error;
+	lockdep_set_class(&ndev->_xmit_lock, &bpq_netdev_xmit_lock_key);
 
 	/* List protected by RTNL */
 	list_add_rcu(&bpq->bpq_list, &bpq_devices);

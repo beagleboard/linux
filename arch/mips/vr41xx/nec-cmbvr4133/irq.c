@@ -62,7 +62,7 @@ static void end_i8259_irq(unsigned int irq)
 		enable_8259A_irq(irq - I8259_IRQ_BASE);
 }
 
-static struct hw_interrupt_type i8259_irq_type = {
+static struct irq_chip i8259_irq_type = {
 	.typename       = "XT-PIC",
 	.startup        = startup_i8259_irq,
 	.shutdown       = shutdown_i8259_irq,
@@ -104,7 +104,7 @@ void __init rockhopper_init_irq(void)
 	}
 
 	for (i = I8259_IRQ_BASE; i <= I8259_IRQ_LAST; i++)
-		irq_desc[i].handler = &i8259_irq_type;
+		irq_desc[i].chip = &i8259_irq_type;
 
 	setup_irq(I8259_SLAVE_IRQ, &i8259_slave_cascade);
 

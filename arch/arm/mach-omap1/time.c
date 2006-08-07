@@ -33,7 +33,6 @@
  * 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#include <linux/config.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/delay.h>
@@ -178,7 +177,7 @@ static irqreturn_t omap_mpu_timer_interrupt(int irq, void *dev_id,
 
 static struct irqaction omap_mpu_timer_irq = {
 	.name		= "mpu timer",
-	.flags		= SA_INTERRUPT | SA_TIMER,
+	.flags		= IRQF_DISABLED | IRQF_TIMER,
 	.handler	= omap_mpu_timer_interrupt,
 };
 
@@ -192,7 +191,7 @@ static irqreturn_t omap_mpu_timer1_interrupt(int irq, void *dev_id,
 
 static struct irqaction omap_mpu_timer1_irq = {
 	.name		= "mpu timer1 overflow",
-	.flags		= SA_INTERRUPT,
+	.flags		= IRQF_DISABLED,
 	.handler	= omap_mpu_timer1_interrupt,
 };
 

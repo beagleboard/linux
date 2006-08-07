@@ -46,7 +46,6 @@
  *	initial version released.
  */
 
-#include <linux/config.h>
 #include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/init.h>
@@ -58,7 +57,7 @@
 #include <linux/spinlock.h>
 #include <asm/uaccess.h>
 #include <linux/usb.h>
-#include "usb-serial.h"
+#include <linux/usb/serial.h>
 
 /*
  * Version Information
@@ -408,7 +407,7 @@ static void ir_write_bulk_callback (struct urb *urb, struct pt_regs *regs)
 		urb->actual_length,
 		urb->transfer_buffer);
 
-	schedule_work(&port->work);
+	usb_serial_port_softint(port);
 }
 
 static void ir_read_bulk_callback (struct urb *urb, struct pt_regs *regs)
@@ -453,8 +452,7 @@ static void ir_read_bulk_callback (struct urb *urb, struct pt_regs *regs)
 			tty = port->tty;
 
 			/*
-			 *	FIXME: must not do this in IRQ context,
-			 *	must honour TTY_DONT_FLIP
+			 *	FIXME: must not do this in IRQ context
 			 */
 			tty->ldisc.receive_buf(
 				tty,

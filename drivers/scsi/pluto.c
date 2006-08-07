@@ -13,7 +13,6 @@
 #include <linux/proc_fs.h>
 #include <linux/stat.h>
 #include <linux/init.h>
-#include <linux/config.h>
 #ifdef CONFIG_KMOD
 #include <linux/kmod.h>
 #endif
@@ -26,6 +25,9 @@
 #include "pluto.h"
 
 #include <linux/module.h>
+
+#define RQ_SCSI_BUSY		0xffff
+#define RQ_SCSI_DONE		0xfffe
 
 /* #define PLUTO_DEBUG */
 
@@ -167,8 +169,6 @@ int __init pluto_detect(struct scsi_host_template *tpnt)
 		SCpnt->request->rq_status = RQ_SCSI_BUSY;
 		
 		SCpnt->done = pluto_detect_done;
-		SCpnt->bufflen = 256;
-		SCpnt->buffer = fcs[i].inquiry;
 		SCpnt->request_bufflen = 256;
 		SCpnt->request_buffer = fcs[i].inquiry;
 		PLD(("set up %d %08lx\n", i, (long)SCpnt))

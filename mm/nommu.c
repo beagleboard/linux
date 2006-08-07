@@ -1070,6 +1070,7 @@ int remap_pfn_range(struct vm_area_struct *vma, unsigned long from,
 	vma->vm_start = vma->vm_pgoff << PAGE_SHIFT;
 	return 0;
 }
+EXPORT_SYMBOL(remap_pfn_range);
 
 void swap_unplug_io_fn(struct backing_dev_info *bdi, struct page *page)
 {
@@ -1090,6 +1091,7 @@ void unmap_mapping_range(struct address_space *mapping,
 			 int even_cows)
 {
 }
+EXPORT_SYMBOL(unmap_mapping_range);
 
 /*
  * Check that a process has enough memory to allocate a new virtual
@@ -1122,7 +1124,7 @@ int __vm_enough_memory(long pages, int cap_sys_admin)
 	if (sysctl_overcommit_memory == OVERCOMMIT_GUESS) {
 		unsigned long n;
 
-		free = get_page_cache_size();
+		free = global_page_state(NR_FILE_PAGES);
 		free += nr_swap_pages;
 
 		/*

@@ -97,7 +97,7 @@ static void toshiba_rbtx4938_irq_ioc_end(unsigned int irq);
 DEFINE_SPINLOCK(toshiba_rbtx4938_ioc_lock);
 
 #define TOSHIBA_RBTX4938_IOC_NAME "RBTX4938-IOC"
-static struct hw_interrupt_type toshiba_rbtx4938_irq_ioc_type = {
+static struct irq_chip toshiba_rbtx4938_irq_ioc_type = {
 	.typename = TOSHIBA_RBTX4938_IOC_NAME,
 	.startup = toshiba_rbtx4938_irq_ioc_startup,
 	.shutdown = toshiba_rbtx4938_irq_ioc_shutdown,
@@ -146,7 +146,7 @@ toshiba_rbtx4938_irq_ioc_init(void)
 		irq_desc[i].status = IRQ_DISABLED;
 		irq_desc[i].action = 0;
 		irq_desc[i].depth = 3;
-		irq_desc[i].handler = &toshiba_rbtx4938_irq_ioc_type;
+		irq_desc[i].chip = &toshiba_rbtx4938_irq_ioc_type;
 	}
 
 	setup_irq(RBTX4938_IRQ_IOCINT,

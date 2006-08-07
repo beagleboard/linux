@@ -9,9 +9,9 @@
  * 2 of the License, or (at your option) any later version.
  */
 
-#include <linux/config.h>
 #include <linux/threads.h>
 #include <linux/linkage.h>
+#include <asm/thread_info.h>
 #include <asm/ptrace.h>
 #include <asm/page.h>
 #include <asm/spr-regs.h>

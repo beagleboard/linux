@@ -691,7 +691,8 @@ int sctp_outq_flush(struct sctp_outq *q, int rtx_timeout)
 
 		if (!new_transport) {
 			new_transport = asoc->peer.active_path;
-		} else if (new_transport->state == SCTP_INACTIVE) {
+		} else if ((new_transport->state == SCTP_INACTIVE) ||
+			   (new_transport->state == SCTP_UNCONFIRMED)) {
 			/* If the chunk is Heartbeat or Heartbeat Ack,
 			 * send it to chunk->transport, even if it's
 			 * inactive.
@@ -848,7 +849,8 @@ int sctp_outq_flush(struct sctp_outq *q, int rtx_timeout)
 			 */
 			new_transport = chunk->transport;
 			if (!new_transport ||
-			    new_transport->state == SCTP_INACTIVE)
+			    ((new_transport->state == SCTP_INACTIVE) ||
+			     (new_transport->state == SCTP_UNCONFIRMED)))
 				new_transport = asoc->peer.active_path;
 
 			/* Change packets if necessary.  */
@@ -1262,6 +1264,7 @@ static void sctp_check_transmitted(struct sctp_outq *q,
 			   	if (!tchunk->tsn_gap_acked &&
 				    !tchunk->resent &&
 				    tchunk->rtt_in_progress) {
+					tchunk->rtt_in_progress = 0;
 					rtt = jiffies - tchunk->sent_at;
 					sctp_transport_update_rto(transport,
 								  rtt);
@@ -1463,7 +1466,8 @@ static void sctp_check_transmitted(struct sctp_outq *q,
 			/* Mark the destination transport address as
 			 * active if it is not so marked.
 			 */
-			if (transport->state == SCTP_INACTIVE) {
+			if ((transport->state == SCTP_INACTIVE) ||
+			    (transport->state == SCTP_UNCONFIRMED)) {
 				sctp_assoc_control_transport(
 					transport->asoc,
 					transport,

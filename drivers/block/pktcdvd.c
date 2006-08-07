@@ -44,7 +44,6 @@
  *************************************************************************/
 
 #include <linux/pktcdvd.h>
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
@@ -2578,19 +2577,19 @@ static int pkt_ctl_ioctl(struct inode *inode, struct file *file, unsigned int cm
 	case PKT_CTRL_CMD_SETUP:
 		if (!capable(CAP_SYS_ADMIN))
 			return -EPERM;
-		mutex_lock(&ctl_mutex);
+		mutex_lock_nested(&ctl_mutex, SINGLE_DEPTH_NESTING);
 		ret = pkt_setup_dev(&ctrl_cmd);
 		mutex_unlock(&ctl_mutex);
 		break;
 	case PKT_CTRL_CMD_TEARDOWN:
 		if (!capable(CAP_SYS_ADMIN))
 			return -EPERM;
-		mutex_lock(&ctl_mutex);
+		mutex_lock_nested(&ctl_mutex, SINGLE_DEPTH_NESTING);
 		ret = pkt_remove_dev(&ctrl_cmd);
 		mutex_unlock(&ctl_mutex);
 		break;
 	case PKT_CTRL_CMD_STATUS:
-		mutex_lock(&ctl_mutex);
+		mutex_lock_nested(&ctl_mutex, SINGLE_DEPTH_NESTING);
 		pkt_get_status(&ctrl_cmd);
 		mutex_unlock(&ctl_mutex);
 		break;
@@ -2612,7 +2611,6 @@ static struct file_operations pkt_ctl_fops = {
 static struct miscdevice pkt_misc = {
 	.minor 		= MISC_DYNAMIC_MINOR,
 	.name  		= "pktcdvd",
-	.devfs_name 	= "pktcdvd/control",
 	.fops  		= &pkt_ctl_fops
 };
 

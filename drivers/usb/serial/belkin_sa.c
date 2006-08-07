@@ -63,7 +63,6 @@
  *    UsbSnoop on Windows2000 and from examining the other USB drivers.
  */
 
-#include <linux/config.h>
 #include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/init.h>
@@ -75,7 +74,7 @@
 #include <linux/spinlock.h>
 #include <asm/uaccess.h>
 #include <linux/usb.h>
-#include "usb-serial.h"
+#include <linux/usb/serial.h>
 #include "belkin_sa.h"
 
 static int debug;

@@ -57,7 +57,7 @@ DEFINE_SPINLOCK(tx4938_cp0_lock);
 DEFINE_SPINLOCK(tx4938_pic_lock);
 
 #define TX4938_CP0_NAME "TX4938-CP0"
-static struct hw_interrupt_type tx4938_irq_cp0_type = {
+static struct irq_chip tx4938_irq_cp0_type = {
 	.typename = TX4938_CP0_NAME,
 	.startup = tx4938_irq_cp0_startup,
 	.shutdown = tx4938_irq_cp0_shutdown,
@@ -69,7 +69,7 @@ static struct hw_interrupt_type tx4938_irq_cp0_type = {
 };
 
 #define TX4938_PIC_NAME "TX4938-PIC"
-static struct hw_interrupt_type tx4938_irq_pic_type = {
+static struct irq_chip tx4938_irq_pic_type = {
 	.typename = TX4938_PIC_NAME,
 	.startup = tx4938_irq_pic_startup,
 	.shutdown = tx4938_irq_pic_shutdown,
@@ -102,7 +102,7 @@ tx4938_irq_cp0_init(void)
 		irq_desc[i].status = IRQ_DISABLED;
 		irq_desc[i].action = 0;
 		irq_desc[i].depth = 1;
-		irq_desc[i].handler = &tx4938_irq_cp0_type;
+		irq_desc[i].chip = &tx4938_irq_cp0_type;
 	}
 
 	return;
@@ -306,7 +306,7 @@ tx4938_irq_pic_init(void)
 		irq_desc[i].status = IRQ_DISABLED;
 		irq_desc[i].action = 0;
 		irq_desc[i].depth = 2;
-		irq_desc[i].handler = &tx4938_irq_pic_type;
+		irq_desc[i].chip = &tx4938_irq_pic_type;
 	}
 
 	setup_irq(TX4938_IRQ_NEST_PIC_ON_CP0, &tx4938_irq_pic_action);

@@ -1,7 +1,6 @@
 #ifndef _M68K_SYSTEM_H
 #define _M68K_SYSTEM_H
 
-#include <linux/config.h> /* get configuration macros */
 #include <linux/linkage.h>
 #include <linux/kernel.h>
 #include <asm/segment.h>
@@ -81,7 +80,6 @@ static inline int irqs_disabled(void)
 #define wmb()		barrier()
 #define read_barrier_depends()	do { } while(0)
 #define set_mb(var, value)    do { xchg(&var, value); } while (0)
-#define set_wmb(var, value)    do { var = value; wmb(); } while (0)
 
 #define smp_mb()	barrier()
 #define smp_rmb()	barrier()

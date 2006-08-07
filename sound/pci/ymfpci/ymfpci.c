@@ -70,7 +70,7 @@ MODULE_PARM_DESC(rear_switch, "Enable shared rear/line-in switch");
 module_param_array(rear_swap, bool, NULL, 0444);
 MODULE_PARM_DESC(rear_swap, "Swap rear channels (must be enabled for correct IEC958 (S/PDIF)) output");
 
-static struct pci_device_id snd_ymfpci_ids[] __devinitdata = {
+static struct pci_device_id snd_ymfpci_ids[] = {
         { 0x1073, 0x0004, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0, },   /* YMF724 */
         { 0x1073, 0x000d, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0, },   /* YMF724F */
         { 0x1073, 0x000a, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0, },   /* YMF740 */
@@ -308,7 +308,8 @@ static int __devinit snd_card_ymfpci_probe(struct pci_dev *pci,
 	}
 	if (chip->mpu_res) {
 		if ((err = snd_mpu401_uart_new(card, 0, MPU401_HW_YMFPCI,
-					       mpu_port[dev], 1,
+					       mpu_port[dev],
+					       MPU401_INFO_INTEGRATED,
 					       pci->irq, 0, &chip->rawmidi)) < 0) {
 			printk(KERN_WARNING "ymfpci: cannot initialize MPU401 at 0x%lx, skipping...\n", mpu_port[dev]);
 			legacy_ctrl &= ~YMFPCI_LEGACY_MIEN; /* disable MPU401 irq */

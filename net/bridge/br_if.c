@@ -372,17 +372,28 @@ void br_features_recompute(struct net_bridge *br)
 	struct net_bridge_port *p;
 	unsigned long features, checksum;
 
-	features = br->feature_mask &~ NETIF_F_IP_CSUM;
-	checksum = br->feature_mask & NETIF_F_IP_CSUM;
+	checksum = br->feature_mask & NETIF_F_ALL_CSUM ? NETIF_F_NO_CSUM : 0;
+	features = br->feature_mask & ~NETIF_F_ALL_CSUM;
 
 	list_for_each_entry(p, &br->port_list, list) {
-		if (!(p->dev->features 
-		      & (NETIF_F_IP_CSUM|NETIF_F_NO_CSUM|NETIF_F_HW_CSUM)))
+		unsigned long feature = p->dev->features;
+
+		if (checksum & NETIF_F_NO_CSUM && !(feature & NETIF_F_NO_CSUM))
+			checksum ^= NETIF_F_NO_CSUM | NETIF_F_HW_CSUM;
+		if (checksum & NETIF_F_HW_CSUM && !(feature & NETIF_F_HW_CSUM))
+			checksum ^= NETIF_F_HW_CSUM | NETIF_F_IP_CSUM;
+		if (!(feature & NETIF_F_IP_CSUM))
 			checksum = 0;
-		features &= p->dev->features;
+
+		if (feature & NETIF_F_GSO)
+			feature |= NETIF_F_TSO;
+		feature |= NETIF_F_GSO;
+
+		features &= feature;
 	}
 
-	br->dev->features = features | checksum | NETIF_F_LLTX;
+	br->dev->features = features | checksum | NETIF_F_LLTX |
+			    NETIF_F_GSO_ROBUST;
 }
 
 /* called with RTNL */

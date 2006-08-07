@@ -27,7 +27,6 @@
 */
 
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/netdevice.h>
@@ -76,13 +75,13 @@ static void ri_tasklet(unsigned long dev)
 	dp->st_task_enter++;
 	if ((skb = skb_peek(&dp->tq)) == NULL) {
 		dp->st_txq_refl_try++;
-		if (spin_trylock(&_dev->xmit_lock)) {
+		if (netif_tx_trylock(_dev)) {
 			dp->st_rxq_enter++;
 			while ((skb = skb_dequeue(&dp->rq)) != NULL) {
 				skb_queue_tail(&dp->tq, skb);
 				dp->st_rx2tx_tran++;
 			}
-			spin_unlock(&_dev->xmit_lock);
+			netif_tx_unlock(_dev);
 		} else {
 			/* reschedule */
 			dp->st_rxq_notenter++;
@@ -110,7 +109,7 @@ static void ri_tasklet(unsigned long dev)
 		}
 	}
 
-	if (spin_trylock(&_dev->xmit_lock)) {
+	if (netif_tx_trylock(_dev)) {
 		dp->st_rxq_check++;
 		if ((skb = skb_peek(&dp->rq)) == NULL) {
 			dp->tasklet_pending = 0;
@@ -118,10 +117,10 @@ static void ri_tasklet(unsigned long dev)
 				netif_wake_queue(_dev);
 		} else {
 			dp->st_rxq_rsch++;
-			spin_unlock(&_dev->xmit_lock);
+			netif_tx_unlock(_dev);
 			goto resched;
 		}
-		spin_unlock(&_dev->xmit_lock);
+		netif_tx_unlock(_dev);
 	} else {
 resched:
 		dp->tasklet_pending = 1;
@@ -272,6 +271,7 @@ static int __init ifb_init_module(void)
 	for (i = 0; i < numifbs && !err; i++)
 		err = ifb_init_one(i); 
 	if (err) { 
+		i--;
 		while (--i >= 0)
 			ifb_free_one(i);
 	}

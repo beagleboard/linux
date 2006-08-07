@@ -93,7 +93,7 @@
 #include <linux/libata.h>
 
 #define DRV_NAME	"ata_piix"
-#define DRV_VERSION	"1.05"
+#define DRV_VERSION	"2.00"
 
 enum {
 	PIIX_IOCFG		= 0x54, /* IDE I/O configuration register */
@@ -105,9 +105,6 @@ enum {
 	PIIX_FLAG_SCR		= (1 << 26), /* SCR available */
 	PIIX_FLAG_AHCI		= (1 << 27), /* AHCI possible */
 	PIIX_FLAG_CHECKINTR	= (1 << 28), /* make sure PCI INTx enabled */
-	PIIX_FLAG_COMBINED	= (1 << 29), /* combined mode possible */
-	/* ICH6/7 use different scheme for map value */
-	PIIX_FLAG_COMBINED_ICH6	= PIIX_FLAG_COMBINED | (1 << 30),
 
 	/* combined mode.  if set, PATA is channel 0.
 	 * if clear, PATA is channel 1.
@@ -126,6 +123,7 @@ enum {
 	ich6_sata		= 4,
 	ich6_sata_ahci		= 5,
 	ich6m_sata_ahci		= 6,
+	ich8_sata_ahci		= 7,
 
 	/* constants for mapping table */
 	P0			= 0,  /* port 0 */
@@ -141,16 +139,23 @@ enum {
 
 struct piix_map_db {
 	const u32 mask;
+	const u16 port_enable;
+	const int present_shift;
 	const int map[][4];
+};
+
+struct piix_host_priv {
+	const int *map;
+	const struct piix_map_db *map_db;
 };
 
 static int piix_init_one (struct pci_dev *pdev,
 				    const struct pci_device_id *ent);
-
-static int piix_pata_probe_reset(struct ata_port *ap, unsigned int *classes);
-static int piix_sata_probe_reset(struct ata_port *ap, unsigned int *classes);
+static void piix_host_stop(struct ata_host_set *host_set);
 static void piix_set_piomode (struct ata_port *ap, struct ata_device *adev);
 static void piix_set_dmamode (struct ata_port *ap, struct ata_device *adev);
+static void piix_pata_error_handler(struct ata_port *ap);
+static void piix_sata_error_handler(struct ata_port *ap);
 
 static unsigned int in_module_init = 1;
 
@@ -159,6 +164,7 @@ static const struct pci_device_id piix_pci_tbl[] = {
 	{ 0x8086, 0x7111, PCI_ANY_ID, PCI_ANY_ID, 0, 0, piix4_pata },
 	{ 0x8086, 0x24db, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ich5_pata },
 	{ 0x8086, 0x25a2, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ich5_pata },
+	{ 0x8086, 0x27df, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ich5_pata },
 #endif
 
 	/* NOTE: The following PCI ids must be kept in sync with the
@@ -186,11 +192,11 @@ static const struct pci_device_id piix_pci_tbl[] = {
 	/* Enterprise Southbridge 2 (where's the datasheet?) */
 	{ 0x8086, 0x2680, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ich6_sata_ahci },
 	/* SATA Controller 1 IDE (ICH8, no datasheet yet) */
-	{ 0x8086, 0x2820, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ich6_sata_ahci },
+	{ 0x8086, 0x2820, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ich8_sata_ahci },
 	/* SATA Controller 2 IDE (ICH8, ditto) */
-	{ 0x8086, 0x2825, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ich6_sata_ahci },
+	{ 0x8086, 0x2825, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ich8_sata_ahci },
 	/* Mobile SATA Controller IDE (ICH8M, ditto) */
-	{ 0x8086, 0x2828, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ich6m_sata_ahci },
+	{ 0x8086, 0x2828, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ich8_sata_ahci },
 
 	{ }	/* terminate list */
 };
@@ -218,6 +224,7 @@ static struct scsi_host_template piix_sht = {
 	.proc_name		= DRV_NAME,
 	.dma_boundary		= ATA_DMA_BOUNDARY,
 	.slave_configure	= ata_scsi_slave_config,
+	.slave_destroy		= ata_scsi_slave_destroy,
 	.bios_param		= ata_std_bios_param,
 	.resume			= ata_scsi_device_resume,
 	.suspend		= ata_scsi_device_suspend,
@@ -227,6 +234,7 @@ static const struct ata_port_operations piix_pata_ops = {
 	.port_disable		= ata_port_disable,
 	.set_piomode		= piix_set_piomode,
 	.set_dmamode		= piix_set_dmamode,
+	.mode_filter		= ata_pci_default_filter,
 
 	.tf_load		= ata_tf_load,
 	.tf_read		= ata_tf_read,
@@ -234,23 +242,25 @@ static const struct ata_port_operations piix_pata_ops = {
 	.exec_command		= ata_exec_command,
 	.dev_select		= ata_std_dev_select,
 
-	.probe_reset		= piix_pata_probe_reset,
-
 	.bmdma_setup		= ata_bmdma_setup,
 	.bmdma_start		= ata_bmdma_start,
 	.bmdma_stop		= ata_bmdma_stop,
 	.bmdma_status		= ata_bmdma_status,
 	.qc_prep		= ata_qc_prep,
 	.qc_issue		= ata_qc_issue_prot,
+	.data_xfer		= ata_pio_data_xfer,
 
-	.eng_timeout		= ata_eng_timeout,
+	.freeze			= ata_bmdma_freeze,
+	.thaw			= ata_bmdma_thaw,
+	.error_handler		= piix_pata_error_handler,
+	.post_internal_cmd	= ata_bmdma_post_internal_cmd,
 
 	.irq_handler		= ata_interrupt,
 	.irq_clear		= ata_bmdma_irq_clear,
 
 	.port_start		= ata_port_start,
 	.port_stop		= ata_port_stop,
-	.host_stop		= ata_host_stop,
+	.host_stop		= piix_host_stop,
 };
 
 static const struct ata_port_operations piix_sata_ops = {
@@ -262,27 +272,31 @@ static const struct ata_port_operations piix_sata_ops = {
 	.exec_command		= ata_exec_command,
 	.dev_select		= ata_std_dev_select,
 
-	.probe_reset		= piix_sata_probe_reset,
-
 	.bmdma_setup		= ata_bmdma_setup,
 	.bmdma_start		= ata_bmdma_start,
 	.bmdma_stop		= ata_bmdma_stop,
 	.bmdma_status		= ata_bmdma_status,
 	.qc_prep		= ata_qc_prep,
 	.qc_issue		= ata_qc_issue_prot,
+	.data_xfer		= ata_pio_data_xfer,
 
-	.eng_timeout		= ata_eng_timeout,
+	.freeze			= ata_bmdma_freeze,
+	.thaw			= ata_bmdma_thaw,
+	.error_handler		= piix_sata_error_handler,
+	.post_internal_cmd	= ata_bmdma_post_internal_cmd,
 
 	.irq_handler		= ata_interrupt,
 	.irq_clear		= ata_bmdma_irq_clear,
 
 	.port_start		= ata_port_start,
 	.port_stop		= ata_port_stop,
-	.host_stop		= ata_host_stop,
+	.host_stop		= piix_host_stop,
 };
 
-static struct piix_map_db ich5_map_db = {
+static const struct piix_map_db ich5_map_db = {
 	.mask = 0x7,
+	.port_enable = 0x3,
+	.present_shift = 4,
 	.map = {
 		/* PM   PS   SM   SS       MAP  */
 		{  P0,  NA,  P1,  NA }, /* 000b */
@@ -296,8 +310,10 @@ static struct piix_map_db ich5_map_db = {
 	},
 };
 
-static struct piix_map_db ich6_map_db = {
+static const struct piix_map_db ich6_map_db = {
 	.mask = 0x3,
+	.port_enable = 0xf,
+	.present_shift = 4,
 	.map = {
 		/* PM   PS   SM   SS       MAP */
 		{  P0,  P2,  P1,  P3 }, /* 00b */
@@ -307,8 +323,10 @@ static struct piix_map_db ich6_map_db = {
 	},
 };
 
-static struct piix_map_db ich6m_map_db = {
+static const struct piix_map_db ich6m_map_db = {
 	.mask = 0x3,
+	.port_enable = 0x5,
+	.present_shift = 4,
 	.map = {
 		/* PM   PS   SM   SS       MAP */
 		{  P0,  P2,  RV,  RV }, /* 00b */
@@ -316,6 +334,28 @@ static struct piix_map_db ich6m_map_db = {
 		{  P0,  P2, IDE, IDE }, /* 10b */
 		{  RV,  RV,  RV,  RV },
 	},
+};
+
+static const struct piix_map_db ich8_map_db = {
+	.mask = 0x3,
+	.port_enable = 0x3,
+	.present_shift = 8,
+	.map = {
+		/* PM   PS   SM   SS       MAP */
+		{  P0,  NA,  P1,  NA }, /* 00b (hardwired) */
+		{  RV,  RV,  RV,  RV },
+		{  RV,  RV,  RV,  RV }, /* 10b (never) */
+		{  RV,  RV,  RV,  RV },
+	},
+};
+
+static const struct piix_map_db *piix_map_db_table[] = {
+	[ich5_sata]		= &ich5_map_db,
+	[esb_sata]		= &ich5_map_db,
+	[ich6_sata]		= &ich6_map_db,
+	[ich6_sata_ahci]	= &ich6_map_db,
+	[ich6m_sata_ahci]	= &ich6m_map_db,
+	[ich8_sata_ahci]	= &ich8_map_db,
 };
 
 static struct ata_port_info piix_port_info[] = {
@@ -350,63 +390,69 @@ static struct ata_port_info piix_port_info[] = {
 	/* ich5_sata */
 	{
 		.sht		= &piix_sht,
-		.host_flags	= ATA_FLAG_SATA | PIIX_FLAG_COMBINED |
-				  PIIX_FLAG_CHECKINTR,
+		.host_flags	= ATA_FLAG_SATA | PIIX_FLAG_CHECKINTR,
 		.pio_mask	= 0x1f,	/* pio0-4 */
 		.mwdma_mask	= 0x07, /* mwdma0-2 */
 		.udma_mask	= 0x7f,	/* udma0-6 */
 		.port_ops	= &piix_sata_ops,
-		.private_data	= &ich5_map_db,
 	},
 
 	/* i6300esb_sata */
 	{
 		.sht		= &piix_sht,
-		.host_flags	= ATA_FLAG_SATA | PIIX_FLAG_COMBINED |
+		.host_flags	= ATA_FLAG_SATA |
 				  PIIX_FLAG_CHECKINTR | PIIX_FLAG_IGNORE_PCS,
 		.pio_mask	= 0x1f,	/* pio0-4 */
 		.mwdma_mask	= 0x07, /* mwdma0-2 */
 		.udma_mask	= 0x7f,	/* udma0-6 */
 		.port_ops	= &piix_sata_ops,
-		.private_data	= &ich5_map_db,
 	},
 
 	/* ich6_sata */
 	{
 		.sht		= &piix_sht,
-		.host_flags	= ATA_FLAG_SATA | PIIX_FLAG_COMBINED_ICH6 |
+		.host_flags	= ATA_FLAG_SATA |
 				  PIIX_FLAG_CHECKINTR | PIIX_FLAG_SCR,
 		.pio_mask	= 0x1f,	/* pio0-4 */
 		.mwdma_mask	= 0x07, /* mwdma0-2 */
 		.udma_mask	= 0x7f,	/* udma0-6 */
 		.port_ops	= &piix_sata_ops,
-		.private_data	= &ich6_map_db,
 	},
 
 	/* ich6_sata_ahci */
 	{
 		.sht		= &piix_sht,
-		.host_flags	= ATA_FLAG_SATA | PIIX_FLAG_COMBINED_ICH6 |
+		.host_flags	= ATA_FLAG_SATA |
 				  PIIX_FLAG_CHECKINTR | PIIX_FLAG_SCR |
 				  PIIX_FLAG_AHCI,
 		.pio_mask	= 0x1f,	/* pio0-4 */
 		.mwdma_mask	= 0x07, /* mwdma0-2 */
 		.udma_mask	= 0x7f,	/* udma0-6 */
 		.port_ops	= &piix_sata_ops,
-		.private_data	= &ich6_map_db,
 	},
 
 	/* ich6m_sata_ahci */
 	{
 		.sht		= &piix_sht,
-		.host_flags	= ATA_FLAG_SATA | PIIX_FLAG_COMBINED_ICH6 |
+		.host_flags	= ATA_FLAG_SATA |
 				  PIIX_FLAG_CHECKINTR | PIIX_FLAG_SCR |
 				  PIIX_FLAG_AHCI,
 		.pio_mask	= 0x1f,	/* pio0-4 */
 		.mwdma_mask	= 0x07, /* mwdma0-2 */
 		.udma_mask	= 0x7f,	/* udma0-6 */
 		.port_ops	= &piix_sata_ops,
-		.private_data	= &ich6m_map_db,
+	},
+
+	/* ich8_sata_ahci */
+	{
+		.sht		= &piix_sht,
+		.host_flags	= ATA_FLAG_SATA |
+				  PIIX_FLAG_CHECKINTR | PIIX_FLAG_SCR |
+				  PIIX_FLAG_AHCI,
+		.pio_mask	= 0x1f,	/* pio0-4 */
+		.mwdma_mask	= 0x07, /* mwdma0-2 */
+		.udma_mask	= 0x7f,	/* udma0-6 */
+		.port_ops	= &piix_sata_ops,
 	},
 };
 
@@ -455,123 +501,88 @@ cbl40:
 }
 
 /**
- *	piix_pata_probeinit - probeinit for PATA host controller
+ *	piix_pata_prereset - prereset for PATA host controller
  *	@ap: Target port
  *
- *	Probeinit including cable detection.
+ *	Prereset including cable detection.
  *
  *	LOCKING:
  *	None (inherited from caller).
  */
-static void piix_pata_probeinit(struct ata_port *ap)
-{
-	piix_pata_cbl_detect(ap);
-	ata_std_probeinit(ap);
-}
-
-/**
- *	piix_pata_probe_reset - Perform reset on PATA port and classify
- *	@ap: Port to reset
- *	@classes: Resulting classes of attached devices
- *
- *	Reset PATA phy and classify attached devices.
- *
- *	LOCKING:
- *	None (inherited from caller).
- */
-static int piix_pata_probe_reset(struct ata_port *ap, unsigned int *classes)
+static int piix_pata_prereset(struct ata_port *ap)
 {
 	struct pci_dev *pdev = to_pci_dev(ap->host_set->dev);
 
 	if (!pci_test_config_bits(pdev, &piix_enable_bits[ap->hard_port_no])) {
-		printk(KERN_INFO "ata%u: port disabled. ignoring.\n", ap->id);
+		ata_port_printk(ap, KERN_INFO, "port disabled. ignoring.\n");
+		ap->eh_context.i.action &= ~ATA_EH_RESET_MASK;
 		return 0;
 	}
 
-	return ata_drive_probe_reset(ap, piix_pata_probeinit,
-				     ata_std_softreset, NULL,
-				     ata_std_postreset, classes);
+	piix_pata_cbl_detect(ap);
+
+	return ata_std_prereset(ap);
+}
+
+static void piix_pata_error_handler(struct ata_port *ap)
+{
+	ata_bmdma_drive_eh(ap, piix_pata_prereset, ata_std_softreset, NULL,
+			   ata_std_postreset);
 }
 
 /**
- *	piix_sata_probe - Probe PCI device for present SATA devices
- *	@ap: Port associated with the PCI device we wish to probe
+ *	piix_sata_prereset - prereset for SATA host controller
+ *	@ap: Target port
  *
  *	Reads and configures SATA PCI device's PCI config register
  *	Port Configuration and Status (PCS) to determine port and
- *	device availability.
+ *	device availability.  Return -ENODEV to skip reset if no
+ *	device is present.
  *
  *	LOCKING:
  *	None (inherited from caller).
  *
  *	RETURNS:
- *	Mask of avaliable devices on the port.
+ *	0 if device is present, -ENODEV otherwise.
  */
-static unsigned int piix_sata_probe (struct ata_port *ap)
+static int piix_sata_prereset(struct ata_port *ap)
 {
 	struct pci_dev *pdev = to_pci_dev(ap->host_set->dev);
-	const unsigned int *map = ap->host_set->private_data;
+	struct piix_host_priv *hpriv = ap->host_set->private_data;
+	const unsigned int *map = hpriv->map;
 	int base = 2 * ap->hard_port_no;
-	unsigned int present_mask = 0;
+	unsigned int present = 0;
 	int port, i;
-	u8 pcs;
+	u16 pcs;
 
-	pci_read_config_byte(pdev, ICH5_PCS, &pcs);
+	pci_read_config_word(pdev, ICH5_PCS, &pcs);
 	DPRINTK("ata%u: ENTER, pcs=0x%x base=%d\n", ap->id, pcs, base);
-
-	/* enable all ports on this ap and wait for them to settle */
-	for (i = 0; i < 2; i++) {
-		port = map[base + i];
-		if (port >= 0)
-			pcs |= 1 << port;
-	}
-
-	pci_write_config_byte(pdev, ICH5_PCS, pcs);
-	msleep(100);
-
-	/* let's see which devices are present */
-	pci_read_config_byte(pdev, ICH5_PCS, &pcs);
 
 	for (i = 0; i < 2; i++) {
 		port = map[base + i];
 		if (port < 0)
 			continue;
-		if (ap->flags & PIIX_FLAG_IGNORE_PCS || pcs & 1 << (4 + port))
-			present_mask |= 1 << i;
-		else
-			pcs &= ~(1 << port);
+		if ((ap->flags & PIIX_FLAG_IGNORE_PCS) ||
+		    (pcs & 1 << (hpriv->map_db->present_shift + port)))
+			present = 1;
 	}
-
-	/* disable offline ports on non-AHCI controllers */
-	if (!(ap->flags & PIIX_FLAG_AHCI))
-		pci_write_config_byte(pdev, ICH5_PCS, pcs);
 
 	DPRINTK("ata%u: LEAVE, pcs=0x%x present_mask=0x%x\n",
 		ap->id, pcs, present_mask);
 
-	return present_mask;
-}
-
-/**
- *	piix_sata_probe_reset - Perform reset on SATA port and classify
- *	@ap: Port to reset
- *	@classes: Resulting classes of attached devices
- *
- *	Reset SATA phy and classify attached devices.
- *
- *	LOCKING:
- *	None (inherited from caller).
- */
-static int piix_sata_probe_reset(struct ata_port *ap, unsigned int *classes)
-{
-	if (!piix_sata_probe(ap)) {
-		printk(KERN_INFO "ata%u: SATA port has no device.\n", ap->id);
+	if (!present) {
+		ata_port_printk(ap, KERN_INFO, "SATA port has no device.\n");
+		ap->eh_context.i.action &= ~ATA_EH_RESET_MASK;
 		return 0;
 	}
 
-	return ata_drive_probe_reset(ap, ata_std_probeinit,
-				     ata_std_softreset, NULL,
-				     ata_std_postreset, classes);
+	return ata_std_prereset(ap);
+}
+
+static void piix_sata_error_handler(struct ata_port *ap)
+{
+	ata_bmdma_drive_eh(ap, piix_sata_prereset, ata_std_softreset, NULL,
+			   ata_std_postreset);
 }
 
 /**
@@ -760,23 +771,40 @@ static int __devinit piix_check_450nx_errata(struct pci_dev *ata_dev)
 		pci_read_config_byte(pdev, PCI_REVISION_ID, &rev);
 		pci_read_config_word(pdev, 0x41, &cfg);
 		/* Only on the original revision: IDE DMA can hang */
-		if(rev == 0x00)
+		if (rev == 0x00)
 			no_piix_dma = 1;
 		/* On all revisions below 5 PXB bus lock must be disabled for IDE */
-		else if(cfg & (1<<14) && rev < 5)
+		else if (cfg & (1<<14) && rev < 5)
 			no_piix_dma = 2;
 	}
-	if(no_piix_dma)
+	if (no_piix_dma)
 		dev_printk(KERN_WARNING, &ata_dev->dev, "450NX errata present, disabling IDE DMA.\n");
-	if(no_piix_dma == 2)
+	if (no_piix_dma == 2)
 		dev_printk(KERN_WARNING, &ata_dev->dev, "A BIOS update may resolve this.\n");
 	return no_piix_dma;
 }
 
-static void __devinit piix_init_sata_map(struct pci_dev *pdev,
-					 struct ata_port_info *pinfo)
+static void __devinit piix_init_pcs(struct pci_dev *pdev,
+				    const struct piix_map_db *map_db)
 {
-	struct piix_map_db *map_db = pinfo[0].private_data;
+	u16 pcs, new_pcs;
+
+	pci_read_config_word(pdev, ICH5_PCS, &pcs);
+
+	new_pcs = pcs | map_db->port_enable;
+
+	if (new_pcs != pcs) {
+		DPRINTK("updating PCS from 0x%x to 0x%x\n", pcs, new_pcs);
+		pci_write_config_word(pdev, ICH5_PCS, new_pcs);
+		msleep(150);
+	}
+}
+
+static void __devinit piix_init_sata_map(struct pci_dev *pdev,
+					 struct ata_port_info *pinfo,
+					 const struct piix_map_db *map_db)
+{
+	struct piix_host_priv *hpriv = pinfo[0].private_data;
 	const unsigned int *map;
 	int i, invalid_map = 0;
 	u8 map_value;
@@ -817,8 +845,8 @@ static void __devinit piix_init_sata_map(struct pci_dev *pdev,
 		dev_printk(KERN_ERR, &pdev->dev,
 			   "invalid MAP value %u\n", map_value);
 
-	pinfo[0].private_data = (void *)map;
-	pinfo[1].private_data = (void *)map;
+	hpriv->map = map;
+	hpriv->map_db = map_db;
 }
 
 /**
@@ -841,6 +869,7 @@ static int piix_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 	static int printed_version;
 	struct ata_port_info port_info[2];
 	struct ata_port_info *ppinfo[2] = { &port_info[0], &port_info[1] };
+	struct piix_host_priv *hpriv;
 	unsigned long host_flags;
 
 	if (!printed_version++)
@@ -851,8 +880,14 @@ static int piix_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 	if (!in_module_init)
 		return -ENODEV;
 
+	hpriv = kzalloc(sizeof(*hpriv), GFP_KERNEL);
+	if (!hpriv)
+		return -ENOMEM;
+
 	port_info[0] = piix_port_info[ent->driver_data];
 	port_info[1] = piix_port_info[ent->driver_data];
+	port_info[0].private_data = hpriv;
+	port_info[1].private_data = hpriv;
 
 	host_flags = port_info[0].host_flags;
 
@@ -867,8 +902,11 @@ static int piix_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 	}
 
 	/* Initialize SATA map */
-	if (host_flags & ATA_FLAG_SATA)
-		piix_init_sata_map(pdev, port_info);
+	if (host_flags & ATA_FLAG_SATA) {
+		piix_init_sata_map(pdev, port_info,
+				   piix_map_db_table[ent->driver_data]);
+		piix_init_pcs(pdev, piix_map_db_table[ent->driver_data]);
+	}
 
 	/* On ICH5, some BIOSen disable the interrupt using the
 	 * PCI_COMMAND_INTX_DISABLE bit added in PCI 2.3.
@@ -889,6 +927,13 @@ static int piix_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 		port_info[1].udma_mask = 0;
 	}
 	return ata_pci_init_one(pdev, ppinfo, 2);
+}
+
+static void piix_host_stop(struct ata_host_set *host_set)
+{
+	if (host_set->next == NULL)
+		kfree(host_set->private_data);
+	ata_host_stop(host_set);
 }
 
 static int __init piix_init(void)

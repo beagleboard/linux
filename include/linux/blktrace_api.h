@@ -1,7 +1,6 @@
 #ifndef BLKTRACE_H
 #define BLKTRACE_H
 
-#include <linux/config.h>
 #include <linux/blkdev.h>
 #include <linux/relay.h>
 
@@ -12,7 +11,7 @@ enum blktrace_cat {
 	BLK_TC_READ	= 1 << 0,	/* reads */
 	BLK_TC_WRITE	= 1 << 1,	/* writes */
 	BLK_TC_BARRIER	= 1 << 2,	/* barrier */
-	BLK_TC_SYNC	= 1 << 3,	/* barrier */
+	BLK_TC_SYNC	= 1 << 3,	/* sync IO */
 	BLK_TC_QUEUE	= 1 << 4,	/* queueing/merging */
 	BLK_TC_REQUEUE	= 1 << 5,	/* requeueing */
 	BLK_TC_ISSUE	= 1 << 6,	/* issue */
@@ -20,6 +19,7 @@ enum blktrace_cat {
 	BLK_TC_FS	= 1 << 8,	/* fs requests */
 	BLK_TC_PC	= 1 << 9,	/* pc requests */
 	BLK_TC_NOTIFY	= 1 << 10,	/* special message */
+	BLK_TC_AHEAD	= 1 << 11,	/* readahead */
 
 	BLK_TC_END	= 1 << 15,	/* only 16-bits, reminder */
 };
@@ -91,9 +91,9 @@ struct blk_io_trace {
  * The remap event
  */
 struct blk_io_trace_remap {
-	u32 device;
+	__be32 device;
 	u32 __pad;
-	u64 sector;
+	__be64 sector;
 };
 
 enum {
@@ -148,7 +148,7 @@ static inline void blk_add_trace_rq(struct request_queue *q, struct request *rq,
 				    u32 what)
 {
 	struct blk_trace *bt = q->blk_trace;
-	int rw = rq->flags & 0x07;
+	int rw = rq->flags & 0x03;
 
 	if (likely(!bt))
 		return;
@@ -225,7 +225,7 @@ static inline void blk_add_trace_pdu_int(struct request_queue *q, u32 what,
 					 struct bio *bio, unsigned int pdu)
 {
 	struct blk_trace *bt = q->blk_trace;
-	u64 rpdu = cpu_to_be64(pdu);
+	__be64 rpdu = cpu_to_be64(pdu);
 
 	if (likely(!bt))
 		return;

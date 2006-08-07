@@ -12,7 +12,6 @@
 #include <asm/uaccess.h>
 #include <asm/system.h>
 #include <asm/bitops.h>
-#include <linux/config.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/sched.h>
@@ -210,10 +209,9 @@ tcf_pedit_dump(struct sk_buff *skb, struct tc_action *a,int bind, int ref)
 	s = sizeof(*opt) + p->nkeys * sizeof(struct tc_pedit_key);
 
 	/* netlink spinlocks held above us - must use ATOMIC */
-	opt = kmalloc(s, GFP_ATOMIC);
+	opt = kzalloc(s, GFP_ATOMIC);
 	if (opt == NULL)
 		return -ENOBUFS;
-	memset(opt, 0, s);
 
 	memcpy(opt->keys, p->keys, p->nkeys * sizeof(struct tc_pedit_key));
 	opt->index = p->index;

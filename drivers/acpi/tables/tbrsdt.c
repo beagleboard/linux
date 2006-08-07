@@ -64,7 +64,7 @@ acpi_status acpi_tb_verify_rsdp(struct acpi_pointer *address)
 	acpi_status status;
 	struct rsdp_descriptor *rsdp;
 
-	ACPI_FUNCTION_TRACE("tb_verify_rsdp");
+	ACPI_FUNCTION_TRACE(tb_verify_rsdp);
 
 	switch (address->pointer_type) {
 	case ACPI_LOGICAL_POINTER:
@@ -78,7 +78,7 @@ acpi_status acpi_tb_verify_rsdp(struct acpi_pointer *address)
 		 */
 		status = acpi_os_map_memory(address->pointer.physical,
 					    sizeof(struct rsdp_descriptor),
-					    (void *)&rsdp);
+					    ACPI_CAST_PTR(void, &rsdp));
 		if (ACPI_FAILURE(status)) {
 			return_ACPI_STATUS(status);
 		}
@@ -95,15 +95,20 @@ acpi_status acpi_tb_verify_rsdp(struct acpi_pointer *address)
 		goto cleanup;
 	}
 
-	/* The RSDP supplied is OK */
+	/* RSDP is ok. Init the table info */
 
 	table_info.pointer = ACPI_CAST_PTR(struct acpi_table_header, rsdp);
 	table_info.length = sizeof(struct rsdp_descriptor);
-	table_info.allocation = ACPI_MEM_MAPPED;
+
+	if (address->pointer_type == ACPI_PHYSICAL_POINTER) {
+		table_info.allocation = ACPI_MEM_MAPPED;
+	} else {
+		table_info.allocation = ACPI_MEM_NOT_ALLOCATED;
+	}
 
 	/* Save the table pointers and allocation info */
 
-	status = acpi_tb_init_table_descriptor(ACPI_TABLE_RSDP, &table_info);
+	status = acpi_tb_init_table_descriptor(ACPI_TABLE_ID_RSDP, &table_info);
 	if (ACPI_FAILURE(status)) {
 		goto cleanup;
 	}
@@ -174,22 +179,31 @@ void acpi_tb_get_rsdt_address(struct acpi_pointer *out_address)
 
 acpi_status acpi_tb_validate_rsdt(struct acpi_table_header *table_ptr)
 {
-	int no_match;
+	char *signature;
 
 	ACPI_FUNCTION_ENTRY();
 
-	/*
-	 * Search for appropriate signature, RSDT or XSDT
-	 */
-	if (acpi_gbl_root_table_type == ACPI_TABLE_TYPE_RSDT) {
-		no_match = ACPI_STRNCMP((char *)table_ptr, RSDT_SIG,
-					sizeof(RSDT_SIG) - 1);
-	} else {
-		no_match = ACPI_STRNCMP((char *)table_ptr, XSDT_SIG,
-					sizeof(XSDT_SIG) - 1);
+	/* Validate minimum length */
+
+	if (table_ptr->length < sizeof(struct acpi_table_header)) {
+		ACPI_ERROR((AE_INFO,
+			    "RSDT/XSDT length (%X) is smaller than minimum (%X)",
+			    table_ptr->length,
+			    sizeof(struct acpi_table_header)));
+
+		return (AE_INVALID_TABLE_LENGTH);
 	}
 
-	if (no_match) {
+	/* Search for appropriate signature, RSDT or XSDT */
+
+	if (acpi_gbl_root_table_type == ACPI_TABLE_TYPE_RSDT) {
+		signature = RSDT_SIG;
+	} else {
+		signature = XSDT_SIG;
+	}
+
+	if (!ACPI_COMPARE_NAME(table_ptr->signature, signature)) {
+
 		/* Invalid RSDT or XSDT signature */
 
 		ACPI_ERROR((AE_INFO,
@@ -198,10 +212,8 @@ acpi_status acpi_tb_validate_rsdt(struct acpi_table_header *table_ptr)
 		ACPI_DUMP_BUFFER(acpi_gbl_RSDP, 20);
 
 		ACPI_ERROR((AE_INFO,
-			    "RSDT/XSDT signature at %X (%p) is invalid",
-			    acpi_gbl_RSDP->rsdt_physical_address,
-			    (void *)(acpi_native_uint) acpi_gbl_RSDP->
-			    rsdt_physical_address));
+			    "RSDT/XSDT signature at %X is invalid",
+			    acpi_gbl_RSDP->rsdt_physical_address));
 
 		if (acpi_gbl_root_table_type == ACPI_TABLE_TYPE_RSDT) {
 			ACPI_ERROR((AE_INFO, "Looking for RSDT"));
@@ -209,7 +221,7 @@ acpi_status acpi_tb_validate_rsdt(struct acpi_table_header *table_ptr)
 			ACPI_ERROR((AE_INFO, "Looking for XSDT"));
 		}
 
-		ACPI_DUMP_BUFFER((char *)table_ptr, 48);
+		ACPI_DUMP_BUFFER(ACPI_CAST_PTR(char, table_ptr), 48);
 		return (AE_BAD_SIGNATURE);
 	}
 
@@ -234,13 +246,13 @@ acpi_status acpi_tb_get_table_rsdt(void)
 	acpi_status status;
 	struct acpi_pointer address;
 
-	ACPI_FUNCTION_TRACE("tb_get_table_rsdt");
+	ACPI_FUNCTION_TRACE(tb_get_table_rsdt);
 
 	/* Get the RSDT/XSDT via the RSDP */
 
 	acpi_tb_get_rsdt_address(&address);
 
-	table_info.type = ACPI_TABLE_XSDT;
+	table_info.type = ACPI_TABLE_ID_XSDT;
 	status = acpi_tb_get_table(&address, &table_info);
 	if (ACPI_FAILURE(status)) {
 		ACPI_EXCEPTION((AE_INFO, status,
@@ -257,7 +269,7 @@ acpi_status acpi_tb_get_table_rsdt(void)
 
 	status = acpi_tb_validate_rsdt(table_info.pointer);
 	if (ACPI_FAILURE(status)) {
-		return_ACPI_STATUS(status);
+		goto error_cleanup;
 	}
 
 	/* Get the number of tables defined in the RSDT or XSDT */
@@ -269,18 +281,27 @@ acpi_status acpi_tb_get_table_rsdt(void)
 
 	status = acpi_tb_convert_to_xsdt(&table_info);
 	if (ACPI_FAILURE(status)) {
-		return_ACPI_STATUS(status);
+		goto error_cleanup;
 	}
 
 	/* Save the table pointers and allocation info */
 
-	status = acpi_tb_init_table_descriptor(ACPI_TABLE_XSDT, &table_info);
+	status = acpi_tb_init_table_descriptor(ACPI_TABLE_ID_XSDT, &table_info);
 	if (ACPI_FAILURE(status)) {
-		return_ACPI_STATUS(status);
+		goto error_cleanup;
 	}
 
-	acpi_gbl_XSDT = ACPI_CAST_PTR(XSDT_DESCRIPTOR, table_info.pointer);
+	acpi_gbl_XSDT =
+	    ACPI_CAST_PTR(struct xsdt_descriptor, table_info.pointer);
 
 	ACPI_DEBUG_PRINT((ACPI_DB_INFO, "XSDT located at %p\n", acpi_gbl_XSDT));
+	return_ACPI_STATUS(status);
+
+      error_cleanup:
+
+	/* Free table allocated by acpi_tb_get_table */
+
+	acpi_tb_delete_single_table(&table_info);
+
 	return_ACPI_STATUS(status);
 }

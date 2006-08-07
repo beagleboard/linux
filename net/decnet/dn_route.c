@@ -55,7 +55,6 @@
     GNU General Public License for more details.
 *******************************************************************************/
 
-#include <linux/config.h>
 #include <linux/errno.h>
 #include <linux/types.h>
 #include <linux/socket.h>
@@ -629,8 +628,7 @@ int dn_route_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type
 			padlen);
 
         if (flags & DN_RT_PKT_CNTL) {
-		if (unlikely(skb_is_nonlinear(skb)) &&
-		    skb_linearize(skb, GFP_ATOMIC) != 0)
+		if (unlikely(skb_linearize(skb)))
 			goto dump_it;
 
                 switch(flags & DN_RT_CNTL_MSK) {
@@ -927,8 +925,13 @@ static int dn_route_output_slow(struct dst_entry **pprt, const struct flowi *old
 		for(dev_out = dev_base; dev_out; dev_out = dev_out->next) {
 			if (!dev_out->dn_ptr)
 				continue;
-			if (dn_dev_islocal(dev_out, oldflp->fld_src))
-				break;
+			if (!dn_dev_islocal(dev_out, oldflp->fld_src))
+				continue;
+			if ((dev_out->flags & IFF_LOOPBACK) &&
+			    oldflp->fld_dst &&
+			    !dn_dev_islocal(dev_out, oldflp->fld_dst))
+				continue;
+			break;
 		}
 		read_unlock(&dev_base_lock);
 		if (dev_out == NULL)

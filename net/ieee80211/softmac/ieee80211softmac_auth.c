@@ -36,8 +36,9 @@ ieee80211softmac_auth_req(struct ieee80211softmac_device *mac,
 	struct ieee80211softmac_auth_queue_item *auth;
 	unsigned long flags;
 	
-	if (net->authenticating)
+	if (net->authenticating || net->authenticated)
 		return 0;
+	net->authenticating = 1;
 
 	/* Add the network if it's not already added */
 	ieee80211softmac_add_network(mac, net);
@@ -92,7 +93,6 @@ ieee80211softmac_auth_queue(void *data)
 			return;
 		}
 		net->authenticated = 0;
-		net->authenticating = 1;
 		/* add a timeout call so we eventually give up waiting for an auth reply */
 		schedule_delayed_work(&auth->work, IEEE80211SOFTMAC_AUTH_TIMEOUT);
 		auth->retry--;
@@ -107,12 +107,23 @@ ieee80211softmac_auth_queue(void *data)
 	printkl(KERN_WARNING PFX "Authentication timed out with "MAC_FMT"\n", MAC_ARG(net->bssid));
 	/* Remove this item from the queue */
 	spin_lock_irqsave(&mac->lock, flags);
+	net->authenticating = 0;
 	ieee80211softmac_call_events_locked(mac, IEEE80211SOFTMAC_EVENT_AUTH_TIMEOUT, net);
 	cancel_delayed_work(&auth->work); /* just to make sure... */
 	list_del(&auth->list);
 	spin_unlock_irqrestore(&mac->lock, flags);
 	/* Free it */
 	kfree(auth);
+}
+
+/* Sends a response to an auth challenge (for shared key auth). */
+static void
+ieee80211softmac_auth_challenge_response(void *_aq)
+{
+	struct ieee80211softmac_auth_queue_item *aq = _aq;
+
+	/* Send our response */
+	ieee80211softmac_send_mgt_frame(aq->mac, aq->net, IEEE80211_STYPE_AUTH, aq->state);
 }
 
 /* Handle the auth response from the AP
@@ -196,29 +207,35 @@ ieee80211softmac_auth_resp(struct net_device *dev, struct ieee80211_auth *auth)
 		case IEEE80211SOFTMAC_AUTH_SHARED_CHALLENGE:
 			/* Check to make sure we have a challenge IE */
 			data = (u8 *)auth->info_element;
-			if(*data++ != MFIE_TYPE_CHALLENGE){
+			if (*data++ != MFIE_TYPE_CHALLENGE) {
 				printkl(KERN_NOTICE PFX "Shared Key Authentication failed due to a missing challenge.\n");
 				break;	
 			}
 			/* Save the challenge */
 			spin_lock_irqsave(&mac->lock, flags);
 			net->challenge_len = *data++; 	
-			if(net->challenge_len > WLAN_AUTH_CHALLENGE_LEN)
+			if (net->challenge_len > WLAN_AUTH_CHALLENGE_LEN)
 				net->challenge_len = WLAN_AUTH_CHALLENGE_LEN;
-			if(net->challenge != NULL)
+			if (net->challenge != NULL)
 				kfree(net->challenge);
 			net->challenge = kmalloc(net->challenge_len, GFP_ATOMIC);
 			memcpy(net->challenge, data, net->challenge_len);
 			aq->state = IEEE80211SOFTMAC_AUTH_SHARED_RESPONSE; 
-			spin_unlock_irqrestore(&mac->lock, flags);
 
-			/* Switch to correct channel for this network */
-			mac->set_channel(mac->dev, net->channel);
-			
-			/* Send our response (How to encrypt?) */
-			ieee80211softmac_send_mgt_frame(mac, aq->net, IEEE80211_STYPE_AUTH, aq->state);
-			break;
+			/* We reuse the work struct from the auth request here.
+			 * It is safe to do so as each one is per-request, and
+			 * at this point (dealing with authentication response)
+			 * we have obviously already sent the initial auth
+			 * request. */
+			cancel_delayed_work(&aq->work);
+			INIT_WORK(&aq->work, &ieee80211softmac_auth_challenge_response, (void *)aq);
+			schedule_work(&aq->work);
+			spin_unlock_irqrestore(&mac->lock, flags);
+			return 0;
 		case IEEE80211SOFTMAC_AUTH_SHARED_PASS:
+			kfree(net->challenge);
+			net->challenge = NULL;
+			net->challenge_len = 0;
 			/* Check the status code of the response */
 			switch(auth->status) {
 			case WLAN_STATUS_SUCCESS:
@@ -229,6 +246,7 @@ ieee80211softmac_auth_resp(struct net_device *dev, struct ieee80211_auth *auth)
 				spin_unlock_irqrestore(&mac->lock, flags);
 				printkl(KERN_NOTICE PFX "Shared Key Authentication completed with "MAC_FMT"\n", 
 					MAC_ARG(net->bssid));
+				ieee80211softmac_call_events(mac, IEEE80211SOFTMAC_EVENT_AUTHENTICATED, net);
 				break;
 			default:
 				printkl(KERN_NOTICE PFX "Shared Key Authentication with "MAC_FMT" failed, error code: %i\n", 
@@ -278,6 +296,9 @@ ieee80211softmac_deauth_from_net(struct ieee80211softmac_device *mac,
 	struct ieee80211softmac_auth_queue_item *aq = NULL;
 	struct list_head *list_ptr;
 	unsigned long flags;
+
+	/* deauthentication implies disassociation */
+	ieee80211softmac_disassoc(mac);
 
 	/* Lock and reset status flags */
 	spin_lock_irqsave(&mac->lock, flags);

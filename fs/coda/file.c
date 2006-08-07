@@ -136,10 +136,8 @@ int coda_open(struct inode *coda_inode, struct file *coda_file)
 	coda_vfs_stat.open++;
 
 	cfi = kmalloc(sizeof(struct coda_file_info), GFP_KERNEL);
-	if (!cfi) {
-		unlock_kernel();
+	if (!cfi)
 		return -ENOMEM;
-	}
 
 	lock_kernel();
 
@@ -164,7 +162,7 @@ int coda_open(struct inode *coda_inode, struct file *coda_file)
 	return 0;
 }
 
-int coda_flush(struct file *coda_file)
+int coda_flush(struct file *coda_file, fl_owner_t id)
 {
 	unsigned short flags = coda_file->f_flags & ~O_EXCL;
 	unsigned short coda_flags = coda_flags_to_cflags(flags);

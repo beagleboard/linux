@@ -14,7 +14,6 @@
  *
  */
 
-#include <linux/config.h>
 #include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/init.h>
@@ -28,7 +27,7 @@
 #include <linux/spinlock.h>
 #include <asm/uaccess.h>
 #include <linux/usb.h>
-#include "usb-serial.h"
+#include <linux/usb/serial.h>
 #include "pl2303.h"
 
 /*
@@ -53,6 +52,7 @@ struct pl2303_buf {
 static struct usb_device_id id_table [] = {
 	{ USB_DEVICE(PL2303_VENDOR_ID, PL2303_PRODUCT_ID) },
 	{ USB_DEVICE(PL2303_VENDOR_ID, PL2303_PRODUCT_ID_RSAQ2) },
+	{ USB_DEVICE(PL2303_VENDOR_ID, PL2303_PRODUCT_ID_DCU11) },
 	{ USB_DEVICE(PL2303_VENDOR_ID, PL2303_PRODUCT_ID_RSAQ3) },
 	{ USB_DEVICE(PL2303_VENDOR_ID, PL2303_PRODUCT_ID_PHAROS) },
 	{ USB_DEVICE(IODATA_VENDOR_ID, IODATA_PRODUCT_ID) },
@@ -80,6 +80,8 @@ static struct usb_device_id id_table [] = {
 	{ USB_DEVICE(LEADTEK_VENDOR_ID, LEADTEK_9531_PRODUCT_ID) },
 	{ USB_DEVICE(SPEEDDRAGON_VENDOR_ID, SPEEDDRAGON_PRODUCT_ID) },
 	{ USB_DEVICE(OTI_VENDOR_ID, OTI_PRODUCT_ID) },
+	{ USB_DEVICE(DATAPILOT_U2_VENDOR_ID, DATAPILOT_U2_PRODUCT_ID) },
+	{ USB_DEVICE(BELKIN_VENDOR_ID, BELKIN_PRODUCT_ID) },
 	{ }					/* Terminating entry */
 };
 
@@ -314,7 +316,7 @@ static void pl2303_send(struct usb_serial_port *port)
 		// TODO: reschedule pl2303_send
 	}
 
-	schedule_work(&port->work);
+	usb_serial_port_softint(port);
 }
 
 static int pl2303_write_room(struct usb_serial_port *port)
@@ -600,7 +602,7 @@ static void pl2303_close (struct usb_serial_port *port, struct file *filp)
 	unsigned int c_cflag;
 	int bps;
 	long timeout;
-	wait_queue_t wait;						\
+	wait_queue_t wait;
 
 	dbg("%s - port %d", __FUNCTION__, port->number);
 

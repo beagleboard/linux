@@ -62,7 +62,6 @@
  *
  */
 
-#include <linux/config.h>
 
 #include <linux/module.h>
 #include <linux/sched.h>
@@ -419,7 +418,7 @@ static int
 gpio_open(struct inode *inode, struct file *filp)
 {
 	struct gpio_private *priv;
-	int p = MINOR(inode->i_rdev);
+	int p = iminor(inode);
 
 	if (p > GPIO_MINOR_LAST)
 		return -EINVAL;
@@ -745,11 +744,11 @@ gpio_init(void)
 	 * in some tests.
 	 */
 	if (request_irq(TIMER_INTR_VECT, gpio_poll_timer_interrupt,
-			SA_SHIRQ | SA_INTERRUPT,"gpio poll", &alarmlist)) {
+			IRQF_SHARED | IRQF_DISABLED,"gpio poll", &alarmlist)) {
 		printk("err: timer0 irq for gpio\n");
 	}
 	if (request_irq(GEN_IO_INTR_VECT, gpio_pa_interrupt,
-			SA_SHIRQ | SA_INTERRUPT,"gpio PA", &alarmlist)) {
+			IRQF_SHARED | IRQF_DISABLED,"gpio PA", &alarmlist)) {
 		printk("err: PA irq for gpio\n");
 	}
 	/* enable the gio and timer irq in global config */

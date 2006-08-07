@@ -30,7 +30,6 @@
  *  with this program; if not, write  to the Free Software Foundation, Inc.,
  *  675 Mass Ave, Cambridge, MA 02139, USA.
  */
-#include <linux/config.h>
 #include <linux/types.h>
 #include <linux/pci.h>
 #include <linux/kernel.h>
@@ -40,17 +39,17 @@
 
 /* TBD */
 static struct resource pci_io_resource = {
-	"pci IO space",
-	(u32)PCI_IO_START,
-	(u32)PCI_IO_END,
-	IORESOURCE_IO
+	.start	= PCI_IO_START,
+	.end	= PCI_IO_END,
+	.name	= "PCI IO space",
+	.flags	= IORESOURCE_IO
 };
 
 static struct resource pci_mem_resource = {
-	"pci memory space",
-	(u32)PCI_MEM_START,
-	(u32)PCI_MEM_END,
-	IORESOURCE_MEM
+	.start	= PCI_MEM_START,
+	.end	= PCI_MEM_END,
+	.name	= "PCI memory space",
+	.flags	= IORESOURCE_MEM
 };
 
 extern struct pci_ops au1x_pci_ops;

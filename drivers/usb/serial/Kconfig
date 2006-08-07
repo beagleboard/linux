@@ -62,15 +62,6 @@ config USB_SERIAL_AIRPRIME
 	  To compile this driver as a module, choose M here: the
 	  module will be called airprime.
 
-config USB_SERIAL_ANYDATA
-	tristate "USB AnyData CDMA Wireless Driver"
-	depends on USB_SERIAL
-	help
-	  Say Y here if you want to use a AnyData CDMA device.
-
-	  To compile this driver as a module, choose M here: the
-	  module will be called anydata.
-
 config USB_SERIAL_ARK3116
 	tristate "USB ARK Micro 3116 USB Serial Driver (EXPERIMENTAL)"
 	depends on USB_SERIAL && EXPERIMENTAL
@@ -417,7 +408,7 @@ config USB_SERIAL_MCT_U232
 	  Magic Control Technology Corp. (U232 is one of the model numbers).
 
 	  This driver also works with Sitecom U232-P25 and D-Link DU-H3SP USB
-	  BAY devices.
+	  BAY, Belkin F5U109, and Belkin F5U409 devices.
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called mct_u232.
@@ -456,6 +447,17 @@ config USB_SERIAL_SAFE_PADDED
 	bool "USB Secure Encapsulated Driver - Padded"
 	depends on USB_SERIAL_SAFE
 
+config USB_SERIAL_SIERRAWIRELESS
+	tristate "USB Sierra Wireless Driver"
+	depends on USB_SERIAL
+	help
+	  Say M here if you want to use a Sierra Wireless device (if
+	  using an PC 5220 or AC580 please use the Airprime driver
+	  instead).
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called sierra.
+
 config USB_SERIAL_TI
 	tristate "USB TI 3410/5052 Serial Driver"
 	depends on USB_SERIAL
@@ -491,15 +493,24 @@ config USB_SERIAL_XIRCOM
 	  module will be called keyspan_pda.
 
 config USB_SERIAL_OPTION
-	tristate "USB Option PCMCIA serial driver"
-	depends on USB_SERIAL && USB_OHCI_HCD && PCCARD
+	tristate "USB driver for GSM and CDMA modems"
+	depends on USB_SERIAL
 	help
-	  Say Y here if you want to use an Option card. This is a
-	  GSM card, controlled by three serial ports which are connected
-	  via an OHCI adapter located on a PC card.
+	  Say Y here if you have a GSM or CDMA modem that's connected to USB.
+
+	  This driver also supports several PCMCIA cards which have a
+	  built-in OHCI-USB adapter and an internally-connected GSM modem.
+	  The USB bus on these cards is not accessible externally.
+
+	  Supported devices include (some of?) those made by:
+	  Option, Huawei, Audiovox, Sierra Wireless, Novatel Wireless, or
+	  Anydata.
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called option.
+
+	  If this driver doesn't recognize your device,
+	  it might be accessible via the FTDI_SIO driver.
 
 config USB_SERIAL_OMNINET
 	tristate "USB ZyXEL omni.net LCD Plus Driver (EXPERIMENTAL)"

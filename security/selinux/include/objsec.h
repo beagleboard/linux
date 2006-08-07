@@ -32,6 +32,8 @@ struct task_security_struct {
 	u32 sid;             /* current SID */
 	u32 exec_sid;        /* exec SID */
 	u32 create_sid;      /* fscreate SID */
+	u32 keycreate_sid;   /* keycreate SID */
+	u32 sockcreate_sid;  /* fscreate SID */
 	u32 ptrace_sid;      /* SID of ptrace parent */
 };
 
@@ -55,8 +57,9 @@ struct file_security_struct {
 struct superblock_security_struct {
 	struct super_block *sb;         /* back pointer to sb object */
 	struct list_head list;          /* list of superblock_security_struct */
-	u32 sid;              /* SID of file system */
+	u32 sid;			/* SID of file system superblock */
 	u32 def_sid;			/* default SID for labeling */
+	u32 mntpoint_sid;		/* SECURITY_FS_USE_MNTPOINT context for files */
 	unsigned int behavior;          /* labeling behavior */
 	unsigned char initialized;      /* initialization flag */
 	unsigned char proc;             /* proc fs */
@@ -97,6 +100,11 @@ struct netif_security_struct {
 struct sk_security_struct {
 	struct sock *sk;		/* back pointer to sk object */
 	u32 peer_sid;			/* SID of peer */
+};
+
+struct key_security_struct {
+	struct key *obj; /* back pointer */
+	u32 sid;         /* SID of key */
 };
 
 extern unsigned int selinux_checkreqprot;

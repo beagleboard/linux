@@ -17,7 +17,6 @@
 #include <linux/types.h>
 #include <linux/stddef.h>
 #include <linux/timer.h>
-#include <linux/config.h>
 #include <linux/init.h>
 #include "hisax.h"
 #include <linux/module.h>
@@ -1876,7 +1875,7 @@ static void EChannel_proc_rcv(struct hisax_d_if *d_if)
 #ifdef CONFIG_PCI
 #include <linux/pci.h>
 
-static struct pci_device_id hisax_pci_tbl[] __initdata = {
+static struct pci_device_id hisax_pci_tbl[] __devinitdata = {
 #ifdef CONFIG_HISAX_FRITZPCI
 	{PCI_VENDOR_ID_AVM,      PCI_DEVICE_ID_AVM_A1,           PCI_ANY_ID, PCI_ANY_ID},
 #endif

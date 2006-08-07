@@ -682,6 +682,7 @@ config BLK_DEV_SVWKS
 config BLK_DEV_SGIIOC4
 	tristate "Silicon Graphics IOC4 chipset ATA/ATAPI support"
 	depends on (IA64_SGI_SN2 || IA64_GENERIC) && SGI_IOC4
+	select IDEPCI_SHARE_IRQ
 	help
 	  This driver adds PIO & MultiMode DMA-2 support for the SGI IOC4
 	  chipset, which has one channel and can support two devices.
@@ -772,13 +773,6 @@ config BLK_DEV_IDEDMA_PMAC
 	  Power Macintoshes and PowerBooks to use DMA (direct memory access)
 	  to transfer data to and from memory.  Saying Y is safe and improves
 	  performance.
-
-config BLK_DEV_IDE_PMAC_BLINK
-	bool "Blink laptop LED on drive activity"
-	depends on BLK_DEV_IDE_PMAC && ADB_PMU
-	help
-	  This option enables the use of the sleep LED as a hard drive
-	  activity LED.
 
 config BLK_DEV_IDE_SWARM
 	tristate "IDE for Sibyte evaluation boards"

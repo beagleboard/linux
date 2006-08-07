@@ -116,7 +116,7 @@ struct snd_card_als4000 {
 #endif
 };
 
-static struct pci_device_id snd_als4000_ids[] __devinitdata = {
+static struct pci_device_id snd_als4000_ids[] = {
 	{ 0x4005, 0x4000, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0, },   /* ALS4000 */
 	{ 0, }
 };
@@ -746,8 +746,8 @@ static int __devinit snd_card_als4000_probe(struct pci_dev *pci,
 		card->shortname, chip->alt_port, chip->irq);
 
 	if ((err = snd_mpu401_uart_new( card, 0, MPU401_HW_ALS4000,
-				        gcr+0x30, 1, pci->irq, 0,
-				        &chip->rmidi)) < 0) {
+				        gcr+0x30, MPU401_INFO_INTEGRATED,
+					pci->irq, 0, &chip->rmidi)) < 0) {
 		printk(KERN_ERR "als4000: no MPU-401 device at 0x%lx?\n", gcr+0x30);
 		goto out_err;
 	}

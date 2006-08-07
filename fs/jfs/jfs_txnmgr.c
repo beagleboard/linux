@@ -842,7 +842,7 @@ struct tlock *txLock(tid_t tid, struct inode *ip, struct metapage * mp,
 	TXN_UNLOCK();
 	release_metapage(mp);
 	TXN_LOCK();
-	xtid = tlck->tid;	/* reaquire after dropping TXN_LOCK */
+	xtid = tlck->tid;	/* reacquire after dropping TXN_LOCK */
 
 	jfs_info("txLock: in waitLock, tid = %d, xtid = %d, lid = %d",
 		 tid, xtid, lid);
@@ -2944,7 +2944,7 @@ int jfs_sync(void *arg)
 				 * Inode is being freed
 				 */
 				list_del_init(&jfs_ip->anon_inode_list);
-			} else if (! !mutex_trylock(&jfs_ip->commit_mutex)) {
+			} else if (mutex_trylock(&jfs_ip->commit_mutex)) {
 				/*
 				 * inode will be removed from anonymous list
 				 * when it is committed

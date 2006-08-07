@@ -11,7 +11,6 @@
  *
  * See the GNU General Public License for more details.
  */
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/netdevice.h>
@@ -25,8 +24,6 @@
 #include <net/llc_c_ac.h>
 #include <net/llc_c_st.h>
 #include <net/tcp_states.h>
-
-u8 llc_mac_null_var[IFHWADDRLEN];
 
 /**
  *	llc_build_and_send_pkt - Connection data sending for upper layers.

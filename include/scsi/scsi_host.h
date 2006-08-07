@@ -472,6 +472,7 @@ struct Scsi_Host {
 	 */
 	unsigned int host_busy;		   /* commands actually active on low-level */
 	unsigned int host_failed;	   /* commands that failed. */
+	unsigned int host_eh_scheduled;    /* EH scheduled without command */
     
 	unsigned short host_no;  /* Used for IOCTL_GET_IDLUN, /proc/scsi et al. */
 	int resetting; /* if set, it means that last_reset is a valid value */
@@ -540,6 +541,9 @@ struct Scsi_Host {
 	 * ordered write support
 	 */
 	unsigned ordered_tag:1;
+
+	/* task mgmt function in progress */
+	unsigned tmf_in_progress:1;
 
 	/*
 	 * Optional work queue to be utilized by the transport
@@ -618,7 +622,8 @@ static inline int scsi_host_in_recovery(struct Scsi_Host *shost)
 {
 	return shost->shost_state == SHOST_RECOVERY ||
 		shost->shost_state == SHOST_CANCEL_RECOVERY ||
-		shost->shost_state == SHOST_DEL_RECOVERY;
+		shost->shost_state == SHOST_DEL_RECOVERY ||
+		shost->tmf_in_progress;
 }
 
 extern int scsi_queue_work(struct Scsi_Host *, struct work_struct *);

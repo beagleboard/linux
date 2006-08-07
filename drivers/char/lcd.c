@@ -14,7 +14,6 @@
 
 #define RTC_IO_EXTENT	0x10	/*Only really two ports, but... */
 
-#include <linux/config.h>
 #include <linux/types.h>
 #include <linux/errno.h>
 #include <linux/miscdevice.h>
@@ -599,7 +598,7 @@ static ssize_t lcd_read(struct file *file, char *buf,
  *	The various file operations we support.
  */
 
-static struct file_operations lcd_fops = {
+static const struct file_operations lcd_fops = {
 	.read = lcd_read,
 	.ioctl = lcd_ioctl,
 	.open = lcd_open,

@@ -37,7 +37,6 @@
 #define NVRAM_VERSION	"1.2"
 
 #include <linux/module.h>
-#include <linux/config.h>
 #include <linux/sched.h>
 #include <linux/smp_lock.h>
 #include <linux/nvram.h>
@@ -438,7 +437,7 @@ nvram_read_proc(char *buffer, char **start, off_t offset,
 
 #endif /* CONFIG_PROC_FS */
 
-static struct file_operations nvram_fops = {
+static const struct file_operations nvram_fops = {
 	.owner		= THIS_MODULE,
 	.llseek		= nvram_llseek,
 	.read		= nvram_read,

@@ -83,6 +83,8 @@ cflags-y			+= -msoft-float
 LDFLAGS_vmlinux			+= -G 0 -static -n -nostdlib
 MODFLAGS			+= -mlong-calls
 
+cflags-y += -ffreestanding
+
 #
 # We explicitly add the endianness specifier if needed, this allows
 # to compile kernels with a toolchain for the other endianness. We
@@ -285,6 +287,13 @@ cflags-$(CONFIG_MIPS_EV96100)	+= -Iinclude/asm-mips/mach-ev96100
 load-$(CONFIG_MIPS_EV96100)	+= 0xffffffff80100000
 
 #
+# Wind River PPMC Board (4KC + GT64120)
+#
+core-$(CONFIG_WR_PPMC)		+= arch/mips/gt64120/wrppmc/
+cflags-$(CONFIG_WR_PPMC)		+= -Iinclude/asm-mips/mach-wrppmc
+load-$(CONFIG_WR_PPMC)		+= 0xffffffff80100000
+
+#
 # Globespan IVR eval board with QED 5231 CPU
 #
 core-$(CONFIG_ITE_BOARD_GEN)	+= arch/mips/ite-boards/generic/
@@ -365,6 +374,7 @@ core-$(CONFIG_PMC_YOSEMITE)	+= arch/mips/pmc-sierra/yosemite/
 cflags-$(CONFIG_PMC_YOSEMITE)	+= -Iinclude/asm-mips/mach-yosemite
 load-$(CONFIG_PMC_YOSEMITE)	+= 0xffffffff80100000
 
+#
 # Qemu simulating MIPS32 4Kc
 #
 core-$(CONFIG_QEMU)		+= arch/mips/qemu/
@@ -377,6 +387,13 @@ load-$(CONFIG_QEMU)		+= 0xffffffff80010000
 core-$(CONFIG_MOMENCO_OCELOT_3) 	+= arch/mips/momentum/ocelot_3/
 cflags-$(CONFIG_MOMENCO_OCELOT_3)	+= -Iinclude/asm-mips/mach-ocelot3
 load-$(CONFIG_MOMENCO_OCELOT_3) 	+= 0xffffffff80100000
+
+#
+# Basler eXcite
+#
+core-$(CONFIG_BASLER_EXCITE)	+= arch/mips/basler/excite/
+cflags-$(CONFIG_BASLER_EXCITE)	+= -Iinclude/asm-mips/mach-excite
+load-$(CONFIG_BASLER_EXCITE)	+= 0x80100000
 
 #
 # Momentum Jaguar ATX
@@ -393,18 +410,6 @@ load-$(CONFIG_MOMENCO_JAGUAR_ATX)	+= 0xffffffff80100000
 # NEC DDB
 #
 core-$(CONFIG_DDB5XXX_COMMON)	+= arch/mips/ddb5xxx/common/
-
-#
-# NEC DDB Vrc-5074
-#
-core-$(CONFIG_DDB5074)		+= arch/mips/ddb5xxx/ddb5074/
-load-$(CONFIG_DDB5074)		+= 0xffffffff80080000
-
-#
-# NEC DDB Vrc-5476
-#
-core-$(CONFIG_DDB5476)		+= arch/mips/ddb5xxx/ddb5476/
-load-$(CONFIG_DDB5476)		+= 0xffffffff80080000
 
 #
 # NEC DDB Vrc-5477
@@ -467,6 +472,15 @@ cflags-$(CONFIG_SOC_PNX8550)	+= -Iinclude/asm-mips/mach-pnx8550
 libs-$(CONFIG_PNX8550_JBS)	+= arch/mips/philips/pnx8550/jbs/
 #cflags-$(CONFIG_PNX8550_JBS)	+= -Iinclude/asm-mips/mach-pnx8550
 load-$(CONFIG_PNX8550_JBS)	+= 0xffffffff80060000
+
+# NEC EMMA2RH boards
+#
+core-$(CONFIG_EMMA2RH)          += arch/mips/emma2rh/common/
+cflags-$(CONFIG_EMMA2RH)        += -Iinclude/asm-mips/mach-emma2rh
+
+# NEC EMMA2RH Mark-eins
+core-$(CONFIG_MARKEINS)         += arch/mips/emma2rh/markeins/
+load-$(CONFIG_MARKEINS)         += 0xffffffff88100000
 
 #
 # SGI IP22 (Indy/Indigo2)
@@ -698,16 +712,14 @@ endif
 vmlinux.bin: $(vmlinux-32)
 	+@$(call makeboot,$@)
 
-vmlinux.ecoff vmlinux.rm200: $(vmlinux-32)
+vmlinux.ecoff: $(vmlinux-32)
 	+@$(call makeboot,$@)
 
 vmlinux.srec: $(vmlinux-32)
 	+@$(call makeboot,$@)
 
 CLEAN_FILES += vmlinux.ecoff \
-	       vmlinux.srec \
-	       vmlinux.rm200.tmp \
-	       vmlinux.rm200
+	       vmlinux.srec
 
 archclean:
 	@$(MAKE) $(clean)=arch/mips/boot

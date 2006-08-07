@@ -262,7 +262,7 @@ struct atiixp_modem {
 
 /*
  */
-static struct pci_device_id snd_atiixp_ids[] __devinitdata = {
+static struct pci_device_id snd_atiixp_ids[] = {
 	{ 0x1002, 0x434d, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 }, /* SB200 */
 	{ 0x1002, 0x4378, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 }, /* SB400 */
 	{ 0, }
@@ -1177,7 +1177,7 @@ static void __devinit snd_atiixp_proc_init(struct atiixp_modem *chip)
 	struct snd_info_entry *entry;
 
 	if (! snd_card_proc_new(chip->card, "atiixp-modem", &entry))
-		snd_info_set_text_ops(entry, chip, 1024, snd_atiixp_proc_read);
+		snd_info_set_text_ops(entry, chip, snd_atiixp_proc_read);
 }
 #else
 #define snd_atiixp_proc_init(chip)
@@ -1251,7 +1251,7 @@ static int __devinit snd_atiixp_create(struct snd_card *card,
 		return -EIO;
 	}
 
-	if (request_irq(pci->irq, snd_atiixp_interrupt, SA_INTERRUPT|SA_SHIRQ,
+	if (request_irq(pci->irq, snd_atiixp_interrupt, IRQF_DISABLED|IRQF_SHARED,
 			card->shortname, chip)) {
 		snd_printk(KERN_ERR "unable to grab IRQ %d\n", pci->irq);
 		snd_atiixp_free(chip);

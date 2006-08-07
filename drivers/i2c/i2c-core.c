@@ -756,9 +756,9 @@ int i2c_probe(struct i2c_adapter *adapter,
 					"parameter for adapter %d, "
 					"addr 0x%02x\n", adap_id,
 					address_data->ignore[j + 1]);
+				ignore = 1;
+				break;
 			}
-			ignore = 1;
-			break;
 		}
 		if (ignore)
 			continue;
@@ -916,7 +916,7 @@ s32 i2c_smbus_write_word_data(struct i2c_client *client, u8 command, u16 value)
 }
 
 s32 i2c_smbus_write_block_data(struct i2c_client *client, u8 command,
-			       u8 length, u8 *values)
+			       u8 length, const u8 *values)
 {
 	union i2c_smbus_data data;
 
@@ -944,7 +944,7 @@ s32 i2c_smbus_read_i2c_block_data(struct i2c_client *client, u8 command, u8 *val
 }
 
 s32 i2c_smbus_write_i2c_block_data(struct i2c_client *client, u8 command,
-				   u8 length, u8 *values)
+				   u8 length, const u8 *values)
 {
 	union i2c_smbus_data data;
 

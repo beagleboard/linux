@@ -133,7 +133,7 @@ static void end_ite_irq(unsigned int irq)
 		enable_it8172_irq(irq);
 }
 
-static struct hw_interrupt_type it8172_irq_type = {
+static struct irq_chip it8172_irq_type = {
 	.typename = "ITE8172",
 	.startup = startup_ite_irq,
 	.shutdown = shutdown_ite_irq,
@@ -153,7 +153,7 @@ static void ack_none(unsigned int irq) { }
 #define shutdown_none	disable_none
 #define end_none	enable_none
 
-static struct hw_interrupt_type cp0_irq_type = {
+static struct irq_chip cp0_irq_type = {
 	.typename = "CP0 Count",
 	.startup = startup_none,
 	.shutdown = shutdown_none,
@@ -208,10 +208,10 @@ void __init arch_init_irq(void)
 #endif
 
 	for (i = 0; i <= IT8172_LAST_IRQ; i++) {
-		irq_desc[i].handler = &it8172_irq_type;
+		irq_desc[i].chip = &it8172_irq_type;
 		spin_lock_init(&irq_desc[i].lock);
 	}
-	irq_desc[MIPS_CPU_TIMER_IRQ].handler = &cp0_irq_type;
+	irq_desc[MIPS_CPU_TIMER_IRQ].chip = &cp0_irq_type;
 	set_c0_status(ALLINTS_NOTIMER);
 }
 

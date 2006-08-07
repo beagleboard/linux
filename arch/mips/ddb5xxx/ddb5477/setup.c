@@ -13,13 +13,13 @@
  * Free Software Foundation;  either version 2 of the  License, or (at your
  * option) any later version.
  */
-#include <linux/config.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/types.h>
 #include <linux/sched.h>
 #include <linux/pci.h>
 #include <linux/ide.h>
+#include <linux/irq.h>
 #include <linux/fs.h>
 #include <linux/ioport.h>
 #include <linux/param.h>	/* for HZ */
@@ -147,9 +147,7 @@ static void __init ddb_time_init(void)
 	mips_hpt_frequency = bus_frequency*(i+4)/4;
 }
 
-extern int setup_irq(unsigned int irq, struct irqaction *irqaction);
-
-static void __init ddb_timer_setup(struct irqaction *irq)
+void __init plat_timer_setup(struct irqaction *irq)
 {
 #if defined(USE_CPU_COUNTER_TIMER)
 
@@ -171,7 +169,7 @@ static void ddb5477_board_init(void);
 extern struct pci_controller ddb5477_ext_controller;
 extern struct pci_controller ddb5477_io_controller;
 
-void __init plat_setup(void)
+void __init plat_mem_setup(void)
 {
 	/* initialize board - we don't trust the loader */
         ddb5477_board_init();
@@ -179,7 +177,6 @@ void __init plat_setup(void)
 	set_io_port_base(KSEG1ADDR(DDB_PCI_IO_BASE));
 
 	board_time_init = ddb_time_init;
-	board_timer_setup = ddb_timer_setup;
 
 	_machine_restart = ddb_machine_restart;
 	_machine_halt = ddb_machine_halt;

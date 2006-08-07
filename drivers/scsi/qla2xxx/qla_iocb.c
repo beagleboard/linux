@@ -15,6 +15,7 @@ static inline uint16_t qla2x00_get_cmd_direction(struct scsi_cmnd *cmd);
 static inline cont_entry_t *qla2x00_prep_cont_type0_iocb(scsi_qla_host_t *);
 static inline cont_a64_entry_t *qla2x00_prep_cont_type1_iocb(scsi_qla_host_t *);
 static request_t *qla2x00_req_pkt(scsi_qla_host_t *ha);
+static void qla2x00_isp_cmd(scsi_qla_host_t *ha);
 
 /**
  * qla2x00_get_cmd_direction() - Determine control_flag data direction.
@@ -408,7 +409,6 @@ qla2x00_start_scsi(srb_t *sp)
 		ha->request_ring_ptr++;
 
 	sp->flags |= SRB_DMA_VALID;
-	sp->state = SRB_ACTIVE_STATE;
 
 	/* Set chip new ring index. */
 	WRT_REG_WORD(ISP_REQ_Q_IN(ha, reg), ha->req_ring_index);
@@ -575,7 +575,7 @@ qla2x00_req_pkt(scsi_qla_host_t *ha)
  *
  * Note: The caller must hold the hardware lock before calling this routine.
  */
-void
+static void
 qla2x00_isp_cmd(scsi_qla_host_t *ha)
 {
 	device_reg_t __iomem *reg = ha->iobase;
@@ -838,7 +838,6 @@ qla24xx_start_scsi(srb_t *sp)
 		ha->request_ring_ptr++;
 
 	sp->flags |= SRB_DMA_VALID;
-	sp->state = SRB_ACTIVE_STATE;
 
 	/* Set chip new ring index. */
 	WRT_REG_DWORD(&reg->req_q_in, ha->req_ring_index);

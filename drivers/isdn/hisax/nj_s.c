@@ -5,7 +5,6 @@
  *
  */
 
-#include <linux/config.h>
 #include <linux/init.h>
 #include "hisax.h"
 #include "isac.h"
@@ -149,9 +148,9 @@ NETjet_S_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 	return(0);
 }
 
-static struct pci_dev *dev_netjet __initdata = NULL;
+static struct pci_dev *dev_netjet __devinitdata = NULL;
 
-int __init
+int __devinit
 setup_netjet_s(struct IsdnCard *card)
 {
 	int bytecnt,cfg;
@@ -272,7 +271,7 @@ setup_netjet_s(struct IsdnCard *card)
 	setup_isac(cs);
 	cs->cardmsg = &NETjet_S_card_msg;
 	cs->irq_func = &netjet_s_interrupt;
-	cs->irq_flags |= SA_SHIRQ;
+	cs->irq_flags |= IRQF_SHARED;
 	ISACVersion(cs, "NETjet-S:");
 	return (1);
 }

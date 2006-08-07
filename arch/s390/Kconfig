@@ -7,6 +7,14 @@ config MMU
 	bool
 	default y
 
+config LOCKDEP_SUPPORT
+	bool
+	default y
+
+config STACKTRACE_SUPPORT
+	bool
+	default y
+
 config RWSEM_GENERIC_SPINLOCK
 	bool
 
@@ -109,13 +117,6 @@ config SYSVIPC_COMPAT
 	bool
 	depends on COMPAT && SYSVIPC
 	default y
-
-config BINFMT_ELF32
-	tristate "Kernel support for 31 bit ELF binaries"
-	depends on COMPAT
-	help
-	  This allows you to run 32-bit Linux/ELF binaries on your zSeries
-	  in 64 bit mode. Everybody wants this; say Y.
 
 comment "Code generation options"
 
@@ -445,6 +446,14 @@ config NO_IDLE_HZ_INIT
 	help
 	  The HZ timer is switched off in idle by default. That means the
 	  HZ timer is already disabled at boot time.
+
+config S390_HYPFS_FS
+	bool "s390 hypervisor file system support"
+	select SYS_HYPERVISOR
+	default y
+	help
+	  This is a virtual file system intended to provide accounting
+	  information in an s390 hypervisor environment.
 
 config KEXEC
 	bool "kexec system call (EXPERIMENTAL)"

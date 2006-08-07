@@ -152,9 +152,8 @@ gss_import_sec_context_spkm3(const void *p, size_t len,
 	const void *end = (const void *)((const char *)p + len);
 	struct	spkm3_ctx *ctx;
 
-	if (!(ctx = kmalloc(sizeof(*ctx), GFP_KERNEL)))
+	if (!(ctx = kzalloc(sizeof(*ctx), GFP_KERNEL)))
 		goto out_err;
-	memset(ctx, 0, sizeof(*ctx));
 
 	p = simple_get_netobj(p, end, &ctx->ctx_id);
 	if (IS_ERR(p))
@@ -201,7 +200,7 @@ gss_import_sec_context_spkm3(const void *p, size_t len,
 
 	ctx_id->internal_ctx_id = ctx;
 
-	dprintk("Succesfully imported new spkm context.\n");
+	dprintk("Successfully imported new spkm context.\n");
 	return 0;
 
 out_err_free_key2:

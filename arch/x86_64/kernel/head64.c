@@ -2,8 +2,6 @@
  *  linux/arch/x86_64/kernel/head64.c -- prepare to run common code
  *
  *  Copyright (C) 2000 Andrea Arcangeli <andrea@suse.de> SuSE
- *
- *  $Id: head64.c,v 1.22 2001/07/06 14:28:20 ak Exp $
  */
 
 #include <linux/init.h>
@@ -85,6 +83,11 @@ void __init x86_64_start_kernel(char * real_mode_data)
 		set_intr_gate(i, early_idt_handler);
 	asm volatile("lidt %0" :: "m" (idt_descr));
 	clear_bss();
+
+	/*
+	 * This must be called really, really early:
+	 */
+	lockdep_init();
 
 	/*
 	 * switch to init_level4_pgt from boot_level4_pgt

@@ -8,7 +8,6 @@
  *
  */
 
-#include <linux/config.h>
 #include <linux/kernel.h>
 #include <linux/sched.h>
 #include <linux/smp.h>
@@ -30,7 +29,6 @@
 #include <asm/smp.h>
 #include <asm/residual.h>
 #include <asm/time.h>
-#include <asm/open_pic.h>
 #include <asm/machdep.h>
 #include <asm/smp.h>
 #include <asm/mpic.h>

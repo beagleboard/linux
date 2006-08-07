@@ -11,7 +11,6 @@
  * Copyright (C) 2000, 01 MIPS Technologies, Inc.
  * Copyright (C) 2002, 2003, 2004, 2005  Maciej W. Rozycki
  */
-#include <linux/config.h>
 #include <linux/init.h>
 #include <linux/mm.h>
 #include <linux/module.h>
@@ -65,7 +64,7 @@ extern asmlinkage void handle_mcheck(void);
 extern asmlinkage void handle_reserved(void);
 
 extern int fpu_emulator_cop1Handler(struct pt_regs *xcp,
-	struct mips_fpu_soft_struct *ctx);
+	struct mips_fpu_struct *ctx);
 
 void (*board_be_init)(void);
 int (*board_be_handler)(struct pt_regs *regs, int is_fixup);
@@ -570,6 +569,8 @@ asmlinkage void do_ov(struct pt_regs *regs)
  */
 asmlinkage void do_fpe(struct pt_regs *regs, unsigned long fcr31)
 {
+	die_if_kernel("FP exception in kernel code", regs);
+
 	if (fcr31 & FPU_CSR_UNI_X) {
 		int sig;
 
@@ -600,8 +601,7 @@ asmlinkage void do_fpe(struct pt_regs *regs, unsigned long fcr31)
 		preempt_enable();
 
 		/* Run the emulator */
-		sig = fpu_emulator_cop1Handler (regs,
-			&current->thread.fpu.soft);
+		sig = fpu_emulator_cop1Handler (regs, &current->thread.fpu);
 
 		preempt_disable();
 
@@ -610,7 +610,7 @@ asmlinkage void do_fpe(struct pt_regs *regs, unsigned long fcr31)
 		 * We can't allow the emulated instruction to leave any of
 		 * the cause bit set in $fcr31.
 		 */
-		current->thread.fpu.soft.fcr31 &= ~FPU_CSR_ALL_X;
+		current->thread.fpu.fcr31 &= ~FPU_CSR_ALL_X;
 
 		/* Restore the hardware register state */
 		restore_fp(current);
@@ -755,7 +755,7 @@ asmlinkage void do_cpu(struct pt_regs *regs)
 
 		if (!cpu_has_fpu) {
 			int sig = fpu_emulator_cop1Handler(regs,
-						&current->thread.fpu.soft);
+						&current->thread.fpu);
 			if (sig)
 				force_sig(sig, current);
 #ifdef CONFIG_MIPS_MT_FPAFF
@@ -849,31 +849,29 @@ asmlinkage void do_mt(struct pt_regs *regs)
 {
 	int subcode;
 
-	die_if_kernel("MIPS MT Thread exception in kernel", regs);
-
 	subcode = (read_vpe_c0_vpecontrol() & VPECONTROL_EXCPT)
 			>> VPECONTROL_EXCPT_SHIFT;
 	switch (subcode) {
 	case 0:
-		printk(KERN_ERR "Thread Underflow\n");
+		printk(KERN_DEBUG "Thread Underflow\n");
 		break;
 	case 1:
-		printk(KERN_ERR "Thread Overflow\n");
+		printk(KERN_DEBUG "Thread Overflow\n");
 		break;
 	case 2:
-		printk(KERN_ERR "Invalid YIELD Qualifier\n");
+		printk(KERN_DEBUG "Invalid YIELD Qualifier\n");
 		break;
 	case 3:
-		printk(KERN_ERR "Gating Storage Exception\n");
+		printk(KERN_DEBUG "Gating Storage Exception\n");
 		break;
 	case 4:
-		printk(KERN_ERR "YIELD Scheduler Exception\n");
+		printk(KERN_DEBUG "YIELD Scheduler Exception\n");
 		break;
 	case 5:
-		printk(KERN_ERR "Gating Storage Schedulier Exception\n");
+		printk(KERN_DEBUG "Gating Storage Schedulier Exception\n");
 		break;
 	default:
-		printk(KERN_ERR "*** UNKNOWN THREAD EXCEPTION %d ***\n",
+		printk(KERN_DEBUG "*** UNKNOWN THREAD EXCEPTION %d ***\n",
 			subcode);
 		break;
 	}
@@ -982,10 +980,10 @@ void ejtag_exception_handler(struct pt_regs *regs)
 	unsigned long depc, old_epc;
 	unsigned int debug;
 
-	printk("SDBBP EJTAG debug exception - not handled yet, just ignored!\n");
+	printk(KERN_DEBUG "SDBBP EJTAG debug exception - not handled yet, just ignored!\n");
 	depc = read_c0_depc();
 	debug = read_c0_debug();
-	printk("c0_depc = %0*lx, DEBUG = %08x\n", field, depc, debug);
+	printk(KERN_DEBUG "c0_depc = %0*lx, DEBUG = %08x\n", field, depc, debug);
 	if (debug & 0x80000000) {
 		/*
 		 * In branch delay slot.
@@ -1003,7 +1001,7 @@ void ejtag_exception_handler(struct pt_regs *regs)
 	write_c0_depc(depc);
 
 #if 0
-	printk("\n\n----- Enable EJTAG single stepping ----\n\n");
+	printk(KERN_DEBUG "\n\n----- Enable EJTAG single stepping ----\n\n");
 	write_c0_debug(debug | 0x100);
 #endif
 }
@@ -1051,7 +1049,7 @@ void *set_except_vector(int n, void *addr)
 	return (void *)old_handler;
 }
 
-#ifdef CONFIG_CPU_MIPSR2
+#ifdef CONFIG_CPU_MIPSR2_SRS
 /*
  * MIPSR2 shadow register set allocation
  * FIXME: SMP...
@@ -1070,11 +1068,9 @@ static struct shadow_registers {
 
 static void mips_srs_init(void)
 {
-#ifdef CONFIG_CPU_MIPSR2_SRS
 	shadow_registers.sr_supported = ((read_c0_srsctl() >> 26) & 0x0f) + 1;
 	printk(KERN_INFO "%d MIPSR2 register sets available\n",
 	       shadow_registers.sr_supported);
-#endif
 	shadow_registers.sr_allocated = 1;	/* Set 0 used by kernel */
 }
 
@@ -1199,7 +1195,14 @@ void *set_vi_handler(int n, void *addr)
 {
 	return set_vi_srs_handler(n, addr, 0);
 }
-#endif
+
+#else
+
+static inline void mips_srs_init(void)
+{
+}
+
+#endif /* CONFIG_CPU_MIPSR2_SRS */
 
 /*
  * This is used by native signal handling
@@ -1389,9 +1392,7 @@ void __init trap_init(void)
 	else
 		ebase = CAC_BASE;
 
-#ifdef CONFIG_CPU_MIPSR2
 	mips_srs_init();
-#endif
 
 	per_cpu_trap_init();
 

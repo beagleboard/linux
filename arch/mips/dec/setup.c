@@ -105,7 +105,7 @@ static struct irqaction fpuirq = {
 };
 
 static struct irqaction busirq = {
-	.flags = SA_INTERRUPT,
+	.flags = IRQF_DISABLED,
 	.name = "bus error",
 };
 
@@ -124,7 +124,7 @@ static void __init dec_be_init(void)
 	case MACH_DS23100:	/* DS2100/DS3100 Pmin/Pmax */
 		board_be_handler = dec_kn01_be_handler;
 		busirq.handler = dec_kn01_be_interrupt;
-		busirq.flags |= SA_SHIRQ;
+		busirq.flags |= IRQF_SHARED;
 		dec_kn01_be_init();
 		break;
 	case MACH_DS5000_1XX:	/* DS5000/1xx 3min */
@@ -145,13 +145,11 @@ static void __init dec_be_init(void)
 
 
 extern void dec_time_init(void);
-extern void dec_timer_setup(struct irqaction *);
 
-void __init plat_setup(void)
+void __init plat_mem_setup(void)
 {
 	board_be_init = dec_be_init;
 	board_time_init = dec_time_init;
-	board_timer_setup = dec_timer_setup;
 
 	wbflush_setup();
 

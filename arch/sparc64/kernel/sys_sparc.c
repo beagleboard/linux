@@ -6,7 +6,6 @@
  * platform.
  */
 
-#include <linux/config.h>
 #include <linux/errno.h>
 #include <linux/types.h>
 #include <linux/sched.h>
@@ -702,21 +701,21 @@ extern void check_pending(int signum);
 
 asmlinkage long sys_getdomainname(char __user *name, int len)
 {
-        int nlen;
-	int err = -EFAULT;
+        int nlen, err;
+
+	if (len < 0 || len > __NEW_UTS_LEN)
+		return -EINVAL;
 
  	down_read(&uts_sem);
  	
 	nlen = strlen(system_utsname.domainname) + 1;
-
         if (nlen < len)
                 len = nlen;
-	if (len > __NEW_UTS_LEN)
-		goto done;
-	if (copy_to_user(name, system_utsname.domainname, len))
-		goto done;
-	err = 0;
-done:
+
+	err = -EFAULT;
+	if (!copy_to_user(name, system_utsname.domainname, len))
+		err = 0;
+
 	up_read(&uts_sem);
 	return err;
 }

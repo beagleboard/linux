@@ -58,13 +58,12 @@ static inline int __rxrpc_create_connection(struct rxrpc_peer *peer,
 	_enter("%p",peer);
 
 	/* allocate and initialise a connection record */
-	conn = kmalloc(sizeof(struct rxrpc_connection), GFP_KERNEL);
+	conn = kzalloc(sizeof(struct rxrpc_connection), GFP_KERNEL);
 	if (!conn) {
 		_leave(" = -ENOMEM");
 		return -ENOMEM;
 	}
 
-	memset(conn, 0, sizeof(struct rxrpc_connection));
 	atomic_set(&conn->usage, 1);
 
 	INIT_LIST_HEAD(&conn->link);
@@ -402,8 +401,7 @@ void rxrpc_put_connection(struct rxrpc_connection *conn)
 
 	/* move to graveyard queue */
 	_debug("burying connection: {%08x}", ntohl(conn->conn_id));
-	list_del(&conn->link);
-	list_add_tail(&conn->link, &peer->conn_graveyard);
+	list_move_tail(&conn->link, &peer->conn_graveyard);
 
 	rxrpc_krxtimod_add_timer(&conn->timeout, rxrpc_conn_timeout * HZ);
 
@@ -536,13 +534,12 @@ int rxrpc_conn_newmsg(struct rxrpc_connection *conn,
 		return -EINVAL;
 	}
 
-	msg = kmalloc(sizeof(struct rxrpc_message), alloc_flags);
+	msg = kzalloc(sizeof(struct rxrpc_message), alloc_flags);
 	if (!msg) {
 		_leave(" = -ENOMEM");
 		return -ENOMEM;
 	}
 
-	memset(msg, 0, sizeof(*msg));
 	atomic_set(&msg->usage, 1);
 
 	INIT_LIST_HEAD(&msg->link);

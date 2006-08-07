@@ -23,7 +23,6 @@
  *              <anil.s.keshavamurthy@intel.com> adapted from i386
  */
 
-#include <linux/config.h>
 #include <linux/kprobes.h>
 #include <linux/ptrace.h>
 #include <linux/string.h>
@@ -449,11 +448,20 @@ int __kprobes arch_prepare_kprobe(struct kprobe *p)
 	return 0;
 }
 
+void __kprobes flush_insn_slot(struct kprobe *p)
+{
+	unsigned long arm_addr;
+
+	arm_addr = ((unsigned long)&p->opcode.bundle) & ~0xFULL;
+	flush_icache_range(arm_addr, arm_addr + sizeof(bundle_t));
+}
+
 void __kprobes arch_arm_kprobe(struct kprobe *p)
 {
 	unsigned long addr = (unsigned long)p->addr;
 	unsigned long arm_addr = addr & ~0xFULL;
 
+	flush_insn_slot(p);
 	memcpy((char *)arm_addr, &p->ainsn.insn.bundle, sizeof(bundle_t));
 	flush_icache_range(arm_addr, arm_addr + sizeof(bundle_t));
 }

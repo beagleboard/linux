@@ -23,7 +23,6 @@
  *
  */
 
-#include <linux/config.h>
 #include <linux/module.h>
 
 #include <linux/kernel.h>
@@ -278,7 +277,6 @@ static int vhci_open(struct inode *inode, struct file *file)
 
 	hdev->type = HCI_VHCI;
 	hdev->driver_data = vhci;
-	SET_HCIDEV_DEV(hdev, vhci_miscdev.dev);
 
 	hdev->open     = vhci_open_dev;
 	hdev->close    = vhci_close_dev;

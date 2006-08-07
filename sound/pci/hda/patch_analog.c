@@ -789,6 +789,8 @@ static struct hda_board_config ad1986a_cfg_tbl[] = {
 	{ .modelname = "3stack",	.config = AD1986A_3STACK },
 	{ .pci_subvendor = 0x10de, .pci_subdevice = 0xcb84,
 	  .config = AD1986A_3STACK }, /* ASUS A8N-VM CSM */
+	{ .pci_subvendor = 0x1043, .pci_subdevice = 0x81b3,
+	  .config = AD1986A_3STACK }, /* ASUS P5RD2-VM / P5GPL-X SE */
 	{ .modelname = "laptop",	.config = AD1986A_LAPTOP },
 	{ .pci_subvendor = 0x144d, .pci_subdevice = 0xc01e,
 	  .config = AD1986A_LAPTOP }, /* FSC V2060 */
@@ -797,6 +799,8 @@ static struct hda_board_config ad1986a_cfg_tbl[] = {
 	{ .pci_subvendor = 0x1043, .pci_subdevice = 0x818f,
 	  .config = AD1986A_LAPTOP }, /* ASUS P5GV-MX */
 	{ .modelname = "laptop-eapd",	.config = AD1986A_LAPTOP_EAPD },
+	{ .pci_subvendor = 0x144d, .pci_subdevice = 0xc023,
+	  .config = AD1986A_LAPTOP_EAPD }, /* Samsung X60 Chane */
 	{ .pci_subvendor = 0x144d, .pci_subdevice = 0xc024,
 	  .config = AD1986A_LAPTOP_EAPD }, /* Samsung R65-T2300 Charis */
 	{ .pci_subvendor = 0x1043, .pci_subdevice = 0x1153,
@@ -809,6 +813,8 @@ static struct hda_board_config ad1986a_cfg_tbl[] = {
 	  .config = AD1986A_LAPTOP_EAPD }, /* ASUS Z62F */
 	{ .pci_subvendor = 0x103c, .pci_subdevice = 0x30af,
 	  .config = AD1986A_LAPTOP_EAPD }, /* HP Compaq Presario B2800 */
+	{ .pci_subvendor = 0x17aa, .pci_subdevice = 0x2066,
+	  .config = AD1986A_LAPTOP_EAPD }, /* Lenovo 3000 N100-07684JU */
 	{}
 };
 
@@ -963,7 +969,7 @@ static struct snd_kcontrol_new ad1983_mixers[] = {
 	},
 	{
 		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
-		.name = SNDRV_CTL_NAME_IEC958("",PLAYBACK,NONE) "Route",
+		.name = SNDRV_CTL_NAME_IEC958("",PLAYBACK,NONE) "Source",
 		.info = ad1983_spdif_route_info,
 		.get = ad1983_spdif_route_get,
 		.put = ad1983_spdif_route_put,
@@ -1103,7 +1109,7 @@ static struct snd_kcontrol_new ad1981_mixers[] = {
 	/* identical with AD1983 */
 	{
 		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
-		.name = SNDRV_CTL_NAME_IEC958("",PLAYBACK,NONE) "Route",
+		.name = SNDRV_CTL_NAME_IEC958("",PLAYBACK,NONE) "Source",
 		.info = ad1983_spdif_route_info,
 		.get = ad1983_spdif_route_get,
 		.put = ad1983_spdif_route_put,
@@ -1329,13 +1335,60 @@ static int ad1981_hp_init(struct hda_codec *codec)
 	return 0;
 }
 
+/* configuration for Lenovo Thinkpad T60 */
+static struct snd_kcontrol_new ad1981_thinkpad_mixers[] = {
+	HDA_CODEC_VOLUME("Master Playback Volume", 0x05, 0x0, HDA_OUTPUT),
+	HDA_CODEC_MUTE("Master Playback Switch", 0x05, 0x0, HDA_OUTPUT),
+	HDA_CODEC_VOLUME("PCM Playback Volume", 0x11, 0x0, HDA_OUTPUT),
+	HDA_CODEC_MUTE("PCM Playback Switch", 0x11, 0x0, HDA_OUTPUT),
+	HDA_CODEC_VOLUME("Mic Playback Volume", 0x12, 0x0, HDA_OUTPUT),
+	HDA_CODEC_MUTE("Mic Playback Switch", 0x12, 0x0, HDA_OUTPUT),
+	HDA_CODEC_VOLUME("CD Playback Volume", 0x1d, 0x0, HDA_OUTPUT),
+	HDA_CODEC_MUTE("CD Playback Switch", 0x1d, 0x0, HDA_OUTPUT),
+	HDA_CODEC_VOLUME("Mic Boost", 0x08, 0x0, HDA_INPUT),
+	HDA_CODEC_VOLUME("Capture Volume", 0x15, 0x0, HDA_OUTPUT),
+	HDA_CODEC_MUTE("Capture Switch", 0x15, 0x0, HDA_OUTPUT),
+	{
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name = "Capture Source",
+		.info = ad198x_mux_enum_info,
+		.get = ad198x_mux_enum_get,
+		.put = ad198x_mux_enum_put,
+	},
+	/* identical with AD1983 */
+	{
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name = SNDRV_CTL_NAME_IEC958("",PLAYBACK,NONE) "Source",
+		.info = ad1983_spdif_route_info,
+		.get = ad1983_spdif_route_get,
+		.put = ad1983_spdif_route_put,
+	},
+	{ } /* end */
+};
+
+static struct hda_input_mux ad1981_thinkpad_capture_source = {
+	.num_items = 3,
+	.items = {
+		{ "Mic", 0x0 },
+		{ "Mix", 0x2 },
+		{ "CD", 0x4 },
+	},
+};
+
 /* models */
-enum { AD1981_BASIC, AD1981_HP };
+enum { AD1981_BASIC, AD1981_HP, AD1981_THINKPAD };
 
 static struct hda_board_config ad1981_cfg_tbl[] = {
 	{ .modelname = "hp", .config = AD1981_HP },
 	/* All HP models */
 	{ .pci_subvendor = 0x103c, .config = AD1981_HP },
+	{ .pci_subvendor = 0x30b0, .pci_subdevice = 0x103c,
+	  .config = AD1981_HP }, /* HP nx6320 (reversed SSID, H/W bug) */
+	{ .modelname = "thinkpad", .config = AD1981_THINKPAD },
+	/* Lenovo Thinkpad T60/X60/Z6xx */
+	{ .pci_subvendor = 0x17aa, .config = AD1981_THINKPAD },
+	{ .pci_subvendor = 0x1014, .pci_subdevice = 0x0597,
+	  .config = AD1981_THINKPAD }, /* Z60m/t */
 	{ .modelname = "basic", .config = AD1981_BASIC },
 	{}
 };
@@ -1380,6 +1433,10 @@ static int patch_ad1981(struct hda_codec *codec)
 
 		codec->patch_ops.init = ad1981_hp_init;
 		codec->patch_ops.unsol_event = ad1981_hp_unsol_event;
+		break;
+	case AD1981_THINKPAD:
+		spec->mixers[0] = ad1981_thinkpad_mixers;
+		spec->input_mux = &ad1981_thinkpad_capture_source;
 		break;
 	}
 
@@ -1488,6 +1545,9 @@ enum {
 /* reivision id to check workarounds */
 #define AD1988A_REV2		0x100200
 
+#define is_rev2(codec) \
+	((codec)->vendor_id == 0x11d41988 && \
+	 (codec)->revision_id == AD1988A_REV2)
 
 /*
  * mixers
@@ -1579,6 +1639,7 @@ static struct snd_kcontrol_new ad1988_6stack_mixers1[] = {
 	HDA_CODEC_VOLUME_MONO("Center Playback Volume", 0x05, 1, 0x0, HDA_OUTPUT),
 	HDA_CODEC_VOLUME_MONO("LFE Playback Volume", 0x05, 2, 0x0, HDA_OUTPUT),
 	HDA_CODEC_VOLUME("Side Playback Volume", 0x0a, 0x0, HDA_OUTPUT),
+	{ } /* end */
 };
 
 static struct snd_kcontrol_new ad1988_6stack_mixers1_rev2[] = {
@@ -1587,6 +1648,7 @@ static struct snd_kcontrol_new ad1988_6stack_mixers1_rev2[] = {
 	HDA_CODEC_VOLUME_MONO("Center Playback Volume", 0x0a, 1, 0x0, HDA_OUTPUT),
 	HDA_CODEC_VOLUME_MONO("LFE Playback Volume", 0x0a, 2, 0x0, HDA_OUTPUT),
 	HDA_CODEC_VOLUME("Side Playback Volume", 0x06, 0x0, HDA_OUTPUT),
+	{ } /* end */
 };
 
 static struct snd_kcontrol_new ad1988_6stack_mixers2[] = {
@@ -1625,6 +1687,7 @@ static struct snd_kcontrol_new ad1988_3stack_mixers1[] = {
 	HDA_CODEC_VOLUME("Surround Playback Volume", 0x0a, 0x0, HDA_OUTPUT),
 	HDA_CODEC_VOLUME_MONO("Center Playback Volume", 0x05, 1, 0x0, HDA_OUTPUT),
 	HDA_CODEC_VOLUME_MONO("LFE Playback Volume", 0x05, 2, 0x0, HDA_OUTPUT),
+	{ } /* end */
 };
 
 static struct snd_kcontrol_new ad1988_3stack_mixers1_rev2[] = {
@@ -1632,6 +1695,7 @@ static struct snd_kcontrol_new ad1988_3stack_mixers1_rev2[] = {
 	HDA_CODEC_VOLUME("Surround Playback Volume", 0x0a, 0x0, HDA_OUTPUT),
 	HDA_CODEC_VOLUME_MONO("Center Playback Volume", 0x06, 1, 0x0, HDA_OUTPUT),
 	HDA_CODEC_VOLUME_MONO("LFE Playback Volume", 0x06, 2, 0x0, HDA_OUTPUT),
+	{ } /* end */
 };
 
 static struct snd_kcontrol_new ad1988_3stack_mixers2[] = {
@@ -2138,7 +2202,7 @@ static inline hda_nid_t ad1988_idx_to_dac(struct hda_codec *codec, int idx)
 		/* A     B     C     D     E     F     G     H */
 		0x04, 0x05, 0x0a, 0x04, 0x06, 0x05, 0x0a, 0x06
 	};
-	if (codec->revision_id == AD1988A_REV2)
+	if (is_rev2(codec))
 		return idx_to_dac_rev2[idx];
 	else
 		return idx_to_dac[idx];
@@ -2507,7 +2571,7 @@ static int patch_ad1988(struct hda_codec *codec)
 	mutex_init(&spec->amp_mutex);
 	codec->spec = spec;
 
-	if (codec->revision_id == AD1988A_REV2)
+	if (is_rev2(codec))
 		snd_printk(KERN_INFO "patch_analog: AD1988A rev.2 is detected, enable workarounds\n");
 
 	board_config = snd_hda_check_board_config(codec, ad1988_cfg_tbl);
@@ -2533,13 +2597,13 @@ static int patch_ad1988(struct hda_codec *codec)
 	case AD1988_6STACK_DIG:
 		spec->multiout.max_channels = 8;
 		spec->multiout.num_dacs = 4;
-		if (codec->revision_id == AD1988A_REV2)
+		if (is_rev2(codec))
 			spec->multiout.dac_nids = ad1988_6stack_dac_nids_rev2;
 		else
 			spec->multiout.dac_nids = ad1988_6stack_dac_nids;
 		spec->input_mux = &ad1988_6stack_capture_source;
 		spec->num_mixers = 2;
-		if (codec->revision_id == AD1988A_REV2)
+		if (is_rev2(codec))
 			spec->mixers[0] = ad1988_6stack_mixers1_rev2;
 		else
 			spec->mixers[0] = ad1988_6stack_mixers1;
@@ -2555,7 +2619,7 @@ static int patch_ad1988(struct hda_codec *codec)
 	case AD1988_3STACK_DIG:
 		spec->multiout.max_channels = 6;
 		spec->multiout.num_dacs = 3;
-		if (codec->revision_id == AD1988A_REV2)
+		if (is_rev2(codec))
 			spec->multiout.dac_nids = ad1988_3stack_dac_nids_rev2;
 		else
 			spec->multiout.dac_nids = ad1988_3stack_dac_nids;
@@ -2563,7 +2627,7 @@ static int patch_ad1988(struct hda_codec *codec)
 		spec->channel_mode = ad1988_3stack_modes;
 		spec->num_channel_mode = ARRAY_SIZE(ad1988_3stack_modes);
 		spec->num_mixers = 2;
-		if (codec->revision_id == AD1988A_REV2)
+		if (is_rev2(codec))
 			spec->mixers[0] = ad1988_3stack_mixers1_rev2;
 		else
 			spec->mixers[0] = ad1988_3stack_mixers1;

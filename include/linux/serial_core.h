@@ -67,8 +67,8 @@
 /* Parisc type numbers. */
 #define PORT_MUX	48
 
-/* Atmel AT91RM9200 SoC */
-#define PORT_AT91RM9200 49
+/* Atmel AT91xxx SoC */
+#define PORT_AT91	49
 
 /* Macintosh Zilog type numbers */
 #define PORT_MAC_ZILOG	50	/* m68k : not yet implemented */
@@ -130,9 +130,11 @@
 /* SUN4V Hypervisor Console */
 #define PORT_SUNHV	72
 
+#define PORT_S3C2412	73
+
+
 #ifdef __KERNEL__
 
-#include <linux/config.h>
 #include <linux/compiler.h>
 #include <linux/interrupt.h>
 #include <linux/circ_buf.h>
@@ -214,16 +216,18 @@ struct uart_port {
 	unsigned char __iomem	*membase;		/* read/write[bwl] */
 	unsigned int		irq;			/* irq number */
 	unsigned int		uartclk;		/* base uart clock */
-	unsigned char		fifosize;		/* tx fifo size */
+	unsigned int		fifosize;		/* tx fifo size */
 	unsigned char		x_char;			/* xon/xoff char */
 	unsigned char		regshift;		/* reg offset shift */
 	unsigned char		iotype;			/* io access style */
+	unsigned char		unused1;
 
 #define UPIO_PORT		(0)
 #define UPIO_HUB6		(1)
 #define UPIO_MEM		(2)
 #define UPIO_MEM32		(3)
 #define UPIO_AU			(4)			/* Au1x00 type IO */
+#define UPIO_TSI		(5)			/* Tsi108/109 type IO */
 
 	unsigned int		read_status_mask;	/* driver specific */
 	unsigned int		ignore_status_mask;	/* driver specific */
@@ -334,7 +338,6 @@ struct uart_driver {
 	struct module		*owner;
 	const char		*driver_name;
 	const char		*dev_name;
-	const char		*devfs_name;
 	int			 major;
 	int			 minor;
 	int			 nr;

@@ -55,7 +55,6 @@
  * 2005-10-07 Keith Owens <kaos@sgi.com>
  *	      Add notify_die() hooks.
  */
-#include <linux/config.h>
 #include <linux/types.h>
 #include <linux/init.h>
 #include <linux/sched.h>
@@ -679,7 +678,7 @@ copy_reg(const u64 *fr, u64 fnat, u64 *tr, u64 *tnat)
  */
 
 static void
-ia64_mca_modify_comm(const task_t *previous_current)
+ia64_mca_modify_comm(const struct task_struct *previous_current)
 {
 	char *p, comm[sizeof(current->comm)];
 	if (previous_current->pid)
@@ -710,7 +709,7 @@ ia64_mca_modify_comm(const task_t *previous_current)
  * that we can do backtrace on the MCA/INIT handler code itself.
  */
 
-static task_t *
+static struct task_struct *
 ia64_mca_modify_original_stack(struct pt_regs *regs,
 		const struct switch_stack *sw,
 		struct ia64_sal_os_state *sos,
@@ -720,7 +719,7 @@ ia64_mca_modify_original_stack(struct pt_regs *regs,
 	ia64_va va;
 	extern char ia64_leave_kernel[];	/* Need asm address, not function descriptor */
 	const pal_min_state_area_t *ms = sos->pal_min_state;
-	task_t *previous_current;
+	struct task_struct *previous_current;
 	struct pt_regs *old_regs;
 	struct switch_stack *old_sw;
 	unsigned size = sizeof(struct pt_regs) +
@@ -1024,7 +1023,7 @@ ia64_mca_handler(struct pt_regs *regs, struct switch_stack *sw,
 	pal_processor_state_info_t *psp = (pal_processor_state_info_t *)
 		&sos->proc_state_param;
 	int recover, cpu = smp_processor_id();
-	task_t *previous_current;
+	struct task_struct *previous_current;
 	struct ia64_mca_notify_die nd =
 		{ .sos = sos, .monarch_cpu = &monarch_cpu };
 
@@ -1353,7 +1352,7 @@ ia64_init_handler(struct pt_regs *regs, struct switch_stack *sw,
 {
 	static atomic_t slaves;
 	static atomic_t monarchs;
-	task_t *previous_current;
+	struct task_struct *previous_current;
 	int cpu = smp_processor_id();
 	struct ia64_mca_notify_die nd =
 		{ .sos = sos, .monarch_cpu = &monarch_cpu };
@@ -1458,38 +1457,38 @@ __setup("disable_cpe_poll", ia64_mca_disable_cpe_polling);
 
 static struct irqaction cmci_irqaction = {
 	.handler =	ia64_mca_cmc_int_handler,
-	.flags =	SA_INTERRUPT,
+	.flags =	IRQF_DISABLED,
 	.name =		"cmc_hndlr"
 };
 
 static struct irqaction cmcp_irqaction = {
 	.handler =	ia64_mca_cmc_int_caller,
-	.flags =	SA_INTERRUPT,
+	.flags =	IRQF_DISABLED,
 	.name =		"cmc_poll"
 };
 
 static struct irqaction mca_rdzv_irqaction = {
 	.handler =	ia64_mca_rendez_int_handler,
-	.flags =	SA_INTERRUPT,
+	.flags =	IRQF_DISABLED,
 	.name =		"mca_rdzv"
 };
 
 static struct irqaction mca_wkup_irqaction = {
 	.handler =	ia64_mca_wakeup_int_handler,
-	.flags =	SA_INTERRUPT,
+	.flags =	IRQF_DISABLED,
 	.name =		"mca_wkup"
 };
 
 #ifdef CONFIG_ACPI
 static struct irqaction mca_cpe_irqaction = {
 	.handler =	ia64_mca_cpe_int_handler,
-	.flags =	SA_INTERRUPT,
+	.flags =	IRQF_DISABLED,
 	.name =		"cpe_hndlr"
 };
 
 static struct irqaction mca_cpep_irqaction = {
 	.handler =	ia64_mca_cpe_int_caller,
-	.flags =	SA_INTERRUPT,
+	.flags =	IRQF_DISABLED,
 	.name =		"cpe_poll"
 };
 #endif /* CONFIG_ACPI */
@@ -1788,7 +1787,7 @@ ia64_mca_late_init(void)
 			cpe_poll_enabled = 0;
 			for (irq = 0; irq < NR_IRQS; ++irq)
 				if (irq_to_vector(irq) == cpe_vector) {
-					desc = irq_descp(irq);
+					desc = irq_desc + irq;
 					desc->status |= IRQ_PER_CPU;
 					setup_irq(irq, &mca_cpe_irqaction);
 					ia64_cpe_irq = irq;

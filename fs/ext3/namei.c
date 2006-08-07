@@ -1000,7 +1000,12 @@ static struct dentry *ext3_lookup(struct inode * dir, struct dentry *dentry, str
 	if (bh) {
 		unsigned long ino = le32_to_cpu(de->inode);
 		brelse (bh);
-		inode = iget(dir->i_sb, ino);
+		if (!ext3_valid_inum(dir->i_sb, ino)) {
+			ext3_error(dir->i_sb, "ext3_lookup",
+				   "bad inode number: %lu", ino);
+			inode = NULL;
+		} else
+			inode = iget(dir->i_sb, ino);
 
 		if (!inode)
 			return ERR_PTR(-EACCES);
@@ -1028,7 +1033,13 @@ struct dentry *ext3_get_parent(struct dentry *child)
 		return ERR_PTR(-ENOENT);
 	ino = le32_to_cpu(de->inode);
 	brelse(bh);
-	inode = iget(child->d_inode->i_sb, ino);
+
+	if (!ext3_valid_inum(child->d_inode->i_sb, ino)) {
+		ext3_error(child->d_inode->i_sb, "ext3_get_parent",
+			   "bad inode number: %lu", ino);
+		inode = NULL;
+	} else
+		inode = iget(child->d_inode->i_sb, ino);
 
 	if (!inode)
 		return ERR_PTR(-EACCES);
@@ -1379,7 +1390,6 @@ static int ext3_add_entry (handle_t *handle, struct dentry *dentry,
 	int	dx_fallback=0;
 #endif
 	unsigned blocksize;
-	unsigned nlen, rlen;
 	u32 block, blocks;
 
 	sb = dir->i_sb;
@@ -1417,8 +1427,7 @@ static int ext3_add_entry (handle_t *handle, struct dentry *dentry,
 		return retval;
 	de = (struct ext3_dir_entry_2 *) bh->b_data;
 	de->inode = 0;
-	de->rec_len = cpu_to_le16(rlen = blocksize);
-	nlen = 0;
+	de->rec_len = cpu_to_le16(blocksize);
 	return add_dirent_to_buf(handle, dentry, inode, de, bh);
 }
 

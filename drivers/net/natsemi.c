@@ -20,125 +20,13 @@
 
 	Support information and updates available at
 	http://www.scyld.com/network/netsemi.html
+	[link no longer provides useful info -jgarzik]
 
-
-	Linux kernel modifications:
-
-	Version 1.0.1:
-		- Spinlock fixes
-		- Bug fixes and better intr performance (Tjeerd)
-	Version 1.0.2:
-		- Now reads correct MAC address from eeprom
-	Version 1.0.3:
-		- Eliminate redundant priv->tx_full flag
-		- Call netif_start_queue from dev->tx_timeout
-		- wmb() in start_tx() to flush data
-		- Update Tx locking
-		- Clean up PCI enable (davej)
-	Version 1.0.4:
-		- Merge Donald Becker's natsemi.c version 1.07
-	Version 1.0.5:
-		- { fill me in }
-	Version 1.0.6:
-		* ethtool support (jgarzik)
-		* Proper initialization of the card (which sometimes
-		fails to occur and leaves the card in a non-functional
-		state). (uzi)
-
-		* Some documented register settings to optimize some
-		of the 100Mbit autodetection circuitry in rev C cards. (uzi)
-
-		* Polling of the PHY intr for stuff like link state
-		change and auto- negotiation to finally work properly. (uzi)
-
-		* One-liner removal of a duplicate declaration of
-		netdev_error(). (uzi)
-
-	Version 1.0.7: (Manfred Spraul)
-		* pci dma
-		* SMP locking update
-		* full reset added into tx_timeout
-		* correct multicast hash generation (both big and little endian)
-			[copied from a natsemi driver version
-			 from Myrio Corporation, Greg Smith]
-		* suspend/resume
-
-	version 1.0.8 (Tim Hockin <thockin@sun.com>)
-		* ETHTOOL_* support
-		* Wake on lan support (Erik Gilling)
-		* MXDMA fixes for serverworks
-		* EEPROM reload
-
-	version 1.0.9 (Manfred Spraul)
-		* Main change: fix lack of synchronize
-		netif_close/netif_suspend against a last interrupt
-		or packet.
-		* do not enable superflous interrupts (e.g. the
-		drivers relies on TxDone - TxIntr not needed)
-		* wait that the hardware has really stopped in close
-		and suspend.
-		* workaround for the (at least) gcc-2.95.1 compiler
-		problem. Also simplifies the code a bit.
-		* disable_irq() in tx_timeout - needed to protect
-		against rx interrupts.
-		* stop the nic before switching into silent rx mode
-		for wol (required according to docu).
-
-	version 1.0.10:
-		* use long for ee_addr (various)
-		* print pointers properly (DaveM)
-		* include asm/irq.h (?)
-
-	version 1.0.11:
-		* check and reset if PHY errors appear (Adrian Sun)
-		* WoL cleanup (Tim Hockin)
-		* Magic number cleanup (Tim Hockin)
-		* Don't reload EEPROM on every reset (Tim Hockin)
-		* Save and restore EEPROM state across reset (Tim Hockin)
-		* MDIO Cleanup (Tim Hockin)
-		* Reformat register offsets/bits (jgarzik)
-
-	version 1.0.12:
-		* ETHTOOL_* further support (Tim Hockin)
-
-	version 1.0.13:
-		* ETHTOOL_[G]EEPROM support (Tim Hockin)
-
-	version 1.0.13:
-		* crc cleanup (Matt Domsch <Matt_Domsch@dell.com>)
-
-	version 1.0.14:
-		* Cleanup some messages and autoneg in ethtool (Tim Hockin)
-
-	version 1.0.15:
-		* Get rid of cable_magic flag
-		* use new (National provided) solution for cable magic issue
-
-	version 1.0.16:
-		* call netdev_rx() for RxErrors (Manfred Spraul)
-		* formatting and cleanups
-		* change options and full_duplex arrays to be zero
-		  initialized
-		* enable only the WoL and PHY interrupts in wol mode
-
-	version 1.0.17:
-		* only do cable_magic on 83815 and early 83816 (Tim Hockin)
-		* create a function for rx refill (Manfred Spraul)
-		* combine drain_ring and init_ring (Manfred Spraul)
-		* oom handling (Manfred Spraul)
-		* hands_off instead of playing with netif_device_{de,a}ttach
-		  (Manfred Spraul)
-		* be sure to write the MAC back to the chip (Manfred Spraul)
-		* lengthen EEPROM timeout, and always warn about timeouts
-		  (Manfred Spraul)
-		* comments update (Manfred)
-		* do the right thing on a phy-reset (Manfred and Tim)
 
 	TODO:
 	* big endian support with CFG:BEM instead of cpu_to_le32
 */
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/string.h>
@@ -166,8 +54,8 @@
 #include <asm/uaccess.h>
 
 #define DRV_NAME	"natsemi"
-#define DRV_VERSION	"1.07+LK1.0.17"
-#define DRV_RELDATE	"Sep 27, 2002"
+#define DRV_VERSION	"2.0"
+#define DRV_RELDATE	"June 27, 2006"
 
 #define RX_OFFSET	2
 
@@ -226,7 +114,6 @@ static int full_duplex[MAX_UNITS];
 				 NATSEMI_PG1_NREGS)
 #define NATSEMI_REGS_VER	1 /* v1 added RFDR registers */
 #define NATSEMI_REGS_SIZE	(NATSEMI_NREGS * sizeof(u32))
-#define NATSEMI_DEF_EEPROM_SIZE	24 /* 12 16-bit values */
 
 /* Buffer sizes:
  * The nic writes 32-bit values, even if the upper bytes of
@@ -318,12 +205,12 @@ performance critical codepaths:
 The rx process only runs in the interrupt handler. Access from outside
 the interrupt handler is only permitted after disable_irq().
 
-The rx process usually runs under the dev->xmit_lock. If np->intr_tx_reap
+The rx process usually runs under the netif_tx_lock. If np->intr_tx_reap
 is set, then access is permitted under spin_lock_irq(&np->lock).
 
 Thus configuration functions that want to access everything must call
 	disable_irq(dev->irq);
-	spin_lock_bh(dev->xmit_lock);
+	netif_tx_lock_bh(dev);
 	spin_lock_irq(&np->lock);
 
 IV. Notes
@@ -344,18 +231,6 @@ None characterised.
 
 
 
-enum pcistuff {
-	PCI_USES_IO = 0x01,
-	PCI_USES_MEM = 0x02,
-	PCI_USES_MASTER = 0x04,
-	PCI_ADDR0 = 0x08,
-	PCI_ADDR1 = 0x10,
-};
-
-/* MMIO operations required */
-#define PCI_IOTYPE (PCI_USES_MASTER | PCI_USES_MEM | PCI_ADDR1)
-
-
 /*
  * Support for fibre connections on Am79C874:
  * This phy needs a special setup when connected to a fibre cable.
@@ -363,22 +238,25 @@ enum pcistuff {
  */
 #define PHYID_AM79C874	0x0022561b
 
-#define MII_MCTRL	0x15	/* mode control register */
-#define MII_FX_SEL	0x0001	/* 100BASE-FX (fiber) */
-#define MII_EN_SCRM	0x0004	/* enable scrambler (tp) */
+enum {
+	MII_MCTRL	= 0x15,		/* mode control register */
+	MII_FX_SEL	= 0x0001,	/* 100BASE-FX (fiber) */
+	MII_EN_SCRM	= 0x0004,	/* enable scrambler (tp) */
+};
 
  
 /* array of board data directly indexed by pci_tbl[x].driver_data */
 static const struct {
 	const char *name;
 	unsigned long flags;
+	unsigned int eeprom_size;
 } natsemi_pci_info[] __devinitdata = {
-	{ "NatSemi DP8381[56]", PCI_IOTYPE },
+	{ "NatSemi DP8381[56]", 0, 24 },
 };
 
-static struct pci_device_id natsemi_pci_tbl[] = {
-	{ PCI_VENDOR_ID_NS, PCI_DEVICE_ID_NS_83815, PCI_ANY_ID, PCI_ANY_ID, },
-	{ 0, },
+static const struct pci_device_id natsemi_pci_tbl[] __devinitdata = {
+	{ PCI_VENDOR_ID_NS, 0x0020, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
+	{ }	/* terminate list */
 };
 MODULE_DEVICE_TABLE(pci, natsemi_pci_tbl);
 
@@ -813,6 +691,42 @@ static void move_int_phy(struct net_device *dev, int addr)
 	udelay(1);
 }
 
+static void __devinit natsemi_init_media (struct net_device *dev)
+{
+	struct netdev_private *np = netdev_priv(dev);
+	u32 tmp;
+
+	netif_carrier_off(dev);
+
+	/* get the initial settings from hardware */
+	tmp            = mdio_read(dev, MII_BMCR);
+	np->speed      = (tmp & BMCR_SPEED100)? SPEED_100     : SPEED_10;
+	np->duplex     = (tmp & BMCR_FULLDPLX)? DUPLEX_FULL   : DUPLEX_HALF;
+	np->autoneg    = (tmp & BMCR_ANENABLE)? AUTONEG_ENABLE: AUTONEG_DISABLE;
+	np->advertising= mdio_read(dev, MII_ADVERTISE);
+
+	if ((np->advertising & ADVERTISE_ALL) != ADVERTISE_ALL
+	 && netif_msg_probe(np)) {
+		printk(KERN_INFO "natsemi %s: Transceiver default autonegotiation %s "
+			"10%s %s duplex.\n",
+			pci_name(np->pci_dev),
+			(mdio_read(dev, MII_BMCR) & BMCR_ANENABLE)?
+			  "enabled, advertise" : "disabled, force",
+			(np->advertising &
+			  (ADVERTISE_100FULL|ADVERTISE_100HALF))?
+			    "0" : "",
+			(np->advertising &
+			  (ADVERTISE_100FULL|ADVERTISE_10FULL))?
+			    "full" : "half");
+	}
+	if (netif_msg_probe(np))
+		printk(KERN_INFO
+			"natsemi %s: Transceiver status %#04x advertising %#04x.\n",
+			pci_name(np->pci_dev), mdio_read(dev, MII_BMSR),
+			np->advertising);
+
+}
+
 static int __devinit natsemi_probe1 (struct pci_dev *pdev,
 	const struct pci_device_id *ent)
 {
@@ -852,8 +766,7 @@ static int __devinit natsemi_probe1 (struct pci_dev *pdev,
 	iosize = pci_resource_len(pdev, pcibar);
 	irq = pdev->irq;
 
-	if (natsemi_pci_info[chip_idx].flags & PCI_USES_MASTER)
-		pci_set_master(pdev);
+	pci_set_master(pdev);
 
 	dev = alloc_etherdev(sizeof (struct netdev_private));
 	if (!dev)
@@ -892,7 +805,7 @@ static int __devinit natsemi_probe1 (struct pci_dev *pdev,
 	np->msg_enable = (debug >= 0) ? (1<<debug)-1 : NATSEMI_DEF_MSG;
 	np->hands_off = 0;
 	np->intr_status = 0;
-	np->eeprom_size = NATSEMI_DEF_EEPROM_SIZE;
+	np->eeprom_size = natsemi_pci_info[chip_idx].eeprom_size;
 
 	/* Initial port:
 	 * - If the nic was configured to use an external phy and if find_mii
@@ -957,34 +870,7 @@ static int __devinit natsemi_probe1 (struct pci_dev *pdev,
 	if (mtu)
 		dev->mtu = mtu;
 
-	netif_carrier_off(dev);
-
-	/* get the initial settings from hardware */
-	tmp            = mdio_read(dev, MII_BMCR);
-	np->speed      = (tmp & BMCR_SPEED100)? SPEED_100     : SPEED_10;
-	np->duplex     = (tmp & BMCR_FULLDPLX)? DUPLEX_FULL   : DUPLEX_HALF;
-	np->autoneg    = (tmp & BMCR_ANENABLE)? AUTONEG_ENABLE: AUTONEG_DISABLE;
-	np->advertising= mdio_read(dev, MII_ADVERTISE);
-
-	if ((np->advertising & ADVERTISE_ALL) != ADVERTISE_ALL
-	 && netif_msg_probe(np)) {
-		printk(KERN_INFO "natsemi %s: Transceiver default autonegotiation %s "
-			"10%s %s duplex.\n",
-			pci_name(np->pci_dev),
-			(mdio_read(dev, MII_BMCR) & BMCR_ANENABLE)?
-			  "enabled, advertise" : "disabled, force",
-			(np->advertising &
-			  (ADVERTISE_100FULL|ADVERTISE_100HALF))?
-			    "0" : "",
-			(np->advertising &
-			  (ADVERTISE_100FULL|ADVERTISE_10FULL))?
-			    "full" : "half");
-	}
-	if (netif_msg_probe(np))
-		printk(KERN_INFO
-			"natsemi %s: Transceiver status %#04x advertising %#04x.\n",
-			pci_name(np->pci_dev), mdio_read(dev, MII_BMSR),
-			np->advertising);
+	natsemi_init_media(dev);
 
 	/* save the silicon revision for later querying */
 	np->srr = readl(ioaddr + SiliconRev);
@@ -1577,7 +1463,7 @@ static int netdev_open(struct net_device *dev)
 	/* Reset the chip, just in case. */
 	natsemi_reset(dev);
 
-	i = request_irq(dev->irq, &intr_handler, SA_SHIRQ, dev->name, dev);
+	i = request_irq(dev->irq, &intr_handler, IRQF_SHARED, dev->name, dev);
 	if (i) return i;
 
 	if (netif_msg_ifup(np))

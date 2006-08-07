@@ -57,7 +57,6 @@
  * be incorporated into the next SCTP release.
  */
 
-#include <linux/config.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/wait.h>
@@ -172,7 +171,7 @@ static inline int sctp_verify_addr(struct sock *sk, union sctp_addr *addr,
 		return -EINVAL;
 
 	/* Is this a valid SCTP address?  */
-	if (!af->addr_valid(addr, sctp_sk(sk)))
+	if (!af->addr_valid(addr, sctp_sk(sk), NULL))
 		return -EINVAL;
 
 	if (!sctp_sk(sk)->pf->send_verify(sctp_sk(sk), (addr)))
@@ -370,7 +369,7 @@ SCTP_STATIC int sctp_do_bind(struct sock *sk, union sctp_addr *addr, int len)
 
 	/* Use GFP_ATOMIC since BHs are disabled.  */
 	addr->v4.sin_port = ntohs(addr->v4.sin_port);
-	ret = sctp_add_bind_addr(bp, addr, GFP_ATOMIC);
+	ret = sctp_add_bind_addr(bp, addr, 1, GFP_ATOMIC);
 	addr->v4.sin_port = htons(addr->v4.sin_port);
 	sctp_write_unlock(&ep->base.addr_lock);
 	sctp_local_bh_enable();
@@ -492,6 +491,7 @@ static int sctp_send_asconf_add_ip(struct sock		*sk,
 	struct sctp_chunk		*chunk;
 	struct sctp_sockaddr_entry	*laddr;
 	union sctp_addr			*addr;
+	union sctp_addr			saveaddr;
 	void				*addr_buf;
 	struct sctp_af			*af;
 	struct list_head		*pos;
@@ -559,14 +559,26 @@ static int sctp_send_asconf_add_ip(struct sock		*sk,
 		}
 
 		retval = sctp_send_asconf(asoc, chunk);
+		if (retval)
+			goto out;
 
-		/* FIXME: After sending the add address ASCONF chunk, we
-		 * cannot append the address to the association's binding
-		 * address list, because the new address may be used as the
-		 * source of a message sent to the peer before the ASCONF
-		 * chunk is received by the peer.  So we should wait until
-		 * ASCONF_ACK is received.
+		/* Add the new addresses to the bind address list with
+		 * use_as_src set to 0.
 		 */
+		sctp_local_bh_disable();
+		sctp_write_lock(&asoc->base.addr_lock);
+		addr_buf = addrs;
+		for (i = 0; i < addrcnt; i++) {
+			addr = (union sctp_addr *)addr_buf;
+			af = sctp_get_af_specific(addr->v4.sin_family);
+			memcpy(&saveaddr, addr, af->sockaddr_len);
+			saveaddr.v4.sin_port = ntohs(saveaddr.v4.sin_port);
+			retval = sctp_add_bind_addr(bp, &saveaddr, 0,
+						    GFP_ATOMIC);
+			addr_buf += af->sockaddr_len;
+		}
+		sctp_write_unlock(&asoc->base.addr_lock);
+		sctp_local_bh_enable();
 	}
 
 out:
@@ -677,12 +689,15 @@ static int sctp_send_asconf_del_ip(struct sock		*sk,
 	struct sctp_sock	*sp;
 	struct sctp_endpoint	*ep;
 	struct sctp_association	*asoc;
+	struct sctp_transport	*transport;
 	struct sctp_bind_addr	*bp;
 	struct sctp_chunk	*chunk;
 	union sctp_addr		*laddr;
+	union sctp_addr		saveaddr;
 	void			*addr_buf;
 	struct sctp_af		*af;
-	struct list_head	*pos;
+	struct list_head	*pos, *pos1;
+	struct sctp_sockaddr_entry *saddr;
 	int 			i;
 	int 			retval = 0;
 
@@ -749,14 +764,42 @@ static int sctp_send_asconf_del_ip(struct sock		*sk,
 			goto out;
 		}
 
-		retval = sctp_send_asconf(asoc, chunk);
-
-		/* FIXME: After sending the delete address ASCONF chunk, we
-		 * cannot remove the addresses from the association's bind
-		 * address list, because there maybe some packet send to
-		 * the delete addresses, so we should wait until ASCONF_ACK
-		 * packet is received.
+		/* Reset use_as_src flag for the addresses in the bind address
+		 * list that are to be deleted.
 		 */
+		sctp_local_bh_disable();
+		sctp_write_lock(&asoc->base.addr_lock);
+		addr_buf = addrs;
+		for (i = 0; i < addrcnt; i++) {
+			laddr = (union sctp_addr *)addr_buf;
+			af = sctp_get_af_specific(laddr->v4.sin_family);
+			memcpy(&saveaddr, laddr, af->sockaddr_len);
+			saveaddr.v4.sin_port = ntohs(saveaddr.v4.sin_port);
+			list_for_each(pos1, &bp->address_list) {
+				saddr = list_entry(pos1,
+						   struct sctp_sockaddr_entry,
+						   list);
+				if (sctp_cmp_addr_exact(&saddr->a, &saveaddr))
+					saddr->use_as_src = 0;
+			}
+			addr_buf += af->sockaddr_len;
+		}
+		sctp_write_unlock(&asoc->base.addr_lock);
+		sctp_local_bh_enable();
+
+		/* Update the route and saddr entries for all the transports
+		 * as some of the addresses in the bind address list are
+		 * about to be deleted and cannot be used as source addresses.
+		 */
+		list_for_each(pos1, &asoc->peer.transport_addr_list) {
+			transport = list_entry(pos1, struct sctp_transport,
+					       transports);
+			dst_release(transport->dst);
+			sctp_transport_route(transport, NULL,
+					     sctp_sk(asoc->base.sk));
+		}
+
+		retval = sctp_send_asconf(asoc, chunk);
 	}
 out:
 	return retval;
@@ -2530,8 +2573,32 @@ static int sctp_setsockopt_associnfo(struct sock *sk, char __user *optval, int o
 
 	/* Set the values to the specific association */
 	if (asoc) {
-		if (assocparams.sasoc_asocmaxrxt != 0)
+		if (assocparams.sasoc_asocmaxrxt != 0) {
+			__u32 path_sum = 0;
+			int   paths = 0;
+			struct list_head *pos;
+			struct sctp_transport *peer_addr;
+
+			list_for_each(pos, &asoc->peer.transport_addr_list) {
+				peer_addr = list_entry(pos,
+						struct sctp_transport,
+						transports);
+				path_sum += peer_addr->pathmaxrxt;
+				paths++;
+			}
+
+			/* Only validate asocmaxrxt if we have more then
+			 * one path/transport.  We do this because path
+			 * retransmissions are only counted when we have more
+			 * then one path.
+			 */
+			if (paths > 1 &&
+			    assocparams.sasoc_asocmaxrxt > path_sum)
+				return -EINVAL;
+
 			asoc->max_retrans = assocparams.sasoc_asocmaxrxt;
+		}
+
 		if (assocparams.sasoc_cookie_life != 0) {
 			asoc->cookie_life.tv_sec =
 					assocparams.sasoc_cookie_life / 1000;
@@ -4954,7 +5021,7 @@ static struct sctp_bind_bucket *sctp_bucket_create(
 /* Caller must hold hashbucket lock for this tb with local BH disabled */
 static void sctp_bucket_destroy(struct sctp_bind_bucket *pp)
 {
-	if (hlist_empty(&pp->owner)) {
+	if (pp && hlist_empty(&pp->owner)) {
 		if (pp->next)
 			pp->next->pprev = pp->pprev;
 		*(pp->pprev) = pp->next;

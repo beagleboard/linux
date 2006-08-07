@@ -13,6 +13,7 @@
 #include <linux/oprofile.h>
 #include <linux/sysdev.h>
 #include <linux/slab.h>
+#include <linux/moduleparam.h>
 #include <asm/nmi.h>
 #include <asm/msr.h>
 #include <asm/apic.h>
@@ -281,9 +282,9 @@ static int nmi_create_files(struct super_block * sb, struct dentry * root)
 
 	for (i = 0; i < model->num_counters; ++i) {
 		struct dentry * dir;
-		char buf[2];
+		char buf[4];
  
-		snprintf(buf, 2, "%d", i);
+		snprintf(buf,  sizeof(buf), "%d", i);
 		dir = oprofilefs_mkdir(sb, root, buf);
 		oprofilefs_create_ulong(sb, dir, "enabled", &counter_config[i].enabled); 
 		oprofilefs_create_ulong(sb, dir, "event", &counter_config[i].event); 
@@ -296,12 +297,14 @@ static int nmi_create_files(struct super_block * sb, struct dentry * root)
 	return 0;
 }
  
+static int p4force;
+module_param(p4force, int, 0);
  
 static int __init p4_init(char ** cpu_type)
 {
 	__u8 cpu_model = boot_cpu_data.x86_model;
 
-	if (cpu_model > 4)
+	if (!p4force && (cpu_model > 6 || cpu_model == 5))
 		return 0;
 
 #ifndef CONFIG_SMP

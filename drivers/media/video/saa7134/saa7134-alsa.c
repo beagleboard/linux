@@ -818,7 +818,7 @@ static int snd_saa7134_capsrc_put(struct snd_kcontrol * kcontrol,
 				break;
 		}
 
-	    	/* output xbar always main channel */
+		/* output xbar always main channel */
 		saa_dsp_writel(dev, SAA7133_DIGITAL_OUTPUT_SEL1, 0xbbbb10);
 
 		if (left || right) { // We've got data, turn the input on
@@ -929,7 +929,7 @@ static int alsa_card_saa7134_create(struct saa7134_dev *dev, int devnum)
 
 
 	err = request_irq(dev->pci->irq, saa7134_alsa_irq,
-				SA_SHIRQ | SA_INTERRUPT, dev->name,
+				IRQF_SHARED | IRQF_DISABLED, dev->name,
 				(void*) &dev->dmasound);
 
 	if (err < 0) {
@@ -997,9 +997,9 @@ static int saa7134_alsa_init(void)
 	struct saa7134_dev *dev = NULL;
 	struct list_head *list;
 
-	if (!dmasound_init && !dmasound_exit) {
-		dmasound_init = alsa_device_init;
-		dmasound_exit = alsa_device_exit;
+	if (!saa7134_dmasound_init && !saa7134_dmasound_exit) {
+		saa7134_dmasound_init = alsa_device_init;
+		saa7134_dmasound_exit = alsa_device_exit;
 	} else {
 		printk(KERN_WARNING "saa7134 ALSA: can't load, DMA sound handler already assigned (probably to OSS)\n");
 		return -EBUSY;
@@ -1036,8 +1036,8 @@ static void saa7134_alsa_exit(void)
 		snd_card_free(snd_saa7134_cards[idx]);
 	}
 
-	dmasound_init = NULL;
-	dmasound_exit = NULL;
+	saa7134_dmasound_init = NULL;
+	saa7134_dmasound_exit = NULL;
 	printk(KERN_INFO "saa7134 ALSA driver for DMA sound unloaded\n");
 
 	return;

@@ -22,13 +22,11 @@
  * ==FILEVERSION 20041108==
  */
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/kmod.h>
 #include <linux/init.h>
 #include <linux/list.h>
-#include <linux/devfs_fs_kernel.h>
 #include <linux/netdevice.h>
 #include <linux/poll.h>
 #include <linux/ppp_defs.h>
@@ -863,10 +861,6 @@ static int __init ppp_init(void)
 			goto out_chrdev;
 		}
 		class_device_create(ppp_class, NULL, MKDEV(PPP_MAJOR, 0), NULL, "ppp");
-		err = devfs_mk_cdev(MKDEV(PPP_MAJOR, 0),
-				S_IFCHR|S_IRUSR|S_IWUSR, "ppp");
-		if (err)
-			goto out_class;
 	}
 
 out:
@@ -874,9 +868,6 @@ out:
 		printk(KERN_ERR "failed to register PPP device (%d)\n", err);
 	return err;
 
-out_class:
-	class_device_destroy(ppp_class, MKDEV(PPP_MAJOR,0));
-	class_destroy(ppp_class);
 out_chrdev:
 	unregister_chrdev(PPP_MAJOR, "ppp");
 	goto out;
@@ -1609,8 +1600,6 @@ ppp_receive_nonmp_frame(struct ppp *ppp, struct sk_buff *skb)
 			kfree_skb(skb);
 			skb = ns;
 		}
-		else if (!pskb_may_pull(skb, skb->len))
-			goto err;
 		else
 			skb->ip_summed = CHECKSUM_NONE;
 
@@ -2580,8 +2569,7 @@ ppp_find_channel(int unit)
 
 	list_for_each_entry(pch, &new_channels, list) {
 		if (pch->file.index == unit) {
-			list_del(&pch->list);
-			list_add(&pch->list, &all_channels);
+			list_move(&pch->list, &all_channels);
 			return pch;
 		}
 	}
@@ -2684,7 +2672,6 @@ static void __exit ppp_cleanup(void)
 	cardmap_destroy(&all_ppp_units);
 	if (unregister_chrdev(PPP_MAJOR, "ppp") != 0)
 		printk(KERN_ERR "PPP: failed to unregister PPP device\n");
-	devfs_remove("ppp");
 	class_device_destroy(ppp_class, MKDEV(PPP_MAJOR, 0));
 	class_destroy(ppp_class);
 }

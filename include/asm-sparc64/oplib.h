@@ -9,7 +9,6 @@
 #ifndef __SPARC64_OPLIB_H
 #define __SPARC64_OPLIB_H
 
-#include <linux/config.h>
 #include <asm/openprom.h>
 
 /* OBP version string. */
@@ -288,11 +287,6 @@ extern void prom_getstring(int node, const char *prop, char *buf, int bufsize);
 /* Does the passed node have the given "name"? YES=1 NO=0 */
 extern int prom_nodematch(int thisnode, const char *name);
 
-/* Puts in buffer a prom name in the form name@x,y or name (x for which_io 
- * and y for first regs phys address
- */
-extern int prom_getname(int node, char *buf, int buflen);
-
 /* Search all siblings starting at the passed node for "name" matching
  * the given string.  Returns the node on success, zero on failure.
  */
@@ -324,8 +318,9 @@ extern int prom_pathtoinode(const char *path);
 extern int prom_inst2pkg(int);
 
 /* CPU probing helpers.  */
-int cpu_find_by_instance(int instance, int *prom_node, int *mid);
-int cpu_find_by_mid(int mid, int *prom_node);
+struct device_node;
+int cpu_find_by_instance(int instance, struct device_node **dev_node, int *mid);
+int cpu_find_by_mid(int mid, struct device_node **prom_node);
 
 /* Client interface level routines. */
 extern void prom_set_trap_table(unsigned long tba);

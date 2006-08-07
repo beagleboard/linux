@@ -5,7 +5,7 @@
  *
  * Copyright (C) 1994, 1995 Waldorf Electronics
  * Written by Ralf Baechle and Andreas Busse
- * Copyright (C) 1994, 95, 96, 97, 98, 99, 2003 Ralf Baechle
+ * Copyright (C) 1994 - 99, 2003, 06 Ralf Baechle
  * Copyright (C) 1996 Paul M. Antoine
  * Modified for DECStation and hence R3000 support by Paul M. Antoine
  * Further modifications by David S. Miller and Harald Koerfgen
@@ -13,12 +13,12 @@
  * Kevin Kissell, kevink@mips.com and Carsten Langgaard, carstenl@mips.com
  * Copyright (C) 2000 MIPS Technologies, Inc.  All rights reserved.
  */
-#include <linux/config.h>
 #include <linux/init.h>
 #include <linux/threads.h>
 
 #include <asm/asm.h>
 #include <asm/asmmacro.h>
+#include <asm/irqflags.h>
 #include <asm/regdef.h>
 #include <asm/page.h>
 #include <asm/mipsregs.h>
@@ -96,7 +96,7 @@
 	/* Clear TKSU, leave IXMT */
 	xori	t0, 0x00001800
 	mtc0	t0, CP0_TCSTATUS
-	ehb
+	_ehb
 	/* We need to leave the global IE bit set, but clear EXL...*/
 	mfc0	t0, CP0_STATUS
 	or	t0, ST0_CU0 | ST0_EXL | ST0_ERL | \set | \clr
