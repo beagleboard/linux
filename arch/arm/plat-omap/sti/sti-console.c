@@ -21,7 +21,7 @@
 
 static struct tty_driver *tty_driver;
 static DEFINE_SPINLOCK(sti_console_lock);
-static unsigned int sti_console_channel;
+static unsigned int sti_console_channel = -1;
 static int sti_line_done = -1;
 
 /*
@@ -143,7 +143,11 @@ static int __init sti_console_init(void)
 		sti_console_channel = info->channel;
 	}
 
+	if (unlikely(sti_console_channel == -1))
+		return -EINVAL;
+
 	register_console(&sti_console);
+
 	return 0;
 }
 __initcall(sti_console_init);
@@ -179,7 +183,7 @@ static int __init sti_tty_init(void)
 late_initcall(sti_tty_init);
 
 module_param(sti_console_channel, uint, 0);
-MODULE_PARM_DESC(sti_console_channel, "STI console channel (default 32)");
+MODULE_PARM_DESC(sti_console_channel, "STI console channel");
 MODULE_AUTHOR("Paul Mundt");
 MODULE_DESCRIPTION("OMAP STI console support");
 MODULE_LICENSE("GPL");
