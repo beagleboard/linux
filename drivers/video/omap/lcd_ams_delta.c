@@ -29,7 +29,7 @@
 #include <asm/io.h>
 
 #include <asm/arch/board-ams-delta.h>
-#include <asm/arch/omap16xx.h>
+#include <asm/arch/hardware.h>
 #include <asm/arch/omapfb.h>
 
 #define AMS_DELTA_DEFAULT_CONTRAST	112
@@ -51,8 +51,8 @@ static int ams_delta_panel_enable(struct lcd_panel *panel)
 	ams_delta_latch2_write(AMS_DELTA_LATCH2_LCD_VBLEN,
 			AMS_DELTA_LATCH2_LCD_VBLEN);
 
-	omap_writeb(1, OMAP16XX_PWL_CLK_ENABLE);
-	omap_writeb(AMS_DELTA_DEFAULT_CONTRAST, OMAP16XX_PWL_ENABLE);
+	omap_writeb(1, OMAP_PWL_CLK_ENABLE);
+	omap_writeb(AMS_DELTA_DEFAULT_CONTRAST, OMAP_PWL_ENABLE);
 
 	return 0;
 }
