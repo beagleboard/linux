@@ -326,7 +326,6 @@ static audio_state_t tsc2101_state = {
 	.hw_remove      = omap_tsc2101_remove,
 	.hw_suspend     = omap_tsc2101_suspend,
 	.hw_resume      = omap_tsc2101_resume,
-	.mutex		= __MUTEX_INITIALIZER(tsc2101_state.mutex),
 };
 
 /* This will be defined in the Audio.h */
@@ -1030,6 +1029,8 @@ static int __init audio_tsc2101_init(void)
 
 	if (machine_is_omap_osk() || machine_is_omap_innovator())
 		return -ENODEV;
+
+	mutex_init(&tsc2101_state.mutex);
 
 	/* register the codec with the audio driver */
 	if ((err = audio_register_codec(&tsc2101_state))) {

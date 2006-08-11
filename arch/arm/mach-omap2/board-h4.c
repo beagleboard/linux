@@ -156,6 +156,7 @@ static struct platform_device h4_smc91x_device = {
 
 /* Select between the IrDA and aGPS module
  */
+#if defined(CONFIG_OMAP_IR) || defined(CONFIG_OMAP_IR_MODULE)
 static int h4_select_irda(struct device *dev, int state)
 {
 	unsigned char expa;
@@ -212,6 +213,10 @@ static int h4_transceiver_mode(struct device *dev, int mode)
 
 	return 0;
 }
+#else
+static int h4_select_irda(struct device *dev, int state) { return 0; }
+static int h4_transceiver_mode(struct device *dev, int mode) { return 0; }
+#endif
 
 static struct omap_irda_config h4_irda_data = {
 	.transceiver_cap	= IR_SIRMODE | IR_MIRMODE | IR_FIRMODE,

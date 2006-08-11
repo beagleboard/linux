@@ -244,7 +244,6 @@ static audio_state_t aic23_state = {
         .hw_remove      =  __exit_p(omap_aic23_remove),
         .hw_suspend     = omap_aic23_suspend,
         .hw_resume      = omap_aic23_resume,
-	.mutex	    = __MUTEX_INITIALIZER(aic23_state.mutex),
 };
 
 /* This will be defined in the audio.h */
@@ -672,6 +671,8 @@ static int __init audio_aic23_init(void)
 
 	if (machine_is_omap_h2() || machine_is_omap_h3())
 		return -ENODEV;
+
+	mutex_init(&aic23_state.mutex);
 
         if (machine_is_omap_osk()) {
                 /* Set MCLK to be clock input for AIC23 */

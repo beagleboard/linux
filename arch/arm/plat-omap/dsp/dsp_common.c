@@ -59,7 +59,6 @@ struct cpustat {
 	void (*mem_rel_cb)(void);
 };
 struct cpustat cpustat = {
-	.lock = __MUTEX_INITIALIZER(cpustat.lock),
 	.stat = CPUSTAT_RESET,
 	.icrmask = 0xffff,
 };
@@ -243,6 +242,8 @@ static int init_done;
 
 static int __init omap_dsp_init(void)
 {
+	mutex_init(&cpustat.lock);
+
 	dspmem_size = 0;
 #ifdef CONFIG_ARCH_OMAP15XX
 	if (cpu_is_omap1510()) {
