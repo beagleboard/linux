@@ -544,4 +544,6 @@ EXPORT_SYMBOL(dsp_register_mem_cb);
 EXPORT_SYMBOL(dsp_unregister_mem_cb);
 
 EXPORT_SYMBOL(__cpu_flush_kern_tlb_range);
+EXPORT_SYMBOL(cpu_architecture);
+EXPORT_SYMBOL(pmd_clear_bad);
 #endif
