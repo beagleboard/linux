@@ -69,7 +69,7 @@ static void omap_pwm_led_power_on(struct omap_pwm_led *led)
 	led->powered = 1;
 
 	/* Select clock */
-	omap_dm_timer_set_source(led->intensity_timer, OMAP_TIMER_SRC_SYS_CLK);
+	omap_dm_timer_set_source(led->intensity_timer, OMAP_TIMER_SRC_32_KHZ);
 
 	/* Turn voltage on */
 	if (led->pdata->set_power != NULL)
