@@ -394,10 +394,10 @@ static inline int _setup_plane(int plane, int channel_out,
 
 	if (set_vsize) {
 		/* Set video size if set_scale hasn't set it */
-		if (!dispc.fir_hinc[plane])
+		if (!dispc.fir_vinc[plane])
 			MOD_REG_FLD(vs_reg[plane],
 				FLD_MASK(16, 11), (height - 1) << 16);
-		if (!dispc.fir_vinc[plane])
+		if (!dispc.fir_hinc[plane])
 			MOD_REG_FLD(vs_reg[plane],
 				FLD_MASK(0, 11), width - 1);
 	}

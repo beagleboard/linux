@@ -692,7 +692,12 @@ static int omapfb_setup_plane(struct fb_info *fbi, struct omapfb_plane_info *pi)
 {
 	struct omapfb_plane_struct *plane = fbi->par;
 	struct omapfb_device *fbdev = plane->fbdev;
+	struct lcd_panel *panel = fbdev->panel;
 	int r;
+
+	if (pi->pos_x + pi->out_width > panel->x_res ||
+	    pi->pos_y + pi->out_height > panel->y_res)
+		return -EINVAL;
 
 	plane->info = *pi;
 	r = ctrl_change_mode(fbi);
