@@ -662,6 +662,14 @@ static int _set_gpio_wakeup(struct gpio_bank *bank, int gpio, int enable)
 	}
 }
 
+void _reset_gpio(struct gpio_bank *bank, int gpio)
+{
+	_set_gpio_direction(bank, get_gpio_index(gpio), 1);
+	_set_gpio_irqenable(bank, gpio, 0);
+	_clear_gpio_irqstatus(bank, gpio);
+	_set_gpio_triggering(bank, get_gpio_index(gpio), IRQT_NOEDGE);
+}
+
 /* Use disable_irq_wake() and enable_irq_wake() functions from drivers */
 static int gpio_wake_enable(unsigned int irq, unsigned int enable)
 {
@@ -695,9 +703,6 @@ int omap_request_gpio(int gpio)
 		return -1;
 	}
 	bank->reserved_map |= (1 << get_gpio_index(gpio));
-
-	/* Set trigger to none. You need to enable the trigger after request_irq */
-	_set_gpio_triggering(bank, get_gpio_index(gpio), IRQT_NOEDGE);
 
 #ifdef CONFIG_ARCH_OMAP15XX
 	if (bank->method == METHOD_GPIO_1510) {
@@ -756,9 +761,7 @@ void omap_free_gpio(int gpio)
 	}
 #endif
 	bank->reserved_map &= ~(1 << get_gpio_index(gpio));
-	_set_gpio_direction(bank, get_gpio_index(gpio), 1);
-	_set_gpio_irqenable(bank, gpio, 0);
-	_clear_gpio_irqstatus(bank, gpio);
+	_reset_gpio(bank, gpio);
 	spin_unlock(&bank->lock);
 }
 
@@ -898,6 +901,25 @@ static void gpio_irq_handler(unsigned int irq, struct irqdesc *desc,
 
 }
 
+static unsigned int gpio_irq_startup(unsigned int irq)
+{
+	unsigned int gpio = irq - IH_GPIO_BASE;
+	struct gpio_bank *bank = get_gpio_bank(gpio);
+
+	_reset_gpio(bank, gpio);
+	_set_gpio_irqenable(bank, gpio, 1);
+
+	return 0;
+}
+
+static void gpio_irq_shutdown(unsigned int irq)
+{
+	unsigned int gpio = irq - IH_GPIO_BASE;
+	struct gpio_bank *bank = get_gpio_bank(gpio);
+
+	_reset_gpio(bank, gpio);
+}
+
 static void gpio_ack_irq(unsigned int irq)
 {
 	unsigned int gpio = irq - IH_GPIO_BASE;
@@ -946,6 +968,8 @@ static void mpuio_unmask_irq(unsigned int irq)
 
 static struct irq_chip gpio_irq_chip = {
 	.name		= "GPIO",
+	.startup	= gpio_irq_startup,
+	.shutdown	= gpio_irq_shutdown,
 	.ack		= gpio_ack_irq,
 	.mask		= gpio_mask_irq,
 	.unmask		= gpio_unmask_irq,
