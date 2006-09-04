@@ -200,27 +200,6 @@ static void musb_g_ep0_giveback(struct musb *pThis, struct usb_request *req)
 	musb_g_giveback(&pThis->aLocalEnd[0].ep_in, req, 0);
 }
 
-
-/* for high speed test mode; see USB 2.0 spec 7.1.20 */
-static const u8 musb_test_packet[53] = {
-	/* implicit SYNC then DATA0 to start */
-
-	/* JKJKJKJK x9 */
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	/* JJKKJJKK x8 */
-	0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa,
-	/* JJJJKKKK x8 */
-	0xee, 0xee, 0xee, 0xee, 0xee, 0xee, 0xee, 0xee,
-	/* JJJJJJJKKKKKKK x8 */
-	0xfe, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-	/* JJJJJJJK x8 */
-	0x7f, 0xbf, 0xdf, 0xef, 0xf7, 0xfb, 0xfd,
-	/* JKKKKKKK x10, JK */
-	0xfc, 0x7e, 0xbf, 0xdf, 0xef, 0xf7, 0xfb, 0xfd, 0x7e
-
-	/* implicit CRC16 then EOP to end */
-};
-
 /*
  * Handle all control requests with no DATA stage, including standard
  * requests such as:
@@ -684,13 +663,8 @@ irqreturn_t musb_g_ep0_irq(struct musb *pThis)
 		else if (pThis->bTestMode) {
 			DBG(1, "entering TESTMODE\n");
 
-			if (MGC_M_TEST_PACKET == pThis->bTestModeValue) {
-				musb_write_fifo(&pThis->aLocalEnd[0],
-						 sizeof(musb_test_packet),
-						 musb_test_packet);
-			}
-
-			musb_writew(regs, MGC_O_HDRC_CSR0, MGC_M_CSR0_TXPKTRDY);
+			if (MGC_M_TEST_PACKET == pThis->bTestModeValue)
+				musb_load_testpacket(pThis);
 
 			musb_writeb(pBase, MGC_O_HDRC_TESTMODE,
 				   pThis->bTestModeValue);

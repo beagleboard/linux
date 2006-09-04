@@ -525,6 +525,8 @@ extern void musb_write_fifo(struct musb_hw_ep *ep,
 extern void musb_read_fifo(struct musb_hw_ep *ep,
 			       u16 wCount, u8 * pDest);
 
+extern void musb_load_testpacket(struct musb *);
+
 extern irqreturn_t musb_interrupt(struct musb *);
 
 extern void musb_platform_enable(struct musb *musb);

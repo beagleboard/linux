@@ -318,6 +318,37 @@ void musb_read_fifo(struct musb_hw_ep *hw_ep, u16 wCount, u8 *pDest)
 
 #endif	/* normal PIO */
 
+
+/*-------------------------------------------------------------------------*/
+
+/* for high speed test mode; see USB 2.0 spec 7.1.20 */
+static const u8 musb_test_packet[53] = {
+	/* implicit SYNC then DATA0 to start */
+
+	/* JKJKJKJK x9 */
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	/* JJKKJJKK x8 */
+	0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa,
+	/* JJJJKKKK x8 */
+	0xee, 0xee, 0xee, 0xee, 0xee, 0xee, 0xee, 0xee,
+	/* JJJJJJJKKKKKKK x8 */
+	0xfe, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+	/* JJJJJJJK x8 */
+	0x7f, 0xbf, 0xdf, 0xef, 0xf7, 0xfb, 0xfd,
+	/* JKKKKKKK x10, JK */
+	0xfc, 0x7e, 0xbf, 0xdf, 0xef, 0xf7, 0xfb, 0xfd, 0x7e
+
+	/* implicit CRC16 then EOP to end */
+};
+
+void musb_load_testpacket(struct musb *musb)
+{
+	MGC_SelectEnd(musb->pRegs, 0);
+	musb_write_fifo(musb->control_ep,
+			sizeof(musb_test_packet), musb_test_packet);
+	musb_writew(musb->pRegs, MGC_O_HDRC_CSR0, MGC_M_CSR0_TXPKTRDY);
+}
+
 /*-------------------------------------------------------------------------*/
 
 /*

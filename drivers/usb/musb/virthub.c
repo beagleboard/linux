@@ -257,7 +257,7 @@ int musb_hub_control(
 				musb->port1_status);
 		break;
 	case SetPortFeature:
-		if (wIndex != 1)
+		if ((wIndex & 0xff) != 1)
 			goto error;
 
 		switch (wValue) {
@@ -282,6 +282,37 @@ int musb_hub_control(
 			musb_port_suspend(musb, TRUE);
 			break;
 		case USB_PORT_FEAT_TEST:
+			wIndex >>= 8;
+			switch (wIndex) {
+			case 1:
+				pr_debug("TEST_J\n");
+				temp = MGC_M_TEST_J;
+				break;
+			case 2:
+				pr_debug("TEST_K\n");
+				temp = MGC_M_TEST_K;
+				break;
+			case 3:
+				pr_debug("TEST_SE0_NAK\n");
+				temp = MGC_M_TEST_SE0_NAK;
+				break;
+			case 4:
+				pr_debug("TEST_PACKET\n");
+				temp = MGC_M_TEST_PACKET;
+				musb_load_testpacket(musb);
+				break;
+			case 5:
+				pr_debug("TEST_FORCE_ENABLE\n");
+				temp = MGC_M_TEST_FORCE_HOST
+					| MGC_M_TEST_FORCE_HS;
+
+				/* FIXME and enable a session too */
+				break;
+			default:
+				goto error;
+			}
+			musb_writeb(musb->pRegs, MGC_O_HDRC_TESTMODE, temp);
+			musb->port1_status |= USB_PORT_STAT_TEST;
 			break;
 		default:
 			goto error;
