@@ -18,9 +18,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-#undef	DEBUG
 
-#include <linux/config.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/init.h>
@@ -50,11 +48,7 @@
 MODULE_DESCRIPTION("TPS6501x Power Management Driver");
 MODULE_LICENSE("GPL");
 
-/* only two addresses possible */
-#define	TPS_BASE	0x48
-static unsigned short normal_i2c[] = {
-	TPS_BASE,
-	I2C_CLIENT_END };
+static unsigned short normal_i2c[] = { 0x48, /* 0x49, */ I2C_CLIENT_END };
 
 I2C_CLIENT_INSMOD;
 
@@ -88,7 +82,6 @@ struct tps65010 {
 	struct i2c_client	client;
 	struct mutex		lock;
 	int			irq;
-	int			irq_type;
 	struct work_struct	work;
 	struct dentry		*file;
 	unsigned		charging:1;
@@ -103,10 +96,10 @@ struct tps65010 {
 	u8			chgstatus, regstatus, chgconf;
 	u8			nmask1, nmask2;
 
-	/* plus four GPIOs, probably used to switch power */
+	/* not currently tracking GPIO state */
 };
 
-#define	POWER_POLL_DELAY	msecs_to_jiffies(800)
+#define	POWER_POLL_DELAY	msecs_to_jiffies(5000)
 
 /*-------------------------------------------------------------------------*/
 
@@ -136,7 +129,7 @@ static void dbg_regstat(char *buf, size_t len, u8 regstatus)
 		(regstatus & TPS_REG_COVER) ? " uncover" : "",
 		(regstatus & TPS_REG_UVLO) ? " UVLO" : "",
 		(regstatus & TPS_REG_NO_CHG) ? " NO_CHG" : "",
-		(regstatus & TPS_REG_PG_LD02) ? " ld01_bad" : "",
+		(regstatus & TPS_REG_PG_LD02) ? " ld02_bad" : "",
 		(regstatus & TPS_REG_PG_LD01) ? " ld01_bad" : "",
 		(regstatus & TPS_REG_PG_MAIN) ? " main_bad" : "",
 		(regstatus & TPS_REG_PG_CORE) ? " core_bad" : "");
@@ -144,7 +137,7 @@ static void dbg_regstat(char *buf, size_t len, u8 regstatus)
 
 static void dbg_chgconf(int por, char *buf, size_t len, u8 chgconfig)
 {
-	char *hibit;
+	const char *hibit;
 
 	if (por)
 		hibit = (chgconfig & TPS_CHARGE_POR)
@@ -296,7 +289,7 @@ static int dbg_show(struct seq_file *s, void *_)
 	seq_printf(s, "defgpio %02x mask3 %02x\n", value, v2);
 
 	for (i = 0; i < 4; i++) {
-		if (value & (1 << (4 +i)))
+		if (value & (1 << (4 + i)))
 			seq_printf(s, "  gpio%d-out %s\n", i + 1,
 				(value & (1 << i)) ? "low" : "hi ");
 		else
@@ -482,7 +475,7 @@ static int __exit tps65010_detach_client(struct i2c_client *client)
 	debugfs_remove(tps->file);
 	if (i2c_detach_client(client) == 0)
 		kfree(tps);
-	the_tps = 0;
+	the_tps = NULL;
 	return 0;
 }
 
@@ -500,6 +493,7 @@ tps65010_probe(struct i2c_adapter *bus, int address, int kind)
 {
 	struct tps65010		*tps;
 	int			status;
+	unsigned long		irqflags;
 
 	if (the_tps) {
 		dev_dbg(&bus->dev, "only one %s for now\n", DRIVER_NAME);
@@ -514,7 +508,6 @@ tps65010_probe(struct i2c_adapter *bus, int address, int kind)
 	INIT_WORK(&tps->work, tps65010_work, tps);
 	tps->irq = -1;
 	tps->client.addr = address;
-	i2c_set_clientdata(&tps->client, tps);
 	tps->client.adapter = bus;
 	tps->client.driver = &tps65010_driver;
 	strlcpy(tps->client.name, DRIVER_NAME, I2C_NAME_SIZE);
@@ -523,13 +516,13 @@ tps65010_probe(struct i2c_adapter *bus, int address, int kind)
 	if (status < 0) {
 		dev_dbg(&bus->dev, "can't attach %s to device %d, err %d\n",
 				DRIVER_NAME, address, status);
-fail1:
-		kfree(tps);
-		return 0;
+		goto fail1;
 	}
 
-	tps->irq_type = 0;
-
+	/* the IRQ is active low, but many gpio lines can't support that
+	 * so this driver can use falling-edge triggers instead.
+	 */
+	irqflags = IRQF_SAMPLE_RANDOM;
 #ifdef	CONFIG_ARM
 	if (machine_is_omap_h2()) {
 		tps->model = TPS65010;
@@ -537,7 +530,7 @@ fail1:
 		tps->irq = OMAP_GPIO_IRQ(58);
 		omap_request_gpio(58);
 		omap_set_gpio_direction(58, 1);
-		tps->irq_type = SA_TRIGGER_FALLING;
+		irqflags |= IRQF_TRIGGER_FALLING;
 	}
 	if (machine_is_omap_osk()) {
 		tps->model = TPS65010;
@@ -545,7 +538,7 @@ fail1:
 		tps->irq = OMAP_GPIO_IRQ(OMAP_MPUIO(1));
 		omap_request_gpio(OMAP_MPUIO(1));
 		omap_set_gpio_direction(OMAP_MPUIO(1), 1);
-		tps->irq_type = SA_TRIGGER_FALLING;
+		irqflags |= IRQF_TRIGGER_FALLING;
 	}
 	if (machine_is_omap_h3()) {
 		tps->model = TPS65013;
@@ -556,7 +549,7 @@ fail1:
 
 	if (tps->irq > 0) {
 		status = request_irq(tps->irq, tps65010_irq,
-			 tps->irq_type, DRIVER_NAME, tps);
+			irqflags, DRIVER_NAME, tps);
 		if (status < 0) {
 			dev_dbg(&tps->client.dev, "can't get IRQ %d, err %d\n",
 					tps->irq, status);
@@ -632,6 +625,9 @@ fail1:
 	tps->file = debugfs_create_file(DRIVER_NAME, S_IRUGO, NULL,
 				tps, DEBUG_FOPS);
 	return 0;
+fail1:
+	kfree(tps);
+	return 0;
 }
 
 static int __init tps65010_scan_bus(struct i2c_adapter *bus)
@@ -643,9 +639,8 @@ static int __init tps65010_scan_bus(struct i2c_adapter *bus)
 
 static struct i2c_driver tps65010_driver = {
 	.driver = {
-		.name		= "tps65010",
+		.name	= "tps65010",
 	},
-	.id		= 888,		/* FIXME assign "official" value */
 	.attach_adapter	= tps65010_scan_bus,
 	.detach_client	= __exit_p(tps65010_detach_client),
 };
@@ -699,14 +694,14 @@ int tps65010_set_gpio_out_value(unsigned gpio, unsigned value)
 		return -ENODEV;
 	if ((gpio < GPIO1) || (gpio > GPIO4))
 		return -EINVAL;
-	
+
 	mutex_lock(&the_tps->lock);
 
 	defgpio = i2c_smbus_read_byte_data(&the_tps->client, TPS_DEFGPIO);
 
 	/* Configure GPIO for output */
 	defgpio |= 1 << (gpio + 3);
-	
+
 	/* Writing 1 forces a logic 0 on that GPIO and vice versa */
 	switch (value) {
 	case LOW:
@@ -717,14 +712,14 @@ int tps65010_set_gpio_out_value(unsigned gpio, unsigned value)
 		defgpio &= ~(1 << (gpio - 1)); /* set GPIO high by writing 0 */
 		break;
 	}
-	
+
 	status = i2c_smbus_write_byte_data(&the_tps->client,
 		TPS_DEFGPIO, defgpio);
 
 	pr_debug("%s: gpio%dout = %s, defgpio 0x%02x\n", DRIVER_NAME,
 		gpio, value ? "high" : "low",
 		i2c_smbus_read_byte_data(&the_tps->client, TPS_DEFGPIO));
-	
+
 	mutex_unlock(&the_tps->lock);
 	return status;
 }
@@ -743,7 +738,7 @@ int tps65010_set_led(unsigned led, unsigned mode)
 	if (!the_tps)
 		return -ENODEV;
 
-	if(led == LED1)
+	if (led == LED1)
 		offs = 0;
 	else {
 		offs = 2;
@@ -752,12 +747,14 @@ int tps65010_set_led(unsigned led, unsigned mode)
 
 	mutex_lock(&the_tps->lock);
 
-	dev_dbg (&the_tps->client.dev, "led%i_on   0x%02x\n", led,
-		i2c_smbus_read_byte_data(&the_tps->client, TPS_LED1_ON + offs));
+	pr_debug("%s: led%i_on   0x%02x\n", DRIVER_NAME, led,
+		i2c_smbus_read_byte_data(&the_tps->client,
+				TPS_LED1_ON + offs));
 
-	dev_dbg (&the_tps->client.dev, "led%i_per  0x%02x\n", led,
-		i2c_smbus_read_byte_data(&the_tps->client, TPS_LED1_PER + offs));
-	
+	pr_debug("%s: led%i_per  0x%02x\n", DRIVER_NAME, led,
+		i2c_smbus_read_byte_data(&the_tps->client,
+				TPS_LED1_PER + offs));
+
 	switch (mode) {
 	case OFF:
 		led_on  = 1 << 7;
@@ -772,7 +769,7 @@ int tps65010_set_led(unsigned led, unsigned mode)
 		led_per = 0x08 | (1 << 7);
 		break;
 	default:
-		printk(KERN_ERR "%s: Wrong mode parameter for tps65010_set_led()\n", 
+		printk(KERN_ERR "%s: Wrong mode parameter for set_led()\n",
 		       DRIVER_NAME);
 		mutex_unlock(&the_tps->lock);
 		return -EINVAL;
@@ -782,27 +779,28 @@ int tps65010_set_led(unsigned led, unsigned mode)
 			TPS_LED1_ON + offs, led_on);
 
 	if (status != 0) {
-		printk(KERN_ERR "%s: Failed to write led%i_on register\n", 
+		printk(KERN_ERR "%s: Failed to write led%i_on register\n",
 		       DRIVER_NAME, led);
 		mutex_unlock(&the_tps->lock);
 		return status;
-	} 
+	}
 
-	dev_dbg (&the_tps->client.dev, "led%i_on   0x%02x\n", led,
+	pr_debug("%s: led%i_on   0x%02x\n", DRIVER_NAME, led,
 		i2c_smbus_read_byte_data(&the_tps->client, TPS_LED1_ON + offs));
 
 	status = i2c_smbus_write_byte_data(&the_tps->client,
 			TPS_LED1_PER + offs, led_per);
 
 	if (status != 0) {
-		printk(KERN_ERR "%s: Failed to write led%i_per register\n", 
+		printk(KERN_ERR "%s: Failed to write led%i_per register\n",
 		       DRIVER_NAME, led);
 		mutex_unlock(&the_tps->lock);
 		return status;
 	}
 
-	dev_dbg (&the_tps->client.dev, "led%i_per  0x%02x\n", led,
-		i2c_smbus_read_byte_data(&the_tps->client, TPS_LED1_PER + offs));
+	pr_debug("%s: led%i_per  0x%02x\n", DRIVER_NAME, led,
+		i2c_smbus_read_byte_data(&the_tps->client,
+				TPS_LED1_PER + offs));
 
 	mutex_unlock(&the_tps->lock);
 
@@ -857,7 +855,7 @@ int tps65010_set_low_pwr(unsigned mode)
 		i2c_smbus_read_byte_data(&the_tps->client, TPS_VDCDC1));
 
 	vdcdc1 = i2c_smbus_read_byte_data(&the_tps->client, TPS_VDCDC1);
-	
+
 	switch (mode) {
 	case OFF:
 		vdcdc1 &= ~TPS_ENABLE_LP; /* disable ENABLE_LP bit */
@@ -872,8 +870,8 @@ int tps65010_set_low_pwr(unsigned mode)
 			TPS_VDCDC1, vdcdc1);
 
 	if (status != 0)
-		printk(KERN_ERR "%s: Failed to write vdcdc1 register\n", 
-		       DRIVER_NAME);
+		printk(KERN_ERR "%s: Failed to write vdcdc1 register\n",
+			DRIVER_NAME);
 	else
 		pr_debug("%s: vdcdc1 0x%02x\n", DRIVER_NAME,
 			i2c_smbus_read_byte_data(&the_tps->client, TPS_VDCDC1));
@@ -898,15 +896,15 @@ int tps65010_config_vregs1(unsigned value)
 
 	mutex_lock(&the_tps->lock);
 
-	pr_debug("%s: vregs1 0x%02x\n", DRIVER_NAME, 
-		        i2c_smbus_read_byte_data(&the_tps->client, TPS_VREGS1));
+	pr_debug("%s: vregs1 0x%02x\n", DRIVER_NAME,
+			i2c_smbus_read_byte_data(&the_tps->client, TPS_VREGS1));
 
 	status = i2c_smbus_write_byte_data(&the_tps->client,
 			TPS_VREGS1, value);
 
 	if (status != 0)
-		printk(KERN_ERR "%s: Failed to write vregs1 register\n", 
-		        DRIVER_NAME);
+		printk(KERN_ERR "%s: Failed to write vregs1 register\n",
+			DRIVER_NAME);
 	else
 		pr_debug("%s: vregs1 0x%02x\n", DRIVER_NAME,
 			i2c_smbus_read_byte_data(&the_tps->client, TPS_VREGS1));
@@ -1008,7 +1006,7 @@ static int __init tps_init(void)
 		msleep(10);
 	}
 
-#if defined(CONFIG_ARM)
+#ifdef	CONFIG_ARM
 	if (machine_is_omap_osk()) {
 
 		// FIXME: More should be placed in the initialization code
@@ -1048,8 +1046,8 @@ static int __init tps_init(void)
 	} else if (machine_is_omap_h3()) {
 		/* gpio4 for SD, gpio3 for VDD_DSP */
 #ifdef CONFIG_PM
-		/* FIXME: Enable LOW_PWR hangs H3 */
-		//tps65013_set_low_pwr(ON);
+		/* Enable LOW_PWR */
+		tps65013_set_low_pwr(ON);
 #endif
 	}
 #endif
