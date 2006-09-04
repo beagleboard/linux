@@ -333,7 +333,7 @@ irqreturn_t tusb_interrupt(int irq, void *__hci, struct pt_regs *r)
 
 			for (i = 1; i <= 15; i++) {
 				if (tx_source & (1 << i)) {
-					DBG(1, "completing ep%i %s\n", i, "tx");
+					DBG(3, "completing ep%i %s\n", i, "tx");
 					musb_dma_completion(musb, i, 1);
 				}
 			}

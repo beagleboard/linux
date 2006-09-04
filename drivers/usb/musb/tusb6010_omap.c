@@ -100,7 +100,7 @@ static inline int tusb_omap_use_shared_dmareq(struct tusb_omap_dma_ch *chdat)
 {
 	u32		reg = musb_readl(chdat->tusb_base, TUSB_DMA_EP_MAP);
 	if (reg != 0) {
-		DBG(1, "ep%i dmareq0 is busy for ep%i\n",
+		DBG(3, "ep%i dmareq0 is busy for ep%i\n",
 			chdat->epnum, reg & 0xf);
 		return -EAGAIN;
 	}
@@ -192,7 +192,7 @@ static void tusb_omap_dma_cb(int lch, u16 ch_status, void *data)
 		u16	csr;
 
 		if (chdat->tx) {
-			DBG(1, "terminating short tx packet\n");
+			DBG(3, "terminating short tx packet\n");
 			MGC_SelectEnd(musb_base, chdat->epnum);
 			csr = musb_readw(hw_ep->regs, MGC_O_HDRC_TXCSR);
 			csr |= MGC_M_TXCSR_MODE | MGC_M_TXCSR_TXPKTRDY;
@@ -278,7 +278,7 @@ static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,
 	chdat->dma_addr = (void __iomem *)dma_addr;
 	channel->bStatus = MGC_DMA_STATUS_BUSY;
 
-	DBG(1, "ep%i %s dma ch%i dma: %08x len: %u packet_sz: %i rndis: %d\n",
+	DBG(3, "ep%i %s dma ch%i dma: %08x len: %u packet_sz: %i rndis: %d\n",
 		chdat->epnum, chdat->tx ? "tx" : "rx",
 		ch, dma_addr, transfer_len, packet_sz, rndis_mode);
 
@@ -339,7 +339,7 @@ static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,
 
 	/* Use 16x16 transfer if addresses not 32-bit aligned */
 	if ((dma_params.src_start & 0x2) || (dma_params.dst_start & 0x2)) {
-		DBG(1, "using 16x16 async dma from 0x%08lx to 0x%08lx\n",
+		DBG(3, "using 16x16 async dma from 0x%08lx to 0x%08lx\n",
 			dma_params.src_start, dma_params.dst_start);
 		dma_params.data_type = OMAP_DMA_DATA_TYPE_S16;
 		dma_params.elem_count = 16;		/* 16x16-bit burst */
@@ -352,7 +352,7 @@ static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,
 		else
 			dma_params.src_start =(unsigned long) fifo;
 	} else {
-		DBG(1, "ep%i %s using 16x32 sync dma from 0x%08lx to 0x%08lx\n",
+		DBG(3, "ep%i %s using 16x32 sync dma from 0x%08lx to 0x%08lx\n",
 			chdat->epnum, chdat->tx ? "tx" : "rx",
 			dma_params.src_start, dma_params.dst_start);
 	}
@@ -505,7 +505,7 @@ tusb_omap_dma_allocate(struct dma_controller *c,
 
 	/* REVISIT: Why does dmareq5 not work? */
 	if (hw_ep->bLocalEnd == 0) {
-		DBG(1, "Not allowing DMA for ep0 %s\n", tx ? "tx" : "rx");
+		DBG(3, "Not allowing DMA for ep0 %s\n", tx ? "tx" : "rx");
 		return NULL;
 	}
 
@@ -565,7 +565,7 @@ tusb_omap_dma_allocate(struct dma_controller *c,
 		chdat->ch = -1;
 	}
 
-	DBG(1, "ep%i %s dma: %s dma%i dmareq%i sync%i\n",
+	DBG(3, "ep%i %s dma: %s dma%i dmareq%i sync%i\n",
 		chdat->epnum,
 		chdat->tx ? "tx" : "rx",
 		chdat->ch >=0 ? "dedicated" : "shared",
@@ -578,7 +578,7 @@ tusb_omap_dma_allocate(struct dma_controller *c,
 free_dmareq:
 	tusb_omap_dma_free_dmareq(chdat);
 
-	DBG(1, "ep%i: Could not get a DMA channel\n", chdat->epnum);
+	DBG(3, "ep%i: Could not get a DMA channel\n", chdat->epnum);
 	channel->bStatus = MGC_DMA_STATUS_UNKNOWN;
 
 	return NULL;
@@ -591,7 +591,7 @@ static void tusb_omap_dma_release(struct dma_channel *channel)
 	void __iomem		*tusb_base = musb->ctrl_base;
 	u32			reg;
 
-	DBG(1, "ep%i ch%i\n", chdat->epnum, chdat->ch);
+	DBG(3, "ep%i ch%i\n", chdat->epnum, chdat->ch);
 
 	reg = musb_readl(tusb_base, TUSB_DMA_INT_MASK);
 	if (chdat->tx)
