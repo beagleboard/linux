@@ -84,16 +84,16 @@ static int dump_qh(struct musb_qh *qh, char *buf, unsigned max)
 	count = snprintf(buf, max, "    qh %p dev%d ep%d%s max%d\n",
 			qh, qh->dev->devnum, qh->epnum,
 			({ char *s; switch (qh->type) {
-			 case USB_ENDPOINT_XFER_BULK:
+			case USB_ENDPOINT_XFER_BULK:
 				s = "-bulk"; break;
-			 case USB_ENDPOINT_XFER_INT:
+			case USB_ENDPOINT_XFER_INT:
 				s = "-int"; break;
-			 case USB_ENDPOINT_XFER_CONTROL:
+			case USB_ENDPOINT_XFER_CONTROL:
 				s = ""; break;
-			 default:
+			default:
 				s = "iso"; break;
-			 }; s; }),
-			 qh->maxpacket);
+			}; s; }),
+			qh->maxpacket);
 	buf += count;
 	max -= count;
 
@@ -306,7 +306,8 @@ dump_end_info(struct musb *pThis, u8 bEnd, char *aBuffer, unsigned max)
 					char		tmp[16];
 
 					base = pThis->ctrl_base;
-					ram = base + DAVINCI_RXCPPI_STATERAM_OFFSET(cppi);
+					ram = DAVINCI_RXCPPI_STATERAM_OFFSET(
+							cppi) + base;
 					snprintf(tmp, sizeof tmp, "%d left, ",
 						musb_readl(base,
 						DAVINCI_RXCPPI_BUFCNT0_REG
@@ -387,7 +388,8 @@ dump_end_info(struct musb *pThis, u8 bEnd, char *aBuffer, unsigned max)
 					void __iomem	*ram;
 
 					base = pThis->ctrl_base;
-					ram = base + DAVINCI_TXCPPI_STATERAM_OFFSET(cppi);
+					ram = DAVINCI_RXCPPI_STATERAM_OFFSET(
+							cppi) + base;
 					code = snprintf(buf, max,
 						"    tx dma%d: "
 						"%08x %08x, %08x %08x; "
@@ -601,7 +603,7 @@ static int dump_header_stats(struct musb *pThis, char *buffer)
  * D<num> set/query the debug level
  */
 static int musb_proc_write(struct file *file, const char __user *buffer,
-			 unsigned long count, void *data)
+			unsigned long count, void *data)
 {
 	char cmd;
 	u8 bReg;
@@ -614,36 +616,32 @@ static int musb_proc_write(struct file *file, const char __user *buffer,
 	switch (cmd) {
 	case 'C':
 		if (pBase) {
-			bReg =
-			    musb_readb(pBase,
-				      MGC_O_HDRC_POWER) | MGC_M_POWER_SOFTCONN;
+			bReg = musb_readb(pBase, MGC_O_HDRC_POWER)
+					| MGC_M_POWER_SOFTCONN;
 			musb_writeb(pBase, MGC_O_HDRC_POWER, bReg);
 		}
 		break;
 
 	case 'c':
 		if (pBase) {
-			bReg =
-			    musb_readb(pBase,
-				      MGC_O_HDRC_POWER) & ~MGC_M_POWER_SOFTCONN;
+			bReg = musb_readb(pBase, MGC_O_HDRC_POWER)
+					& ~MGC_M_POWER_SOFTCONN;
 			musb_writeb(pBase, MGC_O_HDRC_POWER, bReg);
 		}
 		break;
 
 	case 'I':
 		if (pBase) {
-			bReg =
-			    musb_readb(pBase,
-				      MGC_O_HDRC_POWER) | MGC_M_POWER_HSENAB;
+			bReg = musb_readb(pBase, MGC_O_HDRC_POWER)
+					| MGC_M_POWER_HSENAB;
 			musb_writeb(pBase, MGC_O_HDRC_POWER, bReg);
 		}
 		break;
 
 	case 'i':
 		if (pBase) {
-			bReg =
-			    musb_readb(pBase,
-				      MGC_O_HDRC_POWER) & ~MGC_M_POWER_HSENAB;
+			bReg = musb_readb(pBase, MGC_O_HDRC_POWER)
+					& ~MGC_M_POWER_HSENAB;
 			musb_writeb(pBase, MGC_O_HDRC_POWER, bReg);
 		}
 		break;
@@ -677,8 +675,8 @@ static int musb_proc_write(struct file *file, const char __user *buffer,
 	case 'D':{
 			if (count > 1) {
 				char digits[8], *p = digits;
-				int i = 0, level = 0, sign = 1, len =
-				    min(count - 1, (unsigned long)8);
+				int i = 0, level = 0, sign = 1;
+				int len = min(count - 1, (unsigned long)8);
 
 				copy_from_user(&digits, &buffer[1], len);
 
@@ -781,7 +779,7 @@ musb_debug_create(char *name, struct musb *data)
 		return NULL;
 
 	data->pProcEntry = pde = create_proc_entry(name,
-					     S_IFREG | S_IRUGO | S_IWUSR, NULL);
+					S_IFREG | S_IRUGO | S_IWUSR, NULL);
 	if (pde) {
 		pde->data = data;
 		// pde->owner = THIS_MODULE;

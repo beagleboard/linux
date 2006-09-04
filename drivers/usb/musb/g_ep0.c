@@ -88,11 +88,11 @@ static int service_tx_status_request(
 #ifdef CONFIG_USB_MUSB_OTG
 		if (pThis->g.is_otg) {
 			bResult[0] |= pThis->g.b_hnp_enable
-			    << USB_DEVICE_B_HNP_ENABLE;
+				<< USB_DEVICE_B_HNP_ENABLE;
 			bResult[0] |= pThis->g.a_alt_hnp_support
-			    << USB_DEVICE_A_ALT_HNP_SUPPORT;
+				<< USB_DEVICE_A_ALT_HNP_SUPPORT;
 			bResult[0] |= pThis->g.a_hnp_support
-			    << USB_DEVICE_A_HNP_SUPPORT;
+				<< USB_DEVICE_A_HNP_SUPPORT;
 		}
 #endif
 		break;
@@ -170,7 +170,7 @@ static int service_tx_status_request(
  */
 static int
 service_in_request(struct musb *pThis,
-		   const struct usb_ctrlrequest *pControlRequest)
+		const struct usb_ctrlrequest *pControlRequest)
 {
 	int handled = 0;	/* not handled */
 
@@ -534,11 +534,11 @@ musb_read_setup(struct musb *pThis, struct usb_ctrlrequest *req)
 	 * order, but now USB packets always stay in USB byte order.
 	 */
 	DBG(3, "SETUP req%02x.%02x v%04x i%04x l%d\n",
-		 req->bRequestType,
-		 req->bRequest,
-		 le16_to_cpu(req->wValue),
-		 le16_to_cpu(req->wIndex),
-		 le16_to_cpu(req->wLength));
+		req->bRequestType,
+		req->bRequest,
+		le16_to_cpu(req->wValue),
+		le16_to_cpu(req->wIndex),
+		le16_to_cpu(req->wLength));
 
 	/* clean up any leftover transfers */
 	r = next_ep0_request(pThis);
@@ -570,7 +570,7 @@ musb_read_setup(struct musb *pThis, struct usb_ctrlrequest *req)
 
 static int
 forward_to_driver(struct musb *musb,
-		  const struct usb_ctrlrequest *pControlRequest)
+		const struct usb_ctrlrequest *pControlRequest)
 __releases(musb->Lock)
 __acquires(musb->Lock)
 {
@@ -609,7 +609,7 @@ irqreturn_t musb_g_ep0_irq(struct musb *pThis)
 	/* I sent a stall.. need to acknowledge it now.. */
 	if (wCsrVal & MGC_M_CSR0_P_SENTSTALL) {
 		musb_writew(regs, MGC_O_HDRC_CSR0,
-			       wCsrVal & ~MGC_M_CSR0_P_SENTSTALL);
+				wCsrVal & ~MGC_M_CSR0_P_SENTSTALL);
 		retval = IRQ_HANDLED;
 		pThis->ep0_state = MGC_END0_STAGE_SETUP;
 		wCsrVal = musb_readw(regs, MGC_O_HDRC_CSR0);
@@ -667,7 +667,7 @@ irqreturn_t musb_g_ep0_irq(struct musb *pThis)
 				musb_load_testpacket(pThis);
 
 			musb_writeb(pBase, MGC_O_HDRC_TESTMODE,
-				   pThis->bTestModeValue);
+					pThis->bTestModeValue);
 		}
 		/* FALLTHROUGH */
 
@@ -705,7 +705,7 @@ irqreturn_t musb_g_ep0_irq(struct musb *pThis)
 						musb_driver_name);
 				power = musb_readb(pBase, MGC_O_HDRC_POWER);
 				pThis->g.speed = (power & MGC_M_POWER_HSMODE)
-				    ? USB_SPEED_HIGH : USB_SPEED_FULL;
+					? USB_SPEED_HIGH : USB_SPEED_FULL;
 
 			}
 
@@ -808,14 +808,14 @@ static int musb_g_ep0_disable(struct usb_ep *e)
 }
 
 static void *musb_g_ep0_alloc_buffer(struct usb_ep *ep, unsigned bytes,
-			    dma_addr_t * dma, gfp_t gfp_flags)
+			dma_addr_t * dma, gfp_t gfp_flags)
 {
 	*dma = DMA_ADDR_INVALID;
 	return kmalloc(bytes, gfp_flags);
 }
 
-static void musb_g_ep0_free_buffer(struct usb_ep *ep, void *address, dma_addr_t dma,
-			  unsigned bytes)
+static void musb_g_ep0_free_buffer(struct usb_ep *ep, void *address,
+			dma_addr_t dma, unsigned bytes)
 {
 	kfree(address);
 }
@@ -883,7 +883,7 @@ musb_g_ep0_queue(struct usb_ep *e, struct usb_request *r, gfp_t gfp_flags)
 		else {
 			musb->ep0_state = MGC_END0_STAGE_STATUSIN;
 			musb_writew(regs, MGC_O_HDRC_CSR0,
-				       musb->ackpend | MGC_M_CSR0_P_DATAEND);
+					musb->ackpend | MGC_M_CSR0_P_DATAEND);
 			musb->ackpend = 0;
 			musb_g_ep0_giveback(ep->pThis, r);
 		}
@@ -955,7 +955,7 @@ cleanup:
 	return status;
 }
 
-struct usb_ep_ops musb_g_ep0_ops = {
+const struct usb_ep_ops musb_g_ep0_ops = {
 	.enable		= musb_g_ep0_enable,
 	.disable	= musb_g_ep0_disable,
 	.alloc_request	= musb_alloc_request,

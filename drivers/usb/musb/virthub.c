@@ -132,7 +132,7 @@ void musb_root_disconnect(struct musb *musb)
 		| USB_PORT_STAT_LOW_SPEED
 		| USB_PORT_STAT_HIGH_SPEED
 		| USB_PORT_STAT_TEST
-		 );
+		);
 	musb->port1_status |= USB_PORT_STAT_C_CONNECTION << 16;
 	usb_hcd_poll_rh_status(musb_to_hcd(musb));
 

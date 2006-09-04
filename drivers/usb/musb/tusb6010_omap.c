@@ -101,7 +101,7 @@ static inline int tusb_omap_use_shared_dmareq(struct tusb_omap_dma_ch *chdat)
 	u32		reg = musb_readl(chdat->tusb_base, TUSB_DMA_EP_MAP);
 	if (reg != 0) {
 		DBG(1, "ep%i dmareq0 is busy for ep%i\n",
-		    chdat->epnum, reg & 0xf);
+			chdat->epnum, reg & 0xf);
 		return -EAGAIN;
 	}
 
@@ -121,7 +121,7 @@ static inline void tusb_omap_free_shared_dmareq(struct tusb_omap_dma_ch *chdat)
 
 	if ((reg & 0xf) != chdat->epnum) {
 		printk(KERN_ERR "ep%i trying to release dmareq0 for ep%i\n",
-		       chdat->epnum, reg & 0xf);
+			chdat->epnum, reg & 0xf);
 		return;
 	}
 	musb_writel(chdat->tusb_base, TUSB_DMA_EP_MAP, 0);
@@ -159,8 +159,8 @@ static void tusb_omap_dma_cb(int lch, u16 ch_status, void *data)
 		printk(KERN_ERR "TUSB DMA error status: %i\n", ch_status);
 
 	DBG(3, "ep%i %s dma callback ch: %i status: %x\n",
-	    chdat->epnum, chdat->tx ? "tx" : "rx",
-	    ch, ch_status);
+		chdat->epnum, chdat->tx ? "tx" : "rx",
+		ch, ch_status);
 
 	if (chdat->tx)
 		transferred = musb_readl(ep_conf, TUSB_EP_TX_OFFSET);
@@ -187,8 +187,8 @@ static void tusb_omap_dma_cb(int lch, u16 ch_status, void *data)
 	 * REVISIT: This same problem may occur with other MUSB dma as well.
 	 * Easy to test with g_ether by pinging the MUSB board with ping -s54.
 	 */
-	if ((chdat->transfer_len < chdat->packet_sz) ||
-	    (chdat->transfer_len % chdat->packet_sz != 0)) {
+	if ((chdat->transfer_len < chdat->packet_sz)
+			|| (chdat->transfer_len % chdat->packet_sz != 0)) {
 		u16	csr;
 
 		if (chdat->tx) {
@@ -232,8 +232,8 @@ static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,
 		transfer_len = len / 32;
 		transfer_len *= 32;
 		DBG(3, "ep%i short %s dma: %lu/%lu %lu remainder\n",
-		    chdat->epnum, chdat->tx ? "tx" : "rx",
-		    transfer_len, len, len - transfer_len);
+			chdat->epnum, chdat->tx ? "tx" : "rx",
+			transfer_len, len, len - transfer_len);
 	} else
 		transfer_len = len;
 #else
@@ -247,7 +247,7 @@ static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,
 
 	if (dma_addr & 0x1) {
 		DBG(3, "unaligned dma address for ep%i %s: %08x\n",
-		    chdat->epnum, chdat->tx ? "tx" : "rx", dma_addr);
+			chdat->epnum, chdat->tx ? "tx" : "rx", dma_addr);
 		return FALSE;
 	}
 
@@ -279,14 +279,14 @@ static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,
 	channel->bStatus = MGC_DMA_STATUS_BUSY;
 
 	DBG(1, "ep%i %s dma ch%i dma: %08x len: %u packet_sz: %i rndis: %d\n",
-	    chdat->epnum, chdat->tx ? "tx" : "rx",
-	    ch, dma_addr, transfer_len, packet_sz, rndis_mode);
+		chdat->epnum, chdat->tx ? "tx" : "rx",
+		ch, dma_addr, transfer_len, packet_sz, rndis_mode);
 
 	/* Since we're recycling dma areas, we need to clean or invalidate */
-	if (chdat->tx) {
+	if (chdat->tx)
 		consistent_sync(phys_to_virt(dma_addr), len,
 				DMA_TO_DEVICE);
-	} else
+	else
 		consistent_sync(phys_to_virt(dma_addr), len,
 				DMA_FROM_DEVICE);
 
@@ -296,7 +296,7 @@ static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,
 	if (chdat->tx) {
 		dma_params.data_type	= OMAP_DMA_DATA_TYPE_S32;
 		dma_params.elem_count	= 8;		/* 8x32-bit burst */
-		dma_params.frame_count	= transfer_len / 32; /* Burst sz frame */
+		dma_params.frame_count	= transfer_len / 32; /* Burst sz */
 
 		dma_params.src_amode	= OMAP_DMA_AMODE_POST_INC;
 		dma_params.src_start	= (unsigned long)dma_addr;
@@ -306,7 +306,7 @@ static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,
 		dma_params.dst_amode	= OMAP_DMA_AMODE_DOUBLE_IDX;
 		dma_params.dst_start	= (unsigned long)fifo;
 		dma_params.dst_ei	= 1;
-		dma_params.dst_fi	= -31;		/* Loop 32 byte window */
+		dma_params.dst_fi	= -31;	/* Loop 32 byte window */
 
 		dma_params.trigger	= sync_dev;
 		dma_params.sync_mode	= OMAP_DMA_SYNC_FRAME;
@@ -317,12 +317,12 @@ static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,
 	} else {
 		dma_params.data_type	= OMAP_DMA_DATA_TYPE_S32;
 		dma_params.elem_count	= 8;		/* 8x32-bit burst */
-		dma_params.frame_count	= transfer_len / 32; /* Burst sz frame */
+		dma_params.frame_count	= transfer_len / 32; /* Burst sz */
 
 		dma_params.src_amode	= OMAP_DMA_AMODE_DOUBLE_IDX;
 		dma_params.src_start	= (unsigned long)fifo;
 		dma_params.src_ei	= 1;
-		dma_params.src_fi	= -31;		/* Loop 32 byte window */
+		dma_params.src_fi	= -31;	/* Loop 32 byte window */
 
 		dma_params.dst_amode	= OMAP_DMA_AMODE_POST_INC;
 		dma_params.dst_start	= (unsigned long)dma_addr;
@@ -340,7 +340,7 @@ static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,
 	/* Use 16x16 transfer if addresses not 32-bit aligned */
 	if ((dma_params.src_start & 0x2) || (dma_params.dst_start & 0x2)) {
 		DBG(1, "using 16x16 async dma from 0x%08lx to 0x%08lx\n",
-		    dma_params.src_start, dma_params.dst_start);
+			dma_params.src_start, dma_params.dst_start);
 		dma_params.data_type = OMAP_DMA_DATA_TYPE_S16;
 		dma_params.elem_count = 16;		/* 16x16-bit burst */
 
@@ -353,8 +353,8 @@ static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,
 			dma_params.src_start =(unsigned long) fifo;
 	} else {
 		DBG(1, "ep%i %s using 16x32 sync dma from 0x%08lx to 0x%08lx\n",
-		       chdat->epnum, chdat->tx ? "tx" : "rx",
-		       dma_params.src_start, dma_params.dst_start);
+			chdat->epnum, chdat->tx ? "tx" : "rx",
+			dma_params.src_start, dma_params.dst_start);
 	}
 
 	omap_set_dma_params(ch, &dma_params);
@@ -378,7 +378,7 @@ static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,
 		csr |= MGC_M_RXCSR_DMAENAB;
 		csr &= ~(MGC_M_RXCSR_AUTOCLEAR | MGC_M_RXCSR_DMAMODE);
 		musb_writew(hw_ep->regs, MGC_O_HDRC_RXCSR,
-			       csr | MGC_M_RXCSR_P_WZC_BITS);
+			csr | MGC_M_RXCSR_P_WZC_BITS);
 	}
 
 	/*
@@ -391,14 +391,14 @@ static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,
 		musb_writel(ep_conf, TUSB_EP_MAX_PACKET_SIZE_OFFSET, packet_sz);
 
 		musb_writel(ep_conf, TUSB_EP_TX_OFFSET,
-			    TUSB_EP_CONFIG_XFR_SIZE(transfer_len));
+			TUSB_EP_CONFIG_XFR_SIZE(transfer_len));
 	} else {
 		/* Receive packet_sz packets at a time */
 		musb_writel(ep_conf, TUSB_EP_MAX_PACKET_SIZE_OFFSET,
-			    packet_sz << 16);
+			packet_sz << 16);
 
 		musb_writel(ep_conf, TUSB_EP_RX_OFFSET,
-			    TUSB_EP_CONFIG_XFR_SIZE(transfer_len));
+			TUSB_EP_CONFIG_XFR_SIZE(transfer_len));
 	}
 
 	return TRUE;
@@ -548,8 +548,7 @@ tusb_omap_dma_allocate(struct dma_controller *c,
 			goto free_dmareq;
 
 		ret = omap_request_dma(chdat->sync_dev, dev_name,
-				       tusb_omap_dma_cb,
-				       channel, &chdat->ch);
+				tusb_omap_dma_cb, channel, &chdat->ch);
 		if (ret != 0)
 			goto free_dmareq;
 	} else if (tusb_dma->ch == -1) {
@@ -558,8 +557,7 @@ tusb_omap_dma_allocate(struct dma_controller *c,
 
 		/* Callback data gets set later in the shared dmareq case */
 		ret = omap_request_dma(tusb_dma->sync_dev, "TUSB shared",
-				       tusb_omap_dma_cb,
-				       NULL, &tusb_dma->ch);
+				tusb_omap_dma_cb, NULL, &tusb_dma->ch);
 		if (ret != 0)
 			goto free_dmareq;
 
@@ -568,12 +566,12 @@ tusb_omap_dma_allocate(struct dma_controller *c,
 	}
 
 	DBG(1, "ep%i %s dma: %s dma%i dmareq%i sync%i\n",
-	    chdat->epnum,
-	    chdat->tx ? "tx" : "rx",
-	    chdat->ch >=0 ? "dedicated" : "shared",
-	    chdat->ch >= 0 ? chdat->ch : tusb_dma->ch,
-	    chdat->dmareq >= 0 ? chdat->dmareq : tusb_dma->dmareq,
-	    chdat->sync_dev >= 0 ? chdat->sync_dev : tusb_dma->sync_dev);
+		chdat->epnum,
+		chdat->tx ? "tx" : "rx",
+		chdat->ch >=0 ? "dedicated" : "shared",
+		chdat->ch >= 0 ? chdat->ch : tusb_dma->ch,
+		chdat->dmareq >= 0 ? chdat->dmareq : tusb_dma->dmareq,
+		chdat->sync_dev >= 0 ? chdat->sync_dev : tusb_dma->sync_dev);
 
 	return channel;
 
@@ -665,9 +663,9 @@ tusb_omap_dma_init(struct musb *musb, void __iomem *base)
 	musb_writel(musb->ctrl_base, TUSB_DMA_EP_MAP, 0);
 
 	musb_writel(tusb_base, TUSB_DMA_REQ_CONF,
-		    TUSB_DMA_REQ_CONF_BURST_SIZE(2) |
-		    TUSB_DMA_REQ_CONF_DMA_REQ_EN(0x3f) |
-		    TUSB_DMA_REQ_CONF_DMA_REQ_ASSER(2));
+		TUSB_DMA_REQ_CONF_BURST_SIZE(2)
+		| TUSB_DMA_REQ_CONF_DMA_REQ_EN(0x3f)
+		| TUSB_DMA_REQ_CONF_DMA_REQ_ASSER(2));
 
 	tusb_dma = kzalloc(sizeof(struct tusb_omap_dma), GFP_KERNEL);
 	if (!tusb_dma)

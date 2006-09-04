@@ -978,9 +978,9 @@ static int cppi_rx_scan(struct cppi *cppi, unsigned ch)
 
 		DBG(5, "C/RXBD %08x: nxt %08x buf %08x "
 			"off.len %08x opt.len %08x (%d)\n",
-			 bd->dma, bd->hNext, bd->buffPtr,
-			 bd->bOffBLen, bd->hOptions,
-			 rx->actualLen);
+			bd->dma, bd->hNext, bd->buffPtr,
+			bd->bOffBLen, bd->hOptions,
+			rx->actualLen);
 
 		/* actual packet received length */
 		if ((bd->hOptions & CPPI_SOP_SET) && !completed)

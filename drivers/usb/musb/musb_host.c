@@ -106,8 +106,8 @@
 /*************************** Forwards ***************************/
 
 static void musb_ep_program(struct musb *pThis, u8 bEnd,
-			       struct urb *pUrb, unsigned int nOut,
-			       u8 * pBuffer, u32 dwLength);
+			struct urb *pUrb, unsigned int nOut,
+			u8 * pBuffer, u32 dwLength);
 
 /*
  * Start transmit. Caller is responsible for locking shared resources.
@@ -607,7 +607,7 @@ musb_rx_reinit(struct musb *musb, struct musb_qh *qh, struct musb_hw_ep *ep)
 				musb_writew(ep->regs, MGC_O_HDRC_TXCSR,
 						MGC_M_TXCSR_FLUSHFIFO);
 				musb_writew(ep->regs, MGC_O_HDRC_TXCSR,
-					       MGC_M_TXCSR_FRCDATATOG);
+						MGC_M_TXCSR_FRCDATATOG);
 			}
 		}
 		/* clear mode (and everything else) to enable Rx */
@@ -626,11 +626,11 @@ musb_rx_reinit(struct musb *musb, struct musb_qh *qh, struct musb_hw_ep *ep)
 	/* target addr and (for multipoint) hub addr/port */
 	if (musb->bIsMultipoint) {
 		musb_writeb(ep->target_regs, MGC_O_HDRC_RXFUNCADDR,
-			   qh->addr_reg);
+			qh->addr_reg);
 		musb_writeb(ep->target_regs, MGC_O_HDRC_RXHUBADDR,
-			   qh->h_addr_reg);
+			qh->h_addr_reg);
 		musb_writeb(ep->target_regs, MGC_O_HDRC_RXHUBPORT,
-			   qh->h_port_reg);
+			qh->h_port_reg);
 	} else
 		musb_writeb(musb->pRegs, MGC_O_HDRC_FADDR, qh->addr_reg);
 
@@ -650,8 +650,8 @@ musb_rx_reinit(struct musb *musb, struct musb_qh *qh, struct musb_hw_ep *ep)
  */
 #define	MGC_M_TXCSR_ISO	0	/* FIXME */
 static void musb_ep_program(struct musb *pThis, u8 bEnd,
-			       struct urb *pUrb, unsigned int is_out,
-			       u8 * pBuffer, u32 dwLength)
+			struct urb *pUrb, unsigned int is_out,
+			u8 * pBuffer, u32 dwLength)
 {
 #ifndef	CONFIG_USB_INVENTRA_FIFO
 	struct dma_controller *pDmaController;
@@ -689,7 +689,7 @@ static void musb_ep_program(struct musb *pThis, u8 bEnd,
 		bDmaOk = 1;
 		if (bDmaOk && !pDmaChannel) {
 			pDmaChannel = pDmaController->channel_alloc(
-					    pDmaController, pEnd, is_out);
+					pDmaController, pEnd, is_out);
 			if (is_out)
 				pEnd->tx_channel = pDmaChannel;
 			else
@@ -749,25 +749,22 @@ static void musb_ep_program(struct musb *pThis, u8 bEnd,
 		} else {
 			/* endpoint 0: just flush */
 			MGC_WriteCsr16(pBase, MGC_O_HDRC_CSR0, bEnd,
-				       wCsr | MGC_M_CSR0_FLUSHFIFO);
+				wCsr | MGC_M_CSR0_FLUSHFIFO);
 			MGC_WriteCsr16(pBase, MGC_O_HDRC_CSR0, bEnd,
-				       wCsr | MGC_M_CSR0_FLUSHFIFO);
+				wCsr | MGC_M_CSR0_FLUSHFIFO);
 		}
 
 		/* target addr and (for multipoint) hub addr/port */
 		if (pThis->bIsMultipoint) {
 			musb_writeb(pBase,
-				   MGC_BUSCTL_OFFSET(bEnd,
-						     MGC_O_HDRC_TXFUNCADDR),
-				   qh->addr_reg);
+				MGC_BUSCTL_OFFSET(bEnd, MGC_O_HDRC_TXFUNCADDR),
+				qh->addr_reg);
 			musb_writeb(pBase,
-				   MGC_BUSCTL_OFFSET(bEnd,
-						     MGC_O_HDRC_TXHUBADDR),
-				   qh->h_addr_reg);
+				MGC_BUSCTL_OFFSET(bEnd, MGC_O_HDRC_TXHUBADDR),
+				qh->h_addr_reg);
 			musb_writeb(pBase,
-				   MGC_BUSCTL_OFFSET(bEnd,
-						     MGC_O_HDRC_TXHUBPORT),
-				   qh->h_port_reg);
+				MGC_BUSCTL_OFFSET(bEnd, MGC_O_HDRC_TXHUBPORT),
+				qh->h_port_reg);
 		} else
 			musb_writeb(pBase, MGC_O_HDRC_FADDR, qh->addr_reg);
 
@@ -777,17 +774,17 @@ static void musb_ep_program(struct musb *pThis, u8 bEnd,
 						qh->type_reg);
 			if (can_bulk_split(pThis, qh->type))
 				MGC_WriteCsr16(pBase, MGC_O_HDRC_TXMAXP, bEnd,
-					       wPacketSize |
-					       ((pEnd->wMaxPacketSizeTx /
-						 wPacketSize) - 1) << 11);
+					wPacketSize
+					| ((pEnd->wMaxPacketSizeTx /
+						wPacketSize) - 1) << 11);
 			else
 				MGC_WriteCsr16(pBase, MGC_O_HDRC_TXMAXP, bEnd,
-					       wPacketSize);
+					wPacketSize);
 			MGC_WriteCsr8(pBase, MGC_O_HDRC_TXINTERVAL, bEnd,
-				      qh->intv_reg);
+				qh->intv_reg);
 		} else {
 			MGC_WriteCsr8(pBase, MGC_O_HDRC_NAKLIMIT0, 0,
-				      qh->intv_reg);
+				qh->intv_reg);
 			if (pThis->bIsMultipoint)
 				MGC_WriteCsr8(pBase, MGC_O_HDRC_TYPE0, 0,
 						qh->type_reg);
@@ -804,12 +801,12 @@ static void musb_ep_program(struct musb *pThis, u8 bEnd,
 
 			/* clear previous state */
 			wCsr = MGC_ReadCsr16(pBase, MGC_O_HDRC_TXCSR, bEnd);
-			wCsr &= ~(MGC_M_TXCSR_AUTOSET |
-				  MGC_M_TXCSR_DMAMODE |
-				  MGC_M_TXCSR_DMAENAB);
+			wCsr &= ~(MGC_M_TXCSR_AUTOSET
+				| MGC_M_TXCSR_DMAMODE
+				| MGC_M_TXCSR_DMAENAB);
                         wCsr |= MGC_M_TXCSR_MODE;
 			MGC_WriteCsr16(pBase, MGC_O_HDRC_TXCSR, bEnd,
-				       wCsr | MGC_M_TXCSR_MODE);
+				wCsr | MGC_M_TXCSR_MODE);
 
 			qh->segsize = min(dwLength, pDmaChannel->dwMaxLength);
 
@@ -820,14 +817,14 @@ static void musb_ep_program(struct musb *pThis, u8 bEnd,
 
 
 			if (pDmaChannel->bDesiredMode == 0) {
-				wCsr &= ~(MGC_M_TXCSR_AUTOSET |
-					  MGC_M_TXCSR_DMAMODE);
+				wCsr &= ~(MGC_M_TXCSR_AUTOSET
+					| MGC_M_TXCSR_DMAMODE);
 				wCsr |= (MGC_M_TXCSR_DMAENAB);
 					// against programming guide
 			} else
-				wCsr |= (MGC_M_TXCSR_AUTOSET |
-					 MGC_M_TXCSR_DMAENAB |
-					 MGC_M_TXCSR_DMAMODE);
+				wCsr |= (MGC_M_TXCSR_AUTOSET
+					| MGC_M_TXCSR_DMAENAB
+					| MGC_M_TXCSR_DMAMODE);
 
 			MGC_WriteCsr16(pBase, MGC_O_HDRC_TXCSR, bEnd, wCsr);
 
@@ -858,7 +855,7 @@ static void musb_ep_program(struct musb *pThis, u8 bEnd,
 					| MGC_M_TXCSR_DMAENAB);
 			wCsr |= MGC_M_TXCSR_MODE;
 			MGC_WriteCsr16(pBase, MGC_O_HDRC_TXCSR, bEnd,
-				       wCsr | MGC_M_TXCSR_MODE);
+				wCsr | MGC_M_TXCSR_MODE);
 
 			pDmaChannel->dwActualLength = 0L;
 			qh->segsize = dwLength;
@@ -891,15 +888,15 @@ static void musb_ep_program(struct musb *pThis, u8 bEnd,
 			qh->segsize = wLoadCount;
 			musb_write_fifo(pEnd, wLoadCount, pBuffer);
 			wCsr = MGC_ReadCsr16(pBase, MGC_O_HDRC_TXCSR, bEnd);
-			wCsr &=
-			    ~(MGC_M_TXCSR_DMAENAB | MGC_M_TXCSR_DMAMODE |
-			      MGC_M_TXCSR_AUTOSET);
+			wCsr &= ~(MGC_M_TXCSR_DMAENAB
+				| MGC_M_TXCSR_DMAMODE
+				| MGC_M_TXCSR_AUTOSET);
 			/* write CSR */
 			wCsr |= MGC_M_TXCSR_MODE;
 
 			if (bEnd)
-				MGC_WriteCsr16(pBase, MGC_O_HDRC_TXCSR, bEnd,
-					       wCsr);
+				MGC_WriteCsr16(pBase, MGC_O_HDRC_TXCSR,
+						bEnd, wCsr);
 
 		}
 
@@ -908,7 +905,7 @@ static void musb_ep_program(struct musb *pThis, u8 bEnd,
 
 	/* IN/receive */
 	} else {
-		u16	 csr;
+		u16	csr;
 
 		if (pEnd->rx_reinit) {
 			musb_rx_reinit(pThis, qh, pEnd);
@@ -977,21 +974,21 @@ static void musb_ep_program(struct musb *pThis, u8 bEnd,
  * return TRUE if more packets are required for this transaction
  */
 static u8 musb_h_ep0_continue(struct musb *pThis,
-				     u16 wCount, struct urb *pUrb)
+				u16 wCount, struct urb *pUrb)
 {
 	u8 bMore = FALSE;
 	u8 *pFifoDest = NULL;
 	u16 wFifoCount = 0;
 	struct musb_hw_ep	*pEnd = pThis->control_ep;
 	struct musb_qh		*qh = pEnd->in_qh;
-	struct usb_ctrlrequest *pRequest =
-	    (struct usb_ctrlrequest *)pUrb->setup_packet;
+	struct usb_ctrlrequest	*pRequest;
 
+	pRequest = (struct usb_ctrlrequest *) pUrb->setup_packet;
 	if (MGC_END0_IN == pThis->bEnd0Stage) {
 		/* we are receiving from peripheral */
 		pFifoDest = pUrb->transfer_buffer + pUrb->actual_length;
-		wFifoCount = min(wCount, ((u16)
-			 (pUrb->transfer_buffer_length - pUrb->actual_length)));
+		wFifoCount = min(wCount, ((u16) (pUrb->transfer_buffer_length
+					- pUrb->actual_length)));
 		if (wFifoCount < wCount)
 			pUrb->status = -EOVERFLOW;
 
@@ -1028,17 +1025,15 @@ static u8 musb_h_ep0_continue(struct musb *pThis,
 			bMore = TRUE;
 
 		} else if (pRequest->wLength
-			   && (MGC_END0_START == pThis->bEnd0Stage)) {
+				&& (MGC_END0_START == pThis->bEnd0Stage)) {
 			pThis->bEnd0Stage = MGC_END0_OUT;
-			pFifoDest = (u8 *) (pUrb->transfer_buffer +
-				    pUrb->actual_length);
-			wFifoCount =
-			    min(qh->maxpacket,
-				((u16)
-				 (pUrb->transfer_buffer_length -
-				  pUrb->actual_length)));
-			DBG(3, "Sending %d bytes to %p\n", wFifoCount,
-			    pFifoDest);
+			pFifoDest = (u8 *) (pUrb->transfer_buffer
+					+ pUrb->actual_length);
+			wFifoCount = min(qh->maxpacket, ((u16)
+					(pUrb->transfer_buffer_length
+					- pUrb->actual_length)));
+			DBG(3, "Sending %d bytes to %p\n",
+					wFifoCount, pFifoDest);
 			musb_write_fifo(pEnd, wFifoCount, pFifoDest);
 
 			qh->segsize = wFifoCount;
@@ -1152,13 +1147,14 @@ irqreturn_t musb_h_ep0_irq(struct musb *pThis)
 		/* call common logic and prepare response */
 		if (musb_h_ep0_continue(pThis, wCount, pUrb)) {
 			/* more packets required */
-			wCsrVal = (MGC_END0_IN == pThis->bEnd0Stage) ?
-			    MGC_M_CSR0_H_REQPKT : MGC_M_CSR0_TXPKTRDY;
+			wCsrVal = (MGC_END0_IN == pThis->bEnd0Stage)
+				?  MGC_M_CSR0_H_REQPKT : MGC_M_CSR0_TXPKTRDY;
 		} else {
 			/* data transfer complete; perform status phase */
-			wCsrVal = MGC_M_CSR0_H_STATUSPKT |
-			    (usb_pipeout(pUrb->pipe) ? MGC_M_CSR0_H_REQPKT :
-			     MGC_M_CSR0_TXPKTRDY);
+			wCsrVal = MGC_M_CSR0_H_STATUSPKT
+				| (usb_pipeout(pUrb->pipe)
+					? MGC_M_CSR0_H_REQPKT
+					: MGC_M_CSR0_TXPKTRDY);
 			/* flag status stage */
 			pThis->bEnd0Stage = MGC_END0_STATUS;
 
@@ -1186,9 +1182,10 @@ done:
 		- ... which starts DMA to fifo in mode 1 or 0
 
 	DMA Isr (transfer complete) -> TxAvail()
-	     - Stop DMA (~DmaEnab)	(<--- Alert ... currently happens
+		- Stop DMA (~DmaEnab)	(<--- Alert ... currently happens
 					only in musb_cleanup_urb)
-	     - TxPktRdy has to be set in mode 0 or for short packets in mode 1.
+		- TxPktRdy has to be set in mode 0 or for
+			short packets in mode 1.
 */
 
 #endif
@@ -1403,12 +1400,12 @@ finish:
  *
  * REVISIT
  *	All we care about at this driver level is that
- *	 (a) all URBs terminate with REQPKT cleared and fifo(s) empty;
- *	 (b) termination conditions are: short RX, or buffer full;
- *	 (c) fault modes include
- *	     - iff URB_SHORT_NOT_OK, short RX status is -EREMOTEIO.
- *	       (and that endpoint's dma queue stops immediately)
- *	     - overflow (full, PLUS more bytes in the terminal packet)
+ *       (a) all URBs terminate with REQPKT cleared and fifo(s) empty;
+ *       (b) termination conditions are: short RX, or buffer full;
+ *       (c) fault modes include
+ *           - iff URB_SHORT_NOT_OK, short RX status is -EREMOTEIO.
+ *             (and that endpoint's dma queue stops immediately)
+ *           - overflow (full, PLUS more bytes in the terminal packet)
  *
  *	So for example, usb-storage sets URB_SHORT_NOT_OK, and would
  *	thus be a great candidate for using mode 1 ... for all but the
@@ -1457,9 +1454,9 @@ void musb_host_rx(struct musb *pThis, u8 bEnd)
 
 	nPipe = pUrb->pipe;
 
-	DBG(5, "<== hw %d rxcsr %04x, urb actual %d (+dma %zd)\n", bEnd,
-	    wRxCsrVal, pUrb->actual_length,
-	    dma ? dma->dwActualLength : 0);
+	DBG(5, "<== hw %d rxcsr %04x, urb actual %d (+dma %zd)\n",
+		bEnd, wRxCsrVal, pUrb->actual_length,
+		dma ? dma->dwActualLength : 0);
 
 	/* check for errors, concurrent stall & unlink is not really
 	 * handled yet! */
@@ -1560,10 +1557,10 @@ void musb_host_rx(struct musb *pThis, u8 bEnd)
 		bDone = (pUrb->actual_length >= pUrb->transfer_buffer_length)
 			|| (dma->dwActualLength & (qh->maxpacket - 1));
 
-		wVal &= ~(MGC_M_RXCSR_DMAENAB |
-			  MGC_M_RXCSR_H_AUTOREQ |
-			  MGC_M_RXCSR_AUTOCLEAR |
-			  MGC_M_RXCSR_RXPKTRDY);
+		wVal &= ~(MGC_M_RXCSR_DMAENAB
+			| MGC_M_RXCSR_H_AUTOREQ
+			| MGC_M_RXCSR_AUTOCLEAR
+			| MGC_M_RXCSR_RXPKTRDY);
 
 		MGC_WriteCsr16(pBase, MGC_O_HDRC_RXCSR, bEnd, wVal);
 		MGC_WriteCsr16(pBase, MGC_O_HDRC_RXCSR, bEnd, wVal);
@@ -1572,7 +1569,7 @@ void musb_host_rx(struct musb *pThis, u8 bEnd)
 		if (!bDone) {
 			wVal |= MGC_M_RXCSR_H_REQPKT;
 			MGC_WriteCsr16(pBase, MGC_O_HDRC_RXCSR, bEnd,
-				       MGC_M_RXCSR_H_WZC_BITS | wVal);
+				MGC_M_RXCSR_H_WZC_BITS | wVal);
 		}
 
 		DBG(4, "ep %d dma %s, rxcsr %04x, rxcount %d\n", bEnd,
@@ -1651,17 +1648,14 @@ void musb_host_rx(struct musb *pThis, u8 bEnd)
 			wVal = MGC_ReadCsr16(pBase, MGC_O_HDRC_RXCSR, bEnd);
 			wVal &= ~MGC_M_RXCSR_H_REQPKT;
 
-			if (dma->bDesiredMode == 0) {
+			if (dma->bDesiredMode == 0)
 				wVal &= ~MGC_M_RXCSR_H_AUTOREQ;
-				wVal |= (MGC_M_RXCSR_AUTOCLEAR |
-					 MGC_M_RXCSR_DMAENAB);
-			} else
-				wVal |= (MGC_M_RXCSR_H_AUTOREQ |
-					 MGC_M_RXCSR_AUTOCLEAR |
-					 MGC_M_RXCSR_DMAENAB);
+			else
+				wVal |= MGC_M_RXCSR_H_AUTOREQ;
+			wVal |= MGC_M_RXCSR_AUTOCLEAR | MGC_M_RXCSR_DMAENAB;
 
 			MGC_WriteCsr16(pBase, MGC_O_HDRC_RXCSR, bEnd,
-			       MGC_M_RXCSR_H_WZC_BITS | wVal);
+				MGC_M_RXCSR_H_WZC_BITS | wVal);
 
 			/* REVISIT if when actual_length != 0,
 			 * transfer_buffer_length needs to be

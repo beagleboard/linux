@@ -94,7 +94,7 @@ static inline struct usb_request *next_request(struct musb_ep *ep)
 extern void musb_g_tx(struct musb *pThis, u8 bEnd);
 extern void musb_g_rx(struct musb *pThis, u8 bEnd);
 
-extern struct usb_ep_ops musb_g_ep0_ops;
+extern const struct usb_ep_ops musb_g_ep0_ops;
 
 extern int musb_gadget_setup(struct musb *);
 extern void musb_gadget_cleanup(struct musb *);

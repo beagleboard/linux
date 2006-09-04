@@ -37,7 +37,7 @@
  *        + EVM gamma boards have troublesome C133, preventing
  *          conformant timings for A_WAIT_VFALL transitions
  *        + ID-pin based role initialization and VBUS switching
- *	    seems partly functional ... seems to bypass this code.
+ *          seems partly functional ... seems to bypass this code.
  *        + haven't tried HNP or SRP.
  *
  *   - needs updating along the lines of <linux/usb_otg.h>
@@ -237,7 +237,7 @@ void MGC_OtgMachineDestroy(struct otg_machine *pMachine)
 
 /* caller has irqlocked musb */
 void MGC_OtgMachineInputsChanged(struct otg_machine *pMachine,
-				 const MGC_OtgMachineInputs * pInputs)
+				const MGC_OtgMachineInputs * pInputs)
 {
 
 	DBG(2, "<== bState %d(%d)%s%s%s%s%s%s\n",
@@ -364,7 +364,8 @@ void MGC_OtgMachineInputsChanged(struct otg_machine *pMachine,
 				otg_state_changed(pMachine->musb,
 						OTG_STATE_A_WAIT_BCON);
 				mod_timer(&pMachine->Timer, jiffies
-					+ msecs_to_jiffies(MGC_OTG_T_A_WAIT_BCON));
+					+ msecs_to_jiffies(
+						MGC_OTG_T_A_WAIT_BCON));
 			}
 		}
 		break;

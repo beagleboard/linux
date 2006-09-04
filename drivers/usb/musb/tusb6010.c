@@ -47,10 +47,10 @@ void musb_write_fifo(struct musb_hw_ep *hw_ep, u16 len, const u8 *buf)
 
 	if (epnum)
 		musb_writel(ep_conf, TUSB_EP_TX_OFFSET,
-			    TUSB_EP_CONFIG_XFR_SIZE(len));
+			TUSB_EP_CONFIG_XFR_SIZE(len));
 	else
 		musb_writel(ep_conf, 0, TUSB_EP0_CONFIG_DIR_TX |
-			    TUSB_EP0_CONFIG_XFR_SIZE(len));
+			TUSB_EP0_CONFIG_XFR_SIZE(len));
 
 	/* Write 32-bit blocks from buffer to FIFO
 	 * REVISIT: Optimize for burst ... writesl/writesw
@@ -101,7 +101,7 @@ void musb_read_fifo(struct musb_hw_ep *hw_ep, u16 len, u8 *buf)
 
 	if (epnum)
 		musb_writel(ep_conf, TUSB_EP_RX_OFFSET,
-			    TUSB_EP_CONFIG_XFR_SIZE(len));
+			TUSB_EP_CONFIG_XFR_SIZE(len));
 	else
 		musb_writel(ep_conf, 0, TUSB_EP0_CONFIG_XFR_SIZE(len));
 
@@ -251,7 +251,7 @@ irqreturn_t tusb_interrupt(int irq, void *__hci, struct pt_regs *r)
 	otg_stat = musb_readl(base, TUSB_DEV_OTG_STAT);
 
 	DBG(3, "TUSB interrupt dma: %08x int: %08x otg: %08x\n",
-	    dma_src, int_src, otg_stat);
+		dma_src, int_src, otg_stat);
 
 	musb->int_usb = 0;
 	musb->int_rx = 0;
@@ -284,17 +284,16 @@ irqreturn_t tusb_interrupt(int irq, void *__hci, struct pt_regs *r)
 	}
 
 	/* VBUS state change */
-	if ((int_src & TUSB_INT_SRC_VBUS_SENSE_CHNG) ||
-	    (int_src & TUSB_INT_SRC_USB_IP_VBUS_ERR))
-	{
+	if ((int_src & TUSB_INT_SRC_VBUS_SENSE_CHNG)
+			|| (int_src & TUSB_INT_SRC_USB_IP_VBUS_ERR)) {
 		musb->status |= MUSB_VBUS_STATUS_CHG;
 		schedule_work(&musb->irq_work);
 
 #if 0
 		DBG(3, "tusb: VBUS changed. VBUS state %d\n",
-		    (otg_stat & TUSB_DEV_OTG_STAT_VBUS_SENSE) ? 1 : 0);
-		if (!(otg_stat & TUSB_DEV_OTG_STAT_VBUS_SENSE) &&
-		    !(otg_stat & TUSB_DEV_OTG_STAT_ID_STATUS)) {
+			(otg_stat & TUSB_DEV_OTG_STAT_VBUS_SENSE) ? 1 : 0);
+		if (!(otg_stat & TUSB_DEV_OTG_STAT_VBUS_SENSE)
+				&& !(otg_stat & TUSB_DEV_OTG_STAT_ID_STATUS)) {
 			/* VBUS went off and ID pin is down */
 			DBG(3, "tusb: No VBUS, starting session\n");
 			/* Start session again, VBUS will be enabled */
@@ -307,16 +306,17 @@ irqreturn_t tusb_interrupt(int irq, void *__hci, struct pt_regs *r)
 	/* ID pin change */
 	if (int_src & TUSB_INT_SRC_ID_STATUS_CHNG) {
 		DBG(3, "tusb: ID pin changed. State is %d\n",
-		    (musb_readl(base, TUSB_DEV_OTG_STAT) &
-		     TUSB_DEV_OTG_STAT_ID_STATUS) ? 1 : 0);
+			(musb_readl(base, TUSB_DEV_OTG_STAT)
+				& TUSB_DEV_OTG_STAT_ID_STATUS)
+			? 1 : 0);
 	}
 
 	/* OTG timer expiration */
 	if (int_src & TUSB_INT_SRC_OTG_TIMEOUT) {
 		DBG(3, "tusb: OTG timer expired\n");
 		musb_writel(base, TUSB_DEV_OTG_TIMER,
-			    musb_readl(base, TUSB_DEV_OTG_TIMER) |
-			    TUSB_DEV_OTG_TIMER_ENABLE);
+			musb_readl(base, TUSB_DEV_OTG_TIMER) |
+			TUSB_DEV_OTG_TIMER_ENABLE);
 	}
 
 	/* TX dma callback must be handled here, RX dma callback is
@@ -360,7 +360,7 @@ irqreturn_t tusb_interrupt(int irq, void *__hci, struct pt_regs *r)
 	/* Acknowledge TUSB interrupts. Clear only non-reserved bits */
 	if (int_src)
 		musb_writel(base, TUSB_INT_SRC_CLEAR,
-			    int_src & ~TUSB_INT_MASK_RESERVED_BITS);
+			int_src & ~TUSB_INT_MASK_RESERVED_BITS);
 
 	spin_unlock_irqrestore(&musb->Lock, flags);
 
@@ -394,8 +394,7 @@ void musb_platform_enable(struct musb * musb)
 	musb_writel(base, TUSB_GPIO_INT_CLEAR, 0x1ff);
 
 	/* Acknowledge pending interrupt(s) */
-	musb_writel(base, TUSB_INT_SRC_CLEAR,
-		    ~TUSB_INT_MASK_RESERVED_BITS);
+	musb_writel(base, TUSB_INT_SRC_CLEAR, ~TUSB_INT_MASK_RESERVED_BITS);
 
 #if 0
 	/* Set OTG timer for about one second */
@@ -407,7 +406,7 @@ void musb_platform_enable(struct musb * musb)
 	/* Only 0 clock cycles for minimum interrupt de-assertion time and
 	 * interrupt polarity active low seems to work reliably here */
 	musb_writel(base, TUSB_INT_CTRL_CONF,
-		    TUSB_INT_CTRL_CONF_INT_RELCYC(0));
+			TUSB_INT_CTRL_CONF_INT_RELCYC(0));
 
 	set_irq_type(musb->nIrq, IRQ_TYPE_LEVEL_LOW);
 
@@ -505,7 +504,7 @@ static int tusb_start(struct musb *musb)
 	ret = tusb_print_revision(musb);
 	if (ret < 2) {
 		printk(KERN_ERR "tusb: Unsupported TUSB6010 revision %i\n",
-		       ret);
+				ret);
 		goto err;
 	}
 
@@ -515,7 +514,7 @@ static int tusb_start(struct musb *musb)
 
 	/* Select PHY free running 60MHz as a system clock */
 	musb_writel(base, TUSB_PRCM_CONF, //FIXME: CPEN should not be needed!
-		    TUSB_PRCM_CONF_SFW_CPEN | TUSB_PRCM_CONF_SYS_CLKSEL(1));
+			TUSB_PRCM_CONF_SFW_CPEN | TUSB_PRCM_CONF_SYS_CLKSEL(1));
 
 	/* VBus valid timer 1us, disable DFT/Debug and VLYNQ clocks for
 	 * power saving, enable VBus detect and session end comparators,

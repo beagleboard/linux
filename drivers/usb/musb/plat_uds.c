@@ -70,13 +70,13 @@
  *      * Interrupt and isochronous will dynamically allocate endpoint
  *        hardware, but (a) there's no record keeping for bandwidth;
  *        (b) in the common case that few endpoints are available, there
- *	  is no mechanism to reuse endpoints to talk to multiple devices.
+ *        is no mechanism to reuse endpoints to talk to multiple devices.
  *
- *	  RESULT:  At one extreme, bandwidth can be overcommitted in
- *	  some hardware configurations, no faults will be reported.
- *	  At the other extreme, the bandwidth capabilities which do
- *	  exist tend to be severely undercommitted.  You can't yet hook
- *	  up both a keyboard and a mouse to an external USB hub.
+ *        RESULT:  At one extreme, bandwidth can be overcommitted in
+ *        some hardware configurations, no faults will be reported.
+ *        At the other extreme, the bandwidth capabilities which do
+ *        exist tend to be severely undercommitted.  You can't yet hook
+ *        up both a keyboard and a mouse to an external USB hub.
  *
  *      * Host side doesn't understand that hardware endpoints have two
  *        directions, so it uses only half the resources available on
@@ -84,10 +84,10 @@
  *
  *		+++	PARTIALLY RESOLVED	+++
  *
- *	  RESULT:  On DaVinci (and TUSB 6010), only one external device may
- *	  use periodic transfers, other than the hub used to connect it.
- *	  (And if it were to understand, there would still be limitations
- *	  because of the lack of periodic endpoint scheduling.)
+ *        RESULT:  On DaVinci (and TUSB 6010), only one external device may
+ *        use periodic transfers, other than the hub used to connect it.
+ *        (And if it were to understand, there would still be limitations
+ *        because of the lack of periodic endpoint scheduling.)
  *
  *  - Host-side doesn't use the HCD framework, even the older version in
  *    the 2.6.10 kernel, which doesn't provide per-endpoint URB queues.
@@ -149,7 +149,7 @@ unsigned debug = MUSB_DEBUG;
 module_param(debug, uint, 0);
 MODULE_PARM_DESC(debug, "initial debug message level");
 
-#define MUSB_VERSION_SUFFIX	 "/dbg"
+#define MUSB_VERSION_SUFFIX	"/dbg"
 #endif
 
 #define DRIVER_AUTHOR "Mentor Graphics Corp. and Texas Instruments"
@@ -158,7 +158,7 @@ MODULE_PARM_DESC(debug, "initial debug message level");
 #define MUSB_VERSION_BASE "2.2a/db-0.5.1"
 
 #ifndef MUSB_VERSION_SUFFIX
-#define MUSB_VERSION_SUFFIX	 ""
+#define MUSB_VERSION_SUFFIX	""
 #endif
 #define MUSB_VERSION	MUSB_VERSION_BASE MUSB_VERSION_SUFFIX
 
@@ -166,7 +166,6 @@ MODULE_PARM_DESC(debug, "initial debug message level");
 
 const char musb_driver_name[] = "musb_hdrc";
 
-/* this module is always GPL, the gadget might not... */
 MODULE_DESCRIPTION(DRIVER_INFO);
 MODULE_AUTHOR(DRIVER_AUTHOR);
 MODULE_LICENSE("GPL");
@@ -191,7 +190,7 @@ static inline struct musb *dev_to_musb(struct device *dev)
 }
 
 static void otg_input_changed(struct musb * pThis, u8 devctl, u8 reset,
-			 u8 connection, u8 suspend)
+			u8 connection, u8 suspend)
 {
 #ifdef CONFIG_USB_MUSB_OTG
 	struct otg_machine	*otgm = &pThis->OtgMachine;
@@ -368,7 +367,7 @@ void musb_load_testpacket(struct musb *musb)
 		| MGC_M_INTR_RESET )
 
 static irqreturn_t musb_stage0_irq(struct musb * pThis, u8 bIntrUSB,
-				    u8 devctl, u8 power)
+				u8 devctl, u8 power)
 {
 	irqreturn_t handled = IRQ_NONE;
 #ifdef CONFIG_USB_MUSB_HDRC_HCD
@@ -376,7 +375,7 @@ static irqreturn_t musb_stage0_irq(struct musb * pThis, u8 bIntrUSB,
 #endif
 
 	DBG(3, "<== Power=%02x, DevCtl=%02x, bIntrUSB=0x%x\n", power, devctl,
-	    bIntrUSB);
+		bIntrUSB);
 
 	/* in host mode when a device resume me (from power save)
 	 * in device mode when the host resume me; it shold not change
@@ -392,7 +391,7 @@ static irqreturn_t musb_stage0_irq(struct musb * pThis, u8 bIntrUSB,
 			MUSB_HST_MODE(pThis);	/* unnecessary */
 			power &= ~MGC_M_POWER_SUSPENDM;
 			musb_writeb(pBase, MGC_O_HDRC_POWER,
-				   power | MGC_M_POWER_RESUME);
+				power | MGC_M_POWER_RESUME);
 
 			/* should now be A_SUSPEND */
 			pThis->xceiv.state = OTG_STATE_A_HOST;
@@ -523,8 +522,8 @@ static irqreturn_t musb_stage0_irq(struct musb * pThis, u8 bIntrUSB,
 
 			/* reading state from Power register doesn't work */
 			otg_input_changed(pThis, devctl, TRUE, FALSE,
-						 (power & MGC_M_POWER_SUSPENDM)
-						 ? TRUE : FALSE);
+						(power & MGC_M_POWER_SUSPENDM)
+						? TRUE : FALSE);
 		}
 
 		handled = IRQ_HANDLED;
@@ -545,7 +544,7 @@ static irqreturn_t musb_stage0_irq(struct musb * pThis, u8 bIntrUSB,
  * @param power
  */
 static irqreturn_t musb_stage2_irq(struct musb * pThis, u8 bIntrUSB,
-				    u8 devctl, u8 power)
+				u8 devctl, u8 power)
 {
 	irqreturn_t handled = IRQ_NONE;
 
@@ -649,7 +648,7 @@ void musb_start(struct musb * pThis)
 
 	/* enable high-speed/low-power and start session */
 	musb_writeb(pBase, MGC_O_HDRC_POWER,
-		   MGC_M_POWER_SOFTCONN | MGC_M_POWER_HSENAB);
+		MGC_M_POWER_SOFTCONN | MGC_M_POWER_HSENAB);
 
 	switch (pThis->board_mode) {
 	case MUSB_HOST:
@@ -659,7 +658,7 @@ void musb_start(struct musb * pThis)
 	case MUSB_PERIPHERAL:
 		state = musb_readb(pBase, MGC_O_HDRC_DEVCTL);
 		musb_writeb(pBase, MGC_O_HDRC_DEVCTL,
-			   state & ~MGC_M_DEVCTL_SESSION);
+			state & ~MGC_M_DEVCTL_SESSION);
 		break;
 	}
 }
@@ -1119,7 +1118,7 @@ static int __devinit musb_core_init(u16 wType, struct musb *pThis)
 	wRelMajor = (wRelease >> 10) & 0x1f;
 	wRelMinor = wRelease & 0x3ff;
 	snprintf(aRevision, 32, "%d.%d%s", wRelMajor,
-		 wRelMinor, (wRelease & 0x8000) ? "RC" : "");
+		wRelMinor, (wRelease & 0x8000) ? "RC" : "");
 	printk(KERN_DEBUG "%s: %sHDRC RTL version %s %s\n",
 			musb_driver_name, type, aRevision, aDate);
 
@@ -1368,8 +1367,8 @@ void musb_dma_completion(struct musb *musb, u8 bLocalEnd, u8 bTransmit)
 
 #ifdef CONFIG_SYSFS
 
-static ssize_t musb_mode_show(struct device *dev,
-				  struct device_attribute *attr, char *buf)
+static ssize_t
+musb_mode_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	struct musb *musb = dev_to_musb(dev);
 	unsigned long flags;
@@ -1393,8 +1392,8 @@ static ssize_t musb_mode_show(struct device *dev,
 }
 static DEVICE_ATTR(mode, S_IRUGO, musb_mode_show, NULL);
 
-static ssize_t musb_cable_show(struct device *dev,
-			       struct device_attribute *attr, char *buf)
+static ssize_t
+musb_cable_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	struct musb *musb = dev_to_musb(dev);
 	char *v1= "", *v2 = "?";
@@ -1635,8 +1634,8 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 
 	/* setup musb parts of the core (especially endpoints) */
 	status = musb_core_init(plat->multipoint
-			   ? MUSB_CONTROLLER_MHDRC
-			   : MUSB_CONTROLLER_HDRC, pThis);
+			? MUSB_CONTROLLER_MHDRC
+			: MUSB_CONTROLLER_HDRC, pThis);
 	if (status < 0)
 		goto fail2;
 
@@ -1871,17 +1870,17 @@ static int __init musb_init(void)
 
 	pr_info("%s: version " MUSB_VERSION ", "
 #ifdef CONFIG_USB_INVENTRA_FIFO
-	       "pio"
+		"pio"
 #elif defined(CONFIG_USB_TI_CPPI_DMA)
-	       "cppi-dma"
+		"cppi-dma"
 #elif defined(CONFIG_USB_INVENTRA_DMA)
-	       "musb-dma"
+		"musb-dma"
 #elif defined(CONFIG_USB_TUSB_OMAP_DMA)
-	       "tusb-omap-dma"
+		"tusb-omap-dma"
 #else
-	       "?dma?"
+		"?dma?"
 #endif
-	       ", "
+		", "
 #ifdef CONFIG_USB_MUSB_OTG
 		"otg (peripheral+host)"
 #elif defined(CONFIG_USB_GADGET_MUSB_HDRC)
@@ -1889,8 +1888,8 @@ static int __init musb_init(void)
 #elif defined(CONFIG_USB_MUSB_HDRC_HCD)
 		"host"
 #endif
-	       ", debug=%d\n",
-	       musb_driver_name, debug);
+		", debug=%d\n",
+		musb_driver_name, debug);
 	return platform_driver_register(&musb_driver);
 }
 

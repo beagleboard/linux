@@ -321,9 +321,9 @@ int __devinit musb_platform_init(struct musb *musb)
 		return -ENODEV;
 #endif
 
-	 /* returns zero if e.g. not clocked */
-	 revision = musb_readl(tibase, DAVINCI_USB_VERSION_REG);
-	 if (revision == 0)
+	/* returns zero if e.g. not clocked */
+	revision = musb_readl(tibase, DAVINCI_USB_VERSION_REG);
+	if (revision == 0)
 		return -ENODEV;
 
 	/* note that transceiver issues make us want to charge
@@ -344,10 +344,9 @@ int __devinit musb_platform_init(struct musb *musb)
 
 	/* NOTE:  irqs are in mixed mode, not bypass to pure-musb */
 	pr_debug("DaVinci OTG revision %08x phy %03x control %02x\n",
-		 revision,
-		 musb_readl((void *__iomem) IO_ADDRESS(
-				 USBPHY_CTL_PADDR), 0x00),
-		 musb_readb(tibase, DAVINCI_USB_CTRL_REG));
+		revision,
+		__raw_readl((void *__iomem) IO_ADDRESS(USBPHY_CTL_PADDR)),
+		musb_readb(tibase, DAVINCI_USB_CTRL_REG));
 
 	musb->isr = davinci_interrupt;
 	return 0;

@@ -202,10 +202,10 @@ static inline int max_ep_writesize(struct musb *pThis, struct musb_ep *ep)
 			-> if queue is non-empty, txstate().
 
 	- Request is queued by the gadget driver.
-	       -> if queue was previously empty, txstate()
+		-> if queue was previously empty, txstate()
 
 	txstate()
-	       -> start
+		-> start
 		  /\	-> setup DMA
 		  |     (data is transferred to the FIFO, then sent out when
 		  |	IN token(s) are recd from Host.
@@ -253,7 +253,7 @@ static void txstate(struct musb *pThis, struct musb_request *req)
 
 	pRequest = &req->request;
 	wFifoCount = min(max_ep_writesize(pThis, pEnd),
-			 (int)(pRequest->length - pRequest->actual));
+			(int)(pRequest->length - pRequest->actual));
 
 	if (wCsrVal & MGC_M_TXCSR_TXPKTRDY) {
 		DBG(5, "%s old packet still ready , txcsr %03x\n",
@@ -285,7 +285,7 @@ static void txstate(struct musb *pThis, struct musb_request *req)
 
 			/* setup DMA, then program endpoint CSR */
 			request_size = min(pRequest->length,
-						  pEnd->dma->dwMaxLength);
+						pEnd->dma->dwMaxLength);
 			if (request_size <= pEnd->wPacketSize)
 				pEnd->dma->bDesiredMode = 0;
 			else
@@ -298,20 +298,20 @@ static void txstate(struct musb *pThis, struct musb_request *req)
 			if (use_dma) {
 				if (pEnd->dma->bDesiredMode == 0) {
 					wCsrVal &= ~(MGC_M_TXCSR_AUTOSET |
-						     MGC_M_TXCSR_DMAMODE);
+							MGC_M_TXCSR_DMAMODE);
 					wCsrVal |= (MGC_M_TXCSR_DMAENAB |
-						    MGC_M_TXCSR_MODE);
+							MGC_M_TXCSR_MODE);
 						// against programming guide
 				}
 				else
-					wCsrVal |= (MGC_M_TXCSR_AUTOSET |
-						    MGC_M_TXCSR_DMAENAB |
-						    MGC_M_TXCSR_DMAMODE |
-						    MGC_M_TXCSR_MODE);
+					wCsrVal |= (MGC_M_TXCSR_AUTOSET
+							| MGC_M_TXCSR_DMAENAB
+							| MGC_M_TXCSR_DMAMODE
+							| MGC_M_TXCSR_MODE);
 
 				wCsrVal &= ~MGC_M_TXCSR_P_UNDERRUN;
 				MGC_WriteCsr16(pBase, MGC_O_HDRC_TXCSR, bEnd,
-					       wCsrVal);
+						wCsrVal);
 			}
 		}
 
@@ -362,7 +362,7 @@ static void txstate(struct musb *pThis, struct musb_request *req)
 
 	if (!use_dma) {
 		musb_write_fifo(pEnd->hw_ep, wFifoCount,
-				 (u8 *) (pRequest->buf + pRequest->actual));
+				(u8 *) (pRequest->buf + pRequest->actual));
 		pRequest->actual += wFifoCount;
 		wCsrVal |= MGC_M_TXCSR_TXPKTRDY;
 		wCsrVal &= ~MGC_M_TXCSR_P_UNDERRUN;
@@ -481,7 +481,7 @@ void musb_g_tx(struct musb *pThis, u8 bEnd)
 
 					DBG(4, "sending zero pkt\n");
 					MGC_WriteCsr16(pBase, MGC_O_HDRC_TXCSR,
-						       bEnd,
+							bEnd,
 							MGC_M_TXCSR_MODE
 							| MGC_M_TXCSR_TXPKTRDY);
 				}
@@ -525,7 +525,7 @@ void musb_g_tx(struct musb *pThis, u8 bEnd)
 	- Only mode 0 is used.
 
 	- Request is queued by the gadget class driver.
-	        -> if queue was previously empty, rxstate()
+		-> if queue was previously empty, rxstate()
 
 	- Host sends OUT token which causes an endpoint interrupt
 	  /\      -> RxReady
@@ -640,13 +640,13 @@ static void rxstate(struct musb *pThis, struct musb_request *req)
 					wCsrVal | MGC_M_RXCSR_DMAMODE);
 #endif
 				MGC_WriteCsr16(pBase, MGC_O_HDRC_RXCSR, bEnd,
-					       wCsrVal);
+						wCsrVal);
 
 				if (pRequest->actual < pRequest->length) {
 					int transfer_size = 0;
 #ifdef USE_MODE1
 					transfer_size = min(pRequest->length,
-							 channel->dwMaxLength);
+							channel->dwMaxLength);
 #else
 					transfer_size = wCount;
 #endif
@@ -694,9 +694,8 @@ static void rxstate(struct musb *pThis, struct musb_request *req)
 			}
 #endif
 
-			musb_read_fifo(pEnd->hw_ep, wFifoCount,
-				   (u8 *) (pRequest->buf +
-					   pRequest->actual));
+			musb_read_fifo(pEnd->hw_ep, wFifoCount, (u8 *)
+					(pRequest->buf + pRequest->actual));
 			pRequest->actual += wFifoCount;
 
 			/* REVISIT if we left anything in the fifo, flush
@@ -778,9 +777,9 @@ void musb_g_rx(struct musb *pThis, u8 bEnd)
 	}
 
 	if (dma && (wCsrVal & MGC_M_RXCSR_DMAENAB)) {
-		wCsrVal &= ~(MGC_M_RXCSR_AUTOCLEAR |
-			     MGC_M_RXCSR_DMAENAB |
-			     MGC_M_RXCSR_DMAMODE);
+		wCsrVal &= ~(MGC_M_RXCSR_AUTOCLEAR
+				| MGC_M_RXCSR_DMAENAB
+				| MGC_M_RXCSR_DMAMODE);
 		MGC_WriteCsr16(pBase, MGC_O_HDRC_RXCSR, bEnd,
 			MGC_M_RXCSR_P_WZC_BITS | wCsrVal);
 
@@ -793,8 +792,9 @@ void musb_g_rx(struct musb *pThis, u8 bEnd)
 
 #if defined(CONFIG_USB_INVENTRA_DMA) || defined(CONFIG_USB_TUSB_OMAP_DMA)
 		/* Autoclear doesn't clear RxPktRdy for short packets */
-		if ((dma->bDesiredMode == 0) ||
-		    (dma->dwActualLength & (pEnd->wPacketSize - 1))) {
+		if ((dma->bDesiredMode == 0)
+				|| (dma->dwActualLength
+					& (pEnd->wPacketSize - 1))) {
 			/* ack the read! */
 			wCsrVal &= ~MGC_M_RXCSR_RXPKTRDY;
 			MGC_WriteCsr16(pBase, MGC_O_HDRC_RXCSR, bEnd, wCsrVal);
@@ -835,7 +835,7 @@ done:
 /* ------------------------------------------------------------ */
 
 static int musb_gadget_enable(struct usb_ep *ep,
-			       const struct usb_endpoint_descriptor *desc)
+			const struct usb_endpoint_descriptor *desc)
 {
 	unsigned long flags;
 	struct musb_ep	*pEnd;
@@ -957,13 +957,13 @@ static int musb_gadget_enable(struct usb_ep *ep,
 	pr_debug("%s periph: enabled %s for %s %s, %smaxpacket %d\n",
 			musb_driver_name, pEnd->end_point.name,
 			({ char *s; switch (pEnd->type) {
-			 case USB_ENDPOINT_XFER_BULK:	s = "bulk"; break;
-			 case USB_ENDPOINT_XFER_INT:	s = "int"; break;
-			 default:			s = "iso"; break;
-			 }; s; }),
-			 pEnd->is_in ? "IN" : "OUT",
-			 pEnd->dma ? "dma, " : "",
-			 pEnd->wPacketSize);
+			case USB_ENDPOINT_XFER_BULK:	s = "bulk"; break;
+			case USB_ENDPOINT_XFER_INT:	s = "int"; break;
+			default:			s = "iso"; break;
+			}; s; }),
+			pEnd->is_in ? "IN" : "OUT",
+			pEnd->dma ? "dma, " : "",
+			pEnd->wPacketSize);
 
 	pThis->status |= MUSB_VBUS_STATUS_CHG;
 	schedule_work(&pThis->irq_work);
@@ -1056,7 +1056,7 @@ void musb_free_request(struct usb_ep *ep, struct usb_request *req)
  * respect to calls with irqs disabled:  alloc is safe, free is not.
  */
 static void *musb_gadget_alloc_buffer(struct usb_ep *ep, unsigned bytes,
-			    dma_addr_t * dma, gfp_t gfp_flags)
+			dma_addr_t * dma, gfp_t gfp_flags)
 {
 	struct musb_ep *musb_ep = to_musb_ep(ep);
 
@@ -1127,7 +1127,7 @@ static void musb_ep_restart(struct musb *pThis, struct musb_request *req)
 }
 
 static int musb_gadget_queue(struct usb_ep *ep, struct usb_request *req,
-			   gfp_t gfp_flags)
+			gfp_t gfp_flags)
 {
 	struct musb_ep		*pEnd;
 	struct musb_request	*pRequest;
@@ -1477,7 +1477,7 @@ static void musb_pullup(struct musb *musb, int is_on)
 	/* FIXME if on, HdrcStart; if off, HdrcStop */
 
 	DBG(3, "gadget %s D+ pullup %s\n",
-	    musb->pGadgetDriver->function, is_on ? "on" : "off");
+		musb->pGadgetDriver->function, is_on ? "on" : "off");
 	musb_writeb(musb->pRegs, MGC_O_HDRC_POWER, power);
 }
 
@@ -1602,11 +1602,13 @@ static inline void __devinit musb_g_init_endpoints(struct musb *pThis)
 			count++;
 		} else {
 			if (hw_ep->wMaxPacketSizeTx) {
-				init_peripheral_ep(pThis, &hw_ep->ep_in, bEnd, 1);
+				init_peripheral_ep(pThis, &hw_ep->ep_in,
+							bEnd, 1);
 				count++;
 			}
 			if (hw_ep->wMaxPacketSizeRx) {
-				init_peripheral_ep(pThis, &hw_ep->ep_out, bEnd, 0);
+				init_peripheral_ep(pThis, &hw_ep->ep_out,
+							bEnd, 0);
 				count++;
 			}
 		}
@@ -1715,7 +1717,7 @@ int usb_gadget_register_driver(struct usb_gadget_driver *driver)
 		retval = driver->bind(&pThis->g);
 	if (retval != 0) {
 		DBG(3, "bind to driver %s failed --> %d\n",
-		    driver->driver.name, retval);
+			driver->driver.name, retval);
 		pThis->pGadgetDriver = NULL;
 		pThis->g.dev.driver = NULL;
 	}
@@ -1952,7 +1954,7 @@ __acquires(pThis->Lock)
 
 	/* report disconnect, if we didn't already (flushing EP state) */
 	if (pThis->g.speed != USB_SPEED_UNKNOWN)
-		 musb_g_disconnect(pThis);
+		musb_g_disconnect(pThis);
 
 	/* what speed did we negotiate? */
 	power = musb_readb(pBase, MGC_O_HDRC_POWER);
