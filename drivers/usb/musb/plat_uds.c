@@ -1127,6 +1127,10 @@ static int __devinit musb_core_init(u16 wType, struct musb *pThis)
 #ifdef CONFIG_USB_TUSB6010
 		hw_ep->fifo_async = pThis->async + 0x400 + MUSB_FIFO_OFFSET(i);
 		hw_ep->fifo_sync = pThis->sync + 0x400 + MUSB_FIFO_OFFSET(i);
+		if (i == 0)
+			hw_ep->conf = pBase - 0x400 + TUSB_EP0_CONF;
+		else
+			hw_ep->conf = pBase + 0x400 + (((i - 1) & 0xf) << 2);
 #endif
 
 		hw_ep->regs = MGC_END_OFFSET(i, 0) + pBase;

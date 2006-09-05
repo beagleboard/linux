@@ -108,8 +108,7 @@
 #ifdef CONFIG_USB_TUSB6010
 /* TUSB6010 EP0 configuration register is special */
 #define MGC_TUSB_OFFSET(_bEnd, _bOffset)	\
-	(_bEnd ? (0x400 + (((_bEnd - 1) & 0xf) << 2) + (_bOffset)) :	\
-		((_bEnd - 0x400) + TUSB_EP0_CONF + (_bOffset)))
+	(0x10 + _bOffset)
 #include "tusb6010.h"		/* needed "only" for TUSB_EP0_CONF */
 #endif
 

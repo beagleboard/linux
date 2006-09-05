@@ -34,7 +34,7 @@
 
 void musb_write_fifo(struct musb_hw_ep *hw_ep, u16 len, const u8 *buf)
 {
-	void __iomem	*ep_conf = hw_ep->regs;
+	void __iomem	*ep_conf = hw_ep->conf;
 	void __iomem	*fifo = hw_ep->fifo;
 	u8		epnum = hw_ep->bLocalEnd;
 	u8		*bufp = (u8 *)buf;
@@ -90,7 +90,7 @@ void musb_write_fifo(struct musb_hw_ep *hw_ep, u16 len, const u8 *buf)
 
 void musb_read_fifo(struct musb_hw_ep *hw_ep, u16 len, u8 *buf)
 {
-	void __iomem	*ep_conf = hw_ep->regs;
+	void __iomem	*ep_conf = hw_ep->conf;
 	void __iomem	*fifo = hw_ep->fifo;
 	u8		epnum = hw_ep->bLocalEnd;
 	u8		*bufp = (u8 *)buf;

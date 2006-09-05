@@ -329,6 +329,10 @@ struct musb_hw_ep {
 	void __iomem		*fifo;
 	void __iomem		*regs;
 
+#ifdef CONFIG_USB_TUSB6010
+	void __iomem		*conf;
+#endif
+
 	/* index in musb->aLocalEnd[]  */
 	u8			bLocalEnd;
 
