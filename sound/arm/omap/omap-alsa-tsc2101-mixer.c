@@ -728,7 +728,7 @@ static int __handset_playback_switch_put(snd_kcontrol_t *kcontrol, snd_ctl_elem_
 
 static snd_kcontrol_new_t tsc2101_control[] __devinitdata = {
 	{
-		.name  = "Playback Playback Route",
+		.name  = "Target Playback Route",
 		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
 		.index = 0,
 		.access= SNDRV_CTL_ELEM_ACCESS_READWRITE,
@@ -754,7 +754,7 @@ static snd_kcontrol_new_t tsc2101_control[] __devinitdata = {
 	}, {
 		.name  = "Headset Playback Volume",
 		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
-		.index = 1,
+		.index = 0,
 		.access= SNDRV_CTL_ELEM_ACCESS_READWRITE,
 		.info  = __headset_playback_volume_info,
 		.get   = __headset_playback_volume_get,
@@ -762,7 +762,7 @@ static snd_kcontrol_new_t tsc2101_control[] __devinitdata = {
 	}, {
 		.name  = "Headset Playback Switch",
 		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
-		.index = 1,
+		.index = 0,
 		.access= SNDRV_CTL_ELEM_ACCESS_READWRITE,
 		.info  = __headset_playback_switch_info,
 		.get   = __headset_playback_switch_get,
@@ -770,7 +770,7 @@ static snd_kcontrol_new_t tsc2101_control[] __devinitdata = {
 	}, {
 		.name  = "Handset Playback Volume",
 		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
-		.index = 2,
+		.index = 0,
 		.access= SNDRV_CTL_ELEM_ACCESS_READWRITE,
 		.info  = __handset_playback_volume_info,
 		.get   = __handset_playback_volume_get,
@@ -778,7 +778,7 @@ static snd_kcontrol_new_t tsc2101_control[] __devinitdata = {
 	}, {
 		.name  = "Handset Playback Switch",
 		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
-		.index = 2,
+		.index = 0,
 		.access= SNDRV_CTL_ELEM_ACCESS_READWRITE,
 		.info  = __handset_playback_switch_info,
 		.get   = __handset_playback_switch_get,
