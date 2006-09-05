@@ -1,7 +1,6 @@
 #ifndef _LINUX_FB_H
 #define _LINUX_FB_H
 
-#include <linux/backlight.h>
 #include <asm/types.h>
 
 /* Definitions of frame buffers						*/
@@ -382,6 +381,7 @@ struct fb_cursor {
 #include <linux/workqueue.h>
 #include <linux/notifier.h>
 #include <linux/list.h>
+#include <linux/backlight.h>
 #include <asm/io.h>
 
 struct vm_area_struct;
