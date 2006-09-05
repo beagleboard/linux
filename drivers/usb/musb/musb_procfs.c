@@ -277,9 +277,9 @@ dump_end_info(struct musb *pThis, u8 bEnd, char *aBuffer, unsigned max)
 					"\n",
 					bEnd,
 					musb_readw(regs, MGC_O_HDRC_RXCSR),
-					musb_readw(regs, MGC_O_HDRC_RXINTERVAL),
+					musb_readb(regs, MGC_O_HDRC_RXINTERVAL),
 					musb_readw(regs, MGC_O_HDRC_RXMAXP),
-					musb_readw(regs, MGC_O_HDRC_RXTYPE),
+					musb_readb(regs, MGC_O_HDRC_RXTYPE),
 					/* FIXME:  assumes multipoint */
 					musb_readb(pThis->pRegs,
 						MGC_BUSCTL_OFFSET(bEnd,
@@ -362,9 +362,9 @@ dump_end_info(struct musb *pThis, u8 bEnd, char *aBuffer, unsigned max)
 					"\n",
 					bEnd,
 					musb_readw(regs, MGC_O_HDRC_TXCSR),
-					musb_readw(regs, MGC_O_HDRC_TXINTERVAL),
+					musb_readb(regs, MGC_O_HDRC_TXINTERVAL),
 					musb_readw(regs, MGC_O_HDRC_TXMAXP),
-					musb_readw(regs, MGC_O_HDRC_TXTYPE),
+					musb_readb(regs, MGC_O_HDRC_TXTYPE),
 					/* FIXME:  assumes multipoint */
 					musb_readb(pThis->pRegs,
 						MGC_BUSCTL_OFFSET(bEnd,
