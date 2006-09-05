@@ -594,6 +594,36 @@ int menelaus_set_vmmc(unsigned int mV)
 }
 EXPORT_SYMBOL(menelaus_set_vmmc);
 
+
+static const struct menelaus_vtg_value vaux_values[] = {
+	{ 1500, 0 },
+	{ 1800, 1 },
+	{ 2500, 2 },
+	{ 2800, 3 },
+};
+
+static const struct menelaus_vtg vaux_vtg = {
+	.name = "VAUX",
+	.vtg_reg = MENELAUS_LDO_CTRL1,
+	.vtg_shift = 4,
+	.vtg_bits = 2,
+	.mode_reg = MENELAUS_LDO_CTRL6,
+};
+
+int menelaus_set_vaux(unsigned int mV)
+{
+	int val;
+
+	if (mV == 0)
+		return menelaus_set_voltage(&vaux_vtg, 0, 0, 0);
+
+	val = menelaus_get_vtg_value(mV, vaux_values, ARRAY_SIZE(vaux_values));
+	if (val < 0)
+		return -EINVAL;
+	return menelaus_set_voltage(&vaux_vtg, mV, val, 0x02);
+}
+EXPORT_SYMBOL(menelaus_set_vaux);
+
 int menelaus_get_slot_pin_states(void)
 {
 	return menelaus_read_reg(MENELAUS_MCT_PIN_ST);
