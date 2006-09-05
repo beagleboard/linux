@@ -42,6 +42,9 @@ static inline struct omap_pwm_led *cdev_to_omap_pwm_led(struct led_classdev *led
 
 static void omap_pwm_led_set_blink(struct omap_pwm_led *led)
 {
+	if (!led->powered)
+		return;
+
 	if (led->on_period != 0 && led->off_period != 0) {
 		unsigned long load_reg, cmp_reg;
 
@@ -53,7 +56,7 @@ static void omap_pwm_led_set_blink(struct omap_pwm_led *led)
 		omap_dm_timer_set_match(led->blink_timer, 1, -cmp_reg);
 		omap_dm_timer_set_pwm(led->blink_timer, 1, 1,
 				      OMAP_TIMER_TRIGGER_OVERFLOW_AND_COMPARE);
-		omap_dm_timer_write_counter(led->blink_timer, -cmp_reg);
+		omap_dm_timer_write_counter(led->blink_timer, -2);
 		omap_dm_timer_start(led->blink_timer);
 	} else {
 		omap_dm_timer_set_pwm(led->blink_timer, 1, 1,
@@ -69,6 +72,7 @@ static void omap_pwm_led_power_on(struct omap_pwm_led *led)
 	led->powered = 1;
 
 	/* Select clock */
+	omap_dm_timer_enable(led->intensity_timer);
 	omap_dm_timer_set_source(led->intensity_timer, OMAP_TIMER_SRC_32_KHZ);
 
 	/* Turn voltage on */
@@ -77,6 +81,7 @@ static void omap_pwm_led_power_on(struct omap_pwm_led *led)
 
 	/* Enable PWM timers */
 	if (led->blink_timer != NULL) {
+		omap_dm_timer_enable(led->blink_timer);
 		omap_dm_timer_set_source(led->blink_timer,
 					 OMAP_TIMER_SRC_32_KHZ);
 		omap_pwm_led_set_blink(led);
@@ -93,6 +98,13 @@ static void omap_pwm_led_power_off(struct omap_pwm_led *led)
 
 	/* Everything off */
 	omap_dm_timer_stop(led->intensity_timer);
+	omap_dm_timer_disable(led->intensity_timer);
+
+	if (led->blink_timer != NULL) {
+		omap_dm_timer_stop(led->blink_timer);
+		omap_dm_timer_disable(led->blink_timer);
+	}
+
 	if (led->pdata->set_power != NULL)
 		led->pdata->set_power(led->pdata, 0);
 }
@@ -235,6 +247,7 @@ static int omap_pwm_led_probe(struct platform_device *pdev)
 		ret = -ENODEV;
 		goto error_intensity;
 	}
+	omap_dm_timer_disable(led->intensity_timer);
 
 	if (pdata->blink_timer != 0) {
 		led->blink_timer = omap_dm_timer_request_specific(pdata->blink_timer);
@@ -243,6 +256,7 @@ static int omap_pwm_led_probe(struct platform_device *pdev)
 			ret = -ENODEV;
 			goto error_blink;
 		}
+		omap_dm_timer_disable(led->blink_timer);
 
 		class_device_create_file(led->cdev.class_dev,
 					 &class_device_attr_on_period);
