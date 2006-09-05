@@ -32,6 +32,7 @@
 #include <linux/mm.h>
 #include <linux/clk.h>
 #include <linux/mutex.h>
+#include <linux/interrupt.h>
 #include <asm/io.h>
 #include <asm/tlbflush.h>
 #include <asm/irq.h>
