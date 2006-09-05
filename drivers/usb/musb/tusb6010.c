@@ -43,7 +43,8 @@ void musb_write_fifo(struct musb_hw_ep *hw_ep, u16 len, const u8 *buf)
 
 	prefetch(bufp);
 
-	DBG(3, "%cX ep%d count %d bufp %p\n", 'T', epnum, len, bufp);
+	DBG(4, "%cX ep%d fifo %p count %d buf %p\n",
+			'T', epnum, fifo, len, bufp);
 
 	if (epnum)
 		musb_writel(ep_conf, TUSB_EP_TX_OFFSET,
@@ -97,7 +98,8 @@ void musb_read_fifo(struct musb_hw_ep *hw_ep, u16 len, u8 *buf)
 	int		i, remain;
 	u32		val;
 
-	DBG(3, "%cX ep%d count %d buf %p\n", 'R', epnum, len, bufp);
+	DBG(4, "%cX ep%d fifo %p count %d buf %p\n",
+			'R', epnum, fifo, len, bufp);
 
 	if (epnum)
 		musb_writel(ep_conf, TUSB_EP_RX_OFFSET,

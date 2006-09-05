@@ -225,10 +225,10 @@
 /* configuration parameters specific to this silicon */
 
 /* Number of Tx endpoints. Legal values are 1 - 16 (this value includes EP0) */
-#define MUSB_C_NUM_EPT 5
+#define MUSB_C_NUM_EPT 16
 
 /* Number of Rx endpoints. Legal values are 1 - 16 (this value includes EP0) */
-#define MUSB_C_NUM_EPR 5
+#define MUSB_C_NUM_EPR 16
 
 /* Endpoint 1 to 15 direction types. C_EP1_DEF is defined if either Tx endpoint
  * 1 or Rx endpoint 1 are used.
@@ -383,7 +383,7 @@
  * addresses).  It is defined as log2 of the sum of 2** of all the endpoint FIFO
  * dword address bits (rounded up).
  */
-#define MUSB_C_RAM_BITS 10
+#define MUSB_C_RAM_BITS 12
 
 #endif /* CONFIG_USB_TUSB6010 */
 

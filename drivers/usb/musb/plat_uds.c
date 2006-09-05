@@ -950,6 +950,11 @@ static int __devinit ep_config_from_table(struct musb *musb)
 		musb->bEndCount = max(epn, musb->bEndCount);
 	}
 
+	printk(KERN_DEBUG "%s: %d/%d max ep, %d/%d memory\n",
+			musb_driver_name,
+			musb->bEndCount, MUSB_C_NUM_EPS * 2 - 1,
+			offset, DYN_FIFO_SIZE);
+
 #ifdef CONFIG_USB_MUSB_HDRC_HCD
 	if (!musb->bulk_ep) {
 		pr_debug( "%s: missing bulk\n", musb_driver_name);

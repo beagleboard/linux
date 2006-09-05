@@ -1614,7 +1614,7 @@ static inline void __devinit musb_g_init_endpoints(struct musb *pThis)
 		}
 	}
 	DBG(2, "initialized %d (max %d) endpoints\n", count,
-			pThis->bEndCount * 2 - 1);
+			MUSB_C_NUM_EPS * 2 - 1);
 }
 
 /* called once during driver setup to initialize and link into
