@@ -381,7 +381,7 @@ int tsc2101_get_default_samplerate(void)
 	return DEFAULT_SAMPLE_RATE;
 }
 
-static int __init snd_omap_alsa_tsc2101_probe(struct platform_device *pdev)
+static int __devinit snd_omap_alsa_tsc2101_probe(struct platform_device *pdev)
 {
 	int	ret;
 	struct	omap_alsa_codec_config *codec_cfg;
