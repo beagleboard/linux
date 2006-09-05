@@ -56,9 +56,10 @@
 #define INPUT_VOLUME_MAX		0x7D
 #define INPUT_VOLUME_RANGE		(INPUT_VOLUME_MAX - INPUT_VOLUME_MIN)
 
-#define PLAYBACK_TARGET_COUNT		0x02
+#define PLAYBACK_TARGET_COUNT		0x03
 #define PLAYBACK_TARGET_LOUDSPEAKER	0x00
 #define PLAYBACK_TARGET_HEADPHONE	0x01
+#define PLAYBACK_TARGET_CELLPHONE	0x02
 
 /* following are used for register 03h Mixer PGA control bits D7-D5 for selecting record source */
 #define REC_SRC_TARGET_COUNT		0x08
