@@ -1163,8 +1163,9 @@ static int __init mmc_omap_probe(struct platform_device *pdev)
 
 	mmc_add_host(mmc);
 
-no_switch:
 	return 0;
+
+no_switch:
 	/* FIXME: Free other resources too. */
 	if (host) {
 		if (host->iclk && !IS_ERR(host->iclk))
