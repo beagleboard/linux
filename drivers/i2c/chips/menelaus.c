@@ -451,6 +451,10 @@ set_voltage:
 	ret = menelaus_write_reg(vtg->mode_reg, mode);
 out:
 	mutex_unlock(&menelaus.lock);
+	if (ret == 0) {
+		/* Wait for voltage to stabilize */
+		msleep(1);
+	}
 	return ret;
 }
 
