@@ -29,6 +29,7 @@ config FB_OMAP_MANUAL_UPDATE
 
 config FB_OMAP_LCD_MIPID
 	bool "MIPI DBI-C/DCS compatible LCD support"
+	select SPI
 	depends on FB_OMAP
 	help
 	  Say Y here if you want to have support for LCDs compatible with
