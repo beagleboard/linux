@@ -71,14 +71,23 @@
 /* Additional Control Registers */
 
 #define MGC_O_HDRC_DEVCTL	0x60	/* 8 bit */
-// vctrl/vstatus:  optional vendor utmi+phy register at 0x68
-#define MGC_O_HDRC_HWVERS	0x6C	/* 8 bit */
 
 /* These are always controlled through the INDEX register */
 #define MGC_O_HDRC_TXFIFOSZ	0x62	/* 8-bit (see masks) */
 #define MGC_O_HDRC_RXFIFOSZ	0x63	/* 8-bit (see masks) */
 #define MGC_O_HDRC_TXFIFOADD	0x64	/* 16-bit offset shifted right 3 */
 #define MGC_O_HDRC_RXFIFOADD	0x66	/* 16-bit offset shifted right 3 */
+
+// vctrl/vstatus:  optional vendor utmi+phy register at 0x68
+#define MGC_O_HDRC_HWVERS	0x6C	/* 8 bit */
+
+#define MGC_O_HDRC_EPINFO	0x78	/* 8 bit */
+#define MGC_O_HDRC_RAMINFO	0x79	/* 8 bit */
+#define MGC_O_HDRC_LINKINFO	0x7a	/* 8 bit */
+#define MGC_O_HDRC_VPLEN	0x7b	/* 8 bit */
+#define MGC_O_HDRC_HS_EOF1	0x7c	/* 8 bit */
+#define MGC_O_HDRC_FS_EOF1	0x7d	/* 8 bit */
+#define MGC_O_HDRC_LS_EOF1	0x7e	/* 8 bit */
 
 /* offsets to endpoint registers */
 #define MGC_O_HDRC_TXMAXP	0x00
@@ -112,7 +121,7 @@
 #include "tusb6010.h"		/* needed "only" for TUSB_EP0_CONF */
 #endif
 
-/* "bus control" registers */
+/* "bus control"/target registers, for host side multipoint (external hubs) */
 #define MGC_O_HDRC_TXFUNCADDR	0x00
 #define MGC_O_HDRC_TXHUBADDR	0x02
 #define MGC_O_HDRC_TXHUBPORT	0x03
@@ -149,7 +158,6 @@
 #define MGC_M_INTR_DISCONNECT 0x20
 #define MGC_M_INTR_SESSREQ    0x40
 #define MGC_M_INTR_VBUSERROR  0x80	/* FOR SESSION END */
-#define MGC_M_INTR_EP0      0x01	/* FOR EP0 INTERRUPT */
 
 /* DEVCTL */
 #define MGC_M_DEVCTL_BDEVICE    0x80
@@ -191,6 +199,7 @@
 #define MGC_M_CSR0_P_SENTSTALL    0x0004
 
 /* CSR0 in Host mode */
+#define MGC_M_CSR0_H_DIS_PING	0x0800
 #define MGC_M_CSR0_H_WR_DATATOGGLE   0x0400	/* set to allow setting: */
 #define MGC_M_CSR0_H_DATATOGGLE	    0x0200	/* data toggle control */
 #define MGC_M_CSR0_H_NAKTIMEOUT   0x0080
@@ -214,9 +223,9 @@
 #define MGC_TYPE_SPEED_HIGH	1
 #define MGC_TYPE_SPEED_FULL	2
 #define MGC_TYPE_SPEED_LOW	3
-#define MGC_M_TYPE_PROTO	0x30
+#define MGC_M_TYPE_PROTO	0x30	/* implicitly zero for ep0 */
 #define MGC_S_TYPE_PROTO	4
-#define MGC_M_TYPE_REMOTE_END	0xf
+#define MGC_M_TYPE_REMOTE_END	0xf	/* implicitly zero for ep0 */
 
 /* CONFIGDATA */
 
@@ -271,6 +280,7 @@
 #define MGC_M_RXCSR_AUTOCLEAR     0x8000
 #define MGC_M_RXCSR_DMAENAB       0x2000
 #define MGC_M_RXCSR_DISNYET       0x1000
+#define MGC_M_RXCSR_PID_ERR       0x1000
 #define MGC_M_RXCSR_DMAMODE       0x0800
 #define MGC_M_RXCSR_INCOMPRX      0x0100
 #define MGC_M_RXCSR_CLRDATATOG    0x0080

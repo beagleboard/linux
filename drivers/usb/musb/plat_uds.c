@@ -387,7 +387,10 @@ static irqreturn_t musb_stage0_irq(struct musb * pThis, u8 bIntrUSB,
 
 		if (devctl & MGC_M_DEVCTL_HM) {
 #ifdef CONFIG_USB_MUSB_HDRC_HCD
-			/* REVISIT:  this is where SRP kicks in, yes? */
+			/* REVISIT:  this is where SRP kicks in, yes?
+			 * host responsibility should be to CLEAR the
+			 * resume signaling after 50 msec ...
+			 */
 			MUSB_HST_MODE(pThis);	/* unnecessary */
 			power &= ~MGC_M_POWER_SUSPENDM;
 			musb_writeb(pBase, MGC_O_HDRC_POWER,

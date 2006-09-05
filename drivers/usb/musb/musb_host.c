@@ -717,7 +717,11 @@ static void musb_ep_program(struct musb *pThis, u8 bEnd,
 		if (bEnd) {
 			u16	csr = wCsr;
 
+			/* ASSERT:  TXCSR_DMAENAB was already cleared */
+
 			/* flush all old state, set default */
+			if (csr & MGC_M_TXCSR_FIFONOTEMPTY)
+				csr |= MGC_M_TXCSR_FLUSHFIFO;
 			csr &= ~(MGC_M_TXCSR_H_NAKTIMEOUT
 					| MGC_M_TXCSR_DMAMODE
 					| MGC_M_TXCSR_FRCDATATOG
@@ -727,8 +731,7 @@ static void musb_ep_program(struct musb *pThis, u8 bEnd,
 					| MGC_M_TXCSR_FIFONOTEMPTY
 					| MGC_M_TXCSR_TXPKTRDY
 					);
-			csr |= MGC_M_TXCSR_FLUSHFIFO
-					| MGC_M_TXCSR_MODE;
+			csr |= MGC_M_TXCSR_MODE;
 
 			if (qh->type == USB_ENDPOINT_XFER_ISOC)
 				csr |= MGC_M_TXCSR_ISO;
@@ -742,6 +745,7 @@ static void musb_ep_program(struct musb *pThis, u8 bEnd,
 			/* twice in case of double packet buffering */
 			MGC_WriteCsr16(pBase, MGC_O_HDRC_TXCSR, bEnd,
 					csr);
+			/* REVISIT may need to clear FLUSHFIFO ... */
 			MGC_WriteCsr16(pBase, MGC_O_HDRC_TXCSR, bEnd,
 					csr);
 			wCsr = MGC_ReadCsr16(pBase, MGC_O_HDRC_TXCSR,
@@ -765,6 +769,7 @@ static void musb_ep_program(struct musb *pThis, u8 bEnd,
 			musb_writeb(pBase,
 				MGC_BUSCTL_OFFSET(bEnd, MGC_O_HDRC_TXHUBPORT),
 				qh->h_port_reg);
+/* FIXME if !bEnd, do the same for RX ... */
 		} else
 			musb_writeb(pBase, MGC_O_HDRC_FADDR, qh->addr_reg);
 
@@ -884,6 +889,8 @@ static void musb_ep_program(struct musb *pThis, u8 bEnd,
 		}
 #endif
 		if (wLoadCount) {
+			/* ASSERT:  TXCSR_DMAENAB was already cleared */
+
 			/* PIO to load FIFO */
 			qh->segsize = wLoadCount;
 			musb_write_fifo(pEnd, wLoadCount, pBuffer);
@@ -1223,13 +1230,15 @@ void musb_host_tx(struct musb *pThis, u8 bEnd)
 
 	/* check for errors */
 	if (wTxCsrVal & MGC_M_TXCSR_H_RXSTALL) {
+		/* dma was disabled, fifo flushed */
 		DBG(3, "TX end %d stall\n", bEnd);
 
 		/* stall; record URB status */
 		status = -EPIPE;
 
 	} else if (wTxCsrVal & MGC_M_TXCSR_H_ERROR) {
-		DBG(3, "TX data error on ep=%d\n", bEnd);
+		/* (NON-ISO) dma was disabled, fifo flushed */
+		DBG(3, "TX 3strikes on ep=%d\n", bEnd);
 
 		status = -ETIMEDOUT;
 
@@ -1260,6 +1269,8 @@ void musb_host_tx(struct musb *pThis, u8 bEnd)
 		 * usb core; the dma engine should already be stopped.
 		 */
 // SCRUB (TX)
+		if (wTxCsrVal & MGC_M_TXCSR_FIFONOTEMPTY)
+			wTxCsrVal |= MGC_M_TXCSR_FLUSHFIFO;
 		wTxCsrVal &= ~(MGC_M_TXCSR_FIFONOTEMPTY
 				| MGC_M_TXCSR_AUTOSET
 				| MGC_M_TXCSR_DMAENAB
@@ -1267,10 +1278,10 @@ void musb_host_tx(struct musb *pThis, u8 bEnd)
 				| MGC_M_TXCSR_H_RXSTALL
 				| MGC_M_TXCSR_H_NAKTIMEOUT
 				);
-		wTxCsrVal |= MGC_M_TXCSR_FLUSHFIFO;
 
 		MGC_SelectEnd(pBase, bEnd);
 		MGC_WriteCsr16(pBase, MGC_O_HDRC_TXCSR, bEnd, wTxCsrVal);
+		/* REVISIT may need to clear FLUSHFIFO ... */
 		MGC_WriteCsr16(pBase, MGC_O_HDRC_TXCSR, bEnd, wTxCsrVal);
 		MGC_WriteCsr8(pBase, MGC_O_HDRC_TXINTERVAL, bEnd, 0);
 
@@ -1977,6 +1988,8 @@ static int musb_cleanup_urb(struct urb *urb, struct musb_qh *qh, int is_in)
 	} else {
 // SCRUB (TX)
 		csr = MGC_ReadCsr16(regs, MGC_O_HDRC_TXCSR, hw_end);
+		if (csr & MGC_M_TXCSR_FIFONOTEMPTY)
+			csr |= MGC_M_TXCSR_FLUSHFIFO;
 		csr &= ~( MGC_M_TXCSR_AUTOSET
 			| MGC_M_TXCSR_DMAENAB
 			| MGC_M_TXCSR_H_RXSTALL
@@ -1984,8 +1997,8 @@ static int musb_cleanup_urb(struct urb *urb, struct musb_qh *qh, int is_in)
 			| MGC_M_TXCSR_H_ERROR
 			| MGC_M_TXCSR_FIFONOTEMPTY
 			);
-		csr |= MGC_M_TXCSR_FLUSHFIFO;
 		MGC_WriteCsr16(regs, MGC_O_HDRC_TXCSR, 0, csr);
+		/* REVISIT may need to clear FLUSHFIFO ... */
 		MGC_WriteCsr16(regs, MGC_O_HDRC_TXCSR, 0, csr);
 		/* flush cpu writebuffer */
 		csr = MGC_ReadCsr16(regs, MGC_O_HDRC_TXCSR, hw_end);

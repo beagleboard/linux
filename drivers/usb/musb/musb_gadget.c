@@ -297,11 +297,12 @@ static void txstate(struct musb *pThis, struct musb_request *req)
 					pRequest->dma, request_size);
 			if (use_dma) {
 				if (pEnd->dma->bDesiredMode == 0) {
+					/* ASSERT: DMAENAB is clear */
 					wCsrVal &= ~(MGC_M_TXCSR_AUTOSET |
 							MGC_M_TXCSR_DMAMODE);
 					wCsrVal |= (MGC_M_TXCSR_DMAENAB |
 							MGC_M_TXCSR_MODE);
-						// against programming guide
+					// against programming guide
 				}
 				else
 					wCsrVal |= (MGC_M_TXCSR_AUTOSET
@@ -347,6 +348,7 @@ static void txstate(struct musb *pThis, struct musb_request *req)
 		if (!use_dma) {
 			c->channel_release(pEnd->dma);
 			pEnd->dma = NULL;
+			/* ASSERT: DMAENAB clear */
 			wCsrVal &= ~(MGC_M_TXCSR_DMAMODE | MGC_M_TXCSR_MODE);
 			/* invariant: prequest->buf is non-null */
 		}
@@ -837,8 +839,10 @@ done:
 static int musb_gadget_enable(struct usb_ep *ep,
 			const struct usb_endpoint_descriptor *desc)
 {
-	unsigned long flags;
-	struct musb_ep	*pEnd;
+	unsigned long		flags;
+	struct musb_ep		*pEnd;
+	struct musb_hw_ep	*hw_ep;
+	void __iomem		*regs;
 	struct musb	*pThis;
 	void __iomem	*pBase;
 	u8		bEnd;
@@ -850,6 +854,8 @@ static int musb_gadget_enable(struct usb_ep *ep,
 		return -EINVAL;
 
 	pEnd = to_musb_ep(ep);
+	hw_ep = pEnd->hw_ep;
+	regs = hw_ep->regs;
 	pThis = pEnd->pThis;
 	pBase = pThis->pRegs;
 	bEnd = pEnd->bEndNumber;
@@ -879,11 +885,11 @@ static int musb_gadget_enable(struct usb_ep *ep,
 	if (desc->bEndpointAddress & USB_DIR_IN) {
 		u16 wIntrTxE = musb_readw(pBase, MGC_O_HDRC_INTRTXE);
 
-		if (pEnd->hw_ep->bIsSharedFifo)
+		if (hw_ep->bIsSharedFifo)
 			pEnd->is_in = 1;
 		if (!pEnd->is_in)
 			goto fail;
-		if (tmp > pEnd->hw_ep->wMaxPacketSizeTx)
+		if (tmp > hw_ep->wMaxPacketSizeTx)
 			goto fail;
 
 		wIntrTxE |= (1 << bEnd);
@@ -892,25 +898,28 @@ static int musb_gadget_enable(struct usb_ep *ep,
 		/* REVISIT if can_bulk_split(), use by updating "tmp";
 		 * likewise high bandwidth periodic tx
 		 */
-		MGC_WriteCsr16(pBase, MGC_O_HDRC_TXMAXP, bEnd, tmp);
+		musb_writew(regs, MGC_O_HDRC_TXMAXP, tmp);
 
-		csr = MGC_M_TXCSR_MODE | MGC_M_TXCSR_CLRDATATOG
-				| MGC_M_TXCSR_FLUSHFIFO;
+		csr = MGC_M_TXCSR_MODE | MGC_M_TXCSR_CLRDATATOG;
+		if (musb_readw(regs, MGC_O_HDRC_TXCSR)
+				& MGC_M_TXCSR_FIFONOTEMPTY)
+			csr |= MGC_M_TXCSR_FLUSHFIFO;
 		if (pEnd->type == USB_ENDPOINT_XFER_ISOC)
 			csr |= MGC_M_TXCSR_P_ISO;
 
 		/* set twice in case of double buffering */
-		MGC_WriteCsr16(pBase, MGC_O_HDRC_TXCSR, bEnd, csr);
-		MGC_WriteCsr16(pBase, MGC_O_HDRC_TXCSR, bEnd, csr);
+		musb_writew(regs, MGC_O_HDRC_TXCSR, csr);
+		/* REVISIT may be inappropriate w/o FIFONOTEMPTY ... */
+		musb_writew(regs, MGC_O_HDRC_TXCSR, csr);
 
 	} else {
 		u16 wIntrRxE = musb_readw(pBase, MGC_O_HDRC_INTRRXE);
 
-		if (pEnd->hw_ep->bIsSharedFifo)
+		if (hw_ep->bIsSharedFifo)
 			pEnd->is_in = 0;
 		if (pEnd->is_in)
 			goto fail;
-		if (tmp > pEnd->hw_ep->wMaxPacketSizeRx)
+		if (tmp > hw_ep->wMaxPacketSizeRx)
 			goto fail;
 
 		wIntrRxE |= (1 << bEnd);
@@ -922,7 +931,7 @@ static int musb_gadget_enable(struct usb_ep *ep,
 		MGC_WriteCsr16(pBase, MGC_O_HDRC_RXMAXP, bEnd, tmp);
 
 		/* force shared fifo to OUT-only mode */
-		if (pEnd->hw_ep->bIsSharedFifo) {
+		if (hw_ep->bIsSharedFifo) {
 			csr = musb_readw(pBase, MGC_O_HDRC_TXCSR);
 			csr &= ~(MGC_M_TXCSR_MODE | MGC_M_TXCSR_TXPKTRDY);
 			MGC_WriteCsr16(pBase, MGC_O_HDRC_TXCSR, bEnd, csr);
@@ -945,7 +954,7 @@ static int musb_gadget_enable(struct usb_ep *ep,
 	if (is_dma_capable() && pThis->pDmaController) {
 		struct dma_controller	*c = pThis->pDmaController;
 
-		pEnd->dma = c->channel_alloc(c, pEnd->hw_ep,
+		pEnd->dma = c->channel_alloc(c, hw_ep,
 				(desc->bEndpointAddress & USB_DIR_IN));
 	} else
 		pEnd->dma = NULL;
@@ -1292,9 +1301,10 @@ int musb_gadget_set_halt(struct usb_ep *ep, int value)
 	DBG(2, "%s: %s stall\n", ep->name, value ? "set" : "clear");
 	if (pEnd->is_in) {
 		wCsr = MGC_ReadCsr16(pBase, MGC_O_HDRC_TXCSR, bEnd);
+		if (wCsr & MGC_M_TXCSR_FIFONOTEMPTY)
+			wCsr |= MGC_M_TXCSR_FLUSHFIFO;
 		wCsr |= MGC_M_TXCSR_P_WZC_BITS
-			| MGC_M_TXCSR_CLRDATATOG
-			| MGC_M_TXCSR_FLUSHFIFO;
+			| MGC_M_TXCSR_CLRDATATOG;
 		if (value)
 			wCsr |= MGC_M_TXCSR_P_SENDSTALL;
 		else
@@ -1371,9 +1381,12 @@ static void musb_gadget_fifo_flush(struct usb_ep *ep)
 
 	if (musb_ep->is_in) {
 		wCsr = MGC_ReadCsr16(mbase, MGC_O_HDRC_TXCSR, nEnd);
-		wCsr |= MGC_M_TXCSR_FLUSHFIFO | MGC_M_TXCSR_P_WZC_BITS;
-		MGC_WriteCsr16(mbase, MGC_O_HDRC_TXCSR, nEnd, wCsr);
-		MGC_WriteCsr16(mbase, MGC_O_HDRC_TXCSR, nEnd, wCsr);
+		if (wCsr & MGC_M_TXCSR_FIFONOTEMPTY) {
+			wCsr |= MGC_M_TXCSR_FLUSHFIFO | MGC_M_TXCSR_P_WZC_BITS;
+			MGC_WriteCsr16(mbase, MGC_O_HDRC_TXCSR, nEnd, wCsr);
+			/* REVISIT may be inappropriate w/o FIFONOTEMPTY ... */
+			MGC_WriteCsr16(mbase, MGC_O_HDRC_TXCSR, nEnd, wCsr);
+		}
 	} else {
 		wCsr = MGC_ReadCsr16(mbase, MGC_O_HDRC_RXCSR, nEnd);
 		wCsr |= MGC_M_RXCSR_FLUSHFIFO | MGC_M_RXCSR_P_WZC_BITS;
@@ -1413,17 +1426,21 @@ static int musb_gadget_wakeup(struct usb_gadget *gadget)
 {
 	struct musb	*musb = gadget_to_musb(gadget);
 	unsigned long	flags;
-	int		status = 0;
+	int		status = -EINVAL;
 	u8		power;
 
 	spin_lock_irqsave(&musb->Lock, flags);
 
+	/* fail if we're not suspended */
+	power = musb_readb(musb->pRegs, MGC_O_HDRC_POWER);
+	if (!(power & MGC_M_POWER_SUSPENDM))
+		goto done;
+
 	switch (musb->xceiv.state) {
 	case OTG_STATE_B_PERIPHERAL:
-		/* FIXME if not suspended, fail */
 		if (musb->bMayWakeup)
 			break;
-		goto fail;
+		goto done;
 	case OTG_STATE_B_IDLE:
 		/* REVISIT we might be able to do SRP even without OTG,
 		 * though Linux doesn't yet expose that capability
@@ -1434,12 +1451,10 @@ static int musb_gadget_wakeup(struct usb_gadget *gadget)
 		}
 		/* FALLTHROUGH */
 	default:
-fail:
-		status = -EINVAL;
 		goto done;
 	}
 
-	power = musb_readb(musb->pRegs, MGC_O_HDRC_POWER);
+	status = 0;
 	power |= MGC_M_POWER_RESUME;
 	musb_writeb(musb->pRegs, MGC_O_HDRC_POWER, power);
 

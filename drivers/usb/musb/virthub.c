@@ -60,7 +60,6 @@ static void musb_port_suspend(struct musb *musb, u8 bSuspend)
 		musb->port1_status |= USB_PORT_STAT_SUSPEND;
 	} else if (power & MGC_M_POWER_SUSPENDM) {
 		DBG(3, "Root port resumed\n");
-		power &= ~(MGC_M_POWER_SUSPENDM | MGC_M_POWER_RESUME);
 		musb_writeb(pBase, MGC_O_HDRC_POWER,
 				power | MGC_M_POWER_RESUME);
 

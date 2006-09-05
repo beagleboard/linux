@@ -387,9 +387,10 @@ stall:
 				if (is_in) {
 					csr = musb_readw(regs,
 							MGC_O_HDRC_TXCSR);
+					if (csr & MGC_M_TXCSR_FIFONOTEMPTY)
+						csr |= MGC_M_TXCSR_FLUSHFIFO;
 					csr |= MGC_M_TXCSR_P_SENDSTALL
 						| MGC_M_TXCSR_CLRDATATOG
-						| MGC_M_TXCSR_FLUSHFIFO
 						| MGC_M_TXCSR_P_WZC_BITS;
 					musb_writew(regs, MGC_O_HDRC_TXCSR,
 							csr);
