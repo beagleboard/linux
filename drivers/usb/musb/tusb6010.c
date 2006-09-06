@@ -318,8 +318,8 @@ tusb_otg_ints(struct musb *musb, u32 int_src, void __iomem *base)
 			}
 			DBG(1, "%s\n", musb->is_active
 					? "b_peripheral" : "b_idle");
-			musb->status |= MUSB_VBUS_STATUS_CHG;
-			schedule_work(&musb->irq_work);
+
+			sysfs_notify(&musb->controller->kobj, NULL, "cable");
 		}
 	}
 
@@ -355,8 +355,8 @@ irqreturn_t tusb_interrupt(int irq, void *__hci, struct pt_regs *r)
 
 		musb_writel(base, TUSB_PRCM_WAKEUP_CLEAR, reg);
 		if (reg & ~TUSB_PRCM_WNORCS) {
-			schedule_work(&musb->irq_work);
 			musb->is_active = 1;
+			sysfs_notify(&musb->controller->kobj, NULL, "cable");
 		}
 		DBG(3, "wake %sactive %02x\n",
 				musb->is_active ? "" : "in", reg);

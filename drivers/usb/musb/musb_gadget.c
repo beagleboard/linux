@@ -973,8 +973,7 @@ static int musb_gadget_enable(struct usb_ep *ep,
 			pEnd->dma ? "dma, " : "",
 			pEnd->wPacketSize);
 
-	pThis->status |= MUSB_VBUS_STATUS_CHG;
-	schedule_work(&pThis->irq_work);
+	sysfs_notify(&pThis->controller->kobj, NULL, "cable");
 
 fail:
 	spin_unlock_irqrestore(&pThis->Lock, flags);
@@ -1017,8 +1016,7 @@ static int musb_gadget_disable(struct usb_ep *ep)
 	/* abort all pending DMA and requests */
 	nuke(pEnd, -ESHUTDOWN);
 
-	pThis->status |= MUSB_VBUS_STATUS_CHG;	/* FIXME not for ep_disable!! */
-	schedule_work(&pThis->irq_work);
+	sysfs_notify(&pThis->controller->kobj, NULL, "cable");
 
 	spin_unlock_irqrestore(&(pThis->Lock), flags);
 

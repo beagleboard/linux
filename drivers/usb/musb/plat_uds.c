@@ -529,6 +529,8 @@ static irqreturn_t musb_stage0_irq(struct musb * pThis, u8 bIntrUSB,
 			otg_input_changed(pThis, devctl, TRUE, FALSE,
 						(power & MGC_M_POWER_SUSPENDM)
 						? TRUE : FALSE);
+
+			sysfs_notify(&pThis->controller->kobj, NULL, "cable");
 		}
 
 		handled = IRQ_HANDLED;
@@ -612,6 +614,8 @@ static irqreturn_t musb_stage2_irq(struct musb * pThis, u8 bIntrUSB,
 
 		/* REVISIT all OTG state machine transitions */
 		otg_input_changed_X(pThis, FALSE, FALSE);
+
+		sysfs_notify(&pThis->controller->kobj, NULL, "cable");
 	}
 
 	if (bIntrUSB & MGC_M_INTR_SUSPEND) {
@@ -1457,24 +1461,6 @@ static DEVICE_ATTR(cable, S_IRUGO, musb_cable_show, NULL);
 
 #endif
 
-static void musb_irq_work(void *data)
-{
-	struct musb *musb = (struct musb *)data;
-	unsigned long flags;
-	u8 event = 0;
-	spin_lock_irqsave(&musb->Lock, flags);
-	if (musb->status & MUSB_VBUS_STATUS_CHG) {
-		musb->status &= ~MUSB_VBUS_STATUS_CHG;
-		event = 1;
-	}
-	spin_unlock_irqrestore(&musb->Lock, flags);
-
-#ifdef CONFIG_SYSFS
-	if (event)
-		sysfs_notify(&musb->controller->kobj, NULL, "cable");
-#endif
-}
-
 /* --------------------------------------------------------------------------
  * Init support
  */
@@ -1745,8 +1731,6 @@ fail:
 		musb_free(pThis);
 		return status;
 	}
-
-	INIT_WORK(&pThis->irq_work, musb_irq_work, pThis);
 
 #ifdef CONFIG_SYSFS
 	device_create_file(dev, &dev_attr_mode);
