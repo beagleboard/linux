@@ -212,6 +212,7 @@ static void otg_timeout(unsigned long ptr)
 	default:
 		WARN("timeout in state %d, now what?\n", pMachine->bState);
 	}
+	musb_platform_try_idle(musb);
 	spin_unlock_irqrestore(&musb->Lock, flags);
 }
 

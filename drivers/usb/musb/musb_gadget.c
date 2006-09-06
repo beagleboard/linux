@@ -508,7 +508,6 @@ void musb_g_tx(struct musb *pThis, u8 bEnd)
 				if (!pRequest) {
 					DBG(4, "%s idle now\n",
 							pEnd->end_point.name);
-					musb_platform_try_idle(pThis);
 					break;
 				}
 			}
@@ -974,8 +973,7 @@ static int musb_gadget_enable(struct usb_ep *ep,
 			pEnd->dma ? "dma, " : "",
 			pEnd->wPacketSize);
 
-	pThis->status |= MUSB_VBUS_STATUS_CHG;
-	schedule_work(&pThis->irq_work);
+	sysfs_notify(&pThis->controller->kobj, NULL, "cable");
 
 fail:
 	spin_unlock_irqrestore(&pThis->Lock, flags);
@@ -1018,8 +1016,7 @@ static int musb_gadget_disable(struct usb_ep *ep)
 	/* abort all pending DMA and requests */
 	nuke(pEnd, -ESHUTDOWN);
 
-	pThis->status |= MUSB_VBUS_STATUS_CHG;	/* FIXME not for ep_disable!! */
-	schedule_work(&pThis->irq_work);
+	sysfs_notify(&pThis->controller->kobj, NULL, "cable");
 
 	spin_unlock_irqrestore(&(pThis->Lock), flags);
 
@@ -1664,6 +1661,9 @@ int __devinit musb_gadget_setup(struct musb *pThis)
 
 	musb_g_init_endpoints(pThis);
 
+	pThis->is_active = 0;
+	musb_platform_try_idle(pThis);
+
 	status = device_register(&pThis->g.dev);
 	if (status != 0)
 		the_gadget = NULL;
@@ -1746,6 +1746,7 @@ int usb_gadget_register_driver(struct usb_gadget_driver *driver)
 		 */
 		pThis->xceiv.gadget = &pThis->g;
 		pThis->xceiv.state = OTG_STATE_B_IDLE;
+		pThis->is_active = 1;
 
 		/* FIXME this ignores the softconnect flag.  Drivers are
 		 * allowed hold the peripheral inactive until for example
@@ -1857,6 +1858,7 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 		musb->pGadgetDriver = NULL;
 		musb->g.dev.driver = NULL;
 
+		musb->is_active = 0;
 		musb_platform_try_idle(musb);
 	} else
 		retval = -EINVAL;
@@ -1944,6 +1946,8 @@ void musb_g_disconnect(struct musb *pThis)
 	case OTG_STATE_B_SRP_INIT:
 		break;
 	}
+
+	pThis->is_active = 0;
 }
 
 void musb_g_reset(struct musb *pThis)
@@ -1977,6 +1981,7 @@ __acquires(pThis->Lock)
 			? USB_SPEED_HIGH : USB_SPEED_FULL;
 
 	/* start in USB_STATE_DEFAULT */
+	pThis->is_active = 1;
 	MUSB_DEV_MODE(pThis);
 	pThis->bAddress = 0;
 	pThis->ep0_state = MGC_END0_STAGE_SETUP;

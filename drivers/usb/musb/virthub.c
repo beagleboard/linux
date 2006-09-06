@@ -58,11 +58,15 @@ static void musb_port_suspend(struct musb *musb, u8 bSuspend)
 		musb_writeb(pBase, MGC_O_HDRC_POWER,
 				power | MGC_M_POWER_SUSPENDM);
 		musb->port1_status |= USB_PORT_STAT_SUSPEND;
+		musb->is_active = is_otg_enabled(musb)
+				&& musb->xceiv.host->b_hnp_enable;
+		musb_platform_try_idle(musb);
 	} else if (power & MGC_M_POWER_SUSPENDM) {
 		DBG(3, "Root port resumed\n");
 		musb_writeb(pBase, MGC_O_HDRC_POWER,
 				power | MGC_M_POWER_RESUME);
 
+		musb->is_active = 1;
 		musb_writeb(pBase, MGC_O_HDRC_POWER, power);
 		musb->port1_status &= ~USB_PORT_STAT_SUSPEND;
 		musb->port1_status |= USB_PORT_STAT_C_SUSPEND << 16;
@@ -134,6 +138,7 @@ void musb_root_disconnect(struct musb *musb)
 		);
 	musb->port1_status |= USB_PORT_STAT_C_CONNECTION << 16;
 	usb_hcd_poll_rh_status(musb_to_hcd(musb));
+	musb->is_active = 0;
 
 	switch (musb->xceiv.state) {
 	case OTG_STATE_A_HOST:

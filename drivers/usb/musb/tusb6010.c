@@ -145,6 +145,10 @@ void musb_read_fifo(struct musb_hw_ep *hw_ep, u16 len, u8 *buf)
 
 /*
  * Enables TUSB6010 to use VBUS as power source in peripheral mode.
+ * In host mode, a local battery must power the TUSB chip as well as
+ * (through the charge pump) VBUS.  For OTG peripherals, the battery
+ * must power the chip until it enters a confguration that's allowed
+ * to draw enough current (call it 100mA).
  */
 static inline void tusb_enable_vbus_charge(struct musb *musb)
 {
@@ -159,21 +163,29 @@ static inline void tusb_enable_vbus_charge(struct musb *musb)
 }
 
 /*
- * Idles TUSB6010 until next wake-up event interrupt. Use all wake-up
- * events for now. Note that TUSB will not respond if NOR chip select
- * wake-up event is masked. Also note that any access to TUSB will wake
- * it up from idle.
+ * Idle TUSB6010 until next wake-up event; NOR access always wakes.
+ * Other code ensures that we idle unless we're connected _and_ the
+ * USB link is not suspended ... and tells us the relevant wakeup
+ * events.
  */
-static inline void tusb_allow_idle(struct musb *musb, int wakeup_mask)
+static inline void tusb_allow_idle(struct musb *musb, u32 wakeup_enables)
 {
 	void __iomem	*base = musb->ctrl_base;
 	u32		reg;
 
-	musb_writel(base, TUSB_PRCM_WAKEUP_MASK, wakeup_mask);
+	wakeup_enables |= TUSB_PRCM_WNORCS;
+	musb_writel(base, TUSB_PRCM_WAKEUP_MASK, ~wakeup_enables);
+
 	reg = musb_readl(base, TUSB_PRCM_MNGMT);
-	reg &= ~TUSB_PRCM_MNGMT_CPEN_MASK;
-	reg |= TUSB_PRCM_MNGMT_SUSPEND_MASK;
+	reg &= ~( TUSB_PRCM_MNGMT_OTG_VBUS_DET_EN
+			| TUSB_PRCM_MNGMT_15_SW_EN
+			| TUSB_PRCM_MNGMT_33_SW_EN );
+	reg |= TUSB_PRCM_MNGMT_OTG_SESS_END_EN
+			| TUSB_PRCM_MNGMT_PM_IDLE
+			| TUSB_PRCM_MNGMT_DEV_IDLE;
 	musb_writel(base, TUSB_PRCM_MNGMT, reg);
+
+	DBG(2, "idle, wake on %02x\n", wakeup_enables);
 }
 
 /*
@@ -206,36 +218,117 @@ int musb_platform_get_vbus_status(struct musb *musb)
 	return ret;
 }
 
+static struct timer_list musb_idle_timer;
+
+static void musb_do_idle(unsigned long _musb)
+{
+	struct musb	*musb = (void *)_musb;
+	unsigned long	flags;
+
+	spin_lock_irqsave(&musb->Lock, flags);
+	if (!musb->is_active) {
+		u32	wakeups;
+
+#ifdef CONFIG_USB_GADGET_MUSB_HDRC
+		if (is_peripheral_enabled(musb) && !musb->pGadgetDriver)
+			wakeups = 0;
+		else {
+			wakeups = TUSB_PRCM_WHOSTDISCON
+					| TUSB_PRCM_WBUS
+					| TUSB_PRCM_WVBUS;
+			if (is_otg_enabled(musb))
+				wakeups |= TUSB_PRCM_WLD;
+		}
+#else
+		wakeups = TUSB_PRCM_WHOSTDISCON | TUSB_PRCM_WBUS;
+#endif
+		tusb_allow_idle(musb, wakeups);
+	}
+	spin_unlock_irqrestore(&musb->Lock, flags);
+}
+
 /*
- * Sets the TUSB6010 idles mode in peripheral mode depending on the
- * gadget driver state and cable VBUS status. Needs to be called as
- * the last function everywhere where there is register access to
- * TUSB6010 because of the NOR flash wake-up capability.
- * Caller must take care of locking.
+ * Maybe put TUSB6010 into idle mode mode depending on USB link status,
+ * like "disconnected" or "suspended".  We'll be woken out of it by
+ * connect, resume, or disconnect.
+ *
+ * Needs to be called as the last function everywhere where there is
+ * register access to TUSB6010 because of NOR flash wake-up.
+ * Caller should own controller spinlock.
+ *
+ * Delay because peripheral enables D+ pullup 3msec after SE0, and
+ * we don't want to treat that full speed J as a wakeup event.
+ * ... peripherals must draw only suspend current after 10 msec.
  */
 void musb_platform_try_idle(struct musb *musb)
 {
-	u32		wakeup_mask = 0;
+	if (musb->is_active)
+		del_timer(&musb_idle_timer);
+	else
+		mod_timer(&musb_idle_timer, jiffies +
+			(is_host_active(musb) ? msecs_to_jiffies(3) : 0));
+}
 
-	/* Suspend with only NOR flash wake-up event enabled if no
-	 * gadget driver is active.
-	 */
-	if (musb->xceiv.state == OTG_STATE_UNDEFINED) {
-		wakeup_mask = 0xffff & ~TUSB_PRCM_WNORCS;
-		tusb_allow_idle(musb, wakeup_mask);
-		return;
+static inline void
+tusb_otg_ints(struct musb *musb, u32 int_src, void __iomem *base)
+{
+	u32	otg_stat = musb_readl(base, TUSB_DEV_OTG_STAT);
+
+	/* ID pin */
+	if ((int_src & TUSB_INT_SRC_ID_STATUS_CHNG)) {
+		int	default_a;
+
+		default_a = is_host_enabled(musb)
+			&& (otg_stat & TUSB_DEV_OTG_STAT_ID_STATUS);
+		if (default_a != musb->xceiv.default_a) {
+			musb->xceiv.default_a = default_a;
+			if (musb->xceiv.default_a) {
+				musb->xceiv.state = OTG_STATE_A_IDLE;
+				/* REVISIT start the session? */
+			} else
+				musb->xceiv.state = OTG_STATE_B_IDLE;
+			DBG(1, "Default-%c\n", musb->xceiv.default_a
+					? 'A' : 'B');
+			musb->is_active = 1;
+		}
 	}
 
-	/* Use VBUS as power source if available, otherwise suspend
-	 * with all wake-up events enabled.
-	 *
-	 * FIXME only B-device state machine ever _consumes_ VBUS.
-	 */
-	if (musb_platform_get_vbus_status(musb))
-		tusb_enable_vbus_charge(musb);
-	else {
-		wakeup_mask = TUSB_PRCM_WLD;
-		tusb_allow_idle(musb, wakeup_mask);
+	/* VBUS state change */
+	if (int_src & TUSB_INT_SRC_VBUS_SENSE_CHNG) {
+		/* no vbus ~= disconnect */
+		if (!is_host_enabled(musb) || !musb->xceiv.default_a) {
+
+			/* REVISIT in B-Default state machine, use VBUS power
+			 * for the USB link when (a) non-OTG, since 100 mA is
+			 * always available; or (b) OTG after SET_CONFIGURATION
+			 * enabling 100+ (?) mA draw.
+			 */
+
+			/* REVISIT use the b_sess_valid comparator, not
+			 * lowpower one; TUSB_DEV_OTG_STAT_SESS_VALID ?
+			 */
+
+			if (otg_stat & TUSB_DEV_OTG_STAT_VBUS_SENSE) {
+				musb->xceiv.state = OTG_STATE_B_PERIPHERAL;
+				musb->is_active = 1;
+				/* REVISIT start the session? */
+			} else {
+				musb->xceiv.state = OTG_STATE_B_IDLE;
+				musb->is_active = 0;
+			}
+			DBG(1, "%s\n", musb->is_active
+					? "b_peripheral" : "b_idle");
+
+			sysfs_notify(&musb->controller->kobj, NULL, "cable");
+		}
+	}
+
+	/* OTG timer expiration */
+	if (int_src & TUSB_INT_SRC_OTG_TIMEOUT) {
+		DBG(3, "tusb: OTG timer expired\n");
+		musb_writel(base, TUSB_DEV_OTG_TIMER,
+			musb_readl(base, TUSB_DEV_OTG_TIMER)
+			| TUSB_DEV_OTG_TIMER_ENABLE);
 	}
 }
 
@@ -244,88 +337,43 @@ irqreturn_t tusb_interrupt(int irq, void *__hci, struct pt_regs *r)
 	struct musb	*musb = __hci;
 	void __iomem	*base = musb->ctrl_base;
 	unsigned long	flags;
-	u32		dma_src, int_src, otg_stat, musb_src = 0;
+	u32		dma_src = 0, int_src;
 
 	spin_lock_irqsave(&musb->Lock, flags);
 
-	dma_src = musb_readl(base, TUSB_DMA_INT_SRC);
 	int_src = musb_readl(base, TUSB_INT_SRC) & ~TUSB_INT_SRC_RESERVED_BITS;
-	otg_stat = musb_readl(base, TUSB_DEV_OTG_STAT);
+	if (int_src & TUSB_INT_SRC_TXRX_DMA_DONE)
+		dma_src = musb_readl(base, TUSB_DMA_INT_SRC);
 
-	DBG(3, "TUSB interrupt dma: %08x int: %08x otg: %08x\n",
-		dma_src, int_src, otg_stat);
+	DBG(3, "TUSB interrupt dma: %08x int: %08x\n", dma_src, int_src);
 
-	musb->int_usb = 0;
-	musb->int_rx = 0;
-	musb->int_tx = 0;
 	musb->int_regs = r;
 
-	if (otg_stat & TUSB_DEV_OTG_STAT_ID_STATUS) {
-		/* ID pin is up. Either A-plug was removed or TUSB6010
-		 * is in peripheral mode */
+	/* Acknowledge wake-up source interrupts */
+	if (int_src & TUSB_INT_SRC_DEV_WAKEUP) {
+		u32	reg = musb_readl(base, TUSB_PRCM_WAKEUP_SOURCE);
 
-		/* Still in pheripheral mode? */
-		if ((int_src & TUSB_INT_SRC_ID_STATUS_CHNG)) {
-			DBG(3, "tusb: Status change\n");
-			//goto out;
+		musb_writel(base, TUSB_PRCM_WAKEUP_CLEAR, reg);
+		if (reg & ~TUSB_PRCM_WNORCS) {
+			musb->is_active = 1;
+			sysfs_notify(&musb->controller->kobj, NULL, "cable");
 		}
+		DBG(3, "wake %sactive %02x\n",
+				musb->is_active ? "" : "in", reg);
 	}
 
-	/* Peripheral suspend. Cable may be disconnected, try to idle */
-	if (int_src & TUSB_INT_SRC_USB_IP_SUSPEND) {
-		musb->status |= MUSB_VBUS_STATUS_CHG;
-		schedule_work(&musb->irq_work);
-	}
-
-	/* Connect and disconnect for host mode */
-	if (int_src & TUSB_INT_SRC_USB_IP_CONN) {
-		DBG(3, "tusb: Connected\n");
-	}
-	else if (int_src & TUSB_INT_SRC_USB_IP_DISCON) {
-		DBG(3, "tusb: Disconnected\n");
-	}
-
-	/* VBUS state change */
-	if ((int_src & TUSB_INT_SRC_VBUS_SENSE_CHNG)
-			|| (int_src & TUSB_INT_SRC_USB_IP_VBUS_ERR)) {
-		musb->status |= MUSB_VBUS_STATUS_CHG;
-		schedule_work(&musb->irq_work);
-
-#if 0
-		DBG(3, "tusb: VBUS changed. VBUS state %d\n",
-			(otg_stat & TUSB_DEV_OTG_STAT_VBUS_SENSE) ? 1 : 0);
-		if (!(otg_stat & TUSB_DEV_OTG_STAT_VBUS_SENSE)
-				&& !(otg_stat & TUSB_DEV_OTG_STAT_ID_STATUS)) {
-			/* VBUS went off and ID pin is down */
-			DBG(3, "tusb: No VBUS, starting session\n");
-			/* Start session again, VBUS will be enabled */
-			musb_writeb(musb_base, MGC_O_HDRC_DEVCTL,
-				MGC_M_DEVCTL_SESSION);
-		}
-#endif
-	}
-
-	/* ID pin change */
-	if (int_src & TUSB_INT_SRC_ID_STATUS_CHNG) {
-		DBG(3, "tusb: ID pin changed. State is %d\n",
-			(musb_readl(base, TUSB_DEV_OTG_STAT)
-				& TUSB_DEV_OTG_STAT_ID_STATUS)
-			? 1 : 0);
-	}
-
-	/* OTG timer expiration */
-	if (int_src & TUSB_INT_SRC_OTG_TIMEOUT) {
-		DBG(3, "tusb: OTG timer expired\n");
-		musb_writel(base, TUSB_DEV_OTG_TIMER,
-			musb_readl(base, TUSB_DEV_OTG_TIMER) |
-			TUSB_DEV_OTG_TIMER_ENABLE);
-	}
+	/* OTG state change reports (annoyingly) not issued by Mentor core */
+	if (int_src & (TUSB_INT_SRC_VBUS_SENSE_CHNG
+				| TUSB_INT_SRC_OTG_TIMEOUT
+				| TUSB_INT_SRC_ID_STATUS_CHNG))
+		tusb_otg_ints(musb, int_src, base);
 
 	/* TX dma callback must be handled here, RX dma callback is
 	 * handled in tusb_omap_dma_cb.
 	 */
 	if ((int_src & TUSB_INT_SRC_TXRX_DMA_DONE) && dma_src) {
 		u32 real_dma_src = musb_readl(base, TUSB_DMA_INT_MASK);
+
 		real_dma_src = ~real_dma_src & dma_src;
 		if (tusb_dma_omap()) {
 			int	tx_source = (real_dma_src & 0xffff);
@@ -343,27 +391,25 @@ irqreturn_t tusb_interrupt(int irq, void *__hci, struct pt_regs *r)
 
 	/* EP interrupts. In OCP mode tusb6010 mirrors the MUSB * interrupts */
 	if (int_src & (TUSB_INT_SRC_USB_IP_TX | TUSB_INT_SRC_USB_IP_RX)) {
-		musb_src = musb_readl(base, TUSB_USBIP_INT_SRC);
+		u32	musb_src = musb_readl(base, TUSB_USBIP_INT_SRC);
+
 		musb_writel(base, TUSB_USBIP_INT_CLEAR, musb_src);
 		musb->int_rx = (((musb_src >> 16) & 0xffff) << 1);
 		musb->int_tx = (musb_src & 0xffff);
-	}
-	musb->int_usb = (int_src & 0xff);
-	if (musb->int_usb || musb->int_rx || musb->int_tx)
-		musb_interrupt(musb);
+	} else
+		musb->int_rx = musb->int_tx = 0;
 
-	/* Acknowledge wake-up source interrupts */
-	if (int_src & TUSB_INT_SRC_DEV_WAKEUP) {
-		u32 reg = musb_readl(base, TUSB_PRCM_WAKEUP_SOURCE);
-		musb_writel(base, TUSB_PRCM_WAKEUP_CLEAR, reg);
-		schedule_work(&musb->irq_work);
+	if (int_src & (TUSB_INT_SRC_USB_IP_TX | TUSB_INT_SRC_USB_IP_RX | 0xff)) {
+		musb->int_usb = (u8) int_src;
+		musb_interrupt(musb);
 	}
 
 	/* Acknowledge TUSB interrupts. Clear only non-reserved bits */
-	if (int_src)
-		musb_writel(base, TUSB_INT_SRC_CLEAR,
-			int_src & ~TUSB_INT_MASK_RESERVED_BITS);
+	musb_writel(base, TUSB_INT_SRC_CLEAR,
+		int_src & ~TUSB_INT_MASK_RESERVED_BITS);
 
+	musb->int_regs = NULL;
+	musb_platform_try_idle(musb);
 	spin_unlock_irqrestore(&musb->Lock, flags);
 
 	return IRQ_HANDLED;
@@ -589,7 +635,7 @@ int __devinit musb_platform_init(struct musb *musb)
 	}
 	musb->isr = tusb_interrupt;
 
-	musb_platform_try_idle(musb);
+	setup_timer(&musb_idle_timer, musb_do_idle, (unsigned long) musb);
 
 	return ret;
 }

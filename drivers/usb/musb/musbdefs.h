@@ -197,9 +197,6 @@ enum musb_g_ep0_state {
 	MGC_END0_STAGE_ACKWAIT,		/* after zlp, before statusin */
 } __attribute__ ((packed));
 
-/* driver and cable VBUS status states for musb_irq_work */
-#define MUSB_VBUS_STATUS_CHG		(1 << 0)
-
 /* failure codes */
 #define MUSB_ERR_WAITING	1
 #define MUSB_ERR_VBUS		-1
@@ -395,7 +392,6 @@ struct musb {
 	spinlock_t		Lock;
 	struct clk		*clock;
 	irqreturn_t		(*isr)(int, void *, struct pt_regs *);
-	struct work_struct	irq_work;
 
 #ifdef CONFIG_USB_MUSB_HDRC_HCD
 
@@ -450,9 +446,10 @@ struct musb {
 	u8 board_mode;		/* enum musb_mode */
 	int			(*board_set_power)(int state);
 
-	u8 status;		/* status change flags for musb_irq_work */
-
 	s8 bFailCode;		/* one of MUSB_ERR_* failure code */
+
+	/* active means connected and not suspended */
+	unsigned is_active:1;
 
 	unsigned bIsMultipoint:1;
 	unsigned bIsDevice:1;
