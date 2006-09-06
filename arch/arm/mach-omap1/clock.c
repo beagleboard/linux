@@ -20,6 +20,7 @@
 #include <linux/clk.h>
 
 #include <asm/io.h>
+#include <asm/mach-types.h>
 
 #include <asm/arch/cpu.h>
 #include <asm/arch/usb.h>
@@ -755,6 +756,12 @@ int __init omap1_clk_init(void)
 	/* Select slicer output as OMAP input clock */
 	omap_writew(omap_readw(OMAP730_PCC_UPLD_CTRL) & ~0x1, OMAP730_PCC_UPLD_CTRL);
 #endif
+
+	/* Amstrad Delta wants BCLK high when inactive */
+	if (machine_is_ams_delta())
+		omap_writel(omap_readl(ULPD_CLOCK_CTRL) |
+				(1 << SDW_MCLK_INV_BIT),
+				ULPD_CLOCK_CTRL);
 
 	/* Turn off DSP and ARM_TIMXO. Make sure ARM_INTHCK is not divided */
 	/* (on 730, bit 13 must not be cleared) */

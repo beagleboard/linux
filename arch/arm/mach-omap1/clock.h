@@ -89,6 +89,7 @@ struct arm_idlect1_clk {
 #define EN_DSPTIMCK	5
 
 /* Various register defines for clock controls scattered around OMAP chip */
+#define SDW_MCLK_INV_BIT	2	/* In ULPD_CLKC_CTRL */
 #define USB_MCLK_EN_BIT		4	/* In ULPD_CLKC_CTRL */
 #define USB_HOST_HHC_UHOST_EN	9	/* In MOD_CONF_CTRL_0 */
 #define SWD_ULPD_PLL_CLK_REQ	1	/* In SWD_CLK_DIV_CTRL_SEL */

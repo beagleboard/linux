@@ -105,6 +105,14 @@ struct omap_lcd_config {
 	u8   data_lines;
 };
 
+struct device;
+struct fb_info;
+struct omap_backlight_config {
+	int default_intensity;
+	int (*set_power)(struct device *dev, int state);
+	int (*check_fb)(struct fb_info *fb);
+};
+
 struct omap_fbmem_config {
 	u32 start;
 	u32 size;

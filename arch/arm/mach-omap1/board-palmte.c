@@ -43,8 +43,21 @@ static struct platform_device palmte_lcd_device = {
 	.id		= -1,
 };
 
+static struct omap_backlight_config palmte_backlight_config = {
+	.default_intensity	= 0xa0,
+};
+
+static struct platform_device palmte_backlight_device = {
+	.name		= "omap-bl",
+	.id		= -1,
+	.dev		= {
+		.platform_data	= &palmte_backlight_config,
+	},
+};
+
 static struct platform_device *devices[] __initdata = {
 	&palmte_lcd_device,
+	&palmte_backlight_device,
 };
 
 static struct omap_usb_config palmte_usb_config __initdata = {
