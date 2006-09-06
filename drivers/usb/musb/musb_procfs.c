@@ -754,10 +754,10 @@ static int musb_proc_read(char *page, char **start,
 		}
 	}
 
+	musb_platform_try_idle(pThis);
+
 	spin_unlock_irqrestore(&pThis->Lock, flags);
 	*eof = 1;
-
-	musb_platform_try_idle(pThis);
 
 	return (buffer - page) - off;
 }

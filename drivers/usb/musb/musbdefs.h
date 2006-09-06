@@ -454,6 +454,9 @@ struct musb {
 
 	s8 bFailCode;		/* one of MUSB_ERR_* failure code */
 
+	/* active means connected and not suspended */
+	unsigned is_active:1;
+
 	unsigned bIsMultipoint:1;
 	unsigned bIsDevice:1;
 	unsigned bIsHost:1;

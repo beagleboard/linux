@@ -384,6 +384,7 @@ static irqreturn_t musb_stage0_irq(struct musb * pThis, u8 bIntrUSB,
 	if (bIntrUSB & MGC_M_INTR_RESUME) {
 		handled = IRQ_HANDLED;
 		DBG(3, "RESUME\n");
+		pThis->is_active = 1;
 
 		if (devctl & MGC_M_DEVCTL_HM) {
 #ifdef CONFIG_USB_MUSB_HDRC_HCD
@@ -458,6 +459,7 @@ static irqreturn_t musb_stage0_irq(struct musb * pThis, u8 bIntrUSB,
 
 	if (bIntrUSB & MGC_M_INTR_CONNECT) {
 		handled = IRQ_HANDLED;
+		pThis->is_active = 1;
 
 		pThis->bEnd0Stage = MGC_END0_START;
 
@@ -598,6 +600,7 @@ static irqreturn_t musb_stage2_irq(struct musb * pThis, u8 bIntrUSB,
 		DBG(1, "DISCONNECT as %s, devctl %02x\n",
 				MUSB_MODE(pThis), devctl);
 		handled = IRQ_HANDLED;
+		pThis->is_active = 0;
 
 		/* need to check it against pThis, because devctl is going
 		 * to report ID low as soon as the device gets disconnected
@@ -618,9 +621,15 @@ static irqreturn_t musb_stage2_irq(struct musb * pThis, u8 bIntrUSB,
 		/* peripheral suspend, may trigger HNP */
 		if (!(devctl & MGC_M_DEVCTL_HM)) {
 			musb_g_suspend(pThis);
+#ifdef CONFIG_USB_GADGET_MUSB_HDRC
+			pThis->is_active = is_otg_enabled(pThis)
+					&& pThis->xceiv.gadget->b_hnp_enable;
+#else
+			pThis->is_active = 0;
+#endif
 			otg_input_changed(pThis, devctl, FALSE, FALSE, TRUE);
-			musb_platform_try_idle(pThis);
-		}
+		} else
+			pThis->is_active = 0;
 	}
 
 	return handled;
@@ -1416,7 +1425,6 @@ musb_cable_show(struct device *dev, struct device_attribute *attr, char *buf)
 		v2 = "connected";
 	else
 		v2 = "disconnected";
-	musb_platform_try_idle(musb);
 #else
 	/* NOTE: board-specific issues, like too-big capacitors keeping
 	 * VBUS high for a long time after power has been removed, can
@@ -1440,6 +1448,7 @@ musb_cable_show(struct device *dev, struct device_attribute *attr, char *buf)
 	} else	/* VBUS level below A-Valid */
 		v2 = "disconnected";
 #endif
+	musb_platform_try_idle(musb);
 	spin_unlock_irqrestore(&musb->Lock, flags);
 
 	return sprintf(buf, "%s%s\n", v1, v2);
@@ -1458,7 +1467,6 @@ static void musb_irq_work(void *data)
 		musb->status &= ~MUSB_VBUS_STATUS_CHG;
 		event = 1;
 	}
-	musb_platform_try_idle(musb);
 	spin_unlock_irqrestore(&musb->Lock, flags);
 
 #ifdef CONFIG_SYSFS
@@ -1654,6 +1662,7 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 		goto fail2;
 	}
 	pThis->nIrq = nIrq;
+	device_init_wakeup(dev, 1);
 
 	pr_info("%s: USB %s mode controller at %p using %s, IRQ %d\n",
 			musb_driver_name,
@@ -1667,11 +1676,6 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 			(is_dma_capable() && pThis->pDmaController)
 				? "DMA" : "PIO",
 			pThis->nIrq);
-
-// FIXME:
-//  - convert to the HCD framework
-//  - if (board_mode == MUSB_OTG) do startup with peripheral
-//  - ... involves refcounting updates
 
 #ifdef CONFIG_USB_MUSB_HDRC_HCD
 	/* host side needs more setup, except for no-host modes */
@@ -1737,7 +1741,9 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 		musb_debug_create("driver/musb_hdrc", pThis);
 	else {
 fail:
+		device_init_wakeup(dev, 0);
 		musb_free(pThis);
+		return status;
 	}
 
 	INIT_WORK(&pThis->irq_work, musb_irq_work, pThis);
@@ -1796,14 +1802,11 @@ static int __devexit musb_remove(struct platform_device *pdev)
 		usb_remove_hcd(musb_to_hcd(musb));
 #endif
 	musb_free(musb);
+	device_init_wakeup(&pdev->dev, 0);
 	return 0;
 }
 
 #ifdef	CONFIG_PM
-
-/* REVISIT when power savings matter on DaVinci, look at turning
- * off its phy clock during system suspend iff wakeup is disabled
- */
 
 static int musb_suspend(struct platform_device *pdev, pm_message_t message)
 {
@@ -1821,11 +1824,10 @@ static int musb_suspend(struct platform_device *pdev, pm_message_t message)
 		 */
 	} else if (is_host_active(musb)) {
 		/* we know all the children are suspended; sometimes
-		 * they will even be wakeup-enabled
+		 * they will even be wakeup-enabled.
 		 */
 	}
 
-	musb_platform_try_idle(musb);
 	clk_disable(musb->clock);
 	spin_unlock_irqrestore(&musb->Lock, flags);
 	return 0;
