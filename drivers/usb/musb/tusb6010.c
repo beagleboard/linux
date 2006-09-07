@@ -162,6 +162,24 @@ static inline void tusb_enable_vbus_charge(struct musb *musb)
 	musb_writel(base, TUSB_PRCM_MNGMT, reg);
 }
 
+/* workaround for issue 13:  change clock during chip idle
+ * (to be fixed in rev3 silicon) ... symptoms include disconnect
+ * or looping suspend/resume cycles
+ */
+void tusb_set_clock_source(struct musb *musb, int mode)
+{
+	void __iomem	*base = musb->ctrl_base;
+	u32		reg;
+
+	reg = musb_readl(base, TUSB_PRCM_CONF);
+	reg &= ~TUSB_PRCM_CONF_SYS_CLKSEL(0x3);
+
+	if (mode > 0)
+		reg |= TUSB_PRCM_CONF_SYS_CLKSEL(mode & 0x3);
+
+	musb_writel(base, TUSB_PRCM_CONF, reg);
+}
+
 /*
  * Idle TUSB6010 until next wake-up event; NOR access always wakes.
  * Other code ensures that we idle unless we're connected _and_ the
@@ -172,6 +190,8 @@ static inline void tusb_allow_idle(struct musb *musb, u32 wakeup_enables)
 {
 	void __iomem	*base = musb->ctrl_base;
 	u32		reg;
+
+	tusb_set_clock_source(musb, 0);
 
 	wakeup_enables |= TUSB_PRCM_WNORCS;
 	musb_writel(base, TUSB_PRCM_WAKEUP_MASK, ~wakeup_enables);
@@ -351,8 +371,25 @@ irqreturn_t tusb_interrupt(int irq, void *__hci, struct pt_regs *r)
 
 	/* Acknowledge wake-up source interrupts */
 	if (int_src & TUSB_INT_SRC_DEV_WAKEUP) {
-		u32	reg = musb_readl(base, TUSB_PRCM_WAKEUP_SOURCE);
+		u32	reg;
+		u32	i;
 
+		/* there are issues re-locking the PLL on wakeup ... */
+
+		/* work around issue 8 */
+		for (i = 0xf7f7f7; i > 0xf7f7f7 - 1000; i--) {
+			musb_writel(base, TUSB_SCRATCH_PAD, 0);
+			musb_writel(base, TUSB_SCRATCH_PAD, i);
+			reg = musb_readl(base, TUSB_SCRATCH_PAD);
+			if (reg == i)
+				break;
+			DBG(1, "TUSB NOR not ready\n");
+		}
+
+		/* work around issue 13 (2nd half) */
+		tusb_set_clock_source(musb, 1);
+
+		reg = musb_readl(base, TUSB_PRCM_WAKEUP_SOURCE);
 		musb_writel(base, TUSB_PRCM_WAKEUP_CLEAR, reg);
 		if (reg & ~TUSB_PRCM_WNORCS) {
 			musb->is_active = 1;
