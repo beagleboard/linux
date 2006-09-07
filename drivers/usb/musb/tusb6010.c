@@ -186,7 +186,7 @@ void tusb_set_clock_source(struct musb *musb, int mode)
  * USB link is not suspended ... and tells us the relevant wakeup
  * events.
  */
-static inline void tusb_allow_idle(struct musb *musb, u32 wakeup_enables)
+static void tusb_allow_idle(struct musb *musb, u32 wakeup_enables)
 {
 	void __iomem	*base = musb->ctrl_base;
 	u32		reg;
@@ -352,7 +352,7 @@ tusb_otg_ints(struct musb *musb, u32 int_src, void __iomem *base)
 	}
 }
 
-irqreturn_t tusb_interrupt(int irq, void *__hci, struct pt_regs *r)
+static irqreturn_t tusb_interrupt(int irq, void *__hci, struct pt_regs *r)
 {
 	struct musb	*musb = __hci;
 	void __iomem	*base = musb->ctrl_base;
