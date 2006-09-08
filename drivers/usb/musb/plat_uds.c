@@ -1525,8 +1525,10 @@ static void musb_free(struct musb *musb)
 	musb_gadget_cleanup(musb);
 #endif
 
-	if (musb->nIrq >= 0)
+	if (musb->nIrq >= 0) {
+		disable_irq_wake(musb->nIrq);
 		free_irq(musb->nIrq, musb);
+	}
 	if (is_dma_capable() && musb->pDmaController) {
 		struct dma_controller	*c = musb->pDmaController;
 
@@ -1648,6 +1650,7 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 		status = -ENODEV;
 		goto fail2;
 	}
+	(void) enable_irq_wake(nIrq);
 	pThis->nIrq = nIrq;
 	device_init_wakeup(dev, 1);
 
