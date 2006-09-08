@@ -1513,6 +1513,15 @@ static int musb_gadget_vbus_draw(struct usb_gadget *gadget, unsigned mA)
 }
 #endif
 
+static int musb_gadget_vbus_draw(struct usb_gadget *gadget, unsigned mA)
+{
+	struct musb	*musb = gadget_to_musb(gadget);
+
+	if (!musb->xceiv.set_power)
+		return -EOPNOTSUPP;
+	return otg_set_power(&musb->xceiv, mA);
+}
+
 static int musb_gadget_pullup(struct usb_gadget *gadget, int is_on)
 {
 	struct musb	*musb = gadget_to_musb(gadget);
@@ -1537,7 +1546,7 @@ static const struct usb_gadget_ops musb_gadget_operations = {
 	.wakeup			= musb_gadget_wakeup,
 	.set_selfpowered	= musb_gadget_set_self_powered,
 	//.vbus_session		= musb_gadget_vbus_session,
-	//.vbus_draw		= musb_gadget_vbus_draw,
+	.vbus_draw		= musb_gadget_vbus_draw,
 	.pullup			= musb_gadget_pullup,
 };
 
@@ -1925,6 +1934,9 @@ void musb_g_disconnect(struct musb *pThis)
 {
 	DBG(3, "devctl %02x\n", musb_readb(pThis->pRegs, MGC_O_HDRC_DEVCTL));
 
+	/* don't draw vbus until new b-default session */
+	(void) musb_gadget_vbus_draw(&pThis->g, 0);
+
 	pThis->g.speed = USB_SPEED_UNKNOWN;
 	if (pThis->pGadgetDriver && pThis->pGadgetDriver->disconnect) {
 		spin_unlock(&pThis->Lock);
@@ -2002,4 +2014,8 @@ __acquires(pThis->Lock)
 		pThis->g.is_a_peripheral = 1;
 	} else
 		WARN_ON(1);
+
+	/* start with default limits on VBUS power draw */
+	(void) musb_gadget_vbus_draw(&pThis->g,
+			is_otg_enabled(pThis) ? 8 : 100);
 }

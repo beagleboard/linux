@@ -27,6 +27,9 @@ struct musb_hdrc_platform_data {
 	/* (HOST or OTG) mA/2 power supplied on (default = 8mA) */
 	u8		power;
 
+	/* (PERIPHERAL) mA/2 max power consumed (default = 100mA) */
+	u8		min_power;
+
 	/* (HOST or OTG) msec/2 after VBUS on till power good */
 	u8		potpgt;
 

@@ -143,23 +143,36 @@ void musb_read_fifo(struct musb_hw_ep *hw_ep, u16 len, u8 *buf)
 	}
 }
 
-/*
- * Enables TUSB6010 to use VBUS as power source in peripheral mode.
- * In host mode, a local battery must power the TUSB chip as well as
- * (through the charge pump) VBUS.  For OTG peripherals, the battery
- * must power the chip until it enters a confguration that's allowed
- * to draw enough current (call it 100mA).
+/* This is used by gadget drivers, and OTG transceiver logic, allowing
+ * at most mA current to be drawn from VBUS during a Default-B session
+ * (that is, while VBUS exceeds 4.4V).  In Default-A (including pure host
+ * mode), or low power Default-B sessions, something else supplies power.
  */
-static inline void tusb_enable_vbus_charge(struct musb *musb)
+static int tusb_set_power(struct otg_transceiver *x, unsigned mA)
 {
+	struct musb	*musb = container_of(x, struct musb, xceiv);
 	void __iomem	*base = musb->ctrl_base;
 	u32		reg;
 
-	musb_writel(base, TUSB_PRCM_WAKEUP_MASK, 0xffff);
+	/* tps65030 seems to consume max 100mA, with maybe 60mA available
+	 * (measured on one board) for things other than tps and tusb.
+	 *
+	 * REVISIT we could use VBUS to supply only _one_ of { 1.5V, 3.3V }.
+	 * The actual current usage would be very board-specific.  For now,
+	 * it's simpler to just use an aggregate (also board-specific).
+	 */
+	if (x->default_a || mA < (musb->min_power << 1))
+		mA = 0;
+
 	reg = musb_readl(base, TUSB_PRCM_MNGMT);
-	reg &= ~TUSB_PRCM_MNGMT_SUSPEND_MASK;
-	reg |= TUSB_PRCM_MNGMT_CPEN_MASK;
+	if (mA)
+		reg |= TUSB_PRCM_MNGMT_15_SW_EN | TUSB_PRCM_MNGMT_33_SW_EN;
+	else
+		reg &= ~(TUSB_PRCM_MNGMT_15_SW_EN | TUSB_PRCM_MNGMT_33_SW_EN);
 	musb_writel(base, TUSB_PRCM_MNGMT, reg);
+
+	DBG(3, "draw max %d mA VBUS\n", mA);
+	return 0;
 }
 
 /* workaround for issue 13:  change clock during chip idle
@@ -184,7 +197,7 @@ void tusb_set_clock_source(struct musb *musb, int mode)
  * Idle TUSB6010 until next wake-up event; NOR access always wakes.
  * Other code ensures that we idle unless we're connected _and_ the
  * USB link is not suspended ... and tells us the relevant wakeup
- * events.
+ * events.  SW_EN for voltage is handled separately.
  */
 static void tusb_allow_idle(struct musb *musb, u32 wakeup_enables)
 {
@@ -197,9 +210,7 @@ static void tusb_allow_idle(struct musb *musb, u32 wakeup_enables)
 	musb_writel(base, TUSB_PRCM_WAKEUP_MASK, ~wakeup_enables);
 
 	reg = musb_readl(base, TUSB_PRCM_MNGMT);
-	reg &= ~( TUSB_PRCM_MNGMT_OTG_VBUS_DET_EN
-			| TUSB_PRCM_MNGMT_15_SW_EN
-			| TUSB_PRCM_MNGMT_33_SW_EN );
+	reg &= ~TUSB_PRCM_MNGMT_OTG_VBUS_DET_EN; /* REVISIT leave alone? */
 	reg |= TUSB_PRCM_MNGMT_OTG_SESS_END_EN
 			| TUSB_PRCM_MNGMT_PM_IDLE
 			| TUSB_PRCM_MNGMT_DEV_IDLE;
@@ -317,12 +328,6 @@ tusb_otg_ints(struct musb *musb, u32 int_src, void __iomem *base)
 	if (int_src & TUSB_INT_SRC_VBUS_SENSE_CHNG) {
 		/* no vbus ~= disconnect */
 		if (!is_host_enabled(musb) || !musb->xceiv.default_a) {
-
-			/* REVISIT in B-Default state machine, use VBUS power
-			 * for the USB link when (a) non-OTG, since 100 mA is
-			 * always available; or (b) OTG after SET_CONFIGURATION
-			 * enabling 100+ (?) mA draw.
-			 */
 
 			/* REVISIT use the b_sess_valid comparator, not
 			 * lowpower one; TUSB_DEV_OTG_STAT_SESS_VALID ?
@@ -671,6 +676,7 @@ int __devinit musb_platform_init(struct musb *musb)
 		return -ENODEV;
 	}
 	musb->isr = tusb_interrupt;
+	musb->xceiv.set_power = tusb_set_power;
 
 	setup_timer(&musb_idle_timer, musb_do_idle, (unsigned long) musb);
 

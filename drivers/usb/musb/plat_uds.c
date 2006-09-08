@@ -1601,6 +1601,7 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 	spin_lock_init(&pThis->Lock);
 	pThis->board_mode = plat->mode;
 	pThis->board_set_power = plat->set_power;
+	pThis->min_power = plat->min_power;
 
 	/* assume vbus is off */
 

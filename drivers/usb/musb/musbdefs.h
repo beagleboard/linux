@@ -448,6 +448,8 @@ struct musb {
 
 	s8 bFailCode;		/* one of MUSB_ERR_* failure code */
 
+	u8			min_power;	/* vbus for periph, in mA/2 */
+
 	/* active means connected and not suspended */
 	unsigned is_active:1;
 
