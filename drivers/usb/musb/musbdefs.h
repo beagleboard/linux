@@ -392,6 +392,7 @@ struct musb {
 	spinlock_t		Lock;
 	struct clk		*clock;
 	irqreturn_t		(*isr)(int, void *, struct pt_regs *);
+	struct work_struct	irq_work;
 
 #ifdef CONFIG_USB_MUSB_HDRC_HCD
 
