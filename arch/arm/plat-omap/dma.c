@@ -724,9 +724,13 @@ int omap_set_dma_callback(int lch,
 {
 	unsigned long flags;
 
+	if (lch < 0)
+		return -ENODEV;
+
 	spin_lock_irqsave(&dma_chan_lock, flags);
 	if (dma_chan[lch].dev_id == -1) {
 		printk(KERN_ERR "DMA callback for not set for free channel\n");
+		spin_unlock_irqrestore(&dma_chan_lock, flags);
 		return -EINVAL;
 	}
 	dma_chan[lch].callback = callback;
