@@ -99,6 +99,7 @@ static int tusb_omap_dma_stop(struct dma_controller *c)
 static inline int tusb_omap_use_shared_dmareq(struct tusb_omap_dma_ch *chdat)
 {
 	u32		reg = musb_readl(chdat->tusb_base, TUSB_DMA_EP_MAP);
+
 	if (reg != 0) {
 		DBG(3, "ep%i dmareq0 is busy for ep%i\n",
 			chdat->epnum, reg & 0xf);
@@ -232,6 +233,9 @@ static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,
 	else
 		transfer_len = len;
 
+	if (len < packet_sz)
+		packet_sz = transfer_len;
+
 	if (dmareq_works()) {
 		ch = chdat->ch;
 		dmareq = chdat->dmareq;
@@ -241,6 +245,14 @@ static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,
 			DBG(3, "could not get dma for ep%i\n", chdat->epnum);
 			return FALSE;
 		}
+		if (tusb_dma->ch < 0) {
+			/* REVISIT: This should get blocked earlier, happens
+			 * with MSC ErrorRecoveryTest
+			 */
+			WARN_ON(1);
+			return FALSE;
+		}
+
 		ch = tusb_dma->ch;
 		dmareq = tusb_dma->dmareq;
 		sync_dev = tusb_dma->sync_dev;
