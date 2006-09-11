@@ -155,17 +155,18 @@ static __inline__ unsigned long lineup_offset(unsigned long adr,
 	return newadr;
 }
 
-void dsp_mem_sync_inc(void)
+int dsp_mem_sync_inc(void)
 {
-	/*
-	 * FIXME: dsp_mem_enable()!!!
-	 */
+	if (dsp_mem_enable((void *)dspmem_base) < 0)
+		return -1;
 	if (mem_sync.DARAM)
 		mem_sync.DARAM->ad_arm++;
 	if (mem_sync.SARAM)
 		mem_sync.SARAM->ad_arm++;
 	if (mem_sync.SDRAM)
 		mem_sync.SDRAM->ad_arm++;
+	dsp_mem_disable((void *)dspmem_base);
+	return 0;
 }
 
 /*

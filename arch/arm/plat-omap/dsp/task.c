@@ -1914,7 +1914,11 @@ int dsp_tadd(unsigned char minor, unsigned long adr)
 	arg.argc = 2;
 	arg.argv = argv;
 
-	dsp_mem_sync_inc();
+	if (dsp_mem_sync_inc() < 0) {
+		printk(KERN_ERR "omapdsp: memory sync failed!\n");
+		ret = -EBUSY;
+		goto fail_out;
+	}
 	dsp_mbcmd_send_and_wait_exarg(&mb, &arg, &cfg_wait_q);
 
 	tid = cfg_tid;

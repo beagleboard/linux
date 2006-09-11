@@ -170,7 +170,7 @@ extern void dsp_dbg_stop(void);
 
 extern int ipbuf_is_held(unsigned char tid, unsigned short bid);
 
-extern void dsp_mem_sync_inc(void);
+extern int dsp_mem_sync_inc(void);
 extern int dsp_mem_sync_config(struct mem_sync_struct *sync);
 extern enum dsp_mem_type_e dsp_mem_type(void *vadr, size_t len);
 extern int dsp_address_validate(void *p, size_t len, char *fmt, ...);
