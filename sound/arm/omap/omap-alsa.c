@@ -203,7 +203,7 @@ static void audio_process_dma(struct audio_stream *s)
 		 * irq from DMA after the first transfered/played buffer.
 		 * (invocation of callback_omap_alsa_sound_dma() method).
 		 */
-		if (cpu_is_omap15xx()) {
+		if (cpu_is_omap1510()) {
 			omap_stop_alsa_sound_dma(s);
 		}
 		ret = omap_start_alsa_sound_dma(s,

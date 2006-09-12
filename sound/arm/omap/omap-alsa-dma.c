@@ -200,7 +200,7 @@ int omap_request_alsa_sound_dma(int device_id, const char *device_name,
 	}
 
 	/* Chain the channels together */
-	if (!cpu_is_omap1510())
+	if (!cpu_is_omap15xx())
 		omap_sound_dma_link_lch(data);
 
 	spin_unlock(&dma_list_lock);
@@ -251,7 +251,7 @@ int omap_free_alsa_sound_dma(void *data, int **channels)
 	}
 	chan = (*channels);
 
-	if (!cpu_is_omap1510())
+	if (!cpu_is_omap15xx())
 		omap_sound_dma_unlink_lch(data);
 	for (i = 0; i < nr_linked_channels; i++) {
 		int cur_chan = chan[i];
@@ -349,7 +349,8 @@ static int audio_start_dma_chain(struct audio_stream *s)
 		omap_start_dma(channel);
 		s->started = 1;
 		s->hw_start();	   /* start McBSP interface */
-	}
+	} else if (cpu_is_omap310())
+		omap_start_dma(channel);
 	/* else the dma itself will progress forward with out our help */
 	FN_OUT(0);
 	return 0;
