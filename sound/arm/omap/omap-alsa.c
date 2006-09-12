@@ -190,9 +190,7 @@ static void audio_process_dma(struct audio_stream *s)
 	unsigned int dma_size;
 	unsigned int offset;
 	int ret;
-#ifdef CONFIG_MACH_OMAP_H6300
 	unsigned long flags;
-#endif
 	
 	ADEBUG();
 	runtime = substream->runtime;
@@ -200,14 +198,20 @@ static void audio_process_dma(struct audio_stream *s)
 		dma_size = frames_to_bytes(runtime, runtime->period_size);
 		offset = dma_size * s->period;
 		snd_assert(dma_size <= DMA_BUF_SIZE,);
-#ifdef CONFIG_MACH_OMAP_H6300
-		spin_lock_irqsave(&s->dma_lock, flags);
-		omap_stop_alsa_sound_dma(s);
-		spin_unlock_irqrestore(&s->dma_lock, flags);
-#endif
+		/*
+		 * On omap1510 based devices, we need to call the stop_dma
+		 * before calling the start_dma or we will not receive the
+		 * irq from DMA after the first transfered/played buffer.
+		 * (invocation of callback_omap_alsa_sound_dma() method).
+		 */
+		if (cpu_is_omap15xx()) {
+			spin_lock_irqsave(&s->dma_lock, flags);
+			omap_stop_alsa_sound_dma(s);
+			spin_unlock_irqrestore(&s->dma_lock, flags);
+		}
 		ret = omap_start_alsa_sound_dma(s,
-					 (dma_addr_t) runtime->dma_area +
-					 offset, dma_size);
+				(dma_addr_t)runtime->dma_area + offset,
+				dma_size);
 		if (ret) {
 			printk(KERN_ERR
 			       "audio_process_dma: cannot queue DMA buffer (%i)\n",
