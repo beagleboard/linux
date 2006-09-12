@@ -1176,7 +1176,6 @@ irqreturn_t musb_h_ep0_irq(struct musb *pThis)
 	if (bComplete)
 		musb_advance_schedule(pThis, pUrb, pEnd, 1);
 done:
-	set_bit(HCD_FLAG_SAW_IRQ, &musb_to_hcd(pThis)->flags);
 	return retval;
 }
 
@@ -1812,7 +1811,7 @@ static int musb_urb_enqueue(
 	unsigned			interval;
 
 	/* host role must be active */
-	if (!is_host_active(musb))
+	if (!is_host_active(musb) || !musb->is_active)
 		return -ENODEV;
 
 	/* DMA mapping was already done, if needed, and this urb is on
@@ -2154,6 +2153,9 @@ static int musb_h_get_frame_number(struct usb_hcd *hcd)
 
 static int musb_h_start(struct usb_hcd *hcd)
 {
+	/* NOTE: musb_start() is called when the hub driver turns
+	 * on port power, or when (OTG) peripheral starts.
+	 */
 	hcd->state = HC_STATE_RUNNING;
 	return 0;
 }

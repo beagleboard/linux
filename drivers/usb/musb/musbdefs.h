@@ -101,6 +101,7 @@ struct musb_ep;
 #define	is_host_active(musb)		is_host_capable()
 #endif
 
+
 #ifdef CONFIG_PROC_FS
 #include <linux/fs.h>
 #define MUSB_CONFIG_PROC_FS
@@ -197,15 +198,10 @@ enum musb_g_ep0_state {
 	MGC_END0_STAGE_ACKWAIT,		/* after zlp, before statusin */
 } __attribute__ ((packed));
 
-/* failure codes */
-#define MUSB_ERR_WAITING	1
-#define MUSB_ERR_VBUS		-1
-#define MUSB_ERR_BABBLE		-2
-#define MUSB_ERR_CORRUPTED	-3
-#define MUSB_ERR_IRQ		-4
-#define MUSB_ERR_SHUTDOWN	-5
-#define MUSB_ERR_RESTART	-6
-
+/* OTG protocol constants */
+#define OTG_TIME_A_WAIT_VRISE	100		/* msec (max) */
+#define OTG_TIME_A_WAIT_BCON	0		/* 0=infinite; min 1000 msec */
+#define OTG_TIME_A_IDLE_BDIS	200		/* msec (min) */
 
 /*************************** REGISTER ACCESS ********************************/
 
@@ -265,25 +261,15 @@ enum musb_g_ep0_state {
 /****************************** FUNCTIONS ********************************/
 
 #define MUSB_HST_MODE(_pthis)\
-	{ (_pthis)->bIsHost=TRUE; (_pthis)->bIsDevice=FALSE; \
-	(_pthis)->bFailCode=0; }
+	{ (_pthis)->bIsHost=TRUE; (_pthis)->bIsDevice=FALSE; }
 #define MUSB_DEV_MODE(_pthis) \
-	{ (_pthis)->bIsHost=FALSE; (_pthis)->bIsDevice=TRUE; \
-	(_pthis)->bFailCode=0; }
+	{ (_pthis)->bIsHost=FALSE; (_pthis)->bIsDevice=TRUE; }
 #define MUSB_OTG_MODE(_pthis) \
-	{ (_pthis)->bIsHost=FALSE; (_pthis)->bIsDevice=FALSE; \
-	(_pthis)->bFailCode=MUSB_ERR_WAITING; }
-#define MUSB_ERR_MODE(_pthis, _cause) \
-	{ (_pthis)->bIsHost=FALSE; (_pthis)->bIsDevice=FALSE; \
-	(_pthis)->bFailCode=_cause; }
+	{ (_pthis)->bIsHost=FALSE; (_pthis)->bIsDevice=FALSE; }
 
-#define MUSB_IS_ERR(_x) ( (_x)->bFailCode<0 )
-#define MUSB_IS_HST(_x) (!MUSB_IS_ERR(_x) \
-		&& (_x)->bIsHost && !(_x)->bIsDevice )
-#define MUSB_IS_DEV(_x) (!MUSB_IS_ERR(_x) \
-		&& !(_x)->bIsHost && (_x)->bIsDevice )
-#define MUSB_IS_OTG(_x) (!MUSB_IS_ERR(_x) \
-		&& !(_x)->bIsHost && !(_x)->bIsDevice )
+#define MUSB_IS_HST(_x) ((_x)->bIsHost && !(_x)->bIsDevice)
+#define MUSB_IS_DEV(_x) (!(_x)->bIsHost && (_x)->bIsDevice)
+#define MUSB_IS_OTG(_x) (!(_x)->bIsHost && !(_x)->bIsDevice)
 
 #define test_devctl_hst_mode(_x) \
 	(musb_readb((_x)->pRegs, MGC_O_HDRC_DEVCTL)&MGC_M_DEVCTL_HM)
@@ -446,8 +432,6 @@ struct musb {
 
 	u8 board_mode;		/* enum musb_mode */
 	int			(*board_set_power)(int state);
-
-	s8 bFailCode;		/* one of MUSB_ERR_* failure code */
 
 	u8			min_power;	/* vbus for periph, in mA/2 */
 

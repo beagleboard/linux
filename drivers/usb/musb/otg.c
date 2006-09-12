@@ -42,6 +42,9 @@
  *
  *   - needs updating along the lines of <linux/usb_otg.h>
  *
+ *   - TUSB has a hardware OTG timer, unclear how much of this would
+ *     ever be needed for it ...
+ *
  *   - doesn't yet use all the linux 2.6.10 usbcore hooks for OTG, but
  *     some of the conversion (and consequent shrinkage) has begun.
  *

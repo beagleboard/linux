@@ -463,7 +463,6 @@ static int dma_off;
  * Enables TUSB6010. Caller must take care of locking.
  * REVISIT:
  * - Check what is unnecessary in MGC_HdrcStart()
- * - Interrupt should really be IRQT_FALLING level sensitive
  */
 void musb_platform_enable(struct musb * musb)
 {
@@ -612,25 +611,9 @@ static int tusb_start(struct musb *musb)
 	musb_writel(base, TUSB_PRCM_MNGMT,
 		TUSB_PRCM_MNGMT_VBUS_VALID_TIMER(0xa) |
 		TUSB_PRCM_MNGMT_VBUS_VALID_FLT_EN |
-		TUSB_PRCM_MNGMT_DFT_CLK_DIS |
-		TUSB_PRCM_MNGMT_VLYNQ_CLK_DIS |
 		TUSB_PRCM_MNGMT_OTG_SESS_END_EN |
 		TUSB_PRCM_MNGMT_OTG_VBUS_DET_EN |
 		TUSB_PRCM_MNGMT_OTG_ID_PULLUP);
-#if 0
-	musb_writel(base, TUSB_PHY_OTG_CTRL_ENABLE,
-		musb_readl(base, TUSB_PHY_OTG_CTRL_ENABLE) |
-		TUSB_PHY_OTG_CTRL_WRPROTECT |
-		TUSB_PHY_OTG_CTRL_OTG_ID_PULLUP |
-		TUSB_PHY_OTG_CTRL_OTG_VBUS_DET_EN |
-		TUSB_PHY_OTG_CTRL_OTG_SESS_END_EN);
-	musb_writel(base, TUSB_PHY_OTG_CTRL,
-		musb_readl(base, TUSB_PHY_OTG_CTRL) |
-		TUSB_PHY_OTG_CTRL_WRPROTECT |
-		TUSB_PHY_OTG_CTRL_OTG_ID_PULLUP |
-		TUSB_PHY_OTG_CTRL_OTG_VBUS_DET_EN |
-		TUSB_PHY_OTG_CTRL_OTG_SESS_END_EN);
-#endif
 	tusb_setup_cpu_interface(musb);
 
 	spin_unlock_irqrestore(&musb->Lock, flags);

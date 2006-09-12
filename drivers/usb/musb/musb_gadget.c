@@ -1708,7 +1708,6 @@ int usb_gadget_register_driver(struct usb_gadget_driver *driver)
 	if (!driver
 			|| driver->speed != USB_SPEED_HIGH
 			|| !driver->bind
-			|| !driver->unbind
 			|| !driver->setup)
 		return -EINVAL;
 
@@ -1847,7 +1846,7 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 	int		retval = 0;
 	struct musb	*musb = the_gadget;
 
-	if (!driver || !musb)
+	if (!driver || !driver->unbind || !musb)
 		return -EINVAL;
 
 	/* REVISIT always use otg_set_peripheral() here too;

@@ -89,14 +89,6 @@
  *        (And if it were to understand, there would still be limitations
  *        because of the lack of periodic endpoint scheduling.)
  *
- *  - Host-side doesn't use the HCD framework, even the older version in
- *    the 2.6.10 kernel, which doesn't provide per-endpoint URB queues.
- *
- *		+++	PARTIALLY RESOLVED	+++
- *
- *    RESULT:  code bloat, because it provides its own root hub;
- *    correctness issues.
- *
  *  - Provides its own OTG bits.  These are untested, and many of them
  *    seem to be superfluous code bloat given what usbcore does.  (They
  *    have now been partially removed.)
@@ -444,9 +436,23 @@ static irqreturn_t musb_stage0_irq(struct musb * pThis, u8 bIntrUSB,
 	if (bIntrUSB & MGC_M_INTR_VBUSERROR) {
 
 		// MGC_OtgMachineInputsChanged(otgm, &Inputs);
+		// otg_input_changed_X(pThis, TRUE, TRUE);
 		// ... may need to abort otg timer ...
 
-		DBG(1, "VBUS_ERROR (%02x)\n", devctl);
+		DBG(1, "VBUS_ERROR (%02x, %s), retry #%d\n", devctl,
+				({ char *s;
+				switch (devctl & MGC_M_DEVCTL_VBUS) {
+				case 0 << MGC_S_DEVCTL_VBUS:
+					s = "<SessEnd"; break;
+				case 1 << MGC_S_DEVCTL_VBUS:
+					s = "<AValid"; break;
+				case 2 << MGC_S_DEVCTL_VBUS:
+					s = "<VBusValid"; break;
+				//case 3 << MGC_S_DEVCTL_VBUS:
+				default:
+					s = "VALID"; break;
+				}; s; }),
+				pThis->vbuserr_retry);
 
 		/* after hw goes to A_IDLE, try connecting again */
 		pThis->xceiv.state = OTG_STATE_A_IDLE;
@@ -460,6 +466,7 @@ static irqreturn_t musb_stage0_irq(struct musb * pThis, u8 bIntrUSB,
 	if (bIntrUSB & MGC_M_INTR_CONNECT) {
 		handled = IRQ_HANDLED;
 		pThis->is_active = 1;
+		set_bit(HCD_FLAG_SAW_IRQ, &musb_to_hcd(pThis)->flags);
 
 		pThis->bEnd0Stage = MGC_END0_START;
 
@@ -514,9 +521,12 @@ static irqreturn_t musb_stage0_irq(struct musb * pThis, u8 bIntrUSB,
 
 			/* REVISIT it's unclear how to handle this.  Mentor's
 			 * code stopped the whole USB host, which is clearly
-			 * very wrong.  For now, just expect the hardware is
-			 * sane, so babbling devices also trigger a normal
-			 * endpoint i/o fault (with automatic recovery).
+			 * very wrong.  Docs say (15.1) that babble ends the
+			 * current sesssion, so shutdown _with restart_ would
+			 * be appropriate ... except that seems to be wrong,
+			 * at least some lowspeed enumerations trigger the
+			 * babbles without aborting the session!
+			 *
 			 * (A "babble" IRQ seems quite pointless...)
 			 */
 
@@ -658,9 +668,9 @@ void musb_start(struct musb * pThis)
 	musb_writew(pBase, MGC_O_HDRC_INTRRXE, pThis->wEndMask & 0xfffe);
 	musb_writeb(pBase, MGC_O_HDRC_INTRUSBE, 0xf7);
 
-	musb_platform_enable(pThis);
-
 	musb_writeb(pBase, MGC_O_HDRC_TESTMODE, 0);
+
+	musb_platform_enable(pThis);
 
 	/* enable high-speed/low-power and start session */
 	musb_writeb(pBase, MGC_O_HDRC_POWER,
@@ -744,8 +754,9 @@ static void musb_shutdown(struct platform_device *pdev)
 	spin_lock_irqsave(&musb->Lock, flags);
 	musb_platform_disable(musb);
 	musb_generic_disable(musb);
-	MUSB_ERR_MODE(musb, MUSB_ERR_SHUTDOWN);
 	spin_unlock_irqrestore(&musb->Lock, flags);
+
+	/* FIXME power down */
 }
 
 
@@ -1312,13 +1323,6 @@ irqreturn_t musb_interrupt(struct musb *musb)
 		(devctl & MGC_M_DEVCTL_HM) ? "host" : "peripheral",
 		musb->int_usb, musb->int_tx, musb->int_rx);
 
-	/* ignore requests when in error */
-	if (MUSB_IS_ERR(musb)) {
-		WARN("irq in error\n");
-		musb_platform_disable(musb);
-		return IRQ_NONE;
-	}
-
 	/* the core can interrupt us for multiple reasons; docs have
 	 * a generic interrupt flowchart to follow
 	 */
@@ -1534,6 +1538,7 @@ allocate_instance(struct device *dev, void __iomem *mbase)
 
 	hcd->uses_new_polling = 1;
 
+	musb->vbuserr_retry = VBUSERR_RETRY_COUNT;
 #else
 	musb = kzalloc(sizeof *musb, GFP_KERNEL);
 	if (!musb)

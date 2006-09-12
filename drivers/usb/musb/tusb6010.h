@@ -80,6 +80,8 @@
 #define		TUSB_DEV_OTG_STAT_DM_ENABLE		(1 << 0)
 
 #define TUSB_DEV_OTG_TIMER		(TUSB_SYS_REG_BASE + 0x010)
+#	define TUSB_DEV_OTG_TIMER_ENABLE		(1 << 31)
+#	define TUSB_DEV_OTG_TIMER_VAL(v)		((v) & 0x07ffffff)
 #define TUSB_PRCM_REV			(TUSB_SYS_REG_BASE + 0x014)
 
 /* PRCM configuration register */
@@ -198,8 +200,6 @@
 #define TUSB_PROD_TEST_RESET		(TUSB_SYS_REG_BASE + 0x1d8)
 
 /* Device System & Control register bitfields */
-#define TUSB_DEV_OTG_TIMER_ENABLE		(1 << 31)
-#define TUSB_DEV_OTG_TIMER_VAL(v)		((v) & 0x07ffffff)
 #define TUSB_INT_CTRL_CONF_INT_RELCYC(v)	(((v) & 0x7) << 18)
 #define TUSB_INT_CTRL_CONF_INT_POLARITY		(1 << 17)
 #define TUSB_INT_CTRL_CONF_INT_MODE		(1 << 16)

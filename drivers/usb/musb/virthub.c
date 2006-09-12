@@ -277,7 +277,6 @@ int musb_hub_control(
 			 * logic relating to VBUS power-up.
 			 */
 			musb_start(musb);
-			musb->port1_status |= USB_PORT_STAT_POWER;
 			break;
 		case USB_PORT_FEAT_RESET:
 			musb_port_reset(musb, TRUE);
@@ -316,12 +315,12 @@ int musb_hub_control(
 				goto error;
 			}
 			musb_writeb(musb->pRegs, MGC_O_HDRC_TESTMODE, temp);
-			musb->port1_status |= USB_PORT_STAT_TEST;
 			break;
 		default:
 			goto error;
 		}
 		DBG(5, "set feature %d\n", wValue);
+		musb->port1_status |= 1 << wValue;
 		break;
 
 	default:
