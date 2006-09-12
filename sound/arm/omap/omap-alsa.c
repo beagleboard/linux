@@ -190,7 +190,6 @@ static void audio_process_dma(struct audio_stream *s)
 	unsigned int dma_size;
 	unsigned int offset;
 	int ret;
-	unsigned long flags;
 	
 	ADEBUG();
 	runtime = substream->runtime;
@@ -205,9 +204,7 @@ static void audio_process_dma(struct audio_stream *s)
 		 * (invocation of callback_omap_alsa_sound_dma() method).
 		 */
 		if (cpu_is_omap15xx()) {
-			spin_lock_irqsave(&s->dma_lock, flags);
 			omap_stop_alsa_sound_dma(s);
-			spin_unlock_irqrestore(&s->dma_lock, flags);
 		}
 		ret = omap_start_alsa_sound_dma(s,
 				(dma_addr_t)runtime->dma_area + offset,
