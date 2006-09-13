@@ -53,10 +53,11 @@ struct tusb_omap_dma_ch {
 
 	void __iomem		*dma_addr;
 
-	unsigned long		packet_sz;
-	unsigned long		len;
-	unsigned long		transfer_len;
-	unsigned long		completed_len;
+	u32			len;
+	u16			packet_sz;
+	u16			transfer_packet_sz;
+	u32			transfer_len;
+	u32			completed_len;
 };
 
 struct tusb_omap_dma {
@@ -171,7 +172,7 @@ static void tusb_omap_dma_cb(int lch, u16 ch_status, void *data)
 	remaining = TUSB_EP_CONFIG_XFR_SIZE(remaining);
 	channel->dwActualLength = chdat->transfer_len - remaining;
 
-	DBG(2, "remaining %lu/%lu\n", remaining, chdat->transfer_len);
+	DBG(2, "remaining %lu/%u\n", remaining, chdat->transfer_len);
 
 	if (!dmareq_works())
 		tusb_omap_free_shared_dmareq(chdat);
@@ -198,7 +199,8 @@ static void tusb_omap_dma_cb(int lch, u16 ch_status, void *data)
 			DBG(2, "terminating short tx packet\n");
 			MGC_SelectEnd(musb_base, chdat->epnum);
 			csr = musb_readw(hw_ep->regs, MGC_O_HDRC_TXCSR);
-			csr |= MGC_M_TXCSR_MODE | MGC_M_TXCSR_TXPKTRDY;
+			csr |= MGC_M_TXCSR_MODE | MGC_M_TXCSR_TXPKTRDY
+				| MGC_M_TXCSR_P_WZC_BITS;
 			musb_writew(hw_ep->regs, MGC_O_HDRC_TXCSR, csr);
 		}
 	}
@@ -218,7 +220,6 @@ static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,
 	dma_addr_t			fifo = hw_ep->fifo_sync;
 	struct omap_dma_channel_params	dma_params;
 	int				src_burst, dst_burst;
-	u32				transfer_len;
 	u16				csr;
 	int				ch;
 	s8				dmareq;
@@ -231,10 +232,12 @@ static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,
 	if ((len % 32 != 0))
 		return FALSE;
 	else
-		transfer_len = len;
+		chdat->transfer_len = len;
 
 	if (len < packet_sz)
-		packet_sz = transfer_len;
+		chdat->transfer_packet_sz = chdat->transfer_len;
+	else
+		chdat->transfer_packet_sz = packet_sz;
 
 	if (dmareq_works()) {
 		ch = chdat->ch;
@@ -261,7 +264,6 @@ static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,
 
 	chdat->packet_sz = packet_sz;
 	chdat->len = len;
-	chdat->transfer_len = transfer_len;
 	channel->dwActualLength = 0;
 	chdat->dma_addr = (void __iomem *)dma_addr;
 	channel->bStatus = MGC_DMA_STATUS_BUSY;
@@ -282,11 +284,12 @@ static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,
 		fifo = hw_ep->fifo_async;
 	}
 
-	dma_params.frame_count	= transfer_len / 32; /* Burst sz frame */
+	dma_params.frame_count	= chdat->transfer_len / 32; /* Burst sz frame */
 
-	DBG(2, "ep%i %s dma ch%i dma: %08x len: %u(%u) packet_sz: %i\n",
+	DBG(2, "ep%i %s dma ch%i dma: %08x len: %u(%u) packet_sz: %i(%i)\n",
 		chdat->epnum, chdat->tx ? "tx" : "rx",
-		ch, dma_addr, transfer_len, len, packet_sz);
+		ch, dma_addr, chdat->transfer_len, len,
+		chdat->transfer_packet_sz, packet_sz);
 
 	/*
 	 * Prepare omap DMA for transfer
@@ -363,18 +366,19 @@ static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,
 	omap_start_dma(ch);
 
 	if (chdat->tx) {
-		/* Send packet_sz packets at a time */
-		musb_writel(ep_conf, TUSB_EP_MAX_PACKET_SIZE_OFFSET, packet_sz);
+		/* Send transfer_packet_sz packets at a time */
+		musb_writel(ep_conf, TUSB_EP_MAX_PACKET_SIZE_OFFSET,
+			chdat->transfer_packet_sz);
 
 		musb_writel(ep_conf, TUSB_EP_TX_OFFSET,
-			TUSB_EP_CONFIG_XFR_SIZE(transfer_len));
+			TUSB_EP_CONFIG_XFR_SIZE(chdat->transfer_len));
 	} else {
-		/* Receive packet_sz packets at a time */
+		/* Receive transfer_packet_sz packets at a time */
 		musb_writel(ep_conf, TUSB_EP_MAX_PACKET_SIZE_OFFSET,
-			packet_sz << 16);
+			chdat->transfer_packet_sz << 16);
 
 		musb_writel(ep_conf, TUSB_EP_RX_OFFSET,
-			TUSB_EP_CONFIG_XFR_SIZE(transfer_len));
+			TUSB_EP_CONFIG_XFR_SIZE(chdat->transfer_len));
 	}
 
 	return TRUE;
