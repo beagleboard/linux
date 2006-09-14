@@ -171,6 +171,19 @@ MODULE_LICENSE("GPL");
 
 /*-------------------------------------------------------------------------*/
 
+#ifdef	CONFIG_USB_MUSB_OTG
+
+/* For debugging/prototyping:  allow disabling host side support on boards
+ * with Mini-AB (or Mini-A) connectors, making peripheral side support look
+ * like pure peripherals (not reporting OTG capabilities, and able to
+ * draw a full 100mA unit load).
+ */
+int musb_otg = 1;
+
+module_param(musb_otg, bool, 0600);
+MODULE_PARM_DESC(musb_otg, "enable/disable OTG capabilities");
+#endif
+
 static inline struct musb *dev_to_musb(struct device *dev)
 {
 #ifdef CONFIG_USB_MUSB_HDRC_HCD
@@ -629,12 +642,8 @@ static irqreturn_t musb_stage2_irq(struct musb * pThis, u8 bIntrUSB,
 		/* peripheral suspend, may trigger HNP */
 		if (!(devctl & MGC_M_DEVCTL_HM)) {
 			musb_g_suspend(pThis);
-#ifdef CONFIG_USB_GADGET_MUSB_HDRC
 			pThis->is_active = is_otg_enabled(pThis)
 					&& pThis->xceiv.gadget->b_hnp_enable;
-#else
-			pThis->is_active = 0;
-#endif
 			otg_input_changed(pThis, devctl, FALSE, FALSE, TRUE);
 		} else
 			pThis->is_active = 0;
@@ -648,39 +657,44 @@ static irqreturn_t musb_stage2_irq(struct musb * pThis, u8 bIntrUSB,
 /*
 * Program the HDRC to start (enable interrupts, dma, etc.).
 */
-void musb_start(struct musb * pThis)
+void musb_start(struct musb *musb)
 {
-	void __iomem *pBase = pThis->pRegs;
-	u8 state;
+	void __iomem	*regs = musb->pRegs;
+	u8		devctl;
 
 	DBG(2, "<==\n");
 
 	/* TODO: always set ISOUPDATE in POWER (periph mode) and leave it on! */
 
 	/*  Set INT enable registers, enable interrupts */
-	musb_writew(pBase, MGC_O_HDRC_INTRTXE, pThis->wEndMask);
-	musb_writew(pBase, MGC_O_HDRC_INTRRXE, pThis->wEndMask & 0xfffe);
-	musb_writeb(pBase, MGC_O_HDRC_INTRUSBE, 0xf7);
+	musb_writew(regs, MGC_O_HDRC_INTRTXE, musb->wEndMask);
+	musb_writew(regs, MGC_O_HDRC_INTRRXE, musb->wEndMask & 0xfffe);
+	musb_writeb(regs, MGC_O_HDRC_INTRUSBE, 0xf7);
 
-	musb_writeb(pBase, MGC_O_HDRC_TESTMODE, 0);
+	musb_writeb(regs, MGC_O_HDRC_TESTMODE, 0);
 
-	musb_platform_enable(pThis);
+	musb_platform_enable(musb);
 
 	/* enable high-speed/low-power and start session */
-	musb_writeb(pBase, MGC_O_HDRC_POWER,
+	musb_writeb(regs, MGC_O_HDRC_POWER,
 		MGC_M_POWER_SOFTCONN | MGC_M_POWER_HSENAB);
 
-	switch (pThis->board_mode) {
+	musb->is_active = 0;
+	switch (musb->board_mode) {
 	case MUSB_HOST:
-		musb_set_vbus(pThis, 1);
+		musb_set_vbus(musb, 1);
 		break;
 	case MUSB_OTG:
-		WARN("how to start OTG session?\n");
+		/* session started after:
+		 * (a) ID-grounded irq, host mode;
+		 * (b) vbus present/connect IRQ, peripheral mode;
+		 * (c) peripheral initiates, using SRP
+		 */
 		break;
 	case MUSB_PERIPHERAL:
-		state = musb_readb(pBase, MGC_O_HDRC_DEVCTL);
-		musb_writeb(pBase, MGC_O_HDRC_DEVCTL,
-			state & ~MGC_M_DEVCTL_SESSION);
+		devctl = musb_readb(regs, MGC_O_HDRC_DEVCTL);
+		musb_writeb(regs, MGC_O_HDRC_DEVCTL,
+			devctl & ~MGC_M_DEVCTL_SESSION);
 		break;
 	}
 }
@@ -958,7 +972,7 @@ static const struct fifo_cfg __devinitdata ep0_cfg = {
 static int __devinit ep_config_from_table(struct musb *musb)
 {
 	const struct fifo_cfg	*cfg;
-	unsigned		n;
+	unsigned		i, n;
 	int			offset;
 	struct musb_hw_ep	*hw_ep = musb->aLocalEnd;
 
@@ -995,13 +1009,13 @@ static int __devinit ep_config_from_table(struct musb *musb)
 	offset = fifo_setup(musb, hw_ep, &ep0_cfg, 0);
 	// assert(offset > 0)
 
-	while (n--) {
+	for (i = 0; i < n; i++) {
 		u8	epn = cfg->hw_ep_num;
 
 		if (epn >= MUSB_C_NUM_EPS) {
 			pr_debug( "%s: invalid ep %d\n",
 					musb_driver_name, epn);
-			return -EINVAL;
+			continue;
 		}
 		offset = fifo_setup(musb, hw_ep + epn, cfg++, offset);
 		if (offset < 0) {
@@ -1015,7 +1029,7 @@ static int __devinit ep_config_from_table(struct musb *musb)
 
 	printk(KERN_DEBUG "%s: %d/%d max ep, %d/%d memory\n",
 			musb_driver_name,
-			musb->bEndCount, MUSB_C_NUM_EPS * 2 - 1,
+			n + 1, MUSB_C_NUM_EPS * 2 - 1,
 			offset, DYN_FIFO_SIZE);
 
 #ifdef CONFIG_USB_MUSB_HDRC_HCD
@@ -1346,10 +1360,13 @@ irqreturn_t musb_interrupt(struct musb *musb)
 			// MGC_SelectEnd(musb->pRegs, ep_num);
 			/* REVISIT just retval = ep->rx_irq(...) */
 			retval = IRQ_HANDLED;
-			if (devctl & MGC_M_DEVCTL_HM)
-				musb_host_rx(musb, ep_num);
-			else
-				musb_g_rx(musb, ep_num);
+			if (devctl & MGC_M_DEVCTL_HM) {
+				if (is_host_capable())
+					musb_host_rx(musb, ep_num);
+			} else {
+				if (is_peripheral_capable())
+					musb_g_rx(musb, ep_num);
+			}
 		}
 
 		reg >>= 1;
@@ -1364,10 +1381,13 @@ irqreturn_t musb_interrupt(struct musb *musb)
 			// MGC_SelectEnd(musb->pRegs, ep_num);
 			/* REVISIT just retval |= ep->tx_irq(...) */
 			retval = IRQ_HANDLED;
-			if (devctl & MGC_M_DEVCTL_HM)
-				musb_host_tx(musb, ep_num);
-			else
-				musb_g_tx(musb, ep_num);
+			if (devctl & MGC_M_DEVCTL_HM) {
+				if (is_host_capable())
+					musb_host_tx(musb, ep_num);
+			} else {
+				if (is_peripheral_capable())
+					musb_g_tx(musb, ep_num);
+			}
 		}
 		reg >>= 1;
 		ep_num++;
@@ -1406,16 +1426,22 @@ void musb_dma_completion(struct musb *musb, u8 bLocalEnd, u8 bTransmit)
 	} else {
 		/* endpoints 1..15 */
 		if (bTransmit) {
-			if (devctl & MGC_M_DEVCTL_HM)
-				musb_host_tx(musb, bLocalEnd);
-			else
-				musb_g_tx(musb, bLocalEnd);
+			if (devctl & MGC_M_DEVCTL_HM) {
+				if (is_host_capable())
+					musb_host_tx(musb, bLocalEnd);
+			} else {
+				if (is_peripheral_capable())
+					musb_g_tx(musb, bLocalEnd);
+			}
 		} else {
 			/* receive */
-			if (devctl & MGC_M_DEVCTL_HM)
-				musb_host_rx(musb, bLocalEnd);
-			else
-				musb_g_rx(musb, bLocalEnd);
+			if (devctl & MGC_M_DEVCTL_HM) {
+				if (is_host_capable())
+					musb_host_rx(musb, bLocalEnd);
+			} else {
+				if (is_peripheral_capable())
+					musb_g_rx(musb, bLocalEnd);
+			}
 		}
 	}
 }

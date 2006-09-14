@@ -171,7 +171,7 @@ static int tusb_set_power(struct otg_transceiver *x, unsigned mA)
 		reg &= ~(TUSB_PRCM_MNGMT_15_SW_EN | TUSB_PRCM_MNGMT_33_SW_EN);
 	musb_writel(base, TUSB_PRCM_MNGMT, reg);
 
-	DBG(3, "draw max %d mA VBUS\n", mA);
+	DBG(2, "draw max %d mA VBUS\n", mA);
 	return 0;
 }
 
@@ -209,20 +209,21 @@ static void tusb_allow_idle(struct musb *musb, u32 wakeup_enables)
 	wakeup_enables |= TUSB_PRCM_WNORCS;
 	musb_writel(base, TUSB_PRCM_WAKEUP_MASK, ~wakeup_enables);
 
-// FIXME issue 4, when host (driving vbus), enable hipower comparator
-
 	/* REVISIT writeup of WLD implies that if WLD set and ID is grounded,
 	 * TUSB_PHY_OTG_CTRL.TUSB_PHY_OTG_CTRL_OTG_ID_PULLUP must be cleared.
 	 * Presumably that's mostly to save power, hence WLD is immaterial ...
 	 */
 
 	reg = musb_readl(base, TUSB_PRCM_MNGMT);
-	/* issue 4: when driving vbus, leave hipower comparator active */
-	if (!is_host_active(musb))
+	/* issue 4: when driving vbus, use hipower (vbus_det) comparator */
+	if (is_host_active(musb)) {
+		reg |= TUSB_PRCM_MNGMT_OTG_VBUS_DET_EN;
+		reg &= ~TUSB_PRCM_MNGMT_OTG_SESS_END_EN;
+	} else {
+		reg |= TUSB_PRCM_MNGMT_OTG_SESS_END_EN;
 		reg &= ~TUSB_PRCM_MNGMT_OTG_VBUS_DET_EN;
-	reg |= TUSB_PRCM_MNGMT_OTG_SESS_END_EN
-			| TUSB_PRCM_MNGMT_PM_IDLE
-			| TUSB_PRCM_MNGMT_DEV_IDLE;
+	}
+	reg |= TUSB_PRCM_MNGMT_PM_IDLE | TUSB_PRCM_MNGMT_DEV_IDLE;
 	musb_writel(base, TUSB_PRCM_MNGMT, reg);
 
 	DBG(2, "idle, wake on %02x\n", wakeup_enables);
@@ -344,8 +345,10 @@ static void tusb_set_vbus(struct musb *musb, int is_on)
 		if (musb->xceiv.default_a) {
 			musb->xceiv.state = OTG_STATE_A_WAIT_VFALL;
 			devctl &= ~MGC_M_DEVCTL_SESSION;
-		} else
+		} else {
+			musb->xceiv.state = OTG_STATE_B_IDLE;
 			musb->is_active = 0;
+		}
 	}
 	prcm &= ~(TUSB_PRCM_MNGMT_15_SW_EN | TUSB_PRCM_MNGMT_33_SW_EN);
 
@@ -355,7 +358,7 @@ static void tusb_set_vbus(struct musb *musb, int is_on)
 	musb_writeb(musb->pRegs, MGC_O_HDRC_DEVCTL, devctl);
 
 	DBG(1, "VBUS %s, devctl %02x otg %3x conf %08x prcm %08x\n",
-		is_on ? "on" : "off",
+		otg_state_string(musb),
 		musb_readb(musb->pRegs, MGC_O_HDRC_DEVCTL),
 		musb_readl(base, TUSB_DEV_OTG_STAT),
 		conf, prcm);
@@ -371,13 +374,12 @@ tusb_otg_ints(struct musb *musb, u32 int_src, void __iomem *base)
 		int	default_a;
 
 		if (is_otg_enabled(musb))
-			default_a = !!(otg_stat & TUSB_DEV_OTG_STAT_ID_STATUS);
+			default_a = !(otg_stat & TUSB_DEV_OTG_STAT_ID_STATUS);
 		else
 			default_a = is_host_enabled(musb);
-		if (default_a != musb->xceiv.default_a) {
-			musb->xceiv.default_a = default_a;
-			tusb_set_vbus(musb, default_a);
-		}
+		DBG(2, "Default-%c\n", default_a ? 'A' : 'B');
+		musb->xceiv.default_a = default_a;
+		tusb_set_vbus(musb, default_a);
 	}
 
 	/* VBUS state change */
@@ -387,21 +389,16 @@ tusb_otg_ints(struct musb *musb, u32 int_src, void __iomem *base)
 		if ((is_otg_enabled(musb) && !musb->xceiv.default_a)
 				|| !is_host_enabled(musb)) {
 
-			/* REVISIT use the b_sess_valid comparator, not
-			 * lowpower one; TUSB_DEV_OTG_STAT_SESS_VALID ?
-			 */
-
-			if (otg_stat & TUSB_DEV_OTG_STAT_VBUS_SENSE) {
-				musb->xceiv.state = OTG_STATE_B_PERIPHERAL;
-				musb->is_active = 1;
-				/* REVISIT start the session? */
-			} else {
-				musb->xceiv.state = OTG_STATE_B_IDLE;
+			if (otg_stat & TUSB_DEV_OTG_STAT_SESS_END) {
+				if (musb->xceiv.state != OTG_STATE_B_IDLE) {
+					/* INTR_DISCONNECT can hide... */
+					musb->xceiv.state = OTG_STATE_B_IDLE;
+					musb->int_usb |= MGC_M_INTR_DISCONNECT;
+				}
 				musb->is_active = 0;
 			}
-			DBG(1, "%s\n", musb->is_active
-					? "b_peripheral" : "b_idle");
-
+			DBG(2, "vbus change, %s, otg %03x\n",
+				otg_state_string(musb), otg_stat);
 			schedule_work(&musb->irq_work);
 
 		} else /* A-dev state machine */ {
@@ -432,16 +429,15 @@ tusb_otg_ints(struct musb *musb, u32 int_src, void __iomem *base)
 
 	/* OTG timer expiration */
 	if (int_src & TUSB_INT_SRC_OTG_TIMEOUT) {
+		u8	devctl;
+
 		DBG(4, "%s timer, %03x\n", otg_state_string(musb), otg_stat);
 
 		switch (musb->xceiv.state) {
 		case OTG_STATE_A_WAIT_VRISE:
 			/* VBUS has probably been valid for a while now */
+			devctl = musb_readb(musb->pRegs, MGC_O_HDRC_DEVCTL);
 			if (otg_stat & TUSB_DEV_OTG_STAT_VBUS_VALID) {
-				u8	devctl;
-
-				devctl = musb_readb(musb->pRegs,
-						MGC_O_HDRC_DEVCTL);
 				if ((devctl & MGC_M_DEVCTL_VBUS)
 						!= MGC_M_DEVCTL_VBUS) {
 					DBG(2, "devctl %02x\n", devctl);
@@ -463,7 +459,7 @@ tusb_otg_ints(struct musb *musb, u32 int_src, void __iomem *base)
 				else
 					musb_writel(base, TUSB_DEV_OTG_TIMER, 0);
 			} else {
-				ERR("vbus rise time too slow\n");
+				ERR("vbus too slow, devctl %02x\n", devctl);
 				tusb_set_vbus(musb, 0);
 			}
 			break;
@@ -487,17 +483,15 @@ static irqreturn_t tusb_interrupt(int irq, void *__hci, struct pt_regs *r)
 	struct musb	*musb = __hci;
 	void __iomem	*base = musb->ctrl_base;
 	unsigned long	flags;
-	u32		dma_src = 0, int_src;
+	u32		int_src;
 
 	spin_lock_irqsave(&musb->Lock, flags);
 
 	int_src = musb_readl(base, TUSB_INT_SRC) & ~TUSB_INT_SRC_RESERVED_BITS;
-	if (int_src & TUSB_INT_SRC_TXRX_DMA_DONE)
-		dma_src = musb_readl(base, TUSB_DMA_INT_SRC);
-
-	DBG(3, "TUSB interrupt dma: %08x int: %08x\n", dma_src, int_src);
+	DBG(3, "TUSB IRQ %08x\n", int_src);
 
 	musb->int_regs = r;
+	musb->int_usb = (u8) int_src;
 
 	/* Acknowledge wake-up source interrupts */
 	if (int_src & TUSB_INT_SRC_DEV_WAKEUP) {
@@ -540,11 +534,13 @@ static irqreturn_t tusb_interrupt(int irq, void *__hci, struct pt_regs *r)
 	/* TX dma callback must be handled here, RX dma callback is
 	 * handled in tusb_omap_dma_cb.
 	 */
-	if ((int_src & TUSB_INT_SRC_TXRX_DMA_DONE) && dma_src) {
-		u32 real_dma_src = musb_readl(base, TUSB_DMA_INT_MASK);
+	if ((int_src & TUSB_INT_SRC_TXRX_DMA_DONE)) {
+		u32	dma_src = musb_readl(base, TUSB_DMA_INT_SRC);
+		u32	real_dma_src = musb_readl(base, TUSB_DMA_INT_MASK);
 
+		DBG(3, "DMA IRQ %08x\n", dma_src);
 		real_dma_src = ~real_dma_src & dma_src;
-		if (tusb_dma_omap()) {
+		if (tusb_dma_omap() && real_dma_src) {
 			int	tx_source = (real_dma_src & 0xffff);
 			int	i;
 
@@ -568,10 +564,8 @@ static irqreturn_t tusb_interrupt(int irq, void *__hci, struct pt_regs *r)
 	} else
 		musb->int_rx = musb->int_tx = 0;
 
-	if (int_src & (TUSB_INT_SRC_USB_IP_TX | TUSB_INT_SRC_USB_IP_RX | 0xff)) {
-		musb->int_usb = (u8) int_src;
+	if (int_src & (TUSB_INT_SRC_USB_IP_TX | TUSB_INT_SRC_USB_IP_RX | 0xff))
 		musb_interrupt(musb);
-	}
 
 	/* Acknowledge TUSB interrupts. Clear only non-reserved bits */
 	musb_writel(base, TUSB_INT_SRC_CLEAR,
@@ -618,6 +612,9 @@ void musb_platform_enable(struct musb * musb)
 			TUSB_INT_CTRL_CONF_INT_RELCYC(0));
 
 	set_irq_type(musb->nIrq, IRQ_TYPE_LEVEL_LOW);
+
+	/* kickstart:  force into the correct OTG state machine */
+	musb_writel(base, TUSB_INT_SRC_SET, TUSB_INT_SRC_ID_STATUS_CHNG);
 
 	if (is_dma_capable() && dma_off)
 		printk(KERN_WARNING "%s %s: dma not reactivated\n",

@@ -41,6 +41,8 @@
 #include <linux/errno.h>
 #include <linux/device.h>
 #include <linux/usb_ch9.h>
+#include <linux/usb_gadget.h>
+#include <linux/usb.h>
 #include <linux/usb_otg.h>
 #include <linux/usb/musb.h>
 
@@ -67,13 +69,17 @@ struct musb_ep;
 #include "plat_arc.h"
 #include "musbhdrc.h"
 
+#include "musb_gadget.h"
+#include "../core/hcd.h"
+#include "musb_host.h"
+#include "otg.h"
+
 
 /* REVISIT tune this */
 #define	MIN_DMA_REQUEST		1	/* use PIO below this xfer size */
 
 
 #ifdef CONFIG_USB_MUSB_OTG
-#include "otg.h"
 
 #define	is_peripheral_enabled(musb)	((musb)->board_mode != MUSB_HOST)
 #define	is_host_enabled(musb)		((musb)->board_mode != MUSB_PERIPHERAL)
@@ -82,15 +88,8 @@ struct musb_ep;
 /* NOTE:  otg and peripheral-only state machines start at B_IDLE.
  * OTG or host-only go to A_IDLE when ID is sensed.
  */
-#define is_peripheral_active(m)	(is_peripheral_capable() && !(m)->bIsHost)
-#define is_host_active(m)	(is_host_capable() && (m)->bIsHost)
-
-/* for some reason, the "select USB_GADGET_MUSB_HDRC" doesn't really
- * override that choice selection (often USB_GADGET_DUMMY_HCD).
- */
-#ifndef CONFIG_USB_GADGET_MUSB_HDRC
-#error bogus Kconfig output ... select CONFIG_USB_GADGET_MUSB_HDRC
-#endif
+#define is_peripheral_active(m)		(!(m)->bIsHost)
+#define is_host_active(m)		((m)->bIsHost)
 
 #else
 #define	is_peripheral_enabled(musb)	is_peripheral_capable()
@@ -101,6 +100,15 @@ struct musb_ep;
 #define	is_host_active(musb)		is_host_capable()
 #endif
 
+#if defined(CONFIG_USB_MUSB_OTG) || defined(CONFIG_USB_MUSB_PERIPHERAL)
+/* for some reason, the "select USB_GADGET_MUSB_HDRC" doesn't always
+ * override that choice selection (often USB_GADGET_DUMMY_HCD).
+ */
+#ifndef CONFIG_USB_GADGET_MUSB_HDRC
+#error bogus Kconfig output ... select CONFIG_USB_GADGET_MUSB_HDRC
+#endif
+#endif	/* need MUSB gadget selection */
+
 
 #ifdef CONFIG_PROC_FS
 #include <linux/fs.h>
@@ -110,9 +118,6 @@ struct musb_ep;
 /****************************** PERIPHERAL ROLE *****************************/
 
 #ifdef CONFIG_USB_GADGET_MUSB_HDRC
-
-#include <linux/usb_gadget.h>
-#include "musb_gadget.h"
 
 #define	is_peripheral_capable()	(1)
 
@@ -129,8 +134,6 @@ extern void musb_g_disconnect(struct musb *);
 #define	is_peripheral_capable()	(0)
 
 static inline irqreturn_t musb_g_ep0_irq(struct musb *m) { return IRQ_NONE; }
-static inline void musb_g_tx(struct musb *m, u8 e) {}
-static inline void musb_g_rx(struct musb *m, u8 e) {}
 static inline void musb_g_reset(struct musb *m) {}
 static inline void musb_g_suspend(struct musb *m) {}
 static inline void musb_g_resume(struct musb *m) {}
@@ -141,10 +144,6 @@ static inline void musb_g_disconnect(struct musb *m) {}
 /****************************** HOST ROLE ***********************************/
 
 #ifdef CONFIG_USB_MUSB_HDRC_HCD
-
-#include <linux/usb.h>
-#include "../core/hcd.h"
-#include "musb_host.h"
 
 #define	is_host_capable()	(1)
 
@@ -159,8 +158,6 @@ extern void musb_host_rx(struct musb *, u8);
 static inline irqreturn_t musb_h_ep0_irq(struct musb *m) { return IRQ_NONE; }
 static inline void musb_host_tx(struct musb *m, u8 e) {}
 static inline void musb_host_rx(struct musb *m, u8 e) {}
-
-static inline void musb_root_disconnect(struct musb *musb) { BUG(); }
 
 #endif
 
