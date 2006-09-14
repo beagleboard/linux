@@ -399,8 +399,12 @@ struct musb {
 	struct list_head	in_bulk;	/* of musb_qh */
 	struct list_head	out_bulk;	/* of musb_qh */
 	struct musb_qh		*periodic[32];	/* tree of interrupt+iso */
-
 #endif
+
+	/* called with IRQs blocked; ON/nonzero implies starting a session,
+	 * and waiting at least a_wait_vrise_tmout.
+	 */
+	void			(*board_set_vbus)(struct musb *, int is_on);
 
 	struct dma_controller	*pDmaController;
 
@@ -488,6 +492,11 @@ struct musb {
 	struct proc_dir_entry *pProcEntry;
 #endif
 };
+
+static inline void musb_set_vbus(struct musb *musb, int is_on)
+{
+	musb->board_set_vbus(musb, is_on);
+}
 
 #ifdef CONFIG_USB_GADGET_MUSB_HDRC
 static inline struct musb *gadget_to_musb(struct usb_gadget *g)

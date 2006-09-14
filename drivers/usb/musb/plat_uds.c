@@ -416,6 +416,7 @@ static irqreturn_t musb_stage0_irq(struct musb * pThis, u8 bIntrUSB,
 		pThis->bEnd0Stage = MGC_END0_START;
 		pThis->xceiv.state = OTG_STATE_A_IDLE;
 		MUSB_HST_MODE(pThis);
+		musb_set_vbus(pThis, 1);
 
 		handled = IRQ_HANDLED;
 
@@ -454,12 +455,9 @@ static irqreturn_t musb_stage0_irq(struct musb * pThis, u8 bIntrUSB,
 				}; s; }),
 				pThis->vbuserr_retry);
 
-		/* after hw goes to A_IDLE, try connecting again */
-		pThis->xceiv.state = OTG_STATE_A_IDLE;
-		if (pThis->vbuserr_retry--)
-			musb_writeb(pBase, MGC_O_HDRC_DEVCTL,
-					MGC_M_DEVCTL_SESSION);
-		return IRQ_HANDLED;
+		/* go through A_WAIT_VFALL then start a new session */
+		musb_set_vbus(pThis, 0);
+		handled = IRQ_HANDLED;
 	} else
 		pThis->vbuserr_retry = VBUSERR_RETRY_COUNT;
 
@@ -498,14 +496,10 @@ static irqreturn_t musb_stage0_irq(struct musb * pThis, u8 bIntrUSB,
 			pThis->xceiv.state = OTG_STATE_B_HOST;
 			break;
 		default:
-			DBG(2, "connect in state %d\n", pThis->xceiv.state);
-			/* FALLTHROUGH */
-		case OTG_STATE_A_WAIT_BCON:
-		case OTG_STATE_A_WAIT_VRISE:
 			pThis->xceiv.state = OTG_STATE_A_HOST;
 			break;
 		}
-		DBG(1, "CONNECT (host state %d)\n", pThis->xceiv.state);
+		DBG(1, "CONNECT (%s)\n", otg_state_string(pThis));
 		otg_input_changed(pThis, devctl, FALSE, TRUE, FALSE);
 	}
 #endif	/* CONFIG_USB_MUSB_HDRC_HCD */
@@ -678,8 +672,10 @@ void musb_start(struct musb * pThis)
 
 	switch (pThis->board_mode) {
 	case MUSB_HOST:
+		musb_set_vbus(pThis, 1);
+		break;
 	case MUSB_OTG:
-		musb_writeb(pBase, MGC_O_HDRC_DEVCTL, MGC_M_DEVCTL_SESSION);
+		WARN("how to start OTG session?\n");
 		break;
 	case MUSB_PERIPHERAL:
 		state = musb_readb(pBase, MGC_O_HDRC_DEVCTL);

@@ -212,6 +212,9 @@ int musb_hub_control(
 			musb_port_suspend(musb, FALSE);
 			break;
 		case USB_PORT_FEAT_POWER:
+			if (!(is_otg_enabled(musb) && hcd->self.is_b_host))
+				musb_set_vbus(musb, 0);
+			break;
 		case USB_PORT_FEAT_C_CONNECTION:
 		case USB_PORT_FEAT_C_ENABLE:
 		case USB_PORT_FEAT_C_OVER_CURRENT:

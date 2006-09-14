@@ -48,9 +48,9 @@
 #include "davinci.h"
 
 
-static const char *state_string(enum usb_otg_state state)
+const char *otg_state_string(struct musb *musb)
 {
-	switch (state) {
+	switch (musb->xceiv.state) {
 	case OTG_STATE_A_IDLE:		return "a_idle";
 	case OTG_STATE_A_WAIT_VRISE:	return "a_wait_vrise";
 	case OTG_STATE_A_WAIT_BCON:	return "a_wait_bcon";
@@ -485,8 +485,9 @@ static int dump_header_stats(struct musb *pThis, char *buffer)
 		return count;
 	buffer += count;
 
-	code = sprintf(buffer, "OTG state: %s\n",
-			state_string(pThis->xceiv.state));
+	code = sprintf(buffer, "OTG state: %s; %sactive\n",
+			otg_state_string(pThis),
+			pThis->is_active ? "" : "in");
 	if (code < 0)
 		return code;
 	buffer += code;
@@ -544,7 +545,7 @@ static int dump_header_stats(struct musb *pThis, char *buffer)
 #ifdef CONFIG_USB_TUSB6010
 	code = sprintf(buffer,
 			"TUSB6010: devconf %08x, phy enable %08x drive %08x"
-			"\n\totg %08x timer %08x"
+			"\n\totg %03x timer %08x"
 			"\n\tprcm conf %08x mgmt %08x; intmask %08x"
 			"\n",
 			musb_readl(pThis->ctrl_base, TUSB_DEV_CONF),
