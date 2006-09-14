@@ -162,6 +162,8 @@ static struct {
 	struct omapfb_color_key	color_key;
 } dispc;
 
+static void enable_lcd_clocks(int enable);
+
 static void inline dispc_write_reg(int idx, u32 val)
 {
 	__raw_writel(val, dispc.base + idx);
@@ -231,16 +233,20 @@ static void set_load_mode(int mode)
 void omap_dispc_set_lcd_size(int x, int y)
 {
 	BUG_ON((x > (1 << 11)) || (y > (1 << 11)));
+	enable_lcd_clocks(1);
 	MOD_REG_FLD(DISPC_SIZE_LCD, FLD_MASK(16, 11) | FLD_MASK(0, 11),
 			((y - 1) << 16) | (x - 1));
+	enable_lcd_clocks(0);
 }
 EXPORT_SYMBOL(omap_dispc_set_lcd_size);
 
 void omap_dispc_set_digit_size(int x, int y)
 {
 	BUG_ON((x > (1 << 11)) || (y > (1 << 11)));
+	enable_lcd_clocks(1);
 	MOD_REG_FLD(DISPC_SIZE_DIG, FLD_MASK(16, 11) | FLD_MASK(0, 11),
 			((y - 1) << 16) | (x - 1));
+	enable_lcd_clocks(0);
 }
 EXPORT_SYMBOL(omap_dispc_set_digit_size);
 
@@ -272,13 +278,17 @@ static void setup_plane_fifo(int plane, int ext_mode)
 
 void omap_dispc_enable_lcd_out(int enable)
 {
+	enable_lcd_clocks(1);
 	MOD_REG_FLD(DISPC_CONTROL, 1, enable ? 1 : 0);
+	enable_lcd_clocks(0);
 }
 EXPORT_SYMBOL(omap_dispc_enable_lcd_out);
 
 void omap_dispc_enable_digit_out(int enable)
 {
+	enable_lcd_clocks(1);
 	MOD_REG_FLD(DISPC_CONTROL, 1 << 1, enable ? 1 << 1 : 0);
+	enable_lcd_clocks(0);
 }
 EXPORT_SYMBOL(omap_dispc_enable_digit_out);
 
@@ -414,13 +424,17 @@ static int omap_dispc_setup_plane(int plane, int channel_out,
 				  int color_mode)
 {
 	u32 paddr;
+	int r;
 
 	if ((unsigned)plane > dispc.mem_desc.region_cnt)
 		return -EINVAL;
 	paddr = dispc.mem_desc.region[plane].paddr + offset;
-	return _setup_plane(plane, channel_out, paddr,
+	enable_lcd_clocks(1);
+	r = _setup_plane(plane, channel_out, paddr,
 			screen_width,
 			pos_x, pos_y, width, height, color_mode);
+	enable_lcd_clocks(0);
+	return r;
 }
 
 static void write_firh_reg(int plane, int reg, u32 value)
@@ -487,18 +501,23 @@ static int omap_dispc_set_scale(int plane,
 	    (out_width != orig_width || out_height != orig_height))
 		return -EINVAL;
 
+	enable_lcd_clocks(1);
 	if (orig_width < out_width) {
 		/* Upsampling.
 		 * Currently you can only scale both dimensions in one way.
 		 */
 		if (orig_height > out_height ||
 		    orig_width * 8 < out_width ||
-		    orig_height * 8 < out_height)
+		    orig_height * 8 < out_height) {
+			enable_lcd_clocks(0);
 			return -EINVAL;
+		}
 		set_upsampling_coef_table(plane);
 	} else if (orig_width > out_width) {
 		/* Downsampling not yet supported
 		*/
+
+		enable_lcd_clocks(0);
 		return -EINVAL;
 	}
 	if (!orig_width || orig_width == out_width)
@@ -532,6 +551,7 @@ static int omap_dispc_set_scale(int plane,
 	l |= fir_vinc ? (1 << 6) : 0;
 	dispc_write_reg(at_reg[plane], l);
 
+	enable_lcd_clocks(0);
 	return 0;
 }
 
@@ -542,7 +562,10 @@ static int omap_dispc_enable_plane(int plane, int enable)
 				DISPC_VID2_BASE + DISPC_VID_ATTRIBUTES };
 	if ((unsigned int)plane > dispc.mem_desc.region_cnt)
 		return -EINVAL;
+
+	enable_lcd_clocks(1);
 	MOD_REG_FLD(at_reg[plane], 1, enable ? 1 : 0);
+	enable_lcd_clocks(0);
 
 	return 0;
 }
@@ -579,11 +602,13 @@ static int omap_dispc_set_color_key(struct omapfb_color_key *ck)
 	default:
 		return -EINVAL;
 	}
+	enable_lcd_clocks(1);
 	MOD_REG_FLD(DISPC_CONFIG, FLD_MASK(shift, 2), val << shift);
 
 	if (val != 0)
 		dispc_write_reg(tr_reg, ck->trans_key);
 	dispc_write_reg(df_reg, ck->background);
+	enable_lcd_clocks(0);
 
 	dispc.color_key = *ck;
 
@@ -608,6 +633,7 @@ static int omap_dispc_set_update_mode(enum omapfb_update_mode mode)
 		switch (mode) {
 		case OMAPFB_AUTO_UPDATE:
 		case OMAPFB_MANUAL_UPDATE:
+			enable_lcd_clocks(1);
 			omap_dispc_enable_lcd_out(1);
 			dispc.update_mode = mode;
 			break;
@@ -620,6 +646,7 @@ static int omap_dispc_set_update_mode(enum omapfb_update_mode mode)
 					 "timeout waiting for FRAME DONE\n");
 			}
 			dispc.update_mode = mode;
+			enable_lcd_clocks(0);
 			break;
 		default:
 			r = -EINVAL;
@@ -775,25 +802,31 @@ EXPORT_SYMBOL(omap_dispc_request_irq);
 
 void omap_dispc_enable_irqs(int irq_mask)
 {
+	enable_lcd_clocks(1);
 	dispc.enabled_irqs = irq_mask;
 	irq_mask |= DISPC_IRQ_MASK_ERROR;
 	MOD_REG_FLD(DISPC_IRQENABLE, 0x7fff, irq_mask);
+	enable_lcd_clocks(0);
 }
 EXPORT_SYMBOL(omap_dispc_enable_irqs);
 
 void omap_dispc_disable_irqs(int irq_mask)
 {
+	enable_lcd_clocks(1);
 	dispc.enabled_irqs &= ~irq_mask;
 	irq_mask &= ~DISPC_IRQ_MASK_ERROR;
 	MOD_REG_FLD(DISPC_IRQENABLE, 0x7fff, irq_mask);
+	enable_lcd_clocks(0);
 }
 EXPORT_SYMBOL(omap_dispc_disable_irqs);
 
 void omap_dispc_free_irq(void)
 {
+	enable_lcd_clocks(1);
 	omap_dispc_disable_irqs(DISPC_IRQ_MASK_ALL);
 	dispc.irq_callback = NULL;
 	dispc.irq_callback_data = NULL;
+	enable_lcd_clocks(0);
 }
 EXPORT_SYMBOL(omap_dispc_free_irq);
 
@@ -856,13 +889,18 @@ static void put_dss_clocks(void)
 
 static void enable_lcd_clocks(int enable)
 {
-	if (enable) {
-		clk_enable(dispc.dss_ick);
+	if (enable)
 		clk_enable(dispc.dss1_fck);
-	} else {
+	else
 		clk_disable(dispc.dss1_fck);
+}
+
+static void enable_interface_clocks(int enable)
+{
+	if (enable)
+		clk_enable(dispc.dss_ick);
+	else
 		clk_disable(dispc.dss_ick);
-	}
 }
 
 static void enable_digit_clocks(int enable)
@@ -891,8 +929,10 @@ static void omap_dispc_resume(void)
 {
 	if (dispc.update_mode == OMAPFB_AUTO_UPDATE) {
 		enable_lcd_clocks(1);
-		set_lcd_timings();
-		load_palette();
+		if (!dispc.ext_mode) {
+			set_lcd_timings();
+			load_palette();
+		}
 		omap_dispc_enable_lcd_out(1);
 	}
 }
@@ -1040,6 +1080,7 @@ static int omap_dispc_init(struct omapfb_device *fbdev, int ext_mode,
 	if ((r = get_dss_clocks()) < 0)
 		return r;
 
+	enable_interface_clocks(1);
 	enable_lcd_clocks(1);
 
 #ifdef CONFIG_FB_OMAP_BOOTLOADER_INIT
@@ -1122,6 +1163,7 @@ static int omap_dispc_init(struct omapfb_device *fbdev, int ext_mode,
 	l = dispc_read_reg(DISPC_REVISION);
 	pr_info("omapfb: DISPC version %d.%d initialized\n",
 		 l >> 4 & 0x0f, l & 0x0f);
+	enable_lcd_clocks(0);
 
 	return 0;
 fail3:
@@ -1130,6 +1172,7 @@ fail2:
 	free_irq(INT_24XX_DSS_IRQ, fbdev);
 fail1:
 	enable_lcd_clocks(0);
+	enable_interface_clocks(0);
 	put_dss_clocks();
 
 	return r;
@@ -1137,10 +1180,16 @@ fail1:
 
 static void omap_dispc_cleanup(void)
 {
+	int i;
+
+	omap_dispc_set_update_mode(OMAPFB_UPDATE_DISABLED);
+	/* This will also disable clocks that are on */
+	for (i = 0; i < dispc.mem_desc.region_cnt; i++)
+		omap_dispc_enable_plane(i, 0);
 	cleanup_fbmem();
 	free_palette_ram();
 	free_irq(INT_24XX_DSS_IRQ, dispc.fbdev);
-	enable_lcd_clocks(0);
+	enable_interface_clocks(0);
 	put_dss_clocks();
 }
 

@@ -65,6 +65,8 @@ static struct {
 	unsigned long	l4_khz;
 	int		bits_per_cycle;
 	struct omapfb_device *fbdev;
+	struct clk	*dss_ick;
+	struct clk	*dss1_fck;
 } rfbi;
 
 static inline void rfbi_write_reg(int idx, u32 val)
@@ -76,6 +78,40 @@ static inline u32 rfbi_read_reg(int idx)
 {
 	return __raw_readl(rfbi.base + idx);
 }
+
+static int rfbi_get_clocks(void)
+{
+	if (IS_ERR((rfbi.dss_ick = clk_get(rfbi.fbdev->dev, "dss_ick")))) {
+		dev_err(rfbi.fbdev->dev, "can't get dss_ick");
+		return PTR_ERR(rfbi.dss_ick);
+	}
+
+	if (IS_ERR((rfbi.dss1_fck = clk_get(rfbi.fbdev->dev, "dss1_fck")))) {
+		dev_err(rfbi.fbdev->dev, "can't get dss1_fck");
+		clk_put(rfbi.dss_ick);
+		return PTR_ERR(rfbi.dss1_fck);
+	}
+
+	return 0;
+}
+
+static void rfbi_put_clocks(void)
+{
+	clk_put(rfbi.dss1_fck);
+	clk_put(rfbi.dss_ick);
+}
+
+static void rfbi_enable_clocks(int enable)
+{
+	if (enable) {
+		clk_enable(rfbi.dss_ick);
+		clk_enable(rfbi.dss1_fck);
+	} else {
+		clk_disable(rfbi.dss1_fck);
+		clk_disable(rfbi.dss_ick);
+	}
+}
+
 
 #ifdef VERBOSE
 static void rfbi_print_timings(void)
@@ -113,6 +149,7 @@ static void rfbi_set_timings(const struct extif_timings *t)
 
 	BUG_ON(!t->converted);
 
+	rfbi_enable_clocks(1);
 	rfbi_write_reg(RFBI_ONOFF_TIME0, t->tim[0]);
 	rfbi_write_reg(RFBI_CYCLE_TIME0, t->tim[1]);
 
@@ -122,6 +159,7 @@ static void rfbi_set_timings(const struct extif_timings *t)
 	rfbi_write_reg(RFBI_CONFIG0, l);
 
 	rfbi_print_timings();
+	rfbi_enable_clocks(0);
 }
 
 static void rfbi_get_clk_info(u32 *clk_period, u32 *max_clk_div)
@@ -233,6 +271,7 @@ static int rfbi_convert_timings(struct extif_timings *t)
 
 static void rfbi_write_command(const void *buf, unsigned int len)
 {
+	rfbi_enable_clocks(1);
 	if (rfbi.bits_per_cycle == 16) {
 		const u16 *w = buf;
 		BUG_ON(len & 1);
@@ -244,10 +283,12 @@ static void rfbi_write_command(const void *buf, unsigned int len)
 		for (; len; len--)
 			rfbi_write_reg(RFBI_CMD, *b++);
 	}
+	rfbi_enable_clocks(0);
 }
 
 static void rfbi_read_data(void *buf, unsigned int len)
 {
+	rfbi_enable_clocks(1);
 	if (rfbi.bits_per_cycle == 16) {
 		u16 *w = buf;
 		BUG_ON(len & ~1);
@@ -263,10 +304,12 @@ static void rfbi_read_data(void *buf, unsigned int len)
 			*b++ = rfbi_read_reg(RFBI_READ);
 		}
 	}
+	rfbi_enable_clocks(0);
 }
 
 static void rfbi_write_data(const void *buf, unsigned int len)
 {
+	rfbi_enable_clocks(1);
 	if (rfbi.bits_per_cycle == 16) {
 		const u16 *w = buf;
 		BUG_ON(len & 1);
@@ -278,6 +321,7 @@ static void rfbi_write_data(const void *buf, unsigned int len)
 		for (; len; len--)
 			rfbi_write_reg(RFBI_PARAM, *b++);
 	}
+	rfbi_enable_clocks(0);
 }
 
 static void rfbi_transfer_area(int width, int height,
@@ -287,6 +331,7 @@ static void rfbi_transfer_area(int width, int height,
 
 	BUG_ON(callback == NULL);
 
+	rfbi_enable_clocks(1);
 	omap_dispc_set_lcd_size(width, height);
 
 	rfbi.lcdc_callback = callback;
@@ -307,6 +352,7 @@ static inline void _stop_transfer(void)
 
 	w = rfbi_read_reg(RFBI_CONTROL);
 	rfbi_write_reg(RFBI_CONTROL, w & ~(1 << 0));
+	rfbi_enable_clocks(0);
 }
 
 static void rfbi_dma_callback(void *data)
@@ -319,6 +365,7 @@ static void rfbi_set_bits_per_cycle(int bpc)
 {
 	u32 l;
 
+	rfbi_enable_clocks(1);
 	l = rfbi_read_reg(RFBI_CONFIG0);
 	l &= ~(0x03 << 0);
 	switch (bpc)
@@ -333,25 +380,22 @@ static void rfbi_set_bits_per_cycle(int bpc)
 	}
 	rfbi_write_reg(RFBI_CONFIG0, l);
 	rfbi.bits_per_cycle = bpc;
+	rfbi_enable_clocks(0);
 }
 
 static int rfbi_init(struct omapfb_device *fbdev)
 {
 	u32 l;
 	int r;
-	struct clk *dss_ick;
 
 	rfbi.fbdev = fbdev;
 	rfbi.base = io_p2v(RFBI_BASE);
 
-	dss_ick = clk_get(NULL, "dss_ick");
-	if (IS_ERR(dss_ick)) {
-		dev_err(fbdev->dev, "can't get dss_ick\n");
-		return PTR_ERR(dss_ick);
-	}
+	if ((r = rfbi_get_clocks()) < 0)
+		return r;
+	rfbi_enable_clocks(1);
 
-	rfbi.l4_khz = clk_get_rate(dss_ick) / 1000;
-	clk_put(dss_ick);
+	rfbi.l4_khz = clk_get_rate(rfbi.dss_ick) / 1000;
 
 	/* Reset */
 	rfbi_write_reg(RFBI_SYSCONFIG, 1 << 1);
@@ -376,6 +420,7 @@ static int rfbi_init(struct omapfb_device *fbdev)
 
 	if ((r = omap_dispc_request_irq(rfbi_dma_callback, NULL)) < 0) {
 		dev_err(fbdev->dev, "can't get DISPC irq\n");
+		rfbi_enable_clocks(0);
 		return r;
 	}
 
@@ -383,12 +428,15 @@ static int rfbi_init(struct omapfb_device *fbdev)
 	pr_info("omapfb: RFBI version %d.%d initialized\n",
 		(l >> 4) & 0x0f, l & 0x0f);
 
+	rfbi_enable_clocks(0);
+
 	return 0;
 }
 
 static void rfbi_cleanup(void)
 {
 	omap_dispc_free_irq();
+	rfbi_put_clocks();
 }
 
 const struct lcd_ctrl_extif omap2_ext_if = {
