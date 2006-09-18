@@ -51,6 +51,9 @@ static void musb_port_suspend(struct musb *musb, u8 bSuspend)
 	u8		power;
 	void __iomem	*pBase = musb->pRegs;
 
+	if (!is_host_active(musb))
+		return;
+
 	power = musb_readb(pBase, MGC_O_HDRC_POWER);
 
 	if (bSuspend) {
@@ -181,12 +184,11 @@ int musb_hub_control(
 	int		retval = 0;
 	unsigned long	flags;
 
-	if (unlikely(!test_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags)
-			|| !is_host_active(musb)))
+	if (unlikely(!test_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags)))
 		return -ESHUTDOWN;
 
 	/* hub features:  always zero, setting is a NOP
-	 * port features: reported, sometimes updated
+	 * port features: reported, sometimes updated when host is active
 	 * no indicators
 	 */
 	spin_lock_irqsave(&musb->Lock, flags);
@@ -212,6 +214,9 @@ int musb_hub_control(
 			musb_port_suspend(musb, FALSE);
 			break;
 		case USB_PORT_FEAT_POWER:
+			if (!(is_otg_enabled(musb) && hcd->self.is_b_host))
+				musb_set_vbus(musb, 0);
+			break;
 		case USB_PORT_FEAT_C_CONNECTION:
 		case USB_PORT_FEAT_C_ENABLE:
 		case USB_PORT_FEAT_C_OVER_CURRENT:
@@ -276,7 +281,8 @@ int musb_hub_control(
 			 * initialization logic, e.g. for OTG, or change any
 			 * logic relating to VBUS power-up.
 			 */
-			musb_start(musb);
+			if (!(is_otg_enabled(musb) && hcd->self.is_b_host))
+				musb_start(musb);
 			break;
 		case USB_PORT_FEAT_RESET:
 			musb_port_reset(musb, TRUE);
@@ -285,6 +291,9 @@ int musb_hub_control(
 			musb_port_suspend(musb, TRUE);
 			break;
 		case USB_PORT_FEAT_TEST:
+			if (unlikely(is_host_active(musb)))
+				goto error;
+
 			wIndex >>= 8;
 			switch (wIndex) {
 			case 1:

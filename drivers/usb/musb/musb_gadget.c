@@ -1598,8 +1598,6 @@ init_peripheral_ep(struct musb *musb, struct musb_ep *ep, u8 bEnd, int is_in)
 		ep->end_point.ops = &musb_ep_ops;
 		list_add_tail(&ep->end_point.ep_list, &musb->g.ep_list);
 	}
-	DBG(4, "periph: %s, maxpacket %d\n", ep->end_point.name,
-			ep->end_point.maxpacket);
 }
 
 /*
@@ -1634,8 +1632,6 @@ static inline void __devinit musb_g_init_endpoints(struct musb *pThis)
 			}
 		}
 	}
-	DBG(2, "initialized %d (max %d) endpoints\n", count,
-			MUSB_C_NUM_EPS * 2 - 1);
 }
 
 /* called once during driver setup to initialize and link into
@@ -1656,10 +1652,6 @@ int __devinit musb_gadget_setup(struct musb *pThis)
 	pThis->g.ops = &musb_gadget_operations;
 	pThis->g.is_dualspeed = 1;
 	pThis->g.speed = USB_SPEED_UNKNOWN;
-#ifdef CONFIG_USB_MUSB_OTG
-	if (pThis->board_mode == MUSB_OTG)
-		pThis->g.is_otg = 1;
-#endif
 
 	/* this "gadget" abstracts/virtualizes the controller */
 	strcpy(pThis->g.dev.bus_id, "gadget");
@@ -1762,11 +1754,12 @@ int usb_gadget_register_driver(struct usb_gadget_driver *driver)
 		 * hosts only see fully functional devices.
 		 */
 
-		musb_start(pThis);
+		if (!is_otg_enabled(pThis))
+			musb_start(pThis);
+
 		spin_unlock_irqrestore(&pThis->Lock, flags);
 
-#ifdef CONFIG_USB_MUSB_OTG
-		if (pThis->board_mode == MUSB_OTG) {
+		if (is_otg_enabled(pThis)) {
 			DBG(3, "OTG startup...\n");
 
 			/* REVISIT:  funcall to other code, which also
@@ -1784,7 +1777,6 @@ int usb_gadget_register_driver(struct usb_gadget_driver *driver)
 				spin_unlock_irqrestore(&pThis->Lock, flags);
 			}
 		}
-#endif
 	}
 
 	return retval;
@@ -1872,15 +1864,14 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 		retval = -EINVAL;
 	spin_unlock_irqrestore(&musb->Lock, flags);
 
-#ifdef CONFIG_USB_MUSB_OTG
-	if (retval == 0 && musb->board_mode == MUSB_OTG) {
+	if (is_otg_enabled(musb) && retval == 0) {
 		usb_remove_hcd(musb_to_hcd(musb));
 		/* FIXME we need to be able to register another
 		 * gadget driver here and have everything work;
 		 * that currently misbehaves.
 		 */
 	}
-#endif
+
 	return retval;
 }
 EXPORT_SYMBOL(usb_gadget_unregister_driver);
@@ -2002,13 +1993,16 @@ __acquires(pThis->Lock)
 	pThis->g.a_alt_hnp_support = 0;
 	pThis->g.a_hnp_support = 0;
 
+	if (is_otg_enabled(pThis))
+		pThis->g.is_otg = !!musb_otg;
+
 	/* Normal reset, as B-Device;
 	 * or else after HNP, as A-Device
 	 */
 	if (devctl & MGC_M_DEVCTL_BDEVICE) {
 		pThis->xceiv.state = OTG_STATE_B_PERIPHERAL;
 		pThis->g.is_a_peripheral = 0;
-	} else if (is_otg_enabled(pThis) && pThis->board_mode == MUSB_OTG) {
+	} else if (is_otg_enabled(pThis) && musb_otg) {
 		pThis->xceiv.state = OTG_STATE_A_PERIPHERAL;
 		pThis->g.is_a_peripheral = 1;
 	} else
@@ -2016,5 +2010,5 @@ __acquires(pThis->Lock)
 
 	/* start with default limits on VBUS power draw */
 	(void) musb_gadget_vbus_draw(&pThis->g,
-			is_otg_enabled(pThis) ? 8 : 100);
+			(is_otg_enabled(pThis) && musb_otg) ? 8 : 100);
 }

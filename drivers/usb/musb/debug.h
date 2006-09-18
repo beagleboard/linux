@@ -60,4 +60,6 @@ static inline int _dbg_level(unsigned l)
 
 #define DBG(level,fmt,args...) xprintk(level,KERN_DEBUG,fmt, ## args)
 
+extern const char *otg_state_string(struct musb *);
+
 #endif				//  __MUSB_LINUX_DEBUG_H__

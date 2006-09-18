@@ -55,6 +55,9 @@
  * Finally, it provides the necessary bus control service.
  */
 
+/* sysfs flag to seletively force peripheral-only operation */
+extern int musb_otg;
+
 /****************************** CONSTANTS ********************************/
 
 /*
