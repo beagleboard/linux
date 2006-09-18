@@ -75,6 +75,7 @@
 #define		TUSB_DEV_OTG_STAT_VBUS_VALID		(1 << 5)
 #define		TUSB_DEV_OTG_STAT_VBUS_SENSE		(1 << 4)
 #define		TUSB_DEV_OTG_STAT_ID_STATUS		(1 << 3)
+#define		TUSB_DEV_OTG_STAT_HOST_DISCON		(1 << 2)
 #define		TUSB_DEV_OTG_STAT_LINE_STATE		(3 << 0)
 #define		TUSB_DEV_OTG_STAT_DP_ENABLE		(1 << 1)
 #define		TUSB_DEV_OTG_STAT_DM_ENABLE		(1 << 0)

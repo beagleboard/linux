@@ -229,6 +229,11 @@ static void davinci_vbus_power(struct musb *musb, int is_on, int sleeping)
 		sleeping ? "immediate" : "deferred");
 }
 
+static void davinci_set_vbus(struct musb *musb, int is_on)
+{
+	return davinci_vbus_power(musb, is_on, 0);
+}
+
 static irqreturn_t davinci_interrupt(int irq, void *__hci, struct pt_regs *r)
 {
 	unsigned long	flags;
@@ -333,6 +338,9 @@ int __devinit musb_platform_init(struct musb *musb)
 	evm_vbus_work.data = musb;
 #endif
 	davinci_vbus_power(musb, musb->board_mode == MUSB_HOST, 1);
+
+	if (is_host_enabled(musb))
+		musb->board_set_vbus = davinci_set_vbus;
 
 	/* reset the controller */
 	musb_writel(tibase, DAVINCI_USB_CTRL_REG, 0x1);
