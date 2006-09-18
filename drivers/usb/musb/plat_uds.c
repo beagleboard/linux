@@ -693,6 +693,8 @@ void musb_start(struct musb *musb)
 		break;
 	case MUSB_PERIPHERAL:
 		devctl = musb_readb(regs, MGC_O_HDRC_DEVCTL);
+		if ((devctl & MGC_M_DEVCTL_VBUS) == MGC_M_DEVCTL_VBUS)
+			musb->is_active = 1;
 		musb_writeb(regs, MGC_O_HDRC_DEVCTL,
 			devctl & ~MGC_M_DEVCTL_SESSION);
 		break;

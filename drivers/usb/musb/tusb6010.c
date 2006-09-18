@@ -613,8 +613,11 @@ void musb_platform_enable(struct musb * musb)
 
 	set_irq_type(musb->nIrq, IRQ_TYPE_LEVEL_LOW);
 
-	/* kickstart:  force into the correct OTG state machine */
-	musb_writel(base, TUSB_INT_SRC_SET, TUSB_INT_SRC_ID_STATUS_CHNG);
+	/* maybe force into the Default-A OTG state machine */
+	if (!(musb_readl(base, TUSB_DEV_OTG_STAT)
+			& TUSB_DEV_OTG_STAT_ID_STATUS))
+		musb_writel(base, TUSB_INT_SRC_SET,
+				TUSB_INT_SRC_ID_STATUS_CHNG);
 
 	if (is_dma_capable() && dma_off)
 		printk(KERN_WARNING "%s %s: dma not reactivated\n",
