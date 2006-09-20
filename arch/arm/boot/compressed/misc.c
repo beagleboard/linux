@@ -42,7 +42,7 @@ static void icedcc_putc(int ch)
 			return;
 
 		asm volatile ("mrc p14, 0, %0, c0, c1, 0" : "=r" (status));
-	} while (status & 29);
+	} while (status & (1 << 29));
 
 	asm("mcr p14, 0, %0, c0, c5, 0" : : "r" (ch));
 }
