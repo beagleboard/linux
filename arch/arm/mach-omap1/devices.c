@@ -61,6 +61,45 @@ static void omap_init_rtc(void)
 static inline void omap_init_rtc(void) {}
 #endif
 
+#if defined(CONFIG_OMAP_DSP)
+
+#if defined(CONFIG_ARCH_OMAP1510)
+#  define OMAP1_MBOX_SIZE	0x23
+#  define INT_DSP_MAILBOX1	INT_1510_DSP_MAILBOX1
+#elif defined(CONFIG_ARCH_OMAP16XX)
+#  define OMAP1_MBOX_SIZE	0x2f
+#  define INT_DSP_MAILBOX1	INT_1610_DSP_MAILBOX1
+#endif
+
+#define OMAP1_MBOX_BASE		IO_ADDRESS(OMAP16XX_MAILBOX_BASE)
+
+static struct resource mbox_resources[] = {
+	{
+		.start		= OMAP1_MBOX_BASE,
+		.end		= OMAP1_MBOX_BASE + OMAP1_MBOX_SIZE,
+		.flags		= IORESOURCE_MEM,
+	},
+	{
+		.start		= INT_DSP_MAILBOX1,
+		.flags		= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device mbox_device = {
+	.name		= "mailbox",
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(mbox_resources),
+	.resource	= mbox_resources,
+};
+
+static inline void omap_init_mbox(void)
+{
+	platform_device_register(&mbox_device);
+}
+#else
+static inline void omap_init_mbox(void) { }
+#endif
+
 #if defined(CONFIG_OMAP_STI)
 
 #define OMAP1_STI_BASE		IO_ADDRESS(0xfffea000)
@@ -125,6 +164,8 @@ static int __init omap1_init_devices(void)
 	/* please keep these calls, and their implementations above,
 	 * in alphabetical order so they're easier to sort through.
 	 */
+
+	omap_init_mbox();
 	omap_init_rtc();
 	omap_init_sti();
 
