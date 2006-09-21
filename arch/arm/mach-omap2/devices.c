@@ -25,7 +25,7 @@
 #include <asm/arch/mux.h>
 #include <asm/arch/gpio.h>
 
-#if 	defined(CONFIG_I2C_OMAP) || defined(CONFIG_I2C_OMAP_MODULE)
+#if	defined(CONFIG_I2C_OMAP) || defined(CONFIG_I2C_OMAP_MODULE)
 
 #define OMAP2_I2C_BASE2		0x48072000
 #define OMAP2_I2C_INT2		57
@@ -43,8 +43,8 @@ static struct resource i2c_resources2[] = {
 };
 
 static struct platform_device omap_i2c_device2 = {
-        .name           = "i2c_omap",
-        .id             = 2,
+	.name           = "i2c_omap",
+	.id             = 2,
 	.num_resources	= ARRAY_SIZE(i2c_resources2),
 	.resource	= i2c_resources2,
 };
@@ -65,6 +65,40 @@ static void omap_init_i2c(void)
 
 static void omap_init_i2c(void) {}
 
+#endif
+
+#if defined(CONFIG_OMAP_DSP)
+#define OMAP2_MBOX_BASE		IO_ADDRESS(OMAP24XX_MAILBOX_BASE)
+
+static struct resource mbox_resources[] = {
+	{
+		.start		= OMAP2_MBOX_BASE,
+		.end		= OMAP2_MBOX_BASE + 0x11f,
+		.flags		= IORESOURCE_MEM,
+	},
+	{
+		.start		= INT_24XX_MAIL_U0_MPU,
+		.flags		= IORESOURCE_IRQ,
+	},
+	{
+		.start		= INT_24XX_MAIL_U3_MPU,
+		.flags		= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device mbox_device = {
+	.name		= "mailbox",
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(mbox_resources),
+	.resource	= mbox_resources,
+};
+
+static inline void omap_init_mbox(void)
+{
+	platform_device_register(&mbox_device);
+}
+#else
+static inline void omap_init_mbox(void) { }
 #endif
 
 #if defined(CONFIG_OMAP_STI)
@@ -174,10 +208,10 @@ static int __init omap2_init_devices(void)
 	 * in alphabetical order so they're easier to sort through.
 	 */
 	omap_init_i2c();
+	omap_init_mbox();
 	omap_init_mcspi();
 	omap_init_sti();
 
 	return 0;
 }
 arch_initcall(omap2_init_devices);
-
