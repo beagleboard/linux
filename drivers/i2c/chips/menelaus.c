@@ -480,8 +480,8 @@ static const struct menelaus_vtg vmem_vtg = {
 static const struct menelaus_vtg_value vmem_values[] = {
 	{ 1500, 0 },
 	{ 1800, 1 },
-	{ 2500, 2 },
-	{ 2800, 3 },
+	{ 1900, 2 },
+	{ 2500, 3 },
 };
 
 int menelaus_set_vmem(unsigned int mV)
@@ -506,6 +506,13 @@ static const struct menelaus_vtg vio_vtg = {
 	.mode_reg = MENELAUS_LDO_CTRL4,
 };
 
+static const struct menelaus_vtg_value vio_values[] = {
+	{ 1500, 0 },
+	{ 1800, 1 },
+	{ 2500, 2 },
+	{ 2800, 3 },
+};
+
 int menelaus_set_vio(unsigned int mV)
 {
 	int val;
@@ -513,8 +520,7 @@ int menelaus_set_vio(unsigned int mV)
 	if (mV == 0)
 		return menelaus_set_voltage(&vio_vtg, 0, 0, 0);
 
-	/* VIO has the same values as VMEM */
-	val = menelaus_get_vtg_value(mV, vmem_values, ARRAY_SIZE(vmem_values));
+	val = menelaus_get_vtg_value(mV, vio_values, ARRAY_SIZE(vio_values));
 	if (val < 0)
 		return -EINVAL;
 	return menelaus_set_voltage(&vio_vtg, mV, val, 0x02);
