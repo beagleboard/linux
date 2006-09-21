@@ -155,13 +155,38 @@ int sync_with_dsp(u16 *adr, u16 val, int try_cnt)
 	return -1;
 }
 
+static int mbcmd_sender_prepare(void *data)
+{
+	struct mb_exarg *arg = data;
+	int i, ret = 0;
+	/*
+	 * even if ipbuf_sys_ad is in DSP internal memory,
+	 * dsp_mem_enable() never cause to call PM mailbox command
+	 * because in that case DSP memory should be always enabled.
+	 * (see ipbuf_sys_hold_mem_active in ipbuf.c)
+	 *
+	 * Therefore, we can call this function here safely.
+	 */
+	if (sync_with_dsp(&ipbuf_sys_ad->s, TID_FREE, 10) < 0) {
+		printk(KERN_ERR "omapdsp: ipbuf_sys_ad is busy.\n");
+		ret = -EBUSY;
+		goto out;
+	}
+
+	for (i = 0; i < arg->argc; i++) {
+		ipbuf_sys_ad->d[i] = arg->argv[i];
+	}
+	ipbuf_sys_ad->s = arg->tid;
+ out:
+	return ret;
+}
+
 /*
  * __dsp_mbcmd_send_exarg(): mailbox dispatcher
  */
 int __dsp_mbcmd_send_exarg(struct mbcmd *mb, struct mb_exarg *arg,
 			   int recovery_flag)
 {
-	static DEFINE_MUTEX(mbsend_lock);
 	int ret = 0;
 
 	/*
@@ -172,46 +197,24 @@ int __dsp_mbcmd_send_exarg(struct mbcmd *mb, struct mb_exarg *arg,
 		printk(KERN_ERR
 		       "mbox: mmu interrupt is set. %s is aborting.\n",
 		       cmd_name(*mb));
-		return -1;
+		goto out;
 	}
 
-	if (mutex_lock_interruptible(&mbsend_lock) < 0)
-		return -1;
-
-	if (arg) {	/* we have extra argument */
-		int i;
-
-		/*
-		 * even if ipbuf_sys_ad is in DSP internal memory,
-		 * dsp_mem_enable() never cause to call PM mailbox command
-		 * because in that case DSP memory should be always enabled.
-		 * (see ipbuf_sys_hold_mem_active in ipbuf.c)
-		 *
-		 * Therefore, we can call this function here safely.
-		 */
+	if (arg)
 		dsp_mem_enable(ipbuf_sys_ad);
-		if (sync_with_dsp(&ipbuf_sys_ad->s, TID_FREE, 10) < 0) {
-			printk(KERN_ERR "omapdsp: ipbuf_sys_ad is busy.\n");
-			dsp_mem_disable(ipbuf_sys_ad);
-			ret = -EBUSY;
-			goto out;
-		}
-		for (i = 0; i < arg->argc; i++) {
-			ipbuf_sys_ad->d[i] = arg->argv[i];
-		}
-		ipbuf_sys_ad->s = arg->tid;
-		dsp_mem_disable(ipbuf_sys_ad);
-	}
+
+	ret = omap_mbox_msg_send(mbox_dsp, *(mbox_msg_t *)mb, (void*)arg);
+	if (ret)
+		goto out;
 
 	if (mbseq)
 		mbseq->ad_arm++;
 
 	mblog_add(mb, DIR_A2D);
+ out:
+	if (arg)
+		dsp_mem_disable(ipbuf_sys_ad);
 
-	ret = omap_mbox_msg_send(mbox_dsp, *(mbox_msg_t *)mb);
-
-out:
-	mutex_unlock(&mbsend_lock);
 	return ret;
 }
 
@@ -311,14 +314,16 @@ static int __init dsp_mbox_init(void)
 		return -ENODEV;
 	}
 
-	mbox_dsp->mbox->msg_receive_cb = mbcmd_receiver;
+	mbox_dsp->msg_receive_cb = mbcmd_receiver;
+	mbox_dsp->msg_sender_cb = mbcmd_sender_prepare;
 
 	return 0;
 }
 
 static void dsp_mbox_exit(void)
 {
-	mbox_dsp->mbox->msg_receive_cb = NULL;
+	mbox_dsp->msg_sender_cb = NULL;
+	mbox_dsp->msg_receive_cb = NULL;
 
 	if (mbsync_hold_mem_active) {
 		dsp_mem_disable((void *)daram_base);

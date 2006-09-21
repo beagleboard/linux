@@ -3,52 +3,66 @@
 #ifndef MAILBOX_H
 #define MAILBOX_H
 
+#include <linux/wait.h>
+#include <linux/workqueue.h>
+
 typedef u32 mbox_msg_t;
 typedef void (mbox_receiver_t)(mbox_msg_t msg);
+struct omap_mbox;
+struct omap_mbq;
 
-struct mbox;	/* contents are private */
+typedef int __bitwise omap_mbox_irq_t;
+#define IRQ_TX ((__force omap_mbox_irq_t) 1)
+#define IRQ_RX ((__force omap_mbox_irq_t) 2)
 
-struct mbox *mbox_get(const char *id);
-extern int mbox_send(struct mbox *mbox_h, mbox_msg_t msg);
-extern int register_mbox_receiver(struct mbox *mbox, unsigned char cmd,
-				 mbox_receiver_t *rcv);
-extern int unregister_mbox_receiver(struct mbox *mbox, unsigned char cmd,
-				   mbox_receiver_t *rcv);
-extern void enable_mbox_irq(struct mbox *mbox);
-extern void disable_mbox_irq(struct mbox *mbox);
-extern void mbox_init_seq(struct mbox *mbox);
+typedef int __bitwise omap_mbox_type_t;
+#define OMAP_MBOX_TYPE1 ((__force omap_mbox_type_t) 1)
+#define OMAP_MBOX_TYPE2 ((__force omap_mbox_type_t) 2)
 
-/*
- * mailbox command: 0x00 - 0x7f
- * when a driver wants to use mailbox, it must reserve mailbox commands here.
- */
-#define MBOX_CMD_MAX	0x80
+struct omap_mbox_ops {
+	omap_mbox_type_t	type;
+	int (*startup)(struct omap_mbox *mbox);
+	void (*shutdown)(struct omap_mbox *mbox);
+	/* fifo */
+	mbox_msg_t (*fifo_read)(struct omap_mbox *mbox);
+	void (*fifo_write)(struct omap_mbox *mbox, mbox_msg_t msg);
+	int (*fifo_empty)(struct omap_mbox *mbox);
+	int (*fifo_full)(struct omap_mbox *mbox);
+	/* irq */
+	void (*enable_irq)(struct omap_mbox *mbox, omap_mbox_irq_t irq);
+	void (*disable_irq)(struct omap_mbox *mbox, omap_mbox_irq_t irq);
+	void (*ack_irq)(struct omap_mbox *mbox, omap_mbox_irq_t irq);
+	int (*is_irq)(struct omap_mbox *mbox, omap_mbox_irq_t irq);
+};
 
-/* DSP Gateway */
-#define MBOX_CMD_DSP_WDSND	0x10
-#define MBOX_CMD_DSP_WDREQ	0x11
-#define MBOX_CMD_DSP_BKSND	0x20
-#define MBOX_CMD_DSP_BKREQ	0x21
-#define MBOX_CMD_DSP_BKYLD	0x23
-#define MBOX_CMD_DSP_BKSNDP	0x24
-#define MBOX_CMD_DSP_BKREQP	0x25
-#define MBOX_CMD_DSP_TCTL	0x30
-#define MBOX_CMD_DSP_TCTLDATA	0x31
-#define MBOX_CMD_DSP_POLL	0x32
-#define MBOX_CMD_DSP_WDT		0x50
-#define MBOX_CMD_DSP_RUNLEVEL	0x51
-#define MBOX_CMD_DSP_PM		0x52
-#define MBOX_CMD_DSP_SUSPEND	0x53
-#define MBOX_CMD_DSP_KFUNC	0x54
-#define MBOX_CMD_DSP_TCFG	0x60
-#define MBOX_CMD_DSP_TADD	0x62
-#define MBOX_CMD_DSP_TDEL	0x63
-#define MBOX_CMD_DSP_TSTOP	0x65
-#define MBOX_CMD_DSP_DSPCFG	0x70
-#define MBOX_CMD_DSP_REGRW	0x72
-#define MBOX_CMD_DSP_GETVAR	0x74
-#define MBOX_CMD_DSP_SETVAR	0x75
-#define MBOX_CMD_DSP_ERR		0x78
-#define MBOX_CMD_DSP_DBG		0x79
+struct omap_mbox {
+	char *name;
+	spinlock_t lock;
+	unsigned int irq;
+	struct omap_mbox_ops *ops;
+
+	wait_queue_head_t tx_waitq;
+
+	struct work_struct msg_receive;
+	void (*msg_receive_cb)(mbox_msg_t);
+	struct omap_mbq *mbq;
+
+	int (*msg_sender_cb)(void*);
+
+	mbox_msg_t seq_snd, seq_rcv;
+
+	struct class_device class_dev;
+
+	void *priv;
+
+	struct omap_mbox *next;
+};
+
+int omap_mbox_msg_send(struct omap_mbox *mbox_h, mbox_msg_t msg, void* arg);
+void omap_mbox_init_seq(struct omap_mbox *mbox);
+
+struct omap_mbox *omap_mbox_get(const char *name);
+int omap_mbox_register(struct omap_mbox *mbox);
+int omap_mbox_unregister(struct omap_mbox *mbox);
 
 #endif /* MAILBOX_H */
