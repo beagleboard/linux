@@ -40,10 +40,7 @@ MODULE_AUTHOR("Toshihiro Kobayashi <toshihiro.kobayashi@nokia.com>");
 MODULE_DESCRIPTION("OMAP DSP driver module");
 MODULE_LICENSE("GPL");
 
-struct device *dsp_device;
-int dsp_mmu_irq;
-
-struct omap_mbox *mbox_dsp;
+struct omap_dsp *omap_dsp;
 static struct sync_seq *mbseq;
 static u16 mbseq_expect_tmp;
 static u16 *mbseq_expect = &mbseq_expect_tmp;
@@ -134,6 +131,98 @@ const struct cmdinfo *cmdinfo[MBOX_CMD_MAX] = {
 	[MBOX_CMD_DSP_DBG]      = &cif_dbg,
 };
 
+static int dsp_kfunc_probe_devices(struct omap_dsp *dsp)
+{
+	struct dsp_kfunc_device *p;
+	int ret, fail = 0;
+
+	mutex_lock(&dsp->lock);
+	list_for_each_entry(p, dsp->kdev_list, entry) {
+		if (p->probe == NULL)
+			continue;
+		ret = p->probe(p);
+		if (ret) {
+			printk(KERN_ERR
+			       "probing %s failed\n", p->name);
+			fail++;
+		}
+	}
+	mutex_unlock(&dsp->lock);
+
+	pr_debug("%s() fail:%d\n", __FUNCTION__, fail);
+
+	return fail;
+}
+
+static int dsp_kfunc_remove_devices(struct omap_dsp *dsp)
+{
+	struct dsp_kfunc_device *p;
+	int ret, fail = 0;
+
+	mutex_lock(&dsp->lock);
+	list_for_each_entry_reverse(p, dsp->kdev_list, entry) {
+		if (p->remove == NULL)
+			continue;
+		ret = p->remove(p);
+		if (ret) {
+			printk(KERN_ERR
+			       "removing %s failed\n", p->name);
+			fail++;
+		}
+	}
+	mutex_unlock(&dsp->lock);
+
+	pr_debug("%s() fail:%d\n", __FUNCTION__, fail);
+
+	return fail;
+}
+
+static int dsp_kfunc_enable_devices(struct omap_dsp *dsp, int type, int stage)
+{
+	struct dsp_kfunc_device *p;
+	int ret, fail = 0;
+
+	mutex_lock(&dsp->lock);
+	list_for_each_entry(p, dsp->kdev_list, entry) {
+		if ((p->type != type) || (p->enable == NULL))
+			continue;
+		ret = p->enable(p, stage);
+		if (ret) {
+			printk(KERN_ERR
+			       "enabling %s failed\n", p->name);
+			fail++;
+		}
+	}
+	mutex_unlock(&dsp->lock);
+
+	pr_debug("%s(%d) fail:%d\n", __FUNCTION__, type, fail);
+
+	return fail;
+}
+
+static int dsp_kfunc_disable_devices(struct omap_dsp *dsp, int type, int stage)
+{
+	struct dsp_kfunc_device *p;
+	int ret, fail = 0;
+
+	mutex_lock(&dsp->lock);
+	list_for_each_entry_reverse(p, omap_dsp->kdev_list, entry) {
+		if ((p->type != type) || (p->disable == NULL))
+			continue;
+		ret = p->disable(p, stage);
+		if (ret) {
+			printk(KERN_ERR
+			       "disabling %s failed\n", p->name);
+			fail++;
+		}
+	}
+	mutex_unlock(&dsp->lock);
+
+	pr_debug("%s(%d) fail:%d\n", __FUNCTION__, type, fail);
+
+	return fail;
+}
+
 int sync_with_dsp(u16 *adr, u16 val, int try_cnt)
 {
 	int try;
@@ -145,8 +234,7 @@ int sync_with_dsp(u16 *adr, u16 val, int try_cnt)
 		udelay(1);
 		if (*(volatile u16 *)adr == val) {
 			/* success! */
-			printk(KERN_INFO
-			       "omapdsp: sync_with_dsp(): try = %d\n", try);
+			pr_info("omapdsp: sync_with_dsp(): try = %d\n", try);
 			return 0;
 		}
 	}
@@ -189,6 +277,13 @@ int __dsp_mbcmd_send_exarg(struct mbcmd *mb, struct mb_exarg *arg,
 {
 	int ret = 0;
 
+	if (unlikely(omap_dsp->enabled == 0)) {
+		ret = dsp_kfunc_enable_devices(omap_dsp,
+					       DSP_KFUNC_DEV_TYPE_COMMON, 0);
+		if (ret == 0)
+			omap_dsp->enabled = 1;
+	}
+
 	/*
 	 * while MMU fault is set,
 	 * only recovery command can be executed
@@ -203,7 +298,8 @@ int __dsp_mbcmd_send_exarg(struct mbcmd *mb, struct mb_exarg *arg,
 	if (arg)
 		dsp_mem_enable(ipbuf_sys_ad);
 
-	ret = omap_mbox_msg_send(mbox_dsp, *(mbox_msg_t *)mb, (void*)arg);
+	ret = omap_mbox_msg_send(omap_dsp->mbox,
+				 *(mbox_msg_t *)mb, (void*)arg);
 	if (ret)
 		goto out;
 
@@ -268,7 +364,7 @@ static int mbsync_hold_mem_active;
 
 void dsp_mbox_start(void)
 {
-	omap_mbox_init_seq(mbox_dsp);
+	omap_mbox_init_seq(omap_dsp->mbox);
 	mbseq_expect_tmp = 0;
 }
 
@@ -308,22 +404,22 @@ int dsp_mbox_config(void *p)
 
 static int __init dsp_mbox_init(void)
 {
-	mbox_dsp->mbox = omap_mbox_get("dsp");
-	if (IS_ERR(mbox_dsp)) {
+	omap_dsp->mbox = omap_mbox_get("dsp");
+	if (IS_ERR(omap_dsp->mbox)) {
 		printk(KERN_ERR "failed to get mailbox handler for DSP.\n");
 		return -ENODEV;
 	}
 
-	mbox_dsp->msg_receive_cb = mbcmd_receiver;
-	mbox_dsp->msg_sender_cb = mbcmd_sender_prepare;
+	omap_dsp->mbox->msg_receive_cb = mbcmd_receiver;
+	omap_dsp->mbox->msg_sender_cb = mbcmd_sender_prepare;
 
 	return 0;
 }
 
 static void dsp_mbox_exit(void)
 {
-	mbox_dsp->msg_sender_cb = NULL;
-	mbox_dsp->msg_receive_cb = NULL;
+	omap_dsp->mbox->msg_sender_cb = NULL;
+	omap_dsp->mbox->msg_receive_cb = NULL;
 
 	if (mbsync_hold_mem_active) {
 		dsp_mem_disable((void *)daram_base);
@@ -352,24 +448,52 @@ static void mbox_kfunc_fbctl(struct mbcmd *mb)
 	}
 }
 
-static void mbox_kfunc_audio_pwr(unsigned short data)
+/*
+ * dspgw: KFUNC message handler
+ */
+static void mbox_kfunc_power(unsigned short data)
 {
+	int ret = -1;
+
 	switch (data) {
-	case AUDIO_PWR_UP:
-		omap_dsp_audio_pwr_up_request(0);
-		/* send back ack */
-		mbcompose_send(KFUNC, KFUNC_AUDIO_PWR, AUDIO_PWR_UP);
+	case DVFS_START: /* ACK from DSP */
+		/* TBD */
 		break;
-	case AUDIO_PWR_DOWN1:
-		omap_dsp_audio_pwr_down_request(1);
+	case AUDIO_PWR_UP:
+		ret = dsp_kfunc_enable_devices(omap_dsp,
+					       DSP_KFUNC_DEV_TYPE_AUDIO, 0);
+		if (ret == 0)
+			ret++;
+		break;
+	case AUDIO_PWR_DOWN: /* == AUDIO_PWR_DOWN1 */
+		ret = dsp_kfunc_disable_devices(omap_dsp,
+						DSP_KFUNC_DEV_TYPE_AUDIO, 1);
 		break;
 	case AUDIO_PWR_DOWN2:
-		omap_dsp_audio_pwr_down_request(2);
+		ret = dsp_kfunc_disable_devices(omap_dsp,
+						DSP_KFUNC_DEV_TYPE_AUDIO, 2);
+		break;
+	case DSP_PWR_DOWN:
+		ret = dsp_kfunc_disable_devices(omap_dsp,
+						DSP_KFUNC_DEV_TYPE_COMMON, 0);
+		if (ret == 0)
+			omap_dsp->enabled = 0;
 		break;
 	default:
 		printk(KERN_ERR
-		       "mailbox: Unknown AUDIO_PWR from DSP: 0x%04x\n", data);
+		       "mailbox: Unknown PWR from DSP: 0x%04x\n", data);
+		break;
 	}
+
+	if (unlikely(ret < 0)) {
+		printk(KERN_ERR "mailbox: PWR(0x%04x) failed\n", data);
+		return;
+	}
+
+	if (likely(ret == 0))
+		return;
+
+	mbcompose_send(KFUNC, KFUNC_POWER, data);
 }
 
 static void mbox_kfunc(struct mbcmd *mb)
@@ -378,8 +502,8 @@ static void mbox_kfunc(struct mbcmd *mb)
 	case KFUNC_FBCTL:
 		mbox_kfunc_fbctl(mb);
 		break;
-	case KFUNC_AUDIO_PWR:
-		mbox_kfunc_audio_pwr(mb->data);
+	case KFUNC_POWER:
+		mbox_kfunc_power(mb->data);
 		break;
 	default:
 		printk(KERN_ERR
@@ -404,14 +528,34 @@ extern void dsp_taskmod_exit(void);
 static int __init dsp_drv_probe(struct platform_device *pdev)
 {
 	int ret;
+	struct omap_dsp *info;
+	struct dsp_platform_data *pdata = pdev->dev.platform_data;
 
 	dev_info(&pdev->dev, "OMAP DSP driver initialization\n");
 
-	dsp_device = &pdev->dev;
+	info = kzalloc(sizeof(struct omap_dsp), GFP_KERNEL);
+	if (unlikely(info == NULL)) {
+		dev_dbg(&pdev->dev, "no memory for info\n");
+		return -ENOMEM;
+	}
+	platform_set_drvdata(pdev, info);
+	omap_dsp = info;
 
-	dsp_mmu_irq = platform_get_irq_byname(pdev, "dsp_mmu");
-	if (dsp_mmu_irq < 0)
-		return -ENXIO;
+	mutex_init(&info->lock);
+	info->dev = &pdev->dev;
+	info->kdev_list = &pdata->kdev_list;
+
+	ret = dsp_kfunc_probe_devices(info);
+	if (ret) {
+		ret = -ENXIO;
+		goto fail0;
+	}
+
+	info->mmu_irq = platform_get_irq_byname(pdev, "dsp_mmu");
+	if (unlikely(info->mmu_irq) < 0) {
+		ret = -ENXIO;
+		goto fail1;
+	}
 
 #ifdef CONFIG_ARCH_OMAP2
 	clk_enable(dsp_fck_handle);
@@ -420,37 +564,44 @@ static int __init dsp_drv_probe(struct platform_device *pdev)
 #endif
 
 	if ((ret = dsp_ctl_core_init()) < 0)
-		goto fail1;
-	if ((ret = dsp_mem_init()) < 0)
 		goto fail2;
+	if ((ret = dsp_mem_init()) < 0)
+		goto fail3;
 	dsp_ctl_init();
 	mblog_init();
 	if ((ret = dsp_taskmod_init()) < 0)
-		goto fail3;
-	if ((ret = dsp_mbox_init()) < 0)
 		goto fail4;
+	if ((ret = dsp_mbox_init()) < 0)
+		goto fail5;
 
 	return 0;
 
-fail4:
+ fail5:
 	dsp_taskmod_exit();
-fail3:
+ fail4:
 	mblog_exit();
 	dsp_ctl_exit();
 	dsp_mem_exit();
-fail2:
+ fail3:
 	dsp_ctl_core_exit();
-fail1:
+ fail2:
 #ifdef CONFIG_ARCH_OMAP2
 	__dsp_per_disable();
 	clk_disable(dsp_ick_handle);
 	clk_disable(dsp_fck_handle);
 #endif
+ fail1:
+	dsp_kfunc_remove_devices(info);
+ fail0:
+	kfree(info);
+
 	return ret;
 }
 
 static int dsp_drv_remove(struct platform_device *pdev)
 {
+	struct omap_dsp *info = platform_get_drvdata(pdev);
+
 	dsp_cpustat_request(CPUSTAT_RESET);
 
 	dsp_cfgstat_request(CFGSTAT_CLEAN);
@@ -467,6 +618,9 @@ static int dsp_drv_remove(struct platform_device *pdev)
 	clk_disable(dsp_ick_handle);
 	clk_disable(dsp_fck_handle);
 #endif
+	dsp_kfunc_remove_devices(info);
+	kfree(info);
+
 	return 0;
 }
 

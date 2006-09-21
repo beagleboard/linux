@@ -70,15 +70,21 @@
 #define PM_ENABLE		0x01
 
 #define KFUNC_FBCTL		0x00
-#define KFUNC_AUDIO_PWR		0x01
+#define KFUNC_POWER		0x01
 
 #define FBCTL_UPD		0x0000
 #define FBCTL_ENABLE		0x0002
 #define FBCTL_DISABLE		0x0003
 
-#define AUDIO_PWR_UP		0x0000
-#define AUDIO_PWR_DOWN1		0x0001
+/* KFUNC_POWER */
+#define AUDIO_PWR_UP		0x0000	/* ARM(exe/ack)	<->  DSP(req)	*/
+#define AUDIO_PWR_DOWN		0x0001	/* ARM(exe)	<-  DSP(req)	*/
+#define AUDIO_PWR_DOWN1		AUDIO_PWR_DOWN
 #define AUDIO_PWR_DOWN2		0x0002
+#define DSP_PWR_UP		0x0003	/* ARM(exe/snd)	->  DSP(exe)	*/
+#define DSP_PWR_DOWN		0x0004	/* ARM(exe)	<-  DSP(req)	*/
+#define DVFS_START		0x0006	/* ARM(req)	<-> DSP(exe/ack)*/
+#define DVFS_STOP		0x0007	/* ARM(req)	 -> DSP(exe)	*/
 
 #define TDEL_SAFE		0x0000
 #define TDEL_KILL		0x0001

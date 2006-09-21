@@ -116,7 +116,6 @@ struct mb_exarg {
 	u16 *argv;
 };
 
-extern struct mbox *mbox_dsp;
 extern void dsp_mbox_start(void);
 extern void dsp_mbox_stop(void);
 extern int dsp_mbox_config(void *p);
@@ -240,5 +239,3 @@ extern const struct cmdinfo *cmdinfo[];
 extern char *subcmd_name(struct mbcmd *mb);
 
 extern void mblog_add(struct mbcmd *mb, arm_dsp_dir_t dir);
-
-extern struct device *dsp_device;

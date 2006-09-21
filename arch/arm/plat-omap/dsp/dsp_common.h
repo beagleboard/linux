@@ -158,6 +158,49 @@ static inline void dsp_clk_autoidle(void)
 }
 #endif
 
-extern int dsp_mmu_irq;
+struct dsp_kfunc_device {
+	char		*name;
+	struct clk	*fck;
+	struct clk	*ick;;
+	struct mutex	 lock;
+	int		 enabled;
+	int		 type;
+#define DSP_KFUNC_DEV_TYPE_COMMON	1
+#define DSP_KFUNC_DEV_TYPE_AUDIO	2
+
+	struct list_head	entry;
+
+	int	(*probe)(struct dsp_kfunc_device *);
+	int	(*remove)(struct dsp_kfunc_device *);
+	int	(*enable)(struct dsp_kfunc_device *, int);
+	int	(*disable)(struct dsp_kfunc_device *, int);
+};
+
+extern int dsp_kfunc_device_register(struct dsp_kfunc_device *);
+
+struct dsp_platform_data {
+	struct list_head kdev_list;
+};
+
+struct omap_dsp {
+	struct mutex		lock;
+	int			enabled;	/* stored peripheral status */
+	int			mmu_irq;
+	struct omap_mbox	*mbox;
+	struct device		*dev;
+	struct list_head 	*kdev_list;
+};
+
+#if defined(CONFIG_ARCH_OMAP1)
+#define command_dvfs_stop(m) (0)
+#define command_dvfs_start(m) (0)
+#elif defined(CONFIG_ARCH_OMAP2)
+#define command_dvfs_stop(m) \
+	(((m)->cmd_l == KFUNC_POWER) && ((m)->data == DVFS_STOP))
+#define command_dvfs_start(m) \
+	(((m)->cmd_l == KFUNC_POWER) && ((m)->data == DVFS_START))
+#endif
+
+extern struct omap_dsp *omap_dsp;
 
 #endif /* DRIVER_DSP_COMMON_H */

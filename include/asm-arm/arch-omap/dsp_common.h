@@ -31,7 +31,4 @@ extern int omap_dsp_request_mem(void);
 extern int omap_dsp_release_mem(void);
 #endif
 
-extern void (*omap_dsp_audio_pwr_up_request)(int stage);
-extern void (*omap_dsp_audio_pwr_down_request)(int stage);
-
 #endif /* ASM_ARCH_DSP_COMMON_H */

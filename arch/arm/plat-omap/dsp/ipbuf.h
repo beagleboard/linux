@@ -61,18 +61,18 @@ struct ipbuf_head {
 extern struct ipbcfg ipbcfg;
 extern struct ipbuf_sys *ipbuf_sys_da, *ipbuf_sys_ad;
 
-#define ipb_bsycnt_inc(ipbcfg)			\
-	do {					\
-		disable_mbox_irq(mbox_dsp);	\
-		(ipbcfg)->bsycnt++;		\
-		enable_mbox_irq(mbox_dsp);	\
+#define ipb_bsycnt_inc(ipbcfg)				\
+	do {						\
+		disable_irq(omap_dsp->mbox->irq);	\
+		(ipbcfg)->bsycnt++;			\
+		enable_irq(omap_dsp->mbox->irq);	\
 	} while(0)
 
-#define ipb_bsycnt_dec(ipbcfg)			\
-	do {					\
-		disable_mbox_irq(mbox_dsp);	\
-		(ipbcfg)->bsycnt--;		\
-		enable_mbox_irq(mbox_dsp);	\
+#define ipb_bsycnt_dec(ipbcfg)				\
+	do {						\
+		disable_irq(omap_dsp->mbox->irq);	\
+		(ipbcfg)->bsycnt--;			\
+		enable_irq(omap_dsp->mbox->irq);	\
 	} while(0)
 
 #define dsp_mem_enable_ipbuf()	dsp_mem_enable(ipbcfg.base)
@@ -84,7 +84,7 @@ struct ipblink {
 	u16 tail;
 };
 
-#define IPBLINK_INIT	{			\
+#define IPBLINK_INIT {				\
 		.lock = SPIN_LOCK_UNLOCKED,	\
 		.top  = BID_NULL,		\
 		.tail = BID_NULL,		\

@@ -105,13 +105,13 @@ struct file_operations dsp_err_fops = {
 /* DSP MMU */
 static void dsp_err_mmu_set(unsigned long arg)
 {
-	disable_irq(dsp_mmu_irq);
+	disable_irq(omap_dsp->mmu_irq);
 	mmu_fadr = (u32)arg;
 }
 
 static void dsp_err_mmu_clr(void)
 {
-	enable_irq(dsp_mmu_irq);
+	enable_irq(omap_dsp->mmu_irq);
 }
 
 /* WDT */

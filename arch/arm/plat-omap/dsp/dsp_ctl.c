@@ -273,7 +273,7 @@ static int dsp_cfg(void)
 		goto out;
 
 	/* create runtime sysfs entries */
-	device_create_file(dsp_device, &dev_attr_loadinfo);
+	device_create_file(omap_dsp->dev, &dev_attr_loadinfo);
 
 out:
 	dsp_mem_disable((void *)dspmem_base);
@@ -290,7 +290,7 @@ static int dsp_uncfg(void)
 	/* FIXME: lock task module */
 
 	/* remove runtime sysfs entries */
-	device_remove_file(dsp_device, &dev_attr_loadinfo);
+	device_remove_file(omap_dsp->dev, &dev_attr_loadinfo);
 
 	dsp_mbox_stop();
 	dsp_twch_stop();
@@ -1038,14 +1038,14 @@ out:
 
 void __init dsp_ctl_init(void)
 {
-	device_create_file(dsp_device, &dev_attr_ifver);
-	device_create_file(dsp_device, &dev_attr_cpustat);
-	device_create_file(dsp_device, &dev_attr_icrmask);
+	device_create_file(omap_dsp->dev, &dev_attr_ifver);
+	device_create_file(omap_dsp->dev, &dev_attr_cpustat);
+	device_create_file(omap_dsp->dev, &dev_attr_icrmask);
 }
 
 void dsp_ctl_exit(void)
 {
-	device_remove_file(dsp_device, &dev_attr_ifver);
-	device_remove_file(dsp_device, &dev_attr_cpustat);
-	device_remove_file(dsp_device, &dev_attr_icrmask);
+	device_remove_file(omap_dsp->dev, &dev_attr_ifver);
+	device_remove_file(omap_dsp->dev, &dev_attr_cpustat);
+	device_remove_file(omap_dsp->dev, &dev_attr_icrmask);
 }

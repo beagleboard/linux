@@ -373,7 +373,7 @@ static void dsp_cpustat_update(void)
 			__dsp_core_enable();
 #endif
 			cpustat.stat = CPUSTAT_RUN;
-			enable_irq(dsp_mmu_irq);
+			enable_irq(omap_dsp->mmu_irq);
 		}
 		return;
 	}
@@ -381,7 +381,7 @@ static void dsp_cpustat_update(void)
 	/* cpustat.req < CPUSTAT_RUN */
 
 	if (cpustat.stat == CPUSTAT_RUN) {
-		disable_irq(dsp_mmu_irq);
+		disable_irq(omap_dsp->mmu_irq);
 #ifdef CONFIG_ARCH_OMAP1
 		clk_disable(api_ck_handle);
 #endif
@@ -567,26 +567,6 @@ void dsp_unregister_mem_cb(void)
 	mutex_unlock(&cpustat.lock);
 }
 #endif /* CONFIG_ARCH_OMAP1 */
-
-/*
- * Audio power control function prototypes and defaults
- * (To be overridden with board specific functions)
- */
-static void generic_audio_pwr_up_request(int stage)
-{
-	printk(KERN_ERR "audio power-up request function is not defined.\n");
-}
-
-void (*omap_dsp_audio_pwr_up_request)(int stage) = generic_audio_pwr_up_request;
-EXPORT_SYMBOL(omap_dsp_audio_pwr_up_request);
-
-static void generic_audio_pwr_down_request(int stage)
-{
-	printk(KERN_ERR "audio power-down request function is not defined.\n");
-}
-
-void (*omap_dsp_audio_pwr_down_request)(int stage) = generic_audio_pwr_down_request;
-EXPORT_SYMBOL(omap_dsp_audio_pwr_down_request);
 
 arch_initcall(omap_dsp_init);
 

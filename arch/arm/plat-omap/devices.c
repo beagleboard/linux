@@ -29,6 +29,10 @@
 
 #include "../plat-omap/dsp/dsp_common.h"
 
+static struct dsp_platform_data dsp_pdata = {
+	.kdev_list = LIST_HEAD_INIT(dsp_pdata.kdev_list),
+};
+
 static struct resource omap_dsp_resources[] = {
 	{
 		.name	= "dsp_mmu",
@@ -42,8 +46,10 @@ static struct platform_device omap_dsp_device = {
 	.id		= -1,
 	.num_resources	= ARRAY_SIZE(omap_dsp_resources),
 	.resource	= omap_dsp_resources,
+	.dev = {
+		.platform_data = &dsp_pdata,
+	},
 };
-
 
 static inline void omap_init_dsp(void)
 {
@@ -63,12 +69,26 @@ static inline void omap_init_dsp(void)
 
 	platform_device_register(&omap_dsp_device);
 }
+
+int dsp_kfunc_device_register(struct dsp_kfunc_device *kdev)
+{
+	static DEFINE_MUTEX(dsp_pdata_lock);
+
+	mutex_init(&kdev->lock);
+
+	mutex_lock(&dsp_pdata_lock);
+ 	list_add_tail(&kdev->entry, &dsp_pdata.kdev_list);
+	mutex_unlock(&dsp_pdata_lock);
+
+	return 0;
+}
+EXPORT_SYMBOL(dsp_kfunc_device_register);
+
 #else
 static inline void omap_init_dsp(void) { }
-#endif
+#endif	/* CONFIG_OMAP_DSP */
 
 /*-------------------------------------------------------------------------*/
-
 #if	defined(CONFIG_I2C_OMAP) || defined(CONFIG_I2C_OMAP_MODULE)
 
 #define	OMAP1_I2C_BASE		0xfffb3800
