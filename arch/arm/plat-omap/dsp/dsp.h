@@ -241,4 +241,4 @@ extern char *subcmd_name(struct mbcmd *mb);
 
 extern void mblog_add(struct mbcmd *mb, arm_dsp_dir_t dir);
 
-extern struct platform_device dsp_device;
+extern struct device *dsp_device;

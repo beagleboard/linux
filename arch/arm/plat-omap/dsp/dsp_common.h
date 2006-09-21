@@ -39,14 +39,6 @@
 #define omap_set_bits_regl(val,mask,r) \
 	do { omap_writel((omap_readl(r) & ~(mask)) | (val), (r)); } while(0)
 
-#if defined(CONFIG_ARCH_OMAP15XX)
-#define INT_DSP_MMU	INT_1510_DSP_MMU
-#elif defined(CONFIG_ARCH_OMAP16XX)
-#define INT_DSP_MMU	INT_1610_DSP_MMU
-#elif defined(CONFIG_ARCH_OMAP24XX)
-#define INT_DSP_MMU	INT_24XX_DSP_MMU
-#endif
-
 #define dspword_to_virt(dw)	((void *)(dspmem_base + ((dw) << 1)))
 #define dspbyte_to_virt(db)	((void *)(dspmem_base + (db)))
 #define virt_to_dspword(va) \
@@ -165,5 +157,7 @@ static inline void dsp_clk_autoidle(void)
 	CM_CLKSTCTRL_DSP |= (1 << 0);
 }
 #endif
+
+extern int dsp_mmu_irq;
 
 #endif /* DRIVER_DSP_COMMON_H */

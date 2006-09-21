@@ -40,6 +40,9 @@ MODULE_AUTHOR("Toshihiro Kobayashi <toshihiro.kobayashi@nokia.com>");
 MODULE_DESCRIPTION("OMAP DSP driver module");
 MODULE_LICENSE("GPL");
 
+struct device *dsp_device;
+int dsp_mmu_irq;
+
 struct omap_mbox *mbox_dsp;
 static struct sync_seq *mbseq;
 static u16 mbseq_expect_tmp;
@@ -391,20 +394,20 @@ extern int  dsp_taskmod_init(void);
 extern void dsp_taskmod_exit(void);
 
 /*
- * device functions
- */
-static void dsp_dev_release(struct device *dev)
-{
-}
-
-/*
  * driver functions
  */
 static int __init dsp_drv_probe(struct platform_device *pdev)
 {
 	int ret;
 
-	printk(KERN_INFO "OMAP DSP driver initialization\n");
+	dev_info(&pdev->dev, "OMAP DSP driver initialization\n");
+
+	dsp_device = &pdev->dev;
+
+	dsp_mmu_irq = platform_get_irq_byname(pdev, "dsp_mmu");
+	if (dsp_mmu_irq < 0)
+		return -ENXIO;
+
 #ifdef CONFIG_ARCH_OMAP2
 	clk_enable(dsp_fck_handle);
 	clk_enable(dsp_ick_handle);
@@ -481,23 +484,6 @@ static int dsp_drv_resume(struct platform_device *pdev)
 #define dsp_drv_resume		NULL
 #endif /* CONFIG_PM */
 
-static struct resource dsp_resources[] = {
-	{
-		.start = INT_DSP_MMU,
-		.flags = IORESOURCE_IRQ,
-	},
-};
-
-struct platform_device dsp_device = {
-	.name		= "dsp",
-	.id		= -1,
-	.dev = {
-		.release	= dsp_dev_release,
-	},
-	.num_resources	= ARRAY_SIZE(&dsp_resources),
-	.resource	= dsp_resources,
-};
-
 static struct platform_driver dsp_driver = {
 	.probe		= dsp_drv_probe,
 	.remove		= dsp_drv_remove,
@@ -510,38 +496,12 @@ static struct platform_driver dsp_driver = {
 
 static int __init omap_dsp_mod_init(void)
 {
-	int ret;
-
-	mbox_dsp = mbox_get("DSP");
-	if (IS_ERR(mbox_dsp)) {
-		printk(KERN_ERR "failed to get mailbox handler for DSP.\n");
-		goto fail1;
-	}
-
-	ret = platform_device_register(&dsp_device);
-	if (ret) {
-		printk(KERN_ERR "failed to register the DSP device: %d\n", ret);
-		goto fail1;
-	}
-
-	ret = platform_driver_register(&dsp_driver);
-	if (ret) {
-		printk(KERN_ERR "failed to register the DSP driver: %d\n", ret);
-		goto fail2;
-	}
-
-	return 0;
-
-fail2:
-	platform_device_unregister(&dsp_device);
-fail1:
-	return -ENODEV;
+	return platform_driver_register(&dsp_driver);
 }
 
 static void __exit omap_dsp_mod_exit(void)
 {
 	platform_driver_unregister(&dsp_driver);
-	platform_device_unregister(&dsp_device);
 }
 
 module_init(omap_dsp_mod_init);

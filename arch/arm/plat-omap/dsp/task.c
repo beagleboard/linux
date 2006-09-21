@@ -1811,7 +1811,7 @@ static int taskdev_init(struct taskdev *dev, char *name, unsigned char minor)
 	mutex_init(&dev->usecount_lock);
 	memcpy(&dev->fops, &dsp_task_fops, sizeof(struct file_operations));
 
-	dev->dev.parent = &dsp_device.dev;
+	dev->dev.parent = dsp_device;
 	dev->dev.bus = &dsptask_bus;
 	sprintf(dev->dev.bus_id, "dsptask%d", minor);
 	dev->dev.release = dsptask_dev_release;

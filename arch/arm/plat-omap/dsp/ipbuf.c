@@ -42,7 +42,7 @@ void ipbuf_stop(void)
 {
 	int i;
 
-	device_remove_file(&dsp_device.dev, &dev_attr_ipbuf);
+	device_remove_file(dsp_device, &dev_attr_ipbuf);
 
 	spin_lock(&ipb_free.lock);
 	RESET_IPBLINK(&ipb_free);
@@ -116,7 +116,7 @@ int ipbuf_config(u16 ln, u16 lsz, void *base)
 	       "           %d words * %d lines at 0x%p.\n",
 	       ipbcfg.lsz, ipbcfg.ln, ipbcfg.base);
 
-	device_create_file(&dsp_device.dev, &dev_attr_ipbuf);
+	device_create_file(dsp_device, &dev_attr_ipbuf);
 
 	return ret;
 

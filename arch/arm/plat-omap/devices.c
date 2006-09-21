@@ -25,7 +25,51 @@
 #include <asm/arch/gpio.h>
 #include <asm/arch/menelaus.h>
 
-#if 	defined(CONFIG_I2C_OMAP) || defined(CONFIG_I2C_OMAP_MODULE)
+#if	defined(CONFIG_OMAP_DSP) || defined(CONFIG_OMAP_DSP_MODULE)
+
+#include "../plat-omap/dsp/dsp_common.h"
+
+static struct resource omap_dsp_resources[] = {
+	{
+		.name	= "dsp_mmu",
+		.start	= -1,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device omap_dsp_device = {
+	.name		= "dsp",
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(omap_dsp_resources),
+	.resource	= omap_dsp_resources,
+};
+
+
+static inline void omap_init_dsp(void)
+{
+	struct resource *res;
+	int irq;
+
+	if (cpu_is_omap15xx())
+		irq = INT_1510_DSP_MMU;
+	else if (cpu_is_omap16xx())
+		irq = INT_1610_DSP_MMU;
+	else if (cpu_is_omap24xx())
+		irq = INT_24XX_DSP_MMU;
+
+	res = platform_get_resource_byname(&omap_dsp_device,
+					   IORESOURCE_IRQ, "dsp_mmu");
+	res->start = irq;
+
+	platform_device_register(&omap_dsp_device);
+}
+#else
+static inline void omap_init_dsp(void) { }
+#endif
+
+/*-------------------------------------------------------------------------*/
+
+#if	defined(CONFIG_I2C_OMAP) || defined(CONFIG_I2C_OMAP_MODULE)
 
 #define	OMAP1_I2C_BASE		0xfffb3800
 #define OMAP2_I2C_BASE1		0x48070000
@@ -48,8 +92,8 @@ static struct resource i2c_resources1[] = {
 /* DMA not used; works around erratum writing to non-empty i2c fifo */
 
 static struct platform_device omap_i2c_device1 = {
-        .name           = "i2c_omap",
-        .id             = 1,
+	.name           = "i2c_omap",
+	.id             = 1,
 	.num_resources	= ARRAY_SIZE(i2c_resources1),
 	.resource	= i2c_resources1,
 };
@@ -432,6 +476,7 @@ static int __init omap_init_devices(void)
 	/* please keep these calls, and their implementations above,
 	 * in alphabetical order so they're easier to sort through.
 	 */
+	omap_init_dsp();
 	omap_init_i2c();
 	omap_init_kp();
 	omap_init_mmc();
@@ -442,4 +487,3 @@ static int __init omap_init_devices(void)
 	return 0;
 }
 arch_initcall(omap_init_devices);
-

@@ -2313,7 +2313,7 @@ static void do_mmu_int(void)
 			printk(KERN_DEBUG "fault address = %#08x\n",
 			       dsp_fault_adr);
 		}
-		enable_irq(INT_DSP_MMU);
+		enable_irq(dsp_mmu_irq);
 		return;
 	}
 
@@ -2408,7 +2408,7 @@ static void do_mmu_int(void)
 	dsp_mmu_enable();
 #endif
 
-	enable_irq(INT_DSP_MMU);
+	enable_irq(dsp_mmu_irq);
 }
 
 static DECLARE_WORK(mmu_int_work, (void (*)(void *))do_mmu_int, NULL);
@@ -2420,7 +2420,7 @@ static DECLARE_WORK(mmu_int_work, (void (*)(void *))do_mmu_int, NULL);
 static irqreturn_t dsp_mmu_interrupt(int irq, void *dev_id,
 				     struct pt_regs *regs)
 {
-	disable_irq(INT_DSP_MMU);
+	disable_irq(dsp_mmu_irq);
 	schedule_work(&mmu_int_work);
 	return IRQ_HANDLED;
 }
@@ -2490,8 +2490,8 @@ int __init dsp_mem_init(void)
 	/*
 	 * DSP MMU interrupt setup
 	 */
-	ret = request_irq(INT_DSP_MMU, dsp_mmu_interrupt, SA_INTERRUPT, "dsp",
-			  &devid_mmu);
+	ret = request_irq(dsp_mmu_irq, dsp_mmu_interrupt, SA_INTERRUPT,
+			  "dsp_mmu",  &devid_mmu);
 	if (ret) {
 		printk(KERN_ERR
 		       "failed to register DSP MMU interrupt: %d\n", ret);
@@ -2499,11 +2499,11 @@ int __init dsp_mem_init(void)
 	}
 
 	/* MMU interrupt is not enabled until DSP runs */
-	disable_irq(INT_DSP_MMU);
+	disable_irq(dsp_mmu_irq);
 
-	device_create_file(&dsp_device.dev, &dev_attr_mmu);
-	device_create_file(&dsp_device.dev, &dev_attr_exmap);
-	device_create_file(&dsp_device.dev, &dev_attr_mempool);
+	device_create_file(dsp_device, &dev_attr_mmu);
+	device_create_file(dsp_device, &dev_attr_exmap);
+	device_create_file(dsp_device, &dev_attr_mempool);
 
 	return 0;
 
@@ -2519,10 +2519,10 @@ fail:
 
 void dsp_mem_exit(void)
 {
-	free_irq(INT_DSP_MMU, &devid_mmu);
+	free_irq(dsp_mmu_irq, &devid_mmu);
 
 	/* recover disable_depth */
-	enable_irq(INT_DSP_MMU);
+	enable_irq(dsp_mmu_irq);
 
 #ifdef CONFIG_ARCH_OMAP1
 	dsp_reset_idle_boot_base();
@@ -2535,7 +2535,7 @@ void dsp_mem_exit(void)
 		dspvect_page = NULL;
 	}
 
-	device_remove_file(&dsp_device.dev, &dev_attr_mmu);
-	device_remove_file(&dsp_device.dev, &dev_attr_exmap);
-	device_remove_file(&dsp_device.dev, &dev_attr_mempool);
+	device_remove_file(dsp_device, &dev_attr_mmu);
+	device_remove_file(dsp_device, &dev_attr_exmap);
+	device_remove_file(dsp_device, &dev_attr_mempool);
 }

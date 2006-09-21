@@ -259,10 +259,10 @@ static struct device_attribute dev_attr_mblog = __ATTR_RO(mblog);
 
 void __init mblog_init(void)
 {
-	device_create_file(&dsp_device.dev, &dev_attr_mblog);
+	device_create_file(dsp_device, &dev_attr_mblog);
 }
 
 void mblog_exit(void)
 {
-	device_remove_file(&dsp_device.dev, &dev_attr_mblog);
+	device_remove_file(dsp_device, &dev_attr_mblog);
 }
