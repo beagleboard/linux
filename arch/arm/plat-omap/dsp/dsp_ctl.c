@@ -54,7 +54,7 @@ static enum fbstat_e {
 #endif
 
 static enum cfgstat_e cfgstat;
-int mbx_revision;
+int mbox_revision;
 static u8 n_stask;
 
 static ssize_t ifver_show(struct device *dev, struct device_attribute *attr,
@@ -115,7 +115,7 @@ static int __misc_mbcompose_send_and_wait(u8 cmd_h, u8 cmd_l, u16 data,
 }
 
 #define misc_mbcompose_send_and_wait(cmd_h, cmd_l, data, retvp) \
-		__misc_mbcompose_send_and_wait(MBX_CMD_DSP_##cmd_h, (cmd_l), \
+		__misc_mbcompose_send_and_wait(MBOX_CMD_DSP_##cmd_h, (cmd_l), \
 					       (data), (retvp));
 
 static int misc_mbcmd_response(struct mbcmd *mb, int argc, int match_cmd_l_flag)
@@ -135,24 +135,24 @@ static int misc_mbcmd_response(struct mbcmd *mb, int argc, int match_cmd_l_flag)
 		else
 			strcpy(cmdstr, ci->name);
 		printk(KERN_WARNING
-		       "mbx: unexpected command %s received!\n", cmdstr);
+		       "mbox: unexpected command %s received!\n", cmdstr);
 		return -1;
 	}
 
 	/*
-	 * if argc == 1, receive data through mbx:data register.
+	 * if argc == 1, receive data through mbox:data register.
 	 * if argc > 1, receive through ipbuf_sys.
 	 */
 	if (argc == 1)
 		misc_mb_wait.retvp[0] = mb->data;
 	else if (argc > 1) {
 		if (dsp_mem_enable(ipbuf_sys_da) < 0) {
-			printk(KERN_ERR "mbx: %s - ipbuf_sys_da read failed!\n",
+			printk(KERN_ERR "mbox: %s - ipbuf_sys_da read failed!\n",
 			       cmdinfo[mb->cmd_h]->name);
 			return -1;
 		}
 		if (sync_with_dsp(&ipbuf_sys_da->s, TID_ANON, 10) < 0) {
-			printk(KERN_ERR "mbx: %s - IPBUF sync failed!\n",
+			printk(KERN_ERR "mbox: %s - IPBUF sync failed!\n",
 			       cmdinfo[mb->cmd_h]->name);
 			dsp_mem_disable(ipbuf_sys_da);
 			return -1;
@@ -233,12 +233,12 @@ static int dsp_cfg(void)
 	 */
 	dsp_mem_enable((void *)dspmem_base);
 
-	dsp_mbx_start();
+	dsp_mbox_start();
 	dsp_twch_start();
 	dsp_mem_start();
 	dsp_err_start();
 
-	mbx_revision = -1;
+	mbox_revision = -1;
 
 	ret = misc_mbcompose_send_and_wait(DSPCFG, DSPCFG_REQ, 0, NULL);
 	if (ret < 0) {
@@ -253,8 +253,8 @@ static int dsp_cfg(void)
 	 * MBREV 3.2 or earlier doesn't assume DMA domain is on
 	 * when DSPCFG command is sent
 	 */
-	if ((mbx_revision == MBREV_3_0) ||
-	    (mbx_revision == MBREV_3_2)) {
+	if ((mbox_revision == MBREV_3_0) ||
+	    (mbox_revision == MBREV_3_2)) {
 		if ((ret = mbcompose_send(PM, PM_ENABLE, DSPREG_ICR_DMA)) < 0)
 			goto out;
 	}
@@ -292,7 +292,7 @@ static int dsp_uncfg(void)
 	/* remove runtime sysfs entries */
 	device_remove_file(&dsp_device.dev, &dev_attr_loadinfo);
 
-	dsp_mbx_stop();
+	dsp_mbox_stop();
 	dsp_twch_stop();
 	dsp_mem_stop();
 	dsp_err_stop();
@@ -555,7 +555,7 @@ static int dsp_ctl_ioctl(struct inode *inode, struct file *file,
 	case DSPCTL_IOCTL_MBSEND:
 		{
 			struct omap_dsp_mailbox_cmd u_cmd;
-			mbx_msg_t msg;
+			mbox_msg_t msg;
 			if (copy_from_user(&u_cmd, (void *)arg, sizeof(u_cmd)))
 				return -EFAULT;
 			msg = (u_cmd.cmd << 16) | u_cmd.data;
@@ -699,45 +699,45 @@ static int dsp_ctl_ioctl(struct inode *inode, struct file *file,
 /*
  * functions called from mailbox interrupt routine
  */
-void mbx_suspend(struct mbcmd *mb)
+void mbox_suspend(struct mbcmd *mb)
 {
 	misc_mbcmd_response(mb, 0, 0);
 }
 
-void mbx_dspcfg(struct mbcmd *mb)
+void mbox_dspcfg(struct mbcmd *mb)
 {
 	u8 last   = mb->cmd_l & 0x80;
 	u8 cfgcmd = mb->cmd_l & 0x7f;
 	static dsp_long_t tmp_ipb_adr;
 
 	if (!waitqueue_active(&misc_mb_wait.wait_q) ||
-	    (misc_mb_wait.cmd_h != MBX_CMD_DSP_DSPCFG)) {
+	    (misc_mb_wait.cmd_h != MBOX_CMD_DSP_DSPCFG)) {
 		printk(KERN_WARNING
-		       "mbx: DSPCFG command received, "
+		       "mbox: DSPCFG command received, "
 		       "but nobody is waiting for it...\n");
 		return;
 	}
 
 	/* mailbox protocol check */
 	if (cfgcmd == DSPCFG_PROTREV) {
-		mbx_revision = mb->data;
-		if (mbx_revision == MBPROT_REVISION)
+		mbox_revision = mb->data;
+		if (mbox_revision == MBPROT_REVISION)
 			return;
 #ifdef OLD_BINARY_SUPPORT
-		else if ((mbx_revision == MBREV_3_0) ||
-			 (mbx_revision == MBREV_3_2)) {
+		else if ((mbox_revision == MBREV_3_0) ||
+			 (mbox_revision == MBREV_3_2)) {
 			printk(KERN_WARNING
-			       "mbx: ***** old DSP binary *****\n"
+			       "mbox: ***** old DSP binary *****\n"
 			       "  Please update your DSP application.\n");
 			return;
 		}
 #endif
 		else {
 			printk(KERN_ERR
-			       "mbx: protocol revision check error!\n"
+			       "mbox: protocol revision check error!\n"
 			       "  expected=0x%04x, received=0x%04x\n",
 			       MBPROT_REVISION, mb->data);
-			mbx_revision = -1;
+			mbox_revision = -1;
 			goto abort1;
 		}
 	}
@@ -746,9 +746,9 @@ void mbx_dspcfg(struct mbcmd *mb)
 	 * following commands are accepted only after
 	 * revision check has been passed.
 	 */
-	if (!mbx_revision < 0) {
+	if (!mbox_revision < 0) {
 		printk(KERN_INFO
-		       "mbx: DSPCFG command received, "
+		       "mbox: DSPCFG command received, "
 		       "but revision check has not been passed.\n");
 		return;
 	}
@@ -767,7 +767,7 @@ void mbx_dspcfg(struct mbcmd *mb)
 
 	default:
 		printk(KERN_ERR
-		       "mbx: Unknown CFG command: cmd_l=0x%02x, data=0x%04x\n",
+		       "mbox: Unknown CFG command: cmd_l=0x%02x, data=0x%04x\n",
 		       mb->cmd_l, mb->data);
 		return;
 	}
@@ -788,11 +788,11 @@ void mbx_dspcfg(struct mbcmd *mb)
 			goto abort1;
 
 		if (dsp_mem_enable(ipbuf_sys_da) < 0) {
-			printk(KERN_ERR "mbx: DSPCFG - ipbuf_sys_da read failed!\n");
+			printk(KERN_ERR "mbox: DSPCFG - ipbuf_sys_da read failed!\n");
 			goto abort1;
 		}
 		if (sync_with_dsp(&ipbuf_sys_da->s, TID_ANON, 10) < 0) {
-			printk(KERN_ERR "mbx: DSPCFG - IPBUF sync failed!\n");
+			printk(KERN_ERR "mbox: DSPCFG - IPBUF sync failed!\n");
 			dsp_mem_disable(ipbuf_sys_da);
 			goto abort1;
 		}
@@ -801,7 +801,7 @@ void mbx_dspcfg(struct mbcmd *mb)
 		 * we must read with 16bit-access
 		 */
 #ifdef OLD_BINARY_SUPPORT
-		if (mbx_revision == MBPROT_REVISION) {
+		if (mbox_revision == MBPROT_REVISION) {
 #endif
 			buf = ipbuf_sys_da->d;
 			n_stask        = buf[0];
@@ -819,7 +819,7 @@ void mbx_dspcfg(struct mbcmd *mb)
 			mem_sync.SDRAM = MKVIRT(buf[19], buf[20]);
 			mem_syncp = &mem_sync;
 #ifdef OLD_BINARY_SUPPORT
-		} else if (mbx_revision == MBREV_3_2) {
+		} else if (mbox_revision == MBREV_3_2) {
 			buf = ipbuf_sys_da->d;
 			n_stask     = buf[0];
 			bln         = buf[1];
@@ -832,7 +832,7 @@ void mbx_dspcfg(struct mbcmd *mb)
 			dbg_buf_sz  = 0;
 			dbg_line_sz = 0;
 			mem_syncp   = NULL;
-		} else if (mbx_revision == MBREV_3_0) {
+		} else if (mbox_revision == MBREV_3_0) {
 			buf = ipbuf_sys_da->d;
 			n_stask     = buf[0];
 			bln         = buf[1];
@@ -863,7 +863,7 @@ void mbx_dspcfg(struct mbcmd *mb)
 			goto abort1;
 		if (ipbuf_config(bln, bsz, badr) < 0)
 			goto abort1;
-		if (dsp_mbx_config(mbseq) < 0)
+		if (dsp_mbox_config(mbseq) < 0)
 			goto abort2;
 		if (dsp_dbg_config(dbg_buf, dbg_buf_sz, dbg_line_sz) < 0)
 			goto abort2;
@@ -882,12 +882,12 @@ abort1:
 	return;
 }
 
-void mbx_poll(struct mbcmd *mb)
+void mbox_poll(struct mbcmd *mb)
 {
 	misc_mbcmd_response(mb, 0, 0);
 }
 
-void mbx_regrw(struct mbcmd *mb)
+void mbox_regrw(struct mbcmd *mb)
 {
 	switch (mb->cmd_l) {
 	case REGRW_DATA:
@@ -895,13 +895,13 @@ void mbx_regrw(struct mbcmd *mb)
 		break;
 	default:
 		printk(KERN_ERR
-		       "mbx: Illegal REGRW command: "
+		       "mbox: Illegal REGRW command: "
 		       "cmd_l=0x%02x, data=0x%04x\n", mb->cmd_l, mb->data);
 		return;
 	}
 }
 
-void mbx_getvar(struct mbcmd *mb)
+void mbox_getvar(struct mbcmd *mb)
 {
 	switch (mb->cmd_l) {
 	case VARID_ICRMASK:
@@ -912,13 +912,13 @@ void mbx_getvar(struct mbcmd *mb)
 		break;
 	default:
 		printk(KERN_ERR
-		       "mbx: Illegal GETVAR command: "
+		       "mbox: Illegal GETVAR command: "
 		       "cmd_l=0x%02x, data=0x%04x\n", mb->cmd_l, mb->data);
 		return;
 	}
 }
 
-void mbx_fbctl_disable(struct mbcmd *mb)
+void mbox_fbctl_disable(struct mbcmd *mb)
 {
 	misc_mbcmd_response(mb, 0, 0);
 }

@@ -489,7 +489,7 @@ static int dsp_task_config(struct dsptask *task, u8 tid)
 		ret = -EINTR;
 		goto fail_out;
 	}
-	cfg_cmd = MBX_CMD_DSP_TCFG;
+	cfg_cmd = MBOX_CMD_DSP_TCFG;
 	mbcompose_send_and_wait(TCFG, tid, 0, &cfg_wait_q);
 	cfg_cmd = 0;
 	mutex_unlock(&cfg_lock);
@@ -1968,7 +1968,7 @@ static int dsp_tadd(struct taskdev *dev, dsp_long_t adr)
 		goto fail_out;
 	}
 	cfg_tid = TID_ANON;
-	cfg_cmd = MBX_CMD_DSP_TADD;
+	cfg_cmd = MBOX_CMD_DSP_TADD;
 	arg.tid  = TID_ANON;
 	arg.argc = 2;
 	arg.argv = argv;
@@ -2034,7 +2034,7 @@ del_out:
 		goto fail_out;
 	}
 	cfg_tid = TID_ANON;
-	cfg_cmd = MBX_CMD_DSP_TDEL;
+	cfg_cmd = MBOX_CMD_DSP_TDEL;
 	mbcompose_send_and_wait(TDEL, tid, TDEL_KILL, &cfg_wait_q);
 	tid_response = cfg_tid;
 	cfg_tid = TID_ANON;
@@ -2197,7 +2197,7 @@ static int dsp_tdel_bh(struct taskdev *dev, u16 type)
 		}
 	}
 	cfg_tid = TID_ANON;
-	cfg_cmd = MBX_CMD_DSP_TDEL;
+	cfg_cmd = MBOX_CMD_DSP_TDEL;
 	mbcompose_send_and_wait(TDEL, tid, type, &cfg_wait_q);
 	tid_response = cfg_tid;
 	cfg_tid = TID_ANON;
@@ -2239,24 +2239,24 @@ long taskdev_state_stale(unsigned char minor)
 /*
  * functions called from mailbox interrupt routine
  */
-void mbx_wdsnd(struct mbcmd *mb)
+void mbox_wdsnd(struct mbcmd *mb)
 {
 	u8 tid = mb->cmd_l;
 	struct dsptask *task = dsptask[tid];
 
 	if ((tid >= TASKDEV_MAX) || (task == NULL)) {
-		printk(KERN_ERR "mbx: WDSND with illegal tid! %d\n", tid);
+		printk(KERN_ERR "mbox: WDSND with illegal tid! %d\n", tid);
 		return;
 	}
 	if (sndtyp_bk(task->ttyp)) {
 		printk(KERN_ERR
-		       "mbx: WDSND from block sending task! (task%d)\n", tid);
+		       "mbox: WDSND from block sending task! (task%d)\n", tid);
 		return;
 	}
 	if (sndtyp_psv(task->ttyp) &&
 	    !waitqueue_active(&task->dev->read_wait_q)) {
 		printk(KERN_WARNING
-		       "mbx: WDSND from passive sending task (task%d) "
+		       "mbox: WDSND from passive sending task (task%d) "
 		       "without request!\n", tid);
 		return;
 	}
@@ -2265,19 +2265,19 @@ void mbx_wdsnd(struct mbcmd *mb)
 	wake_up_interruptible(&task->dev->read_wait_q);
 }
 
-void mbx_wdreq(struct mbcmd *mb)
+void mbox_wdreq(struct mbcmd *mb)
 {
 	u8 tid = mb->cmd_l;
 	struct dsptask *task = dsptask[tid];
 	struct taskdev *dev;
 
 	if ((tid >= TASKDEV_MAX) || (task == NULL)) {
-		printk(KERN_ERR "mbx: WDREQ with illegal tid! %d\n", tid);
+		printk(KERN_ERR "mbox: WDREQ with illegal tid! %d\n", tid);
 		return;
 	}
 	if (rcvtyp_psv(task->ttyp)) {
 		printk(KERN_ERR
-		       "mbx: WDREQ from passive receiving task! (task%d)\n",
+		       "mbox: WDREQ from passive receiving task! (task%d)\n",
 		       tid);
 		return;
 	}
@@ -2289,7 +2289,7 @@ void mbx_wdreq(struct mbcmd *mb)
 	wake_up_interruptible(&dev->write_wait_q);
 }
 
-void mbx_bksnd(struct mbcmd *mb)
+void mbox_bksnd(struct mbcmd *mb)
 {
 	u8 tid = mb->cmd_l;
 	u16 bid = mb->data;
@@ -2298,27 +2298,27 @@ void mbx_bksnd(struct mbcmd *mb)
 	u16 cnt;
 
 	if (bid >= ipbcfg.ln) {
-		printk(KERN_ERR "mbx: BKSND with illegal bid! %d\n", bid);
+		printk(KERN_ERR "mbox: BKSND with illegal bid! %d\n", bid);
 		return;
 	}
 	ipb_h = bid_to_ipbuf(bid);
 	ipb_bsycnt_dec(&ipbcfg);
 	if ((tid >= TASKDEV_MAX) || (task == NULL)) {
-		printk(KERN_ERR "mbx: BKSND with illegal tid! %d\n", tid);
+		printk(KERN_ERR "mbox: BKSND with illegal tid! %d\n", tid);
 		goto unuse_ipbuf_out;
 	}
 	if (sndtyp_wd(task->ttyp)) {
 		printk(KERN_ERR
-		       "mbx: BKSND from word sending task! (task%d)\n", tid);
+		       "mbox: BKSND from word sending task! (task%d)\n", tid);
 		goto unuse_ipbuf_out;
 	}
 	if (sndtyp_pvt(task->ttyp)) {
 		printk(KERN_ERR
-		       "mbx: BKSND from private sending task! (task%d)\n", tid);
+		       "mbox: BKSND from private sending task! (task%d)\n", tid);
 		goto unuse_ipbuf_out;
 	}
 	if (sync_with_dsp(&ipb_h->p->sd, tid, 10) < 0) {
-		printk(KERN_ERR "mbx: BKSND - IPBUF sync failed!\n");
+		printk(KERN_ERR "mbox: BKSND - IPBUF sync failed!\n");
 		return;
 	}
 
@@ -2327,7 +2327,7 @@ void mbx_bksnd(struct mbcmd *mb)
 
 	cnt = ipb_h->p->c;
 	if (cnt > ipbcfg.lsz) {
-		printk(KERN_ERR "mbx: BKSND cnt(%d) > ipbuf line size(%d)!\n",
+		printk(KERN_ERR "mbox: BKSND cnt(%d) > ipbuf line size(%d)!\n",
 		       cnt, ipbcfg.lsz);
 		goto unuse_ipbuf_out;
 	}
@@ -2350,7 +2350,7 @@ unuse_ipbuf_out:
 	return;
 }
 
-void mbx_bkreq(struct mbcmd *mb)
+void mbox_bkreq(struct mbcmd *mb)
 {
 	u8 tid = mb->cmd_l;
 	u16 cnt = mb->data;
@@ -2358,23 +2358,23 @@ void mbx_bkreq(struct mbcmd *mb)
 	struct taskdev *dev;
 
 	if ((tid >= TASKDEV_MAX) || (task == NULL)) {
-		printk(KERN_ERR "mbx: BKREQ with illegal tid! %d\n", tid);
+		printk(KERN_ERR "mbox: BKREQ with illegal tid! %d\n", tid);
 		return;
 	}
 	if (rcvtyp_wd(task->ttyp)) {
 		printk(KERN_ERR
-		       "mbx: BKREQ from word receiving task! (task%d)\n", tid);
+		       "mbox: BKREQ from word receiving task! (task%d)\n", tid);
 		return;
 	}
 	if (rcvtyp_pvt(task->ttyp)) {
 		printk(KERN_ERR
-		       "mbx: BKREQ from private receiving task! (task%d)\n",
+		       "mbox: BKREQ from private receiving task! (task%d)\n",
 		       tid);
 		return;
 	}
 	if (rcvtyp_psv(task->ttyp)) {
 		printk(KERN_ERR
-		       "mbx: BKREQ from passive receiving task! (task%d)\n",
+		       "mbox: BKREQ from passive receiving task! (task%d)\n",
 		       tid);
 		return;
 	}
@@ -2386,13 +2386,13 @@ void mbx_bkreq(struct mbcmd *mb)
 	wake_up_interruptible(&dev->write_wait_q);
 }
 
-void mbx_bkyld(struct mbcmd *mb)
+void mbox_bkyld(struct mbcmd *mb)
 {
 	u16 bid = mb->data;
 	struct ipbuf_head *ipb_h;
 
 	if (bid >= ipbcfg.ln) {
-		printk(KERN_ERR "mbx: BKYLD with illegal bid! %d\n", bid);
+		printk(KERN_ERR "mbox: BKYLD with illegal bid! %d\n", bid);
 		return;
 	}
 	ipb_h = bid_to_ipbuf(bid);
@@ -2405,24 +2405,24 @@ void mbx_bkyld(struct mbcmd *mb)
 	release_ipbuf(ipb_h);
 }
 
-void mbx_bksndp(struct mbcmd *mb)
+void mbox_bksndp(struct mbcmd *mb)
 {
 	u8 tid = mb->cmd_l;
 	struct dsptask *task = dsptask[tid];
 	struct ipbuf_p *ipbp;
 
 	if ((tid >= TASKDEV_MAX) || (task == NULL)) {
-		printk(KERN_ERR "mbx: BKSNDP with illegal tid! %d\n", tid);
+		printk(KERN_ERR "mbox: BKSNDP with illegal tid! %d\n", tid);
 		return;
 	}
 	if (sndtyp_wd(task->ttyp)) {
 		printk(KERN_ERR
-		       "mbx: BKSNDP from word sending task! (task%d)\n", tid);
+		       "mbox: BKSNDP from word sending task! (task%d)\n", tid);
 		return;
 	}
 	if (sndtyp_gbl(task->ttyp)) {
 		printk(KERN_ERR
-		       "mbx: BKSNDP from non-private sending task! (task%d)\n",
+		       "mbox: BKSNDP from non-private sending task! (task%d)\n",
 		       tid);
 		return;
 	}
@@ -2435,16 +2435,16 @@ void mbx_bksndp(struct mbcmd *mb)
 
 	ipbp = task->ipbuf_pvt_r;
 	if (sync_with_dsp(&ipbp->s, tid, 10) < 0) {
-		printk(KERN_ERR "mbx: BKSNDP - IPBUF sync failed!\n");
+		printk(KERN_ERR "mbox: BKSNDP - IPBUF sync failed!\n");
 		return;
 	}
-	printk(KERN_DEBUG "mbx: ipbuf_pvt_r->a = 0x%08lx\n",
+	printk(KERN_DEBUG "mbox: ipbuf_pvt_r->a = 0x%08lx\n",
 	       MKLONG(ipbp->ah, ipbp->al));
 	ipblink_add_pvt(&task->dev->rcvdt.bk.link);
 	wake_up_interruptible(&task->dev->read_wait_q);
 }
 
-void mbx_bkreqp(struct mbcmd *mb)
+void mbox_bkreqp(struct mbcmd *mb)
 {
 	u8 tid = mb->cmd_l;
 	struct dsptask *task = dsptask[tid];
@@ -2452,31 +2452,31 @@ void mbx_bkreqp(struct mbcmd *mb)
 	struct ipbuf_p *ipbp;
 
 	if ((tid >= TASKDEV_MAX) || (task == NULL)) {
-		printk(KERN_ERR "mbx: BKREQP with illegal tid! %d\n", tid);
+		printk(KERN_ERR "mbox: BKREQP with illegal tid! %d\n", tid);
 		return;
 	}
 	if (rcvtyp_wd(task->ttyp)) {
 		printk(KERN_ERR
-		       "mbx: BKREQP from word receiving task! (task%d)\n", tid);
+		       "mbox: BKREQP from word receiving task! (task%d)\n", tid);
 		return;
 	}
 	if (rcvtyp_gbl(task->ttyp)) {
 		printk(KERN_ERR
-		       "mbx: BKREQP from non-private receiving task! (task%d)\n", tid);
+		       "mbox: BKREQP from non-private receiving task! (task%d)\n", tid);
 		return;
 	}
 	if (rcvtyp_psv(task->ttyp)) {
 		printk(KERN_ERR
-		       "mbx: BKREQP from passive receiving task! (task%d)\n", tid);
+		       "mbox: BKREQP from passive receiving task! (task%d)\n", tid);
 		return;
 	}
 
 	ipbp = task->ipbuf_pvt_w;
 	if (sync_with_dsp(&ipbp->s, TID_FREE, 10) < 0) {
-		printk(KERN_ERR "mbx: BKREQP - IPBUF sync failed!\n");
+		printk(KERN_ERR "mbox: BKREQP - IPBUF sync failed!\n");
 		return;
 	}
-	printk(KERN_DEBUG "mbx: ipbuf_pvt_w->a = 0x%08lx\n",
+	printk(KERN_DEBUG "mbox: ipbuf_pvt_w->a = 0x%08lx\n",
 	       MKLONG(ipbp->ah, ipbp->al));
 	dev = task->dev;
 	spin_lock(&dev->wsz_lock);
@@ -2485,18 +2485,18 @@ void mbx_bkreqp(struct mbcmd *mb)
 	wake_up_interruptible(&dev->write_wait_q);
 }
 
-void mbx_tctl(struct mbcmd *mb)
+void mbox_tctl(struct mbcmd *mb)
 {
 	u8 tid = mb->cmd_l;
 	struct dsptask *task = dsptask[tid];
 
 	if ((tid >= TASKDEV_MAX) || (task == NULL)) {
-		printk(KERN_ERR "mbx: TCTL with illegal tid! %d\n", tid);
+		printk(KERN_ERR "mbox: TCTL with illegal tid! %d\n", tid);
 		return;
 	}
 
 	if (!waitqueue_active(&task->dev->tctl_wait_q)) {
-		printk(KERN_WARNING "mbx: unexpected TCTL from DSP!\n");
+		printk(KERN_WARNING "mbox: unexpected TCTL from DSP!\n");
 		return;
 	}
 
@@ -2504,7 +2504,7 @@ void mbx_tctl(struct mbcmd *mb)
 	wake_up_interruptible(&task->dev->tctl_wait_q);
 }
 
-void mbx_tcfg(struct mbcmd *mb)
+void mbox_tcfg(struct mbcmd *mb)
 {
 	u8 tid = mb->cmd_l;
 	struct dsptask *task = dsptask[tid];
@@ -2513,21 +2513,21 @@ void mbx_tcfg(struct mbcmd *mb)
 	int i;
 
 	if ((tid >= TASKDEV_MAX) || (task == NULL)) {
-		printk(KERN_ERR "mbx: TCFG with illegal tid! %d\n", tid);
+		printk(KERN_ERR "mbox: TCFG with illegal tid! %d\n", tid);
 		return;
 	}
-	if ((task->state != TASK_ST_CFGREQ) || (cfg_cmd != MBX_CMD_DSP_TCFG)) {
-		printk(KERN_WARNING "mbx: unexpected TCFG from DSP!\n");
+	if ((task->state != TASK_ST_CFGREQ) || (cfg_cmd != MBOX_CMD_DSP_TCFG)) {
+		printk(KERN_WARNING "mbox: unexpected TCFG from DSP!\n");
 		return;
 	}
 
 	if (dsp_mem_enable(ipbuf_sys_da) < 0) {
-		printk(KERN_ERR "mbx: TCFG - ipbuf_sys_da read failed!\n");
+		printk(KERN_ERR "mbox: TCFG - ipbuf_sys_da read failed!\n");
 		dsp_mem_disable(ipbuf_sys_da);
 		goto out;
 	}
 	if (sync_with_dsp(&ipbuf_sys_da->s, tid, 10) < 0) {
-		printk(KERN_ERR "mbx: TCFG - IPBUF sync failed!\n");
+		printk(KERN_ERR "mbox: TCFG - IPBUF sync failed!\n");
 		dsp_mem_disable(ipbuf_sys_da);
 		goto out;
 	}
@@ -2567,37 +2567,37 @@ out:
 	wake_up_interruptible(&cfg_wait_q);
 }
 
-void mbx_tadd(struct mbcmd *mb)
+void mbox_tadd(struct mbcmd *mb)
 {
 	u8 tid = mb->cmd_l;
 
-	if ((!waitqueue_active(&cfg_wait_q)) || (cfg_cmd != MBX_CMD_DSP_TADD)) {
-		printk(KERN_WARNING "mbx: unexpected TADD from DSP!\n");
+	if ((!waitqueue_active(&cfg_wait_q)) || (cfg_cmd != MBOX_CMD_DSP_TADD)) {
+		printk(KERN_WARNING "mbox: unexpected TADD from DSP!\n");
 		return;
 	}
 	cfg_tid = tid;
 	wake_up_interruptible(&cfg_wait_q);
 }
 
-void mbx_tdel(struct mbcmd *mb)
+void mbox_tdel(struct mbcmd *mb)
 {
 	u8 tid = mb->cmd_l;
 
-	if ((!waitqueue_active(&cfg_wait_q)) || (cfg_cmd != MBX_CMD_DSP_TDEL)) {
-		printk(KERN_WARNING "mbx: unexpected TDEL from DSP!\n");
+	if ((!waitqueue_active(&cfg_wait_q)) || (cfg_cmd != MBOX_CMD_DSP_TDEL)) {
+		printk(KERN_WARNING "mbox: unexpected TDEL from DSP!\n");
 		return;
 	}
 	cfg_tid = tid;
 	wake_up_interruptible(&cfg_wait_q);
 }
 
-void mbx_err_fatal(u8 tid)
+void mbox_err_fatal(u8 tid)
 {
 	struct dsptask *task = dsptask[tid];
 	struct taskdev *dev;
 
 	if ((tid >= TASKDEV_MAX) || (task == NULL)) {
-		printk(KERN_ERR "mbx: FATAL ERR with illegal tid! %d\n", tid);
+		printk(KERN_ERR "mbox: FATAL ERR with illegal tid! %d\n", tid);
 		return;
 	}
 
@@ -2615,7 +2615,7 @@ static int dbg_rp;
 int dsp_dbg_config(u16 *buf, u16 sz, u16 lsz)
 {
 #ifdef OLD_BINARY_SUPPORT
-	if ((mbx_revision == MBREV_3_0) || (mbx_revision == MBREV_3_2)) {
+	if ((mbox_revision == MBREV_3_0) || (mbox_revision == MBREV_3_2)) {
 		dbg_buf = NULL;
 		dbg_buf_sz = 0;
 		dbg_line_sz = 0;
@@ -2648,10 +2648,10 @@ void dsp_dbg_stop(void)
 }
 
 #ifdef OLD_BINARY_SUPPORT
-static void mbx_dbg_old(struct mbcmd *mb);
+static void mbox_dbg_old(struct mbcmd *mb);
 #endif
 
-void mbx_dbg(struct mbcmd *mb)
+void mbox_dbg(struct mbcmd *mb)
 {
 	u8 tid = mb->cmd_l;
 	int cnt = mb->data;
@@ -2660,19 +2660,19 @@ void mbx_dbg(struct mbcmd *mb)
 	int i;
 
 #ifdef OLD_BINARY_SUPPORT
-	if ((mbx_revision == MBREV_3_0) || (mbx_revision == MBREV_3_2)) {
-		mbx_dbg_old(mb);
+	if ((mbox_revision == MBREV_3_0) || (mbox_revision == MBREV_3_2)) {
+		mbox_dbg_old(mb);
 		return;
 	}
 #endif
 
 	if (((tid >= TASKDEV_MAX) || (dsptask[tid] == NULL)) &&
 	    (tid != TID_ANON)) {
-		printk(KERN_ERR "mbx: DBG with illegal tid! %d\n", tid);
+		printk(KERN_ERR "mbox: DBG with illegal tid! %d\n", tid);
 		return;
 	}
 	if (dbg_buf == NULL) {
-		printk(KERN_ERR "mbx: DBG command received, but "
+		printk(KERN_ERR "mbox: DBG command received, but "
 		       "dbg_buf has not been configured yet.\n");
 		return;
 	}
@@ -2718,7 +2718,7 @@ void mbx_dbg(struct mbcmd *mb)
 }
 
 #ifdef OLD_BINARY_SUPPORT
-static void mbx_dbg_old(struct mbcmd *mb)
+static void mbox_dbg_old(struct mbcmd *mb)
 {
 	u8 tid = mb->cmd_l;
 	char s[80], *s_end = &s[79], *p;
@@ -2729,15 +2729,15 @@ static void mbx_dbg_old(struct mbcmd *mb)
 
 	if (((tid >= TASKDEV_MAX) || (dsptask[tid] == NULL)) &&
 	    (tid != TID_ANON)) {
-		printk(KERN_ERR "mbx: DBG with illegal tid! %d\n", tid);
+		printk(KERN_ERR "mbox: DBG with illegal tid! %d\n", tid);
 		return;
 	}
 	if (dsp_mem_enable(ipbuf_sys_da) < 0) {
-		printk(KERN_ERR "mbx: DBG - ipbuf_sys_da read failed!\n");
+		printk(KERN_ERR "mbox: DBG - ipbuf_sys_da read failed!\n");
 		return;
 	}
 	if (sync_with_dsp(&ipbuf_sys_da->s, tid, 10) < 0) {
-		printk(KERN_ERR "mbx: DBG - IPBUF sync failed!\n");
+		printk(KERN_ERR "mbox: DBG - IPBUF sync failed!\n");
 		goto out1;
 	}
 	buf = ipbuf_sys_da->d;

@@ -63,16 +63,16 @@ extern struct ipbuf_sys *ipbuf_sys_da, *ipbuf_sys_ad;
 
 #define ipb_bsycnt_inc(ipbcfg)			\
 	do {					\
-		disable_mbx_irq(mbx_dsp);	\
+		disable_mbox_irq(mbox_dsp);	\
 		(ipbcfg)->bsycnt++;		\
-		enable_mbx_irq(mbx_dsp);	\
+		enable_mbox_irq(mbox_dsp);	\
 	} while(0)
 
 #define ipb_bsycnt_dec(ipbcfg)			\
 	do {					\
-		disable_mbx_irq(mbx_dsp);	\
+		disable_mbox_irq(mbox_dsp);	\
 		(ipbcfg)->bsycnt--;		\
-		enable_mbx_irq(mbx_dsp);	\
+		enable_mbox_irq(mbox_dsp);	\
 	} while(0)
 
 #define dsp_mem_enable_ipbuf()	dsp_mem_enable(ipbcfg.base)

@@ -361,7 +361,7 @@ int dsp_mem_sync_inc(void)
 }
 
 /*
- * dsp_mem_sync_config() is called from mbx1 workqueue
+ * dsp_mem_sync_config() is called from mbox1 workqueue
  */
 int dsp_mem_sync_config(struct mem_sync_struct *sync)
 {
@@ -2002,7 +2002,7 @@ static int dsp_mem_open(struct inode *inode, struct file *file)
  * fb update functions:
  * fbupd_response() is executed by the workqueue.
  * fbupd_cb() is called when fb update is done, in interrupt context.
- * mbx_fbupd() is called when KFUNC:FBCTL:UPD is received from DSP.
+ * mbox_fbupd() is called when KFUNC:FBCTL:UPD is received from DSP.
  */
 static void fbupd_response(void *arg)
 {
@@ -2025,7 +2025,7 @@ static void fbupd_cb(void *arg)
 	schedule_work(&fbupd_response_work);
 }
 
-void mbx_fbctl_upd(void)
+void mbox_fbctl_upd(void)
 {
 	struct omapfb_update_window win;
 	volatile unsigned short *buf = ipbuf_sys_da->d;
@@ -2053,7 +2053,7 @@ void mbx_fbctl_upd(void)
 
 #else /* CONFIG_FB_OMAP_LCDC_EXTERNAL */
 
-void mbx_fbctl_upd(void)
+void mbox_fbctl_upd(void)
 {
 }
 #endif /* CONFIG_FB_OMAP_LCDC_EXTERNAL */

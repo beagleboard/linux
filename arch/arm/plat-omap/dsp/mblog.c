@@ -34,22 +34,22 @@ char *subcmd_name(struct mbcmd *mb)
 	char *s;
 
 	switch (cmd_h) {
-	case MBX_CMD_DSP_RUNLEVEL:
+	case MBOX_CMD_DSP_RUNLEVEL:
 		s = (cmd_l == RUNLEVEL_USER)     ? "USER":
 		    (cmd_l == RUNLEVEL_SUPER)    ? "SUPER":
 		    (cmd_l == RUNLEVEL_RECOVERY) ? "RECOVERY":
 		    NULL;
 		break;
-	case MBX_CMD_DSP_PM:
+	case MBOX_CMD_DSP_PM:
 		s = (cmd_l == PM_DISABLE) ? "DISABLE":
 		    (cmd_l == PM_ENABLE)  ? "ENABLE":
 		    NULL;
 		break;
-	case MBX_CMD_DSP_KFUNC:
+	case MBOX_CMD_DSP_KFUNC:
 		s = (cmd_l == KFUNC_FBCTL) ? "FBCTL":
 		    NULL;
 		break;
-	case MBX_CMD_DSP_DSPCFG:
+	case MBOX_CMD_DSP_DSPCFG:
 		{
 			u8 cfgc = cmd_l & 0x7f;
 			s = (cfgc == DSPCFG_REQ)     ? "REQ":
@@ -60,7 +60,7 @@ char *subcmd_name(struct mbcmd *mb)
 			    NULL;
 			break;
 		}
-	case MBX_CMD_DSP_REGRW:
+	case MBOX_CMD_DSP_REGRW:
 		s = (cmd_l == REGRW_MEMR) ? "MEMR":
 		    (cmd_l == REGRW_MEMW) ? "MEMW":
 		    (cmd_l == REGRW_IOR)  ? "IOR":
@@ -68,13 +68,13 @@ char *subcmd_name(struct mbcmd *mb)
 		    (cmd_l == REGRW_DATA) ? "DATA":
 		    NULL;
 		break;
-	case MBX_CMD_DSP_GETVAR:
-	case MBX_CMD_DSP_SETVAR:
+	case MBOX_CMD_DSP_GETVAR:
+	case MBOX_CMD_DSP_SETVAR:
 		s = (cmd_l == VARID_ICRMASK)  ? "ICRMASK":
 		    (cmd_l == VARID_LOADINFO) ? "LOADINFO":
 		    NULL;
 		break;
-	case MBX_CMD_DSP_ERR:
+	case MBOX_CMD_DSP_ERR:
 		s = (cmd_l == EID_BADTID)     ? "BADTID":
 		    (cmd_l == EID_BADTCN)     ? "BADTCN":
 		    (cmd_l == EID_BADBID)     ? "BADBID":
@@ -110,7 +110,7 @@ char *subcmd_name(struct mbcmd *mb)
 
 struct mblogent {
 	unsigned long jiffies;
-	mbx_msg_t msg;
+	mbox_msg_t msg;
 	enum arm_dsp_dir_e dir;
 };
 
@@ -130,7 +130,7 @@ void mblog_add(struct mbcmd *mb, enum arm_dsp_dir_e dir)
 	spin_lock(&mblog.lock);
 	ent = &mblog.ent[mblog.wp];
 	ent->jiffies = jiffies;
-	ent->msg = *(mbx_msg_t *)mb;
+	ent->msg = *(mbox_msg_t *)mb;
 	ent->dir = dir;
 	if (mblog.cnt < 0xffffffff)
 		mblog.cnt++;
@@ -240,19 +240,19 @@ void mblog_printcmd(struct mbcmd *mb, enum arm_dsp_dir_e dir)
 		if ((subname = subcmd_name(mb)) == NULL)
 			subname = "Unknown";
 		printk(KERN_DEBUG
-		       "mbx: %s cmd=%02x:%02x(%s:%s), data=%04x\n",
+		       "mbox: %s cmd=%02x:%02x(%s:%s), data=%04x\n",
 		       dir_str, mb->cmd_h, mb->cmd_l,
 		       ci->name, subname, mb->data);
 		break;
 	case CMD_L_TYPE_TID:
 		printk(KERN_DEBUG
-		       "mbx: %s cmd=%02x:%02x(%s:task %d), data=%04x\n",
+		       "mbox: %s cmd=%02x:%02x(%s:task %d), data=%04x\n",
 		       dir_str, mb->cmd_h, mb->cmd_l,
 		       ci->name, mb->cmd_l, mb->data);
 		break;
 	case CMD_L_TYPE_NULL:
 		printk(KERN_DEBUG
-		       "mbx: %s cmd=%02x:%02x(%s), data=%04x\n",
+		       "mbox: %s cmd=%02x:%02x(%s), data=%04x\n",
 		       dir_str, mb->cmd_h, mb->cmd_l, ci->name, mb->data);
 		break;
 	}

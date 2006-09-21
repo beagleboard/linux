@@ -158,23 +158,23 @@ int dsp_err_isset(enum errcode_e code)
 /*
  * functions called from mailbox interrupt routine
  */
-static void mbx_err_wdt(u16 data)
+static void mbox_err_wdt(u16 data)
 {
 	dsp_err_set(DSP_ERR_WDT, (unsigned long)data);
 }
 
 #ifdef OLD_BINARY_SUPPORT
 /* v3.3 obsolete */
-void mbx_wdt(struct mbcmd *mb)
+void mbox_wdt(struct mbcmd *mb)
 {
-	mbx_err_wdt(mb->data);
+	mbox_err_wdt(mb->data);
 }
 #endif
 
-extern void mbx_err_ipbfull(void);
-extern void mbx_err_fatal(u8 tid);
+extern void mbox_err_ipbfull(void);
+extern void mbox_err_fatal(u8 tid);
 
-void mbx_err(struct mbcmd *mb)
+void mbox_err(struct mbcmd *mb)
 {
 	u8 eid = mb->cmd_l;
 	char *eidnm = subcmd_name(mb);
@@ -182,25 +182,25 @@ void mbx_err(struct mbcmd *mb)
 
 	if (eidnm) {
 		printk(KERN_WARNING
-		       "mbx: ERR from DSP (%s): 0x%04x\n", eidnm, mb->data);
+		       "mbox: ERR from DSP (%s): 0x%04x\n", eidnm, mb->data);
 	} else {
 		printk(KERN_WARNING
-		       "mbx: ERR from DSP (unknown EID=%02x): %04x\n",
+		       "mbox: ERR from DSP (unknown EID=%02x): %04x\n",
 		       eid, mb->data);
 	}
 
 	switch (eid) {
 	case EID_IPBFULL:
-		mbx_err_ipbfull();
+		mbox_err_ipbfull();
 		break;
 
 	case EID_FATAL:
 		tid = mb->data & 0x00ff;
-		mbx_err_fatal(tid);
+		mbox_err_fatal(tid);
 		break;
 
 	case EID_WDT:
-		mbx_err_wdt(mb->data);
+		mbox_err_wdt(mb->data);
 		break;
 	}
 }

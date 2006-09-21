@@ -116,10 +116,10 @@ struct mb_exarg {
 	u16 *argv;
 };
 
-extern struct mbx *mbx_dsp;
-extern void dsp_mbx_start(void);
-extern void dsp_mbx_stop(void);
-extern int dsp_mbx_config(void *p);
+extern struct mbox *mbox_dsp;
+extern void dsp_mbox_start(void);
+extern void dsp_mbox_stop(void);
+extern int dsp_mbox_config(void *p);
 extern int sync_with_dsp(u16 *syncwd, u16 tid, int try_cnt);
 extern int __dsp_mbcmd_send_exarg(struct mbcmd *mb, struct mb_exarg *arg,
 				  int recovery_flag);
@@ -138,11 +138,11 @@ static __inline__ int __mbcompose_send_exarg(u8 cmd_h, u8 cmd_l, u16 data,
 	return __dsp_mbcmd_send_exarg(&mb, arg, recovery_flag);
 }
 #define mbcompose_send(cmd_h, cmd_l, data) \
-	__mbcompose_send_exarg(MBX_CMD_DSP_##cmd_h, (cmd_l), (data), NULL, 0)
+	__mbcompose_send_exarg(MBOX_CMD_DSP_##cmd_h, (cmd_l), (data), NULL, 0)
 #define mbcompose_send_exarg(cmd_h, cmd_l, data, arg) \
-	__mbcompose_send_exarg(MBX_CMD_DSP_##cmd_h, (cmd_l), (data), arg, 0)
+	__mbcompose_send_exarg(MBOX_CMD_DSP_##cmd_h, (cmd_l), (data), arg, 0)
 #define mbcompose_send_recovery(cmd_h, cmd_l, data) \
-	__mbcompose_send_exarg(MBX_CMD_DSP_##cmd_h, (cmd_l), (data), NULL, 1)
+	__mbcompose_send_exarg(MBOX_CMD_DSP_##cmd_h, (cmd_l), (data), NULL, 1)
 
 static __inline__ int __mbcompose_send_and_wait_exarg(u8 cmd_h, u8 cmd_l,
 						      u16 data,
@@ -153,10 +153,10 @@ static __inline__ int __mbcompose_send_and_wait_exarg(u8 cmd_h, u8 cmd_l,
 	return dsp_mbcmd_send_and_wait_exarg(&mb, arg, q);
 }
 #define mbcompose_send_and_wait(cmd_h, cmd_l, data, q) \
-	__mbcompose_send_and_wait_exarg(MBX_CMD_DSP_##cmd_h, (cmd_l), (data), \
+	__mbcompose_send_and_wait_exarg(MBOX_CMD_DSP_##cmd_h, (cmd_l), (data), \
 					NULL, (q))
 #define mbcompose_send_and_wait_exarg(cmd_h, cmd_l, data, arg, q) \
-	__mbcompose_send_and_wait_exarg(MBX_CMD_DSP_##cmd_h, (cmd_l), (data), \
+	__mbcompose_send_and_wait_exarg(MBOX_CMD_DSP_##cmd_h, (cmd_l), (data), \
 					(arg), (q))
 
 extern struct ipbuf_head *bid_to_ipbuf(u16 bid);
@@ -176,7 +176,7 @@ extern void unuse_ipbuf_nowait(struct ipbuf_head *ipb_h);
 		(ipbuf_pvt)->s = TID_FREE; \
 	} while(0)
 
-extern int mbx_revision;
+extern int mbox_revision;
 
 extern int dsp_cfgstat_request(enum cfgstat_e st);
 extern enum cfgstat_e dsp_cfgstat_get_stat(void);

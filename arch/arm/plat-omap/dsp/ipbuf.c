@@ -287,7 +287,7 @@ void unuse_ipbuf_nowait(struct ipbuf_head *ipb_h)
  * functions called from mailbox interrupt routine
  */
 
-void mbx_err_ipbfull(void)
+void mbox_err_ipbfull(void)
 {
 	ipbcfg.cnt_full++;
 }
