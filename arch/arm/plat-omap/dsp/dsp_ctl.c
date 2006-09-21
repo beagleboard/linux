@@ -6,8 +6,8 @@
  * Contact: Toshihiro Kobayashi <toshihiro.kobayashi@nokia.com>
  *
  * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License 
- * version 2 as published by the Free Software Foundation. 
+ * modify it under the terms of the GNU General Public License
+ * version 2 as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -128,7 +128,7 @@ static int misc_mbcmd_response(struct mbcmd *mb, int argc, int match_cmd_l_flag)
 	    (misc_mb_wait.cmd_h != mb->cmd_h) ||
 	    (match_cmd_l_flag && (misc_mb_wait.cmd_l != mb->cmd_l))) {
 		const struct cmdinfo *ci = cmdinfo[mb->cmd_h];
-	    	char cmdstr[32];
+		char cmdstr[32];
 
 		if (ci->cmd_l_type == CMD_L_TYPE_SUBCMD)
 			sprintf(cmdstr, "%s:%s", ci->name, subcmd_name(mb));
@@ -173,7 +173,7 @@ static int misc_mbcmd_response(struct mbcmd *mb, int argc, int match_cmd_l_flag)
 static int dsp_regread(enum dsp_space_e space, u16 adr, u16 *val)
 {
 	u8 cmd_l = (space == SPACE_MEM) ? REGRW_MEMR : REGRW_IOR;
-	int ret; 
+	int ret;
 
 	ret = misc_mbcompose_send_and_wait(REGRW, cmd_l, adr, val);
 	if ((ret < 0) && (ret != -EINTR))
@@ -356,7 +356,7 @@ again:
 			goto again;
 		}
 		break;
-	
+
 	/*
 	 * suspend / resume
 	 * DSP is not reset within this code, but done in omap_pm_suspend.
@@ -392,7 +392,7 @@ again:
 		}
 
 		break;
-	
+
 	case CFGSTAT_RESUME:
 		if (cfgstat != CFGSTAT_SUSPEND) {
 			printk(KERN_WARNING
@@ -403,7 +403,7 @@ again:
 		}
 		st_req = CFGSTAT_READY;
 		break;
-	
+
 	default:
 		BUG();
 
@@ -725,7 +725,7 @@ void mbx_dspcfg(struct mbcmd *mb)
 			return;
 #ifdef OLD_BINARY_SUPPORT
 		else if ((mbx_revision == MBREV_3_0) ||
-		         (mbx_revision == MBREV_3_2)) {
+			 (mbx_revision == MBREV_3_2)) {
 			printk(KERN_WARNING
 			       "mbx: ***** old DSP binary *****\n"
 			       "  Please update your DSP application.\n");

@@ -6,8 +6,8 @@
  * Contact: Toshihiro Kobayashi <toshihiro.kobayashi@nokia.com>
  *
  * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License 
- * version 2 as published by the Free Software Foundation. 
+ * modify it under the terms of the GNU General Public License
+ * version 2 as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -98,10 +98,10 @@ struct mem_sync_struct {
 
 /* struct mbcmd and union mbcmd_hw must be compatible */
 struct mbcmd {
- 	u32 data:16;
- 	u32 cmd_l:8;
- 	u32 cmd_h:7;
- 	u32 seq:1;
+	u32 data:16;
+	u32 cmd_l:8;
+	u32 cmd_h:7;
+	u32 seq:1;
 };
 
 #define MBCMD_INIT(h, l, d) { \
@@ -111,9 +111,9 @@ struct mbcmd {
 	}
 
 struct mb_exarg {
- 	u8 tid;
+	u8 tid;
 	int argc;
- 	u16 *argv;
+	u16 *argv;
 };
 
 extern struct mbx *mbx_dsp;

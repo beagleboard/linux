@@ -6,8 +6,8 @@
  * Contact: Toshihiro Kobayashi <toshihiro.kobayashi@nokia.com>
  *
  * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License 
- * version 2 as published by the Free Software Foundation. 
+ * modify it under the terms of the GNU General Public License
+ * version 2 as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -100,6 +100,7 @@ static const struct cmdinfo
 	cif_err      = { "ERR",      CMD_L_TYPE_SUBCMD, mbx_err     },
 	cif_dbg      = { "DBG",      CMD_L_TYPE_NULL,   mbx_dbg     };
 
+#define MBX_CMD_MAX	0x80
 const struct cmdinfo *cmdinfo[MBX_CMD_MAX] = {
 	[MBX_CMD_DSP_WDSND]    = &cif_wdsnd,
 	[MBX_CMD_DSP_WDREQ]    = &cif_wdreq,

@@ -6,8 +6,8 @@
  * Contact: Toshihiro Kobayashi <toshihiro.kobayashi@nokia.com>
  *
  * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License 
- * version 2 as published by the Free Software Foundation. 
+ * modify it under the terms of the GNU General Public License
+ * version 2 as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -61,18 +61,18 @@ struct ipbuf_head {
 extern struct ipbcfg ipbcfg;
 extern struct ipbuf_sys *ipbuf_sys_da, *ipbuf_sys_ad;
 
-#define ipb_bsycnt_inc(ipbcfg) \
-	do { \
-		disable_mbx_irq(mbx_dsp); \
-		(ipbcfg)->bsycnt++; \
-		enable_mbx_irq(mbx_dsp); \
+#define ipb_bsycnt_inc(ipbcfg)			\
+	do {					\
+		disable_mbx_irq(mbx_dsp);	\
+		(ipbcfg)->bsycnt++;		\
+		enable_mbx_irq(mbx_dsp);	\
 	} while(0)
 
-#define ipb_bsycnt_dec(ipbcfg) \
-	do { \
-		disable_mbx_irq(mbx_dsp); \
-		(ipbcfg)->bsycnt--; \
-		enable_mbx_irq(mbx_dsp); \
+#define ipb_bsycnt_dec(ipbcfg)			\
+	do {					\
+		disable_mbx_irq(mbx_dsp);	\
+		(ipbcfg)->bsycnt--;		\
+		enable_mbx_irq(mbx_dsp);	\
 	} while(0)
 
 #define dsp_mem_enable_ipbuf()	dsp_mem_enable(ipbcfg.base)
@@ -84,23 +84,23 @@ struct ipblink {
 	u16 tail;
 };
 
-#define IPBLINK_INIT { \
-		.lock = SPIN_LOCK_UNLOCKED, \
-		.top  = BID_NULL, \
-		.tail = BID_NULL, \
+#define IPBLINK_INIT	{			\
+		.lock = SPIN_LOCK_UNLOCKED,	\
+		.top  = BID_NULL,		\
+		.tail = BID_NULL,		\
 	}
 
-#define INIT_IPBLINK(link) \
-	do { \
-		spin_lock_init(&(link)->lock); \
-		(link)->top  = BID_NULL; \
-		(link)->tail = BID_NULL; \
+#define INIT_IPBLINK(link)			\
+	do {					\
+		spin_lock_init(&(link)->lock);	\
+		(link)->top  = BID_NULL;	\
+		(link)->tail = BID_NULL;	\
 	} while(0)
 
-#define RESET_IPBLINK(link) \
-	do { \
-		(link)->top  = BID_NULL; \
-		(link)->tail = BID_NULL; \
+#define RESET_IPBLINK(link)			\
+	do {					\
+		(link)->top  = BID_NULL;	\
+		(link)->tail = BID_NULL;	\
 	} while(0)
 
 #define ipblink_empty(link)	((link)->top == BID_NULL)

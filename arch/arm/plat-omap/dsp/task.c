@@ -6,8 +6,8 @@
  * Contact: Toshihiro Kobayashi <toshihiro.kobayashi@nokia.com>
  *
  * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License 
- * version 2 as published by the Free Software Foundation. 
+ * modify it under the terms of the GNU General Public License
+ * version 2 as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -114,7 +114,7 @@ struct taskdev {
 	long state;
 	struct rw_semaphore state_sem;
 	wait_queue_head_t state_wait_q;
-	struct mutex usecount_mutex;
+	struct mutex usecount_lock;
 	unsigned int usecount;
 	char name[TNM_LEN];
 	struct file_operations fops;
@@ -315,7 +315,7 @@ static int devstate_write_lock_timeout(struct taskdev *dev, long devstate,
 	down_write(&dev->state_sem);
 	if (dev->state & devstate)
 		return 0;
-	
+
 	add_wait_queue(&dev->state_wait_q, &wait);
 	do {
 		set_current_state(TASK_INTERRUPTIBLE);
@@ -344,22 +344,23 @@ static int devstate_write_lock_and_test(struct taskdev *dev, long devstate)
 	down_write(&dev->state_sem);
 	if (dev->state & devstate)	/* success */
 		return 1;
-	
+
 	/* failure */
 	up_write(&dev->state_sem);
 	return -1;
 }
 
-static int taskdev_lock_interruptible(struct taskdev *dev, struct mutex *mutex)
+static int taskdev_lock_interruptible(struct taskdev *dev,
+				      struct mutex *lock)
 {
 	int ret;
 
 	if (has_taskdev_lock(dev))
-		ret = mutex_lock_interruptible(mutex);
+		ret = mutex_lock_interruptible(lock);
 	else {
 		if ((ret = mutex_lock_interruptible(&dev->lock)) != 0)
 			return ret;
-		ret = mutex_lock_interruptible(mutex);
+		ret = mutex_lock_interruptible(lock);
 		mutex_unlock(&dev->lock);
 	}
 
@@ -367,23 +368,23 @@ static int taskdev_lock_interruptible(struct taskdev *dev, struct mutex *mutex)
 }
 
 static int taskdev_lock_and_statelock_attached(struct taskdev *dev,
-					       struct mutex *mutex)
+					       struct mutex *lock)
 {
 	int ret;
 
 	if (!devstate_read_lock_and_test(dev, TASKDEV_ST_ATTACHED))
 		return -ENODEV;
 
-	if ((ret = taskdev_lock_interruptible(dev, mutex)) != 0)
+	if ((ret = taskdev_lock_interruptible(dev, lock)) != 0)
 		devstate_read_unlock(dev);
 
 	return ret;
 }
 
 static __inline__ void taskdev_unlock_and_stateunlock(struct taskdev *dev,
-						      struct mutex *mutex)
+						      struct mutex *lock)
 {
-	mutex_unlock(mutex);
+	mutex_unlock(lock);
 	devstate_read_unlock(dev);
 }
 
@@ -430,7 +431,7 @@ static int taskdev_set_fifosz(struct taskdev *dev, unsigned long sz)
 	}
 	if ((sz == 0) || (sz & 1)) {
 		printk(KERN_ERR "omapdsp: illegal buffer size! (%ld)\n"
-			        "it must be even and non-zero value.\n", sz);
+				"it must be even and non-zero value.\n", sz);
 		return -EINVAL;
 	}
 
@@ -528,7 +529,7 @@ static int dsp_task_config(struct dsptask *task, u8 tid)
 		ret = -EINVAL;
 		goto fail_out;
 	}
-	
+
 	/* mmap buffer configuration check */
 	if ((task->map_length > 0) &&
 	    ((!is_aligned((unsigned long)task->map_base, PAGE_SIZE)) ||
@@ -1324,7 +1325,7 @@ static int dsp_task_ioctl(struct inode *inode, struct file *file,
 		ret = taskdev_unlock(dev);
 		break;
 
-	case TASK_IOCTL_BFLSH:	
+	case TASK_IOCTL_BFLSH:
 		if (taskdev_lock_and_statelock_attached(dev, &dev->read_mutex))
 			return -ENODEV;
 		ret = taskdev_flush_buf(dev);
@@ -1469,7 +1470,7 @@ static int dsp_task_open(struct inode *inode, struct file *file)
 		return -ENODEV;
 
 restart:
-	mutex_lock(&dev->usecount_mutex);
+	mutex_lock(&dev->usecount_lock);
 	down_write(&dev->state_sem);
 
 	/* state can be NOTASK, ATTACHED/FREEZED, KILLING, GARBAGE or INVALID here. */
@@ -1481,15 +1482,16 @@ restart:
 
 		case TASKDEV_ST_INVALID:
 			up_write(&dev->state_sem);
-			mutex_unlock(&dev->usecount_mutex);
+			mutex_unlock(&dev->usecount_lock);
 			return -ENODEV;
 
 		case TASKDEV_ST_FREEZED:
 		case TASKDEV_ST_KILLING:
 		case TASKDEV_ST_GARBAGE:
+		case TASKDEV_ST_DELREQ:
 			/* on the kill process. wait until it becomes NOTASK. */
 			up_write(&dev->state_sem);
-			mutex_unlock(&dev->usecount_mutex);
+			mutex_unlock(&dev->usecount_lock);
 			if (devstate_write_lock(dev, TASKDEV_ST_NOTASK) < 0)
 				return -EINTR;
 			devstate_write_unlock(dev);
@@ -1505,7 +1507,7 @@ restart:
 				     TASKDEV_ST_ADDFAIL) < 0) {
 		/* cancelled */
 		if (!devstate_write_lock_and_test(dev, TASKDEV_ST_ADDREQ)) {
-			mutex_unlock(&dev->usecount_mutex);
+			mutex_unlock(&dev->usecount_lock);
 			/* out of control ??? */
 			return -EINTR;
 		}
@@ -1533,7 +1535,7 @@ attached:
 	proc_list_add(&dev->proc_list_lock, &dev->proc_list, current, file);
 	file->f_op = &dev->fops;
 	up_write(&dev->state_sem);
-	mutex_unlock(&dev->usecount_mutex);
+	mutex_unlock(&dev->usecount_lock);
 
 #ifdef DSP_PTE_FREE	/* not used currently. */
 	dsp_map_update(current);
@@ -1544,7 +1546,7 @@ attached:
 change_out:
 	wake_up_interruptible_all(&dev->state_wait_q);
 	up_write(&dev->state_sem);
-	mutex_unlock(&dev->usecount_mutex);
+	mutex_unlock(&dev->usecount_lock);
 	return ret;
 }
 
@@ -1561,10 +1563,10 @@ static int dsp_task_release(struct inode *inode, struct file *file)
 		taskdev_unlock(dev);
 
 	proc_list_del(&dev->proc_list_lock, &dev->proc_list, current, file);
-	mutex_lock(&dev->usecount_mutex);
+	mutex_lock(&dev->usecount_lock);
 	if (--dev->usecount > 0) {
 		/* other processes are using this device. no state change. */
-		mutex_unlock(&dev->usecount_mutex);
+		mutex_unlock(&dev->usecount_lock);
 		return 0;
 	}
 
@@ -1594,7 +1596,7 @@ static int dsp_task_release(struct inode *inode, struct file *file)
 	}
 
 	up_write(&dev->state_sem);
-	mutex_unlock(&dev->usecount_mutex);
+	mutex_unlock(&dev->usecount_lock);
 	return 0;
 }
 
@@ -1806,7 +1808,7 @@ static int taskdev_init(struct taskdev *dev, char *name, unsigned char minor)
 	dev->name[TNM_LEN-1] = '\0';
 	dev->state = (minor < n_task) ? TASKDEV_ST_ATTACHED : TASKDEV_ST_NOTASK;
 	dev->usecount = 0;
-	mutex_init(&dev->usecount_mutex);
+	mutex_init(&dev->usecount_lock);
 	memcpy(&dev->fops, &dsp_task_fops, sizeof(struct file_operations));
 
 	dev->dev.parent = &dsp_device.dev;
@@ -1876,7 +1878,7 @@ static int taskdev_attach_task(struct taskdev *dev, struct dsptask *task)
 		/* rcvbyp_bk */	  dsp_task_write_bk;
 	dev->wsz = rcvtyp_acv(ttyp) ? 0 :		/* active */
 		   rcvtyp_wd(ttyp)  ? 2 :		/* passive word */
-		    		      ipbcfg.lsz*2;	/* passive block */
+				      ipbcfg.lsz*2;	/* passive block */
 
 	if (task->map_length)
 		dev->fops.mmap = dsp_task_mmap;
@@ -1965,9 +1967,9 @@ static int dsp_tadd(struct taskdev *dev, dsp_long_t adr)
 		ret = -EINTR;
 		goto fail_out;
 	}
- 	cfg_tid = TID_ANON;
- 	cfg_cmd = MBX_CMD_DSP_TADD;
- 	arg.tid  = TID_ANON;
+	cfg_tid = TID_ANON;
+	cfg_cmd = MBX_CMD_DSP_TADD;
+	arg.tid  = TID_ANON;
 	arg.argc = 2;
 	arg.argv = argv;
 
@@ -1976,10 +1978,10 @@ static int dsp_tadd(struct taskdev *dev, dsp_long_t adr)
 		ret = -EBUSY;
 		goto fail_out;
 	}
-	dsp_mbcmd_send_and_wait_exarg(&mb, &arg, &cfg_wait_q);
+	mbcompose_send_and_wait_exarg(TADD, 0, 0, &arg, &cfg_wait_q);
 
 	tid = cfg_tid;
-	cfg_tid = OMAP_DSP_TID_ANON;
+	cfg_tid = TID_ANON;
 	cfg_cmd = 0;
 	mutex_unlock(&cfg_lock);
 

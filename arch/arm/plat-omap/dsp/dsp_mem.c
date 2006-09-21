@@ -9,8 +9,8 @@
  * by Paul Mundt <paul.mundt@nokia.com>
  *
  * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License 
- * version 2 as published by the Free Software Foundation. 
+ * modify it under the terms of the GNU General Public License
+ * version 2 as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -47,6 +47,7 @@
 #include "../mailbox_hw.h"
 #include "dsp.h"
 #include "ioctl.h"
+#include "ipbuf.h"
 
 #ifdef CONFIG_ARCH_OMAP2
 #define IOMAP_VAL	0x3f
@@ -592,7 +593,7 @@ static int exmap_set_armmmu(unsigned long virt, unsigned long phys,
 }
 
 	/* XXX: T.Kobayashi
-	 * A process can have old mappings. if we want to clear a pmd, 
+	 * A process can have old mappings. if we want to clear a pmd,
 	 * we need to do it for all proceeses that use the old mapping.
 	 */
 #if 0
@@ -787,7 +788,7 @@ int dsp_address_validate(void *p, size_t len, char *fmt, ...)
 }
 
 /*
- * exmap_use(), unuse(): 
+ * exmap_use(), unuse():
  * when the mapped area is exported to user space with mmap,
  * the usecount is incremented.
  * while the usecount > 0, that area can't be released.
@@ -1401,8 +1402,8 @@ static void exmap_flush(void)
 #endif /* CONFIG_FB */
 
 #ifdef CONFIG_FB_OMAP_LCDC_EXTERNAL
-static int omapfb_notifier_cb(struct omapfb_notifier_block *omapfb_nb,
-			       unsigned long event, struct omapfb_device *fbdev)
+static int omapfb_notifier_cb(struct notifier_block *omapfb_nb,
+			      unsigned long event, void *fbi)
 {
 	/* XXX */
 	printk("omapfb_notifier_cb(): event = %s\n",
@@ -2007,8 +2008,7 @@ static void fbupd_response(void *arg)
 {
 	int status;
 
-	status = dsp_mbsend(MBCMD(KFUNC), OMAP_DSP_MBCMD_KFUNC_FBCTL,
-			    OMAP_DSP_MBCMD_FBCTL_UPD);
+	status = mbcompose_send(KFUNC, KFUNC_FBCTL, FBCTL_UPD);
 	if (status < 0) {
 		/* FIXME: DSP is busy !! */
 		printk(KERN_ERR
@@ -2031,8 +2031,8 @@ void mbx_fbctl_upd(void)
 	volatile unsigned short *buf = ipbuf_sys_da->d;
 
 	/* FIXME: try count sometimes exceeds 1000. */
-	if (sync_with_dsp(&ipbuf_sys_da->s, OMAP_DSP_TID_ANON, 5000) < 0) {
-		printk(KERN_ERR "mbx: FBCTL:UPD - IPBUF sync failed!\n");
+	if (sync_with_dsp(&ipbuf_sys_da->s, TID_ANON, 5000) < 0) {
+		printk(KERN_ERR "mbox: FBCTL:UPD - IPBUF sync failed!\n");
 		return;
 	}
 	win.x = buf[0];
@@ -2048,7 +2048,7 @@ void mbx_fbctl_upd(void)
 		return;
 	}
 	//printk("calling omapfb_update_window_async()\n");
-	omapfb_update_window_async(&win, fbupd_cb, NULL);
+	omapfb_update_window_async(registered_fb[1], &win, fbupd_cb, NULL);
 }
 
 #else /* CONFIG_FB_OMAP_LCDC_EXTERNAL */

@@ -6,8 +6,8 @@
  * Contact: Toshihiro Kobayashi <toshihiro.kobayashi@nokia.com>
  *
  * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License 
- * version 2 as published by the Free Software Foundation. 
+ * modify it under the terms of the GNU General Public License
+ * version 2 as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -238,7 +238,7 @@ static __inline__ int mbsync_irq_save(struct mbx *mbx, unsigned long *flags,
 #elif defined(CONFIG_ARCH_OMAP2)
 static __inline__ int mbsync_irq_save(struct mbx *mbx, unsigned long *flags)
 {
-	long current_state; 
+	long current_state;
 	DECLARE_WAITQUEUE(wait, current);
 
 	do {
@@ -247,7 +247,7 @@ static __inline__ int mbsync_irq_save(struct mbx *mbx, unsigned long *flags)
 			return 0;
 
 		/*
-		 * mailbox is busy. 
+		 * mailbox is busy.
 		 */
 		local_irq_restore(*flags);
 		enable_notfull_irq(mbx);

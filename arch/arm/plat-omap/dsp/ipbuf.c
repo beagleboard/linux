@@ -6,8 +6,8 @@
  * Contact: Toshihiro Kobayashi <toshihiro.kobayashi@nokia.com>
  *
  * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License 
- * version 2 as published by the Free Software Foundation. 
+ * modify it under the terms of the GNU General Public License
+ * version 2 as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -157,7 +157,7 @@ int ipbuf_sys_config(void *p, enum arm_dsp_dir_e dir)
 		ipbuf_sys_da = p;
 	else
 		ipbuf_sys_ad = p;
-	
+
 	return 0;
 }
 
