@@ -1,41 +1,34 @@
 /*
- * linux/arch/arm/mach-omap/dsp/taskwatch.c
+ * This file is part of OMAP DSP driver (DSP Gateway version 3.3.1)
  *
- * OMAP DSP task watch device driver
+ * Copyright (C) 2002-2006 Nokia Corporation. All rights reserved.
  *
- * Copyright (C) 2002-2005 Nokia Corporation
+ * Contact: Toshihiro Kobayashi <toshihiro.kobayashi@nokia.com>
  *
- * Written by Toshihiro Kobayashi <toshihiro.kobayashi@nokia.com>
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License 
+ * version 2 as published by the Free Software Foundation. 
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+ * 02110-1301 USA
  *
- * 200%/05/16:  DSP Gateway version 3.3
  */
 
 #include <linux/module.h>
-#include <linux/major.h>
-#include <linux/init.h>
 #include <linux/fs.h>
 #include <linux/poll.h>
-#include <linux/interrupt.h>
 #include <linux/sched.h>
-#include <linux/mutex.h>
 #include <asm/uaccess.h>
-#include <asm/io.h>
-#include <asm/arch/dsp.h>
+#include "dsp_mbcmd.h"
 #include "dsp.h"
+#include "ioctl.h"
 
 static DECLARE_WAIT_QUEUE_HEAD(read_wait_q);
 static unsigned int change_cnt;
@@ -49,14 +42,14 @@ void dsp_twch_touch(void)
 /*
  * @count: represents the device counts of the user's interst
  */
-static ssize_t dsp_twch_read(struct file *file, char *buf, size_t count,
+static ssize_t dsp_twch_read(struct file *file, char __user *buf, size_t count,
 			     loff_t *ppos)
 {
 	long taskstat[TASKDEV_MAX];
 	int devcount = count / sizeof(long);
 	int i;
 
-	if (!dsp_is_ready()) {
+	if (dsp_cfgstat_get_stat() != CFGSTAT_READY) {
 		printk(KERN_ERR "omapdsp: dsp has not been configured.\n");
 		return -EINVAL;
 	}
@@ -74,7 +67,7 @@ static ssize_t dsp_twch_read(struct file *file, char *buf, size_t count,
 		remove_wait_queue(&read_wait_q, &wait);
 
 		/* unconfigured while waiting ;-( */
-		if (dsp_is_ready())
+		if (dsp_cfgstat_get_stat() != CFGSTAT_READY)
 			return -EINVAL;
 	}
 
@@ -112,62 +105,50 @@ static unsigned int dsp_twch_poll(struct file *file, poll_table *wait)
 static int dsp_twch_ioctl(struct inode *inode, struct file *file,
 			  unsigned int cmd, unsigned long arg)
 {
-	static DEFINE_MUTEX(ioctl_lock);
 	int ret;
 
-	if (mutex_lock_interruptible(&ioctl_lock))
-		return -ERESTARTSYS;
-
 	switch (cmd) {
-	case OMAP_DSP_TWCH_IOCTL_MKDEV:
+	case TWCH_IOCTL_MKDEV:
 		{
-			char name[OMAP_DSP_TNM_LEN];
-			if (copy_from_user(name, (void *)arg, OMAP_DSP_TNM_LEN)) {
-				ret = -EFAULT;
-				goto up_out;
-			}
-			name[OMAP_DSP_TNM_LEN-1] = '\0';
+			char name[TNM_LEN];
+			if (copy_from_user(name, (void __user *)arg, TNM_LEN))
+				return -EFAULT;
+			name[TNM_LEN-1] = '\0';
 			ret = dsp_mkdev(name);
 			break;
 		}
 
-	case OMAP_DSP_TWCH_IOCTL_RMDEV:
+	case TWCH_IOCTL_RMDEV:
 		{
-			char name[OMAP_DSP_TNM_LEN];
-			if (copy_from_user(name, (void *)arg, OMAP_DSP_TNM_LEN)) {
-				ret = -EFAULT;
-				goto up_out;
-			}
-			name[OMAP_DSP_TNM_LEN-1] = '\0';
+			char name[TNM_LEN];
+			if (copy_from_user(name, (void __user *)arg, TNM_LEN))
+				return -EFAULT;
+			name[TNM_LEN-1] = '\0';
 			ret = dsp_rmdev(name);
 			break;
 		}
 
-	case OMAP_DSP_TWCH_IOCTL_TADD:
+	case TWCH_IOCTL_TADD:
 		{
 			struct omap_dsp_taddinfo ti;
-			if (copy_from_user(&ti, (void *)arg, sizeof(ti))) {
-				ret = -EFAULT;
-				goto up_out;
-			}
-			ret = dsp_tadd(ti.minor, ti.taskadr);
+			if (copy_from_user(&ti, (void __user *)arg, sizeof(ti)))
+				return -EFAULT;
+			ret = dsp_tadd_minor(ti.minor, ti.taskadr);
 			break;
 		}
 
-	case OMAP_DSP_TWCH_IOCTL_TDEL:
-		ret = dsp_tdel(arg);
+	case TWCH_IOCTL_TDEL:
+		ret = dsp_tdel_minor(arg);
 		break;
 
-	case OMAP_DSP_TWCH_IOCTL_TKILL:
-		ret = dsp_tkill(arg);
+	case TWCH_IOCTL_TKILL:
+		ret = dsp_tkill_minor(arg);
 		break;
 
 	default:
-		ret = -ENOIOCTLCMD;
+		return -ENOIOCTLCMD;
 	}
 
-up_out:
-	mutex_unlock(&ioctl_lock);
 	return ret;
 }
 

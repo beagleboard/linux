@@ -1,31 +1,27 @@
 /*
- * linux/arch/arm/mach-omap/dsp/dsp_common.c
+ * This file is part of OMAP DSP driver (DSP Gateway version 3.3.1)
  *
- * OMAP DSP driver static part
+ * Copyright (C) 2002-2006 Nokia Corporation. All rights reserved.
  *
- * Copyright (C) 2002-2005 Nokia Corporation
+ * Contact: Toshihiro Kobayashi <toshihiro.kobayashi@nokia.com>
  *
- * Written by Toshihiro Kobayashi <toshihiro.kobayashi@nokia.com>
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License 
+ * version 2 as published by the Free Software Foundation. 
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+ * 02110-1301 USA
  *
- * 2005/06/13:  DSP Gateway version 3.3
  */
 
 #include <linux/module.h>
-#include <linux/errno.h>
 #include <linux/init.h>
 #include <linux/sched.h>
 #include <linux/delay.h>
@@ -36,21 +32,34 @@
 #include <asm/io.h>
 #include <asm/tlbflush.h>
 #include <asm/irq.h>
-#include <asm/arch/dsp.h>
+#ifdef CONFIG_ARCH_OMAP1
 #include <asm/arch/tc.h>
+#endif
 #include "dsp_common.h"
 
+#if defined(CONFIG_ARCH_OMAP1)
+#define dsp_boot_config(mode)	omap_writew((mode), MPUI_DSP_BOOT_CONFIG)
+#elif defined(CONFIG_ARCH_OMAP2)
+#define dsp_boot_config(mode)	writel((mode), DSP_IPI_DSPBOOTCONFIG)
+#endif
+
+#if defined(CONFIG_ARCH_OMAP1)
 struct clk *dsp_ck_handle;
 struct clk *api_ck_handle;
-unsigned long dspmem_base, dspmem_size,
-	      daram_base, daram_size,
-	      saram_base, saram_size;
+#elif defined(CONFIG_ARCH_OMAP2)
+struct clk *dsp_fck_handle;
+struct clk *dsp_ick_handle;
+#endif
+dsp_long_t dspmem_base, dspmem_size,
+	   daram_base, daram_size,
+	   saram_base, saram_size;
 
 struct cpustat {
 	struct mutex lock;
-	enum e_cpustat stat;
-	enum e_cpustat req;
-	unsigned short icrmask;
+	enum cpustat_e stat;
+	enum cpustat_e req;
+	u16 icrmask;
+#ifdef CONFIG_ARCH_OMAP1
 	struct {
 		int mpui;
 		int mem;
@@ -58,13 +67,13 @@ struct cpustat {
 	} usecount;
 	int (*mem_req_cb)(void);
 	void (*mem_rel_cb)(void);
-};
-struct cpustat cpustat = {
+#endif
+} cpustat = {
 	.stat = CPUSTAT_RESET,
 	.icrmask = 0xffff,
 };
 
-int dsp_set_rstvect(unsigned long adr)
+int dsp_set_rstvect(dsp_long_t adr)
 {
 	unsigned long *dst_adr;
 
@@ -75,17 +84,26 @@ int dsp_set_rstvect(unsigned long adr)
 	/* word swap */
 	*dst_adr = ((adr & 0xffff) << 16) | (adr >> 16);
 	/* fill 8 bytes! */
-	*(dst_adr+1) = 0;
+	*(dst_adr + 1) = 0;
 	/* direct boot */
-	omap_writew(MPUI_DSP_BOOT_CONFIG_DIRECT, MPUI_DSP_BOOT_CONFIG);
+	dsp_boot_config(DSP_BOOT_CONFIG_DIRECT);
 
 	return 0;
 }
 
-static void simple_load_code(unsigned char *src_c, unsigned short *dst, int len)
+dsp_long_t dsp_get_rstvect(void)
+{
+	unsigned long *dst_adr;
+
+	dst_adr = dspbyte_to_virt(DSP_BOOT_ADR_DIRECT);
+	return ((*dst_adr & 0xffff) << 16) | (*dst_adr >> 16);
+}
+
+#ifdef CONFIG_ARCH_OMAP1
+static void simple_load_code(unsigned char *src_c, u16 *dst, int len)
 {
 	int i;
-	unsigned short *src = (unsigned short *)src_c;
+	u16 *src = (u16 *)src_c;
 	int len_w;
 
 	/* len must be multiple of 2. */
@@ -165,7 +183,7 @@ static void simple_load_code(unsigned char *src_c, unsigned short *dst, int len)
  * DSP Gateway driver will overwrite this value with other value,
  * to avoid confliction with the user program.
  */
-static unsigned long idle_boot_base = DSP_BOOT_ADR_MPUI;
+static dsp_long_t idle_boot_base = DSP_BOOT_ADR_MPUI;
 
 static void dsp_gbl_idle(void)
 {
@@ -175,12 +193,12 @@ static void dsp_gbl_idle(void)
 	clk_enable(api_ck_handle);
 
 #if 0
-	omap_writew(MPUI_DSP_BOOT_CONFIG_IDLE, MPUI_DSP_BOOT_CONFIG);
+	dsp_boot_config(DSP_BOOT_CONFIG_IDLE);
 #endif
 	simple_load_code(idle_text, dspbyte_to_virt(idle_boot_base),
 			 GBL_IDLE_TEXT_SIZE);
 	if (idle_boot_base == DSP_BOOT_ADR_MPUI)
-		omap_writew(MPUI_DSP_BOOT_CONFIG_MPUI, MPUI_DSP_BOOT_CONFIG);
+		dsp_boot_config(DSP_BOOT_CONFIG_MPUI);
 	else
 		dsp_set_rstvect(idle_boot_base);
 
@@ -191,7 +209,7 @@ static void dsp_gbl_idle(void)
 
 static void dsp_cpu_idle(void)
 {
-	unsigned short icr_tmp;
+	u16 icr_tmp;
 	unsigned char icrh, icrl;
 
 	__dsp_reset();
@@ -202,8 +220,7 @@ static void dsp_cpu_idle(void)
 	 * DMA should not sleep for DARAM/SARAM access
 	 * DPLL should not sleep while any other domain is active
 	 */
-	icr_tmp = cpustat.icrmask & ~(DSPREG_ICR_DMA_IDLE_DOMAIN |
-				      DSPREG_ICR_DPLL_IDLE_DOMAIN);
+	icr_tmp = cpustat.icrmask & ~(DSPREG_ICR_DMA | DSPREG_ICR_DPLL);
 	icrh = icr_tmp >> 8;
 	icrl = icr_tmp & 0xff;
 	{
@@ -212,7 +229,7 @@ static void dsp_cpu_idle(void)
 				 CPU_IDLE_TEXT_SIZE);
 	}
 	if (idle_boot_base == DSP_BOOT_ADR_MPUI)
-		omap_writew(MPUI_DSP_BOOT_CONFIG_MPUI, MPUI_DSP_BOOT_CONFIG);
+		dsp_boot_config(DSP_BOOT_CONFIG_MPUI);
 	else
 		dsp_set_rstvect(idle_boot_base);
 	__dsp_run();
@@ -220,7 +237,7 @@ static void dsp_cpu_idle(void)
 	clk_disable(api_ck_handle);
 }
 
-void dsp_set_idle_boot_base(unsigned long adr, size_t size)
+void dsp_set_idle_boot_base(dsp_long_t adr, size_t size)
 {
 	if (adr == idle_boot_base)
 		return;
@@ -238,6 +255,13 @@ void dsp_set_idle_boot_base(unsigned long adr, size_t size)
 	if (cpustat.stat == CPUSTAT_CPU_IDLE)
 		dsp_cpu_idle();
 }
+
+void dsp_reset_idle_boot_base(void)
+{
+	idle_boot_base = DSP_BOOT_ADR_MPUI;
+}
+
+#endif /* CONFIG_ARCH_OMAP1 */
 
 static int init_done;
 
@@ -266,18 +290,29 @@ static int __init omap_dsp_init(void)
 		saram_size = OMAP16XX_SARAM_SIZE;
 	}
 #endif
+#ifdef CONFIG_ARCH_OMAP24XX
+	if (cpu_is_omap24xx()) {
+		dspmem_base = DSP_MEM_24XX_VIRT;
+		dspmem_size = DSP_MEM_24XX_SIZE;
+		daram_base = OMAP24XX_DARAM_BASE;
+		daram_size = OMAP24XX_DARAM_SIZE;
+		saram_base = OMAP24XX_SARAM_BASE;
+		saram_size = OMAP24XX_SARAM_SIZE;
+	}
+#endif
 	if (dspmem_size == 0) {
 		printk(KERN_ERR "omapdsp: unsupported omap architecture.\n");
 		return -ENODEV;
 	}
 
-	dsp_ck_handle = clk_get(0, "dsp_ck");
+#if defined(CONFIG_ARCH_OMAP1)
+	dsp_ck_handle = clk_get(NULL, "dsp_ck");
 	if (IS_ERR(dsp_ck_handle)) {
 		printk(KERN_ERR "omapdsp: could not acquire dsp_ck handle.\n");
 		return PTR_ERR(dsp_ck_handle);
 	}
 
-	api_ck_handle = clk_get(0, "api_ck");
+	api_ck_handle = clk_get(NULL, "api_ck");
 	if (IS_ERR(api_ck_handle)) {
 		printk(KERN_ERR "omapdsp: could not acquire api_ck handle.\n");
 		return PTR_ERR(api_ck_handle);
@@ -290,18 +325,33 @@ static int __init omap_dsp_init(void)
 	mpui_byteswap_off();
 	mpui_wordswap_on();
 	tc_wordswap();
+#elif defined(CONFIG_ARCH_OMAP2)
+	dsp_fck_handle = clk_get(NULL, "dsp_fck");
+	if (IS_ERR(dsp_fck_handle)) {
+		printk(KERN_ERR "omapdsp: could not acquire dsp_fck handle.\n");
+		return PTR_ERR(dsp_fck_handle);
+	}
+
+	dsp_ick_handle = clk_get(NULL, "dsp_ick");
+	if (IS_ERR(dsp_ick_handle)) {
+		printk(KERN_ERR "omapdsp: could not acquire dsp_ick handle.\n");
+		return PTR_ERR(dsp_ick_handle);
+	}
+#endif
 
 	init_done = 1;
 	printk(KERN_INFO "omap_dsp_init() done\n");
 	return 0;
 }
 
+#if defined(CONFIG_ARCH_OMAP1)
 static int dsp_late_init(void)
 {
 	clk_disable(api_ck_handle);
 	return 0;
 }
 late_initcall(dsp_late_init);
+#endif
 
 static void dsp_cpustat_update(void)
 {
@@ -310,23 +360,32 @@ static void dsp_cpustat_update(void)
 
 	if (cpustat.req == CPUSTAT_RUN) {
 		if (cpustat.stat < CPUSTAT_RUN) {
+#if defined(CONFIG_ARCH_OMAP1)
 			__dsp_reset();
 			clk_enable(api_ck_handle);
 			udelay(10);
 			__dsp_run();
+#elif defined(CONFIG_ARCH_OMAP2)
+			__dsp_core_disable();
+			udelay(10);
+			__dsp_core_enable();
+#endif
 			cpustat.stat = CPUSTAT_RUN;
 			enable_irq(INT_DSP_MMU);
 		}
 		return;
 	}
 
-	/* cpustat.stat < CPUSTAT_RUN */
+	/* cpustat.req < CPUSTAT_RUN */
 
 	if (cpustat.stat == CPUSTAT_RUN) {
 		disable_irq(INT_DSP_MMU);
+#ifdef CONFIG_ARCH_OMAP1
 		clk_disable(api_ck_handle);
+#endif
 	}
 
+#ifdef CONFIG_ARCH_OMAP1
 	/*
 	 * (1) when ARM wants DARAM access, MPUI should be SAM and
 	 *     DSP needs to be on.
@@ -355,17 +414,22 @@ static void dsp_cpustat_update(void)
 		}
 		return;
 	}
+#endif /* CONFIG_ARCH_OMAP1 */
 
 	/*
 	 * no user, no request
 	 */
 	if (cpustat.stat != CPUSTAT_RESET) {
+#if defined(CONFIG_ARCH_OMAP1)
 		__dsp_reset();
+#elif defined(CONFIG_ARCH_OMAP2)
+		__dsp_core_disable();
+#endif
 		cpustat.stat = CPUSTAT_RESET;
 	}
 }
 
-void dsp_cpustat_request(enum e_cpustat req)
+void dsp_cpustat_request(enum cpustat_e req)
 {
 	mutex_lock(&cpustat.lock);
 	cpustat.req = req;
@@ -373,17 +437,17 @@ void dsp_cpustat_request(enum e_cpustat req)
 	mutex_unlock(&cpustat.lock);
 }
 
-enum e_cpustat dsp_cpustat_get_stat(void)
+enum cpustat_e dsp_cpustat_get_stat(void)
 {
 	return cpustat.stat;
 }
 
-unsigned short dsp_cpustat_get_icrmask(void)
+u16 dsp_cpustat_get_icrmask(void)
 {
 	return cpustat.icrmask;
 }
 
-void dsp_cpustat_set_icrmask(unsigned short mask)
+void dsp_cpustat_set_icrmask(u16 mask)
 {
 	mutex_lock(&cpustat.lock);
 	cpustat.icrmask = mask;
@@ -391,6 +455,7 @@ void dsp_cpustat_set_icrmask(unsigned short mask)
 	mutex_unlock(&cpustat.lock);
 }
 
+#ifdef CONFIG_ARCH_OMAP1
 void omap_dsp_request_mpui(void)
 {
 	mutex_lock(&cpustat.lock);
@@ -499,6 +564,7 @@ void dsp_unregister_mem_cb(void)
 	cpustat.mem_rel_cb = NULL;
 	mutex_unlock(&cpustat.lock);
 }
+#endif /* CONFIG_ARCH_OMAP1 */
 
 /*
  * Audio power control function prototypes and defaults
@@ -522,14 +588,21 @@ EXPORT_SYMBOL(omap_dsp_audio_pwr_down_request);
 
 arch_initcall(omap_dsp_init);
 
+#ifdef CONFIG_ARCH_OMAP1
 EXPORT_SYMBOL(omap_dsp_request_mpui);
 EXPORT_SYMBOL(omap_dsp_release_mpui);
 EXPORT_SYMBOL(omap_dsp_request_mem);
 EXPORT_SYMBOL(omap_dsp_release_mem);
+#endif /* CONFIG_ARCH_OMAP1 */
 
 #ifdef CONFIG_OMAP_DSP_MODULE
+#if defined(CONFIG_ARCH_OMAP1)
 EXPORT_SYMBOL(dsp_ck_handle);
 EXPORT_SYMBOL(api_ck_handle);
+#elif defined(CONFIG_ARCH_OMAP2)
+EXPORT_SYMBOL(dsp_fck_handle);
+EXPORT_SYMBOL(dsp_ick_handle);
+#endif
 EXPORT_SYMBOL(dspmem_base);
 EXPORT_SYMBOL(dspmem_size);
 EXPORT_SYMBOL(daram_base);
@@ -537,13 +610,19 @@ EXPORT_SYMBOL(daram_size);
 EXPORT_SYMBOL(saram_base);
 EXPORT_SYMBOL(saram_size);
 EXPORT_SYMBOL(dsp_set_rstvect);
+EXPORT_SYMBOL(dsp_get_rstvect);
+#ifdef CONFIG_ARCH_OMAP1
 EXPORT_SYMBOL(dsp_set_idle_boot_base);
+EXPORT_SYMBOL(dsp_reset_idle_boot_base);
+#endif /* CONFIG_ARCH_OMAP1 */
 EXPORT_SYMBOL(dsp_cpustat_request);
 EXPORT_SYMBOL(dsp_cpustat_get_stat);
 EXPORT_SYMBOL(dsp_cpustat_get_icrmask);
 EXPORT_SYMBOL(dsp_cpustat_set_icrmask);
+#ifdef CONFIG_ARCH_OMAP1
 EXPORT_SYMBOL(dsp_register_mem_cb);
 EXPORT_SYMBOL(dsp_unregister_mem_cb);
+#endif /* CONFIG_ARCH_OMAP1 */
 
 EXPORT_SYMBOL(__cpu_flush_kern_tlb_range);
 EXPORT_SYMBOL(cpu_architecture);

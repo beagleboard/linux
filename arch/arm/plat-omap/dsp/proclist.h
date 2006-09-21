@@ -1,97 +1,78 @@
 /*
- * linux/arch/arm/mach-omap/dsp/proclist.h
+ * This file is part of OMAP DSP driver (DSP Gateway version 3.3.1)
  *
- * Linux task list handler
+ * Copyright (C) 2004-2006 Nokia Corporation. All rights reserved.
  *
- * Copyright (C) 2004,2005 Nokia Corporation
+ * Contact: Toshihiro Kobayashi <toshihiro.kobayashi@nokia.com>
  *
- * Written by Toshihiro Kobayashi <toshihiro.kobayashi@nokia.com>
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License 
+ * version 2 as published by the Free Software Foundation. 
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+ * 02110-1301 USA
  *
- * 2004/11/22:  DSP Gateway version 3.3
  */
 
 struct proc_list {
 	struct list_head list_head;
 	pid_t pid;
-	unsigned int cnt;
+	struct file *file;
 };
 
-static __inline__ void proc_list_add(struct list_head *list,
-				     struct task_struct *tsk)
+static __inline__ void proc_list_add(spinlock_t *lock, struct list_head *list,
+				     struct task_struct *tsk, struct file *file)
 {
-	struct proc_list *pl;
 	struct proc_list *new;
-
-	list_for_each_entry(pl, list, list_head) {
-		if (pl->pid == tsk->pid) {
-			/*
-			 * this process has opened DSP devices multi time
-			 */
-			pl->cnt++;
-			return;
-		}
-	}
 
 	new = kmalloc(sizeof(struct proc_list), GFP_KERNEL);
 	new->pid = tsk->pid;
-	new->cnt = 1;
+	new->file = file;
+	spin_lock(lock);
 	list_add_tail(&new->list_head, list);
+	spin_unlock(lock);
 }
 
-static __inline__ void proc_list_del(struct list_head *list,
-				     struct task_struct *tsk)
+static __inline__ void proc_list_del(spinlock_t *lock, struct list_head *list,
+				     struct task_struct *tsk, struct file *file)
 {
-	struct proc_list *pl, *next;
+	struct proc_list *pl;
 
+	spin_lock(lock);
 	list_for_each_entry(pl, list, list_head) {
-		if (pl->pid == tsk->pid) {
-			if (--pl->cnt == 0) {
-				list_del(&pl->list_head);
-				kfree(pl);
-			}
+		if (pl->file == file) {
+			list_del(&pl->list_head);
+			kfree(pl);
+			spin_unlock(lock);
 			return;
 		}
 	}
 
-	/*
-	 * correspinding pid wasn't found in the list
-	 * -- this means the caller of proc_list_del is different from
-	 * the proc_list_add's caller. in this case, the parent is
-	 * cleaning up the context of a killed child.
-	 * let's delete exiting task from the list.
-	 */
-	/* need to lock tasklist_lock before calling find_task_by_pid_type. */
-	read_lock(&tasklist_lock);
-	list_for_each_entry_safe(pl, next, list, list_head) {
-		if (find_task_by_pid_type(PIDTYPE_PID, pl->pid) == NULL) {
-			list_del(&pl->list_head);
-			kfree(pl);
-		}
-	}
-	read_unlock(&tasklist_lock);
+	/* correspinding file struct isn't found in the list ???  */
+	printk(KERN_ERR "proc_list_del(): proc_list is inconsistent!\n"
+			"struct file (%p) not found\n", file);
+	printk(KERN_ERR "listing proc_list...\n");
+	list_for_each_entry(pl, list, list_head)
+		printk(KERN_ERR "  pid:%d file:%p\n", pl->pid, pl->file);
+	spin_unlock(lock);
 }
 
-static __inline__ void proc_list_flush(struct list_head *list)
+static __inline__ void proc_list_flush(spinlock_t *lock, struct list_head *list)
 {
 	struct proc_list *pl;
 
+	spin_lock(lock);
 	while (!list_empty(list)) {
 		pl = list_entry(list->next, struct proc_list, list_head);
 		list_del(&pl->list_head);
 		kfree(pl);
 	}
+	spin_unlock(lock);
 }

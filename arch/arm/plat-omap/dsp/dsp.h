@@ -1,31 +1,35 @@
 /*
- * linux/arch/arm/mach-omap/dsp/dsp.h
+ * This file is part of OMAP DSP driver (DSP Gateway version 3.3.1)
  *
- * Header for OMAP DSP driver
+ * Copyright (C) 2002-2006 Nokia Corporation. All rights reserved.
  *
- * Copyright (C) 2002-2005 Nokia Corporation
+ * Contact: Toshihiro Kobayashi <toshihiro.kobayashi@nokia.com>
  *
- * Written by Toshihiro Kobayashi <toshihiro.kobayashi@nokia.com>
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License 
+ * version 2 as published by the Free Software Foundation. 
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+ * 02110-1301 USA
  *
- * 2005/06/09:  DSP Gateway version 3.3
  */
 
+#include <linux/platform_device.h>
 #include "hardware_dsp.h"
 #include "dsp_common.h"
+
+/*
+ * MAJOR device number: !! allocated arbitrary !!
+ */
+#define OMAP_DSP_CTL_MAJOR		96
+#define OMAP_DSP_TASK_MAJOR		97
 
 #define OLD_BINARY_SUPPORT	y
 
@@ -35,9 +39,12 @@
 #endif
 
 #define DSP_INIT_PAGE	0xfff000
+
+#ifdef CONFIG_ARCH_OMAP1
 /* idle program will be placed at IDLEPG_BASE. */
 #define IDLEPG_BASE	0xfffe00
 #define IDLEPG_SIZE	0x100
+#endif /* CONFIG_ARCH_OMAP1 */
 
 /* timeout value for DSP response */
 #define DSP_TIMEOUT	(10 * HZ)
@@ -50,30 +57,37 @@ enum dsp_mem_type_e {
 	MEM_TYPE_EXTERN,
 };
 
-enum arm_dsp_dir {
+enum arm_dsp_dir_e {
 	DIR_A2D,
 	DIR_D2A,
 };
 
-/*
- * INT_D2A_MB value definition
- *   INT_DSP_MAILBOX1: use Mailbox 1 (INT 10) for DSP->ARM mailbox
- *   INT_DSP_MAILBOX2: use Mailbox 2 (INT 11) for DSP->ARM mailbox
- */
-#define INT_D2A_MB1	INT_DSP_MAILBOX1
+enum cfgstat_e {
+	CFGSTAT_CLEAN = 0,
+	CFGSTAT_READY,
+	CFGSTAT_SUSPEND,
+	CFGSTAT_RESUME,	/* request only */
+	CFGSTAT_MAX
+};
 
-/* keep 2 entries for OMAP_DSP_TID_FREE and OMAP_DSP_TID_ANON */
+enum errcode_e {
+	ERRCODE_WDT = 0,
+	ERRCODE_MMU,
+	ERRCODE_MAX
+};
+
+/* keep 2 entries for TID_FREE and TID_ANON */
 #define TASKDEV_MAX	254
 
+#define MK32(uw,lw)	(((u32)(uw)) << 16 | (lw))
 #define MKLONG(uw,lw)	(((unsigned long)(uw)) << 16 | (lw))
 #define MKVIRT(uw,lw)	dspword_to_virt(MKLONG((uw), (lw)));
-#define MBCMD(nm)	OMAP_DSP_MBCMD_##nm
 
 struct sync_seq {
-	unsigned short da_dsp;
-	unsigned short da_arm;
-	unsigned short ad_dsp;
-	unsigned short ad_arm;
+	u16 da_dsp;
+	u16 da_arm;
+	u16 ad_dsp;
+	u16 ad_arm;
 };
 
 struct mem_sync_struct {
@@ -82,93 +96,106 @@ struct mem_sync_struct {
 	struct sync_seq *SDRAM;
 };
 
-/* struct mbcmd and struct mbcmd_hw must be compatible */
+/* struct mbcmd and union mbcmd_hw must be compatible */
 struct mbcmd {
-	unsigned short cmd_l:8;
-	unsigned short cmd_h:7;
-	unsigned short seq:1;
-	unsigned short data;
+ 	u32 data:16;
+ 	u32 cmd_l:8;
+ 	u32 cmd_h:7;
+ 	u32 seq:1;
 };
 
-struct mbcmd_hw {
-	unsigned short cmd;
-	unsigned short data;
-};
-
-#define mbcmd_set(mb, h, l, d) \
-	do { \
-		(mb).cmd_h = (h); \
-		(mb).cmd_l = (l); \
-		(mb).data  = (d); \
-	} while(0)
+#define MBCMD_INIT(h, l, d) { \
+		.cmd_h = (h), \
+		.cmd_l = (l), \
+		.data  = (d), \
+	}
 
 struct mb_exarg {
-	unsigned char tid;
+ 	u8 tid;
 	int argc;
-	unsigned short *argv;
+ 	u16 *argv;
 };
 
-extern void dsp_mb_start(void);
-extern void dsp_mb_stop(void);
-extern int dsp_mb_config(void *p);
-extern int sync_with_dsp(unsigned short *syncwd, unsigned short tid,
-			 int try_cnt);
-extern int __mbcmd_send(struct mbcmd *mb);
-extern int __dsp_mbcmd_send(struct mbcmd *mb, struct mb_exarg *arg,
-			    int recovery_flag);
-#define dsp_mbcmd_send(mb)		__dsp_mbcmd_send(mb, NULL, 0)
-#define dsp_mbcmd_send_exarg(mb, arg)	__dsp_mbcmd_send(mb, arg, 0)
-extern int __dsp_mbcmd_send_and_wait(struct mbcmd *mb, struct mb_exarg *arg,
-				     wait_queue_head_t *q);
+extern struct mbx *mbx_dsp;
+extern void dsp_mbx_start(void);
+extern void dsp_mbx_stop(void);
+extern int dsp_mbx_config(void *p);
+extern int sync_with_dsp(u16 *syncwd, u16 tid, int try_cnt);
+extern int __dsp_mbcmd_send_exarg(struct mbcmd *mb, struct mb_exarg *arg,
+				  int recovery_flag);
+#define dsp_mbcmd_send(mb)		__dsp_mbcmd_send_exarg((mb), NULL, 0)
+#define dsp_mbcmd_send_exarg(mb, arg)	__dsp_mbcmd_send_exarg((mb), (arg), 0)
+extern int dsp_mbcmd_send_and_wait_exarg(struct mbcmd *mb, struct mb_exarg *arg,
+					 wait_queue_head_t *q);
 #define dsp_mbcmd_send_and_wait(mb, q) \
-	__dsp_mbcmd_send_and_wait(mb, NULL, q)
-#define dsp_mbcmd_send_and_wait_exarg(mb, arg, q) \
-	__dsp_mbcmd_send_and_wait(mb, arg, q)
-int __dsp_mbsend(unsigned char cmdh, unsigned char cmdl, unsigned short data,
-		 int recovery_flag);
-#define dsp_mbsend(cmdh, cmdl, data) \
-	__dsp_mbsend(cmdh, cmdl, data, 0)
-#define dsp_mbsend_recovery(cmdh, cmdl, data) \
-	__dsp_mbsend(cmdh, cmdl, data, 1)
+	dsp_mbcmd_send_and_wait_exarg((mb), NULL, (q))
 
+static __inline__ int __mbcompose_send_exarg(u8 cmd_h, u8 cmd_l, u16 data,
+					     struct mb_exarg *arg,
+					     int recovery_flag)
+{
+	struct mbcmd mb = MBCMD_INIT(cmd_h, cmd_l, data);
+	return __dsp_mbcmd_send_exarg(&mb, arg, recovery_flag);
+}
+#define mbcompose_send(cmd_h, cmd_l, data) \
+	__mbcompose_send_exarg(MBX_CMD_DSP_##cmd_h, (cmd_l), (data), NULL, 0)
+#define mbcompose_send_exarg(cmd_h, cmd_l, data, arg) \
+	__mbcompose_send_exarg(MBX_CMD_DSP_##cmd_h, (cmd_l), (data), arg, 0)
+#define mbcompose_send_recovery(cmd_h, cmd_l, data) \
+	__mbcompose_send_exarg(MBX_CMD_DSP_##cmd_h, (cmd_l), (data), NULL, 1)
+
+static __inline__ int __mbcompose_send_and_wait_exarg(u8 cmd_h, u8 cmd_l,
+						      u16 data,
+						      struct mb_exarg *arg,
+						      wait_queue_head_t *q)
+{
+	struct mbcmd mb = MBCMD_INIT(cmd_h, cmd_l, data);
+	return dsp_mbcmd_send_and_wait_exarg(&mb, arg, q);
+}
+#define mbcompose_send_and_wait(cmd_h, cmd_l, data, q) \
+	__mbcompose_send_and_wait_exarg(MBX_CMD_DSP_##cmd_h, (cmd_l), (data), \
+					NULL, (q))
+#define mbcompose_send_and_wait_exarg(cmd_h, cmd_l, data, arg, q) \
+	__mbcompose_send_and_wait_exarg(MBX_CMD_DSP_##cmd_h, (cmd_l), (data), \
+					(arg), (q))
+
+extern struct ipbuf_head *bid_to_ipbuf(u16 bid);
 extern void ipbuf_start(void);
 extern void ipbuf_stop(void);
-extern int ipbuf_config(unsigned short ln, unsigned short lsz, void *base);
-extern int ipbuf_sys_config(void *p, enum arm_dsp_dir dir);
-extern int ipbuf_p_validate(void *p, enum arm_dsp_dir dir);
-extern unsigned short get_free_ipbuf(unsigned char tid);
-extern void unuse_ipbuf_nowait(unsigned short bid);
-extern void unuse_ipbuf(unsigned short bid);
-extern void release_ipbuf(unsigned short bid);
+extern int ipbuf_config(u16 ln, u16 lsz, void *base);
+extern int ipbuf_sys_config(void *p, enum arm_dsp_dir_e dir);
+extern int ipbuf_p_validate(void *p, enum arm_dsp_dir_e dir);
+extern struct ipbuf_head *get_free_ipbuf(u8 tid);
+extern void release_ipbuf(struct ipbuf_head *ipb_h);
 extern void balance_ipbuf(void);
+extern void unuse_ipbuf(struct ipbuf_head *ipb_h);
+extern void unuse_ipbuf_nowait(struct ipbuf_head *ipb_h);
 
 #define release_ipbuf_pvt(ipbuf_pvt) \
 	do { \
-		(ipbuf_pvt)->s = OMAP_DSP_TID_FREE; \
+		(ipbuf_pvt)->s = TID_FREE; \
 	} while(0)
 
 extern int mbx_revision;
 
-extern int dsp_is_ready(void);
-extern int dspuncfg(void);
-extern void dsp_runlevel(unsigned char level);
-extern int dsp_suspend(void);
-extern int dsp_resume(void);
+extern int dsp_cfgstat_request(enum cfgstat_e st);
+extern enum cfgstat_e dsp_cfgstat_get_stat(void);
+extern int dsp_set_runlevel(u8 level);
 
-extern int dsp_task_config_all(unsigned char n);
+extern int dsp_task_config_all(u8 n);
 extern void dsp_task_unconfig_all(void);
-extern unsigned char dsp_task_count(void);
+extern u8 dsp_task_count(void);
 extern int dsp_taskmod_busy(void);
 extern int dsp_mkdev(char *name);
 extern int dsp_rmdev(char *name);
-extern int dsp_tadd(unsigned char minor, unsigned long adr);
-extern int dsp_tdel(unsigned char minor);
-extern int dsp_tkill(unsigned char minor);
+extern int dsp_tadd_minor(unsigned char minor, dsp_long_t adr);
+extern int dsp_tdel_minor(unsigned char minor);
+extern int dsp_tkill_minor(unsigned char minor);
 extern long taskdev_state_stale(unsigned char minor);
-extern int dsp_dbg_config(short *buf, unsigned short sz, unsigned short lsz);
+extern int dsp_dbg_config(u16 *buf, u16 sz, u16 lsz);
 extern void dsp_dbg_stop(void);
 
-extern int ipbuf_is_held(unsigned char tid, unsigned short bid);
+extern int ipbuf_is_held(u8 tid, u16 bid);
 
 extern int dsp_mem_sync_inc(void);
 extern int dsp_mem_sync_config(struct mem_sync_struct *sync);
@@ -176,7 +203,9 @@ extern enum dsp_mem_type_e dsp_mem_type(void *vadr, size_t len);
 extern int dsp_address_validate(void *p, size_t len, char *fmt, ...);
 extern int dsp_mem_enable(void *adr);
 extern void dsp_mem_disable(void *adr);
+#ifdef CONFIG_ARCH_OMAP1
 extern void dsp_mem_usecount_clear(void);
+#endif
 extern void exmap_use(void *vadr, size_t len);
 extern void exmap_unuse(void *vadr, size_t len);
 extern unsigned long dsp_virt_to_phys(void *vadr, size_t *len);
@@ -189,13 +218,11 @@ extern void dsp_twch_touch(void);
 
 extern void dsp_err_start(void);
 extern void dsp_err_stop(void);
-extern void dsp_err_mmu_set(unsigned long adr);
-extern void dsp_err_mmu_clear(void);
-extern int dsp_err_mmu_isset(void);
-extern void dsp_err_wdt_clear(void);
-extern int dsp_err_wdt_isset(void);
+extern void dsp_err_set(enum errcode_e code, unsigned long arg);
+extern void dsp_err_clear(enum errcode_e code);
+extern int dsp_err_isset(enum errcode_e code);
 
-enum cmd_l_type {
+enum cmd_l_type_e {
 	CMD_L_TYPE_NULL,
 	CMD_L_TYPE_TID,
 	CMD_L_TYPE_SUBCMD,
@@ -203,7 +230,7 @@ enum cmd_l_type {
 
 struct cmdinfo {
 	char *name;
-	enum cmd_l_type cmd_l_type;
+	enum cmd_l_type_e cmd_l_type;
 	void (*handler)(struct mbcmd *mb);
 };
 
@@ -212,15 +239,11 @@ extern const struct cmdinfo *cmdinfo[];
 #define cmd_name(mb)	(cmdinfo[(mb).cmd_h]->name)
 extern char *subcmd_name(struct mbcmd *mb);
 
-extern void mblog_add(struct mbcmd *mb, enum arm_dsp_dir dir);
+extern void mblog_add(struct mbcmd *mb, enum arm_dsp_dir_e dir);
 #ifdef CONFIG_OMAP_DSP_MBCMD_VERBOSE
-extern void mblog_printcmd(struct mbcmd *mb, enum arm_dsp_dir dir);
+extern void mblog_printcmd(struct mbcmd *mb, enum arm_dsp_dir_e dir);
 #else /* CONFIG_OMAP_DSP_MBCMD_VERBOSE */
 #define mblog_printcmd(mb, dir)	do {} while(0)
 #endif /* CONFIG_OMAP_DSP_MBCMD_VERBOSE */
-
-#ifdef CONFIG_PROC_FS
-extern struct proc_dir_entry *procdir_dsp;
-#endif /* CONFIG_PROC_FS */
 
 extern struct platform_device dsp_device;

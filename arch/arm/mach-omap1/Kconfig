@@ -179,5 +179,3 @@ config OMAP_ARM_30MHZ
 	help
           Enable 30MHz clock for OMAP CPU. If unsure, say N.
 
-source "arch/arm/plat-omap/dsp/Kconfig"
-

@@ -1,34 +1,31 @@
 /*
- * linux/arch/arm/mach-omap/dsp/uaccess_dsp.h
+ * This file is part of OMAP DSP driver (DSP Gateway version 3.3.1)
  *
- * Header for user access functions for DSP driver
+ * Copyright (C) 2002-2006 Nokia Corporation. All rights reserved.
  *
- * Copyright (C) 2002-2005 Nokia Corporation
+ * Contact: Toshihiro Kobayashi <toshihiro.kobayashi@nokia.com>
  *
- * Modified from linux/include/asm-arm/uaccess.h
- * by Toshihiro Kobayashi <toshihiro.kobayashi@nokia.com>
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License 
+ * version 2 as published by the Free Software Foundation. 
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+ * 02110-1301 USA
  *
- * 2004/06/29:  DSP Gateway version 3.3
  */
 
 #ifndef _OMAP_DSP_UACCESS_DSP_H
 #define _OMAP_DSP_UACCESS_DSP_H
 
 #include <asm/uaccess.h>
+#include "dsp_common.h"
 
 #define HAVE_ASM_COPY_FROM_USER_DSP_2B
 
@@ -38,12 +35,6 @@ extern unsigned long __copy_from_user_dsp_2b(void *to,
 extern unsigned long __copy_to_user_dsp_2b(void __user *to,
 						const void *from);
 #endif
-
-extern unsigned long dspmem_base, dspmem_size;
-#define is_dsp_internal_mem(va) \
-	(((unsigned long)(va) >= dspmem_base) &&  \
-	 ((unsigned long)(va) < dspmem_base + dspmem_size))
-
 
 #ifndef HAVE_ASM_COPY_FROM_USER_DSP_2B
 static __inline__ unsigned long copy_from_user_dsp_2b(void *to,
@@ -180,7 +171,5 @@ static __inline__ unsigned long copy_to_user_dsp(void *to, const void *from,
 	}
 	return n;
 }
-
-#undef is_dsp_internal_mem
 
 #endif /* _OMAP_DSP_UACCESS_DSP_H */

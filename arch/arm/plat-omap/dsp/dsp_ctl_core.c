@@ -1,36 +1,31 @@
 /*
- * linux/arch/arm/mach-omap/dsp/dsp_ctl_core.c
+ * This file is part of OMAP DSP driver (DSP Gateway version 3.3.1)
  *
- * OMAP DSP control devices core driver
+ * Copyright (C) 2004-2006 Nokia Corporation. All rights reserved.
  *
- * Copyright (C) 2004,2005 Nokia Corporation
+ * Contact: Toshihiro Kobayashi <toshihiro.kobayashi@nokia.com>
  *
- * Written by Toshihiro Kobayashi <toshihiro.kobayashi@nokia.com>
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License 
+ * version 2 as published by the Free Software Foundation. 
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+ * 02110-1301 USA
  *
- * 2005/07/26:  DSP Gateway version 3.3
  */
 
-#include <linux/module.h>
 #include <linux/major.h>
 #include <linux/fs.h>
 #include <linux/device.h>
 #include <linux/init.h>
-#include <asm/arch/dsp.h>
-#include "hardware_dsp.h"
+#include "dsp.h"
 
 #define CTL_MINOR	0
 #define MEM_MINOR	1
@@ -86,7 +81,6 @@ int __init dsp_ctl_core_init(void)
 {
 	int retval;
 	int i;
-	struct class_device *cdev;
 
 	retval = register_chrdev(OMAP_DSP_CTL_MAJOR, "dspctl",
 				 &dsp_ctl_core_fops);
@@ -99,7 +93,7 @@ int __init dsp_ctl_core_init(void)
 
 	dsp_ctl_class = class_create(THIS_MODULE, "dspctl");
 	for (i = 0; i < ARRAY_SIZE(dev_list); i++) {
-		cdev = class_device_create(dsp_ctl_class, NULL,
+		class_device_create(dsp_ctl_class, NULL,
 				    MKDEV(OMAP_DSP_CTL_MAJOR,
 					  dev_list[i].minor),
 				    NULL, dev_list[i].devname);

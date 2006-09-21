@@ -1,52 +1,51 @@
 /*
- * linux/arch/arm/mach-omap/dsp/error.c
+ * This file is part of OMAP DSP driver (DSP Gateway version 3.3.1)
  *
- * OMAP DSP error detection I/F device driver
+ * Copyright (C) 2002-2006 Nokia Corporation. All rights reserved.
  *
- * Copyright (C) 2002-2005 Nokia Corporation
+ * Contact: Toshihiro Kobayashi <toshihiro.kobayashi@nokia.com>
  *
- * Written by Toshihiro Kobayashi <toshihiro.kobayashi@nokia.com>
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License 
+ * version 2 as published by the Free Software Foundation. 
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+ * 02110-1301 USA
  *
- * 2005/03/11:  DSP Gateway version 3.3
  */
 
 #include <linux/module.h>
-#include <linux/init.h>
-#include <linux/major.h>
 #include <linux/fs.h>
 #include <linux/poll.h>
 #include <linux/sched.h>
 #include <linux/interrupt.h>
 #include <asm/uaccess.h>
-#include <asm/io.h>
-#include <asm/ioctls.h>
-#include <asm/arch/dsp.h>
+#include "dsp_mbcmd.h"
 #include "dsp.h"
 
+/*
+ * value seen through read()
+ */
+#define DSP_ERR_WDT	0x00000001
+#define DSP_ERR_MMU	0x00000002
+static unsigned long errval;
+
 static DECLARE_WAIT_QUEUE_HEAD(err_wait_q);
-static unsigned long errcode;
 static int errcnt;
-static unsigned short wdtval;	/* FIXME: read through ioctl */
-static unsigned long mmu_fadr;	/* FIXME: read through ioctl */
+static u16 wdtval;	/* FIXME: read through ioctl */
+static u32 mmu_fadr;	/* FIXME: read through ioctl */
 
 /*
  * DSP error detection device file operations
  */
-static ssize_t dsp_err_read(struct file *file, char *buf, size_t count,
+static ssize_t dsp_err_read(struct file *file, char __user *buf, size_t count,
 			    loff_t *ppos)
 {
 	unsigned long flags;
@@ -71,7 +70,7 @@ static ssize_t dsp_err_read(struct file *file, char *buf, size_t count,
 	}
 
 	local_irq_save(flags);
-	status = copy_to_user(buf, &errcode, 4);
+	status = copy_to_user(buf, &errval, 4);
 	if (status) {
 		local_irq_restore(flags);
 		return -EFAULT;
@@ -100,68 +99,86 @@ struct file_operations dsp_err_fops = {
 };
 
 /*
- * DSP MMU
+ * set / clear functions
  */
-void dsp_err_mmu_set(unsigned long adr)
+
+/* DSP MMU */
+static void dsp_err_mmu_set(unsigned long arg)
 {
 	disable_irq(INT_DSP_MMU);
-	errcode |= OMAP_DSP_ERRDT_MMU;
-	errcnt++;
-	mmu_fadr = adr;
-	wake_up_interruptible(&err_wait_q);
+	mmu_fadr = (u32)arg;
 }
 
-void dsp_err_mmu_clear(void)
+static void dsp_err_mmu_clr(void)
 {
-	errcode &= ~OMAP_DSP_ERRDT_MMU;
 	enable_irq(INT_DSP_MMU);
 }
 
-int dsp_err_mmu_isset(void)
+/* WDT */
+static void dsp_err_wdt_set(unsigned long arg)
 {
-	return (errcode & OMAP_DSP_ERRDT_MMU) ? 1 : 0;
+	wdtval = (u16)arg;
 }
 
 /*
- * WDT
+ * error code handler
  */
-void dsp_err_wdt_clear(void)
-{
-	errcode &= ~OMAP_DSP_ERRDT_WDT;
-}
+static struct {
+	unsigned long val;
+	void (*set)(unsigned long arg);
+	void (*clr)(void);
+} dsp_err_desc[ERRCODE_MAX] = {
+	[ERRCODE_MMU] = { DSP_ERR_MMU, dsp_err_mmu_set, dsp_err_mmu_clr },
+	[ERRCODE_WDT] = { DSP_ERR_WDT, dsp_err_wdt_set, NULL },
+};
 
-int dsp_err_wdt_isset(void)
+void dsp_err_set(enum errcode_e code, unsigned long arg)
 {
-	return (errcode & OMAP_DSP_ERRDT_WDT) ? 1 : 0;
-}
+	if (dsp_err_desc[code].set != NULL)
+		dsp_err_desc[code].set(arg);
 
-/*
- * functions called from mailbox1 interrupt routine
- */
-static void mbx1_err_wdt(unsigned short data)
-{
-	errcode |= OMAP_DSP_ERRDT_WDT;
+	errval |= dsp_err_desc[code].val;
 	errcnt++;
-	wdtval = data;
 	wake_up_interruptible(&err_wait_q);
+}
+
+void dsp_err_clear(enum errcode_e code)
+{
+	errval &= ~dsp_err_desc[code].val;
+
+	if (dsp_err_desc[code].clr != NULL)
+		dsp_err_desc[code].clr();
+}
+
+int dsp_err_isset(enum errcode_e code)
+{
+	return (errval & dsp_err_desc[code].val) ? 1 : 0;
+}
+
+/*
+ * functions called from mailbox interrupt routine
+ */
+static void mbx_err_wdt(u16 data)
+{
+	dsp_err_set(DSP_ERR_WDT, (unsigned long)data);
 }
 
 #ifdef OLD_BINARY_SUPPORT
 /* v3.3 obsolete */
-void mbx1_wdt(struct mbcmd *mb)
+void mbx_wdt(struct mbcmd *mb)
 {
-	mbx1_err_wdt(mb->data);
+	mbx_err_wdt(mb->data);
 }
 #endif
 
-extern void mbx1_err_ipbfull(void);
-extern void mbx1_err_fatal(unsigned char tid);
+extern void mbx_err_ipbfull(void);
+extern void mbx_err_fatal(u8 tid);
 
-void mbx1_err(struct mbcmd *mb)
+void mbx_err(struct mbcmd *mb)
 {
-	unsigned char eid = mb->cmd_l;
+	u8 eid = mb->cmd_l;
 	char *eidnm = subcmd_name(mb);
-	unsigned char tid;
+	u8 tid;
 
 	if (eidnm) {
 		printk(KERN_WARNING
@@ -173,17 +190,17 @@ void mbx1_err(struct mbcmd *mb)
 	}
 
 	switch (eid) {
-	case OMAP_DSP_EID_IPBFULL:
-		mbx1_err_ipbfull();
+	case EID_IPBFULL:
+		mbx_err_ipbfull();
 		break;
 
-	case OMAP_DSP_EID_FATAL:
+	case EID_FATAL:
 		tid = mb->data & 0x00ff;
-		mbx1_err_fatal(tid);
+		mbx_err_fatal(tid);
 		break;
 
-	case OMAP_DSP_EID_WDT:
-		mbx1_err_wdt(mb->data);
+	case EID_WDT:
+		mbx_err_wdt(mb->data);
 		break;
 	}
 }
@@ -193,11 +210,14 @@ void mbx1_err(struct mbcmd *mb)
  */
 void dsp_err_start(void)
 {
+	enum errcode_e i;
+
+	for (i = 0; i < ERRCODE_MAX; i++) {
+		if (dsp_err_isset(i))
+			dsp_err_clear(i);
+	}
+
 	errcnt = 0;
-	if (dsp_err_wdt_isset())
-		dsp_err_wdt_clear();
-	if (dsp_err_mmu_isset())
-		dsp_err_mmu_clear();
 }
 
 void dsp_err_stop(void)

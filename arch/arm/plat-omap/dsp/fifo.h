@@ -1,27 +1,24 @@
 /*
- * linux/arch/arm/mach-omap/dsp/fifo.h
+ * This file is part of OMAP DSP driver (DSP Gateway version 3.3.1)
  *
- * FIFO buffer operators
+ * Copyright (C) 2002-2006 Nokia Corporation. All rights reserved.
  *
- * Copyright (C) 2002-2005 Nokia Corporation
+ * Contact: Toshihiro Kobayashi <toshihiro.kobayashi@nokia.com>
  *
- * Written by Toshihiro Kobayashi <toshihiro.kobayashi@nokia.com>
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License 
+ * version 2 as published by the Free Software Foundation. 
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+ * 02110-1301 USA
  *
- * 2005/02/24:  DSP Gateway version 3.3
  */
 
 struct fifo_struct {
@@ -53,8 +50,10 @@ static inline int init_fifo(struct fifo_struct *fifo, size_t sz)
 static inline void free_fifo(struct fifo_struct *fifo)
 {
 	spin_lock(&fifo->lock);
-	if (fifo->buf == NULL)
+	if (fifo->buf == NULL) {
+		spin_unlock(&fifo->lock);
 		return;
+	}
 
 	kfree(fifo->buf);
 	fifo->buf = NULL;
@@ -87,25 +86,17 @@ static inline int realloc_fifo(struct fifo_struct *fifo, size_t sz)
 		kfree(fifo->buf);
 
 	/* alloc */
-	if ((fifo->buf = kmalloc(sz, GFP_KERNEL)) == NULL) {
-		fifo->sz = 0;
-		ret = -ENOMEM;
-		goto out;
-	}
-	fifo->sz = sz;
-	fifo->cnt = 0;
-	fifo->wp = 0;
+	ret = alloc_fifo(fifo, sz);
 
 out:
 	spin_unlock(&fifo->lock);
 	return ret;
 }
 
-static inline void write_word_to_fifo(struct fifo_struct *fifo,
-				      unsigned short word)
+static inline void write_word_to_fifo(struct fifo_struct *fifo, u16 word)
 {
 	spin_lock(&fifo->lock);
-	*(unsigned short *)&fifo->buf[fifo->wp] = word;
+	*(u16 *)&fifo->buf[fifo->wp] = word;
 	if ((fifo->wp += 2) == fifo->sz)
 		fifo->wp = 0;
 	if ((fifo->cnt += 2) > fifo->sz)

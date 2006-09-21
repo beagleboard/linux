@@ -1,210 +1,34 @@
 /*
- * linux/arch/arm/mach-omap/dsp/hardware_dsp.h
+ * This file is part of OMAP DSP driver (DSP Gateway version 3.3.1)
  *
- * Register bit definitions for DSP driver
+ * Copyright (C) 2002-2006 Nokia Corporation. All rights reserved.
  *
- * Copyright (C) 2002-2005 Nokia Corporation
+ * Contact: Toshihiro Kobayashi <toshihiro.kobayashi@nokia.com>
  *
- * Written by Toshihiro Kobayashi <toshihiro.kobayashi@nokia.com>
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License 
+ * version 2 as published by the Free Software Foundation. 
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+ * 02110-1301 USA
  *
- * 2005/05/30:  DSP Gateway version 3.3
  */
 
 #ifndef __OMAP_DSP_HARDWARE_DSP_H
 #define __OMAP_DSP_HARDWARE_DSP_H
 
-#ifdef CONFIG_ARCH_OMAP15XX
-#define OMAP1510_DARAM_BASE	0xe0000000
-#define OMAP1510_DARAM_SIZE	0x10000
-#define OMAP1510_SARAM_BASE	0xe0010000
-#define OMAP1510_SARAM_SIZE	0x18000
+#ifdef CONFIG_ARCH_OMAP1
+#include "omap1_dsp.h"
 #endif
-#ifdef CONFIG_ARCH_OMAP16XX
-#define OMAP16XX_DARAM_BASE	0xe0000000
-#define OMAP16XX_DARAM_SIZE	0x10000
-#define OMAP16XX_SARAM_BASE	0xe0010000
-#define OMAP16XX_SARAM_SIZE	0x18000
+#ifdef CONFIG_ARCH_OMAP2
+#include "omap2_dsp.h"
 #endif
-
-/*
- * MAJOR device number: !! allocated arbitrary !!
- */
-#define OMAP_DSP_CTL_MAJOR		96
-#define OMAP_DSP_TASK_MAJOR		97
-
-/*
- * Reset Control
- */
-#define ARM_RSTCT1_SW_RST		0x0008
-#define ARM_RSTCT1_DSP_RST		0x0004
-#define ARM_RSTCT1_DSP_EN		0x0002
-#define ARM_RSTCT1_ARM_RST		0x0001
-
-/*
- * MPUI
- */
-#define MPUI_CTRL_WORDSWAP_MASK		0x00600000
-#define MPUI_CTRL_WORDSWAP_ALL		0x00000000
-#define MPUI_CTRL_WORDSWAP_NONAPI	0x00200000
-#define MPUI_CTRL_WORDSWAP_API		0x00400000
-#define MPUI_CTRL_WORDSWAP_NONE		0x00600000
-#define MPUI_CTRL_AP_MASK		0x001c0000
-#define MPUI_CTRL_AP_MDH		0x00000000
-#define MPUI_CTRL_AP_MHD		0x00040000
-#define MPUI_CTRL_AP_DMH		0x00080000
-#define MPUI_CTRL_AP_HMD		0x000c0000
-#define MPUI_CTRL_AP_DHM		0x00100000
-#define MPUI_CTRL_AP_HDM		0x00140000
-#define MPUI_CTRL_BYTESWAP_MASK		0x00030000
-#define MPUI_CTRL_BYTESWAP_NONE		0x00000000
-#define MPUI_CTRL_BYTESWAP_NONAPI	0x00010000
-#define MPUI_CTRL_BYTESWAP_ALL		0x00020000
-#define MPUI_CTRL_BYTESWAP_API		0x00030000
-#define MPUI_CTRL_TIMEOUT_MASK		0x0000ff00
-#define MPUI_CTRL_APIF_HNSTB_DIV_MASK	0x000000f0
-#define MPUI_CTRL_S_NABORT_GL		0x00000008
-#define MPUI_CTRL_S_NABORT_32BIT	0x00000004
-#define MPUI_CTRL_EN_TIMEOUT		0x00000002
-#define MPUI_CTRL_HF_MCUCLK		0x00000001
-#define MPUI_DSP_BOOT_CONFIG_DIRECT	0x00000000
-#define MPUI_DSP_BOOT_CONFIG_PSD_DIRECT	0x00000001
-#define MPUI_DSP_BOOT_CONFIG_IDLE	0x00000002
-#define MPUI_DSP_BOOT_CONFIG_DL16	0x00000003
-#define MPUI_DSP_BOOT_CONFIG_DL32	0x00000004
-#define MPUI_DSP_BOOT_CONFIG_MPUI	0x00000005
-#define MPUI_DSP_BOOT_CONFIG_INTERNAL	0x00000006
-
-/*
- * DSP boot mode
- *   direct:        0xffff00
- *   pseudo direct: 0x080000
- *   MPUI:          branch 0x010000
- *   internel:      branch 0x024000
- */
-#define DSP_BOOT_ADR_DIRECT		0xffff00
-#define DSP_BOOT_ADR_PSD_DIRECT		0x080000
-#define DSP_BOOT_ADR_MPUI		0x010000
-#define DSP_BOOT_ADR_INTERNAL		0x024000
-
-/*
- * TC
- */
-#define TC_ENDIANISM_SWAP		0x00000002
-#define TC_ENDIANISM_SWAP_WORD		0x00000002
-#define TC_ENDIANISM_SWAP_BYTE		0x00000000
-#define TC_ENDIANISM_EN			0x00000001
-
-/*
- * DSP MMU
- */
-#define DSPMMU_BASE			(0xfffed200)
-#define DSPMMU_PREFETCH			(DSPMMU_BASE + 0x00)
-#define DSPMMU_WALKING_ST		(DSPMMU_BASE + 0x04)
-#define DSPMMU_CNTL			(DSPMMU_BASE + 0x08)
-#define DSPMMU_FAULT_AD_H		(DSPMMU_BASE + 0x0c)
-#define DSPMMU_FAULT_AD_L		(DSPMMU_BASE + 0x10)
-#define DSPMMU_FAULT_ST			(DSPMMU_BASE + 0x14)
-#define DSPMMU_IT_ACK			(DSPMMU_BASE + 0x18)
-#define DSPMMU_TTB_H			(DSPMMU_BASE + 0x1c)
-#define DSPMMU_TTB_L			(DSPMMU_BASE + 0x20)
-#define DSPMMU_LOCK			(DSPMMU_BASE + 0x24)
-#define DSPMMU_LD_TLB			(DSPMMU_BASE + 0x28)
-#define DSPMMU_CAM_H			(DSPMMU_BASE + 0x2c)
-#define DSPMMU_CAM_L			(DSPMMU_BASE + 0x30)
-#define DSPMMU_RAM_H			(DSPMMU_BASE + 0x34)
-#define DSPMMU_RAM_L			(DSPMMU_BASE + 0x38)
-#define DSPMMU_GFLUSH			(DSPMMU_BASE + 0x3c)
-#define DSPMMU_FLUSH_ENTRY		(DSPMMU_BASE + 0x40)
-#define DSPMMU_READ_CAM_H		(DSPMMU_BASE + 0x44)
-#define DSPMMU_READ_CAM_L		(DSPMMU_BASE + 0x48)
-#define DSPMMU_READ_RAM_H		(DSPMMU_BASE + 0x4c)
-#define DSPMMU_READ_RAM_L		(DSPMMU_BASE + 0x50)
-
-#define DSPMMU_CNTL_BURST_16MNGT_EN	0x0020
-#define DSPMMU_CNTL_WTL_EN		0x0004
-#define DSPMMU_CNTL_MMU_EN		0x0002
-#define DSPMMU_CNTL_RESET_SW		0x0001
-
-#define DSPMMU_FAULT_AD_H_DP		0x0100
-#define DSPMMU_FAULT_AD_H_ADR_MASK	0x00ff
-
-#define DSPMMU_FAULT_ST_PREF		0x0008
-#define DSPMMU_FAULT_ST_PERM		0x0004
-#define DSPMMU_FAULT_ST_TLB_MISS	0x0002
-#define DSPMMU_FAULT_ST_TRANS		0x0001
-
-#define DSPMMU_IT_ACK_IT_ACK		0x0001
-
-#define DSPMMU_LOCK_BASE_MASK		0xfc00
-#define DSPMMU_LOCK_BASE_SHIFT		10
-#define DSPMMU_LOCK_VICTIM_MASK		0x03f0
-#define DSPMMU_LOCK_VICTIM_SHIFT	4
-
-#define DSPMMU_CAM_H_VA_TAG_H_MASK		0x0003
-
-#define DSPMMU_CAM_L_VA_TAG_L1_MASK		0xc000
-#define DSPMMU_CAM_L_VA_TAG_L2_MASK_1MB		0x0000
-#define DSPMMU_CAM_L_VA_TAG_L2_MASK_64KB	0x3c00
-#define DSPMMU_CAM_L_VA_TAG_L2_MASK_4KB		0x3fc0
-#define DSPMMU_CAM_L_VA_TAG_L2_MASK_1KB		0x3ff0
-#define DSPMMU_CAM_L_P				0x0008
-#define DSPMMU_CAM_L_V				0x0004
-#define DSPMMU_CAM_L_SLST_MASK			0x0003
-#define DSPMMU_CAM_L_SLST_1MB			0x0000
-#define DSPMMU_CAM_L_SLST_64KB			0x0001
-#define DSPMMU_CAM_L_SLST_4KB			0x0002
-#define DSPMMU_CAM_L_SLST_1KB			0x0003
-
-#define DSPMMU_RAM_L_RAM_LSB_MASK	0xfc00
-#define DSPMMU_RAM_L_AP_MASK		0x0300
-#define DSPMMU_RAM_L_AP_NA		0x0000
-#define DSPMMU_RAM_L_AP_RO		0x0200
-#define DSPMMU_RAM_L_AP_FA		0x0300
-
-#define DSPMMU_GFLUSH_GFLUSH		0x0001
-
-#define DSPMMU_FLUSH_ENTRY_FLUSH_ENTRY	0x0001
-
-#define DSPMMU_LD_TLB_RD		0x0002
-#define DSPMMU_LD_TLB_LD		0x0001
-
-/*
- * Mailbox
- */
-#define MAILBOX_BASE			(0xfffcf000)
-#define MAILBOX_ARM2DSP1		(MAILBOX_BASE + 0x00)
-#define MAILBOX_ARM2DSP1b		(MAILBOX_BASE + 0x04)
-#define MAILBOX_DSP2ARM1		(MAILBOX_BASE + 0x08)
-#define MAILBOX_DSP2ARM1b		(MAILBOX_BASE + 0x0c)
-#define MAILBOX_DSP2ARM2		(MAILBOX_BASE + 0x10)
-#define MAILBOX_DSP2ARM2b		(MAILBOX_BASE + 0x14)
-#define MAILBOX_ARM2DSP1_Flag		(MAILBOX_BASE + 0x18)
-#define MAILBOX_DSP2ARM1_Flag		(MAILBOX_BASE + 0x1c)
-#define MAILBOX_DSP2ARM2_Flag		(MAILBOX_BASE + 0x20)
-
-/*
- * DSP ICR
- */
-#define DSPREG_ICR_RESERVED_BITS	0xffc0
-#define DSPREG_ICR_EMIF_IDLE_DOMAIN	0x0020
-#define DSPREG_ICR_DPLL_IDLE_DOMAIN	0x0010
-#define DSPREG_ICR_PER_IDLE_DOMAIN	0x0008
-#define DSPREG_ICR_CACHE_IDLE_DOMAIN	0x0004
-#define DSPREG_ICR_DMA_IDLE_DOMAIN	0x0002
-#define DSPREG_ICR_CPU_IDLE_DOMAIN	0x0001
 
 #endif /* __OMAP_DSP_HARDWARE_DSP_H */

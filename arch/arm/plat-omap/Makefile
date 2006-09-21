@@ -26,4 +26,4 @@ obj-$(CONFIG_OMAP_COMPONENT_VERSION) += component-version.o
 obj-$(CONFIG_OMAP_GPIO_SWITCH) += gpio-switch.o
 
 # DSP subsystem
-obj-y += dsp/
+obj-$(CONFIG_OMAP_DSP) += dsp/ mailbox.o

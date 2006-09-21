@@ -1,7 +1,7 @@
 
 config OMAP_DSP
 	tristate "OMAP DSP driver (DSP Gateway)"
-	depends on ARCH_OMAP15XX || ARCH_OMAP16XX
+	depends on ARCH_OMAP15XX || ARCH_OMAP16XX || ARCH_OMAP24XX
 	help
 	  This enables OMAP DSP driver, DSP Gateway.
 

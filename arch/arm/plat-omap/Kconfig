@@ -172,6 +172,8 @@ config OMAP_SERIAL_WAKE
 	  to data on the serial RX line. This allows you to wake the
 	  system from serial console.
 
+source "arch/arm/plat-omap/dsp/Kconfig"
+
 endmenu
 
 endif
