@@ -57,10 +57,10 @@ enum dsp_mem_type_e {
 	MEM_TYPE_EXTERN,
 };
 
-enum arm_dsp_dir_e {
-	DIR_A2D,
-	DIR_D2A,
-};
+
+typedef int __bitwise arm_dsp_dir_t;
+#define DIR_A2D	((__force arm_dsp_dir_t) 1)
+#define DIR_D2A	((__force arm_dsp_dir_t) 2)
 
 enum cfgstat_e {
 	CFGSTAT_CLEAN = 0,
@@ -163,8 +163,8 @@ extern struct ipbuf_head *bid_to_ipbuf(u16 bid);
 extern void ipbuf_start(void);
 extern void ipbuf_stop(void);
 extern int ipbuf_config(u16 ln, u16 lsz, void *base);
-extern int ipbuf_sys_config(void *p, enum arm_dsp_dir_e dir);
-extern int ipbuf_p_validate(void *p, enum arm_dsp_dir_e dir);
+extern int ipbuf_sys_config(void *p, arm_dsp_dir_t dir);
+extern int ipbuf_p_validate(void *p, arm_dsp_dir_t dir);
 extern struct ipbuf_head *get_free_ipbuf(u8 tid);
 extern void release_ipbuf(struct ipbuf_head *ipb_h);
 extern void balance_ipbuf(void);
@@ -239,11 +239,6 @@ extern const struct cmdinfo *cmdinfo[];
 #define cmd_name(mb)	(cmdinfo[(mb).cmd_h]->name)
 extern char *subcmd_name(struct mbcmd *mb);
 
-extern void mblog_add(struct mbcmd *mb, enum arm_dsp_dir_e dir);
-#ifdef CONFIG_OMAP_DSP_MBCMD_VERBOSE
-extern void mblog_printcmd(struct mbcmd *mb, enum arm_dsp_dir_e dir);
-#else /* CONFIG_OMAP_DSP_MBCMD_VERBOSE */
-#define mblog_printcmd(mb, dir)	do {} while(0)
-#endif /* CONFIG_OMAP_DSP_MBCMD_VERBOSE */
+extern void mblog_add(struct mbcmd *mb, arm_dsp_dir_t dir);
 
 extern struct platform_device dsp_device;

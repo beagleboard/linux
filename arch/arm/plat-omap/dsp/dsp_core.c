@@ -203,7 +203,6 @@ int __dsp_mbcmd_send_exarg(struct mbcmd *mb, struct mb_exarg *arg,
 		mbseq->ad_arm++;
 
 	mblog_add(mb, DIR_A2D);
-	mblog_printcmd(mb, DIR_A2D);
 
 	ret = mbox_send(mbox_dsp, *(mbox_msg_t *)mb);
 
@@ -249,7 +248,6 @@ static void mbcmd_receiver(mbox_msg_t msg)
 	(*mbseq_expect)++;
 
 	mblog_add(mb, DIR_D2A);
-	mblog_printcmd(mb, DIR_D2A);
 
 	/* call handler for the command */
 	if (cmdinfo[mb->cmd_h]->handler)

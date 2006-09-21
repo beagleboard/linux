@@ -111,7 +111,7 @@ char *subcmd_name(struct mbcmd *mb)
 struct mblogent {
 	unsigned long jiffies;
 	mbox_msg_t msg;
-	enum arm_dsp_dir_e dir;
+	arm_dsp_dir_t dir;
 };
 
 static struct {
@@ -123,7 +123,43 @@ static struct {
 	.lock = SPIN_LOCK_UNLOCKED,
 };
 
-void mblog_add(struct mbcmd *mb, enum arm_dsp_dir_e dir)
+#ifdef CONFIG_OMAP_DSP_MBCMD_VERBOSE
+static inline void mblog_print_cmd(struct mbcmd *mb, arm_dsp_dir_t dir)
+{
+	const struct cmdinfo *ci = cmdinfo[mb->cmd_h];
+	char *dir_str;
+	char *subname;
+
+	dir_str = (dir == DIR_A2D) ? "sending  " : "receiving";
+	switch (ci->cmd_l_type) {
+	case CMD_L_TYPE_SUBCMD:
+		subname = subcmd_name(mb);
+		if (unlikely(!subname))
+			subname = "Unknown";
+		printk(KERN_DEBUG
+		       "mbox: %s seq=%d, cmd=%02x:%02x(%s:%s), data=%04x\n",
+		       dir_str, mb->seq, mb->cmd_h, mb->cmd_l,
+		       ci->name, subname, mb->data);
+		break;
+	case CMD_L_TYPE_TID:
+		printk(KERN_DEBUG
+		       "mbox: %s seq=%d, cmd=%02x:%02x(%s:task %d), data=%04x\n",
+		       dir_str, mb->seq, mb->cmd_h, mb->cmd_l,
+		       ci->name, mb->cmd_l, mb->data);
+		break;
+	case CMD_L_TYPE_NULL:
+		printk(KERN_DEBUG
+		       "mbox: %s seq=%d, cmd=%02x:%02x(%s), data=%04x\n",
+		       dir_str, mb->seq, mb->cmd_h, mb->cmd_l,
+		       ci->name, mb->data);
+		break;
+	}
+}
+#else
+static inline void mblog_print_cmd(struct mbcmd *mb, arm_dsp_dir_t dir) { }
+#endif
+
+void mblog_add(struct mbcmd *mb, arm_dsp_dir_t dir)
 {
 	struct mblogent *ent;
 
@@ -147,6 +183,8 @@ void mblog_add(struct mbcmd *mb, enum arm_dsp_dir_e dir)
 	if (++mblog.wp == MBLOG_DEPTH)
 		mblog.wp = 0;
 	spin_unlock(&mblog.lock);
+
+	mblog_print_cmd(mb, dir);
 }
 
 /*
@@ -218,46 +256,6 @@ done:
 }
 
 static struct device_attribute dev_attr_mblog = __ATTR_RO(mblog);
-
-#ifdef CONFIG_OMAP_DSP_MBCMD_VERBOSE
-void mblog_printcmd(struct mbcmd *mb, enum arm_dsp_dir_e dir)
-{
-	struct cmdinfo ci_null = {
-		.name = "Unknown",
-		.cmd_l_type = CMD_L_TYPE_NULL,
-	};
-	const struct cmdinfo *ci;
-	char *dir_str;
-	char *subname;
-
-	dir_str = (dir == DIR_A2D) ? "sending" : "receiving";
-
-	if ((ci = cmdinfo[mb->cmd_h]) == NULL)
-		ci = &ci_null;
-
-	switch (ci->cmd_l_type) {
-	case CMD_L_TYPE_SUBCMD:
-		if ((subname = subcmd_name(mb)) == NULL)
-			subname = "Unknown";
-		printk(KERN_DEBUG
-		       "mbox: %s cmd=%02x:%02x(%s:%s), data=%04x\n",
-		       dir_str, mb->cmd_h, mb->cmd_l,
-		       ci->name, subname, mb->data);
-		break;
-	case CMD_L_TYPE_TID:
-		printk(KERN_DEBUG
-		       "mbox: %s cmd=%02x:%02x(%s:task %d), data=%04x\n",
-		       dir_str, mb->cmd_h, mb->cmd_l,
-		       ci->name, mb->cmd_l, mb->data);
-		break;
-	case CMD_L_TYPE_NULL:
-		printk(KERN_DEBUG
-		       "mbox: %s cmd=%02x:%02x(%s), data=%04x\n",
-		       dir_str, mb->cmd_h, mb->cmd_l, ci->name, mb->data);
-		break;
-	}
-}
-#endif /* CONFIG_OMAP_DSP_MBCMD_VERBOSE */
 
 void __init mblog_init(void)
 {

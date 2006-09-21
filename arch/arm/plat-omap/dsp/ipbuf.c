@@ -126,7 +126,7 @@ free_out:
 	return ret;
 }
 
-int ipbuf_sys_config(void *p, enum arm_dsp_dir_e dir)
+int ipbuf_sys_config(void *p, arm_dsp_dir_t dir)
 {
 	char *dir_str = (dir == DIR_D2A) ? "D2A" : "A2D";
 
@@ -161,7 +161,7 @@ int ipbuf_sys_config(void *p, enum arm_dsp_dir_e dir)
 	return 0;
 }
 
-int ipbuf_p_validate(void *p, enum arm_dsp_dir_e dir)
+int ipbuf_p_validate(void *p, arm_dsp_dir_t dir)
 {
 	char *dir_str = (dir == DIR_D2A) ? "D2A" : "A2D";
 
