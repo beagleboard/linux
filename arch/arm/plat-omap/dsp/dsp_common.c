@@ -305,6 +305,8 @@ static int __init omap_dsp_init(void)
 		return -ENODEV;
 	}
 
+	dsp_clk_autoidle();
+
 #if defined(CONFIG_ARCH_OMAP1)
 	dsp_ck_handle = clk_get(NULL, "dsp_ck");
 	if (IS_ERR(dsp_ck_handle)) {

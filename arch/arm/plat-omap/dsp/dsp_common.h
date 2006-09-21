@@ -154,4 +154,16 @@ void dsp_register_mem_cb(int (*req_cb)(void), void (*rel_cb)(void));
 void dsp_unregister_mem_cb(void);
 #endif
 
+#if defined(CONFIG_ARCH_OMAP1)
+static inline void dsp_clk_autoidle(void) {}
+#elif defined(CONFIG_ARCH_OMAP2)
+static inline void dsp_clk_autoidle(void)
+{
+	/*XXX should be handled in mach-omap[1,2] XXX*/
+	PM_PWSTCTRL_DSP = (1 << 18) | (1 << 0);
+	CM_AUTOIDLE_DSP |= (1 << 1);
+	CM_CLKSTCTRL_DSP |= (1 << 0);
+}
+#endif
+
 #endif /* DRIVER_DSP_COMMON_H */
