@@ -4,6 +4,7 @@
  * Copyright (C) 2006 Nokia Corporation. All rights reserved.
  *
  * Contact: Toshihiro Kobayashi <toshihiro.kobayashi@nokia.com>
+ *		Restructured by Hiroshi DOYU <Hiroshi.DOYU@nokia.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -25,550 +26,313 @@
 #include <linux/module.h>
 #include <linux/sched.h>
 #include <linux/interrupt.h>
+#include <linux/device.h>
 #include <linux/err.h>
-#ifdef CONFIG_ARCH_OMAP2
-#include <linux/clk.h>
-#endif
 #include <asm/io.h>
-#ifdef CONFIG_ARCH_OMAP1
 #include <asm/delay.h>
-#endif
 #include <asm/arch/mailbox.h>
-#include "mailbox_hw.h"
+#include "mailbox.h"
 
-#if defined(CONFIG_ARCH_OMAP1)
+static struct omap_mbox *mboxes;
+static DEFINE_RWLOCK(mboxes_lock);
 
-#define read_mbox(m, msgp) \
-		do { \
-			*(msgp) = omap_readw((m)->data_r); \
-			*(msgp) |= ((mbox_msg_t)omap_readw((m)->cmd_r)) << 16; \
-		} while (0)
-#define write_mbox(m, msg) \
-		do { \
-			omap_writew((msg) & 0xffff, (m)->data_w); \
-			omap_writew((msg) >> 16, (m)->cmd_w); \
-		} while (0)
-#define enable_newmsg_irq(m)	enable_irq((m)->irq)
-#define disable_newmsg_irq(m)	disable_irq((m)->irq)
-#define mbox_is_notfull(m)	(omap_readw((m)->flag_w) == 0)
+static struct omap_mbox **find_mboxes(const char *name)
+{
+	struct omap_mbox **p;
 
-#elif defined(CONFIG_ARCH_OMAP2)
+	for (p = &mboxes; *p; p = &(*p)->next) {
+		if (strcmp((*p)->name, name) == 0)
+			break;
+	}
 
-#define omap_bit_setl(b,r) \
-		do { omap_writel(omap_readl(r) | (b), (r)); } while(0)
-#define omap_bit_clrl(b,r) \
-		do { omap_writel(omap_readl(r) & ~(b), (r)); } while(0)
+	return p;
+}
 
-#define read_mbox(m, msgp) \
-		do { *(msgp) = omap_readl((m)->message_r); } while (0)
-#define write_mbox(m, msg)	omap_writel(msg, (m)->message_w)
-#define enable_newmsg_irq(m)	omap_bit_setl((m)->newmsg_bit, (m)->irqenable)
-#define disable_newmsg_irq(m)	omap_bit_clrl((m)->newmsg_bit, (m)->irqenable)
-#define enable_notfull_irq(m)	omap_bit_setl((m)->notfull_bit, (m)->irqenable)
-#define disable_notfull_irq(m)	omap_bit_clrl((m)->notfull_bit, (m)->irqenable)
-#define clear_newmsg_irq(m)	omap_writel((m)->newmsg_bit, (m)->irqstatus)
-#define clear_notfull_irq(m)	omap_writel((m)->notfull_bit, (m)->irqstatus)
-#define notfull_irq_enabled(m)	(omap_readl((m)->irqenable) & (m)->notfull_bit)
-#define has_newmsg_irq(m)	(omap_readl((m)->irqstatus) & (m)->newmsg_bit)
-#define has_notfull_irq(m)	(omap_readl((m)->irqstatus) & (m)->notfull_bit)
-#define mbox_nomsg(m)		(omap_readl((m)->msgstatus_r) == 0)
-#define mbox_is_notfull(m)	(omap_readl((m)->fifostatus_w) == 0)
+struct omap_mbox *omap_mbox_get(const char *name)
+{
+	struct omap_mbox *mbox;
 
-#endif /* CONFIG_ARCH_OMAP2 */
+	read_lock(&mboxes_lock);
+	mbox = *(find_mboxes(name));
+	read_unlock(&mboxes_lock);
 
-static void do_mbox(void *p);
+	return mbox;
+}
+EXPORT_SYMBOL(omap_mbox_get);
 
-#define MBQ_DEPTH	16
-struct mbq {
-	mbox_msg_t msg[MBQ_DEPTH];
-	int rp, wp, full;
-};
-
-#define mbq_inc(p)	do { if (++(p) == MBQ_DEPTH) (p) = 0; } while(0)
-
-#if defined(CONFIG_ARCH_OMAP1)
-#  define MBOX_USE_SEQ_BIT	/* XXX */
-#elif defined(CONFIG_ARCH_OMAP2)
-#  undef MBOX_USE_SEQ_BIT
-#endif
-
-struct mbox {
-	char *name;
-	unsigned int irq;
-	char irq_devid_newmsg;
-#ifdef CONFIG_ARCH_OMAP2
-	char irq_devid_notfull;
-#endif
-#ifdef MBOX_USE_SEQ_BIT
-	mbox_msg_t seq_snd;
-	mbox_msg_t seq_rcv;
-		/* seq_rcv should be initialized with any value other than
-		 * 0 and 1 << 31, to allow either value for the first
-		 * message.  */
-#endif
-	mbox_receiver_t *receiver_map[MBOX_CMD_MAX];
-	struct work_struct work;
-	struct mbq mbq;
-#ifdef CONFIG_ARCH_OMAP2
-	wait_queue_head_t full_wait_q;
-#endif
-
-#if defined(CONFIG_ARCH_OMAP1)
-	void *cmd_w;
-	void *data_w;
-	void *flag_w;
-	void *cmd_r;
-	void *data_r;
-#elif defined(CONFIG_ARCH_OMAP2)
-	void *irqenable;
-	void *irqstatus;
-	void *message_w;
-	void *message_r;
-	void *fifostatus_w;
-	void *msgstatus_r;
-	u32 notfull_bit;
-	u32 newmsg_bit;
-#endif
-};
-
-#if defined(CONFIG_ARCH_OMAP1)
-
-#if defined(CONFIG_ARCH_OMAP15XX)
-#define INT_DSP_MAILBOX1	INT_1510_DSP_MAILBOX1
-#elif defined(CONFIG_ARCH_OMAP16XX)
-#define INT_DSP_MAILBOX1	INT_1610_DSP_MAILBOX1
-#endif
-
-static struct mbox mbox_dsp = {
-	.name = "DSP",
-	.irq = INT_DSP_MAILBOX1,
-	.work = __WORK_INITIALIZER(mbox_dsp.work, do_mbox, &mbox_dsp),
-
-	.cmd_w  = (void *)MAILBOX_ARM2DSP1b,
-	.data_w = (void *)MAILBOX_ARM2DSP1,
-	.flag_w = (void *)MAILBOX_ARM2DSP1_Flag,
-	.cmd_r  = (void *)MAILBOX_DSP2ARM1b,
-	.data_r = (void *)MAILBOX_DSP2ARM1,
-};
-
-#elif defined(CONFIG_ARCH_OMAP2)
+/* Mailbox Sequence Bit function */
+void omap_mbox_init_seq(struct omap_mbox *mbox)
+{
+	mbox_seq_init(mbox);
+}
+EXPORT_SYMBOL(omap_mbox_init_seq);
 
 /*
- * MAILBOX 0: ARM -> DSP,
- * MAILBOX 1: ARM <- DSP.
- * MAILBOX 2: ARM -> IVA,
- * MAILBOX 3: ARM <- IVA.
+ * message sender
  */
-static struct mbox mbox_dsp = {
-	.name = "DSP",
-	.irq = INT_24XX_MAIL_U0_MPU,
-	.work = __WORK_INITIALIZER(mbox_dsp.work, do_mbox, &mbox_dsp),
-	.full_wait_q = __WAIT_QUEUE_HEAD_INITIALIZER(mbox_dsp.full_wait_q),
-
-	.irqenable    = (void *)MAILBOX_IRQENABLE_0,
-	.irqstatus    = (void *)MAILBOX_IRQSTATUS_0,
-	.message_w    = (void *)MAILBOX_MESSAGE_0,
-	.message_r    = (void *)MAILBOX_MESSAGE_1,
-	.fifostatus_w = (void *)MAILBOX_FIFOSTATUS_0,
-	.msgstatus_r  = (void *)MAILBOX_MSGSTATUS_1,
-	.notfull_bit  = MAILBOX_IRQ_NOTFULL(0),
-	.newmsg_bit   = MAILBOX_IRQ_NEWMSG(1),
-};
-static struct mbox mbox_iva = {
-	.name = "IVA",
-	.irq = INT_24XX_MAIL_U3_MPU,
-	.work = __WORK_INITIALIZER(mbox_iva.work, do_mbox, &mbox_iva),
-	.full_wait_q = __WAIT_QUEUE_HEAD_INITIALIZER(mbox_iva.full_wait_q),
-
-	.irqenable    = (void *)MAILBOX_IRQENABLE_3,
-	.irqstatus    = (void *)MAILBOX_IRQSTATUS_3,
-	.message_w    = (void *)MAILBOX_MESSAGE_2,
-	.message_r    = (void *)MAILBOX_MESSAGE_3,
-	.fifostatus_w = (void *)MAILBOX_FIFOSTATUS_2,
-	.msgstatus_r  = (void *)MAILBOX_MSGSTATUS_3,
-	.notfull_bit  = MAILBOX_IRQ_NOTFULL(2),
-	.newmsg_bit   = MAILBOX_IRQ_NEWMSG(3),
-};
-
-#endif /* CONFIG_ARCH_OMAP2 */
-
-static struct mbox *mboxes[] = {
-	&mbox_dsp,
-#ifdef CONFIG_ARCH_OMAP2
-	&mbox_iva,
-#endif
-};
-
-struct mbox *mbox_get(const char *id)
+int omap_mbox_msg_send(struct omap_mbox *mbox, mbox_msg_t msg, void* arg)
 {
-	int i;
+	int ret;
+	int i = 1000;
+	static DEFINE_MUTEX(msg_send_lock);
 
-	for (i = 0; i < ARRAY_SIZE(mboxes); i++) {
-		if (!strcmp(id, mboxes[i]->name))
-			return mboxes[i];
-	}
+	while (mbox_fifo_full(mbox)) {
+		if (mbox->ops->type == OMAP_MBOX_TYPE2) {
+			enable_mbox_irq(mbox, IRQ_TX);
+			wait_event_interruptible(mbox->tx_waitq,
+						 !mbox_fifo_full(mbox));
+		} else
+			udelay(1);
 
-	return ERR_PTR(-ENOENT);
-}
-
-#if defined(CONFIG_ARCH_OMAP1)
-static __inline__ int mbsync_irq_save(struct mbox *mbox, unsigned long *flags,
-				      int try_cnt)
-{
-	int cnt;
-
-	local_irq_save(*flags);
-	if (mbox_is_notfull(mbox))
-		return 0;
-	/*
-	 * mailbox is busy. wait for some usecs...
-	 */
-	local_irq_restore(*flags);
-	for (cnt = 0; cnt < try_cnt; cnt++) {
-		udelay(1);
-		local_irq_save(*flags);
-		if (mbox_is_notfull(mbox))	/* success! */
-			return 0;
-		local_irq_restore(*flags);
-	}
-
-	/* fail! */
-	return -1;
-}
-#elif defined(CONFIG_ARCH_OMAP2)
-static __inline__ int mbsync_irq_save(struct mbox *mbox, unsigned long *flags)
-{
-	long current_state;
-	DECLARE_WAITQUEUE(wait, current);
-
-	do {
-		local_irq_save(*flags);
-		if (mbox_is_notfull(mbox))
-			return 0;
-
-		/*
-		 * mailbox is busy.
-		 */
-		local_irq_restore(*flags);
-		enable_notfull_irq(mbox);
-
-		/* wait until the FIFO becomes not-full */
-		add_wait_queue(&mbox->full_wait_q, &wait);
-		current_state = current->state;
-		set_current_state(TASK_INTERRUPTIBLE);
-		if (!mbox_is_notfull(mbox))	/* last check */
-			schedule();
-		set_current_state(current_state);
-		remove_wait_queue(&mbox->full_wait_q, &wait);
-
-		if (signal_pending(current))
+		if (--i == 0)
 			return -1;
-	} while (1);
-}
-#endif
-
-/*
- * message dispatcher API
- */
-int mbox_send(struct mbox *mbox, mbox_msg_t msg)
-{
-	unsigned long flags;
-
-#if defined(CONFIG_ARCH_OMAP1)
-	/*
-	 * DSP mailbox interrupt latency must be less than 1ms.
-	 */
-	if (mbsync_irq_save(mbox, &flags, 1000) < 0) {
-		printk(KERN_ERR
-		       "mailbox(%s) is busy. message 0x%08x is aborting.\n",
-		       mbox->name, msg);
-		return -1;
 	}
-#elif defined(CONFIG_ARCH_OMAP2)
-	if (mbsync_irq_save(mbox, &flags) < 0)
-		return -1;
-#endif
 
-#ifdef MBOX_USE_SEQ_BIT
-	/* add seq_snd to msg */
-	msg = (msg & 0x7fffffff) | mbox->seq_snd;
-	/* flip seq_snd */
-	mbox->seq_snd ^= 1 << 31;
-#endif
 
-	write_mbox(mbox, msg);
+	mutex_lock(&msg_send_lock);
 
-	local_irq_restore(flags);
+	if (mbox->msg_sender_cb && arg) {
+		ret = mbox->msg_sender_cb(arg);
+		if (ret)
+			goto out;
+	}
+
+	mbox_seq_toggle(mbox, &msg);
+	mbox_fifo_write(mbox, msg);
+ out:
+	mutex_unlock(&msg_send_lock);
+
 	return 0;
 }
+EXPORT_SYMBOL(omap_mbox_msg_send);
 
 /*
- * register / unregister API
+ * Message receiver(workqueue)
  */
-int register_mbox_receiver(struct mbox *mbox, unsigned char cmd,
-			  mbox_receiver_t *rcv)
+static void mbox_msg_receiver(void *p)
 {
-	if (cmd >= MBOX_CMD_MAX) {
-		printk(KERN_ERR "register_mbox_receiver(): "
-		       "bad cmd (0x%x)\n", cmd);
-		return -EINVAL;
-	}
-	if (mbox->receiver_map[cmd] != NULL) {
-		printk(KERN_ERR "register_mbox_receiver(): cmd 0x%x is "
-		       "already reserved.\n", cmd);
-		return -EINVAL;
-	}
-
-	mbox->receiver_map[cmd] = rcv;
-	return 0;
-}
-
-int unregister_mbox_receiver(struct mbox *mbox, unsigned char cmd,
-			    mbox_receiver_t *rcv)
-{
-	if (cmd >= MBOX_CMD_MAX) {
-		printk(KERN_ERR "unregister_mbox_receiver(): "
-		       "bad cmd (0x%x)\n", cmd);
-		return -EINVAL;
-	}
-	if (mbox->receiver_map[cmd] != rcv) {
-		printk(KERN_ERR "unregister_mbox_receiver(): cmd 0x%x and "
-		       "receiver function mismatch!\n", cmd);
-		return -EINVAL;
-	}
-
-	mbox->receiver_map[cmd] = NULL;
-	return 0;
-}
-
-/*
- * IRQ disable / enable API
- */
-void disable_mbox_irq(struct mbox *mbox)
-{
-	disable_irq(mbox->irq);
-}
-
-void enable_mbox_irq(struct mbox *mbox)
-{
-	enable_irq(mbox->irq);
-}
-
-/*
- * init_seq API
- */
-void mbox_init_seq(struct mbox *mbox)
-{
-#ifdef MBOX_USE_SEQ_BIT
-	/* backward compatibility */
-	mbox->seq_snd = 0x80000000;
-
-	/* any value other than 0 and 1 << 31 */
-	mbox->seq_rcv = 0xffffffff;
-#endif /* MBOX_USE_SEQ_BIT */
-}
-
-/*
- * receiver workqueue
- */
-static void do_mbox(void *p)
-{
-	int empty = 0;
-	struct mbox *mbox = (struct mbox *)p;
-	struct mbq *mbq = &mbox->mbq;
-	mbox_receiver_t *receiver;
+	struct omap_mbox *mbox = (struct omap_mbox *)p;
+	struct omap_mbq *mbq = mbox->mbq;
 	mbox_msg_t msg;
-#ifdef MBOX_USE_SEQ_BIT
-	mbox_msg_t seq;
-#endif
 
-	disable_newmsg_irq(mbox);
-	if ((mbq->rp == mbq->wp) && !mbq->full)
-		empty = 1;
-	enable_newmsg_irq(mbox);
+	while (!mbq_empty(mbq)) {
+		msg = mbq_get(mbq);
+		enable_mbox_irq(mbox, IRQ_RX);
 
-	while (!empty) {
-		msg = mbq->msg[mbq->rp];
-#ifdef MBOX_USE_SEQ_BIT
-		seq = msg & (1 << 31);
-
-		if (seq == mbox->seq_rcv) {
+		if (unlikely(mbox_seq_test(mbox, msg))) {
 			printk(KERN_ERR
 			       "mbox: illegal seq bit! ignoring this command. "
 			       "(%08x)\n", msg);
-			goto inc;
+			continue;
 		}
-		mbox->seq_rcv = seq;
-#endif
 
-		/* call receiver function */
-		if ((receiver = mbox->receiver_map[(msg >> 24) & 0x7f]) == NULL)
-			printk(KERN_ERR
-			       "mbox: unknown message (%08x) received from "
-			       "%s.\n", msg, mbox->name);
-		else
-			receiver(msg);
-
-#ifdef MBOX_USE_SEQ_BIT
-inc:
-#endif
-		disable_newmsg_irq(mbox);
-		mbq_inc(mbq->rp);
-		if (mbq->rp == mbq->wp)
-			empty = 1;
-		/* if mbq has been full, now we have a room. */
-		if (mbq->full) {
-			mbq->full = 0;
-			enable_newmsg_irq(mbox);
-		}
-		enable_newmsg_irq(mbox);
+		if (likely(mbox->msg_receive_cb))
+			mbox->msg_receive_cb(msg);
 	}
 }
 
 /*
- * interrupt handler
+ * Mailbox interrupt handler
  */
-static irqreturn_t mbox_int_newmsg(int irq, void *p, struct pt_regs *regs)
+static irqreturn_t mbox_interrupt(int irq, void *p, struct pt_regs *regs)
 {
-	struct mbox *mbox = container_of(p, struct mbox, irq_devid_newmsg);
-	struct mbq *mbq = &mbox->mbq;
-	mbox_msg_t *msg;
+	mbox_msg_t msg;
+	struct omap_mbox *mbox = (struct omap_mbox *)p;
 
-#ifdef CONFIG_ARCH_OMAP2
-	/*
-	 * mailbox IRQ can be muxed.
-	 * if it is not a newmsg interrupt, do nothing.
-	 */
-	if (!has_newmsg_irq(mbox))
-		return IRQ_NONE;
-#endif
+	if (is_mbox_irq(mbox, IRQ_TX)) {
+		disable_mbox_irq(mbox, IRQ_TX);
+		/*
+		 * NOTE: this doesn't seeem to work as explained in the manual.
+		 * IRQSTATUS:NOTFULL can't be cleared even we write 1 to that bit.
+		 * It is always set when it's not full, regardless of IRQENABLE setting.
+		 */
+		ack_mbox_irq(mbox, IRQ_TX);
+		wake_up_interruptible_all(&mbox->tx_waitq);
+	}
 
-	do {
-#ifdef CONFIG_ARCH_OMAP2
-		if (mbox_nomsg(mbox)) {
-			/* no more messages in the fifo. clear IRQ source. */
-			clear_newmsg_irq(mbox);
-			break;
+	if (!is_mbox_irq(mbox, IRQ_RX))
+		return IRQ_HANDLED;
+
+	while (!mbox_fifo_empty(mbox)) {
+		msg = mbox_fifo_read(mbox);
+		if (mbq_add(mbox->mbq, msg)) {	/* mbq full */
+			disable_mbox_irq(mbox, IRQ_RX);
+			goto flush_queue;
 		}
-#endif
-
-		msg = &mbq->msg[mbq->wp];
-		read_mbox(mbox, msg);
-
-		mbq_inc(mbq->wp);
-		if (mbq->wp == mbq->rp) {	/* mbq is full */
-			mbq->full = 1;
-			disable_newmsg_irq(mbox);
+		if (mbox->ops->type == OMAP_MBOX_TYPE1)
 			break;
-		}
-#if defined(CONFIG_ARCH_OMAP1)
-	} while (0);	/* do it once */
-#elif defined(CONFIG_ARCH_OMAP2)
-	} while (1);
-#endif
+	}
 
-	schedule_work(&mbox->work);
+	/* no more messages in the fifo. clear IRQ source. */
+	ack_mbox_irq(mbox, IRQ_RX);
+ flush_queue:
+	schedule_work(&mbox->msg_receive);
+
 	return IRQ_HANDLED;
 }
 
-#ifdef CONFIG_ARCH_OMAP2
-static irqreturn_t mbox_int_notfull(int irq, void *p, struct pt_regs *regs)
+/*
+ * sysfs files
+ */
+static ssize_t mbox_attr_write(struct class_device *dev, const char *buf,
+			      size_t count)
 {
-	struct mbox *mbox = container_of(p, struct mbox, irq_devid_notfull);
+	int ret;
+	mbox_msg_t msg;
+	struct omap_mbox *mbox = class_get_devdata(dev);
 
-	/*
-	 * mailbox IRQ can be muxed.
-	 * if it is not a notfull interrupt, we do nothing.
-	 */
-#if 0
-	if (!has_notfull_irq(mbox))
-#else
-	if (!(has_notfull_irq(mbox) && notfull_irq_enabled(mbox)))
-#endif
-		return IRQ_NONE;
+	msg = (mbox_msg_t) simple_strtoul(buf, NULL, 16);
 
-	disable_notfull_irq(mbox);
+	ret = omap_mbox_msg_send(mbox, msg, NULL);
+	if (ret)
+		return -1;
 
-#if 0	/*
-	 * note: this doesn't seeem to work as explained in the manual.
-	 * IRQSTATUS:NOTFULL can't be cleared even we write 1 to that bit.
-	 * It is always set when it's not full, regardless of IRQENABLE setting.
-	 */
-	clear_notfull_irq(mbox);
-#endif
-
-	wake_up_interruptible_all(&mbox->full_wait_q);
-	return IRQ_HANDLED;
+	return count;
 }
-#endif /* CONFIG_ARCH_OMAP2 */
 
-static int __init mbox_request_irq(struct mbox *mbox, const char *devname)
+static ssize_t mbox_attr_read(struct class_device *dev, char *buf)
+{
+	struct omap_mbox *mbox = class_get_devdata(dev);
+
+	return sprintf(buf, mbox->name);
+}
+
+static CLASS_DEVICE_ATTR(mbox, S_IALLUGO, mbox_attr_read, mbox_attr_write);
+
+static ssize_t mbox_show(struct class *class, char *buf)
+{
+	return sprintf(buf, "mbox");
+}
+
+static CLASS_ATTR(mbox, S_IRUGO, mbox_show, NULL);
+
+static struct class omap_mbox_class = {
+	.name = "mbox",
+};
+
+static int omap_mbox_init(struct omap_mbox *mbox)
 {
 	int ret;
 
-#ifdef CONFIG_ARCH_OMAP2
-	enable_newmsg_irq(mbox);
-#endif
-
-	ret = request_irq(mbox->irq, mbox_int_newmsg, SA_INTERRUPT | SA_SHIRQ,
-			  devname, &mbox->irq_devid_newmsg);
-	if (ret) {
-		printk(KERN_ERR
-		       "failed to register DSP mailbox newmsg interrupt: "
-		       "%d\n", ret);
-		return ret;
+	if (likely(mbox->ops->startup)) {
+		ret = mbox->ops->startup(mbox);
+		if (unlikely(ret))
+			return ret;
 	}
 
-#ifdef CONFIG_ARCH_OMAP2
-	ret = request_irq(mbox->irq, mbox_int_notfull, SA_INTERRUPT | SA_SHIRQ,
-			  devname, &mbox->irq_devid_notfull);
-	if (ret) {
-		printk(KERN_ERR
-		       "failed to register DSP mailbox notfull interrupt: "
-		       "%d\n", ret);
+	mbox->class_dev.class = &omap_mbox_class;
+	strlcpy(mbox->class_dev.class_id, mbox->name, KOBJ_NAME_LEN);
+	class_set_devdata(&mbox->class_dev, mbox);
+
+	ret = class_device_register(&mbox->class_dev);
+	if (unlikely(ret))
 		return ret;
+
+	class_device_create_file(&mbox->class_dev, &class_device_attr_mbox);
+
+	ret = request_irq(mbox->irq, mbox_interrupt, SA_INTERRUPT,
+			  mbox->name, mbox);
+	if (unlikely(ret)) {
+		printk(KERN_ERR
+		       "failed to register mailbox interrupt:%d\n", ret);
+		goto fail1;
 	}
-#endif
+	enable_mbox_irq(mbox, IRQ_RX);
+
+	spin_lock_init(&mbox->lock);
+	INIT_WORK(&mbox->msg_receive, mbox_msg_receiver, mbox);
+	init_waitqueue_head(&mbox->tx_waitq);
+
+	ret = mbq_init(&mbox->mbq);
+	if (unlikely(ret))
+		goto fail2;
 
 	return 0;
+ fail2:
+	free_irq(mbox->irq, mbox);
+	class_remove_file(&omap_mbox_class, &class_attr_mbox);
+	class_unregister(&omap_mbox_class);
+ fail1:
+	if (unlikely(mbox->ops->shutdown))
+		mbox->ops->shutdown(mbox);
+
+	return ret;
 }
 
-static int __init omap_mailbox_init(void)
+static void omap_mbox_shutdown(struct omap_mbox *mbox)
 {
-	int ret;
-#ifdef CONFIG_ARCH_OMAP2
-	struct clk *mbox_ick_handle;
-#endif
+	free_irq(mbox->irq, mbox);
+	class_remove_file(&omap_mbox_class, &class_attr_mbox);
+	class_unregister(&omap_mbox_class);
 
-	printk(KERN_INFO "Initializing OMAP Mailboxes\n");
-#ifdef CONFIG_ARCH_OMAP2
-	/*
-	 * FIXME: mbox_ick will never unsed
-	 */
-	mbox_ick_handle = clk_get(NULL, "mailboxes_ick");
-	if (IS_ERR(mbox_ick_handle)) {
-		printk("Could not get mailboxes_ick\n");
-		return -ENODEV;
-	} else
-		clk_enable(mbox_ick_handle);
-#endif
-
-	if ((ret = mbox_request_irq(&mbox_dsp, "mbox_dsp")) != 0)
-		return ret;
-#ifdef CONFIG_ARCH_OMAP2
-	if ((ret = mbox_request_irq(&mbox_iva, "mbox_iva")) != 0)
-		return ret;
-#endif
-
-	return 0;
+	if (unlikely(mbox->ops->shutdown))
+		mbox->ops->shutdown(mbox);
 }
 
-arch_initcall(omap_mailbox_init);
+int omap_mbox_register(struct omap_mbox *mbox)
+{
+	int ret = 0;
+	struct omap_mbox **tmp;
 
-EXPORT_SYMBOL(mbox_get);
-EXPORT_SYMBOL(mbox_send);
-EXPORT_SYMBOL(register_mbox_receiver);
-EXPORT_SYMBOL(unregister_mbox_receiver);
-EXPORT_SYMBOL(disable_mbox_irq);
-EXPORT_SYMBOL(enable_mbox_irq);
-EXPORT_SYMBOL(mbox_init_seq);
+	if (!mbox)
+		return -EINVAL;
+	if (mbox->next)
+		return -EBUSY;
+
+	ret = omap_mbox_init(mbox);
+	if (ret)
+		return ret;
+
+	write_lock(&mboxes_lock);
+	tmp = find_mboxes(mbox->name);
+	if (*tmp)
+		ret = -EBUSY;
+	else
+		*tmp = mbox;
+	write_unlock(&mboxes_lock);
+
+	return ret;
+}
+EXPORT_SYMBOL(omap_mbox_register);
+
+int omap_mbox_unregister(struct omap_mbox *mbox)
+{
+	struct omap_mbox **tmp;
+
+	write_lock(&mboxes_lock);
+	tmp = &mboxes;
+	while (*tmp) {
+		if (mbox == *tmp) {
+			*tmp = mbox->next;
+			mbox->next = NULL;
+			write_unlock(&mboxes_lock);
+
+			omap_mbox_shutdown(mbox);
+
+			return 0;
+		}
+		tmp = &(*tmp)->next;
+	}
+	write_unlock(&mboxes_lock);
+
+	return -EINVAL;
+}
+EXPORT_SYMBOL(omap_mbox_unregister);
+
+static int __init omap_mbox_class_init(void)
+{
+	int ret = class_register(&omap_mbox_class);
+	if (!ret)
+		ret = class_create_file(&omap_mbox_class, &class_attr_mbox);
+
+	return ret;
+}
+
+static void __exit omap_mbox_class_exit(void)
+{
+	class_remove_file(&omap_mbox_class, &class_attr_mbox);
+	class_unregister(&omap_mbox_class);
+}
+
+subsys_initcall(omap_mbox_class_init);
+module_exit(omap_mbox_class_exit);

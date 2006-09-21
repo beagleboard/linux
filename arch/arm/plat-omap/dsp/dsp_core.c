@@ -34,12 +34,13 @@
 #include "dsp_mbcmd.h"
 #include "dsp.h"
 #include "ipbuf.h"
+#include "dsp_common.h"
 
 MODULE_AUTHOR("Toshihiro Kobayashi <toshihiro.kobayashi@nokia.com>");
 MODULE_DESCRIPTION("OMAP DSP driver module");
 MODULE_LICENSE("GPL");
 
-struct mbox *mbox_dsp;
+struct omap_mbox *mbox_dsp;
 static struct sync_seq *mbseq;
 static u16 mbseq_expect_tmp;
 static u16 *mbseq_expect = &mbseq_expect_tmp;
@@ -204,7 +205,7 @@ int __dsp_mbcmd_send_exarg(struct mbcmd *mb, struct mb_exarg *arg,
 
 	mblog_add(mb, DIR_A2D);
 
-	ret = mbox_send(mbox_dsp, *(mbox_msg_t *)mb);
+	ret = omap_mbox_msg_send(mbox_dsp, *(mbox_msg_t *)mb);
 
 out:
 	mutex_unlock(&mbsend_lock);
@@ -261,7 +262,7 @@ static int mbsync_hold_mem_active;
 
 void dsp_mbox_start(void)
 {
-	mbox_init_seq(mbox_dsp);
+	omap_mbox_init_seq(mbox_dsp);
 	mbseq_expect_tmp = 0;
 }
 
@@ -301,34 +302,20 @@ int dsp_mbox_config(void *p)
 
 static int __init dsp_mbox_init(void)
 {
-	int i;
-	int ret;
-
-	for (i = 0; i < MBOX_CMD_MAX; i++) {
-		if (cmdinfo[i] != NULL) {
-			ret = register_mbox_receiver(mbox_dsp, i, mbcmd_receiver);
-			if (ret)
-				goto fail;
-		}
+	mbox_dsp->mbox = omap_mbox_get("dsp");
+	if (IS_ERR(mbox_dsp)) {
+		printk(KERN_ERR "failed to get mailbox handler for DSP.\n");
+		return -ENODEV;
 	}
 
+	mbox_dsp->mbox->msg_receive_cb = mbcmd_receiver;
+
 	return 0;
-
-fail:
-	for (i--; i; i--)
-		unregister_mbox_receiver(mbox_dsp, i, mbcmd_receiver);
-
-	return ret;
 }
 
 static void dsp_mbox_exit(void)
 {
-	int i;
-
-	for (i = 0; i < MBOX_CMD_MAX; i++) {
-		if (cmdinfo[i] != NULL)
-			unregister_mbox_receiver(mbox_dsp, i, mbcmd_receiver);
-	}
+	mbox_dsp->mbox->msg_receive_cb = NULL;
 
 	if (mbsync_hold_mem_active) {
 		dsp_mem_disable((void *)daram_base);

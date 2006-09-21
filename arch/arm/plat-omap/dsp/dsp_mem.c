@@ -44,7 +44,6 @@
 #include <asm/arch/dsp_common.h>
 #include "uaccess_dsp.h"
 #include "dsp_mbcmd.h"
-#include "../mailbox_hw.h"
 #include "dsp.h"
 #include "ioctl.h"
 #include "ipbuf.h"
