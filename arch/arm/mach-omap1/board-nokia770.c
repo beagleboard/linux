@@ -212,7 +212,7 @@ static void nokia770_audio_pwr_down(void)
 	schedule_delayed_work(&codec_power_down_work, HZ / 20);	/* 50ms */
 }
 
-static void
+static int
 nokia770_audio_pwr_up_request(struct dsp_kfunc_device *kdev, int stage)
 {
 	down(&audio_pwr_sem);
@@ -221,9 +221,10 @@ nokia770_audio_pwr_up_request(struct dsp_kfunc_device *kdev, int stage)
 	/* force audio_pwr_state = 0, even if it was 1. */
 	audio_pwr_state = 0;
 	up(&audio_pwr_sem);
+	return 0;
 }
 
-static void
+static int
 nokia770_audio_pwr_down_request(struct dsp_kfunc_device *kdev, int stage)
 {
 	down(&audio_pwr_sem);
@@ -240,6 +241,7 @@ nokia770_audio_pwr_down_request(struct dsp_kfunc_device *kdev, int stage)
 		break;
 	}
 	up(&audio_pwr_sem);
+	return 0;
 }
 
 static struct dsp_kfunc_device nokia770_audio_device = {
@@ -263,7 +265,7 @@ static __init int omap_dsp_init(void)
 	if (ret) {
 		printk(KERN_ERR
 		       "KFUNC device registration faild: %s\n",
-		       dsp_audio_device.name);
+		       nokia770_audio_device.name);
 		goto out;
 	}
 	return 0;
