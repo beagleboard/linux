@@ -45,6 +45,8 @@ static struct sync_seq *mbseq;
 static u16 mbseq_expect_tmp;
 static u16 *mbseq_expect = &mbseq_expect_tmp;
 
+extern void dsp_mem_late_init(void);
+
 /*
  * mailbox commands
  */
@@ -511,6 +513,30 @@ static void mbox_kfunc(struct mbcmd *mb)
 	}
 }
 
+int dsp_late_init(void)
+{
+	int ret;
+
+	dsp_clk_autoidle();
+
+#ifdef CONFIG_ARCH_OMAP2
+	clk_enable(dsp_fck_handle);
+	clk_enable(dsp_ick_handle);
+	__dsp_per_enable();
+#endif
+	dsp_mem_late_init();
+
+#ifdef CONFIG_ARCH_OMAP1
+	dsp_set_idle_boot_base(IDLEPG_BASE, IDLEPG_SIZE);
+#endif
+	ret = dsp_kfunc_enable_devices(omap_dsp,
+				       DSP_KFUNC_DEV_TYPE_COMMON, 0);
+	if (ret == 0)
+		omap_dsp->enabled = 0;
+
+	return 0;
+}
+
 extern int  dsp_ctl_core_init(void);
 extern void dsp_ctl_core_exit(void);
 extern void dsp_ctl_init(void);
@@ -557,12 +583,6 @@ static int __init dsp_drv_probe(struct platform_device *pdev)
 		goto fail1;
 	}
 
-#ifdef CONFIG_ARCH_OMAP2
-	clk_enable(dsp_fck_handle);
-	clk_enable(dsp_ick_handle);
-	__dsp_per_enable();
-#endif
-
 	if ((ret = dsp_ctl_core_init()) < 0)
 		goto fail2;
 	if ((ret = dsp_mem_init()) < 0)
@@ -585,11 +605,6 @@ static int __init dsp_drv_probe(struct platform_device *pdev)
  fail3:
 	dsp_ctl_core_exit();
  fail2:
-#ifdef CONFIG_ARCH_OMAP2
-	__dsp_per_disable();
-	clk_disable(dsp_ick_handle);
-	clk_disable(dsp_fck_handle);
-#endif
  fail1:
 	dsp_kfunc_remove_devices(info);
  fail0:

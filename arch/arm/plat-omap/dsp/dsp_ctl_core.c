@@ -40,6 +40,20 @@ extern struct file_operations dsp_ctl_fops,
 
 static int dsp_ctl_core_open(struct inode *inode, struct file *file)
 {
+	static DEFINE_MUTEX(open_lock);
+	int ret = 0;
+
+	mutex_lock_interruptible(&open_lock);
+	if (omap_dsp->initialized == 0) {
+		ret = dsp_late_init();
+		if (ret != 0) {
+			mutex_unlock(&open_lock);
+			return ret;
+		}
+		omap_dsp->initialized = 1;
+	}
+	mutex_unlock(&open_lock);
+
 	switch (iminor(inode)) {
 	case CTL_MINOR:
 		file->f_op = &dsp_ctl_fops;

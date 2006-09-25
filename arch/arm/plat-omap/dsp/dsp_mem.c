@@ -2453,24 +2453,32 @@ void dsp_mem_stop(void)
 #endif
 }
 
-static char devid_mmu;
-
-int __init dsp_mem_init(void)
+/*
+ * later half of dsp memory initialization
+ */
+void dsp_mem_late_init(void)
 {
-	int i;
-	int ret = 0;
 #ifdef CONFIG_ARCH_OMAP2
+	int i;
 	int dspmem_pg_count;
 
 	dspmem_pg_count = dspmem_size >> 12;
 	for (i = 0; i < dspmem_pg_count; i++) {
 		dsp_ipi_write_reg(i, DSP_IPI_INDEX);
-		dsp_ipi_write_reg(DSP_IPI_ENTRY_ELMSIZEVALUE_16, DSP_IPI_ENTRY);
+		dsp_ipi_write_reg(DSP_IPI_ENTRY_ELMSIZEVALUE_16,
+				  DSP_IPI_ENTRY);
 	}
 	dsp_ipi_write_reg(1, DSP_IPI_ENABLE);
-
 	dsp_ipi_write_reg(IOMAP_VAL, DSP_IPI_IOMAP);
 #endif
+	dsp_mmu_init();
+}
+
+static char devid_mmu;
+
+int __init dsp_mem_init(void)
+{
+	int i, ret;
 
 	for (i = 0; i < DSP_MMU_TLB_LINES; i++)
 		exmap_tbl[i].valid = 0;
@@ -2482,10 +2490,6 @@ int __init dsp_mem_init(void)
 		       "for dsp vector table\n");
 		return -ENOMEM;
 	}
-	dsp_mmu_init();
-#ifdef CONFIG_ARCH_OMAP1
-	dsp_set_idle_boot_base(IDLEPG_BASE, IDLEPG_SIZE);
-#endif
 
 	/*
 	 * DSP MMU interrupt setup
@@ -2495,7 +2499,7 @@ int __init dsp_mem_init(void)
 	if (ret) {
 		printk(KERN_ERR
 		       "failed to register DSP MMU interrupt: %d\n", ret);
-		goto fail;
+		return ret;
 	}
 
 	/* MMU interrupt is not enabled until DSP runs */
@@ -2506,15 +2510,6 @@ int __init dsp_mem_init(void)
 	device_create_file(omap_dsp->dev, &dev_attr_mempool);
 
 	return 0;
-
-fail:
-#ifdef CONFIG_ARCH_OMAP1
-	dsp_reset_idle_boot_base();
-#endif
-	dsp_mmu_shutdown();
-	free_page((unsigned long)dspvect_page);
-	dspvect_page = NULL;
-	return ret;
 }
 
 void dsp_mem_exit(void)

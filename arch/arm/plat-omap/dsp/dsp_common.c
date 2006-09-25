@@ -305,8 +305,6 @@ static int __init omap_dsp_init(void)
 		return -ENODEV;
 	}
 
-	dsp_clk_autoidle();
-
 #if defined(CONFIG_ARCH_OMAP1)
 	dsp_ck_handle = clk_get(NULL, "dsp_ck");
 	if (IS_ERR(dsp_ck_handle)) {
@@ -347,12 +345,12 @@ static int __init omap_dsp_init(void)
 }
 
 #if defined(CONFIG_ARCH_OMAP1)
-static int dsp_late_init(void)
+static int __dsp_late_init(void)
 {
 	clk_disable(api_ck_handle);
 	return 0;
 }
-late_initcall(dsp_late_init);
+late_initcall(__dsp_late_init);
 #endif
 
 static void dsp_cpustat_update(void)
