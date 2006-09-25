@@ -630,8 +630,6 @@ static void __init omap1_clk_disable_unused(struct clk *clk)
 	printk(KERN_INFO "Disabling unused clock \"%s\"... ", clk->name);
 	clk->disable(clk);
 	printk(" done\n");
-
-	return 0;
 }
 
 #else
