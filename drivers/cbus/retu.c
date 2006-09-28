@@ -336,12 +336,12 @@ static int __devinit retu_probe(struct device *dev)
 
 	ret = request_irq(OMAP_GPIO_IRQ(retu_irq_pin), retu_irq_handler, 0,
 			  "retu", 0);
-
 	if (ret < 0) {
 		printk(KERN_ERR PFX "Unable to register IRQ handler\n");
 		omap_free_gpio(retu_irq_pin);
 		return ret;
 	}
+	set_irq_wake(OMAP_GPIO_IRQ(retu_irq_pin), 1);
 
 	/* Register power off function */
 	pm_power_off = retu_power_off;
