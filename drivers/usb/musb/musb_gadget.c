@@ -566,8 +566,7 @@ static void rxstate(struct musb *pThis, struct musb_request *req)
 
 	wCsrVal = MGC_ReadCsr16(pBase, MGC_O_HDRC_RXCSR, bEnd);
 
-#ifdef	CONFIG_USB_TI_CPPI_DMA
-	if (is_dma_capable() && pEnd->dma) {
+	if (is_cppi_enabled() && pEnd->dma) {
 		struct dma_controller	*c = pThis->pDmaController;
 		struct dma_channel	*channel = pEnd->dma;
 
@@ -593,7 +592,6 @@ static void rxstate(struct musb *pThis, struct musb_request *req)
 			return;
 		}
 	}
-#endif
 
 	if (wCsrVal & MGC_M_RXCSR_RXPKTRDY) {
 		wCount = MGC_ReadCsr16(pBase, MGC_O_HDRC_RXCOUNT, bEnd);

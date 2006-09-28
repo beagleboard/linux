@@ -1412,12 +1412,14 @@ void musb_dma_completion(struct musb *musb, u8 bLocalEnd, u8 bTransmit)
 	/* called with controller lock already held */
 
 	if (!bLocalEnd) {
-#if !(defined(CONFIG_USB_TI_CPPI_DMA) || defined(CONFIG_USB_TUSB_OMAP_DMA))
-		/* endpoint 0 */
-		if (devctl & MGC_M_DEVCTL_HM)
-			musb_h_ep0_irq(musb);
-		else
-			musb_g_ep0_irq(musb);
+#ifndef CONFIG_USB_TUSB_OMAP_DMA
+		if (!is_cppi_enabled()) {
+			/* endpoint 0 */
+			if (devctl & MGC_M_DEVCTL_HM)
+				musb_h_ep0_irq(musb);
+			else
+				musb_g_ep0_irq(musb);
+		}
 #endif
 	} else {
 		/* endpoints 1..15 */

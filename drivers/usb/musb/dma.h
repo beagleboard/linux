@@ -67,10 +67,10 @@ struct musb_hw_ep;
 #define	is_dma_capable()	(0)
 #endif
 
-#if defined(CONFIG_USB_TI_CPPI_DMA) && defined(CONFIG_USB_MUSB_HDRC_HCD)
-extern void cppi_hostdma_start(struct musb * pThis, u8 bEnd);
+#ifdef CONFIG_USB_TI_CPPI_DMA
+#define	is_cppi_enabled()	1
 #else
-static inline void cppi_hostdma_start(struct musb * pThis, u8 bEnd) {}
+#define	is_cppi_enabled()	0
 #endif
 
 

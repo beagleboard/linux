@@ -159,8 +159,7 @@ static int dump_ep(struct musb_ep *ep, char *buffer, unsigned max)
 		buf += code;
 		max -= code;
 
-#ifdef	CONFIG_USB_TI_CPPI_DMA
-		if (ep->bEndNumber) {
+		if (is_cppi_enabled() && ep->bEndNumber) {
 			unsigned	cppi = ep->bEndNumber - 1;
 			void __iomem	*base = ep->pThis->ctrl_base;
 			unsigned	off1 = cppi << 2;
@@ -196,7 +195,6 @@ static int dump_ep(struct musb_ep *ep, char *buffer, unsigned max)
 			buf += code;
 			max -= code;
 		}
-#endif
 
 		if (list_empty(&ep->req_list)) {
 			code = snprintf(buf, max, "\t(queue empty)\n");
@@ -294,8 +292,9 @@ dump_end_info(struct musb *pThis, u8 bEnd, char *aBuffer, unsigned max)
 				buf += code;
 				max -= code;
 
-#ifdef	CONFIG_USB_TI_CPPI_DMA
-				if (bEnd && pEnd->rx_channel) {
+				if (is_cppi_enabled()
+						&& bEnd
+						&& pEnd->rx_channel) {
 					unsigned	cppi = bEnd - 1;
 					unsigned	off1 = cppi << 2;
 					void __iomem	*base;
@@ -329,7 +328,7 @@ dump_end_info(struct musb *pThis, u8 bEnd, char *aBuffer, unsigned max)
 					buf += code;
 					max -= code;
 				}
-#endif
+
 				if (pEnd == pThis->bulk_ep
 						&& !list_empty(
 							&pThis->in_bulk)) {
@@ -378,8 +377,10 @@ dump_end_info(struct musb *pThis, u8 bEnd, char *aBuffer, unsigned max)
 				code = min(code, (int) max);
 				buf += code;
 				max -= code;
-#ifdef	CONFIG_USB_TI_CPPI_DMA
-				if (bEnd && pEnd->tx_channel) {
+
+				if (is_cppi_enabled()
+						&& bEnd
+						&& pEnd->tx_channel) {
 					unsigned	cppi = bEnd - 1;
 					void __iomem	*base;
 					void __iomem	*ram;
@@ -406,7 +407,7 @@ dump_end_info(struct musb *pThis, u8 bEnd, char *aBuffer, unsigned max)
 					buf += code;
 					max -= code;
 				}
-#endif
+
 				if (pEnd == pThis->control_ep
 						&& !list_empty(
 							&pThis->control)) {
@@ -563,8 +564,7 @@ static int dump_header_stats(struct musb *pThis, char *buffer)
 	buffer += code;
 #endif	/* DAVINCI */
 
-#ifdef	CONFIG_USB_TI_CPPI_DMA
-	if (pThis->pDmaController) {
+	if (is_cppi_enabled() && pThis->pDmaController) {
 		code = sprintf(buffer,
 				"CPPI: txcr=%d txsrc=%01x txena=%01x; "
 				"rxcr=%d rxsrc=%01x rxena=%01x "
@@ -586,7 +586,6 @@ static int dump_header_stats(struct musb *pThis, char *buffer)
 		count += code;
 		buffer += code;
 	}
-#endif	/* CPPI */
 
 #ifdef CONFIG_USB_GADGET_MUSB_HDRC
 	if (is_peripheral_enabled(pThis)) {

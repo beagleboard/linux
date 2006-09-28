@@ -266,11 +266,10 @@ static irqreturn_t davinci_interrupt(int irq, void *__hci, struct pt_regs *r)
 	 * resolve some of the races observed in this dispatch code??
 	 */
 
-#ifdef CONFIG_USB_TI_CPPI_DMA
 	/* CPPI interrupts share the same IRQ line, but have their own
 	 * mask, state, "vector", and EOI registers.
 	 */
-	{
+	if (is_cppi_enabled()) {
 		u32 cppi_tx = musb_readl(tibase, DAVINCI_TXCPPI_MASKED_REG);
 		u32 cppi_rx = musb_readl(tibase, DAVINCI_RXCPPI_MASKED_REG);
 
@@ -280,7 +279,6 @@ static irqreturn_t davinci_interrupt(int irq, void *__hci, struct pt_regs *r)
 			retval = IRQ_HANDLED;
 		}
 	}
-#endif
 
 	/* ack and handle non-CPPI interrupts */
 	tmp = musb_readl(tibase, DAVINCI_USB_INT_SRC_MASKED_REG);

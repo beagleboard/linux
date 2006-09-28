@@ -81,7 +81,6 @@ static inline struct musb_qh *first_qh(struct list_head *q)
 }
 
 
-extern void musb_h_tx_start(struct musb *, u8 bEnd);
 extern void musb_root_disconnect(struct musb *musb);
 
 struct usb_hcd;
