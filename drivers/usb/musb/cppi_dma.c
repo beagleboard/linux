@@ -3,6 +3,7 @@
  *
  * This file implements a DMA  interface using TI's CPPI DMA.
  * For now it's DaVinci-only, but CPPI isn't specific to DaVinci or USB.
+ * TUSB 6010 over VLYNQ has CPPI that looks much like DaVinci.
  */
 
 #include <linux/config.h>
@@ -679,11 +680,13 @@ cppi_next_tx_segment(struct musb *musb, struct cppi_channel *tx)
  * and the next packet goes into a buffer that's queued later; while (b) fills
  * the buffer with 1024 bytes.  How to do that with CPPI?
  *
- * - RX queues in "rndis" mode -- one single BD -- handle (a) correctly,
- *   but (b) loses _badly_ because nothing (!) happens when that second packet
+ * - RX queues in "rndis" mode -- one single BD -- handle (a) correctly, but
+ *   (b) loses **BADLY** because nothing (!) happens when that second packet
  *   fills the buffer, much less when a third one arrives.  (Which makes this
  *   not a "true" RNDIS mode.  In the RNDIS protocol short-packet termination
- *   is optional, and it's fine if senders pad messages out to end-of-buffer.)
+ *   is optional, and it's fine if peripherals -- not hosts! -- pad messages
+ *   out to end-of-buffer.  Standard PCI host controller DMA descriptors
+ *   implement that mode by default ... which is no accident.)
  *
  * - RX queues in "transparent" mode -- two BDs with 512 bytes each -- have
  *   converse problems:  (b) is handled right, but (a) loses badly.  CPPI RX
@@ -704,14 +707,44 @@ cppi_next_tx_segment(struct musb *musb, struct cppi_channel *tx)
  * of that garbaged datastream.
  *
  * But there seems to be no way to identify the cases where CPPI RNDIS mode
- * is appropriate -- which do NOT include the RNDIS driver, but do include
+ * is appropriate -- which do NOT include RNDIS host drivers, but do include
  * the CDC Ethernet driver! -- and the documentation is incomplete/wrong.
- * So we can't _ever_ use RX RNDIS mode.
+ * So we can't _ever_ use RX RNDIS mode ... except by using a heuristic
+ * that applies best on the peripheral side (and which could fail rudely).
  *
  * Leaving only "transparent" mode; we avoid multi-bd modes in almost all
  * cases other than mass storage class.  Otherwise we're correct but slow,
  * since CPPI penalizes our need for a "true RNDIS" default mode.
  */
+
+
+/* Heuristic, intended to kick in for ethernet/rndis peripheral ONLY
+ *
+ * IFF
+ *  (a)	peripheral mode ... since rndis peripherals could pad their
+ *	writes to hosts, causing i/o failure; or we'd have to cope with
+ *	a largely unknowable variety of host side protocol variants
+ *  (b)	and short reads are NOT errors ... since full reads would
+ *	cause those same i/o failures
+ *  (c)	and read length is
+ *	- less than 64KB (max per cppi descriptor)
+ *	- not a multiple of 4096 (g_zero default, full reads typical)
+ *	- N (>1) packets long, ditto (full reads not EXPECTED)
+ * THEN
+ *   try rx rndis mode
+ *
+ * Cost of heuristic failing:  RXDMA wedges at the end of transfers that
+ * fill out the whole buffer.  Buggy host side usb network drivers could
+ * trigger that, but "in the field" such bugs seem to be all but unknown.
+ *
+ * So this module parameter lets the heuristic be disabled.  When using
+ * gadgetfs, the heuristic will probably need to be disabled.
+ */
+static int cppi_rx_rndis = 1;
+
+module_param(cppi_rx_rndis, bool, 0);
+MODULE_PARM_DESC(cppi_rx_rndis, "enable/disable RX RNDIS heuristic");
+
 
 /**
  * cppi_next_rx_segment - dma read for the next chunk of a buffer
@@ -723,7 +756,7 @@ cppi_next_tx_segment(struct musb *musb, struct cppi_channel *tx)
  *
  * See above notes about why we can't use multi-BD RX queues except in
  * rare cases (mass storage class), and can never use the hardware "rndis"
- * mode (since it's not a "true" RNDIS mode).
+ * mode (since it's not a "true" RNDIS mode) with complete safety..
  *
  * It's ESSENTIAL that callers specify "onepacket" mode unless they kick in
  * code to recover from corrupted datastreams after each short transfer.
@@ -738,10 +771,24 @@ cppi_next_rx_segment(struct musb *musb, struct cppi_channel *rx, int onepacket)
 	unsigned		n_bds;
 	unsigned		i;
 	void			*__iomem tibase = musb->ctrl_base;
+	int			is_rndis = 0;
 
 	if (onepacket) {
+		/* almost every USB driver, host or peripheral side */
 		n_bds = 1;
+
+		/* maybe apply the heuristic above */
+		if (cppi_rx_rndis
+				&& is_peripheral_active(musb)
+				&& length > maxpacket
+				&& (length & ~0xffff) == 0
+				&& (length & 0x0fff) != 0
+				&& (length & (maxpacket - 1)) == 0) {
+			maxpacket = length;
+			is_rndis = 1;
+		}
 	} else {
+		/* virtually nothing except mass storage class */
 		if (length > 0xffff) {
 			n_bds = 0xffff / maxpacket;
 			length = n_bds * maxpacket;
@@ -764,12 +811,16 @@ cppi_next_rx_segment(struct musb *musb, struct cppi_channel *rx, int onepacket)
 	if (is_host_active(musb))
 		n_bds = cppi_autoreq_update(rx, tibase, onepacket, n_bds);
 
+	cppi_rndis_update(rx, 1, musb->ctrl_base, is_rndis);
+
 	length = min(n_bds * maxpacket, length);
 
-	DBG(4, "RX DMA%d seg, maxp %d %spacket bds %d (cnt %d) "
+	DBG(4, "RX DMA%d seg, maxp %d %s bds %d (cnt %d) "
 			"dma 0x%x len %u %u/%u\n",
 			rx->chNo, maxpacket,
-			onepacket ? "one" : "multi",
+			onepacket
+				? (is_rndis ? "rndis" : "onepacket")
+				: "multipacket",
 			n_bds,
 			musb_readl(tibase,
 				DAVINCI_RXCPPI_BUFCNT0_REG + (rx->chNo * 4))
