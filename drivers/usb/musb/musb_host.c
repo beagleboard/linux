@@ -243,14 +243,12 @@ start:
 	}
 }
 
-/* caller owns no controller locks, irqs are blocked */
-static inline void
-__musb_giveback(struct musb_hw_ep *hw_ep, struct urb *urb, int status)
-__releases(urb->lock)
-__acquires(urb->lock)
+/* caller owns controller lock, irqs are blocked */
+static void
+__musb_giveback(struct musb *musb, struct urb *urb, int status)
+__releases(musb->Lock)
+__acquires(musb->Lock)
 {
-	struct musb	*musb = hw_ep->musb;
-
 	if ((urb->transfer_flags & URB_SHORT_NOT_OK)
 			&& (urb->actual_length < urb->transfer_buffer_length)
 			&& status == 0
@@ -270,6 +268,7 @@ __acquires(urb->lock)
 				/* common/boring faults */
 				case -EREMOTEIO:
 				case -ESHUTDOWN:
+				case -ECONNRESET:
 				case -EPIPE:
 					level = 3;
 					break;
@@ -285,7 +284,9 @@ __acquires(urb->lock)
 			urb->actual_length, urb->transfer_buffer_length
 			);
 
+	spin_unlock(&musb->Lock);
 	usb_hcd_giveback_urb(musb_to_hcd(musb), urb, musb->int_regs);
+	spin_lock(&musb->Lock);
 }
 
 /* for bulk/interrupt endpoints only */
@@ -323,8 +324,6 @@ static inline void musb_save_toggle(struct musb_hw_ep *ep, int is_in, struct urb
 /* caller owns controller lock, irqs are blocked */
 static struct musb_qh *
 musb_giveback(struct musb_qh *qh, struct urb *urb, int status)
-__releases(qh->hw_ep->musb->Lock)
-__acquires(qh->hw_ep->musb->Lock)
 {
 	int			is_in;
 	struct musb_hw_ep	*ep = qh->hw_ep;
@@ -349,9 +348,7 @@ __acquires(qh->hw_ep->musb->Lock)
 	}
 
 	qh->is_ready = 0;
-	spin_unlock(&musb->Lock);
-	__musb_giveback(ep, urb, status);
-	spin_lock(&musb->Lock);
+	__musb_giveback(musb, urb, status);
 	qh->is_ready = ready;
 
 	/* reclaim resources (and bandwidth) ASAP; deschedule it, and
@@ -1744,7 +1741,7 @@ static int musb_schedule(
 		else
 			diff = hw_ep->wMaxPacketSizeTx - qh->maxpacket;
 
-		if (wBestDiff > diff) {
+		if (diff > 0 && wBestDiff > diff) {
 			wBestDiff = diff;
 			nBestEnd = nEnd;
 		}
@@ -2018,7 +2015,7 @@ static int musb_urb_dequeue(struct usb_hcd *hcd, struct urb *urb)
 	 * has already been updated.  This is a synchronous abort; it'd be
 	 * OK to hold off until after some IRQ, though.
 	 */
-	if (urb->urb_list.prev != &qh->hep->urb_list)
+	if (!qh->is_ready || urb->urb_list.prev != &qh->hep->urb_list)
 		status = -EINPROGRESS;
 	else {
 		switch (qh->type) {
@@ -2043,8 +2040,12 @@ static int musb_urb_dequeue(struct usb_hcd *hcd, struct urb *urb)
 
 	/* NOTE:  qh is invalid unless !list_empty(&hep->urb_list) */
 	if (status < 0 || (sched && qh != first_qh(sched))) {
-		status = -EINPROGRESS;
-		musb_giveback(qh, urb, 0);
+		int	ready = qh->is_ready;
+
+		status = 0;
+		qh->is_ready = 0;
+		__musb_giveback(musb, urb, 0);
+		qh->is_ready = ready;
 	} else
 		status = musb_cleanup_urb(urb, qh, urb->pipe & USB_DIR_IN);
 done:
