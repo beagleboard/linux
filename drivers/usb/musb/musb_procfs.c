@@ -91,6 +91,8 @@ static int dump_qh(struct musb_qh *qh, char *buf, unsigned max)
 				s = "iso"; break;
 			}; s; }),
 			qh->maxpacket);
+	if (count <= 0)
+		return 0;
 	buf += count;
 	max -= count;
 
@@ -99,7 +101,7 @@ static int dump_qh(struct musb_qh *qh, char *buf, unsigned max)
 				usb_pipein(urb->pipe) ? "in" : "out",
 				urb, urb->actual_length,
 				urb->transfer_buffer_length);
-		if (tmp < 0)
+		if (tmp <= 0)
 			break;
 		tmp = min(tmp, (int)max);
 		count += tmp;
@@ -119,7 +121,7 @@ dump_queue(struct list_head *q, char *buf, unsigned max)
 		int	tmp;
 
 		tmp = dump_qh(qh, buf, max);
-		if (tmp < 0)
+		if (tmp <= 0)
 			break;
 		tmp = min(tmp, (int)max);
 		count += tmp;
@@ -137,14 +139,23 @@ static int dump_ep(struct musb_ep *ep, char *buffer, unsigned max)
 	char		*buf = buffer;
 	int		code = 0;
 	void __iomem	*regs = ep->hw_ep->regs;
+	char		*mode = "1buf";
+
+	if (ep->is_in) {
+		if (ep->hw_ep->tx_double_buffered)
+			mode = "2buf";
+	} else {
+		if (ep->hw_ep->rx_double_buffered)
+			mode = "2buf";
+	}
 
 	do {
 		struct usb_request	*req;
 
 		code = snprintf(buf, max,
-				"\n%s (hw%d): %scsr %04x maxp %04x\n",
+				"\n%s (hw%d): %s%s, csr %04x maxp %04x\n",
 				ep->name, ep->bEndNumber,
-				ep->dma ? "dma, " : "",
+				mode, ep->dma ? " dma" : "",
 				musb_readw(regs,
 					(ep->is_in || !ep->bEndNumber)
 						? MGC_O_HDRC_TXCSR
@@ -153,7 +164,7 @@ static int dump_ep(struct musb_ep *ep, char *buffer, unsigned max)
 						? MGC_O_HDRC_TXMAXP
 						: MGC_O_HDRC_RXMAXP)
 				);
-		if (code < 0)
+		if (code <= 0)
 			break;
 		code = min(code, (int) max);
 		buf += code;
@@ -189,7 +200,7 @@ static int dump_ep(struct musb_ep *ep, char *buffer, unsigned max)
 				musb_readl(ram, 5 * 4),
 				musb_readl(ram, 6 * 4),
 				musb_readl(ram, 7 * 4));
-			if (code < 0)
+			if (code <= 0)
 				break;
 			code = min(code, (int) max);
 			buf += code;
@@ -198,7 +209,7 @@ static int dump_ep(struct musb_ep *ep, char *buffer, unsigned max)
 
 		if (list_empty(&ep->req_list)) {
 			code = snprintf(buf, max, "\t(queue empty)\n");
-			if (code < 0)
+			if (code <= 0)
 				break;
 			code = min(code, (int) max);
 			buf += code;
@@ -211,14 +222,14 @@ static int dump_ep(struct musb_ep *ep, char *buffer, unsigned max)
 					req->zero ? "zero, " : "",
 					req->short_not_ok ? "!short, " : "",
 					req->actual, req->length);
-			if (code < 0)
+			if (code <= 0)
 				break;
 			code = min(code, (int) max);
 			buf += code;
 			max -= code;
 		}
 	} while(0);
-	return (buf > buffer) ? (buf - buffer) : code;
+	return buf - buffer;
 }
 #endif
 
@@ -260,17 +271,15 @@ dump_end_info(struct musb *pThis, u8 bEnd, char *aBuffer, unsigned max)
 			/* END TEMPORARY */
 
 
-			/* FIXME for rx and tx dump hardware fifo and
-			 * double-buffer flags ... and make register and stat
-			 * dumps (mostly) usable on the peripheral side too
-			 */
 			if (dump_rx) {
 				code = snprintf(buf, max,
-					"\nRX%d:  rxcsr %04x interval %02x "
+					"\nRX%d: %s rxcsr %04x interval %02x "
 					"max %04x type %02x; "
 					"dev %d hub %d port %d"
 					"\n",
 					bEnd,
+					pEnd->rx_double_buffered
+						? "2buf" : "1buf",
 					musb_readw(regs, MGC_O_HDRC_RXCSR),
 					musb_readb(regs, MGC_O_HDRC_RXINTERVAL),
 					musb_readw(regs, MGC_O_HDRC_RXMAXP),
@@ -286,7 +295,7 @@ dump_end_info(struct musb *pThis, u8 bEnd, char *aBuffer, unsigned max)
 						MGC_BUSCTL_OFFSET(bEnd,
 						MGC_O_HDRC_RXHUBPORT))
 					);
-				if (code < 0)
+				if (code <= 0)
 					break;
 				code = min(code, (int) max);
 				buf += code;
@@ -322,7 +331,7 @@ dump_end_info(struct musb *pThis, u8 bEnd, char *aBuffer, unsigned max)
 						musb_readl(ram, 5 * 4),
 						musb_readl(ram, 6 * 4),
 						musb_readl(ram, 7 * 4));
-					if (code < 0)
+					if (code <= 0)
 						break;
 					code = min(code, (int) max);
 					buf += code;
@@ -334,7 +343,7 @@ dump_end_info(struct musb *pThis, u8 bEnd, char *aBuffer, unsigned max)
 							&pThis->in_bulk)) {
 					code = dump_queue(&pThis->in_bulk,
 							buf, max);
-					if (code < 0)
+					if (code <= 0)
 						break;
 					code = min(code, (int) max);
 					buf += code;
@@ -342,7 +351,7 @@ dump_end_info(struct musb *pThis, u8 bEnd, char *aBuffer, unsigned max)
 				} else if (pThis->periodic[bEnd]) {
 					code = dump_qh(pThis->periodic[bEnd],
 							buf, max);
-					if (code < 0)
+					if (code <= 0)
 						break;
 					code = min(code, (int) max);
 					buf += code;
@@ -352,11 +361,13 @@ dump_end_info(struct musb *pThis, u8 bEnd, char *aBuffer, unsigned max)
 
 			if (dump_tx) {
 				code = snprintf(buf, max,
-					"\nTX%d:  txcsr %04x interval %02x "
+					"\nTX%d: %s txcsr %04x interval %02x "
 					"max %04x type %02x; "
 					"dev %d hub %d port %d"
 					"\n",
 					bEnd,
+					pEnd->tx_double_buffered
+						? "2buf" : "1buf",
 					musb_readw(regs, MGC_O_HDRC_TXCSR),
 					musb_readb(regs, MGC_O_HDRC_TXINTERVAL),
 					musb_readw(regs, MGC_O_HDRC_TXMAXP),
@@ -372,7 +383,7 @@ dump_end_info(struct musb *pThis, u8 bEnd, char *aBuffer, unsigned max)
 						MGC_BUSCTL_OFFSET(bEnd,
 						MGC_O_HDRC_TXHUBPORT))
 					);
-				if (code < 0)
+				if (code <= 0)
 					break;
 				code = min(code, (int) max);
 				buf += code;
@@ -401,7 +412,7 @@ dump_end_info(struct musb *pThis, u8 bEnd, char *aBuffer, unsigned max)
 						musb_readl(ram, 5 * 4),
 						musb_readl(ram, 6 * 4),
 						musb_readl(ram, 7 * 4));
-					if (code < 0)
+					if (code <= 0)
 						break;
 					code = min(code, (int) max);
 					buf += code;
@@ -413,7 +424,7 @@ dump_end_info(struct musb *pThis, u8 bEnd, char *aBuffer, unsigned max)
 							&pThis->control)) {
 					code = dump_queue(&pThis->control,
 							buf, max);
-					if (code < 0)
+					if (code <= 0)
 						break;
 					code = min(code, (int) max);
 					buf += code;
@@ -423,7 +434,7 @@ dump_end_info(struct musb *pThis, u8 bEnd, char *aBuffer, unsigned max)
 							&pThis->out_bulk)) {
 					code = dump_queue(&pThis->out_bulk,
 							buf, max);
-					if (code < 0)
+					if (code <= 0)
 						break;
 					code = min(code, (int) max);
 					buf += code;
@@ -431,7 +442,7 @@ dump_end_info(struct musb *pThis, u8 bEnd, char *aBuffer, unsigned max)
 				} else if (pThis->periodic[bEnd]) {
 					code = dump_qh(pThis->periodic[bEnd],
 							buf, max);
-					if (code < 0)
+					if (code <= 0)
 						break;
 					code = min(code, (int) max);
 					buf += code;
@@ -446,7 +457,7 @@ dump_end_info(struct musb *pThis, u8 bEnd, char *aBuffer, unsigned max)
 
 			if (pEnd->ep_in.desc || !bEnd) {
 				code = dump_ep(&pEnd->ep_in, buf, max);
-				if (code < 0)
+				if (code <= 0)
 					break;
 				code = min(code, (int) max);
 				buf += code;
@@ -454,7 +465,7 @@ dump_end_info(struct musb *pThis, u8 bEnd, char *aBuffer, unsigned max)
 			}
 			if (pEnd->ep_out.desc) {
 				code = dump_ep(&pEnd->ep_out, buf, max);
-				if (code < 0)
+				if (code <= 0)
 					break;
 				code = min(code, (int) max);
 				buf += code;
@@ -483,15 +494,15 @@ static int dump_header_stats(struct musb *pThis, char *buffer)
 			(pThis->bIsMultipoint ? "M" : ""), MUSB_MODE(pThis),
 			musb_readb(pBase, MGC_O_HDRC_POWER),
 			musb_readb(pBase, MGC_O_HDRC_DEVCTL));
-	if (count < 0)
-		return count;
+	if (count <= 0)
+		return 0;
 	buffer += count;
 
 	code = sprintf(buffer, "OTG state: %s; %sactive\n",
 			otg_state_string(pThis),
 			pThis->is_active ? "" : "in");
-	if (code < 0)
-		return code;
+	if (code <= 0)
+		goto done;
 	buffer += code;
 	count += code;
 
@@ -519,8 +530,8 @@ static int dump_header_stats(struct musb *pThis, char *buffer)
 			", debug=%d [eps=%d]\n",
 		debug,
 		pThis->bEndCount);
-	if (code < 0)
-		return code;
+	if (code <= 0)
+		goto done;
 	count += code;
 	buffer += code;
 
@@ -538,8 +549,8 @@ static int dump_header_stats(struct musb *pThis, char *buffer)
 					DAVINCI_USB_INT_SOURCE_REG),
 			musb_readl(pThis->ctrl_base,
 					DAVINCI_USB_INT_MASK_REG));
-	if (code < 0)
-		return count;
+	if (code <= 0)
+		goto done;
 	count += code;
 	buffer += code;
 #endif	/* DAVINCI */
@@ -558,8 +569,8 @@ static int dump_header_stats(struct musb *pThis, char *buffer)
 			musb_readl(pThis->ctrl_base, TUSB_PRCM_CONF),
 			musb_readl(pThis->ctrl_base, TUSB_PRCM_MNGMT),
 			musb_readl(pThis->ctrl_base, TUSB_INT_MASK));
-	if (code < 0)
-		return count;
+	if (code <= 0)
+		goto done;
 	count += code;
 	buffer += code;
 #endif	/* DAVINCI */
@@ -581,8 +592,8 @@ static int dump_header_stats(struct musb *pThis, char *buffer)
 						DAVINCI_RXCPPI_RAW_REG),
 				musb_readl(pThis->ctrl_base,
 						DAVINCI_RXCPPI_INTENAB_REG));
-		if (code < 0)
-			return count;
+		if (code <= 0)
+			goto done;
 		count += code;
 		buffer += code;
 	}
@@ -593,13 +604,14 @@ static int dump_header_stats(struct musb *pThis, char *buffer)
 				pThis->pGadgetDriver
 					? pThis->pGadgetDriver->driver.name
 					: "(none)");
-		if (code < 0)
-			return code;
+		if (code <= 0)
+			goto done;
 		count += code;
 		buffer += code;
 	}
 #endif
 
+done:
 	return count;
 }
 
@@ -746,7 +758,7 @@ static int musb_proc_read(char *page, char **start,
 
 	count -= off;
 	count -= 1;		/* for NUL at end */
-	if (count < 0)
+	if (count <= 0)
 		return -EINVAL;
 
 	spin_lock_irqsave(&pThis->Lock, flags);
@@ -773,7 +785,7 @@ static int musb_proc_read(char *page, char **start,
 	spin_unlock_irqrestore(&pThis->Lock, flags);
 	*eof = 1;
 
-	return (buffer - page) - off;
+	return buffer - page;
 }
 
 void __devexit musb_debug_delete(char *name, struct musb *musb)
