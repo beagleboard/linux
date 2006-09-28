@@ -9,8 +9,10 @@
  * for more details.
  */
 
-#include <linux/config.h>
 #include <linux/kernel.h>
+#include <linux/resource.h>
+#include <linux/interrupt.h>
+#include <linux/platform_device.h>
 #include <asm/arch/mailbox.h>
 #include <asm/arch/irqs.h>
 #include <asm/io.h>
@@ -28,9 +30,9 @@
 unsigned long mbox_base;
 
 struct omap_mbox1_fifo {
-	void *cmd;
-	void *data;
-	void *flag;
+	unsigned long cmd;
+	unsigned long data;
+	unsigned long flag;
 };
 
 struct omap_mbox1_priv {
@@ -51,7 +53,8 @@ static inline void mbox_write_reg(unsigned int val, unsigned int reg)
 /* msg */
 static inline mbox_msg_t omap1_mbox_fifo_read(struct omap_mbox *mbox)
 {
-	struct omap_mbox1_fifo *fifo = &((struct omap_mbox1_priv *)mbox->priv)->rx_fifo;
+	struct omap_mbox1_fifo *fifo =
+		&((struct omap_mbox1_priv *)mbox->priv)->rx_fifo;
 	mbox_msg_t msg;
 
 	msg = mbox_read_reg(fifo->data);
@@ -60,9 +63,11 @@ static inline mbox_msg_t omap1_mbox_fifo_read(struct omap_mbox *mbox)
 	return msg;
 }
 
-static inline void omap1_mbox_fifo_write(struct omap_mbox *mbox, mbox_msg_t msg)
+static inline void
+omap1_mbox_fifo_write(struct omap_mbox *mbox, mbox_msg_t msg)
 {
-	struct omap_mbox1_fifo *fifo = &((struct omap_mbox1_priv *)mbox->priv)->rx_fifo;
+	struct omap_mbox1_fifo *fifo =
+		&((struct omap_mbox1_priv *)mbox->priv)->rx_fifo;
 
 	mbox_write_reg(msg & 0xffff, fifo->data);
 	mbox_write_reg(msg >> 16, fifo->cmd);
@@ -75,23 +80,29 @@ static inline int omap1_mbox_fifo_empty(struct omap_mbox *mbox)
 
 static inline int omap1_mbox_fifo_full(struct omap_mbox *mbox)
 {
+	struct omap_mbox1_fifo *fifo =
+		&((struct omap_mbox1_priv *)mbox->priv)->rx_fifo;
+
 	return (mbox_read_reg(fifo->flag));
 }
 
 /* irq */
-static inline void omap1_mbox_enable_irq(struct omap_mbox *mbox, omap_mbox_type_t irq)
+static inline void
+omap1_mbox_enable_irq(struct omap_mbox *mbox, omap_mbox_type_t irq)
 {
 	if (irq == IRQ_RX)
 		enable_irq(mbox->irq);
 }
 
-static inline void omap1_mbox_disable_irq(struct omap_mbox *mbox, omap_mbox_type_t irq)
+static inline void
+omap1_mbox_disable_irq(struct omap_mbox *mbox, omap_mbox_type_t irq)
 {
 	if (irq == IRQ_RX)
-		disble_irq(mbox->irq);
+		disable_irq(mbox->irq);
 }
 
-static inline int omap1_mbox_is_irq(struct omap_mbox *mbox, omap_mbox_type_t irq)
+static inline int
+omap1_mbox_is_irq(struct omap_mbox *mbox, omap_mbox_type_t irq)
 {
 	if (irq == IRQ_TX)
 		return 0;
@@ -111,22 +122,22 @@ struct omap_mbox_ops omap1_mbox_ops = {
 /* FIXME: the following struct should be created automatically by the user id  */
 
 /* DSP */
-static struct omap_mbox2_priv omap1_mbox_dsp_priv = {
+static struct omap_mbox1_priv omap1_mbox_dsp_priv = {
 	.tx_fifo = {
-		.cmd = (void *)MAILBOX_ARM2DSP1b,
-		.data = (void *)MAILBOX_ARM2DSP1,
-		.flag = (void *)MAILBOX_ARM2DSP1_Flag,
+		.cmd  = MAILBOX_ARM2DSP1b,
+		.data =	MAILBOX_ARM2DSP1,
+		.flag =	MAILBOX_ARM2DSP1_Flag,
 	},
 	.rx_fifo = {
-		.cmd = (void *)MAILBOX_DSP2ARM1b,
-		.data = (void *)MAILBOX_DSP2ARM1,
-		.flag = (void *)MAILBOX_DSP2ARM1_Flag,
+		.cmd  = MAILBOX_DSP2ARM1b,
+		.data =	MAILBOX_DSP2ARM1,
+		.flag =	MAILBOX_DSP2ARM1_Flag,
 	},
 };
 
 struct omap_mbox mbox_dsp_info = {
 	.name = "DSP",
-	.ops = &omap1_mbox_ops,
+	.ops  = &omap1_mbox_ops,
 	.priv = &omap1_mbox_dsp_priv,
 };
 
@@ -170,7 +181,7 @@ static int omap1_mbox_remove(struct platform_device *pdev)
 }
 
 static struct platform_driver omap1_mbox_driver = {
-	.probe = omap1_mbox_probe,
+	.probe	= omap1_mbox_probe,
 	.remove = omap1_mbox_remove,
 	.driver = {
 		.name = "mailbox",

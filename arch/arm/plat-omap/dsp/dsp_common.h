@@ -189,6 +189,7 @@ struct omap_dsp {
 	struct omap_mbox	*mbox;
 	struct device		*dev;
 	struct list_head 	*kdev_list;
+	int			initialized;
 };
 
 #if defined(CONFIG_ARCH_OMAP1)
@@ -202,5 +203,7 @@ struct omap_dsp {
 #endif
 
 extern struct omap_dsp *omap_dsp;
+
+extern int dsp_late_init(void);
 
 #endif /* DRIVER_DSP_COMMON_H */

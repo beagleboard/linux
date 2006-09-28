@@ -190,5 +190,8 @@
 #define WSPR_DISABLE_0         (0x0000aaaa)
 #define WSPR_DISABLE_1         (0x00005555)
 
+/* Mailbox */
+#define OMAP16XX_MAILBOX_BASE	(0xfffcf000)
+
 #endif /*  __ASM_ARCH_OMAP16XX_H */
 
