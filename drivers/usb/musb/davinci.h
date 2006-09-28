@@ -20,9 +20,9 @@
 #define	USBPHY_SESNDEN		(1 << 7)	/* v(sess_end) comparator */
 #define	USBPHY_VBDTCTEN		(1 << 6)	/* v(bus) comparator */
 #define	USBPHY_PHYPLLON		(1 << 4)	/* override pll suspend */
-#define	USBPHY_CLK01SEL		(1 << 3)
+#define	USBPHY_CLKO1SEL		(1 << 3)
 #define	USBPHY_OSCPDWN		(1 << 2)
-#define	USBPHY_PHYSPDWN		(1 << 0)
+#define	USBPHY_PHYPDWN		(1 << 0)
 
 /* For now include usb OTG module registers here */
 #define DAVINCI_USB_VERSION_REG		0x00

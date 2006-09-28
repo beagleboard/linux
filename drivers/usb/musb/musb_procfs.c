@@ -42,6 +42,7 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <asm/uaccess.h>	/* FIXME remove procfs writes */
+#include <asm/arch/hardware.h>
 
 #include "musbdefs.h"
 

@@ -78,17 +78,6 @@
  *        exist tend to be severely undercommitted.  You can't yet hook
  *        up both a keyboard and a mouse to an external USB hub.
  *
- *      * Host side doesn't understand that hardware endpoints have two
- *        directions, so it uses only half the resources available on
- *        chips like DaVinci or TUSB 6010.
- *
- *		+++	PARTIALLY RESOLVED	+++
- *
- *        RESULT:  On DaVinci (and TUSB 6010), only one external device may
- *        use periodic transfers, other than the hub used to connect it.
- *        (And if it were to understand, there would still be limitations
- *        because of the lack of periodic endpoint scheduling.)
- *
  *  - Provides its own OTG bits.  These are untested, and many of them
  *    seem to be superfluous code bloat given what usbcore does.  (They
  *    have now been partially removed.)
@@ -416,7 +405,7 @@ static irqreturn_t musb_stage0_irq(struct musb * pThis, u8 bIntrUSB,
 #ifdef CONFIG_USB_MUSB_HDRC_HCD
 	/* see manual for the order of the tests */
 	if (bIntrUSB & MGC_M_INTR_SESSREQ) {
-		DBG(1, "SESSION_REQUEST (%d)\n", pThis->xceiv.state);
+		DBG(1, "SESSION_REQUEST (%s)\n", otg_state_string(pThis));
 
 		/* IRQ arrives from ID pin sense or (later, if VBUS power
 		 * is removed) SRP.  responses are time critical:
@@ -660,11 +649,9 @@ static irqreturn_t musb_stage2_irq(struct musb * pThis, u8 bIntrUSB,
 void musb_start(struct musb *musb)
 {
 	void __iomem	*regs = musb->pRegs;
-	u8		devctl;
+	u8		devctl = musb_readb(regs, MGC_O_HDRC_DEVCTL);
 
-	DBG(2, "<==\n");
-
-	/* TODO: always set ISOUPDATE in POWER (periph mode) and leave it on! */
+	DBG(2, "<== devctl %02x\n", devctl);
 
 	/*  Set INT enable registers, enable interrupts */
 	musb_writew(regs, MGC_O_HDRC_INTRTXE, musb->wEndMask);
@@ -675,30 +662,37 @@ void musb_start(struct musb *musb)
 
 	musb_platform_enable(musb);
 
-	/* enable high-speed/low-power and start session */
-	musb_writeb(regs, MGC_O_HDRC_POWER,
-		MGC_M_POWER_SOFTCONN | MGC_M_POWER_HSENAB);
+	/* put into basic highspeed mode and start session */
+	musb_writeb(regs, MGC_O_HDRC_POWER, MGC_M_POWER_ISOUPDATE
+						| MGC_M_POWER_SOFTCONN
+						| MGC_M_POWER_HSENAB
+						// | MGC_M_POWER_ENSUSPEND
+						);
 
 	musb->is_active = 0;
-	switch (musb->board_mode) {
-	case MUSB_HOST:
-		musb_set_vbus(musb, 1);
-		break;
-	case MUSB_OTG:
+	devctl = musb_readb(regs, MGC_O_HDRC_DEVCTL);
+	devctl &= ~MGC_M_DEVCTL_SESSION;
+
+	if (is_otg_enabled(pThis)) {
 		/* session started after:
 		 * (a) ID-grounded irq, host mode;
 		 * (b) vbus present/connect IRQ, peripheral mode;
 		 * (c) peripheral initiates, using SRP
 		 */
-		break;
-	case MUSB_PERIPHERAL:
-		devctl = musb_readb(regs, MGC_O_HDRC_DEVCTL);
 		if ((devctl & MGC_M_DEVCTL_VBUS) == MGC_M_DEVCTL_VBUS)
 			musb->is_active = 1;
-		musb_writeb(regs, MGC_O_HDRC_DEVCTL,
-			devctl & ~MGC_M_DEVCTL_SESSION);
-		break;
+		else
+			devctl |= MGC_M_DEVCTL_SESSION;
+
+	} else if (is_host_enabled(pThis)) {
+		/* assume ID pin is hard-wired to ground */
+		devctl |= MGC_M_DEVCTL_SESSION;
+
+	} else /* peripheral is enabled */ {
+		if ((devctl & MGC_M_DEVCTL_VBUS) == MGC_M_DEVCTL_VBUS)
+			musb->is_active = 1;
 	}
+	musb_writeb(regs, MGC_O_HDRC_DEVCTL, devctl);
 }
 
 
@@ -1514,7 +1508,7 @@ musb_cable_show(struct device *dev, struct device_attribute *attr, char *buf)
 			break;
 		case MUSB_OTG:
 			v1 = "Mini-";
-			v2 = (vbus & MGC_M_DEVCTL_BDEVICE) ? "A" : "B";
+			v2 = (vbus & MGC_M_DEVCTL_BDEVICE) ? "B" : "A";
 			break;
 		}
 	} else	/* VBUS level below A-Valid */
@@ -1613,7 +1607,11 @@ static void musb_free(struct musb *musb)
 		(void) c->stop(c->pPrivateData);
 		dma_controller_factory.destroy(c);
 	}
+
+	musb_writeb(musb->pRegs, MGC_O_HDRC_DEVCTL, 0);
 	musb_platform_exit(musb);
+	musb_writeb(musb->pRegs, MGC_O_HDRC_DEVCTL, 0);
+
 	if (musb->clock) {
 		clk_disable(musb->clock);
 		clk_put(musb->clock);
@@ -1762,16 +1760,25 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 #endif
 
 	/* For the host-only role, we can activate right away.
+	 * (We expect the ID pin to be forcibly grounded!!)
 	 * Otherwise, wait till the gadget driver hooks up.
-	 *
-	 * REVISIT switch to compile-time is_role_host() etc
-	 * to get rid of #ifdeffery
 	 */
-	switch (pThis->board_mode) {
-#ifdef CONFIG_USB_MUSB_HDRC_HCD
-	case MUSB_HOST:
+	pThis->xceiv.state = OTG_STATE_B_IDLE;
+	pThis->xceiv.default_a = 0;
+
+	if (is_otg_enabled(pThis)) {
+		MUSB_OTG_MODE(pThis);
+		status = musb_gadget_setup(pThis);
+
+		DBG(1, "%s mode, status %d, dev%02x\n",
+			"OTG", status,
+			musb_readb(pThis->pRegs, MGC_O_HDRC_DEVCTL));
+
+	} else if (is_host_enabled(pThis)) {
 		MUSB_HST_MODE(pThis);
+		pThis->xceiv.default_a = 1;
 		pThis->xceiv.state = OTG_STATE_A_IDLE;
+
 		status = usb_add_hcd(musb_to_hcd(pThis), -1, 0);
 
 		DBG(1, "%s mode, status %d, devctl %02x %c\n",
@@ -1780,28 +1787,15 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 			(musb_readb(pThis->pRegs, MGC_O_HDRC_DEVCTL)
 					& MGC_M_DEVCTL_BDEVICE
 				? 'B' : 'A'));
-		break;
-#endif
-#ifdef CONFIG_USB_GADGET_MUSB_HDRC
-	case MUSB_PERIPHERAL:
+
+	} else /* peripheral is enabled */ {
 		MUSB_DEV_MODE(pThis);
 		status = musb_gadget_setup(pThis);
 
 		DBG(1, "%s mode, status %d, dev%02x\n",
 			"PERIPHERAL", status,
 			musb_readb(pThis->pRegs, MGC_O_HDRC_DEVCTL));
-		break;
-#endif
-#ifdef CONFIG_USB_MUSB_OTG
-	case MUSB_OTG:
-		MUSB_OTG_MODE(pThis);
-		status = musb_gadget_setup(pThis);
 
-		DBG(1, "%s mode, status %d, dev%02x\n",
-			"OTG", status,
-			musb_readb(pThis->pRegs, MGC_O_HDRC_DEVCTL));
-#endif
-		break;
 	}
 
 	if (status == 0)

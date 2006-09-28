@@ -35,25 +35,25 @@
 #include <asm/io.h>
 #include <asm/arch/hardware.h>
 #include <asm/arch/memory.h>
-// #include <asm/arch/gpio.h>
+#include <asm/arch/gpio.h>
 #include <asm/mach-types.h>
 
 #include "musbdefs.h"
 
-
-#ifdef CONFIG_ARCH_DAVINCI
 
 #ifdef CONFIG_MACH_DAVINCI_EVM
 #include <asm/arch/i2c-client.h>
 #endif
 
 #include "davinci.h"
-#endif
-
-#ifdef CONFIG_USB_TI_CPPI_DMA
 #include "cppi_dma.h"
-#endif
 
+
+/* REVISIT (PM) we should be able to keep the PHY in low power mode most
+ * of the time (24 MHZ oscillator and PLL off, etc) by setting POWER.D0
+ * and, when in host mode, autosuspending idle root ports... PHYPLLON
+ * (overriding SUSPENDM?) then likely needs to stay off.
+ */
 
 static inline void phy_on(void)
 {
@@ -68,7 +68,7 @@ static inline void phy_on(void)
 static inline void phy_off(void)
 {
 	/* powerdown the on-chip PHY and its oscillator */
-	__raw_writel(USBPHY_OSCPDWN | USBPHY_PHYSPDWN,
+	__raw_writel(USBPHY_OSCPDWN | USBPHY_PHYPDWN,
 			IO_ADDRESS(USBPHY_CTL_PADDR));
 }
 
@@ -138,54 +138,22 @@ static int vbus_state = -1;
 static void session(struct musb *musb, int is_on)
 {
 	void	*__iomem mregs = musb->pRegs;
-	u8	devctl = musb_readb(mregs, MGC_O_HDRC_DEVCTL);
 
-	/* NOTE: after drvvbus off the state _could_ be A_IDLE;
-	 * but the silicon seems to couple vbus to "ID grounded".
-	 */
-	devctl |= MGC_M_DEVCTL_SESSION;
+	if (musb->xceiv.default_a) {
+		u8	devctl = musb_readb(mregs, MGC_O_HDRC_DEVCTL);
+
+		if (is_on)
+			devctl |= MGC_M_DEVCTL_SESSION;
+		else
+			devctl &= ~MGC_M_DEVCTL_SESSION;
+		musb_writeb(mregs, MGC_O_HDRC_DEVCTL, devctl);
+	} else
+		is_on = 0;
+
 	if (is_on) {
+		/* NOTE: assumes VBUS already exceeds A-valid */
 		musb->xceiv.state = OTG_STATE_A_WAIT_BCON;
 		portstate(musb->port1_status |= USB_PORT_STAT_POWER);
-	} else {
-		musb->xceiv.state = OTG_STATE_B_IDLE;
-		portstate(musb->port1_status &= ~USB_PORT_STAT_POWER);
-	}
-	musb_writeb(mregs, MGC_O_HDRC_DEVCTL, devctl);
-}
-
-
-/* VBUS SWITCHING IS BOARD-SPECIFIC */
-
-#ifdef CONFIG_MACH_DAVINCI_EVM
-
-/* I2C operations are always synchronous, and require a task context.
- * With unloaded systems, using the shared workqueue seems to suffice
- * to satisfy the 100msec A_WAIT_VRISE timeout...
- */
-static void evm_deferred_drvvbus(void *_musb)
-{
-	struct musb	*musb = _musb;
-	int		is_on = (musb->xceiv.state == OTG_STATE_A_WAIT_VRISE);
-
-	davinci_i2c_expander_op(0x3a, USB_DRVVBUS, !is_on);
-	vbus_state = is_on;
-	session(musb, is_on);
-}
-DECLARE_WORK(evm_vbus_work, evm_deferred_drvvbus, 0);
-
-#endif
-
-static void davinci_vbus_power(struct musb *musb, int is_on, int sleeping)
-{
-	if (is_on)
-		is_on = 1;
-
-	if (vbus_state == is_on)
-		return;
-
-	if (is_on) {
-		musb->xceiv.state = OTG_STATE_A_WAIT_VRISE;
 		MUSB_HST_MODE(musb);
 	} else {
 		switch (musb->xceiv.state) {
@@ -200,7 +168,48 @@ static void davinci_vbus_power(struct musb *musb, int is_on, int sleeping)
 			musb->xceiv.state = OTG_STATE_A_WAIT_VFALL;
 			break;
 		}
+		portstate(musb->port1_status &= ~USB_PORT_STAT_POWER);
 	}
+
+	DBG(2, "Default-%c, VBUS power %s, %s, devctl %02x, %s\n",
+		musb->xceiv.default_a ? 'A' : 'B',
+		is_on ? "on" : "off",
+		MUSB_MODE(musb),
+		musb_readb(musb->pRegs, MGC_O_HDRC_DEVCTL),
+		otg_state_string(musb));
+}
+
+
+/* VBUS SWITCHING IS BOARD-SPECIFIC */
+
+#ifdef CONFIG_MACH_DAVINCI_EVM
+#ifndef CONFIG_MACH_DAVINCI_EVM_OTG
+
+/* I2C operations are always synchronous, and require a task context.
+ * With unloaded systems, using the shared workqueue seems to suffice
+ * to satisfy the 100msec A_WAIT_VRISE timeout...
+ */
+static void evm_deferred_drvvbus(void *_musb)
+{
+	struct musb	*musb = _musb;
+	int		is_on = (musb->xceiv.state == OTG_STATE_A_IDLE);
+
+	davinci_i2c_expander_op(0x3a, USB_DRVVBUS, !is_on);
+	vbus_state = is_on;
+	session(musb, is_on);
+}
+DECLARE_WORK(evm_vbus_work, evm_deferred_drvvbus, 0);
+
+#endif	/* modified board */
+#endif	/* EVM */
+
+static void davinci_vbus_power(struct musb *musb, int is_on, int immediate)
+{
+	if (is_on)
+		is_on = 1;
+
+	if (vbus_state == is_on)
+		return;
 
 #ifdef CONFIG_MACH_DAVINCI_EVM
 	if (machine_is_davinci_evm()) {
@@ -212,25 +221,29 @@ static void davinci_vbus_power(struct musb *musb, int is_on, int sleeping)
 			gpio_set(GPIO(6));
 		else
 			gpio_clear(GPIO(6));
+		immediate = 1;
 #else
-		if (sleeping)
+		if (immediate)
 			davinci_i2c_expander_op(0x3a, USB_DRVVBUS, !is_on);
 		else
 			schedule_work(&evm_vbus_work);
 #endif
 	}
 #endif
-	if (sleeping) {
+	if (immediate) {
 		vbus_state = is_on;
 		session(musb, is_on);
+	} else {
+		/* REVISIT:  if is_on, start in A_WAIT_VRISE, then OTG timer
+		 * should watch for session valid before calling session().
+		 * EVM charges C133 VERY quickly (but discharge is sloooow).
+		 */
 	}
-
-	DBG(2, "VBUS power %s, %s\n", is_on ? "on" : "off",
-		sleeping ? "immediate" : "deferred");
 }
 
 static void davinci_set_vbus(struct musb *musb, int is_on)
 {
+	WARN_ON(is_on && is_peripheral_active(musb));
 	return davinci_vbus_power(musb, is_on, 0);
 }
 
@@ -281,12 +294,23 @@ static irqreturn_t davinci_interrupt(int irq, void *__hci, struct pt_regs *r)
 			>> DAVINCI_USB_USBINT_SHIFT;
 	musb->int_regs = r;
 
+	/* treat DRVVBUS irq like an ID change IRQ (for now) */
 	if (tmp & (1 << (8 + DAVINCI_USB_USBINT_SHIFT))) {
 		int	drvvbus = musb_readl(tibase, DAVINCI_USB_STAT_REG);
 
+		if (drvvbus) {
+			MUSB_HST_MODE(musb);
+			musb->xceiv.default_a = 1;
+			musb->xceiv.state = OTG_STATE_A_IDLE;
+		} else {
+			MUSB_DEV_MODE(musb);
+			musb->xceiv.default_a = 0;
+			musb->xceiv.state = OTG_STATE_B_IDLE;
+		}
+
 		/* NOTE:  this must complete poweron within 100 msec */
 		davinci_vbus_power(musb, drvvbus, 0);
-		DBG(2, "DRVVBUS %d (state %d)\n", drvvbus, musb->xceiv.state);
+		DBG(2, "DRVVBUS %d (%s)\n", drvvbus, otg_state_string(musb));
 		retval = IRQ_HANDLED;
 	}
 
@@ -331,16 +355,13 @@ int __devinit musb_platform_init(struct musb *musb)
 	if (revision == 0)
 		return -ENODEV;
 
-	/* note that transceiver issues make us want to charge
-	 * VBUS only when the PHY PLL is not active.
-	 */
 #ifdef CONFIG_MACH_DAVINCI_EVM
-	evm_vbus_work.data = musb;
+	if (machine_is_davinci_evm())
+		evm_vbus_work.data = musb;
 #endif
-	davinci_vbus_power(musb, musb->board_mode == MUSB_HOST, 1);
 
-	if (is_host_enabled(musb))
-		musb->board_set_vbus = davinci_set_vbus;
+	musb->board_set_vbus = davinci_set_vbus;
+	davinci_vbus_power(musb, 0, 1);
 
 	/* reset the controller */
 	musb_writel(tibase, DAVINCI_USB_CTRL_REG, 0x1);
@@ -362,7 +383,33 @@ int __devinit musb_platform_init(struct musb *musb)
 
 int musb_platform_exit(struct musb *musb)
 {
-	phy_off();
 	davinci_vbus_power(musb, 0 /*off*/, 1);
+
+	/* delay, to avoid problems with module reload */
+	if (is_host_enabled(musb)) {
+		int	maxdelay = 30;
+		u8	devctl, warn = 0;
+
+		/* if there's no peripheral connected, this can take a
+		 * long time to fall, especially on EVM with huge C133.
+		 */
+		do {
+			devctl = musb_readb(musb->pRegs, MGC_O_HDRC_DEVCTL);
+			if (!(devctl & MGC_M_DEVCTL_VBUS))
+				break;
+			if ((devctl & MGC_M_DEVCTL_VBUS) != warn) {
+				warn = devctl & MGC_M_DEVCTL_VBUS;
+				DBG(1, "VBUS %d\n", warn >> MGC_S_DEVCTL_VBUS);
+			}
+			msleep(1000);
+			maxdelay--;
+		} while (maxdelay > 0);
+
+		/* in OTG mode, another host might be connected */
+		if (devctl & MGC_M_DEVCTL_VBUS)
+			DBG(1, "VBUS off timeout (devctl %02x)\n", devctl);
+	}
+
+	phy_off();
 	return 0;
 }

@@ -214,15 +214,6 @@ musb_start_urb(struct musb *musb, int is_in, struct musb_qh *qh)
 	if (is_in)
 		return;
 
-	/* TODO: with CPPI DMA, once DMA is setup and DmaReqEnable in TxCSR
-	 * is set (which is the case) transfer is initiated. For periodic
-	 * transfer support, add another field in pEnd struct which will
-	 * serve as a flag. If CPPI DMA is programmed for the transfer set
-	 * this flag and disable DMAReqEnab while programming TxCSR in
-	 * programEnd() Once we reach the appropriate time, enable DMA Req
-	 * instead of calling musb_h_tx_start() function
-	 */
-
 	/* determine if the time is right for a periodic transfer */
 	switch (qh->type) {
 	case USB_ENDPOINT_XFER_ISOC:
