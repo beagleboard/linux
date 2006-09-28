@@ -35,6 +35,9 @@
 
 #define MODULE_NAME			"dispc"
 
+#define DSS_BASE			0x48050000
+#define DSS_SYSCONFIG			0x0010
+
 #define DISPC_BASE			0x48050400
 
 /* DISPC common */
@@ -1110,6 +1113,18 @@ static int omap_dispc_init(struct omapfb_device *fbdev, int ext_mode,
 
 		enable_digit_clocks(0);
 	}
+
+	/* Enable smart idle and autoidle */
+	l = dispc_read_reg(DISPC_CONTROL);
+	l &= ~((3 << 12) | (3 << 3));
+	l |= (2 << 12) | (2 << 3) | (1 << 0);
+	dispc_write_reg(DISPC_SYSCONFIG, l);
+	omap_writel(1 << 0, DSS_BASE + DSS_SYSCONFIG);
+
+	/* Set functional clock autogating */
+	l = dispc_read_reg(DISPC_CONFIG);
+	l |= 1 << 9;
+	dispc_write_reg(DISPC_CONFIG, l);
 
 	l = dispc_read_reg(DISPC_IRQSTATUS);
 	dispc_write_reg(l, DISPC_IRQSTATUS);
