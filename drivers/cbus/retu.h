@@ -55,6 +55,7 @@
 
 int retu_read_reg(int reg);
 void retu_write_reg(int reg, u16 val);
+void retu_set_clear_reg_bits(int reg, u16 set, u16 clear);
 int retu_read_adc(int channel);
 int retu_request_irq(int id, void *irq_handler, unsigned long arg, char *name);
 void retu_free_irq(int id);

@@ -91,6 +91,19 @@ void retu_write_reg(int reg, u16 val)
 	cbus_write_reg(cbus_host, RETU_ID, reg, val);
 }
 
+void retu_set_clear_reg_bits(int reg, u16 set, u16 clear)
+{
+	unsigned long flags;
+	u16 w;
+
+	spin_lock_irqsave(&retu_lock, flags);
+	w = retu_read_reg(reg);
+	w &= ~clear;
+	w |= set;
+	retu_write_reg(reg, w);
+	spin_unlock_irqrestore(&retu_lock, flags);
+}
+
 #define ADC_MAX_CHAN_NUMBER	13
 
 int retu_read_adc(int channel)
