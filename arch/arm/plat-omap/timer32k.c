@@ -221,6 +221,17 @@ static inline irqreturn_t _omap_32k_timer_interrupt(int irq, void *dev_id,
 static irqreturn_t omap_32k_timer_handler(int irq, void *dev_id,
 					struct pt_regs *regs)
 {
+	unsigned long now;
+
+	now = omap_32k_sync_timer_read();
+
+	/* Don't bother reprogramming timer if last tick was before next
+	 * jiffie. We will get another interrupt when previously programmed
+	 * timer expires. This cuts down interrupt load quite a bit.
+	 */
+	if (now - omap_32k_last_tick < OMAP_32K_TICKS_PER_HZ)
+		return IRQ_HANDLED;
+
 	return _omap_32k_timer_interrupt(irq, dev_id, regs);
 }
 
