@@ -41,6 +41,7 @@
 
 int tahvo_read_reg(int reg);
 void tahvo_write_reg(int reg, u16 val);
+void tahvo_set_clear_reg_bits(int reg, u16 set, u16 clear);
 int tahvo_request_irq(int id, void *irq_handler, unsigned long arg, char *name);
 void tahvo_free_irq(int id);
 void tahvo_enable_irq(int id);
