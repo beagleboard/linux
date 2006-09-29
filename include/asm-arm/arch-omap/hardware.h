@@ -330,10 +330,6 @@
 #include "board-voiceblue.h"
 #endif
 
-#ifdef CONFIG_MACH_OMAP_PALMTE
-#include "board-palmte.h"
-#endif
-
 #endif /* !__ASSEMBLER__ */
 
 #endif	/* __ASM_ARCH_OMAP_HARDWARE_H */
