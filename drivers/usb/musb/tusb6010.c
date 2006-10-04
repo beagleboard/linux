@@ -209,9 +209,9 @@ static void tusb_allow_idle(struct musb *musb, u32 wakeup_enables)
 	wakeup_enables |= TUSB_PRCM_WNORCS;
 	musb_writel(base, TUSB_PRCM_WAKEUP_MASK, ~wakeup_enables);
 
-	/* REVISIT writeup of WLD implies that if WLD set and ID is grounded,
+	/* REVISIT writeup of WID implies that if WID set and ID is grounded,
 	 * TUSB_PHY_OTG_CTRL.TUSB_PHY_OTG_CTRL_OTG_ID_PULLUP must be cleared.
-	 * Presumably that's mostly to save power, hence WLD is immaterial ...
+	 * Presumably that's mostly to save power, hence WID is immaterial ...
 	 */
 
 	reg = musb_readl(base, TUSB_PRCM_MNGMT);
@@ -278,7 +278,7 @@ static void musb_do_idle(unsigned long _musb)
 					| TUSB_PRCM_WBUS
 					| TUSB_PRCM_WVBUS;
 			if (is_otg_enabled(musb))
-				wakeups |= TUSB_PRCM_WLD;
+				wakeups |= TUSB_PRCM_WID;
 		}
 #else
 		wakeups = TUSB_PRCM_WHOSTDISCON | TUSB_PRCM_WBUS;

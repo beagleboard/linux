@@ -124,7 +124,7 @@
 #define		TUSB_PRCM_WBUS		(1 << 3)	/* USB bus resume */
 #define		TUSB_PRCM_WNORCS	(1 << 2)	/* NOR chip select */
 #define		TUSB_PRCM_WVBUS		(1 << 1)	/* OTG PHY VBUS */
-#define		TUSB_PRCM_WLD		(1 << 0)	/* OTG PHY ID detect */
+#define		TUSB_PRCM_WID		(1 << 0)	/* OTG PHY ID detect */
 
 #define TUSB_PULLUP_1_CTRL		(TUSB_SYS_REG_BASE + 0x030)
 #define TUSB_PULLUP_2_CTRL		(TUSB_SYS_REG_BASE + 0x034)
