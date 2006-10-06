@@ -136,7 +136,7 @@ static struct omap_mbox1_priv omap1_mbox_dsp_priv = {
 };
 
 struct omap_mbox mbox_dsp_info = {
-	.name = "DSP",
+	.name = "dsp",
 	.ops  = &omap1_mbox_ops,
 	.priv = &omap1_mbox_dsp_priv,
 };
