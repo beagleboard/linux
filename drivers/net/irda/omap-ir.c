@@ -1,7 +1,7 @@
 /*
  * BRIEF MODULE DESCRIPTION
  *
- *	Infra-red driver for the OMAP1610-H2 and OMAP1710-H3 Platforms
+ *	Infra-red driver for the OMAP1610-H2 and OMAP1710-H3 and H4 Platforms
  *	  (SIR/MIR/FIR modes)
  *	  (based on omap-sir.c)
  *
@@ -39,10 +39,8 @@
  - Added support for H3 (Apr 2004).
  Nov 2004, Texas Instruments
  - Added support for Power Management.
-
  */
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/init.h>
@@ -73,7 +71,7 @@
 #include <asm/arch/irda.h>
 
 #define UART3_EFR_EN			(1 << 4)
-#define UART3_MCR_EN_TCR_TLR 		(1 << 6)
+#define UART3_MCR_EN_TCR_TLR		(1 << 6)
 
 #define UART3_LCR_WL_8			(3 << 0)
 #define UART3_LCR_SP2			(1 << 2)
@@ -85,15 +83,16 @@
 #define UART3_FCR_FIFO_DMA1		(1 << 3)
 #define UART3_FCR_FIFO_TX_TRIG16	(1 << 4)
 #define UART3_FCR_FIFO_RX_TRIG16	(1 << 6)
-#define UART3_FCR_CONFIG	UART3_FCR_FIFO_EN | UART3_FCR_FIFO_RX |	\
-				UART3_FCR_FIFO_TX | UART3_FCR_FIFO_DMA1 | \
-				UART3_FCR_FIFO_TX_TRIG16 | \
-				UART3_FCR_FIFO_RX_TRIG16
+#define UART3_FCR_CONFIG	(\
+		UART3_FCR_FIFO_EN | UART3_FCR_FIFO_RX	|\
+		UART3_FCR_FIFO_TX | UART3_FCR_FIFO_DMA1 |\
+		UART3_FCR_FIFO_TX_TRIG16		|\
+		UART3_FCR_FIFO_RX_TRIG16)
 
 #define UART3_SCR_TX_TRIG1		(1 << 6)
 #define UART3_SCR_RX_TRIG1		(1 << 7)
 
-#define UART3_MDR1_RESET 		(0x07)
+#define UART3_MDR1_RESET		(0x07)
 #define UART3_MDR1_SIR			(1 << 0)
 #define UART3_MDR1_MIR			(4 << 0)
 #define UART3_MDR1_FIR			(5 << 0)
@@ -112,10 +111,7 @@
 #define UART3_IIR_TX_STATUS		(1 << 5)
 #define UART3_IIR_EOF			(0x80)
 
-#define IS_FIR(si)		((si)->speed >= 4000000)
-#define IRDA_FRAME_SIZE_LIMIT	4096
-
-static int rx_state = 0;	/* RX state for IOCTL */
+#define IS_FIR(omap_ir)		((omap_ir)->speed >= 4000000)
 
 struct omap_irda {
 	unsigned char open;
@@ -151,47 +147,46 @@ static u8 inline uart_reg_in(int idx)
 }
 
 /* forward declarations */
-extern void irda_device_setup(struct net_device *dev);
 extern void omap_stop_dma(int lch);
 static int omap_irda_set_speed(struct net_device *dev, int speed);
 
-static void omap_irda_start_rx_dma(struct omap_irda *si)
+static void omap_irda_start_rx_dma(struct omap_irda *omap_ir)
 {
 	/* Configure DMA */
-    	omap_set_dma_src_params(si->rx_dma_channel, 0x3, 0x0,
-				si->pdata->src_start,
+	omap_set_dma_src_params(omap_ir->rx_dma_channel, 0x3, 0x0,
+				omap_ir->pdata->src_start,
 				0, 0);
 
-	omap_enable_dma_irq(si->rx_dma_channel, 0x01);
+	omap_enable_dma_irq(omap_ir->rx_dma_channel, 0x01);
 
-	omap_set_dma_dest_params(si->rx_dma_channel, 0x0, 0x1,
-				si->rx_buf_dma_phys,
+	omap_set_dma_dest_params(omap_ir->rx_dma_channel, 0x0, 0x1,
+				omap_ir->rx_buf_dma_phys,
 				0, 0);
 
-	omap_set_dma_transfer_params(si->rx_dma_channel, 0x0,
-				IRDA_FRAME_SIZE_LIMIT, 0x1,
-				0x0, si->pdata->rx_trigger, 0);
+	omap_set_dma_transfer_params(omap_ir->rx_dma_channel, 0x0,
+				IRDA_SKB_MAX_MTU, 0x1,
+				0x0, omap_ir->pdata->rx_trigger, 0);
 
-	omap_start_dma(si->rx_dma_channel);
+	omap_start_dma(omap_ir->rx_dma_channel);
 }
 
-static void omap_start_tx_dma(struct omap_irda *si, int size)
+static void omap_start_tx_dma(struct omap_irda *omap_ir, int size)
 {
 	/* Configure DMA */
-	omap_set_dma_dest_params(si->tx_dma_channel, 0x03, 0x0,
-				si->pdata->dest_start, 0, 0);
+	omap_set_dma_dest_params(omap_ir->tx_dma_channel, 0x03, 0x0,
+				omap_ir->pdata->dest_start, 0, 0);
 
-	omap_enable_dma_irq(si->tx_dma_channel, 0x01);
+	omap_enable_dma_irq(omap_ir->tx_dma_channel, 0x01);
 
-	omap_set_dma_src_params(si->tx_dma_channel, 0x0, 0x1,
-				si->tx_buf_dma_phys,
+	omap_set_dma_src_params(omap_ir->tx_dma_channel, 0x0, 0x1,
+				omap_ir->tx_buf_dma_phys,
 				0, 0);
 
-	omap_set_dma_transfer_params(si->tx_dma_channel, 0x0, size, 0x1,
-				0x0, si->pdata->tx_trigger, 0);
+	omap_set_dma_transfer_params(omap_ir->tx_dma_channel, 0x0, size, 0x1,
+				0x0, omap_ir->pdata->tx_trigger, 0);
 
 	/* Start DMA */
-	omap_start_dma(si->tx_dma_channel);
+	omap_start_dma(omap_ir->tx_dma_channel);
 }
 
 /* DMA RX callback - normally, we should not go here,
@@ -200,29 +195,29 @@ static void omap_start_tx_dma(struct omap_irda *si, int size)
 static void omap_irda_rx_dma_callback(int lch, u16 ch_status, void *data)
 {
 	struct net_device *dev = data;
-	struct omap_irda *si = dev->priv;
+	struct omap_irda *omap_ir = netdev_priv(dev);
 
 	printk(KERN_ERR "RX Transfer error or very big frame\n");
 
 	/* Clear interrupts */
 	uart_reg_in(UART3_IIR);
 
-	si->stats.rx_frame_errors++;
+	omap_ir->stats.rx_frame_errors++;
 
 	uart_reg_in(UART3_RESUME);
 
 	/* Re-init RX DMA */
-	omap_irda_start_rx_dma(si);
+	omap_irda_start_rx_dma(omap_ir);
 }
 
 /* DMA TX callback - calling when frame transfer has been finished */
 static void omap_irda_tx_dma_callback(int lch, u16 ch_status, void *data)
 {
 	struct net_device *dev = data;
-	struct omap_irda *si = dev->priv;
+	struct omap_irda *omap_ir = netdev_priv(dev);
 
 	/*Stop DMA controller */
-	omap_stop_dma(si->tx_dma_channel);
+	omap_stop_dma(omap_ir->tx_dma_channel);
 }
 
 /*
@@ -231,8 +226,7 @@ static void omap_irda_tx_dma_callback(int lch, u16 ch_status, void *data)
  */
 static int omap_irda_startup(struct net_device *dev)
 {
-	struct omap_irda *si = dev->priv;
-
+	struct omap_irda *omap_ir = netdev_priv(dev);
 
 	/* FIXME: use clk_* apis for UART3 clock*/
 	/* Enable UART3 clock and set UART3 to IrDA mode */
@@ -242,11 +236,11 @@ static int omap_irda_startup(struct net_device *dev)
 
 	/* Only for H2?
 	 */
-	if (si->pdata->transceiver_mode && machine_is_omap_h2()) {
-	    	/* Is it select_irda on H2 ? */
+	if (omap_ir->pdata->transceiver_mode && machine_is_omap_h2()) {
+		/* Is it select_irda on H2 ? */
 		omap_writel(omap_readl(FUNC_MUX_CTRL_A) | 7,
 					FUNC_MUX_CTRL_A);
-		si->pdata->transceiver_mode(si->dev, IR_SIRMODE);
+		omap_ir->pdata->transceiver_mode(omap_ir->dev, IR_SIRMODE);
 	}
 
 	uart_reg_out(UART3_MDR1, UART3_MDR1_RESET);	/* Reset mode */
@@ -304,7 +298,7 @@ static int omap_irda_startup(struct net_device *dev)
 	return 0;
 }
 
-static int omap_irda_shutdown(struct omap_irda *si)
+static int omap_irda_shutdown(struct omap_irda *omap_ir)
 {
 	unsigned long flags;
 
@@ -334,7 +328,7 @@ static irqreturn_t
 omap_irda_irq(int irq, void *dev_id, struct pt_regs *hw_regs)
 {
 	struct net_device *dev = dev_id;
-	struct omap_irda *si = dev->priv;
+	struct omap_irda *omap_ir = netdev_priv(dev);
 	struct sk_buff *skb;
 
 	u8 status;
@@ -348,11 +342,11 @@ omap_irda_irq(int irq, void *dev_id, struct pt_regs *hw_regs)
 		if (mdr2 & UART3_MDR2_IRTX_UNDERRUN)
 			printk(KERN_ERR "IrDA Buffer underrun error\n");
 
-		si->stats.tx_packets++;
+		omap_ir->stats.tx_packets++;
 
-		if (si->newspeed) {
-			omap_irda_set_speed(dev, si->newspeed);
-			si->newspeed = 0;
+		if (omap_ir->newspeed) {
+			omap_irda_set_speed(dev, omap_ir->newspeed);
+			omap_ir->newspeed = 0;
 		}
 
 		netif_wake_queue(dev);
@@ -361,16 +355,16 @@ omap_irda_irq(int irq, void *dev_id, struct pt_regs *hw_regs)
 	}
 
 	/* Stop DMA and if there are no errors, send frame to upper layer */
-	omap_stop_dma(si->rx_dma_channel);
+	omap_stop_dma(omap_ir->rx_dma_channel);
 
 	status = uart_reg_in(UART3_SFLSR);	/* Take a frame status */
 
 	if (status != 0) {	/* Bad frame? */
-		si->stats.rx_frame_errors++;
+		omap_ir->stats.rx_frame_errors++;
 		uart_reg_in(UART3_RESUME);
 	} else {
 		/* We got a frame! */
-		skb = alloc_skb(IRDA_FRAME_SIZE_LIMIT, GFP_ATOMIC);
+		skb = dev_alloc_skb(IRDA_SKB_MAX_MTU);
 
 		if (!skb) {
 			printk(KERN_ERR "omap_sir: out of memory for RX SKB\n");
@@ -383,31 +377,32 @@ omap_irda_irq(int irq, void *dev_id, struct pt_regs *hw_regs)
 
 		skb_reserve(skb, 1);
 
-		w = OMAP_DMA_CDAC_REG(si->rx_dma_channel);
+		w = OMAP_DMA_CDAC_REG(omap_ir->rx_dma_channel);
 
 		if (cpu_is_omap16xx())
-			w -= OMAP1_DMA_CDSA_L_REG(si->rx_dma_channel);
+			w -= OMAP1_DMA_CDSA_L_REG(omap_ir->rx_dma_channel);
 		if (cpu_is_omap24xx())
-			w -= OMAP2_DMA_CDSA_REG(si->rx_dma_channel);
+			w -= OMAP2_DMA_CDSA_REG(omap_ir->rx_dma_channel);
 
-		if (!IS_FIR(si)) {
+		if (!IS_FIR(omap_ir))
 			/* Copy DMA buffer to skb */
-			memcpy(skb_put(skb, w - 2), si->rx_buf_dma_virt, w - 2);
-		} else {
+			memcpy(skb_put(skb, w - 2), omap_ir->rx_buf_dma_virt,
+					w - 2);
+		else
 			/* Copy DMA buffer to skb */
-			memcpy(skb_put(skb, w - 4), si->rx_buf_dma_virt, w - 4);
-		}
+			memcpy(skb_put(skb, w - 4), omap_ir->rx_buf_dma_virt,
+					w - 4);
 
 		skb->dev = dev;
 		skb->mac.raw = skb->data;
 		skb->protocol = htons(ETH_P_IRDA);
-		si->stats.rx_packets++;
-		si->stats.rx_bytes += skb->len;
+		omap_ir->stats.rx_packets++;
+		omap_ir->stats.rx_bytes += skb->len;
 		netif_receive_skb(skb);	/* Send data to upper level */
 	}
 
 	/* Re-init RX DMA */
-	omap_irda_start_rx_dma(si);
+	omap_irda_start_rx_dma(omap_ir);
 
 	dev->last_rx = jiffies;
 
@@ -416,7 +411,7 @@ omap_irda_irq(int irq, void *dev_id, struct pt_regs *hw_regs)
 
 static int omap_irda_hard_xmit(struct sk_buff *skb, struct net_device *dev)
 {
-	struct omap_irda *si = dev->priv;
+	struct omap_irda *omap_ir = netdev_priv(dev);
 	int speed = irda_get_next_speed(skb);
 	int mtt = irda_get_mtt(skb);
 	int xbofs = irda_get_next_xbofs(skb);
@@ -427,8 +422,8 @@ static int omap_irda_hard_xmit(struct sk_buff *skb, struct net_device *dev)
 	 * speed?  If so, remember it until we complete the transmission
 	 * of this frame.
 	 */
-	if (speed != si->speed && speed != -1)
-		si->newspeed = speed;
+	if (speed != omap_ir->speed && speed != -1)
+		omap_ir->newspeed = speed;
 
 	if (xbofs) /* Set number of addtional BOFS */
 		uart_reg_out(UART3_EBLR, xbofs + 1);
@@ -437,8 +432,8 @@ static int omap_irda_hard_xmit(struct sk_buff *skb, struct net_device *dev)
 	 * If this is an empty frame, we can bypass a lot.
 	 */
 	if (skb->len == 0) {
-		if (si->newspeed) {
-			si->newspeed = 0;
+		if (omap_ir->newspeed) {
+			omap_ir->newspeed = 0;
 			omap_irda_set_speed(dev, speed);
 		}
 		dev_kfree_skb(skb);
@@ -448,10 +443,10 @@ static int omap_irda_hard_xmit(struct sk_buff *skb, struct net_device *dev)
 	netif_stop_queue(dev);
 
 	/* Copy skb data to DMA buffer */
-	memcpy(si->tx_buf_dma_virt, skb->data, skb->len);
+	memcpy(omap_ir->tx_buf_dma_virt, skb->data, skb->len);
 
 	/* Copy skb data to DMA buffer */
-	si->stats.tx_bytes += skb->len;
+	omap_ir->stats.tx_bytes += skb->len;
 
 	/* Set frame length */
 	uart_reg_out(UART3_TXFLL, (skb->len & 0xff));
@@ -463,7 +458,7 @@ static int omap_irda_hard_xmit(struct sk_buff *skb, struct net_device *dev)
 		udelay(mtt);
 
 	/* Start TX DMA transfer */
-	omap_start_tx_dma(si, skb->len);
+	omap_start_tx_dma(omap_ir, skb->len);
 
 	/* We can free skb now because it's already in DMA buffer */
 	dev_kfree_skb(skb);
@@ -477,7 +472,7 @@ static int
 omap_irda_ioctl(struct net_device *dev, struct ifreq *ifreq, int cmd)
 {
 	struct if_irda_req *rq = (struct if_irda_req *)ifreq;
-	struct omap_irda *si = dev->priv;
+	struct omap_irda *omap_ir = netdev_priv(dev);
 	int ret = -EOPNOTSUPP;
 
 
@@ -488,11 +483,12 @@ omap_irda_ioctl(struct net_device *dev, struct ifreq *ifreq, int cmd)
 			 * We are unable to set the speed if the
 			 * device is not running.
 			 */
-			if (si->open)
+			if (omap_ir->open)
 				ret = omap_irda_set_speed(dev,
 						rq->ifr_baudrate);
 			else {
-				printk(KERN_ERR "omap_irda_ioctl: SIOCSBANDWIDTH: !netif_running\n");
+				printk(KERN_ERR "omap_ir: SIOCSBANDWIDTH:"
+						" !netif_running\n");
 				ret = 0;
 			}
 		}
@@ -507,7 +503,7 @@ omap_irda_ioctl(struct net_device *dev, struct ifreq *ifreq, int cmd)
 		break;
 
 	case SIOCGRECEIVING:
-		rq->ifr_receiving = rx_state;
+		rq->ifr_receiving = 0;
 		break;
 
 	default:
@@ -519,16 +515,16 @@ omap_irda_ioctl(struct net_device *dev, struct ifreq *ifreq, int cmd)
 
 static struct net_device_stats *omap_irda_stats(struct net_device *dev)
 {
-	struct omap_irda *si = dev->priv;
-	return &si->stats;
+	struct omap_irda *omap_ir = netdev_priv(dev);
+	return &omap_ir->stats;
 }
 
 static int omap_irda_start(struct net_device *dev)
 {
-	struct omap_irda *si = dev->priv;
+	struct omap_irda *omap_ir = netdev_priv(dev);
 	int err;
 
-	si->speed = 9600;
+	omap_ir->speed = 9600;
 
 	err = request_irq(dev->irq, omap_irda_irq, 0, dev->name, dev);
 	if (err)
@@ -540,37 +536,37 @@ static int omap_irda_start(struct net_device *dev)
 	disable_irq(dev->irq);
 
 	/*  Request DMA channels for IrDA hardware */
-	if (omap_request_dma(si->pdata->rx_channel, "IrDA Rx DMA",
+	if (omap_request_dma(omap_ir->pdata->rx_channel, "IrDA Rx DMA",
 			(void *)omap_irda_rx_dma_callback,
-			dev, &(si->rx_dma_channel))) {
+			dev, &(omap_ir->rx_dma_channel))) {
 		printk(KERN_ERR "Failed to request IrDA Rx DMA\n");
 		goto err_irq;
 	}
 
-	if (omap_request_dma(si->pdata->tx_channel, "IrDA Tx DMA",
+	if (omap_request_dma(omap_ir->pdata->tx_channel, "IrDA Tx DMA",
 			(void *)omap_irda_tx_dma_callback,
-			dev, &(si->tx_dma_channel))) {
+			dev, &(omap_ir->tx_dma_channel))) {
 		printk(KERN_ERR "Failed to request IrDA Tx DMA\n");
 		goto err_irq;
 	}
 
 	/* Allocate TX and RX buffers for DMA channels */
-	si->rx_buf_dma_virt =
-		dma_alloc_coherent(NULL, IRDA_FRAME_SIZE_LIMIT,
-				&(si->rx_buf_dma_phys),
+	omap_ir->rx_buf_dma_virt =
+		dma_alloc_coherent(NULL, IRDA_SKB_MAX_MTU,
+				&(omap_ir->rx_buf_dma_phys),
 				GFP_KERNEL);
 
-	if (!si->rx_buf_dma_virt) {
+	if (!omap_ir->rx_buf_dma_virt) {
 		printk(KERN_ERR "Unable to allocate memory for rx_buf_dma\n");
 		goto err_irq;
 	}
 
-	si->tx_buf_dma_virt =
-		dma_alloc_coherent(NULL, IRDA_FRAME_SIZE_LIMIT,
-				&(si->tx_buf_dma_phys),
+	omap_ir->tx_buf_dma_virt =
+		dma_alloc_coherent(NULL, IRDA_SIR_MAX_FRAME,
+				&(omap_ir->tx_buf_dma_phys),
 				GFP_KERNEL);
 
-	if (!si->tx_buf_dma_virt) {
+	if (!omap_ir->tx_buf_dma_virt) {
 		printk(KERN_ERR "Unable to allocate memory for tx_buf_dma\n");
 		goto err_mem1;
 	}
@@ -578,30 +574,30 @@ static int omap_irda_start(struct net_device *dev)
 	/*
 	 * Setup the serial port for the specified config.
 	 */
-	if (si->pdata->select_irda)
-		si->pdata->select_irda(si->dev, IR_SEL);
+	if (omap_ir->pdata->select_irda)
+		omap_ir->pdata->select_irda(omap_ir->dev, IR_SEL);
 
 	err = omap_irda_startup(dev);
 
 	if (err)
 		goto err_startup;
 
-	omap_irda_set_speed(dev, si->speed = 9600);
+	omap_irda_set_speed(dev, omap_ir->speed = 9600);
 
 	/*
 	 * Open a new IrLAP layer instance.
 	 */
-	si->irlap = irlap_open(dev, &si->qos, "omap_sir");
+	omap_ir->irlap = irlap_open(dev, &omap_ir->qos, "omap_sir");
 
 	err = -ENOMEM;
-	if (!si->irlap)
+	if (!omap_ir->irlap)
 		goto err_irlap;
 
-	/* Now enable the interrupt and start the queue  */
-	si->open = 1;
+	/* Now enable the interrupt and start the queue */
+	omap_ir->open = 1;
 
 	/* Start RX DMA */
-	omap_irda_start_rx_dma(si);
+	omap_irda_start_rx_dma(omap_ir);
 
 	enable_irq(dev->irq);
 	netif_start_queue(dev);
@@ -609,14 +605,14 @@ static int omap_irda_start(struct net_device *dev)
 	return 0;
 
 err_irlap:
-	si->open = 0;
-	omap_irda_shutdown(si);
+	omap_ir->open = 0;
+	omap_irda_shutdown(omap_ir);
 err_startup:
-	dma_free_coherent(NULL, IRDA_FRAME_SIZE_LIMIT,
-			si->tx_buf_dma_virt, si->tx_buf_dma_phys);
+	dma_free_coherent(NULL, IRDA_SIR_MAX_FRAME,
+			omap_ir->tx_buf_dma_virt, omap_ir->tx_buf_dma_phys);
 err_mem1:
-	dma_free_coherent(NULL, IRDA_FRAME_SIZE_LIMIT,
-			si->rx_buf_dma_virt, si->rx_buf_dma_phys);
+	dma_free_coherent(NULL, IRDA_SKB_MAX_MTU,
+			omap_ir->rx_buf_dma_virt, omap_ir->rx_buf_dma_phys);
 err_irq:
 	free_irq(dev->irq, dev);
 	return err;
@@ -624,31 +620,33 @@ err_irq:
 
 static int omap_irda_stop(struct net_device *dev)
 {
-	struct omap_irda *si = dev->priv;
+	struct omap_irda *omap_ir = netdev_priv(dev);
 
 	disable_irq(dev->irq);
 
 	netif_stop_queue(dev);
 
-	omap_free_dma(si->rx_dma_channel);
-	omap_free_dma(si->tx_dma_channel);
+	omap_free_dma(omap_ir->rx_dma_channel);
+	omap_free_dma(omap_ir->tx_dma_channel);
 
-	if (si->rx_buf_dma_virt)
-		dma_free_coherent(NULL, IRDA_FRAME_SIZE_LIMIT,
-				si->rx_buf_dma_virt, si->rx_buf_dma_phys);
-	if (si->tx_buf_dma_virt)
-		dma_free_coherent(NULL, IRDA_FRAME_SIZE_LIMIT,
-				si->tx_buf_dma_virt, si->tx_buf_dma_phys);
+	if (omap_ir->rx_buf_dma_virt)
+		dma_free_coherent(NULL, IRDA_SKB_MAX_MTU,
+				omap_ir->rx_buf_dma_virt,
+				omap_ir->rx_buf_dma_phys);
+	if (omap_ir->tx_buf_dma_virt)
+		dma_free_coherent(NULL, IRDA_SIR_MAX_FRAME,
+				omap_ir->tx_buf_dma_virt,
+				omap_ir->tx_buf_dma_phys);
 
-	omap_irda_shutdown(si);
+	omap_irda_shutdown(omap_ir);
 
 	/* Stop IrLAP */
-	if (si->irlap) {
-		irlap_close(si->irlap);
-		si->irlap = NULL;
+	if (omap_ir->irlap) {
+		irlap_close(omap_ir->irlap);
+		omap_ir->irlap = NULL;
 	}
 
-	si->open = 0;
+	omap_ir->open = 0;
 
 	/*
 	 * Free resources
@@ -660,7 +658,7 @@ static int omap_irda_stop(struct net_device *dev)
 
 static int omap_irda_set_speed(struct net_device *dev, int speed)
 {
-	struct omap_irda *si = dev->priv;
+	struct omap_irda *omap_ir = netdev_priv(dev);
 	int divisor;
 	unsigned long flags;
 
@@ -670,8 +668,9 @@ static int omap_irda_set_speed(struct net_device *dev, int speed)
 		local_irq_save(flags);
 
 		/* SIR mode */
-		if (si->pdata->transceiver_mode)
-			si->pdata->transceiver_mode(si->dev, IR_SIRMODE);
+		if (omap_ir->pdata->transceiver_mode)
+			omap_ir->pdata->transceiver_mode(omap_ir->dev,
+							IR_SIRMODE);
 
 		/* Set SIR mode */
 		uart_reg_out(UART3_MDR1, 1);
@@ -704,8 +703,9 @@ static int omap_irda_set_speed(struct net_device *dev, int speed)
 		uart_reg_out(UART3_DLH, (divisor >> 8));
 		uart_reg_out(UART3_LCR, 0x03);
 
-		if (si->pdata->transceiver_mode)
-			si->pdata->transceiver_mode(si->dev, IR_MIRMODE);
+		if (omap_ir->pdata->transceiver_mode)
+			omap_ir->pdata->transceiver_mode(omap_ir->dev,
+							IR_MIRMODE);
 
 		local_irq_restore(flags);
 	} else {
@@ -715,13 +715,14 @@ static int omap_irda_set_speed(struct net_device *dev, int speed)
 		uart_reg_out(UART3_MDR1, UART3_MDR1_FIR |
 				UART3_MDR1_SIP_AUTO);
 
-		if (si->pdata->transceiver_mode)
-			si->pdata->transceiver_mode(si->dev, IR_FIRMODE);
+		if (omap_ir->pdata->transceiver_mode)
+			omap_ir->pdata->transceiver_mode(omap_ir->dev,
+							IR_FIRMODE);
 
 		local_irq_restore(flags);
 	}
 
-	si->speed = speed;
+	omap_ir->speed = speed;
 
 	return 0;
 }
@@ -733,18 +734,18 @@ static int omap_irda_set_speed(struct net_device *dev, int speed)
 static int omap_irda_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	struct net_device *dev = platform_get_drvdata(pdev);
-	struct omap_irda *si = dev->priv;
+	struct omap_irda *omap_ir = netdev_priv(dev);
 
 	if (!dev)
 		return 0;
 
-	if (si->open) {
+	if (omap_ir->open) {
 		/*
 		 * Stop the transmit queue
 		 */
 		netif_device_detach(dev);
 		disable_irq(dev->irq);
-		omap_irda_shutdown(si);
+		omap_irda_shutdown(omap_ir);
 	}
 	return 0;
 }
@@ -755,12 +756,12 @@ static int omap_irda_suspend(struct platform_device *pdev, pm_message_t state)
 static int omap_irda_resume(struct platform_device *pdev)
 {
 	struct net_device *dev = platform_get_drvdata(pdev);
-	struct omap_irda *si= dev->priv;
+	struct omap_irda *omap_ir= netdev_priv(dev);
 
 	if (!dev)
 		return 0;
 
-	if (si->open) {
+	if (omap_ir->open) {
 		/*
 		 * If we missed a speed change, initialise at the new speed
 		 * directly.  It is debatable whether this is actually
@@ -768,13 +769,13 @@ static int omap_irda_resume(struct platform_device *pdev)
 		 * we left off it is desireable.  The converse argument is
 		 * that we should re-negotiate at 9600 baud again.
 		 */
-		if (si->newspeed) {
-			si->speed = si->newspeed;
-			si->newspeed = 0;
+		if (omap_ir->newspeed) {
+			omap_ir->speed = omap_ir->newspeed;
+			omap_ir->newspeed = 0;
 		}
 
 		omap_irda_startup(dev);
-		omap_irda_set_speed(dev, si->speed);
+		omap_irda_set_speed(dev, omap_ir->speed);
 		enable_irq(dev->irq);
 
 		/*
@@ -793,7 +794,7 @@ static int omap_irda_resume(struct platform_device *pdev)
 static int omap_irda_probe(struct platform_device *pdev)
 {
 	struct net_device *dev;
-	struct omap_irda *si;
+	struct omap_irda *omap_ir;
 	struct omap_irda_config *pdata = pdev->dev.platform_data;
 	unsigned int baudrate_mask;
 	int err = 0;
@@ -820,9 +821,9 @@ static int omap_irda_probe(struct platform_device *pdev)
 		goto err_mem_1;
 
 
-	si = dev->priv;
-	si->dev = &pdev->dev;
-	si->pdata = pdata;
+	omap_ir = netdev_priv(dev);
+	omap_ir->dev = &pdev->dev;
+	omap_ir->pdata = pdata;
 
 	dev->hard_start_xmit	= omap_irda_hard_xmit;
 	dev->open		= omap_irda_start;
@@ -831,24 +832,24 @@ static int omap_irda_probe(struct platform_device *pdev)
 	dev->get_stats		= omap_irda_stats;
 	dev->irq		= irq;
 
-	irda_init_max_qos_capabilies(&si->qos);
+	irda_init_max_qos_capabilies(&omap_ir->qos);
 
 	baudrate_mask = 0;
-	if (si->pdata->transceiver_cap & IR_SIRMODE)
+	if (omap_ir->pdata->transceiver_cap & IR_SIRMODE)
 		baudrate_mask |= IR_9600|IR_19200|IR_38400|IR_57600|IR_115200;
-	if (si->pdata->transceiver_cap & IR_MIRMODE)
+	if (omap_ir->pdata->transceiver_cap & IR_MIRMODE)
 		baudrate_mask |= IR_57600 | IR_1152000;
-	if (si->pdata->transceiver_cap & IR_FIRMODE)
+	if (omap_ir->pdata->transceiver_cap & IR_FIRMODE)
 		baudrate_mask |= IR_4000000 << 8;
 
-	si->qos.baud_rate.bits &= baudrate_mask;
-	si->qos.min_turn_time.bits = 7;
+	omap_ir->qos.baud_rate.bits &= baudrate_mask;
+	omap_ir->qos.min_turn_time.bits = 7;
 
-	irda_qos_bits_to_value(&si->qos);
+	irda_qos_bits_to_value(&omap_ir->qos);
 
 	/* Any better way to avoid this? No. */
 	if (machine_is_omap_h3() || machine_is_omap_h4())
-		INIT_WORK(&si->pdata->gpio_expa, NULL, NULL);
+		INIT_WORK(&omap_ir->pdata->gpio_expa, NULL, NULL);
 
 	err = register_netdev(dev);
 	if (!err)

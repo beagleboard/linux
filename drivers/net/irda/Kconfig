@@ -348,13 +348,6 @@ config TOSHIBA_FIR
 	  To compile it as a module, choose M here: the module will be called
 	  donauboe.
 
-config OMAP_IR
-	tristate "OMAP IrDA(SIR/MIR/FIR)"
-	depends on IRDA && (ARCH_OMAP1 || ARCH_OMAP2)
-	select GPIOEXPANDER_OMAP if (MACH_OMAP_H3 || MACH_OMAP_H4)
-        help
-	  Say Y here if you want to build support for the OMAP IR.
-
 config AU1000_FIR
 	tristate "Alchemy Au1000 SIR/FIR"
 	depends on SOC_AU1000 && IRDA
@@ -438,6 +431,16 @@ config MCS_FIR
 
 	  To compile it as a module, choose M here: the module will be called
 	  mcs7780.
+
+config OMAP_IR
+	tristate "OMAP IrDA(SIR/MIR/FIR)"
+	depends on IRDA && ARCH_OMAP
+	select GPIOEXPANDER_OMAP if (MACH_OMAP_H3 || MACH_OMAP_H4)
+        help
+	  Say Y here if you want to build support for the Texas Instruments
+	  OMAP IrDA device driver, which supports SIR/MIR/FIR. This driver
+	  relies on platform specific helper routines so available capabilities
+	  may vary from one OMAP target to another.
 
 endmenu
 
