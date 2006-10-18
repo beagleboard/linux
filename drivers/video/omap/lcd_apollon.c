@@ -35,6 +35,8 @@
 static int apollon_panel_init(struct lcd_panel *panel,
 				struct omapfb_device *fbdev)
 {
+	/* configure LCD PWR_EN */
+	omap_cfg_reg(M21_242X_GPIO11);
 	return 0;
 }
 
@@ -44,10 +46,6 @@ static void apollon_panel_cleanup(struct lcd_panel *panel)
 
 static int apollon_panel_enable(struct lcd_panel *panel)
 {
-
-	/* configure LCD PWR_EN */
-	omap_cfg_reg(M21_242X_GPIO11);
-
 	return 0;
 }
 
