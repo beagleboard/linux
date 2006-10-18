@@ -25,6 +25,7 @@
 #include <linux/interrupt.h>
 #include <linux/delay.h>
 #include <linux/leds.h>
+#include <linux/irq.h>
 
 #include <asm/hardware.h>
 #include <asm/mach-types.h>
@@ -199,7 +200,7 @@ static inline void __init apollon_init_smc91x(void)
 		return;
 	}
 	apollon_smc91x_resources[0].start = base + 0x300;
-	apollon_smc91x_resources[1].end   = base + 0x30f;
+	apollon_smc91x_resources[0].end   = base + 0x30f;
 	udelay(100);
 
 	omap_cfg_reg(W4__24XX_GPIO74);
