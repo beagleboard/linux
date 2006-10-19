@@ -11,6 +11,7 @@
 
 #include <linux/init.h>
 #include <linux/ioport.h>
+#include <linux/delay.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
@@ -44,21 +45,25 @@ struct omap_nand_info {
 /*
  *	hardware specific access to control-lines
  *	NOTE:  boards may use different bits for these!!
+ *
+ *	ctrl:
+ *	NAND_NCE: bit 0 - don't care
+ *	NAND_CLE: bit 1 -> bit 1  (0x0002)
+ *	NAND_ALE: bit 2 -> bit 2  (0x0004)
  */
-#define	MASK_CLE	0x02
-#define	MASK_ALE	0x04
-static void omap_nand_hwcontrol(struct mtd_info *mtd, int cmd)
-{
-	struct nand_chip *this = mtd->priv;
-	unsigned long IO_ADDR_W = (unsigned long) this->IO_ADDR_W;
 
-	switch (cmd) {
-		case NAND_CTL_SETCLE: IO_ADDR_W |= MASK_CLE; break;
-		case NAND_CTL_CLRCLE: IO_ADDR_W &= ~MASK_CLE; break;
-		case NAND_CTL_SETALE: IO_ADDR_W |= MASK_ALE; break;
-		case NAND_CTL_CLRALE: IO_ADDR_W &= ~MASK_ALE; break;
-	}
-	this->IO_ADDR_W = (void __iomem *) IO_ADDR_W;
+static void omap_nand_hwcontrol(struct mtd_info *mtd, int cmd, unsigned int ctrl)
+{
+	struct nand_chip *chip = mtd->priv;
+	unsigned long mask;
+
+	if (cmd == NAND_CMD_NONE)
+		return;
+
+	mask = (ctrl & NAND_CLE) ? 0x02 : 0;
+	if (ctrl & NAND_ALE)
+		mask |= 0x04;
+	writeb(cmd, (unsigned long)chip->IO_ADDR_W | mask);
 }
 
 static int omap_nand_dev_ready(struct mtd_info *mtd)
@@ -76,11 +81,9 @@ static int __devinit omap_nand_probe(struct platform_device *pdev)
 	unsigned long			size = res->end - res->start + 1;
 	int				err;
 
-	info = kmalloc(sizeof(struct omap_nand_info), GFP_KERNEL);
+	info = kzalloc(sizeof(struct omap_nand_info), GFP_KERNEL);
 	if (!info)
 		return -ENOMEM;
-
-	memset(info, 0, sizeof(struct omap_nand_info));
 
 	if (!request_mem_region(res->start, size, pdev->dev.driver->name)) {
 		err = -EBUSY;
@@ -93,8 +96,8 @@ static int __devinit omap_nand_probe(struct platform_device *pdev)
 		goto out_release_mem_region;
 	}
 	info->nand.IO_ADDR_W = info->nand.IO_ADDR_R;
-	info->nand.hwcontrol = omap_nand_hwcontrol;
-	info->nand.eccmode = NAND_ECC_SOFT;
+	info->nand.cmd_ctrl = omap_nand_hwcontrol;
+	info->nand.ecc.mode = NAND_ECC_SOFT;
 	info->nand.options = pdata->options;
 	if (pdata->dev_ready)
 		info->nand.dev_ready = omap_nand_dev_ready;
