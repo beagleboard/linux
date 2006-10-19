@@ -63,4 +63,16 @@ config SND_OMAP_TSC2101
  	  To compile this driver as a module, choose M here: the module
  	  will be called snd-omap-tsc2101.
 
+config SND_OMAP_TSC2102
+ 	tristate "OMAP TSC2102 alsa driver"
+ 	depends on ARCH_OMAP && SND
+ 	select SND_PCM
+	select TSC2102
+ 	help
+ 	  Say Y here if you have an OMAP platform board
+ 	  and want to use its TSC2102 audio chip.
+
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called snd-omap-tsc2102.
+
 endmenu
