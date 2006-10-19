@@ -135,7 +135,12 @@ config SPI_S3C24XX
 comment "SPI Protocol Masters"
 	depends on SPI_MASTER
 
-
+config TSC2102
+	depends on SPI_MASTER
+	tristate "TSC2102 codec support"
+	---help---
+	  Say Y here if you want support for the TSC2102 chip.  It
+	  will be needed for the touchscreen driver on some boards.
 #
 # Add new SPI protocol masters in alphabetical order above this line
 #

@@ -22,6 +22,7 @@ obj-$(CONFIG_SPI_OMAP_UWIRE)		+= omap_uwire.o
 # 	... add above this line ...
 
 # SPI protocol drivers (device/link on bus)
+obj-$(CONFIG_TSC2102)			+= tsc2102.o
 # 	... add above this line ...
 
 # SPI slave controller drivers (upstream link)
