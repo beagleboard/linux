@@ -43,6 +43,8 @@
 #define dsp_boot_config(mode)	writel((mode), DSP_IPI_DSPBOOTCONFIG)
 #endif
 
+struct omap_dsp *omap_dsp;
+
 #if defined(CONFIG_ARCH_OMAP1)
 struct clk *dsp_ck_handle;
 struct clk *api_ck_handle;
@@ -371,7 +373,8 @@ static void dsp_cpustat_update(void)
 			__dsp_core_enable();
 #endif
 			cpustat.stat = CPUSTAT_RUN;
-			enable_irq(omap_dsp->mmu_irq);
+			if (omap_dsp != NULL)
+				enable_irq(omap_dsp->mmu_irq);
 		}
 		return;
 	}
@@ -379,7 +382,8 @@ static void dsp_cpustat_update(void)
 	/* cpustat.req < CPUSTAT_RUN */
 
 	if (cpustat.stat == CPUSTAT_RUN) {
-		disable_irq(omap_dsp->mmu_irq);
+		if (omap_dsp != NULL)
+			disable_irq(omap_dsp->mmu_irq);
 #ifdef CONFIG_ARCH_OMAP1
 		clk_disable(api_ck_handle);
 #endif

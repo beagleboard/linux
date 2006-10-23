@@ -63,7 +63,7 @@ static inline void omap_init_rtc(void) {}
 
 #if defined(CONFIG_OMAP_DSP)
 
-#if defined(CONFIG_ARCH_OMAP1510)
+#if defined(CONFIG_ARCH_OMAP15XX)
 #  define OMAP1_MBOX_SIZE	0x23
 #  define INT_DSP_MAILBOX1	INT_1510_DSP_MAILBOX1
 #elif defined(CONFIG_ARCH_OMAP16XX)

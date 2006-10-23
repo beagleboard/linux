@@ -40,7 +40,6 @@ MODULE_AUTHOR("Toshihiro Kobayashi <toshihiro.kobayashi@nokia.com>");
 MODULE_DESCRIPTION("OMAP DSP driver module");
 MODULE_LICENSE("GPL");
 
-struct omap_dsp *omap_dsp;
 static struct sync_seq *mbseq;
 static u16 mbseq_expect_tmp;
 static u16 *mbseq_expect = &mbseq_expect_tmp;
