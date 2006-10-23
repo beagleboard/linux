@@ -52,7 +52,6 @@
  *     the USB-IF OTG tests even at full speed; presumably not.
  */
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/delay.h>

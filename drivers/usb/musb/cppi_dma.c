@@ -6,7 +6,6 @@
  * TUSB 6010 over VLYNQ has CPPI that looks much like DaVinci.
  */
 
-#include <linux/config.h>
 #include <linux/usb.h>
 
 #include "musbdefs.h"

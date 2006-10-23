@@ -21,7 +21,6 @@
  *   27/03/05   Vladimir Barinov - Added support for power management
  */
  
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/init.h>

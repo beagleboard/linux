@@ -27,7 +27,6 @@
 #include <linux/init.h>
 
 #include <linux/completion.h>
-#include <linux/config.h>
 #include <linux/errno.h>
 #include <linux/moduleparam.h>
 #include <linux/platform_device.h>

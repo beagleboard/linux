@@ -37,7 +37,6 @@
  * The code managing debug files (currently in procfs).
  */
 
-#include <linux/config.h>
 #include <linux/kernel.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>

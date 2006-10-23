@@ -32,7 +32,6 @@
  * 2005-12-10   Dirk Behme      - Added L/R Channel Interchange fix as proposed by Ajaya Babu
  */
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/types.h>

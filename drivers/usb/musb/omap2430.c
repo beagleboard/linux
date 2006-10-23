@@ -20,7 +20,6 @@
  * Suite 330, Boston, MA  02111-1307  USA
  *
  */
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/pci.h>
 #include <linux/kernel.h>
@@ -30,7 +29,6 @@
 #include <linux/list.h>
 #include <linux/clk.h>
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>

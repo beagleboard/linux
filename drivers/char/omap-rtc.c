@@ -43,7 +43,6 @@
  *	REVISIT: Elaborate on OMAP1510 TRM 15uS BUSY access rule.
  */
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/types.h>
