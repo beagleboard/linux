@@ -14,13 +14,10 @@ if INPUT_TOUCHSCREEN
 config TOUCHSCREEN_ADS7846
 	tristate "ADS 7846 based touchscreens"
 	depends on SPI_MASTER
-	select HWMON
 	help
 	  Say Y here if you have a touchscreen interface using the
 	  ADS7846 controller, and your board-specific initialization
-	  code includes that in its table of SPI devices.  You will
-	  also get hwmon interfaces for the temperature and voltage
-	  sensors this chip provides.
+	  code includes that in its table of SPI devices.
 
 	  If unsure, say N (but it's safe to say "Y").
 
@@ -111,6 +108,42 @@ config TOUCHSCREEN_HP600
 	  To compile this driver as a module, choose M here: the
 	  module will be called hp680_ts_input.
 
+config TOUCHSCREEN_PENMOUNT
+	tristate "Penmount serial touchscreen"
+	select SERIO
+	help
+	  Say Y here if you have a Penmount serial touchscreen connected to
+	  your system.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called penmount.
+
+config TOUCHSCREEN_TOUCHRIGHT
+	tristate "Touchright serial touchscreen"
+	select SERIO
+	help
+	  Say Y here if you have a Touchright serial touchscreen connected to
+	  your system.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called touchright.
+
+config TOUCHSCREEN_TOUCHWIN
+	tristate "Touchwin serial touchscreen"
+	select SERIO
+	help
+	  Say Y here if you have a Touchwin serial touchscreen connected to
+	  your system.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called touchwin.
+
 config TOUCHSCREEN_TSC2102
 	tristate "TSC 2102 based touchscreens"
 	depends on SPI_MASTER
@@ -126,7 +159,6 @@ config TOUCHSCREEN_TSC2102
 	  To compile this driver as a module, choose M here: the
 	  module will be called tsc2102_ts.
 
-endif
 config TOUCHSCREEN_OMAP
 	tristate "OMAP touchscreen input driver"
 	depends on INPUT && INPUT_TOUCHSCREEN && (MACH_OMAP_H2 || MACH_OMAP_H3)
@@ -140,5 +172,4 @@ config TOUCHSCREEN_OMAP
 	  To compile this driver as a module, choose M here: the
 	  module will be called omap_ts.
 
-
-
+endif
