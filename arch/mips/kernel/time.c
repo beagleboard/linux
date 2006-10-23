@@ -47,8 +47,6 @@
 /*
  * forward reference
  */
-extern volatile unsigned long wall_jiffies;
-
 DEFINE_SPINLOCK(rtc_lock);
 
 /*
@@ -150,88 +148,6 @@ int (*mips_timer_state)(void);
 void (*mips_timer_ack)(void);
 unsigned int (*mips_hpt_read)(void);
 void (*mips_hpt_init)(unsigned int);
-
-
-/*
- * This version of gettimeofday has microsecond resolution and better than
- * microsecond precision on fast machines with cycle counter.
- */
-void do_gettimeofday(struct timeval *tv)
-{
-	unsigned long seq;
-	unsigned long lost;
-	unsigned long usec, sec;
-	unsigned long max_ntp_tick;
-
-	do {
-		seq = read_seqbegin(&xtime_lock);
-
-		usec = do_gettimeoffset();
-
-		lost = jiffies - wall_jiffies;
-
-		/*
-		 * If time_adjust is negative then NTP is slowing the clock
-		 * so make sure not to go into next possible interval.
-		 * Better to lose some accuracy than have time go backwards..
-		 */
-		if (unlikely(time_adjust < 0)) {
-			max_ntp_tick = (USEC_PER_SEC / HZ) - tickadj;
-			usec = min(usec, max_ntp_tick);
-
-			if (lost)
-				usec += lost * max_ntp_tick;
-		} else if (unlikely(lost))
-			usec += lost * (USEC_PER_SEC / HZ);
-
-		sec = xtime.tv_sec;
-		usec += (xtime.tv_nsec / 1000);
-
-	} while (read_seqretry(&xtime_lock, seq));
-
-	while (usec >= 1000000) {
-		usec -= 1000000;
-		sec++;
-	}
-
-	tv->tv_sec = sec;
-	tv->tv_usec = usec;
-}
-
-EXPORT_SYMBOL(do_gettimeofday);
-
-int do_settimeofday(struct timespec *tv)
-{
-	time_t wtm_sec, sec = tv->tv_sec;
-	long wtm_nsec, nsec = tv->tv_nsec;
-
-	if ((unsigned long)tv->tv_nsec >= NSEC_PER_SEC)
-		return -EINVAL;
-
-	write_seqlock_irq(&xtime_lock);
-
-	/*
-	 * This is revolting.  We need to set "xtime" correctly.  However,
-	 * the value in this location is the value at the most recent update
-	 * of wall time.  Discover what correction gettimeofday() would have
-	 * made, and then undo it!
-	 */
-	nsec -= do_gettimeoffset() * NSEC_PER_USEC;
-	nsec -= (jiffies - wall_jiffies) * tick_nsec;
-
-	wtm_sec  = wall_to_monotonic.tv_sec + (xtime.tv_sec - sec);
-	wtm_nsec = wall_to_monotonic.tv_nsec + (xtime.tv_nsec - nsec);
-
-	set_normalized_timespec(&xtime, sec, nsec);
-	set_normalized_timespec(&wall_to_monotonic, wtm_sec, wtm_nsec);
-
-	ntp_clear();
-	write_sequnlock_irq(&xtime_lock);
-	clock_was_set();
-	return 0;
-}
-
-EXPORT_SYMBOL(do_settimeofday);
 
 /*
  * Gettimeoffset routines.  These routines returns the time duration
@@ -406,18 +322,17 @@ static long last_rtc_update;
  * a broadcasted inter-processor interrupt which itself is triggered
  * by the global timer interrupt.
  */
-void local_timer_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+void local_timer_interrupt(int irq, void *dev_id)
 {
-	if (current->pid)
-		profile_tick(CPU_PROFILING, regs);
-	update_process_times(user_mode(regs));
+	profile_tick(CPU_PROFILING);
+	update_process_times(user_mode(get_irq_regs()));
 }
 
 /*
  * High-level timer interrupt service routines.  This function
  * is set as irqaction->handler and is invoked through do_IRQ.
  */
-irqreturn_t timer_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+irqreturn_t timer_interrupt(int irq, void *dev_id)
 {
 	unsigned long j;
 	unsigned int count;
@@ -434,7 +349,7 @@ irqreturn_t timer_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 	/*
 	 * call the generic timer interrupt handling
 	 */
-	do_timer(regs);
+	do_timer(1);
 
 	/*
 	 * If we have an externally synchronized Linux clock, then update
@@ -503,22 +418,22 @@ irqreturn_t timer_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 	 * In SMP mode, local_timer_interrupt() is invoked by appropriate
 	 * low-level local timer interrupt handler.
 	 */
-	local_timer_interrupt(irq, dev_id, regs);
+	local_timer_interrupt(irq, dev_id);
 
 	return IRQ_HANDLED;
 }
 
-int null_perf_irq(struct pt_regs *regs)
+int null_perf_irq(void)
 {
 	return 0;
 }
 
-int (*perf_irq)(struct pt_regs *regs) = null_perf_irq;
+int (*perf_irq)(void) = null_perf_irq;
 
 EXPORT_SYMBOL(null_perf_irq);
 EXPORT_SYMBOL(perf_irq);
 
-asmlinkage void ll_timer_interrupt(int irq, struct pt_regs *regs)
+asmlinkage void ll_timer_interrupt(int irq)
 {
 	int r2 = cpu_has_mips_r2;
 
@@ -532,25 +447,25 @@ asmlinkage void ll_timer_interrupt(int irq, struct pt_regs *regs)
 	 * performance counter interrupt handler anyway.
 	 */
 	if (!r2 || (read_c0_cause() & (1 << 26)))
-		if (perf_irq(regs))
+		if (perf_irq())
 			goto out;
 
 	/* we keep interrupt disabled all the time */
 	if (!r2 || (read_c0_cause() & (1 << 30)))
-		timer_interrupt(irq, NULL, regs);
+		timer_interrupt(irq, NULL);
 
 out:
 	irq_exit();
 }
 
-asmlinkage void ll_local_timer_interrupt(int irq, struct pt_regs *regs)
+asmlinkage void ll_local_timer_interrupt(int irq)
 {
 	irq_enter();
 	if (smp_processor_id() != 0)
 		kstat_this_cpu.irqs[irq]++;
 
 	/* we keep interrupt disabled all the time */
-	local_timer_interrupt(irq, NULL, regs);
+	local_timer_interrupt(irq, NULL);
 
 	irq_exit();
 }

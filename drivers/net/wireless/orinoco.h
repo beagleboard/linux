@@ -128,17 +128,13 @@ extern void free_orinocodev(struct net_device *dev);
 extern int __orinoco_up(struct net_device *dev);
 extern int __orinoco_down(struct net_device *dev);
 extern int orinoco_reinit_firmware(struct net_device *dev);
-extern irqreturn_t orinoco_interrupt(int irq, void * dev_id, struct pt_regs *regs);
+extern irqreturn_t orinoco_interrupt(int irq, void * dev_id);
 
 /********************************************************************/
 /* Locking and synchronization functions                            */
 /********************************************************************/
 
-/* These functions *must* be inline or they will break horribly on
- * SPARC, due to its weird semantics for save/restore flags. extern
- * inline should prevent the kernel from linking or module from
- * loading if they are not inlined. */
-extern inline int orinoco_lock(struct orinoco_private *priv,
+static inline int orinoco_lock(struct orinoco_private *priv,
 			       unsigned long *flags)
 {
 	spin_lock_irqsave(&priv->lock, *flags);
@@ -151,7 +147,7 @@ extern inline int orinoco_lock(struct orinoco_private *priv,
 	return 0;
 }
 
-extern inline void orinoco_unlock(struct orinoco_private *priv,
+static inline void orinoco_unlock(struct orinoco_private *priv,
 				  unsigned long *flags)
 {
 	spin_unlock_irqrestore(&priv->lock, *flags);

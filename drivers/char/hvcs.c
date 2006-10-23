@@ -313,8 +313,7 @@ static DEFINE_SPINLOCK(hvcs_structs_lock);
 
 static void hvcs_unthrottle(struct tty_struct *tty);
 static void hvcs_throttle(struct tty_struct *tty);
-static irqreturn_t hvcs_handle_interrupt(int irq, void *dev_instance,
-		struct pt_regs *regs);
+static irqreturn_t hvcs_handle_interrupt(int irq, void *dev_instance);
 
 static int hvcs_write(struct tty_struct *tty,
 		const unsigned char *buf, int count);
@@ -387,8 +386,7 @@ static void hvcs_throttle(struct tty_struct *tty)
  * handler taking any further interrupts because they are disabled which means
  * the hvcs_struct will always be valid in this handler.
  */
-static irqreturn_t hvcs_handle_interrupt(int irq, void *dev_instance,
-		struct pt_regs *regs)
+static irqreturn_t hvcs_handle_interrupt(int irq, void *dev_instance)
 {
 	struct hvcs_struct *hvcsd = dev_instance;
 
@@ -1306,7 +1304,7 @@ static int hvcs_chars_in_buffer(struct tty_struct *tty)
 	return hvcsd->chars_in_buffer;
 }
 
-static struct tty_operations hvcs_ops = {
+static const struct tty_operations hvcs_ops = {
 	.open = hvcs_open,
 	.close = hvcs_close,
 	.hangup = hvcs_hangup,

@@ -25,6 +25,7 @@
 #include <linux/mutex.h>
 #include <asm/sections.h>
 #include <asm/semaphore.h>
+#include <asm/irq_regs.h>
 
 struct profile_hit {
 	u32 pc, hits;
@@ -309,13 +310,17 @@ static int __devinit profile_cpu_callback(struct notifier_block *info,
 		node = cpu_to_node(cpu);
 		per_cpu(cpu_profile_flip, cpu) = 0;
 		if (!per_cpu(cpu_profile_hits, cpu)[1]) {
-			page = alloc_pages_node(node, GFP_KERNEL | __GFP_ZERO, 0);
+			page = alloc_pages_node(node,
+					GFP_KERNEL | __GFP_ZERO | GFP_THISNODE,
+					0);
 			if (!page)
 				return NOTIFY_BAD;
 			per_cpu(cpu_profile_hits, cpu)[1] = page_address(page);
 		}
 		if (!per_cpu(cpu_profile_hits, cpu)[0]) {
-			page = alloc_pages_node(node, GFP_KERNEL | __GFP_ZERO, 0);
+			page = alloc_pages_node(node,
+					GFP_KERNEL | __GFP_ZERO | GFP_THISNODE,
+					0);
 			if (!page)
 				goto out_free;
 			per_cpu(cpu_profile_hits, cpu)[0] = page_address(page);
@@ -362,8 +367,10 @@ void profile_hit(int type, void *__pc)
 }
 #endif /* !CONFIG_SMP */
 
-void profile_tick(int type, struct pt_regs *regs)
+void profile_tick(int type)
 {
+	struct pt_regs *regs = get_irq_regs();
+
 	if (type == CPU_PROFILING && timer_hook)
 		timer_hook(regs);
 	if (!user_mode(regs) && cpu_isset(smp_processor_id(), prof_cpu_mask))
@@ -392,7 +399,7 @@ static int prof_cpu_mask_write_proc (struct file *file, const char __user *buffe
 	unsigned long full_count = count, err;
 	cpumask_t new_value;
 
-	err = cpumask_parse(buffer, count, new_value);
+	err = cpumask_parse_user(buffer, count, new_value);
 	if (err)
 		return err;
 
@@ -491,12 +498,16 @@ static int __init create_hash_tables(void)
 		int node = cpu_to_node(cpu);
 		struct page *page;
 
-		page = alloc_pages_node(node, GFP_KERNEL | __GFP_ZERO, 0);
+		page = alloc_pages_node(node,
+				GFP_KERNEL | __GFP_ZERO | GFP_THISNODE,
+				0);
 		if (!page)
 			goto out_cleanup;
 		per_cpu(cpu_profile_hits, cpu)[1]
 				= (struct profile_hit *)page_address(page);
-		page = alloc_pages_node(node, GFP_KERNEL | __GFP_ZERO, 0);
+		page = alloc_pages_node(node,
+				GFP_KERNEL | __GFP_ZERO | GFP_THISNODE,
+				0);
 		if (!page)
 			goto out_cleanup;
 		per_cpu(cpu_profile_hits, cpu)[0]

@@ -90,7 +90,7 @@
 */
 
 #define DRV_NAME	"8139too"
-#define DRV_VERSION	"0.9.27"
+#define DRV_VERSION	"0.9.28"
 
 
 #include <linux/module.h>
@@ -629,8 +629,7 @@ static int rtl8139_poll(struct net_device *dev, int *budget);
 #ifdef CONFIG_NET_POLL_CONTROLLER
 static void rtl8139_poll_controller(struct net_device *dev);
 #endif
-static irqreturn_t rtl8139_interrupt (int irq, void *dev_instance,
-			       struct pt_regs *regs);
+static irqreturn_t rtl8139_interrupt (int irq, void *dev_instance);
 static int rtl8139_close (struct net_device *dev);
 static int netdev_ioctl (struct net_device *dev, struct ifreq *rq, int cmd);
 static struct net_device_stats *rtl8139_get_stats (struct net_device *dev);
@@ -639,7 +638,7 @@ static void __set_rx_mode (struct net_device *dev);
 static void rtl8139_hw_start (struct net_device *dev);
 static void rtl8139_thread (void *_data);
 static void rtl8139_tx_timeout_task(void *_data);
-static struct ethtool_ops rtl8139_ethtool_ops;
+static const struct ethtool_ops rtl8139_ethtool_ops;
 
 /* write MMIO register, with flush */
 /* Flush avoids rtl8139 bug w/ posted MMIO writes */
@@ -2146,8 +2145,7 @@ static int rtl8139_poll(struct net_device *dev, int *budget)
 
 /* The interrupt handler does all of the Rx thread work and cleans up
    after the Tx thread. */
-static irqreturn_t rtl8139_interrupt (int irq, void *dev_instance,
-			       struct pt_regs *regs)
+static irqreturn_t rtl8139_interrupt (int irq, void *dev_instance)
 {
 	struct net_device *dev = (struct net_device *) dev_instance;
 	struct rtl8139_private *tp = netdev_priv(dev);
@@ -2219,7 +2217,7 @@ static irqreturn_t rtl8139_interrupt (int irq, void *dev_instance,
 static void rtl8139_poll_controller(struct net_device *dev)
 {
 	disable_irq(dev->irq);
-	rtl8139_interrupt(dev->irq, dev, NULL);
+	rtl8139_interrupt(dev->irq, dev);
 	enable_irq(dev->irq);
 }
 #endif
@@ -2446,7 +2444,7 @@ static void rtl8139_get_strings(struct net_device *dev, u32 stringset, u8 *data)
 	memcpy(data, ethtool_stats_keys, sizeof(ethtool_stats_keys));
 }
 
-static struct ethtool_ops rtl8139_ethtool_ops = {
+static const struct ethtool_ops rtl8139_ethtool_ops = {
 	.get_drvinfo		= rtl8139_get_drvinfo,
 	.get_settings		= rtl8139_get_settings,
 	.set_settings		= rtl8139_set_settings,
@@ -2512,9 +2510,6 @@ static void __set_rx_mode (struct net_device *dev)
 
 	/* Note: do not reorder, GCC is clever about common statements. */
 	if (dev->flags & IFF_PROMISC) {
-		/* Unconditionally log net taps. */
-		printk (KERN_NOTICE "%s: Promiscuous mode enabled.\n",
-			dev->name);
 		rx_mode =
 		    AcceptBroadcast | AcceptMulticast | AcceptMyPhys |
 		    AcceptAllPhys;
@@ -2629,7 +2624,7 @@ static int __init rtl8139_init_module (void)
 	printk (KERN_INFO RTL8139_DRIVER_NAME "\n");
 #endif
 
-	return pci_module_init (&rtl8139_pci_driver);
+	return pci_register_driver(&rtl8139_pci_driver);
 }
 
 

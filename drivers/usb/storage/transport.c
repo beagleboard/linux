@@ -108,7 +108,7 @@
 /* This is the completion handler which will wake us up when an URB
  * completes.
  */
-static void usb_stor_blocking_completion(struct urb *urb, struct pt_regs *regs)
+static void usb_stor_blocking_completion(struct urb *urb)
 {
 	struct completion *urb_done_ptr = (struct completion *)urb->context;
 
@@ -293,11 +293,6 @@ static int interpret_urb_result(struct us_data *us, unsigned int pipe,
 		if (usb_stor_clear_halt(us, pipe) < 0)
 			return USB_STOR_XFER_ERROR;
 		return USB_STOR_XFER_STALLED;
-
-	/* timeout or excessively long NAK */
-	case -ETIMEDOUT:
-		US_DEBUGP("-- timeout or NAK\n");
-		return USB_STOR_XFER_ERROR;
 
 	/* babble - the device tried to send more than we wanted to read */
 	case -EOVERFLOW:

@@ -497,6 +497,7 @@ static int start_video_dma(struct cx8800_dev    *dev,
 	return 0;
 }
 
+#ifdef CONFIG_PM
 static int stop_video_dma(struct cx8800_dev    *dev)
 {
 	struct cx88_core *core = dev->core;
@@ -512,6 +513,7 @@ static int stop_video_dma(struct cx8800_dev    *dev)
 	cx_clear(MO_VID_INTMSK, 0x0f0011);
 	return 0;
 }
+#endif
 
 static int restart_video_queue(struct cx8800_dev    *dev,
 			       struct cx88_dmaqueue *q)
@@ -1742,7 +1744,7 @@ static void cx8800_vid_irq(struct cx8800_dev *dev)
 	}
 }
 
-static irqreturn_t cx8800_irq(int irq, void *dev_id, struct pt_regs *regs)
+static irqreturn_t cx8800_irq(int irq, void *dev_id)
 {
 	struct cx8800_dev *dev = dev_id;
 	struct cx88_core *core = dev->core;
@@ -1926,6 +1928,9 @@ static int __devinit cx8800_initdev(struct pci_dev *pci_dev,
 	if (TUNER_ABSENT != core->tuner_type)
 		request_module("tuner");
 
+	if (cx88_boards[ core->board ].audio_chip == AUDIO_CHIP_WM8775)
+		request_module("wm8775");
+
 	/* register v4l devices */
 	dev->video_dev = cx88_vdev_init(core,dev->pci,
 					&cx8800_video_template,"video");
@@ -2017,6 +2022,7 @@ static void __devexit cx8800_finidev(struct pci_dev *pci_dev)
 	kfree(dev);
 }
 
+#ifdef CONFIG_PM
 static int cx8800_suspend(struct pci_dev *pci_dev, pm_message_t state)
 {
 	struct cx8800_dev *dev = pci_get_drvdata(pci_dev);
@@ -2092,6 +2098,7 @@ static int cx8800_resume(struct pci_dev *pci_dev)
 
 	return 0;
 }
+#endif
 
 /* ----------------------------------------------------------- */
 
@@ -2112,9 +2119,10 @@ static struct pci_driver cx8800_pci_driver = {
 	.id_table = cx8800_pci_tbl,
 	.probe    = cx8800_initdev,
 	.remove   = __devexit_p(cx8800_finidev),
-
+#ifdef CONFIG_PM
 	.suspend  = cx8800_suspend,
 	.resume   = cx8800_resume,
+#endif
 };
 
 static int cx8800_init(void)

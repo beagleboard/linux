@@ -34,7 +34,7 @@ static struct irq_host *i8259_host;
  * which is called.  It should be noted that polling is broken on some
  * IBM and Motorola PReP boxes so we must use the int-ack feature on them.
  */
-unsigned int i8259_irq(struct pt_regs *regs)
+unsigned int i8259_irq(void)
 {
 	int irq;
 	int lock = 0;
@@ -224,7 +224,7 @@ static struct irq_host_ops i8259_host_ops = {
 	.xlate = i8259_host_xlate,
 };
 
-/****
+/**
  * i8259_init - Initialize the legacy controller
  * @node: device node of the legacy PIC (can be NULL, but then, it will match
  *        all interrupts, so beware)

@@ -294,7 +294,7 @@ static void sbmac_channel_stop(struct sbmac_softc *s);
 static sbmac_state_t sbmac_set_channel_state(struct sbmac_softc *,sbmac_state_t);
 static void sbmac_promiscuous_mode(struct sbmac_softc *sc,int onoff);
 static uint64_t sbmac_addr2reg(unsigned char *ptr);
-static irqreturn_t sbmac_intr(int irq,void *dev_instance,struct pt_regs *rgs);
+static irqreturn_t sbmac_intr(int irq,void *dev_instance);
 static int sbmac_start_tx(struct sk_buff *skb, struct net_device *dev);
 static void sbmac_setmulti(struct sbmac_softc *sc);
 static int sbmac_init(struct net_device *dev, int idx);
@@ -2049,7 +2049,7 @@ static int sbmac_set_duplex(struct sbmac_softc *s,sbmac_duplex_t duplex,sbmac_fc
  *  Return value:
  *  	   nothing
  ********************************************************************* */
-static irqreturn_t sbmac_intr(int irq,void *dev_instance,struct pt_regs *rgs)
+static irqreturn_t sbmac_intr(int irq,void *dev_instance)
 {
 	struct net_device *dev = (struct net_device *) dev_instance;
 	struct sbmac_softc *sc = netdev_priv(dev);
@@ -2708,7 +2708,6 @@ static struct net_device_stats *sbmac_get_stats(struct net_device *dev)
 static void sbmac_set_rx_mode(struct net_device *dev)
 {
 	unsigned long flags;
-	int msg_flag = 0;
 	struct sbmac_softc *sc = netdev_priv(dev);
 
 	spin_lock_irqsave(&sc->sbm_lock, flags);
@@ -2718,21 +2717,13 @@ static void sbmac_set_rx_mode(struct net_device *dev)
 		 */
 
 		if (dev->flags & IFF_PROMISC) {
-			/* Unconditionally log net taps. */
-			msg_flag = 1;
 			sbmac_promiscuous_mode(sc,1);
 		}
 		else {
-			msg_flag = 2;
 			sbmac_promiscuous_mode(sc,0);
 		}
 	}
 	spin_unlock_irqrestore(&sc->sbm_lock, flags);
-
-	if (msg_flag) {
-		printk(KERN_NOTICE "%s: Promiscuous mode %sabled.\n",
-		       dev->name,(msg_flag==1)?"en":"dis");
-	}
 
 	/*
 	 * Program the multicasts.  Do this every time.

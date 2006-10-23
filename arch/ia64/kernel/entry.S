@@ -1,5 +1,5 @@
 /*
- * ia64/kernel/entry.S
+ * arch/ia64/kernel/entry.S
  *
  * Kernel entry points.
  *
@@ -492,11 +492,11 @@ GLOBAL_ENTRY(prefetch_stack)
 	br.ret.sptk.many rp
 END(prefetch_stack)
 
-GLOBAL_ENTRY(execve)
+GLOBAL_ENTRY(kernel_execve)
 	mov r15=__NR_execve			// put syscall number in place
 	break __BREAK_SYSCALL
 	br.ret.sptk.many rp
-END(execve)
+END(kernel_execve)
 
 GLOBAL_ENTRY(clone)
 	mov r15=__NR_clone			// put syscall number in place
@@ -1605,8 +1605,8 @@ sys_call_table:
 	data8 sys_ni_syscall			// 1295 reserved for ppoll
 	data8 sys_unshare
 	data8 sys_splice
-	data8 sys_ni_syscall			// reserved for set_robust_list
-	data8 sys_ni_syscall			// reserved for get_robust_list
+	data8 sys_set_robust_list
+	data8 sys_get_robust_list
 	data8 sys_sync_file_range		// 1300
 	data8 sys_tee
 	data8 sys_vmsplice

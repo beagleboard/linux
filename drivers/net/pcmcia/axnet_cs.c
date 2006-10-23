@@ -91,8 +91,8 @@ static void axnet_release(struct pcmcia_device *link);
 static int axnet_open(struct net_device *dev);
 static int axnet_close(struct net_device *dev);
 static int axnet_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
-static struct ethtool_ops netdev_ethtool_ops;
-static irqreturn_t ei_irq_wrapper(int irq, void *dev_id, struct pt_regs *regs);
+static const struct ethtool_ops netdev_ethtool_ops;
+static irqreturn_t ei_irq_wrapper(int irq, void *dev_id);
 static void ei_watchdog(u_long arg);
 static void axnet_reset_8390(struct net_device *dev);
 
@@ -112,7 +112,7 @@ static void axdev_setup(struct net_device *dev);
 static void AX88190_init(struct net_device *dev, int startp);
 static int ax_open(struct net_device *dev);
 static int ax_close(struct net_device *dev);
-static irqreturn_t ax_interrupt(int irq, void *dev_id, struct pt_regs *regs);
+static irqreturn_t ax_interrupt(int irq, void *dev_id);
 
 /*====================================================================*/
 
@@ -599,11 +599,11 @@ static void axnet_reset_8390(struct net_device *dev)
 
 /*====================================================================*/
 
-static irqreturn_t ei_irq_wrapper(int irq, void *dev_id, struct pt_regs *regs)
+static irqreturn_t ei_irq_wrapper(int irq, void *dev_id)
 {
     struct net_device *dev = dev_id;
     PRIV(dev)->stale = 0;
-    return ax_interrupt(irq, dev_id, regs);
+    return ax_interrupt(irq, dev_id);
 }
 
 static void ei_watchdog(u_long arg)
@@ -621,7 +621,7 @@ static void ei_watchdog(u_long arg)
     if (info->stale++ && (inb_p(nic_base + EN0_ISR) & ENISR_ALL)) {
 	if (!info->fast_poll)
 	    printk(KERN_INFO "%s: interrupt(s) dropped!\n", dev->name);
-	ei_irq_wrapper(dev->irq, dev, NULL);
+	ei_irq_wrapper(dev->irq, dev);
 	info->fast_poll = HZ;
     }
     if (info->fast_poll) {
@@ -671,7 +671,7 @@ static void netdev_get_drvinfo(struct net_device *dev,
 	strcpy(info->driver, "axnet_cs");
 }
 
-static struct ethtool_ops netdev_ethtool_ops = {
+static const struct ethtool_ops netdev_ethtool_ops = {
 	.get_drvinfo		= netdev_get_drvinfo,
 };
 
@@ -771,6 +771,7 @@ static struct pcmcia_device_id axnet_ids[] = {
 	PCMCIA_DEVICE_MANF_CARD(0x026f, 0x0309),
 	PCMCIA_DEVICE_MANF_CARD(0x0274, 0x1106),
 	PCMCIA_DEVICE_MANF_CARD(0x8a01, 0xc1ab),
+	PCMCIA_DEVICE_MANF_CARD(0x021b, 0x0202), 
 	PCMCIA_DEVICE_PROD_ID12("AmbiCom,Inc.", "Fast Ethernet PC Card(AMB8110)", 0x49b020a7, 0x119cc9fc),
 	PCMCIA_DEVICE_PROD_ID124("Fast Ethernet", "16-bit PC Card", "AX88190", 0xb4be14e3, 0x9a12eb6a, 0xab9be5ef),
 	PCMCIA_DEVICE_PROD_ID12("ASIX", "AX88190", 0x0959823b, 0xab9be5ef),
@@ -786,8 +787,6 @@ static struct pcmcia_device_id axnet_ids[] = {
 	PCMCIA_DEVICE_PROD_ID12("PCMCIA", "FastEtherCard", 0x281f1c5d, 0x7ef26116),
 	PCMCIA_DEVICE_PROD_ID12("PCMCIA", "FEP501", 0x281f1c5d, 0x2e272058),
 	PCMCIA_DEVICE_PROD_ID14("Network Everywhere", "AX88190", 0x820a67b6,  0xab9be5ef),
-	/* this is not specific enough */
-	/* PCMCIA_DEVICE_MANF_CARD(0x021b, 0x0202), */
 	PCMCIA_DEVICE_NULL,
 };
 MODULE_DEVICE_TABLE(pcmcia, axnet_ids);
@@ -1194,7 +1193,7 @@ static int ei_start_xmit(struct sk_buff *skb, struct net_device *dev)
  * needed.
  */
 
-static irqreturn_t ax_interrupt(int irq, void *dev_id, struct pt_regs * regs)
+static irqreturn_t ax_interrupt(int irq, void *dev_id)
 {
 	struct net_device *dev = dev_id;
 	long e8390_base;
@@ -1202,14 +1201,8 @@ static irqreturn_t ax_interrupt(int irq, void *dev_id, struct pt_regs * regs)
 	struct ei_device *ei_local;
     	int handled = 0;
 
-	if (dev == NULL) 
-	{
-		printk ("net_interrupt(): irq %d for unknown device.\n", irq);
-		return IRQ_NONE;
-	}
-    
 	e8390_base = dev->base_addr;
-	ei_local = (struct ei_device *) netdev_priv(dev);
+	ei_local = netdev_priv(dev);
 
 	/*
 	 *	Protect the irq test too.

@@ -41,8 +41,6 @@
 
 #define PA_AX88796L	0xaa000400	/* AX88796L Area */
 #define PA_VOYAGER	0xab000000	/* VOYAGER GX Area */
-#define PA_AREA5_IO	0xb4000000	/* Area 5 IO Memory */
-#define PA_AREA6_IO	0xb8000000	/* Area 6 IO Memory */
 #define PA_IDE_OFFSET	0x1f0		/* CF IDE Offset */
 #define AX88796L_IO_BASE	0x1000	/* AX88796L IO Base Address */
 
@@ -69,5 +67,8 @@
 #define IRQ_PCISLOT1	9		/* PCI Slot #1 IRQ */
 #define IRQ_PCISLOT2	10		/* PCI Slot #2 IRQ */
 #define	IRQ_EXTENTION	11		/* EXTn IRQ */
+
+#define __IO_PREFIX rts7751r2d
+#include <asm/io_generic.h>
 
 #endif  /* __ASM_SH_RENESAS_RTS7751R2D */

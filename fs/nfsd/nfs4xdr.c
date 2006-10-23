@@ -60,6 +60,14 @@
 
 #define NFSDDBG_FACILITY		NFSDDBG_XDR
 
+/*
+ * As per referral draft, the fsid for a referral MUST be different from the fsid of the containing
+ * directory in order to indicate to the client that a filesystem boundary is present
+ * We use a fixed fsid for a referral
+ */
+#define NFS4_REFERRAL_FSID_MAJOR	0x8000000ULL
+#define NFS4_REFERRAL_FSID_MINOR	0x8000000ULL
+
 static int
 check_filename(char *str, int len, int err)
 {
@@ -198,8 +206,7 @@ static char *savemem(struct nfsd4_compoundargs *argp, u32 *p, int nbytes)
 		p = new;
 		memcpy(p, argp->tmp, nbytes);
 	} else {
-		if (p != argp->tmpp)
-			BUG();
+		BUG_ON(p != argp->tmpp);
 		argp->tmpp = NULL;
 	}
 	if (defer_free(argp, kfree, p)) {
@@ -927,26 +934,26 @@ nfsd4_decode_write(struct nfsd4_compoundargs *argp, struct nfsd4_write *write)
 		printk(KERN_NOTICE "xdr error! (%s:%d)\n", __FILE__, __LINE__); 
 		goto xdr_error;
 	}
-	write->wr_vec[0].iov_base = p;
-	write->wr_vec[0].iov_len = avail;
+	argp->rqstp->rq_vec[0].iov_base = p;
+	argp->rqstp->rq_vec[0].iov_len = avail;
 	v = 0;
 	len = write->wr_buflen;
-	while (len > write->wr_vec[v].iov_len) {
-		len -= write->wr_vec[v].iov_len;
+	while (len > argp->rqstp->rq_vec[v].iov_len) {
+		len -= argp->rqstp->rq_vec[v].iov_len;
 		v++;
-		write->wr_vec[v].iov_base = page_address(argp->pagelist[0]);
+		argp->rqstp->rq_vec[v].iov_base = page_address(argp->pagelist[0]);
 		argp->pagelist++;
 		if (argp->pagelen >= PAGE_SIZE) {
-			write->wr_vec[v].iov_len = PAGE_SIZE;
+			argp->rqstp->rq_vec[v].iov_len = PAGE_SIZE;
 			argp->pagelen -= PAGE_SIZE;
 		} else {
-			write->wr_vec[v].iov_len = argp->pagelen;
+			argp->rqstp->rq_vec[v].iov_len = argp->pagelen;
 			argp->pagelen -= len;
 		}
 	}
-	argp->end = (u32*) (write->wr_vec[v].iov_base + write->wr_vec[v].iov_len);
-	argp->p = (u32*)  (write->wr_vec[v].iov_base + (XDR_QUADLEN(len) << 2));
-	write->wr_vec[v].iov_len = len;
+	argp->end = (u32*) (argp->rqstp->rq_vec[v].iov_base + argp->rqstp->rq_vec[v].iov_len);
+	argp->p = (u32*)  (argp->rqstp->rq_vec[v].iov_base + (XDR_QUADLEN(len) << 2));
+	argp->rqstp->rq_vec[v].iov_len = len;
 	write->wr_vlen = v+1;
 
 	DECODE_TAIL;
@@ -1224,6 +1231,119 @@ nfsd4_decode_compound(struct nfsd4_compoundargs *argp)
  			stateowner->so_replay.rp_buflen); 	\
 	} } while (0);
 
+/* Encode as an array of strings the string given with components
+ * seperated @sep.
+ */
+static int nfsd4_encode_components(char sep, char *components,
+				   u32 **pp, int *buflen)
+{
+	u32 *p = *pp;
+	u32 *countp = p;
+	int strlen, count=0;
+	char *str, *end;
+
+	dprintk("nfsd4_encode_components(%s)\n", components);
+	if ((*buflen -= 4) < 0)
+		return nfserr_resource;
+	WRITE32(0); /* We will fill this in with @count later */
+	end = str = components;
+	while (*end) {
+		for (; *end && (*end != sep); end++)
+			; /* Point to end of component */
+		strlen = end - str;
+		if (strlen) {
+			if ((*buflen -= ((XDR_QUADLEN(strlen) << 2) + 4)) < 0)
+				return nfserr_resource;
+			WRITE32(strlen);
+			WRITEMEM(str, strlen);
+			count++;
+		}
+		else
+			end++;
+		str = end;
+	}
+	*pp = p;
+	p = countp;
+	WRITE32(count);
+	return 0;
+}
+
+/*
+ * encode a location element of a fs_locations structure
+ */
+static int nfsd4_encode_fs_location4(struct nfsd4_fs_location *location,
+				    u32 **pp, int *buflen)
+{
+	int status;
+	u32 *p = *pp;
+
+	status = nfsd4_encode_components(':', location->hosts, &p, buflen);
+	if (status)
+		return status;
+	status = nfsd4_encode_components('/', location->path, &p, buflen);
+	if (status)
+		return status;
+	*pp = p;
+	return 0;
+}
+
+/*
+ * Return the path to an export point in the pseudo filesystem namespace
+ * Returned string is safe to use as long as the caller holds a reference
+ * to @exp.
+ */
+static char *nfsd4_path(struct svc_rqst *rqstp, struct svc_export *exp)
+{
+	struct svc_fh tmp_fh;
+	char *path, *rootpath;
+	int stat;
+
+	fh_init(&tmp_fh, NFS4_FHSIZE);
+	stat = exp_pseudoroot(rqstp->rq_client, &tmp_fh, &rqstp->rq_chandle);
+	if (stat)
+		return ERR_PTR(stat);
+	rootpath = tmp_fh.fh_export->ex_path;
+
+	path = exp->ex_path;
+
+	if (strncmp(path, rootpath, strlen(rootpath))) {
+		printk("nfsd: fs_locations failed;"
+			"%s is not contained in %s\n", path, rootpath);
+		return ERR_PTR(-EOPNOTSUPP);
+	}
+
+	return path + strlen(rootpath);
+}
+
+/*
+ *  encode a fs_locations structure
+ */
+static int nfsd4_encode_fs_locations(struct svc_rqst *rqstp,
+				     struct svc_export *exp,
+				     u32 **pp, int *buflen)
+{
+	int status, i;
+	u32 *p = *pp;
+	struct nfsd4_fs_locations *fslocs = &exp->ex_fslocs;
+	char *root = nfsd4_path(rqstp, exp);
+
+	if (IS_ERR(root))
+		return PTR_ERR(root);
+	status = nfsd4_encode_components('/', root, &p, buflen);
+	if (status)
+		return status;
+	if ((*buflen -= 4) < 0)
+		return nfserr_resource;
+	WRITE32(fslocs->locations_count);
+	for (i=0; i<fslocs->locations_count; i++) {
+		status = nfsd4_encode_fs_location4(&fslocs->locations[i],
+						   &p, buflen);
+		if (status)
+			return status;
+	}
+	*pp = p;
+	return 0;
+}
 
 static u32 nfs4_ftypes[16] = {
         NF4BAD,  NF4FIFO, NF4CHR, NF4BAD,
@@ -1273,6 +1393,25 @@ nfsd4_encode_aclname(struct svc_rqst *rqstp, int whotype, uid_t id, int group,
 	return nfsd4_encode_name(rqstp, whotype, id, group, p, buflen);
 }
 
+#define WORD0_ABSENT_FS_ATTRS (FATTR4_WORD0_FS_LOCATIONS | FATTR4_WORD0_FSID | \
+			      FATTR4_WORD0_RDATTR_ERROR)
+#define WORD1_ABSENT_FS_ATTRS FATTR4_WORD1_MOUNTED_ON_FILEID
+
+static int fattr_handle_absent_fs(u32 *bmval0, u32 *bmval1, u32 *rdattr_err)
+{
+	/* As per referral draft:  */
+	if (*bmval0 & ~WORD0_ABSENT_FS_ATTRS ||
+	    *bmval1 & ~WORD1_ABSENT_FS_ATTRS) {
+		if (*bmval0 & FATTR4_WORD0_RDATTR_ERROR ||
+	            *bmval0 & FATTR4_WORD0_FS_LOCATIONS)
+			*rdattr_err = NFSERR_MOVED;
+		else
+			return nfserr_moved;
+	}
+	*bmval0 &= WORD0_ABSENT_FS_ATTRS;
+	*bmval1 &= WORD1_ABSENT_FS_ATTRS;
+	return 0;
+}
 
 /*
  * Note: @fhp can be NULL; in this case, we might have to compose the filehandle
@@ -1295,6 +1434,7 @@ nfsd4_encode_fattr(struct svc_fh *fhp, struct svc_export *exp,
 	u32 *attrlenp;
 	u32 dummy;
 	u64 dummy64;
+	u32 rdattr_err = 0;
 	u32 *p = buffer;
 	int status;
 	int aclsupport = 0;
@@ -1303,6 +1443,12 @@ nfsd4_encode_fattr(struct svc_fh *fhp, struct svc_export *exp,
 	BUG_ON(bmval1 & NFSD_WRITEONLY_ATTRS_WORD1);
 	BUG_ON(bmval0 & ~NFSD_SUPPORTED_ATTRS_WORD0);
 	BUG_ON(bmval1 & ~NFSD_SUPPORTED_ATTRS_WORD1);
+
+	if (exp->ex_fslocs.migrated) {
+		status = fattr_handle_absent_fs(&bmval0, &bmval1, &rdattr_err);
+		if (status)
+			goto out;
+	}
 
 	status = vfs_getattr(exp->ex_mnt, dentry, &stat);
 	if (status)
@@ -1335,6 +1481,11 @@ nfsd4_encode_fattr(struct svc_fh *fhp, struct svc_export *exp,
 				goto out_nfserr;
 		}
 	}
+	if (bmval0 & FATTR4_WORD0_FS_LOCATIONS) {
+		if (exp->ex_fslocs.locations == NULL) {
+			bmval0 &= ~FATTR4_WORD0_FS_LOCATIONS;
+		}
+	}
 	if ((buflen -= 16) < 0)
 		goto out_resource;
 
@@ -1344,12 +1495,15 @@ nfsd4_encode_fattr(struct svc_fh *fhp, struct svc_export *exp,
 	attrlenp = p++;                /* to be backfilled later */
 
 	if (bmval0 & FATTR4_WORD0_SUPPORTED_ATTRS) {
+		u32 word0 = NFSD_SUPPORTED_ATTRS_WORD0;
 		if ((buflen -= 12) < 0)
 			goto out_resource;
+		if (!aclsupport)
+			word0 &= ~FATTR4_WORD0_ACL;
+		if (!exp->ex_fslocs.locations)
+			word0 &= ~FATTR4_WORD0_FS_LOCATIONS;
 		WRITE32(2);
-		WRITE32(aclsupport ?
-			NFSD_SUPPORTED_ATTRS_WORD0 :
-			NFSD_SUPPORTED_ATTRS_WORD0 & ~FATTR4_WORD0_ACL);
+		WRITE32(word0);
 		WRITE32(NFSD_SUPPORTED_ATTRS_WORD1);
 	}
 	if (bmval0 & FATTR4_WORD0_TYPE) {
@@ -1403,7 +1557,10 @@ nfsd4_encode_fattr(struct svc_fh *fhp, struct svc_export *exp,
 	if (bmval0 & FATTR4_WORD0_FSID) {
 		if ((buflen -= 16) < 0)
 			goto out_resource;
-		if (is_fsid(fhp, rqstp->rq_reffh)) {
+		if (exp->ex_fslocs.migrated) {
+			WRITE64(NFS4_REFERRAL_FSID_MAJOR);
+			WRITE64(NFS4_REFERRAL_FSID_MINOR);
+		} else if (is_fsid(fhp, rqstp->rq_reffh)) {
 			WRITE64((u64)exp->ex_fsid);
 			WRITE64((u64)0);
 		} else {
@@ -1426,7 +1583,7 @@ nfsd4_encode_fattr(struct svc_fh *fhp, struct svc_export *exp,
 	if (bmval0 & FATTR4_WORD0_RDATTR_ERROR) {
 		if ((buflen -= 4) < 0)
 			goto out_resource;
-		WRITE32(0);
+		WRITE32(rdattr_err);
 	}
 	if (bmval0 & FATTR4_WORD0_ACL) {
 		struct nfs4_ace *ace;
@@ -1514,6 +1671,13 @@ out_acl:
 			goto out_resource;
 		WRITE64((u64) statfs.f_files);
 	}
+	if (bmval0 & FATTR4_WORD0_FS_LOCATIONS) {
+		status = nfsd4_encode_fs_locations(rqstp, exp, &p, &buflen);
+		if (status == nfserr_resource)
+			goto out_resource;
+		if (status)
+			goto out;
+	}
 	if (bmval0 & FATTR4_WORD0_HOMOGENEOUS) {
 		if ((buflen -= 4) < 0)
 			goto out_resource;
@@ -1537,12 +1701,12 @@ out_acl:
 	if (bmval0 & FATTR4_WORD0_MAXREAD) {
 		if ((buflen -= 8) < 0)
 			goto out_resource;
-		WRITE64((u64) NFSSVC_MAXBLKSIZE);
+		WRITE64((u64) svc_max_payload(rqstp));
 	}
 	if (bmval0 & FATTR4_WORD0_MAXWRITE) {
 		if ((buflen -= 8) < 0)
 			goto out_resource;
-		WRITE64((u64) NFSSVC_MAXBLKSIZE);
+		WRITE64((u64) svc_max_payload(rqstp));
 	}
 	if (bmval1 & FATTR4_WORD1_MODE) {
 		if ((buflen -= 4) < 0)
@@ -1846,7 +2010,6 @@ nfsd4_encode_getattr(struct nfsd4_compoundres *resp, int nfserr, struct nfsd4_ge
 	nfserr = nfsd4_encode_fattr(fhp, fhp->fh_export, fhp->fh_dentry,
 				    resp->p, &buflen, getattr->ga_bmval,
 				    resp->rqstp);
-
 	if (!nfserr)
 		resp->p += buflen;
 	return nfserr;
@@ -2040,7 +2203,8 @@ nfsd4_encode_open_downgrade(struct nfsd4_compoundres *resp, int nfserr, struct n
 }
 
 static int
-nfsd4_encode_read(struct nfsd4_compoundres *resp, int nfserr, struct nfsd4_read *read)
+nfsd4_encode_read(struct nfsd4_compoundres *resp, int nfserr,
+		  struct nfsd4_read *read)
 {
 	u32 eof;
 	int v, pn;
@@ -2055,31 +2219,33 @@ nfsd4_encode_read(struct nfsd4_compoundres *resp, int nfserr, struct nfsd4_read 
 
 	RESERVE_SPACE(8); /* eof flag and byte count */
 
-	maxcount = NFSSVC_MAXBLKSIZE;
+	maxcount = svc_max_payload(resp->rqstp);
 	if (maxcount > read->rd_length)
 		maxcount = read->rd_length;
 
 	len = maxcount;
 	v = 0;
 	while (len > 0) {
-		pn = resp->rqstp->rq_resused;
-		svc_take_page(resp->rqstp);
-		read->rd_iov[v].iov_base = page_address(resp->rqstp->rq_respages[pn]);
-		read->rd_iov[v].iov_len = len < PAGE_SIZE ? len : PAGE_SIZE;
+		pn = resp->rqstp->rq_resused++;
+		resp->rqstp->rq_vec[v].iov_base =
+			page_address(resp->rqstp->rq_respages[pn]);
+		resp->rqstp->rq_vec[v].iov_len =
+			len < PAGE_SIZE ? len : PAGE_SIZE;
 		v++;
 		len -= PAGE_SIZE;
 	}
 	read->rd_vlen = v;
 
 	nfserr = nfsd_read(read->rd_rqstp, read->rd_fhp, read->rd_filp,
-			read->rd_offset, read->rd_iov, read->rd_vlen,
+			read->rd_offset, resp->rqstp->rq_vec, read->rd_vlen,
 			&maxcount);
 
 	if (nfserr == nfserr_symlink)
 		nfserr = nfserr_inval;
 	if (nfserr)
 		return nfserr;
-	eof = (read->rd_offset + maxcount >= read->rd_fhp->fh_dentry->d_inode->i_size);
+	eof = (read->rd_offset + maxcount >=
+	       read->rd_fhp->fh_dentry->d_inode->i_size);
 
 	WRITE32(eof);
 	WRITE32(maxcount);
@@ -2089,7 +2255,6 @@ nfsd4_encode_read(struct nfsd4_compoundres *resp, int nfserr, struct nfsd4_read 
 	resp->xbuf->page_len = maxcount;
 
 	/* Use rest of head for padding and remaining ops: */
-	resp->rqstp->rq_restailpage = 0;
 	resp->xbuf->tail[0].iov_base = p;
 	resp->xbuf->tail[0].iov_len = 0;
 	if (maxcount&3) {
@@ -2114,8 +2279,7 @@ nfsd4_encode_readlink(struct nfsd4_compoundres *resp, int nfserr, struct nfsd4_r
 	if (resp->xbuf->page_len)
 		return nfserr_resource;
 
-	svc_take_page(resp->rqstp);
-	page = page_address(resp->rqstp->rq_respages[resp->rqstp->rq_resused-1]);
+	page = page_address(resp->rqstp->rq_respages[resp->rqstp->rq_resused++]);
 
 	maxcount = PAGE_SIZE;
 	RESERVE_SPACE(4);
@@ -2139,7 +2303,6 @@ nfsd4_encode_readlink(struct nfsd4_compoundres *resp, int nfserr, struct nfsd4_r
 	resp->xbuf->page_len = maxcount;
 
 	/* Use rest of head for padding and remaining ops: */
-	resp->rqstp->rq_restailpage = 0;
 	resp->xbuf->tail[0].iov_base = p;
 	resp->xbuf->tail[0].iov_len = 0;
 	if (maxcount&3) {
@@ -2190,8 +2353,7 @@ nfsd4_encode_readdir(struct nfsd4_compoundres *resp, int nfserr, struct nfsd4_re
 		goto err_no_verf;
 	}
 
-	svc_take_page(resp->rqstp);
-	page = page_address(resp->rqstp->rq_respages[resp->rqstp->rq_resused-1]);
+	page = page_address(resp->rqstp->rq_respages[resp->rqstp->rq_resused++]);
 	readdir->common.err = 0;
 	readdir->buflen = maxcount;
 	readdir->buffer = page;
@@ -2216,10 +2378,10 @@ nfsd4_encode_readdir(struct nfsd4_compoundres *resp, int nfserr, struct nfsd4_re
 	p = readdir->buffer;
 	*p++ = 0;	/* no more entries */
 	*p++ = htonl(readdir->common.err == nfserr_eof);
-	resp->xbuf->page_len = ((char*)p) - (char*)page_address(resp->rqstp->rq_respages[resp->rqstp->rq_resused-1]);
+	resp->xbuf->page_len = ((char*)p) - (char*)page_address(
+		resp->rqstp->rq_respages[resp->rqstp->rq_resused-1]);
 
 	/* Use rest of head for padding and remaining ops: */
-	resp->rqstp->rq_restailpage = 0;
 	resp->xbuf->tail[0].iov_base = tailbase;
 	resp->xbuf->tail[0].iov_len = 0;
 	resp->p = resp->xbuf->tail[0].iov_base;

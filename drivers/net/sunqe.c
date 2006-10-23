@@ -451,7 +451,7 @@ static void qe_rx(struct sunqe *qep)
 		}
 		end_rxd->rx_addr = this_qbuf_dvma;
 		end_rxd->rx_flags = (RXD_OWN | ((RXD_PKT_SZ) & RXD_LENGTH));
-		
+
 		elem = NEXT_RX(elem);
 		this = &rxbase[elem];
 	}
@@ -466,9 +466,9 @@ static void qe_tx_reclaim(struct sunqe *qep);
  * so we just run through each qe and check to see who is signaling
  * and thus needs to be serviced.
  */
-static irqreturn_t qec_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+static irqreturn_t qec_interrupt(int irq, void *dev_id)
 {
-	struct sunqec *qecp = (struct sunqec *) dev_id;
+	struct sunqec *qecp = dev_id;
 	u32 qec_status;
 	int channel = 0;
 
@@ -718,7 +718,7 @@ static u32 qe_get_link(struct net_device *dev)
 	return (phyconfig & MREGS_PHYCONFIG_LSTAT);
 }
 
-static struct ethtool_ops qe_ethtool_ops = {
+static const struct ethtool_ops qe_ethtool_ops = {
 	.get_drvinfo		= qe_get_drvinfo,
 	.get_link		= qe_get_link,
 };
@@ -858,7 +858,7 @@ static int __init qec_ether_init(struct sbus_dev *sdev)
 	}
 	qe->channel = i;
 	spin_lock_init(&qe->lock);
-	
+
 	res = -ENODEV;
 	qecp = get_qec(sdev);
 	if (!qecp)

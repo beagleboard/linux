@@ -888,7 +888,7 @@ static void bigmac_rx(struct bigmac *bp)
 		printk(KERN_NOTICE "%s: Memory squeeze, deferring packet.\n", bp->dev->name);
 }
 
-static irqreturn_t bigmac_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+static irqreturn_t bigmac_interrupt(int irq, void *dev_id)
 {
 	struct bigmac *bp = (struct bigmac *) dev_id;
 	u32 qec_status, bmac_status;
@@ -1071,7 +1071,7 @@ static u32 bigmac_get_link(struct net_device *dev)
 	return (bp->sw_bmsr & BMSR_LSTATUS);
 }
 
-static struct ethtool_ops bigmac_ethtool_ops = {
+static const struct ethtool_ops bigmac_ethtool_ops = {
 	.get_drvinfo		= bigmac_get_drvinfo,
 	.get_link		= bigmac_get_link,
 };

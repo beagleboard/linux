@@ -301,23 +301,25 @@ int hpet_rtc_timer_init(void)
 		hpet_rtc_int_freq = DEFAULT_RTC_INT_FREQ;
 
 	local_irq_save(flags);
+
 	cnt = hpet_readl(HPET_COUNTER);
 	cnt += ((hpet_tick*HZ)/hpet_rtc_int_freq);
 	hpet_writel(cnt, HPET_T1_CMP);
 	hpet_t1_cmp = cnt;
-	local_irq_restore(flags);
 
 	cfg = hpet_readl(HPET_T1_CFG);
 	cfg &= ~HPET_TN_PERIODIC;
 	cfg |= HPET_TN_ENABLE | HPET_TN_32BIT;
 	hpet_writel(cfg, HPET_T1_CFG);
 
+	local_irq_restore(flags);
+
 	return 1;
 }
 
 static void hpet_rtc_timer_reinit(void)
 {
-	unsigned int cfg, cnt;
+	unsigned int cfg, cnt, ticks_per_int, lost_ints;
 
 	if (unlikely(!(PIE_on | AIE_on | UIE_on))) {
 		cfg = hpet_readl(HPET_T1_CFG);
@@ -332,10 +334,33 @@ static void hpet_rtc_timer_reinit(void)
 		hpet_rtc_int_freq = DEFAULT_RTC_INT_FREQ;
 
 	/* It is more accurate to use the comparator value than current count.*/
-	cnt = hpet_t1_cmp;
-	cnt += hpet_tick*HZ/hpet_rtc_int_freq;
-	hpet_writel(cnt, HPET_T1_CMP);
-	hpet_t1_cmp = cnt;
+	ticks_per_int = hpet_tick * HZ / hpet_rtc_int_freq;
+	hpet_t1_cmp += ticks_per_int;
+	hpet_writel(hpet_t1_cmp, HPET_T1_CMP);
+
+	/*
+	 * If the interrupt handler was delayed too long, the write above tries
+	 * to schedule the next interrupt in the past and the hardware would
+	 * not interrupt until the counter had wrapped around.
+	 * So we have to check that the comparator wasn't set to a past time.
+	 */
+	cnt = hpet_readl(HPET_COUNTER);
+	if (unlikely((int)(cnt - hpet_t1_cmp) > 0)) {
+		lost_ints = (cnt - hpet_t1_cmp) / ticks_per_int + 1;
+		/* Make sure that, even with the time needed to execute
+		 * this code, the next scheduled interrupt has been moved
+		 * back to the future: */
+		lost_ints++;
+
+		hpet_t1_cmp += lost_ints * ticks_per_int;
+		hpet_writel(hpet_t1_cmp, HPET_T1_CMP);
+
+		if (PIE_on)
+			PIE_count += lost_ints;
+
+		printk(KERN_WARNING "rtc: lost some interrupts at %ldHz.\n",
+		       hpet_rtc_int_freq);
+	}
 }
 
 /*
@@ -416,7 +441,7 @@ int hpet_rtc_dropped_irq(void)
 	return 1;
 }
 
-irqreturn_t hpet_rtc_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+irqreturn_t hpet_rtc_interrupt(int irq, void *dev_id)
 {
 	struct rtc_time curr_time;
 	unsigned long rtc_int_flag = 0;
@@ -455,7 +480,7 @@ irqreturn_t hpet_rtc_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 	}
 	if (call_rtc_interrupt) {
 		rtc_int_flag |= (RTC_IRQF | (RTC_NUM_INTS << 8));
-		rtc_interrupt(rtc_int_flag, dev_id, regs);
+		rtc_interrupt(rtc_int_flag, dev_id);
 	}
 	return IRQ_HANDLED;
 }

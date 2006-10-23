@@ -193,8 +193,11 @@ load:
 				continue;
 			*p++ = 0;
 			p2 = strchr(p, '\n');
-			if (p2)
-				*p2 = 0;
+			if (p2) {
+				*p2-- = 0;
+				if (*p2 == '\r')
+					*p2 = 0;
+			}
 			if (def == S_DEF_USER) {
 				sym = sym_find(line + 7);
 				if (!sym) {
@@ -266,6 +269,7 @@ load:
 				;
 			}
 			break;
+		case '\r':
 		case '\n':
 			break;
 		default:
@@ -513,7 +517,7 @@ int conf_write(const char *name)
 	fclose(out);
 
 	if (*tmpname) {
-		strcat(dirname, name ? name : conf_get_configname());
+		strcat(dirname, basename);
 		strcat(dirname, ".old");
 		rename(newname, dirname);
 		if (rename(tmpname, newname))

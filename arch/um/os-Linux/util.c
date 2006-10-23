@@ -7,7 +7,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <limits.h>
-#include <setjmp.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/utsname.h>
@@ -81,11 +80,18 @@ void setup_machinename(char *machine_out)
 	struct utsname host;
 
 	uname(&host);
-#if defined(UML_CONFIG_UML_X86) && !defined(UML_CONFIG_64BIT)
+#ifdef UML_CONFIG_UML_X86
+# ifndef UML_CONFIG_64BIT
 	if (!strcmp(host.machine, "x86_64")) {
 		strcpy(machine_out, "i686");
 		return;
 	}
+# else
+	if (!strcmp(host.machine, "i686")) {
+		strcpy(machine_out, "x86_64");
+		return;
+	}
+# endif
 #endif
 	strcpy(machine_out, host.machine);
 }
@@ -107,11 +113,11 @@ int setjmp_wrapper(void (*proc)(void *, void *), ...)
 	jmp_buf buf;
 	int n;
 
-	n = sigsetjmp(buf, 1);
+	n = UML_SETJMP(&buf);
 	if(n == 0){
 		va_start(args, proc);
 		(*proc)(&buf, &args);
 	}
 	va_end(args);
-	return(n);
+	return n;
 }

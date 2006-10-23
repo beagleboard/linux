@@ -27,12 +27,11 @@
 
     The w83791d chip appears to be part way between the 83781d and the
     83792d. Thus, this file is derived from both the w83792d.c and
-    w83781d.c files, but its output is more along the lines of the
-    83781d (which means there are no changes to the user-mode sensors
-    program which treats the 83791d as an 83781d).
+    w83781d.c files.
+
+    The w83791g chip is the same as the w83791d but lead-free.
 */
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/slab.h>
@@ -1172,6 +1171,7 @@ static struct w83791d_data *w83791d_update_device(struct device *dev)
 			(w83791d_read(client, W83791D_REG_BEEP_CTRL[1]) << 8) +
 			(w83791d_read(client, W83791D_REG_BEEP_CTRL[2]) << 16);
 
+		/* Extract global beep enable flag */
 		data->beep_enable =
 			(data->beep_mask >> GLOBAL_BEEP_ENABLE_SHIFT) & 0x01;
 

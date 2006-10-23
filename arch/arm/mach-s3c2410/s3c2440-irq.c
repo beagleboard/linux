@@ -42,8 +42,7 @@
 /* WDT/AC97 */
 
 static void s3c_irq_demux_wdtac97(unsigned int irq,
-				  struct irqdesc *desc,
-				  struct pt_regs *regs)
+				  struct irqdesc *desc)
 {
 	unsigned int subsrc, submsk;
 	struct irqdesc *mydesc;
@@ -61,11 +60,11 @@ static void s3c_irq_demux_wdtac97(unsigned int irq,
 	if (subsrc != 0) {
 		if (subsrc & 1) {
 			mydesc = irq_desc + IRQ_S3C2440_WDT;
-			desc_handle_irq(IRQ_S3C2440_WDT, mydesc, regs);
+			desc_handle_irq(IRQ_S3C2440_WDT, mydesc);
 		}
 		if (subsrc & 2) {
 			mydesc = irq_desc + IRQ_S3C2440_AC97;
-			desc_handle_irq(IRQ_S3C2440_AC97, mydesc, regs);
+			desc_handle_irq(IRQ_S3C2440_AC97, mydesc);
 		}
 	}
 }
@@ -119,7 +118,7 @@ static int s3c2440_irq_add(struct sys_device *sysdev)
 }
 
 static struct sysdev_driver s3c2440_irq_driver = {
-	.add	= s3c2440_irq_add,
+	.add		= s3c2440_irq_add,
 };
 
 static int s3c2440_irq_init(void)

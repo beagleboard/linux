@@ -31,22 +31,15 @@
 
 #define FIRST_SYSTEM_VECTOR	0xef   /* duplicated in hw_irq.h */
 
-#ifdef CONFIG_PCI_MSI
-#define NR_IRQS FIRST_SYSTEM_VECTOR
+#define NR_IRQS (NR_VECTORS + (32 *NR_CPUS))
 #define NR_IRQ_VECTORS NR_IRQS
-#else
-#define NR_IRQS 224
-#define NR_IRQ_VECTORS (32 * NR_CPUS)
-#endif
 
 static __inline__ int irq_canonicalize(int irq)
 {
 	return ((irq == 2) ? 9 : irq);
 }
 
-#ifdef CONFIG_X86_LOCAL_APIC
 #define ARCH_HAS_NMI_WATCHDOG		/* See include/linux/nmi.h */
-#endif
 
 #ifdef CONFIG_HOTPLUG_CPU
 #include <linux/cpumask.h>

@@ -1,5 +1,5 @@
 /*
- * linux/arch/arm/mach-omap/omap2/board-h4.c
+ * linux/arch/arm/mach-omap2/board-h4.c
  *
  * Copyright (C) 2005 Nokia Corporation
  * Author: Paul Mundt <paul.mundt@nokia.com>
@@ -252,6 +252,7 @@ static struct omap_kp_platform_data h4_kp_data = {
 	.rows		= 6,
 	.cols		= 7,
 	.keymap 	= h4_keymap,
+	.keymapsize 	= ARRAY_SIZE(h4_keymap),
 	.rep		= 1,
 	.row_gpios 	= row_gpios,
 	.col_gpios 	= col_gpios,

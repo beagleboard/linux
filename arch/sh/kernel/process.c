@@ -5,6 +5,7 @@
  *  Copyright (C) 1995  Linus Torvalds
  *
  *  SuperH version:  Copyright (C) 1999, 2000  Niibe Yutaka & Kaz Kojima
+ *		     Copyright (C) 2006 Lineo Solutions Inc. support SH4A UBC
  */
 
 /*
@@ -26,6 +27,7 @@
 #include <asm/uaccess.h>
 #include <asm/mmu_context.h>
 #include <asm/elf.h>
+#include <asm/ubc.h>
 
 static int hlt_counter=0;
 
@@ -80,16 +82,6 @@ void cpu_idle(void)
 
 void machine_restart(char * __unused)
 {
-
-#ifdef CONFIG_KEXEC
-	struct kimage *image;
-	image = xchg(&kexec_image, 0);
-	if (image) {
-		machine_shutdown();
-		machine_kexec(image);
-	}
-#endif
-
 	/* SR.BL=1 and invoke address error to let CPU reset (manual reset) */
 	asm volatile("ldc %0, sr\n\t"
 		     "mov.l @%1, %0" : : "r" (0x10000000), "r" (0x80000001));
@@ -262,6 +254,7 @@ int copy_thread(int nr, unsigned long clone_flags, unsigned long usp,
 		unsigned long unused,
 		struct task_struct *p, struct pt_regs *regs)
 {
+	struct thread_info *ti = task_thread_info(p);
 	struct pt_regs *childregs;
 #if defined(CONFIG_SH_FPU)
 	struct task_struct *tsk = current;
@@ -276,8 +269,10 @@ int copy_thread(int nr, unsigned long clone_flags, unsigned long usp,
 
 	if (user_mode(regs)) {
 		childregs->regs[15] = usp;
+		ti->addr_limit = USER_DS;
 	} else {
 		childregs->regs[15] = (unsigned long)task_stack_page(p) + THREAD_SIZE;
+		ti->addr_limit = KERNEL_DS;
 	}
         if (clone_flags & CLONE_SETTLS) {
 		childregs->gbr = childregs->regs[0];
@@ -296,21 +291,42 @@ int copy_thread(int nr, unsigned long clone_flags, unsigned long usp,
 static void
 ubc_set_tracing(int asid, unsigned long pc)
 {
+#if defined(CONFIG_CPU_SH4A)
+	unsigned long val;
+
+	val = (UBC_CBR_ID_INST | UBC_CBR_RW_READ | UBC_CBR_CE);
+	val |= (UBC_CBR_AIE | UBC_CBR_AIV_SET(asid));
+
+	ctrl_outl(val, UBC_CBR0);
+	ctrl_outl(pc,  UBC_CAR0);
+	ctrl_outl(0x0, UBC_CAMR0);
+	ctrl_outl(0x0, UBC_CBCR);
+
+	val = (UBC_CRR_RES | UBC_CRR_PCB | UBC_CRR_BIE);
+	ctrl_outl(val, UBC_CRR0);
+
+	/* Read UBC register that we writed last. For chekking UBC Register changed */
+	val = ctrl_inl(UBC_CRR0);
+
+#else	/* CONFIG_CPU_SH4A */
 	ctrl_outl(pc, UBC_BARA);
 
+#ifdef CONFIG_MMU
 	/* We don't have any ASID settings for the SH-2! */
 	if (cpu_data->type != CPU_SH7604)
 		ctrl_outb(asid, UBC_BASRA);
+#endif
 
 	ctrl_outl(0, UBC_BAMRA);
 
-	if (cpu_data->type == CPU_SH7729) {
+	if (cpu_data->type == CPU_SH7729 || cpu_data->type == CPU_SH7710) {
 		ctrl_outw(BBR_INST | BBR_READ | BBR_CPU, UBC_BBRA);
 		ctrl_outl(BRCR_PCBA | BRCR_PCTE, UBC_BRCR);
 	} else {
 		ctrl_outw(BBR_INST | BBR_READ, UBC_BBRA);
 		ctrl_outw(BRCR_PCBA, UBC_BRCR);
 	}
+#endif	/* CONFIG_CPU_SH4A */
 }
 
 /*
@@ -343,6 +359,7 @@ struct task_struct *__switch_to(struct task_struct *prev, struct task_struct *ne
 	}
 #endif
 
+#ifdef CONFIG_MMU
 	/*
 	 * Restore the kernel mode register
 	 *   	k7 (r7_bank1)
@@ -350,19 +367,26 @@ struct task_struct *__switch_to(struct task_struct *prev, struct task_struct *ne
 	asm volatile("ldc	%0, r7_bank"
 		     : /* no output */
 		     : "r" (task_thread_info(next)));
+#endif
 
-#ifdef CONFIG_MMU
 	/* If no tasks are using the UBC, we're done */
 	if (ubc_usercnt == 0)
 		/* If no tasks are using the UBC, we're done */;
 	else if (next->thread.ubc_pc && next->mm) {
-		ubc_set_tracing(next->mm->context & MMU_CONTEXT_ASID_MASK,
-				next->thread.ubc_pc);
+		int asid = 0;
+#ifdef CONFIG_MMU
+		asid |= next->mm->context.id & MMU_CONTEXT_ASID_MASK;
+#endif
+		ubc_set_tracing(asid, next->thread.ubc_pc);
 	} else {
+#if defined(CONFIG_CPU_SH4A)
+		ctrl_outl(UBC_CBR_INIT, UBC_CBR0);
+		ctrl_outl(UBC_CRR_INIT, UBC_CRR0);
+#else
 		ctrl_outw(0, UBC_BBRA);
 		ctrl_outw(0, UBC_BBRB);
-	}
 #endif
+	}
 
 	return prev;
 }
@@ -461,8 +485,13 @@ asmlinkage void break_point_trap(unsigned long r4, unsigned long r5,
 				 struct pt_regs regs)
 {
 	/* Clear tracing.  */
+#if defined(CONFIG_CPU_SH4A)
+	ctrl_outl(UBC_CBR_INIT, UBC_CBR0);
+	ctrl_outl(UBC_CRR_INIT, UBC_CRR0);
+#else
 	ctrl_outw(0, UBC_BBRA);
 	ctrl_outw(0, UBC_BBRB);
+#endif
 	current->thread.ubc_pc = 0;
 	ubc_usercnt -= 1;
 

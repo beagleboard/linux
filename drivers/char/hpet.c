@@ -116,7 +116,7 @@ static inline void writeq(unsigned long long v, void __iomem *addr)
 }
 #endif
 
-static irqreturn_t hpet_interrupt(int irq, void *data, struct pt_regs *regs)
+static irqreturn_t hpet_interrupt(int irq, void *data)
 {
 	struct hpet_dev *devp;
 	unsigned long isr;
@@ -868,8 +868,8 @@ int hpet_alloc(struct hpet_data *hdp)
 	do_div(temp, period);
 	hpetp->hp_tick_freq = temp; /* ticks per second */
 
-	printk(KERN_INFO "hpet%d: at MMIO 0x%lx (virtual 0x%p), IRQ%s",
-		hpetp->hp_which, hdp->hd_phys_address, hdp->hd_address,
+	printk(KERN_INFO "hpet%d: at MMIO 0x%lx, IRQ%s",
+		hpetp->hp_which, hdp->hd_phys_address,
 		hpetp->hp_ntimer > 1 ? "s" : "");
 	for (i = 0; i < hpetp->hp_ntimer; i++)
 		printk("%s %d", i > 0 ? "," : "", hdp->hd_irq[i]);

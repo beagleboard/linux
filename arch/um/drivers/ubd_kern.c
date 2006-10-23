@@ -20,7 +20,6 @@
 #define MAJOR_NR UBD_MAJOR
 #define UBD_SHIFT 4
 
-#include "linux/config.h"
 #include "linux/module.h"
 #include "linux/blkdev.h"
 #include "linux/hdreg.h"
@@ -525,7 +524,7 @@ static void ubd_handler(void)
 	do_ubd_request(ubd_queue);
 }
 
-static irqreturn_t ubd_intr(int irq, void *dev, struct pt_regs *unused)
+static irqreturn_t ubd_intr(int irq, void *dev)
 {
 	ubd_handler();
 	return(IRQ_HANDLED);
@@ -668,18 +667,15 @@ static int ubd_add(int n)
 	if(dev->file == NULL)
 		goto out;
 
-	if (ubd_open_dev(dev))
-		goto out;
-
 	err = ubd_file_size(dev, &dev->size);
 	if(err < 0)
-		goto out_close;
+		goto out;
 
 	dev->size = ROUND_BLOCK(dev->size);
 
 	err = ubd_new_disk(MAJOR_NR, dev->size, n, &ubd_gendisk[n]);
 	if(err)
-		goto out_close;
+		goto out;
 
 	if(fake_major != MAJOR_NR)
 		ubd_new_disk(fake_major, dev->size, n,
@@ -691,8 +687,6 @@ static int ubd_add(int n)
 		make_ide_entries(ubd_gendisk[n]->disk_name);
 
 	err = 0;
-out_close:
-	ubd_close(dev);
 out:
 	return err;
 }
@@ -985,8 +979,6 @@ static int prepare_request(struct request *req, struct io_thread_req *io_req)
 	struct ubd *dev = disk->private_data;
 	__u64 offset;
 	int len;
-
-	if(req->rq_status == RQ_INACTIVE) return(1);
 
 	/* This should be impossible now */
 	if((rq_data_dir(req) == WRITE) && !dev->openflags.w){

@@ -13,29 +13,21 @@
 #include <linux/sched.h>
 #include <linux/smp_lock.h>
 #include <linux/init.h>
+#include <linux/kernel.h>
 #include <linux/quotaops.h>
 #include <linux/acct.h>
 #include <linux/capability.h>
 #include <linux/module.h>
+#include <linux/sysfs.h>
 #include <linux/seq_file.h>
 #include <linux/namespace.h>
 #include <linux/namei.h>
 #include <linux/security.h>
 #include <linux/mount.h>
+#include <linux/ramfs.h>
 #include <asm/uaccess.h>
 #include <asm/unistd.h>
 #include "pnode.h"
-
-extern int __init init_rootfs(void);
-
-#ifdef CONFIG_SYSFS
-extern int __init sysfs_init(void);
-#else
-static inline int sysfs_init(void)
-{
-	return 0;
-}
-#endif
 
 /* spinlock for vfsmount related operations, inplace of dcache_lock */
 __cacheline_aligned_in_smp DEFINE_SPINLOCK(vfsmount_lock);
@@ -141,7 +133,7 @@ struct vfsmount *lookup_mnt(struct vfsmount *mnt, struct dentry *dentry)
 
 static inline int check_mnt(struct vfsmount *mnt)
 {
-	return mnt->mnt_namespace == current->namespace;
+	return mnt->mnt_namespace == current->nsproxy->namespace;
 }
 
 static void touch_namespace(struct namespace *ns)
@@ -838,7 +830,7 @@ static int attach_recursive_mnt(struct vfsmount *source_mnt,
 	if (parent_nd) {
 		detach_mnt(source_mnt, parent_nd);
 		attach_mnt(source_mnt, nd);
-		touch_namespace(current->namespace);
+		touch_namespace(current->nsproxy->namespace);
 	} else {
 		mnt_set_mountpoint(dest_mnt, dest_dentry, source_mnt);
 		commit_tree(source_mnt);
@@ -1449,7 +1441,7 @@ dput_out:
  */
 struct namespace *dup_namespace(struct task_struct *tsk, struct fs_struct *fs)
 {
-	struct namespace *namespace = tsk->namespace;
+	struct namespace *namespace = tsk->nsproxy->namespace;
 	struct namespace *new_ns;
 	struct vfsmount *rootmnt = NULL, *pwdmnt = NULL, *altrootmnt = NULL;
 	struct vfsmount *p, *q;
@@ -1516,7 +1508,7 @@ struct namespace *dup_namespace(struct task_struct *tsk, struct fs_struct *fs)
 
 int copy_namespace(int flags, struct task_struct *tsk)
 {
-	struct namespace *namespace = tsk->namespace;
+	struct namespace *namespace = tsk->nsproxy->namespace;
 	struct namespace *new_ns;
 	int err = 0;
 
@@ -1539,7 +1531,7 @@ int copy_namespace(int flags, struct task_struct *tsk)
 		goto out;
 	}
 
-	tsk->namespace = new_ns;
+	tsk->nsproxy->namespace = new_ns;
 
 out:
 	put_namespace(namespace);
@@ -1762,7 +1754,7 @@ asmlinkage long sys_pivot_root(const char __user * new_root,
 	detach_mnt(user_nd.mnt, &root_parent);
 	attach_mnt(user_nd.mnt, &old_nd);     /* mount old root on put_old */
 	attach_mnt(new_nd.mnt, &root_parent); /* mount new_root on / */
-	touch_namespace(current->namespace);
+	touch_namespace(current->nsproxy->namespace);
 	spin_unlock(&vfsmount_lock);
 	chroot_fs_refs(&user_nd, &new_nd);
 	security_sb_post_pivotroot(&user_nd, &new_nd);
@@ -1788,7 +1780,6 @@ static void __init init_mount_tree(void)
 {
 	struct vfsmount *mnt;
 	struct namespace *namespace;
-	struct task_struct *g, *p;
 
 	mnt = do_kern_mount("rootfs", 0, "rootfs", NULL);
 	if (IS_ERR(mnt))
@@ -1804,13 +1795,8 @@ static void __init init_mount_tree(void)
 	namespace->root = mnt;
 	mnt->mnt_namespace = namespace;
 
-	init_task.namespace = namespace;
-	read_lock(&tasklist_lock);
-	do_each_thread(g, p) {
-		get_namespace(namespace);
-		p->namespace = namespace;
-	} while_each_thread(g, p);
-	read_unlock(&tasklist_lock);
+	init_task.nsproxy->namespace = namespace;
+	get_namespace(namespace);
 
 	set_fs_pwd(current->fs, namespace->root, namespace->root->mnt_root);
 	set_fs_root(current->fs, namespace->root, namespace->root->mnt_root);
@@ -1821,6 +1807,7 @@ void __init mnt_init(unsigned long mempages)
 	struct list_head *d;
 	unsigned int nr_hash;
 	int i;
+	int err;
 
 	init_rwsem(&namespace_sem);
 
@@ -1861,8 +1848,14 @@ void __init mnt_init(unsigned long mempages)
 		d++;
 		i--;
 	} while (i);
-	sysfs_init();
-	subsystem_register(&fs_subsys);
+	err = sysfs_init();
+	if (err)
+		printk(KERN_WARNING "%s: sysfs_init error: %d\n",
+			__FUNCTION__, err);
+	err = subsystem_register(&fs_subsys);
+	if (err)
+		printk(KERN_WARNING "%s: subsystem_register error: %d\n",
+			__FUNCTION__, err);
 	init_rootfs();
 	init_mount_tree();
 }

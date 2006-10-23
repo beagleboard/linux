@@ -27,10 +27,7 @@
 #include <asm/ppc_asm.h>
 #include <asm/asm-offsets.h>
 #include <asm/cputable.h>
-
-#ifdef CONFIG_PPC_ISERIES
-#define DO_SOFT_DISABLE
-#endif
+#include <asm/firmware.h>
 
 /*
  * System calls.
@@ -91,6 +88,7 @@ system_call_common:
 	ld	r11,exception_marker@toc(r2)
 	std	r11,-16(r9)		/* "regshere" marker */
 #ifdef CONFIG_PPC_ISERIES
+BEGIN_FW_FTR_SECTION
 	/* Hack for handling interrupts when soft-enabling on iSeries */
 	cmpdi	cr1,r0,0x5555		/* syscall 0x5555 */
 	andi.	r10,r12,MSR_PR		/* from kernel */
@@ -98,6 +96,7 @@ system_call_common:
 	beq	hardware_interrupt_entry
 	lbz	r10,PACAPROCENABLED(r13)
 	std	r10,SOFTE(r1)
+END_FW_FTR_SECTION_IFSET(FW_FEATURE_ISERIES)
 #endif
 	mfmsr	r11
 	ori	r11,r11,MSR_EE
@@ -375,6 +374,14 @@ BEGIN_FTR_SECTION
 	ld	r7,KSP_VSID(r4)	/* Get new stack's VSID */
 	oris	r0,r6,(SLB_ESID_V)@h
 	ori	r0,r0,(SLB_NUM_BOLTED-1)@l
+
+	/* Update the last bolted SLB */
+	ld	r9,PACA_SLBSHADOWPTR(r13)
+	li	r12,0
+	std	r12,SLBSHADOW_STACKESID(r9) /* Clear ESID */
+	std	r7,SLBSHADOW_STACKVSID(r9)  /* Save VSID */
+	std	r0,SLBSHADOW_STACKESID(r9)  /* Save ESID */
+
 	slbie	r6
 	slbie	r6		/* Workaround POWER5 < DD2.1 issue */
 	slbmte	r7,r0
@@ -454,6 +461,7 @@ _GLOBAL(ret_from_except_lite)
 
 restore:
 #ifdef CONFIG_PPC_ISERIES
+BEGIN_FW_FTR_SECTION
 	ld	r5,SOFTE(r1)
 	cmpdi	0,r5,0
 	beq	4f
@@ -472,6 +480,7 @@ restore:
 	b	.ret_from_except_lite		/* loop back and handle more */
 
 4:	stb	r5,PACAPROCENABLED(r13)
+END_FW_FTR_SECTION_IFSET(FW_FEATURE_ISERIES)
 #endif
 
 	ld	r3,_MSR(r1)
@@ -530,18 +539,23 @@ do_work:
 	lwz	r8,TI_PREEMPT(r9)
 	cmpwi	cr1,r8,0
 #ifdef CONFIG_PPC_ISERIES
+BEGIN_FW_FTR_SECTION
 	ld	r0,SOFTE(r1)
 	cmpdi	r0,0
-#else
-	andi.	r0,r3,MSR_EE
+END_FW_FTR_SECTION_IFSET(FW_FEATURE_ISERIES)
 #endif
+BEGIN_FW_FTR_SECTION
+	andi.	r0,r3,MSR_EE
+END_FW_FTR_SECTION_IFCLR(FW_FEATURE_ISERIES)
 	crandc	eq,cr1*4+eq,eq
 	bne	restore
 	/* here we are preempting the current task */
 1:
 #ifdef CONFIG_PPC_ISERIES
+BEGIN_FW_FTR_SECTION
 	li	r0,1
 	stb	r0,PACAPROCENABLED(r13)
+END_FW_FTR_SECTION_IFSET(FW_FEATURE_ISERIES)
 #endif
 	ori	r10,r10,MSR_EE
 	mtmsrd	r10,1		/* reenable interrupts */

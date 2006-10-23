@@ -59,6 +59,7 @@
 #include "irq.h"
 #include "vpd_areas.h"
 #include "processor_vpd.h"
+#include "it_lp_naca.h"
 #include "main_store.h"
 #include "call_sm.h"
 #include "call_hpt.h"
@@ -648,14 +649,20 @@ static void iseries_dedicated_idle(void)
 void __init iSeries_init_IRQ(void) { }
 #endif
 
+/*
+ * iSeries has no legacy IO, anything calling this function has to
+ * fail or bad things will happen
+ */
+static int iseries_check_legacy_ioport(unsigned int baseport)
+{
+	return -ENODEV;
+}
+
 static int __init iseries_probe(void)
 {
 	unsigned long root = of_get_flat_dt_root();
 	if (!of_flat_dt_is_compatible(root, "IBM,iSeries"))
 		return 0;
-
-	powerpc_firmware_features |= FW_FEATURE_ISERIES;
-	powerpc_firmware_features |= FW_FEATURE_LPAR;
 
 	hpte_init_iSeries();
 
@@ -679,12 +686,16 @@ define_machine(iseries) {
 	.calibrate_decr	= generic_calibrate_decr,
 	.progress	= iSeries_progress,
 	.probe		= iseries_probe,
+	.check_legacy_ioport	= iseries_check_legacy_ioport,
 	/* XXX Implement enable_pmcs for iSeries */
 };
 
 void * __init iSeries_early_setup(void)
 {
 	unsigned long phys_mem_size;
+
+	powerpc_firmware_features |= FW_FEATURE_ISERIES;
+	powerpc_firmware_features |= FW_FEATURE_LPAR;
 
 	iSeries_fixup_klimit();
 

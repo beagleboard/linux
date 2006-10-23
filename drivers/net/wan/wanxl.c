@@ -244,7 +244,7 @@ static inline void wanxl_rx_intr(card_t *card)
 
 
 
-static irqreturn_t wanxl_intr(int irq, void* dev_id, struct pt_regs *regs)
+static irqreturn_t wanxl_intr(int irq, void* dev_id)
 {
         card_t *card = dev_id;
         int i;
@@ -837,7 +837,7 @@ static int __init wanxl_init_module(void)
 #ifdef MODULE
 	printk(KERN_INFO "%s\n", version);
 #endif
-	return pci_module_init(&wanxl_pci_driver);
+	return pci_register_driver(&wanxl_pci_driver);
 }
 
 static void __exit wanxl_cleanup_module(void)

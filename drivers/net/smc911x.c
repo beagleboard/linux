@@ -55,8 +55,6 @@ static const char version[] =
 			 )
 #endif
 
-
-#include <linux/config.h>
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -1076,7 +1074,7 @@ static void smc911x_phy_interrupt(struct net_device *dev)
  * This is the main routine of the driver, to handle the device when
  * it needs some attention.
  */
-static irqreturn_t smc911x_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+static irqreturn_t smc911x_interrupt(int irq, void *dev_id)
 {
 	struct net_device *dev = dev_id;
 	unsigned long ioaddr = dev->base_addr;
@@ -1253,7 +1251,7 @@ static irqreturn_t smc911x_interrupt(int irq, void *dev_id, struct pt_regs *regs
 
 #ifdef SMC_USE_DMA
 static void
-smc911x_tx_dma_irq(int dma, void *data, struct pt_regs *regs)
+smc911x_tx_dma_irq(int dma, void *data)
 {
 	struct net_device *dev = (struct net_device *)data;
 	struct smc911x_local *lp = netdev_priv(dev);
@@ -1287,7 +1285,7 @@ smc911x_tx_dma_irq(int dma, void *data, struct pt_regs *regs)
 		"%s: TX DMA irq completed\n", dev->name);
 }
 static void
-smc911x_rx_dma_irq(int dma, void *data, struct pt_regs *regs)
+smc911x_rx_dma_irq(int dma, void *data)
 {
 	struct net_device *dev = (struct net_device *)data;
 	unsigned long ioaddr = dev->base_addr;
@@ -1823,7 +1821,7 @@ static int smc911x_ethtool_geteeprom_len(struct net_device *dev)
 	 return SMC911X_EEPROM_LEN;
 }
 
-static struct ethtool_ops smc911x_ethtool_ops = {
+static const struct ethtool_ops smc911x_ethtool_ops = {
 	.get_settings	 = smc911x_ethtool_getsettings,
 	.set_settings	 = smc911x_ethtool_setsettings,
 	.get_drvinfo	 = smc911x_ethtool_getdrvinfo,

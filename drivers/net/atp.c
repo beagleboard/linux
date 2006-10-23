@@ -203,7 +203,7 @@ static void hardware_init(struct net_device *dev);
 static void write_packet(long ioaddr, int length, unsigned char *packet, int pad, int mode);
 static void trigger_send(long ioaddr, int length);
 static int	atp_send_packet(struct sk_buff *skb, struct net_device *dev);
-static irqreturn_t atp_interrupt(int irq, void *dev_id, struct pt_regs *regs);
+static irqreturn_t atp_interrupt(int irq, void *dev_id);
 static void net_rx(struct net_device *dev);
 static void read_block(long ioaddr, int length, unsigned char *buffer, int data_mode);
 static int net_close(struct net_device *dev);
@@ -221,7 +221,7 @@ static struct net_device *root_atp_dev;
    If dev->base_addr == 1, always return failure.
    If dev->base_addr == 2, allocate space for the device and return success
    (detachable devices only).
-   
+
    FIXME: we should use the parport layer for this
    */
 static int __init atp_init(void)
@@ -596,20 +596,15 @@ static int atp_send_packet(struct sk_buff *skb, struct net_device *dev)
 
 /* The typical workload of the driver:
    Handle the network interface interrupts. */
-static irqreturn_t
-atp_interrupt(int irq, void *dev_instance, struct pt_regs * regs)
+static irqreturn_t atp_interrupt(int irq, void *dev_instance)
 {
-	struct net_device *dev = (struct net_device *)dev_instance;
+	struct net_device *dev = dev_instance;
 	struct net_local *lp;
 	long ioaddr;
 	static int num_tx_since_rx;
 	int boguscount = max_interrupt_work;
 	int handled = 0;
 
-	if (dev == NULL) {
-		printk(KERN_ERR "ATP_interrupt(): irq %d for unknown device.\n", irq);
-		return IRQ_NONE;
-	}
 	ioaddr = dev->base_addr;
 	lp = netdev_priv(dev);
 

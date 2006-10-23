@@ -16,9 +16,9 @@ struct genapic {
 	char *name;
 	u32 int_delivery_mode;
 	u32 int_dest_mode;
-	u32 int_delivery_dest;	/* for quick IPIs */
 	int (*apic_id_registered)(void);
 	cpumask_t (*target_cpus)(void);
+	cpumask_t (*vector_allocation_domain)(int cpu);
 	void (*init_apic_ldr)(void);
 	/* ipi */
 	void (*send_IPI_mask)(cpumask_t mask, int vector);

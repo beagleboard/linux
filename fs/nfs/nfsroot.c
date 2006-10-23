@@ -69,7 +69,6 @@
  *	Fabian Frederick:	Option parser rebuilt (using parser lib)
 */
 
-#include <linux/config.h>
 #include <linux/types.h>
 #include <linux/string.h>
 #include <linux/kernel.h>
@@ -312,7 +311,7 @@ static int __init root_nfs_name(char *name)
 	/* Override them by options set on kernel command-line */
 	root_nfs_parse(name, buf);
 
-	cp = system_utsname.nodename;
+	cp = utsname()->nodename;
 	if (strlen(buf) + strlen(cp) > NFS_MAXPATHLEN) {
 		printk(KERN_ERR "Root-NFS: Pathname for remote directory too long.\n");
 		return -1;

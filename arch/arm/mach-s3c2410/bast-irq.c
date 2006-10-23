@@ -18,10 +18,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
- *
- * Modifications:
- *     08-Jan-2003 BJD  Moved from central IRQ code
- *     21-Aug-2005 BJD  Fixed missing code and compile errors
 */
 
 
@@ -116,8 +112,7 @@ static struct irqchip  bast_pc104_chip = {
 
 static void
 bast_irq_pc104_demux(unsigned int irq,
-		     struct irqdesc *desc,
-		     struct pt_regs *regs)
+		     struct irqdesc *desc)
 {
 	unsigned int stat;
 	unsigned int irqno;
@@ -137,7 +132,7 @@ bast_irq_pc104_demux(unsigned int irq,
 			if (stat & 1) {
 				irqno = bast_pc104_irqs[i];
 				desc = irq_desc + irqno;
-				desc_handle_irq(irqno, desc, regs);
+				desc_handle_irq(irqno, desc);
 			}
 		}
 	}

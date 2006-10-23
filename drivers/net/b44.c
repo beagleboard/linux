@@ -896,7 +896,7 @@ static int b44_poll(struct net_device *netdev, int *budget)
 	return (done ? 0 : 1);
 }
 
-static irqreturn_t b44_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+static irqreturn_t b44_interrupt(int irq, void *dev_id)
 {
 	struct net_device *dev = dev_id;
 	struct b44 *bp = netdev_priv(dev);
@@ -1461,7 +1461,7 @@ out:
 static void b44_poll_controller(struct net_device *dev)
 {
 	disable_irq(dev->irq);
-	b44_interrupt(dev->irq, dev, NULL);
+	b44_interrupt(dev->irq, dev);
 	enable_irq(dev->irq);
 }
 #endif
@@ -1706,14 +1706,15 @@ static void __b44_set_rx_mode(struct net_device *dev)
 
 		__b44_set_mac_addr(bp);
 
-		if (dev->flags & IFF_ALLMULTI)
+		if ((dev->flags & IFF_ALLMULTI) ||
+		    (dev->mc_count > B44_MCAST_TABLE_SIZE))
 			val |= RXCONFIG_ALLMULTI;
 		else
 			i = __b44_load_mcast(bp, dev);
 
-		for (; i < 64; i++) {
+		for (; i < 64; i++)
 			__b44_cam_write(bp, zero, i);
-		}
+
 		bw32(bp, B44_RXCONFIG, val);
         	val = br32(bp, B44_CAM_CTRL);
 	        bw32(bp, B44_CAM_CTRL, val | CAM_CTRL_ENABLE);
@@ -2012,7 +2013,7 @@ static int b44_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
 	return 0;
 }
 
-static struct ethtool_ops b44_ethtool_ops = {
+static const struct ethtool_ops b44_ethtool_ops = {
 	.get_drvinfo		= b44_get_drvinfo,
 	.get_settings		= b44_get_settings,
 	.set_settings		= b44_set_settings,
@@ -2055,7 +2056,7 @@ static int b44_read_eeprom(struct b44 *bp, u8 *data)
 	u16 *ptr = (u16 *) data;
 
 	for (i = 0; i < 128; i += 2)
-		ptr[i / 2] = readw(bp->regs + 4096 + i);
+		ptr[i / 2] = cpu_to_le16(readw(bp->regs + 4096 + i));
 
 	return 0;
 }
@@ -2354,7 +2355,7 @@ static int __init b44_init(void)
 	dma_desc_align_mask = ~(dma_desc_align_size - 1);
 	dma_desc_sync_size = max_t(unsigned int, dma_desc_align_size, sizeof(struct dma_desc));
 
-	return pci_module_init(&b44_driver);
+	return pci_register_driver(&b44_driver);
 }
 
 static void __exit b44_cleanup(void)

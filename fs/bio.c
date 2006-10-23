@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2001 Jens Axboe <axboe@suse.de>
+ * Copyright (C) 2001 Jens Axboe <axboe@kernel.dk>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -79,7 +79,6 @@ static struct bio_set *fs_bio_set;
 static inline struct bio_vec *bvec_alloc_bs(gfp_t gfp_mask, int nr, unsigned long *idx, struct bio_set *bs)
 {
 	struct bio_vec *bvl;
-	struct biovec_slab *bp;
 
 	/*
 	 * see comment near bvec_array define!
@@ -98,10 +97,12 @@ static inline struct bio_vec *bvec_alloc_bs(gfp_t gfp_mask, int nr, unsigned lon
 	 * idx now points to the pool we want to allocate from
 	 */
 
-	bp = bvec_slabs + *idx;
 	bvl = mempool_alloc(bs->bvec_pools[*idx], gfp_mask);
-	if (bvl)
+	if (bvl) {
+		struct biovec_slab *bp = bvec_slabs + *idx;
+
 		memset(bvl, 0, bp->nr_vecs * sizeof(struct bio_vec));
+	}
 
 	return bvl;
 }
@@ -166,7 +167,7 @@ struct bio *bio_alloc_bioset(gfp_t gfp_mask, int nr_iovecs, struct bio_set *bs)
 
 		bio_init(bio);
 		if (likely(nr_iovecs)) {
-			unsigned long idx;
+			unsigned long idx = 0; /* shut up gcc */
 
 			bvl = bvec_alloc_bs(gfp_mask, nr_iovecs, &idx, bs);
 			if (unlikely(!bvl)) {
@@ -1142,7 +1143,7 @@ static int biovec_create_pools(struct bio_set *bs, int pool_entries, int scale)
 		struct biovec_slab *bp = bvec_slabs + i;
 		mempool_t **bvp = bs->bvec_pools + i;
 
-		if (i >= scale)
+		if (pool_entries > 1 && i >= scale)
 			pool_entries >>= 1;
 
 		*bvp = mempool_create_slab_pool(pool_entries, bp->slab);

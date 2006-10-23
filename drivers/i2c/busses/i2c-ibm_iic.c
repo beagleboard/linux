@@ -1,5 +1,5 @@
 /*
- * drivers/i2c/i2c-ibm_iic.c
+ * drivers/i2c/busses/i2c-ibm_iic.c
  *
  * Support for the IIC peripheral on IBM PPC 4xx
  *
@@ -320,7 +320,7 @@ err:
 /*
  * IIC interrupt handler
  */
-static irqreturn_t iic_handler(int irq, void *dev_id, struct pt_regs *regs)
+static irqreturn_t iic_handler(int irq, void *dev_id)
 {
 	struct ibm_iic_private* dev = (struct ibm_iic_private*)dev_id;
 	volatile struct iic_regs __iomem *iic = dev->vaddr;
@@ -625,7 +625,7 @@ static u32 iic_func(struct i2c_adapter *adap)
 	return I2C_FUNC_I2C | I2C_FUNC_SMBUS_EMUL | I2C_FUNC_10BIT_ADDR;
 }
 
-static struct i2c_algorithm iic_algo = {
+static const struct i2c_algorithm iic_algo = {
 	.master_xfer 	= iic_xfer,
 	.functionality	= iic_func
 };

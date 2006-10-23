@@ -385,7 +385,7 @@ static inline void transmit_chars(struct mcf_serial *info)
 /*
  * This is the serial driver's generic interrupt routine
  */
-irqreturn_t mcfrs_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+irqreturn_t mcfrs_interrupt(int irq, void *dev_id)
 {
 	struct mcf_serial	*info;
 	unsigned char		isr;
@@ -1666,7 +1666,7 @@ static void show_serial_version(void)
 	printk(mcfrs_drivername);
 }
 
-static struct tty_operations mcfrs_ops = {
+static const struct tty_operations mcfrs_ops = {
 	.open = mcfrs_open,
 	.close = mcfrs_close,
 	.write = mcfrs_write,

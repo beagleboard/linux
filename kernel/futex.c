@@ -389,7 +389,7 @@ static struct task_struct * futex_find_get_task(pid_t pid)
 {
 	struct task_struct *p;
 
-	read_lock(&tasklist_lock);
+	rcu_read_lock();
 	p = find_task_by_pid(pid);
 	if (!p)
 		goto out_unlock;
@@ -403,7 +403,7 @@ static struct task_struct * futex_find_get_task(pid_t pid)
 	}
 	get_task_struct(p);
 out_unlock:
-	read_unlock(&tasklist_lock);
+	rcu_read_unlock();
 
 	return p;
 }
@@ -1527,7 +1527,7 @@ static int futex_fd(u32 __user *uaddr, int signal)
 	filp->f_mapping = filp->f_dentry->d_inode->i_mapping;
 
 	if (signal) {
-		err = f_setown(filp, current->pid, 1);
+		err = __f_setown(filp, task_pid(current), PIDTYPE_PID, 1);
 		if (err < 0) {
 			goto error;
 		}
@@ -1612,10 +1612,10 @@ sys_set_robust_list(struct robust_list_head __user *head,
  * @len_ptr: pointer to a length field, the kernel fills in the header size
  */
 asmlinkage long
-sys_get_robust_list(int pid, struct robust_list_head __user **head_ptr,
+sys_get_robust_list(int pid, struct robust_list_head __user * __user *head_ptr,
 		    size_t __user *len_ptr)
 {
-	struct robust_list_head *head;
+	struct robust_list_head __user *head;
 	unsigned long ret;
 
 	if (!pid)
@@ -1624,7 +1624,7 @@ sys_get_robust_list(int pid, struct robust_list_head __user **head_ptr,
 		struct task_struct *p;
 
 		ret = -ESRCH;
-		read_lock(&tasklist_lock);
+		rcu_read_lock();
 		p = find_task_by_pid(pid);
 		if (!p)
 			goto err_unlock;
@@ -1633,7 +1633,7 @@ sys_get_robust_list(int pid, struct robust_list_head __user **head_ptr,
 				!capable(CAP_SYS_PTRACE))
 			goto err_unlock;
 		head = p->robust_list;
-		read_unlock(&tasklist_lock);
+		rcu_read_unlock();
 	}
 
 	if (put_user(sizeof(*head), len_ptr))
@@ -1641,7 +1641,7 @@ sys_get_robust_list(int pid, struct robust_list_head __user **head_ptr,
 	return put_user(head, head_ptr);
 
 err_unlock:
-	read_unlock(&tasklist_lock);
+	rcu_read_unlock();
 
 	return ret;
 }
@@ -1694,14 +1694,15 @@ retry:
  * Fetch a robust-list pointer. Bit 0 signals PI futexes:
  */
 static inline int fetch_robust_entry(struct robust_list __user **entry,
-				     struct robust_list __user **head, int *pi)
+				     struct robust_list __user * __user *head,
+				     int *pi)
 {
 	unsigned long uentry;
 
-	if (get_user(uentry, (unsigned long *)head))
+	if (get_user(uentry, (unsigned long __user *)head))
 		return -EFAULT;
 
-	*entry = (void *)(uentry & ~1UL);
+	*entry = (void __user *)(uentry & ~1UL);
 	*pi = uentry & 1;
 
 	return 0;
@@ -1739,7 +1740,7 @@ void exit_robust_list(struct task_struct *curr)
 		return;
 
 	if (pending)
-		handle_futex_death((void *)pending + futex_offset, curr, pip);
+		handle_futex_death((void __user *)pending + futex_offset, curr, pip);
 
 	while (entry != &head->list) {
 		/*
@@ -1747,7 +1748,7 @@ void exit_robust_list(struct task_struct *curr)
 		 * don't process it twice:
 		 */
 		if (entry != pending)
-			if (handle_futex_death((void *)entry + futex_offset,
+			if (handle_futex_death((void __user *)entry + futex_offset,
 						curr, pi))
 				return;
 		/*

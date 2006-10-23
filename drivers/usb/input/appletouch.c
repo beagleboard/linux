@@ -210,7 +210,7 @@ static inline void atp_report_fingers(struct input_dev *input, int fingers)
 	input_report_key(input, BTN_TOOL_TRIPLETAP, fingers > 2);
 }
 
-static void atp_complete(struct urb* urb, struct pt_regs* regs)
+static void atp_complete(struct urb* urb)
 {
 	int x, y, x_z, y_z, x_f, y_f;
 	int retval, i, j;
@@ -436,10 +436,7 @@ static int atp_probe(struct usb_interface *iface, const struct usb_device_id *id
 	iface_desc = iface->cur_altsetting;
 	for (i = 0; i < iface_desc->desc.bNumEndpoints; i++) {
 		endpoint = &iface_desc->endpoint[i].desc;
-		if (!int_in_endpointAddr &&
-		    (endpoint->bEndpointAddress & USB_DIR_IN) &&
-		    ((endpoint->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK)
-					== USB_ENDPOINT_XFER_INT)) {
+		if (!int_in_endpointAddr && usb_endpoint_is_int_in(endpoint)) {
 			/* we found an interrupt in endpoint */
 			int_in_endpointAddr = endpoint->bEndpointAddress;
 			break;

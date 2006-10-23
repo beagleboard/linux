@@ -52,7 +52,7 @@ struct line {
 
 	int sigio;
 	struct work_struct task;
-	struct line_driver *driver;
+	const struct line_driver *driver;
 	int have_irq;
 };
 
@@ -91,15 +91,14 @@ extern int line_setup_irq(int fd, int input, int output, struct line *line,
 			  void *data);
 extern void line_close_chan(struct line *line);
 extern struct tty_driver * line_register_devfs(struct lines *set,
-				struct line_driver *line_driver,
-				struct tty_operations *driver,
-				struct line *lines,
-				int nlines);
+					       struct line_driver *line_driver,
+					       const struct tty_operations *driver,
+					       struct line *lines, int nlines);
 extern void lines_init(struct line *lines, int nlines, struct chan_opts *opts);
 extern void close_lines(struct line *lines, int nlines);
 
 extern int line_config(struct line *lines, unsigned int sizeof_lines,
-		       char *str, struct chan_opts *opts);
+		       char *str, const struct chan_opts *opts);
 extern int line_id(char **str, int *start_out, int *end_out);
 extern int line_remove(struct line *lines, unsigned int sizeof_lines, int n);
 extern int line_get_config(char *dev, struct line *lines,

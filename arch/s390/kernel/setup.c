@@ -37,6 +37,7 @@
 #include <linux/kernel_stat.h>
 #include <linux/device.h>
 #include <linux/notifier.h>
+#include <linux/pfn.h>
 
 #include <asm/uaccess.h>
 #include <asm/system.h>
@@ -48,6 +49,12 @@
 #include <asm/page.h>
 #include <asm/ptrace.h>
 #include <asm/sections.h>
+
+/*
+ * User copy operations.
+ */
+struct uaccess_ops uaccess;
+EXPORT_SYMBOL_GPL(uaccess);
 
 /*
  * Machine setup..
@@ -63,7 +70,6 @@ struct {
 #define CHUNK_READ_WRITE 0
 #define CHUNK_READ_ONLY 1
 volatile int __cpu_logical_map[NR_CPUS]; /* logical cpu to cpu address */
-unsigned long __initdata zholes_size[MAX_NR_ZONES];
 static unsigned long __initdata memory_end;
 
 /*
@@ -94,7 +100,7 @@ void __devinit cpu_init (void)
         /*
          * Store processor id in lowcore (used e.g. in timer_interrupt)
          */
-        asm volatile ("stidp %0": "=m" (S390_lowcore.cpu_data.cpu_id));
+	asm volatile("stidp %0": "=m" (S390_lowcore.cpu_data.cpu_id));
         S390_lowcore.cpu_data.cpu_addr = addr;
 
         /*
@@ -284,16 +290,9 @@ void (*_machine_power_off)(void) = machine_power_off_smp;
 /*
  * Reboot, halt and power_off routines for non SMP.
  */
-extern void reipl(unsigned long devno);
-extern void reipl_diag(void);
 static void do_machine_restart_nonsmp(char * __unused)
 {
-	reipl_diag();
-
-	if (MACHINE_IS_VM)
-		cpcmd ("IPL", NULL, 0, NULL);
-	else
-		reipl (0x10000 | S390_lowcore.ipl_device);
+	do_reipl();
 }
 
 static void do_machine_halt_nonsmp(void)
@@ -357,21 +356,6 @@ void machine_power_off(void)
  * Dummy power off function.
  */
 void (*pm_power_off)(void) = machine_power_off;
-
-static void __init
-add_memory_hole(unsigned long start, unsigned long end)
-{
-	unsigned long dma_pfn = MAX_DMA_ADDRESS >> PAGE_SHIFT;
-
-	if (end <= dma_pfn)
-		zholes_size[ZONE_DMA] += end - start + 1;
-	else if (start > dma_pfn)
-		zholes_size[ZONE_NORMAL] += end - start + 1;
-	else {
-		zholes_size[ZONE_DMA] += dma_pfn - start + 1;
-		zholes_size[ZONE_NORMAL] += end - dma_pfn;
-	}
-}
 
 static int __init early_parse_mem(char *p)
 {
@@ -494,61 +478,82 @@ setup_memory(void)
 {
         unsigned long bootmap_size;
 	unsigned long start_pfn, end_pfn, init_pfn;
-	unsigned long last_rw_end;
 	int i;
 
 	/*
 	 * partially used pages are not usable - thus
 	 * we are rounding upwards:
 	 */
-	start_pfn = (__pa(&_end) + PAGE_SIZE - 1) >> PAGE_SHIFT;
-	end_pfn = max_pfn = memory_end >> PAGE_SHIFT;
+	start_pfn = PFN_UP(__pa(&_end));
+	end_pfn = max_pfn = PFN_DOWN(memory_end);
 
 	/* Initialize storage key for kernel pages */
 	for (init_pfn = 0 ; init_pfn < start_pfn; init_pfn++)
 		page_set_storage_key(init_pfn << PAGE_SHIFT, PAGE_DEFAULT_KEY);
 
+#ifdef CONFIG_BLK_DEV_INITRD
 	/*
-	 * Initialize the boot-time allocator (with low memory only):
+	 * Move the initrd in case the bitmap of the bootmem allocater
+	 * would overwrite it.
+	 */
+
+	if (INITRD_START && INITRD_SIZE) {
+		unsigned long bmap_size;
+		unsigned long start;
+
+		bmap_size = bootmem_bootmap_pages(end_pfn - start_pfn + 1);
+		bmap_size = PFN_PHYS(bmap_size);
+
+		if (PFN_PHYS(start_pfn) + bmap_size > INITRD_START) {
+			start = PFN_PHYS(start_pfn) + bmap_size + PAGE_SIZE;
+
+			if (start + INITRD_SIZE > memory_end) {
+				printk("initrd extends beyond end of memory "
+				       "(0x%08lx > 0x%08lx)\n"
+				       "disabling initrd\n",
+				       start + INITRD_SIZE, memory_end);
+				INITRD_START = INITRD_SIZE = 0;
+			} else {
+				printk("Moving initrd (0x%08lx -> 0x%08lx, "
+				       "size: %ld)\n",
+				       INITRD_START, start, INITRD_SIZE);
+				memmove((void *) start, (void *) INITRD_START,
+					INITRD_SIZE);
+				INITRD_START = start;
+			}
+		}
+	}
+#endif
+
+	/*
+	 * Initialize the boot-time allocator
 	 */
 	bootmap_size = init_bootmem(start_pfn, end_pfn);
 
 	/*
 	 * Register RAM areas with the bootmem allocator.
 	 */
-	last_rw_end = start_pfn;
 
 	for (i = 0; i < MEMORY_CHUNKS && memory_chunk[i].size > 0; i++) {
-		unsigned long start_chunk, end_chunk;
+		unsigned long start_chunk, end_chunk, pfn;
 
 		if (memory_chunk[i].type != CHUNK_READ_WRITE)
 			continue;
-		start_chunk = (memory_chunk[i].addr + PAGE_SIZE - 1);
-		start_chunk >>= PAGE_SHIFT;
-		end_chunk = (memory_chunk[i].addr + memory_chunk[i].size);
-		end_chunk >>= PAGE_SHIFT;
-		if (start_chunk < start_pfn)
-			start_chunk = start_pfn;
-		if (end_chunk > end_pfn)
-			end_chunk = end_pfn;
-		if (start_chunk < end_chunk) {
-			/* Initialize storage key for RAM pages */
-			for (init_pfn = start_chunk ; init_pfn < end_chunk;
-			     init_pfn++)
-				page_set_storage_key(init_pfn << PAGE_SHIFT,
-						     PAGE_DEFAULT_KEY);
-			free_bootmem(start_chunk << PAGE_SHIFT,
-				     (end_chunk - start_chunk) << PAGE_SHIFT);
-			if (last_rw_end < start_chunk)
-				add_memory_hole(last_rw_end, start_chunk - 1);
-			last_rw_end = end_chunk;
-		}
+		start_chunk = PFN_DOWN(memory_chunk[i].addr);
+		end_chunk = start_chunk + PFN_DOWN(memory_chunk[i].size) - 1;
+		end_chunk = min(end_chunk, end_pfn);
+		if (start_chunk >= end_chunk)
+			continue;
+		add_active_range(0, start_chunk, end_chunk);
+		pfn = max(start_chunk, start_pfn);
+		for (; pfn <= end_chunk; pfn++)
+			page_set_storage_key(PFN_PHYS(pfn), PAGE_DEFAULT_KEY);
 	}
 
 	psw_set_key(PAGE_DEFAULT_KEY);
 
-	if (last_rw_end < end_pfn - 1)
-		add_memory_hole(last_rw_end, end_pfn - 1);
+	free_bootmem_with_active_regions(0, max_pfn);
+	reserve_bootmem(0, PFN_PHYS(start_pfn));
 
 	/*
 	 * Reserve the bootmem bitmap itself as well. We do this in two
@@ -559,7 +564,7 @@ setup_memory(void)
 	reserve_bootmem(start_pfn << PAGE_SHIFT, bootmap_size);
 
 #ifdef CONFIG_BLK_DEV_INITRD
-	if (INITRD_START) {
+	if (INITRD_START && INITRD_SIZE) {
 		if (INITRD_START + INITRD_SIZE <= memory_end) {
 			reserve_bootmem(INITRD_START, INITRD_SIZE);
 			initrd_start = INITRD_START;
@@ -612,6 +617,11 @@ setup_arch(char **cmdline_p)
 	init_mm.brk = (unsigned long) &_end;
 
 	memory_end = memory_size;
+
+	if (MACHINE_HAS_MVCOS)
+		memcpy(&uaccess, &uaccess_mvcos, sizeof(uaccess));
+	else
+		memcpy(&uaccess, &uaccess_std, sizeof(uaccess));
 
 	parse_early_param();
 
@@ -720,214 +730,3 @@ struct seq_operations cpuinfo_op = {
 	.show	= show_cpuinfo,
 };
 
-#define DEFINE_IPL_ATTR(_name, _format, _value)			\
-static ssize_t ipl_##_name##_show(struct subsystem *subsys,	\
-		char *page)					\
-{								\
-	return sprintf(page, _format, _value);			\
-}								\
-static struct subsys_attribute ipl_##_name##_attr =		\
-	__ATTR(_name, S_IRUGO, ipl_##_name##_show, NULL);
-
-DEFINE_IPL_ATTR(wwpn, "0x%016llx\n", (unsigned long long)
-		IPL_PARMBLOCK_START->fcp.wwpn);
-DEFINE_IPL_ATTR(lun, "0x%016llx\n", (unsigned long long)
-		IPL_PARMBLOCK_START->fcp.lun);
-DEFINE_IPL_ATTR(bootprog, "%lld\n", (unsigned long long)
-		IPL_PARMBLOCK_START->fcp.bootprog);
-DEFINE_IPL_ATTR(br_lba, "%lld\n", (unsigned long long)
-		IPL_PARMBLOCK_START->fcp.br_lba);
-
-enum ipl_type_type {
-	ipl_type_unknown,
-	ipl_type_ccw,
-	ipl_type_fcp,
-};
-
-static enum ipl_type_type
-get_ipl_type(void)
-{
-	struct ipl_parameter_block *ipl = IPL_PARMBLOCK_START;
-
-	if (!IPL_DEVNO_VALID)
-		return ipl_type_unknown;
-	if (!IPL_PARMBLOCK_VALID)
-		return ipl_type_ccw;
-	if (ipl->hdr.header.version > IPL_MAX_SUPPORTED_VERSION)
-		return ipl_type_unknown;
-	if (ipl->fcp.pbt != IPL_TYPE_FCP)
-		return ipl_type_unknown;
-	return ipl_type_fcp;
-}
-
-static ssize_t
-ipl_type_show(struct subsystem *subsys, char *page)
-{
-	switch (get_ipl_type()) {
-	case ipl_type_ccw:
-		return sprintf(page, "ccw\n");
-	case ipl_type_fcp:
-		return sprintf(page, "fcp\n");
-	default:
-		return sprintf(page, "unknown\n");
-	}
-}
-
-static struct subsys_attribute ipl_type_attr = __ATTR_RO(ipl_type);
-
-static ssize_t
-ipl_device_show(struct subsystem *subsys, char *page)
-{
-	struct ipl_parameter_block *ipl = IPL_PARMBLOCK_START;
-
-	switch (get_ipl_type()) {
-	case ipl_type_ccw:
-		return sprintf(page, "0.0.%04x\n", ipl_devno);
-	case ipl_type_fcp:
-		return sprintf(page, "0.0.%04x\n", ipl->fcp.devno);
-	default:
-		return 0;
-	}
-}
-
-static struct subsys_attribute ipl_device_attr =
-	__ATTR(device, S_IRUGO, ipl_device_show, NULL);
-
-static struct attribute *ipl_fcp_attrs[] = {
-	&ipl_type_attr.attr,
-	&ipl_device_attr.attr,
-	&ipl_wwpn_attr.attr,
-	&ipl_lun_attr.attr,
-	&ipl_bootprog_attr.attr,
-	&ipl_br_lba_attr.attr,
-	NULL,
-};
-
-static struct attribute_group ipl_fcp_attr_group = {
-	.attrs = ipl_fcp_attrs,
-};
-
-static struct attribute *ipl_ccw_attrs[] = {
-	&ipl_type_attr.attr,
-	&ipl_device_attr.attr,
-	NULL,
-};
-
-static struct attribute_group ipl_ccw_attr_group = {
-	.attrs = ipl_ccw_attrs,
-};
-
-static struct attribute *ipl_unknown_attrs[] = {
-	&ipl_type_attr.attr,
-	NULL,
-};
-
-static struct attribute_group ipl_unknown_attr_group = {
-	.attrs = ipl_unknown_attrs,
-};
-
-static ssize_t
-ipl_parameter_read(struct kobject *kobj, char *buf, loff_t off, size_t count)
-{
-	unsigned int size = IPL_PARMBLOCK_SIZE;
-
-	if (off > size)
-		return 0;
-	if (off + count > size)
-		count = size - off;
-
-	memcpy(buf, (void *) IPL_PARMBLOCK_START + off, count);
-	return count;
-}
-
-static struct bin_attribute ipl_parameter_attr = {
-	.attr = {
-		.name = "binary_parameter",
-		.mode = S_IRUGO,
-		.owner = THIS_MODULE,
-	},
-	.size = PAGE_SIZE,
-	.read = &ipl_parameter_read,
-};
-
-static ssize_t
-ipl_scp_data_read(struct kobject *kobj, char *buf, loff_t off, size_t count)
-{
-	unsigned int size =  IPL_PARMBLOCK_START->fcp.scp_data_len;
-	void *scp_data = &IPL_PARMBLOCK_START->fcp.scp_data;
-
-	if (off > size)
-		return 0;
-	if (off + count > size)
-		count = size - off;
-
-	memcpy(buf, scp_data + off, count);
-	return count;
-}
-
-static struct bin_attribute ipl_scp_data_attr = {
-	.attr = {
-		.name = "scp_data",
-		.mode = S_IRUGO,
-		.owner = THIS_MODULE,
-	},
-	.size = PAGE_SIZE,
-	.read = &ipl_scp_data_read,
-};
-
-static decl_subsys(ipl, NULL, NULL);
-
-static int ipl_register_fcp_files(void)
-{
-	int rc;
-
-	rc = sysfs_create_group(&ipl_subsys.kset.kobj,
-				&ipl_fcp_attr_group);
-	if (rc)
-		goto out;
-	rc = sysfs_create_bin_file(&ipl_subsys.kset.kobj,
-				   &ipl_parameter_attr);
-	if (rc)
-		goto out_ipl_parm;
-	rc = sysfs_create_bin_file(&ipl_subsys.kset.kobj,
-				   &ipl_scp_data_attr);
-	if (!rc)
-		goto out;
-
-	sysfs_remove_bin_file(&ipl_subsys.kset.kobj, &ipl_parameter_attr);
-
-out_ipl_parm:
-	sysfs_remove_group(&ipl_subsys.kset.kobj, &ipl_fcp_attr_group);
-out:
-	return rc;
-}
-
-static int __init
-ipl_device_sysfs_register(void) {
-	int rc;
-
-	rc = firmware_register(&ipl_subsys);
-	if (rc)
-		goto out;
-
-	switch (get_ipl_type()) {
-	case ipl_type_ccw:
-		rc = sysfs_create_group(&ipl_subsys.kset.kobj,
-					&ipl_ccw_attr_group);
-		break;
-	case ipl_type_fcp:
-		rc = ipl_register_fcp_files();
-		break;
-	default:
-		rc = sysfs_create_group(&ipl_subsys.kset.kobj,
-					&ipl_unknown_attr_group);
-		break;
-	}
-
-	if (rc)
-		firmware_unregister(&ipl_subsys);
-out:
-	return rc;
-}
-
-__initcall(ipl_device_sysfs_register);

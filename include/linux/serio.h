@@ -60,8 +60,7 @@ struct serio_driver {
 	unsigned int manual_bind;
 
 	void (*write_wakeup)(struct serio *);
-	irqreturn_t (*interrupt)(struct serio *, unsigned char,
-			unsigned int, struct pt_regs *);
+	irqreturn_t (*interrupt)(struct serio *, unsigned char, unsigned int);
 	int  (*connect)(struct serio *, struct serio_driver *drv);
 	int  (*reconnect)(struct serio *);
 	void (*disconnect)(struct serio *);
@@ -75,7 +74,7 @@ int serio_open(struct serio *serio, struct serio_driver *drv);
 void serio_close(struct serio *serio);
 void serio_rescan(struct serio *serio);
 void serio_reconnect(struct serio *serio);
-irqreturn_t serio_interrupt(struct serio *serio, unsigned char data, unsigned int flags, struct pt_regs *regs);
+irqreturn_t serio_interrupt(struct serio *serio, unsigned char data, unsigned int flags);
 
 void __serio_register_port(struct serio *serio, struct module *owner);
 static inline void serio_register_port(struct serio *serio)
@@ -217,5 +216,8 @@ static inline void serio_unpin_driver(struct serio *serio)
 #define SERIO_LKKBD	0x28
 #define SERIO_ELO	0x29
 #define SERIO_MICROTOUCH	0x30
+#define SERIO_PENMOUNT	0x31
+#define SERIO_TOUCHRIGHT	0x32
+#define SERIO_TOUCHWIN	0x33
 
 #endif

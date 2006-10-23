@@ -4,7 +4,6 @@
  */
 
 #include "linux/stddef.h"
-#include "linux/config.h"
 #include "linux/sched.h"
 #include "linux/slab.h"
 #include "linux/types.h"
@@ -424,9 +423,8 @@ void ldt_get_host_info(void)
 			size++;
 	}
 
-	if(size < sizeof(dummy_list)/sizeof(dummy_list[0])) {
+	if(size < ARRAY_SIZE(dummy_list))
 		host_ldt_entries = dummy_list;
-	}
 	else {
 		size = (size + 1) * sizeof(dummy_list[0]);
 		host_ldt_entries = (short *)kmalloc(size, GFP_KERNEL);

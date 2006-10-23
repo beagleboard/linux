@@ -196,8 +196,8 @@ static SK_BOOL	BoardAllocMem(SK_AC *pAC);
 static void	BoardFreeMem(SK_AC *pAC);
 static void	BoardInitMem(SK_AC *pAC);
 static void	SetupRing(SK_AC*, void*, uintptr_t, RXD**, RXD**, RXD**, int*, SK_BOOL);
-static SkIsrRetVar	SkGeIsr(int irq, void *dev_id, struct pt_regs *ptregs);
-static SkIsrRetVar	SkGeIsrOnePort(int irq, void *dev_id, struct pt_regs *ptregs);
+static SkIsrRetVar	SkGeIsr(int irq, void *dev_id);
+static SkIsrRetVar	SkGeIsrOnePort(int irq, void *dev_id);
 static int	SkGeOpen(struct SK_NET_DEVICE *dev);
 static int	SkGeClose(struct SK_NET_DEVICE *dev);
 static int	SkGeXmit(struct sk_buff *skb, struct SK_NET_DEVICE *dev);
@@ -248,7 +248,7 @@ static void	DumpLong(char*, int);
 
 /* global variables *********************************************************/
 static SK_BOOL DoPrintInterfaceChange = SK_TRUE;
-extern  struct ethtool_ops SkGeEthtoolOps;
+extern const struct ethtool_ops SkGeEthtoolOps;
 
 /* local variables **********************************************************/
 static uintptr_t TxQueueAddr[SK_MAX_MACS][2] = {{0x680, 0x600},{0x780, 0x700}};
@@ -880,7 +880,7 @@ int	PortIndex)	/* index of the port for which to re-init */
  * Returns: N/A
  *
  */
-static SkIsrRetVar SkGeIsr(int irq, void *dev_id, struct pt_regs *ptregs)
+static SkIsrRetVar SkGeIsr(int irq, void *dev_id)
 {
 struct SK_NET_DEVICE *dev = (struct SK_NET_DEVICE *)dev_id;
 DEV_NET		*pNet;
@@ -1029,7 +1029,7 @@ SK_U32		IntSrc;		/* interrupts source register contents */
  * Returns: N/A
  *
  */
-static SkIsrRetVar SkGeIsrOnePort(int irq, void *dev_id, struct pt_regs *ptregs)
+static SkIsrRetVar SkGeIsrOnePort(int irq, void *dev_id)
 {
 struct SK_NET_DEVICE *dev = (struct SK_NET_DEVICE *)dev_id;
 DEV_NET		*pNet;
@@ -1140,7 +1140,7 @@ SK_U32		IntSrc;		/* interrupts source register contents */
 static void SkGePollController(struct net_device *dev)
 {
 	disable_irq(dev->irq);
-	SkGeIsr(dev->irq, dev, NULL);
+	SkGeIsr(dev->irq, dev);
 	enable_irq(dev->irq);
 }
 #endif
@@ -1559,7 +1559,7 @@ struct sk_buff	*pMessage)	/* pointer to send-message              */
 	pTxd->VDataHigh = (SK_U32) (PhysAddr >> 32);
 	pTxd->pMBuf     = pMessage;
 
-	if (pMessage->ip_summed == CHECKSUM_HW) {
+	if (pMessage->ip_summed == CHECKSUM_PARTIAL) {
 		u16 hdrlen = pMessage->h.raw - pMessage->data;
 		u16 offset = hdrlen + pMessage->csum;
 
@@ -1678,7 +1678,7 @@ struct sk_buff	*pMessage)	/* pointer to send-message              */
 	/* 
 	** Does the HW need to evaluate checksum for TCP or UDP packets? 
 	*/
-	if (pMessage->ip_summed == CHECKSUM_HW) {
+	if (pMessage->ip_summed == CHECKSUM_PARTIAL) {
 		u16 hdrlen = pMessage->h.raw - pMessage->data;
 		u16 offset = hdrlen + pMessage->csum;
 
@@ -2158,7 +2158,7 @@ rx_start:
 
 #ifdef USE_SK_RX_CHECKSUM
 		pMsg->csum = pRxd->TcpSums & 0xffff;
-		pMsg->ip_summed = CHECKSUM_HW;
+		pMsg->ip_summed = CHECKSUM_COMPLETE;
 #else
 		pMsg->ip_summed = CHECKSUM_NONE;
 #endif
@@ -5133,7 +5133,7 @@ static struct pci_driver skge_driver = {
 
 static int __init skge_init(void)
 {
-	return pci_module_init(&skge_driver);
+	return pci_register_driver(&skge_driver);
 }
 
 static void __exit skge_exit(void)

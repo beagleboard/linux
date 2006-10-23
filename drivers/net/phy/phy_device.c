@@ -212,11 +212,13 @@ struct phy_device *phy_attach(struct net_device *dev,
 
 		err = d->driver->probe(d);
 
-		if (err < 0)
-			return ERR_PTR(err);
+		if (err >= 0)
+			err = device_bind_driver(d);
 
-		device_bind_driver(d);
 		up_write(&d->bus->subsys.rwsem);
+
+		if (err)
+			return ERR_PTR(err);
 	}
 
 	if (phydev->attached_dev) {
@@ -522,7 +524,7 @@ EXPORT_SYMBOL(genphy_read_status);
 
 static int genphy_config_init(struct phy_device *phydev)
 {
-	u32 val;
+	int val;
 	u32 features;
 
 	/* For now, I'll claim that the generic driver supports

@@ -87,6 +87,12 @@ static inline int strong_try_module_get(struct module *mod)
 	return try_module_get(mod);
 }
 
+static inline void add_taint_module(struct module *mod, unsigned flag)
+{
+	add_taint(flag);
+	mod->taints |= flag;
+}
+
 /* A thread that wants to hold a reference to a module only while it
  * is running can call ths to safely exit.
  * nfsd and lockd use this.
@@ -847,11 +853,10 @@ static int check_version(Elf_Shdr *sechdrs,
 		return 0;
 	}
 	/* Not in module's version table.  OK, but that taints the kernel. */
-	if (!(tainted & TAINT_FORCED_MODULE)) {
+	if (!(tainted & TAINT_FORCED_MODULE))
 		printk("%s: no version for \"%s\" found: kernel tainted.\n",
 		       mod->name, symname);
-		add_taint(TAINT_FORCED_MODULE);
-	}
+	add_taint_module(mod, TAINT_FORCED_MODULE);
 	return 1;
 }
 
@@ -909,7 +914,8 @@ static unsigned long resolve_symbol(Elf_Shdr *sechdrs,
 	unsigned long ret;
 	const unsigned long *crc;
 
-	ret = __find_symbol(name, &owner, &crc, mod->license_gplok);
+	ret = __find_symbol(name, &owner, &crc,
+			!(mod->taints & TAINT_PROPRIETARY_MODULE));
 	if (ret) {
 		/* use_module can fail due to OOM, or module unloading */
 		if (!check_version(sechdrs, versindex, name, mod, crc) ||
@@ -933,6 +939,15 @@ static ssize_t module_sect_show(struct module_attribute *mattr,
 	return sprintf(buf, "0x%lx\n", sattr->address);
 }
 
+static void free_sect_attrs(struct module_sect_attrs *sect_attrs)
+{
+	int section;
+
+	for (section = 0; section < sect_attrs->nsections; section++)
+		kfree(sect_attrs->attrs[section].name);
+	kfree(sect_attrs);
+}
+
 static void add_sect_attrs(struct module *mod, unsigned int nsect,
 		char *secstrings, Elf_Shdr *sechdrs)
 {
@@ -949,21 +964,26 @@ static void add_sect_attrs(struct module *mod, unsigned int nsect,
 			+ nloaded * sizeof(sect_attrs->attrs[0]),
 			sizeof(sect_attrs->grp.attrs[0]));
 	size[1] = (nloaded + 1) * sizeof(sect_attrs->grp.attrs[0]);
-	if (! (sect_attrs = kmalloc(size[0] + size[1], GFP_KERNEL)))
+	sect_attrs = kzalloc(size[0] + size[1], GFP_KERNEL);
+	if (sect_attrs == NULL)
 		return;
 
 	/* Setup section attributes. */
 	sect_attrs->grp.name = "sections";
 	sect_attrs->grp.attrs = (void *)sect_attrs + size[0];
 
+	sect_attrs->nsections = 0;
 	sattr = &sect_attrs->attrs[0];
 	gattr = &sect_attrs->grp.attrs[0];
 	for (i = 0; i < nsect; i++) {
 		if (! (sechdrs[i].sh_flags & SHF_ALLOC))
 			continue;
 		sattr->address = sechdrs[i].sh_addr;
-		strlcpy(sattr->name, secstrings + sechdrs[i].sh_name,
-			MODULE_SECT_NAME_LEN);
+		sattr->name = kstrdup(secstrings + sechdrs[i].sh_name,
+					GFP_KERNEL);
+		if (sattr->name == NULL)
+			goto out;
+		sect_attrs->nsections++;
 		sattr->mattr.show = module_sect_show;
 		sattr->mattr.store = NULL;
 		sattr->mattr.attr.name = sattr->name;
@@ -979,7 +999,7 @@ static void add_sect_attrs(struct module *mod, unsigned int nsect,
 	mod->sect_attrs = sect_attrs;
 	return;
   out:
-	kfree(sect_attrs);
+	free_sect_attrs(sect_attrs);
 }
 
 static void remove_sect_attrs(struct module *mod)
@@ -989,13 +1009,13 @@ static void remove_sect_attrs(struct module *mod)
 				   &mod->sect_attrs->grp);
 		/* We are positive that no one is using any sect attrs
 		 * at this point.  Deallocate immediately. */
-		kfree(mod->sect_attrs);
+		free_sect_attrs(mod->sect_attrs);
 		mod->sect_attrs = NULL;
 	}
 }
 
-
 #else
+
 static inline void add_sect_attrs(struct module *mod, unsigned int nsect,
 		char *sectstrings, Elf_Shdr *sechdrs)
 {
@@ -1054,6 +1074,12 @@ static int mod_sysfs_setup(struct module *mod,
 {
 	int err;
 
+	if (!module_subsys.kset.subsys) {
+		printk(KERN_ERR "%s: module_subsys not initialized\n",
+		       mod->name);
+		err = -EINVAL;
+		goto out;
+	}
 	memset(&mod->mkobj.kobj, 0, sizeof(mod->mkobj.kobj));
 	err = kobject_set_name(&mod->mkobj.kobj, "%s", mod->name);
 	if (err)
@@ -1314,11 +1340,11 @@ static void set_license(struct module *mod, const char *license)
 	if (!license)
 		license = "unspecified";
 
-	mod->license_gplok = license_is_gpl_compatible(license);
-	if (!mod->license_gplok && !(tainted & TAINT_PROPRIETARY_MODULE)) {
-		printk(KERN_WARNING "%s: module license '%s' taints kernel.\n",
-		       mod->name, license);
-		add_taint(TAINT_PROPRIETARY_MODULE);
+	if (!license_is_gpl_compatible(license)) {
+		if (!(tainted & TAINT_PROPRIETARY_MODULE))
+			printk(KERN_WARNING "%s: module license '%s' taints"
+				"kernel.\n", mod->name, license);
+		add_taint_module(mod, TAINT_PROPRIETARY_MODULE);
 	}
 }
 
@@ -1597,7 +1623,7 @@ static struct module *load_module(void __user *umod,
 	modmagic = get_modinfo(sechdrs, infoindex, "vermagic");
 	/* This is allowed: modprobe --force will invalidate it. */
 	if (!modmagic) {
-		add_taint(TAINT_FORCED_MODULE);
+		add_taint_module(mod, TAINT_FORCED_MODULE);
 		printk(KERN_WARNING "%s: no version magic, tainting kernel.\n",
 		       mod->name);
 	} else if (!same_magic(modmagic, vermagic)) {
@@ -1692,9 +1718,9 @@ static struct module *load_module(void __user *umod,
 	set_license(mod, get_modinfo(sechdrs, infoindex, "license"));
 
 	if (strcmp(mod->name, "ndiswrapper") == 0)
-		add_taint(TAINT_PROPRIETARY_MODULE);
+		add_taint_module(mod, TAINT_PROPRIETARY_MODULE);
 	if (strcmp(mod->name, "driverloader") == 0)
-		add_taint(TAINT_PROPRIETARY_MODULE);
+		add_taint_module(mod, TAINT_PROPRIETARY_MODULE);
 
 	/* Set up MODINFO_ATTR fields */
 	setup_modinfo(mod, sechdrs, infoindex);
@@ -1739,7 +1765,7 @@ static struct module *load_module(void __user *umod,
 	    (mod->num_unused_gpl_syms && !unusedgplcrcindex)) {
 		printk(KERN_WARNING "%s: No versions for exported symbols."
 		       " Tainting kernel.\n", mod->name);
-		add_taint(TAINT_FORCED_MODULE);
+		add_taint_module(mod, TAINT_FORCED_MODULE);
 	}
 #endif
 
@@ -2012,7 +2038,8 @@ const char *module_address_lookup(unsigned long addr,
 	list_for_each_entry(mod, &modules, list) {
 		if (within(addr, mod->module_init, mod->init_size)
 		    || within(addr, mod->module_core, mod->core_size)) {
-			*modname = mod->name;
+			if (modname)
+				*modname = mod->name;
 			return get_ksymbol(mod, addr, size, offset);
 		}
 	}
@@ -2103,9 +2130,33 @@ static void m_stop(struct seq_file *m, void *p)
 	mutex_unlock(&module_mutex);
 }
 
+static char *taint_flags(unsigned int taints, char *buf)
+{
+	int bx = 0;
+
+	if (taints) {
+		buf[bx++] = '(';
+		if (taints & TAINT_PROPRIETARY_MODULE)
+			buf[bx++] = 'P';
+		if (taints & TAINT_FORCED_MODULE)
+			buf[bx++] = 'F';
+		/*
+		 * TAINT_FORCED_RMMOD: could be added.
+		 * TAINT_UNSAFE_SMP, TAINT_MACHINE_CHECK, TAINT_BAD_PAGE don't
+		 * apply to modules.
+		 */
+		buf[bx++] = ')';
+	}
+	buf[bx] = '\0';
+
+	return buf;
+}
+
 static int m_show(struct seq_file *m, void *p)
 {
 	struct module *mod = list_entry(p, struct module, list);
+	char buf[8];
+
 	seq_printf(m, "%s %lu",
 		   mod->name, mod->init_size + mod->core_size);
 	print_unload_info(m, mod);
@@ -2117,6 +2168,10 @@ static int m_show(struct seq_file *m, void *p)
 		   "Live");
 	/* Used by oprofile and other similar tools. */
 	seq_printf(m, " 0x%p", mod->module_core);
+
+	/* Taints info */
+	if (mod->taints)
+		seq_printf(m, " %s", taint_flags(mod->taints, buf));
 
 	seq_printf(m, "\n");
 	return 0;
@@ -2210,10 +2265,11 @@ struct module *module_text_address(unsigned long addr)
 void print_modules(void)
 {
 	struct module *mod;
+	char buf[8];
 
 	printk("Modules linked in:");
 	list_for_each_entry(mod, &modules, list)
-		printk(" %s", mod->name);
+		printk(" %s%s", mod->name, taint_flags(mod->taints, buf));
 	printk("\n");
 }
 

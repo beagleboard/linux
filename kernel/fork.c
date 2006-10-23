@@ -27,6 +27,7 @@
 #include <linux/binfmts.h>
 #include <linux/mman.h>
 #include <linux/fs.h>
+#include <linux/nsproxy.h>
 #include <linux/capability.h>
 #include <linux/cpu.h>
 #include <linux/cpuset.h>
@@ -42,9 +43,11 @@
 #include <linux/profile.h>
 #include <linux/rmap.h>
 #include <linux/acct.h>
+#include <linux/tsacct_kern.h>
 #include <linux/cn_proc.h>
 #include <linux/delayacct.h>
 #include <linux/taskstats_kern.h>
+#include <linux/random.h>
 
 #include <asm/pgtable.h>
 #include <asm/pgalloc.h>
@@ -175,10 +178,16 @@ static struct task_struct *dup_task_struct(struct task_struct *orig)
 	tsk->thread_info = ti;
 	setup_thread_stack(tsk, orig);
 
+#ifdef CONFIG_CC_STACKPROTECTOR
+	tsk->stack_canary = get_random_int();
+#endif
+
 	/* One for us, one for whoever does the "release_task()" (usually parent) */
 	atomic_set(&tsk->usage,2);
 	atomic_set(&tsk->fs_excl, 0);
+#ifdef CONFIG_BLK_DEV_IO_TRACE
 	tsk->btrace_seq = 0;
+#endif
 	tsk->splice_pipe = NULL;
 	return tsk;
 }
@@ -1056,7 +1065,11 @@ static struct task_struct *copy_process(unsigned long clone_flags,
 #endif
 #ifdef CONFIG_TRACE_IRQFLAGS
 	p->irq_events = 0;
+#ifdef __ARCH_WANT_INTERRUPTS_ON_CTXSW
+	p->hardirqs_enabled = 1;
+#else
 	p->hardirqs_enabled = 0;
+#endif
 	p->hardirq_enable_ip = 0;
 	p->hardirq_enable_event = 0;
 	p->hardirq_disable_ip = _THIS_IP_;
@@ -1104,11 +1117,11 @@ static struct task_struct *copy_process(unsigned long clone_flags,
 		goto bad_fork_cleanup_signal;
 	if ((retval = copy_keys(clone_flags, p)))
 		goto bad_fork_cleanup_mm;
-	if ((retval = copy_namespace(clone_flags, p)))
+	if ((retval = copy_namespaces(clone_flags, p)))
 		goto bad_fork_cleanup_keys;
 	retval = copy_thread(0, clone_flags, stack_start, stack_size, p, regs);
 	if (retval)
-		goto bad_fork_cleanup_namespace;
+		goto bad_fork_cleanup_namespaces;
 
 	p->set_child_tid = (clone_flags & CLONE_CHILD_SETTID) ? child_tidptr : NULL;
 	/*
@@ -1139,7 +1152,6 @@ static struct task_struct *copy_process(unsigned long clone_flags,
 
 	/* Our parent execution domain becomes current domain
 	   These must match for thread signalling to apply */
-	   
 	p->parent_exec_id = p->self_exec_id;
 
 	/* ok, now we should be set up.. */
@@ -1161,6 +1173,9 @@ static struct task_struct *copy_process(unsigned long clone_flags,
 
 	/* Need tasklist lock for parent etc handling! */
 	write_lock_irq(&tasklist_lock);
+
+	/* for sys_ioprio_set(IOPRIO_WHO_PGRP) */
+	p->ioprio = current->ioprio;
 
 	/*
 	 * The task hasn't been attached yet, so its cpus_allowed mask will
@@ -1198,7 +1213,7 @@ static struct task_struct *copy_process(unsigned long clone_flags,
 		spin_unlock(&current->sighand->siglock);
 		write_unlock_irq(&tasklist_lock);
 		retval = -ERESTARTNOINTR;
-		goto bad_fork_cleanup_namespace;
+		goto bad_fork_cleanup_namespaces;
 	}
 
 	if (clone_flags & CLONE_THREAD) {
@@ -1220,11 +1235,6 @@ static struct task_struct *copy_process(unsigned long clone_flags,
 			p->it_prof_expires = jiffies_to_cputime(1);
 		}
 	}
-
-	/*
-	 * inherit ioprio
-	 */
-	p->ioprio = current->ioprio;
 
 	if (likely(p->pid)) {
 		add_parent(p);
@@ -1251,8 +1261,8 @@ static struct task_struct *copy_process(unsigned long clone_flags,
 	proc_fork_connector(p);
 	return p;
 
-bad_fork_cleanup_namespace:
-	exit_namespace(p);
+bad_fork_cleanup_namespaces:
+	exit_task_namespaces(p);
 bad_fork_cleanup_keys:
 	exit_keys(p);
 bad_fork_cleanup_mm:
@@ -1505,10 +1515,9 @@ static int unshare_fs(unsigned long unshare_flags, struct fs_struct **new_fsp)
  */
 static int unshare_namespace(unsigned long unshare_flags, struct namespace **new_nsp, struct fs_struct *new_fs)
 {
-	struct namespace *ns = current->namespace;
+	struct namespace *ns = current->nsproxy->namespace;
 
-	if ((unshare_flags & CLONE_NEWNS) &&
-	    (ns && atomic_read(&ns->count) > 1)) {
+	if ((unshare_flags & CLONE_NEWNS) && ns) {
 		if (!capable(CAP_SYS_ADMIN))
 			return -EPERM;
 
@@ -1580,6 +1589,16 @@ static int unshare_semundo(unsigned long unshare_flags, struct sem_undo_list **n
 	return 0;
 }
 
+#ifndef CONFIG_IPC_NS
+static inline int unshare_ipcs(unsigned long flags, struct ipc_namespace **ns)
+{
+	if (flags & CLONE_NEWIPC)
+		return -EINVAL;
+
+	return 0;
+}
+#endif
+
 /*
  * unshare allows a process to 'unshare' part of the process
  * context which was originally shared using clone.  copy_*
@@ -1597,13 +1616,17 @@ asmlinkage long sys_unshare(unsigned long unshare_flags)
 	struct mm_struct *mm, *new_mm = NULL, *active_mm = NULL;
 	struct files_struct *fd, *new_fd = NULL;
 	struct sem_undo_list *new_ulist = NULL;
+	struct nsproxy *new_nsproxy = NULL, *old_nsproxy = NULL;
+	struct uts_namespace *uts, *new_uts = NULL;
+	struct ipc_namespace *ipc, *new_ipc = NULL;
 
 	check_unshare_flags(&unshare_flags);
 
 	/* Return -EINVAL for all unsupported flags */
 	err = -EINVAL;
 	if (unshare_flags & ~(CLONE_THREAD|CLONE_FS|CLONE_NEWNS|CLONE_SIGHAND|
-				CLONE_VM|CLONE_FILES|CLONE_SYSVSEM))
+				CLONE_VM|CLONE_FILES|CLONE_SYSVSEM|
+				CLONE_NEWUTS|CLONE_NEWIPC))
 		goto bad_unshare_out;
 
 	if ((err = unshare_thread(unshare_flags)))
@@ -1620,10 +1643,29 @@ asmlinkage long sys_unshare(unsigned long unshare_flags)
 		goto bad_unshare_cleanup_vm;
 	if ((err = unshare_semundo(unshare_flags, &new_ulist)))
 		goto bad_unshare_cleanup_fd;
+	if ((err = unshare_utsname(unshare_flags, &new_uts)))
+		goto bad_unshare_cleanup_semundo;
+	if ((err = unshare_ipcs(unshare_flags, &new_ipc)))
+		goto bad_unshare_cleanup_uts;
 
-	if (new_fs || new_ns || new_sigh || new_mm || new_fd || new_ulist) {
+	if (new_ns || new_uts || new_ipc) {
+		old_nsproxy = current->nsproxy;
+		new_nsproxy = dup_namespaces(old_nsproxy);
+		if (!new_nsproxy) {
+			err = -ENOMEM;
+			goto bad_unshare_cleanup_ipc;
+		}
+	}
+
+	if (new_fs || new_ns || new_sigh || new_mm || new_fd || new_ulist ||
+				new_uts || new_ipc) {
 
 		task_lock(current);
+
+		if (new_nsproxy) {
+			current->nsproxy = new_nsproxy;
+			new_nsproxy = old_nsproxy;
+		}
 
 		if (new_fs) {
 			fs = current->fs;
@@ -1632,8 +1674,8 @@ asmlinkage long sys_unshare(unsigned long unshare_flags)
 		}
 
 		if (new_ns) {
-			ns = current->namespace;
-			current->namespace = new_ns;
+			ns = current->nsproxy->namespace;
+			current->nsproxy->namespace = new_ns;
 			new_ns = ns;
 		}
 
@@ -1658,9 +1700,33 @@ asmlinkage long sys_unshare(unsigned long unshare_flags)
 			new_fd = fd;
 		}
 
+		if (new_uts) {
+			uts = current->nsproxy->uts_ns;
+			current->nsproxy->uts_ns = new_uts;
+			new_uts = uts;
+		}
+
+		if (new_ipc) {
+			ipc = current->nsproxy->ipc_ns;
+			current->nsproxy->ipc_ns = new_ipc;
+			new_ipc = ipc;
+		}
+
 		task_unlock(current);
 	}
 
+	if (new_nsproxy)
+		put_nsproxy(new_nsproxy);
+
+bad_unshare_cleanup_ipc:
+	if (new_ipc)
+		put_ipc_ns(new_ipc);
+
+bad_unshare_cleanup_uts:
+	if (new_uts)
+		put_uts_ns(new_uts);
+
+bad_unshare_cleanup_semundo:
 bad_unshare_cleanup_fd:
 	if (new_fd)
 		put_files_struct(new_fd);

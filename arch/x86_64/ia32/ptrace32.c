@@ -117,6 +117,10 @@ static int putreg32(struct task_struct *child, unsigned regno, u32 val)
 			if ((0x5454 >> ((val >> (16 + 4*i)) & 0xf)) & 1)
 			       return -EIO;
 		child->thread.debugreg7 = val; 
+		if (val)
+			set_tsk_thread_flag(child, TIF_DEBUG);
+		else
+			clear_tsk_thread_flag(child, TIF_DEBUG);
 		break; 
 		    
 	default:
@@ -201,9 +205,9 @@ static int getreg32(struct task_struct *child, unsigned regno, u32 *val)
 static long ptrace32_siginfo(unsigned request, u32 pid, u32 addr, u32 data)
 {
 	int ret;
-	compat_siginfo_t *si32 = (compat_siginfo_t *)compat_ptr(data);
+	compat_siginfo_t __user *si32 = compat_ptr(data);
 	siginfo_t ssi; 
-	siginfo_t *si = compat_alloc_user_space(sizeof(siginfo_t));
+	siginfo_t __user *si = compat_alloc_user_space(sizeof(siginfo_t));
 	if (request == PTRACE_SETSIGINFO) {
 		memset(&ssi, 0, sizeof(siginfo_t));
 		ret = copy_siginfo_from_user32(&ssi, si32);
@@ -371,8 +375,10 @@ asmlinkage long sys32_ptrace(long request, u32 pid, u32 addr, u32 data)
 		ret = -EIO;
 		if (!access_ok(VERIFY_READ, u, sizeof(*u)))
 			break;
-		/* no checking to be bug-to-bug compatible with i386 */
-		__copy_from_user(&child->thread.i387.fxsave, u, sizeof(*u));
+		/* no checking to be bug-to-bug compatible with i386. */
+		/* but silence warning */
+		if (__copy_from_user(&child->thread.i387.fxsave, u, sizeof(*u)))
+			;
 		set_stopped_child_used_math(child);
 		child->thread.i387.fxsave.mxcsr &= mxcsr_feature_mask;
 		ret = 0; 

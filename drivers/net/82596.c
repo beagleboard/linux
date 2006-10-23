@@ -357,7 +357,7 @@ static char init_setup[] =
 
 static int i596_open(struct net_device *dev);
 static int i596_start_xmit(struct sk_buff *skb, struct net_device *dev);
-static irqreturn_t i596_interrupt(int irq, void *dev_id, struct pt_regs *regs);
+static irqreturn_t i596_interrupt(int irq, void *dev_id);
 static int i596_close(struct net_device *dev);
 static struct net_device_stats *i596_get_stats(struct net_device *dev);
 static void i596_add_cmd(struct net_device *dev, struct i596_cmd *cmd);
@@ -444,7 +444,7 @@ static inline int wait_cmd(struct net_device *dev, struct i596_private *lp, int 
 static inline int wait_cfg(struct net_device *dev, struct i596_cmd *cmd, int delcnt, char *str)
 {
 	volatile struct i596_cmd *c = cmd;
-	
+
 	while (--delcnt && c->command)
 		udelay(10);
 	if (!delcnt) {
@@ -455,7 +455,7 @@ static inline int wait_cfg(struct net_device *dev, struct i596_cmd *cmd, int del
 		return 0;
 }
 
- 
+
 static void i596_display_data(struct net_device *dev)
 {
 	struct i596_private *lp = dev->priv;
@@ -501,7 +501,7 @@ static void i596_display_data(struct net_device *dev)
 
 
 #if defined(ENABLE_MVME16x_NET) || defined(ENABLE_BVME6000_NET)
-static irqreturn_t i596_error(int irq, void *dev_id, struct pt_regs *regs)
+static irqreturn_t i596_error(int irq, void *dev_id)
 {
 	struct net_device *dev = dev_id;
 #ifdef ENABLE_MVME16x_NET
@@ -787,7 +787,7 @@ static inline int i596_rx(struct net_device *dev)
 		}
 		DEB(DEB_RXFRAME, printk(KERN_DEBUG "  rfd %p, rfd.rbd %p, rfd.stat %04x\n",
 			rfd, rfd->rbd, rfd->stat));
-		
+
 		if (rbd != I596_NULL && ((rfd->stat) & STAT_OK)) {
 			/* a good frame */
 			int pkt_len = rbd->count & 0x3fff;
@@ -1208,7 +1208,7 @@ struct net_device * __init i82596_probe(int unit)
 		   Some other boards trip the checksum.. but then appear as
 		   ether address 0. Trap these - AC */
 
-		if ((checksum % 0x100) || 
+		if ((checksum % 0x100) ||
 		    (memcmp(eth_addr, "\x00\x00\x49", 3) != 0)) {
 			err = -ENODEV;
 			goto out1;
@@ -1283,7 +1283,7 @@ out:
 	return ERR_PTR(err);
 }
 
-static irqreturn_t i596_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+static irqreturn_t i596_interrupt(int irq, void *dev_id)
 {
 	struct net_device *dev = dev_id;
 	struct i596_private *lp;
@@ -1294,7 +1294,7 @@ static irqreturn_t i596_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 #ifdef ENABLE_BVME6000_NET
 	if (MACH_IS_BVME6000) {
 		if (*(char *) BVME_LOCAL_IRQ_STAT & BVME_ETHERR) {
-			i596_error(irq, dev_id, regs);
+			i596_error(irq, dev_id);
 			return IRQ_HANDLED;
 		}
 	}
@@ -1545,7 +1545,7 @@ static void set_multicast_list(struct net_device *dev)
 		printk(KERN_ERR "%s: Only %d multicast addresses supported",
 			dev->name, cnt);
 	}
-	
+
 	if (dev->mc_count > 0) {
 		struct dev_mc_list *dmi;
 		unsigned char *cp;
@@ -1609,7 +1609,7 @@ void __exit cleanup_module(void)
 }
 
 #endif				/* MODULE */
-
+
 /*
  * Local variables:
  *  compile-command: "gcc -D__KERNEL__ -I/usr/src/linux/net/inet -Wall -Wstrict-prototypes -O6 -m486 -c 82596.c"

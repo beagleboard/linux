@@ -131,7 +131,7 @@ static void pcf_isa_waitforpin(void) {
 }
 
 
-static irqreturn_t pcf_isa_handler(int this_irq, void *dev_id, struct pt_regs *regs) {
+static irqreturn_t pcf_isa_handler(int this_irq, void *dev_id) {
 	spin_lock(&lock);
 	pcf_pending = 1;
 	spin_unlock(&lock);
@@ -196,7 +196,6 @@ static struct i2c_algo_pcf_data pcf_isa_data = {
 	.getclock   = pcf_isa_getclock,
 	.waitforpin = pcf_isa_waitforpin,
 	.udelay	    = 10,
-	.mdelay	    = 10,
 	.timeout    = 100,
 };
 

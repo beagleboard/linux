@@ -160,6 +160,7 @@ nfsd3_proc_read(struct svc_rqst *rqstp, struct nfsd3_readargs *argp,
 				        struct nfsd3_readres  *resp)
 {
 	int	nfserr;
+	u32	max_blocksize = svc_max_payload(rqstp);
 
 	dprintk("nfsd: READ(3) %s %lu bytes at %lu\n",
 				SVCFH_fmt(&argp->fh),
@@ -172,15 +173,15 @@ nfsd3_proc_read(struct svc_rqst *rqstp, struct nfsd3_readargs *argp,
 	 */
 
 	resp->count = argp->count;
-	if (NFSSVC_MAXBLKSIZE < resp->count)
-		resp->count = NFSSVC_MAXBLKSIZE;
+	if (max_blocksize < resp->count)
+		resp->count = max_blocksize;
 
 	svc_reserve(rqstp, ((1 + NFS3_POST_OP_ATTR_WORDS + 3)<<2) + resp->count +4);
 
 	fh_copy(&resp->fh, &argp->fh);
 	nfserr = nfsd_read(rqstp, &resp->fh, NULL,
 				  argp->offset,
-			   	  argp->vec, argp->vlen,
+			   	  rqstp->rq_vec, argp->vlen,
 				  &resp->count);
 	if (nfserr == 0) {
 		struct inode	*inode = resp->fh.fh_dentry->d_inode;
@@ -210,7 +211,7 @@ nfsd3_proc_write(struct svc_rqst *rqstp, struct nfsd3_writeargs *argp,
 	resp->committed = argp->stable;
 	nfserr = nfsd_write(rqstp, &resp->fh, NULL,
 				   argp->offset,
-				   argp->vec, argp->vlen,
+				   rqstp->rq_vec, argp->vlen,
 				   argp->len,
 				   &resp->committed);
 	resp->count = argp->count;
@@ -538,15 +539,16 @@ nfsd3_proc_fsinfo(struct svc_rqst * rqstp, struct nfsd_fhandle    *argp,
 					   struct nfsd3_fsinfores *resp)
 {
 	int	nfserr;
+	u32	max_blocksize = svc_max_payload(rqstp);
 
 	dprintk("nfsd: FSINFO(3)   %s\n",
 				SVCFH_fmt(&argp->fh));
 
-	resp->f_rtmax  = NFSSVC_MAXBLKSIZE;
-	resp->f_rtpref = NFSSVC_MAXBLKSIZE;
+	resp->f_rtmax  = max_blocksize;
+	resp->f_rtpref = max_blocksize;
 	resp->f_rtmult = PAGE_SIZE;
-	resp->f_wtmax  = NFSSVC_MAXBLKSIZE;
-	resp->f_wtpref = NFSSVC_MAXBLKSIZE;
+	resp->f_wtmax  = max_blocksize;
+	resp->f_wtpref = max_blocksize;
 	resp->f_wtmult = PAGE_SIZE;
 	resp->f_dtpref = PAGE_SIZE;
 	resp->f_maxfilesize = ~(u32) 0;

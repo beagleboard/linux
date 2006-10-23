@@ -114,12 +114,10 @@ static void trigger_event(void *data);
 
 static struct pgpath *alloc_pgpath(void)
 {
-	struct pgpath *pgpath = kmalloc(sizeof(*pgpath), GFP_KERNEL);
+	struct pgpath *pgpath = kzalloc(sizeof(*pgpath), GFP_KERNEL);
 
-	if (pgpath) {
-		memset(pgpath, 0, sizeof(*pgpath));
+	if (pgpath)
 		pgpath->path.is_active = 1;
-	}
 
 	return pgpath;
 }
@@ -133,12 +131,10 @@ static struct priority_group *alloc_priority_group(void)
 {
 	struct priority_group *pg;
 
-	pg = kmalloc(sizeof(*pg), GFP_KERNEL);
-	if (!pg)
-		return NULL;
+	pg = kzalloc(sizeof(*pg), GFP_KERNEL);
 
-	memset(pg, 0, sizeof(*pg));
-	INIT_LIST_HEAD(&pg->pgpaths);
+	if (pg)
+		INIT_LIST_HEAD(&pg->pgpaths);
 
 	return pg;
 }
@@ -168,13 +164,12 @@ static void free_priority_group(struct priority_group *pg,
 	kfree(pg);
 }
 
-static struct multipath *alloc_multipath(void)
+static struct multipath *alloc_multipath(struct dm_target *ti)
 {
 	struct multipath *m;
 
-	m = kmalloc(sizeof(*m), GFP_KERNEL);
+	m = kzalloc(sizeof(*m), GFP_KERNEL);
 	if (m) {
-		memset(m, 0, sizeof(*m));
 		INIT_LIST_HEAD(&m->priority_groups);
 		spin_lock_init(&m->lock);
 		m->queue_io = 1;
@@ -185,6 +180,8 @@ static struct multipath *alloc_multipath(void)
 			kfree(m);
 			return NULL;
 		}
+		m->ti = ti;
+		ti->private = m;
 	}
 
 	return m;
@@ -557,8 +554,7 @@ static struct pgpath *parse_path(struct arg_set *as, struct path_selector *ps,
 }
 
 static struct priority_group *parse_priority_group(struct arg_set *as,
-						   struct multipath *m,
-						   struct dm_target *ti)
+						   struct multipath *m)
 {
 	static struct param _params[] = {
 		{1, 1024, "invalid number of paths"},
@@ -568,6 +564,7 @@ static struct priority_group *parse_priority_group(struct arg_set *as,
 	int r;
 	unsigned i, nr_selector_args, nr_params;
 	struct priority_group *pg;
+	struct dm_target *ti = m->ti;
 
 	if (as->argc < 2) {
 		as->argc = 0;
@@ -624,12 +621,12 @@ static struct priority_group *parse_priority_group(struct arg_set *as,
 	return NULL;
 }
 
-static int parse_hw_handler(struct arg_set *as, struct multipath *m,
-			    struct dm_target *ti)
+static int parse_hw_handler(struct arg_set *as, struct multipath *m)
 {
 	int r;
 	struct hw_handler_type *hwht;
 	unsigned hw_argc;
+	struct dm_target *ti = m->ti;
 
 	static struct param _params[] = {
 		{0, 1024, "invalid number of hardware handler args"},
@@ -661,11 +658,11 @@ static int parse_hw_handler(struct arg_set *as, struct multipath *m,
 	return 0;
 }
 
-static int parse_features(struct arg_set *as, struct multipath *m,
-			  struct dm_target *ti)
+static int parse_features(struct arg_set *as, struct multipath *m)
 {
 	int r;
 	unsigned argc;
+	struct dm_target *ti = m->ti;
 
 	static struct param _params[] = {
 		{0, 1, "invalid number of feature args"},
@@ -704,19 +701,17 @@ static int multipath_ctr(struct dm_target *ti, unsigned int argc,
 	as.argc = argc;
 	as.argv = argv;
 
-	m = alloc_multipath();
+	m = alloc_multipath(ti);
 	if (!m) {
 		ti->error = "can't allocate multipath";
 		return -EINVAL;
 	}
 
-	m->ti = ti;
-
-	r = parse_features(&as, m, ti);
+	r = parse_features(&as, m);
 	if (r)
 		goto bad;
 
-	r = parse_hw_handler(&as, m, ti);
+	r = parse_hw_handler(&as, m);
 	if (r)
 		goto bad;
 
@@ -732,7 +727,7 @@ static int multipath_ctr(struct dm_target *ti, unsigned int argc,
 	while (as.argc) {
 		struct priority_group *pg;
 
-		pg = parse_priority_group(&as, m, ti);
+		pg = parse_priority_group(&as, m);
 		if (!pg) {
 			r = -EINVAL;
 			goto bad;
@@ -751,8 +746,6 @@ static int multipath_ctr(struct dm_target *ti, unsigned int argc,
 		r = -EINVAL;
 		goto bad;
 	}
-
-	ti->private = m;
 
 	return 0;
 
@@ -1266,12 +1259,47 @@ error:
 	return -EINVAL;
 }
 
+static int multipath_ioctl(struct dm_target *ti, struct inode *inode,
+			   struct file *filp, unsigned int cmd,
+			   unsigned long arg)
+{
+	struct multipath *m = (struct multipath *) ti->private;
+	struct block_device *bdev = NULL;
+	unsigned long flags;
+	struct file fake_file = {};
+	struct dentry fake_dentry = {};
+	int r = 0;
+
+	fake_file.f_dentry = &fake_dentry;
+
+	spin_lock_irqsave(&m->lock, flags);
+
+	if (!m->current_pgpath)
+		__choose_pgpath(m);
+
+	if (m->current_pgpath) {
+		bdev = m->current_pgpath->path.dev->bdev;
+		fake_dentry.d_inode = bdev->bd_inode;
+		fake_file.f_mode = m->current_pgpath->path.dev->mode;
+	}
+
+	if (m->queue_io)
+		r = -EAGAIN;
+	else if (!bdev)
+		r = -EIO;
+
+	spin_unlock_irqrestore(&m->lock, flags);
+
+	return r ? : blkdev_driver_ioctl(bdev->bd_inode, &fake_file,
+					 bdev->bd_disk, cmd, arg);
+}
+
 /*-----------------------------------------------------------------
  * Module setup
  *---------------------------------------------------------------*/
 static struct target_type multipath_target = {
 	.name = "multipath",
-	.version = {1, 0, 4},
+	.version = {1, 0, 5},
 	.module = THIS_MODULE,
 	.ctr = multipath_ctr,
 	.dtr = multipath_dtr,
@@ -1281,6 +1309,7 @@ static struct target_type multipath_target = {
 	.resume = multipath_resume,
 	.status = multipath_status,
 	.message = multipath_message,
+	.ioctl  = multipath_ioctl,
 };
 
 static int __init dm_multipath_init(void)

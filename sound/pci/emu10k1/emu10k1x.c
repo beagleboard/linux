@@ -780,8 +780,7 @@ static int snd_emu10k1x_dev_free(struct snd_device *device)
 	return snd_emu10k1x_free(chip);
 }
 
-static irqreturn_t snd_emu10k1x_interrupt(int irq, void *dev_id,
-					  struct pt_regs *regs)
+static irqreturn_t snd_emu10k1x_interrupt(int irq, void *dev_id)
 {
 	unsigned int status;
 
@@ -1626,12 +1625,7 @@ static struct pci_driver driver = {
 // initialization of the module
 static int __init alsa_card_emu10k1x_init(void)
 {
-	int err;
-
-	if ((err = pci_register_driver(&driver)) > 0)
-		return err;
-
-	return 0;
+	return pci_register_driver(&driver);
 }
 
 // clean up the module

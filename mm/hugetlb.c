@@ -72,7 +72,7 @@ static struct page *dequeue_huge_page(struct vm_area_struct *vma,
 	struct zone **z;
 
 	for (z = zonelist->zones; *z; z++) {
-		nid = (*z)->zone_pgdat->node_id;
+		nid = zone_to_nid(*z);
 		if (cpuset_zone_allowed(*z, GFP_HIGHUSER) &&
 		    !list_empty(&hugepage_freelists[nid]))
 			break;
@@ -177,7 +177,7 @@ static void update_and_free_page(struct page *page)
 {
 	int i;
 	nr_huge_pages--;
-	nr_huge_pages_node[page_zone(page)->zone_pgdat->node_id]--;
+	nr_huge_pages_node[page_to_nid(page)]--;
 	for (i = 0; i < (HPAGE_SIZE / PAGE_SIZE); i++) {
 		page[i].flags &= ~(1 << PG_locked | 1 << PG_error | 1 << PG_referenced |
 				1 << PG_dirty | 1 << PG_active | 1 << PG_reserved |
@@ -191,7 +191,8 @@ static void update_and_free_page(struct page *page)
 #ifdef CONFIG_HIGHMEM
 static void try_to_free_low(unsigned long count)
 {
-	int i, nid;
+	int i;
+
 	for (i = 0; i < MAX_NUMNODES; ++i) {
 		struct page *page, *next;
 		list_for_each_entry_safe(page, next, &hugepage_freelists[i], lru) {
@@ -199,9 +200,8 @@ static void try_to_free_low(unsigned long count)
 				continue;
 			list_del(&page->lru);
 			update_and_free_page(page);
-			nid = page_zone(page)->zone_pgdat->node_id;
 			free_huge_pages--;
-			free_huge_pages_node[nid]--;
+			free_huge_pages_node[page_to_nid(page)]--;
 			if (count >= nr_huge_pages)
 				return;
 		}
@@ -356,14 +356,16 @@ nomem:
 	return -ENOMEM;
 }
 
-void unmap_hugepage_range(struct vm_area_struct *vma, unsigned long start,
-			  unsigned long end)
+void __unmap_hugepage_range(struct vm_area_struct *vma, unsigned long start,
+			    unsigned long end)
 {
 	struct mm_struct *mm = vma->vm_mm;
 	unsigned long address;
 	pte_t *ptep;
 	pte_t pte;
 	struct page *page;
+	struct page *tmp;
+	LIST_HEAD(page_list);
 
 	WARN_ON(!is_vm_hugetlb_page(vma));
 	BUG_ON(start & ~HPAGE_MASK);
@@ -384,12 +386,34 @@ void unmap_hugepage_range(struct vm_area_struct *vma, unsigned long start,
 			continue;
 
 		page = pte_page(pte);
-		put_page(page);
+		list_add(&page->lru, &page_list);
 		add_mm_counter(mm, file_rss, (int) -(HPAGE_SIZE / PAGE_SIZE));
 	}
 
 	spin_unlock(&mm->page_table_lock);
 	flush_tlb_range(vma, start, end);
+	list_for_each_entry_safe(page, tmp, &page_list, lru) {
+		list_del(&page->lru);
+		put_page(page);
+	}
+}
+
+void unmap_hugepage_range(struct vm_area_struct *vma, unsigned long start,
+			  unsigned long end)
+{
+	/*
+	 * It is undesirable to test vma->vm_file as it should be non-null
+	 * for valid hugetlb area. However, vm_file will be NULL in the error
+	 * cleanup path of do_mmap_pgoff. When hugetlbfs ->mmap method fails,
+	 * do_mmap_pgoff() nullifies vma->vm_file before calling this function
+	 * to clean up. Since no pte has actually been setup, it is safe to
+	 * do nothing in this case.
+	 */
+	if (vma->vm_file) {
+		spin_lock(&vma->vm_file->f_mapping->i_mmap_lock);
+		__unmap_hugepage_range(vma, start, end);
+		spin_unlock(&vma->vm_file->f_mapping->i_mmap_lock);
+	}
 }
 
 static int hugetlb_cow(struct mm_struct *mm, struct vm_area_struct *vma,

@@ -301,10 +301,11 @@ static struct symbolic_list senlist[] = {
 static struct symbolic_list urb_errlist[] = {
 	{ -ENOSR,	"Buffer error (overrun)" },
 	{ -EPIPE,	"Stalled (device not responding)" },
-	{ -EOVERFLOW,	"Babble (bad cable?)" },
+	{ -EOVERFLOW,	"Babble (device sends too much data)" },
 	{ -EPROTO,	"Bit-stuff error (bad cable?)" },
-	{ -EILSEQ,	"CRC/Timeout" },
-	{ -ETIMEDOUT,	"NAK (device does not respond)" },
+	{ -EILSEQ,	"CRC/Timeout (bad cable?)" },
+	{ -ETIME,	"Device does not respond to token" },
+	{ -ETIMEDOUT,	"Device does not respond to command" },
 	{ -1, NULL }
 };
 
@@ -3502,7 +3503,7 @@ check_middle:
 }
 
 static void
-ov51x_isoc_irq(struct urb *urb, struct pt_regs *regs)
+ov51x_isoc_irq(struct urb *urb)
 {
 	int i;
 	struct usb_ov511 *ov;

@@ -1,5 +1,5 @@
 /*
- * linux/fs/nfsd/xdr.c
+ * linux/fs/nfsd/nfsxdr.c
  *
  * XDR support for nfsd
  *
@@ -254,19 +254,18 @@ nfssvc_decode_readargs(struct svc_rqst *rqstp, u32 *p,
 	len = args->count     = ntohl(*p++);
 	p++; /* totalcount - unused */
 
-	if (len > NFSSVC_MAXBLKSIZE)
-		len = NFSSVC_MAXBLKSIZE;
+	if (len > NFSSVC_MAXBLKSIZE_V2)
+		len = NFSSVC_MAXBLKSIZE_V2;
 
 	/* set up somewhere to store response.
 	 * We take pages, put them on reslist and include in iovec
 	 */
 	v=0;
 	while (len > 0) {
-		pn=rqstp->rq_resused;
-		svc_take_page(rqstp);
-		args->vec[v].iov_base = page_address(rqstp->rq_respages[pn]);
-		args->vec[v].iov_len = len < PAGE_SIZE?len:PAGE_SIZE;
-		len -= args->vec[v].iov_len;
+		pn = rqstp->rq_resused++;
+		rqstp->rq_vec[v].iov_base = page_address(rqstp->rq_respages[pn]);
+		rqstp->rq_vec[v].iov_len = len < PAGE_SIZE?len:PAGE_SIZE;
+		len -= rqstp->rq_vec[v].iov_len;
 		v++;
 	}
 	args->vlen = v;
@@ -286,21 +285,21 @@ nfssvc_decode_writeargs(struct svc_rqst *rqstp, u32 *p,
 	args->offset = ntohl(*p++);	/* offset */
 	p++;				/* totalcount */
 	len = args->len = ntohl(*p++);
-	args->vec[0].iov_base = (void*)p;
-	args->vec[0].iov_len = rqstp->rq_arg.head[0].iov_len -
+	rqstp->rq_vec[0].iov_base = (void*)p;
+	rqstp->rq_vec[0].iov_len = rqstp->rq_arg.head[0].iov_len -
 				(((void*)p) - rqstp->rq_arg.head[0].iov_base);
-	if (len > NFSSVC_MAXBLKSIZE)
-		len = NFSSVC_MAXBLKSIZE;
+	if (len > NFSSVC_MAXBLKSIZE_V2)
+		len = NFSSVC_MAXBLKSIZE_V2;
 	v = 0;
-	while (len > args->vec[v].iov_len) {
-		len -= args->vec[v].iov_len;
+	while (len > rqstp->rq_vec[v].iov_len) {
+		len -= rqstp->rq_vec[v].iov_len;
 		v++;
-		args->vec[v].iov_base = page_address(rqstp->rq_argpages[v]);
-		args->vec[v].iov_len = PAGE_SIZE;
+		rqstp->rq_vec[v].iov_base = page_address(rqstp->rq_pages[v]);
+		rqstp->rq_vec[v].iov_len = PAGE_SIZE;
 	}
-	args->vec[v].iov_len = len;
+	rqstp->rq_vec[v].iov_len = len;
 	args->vlen = v+1;
-	return args->vec[0].iov_len > 0;
+	return rqstp->rq_vec[0].iov_len > 0;
 }
 
 int
@@ -333,8 +332,7 @@ nfssvc_decode_readlinkargs(struct svc_rqst *rqstp, u32 *p, struct nfsd_readlinka
 {
 	if (!(p = decode_fh(p, &args->fh)))
 		return 0;
-	svc_take_page(rqstp);
-	args->buffer = page_address(rqstp->rq_respages[rqstp->rq_resused-1]);
+	args->buffer = page_address(rqstp->rq_respages[rqstp->rq_resused++]);
 
 	return xdr_argsize_check(rqstp, p);
 }
@@ -375,8 +373,7 @@ nfssvc_decode_readdirargs(struct svc_rqst *rqstp, u32 *p,
 	if (args->count > PAGE_SIZE)
 		args->count = PAGE_SIZE;
 
-	svc_take_page(rqstp);
-	args->buffer = page_address(rqstp->rq_respages[rqstp->rq_resused-1]);
+	args->buffer = page_address(rqstp->rq_respages[rqstp->rq_resused++]);
 
 	return xdr_argsize_check(rqstp, p);
 }
@@ -416,7 +413,6 @@ nfssvc_encode_readlinkres(struct svc_rqst *rqstp, u32 *p,
 	rqstp->rq_res.page_len = resp->len;
 	if (resp->len & 3) {
 		/* need to pad the tail */
-		rqstp->rq_restailpage = 0;
 		rqstp->rq_res.tail[0].iov_base = p;
 		*p = 0;
 		rqstp->rq_res.tail[0].iov_len = 4 - (resp->len&3);
@@ -436,7 +432,6 @@ nfssvc_encode_readres(struct svc_rqst *rqstp, u32 *p,
 	rqstp->rq_res.page_len = resp->count;
 	if (resp->count & 3) {
 		/* need to pad the tail */
-		rqstp->rq_restailpage = 0;
 		rqstp->rq_res.tail[0].iov_base = p;
 		*p = 0;
 		rqstp->rq_res.tail[0].iov_len = 4 - (resp->count&3);
@@ -463,7 +458,7 @@ nfssvc_encode_statfsres(struct svc_rqst *rqstp, u32 *p,
 {
 	struct kstatfs	*stat = &resp->stats;
 
-	*p++ = htonl(NFSSVC_MAXBLKSIZE);	/* max transfer size */
+	*p++ = htonl(NFSSVC_MAXBLKSIZE_V2);	/* max transfer size */
 	*p++ = htonl(stat->f_bsize);
 	*p++ = htonl(stat->f_blocks);
 	*p++ = htonl(stat->f_bfree);

@@ -745,10 +745,9 @@ static int lan_saa9730_rx(struct net_device *dev)
 	return 0;
 }
 
-static irqreturn_t lan_saa9730_interrupt(const int irq, void *dev_id,
-				  struct pt_regs *regs)
+static irqreturn_t lan_saa9730_interrupt(const int irq, void *dev_id)
 {
-	struct net_device *dev = (struct net_device *) dev_id;
+	struct net_device *dev = dev_id;
 	struct lan_saa9730_private *lp = netdev_priv(dev);
 
 	if (lan_saa9730_debug > 5)
@@ -1131,7 +1130,7 @@ static struct pci_driver saa9730_driver = {
 
 static int __init saa9730_init(void)
 {
-	return pci_module_init(&saa9730_driver);
+	return pci_register_driver(&saa9730_driver);
 }
 
 static void __exit saa9730_cleanup(void)

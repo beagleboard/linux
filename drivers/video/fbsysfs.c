@@ -20,6 +20,8 @@
 #include <linux/console.h>
 #include <linux/module.h>
 
+#define FB_SYSFS_FLAG_ATTR 1
+
 /**
  * framebuffer_alloc - creates a new frame buffer info structure
  *
@@ -397,6 +399,12 @@ static ssize_t store_bl_curve(struct class_device *class_device,
 	u8 tmp_curve[FB_BACKLIGHT_LEVELS];
 	unsigned int i;
 
+	/* Some drivers don't use framebuffer_alloc(), but those also
+	 * don't have backlights.
+	 */
+	if (!fb_info || !fb_info->bl_dev)
+		return -ENODEV;
+
 	if (count != (FB_BACKLIGHT_LEVELS / 8 * 24))
 		return -EINVAL;
 
@@ -429,6 +437,12 @@ static ssize_t show_bl_curve(struct class_device *class_device, char *buf)
 	struct fb_info *fb_info = class_get_devdata(class_device);
 	ssize_t len = 0;
 	unsigned int i;
+
+	/* Some drivers don't use framebuffer_alloc(), but those also
+	 * don't have backlights.
+	 */
+	if (!fb_info || !fb_info->bl_dev)
+		return -ENODEV;
 
 	mutex_lock(&fb_info->bl_mutex);
 	for (i = 0; i < FB_BACKLIGHT_LEVELS; i += 8)
@@ -471,12 +485,27 @@ static struct class_device_attribute class_device_attrs[] = {
 
 int fb_init_class_device(struct fb_info *fb_info)
 {
-	unsigned int i;
+	int i, error = 0;
+
 	class_set_devdata(fb_info->class_device, fb_info);
 
-	for (i = 0; i < ARRAY_SIZE(class_device_attrs); i++)
-		class_device_create_file(fb_info->class_device,
-					 &class_device_attrs[i]);
+	fb_info->class_flag |= FB_SYSFS_FLAG_ATTR;
+
+	for (i = 0; i < ARRAY_SIZE(class_device_attrs); i++) {
+		error = class_device_create_file(fb_info->class_device,
+						 &class_device_attrs[i]);
+
+		if (error)
+			break;
+	}
+
+	if (error) {
+		while (--i >= 0)
+			class_device_remove_file(fb_info->class_device,
+						 &class_device_attrs[i]);
+		fb_info->class_flag &= ~FB_SYSFS_FLAG_ATTR;
+	}
+
 	return 0;
 }
 
@@ -484,9 +513,13 @@ void fb_cleanup_class_device(struct fb_info *fb_info)
 {
 	unsigned int i;
 
-	for (i = 0; i < ARRAY_SIZE(class_device_attrs); i++)
-		class_device_remove_file(fb_info->class_device,
-					 &class_device_attrs[i]);
+	if (fb_info->class_flag & FB_SYSFS_FLAG_ATTR) {
+		for (i = 0; i < ARRAY_SIZE(class_device_attrs); i++)
+			class_device_remove_file(fb_info->class_device,
+						 &class_device_attrs[i]);
+
+		fb_info->class_flag &= ~FB_SYSFS_FLAG_ATTR;
+	}
 }
 
 #ifdef CONFIG_FB_BACKLIGHT

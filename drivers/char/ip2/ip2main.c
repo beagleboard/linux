@@ -190,7 +190,7 @@ static int  ip2_tiocmset(struct tty_struct *tty, struct file *file,
 
 static void set_irq(int, int);
 static void ip2_interrupt_bh(i2eBordStrPtr pB);
-static irqreturn_t ip2_interrupt(int irq, void *dev_id, struct pt_regs * regs);
+static irqreturn_t ip2_interrupt(int irq, void *dev_id);
 static void ip2_poll(unsigned long arg);
 static inline void service_all_boards(void);
 static void do_input(void *p);
@@ -436,6 +436,7 @@ cleanup_module(void)
 #ifdef CONFIG_PCI
 		if (ip2config.type[i] == PCI && ip2config.pci_dev[i]) {
 			pci_disable_device(ip2config.pci_dev[i]);
+			pci_dev_put(ip2config.pci_dev[i]);
 			ip2config.pci_dev[i] = NULL;
 		}
 #endif
@@ -457,7 +458,7 @@ cleanup_module(void)
 }
 #endif /* MODULE */
 
-static struct tty_operations ip2_ops = {
+static const struct tty_operations ip2_ops = {
 	.open            = ip2_open,
 	.close           = ip2_close,
 	.write           = ip2_write,
@@ -505,6 +506,7 @@ ip2_loadmain(int *iop, int *irqp, unsigned char *firmware, int firmsize)
 	static int loaded;
 	i2eBordStrPtr pB = NULL;
 	int rc = -1;
+	static struct pci_dev *pci_dev_i = NULL;
 
 	ip2trace (ITRC_NO_PORT, ITRC_INIT, ITRC_ENTER, 0 );
 
@@ -588,8 +590,7 @@ ip2_loadmain(int *iop, int *irqp, unsigned char *firmware, int firmsize)
 		case PCI:
 #ifdef CONFIG_PCI
 			{
-				struct pci_dev *pci_dev_i = NULL;
-				pci_dev_i = pci_find_device(PCI_VENDOR_ID_COMPUTONE,
+				pci_dev_i = pci_get_device(PCI_VENDOR_ID_COMPUTONE,
 							  PCI_DEVICE_ID_COMPUTONE_IP2EX, pci_dev_i);
 				if (pci_dev_i != NULL) {
 					unsigned int addr;
@@ -600,7 +601,7 @@ ip2_loadmain(int *iop, int *irqp, unsigned char *firmware, int firmsize)
 						break;
 					}
 					ip2config.type[i] = PCI;
-					ip2config.pci_dev[i] = pci_dev_i;
+					ip2config.pci_dev[i] = pci_dev_get(pci_dev_i);
 					status =
 					pci_read_config_dword(pci_dev_i, PCI_BASE_ADDRESS_1, &addr);
 					if ( addr & 1 ) {
@@ -641,6 +642,9 @@ ip2_loadmain(int *iop, int *irqp, unsigned char *firmware, int firmsize)
 			break;
 		}	/* switch */
 	}	/* for */
+	if (pci_dev_i)
+		pci_dev_put(pci_dev_i);
+
 	for ( i = 0; i < IP2_MAX_BOARDS; ++i ) {
 		if ( ip2config.addr[i] ) {
 			pB = kmalloc( sizeof(i2eBordStr), GFP_KERNEL);
@@ -775,8 +779,6 @@ retry:
 	ip2trace (ITRC_NO_PORT, ITRC_INIT, ITRC_RETURN, 0 );
 	goto out;
 
-out_class:
-	class_destroy(ip2_class);
 out_chrdev:
 	unregister_chrdev(IP2_IPL_MAJOR, "ip2");
 out:
@@ -1152,10 +1154,9 @@ ip2_interrupt_bh(i2eBordStrPtr pB)
 
 
 /******************************************************************************/
-/* Function:   ip2_interrupt(int irq, void *dev_id, struct pt_regs * regs)    */
+/* Function:   ip2_interrupt(int irq, void *dev_id)    */
 /* Parameters: irq - interrupt number                                         */
 /*             pointer to optional device ID structure                        */
-/*             pointer to register structure                                  */
 /* Returns:    Nothing                                                        */
 /*                                                                            */
 /* Description:                                                               */
@@ -1171,7 +1172,7 @@ ip2_interrupt_bh(i2eBordStrPtr pB)
 /*                                                                            */
 /******************************************************************************/
 static irqreturn_t
-ip2_interrupt(int irq, void *dev_id, struct pt_regs * regs)
+ip2_interrupt(int irq, void *dev_id)
 {
 	int i;
 	i2eBordStrPtr  pB;
@@ -1235,7 +1236,7 @@ ip2_poll(unsigned long arg)
 	// Just polled boards, IRQ = 0 will hit all non-interrupt boards.
 	// It will NOT poll boards handled by hard interrupts.
 	// The issue of queued BH interrups is handled in ip2_interrupt().
-	ip2_interrupt(0, NULL, NULL);
+	ip2_interrupt(0, NULL);
 
 	PollTimer.expires = POLL_TIMEOUT;
 	add_timer( &PollTimer );
@@ -1703,7 +1704,7 @@ ip2_write( PTTY tty, const unsigned char *pData, int count)
 
 	/* This is the actual move bit. Make sure it does what we need!!!!! */
 	WRITE_LOCK_IRQSAVE(&pCh->Pbuf_spinlock,flags);
-	bytesSent = i2Output( pCh, pData, count, 0 );
+	bytesSent = i2Output( pCh, pData, count);
 	WRITE_UNLOCK_IRQRESTORE(&pCh->Pbuf_spinlock,flags);
 
 	ip2trace (CHANN, ITRC_WRITE, ITRC_RETURN, 1, bytesSent );
@@ -1763,7 +1764,7 @@ ip2_flush_chars( PTTY tty )
 		//
 		// We may need to restart i2Output if it does not fullfill this request
 		//
-		strip = i2Output( pCh, pCh->Pbuf, pCh->Pbuf_stuff, 0 );
+		strip = i2Output( pCh, pCh->Pbuf, pCh->Pbuf_stuff);
 		if ( strip != pCh->Pbuf_stuff ) {
 			memmove( pCh->Pbuf, &pCh->Pbuf[strip], pCh->Pbuf_stuff - strip );
 		}

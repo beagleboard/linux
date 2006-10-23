@@ -268,6 +268,8 @@ lpfc_config_port_post(struct lpfc_hba * phba)
 	kfree(mp);
 	pmb->context1 = NULL;
 
+	if (phba->cfg_soft_wwpn)
+		u64_to_wwn(phba->cfg_soft_wwpn, phba->fc_sparam.portName.u.wwn);
 	memcpy(&phba->fc_nodename, &phba->fc_sparam.nodeName,
 	       sizeof (struct lpfc_name));
 	memcpy(&phba->fc_portname, &phba->fc_sparam.portName,
@@ -387,7 +389,8 @@ lpfc_config_port_post(struct lpfc_hba * phba)
 
 	lpfc_init_link(phba, pmb, phba->cfg_topology, phba->cfg_link_speed);
 	pmb->mbox_cmpl = lpfc_sli_def_mbox_cmpl;
-	if (lpfc_sli_issue_mbox(phba, pmb, MBX_NOWAIT) != MBX_SUCCESS) {
+	rc = lpfc_sli_issue_mbox(phba, pmb, MBX_NOWAIT);
+	if (rc != MBX_SUCCESS) {
 		lpfc_printf_log(phba,
 				KERN_ERR,
 				LOG_INIT,
@@ -404,7 +407,8 @@ lpfc_config_port_post(struct lpfc_hba * phba)
 		readl(phba->HAregaddr); /* flush */
 
 		phba->hba_state = LPFC_HBA_ERROR;
-		mempool_free(pmb, phba->mbox_mem_pool);
+		if (rc != MBX_BUSY)
+			mempool_free(pmb, phba->mbox_mem_pool);
 		return -EIO;
 	}
 	/* MBOX buffer will be freed in mbox compl */
@@ -511,6 +515,7 @@ lpfc_handle_eratt(struct lpfc_hba * phba)
 {
 	struct lpfc_sli *psli = &phba->sli;
 	struct lpfc_sli_ring  *pring;
+	uint32_t event_data;
 
 	if (phba->work_hs & HS_FFER6) {
 		/* Re-establishing Link */
@@ -554,6 +559,11 @@ lpfc_handle_eratt(struct lpfc_hba * phba)
 				"Data: x%x x%x x%x\n",
 				phba->brd_no, phba->work_hs,
 				phba->work_status[0], phba->work_status[1]);
+
+		event_data = FC_REG_DUMP_EVENT;
+		fc_host_post_vendor_event(phba->host, fc_get_event_number(),
+				sizeof(event_data), (char *) &event_data,
+				SCSI_NL_VID_TYPE_PCI | PCI_VENDOR_ID_EMULEX);
 
 		psli->sli_flag &= ~LPFC_SLI2_ACTIVE;
 		lpfc_offline(phba);

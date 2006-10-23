@@ -562,7 +562,8 @@ pcibios_enable_device (struct pci_dev *dev, int mask)
 void
 pcibios_disable_device (struct pci_dev *dev)
 {
-	acpi_pci_irq_disable(dev);
+	if (dev->is_enabled)
+		acpi_pci_irq_disable(dev);
 }
 
 void
@@ -808,13 +809,4 @@ pcibios_prep_mwi (struct pci_dev *dev)
 		}
 	}
 	return rc;
-}
-
-int pci_vector_resources(int last, int nr_released)
-{
-	int count = nr_released;
-
-	count += (IA64_LAST_DEVICE_VECTOR - last);
-
-	return count;
 }

@@ -37,6 +37,7 @@
 #include <linux/kallsyms.h>
 #include <linux/ptrace.h>
 #include <linux/random.h>
+#include <linux/personality.h>
 
 #include <asm/uaccess.h>
 #include <asm/pgtable.h>
@@ -296,9 +297,9 @@ void show_regs(struct pt_regs * regs)
 	if (user_mode_vm(regs))
 		printk(" ESP: %04x:%08lx",0xffff & regs->xss,regs->esp);
 	printk(" EFLAGS: %08lx    %s  (%s %.*s)\n",
-	       regs->eflags, print_tainted(), system_utsname.release,
-	       (int)strcspn(system_utsname.version, " "),
-	       system_utsname.version);
+	       regs->eflags, print_tainted(), init_utsname()->release,
+	       (int)strcspn(init_utsname()->version, " "),
+	       init_utsname()->version);
 	printk("EAX: %08lx EBX: %08lx ECX: %08lx EDX: %08lx\n",
 		regs->eax,regs->ebx,regs->ecx,regs->edx);
 	printk("ESI: %08lx EDI: %08lx EBP: %08lx",
@@ -320,15 +321,6 @@ void show_regs(struct pt_regs * regs)
  * the "args".
  */
 extern void kernel_thread_helper(void);
-__asm__(".section .text\n"
-	".align 4\n"
-	"kernel_thread_helper:\n\t"
-	"movl %edx,%eax\n\t"
-	"pushl %edx\n\t"
-	"call *%ebx\n\t"
-	"pushl %eax\n\t"
-	"call do_exit\n"
-	".previous");
 
 /*
  * Create a kernel thread
@@ -336,6 +328,7 @@ __asm__(".section .text\n"
 int kernel_thread(int (*fn)(void *), void * arg, unsigned long flags)
 {
 	struct pt_regs regs;
+	int err;
 
 	memset(&regs, 0, sizeof(regs));
 
@@ -346,11 +339,14 @@ int kernel_thread(int (*fn)(void *), void * arg, unsigned long flags)
 	regs.xes = __USER_DS;
 	regs.orig_eax = -1;
 	regs.eip = (unsigned long) kernel_thread_helper;
-	regs.xcs = __KERNEL_CS;
+	regs.xcs = __KERNEL_CS | get_kernel_rpl();
 	regs.eflags = X86_EFLAGS_IF | X86_EFLAGS_SF | X86_EFLAGS_PF | 0x2;
 
 	/* Ok, create the new process.. */
-	return do_fork(flags | CLONE_VM | CLONE_UNTRACED, 0, &regs, 0, NULL, NULL);
+	err = do_fork(flags | CLONE_VM | CLONE_UNTRACED, 0, &regs, 0, NULL, NULL);
+	if (err == 0) /* terminate kernel stack */
+		task_pt_regs(current)->eip = 0;
+	return err;
 }
 EXPORT_SYMBOL(kernel_thread);
 
@@ -433,13 +429,12 @@ int copy_thread(int nr, unsigned long clone_flags, unsigned long esp,
 
 	tsk = current;
 	if (unlikely(test_tsk_thread_flag(tsk, TIF_IO_BITMAP))) {
-		p->thread.io_bitmap_ptr = kmalloc(IO_BITMAP_BYTES, GFP_KERNEL);
+		p->thread.io_bitmap_ptr = kmemdup(tsk->thread.io_bitmap_ptr,
+						IO_BITMAP_BYTES, GFP_KERNEL);
 		if (!p->thread.io_bitmap_ptr) {
 			p->thread.io_bitmap_max = 0;
 			return -ENOMEM;
 		}
-		memcpy(p->thread.io_bitmap_ptr, tsk->thread.io_bitmap_ptr,
-			IO_BITMAP_BYTES);
 		set_tsk_thread_flag(p, TIF_IO_BITMAP);
 	}
 
@@ -905,7 +900,7 @@ asmlinkage int sys_get_thread_area(struct user_desc __user *u_info)
 
 unsigned long arch_align_stack(unsigned long sp)
 {
-	if (randomize_va_space)
+	if (!(current->personality & ADDR_NO_RANDOMIZE) && randomize_va_space)
 		sp -= get_random_int() % 8192;
 	return sp & ~0xf;
 }

@@ -203,9 +203,7 @@
 #define RCS_ID "$Id: sx.c,v 1.33 2000/03/08 10:01:02 wolff, pvdl Exp $"
 #define RCS_REV "$Revision: 1.33 $"
 
-
 #include <linux/module.h>
-#include <linux/config.h> 
 #include <linux/kdev_t.h>
 #include <linux/kernel.h>
 #include <linux/sched.h>
@@ -1194,7 +1192,7 @@ static inline void sx_check_modem_signals (struct sx_port *port)
  * Small, elegant, clear.
  */
 
-static irqreturn_t sx_interrupt (int irq, void *ptr, struct pt_regs *regs)
+static irqreturn_t sx_interrupt (int irq, void *ptr)
 {
 	struct sx_board *board = ptr;
 	struct sx_port *port;
@@ -1302,7 +1300,7 @@ static void sx_pollfunc (unsigned long data)
 
 	func_enter ();
 
-	sx_interrupt (0, board, NULL);
+	sx_interrupt (0, board);
 
 	init_timer(&board->timer);
 
@@ -2226,7 +2224,7 @@ static int probe_si (struct sx_board *board)
 	return 1;
 }
 
-static struct tty_operations sx_ops = {
+static const struct tty_operations sx_ops = {
 	.break_ctl = sx_break,
 	.open	= sx_open,
 	.close = gs_close,

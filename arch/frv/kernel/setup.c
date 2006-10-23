@@ -31,7 +31,6 @@
 #include <linux/serial_reg.h>
 
 #include <asm/setup.h>
-#include <asm/serial.h>
 #include <asm/irq.h>
 #include <asm/sections.h>
 #include <asm/pgalloc.h>
@@ -43,7 +42,6 @@
 #include <asm/mb-regs.h>
 #include <asm/mb93493-regs.h>
 #include <asm/gdb-stub.h>
-#include <asm/irq-routing.h>
 #include <asm/io.h>
 
 #ifdef CONFIG_BLK_DEV_INITRD

@@ -1,5 +1,5 @@
 /*
- * linux/drivers/char/omap_wdt.c
+ * linux/drivers/char/watchdog/omap_wdt.c
  *
  * Watchdog driver for the TI OMAP 16xx & 24xx 32KHz (non-secure) watchdog
  *
@@ -27,7 +27,6 @@
  */
 
 #include <linux/module.h>
-#include <linux/config.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/fs.h>
@@ -64,10 +63,14 @@ static unsigned int wdt_trgr_pattern = 0x1234;
 
 static void omap_wdt_ping(void)
 {
-	while ((omap_readl(OMAP_WATCHDOG_WPS)) & 0x08) ;	/* wait for posted write to complete */
+	/* wait for posted write to complete */
+	while ((omap_readl(OMAP_WATCHDOG_WPS)) & 0x08)
+		cpu_relax();
 	wdt_trgr_pattern = ~wdt_trgr_pattern;
 	omap_writel(wdt_trgr_pattern, (OMAP_WATCHDOG_TGR));
-	while ((omap_readl(OMAP_WATCHDOG_WPS)) & 0x08) ;	/* wait for posted write to complete */
+	/* wait for posted write to complete */
+	while ((omap_readl(OMAP_WATCHDOG_WPS)) & 0x08)
+		cpu_relax();
 	/* reloaded WCRR from WLDR */
 }
 
@@ -75,18 +78,22 @@ static void omap_wdt_enable(void)
 {
 	/* Sequence to enable the watchdog */
 	omap_writel(0xBBBB, OMAP_WATCHDOG_SPR);
-	while ((omap_readl(OMAP_WATCHDOG_WPS)) & 0x10) ;
+	while ((omap_readl(OMAP_WATCHDOG_WPS)) & 0x10)
+		cpu_relax();
 	omap_writel(0x4444, OMAP_WATCHDOG_SPR);
-	while ((omap_readl(OMAP_WATCHDOG_WPS)) & 0x10) ;
+	while ((omap_readl(OMAP_WATCHDOG_WPS)) & 0x10)
+		cpu_relax();
 }
 
 static void omap_wdt_disable(void)
 {
 	/* sequence required to disable watchdog */
 	omap_writel(0xAAAA, OMAP_WATCHDOG_SPR);	/* TIMER_MODE */
-	while (omap_readl(OMAP_WATCHDOG_WPS) & 0x10) ;
+	while (omap_readl(OMAP_WATCHDOG_WPS) & 0x10)
+		cpu_relax();
 	omap_writel(0x5555, OMAP_WATCHDOG_SPR);	/* TIMER_MODE */
-	while (omap_readl(OMAP_WATCHDOG_WPS) & 0x10) ;
+	while (omap_readl(OMAP_WATCHDOG_WPS) & 0x10)
+		cpu_relax();
 }
 
 static void omap_wdt_adjust_timeout(unsigned new_timeout)
@@ -104,10 +111,10 @@ static void omap_wdt_set_timeout(void)
 
 	/* just count up at 32 KHz */
 	while (omap_readl(OMAP_WATCHDOG_WPS) & 0x04)
-		continue;
+		cpu_relax();
 	omap_writel(pre_margin, OMAP_WATCHDOG_LDR);
 	while (omap_readl(OMAP_WATCHDOG_WPS) & 0x04)
-		continue;
+		cpu_relax();
 }
 
 /*
@@ -119,21 +126,20 @@ static int omap_wdt_open(struct inode *inode, struct file *file)
 	if (test_and_set_bit(1, (unsigned long *)&omap_wdt_users))
 		return -EBUSY;
 
-	if (cpu_is_omap16xx()) {
+	if (cpu_is_omap16xx())
 		clk_enable(armwdt_ck);	/* Enable the clock */
-	}
 
 	if (cpu_is_omap24xx()) {
-		clk_enable(mpu_wdt_ick);	/* Enable the interface clock */
-		clk_enable(mpu_wdt_fck);	/* Enable the functional clock */
+		clk_enable(mpu_wdt_ick);    /* Enable the interface clock */
+		clk_enable(mpu_wdt_fck);    /* Enable the functional clock */
 	}
 
 	/* initialize prescaler */
 	while (omap_readl(OMAP_WATCHDOG_WPS) & 0x01)
-		continue;
+		cpu_relax();
 	omap_writel((1 << 5) | (PTV << 2), OMAP_WATCHDOG_CNTRL);
 	while (omap_readl(OMAP_WATCHDOG_WPS) & 0x01)
-		continue;
+		cpu_relax();
 
 	omap_wdt_set_timeout();
 	omap_wdt_enable();
@@ -170,8 +176,8 @@ static int omap_wdt_release(struct inode *inode, struct file *file)
 }
 
 static ssize_t
-omap_wdt_write(struct file *file, const char __user * data,
-	size_t len, loff_t * ppos)
+omap_wdt_write(struct file *file, const char __user *data,
+		size_t len, loff_t *ppos)
 {
 	/* Refresh LOAD_TIME. */
 	if (len)
@@ -195,7 +201,7 @@ omap_wdt_ioctl(struct inode *inode, struct file *file,
 		return -ENOIOCTLCMD;
 	case WDIOC_GETSUPPORT:
 		return copy_to_user((struct watchdog_info __user *)arg, &ident,
-	sizeof(ident));
+				sizeof(ident));
 	case WDIOC_GETSTATUS:
 		return put_user(0, (int __user *)arg);
 	case WDIOC_GETBOOTSTATUS:

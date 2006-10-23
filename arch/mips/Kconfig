@@ -126,7 +126,7 @@ config BASLER_EXCITE
 	select IRQ_CPU
 	select IRQ_CPU_RM7K
 	select IRQ_CPU_RM9K
-	select SERIAL_RM9000
+	select MIPS_RM9122
 	select SYS_HAS_CPU_RM9000
 	select SYS_SUPPORTS_32BIT_KERNEL
 	select SYS_SUPPORTS_64BIT_KERNEL
@@ -202,59 +202,6 @@ config MIPS_EV64120
 	  core running at 75/100MHz.  Their website is located at
 	  <http://www.marvell.com/>.  Say Y here if you wish to build a
 	  kernel for this platform.
-
-config MIPS_EV96100
-	bool "Galileo EV96100 Evaluation board (EXPERIMENTAL)"
-	depends on EXPERIMENTAL
-	select DMA_NONCOHERENT
-	select HW_HAS_PCI
-	select IRQ_CPU
-	select MIPS_GT96100
-	select RM7000_CPU_SCACHE
-	select SWAP_IO_SPACE
-	select SYS_HAS_CPU_R5000
-	select SYS_HAS_CPU_RM7000
-	select SYS_SUPPORTS_32BIT_KERNEL
-	select SYS_SUPPORTS_64BIT_KERNEL if EXPERIMENTAL
-	select SYS_SUPPORTS_BIG_ENDIAN
-	help
-	  This is an evaluation board based on the Galileo GT-96100 LAN/WAN
-	  communications controllers containing a MIPS R5000 compatible core
-	  running at 83MHz. Their website is <http://www.marvell.com/>. Say Y
-	  here if you wish to build a kernel for this platform.
-
-config MIPS_IVR
-	bool "Globespan IVR board"
-	select DMA_NONCOHERENT
-	select HW_HAS_PCI
-	select ITE_BOARD_GEN
-	select SYS_HAS_CPU_NEVADA
-	select SYS_SUPPORTS_32BIT_KERNEL
-	select SYS_SUPPORTS_64BIT_KERNEL if EXPERIMENTAL
-	select SYS_SUPPORTS_LITTLE_ENDIAN
-	help
-	  This is an evaluation board built by Globespan to showcase thir
-	  iVR (Internet Video Recorder) design. It utilizes a QED RM5231
-	  R5000 MIPS core. More information can be found out their website
-	  located at <http://www.globespan.net/>. Say Y here if you wish to
-	  build a kernel for this platform.
-
-config MIPS_ITE8172
-	bool "ITE 8172G board"
-	select DMA_NONCOHERENT
-	select HW_HAS_PCI
-	select ITE_BOARD_GEN
-	select SYS_HAS_CPU_R5432
-	select SYS_HAS_CPU_NEVADA
-	select SYS_SUPPORTS_32BIT_KERNEL
-	select SYS_SUPPORTS_64BIT_KERNEL if EXPERIMENTAL
-	select SYS_SUPPORTS_LITTLE_ENDIAN
-	help
-	  Ths is an evaluation board made by ITE <http://www.ite.com.tw/>
-	  with ATX form factor that utilizes a MIPS R5000 to work with its
-	  ITE8172G companion internet appliance chip. The MIPS core can be
-	  either a NEC Vr5432 or QED RM5231. Say Y here if you wish to build
-	  a kernel for this platform.
 
 config MACH_JAZZ
 	bool "Jazz family of machines"
@@ -493,13 +440,11 @@ config MIPS_XXS1500
 
 config PNX8550_V2PCI
 	bool "Philips PNX8550 based Viper2-PCI board"
-	depends on BROKEN
 	select PNX8550
 	select SYS_SUPPORTS_LITTLE_ENDIAN
 
 config PNX8550_JBS
 	bool "Philips PNX8550 based JBS board"
-	depends on BROKEN
 	select PNX8550
 	select SYS_SUPPORTS_LITTLE_ENDIAN
 
@@ -557,6 +502,7 @@ config QEMU
 	select SYS_HAS_CPU_MIPS32_R1
 	select SYS_SUPPORTS_32BIT_KERNEL
 	select SYS_SUPPORTS_BIG_ENDIAN
+	select SYS_SUPPORTS_LITTLE_ENDIAN
 	select ARCH_SPARSEMEM_ENABLE
 	help
 	  Qemu is a software emulator which among other architectures also
@@ -823,7 +769,6 @@ endchoice
 source "arch/mips/ddb5xxx/Kconfig"
 source "arch/mips/gt64120/ev64120/Kconfig"
 source "arch/mips/jazz/Kconfig"
-source "arch/mips/ite-boards/Kconfig"
 source "arch/mips/lasat/Kconfig"
 source "arch/mips/momentum/Kconfig"
 source "arch/mips/pmc-sierra/Kconfig"
@@ -853,6 +798,10 @@ config GENERIC_HWEIGHT
 	default y
 
 config GENERIC_CALIBRATE_DELAY
+	bool
+	default y
+
+config GENERIC_TIME
 	bool
 	default y
 
@@ -974,10 +923,13 @@ config MIPS_TX3927
 	bool
 	select HAS_TXX9_SERIAL
 
-config PCI_MARVELL
+config MIPS_RM9122
 	bool
+	select SERIAL_RM9000
+	select GPI_RM9000
+	select WDT_RM9000
 
-config ITE_BOARD_GEN
+config PCI_MARVELL
 	bool
 
 config SOC_AU1000
@@ -1024,6 +976,15 @@ config EMMA2RH
 	depends on MARKEINS
 	default y
 
+config SERIAL_RM9000
+	bool
+
+config GPI_RM9000
+	bool
+
+config WDT_RM9000
+	bool
+
 #
 # Unfortunately not all GT64120 systems run the chip at the same clock.
 # As the user for the clock rate and try to minimize the available options.
@@ -1048,25 +1009,6 @@ endchoice
 
 config ARC32
 	bool
-
-config AU1X00_USB_DEVICE
-	bool
-	depends on MIPS_PB1500 || MIPS_PB1100 || MIPS_PB1000
-	default n
-
-config MIPS_GT96100
-	bool
-	select MIPS_GT64120
-
-config IT8172_CIR
-	bool
-	depends on MIPS_ITE8172 || MIPS_IVR
-	default y
-
-config IT8712
-	bool
-	depends on MIPS_ITE8172
-	default y
 
 config BOOT_ELF32
 	bool
@@ -1518,6 +1460,18 @@ config MIPS_MT_DISABLED
 	  the option of an MT-enabled processor this option will be the only
 	  option in this menu.
 
+config MIPS_MT_SMP
+	bool "Use 1 TC on each available VPE for SMP"
+	depends on SYS_SUPPORTS_MULTITHREADING
+	select CPU_MIPSR2_IRQ_VI
+	select CPU_MIPSR2_SRS
+	select MIPS_MT
+	select SMP
+	select SYS_SUPPORTS_SMP
+	help
+	  This is a kernel model which is also known a VSMP or lately
+	  has been marketesed into SMVP.
+
 config MIPS_MT_SMTC
 	bool "SMTC: Use all TCs on all VPEs for SMP"
 	depends on CPU_MIPS32_R2
@@ -1527,20 +1481,10 @@ config MIPS_MT_SMTC
 	select CPU_MIPSR2_SRS
 	select MIPS_MT
 	select SMP
+	select SYS_SUPPORTS_SMP
 	help
 	  This is a kernel model which is known a SMTC or lately has been
 	  marketesed into SMVP.
-
-config MIPS_MT_SMP
-	bool "Use 1 TC on each available VPE for SMP"
-	depends on SYS_SUPPORTS_MULTITHREADING
-	select CPU_MIPSR2_IRQ_VI
-	select CPU_MIPSR2_SRS
-	select MIPS_MT
-	select SMP
-	help
-	  This is a kernel model which is also known a VSMP or lately
-	  has been marketesed into SMVP.
 
 config MIPS_VPE_LOADER
 	bool "VPE loader support."
@@ -1649,9 +1593,7 @@ config GENERIC_IRQ_PROBE
 	default y
 
 config IRQ_PER_CPU
-	depends on SMP
 	bool
-	default y
 
 #
 # - Highmem only makes sense for the 32-bit kernel.
@@ -1719,6 +1661,7 @@ source "mm/Kconfig"
 config SMP
 	bool "Multi-Processing support"
 	depends on SYS_SUPPORTS_SMP
+	select IRQ_PER_CPU
 	help
 	  This enables support for systems with more than one CPU. If you have
 	  a system with only one CPU, like most personal computers, say N. If
@@ -1846,6 +1789,14 @@ config MIPS_INSANE_LARGE
 endmenu
 
 config RWSEM_GENERIC_SPINLOCK
+	bool
+	default y
+
+config LOCKDEP_SUPPORT
+	bool
+	default y
+
+config STACKTRACE_SUPPORT
 	bool
 	default y
 

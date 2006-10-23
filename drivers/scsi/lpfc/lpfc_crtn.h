@@ -18,6 +18,7 @@
  * included with this package.                                     *
  *******************************************************************/
 
+struct fc_rport;
 void lpfc_dump_mem(struct lpfc_hba *, LPFC_MBOXQ_t *, uint16_t);
 void lpfc_read_nv(struct lpfc_hba *, LPFC_MBOXQ_t *);
 int lpfc_read_la(struct lpfc_hba * phba, LPFC_MBOXQ_t * pmb,
@@ -119,7 +120,7 @@ int lpfc_sli_queue_setup(struct lpfc_hba *);
 
 void lpfc_handle_eratt(struct lpfc_hba *);
 void lpfc_handle_latt(struct lpfc_hba *);
-irqreturn_t lpfc_intr_handler(int, void *, struct pt_regs *);
+irqreturn_t lpfc_intr_handler(int, void *);
 
 void lpfc_read_rev(struct lpfc_hba *, LPFC_MBOXQ_t *);
 void lpfc_config_ring(struct lpfc_hba *, int, LPFC_MBOXQ_t *);
@@ -200,6 +201,8 @@ extern struct scsi_host_template lpfc_template;
 extern struct fc_function_template lpfc_transport_functions;
 
 void lpfc_get_hba_sym_node_name(struct lpfc_hba * phba, uint8_t * symbp);
+void lpfc_terminate_rport_io(struct fc_rport *);
+void lpfc_dev_loss_tmo_callbk(struct fc_rport *rport);
 
 #define ScsiResult(host_code, scsi_code) (((host_code) << 16) | scsi_code)
 #define HBA_EVENT_RSCN                   5

@@ -28,13 +28,14 @@
 #include <linux/notifier.h>
 #include <linux/kthread.h>
 #include <linux/hardirq.h>
+#include <linux/mempolicy.h>
 
 /*
  * The per-CPU workqueue (if single thread, we always use the first
  * possible cpu).
  *
  * The sequence counters are for flush_scheduled_work().  It wants to wait
- * until until all currently-scheduled works are completed, but it doesn't
+ * until all currently-scheduled works are completed, but it doesn't
  * want to be livelocked by new, incoming ones.  So it waits until
  * remove_sequence is >= the insert_sequence which pertained when
  * flush_scheduled_work() was called.
@@ -244,6 +245,12 @@ static int worker_thread(void *__cwq)
 	sigfillset(&blocked);
 	sigprocmask(SIG_BLOCK, &blocked, NULL);
 	flush_signals(current);
+
+	/*
+	 * We inherited MPOL_INTERLEAVE from the booting kernel.
+	 * Set MPOL_DEFAULT to insure node local allocations.
+	 */
+	numa_default_policy();
 
 	/* SIG_IGN makes children autoreap: see do_notify_parent(). */
 	sa.sa.sa_handler = SIG_IGN;

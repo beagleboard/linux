@@ -45,45 +45,38 @@ void diag10(unsigned long addr)
 {
         if (addr >= 0x7ff00000)
                 return;
+	asm volatile(
 #ifdef CONFIG_64BIT
-        asm volatile (
-		"   sam31\n"
-		"   diag %0,%0,0x10\n"
-		"0: sam64\n"
-		".section __ex_table,\"a\"\n"
-		"   .align 8\n"
-		"   .quad 0b, 0b\n"
-		".previous\n"
-		: : "a" (addr));
+		"	sam31\n"
+		"	diag	%0,%0,0x10\n"
+		"0:	sam64\n"
 #else
-        asm volatile (
-		"   diag %0,%0,0x10\n"
+		"	diag	%0,%0,0x10\n"
 		"0:\n"
-		".section __ex_table,\"a\"\n"
-		"   .align 4\n"
-		"   .long 0b, 0b\n"
-		".previous\n"
-		: : "a" (addr));
 #endif
+		EX_TABLE(0b,0b)
+		: : "a" (addr));
 }
 
 void show_mem(void)
 {
         int i, total = 0, reserved = 0;
         int shared = 0, cached = 0;
+	struct page *page;
 
         printk("Mem-info:\n");
         show_free_areas();
         printk("Free swap:       %6ldkB\n", nr_swap_pages<<(PAGE_SHIFT-10));
         i = max_mapnr;
         while (i-- > 0) {
+		page = pfn_to_page(i);
                 total++;
-                if (PageReserved(mem_map+i))
+		if (PageReserved(page))
                         reserved++;
-                else if (PageSwapCache(mem_map+i))
+		else if (PageSwapCache(page))
                         cached++;
-                else if (page_count(mem_map+i))
-                        shared += page_count(mem_map+i) - 1;
+		else if (page_count(page))
+			shared += page_count(page) - 1;
         }
         printk("%d pages of RAM\n",total);
         printk("%d reserved pages\n",reserved);
@@ -91,7 +84,6 @@ void show_mem(void)
         printk("%d pages swap cached\n",cached);
 }
 
-extern unsigned long __initdata zholes_size[];
 /*
  * paging_init() sets up the page tables
  */
@@ -108,16 +100,22 @@ void __init paging_init(void)
         unsigned long pgdir_k = (__pa(swapper_pg_dir) & PAGE_MASK) | _KERNSEG_TABLE;
         static const int ssm_mask = 0x04000000L;
 	unsigned long ro_start_pfn, ro_end_pfn;
+	unsigned long max_zone_pfns[MAX_NR_ZONES];
 
 	ro_start_pfn = PFN_DOWN((unsigned long)&__start_rodata);
 	ro_end_pfn = PFN_UP((unsigned long)&__end_rodata);
+
+	memset(max_zone_pfns, 0, sizeof(max_zone_pfns));
+	max_zone_pfns[ZONE_DMA] = max_low_pfn;
+	max_zone_pfns[ZONE_NORMAL] = max_low_pfn;
+	free_area_init_nodes(max_zone_pfns);
 
 	/* unmap whole virtual address space */
 	
         pg_dir = swapper_pg_dir;
 
-	for (i=0;i<KERNEL_PGD_PTRS;i++) 
-	        pmd_clear((pmd_t*)pg_dir++);
+	for (i = 0; i < PTRS_PER_PGD; i++)
+		pmd_clear((pmd_t *) pg_dir++);
 		
 	/*
 	 * map whole physical memory to virtual memory (identity mapping) 
@@ -131,10 +129,7 @@ void __init paging_init(void)
                  */
 		pg_table = (pte_t *) alloc_bootmem_pages(PAGE_SIZE);
 
-                pg_dir->pgd0 =  (_PAGE_TABLE | __pa(pg_table));
-                pg_dir->pgd1 =  (_PAGE_TABLE | (__pa(pg_table)+1024));
-                pg_dir->pgd2 =  (_PAGE_TABLE | (__pa(pg_table)+2048));
-                pg_dir->pgd3 =  (_PAGE_TABLE | (__pa(pg_table)+3072));
+		pmd_populate_kernel(&init_mm, (pmd_t *) pg_dir, pg_table);
                 pg_dir++;
 
                 for (tmp = 0 ; tmp < PTRS_PER_PTE ; tmp++,pg_table++) {
@@ -143,8 +138,8 @@ void __init paging_init(void)
 			else
 				pte = pfn_pte(pfn, PAGE_KERNEL);
                         if (pfn >= max_low_pfn)
-                                pte_clear(&init_mm, 0, &pte);
-                        set_pte(pg_table, pte);
+				pte_val(pte) = _PAGE_TYPE_EMPTY;
+			set_pte(pg_table, pte);
                         pfn++;
                 }
         }
@@ -152,24 +147,12 @@ void __init paging_init(void)
 	S390_lowcore.kernel_asce = pgdir_k;
 
         /* enable virtual mapping in kernel mode */
-        __asm__ __volatile__("    LCTL  1,1,%0\n"
-                             "    LCTL  7,7,%0\n"
-                             "    LCTL  13,13,%0\n"
-                             "    SSM   %1" 
-			     : : "m" (pgdir_k), "m" (ssm_mask));
+	__ctl_load(pgdir_k, 1, 1);
+	__ctl_load(pgdir_k, 7, 7);
+	__ctl_load(pgdir_k, 13, 13);
+	__raw_local_irq_ssm(ssm_mask);
 
         local_flush_tlb();
-
-	{
-		unsigned long zones_size[MAX_NR_ZONES];
-
-		memset(zones_size, 0, sizeof(zones_size));
-		zones_size[ZONE_DMA] = max_low_pfn;
-		free_area_init_node(0, &contig_page_data, zones_size,
-				    __pa(PAGE_OFFSET) >> PAGE_SHIFT,
-				    zholes_size);
-	}
-        return;
 }
 
 #else /* CONFIG_64BIT */
@@ -185,26 +168,16 @@ void __init paging_init(void)
         unsigned long pgdir_k = (__pa(swapper_pg_dir) & PAGE_MASK) |
           _KERN_REGION_TABLE;
 	static const int ssm_mask = 0x04000000L;
-	unsigned long zones_size[MAX_NR_ZONES];
-	unsigned long dma_pfn, high_pfn;
 	unsigned long ro_start_pfn, ro_end_pfn;
+	unsigned long max_zone_pfns[MAX_NR_ZONES];
 
-	memset(zones_size, 0, sizeof(zones_size));
-	dma_pfn = MAX_DMA_ADDRESS >> PAGE_SHIFT;
-	high_pfn = max_low_pfn;
 	ro_start_pfn = PFN_DOWN((unsigned long)&__start_rodata);
 	ro_end_pfn = PFN_UP((unsigned long)&__end_rodata);
 
-	if (dma_pfn > high_pfn)
-		zones_size[ZONE_DMA] = high_pfn;
-	else {
-		zones_size[ZONE_DMA] = dma_pfn;
-		zones_size[ZONE_NORMAL] = high_pfn - dma_pfn;
-	}
-
-	/* Initialize mem_map[].  */
-	free_area_init_node(0, &contig_page_data, zones_size,
-			    __pa(PAGE_OFFSET) >> PAGE_SHIFT, zholes_size);
+	memset(max_zone_pfns, 0, sizeof(max_zone_pfns));
+	max_zone_pfns[ZONE_DMA] = PFN_DOWN(MAX_DMA_ADDRESS);
+	max_zone_pfns[ZONE_NORMAL] = max_low_pfn;
+	free_area_init_nodes(max_zone_pfns);
 
 	/*
 	 * map whole physical memory to virtual memory (identity mapping) 
@@ -236,10 +209,8 @@ void __init paging_init(void)
 					pte = pfn_pte(pfn, __pgprot(_PAGE_RO));
 				else
 					pte = pfn_pte(pfn, PAGE_KERNEL);
-                                if (pfn >= max_low_pfn) {
-                                        pte_clear(&init_mm, 0, &pte); 
-                                        continue;
-                                }
+				if (pfn >= max_low_pfn)
+					pte_val(pte) = _PAGE_TYPE_EMPTY;
                                 set_pte(pt_dir, pte);
                                 pfn++;
                         }
@@ -249,15 +220,12 @@ void __init paging_init(void)
 	S390_lowcore.kernel_asce = pgdir_k;
 
         /* enable virtual mapping in kernel mode */
-        __asm__ __volatile__("lctlg 1,1,%0\n\t"
-                             "lctlg 7,7,%0\n\t"
-                             "lctlg 13,13,%0\n\t"
-                             "ssm   %1"
-			     : :"m" (pgdir_k), "m" (ssm_mask));
+	__ctl_load(pgdir_k, 1, 1);
+	__ctl_load(pgdir_k, 7, 7);
+	__ctl_load(pgdir_k, 13, 13);
+	__raw_local_irq_ssm(ssm_mask);
 
         local_flush_tlb();
-
-        return;
 }
 #endif /* CONFIG_64BIT */
 

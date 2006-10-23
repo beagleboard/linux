@@ -55,7 +55,11 @@ OBJS		+= head-omap.o
 endif
 
 ifeq ($(CONFIG_CPU_BIG_ENDIAN),y)
+ifeq ($(CONFIG_CPU_CP15),y)
 OBJS		+= big-endian.o
+else
+# The endian should be set by h/w design.
+endif
 endif
 
 #

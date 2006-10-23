@@ -161,7 +161,7 @@ static struct usb_driver usb_ipw_driver = {
 
 static int debug;
 
-static void ipw_read_bulk_callback(struct urb *urb, struct pt_regs *regs)
+static void ipw_read_bulk_callback(struct urb *urb)
 {
 	struct usb_serial_port *port = urb->context;
 	unsigned char *data = urb->transfer_buffer;
@@ -367,7 +367,7 @@ static void ipw_close(struct usb_serial_port *port, struct file * filp)
 	usb_kill_urb(port->write_urb);
 }
 
-static void ipw_write_bulk_callback(struct urb *urb, struct pt_regs *regs)
+static void ipw_write_bulk_callback(struct urb *urb)
 {
 	struct usb_serial_port *port = urb->context;
 
@@ -394,14 +394,14 @@ static int ipw_write(struct usb_serial_port *port, const unsigned char *buf, int
 		return 0;
 	}
 
-	spin_lock(&port->lock);
+	spin_lock_bh(&port->lock);
 	if (port->write_urb_busy) {
-		spin_unlock(&port->lock);
+		spin_unlock_bh(&port->lock);
 		dbg("%s - already writing", __FUNCTION__);
 		return 0;
 	}
 	port->write_urb_busy = 1;
-	spin_unlock(&port->lock);
+	spin_unlock_bh(&port->lock);
 
 	count = min(count, port->bulk_out_size);
 	memcpy(port->bulk_out_buffer, buf, count);

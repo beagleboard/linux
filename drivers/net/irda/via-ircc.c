@@ -93,8 +93,7 @@ static int via_ircc_hard_xmit_fir(struct sk_buff *skb,
 				  struct net_device *dev);
 static void via_hw_init(struct via_ircc_cb *self);
 static void via_ircc_change_speed(struct via_ircc_cb *self, __u32 baud);
-static irqreturn_t via_ircc_interrupt(int irq, void *dev_id,
-				      struct pt_regs *regs);
+static irqreturn_t via_ircc_interrupt(int irq, void *dev_id);
 static int via_ircc_is_receiving(struct via_ircc_cb *self);
 static int via_ircc_read_dongle_id(int iobase);
 
@@ -279,7 +278,7 @@ static void via_ircc_clean(void)
 
 	IRDA_DEBUG(3, "%s()\n", __FUNCTION__);
 
-	for (i=0; i < 4; i++) {
+	for (i=0; i < ARRAY_SIZE(dev_self); i++) {
 		if (dev_self[i])
 			via_ircc_close(dev_self[i]);
 	}
@@ -326,6 +325,9 @@ static __devinit int via_ircc_open(int i, chipio_t * info, unsigned int id)
 	int err;
 
 	IRDA_DEBUG(3, "%s()\n", __FUNCTION__);
+
+	if (i >= ARRAY_SIZE(dev_self))
+		return -ENOMEM;
 
 	/* Allocate new instance of the driver */
 	dev = alloc_irdadev(sizeof(struct via_ircc_cb));
@@ -1220,8 +1222,13 @@ static int upload_rxdata(struct via_ircc_cb *self, int iobase)
 
 	IRDA_DEBUG(2, "%s(): len=%x\n", __FUNCTION__, len);
 
+	if ((len - 4) < 2) {
+		self->stats.rx_dropped++;
+		return FALSE;
+	}
+
 	skb = dev_alloc_skb(len + 1);
-	if ((skb == NULL) || ((len - 4) < 2)) {
+	if (skb == NULL) {
 		self->stats.rx_dropped++;
 		return FALSE;
 	}
@@ -1337,13 +1344,12 @@ static int RxTimerHandler(struct via_ircc_cb *self, int iobase)
 
 
 /*
- * Function via_ircc_interrupt (irq, dev_id, regs)
+ * Function via_ircc_interrupt (irq, dev_id)
  *
  *    An interrupt from the chip has arrived. Time to do some work
  *
  */
-static irqreturn_t via_ircc_interrupt(int irq, void *dev_id,
-				      struct pt_regs *regs)
+static irqreturn_t via_ircc_interrupt(int irq, void *dev_id)
 {
 	struct net_device *dev = (struct net_device *) dev_id;
 	struct via_ircc_cb *self;

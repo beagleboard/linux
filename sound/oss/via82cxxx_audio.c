@@ -1547,7 +1547,7 @@ static int via_mixer_open (struct inode *inode, struct file *file)
 
 	DPRINTK ("ENTER\n");
 
-	while ((pdev = pci_find_device(PCI_ANY_ID, PCI_ANY_ID, pdev)) != NULL) {
+	while ((pdev = pci_get_device(PCI_ANY_ID, PCI_ANY_ID, pdev)) != NULL) {
 		drvr = pci_dev_driver (pdev);
 		if (drvr == &via_driver) {
 			assert (pci_get_drvdata (pdev) != NULL);
@@ -1562,6 +1562,7 @@ static int via_mixer_open (struct inode *inode, struct file *file)
 	return -ENODEV;
 
 match:
+	pci_dev_put(pdev);
 	file->private_data = card->ac97;
 
 	DPRINTK ("EXIT, returning 0\n");
@@ -1911,7 +1912,7 @@ static void via_intr_channel (struct via_info *card, struct via_channel *chan)
 }
 
 
-static irqreturn_t  via_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+static irqreturn_t  via_interrupt(int irq, void *dev_id)
 {
 	struct via_info *card = dev_id;
 	u32 status32;
@@ -1926,7 +1927,7 @@ static irqreturn_t  via_interrupt(int irq, void *dev_id, struct pt_regs *regs)
         {
 #ifdef CONFIG_MIDI_VIA82CXXX
 	    	 if (card->midi_devc)
-                    	uart401intr(irq, card->midi_devc, regs);
+                    	uart401intr(irq, card->midi_devc);
 #endif
 		return IRQ_HANDLED;
     	}
@@ -1949,7 +1950,7 @@ static irqreturn_t  via_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 	return IRQ_HANDLED;
 }
 
-static irqreturn_t via_new_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+static irqreturn_t via_new_interrupt(int irq, void *dev_id)
 {
 	struct via_info *card = dev_id;
 	u32 status32;
@@ -3245,7 +3246,7 @@ static int via_dsp_open (struct inode *inode, struct file *file)
 	}
 
 	card = NULL;
-	while ((pdev = pci_find_device(PCI_ANY_ID, PCI_ANY_ID, pdev)) != NULL) {
+	while ((pdev = pci_get_device(PCI_ANY_ID, PCI_ANY_ID, pdev)) != NULL) {
 		drvr = pci_dev_driver (pdev);
 		if (drvr == &via_driver) {
 			assert (pci_get_drvdata (pdev) != NULL);
@@ -3264,6 +3265,7 @@ static int via_dsp_open (struct inode *inode, struct file *file)
 	return -ENODEV;
 
 match:
+	pci_dev_put(pdev);
 	if (nonblock) {
 		if (!mutex_trylock(&card->open_mutex)) {
 			DPRINTK ("EXIT, returning -EAGAIN\n");

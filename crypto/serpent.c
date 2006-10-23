@@ -216,20 +216,13 @@ struct serpent_ctx {
 
 
 static int serpent_setkey(struct crypto_tfm *tfm, const u8 *key,
-			  unsigned int keylen, u32 *flags)
+			  unsigned int keylen)
 {
 	struct serpent_ctx *ctx = crypto_tfm_ctx(tfm);
 	u32 *k = ctx->expkey;
 	u8  *k8 = (u8 *)k;
 	u32 r0,r1,r2,r3,r4;
 	int i;
-
-	if ((keylen < SERPENT_MIN_KEY_SIZE)
-			|| (keylen > SERPENT_MAX_KEY_SIZE))
-	{
-		*flags |= CRYPTO_TFM_RES_BAD_KEY_LEN;
-		return -EINVAL;
-	}
 
 	/* Copy key, add padding */
 
@@ -371,10 +364,10 @@ static void serpent_encrypt(struct crypto_tfm *tfm, u8 *dst, const u8 *src)
 {
 	struct serpent_ctx *ctx = crypto_tfm_ctx(tfm);
 	const u32
-		*k = ctx->expkey,
-		*s = (const u32 *)src;
-	u32	*d = (u32 *)dst,
-		r0, r1, r2, r3, r4;
+		*k = ctx->expkey;
+	const __le32 *s = (const __le32 *)src;
+	__le32	*d = (__le32 *)dst;
+	u32	r0, r1, r2, r3, r4;
 
 /*
  * Note: The conversions between u8* and u32* might cause trouble
@@ -430,10 +423,10 @@ static void serpent_decrypt(struct crypto_tfm *tfm, u8 *dst, const u8 *src)
 {
 	struct serpent_ctx *ctx = crypto_tfm_ctx(tfm);
 	const u32
-		*k = ((struct serpent_ctx *)ctx)->expkey,
-		*s = (const u32 *)src;
-	u32	*d = (u32 *)dst,
-		r0, r1, r2, r3, r4;
+		*k = ((struct serpent_ctx *)ctx)->expkey;
+	const __le32 *s = (const __le32 *)src;
+	__le32	*d = (__le32 *)dst;
+	u32	r0, r1, r2, r3, r4;
 
 	r0 = le32_to_cpu(s[0]);
 	r1 = le32_to_cpu(s[1]);
@@ -497,21 +490,15 @@ static struct crypto_alg serpent_alg = {
 };
 
 static int tnepres_setkey(struct crypto_tfm *tfm, const u8 *key,
-			  unsigned int keylen, u32 *flags)
+			  unsigned int keylen)
 {
 	u8 rev_key[SERPENT_MAX_KEY_SIZE];
 	int i;
 
-	if ((keylen < SERPENT_MIN_KEY_SIZE)
-	    || (keylen > SERPENT_MAX_KEY_SIZE)) {
-		*flags |= CRYPTO_TFM_RES_BAD_KEY_LEN;
-		return -EINVAL;
-	} 
-
 	for (i = 0; i < keylen; ++i)
 		rev_key[keylen - i - 1] = key[i];
  
-	return serpent_setkey(tfm, rev_key, keylen, flags);
+	return serpent_setkey(tfm, rev_key, keylen);
 }
 
 static void tnepres_encrypt(struct crypto_tfm *tfm, u8 *dst, const u8 *src)

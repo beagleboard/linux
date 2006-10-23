@@ -185,7 +185,7 @@ static int nfs3svc_encode_getaclres(struct svc_rqst *rqstp, u32 *p,
 
 		rqstp->rq_res.page_len = w;
 		while (w > 0) {
-			if (!svc_take_res_page(rqstp))
+			if (!rqstp->rq_respages[rqstp->rq_resused++])
 				return 0;
 			w -= PAGE_SIZE;
 		}
@@ -263,5 +263,6 @@ struct svc_version	nfsd_acl_version3 = {
 		.vs_proc	= nfsd_acl_procedures3,
 		.vs_dispatch	= nfsd_dispatch,
 		.vs_xdrsize	= NFS3_SVC_XDRSIZE,
+		.vs_hidden	= 1,
 };
 

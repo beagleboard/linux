@@ -11,7 +11,6 @@
  * option) any later version.
  */
 
-#include <linux/config.h>
 #include <linux/stddef.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
@@ -60,8 +59,8 @@ static void __init mpc834x_itx_setup_arch(void)
 
 	np = of_find_node_by_type(NULL, "cpu");
 	if (np != 0) {
-		unsigned int *fp =
-		    (int *)get_property(np, "clock-frequency", NULL);
+		const unsigned int *fp =
+			get_property(np, "clock-frequency", NULL);
 		if (fp != 0)
 			loops_per_jiffy = *fp / HZ;
 		else
@@ -108,6 +107,10 @@ static int __init mpc834x_itx_probe(void)
 	*/
 	return 1;
 }
+
+#ifdef CONFIG_RTC_CLASS
+late_initcall(rtc_class_hookup);
+#endif
 
 define_machine(mpc834x_itx) {
 	.name			= "MPC834x ITX",

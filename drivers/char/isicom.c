@@ -546,7 +546,7 @@ static void isicom_bottomhalf(void *data)
  *	Main interrupt handler routine
  */
 
-static irqreturn_t isicom_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+static irqreturn_t isicom_interrupt(int irq, void *dev_id)
 {
 	struct isi_board *card = dev_id;
 	struct isi_port *port;
@@ -1550,7 +1550,7 @@ static void isicom_unregister_ioregion(struct pci_dev *pdev)
 	board->base = 0;
 }
 
-static struct tty_operations isicom_ops = {
+static const struct tty_operations isicom_ops = {
 	.open			= isicom_open,
 	.close			= isicom_close,
 	.write			= isicom_write,
@@ -1756,9 +1756,12 @@ static int __devinit load_firmware(struct pci_dev *pdev,
 	if (retval)
 		goto end;
 
+	retval = -EIO;
+
 	for (frame = (struct stframe *)fw->data;
 			frame < (struct stframe *)(fw->data + fw->size);
-			frame++) {
+			frame = (struct stframe *)((u8 *)(frame + 1) +
+				frame->count)) {
 		if (WaitTillCardIsFree(base))
 			goto errrelfw;
 
@@ -1797,23 +1800,12 @@ static int __devinit load_firmware(struct pci_dev *pdev,
 		}
  	}
 
-	retval = -EIO;
-
-	if (WaitTillCardIsFree(base))
-		goto errrelfw;
-
-	outw(0xf2, base);
-	outw(0x800, base);
-	outw(0x0, base);
-	outw(0x0, base);
-	InterruptTheCard(base);
-	outw(0x0, base + 0x4); /* for ISI4608 cards */
-
 /* XXX: should we test it by reading it back and comparing with original like
  * in load firmware package? */
-	for (frame = (struct stframe*)fw->data;
-			frame < (struct stframe*)(fw->data + fw->size);
-			frame++) {
+	for (frame = (struct stframe *)fw->data;
+			frame < (struct stframe *)(fw->data + fw->size);
+			frame = (struct stframe *)((u8 *)(frame + 1) +
+				frame->count)) {
 		if (WaitTillCardIsFree(base))
 			goto errrelfw;
 
@@ -1862,6 +1854,17 @@ static int __devinit load_firmware(struct pci_dev *pdev,
 			goto errrelfw;
 		}
 	}
+
+	/* xfer ctrl */
+	if (WaitTillCardIsFree(base))
+		goto errrelfw;
+
+	outw(0xf2, base);
+	outw(0x800, base);
+	outw(0x0, base);
+	outw(0x0, base);
+	InterruptTheCard(base);
+	outw(0x0, base + 0x4); /* for ISI4608 cards */
 
 	board->status |= FIRMWARE_LOADED;
 	retval = 0;

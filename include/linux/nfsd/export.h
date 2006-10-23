@@ -45,15 +45,36 @@
 
 #ifdef __KERNEL__
 
+/*
+ * FS Locations
+ */
+
+#define MAX_FS_LOCATIONS	128
+
+struct nfsd4_fs_location {
+	char *hosts; /* colon separated list of hosts */
+	char *path;  /* slash separated list of path components */
+};
+
+struct nfsd4_fs_locations {
+	uint32_t locations_count;
+	struct nfsd4_fs_location *locations;
+/* If we're not actually serving this data ourselves (only providing a
+ * list of replicas that do serve it) then we set "migrated": */
+	int migrated;
+};
+
 struct svc_export {
 	struct cache_head	h;
 	struct auth_domain *	ex_client;
 	int			ex_flags;
 	struct vfsmount *	ex_mnt;
 	struct dentry *		ex_dentry;
+	char *			ex_path;
 	uid_t			ex_anon_uid;
 	gid_t			ex_anon_gid;
 	int			ex_fsid;
+	struct nfsd4_fs_locations ex_fslocs;
 };
 
 /* an "export key" (expkey) maps a filehandlefragement to an

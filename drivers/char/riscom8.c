@@ -81,7 +81,6 @@
 
 static struct riscom_board * IRQ_to_board[16];
 static struct tty_driver *riscom_driver;
-static unsigned char * tmp_buf;
 
 static unsigned long baud_table[] =  {
 	0, 50, 75, 110, 134, 150, 200, 300, 600, 1200, 1800, 2400, 4800,
@@ -551,7 +550,7 @@ static inline void rc_check_modem(struct riscom_board const * bp)
 }
 
 /* The main interrupt processing routine */
-static irqreturn_t rc_interrupt(int irq, void * dev_id, struct pt_regs * regs)
+static irqreturn_t rc_interrupt(int irq, void * dev_id)
 {
 	unsigned char status;
 	unsigned char ack;
@@ -560,11 +559,10 @@ static irqreturn_t rc_interrupt(int irq, void * dev_id, struct pt_regs * regs)
 	int handled = 0;
 
 	bp = IRQ_to_board[irq];
-	
-	if (!bp || !(bp->flags & RC_BOARD_ACTIVE))  {
+
+	if (!(bp->flags & RC_BOARD_ACTIVE))
 		return IRQ_NONE;
-	}
-	
+
 	while ((++loop < 16) && ((status = ~(rc_in(bp, RC_BSR))) &
 				 (RC_BSR_TOUT | RC_BSR_TINT |
 				  RC_BSR_MINT | RC_BSR_RINT))) {
@@ -675,26 +673,12 @@ static void rc_change_speed(struct riscom_board *bp, struct riscom_port *port)
 	port->COR2 = 0;
 	port->MSVR = MSVR_RTS;
 	
-	baud = C_BAUD(tty);
-	
-	if (baud & CBAUDEX) {
-		baud &= ~CBAUDEX;
-		if (baud < 1 || baud > 2) 
-			port->tty->termios->c_cflag &= ~CBAUDEX;
-		else
-			baud += 15;
-	}
-	if (baud == 15)  {
-		if ((port->flags & ASYNC_SPD_MASK) == ASYNC_SPD_HI)
-			baud ++;
-		if ((port->flags & ASYNC_SPD_MASK) == ASYNC_SPD_VHI)
-			baud += 2;
-	}
+	baud = tty_get_baud_rate(tty);
 	
 	/* Select port on the board */
 	rc_out(bp, CD180_CAR, port_No(port));
 	
-	if (!baud_table[baud])  {
+	if (!baud)  {
 		/* Drop DTR & exit */
 		bp->DTR |= (1u << port_No(port));
 		rc_out(bp, RC_DTR, bp->DTR);
@@ -710,7 +694,7 @@ static void rc_change_speed(struct riscom_board *bp, struct riscom_port *port)
 	 */
 	
 	/* Set baud rate for port */
-	tmp = (((RC_OSCFREQ + baud_table[baud]/2) / baud_table[baud] +
+	tmp = (((RC_OSCFREQ + baud/2) / baud +
 		CD180_TPC/2) / CD180_TPC);
 
 	rc_out(bp, CD180_RBPRH, (tmp >> 8) & 0xff); 
@@ -718,7 +702,7 @@ static void rc_change_speed(struct riscom_board *bp, struct riscom_port *port)
 	rc_out(bp, CD180_RBPRL, tmp & 0xff); 
 	rc_out(bp, CD180_TBPRL, tmp & 0xff);
 	
-	baud = (baud_table[baud] + 5) / 10;   /* Estimated CPS */
+	baud = (baud + 5) / 10;   /* Estimated CPS */
 	
 	/* Two timer ticks seems enough to wakeup something like SLIP driver */
 	tmp = ((baud + HZ/2) / HZ) * 2 - CD180_NFIFO;		
@@ -1138,7 +1122,7 @@ static int rc_write(struct tty_struct * tty,
 	
 	bp = port_Board(port);
 
-	if (!tty || !port->xmit_buf || !tmp_buf)
+	if (!tty || !port->xmit_buf)
 		return 0;
 
 	save_flags(flags);
@@ -1597,7 +1581,7 @@ static void do_softint(void *private_)
 	}
 }
 
-static struct tty_operations riscom_ops = {
+static const struct tty_operations riscom_ops = {
 	.open  = rc_open,
 	.close = rc_close,
 	.write = rc_write,
@@ -1626,11 +1610,6 @@ static inline int rc_init_drivers(void)
 	if (!riscom_driver)	
 		return -ENOMEM;
 	
-	if (!(tmp_buf = (unsigned char *) get_zeroed_page(GFP_KERNEL))) {
-		printk(KERN_ERR "rc: Couldn't get free page.\n");
-		put_tty_driver(riscom_driver);
-		return 1;
-	}
 	memset(IRQ_to_board, 0, sizeof(IRQ_to_board));
 	riscom_driver->owner = THIS_MODULE;
 	riscom_driver->name = "ttyL";
@@ -1643,7 +1622,6 @@ static inline int rc_init_drivers(void)
 	riscom_driver->flags = TTY_DRIVER_REAL_RAW;
 	tty_set_operations(riscom_driver, &riscom_ops);
 	if ((error = tty_register_driver(riscom_driver)))  {
-		free_page((unsigned long)tmp_buf);
 		put_tty_driver(riscom_driver);
 		printk(KERN_ERR "rc: Couldn't register RISCom/8 driver, "
 				"error = %d\n",
@@ -1671,7 +1649,6 @@ static void rc_release_drivers(void)
 
 	save_flags(flags);
 	cli();
-	free_page((unsigned long)tmp_buf);
 	tty_unregister_driver(riscom_driver);
 	put_tty_driver(riscom_driver);
 	restore_flags(flags);

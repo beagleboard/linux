@@ -63,7 +63,6 @@
 #define MAX_PCI_DEVICES 10
 #define MAX_TOTAL_DEVICES 20
 
-#include <linux/config.h>	
 #include <linux/module.h>
 #include <linux/errno.h>
 #include <linux/signal.h>
@@ -87,7 +86,6 @@
 
 #include <linux/vmalloc.h>
 #include <linux/init.h>
-#include <asm/serial.h>
 
 #include <linux/delay.h>
 #include <linux/ioctl.h>
@@ -1700,11 +1698,10 @@ static void mgsl_isr_transmit_dma( struct mgsl_struct *info )
  * 
  * 	irq		interrupt number that caused interrupt
  * 	dev_id		device ID supplied during interrupt registration
- * 	regs		interrupted processor context
  * 	
  * Return Value: None
  */
-static irqreturn_t mgsl_interrupt(int irq, void *dev_id, struct pt_regs * regs)
+static irqreturn_t mgsl_interrupt(int irq, void *dev_id)
 {
 	struct mgsl_struct * info;
 	u16 UscVector;
@@ -4360,7 +4357,7 @@ static struct mgsl_struct* mgsl_allocate_device(void)
 
 }	/* end of mgsl_allocate_device()*/
 
-static struct tty_operations mgsl_ops = {
+static const struct tty_operations mgsl_ops = {
 	.open = mgsl_open,
 	.close = mgsl_close,
 	.write = mgsl_write,

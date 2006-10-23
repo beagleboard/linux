@@ -244,7 +244,7 @@ static int audit_set_rate_limit(int limit, uid_t loginuid, u32 sid)
 		char *ctx = NULL;
 		u32 len;
 		int rc;
-		if ((rc = selinux_ctxid_to_string(sid, &ctx, &len)))
+		if ((rc = selinux_sid_to_string(sid, &ctx, &len)))
 			return rc;
 		else
 			audit_log(NULL, GFP_KERNEL, AUDIT_CONFIG_CHANGE,
@@ -267,7 +267,7 @@ static int audit_set_backlog_limit(int limit, uid_t loginuid, u32 sid)
 		char *ctx = NULL;
 		u32 len;
 		int rc;
-		if ((rc = selinux_ctxid_to_string(sid, &ctx, &len)))
+		if ((rc = selinux_sid_to_string(sid, &ctx, &len)))
 			return rc;
 		else
 			audit_log(NULL, GFP_KERNEL, AUDIT_CONFIG_CHANGE,
@@ -293,7 +293,7 @@ static int audit_set_enabled(int state, uid_t loginuid, u32 sid)
 		char *ctx = NULL;
 		u32 len;
 		int rc;
-		if ((rc = selinux_ctxid_to_string(sid, &ctx, &len)))
+		if ((rc = selinux_sid_to_string(sid, &ctx, &len)))
 			return rc;
 		else
 			audit_log(NULL, GFP_KERNEL, AUDIT_CONFIG_CHANGE,
@@ -321,7 +321,7 @@ static int audit_set_failure(int state, uid_t loginuid, u32 sid)
 		char *ctx = NULL;
 		u32 len;
 		int rc;
-		if ((rc = selinux_ctxid_to_string(sid, &ctx, &len)))
+		if ((rc = selinux_sid_to_string(sid, &ctx, &len)))
 			return rc;
 		else
 			audit_log(NULL, GFP_KERNEL, AUDIT_CONFIG_CHANGE,
@@ -340,7 +340,7 @@ static int kauditd_thread(void *dummy)
 {
 	struct sk_buff *skb;
 
-	while (1) {
+	while (!kthread_should_stop()) {
 		skb = skb_dequeue(&audit_skb_queue);
 		wake_up(&audit_backlog_wait);
 		if (skb) {
@@ -369,6 +369,7 @@ static int kauditd_thread(void *dummy)
 			remove_wait_queue(&kauditd_wait, &wait);
 		}
 	}
+	return 0;
 }
 
 int audit_send_list(void *_dest)
@@ -538,7 +539,7 @@ static int audit_receive_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
 		if (status_get->mask & AUDIT_STATUS_PID) {
 			int old   = audit_pid;
 			if (sid) {
-				if ((err = selinux_ctxid_to_string(
+				if ((err = selinux_sid_to_string(
 						sid, &ctx, &len)))
 					return err;
 				else
@@ -576,7 +577,7 @@ static int audit_receive_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
 						 "user pid=%d uid=%u auid=%u",
 						 pid, uid, loginuid);
 				if (sid) {
-					if (selinux_ctxid_to_string(
+					if (selinux_sid_to_string(
 							sid, &ctx, &len)) {
 						audit_log_format(ab, 
 							" ssid=%u", sid);
@@ -614,7 +615,7 @@ static int audit_receive_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
 					   loginuid, sid);
 		break;
 	case AUDIT_SIGNAL_INFO:
-		err = selinux_ctxid_to_string(audit_sig_sid, &ctx, &len);
+		err = selinux_sid_to_string(audit_sig_sid, &ctx, &len);
 		if (err)
 			return err;
 		sig_data = kmalloc(sizeof(*sig_data) + len, GFP_KERNEL);

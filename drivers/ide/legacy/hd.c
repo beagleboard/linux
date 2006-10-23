@@ -626,7 +626,7 @@ repeat:
 		req->rq_disk->disk_name, (req->cmd == READ)?"read":"writ",
 		cyl, head, sec, nsect, req->buffer);
 #endif
-	if (req->flags & REQ_CMD) {
+	if (blk_fs_request(req)) {
 		switch (rq_data_dir(req)) {
 		case READ:
 			hd_out(disk,nsect,sec,head,cyl,WIN_READ,&read_intr);
@@ -673,7 +673,7 @@ static int hd_getgeo(struct block_device *bdev, struct hd_geometry *geo)
  * be forgotten about...
  */
 
-static irqreturn_t hd_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+static irqreturn_t hd_interrupt(int irq, void *dev_id)
 {
 	void (*handler)(void) = do_hd;
 

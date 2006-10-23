@@ -96,6 +96,8 @@ static struct ib_client srp_client = {
 	.remove = srp_remove_one
 };
 
+static struct ib_sa_client srp_sa_client;
+
 static inline struct srp_target_port *host_to_target(struct Scsi_Host *host)
 {
 	return (struct srp_target_port *) host->hostdata;
@@ -267,7 +269,8 @@ static int srp_lookup_path(struct srp_target_port *target)
 
 	init_completion(&target->done);
 
-	target->path_query_id = ib_sa_path_rec_get(target->srp_host->dev->dev,
+	target->path_query_id = ib_sa_path_rec_get(&srp_sa_client,
+						   target->srp_host->dev->dev,
 						   target->srp_host->port,
 						   &target->path,
 						   IB_SA_PATH_REC_DGID		|
@@ -330,7 +333,7 @@ static int srp_send_req(struct srp_target_port *target)
 	req->priv.req_buf_fmt 	= cpu_to_be16(SRP_BUF_FORMAT_DIRECT |
 					      SRP_BUF_FORMAT_INDIRECT);
 	/*
-	 * In the published SRP specification (draft rev. 16a), the 
+	 * In the published SRP specification (draft rev. 16a), the
 	 * port identifier format is 8 bytes of ID extension followed
 	 * by 8 bytes of GUID.  Older drafts put the two halves in the
 	 * opposite order, so that the GUID comes first.
@@ -340,29 +343,32 @@ static int srp_send_req(struct srp_target_port *target)
 	 */
 	if (target->io_class == SRP_REV10_IB_IO_CLASS) {
 		memcpy(req->priv.initiator_port_id,
-		       target->srp_host->initiator_port_id + 8, 8);
+		       &target->path.sgid.global.interface_id, 8);
 		memcpy(req->priv.initiator_port_id + 8,
-		       target->srp_host->initiator_port_id, 8);
+		       &target->initiator_ext, 8);
 		memcpy(req->priv.target_port_id,     &target->ioc_guid, 8);
 		memcpy(req->priv.target_port_id + 8, &target->id_ext, 8);
 	} else {
 		memcpy(req->priv.initiator_port_id,
-		       target->srp_host->initiator_port_id, 16);
+		       &target->initiator_ext, 8);
+		memcpy(req->priv.initiator_port_id + 8,
+		       &target->path.sgid.global.interface_id, 8);
 		memcpy(req->priv.target_port_id,     &target->id_ext, 8);
 		memcpy(req->priv.target_port_id + 8, &target->ioc_guid, 8);
 	}
 
 	/*
 	 * Topspin/Cisco SRP targets will reject our login unless we
-	 * zero out the first 8 bytes of our initiator port ID.  The
-	 * second 8 bytes must be our local node GUID, but we always
-	 * use that anyway.
+	 * zero out the first 8 bytes of our initiator port ID and set
+	 * the second 8 bytes to the local node GUID.
 	 */
 	if (topspin_workarounds && !memcmp(&target->ioc_guid, topspin_oui, 3)) {
 		printk(KERN_DEBUG PFX "Topspin/Cisco initiator port ID workaround "
 		       "activated for target GUID %016llx\n",
 		       (unsigned long long) be64_to_cpu(target->ioc_guid));
 		memset(req->priv.initiator_port_id, 0, 8);
+		memcpy(req->priv.initiator_port_id + 8,
+		       &target->srp_host->dev->dev->node_guid, 8);
 	}
 
 	status = ib_send_cm_req(target->cm_id, &req->param);
@@ -1449,12 +1455,28 @@ static ssize_t show_zero_req_lim(struct class_device *cdev, char *buf)
 	return sprintf(buf, "%d\n", target->zero_req_lim);
 }
 
-static CLASS_DEVICE_ATTR(id_ext,	S_IRUGO, show_id_ext,		NULL);
-static CLASS_DEVICE_ATTR(ioc_guid,	S_IRUGO, show_ioc_guid,		NULL);
-static CLASS_DEVICE_ATTR(service_id,	S_IRUGO, show_service_id,	NULL);
-static CLASS_DEVICE_ATTR(pkey,		S_IRUGO, show_pkey,		NULL);
-static CLASS_DEVICE_ATTR(dgid,		S_IRUGO, show_dgid,		NULL);
-static CLASS_DEVICE_ATTR(zero_req_lim,	S_IRUGO, show_zero_req_lim,	NULL);
+static ssize_t show_local_ib_port(struct class_device *cdev, char *buf)
+{
+	struct srp_target_port *target = host_to_target(class_to_shost(cdev));
+
+	return sprintf(buf, "%d\n", target->srp_host->port);
+}
+
+static ssize_t show_local_ib_device(struct class_device *cdev, char *buf)
+{
+	struct srp_target_port *target = host_to_target(class_to_shost(cdev));
+
+	return sprintf(buf, "%s\n", target->srp_host->dev->dev->name);
+}
+
+static CLASS_DEVICE_ATTR(id_ext,	  S_IRUGO, show_id_ext,		 NULL);
+static CLASS_DEVICE_ATTR(ioc_guid,	  S_IRUGO, show_ioc_guid,	 NULL);
+static CLASS_DEVICE_ATTR(service_id,	  S_IRUGO, show_service_id,	 NULL);
+static CLASS_DEVICE_ATTR(pkey,		  S_IRUGO, show_pkey,		 NULL);
+static CLASS_DEVICE_ATTR(dgid,		  S_IRUGO, show_dgid,		 NULL);
+static CLASS_DEVICE_ATTR(zero_req_lim,	  S_IRUGO, show_zero_req_lim,	 NULL);
+static CLASS_DEVICE_ATTR(local_ib_port,   S_IRUGO, show_local_ib_port,	 NULL);
+static CLASS_DEVICE_ATTR(local_ib_device, S_IRUGO, show_local_ib_device, NULL);
 
 static struct class_device_attribute *srp_host_attrs[] = {
 	&class_device_attr_id_ext,
@@ -1463,6 +1485,8 @@ static struct class_device_attribute *srp_host_attrs[] = {
 	&class_device_attr_pkey,
 	&class_device_attr_dgid,
 	&class_device_attr_zero_req_lim,
+	&class_device_attr_local_ib_port,
+	&class_device_attr_local_ib_device,
 	NULL
 };
 
@@ -1532,6 +1556,7 @@ enum {
 	SRP_OPT_MAX_SECT	= 1 << 5,
 	SRP_OPT_MAX_CMD_PER_LUN	= 1 << 6,
 	SRP_OPT_IO_CLASS	= 1 << 7,
+	SRP_OPT_INITIATOR_EXT	= 1 << 8,
 	SRP_OPT_ALL		= (SRP_OPT_ID_EXT	|
 				   SRP_OPT_IOC_GUID	|
 				   SRP_OPT_DGID		|
@@ -1548,6 +1573,7 @@ static match_table_t srp_opt_tokens = {
 	{ SRP_OPT_MAX_SECT,		"max_sect=%d" 		},
 	{ SRP_OPT_MAX_CMD_PER_LUN,	"max_cmd_per_lun=%d" 	},
 	{ SRP_OPT_IO_CLASS,		"io_class=%x"		},
+	{ SRP_OPT_INITIATOR_EXT,	"initiator_ext=%s"	},
 	{ SRP_OPT_ERR,			NULL 			}
 };
 
@@ -1647,6 +1673,12 @@ static int srp_parse_options(const char *buf, struct srp_target_port *target)
 			target->io_class = token;
 			break;
 
+		case SRP_OPT_INITIATOR_EXT:
+			p = match_strdup(args);
+			target->initiator_ext = cpu_to_be64(simple_strtoull(p, NULL, 16));
+			kfree(p);
+			break;
+
 		default:
 			printk(KERN_WARNING PFX "unknown parameter or missing value "
 			       "'%s' in target creation request\n", p);
@@ -1687,7 +1719,6 @@ static ssize_t srp_create_target(struct class_device *class_dev,
 	target_host->max_lun = SRP_MAX_LUN;
 
 	target = host_to_target(target_host);
-	memset(target, 0, sizeof *target);
 
 	target->io_class   = SRP_REV16A_IB_IO_CLASS;
 	target->scsi_host  = target_host;
@@ -1794,9 +1825,6 @@ static struct srp_host *srp_add_port(struct srp_device *device, u8 port)
 	host->dev  = device;
 	host->port = port;
 
-	host->initiator_port_id[7] = port;
-	memcpy(host->initiator_port_id + 8, &device->dev->node_guid, 8);
-
 	host->class_dev.class = &srp_class;
 	host->class_dev.dev   = device->dev->dma_device;
 	snprintf(host->class_dev.class_id, BUS_ID_SIZE, "srp-%s-%d",
@@ -1881,7 +1909,7 @@ static void srp_add_one(struct ib_device *device)
 	if (IS_ERR(srp_dev->fmr_pool))
 		srp_dev->fmr_pool = NULL;
 
-	if (device->node_type == IB_NODE_SWITCH) {
+	if (device->node_type == RDMA_NODE_IB_SWITCH) {
 		s = 0;
 		e = 0;
 	} else {
@@ -1980,9 +2008,12 @@ static int __init srp_init_module(void)
 		return ret;
 	}
 
+	ib_sa_register_client(&srp_sa_client);
+
 	ret = ib_register_client(&srp_client);
 	if (ret) {
 		printk(KERN_ERR PFX "couldn't register IB client\n");
+		ib_sa_unregister_client(&srp_sa_client);
 		class_unregister(&srp_class);
 		return ret;
 	}
@@ -1993,6 +2024,7 @@ static int __init srp_init_module(void)
 static void __exit srp_cleanup_module(void)
 {
 	ib_unregister_client(&srp_client);
+	ib_sa_unregister_client(&srp_sa_client);
 	class_unregister(&srp_class);
 }
 

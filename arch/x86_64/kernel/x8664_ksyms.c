@@ -1,7 +1,6 @@
 /* Exports for assembly files.
    All C exports should go in the respective C files. */
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/smp.h>
 
@@ -29,6 +28,7 @@ EXPORT_SYMBOL(__put_user_8);
 EXPORT_SYMBOL(copy_user_generic);
 EXPORT_SYMBOL(copy_from_user);
 EXPORT_SYMBOL(copy_to_user);
+EXPORT_SYMBOL(__copy_from_user_inatomic);
 
 EXPORT_SYMBOL(copy_page);
 EXPORT_SYMBOL(clear_page);

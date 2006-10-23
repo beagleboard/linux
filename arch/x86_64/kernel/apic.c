@@ -36,7 +36,9 @@
 #include <asm/idle.h>
 #include <asm/proto.h>
 #include <asm/timex.h>
+#include <asm/apic.h>
 
+int apic_mapped;
 int apic_verbosity;
 int apic_runs_main_timer;
 int apic_calibrate_pmtmr __initdata;
@@ -136,72 +138,40 @@ void clear_local_APIC(void)
 	apic_read(APIC_ESR);
 }
 
-void __init connect_bsp_APIC(void)
-{
-	if (pic_mode) {
-		/*
-		 * Do not trust the local APIC being empty at bootup.
-		 */
-		clear_local_APIC();
-		/*
-		 * PIC mode, enable APIC mode in the IMCR, i.e.
-		 * connect BSP's local APIC to INT and NMI lines.
-		 */
-		apic_printk(APIC_VERBOSE, "leaving PIC mode, enabling APIC mode.\n");
-		outb(0x70, 0x22);
-		outb(0x01, 0x23);
-	}
-}
-
 void disconnect_bsp_APIC(int virt_wire_setup)
 {
-	if (pic_mode) {
-		/*
-		 * Put the board back into PIC mode (has an effect
-		 * only on certain older boards).  Note that APIC
-		 * interrupts, including IPIs, won't work beyond
-		 * this point!  The only exception are INIT IPIs.
-		 */
-		apic_printk(APIC_QUIET, "disabling APIC mode, entering PIC mode.\n");
-		outb(0x70, 0x22);
-		outb(0x00, 0x23);
+	/* Go back to Virtual Wire compatibility mode */
+	unsigned long value;
+
+	/* For the spurious interrupt use vector F, and enable it */
+	value = apic_read(APIC_SPIV);
+	value &= ~APIC_VECTOR_MASK;
+	value |= APIC_SPIV_APIC_ENABLED;
+	value |= 0xf;
+	apic_write(APIC_SPIV, value);
+
+	if (!virt_wire_setup) {
+		/* For LVT0 make it edge triggered, active high, external and enabled */
+		value = apic_read(APIC_LVT0);
+		value &= ~(APIC_MODE_MASK | APIC_SEND_PENDING |
+			APIC_INPUT_POLARITY | APIC_LVT_REMOTE_IRR |
+			APIC_LVT_LEVEL_TRIGGER | APIC_LVT_MASKED );
+		value |= APIC_LVT_REMOTE_IRR | APIC_SEND_PENDING;
+		value = SET_APIC_DELIVERY_MODE(value, APIC_MODE_EXTINT);
+		apic_write(APIC_LVT0, value);
+	} else {
+		/* Disable LVT0 */
+		apic_write(APIC_LVT0, APIC_LVT_MASKED);
 	}
-	else {
-		/* Go back to Virtual Wire compatibility mode */
-		unsigned long value;
 
-		/* For the spurious interrupt use vector F, and enable it */
-		value = apic_read(APIC_SPIV);
-		value &= ~APIC_VECTOR_MASK;
-		value |= APIC_SPIV_APIC_ENABLED;
-		value |= 0xf;
-		apic_write(APIC_SPIV, value);
-
-		if (!virt_wire_setup) {
-			/* For LVT0 make it edge triggered, active high, external and enabled */
-			value = apic_read(APIC_LVT0);
-			value &= ~(APIC_MODE_MASK | APIC_SEND_PENDING |
-				APIC_INPUT_POLARITY | APIC_LVT_REMOTE_IRR |
-				APIC_LVT_LEVEL_TRIGGER | APIC_LVT_MASKED );
-			value |= APIC_LVT_REMOTE_IRR | APIC_SEND_PENDING;
-			value = SET_APIC_DELIVERY_MODE(value, APIC_MODE_EXTINT);
-			apic_write(APIC_LVT0, value);
-		}
-		else {
-			/* Disable LVT0 */
-			apic_write(APIC_LVT0, APIC_LVT_MASKED);
-		}
-
-		/* For LVT1 make it edge triggered, active high, nmi and enabled */
-		value = apic_read(APIC_LVT1);
-		value &= ~(
-			APIC_MODE_MASK | APIC_SEND_PENDING |
+	/* For LVT1 make it edge triggered, active high, nmi and enabled */
+	value = apic_read(APIC_LVT1);
+	value &= ~(APIC_MODE_MASK | APIC_SEND_PENDING |
 			APIC_INPUT_POLARITY | APIC_LVT_REMOTE_IRR |
 			APIC_LVT_LEVEL_TRIGGER | APIC_LVT_MASKED);
-		value |= APIC_LVT_REMOTE_IRR | APIC_SEND_PENDING;
-		value = SET_APIC_DELIVERY_MODE(value, APIC_MODE_NMI);
-		apic_write(APIC_LVT1, value);
-	}
+	value |= APIC_LVT_REMOTE_IRR | APIC_SEND_PENDING;
+	value = SET_APIC_DELIVERY_MODE(value, APIC_MODE_NMI);
+	apic_write(APIC_LVT1, value);
 }
 
 void disable_local_APIC(void)
@@ -297,8 +267,6 @@ void __init sync_Arb_IDs(void)
 				| APIC_DM_INIT);
 }
 
-extern void __error_in_apic_c (void);
-
 /*
  * An initial setup of the virtual wire mode.
  */
@@ -345,8 +313,7 @@ void __cpuinit setup_local_APIC (void)
 
 	value = apic_read(APIC_LVR);
 
-	if ((SPURIOUS_APIC_VECTOR & 0x0f) != 0x0f)
-		__error_in_apic_c();
+	BUILD_BUG_ON((SPURIOUS_APIC_VECTOR & 0x0f) != 0x0f);
 
 	/*
 	 * Double-check whether this APIC is really registered.
@@ -399,32 +366,8 @@ void __cpuinit setup_local_APIC (void)
 	 */
 	value |= APIC_SPIV_APIC_ENABLED;
 
-	/*
-	 * Some unknown Intel IO/APIC (or APIC) errata is biting us with
-	 * certain networking cards. If high frequency interrupts are
-	 * happening on a particular IOAPIC pin, plus the IOAPIC routing
-	 * entry is masked/unmasked at a high rate as well then sooner or
-	 * later IOAPIC line gets 'stuck', no more interrupts are received
-	 * from the device. If focus CPU is disabled then the hang goes
-	 * away, oh well :-(
-	 *
-	 * [ This bug can be reproduced easily with a level-triggered
-	 *   PCI Ne2000 networking cards and PII/PIII processors, dual
-	 *   BX chipset. ]
-	 */
-	/*
-	 * Actually disabling the focus CPU check just makes the hang less
-	 * frequent as it makes the interrupt distributon model be more
-	 * like LRU than MRU (the short-term load is more even across CPUs).
-	 * See also the comment in end_level_ioapic_irq().  --macro
-	 */
-#if 1
-	/* Enable focus processor (bit==0) */
-	value &= ~APIC_SPIV_FOCUS_DISABLED;
-#else
-	/* Disable focus processor (bit==1) */
-	value |= APIC_SPIV_FOCUS_DISABLED;
-#endif
+	/* We always use processor focus */
+
 	/*
 	 * Set spurious IRQ vector
 	 */
@@ -442,7 +385,7 @@ void __cpuinit setup_local_APIC (void)
 	 * TODO: set up through-local-APIC from through-I/O-APIC? --macro
 	 */
 	value = apic_read(APIC_LVT0) & APIC_LVT_MASKED;
-	if (!smp_processor_id() && (pic_mode || !value)) {
+	if (!smp_processor_id() && !value) {
 		value = APIC_DM_EXTINT;
 		apic_printk(APIC_VERBOSE, "enabled ExtINT on CPU#%d\n", smp_processor_id());
 	} else {
@@ -479,8 +422,7 @@ void __cpuinit setup_local_APIC (void)
 	}
 
 	nmi_watchdog_default();
-	if (nmi_watchdog == NMI_LOCAL_APIC)
-		setup_apic_nmi_watchdog();
+	setup_apic_nmi_watchdog(NULL);
 	apic_pm_activate();
 }
 
@@ -527,8 +469,7 @@ static int lapic_suspend(struct sys_device *dev, pm_message_t state)
 	apic_pm_state.apic_tmict = apic_read(APIC_TMICT);
 	apic_pm_state.apic_tdcr = apic_read(APIC_TDCR);
 	apic_pm_state.apic_thmr = apic_read(APIC_LVTTHMR);
-	local_save_flags(flags);
-	local_irq_disable();
+	local_irq_save(flags);
 	disable_local_APIC();
 	local_irq_restore(flags);
 	return 0;
@@ -606,18 +547,24 @@ static void apic_pm_activate(void) { }
 
 static int __init apic_set_verbosity(char *str)
 {
+	if (str == NULL)  {
+		skip_ioapic_setup = 0;
+		ioapic_force = 1;
+		return 0;
+	}
 	if (strcmp("debug", str) == 0)
 		apic_verbosity = APIC_DEBUG;
 	else if (strcmp("verbose", str) == 0)
 		apic_verbosity = APIC_VERBOSE;
-	else
+	else {
 		printk(KERN_WARNING "APIC Verbosity level %s not recognised"
-				" use apic=verbose or apic=debug", str);
+				" use apic=verbose or apic=debug\n", str);
+		return -EINVAL;
+	}
 
-	return 1;
+	return 0;
 }
-
-__setup("apic=", apic_set_verbosity);
+early_param("apic", apic_set_verbosity);
 
 /*
  * Detect and enable local APICs on non-SMP boards.
@@ -654,6 +601,7 @@ void __init init_apic_mappings(void)
 		apic_phys = mp_lapic_addr;
 
 	set_fixmap_nocache(FIX_APIC_BASE, apic_phys);
+	apic_mapped = 1;
 	apic_printk(APIC_VERBOSE,"mapped APIC to %16lx (%16lx)\n", APIC_BASE, apic_phys);
 
 	/*
@@ -662,7 +610,6 @@ void __init init_apic_mappings(void)
 	 */
 	boot_cpu_id = GET_APIC_ID(apic_read(APIC_ID));
 
-#ifdef CONFIG_X86_IO_APIC
 	{
 		unsigned long ioapic_phys, idx = FIX_IO_APIC_BASE_0;
 		int i;
@@ -680,7 +627,6 @@ void __init init_apic_mappings(void)
 			idx++;
 		}
 	}
-#endif
 }
 
 /*
@@ -939,19 +885,19 @@ void setup_APIC_extened_lvt(unsigned char lvt_off, unsigned char vector,
  * value into /proc/profile.
  */
 
-void smp_local_timer_interrupt(struct pt_regs *regs)
+void smp_local_timer_interrupt(void)
 {
-	profile_tick(CPU_PROFILING, regs);
+	profile_tick(CPU_PROFILING);
 #ifdef CONFIG_SMP
-	update_process_times(user_mode(regs));
+	update_process_times(user_mode(get_irq_regs()));
 #endif
 	if (apic_runs_main_timer > 1 && smp_processor_id() == boot_cpu_id)
-		main_timer_handler(regs);
+		main_timer_handler();
 	/*
 	 * We take the 'long' return path, and there every subsystem
 	 * grabs the appropriate locks (kernel lock/ irq lock).
 	 *
-	 * we might want to decouple profiling from the 'long path',
+	 * We might want to decouple profiling from the 'long path',
 	 * and do the profiling totally in assembly.
 	 *
 	 * Currently this isn't too much of an issue (performance wise),
@@ -969,6 +915,8 @@ void smp_local_timer_interrupt(struct pt_regs *regs)
  */
 void smp_apic_timer_interrupt(struct pt_regs *regs)
 {
+	struct pt_regs *old_regs = set_irq_regs(regs);
+
 	/*
 	 * the NMI deadlock-detector uses this.
 	 */
@@ -986,8 +934,9 @@ void smp_apic_timer_interrupt(struct pt_regs *regs)
 	 */
 	exit_idle();
 	irq_enter();
-	smp_local_timer_interrupt(regs);
+	smp_local_timer_interrupt();
 	irq_exit();
+	set_irq_regs(old_regs);
 }
 
 /*
@@ -1123,19 +1072,15 @@ int __init APIC_init_uniprocessor (void)
 
 	verify_local_APIC();
 
-	connect_bsp_APIC();
-
 	phys_cpu_present_map = physid_mask_of_physid(boot_cpu_id);
 	apic_write(APIC_ID, SET_APIC_ID(boot_cpu_id));
 
 	setup_local_APIC();
 
-#ifdef CONFIG_X86_IO_APIC
 	if (smp_found_config && !skip_ioapic_setup && nr_ioapics)
-			setup_IO_APIC();
+		setup_IO_APIC();
 	else
 		nr_ioapics = 0;
-#endif
 	setup_boot_APIC_clock();
 	check_nmi_watchdog();
 	return 0;
@@ -1144,14 +1089,17 @@ int __init APIC_init_uniprocessor (void)
 static __init int setup_disableapic(char *str) 
 { 
 	disable_apic = 1;
-	return 1;
-} 
+	clear_bit(X86_FEATURE_APIC, boot_cpu_data.x86_capability);
+	return 0;
+}
+early_param("disableapic", setup_disableapic);
 
+/* same as disableapic, for compatibility */
 static __init int setup_nolapic(char *str) 
 { 
-	disable_apic = 1;
-	return 1;
+	return setup_disableapic(str);
 } 
+early_param("nolapic", setup_nolapic);
 
 static __init int setup_noapictimer(char *str) 
 { 
@@ -1184,11 +1132,5 @@ static __init int setup_apicpmtimer(char *s)
 }
 __setup("apicpmtimer", setup_apicpmtimer);
 
-/* dummy parsing: see setup.c */
-
-__setup("disableapic", setup_disableapic); 
-__setup("nolapic", setup_nolapic);  /* same as disableapic, for compatibility */
-
 __setup("noapictimer", setup_noapictimer); 
 
-/* no "lapic" flag - we only use the lapic when the BIOS tells us so. */

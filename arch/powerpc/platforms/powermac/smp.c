@@ -160,7 +160,7 @@ static inline void psurge_clr_ipi(int cpu)
  */
 static unsigned long psurge_smp_message[NR_CPUS];
 
-void psurge_smp_message_recv(struct pt_regs *regs)
+void psurge_smp_message_recv(void)
 {
 	int cpu = smp_processor_id();
 	int msg;
@@ -174,12 +174,12 @@ void psurge_smp_message_recv(struct pt_regs *regs)
 	/* make sure there is a message there */
 	for (msg = 0; msg < 4; msg++)
 		if (test_and_clear_bit(msg, &psurge_smp_message[cpu]))
-			smp_message_recv(msg, regs);
+			smp_message_recv(msg);
 }
 
-irqreturn_t psurge_primary_intr(int irq, void *d, struct pt_regs *regs)
+irqreturn_t psurge_primary_intr(int irq, void *d)
 {
-	psurge_smp_message_recv(regs);
+	psurge_smp_message_recv();
 	return IRQ_HANDLED;
 }
 
@@ -328,6 +328,7 @@ static void __init smp_psurge_kick_cpu(int nr)
 {
 	unsigned long start = __pa(__secondary_start_pmac_0) + nr * 8;
 	unsigned long a;
+	int i;
 
 	/* may need to flush here if secondary bats aren't setup */
 	for (a = KERNELBASE; a < KERNELBASE + 0x800000; a += 32)
@@ -340,7 +341,11 @@ static void __init smp_psurge_kick_cpu(int nr)
 	mb();
 
 	psurge_set_ipi(nr);
-	udelay(10);
+	/*
+	 * We can't use udelay here because the timebase is now frozen.
+	 */
+	for (i = 0; i < 2000; ++i)
+		barrier();
 	psurge_clr_ipi(nr);
 
 	if (ppc_md.progress) ppc_md.progress("smp_psurge_kick_cpu - done", 0x354);
@@ -548,7 +553,7 @@ static void __init smp_core99_setup_i2c_hwsync(int ncpus)
 	struct device_node *cc = NULL;	
 	struct device_node *p;
 	const char *name = NULL;
-	u32 *reg;
+	const u32 *reg;
 	int ok;
 
 	/* Look for the clock chip */
@@ -562,7 +567,7 @@ static void __init smp_core99_setup_i2c_hwsync(int ncpus)
 		pmac_tb_clock_chip_host = pmac_i2c_find_bus(cc);
 		if (pmac_tb_clock_chip_host == NULL)
 			continue;
-		reg = (u32 *)get_property(cc, "reg", NULL);
+		reg = get_property(cc, "reg", NULL);
 		if (reg == NULL)
 			continue;
 		switch (*reg) {
@@ -702,13 +707,12 @@ static void __init smp_core99_setup(int ncpus)
 	/* GPIO based HW sync on ppc32 Core99 */
 	if (pmac_tb_freeze == NULL && !machine_is_compatible("MacRISC4")) {
 		struct device_node *cpu;
-		u32 *tbprop = NULL;
+		const u32 *tbprop = NULL;
 
 		core99_tb_gpio = KL_GPIO_TB_ENABLE;	/* default value */
 		cpu = of_find_node_by_type(NULL, "cpu");
 		if (cpu != NULL) {
-			tbprop = (u32 *)get_property(cpu, "timebase-enable",
-						     NULL);
+			tbprop = get_property(cpu, "timebase-enable", NULL);
 			if (tbprop)
 				core99_tb_gpio = *tbprop;
 			of_node_put(cpu);

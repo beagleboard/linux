@@ -35,7 +35,7 @@ extern void ei_poll(struct net_device *dev);
 extern void NS8390_init(struct net_device *dev, int startp);
 extern int ei_open(struct net_device *dev);
 extern int ei_close(struct net_device *dev);
-extern irqreturn_t ei_interrupt(int irq, void *dev_id, struct pt_regs *regs);
+extern irqreturn_t ei_interrupt(int irq, void *dev_id);
 extern struct net_device *__alloc_ei_netdev(int size);
 static inline struct net_device *alloc_ei_netdev(void)
 {
@@ -106,7 +106,7 @@ struct ei_device {
  *	Only generate indirect loads given a machine that needs them.
  *      - removed AMIGA_PCMCIA from this list, handled as ISA io now
  */
- 
+
 #if defined(CONFIG_MAC) ||  \
     defined(CONFIG_ZORRO8390) || defined(CONFIG_ZORRO8390_MODULE) || \
     defined(CONFIG_HYDRA) || defined(CONFIG_HYDRA_MODULE)

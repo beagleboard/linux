@@ -56,7 +56,7 @@ static struct device_node *get_gpio(char *name,
 {
 	struct device_node *np, *gpio;
 	u32 *reg;
-	char *audio_gpio;
+	const char *audio_gpio;
 
 	*gpioptr = -1;
 
@@ -283,9 +283,7 @@ static void ftr_gpio_exit(struct gpio_runtime *rt)
 	mutex_destroy(&rt->line_out_notify.mutex);
 }
 
-static irqreturn_t ftr_handle_notify_irq(int xx,
-					 void *data,
-					 struct pt_regs *regs)
+static irqreturn_t ftr_handle_notify_irq(int xx, void *data)
 {
 	struct gpio_notification *notif = data;
 

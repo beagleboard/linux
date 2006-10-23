@@ -896,7 +896,7 @@ static struct {
 */
 static int     de4x5_open(struct net_device *dev);
 static int     de4x5_queue_pkt(struct sk_buff *skb, struct net_device *dev);
-static irqreturn_t de4x5_interrupt(int irq, void *dev_id, struct pt_regs *regs);
+static irqreturn_t de4x5_interrupt(int irq, void *dev_id);
 static int     de4x5_close(struct net_device *dev);
 static struct  net_device_stats *de4x5_get_stats(struct net_device *dev);
 static void    de4x5_local_stats(struct net_device *dev, char *buf, int pkt_len);
@@ -1538,18 +1538,14 @@ de4x5_queue_pkt(struct sk_buff *skb, struct net_device *dev)
 ** interrupt is asserted and this routine entered.
 */
 static irqreturn_t
-de4x5_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+de4x5_interrupt(int irq, void *dev_id)
 {
-    struct net_device *dev = (struct net_device *)dev_id;
+    struct net_device *dev = dev_id;
     struct de4x5_private *lp;
     s32 imr, omr, sts, limit;
     u_long iobase;
     unsigned int handled = 0;
 
-    if (dev == NULL) {
-	printk ("de4x5_interrupt(): irq %d for unknown device.\n", irq);
-	return IRQ_NONE;
-    }
     lp = netdev_priv(dev);
     spin_lock(&lp->lock);
     iobase = dev->base_addr;
@@ -2114,6 +2110,7 @@ static struct eisa_device_id de4x5_eisa_ids[] = {
         { "DEC4250", 0 },	/* 0 is the board name index... */
         { "" }
 };
+MODULE_DEVICE_TABLE(eisa, de4x5_eisa_ids);
 
 static struct eisa_driver de4x5_eisa_driver = {
         .id_table = de4x5_eisa_ids,
@@ -5754,7 +5751,7 @@ static int __init de4x5_module_init (void)
 	int err = 0;
 
 #ifdef CONFIG_PCI
-	err = pci_module_init (&de4x5_pci_driver);
+	err = pci_register_driver(&de4x5_pci_driver);
 #endif
 #ifdef CONFIG_EISA
 	err |= eisa_driver_register (&de4x5_eisa_driver);

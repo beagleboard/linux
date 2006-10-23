@@ -335,13 +335,13 @@ DEBUG(printk(CARD_DEBUG "turning off\n",CARD));
 }
 
 static
-void zoran_irq(int irq, void *dev_id, struct pt_regs * regs)
+void zoran_irq(int irq, void *dev_id)
 {
 	u32 stat,estat;
 	int count = 0;
 	struct zoran *ztv = dev_id;
 
-	UNUSED(irq); UNUSED(regs);
+	UNUSED(irq);
 	for (;;) {
 		/* get/clear interrupt status bits */
 		stat=zrread(ZORAN_ISR);
@@ -987,6 +987,8 @@ int zoran_ioctl(struct video_device* dev, unsigned int cmd, void *arg)
 			 VID_TYPE_SCALES;
 		if (ztv->have_tuner)
 			c.type |= VID_TYPE_TUNER;
+		if (pci_problems & (PCIPCI_FAIL|PCIAGP_FAIL))
+			c.type &= ~VID_TYPE_OVERLAY;
 		if (ztv->have_decoder) {
 			c.channels = ztv->card->video_inputs;
 			c.audios = ztv->card->audio_inputs;
@@ -1284,6 +1286,8 @@ int zoran_ioctl(struct video_device* dev, unsigned int cmd, void *arg)
 		struct video_buffer v;
 		if(!capable(CAP_SYS_ADMIN))
 			return -EPERM;
+		if (pcipci_problems & (PCIPCI_FAIL|PCIAGP_FAIL))
+			return -ENXIO;
 		if (copy_from_user(&v, arg,sizeof(v)))
 			return -EFAULT;
 		DEBUG(printk(CARD_DEBUG "VIDIOCSFBUF(%p,%d,%d,%d,%d)\n",CARD,v.base, v.width,v.height,v.depth,v.bytesperline));
@@ -1836,16 +1840,16 @@ int __init find_zoran(void)
 	struct zoran *ztv;
 	struct pci_dev *dev = NULL;
 	unsigned char revision;
-	int zoran_num=0;
+	int zoran_num = 0;
 
-	while ((dev = pci_find_device(PCI_VENDOR_ID_ZORAN,PCI_DEVICE_ID_ZORAN_36120, dev)))
+	while ((dev = pci_get_device(PCI_VENDOR_ID_ZORAN,PCI_DEVICE_ID_ZORAN_36120, dev)))
 	{
 		/* Ok, a ZR36120/ZR36125 found! */
 		ztv = &zorans[zoran_num];
 		ztv->dev = dev;
 
 		if (pci_enable_device(dev))
-			return -EIO;
+			continue;
 
 		pci_read_config_byte(dev, PCI_CLASS_REVISION, &revision);
 		printk(KERN_INFO "zoran: Zoran %x (rev %d) ",
@@ -1863,17 +1867,18 @@ int __init find_zoran(void)
 		{
 			iounmap(ztv->zoran_mem);
 			printk(KERN_ERR "zoran: Bad irq number or handler\n");
-			return -EINVAL;
+			continue;
 		}
 		if (result==-EBUSY)
 			printk(KERN_ERR "zoran: IRQ %d busy, change your PnP config in BIOS\n",dev->irq);
 		if (result < 0) {
 			iounmap(ztv->zoran_mem);
-			return result;
+			continue;
 		}
 		/* Enable bus-mastering */
 		pci_set_master(dev);
-
+		/* Keep a reference */
+		pci_dev_get(dev);
 		zoran_num++;
 	}
 	if(zoran_num)
@@ -2030,12 +2035,15 @@ void release_zoran(int max)
 		/* free it */
 		free_irq(ztv->dev->irq,ztv);
 
-    		/* unregister i2c_bus */
+		/* unregister i2c_bus */
 		i2c_unregister_bus((&ztv->i2c));
 
 		/* unmap and free memory */
 		if (ztv->zoran_mem)
 			iounmap(ztv->zoran_mem);
+
+		/* Drop PCI device */
+		pci_dev_put(ztv->dev);
 
 		video_unregister_device(&ztv->video_dev);
 		video_unregister_device(&ztv->vbi_dev);
@@ -2053,13 +2061,12 @@ int __init zr36120_init(void)
 
 	handle_chipset();
 	zoran_cards = find_zoran();
-	if (zoran_cards<0)
-		/* no cards found, no need for a driver */
+	if (zoran_cards <= 0)
 		return -EIO;
 
 	/* initialize Zorans */
 	for (card=0; card<zoran_cards; card++) {
-		if (init_zoran(card)<0) {
+		if (init_zoran(card) < 0) {
 			/* only release the zorans we have registered */
 			release_zoran(card);
 			return -EIO;

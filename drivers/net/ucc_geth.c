@@ -47,7 +47,7 @@
 
 #undef DEBUG
 
-#define DRV_DESC "QE UCC Gigabit Ethernet Controller version:June 20, 2006"
+#define DRV_DESC "QE UCC Gigabit Ethernet Controller version:Sept 11, 2006"
 #define DRV_NAME "ucc_geth"
 
 #define ugeth_printk(level, format, arg...)  \
@@ -2510,8 +2510,6 @@ static void ucc_geth_set_multi(struct net_device *dev)
 
 	if (dev->flags & IFF_PROMISC) {
 
-		/* Log any net taps. */
-		printk("%s: Promiscuous mode enabled.\n", dev->name);
 		uf_regs->upsmr |= UPSMR_PRO;
 
 	} else {
@@ -3846,8 +3844,7 @@ static int ucc_geth_poll(struct net_device *dev, int *budget)
 }
 #endif				/* CONFIG_UGETH_NAPI */
 
-static irqreturn_t ucc_geth_irq_handler(int irq, void *info,
-					struct pt_regs *regs)
+static irqreturn_t ucc_geth_irq_handler(int irq, void *info)
 {
 	struct net_device *dev = (struct net_device *)info;
 	ucc_geth_private_t *ugeth = netdev_priv(dev);
@@ -3912,7 +3909,7 @@ static irqreturn_t ucc_geth_irq_handler(int irq, void *info,
 	return IRQ_HANDLED;
 }
 
-static irqreturn_t phy_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+static irqreturn_t phy_interrupt(int irq, void *dev_id)
 {
 	struct net_device *dev = (struct net_device *)dev_id;
 	ucc_geth_private_t *ugeth = netdev_priv(dev);
@@ -4131,20 +4128,7 @@ static int ucc_geth_close(struct net_device *dev)
 	return 0;
 }
 
-struct ethtool_ops ucc_geth_ethtool_ops = {
-	.get_settings = NULL,
-	.get_drvinfo = NULL,
-	.get_regs_len = NULL,
-	.get_regs = NULL,
-	.get_link = NULL,
-	.get_coalesce = NULL,
-	.set_coalesce = NULL,
-	.get_ringparam = NULL,
-	.set_ringparam = NULL,
-	.get_strings = NULL,
-	.get_stats_count = NULL,
-	.get_ethtool_stats = NULL,
-};
+const struct ethtool_ops ucc_geth_ethtool_ops = { };
 
 static int ucc_geth_probe(struct device *device)
 {

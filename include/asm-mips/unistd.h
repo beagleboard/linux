@@ -313,7 +313,7 @@
 #define __NR_mknodat			(__NR_Linux + 290)
 #define __NR_fchownat			(__NR_Linux + 291)
 #define __NR_futimesat			(__NR_Linux + 292)
-#define __NR_fstatat			(__NR_Linux + 293)
+#define __NR_fstatat64			(__NR_Linux + 293)
 #define __NR_unlinkat			(__NR_Linux + 294)
 #define __NR_renameat			(__NR_Linux + 295)
 #define __NR_linkat			(__NR_Linux + 296)
@@ -329,16 +329,18 @@
 #define __NR_tee			(__NR_Linux + 306)
 #define __NR_vmsplice			(__NR_Linux + 307)
 #define __NR_move_pages			(__NR_Linux + 308)
+#define __NR_set_robust_list		(__NR_Linux + 309)
+#define __NR_get_robust_list		(__NR_Linux + 310)
 
 /*
  * Offset of the last Linux o32 flavoured syscall
  */
-#define __NR_Linux_syscalls		308
+#define __NR_Linux_syscalls		310
 
 #endif /* _MIPS_SIM == _MIPS_SIM_ABI32 */
 
 #define __NR_O32_Linux			4000
-#define __NR_O32_Linux_syscalls		308
+#define __NR_O32_Linux_syscalls		310
 
 #if _MIPS_SIM == _MIPS_SIM_ABI64
 
@@ -598,7 +600,7 @@
 #define __NR_mknodat			(__NR_Linux + 249)
 #define __NR_fchownat			(__NR_Linux + 250)
 #define __NR_futimesat			(__NR_Linux + 251)
-#define __NR_fstatat			(__NR_Linux + 252)
+#define __NR_newfstatat			(__NR_Linux + 252)
 #define __NR_unlinkat			(__NR_Linux + 253)
 #define __NR_renameat			(__NR_Linux + 254)
 #define __NR_linkat			(__NR_Linux + 255)
@@ -614,16 +616,18 @@
 #define __NR_tee			(__NR_Linux + 265)
 #define __NR_vmsplice			(__NR_Linux + 266)
 #define __NR_move_pages			(__NR_Linux + 267)
+#define __NR_set_robust_list		(__NR_Linux + 268)
+#define __NR_get_robust_list		(__NR_Linux + 269)
 
 /*
  * Offset of the last Linux 64-bit flavoured syscall
  */
-#define __NR_Linux_syscalls		267
+#define __NR_Linux_syscalls		269
 
 #endif /* _MIPS_SIM == _MIPS_SIM_ABI64 */
 
 #define __NR_64_Linux			5000
-#define __NR_64_Linux_syscalls		267
+#define __NR_64_Linux_syscalls		269
 
 #if _MIPS_SIM == _MIPS_SIM_NABI32
 
@@ -887,7 +891,7 @@
 #define __NR_mknodat			(__NR_Linux + 253)
 #define __NR_fchownat			(__NR_Linux + 254)
 #define __NR_futimesat			(__NR_Linux + 255)
-#define __NR_fstatat			(__NR_Linux + 256)
+#define __NR_newfstatat			(__NR_Linux + 256)
 #define __NR_unlinkat			(__NR_Linux + 257)
 #define __NR_renameat			(__NR_Linux + 258)
 #define __NR_linkat			(__NR_Linux + 259)
@@ -903,16 +907,18 @@
 #define __NR_tee			(__NR_Linux + 269)
 #define __NR_vmsplice			(__NR_Linux + 270)
 #define __NR_move_pages			(__NR_Linux + 271)
+#define __NR_set_robust_list		(__NR_Linux + 272)
+#define __NR_get_robust_list		(__NR_Linux + 273)
 
 /*
  * Offset of the last N32 flavoured syscall
  */
-#define __NR_Linux_syscalls		271
+#define __NR_Linux_syscalls		273
 
 #endif /* _MIPS_SIM == _MIPS_SIM_NABI32 */
 
 #define __NR_N32_Linux			6000
-#define __NR_N32_Linux_syscalls		271
+#define __NR_N32_Linux_syscalls		273
 
 #ifdef __KERNEL__
 
@@ -1206,45 +1212,6 @@ type name (atype a,btype b,ctype c,dtype d,etype e,ftype f) \
 #  define __ARCH_WANT_COMPAT_SYS_TIME
 # endif
 
-#ifdef __KERNEL_SYSCALLS__
-
-#include <linux/compiler.h>
-#include <linux/types.h>
-#include <linux/linkage.h>
-#include <asm/ptrace.h>
-#include <asm/sim.h>
-
-/*
- * we need this inline - forking from kernel space will result
- * in NO COPY ON WRITE (!!!), until an execve is executed. This
- * is no problem, but for the stack. This is handled by not letting
- * main() use the stack at all after fork(). Thus, no function
- * calls - which means inline code for fork too, as otherwise we
- * would use the stack upon exit from 'fork()'.
- *
- * Actually only pause and fork are needed inline, so that there
- * won't be any messing with the stack from main(), but we define
- * some others too.
- */
-static inline _syscall3(int,execve,const char *,file,char **,argv,char **,envp)
-
-asmlinkage unsigned long sys_mmap(
-				unsigned long addr, size_t len,
-				int prot, int flags,
-				int fd, off_t offset);
-asmlinkage long sys_mmap2(
-			unsigned long addr, unsigned long len,
-			unsigned long prot, unsigned long flags,
-			unsigned long fd, unsigned long pgoff);
-asmlinkage int sys_execve(nabi_no_regargs struct pt_regs regs);
-asmlinkage int sys_pipe(nabi_no_regargs struct pt_regs regs);
-struct sigaction;
-asmlinkage long sys_rt_sigaction(int sig,
-				const struct sigaction __user *act,
-				struct sigaction __user *oact,
-				size_t sigsetsize);
-
-#endif /* __KERNEL_SYSCALLS__ */
 #endif /* !__ASSEMBLY__ */
 
 /*

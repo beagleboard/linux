@@ -14,11 +14,15 @@
 #include <linux/pci_ids.h>
 #include <linux/pci_regs.h>
 #include <asm/pci-direct.h>
+#include <asm/io.h>
 
 static int __init vsmp_init(void)
 {
 	void *address;
 	unsigned int cap, ctl;
+
+	if (!early_pci_allowed())
+		return 0;
 
 	/* Check if we are running on a ScaleMP vSMP box */
 	if ((read_pci_config_16(0, 0x1f, 0, PCI_VENDOR_ID) != PCI_VENDOR_ID_SCALEMP) ||

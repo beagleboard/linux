@@ -120,7 +120,7 @@ static int ariadne_start_xmit(struct sk_buff *skb, struct net_device *dev);
 static void ariadne_tx_timeout(struct net_device *dev);
 static int ariadne_rx(struct net_device *dev);
 static void ariadne_reset(struct net_device *dev);
-static irqreturn_t ariadne_interrupt(int irq, void *data, struct pt_regs *fp);
+static irqreturn_t ariadne_interrupt(int irq, void *data);
 static int ariadne_close(struct net_device *dev);
 static struct net_device_stats *ariadne_get_stats(struct net_device *dev);
 #ifdef HAVE_MULTICAST
@@ -416,7 +416,7 @@ static inline void ariadne_reset(struct net_device *dev)
 }
 
 
-static irqreturn_t ariadne_interrupt(int irq, void *data, struct pt_regs *fp)
+static irqreturn_t ariadne_interrupt(int irq, void *data)
 {
     struct net_device *dev = (struct net_device *)data;
     volatile struct Am79C960 *lance = (struct Am79C960*)dev->base_addr;
@@ -825,8 +825,6 @@ static void set_multicast_list(struct net_device *dev)
     ariadne_init_ring(dev);
 
     if (dev->flags & IFF_PROMISC) {
-	/* Log any net taps. */
-	printk(KERN_INFO "%s: Promiscuous mode enabled.\n", dev->name);
 	lance->RAP = CSR15;		/* Mode Register */
 	lance->RDP = PROM;		/* Set promiscuous mode */
     } else {

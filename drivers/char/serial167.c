@@ -62,6 +62,7 @@
 #include <linux/console.h>
 #include <linux/module.h>
 #include <linux/bitops.h>
+#include <linux/tty_flip.h>
 
 #include <asm/system.h>
 #include <asm/io.h>
@@ -117,17 +118,6 @@ struct cyclades_port cy_port[] = {
         {-1 },      /* ttyS3 */
 };
 #define NR_PORTS        ARRAY_SIZE(cy_port)
-
-/*
- * tmp_buf is used as a temporary buffer by serial_write.  We need to
- * lock it in case the copy_from_user blocks while swapping in a page,
- * and some other program tries to do a serial write at the same time.
- * Since the lock will only come under contention when the system is
- * swapping and available memory is low, it makes sense to share one
- * buffer across all the serial ports, since it significantly saves
- * memory if large numbers of serial ports are open.
- */
-static unsigned char *tmp_buf = 0;
 
 /*
  * This is used to look up the divisor speeds and the timeouts
@@ -381,7 +371,7 @@ cy_sched_event(struct cyclades_port *info, int event)
    received, out buffer empty, modem change, etc.
  */
 static irqreturn_t
-cd2401_rxerr_interrupt(int irq, void *dev_id, struct pt_regs *fp)
+cd2401_rxerr_interrupt(int irq, void *dev_id)
 {
     struct tty_struct *tty;
     struct cyclades_port *info;
@@ -438,8 +428,9 @@ cd2401_rxerr_interrupt(int irq, void *dev_id, struct pt_regs *fp)
 		       overflowing, we still loose
 		       the next incoming character.
 		     */
-		    tty_insert_flip_char(tty, data, TTY_NORMAL);
-		}
+		    if (tty_buffer_request_room(tty, 1) != 0){
+			tty_insert_flip_char(tty, data, TTY_FRAME);
+		    }
 		/* These two conditions may imply */
 		/* a normal read should be done. */
 		/* else if(data & CyTIMEOUT) */
@@ -448,21 +439,21 @@ cd2401_rxerr_interrupt(int irq, void *dev_id, struct pt_regs *fp)
 		    tty_insert_flip_char(tty, 0, TTY_NORMAL);
 		}
 	    }else{
-		    tty_insert_flip_char(tty, data, TTY_NORMAL);
+		tty_insert_flip_char(tty, data, TTY_NORMAL);
 	    }
 	}else{
 	    /* there was a software buffer overrun
 	       and nothing could be done about it!!! */
 	}
     }
-    schedule_delayed_work(&tty->flip.work, 1);
+    tty_schedule_flip(tty);
     /* end of service */
     base_addr[CyREOIR] = rfoc ? 0 : CyNOTRANS;
     return IRQ_HANDLED;
 } /* cy_rxerr_interrupt */
 
 static irqreturn_t
-cd2401_modem_interrupt(int irq, void *dev_id, struct pt_regs *fp)
+cd2401_modem_interrupt(int irq, void *dev_id)
 {
     struct cyclades_port *info;
     volatile unsigned char *base_addr = (unsigned char *)BASE_ADDR;
@@ -517,7 +508,7 @@ cd2401_modem_interrupt(int irq, void *dev_id, struct pt_regs *fp)
 } /* cy_modem_interrupt */
 
 static irqreturn_t
-cd2401_tx_interrupt(int irq, void *dev_id, struct pt_regs *fp)
+cd2401_tx_interrupt(int irq, void *dev_id)
 {
     struct cyclades_port *info;
     volatile unsigned char *base_addr = (unsigned char *)BASE_ADDR;
@@ -637,7 +628,7 @@ cd2401_tx_interrupt(int irq, void *dev_id, struct pt_regs *fp)
 } /* cy_tx_interrupt */
 
 static irqreturn_t
-cd2401_rx_interrupt(int irq, void *dev_id, struct pt_regs *fp)
+cd2401_rx_interrupt(int irq, void *dev_id)
 {
     struct tty_struct *tty;
     struct cyclades_port *info;
@@ -646,6 +637,7 @@ cd2401_rx_interrupt(int irq, void *dev_id, struct pt_regs *fp)
     char data;
     int char_count;
     int save_cnt;
+    int len;
 
     /* determine the channel and change to that context */
     channel = (u_short ) (base_addr[CyLICR] >> 2);
@@ -678,14 +670,15 @@ cd2401_rx_interrupt(int irq, void *dev_id, struct pt_regs *fp)
 	    info->mon.char_max = char_count;
 	info->mon.char_last = char_count;
 #endif
-	while(char_count--){
+	len = tty_buffer_request_room(tty, char_count);
+	while(len--){
 	    data = base_addr[CyRDR];
 	    tty_insert_flip_char(tty, data, TTY_NORMAL);
 #ifdef CYCLOM_16Y_HACK
 	    udelay(10L);
 #endif
         }
-	schedule_delayed_work(&tty->flip.work, 1);
+	tty_schedule_flip(tty);
     }
     /* end of service */
     base_addr[CyREOIR] = save_cnt ? 0 : CyNOTRANS;
@@ -1132,7 +1125,7 @@ cy_put_char(struct tty_struct *tty, unsigned char ch)
     if (serial_paranoia_check(info, tty->name, "cy_put_char"))
 	return;
 
-    if (!tty || !info->xmit_buf)
+    if (!info->xmit_buf)
 	return;
 
     local_irq_save(flags);
@@ -1198,7 +1191,7 @@ cy_write(struct tty_struct * tty,
 	return 0;
     }
 	
-    if (!tty || !info->xmit_buf || !tmp_buf){
+    if (!info->xmit_buf){
         return 0;
     }
 
@@ -1433,7 +1426,6 @@ cy_tiocmget(struct tty_struct *tty, struct file *file)
   volatile unsigned char *base_addr = (u_char *)BASE_ADDR;
   unsigned long flags;
   unsigned char status;
-  unsigned int result;
 
     channel = info->line;
 
@@ -1457,7 +1449,6 @@ cy_tiocmset(struct tty_struct *tty, struct file *file,
   int channel;
   volatile unsigned char *base_addr = (u_char *)BASE_ADDR;
   unsigned long flags;
-  unsigned int arg;
 	  
     channel = info->line;
 
@@ -1983,13 +1974,6 @@ cy_open(struct tty_struct *tty, struct file * filp)
     tty->driver_data = info;
     info->tty = tty;
 
-    if (!tmp_buf) {
-	tmp_buf = (unsigned char *) get_zeroed_page(GFP_KERNEL);
-	if (!tmp_buf){
-	    return -ENOMEM;
-        }
-    }
-
     /*
      * Start up serial port
      */
@@ -2158,7 +2142,7 @@ mvme167_serial_console_setup(int cflag)
 					rcor >> 5, rbpr);
 } /* serial_console_init */
 
-static struct tty_operations cy_ops = {
+static const struct tty_operations cy_ops = {
 	.open = cy_open,
 	.close = cy_close,
 	.write = cy_write,

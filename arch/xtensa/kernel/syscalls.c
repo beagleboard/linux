@@ -1,5 +1,5 @@
 /*
- * arch/xtensa/kernel/syscall.c
+ * arch/xtensa/kernel/syscalls.c
  *
  * This file is subject to the terms and conditions of the GNU General Public
  * License.  See the file "COPYING" in the main directory of this archive
@@ -128,7 +128,7 @@ out:
 
 int sys_uname(struct old_utsname * name)
 {
-	if (name && !copy_to_user(name, &system_utsname, sizeof (*name)))
+	if (name && !copy_to_user(name, utsname(), sizeof (*name)))
 		return 0;
 	return -EFAULT;
 }
@@ -265,4 +265,24 @@ void system_call (struct pt_regs *regs)
 
 	regs->areg[2] = res;
 	do_syscall_trace();
+}
+
+/*
+ * Do a system call from kernel instead of calling sys_execve so we
+ * end up with proper pt_regs.
+ */
+int kernel_execve(const char *filename, char *const argv[], char *const envp[])
+{
+	long __res;
+	asm volatile (
+		"  mov   a5, %2 \n"
+		"  mov   a4, %4 \n"
+		"  mov   a3, %3 \n"
+		"  movi  a2, %1 \n"
+		"  syscall      \n"
+		"  mov   %0, a2 \n"
+		: "=a" (__res)
+		: "i" (__NR_execve), "a" (filename), "a" (argv), "a" (envp)
+		: "a2", "a3", "a4", "a5");
+	return __res;
 }

@@ -120,7 +120,7 @@ static void megaraid_mbox_prepare_pthru(adapter_t *, scb_t *,
 static void megaraid_mbox_prepare_epthru(adapter_t *, scb_t *,
 		struct scsi_cmnd *);
 
-static irqreturn_t megaraid_isr(int, void *, struct pt_regs *);
+static irqreturn_t megaraid_isr(int, void *);
 
 static void megaraid_mbox_dpc(unsigned long);
 
@@ -330,6 +330,21 @@ static struct device_attribute *megaraid_sdev_attrs[] = {
 	NULL,
 };
 
+/**
+ * megaraid_change_queue_depth - Change the device's queue depth
+ * @sdev:	scsi device struct
+ * @qdepth:	depth to set
+ *
+ * Return value:
+ * 	actual depth set
+ **/
+static int megaraid_change_queue_depth(struct scsi_device *sdev, int qdepth)
+{
+	if (qdepth > MBOX_MAX_SCSI_CMDS)
+		qdepth = MBOX_MAX_SCSI_CMDS;
+	scsi_adjust_queue_depth(sdev, 0, qdepth);
+	return sdev->queue_depth;
+}
 
 /*
  * Scsi host template for megaraid unified driver
@@ -343,6 +358,7 @@ static struct scsi_host_template megaraid_template_g = {
 	.eh_device_reset_handler	= megaraid_reset_handler,
 	.eh_bus_reset_handler		= megaraid_reset_handler,
 	.eh_host_reset_handler		= megaraid_reset_handler,
+	.change_queue_depth		= megaraid_change_queue_depth,
 	.use_clustering			= ENABLE_CLUSTERING,
 	.sdev_attrs			= megaraid_sdev_attrs,
 	.shost_attrs			= megaraid_shost_attrs,
@@ -2215,7 +2231,7 @@ megaraid_ack_sequence(adapter_t *adapter)
  * Interrupt service routine for memory-mapped mailbox controllers.
  */
 static irqreturn_t
-megaraid_isr(int irq, void *devp, struct pt_regs *regs)
+megaraid_isr(int irq, void *devp)
 {
 	adapter_t	*adapter = devp;
 	int		handled;

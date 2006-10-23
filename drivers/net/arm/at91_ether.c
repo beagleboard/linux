@@ -196,7 +196,7 @@ static void update_linkspeed(struct net_device *dev, int silent)
 /*
  * Handle interrupts from the PHY
  */
-static irqreturn_t at91ether_phy_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+static irqreturn_t at91ether_phy_interrupt(int irq, void *dev_id)
 {
 	struct net_device *dev = (struct net_device *) dev_id;
 	struct at91_private *lp = (struct at91_private *) dev->priv;
@@ -648,7 +648,7 @@ static void at91ether_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo
 	strlcpy(info->bus_info, dev->class_dev.dev->bus_id, sizeof(info->bus_info));
 }
 
-static struct ethtool_ops at91ether_ethtool_ops = {
+static const struct ethtool_ops at91ether_ethtool_ops = {
 	.get_settings	= at91ether_get_settings,
 	.set_settings	= at91ether_set_settings,
 	.get_drvinfo	= at91ether_get_drvinfo,
@@ -888,7 +888,7 @@ static void at91ether_rx(struct net_device *dev)
 /*
  * MAC interrupt handler
  */
-static irqreturn_t at91ether_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+static irqreturn_t at91ether_interrupt(int irq, void *dev_id)
 {
 	struct net_device *dev = (struct net_device *) dev_id;
 	struct at91_private *lp = (struct at91_private *) dev->priv;
@@ -947,7 +947,7 @@ static int __init at91ether_setup(unsigned long phy_type, unsigned short phy_add
 		return -ENOMEM;
 
 	dev->base_addr = AT91_VA_BASE_EMAC;
-	dev->irq = AT91_ID_EMAC;
+	dev->irq = AT91RM9200_ID_EMAC;
 	SET_MODULE_OWNER(dev);
 
 	/* Install the interrupt handler */

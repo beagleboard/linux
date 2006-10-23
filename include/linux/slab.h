@@ -1,5 +1,5 @@
 /*
- * linux/mm/slab.h
+ * linux/include/linux/slab.h
  * Written by Mark Hemment, 1996.
  * (markhe@nextd.demon.co.uk)
  */
@@ -60,14 +60,13 @@ extern void __init kmem_cache_init(void);
 extern kmem_cache_t *kmem_cache_create(const char *, size_t, size_t, unsigned long,
 				       void (*)(void *, kmem_cache_t *, unsigned long),
 				       void (*)(void *, kmem_cache_t *, unsigned long));
-extern int kmem_cache_destroy(kmem_cache_t *);
+extern void kmem_cache_destroy(kmem_cache_t *);
 extern int kmem_cache_shrink(kmem_cache_t *);
 extern void *kmem_cache_alloc(kmem_cache_t *, gfp_t);
 extern void *kmem_cache_zalloc(struct kmem_cache *, gfp_t);
 extern void kmem_cache_free(kmem_cache_t *, void *);
 extern unsigned int kmem_cache_size(kmem_cache_t *);
 extern const char *kmem_cache_name(kmem_cache_t *);
-extern kmem_cache_t *kmem_find_general_cachep(size_t size, gfp_t gfpflags);
 
 /* Size description struct for general caches. */
 struct cache_sizes {
@@ -78,13 +77,6 @@ struct cache_sizes {
 extern struct cache_sizes malloc_sizes[];
 
 extern void *__kmalloc(size_t, gfp_t);
-#ifndef CONFIG_DEBUG_SLAB
-#define ____kmalloc(size, flags) __kmalloc(size, flags)
-#else
-extern void *__kmalloc_track_caller(size_t, gfp_t, void*);
-#define ____kmalloc(size, flags) \
-    __kmalloc_track_caller(size, flags, __builtin_return_address(0))
-#endif
 
 /**
  * kmalloc - allocate memory
@@ -154,6 +146,23 @@ found:
 	return __kmalloc(size, flags);
 }
 
+/*
+ * kmalloc_track_caller is a special version of kmalloc that records the
+ * calling function of the routine calling it for slab leak tracking instead
+ * of just the calling function (confusing, eh?).
+ * It's useful when the call to kmalloc comes from a widely-used standard
+ * allocator where we care about the real place the memory allocation
+ * request comes from.
+ */
+#ifndef CONFIG_DEBUG_SLAB
+#define kmalloc_track_caller(size, flags) \
+	__kmalloc(size, flags)
+#else
+extern void *__kmalloc_track_caller(size_t, gfp_t, void*);
+#define kmalloc_track_caller(size, flags) \
+	__kmalloc_track_caller(size, flags, __builtin_return_address(0))
+#endif
+
 extern void *__kzalloc(size_t, gfp_t);
 
 /**
@@ -203,7 +212,30 @@ extern int slab_is_available(void);
 
 #ifdef CONFIG_NUMA
 extern void *kmem_cache_alloc_node(kmem_cache_t *, gfp_t flags, int node);
-extern void *kmalloc_node(size_t size, gfp_t flags, int node);
+extern void *__kmalloc_node(size_t size, gfp_t flags, int node);
+
+static inline void *kmalloc_node(size_t size, gfp_t flags, int node)
+{
+	if (__builtin_constant_p(size)) {
+		int i = 0;
+#define CACHE(x) \
+		if (size <= x) \
+			goto found; \
+		else \
+			i++;
+#include "kmalloc_sizes.h"
+#undef CACHE
+		{
+			extern void __you_cannot_kmalloc_that_much(void);
+			__you_cannot_kmalloc_that_much();
+		}
+found:
+		return kmem_cache_alloc_node((flags & GFP_DMA) ?
+			malloc_sizes[i].cs_dmacachep :
+			malloc_sizes[i].cs_cachep, flags, node);
+	}
+	return __kmalloc_node(size, flags, node);
+}
 #else
 static inline void *kmem_cache_alloc_node(kmem_cache_t *cachep, gfp_t flags, int node)
 {
@@ -223,12 +255,11 @@ extern int FASTCALL(kmem_ptr_validate(kmem_cache_t *cachep, void *ptr));
 /* SLOB allocator routines */
 
 void kmem_cache_init(void);
-struct kmem_cache *kmem_find_general_cachep(size_t, gfp_t gfpflags);
 struct kmem_cache *kmem_cache_create(const char *c, size_t, size_t,
 	unsigned long,
 	void (*)(void *, struct kmem_cache *, unsigned long),
 	void (*)(void *, struct kmem_cache *, unsigned long));
-int kmem_cache_destroy(struct kmem_cache *c);
+void kmem_cache_destroy(struct kmem_cache *c);
 void *kmem_cache_alloc(struct kmem_cache *c, gfp_t flags);
 void *kmem_cache_zalloc(struct kmem_cache *, gfp_t);
 void kmem_cache_free(struct kmem_cache *c, void *b);
@@ -250,7 +281,7 @@ static inline void *kcalloc(size_t n, size_t size, gfp_t flags)
 #define kmem_cache_alloc_node(c, f, n) kmem_cache_alloc(c, f)
 #define kmalloc_node(s, f, n) kmalloc(s, f)
 #define kzalloc(s, f) __kzalloc(s, f)
-#define ____kmalloc kmalloc
+#define kmalloc_track_caller kmalloc
 
 #endif /* CONFIG_SLOB */
 
@@ -262,8 +293,6 @@ extern kmem_cache_t	*filp_cachep;
 extern kmem_cache_t	*fs_cachep;
 extern kmem_cache_t	*sighand_cachep;
 extern kmem_cache_t	*bio_cachep;
-
-extern atomic_t slab_reclaim_pages;
 
 #endif	/* __KERNEL__ */
 

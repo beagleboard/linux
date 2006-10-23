@@ -101,7 +101,7 @@ static ide_hwif_t *ide_match_hwif(unsigned long io_base, u8 bootable, const char
 				return hwif;	/* pick an unused entry */
 		}
 	}
-	for (h = 0; h < 2; ++h) {
+	for (h = 0; h < 2 && h < MAX_HWIFS; ++h) {
 		hwif = ide_hwifs + h;
 		if (hwif->chipset == ide_unknown)
 			return hwif;	/* pick an unused entry */
@@ -793,24 +793,6 @@ int __ide_pci_register_driver(struct pci_driver *driver, struct module *module)
 }
 
 EXPORT_SYMBOL_GPL(__ide_pci_register_driver);
-
-/**
- *	ide_unregister_pci_driver	-	unregister an IDE driver
- *	@driver: driver to remove
- *
- *	Unregister a currently installed IDE driver. Returns are the same
- *	as for pci_unregister_driver
- */
- 
-void ide_pci_unregister_driver(struct pci_driver *driver)
-{
-	if(!pre_init)
-		pci_unregister_driver(driver);
-	else
-		list_del(&driver->node);
-}
-
-EXPORT_SYMBOL_GPL(ide_pci_unregister_driver);
 
 /**
  *	ide_scan_pcidev		-	find an IDE driver for a device

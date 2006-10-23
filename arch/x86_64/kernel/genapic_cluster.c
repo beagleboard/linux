@@ -63,6 +63,13 @@ static cpumask_t cluster_target_cpus(void)
 	return cpumask_of_cpu(0);
 }
 
+static cpumask_t cluster_vector_allocation_domain(int cpu)
+{
+	cpumask_t domain = CPU_MASK_NONE;
+	cpu_set(cpu, domain);
+	return domain;
+}
+
 static void cluster_send_IPI_mask(cpumask_t mask, int vector)
 {
 	send_IPI_mask_sequence(mask, vector);
@@ -118,8 +125,8 @@ struct genapic apic_cluster = {
 	.name = "clustered",
 	.int_delivery_mode = dest_Fixed,
 	.int_dest_mode = (APIC_DEST_PHYSICAL != 0),
-	.int_delivery_dest = APIC_DEST_PHYSICAL | APIC_DM_FIXED,
 	.target_cpus = cluster_target_cpus,
+	.vector_allocation_domain = cluster_vector_allocation_domain,
 	.apic_id_registered = cluster_apic_id_registered,
 	.init_apic_ldr = cluster_init_apic_ldr,
 	.send_IPI_all = cluster_send_IPI_all,

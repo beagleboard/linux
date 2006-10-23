@@ -67,10 +67,6 @@ int have_of = 1;
 dev_t boot_dev;
 #endif /* CONFIG_PPC_MULTIPLATFORM */
 
-#ifdef CONFIG_MAGIC_SYSRQ
-unsigned long SYSRQ_KEY = 0x54;
-#endif /* CONFIG_MAGIC_SYSRQ */
-
 #ifdef CONFIG_VGA_CONSOLE
 unsigned long vgacon_remap_base;
 #endif
@@ -242,11 +238,10 @@ void __init setup_arch(char **cmdline_p)
 
 	smp_setup_cpu_maps();
 
-#ifdef CONFIG_XMON_DEFAULT
-	xmon_init(1);
-#endif
 	/* Register early console */
 	register_early_udbg_console();
+
+	xmon_setup();
 
 #if defined(CONFIG_KGDB)
 	if (ppc_md.kgdb_map_scc)
@@ -283,9 +278,6 @@ void __init setup_arch(char **cmdline_p)
 	init_mm.end_code = (unsigned long) _etext;
 	init_mm.end_data = (unsigned long) _edata;
 	init_mm.brk = klimit;
-
-	if (do_early_xmon)
-		debugger(NULL);
 
 	/* set up the bootmem stuff with available memory */
 	do_init_bootmem();

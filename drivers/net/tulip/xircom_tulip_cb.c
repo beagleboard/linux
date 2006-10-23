@@ -328,13 +328,13 @@ static void xircom_init_ring(struct net_device *dev);
 static int xircom_start_xmit(struct sk_buff *skb, struct net_device *dev);
 static int xircom_rx(struct net_device *dev);
 static void xircom_media_change(struct net_device *dev);
-static irqreturn_t xircom_interrupt(int irq, void *dev_instance, struct pt_regs *regs);
+static irqreturn_t xircom_interrupt(int irq, void *dev_instance);
 static int xircom_close(struct net_device *dev);
 static struct net_device_stats *xircom_get_stats(struct net_device *dev);
 static int xircom_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
 static void set_rx_mode(struct net_device *dev);
 static void check_duplex(struct net_device *dev);
-static struct ethtool_ops ops;
+static const struct ethtool_ops ops;
 
 
 /* The Xircom cards are picky about when certain bits in CSR6 can be
@@ -1044,7 +1044,7 @@ static void check_duplex(struct net_device *dev)
 
 /* The interrupt handler does all of the Rx thread work and cleans up
    after the Tx thread. */
-static irqreturn_t xircom_interrupt(int irq, void *dev_instance, struct pt_regs *regs)
+static irqreturn_t xircom_interrupt(int irq, void *dev_instance)
 {
 	struct net_device *dev = dev_instance;
 	struct xircom_private *tp = netdev_priv(dev);
@@ -1430,7 +1430,7 @@ static void xircom_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *i
 	strcpy(info->bus_info, pci_name(tp->pdev));
 }
 
-static struct ethtool_ops ops = {
+static const struct ethtool_ops ops = {
 	.get_settings = xircom_get_settings,
 	.set_settings = xircom_set_settings,
 	.get_drvinfo = xircom_get_drvinfo,
@@ -1707,7 +1707,7 @@ static int __init xircom_init(void)
 #ifdef MODULE
 	printk(version);
 #endif
-	return pci_module_init(&xircom_driver);
+	return pci_register_driver(&xircom_driver);
 }
 
 

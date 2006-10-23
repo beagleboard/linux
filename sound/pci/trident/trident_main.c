@@ -40,6 +40,7 @@
 #include <sound/core.h>
 #include <sound/info.h>
 #include <sound/control.h>
+#include <sound/tlv.h>
 #include <sound/trident.h>
 #include <sound/asoundef.h>
 
@@ -51,8 +52,7 @@ static int snd_trident_pcm_mixer_build(struct snd_trident *trident,
 static int snd_trident_pcm_mixer_free(struct snd_trident *trident,
 				      struct snd_trident_voice * voice,
 				      struct snd_pcm_substream *substream);
-static irqreturn_t snd_trident_interrupt(int irq, void *dev_id,
-					 struct pt_regs *regs);
+static irqreturn_t snd_trident_interrupt(int irq, void *dev_id);
 static int snd_trident_sis_reset(struct snd_trident *trident);
 
 static void snd_trident_clear_voices(struct snd_trident * trident,
@@ -2627,6 +2627,8 @@ static int snd_trident_vol_control_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static DECLARE_TLV_DB_SCALE(db_scale_gvol, -6375, 25, 0);
+
 static int snd_trident_vol_control_put(struct snd_kcontrol *kcontrol,
 				       struct snd_ctl_elem_value *ucontrol)
 {
@@ -2653,6 +2655,7 @@ static struct snd_kcontrol_new snd_trident_vol_music_control __devinitdata =
 	.get =		snd_trident_vol_control_get,
 	.put =		snd_trident_vol_control_put,
 	.private_value = 16,
+	.tlv = { .p = db_scale_gvol },
 };
 
 static struct snd_kcontrol_new snd_trident_vol_wave_control __devinitdata =
@@ -2663,6 +2666,7 @@ static struct snd_kcontrol_new snd_trident_vol_wave_control __devinitdata =
 	.get =		snd_trident_vol_control_get,
 	.put =		snd_trident_vol_control_put,
 	.private_value = 0,
+	.tlv = { .p = db_scale_gvol },
 };
 
 /*---------------------------------------------------------------------------
@@ -2730,6 +2734,7 @@ static struct snd_kcontrol_new snd_trident_pcm_vol_control __devinitdata =
 	.info =		snd_trident_pcm_vol_control_info,
 	.get =		snd_trident_pcm_vol_control_get,
 	.put =		snd_trident_pcm_vol_control_put,
+	/* FIXME: no tlv yet */
 };
 
 /*---------------------------------------------------------------------------
@@ -2839,6 +2844,8 @@ static int snd_trident_pcm_rvol_control_put(struct snd_kcontrol *kcontrol,
 	return change;
 }
 
+static DECLARE_TLV_DB_SCALE(db_scale_crvol, -3175, 25, 1);
+
 static struct snd_kcontrol_new snd_trident_pcm_rvol_control __devinitdata =
 {
 	.iface =	SNDRV_CTL_ELEM_IFACE_MIXER,
@@ -2848,6 +2855,7 @@ static struct snd_kcontrol_new snd_trident_pcm_rvol_control __devinitdata =
 	.info =		snd_trident_pcm_rvol_control_info,
 	.get =		snd_trident_pcm_rvol_control_get,
 	.put =		snd_trident_pcm_rvol_control_put,
+	.tlv = { .p = db_scale_crvol },
 };
 
 /*---------------------------------------------------------------------------
@@ -2903,6 +2911,7 @@ static struct snd_kcontrol_new snd_trident_pcm_cvol_control __devinitdata =
 	.info =		snd_trident_pcm_cvol_control_info,
 	.get =		snd_trident_pcm_cvol_control_get,
 	.put =		snd_trident_pcm_cvol_control_put,
+	.tlv = { .p = db_scale_crvol },
 };
 
 static void snd_trident_notify_pcm_change1(struct snd_card *card,
@@ -3727,7 +3736,7 @@ static int snd_trident_free(struct snd_trident *trident)
   
   ---------------------------------------------------------------------------*/
 
-static irqreturn_t snd_trident_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+static irqreturn_t snd_trident_interrupt(int irq, void *dev_id)
 {
 	struct snd_trident *trident = dev_id;
 	unsigned int audio_int, chn_int, stimer, channel, mask, tmp;
@@ -3815,7 +3824,7 @@ static irqreturn_t snd_trident_interrupt(int irq, void *dev_id, struct pt_regs *
 	}
 	if (audio_int & MPU401_IRQ) {
 		if (trident->rmidi) {
-			snd_mpu401_uart_interrupt(irq, trident->rmidi->private_data, regs);
+			snd_mpu401_uart_interrupt(irq, trident->rmidi->private_data);
 		} else {
 			inb(TRID_REG(trident, T4D_MPUR0));
 		}

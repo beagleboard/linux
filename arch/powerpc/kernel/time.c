@@ -51,6 +51,7 @@
 #include <linux/rtc.h>
 #include <linux/jiffies.h>
 #include <linux/posix-timers.h>
+#include <linux/irq.h>
 
 #include <asm/io.h>
 #include <asm/processor.h>
@@ -116,8 +117,6 @@ u64 tb_to_ns_scale;
 unsigned tb_to_ns_shift;
 
 struct gettimeofday_struct do_gtod;
-
-extern unsigned long wall_jiffies;
 
 extern struct timezone sys_tz;
 static long timezone_offset;
@@ -645,6 +644,7 @@ static void iSeries_tb_recal(void)
  */
 void timer_interrupt(struct pt_regs * regs)
 {
+	struct pt_regs *old_regs;
 	int next_dec;
 	int cpu = smp_processor_id();
 	unsigned long ticks;
@@ -655,9 +655,10 @@ void timer_interrupt(struct pt_regs * regs)
 		do_IRQ(regs);
 #endif
 
+	old_regs = set_irq_regs(regs);
 	irq_enter();
 
-	profile_tick(CPU_PROFILING, regs);
+	profile_tick(CPU_PROFILING);
 	calculate_steal_time();
 
 #ifdef CONFIG_PPC_ISERIES
@@ -693,7 +694,7 @@ void timer_interrupt(struct pt_regs * regs)
 		tb_next_jiffy = tb_last_jiffy + tb_ticks_per_jiffy;
 		if (per_cpu(last_jiffy, cpu) >= tb_next_jiffy) {
 			tb_last_jiffy = tb_next_jiffy;
-			do_timer(regs);
+			do_timer(1);
 			timer_recalc_offset(tb_last_jiffy);
 			timer_check_rtc();
 		}
@@ -705,7 +706,7 @@ void timer_interrupt(struct pt_regs * regs)
 
 #ifdef CONFIG_PPC_ISERIES
 	if (hvlpevent_is_pending())
-		process_hvlpevents(regs);
+		process_hvlpevents();
 #endif
 
 #ifdef CONFIG_PPC64
@@ -717,6 +718,7 @@ void timer_interrupt(struct pt_regs * regs)
 #endif
 
 	irq_exit();
+	set_irq_regs(old_regs);
 }
 
 void wakeup_decrementer(void)
@@ -816,11 +818,6 @@ int do_settimeofday(struct timespec *tv)
 	/*
 	 * Subtract off the number of nanoseconds since the
 	 * beginning of the last tick.
-	 * Note that since we don't increment jiffies_64 anywhere other
-	 * than in do_timer (since we don't have a lost tick problem),
-	 * wall_jiffies will always be the same as jiffies,
-	 * and therefore the (jiffies - wall_jiffies) computation
-	 * has been removed.
 	 */
 	tb_delta = tb_ticks_since(tb_last_jiffy);
 	tb_delta = mulhdu(tb_delta, do_gtod.varp->tb_to_xs); /* in xsec */
@@ -860,19 +857,17 @@ EXPORT_SYMBOL(do_settimeofday);
 static int __init get_freq(char *name, int cells, unsigned long *val)
 {
 	struct device_node *cpu;
-	unsigned int *fp;
+	const unsigned int *fp;
 	int found = 0;
 
 	/* The cpu node should have timebase and clock frequency properties */
 	cpu = of_find_node_by_type(NULL, "cpu");
 
 	if (cpu) {
-		fp = (unsigned int *)get_property(cpu, name, NULL);
+		fp = get_property(cpu, name, NULL);
 		if (fp) {
 			found = 1;
-			*val = 0;
-			while (cells--)
-				*val = (*val << 32) | *fp++;
+			*val = of_read_ulong(fp, cells);
 		}
 
 		of_node_put(cpu);
@@ -1049,6 +1044,48 @@ void __init time_init(void)
 	/* Not exact, but the timer interrupt takes care of this */
 	set_dec(tb_ticks_per_jiffy);
 }
+
+#ifdef CONFIG_RTC_CLASS
+static int set_rtc_class_time(struct rtc_time *tm)
+{
+	int err;
+	struct class_device *class_dev =
+		rtc_class_open(CONFIG_RTC_HCTOSYS_DEVICE);
+
+	if (class_dev == NULL)
+		return -ENODEV;
+
+	err = rtc_set_time(class_dev, tm);
+
+	rtc_class_close(class_dev);
+
+	return 0;
+}
+
+static void get_rtc_class_time(struct rtc_time *tm)
+{
+	int err;
+	struct class_device *class_dev =
+		rtc_class_open(CONFIG_RTC_HCTOSYS_DEVICE);
+
+	if (class_dev == NULL)
+		return;
+
+	err = rtc_read_time(class_dev, tm);
+
+	rtc_class_close(class_dev);
+
+	return;
+}
+
+int __init rtc_class_hookup(void)
+{
+	ppc_md.get_rtc_time = get_rtc_class_time;
+	ppc_md.set_rtc_time = set_rtc_class_time;
+
+	return 0;
+}
+#endif /* CONFIG_RTC_CLASS */
 
 
 #define FEBRUARY	2

@@ -35,13 +35,13 @@ static struct at91_usbh_data usbh_data;
 
 static struct resource at91_usbh_resources[] = {
 	[0] = {
-		.start	= AT91_UHP_BASE,
-		.end	= AT91_UHP_BASE + SZ_1M - 1,
+		.start	= AT91RM9200_UHP_BASE,
+		.end	= AT91RM9200_UHP_BASE + SZ_1M - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	[1] = {
-		.start	= AT91_ID_UHP,
-		.end	= AT91_ID_UHP,
+		.start	= AT91RM9200_ID_UHP,
+		.end	= AT91RM9200_ID_UHP,
 		.flags	= IORESOURCE_IRQ,
 	},
 };
@@ -80,13 +80,13 @@ static struct at91_udc_data udc_data;
 
 static struct resource at91_udc_resources[] = {
 	[0] = {
-		.start	= AT91_BASE_UDP,
-		.end	= AT91_BASE_UDP + SZ_16K - 1,
+		.start	= AT91RM9200_BASE_UDP,
+		.end	= AT91RM9200_BASE_UDP + SZ_16K - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	[1] = {
-		.start	= AT91_ID_UDP,
-		.end	= AT91_ID_UDP,
+		.start	= AT91RM9200_ID_UDP,
+		.end	= AT91RM9200_ID_UDP,
 		.flags	= IORESOURCE_IRQ,
 	},
 };
@@ -131,13 +131,13 @@ static struct at91_eth_data eth_data;
 
 static struct resource at91_eth_resources[] = {
 	[0] = {
-		.start	= AT91_BASE_EMAC,
-		.end	= AT91_BASE_EMAC + SZ_16K - 1,
+		.start	= AT91_VA_BASE_EMAC,
+		.end	= AT91_VA_BASE_EMAC + SZ_16K - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	[1] = {
-		.start	= AT91_ID_EMAC,
-		.end	= AT91_ID_EMAC,
+		.start	= AT91RM9200_ID_EMAC,
+		.end	= AT91RM9200_ID_EMAC,
 		.flags	= IORESOURCE_IRQ,
 	},
 };
@@ -263,13 +263,13 @@ static struct at91_mmc_data mmc_data;
 
 static struct resource at91_mmc_resources[] = {
 	[0] = {
-		.start	= AT91_BASE_MCI,
-		.end	= AT91_BASE_MCI + SZ_16K - 1,
+		.start	= AT91RM9200_BASE_MCI,
+		.end	= AT91RM9200_BASE_MCI + SZ_16K - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	[1] = {
-		.start	= AT91_ID_MCI,
-		.end	= AT91_ID_MCI,
+		.start	= AT91RM9200_ID_MCI,
+		.end	= AT91RM9200_ID_MCI,
 		.flags	= IORESOURCE_IRQ,
 	},
 };
@@ -423,13 +423,13 @@ static u64 spi_dmamask = 0xffffffffUL;
 
 static struct resource at91_spi_resources[] = {
 	[0] = {
-		.start	= AT91_BASE_SPI,
-		.end	= AT91_BASE_SPI + SZ_16K - 1,
+		.start	= AT91RM9200_BASE_SPI,
+		.end	= AT91RM9200_BASE_SPI + SZ_16K - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	[1] = {
-		.start	= AT91_ID_SPI,
-		.end	= AT91_ID_SPI,
+		.start	= AT91RM9200_ID_SPI,
+		.end	= AT91RM9200_ID_SPI,
 		.flags	= IORESOURCE_IRQ,
 	},
 };
@@ -544,7 +544,7 @@ void __init at91_init_leds(u8 cpu_led, u8 timer_led) {}
  *  UART
  * -------------------------------------------------------------------- */
 
-#if defined(CONFIG_SERIAL_AT91)
+#if defined(CONFIG_SERIAL_ATMEL)
 static struct resource dbgu_resources[] = {
 	[0] = {
 		.start	= AT91_VA_BASE_SYS + AT91_DBGU,
@@ -558,13 +558,14 @@ static struct resource dbgu_resources[] = {
 	},
 };
 
-static struct at91_uart_data dbgu_data = {
+static struct atmel_uart_data dbgu_data = {
 	.use_dma_tx	= 0,
 	.use_dma_rx	= 0,		/* DBGU not capable of receive DMA */
+	.regs		= (void __iomem *)(AT91_VA_BASE_SYS + AT91_DBGU),
 };
 
 static struct platform_device at91rm9200_dbgu_device = {
-	.name		= "at91_usart",
+	.name		= "atmel_usart",
 	.id		= 0,
 	.dev		= {
 				.platform_data	= &dbgu_data,
@@ -582,24 +583,24 @@ static inline void configure_dbgu_pins(void)
 
 static struct resource uart0_resources[] = {
 	[0] = {
-		.start	= AT91_BASE_US0,
-		.end	= AT91_BASE_US0 + SZ_16K - 1,
+		.start	= AT91RM9200_BASE_US0,
+		.end	= AT91RM9200_BASE_US0 + SZ_16K - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	[1] = {
-		.start	= AT91_ID_US0,
-		.end	= AT91_ID_US0,
+		.start	= AT91RM9200_ID_US0,
+		.end	= AT91RM9200_ID_US0,
 		.flags	= IORESOURCE_IRQ,
 	},
 };
 
-static struct at91_uart_data uart0_data = {
+static struct atmel_uart_data uart0_data = {
 	.use_dma_tx	= 1,
 	.use_dma_rx	= 1,
 };
 
 static struct platform_device at91rm9200_uart0_device = {
-	.name		= "at91_usart",
+	.name		= "atmel_usart",
 	.id		= 1,
 	.dev		= {
 				.platform_data	= &uart0_data,
@@ -624,24 +625,24 @@ static inline void configure_usart0_pins(void)
 
 static struct resource uart1_resources[] = {
 	[0] = {
-		.start	= AT91_BASE_US1,
-		.end	= AT91_BASE_US1 + SZ_16K - 1,
+		.start	= AT91RM9200_BASE_US1,
+		.end	= AT91RM9200_BASE_US1 + SZ_16K - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	[1] = {
-		.start	= AT91_ID_US1,
-		.end	= AT91_ID_US1,
+		.start	= AT91RM9200_ID_US1,
+		.end	= AT91RM9200_ID_US1,
 		.flags	= IORESOURCE_IRQ,
 	},
 };
 
-static struct at91_uart_data uart1_data = {
+static struct atmel_uart_data uart1_data = {
 	.use_dma_tx	= 1,
 	.use_dma_rx	= 1,
 };
 
 static struct platform_device at91rm9200_uart1_device = {
-	.name		= "at91_usart",
+	.name		= "atmel_usart",
 	.id		= 2,
 	.dev		= {
 				.platform_data	= &uart1_data,
@@ -665,24 +666,24 @@ static inline void configure_usart1_pins(void)
 
 static struct resource uart2_resources[] = {
 	[0] = {
-		.start	= AT91_BASE_US2,
-		.end	= AT91_BASE_US2 + SZ_16K - 1,
+		.start	= AT91RM9200_BASE_US2,
+		.end	= AT91RM9200_BASE_US2 + SZ_16K - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	[1] = {
-		.start	= AT91_ID_US2,
-		.end	= AT91_ID_US2,
+		.start	= AT91RM9200_ID_US2,
+		.end	= AT91RM9200_ID_US2,
 		.flags	= IORESOURCE_IRQ,
 	},
 };
 
-static struct at91_uart_data uart2_data = {
+static struct atmel_uart_data uart2_data = {
 	.use_dma_tx	= 1,
 	.use_dma_rx	= 1,
 };
 
 static struct platform_device at91rm9200_uart2_device = {
-	.name		= "at91_usart",
+	.name		= "atmel_usart",
 	.id		= 3,
 	.dev		= {
 				.platform_data	= &uart2_data,
@@ -700,24 +701,24 @@ static inline void configure_usart2_pins(void)
 
 static struct resource uart3_resources[] = {
 	[0] = {
-		.start	= AT91_BASE_US3,
-		.end	= AT91_BASE_US3 + SZ_16K - 1,
+		.start	= AT91RM9200_BASE_US3,
+		.end	= AT91RM9200_BASE_US3 + SZ_16K - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	[1] = {
-		.start	= AT91_ID_US3,
-		.end	= AT91_ID_US3,
+		.start	= AT91RM9200_ID_US3,
+		.end	= AT91RM9200_ID_US3,
 		.flags	= IORESOURCE_IRQ,
 	},
 };
 
-static struct at91_uart_data uart3_data = {
+static struct atmel_uart_data uart3_data = {
 	.use_dma_tx	= 1,
 	.use_dma_rx	= 1,
 };
 
 static struct platform_device at91rm9200_uart3_device = {
-	.name		= "at91_usart",
+	.name		= "atmel_usart",
 	.id		= 4,
 	.dev		= {
 				.platform_data	= &uart3_data,
@@ -733,8 +734,8 @@ static inline void configure_usart3_pins(void)
 	at91_set_B_periph(AT91_PIN_PA6, 0);		/* RXD3 */
 }
 
-struct platform_device *at91_uarts[AT91_NR_UART];	/* the UARTs to use */
-struct platform_device *at91_default_console_device;	/* the serial console device */
+struct platform_device *at91_uarts[ATMEL_MAX_UART];	/* the UARTs to use */
+struct platform_device *atmel_default_console_device;	/* the serial console device */
 
 void __init at91_init_serial(struct at91_uart_config *config)
 {
@@ -775,9 +776,9 @@ void __init at91_init_serial(struct at91_uart_config *config)
 	}
 
 	/* Set serial console device */
-	if (config->console_tty < AT91_NR_UART)
-		at91_default_console_device = at91_uarts[config->console_tty];
-	if (!at91_default_console_device)
+	if (config->console_tty < ATMEL_MAX_UART)
+		atmel_default_console_device = at91_uarts[config->console_tty];
+	if (!atmel_default_console_device)
 		printk(KERN_INFO "AT91: No default serial console defined.\n");
 }
 
@@ -785,7 +786,7 @@ void __init at91_add_device_serial(void)
 {
 	int i;
 
-	for (i = 0; i < AT91_NR_UART; i++) {
+	for (i = 0; i < ATMEL_MAX_UART; i++) {
 		if (at91_uarts[i])
 			platform_device_register(at91_uarts[i]);
 	}

@@ -32,6 +32,10 @@
 # Step 4 is solely used to allow module versioning in external modules,
 # where the CRC of each module is retrieved from the Module.symers file.
 
+# KBUILD_MODPOST_WARN can be set to avoid error out in case of undefined
+# symbols in the final module linking stage
+# KBUILD_MODPOST_NOFINAL can be set to skip the final link of modules.
+# This is solely usefull to speed up test compiles
 PHONY := _modpost
 _modpost: __modpost
 
@@ -46,23 +50,31 @@ modulesymfile := $(KBUILD_EXTMOD)/Module.symvers
 __modules := $(sort $(shell grep -h '\.ko' /dev/null $(wildcard $(MODVERDIR)/*.mod)))
 modules   := $(patsubst %.o,%.ko, $(wildcard $(__modules:.ko=.o)))
 
-_modpost: $(modules)
+# Stop after building .o files if NOFINAL is set. Makes compile tests quicker
+_modpost: $(if $(KBUILD_MODPOST_NOFINAL), $(modules:.ko:.o),$(modules))
 
 
 # Step 2), invoke modpost
 #  Includes step 3,4
-quiet_cmd_modpost = MODPOST
+quiet_cmd_modpost = MODPOST $(words $(filter-out vmlinux FORCE, $^)) modules
       cmd_modpost = scripts/mod/modpost            \
         $(if $(CONFIG_MODVERSIONS),-m)             \
 	$(if $(CONFIG_MODULE_SRCVERSION_ALL),-a,)  \
 	$(if $(KBUILD_EXTMOD),-i,-o) $(kernelsymfile) \
 	$(if $(KBUILD_EXTMOD),-I $(modulesymfile)) \
 	$(if $(KBUILD_EXTMOD),-o $(modulesymfile)) \
-	$(filter-out FORCE,$^)
+	$(if $(KBUILD_EXTMOD)$(KBUILD_MODPOST_WARN),-w) \
+	$(wildcard vmlinux) $(filter-out FORCE,$^)
 
 PHONY += __modpost
-__modpost: $(wildcard vmlinux) $(modules:.ko=.o) FORCE
+__modpost: $(modules:.ko=.o) FORCE
 	$(call cmd,modpost)
+
+quiet_cmd_kernel-mod = MODPOST $@
+      cmd_kernel-mod = $(cmd_modpost)
+
+vmlinux: FORCE
+	$(call cmd,kernel-mod)
 
 # Declare generated files as targets for modpost
 $(symverfile):         __modpost ;
@@ -85,7 +97,7 @@ targets += $(modules:.ko=.mod.o)
 
 # Step 6), final link of the modules
 quiet_cmd_ld_ko_o = LD [M]  $@
-      cmd_ld_ko_o = $(LD) $(LDFLAGS) $(LDFLAGS_MODULE) -o $@ 		\
+      cmd_ld_ko_o = $(LD) $(LDFLAGS) $(LDFLAGS_MODULE) -o $@		\
 			  $(filter-out FORCE,$^)
 
 $(modules): %.ko :%.o %.mod.o FORCE

@@ -223,8 +223,7 @@ static int aha1740_test_port(unsigned int base)
 }
 
 /* A "high" level interrupt handler */
-static irqreturn_t aha1740_intr_handle(int irq, void *dev_id,
-				       struct pt_regs *regs)
+static irqreturn_t aha1740_intr_handle(int irq, void *dev_id)
 {
 	struct Scsi_Host *host = (struct Scsi_Host *) dev_id;
         void (*my_done)(Scsi_Cmnd *);
@@ -681,6 +680,7 @@ static struct eisa_device_id aha1740_ids[] = {
 	{ "ADP0400" },		/* 1744  */
 	{ "" }
 };
+MODULE_DEVICE_TABLE(eisa, aha1740_ids);
 
 static struct eisa_driver aha1740_driver = {
 	.id_table = aha1740_ids,

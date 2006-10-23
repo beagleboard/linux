@@ -1,27 +1,27 @@
 /*******************************************************************************
 
-  
-  Copyright(c) 1999 - 2006 Intel Corporation. All rights reserved.
-  
-  This program is free software; you can redistribute it and/or modify it 
-  under the terms of the GNU General Public License as published by the Free 
-  Software Foundation; either version 2 of the License, or (at your option) 
-  any later version.
-  
-  This program is distributed in the hope that it will be useful, but WITHOUT 
-  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or 
-  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for 
+  Intel PRO/10GbE Linux driver
+  Copyright(c) 1999 - 2006 Intel Corporation.
+
+  This program is free software; you can redistribute it and/or modify it
+  under the terms and conditions of the GNU General Public License,
+  version 2, as published by the Free Software Foundation.
+
+  This program is distributed in the hope it will be useful, but WITHOUT
+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
   more details.
-  
+
   You should have received a copy of the GNU General Public License along with
-  this program; if not, write to the Free Software Foundation, Inc., 59 
-  Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-  
-  The full GNU General Public License is included in this distribution in the
-  file called LICENSE.
-  
+  this program; if not, write to the Free Software Foundation, Inc.,
+  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
+
+  The full GNU General Public License is included in this distribution in
+  the file called "COPYING".
+
   Contact Information:
   Linux NICS <linux.nics@intel.com>
+  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
   Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
 
 *******************************************************************************/
@@ -83,7 +83,7 @@ static uint32_t ixgb_mac_reset(struct ixgb_hw *hw)
 #endif
 
 	/* Delay a few ms just to allow the reset to complete */
-	msec_delay(IXGB_DELAY_AFTER_RESET);
+	msleep(IXGB_DELAY_AFTER_RESET);
 	ctrl_reg = IXGB_READ_REG(hw, CTRL0);
 #ifdef DBG
 	/* Make sure the self-clearing global reset bit did self clear */
@@ -133,7 +133,7 @@ ixgb_adapter_stop(struct ixgb_hw *hw)
 	 */
 	IXGB_WRITE_REG(hw, RCTL, IXGB_READ_REG(hw, RCTL) & ~IXGB_RCTL_RXEN);
 	IXGB_WRITE_REG(hw, TCTL, IXGB_READ_REG(hw, TCTL) & ~IXGB_TCTL_TXEN);
-	msec_delay(IXGB_DELAY_BEFORE_RESET);
+	msleep(IXGB_DELAY_BEFORE_RESET);
 
 	/* Issue a global reset to the MAC.  This will reset the chip's
 	 * transmit, receive, DMA, and link units.  It will not effect
@@ -236,6 +236,17 @@ ixgb_identify_phy(struct ixgb_hw *hw)
 		DEBUGOUT("Identified G6104 optics\n");
 		phy_type = ixgb_phy_type_g6104;
 		break;
+	case IXGB_DEVICE_ID_82597EX_CX4:
+		DEBUGOUT("Identified CX4\n");
+		xpak_vendor = ixgb_identify_xpak_vendor(hw);
+		if (xpak_vendor == ixgb_xpak_vendor_intel) {
+			DEBUGOUT("Identified TXN17201 optics\n");
+			phy_type = ixgb_phy_type_txn17201;
+		} else {
+			DEBUGOUT("Identified G6005 optics\n");
+			phy_type = ixgb_phy_type_g6005;
+		}
+		break;
 	default:
 		DEBUGOUT("Unknown physical layer module\n");
 		phy_type = ixgb_phy_type_unknown;
@@ -289,7 +300,7 @@ ixgb_init_hw(struct ixgb_hw *hw)
 #endif
 
 	/* Delay a few ms just to allow the reset to complete */
-	msec_delay(IXGB_DELAY_AFTER_EE_RESET);
+	msleep(IXGB_DELAY_AFTER_EE_RESET);
 
 	if (ixgb_get_eeprom_data(hw) == FALSE) {
 		return(FALSE);

@@ -165,6 +165,7 @@ static struct usb_device_id usb_klsi_table[] = {
 	{ USB_DEVICE(0x1645, 0x0005) }, /* Entrega E45 */
 	{ USB_DEVICE(0x1645, 0x0008) }, /* Entrega USB Ethernet Adapter */
 	{ USB_DEVICE(0x1645, 0x8005) }, /* PortGear Ethernet Adapter */
+	{ USB_DEVICE(0x1668, 0x0323) }, /* Actiontec USB Ethernet */
 	{ USB_DEVICE(0x2001, 0x4000) }, /* D-link DSB-650C */
 	{} /* Null terminator */
 };
@@ -474,7 +475,7 @@ static int kaweth_reset(struct kaweth_device *kaweth)
 	return result;
 }
 
-static void kaweth_usb_receive(struct urb *, struct pt_regs *regs);
+static void kaweth_usb_receive(struct urb *);
 static int kaweth_resubmit_rx_urb(struct kaweth_device *, gfp_t);
 
 /****************************************************************
@@ -499,7 +500,7 @@ static void kaweth_resubmit_int_urb(struct kaweth_device *kaweth, gfp_t mf)
 				kaweth->dev->devpath, status);
 }
 
-static void int_callback(struct urb *u, struct pt_regs *regs)
+static void int_callback(struct urb *u)
 {
 	struct kaweth_device *kaweth = u->context;
 	int act_state;
@@ -580,7 +581,7 @@ static void kaweth_async_set_rx_mode(struct kaweth_device *kaweth);
 /****************************************************************
  *     kaweth_usb_receive
  ****************************************************************/
-static void kaweth_usb_receive(struct urb *urb, struct pt_regs *regs)
+static void kaweth_usb_receive(struct urb *urb)
 {
 	struct kaweth_device *kaweth = urb->context;
 	struct net_device *net = kaweth->net;
@@ -724,7 +725,7 @@ static struct ethtool_ops ops = {
 /****************************************************************
  *     kaweth_usb_transmit_complete
  ****************************************************************/
-static void kaweth_usb_transmit_complete(struct urb *urb, struct pt_regs *regs)
+static void kaweth_usb_transmit_complete(struct urb *urb)
 {
 	struct kaweth_device *kaweth = urb->context;
 	struct sk_buff *skb = kaweth->tx_skb;
@@ -1153,7 +1154,7 @@ struct usb_api_data {
 /*-------------------------------------------------------------------*
  * completion handler for compatibility wrappers (sync control/bulk) *
  *-------------------------------------------------------------------*/
-static void usb_api_blocking_completion(struct urb *urb, struct pt_regs *regs)
+static void usb_api_blocking_completion(struct urb *urb)
 {
         struct usb_api_data *awd = (struct usb_api_data *)urb->context;
 

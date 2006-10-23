@@ -64,8 +64,10 @@
 #define SA_TRIGGER_RISING	IRQF_TRIGGER_RISING
 #define SA_TRIGGER_MASK		IRQF_TRIGGER_MASK
 
+typedef irqreturn_t (*irq_handler_t)(int, void *);
+
 struct irqaction {
-	irqreturn_t (*handler)(int, void *, struct pt_regs *);
+	irq_handler_t handler;
 	unsigned long flags;
 	cpumask_t mask;
 	const char *name;
@@ -75,9 +77,8 @@ struct irqaction {
 	struct proc_dir_entry *dir;
 };
 
-extern irqreturn_t no_action(int cpl, void *dev_id, struct pt_regs *regs);
-extern int request_irq(unsigned int,
-		       irqreturn_t (*handler)(int, void *, struct pt_regs *),
+extern irqreturn_t no_action(int cpl, void *dev_id);
+extern int request_irq(unsigned int, irq_handler_t handler,
 		       unsigned long, const char *, void *);
 extern void free_irq(unsigned int, void *);
 
@@ -123,6 +124,14 @@ static inline void disable_irq_nosync_lockdep(unsigned int irq)
 #endif
 }
 
+static inline void disable_irq_nosync_lockdep_irqsave(unsigned int irq, unsigned long *flags)
+{
+	disable_irq_nosync(irq);
+#ifdef CONFIG_LOCKDEP
+	local_irq_save(*flags);
+#endif
+}
+
 static inline void disable_irq_lockdep(unsigned int irq)
 {
 	disable_irq(irq);
@@ -135,6 +144,14 @@ static inline void enable_irq_lockdep(unsigned int irq)
 {
 #ifdef CONFIG_LOCKDEP
 	local_irq_enable();
+#endif
+	enable_irq(irq);
+}
+
+static inline void enable_irq_lockdep_irqrestore(unsigned int irq, unsigned long *flags)
+{
+#ifdef CONFIG_LOCKDEP
+	local_irq_restore(*flags);
 #endif
 	enable_irq(irq);
 }

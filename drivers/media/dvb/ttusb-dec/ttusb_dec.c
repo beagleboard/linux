@@ -203,7 +203,7 @@ static u16 rc_keys[] = {
 static void ttusb_dec_set_model(struct ttusb_dec *dec,
 				enum ttusb_dec_model model);
 
-static void ttusb_dec_handle_irq( struct urb *urb, struct pt_regs *regs)
+static void ttusb_dec_handle_irq( struct urb *urb)
 {
 	struct ttusb_dec * dec = urb->context;
 	char *buffer = dec->irq_buffer;
@@ -215,7 +215,7 @@ static void ttusb_dec_handle_irq( struct urb *urb, struct pt_regs *regs)
 		case -ECONNRESET:
 		case -ENOENT:
 		case -ESHUTDOWN:
-		case -ETIMEDOUT:
+		case -ETIME:
 			/* this urb is dead, cleanup */
 			dprintk("%s:urb shutting down with status: %d\n",
 					__FUNCTION__, urb->status);
@@ -755,7 +755,7 @@ static void ttusb_dec_process_urb_frame_list(unsigned long data)
 	}
 }
 
-static void ttusb_dec_process_urb(struct urb *urb, struct pt_regs *ptregs)
+static void ttusb_dec_process_urb(struct urb *urb)
 {
 	struct ttusb_dec *dec = urb->context;
 
@@ -1512,7 +1512,11 @@ static void ttusb_dec_exit_dvb(struct ttusb_dec *dec)
 	dec->demux.dmx.remove_frontend(&dec->demux.dmx, &dec->frontend);
 	dvb_dmxdev_release(&dec->dmxdev);
 	dvb_dmx_release(&dec->demux);
-	if (dec->fe) dvb_unregister_frontend(dec->fe);
+	if (dec->fe) {
+		dvb_unregister_frontend(dec->fe);
+		if (dec->fe->ops.release)
+			dec->fe->ops.release(dec->fe);
+	}
 	dvb_unregister_adapter(&dec->adapter);
 }
 

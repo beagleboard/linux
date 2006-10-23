@@ -204,8 +204,7 @@ static void pmz_maybe_update_regs(struct uart_pmac_port *uap)
 	}
 }
 
-static struct tty_struct *pmz_receive_chars(struct uart_pmac_port *uap,
-					    struct pt_regs *regs)
+static struct tty_struct *pmz_receive_chars(struct uart_pmac_port *uap)
 {
 	struct tty_struct *tty = NULL;
 	unsigned char ch, r1, drop, error, flag;
@@ -267,7 +266,7 @@ static struct tty_struct *pmz_receive_chars(struct uart_pmac_port *uap,
 		if (uap->port.sysrq) {
 			int swallow;
 			spin_unlock(&uap->port.lock);
-			swallow = uart_handle_sysrq_char(&uap->port, ch, regs);
+			swallow = uart_handle_sysrq_char(&uap->port, ch);
 			spin_lock(&uap->port.lock);
 			if (swallow)
 				goto next_char;
@@ -335,7 +334,7 @@ static struct tty_struct *pmz_receive_chars(struct uart_pmac_port *uap,
 	return tty;
 }
 
-static void pmz_status_handle(struct uart_pmac_port *uap, struct pt_regs *regs)
+static void pmz_status_handle(struct uart_pmac_port *uap)
 {
 	unsigned char status;
 
@@ -438,7 +437,7 @@ ack_tx_int:
 }
 
 /* Hrm... we register that twice, fixme later.... */
-static irqreturn_t pmz_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+static irqreturn_t pmz_interrupt(int irq, void *dev_id)
 {
 	struct uart_pmac_port *uap = dev_id;
 	struct uart_pmac_port *uap_a;
@@ -462,9 +461,9 @@ static irqreturn_t pmz_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 		write_zsreg(uap_a, R0, RES_H_IUS);
 		zssync(uap_a);		
        		if (r3 & CHAEXT)
-       			pmz_status_handle(uap_a, regs);
+       			pmz_status_handle(uap_a);
 		if (r3 & CHARxIP)
-			tty = pmz_receive_chars(uap_a, regs);
+			tty = pmz_receive_chars(uap_a);
        		if (r3 & CHATxIP)
        			pmz_transmit_chars(uap_a);
 	        rc = IRQ_HANDLED;
@@ -482,9 +481,9 @@ static irqreturn_t pmz_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 		write_zsreg(uap_b, R0, RES_H_IUS);
 		zssync(uap_b);
        		if (r3 & CHBEXT)
-       			pmz_status_handle(uap_b, regs);
+       			pmz_status_handle(uap_b);
        	       	if (r3 & CHBRxIP)
-       			tty = pmz_receive_chars(uap_b, regs);
+       			tty = pmz_receive_chars(uap_b);
        		if (r3 & CHBTxIP)
        			pmz_transmit_chars(uap_b);
 	       	rc = IRQ_HANDLED;
@@ -1400,8 +1399,8 @@ static struct uart_ops pmz_pops = {
 static int __init pmz_init_port(struct uart_pmac_port *uap)
 {
 	struct device_node *np = uap->node;
-	char *conn;
-	struct slot_names_prop {
+	const char *conn;
+	const struct slot_names_prop {
 		int	count;
 		char	name[1];
 	} *slots;
@@ -1458,7 +1457,7 @@ no_dma:
 		uap->flags |= PMACZILOG_FLAG_IS_IRDA;
 	uap->port_type = PMAC_SCC_ASYNC;
 	/* 1999 Powerbook G3 has slot-names property instead */
-	slots = (struct slot_names_prop *)get_property(np, "slot-names", &len);
+	slots = get_property(np, "slot-names", &len);
 	if (slots && slots->count > 0) {
 		if (strcmp(slots->name, "IrDA") == 0)
 			uap->flags |= PMACZILOG_FLAG_IS_IRDA;
@@ -1470,7 +1469,8 @@ no_dma:
 	if (ZS_IS_INTMODEM(uap)) {
 		struct device_node* i2c_modem = find_devices("i2c-modem");
 		if (i2c_modem) {
-			char* mid = get_property(i2c_modem, "modem-id", NULL);
+			const char* mid =
+				get_property(i2c_modem, "modem-id", NULL);
 			if (mid) switch(*mid) {
 			case 0x04 :
 			case 0x05 :

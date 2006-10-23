@@ -80,14 +80,14 @@ INT_MODULE_PARM(if_port, 0);
 #ifdef PCMCIA_DEBUG
 INT_MODULE_PARM(pc_debug, PCMCIA_DEBUG);
 static const char *version =
-"smc91c92_cs.c 0.09 1996/8/4 Donald Becker, becker@scyld.com.\n";
+"smc91c92_cs.c 1.123 2006/11/09 Donald Becker, becker@scyld.com.\n";
 #define DEBUG(n, args...) if (pc_debug>(n)) printk(KERN_DEBUG args)
 #else
 #define DEBUG(n, args...)
 #endif
 
 #define DRV_NAME	"smc91c92_cs"
-#define DRV_VERSION	"1.122"
+#define DRV_VERSION	"1.123"
 
 /*====================================================================*/
 
@@ -287,7 +287,7 @@ static int smc_close(struct net_device *dev);
 static int smc_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
 static void smc_tx_timeout(struct net_device *dev);
 static int smc_start_xmit(struct sk_buff *skb, struct net_device *dev);
-static irqreturn_t smc_interrupt(int irq, void *dev_id, struct pt_regs *regs);
+static irqreturn_t smc_interrupt(int irq, void *dev_id);
 static void smc_rx(struct net_device *dev);
 static struct net_device_stats *smc_get_stats(struct net_device *dev);
 static void set_rx_mode(struct net_device *dev);
@@ -299,7 +299,7 @@ static void mdio_sync(kio_addr_t addr);
 static int mdio_read(struct net_device *dev, int phy_id, int loc);
 static void mdio_write(struct net_device *dev, int phy_id, int loc, int value);
 static int smc_link_ok(struct net_device *dev);
-static struct ethtool_ops ethtool_ops;
+static const struct ethtool_ops ethtool_ops;
 
 /*======================================================================
 
@@ -1545,7 +1545,7 @@ static void smc_eph_irq(struct net_device *dev)
 
 /*====================================================================*/
 
-static irqreturn_t smc_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+static irqreturn_t smc_interrupt(int irq, void *dev_id)
 {
     struct net_device *dev = dev_id;
     struct smc_private *smc = netdev_priv(dev);
@@ -1780,7 +1780,6 @@ static void set_rx_mode(struct net_device *dev)
     u_short rx_cfg_setting;
 
     if (dev->flags & IFF_PROMISC) {
-	printk(KERN_NOTICE "%s: setting Rx mode to promiscuous.\n", dev->name);
 	rx_cfg_setting = RxStripCRC | RxEnable | RxPromisc | RxAllMulti;
     } else if (dev->flags & IFF_ALLMULTI)
 	rx_cfg_setting = RxStripCRC | RxEnable | RxAllMulti;
@@ -1967,7 +1966,7 @@ static void media_check(u_long arg)
     if (smc->watchdog++ && ((i>>8) & i)) {
 	if (!smc->fast_poll)
 	    printk(KERN_INFO "%s: interrupt(s) dropped!\n", dev->name);
-	smc_interrupt(dev->irq, smc, NULL);
+	smc_interrupt(dev->irq, smc);
 	smc->fast_poll = HZ;
     }
     if (smc->fast_poll) {
@@ -2208,7 +2207,7 @@ static int smc_nway_reset(struct net_device *dev)
 		return -EOPNOTSUPP;
 }
 
-static struct ethtool_ops ethtool_ops = {
+static const struct ethtool_ops ethtool_ops = {
 	.begin = check_if_running,
 	.get_drvinfo = smc_get_drvinfo,
 	.get_settings = smc_get_settings,

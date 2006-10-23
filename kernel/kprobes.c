@@ -37,6 +37,7 @@
 #include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/moduleloader.h>
+#include <linux/kallsyms.h>
 #include <asm-generic/sections.h>
 #include <asm/cacheflush.h>
 #include <asm/errno.h>
@@ -44,6 +45,16 @@
 
 #define KPROBE_HASH_BITS 6
 #define KPROBE_TABLE_SIZE (1 << KPROBE_HASH_BITS)
+
+
+/*
+ * Some oddball architectures like 64bit powerpc have function descriptors
+ * so this must be overridable.
+ */
+#ifndef kprobe_lookup_name
+#define kprobe_lookup_name(name, addr) \
+	addr = ((kprobe_opcode_t *)(kallsyms_lookup_name(name)))
+#endif
 
 static struct hlist_head kprobe_table[KPROBE_TABLE_SIZE];
 static struct hlist_head kretprobe_inst_table[KPROBE_TABLE_SIZE];
@@ -308,7 +319,8 @@ void __kprobes add_rp_inst(struct kretprobe_instance *ri)
 }
 
 /* Called with kretprobe_lock held */
-void __kprobes recycle_rp_inst(struct kretprobe_instance *ri)
+void __kprobes recycle_rp_inst(struct kretprobe_instance *ri,
+				struct hlist_head *head)
 {
 	/* remove rp inst off the rprobe_inst_table */
 	hlist_del(&ri->hlist);
@@ -320,7 +332,7 @@ void __kprobes recycle_rp_inst(struct kretprobe_instance *ri)
 		hlist_add_head(&ri->uflist, &ri->rp->free_instances);
 	} else
 		/* Unregistering */
-		kfree(ri);
+		hlist_add_head(&ri->hlist, head);
 }
 
 struct hlist_head __kprobes *kretprobe_inst_table_head(struct task_struct *tsk)
@@ -336,18 +348,24 @@ struct hlist_head __kprobes *kretprobe_inst_table_head(struct task_struct *tsk)
  */
 void __kprobes kprobe_flush_task(struct task_struct *tk)
 {
-        struct kretprobe_instance *ri;
-        struct hlist_head *head;
+	struct kretprobe_instance *ri;
+	struct hlist_head *head, empty_rp;
 	struct hlist_node *node, *tmp;
 	unsigned long flags = 0;
 
+	INIT_HLIST_HEAD(&empty_rp);
 	spin_lock_irqsave(&kretprobe_lock, flags);
-        head = kretprobe_inst_table_head(tk);
-        hlist_for_each_entry_safe(ri, node, tmp, head, hlist) {
-                if (ri->task == tk)
-                        recycle_rp_inst(ri);
-        }
+	head = kretprobe_inst_table_head(tk);
+	hlist_for_each_entry_safe(ri, node, tmp, head, hlist) {
+		if (ri->task == tk)
+			recycle_rp_inst(ri, &empty_rp);
+	}
 	spin_unlock_irqrestore(&kretprobe_lock, flags);
+
+	hlist_for_each_entry_safe(ri, node, tmp, &empty_rp, hlist) {
+		hlist_del(&ri->hlist);
+		kfree(ri);
+	}
 }
 
 static inline void free_rp_inst(struct kretprobe *rp)
@@ -447,6 +465,21 @@ static int __kprobes __register_kprobe(struct kprobe *p,
 	struct kprobe *old_p;
 	struct module *probed_mod;
 
+	/*
+	 * If we have a symbol_name argument look it up,
+	 * and add it to the address.  That way the addr
+	 * field can either be global or relative to a symbol.
+	 */
+	if (p->symbol_name) {
+		if (p->addr)
+			return -EINVAL;
+		kprobe_lookup_name(p->symbol_name, p->addr);
+	}
+
+	if (!p->addr)
+		return -EINVAL;
+	p->addr = (kprobe_opcode_t *)(((char *)p->addr)+ p->offset);
+
 	if ((!kernel_text_address((unsigned long) p->addr)) ||
 		in_kprobes_functions((unsigned long) p->addr))
 		return -EINVAL;
@@ -488,7 +521,7 @@ static int __kprobes __register_kprobe(struct kprobe *p,
 				(ARCH_INACTIVE_KPROBE_COUNT + 1))
 		register_page_fault_notifier(&kprobe_page_fault_nb);
 
-  	arch_arm_kprobe(p);
+	arch_arm_kprobe(p);
 
 out:
 	mutex_unlock(&kprobe_mutex);

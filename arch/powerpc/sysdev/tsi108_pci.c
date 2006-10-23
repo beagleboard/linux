@@ -194,7 +194,7 @@ int __init tsi108_setup_pci(struct device_node *dev)
 	int len;
 	struct pci_controller *hose;
 	struct resource rsrc;
-	int *bus_range;
+	const int *bus_range;
 	int primary = 0, has_address = 0;
 
 	/* PCI Config mapping */
@@ -207,7 +207,7 @@ int __init tsi108_setup_pci(struct device_node *dev)
 	has_address = (of_address_to_resource(dev, 0, &rsrc) == 0);
 
 	/* Get bus range if any */
-	bus_range = (int *)get_property(dev, "bus-range", &len);
+	bus_range = get_property(dev, "bus-range", &len);
 	if (bus_range == NULL || len < 2 * sizeof(int)) {
 		printk(KERN_WARNING "Can't get bus-range for %s, assume"
 		       " bus 0\n", dev->full_name);
@@ -405,11 +405,10 @@ void __init tsi108_pci_int_init(void)
 	init_pci_source();
 }
 
-void tsi108_irq_cascade(unsigned int irq, struct irq_desc *desc,
-			    struct pt_regs *regs)
+void tsi108_irq_cascade(unsigned int irq, struct irq_desc *desc)
 {
 	unsigned int cascade_irq = get_pci_source();
 	if (cascade_irq != NO_IRQ)
-		generic_handle_irq(cascade_irq, regs);
+		generic_handle_irq(cascade_irq);
 	desc->chip->eoi(irq);
 }

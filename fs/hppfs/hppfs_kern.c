@@ -152,7 +152,6 @@ static void hppfs_read_inode(struct inode *ino)
 	ino->i_mode = proc_ino->i_mode;
 	ino->i_nlink = proc_ino->i_nlink;
 	ino->i_size = proc_ino->i_size;
-	ino->i_blksize = proc_ino->i_blksize;
 	ino->i_blocks = proc_ino->i_blocks;
 }
 
@@ -573,7 +572,7 @@ struct hppfs_dirent {
 };
 
 static int hppfs_filldir(void *d, const char *name, int size,
-			 loff_t offset, ino_t inode, unsigned int type)
+			 loff_t offset, u64 inode, unsigned int type)
 {
 	struct hppfs_dirent *dirent = d;
 

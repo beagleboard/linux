@@ -102,7 +102,7 @@ static void omap_cf_timer(unsigned long _cf)
  * claim the card's IRQ.  It may also detect some card insertions, but
  * not removals; it can't always eliminate timer irqs.
  */
-static irqreturn_t omap_cf_irq(int irq, void *_cf, struct pt_regs *r)
+static irqreturn_t omap_cf_irq(int irq, void *_cf)
 {
 	omap_cf_timer((unsigned long)_cf);
 	return IRQ_HANDLED;
@@ -131,7 +131,7 @@ omap_cf_set_socket(struct pcmcia_socket *sock, struct socket_state_t *s)
 {
 	u16		control;
 
-	/* FIXME some non-OSK boards will support power switching */
+	/* REVISIT some non-OSK boards may support power switching */
 	switch (s->Vcc) {
 	case 0:
 	case 33:
@@ -344,8 +344,8 @@ static struct device_driver omap_cf_driver = {
 static int __init omap_cf_init(void)
 {
 	if (cpu_is_omap16xx())
-		driver_register(&omap_cf_driver);
-	return 0;
+		return driver_register(&omap_cf_driver);
+	return -ENODEV;
 }
 
 static void __exit omap_cf_exit(void)

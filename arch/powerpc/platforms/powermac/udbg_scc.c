@@ -68,11 +68,11 @@ static unsigned char scc_inittab[] = {
 
 void udbg_scc_init(int force_scc)
 {
-	u32 *reg;
+	const u32 *reg;
 	unsigned long addr;
 	struct device_node *stdout = NULL, *escc = NULL, *macio = NULL;
 	struct device_node *ch, *ch_def = NULL, *ch_a = NULL;
-	char *path;
+	const char *path;
 	int i, x;
 
 	escc = of_find_node_by_name(NULL, "escc");
@@ -81,7 +81,7 @@ void udbg_scc_init(int force_scc)
 	macio = of_get_parent(escc);
 	if (macio == NULL)
 		goto bail;
-	path = (char *)get_property(of_chosen, "linux,stdout-path", NULL);
+	path = get_property(of_chosen, "linux,stdout-path", NULL);
 	if (path != NULL)
 		stdout = of_find_node_by_path(path);
 	for (ch = NULL; (ch = of_get_next_child(escc, ch)) != NULL;) {
@@ -96,13 +96,13 @@ void udbg_scc_init(int force_scc)
 	ch = ch_def ? ch_def : ch_a;
 
 	/* Get address within mac-io ASIC */
-	reg = (u32 *)get_property(escc, "reg", NULL);
+	reg = get_property(escc, "reg", NULL);
 	if (reg == NULL)
 		goto bail;
 	addr = reg[0];
 
 	/* Get address of mac-io PCI itself */
-	reg = (u32 *)get_property(macio, "assigned-addresses", NULL);
+	reg = get_property(macio, "assigned-addresses", NULL);
 	if (reg == NULL)
 		goto bail;
 	addr += reg[2];
@@ -111,8 +111,6 @@ void udbg_scc_init(int force_scc)
 	pmac_call_feature(PMAC_FTR_SCC_ENABLE, ch,
 			  PMAC_SCC_ASYNC | PMAC_SCC_FLAG_XMON, 1);
 
-
-	/* Setup for 57600 8N1 */
 	if (ch == ch_a)
 		addr += 0x20;
 	sccc = ioremap(addr & PAGE_MASK, PAGE_SIZE) ;
@@ -125,8 +123,20 @@ void udbg_scc_init(int force_scc)
 		x = in_8(sccc);
 	out_8(sccc, 0x09);		/* reset A or B side */
 	out_8(sccc, 0xc0);
+
+	/* If SCC was the OF output port, read the BRG value, else
+	 * Setup for 57600 8N1
+	 */
+	if (ch_def != NULL) {
+		out_8(sccc, 13);
+		scc_inittab[1] = in_8(sccc);
+		out_8(sccc, 12);
+		scc_inittab[3] = in_8(sccc);
+	}
+
 	for (i = 0; i < sizeof(scc_inittab); ++i)
 		out_8(sccc, scc_inittab[i]);
+
 
 	udbg_putc = udbg_scc_putc;
 	udbg_getc = udbg_scc_getc;

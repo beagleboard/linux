@@ -195,8 +195,9 @@ struct stripe_head {
  * it to the count of prereading stripes.
  * When write is initiated, or the stripe refcnt == 0 (just in case) we
  * clear the PREREAD_ACTIVE flag and decrement the count
- * Whenever the delayed queue is empty and the device is not plugged, we
- * move any strips from delayed to handle and clear the DELAYED flag and set PREREAD_ACTIVE.
+ * Whenever the 'handle' queue is empty and the device is not plugged, we
+ * move any strips from delayed to handle and clear the DELAYED flag and set
+ * PREREAD_ACTIVE.
  * In stripe_handle, if we find pre-reading is necessary, we do it if
  * PREREAD_ACTIVE is set, else we set DELAYED which will send it to the delayed queue.
  * HANDLE gets cleared if stripe_handle leave nothing locked.
@@ -213,7 +214,7 @@ struct raid5_private_data {
 	struct disk_info	*spare;
 	int			chunk_size, level, algorithm;
 	int			max_degraded;
-	int			raid_disks, working_disks, failed_disks;
+	int			raid_disks;
 	int			max_nr_stripes;
 
 	/* used during an expand */

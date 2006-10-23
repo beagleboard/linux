@@ -91,8 +91,17 @@ cflags-y += -ffreestanding
 # carefully avoid to add it redundantly because gcc 3.3/3.4 complains
 # when fed the toolchain default!
 #
-cflags-$(CONFIG_CPU_BIG_ENDIAN)		+= $(shell $(CC) -dumpmachine |grep -q 'mips.*el-.*' && echo -EB -D__MIPSEB__)
-cflags-$(CONFIG_CPU_LITTLE_ENDIAN)	+= $(shell $(CC) -dumpmachine |grep -q 'mips.*el-.*' || echo -EL -D__MIPSEL__)
+# Certain gcc versions upto gcc 4.1.1 (probably 4.2-subversion as of
+# 2006-10-10 don't properly change the the predefined symbols if -EB / -EL
+# are used, so we kludge that here.  A bug has been filed at
+# http://gcc.gnu.org/bugzilla/show_bug.cgi?id=29413.
+#
+undef-all += -UMIPSEB -U_MIPSEB -U__MIPSEB -U__MIPSEB__
+undef-all += -UMIPSEL -U_MIPSEL -U__MIPSEL -U__MIPSEL__
+predef-be += -DMIPSEB -D_MIPSEB -D__MIPSEB -D__MIPSEB__
+predef-le += -DMIPSEL -D_MIPSEL -D__MIPSEL -D__MIPSEL__
+cflags-$(CONFIG_CPU_BIG_ENDIAN)		+= $(shell $(CC) -dumpmachine |grep -q 'mips.*el-.*' && echo -EB $(undef-all) $(predef-be))
+cflags-$(CONFIG_CPU_LITTLE_ENDIAN)	+= $(shell $(CC) -dumpmachine |grep -q 'mips.*el-.*' || echo -EL $(undef-all) $(predef-le))
 
 cflags-$(CONFIG_SB1XXX_CORELIS)	+= $(call cc-option,-mno-sched-prolog) \
 				   -fno-omit-frame-pointer
@@ -280,31 +289,11 @@ cflags-$(CONFIG_MIPS_EV64120)	+= -Iinclude/asm-mips/mach-ev64120
 load-$(CONFIG_MIPS_EV64120)	+= 0xffffffff80100000
 
 #
-# Galileo EV96100 Board
-#
-core-$(CONFIG_MIPS_EV96100)	+= arch/mips/galileo-boards/ev96100/
-cflags-$(CONFIG_MIPS_EV96100)	+= -Iinclude/asm-mips/mach-ev96100
-load-$(CONFIG_MIPS_EV96100)	+= 0xffffffff80100000
-
-#
 # Wind River PPMC Board (4KC + GT64120)
 #
 core-$(CONFIG_WR_PPMC)		+= arch/mips/gt64120/wrppmc/
 cflags-$(CONFIG_WR_PPMC)		+= -Iinclude/asm-mips/mach-wrppmc
 load-$(CONFIG_WR_PPMC)		+= 0xffffffff80100000
-
-#
-# Globespan IVR eval board with QED 5231 CPU
-#
-core-$(CONFIG_ITE_BOARD_GEN)	+= arch/mips/ite-boards/generic/
-core-$(CONFIG_MIPS_IVR)		+= arch/mips/ite-boards/ivr/
-load-$(CONFIG_MIPS_IVR)		+= 0xffffffff80100000
-
-#
-# ITE 8172 eval board with QED 5231 CPU
-#
-core-$(CONFIG_MIPS_ITE8172)	+= arch/mips/ite-boards/qed-4n-s01b/
-load-$(CONFIG_MIPS_ITE8172)	+= 0xffffffff80100000
 
 #
 # For all MIPS, Inc. eval boards
@@ -330,6 +319,7 @@ load-$(CONFIG_MIPS_MALTA)	+= 0xffffffff80100000
 # MIPS SEAD board
 #
 core-$(CONFIG_MIPS_SEAD)	+= arch/mips/mips-boards/sead/
+cflags-$(CONFIG_MIPS_SEAD)	+= -Iinclude/asm-mips/mach-mips
 load-$(CONFIG_MIPS_SEAD)	+= 0xffffffff80100000
 
 #

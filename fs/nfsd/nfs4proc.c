@@ -600,7 +600,7 @@ nfsd4_setattr(struct svc_rqst *rqstp, struct svc_fh *current_fh, struct nfsd4_se
 			&setattr->sa_stateid, CHECK_FH | WR_STATE, NULL);
 		nfs4_unlock_state();
 		if (status) {
-			dprintk("NFSD: nfsd4_setattr: couldn't process stateid!");
+			dprintk("NFSD: nfsd4_setattr: couldn't process stateid!\n");
 			return status;
 		}
 	}
@@ -646,7 +646,7 @@ nfsd4_write(struct svc_rqst *rqstp, struct svc_fh *current_fh, struct nfsd4_writ
 	*p++ = nfssvc_boot.tv_usec;
 
 	status =  nfsd_write(rqstp, current_fh, filp, write->wr_offset,
-			write->wr_vec, write->wr_vlen, write->wr_buflen,
+			rqstp->rq_vec, write->wr_vlen, write->wr_buflen,
 			&write->wr_how_written);
 	if (filp)
 		fput(filp);
@@ -802,13 +802,29 @@ nfsd4_proc_compound(struct svc_rqst *rqstp,
 		* SETCLIENTID_CONFIRM, PUTFH and PUTROOTFH
 		* require a valid current filehandle
 		*/
-		if ((!current_fh->fh_dentry) &&
-		   !((op->opnum == OP_PUTFH) || (op->opnum == OP_PUTROOTFH) ||
-		   (op->opnum == OP_SETCLIENTID) ||
-		   (op->opnum == OP_SETCLIENTID_CONFIRM) ||
-		   (op->opnum == OP_RENEW) || (op->opnum == OP_RESTOREFH) ||
-		   (op->opnum == OP_RELEASE_LOCKOWNER))) {
-			op->status = nfserr_nofilehandle;
+		if (!current_fh->fh_dentry) {
+			if (!((op->opnum == OP_PUTFH) ||
+			      (op->opnum == OP_PUTROOTFH) ||
+			      (op->opnum == OP_SETCLIENTID) ||
+			      (op->opnum == OP_SETCLIENTID_CONFIRM) ||
+			      (op->opnum == OP_RENEW) ||
+			      (op->opnum == OP_RESTOREFH) ||
+			      (op->opnum == OP_RELEASE_LOCKOWNER))) {
+				op->status = nfserr_nofilehandle;
+				goto encode_op;
+			}
+		}
+		/* Check must be done at start of each operation, except
+		 * for GETATTR and ops not listed as returning NFS4ERR_MOVED
+		 */
+		else if (current_fh->fh_export->ex_fslocs.migrated &&
+			 !((op->opnum == OP_GETATTR) ||
+			   (op->opnum == OP_PUTROOTFH) ||
+			   (op->opnum == OP_PUTPUBFH) ||
+			   (op->opnum == OP_RENEW) ||
+			   (op->opnum == OP_SETCLIENTID) ||
+			   (op->opnum == OP_RELEASE_LOCKOWNER))) {
+			op->status = nfserr_moved;
 			goto encode_op;
 		}
 		switch (op->opnum) {

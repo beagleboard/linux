@@ -131,8 +131,9 @@ NESTED(handle_int, PT_SIZE, sp)
 	CLI
 	TRACE_IRQS_OFF
 
+	LONG_L	s0, TI_REGS($28)
+	LONG_S	sp, TI_REGS($28)
 	PTR_LA	ra, ret_from_irq
-	move	a0, sp
 	j	plat_irq_dispatch
 	END(handle_int)
 
@@ -219,9 +220,11 @@ NESTED(except_vec_vi_handler, 0, sp)
 #endif /* CONFIG_MIPS_MT_SMTC */
 	CLI
 	TRACE_IRQS_OFF
-	move	a0, sp
-	jalr	v0
-	j	ret_from_irq
+
+	LONG_L	s0, TI_REGS($28)
+	LONG_S	sp, TI_REGS($28)
+	PTR_LA	ra, ret_from_irq
+	jr	v0
 	END(except_vec_vi_handler)
 
 /*
@@ -349,8 +352,8 @@ NESTED(nmi_handler, PT_SIZE, sp)
 	.set	at
 	__BUILD_\verbose \exception
 	move	a0, sp
-	jal	do_\handler
-	j	ret_from_exception
+	PTR_LA	ra, ret_from_exception
+	j	do_\handler
 	END(handle_\exception)
 	.endm
 

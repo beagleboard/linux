@@ -1,5 +1,5 @@
 /*
- * linux/fs/nfsd/nfsacl.c
+ * linux/fs/nfsd/nfs2acl.c
  *
  * Process version 2 NFSACL requests.
  *
@@ -241,7 +241,7 @@ static int nfsaclsvc_encode_getaclres(struct svc_rqst *rqstp, u32 *p,
 
 	rqstp->rq_res.page_len = w;
 	while (w > 0) {
-		if (!svc_take_res_page(rqstp))
+		if (!rqstp->rq_respages[rqstp->rq_resused++])
 			return 0;
 		w -= PAGE_SIZE;
 	}
@@ -333,4 +333,5 @@ struct svc_version	nfsd_acl_version2 = {
 		.vs_proc	= nfsd_acl_procedures2,
 		.vs_dispatch	= nfsd_dispatch,
 		.vs_xdrsize	= NFS3_SVC_XDRSIZE,
+		.vs_hidden	= 1,
 };

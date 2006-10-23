@@ -896,7 +896,7 @@ static int mpeg_do_ioctl(struct inode *inode, struct file *file,
 		snprintf(name, sizeof(name), "%s/2", core->name);
 		printk("%s/2: ============  START LOG STATUS  ============\n",
 		       core->name);
-		cx88_call_i2c_clients(core, VIDIOC_LOG_STATUS, 0);
+		cx88_call_i2c_clients(core, VIDIOC_LOG_STATUS, NULL);
 		cx2341x_log_status(&dev->params, name);
 		printk("%s/2: =============  END LOG STATUS  =============\n",
 		       core->name);
@@ -1086,7 +1086,7 @@ static int __devinit blackbird_probe(struct pci_dev *pci_dev,
 		return -EINVAL;
 
 	err = -ENODEV;
-	if (!cx88_boards[core->board].blackbird)
+	if (!(cx88_boards[core->board].mpeg & CX88_MPEG_BLACKBIRD))
 		goto fail_core;
 
 	err = -ENOMEM;
@@ -1160,8 +1160,10 @@ static struct pci_driver blackbird_pci_driver = {
 	.id_table = cx8802_pci_tbl,
 	.probe    = blackbird_probe,
 	.remove   = __devexit_p(blackbird_remove),
+#ifdef CONFIG_PM
 	.suspend  = cx8802_suspend_common,
 	.resume   = cx8802_resume_common,
+#endif
 };
 
 static int blackbird_init(void)

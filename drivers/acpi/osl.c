@@ -237,7 +237,7 @@ acpi_os_table_override(struct acpi_table_header * existing_table,
 	return AE_OK;
 }
 
-static irqreturn_t acpi_irq(int irq, void *dev_id, struct pt_regs *regs)
+static irqreturn_t acpi_irq(int irq, void *dev_id)
 {
 	return (*acpi_irq_handler) (acpi_irq_context) ? IRQ_HANDLED : IRQ_NONE;
 }
@@ -1079,7 +1079,7 @@ acpi_status acpi_os_purge_cache(acpi_cache_t * cache)
 
 acpi_status acpi_os_delete_cache(acpi_cache_t * cache)
 {
-	(void)kmem_cache_destroy(cache);
+	kmem_cache_destroy(cache);
 	return (AE_OK);
 }
 

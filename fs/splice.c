@@ -12,7 +12,7 @@
  * Jens to support splicing to files, network, direct splicing, etc and
  * fixing lots of bugs.
  *
- * Copyright (C) 2005-2006 Jens Axboe <axboe@suse.de>
+ * Copyright (C) 2005-2006 Jens Axboe <axboe@kernel.dk>
  * Copyright (C) 2005-2006 Linus Torvalds <torvalds@osdl.org>
  * Copyright (C) 2006 Ingo Molnar <mingo@elte.hu>
  *
@@ -607,7 +607,7 @@ find_page:
 			ret = -ENOMEM;
 			page = page_cache_alloc_cold(mapping);
 			if (unlikely(!page))
-				goto out_nomem;
+				goto out_ret;
 
 			/*
 			 * This will also lock the page
@@ -666,7 +666,7 @@ find_page:
 		if (sd->pos + this_len > isize)
 			vmtruncate(mapping->host, isize);
 
-		goto out;
+		goto out_ret;
 	}
 
 	if (buf->page != page) {
@@ -698,7 +698,7 @@ find_page:
 out:
 	page_cache_release(page);
 	unlock_page(page);
-out_nomem:
+out_ret:
 	return ret;
 }
 

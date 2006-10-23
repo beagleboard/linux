@@ -1,5 +1,5 @@
 /*
- * linux/inxlude/linux/nfsd/xdr.h
+ * linux/include/linux/nfsd/xdr.h
  *
  * XDR types for nfsd. This is mainly a typing exercise.
  */
@@ -30,7 +30,6 @@ struct nfsd_readargs {
 	struct svc_fh		fh;
 	__u32			offset;
 	__u32			count;
-	struct kvec		vec[RPCSVC_MAXPAGES];
 	int			vlen;
 };
 
@@ -38,7 +37,6 @@ struct nfsd_writeargs {
 	svc_fh			fh;
 	__u32			offset;
 	int			len;
-	struct kvec		vec[RPCSVC_MAXPAGES];
 	int			vlen;
 };
 

@@ -443,8 +443,7 @@ static int sd_init_command(struct scsi_cmnd * SCpnt)
 		SCpnt->cmnd[0] = READ_6;
 		SCpnt->sc_data_direction = DMA_FROM_DEVICE;
 	} else {
-		printk(KERN_ERR "sd: Unknown command %lx\n", rq->flags);
-/* overkill 	panic("Unknown sd command %lx\n", rq->flags); */
+		printk(KERN_ERR "sd: Unknown command %x\n", rq->cmd_flags);
 		return 0;
 	}
 
@@ -840,7 +839,7 @@ static int sd_issue_flush(struct device *dev, sector_t *error_sector)
 static void sd_prepare_flush(request_queue_t *q, struct request *rq)
 {
 	memset(rq->cmd, 0, sizeof(rq->cmd));
-	rq->flags |= REQ_BLOCK_PC;
+	rq->cmd_type = REQ_TYPE_BLOCK_PC;
 	rq->timeout = SD_TIMEOUT;
 	rq->cmd[0] = SYNCHRONIZE_CACHE;
 	rq->cmd_len = 10;
@@ -1215,7 +1214,7 @@ repeat:
 		/* Either no media are present but the drive didn't tell us,
 		   or they are present but the read capacity command fails */
 		/* sdkp->media_present = 0; -- not always correct */
-		sdkp->capacity = 0x200000; /* 1 GB - random */
+		sdkp->capacity = 0; /* unknown mapped to zero - as usual */
 
 		return;
 	} else if (the_result && longrc) {
@@ -1795,7 +1794,7 @@ static void sd_shutdown(struct device *dev)
  **/
 static int __init init_sd(void)
 {
-	int majors = 0, i;
+	int majors = 0, i, err;
 
 	SCSI_LOG_HLQUEUE(3, printk("init_sd: sd driver entry point\n"));
 
@@ -1806,9 +1805,22 @@ static int __init init_sd(void)
 	if (!majors)
 		return -ENODEV;
 
-	class_register(&sd_disk_class);
+	err = class_register(&sd_disk_class);
+	if (err)
+		goto err_out;
 
-	return scsi_register_driver(&sd_template.gendrv);
+	err = scsi_register_driver(&sd_template.gendrv);
+	if (err)
+		goto err_out_class;
+
+	return 0;
+
+err_out_class:
+	class_unregister(&sd_disk_class);
+err_out:
+	for (i = 0; i < SD_MAJORS; i++)
+		unregister_blkdev(sd_major(i), "sd");
+	return err;
 }
 
 /**
@@ -1823,10 +1835,10 @@ static void __exit exit_sd(void)
 	SCSI_LOG_HLQUEUE(3, printk("exit_sd: exiting sd driver\n"));
 
 	scsi_unregister_driver(&sd_template.gendrv);
+	class_unregister(&sd_disk_class);
+
 	for (i = 0; i < SD_MAJORS; i++)
 		unregister_blkdev(sd_major(i), "sd");
-
-	class_unregister(&sd_disk_class);
 }
 
 module_init(init_sd);

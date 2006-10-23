@@ -74,8 +74,7 @@ static void mc_work_proc(void *unused)
 
 static DECLARE_WORK(mconsole_work, mc_work_proc, NULL);
 
-static irqreturn_t mconsole_interrupt(int irq, void *dev_id,
-				      struct pt_regs *regs)
+static irqreturn_t mconsole_interrupt(int irq, void *dev_id)
 {
 	/* long to avoid size mismatch warnings from gcc */
 	long fd;
@@ -106,9 +105,9 @@ void mconsole_version(struct mc_request *req)
 {
 	char version[256];
 
-	sprintf(version, "%s %s %s %s %s", system_utsname.sysname,
-		system_utsname.nodename, system_utsname.release,
-		system_utsname.version, system_utsname.machine);
+	sprintf(version, "%s %s %s %s %s", utsname()->sysname,
+		utsname()->nodename, utsname()->release,
+		utsname()->version, utsname()->machine);
 	mconsole_reply(req, version, 0, 0);
 }
 
@@ -497,7 +496,7 @@ static void mconsole_get_config(int (*get_config)(char *, char *, int,
 	}
 
 	error = NULL;
-	size = sizeof(default_buf)/sizeof(default_buf[0]);
+	size = ARRAY_SIZE(default_buf);
 	buf = default_buf;
 
 	while(1){
@@ -598,6 +597,11 @@ out:
 	mconsole_reply(req, err_msg, err, 0);
 }
 
+struct mconsole_output {
+	struct list_head list;
+	struct mc_request *req;
+};
+
 static DEFINE_SPINLOCK(console_lock);
 static LIST_HEAD(clients);
 static char console_buf[MCONSOLE_MAX_DATA];
@@ -622,10 +626,10 @@ static void console_write(struct console *console, const char *string,
 			return;
 
 		list_for_each(ele, &clients){
-			struct mconsole_entry *entry;
+			struct mconsole_output *entry;
 
-			entry = list_entry(ele, struct mconsole_entry, list);
-			mconsole_reply_len(&entry->request, console_buf,
+			entry = list_entry(ele, struct mconsole_output, list);
+			mconsole_reply_len(entry->req, console_buf,
 					   console_index, 0, 1);
 		}
 
@@ -649,10 +653,10 @@ late_initcall(mc_add_console);
 static void with_console(struct mc_request *req, void (*proc)(void *),
 			 void *arg)
 {
-	struct mconsole_entry entry;
+	struct mconsole_output entry;
 	unsigned long flags;
 
-	entry.request = *req;
+	entry.req = req;
 	list_add(&entry.list, &clients);
 	spin_lock_irqsave(&console_lock, flags);
 
@@ -669,8 +673,9 @@ static void with_console(struct mc_request *req, void (*proc)(void *),
 static void sysrq_proc(void *arg)
 {
 	char *op = arg;
-
-	handle_sysrq(*op, &current->thread.regs, NULL);
+	struct pt_regs *old_regs = set_irq_regs(&current->thread.regs);
+	handle_sysrq(*op, NULL);
+	set_irq_regs(old_regs);
 }
 
 void mconsole_sysrq(struct mc_request *req)

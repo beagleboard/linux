@@ -62,6 +62,7 @@
 #include <sound/cs8427.h>
 #include <sound/info.h>
 #include <sound/initval.h>
+#include <sound/tlv.h>
 
 #include <sound/asoundef.h>
 
@@ -419,7 +420,7 @@ static void snd_ice1712_set_input_clock_source(struct snd_ice1712 *ice, int spdi
  *  Interrupt handler
  */
 
-static irqreturn_t snd_ice1712_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+static irqreturn_t snd_ice1712_interrupt(int irq, void *dev_id)
 {
 	struct snd_ice1712 *ice = dev_id;
 	unsigned char status;
@@ -432,7 +433,7 @@ static irqreturn_t snd_ice1712_interrupt(int irq, void *dev_id, struct pt_regs *
 		handled = 1;
 		if (status & ICE1712_IRQ_MPU1) {
 			if (ice->rmidi[0])
-				snd_mpu401_uart_interrupt(irq, ice->rmidi[0]->private_data, regs);
+				snd_mpu401_uart_interrupt(irq, ice->rmidi[0]->private_data);
 			outb(ICE1712_IRQ_MPU1, ICEREG(ice, IRQSTAT));
 			status &= ~ICE1712_IRQ_MPU1;
 		}
@@ -440,7 +441,7 @@ static irqreturn_t snd_ice1712_interrupt(int irq, void *dev_id, struct pt_regs *
 			outb(ICE1712_IRQ_TIMER, ICEREG(ice, IRQSTAT));
 		if (status & ICE1712_IRQ_MPU2) {
 			if (ice->rmidi[1])
-				snd_mpu401_uart_interrupt(irq, ice->rmidi[1]->private_data, regs);
+				snd_mpu401_uart_interrupt(irq, ice->rmidi[1]->private_data);
 			outb(ICE1712_IRQ_MPU2, ICEREG(ice, IRQSTAT));
 			status &= ~ICE1712_IRQ_MPU2;
 		}
@@ -1377,6 +1378,7 @@ static int snd_ice1712_pro_mixer_volume_put(struct snd_kcontrol *kcontrol, struc
 	return change;
 }
 
+static DECLARE_TLV_DB_SCALE(db_scale_playback, -14400, 150, 0);
 
 static struct snd_kcontrol_new snd_ice1712_multi_playback_ctrls[] __devinitdata = {
 	{
@@ -1390,12 +1392,15 @@ static struct snd_kcontrol_new snd_ice1712_multi_playback_ctrls[] __devinitdata 
 	},
 	{
 		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.access = (SNDRV_CTL_ELEM_ACCESS_READWRITE |
+			   SNDRV_CTL_ELEM_ACCESS_TLV_READ),
 		.name = "Multi Playback Volume",
 		.info = snd_ice1712_pro_mixer_volume_info,
 		.get = snd_ice1712_pro_mixer_volume_get,
 		.put = snd_ice1712_pro_mixer_volume_put,
 		.private_value = 0,
 		.count = 10,
+		.tlv = { .p = db_scale_playback }
 	},
 };
 
@@ -1420,11 +1425,14 @@ static struct snd_kcontrol_new snd_ice1712_multi_capture_spdif_switch __devinitd
 
 static struct snd_kcontrol_new snd_ice1712_multi_capture_analog_volume __devinitdata = {
 	.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+	.access = (SNDRV_CTL_ELEM_ACCESS_READWRITE |
+		   SNDRV_CTL_ELEM_ACCESS_TLV_READ),
 	.name = "H/W Multi Capture Volume",
 	.info = snd_ice1712_pro_mixer_volume_info,
 	.get = snd_ice1712_pro_mixer_volume_get,
 	.put = snd_ice1712_pro_mixer_volume_put,
 	.private_value = 10,
+	.tlv = { .p = db_scale_playback }
 };
 
 static struct snd_kcontrol_new snd_ice1712_multi_capture_spdif_volume __devinitdata = {
@@ -1857,7 +1865,7 @@ static int snd_ice1712_pro_internal_clock_put(struct snd_kcontrol *kcontrol,
 {
 	struct snd_ice1712 *ice = snd_kcontrol_chip(kcontrol);
 	static unsigned int xrate[13] = {
-		8000, 9600, 11025, 12000, 1600, 22050, 24000,
+		8000, 9600, 11025, 12000, 16000, 22050, 24000,
 		32000, 44100, 48000, 64000, 88200, 96000
 	};
 	unsigned char oval;
@@ -1924,7 +1932,7 @@ static int snd_ice1712_pro_internal_clock_default_get(struct snd_kcontrol *kcont
 {
 	int val;
 	static unsigned int xrate[13] = {
-		8000, 9600, 11025, 12000, 1600, 22050, 24000,
+		8000, 9600, 11025, 12000, 16000, 22050, 24000,
 		32000, 44100, 48000, 64000, 88200, 96000
 	};
 
@@ -1941,7 +1949,7 @@ static int snd_ice1712_pro_internal_clock_default_put(struct snd_kcontrol *kcont
 						      struct snd_ctl_elem_value *ucontrol)
 {
 	static unsigned int xrate[13] = {
-		8000, 9600, 11025, 12000, 1600, 22050, 24000,
+		8000, 9600, 11025, 12000, 16000, 22050, 24000,
 		32000, 44100, 48000, 64000, 88200, 96000
 	};
 	unsigned char oval;

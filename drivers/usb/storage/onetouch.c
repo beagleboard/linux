@@ -53,7 +53,7 @@ struct usb_onetouch {
 	unsigned int is_open:1;
 };
 
-static void usb_onetouch_irq(struct urb *urb, struct pt_regs *regs)
+static void usb_onetouch_irq(struct urb *urb)
 {
 	struct usb_onetouch *onetouch = urb->context;
 	signed char *data = onetouch->data;
@@ -72,7 +72,6 @@ static void usb_onetouch_irq(struct urb *urb, struct pt_regs *regs)
 		goto resubmit;
 	}
 
-	input_regs(dev, regs);
 	input_report_key(dev, ONETOUCH_BUTTON, data[0] & 0x02);
 	input_sync(dev);
 
@@ -135,6 +134,7 @@ int onetouch_connect_input(struct us_data *ss)
 	struct usb_onetouch *onetouch;
 	struct input_dev *input_dev;
 	int pipe, maxp;
+	int error = -ENOMEM;
 
 	interface = ss->pusb_intf->cur_altsetting;
 
@@ -211,15 +211,18 @@ int onetouch_connect_input(struct us_data *ss)
 	ss->suspend_resume_hook = usb_onetouch_pm_hook;
 #endif
 
-	input_register_device(onetouch->dev);
+	error = input_register_device(onetouch->dev);
+	if (error)
+		goto fail3;
 
 	return 0;
 
+ fail3:	usb_free_urb(onetouch->irq);
  fail2:	usb_buffer_free(udev, ONETOUCH_PKT_LEN,
 			onetouch->data, onetouch->data_dma);
  fail1:	kfree(onetouch);
 	input_free_device(input_dev);
-	return -ENOMEM;
+	return error;
 }
 
 void onetouch_release_input(void *onetouch_)

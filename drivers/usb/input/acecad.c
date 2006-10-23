@@ -58,7 +58,7 @@ struct usb_acecad {
 	dma_addr_t data_dma;
 };
 
-static void usb_acecad_irq(struct urb *urb, struct pt_regs *regs)
+static void usb_acecad_irq(struct urb *urb)
 {
 	struct usb_acecad *acecad = urb->context;
 	unsigned char *data = acecad->data;
@@ -141,10 +141,7 @@ static int usb_acecad_probe(struct usb_interface *intf, const struct usb_device_
 
 	endpoint = &interface->endpoint[0].desc;
 
-	if (!(endpoint->bEndpointAddress & 0x80))
-		return -ENODEV;
-
-	if ((endpoint->bmAttributes & 3) != 3)
+	if (!usb_endpoint_is_int_in(endpoint))
 		return -ENODEV;
 
 	pipe = usb_rcvintpipe(dev, endpoint->bEndpointAddress);

@@ -314,13 +314,13 @@ static int flock_to_posix_lock(struct file *filp, struct file_lock *fl,
 	off_t start, end;
 
 	switch (l->l_whence) {
-	case 0: /*SEEK_SET*/
+	case SEEK_SET:
 		start = 0;
 		break;
-	case 1: /*SEEK_CUR*/
+	case SEEK_CUR:
 		start = filp->f_pos;
 		break;
-	case 2: /*SEEK_END*/
+	case SEEK_END:
 		start = i_size_read(filp->f_dentry->d_inode);
 		break;
 	default:
@@ -364,13 +364,13 @@ static int flock64_to_posix_lock(struct file *filp, struct file_lock *fl,
 	loff_t start;
 
 	switch (l->l_whence) {
-	case 0: /*SEEK_SET*/
+	case SEEK_SET:
 		start = 0;
 		break;
-	case 1: /*SEEK_CUR*/
+	case SEEK_CUR:
 		start = filp->f_pos;
 		break;
-	case 2: /*SEEK_END*/
+	case SEEK_END:
 		start = i_size_read(filp->f_dentry->d_inode);
 		break;
 	default:
@@ -1514,7 +1514,7 @@ int fcntl_setlease(unsigned int fd, struct file *filp, long arg)
 		goto out_unlock;
 	}
 
-	error = f_setown(filp, current->pid, 0);
+	error = __f_setown(filp, task_pid(current), PIDTYPE_PID, 0);
 out_unlock:
 	unlock_kernel();
 	return error;

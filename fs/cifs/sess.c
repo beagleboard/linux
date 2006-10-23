@@ -111,7 +111,7 @@ static void unicode_ssetup_strings(char ** pbcc_area, struct cifsSesInfo *ses,
 	bytes_ret = cifs_strtoUCS((__le16 *)bcc_ptr, "Linux version ", 32,
 				  nls_cp);
 	bcc_ptr += 2 * bytes_ret;
-	bytes_ret = cifs_strtoUCS((__le16 *) bcc_ptr, system_utsname.release,
+	bytes_ret = cifs_strtoUCS((__le16 *) bcc_ptr, init_utsname()->release,
 				  32, nls_cp);
 	bcc_ptr += 2 * bytes_ret;
 	bcc_ptr += 2; /* trailing null */
@@ -158,8 +158,8 @@ static void ascii_ssetup_strings(char ** pbcc_area, struct cifsSesInfo *ses,
 
 	strcpy(bcc_ptr, "Linux version ");
 	bcc_ptr += strlen("Linux version ");
-	strcpy(bcc_ptr, system_utsname.release);
-	bcc_ptr += strlen(system_utsname.release) + 1;
+	strcpy(bcc_ptr, init_utsname()->release);
+	bcc_ptr += strlen(init_utsname()->release) + 1;
 
 	strcpy(bcc_ptr, CIFS_NETWORK_OPSYS);
 	bcc_ptr += strlen(CIFS_NETWORK_OPSYS) + 1;
@@ -268,6 +268,10 @@ static int decode_ascii_ssetup(char ** pbcc_area, int bleft, struct cifsSesInfo 
 	ses->serverOS = kzalloc(len + 1, GFP_KERNEL);
 	if(ses->serverOS)
 		strncpy(ses->serverOS, bcc_ptr, len);
+	if(strncmp(ses->serverOS, "OS/2",4) == 0) {
+			cFYI(1,("OS/2 server"));
+			ses->flags |= CIFS_SES_OS2;
+	}
 
 	bcc_ptr += len + 1;
 	bleft -= len + 1;
@@ -290,16 +294,11 @@ static int decode_ascii_ssetup(char ** pbcc_area, int bleft, struct cifsSesInfo 
         if(len > bleft)
                 return rc;
 
-        if(ses->serverDomain)
-                kfree(ses->serverDomain);
-
-        ses->serverDomain = kzalloc(len + 1, GFP_KERNEL);
-        if(ses->serverOS)
-                strncpy(ses->serverOS, bcc_ptr, len);
-
-        bcc_ptr += len + 1;
-	bleft -= len + 1;
-
+	/* No domain field in LANMAN case. Domain is
+	   returned by old servers in the SMB negprot response */
+	/* BB For newer servers which do not support Unicode,
+	   but thus do return domain here we could add parsing
+	   for it later, but it is not very important */
 	cFYI(1,("ascii: bytes left %d",bleft));
 
 	return rc;
@@ -366,6 +365,8 @@ CIFS_SessSetup(unsigned int xid, struct cifsSesInfo *ses, int first_time,
 	str_area = kmalloc(2000, GFP_KERNEL);
 	bcc_ptr = str_area;
 
+	ses->flags &= ~CIFS_SES_LANMAN;
+
 	if(type == LANMAN) {
 #ifdef CONFIG_CIFS_WEAK_PW_HASH
 		char lnm_session_key[CIFS_SESS_KEY_SIZE];
@@ -377,7 +378,7 @@ CIFS_SessSetup(unsigned int xid, struct cifsSesInfo *ses, int first_time,
 		/* and copy into bcc */
 
 		calc_lanman_hash(ses, lnm_session_key);
-
+		ses->flags |= CIFS_SES_LANMAN; 
 /* #ifdef CONFIG_CIFS_DEBUG2
 		cifs_dump_mem("cryptkey: ",ses->server->cryptKey,
 			CIFS_SESS_KEY_SIZE);

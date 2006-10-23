@@ -28,6 +28,9 @@
 #include <asm/prom.h>
 #include <asm/pci-bridge.h>
 #endif
+#ifdef CONFIG_BOOTX_TEXT
+#include <asm/btext.h>
+#endif
 
 #include "nv_local.h"
 #include "nv_type.h"
@@ -681,6 +684,13 @@ static int nvidiafb_set_par(struct fb_info *info)
 
 	nvidia_vga_protect(par, 0);
 
+#ifdef CONFIG_BOOTX_TEXT
+	/* Update debug text engine */
+	btext_update_display(info->fix.smem_start,
+			     info->var.xres, info->var.yres,
+			     info->var.bits_per_pixel, info->fix.line_length);
+#endif
+
 	NVTRACE_LEAVE();
 	return 0;
 }
@@ -950,24 +960,25 @@ static struct fb_ops nvidia_fb_ops = {
 };
 
 #ifdef CONFIG_PM
-static int nvidiafb_suspend(struct pci_dev *dev, pm_message_t state)
+static int nvidiafb_suspend(struct pci_dev *dev, pm_message_t mesg)
 {
 	struct fb_info *info = pci_get_drvdata(dev);
 	struct nvidia_par *par = info->par;
 
+	if (mesg.event == PM_EVENT_PRETHAW)
+		mesg.event = PM_EVENT_FREEZE;
 	acquire_console_sem();
-	par->pm_state = state.event;
+	par->pm_state = mesg.event;
 
-	if (state.event == PM_EVENT_FREEZE) {
-		dev->dev.power.power_state = state;
-	} else {
+	if (mesg.event == PM_EVENT_SUSPEND) {
 		fb_set_suspend(info, 1);
 		nvidiafb_blank(FB_BLANK_POWERDOWN, info);
 		nvidia_write_regs(par, &par->SavedReg);
 		pci_save_state(dev);
 		pci_disable_device(dev);
-		pci_set_power_state(dev, pci_choose_state(dev, state));
+		pci_set_power_state(dev, pci_choose_state(dev, mesg));
 	}
+	dev->dev.power.power_state = mesg;
 
 	release_console_sem();
 	return 0;
@@ -983,7 +994,10 @@ static int nvidiafb_resume(struct pci_dev *dev)
 
 	if (par->pm_state != PM_EVENT_FREEZE) {
 		pci_restore_state(dev);
-		pci_enable_device(dev);
+
+		if (pci_enable_device(dev))
+			goto fail;
+
 		pci_set_master(dev);
 	}
 
@@ -992,6 +1006,7 @@ static int nvidiafb_resume(struct pci_dev *dev)
 	fb_set_suspend (info, 0);
 	nvidiafb_blank(FB_BLANK_UNBLANK, info);
 
+fail:
 	release_console_sem();
 	return 0;
 }

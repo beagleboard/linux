@@ -173,7 +173,7 @@ typedef struct {
 /*
  * Host control register bits.
  */
-	
+
 #define IN_INT		0x01
 #define CLR_INT		0x02
 #define HW_RESET	0x08
@@ -449,7 +449,7 @@ struct cmd {
 
 struct tx_desc{
         aceaddr	addr;
-	u32	flagsize; 
+	u32	flagsize;
 #if 0
 /*
  * This is in PCI shared mem and must be accessed with readl/writel
@@ -754,7 +754,7 @@ static inline void ace_unmask_irq(struct net_device *dev)
 {
 	struct ace_private *ap = netdev_priv(dev);
 	struct ace_regs __iomem *regs = ap->regs;
- 
+
 	if (ACE_IS_TIGON_I(ap))
 		writel(0, &regs->MaskInt);
 	else
@@ -769,7 +769,7 @@ static int ace_init(struct net_device *dev);
 static void ace_load_std_rx_ring(struct ace_private *ap, int nr_bufs);
 static void ace_load_mini_rx_ring(struct ace_private *ap, int nr_bufs);
 static void ace_load_jumbo_rx_ring(struct ace_private *ap, int nr_bufs);
-static irqreturn_t ace_interrupt(int irq, void *dev_id, struct pt_regs *regs);
+static irqreturn_t ace_interrupt(int irq, void *dev_id);
 static int ace_load_firmware(struct net_device *dev);
 static int ace_open(struct net_device *dev);
 static int ace_start_xmit(struct sk_buff *skb, struct net_device *dev);

@@ -19,6 +19,8 @@
 #include <linux/swapops.h>
 #include <linux/pm.h>
 #include <linux/fs.h>
+#include <linux/console.h>
+#include <linux/cpu.h>
 
 #include <asm/uaccess.h>
 
@@ -139,11 +141,14 @@ static int snapshot_ioctl(struct inode *inode, struct file *filp,
 		if (data->frozen)
 			break;
 		down(&pm_sem);
-		disable_nonboot_cpus();
-		if (freeze_processes()) {
-			thaw_processes();
-			enable_nonboot_cpus();
-			error = -EBUSY;
+		error = disable_nonboot_cpus();
+		if (!error) {
+			error = freeze_processes();
+			if (error) {
+				thaw_processes();
+				enable_nonboot_cpus();
+				error = -EBUSY;
+			}
 		}
 		up(&pm_sem);
 		if (!error)
@@ -169,12 +174,14 @@ static int snapshot_ioctl(struct inode *inode, struct file *filp,
 		/* Free memory before shutting down devices. */
 		error = swsusp_shrink_memory();
 		if (!error) {
+			suspend_console();
 			error = device_suspend(PMSG_FREEZE);
 			if (!error) {
 				in_suspend = 1;
 				error = swsusp_suspend();
 				device_resume();
 			}
+			resume_console();
 		}
 		up(&pm_sem);
 		if (!error)
@@ -189,13 +196,16 @@ static int snapshot_ioctl(struct inode *inode, struct file *filp,
 			error = -EPERM;
 			break;
 		}
+		snapshot_free_unused_memory(&data->handle);
 		down(&pm_sem);
 		pm_prepare_console();
-		error = device_suspend(PMSG_FREEZE);
+		suspend_console();
+		error = device_suspend(PMSG_PRETHAW);
 		if (!error) {
 			error = swsusp_resume();
 			device_resume();
 		}
+		resume_console();
 		pm_restore_console();
 		up(&pm_sem);
 		break;
@@ -284,6 +294,7 @@ static int snapshot_ioctl(struct inode *inode, struct file *filp,
 		}
 
 		/* Put devices to sleep */
+		suspend_console();
 		error = device_suspend(PMSG_SUSPEND);
 		if (error) {
 			printk(KERN_ERR "Failed to suspend some devices.\n");
@@ -294,7 +305,7 @@ static int snapshot_ioctl(struct inode *inode, struct file *filp,
 			/* Wake up devices */
 			device_resume();
 		}
-
+		resume_console();
 		if (pm_ops->finish)
 			pm_ops->finish(PM_SUSPEND_MEM);
 

@@ -661,7 +661,7 @@ static void at91_mci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 /*
  * Handle an interrupt
  */
-static irqreturn_t at91_mci_irq(int irq, void *devid, struct pt_regs *regs)
+static irqreturn_t at91_mci_irq(int irq, void *devid)
 {
 	struct at91mci_host *host = devid;
 	int completed = 0;
@@ -754,7 +754,7 @@ static irqreturn_t at91_mci_irq(int irq, void *devid, struct pt_regs *regs)
 	return IRQ_HANDLED;
 }
 
-static irqreturn_t at91_mmc_det_irq(int irq, void *_host, struct pt_regs *regs)
+static irqreturn_t at91_mmc_det_irq(int irq, void *_host)
 {
 	struct at91mci_host *host = _host;
 	int present = !at91_get_gpio_value(irq);
@@ -822,6 +822,7 @@ static int at91_mci_probe(struct platform_device *pdev)
 	mmc->f_min = 375000;
 	mmc->f_max = 25000000;
 	mmc->ocr_avail = MMC_VDD_32_33 | MMC_VDD_33_34;
+	mmc->caps = MMC_CAP_BYTEBLOCK;
 
 	host = mmc_priv(mmc);
 	host->mmc = mmc;
@@ -850,7 +851,7 @@ static int at91_mci_probe(struct platform_device *pdev)
 	/*
 	 * Allocate the MCI interrupt
 	 */
-	ret = request_irq(AT91_ID_MCI, at91_mci_irq, IRQF_SHARED, DRIVER_NAME, host);
+	ret = request_irq(AT91RM9200_ID_MCI, at91_mci_irq, IRQF_SHARED, DRIVER_NAME, host);
 	if (ret) {
 		printk(KERN_ERR "Failed to request MCI interrupt\n");
 		clk_disable(mci_clk);
@@ -906,7 +907,7 @@ static int at91_mci_remove(struct platform_device *pdev)
 
 	mmc_remove_host(mmc);
 	at91_mci_disable();
-	free_irq(AT91_ID_MCI, host);
+	free_irq(AT91RM9200_ID_MCI, host);
 	mmc_free_host(mmc);
 
 	clk_disable(mci_clk);				/* Disable the peripheral clock */

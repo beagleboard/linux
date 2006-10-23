@@ -1256,14 +1256,13 @@ bug_blocked_mailbox:
  * megaraid_isr_iomapped()
  * @irq - irq
  * @devp - pointer to our soft state
- * @regs - unused
  *
  * Interrupt service routine for io-mapped controllers.
  * Find out if our device is interrupting. If yes, acknowledge the interrupt
  * and service the completed commands.
  */
 static irqreturn_t
-megaraid_isr_iomapped(int irq, void *devp, struct pt_regs *regs)
+megaraid_isr_iomapped(int irq, void *devp)
 {
 	adapter_t	*adapter = devp;
 	unsigned long	flags;
@@ -1333,14 +1332,13 @@ megaraid_isr_iomapped(int irq, void *devp, struct pt_regs *regs)
  * megaraid_isr_memmapped()
  * @irq - irq
  * @devp - pointer to our soft state
- * @regs - unused
  *
  * Interrupt service routine for memory-mapped controllers.
  * Find out if our device is interrupting. If yes, acknowledge the interrupt
  * and service the completed commands.
  */
 static irqreturn_t
-megaraid_isr_memmapped(int irq, void *devp, struct pt_regs *regs)
+megaraid_isr_memmapped(int irq, void *devp)
 {
 	adapter_t	*adapter = devp;
 	unsigned long	flags;
@@ -2822,9 +2820,7 @@ mega_print_inquiry(char *page, char *scsi_inq)
 
 	i = scsi_inq[0] & 0x1f;
 
-	len += sprintf(page+len, "  Type:   %s ",
-		i < MAX_SCSI_DEVICE_CODE ? scsi_device_types[i] :
-		   "Unknown          ");
+	len += sprintf(page+len, "  Type:   %s ", scsi_device_type(i));
 
 	len += sprintf(page+len,
 	"                 ANSI SCSI revision: %02x", scsi_inq[2] & 0x07);
@@ -3658,8 +3654,9 @@ megadev_ioctl(struct inode *inode, struct file *filep, unsigned int cmd,
 			 * Send the request sense data also, irrespective of
 			 * whether the user has asked for it or not.
 			 */
-			copy_to_user(upthru->reqsensearea,
-					pthru->reqsensearea, 14);
+			if (copy_to_user(upthru->reqsensearea,
+					pthru->reqsensearea, 14))
+				rval = -EFAULT;
 
 freemem_and_return:
 			if( pthru->dataxferlen ) {

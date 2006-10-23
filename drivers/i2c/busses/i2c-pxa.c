@@ -850,7 +850,7 @@ static void i2c_pxa_irq_rxfull(struct pxa_i2c *i2c, u32 isr)
 	ICR = icr;
 }
 
-static irqreturn_t i2c_pxa_handler(int this_irq, void *dev_id, struct pt_regs *regs)
+static irqreturn_t i2c_pxa_handler(int this_irq, void *dev_id)
 {
 	struct pxa_i2c *i2c = dev_id;
 	u32 isr = ISR;
@@ -926,7 +926,7 @@ static u32 i2c_pxa_functionality(struct i2c_adapter *adap)
 	return I2C_FUNC_I2C | I2C_FUNC_SMBUS_EMUL;
 }
 
-static struct i2c_algorithm i2c_pxa_algorithm = {
+static const struct i2c_algorithm i2c_pxa_algorithm = {
 	.master_xfer	= i2c_pxa_xfer,
 	.functionality	= i2c_pxa_functionality,
 };

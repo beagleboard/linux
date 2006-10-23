@@ -10,8 +10,6 @@
 #define _ASM_PTRACE_H
 
 
-#include <asm/isadep.h>
-
 /* 0 - 31 are integer registers, 32 - 63 are fp registers.  */
 #define FPR_BASE	32
 #define PC		64
@@ -46,9 +44,8 @@ struct pt_regs {
 	unsigned long cp0_epc;
 #ifdef CONFIG_MIPS_MT_SMTC
 	unsigned long cp0_tcstatus;
-	unsigned long smtc_pad;
 #endif /* CONFIG_MIPS_MT_SMTC */
-};
+} __attribute__ ((aligned (8)));
 
 /* Arbitrarily choose the same ptrace numbers as used by the Sparc code. */
 #define PTRACE_GETREGS		12
@@ -73,6 +70,7 @@ struct pt_regs {
 #ifdef __KERNEL__
 
 #include <linux/linkage.h>
+#include <asm/isadep.h>
 
 /*
  * Does the process account for user or for system time?

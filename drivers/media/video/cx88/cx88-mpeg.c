@@ -65,8 +65,17 @@ static int cx8802_start_dma(struct cx8802_dev    *dev,
 
 	/* FIXME: this needs a review.
 	 * also: move to cx88-blackbird + cx88-dvb source files? */
+	if (cx88_boards[core->board].mpeg == (CX88_MPEG_DVB | CX88_MPEG_BLACKBIRD) ) {
+		/* Report a warning until the mini driver patch is applied,
+		 * else the following conditions will set the dma registers incorrectly.
+		 * This will be removed in the next major patch and changes to the conditions
+		 * will be made.
+		 */
+		printk(KERN_INFO "%s() board->(CX88_MPEG_DVB | CX88_MPEG_BLACKBIRD) is invalid\n", __FUNCTION__);
+		return -EINVAL;
+	}
 
-	if (cx88_boards[core->board].dvb) {
+	if (cx88_boards[core->board].mpeg & CX88_MPEG_DVB) {
 		/* negedge driven & software reset */
 		cx_write(TS_GEN_CNTRL, 0x0040 | dev->ts_gen_cntrl);
 		udelay(100);
@@ -92,7 +101,7 @@ static int cx8802_start_dma(struct cx8802_dev    *dev,
 		udelay(100);
 	}
 
-	if (cx88_boards[core->board].blackbird) {
+	if (cx88_boards[core->board].mpeg & CX88_MPEG_BLACKBIRD) {
 		cx_write(MO_PINMUX_IO, 0x88); /* enable MPEG parallel IO */
 
 		cx_write(TS_GEN_CNTRL, 0x46); /* punctured clock TS & posedge driven & software reset */
@@ -367,7 +376,7 @@ static void cx8802_mpeg_irq(struct cx8802_dev *dev)
 
 #define MAX_IRQ_LOOP 10
 
-static irqreturn_t cx8802_irq(int irq, void *dev_id, struct pt_regs *regs)
+static irqreturn_t cx8802_irq(int irq, void *dev_id)
 {
 	struct cx8802_dev *dev = dev_id;
 	struct cx88_core *core = dev->core;

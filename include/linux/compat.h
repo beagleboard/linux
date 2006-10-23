@@ -13,6 +13,7 @@
 
 #include <asm/compat.h>
 #include <asm/siginfo.h>
+#include <asm/signal.h>
 
 #define compat_jiffies_to_clock_t(x)	\
 		(((unsigned long)(x) * COMPAT_USER_HZ) / HZ)
@@ -162,7 +163,7 @@ asmlinkage long
 compat_sys_set_robust_list(struct compat_robust_list_head __user *head,
 			   compat_size_t len);
 asmlinkage long
-compat_sys_get_robust_list(int pid, compat_uptr_t *head_ptr,
+compat_sys_get_robust_list(int pid, compat_uptr_t __user *head_ptr,
 			   compat_size_t __user *len_ptr);
 
 long compat_sys_semctl(int first, int second, int third, void __user *uptr);
@@ -227,6 +228,7 @@ static inline int compat_timespec_compare(struct compat_timespec *lhs,
 asmlinkage long compat_sys_adjtimex(struct compat_timex __user *utp);
 
 extern int compat_printk(const char *fmt, ...);
+extern void sigset_from_compat(sigset_t *set, compat_sigset_t *compat);
 
 #endif /* CONFIG_COMPAT */
 #endif /* _LINUX_COMPAT_H */

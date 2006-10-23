@@ -77,6 +77,8 @@ int cp_compat_stat(struct kstat *stat, struct compat_stat __user *statbuf)
 	memset(&tmp, 0, sizeof(tmp));
 	tmp.st_dev = new_encode_dev(stat->dev);
 	tmp.st_ino = stat->ino;
+	if (sizeof(tmp.st_ino) < sizeof(stat->ino) && tmp.st_ino != stat->ino)
+		return -EOVERFLOW;
 	tmp.st_mode = stat->mode;
 	tmp.st_nlink = stat->nlink;
 	SET_UID(tmp.st_uid, stat->uid);
@@ -991,7 +993,7 @@ struct sysctl_args32
 	unsigned int __unused[4];
 };
 
-#ifdef CONFIG_SYSCTL
+#ifdef CONFIG_SYSCTL_SYSCALL
 
 asmlinkage long sys32_sysctl(struct sysctl_args32 __user *args)
 {
@@ -1032,14 +1034,14 @@ asmlinkage long sys32_sysctl(struct sysctl_args32 __user *args)
 	return error;
 }
 
-#endif /* CONFIG_SYSCTL */
+#endif /* CONFIG_SYSCTL_SYSCALL */
 
 asmlinkage long sys32_newuname(struct new_utsname __user * name)
 {
 	int ret = 0;
 
 	down_read(&uts_sem);
-	if (copy_to_user(name,&system_utsname,sizeof *name))
+	if (copy_to_user(name, utsname(), sizeof *name))
 		ret = -EFAULT;
 	up_read(&uts_sem);
 
@@ -1295,10 +1297,4 @@ _sys32_clone(nabi_no_regargs struct pt_regs regs)
 	child_tidptr = (int __user *) __dummy4;
 	return do_fork(clone_flags, newsp, &regs, 0,
 	               parent_tidptr, child_tidptr);
-}
-
-extern asmlinkage void sys_set_thread_area(u32 addr);
-asmlinkage void sys32_set_thread_area(u32 addr)
-{
-	sys_set_thread_area(AA(addr));
 }

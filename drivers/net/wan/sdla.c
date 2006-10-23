@@ -32,7 +32,6 @@
  *		2 of the License, or (at your option) any later version.
  */
 
-#include <linux/config.h> /* for CONFIG_DLCI_MAX */
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/types.h>
@@ -868,7 +867,7 @@ static void sdla_receive(struct net_device *dev)
 	spin_unlock_irqrestore(&sdla_lock, flags);
 }
 
-static irqreturn_t sdla_isr(int irq, void *dev_id, struct pt_regs * regs)
+static irqreturn_t sdla_isr(int irq, void *dev_id)
 {
 	struct net_device     *dev;
 	struct frad_local *flp;
@@ -876,13 +875,7 @@ static irqreturn_t sdla_isr(int irq, void *dev_id, struct pt_regs * regs)
 
 	dev = dev_id;
 
-	if (dev == NULL)
-	{
-		printk(KERN_WARNING "sdla_isr(): irq %d for unknown device.\n", irq);
-		return IRQ_NONE;
-	}
-
-	flp = dev->priv;
+	flp = netdev_priv(dev);
 
 	if (!flp->initialized)
 	{

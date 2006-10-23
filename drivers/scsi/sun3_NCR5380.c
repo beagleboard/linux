@@ -1252,7 +1252,7 @@ static void NCR5380_dma_complete( struct Scsi_Host *instance )
  *
  */
 
-static irqreturn_t NCR5380_intr (int irq, void *dev_id, struct pt_regs *regs)
+static irqreturn_t NCR5380_intr (int irq, void *dev_id)
 {
     struct Scsi_Host *instance = first_instance;
     int done = 1, handled = 0;
@@ -2017,7 +2017,7 @@ static void NCR5380_information_transfer (struct Scsi_Host *instance)
 		if((count > SUN3_DMA_MINSIZE) && (sun3_dma_setup_done
 						  != cmd))
 		{
-			if(cmd->request->flags & REQ_CMD) {
+			if(blk_fs_request(cmd->request)) {
 				sun3scsi_dma_setup(d, count,
 						   rq_data_dir(cmd->request));
 				sun3_dma_setup_done = cmd;

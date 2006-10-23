@@ -20,6 +20,7 @@
 #include <linux/idr.h>
 #include <linux/hdreg.h>
 #include <linux/blktrace_api.h>
+#include <linux/smp_lock.h>
 
 #define DM_MSG_PREFIX "core"
 
@@ -101,6 +102,8 @@ struct mapped_device {
 	mempool_t *io_pool;
 	mempool_t *tio_pool;
 
+	struct bio_set *bs;
+
 	/*
 	 * Event handling.
 	 */
@@ -121,15 +124,9 @@ struct mapped_device {
 static kmem_cache_t *_io_cache;
 static kmem_cache_t *_tio_cache;
 
-static struct bio_set *dm_set;
-
 static int __init local_init(void)
 {
 	int r;
-
-	dm_set = bioset_create(16, 16, 4);
-	if (!dm_set)
-		return -ENOMEM;
 
 	/* allocate a slab for the dm_ios */
 	_io_cache = kmem_cache_create("dm_io",
@@ -163,8 +160,6 @@ static void local_exit(void)
 {
 	kmem_cache_destroy(_tio_cache);
 	kmem_cache_destroy(_io_cache);
-
-	bioset_free(dm_set);
 
 	if (unregister_blkdev(_major, _name) < 0)
 		DMERR("unregister_blkdev failed");
@@ -286,6 +281,45 @@ static int dm_blk_getgeo(struct block_device *bdev, struct hd_geometry *geo)
 	struct mapped_device *md = bdev->bd_disk->private_data;
 
 	return dm_get_geometry(md, geo);
+}
+
+static int dm_blk_ioctl(struct inode *inode, struct file *file,
+			unsigned int cmd, unsigned long arg)
+{
+	struct mapped_device *md;
+	struct dm_table *map;
+	struct dm_target *tgt;
+	int r = -ENOTTY;
+
+	/* We don't really need this lock, but we do need 'inode'. */
+	unlock_kernel();
+
+	md = inode->i_bdev->bd_disk->private_data;
+
+	map = dm_get_table(md);
+
+	if (!map || !dm_table_get_size(map))
+		goto out;
+
+	/* We only support devices that have a single target */
+	if (dm_table_get_num_targets(map) != 1)
+		goto out;
+
+	tgt = dm_table_get_target(map, 0);
+
+	if (dm_suspended(md)) {
+		r = -EAGAIN;
+		goto out;
+	}
+
+	if (tgt->type->ioctl)
+		r = tgt->type->ioctl(tgt, inode, file, cmd, arg);
+
+out:
+	dm_table_put(map);
+
+	lock_kernel();
+	return r;
 }
 
 static inline struct dm_io *alloc_io(struct mapped_device *md)
@@ -435,7 +469,7 @@ static int clone_endio(struct bio *bio, unsigned int done, int error)
 {
 	int r = 0;
 	struct target_io *tio = bio->bi_private;
-	struct dm_io *io = tio->io;
+	struct mapped_device *md = tio->io->md;
 	dm_endio_fn endio = tio->ti->type->end_io;
 
 	if (bio->bi_size)
@@ -454,9 +488,15 @@ static int clone_endio(struct bio *bio, unsigned int done, int error)
 			return 1;
 	}
 
-	free_tio(io->md, tio);
-	dec_pending(io, error);
+	dec_pending(tio->io, error);
+
+	/*
+	 * Store md for cleanup instead of tio which is about to get freed.
+	 */
+	bio->bi_private = md->bs;
+
 	bio_put(bio);
+	free_tio(md, tio);
 	return r;
 }
 
@@ -485,6 +525,7 @@ static void __map_bio(struct dm_target *ti, struct bio *clone,
 {
 	int r;
 	sector_t sector;
+	struct mapped_device *md;
 
 	/*
 	 * Sanity checks.
@@ -514,10 +555,14 @@ static void __map_bio(struct dm_target *ti, struct bio *clone,
 
 	else if (r < 0) {
 		/* error the io and bail out */
-		struct dm_io *io = tio->io;
-		free_tio(tio->io->md, tio);
-		dec_pending(io, r);
+		md = tio->io->md;
+		dec_pending(tio->io, r);
+		/*
+		 * Store bio_set for cleanup.
+		 */
+		clone->bi_private = md->bs;
 		bio_put(clone);
+		free_tio(md, tio);
 	}
 }
 
@@ -533,7 +578,9 @@ struct clone_info {
 
 static void dm_bio_destructor(struct bio *bio)
 {
-	bio_free(bio, dm_set);
+	struct bio_set *bs = bio->bi_private;
+
+	bio_free(bio, bs);
 }
 
 /*
@@ -541,12 +588,12 @@ static void dm_bio_destructor(struct bio *bio)
  */
 static struct bio *split_bvec(struct bio *bio, sector_t sector,
 			      unsigned short idx, unsigned int offset,
-			      unsigned int len)
+			      unsigned int len, struct bio_set *bs)
 {
 	struct bio *clone;
 	struct bio_vec *bv = bio->bi_io_vec + idx;
 
-	clone = bio_alloc_bioset(GFP_NOIO, 1, dm_set);
+	clone = bio_alloc_bioset(GFP_NOIO, 1, bs);
 	clone->bi_destructor = dm_bio_destructor;
 	*clone->bi_io_vec = *bv;
 
@@ -566,11 +613,13 @@ static struct bio *split_bvec(struct bio *bio, sector_t sector,
  */
 static struct bio *clone_bio(struct bio *bio, sector_t sector,
 			     unsigned short idx, unsigned short bv_count,
-			     unsigned int len)
+			     unsigned int len, struct bio_set *bs)
 {
 	struct bio *clone;
 
-	clone = bio_clone(bio, GFP_NOIO);
+	clone = bio_alloc_bioset(GFP_NOIO, bio->bi_max_vecs, bs);
+	__bio_clone(clone, bio);
+	clone->bi_destructor = dm_bio_destructor;
 	clone->bi_sector = sector;
 	clone->bi_idx = idx;
 	clone->bi_vcnt = idx + bv_count;
@@ -601,7 +650,8 @@ static void __clone_and_map(struct clone_info *ci)
 		 * the remaining io with a single clone.
 		 */
 		clone = clone_bio(bio, ci->sector, ci->idx,
-				  bio->bi_vcnt - ci->idx, ci->sector_count);
+				  bio->bi_vcnt - ci->idx, ci->sector_count,
+				  ci->md->bs);
 		__map_bio(ti, clone, tio);
 		ci->sector_count = 0;
 
@@ -624,7 +674,8 @@ static void __clone_and_map(struct clone_info *ci)
 			len += bv_len;
 		}
 
-		clone = clone_bio(bio, ci->sector, ci->idx, i - ci->idx, len);
+		clone = clone_bio(bio, ci->sector, ci->idx, i - ci->idx, len,
+				  ci->md->bs);
 		__map_bio(ti, clone, tio);
 
 		ci->sector += len;
@@ -653,7 +704,8 @@ static void __clone_and_map(struct clone_info *ci)
 			len = min(remaining, max);
 
 			clone = split_bvec(bio, ci->sector, ci->idx,
-					   bv->bv_offset + offset, len);
+					   bv->bv_offset + offset, len,
+					   ci->md->bs);
 
 			__map_bio(ti, clone, tio);
 
@@ -903,7 +955,7 @@ static struct mapped_device *alloc_dev(int minor)
 
 	md->queue = blk_alloc_queue(GFP_KERNEL);
 	if (!md->queue)
-		goto bad1;
+		goto bad1_free_minor;
 
 	md->queue->queuedata = md;
 	md->queue->backing_dev_info.congested_fn = dm_any_congested;
@@ -920,6 +972,10 @@ static struct mapped_device *alloc_dev(int minor)
 	md->tio_pool = mempool_create_slab_pool(MIN_IOS, _tio_cache);
 	if (!md->tio_pool)
 		goto bad3;
+
+	md->bs = bioset_create(16, 16, 4);
+	if (!md->bs)
+		goto bad_no_bioset;
 
 	md->disk = alloc_disk(1);
 	if (!md->disk)
@@ -948,11 +1004,14 @@ static struct mapped_device *alloc_dev(int minor)
 	return md;
 
  bad4:
+	bioset_free(md->bs);
+ bad_no_bioset:
 	mempool_destroy(md->tio_pool);
  bad3:
 	mempool_destroy(md->io_pool);
  bad2:
 	blk_cleanup_queue(md->queue);
+ bad1_free_minor:
 	free_minor(minor);
  bad1:
 	module_put(THIS_MODULE);
@@ -971,6 +1030,7 @@ static void free_dev(struct mapped_device *md)
 	}
 	mempool_destroy(md->tio_pool);
 	mempool_destroy(md->io_pool);
+	bioset_free(md->bs);
 	del_gendisk(md->disk);
 	free_minor(minor);
 
@@ -1319,7 +1379,9 @@ int dm_resume(struct mapped_device *md)
 	if (!map || !dm_table_get_size(map))
 		goto out;
 
-	dm_table_resume_targets(map);
+	r = dm_table_resume_targets(map);
+	if (r)
+		goto out;
 
 	down_write(&md->io_lock);
 	clear_bit(DMF_BLOCK_IO, &md->flags);
@@ -1336,6 +1398,8 @@ int dm_resume(struct mapped_device *md)
 	clear_bit(DMF_SUSPENDED, &md->flags);
 
 	dm_table_unplug_all(map);
+
+	kobject_uevent(&md->disk->kobj, KOBJ_CHANGE);
 
 	r = 0;
 
@@ -1377,6 +1441,7 @@ int dm_suspended(struct mapped_device *md)
 static struct block_device_operations dm_blk_dops = {
 	.open = dm_blk_open,
 	.release = dm_blk_close,
+	.ioctl = dm_blk_ioctl,
 	.getgeo = dm_blk_getgeo,
 	.owner = THIS_MODULE
 };

@@ -238,7 +238,7 @@ static void cinergyt2_sleep (struct cinergyt2 *cinergyt2, int sleep)
 	cinergyt2->sleeping = sleep;
 }
 
-static void cinergyt2_stream_irq (struct urb *urb, struct pt_regs *regs);
+static void cinergyt2_stream_irq (struct urb *urb);
 
 static int cinergyt2_submit_stream_urb (struct cinergyt2 *cinergyt2, struct urb *urb)
 {
@@ -258,7 +258,7 @@ static int cinergyt2_submit_stream_urb (struct cinergyt2 *cinergyt2, struct urb 
 	return err;
 }
 
-static void cinergyt2_stream_irq (struct urb *urb, struct pt_regs *regs)
+static void cinergyt2_stream_irq (struct urb *urb)
 {
 	struct cinergyt2 *cinergyt2 = urb->context;
 
@@ -981,7 +981,7 @@ static int cinergyt2_suspend (struct usb_interface *intf, pm_message_t state)
 	if (cinergyt2->disconnect_pending || mutex_lock_interruptible(&cinergyt2->sem))
 		return -ERESTARTSYS;
 
-	if (state.event > PM_EVENT_ON) {
+	if (1) {
 		struct cinergyt2 *cinergyt2 = usb_get_intfdata (intf);
 
 		cinergyt2_suspend_rc(cinergyt2);

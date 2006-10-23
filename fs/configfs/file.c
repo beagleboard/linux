@@ -137,8 +137,8 @@ configfs_read_file(struct file *file, char __user *buf, size_t count, loff_t *pp
 		if ((retval = fill_read_buffer(file->f_dentry,buffer)))
 			goto out;
 	}
-	pr_debug("%s: count = %d, ppos = %lld, buf = %s\n",
-		 __FUNCTION__,count,*ppos,buffer->page);
+	pr_debug("%s: count = %zd, ppos = %lld, buf = %s\n",
+		 __FUNCTION__, count, *ppos, buffer->page);
 	retval = flush_read_buffer(buffer,buf,count,ppos);
 out:
 	up(&buffer->sem);
@@ -274,9 +274,8 @@ static int check_perm(struct inode * inode, struct file * file)
 	/* No error? Great, allocate a buffer for the file, and store it
 	 * it in file->private_data for easy access.
 	 */
-	buffer = kmalloc(sizeof(struct configfs_buffer),GFP_KERNEL);
+	buffer = kzalloc(sizeof(struct configfs_buffer),GFP_KERNEL);
 	if (buffer) {
-		memset(buffer,0,sizeof(struct configfs_buffer));
 		init_MUTEX(&buffer->sem);
 		buffer->needs_read_fill = 1;
 		buffer->ops = ops;

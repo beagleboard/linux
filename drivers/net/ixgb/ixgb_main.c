@@ -1,27 +1,27 @@
 /*******************************************************************************
 
-  
-  Copyright(c) 1999 - 2006 Intel Corporation. All rights reserved.
-  
-  This program is free software; you can redistribute it and/or modify it 
-  under the terms of the GNU General Public License as published by the Free 
-  Software Foundation; either version 2 of the License, or (at your option) 
-  any later version.
-  
-  This program is distributed in the hope that it will be useful, but WITHOUT 
-  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or 
-  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for 
+  Intel PRO/10GbE Linux driver
+  Copyright(c) 1999 - 2006 Intel Corporation.
+
+  This program is free software; you can redistribute it and/or modify it
+  under the terms and conditions of the GNU General Public License,
+  version 2, as published by the Free Software Foundation.
+
+  This program is distributed in the hope it will be useful, but WITHOUT
+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
   more details.
-  
+
   You should have received a copy of the GNU General Public License along with
-  this program; if not, write to the Free Software Foundation, Inc., 59 
-  Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-  
-  The full GNU General Public License is included in this distribution in the
-  file called LICENSE.
-  
+  this program; if not, write to the Free Software Foundation, Inc.,
+  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
+
+  The full GNU General Public License is included in this distribution in
+  the file called "COPYING".
+
   Contact Information:
   Linux NICS <linux.nics@intel.com>
+  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
   Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
 
 *******************************************************************************/
@@ -36,7 +36,7 @@ static char ixgb_driver_string[] = "Intel(R) PRO/10GbE Network Driver";
 #else
 #define DRIVERNAPI "-NAPI"
 #endif
-#define DRV_VERSION		"1.0.109-k2"DRIVERNAPI
+#define DRV_VERSION		"1.0.117-k2"DRIVERNAPI
 char ixgb_driver_version[] = DRV_VERSION;
 static char ixgb_copyright[] = "Copyright (c) 1999-2006 Intel Corporation.";
 
@@ -93,7 +93,7 @@ static int ixgb_xmit_frame(struct sk_buff *skb, struct net_device *netdev);
 static struct net_device_stats *ixgb_get_stats(struct net_device *netdev);
 static int ixgb_change_mtu(struct net_device *netdev, int new_mtu);
 static int ixgb_set_mac(struct net_device *netdev, void *p);
-static irqreturn_t ixgb_intr(int irq, void *data, struct pt_regs *regs);
+static irqreturn_t ixgb_intr(int irq, void *data);
 static boolean_t ixgb_clean_tx_irq(struct ixgb_adapter *adapter);
 
 #ifdef CONFIG_IXGB_NAPI
@@ -118,15 +118,26 @@ static void ixgb_restore_vlan(struct ixgb_adapter *adapter);
 static void ixgb_netpoll(struct net_device *dev);
 #endif
 
-/* Exported from other modules */
+static pci_ers_result_t ixgb_io_error_detected (struct pci_dev *pdev,
+	                     enum pci_channel_state state);
+static pci_ers_result_t ixgb_io_slot_reset (struct pci_dev *pdev);
+static void ixgb_io_resume (struct pci_dev *pdev);
 
+/* Exported from other modules */
 extern void ixgb_check_options(struct ixgb_adapter *adapter);
+
+static struct pci_error_handlers ixgb_err_handler = {
+	.error_detected = ixgb_io_error_detected,
+	.slot_reset = ixgb_io_slot_reset,
+	.resume = ixgb_io_resume,
+};
 
 static struct pci_driver ixgb_driver = {
 	.name     = ixgb_driver_name,
 	.id_table = ixgb_pci_tbl,
 	.probe    = ixgb_probe,
 	.remove   = __devexit_p(ixgb_remove),
+	.err_handler = &ixgb_err_handler
 };
 
 MODULE_AUTHOR("Intel Corporation, <linux.nics@intel.com>");
@@ -140,12 +151,12 @@ module_param(debug, int, 0);
 MODULE_PARM_DESC(debug, "Debug level (0=none,...,16=all)");
 
 /* some defines for controlling descriptor fetches in h/w */
-#define RXDCTL_WTHRESH_DEFAULT 16	/* chip writes back at this many or RXT0 */
-#define RXDCTL_PTHRESH_DEFAULT 0		/* chip considers prefech below
-						 * this */
-#define RXDCTL_HTHRESH_DEFAULT 0		/* chip will only prefetch if tail
-						 * is pushed this many descriptors
-						 * from head */
+#define RXDCTL_WTHRESH_DEFAULT 15  /* chip writes back at this many or RXT0 */
+#define RXDCTL_PTHRESH_DEFAULT 0   /* chip considers prefech below
+                                    * this */
+#define RXDCTL_HTHRESH_DEFAULT 0   /* chip will only prefetch if tail
+                                    * is pushed this many descriptors
+                                    * from head */
 
 /**
  * ixgb_init_module - Driver Registration Routine
@@ -162,7 +173,7 @@ ixgb_init_module(void)
 
 	printk(KERN_INFO "%s\n", ixgb_copyright);
 
-	return pci_module_init(&ixgb_driver);
+	return pci_register_driver(&ixgb_driver);
 }
 
 module_init(ixgb_init_module);
@@ -426,7 +437,7 @@ ixgb_probe(struct pci_dev *pdev,
 	netdev->poll_controller = ixgb_netpoll;
 #endif
 
-	strcpy(netdev->name, pci_name(pdev));
+	strncpy(netdev->name, pci_name(pdev), sizeof(netdev->name) - 1);
 	netdev->mem_start = mmio_start;
 	netdev->mem_end = mmio_start + mmio_len;
 	netdev->base_addr = adapter->hw.io_base;
@@ -1174,6 +1185,7 @@ ixgb_tso(struct ixgb_adapter *adapter, struct sk_buff *skb)
 	int err;
 
 	if (likely(skb_is_gso(skb))) {
+		struct ixgb_buffer *buffer_info;
 		if (skb_header_cloned(skb)) {
 			err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
 			if (err)
@@ -1196,6 +1208,8 @@ ixgb_tso(struct ixgb_adapter *adapter, struct sk_buff *skb)
 
 		i = adapter->tx_ring.next_to_use;
 		context_desc = IXGB_CONTEXT_DESC(adapter->tx_ring, i);
+		buffer_info = &adapter->tx_ring.buffer_info[i];
+		WARN_ON(buffer_info->dma != 0);
 
 		context_desc->ipcss = ipcss;
 		context_desc->ipcso = ipcso;
@@ -1232,12 +1246,15 @@ ixgb_tx_csum(struct ixgb_adapter *adapter, struct sk_buff *skb)
 	unsigned int i;
 	uint8_t css, cso;
 
-	if(likely(skb->ip_summed == CHECKSUM_HW)) {
+	if(likely(skb->ip_summed == CHECKSUM_PARTIAL)) {
+		struct ixgb_buffer *buffer_info;
 		css = skb->h.raw - skb->data;
 		cso = (skb->h.raw + skb->csum) - skb->data;
 
 		i = adapter->tx_ring.next_to_use;
 		context_desc = IXGB_CONTEXT_DESC(adapter->tx_ring, i);
+		buffer_info = &adapter->tx_ring.buffer_info[i];
+		WARN_ON(buffer_info->dma != 0);
 
 		context_desc->tucss = css;
 		context_desc->tucso = cso;
@@ -1283,6 +1300,7 @@ ixgb_tx_map(struct ixgb_adapter *adapter, struct sk_buff *skb,
 		buffer_info = &tx_ring->buffer_info[i];
 		size = min(len, IXGB_MAX_DATA_PER_TXD);
 		buffer_info->length = size;
+		WARN_ON(buffer_info->dma != 0);
 		buffer_info->dma =
 			pci_map_single(adapter->pdev,
 				skb->data + offset,
@@ -1543,6 +1561,11 @@ void
 ixgb_update_stats(struct ixgb_adapter *adapter)
 {
 	struct net_device *netdev = adapter->netdev;
+	struct pci_dev *pdev = adapter->pdev;
+
+	/* Prevent stats update while adapter is being reset */
+	if (pdev->error_state && pdev->error_state != pci_channel_io_normal)
+		return;
 
 	if((netdev->flags & IFF_PROMISC) || (netdev->flags & IFF_ALLMULTI) ||
 	   (netdev->mc_count > IXGB_MAX_NUM_MULTICAST_ADDRESSES)) {
@@ -1664,11 +1687,10 @@ ixgb_update_stats(struct ixgb_adapter *adapter)
  * ixgb_intr - Interrupt Handler
  * @irq: interrupt number
  * @data: pointer to a network interface device structure
- * @pt_regs: CPU registers structure
  **/
 
 static irqreturn_t
-ixgb_intr(int irq, void *data, struct pt_regs *regs)
+ixgb_intr(int irq, void *data)
 {
 	struct net_device *netdev = data;
 	struct ixgb_adapter *adapter = netdev_priv(netdev);
@@ -1787,7 +1809,7 @@ ixgb_clean_tx_irq(struct ixgb_adapter *adapter)
 	if (unlikely(netif_queue_stopped(netdev))) {
 		spin_lock(&adapter->tx_lock);
 		if (netif_queue_stopped(netdev) && netif_carrier_ok(netdev) &&
-		    (IXGB_DESC_UNUSED(tx_ring) > IXGB_TX_QUEUE_WAKE))
+		    (IXGB_DESC_UNUSED(tx_ring) >= DESC_NEEDED))
 			netif_wake_queue(netdev);
 		spin_unlock(&adapter->tx_lock);
 	}
@@ -1948,10 +1970,9 @@ ixgb_clean_rx_irq(struct ixgb_adapter *adapter)
 #define IXGB_CB_LENGTH 256
 		if (length < IXGB_CB_LENGTH) {
 			struct sk_buff *new_skb =
-			    dev_alloc_skb(length + NET_IP_ALIGN);
+			    netdev_alloc_skb(netdev, length + NET_IP_ALIGN);
 			if (new_skb) {
 				skb_reserve(new_skb, NET_IP_ALIGN);
-				new_skb->dev = netdev;
 				memcpy(new_skb->data - NET_IP_ALIGN,
 				       skb->data - NET_IP_ALIGN,
 				       length + NET_IP_ALIGN);
@@ -2031,14 +2052,14 @@ ixgb_alloc_rx_buffers(struct ixgb_adapter *adapter)
 	/* leave three descriptors unused */
 	while(--cleancount > 2) {
 		/* recycle! its good for you */
-		if (!(skb = buffer_info->skb))
-			skb = dev_alloc_skb(adapter->rx_buffer_len
-			                    + NET_IP_ALIGN);
-		else {
+		skb = buffer_info->skb;
+		if (skb) {
 			skb_trim(skb, 0);
 			goto map_skb;
 		}
 
+		skb = netdev_alloc_skb(netdev, adapter->rx_buffer_len
+			               + NET_IP_ALIGN);
 		if (unlikely(!skb)) {
 			/* Better luck next round */
 			adapter->alloc_rx_buff_failed++;
@@ -2050,8 +2071,6 @@ ixgb_alloc_rx_buffers(struct ixgb_adapter *adapter)
 		 * the 14 byte MAC header is removed
 		 */
 		skb_reserve(skb, NET_IP_ALIGN);
-
-		skb->dev = netdev;
 
 		buffer_info->skb = skb;
 		buffer_info->length = adapter->rx_buffer_len;
@@ -2190,12 +2209,106 @@ ixgb_restore_vlan(struct ixgb_adapter *adapter)
 
 static void ixgb_netpoll(struct net_device *dev)
 {
-	struct ixgb_adapter *adapter = dev->priv;
+	struct ixgb_adapter *adapter = netdev_priv(dev);
 
 	disable_irq(adapter->pdev->irq);
-	ixgb_intr(adapter->pdev->irq, dev, NULL);
+	ixgb_intr(adapter->pdev->irq, dev);
 	enable_irq(adapter->pdev->irq);
 }
 #endif
+
+/**
+ * ixgb_io_error_detected() - called when PCI error is detected
+ * @pdev    pointer to pci device with error
+ * @state   pci channel state after error
+ *
+ * This callback is called by the PCI subsystem whenever
+ * a PCI bus error is detected.
+ */
+static pci_ers_result_t ixgb_io_error_detected (struct pci_dev *pdev,
+			             enum pci_channel_state state)
+{
+	struct net_device *netdev = pci_get_drvdata(pdev);
+	struct ixgb_adapter *adapter = netdev_priv(netdev);
+
+	if(netif_running(netdev))
+		ixgb_down(adapter, TRUE);
+
+	pci_disable_device(pdev);
+
+	/* Request a slot reset. */
+	return PCI_ERS_RESULT_NEED_RESET;
+}
+
+/**
+ * ixgb_io_slot_reset - called after the pci bus has been reset.
+ * @pdev    pointer to pci device with error
+ *
+ * This callback is called after the PCI buss has been reset.
+ * Basically, this tries to restart the card from scratch.
+ * This is a shortened version of the device probe/discovery code,
+ * it resembles the first-half of the ixgb_probe() routine.
+ */
+static pci_ers_result_t ixgb_io_slot_reset (struct pci_dev *pdev)
+{
+	struct net_device *netdev = pci_get_drvdata(pdev);
+	struct ixgb_adapter *adapter = netdev_priv(netdev);
+
+	if(pci_enable_device(pdev)) {
+		DPRINTK(PROBE, ERR, "Cannot re-enable PCI device after reset.\n");
+		return PCI_ERS_RESULT_DISCONNECT;
+	}
+
+	/* Perform card reset only on one instance of the card */
+	if (0 != PCI_FUNC (pdev->devfn))
+		return PCI_ERS_RESULT_RECOVERED;
+
+	pci_set_master(pdev);
+
+	netif_carrier_off(netdev);
+	netif_stop_queue(netdev);
+	ixgb_reset(adapter);
+
+	/* Make sure the EEPROM is good */
+	if(!ixgb_validate_eeprom_checksum(&adapter->hw)) {
+		DPRINTK(PROBE, ERR, "After reset, the EEPROM checksum is not valid.\n");
+		return PCI_ERS_RESULT_DISCONNECT;
+	}
+	ixgb_get_ee_mac_addr(&adapter->hw, netdev->dev_addr);
+	memcpy(netdev->perm_addr, netdev->dev_addr, netdev->addr_len);
+
+	if(!is_valid_ether_addr(netdev->perm_addr)) {
+		DPRINTK(PROBE, ERR, "After reset, invalid MAC address.\n");
+		return PCI_ERS_RESULT_DISCONNECT;
+	}
+
+	return PCI_ERS_RESULT_RECOVERED;
+}
+
+/**
+ * ixgb_io_resume - called when its OK to resume normal operations
+ * @pdev    pointer to pci device with error
+ *
+ * The error recovery driver tells us that its OK to resume
+ * normal operation. Implementation resembles the second-half
+ * of the ixgb_probe() routine.
+ */
+static void ixgb_io_resume (struct pci_dev *pdev)
+{
+	struct net_device *netdev = pci_get_drvdata(pdev);
+	struct ixgb_adapter *adapter = netdev_priv(netdev);
+
+	pci_set_master(pdev);
+
+	if(netif_running(netdev)) {
+		if(ixgb_up(adapter)) {
+			printk ("ixgb: can't bring device back up after reset\n");
+			return;
+		}
+	}
+
+	netif_device_attach(netdev);
+	mod_timer(&adapter->watchdog_timer, jiffies);
+}
 
 /* ixgb_main.c */

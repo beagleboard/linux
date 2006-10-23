@@ -318,7 +318,7 @@ static unsigned int atkbd_compat_scancode(struct atkbd *atkbd, unsigned int code
  */
 
 static irqreturn_t atkbd_interrupt(struct serio *serio, unsigned char data,
-			unsigned int flags, struct pt_regs *regs)
+			unsigned int flags)
 {
 	struct atkbd *atkbd = serio_get_drvdata(serio);
 	struct input_dev *dev = atkbd->dev;
@@ -458,7 +458,6 @@ static irqreturn_t atkbd_interrupt(struct serio *serio, unsigned char data,
 				atkbd->time = jiffies + msecs_to_jiffies(dev->rep[REP_DELAY]) / 2;
 			}
 
-			input_regs(dev, regs);
 			input_event(dev, EV_KEY, keycode, value);
 			input_sync(dev);
 
@@ -469,7 +468,6 @@ static irqreturn_t atkbd_interrupt(struct serio *serio, unsigned char data,
 	}
 
 	if (atkbd->scroll) {
-		input_regs(dev, regs);
 		if (click != -1)
 			input_report_key(dev, BTN_MIDDLE, click);
 		input_report_rel(dev, REL_WHEEL, scroll);
@@ -652,9 +650,7 @@ static int atkbd_probe(struct atkbd *atkbd)
 		return 0;
 	}
 
-	if (param[0] != 0xab && param[0] != 0xac &&	/* Regular and NCD Sun keyboards */
-	    param[0] != 0x2b && param[0] != 0x5d &&	/* Trust keyboard, raw and translated */
-	    param[0] != 0x60 && param[0] != 0x47)	/* NMB SGI keyboard, raw and translated */
+	if (!ps2_is_keyboard_id(param[0]))
 		return -1;
 
 	atkbd->id = (param[0] << 8) | param[1];

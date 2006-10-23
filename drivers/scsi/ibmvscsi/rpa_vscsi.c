@@ -45,14 +45,11 @@ static unsigned int partition_number = -1;
  * ibmvscsi_handle_event: - Interrupt handler for crq events
  * @irq:	number of irq to handle, not used
  * @dev_instance: ibmvscsi_host_data of host that received interrupt
- * @regs:	pt_regs with registers
  *
  * Disables interrupts and schedules srp_task
  * Always returns IRQ_HANDLED
  */
-static irqreturn_t ibmvscsi_handle_event(int irq,
-					 void *dev_instance,
-					 struct pt_regs *regs)
+static irqreturn_t ibmvscsi_handle_event(int irq, void *dev_instance)
 {
 	struct ibmvscsi_host_data *hostdata =
 	    (struct ibmvscsi_host_data *)dev_instance;
@@ -156,8 +153,8 @@ static void gather_partition_info(void)
 {
 	struct device_node *rootdn;
 
-	char *ppartition_name;
-	unsigned int *p_number_ptr;
+	const char *ppartition_name;
+	const unsigned int *p_number_ptr;
 
 	/* Retrieve information about this partition */
 	rootdn = find_path_device("/");
@@ -165,14 +162,11 @@ static void gather_partition_info(void)
 		return;
 	}
 
-	ppartition_name =
-		get_property(rootdn, "ibm,partition-name", NULL);
+	ppartition_name = get_property(rootdn, "ibm,partition-name", NULL);
 	if (ppartition_name)
 		strncpy(partition_name, ppartition_name,
 				sizeof(partition_name));
-	p_number_ptr =
-		(unsigned int *)get_property(rootdn, "ibm,partition-no",
-					     NULL);
+	p_number_ptr = get_property(rootdn, "ibm,partition-no", NULL);
 	if (p_number_ptr)
 		partition_number = *p_number_ptr;
 }

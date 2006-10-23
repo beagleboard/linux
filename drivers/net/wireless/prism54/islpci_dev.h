@@ -179,6 +179,8 @@ typedef struct {
 	struct list_head bss_wpa_list;
 	int num_bss_wpa;
 	struct semaphore wpa_sem;
+	u8 wpa_ie[MAX_WPA_IE_LEN];
+	size_t wpa_ie_len;
 
 	struct work_struct reset_task;
 	int reset_task_pending;
@@ -196,7 +198,7 @@ islpci_state_t islpci_set_state(islpci_private *priv, islpci_state_t new_state);
 
 #define ISLPCI_TX_TIMEOUT               (2*HZ)
 
-irqreturn_t islpci_interrupt(int, void *, struct pt_regs *);
+irqreturn_t islpci_interrupt(int, void *);
 
 int prism54_post_setup(islpci_private *, int);
 int islpci_reset(islpci_private *, int);

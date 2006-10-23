@@ -2,6 +2,8 @@
 # Block device driver configuration
 #
 
+if BLOCK
+
 menu "Block devices"
 
 config BLK_DEV_FD
@@ -205,8 +207,7 @@ config BLK_DEV_UMEM
 	  module will be called umem.
 
 	  The umem driver has not yet been allocated a MAJOR number, so
-	  one is chosen dynamically.  Use "devfs" or look in /proc/devices
-	  for the device number
+	  one is chosen dynamically.
 
 config BLK_DEV_UBD
 	bool "Virtual block device"
@@ -405,7 +406,7 @@ config BLK_DEV_RAM_BLOCKSIZE
 	depends on BLK_DEV_RAM
 	default "1024"
 	help
-	  The default value is 1024 kilobytes.  PAGE_SIZE is a much more
+	  The default value is 1024 bytes.  PAGE_SIZE is a much more
 	  efficient choice however.  The default is kept to ensure initrd
 	  setups function - apparently needed by the rd_load_image routine
 	  that supposes the filesystem in the image uses a 1024 blocksize.
@@ -468,3 +469,5 @@ config ATA_OVER_ETH
 	devices like the Coraid EtherDrive (R) Storage Blade.
 
 endmenu
+
+endif

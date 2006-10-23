@@ -128,6 +128,7 @@ struct snd_vx_hardware {
 	unsigned int num_ins;
 	unsigned int num_outs;
 	unsigned int output_level_max;
+	unsigned int *output_level_db_scale;
 };
 
 /* hwdep id string */
@@ -227,7 +228,7 @@ void snd_vx_free_firmware(struct vx_core *chip);
 /*
  * interrupt handler; exported for pcmcia
  */
-irqreturn_t snd_vx_irq_handler(int irq, void *dev, struct pt_regs *regs);
+irqreturn_t snd_vx_irq_handler(int irq, void *dev);
 
 /*
  * lowlevel functions

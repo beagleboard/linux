@@ -407,7 +407,7 @@ static void mxser_stop(struct tty_struct *);
 static void mxser_start(struct tty_struct *);
 static void mxser_hangup(struct tty_struct *);
 static void mxser_rs_break(struct tty_struct *, int);
-static irqreturn_t mxser_interrupt(int, void *, struct pt_regs *);
+static irqreturn_t mxser_interrupt(int, void *);
 static void mxser_receive_chars(struct mxser_struct *, int *);
 static void mxser_transmit_chars(struct mxser_struct *);
 static void mxser_check_modem_status(struct mxser_struct *, int);
@@ -453,7 +453,7 @@ static int CheckIsMoxaMust(int io)
 
 /* above is modified by Victor Yu. 08-15-2002 */
 
-static struct tty_operations mxser_ops = {
+static const struct tty_operations mxser_ops = {
 	.open = mxser_open,
 	.close = mxser_close,
 	.write = mxser_write,
@@ -1916,7 +1916,7 @@ static void mxser_rs_break(struct tty_struct *tty, int break_state)
 /*
  * This is the serial driver's generic interrupt routine
  */
-static irqreturn_t mxser_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+static irqreturn_t mxser_interrupt(int irq, void *dev_id)
 {
 	int status, iir, i;
 	struct mxser_struct *info;
@@ -2554,71 +2554,7 @@ static int mxser_change_speed(struct mxser_struct *info, struct termios *old_ter
 #define B921600 (B460800 +1)
 #endif
 	if (mxser_set_baud_method[info->port] == 0) {
-		switch (cflag & (CBAUD | CBAUDEX)) {
-		case B921600:
-			baud = 921600;
-			break;
-		case B460800:
-			baud = 460800;
-			break;
-		case B230400:
-			baud = 230400;
-			break;
-		case B115200:
-			baud = 115200;
-			break;
-		case B57600:
-			baud = 57600;
-			break;
-		case B38400:
-			baud = 38400;
-			break;
-		case B19200:
-			baud = 19200;
-			break;
-		case B9600:
-			baud = 9600;
-			break;
-		case B4800:
-			baud = 4800;
-			break;
-		case B2400:
-			baud = 2400;
-			break;
-		case B1800:
-			baud = 1800;
-			break;
-		case B1200:
-			baud = 1200;
-			break;
-		case B600:
-			baud = 600;
-			break;
-		case B300:
-			baud = 300;
-			break;
-		case B200:
-			baud = 200;
-			break;
-		case B150:
-			baud = 150;
-			break;
-		case B134:
-			baud = 134;
-			break;
-		case B110:
-			baud = 110;
-			break;
-		case B75:
-			baud = 75;
-			break;
-		case B50:
-			baud = 50;
-			break;
-		default:
-			baud = 0;
-			break;
-		}
+		baud = tty_get_baud_rate(info->tty);
 		mxser_set_baud(info, baud);
 	}
 

@@ -120,12 +120,19 @@ config IEEE1394_VIDEO1394
 	  this option only if you have an IEEE 1394 video device connected to
 	  an OHCI-1394 card.
 
+comment "SBP-2 support (for storage devices) requires SCSI"
+	depends on IEEE1394 && SCSI=n
+
 config IEEE1394_SBP2
 	tristate "SBP-2 support (Harddisks etc.)"
 	depends on IEEE1394 && SCSI && (PCI || BROKEN)
 	help
-	  This option enables you to use SBP-2 devices connected to your IEEE
-	  1394 bus.  SBP-2 devices include harddrives and DVD devices.
+	  This option enables you to use SBP-2 devices connected to an IEEE
+	  1394 bus.  SBP-2 devices include storage devices like harddisks and
+	  DVD drives, also some other FireWire devices like scanners.
+
+	  You should also enable support for disks, CD-ROMs, etc. in the SCSI
+	  configuration section.
 
 config IEEE1394_SBP2_PHYS_DMA
 	bool "Enable replacement for physical DMA in SBP2"
@@ -133,7 +140,7 @@ config IEEE1394_SBP2_PHYS_DMA
 	help
 	  This builds sbp2 for use with non-OHCI host adapters which do not
 	  support physical DMA or for when ohci1394 is run with phys_dma=0.
-	  Physical DMA is data movement without assistence of the drivers'
+	  Physical DMA is data movement without assistance of the drivers'
 	  interrupt handlers.  This option includes the interrupt handlers
 	  that are required in absence of this hardware feature.
 

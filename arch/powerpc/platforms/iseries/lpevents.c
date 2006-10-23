@@ -20,7 +20,7 @@
 #include <asm/iseries/it_lp_queue.h>
 #include <asm/iseries/hv_lp_event.h>
 #include <asm/iseries/hv_call_event.h>
-#include <asm/iseries/it_lp_naca.h>
+#include "it_lp_naca.h"
 
 /*
  * The LpQueue is used to pass event data from the hypervisor to
@@ -116,7 +116,7 @@ static void hvlpevent_clear_valid(struct HvLpEvent * event)
 	hvlpevent_invalidate(event);
 }
 
-void process_hvlpevents(struct pt_regs *regs)
+void process_hvlpevents(void)
 {
 	struct HvLpEvent * event;
 
@@ -144,7 +144,7 @@ void process_hvlpevents(struct pt_regs *regs)
 				__get_cpu_var(hvlpevent_counts)[event->xType]++;
 			if (event->xType < HvLpEvent_Type_NumTypes &&
 					lpEventHandler[event->xType])
-				lpEventHandler[event->xType](event, regs);
+				lpEventHandler[event->xType](event);
 			else
 				printk(KERN_INFO "Unexpected Lp Event type=%d\n", event->xType );
 

@@ -30,6 +30,7 @@
 #include <media/tveeprom.h>
 #include <media/video-buf.h>
 #include <media/cx2341x.h>
+#include <media/audiochip.h>
 #include <media/video-buf-dvb.h>
 
 #include "btcx-risc.h"
@@ -39,12 +40,6 @@
 #include <linux/mutex.h>
 #define CX88_VERSION_CODE KERNEL_VERSION(0,0,6)
 
-#ifndef TRUE
-# define TRUE (1==1)
-#endif
-#ifndef FALSE
-# define FALSE (1==0)
-#endif
 #define UNSET (-1U)
 
 #define CX88_MAXBOARDS 8
@@ -71,6 +66,12 @@ enum cx88_deemph_type {
 	FM_NO_DEEMPH = 0,
 	FM_DEEMPH_50,
 	FM_DEEMPH_75
+};
+
+enum cx88_board_type {
+	CX88_BOARD_NONE = 0,
+	CX88_MPEG_DVB,
+	CX88_MPEG_BLACKBIRD
 };
 
 /* ----------------------------------------------------------- */
@@ -197,6 +198,10 @@ extern struct sram_channel cx88_sram_channels[];
 #define CX88_BOARD_NPGTECH_REALTV_TOP10FM  50
 #define CX88_BOARD_WINFAST_DTV2000H        51
 #define CX88_BOARD_GENIATECH_DVBS          52
+#define CX88_BOARD_HAUPPAUGE_HVR3000       53
+#define CX88_BOARD_NORWOOD_MICRO           54
+#define CX88_BOARD_TE_DTV_250_OEM_SWANN    55
+#define CX88_BOARD_HAUPPAUGE_HVR1300       56
 
 enum cx88_itype {
 	CX88_VMUX_COMPOSITE1 = 1,
@@ -226,8 +231,8 @@ struct cx88_board {
 	int                     tda9887_conf;
 	struct cx88_input       input[MAX_CX88_INPUT];
 	struct cx88_input       radio;
-	unsigned int            blackbird:1;
-	unsigned int            dvb:1;
+	enum cx88_board_type    mpeg;
+	enum audiochip          audio_chip;
 };
 
 struct cx88_subid {
@@ -545,6 +550,7 @@ extern const unsigned int cx88_idcount;
 
 extern void cx88_card_list(struct cx88_core *core, struct pci_dev *pci);
 extern void cx88_card_setup(struct cx88_core *core);
+extern void cx88_card_setup_pre_i2c(struct cx88_core *core);
 
 /* ----------------------------------------------------------- */
 /* cx88-tvaudio.c                                              */

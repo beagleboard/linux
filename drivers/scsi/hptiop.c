@@ -15,7 +15,6 @@
  *
  * For more information, visit http://www.highpoint-tech.com
  */
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/string.h>
@@ -432,7 +431,7 @@ void hptiop_iop_request_callback(struct hptiop_hba *hba, u32 tag)
 	writel(tag, &hba->iop->outbound_queue);
 }
 
-static irqreturn_t hptiop_intr(int irq, void *dev_id, struct pt_regs *regs)
+static irqreturn_t hptiop_intr(int irq, void *dev_id)
 {
 	struct hptiop_hba  *hba = dev_id;
 	int  handled;

@@ -338,10 +338,6 @@ config PPC_MULTIPLATFORM
 	  RS/6000 machine, an Apple machine, or a PReP, CHRP,
 	  Maple or Cell-based machine.
 
-config PPC_ISERIES
-	bool "IBM Legacy iSeries"
-	depends on PPC64
-
 config EMBEDDED6xx
 	bool "Embedded 6xx/7xx/7xxx-based board"
 	depends on PPC32 && (BROKEN||BROKEN_ON_SMP)
@@ -355,6 +351,16 @@ config APUS
 	  <http://linux-apus.sourceforge.net/>.
 endchoice
 
+config QUICC_ENGINE
+	bool
+	depends on PPC_MPC836x || PPC_MPC832x
+	default y
+	help
+	  The QUICC Engine (QE) is a new generation of communications
+	  coprocessors on Freescale embedded CPUs (akin to CPM in older chips).
+	  Selecting this option means that you wish to build a kernel
+	  for a machine with a QE coprocessor.
+
 config PPC_PSERIES
 	depends on PPC_MULTIPLATFORM && PPC64
 	bool "IBM pSeries & new (POWER5-based) iSeries"
@@ -364,6 +370,10 @@ config PPC_PSERIES
 	select RTAS_ERROR_LOGGING
 	select PPC_UDBG_16550
 	default y
+
+config PPC_ISERIES
+	bool "IBM Legacy iSeries"
+	depends on PPC_MULTIPLATFORM && PPC64
 
 config PPC_CHRP
 	bool "Common Hardware Reference Platform (CHRP) based machines"
@@ -417,6 +427,17 @@ config PPC_MAPLE
           This option enables support for the Maple 970FX Evaluation Board.
 	  For more informations, refer to <http://www.970eval.com>
 
+config PPC_PASEMI
+	depends on PPC_MULTIPLATFORM && PPC64
+	bool "PA Semi SoC-based platforms"
+	default n
+	select MPIC
+	select PPC_UDBG_16550
+	select GENERIC_TBSYNC
+	help
+	  This option enables support for PA Semi's PWRficient line
+	  of SoC processors, including PA6T-1682M
+
 config PPC_CELL
 	bool
 	default n
@@ -436,7 +457,8 @@ config PPC_IBM_CELL_BLADE
 	select UDBG_RTAS_CONSOLE
 
 config UDBG_RTAS_CONSOLE
-	bool
+	bool "RTAS based debug console"
+	depends on PPC_RTAS
 	default n
 
 config XICS
@@ -582,6 +604,7 @@ endmenu
 
 source arch/powerpc/platforms/embedded6xx/Kconfig
 source arch/powerpc/platforms/4xx/Kconfig
+source arch/powerpc/platforms/82xx/Kconfig
 source arch/powerpc/platforms/83xx/Kconfig
 source arch/powerpc/platforms/85xx/Kconfig
 source arch/powerpc/platforms/86xx/Kconfig
@@ -719,11 +742,10 @@ config ARCH_SPARSEMEM_DEFAULT
 	def_bool y
 	depends on SMP && PPC_PSERIES
 
-source "mm/Kconfig"
-
-config HAVE_ARCH_EARLY_PFN_TO_NID
+config ARCH_POPULATES_NODE_MAP
 	def_bool y
-	depends on NEED_MULTIPLE_NODES
+
+source "mm/Kconfig"
 
 config ARCH_MEMORY_PROBE
 	def_bool y
@@ -991,7 +1013,7 @@ config CONSISTENT_START_BOOL
 	depends on ADVANCED_OPTIONS && NOT_COHERENT_CACHE
 	help
 	  This option allows you to set the base virtual address
-	  of the the consistent memory pool.  This pool of virtual
+	  of the consistent memory pool.  This pool of virtual
 	  memory is used to make consistent memory allocations.
 
 config CONSISTENT_START
@@ -1002,7 +1024,7 @@ config CONSISTENT_SIZE_BOOL
 	bool "Set custom consistent memory pool size"
 	depends on ADVANCED_OPTIONS && NOT_COHERENT_CACHE
 	help
-	  This option allows you to set the size of the the
+	  This option allows you to set the size of the
 	  consistent memory pool.  This pool of virtual memory
 	  is used to make consistent memory allocations.
 
@@ -1047,6 +1069,8 @@ source "fs/Kconfig"
 
 # XXX source "arch/ppc/8260_io/Kconfig"
 
+source "arch/powerpc/sysdev/qe_lib/Kconfig"
+
 source "arch/powerpc/platforms/iseries/Kconfig"
 
 source "lib/Kconfig"
@@ -1058,7 +1082,7 @@ source "arch/powerpc/oprofile/Kconfig"
 
 config KPROBES
 	bool "Kprobes (EXPERIMENTAL)"
-	depends on PPC64 && EXPERIMENTAL && MODULES
+	depends on PPC64 && KALLSYMS && EXPERIMENTAL && MODULES
 	help
 	  Kprobes allows you to trap at almost any kernel address and
 	  execute a callback function.  register_kprobe() establishes

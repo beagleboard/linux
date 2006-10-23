@@ -1462,7 +1462,7 @@ NCR_700_start_command(struct scsi_cmnd *SCp)
 }
 
 irqreturn_t
-NCR_700_intr(int irq, void *dev_id, struct pt_regs *regs)
+NCR_700_intr(int irq, void *dev_id)
 {
 	struct Scsi_Host *host = (struct Scsi_Host *)dev_id;
 	struct NCR_700_Host_Parameters *hostdata =
@@ -1939,7 +1939,7 @@ NCR_700_abort(struct scsi_cmnd * SCp)
 STATIC int
 NCR_700_bus_reset(struct scsi_cmnd * SCp)
 {
-	DECLARE_COMPLETION(complete);
+	DECLARE_COMPLETION_ONSTACK(complete);
 	struct NCR_700_Host_Parameters *hostdata = 
 		(struct NCR_700_Host_Parameters *)SCp->device->host->hostdata[0];
 

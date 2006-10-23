@@ -11,6 +11,7 @@
 #include <linux/limits.h>
 #include <linux/mm.h>
 #include <linux/smp.h>
+#include <linux/tty.h>
 #include <linux/mman.h>
 #include <linux/file.h>
 #include <linux/timex.h>
@@ -248,7 +249,7 @@ asmlinkage int solaris_utssys(u32 buf, u32 flags, int which, u32 buf2)
 		/* Let's cheat */
 		err  = set_utsfield(v->sysname, "SunOS", 1, 0);
 		down_read(&uts_sem);
-		err |= set_utsfield(v->nodename, system_utsname.nodename,
+		err |= set_utsfield(v->nodename, utsname()->nodename,
 				    1, 1);
 		up_read(&uts_sem);
 		err |= set_utsfield(v->release, "2.6", 0, 0);
@@ -272,7 +273,7 @@ asmlinkage int solaris_utsname(u32 buf)
 	/* Why should we not lie a bit? */
 	down_read(&uts_sem);
 	err  = set_utsfield(v->sysname, "SunOS", 0, 0);
-	err |= set_utsfield(v->nodename, system_utsname.nodename, 1, 1);
+	err |= set_utsfield(v->nodename, utsname()->nodename, 1, 1);
 	err |= set_utsfield(v->release, "5.6", 0, 0);
 	err |= set_utsfield(v->version, "Generic", 0, 0);
 	err |= set_utsfield(v->machine, machine(), 0, 0);
@@ -304,7 +305,7 @@ asmlinkage int solaris_sysinfo(int cmd, u32 buf, s32 count)
 	case SI_HOSTNAME:
 		r = buffer + 256;
 		down_read(&uts_sem);
-		for (p = system_utsname.nodename, q = buffer; 
+		for (p = utsname()->nodename, q = buffer;
 		     q < r && *p && *p != '.'; *q++ = *p++);
 		up_read(&uts_sem);
 		*q = 0;
@@ -422,7 +423,9 @@ asmlinkage int solaris_procids(int cmd, s32 pid, s32 pgid)
 			   Solaris setpgrp and setsid? */
 			ret = sys_setpgid(0, 0);
 			if (ret) return ret;
+			mutex_lock(&tty_mutex);
 			current->signal->tty = NULL;
+			mutex_unlock(&tty_mutex);
 			return process_group(current);
 		}
 	case 2: /* getsid */
@@ -736,20 +739,15 @@ struct exec_domain solaris_exec_domain = {
 
 extern int init_socksys(void);
 
-#ifdef MODULE
-
 MODULE_AUTHOR("Jakub Jelinek (jj@ultra.linux.cz), Patrik Rak (prak3264@ss1000.ms.mff.cuni.cz)");
 MODULE_DESCRIPTION("Solaris binary emulation module");
 MODULE_LICENSE("GPL");
 
-#ifdef __sparc_v9__
 extern u32 tl0_solaris[8];
 #define update_ttable(x) 										\
 	tl0_solaris[3] = (((long)(x) - (long)tl0_solaris - 3) >> 2) | 0x40000000;			\
 	wmb();		\
 	__asm__ __volatile__ ("flush %0" : : "r" (&tl0_solaris[3]))
-#else
-#endif	
 
 extern u32 solaris_sparc_syscall[];
 extern u32 solaris_syscall[];
@@ -757,7 +755,7 @@ extern void cleanup_socksys(void);
 
 extern u32 entry64_personality_patch;
 
-int init_module(void)
+static int __init solaris_init(void)
 {
 	int ret;
 
@@ -777,19 +775,12 @@ int init_module(void)
 	return 0;
 }
 
-void cleanup_module(void)
+static void __exit solaris_exit(void)
 {
 	update_ttable(solaris_syscall);
 	cleanup_socksys();
 	unregister_exec_domain(&solaris_exec_domain);
 }
 
-#else
-int init_solaris_emul(void)
-{
-	register_exec_domain(&solaris_exec_domain);
-	init_socksys();
-	return 0;
-}
-#endif
-
+module_init(solaris_init);
+module_exit(solaris_exit);

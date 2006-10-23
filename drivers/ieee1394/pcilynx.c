@@ -137,7 +137,6 @@ static struct i2c_algo_bit_data bit_data = {
 	.getsda			= bit_getsda,
 	.getscl			= bit_getscl,
 	.udelay			= 5,
-	.mdelay			= 5,
 	.timeout		= 100,
 };
 
@@ -840,8 +839,7 @@ static int lynx_devctl(struct hpsb_host *host, enum devctl_cmd cmd, int arg)
  ********************************************************/
 
 
-static irqreturn_t lynx_irq_handler(int irq, void *dev_id,
-                             struct pt_regs *regs_are_unused)
+static irqreturn_t lynx_irq_handler(int irq, void *dev_id)
 {
         struct ti_lynx *lynx = (struct ti_lynx *)dev_id;
         struct hpsb_host *host = lynx->host;

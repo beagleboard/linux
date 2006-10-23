@@ -185,6 +185,7 @@ int saa7134_input_init1(struct saa7134_dev *dev)
 	case SAA7134_BOARD_AVERMEDIA_STUDIO_305:
 	case SAA7134_BOARD_AVERMEDIA_STUDIO_307:
 	case SAA7134_BOARD_AVERMEDIA_GO_007_FM:
+	case SAA7134_BOARD_AVERMEDIA_A16AR:
 		ir_codes     = ir_codes_avermedia;
 		mask_keycode = 0x0007C8;
 		mask_keydown = 0x000010;
@@ -226,6 +227,12 @@ int saa7134_input_init1(struct saa7134_dev *dev)
 		ir_codes     = ir_codes_videomate_tv_pvr;
 		mask_keycode = 0x00003F;
 		mask_keyup   = 0x400000;
+		polling      = 50; // ms
+		break;
+	case SAA7134_BOARD_PROTEUS_2309:
+		ir_codes     = ir_codes_proteus_2309;
+		mask_keycode = 0x00007F;
+		mask_keyup   = 0x000080;
 		polling      = 50; // ms
 		break;
 	case SAA7134_BOARD_VIDEOMATE_DVBT_300:

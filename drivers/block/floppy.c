@@ -221,7 +221,7 @@ static DEFINE_SPINLOCK(floppy_lock);
 static struct completion device_release;
 
 static unsigned short virtual_dma_port = 0x3f0;
-irqreturn_t floppy_interrupt(int irq, void *dev_id, struct pt_regs *regs);
+irqreturn_t floppy_interrupt(int irq, void *dev_id);
 static int set_dor(int fdc, char mask, char data);
 
 #define K_64	0x10000		/* 64KB */
@@ -1726,7 +1726,7 @@ static void print_result(char *message, int inr)
 }
 
 /* interrupt handler. Note that this can be called externally on the Sparc */
-irqreturn_t floppy_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+irqreturn_t floppy_interrupt(int irq, void *dev_id)
 {
 	void (*handler) (void) = do_floppy;
 	int do_print;
@@ -2991,8 +2991,8 @@ static void do_fd_request(request_queue_t * q)
 	if (usage_count == 0) {
 		printk("warning: usage count=0, current_req=%p exiting\n",
 		       current_req);
-		printk("sect=%ld flags=%lx\n", (long)current_req->sector,
-		       current_req->flags);
+		printk("sect=%ld type=%x flags=%x\n", (long)current_req->sector,
+		       current_req->cmd_type, current_req->cmd_flags);
 		return;
 	}
 	if (test_bit(0, &fdc_busy)) {

@@ -6,8 +6,6 @@
  * (c) 2006 Benjamin Herrenschmidt <benh@kernel.crashing.org>, IBM Corp.
  */
 
-
-#include <linux/config.h>
 #include <linux/percpu.h>
 #include <linux/types.h>
 
@@ -97,7 +95,7 @@ void __init cbe_regs_init(void)
 		struct cbe_regs_map *map = &cbe_regs_maps[cbe_regs_map_count++];
 
 		/* That hack must die die die ! */
-		struct address_prop {
+		const struct address_prop {
 			unsigned long address;
 			unsigned int len;
 		} __attribute__((packed)) *prop;
@@ -114,13 +112,11 @@ void __init cbe_regs_init(void)
 			if (cbe_thread_map[i].cpu_node == cpu)
 				cbe_thread_map[i].regs = map;
 
-		prop = (struct address_prop *)get_property(cpu, "pervasive",
-							   NULL);
+		prop = get_property(cpu, "pervasive", NULL);
 		if (prop != NULL)
 			map->pmd_regs = ioremap(prop->address, prop->len);
 
-		prop = (struct address_prop *)get_property(cpu, "iic",
-							   NULL);
+		prop = get_property(cpu, "iic", NULL);
 		if (prop != NULL)
 			map->iic_regs = ioremap(prop->address, prop->len);
 	}

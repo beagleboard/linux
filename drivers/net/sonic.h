@@ -7,7 +7,7 @@
  * NOTE: most of the structure definitions here are endian dependent.
  * If you want to use this driver on big endian machines, the data
  * and pad structure members must be exchanged. Also, the structures
- * need to be changed accordingly to the bus size. 
+ * need to be changed accordingly to the bus size.
  *
  * 981229 MSch:	did just that for the 68k Mac port (32 bit, big endian)
  *
@@ -181,7 +181,7 @@
 
 #define SONIC_TCR_DEFAULT       0x0000
 
-/* 
+/*
  * Constants for the SONIC_INTERRUPT_MASK and
  * SONIC_INTERRUPT_STATUS registers.
  */
@@ -328,7 +328,7 @@ struct sonic_local {
 
 static int sonic_open(struct net_device *dev);
 static int sonic_send_packet(struct sk_buff *skb, struct net_device *dev);
-static irqreturn_t sonic_interrupt(int irq, void *dev_id, struct pt_regs *regs);
+static irqreturn_t sonic_interrupt(int irq, void *dev_id);
 static void sonic_rx(struct net_device *dev);
 static int sonic_close(struct net_device *dev);
 static struct net_device_stats *sonic_get_stats(struct net_device *dev);

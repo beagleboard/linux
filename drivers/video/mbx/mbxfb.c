@@ -118,8 +118,19 @@ static unsigned int mbxfb_get_pixclock(unsigned int pixclock_ps,
 	/* convert pixclock to KHz */
 	pixclock = PICOS2KHZ(pixclock_ps);
 
+	/* PLL output freq = (ref_clk * M) / (N * 2^P)
+	 *
+	 * M: 1 to 63
+	 * N: 1 to 7
+	 * P: 0 to 7
+	 */
+
+	/* RAPH: When N==1, the resulting pixel clock appears to
+	 * get divided by 2. Preventing N=1 by starting the following
+	 * loop at 2 prevents this. Is this a bug with my chip
+	 * revision or something I dont understand? */
 	for (m = 1; m < 64; m++) {
-		for (n = 1; n < 8; n++) {
+		for (n = 2; n < 8; n++) {
 			for (p = 0; p < 8; p++) {
 				clk = (ref_clk * m) / (n * (1 << p));
 				err = (clk > pixclock) ? (clk - pixclock) :
@@ -244,8 +255,8 @@ static int mbxfb_set_par(struct fb_info *info)
 
 	/* setup resolution */
 	gsctrl &= ~(FMsk(GSCTRL_GSWIDTH) | FMsk(GSCTRL_GSHEIGHT));
-	gsctrl |= Gsctrl_Width(info->var.xres - 1) |
-		Gsctrl_Height(info->var.yres - 1);
+	gsctrl |= Gsctrl_Width(info->var.xres) |
+		Gsctrl_Height(info->var.yres);
 	writel(gsctrl, GSCTRL);
 	udelay(1000);
 
@@ -402,8 +413,8 @@ static void __devinit setup_graphics(struct fb_info *fbi)
 {
 	unsigned long gsctrl;
 
-	gsctrl = GSCTRL_GAMMA_EN | Gsctrl_Width(fbi->var.xres - 1) |
-		Gsctrl_Height(fbi->var.yres - 1);
+	gsctrl = GSCTRL_GAMMA_EN | Gsctrl_Width(fbi->var.xres) |
+		Gsctrl_Height(fbi->var.yres);
 	switch (fbi->var.bits_per_pixel) {
 	case 16:
 		if (fbi->var.green.length == 5)

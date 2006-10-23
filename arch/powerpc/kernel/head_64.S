@@ -33,6 +33,7 @@
 #include <asm/hvcall.h>
 #include <asm/iseries/lpar_map.h>
 #include <asm/thread_info.h>
+#include <asm/firmware.h>
 
 #ifdef CONFIG_PPC_ISERIES
 #define DO_SOFT_DISABLE
@@ -132,7 +133,7 @@ _GLOBAL(__secondary_hold)
 	bne	100b
 
 #if defined(CONFIG_SMP) || defined(CONFIG_KEXEC)
-	LOAD_REG_IMMEDIATE(r4, .pSeries_secondary_smp_init)
+	LOAD_REG_IMMEDIATE(r4, .generic_secondary_smp_init)
 	mtctr	r4
 	mr	r3,r24
 	bctr
@@ -365,19 +366,28 @@ label##_iSeries:							\
 
 #ifdef DO_SOFT_DISABLE
 #define DISABLE_INTS				\
+BEGIN_FW_FTR_SECTION;				\
 	lbz	r10,PACAPROCENABLED(r13);	\
 	li	r11,0;				\
 	std	r10,SOFTE(r1);			\
 	mfmsr	r10;				\
 	stb	r11,PACAPROCENABLED(r13);	\
 	ori	r10,r10,MSR_EE;			\
-	mtmsrd	r10,1
+	mtmsrd	r10,1;				\
+END_FW_FTR_SECTION_IFSET(FW_FEATURE_ISERIES)
 
 #define ENABLE_INTS				\
+BEGIN_FW_FTR_SECTION;				\
 	lbz	r10,PACAPROCENABLED(r13);	\
 	mfmsr	r11;				\
 	std	r10,SOFTE(r1);			\
 	ori	r11,r11,MSR_EE;			\
+END_FW_FTR_SECTION_IFSET(FW_FEATURE_ISERIES);	\
+BEGIN_FW_FTR_SECTION;				\
+	ld	r12,_MSR(r1);			\
+	mfmsr	r11;				\
+	rlwimi	r11,r12,0,MSR_EE;		\
+END_FW_FTR_SECTION_IFCLR(FW_FEATURE_ISERIES);	\
 	mtmsrd	r11,1
 
 #else	/* hard enable/disable interrupts */
@@ -1071,8 +1081,10 @@ _GLOBAL(slb_miss_realmode)
 	ld	r3,PACA_EXSLB+EX_R3(r13)
 	lwz	r9,PACA_EXSLB+EX_CCR(r13)	/* get saved CR */
 #ifdef CONFIG_PPC_ISERIES
+BEGIN_FW_FTR_SECTION
 	ld	r11,PACALPPACAPTR(r13)
 	ld	r11,LPPACASRR0(r11)		/* get SRR0 value */
+END_FW_FTR_SECTION_IFSET(FW_FEATURE_ISERIES)
 #endif /* CONFIG_PPC_ISERIES */
 
 	mtlr	r10
@@ -1087,8 +1099,10 @@ _GLOBAL(slb_miss_realmode)
 .machine	pop
 
 #ifdef CONFIG_PPC_ISERIES
+BEGIN_FW_FTR_SECTION
 	mtspr	SPRN_SRR0,r11
 	mtspr	SPRN_SRR1,r12
+END_FW_FTR_SECTION_IFSET(FW_FEATURE_ISERIES)
 #endif /* CONFIG_PPC_ISERIES */
 	ld	r9,PACA_EXSLB+EX_R9(r13)
 	ld	r10,PACA_EXSLB+EX_R10(r13)
@@ -1301,6 +1315,7 @@ END_FTR_SECTION_IFCLR(CPU_FTR_SLB)
 	cmpdi	r3,0			/* see if hash_page succeeded */
 
 #ifdef DO_SOFT_DISABLE
+BEGIN_FW_FTR_SECTION
 	/*
 	 * If we had interrupts soft-enabled at the point where the
 	 * DSI/ISI occurred, and an interrupt came in during hash_page,
@@ -1321,12 +1336,14 @@ END_FTR_SECTION_IFCLR(CPU_FTR_SLB)
 	ld	r3,SOFTE(r1)
 	bl	.local_irq_restore
 	b	11f
-#else
+END_FW_FTR_SECTION_IFSET(FW_FEATURE_ISERIES)
+#endif
+BEGIN_FW_FTR_SECTION
 	beq	fast_exception_return   /* Return from exception on success */
 	ble-	12f			/* Failure return from hash_page */
 
 	/* fall through */
-#endif
+END_FW_FTR_SECTION_IFCLR(FW_FEATURE_ISERIES)
 
 /* Here we have a page fault that hash_page can't handle. */
 _GLOBAL(handle_page_fault)
@@ -1484,18 +1501,16 @@ fwnmi_data_area:
         . = 0x8000
 
 /*
- * On pSeries, secondary processors spin in the following code.
+ * On pSeries and most other platforms, secondary processors spin
+ * in the following code.
  * At entry, r3 = this processor's number (physical cpu id)
  */
-_GLOBAL(pSeries_secondary_smp_init)
+_GLOBAL(generic_secondary_smp_init)
 	mr	r24,r3
 	
 	/* turn on 64-bit mode */
 	bl	.enable_64b_mode
 	isync
-
-	/* Copy some CPU settings from CPU 0 */
-	bl	.__restore_cpu_setup
 
 	/* Set up a paca value for this processor. Since we have the
 	 * physical cpu id in r24, we need to search the pacas to find
@@ -1522,15 +1537,28 @@ _GLOBAL(pSeries_secondary_smp_init)
 					/* start.			 */
 	sync
 
-	/* Create a temp kernel stack for use before relocation is on.	*/
+#ifndef CONFIG_SMP
+	b	3b			/* Never go on non-SMP		 */
+#else
+	cmpwi	0,r23,0
+	beq	3b			/* Loop until told to go	 */
+
+	/* See if we need to call a cpu state restore handler */
+	LOAD_REG_IMMEDIATE(r23, cur_cpu_spec)
+	ld	r23,0(r23)
+	ld	r23,CPU_SPEC_RESTORE(r23)
+	cmpdi	0,r23,0
+	beq	4f
+	ld	r23,0(r23)
+	mtctr	r23
+	bctrl
+
+4:	/* Create a temp kernel stack for use before relocation is on.	*/
 	ld	r1,PACAEMERGSP(r13)
 	subi	r1,r1,STACK_FRAME_OVERHEAD
 
-	cmpwi	0,r23,0
-#ifdef CONFIG_SMP
-	bne	.__secondary_start
+	b	.__secondary_start
 #endif
-	b 	3b			/* Loop until told to go	 */
 
 #ifdef CONFIG_PPC_ISERIES
 _STATIC(__start_initialization_iSeries)
@@ -1611,7 +1639,16 @@ _GLOBAL(__start_initialization_multiplatform)
 	bl	.enable_64b_mode
 
 	/* Setup some critical 970 SPRs before switching MMU off */
-	bl	.__970_cpu_preinit
+	mfspr	r0,SPRN_PVR
+	srwi	r0,r0,16
+	cmpwi	r0,0x39		/* 970 */
+	beq	1f
+	cmpwi	r0,0x3c		/* 970FX */
+	beq	1f
+	cmpwi	r0,0x44		/* 970MP */
+	bne	2f
+1:	bl	.__cpu_preinit_ppc970
+2:
 
 	/* Switch off MMU if not already */
 	LOAD_REG_IMMEDIATE(r4, .__after_prom_start - KERNELBASE)
@@ -1728,7 +1765,7 @@ _STATIC(__after_prom_start)
 _GLOBAL(copy_and_flush)
 	addi	r5,r5,-8
 	addi	r6,r6,-8
-4:	li	r0,16			/* Use the least common		*/
+4:	li	r0,8			/* Use the smallest common	*/
 					/* denominator cache line	*/
 					/* size.  This results in	*/
 					/* extra cache line flushes	*/
@@ -1782,7 +1819,7 @@ _GLOBAL(pmac_secondary_start)
 	isync
 
 	/* Copy some CPU settings from CPU 0 */
-	bl	.__restore_cpu_setup
+	bl	.__restore_cpu_ppc970
 
 	/* pSeries do that early though I don't think we really need it */
 	mfmsr	r3
@@ -1841,7 +1878,9 @@ _GLOBAL(__secondary_start)
 	LOAD_REG_ADDR(r3, .start_secondary_prolog)
 	LOAD_REG_IMMEDIATE(r4, MSR_KERNEL)
 #ifdef DO_SOFT_DISABLE
+BEGIN_FW_FTR_SECTION
 	ori	r4,r4,MSR_EE
+END_FW_FTR_SECTION_IFSET(FW_FEATURE_ISERIES)
 #endif
 	mtspr	SPRN_SRR0,r3
 	mtspr	SPRN_SRR1,r4
@@ -1932,12 +1971,6 @@ _STATIC(start_here_multiplatform)
 	mr	r5,r26
 	bl	.identify_cpu
 
-	/* Save some low level config HIDs of CPU0 to be copied to
-	 * other CPUs later on, or used for suspend/resume
-	 */
-	bl	.__save_cpu_setup
-	sync
-
 	/* Do very early kernel initializations, including initial hash table,
 	 * stab and slb setup before we turn on relocation.	*/
 
@@ -1972,6 +2005,7 @@ _STATIC(start_here_common)
 	 */
 	li	r3,0
 	bl	.do_cpu_ftr_fixups
+	bl	.do_fw_ftr_fixups
 
 	/* ptr to current */
 	LOAD_REG_IMMEDIATE(r4, init_task)
@@ -1986,11 +2020,13 @@ _STATIC(start_here_common)
 	/* Load up the kernel context */
 5:
 #ifdef DO_SOFT_DISABLE
+BEGIN_FW_FTR_SECTION
 	li	r5,0
 	stb	r5,PACAPROCENABLED(r13)	/* Soft Disabled */
 	mfmsr	r5
 	ori	r5,r5,MSR_EE		/* Hard Enabled */
 	mtmsrd	r5
+END_FW_FTR_SECTION_IFSET(FW_FEATURE_ISERIES)
 #endif
 
 	bl .start_kernel

@@ -1,4 +1,4 @@
-/*     
+/*
  *    Lance ethernet driver for the MIPS processor based
  *      DECstation family
  *
@@ -158,9 +158,9 @@ MODULE_LICENSE("GPL");
 
 /* The DS2000/3000 have a linear 64 KB buffer.
 
- * The PMAD-AA has 128 kb buffer on-board. 
+ * The PMAD-AA has 128 kb buffer on-board.
  *
- * The IOASIC LANCE devices use a shared memory region. This region as seen 
+ * The IOASIC LANCE devices use a shared memory region. This region as seen
  * from the CPU is (max) 128 KB long and has to be on an 128 KB boundary.
  * The LANCE sees this as a 64 KB long continuous memory region.
  *
@@ -694,19 +694,17 @@ out:
 	spin_unlock(&lp->lock);
 }
 
-static irqreturn_t lance_dma_merr_int(const int irq, void *dev_id,
-				      struct pt_regs *regs)
+static irqreturn_t lance_dma_merr_int(const int irq, void *dev_id)
 {
-	struct net_device *dev = (struct net_device *) dev_id;
+	struct net_device *dev = dev_id;
 
 	printk("%s: DMA error\n", dev->name);
 	return IRQ_HANDLED;
 }
 
-static irqreturn_t lance_interrupt(const int irq, void *dev_id,
-				   struct pt_regs *regs)
+static irqreturn_t lance_interrupt(const int irq, void *dev_id)
 {
-	struct net_device *dev = (struct net_device *) dev_id;
+	struct net_device *dev = dev_id;
 	struct lance_private *lp = netdev_priv(dev);
 	volatile struct lance_regs *ll = lp->ll;
 	int csr0;
@@ -882,7 +880,7 @@ static int lance_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	skblen = skb->len;
 
 	len = skblen;
-	
+
 	if (len < ETH_ZLEN) {
 		if (skb_padto(skb, ETH_ZLEN))
 			return 0;

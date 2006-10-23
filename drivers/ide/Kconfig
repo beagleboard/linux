@@ -4,6 +4,8 @@
 # Andre Hedrick <andre@linux-ide.org>
 #
 
+if BLOCK
+
 menu "ATA/ATAPI/MFM/RLL support"
 
 config IDE
@@ -54,7 +56,7 @@ if IDE
 
 config IDE_MAX_HWIFS
 	int "Max IDE interfaces"
-	depends on ALPHA || SUPERH || IA64
+	depends on ALPHA || SUPERH || IA64 || EMBEDDED
 	default 4
 	help
 	  This is the maximum number of IDE hardware interfaces that will
@@ -592,6 +594,12 @@ config BLK_DEV_HPT366
 	  ide-probe at boot. It is reported to support DVD II drives, by the
 	  manufacturer.
 
+config BLK_DEV_JMICRON
+	tristate "JMicron JMB36x support"
+	help
+	  Basic support for the JMicron ATA controllers. For full support
+	  use the libata drivers.
+
 config BLK_DEV_SC1200
 	tristate "National SCx200 chipset support"
 	help
@@ -605,15 +613,6 @@ config BLK_DEV_PIIX
 	  and also for the Efar Victory66 (slc90e66) chip.  This allows
 	  the kernel to change PIO, DMA and UDMA speeds and to configure
 	  the chip to optimum performance.
-
-config BLK_DEV_IT8172
-	bool "IT8172 IDE support"
-	depends on (MIPS_ITE8172 || MIPS_IVR)
-	help
-	  Say Y here to support the on-board IDE controller on the Integrated
-	  Technology Express, Inc. ITE8172 SBC.  Vendor page at
-	  <http://www.ite.com.tw/ia/brief_it8172bsp.htm>; picture of the
-	  board at <http://www.mvista.com/partners/semiconductor/ite.html>.
 
 config BLK_DEV_IT821X
 	tristate "IT821X IDE support"
@@ -1082,3 +1081,5 @@ config BLK_DEV_HD
 endif
 
 endmenu
+
+endif

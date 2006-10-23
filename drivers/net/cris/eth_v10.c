@@ -403,8 +403,8 @@ static int etrax_ethernet_init(void);
 static int e100_open(struct net_device *dev);
 static int e100_set_mac_address(struct net_device *dev, void *addr);
 static int e100_send_packet(struct sk_buff *skb, struct net_device *dev);
-static irqreturn_t e100rxtx_interrupt(int irq, void *dev_id, struct pt_regs *regs);
-static irqreturn_t e100nw_interrupt(int irq, void *dev_id, struct pt_regs *regs);
+static irqreturn_t e100rxtx_interrupt(int irq, void *dev_id);
+static irqreturn_t e100nw_interrupt(int irq, void *dev_id);
 static void e100_rx(struct net_device *dev);
 static int e100_close(struct net_device *dev);
 static int e100_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd);
@@ -434,7 +434,7 @@ static void e100_reset_transceiver(struct net_device* net);
 static void e100_clear_network_leds(unsigned long dummy);
 static void e100_set_network_leds(int active);
 
-static struct ethtool_ops e100_ethtool_ops;
+static const struct ethtool_ops e100_ethtool_ops;
 
 static void broadcom_check_speed(struct net_device* dev);
 static void broadcom_check_duplex(struct net_device* dev);
@@ -1197,7 +1197,7 @@ e100_send_packet(struct sk_buff *skb, struct net_device *dev)
  */
 
 static irqreturn_t
-e100rxtx_interrupt(int irq, void *dev_id, struct pt_regs * regs)
+e100rxtx_interrupt(int irq, void *dev_id)
 {
 	struct net_device *dev = (struct net_device *)dev_id;
 	struct net_local *np = (struct net_local *)dev->priv;
@@ -1264,7 +1264,7 @@ e100rxtx_interrupt(int irq, void *dev_id, struct pt_regs * regs)
 }
 
 static irqreturn_t
-e100nw_interrupt(int irq, void *dev_id, struct pt_regs * regs)
+e100nw_interrupt(int irq, void *dev_id)
 {
 	struct net_device *dev = (struct net_device *)dev_id;
 	struct net_local *np = (struct net_local *)dev->priv;
@@ -1552,7 +1552,7 @@ static int e100_nway_reset(struct net_device *dev)
 	return 0;
 }
 
-static struct ethtool_ops e100_ethtool_ops = {
+static const struct ethtool_ops e100_ethtool_ops = {
 	.get_settings	= e100_get_settings,
 	.set_settings	= e100_set_settings,
 	.get_drvinfo	= e100_get_drvinfo,

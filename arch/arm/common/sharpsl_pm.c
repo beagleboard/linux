@@ -40,6 +40,7 @@
 #define SHARPSL_CHARGE_FINISH_TIME             (msecs_to_jiffies(10*60*1000)) /* 10 min */
 #define SHARPSL_BATCHK_TIME                    (msecs_to_jiffies(15*1000))    /* 15 sec */
 #define SHARPSL_BATCHK_TIME_SUSPEND            (60*10)                        /* 10 min */
+
 #define SHARPSL_WAIT_CO_TIME                   15  /* 15 sec */
 #define SHARPSL_WAIT_DISCHARGE_ON              100 /* 100 msec */
 #define SHARPSL_CHECK_BATTERY_WAIT_TIME_TEMP   10  /* 10 msec */
@@ -257,7 +258,7 @@ static void sharpsl_ac_timer(unsigned long data)
 }
 
 
-irqreturn_t sharpsl_ac_isr(int irq, void *dev_id, struct pt_regs *fp)
+irqreturn_t sharpsl_ac_isr(int irq, void *dev_id)
 {
 	/* Delay the event slightly to debounce */
 	/* Must be a smaller delay than the chrg_full_isr below */
@@ -292,7 +293,7 @@ static void sharpsl_chrg_full_timer(unsigned long data)
 /* Charging Finished Interrupt (Not present on Corgi) */
 /* Can trigger at the same time as an AC staus change so
    delay until after that has been processed */
-irqreturn_t sharpsl_chrg_full_isr(int irq, void *dev_id, struct pt_regs *fp)
+irqreturn_t sharpsl_chrg_full_isr(int irq, void *dev_id)
 {
 	if (sharpsl_pm.flags & SHARPSL_SUSPENDED)
 		return IRQ_HANDLED;
@@ -303,7 +304,7 @@ irqreturn_t sharpsl_chrg_full_isr(int irq, void *dev_id, struct pt_regs *fp)
 	return IRQ_HANDLED;
 }
 
-irqreturn_t sharpsl_fatal_isr(int irq, void *dev_id, struct pt_regs *fp)
+irqreturn_t sharpsl_fatal_isr(int irq, void *dev_id)
 {
 	int is_fatal = 0;
 
@@ -574,6 +575,9 @@ static int corgi_pxa_pm_enter(suspend_state_t state)
 
 	while (corgi_enter_suspend(alarm_time,alarm_status,state))
 		{}
+
+	if (sharpsl_pm.machinfo->earlyresume)
+		sharpsl_pm.machinfo->earlyresume();
 
 	dev_dbg(sharpsl_pm.dev, "SharpSL resuming...\n");
 
