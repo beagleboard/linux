@@ -1383,7 +1383,11 @@ static irqreturn_t serial8250_interrupt(int irq, void *dev_id)
 
 	DEBUG_INTR("end.\n");
 
+#ifdef CONFIG_ARCH_OMAP15XX
+	return IRQ_HANDLED;	/* FIXME: iir status not ready on 1510 */
+#else
 	return IRQ_RETVAL(handled);
+#endif
 }
 
 /*
@@ -1955,6 +1959,11 @@ static int serial8250_request_std_resource(struct uart_8250_port *up)
 {
 	unsigned int size = 8 << up->port.regshift;
 	int ret = 0;
+
+#ifdef CONFIG_ARCH_OMAP
+	if (is_omap_port((unsigned int)up->port.membase))
+		size = 0x16 << up->port.regshift;
+#endif
 
 	switch (up->port.iotype) {
 	case UPIO_AU:
