@@ -33,6 +33,7 @@
 #include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <linux/mutex.h>
+#include <linux/spinlock.h>
 #include <linux/errno.h>
 #include <asm/arch/gpio.h>
 #include <asm/arch/keypad.h>
@@ -61,6 +62,8 @@ struct omap_kp {
 	unsigned int cols;
 	unsigned long delay;
 	unsigned int debounce;
+	int suspended;
+	spinlock_t suspend_lock;
 };
 
 DECLARE_TASKLET_DISABLED(kp_tasklet, omap_kp_tasklet, 0);
@@ -100,6 +103,14 @@ static u8 get_row_gpio_val(struct omap_kp *omap_kp)
 static irqreturn_t omap_kp_interrupt(int irq, void *dev_id)
 {
 	struct omap_kp *omap_kp = dev_id;
+	unsigned long flags;
+
+	spin_lock_irqsave(&omap_kp->suspend_lock, flags);
+	if (omap_kp->suspended) {
+		spin_unlock_irqrestore(&omap_kp->suspend_lock, flags);
+		return IRQ_HANDLED;
+	}
+	spin_unlock_irqrestore(&omap_kp->suspend_lock, flags);
 
 	/* disable keyboard interrupt and schedule for handling */
 	if (cpu_is_omap24xx()) {
@@ -271,15 +282,29 @@ static DEVICE_ATTR(enable, S_IRUGO | S_IWUSR, omap_kp_enable_show, omap_kp_enabl
 #ifdef CONFIG_PM
 static int omap_kp_suspend(struct platform_device *dev, pm_message_t state)
 {
-	/* Nothing yet */
+	struct omap_kp *omap_kp = platform_get_drvdata(dev);
+	unsigned long flags;
+	spin_lock_irqsave(&omap_kp->suspend_lock, flags);
 
+	/*
+	 * Re-enable the interrupt in case it has been masked by the
+	 * handler and a key is still pressed.  We need the interrupt
+	 * to wake us up from suspended.
+	 */
+	if (cpu_class_is_omap1())
+		omap_writew(0, OMAP_MPUIO_BASE + OMAP_MPUIO_KBD_MASKIT);
+
+	omap_kp->suspended = 1;
+
+	spin_unlock_irqrestore(&omap_kp->suspend_lock, flags);
 	return 0;
 }
 
 static int omap_kp_resume(struct platform_device *dev)
 {
-	/* Nothing yet */
+	struct omap_kp *omap_kp = platform_get_drvdata(dev);
 
+	omap_kp->suspended = 0;
 	return 0;
 }
 #else
@@ -309,7 +334,9 @@ static int __init omap_kp_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, omap_kp);
 
+	spin_lock_init(&omap_kp->suspend_lock);
 	omap_kp->input = input_dev;
+	omap_kp->suspended = 0;
 
 	/* Disable the interrupt for the MPUIO keyboard */
 	if (!cpu_is_omap24xx())
