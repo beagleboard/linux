@@ -320,8 +320,8 @@ static unsigned int serial_in(struct uart_8250_port *up, int offset)
 
 	case UPIO_TSI:
 		if (offset == UART_IIR) {
-			tmp = readl((u32 *)(up->port.membase + UART_RX));
-			return (cpu_to_le32(tmp) >> 8) & 0xff;
+			tmp = readl(up->port.membase + (UART_IIR & ~3));
+			return (tmp >> 16) & 0xff; /* UART_IIR % 4 == 2 */
 		} else
 			return readb(up->port.membase + offset);
 
@@ -1175,7 +1175,7 @@ static void serial8250_enable_ms(struct uart_port *port)
 }
 
 static void
-receive_chars(struct uart_8250_port *up, int *status, struct pt_regs *regs)
+receive_chars(struct uart_8250_port *up, int *status)
 {
 	struct tty_struct *tty = up->port.info->tty;
 	unsigned char ch, lsr = *status;
@@ -1233,7 +1233,7 @@ receive_chars(struct uart_8250_port *up, int *status, struct pt_regs *regs)
 			else if (lsr & UART_LSR_FE)
 				flag = TTY_FRAME;
 		}
-		if (uart_handle_sysrq_char(&up->port, ch, regs))
+		if (uart_handle_sysrq_char(&up->port, ch))
 			goto ignore_char;
 
 		uart_insert_char(&up->port, lsr, UART_LSR_OE, ch, flag);
@@ -1309,7 +1309,7 @@ static unsigned int check_modem_status(struct uart_8250_port *up)
  * This handles the interrupt from one port.
  */
 static inline void
-serial8250_handle_port(struct uart_8250_port *up, struct pt_regs *regs)
+serial8250_handle_port(struct uart_8250_port *up)
 {
 	unsigned int status;
 
@@ -1320,7 +1320,7 @@ serial8250_handle_port(struct uart_8250_port *up, struct pt_regs *regs)
 	DEBUG_INTR("status = %x...", status);
 
 	if (status & UART_LSR_DR)
-		receive_chars(up, &status, regs);
+		receive_chars(up, &status);
 	check_modem_status(up);
 	if (status & UART_LSR_THRE)
 		transmit_chars(up);
@@ -1342,7 +1342,7 @@ serial8250_handle_port(struct uart_8250_port *up, struct pt_regs *regs)
  * This means we need to loop through all ports. checking that they
  * don't have an interrupt pending.
  */
-static irqreturn_t serial8250_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+static irqreturn_t serial8250_interrupt(int irq, void *dev_id)
 {
 	struct irq_info *i = dev_id;
 	struct list_head *l, *end = NULL;
@@ -1361,7 +1361,7 @@ static irqreturn_t serial8250_interrupt(int irq, void *dev_id, struct pt_regs *r
 
 		iir = serial_in(up, UART_IIR);
 		if (!(iir & UART_IIR_NO_INT)) {
-			serial8250_handle_port(up, regs);
+			serial8250_handle_port(up);
 
 			handled = 1;
 
@@ -1383,8 +1383,7 @@ static irqreturn_t serial8250_interrupt(int irq, void *dev_id, struct pt_regs *r
 
 	DEBUG_INTR("end.\n");
 
-	//return IRQ_RETVAL(handled);
-	return IRQ_HANDLED;	/* FIXME: iir status not ready on 1510 */
+	return IRQ_RETVAL(handled);
 }
 
 /*
@@ -1462,7 +1461,7 @@ static void serial8250_timeout(unsigned long data)
 
 	iir = serial_in(up, UART_IIR);
 	if (!(iir & UART_IIR_NO_INT))
-		serial8250_handle_port(up, NULL);
+		serial8250_handle_port(up);
 
 	timeout = up->port.timeout;
 	timeout = timeout > 6 ? (timeout / 2 - 2) : 1;
@@ -1905,7 +1904,7 @@ serial8250_set_termios(struct uart_port *port, struct termios *termios,
 			serial_out(up, UART_OMAP_OSC_12M_SEL, 1);
 		} else
 			serial_out(up, UART_OMAP_OSC_12M_SEL, 0);
-        }
+	}
 #endif
 
 	if (up->capabilities & UART_NATSEMI) {
@@ -1931,19 +1930,6 @@ serial8250_set_termios(struct uart_port *port, struct termios *termios,
 			/* emulated UARTs (Lucent Venus 167x) need two steps */
 			serial_outp(up, UART_FCR, UART_FCR_ENABLE_FIFO);
 		}
-
-		/* Note that we need to set ECB to access write water mark
-		 * bits. First allow FCR tx fifo write, then set fcr with
-		 * possible TX fifo settings. */
-		if (uart_config[up->port.type].flags & UART_CAP_EFR) {
-			serial_outp(up, UART_LCR, 0xbf);	/* Access EFR */
-			serial_outp(up, UART_EFR, UART_EFR_ECB);
-			serial_outp(up, UART_LCR, 0x0);		/* Access FCR */
-			serial_outp(up, UART_FCR, fcr);
-			serial_outp(up, UART_LCR, 0xbf);	/* Access EFR */
-			serial_outp(up, UART_EFR, 0);
-			serial_outp(up, UART_LCR, cval);	/* Access FCR */
-        } else
 		serial_outp(up, UART_FCR, fcr);		/* set fcr */
 	}
 	serial8250_set_mctrl(&up->port, up->port.mctrl);
@@ -1970,15 +1956,12 @@ static int serial8250_request_std_resource(struct uart_8250_port *up)
 	unsigned int size = 8 << up->port.regshift;
 	int ret = 0;
 
-#ifdef CONFIG_ARCH_OMAP
-	if (is_omap_port((unsigned int)up->port.membase))
-		size = 0x16 << up->port.regshift;
-#endif
-
 	switch (up->port.iotype) {
 	case UPIO_AU:
 		size = 0x100000;
 		/* fall thru */
+	case UPIO_TSI:
+	case UPIO_MEM32:
 	case UPIO_MEM:
 		if (!up->port.mapbase)
 			break;
@@ -2014,6 +1997,8 @@ static void serial8250_release_std_resource(struct uart_8250_port *up)
 	case UPIO_AU:
 		size = 0x100000;
 		/* fall thru */
+	case UPIO_TSI:
+	case UPIO_MEM32:
 	case UPIO_MEM:
 		if (!up->port.mapbase)
 			break;
@@ -2037,17 +2022,15 @@ static int serial8250_request_rsa_resource(struct uart_8250_port *up)
 {
 	unsigned long start = UART_RSA_BASE << up->port.regshift;
 	unsigned int size = 8 << up->port.regshift;
-	int ret = 0;
+	int ret = -EINVAL;
 
 	switch (up->port.iotype) {
-	case UPIO_MEM:
-		ret = -EINVAL;
-		break;
-
 	case UPIO_HUB6:
 	case UPIO_PORT:
 		start += up->port.iobase;
-		if (!request_region(start, size, "serial-rsa"))
+		if (request_region(start, size, "serial-rsa"))
+			ret = 0;
+		else
 			ret = -EBUSY;
 		break;
 	}
@@ -2061,9 +2044,6 @@ static void serial8250_release_rsa_resource(struct uart_8250_port *up)
 	unsigned int size = 8 << up->port.regshift;
 
 	switch (up->port.iotype) {
-	case UPIO_MEM:
-		break;
-
 	case UPIO_HUB6:
 	case UPIO_PORT:
 		release_region(up->port.iobase + offset, size);
@@ -2252,9 +2232,10 @@ static inline void wait_for_xmitr(struct uart_8250_port *up, int bits)
 	/* Wait up to 1s for flow control if necessary */
 	if (up->port.flags & UPF_CONS_FLOW) {
 		tmout = 1000000;
-		while (--tmout &&
-		       ((serial_in(up, UART_MSR) & UART_MSR_CTS) == 0))
+		while (!(serial_in(up, UART_MSR) & UART_MSR_CTS) && --tmout) {
 			udelay(1);
+			touch_nmi_watchdog();
+		}
 	}
 }
 
@@ -2427,7 +2408,6 @@ int __init early_serial_setup(struct uart_port *port)
 /**
  *	serial8250_suspend_port - suspend one serial port
  *	@line:  serial line number
- *      @level: the level of port suspension, as per uart_suspend_port
  *
  *	Suspend one serial port.
  */
@@ -2439,7 +2419,6 @@ void serial8250_suspend_port(int line)
 /**
  *	serial8250_resume_port - resume one serial port
  *	@line:  serial line number
- *      @level: the level of port resumption, as per uart_resume_port
  *
  *	Resume one serial port.
  */
