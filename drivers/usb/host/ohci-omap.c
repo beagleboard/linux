@@ -415,8 +415,10 @@ ohci_omap_start (struct usb_hcd *hcd)
 	if (!host_enabled)
 		return 0;
 	config = hcd->self.controller->platform_data;
-	if (config->otg || config->rwc)
+	if (config->otg || config->rwc) {
+		ohci->hc_control = OHCI_CTRL_RWC;
 		writel(OHCI_CTRL_RWC, &ohci->regs->control);
+	}
 
 	if ((ret = ohci_run (ohci)) < 0) {
 		dev_err(hcd->self.controller, "can't start\n");
@@ -445,6 +447,7 @@ static const struct hc_driver ohci_omap_hc_driver = {
 	.reset =		ohci_omap_init,
 	.start =		ohci_omap_start,
 	.stop =			ohci_omap_stop,
+	.shutdown = 		ohci_shutdown,
 
 	/*
 	 * managing i/o requests and associated device resources
@@ -463,6 +466,7 @@ static const struct hc_driver ohci_omap_hc_driver = {
 	 */
 	.hub_status_data =	ohci_hub_status_data,
 	.hub_control =		ohci_hub_control,
+	.hub_irq_enable =	ohci_rhsc_enable,
 #ifdef	CONFIG_PM
 	.bus_suspend =		ohci_bus_suspend,
 	.bus_resume =		ohci_bus_resume,
@@ -529,6 +533,7 @@ static int ohci_omap_resume(struct platform_device *dev)
 static struct platform_driver ohci_hcd_omap_driver = {
 	.probe		= ohci_hcd_omap_drv_probe,
 	.remove		= ohci_hcd_omap_drv_remove,
+	.shutdown 	= usb_hcd_platform_shutdown,
 #ifdef	CONFIG_PM
 	.suspend	= ohci_omap_suspend,
 	.resume		= ohci_omap_resume,
