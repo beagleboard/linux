@@ -428,7 +428,7 @@ static inline void mmc_omap_report_irq(u16 status)
 		}
 }
 
-static irqreturn_t mmc_omap_irq(int irq, void *dev_id, struct pt_regs *regs)
+static irqreturn_t mmc_omap_irq(int irq, void *dev_id)
 {
 	struct mmc_omap_host * host = (struct mmc_omap_host *)dev_id;
 	u16 status;
@@ -565,7 +565,7 @@ static irqreturn_t mmc_omap_irq(int irq, void *dev_id, struct pt_regs *regs)
 	return IRQ_HANDLED;
 }
 
-static irqreturn_t mmc_omap_switch_irq(int irq, void *dev_id, struct pt_regs *regs)
+static irqreturn_t mmc_omap_switch_irq(int irq, void *dev_id)
 {
 	struct mmc_omap_host *host = (struct mmc_omap_host *) dev_id;
 
@@ -1091,13 +1091,14 @@ static int __init mmc_omap_probe(struct platform_device *pdev)
 	host->phys_base = host->mem_res->start;
 	host->virt_base = (void __iomem *) IO_ADDRESS(host->phys_base);
 
-	if (minfo->wire4)
-		 mmc->caps |= MMC_CAP_4_BIT_DATA;
-
 	mmc->ops = &mmc_omap_ops;
 	mmc->f_min = 400000;
 	mmc->f_max = 24000000;
-	mmc->ocr_avail = MMC_VDD_32_33 | MMC_VDD_33_34;
+	mmc->ocr_avail = MMC_VDD_32_33 | MMC_VDD_33_34 | MMC_CAP_MULTIWRITE
+				| MMC_CAP_BYTEBLOCK;
+
+	if (minfo->wire4)
+		 mmc->caps |= MMC_CAP_4_BIT_DATA;
 
 	/* Use scatterlist DMA to reduce per-transfer costs.
 	 * NOTE max_seg_size assumption that small blocks aren't
