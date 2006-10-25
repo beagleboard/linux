@@ -57,7 +57,7 @@ static int no_timer_check;
 
 static int disable_timer_pin_1 __initdata;
 
-int timer_over_8254 __initdata = 0;
+int timer_over_8254 __initdata = 1;
 
 /* Where if anywhere is the i8259 connect in external int mode */
 static struct { int pin, apic; } ioapic_i8259 = { -1, -1 };
@@ -651,12 +651,12 @@ next:
 		if (vector == IA32_SYSCALL_VECTOR)
 			goto next;
 		for_each_cpu_mask(new_cpu, domain)
-			if (per_cpu(vector_irq, cpu)[vector] != -1)
+			if (per_cpu(vector_irq, new_cpu)[vector] != -1)
 				goto next;
 		/* Found one! */
 		for_each_cpu_mask(new_cpu, domain) {
-			pos[cpu].vector = vector;
-			pos[cpu].offset = offset;
+			pos[new_cpu].vector = vector;
+			pos[new_cpu].offset = offset;
 		}
 		if (old_vector >= 0) {
 			int old_cpu;
@@ -696,11 +696,11 @@ static void ioapic_register_intr(int irq, int vector, unsigned long trigger)
 {
 	if ((trigger == IOAPIC_AUTO && IO_APIC_irq_trigger(irq)) ||
 			trigger == IOAPIC_LEVEL)
-		set_irq_chip_and_handler(irq, &ioapic_chip,
-					 handle_fasteoi_irq);
+		set_irq_chip_and_handler_name(irq, &ioapic_chip,
+					      handle_fasteoi_irq, "fasteoi");
 	else
-		set_irq_chip_and_handler(irq, &ioapic_chip,
-					 handle_edge_irq);
+		set_irq_chip_and_handler_name(irq, &ioapic_chip,
+					      handle_edge_irq, "edge");
 }
 
 static void __init setup_IO_APIC_irqs(void)
@@ -806,7 +806,7 @@ static void __init setup_ExtINT_IRQ0_pin(unsigned int apic, unsigned int pin, in
 	 * The timer IRQ doesn't have to know that behind the
 	 * scene we have a 8259A-master in AEOI mode ...
 	 */
-	set_irq_chip_and_handler(0, &ioapic_chip, handle_edge_irq);
+	set_irq_chip_and_handler_name(0, &ioapic_chip, handle_edge_irq, "edge");
 
 	/*
 	 * Add it to the IO-APIC irq-routing table:
@@ -1255,12 +1255,15 @@ static int ioapic_retrigger_irq(unsigned int irq)
 {
 	cpumask_t mask;
 	unsigned vector;
+	unsigned long flags;
 
+	spin_lock_irqsave(&vector_lock, flags);
 	vector = irq_vector[irq];
 	cpus_clear(mask);
-	cpu_set(vector >> 8, mask);
+	cpu_set(first_cpu(irq_domain[irq]), mask);
 
-	send_IPI_mask(mask, vector & 0xff);
+	send_IPI_mask(mask, vector);
+	spin_unlock_irqrestore(&vector_lock, flags);
 
 	return 1;
 }
@@ -1839,7 +1842,7 @@ int arch_setup_msi_irq(unsigned int irq, struct pci_dev *dev)
 
 	write_msi_msg(irq, &msg);
 
-	set_irq_chip_and_handler(irq, &msi_chip, handle_edge_irq);
+	set_irq_chip_and_handler_name(irq, &msi_chip, handle_edge_irq, "edge");
 
 	return 0;
 }
@@ -1936,7 +1939,8 @@ int arch_setup_ht_irq(unsigned int irq, struct pci_dev *dev)
 		write_ht_irq_low(irq, low);
 		write_ht_irq_high(irq, high);
 
-		set_irq_chip_and_handler(irq, &ht_irq_chip, handle_edge_irq);
+		set_irq_chip_and_handler_name(irq, &ht_irq_chip,
+					      handle_edge_irq, "edge");
 	}
 	return vector;
 }
