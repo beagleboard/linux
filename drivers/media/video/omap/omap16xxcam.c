@@ -243,7 +243,7 @@ omap16xx_cam_dma_link_callback(int lch, unsigned short ch_status, void *data)
 }
 
 static irqreturn_t
-omap16xx_cam_isr(int irq, void *client_data, struct pt_regs *regs)
+omap16xx_cam_isr(int irq, void *client_data)
 {
 	struct omap16xxcam *data = (struct omap16xxcam *)client_data;
 	unsigned int itstat = data->camera_regs->it_status;

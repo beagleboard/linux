@@ -105,7 +105,7 @@ static void omap_ts_timer(unsigned long data)
 	spin_unlock_irqrestore(&ts_omap.lock, flags);
 }
 
-static irqreturn_t omap_ts_handler(int irq, void *dev_id, struct pt_regs *regs)
+static irqreturn_t omap_ts_handler(int irq, void *dev_id)
 {
 	spin_lock(&ts_omap.lock);
 

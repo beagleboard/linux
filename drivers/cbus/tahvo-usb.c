@@ -111,7 +111,7 @@ static struct platform_device tahvo_usb_device;
  */
 static struct platform_device *tahvo_otg_dev;
 
-static irqreturn_t omap_otg_irq(int irq, void *arg, struct pt_regs *regs)
+static irqreturn_t omap_otg_irq(int irq, void *arg)
 {
 	struct platform_device *otg_dev = (struct platform_device *) arg;
 	struct tahvo_usb *tu = (struct tahvo_usb *) otg_dev->dev.driver_data;

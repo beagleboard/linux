@@ -182,7 +182,7 @@ static ssize_t gpio_sw_direction_show(struct device *dev,
 static DEVICE_ATTR(direction, S_IRUGO, gpio_sw_direction_show, NULL);
 
 
-static irqreturn_t gpio_sw_irq_handler(int irq, void *arg, struct pt_regs *regs)
+static irqreturn_t gpio_sw_irq_handler(int irq, void *arg)
 {
 	struct gpio_switch *sw = arg;
 	unsigned long timeout;

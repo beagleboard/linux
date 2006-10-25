@@ -124,7 +124,7 @@ static void rtc_wait_not_busy(void)
 	/* now we have ~15 usec to read/write various registers */
 }
 
-static irqreturn_t rtc_irq(int irq, void *class_dev, struct pt_regs *regs)
+static irqreturn_t rtc_irq(int irq, void *class_dev)
 {
 	unsigned long		events = 0;
 	u8			irq_data;

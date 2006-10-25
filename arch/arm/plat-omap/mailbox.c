@@ -134,7 +134,7 @@ static void mbox_msg_receiver(void *p)
 /*
  * Mailbox interrupt handler
  */
-static irqreturn_t mbox_interrupt(int irq, void *p, struct pt_regs *regs)
+static irqreturn_t mbox_interrupt(int irq, void *p)
 {
 	mbox_msg_t msg;
 	struct omap_mbox *mbox = (struct omap_mbox *)p;

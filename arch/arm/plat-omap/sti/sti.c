@@ -135,7 +135,7 @@ EXPORT_SYMBOL(sti_free_irq);
  * Unfortunately tasklets are too slow for the RX FIFO interrupt (and
  * possibly some others), so we just do the irqdesc walking here.
  */
-static irqreturn_t sti_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+static irqreturn_t sti_interrupt(int irq, void *dev_id)
 {
 	int ret = IRQ_NONE;
 	u16 status;

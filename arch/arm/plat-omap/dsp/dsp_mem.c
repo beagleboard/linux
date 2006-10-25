@@ -2417,8 +2417,7 @@ static DECLARE_WORK(mmu_int_work, (void (*)(void *))do_mmu_int, NULL);
  * DSP MMU interrupt handler
  */
 
-static irqreturn_t dsp_mmu_interrupt(int irq, void *dev_id,
-				     struct pt_regs *regs)
+static irqreturn_t dsp_mmu_interrupt(int irq, void *dev_id)
 {
 	disable_irq(omap_dsp->mmu_irq);
 	schedule_work(&mmu_int_work);

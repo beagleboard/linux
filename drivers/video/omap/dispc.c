@@ -833,7 +833,7 @@ void omap_dispc_free_irq(void)
 }
 EXPORT_SYMBOL(omap_dispc_free_irq);
 
-static irqreturn_t omap_dispc_irq_handler(int irq, void *dev, struct pt_regs *regs)
+static irqreturn_t omap_dispc_irq_handler(int irq, void *dev)
 {
 	u32 stat = dispc_read_reg(DISPC_IRQSTATUS);
 	static int jabber;
