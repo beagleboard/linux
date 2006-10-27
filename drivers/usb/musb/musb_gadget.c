@@ -128,7 +128,7 @@ __acquires(ep->musb->Lock)
 						: DMA_FROM_DEVICE);
 			req->request.dma = DMA_ADDR_INVALID;
 			req->mapped = 0;
-		} else
+		} else if (req->request.dma != DMA_ADDR_INVALID)
 			dma_sync_single_for_cpu(musb->controller,
 					req->request.dma,
 					req->request.length,
