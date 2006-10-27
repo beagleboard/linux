@@ -18,10 +18,27 @@ config MACH_OMAP_GENERIC
 	bool "Generic OMAP board"
 	depends on ARCH_OMAP2 && ARCH_OMAP24XX
 
+config MACH_OMAP2_TUSB6010
+	bool
+	depends on ARCH_OMAP2 && ARCH_OMAP2420
+
 config MACH_OMAP_H4
 	bool "OMAP 2420 H4 board"
 	depends on ARCH_OMAP2 && ARCH_OMAP24XX
 	select GPIOEXPANDER_OMAP
+
+config MACH_OMAP_H4_TUSB
+	bool "TUSB 6010 EVM board"
+	depends on MACH_OMAP_H4
+	select MACH_OMAP2_TUSB6010
+	help
+	  Set this if you've got a TUSB6010 high speed USB board.
+	  You may need to consult the schematics for your revisions
+	  of the Menelaus and TUSB boards, and make changes to be
+	  sure this is set up properly for your board stack.
+
+	  Be sure to select OTG mode operation, not host-only or
+	  peripheral-only.
 
 config MACH_OMAP_APOLLON
 	bool "OMAP 2420 Apollon board"

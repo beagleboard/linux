@@ -412,6 +412,72 @@ static struct omap_board_config_kernel h4_config[] = {
 	{ OMAP_TAG_LCD,		&h4_lcd_config },
 };
 
+#ifdef	CONFIG_MACH_OMAP_H4_TUSB
+
+#include <linux/usb/musb.h>
+
+static struct musb_hdrc_platform_data tusb_data = {
+	.mode		= MUSB_OTG,
+	.min_power	= 25,	/* x2 = 50 mA drawn from VBUS as peripheral */
+
+	/* 1.8V supplied by Menelaus, other voltages supplied by VBAT;
+	 * so no switching.
+	 */
+};
+
+static void __init tusb_evm_setup(void)
+{
+	static char	announce[] __initdata =
+				KERN_INFO "TUSB 6010 EVM\n";
+	int		irq;
+	unsigned	dmachan = 0;
+
+	/* There are at least 32 different combinations of boards that
+	 * are loosely called "H4", with a 2420 ... different OMAP chip
+	 * revisions (with pin mux changes for DMAREQ, GPMC errata, etc),
+	 * modifications of the CPU board, mainboard, EVM, TUSB etc.
+	 * Plus omap2422, omap2423, etc.
+	 *
+	 * So you might need to tweak this setup to make the TUSB EVM
+	 * behave on your particular setup ...
+	 */
+
+	/* Already set up:  GPMC AD[0..15], CLK, nOE, nWE, nADV_ALE */
+	omap_cfg_reg(E2_GPMC_NCS2);
+	omap_cfg_reg(L2_GPMC_NCS7);
+	omap_cfg_reg(M1_GPMC_WAIT2);
+
+	switch ((system_rev >> 8) & 0x0f) {
+	case 0:		/* ES 1.0 */
+	case 1:		/* ES 2.0 */
+		/* Assume early board revision without optional ES2.0
+		 * rework to swap J15 & AA10 so DMAREQ0 works
+		 */
+		omap_cfg_reg(AA10_242X_GPIO13);
+		irq = 13;
+		// omap_cfg_reg(J15_24XX_DMAREQ0);
+		break;
+	default:
+		/* Later Menelaus boards can support all 6 DMA request
+		 * lines, at the price of boot flash A23-A26.
+		 */
+		omap_cfg_reg(J15_24XX_GPIO99);
+		irq = 99;
+		omap_cfg_reg(AA10_242X_DMAREQ0);
+		omap_cfg_reg(AA6_242X_DMAREQ1);
+		dmachan = (1 << 1) | (1 << 0);
+		break;
+	}
+
+	if (tusb6010_setup_interface(&tusb_data,
+			TUSB6010_REFCLK_24, /* waitpin */ 2,
+			/* async cs */ 2, /* sync cs */ 7,
+			irq, dmachan) == 0)
+		printk(announce);
+}
+
+#endif
+
 static void __init omap_h4_init(void)
 {
 	/*
@@ -436,6 +502,11 @@ static void __init omap_h4_init(void)
 	omap_board_config = h4_config;
 	omap_board_config_size = ARRAY_SIZE(h4_config);
 	omap_serial_init();
+
+#ifdef	CONFIG_MACH_OMAP_H4_TUSB
+	tusb_evm_setup();
+#endif
+
 }
 
 static void __init omap_h4_map_io(void)

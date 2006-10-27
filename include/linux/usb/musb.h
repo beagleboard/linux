@@ -42,3 +42,21 @@ struct musb_hdrc_platform_data {
 	int		(*set_power)(int state);
 };
 
+
+/* TUSB 6010 support */
+
+#define	TUSB6010_OSCCLK_60	16667	/* psec/clk @ 60.0 MHz */
+#define	TUSB6010_REFCLK_24	41667	/* psec/clk @ 24.0 MHz XI */
+#define	TUSB6010_REFCLK_19	52633	/* psec/clk @ 19.2 MHz CLKIN */
+
+#ifdef	CONFIG_ARCH_OMAP2
+
+extern int __init tusb6010_setup_interface(
+		struct musb_hdrc_platform_data *data,
+		unsigned ps_refclk, unsigned waitpin,
+		unsigned async_cs, unsigned sync_cs,
+		unsigned irq, unsigned dmachan);
+
+extern int tusb6010_platform_retime(unsigned is_refclk);
+
+#endif	/* OMAP2 */
