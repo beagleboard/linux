@@ -74,6 +74,7 @@ struct musb_ep {
 	/* later things are modified based on usage */
 	struct list_head		req_list;
 
+	/* true if lock must be dropped but req_list may not be advanced */
 	u8				busy;
 };
 

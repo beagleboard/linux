@@ -146,6 +146,7 @@ void musb_read_fifo(struct musb_hw_ep *hw_ep, u16 len, u8 *buf)
  * at most mA current to be drawn from VBUS during a Default-B session
  * (that is, while VBUS exceeds 4.4V).  In Default-A (including pure host
  * mode), or low power Default-B sessions, something else supplies power.
+ * Caller must take care of locking.
  */
 static int tusb_set_power(struct otg_transceiver *x, unsigned mA)
 {
@@ -178,7 +179,7 @@ static int tusb_set_power(struct otg_transceiver *x, unsigned mA)
  * (to be fixed in rev3 silicon) ... symptoms include disconnect
  * or looping suspend/resume cycles
  */
-static void tusb_set_clock_source(struct musb *musb, int mode)
+static void tusb_set_clock_source(struct musb *musb, unsigned mode)
 {
 	void __iomem	*base = musb->ctrl_base;
 	u32		reg;
@@ -186,10 +187,17 @@ static void tusb_set_clock_source(struct musb *musb, int mode)
 	reg = musb_readl(base, TUSB_PRCM_CONF);
 	reg &= ~TUSB_PRCM_CONF_SYS_CLKSEL(0x3);
 
+	/* 0 = refclk (clkin, XI)
+	 * 1 = PHY 60 MHz (internal PLL)
+	 * 2 = not supported
+	 * 3 = NOR clock (huh?)
+	 */
 	if (mode > 0)
 		reg |= TUSB_PRCM_CONF_SYS_CLKSEL(mode & 0x3);
 
 	musb_writel(base, TUSB_PRCM_CONF, reg);
+
+	// FIXME tusb6010_platform_retime(mode == 0);
 }
 
 /*
@@ -477,7 +485,7 @@ tusb_otg_ints(struct musb *musb, u32 int_src, void __iomem *base)
 	}
 }
 
-static irqreturn_t tusb_interrupt(int irq, void *__hci, struct pt_regs *r)
+static irqreturn_t tusb_interrupt(int irq, void *__hci)
 {
 	struct musb	*musb = __hci;
 	void __iomem	*base = musb->ctrl_base;
@@ -489,7 +497,6 @@ static irqreturn_t tusb_interrupt(int irq, void *__hci, struct pt_regs *r)
 	int_src = musb_readl(base, TUSB_INT_SRC) & ~TUSB_INT_SRC_RESERVED_BITS;
 	DBG(3, "TUSB IRQ %08x\n", int_src);
 
-	musb->int_regs = r;
 	musb->int_usb = (u8) int_src;
 
 	/* Acknowledge wake-up source interrupts */
@@ -570,7 +577,6 @@ static irqreturn_t tusb_interrupt(int irq, void *__hci, struct pt_regs *r)
 	musb_writel(base, TUSB_INT_SRC_CLEAR,
 		int_src & ~TUSB_INT_MASK_RESERVED_BITS);
 
-	musb->int_regs = NULL;
 	musb_platform_try_idle(musb);
 	spin_unlock_irqrestore(&musb->Lock, flags);
 
@@ -690,10 +696,10 @@ static int tusb_print_revision(struct musb *musb)
 	return TUSB_REV_MAJOR(musb_readl(base, TUSB_INT_CTRL_REV));
 }
 
-static int tusb_start(struct musb *musb)
+static int __devinit tusb_start(struct musb *musb)
 {
 	void __iomem	*base = musb->ctrl_base;
-	int		ret = -1;
+	int		ret = 0;
 	unsigned long	flags;
 	u32		reg;
 
@@ -701,7 +707,7 @@ static int tusb_start(struct musb *musb)
 		ret = musb->board_set_power(1);
 	if (ret != 0) {
 		printk(KERN_ERR "tusb: Cannot enable TUSB6010\n");
-		goto err;
+		return ret;
 	}
 
 	spin_lock_irqsave(&musb->Lock, flags);
@@ -752,6 +758,8 @@ static int tusb_start(struct musb *musb)
 	return 0;
 
 err:
+	spin_unlock_irqrestore(&musb->Lock, flags);
+
 	if (musb->board_set_power)
 		musb->board_set_power(0);
 

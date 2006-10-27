@@ -43,7 +43,7 @@
 #include <linux/usb_ch9.h>
 #include <linux/usb_gadget.h>
 #include <linux/usb.h>
-#include <linux/usb_otg.h>
+#include <linux/usb/otg.h>
 #include <linux/usb/musb.h>
 
 struct musb;
@@ -74,9 +74,6 @@ struct musb_ep;
 #include "musb_host.h"
 #include "otg.h"
 
-
-/* REVISIT tune this */
-#define	MIN_DMA_REQUEST		1	/* use PIO below this xfer size */
 
 
 #ifdef CONFIG_USB_MUSB_OTG
@@ -374,7 +371,7 @@ static inline struct usb_request *next_out_request(struct musb_hw_ep *hw_ep)
 struct musb {
 	spinlock_t		Lock;
 	struct clk		*clock;
-	irqreturn_t		(*isr)(int, void *, struct pt_regs *);
+	irqreturn_t		(*isr)(int, void *);
 	struct work_struct	irq_work;
 
 #ifdef CONFIG_USB_MUSB_HDRC_HCD
@@ -418,7 +415,6 @@ struct musb {
 	u8			int_usb;
 	u16			int_rx;
 	u16			int_tx;
-	struct pt_regs		*int_regs;
 
 	struct otg_transceiver	xceiv;
 

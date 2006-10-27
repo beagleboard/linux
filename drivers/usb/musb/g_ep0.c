@@ -556,9 +556,11 @@ musb_read_setup(struct musb *pThis, struct usb_ctrlrequest *req)
 	 */
 	pThis->bSetAddress = FALSE;
 	pThis->ackpend = MGC_M_CSR0_P_SVDRXPKTRDY;
-	if (req->wLength == 0)
+	if (req->wLength == 0) {
+		if (req->bRequestType & USB_DIR_IN)
+			pThis->ackpend |= MGC_M_CSR0_TXPKTRDY;
 		pThis->ep0_state = MGC_END0_STAGE_ACKWAIT;
-	else if (req->bRequestType & USB_DIR_IN) {
+	} else if (req->bRequestType & USB_DIR_IN) {
 		pThis->ep0_state = MGC_END0_STAGE_TX;
 		musb_writew(regs, MGC_O_HDRC_CSR0, MGC_M_CSR0_P_SVDRXPKTRDY);
 		while ((musb_readw(regs, MGC_O_HDRC_CSR0)

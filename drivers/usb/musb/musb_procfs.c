@@ -558,7 +558,7 @@ static int dump_header_stats(struct musb *pThis, char *buffer)
 	code = sprintf(buffer,
 			"TUSB6010: devconf %08x, phy enable %08x drive %08x"
 			"\n\totg %03x timer %08x"
-			"\n\tprcm conf %08x mgmt %08x; intmask %08x"
+			"\n\tprcm conf %08x mgmt %08x; int src %08x mask %08x"
 			"\n",
 			musb_readl(pThis->ctrl_base, TUSB_DEV_CONF),
 			musb_readl(pThis->ctrl_base, TUSB_PHY_OTG_CTRL_ENABLE),
@@ -567,6 +567,7 @@ static int dump_header_stats(struct musb *pThis, char *buffer)
 			musb_readl(pThis->ctrl_base, TUSB_DEV_OTG_TIMER),
 			musb_readl(pThis->ctrl_base, TUSB_PRCM_CONF),
 			musb_readl(pThis->ctrl_base, TUSB_PRCM_MNGMT),
+			musb_readl(pThis->ctrl_base, TUSB_INT_SRC),
 			musb_readl(pThis->ctrl_base, TUSB_INT_MASK));
 	if (code <= 0)
 		goto done;

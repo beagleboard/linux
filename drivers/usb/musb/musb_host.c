@@ -33,7 +33,6 @@
  ******************************************************************/
 
 #include <linux/module.h>
-#include <linux/pci.h>
 #include <linux/kernel.h>
 #include <linux/delay.h>
 #include <linux/sched.h>
@@ -284,7 +283,7 @@ __acquires(musb->Lock)
 			);
 
 	spin_unlock(&musb->Lock);
-	usb_hcd_giveback_urb(musb_to_hcd(musb), urb, musb->int_regs);
+	usb_hcd_giveback_urb(musb_to_hcd(musb), urb);
 	spin_lock(&musb->Lock);
 }
 
@@ -1485,8 +1484,8 @@ void musb_host_rx(struct musb *pThis, u8 bEnd)
 	}
 
 	if (unlikely(dma_channel_status(dma) == MGC_DMA_STATUS_BUSY)) {
-		/* SHOULD NEVER HAPPEN */
-		ERR("RX%d dma busy\n", bEnd);
+		/* SHOULD NEVER HAPPEN ... but at least DaVinci has done it */
+		ERR("RX%d dma busy, csr %04x\n", bEnd, wRxCsrVal);
 		goto finish;
 	}
 
@@ -1521,23 +1520,21 @@ void musb_host_rx(struct musb *pThis, u8 bEnd)
 	}
 #endif
 	if (dma && (wRxCsrVal & MGC_M_RXCSR_DMAENAB)) {
+		xfer_len = dma->dwActualLength;
+
+		wVal &= ~(MGC_M_RXCSR_DMAENAB
+			| MGC_M_RXCSR_H_AUTOREQ
+			| MGC_M_RXCSR_AUTOCLEAR
+			| MGC_M_RXCSR_RXPKTRDY);
+		musb_writew(pEnd->regs, MGC_O_HDRC_RXCSR, wVal);
 
 #ifdef CONFIG_USB_INVENTRA_DMA
-		xfer_len = dma->dwActualLength;
 		pUrb->actual_length += xfer_len;
 		qh->offset += xfer_len;
 
 		/* bDone if pUrb buffer is full or short packet is recd */
 		bDone = (pUrb->actual_length >= pUrb->transfer_buffer_length)
 			|| (dma->dwActualLength & (qh->maxpacket - 1));
-
-		wVal &= ~(MGC_M_RXCSR_DMAENAB
-			| MGC_M_RXCSR_H_AUTOREQ
-			| MGC_M_RXCSR_AUTOCLEAR
-			| MGC_M_RXCSR_RXPKTRDY);
-
-		MGC_WriteCsr16(pBase, MGC_O_HDRC_RXCSR, bEnd, wVal);
-		MGC_WriteCsr16(pBase, MGC_O_HDRC_RXCSR, bEnd, wVal);
 
 		/* send IN token for next packet, without AUTOREQ */
 		if (!bDone) {
@@ -1552,7 +1549,6 @@ void musb_host_rx(struct musb *pThis, u8 bEnd)
 			MGC_ReadCsr16(pBase, MGC_O_HDRC_RXCOUNT, bEnd));
 #else
 		bDone = TRUE;
-		xfer_len = dma->dwActualLength;
 #endif
 	} else if (pUrb->status == -EINPROGRESS) {
 		/* if no errors, be sure a packet is ready for unloading */
@@ -1682,7 +1678,7 @@ static int musb_schedule(
 	int			idle;
 	int			wBestDiff;
 	int			nBestEnd, nEnd;
-	struct musb_hw_ep	*hw_ep;
+	struct musb_hw_ep	*hw_ep = NULL;
 	struct list_head	*head = NULL;
 
 	/* use fixed hardware for control and bulk */

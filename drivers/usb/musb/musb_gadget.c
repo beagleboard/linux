@@ -118,15 +118,23 @@ __acquires(ep->musb->Lock)
 
 	ep->busy = 1;
 	spin_unlock(&musb->Lock);
-	if (is_dma_capable() && req->mapped) {
-		dma_unmap_single(musb->controller,
-				req->request.dma,
-				req->request.length,
-				req->bTx
-					? DMA_TO_DEVICE
-					: DMA_FROM_DEVICE);
-		req->request.dma = DMA_ADDR_INVALID;
-		req->mapped = 0;
+	if (is_dma_capable()) {
+		if (req->mapped) {
+			dma_unmap_single(musb->controller,
+					req->request.dma,
+					req->request.length,
+					req->bTx
+						? DMA_TO_DEVICE
+						: DMA_FROM_DEVICE);
+			req->request.dma = DMA_ADDR_INVALID;
+			req->mapped = 0;
+		} else
+			dma_sync_single_for_cpu(musb->controller,
+					req->request.dma,
+					req->request.length,
+					req->bTx
+						? DMA_TO_DEVICE
+						: DMA_FROM_DEVICE);
 	}
 	if (pRequest->status == 0)
 		DBG(5, "%s done request %p,  %d/%d\n",
@@ -1135,7 +1143,7 @@ static int musb_gadget_queue(struct usb_ep *ep, struct usb_request *req,
 {
 	struct musb_ep		*pEnd;
 	struct musb_request	*pRequest;
-	struct musb		*pThis;
+	struct musb		*musb;
 	int			status = 0;
 	unsigned long		lockflags;
 
@@ -1143,10 +1151,10 @@ static int musb_gadget_queue(struct usb_ep *ep, struct usb_request *req,
 		return -EINVAL;
 
 	pEnd = to_musb_ep(ep);
-	pThis = pEnd->pThis;
+	musb = pEnd->pThis;
 
 	pRequest = to_musb_request(req);
-	pRequest->musb = pThis;
+	pRequest->musb = musb;
 
 	if (pRequest->ep != pEnd)
 		return -EINVAL;
@@ -1159,23 +1167,31 @@ static int musb_gadget_queue(struct usb_ep *ep, struct usb_request *req,
 	pRequest->bEnd = pEnd->bEndNumber;
 	pRequest->bTx = pEnd->is_in;
 
-	if (is_dma_capable()
-			&& pRequest->request.dma == DMA_ADDR_INVALID
-			&& pRequest->request.length >= MIN_DMA_REQUEST
-			&& pEnd->dma) {
-		pRequest->request.dma = dma_map_single(pThis->controller,
-				pRequest->request.buf,
-				pRequest->request.length,
-				pRequest->bTx
-					? DMA_TO_DEVICE
-					: DMA_FROM_DEVICE);
-		pRequest->mapped = 1;
+	if (is_dma_capable() && pEnd->dma) {
+		if (pRequest->request.dma == DMA_ADDR_INVALID) {
+			pRequest->request.dma = dma_map_single(
+					musb->controller,
+					pRequest->request.buf,
+					pRequest->request.length,
+					pRequest->bTx
+						? DMA_TO_DEVICE
+						: DMA_FROM_DEVICE);
+			pRequest->mapped = 1;
+		} else {
+			dma_sync_single_for_device(musb->controller,
+					pRequest->request.dma,
+					pRequest->request.length,
+					pRequest->bTx
+						? DMA_TO_DEVICE
+						: DMA_FROM_DEVICE);
+			pRequest->mapped = 0;
+		}
 	} else if (!req->buf) {
 		return -ENODATA;
 	} else
 		pRequest->mapped = 0;
 
-	spin_lock_irqsave(&pThis->Lock, lockflags);
+	spin_lock_irqsave(&musb->Lock, lockflags);
 
 	/* don't queue if the ep is down */
 	if (!pEnd->desc) {
@@ -1190,10 +1206,10 @@ static int musb_gadget_queue(struct usb_ep *ep, struct usb_request *req,
 
 	/* it this is the head of the queue, start i/o ... */
 	if (!pEnd->busy && &pRequest->request.list == pEnd->req_list.next)
-		musb_ep_restart(pThis, pRequest);
+		musb_ep_restart(musb, pRequest);
 
 cleanup:
-	spin_unlock_irqrestore(&pThis->Lock, lockflags);
+	spin_unlock_irqrestore(&musb->Lock, lockflags);
 	return status;
 }
 

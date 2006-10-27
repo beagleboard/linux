@@ -22,7 +22,6 @@
  */
 
 #include <linux/module.h>
-#include <linux/pci.h>
 #include <linux/kernel.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
@@ -246,7 +245,7 @@ static void davinci_set_vbus(struct musb *musb, int is_on)
 	return davinci_vbus_power(musb, is_on, 0);
 }
 
-static irqreturn_t davinci_interrupt(int irq, void *__hci, struct pt_regs *r)
+static irqreturn_t davinci_interrupt(int irq, void *__hci)
 {
 	unsigned long	flags;
 	irqreturn_t	retval = IRQ_NONE;
@@ -289,7 +288,6 @@ static irqreturn_t davinci_interrupt(int irq, void *__hci, struct pt_regs *r)
 			>> DAVINCI_USB_TXINT_SHIFT;
 	musb->int_usb = (tmp & DAVINCI_USB_USBINT_MASK)
 			>> DAVINCI_USB_USBINT_SHIFT;
-	musb->int_regs = r;
 
 	/* treat DRVVBUS irq like an ID change IRQ (for now) */
 	if (tmp & (1 << (8 + DAVINCI_USB_USBINT_SHIFT))) {
@@ -317,7 +315,6 @@ static irqreturn_t davinci_interrupt(int irq, void *__hci, struct pt_regs *r)
 	/* irq stays asserted until EOI is written */
 	musb_writel(tibase, DAVINCI_USB_EOI_REG, 0);
 
-	musb->int_regs = NULL;
 	spin_unlock_irqrestore(&musb->Lock, flags);
 
 	/* REVISIT we sometimes get unhandled IRQs
