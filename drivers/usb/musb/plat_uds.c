@@ -334,10 +334,12 @@ static const u8 musb_test_packet[53] = {
 
 void musb_load_testpacket(struct musb *musb)
 {
+	void __iomem	*regs = musb->aLocalEnd[0].regs;
+
 	MGC_SelectEnd(musb->pRegs, 0);
 	musb_write_fifo(musb->control_ep,
 			sizeof(musb_test_packet), musb_test_packet);
-	musb_writew(musb->pRegs, MGC_O_HDRC_CSR0, MGC_M_CSR0_TXPKTRDY);
+	musb_writew(regs, MGC_O_HDRC_CSR0, MGC_M_CSR0_TXPKTRDY);
 }
 
 /*-------------------------------------------------------------------------*/

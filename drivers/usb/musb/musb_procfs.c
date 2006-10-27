@@ -626,6 +626,7 @@ done:
  * E rElinquish bus (OTG)
  * H request host mode
  * h cancel host request
+ * T start sending TEST_PACKET
  * D<num> set/query the debug level
  */
 static int musb_proc_write(struct file *file, const char __user *buffer,
@@ -696,6 +697,14 @@ static int musb_proc_write(struct file *file, const char __user *buffer,
 		}
 		break;
 
+	case 'T':
+		if (pBase) {
+			musb_load_testpacket(musb);
+			musb_writeb(pBase, MGC_O_HDRC_TESTMODE,
+					MGC_M_TEST_PACKET);
+		}
+		break;
+
 #if (MUSB_DEBUG>0)
 		/* set/read debug level */
 	case 'D':{
@@ -733,6 +742,7 @@ static int musb_proc_write(struct file *file, const char __user *buffer,
 		INFO("I/i: hispeed enable/disable\n");
 		INFO("F: force session start\n");
 		INFO("H: host mode\n");
+		INFO("T: start sending TEST_PACKET\n");
 		INFO("D: set/read dbug level\n");
 		break;
 #endif
