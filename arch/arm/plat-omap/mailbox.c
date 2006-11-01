@@ -228,7 +228,12 @@ static int omap_mbox_init(struct omap_mbox *mbox)
 	if (unlikely(ret))
 		return ret;
 
-	class_device_create_file(&mbox->class_dev, &class_device_attr_mbox);
+	ret = class_device_create_file(&mbox->class_dev, &class_device_attr_mbox);
+	if (unlikely(ret)) {
+		printk(KERN_ERR
+		       "class_device_create_file failed: %d\n", ret);
+		goto fail1;
+	}
 
 	ret = request_irq(mbox->irq, mbox_interrupt, SA_INTERRUPT,
 			  mbox->name, mbox);
