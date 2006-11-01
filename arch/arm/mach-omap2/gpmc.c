@@ -17,6 +17,7 @@
 #include <linux/spinlock.h>
 
 #include <asm/io.h>
+#include <asm/mach-types.h>
 #include <asm/arch/gpmc.h>
 
 #undef DEBUG
@@ -353,6 +354,9 @@ void __init gpmc_mem_init(void)
 	 * even if we didn't boot from ROM.
 	 */
 	boot_rom_space = BOOT_ROM_SPACE;
+	/* In apollon the CS0 is mapped as 0x0000 0000 */
+	if (machine_is_omap_apollon())
+		boot_rom_space = 0;
 	gpmc_mem_root.start = GPMC_MEM_START + boot_rom_space;
 	gpmc_mem_root.end = GPMC_MEM_END;
 
