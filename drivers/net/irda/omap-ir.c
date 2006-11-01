@@ -325,7 +325,7 @@ static int omap_irda_shutdown(struct omap_irda *omap_ir)
 }
 
 static irqreturn_t
-omap_irda_irq(int irq, void *dev_id, struct pt_regs *hw_regs)
+omap_irda_irq(int irq, void *dev_id)
 {
 	struct net_device *dev = dev_id;
 	struct omap_irda *omap_ir = netdev_priv(dev);
