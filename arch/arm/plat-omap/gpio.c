@@ -13,7 +13,6 @@
 
 #include <linux/init.h>
 #include <linux/module.h>
-#include <linux/sched.h>
 #include <linux/interrupt.h>
 #include <linux/ptrace.h>
 #include <linux/sysdev.h>
@@ -1330,7 +1329,7 @@ void omap2_gpio_resume_after_retention(void)
  * This may get called early from board specific init
  * for boards that have interrupts routed via FPGA.
  */
-int omap_gpio_init(void)
+int __init omap_gpio_init(void)
 {
 	if (!initialized)
 		return _omap_gpio_init();
