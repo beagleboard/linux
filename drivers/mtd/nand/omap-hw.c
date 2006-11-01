@@ -425,9 +425,9 @@ static void omap_nand_command(struct mtd_info *mtd, unsigned command, int column
 	if (command == NAND_CMD_SEQIN) {
 		int readcmd;
 
-		if (column >= mtd->oobblock) {
+		if (column >= mtd->writesize) {
 			/* OOB area */
-			column -= mtd->oobblock;
+			column -= mtd->writesize;
 			readcmd = NAND_CMD_READOOB;
 		} else if (column < 256) {
 			/* First 256 bytes --> READ0 */
@@ -458,7 +458,7 @@ static void omap_nand_command_lp(struct mtd_info *mtd, unsigned command, int col
 	struct nand_chip *this = mtd->priv;
 
 	if (command == NAND_CMD_READOOB) {
-		column += mtd->oobblock;
+		column += mtd->writesize;
 		command = NAND_CMD_READ0;
 	}
 	switch (command) {
@@ -495,7 +495,8 @@ static int omap_nand_calculate_ecc(struct mtd_info *mtd, const u_char *dat, u_ch
 	int n;
 	struct nand_chip *this = mtd->priv;
 
-	if (this->eccmode == NAND_ECC_HW12_2048)
+	/* Ex NAND_ECC_HW12_2048 */
+	if ((this->ecc.mode == NAND_ECC_HW) && (this->ecc.size  == 2048))
 		n = 4;
 	else
 		n = 1;
@@ -642,7 +643,8 @@ static int omap_nand_correct_data(struct mtd_info *mtd, u_char *dat, u_char *rea
 	int block_count = 0, i, r;
 
 	this = mtd->priv;
-	if (this->eccmode == NAND_ECC_HW12_2048)
+	/* Ex NAND_ECC_HW12_2048 */
+	if ((this->ecc.mode == NAND_ECC_HW) && (this->ecc.size  == 2048))
 		block_count = 4;
 	else
 		block_count = 1;
@@ -794,19 +796,20 @@ static int __init omap_nand_init(void)
 
 	/* Used from chip select and nand_command() */
 	this->read_byte = omap_nand_read_byte;
-	this->write_byte = omap_nand_write_byte;
 
-	this->select_chip = omap_nand_select_chip;
-	this->dev_ready = omap_nand_dev_ready;
-	this->chip_delay = 0;
-	this->eccmode = NAND_ECC_HW3_512; 
-	this->cmdfunc = omap_nand_command;
-	this->write_buf = omap_nand_write_buf;
-	this->read_buf = omap_nand_read_buf;
-	this->verify_buf = omap_nand_verify_buf;
-	this->calculate_ecc = omap_nand_calculate_ecc;
-	this->correct_data = omap_nand_correct_data;
-	this->enable_hwecc = omap_nand_enable_hwecc;
+	this->select_chip   = omap_nand_select_chip;
+	this->dev_ready     = omap_nand_dev_ready;
+	this->chip_delay    = 0;
+	this->ecc.mode      = NAND_ECC_HW;
+	this->ecc.bytes     = 3;
+	this->ecc.size      = 512;
+	this->cmdfunc       = omap_nand_command;
+	this->write_buf     = omap_nand_write_buf;
+	this->read_buf      = omap_nand_read_buf;
+	this->verify_buf    = omap_nand_verify_buf;
+	this->ecc.calculate = omap_nand_calculate_ecc;
+	this->ecc.correct   = omap_nand_correct_data;
+	this->ecc.hwctl     = omap_nand_enable_hwecc;
 
 	nand_write_reg(NND_SYSCFG, 0x1); /* Enable auto idle */
 	nand_write_reg(NND_PSC_CLK, 10);
@@ -822,10 +825,10 @@ static int __init omap_nand_init(void)
 		l = nand_read_reg(NND_CTRL);
 		l |= 1 << 4; /* Set the A8 bit in CTRL reg */
 		nand_write_reg(NND_CTRL, l);
-		this->eccmode = NAND_ECC_HW12_2048;
-		this->eccsteps = 1;
-		this->eccsize = 2048;
-		this->eccbytes = 12;
+		this->ecc.mode = NAND_ECC_HW;
+		this->ecc.steps = 1;
+		this->ecc.size = 2048;
+		this->ecc.bytes = 12;
 		omap_mtd->eccsize = 2048;
 		nand_write_reg(NND_ECC_SELECT, 6);
 	}
