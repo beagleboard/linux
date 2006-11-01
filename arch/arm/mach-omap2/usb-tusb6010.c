@@ -92,7 +92,7 @@ static int tusb_set_async_mode(unsigned sysclk_ps, unsigned fclk_ps)
 	t.adv_wr_off = t.adv_rd_off;
 
 	/* WE_ON = t_acsnh_advnh + t_advn_wen (then wait for nRDY) */
-	t.we_on = next_clk(t.adv_on, t_acsnh_advnh + 1000, fclk_ps);
+	t.we_on = next_clk(t.adv_wr_off, t_acsnh_advnh + 1000, fclk_ps);
 
 	/* WE_OFF = after data gets sampled */
 	tmp = t.we_on * 1000 + 300;
@@ -134,15 +134,16 @@ static int tusb_set_sync_mode(unsigned sysclk_ps, unsigned fclk_ps)
 	/* ADV_RD_OFF = t_scsnh_advnh */
 	t.adv_rd_off = next_clk(t.adv_on, t_scsnh_advnh, fclk_ps);
 
-	/* OE_ON = t_scsnh_advnh + t_advn_oen (then wait for nRDY) */
-	t.oe_on = next_clk(t.adv_on, t_scsnh_advnh + 1000, fclk_ps);
+	/* OE_ON = t_scsnh_advnh + t_advn_oen * fclk_ps (then wait for nRDY) */
+	tmp = (t.adv_rd_off * 1000) + (3 * fclk_ps);
+	t.oe_on = next_clk(t.adv_on, tmp, fclk_ps);
 
-	/* ACCESS = counters continue only after nRDY */
-	tmp = t.oe_on * 1000 + 300;
+	/* ACCESS = number of clock cycles after t_adv_eon */
+	tmp = (t.oe_on * 1000) + (5 * fclk_ps);
 	t.access = next_clk(t.oe_on, tmp, fclk_ps);
 
 	/* OE_OFF = after data gets sampled */
-	tmp = t.access * 1000;
+	tmp = (t.access * 1000) + (1 * fclk_ps);
 	t.oe_off = next_clk(t.access, tmp, fclk_ps);
 
 	t.cs_rd_off = t.oe_off;
@@ -157,11 +158,12 @@ static int tusb_set_sync_mode(unsigned sysclk_ps, unsigned fclk_ps)
 	/* ADV_WR_OFF = t_scsnh_advnh */
 	t.adv_wr_off = t.adv_rd_off;
 
-	/* WE_ON = t_scsnh_advnh + t_advn_wen (then wait for nRDY) */
-	t.we_on = next_clk(t.adv_on, t_scsnh_advnh + 1000, fclk_ps);
+	/* WE_ON = t_scsnh_advnh + t_advn_wen * fclk_ps (then wait for nRDY) */
+	tmp = (t.adv_wr_off * 1000) + (3 * fclk_ps);
+	t.we_on = next_clk(t.adv_wr_off, tmp, fclk_ps);
 
-	/* WE_OFF = after data gets sampled */
-	tmp = t.we_on * 1000 + 300;
+	/* WE_OFF = number of clock cycles after t_adv_wen */
+	tmp = (t.we_on * 1000) + (6 * fclk_ps);
 	t.we_off = next_clk(t.we_on, tmp, fclk_ps);
 
 	t.cs_wr_off = t.we_off;
@@ -294,7 +296,7 @@ tusb6010_setup_interface(struct musb_hdrc_platform_data *data,
 		printk(error, 3, status);
 		return status;
 	}
-	omap_set_gpio_direction(irq, 0);
+	omap_set_gpio_direction(irq, 1);
 	tusb_resources[2].start = irq + IH_GPIO_BASE;
 
 	/* set up memory timings ... can speed them up later */
