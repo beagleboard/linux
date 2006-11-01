@@ -265,7 +265,7 @@ static void setup_lcd_dma(void)
 	omap_setup_lcd_dma();
 }
 
-static irqreturn_t lcdc_irq_handler(int irq, void *dev_id, struct pt_regs *fp)
+static irqreturn_t lcdc_irq_handler(int irq, void *dev_id)
 {
 	u32 status;
 
