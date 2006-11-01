@@ -1929,10 +1929,14 @@ static int musb_cleanup_urb(struct urb *urb, struct musb_qh *qh, int is_in)
 		struct dma_channel	*dma;
 
 		dma = is_in ? ep->rx_channel : ep->tx_channel;
-		status = ep->musb->pDmaController->channel_abort(dma);
-		DBG(status ? 1 : 3, "abort %cX%d DMA for urb %p --> %d\n",
-			is_in ? 'R' : 'T', ep->bLocalEnd, urb, status);
-		urb->actual_length += dma->dwActualLength;
+		if (dma) {
+			status = ep->musb->pDmaController->channel_abort(dma);
+			DBG(status ? 1 : 3,
+				"abort %cX%d DMA for urb %p --> %d\n",
+				is_in ? 'R' : 'T', ep->bLocalEnd,
+				urb, status);
+			urb->actual_length += dma->dwActualLength;
+		}
 	}
 
 	/* turn off DMA requests, discard state, stop polling ... */
@@ -2130,6 +2134,19 @@ static void musb_h_stop(struct usb_hcd *hcd)
 	hcd->state = HC_STATE_HALT;
 }
 
+static int musb_bus_suspend(struct usb_hcd *hcd)
+{
+	struct musb	*musb = hcd_to_musb(hcd);
+
+	return musb->is_active ? -EBUSY : 0;
+}
+
+static int musb_bus_resume(struct usb_hcd *hcd)
+{
+	/* resuming child port does the work */
+	return 0;
+}
+
 const struct hc_driver musb_hc_driver = {
 	.description		= "musb-hcd",
 	.product_desc		= "MUSB HDRC host driver",
@@ -2151,8 +2168,8 @@ const struct hc_driver musb_hc_driver = {
 
 	.hub_status_data	= musb_hub_status_data,
 	.hub_control		= musb_hub_control,
-//	.bus_suspend		= musb_bus_suspend,
-//	.bus_resume		= musb_bus_resume,
+	.bus_suspend		= musb_bus_suspend,
+	.bus_resume		= musb_bus_resume,
 //	.start_port_reset	= NULL,
 //	.hub_irq_enable		= NULL,
 };

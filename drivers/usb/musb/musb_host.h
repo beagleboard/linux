@@ -89,8 +89,6 @@ extern int musb_hub_status_data(struct usb_hcd *hcd, char *buf);
 extern int musb_hub_control(struct usb_hcd *hcd,
 			u16 typeReq, u16 wValue, u16 wIndex,
 			char *buf, u16 wLength);
-extern int musb_bus_suspend(struct usb_hcd *);
-extern int musb_bus_resume(struct usb_hcd *);
 
 extern const struct hc_driver musb_hc_driver;
 

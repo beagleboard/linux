@@ -44,7 +44,6 @@
 #include "musbdefs.h"
 
 
-
 static void musb_port_suspend(struct musb *musb, u8 bSuspend)
 {
 	u8		power;
@@ -53,26 +52,46 @@ static void musb_port_suspend(struct musb *musb, u8 bSuspend)
 	if (!is_host_active(musb))
 		return;
 
+	/* NOTE:  this doesn't necessarily put PHY into low power mode,
+	 * turning off its clock; that's a function of PHY integration and
+	 * MGC_M_POWER_ENSUSPEND.  PHY may need a clock (sigh) to detect
+	 * SE0 changing to connect (J) or wakeup (K) states.
+	 */
 	power = musb_readb(pBase, MGC_O_HDRC_POWER);
-
 	if (bSuspend) {
-		DBG(3, "Root port suspended\n");
-		musb_writeb(pBase, MGC_O_HDRC_POWER,
-				power | MGC_M_POWER_SUSPENDM);
-		musb->port1_status |= USB_PORT_STAT_SUSPEND;
-		musb->is_active = is_otg_enabled(musb)
-				&& musb->xceiv.host->b_hnp_enable;
-		musb_platform_try_idle(musb);
-	} else if (power & MGC_M_POWER_SUSPENDM) {
-		DBG(3, "Root port resumed\n");
-		musb_writeb(pBase, MGC_O_HDRC_POWER,
-				power | MGC_M_POWER_RESUME);
-
-		musb->is_active = 1;
+		power &= ~MGC_M_POWER_RESUME;
+		power |= MGC_M_POWER_SUSPENDM;
 		musb_writeb(pBase, MGC_O_HDRC_POWER, power);
-		musb->port1_status &= ~USB_PORT_STAT_SUSPEND;
-		musb->port1_status |= USB_PORT_STAT_C_SUSPEND << 16;
-		usb_hcd_poll_rh_status(musb_to_hcd(musb));
+
+		DBG(3, "Root port suspended, power %02x\n", power);
+
+		musb->port1_status |= USB_PORT_STAT_SUSPEND;
+		switch (musb->xceiv.state) {
+		case OTG_STATE_A_HOST:
+			musb->xceiv.state = OTG_STATE_A_SUSPEND;
+			musb->is_active = is_otg_enabled(musb)
+					&& musb->xceiv.host->b_hnp_enable;
+			musb_platform_try_idle(musb);
+			break;
+		case OTG_STATE_B_HOST:
+			musb->xceiv.state = OTG_STATE_B_PERIPHERAL;
+			MUSB_DEV_MODE(musb);
+			/* REVISIT restore setting of MGC_M_DEVCTL_HR */
+			break;
+		default:
+			DBG(1, "bogus rh suspend? %s\n",
+				otg_state_string(musb));
+		}
+	} else if (power & MGC_M_POWER_SUSPENDM) {
+		power &= ~MGC_M_POWER_SUSPENDM;
+		power |= MGC_M_POWER_RESUME;
+		musb_writeb(pBase, MGC_O_HDRC_POWER, power);
+
+		DBG(3, "Root port resuming, power %02x\n", power);
+
+		/* later, GetPortStatus will stop RESUME signaling */
+		musb->port1_status |= MUSB_PORT_STAT_RESUME;
+		musb->rh_timer = jiffies + msecs_to_jiffies(20);
 	}
 }
 
@@ -131,14 +150,9 @@ static void musb_port_reset(struct musb *musb, u8 bReset)
 
 void musb_root_disconnect(struct musb *musb)
 {
-	musb->port1_status &=
-		~(USB_PORT_STAT_CONNECTION
-		| USB_PORT_STAT_ENABLE
-		| USB_PORT_STAT_LOW_SPEED
-		| USB_PORT_STAT_HIGH_SPEED
-		| USB_PORT_STAT_TEST
-		);
-	musb->port1_status |= USB_PORT_STAT_C_CONNECTION << 16;
+	musb->port1_status = (1 << USB_PORT_FEAT_POWER)
+			| (1 << USB_PORT_FEAT_C_CONNECTION);
+
 	usb_hcd_poll_rh_status(musb_to_hcd(musb));
 	musb->is_active = 0;
 
@@ -255,11 +269,39 @@ int musb_hub_control(
 		if (wIndex != 1)
 			goto error;
 
+		/* finish RESET signaling? */
 		if ((musb->port1_status & USB_PORT_STAT_RESET)
 				&& time_after(jiffies, musb->rh_timer))
 			musb_port_reset(musb, FALSE);
 
-		*(__le32 *) buf = cpu_to_le32 (musb->port1_status);
+		/* finish RESUME signaling? */
+		if ((musb->port1_status & MUSB_PORT_STAT_RESUME)
+				&& time_after(jiffies, musb->rh_timer)) {
+			u8		power;
+
+			power = musb_readb(musb->pRegs, MGC_O_HDRC_POWER);
+			power &= ~MGC_M_POWER_RESUME;
+			DBG(4, "root port resume stopped, power %02x\n",
+					power);
+			musb_writeb(musb->pRegs, MGC_O_HDRC_POWER, power);
+
+			/* ISSUE:  DaVinci (RTL 1.300) disconnects after
+			 * resume of high speed peripherals (but not full
+			 * speed ones).
+			 */
+
+			musb->is_active = 1;
+			musb->port1_status &= ~(USB_PORT_STAT_SUSPEND
+					| MUSB_PORT_STAT_RESUME);
+			musb->port1_status |= USB_PORT_STAT_C_SUSPEND << 16;
+			usb_hcd_poll_rh_status(musb_to_hcd(musb));
+			/* NOTE: it might really be A_WAIT_BCON ... */
+			musb->xceiv.state = OTG_STATE_A_HOST;
+		}
+
+		*(__le32 *) buf = cpu_to_le32(musb->port1_status
+				& ~MUSB_PORT_STAT_RESUME);
+
 		/* port change status is more interesting */
 		DBG((*(u16*)(buf+2)) ? 2 : 5, "port status %08x\n",
 				musb->port1_status);

@@ -1449,6 +1449,10 @@ static int musb_gadget_wakeup(struct usb_gadget *gadget)
 
 	switch (musb->xceiv.state) {
 	case OTG_STATE_B_PERIPHERAL:
+		/* NOTE:  OTG state machine doesn't include B_SUSPENDED;
+		 * that's part of the standard usb 1.1 state machine, and
+		 * doesn't affect OTG transitions.
+		 */
 		if (musb->bMayWakeup)
 			break;
 		goto done;
@@ -1470,12 +1474,14 @@ static int musb_gadget_wakeup(struct usb_gadget *gadget)
 	musb_writeb(musb->pRegs, MGC_O_HDRC_POWER, power);
 
 	/* FIXME do this next chunk in a timer callback, no udelay */
-	mdelay(10);
+	mdelay(2);
 
 	power = musb_readb(musb->pRegs, MGC_O_HDRC_POWER);
 	power &= ~MGC_M_POWER_RESUME;
 	musb_writeb(musb->pRegs, MGC_O_HDRC_POWER, power);
 
+	if (musb->xceiv.state == OTG_STATE_B_SRP_INIT)
+		musb->xceiv.state = OTG_STATE_B_IDLE;
 done:
 	spin_unlock_irqrestore(&musb->Lock, flags);
 	return status;
@@ -1929,7 +1935,8 @@ void musb_g_suspend(struct musb *pThis)
 		/* REVISIT if B_HOST, clear DEVCTL.HOSTREQ;
 		 * A_PERIPHERAL may need care too
 		 */
-		WARN("unhandled SUSPEND transition (%d)\n", pThis->xceiv.state);
+		WARN("unhandled SUSPEND transition (%s)\n",
+				otg_state_string(pThis));
 	}
 }
 

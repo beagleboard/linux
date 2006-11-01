@@ -131,10 +131,10 @@ MODULE_PARM_DESC(debug, "initial debug message level");
 #define MUSB_VERSION_SUFFIX	"/dbg"
 #endif
 
-#define DRIVER_AUTHOR "Mentor Graphics Corp. and Texas Instruments"
+#define DRIVER_AUTHOR "Mentor Graphics, Texas Instruments, Nokia"
 #define DRIVER_DESC "Inventra Dual-Role USB Controller Driver"
 
-#define MUSB_VERSION_BASE "2.2a/db-0.5.1"
+#define MUSB_VERSION_BASE "2.2a/db-0.5.2"
 
 #ifndef MUSB_VERSION_SUFFIX
 #define MUSB_VERSION_SUFFIX	""
@@ -148,12 +148,6 @@ const char musb_driver_name[] = "musb_hdrc";
 MODULE_DESCRIPTION(DRIVER_INFO);
 MODULE_AUTHOR(DRIVER_AUTHOR);
 MODULE_LICENSE("GPL");
-
-/* time (millseconds) to wait before a restart */
-#define MUSB_RESTART_TIME        5000
-
-/* how many babbles to allow before giving up */
-#define MUSB_MAX_BABBLE_COUNT    10
 
 
 /*-------------------------------------------------------------------------*/
@@ -382,17 +376,28 @@ static irqreturn_t musb_stage0_irq(struct musb * pThis, u8 bIntrUSB,
 
 		if (devctl & MGC_M_DEVCTL_HM) {
 #ifdef CONFIG_USB_MUSB_HDRC_HCD
-			/* REVISIT:  this is where SRP kicks in, yes?
-			 * host responsibility should be to CLEAR the
-			 * resume signaling after 50 msec ...
-			 */
-			MUSB_HST_MODE(pThis);	/* unnecessary */
 			power &= ~MGC_M_POWER_SUSPENDM;
 			musb_writeb(pBase, MGC_O_HDRC_POWER,
 				power | MGC_M_POWER_RESUME);
 
+			/* later, GetPortStatus will stop RESUME signaling */
+			pThis->port1_status |= MUSB_PORT_STAT_RESUME;
+			pThis->rh_timer = jiffies + msecs_to_jiffies(20);
+
 			/* should now be A_SUSPEND */
-			pThis->xceiv.state = OTG_STATE_A_HOST;
+			switch (pThis->xceiv.state) {
+			case OTG_STATE_A_SUSPEND:
+				pThis->xceiv.state = OTG_STATE_A_HOST;
+				usb_hcd_resume_root_hub(musb_to_hcd(pThis));
+				break;
+			case OTG_STATE_B_WAIT_ACON:
+				pThis->xceiv.state = OTG_STATE_B_PERIPHERAL;
+				MUSB_DEV_MODE(pThis);
+				break;
+			default:
+				WARN("bogus RESUME, from  %s\n",
+					otg_state_string(pThis));
+			}
 #endif
 		} else {
 #ifdef CONFIG_USB_GADGET_MUSB_HDRC
@@ -506,10 +511,8 @@ static irqreturn_t musb_stage0_irq(struct musb * pThis, u8 bIntrUSB,
 	}
 #endif	/* CONFIG_USB_MUSB_HDRC_HCD */
 
-	/* saved one bit: bus reset and babble share the same bit;
-	 * If I am host is a babble! i must be the only one allowed
-	 * to reset the bus; when in otg mode it means that I have
-	 * to switch to device
+	/* mentor saves a bit: bus reset and babble share the same irq.
+	 * only host sees babble; only peripheral sees bus reset.
 	 */
 	if (bIntrUSB & MGC_M_INTR_RESET) {
 		if (devctl & MGC_M_DEVCTL_HM) {
@@ -1005,6 +1008,10 @@ static int __devinit ep_config_from_table(struct musb *musb)
 
 	offset = fifo_setup(musb, hw_ep, &ep0_cfg, 0);
 	// assert(offset > 0)
+
+	/* NOTE:  for RTL versions >= 1.400 EPINFO and RAMINFO would
+	 * be better than static MUSB_C_NUM_EPS and DYN_FIFO_SIZE...
+	 */
 
 	for (i = 0; i < n; i++) {
 		u8	epn = cfg->hw_ep_num;

@@ -376,6 +376,9 @@ struct musb {
 
 #ifdef CONFIG_USB_MUSB_HDRC_HCD
 
+/* this hub status bit is reserved by USB 2.0 and not seen by usbcore */
+#define MUSB_PORT_STAT_RESUME	(1 << 31)
+
 	u32			port1_status;
 	unsigned long		rh_timer;
 

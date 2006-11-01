@@ -330,9 +330,6 @@ __acquires(pThis->Lock)
 					pThis->g.b_hnp_enable = 1;
 					devctl = musb_readb(pBase,
 							MGC_O_HDRC_DEVCTL);
-					/* REVISIT after roleswitch, HR will
-					 * have been cleared ... reset it
-					 */
 					musb_writeb(pBase, MGC_O_HDRC_DEVCTL,
 						devctl | MGC_M_DEVCTL_HR);
 					}
