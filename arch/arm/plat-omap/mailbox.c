@@ -237,6 +237,7 @@ static int omap_mbox_init(struct omap_mbox *mbox)
 		       "failed to register mailbox interrupt:%d\n", ret);
 		goto fail1;
 	}
+	disable_mbox_irq(mbox, IRQ_RX);
 	enable_mbox_irq(mbox, IRQ_RX);
 
 	spin_lock_init(&mbox->lock);
