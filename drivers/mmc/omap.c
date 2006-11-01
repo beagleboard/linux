@@ -581,12 +581,6 @@ static void mmc_omap_switch_timer(unsigned long arg)
 	schedule_work(&host->switch_work);
 }
 
-/* FIXME: Handle card insertion and removal properly. Maybe use a mask
- * for MMC state? */
-static void mmc_omap_switch_callback(unsigned long data, u8 mmc_mask)
-{
-}
-
 static void mmc_omap_switch_handler(void *data)
 {
 	struct mmc_omap_host *host = (struct mmc_omap_host *) data;
@@ -633,10 +627,10 @@ mmc_omap_prepare_dma(struct mmc_omap_host *host, struct mmc_data *data)
 	int sync_dev = 0;
 
 	data_addr = host->phys_base + OMAP_MMC_REG_DATA;
-	frame = 1 << data->blksz_bits;
+	frame = data->blksz;
 	count = sg_dma_len(sg);
 
-	if ((data->blocks == 1) && (count > (1 << data->blksz_bits)))
+	if ((data->blocks == 1) && (count > (data->blksz)))
 		count = frame;
 
 	host->dma_len = count;
@@ -825,7 +819,7 @@ mmc_omap_prepare_data(struct mmc_omap_host *host, struct mmc_request *req)
 	}
 
 
-	block_size = 1 << data->blksz_bits;
+	block_size = data->blksz;
 
 	OMAP_MMC_WRITE(host, NBLK, data->blocks - 1);
 	OMAP_MMC_WRITE(host, BLEN, block_size - 1);
