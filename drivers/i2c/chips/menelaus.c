@@ -678,7 +678,7 @@ static void menelaus_work(void * _menelaus)
 /*
  * We cannot use I2C in interrupt context, so we just schedule work.
  */
-static irqreturn_t menelaus_irq(int irq, void *_menelaus, struct pt_regs *regs)
+static irqreturn_t menelaus_irq(int irq, void *_menelaus)
 {
 	struct menelaus_chip *menelaus = _menelaus;
 
