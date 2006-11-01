@@ -251,7 +251,7 @@ static const struct ads7846_platform_data palmz71_ts_info = {
 	.get_pendown_state	= palmz71_get_pendown_state,
 };
 
-static struct spi_board_info __initdata palmz71_boardinfo[] = { {
+static struct spi_board_info __initdata palmz71_boardinfo[] = {
 {
 	/* MicroWire (bus 2) CS0 has an ads7846e */
 	.modalias	= "ads7846",
