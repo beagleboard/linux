@@ -187,10 +187,11 @@ static struct resource ams_delta_kp_resources[] = {
 };
 
 static struct omap_kp_platform_data ams_delta_kp_data = {
-	.rows	= 8,
-	.cols	= 8,
-	.keymap = ams_delta_keymap,
-	.rep	= 1,
+	.rows		= 8,
+	.cols		= 8,
+	.keymap 	= ams_delta_keymap,
+	.keymapsize	= ARRAY_SIZE(ams_delta_keymap),
+	.delay		= 9,
 };
 
 static struct platform_device ams_delta_kp_device = {
