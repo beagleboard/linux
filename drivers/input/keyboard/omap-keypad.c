@@ -317,7 +317,7 @@ static int __init omap_kp_probe(struct platform_device *pdev)
 	struct omap_kp *omap_kp;
 	struct input_dev *input_dev;
 	struct omap_kp_platform_data *pdata =  pdev->dev.platform_data;
-	int i, col_idx, row_idx, irq_idx, ret;
+	int i, col_idx = 0, row_idx = 0, irq_idx, ret;
 
 	if (!pdata->rows || !pdata->cols || !pdata->keymap) {
 		printk(KERN_ERR "No rows, cols or keymap from pdata\n");
