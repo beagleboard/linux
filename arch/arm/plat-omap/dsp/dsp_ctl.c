@@ -273,7 +273,9 @@ static int dsp_cfg(void)
 		goto out;
 
 	/* create runtime sysfs entries */
-	device_create_file(omap_dsp->dev, &dev_attr_loadinfo);
+	ret = device_create_file(omap_dsp->dev, &dev_attr_loadinfo);
+	if (ret)
+		printk(KERN_ERR "device_create_file failed: %d\n", ret);
 
 out:
 	dsp_mem_disable((void *)dspmem_base);
@@ -1038,9 +1040,13 @@ out:
 
 void __init dsp_ctl_init(void)
 {
-	device_create_file(omap_dsp->dev, &dev_attr_ifver);
-	device_create_file(omap_dsp->dev, &dev_attr_cpustat);
-	device_create_file(omap_dsp->dev, &dev_attr_icrmask);
+	int ret;
+
+	ret = device_create_file(omap_dsp->dev, &dev_attr_ifver);
+	ret |= device_create_file(omap_dsp->dev, &dev_attr_cpustat);
+	ret |= device_create_file(omap_dsp->dev, &dev_attr_icrmask);
+	if (ret)
+		printk(KERN_ERR "device_create_file failed: %d\n", ret);
 }
 
 void dsp_ctl_exit(void)

@@ -2504,9 +2504,11 @@ int __init dsp_mem_init(void)
 	/* MMU interrupt is not enabled until DSP runs */
 	disable_irq(omap_dsp->mmu_irq);
 
-	device_create_file(omap_dsp->dev, &dev_attr_mmu);
-	device_create_file(omap_dsp->dev, &dev_attr_exmap);
-	device_create_file(omap_dsp->dev, &dev_attr_mempool);
+	ret = device_create_file(omap_dsp->dev, &dev_attr_mmu);
+	ret |= device_create_file(omap_dsp->dev, &dev_attr_exmap);
+	ret |= device_create_file(omap_dsp->dev, &dev_attr_mempool);
+	if (ret)
+		printk(KERN_ERR "device_create_file failed: %d\n", ret);
 
 	return 0;
 }

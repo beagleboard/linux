@@ -1789,6 +1789,8 @@ static void dsptask_dev_release(struct device *dev)
 
 static int taskdev_init(struct taskdev *dev, char *name, unsigned char minor)
 {
+	int ret;
+
 	taskdev[minor] = dev;
 
 	spin_lock_init(&dev->proc_list_lock);
@@ -1815,10 +1817,14 @@ static int taskdev_init(struct taskdev *dev, char *name, unsigned char minor)
 	dev->dev.bus = &dsptask_bus;
 	sprintf(dev->dev.bus_id, "dsptask%d", minor);
 	dev->dev.release = dsptask_dev_release;
-	device_register(&dev->dev);
-	device_create_file(&dev->dev, &dev_attr_devname);
-	device_create_file(&dev->dev, &dev_attr_devstate);
-	device_create_file(&dev->dev, &dev_attr_proc_list);
+	ret = device_register(&dev->dev);
+	if (ret)
+		printk(KERN_ERR "device_register failed: %d\n", ret);
+	ret = device_create_file(&dev->dev, &dev_attr_devname);
+	ret |= device_create_file(&dev->dev, &dev_attr_devstate);
+	ret |= device_create_file(&dev->dev, &dev_attr_proc_list);
+	if (ret)
+		printk(KERN_ERR "device_create_file failed: %d\n", ret);
 	class_device_create(dsp_task_class, NULL,
 			    MKDEV(OMAP_DSP_TASK_MAJOR, minor),
 			    NULL, "dsptask%d", minor);
@@ -1847,6 +1853,7 @@ static void taskdev_delete(unsigned char minor)
 static int taskdev_attach_task(struct taskdev *dev, struct dsptask *task)
 {
 	u16 ttyp = task->ttyp;
+	int ret;
 
 	dev->fops.read =
 		sndtyp_acv(ttyp) ?
@@ -1883,16 +1890,18 @@ static int taskdev_attach_task(struct taskdev *dev, struct dsptask *task)
 	if (task->map_length)
 		dev->fops.mmap = dsp_task_mmap;
 
-	device_create_file(&dev->dev, &dev_attr_taskname);
-	device_create_file(&dev->dev, &dev_attr_ttyp);
+	ret = device_create_file(&dev->dev, &dev_attr_taskname);
+	ret |= device_create_file(&dev->dev, &dev_attr_ttyp);
 	if (sndtyp_wd(ttyp)) {
-		device_create_file(&dev->dev, &dev_attr_fifosz);
-		device_create_file(&dev->dev, &dev_attr_fifocnt);
+		ret |= device_create_file(&dev->dev, &dev_attr_fifosz);
+		ret |= device_create_file(&dev->dev, &dev_attr_fifocnt);
 	} else
-		device_create_file(&dev->dev, &dev_attr_ipblink);
-	device_create_file(&dev->dev, &dev_attr_wsz);
+		ret |= device_create_file(&dev->dev, &dev_attr_ipblink);
+	ret |= device_create_file(&dev->dev, &dev_attr_wsz);
 	if (task->map_length)
-		device_create_file(&dev->dev, &dev_attr_mmap);
+		ret |= device_create_file(&dev->dev, &dev_attr_mmap);
+	if (ret)
+		printk(KERN_ERR "device_create_file failed: %d\n", ret);
 
 	dev->task = task;
 	task->dev = dev;
@@ -2989,7 +2998,14 @@ int __init dsp_taskmod_init(void)
 		return retval;
 	}
 
-	bus_register(&dsptask_bus);
+	retval = bus_register(&dsptask_bus);
+	if (retval) {
+		printk(KERN_ERR
+		       "omapdsp: failed to register DSP task bus: %d\n",
+		       retval);
+		unregister_chrdev(OMAP_DSP_TASK_MAJOR, "dsptask");
+		return -EINVAL;
+	}
 	retval = driver_register(&dsptask_driver);
 	if (retval) {
 		printk(KERN_ERR

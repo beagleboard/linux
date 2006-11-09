@@ -117,7 +117,9 @@ int ipbuf_config(u16 ln, u16 lsz, void *base)
 	       "           %d words * %d lines at 0x%p.\n",
 	       ipbcfg.lsz, ipbcfg.ln, ipbcfg.base);
 
-	device_create_file(omap_dsp->dev, &dev_attr_ipbuf);
+	ret = device_create_file(omap_dsp->dev, &dev_attr_ipbuf);
+	if (ret)
+		printk(KERN_ERR "device_create_file failed: %d\n", ret);
 
 	return ret;
 

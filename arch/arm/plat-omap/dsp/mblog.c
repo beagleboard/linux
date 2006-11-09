@@ -260,7 +260,11 @@ static struct device_attribute dev_attr_mblog = __ATTR_RO(mblog);
 
 void __init mblog_init(void)
 {
-	device_create_file(omap_dsp->dev, &dev_attr_mblog);
+	int ret;
+
+	ret = device_create_file(omap_dsp->dev, &dev_attr_mblog);
+	if (ret)
+		printk(KERN_ERR "device_create_file failed: %d\n", ret);
 }
 
 void mblog_exit(void)
