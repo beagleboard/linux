@@ -76,6 +76,14 @@ config LEDS_NET48XX
 	  This option enables support for the Soekris net4801 and net4826 error
 	  LED.
 
+config LEDS_OMAP_DEBUG
+	boolean "LED Support for OMAP debug board LEDs"
+	depends LEDS_CLASS=y && ARCH_OMAP
+	help
+	  Enables support for the LEDs on the debug board used with OMAP
+	  reference boards like H2/H3/H4 and Perseus2.  Up to six of these
+	  may be claimed by the original ARM debug LED API.
+
 config LEDS_OMAP
 	tristate "LED Support for OMAP GPIO LEDs"
 	depends LEDS_CLASS && ARCH_OMAP

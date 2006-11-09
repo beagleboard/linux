@@ -271,12 +271,26 @@ static struct platform_device h4_lcd_device = {
 	.id		= -1,
 };
 
+static struct resource h4_led_resources[] = {
+	[0] = {
+		.flags	= IORESOURCE_MEM,
+	},
+};
+
+static struct platform_device h4_led_device = {
+	.name		= "omap_dbg_led",
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(h4_led_resources),
+	.resource	= h4_led_resources,
+};
+
 static struct platform_device *h4_devices[] __initdata = {
 	&h4_smc91x_device,
 	&h4_flash_device,
 	&h4_irda_device,
 	&h4_kp_device,
 	&h4_lcd_device,
+	&h4_led_device,
 };
 
 /* 2420 Sysboot setup (2430 is different) */
@@ -352,8 +366,13 @@ static inline void __init h4_init_smc91x(void)
 		printk(KERN_ERR "Failed to request GPMC mem for smc91x\n");
 		return;
 	}
+
+	h4_led_resources[0].start = cs_mem_base;
+	h4_led_resources[0].end   = cs_mem_base + SZ_4K - 1;
+
 	h4_smc91x_resources[0].start = cs_mem_base + 0x300;
 	h4_smc91x_resources[0].end   = cs_mem_base + 0x30f;
+
 	udelay(100);
 
 	omap_cfg_reg(M15_24XX_GPIO92);
