@@ -1458,7 +1458,9 @@ static int musb_gadget_wakeup(struct usb_gadget *gadget)
 		goto done;
 	case OTG_STATE_B_IDLE:
 		/* REVISIT we might be able to do SRP even without OTG,
-		 * though Linux doesn't yet expose that capability
+		 * though Linux doesn't yet expose that capability.  SRP
+		 * starts by setting DEVCTL.SESSION (not POWER.RESUME);
+		 * though DaVinci can't do it.
 		 */
 		if (is_otg_enabled(musb)) {
 			musb->xceiv.state = OTG_STATE_B_SRP_INIT;

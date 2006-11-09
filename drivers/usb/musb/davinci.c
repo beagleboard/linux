@@ -95,6 +95,11 @@ void musb_platform_enable(struct musb *musb)
 				__FILE__, __FUNCTION__);
 	else
 		dma_off = 0;
+
+	/* force a DRVVBUS irq so we can start polling for ID change */
+	if (is_otg_enabled(musb))
+		musb_writel(musb->ctrl_base, DAVINCI_USB_INT_SET_REG,
+			DAVINCI_INTR_DRVVBUS << DAVINCI_USB_USBINT_SHIFT);
 }
 
 /*
@@ -119,12 +124,8 @@ void musb_platform_disable(struct musb *musb)
 }
 
 
-/* REVISIT this file shouldn't modify the OTG state machine ...
- *
- * The OTG infrastructure needs updating, to include things like
- * offchip DRVVBUS support and replacing MGC_OtgMachineInputs with
- * musb struct members (so e.g. vbus_state vanishes).
- */
+/* REVISIT it's not clear whether DaVinci can support full OTG.  */
+
 static int vbus_state = -1;
 
 #ifdef CONFIG_USB_MUSB_HDRC_HCD
@@ -132,50 +133,6 @@ static int vbus_state = -1;
 #else
 #define	portstate(stmt)
 #endif
-
-static void session(struct musb *musb, int is_on)
-{
-	void	*__iomem mregs = musb->pRegs;
-
-	if (musb->xceiv.default_a) {
-		u8	devctl = musb_readb(mregs, MGC_O_HDRC_DEVCTL);
-
-		if (is_on)
-			devctl |= MGC_M_DEVCTL_SESSION;
-		else
-			devctl &= ~MGC_M_DEVCTL_SESSION;
-		musb_writeb(mregs, MGC_O_HDRC_DEVCTL, devctl);
-	} else
-		is_on = 0;
-
-	if (is_on) {
-		/* NOTE: assumes VBUS already exceeds A-valid */
-		musb->xceiv.state = OTG_STATE_A_WAIT_BCON;
-		portstate(musb->port1_status |= USB_PORT_STAT_POWER);
-		MUSB_HST_MODE(musb);
-	} else {
-		switch (musb->xceiv.state) {
-		case OTG_STATE_UNDEFINED:
-		case OTG_STATE_B_IDLE:
-			MUSB_DEV_MODE(musb);
-			musb->xceiv.state = OTG_STATE_B_IDLE;
-			break;
-		case OTG_STATE_A_IDLE:
-			break;
-		default:
-			musb->xceiv.state = OTG_STATE_A_WAIT_VFALL;
-			break;
-		}
-		portstate(musb->port1_status &= ~USB_PORT_STAT_POWER);
-	}
-
-	DBG(2, "Default-%c, VBUS power %s, %s, devctl %02x, %s\n",
-		musb->xceiv.default_a ? 'A' : 'B',
-		is_on ? "on" : "off",
-		MUSB_MODE(musb),
-		musb_readb(musb->pRegs, MGC_O_HDRC_DEVCTL),
-		otg_state_string(musb));
-}
 
 
 /* VBUS SWITCHING IS BOARD-SPECIFIC */
@@ -189,25 +146,22 @@ static void session(struct musb *musb, int is_on)
  */
 static void evm_deferred_drvvbus(void *_musb)
 {
-	struct musb	*musb = _musb;
-	int		is_on = (musb->xceiv.state == OTG_STATE_A_IDLE);
-
-	davinci_i2c_expander_op(0x3a, USB_DRVVBUS, !is_on);
-	vbus_state = is_on;
-	session(musb, is_on);
+	davinci_i2c_expander_op(0x3a, USB_DRVVBUS, vbus_state);
+	vbus_state = !vbus_state;
 }
 DECLARE_WORK(evm_vbus_work, evm_deferred_drvvbus, 0);
 
 #endif	/* modified board */
 #endif	/* EVM */
 
-static void davinci_vbus_power(struct musb *musb, int is_on, int immediate)
+static void davinci_source_power(struct musb *musb, int is_on, int immediate)
 {
 	if (is_on)
 		is_on = 1;
 
 	if (vbus_state == is_on)
 		return;
+	vbus_state = !is_on;		/* 0/1 vs "-1 == unknown/init" */
 
 #ifdef CONFIG_MACH_DAVINCI_EVM
 	if (machine_is_davinci_evm()) {
@@ -228,21 +182,77 @@ static void davinci_vbus_power(struct musb *musb, int is_on, int immediate)
 #endif
 	}
 #endif
-	if (immediate) {
+	if (immediate)
 		vbus_state = is_on;
-		session(musb, is_on);
-	} else {
-		/* REVISIT:  if is_on, start in A_WAIT_VRISE, then OTG timer
-		 * should watch for session valid before calling session().
-		 * EVM charges C133 VERY quickly (but discharge is sloooow).
-		 */
-	}
 }
 
 static void davinci_set_vbus(struct musb *musb, int is_on)
 {
 	WARN_ON(is_on && is_peripheral_active(musb));
-	return davinci_vbus_power(musb, is_on, 0);
+	return davinci_source_power(musb, is_on, 0);
+}
+
+
+#define	POLL_SECONDS	2
+
+static struct timer_list otg_workaround;
+
+static void otg_timer(unsigned long _musb)
+{
+	struct musb		*musb = (void *)_musb;
+	void	*__iomem	mregs = musb->pRegs;
+	u8			devctl;
+	unsigned long		flags;
+
+	/* We poll because DaVinci's won't expose several OTG-critical
+	* status change events (from the transceiver) otherwise.
+	 */
+	devctl = musb_readb(mregs, MGC_O_HDRC_DEVCTL);
+	DBG(7, "poll devctl %02x (%s)\n", devctl, otg_state_string(musb));
+
+	spin_lock_irqsave(&musb->Lock, flags);
+	switch (musb->xceiv.state) {
+	case OTG_STATE_A_WAIT_VFALL:
+		/* Wait till VBUS falls below SessionEnd (~0.2V); the 1.3 RTL
+		 * seems to mis-handle session "start" otherwise (or in our
+		 * case "recover"), in routine "VBUS was valid by the time
+		 * VBUSERR got reported during enumeration" cases.
+		 */
+		if (devctl & MGC_M_DEVCTL_VBUS) {
+			mod_timer(&otg_workaround, jiffies + POLL_SECONDS * HZ);
+			break;
+		}
+		musb->xceiv.state = OTG_STATE_A_WAIT_VRISE;
+		musb_writel(musb->ctrl_base, DAVINCI_USB_INT_SET_REG,
+			MGC_M_INTR_VBUSERROR << DAVINCI_USB_USBINT_SHIFT);
+		break;
+	case OTG_STATE_B_IDLE:
+		if (!is_peripheral_enabled(musb))
+			break;
+
+		/* There's no ID-changed IRQ, so we have no good way to tell
+		 * when to switch to the A-Default state machine (by setting
+		 * the DEVCTL.SESSION flag).
+		 *
+		 * Workaround:  whenever we're in B_IDLE, try setting the
+		 * session flag every few seconds.  If it works, ID was
+		 * grounded and we're now in the A-Default state machine.
+		 *
+		 * NOTE setting the session flag is _supposed_ to trigger
+		 * SRP, but clearly it doesn't.
+		 */
+		musb_writeb(mregs, MGC_O_HDRC_DEVCTL,
+				devctl | MGC_M_DEVCTL_SESSION);
+		devctl = musb_readb(mregs, MGC_O_HDRC_DEVCTL);
+		if (devctl & MGC_M_DEVCTL_BDEVICE)
+			mod_timer(&otg_workaround, jiffies + POLL_SECONDS * HZ);
+		else
+			musb->xceiv.state = OTG_STATE_A_IDLE;
+		break;
+	default:
+		break;
+	}
+	spin_unlock_irqrestore(&musb->Lock, flags);
 }
 
 static irqreturn_t davinci_interrupt(int irq, void *__hci)
@@ -272,7 +282,7 @@ static irqreturn_t davinci_interrupt(int irq, void *__hci)
 		u32 cppi_rx = musb_readl(tibase, DAVINCI_RXCPPI_MASKED_REG);
 
 		if (cppi_tx || cppi_rx) {
-			DBG(4, "<== CPPI IRQ t%x r%x\n", cppi_tx, cppi_rx);
+			DBG(4, "CPPI IRQ t%x r%x\n", cppi_tx, cppi_rx);
 			cppi_completion(musb, cppi_rx, cppi_tx);
 			retval = IRQ_HANDLED;
 		}
@@ -281,6 +291,7 @@ static irqreturn_t davinci_interrupt(int irq, void *__hci)
 	/* ack and handle non-CPPI interrupts */
 	tmp = musb_readl(tibase, DAVINCI_USB_INT_SRC_MASKED_REG);
 	musb_writel(tibase, DAVINCI_USB_INT_SRC_CLR_REG, tmp);
+	DBG(4, "IRQ %08x\n", tmp);
 
 	musb->int_rx = (tmp & DAVINCI_USB_RXINT_MASK)
 			>> DAVINCI_USB_RXINT_SHIFT;
@@ -289,23 +300,58 @@ static irqreturn_t davinci_interrupt(int irq, void *__hci)
 	musb->int_usb = (tmp & DAVINCI_USB_USBINT_MASK)
 			>> DAVINCI_USB_USBINT_SHIFT;
 
-	/* treat DRVVBUS irq like an ID change IRQ (for now) */
-	if (tmp & (1 << (8 + DAVINCI_USB_USBINT_SHIFT))) {
+	/* DRVVBUS irqs are the only proxy we have (a very poor one!) for
+	 * DaVinci's missing ID change IRQ.  We need an ID change IRQ to
+	 * switch appropriately between halves of the OTG state machine.
+	 * Managing DEVCTL.SESSION per Mentor docs requires we know its
+	 * value, but DEVCTL.BDEVICE is invalid without DEVCTL.SESSION set.
+	 * Also, DRVVBUS pulses for SRP (but not at 5V) ...
+	 */
+	if (tmp & (DAVINCI_INTR_DRVVBUS << DAVINCI_USB_USBINT_SHIFT)) {
 		int	drvvbus = musb_readl(tibase, DAVINCI_USB_STAT_REG);
+		void	*__iomem mregs = musb->pRegs;
+		u8	devctl = musb_readb(mregs, MGC_O_HDRC_DEVCTL);
+		int	err = musb->int_usb & MGC_M_INTR_VBUSERROR;
 
-		if (drvvbus) {
+		err = is_host_enabled(musb)
+				&& (musb->int_usb & MGC_M_INTR_VBUSERROR);
+		if (err) {
+			/* The Mentor core doesn't debounce VBUS as needed
+			 * to cope with device connect current spikes. This
+			 * means it's not uncommon for bus-powered devices
+			 * to get VBUS errors during enumeration.
+			 *
+			 * This is a workaround, but newer RTL from Mentor
+			 * seems to lalow a better one: "re"starting sessions
+			 * without waiting (on EVM, a **long** time) for VBUS
+			 * to stop registering in devctl.
+			 */
+			musb->int_usb &= ~MGC_M_INTR_VBUSERROR;
+			musb->xceiv.state = OTG_STATE_A_WAIT_VFALL;
+			mod_timer(&otg_workaround, jiffies + POLL_SECONDS * HZ);
+			WARN("VBUS error workaround (delay coming)\n");
+		} else if (is_host_enabled(musb) && drvvbus) {
+			musb->is_active = 1;
 			MUSB_HST_MODE(musb);
 			musb->xceiv.default_a = 1;
-			musb->xceiv.state = OTG_STATE_A_IDLE;
+			musb->xceiv.state = OTG_STATE_A_WAIT_VRISE;
+			portstate(musb->port1_status |= USB_PORT_STAT_POWER);
+			del_timer(&otg_workaround);
 		} else {
+			musb->is_active = 0;
 			MUSB_DEV_MODE(musb);
 			musb->xceiv.default_a = 0;
 			musb->xceiv.state = OTG_STATE_B_IDLE;
+			portstate(musb->port1_status &= ~USB_PORT_STAT_POWER);
 		}
 
 		/* NOTE:  this must complete poweron within 100 msec */
-		davinci_vbus_power(musb, drvvbus, 0);
-		DBG(2, "DRVVBUS %d (%s)\n", drvvbus, otg_state_string(musb));
+		davinci_source_power(musb, drvvbus, 0);
+		DBG(2, "VBUS %s (%s)%s, devctl %02x\n",
+				drvvbus ? "on" : "off",
+				otg_state_string(musb),
+				err ? " ERROR" : "",
+				devctl);
 		retval = IRQ_HANDLED;
 	}
 
@@ -314,6 +360,11 @@ static irqreturn_t davinci_interrupt(int irq, void *__hci)
 
 	/* irq stays asserted until EOI is written */
 	musb_writel(tibase, DAVINCI_USB_EOI_REG, 0);
+
+	/* poll for ID change */
+	if (is_otg_enabled(musb)
+			&& musb->xceiv.state == OTG_STATE_B_IDLE)
+		mod_timer(&otg_workaround, jiffies + POLL_SECONDS * HZ);
 
 	spin_unlock_irqrestore(&musb->Lock, flags);
 
@@ -354,8 +405,11 @@ int __devinit musb_platform_init(struct musb *musb)
 		evm_vbus_work.data = musb;
 #endif
 
+	if (is_host_enabled(musb))
+		setup_timer(&otg_workaround, otg_timer, (unsigned long) musb);
+
 	musb->board_set_vbus = davinci_set_vbus;
-	davinci_vbus_power(musb, 0, 1);
+	davinci_source_power(musb, 0, 1);
 
 	/* reset the controller */
 	musb_writel(tibase, DAVINCI_USB_CTRL_REG, 0x1);
@@ -377,7 +431,10 @@ int __devinit musb_platform_init(struct musb *musb)
 
 int musb_platform_exit(struct musb *musb)
 {
-	davinci_vbus_power(musb, 0 /*off*/, 1);
+	if (is_host_enabled(musb))
+		del_timer_sync(&otg_workaround);
+
+	davinci_source_power(musb, 0 /*off*/, 1);
 
 	/* delay, to avoid problems with module reload */
 	if (is_host_enabled(musb)) {

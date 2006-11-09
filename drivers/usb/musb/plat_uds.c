@@ -694,8 +694,6 @@ void musb_start(struct musb *musb)
 
 	musb_writeb(regs, MGC_O_HDRC_TESTMODE, 0);
 
-	musb_platform_enable(musb);
-
 	/* put into basic highspeed mode and start session */
 	musb_writeb(regs, MGC_O_HDRC_POWER, MGC_M_POWER_ISOUPDATE
 						| MGC_M_POWER_SOFTCONN
@@ -727,6 +725,7 @@ void musb_start(struct musb *musb)
 		if ((devctl & MGC_M_DEVCTL_VBUS) == MGC_M_DEVCTL_VBUS)
 			musb->is_active = 1;
 	}
+	musb_platform_enable(musb);
 	musb_writeb(regs, MGC_O_HDRC_DEVCTL, devctl);
 }
 
