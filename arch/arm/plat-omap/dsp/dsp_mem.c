@@ -1495,7 +1495,7 @@ static int dsp_fbexport(dsp_long_t *dspadr)
 #endif
 
 #ifdef CONFIG_FB_OMAP_LCDC_EXTERNAL
-	omapfb_nb = kmalloc(sizeof(struct omapfb_notifier_block), GFP_KERNEL);
+	omapfb_nb = kzalloc(sizeof(struct omapfb_notifier_block), GFP_KERNEL);
 	if (omapfb_nb == NULL) {
 		printk(KERN_ERR
 		       "omapdsp: failed to allocate memory for omapfb_nb!\n");
