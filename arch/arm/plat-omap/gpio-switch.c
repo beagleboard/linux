@@ -49,7 +49,7 @@ struct gpio_switch {
 
 static LIST_HEAD(gpio_switches);
 static struct platform_device *gpio_sw_platform_dev;
-static struct device_driver gpio_sw_driver;
+static struct platform_driver gpio_sw_driver;
 
 static const struct omap_gpio_switch *board_gpio_sw_table;
 static int board_gpio_sw_count;
@@ -266,7 +266,7 @@ static int __init new_switch(struct gpio_switch *sw)
 	sw->pdev.id	= -1;
 
 	sw->pdev.dev.parent = &gpio_sw_platform_dev->dev;
-	sw->pdev.dev.driver = &gpio_sw_driver;
+	sw->pdev.dev.driver = &gpio_sw_driver.driver;
 	sw->pdev.dev.release = gpio_sw_release;
 
 	r = platform_device_register(&sw->pdev);
@@ -289,9 +289,13 @@ static int __init new_switch(struct gpio_switch *sw)
 
 	sw->state = gpio_sw_get_state(sw);
 
-	device_create_file(&sw->pdev.dev, &dev_attr_state);
-	device_create_file(&sw->pdev.dev, &dev_attr_type);
-	device_create_file(&sw->pdev.dev, &dev_attr_direction);
+	r = 0;
+	r |= device_create_file(&sw->pdev.dev, &dev_attr_state);
+	r |= device_create_file(&sw->pdev.dev, &dev_attr_type);
+	r |= device_create_file(&sw->pdev.dev, &dev_attr_direction);
+	if (r)
+		printk(KERN_ERR "gpio-switch: attribute file creation "
+		       "failed for %s\n", sw->name);
 
 	if (!direction)
 		return 0;
@@ -469,14 +473,16 @@ static void __init report_initial_state(void)
 	}
 }
 
-static void gpio_sw_shutdown(struct device *dev)
+static int gpio_sw_remove(struct platform_device *dev)
 {
+	return 0;
 }
 
-static struct device_driver gpio_sw_driver = {
-	.name		= "gpio-switch",
-	.bus		= &platform_bus_type,
-	.shutdown	= gpio_sw_shutdown,
+static struct platform_driver gpio_sw_driver = {
+	.remove		= gpio_sw_remove,
+	.driver		= {
+		.name	= "gpio-switch",
+	},
 };
 
 void __init omap_register_gpio_switches(const struct omap_gpio_switch *tbl,
@@ -494,7 +500,7 @@ static int __init gpio_sw_init(void)
 
 	printk(KERN_INFO "OMAP GPIO switch handler initializing\n");
 
-	r = driver_register(&gpio_sw_driver);
+	r = platform_driver_register(&gpio_sw_driver);
 	if (r)
 		return r;
 
@@ -520,7 +526,7 @@ err2:
 	gpio_sw_cleanup();
 	platform_device_unregister(gpio_sw_platform_dev);
 err1:
-	driver_unregister(&gpio_sw_driver);
+	platform_driver_unregister(&gpio_sw_driver);
 	return r;
 }
 
@@ -528,7 +534,7 @@ static void __exit gpio_sw_exit(void)
 {
 	gpio_sw_cleanup();
 	platform_device_unregister(gpio_sw_platform_dev);
-	driver_unregister(&gpio_sw_driver);
+	platform_driver_unregister(&gpio_sw_driver);
 }
 
 #ifndef MODULE
