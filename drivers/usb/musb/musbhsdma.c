@@ -274,8 +274,7 @@ static int MGC_HsDmaAbortChannel(struct dma_channel *pChannel)
 	return 0;
 }
 
-static irqreturn_t
-hsdma_irq(int irq, void *pPrivateData, struct pt_regs *regs)
+static irqreturn_t hsdma_irq(int irq, void *pPrivateData)
 {
 	u8 bChannel;
 	u16 wCsr;
