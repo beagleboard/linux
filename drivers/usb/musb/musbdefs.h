@@ -415,6 +415,7 @@ struct musb {
 	struct musb_hw_ep	 aLocalEnd[MUSB_C_NUM_EPS];
 #define control_ep		aLocalEnd
 
+#define VBUSERR_RETRY_COUNT	3
 	u16			vbuserr_retry;
 	u16 wEndMask;
 	u8 bEndCount;

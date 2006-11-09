@@ -108,9 +108,6 @@
 #endif
 
 #include "musbdefs.h"
-// #ifdef CONFIG_USB_MUSB_HDRC_HCD
-#define VBUSERR_RETRY_COUNT	2		/* is this too few? */
-// #endif
 
 
 #ifdef CONFIG_ARCH_DAVINCI
@@ -411,8 +408,52 @@ static irqreturn_t musb_stage0_irq(struct musb * pThis, u8 bIntrUSB,
 	}
 
 	if (bIntrUSB & MGC_M_INTR_VBUSERROR) {
+		int	ignore = 0;
 
-		DBG(1, "VBUS_ERROR (%02x, %s), retry #%d\n", devctl,
+		/* During connection as an A-Device, we may see a short
+		 * current spikes causing voltage drop, because of cable
+		 * and peripheral capacitance combined with vbus draw.
+		 * (So: less common with truly self-powered devices, where
+		 * vbus doesn't act like a power supply.)
+		 *
+		 * Such spikes are short; usually less than ~500 usec, max
+		 * of ~2 msec.  That is, they're not sustained overcurrent
+		 * errors, though they're reported using VBUSERROR irqs.
+		 *
+		 * Workarounds:  (a) hardware: use self powered devices.
+		 * (b) software:  ignore non-repeated VBUS errors.
+		 *
+		 * REVISIT:  do delays from lots of DEBUG_KERNEL checks
+		 * make trouble here, keeping VBUS < 4.4V ?
+		 */
+		switch (pThis->xceiv.state) {
+		case OTG_STATE_A_HOST:
+			/* recovery is dicey once we've gotten past the
+			 * initial stages of enumeration, but if VBUS
+			 * stayed ok at the other end of the link, and
+			 * another reset is due (at least for high speed,
+			 * to redo the chirp etc), it might work OK...
+			 */
+		case OTG_STATE_A_WAIT_BCON:
+		case OTG_STATE_A_WAIT_VRISE:
+			if (pThis->vbuserr_retry) {
+				pThis->vbuserr_retry--;
+				ignore = 1;
+				devctl |= MGC_M_DEVCTL_SESSION;
+				musb_writeb(pBase, MGC_O_HDRC_DEVCTL, devctl);
+			} else {
+				pThis->port1_status |=
+					  (1 << USB_PORT_FEAT_OVER_CURRENT)
+					| (1 << USB_PORT_FEAT_C_OVER_CURRENT);
+			}
+			break;
+		default:
+			break;
+		}
+
+		DBG(1, "VBUS_ERROR in %s (%02x, %s), retry #%d, port1 %08x\n",
+				otg_state_string(pThis),
+				devctl,
 				({ char *s;
 				switch (devctl & MGC_M_DEVCTL_VBUS) {
 				case 0 << MGC_S_DEVCTL_VBUS:
@@ -425,13 +466,14 @@ static irqreturn_t musb_stage0_irq(struct musb * pThis, u8 bIntrUSB,
 				default:
 					s = "VALID"; break;
 				}; s; }),
-				pThis->vbuserr_retry);
+				VBUSERR_RETRY_COUNT - pThis->vbuserr_retry,
+				pThis->port1_status);
 
 		/* go through A_WAIT_VFALL then start a new session */
-		musb_set_vbus(pThis, 0);
+		if (!ignore)
+			musb_set_vbus(pThis, 0);
 		handled = IRQ_HANDLED;
-	} else
-		pThis->vbuserr_retry = VBUSERR_RETRY_COUNT;
+	}
 
 	if (bIntrUSB & MGC_M_INTR_CONNECT) {
 		handled = IRQ_HANDLED;
@@ -468,10 +510,13 @@ static irqreturn_t musb_stage0_irq(struct musb * pThis, u8 bIntrUSB,
 			pThis->xceiv.state = OTG_STATE_B_HOST;
 			break;
 		default:
-			pThis->xceiv.state = OTG_STATE_A_HOST;
+			if ((devctl & MGC_M_DEVCTL_VBUS)
+					== (3 << MGC_S_DEVCTL_VBUS))
+				pThis->xceiv.state = OTG_STATE_A_HOST;
 			break;
 		}
-		DBG(1, "CONNECT (%s)\n", otg_state_string(pThis));
+		DBG(1, "CONNECT (%s) devctl %02x\n",
+				otg_state_string(pThis), devctl);
 	}
 #endif	/* CONFIG_USB_MUSB_HDRC_HCD */
 
@@ -566,18 +611,35 @@ static irqreturn_t musb_stage2_irq(struct musb * pThis, u8 bIntrUSB,
 #endif
 
 	if ((bIntrUSB & MGC_M_INTR_DISCONNECT) && !pThis->bIgnoreDisconnect) {
-		DBG(1, "DISCONNECT as %s, devctl %02x\n",
+		DBG(1, "DISCONNECT (%s) as %s, devctl %02x\n",
+				otg_state_string(pThis),
 				MUSB_MODE(pThis), devctl);
 		handled = IRQ_HANDLED;
-		pThis->is_active = 0;
 
-		/* need to check it against pThis, because devctl is going
-		 * to report ID low as soon as the device gets disconnected
-		 */
-		if (is_host_active(pThis))
+		switch (pThis->xceiv.state) {
+#ifdef CONFIG_USB_MUSB_HDRC_HCD
+		case OTG_STATE_A_HOST:
+		case OTG_STATE_A_SUSPEND:
 			musb_root_disconnect(pThis);
-		else
+			break;
+#endif	/* HOST */
+#ifdef CONFIG_USB_MUSB_OTG
+		case OTG_STATE_A_PERIPHERAL:
+		case OTG_STATE_B_HOST:
+			musb_root_disconnect(pThis);
+			/* FALLTHROUGH */
+		case OTG_STATE_B_WAIT_ACON:
+#endif	/* OTG */
+#ifdef CONFIG_USB_GADGET_MUSB_HDRC
+		case OTG_STATE_B_PERIPHERAL:
 			musb_g_disconnect(pThis);
+			break;
+#endif	/* GADGET */
+		default:
+			WARN("unhandled DISCONNECT transition (%s)\n",
+				otg_state_string(pThis));
+			break;
+		}
 
 		schedule_work(&pThis->irq_work);
 	}
@@ -1299,8 +1361,6 @@ irqreturn_t musb_interrupt(struct musb *musb)
 	if (musb->int_usb & STAGE0_MASK)
 		retval |= musb_stage0_irq(musb, musb->int_usb,
 				devctl, power);
-	else
-		musb->vbuserr_retry = VBUSERR_RETRY_COUNT;
 
 	/* "stage 1" is handling endpoint irqs */
 
@@ -1450,7 +1510,7 @@ musb_cable_show(struct device *dev, struct device_attribute *attr, char *buf)
 	int vbus;
 
 	spin_lock_irqsave(&musb->Lock, flags);
-#ifdef CONFIG_USB_TUSB6010
+#if defined(CONFIG_USB_TUSB6010) && !defined(CONFIG_USB_MUSB_OTG)
 	/* REVISIT: connect-A != connect-B ... */
 	vbus = musb_platform_get_vbus_status(musb);
 	if (vbus)

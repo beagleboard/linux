@@ -144,6 +144,7 @@ static void musb_port_reset(struct musb *musb, u8 bReset)
 					| (USB_PORT_STAT_C_ENABLE << 16);
 		usb_hcd_poll_rh_status(musb_to_hcd(musb));
 
+		musb->vbuserr_retry = VBUSERR_RETRY_COUNT;
 	}
 }
 

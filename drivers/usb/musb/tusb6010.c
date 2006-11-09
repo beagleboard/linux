@@ -336,7 +336,10 @@ static void tusb_set_vbus(struct musb *musb, int is_on)
 	u32		conf, prcm, timer;
 	u8		devctl;
 
-	/* we control CPEN in software not hardware ... */
+	/* HDRC controls CPEN, but beware current surges during device
+	 * connect.  They can trigger transient overcurrent conditions
+	 * that must be ignored.
+	 */
 
 	prcm = musb_readl(base, TUSB_PRCM_MNGMT);
 	conf = musb_readl(base, TUSB_DEV_CONF);
@@ -344,25 +347,28 @@ static void tusb_set_vbus(struct musb *musb, int is_on)
 
 	if (is_on) {
 		musb->is_active = 1;
-		prcm |= TUSB_PRCM_MNGMT_5V_CPEN;
 		timer = OTG_TIMER_MS(OTG_TIME_A_WAIT_VRISE);
 
 		musb->xceiv.default_a = 1;
 		musb->xceiv.state = OTG_STATE_A_WAIT_VRISE;
+		devctl |= MGC_M_DEVCTL_SESSION;
 
 		conf |= TUSB_DEV_CONF_USB_HOST_MODE;
-
+		MUSB_HST_MODE(musb);
 	} else {
-		prcm &= ~TUSB_PRCM_MNGMT_5V_CPEN;
+		musb->is_active = 0;
 		timer = 0;
 
-		if (musb->xceiv.default_a) {
-			musb->xceiv.state = OTG_STATE_A_WAIT_VFALL;
-			devctl &= ~MGC_M_DEVCTL_SESSION;
-		} else {
-			musb->xceiv.state = OTG_STATE_B_IDLE;
-			musb->is_active = 0;
-		}
+		/* NOTE:  we're skipping A_WAIT_VFALL -> A_IDLE and
+		 * jumping right to B_IDLE...
+		 */
+
+		musb->xceiv.default_a = 0;
+		musb->xceiv.state = OTG_STATE_B_IDLE;
+		devctl &= ~MGC_M_DEVCTL_SESSION;
+
+		conf &= ~TUSB_DEV_CONF_USB_HOST_MODE;
+		MUSB_DEV_MODE(musb);
 	}
 	prcm &= ~(TUSB_PRCM_MNGMT_15_SW_EN | TUSB_PRCM_MNGMT_33_SW_EN);
 
@@ -402,6 +408,16 @@ tusb_otg_ints(struct musb *musb, u32 int_src, void __iomem *base)
 		/* B-dev state machine:  no vbus ~= disconnect */
 		if ((is_otg_enabled(musb) && !musb->xceiv.default_a)
 				|| !is_host_enabled(musb)) {
+#ifdef CONFIG_USB_MUSB_HDRC_HCD
+			// ? musb_root_disconnect(musb);
+			musb->port1_status &=
+				~(USB_PORT_STAT_CONNECTION
+				| USB_PORT_STAT_ENABLE
+				| USB_PORT_STAT_LOW_SPEED
+				| USB_PORT_STAT_HIGH_SPEED
+				| USB_PORT_STAT_TEST
+				);
+#endif
 
 			if (otg_stat & TUSB_DEV_OTG_STAT_SESS_END) {
 				if (musb->xceiv.state != OTG_STATE_B_IDLE) {
@@ -426,9 +442,8 @@ tusb_otg_ints(struct musb *musb, u32 int_src, void __iomem *base)
 				 */
 				break;
 			case OTG_STATE_A_WAIT_VFALL:
-				/* REVISIT this irq triggers at too high a
-				 * voltage ... we probably need to use the
-				 * OTG timer to wait for session end.
+				/* REVISIT this irq triggers during short
+				 * spikes causet by enumeration ...
 				 */
 				if (musb->vbuserr_retry) {
 					musb->vbuserr_retry--;
@@ -449,30 +464,32 @@ tusb_otg_ints(struct musb *musb, u32 int_src, void __iomem *base)
 
 		switch (musb->xceiv.state) {
 		case OTG_STATE_A_WAIT_VRISE:
-			/* VBUS has probably been valid for a while now */
+			/* VBUS has probably been valid for a while now,
+			 * but may well have bounced out of range a bit
+			 */
 			devctl = musb_readb(musb->pRegs, MGC_O_HDRC_DEVCTL);
 			if (otg_stat & TUSB_DEV_OTG_STAT_VBUS_VALID) {
+				u32	timer;
+
 				if ((devctl & MGC_M_DEVCTL_VBUS)
 						!= MGC_M_DEVCTL_VBUS) {
 					DBG(2, "devctl %02x\n", devctl);
 					break;
 				}
-
-				/* request a session, then DEVCTL_HM will
-				 * be set by the controller
-				 */
-				devctl |= MGC_M_DEVCTL_SESSION;
-				musb_writeb(musb->pRegs, MGC_O_HDRC_DEVCTL,
-						devctl);
 				musb->xceiv.state = OTG_STATE_A_WAIT_BCON;
 
+				/* REVISIT: if nothing is connected yet,
+				 * mark controller as inactive so that
+				 * we can suspend the TUSB chip.
+				 */
+
 				/* timeout 0 == infinite (like non-OTG hosts) */
-				if (OTG_TIME_A_WAIT_BCON)
+				timer = OTG_TIMER_MS(OTG_TIME_A_WAIT_BCON);
+				if (timer)
 					musb_writel(base, TUSB_DEV_OTG_TIMER,
-						OTG_TIMER_MS(OTG_TIME_A_WAIT_BCON));
-				else
-					musb_writel(base, TUSB_DEV_OTG_TIMER, 0);
+							timer);
 			} else {
+				/* REVISIT report overcurrent to hub? */
 				ERR("vbus too slow, devctl %02x\n", devctl);
 				tusb_set_vbus(musb, 0);
 			}
@@ -488,7 +505,6 @@ tusb_otg_ints(struct musb *musb, u32 int_src, void __iomem *base)
 		default:
 			break;
 		}
-		musb_writel(base, TUSB_DEV_OTG_TIMER, 0);
 	}
 }
 
@@ -747,8 +763,7 @@ static int __devinit tusb_start(struct musb *musb)
 	musb_writel(base, TUSB_VLYNQ_CTRL, 8);
 
 	/* Select PHY free running 60MHz as a system clock */
-	musb_writel(base, TUSB_PRCM_CONF, //FIXME: CPEN should not be needed!
-			TUSB_PRCM_CONF_SFW_CPEN | TUSB_PRCM_CONF_SYS_CLKSEL(1));
+	tusb_set_clock_source(musb, 1);
 
 	/* VBus valid timer 1us, disable DFT/Debug and VLYNQ clocks for
 	 * power saving, enable VBus detect and session end comparators,
