@@ -534,6 +534,15 @@ static int dump_header_stats(struct musb *pThis, char *buffer)
 	count += code;
 	buffer += code;
 
+#ifdef	CONFIG_USB_MUSB_HDRC_HCD
+	code = sprintf(buffer, "Root port status: %08x\n",
+			pThis->port1_status);
+	if (code <= 0)
+		goto done;
+	buffer += code;
+	count += code;
+#endif
+
 #ifdef	CONFIG_ARCH_DAVINCI
 	code = sprintf(buffer,
 			"DaVinci: ctrl=%02x stat=%1x phy=%03x\n"

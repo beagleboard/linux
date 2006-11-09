@@ -105,8 +105,7 @@ static void musb_port_reset(struct musb *musb, u8 bReset)
 	u8 devctl = musb_readb(pBase, MGC_O_HDRC_DEVCTL);
 
 	if (musb->bDelayPortPowerOff || !(devctl & MGC_M_DEVCTL_HM)) {
-//		return;
-		DBG(1, "what?\n");
+		return;
 	}
 #endif
 
@@ -158,13 +157,14 @@ void musb_root_disconnect(struct musb *musb)
 
 	switch (musb->xceiv.state) {
 	case OTG_STATE_A_HOST:
+	case OTG_STATE_A_SUSPEND:
 		musb->xceiv.state = OTG_STATE_A_WAIT_BCON;
 		break;
 	case OTG_STATE_A_WAIT_VFALL:
 		musb->xceiv.state = OTG_STATE_B_IDLE;
 		break;
 	default:
-		DBG(1, "host disconnect, state %d\n", musb->xceiv.state);
+		DBG(1, "host disconnect (%s)\n", otg_state_string(musb));
 	}
 }
 

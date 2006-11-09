@@ -316,45 +316,76 @@ static irqreturn_t musb_stage0_irq(struct musb * pThis, u8 bIntrUSB,
 	DBG(3, "<== Power=%02x, DevCtl=%02x, bIntrUSB=0x%x\n", power, devctl,
 		bIntrUSB);
 
-	/* in host mode when a device resume me (from power save)
-	 * in device mode when the host resume me; it shold not change
-	 * "identity".
+	/* in host mode, the peripheral may issue remote wakeup.
+	 * in peripheral mode, the host may resume the link.
+	 * spurious RESUME irqs happen too, paired with SUSPEND.
 	 */
 	if (bIntrUSB & MGC_M_INTR_RESUME) {
 		handled = IRQ_HANDLED;
-		DBG(3, "RESUME\n");
-		pThis->is_active = 1;
+		DBG(3, "RESUME (%s)\n", otg_state_string(pThis));
 
 		if (devctl & MGC_M_DEVCTL_HM) {
 #ifdef CONFIG_USB_MUSB_HDRC_HCD
-			power &= ~MGC_M_POWER_SUSPENDM;
-			musb_writeb(pBase, MGC_O_HDRC_POWER,
-				power | MGC_M_POWER_RESUME);
-
-			/* later, GetPortStatus will stop RESUME signaling */
-			pThis->port1_status |= MUSB_PORT_STAT_RESUME;
-			pThis->rh_timer = jiffies + msecs_to_jiffies(20);
-
-			/* should now be A_SUSPEND */
 			switch (pThis->xceiv.state) {
 			case OTG_STATE_A_SUSPEND:
-				pThis->xceiv.state = OTG_STATE_A_HOST;
-				usb_hcd_resume_root_hub(musb_to_hcd(pThis));
+				/* remote wakeup?  later, GetPortStatus
+				 * will stop RESUME signaling
+				 */
+				if (power & MGC_M_POWER_RESUME) {
+					power &= ~MGC_M_POWER_SUSPENDM;
+					musb_writeb(pBase, MGC_O_HDRC_POWER,
+						power | MGC_M_POWER_RESUME);
+
+					pThis->port1_status |=
+						  MUSB_PORT_STAT_RESUME
+						| USB_PORT_STAT_C_SUSPEND;
+					pThis->rh_timer = jiffies
+						+ msecs_to_jiffies(20);
+
+					pThis->xceiv.state = OTG_STATE_A_HOST;
+					pThis->is_active = 1;
+					usb_hcd_resume_root_hub(
+							musb_to_hcd(pThis));
+
+				} else if (power & MGC_M_POWER_SUSPENDM) {
+					/* spurious */
+					pThis->int_usb &= ~MGC_M_INTR_SUSPEND;
+				}
 				break;
 			case OTG_STATE_B_WAIT_ACON:
 				pThis->xceiv.state = OTG_STATE_B_PERIPHERAL;
+				pThis->is_active = 1;
 				MUSB_DEV_MODE(pThis);
 				break;
 			default:
-				WARN("bogus RESUME, from  %s\n",
+				WARN("bogus %s RESUME (%s)\n",
+					"host",
 					otg_state_string(pThis));
 			}
 #endif
 		} else {
-#ifdef CONFIG_USB_GADGET_MUSB_HDRC
-			MUSB_DEV_MODE(pThis);	/* unnecessary */
+			switch (pThis->xceiv.state) {
+#ifdef CONFIG_USB_MUSB_HDRC_HCD
+			case OTG_STATE_A_SUSPEND:
+				/* possibly DISCONNECT is upcoming */
+				pThis->xceiv.state = OTG_STATE_A_HOST;
+				usb_hcd_resume_root_hub(musb_to_hcd(pThis));
+				break;
 #endif
-			musb_g_resume(pThis);
+#ifdef CONFIG_USB_GADGET_MUSB_HDRC
+			case OTG_STATE_B_WAIT_ACON:
+			case OTG_STATE_B_PERIPHERAL:
+				musb_g_resume(pThis);
+				break;
+			case OTG_STATE_B_IDLE:
+				pThis->int_usb &= ~MGC_M_INTR_SUSPEND;
+				break;
+#endif
+			default:
+				WARN("bogus %s RESUME (%s)\n",
+					"peripheral",
+					otg_state_string(pThis));
+			}
 		}
 	}
 
@@ -552,17 +583,32 @@ static irqreturn_t musb_stage2_irq(struct musb * pThis, u8 bIntrUSB,
 	}
 
 	if (bIntrUSB & MGC_M_INTR_SUSPEND) {
-		DBG(1, "SUSPEND, devctl %02x\n", devctl);
+		DBG(1, "SUSPEND (%s) devctl %02x\n",
+				otg_state_string(pThis), devctl);
 		handled = IRQ_HANDLED;
 
-		/* peripheral suspend, may trigger HNP */
-		if (!(devctl & MGC_M_DEVCTL_HM)) {
+		switch (pThis->xceiv.state) {
+		case OTG_STATE_B_PERIPHERAL:
 			musb_g_suspend(pThis);
 			pThis->is_active = is_otg_enabled(pThis)
 					&& pThis->xceiv.gadget->b_hnp_enable;
-		} else
+			if (pThis->is_active) {
+				pThis->xceiv.state = OTG_STATE_B_WAIT_ACON;
+				/* REVISIT timeout for b_ase0_brst, etc */
+			}
+			break;
+		case OTG_STATE_A_HOST:
+			pThis->xceiv.state = OTG_STATE_A_SUSPEND;
+			pThis->is_active = is_otg_enabled(pThis)
+					&& pThis->xceiv.host->b_hnp_enable;
+			break;
+		default:
+			/* "should not happen" */
 			pThis->is_active = 0;
+			break;
+		}
 	}
+
 
 	return handled;
 }
@@ -650,11 +696,11 @@ static void musb_generic_disable(struct musb *pThis)
  * with controller locked, irqs blocked
  * acts as a NOP unless some role activated the hardware
  */
-void musb_stop(struct musb * pThis)
+void musb_stop(struct musb *musb)
 {
 	/* stop IRQs, timers, ... */
-	musb_platform_disable(pThis);
-	musb_generic_disable(pThis);
+	musb_platform_disable(musb);
+	musb_generic_disable(musb);
 	DBG(3, "HDRC disabled\n");
 
 	/* FIXME
@@ -664,14 +710,7 @@ void musb_stop(struct musb * pThis)
 	 *    OTG mode, gadget driver module rmmod/modprobe cycles that
 	 *  - ...
 	 */
-
-#ifdef CONFIG_USB_MUSB_HDRC_HCD
-	if (is_host_enabled(pThis)) {
-		/* REVISIT aren't there some paths where this is wrong?  */
-		dev_warn(pThis->controller, "%s, root hub still active\n",
-				__FUNCTION__);
-	}
-#endif
+	musb_platform_try_idle(musb);
 }
 
 static void musb_shutdown(struct platform_device *pdev)
@@ -1651,9 +1690,9 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 		status = -ENODEV;
 		goto fail2;
 	}
-	(void) enable_irq_wake(nIrq);
 	pThis->nIrq = nIrq;
-	device_init_wakeup(dev, 1);
+	if (enable_irq_wake(nIrq) == 0)
+		device_init_wakeup(dev, 1);
 
 	pr_info("%s: USB %s mode controller at %p using %s, IRQ %d\n",
 			musb_driver_name,

@@ -277,6 +277,12 @@ static void musb_do_idle(unsigned long _musb)
 	if (!musb->is_active) {
 		u32	wakeups;
 
+#ifdef CONFIG_USB_MUSB_HDRC_HCD
+		/* wait until khubd handles port change status */
+		if (is_host_active(musb) && (musb->port1_status >> 16))
+			goto done;
+#endif
+
 #ifdef CONFIG_USB_GADGET_MUSB_HDRC
 		if (is_peripheral_enabled(musb) && !musb->pGadgetDriver)
 			wakeups = 0;
@@ -292,6 +298,7 @@ static void musb_do_idle(unsigned long _musb)
 #endif
 		tusb_allow_idle(musb, wakeups);
 	}
+done:
 	spin_unlock_irqrestore(&musb->Lock, flags);
 }
 
@@ -636,7 +643,17 @@ void musb_platform_enable(struct musb * musb)
  */
 void musb_platform_disable(struct musb *musb)
 {
+	void __iomem	*base = musb->ctrl_base;
+
 	/* FIXME stop DMA, IRQs, timers, ... */
+
+	/* disable all IRQs */
+	musb_writel(base, TUSB_INT_MASK, ~TUSB_INT_MASK_RESERVED_BITS);
+	musb_writel(base, TUSB_USBIP_INT_MASK, 0);
+	musb_writel(base, TUSB_DMA_INT_MASK, 0x7fffffff);
+	musb_writel(base, TUSB_GPIO_INT_MASK, 0x1ff);
+
+	del_timer(&musb_idle_timer);
 
 	if (is_dma_capable() && !dma_off) {
 		printk(KERN_WARNING "%s %s: dma still active\n",
@@ -811,6 +828,8 @@ int __devinit musb_platform_init(struct musb *musb)
 
 int musb_platform_exit(struct musb *musb)
 {
+	del_timer_sync(&musb_idle_timer);
+
 	if (musb->board_set_power)
 		musb->board_set_power(0);
 

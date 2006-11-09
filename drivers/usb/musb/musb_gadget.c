@@ -1903,11 +1903,21 @@ EXPORT_SYMBOL(usb_gadget_unregister_driver);
 
 void musb_g_resume(struct musb *pThis)
 {
-	DBG(4, "<==\n");
-	if (pThis->pGadgetDriver && pThis->pGadgetDriver->resume) {
-		spin_unlock(&pThis->Lock);
-		pThis->pGadgetDriver->resume(&pThis->g);
-		spin_lock(&pThis->Lock);
+	switch (pThis->xceiv.state) {
+	case OTG_STATE_B_IDLE:
+		break;
+	case OTG_STATE_B_WAIT_ACON:
+	case OTG_STATE_B_PERIPHERAL:
+		pThis->is_active = 1;
+		if (pThis->pGadgetDriver && pThis->pGadgetDriver->resume) {
+			spin_unlock(&pThis->Lock);
+			pThis->pGadgetDriver->resume(&pThis->g);
+			spin_lock(&pThis->Lock);
+		}
+		break;
+	default:
+		WARN("unhandled RESUME transition (%s)\n",
+				otg_state_string(pThis));
 	}
 }
 
