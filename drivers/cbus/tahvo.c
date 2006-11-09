@@ -182,7 +182,7 @@ void tahvo_set_backlight_level(int level)
 /*
  * TAHVO interrupt handler. Only schedules the tasklet.
  */
-static irqreturn_t tahvo_irq_handler(int irq, void *dev_id, struct pt_regs *regs)
+static irqreturn_t tahvo_irq_handler(int irq, void *dev_id)
 {
 	tasklet_schedule(&tahvo_tasklet);
 	return IRQ_HANDLED;

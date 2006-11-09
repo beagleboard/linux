@@ -187,7 +187,7 @@ void retu_ack_irq(int id)
 /*
  * RETU interrupt handler. Only schedules the tasklet.
  */
-static irqreturn_t retu_irq_handler(int irq, void *dev_id, struct pt_regs *regs)
+static irqreturn_t retu_irq_handler(int irq, void *dev_id)
 {
 	tasklet_schedule(&retu_tasklet);
 	return IRQ_HANDLED;

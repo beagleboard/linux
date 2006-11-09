@@ -569,7 +569,7 @@ static void brf6150_tx_tasklet(unsigned long data)
 	spin_unlock_irqrestore(&info->lock, flags);
 }
 
-static irqreturn_t brf6150_interrupt(int irq, void *data, struct pt_regs *regs)
+static irqreturn_t brf6150_interrupt(int irq, void *data)
 {
 	struct brf6150_info *info = (struct brf6150_info *)data;
 	u8 iir, msr;
@@ -617,8 +617,7 @@ static irqreturn_t brf6150_interrupt(int irq, void *data, struct pt_regs *regs)
 	return ret;
 }
 
-static irqreturn_t brf6150_wakeup_interrupt(int irq, void *dev_inst,
-					    struct pt_regs *regs)
+static irqreturn_t brf6150_wakeup_interrupt(int irq, void *dev_inst)
 {
 	struct brf6150_info *info = dev_inst;
 	int should_wakeup;
