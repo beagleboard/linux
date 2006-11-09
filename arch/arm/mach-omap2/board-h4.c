@@ -136,24 +136,6 @@ static struct platform_device h4_flash_device = {
 	.resource	= &h4_flash_resource,
 };
 
-static struct resource h4_smc91x_resources[] = {
-	[0] = {
-		.flags  = IORESOURCE_MEM,
-	},
-	[1] = {
-		.start  = OMAP_GPIO_IRQ(OMAP24XX_ETHR_GPIO_IRQ),
-		.end    = OMAP_GPIO_IRQ(OMAP24XX_ETHR_GPIO_IRQ),
-		.flags  = IORESOURCE_IRQ,
-	},
-};
-
-static struct platform_device h4_smc91x_device = {
-	.name		= "smc91x",
-	.id		= -1,
-	.num_resources	= ARRAY_SIZE(h4_smc91x_resources),
-	.resource	= h4_smc91x_resources,
-};
-
 /* Select between the IrDA and aGPS module
  */
 #if defined(CONFIG_OMAP_IR) || defined(CONFIG_OMAP_IR_MODULE)
@@ -271,26 +253,11 @@ static struct platform_device h4_lcd_device = {
 	.id		= -1,
 };
 
-static struct resource h4_led_resources[] = {
-	[0] = {
-		.flags	= IORESOURCE_MEM,
-	},
-};
-
-static struct platform_device h4_led_device = {
-	.name		= "omap_dbg_led",
-	.id		= -1,
-	.num_resources	= ARRAY_SIZE(h4_led_resources),
-	.resource	= h4_led_resources,
-};
-
 static struct platform_device *h4_devices[] __initdata = {
-	&h4_smc91x_device,
 	&h4_flash_device,
 	&h4_irda_device,
 	&h4_kp_device,
 	&h4_lcd_device,
-	&h4_led_device,
 };
 
 /* 2420 Sysboot setup (2430 is different) */
@@ -318,7 +285,7 @@ static u32 is_gpmc_muxed(void)
 		return 0;
 }
 
-static inline void __init h4_init_smc91x(void)
+static inline void __init h4_init_debug(void)
 {
 	int eth_cs;
 	unsigned long cs_mem_base;
@@ -367,23 +334,11 @@ static inline void __init h4_init_smc91x(void)
 		return;
 	}
 
-	h4_led_resources[0].start = cs_mem_base;
-	h4_led_resources[0].end   = cs_mem_base + SZ_4K - 1;
-
-	h4_smc91x_resources[0].start = cs_mem_base + 0x300;
-	h4_smc91x_resources[0].end   = cs_mem_base + 0x30f;
-
 	udelay(100);
 
 	omap_cfg_reg(M15_24XX_GPIO92);
-	if (omap_request_gpio(OMAP24XX_ETHR_GPIO_IRQ) < 0) {
-		printk(KERN_ERR "Failed to request GPIO%d for smc91x IRQ\n",
-			OMAP24XX_ETHR_GPIO_IRQ);
+	if (debug_card_init(cs_mem_base, OMAP24XX_ETHR_GPIO_IRQ) < 0)
 		gpmc_cs_free(eth_cs);
-		return;
-	}
-	omap_set_gpio_direction(OMAP24XX_ETHR_GPIO_IRQ, 1);
-
 }
 
 static void __init h4_init_flash(void)
@@ -403,7 +358,6 @@ static void __init omap_h4_init_irq(void)
 	omap2_init_common_hw();
 	omap_init_irq();
 	omap_gpio_init();
-	h4_init_smc91x();
 	h4_init_flash();
 }
 
@@ -521,6 +475,9 @@ static void __init omap_h4_init(void)
 	omap_board_config = h4_config;
 	omap_board_config_size = ARRAY_SIZE(h4_config);
 	omap_serial_init();
+
+	/* smc91x, debug leds, ps/2, extra uarts */
+	h4_init_debug();
 
 #ifdef	CONFIG_MACH_OMAP_H4_TUSB
 	tusb_evm_setup();
