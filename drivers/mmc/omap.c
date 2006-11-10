@@ -1088,8 +1088,8 @@ static int __init mmc_omap_probe(struct platform_device *pdev)
 	mmc->ops = &mmc_omap_ops;
 	mmc->f_min = 400000;
 	mmc->f_max = 24000000;
-	mmc->ocr_avail = MMC_VDD_32_33 | MMC_VDD_33_34 | MMC_CAP_MULTIWRITE
-				| MMC_CAP_BYTEBLOCK;
+	mmc->ocr_avail = MMC_VDD_32_33 | MMC_VDD_33_34;
+	mmc->caps = MMC_CAP_MULTIWRITE | MMC_CAP_BYTEBLOCK;
 
 	if (minfo->wire4)
 		 mmc->caps |= MMC_CAP_4_BIT_DATA;
