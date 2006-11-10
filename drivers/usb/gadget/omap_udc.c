@@ -2579,7 +2579,6 @@ omap_ep_setup(char *name, u8 addr, u8 type,
 		 * (for more reliable behavior)
 		 */
 		if ((!use_dma && (addr & USB_DIR_IN))
-				|| machine_is_omap_apollon()
 				|| cpu_is_omap15xx())
 			dbuf = 0;
 
@@ -2964,10 +2963,9 @@ known:
 	}
 
 	create_proc_file();
-	status = device_add(&udc->gadget.dev);
-	if (!status)
-		return status;
-	/* If fail, fall through */
+	device_add(&udc->gadget.dev);
+	return 0;
+
 #ifdef	USE_ISO
 cleanup3:
 	free_irq(pdev->resource[2].start, udc);
