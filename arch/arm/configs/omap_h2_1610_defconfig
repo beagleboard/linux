@@ -242,7 +242,7 @@ CONFIG_BINFMT_AOUT=y
 #
 # Power management options
 #
-# CONFIG_PM is not set
+CONFIG_PM=y
 
 #
 # Networking
