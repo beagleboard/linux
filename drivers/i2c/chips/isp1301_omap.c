@@ -68,7 +68,7 @@ struct isp1301 {
 
 	/* use keventd context to change the state for us */
 	struct work_struct	work;
-	
+
 	unsigned long		todo;
 #		define WORK_UPDATE_ISP	0	/* update ISP from OTG */
 #		define WORK_UPDATE_OTG	1	/* update OTG from ISP */
@@ -306,7 +306,7 @@ static void power_up(struct isp1301 *isp)
 {
 	// isp1301_clear_bits(isp, ISP1301_MODE_CONTROL_2, MC2_GLOBAL_PWR_DN);
 	isp1301_clear_bits(isp, ISP1301_MODE_CONTROL_1, MC1_SUSPEND_REG);
-	
+
 	/* do this only when cpu is driving transceiver,
 	 * so host won't see a low speed device...
 	 */
@@ -818,7 +818,7 @@ static irqreturn_t omap_otg_irq(int irq, void *_isp)
 		/* role is host */
 		} else {
 			if (!(otg_ctrl & OTG_ID)) {
-		 		otg_ctrl &= OTG_CTRL_MASK & ~OTG_XCEIV_INPUTS;
+				otg_ctrl &= OTG_CTRL_MASK & ~OTG_XCEIV_INPUTS;
 				OTG_CTRL_REG = otg_ctrl | OTG_A_BUSREQ;
 			}
 
@@ -1245,6 +1245,9 @@ static int isp1301_detach_client(struct i2c_client *i2c)
 	if (machine_is_omap_h3())
 		omap_free_gpio(14);
 
+	if (machine_is_omap_h4())
+		omap_free_gpio(125);
+
 	isp->timer.data = 0;
 	set_bit(WORK_STOP, &isp->todo);
 	del_timer_sync(&isp->timer);
@@ -1266,7 +1269,7 @@ static int isp1301_detach_client(struct i2c_client *i2c)
  *  - DEVICE mode, for when there's a B/Mini-B (device) connector
  *
  * As a rule, you won't have an isp1301 chip unless it's there to
- * support the OTG mode.  Other modes help testing USB controllers 
+ * support the OTG mode.  Other modes help testing USB controllers
  * in isolation from (full) OTG support, or maybe so later board
  * revisions can help to support those feature.
  */
@@ -1282,9 +1285,9 @@ static int isp1301_otg_enable(struct isp1301 *isp)
 	 * a few more interrupts than are strictly needed.
 	 */
 	isp1301_set_bits(isp, ISP1301_INTERRUPT_RISING,
-	 	INTR_VBUS_VLD | INTR_SESS_VLD | INTR_ID_GND);
+		INTR_VBUS_VLD | INTR_SESS_VLD | INTR_ID_GND);
 	isp1301_set_bits(isp, ISP1301_INTERRUPT_FALLING,
-	 	INTR_VBUS_VLD | INTR_SESS_VLD | INTR_ID_GND);
+		INTR_VBUS_VLD | INTR_SESS_VLD | INTR_ID_GND);
 
 	dev_info(&isp->client.dev, "ready for dual-role USB ...\n");
 
@@ -1323,14 +1326,15 @@ isp1301_set_host(struct otg_transceiver *otg, struct usb_bus *host)
 
 	power_up(isp);
 
+// XXX h4 too?
 	if (machine_is_omap_h2() || machine_is_omap_h3())
 		isp1301_set_bits(isp, ISP1301_MODE_CONTROL_1, MC1_DAT_SE0);
 
 	dev_info(&isp->client.dev, "A-Host sessions ok\n");
 	isp1301_set_bits(isp, ISP1301_INTERRUPT_RISING,
-	 	INTR_ID_GND);
+		INTR_ID_GND);
 	isp1301_set_bits(isp, ISP1301_INTERRUPT_FALLING,
-	 	INTR_ID_GND);
+		INTR_ID_GND);
 
 	/* If this has a Mini-AB connector, this mode is highly
 	 * nonstandard ... but can be handy for testing, especially with
@@ -1386,13 +1390,14 @@ isp1301_set_peripheral(struct otg_transceiver *otg, struct usb_gadget *gadget)
 	power_up(isp);
 	isp->otg.state = OTG_STATE_B_IDLE;
 
+// XXX h4 too?
 	if (machine_is_omap_h2() || machine_is_omap_h3())
 		isp1301_set_bits(isp, ISP1301_MODE_CONTROL_1, MC1_DAT_SE0);
 
 	isp1301_set_bits(isp, ISP1301_INTERRUPT_RISING,
-	 	INTR_SESS_VLD | INTR_VBUS_VLD);
+		INTR_SESS_VLD | INTR_VBUS_VLD);
 	isp1301_set_bits(isp, ISP1301_INTERRUPT_FALLING,
-	 	INTR_VBUS_VLD | INTR_SESS_VLD);
+		INTR_VBUS_VLD | INTR_SESS_VLD);
 	dev_info(&isp->client.dev, "B-Peripheral sessions ok\n");
 	dump_regs(isp, __FUNCTION__);
 
@@ -1589,6 +1594,7 @@ fail1:
 	}
 #endif
 
+// XXX h4 too?
 	if (machine_is_omap_h2() || machine_is_omap_h3()) {
 		/* full speed signaling by default */
 		isp1301_set_bits(isp, ISP1301_MODE_CONTROL_1,
@@ -1613,6 +1619,15 @@ fail1:
 		omap_request_gpio(14);
 		omap_set_gpio_direction(14, 1);
 		isp->irq_type = SA_TRIGGER_FALLING;
+	}
+
+	if (machine_is_omap_h4()) {
+		/* IRQ wired at P14 */
+		omap_cfg_reg(P14_24XX_GPIO125);
+		isp->irq = OMAP_GPIO_IRQ(125);
+		omap_request_gpio(125);
+		omap_set_gpio_direction(125, 1);
+		isp->irq_type = IRQF_TRIGGER_LOW;
 	}
 
 	status = request_irq(isp->irq, isp1301_irq,
