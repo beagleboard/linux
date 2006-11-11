@@ -256,6 +256,7 @@ static int tahvo_ioctl(struct inode *inode, struct file *filp,
 		       unsigned int cmd, unsigned long arg)
 {
 	struct retu_tahvo_write_parms par;
+	int ret;
 
 	switch (cmd) {
 	case URT_IOCT_IRQ_SUBSCR:
@@ -263,9 +264,13 @@ static int tahvo_ioctl(struct inode *inode, struct file *filp,
 	case TAHVO_IOCH_READ:
 		return tahvo_user_read_with_mask(arg);
 	case TAHVO_IOCX_WRITE:
-		copy_from_user(&par, (void __user *) arg, sizeof(par));
+		ret = copy_from_user(&par, (void __user *) arg, sizeof(par));
+		if (ret)
+			printk(KERN_ERR "copy_from_user failed: %d\n", ret);
 		par.result = tahvo_user_write_with_mask(par.field, par.value);
-		copy_to_user((void __user *) arg, &par, sizeof(par));
+		ret = copy_to_user((void __user *) arg, &par, sizeof(par));
+		if (ret)
+			printk(KERN_ERR "copy_to_user failed: %d\n", ret);
 		break;
 	default:
 		return -ENOIOCTLCMD;
@@ -308,7 +313,10 @@ static ssize_t tahvo_read(struct file *filp, char *buf, size_t count,
 		list_move(&irq->node, &tahvo_irqs_reserve);
 		spin_unlock_irqrestore(&tahvo_irqs_lock, flags);
 
-		copy_to_user(buf + i * sizeof(irq_id), &irq_id, sizeof(irq_id));
+		ret = copy_to_user(buf + i * sizeof(irq_id), &irq_id,
+                                  sizeof(irq_id));
+		if (ret)
+			printk(KERN_ERR "copy_to_user failed: %d\n", ret);
 	}
 
 	return count;

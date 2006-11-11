@@ -648,10 +648,12 @@ static int tahvo_usb_probe(struct device *dev)
 	}
 
 	/* Attributes */
-	device_create_file(dev, &dev_attr_vbus_state);
+	ret = device_create_file(dev, &dev_attr_vbus_state);
 #ifdef CONFIG_USB_OTG
-	device_create_file(dev, &dev_attr_otg_mode);
+	ret |= device_create_file(dev, &dev_attr_otg_mode);
 #endif
+	if (ret)
+		printk(KERN_ERR "attribute creation failed: %d\n", ret);
 
 	/* Create OTG interface */
 	tahvo_usb_power_off(tu);

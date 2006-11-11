@@ -386,11 +386,6 @@ static u_char omap_nand_read_byte(struct mtd_info *mtd)
 	return nand_read_reg8(NND_ACCESS);
 }
 
-static void omap_nand_write_byte(struct mtd_info *mtd, u_char byte)
-{
-	nand_write_reg8(NND_ACCESS, byte);
-}
-
 static int omap_nand_dev_ready(struct mtd_info *mtd)
 {
 	u32 l;
