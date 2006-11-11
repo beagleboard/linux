@@ -587,6 +587,7 @@ EXPORT_SYMBOL(api_ck_handle);
 EXPORT_SYMBOL(dsp_fck_handle);
 EXPORT_SYMBOL(dsp_ick_handle);
 #endif
+EXPORT_SYMBOL(omap_dsp);
 EXPORT_SYMBOL(dspmem_base);
 EXPORT_SYMBOL(dspmem_size);
 EXPORT_SYMBOL(daram_base);

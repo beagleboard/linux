@@ -345,3 +345,5 @@ static void __exit omap_mbox_class_exit(void)
 
 subsys_initcall(omap_mbox_class_init);
 module_exit(omap_mbox_class_exit);
+
+MODULE_LICENSE("GPL");

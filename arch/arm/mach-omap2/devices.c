@@ -66,7 +66,7 @@ static void omap_init_i2c(void) {}
 
 #endif
 
-#if defined(CONFIG_OMAP_DSP)
+#if defined(CONFIG_OMAP_DSP) || defined(CONFIG_OMAP_DSP_MODULE)
 #define OMAP2_MBOX_BASE		IO_ADDRESS(OMAP24XX_MAILBOX_BASE)
 
 static struct resource mbox_resources[] = {

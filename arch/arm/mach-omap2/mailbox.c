@@ -209,11 +209,12 @@ static struct omap_mbox2_priv omap2_mbox_dsp_priv = {
 	.newmsg_bit = MAILBOX_IRQ_NEWMSG(1),
 };
 
-static struct omap_mbox mbox_dsp_info = {
+struct omap_mbox mbox_dsp_info = {
 	.name = "dsp",
 	.ops = &omap2_mbox_ops,
 	.priv = &omap2_mbox_dsp_priv,
 };
+EXPORT_SYMBOL(mbox_dsp_info);
 
 /* IVA */
 static struct omap_mbox2_priv omap2_mbox_iva_priv = {

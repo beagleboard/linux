@@ -406,7 +406,7 @@ int dsp_mbox_config(void *p)
 static int __init dsp_mbox_init(void)
 {
 	omap_dsp->mbox = omap_mbox_get("dsp");
-	if (IS_ERR(omap_dsp->mbox)) {
+	if (omap_dsp->mbox == NULL) {
 		printk(KERN_ERR "failed to get mailbox handler for DSP.\n");
 		return -ENODEV;
 	}
@@ -676,6 +676,10 @@ static void __exit omap_dsp_mod_exit(void)
 {
 	platform_driver_unregister(&dsp_driver);
 }
+
+/* module dependency: need mailbox module that have mbox_dsp_info */
+extern struct omap_mbox mbox_dsp_info;
+struct omap_mbox *mbox_dep = &mbox_dsp_info;
 
 module_init(omap_dsp_mod_init);
 module_exit(omap_dsp_mod_exit);

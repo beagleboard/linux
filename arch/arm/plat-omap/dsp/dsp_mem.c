@@ -1647,6 +1647,8 @@ static int dsp_mmu_itack(void)
 	 DSP_MMU_IRQ_TLBMISS)
 #endif
 
+static int is_mmu_init;
+
 static void dsp_mmu_init(void)
 {
 	struct tlb_lock tlb_lock;
@@ -1682,13 +1684,17 @@ static void dsp_mmu_init(void)
 	omap_dsp_release_mem();
 	clk_disable(dsp_ck_handle);
 #endif
+
+	is_mmu_init = 1;
 }
 
 static void dsp_mmu_shutdown(void)
 {
-	exmap_flush();
-	exmap_clear_preserved_entries();
-	dsp_mmu_disable();
+	if (is_mmu_init) {
+		exmap_flush();
+		exmap_clear_preserved_entries();
+		dsp_mmu_disable();
+	}
 }
 
 #ifdef CONFIG_ARCH_OMAP1

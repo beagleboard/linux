@@ -12,7 +12,8 @@ obj-$(CONFIG_OMAP_MPU_TIMER)		+= timer-gp.o
 obj-$(CONFIG_PM) += pm.o pm-domain.o sleep.o
 
 # DSP
-obj-$(CONFIG_OMAP_DSP) += mailbox.o
+obj-$(CONFIG_OMAP_DSP)	+= mailbox_mach.o
+mailbox_mach-objs	:= mailbox.o
 
 # Specific board support
 obj-$(CONFIG_MACH_OMAP_GENERIC)		+= board-generic.o
