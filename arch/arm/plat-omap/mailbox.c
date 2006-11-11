@@ -114,10 +114,13 @@ static void mbox_msg_receiver(void *p)
 	struct omap_mbox *mbox = (struct omap_mbox *)p;
 	struct omap_mbq *mbq = mbox->mbq;
 	mbox_msg_t msg;
+	int was_full;
 
 	while (!mbq_empty(mbq)) {
+		was_full = mbq_full(mbq);
 		msg = mbq_get(mbq);
-		enable_mbox_irq(mbox, IRQ_RX);
+		if (was_full)	/* now we have a room in the mbq. */
+			enable_mbox_irq(mbox, IRQ_RX);
 
 		if (unlikely(mbox_seq_test(mbox, msg))) {
 			printk(KERN_ERR

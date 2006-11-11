@@ -67,7 +67,7 @@ static inline void
 omap1_mbox_fifo_write(struct omap_mbox *mbox, mbox_msg_t msg)
 {
 	struct omap_mbox1_fifo *fifo =
-		&((struct omap_mbox1_priv *)mbox->priv)->rx_fifo;
+		&((struct omap_mbox1_priv *)mbox->priv)->tx_fifo;
 
 	mbox_write_reg(msg & 0xffff, fifo->data);
 	mbox_write_reg(msg >> 16, fifo->cmd);
@@ -110,6 +110,7 @@ omap1_mbox_is_irq(struct omap_mbox *mbox, omap_mbox_type_t irq)
 }
 
 struct omap_mbox_ops omap1_mbox_ops = {
+	.type = OMAP_MBOX_TYPE1,
 	.fifo_read = omap1_mbox_fifo_read,
 	.fifo_write = omap1_mbox_fifo_write,
 	.fifo_empty = omap1_mbox_fifo_empty,
