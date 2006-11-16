@@ -418,8 +418,7 @@ static void tsc2102_new_mode(struct tsc2102_dev *dev)
 static void tsc2102_check_status(struct tsc2102_dev *dev);
 
 /* TSC has new data for us availiable.  */
-static irqreturn_t
-tsc2102_handler(int irq, void *dev_id, struct pt_regs *regs)
+static irqreturn_t tsc2102_handler(int irq, void *dev_id)
 {
 	struct tsc2102_dev *dev = (struct tsc2102_dev *) dev_id;
 	spin_lock_irq(&dev->lock);
