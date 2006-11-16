@@ -30,8 +30,6 @@
 #include <asm/arch/gpio.h>
 #include <asm/arch/omapfb.h>
 
-/* #define OMAPFB_DBG 1 */
-
 static int palmz71_panel_init(struct omapfb_device *panel)
 {
 	return 0;
