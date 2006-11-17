@@ -2077,6 +2077,7 @@ static inline int machine_needs_vbus_session(void)
 #ifndef CONFIG_MACH_OMAP_H4_OTG
 		|| machine_is_omap_h4()
 #endif
+		|| machine_is_sx1()
 		);
 }
 
@@ -2823,7 +2824,7 @@ static int __init omap_udc_probe(struct platform_device *pdev)
 		hmc = HMC_1510;
 		type = "(unknown)";
 
-		if (machine_is_omap_innovator()) {
+		if (machine_is_omap_innovator() || machine_is_sx1()) {
 			/* just set up software VBUS detect, and then
 			 * later rig it so we always report VBUS.
 			 * FIXME without really sensing VBUS, we can't
