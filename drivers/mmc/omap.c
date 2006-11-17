@@ -37,6 +37,7 @@
 #include <asm/arch/mux.h>
 #include <asm/arch/fpga.h>
 #include <asm/arch/tps65010.h>
+#include <asm/arch/board-sx1.h>
 
 #define	OMAP_MMC_REG_CMD	0x00
 #define	OMAP_MMC_REG_ARGL	0x04
@@ -906,7 +907,9 @@ static void innovator_fpga_socket_power(int on)
  */
 static void mmc_omap_power(struct mmc_omap_host *host, int on)
 {
-	if (on) {
+	if (machine_is_sx1())
+		sx1_setmmcpower(on);
+	else if (on) {
 		if (machine_is_omap_innovator())
 			innovator_fpga_socket_power(1);
 		else if (machine_is_omap_h2())
