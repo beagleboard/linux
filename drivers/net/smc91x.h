@@ -193,10 +193,12 @@ SMC_outw(u16 val, void __iomem *ioaddr, int reg)
 #include <asm/arch/cpu.h>
 
 #ifdef CONFIG_ARCH_OMAP1
-#define	SMC_IRQ_FLAGS	(machine_is_omap_innovator() ? IRQF_TRIGGER_RISING : \
-				IRQF_TRIGGER_FALLING)
+#define	SMC_IRQ_FLAGS		((machine_is_omap_innovator() ||	\
+					machine_is_omap_osk())		\
+				? IRQF_TRIGGER_RISING : IRQF_TRIGGER_FALLING)
 #else
-#define SMC_IRQ_FLAGS		IRQF_TRIGGER_LOW
+#define SMC_IRQ_FLAGS		(machine_is_omap_apollon()		\
+				? IRQF_TRIGGER_HIGH : IRQF_TRIGGER_LOW)
 #endif
 
 #elif	defined(CONFIG_SH_SH4202_MICRODEV)
