@@ -70,6 +70,7 @@ static struct omap_kp_platform_data palmte_kp_data = {
 	.cols	= 8,
 	.keymap = palmte_keymap,
 	.rep	= 1,
+	.delay	= 12,
 };
 
 static struct resource palmte_kp_resources[] = {

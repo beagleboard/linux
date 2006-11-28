@@ -76,6 +76,7 @@ static struct omap_kp_platform_data palmz71_kp_data = {
 	.cols	= 8,
 	.keymap	= palmz71_keymap,
 	.rep	= 1,
+	.delay	= 80,
 };
 
 static struct resource palmz71_kp_resources[] = {
