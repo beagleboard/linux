@@ -440,7 +440,7 @@ static inline void omap_init_wdt(void) {}
 
 /*-------------------------------------------------------------------------*/
 
-#if	defined(CONFIG_OMAP_RNG) || defined(CONFIG_OMAP_RNG_MODULE)
+#if defined(CONFIG_HW_RANDOM_OMAP) || defined(CONFIG_HW_RANDOM_OMAP_MODULE)
 
 #ifdef CONFIG_ARCH_OMAP24XX
 #define	OMAP_RNG_BASE		0x480A0000
