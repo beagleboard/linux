@@ -238,16 +238,6 @@ static int omap_mbox_init(struct omap_mbox *mbox)
 		goto fail1;
 	}
 
-	ret = request_irq(mbox->irq, mbox_interrupt, SA_INTERRUPT,
-			  mbox->name, mbox);
-	if (unlikely(ret)) {
-		printk(KERN_ERR
-		       "failed to register mailbox interrupt:%d\n", ret);
-		goto fail1;
-	}
-	disable_mbox_irq(mbox, IRQ_RX);
-	enable_mbox_irq(mbox, IRQ_RX);
-
 	spin_lock_init(&mbox->lock);
 	INIT_WORK(&mbox->msg_receive, mbox_msg_receiver, mbox);
 	init_waitqueue_head(&mbox->tx_waitq);
@@ -256,12 +246,24 @@ static int omap_mbox_init(struct omap_mbox *mbox)
 	if (unlikely(ret))
 		goto fail2;
 
+	ret = request_irq(mbox->irq, mbox_interrupt, SA_INTERRUPT,
+			  mbox->name, mbox);
+	if (unlikely(ret)) {
+		printk(KERN_ERR
+		       "failed to register mailbox interrupt:%d\n", ret);
+		goto fail3;
+	}
+	disable_mbox_irq(mbox, IRQ_RX);
+	enable_mbox_irq(mbox, IRQ_RX);
+
 	return 0;
+
+ fail3:
+	kfree(mbox->mbq);
  fail2:
-	free_irq(mbox->irq, mbox);
 	class_remove_file(&omap_mbox_class, &class_attr_mbox);
-	class_unregister(&omap_mbox_class);
  fail1:
+	class_unregister(&omap_mbox_class);
 	if (unlikely(mbox->ops->shutdown))
 		mbox->ops->shutdown(mbox);
 
@@ -271,6 +273,7 @@ static int omap_mbox_init(struct omap_mbox *mbox)
 static void omap_mbox_shutdown(struct omap_mbox *mbox)
 {
 	free_irq(mbox->irq, mbox);
+	kfree(mbox->mbq);
 	class_remove_file(&omap_mbox_class, &class_attr_mbox);
 	class_unregister(&omap_mbox_class);
 
