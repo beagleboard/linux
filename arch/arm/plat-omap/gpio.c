@@ -585,7 +585,7 @@ static int gpio_irq_type(unsigned irq, unsigned type)
 			&& (type & (IRQ_TYPE_LEVEL_LOW|IRQ_TYPE_LEVEL_HIGH)))
 		return -EINVAL;
 
-	bank = get_gpio_bank(gpio);
+	bank = get_irq_chip_data(irq);
 	spin_lock(&bank->lock);
 	retval = _set_gpio_triggering(bank, get_gpio_index(gpio), type);
 	if (retval == 0) {
@@ -824,7 +824,7 @@ static int gpio_wake_enable(unsigned int irq, unsigned int enable)
 
 	if (check_gpio(gpio) < 0)
 		return -ENODEV;
-	bank = get_gpio_bank(gpio);
+	bank = get_irq_chip_data(irq);
 	retval = _set_gpio_wakeup(bank, get_gpio_index(gpio), enable);
 
 	return retval;
@@ -1039,7 +1039,7 @@ static void gpio_irq_handler(unsigned int irq, struct irqdesc *desc)
 static void gpio_irq_shutdown(unsigned int irq)
 {
 	unsigned int gpio = irq - IH_GPIO_BASE;
-	struct gpio_bank *bank = get_gpio_bank(gpio);
+	struct gpio_bank *bank = get_irq_chip_data(irq);
 
 	_reset_gpio(bank, gpio);
 }
@@ -1047,7 +1047,7 @@ static void gpio_irq_shutdown(unsigned int irq)
 static void gpio_ack_irq(unsigned int irq)
 {
 	unsigned int gpio = irq - IH_GPIO_BASE;
-	struct gpio_bank *bank = get_gpio_bank(gpio);
+	struct gpio_bank *bank = get_irq_chip_data(irq);
 
 	_clear_gpio_irqstatus(bank, gpio);
 }
@@ -1055,7 +1055,7 @@ static void gpio_ack_irq(unsigned int irq)
 static void gpio_mask_irq(unsigned int irq)
 {
 	unsigned int gpio = irq - IH_GPIO_BASE;
-	struct gpio_bank *bank = get_gpio_bank(gpio);
+	struct gpio_bank *bank = get_irq_chip_data(irq);
 
 	_set_gpio_irqenable(bank, gpio, 0);
 }
@@ -1064,7 +1064,7 @@ static void gpio_unmask_irq(unsigned int irq)
 {
 	unsigned int gpio = irq - IH_GPIO_BASE;
 	unsigned int gpio_idx = get_gpio_index(gpio);
-	struct gpio_bank *bank = get_gpio_bank(gpio);
+	struct gpio_bank *bank = get_irq_chip_data(irq);
 
 	_set_gpio_irqenable(bank, gpio_idx, 1);
 }
@@ -1093,7 +1093,7 @@ static void mpuio_ack_irq(unsigned int irq)
 static void mpuio_mask_irq(unsigned int irq)
 {
 	unsigned int gpio = OMAP_MPUIO(irq - IH_MPUIO_BASE);
-	struct gpio_bank *bank = get_gpio_bank(gpio);
+	struct gpio_bank *bank = get_irq_chip_data(irq);
 
 	_set_gpio_irqenable(bank, gpio, 0);
 }
@@ -1101,7 +1101,7 @@ static void mpuio_mask_irq(unsigned int irq)
 static void mpuio_unmask_irq(unsigned int irq)
 {
 	unsigned int gpio = OMAP_MPUIO(irq - IH_MPUIO_BASE);
-	struct gpio_bank *bank = get_gpio_bank(gpio);
+	struct gpio_bank *bank = get_irq_chip_data(irq);
 
 	_set_gpio_irqenable(bank, gpio, 1);
 }
@@ -1276,6 +1276,7 @@ static int __init _omap_gpio_init(void)
 #endif
 		for (j = bank->virtual_irq_start;
 		     j < bank->virtual_irq_start + gpio_count; j++) {
+			set_irq_chip_data(j, bank);
 			if (bank_is_mpuio(bank))
 				set_irq_chip(j, &mpuio_irq_chip);
 			else
