@@ -21,6 +21,7 @@ struct omap_mbq {
 	rwlock_t lock;
 	mbox_msg_t msg[MBQ_DEPTH];
 	mbox_msg_t *rp, *wp;
+	int cnt;
 };
 
 static inline int mbq_init(struct omap_mbq **addr)
@@ -33,6 +34,7 @@ static inline int mbq_init(struct omap_mbq **addr)
 
 	write_lock_irq(&m->lock);
 	m->rp = m->wp = &m->msg[0];
+	m->cnt = 0;
 	write_unlock_irq(&m->lock);
 
 	*addr = m;
@@ -45,7 +47,7 @@ static inline int mbq_empty(struct omap_mbq *mbq)
 	int ret;
 
 	read_lock_irq(&mbq->lock);
-	ret = (mbq->rp == mbq->wp);
+	ret = (mbq->cnt == 0);
 	read_unlock_irq(&mbq->lock);
 
 	return ret;
@@ -54,16 +56,9 @@ static inline int mbq_empty(struct omap_mbq *mbq)
 static inline int mbq_full(struct omap_mbq *mbq)
 {
 	int ret;
-	mbox_msg_t *p;
 
 	read_lock_irq(&mbq->lock);
-	p = mbq->wp;
-
-	if (++p == &mbq->msg[MBQ_DEPTH])
-		p = &mbq->msg[0];
-
-	ret = (p == mbq->rp);
-
+	ret = (mbq->cnt == MBQ_DEPTH);
 	read_unlock_irq(&mbq->lock);
 
 	return ret;
@@ -79,8 +74,8 @@ static inline int mbq_add(struct omap_mbq *mbq, mbox_msg_t msg)
 	if (++mbq->wp == &mbq->msg[MBQ_DEPTH])
 		mbq->wp = &mbq->msg[0];
 
-	if (mbq->wp == mbq->rp)	/* full */
-		ret = -1;;
+	if (++mbq->cnt == MBQ_DEPTH)	/* full */
+		ret = -1;
 
 	write_unlock_irq(&mbq->lock);
 
@@ -97,6 +92,7 @@ static inline mbox_msg_t mbq_get(struct omap_mbq *mbq)
 
 	if (++mbq->rp == &mbq->msg[MBQ_DEPTH])
 		mbq->rp = &mbq->msg[0];
+	mbq->cnt--;
 
 	write_unlock_irq(&mbq->lock);
 
