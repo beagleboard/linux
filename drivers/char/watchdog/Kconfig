@@ -750,11 +750,4 @@ config USBPCWATCHDOG
 
 	  Most people will say N.
 
-config OMAP_WATCHDOG
-	tristate "OMAP Watchdog"
-	depends on WATCHDOG && (ARCH_OMAP16XX || ARCH_OMAP24XX)
-	help
-	  Support for TI OMAP1610/OMAP1710/OMAP2420 watchdog. Say 'Y' here to enable the
-	  OMAP1610/OMAP1710 watchdog timer.
-
 endmenu
