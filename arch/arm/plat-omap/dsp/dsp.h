@@ -21,7 +21,6 @@
  *
  */
 
-#include <linux/platform_device.h>
 #include "hardware_dsp.h"
 #include "dsp_common.h"
 
