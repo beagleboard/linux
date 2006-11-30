@@ -63,6 +63,17 @@ config SND_OMAP_TSC2101
  	  To compile this driver as a module, choose M here: the module
  	  will be called snd-omap-tsc2101.
 
+config SND_SX1
+ 	tristate "Siemens SX1 Egold alsa driver"
+ 	depends on ARCH_OMAP && SND
+ 	select SND_PCM
+	select OMAP_MCBSP
+ 	help
+ 	  Say Y here if you have a OMAP310 based Siemens SX1.
+
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called snd-omap-sx1.
+
 config SND_OMAP_TSC2102
  	tristate "OMAP TSC2102 alsa driver"
  	depends on ARCH_OMAP && SND
