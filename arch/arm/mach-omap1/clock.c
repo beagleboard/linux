@@ -494,7 +494,7 @@ static int omap1_clk_enable_generic(struct clk *clk)
 		}
 	}
 
-	return 0;
+	return;
 }
 
 static void omap1_clk_disable_generic(struct clk *clk)
