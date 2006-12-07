@@ -52,11 +52,13 @@ static struct platform_device omap_i2c_device2 = {
 static void omap_init_i2c(void)
 {
 	/* REVISIT: Second I2C not in use on H4? */
-	if (machine_is_omap_h4() || machine_is_omap_2430sdp())
+	if (machine_is_omap_h4())
 		return;
 
-	omap_cfg_reg(J15_24XX_I2C2_SCL);
-	omap_cfg_reg(H19_24XX_I2C2_SDA);
+	if (!cpu_is_omap2430()) {
+		omap_cfg_reg(J15_24XX_I2C2_SCL);
+		omap_cfg_reg(H19_24XX_I2C2_SDA);
+	}
 	(void) platform_device_register(&omap_i2c_device2);
 }
 
