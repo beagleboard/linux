@@ -52,7 +52,7 @@ static struct platform_device omap_i2c_device2 = {
 static void omap_init_i2c(void)
 {
 	/* REVISIT: Second I2C not in use on H4? */
-	if (machine_is_omap_h4())
+	if (machine_is_omap_h4() || machine_is_omap_2430sdp())
 		return;
 
 	omap_cfg_reg(J15_24XX_I2C2_SCL);
