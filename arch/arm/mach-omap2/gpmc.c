@@ -130,7 +130,7 @@ static int set_gpmc_timing_reg(int cs, int reg, int st_bit, int end_bit,
 	if (ticks >= 1 << nr_bits) {
 #ifdef DEBUG
 		printk(KERN_INFO "GPMC CS%d: %-10s* %3d ns, %3d ticks >= %d\n",
-		       cs, name, time, ticks, 1 << nr_bits);
+				cs, name, time, ticks, 1 << nr_bits);
 #endif
 		return -1;
 	}
@@ -141,7 +141,7 @@ static int set_gpmc_timing_reg(int cs, int reg, int st_bit, int end_bit,
 	printk(KERN_INFO
 		"GPMC CS%d: %-10s: %3d ticks, %3lu ns (was %3i ticks) %3d ns\n",
 	       cs, name, ticks, gpmc_get_fclk_period() * ticks / 1000,
-	       (l >> st_bit) & mask, time);
+			(l >> st_bit) & mask, time);
 #endif
 	l &= ~(mask << st_bit);
 	l |= ticks << st_bit;
@@ -211,7 +211,7 @@ int gpmc_cs_set_timings(int cs, const struct gpmc_timings *t)
 	if (l & (GPMC_CONFIG1_READTYPE_SYNC | GPMC_CONFIG1_WRITETYPE_SYNC)) {
 #ifdef DEBUG
 		printk(KERN_INFO "GPMC CS%d CLK period is %lu ns (div %d)\n",
-		       cs, (div * gpmc_get_fclk_period()) / 1000, div);
+				cs, (div * gpmc_get_fclk_period()) / 1000, div);
 #endif
 		l &= ~0x03;
 		l |= (div - 1);

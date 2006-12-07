@@ -4,7 +4,7 @@
  * Hardware definitions for TI OMAP2430 SDP board.
  *
  * Based on board-h4.h by Dirk Behme <dirk.behme@de.bosch.com>
- * 
+ *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
  * Free Software Foundation; either version 2 of the License, or (at your
@@ -30,7 +30,7 @@
 #define __ASM_ARCH_OMAP_2430SDP_H
 
 /* Placeholder for 2430SDP specific defines */
-#define OMAP24XX_ETHR_START             0x08000300
+#define OMAP24XX_ETHR_START		 0x08000300
 #define OMAP24XX_ETHR_GPIO_IRQ		149
 #define SDP2430_CS0_BASE		0x04000000
 
