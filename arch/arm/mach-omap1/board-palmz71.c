@@ -199,12 +199,12 @@ static struct omap_mcbsp_reg_cfg mcbsp_regs = {
 static struct omap_alsa_codec_config alsa_config = {
 	.name			= "PalmZ71 AIC23",
 	.mcbsp_regs_alsa	= &mcbsp_regs,
-	.codec_configure_dev	= NULL,	// aic23_configure,
-	.codec_set_samplerate	= NULL,	// aic23_set_samplerate,
-	.codec_clock_setup	= NULL,	// aic23_clock_setup,
-	.codec_clock_on		= NULL,	// aic23_clock_on,
-	.codec_clock_off	= NULL,	// aic23_clock_off,
-	.get_default_samplerate	= NULL,	// aic23_get_default_samplerate,
+	.codec_configure_dev	= NULL,		// aic23_configure,
+	.codec_set_samplerate	= NULL,		// aic23_set_samplerate,
+	.codec_clock_setup	= NULL,		// aic23_clock_setup,
+	.codec_clock_on		= NULL,		// aic23_clock_on,
+	.codec_clock_off	= NULL,		// aic23_clock_off,
+	.get_default_samplerate	= NULL,		// aic23_get_default_samplerate,
 };
 
 static struct platform_device palmz71_mcbsp1_device = {
@@ -346,7 +346,7 @@ palmz71_gpio_setup(int early)
 				palmz71_powercable, SA_SAMPLE_RANDOM,
 				"palmz71-cable", 0))
 			printk(KERN_ERR
-					"IRQ request for power cable failed!\n");
+			       "IRQ request for power cable failed!\n");
 		palmz71_powercable(OMAP_GPIO_IRQ(PALMZ71_USBDETECT_GPIO), 0, 0);
 	}
 }
