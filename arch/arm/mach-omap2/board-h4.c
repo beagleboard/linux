@@ -278,7 +278,11 @@ static void __init omap_h4_init_irq(void)
 }
 
 static struct omap_uart_config h4_uart_config __initdata = {
+#ifdef	CONFIG_MACH_OMAP2_H4_USB1
+	.enabled_uarts = ((1 << 0) | (1 << 1)),
+#else
 	.enabled_uarts = ((1 << 0) | (1 << 1) | (1 << 2)),
+#endif
 };
 
 static struct omap_mmc_config h4_mmc_config __initdata = {
@@ -295,10 +299,44 @@ static struct omap_lcd_config h4_lcd_config __initdata = {
 	.ctrl_name	= "internal",
 };
 
+static struct omap_usb_config h4_usb_config __initdata = {
+#ifdef	CONFIG_MACH_OMAP2_H4_USB1
+	/* NOTE:  usb1 could also be used with 3 wire signaling */
+	.pins[1]	= 4,
+#endif
+
+#ifdef	CONFIG_MACH_OMAP_H4_OTG
+	/* S1.10 ON -- USB OTG port
+	 * usb0 switched to Mini-AB port and isp1301 transceiver;
+	 * S2.POS3 = OFF, S2.POS4 = ON ... to allow battery charging
+	 */
+	.otg		= 1,
+	.pins[0]	= 4,
+#ifdef	CONFIG_USB_GADGET_OMAP
+	/* use OTG cable, or standard A-to-MiniB */
+	.hmc_mode	= 0x14,	/* 0:dev/otg 1:host 2:disable */
+#elif	defined(CONFIG_USB_OHCI_HCD) || defined(CONFIG_USB_OHCI_HCD_MODULE)
+	/* use OTG cable, or NONSTANDARD (B-to-MiniB) */
+	.hmc_mode	= 0x11,	/* 0:host 1:host 2:disable */
+#endif	/* XX */
+
+#else
+	/* S1.10 OFF -- usb "download port"
+	 * usb0 switched to Mini-B port and isp1105 transceiver;
+	 * S2.POS3 = ON, S2.POS4 = OFF ... to enable battery charging
+	 */
+	.register_dev	= 1,
+	.pins[0]	= 3,
+//	.hmc_mode	= 0x14,	/* 0:dev 1:host 2:disable */
+	.hmc_mode	= 0x00,	/* 0:dev|otg 1:disable 2:disable */
+#endif
+};
+
 static struct omap_board_config_kernel h4_config[] = {
 	{ OMAP_TAG_UART,	&h4_uart_config },
 	{ OMAP_TAG_MMC,		&h4_mmc_config },
 	{ OMAP_TAG_LCD,		&h4_lcd_config },
+	{ OMAP_TAG_USB,	&h4_usb_config },
 };
 
 static void __init omap_h4_init(void)
@@ -319,6 +357,14 @@ static void __init omap_h4_init(void)
 		col_gpios[2] = 15;
 		col_gpios[6] = 18;
 	}
+#endif
+
+#ifdef	CONFIG_MACH_OMAP2_H4_USB1
+	/* S3.3 controls whether these pins are for UART2 or USB1 */
+	omap_cfg_reg(N14_24XX_USB1_SE0);
+	omap_cfg_reg(P15_24XX_USB1_DAT);
+	omap_cfg_reg(W20_24XX_USB1_TXEN);
+	omap_cfg_reg(V19_24XX_USB1_RCV);
 #endif
 
 	platform_add_devices(h4_devices, ARRAY_SIZE(h4_devices));
