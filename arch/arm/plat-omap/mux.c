@@ -94,9 +94,9 @@ int __init_or_module omap_cfg_reg(const unsigned long index)
 			warn = (orig != reg);
 			if (debug || warn)
 				printk("MUX: setup %s (0x%08x): 0x%02x -> 0x%02x\n",
-				       cfg->name,
-				       OMAP24XX_L4_BASE + cfg->mux_reg,
-				       orig, reg);
+						cfg->name,
+						OMAP24XX_L4_BASE + cfg->mux_reg,
+						orig, reg);
 		}
 #endif
 		omap_writeb(reg, OMAP24XX_L4_BASE + cfg->mux_reg);

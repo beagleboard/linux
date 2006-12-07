@@ -1514,9 +1514,9 @@ void omap2_gpio_resume_after_retention(void)
 		if (!(bank->enabled_non_wakeup_gpios))
 			continue;
 		__raw_writel(bank->saved_fallingdetect,
-			     bank->base + OMAP24XX_GPIO_FALLINGDETECT);
+				 bank->base + OMAP24XX_GPIO_FALLINGDETECT);
 		__raw_writel(bank->saved_risingdetect,
-			     bank->base + OMAP24XX_GPIO_RISINGDETECT);
+				 bank->base + OMAP24XX_GPIO_RISINGDETECT);
 		/* Check if any of the non-wakeup interrupt GPIOs have changed
 		 * state.  If so, generate an IRQ by software.  This is
 		 * horribly racy, but it's the best we can do to work around
@@ -1701,7 +1701,7 @@ static const struct file_operations debug_fops = {
 static int __init omap_gpio_debuginit(void)
 {
 	(void) debugfs_create_file("omap_gpio", S_IRUGO,
-				   NULL, NULL, &debug_fops);
+					NULL, NULL, &debug_fops);
 	return 0;
 }
 late_initcall(omap_gpio_debuginit);

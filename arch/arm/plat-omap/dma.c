@@ -933,7 +933,7 @@ static int omap2_dma_handle_ch(int ch)
 	if (unlikely(dma_chan[ch].dev_id == -1)) {
 		if (printk_ratelimit())
 			printk(KERN_WARNING "IRQ %04x for non-allocated DMA"
-			       "channel %d\n", status, ch);
+					"channel %d\n", status, ch);
 		return 0;
 	}
 	if (unlikely(status & OMAP_DMA_DROP_IRQ))
