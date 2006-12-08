@@ -20,3 +20,7 @@ obj-$(CONFIG_CPU_FREQ) += cpu-omap.o
 obj-$(CONFIG_OMAP_DM_TIMER) += dmtimer.o
 obj-$(CONFIG_OMAP_DEBUG_DEVICES) += debug-devices.o
 obj-$(CONFIG_OMAP_DEBUG_LEDS) += debug-leds.o
+
+# DSP subsystem
+obj-y += dsp/
+obj-$(CONFIG_OMAP_DSP) += mailbox.o
