@@ -1,0 +1,158 @@
+/*
+ * This file is part of OMAP DSP driver (DSP Gateway version 3.3.1)
+ *
+ * Copyright (C) 2006 Nokia Corporation. All rights reserved.
+ *
+ * Contact: Toshihiro Kobayashi <toshihiro.kobayashi@nokia.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+ * 02110-1301 USA
+ *
+ */
+
+#ifndef __OMAP_DSP_OMAP2_DSP_H
+#define __OMAP_DSP_OMAP2_DSP_H
+
+#ifdef CONFIG_ARCH_OMAP24XX
+#define OMAP24XX_DARAM_BASE	(DSP_MEM_24XX_VIRT + 0x0)
+#define OMAP24XX_DARAM_SIZE	0x10000
+#define OMAP24XX_SARAM_BASE	(DSP_MEM_24XX_VIRT + 0x10000)
+#define OMAP24XX_SARAM_SIZE	0x18000
+#endif
+
+#include <asm/arch/hardware.h>
+#include "../../mach-omap2/prcm-regs.h"
+
+/*
+ * DSP IPI registers: mapped to 0xe1000000 -- use readX(), writeX()
+ */
+#define DSP_IPI_BASE			DSP_IPI_24XX_VIRT
+#define DSP_IPI_REVISION		(DSP_IPI_BASE + 0x00)
+#define DSP_IPI_SYSCONFIG		(DSP_IPI_BASE + 0x10)
+#define DSP_IPI_INDEX			(DSP_IPI_BASE + 0x40)
+#define DSP_IPI_ENTRY			(DSP_IPI_BASE + 0x44)
+#define DSP_IPI_ENABLE			(DSP_IPI_BASE + 0x48)
+#define DSP_IPI_IOMAP			(DSP_IPI_BASE + 0x4c)
+#define DSP_IPI_DSPBOOTCONFIG		(DSP_IPI_BASE + 0x50)
+
+#define DSP_IPI_ENTRY_ELMSIZEVALUE_MASK	0x00000003
+#define DSP_IPI_ENTRY_ELMSIZEVALUE_8	0x00000000
+#define DSP_IPI_ENTRY_ELMSIZEVALUE_16	0x00000001
+#define DSP_IPI_ENTRY_ELMSIZEVALUE_32	0x00000002
+
+#define DSP_BOOT_CONFIG_DIRECT		0x00000000
+#define DSP_BOOT_CONFIG_PSD_DIRECT	0x00000001
+#define DSP_BOOT_CONFIG_IDLE		0x00000002
+#define DSP_BOOT_CONFIG_DL16		0x00000003
+#define DSP_BOOT_CONFIG_DL32		0x00000004
+#define DSP_BOOT_CONFIG_API		0x00000005
+#define DSP_BOOT_CONFIG_INTERNAL	0x00000006
+
+/*
+ * DSP boot mode
+ *   direct:        0xffff00
+ *   pseudo direct: 0x080000
+ *   API:           branch 0x010000
+ *   internel:      branch 0x024000
+ */
+#define DSP_BOOT_ADR_DIRECT		0xffff00
+#define DSP_BOOT_ADR_PSD_DIRECT		0x080000
+#define DSP_BOOT_ADR_API		0x010000
+#define DSP_BOOT_ADR_INTERNAL		0x024000
+
+/*
+ * DSP MMU: mapped to 0xe2000000 -- use readX(), writeX()
+ */
+#define DSP_MMU_BASE			DSP_MMU_24XX_VIRT
+#define DSP_MMU_REVISION		(DSP_MMU_BASE + 0x00)
+#define DSP_MMU_SYSCONFIG		(DSP_MMU_BASE + 0x10)
+#define DSP_MMU_SYSSTATUS		(DSP_MMU_BASE + 0x14)
+#define DSP_MMU_IRQSTATUS		(DSP_MMU_BASE + 0x18)
+#define DSP_MMU_IRQENABLE		(DSP_MMU_BASE + 0x1c)
+#define DSP_MMU_WALKING_ST		(DSP_MMU_BASE + 0x40)
+#define DSP_MMU_CNTL			(DSP_MMU_BASE + 0x44)
+#define DSP_MMU_FAULT_AD		(DSP_MMU_BASE + 0x48)
+#define DSP_MMU_TTB			(DSP_MMU_BASE + 0x4c)
+#define DSP_MMU_LOCK			(DSP_MMU_BASE + 0x50)
+#define DSP_MMU_LD_TLB			(DSP_MMU_BASE + 0x54)
+#define DSP_MMU_CAM			(DSP_MMU_BASE + 0x58)
+#define DSP_MMU_RAM			(DSP_MMU_BASE + 0x5c)
+#define DSP_MMU_GFLUSH			(DSP_MMU_BASE + 0x60)
+#define DSP_MMU_FLUSH_ENTRY		(DSP_MMU_BASE + 0x64)
+#define DSP_MMU_READ_CAM		(DSP_MMU_BASE + 0x68)
+#define DSP_MMU_READ_RAM		(DSP_MMU_BASE + 0x6c)
+#define DSP_MMU_EMU_FAULT_AD		(DSP_MMU_BASE + 0x70)
+
+#define DSP_MMU_SYSCONFIG_CLOCKACTIVITY_MASK	0x00000300
+#define DSP_MMU_SYSCONFIG_IDLEMODE_MASK		0x00000018
+#define DSP_MMU_SYSCONFIG_SOFTRESET		0x00000002
+#define DSP_MMU_SYSCONFIG_AUTOIDLE		0x00000001
+
+#define DSP_MMU_IRQ_MULTIHITFAULT	0x00000010
+#define DSP_MMU_IRQ_TABLEWALKFAULT	0x00000008
+#define DSP_MMU_IRQ_EMUMISS		0x00000004
+#define DSP_MMU_IRQ_TRANSLATIONFAULT	0x00000002
+#define DSP_MMU_IRQ_TLBMISS		0x00000001
+
+#define DSP_MMU_CNTL_EMUTLBUPDATE	0x00000008
+#define DSP_MMU_CNTL_TWLENABLE		0x00000004
+#define DSP_MMU_CNTL_MMUENABLE		0x00000002
+
+#define DSP_MMU_LOCK_BASE_MASK		0x00007c00
+#define DSP_MMU_LOCK_BASE_SHIFT		10
+#define DSP_MMU_LOCK_VICTIM_MASK	0x000001f0
+#define DSP_MMU_LOCK_VICTIM_SHIFT	4
+
+#define DSP_MMU_CAM_VATAG_MASK		0xfffff000
+#define DSP_MMU_CAM_P			0x00000008
+#define DSP_MMU_CAM_V			0x00000004
+#define DSP_MMU_CAM_PAGESIZE_MASK	0x00000003
+#define DSP_MMU_CAM_PAGESIZE_1MB	0x00000000
+#define DSP_MMU_CAM_PAGESIZE_64KB	0x00000001
+#define DSP_MMU_CAM_PAGESIZE_4KB	0x00000002
+#define DSP_MMU_CAM_PAGESIZE_16MB	0x00000003
+
+#define DSP_MMU_RAM_PADDR_MASK		0xfffff000
+#define DSP_MMU_RAM_ENDIANNESS		0x00000200
+#define DSP_MMU_RAM_ENDIANNESS_BIG	0x00000200
+#define DSP_MMU_RAM_ENDIANNESS_LITTLE	0x00000000
+#define DSP_MMU_RAM_ELEMENTSIZE_MASK	0x00000180
+#define DSP_MMU_RAM_ELEMENTSIZE_8	0x00000000
+#define DSP_MMU_RAM_ELEMENTSIZE_16	0x00000080
+#define DSP_MMU_RAM_ELEMENTSIZE_32	0x00000100
+#define DSP_MMU_RAM_ELEMENTSIZE_NONE	0x00000180
+#define DSP_MMU_RAM_MIXED		0x00000040
+
+#define DSP_MMU_GFLUSH_GFLUSH		0x00000001
+
+#define DSP_MMU_FLUSH_ENTRY_FLUSH_ENTRY	0x00000001
+
+#define DSP_MMU_LD_TLB_LD		0x00000001
+
+/*
+ * DSP ICR
+ */
+#define DSPREG_ICR_RESERVED_BITS	0xfc00
+#define DSPREG_ICR_HWA			0x0200
+#define DSPREG_ICR_IPORT		0x0100
+#define DSPREG_ICR_MPORT		0x0080
+#define DSPREG_ICR_XPORT		0x0040
+#define DSPREG_ICR_DPORT		0x0020
+#define DSPREG_ICR_DPLL			0x0010
+#define DSPREG_ICR_PER			0x0008
+#define DSPREG_ICR_CACHE		0x0004
+#define DSPREG_ICR_DMA			0x0002
+#define DSPREG_ICR_CPU			0x0001
+
+#endif /* __OMAP_DSP_OMAP2_DSP_H */
