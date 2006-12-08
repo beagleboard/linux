@@ -1,0 +1,29 @@
+
+config OMAP_DSP
+	tristate "OMAP DSP driver (DSP Gateway)"
+	depends on ARCH_OMAP15XX || ARCH_OMAP16XX || ARCH_OMAP24XX
+	help
+	  This enables OMAP DSP driver, DSP Gateway.
+
+config OMAP_DSP_MBCMD_VERBOSE
+	bool "Mailbox Command Verbose LOG"
+	depends on OMAP_DSP
+	help
+          This enables kernel log output in the Mailbox command exchanges
+	  in the DSP Gateway driver.
+
+config OMAP_DSP_TASK_MULTIOPEN
+	bool "DSP Task Multiopen Capability"
+	depends on OMAP_DSP
+	help
+          This enables DSP tasks to be opened by multiple times at a time.
+	  Otherwise, they can be opened only once at a time.
+
+config OMAP_DSP_FBEXPORT
+	bool "Framebuffer export to DSP"
+	depends on OMAP_DSP
+	help
+          This enables to map the frame buffer to DSP.
+	  By doing this, DSP can access the frame buffer directly without
+	  bothering ARM.
+
