@@ -197,6 +197,7 @@ static int omap_mcbsp_check(unsigned int id)
 static void omap_mcbsp_dsp_request(void)
 {
 	if (cpu_is_omap15xx() || cpu_is_omap16xx()) {
+		omap_dsp_request_mem();
 		clk_enable(mcbsp_dsp_ck);
 		clk_enable(mcbsp_api_ck);
 
@@ -215,6 +216,7 @@ static void omap_mcbsp_dsp_request(void)
 static void omap_mcbsp_dsp_free(void)
 {
 	if (cpu_is_omap15xx() || cpu_is_omap16xx()) {
+		omap_dsp_release_mem();
 		clk_disable(mcbsp_dspxor_ck);
 		clk_disable(mcbsp_dsp_ck);
 		clk_disable(mcbsp_api_ck);
