@@ -110,8 +110,7 @@ static int omapbl_update_status(struct backlight_device *dev)
 	struct omap_backlight *bl = class_get_devdata(&dev->class_dev);
 
 	if (bl->current_intensity != dev->props->brightness) {
-		if (dev->props->brightness > OMAPBL_MAX_INTENSITY ||
-				dev->props->brightness < 0)
+		if (dev->props->brightness < 0)
 			return -EPERM;	/* Leave current_intensity untouched */
 
 		if (bl->powermode == FB_BLANK_UNBLANK)
@@ -135,6 +134,7 @@ static struct backlight_properties omapbl_data = {
 	.owner		= THIS_MODULE,
 	.get_brightness	= omapbl_get_intensity,
 	.update_status	= omapbl_update_status,
+	.max_brightness = OMAPBL_MAX_INTENSITY,
 };
 
 static int omapbl_probe(struct platform_device *pdev)
@@ -143,11 +143,19 @@ static int omapbl_probe(struct platform_device *pdev)
 	struct omap_backlight *bl;
 	struct omap_backlight_config *pdata = pdev->dev.platform_data;
 
+	if (!pdata)
+		return -ENXIO;
+
 	omapbl_data.check_fb = pdata->check_fb;
 
 	bl = kzalloc(sizeof(struct omap_backlight), GFP_KERNEL);
 	if (unlikely(!bl))
 		return -ENOMEM;
+
+	/* REVISIT backlight API glitch:  we can't associate the
+	 * class device with "pdev" ... probably pass &pdev->dev
+	 * instead of a string.
+	 */
 
 	dev = backlight_device_register("omap-bl", bl, &omapbl_data);
 	if (IS_ERR(dev)) {
