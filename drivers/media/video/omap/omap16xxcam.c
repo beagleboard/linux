@@ -38,7 +38,8 @@
 #include "omap16xxcam.h"
 #include "camera_hw_if.h"
 #include "camera_core.h"
-  
+ 
+
 #define CONF_CAMERAIF_RESET_R 5
 #define EN_PER	  0
 
@@ -68,7 +69,9 @@ struct omap16xxcam {
 	unsigned long iobase_phys;
 
 	/* frequncy (in Hz) of camera interface functional clock (ocp_clk) */
-	unsigned long ocp_clk; 
+	unsigned long ocp_clk;
+
+	struct clk *func_clk;
 
 	/* dma related stuff */
 	spinlock_t dma_lock;
@@ -79,7 +82,7 @@ struct omap16xxcam {
 	int dma_channel_number2;
 
 	wait_queue_head_t vsync_wait;
-	
+
 	int new;
 };
 static struct omap16xxcam hardware_data;
@@ -124,15 +127,10 @@ omap16xx_cam_init(void)
 			OMAP1610_RESET_CONTROL);
     
 	/* Enable peripheral reset */
-	omap_writew(omap_readw(ARM_RSTCT2) | (1 << EN_PER), ARM_RSTCT2); 
+	omap_writew(omap_readw(ARM_RSTCT2) | (1 << EN_PER), ARM_RSTCT2);
 
 	/* enable peripheral clock */
-	if (machine_is_omap_h3())
-		clk_enable(clk_get(0, "tc2_ck"));
-	else {
-		clk_enable(clk_get(0, "armper_ck"));
-		clk_enable(clk_get(0, "armxor_ck"));
-	}		
+	clk_enable(hardware_data.func_clk);
 }
 
 static void
@@ -321,8 +319,8 @@ omap16xxcam_start_dma(struct sgdma_state *sgdma,
 	data->camdma[count].callback = callback;
 	data->camdma[count].arg1 = arg1;
 	data->camdma[count].arg2 = arg2;
-	
-	if (machine_is_omap_h3())
+
+	if (cpu_is_omap1710())
 		omap_set_dma_src_params(dmach, OMAP_DMA_PORT_OCP_T1,
 			    OMAP_DMA_AMODE_CONSTANT, CAM_CAMDATA_REG,
 			    0, 0);
@@ -507,17 +505,23 @@ omap16xxcam_cleanup(void *priv)
 {
 	struct omap16xxcam *data = (struct omap16xxcam *) priv;
 
+	if (!data->camera_regs)
+		return -EINVAL;
+
 	omap16xxcam_disable(data);
-	if (machine_is_omap_h3()) {
-		if (data->camera_regs) {	
-			iounmap((void *)data->camera_regs);
-			data->camera_regs= NULL;
-		}
-	}
+	if (cpu_is_omap1710())
+		iounmap((void *)data->camera_regs);
+	data->camera_regs= NULL;
 
 	if (data->iobase_phys) {
 		release_mem_region(data->iobase_phys, CAMERA_IOSIZE);
 		data->iobase_phys = 0;
+	}
+
+	if (hardware_data.func_clk) {
+		clk_disable(hardware_data.func_clk);
+		clk_put(hardware_data.func_clk);
+		hardware_data.func_clk = NULL;
 	}
 
 	return 0;
@@ -529,13 +533,15 @@ omap16xxcam_init(void)
 {
 	unsigned long cam_iobase;
 
-	if (!request_region(CAMERA_BASE, CAMERA_IOSIZE, "OAMP16xx Camera")) {
-		printk ("OMAP16XX Parallel Camera Interface is already in use\n");
+	if (!request_mem_region(CAMERA_BASE, CAMERA_IOSIZE,
+				camera_hardware_if.name)) {
+		pr_debug("%s is already in use\n", camera_hardware_if.name);
 		return NULL;
 	}
 
-	if (machine_is_omap_h3()) {
-		cam_iobase = (unsigned long) ioremap (CAMERA_BASE, CAMERA_IOSIZE);
+	if (cpu_is_omap1710()) {
+		cam_iobase = (unsigned long) ioremap (CAMERA_BASE,
+				CAMERA_IOSIZE);
 		if (!cam_iobase) {
 			printk("CANNOT MAP CAMERA REGISTER\n");
 			return NULL;
@@ -547,11 +553,13 @@ omap16xxcam_init(void)
 	/* Set the base address of the camera registers */
 	hardware_data.camera_regs = (camera_regs_t *)cam_iobase;
 	hardware_data.iobase_phys = (unsigned long) CAMERA_BASE;
- 	/* get the input clock value to camera interface and store it */
-	if (machine_is_omap_h3())
-		hardware_data.ocp_clk = clk_get_rate(clk_get(0, "tc_ck"));
+
+	/* get the input clock value to camera interface and store it */
+	if (cpu_is_omap1710())
+		hardware_data.func_clk = clk_get(0, "tc2_ck");
 	else
-		hardware_data.ocp_clk = clk_get_rate(clk_get(0, "mpuper_ck"));
+		hardware_data.func_clk = clk_get(0, "armper_ck");
+	hardware_data.ocp_clk = clk_get_rate(hardware_data.func_clk);
 
 	/* Init the camera IF */
 	omap16xx_cam_init();
@@ -566,7 +574,7 @@ omap16xxcam_init(void)
 
 struct camera_hardware camera_hardware_if = {
 	.version	= 0x01,
-	.name		= "OMAP16xx Camera Parallel",
+	.name		= "OMAP16xx Parallel Camera",
 	.init		= omap16xxcam_init,
 	.cleanup	= omap16xxcam_cleanup,
 	.open		= omap16xxcam_open,

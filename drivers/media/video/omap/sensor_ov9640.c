@@ -20,14 +20,13 @@
 #include <media/video-buf.h>
 #include <linux/delay.h>
 #include <asm/mach-types.h>
+#include <asm/arch/gpio.h>
 
 #include "sensor_if.h"
 #include "ov9640.h"
 #include "h3sensorpower.h"
 #include "h4sensorpower.h"
 
-#define CAMERA_OV9640
-#ifdef CAMERA_OV9640
 
 struct ov9640_sensor {
 	/* I2C parameters */
@@ -696,6 +695,11 @@ ov9640_powerup(void)
 	if (machine_is_omap_h2())
 		return 0;
 
+#ifdef	CONFIG_OMAP_OSK_MISTRAL
+	if (machine_is_omap_osk())
+		omap_set_gpio_dataout(11, 1);
+#endif
+
 	if (machine_is_omap_h3()) {
 		err = h3_sensor_powerup();
 		if (err)
@@ -717,6 +721,11 @@ ov9640_powerdown(void)
 
 	if (machine_is_omap_h2())
 		return 0;
+
+#ifdef	CONFIG_OMAP_OSK_MISTRAL
+	if (machine_is_omap_osk())
+		omap_set_gpio_dataout(11, 0);
+#endif
 
 	if (machine_is_omap_h3()) {
 		err = h3_sensor_powerdown();
@@ -806,6 +815,7 @@ ov9640_i2c_attach_client(struct i2c_adapter *adap, int addr, int probe)
 	client->addr = addr;
 	client->driver = &ov9640sensor_i2c_driver;
 	client->adapter = adap;
+	strcpy(client->name, ov9640sensor_i2c_driver.driver.name);
 
 	err = i2c_attach_client(client);
 	if (err) {
@@ -1125,7 +1135,7 @@ ov9640sensor_cleanup(void *priv)
 
 
 static struct i2c_driver ov9640sensor_i2c_driver = {
-	.driver {
+	.driver = {
 		.name		= "ov9640",
 	},
 	.id		= I2C_DRIVERID_MISC, /*FIXME:accroding to i2c-ids.h */
@@ -1180,10 +1190,6 @@ ov9640sensor_init(struct v4l2_pix_format *pix)
 struct omap_camera_sensor camera_sensor_if = {
 	.version	= 0x01,
 	.name		= "OV9640",
-	.parallel_mode	= PAR_MODE_NOBT8,
-	.hs_polarity	= SYNC_ACTIVE_HIGH,
-	.vs_polarity	= SYNC_ACTIVE_LOW,
-	.image_swap 	= 0,
 	.init		= ov9640sensor_init,
 	.cleanup	= ov9640sensor_cleanup,
 	.enum_pixformat = ov9640sensor_enum_pixformat,
@@ -1196,7 +1202,11 @@ struct omap_camera_sensor camera_sensor_if = {
 	.power_on	= ov9640sensor_power_on,
 	.power_off	= ov9640sensor_power_off,
 };
+EXPORT_SYMBOL_GPL(camera_sensor_if);
 
+MODULE_LICENSE("GPL");
+
+#if 0
 void print_ov9640_regs(void *priv)
 {
 	struct ov9640_sensor *sensor = (struct ov9640_sensor *) priv;
@@ -1207,5 +1217,4 @@ void print_ov9640_regs(void *priv)
 		else
 			printk("reg %x = %x\n", reg, val);	 
 }
-
-#endif	/* ifdef CAMERA_OV9640 */
+#endif

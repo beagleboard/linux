@@ -151,6 +151,6 @@ struct camera_fh {
 	struct videobuf_queue vbq;
 };
 
-#define CAM_NAME "omap-camera"
+#define CAM_NAME "omap_camera"
 
 #endif /* CAMERA_CORE__H */

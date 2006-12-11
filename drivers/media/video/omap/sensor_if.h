@@ -44,5 +44,7 @@ struct omap_camera_sensor {
 	int (*set_control)(struct v4l2_control *, void *);
 
 };
-	
+
+extern struct omap_camera_sensor camera_sensor_if;
+
 #endif

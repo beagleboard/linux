@@ -20,40 +20,24 @@
  * History:
  *   27/03/05   Vladimir Barinov - Added support for power management
  */
- 
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/init.h>
-#include <linux/fs.h>
-#include <linux/vmalloc.h>
-#include <linux/slab.h>
-#include <linux/proc_fs.h>
-#include <linux/ctype.h>
-#include <linux/pagemap.h>
-#include <linux/mm.h>
 #include <linux/platform_device.h>
-#include <linux/delay.h>
-#include <linux/interrupt.h>
-#include <linux/videodev.h>
-#include <linux/pci.h>
 #include <linux/version.h>
-#include <asm/semaphore.h>
-#include <asm/processor.h>
 #include <linux/dma-mapping.h>
 #include <linux/fb.h>
 
+#include <media/v4l2-common.h>
+
 #include <asm/io.h>
-#include <asm/byteorder.h>
-#include <asm/irq.h>
 
 #include "sensor_if.h"
 #include "camera_hw_if.h"
 #include "camera_core.h"
- 
-struct camera_device *camera_dev;
-extern struct omap_camera_sensor camera_sensor_if;
-extern struct camera_hardware camera_hardware_if;
- 
+
+
+static struct camera_device *camera_dev;
 static void camera_core_sgdma_process(struct camera_device *cam);
 
 /* module parameters */
@@ -1165,32 +1149,30 @@ static struct platform_driver camera_core_driver = {
 #endif
 };
 
-static struct platform_device camera_core_device = {
-	.name	= CAM_NAME,
-	.dev	= {
-			.release 	= NULL,
-		  },
-	.id	= 0,
-};
+/* FIXME register omap16xx or omap24xx camera device in arch/arm/...
+ * system init code, with its resources and mux setup, NOT here.
+ * Then MODULE_ALIAS(CAM_NAME) so it hotplugs and coldplugs; this
+ * "legacy" driver style is trouble.
+ */
+static struct platform_device *cam;
 
-void __exit
+static void __exit
 camera_core_cleanup(void)
 {
 	platform_driver_unregister(&camera_core_driver);
-	platform_device_unregister(&camera_core_device);
-
-	return;
+	platform_device_unregister(cam);
 }
 
 static char banner[] __initdata = KERN_INFO "OMAP Camera driver initialzing\n";
 
-int __init 
+static int __init
 camera_core_init(void)
 {
 
 	printk(banner);
-	platform_device_register(&camera_core_device);
 	platform_driver_register(&camera_core_driver);
+
+	cam = platform_device_register_simple(CAM_NAME, -1, NULL, 0);
 
 	return 0;
 }
@@ -1198,6 +1180,7 @@ camera_core_init(void)
 MODULE_AUTHOR("Texas Instruments.");
 MODULE_DESCRIPTION("OMAP Video for Linux camera driver");
 MODULE_LICENSE("GPL");
+
 module_param(video_nr, int, 0);
 MODULE_PARM_DESC(video_nr, 
 		"Minor number for video device (-1 ==> auto assign)");

@@ -44,5 +44,7 @@ struct camera_hardware {
 			void *, void *, void *);
 	int (*finish_dma)(void *);
 };
- 
+
+extern struct camera_hardware camera_hardware_if;
+
 #endif /* OMAP_CAMERA_HW_IF_H */
