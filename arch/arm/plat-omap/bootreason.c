@@ -34,7 +34,7 @@
 static char boot_reason[16];
 
 static int omap_bootreason_read_proc(char *page, char **start, off_t off,
-				     int count, int *eof, void *data)
+					 int count, int *eof, void *data)
 {
 	int len = 0;
 
@@ -54,7 +54,7 @@ static int __init bootreason_init(void)
 {
 	const struct omap_boot_reason_config *cfg;
 	int reason_valid = 0;
-	
+
 	cfg = omap_get_config(OMAP_TAG_BOOT_REASON, struct omap_boot_reason_config);
 	if (cfg != NULL) {
 		strncpy(boot_reason, cfg->reason_str, sizeof(cfg->reason_str));
@@ -70,7 +70,7 @@ static int __init bootreason_init(void)
 	printk(KERN_INFO "Bootup reason: %s\n", boot_reason);
 
 	if (!create_proc_read_entry("bootreason", S_IRUGO, NULL,
-				    omap_bootreason_read_proc, NULL))
+					omap_bootreason_read_proc, NULL))
 		return -ENOMEM;
 
 	return 0;

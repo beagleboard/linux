@@ -395,7 +395,7 @@ int __init clk_init(struct clk_functions * custom_clocks)
 	return 0;
 }
 
-#ifdef CONFIG_PROC_FS
+#if defined(CONFIG_PM_DEBUG) && defined(CONFIG_PROC_FS)
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 
@@ -454,5 +454,5 @@ int __init omap_ck_init(void)
 
 }
 __initcall(omap_ck_init);
-#endif /* CONFIG_DEBUG_PROC_FS */
+#endif
 
