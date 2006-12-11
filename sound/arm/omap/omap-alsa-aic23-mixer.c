@@ -1,15 +1,15 @@
 /*
  * sound/arm/omap/omap-alsa-aic23-mixer.c
- * 
+ *
  * Alsa Driver Mixer for generic codecs for omap boards
  *
  * Copyright (C) 2005 Instituto Nokia de Tecnologia - INdT - Manaus Brazil
  * Written by David Cohen, Daniel Petrini
  *            {david.cohen, daniel.petrini}@indt.org.br
  *
- * Based on es1688_lib.c, 
+ * Based on es1688_lib.c,
  * Copyright (c) by Jaroslav Kysela <perex@suse.cz>
- *  
+ *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
  * Free Software Foundation; either version 2 of the License, or (at your
@@ -32,9 +32,9 @@
  *
  * History:
  *
- * 2005-08-02   INdT Kernel Team - Alsa mixer driver for omap osk. Creation of new 
- *                                 file omap-alsa-mixer.c. Initial version
- *                                 with aic23 codec for osk5912
+ * 2005-08-02   INdT Kernel Team - Alsa mixer driver for omap osk.
+ *				Creation of new file omap-alsa-mixer.c.
+ *				Initial version with aic23 codec for osk5912
  */
 
 #include <sound/driver.h>
@@ -145,31 +145,35 @@ static int snd_omap_info_bool(snd_kcontrol_t *kcontrol, snd_ctl_elem_info_t * ui
 	uinfo->count = 1;
 	uinfo->value.integer.min = 0;
 	uinfo->value.integer.max = 1;
-	
+
 	return 0;
 }
 
-static int snd_omap_get_bool(snd_kcontrol_t * kcontrol, snd_ctl_elem_value_t * ucontrol)
+static int snd_omap_get_bool(snd_kcontrol_t * kcontrol,
+				 snd_ctl_elem_value_t * ucontrol)
 {
 	int mic_index = (kcontrol->private_value >> 8) & 0x03;
 	u16 mask = (kcontrol->private_value >> 12) & 0xff;
 	int invert = (kcontrol->private_value >> 10) & 0x03;
-	
+
 	if (invert)
-		ucontrol->value.integer.value[0] = (omap_regs[mic_index].l_reg & mask) ? 0 : 1;
+		ucontrol->value.integer.value[0] =
+			(omap_regs[mic_index].l_reg & mask) ? 0 : 1;
 	else
-		ucontrol->value.integer.value[0] = (omap_regs[mic_index].l_reg & mask) ? 1 : 0;
-	
+		ucontrol->value.integer.value[0] =
+			(omap_regs[mic_index].l_reg & mask) ? 1 : 0;
+
 	return 0;
 }
 
-static int snd_omap_put_bool(snd_kcontrol_t * kcontrol, snd_ctl_elem_value_t * ucontrol)
+static int snd_omap_put_bool(snd_kcontrol_t * kcontrol,
+				 snd_ctl_elem_value_t * ucontrol)
 {
 	int mic_index = (kcontrol->private_value >> 8) & 0x03;
 	u16 mask = (kcontrol->private_value >> 12) & 0xff;
 	u16 reg = kcontrol->private_value & 0xff;
 	int invert = (kcontrol->private_value >> 10) & 0x03;
-	
+
 	int changed = 1;
 
 	if (ucontrol->value.integer.value[0]) /* XOR */
@@ -182,9 +186,9 @@ static int snd_omap_put_bool(snd_kcontrol_t * kcontrol, snd_ctl_elem_value_t * u
 			omap_regs[mic_index].l_reg |= mask;
 		else
 			omap_regs[mic_index].l_reg &= ~mask;
-		
+
 	SND_OMAP_WRITE(reg, omap_regs[mic_index].l_reg);
-	
+
 	return changed;
 }
 
@@ -192,7 +196,8 @@ static int snd_omap_put_bool(snd_kcontrol_t * kcontrol, snd_ctl_elem_value_t * u
 
 /* Begin Mux Functions */
 
-static int snd_omap_info_mux(snd_kcontrol_t *kcontrol, snd_ctl_elem_info_t * uinfo)
+static int snd_omap_info_mux(snd_kcontrol_t *kcontrol,
+				 snd_ctl_elem_info_t * uinfo)
 {
 	/* Mic = 0
 	 * Line = 1 */
@@ -201,40 +206,44 @@ static int snd_omap_info_mux(snd_kcontrol_t *kcontrol, snd_ctl_elem_info_t * uin
 	uinfo->type = SNDRV_CTL_ELEM_TYPE_ENUMERATED;
 	uinfo->count = 1;
 	uinfo->value.enumerated.items = 2;
-	
+
 	if (uinfo->value.enumerated.item > 1)
 		uinfo->value.enumerated.item = 1;
-	
-	strcpy(uinfo->value.enumerated.name, texts[uinfo->value.enumerated.item]);
-	
+
+	strcpy(uinfo->value.enumerated.name,
+			texts[uinfo->value.enumerated.item]);
+
 	return 0;
 }
 
-static int snd_omap_get_mux(snd_kcontrol_t * kcontrol, snd_ctl_elem_value_t * ucontrol)
+static int snd_omap_get_mux(snd_kcontrol_t * kcontrol,
+				snd_ctl_elem_value_t * ucontrol)
 {
 	u16 mask = (kcontrol->private_value >> 10) & 0xff;
 	int mux_index = (kcontrol->private_value >> 8) & 0x03;
 
-	ucontrol->value.enumerated.item[0] = (omap_regs[mux_index].l_reg & mask) ? 0 /* Mic */ : 1 /* Line */;
-	
+	ucontrol->value.enumerated.item[0] =
+		(omap_regs[mux_index].l_reg & mask) ? 0 /* Mic */ : 1 /* Line */;
+
 	return 0;
 }
 
-static int snd_omap_put_mux(snd_kcontrol_t * kcontrol, snd_ctl_elem_value_t * ucontrol)
+static int snd_omap_put_mux(snd_kcontrol_t * kcontrol,
+				snd_ctl_elem_value_t * ucontrol)
 {
 	u16 reg = kcontrol->private_value & 0xff;
 	u16 mask = (kcontrol->private_value >> 10) & 0xff;
 	int mux_index = (kcontrol->private_value >> 8) & 0x03;
-	
+
 	int changed = 1;
 
 	if (!ucontrol->value.integer.value[0])
 		omap_regs[mux_index].l_reg |= mask; /* AIC23: Mic */
 	else
 		omap_regs[mux_index].l_reg &= ~mask; /* AIC23: Line */
-	
+
 	SND_OMAP_WRITE(reg, omap_regs[mux_index].l_reg);
-	
+
 	return changed;
 }
 
@@ -242,29 +251,33 @@ static int snd_omap_put_mux(snd_kcontrol_t * kcontrol, snd_ctl_elem_value_t * uc
 
 /* Begin Single Functions */
 
-static int snd_omap_info_single(snd_kcontrol_t *kcontrol, snd_ctl_elem_info_t * uinfo)
+static int snd_omap_info_single(snd_kcontrol_t *kcontrol,
+				snd_ctl_elem_info_t * uinfo)
 {
 	int mask = (kcontrol->private_value >> 18) & 0xff;
 	int reg_val = (kcontrol->private_value >> 8) & 0xff;
-	
-	uinfo->type = mask ? SNDRV_CTL_ELEM_TYPE_INTEGER : SNDRV_CTL_ELEM_TYPE_BOOLEAN;
+
+	uinfo->type = mask ? SNDRV_CTL_ELEM_TYPE_INTEGER :
+			SNDRV_CTL_ELEM_TYPE_BOOLEAN;
 	uinfo->count = 1;
 	uinfo->value.integer.min = 0;
 	uinfo->value.integer.max = reg_val-1;
-	
+
 	return 0;
 }
 
-static int snd_omap_get_single(snd_kcontrol_t * kcontrol, snd_ctl_elem_value_t * ucontrol)
+static int snd_omap_get_single(snd_kcontrol_t * kcontrol,
+					snd_ctl_elem_value_t * ucontrol)
 {
 	u16 reg_val = (kcontrol->private_value >> 8) & 0xff;
 
 	ucontrol->value.integer.value[0] = snd_sidetone[reg_val];
-	
+
 	return 0;
 }
 
-static int snd_omap_put_single(snd_kcontrol_t * kcontrol, snd_ctl_elem_value_t * ucontrol)
+static int snd_omap_put_single(snd_kcontrol_t * kcontrol,
+					snd_ctl_elem_value_t * ucontrol)
 {
 	u16 reg_index = (kcontrol->private_value >> 16) & 0x03;
 	u16 mask = (kcontrol->private_value >> 18) & 0x1ff;
@@ -274,19 +287,20 @@ static int snd_omap_put_single(snd_kcontrol_t * kcontrol, snd_ctl_elem_value_t *
 	int changed = 0;
 
 	/* Volume */
-	if ((omap_regs[reg_index].l_reg != (ucontrol->value.integer.value[0] & mask)))
-	{
+	if ((omap_regs[reg_index].l_reg !=
+		 (ucontrol->value.integer.value[0] & mask))) {
 		changed = 1;
-	
+
 		omap_regs[reg_index].l_reg &= ~mask;
-		omap_regs[reg_index].l_reg |= snd_sidetone[ucontrol->value.integer.value[0]];
+		omap_regs[reg_index].l_reg |=
+			snd_sidetone[ucontrol->value.integer.value[0]];
 
 		snd_sidetone[reg_val] = ucontrol->value.integer.value[0];
 		SND_OMAP_WRITE(reg, omap_regs[reg_index].l_reg);
-	}
-	else
+	} else {
 		changed = 0;
-	
+	}
+
 	return changed;
 }
 
@@ -294,17 +308,19 @@ static int snd_omap_put_single(snd_kcontrol_t * kcontrol, snd_ctl_elem_value_t *
 
 /* Begin Double Functions */
 
-static int snd_omap_info_double(snd_kcontrol_t *kcontrol, snd_ctl_elem_info_t * uinfo)
+static int snd_omap_info_double(snd_kcontrol_t *kcontrol,
+				snd_ctl_elem_info_t * uinfo)
 {
 	/* mask == 0 : Switch
 	 * mask != 0 : Volume */
 	int mask = (kcontrol->private_value >> 18) & 0xff;
 
-	uinfo->type = mask ? SNDRV_CTL_ELEM_TYPE_INTEGER : SNDRV_CTL_ELEM_TYPE_BOOLEAN;
+	uinfo->type = mask ? SNDRV_CTL_ELEM_TYPE_INTEGER :
+			SNDRV_CTL_ELEM_TYPE_BOOLEAN;
 	uinfo->count = mask ? 2 : 1;
 	uinfo->value.integer.min = 0;
 	uinfo->value.integer.max = mask ? mask : 1;
-	
+
 	return 0;
 }
 
@@ -314,12 +330,11 @@ static int snd_omap_get_double(snd_kcontrol_t * kcontrol, snd_ctl_elem_value_t *
 	 * mask != 0 : Volume */
 	int mask = (kcontrol->private_value >> 18) & 0xff;
 	int vol_index = (kcontrol->private_value >> 16) & 0x03;
-	
-	if (!mask)
+
+	if (!mask) {
 		/* Switch */
 		ucontrol->value.integer.value[0] = omap_regs[vol_index].sw;
-	else
-	{
+	} else {
 		/* Volume */
 		ucontrol->value.integer.value[0] = omap_regs[vol_index].l_reg;
 		ucontrol->value.integer.value[1] = omap_regs[vol_index].r_reg;
@@ -339,45 +354,40 @@ static int snd_omap_put_double(snd_kcontrol_t * kcontrol, snd_ctl_elem_value_t *
 
 	int changed = 0;
 
-	if (!mask)
-	{
+	if (!mask) {
 		/* Switch */
-		if (!ucontrol->value.integer.value[0])
-		{
+		if (!ucontrol->value.integer.value[0]) {
 			SND_OMAP_WRITE(left_reg, 0x00);
 			SND_OMAP_WRITE(right_reg, 0x00);
-		}
-		else
-		{
+		} else {
 			SND_OMAP_WRITE(left_reg, omap_regs[vol_index].l_reg);
 			SND_OMAP_WRITE(right_reg, omap_regs[vol_index].r_reg);
 		}
 		changed = 1;
-		omap_regs[vol_index].sw = ucontrol->value.integer.value[0]; 
-	}
-	else
-	{
+		omap_regs[vol_index].sw = ucontrol->value.integer.value[0];
+	} else {
 		/* Volume */
 		if ((omap_regs[vol_index].l_reg != (ucontrol->value.integer.value[0] & mask)) ||
-		    (omap_regs[vol_index].r_reg != (ucontrol->value.integer.value[1] & mask)))
-		{
+			(omap_regs[vol_index].r_reg != (ucontrol->value.integer.value[1] & mask))) {
 			changed = 1;
-		
+
 			omap_regs[vol_index].l_reg &= ~mask;
 			omap_regs[vol_index].r_reg &= ~mask;
-			omap_regs[vol_index].l_reg |= (ucontrol->value.integer.value[0] & mask);
-			omap_regs[vol_index].r_reg |= (ucontrol->value.integer.value[1] & mask);
-			if (omap_regs[vol_index].sw)
-			{
+			omap_regs[vol_index].l_reg |=
+				(ucontrol->value.integer.value[0] & mask);
+			omap_regs[vol_index].r_reg |=
+				(ucontrol->value.integer.value[1] & mask);
+			if (omap_regs[vol_index].sw) {
 				/* write to registers only if sw is actived */
 				SND_OMAP_WRITE(left_reg, omap_regs[vol_index].l_reg);
 				SND_OMAP_WRITE(right_reg, omap_regs[vol_index].r_reg);
 			}
 		}
-		else
+		else {
 			changed = 0;
+		}
 	}
-	
+
 	return changed;
 }
 
@@ -392,8 +402,8 @@ static snd_kcontrol_new_t snd_omap_controls[] = {
 	OMAP_DOUBLE("Line Capture Switch", 0, LEFT_LINE_VOLUME_ADDR, RIGHT_LINE_VOLUME_ADDR,
 		     LINE_INDEX, 0x00),
 	OMAP_DOUBLE("Line Capture Volume", 0, LEFT_LINE_VOLUME_ADDR, RIGHT_LINE_VOLUME_ADDR,
-		     LINE_INDEX, INPUT_VOLUME_MASK),	
-	OMAP_BOOL("Mic Playback Switch", 0, ANALOG_AUDIO_CONTROL_ADDR, AAC_INDEX, STE_ENABLED, 0),	
+			 LINE_INDEX, INPUT_VOLUME_MASK),
+	OMAP_BOOL("Mic Playback Switch", 0, ANALOG_AUDIO_CONTROL_ADDR, AAC_INDEX, STE_ENABLED, 0),
 	OMAP_SINGLE("Mic Playback Volume", 0, ANALOG_AUDIO_CONTROL_ADDR, AAC_INDEX, 5, SIDETONE_MASK),
 	OMAP_BOOL("Mic Capture Switch", 0, ANALOG_AUDIO_CONTROL_ADDR, AAC_INDEX, MICM_MUTED, 1),
 	OMAP_BOOL("Mic Booster Playback Switch", 0, ANALOG_AUDIO_CONTROL_ADDR, AAC_INDEX, MICB_20DB, 0),
@@ -408,9 +418,9 @@ void snd_omap_suspend_mixer(void)
 	omap_pm_regs[LINE_INDEX].l_reg = omap_regs[LINE_INDEX].l_reg;
 	omap_pm_regs[LINE_INDEX].r_reg = omap_regs[LINE_INDEX].l_reg;
 	omap_pm_regs[LINE_INDEX].sw = omap_regs[LINE_INDEX].sw;
-	
+
 	omap_pm_regs[AAC_INDEX].l_reg = omap_regs[AAC_INDEX].l_reg;
-	
+
 	omap_pm_regs[PCM_INDEX].l_reg = omap_regs[PCM_INDEX].l_reg;
 	omap_pm_regs[PCM_INDEX].r_reg = omap_regs[PCM_INDEX].r_reg;
 	omap_pm_regs[PCM_INDEX].sw = omap_regs[PCM_INDEX].sw;
@@ -424,11 +434,11 @@ void snd_omap_resume_mixer(void)
 	omap_regs[LINE_INDEX].sw = omap_pm_regs[LINE_INDEX].sw;
 	SND_OMAP_WRITE(LEFT_LINE_VOLUME_ADDR, omap_pm_regs[LINE_INDEX].l_reg);
 	SND_OMAP_WRITE(RIGHT_LINE_VOLUME_ADDR, omap_pm_regs[LINE_INDEX].l_reg);
-	
+
 	/* Analog Audio Control's saved values */
 	omap_regs[AAC_INDEX].l_reg = omap_pm_regs[AAC_INDEX].l_reg;
 	SND_OMAP_WRITE(ANALOG_AUDIO_CONTROL_ADDR, omap_regs[AAC_INDEX].l_reg);
-	
+
 	/* Headphone's saved values */
 	omap_regs[PCM_INDEX].l_reg = omap_pm_regs[PCM_INDEX].l_reg;
 	omap_regs[PCM_INDEX].r_reg = omap_pm_regs[PCM_INDEX].r_reg;
@@ -448,10 +458,10 @@ void snd_omap_init_mixer(void)
 	omap_regs[LINE_INDEX].sw = 0;
 	SND_OMAP_WRITE(LEFT_LINE_VOLUME_ADDR, DEFAULT_INPUT_VOLUME & INPUT_VOLUME_MASK);
 	SND_OMAP_WRITE(RIGHT_LINE_VOLUME_ADDR, DEFAULT_INPUT_VOLUME & INPUT_VOLUME_MASK);
-	
+
 	/* Analog Audio Control's default values */
 	omap_regs[AAC_INDEX].l_reg = DEFAULT_ANALOG_AUDIO_CONTROL;
-	
+
 	/* Headphone's default values */
 	vol_reg = LZC_ON;
 	vol_reg &= ~OUTPUT_VOLUME_MASK;
@@ -476,8 +486,9 @@ int snd_omap_mixer(struct snd_card_omap_codec *chip)
 	strcpy(card->mixername, MIXER_NAME);
 
 	/* Registering alsa mixer controls */
-	for (idx = 0; idx < ARRAY_SIZE(snd_omap_controls); idx++) 
-		if ((err = snd_ctl_add(card, snd_ctl_new1(&snd_omap_controls[idx], chip))) < 0)
+	for (idx = 0; idx < ARRAY_SIZE(snd_omap_controls); idx++)
+		if ((err = snd_ctl_add(card,
+			snd_ctl_new1(&snd_omap_controls[idx], chip))) < 0)
 			return err;
 
 	return 0;
