@@ -476,9 +476,10 @@ static void __init tusb_evm_setup(void)
 		 */
 		omap_cfg_reg(J15_24XX_GPIO99);
 		irq = 99;
-		omap_cfg_reg(AA10_242X_DMAREQ0);
-		omap_cfg_reg(AA6_242X_DMAREQ1);
 		dmachan = (1 << 1) | (1 << 0);
+#if !(defined(CONFIG_MTD_OMAP_NOR) || defined(CONFIG_MTD_OMAP_NOR_MODULE))
+		dmachan |= (1 << 5) | (1 << 4) (1 << 3) | (1 << 2);
+#endif
 		break;
 	}
 
