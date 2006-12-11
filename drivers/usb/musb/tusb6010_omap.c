@@ -629,14 +629,6 @@ tusb_omap_dma_init(struct musb *musb, void __iomem *base)
 	int			i;
 
 	/* REVISIT: Get dmareq lines used from board-*.c */
-#ifdef CONFIG_ARCH_OMAP2
-	omap_cfg_reg(AA10_242X_DMAREQ0);
-	omap_cfg_reg(AA6_242X_DMAREQ1);
-	omap_cfg_reg(E4_242X_DMAREQ2);
-	omap_cfg_reg(G4_242X_DMAREQ3);
-	omap_cfg_reg(D3_242X_DMAREQ4);
-	omap_cfg_reg(E3_242X_DMAREQ5);
-#endif
 
 	musb_writel(musb->ctrl_base, TUSB_DMA_INT_MASK, 0x7fffffff);
 	musb_writel(musb->ctrl_base, TUSB_DMA_EP_MAP, 0);
