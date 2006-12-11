@@ -25,7 +25,7 @@
 #include <sound/control.h>
 
 static int current_playback_target	= PLAYBACK_TARGET_LOUDSPEAKER;
-static int current_rec_src 		= REC_SRC_SINGLE_ENDED_MICIN_HED;
+static int current_rec_src		= REC_SRC_SINGLE_ENDED_MICIN_HED;
 static int current_volume;	/* current volume, we cant read it */
 static int current_fm_volume;	/* current FM radio volume, we cant read it */
 
@@ -138,10 +138,10 @@ static int pcm_playback_target_put(struct snd_kcontrol *kcontrol,
 		if (cur_val == PLAYBACK_TARGET_LOUDSPEAKER) {
 			set_record_source(REC_SRC_SINGLE_ENDED_MICIN_HED);
 			set_loudspeaker_to_playback_target();
- 		} else if (cur_val == PLAYBACK_TARGET_HEADPHONE) {
+		} else if (cur_val == PLAYBACK_TARGET_HEADPHONE) {
 			set_record_source(REC_SRC_SINGLE_ENDED_MICIN_HND);
- 			set_headphone_to_playback_target();
- 		} else if (cur_val == PLAYBACK_TARGET_CELLPHONE) {
+			set_headphone_to_playback_target();
+		} else if (cur_val == PLAYBACK_TARGET_CELLPHONE) {
 			set_telephone_to_record_source();
 			set_telephone_to_playback_target();
 		}
@@ -225,7 +225,7 @@ static int headset_playback_volume_put(struct snd_kcontrol *kcontrol,
 static int headset_playback_switch_info(struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_info *uinfo)
 {
-	uinfo->type 			= SNDRV_CTL_ELEM_TYPE_BOOLEAN;
+	uinfo->type			= SNDRV_CTL_ELEM_TYPE_BOOLEAN;
 	uinfo->count			= 1;
 	uinfo->value.integer.min	= 0;
 	uinfo->value.integer.max	= 1;
@@ -283,7 +283,7 @@ static int fmradio_playback_volume_put(struct snd_kcontrol *kcontrol,
 static int fmradio_playback_switch_info(struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_info *uinfo)
 {
-	uinfo->type 			= SNDRV_CTL_ELEM_TYPE_BOOLEAN;
+	uinfo->type			= SNDRV_CTL_ELEM_TYPE_BOOLEAN;
 	uinfo->count			= 1;
 	uinfo->value.integer.min	= 0;
 	uinfo->value.integer.max	= 1;
@@ -340,7 +340,7 @@ static int cellphone_input_switch_put(struct snd_kcontrol *kcontrol,
 static int buzzer_input_switch_info(struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_info *uinfo)
 {
-	uinfo->type 			= SNDRV_CTL_ELEM_TYPE_BOOLEAN;
+	uinfo->type			= SNDRV_CTL_ELEM_TYPE_BOOLEAN;
 	uinfo->count			= 1;
 	uinfo->value.integer.min	= 0;
 	uinfo->value.integer.max	= 1;

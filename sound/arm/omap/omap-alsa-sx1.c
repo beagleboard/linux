@@ -1,6 +1,4 @@
 /*
- * arch/arm/mach-omap1/omap-alsa-sx1.c
- *
  * Alsa codec Driver for Siemens SX1 board.
  * based on omap-alsa-tsc2101.c	and cn_test.c example by Evgeniy Polyakov
  *
@@ -21,7 +19,6 @@
 
 #include <linux/slab.h>
 #include <linux/pm.h>
-#include <asm/mach-types.h>
 #include <asm/arch/dma.h>
 #include <asm/arch/clock.h>
 #include <asm/arch/gpio.h>
@@ -94,7 +91,7 @@ static snd_pcm_hw_constraint_list_t egold_hw_constraints_rates = {
 static snd_pcm_hardware_t egold_snd_omap_alsa_playback = {
 	.info = (SNDRV_PCM_INFO_INTERLEAVED | SNDRV_PCM_INFO_BLOCK_TRANSFER |
 		 SNDRV_PCM_INFO_MMAP | SNDRV_PCM_INFO_MMAP_VALID),
- 	.formats = (SNDRV_PCM_FMTBIT_S16_LE),
+	.formats = (SNDRV_PCM_FMTBIT_S16_LE),
 	.rates = (SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_11025 |
 		  SNDRV_PCM_RATE_16000 |
 		  SNDRV_PCM_RATE_22050 | SNDRV_PCM_RATE_32000 |
@@ -253,7 +250,7 @@ static int __init snd_omap_alsa_egold_probe(struct platform_device *pdev)
 
 static struct platform_driver omap_alsa_driver = {
 	.probe		= snd_omap_alsa_egold_probe,
-	.remove 	= snd_omap_alsa_remove,
+	.remove		= snd_omap_alsa_remove,
 	.suspend	= snd_omap_alsa_suspend,
 	.resume		= snd_omap_alsa_resume,
 	.driver	= {

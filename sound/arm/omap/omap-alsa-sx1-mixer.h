@@ -18,8 +18,8 @@
  *
  */
 
-#ifndef OMAPALSATSC2101MIXER_H_
-#define OMAPALSATSC2101MIXER_H_
+#ifndef OMAPALSASX1MIXER_H_
+#define OMAPALSASX1MIXER_H_
 
 #include "omap-alsa-dma.h"
 

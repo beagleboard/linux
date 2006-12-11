@@ -1,7 +1,5 @@
 /*
- * arch/arc/mach-omap1/omap-alsa-sx1.h
- *
- * based on omap-alsa-tsc2101.h
+ * Based on omap-alsa-tsc2101.h
  *
  * Alsa Driver for Siemens SX1.
  * Copyright (C) 2006 Vladimir Ananiev (vovan888 at gmail com)
@@ -28,7 +26,7 @@
 
 #define DEFAULT_SAMPLE_RATE		44100
 /* fw15: 18356000 */
-#define CODEC_CLOCK 			18359000
+#define CODEC_CLOCK			18359000
 /* McBSP for playing music */
 #define AUDIO_MCBSP			OMAP_MCBSP1
 /* McBSP for record/play audio from phone and mic */
