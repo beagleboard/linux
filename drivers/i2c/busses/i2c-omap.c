@@ -478,9 +478,14 @@ omap_i2c_isr(int this_irq, void *dev_id)
 			if (dev->buf_len) {
 				*dev->buf++ = w;
 				dev->buf_len--;
-				if (dev->buf_len) {
-					*dev->buf++ = w >> 8;
-					dev->buf_len--;
+				/*
+				 * Data reg in 2430 is 8 bit wide,
+				 */
+				if (!cpu_is_omap2430()) {
+					if (dev->buf_len) {
+						*dev->buf++ = w >> 8;
+						dev->buf_len--;
+					}
 				}
 			} else
 				dev_err(dev->dev, "RRDY IRQ while no data"
@@ -493,9 +498,14 @@ omap_i2c_isr(int this_irq, void *dev_id)
 			if (dev->buf_len) {
 				w = *dev->buf++;
 				dev->buf_len--;
-				if (dev->buf_len) {
-					w |= *dev->buf++ << 8;
-					dev->buf_len--;
+				/*
+				 * Data reg in 2430 is 8 bit wide,
+				 */
+				if (!cpu_is_omap2430()) {
+					if (dev->buf_len) {
+						w |= *dev->buf++ << 8;
+						dev->buf_len--;
+					}
 				}
 			} else
 				dev_err(dev->dev, "XRDY IRQ while no"
