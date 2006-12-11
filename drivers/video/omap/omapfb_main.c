@@ -459,7 +459,7 @@ static int set_fb_var(struct fb_info *fbi,
 		xres_max = panel->x_res;
 		yres_min = OMAPFB_PLANE_YRES_MIN;
 		yres_max = panel->y_res;
-		if (cpu_is_omap1510()) {
+		if (cpu_is_omap15xx()) {
 			var->xres = panel->x_res;
 			var->yres = panel->y_res;
 		}
@@ -470,7 +470,7 @@ static int set_fb_var(struct fb_info *fbi,
 		xres_max = panel->y_res;
 		yres_min = OMAPFB_PLANE_XRES_MIN;
 		yres_max = panel->x_res;
-		if (cpu_is_omap1510()) {
+		if (cpu_is_omap15xx()) {
 			var->xres = panel->y_res;
 			var->yres = panel->x_res;
 		}
@@ -552,7 +552,7 @@ static struct fb_var_screeninfo new_var;
 /* Set rotation (0, 90, 180, 270 degree), and switch to the new mode. */
 static void omapfb_rotate(struct fb_info *fbi, int rotate)
 {
-	if (cpu_is_omap1510() && rotate != fbi->var.rotate) {
+	if (cpu_is_omap15xx() && rotate != fbi->var.rotate) {
 		memcpy(&new_var, &fbi->var, sizeof(new_var));
 		new_var.rotate = rotate;
 		if (set_fb_var(fbi, &new_var) == 0 &&
@@ -594,7 +594,7 @@ static int omapfb_mirror(struct fb_info *fbi, int mirror)
 	int r = 0;
 
 	mirror = mirror ? 1 : 0;
-	if (cpu_is_omap1510())
+	if (cpu_is_omap15xx())
 		r = -EINVAL;
 	else if (mirror != plane->info.mirror) {
 		plane->info.mirror = mirror;

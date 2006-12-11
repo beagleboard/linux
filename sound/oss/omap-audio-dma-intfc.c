@@ -312,7 +312,7 @@ omap_request_sound_dma(int device_id, const char *device_name, void *data,
 	}
 
 	/* Chain the channels together */
-	if (!cpu_is_omap1510())
+	if (!cpu_is_omap15xx())
 		omap_sound_dma_link_lch(data);
 
 	spin_unlock(&dma_list_lock);
@@ -362,7 +362,7 @@ int omap_free_sound_dma(void *data, int **channels)
 	}
 	chan = (*channels);
 
-	if (!cpu_is_omap1510())
+	if (!cpu_is_omap15xx())
 		omap_sound_dma_unlink_lch(data);
 	for (i = 0; i < nr_linked_channels; i++) {
 		int cur_chan = chan[i];
@@ -555,7 +555,7 @@ int audio_sync(struct file *file)
 		 * to complete. So it's need to unlink dma channels
 		 * to avoid empty dma work.
 		 */
-		if (!cpu_is_omap1510() && AUDIO_QUEUE_EMPTY(s))
+		if (!cpu_is_omap15xx() && AUDIO_QUEUE_EMPTY(s))
 			omap_sound_dma_unlink_lch(s);
 
 		shiftval = s->fragsize - b->offset;
@@ -699,7 +699,7 @@ static int audio_set_dma_params_play(int channel, dma_addr_t dma_ptr,
 
 	FN_IN;
 
-	if (cpu_is_omap1510() || cpu_is_omap16xx()) {
+	if (cpu_is_omap15xx() || cpu_is_omap16xx()) {
 		dest_start = AUDIO_MCBSP_DATAWRITE;
 		dest_port = OMAP_DMA_PORT_MPUI;
 	}
@@ -729,7 +729,7 @@ static int audio_set_dma_params_capture(int channel, dma_addr_t dma_ptr,
 
 	FN_IN;
 
-	if (cpu_is_omap1510() || cpu_is_omap16xx()) {
+	if (cpu_is_omap15xx() || cpu_is_omap16xx()) {
 		src_start = AUDIO_MCBSP_DATAREAD;
 		src_port = OMAP_DMA_PORT_MPUI;
 	}
@@ -871,7 +871,7 @@ static void sound_dma_irq_handler(int sound_curr_lch, u16 ch_status, void *data)
 		ch_status, dma_status, data);
 
 	if (dma_status & (DCSR_ERROR)) {
-		if (cpu_is_omap1510() || cpu_is_omap16xx())
+		if (cpu_is_omap15xx() || cpu_is_omap16xx())
 			OMAP_DMA_CCR_REG(sound_curr_lch) &= ~DCCR_EN;
 		ERR("DCSR_ERROR!\n");
 		FN_OUT(-1);
@@ -952,7 +952,7 @@ dma_callback_t audio_get_dma_callback(void)
 
 static int __init audio_dma_init(void)
 {
-	if (!cpu_is_omap1510())
+	if (!cpu_is_omap15xx())
 		nr_linked_channels = 2;
 
 	return 0;
