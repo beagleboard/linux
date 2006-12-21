@@ -108,7 +108,6 @@ struct rcvdt_bk_struct {
 
 struct taskdev {
 	struct bus_type *bus;
-//	struct device_driver *driver;
 	struct device dev;	/* Generic device interface */
 
 	long state;
@@ -563,9 +562,6 @@ int dsp_task_config_all(u8 n)
 	struct taskdev *devheap;
 	struct dsptask *taskheap;
 	size_t devheapsz, taskheapsz;
-
-	memset(taskdev, 0, sizeof(void *) * TASKDEV_MAX);
-	memset(dsptask, 0, sizeof(void *) * TASKDEV_MAX);
 
 	printk(KERN_INFO "omapdsp: found %d task(s)\n", n);
 	if (n == 0)
