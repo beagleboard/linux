@@ -1163,7 +1163,7 @@ camera_core_cleanup(void)
 	platform_device_unregister(cam);
 }
 
-static char banner[] __initdata = KERN_INFO "OMAP Camera driver initialzing\n";
+static char banner[] __initdata = KERN_INFO "OMAP Camera driver initializing\n";
 
 static int __init
 camera_core_init(void)
