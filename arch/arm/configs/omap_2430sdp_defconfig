@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
-# Linux kernel version: 2.6.19-rc6-omap1
-# Mon Nov 20 23:05:20 2006
+# Linux kernel version: 2.6.19-omap1
+# Sun Dec  3 13:58:24 2006
 #
 CONFIG_ARM=y
 # CONFIG_GENERIC_TIME is not set
@@ -478,6 +478,11 @@ CONFIG_BLK_DEV_INITRD=y
 # CONFIG_SCSI_NETLINK is not set
 
 #
+# Serial ATA (prod) and Parallel ATA (experimental) drivers
+#
+# CONFIG_ATA is not set
+
+#
 # Multi-device support (RAID and LVM)
 #
 # CONFIG_MD is not set
@@ -685,6 +690,7 @@ CONFIG_I2C_OMAP=y
 # CONFIG_SENSORS_TLV320AIC23 is not set
 # CONFIG_GPIOEXPANDER_OMAP is not set
 # CONFIG_MENELAUS is not set
+CONFIG_TWL4030_CORE=y
 # CONFIG_SENSORS_MAX6875 is not set
 # CONFIG_I2C_DEBUG_CORE is not set
 # CONFIG_I2C_DEBUG_ALGO is not set
