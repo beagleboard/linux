@@ -245,7 +245,7 @@ static int try_yld(struct ipbuf_head *ipb_h)
 /*
  * balancing ipbuf lines with DSP
  */
-static void do_balance_ipbuf(void)
+static void do_balance_ipbuf(struct work_struct *unused)
 {
 	while (ipbcfg.bsycnt <= ipbcfg.ln / 4) {
 		struct ipbuf_head *ipb_h;
@@ -257,8 +257,7 @@ static void do_balance_ipbuf(void)
 	}
 }
 
-static DECLARE_WORK(balance_ipbuf_work, (void (*)(void *))do_balance_ipbuf,
-		    NULL);
+static DECLARE_WORK(balance_ipbuf_work, do_balance_ipbuf);
 
 void balance_ipbuf(void)
 {

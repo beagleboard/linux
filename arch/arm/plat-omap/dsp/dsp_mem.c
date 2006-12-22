@@ -507,7 +507,7 @@ exmap_alloc_pte(unsigned long virt, unsigned long phys, pgprot_t prot)
 	}
 
 	pte = pte_offset_kernel(pmd, virt);
-	set_pte(pte, pfn_pte(phys >> PAGE_SHIFT, prot));
+	set_pte_ext(pte, pfn_pte(phys >> PAGE_SHIFT, prot), 0);
 }
 
 #if 0
@@ -2009,7 +2009,7 @@ static int dsp_mem_open(struct inode *inode, struct file *file)
  * fbupd_cb() is called when fb update is done, in interrupt context.
  * mbox_fbupd() is called when KFUNC:FBCTL:UPD is received from DSP.
  */
-static void fbupd_response(void *arg)
+static void fbupd_response(struct work_struct *unused)
 {
 	int status;
 
@@ -2022,8 +2022,7 @@ static void fbupd_response(void *arg)
 	}
 }
 
-static DECLARE_WORK(fbupd_response_work, (void (*)(void *))fbupd_response,
-		    NULL);
+static DECLARE_WORK(fbupd_response_work, fbupd_response);
 
 static void fbupd_cb(void *arg)
 {
@@ -2283,7 +2282,7 @@ static ssize_t mempool_show(struct device *dev, struct device_attribute *attr,
 	 DSP_MMU_FAULT_ST_TRANS)
 #endif /* CONFIG_ARCH_OMAP1 */
 
-static void do_mmu_int(void)
+static void do_mmu_int(struct work_struct *unused)
 {
 #if defined(CONFIG_ARCH_OMAP1)
 
@@ -2417,7 +2416,7 @@ static void do_mmu_int(void)
 	enable_irq(omap_dsp->mmu_irq);
 }
 
-static DECLARE_WORK(mmu_int_work, (void (*)(void *))do_mmu_int, NULL);
+static DECLARE_WORK(mmu_int_work, do_mmu_int);
 
 /*
  * DSP MMU interrupt handler
