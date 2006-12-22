@@ -446,7 +446,7 @@ static int uwire_setup(struct spi_device *spi)
 	struct uwire_state *ust = spi->controller_state;
 
 	if (ust == NULL) {
-		ust = kzalloc(sizeof(*ust), SLAB_KERNEL);
+		ust = kzalloc(sizeof(*ust), GFP_KERNEL);
 		if (ust == NULL)
 			return -ENOMEM;
 		spi->controller_state = ust;
