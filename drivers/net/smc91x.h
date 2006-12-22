@@ -198,7 +198,7 @@ SMC_outw(u16 val, void __iomem *ioaddr, int reg)
 				? IRQF_TRIGGER_RISING : IRQF_TRIGGER_FALLING)
 #else
 #define SMC_IRQ_FLAGS		(machine_is_omap_apollon()		\
-				? IRQF_TRIGGER_HIGH : IRQF_TRIGGER_LOW)
+				? IRQF_TRIGGER_RISING : IRQF_TRIGGER_LOW)
 #endif
 
 #elif	defined(CONFIG_SH_SH4202_MICRODEV)
