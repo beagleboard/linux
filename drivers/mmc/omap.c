@@ -631,7 +631,7 @@ mmc_omap_prepare_dma(struct mmc_omap_host *host, struct mmc_data *data)
 	frame = data->blksz;
 	count = sg_dma_len(sg);
 
-	if ((data->blocks == 1) && (count > (data->blksz)))
+	if ((data->blocks == 1) && (count > data->blksz))
 		count = frame;
 
 	host->dma_len = count;
@@ -686,8 +686,7 @@ mmc_omap_prepare_dma(struct mmc_omap_host *host, struct mmc_data *data)
 	}
 
 	/* Max limit for DMA frame count is 0xffff */
-	if (unlikely(count > 0xffff))
-		BUG();
+	BUG_ON(count > 0xffff);
 
 	OMAP_MMC_WRITE(host, BUF, buf);
 	omap_set_dma_transfer_params(dma_ch, OMAP_DMA_DATA_TYPE_S16,
@@ -818,7 +817,6 @@ mmc_omap_prepare_data(struct mmc_omap_host *host, struct mmc_request *req)
 		set_cmd_timeout(host, req);
 		return;
 	}
-
 
 	block_size = data->blksz;
 
@@ -1009,7 +1007,7 @@ static int mmc_omap_get_ro(struct mmc_host *mmc)
 	return host->wp_pin && omap_get_gpio_datain(host->wp_pin);
 }
 
-static struct mmc_host_ops mmc_omap_ops = {
+static const struct mmc_host_ops mmc_omap_ops = {
 	.request	= mmc_omap_request,
 	.set_ios	= mmc_omap_set_ios,
 	.get_ro		= mmc_omap_get_ro,
@@ -1069,6 +1067,7 @@ static int __init mmc_omap_probe(struct platform_device *pdev)
 		host->fclk = clk_get(&pdev->dev, "mmc_ck");
 	else
 		host->fclk = clk_get(&pdev->dev, "mmc_fck");
+
 	if (IS_ERR(host->fclk)) {
 		ret = PTR_ERR(host->fclk);
 		goto err_free_iclk;
@@ -1135,7 +1134,7 @@ static int __init mmc_omap_probe(struct platform_device *pdev)
 
 		omap_set_gpio_direction(host->switch_pin, 1);
 		ret = request_irq(OMAP_GPIO_IRQ(host->switch_pin),
-				  mmc_omap_switch_irq, SA_TRIGGER_RISING, DRIVER_NAME, host);
+				  mmc_omap_switch_irq, IRQF_TRIGGER_RISING, DRIVER_NAME, host);
 		if (ret) {
 			dev_warn(mmc_dev(host->mmc), "Unable to get IRQ for MMC cover switch\n");
 			omap_free_gpio(host->switch_pin);
@@ -1172,7 +1171,6 @@ no_switch:
 			clk_put(host->fclk);
 		mmc_free_host(host->mmc);
 	}
-
 err_free_power_gpio:
 	if (host->power_pin >= 0)
 		omap_free_gpio(host->power_pin);

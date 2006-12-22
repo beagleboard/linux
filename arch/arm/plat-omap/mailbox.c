@@ -109,9 +109,10 @@ EXPORT_SYMBOL(omap_mbox_msg_send);
 /*
  * Message receiver(workqueue)
  */
-static void mbox_msg_receiver(void *p)
+static void mbox_msg_receiver(struct work_struct *work)
 {
-	struct omap_mbox *mbox = (struct omap_mbox *)p;
+	struct omap_mbox *mbox =
+		container_of(work, struct omap_mbox, msg_receive);
 	struct omap_mbq *mbq = mbox->mbq;
 	mbox_msg_t msg;
 	int was_full;
@@ -239,7 +240,7 @@ static int omap_mbox_init(struct omap_mbox *mbox)
 	}
 
 	spin_lock_init(&mbox->lock);
-	INIT_WORK(&mbox->msg_receive, mbox_msg_receiver, mbox);
+	INIT_WORK(&mbox->msg_receive, mbox_msg_receiver);
 	init_waitqueue_head(&mbox->tx_waitq);
 
 	ret = mbq_init(&mbox->mbq);

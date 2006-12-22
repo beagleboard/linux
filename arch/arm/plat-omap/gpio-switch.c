@@ -218,9 +218,9 @@ static void gpio_sw_timer(unsigned long arg)
 	schedule_work(&sw->work);
 }
 
-static void gpio_sw_handler(void *data)
+static void gpio_sw_handler(struct work_struct *work)
 {
-	struct gpio_switch *sw = data;
+	struct gpio_switch *sw = container_of(work, struct gpio_switch, work);
 	int state;
 
 	state = gpio_sw_get_state(sw);
@@ -319,7 +319,7 @@ static int __init new_switch(struct gpio_switch *sw)
 		return r;
 	}
 
-	INIT_WORK(&sw->work, gpio_sw_handler, sw);
+	INIT_WORK(&sw->work, gpio_sw_handler);
 	init_timer(&sw->timer);
 
 	sw->timer.function = gpio_sw_timer;

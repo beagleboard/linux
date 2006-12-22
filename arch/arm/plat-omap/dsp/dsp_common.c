@@ -507,7 +507,7 @@ out:
 /*
  * release_mem will be delayed.
  */
-static void do_release_mem(void)
+static void do_release_mem(struct work_struct *dummy)
 {
 	mutex_lock(&cpustat.lock);
 	cpustat.usecount.mem_delayed = 0;
@@ -519,7 +519,7 @@ static void do_release_mem(void)
 	mutex_unlock(&cpustat.lock);
 }
 
-static DECLARE_WORK(mem_rel_work, (void (*)(void *))do_release_mem, NULL);
+static DECLARE_DELAYED_WORK(mem_rel_work, do_release_mem);
 
 int omap_dsp_release_mem(void)
 {

@@ -482,7 +482,7 @@ static inline void set_24xx_gpio_triggering(struct gpio_bank *bank, int gpio, in
 		else
 			bank->enabled_non_wakeup_gpios &= ~gpio_bit;
 	}
-	/* FIXME: Possibly do 'set_irq_handler(j, do_level_IRQ)' if only level
+	/* FIXME: Possibly do 'set_irq_handler(j, handle_level_irq)' if only level
 	 * triggering requested. */
 }
 #endif
@@ -914,7 +914,7 @@ void omap_free_gpio(int gpio)
  * line's interrupt handler has been run, we may miss some nested
  * interrupts.
  */
-static void gpio_irq_handler(unsigned int irq, struct irqdesc *desc)
+static void gpio_irq_handler(unsigned int irq, struct irq_desc *desc)
 {
 	void __iomem *isr_reg = NULL;
 	u32 isr;
@@ -986,7 +986,7 @@ static void gpio_irq_handler(unsigned int irq, struct irqdesc *desc)
 
 		gpio_irq = bank->virtual_irq_start;
 		for (; isr != 0; isr >>= 1, gpio_irq++) {
-			struct irqdesc *d;
+			struct irq_desc *d;
 			int irq_mask;
 			if (!(isr & 1))
 				continue;
@@ -1352,7 +1352,7 @@ static int __init _omap_gpio_init(void)
 				set_irq_chip(j, &mpuio_irq_chip);
 			else
 				set_irq_chip(j, &gpio_irq_chip);
-			set_irq_handler(j, do_simple_IRQ);
+			set_irq_handler(j, handle_simple_irq);
 			set_irq_flags(j, IRQF_VALID);
 		}
 		set_irq_chained_handler(bank->irq, gpio_irq_handler);
