@@ -121,6 +121,12 @@ config MENELAUS
 	help
 	  Say yes here if you have Menelaus chip on your board
 
+config TWL4030_CORE
+	bool "TI's TWL4030 companion chip Core Driver Support"
+	depends on I2C=y && ARCH_OMAP24XX
+	help
+	  Say yes here if you have TWL4030 chip on your board
+
 config SENSORS_M41T00
 	tristate "ST M41T00 RTC chip"
 	depends on I2C && PPC32
