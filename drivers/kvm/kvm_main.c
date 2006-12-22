@@ -113,6 +113,11 @@ unsigned long segment_base(u16 selector)
 }
 EXPORT_SYMBOL_GPL(segment_base);
 
+static inline int valid_vcpu(int n)
+{
+	return likely(n >= 0 && n < KVM_MAX_VCPUS);
+}
+
 int kvm_read_guest(struct kvm_vcpu *vcpu,
 			     gva_t addr,
 			     unsigned long size,
@@ -494,7 +499,7 @@ static int kvm_dev_ioctl_create_vcpu(struct kvm *kvm, int n)
 	struct kvm_vcpu *vcpu;
 
 	r = -EINVAL;
-	if (n < 0 || n >= KVM_MAX_VCPUS)
+	if (!valid_vcpu(n))
 		goto out;
 
 	vcpu = &kvm->vcpus[n];
@@ -1179,7 +1184,7 @@ static int kvm_dev_ioctl_run(struct kvm *kvm, struct kvm_run *kvm_run)
 	struct kvm_vcpu *vcpu;
 	int r;
 
-	if (kvm_run->vcpu < 0 || kvm_run->vcpu >= KVM_MAX_VCPUS)
+	if (!valid_vcpu(kvm_run->vcpu))
 		return -EINVAL;
 
 	vcpu = vcpu_load(kvm, kvm_run->vcpu);
@@ -1208,7 +1213,7 @@ static int kvm_dev_ioctl_get_regs(struct kvm *kvm, struct kvm_regs *regs)
 {
 	struct kvm_vcpu *vcpu;
 
-	if (regs->vcpu < 0 || regs->vcpu >= KVM_MAX_VCPUS)
+	if (!valid_vcpu(regs->vcpu))
 		return -EINVAL;
 
 	vcpu = vcpu_load(kvm, regs->vcpu);
@@ -1254,7 +1259,7 @@ static int kvm_dev_ioctl_set_regs(struct kvm *kvm, struct kvm_regs *regs)
 {
 	struct kvm_vcpu *vcpu;
 
-	if (regs->vcpu < 0 || regs->vcpu >= KVM_MAX_VCPUS)
+	if (!valid_vcpu(regs->vcpu))
 		return -EINVAL;
 
 	vcpu = vcpu_load(kvm, regs->vcpu);
@@ -1301,7 +1306,7 @@ static int kvm_dev_ioctl_get_sregs(struct kvm *kvm, struct kvm_sregs *sregs)
 	struct kvm_vcpu *vcpu;
 	struct descriptor_table dt;
 
-	if (sregs->vcpu < 0 || sregs->vcpu >= KVM_MAX_VCPUS)
+	if (!valid_vcpu(sregs->vcpu))
 		return -EINVAL;
 	vcpu = vcpu_load(kvm, sregs->vcpu);
 	if (!vcpu)
@@ -1353,7 +1358,7 @@ static int kvm_dev_ioctl_set_sregs(struct kvm *kvm, struct kvm_sregs *sregs)
 	int i;
 	struct descriptor_table dt;
 
-	if (sregs->vcpu < 0 || sregs->vcpu >= KVM_MAX_VCPUS)
+	if (!valid_vcpu(sregs->vcpu))
 		return -EINVAL;
 	vcpu = vcpu_load(kvm, sregs->vcpu);
 	if (!vcpu)
@@ -1412,6 +1417,9 @@ static int kvm_dev_ioctl_set_sregs(struct kvm *kvm, struct kvm_sregs *sregs)
 /*
  * List of msr numbers which we expose to userspace through KVM_GET_MSRS
  * and KVM_SET_MSRS, and KVM_GET_MSR_INDEX_LIST.
+ *
+ * This list is modified at module load time to reflect the
+ * capabilities of the host cpu.
  */
 static u32 msrs_to_save[] = {
 	MSR_IA32_SYSENTER_CS, MSR_IA32_SYSENTER_ESP, MSR_IA32_SYSENTER_EIP,
@@ -1422,6 +1430,22 @@ static u32 msrs_to_save[] = {
 	MSR_IA32_TIME_STAMP_COUNTER,
 };
 
+static unsigned num_msrs_to_save;
+
+static __init void kvm_init_msr_list(void)
+{
+	u32 dummy[2];
+	unsigned i, j;
+
+	for (i = j = 0; i < ARRAY_SIZE(msrs_to_save); i++) {
+		if (rdmsr_safe(msrs_to_save[i], &dummy[0], &dummy[1]) < 0)
+			continue;
+		if (j < i)
+			msrs_to_save[j] = msrs_to_save[i];
+		j++;
+	}
+	num_msrs_to_save = j;
+}
 
 /*
  * Adapt set_msr() to msr_io()'s calling convention
@@ -1444,7 +1468,7 @@ static int __msr_io(struct kvm *kvm, struct kvm_msrs *msrs,
 	struct kvm_vcpu *vcpu;
 	int i;
 
-	if (msrs->vcpu < 0 || msrs->vcpu >= KVM_MAX_VCPUS)
+	if (!valid_vcpu(msrs->vcpu))
 		return -EINVAL;
 
 	vcpu = vcpu_load(kvm, msrs->vcpu);
@@ -1537,7 +1561,7 @@ static int kvm_dev_ioctl_interrupt(struct kvm *kvm, struct kvm_interrupt *irq)
 {
 	struct kvm_vcpu *vcpu;
 
-	if (irq->vcpu < 0 || irq->vcpu >= KVM_MAX_VCPUS)
+	if (!valid_vcpu(irq->vcpu))
 		return -EINVAL;
 	if (irq->irq < 0 || irq->irq >= 256)
 		return -EINVAL;
@@ -1559,7 +1583,7 @@ static int kvm_dev_ioctl_debug_guest(struct kvm *kvm,
 	struct kvm_vcpu *vcpu;
 	int r;
 
-	if (dbg->vcpu < 0 || dbg->vcpu >= KVM_MAX_VCPUS)
+	if (!valid_vcpu(dbg->vcpu))
 		return -EINVAL;
 	vcpu = vcpu_load(kvm, dbg->vcpu);
 	if (!vcpu)
@@ -1579,6 +1603,9 @@ static long kvm_dev_ioctl(struct file *filp,
 	int r = -EINVAL;
 
 	switch (ioctl) {
+	case KVM_GET_API_VERSION:
+		r = KVM_API_VERSION;
+		break;
 	case KVM_CREATE_VCPU: {
 		r = kvm_dev_ioctl_create_vcpu(kvm, arg);
 		if (r)
@@ -1730,15 +1757,15 @@ static long kvm_dev_ioctl(struct file *filp,
 		if (copy_from_user(&msr_list, user_msr_list, sizeof msr_list))
 			goto out;
 		n = msr_list.nmsrs;
-		msr_list.nmsrs = ARRAY_SIZE(msrs_to_save);
+		msr_list.nmsrs = num_msrs_to_save;
 		if (copy_to_user(user_msr_list, &msr_list, sizeof msr_list))
 			goto out;
 		r = -E2BIG;
-		if (n < ARRAY_SIZE(msrs_to_save))
+		if (n < num_msrs_to_save)
 			goto out;
 		r = -EFAULT;
 		if (copy_to_user(user_msr_list->indices, &msrs_to_save,
-				 sizeof msrs_to_save))
+				 num_msrs_to_save * sizeof(u32)))
 			goto out;
 		r = 0;
 	}
@@ -1888,6 +1915,8 @@ static __init int kvm_init(void)
 	int r = 0;
 
 	kvm_init_debug();
+
+	kvm_init_msr_list();
 
 	if ((bad_page = alloc_page(GFP_KERNEL)) == NULL) {
 		r = -ENOMEM;

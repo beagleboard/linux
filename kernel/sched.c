@@ -4619,8 +4619,10 @@ asmlinkage long sys_sched_yield(void)
 
 static inline int __resched_legal(int expected_preempt_count)
 {
+#ifdef CONFIG_PREEMPT
 	if (unlikely(preempt_count() != expected_preempt_count))
 		return 0;
+#endif
 	if (unlikely(system_state != SYSTEM_RUNNING))
 		return 0;
 	return 1;
@@ -5608,7 +5610,7 @@ static void cpu_attach_domain(struct sched_domain *sd, int cpu)
 }
 
 /* cpus with isolated domains */
-static cpumask_t __cpuinitdata cpu_isolated_map = CPU_MASK_NONE;
+static cpumask_t cpu_isolated_map = CPU_MASK_NONE;
 
 /* Setup the mask of cpus configured for isolated domains */
 static int __init isolated_cpu_setup(char *str)
