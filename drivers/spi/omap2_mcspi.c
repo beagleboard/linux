@@ -634,7 +634,7 @@ static int omap2_mcspi_setup(struct spi_device *spi)
 	mcspi_dma = &mcspi->dma_channels[spi->chip_select];
 
 	if (!cs) {
-		cs = kzalloc(sizeof *cs, SLAB_KERNEL);
+		cs = kzalloc(sizeof *cs, GFP_KERNEL);
 		if (!cs)
 			return -ENOMEM;
 		spi->controller_state = cs;
@@ -669,9 +669,9 @@ static void omap2_mcspi_cleanup(const struct spi_device *spi)
 }
 
 
-static void omap2_mcspi_work(void * arg)
+static void omap2_mcspi_work(struct work_struct *work)
 {
-	struct omap2_mcspi	*mcspi = (struct omap2_mcspi *) arg;
+	struct omap2_mcspi	*mcspi = container_of(work, struct omap2_mcspi, work);
 	unsigned long		flags;
 
 	spin_lock_irqsave(&mcspi->lock, flags);
@@ -820,7 +820,7 @@ static int __devinit omap2_mcspi_probe(struct platform_device *pdev)
 	
 	mcspi->base = io_p2v(r->start);
 
-	INIT_WORK(&mcspi->work, omap2_mcspi_work, mcspi);
+	INIT_WORK(&mcspi->work, omap2_mcspi_work);
 
 	spin_lock_init(&mcspi->lock);
 	INIT_LIST_HEAD(&mcspi->msg_queue);
