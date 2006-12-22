@@ -279,9 +279,8 @@ static int omap_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alm)
 	local_irq_enable();
 
 	bcd2tm(&alm->time);
-	alm->pending = !!(rtc_read(OMAP_RTC_INTERRUPTS_REG)
+	alm->enabled = !!(rtc_read(OMAP_RTC_INTERRUPTS_REG)
 			& OMAP_RTC_INTERRUPTS_IT_ALARM);
-	alm->enabled = alm->pending && device_may_wakeup(dev);
 
 	return 0;
 }
@@ -560,13 +559,12 @@ static int __init rtc_init(void)
 {
 	return platform_driver_register(&omap_rtc_driver);
 }
+module_init(rtc_init);
 
 static void __exit rtc_exit(void)
 {
 	platform_driver_unregister(&omap_rtc_driver);
 }
-
-module_init(rtc_init);
 module_exit(rtc_exit);
 
 MODULE_AUTHOR("George G. Davis (and others)");

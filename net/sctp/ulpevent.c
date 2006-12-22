@@ -351,7 +351,7 @@ struct sctp_ulpevent *sctp_ulpevent_make_remote_error(
 	struct sctp_remote_error *sre;
 	struct sk_buff *skb;
 	sctp_errhdr_t *ch;
-	__u16 cause;
+	__be16 cause;
 	int elen;
 
 	ch = (sctp_errhdr_t *)(chunk->skb->data);
@@ -849,8 +849,10 @@ void sctp_ulpevent_read_sndrcvinfo(const struct sctp_ulpevent *event,
 	 */
 	sinfo.sinfo_assoc_id = sctp_assoc2id(event->asoc);
 
+	/* context value that is set via SCTP_CONTEXT socket option. */
+	sinfo.sinfo_context = event->asoc->default_rcv_context;
+
 	/* These fields are not used while receiving. */
-	sinfo.sinfo_context = 0;
 	sinfo.sinfo_timetolive = 0;
 
 	put_cmsg(msghdr, IPPROTO_SCTP, SCTP_SNDRCV,

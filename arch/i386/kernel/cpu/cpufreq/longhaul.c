@@ -410,7 +410,7 @@ static int __init longhaul_get_ranges(void)
 			maxmult=longhaul_get_cpu_mult();
 
 			/* Starting with the 1.2GHz parts, theres a 200MHz bus. */
-			if ((cpu_khz/1000) > 1200)
+			if ((cpu_khz/maxmult) > 13400)
 				fsb = 200;
 			else
 				fsb = eblcr_fsb_table_v2[longhaul.bits.MaxMHzFSB];
@@ -583,6 +583,10 @@ static int enable_arbiter_disable(void)
 	if (dev == NULL) {
 		reg = 0x76;
 		dev = pci_find_device(PCI_VENDOR_ID_VIA, PCI_DEVICE_ID_VIA_862X_0, NULL);
+		/* Find CN400 V-Link host bridge */
+		if (dev == NULL)
+			dev = pci_find_device(PCI_VENDOR_ID_VIA, 0x7259, NULL);
+
 	}
 	if (dev != NULL) {
 		/* Enable access to port 0x22 */
@@ -734,7 +738,7 @@ print_support_type:
 	return 0;
 
 err_acpi:
-	printk(KERN_ERR PFX "No ACPI support. No VT8601 or VT8623 northbridge. Aborting.\n");
+	printk(KERN_ERR PFX "No ACPI support. Unsupported northbridge. Aborting.\n");
 	return -ENODEV;
 }
 
@@ -783,8 +787,10 @@ static int __init longhaul_init(void)
 	switch (c->x86_model) {
 	case 6 ... 9:
 		return cpufreq_register_driver(&longhaul_driver);
+	case 10:
+		printk(KERN_ERR PFX "Use acpi-cpufreq driver for VIA C7\n");
 	default:
-		printk (KERN_INFO PFX "Unknown VIA CPU. Contact davej@codemonkey.org.uk\n");
+		;;
 	}
 
 	return -ENODEV;

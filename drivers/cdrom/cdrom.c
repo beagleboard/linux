@@ -1810,7 +1810,7 @@ static int dvd_read_disckey(struct cdrom_device_info *cdi, dvd_struct *s)
 
 	size = sizeof(s->disckey.value) + 4;
 
-	if ((buf = (u_char *) kmalloc(size, GFP_KERNEL)) == NULL)
+	if ((buf = kmalloc(size, GFP_KERNEL)) == NULL)
 		return -ENOMEM;
 
 	init_cdrom_command(&cgc, buf, size, CGC_DATA_READ);
@@ -1861,7 +1861,7 @@ static int dvd_read_manufact(struct cdrom_device_info *cdi, dvd_struct *s)
 
 	size = sizeof(s->manufact.value) + 4;
 
-	if ((buf = (u_char *) kmalloc(size, GFP_KERNEL)) == NULL)
+	if ((buf = kmalloc(size, GFP_KERNEL)) == NULL)
 		return -ENOMEM;
 
 	init_cdrom_command(&cgc, buf, size, CGC_DATA_READ);
@@ -2133,16 +2133,13 @@ static int cdrom_read_cdda_bpc(struct cdrom_device_info *cdi, __u8 __user *ubuf,
 		rq->timeout = 60 * HZ;
 		bio = rq->bio;
 
-		if (rq->bio)
-			blk_queue_bounce(q, &rq->bio);
-
 		if (blk_execute_rq(q, cdi->disk, rq, 0)) {
 			struct request_sense *s = rq->sense;
 			ret = -EIO;
 			cdi->last_sense = s->sense_key;
 		}
 
-		if (blk_rq_unmap_user(bio, len))
+		if (blk_rq_unmap_user(bio))
 			ret = -EFAULT;
 
 		if (ret)
@@ -2851,7 +2848,7 @@ static int mmc_ioctl(struct cdrom_device_info *cdi, unsigned int cmd,
 		/* FIXME: we need upper bound checking, too!! */
 		if (lba < 0)
 			return -EINVAL;
-		cgc.buffer = (char *) kmalloc(blocksize, GFP_KERNEL);
+		cgc.buffer = kmalloc(blocksize, GFP_KERNEL);
 		if (cgc.buffer == NULL)
 			return -ENOMEM;
 		memset(&sense, 0, sizeof(sense));
@@ -3033,7 +3030,7 @@ static int mmc_ioctl(struct cdrom_device_info *cdi, unsigned int cmd,
 		int size = sizeof(dvd_struct);
 		if (!CDROM_CAN(CDC_DVD))
 			return -ENOSYS;
-		if ((s = (dvd_struct *) kmalloc(size, GFP_KERNEL)) == NULL)
+		if ((s = kmalloc(size, GFP_KERNEL)) == NULL)
 			return -ENOMEM;
 		cdinfo(CD_DO_IOCTL, "entering DVD_READ_STRUCT\n"); 
 		if (copy_from_user(s, (dvd_struct __user *)arg, size)) {

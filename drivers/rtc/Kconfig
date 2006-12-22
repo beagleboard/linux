@@ -154,11 +154,11 @@ config RTC_DRV_DS1672
 	  will be called rtc-ds1672.
 
 config RTC_DRV_DS1742
-	tristate "Dallas DS1742"
+	tristate "Dallas DS1742/1743"
 	depends on RTC_CLASS
 	help
 	  If you say yes here you get support for the
-	  Dallas DS1742 timekeeping chip.
+	  Dallas DS1742/1743 timekeeping chip.
 
 	  This driver can also be built as a module. If so, the module
 	  will be called rtc-ds1742.
@@ -288,7 +288,7 @@ config RTC_DRV_PL031
 	  To compile this driver as a module, choose M here: the
 	  module will be called rtc-pl031.
 
-config RTC_DRV_AT91
+config RTC_DRV_AT91RM9200
 	tristate "AT91RM9200"
 	depends on RTC_CLASS && ARCH_AT91RM9200
 	help

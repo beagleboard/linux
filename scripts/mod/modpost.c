@@ -911,6 +911,7 @@ static int init_section_ref_ok(const char *name)
 		".toc1",  /* used by ppc64 */
 		".stab",
 		".rodata",
+		".parainstructions",
 		".text.lock",
 		"__bug_table", /* used by powerpc for BUG() */
 		".pci_fixup_header",
@@ -931,6 +932,7 @@ static int init_section_ref_ok(const char *name)
 		".altinstructions",
 		".eh_frame",
 		".debug",
+		".parainstructions",
 		NULL
 	};
 	/* part of section name */
@@ -995,6 +997,7 @@ static int exit_section_ref_ok(const char *name)
 		"__bug_table", /* used by powerpc for BUG() */
 		".exitcall.exit",
 		".eh_frame",
+		".parainstructions",
 		".stab",
 		"__ex_table",
 		".fixup",

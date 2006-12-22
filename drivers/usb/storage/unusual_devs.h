@@ -153,6 +153,13 @@ UNUSUAL_DEV(  0x0421, 0x042e, 0x0100, 0x0100,
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_IGNORE_RESIDUE | US_FL_FIX_CAPACITY ),
 
+/* Reported by <honkkis@gmail.com> */
+UNUSUAL_DEV(  0x0421, 0x0433, 0x0100, 0x0100,
+		"Nokia",
+		"E70",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_IGNORE_RESIDUE | US_FL_FIX_CAPACITY ),
+
 /* Reported by Jon Hart <Jon.Hart@web.de> */
 UNUSUAL_DEV(  0x0421, 0x0434, 0x0100, 0x0100,
 		"Nokia",
@@ -1317,6 +1324,25 @@ UNUSUAL_DEV(  0x1019, 0x0c55, 0x0000, 0x0110,
 		"UCR-61S2B",
 		US_SC_DEVICE, US_PR_DEVICE, usb_stor_ucr61s2b_init,
 		0 ),
+
+/* Reported by Jaco Kroon <jaco@kroon.co.za>
+ * The usb-storage module found on the Digitech GNX4 (and supposedly other
+ * devices) misbehaves and causes a bunch of invalid I/O errors.
+ */
+UNUSUAL_DEV(  0x1210, 0x0003, 0x0100, 0x0100,
+		"Digitech HMG",
+		"DigiTech Mass Storage",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_IGNORE_RESIDUE ),
+
+/* This prevents the kernel from detecting the virtual cd-drive with the
+ * Windows drivers.  <johann.wilhelm@student.tugraz.at>
+*/
+UNUSUAL_DEV( 0x12d1, 0x1003, 0x0000, 0xffff,
+		"HUAWEI",
+		"E220 USB-UMTS Install",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_IGNORE_DEVICE),
 
 /* Reported by Vilius Bilinkevicius <vilisas AT xxx DOT lt) */
 UNUSUAL_DEV(  0x132b, 0x000b, 0x0001, 0x0001,

@@ -194,7 +194,7 @@ static void nokia770_audio_pwr_up(void)
 		printk("HP connected\n");
 }
 
-static void codec_delayed_power_down(void *arg)
+static void codec_delayed_power_down(struct work_struct *work)
 {
 	down(&audio_pwr_sem);
 	if (audio_pwr_state == -1)
@@ -203,7 +203,7 @@ static void codec_delayed_power_down(void *arg)
 	up(&audio_pwr_sem);
 }
 
-static DECLARE_WORK(codec_power_down_work, codec_delayed_power_down, NULL);
+static DECLARE_DELAYED_WORK(codec_power_down_work, codec_delayed_power_down);
 
 static void nokia770_audio_pwr_down(void)
 {
