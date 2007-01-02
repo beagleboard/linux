@@ -36,6 +36,7 @@
 #include <linux/interrupt.h>
 #include <linux/sched.h>
 #include <linux/mutex.h>
+#include <linux/workqueue.h>
 
 #include <asm/mach-types.h>
 #include <asm/mach/irq.h>
@@ -129,7 +130,7 @@
 #define MENELAUS_RESERVED14_IRQ		14	/* Reserved */
 #define MENELAUS_RESERVED15_IRQ		15	/* Reserved */
 
-static void menelaus_work(void * _menelaus);
+static void menelaus_work(struct work_struct *_menelaus);
 
 /* Initialized by menelaus_init */
 static unsigned short normal_i2c[] = { MENELAUS_I2C_ADDRESS, I2C_CLIENT_END };
@@ -643,9 +644,10 @@ EXPORT_SYMBOL(menelaus_get_slot_pin_states);
 /*-----------------------------------------------------------------------*/
 
 /* Handles Menelaus interrupts. Does not run in interrupt context */
-static void menelaus_work(void * _menelaus)
+static void menelaus_work(struct work_struct *_menelaus)
 {
-	struct menelaus_chip *menelaus = _menelaus;
+	struct menelaus_chip *menelaus =
+			container_of(_menelaus, struct menelaus_chip, work);
 	int (*handler)(struct menelaus_chip *menelaus);
 
 	while (1) {
@@ -739,7 +741,7 @@ static int menelaus_probe(struct i2c_adapter *adapter, int address, int kind)
 	}
 
 	mutex_init(&menelaus.lock);
-	INIT_WORK(&menelaus.work, menelaus_work, &menelaus);
+	INIT_WORK(&menelaus.work, menelaus_work);
 
 	if (kind < 0)
 		pr_info("Menelaus rev %d.%d\n", rev >> 4, rev & 0x0f);
