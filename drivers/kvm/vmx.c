@@ -26,7 +26,6 @@
 
 #include "segment_descriptor.h"
 
-#define MSR_IA32_FEATURE_CONTROL 		0x03a
 
 MODULE_AUTHOR("Qumranet");
 MODULE_LICENSE("GPL");
@@ -344,8 +343,7 @@ static int vmx_get_msr(struct kvm_vcpu *vcpu, u32 msr_index, u64 *pdata)
 		data = vmcs_readl(GUEST_GS_BASE);
 		break;
 	case MSR_EFER:
-		data = vcpu->shadow_efer;
-		break;
+		return kvm_get_msr_common(vcpu, msr_index, pdata);
 #endif
 	case MSR_IA32_TIME_STAMP_COUNTER:
 		data = guest_read_tsc();
@@ -359,33 +357,13 @@ static int vmx_get_msr(struct kvm_vcpu *vcpu, u32 msr_index, u64 *pdata)
 	case MSR_IA32_SYSENTER_ESP:
 		data = vmcs_read32(GUEST_SYSENTER_ESP);
 		break;
-	case MSR_IA32_P5_MC_ADDR:
-	case MSR_IA32_P5_MC_TYPE:
-	case MSR_IA32_MC0_CTL:
-	case MSR_IA32_MCG_STATUS:
-	case MSR_IA32_MCG_CAP:
-	case MSR_IA32_MC0_MISC:
-	case MSR_IA32_MC0_MISC+4:
-	case MSR_IA32_MC0_MISC+8:
-	case MSR_IA32_MC0_MISC+12:
-	case MSR_IA32_MC0_MISC+16:
-	case MSR_IA32_UCODE_REV:
-		/* MTRR registers */
-	case 0xfe:
-	case 0x200 ... 0x2ff:
-		data = 0;
-		break;
-	case MSR_IA32_APICBASE:
-		data = vcpu->apic_base;
-		break;
 	default:
 		msr = find_msr_entry(vcpu, msr_index);
-		if (!msr) {
-			printk(KERN_ERR "kvm: unhandled rdmsr: %x\n", msr_index);
-			return 1;
+		if (msr) {
+			data = msr->data;
+			break;
 		}
-		data = msr->data;
-		break;
+		return kvm_get_msr_common(vcpu, msr_index, pdata);
 	}
 
 	*pdata = data;
@@ -402,6 +380,8 @@ static int vmx_set_msr(struct kvm_vcpu *vcpu, u32 msr_index, u64 data)
 	struct vmx_msr_entry *msr;
 	switch (msr_index) {
 #ifdef CONFIG_X86_64
+	case MSR_EFER:
+		return kvm_set_msr_common(vcpu, msr_index, data);
 	case MSR_FS_BASE:
 		vmcs_writel(GUEST_FS_BASE, data);
 		break;
@@ -418,32 +398,17 @@ static int vmx_set_msr(struct kvm_vcpu *vcpu, u32 msr_index, u64 data)
 	case MSR_IA32_SYSENTER_ESP:
 		vmcs_write32(GUEST_SYSENTER_ESP, data);
 		break;
-#ifdef __x86_64
-	case MSR_EFER:
-		set_efer(vcpu, data);
-		break;
-	case MSR_IA32_MC0_STATUS:
-		printk(KERN_WARNING "%s: MSR_IA32_MC0_STATUS 0x%llx, nop\n"
-			    , __FUNCTION__, data);
-		break;
-#endif
 	case MSR_IA32_TIME_STAMP_COUNTER: {
 		guest_write_tsc(data);
 		break;
 	}
-	case MSR_IA32_UCODE_REV:
-	case MSR_IA32_UCODE_WRITE:
-	case 0x200 ... 0x2ff: /* MTRRs */
-		break;
-	case MSR_IA32_APICBASE:
-		vcpu->apic_base = data;
-		break;
 	default:
 		msr = find_msr_entry(vcpu, msr_index);
-		if (!msr) {
-			printk(KERN_ERR "kvm: unhandled wrmsr: 0x%x\n", msr_index);
-			return 1;
+		if (msr) {
+			msr->data = data;
+			break;
 		}
+		return kvm_set_msr_common(vcpu, msr_index, data);
 		msr->data = data;
 		break;
 	}
@@ -553,11 +518,11 @@ static __init void setup_vmcs_descriptor(void)
 {
 	u32 vmx_msr_low, vmx_msr_high;
 
-	rdmsr(MSR_IA32_VMX_BASIC_MSR, vmx_msr_low, vmx_msr_high);
+	rdmsr(MSR_IA32_VMX_BASIC, vmx_msr_low, vmx_msr_high);
 	vmcs_descriptor.size = vmx_msr_high & 0x1fff;
 	vmcs_descriptor.order = get_order(vmcs_descriptor.size);
 	vmcs_descriptor.revision_id = vmx_msr_low;
-};
+}
 
 static struct vmcs *alloc_vmcs_cpu(int cpu)
 {
@@ -900,11 +865,6 @@ static void vmx_set_segment(struct kvm_vcpu *vcpu,
 	vmcs_write32(sf->ar_bytes, ar);
 }
 
-static int vmx_is_long_mode(struct kvm_vcpu *vcpu)
-{
-	return vmcs_read32(VM_ENTRY_CONTROLS) & VM_ENTRY_CONTROLS_IA32E_MASK;
-}
-
 static void vmx_get_cs_db_l_bits(struct kvm_vcpu *vcpu, int *db, int *l)
 {
 	u32 ar = vmcs_read32(GUEST_CS_AR_BYTES);
@@ -1078,12 +1038,12 @@ static int vmx_vcpu_setup(struct kvm_vcpu *vcpu)
 	vmcs_write64(GUEST_IA32_DEBUGCTL, 0);
 
 	/* Control */
-	vmcs_write32_fixedbits(MSR_IA32_VMX_PINBASED_CTLS_MSR,
+	vmcs_write32_fixedbits(MSR_IA32_VMX_PINBASED_CTLS,
 			       PIN_BASED_VM_EXEC_CONTROL,
 			       PIN_BASED_EXT_INTR_MASK   /* 20.6.1 */
 			       | PIN_BASED_NMI_EXITING   /* 20.6.1 */
 			);
-	vmcs_write32_fixedbits(MSR_IA32_VMX_PROCBASED_CTLS_MSR,
+	vmcs_write32_fixedbits(MSR_IA32_VMX_PROCBASED_CTLS,
 			       CPU_BASED_VM_EXEC_CONTROL,
 			       CPU_BASED_HLT_EXITING         /* 20.6.2 */
 			       | CPU_BASED_CR8_LOAD_EXITING    /* 20.6.2 */
@@ -1166,7 +1126,7 @@ static int vmx_vcpu_setup(struct kvm_vcpu *vcpu)
 		    virt_to_phys(vcpu->guest_msrs + NR_BAD_MSRS));
 	vmcs_writel(VM_EXIT_MSR_LOAD_ADDR,
 		    virt_to_phys(vcpu->host_msrs + NR_BAD_MSRS));
-	vmcs_write32_fixedbits(MSR_IA32_VMX_EXIT_CTLS_MSR, VM_EXIT_CONTROLS,
+	vmcs_write32_fixedbits(MSR_IA32_VMX_EXIT_CTLS, VM_EXIT_CONTROLS,
 		     	       (HOST_IS_64 << 9));  /* 22.2,1, 20.7.1 */
 	vmcs_write32(VM_EXIT_MSR_STORE_COUNT, nr_good_msrs); /* 22.2.2 */
 	vmcs_write32(VM_EXIT_MSR_LOAD_COUNT, nr_good_msrs);  /* 22.2.2 */
@@ -1174,7 +1134,7 @@ static int vmx_vcpu_setup(struct kvm_vcpu *vcpu)
 
 
 	/* 22.2.1, 20.8.1 */
-	vmcs_write32_fixedbits(MSR_IA32_VMX_ENTRY_CTLS_MSR,
+	vmcs_write32_fixedbits(MSR_IA32_VMX_ENTRY_CTLS,
                                VM_ENTRY_CONTROLS, 0);
 	vmcs_write32(VM_ENTRY_INTR_INFO_FIELD, 0);  /* 22.2.1 */
 
@@ -1975,7 +1935,6 @@ static struct kvm_arch_ops vmx_arch_ops = {
 	.get_segment_base = vmx_get_segment_base,
 	.get_segment = vmx_get_segment,
 	.set_segment = vmx_set_segment,
-	.is_long_mode = vmx_is_long_mode,
 	.get_cs_db_l_bits = vmx_get_cs_db_l_bits,
 	.set_cr0 = vmx_set_cr0,
 	.set_cr0_no_modeswitch = vmx_set_cr0_no_modeswitch,

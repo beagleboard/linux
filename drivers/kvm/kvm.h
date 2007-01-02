@@ -278,7 +278,6 @@ struct kvm_arch_ops {
 			    struct kvm_segment *var, int seg);
 	void (*set_segment)(struct kvm_vcpu *vcpu,
 			    struct kvm_segment *var, int seg);
-	int (*is_long_mode)(struct kvm_vcpu *vcpu);
 	void (*get_cs_db_l_bits)(struct kvm_vcpu *vcpu, int *db, int *l);
 	void (*set_cr0)(struct kvm_vcpu *vcpu, unsigned long cr0);
 	void (*set_cr0_no_modeswitch)(struct kvm_vcpu *vcpu,
@@ -320,7 +319,8 @@ int kvm_init_arch(struct kvm_arch_ops *ops, struct module *module);
 void kvm_exit_arch(void);
 
 void kvm_mmu_destroy(struct kvm_vcpu *vcpu);
-int kvm_mmu_init(struct kvm_vcpu *vcpu);
+int kvm_mmu_create(struct kvm_vcpu *vcpu);
+int kvm_mmu_setup(struct kvm_vcpu *vcpu);
 
 int kvm_mmu_reset_context(struct kvm_vcpu *vcpu);
 void kvm_mmu_slot_remove_write_access(struct kvm *kvm, int slot);
@@ -375,9 +375,8 @@ void set_cr4(struct kvm_vcpu *vcpu, unsigned long cr0);
 void set_cr8(struct kvm_vcpu *vcpu, unsigned long cr0);
 void lmsw(struct kvm_vcpu *vcpu, unsigned long msw);
 
-#ifdef CONFIG_X86_64
-void set_efer(struct kvm_vcpu *vcpu, u64 efer);
-#endif
+int kvm_get_msr_common(struct kvm_vcpu *vcpu, u32 msr, u64 *pdata);
+int kvm_set_msr_common(struct kvm_vcpu *vcpu, u32 msr, u64 data);
 
 void fx_init(struct kvm_vcpu *vcpu);
 
@@ -401,6 +400,15 @@ static inline struct page *_gfn_to_page(struct kvm *kvm, gfn_t gfn)
 {
 	struct kvm_memory_slot *slot = gfn_to_memslot(kvm, gfn);
 	return (slot) ? slot->phys_mem[gfn - slot->base_gfn] : NULL;
+}
+
+static inline int is_long_mode(struct kvm_vcpu *vcpu)
+{
+#ifdef CONFIG_X86_64
+	return vcpu->shadow_efer & EFER_LME;
+#else
+	return 0;
+#endif
 }
 
 static inline int is_pae(struct kvm_vcpu *vcpu)

@@ -35,7 +35,6 @@
 #include <linux/delay.h>
 #include "netxen_nic.h"
 #include "netxen_nic_hw.h"
-#include "netxen_nic_ioctl.h"
 #include "netxen_nic_phan_reg.h"
 
 struct crb_addr_pair {
@@ -928,7 +927,7 @@ u32 netxen_process_rcv_ring(struct netxen_adapter *adapter, int ctxid, int max)
 		}
 		netxen_process_rcv(adapter, ctxid, desc);
 		netxen_clear_sts_owner(desc);
-		netxen_set_sts_owner(desc, STATUS_OWNER_PHANTOM);
+		netxen_set_sts_owner(desc, cpu_to_le16(STATUS_OWNER_PHANTOM));
 		consumer = (consumer + 1) & (adapter->max_rx_desc_count - 1);
 		count++;
 	}
@@ -1023,7 +1022,7 @@ int netxen_process_cmd_ring(unsigned long data)
 			     && netif_carrier_ok(port->netdev))
 		    && ((jiffies - port->netdev->trans_start) >
 			port->netdev->watchdog_timeo)) {
-			SCHEDULE_WORK(&port->adapter->tx_timeout_task);
+			SCHEDULE_WORK(&port->tx_timeout_task);
 		}
 
 		last_consumer = get_next_index(last_consumer,
@@ -1138,13 +1137,13 @@ void netxen_post_rx_buffers(struct netxen_adapter *adapter, u32 ctx, u32 ringid)
 		 */
 		dma = pci_map_single(pdev, skb->data, rcv_desc->dma_size,
 				     PCI_DMA_FROMDEVICE);
-		pdesc->addr_buffer = dma;
+		pdesc->addr_buffer = cpu_to_le64(dma);
 		buffer->skb = skb;
 		buffer->state = NETXEN_BUFFER_BUSY;
 		buffer->dma = dma;
 		/* make a rcv descriptor  */
-		pdesc->reference_handle = buffer->ref_handle;
-		pdesc->buffer_length = rcv_desc->dma_size;
+		pdesc->reference_handle = cpu_to_le16(buffer->ref_handle);
+		pdesc->buffer_length = cpu_to_le32(rcv_desc->dma_size);
 		DPRINTK(INFO, "done writing descripter\n");
 		producer =
 		    get_next_index(producer, rcv_desc->max_rx_desc_count);
@@ -1232,8 +1231,8 @@ void netxen_post_rx_buffers_nodb(struct netxen_adapter *adapter, uint32_t ctx,
 					     PCI_DMA_FROMDEVICE);
 
 		/* make a rcv descriptor  */
-		pdesc->reference_handle = le16_to_cpu(buffer->ref_handle);
-		pdesc->buffer_length = le16_to_cpu(rcv_desc->dma_size);
+		pdesc->reference_handle = cpu_to_le16(buffer->ref_handle);
+		pdesc->buffer_length = cpu_to_le16(rcv_desc->dma_size);
 		pdesc->addr_buffer = cpu_to_le64(buffer->dma);
 		DPRINTK(INFO, "done writing descripter\n");
 		producer =
@@ -1273,52 +1272,6 @@ int netxen_nic_tx_has_work(struct netxen_adapter *adapter)
 	return 0;
 }
 
-int
-netxen_nic_fill_statistics(struct netxen_adapter *adapter,
-			   struct netxen_port *port,
-			   struct netxen_statistics *netxen_stats)
-{
-	void __iomem *addr;
-
-	if (adapter->ahw.board_type == NETXEN_NIC_XGBE) {
-		netxen_nic_pci_change_crbwindow(adapter, 0);
-		NETXEN_NIC_LOCKED_READ_REG(NETXEN_NIU_XGE_TX_BYTE_CNT,
-					   &(netxen_stats->tx_bytes));
-		NETXEN_NIC_LOCKED_READ_REG(NETXEN_NIU_XGE_TX_FRAME_CNT,
-					   &(netxen_stats->tx_packets));
-		NETXEN_NIC_LOCKED_READ_REG(NETXEN_NIU_XGE_RX_BYTE_CNT,
-					   &(netxen_stats->rx_bytes));
-		NETXEN_NIC_LOCKED_READ_REG(NETXEN_NIU_XGE_RX_FRAME_CNT,
-					   &(netxen_stats->rx_packets));
-		NETXEN_NIC_LOCKED_READ_REG(NETXEN_NIU_XGE_AGGR_ERROR_CNT,
-					   &(netxen_stats->rx_errors));
-		NETXEN_NIC_LOCKED_READ_REG(NETXEN_NIU_XGE_CRC_ERROR_CNT,
-					   &(netxen_stats->rx_crc_errors));
-		NETXEN_NIC_LOCKED_READ_REG(NETXEN_NIU_XGE_OVERSIZE_FRAME_ERR,
-					   &(netxen_stats->
-					     rx_long_length_error));
-		NETXEN_NIC_LOCKED_READ_REG(NETXEN_NIU_XGE_UNDERSIZE_FRAME_ERR,
-					   &(netxen_stats->
-					     rx_short_length_error));
-
-		netxen_nic_pci_change_crbwindow(adapter, 1);
-	} else {
-		spin_lock_bh(&adapter->tx_lock);
-		netxen_stats->tx_bytes = port->stats.txbytes;
-		netxen_stats->tx_packets = port->stats.xmitedframes +
-		    port->stats.xmitfinished;
-		netxen_stats->rx_bytes = port->stats.rxbytes;
-		netxen_stats->rx_packets = port->stats.no_rcv;
-		netxen_stats->rx_errors = port->stats.rcvdbadskb;
-		netxen_stats->tx_errors = port->stats.nocmddescriptor;
-		netxen_stats->rx_short_length_error = port->stats.uplcong;
-		netxen_stats->rx_long_length_error = port->stats.uphcong;
-		netxen_stats->rx_crc_errors = 0;
-		netxen_stats->rx_mac_errors = 0;
-		spin_unlock_bh(&adapter->tx_lock);
-	}
-	return 0;
-}
 
 void netxen_nic_clear_stats(struct netxen_adapter *adapter)
 {
@@ -1332,193 +1285,3 @@ void netxen_nic_clear_stats(struct netxen_adapter *adapter)
 	}
 }
 
-int
-netxen_nic_clear_statistics(struct netxen_adapter *adapter,
-			    struct netxen_port *port)
-{
-	int data = 0;
-
-	netxen_nic_pci_change_crbwindow(adapter, 0);
-
-	netxen_nic_locked_write_reg(adapter, NETXEN_NIU_XGE_TX_BYTE_CNT, &data);
-	netxen_nic_locked_write_reg(adapter, NETXEN_NIU_XGE_TX_FRAME_CNT,
-				    &data);
-	netxen_nic_locked_write_reg(adapter, NETXEN_NIU_XGE_RX_BYTE_CNT, &data);
-	netxen_nic_locked_write_reg(adapter, NETXEN_NIU_XGE_RX_FRAME_CNT,
-				    &data);
-	netxen_nic_locked_write_reg(adapter, NETXEN_NIU_XGE_AGGR_ERROR_CNT,
-				    &data);
-	netxen_nic_locked_write_reg(adapter, NETXEN_NIU_XGE_CRC_ERROR_CNT,
-				    &data);
-	netxen_nic_locked_write_reg(adapter, NETXEN_NIU_XGE_OVERSIZE_FRAME_ERR,
-				    &data);
-	netxen_nic_locked_write_reg(adapter, NETXEN_NIU_XGE_UNDERSIZE_FRAME_ERR,
-				    &data);
-
-	netxen_nic_pci_change_crbwindow(adapter, 1);
-	netxen_nic_clear_stats(adapter);
-	return 0;
-}
-
-int
-netxen_nic_do_ioctl(struct netxen_adapter *adapter, void *u_data,
-		    struct netxen_port *port)
-{
-	struct netxen_nic_ioctl_data data;
-	struct netxen_nic_ioctl_data *up_data;
-	int retval = 0;
-	struct netxen_statistics netxen_stats;
-
-	up_data = (void *)u_data;
-
-	DPRINTK(INFO, "doing ioctl for %p\n", adapter);
-	if (copy_from_user(&data, (void __user *)up_data, sizeof(data))) {
-		/* evil user tried to crash the kernel */
-		DPRINTK(ERR, "bad copy from userland: %d\n", (int)sizeof(data));
-		retval = -EFAULT;
-		goto error_out;
-	}
-
-	/* Shouldn't access beyond legal limits of  "char u[64];" member */
-	if (!data.ptr && (data.size > sizeof(data.u))) {
-		/* evil user tried to crash the kernel */
-		DPRINTK(ERR, "bad size: %d\n", data.size);
-		retval = -EFAULT;
-		goto error_out;
-	}
-
-	switch (data.cmd) {
-	case netxen_nic_cmd_pci_read:
-		if ((retval = netxen_nic_hw_read_ioctl(adapter, data.off,
-						       &(data.u), data.size)))
-			goto error_out;
-		if (copy_to_user
-		    ((void __user *)&(up_data->u), &(data.u), data.size)) {
-			DPRINTK(ERR, "bad copy to userland: %d\n",
-				(int)sizeof(data));
-			retval = -EFAULT;
-			goto error_out;
-		}
-		data.rv = 0;
-		break;
-
-	case netxen_nic_cmd_pci_write:
-		if ((retval = netxen_nic_hw_write_ioctl(adapter, data.off,
-							&(data.u), data.size)))
-			goto error_out;
-		data.rv = 0;
-		break;
-
-	case netxen_nic_cmd_pci_mem_read:
-		if (netxen_nic_pci_mem_read_ioctl(adapter, data.off, &(data.u),
-						  data.size)) {
-			DPRINTK(ERR, "Failed to read the data.\n");
-			retval = -EFAULT;
-			goto error_out;
-		}
-		if (copy_to_user
-		    ((void __user *)&(up_data->u), &(data.u), data.size)) {
-			DPRINTK(ERR, "bad copy to userland: %d\n",
-				(int)sizeof(data));
-			retval = -EFAULT;
-			goto error_out;
-		}
-		data.rv = 0;
-		break;
-
-	case netxen_nic_cmd_pci_mem_write:
-		if ((retval = netxen_nic_pci_mem_write_ioctl(adapter, data.off,
-							     &(data.u),
-							     data.size)))
-			goto error_out;
-		data.rv = 0;
-		break;
-
-	case netxen_nic_cmd_pci_config_read:
-		switch (data.size) {
-		case 1:
-			data.rv = pci_read_config_byte(adapter->ahw.pdev,
-						       data.off,
-						       (char *)&(data.u));
-			break;
-		case 2:
-			data.rv = pci_read_config_word(adapter->ahw.pdev,
-						       data.off,
-						       (short *)&(data.u));
-			break;
-		case 4:
-			data.rv = pci_read_config_dword(adapter->ahw.pdev,
-							data.off,
-							(u32 *) & (data.u));
-			break;
-		}
-		if (copy_to_user
-		    ((void __user *)&(up_data->u), &(data.u), data.size)) {
-			DPRINTK(ERR, "bad copy to userland: %d\n",
-				(int)sizeof(data));
-			retval = -EFAULT;
-			goto error_out;
-		}
-		break;
-
-	case netxen_nic_cmd_pci_config_write:
-		switch (data.size) {
-		case 1:
-			data.rv = pci_write_config_byte(adapter->ahw.pdev,
-							data.off,
-							*(char *)&(data.u));
-			break;
-		case 2:
-			data.rv = pci_write_config_word(adapter->ahw.pdev,
-							data.off,
-							*(short *)&(data.u));
-			break;
-		case 4:
-			data.rv = pci_write_config_dword(adapter->ahw.pdev,
-							 data.off,
-							 *(u32 *) & (data.u));
-			break;
-		}
-		break;
-
-	case netxen_nic_cmd_get_stats:
-		data.rv =
-		    netxen_nic_fill_statistics(adapter, port, &netxen_stats);
-		if (copy_to_user
-		    ((void __user *)(up_data->ptr), (void *)&netxen_stats,
-		     sizeof(struct netxen_statistics))) {
-			DPRINTK(ERR, "bad copy to userland: %d\n",
-				(int)sizeof(netxen_stats));
-			retval = -EFAULT;
-			goto error_out;
-		}
-		up_data->rv = data.rv;
-		break;
-
-	case netxen_nic_cmd_clear_stats:
-		data.rv = netxen_nic_clear_statistics(adapter, port);
-		up_data->rv = data.rv;
-		break;
-
-	case netxen_nic_cmd_get_version:
-		if (copy_to_user
-		    ((void __user *)&(up_data->u), NETXEN_NIC_LINUX_VERSIONID,
-		     sizeof(NETXEN_NIC_LINUX_VERSIONID))) {
-			DPRINTK(ERR, "bad copy to userland: %d\n",
-				(int)sizeof(data));
-			retval = -EFAULT;
-			goto error_out;
-		}
-		break;
-
-	default:
-		DPRINTK(INFO, "bad command %d for %p\n", data.cmd, adapter);
-		retval = -EOPNOTSUPP;
-		goto error_out;
-	}
-	put_user(data.rv, (&(up_data->rv)));
-	DPRINTK(INFO, "done ioctl for %p well.\n", adapter);
-
-      error_out:
-	return retval;
-}

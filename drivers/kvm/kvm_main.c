@@ -245,7 +245,8 @@ static void kvm_free_physmem_slot(struct kvm_memory_slot *free,
 	if (!dont || free->phys_mem != dont->phys_mem)
 		if (free->phys_mem) {
 			for (i = 0; i < free->npages; ++i)
-				__free_page(free->phys_mem[i]);
+				if (free->phys_mem[i])
+					__free_page(free->phys_mem[i]);
 			vfree(free->phys_mem);
 		}
 
@@ -398,7 +399,7 @@ void set_cr4(struct kvm_vcpu *vcpu, unsigned long cr4)
 		return;
 	}
 
-	if (kvm_arch_ops->is_long_mode(vcpu)) {
+	if (is_long_mode(vcpu)) {
 		if (!(cr4 & CR4_PAE_MASK)) {
 			printk(KERN_DEBUG "set_cr4: #GP, clearing PAE while "
 			       "in long mode\n");
@@ -425,7 +426,7 @@ EXPORT_SYMBOL_GPL(set_cr4);
 
 void set_cr3(struct kvm_vcpu *vcpu, unsigned long cr3)
 {
-	if (kvm_arch_ops->is_long_mode(vcpu)) {
+	if (is_long_mode(vcpu)) {
 		if ( cr3 & CR3_L_MODE_RESEVED_BITS) {
 			printk(KERN_DEBUG "set_cr3: #GP, reserved bits\n");
 			inject_gp(vcpu);
@@ -521,12 +522,14 @@ static int kvm_dev_ioctl_create_vcpu(struct kvm *kvm, int n)
 	if (r < 0)
 		goto out_free_vcpus;
 
+	r = kvm_mmu_create(vcpu);
+	if (r < 0)
+		goto out_free_vcpus;
+
 	kvm_arch_ops->vcpu_load(vcpu);
-
-	r = kvm_arch_ops->vcpu_setup(vcpu);
+	r = kvm_mmu_setup(vcpu);
 	if (r >= 0)
-		r = kvm_mmu_init(vcpu);
-
+		r = kvm_arch_ops->vcpu_setup(vcpu);
 	vcpu_put(vcpu);
 
 	if (r < 0)
@@ -1103,6 +1106,51 @@ void realmode_set_cr(struct kvm_vcpu *vcpu, int cr, unsigned long val,
 	}
 }
 
+int kvm_get_msr_common(struct kvm_vcpu *vcpu, u32 msr, u64 *pdata)
+{
+	u64 data;
+
+	switch (msr) {
+	case 0xc0010010: /* SYSCFG */
+	case 0xc0010015: /* HWCR */
+	case MSR_IA32_PLATFORM_ID:
+	case MSR_IA32_P5_MC_ADDR:
+	case MSR_IA32_P5_MC_TYPE:
+	case MSR_IA32_MC0_CTL:
+	case MSR_IA32_MCG_STATUS:
+	case MSR_IA32_MCG_CAP:
+	case MSR_IA32_MC0_MISC:
+	case MSR_IA32_MC0_MISC+4:
+	case MSR_IA32_MC0_MISC+8:
+	case MSR_IA32_MC0_MISC+12:
+	case MSR_IA32_MC0_MISC+16:
+	case MSR_IA32_UCODE_REV:
+	case MSR_IA32_PERF_STATUS:
+		/* MTRR registers */
+	case 0xfe:
+	case 0x200 ... 0x2ff:
+		data = 0;
+		break;
+	case 0xcd: /* fsb frequency */
+		data = 3;
+		break;
+	case MSR_IA32_APICBASE:
+		data = vcpu->apic_base;
+		break;
+#ifdef CONFIG_X86_64
+	case MSR_EFER:
+		data = vcpu->shadow_efer;
+		break;
+#endif
+	default:
+		printk(KERN_ERR "kvm: unhandled rdmsr: 0x%x\n", msr);
+		return 1;
+	}
+	*pdata = data;
+	return 0;
+}
+EXPORT_SYMBOL_GPL(kvm_get_msr_common);
+
 /*
  * Reads an msr value (of 'msr_index') into 'pdata'.
  * Returns 0 on success, non-0 otherwise.
@@ -1115,7 +1163,7 @@ static int get_msr(struct kvm_vcpu *vcpu, u32 msr_index, u64 *pdata)
 
 #ifdef CONFIG_X86_64
 
-void set_efer(struct kvm_vcpu *vcpu, u64 efer)
+static void set_efer(struct kvm_vcpu *vcpu, u64 efer)
 {
 	if (efer & EFER_RESERVED_BITS) {
 		printk(KERN_DEBUG "set_efer: 0x%llx #GP, reserved bits\n",
@@ -1138,9 +1186,35 @@ void set_efer(struct kvm_vcpu *vcpu, u64 efer)
 
 	vcpu->shadow_efer = efer;
 }
-EXPORT_SYMBOL_GPL(set_efer);
 
 #endif
+
+int kvm_set_msr_common(struct kvm_vcpu *vcpu, u32 msr, u64 data)
+{
+	switch (msr) {
+#ifdef CONFIG_X86_64
+	case MSR_EFER:
+		set_efer(vcpu, data);
+		break;
+#endif
+	case MSR_IA32_MC0_STATUS:
+		printk(KERN_WARNING "%s: MSR_IA32_MC0_STATUS 0x%llx, nop\n",
+		       __FUNCTION__, data);
+		break;
+	case MSR_IA32_UCODE_REV:
+	case MSR_IA32_UCODE_WRITE:
+	case 0x200 ... 0x2ff: /* MTRRs */
+		break;
+	case MSR_IA32_APICBASE:
+		vcpu->apic_base = data;
+		break;
+	default:
+		printk(KERN_ERR "kvm: unhandled wrmsr: 0x%x\n", msr);
+		return 1;
+	}
+	return 0;
+}
+EXPORT_SYMBOL_GPL(kvm_set_msr_common);
 
 /*
  * Writes msr value into into the appropriate "register".
@@ -1865,6 +1939,11 @@ int kvm_init_arch(struct kvm_arch_ops *ops, struct module *module)
 {
 	int r;
 
+	if (kvm_arch_ops) {
+		printk(KERN_ERR "kvm: already loaded the other module\n");
+		return -EEXIST;
+	}
+
 	kvm_arch_ops = ops;
 
 	if (!kvm_arch_ops->cpu_has_kvm_support()) {
@@ -1907,6 +1986,7 @@ void kvm_exit_arch(void)
 	unregister_reboot_notifier(&kvm_reboot_notifier);
 	on_each_cpu(kvm_arch_ops->hardware_disable, 0, 0, 1);
 	kvm_arch_ops->hardware_unsetup();
+	kvm_arch_ops = NULL;
 }
 
 static __init int kvm_init(void)

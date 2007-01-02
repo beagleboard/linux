@@ -166,11 +166,6 @@ static inline void write_dr7(unsigned long val)
 	asm volatile ("mov %0, %%dr7" :: "r" (val));
 }
 
-static inline int svm_is_long_mode(struct kvm_vcpu *vcpu)
-{
-	return vcpu->svm->vmcb->save.efer & KVM_EFER_LMA;
-}
-
 static inline void force_new_asid(struct kvm_vcpu *vcpu)
 {
 	vcpu->svm->asid_generation--;
@@ -246,7 +241,7 @@ static int has_svm(void)
 {
 	uint32_t eax, ebx, ecx, edx;
 
-	if (current_cpu_data.x86_vendor != X86_VENDOR_AMD) {
+	if (boot_cpu_data.x86_vendor != X86_VENDOR_AMD) {
 		printk(KERN_INFO "has_svm: not amd\n");
 		return 0;
 	}
@@ -1073,22 +1068,6 @@ static int emulate_on_interception(struct kvm_vcpu *vcpu, struct kvm_run *kvm_ru
 static int svm_get_msr(struct kvm_vcpu *vcpu, unsigned ecx, u64 *data)
 {
 	switch (ecx) {
-	case MSR_IA32_P5_MC_ADDR:
-	case MSR_IA32_P5_MC_TYPE:
-	case MSR_IA32_MC0_CTL:
-	case MSR_IA32_MCG_STATUS:
-	case MSR_IA32_MCG_CAP:
-	case MSR_IA32_MC0_MISC:
-	case MSR_IA32_MC0_MISC+4:
-	case MSR_IA32_MC0_MISC+8:
-	case MSR_IA32_MC0_MISC+12:
-	case MSR_IA32_MC0_MISC+16:
-	case MSR_IA32_UCODE_REV:
-		/* MTRR registers */
-	case 0xfe:
-	case 0x200 ... 0x2ff:
-		*data = 0;
-		break;
 	case MSR_IA32_TIME_STAMP_COUNTER: {
 		u64 tsc;
 
@@ -1096,12 +1075,6 @@ static int svm_get_msr(struct kvm_vcpu *vcpu, unsigned ecx, u64 *data)
 		*data = vcpu->svm->vmcb->control.tsc_offset + tsc;
 		break;
 	}
-	case MSR_EFER:
-		*data = vcpu->shadow_efer;
-		break;
-	case MSR_IA32_APICBASE:
-		*data = vcpu->apic_base;
-		break;
 	case MSR_K6_STAR:
 		*data = vcpu->svm->vmcb->save.star;
 		break;
@@ -1129,8 +1102,7 @@ static int svm_get_msr(struct kvm_vcpu *vcpu, unsigned ecx, u64 *data)
 		*data = vcpu->svm->vmcb->save.sysenter_esp;
 		break;
 	default:
-		printk(KERN_ERR "kvm: unhandled rdmsr: 0x%x\n", ecx);
-		return 1;
+		return kvm_get_msr_common(vcpu, ecx, data);
 	}
 	return 0;
 }
@@ -1154,15 +1126,6 @@ static int rdmsr_interception(struct kvm_vcpu *vcpu, struct kvm_run *kvm_run)
 static int svm_set_msr(struct kvm_vcpu *vcpu, unsigned ecx, u64 data)
 {
 	switch (ecx) {
-#ifdef CONFIG_X86_64
-	case MSR_EFER:
-		set_efer(vcpu, data);
-		break;
-#endif
-	case MSR_IA32_MC0_STATUS:
-		printk(KERN_WARNING "%s: MSR_IA32_MC0_STATUS 0x%llx, nop\n"
-			    , __FUNCTION__, data);
-		break;
 	case MSR_IA32_TIME_STAMP_COUNTER: {
 		u64 tsc;
 
@@ -1170,13 +1133,6 @@ static int svm_set_msr(struct kvm_vcpu *vcpu, unsigned ecx, u64 data)
 		vcpu->svm->vmcb->control.tsc_offset = data - tsc;
 		break;
 	}
-	case MSR_IA32_UCODE_REV:
-	case MSR_IA32_UCODE_WRITE:
-	case 0x200 ... 0x2ff: /* MTRRs */
-		break;
-	case MSR_IA32_APICBASE:
-		vcpu->apic_base = data;
-		break;
 	case MSR_K6_STAR:
 		vcpu->svm->vmcb->save.star = data;
 		break;
@@ -1204,8 +1160,7 @@ static int svm_set_msr(struct kvm_vcpu *vcpu, unsigned ecx, u64 data)
 		vcpu->svm->vmcb->save.sysenter_esp = data;
 		break;
 	default:
-		printk(KERN_ERR "kvm: unhandled wrmsr: %x\n", ecx);
-		return 1;
+		return kvm_set_msr_common(vcpu, ecx, data);
 	}
 	return 0;
 }
@@ -1609,7 +1564,6 @@ static struct kvm_arch_ops svm_arch_ops = {
 	.get_segment_base = svm_get_segment_base,
 	.get_segment = svm_get_segment,
 	.set_segment = svm_set_segment,
-	.is_long_mode = svm_is_long_mode,
 	.get_cs_db_l_bits = svm_get_cs_db_l_bits,
 	.set_cr0 = svm_set_cr0,
 	.set_cr0_no_modeswitch = svm_set_cr0,

@@ -1,8 +1,8 @@
 VERSION = 2
 PATCHLEVEL = 6
 SUBLEVEL = 20
-EXTRAVERSION =-rc1
-NAME=Avast! A bilge rat!
+EXTRAVERSION =-rc3
+NAME = Homicidal Dwarf Hamster
 
 # *DOCUMENTATION*
 # To see a list of typical targets execute "make help"
@@ -1045,7 +1045,7 @@ CLEAN_FILES +=	vmlinux System.map \
 # Directories & files removed with 'make mrproper'
 MRPROPER_DIRS  += include/config include2 usr/include
 MRPROPER_FILES += .config .config.old include/asm .version .old_version \
-                  include/linux/autoconf.h generated-headers		\
+                  include/linux/autoconf.h include/linux/utsrelease.h include/linux/version.h \
 		  Module.symvers tags TAGS cscope*
 
 # clean - Delete most, but leave enough to build external modules
