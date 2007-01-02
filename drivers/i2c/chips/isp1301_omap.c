@@ -1119,9 +1119,9 @@ static u8 isp1301_clear_latch(struct isp1301 *isp)
 }
 
 static void
-isp1301_work(void *data)
+isp1301_work(struct work_struct *work)
 {
-	struct isp1301	*isp = data;
+	struct isp1301	*isp = container_of(work, struct isp1301, work);
 	int		stop;
 
 	/* implicit lock:  we're the only task using this device */
@@ -1525,7 +1525,7 @@ static int isp1301_probe(struct i2c_adapter *bus, int address, int kind)
 	if (!isp)
 		return 0;
 
-	INIT_WORK(&isp->work, isp1301_work, isp);
+	INIT_WORK(&isp->work, isp1301_work);
 	init_timer(&isp->timer);
 	isp->timer.function = isp1301_timer;
 	isp->timer.data = (unsigned long) isp;
