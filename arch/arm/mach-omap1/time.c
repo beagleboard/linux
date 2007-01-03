@@ -39,6 +39,9 @@
 #include <linux/interrupt.h>
 #include <linux/sched.h>
 #include <linux/spinlock.h>
+#include <linux/clk.h>
+#include <linux/err.h>
+#include <linux/clocksource.h>
 
 #include <asm/system.h>
 #include <asm/hardware.h>
@@ -48,13 +51,7 @@
 #include <asm/mach/irq.h>
 #include <asm/mach/time.h>
 
-struct sys_timer omap_timer;
 
-/*
- * ---------------------------------------------------------------------------
- * MPU timer
- * ---------------------------------------------------------------------------
- */
 #define OMAP_MPU_TIMER_BASE		OMAP_MPU_TIMER1_BASE
 #define OMAP_MPU_TIMER_OFFSET		0x100
 
@@ -88,21 +85,6 @@ static inline unsigned long long cycles_2_ns(unsigned long long cyc)
 	return (cyc * cyc2ns_scale) >> CYC2NS_SCALE_FACTOR;
 }
 
-/*
- * MPU_TICKS_PER_SEC must be an even number, otherwise machinecycles_to_usecs
- * will break. On P2, the timer count rate is 6.5 MHz after programming PTV
- * with 0. This divides the 13MHz input by 2, and is undocumented.
- */
-#if defined(CONFIG_MACH_OMAP_PERSEUS2) || defined(CONFIG_MACH_OMAP_FSAMPLE)
-/* REVISIT: This ifdef construct should be replaced by a query to clock
- * framework to see if timer base frequency is 12.0, 13.0 or 19.2 MHz.
- */
-#define MPU_TICKS_PER_SEC		(13000000 / 2)
-#else
-#define MPU_TICKS_PER_SEC		(12000000 / 2)
-#endif
-
-#define MPU_TIMER_TICK_PERIOD		((MPU_TICKS_PER_SEC / HZ) - 1)
 
 typedef struct {
 	u32 cntl;			/* CNTL_TIMER, R/W */
@@ -131,87 +113,94 @@ static inline void omap_mpu_timer_start(int nr, unsigned long load_val)
 	timer->cntl = (MPU_TIMER_CLOCK_ENABLE | MPU_TIMER_AR | MPU_TIMER_ST);
 }
 
-unsigned long omap_mpu_timer_ticks_to_usecs(unsigned long nr_ticks)
-{
-	unsigned long long nsec;
-
-	nsec = cycles_2_ns((unsigned long long)nr_ticks);
-	return (unsigned long)nsec / 1000;
-}
-
 /*
- * Last processed system timer interrupt
+ * ---------------------------------------------------------------------------
+ * MPU timer 1 ... count down to zero, interrupt, reload
+ * ---------------------------------------------------------------------------
  */
-static unsigned long omap_mpu_timer_last = 0;
-
-/*
- * Returns elapsed usecs since last system timer interrupt
- */
-static unsigned long omap_mpu_timer_gettimeoffset(void)
+static irqreturn_t omap_mpu_timer1_interrupt(int irq, void *dev_id)
 {
-	unsigned long now = 0 - omap_mpu_timer_read(0);
-	unsigned long elapsed = now - omap_mpu_timer_last;
-
-	return omap_mpu_timer_ticks_to_usecs(elapsed);
-}
-
-/*
- * Elapsed time between interrupts is calculated using timer0.
- * Latency during the interrupt is calculated using timer1.
- * Both timer0 and timer1 are counting at 6MHz (P2 6.5MHz).
- */
-static irqreturn_t omap_mpu_timer_interrupt(int irq, void *dev_id)
-{
-	unsigned long now, latency;
-
 	write_seqlock(&xtime_lock);
-	now = 0 - omap_mpu_timer_read(0);
-	latency = MPU_TICKS_PER_SEC / HZ - omap_mpu_timer_read(1);
-	omap_mpu_timer_last = now - latency;
+	/* NOTE:  no lost-tick detection/handling! */
 	timer_tick();
 	write_sequnlock(&xtime_lock);
 
 	return IRQ_HANDLED;
 }
 
-static struct irqaction omap_mpu_timer_irq = {
-	.name		= "mpu timer",
-	.flags		= IRQF_DISABLED | IRQF_TIMER,
-	.handler	= omap_mpu_timer_interrupt,
-};
-
-static unsigned long omap_mpu_timer1_overflows;
-static irqreturn_t omap_mpu_timer1_interrupt(int irq, void *dev_id)
-{
-	omap_mpu_timer1_overflows++;
-	return IRQ_HANDLED;
-}
-
 static struct irqaction omap_mpu_timer1_irq = {
-	.name		= "mpu timer1 overflow",
-	.flags		= IRQF_DISABLED,
+	.name		= "mpu_timer1",
+	.flags		= IRQF_DISABLED | IRQF_TIMER,
 	.handler	= omap_mpu_timer1_interrupt,
 };
 
-static __init void omap_init_mpu_timer(void)
+static __init void omap_init_mpu_timer(unsigned long rate)
 {
-	set_cyc2ns_scale(MPU_TICKS_PER_SEC / 1000);
-	omap_timer.offset = omap_mpu_timer_gettimeoffset;
+	set_cyc2ns_scale(rate / 1000);
+
 	setup_irq(INT_TIMER1, &omap_mpu_timer1_irq);
-	setup_irq(INT_TIMER2, &omap_mpu_timer_irq);
-	omap_mpu_timer_start(0, 0xffffffff);
-	omap_mpu_timer_start(1, MPU_TIMER_TICK_PERIOD);
+	omap_mpu_timer_start(0, (rate / HZ) - 1);
 }
+
+/*
+ * ---------------------------------------------------------------------------
+ * MPU timer 2 ... free running 32-bit clock source and scheduler clock
+ * ---------------------------------------------------------------------------
+ */
+
+static unsigned long omap_mpu_timer2_overflows;
+
+static irqreturn_t omap_mpu_timer2_interrupt(int irq, void *dev_id)
+{
+	omap_mpu_timer2_overflows++;
+	return IRQ_HANDLED;
+}
+
+static struct irqaction omap_mpu_timer2_irq = {
+	.name		= "mpu_timer2",
+	.flags		= IRQF_DISABLED,
+	.handler	= omap_mpu_timer2_interrupt,
+};
+
+static cycle_t mpu_read(void)
+{
+	return ~omap_mpu_timer_read(1);
+}
+
+static struct clocksource clocksource_mpu = {
+	.name		= "mpu_timer2",
+	.rating		= 300,
+	.read		= mpu_read,
+	.mask		= CLOCKSOURCE_MASK(32),
+	.shift		= 24,
+	.is_continuous	= 1,
+};
+
+static void __init omap_init_clocksource(unsigned long rate)
+{
+	static char err[] __initdata = KERN_ERR
+			"%s: can't register clocksource!\n";
+
+	clocksource_mpu.mult
+		= clocksource_khz2mult(rate/1000, clocksource_mpu.shift);
+
+	setup_irq(INT_TIMER2, &omap_mpu_timer2_irq);
+	omap_mpu_timer_start(1, ~0);
+
+	if (clocksource_register(&clocksource_mpu))
+		printk(err, clocksource_mpu.name);
+}
+
 
 /*
  * Scheduler clock - returns current time in nanosec units.
  */
 unsigned long long sched_clock(void)
 {
-	unsigned long ticks = 0 - omap_mpu_timer_read(0);
+	unsigned long ticks = 0 - omap_mpu_timer_read(1);
 	unsigned long long ticks64;
 
-	ticks64 = omap_mpu_timer1_overflows;
+	ticks64 = omap_mpu_timer2_overflows;
 	ticks64 <<= 32;
 	ticks64 |= ticks;
 
@@ -225,10 +214,21 @@ unsigned long long sched_clock(void)
  */
 static void __init omap_timer_init(void)
 {
-	omap_init_mpu_timer();
+ 	struct clk	*ck_ref = clk_get(NULL, "ck_ref");
+	unsigned long	rate;
+
+	BUG_ON(IS_ERR(ck_ref));
+
+	rate = clk_get_rate(ck_ref);
+	clk_put(ck_ref);
+
+	/* PTV = 0 */
+	rate /= 2;
+
+	omap_init_mpu_timer(rate);
+	omap_init_clocksource(rate);
 }
 
 struct sys_timer omap_timer = {
 	.init		= omap_timer_init,
-	.offset		= NULL,		/* Initialized later */
 };
