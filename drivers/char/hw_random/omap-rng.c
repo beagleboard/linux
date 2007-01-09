@@ -179,7 +179,6 @@ static struct platform_driver omap_rng_driver = {
 		.name		= "omap_rng",
 		.owner		= THIS_MODULE,
 	},
-	.probe		= omap_rng_probe,
 	.remove		= __exit_p(omap_rng_remove),
 	.suspend	= omap_rng_suspend,
 	.resume		= omap_rng_resume
@@ -190,7 +189,7 @@ static int __init omap_rng_init(void)
 	if (!cpu_is_omap16xx() && !cpu_is_omap24xx())
 		return -ENODEV;
 
-	return platform_driver_register(&omap_rng_driver);
+	return platform_driver_probe(&omap_rng_driver, omap_rng_probe);
 }
 
 static void __exit omap_rng_exit(void)
