@@ -152,12 +152,8 @@ static int omapbl_probe(struct platform_device *pdev)
 	if (unlikely(!bl))
 		return -ENOMEM;
 
-	/* REVISIT backlight API glitch:  we can't associate the
-	 * class device with "pdev" ... probably pass &pdev->dev
-	 * instead of a string.
-	 */
-
-	dev = backlight_device_register("omap-bl", bl, &omapbl_data);
+	dev = backlight_device_register("omap-bl", &pdev->dev,
+			bl, &omapbl_data);
 	if (IS_ERR(dev)) {
 		kfree(bl);
 		return PTR_ERR(dev);
