@@ -336,7 +336,7 @@ DECLARE_TASKLET(hid_tasklet, do_hid_tasklet, 0);
 static struct innovator_hid_dev *hid;
 
 struct innovator_hid_dev {
-	struct input_dev mouse, keyboard;
+	struct input_dev *mouse, *keyboard;
 	int open;
 	int irq_enabled;
 };
@@ -921,6 +921,8 @@ process_pointing_report(struct innovator_hid_dev *hid, u8 * buffer)
 {
 	static int prev_x, prev_y, prev_btn;
 	int x, y, btn;
+	hid->keyboard = input_allocate_device();
+	hid->mouse = input_allocate_device();
 
 	if (buffer[1] & (1 << 3)) {
 		/* relative pointing device report */
@@ -937,14 +939,14 @@ process_pointing_report(struct innovator_hid_dev *hid, u8 * buffer)
 		else
 			y = -y;
 
-		input_report_key(&hid->mouse,
+		input_report_key(hid->mouse,
 				 BTN_LEFT, buffer[1] & (1<<0));
-		input_report_key(&hid->mouse,
+		input_report_key(hid->mouse,
 				 BTN_RIGHT, buffer[1] & (1<<1));
-		input_report_key(&hid->mouse,
+		input_report_key(hid->mouse,
 				 BTN_MIDDLE, buffer[1] & (1<<2));
-		input_report_rel(&hid->mouse, REL_X, x);
-		input_report_rel(&hid->mouse, REL_Y, y);
+		input_report_rel(hid->mouse, REL_X, x);
+		input_report_rel(hid->mouse, REL_Y, y);
 	} else {
 		/* REVISIT: Does this work? */
 		/* absolute pointing device report */
@@ -956,14 +958,14 @@ process_pointing_report(struct innovator_hid_dev *hid, u8 * buffer)
 		    && (prev_btn == btn))
 			return;
 
-		input_report_key(&hid->mouse, BTN_LEFT, btn);
-		input_report_abs(&hid->mouse, ABS_X, x);
-		input_report_abs(&hid->mouse, ABS_Y, y);
+		input_report_key(hid->mouse, BTN_LEFT, btn);
+		input_report_abs(hid->mouse, ABS_X, x);
+		input_report_abs(hid->mouse, ABS_Y, y);
 		prev_x = x;
 		prev_y = y;
 		prev_btn = btn;
 	}
-	input_sync(&hid->mouse);
+	input_sync(hid->mouse);
 	dbg("HID X: %d Y: %d Functions: %x\n", x, y, buffer[1]);
 }
 
@@ -1013,27 +1015,27 @@ static void
 handle_print_scr(int up)
 {
 	if (up) {
-		input_report_key(&hid->keyboard, 0xe0, 1);
-		input_report_key(&hid->keyboard, 0xb7, 1);
-		input_report_key(&hid->keyboard, 0xe0, 1);
-		input_report_key(&hid->keyboard, 0xaa, 1);
+		input_report_key(hid->keyboard, 0xe0, 1);
+		input_report_key(hid->keyboard, 0xb7, 1);
+		input_report_key(hid->keyboard, 0xe0, 1);
+		input_report_key(hid->keyboard, 0xaa, 1);
 	} else {
-		input_report_key(&hid->keyboard, 0xe0, 0);
-		input_report_key(&hid->keyboard, 0x2a, 0);
-		input_report_key(&hid->keyboard, 0xe0, 0);
-		input_report_key(&hid->keyboard, 0x37, 0);
+		input_report_key(hid->keyboard, 0xe0, 0);
+		input_report_key(hid->keyboard, 0x2a, 0);
+		input_report_key(hid->keyboard, 0xe0, 0);
+		input_report_key(hid->keyboard, 0x37, 0);
 	}
 }
 
 static void
 handle_pause(void)
 {
-	input_report_key(&hid->keyboard, 0xe1, 0);
-	input_report_key(&hid->keyboard, 0x1d, 0);
-	input_report_key(&hid->keyboard, 0x45, 0);
-	input_report_key(&hid->keyboard, 0xe1, 0);
-	input_report_key(&hid->keyboard, 0x9d, 0);
-	input_report_key(&hid->keyboard, 0xc5, 0);
+	input_report_key(hid->keyboard, 0xe1, 0);
+	input_report_key(hid->keyboard, 0x1d, 0);
+	input_report_key(hid->keyboard, 0x45, 0);
+	input_report_key(hid->keyboard, 0xe1, 0);
+	input_report_key(hid->keyboard, 0x9d, 0);
+	input_report_key(hid->keyboard, 0xc5, 0);
 }
 
 static void
@@ -1042,6 +1044,8 @@ process_keyboard_report(struct innovator_hid_dev *hid, u8 * buffer)
 	unsigned char ch = buffer[1] & 0x7f;
 	int up = buffer[1] & 0x80 ? 1 : 0;
 	int is_e0 = 0;
+	hid->keyboard = input_allocate_device();
+	hid->mouse = input_allocate_device();
 
 	if ((ch == 106) || (ch == 107))
 		return;		/* no code */
@@ -1065,10 +1069,10 @@ process_keyboard_report(struct innovator_hid_dev *hid, u8 * buffer)
 	}
 
 	if (is_e0) {
-		input_report_key(&hid->keyboard, 0xe0, !up);
+		input_report_key(hid->keyboard, 0xe0, !up);
 	}
-	input_report_key(&hid->keyboard, usar2scancode[ch], !up);
-	input_sync(&hid->keyboard);
+	input_report_key(hid->keyboard, usar2scancode[ch], !up);
+	input_sync(hid->keyboard);
 }
 
 static irqreturn_t
@@ -1208,37 +1212,38 @@ innovator_kbd_init(void)
 
 	/* setup the mouse */
 	memset(hid, 0, sizeof(struct innovator_hid_dev));
-	hid->mouse.evbit[0] = BIT(EV_KEY) | BIT(EV_REL);
-	hid->mouse.keybit[LONG(BTN_MOUSE)] =
+	hid->mouse = input_allocate_device();
+	hid->mouse->evbit[0] = BIT(EV_KEY) | BIT(EV_REL);
+	hid->mouse->keybit[LONG(BTN_MOUSE)] =
 	    BIT(BTN_LEFT) | BIT(BTN_RIGHT) |
 	    BIT(BTN_MIDDLE) | BIT(BTN_TOUCH);
-	hid->mouse.relbit[0] = BIT(REL_X) | BIT(REL_Y);
-	hid->mouse.private = hid;
-	hid->mouse.open = innovator_hid_open;
-	hid->mouse.close = innovator_hid_close;
-	hid->mouse.name = "innovator_mouse";
-	hid->mouse.id.bustype = 0;
-	hid->mouse.id.vendor = 0;
-	hid->mouse.id.product = 0;
-	hid->mouse.id.version = 0;
-	hid->keyboard.evbit[0] = BIT(EV_KEY) | BIT(EV_REP);
-        init_input_dev(&hid->keyboard);
-        hid->keyboard.keycodesize = sizeof(unsigned char);
-        hid->keyboard.keycodemax = ARRAY_SIZE(usar2scancode);
+	hid->mouse->relbit[0] = BIT(REL_X) | BIT(REL_Y);
+	hid->mouse->private = hid;
+	hid->mouse->open = innovator_hid_open;
+	hid->mouse->close = innovator_hid_close;
+	hid->mouse->name = "innovator_mouse";
+	hid->mouse->id.bustype = 0;
+	hid->mouse->id.vendor = 0;
+	hid->mouse->id.product = 0;
+	hid->mouse->id.version = 0;
+       hid->keyboard = input_allocate_device();
+	hid->keyboard->evbit[0] = BIT(EV_KEY) | BIT(EV_REP);
+       hid->keyboard->keycodesize = sizeof(unsigned char);
+       hid->keyboard->keycodemax = ARRAY_SIZE(usar2scancode);
 	for(i = 0; i < 128; i++)
-		set_bit(usar2scancode[i], hid->keyboard.keybit); 
-	hid->keyboard.private = hid;
-	hid->keyboard.open = innovator_hid_open;
-	hid->keyboard.close = innovator_hid_close;
-	hid->keyboard.name = "innovator_keyboard";
-	hid->keyboard.id.bustype = 0;
-	hid->keyboard.id.vendor = 0;
-	hid->keyboard.id.product = 0;
-	hid->keyboard.id.version = 0;
-	input_register_device(&hid->mouse);
-	input_register_device(&hid->keyboard);
-	innovator_hid_open(&hid->mouse);
-	innovator_hid_open(&hid->keyboard);
+		set_bit(usar2scancode[i], hid->keyboard->keybit);
+	hid->keyboard->private = hid;
+	hid->keyboard->open = innovator_hid_open;
+	hid->keyboard->close = innovator_hid_close;
+	hid->keyboard->name = "innovator_keyboard";
+	hid->keyboard->id.bustype = 0;
+	hid->keyboard->id.vendor = 0;
+	hid->keyboard->id.product = 0;
+	hid->keyboard->id.version = 0;
+	input_register_device(hid->mouse);
+	input_register_device(hid->keyboard);
+	innovator_hid_open(hid->mouse);
+	innovator_hid_open(hid->keyboard);
 
 	if (driver_register(&innovator_ps2_driver) != 0)
 		printk(KERN_ERR "Driver register failed for innovator_ps2\n");
@@ -1257,8 +1262,8 @@ innovator_kbd_init(void)
 static void __exit
 innovator_kbd_exit(void)
 {
-	input_unregister_device(&hid->mouse);
-	input_unregister_device(&hid->keyboard);
+	input_unregister_device(hid->mouse);
+	input_unregister_device(hid->keyboard);
 	free_irq(OMAP1510_INT_FPGA_ATN, hid);
 	if (hid != NULL)
 		kfree(hid);
