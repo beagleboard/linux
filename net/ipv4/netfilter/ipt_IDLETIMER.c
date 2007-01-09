@@ -33,6 +33,7 @@
 #include <linux/netfilter_ipv4/ip_tables.h>
 #include <linux/netfilter_ipv4/ipt_IDLETIMER.h>
 #include <linux/kobject.h>
+#include <linux/workqueue.h>
 
 #if 0
 #define DEBUGP(format, args...) printk("%s:%s:" format, \
@@ -68,9 +69,9 @@ static void utimer_delete(struct utimer_t *timer)
 	kfree(timer);
 }
 
-static void utimer_work(void * data)
+static void utimer_work(struct work_struct *work)
 {
-	struct utimer_t *timer = (struct utimer_t *) data;
+	struct utimer_t *timer = container_of(work, struct utimer_t, work);
 	struct net_device *netdev;
 
 	netdev = dev_get_by_name(timer->name);
@@ -110,7 +111,7 @@ static struct utimer_t *utimer_create(const char *name)
 	timer->timer.function = utimer_expired;
 	timer->timer.data = (unsigned long) timer;
 
-	INIT_WORK(&timer->work, utimer_work, timer);
+	INIT_WORK(&timer->work, utimer_work);
 
 	DEBUGP("Created timer '%s'\n", timer->name);
 
