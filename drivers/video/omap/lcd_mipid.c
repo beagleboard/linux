@@ -67,7 +67,7 @@ struct mipid_device {
 	struct lcd_panel	panel;
 
 	struct workqueue_struct	*esd_wq;
-	struct work_struct	esd_work;
+	struct delayed_work	esd_work;
 	void			(*esd_check)(struct mipid_device *m);
 };
 
@@ -390,9 +390,9 @@ static void mipid_esd_stop_check(struct mipid_device *md)
 		cancel_rearming_delayed_workqueue(md->esd_wq, &md->esd_work);
 }
 
-static void mipid_esd_work(void *data)
+static void mipid_esd_work(struct work_struct *work)
 {
-	struct mipid_device *md = data;
+	struct mipid_device *md = container_of(work, struct mipid_device, esd_work.work);
 
 	mutex_lock(&md->mutex);
 	md->esd_check(md);
@@ -468,7 +468,7 @@ static int mipid_init(struct lcd_panel *panel,
 		dev_err(&md->spi->dev, "can't create ESD workqueue\n");
 		return -ENOMEM;
 	}
-	INIT_WORK(&md->esd_work, mipid_esd_work, md);
+	INIT_DELAYED_WORK(&md->esd_work, mipid_esd_work);
 	mutex_init(&md->mutex);
 
 	md->enabled = panel_enabled(md);
@@ -558,7 +558,7 @@ static int mipid_spi_probe(struct spi_device *spi)
 	struct mipid_device *md;
 	int r;
 
-	md = kzalloc(sizeof(*md), SLAB_KERNEL);
+	md = kzalloc(sizeof(*md), GFP_KERNEL);
 	if (md == NULL) {
 		dev_err(&md->spi->dev, "out of memory\n");
 		return -ENOMEM;
