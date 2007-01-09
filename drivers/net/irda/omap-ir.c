@@ -54,6 +54,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/platform_device.h>
 #include <linux/i2c.h>
+#include <linux/workqueue.h>
 
 #include <net/irda/irda.h>
 #include <net/irda/irmod.h>
@@ -849,7 +850,7 @@ static int omap_irda_probe(struct platform_device *pdev)
 
 	/* Any better way to avoid this? No. */
 	if (machine_is_omap_h3() || machine_is_omap_h4())
-		INIT_WORK(&omap_ir->pdata->gpio_expa, NULL, NULL);
+		INIT_DELAYED_WORK(&omap_ir->pdata->gpio_expa, NULL);
 
 	err = register_netdev(dev);
 	if (!err)
