@@ -135,7 +135,7 @@ static int
 twl4030_detect_client(struct i2c_adapter *adapter, unsigned char sid);
 static int twl4030_attach_adapter(struct i2c_adapter *adapter);
 static int twl4030_detach_client(struct i2c_client *client);
-static void do_twl4030_irq(unsigned int irq, struct irqdesc *desc);
+static void do_twl4030_irq(unsigned int irq, irq_desc_t *desc);
 
 static void twl_init_irq(void);
 
@@ -230,7 +230,7 @@ static void twl4030_i2c_disableint(unsigned int irq) {}
 static void twl4030_i2c_enableint(unsigned int irq) {}
 
 /* information for processing in the Work Item */
-static struct irqchip twl4030_irq_chip = {
+static struct irq_chip twl4030_irq_chip = {
 	.ack	= twl4030_i2c_ackirq,
 	.mask	= twl4030_i2c_disableint,
 	.unmask	= twl4030_i2c_enableint,
@@ -385,7 +385,7 @@ int twl4030_i2c_read_u8(u8 mod_no, u8 * value, u8 reg)
  * module interrupts.  It executes in kernel thread context.
  * On entry, cpu interrupts are disabled.
  */
-static void do_twl4030_module_irq(unsigned int irq, struct irqdesc *desc)
+static void do_twl4030_module_irq(unsigned int irq, irq_desc_t *desc)
 {
 	struct irqaction *action;
 	const unsigned int cpu = smp_processor_id();
@@ -449,7 +449,7 @@ static void do_twl4030_module_irq(unsigned int irq, struct irqdesc *desc)
 static int twl4030_irq_thread(void *data)
 {
 	int irq = (int)data;
-	struct irqdesc *desc = irq_desc + irq;
+	irq_desc_t *desc = irq_desc + irq;
 	static unsigned i2c_errors;
 	const static unsigned max_i2c_errors = 100;
 
@@ -475,7 +475,7 @@ static int twl4030_irq_thread(void *data)
 		for (module_irq = IH_TWL4030_BASE; 0 != pih_isr;
 			 pih_isr >>= 1, module_irq++) {
 			if (pih_isr & 0x1) {
-				struct irqdesc *d = irq_desc + module_irq;
+				irq_desc_t *d = irq_desc + module_irq;
 
 				local_irq_disable();
 
@@ -507,7 +507,7 @@ static int twl4030_irq_thread(void *data)
  * thread.  All we do here is acknowledge and mask the interrupt and wakeup
  * the kernel thread.
  */
-static void do_twl4030_irq(unsigned int irq, struct irqdesc *desc)
+static void do_twl4030_irq(unsigned int irq, irq_desc_t *desc)
 {
 	const unsigned int cpu = smp_processor_id();
 	struct task_struct *thread = (struct task_struct *)desc->chip_data;
