@@ -191,8 +191,10 @@ console_initcall(omap_add_serial_console);
 
 #if defined(CONFIG_ARCH_OMAP16XX)
 #define TIMER_32K_SYNCHRONIZED		0xfffbc410
-#elif defined(CONFIG_ARCH_OMAP24XX)
+#elif defined(CONFIG_ARCH_OMAP2420)
 #define TIMER_32K_SYNCHRONIZED		0x48004010
+#elif defined(CONFIG_ARCH_OMAP2430)
+#define TIMER_32K_SYNCHRONIZED		0x49020010
 #endif
 
 #ifdef	TIMER_32K_SYNCHRONIZED
