@@ -40,6 +40,7 @@
 #include <linux/completion.h>
 #include <linux/platform_device.h>
 #include <linux/mutex.h>
+#include <linux/workqueue.h>
 
 #include "cbus.h"
 #include "retu.h"
@@ -312,13 +313,13 @@ static void retu_rtca_disable(void)
 	retu_write_reg(RETU_REG_RTCHMAR, (24 << 8) | 60);
 }
 
-static void retu_rtca_expired(void *data)
+static void retu_rtca_expired(struct work_struct *unused)
 {
 	retu_rtca_disable();
 	sysfs_notify(&retu_rtc_driver.kobj, NULL, "alarm_expired");
 }
 
-DECLARE_WORK(retu_rtca_work, retu_rtca_expired, NULL);
+DECLARE_WORK(retu_rtca_work, retu_rtca_expired);
 
 /*
  * RTCHMR RTCHMAR RTCCAL must be accessed within 0.9 s since the seconds
