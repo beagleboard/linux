@@ -30,28 +30,29 @@
 #include <asm/arch/gpio.h>
 #include <asm/arch/omapfb.h>
 
-static int palmz71_panel_init(struct omapfb_device *panel)
+static int palmz71_panel_init(struct lcd_panel *panel,
+			      struct omapfb_device *fbdev)
 {
 	return 0;
 }
 
-static void palmz71_panel_cleanup(void)
+static void palmz71_panel_cleanup(struct lcd_panel *panel)
 {
 
 }
 
-static int palmz71_panel_enable(void)
+static int palmz71_panel_enable(struct lcd_panel *panel)
 {
 	return 0;
 }
 
-static void palmz71_panel_disable(void)
+static void palmz71_panel_disable(struct lcd_panel *panel)
 {
 }
 
-static unsigned long palmz71_panel_get_caps(void)
+static unsigned long palmz71_panel_get_caps(struct lcd_panel *panel)
 {
-return OMAPFB_CAPS_SET_BACKLIGHT;
+	return OMAPFB_CAPS_SET_BACKLIGHT;
 }
 
 struct lcd_panel palmz71_panel = {
