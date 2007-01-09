@@ -260,7 +260,6 @@ static struct spi_board_info __initdata palmz71_boardinfo[] = { {
 				* 26	/* command + data + overhead */,
 	.bus_num	= 2,
 	.chip_select	= 0,
-	}
 } };
 
 static struct omap_usb_config palmz71_usb_config __initdata = {
@@ -295,7 +294,7 @@ static struct omap_board_config_kernel palmz71_config[] = {
 };
 
 static irqreturn_t
-palmz71_powercable(int irq, void *dev_id, struct pt_regs *regs)
+palmz71_powercable(int irq, void *dev_id)
 {
 	if (omap_get_gpio_datain(PALMZ71_USBDETECT_GPIO)) {
 		printk(KERN_INFO "PM: Power cable connected\n");
@@ -347,7 +346,7 @@ palmz71_gpio_setup(int early)
 				"palmz71-cable", 0))
 			printk(KERN_ERR
 			       "IRQ request for power cable failed!\n");
-		palmz71_powercable(OMAP_GPIO_IRQ(PALMZ71_USBDETECT_GPIO), 0, 0);
+		palmz71_powercable(OMAP_GPIO_IRQ(PALMZ71_USBDETECT_GPIO), 0);
 	}
 }
 
