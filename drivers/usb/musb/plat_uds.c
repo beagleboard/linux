@@ -1549,9 +1549,9 @@ static DEVICE_ATTR(cable, S_IRUGO, musb_cable_show, NULL);
 #endif
 
 /* Only used to provide cable state change events */
-static void musb_irq_work(void *data)
+static void musb_irq_work(struct work_struct *data)
 {
-	struct musb *musb = (struct musb *)data;
+	struct musb *musb = container_of(data, struct musb, irq_work);
 
 	sysfs_notify(&musb->controller->kobj, NULL, "cable");
 }
@@ -1824,7 +1824,7 @@ fail:
 		return status;
 	}
 
-	INIT_WORK(&pThis->irq_work, musb_irq_work, pThis);
+	INIT_WORK(&pThis->irq_work, musb_irq_work);
 
 #ifdef CONFIG_SYSFS
 	status = device_create_file(dev, &dev_attr_mode);
