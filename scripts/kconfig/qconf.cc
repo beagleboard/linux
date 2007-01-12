@@ -917,7 +917,7 @@ void ConfigView::updateListAll(void)
 }
 
 ConfigInfoView::ConfigInfoView(QWidget* parent, const char *name)
-	: Parent(parent, name), menu(0)
+	: Parent(parent, name), menu(0), sym(0)
 {
 	if (name) {
 		configSettings->beginGroup(name);
@@ -953,6 +953,7 @@ void ConfigInfoView::setInfo(struct menu *m)
 	if (menu == m)
 		return;
 	menu = m;
+	sym = NULL;
 	if (!menu)
 		clear();
 	else

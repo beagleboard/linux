@@ -50,9 +50,7 @@
 #include <linux/buffer_head.h>
 #include <linux/debug_locks.h>
 #include <linux/lockdep.h>
-#include <linux/utsrelease.h>
 #include <linux/pid_namespace.h>
-#include <linux/compile.h>
 #include <linux/device.h>
 
 #include <asm/io.h>
@@ -482,12 +480,6 @@ void __init __attribute__((weak)) smp_setup_processor_id(void)
 {
 }
 
-static const char linux_banner[] =
-	"Linux version " UTS_RELEASE
-	" (" LINUX_COMPILE_BY "@" LINUX_COMPILE_HOST ")"
-	" (" LINUX_COMPILER ")"
-	" " UTS_VERSION "\n";
-
 asmlinkage void __init start_kernel(void)
 {
 	char * command_line;
@@ -538,6 +530,11 @@ asmlinkage void __init start_kernel(void)
 	parse_args("Booting kernel", command_line, __start___param,
 		   __stop___param - __start___param,
 		   &unknown_bootoption);
+	if (!irqs_disabled()) {
+		printk(KERN_WARNING "start_kernel(): bug: interrupts were "
+				"enabled *very* early, fixing it\n");
+		local_irq_disable();
+	}
 	sort_main_extable();
 	trap_init();
 	rcu_init();
@@ -698,7 +695,7 @@ static void __init do_basic_setup(void)
 	do_initcalls();
 }
 
-static void do_pre_smp_initcalls(void)
+static void __init do_pre_smp_initcalls(void)
 {
 	extern int spawn_ksoftirqd(void);
 #ifdef CONFIG_SMP

@@ -52,6 +52,8 @@
 #define KVM_MAX_VCPUS 1
 #define KVM_MEMORY_SLOTS 4
 #define KVM_NUM_MMU_PAGES 256
+#define KVM_MIN_FREE_MMU_PAGES 5
+#define KVM_REFILL_PAGES 25
 
 #define FX_IMAGE_SIZE 512
 #define FX_IMAGE_ALIGN 16
@@ -89,14 +91,54 @@ typedef unsigned long  hva_t;
 typedef u64            hpa_t;
 typedef unsigned long  hfn_t;
 
+#define NR_PTE_CHAIN_ENTRIES 5
+
+struct kvm_pte_chain {
+	u64 *parent_ptes[NR_PTE_CHAIN_ENTRIES];
+	struct hlist_node link;
+};
+
+/*
+ * kvm_mmu_page_role, below, is defined as:
+ *
+ *   bits 0:3 - total guest paging levels (2-4, or zero for real mode)
+ *   bits 4:7 - page table level for this shadow (1-4)
+ *   bits 8:9 - page table quadrant for 2-level guests
+ *   bit   16 - "metaphysical" - gfn is not a real page (huge page/real mode)
+ */
+union kvm_mmu_page_role {
+	unsigned word;
+	struct {
+		unsigned glevels : 4;
+		unsigned level : 4;
+		unsigned quadrant : 2;
+		unsigned pad_for_nice_hex_output : 6;
+		unsigned metaphysical : 1;
+	};
+};
+
 struct kvm_mmu_page {
 	struct list_head link;
+	struct hlist_node hash_link;
+
+	/*
+	 * The following two entries are used to key the shadow page in the
+	 * hash table.
+	 */
+	gfn_t gfn;
+	union kvm_mmu_page_role role;
+
 	hpa_t page_hpa;
 	unsigned long slot_bitmap; /* One bit set per slot which has memory
 				    * in this shadow page.
 				    */
 	int global;              /* Set if all ptes in this page are global */
-	u64 *parent_pte;
+	int multimapped;         /* More than one parent_pte? */
+	int root_count;          /* Currently serving as active root */
+	union {
+		u64 *parent_pte;               /* !multimapped */
+		struct hlist_head parent_ptes; /* multimapped, kvm_pte_chain */
+	};
 };
 
 struct vmcs {
@@ -117,14 +159,26 @@ struct kvm_vcpu;
 struct kvm_mmu {
 	void (*new_cr3)(struct kvm_vcpu *vcpu);
 	int (*page_fault)(struct kvm_vcpu *vcpu, gva_t gva, u32 err);
-	void (*inval_page)(struct kvm_vcpu *vcpu, gva_t gva);
 	void (*free)(struct kvm_vcpu *vcpu);
 	gpa_t (*gva_to_gpa)(struct kvm_vcpu *vcpu, gva_t gva);
 	hpa_t root_hpa;
 	int root_level;
 	int shadow_root_level;
+
+	u64 *pae_root;
 };
 
+#define KVM_NR_MEM_OBJS 20
+
+struct kvm_mmu_memory_cache {
+	int nobjs;
+	void *objects[KVM_NR_MEM_OBJS];
+};
+
+/*
+ * We don't want allocation failures within the mmu code, so we preallocate
+ * enough memory for a single page fault in a cache.
+ */
 struct kvm_guest_debug {
 	int enabled;
 	unsigned long bp[4];
@@ -173,6 +227,7 @@ struct kvm_vcpu {
 	struct mutex mutex;
 	int   cpu;
 	int   launched;
+	int interrupt_window_open;
 	unsigned long irq_summary; /* bit vector: 1 per word in irq_pending */
 #define NR_IRQ_WORDS KVM_IRQ_BITMAP_SIZE(unsigned long)
 	unsigned long irq_pending[NR_IRQ_WORDS];
@@ -184,6 +239,7 @@ struct kvm_vcpu {
 	unsigned long cr3;
 	unsigned long cr4;
 	unsigned long cr8;
+	u64 pdptrs[4]; /* pae */
 	u64 shadow_efer;
 	u64 apic_base;
 	int nmsrs;
@@ -193,6 +249,12 @@ struct kvm_vcpu {
 	struct list_head free_pages;
 	struct kvm_mmu_page page_header_buf[KVM_NUM_MMU_PAGES];
 	struct kvm_mmu mmu;
+
+	struct kvm_mmu_memory_cache mmu_pte_chain_cache;
+	struct kvm_mmu_memory_cache mmu_rmap_desc_cache;
+
+	gfn_t last_pt_write_gfn;
+	int   last_pt_write_count;
 
 	struct kvm_guest_debug guest_debug;
 
@@ -231,10 +293,16 @@ struct kvm {
 	spinlock_t lock; /* protects everything except vcpus */
 	int nmemslots;
 	struct kvm_memory_slot memslots[KVM_MEMORY_SLOTS];
+	/*
+	 * Hash table of struct kvm_mmu_page.
+	 */
 	struct list_head active_mmu_pages;
+	int n_free_mmu_pages;
+	struct hlist_head mmu_page_hash[KVM_NUM_MMU_PAGES];
 	struct kvm_vcpu vcpus[KVM_MAX_VCPUS];
 	int memory_config_version;
 	int busy;
+	unsigned long rmap_overflow;
 };
 
 struct kvm_stat {
@@ -247,6 +315,9 @@ struct kvm_stat {
 	u32 io_exits;
 	u32 mmio_exits;
 	u32 signal_exits;
+	u32 irq_window_exits;
+	u32 halt_exits;
+	u32 request_irq_exits;
 	u32 irq_exits;
 };
 
@@ -279,6 +350,7 @@ struct kvm_arch_ops {
 	void (*set_segment)(struct kvm_vcpu *vcpu,
 			    struct kvm_segment *var, int seg);
 	void (*get_cs_db_l_bits)(struct kvm_vcpu *vcpu, int *db, int *l);
+	void (*decache_cr0_cr4_guest_bits)(struct kvm_vcpu *vcpu);
 	void (*set_cr0)(struct kvm_vcpu *vcpu, unsigned long cr0);
 	void (*set_cr0_no_modeswitch)(struct kvm_vcpu *vcpu,
 				      unsigned long cr0);
@@ -323,7 +395,7 @@ int kvm_mmu_create(struct kvm_vcpu *vcpu);
 int kvm_mmu_setup(struct kvm_vcpu *vcpu);
 
 int kvm_mmu_reset_context(struct kvm_vcpu *vcpu);
-void kvm_mmu_slot_remove_write_access(struct kvm *kvm, int slot);
+void kvm_mmu_slot_remove_write_access(struct kvm_vcpu *vcpu, int slot);
 
 hpa_t gpa_to_hpa(struct kvm_vcpu *vcpu, gpa_t gpa);
 #define HPA_MSB ((sizeof(hpa_t) * 8) - 1)
@@ -395,6 +467,19 @@ int kvm_write_guest(struct kvm_vcpu *vcpu,
 		void *data);
 
 unsigned long segment_base(u16 selector);
+
+void kvm_mmu_pre_write(struct kvm_vcpu *vcpu, gpa_t gpa, int bytes);
+void kvm_mmu_post_write(struct kvm_vcpu *vcpu, gpa_t gpa, int bytes);
+int kvm_mmu_unprotect_page_virt(struct kvm_vcpu *vcpu, gva_t gva);
+void kvm_mmu_free_some_pages(struct kvm_vcpu *vcpu);
+
+static inline int kvm_mmu_page_fault(struct kvm_vcpu *vcpu, gva_t gva,
+				     u32 error_code)
+{
+	if (unlikely(vcpu->kvm->n_free_mmu_pages < KVM_MIN_FREE_MMU_PAGES))
+		kvm_mmu_free_some_pages(vcpu);
+	return vcpu->mmu.page_fault(vcpu, gva, error_code);
+}
 
 static inline struct page *_gfn_to_page(struct kvm *kvm, gfn_t gfn)
 {
@@ -540,20 +625,5 @@ static inline u32 get_rdx_init_val(void)
 #define TSS_IOPB_SIZE (65536 / 8)
 #define TSS_REDIRECTION_SIZE (256 / 8)
 #define RMODE_TSS_SIZE (TSS_BASE_SIZE + TSS_REDIRECTION_SIZE + TSS_IOPB_SIZE + 1)
-
-#ifdef CONFIG_X86_64
-
-/*
- * When emulating 32-bit mode, cr3 is only 32 bits even on x86_64.  Therefore
- * we need to allocate shadow page tables in the first 4GB of memory, which
- * happens to fit the DMA32 zone.
- */
-#define GFP_KVM_MMU (GFP_KERNEL | __GFP_DMA32)
-
-#else
-
-#define GFP_KVM_MMU GFP_KERNEL
-
-#endif
 
 #endif
