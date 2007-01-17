@@ -376,7 +376,7 @@ static irqreturn_t davinci_interrupt(int irq, void *__hci)
 	return IRQ_HANDLED;
 }
 
-int __devinit musb_platform_init(struct musb *musb)
+int __init musb_platform_init(struct musb *musb)
 {
 	void	*__iomem tibase = musb->ctrl_base;
 	u32	revision;

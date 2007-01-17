@@ -525,7 +525,7 @@ extern int musb_platform_get_vbus_status(struct musb *musb);
 #define musb_platform_get_vbus_status(x)	0
 #endif
 
-extern int __devinit musb_platform_init(struct musb *musb);
+extern int __init musb_platform_init(struct musb *musb);
 extern int musb_platform_exit(struct musb *musb);
 
 /*-------------------------- ProcFS definitions ---------------------*/

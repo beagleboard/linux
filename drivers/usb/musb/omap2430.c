@@ -61,7 +61,7 @@ static void omap_vbus_power(struct musb *musb, int is_on, int sleeping)
 {
 }
 
-int __devinit musb_platform_init(struct musb *musb)
+int __init musb_platform_init(struct musb *musb)
 {
 	/* Erratum - reset value of STP has pull-down.
 	   Change it to pull-up. */

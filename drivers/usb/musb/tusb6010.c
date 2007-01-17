@@ -682,7 +682,7 @@ void musb_platform_disable(struct musb *musb)
  * Sets up TUSB6010 CPU interface specific signals and registers
  * Note: Settings optimized for OMAP24xx
  */
-static void tusb_setup_cpu_interface(struct musb *musb)
+static void __init tusb_setup_cpu_interface(struct musb *musb)
 {
 	void __iomem	*base = musb->ctrl_base;
 
@@ -708,7 +708,7 @@ static void tusb_setup_cpu_interface(struct musb *musb)
 #define TUSB_REV_MAJOR(reg_val)		((reg_val >> 4) & 0xf)
 #define TUSB_REV_MINOR(reg_val)		(reg_val & 0xf)
 
-static int tusb_print_revision(struct musb *musb)
+static int __init tusb_print_revision(struct musb *musb)
 {
 	void __iomem	*base = musb->ctrl_base;
 
@@ -729,7 +729,7 @@ static int tusb_print_revision(struct musb *musb)
 	return TUSB_REV_MAJOR(musb_readl(base, TUSB_INT_CTRL_REV));
 }
 
-static int __devinit tusb_start(struct musb *musb)
+static int __init tusb_start(struct musb *musb)
 {
 	void __iomem	*base = musb->ctrl_base;
 	int		ret = 0;
@@ -798,7 +798,7 @@ err:
 	return -ENODEV;
 }
 
-int __devinit musb_platform_init(struct musb *musb)
+int __init musb_platform_init(struct musb *musb)
 {
 	struct platform_device	*pdev;
 	struct resource		*mem;

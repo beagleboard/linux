@@ -91,7 +91,7 @@ static void cppi_reset_rx(struct cppi_rx_stateram *__iomem rx)
 	musb_writel(CAST &rx->byteCount, 0, 0);
 }
 
-static void __devinit cppi_pool_init(struct cppi *cppi, struct cppi_channel *c)
+static void __init cppi_pool_init(struct cppi *cppi, struct cppi_channel *c)
 {
 	int	j;
 
@@ -137,7 +137,7 @@ static void cppi_pool_free(struct cppi_channel *c)
 	c->lastHwBDProcessed = NULL;
 }
 
-static int __devinit cppi_controller_start(struct dma_controller *c)
+static int __init cppi_controller_start(struct dma_controller *c)
 {
 	struct cppi	*pController;
 	void		*__iomem regBase;

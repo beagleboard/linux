@@ -813,7 +813,7 @@ void __devexit musb_debug_delete(char *name, struct musb *musb)
 		remove_proc_entry(name, NULL);
 }
 
-struct proc_dir_entry *__devinit
+struct proc_dir_entry *__init
 musb_debug_create(char *name, struct musb *data)
 {
 	struct proc_dir_entry	*pde;
