@@ -145,19 +145,6 @@ MODULE_LICENSE("GPL");
 
 /*-------------------------------------------------------------------------*/
 
-#ifdef	CONFIG_USB_MUSB_OTG
-
-/* For debugging/prototyping:  allow disabling host side support on boards
- * with Mini-AB (or Mini-A) connectors, making peripheral side support look
- * like pure peripherals (not reporting OTG capabilities, and able to
- * draw a full 100mA unit load).
- */
-int musb_otg = 1;
-
-module_param(musb_otg, bool, 0);
-MODULE_PARM_DESC(musb_otg, "enable/disable OTG capabilities");
-#endif
-
 static inline struct musb *dev_to_musb(struct device *dev)
 {
 #ifdef CONFIG_USB_MUSB_HDRC_HCD
@@ -1781,11 +1768,6 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 		hcd->power_budget = 2 * (plat->power ? : 250);
 	}
 #endif				/* CONFIG_USB_MUSB_HDRC_HCD */
-
-#ifdef CONFIG_USB_MUSB_OTG
-	if (!is_otg_enabled(pThis))
-		musb_otg = 0;
-#endif
 
 	/* For the host-only role, we can activate right away.
 	 * (We expect the ID pin to be forcibly grounded!!)

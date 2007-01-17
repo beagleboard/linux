@@ -432,7 +432,7 @@ int musb_platform_exit(struct musb *musb)
 	davinci_source_power(musb, 0 /*off*/, 1);
 
 	/* delay, to avoid problems with module reload */
-	if (is_host_enabled(musb)) {
+	if (is_host_enabled(musb) && musb->xceiv.default_a) {
 		int	maxdelay = 30;
 		u8	devctl, warn = 0;
 

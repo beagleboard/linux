@@ -490,13 +490,6 @@ static inline struct musb *gadget_to_musb(struct usb_gadget *g)
 }
 #endif
 
-#ifdef CONFIG_USB_MUSB_OTG
-/* sysfs flag to seletively force peripheral-only operation */
-extern int musb_otg;
-#else
-#define musb_otg 0
-#endif
-
 
 /***************************** Glue it together *****************************/
 

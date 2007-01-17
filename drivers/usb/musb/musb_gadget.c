@@ -1659,7 +1659,7 @@ static inline void __init musb_g_init_endpoints(struct musb *pThis)
 /* called once during driver setup to initialize and link into
  * the driver model; memory is zeroed.
  */
-int __init musb_gadget_setup(struct musb *pThis)
+int __init musb_gadget_setup(struct musb *musb)
 {
 	int status;
 
@@ -1669,36 +1669,39 @@ int __init musb_gadget_setup(struct musb *pThis)
 	 */
 	if (the_gadget)
 		return -EBUSY;
-	the_gadget = pThis;
+	the_gadget = musb;
 
-	pThis->g.ops = &musb_gadget_operations;
-	pThis->g.is_dualspeed = 1;
-	pThis->g.speed = USB_SPEED_UNKNOWN;
+	musb->g.ops = &musb_gadget_operations;
+	musb->g.is_dualspeed = 1;
+	musb->g.speed = USB_SPEED_UNKNOWN;
 
 	/* this "gadget" abstracts/virtualizes the controller */
-	strcpy(pThis->g.dev.bus_id, "gadget");
-	pThis->g.dev.parent = pThis->controller;
-	pThis->g.dev.dma_mask = pThis->controller->dma_mask;
-	pThis->g.dev.release = musb_gadget_release;
-	pThis->g.name = musb_driver_name;
+	strcpy(musb->g.dev.bus_id, "gadget");
+	musb->g.dev.parent = musb->controller;
+	musb->g.dev.dma_mask = musb->controller->dma_mask;
+	musb->g.dev.release = musb_gadget_release;
+	musb->g.name = musb_driver_name;
 
-	musb_g_init_endpoints(pThis);
+	if (is_otg_enabled(musb))
+		musb->g.is_otg = 1;
 
-	pThis->is_active = 0;
-	musb_platform_try_idle(pThis);
+	musb_g_init_endpoints(musb);
 
-	status = device_register(&pThis->g.dev);
+	musb->is_active = 0;
+	musb_platform_try_idle(musb);
+
+	status = device_register(&musb->g.dev);
 	if (status != 0)
 		the_gadget = NULL;
 	return status;
 }
 
-void musb_gadget_cleanup(struct musb *pThis)
+void musb_gadget_cleanup(struct musb *musb)
 {
-	if (pThis != the_gadget)
+	if (musb != the_gadget)
 		return;
 
-	device_unregister(&pThis->g.dev);
+	device_unregister(&musb->g.dev);
 	the_gadget = NULL;
 }
 
@@ -1955,7 +1958,13 @@ void musb_g_suspend(struct musb *pThis)
 /* called when VBUS drops below session threshold, and in other cases */
 void musb_g_disconnect(struct musb *pThis)
 {
-	DBG(3, "devctl %02x\n", musb_readb(pThis->pRegs, MGC_O_HDRC_DEVCTL));
+	void __iomem	*mregs = pThis->pRegs;
+	u8	devctl = musb_readb(mregs, MGC_O_HDRC_DEVCTL);
+
+	DBG(3, "devctl %02x\n", devctl);
+
+	/* clear HR */
+	musb_writeb(mregs, MGC_O_HDRC_DEVCTL, devctl & MGC_M_DEVCTL_SESSION);
 
 	/* don't draw vbus until new b-default session */
 	(void) musb_gadget_vbus_draw(&pThis->g, 0);
@@ -2002,13 +2011,14 @@ __acquires(pThis->Lock)
 				: NULL
 			);
 
-	/* HR does NOT clear itself */
-	if (devctl & MGC_M_DEVCTL_HR)
-		musb_writeb(pBase, MGC_O_HDRC_DEVCTL, MGC_M_DEVCTL_SESSION);
-
 	/* report disconnect, if we didn't already (flushing EP state) */
 	if (pThis->g.speed != USB_SPEED_UNKNOWN)
 		musb_g_disconnect(pThis);
+
+	/* clear HR */
+	else if (devctl & MGC_M_DEVCTL_HR)
+		musb_writeb(pBase, MGC_O_HDRC_DEVCTL, MGC_M_DEVCTL_SESSION);
+
 
 	/* what speed did we negotiate? */
 	power = musb_readb(pBase, MGC_O_HDRC_POWER);
@@ -2026,16 +2036,13 @@ __acquires(pThis->Lock)
 	pThis->g.a_alt_hnp_support = 0;
 	pThis->g.a_hnp_support = 0;
 
-	if (is_otg_enabled(pThis))
-		pThis->g.is_otg = !!musb_otg;
-
 	/* Normal reset, as B-Device;
 	 * or else after HNP, as A-Device
 	 */
 	if (devctl & MGC_M_DEVCTL_BDEVICE) {
 		pThis->xceiv.state = OTG_STATE_B_PERIPHERAL;
 		pThis->g.is_a_peripheral = 0;
-	} else if (is_otg_enabled(pThis) && musb_otg) {
+	} else if (is_otg_enabled(pThis)) {
 		pThis->xceiv.state = OTG_STATE_A_PERIPHERAL;
 		pThis->g.is_a_peripheral = 1;
 	} else
@@ -2043,5 +2050,5 @@ __acquires(pThis->Lock)
 
 	/* start with default limits on VBUS power draw */
 	(void) musb_gadget_vbus_draw(&pThis->g,
-			(is_otg_enabled(pThis) && musb_otg) ? 8 : 100);
+			is_otg_enabled(pThis) ? 8 : 100);
 }
