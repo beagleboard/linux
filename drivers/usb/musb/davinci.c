@@ -144,12 +144,12 @@ static int vbus_state = -1;
  * With unloaded systems, using the shared workqueue seems to suffice
  * to satisfy the 100msec A_WAIT_VRISE timeout...
  */
-static void evm_deferred_drvvbus(void *_musb)
+static void evm_deferred_drvvbus(struct work_struct *ignored)
 {
 	davinci_i2c_expander_op(0x3a, USB_DRVVBUS, vbus_state);
 	vbus_state = !vbus_state;
 }
-DECLARE_WORK(evm_vbus_work, evm_deferred_drvvbus, 0);
+DECLARE_WORK(evm_vbus_work, evm_deferred_drvvbus);
 
 #endif	/* modified board */
 #endif	/* EVM */
@@ -399,11 +399,6 @@ int __devinit musb_platform_init(struct musb *musb)
 	revision = musb_readl(tibase, DAVINCI_USB_VERSION_REG);
 	if (revision == 0)
 		return -ENODEV;
-
-#ifdef CONFIG_MACH_DAVINCI_EVM
-	if (machine_is_davinci_evm())
-		evm_vbus_work.data = musb;
-#endif
 
 	if (is_host_enabled(musb))
 		setup_timer(&otg_workaround, otg_timer, (unsigned long) musb);

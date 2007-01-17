@@ -110,7 +110,7 @@ static void __devinit cppi_pool_init(struct cppi *cppi, struct cppi_channel *c)
 		struct cppi_descriptor	*bd;
 		dma_addr_t		dma;
 
-		bd = dma_pool_alloc(cppi->pool, SLAB_KERNEL, &dma);
+		bd = dma_pool_alloc(cppi->pool, GFP_KERNEL, &dma);
 		bd->dma = dma;
 		cppi_bd_free(c, bd);
 	}
