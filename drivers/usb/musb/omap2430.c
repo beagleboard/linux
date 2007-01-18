@@ -65,11 +65,11 @@ int __init musb_platform_init(struct musb *musb)
 {
 	/* Erratum - reset value of STP has pull-down.
 	   Change it to pull-up. */
-	omap2_cfg_reg(AE5_2430_USB0HS_STP);
+	omap_cfg_reg(AE5_2430_USB0HS_STP);
 
 	/* start clock */
 	musb->clock = clk_get((struct device *)musb->controller, "usbhs_ick");
-	clk_use(musb->clock);
+	clk_enable(musb->clock);
 
 	omap_writel(omap_readl(OTG_INTERFSEL) | (1<<0), OTG_INTERFSEL);
 	omap_writel(omap_readl(OTG_SYSCONFIG) |
@@ -90,11 +90,7 @@ int __init musb_platform_init(struct musb *musb)
 int __exit musb_platform_exit(struct musb *musb)
 {
 	omap_vbus_power(musb, 0 /*off*/, 1);
-
-	/* REVISIT older omap trees need "unuse", more current
-	 * ones just have disable()
-	 */
-	clk_unuse(musb->clock);
+	clk_disable(musb->clock);
 
 	return 0;
 }

@@ -29,7 +29,7 @@ config USB_MUSB_SOC
 	boolean
 	depends on USB_MUSB_HDRC
 	default y if ARCH_DAVINCI
-	default y if ARCH_OMAP243X
+	default y if ARCH_OMAP2430
 	default y if ARCH_OMAP343X
 	help
 	  Use a static <asm/arch/hdrc_cnf.h> file to describe how the
@@ -40,7 +40,7 @@ comment "DaVinci 644x USB support"
 	depends on USB_MUSB_HDRC && ARCH_DAVINCI
 
 comment "OMAP 243x high speed USB support"
-	depends on USB_MUSB_HDRC && ARCH_OMAP243X
+	depends on USB_MUSB_HDRC && ARCH_OMAP2430
 
 comment "OMAP 343x high speed USB support"
 	depends on USB_MUSB_HDRC && ARCH_OMAP343X
@@ -145,7 +145,7 @@ config USB_INVENTRA_FIFO
 config USB_INVENTRA_DMA
 	bool
 	depends on USB_MUSB_HDRC && !USB_INVENTRA_FIFO
-	default ARCH_OMAP243X || ARCH_OMAP343X
+	default ARCH_OMAP2430 || ARCH_OMAP343X
 	help
 	  Enable DMA transfers using Mentor's engine.
 

@@ -32,8 +32,10 @@
  ******************************************************************/
 
 /*
- * DMA implementation for high-speed controllers.
+ * Interface to Mentor's DMA engine
  */
+
+#include <linux/platform_device.h>
 
 #include "musbdefs.h"
 
@@ -68,55 +70,50 @@
 
 /******************************* Types ********************************/
 
-struct _MGC_HsDmaController;
-
-typedef struct {
+struct hsdma_channel {
 	struct dma_channel Channel;
-	struct _MGC_HsDmaController *pController;
+	struct hsdma *pController;
 	u32 dwStartAddress;
 	u32 dwCount;
 	u8 bIndex;
 	u8 bEnd;
 	u8 bTransmit;
-} MGC_HsDmaChannel;
+};
 
 struct hsdma {
 	struct dma_controller Controller;
-	MGC_HsDmaChannel aChannel[MGC_HSDMA_CHANNELS];
+	struct hsdma_channel aChannel[MGC_HSDMA_CHANNELS];
 	void *pDmaPrivate;
 	void __iomem *pCoreBase;
 	u8 bChannelCount;
 	u8 bmUsedChannels;
 };
 
-/* FIXME remove typedef noise */
-typedef struct hsdma MGC_HsDmaController;
-
 /****************************** FUNCTIONS ********************************/
 
-static int MGC_HsDmaStartController(struct dma_controller *c)
+static int hsdma_start(struct dma_controller *c)
 {
 	/* nothing to do */
 	return 0;
 }
 
-static int MGC_HsDmaStopController(struct dma_controller *c)
+static int hsdma_stop(struct dma_controller *c)
 {
 	/* nothing to do */
 	return 0;
 }
 
-static struct dma_channel *MGC_HsDmaAllocateChannel(
-		struct dma_controller *c,
+static struct dma_channel *
+hsdma_channel_alloc(struct dma_controller *c,
 		struct musb_hw_ep *hw_ep,
 		u8 bTransmit)
 {
 	u8 bBit;
 	struct dma_channel *pChannel = NULL;
-	MGC_HsDmaChannel *pImplChannel = NULL;
-	MGC_HsDmaController *pController;
+	struct hsdma_channel *pImplChannel = NULL;
+	struct hsdma *pController;
 
-	pcontroller = container_of(c, struct hsdma, Controller);
+	pController = container_of(c, struct hsdma, Controller);
 	for (bBit = 0; bBit < MGC_HSDMA_CHANNELS; bBit++) {
 		if (!(pController->bmUsedChannels & (1 << bBit))) {
 			pController->bmUsedChannels |= (1 << bBit);
@@ -138,10 +135,9 @@ static struct dma_channel *MGC_HsDmaAllocateChannel(
 	return pChannel;
 }
 
-static void MGC_HsDmaReleaseChannel(struct dma_channel *pChannel)
+static void hsdma_channel_release(struct dma_channel *pChannel)
 {
-	MGC_HsDmaChannel *pImplChannel =
-	    (MGC_HsDmaChannel *) pChannel->pPrivateData;
+	struct hsdma_channel *pImplChannel = pChannel->pPrivateData;
 
 	pImplChannel->pController->bmUsedChannels &=
 	    ~(1 << pImplChannel->bIndex);
@@ -150,9 +146,8 @@ static void MGC_HsDmaReleaseChannel(struct dma_channel *pChannel)
 
 static void clear_state(struct dma_channel *pChannel)
 {
-	MGC_HsDmaChannel *pImplChannel =
-	    (MGC_HsDmaChannel *) pChannel->pPrivateData;
-	MGC_HsDmaController *pController = pImplChannel->pController;
+	struct hsdma_channel *pImplChannel = pChannel->pPrivateData;
+	struct hsdma *pController = pImplChannel->pController;
 	u8 *pBase = pController->pCoreBase;
 	u8 bChannel = pImplChannel->bIndex;
 
@@ -175,9 +170,8 @@ static u8 configure_channel(struct dma_channel *pChannel,
 				  u16 wPacketSize, u8 bMode,
 				  dma_addr_t dma_addr, u32 dwLength)
 {
-	MGC_HsDmaChannel *pImplChannel =
-	    (MGC_HsDmaChannel *) pChannel->pPrivateData;
-	MGC_HsDmaController *pController = pImplChannel->pController;
+	struct hsdma_channel *pImplChannel = pChannel->pPrivateData;
+	struct hsdma *pController = pImplChannel->pController;
 	u8 *pBase = pController->pCoreBase;
 	u8 bChannel = pImplChannel->bIndex;
 	u16 wCsr = 0;
@@ -223,12 +217,11 @@ static u8 configure_channel(struct dma_channel *pChannel,
 	return TRUE;
 }
 
-static int MGC_HsDmaProgramChannel(struct dma_channel * pChannel,
+static int hsdma_channel_program(struct dma_channel * pChannel,
 				  u16 wPacketSize, u8 bMode,
 				  dma_addr_t dma_addr, u32 dwLength)
 {
-	MGC_HsDmaChannel *pImplChannel =
-	    (MGC_HsDmaChannel *) pChannel->pPrivateData;
+	struct hsdma_channel *pImplChannel = pChannel->pPrivateData;
 
 	DBG(2, "pkt_sz %d, dma_addr 0x%x length %d, mode %d\n",
 	       wPacketSize, dma_addr, dwLength, bMode);
@@ -267,7 +260,7 @@ static int MGC_HsDmaProgramChannel(struct dma_channel * pChannel,
 }
 
 // REVISIT...
-static int MGC_HsDmaAbortChannel(struct dma_channel *pChannel)
+static int hsdma_channel_abort(struct dma_channel *pChannel)
 {
 	clear_state(pChannel);
 	pChannel->bStatus = MGC_DMA_STATUS_FREE;
@@ -279,8 +272,8 @@ static irqreturn_t hsdma_irq(int irq, void *pPrivateData)
 	u8 bChannel;
 	u16 wCsr;
 	u32 dwAddress;
-	MGC_HsDmaChannel *pImplChannel;
-	MGC_HsDmaController *pController = pPrivateData;
+	struct hsdma_channel *pImplChannel;
+	struct hsdma *pController = pPrivateData;
 	u8 *pBase = pController->pCoreBase;
 	struct dma_channel *pChannel;
 	u8 bIntr = musb_readb(pBase, MGC_O_HSDMA_INTR);
@@ -291,8 +284,7 @@ static irqreturn_t hsdma_irq(int irq, void *pPrivateData)
 	for (bChannel = 0; bChannel < MGC_HSDMA_CHANNELS; bChannel++) {
 		if (bIntr & (1 << bChannel)) {
 
-			pImplChannel = (MGC_HsDmaChannel *)
-					&(pController->aChannel[bChannel]);
+			pImplChannel = &pController->aChannel[bChannel];
 			pChannel = &pImplChannel->Channel;
 
 			wCsr = musb_readw(pBase,
@@ -356,7 +348,7 @@ static irqreturn_t hsdma_irq(int irq, void *pPrivateData)
 
 static void hsdma_controller_destroy(struct dma_controller *pController)
 {
-	MGC_HsDmaController *pHsController = pController->pPrivateData;
+	struct hsdma *pHsController = pController->pPrivateData;
 
 	if (pHsController) {
 		pHsController->Controller.pPrivateData = NULL;
@@ -367,7 +359,7 @@ static void hsdma_controller_destroy(struct dma_controller *pController)
 static struct dma_controller *
 hsdma_controller_new(struct musb *pThis, void __iomem *pCoreBase)
 {
-	MGC_HsDmaController *pController;
+	struct hsdma *pController;
 	struct device *dev = pThis->controller;
 	struct platform_device *pdev = to_platform_device(dev);
 	int irq = platform_get_irq(pdev, 1);
@@ -377,7 +369,7 @@ hsdma_controller_new(struct musb *pThis, void __iomem *pCoreBase)
 		return NULL;
 	}
 
-	if (!(pController = kzalloc(sizeof(MGC_HsDmaController), GFP_KERNEL)))
+	if (!(pController = kzalloc(sizeof *pController, GFP_KERNEL)))
 		return NULL;
 
 	pController->bChannelCount = MGC_HSDMA_CHANNELS;
@@ -385,12 +377,12 @@ hsdma_controller_new(struct musb *pThis, void __iomem *pCoreBase)
 	pController->pCoreBase = pCoreBase;
 
 	pController->Controller.pPrivateData = pController;
-	pController->Controller.start = MGC_HsDmaStartController;
-	pController->Controller.stop = MGC_HsDmaStopController;
-	pController->Controller.channel_alloc = MGC_HsDmaAllocateChannel;
-	pController->Controller.channel_release = MGC_HsDmaReleaseChannel;
-	pController->Controller.channel_program = MGC_HsDmaProgramChannel;
-	pController->Controller.channel_abort = MGC_HsDmaAbortChannel;
+	pController->Controller.start = hsdma_start;
+	pController->Controller.stop = hsdma_stop;
+	pController->Controller.channel_alloc = hsdma_channel_alloc;
+	pController->Controller.channel_release = hsdma_channel_release;
+	pController->Controller.channel_program = hsdma_channel_program;
+	pController->Controller.channel_abort = hsdma_channel_abort;
 
 	if (request_irq(irq, hsdma_irq, SA_INTERRUPT,
 			pThis->controller->bus_id, &pController->Controller)) {

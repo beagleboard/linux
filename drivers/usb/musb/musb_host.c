@@ -803,7 +803,11 @@ static void musb_ep_program(struct musb *pThis, u8 bEnd,
 				wLoadCount = 0;
 			} else {
 				pDmaController->channel_release(pDmaChannel);
-				pDmaChannel = pEnd->pDmaChannel = NULL;
+				if (is_out)
+					pEnd->tx_channel = NULL;
+				else
+					pEnd->rx_channel = NULL;
+				pDmaChannel = NULL;
 			}
 		}
 #endif

@@ -10,7 +10,7 @@
 #ifndef __MUSB_OMAP243X_H__
 #define __MUSB_OMAP243X_H__
 
-#ifdef CONFIG_ARCH_OMAP243X
+#ifdef CONFIG_ARCH_OMAP2430
 /*
  * OMAP2430-specific definitions
  */

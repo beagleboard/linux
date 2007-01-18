@@ -14,7 +14,7 @@ ifeq ($(CONFIG_USB_TUSB6010),y)
 	musb_hdrc-objs	+= tusb6010.o
 endif
 
-ifeq ($(CONFIG_ARCH_OMAP243X),y)
+ifeq ($(CONFIG_ARCH_OMAP2430),y)
 	musb_hdrc-objs	+= omap2430.o
 endif
 
