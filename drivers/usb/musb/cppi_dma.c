@@ -1304,8 +1304,8 @@ void cppi_completion(struct musb *pThis, u32 rx, u32 tx)
 }
 
 /* Instantiate a software object representing a DMA controller. */
-static struct dma_controller *
-cppi_controller_new(struct musb *musb, void __iomem *pCoreBase)
+struct dma_controller *__init
+dma_controller_create(struct musb *musb, void __iomem *pCoreBase)
 {
 	struct cppi		*pController;
 
@@ -1344,7 +1344,7 @@ cppi_controller_new(struct musb *musb, void __iomem *pCoreBase)
 /*
  *  Destroy a previously-instantiated DMA controller.
  */
-static void cppi_controller_destroy(struct dma_controller *c)
+void dma_controller_destroy(struct dma_controller *c)
 {
 	struct cppi	*cppi;
 
@@ -1355,11 +1355,6 @@ static void cppi_controller_destroy(struct dma_controller *c)
 
 	kfree(cppi);
 }
-
-const struct dma_controller_factory dma_controller_factory = {
-	.create =	cppi_controller_new,
-	.destroy =	cppi_controller_destroy,
-};
 
 /*
  * Context: controller irqlocked, endpoint selected

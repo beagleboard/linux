@@ -346,18 +346,16 @@ static irqreturn_t hsdma_irq(int irq, void *pPrivateData)
 	return IRQ_HANDLED;
 }
 
-static void hsdma_controller_destroy(struct dma_controller *pController)
+void dma_controller_destroy(struct dma_controller *pController)
 {
 	struct hsdma *pHsController = pController->pPrivateData;
 
-	if (pHsController) {
-		pHsController->Controller.pPrivateData = NULL;
-		kfree(pHsController);
-	}
+	pHsController->Controller.pPrivateData = NULL;
+	kfree(pHsController);
 }
 
-static struct dma_controller *
-hsdma_controller_new(struct musb *pThis, void __iomem *pCoreBase)
+struct dma_controller *__init
+dma_controller_create(struct musb *pThis, void __iomem *pCoreBase)
 {
 	struct hsdma *pController;
 	struct device *dev = pThis->controller;
@@ -387,14 +385,9 @@ hsdma_controller_new(struct musb *pThis, void __iomem *pCoreBase)
 	if (request_irq(irq, hsdma_irq, SA_INTERRUPT,
 			pThis->controller->bus_id, &pController->Controller)) {
 		dev_err(dev, "request_irq %d failed!\n", irq);
-		hsdma_controller_destroy(&pController->Controller);
+		kfree(pController);
 		return NULL;
 	}
 
 	return &pController->Controller;
 }
-
-const struct dma_controller_factory dma_controller_factory = {
-	.create =	hsdma_controller_new,
-	.destroy =	hsdma_controller_destroy,
-};

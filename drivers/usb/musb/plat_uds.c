@@ -1616,7 +1616,7 @@ static void musb_free(struct musb *musb)
 		struct dma_controller	*c = musb->pDmaController;
 
 		(void) c->stop(c->pPrivateData);
-		dma_controller_factory.destroy(c);
+		dma_controller_destroy(c);
 	}
 
 	musb_writeb(musb->pRegs, MGC_O_HDRC_DEVCTL, 0);
@@ -1710,10 +1710,7 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 	if (use_dma && dev->dma_mask) {
 		struct dma_controller	*c;
 
-// FIXME get rid of dma_controller_factory and just call the methods
-// directly ... then create() can be in the init section, etc
-
-		c = dma_controller_factory.create(pThis, pThis->pRegs);
+		c = dma_controller_create(pThis, pThis->pRegs);
 		pThis->pDmaController = c;
 		if (c)
 			(void) c->start(c->pPrivateData);

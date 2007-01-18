@@ -178,21 +178,9 @@ struct dma_controller {
 extern void musb_dma_completion(struct musb *musb, u8 bLocalEnd, u8 bTransmit);
 
 
-/**
- * struct dma_controller_factory - DMA controller factory
- * @create: create a DMA controller
- * @destroy: destroy a DMA controller
- *
- * To allow for multi-core implementations and different
- * types of cores and DMA controllers to co-exist,
- * (only at the source level; no runtime coexistence supported)
- * it is necessary to create them from factories.
- */
-struct dma_controller_factory {
-	struct dma_controller	*(*create)(struct musb *, void __iomem *);
-	void			(*destroy)(struct dma_controller *);
-};
+extern struct dma_controller *__init
+dma_controller_create(struct musb *, void __iomem *);
 
-extern const struct dma_controller_factory dma_controller_factory;
+extern void dma_controller_destroy(struct dma_controller *);
 
 #endif	/* __MUSB_DMA_H__ */
