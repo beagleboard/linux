@@ -122,6 +122,15 @@ module_param(debug, uint, 0);
 MODULE_PARM_DESC(debug, "initial debug message level");
 
 #define MUSB_VERSION_SUFFIX	"/dbg"
+#else
+
+const char *otg_state_string(struct musb *musb)
+{
+	static char buf[8];
+
+	snprintf(buf, sizeof buf, "otg-%d", musb->xceiv.state);
+	return buf;
+}
 #endif
 
 #define DRIVER_AUTHOR "Mentor Graphics, Texas Instruments, Nokia"
