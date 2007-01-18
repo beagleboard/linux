@@ -203,8 +203,7 @@ enum musb_g_ep0_state {
  */
 
 #if defined(CONFIG_ARCH_DAVINCI) || defined(CONFIG_ARCH_OMAP243X)
-/* REVISIT "flat" takes about 1% more object code space and can't be very
- * noticeable for speed differences.  But for now indexed access seems to
+/* REVISIT indexed access seemed to
  * misbehave (on DaVinci) for at least peripheral IN ...
  */
 #define	MUSB_FLAT_REG
@@ -226,17 +225,6 @@ enum musb_g_ep0_state {
 #define MGC_SelectEnd(_pBase, _bEnd) \
 	musb_writeb((_pBase), MGC_O_HDRC_INDEX, (_bEnd))
 #define	MGC_END_OFFSET			MGC_INDEXED_OFFSET
-#endif
-
-/* FIXME: replace with musb_readcsr(hw_ep *, REGNAME), etc
- * using hw_ep->regs, for all access except writing INDEX
- */
-#ifdef	MUSB_FLAT_REG
-#define MGC_WriteCsr16(_pBase, _bOffset, _bEnd, _bData) \
-	musb_writew((_pBase), MGC_END_OFFSET((_bEnd), (_bOffset)), (_bData))
-#else
-#define MGC_WriteCsr16(_pBase, _bOffset, _bEnd, _bData) \
-	musb_writew(_pBase, (_bOffset + 0x10), _bData)
 #endif
 
 /****************************** FUNCTIONS ********************************/
