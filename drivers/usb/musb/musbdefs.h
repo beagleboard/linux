@@ -232,13 +232,9 @@ enum musb_g_ep0_state {
  * using hw_ep->regs, for all access except writing INDEX
  */
 #ifdef	MUSB_FLAT_REG
-#define MGC_ReadCsr16(_pBase, _bOffset, _bEnd) \
-	musb_readw((_pBase), MGC_END_OFFSET((_bEnd), (_bOffset)))
 #define MGC_WriteCsr16(_pBase, _bOffset, _bEnd, _bData) \
 	musb_writew((_pBase), MGC_END_OFFSET((_bEnd), (_bOffset)), (_bData))
 #else
-#define MGC_ReadCsr16(_pBase, _bOffset, _bEnd) \
-	musb_readw(_pBase, (_bOffset + 0x10))
 #define MGC_WriteCsr16(_pBase, _bOffset, _bEnd, _bData) \
 	musb_writew(_pBase, (_bOffset + 0x10), _bData)
 #endif

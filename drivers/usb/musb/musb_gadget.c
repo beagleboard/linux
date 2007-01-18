@@ -240,14 +240,14 @@ static inline int max_ep_writesize(struct musb *pThis, struct musb_ep *ep)
  */
 static void txstate(struct musb *pThis, struct musb_request *req)
 {
-	u8			bEnd;
+	u8			bEnd = req->bEnd;
 	struct musb_ep		*pEnd;
+	void __iomem		*epio = pThis->aLocalEnd[bEnd].regs;
 	struct usb_request	*pRequest;
 	void __iomem		*pBase = pThis->pRegs;
 	u16			wFifoCount = 0, wCsrVal;
 	int			use_dma = 0;
 
-	bEnd = req->bEnd;
 	pEnd = req->ep;
 
 	/* we shouldn't get here while DMA is active ... but we do ... */
@@ -257,7 +257,7 @@ static void txstate(struct musb *pThis, struct musb_request *req)
 	}
 
 	/* read TXCSR before */
-	wCsrVal = MGC_ReadCsr16(pBase, MGC_O_HDRC_TXCSR, bEnd);
+	wCsrVal = musb_readw(epio, MGC_O_HDRC_TXCSR);
 
 	pRequest = &req->request;
 	wFifoCount = min(max_ep_writesize(pThis, pEnd),
@@ -336,7 +336,7 @@ static void txstate(struct musb *pThis, struct musb_request *req)
 				| wCsrVal);
 
 		/* ensure writebuffer is empty */
-		wCsrVal = MGC_ReadCsr16(pBase, MGC_O_HDRC_TXCSR, bEnd);
+		wCsrVal = musb_readw(epio, MGC_O_HDRC_TXCSR);
 
 		/* NOTE host side sets DMAENAB later than this; both are
 		 * OK since the transfer dma glue (between CPPI and Mentor
@@ -383,9 +383,9 @@ static void txstate(struct musb *pThis, struct musb_request *req)
 	DBG(3, "%s TX/IN %s len %d/%d, txcsr %04x, fifo %d/%d\n",
 			pEnd->end_point.name, use_dma ? "dma" : "pio",
 			pRequest->actual, pRequest->length,
-			MGC_ReadCsr16(pBase, MGC_O_HDRC_TXCSR, bEnd),
+			musb_readw(epio, MGC_O_HDRC_TXCSR),
 			wFifoCount,
-			MGC_ReadCsr16(pBase, MGC_O_HDRC_TXMAXP, bEnd));
+			musb_readw(epio, MGC_O_HDRC_TXMAXP));
 }
 
 /*
@@ -397,14 +397,14 @@ void musb_g_tx(struct musb *pThis, u8 bEnd)
 	u16			wCsrVal;
 	struct usb_request	*pRequest;
 	u8 __iomem		*pBase = pThis->pRegs;
-	struct musb_ep		*pEnd;
+	struct musb_ep		*pEnd = &pThis->aLocalEnd[bEnd].ep_in;
+	void __iomem		*epio = pThis->aLocalEnd[bEnd].regs;
 	struct dma_channel	*dma;
 
 	MGC_SelectEnd(pBase, bEnd);
-	pEnd = &pThis->aLocalEnd[bEnd].ep_in;
 	pRequest = next_request(pEnd);
 
-	wCsrVal = MGC_ReadCsr16(pBase, MGC_O_HDRC_TXCSR, bEnd);
+	wCsrVal = musb_readw(epio, MGC_O_HDRC_TXCSR);
 	DBG(4, "<== %s, txcsr %04x\n", pEnd->end_point.name, wCsrVal);
 
 	dma = is_dma_capable() ? pEnd->dma : NULL;
@@ -456,8 +456,7 @@ void musb_g_tx(struct musb *pThis, u8 bEnd)
 				MGC_WriteCsr16(pBase, MGC_O_HDRC_TXCSR, bEnd,
 					wCsrVal);
 				/* ensure writebuffer is empty */
-				wCsrVal = MGC_ReadCsr16(pBase,
-						MGC_O_HDRC_TXCSR, bEnd);
+				wCsrVal = musb_readw(epio, MGC_O_HDRC_TXCSR);
 				DBG(4, "TXCSR%d %04x, dma off, "
 						"len %Zd, req %p\n",
 					bEnd, wCsrVal,
@@ -506,8 +505,7 @@ void musb_g_tx(struct musb *pThis, u8 bEnd)
 				 * FIXME revisit for stalls too...
 				 */
 				MGC_SelectEnd(pBase, bEnd);
-				wCsrVal = MGC_ReadCsr16(pBase,
-						MGC_O_HDRC_TXCSR, bEnd);
+				wCsrVal = musb_readw(epio, MGC_O_HDRC_TXCSR);
 				if (wCsrVal & MGC_M_TXCSR_FIFONOTEMPTY)
 					break;
 				pRequest = pEnd->desc
@@ -569,10 +567,11 @@ static void rxstate(struct musb *pThis, struct musb_request *req)
 	struct usb_request	*pRequest = &req->request;
 	void __iomem		*pBase = pThis->pRegs;
 	struct musb_ep		*pEnd = &pThis->aLocalEnd[bEnd].ep_out;
+	void __iomem		*epio = pThis->aLocalEnd[bEnd].regs;
 	u16			wFifoCount = 0;
 	u16			wCount = pEnd->wPacketSize;
 
-	wCsrVal = MGC_ReadCsr16(pBase, MGC_O_HDRC_RXCSR, bEnd);
+	wCsrVal = musb_readw(epio, MGC_O_HDRC_RXCSR);
 
 	if (is_cppi_enabled() && pEnd->dma) {
 		struct dma_controller	*c = pThis->pDmaController;
@@ -602,7 +601,7 @@ static void rxstate(struct musb *pThis, struct musb_request *req)
 	}
 
 	if (wCsrVal & MGC_M_RXCSR_RXPKTRDY) {
-		wCount = MGC_ReadCsr16(pBase, MGC_O_HDRC_RXCOUNT, bEnd);
+		wCount = musb_readw(epio, MGC_O_HDRC_RXCOUNT);
 		if (pRequest->actual < pRequest->length) {
 #ifdef CONFIG_USB_INVENTRA_DMA
 			if (is_dma_capable() && pEnd->dma) {
@@ -731,15 +730,15 @@ void musb_g_rx(struct musb *pThis, u8 bEnd)
 	u16			wCsrVal;
 	struct usb_request	*pRequest;
 	void __iomem		*pBase = pThis->pRegs;
-	struct musb_ep		*pEnd;
+	struct musb_ep		*pEnd = &pThis->aLocalEnd[bEnd].ep_out;
+	void __iomem		*epio = pThis->aLocalEnd[bEnd].regs;
 	struct dma_channel	*dma;
 
 	MGC_SelectEnd(pBase, bEnd);
 
-	pEnd = &pThis->aLocalEnd[bEnd].ep_out;
 	pRequest = next_request(pEnd);
 
-	wCsrVal = MGC_ReadCsr16(pBase, MGC_O_HDRC_RXCSR, bEnd);
+	wCsrVal = musb_readw(epio, MGC_O_HDRC_RXCSR);
 	dma = is_dma_capable() ? pEnd->dma : NULL;
 
 	DBG(4, "<== %s, rxcsr %04x%s %p\n", pEnd->end_point.name,
@@ -794,7 +793,7 @@ void musb_g_rx(struct musb *pThis, u8 bEnd)
 
 		DBG(4, "RXCSR%d %04x, dma off, %04x, len %Zd, req %p\n",
 			bEnd, wCsrVal,
-			MGC_ReadCsr16(pBase, MGC_O_HDRC_RXCSR, bEnd),
+			musb_readw(epio, MGC_O_HDRC_RXCSR),
 			pEnd->dma->dwActualLength, pRequest);
 
 #if defined(CONFIG_USB_INVENTRA_DMA) || defined(CONFIG_USB_TUSB_OMAP_DMA)
@@ -821,7 +820,7 @@ void musb_g_rx(struct musb *pThis, u8 bEnd)
 
 		/* don't start more i/o till the stall clears */
 		MGC_SelectEnd(pBase, bEnd);
-		wCsrVal = MGC_ReadCsr16(pBase, MGC_O_HDRC_RXCSR, bEnd);
+		wCsrVal = musb_readw(epio, MGC_O_HDRC_RXCSR);
 		if (wCsrVal & MGC_M_RXCSR_P_SENDSTALL)
 			goto done;
 	}
@@ -1270,21 +1269,16 @@ done:
  */
 int musb_gadget_set_halt(struct usb_ep *ep, int value)
 {
-	struct musb_ep		*pEnd;
-	u8			bEnd;
-	struct musb		*pThis;
+	struct musb_ep		*pEnd = to_musb_ep(ep);
+	u8			bEnd = pEnd->bEndNumber;
+	struct musb		*pThis = pEnd->pThis;
+	void __iomem		*epio = pThis->aLocalEnd[bEnd].regs;
 	void __iomem		*pBase;
 	unsigned long		flags;
 	u16			wCsr;
 	struct musb_request	*pRequest = NULL;
 	int			status = 0;
 
-	if (!ep)
-		return -EINVAL;
-
-	pEnd = to_musb_ep(ep);
-	bEnd = pEnd->bEndNumber;
-	pThis = pEnd->pThis;
 	pBase = pThis->pRegs;
 
 	spin_lock_irqsave(&pThis->Lock, flags);
@@ -1299,7 +1293,7 @@ int musb_gadget_set_halt(struct usb_ep *ep, int value)
 	/* cannot portably stall with non-empty FIFO */
 	pRequest = to_musb_request(next_request(pEnd));
 	if (value && pEnd->is_in) {
-		wCsr = MGC_ReadCsr16(pBase, MGC_O_HDRC_TXCSR, bEnd);
+		wCsr = musb_readw(epio, MGC_O_HDRC_TXCSR);
 		if (wCsr & MGC_M_TXCSR_FIFONOTEMPTY) {
 			DBG(3, "%s fifo busy, cannot halt\n", ep->name);
 			spin_unlock_irqrestore(&pThis->Lock, flags);
@@ -1311,7 +1305,7 @@ int musb_gadget_set_halt(struct usb_ep *ep, int value)
 	/* set/clear the stall and toggle bits */
 	DBG(2, "%s: %s stall\n", ep->name, value ? "set" : "clear");
 	if (pEnd->is_in) {
-		wCsr = MGC_ReadCsr16(pBase, MGC_O_HDRC_TXCSR, bEnd);
+		wCsr = musb_readw(epio, MGC_O_HDRC_TXCSR);
 		if (wCsr & MGC_M_TXCSR_FIFONOTEMPTY)
 			wCsr |= MGC_M_TXCSR_FLUSHFIFO;
 		wCsr |= MGC_M_TXCSR_P_WZC_BITS
@@ -1324,7 +1318,7 @@ int musb_gadget_set_halt(struct usb_ep *ep, int value)
 		wCsr &= ~MGC_M_TXCSR_TXPKTRDY;
 		MGC_WriteCsr16(pBase, MGC_O_HDRC_TXCSR, bEnd, wCsr);
 	} else {
-		wCsr = MGC_ReadCsr16(pBase, MGC_O_HDRC_RXCSR, bEnd);
+		wCsr = musb_readw(epio, MGC_O_HDRC_RXCSR);
 		wCsr |= MGC_M_RXCSR_P_WZC_BITS
 			| MGC_M_RXCSR_FLUSHFIFO
 			| MGC_M_RXCSR_CLRDATATOG;
@@ -1351,6 +1345,7 @@ done:
 static int musb_gadget_fifo_status(struct usb_ep *ep)
 {
 	struct musb_ep		*musb_ep = to_musb_ep(ep);
+	void __iomem		*epio = musb_ep->hw_ep->regs;
 	int			retval = -EINVAL;
 
 	if (musb_ep->desc && !musb_ep->is_in) {
@@ -1363,7 +1358,7 @@ static int musb_gadget_fifo_status(struct usb_ep *ep)
 
 		MGC_SelectEnd(mbase, bEnd);
 		/* FIXME return zero unless RXPKTRDY is set */
-		retval = MGC_ReadCsr16(mbase, MGC_O_HDRC_RXCOUNT, bEnd);
+		retval = musb_readw(epio, MGC_O_HDRC_RXCOUNT);
 
 		spin_unlock_irqrestore(&musb->Lock, flags);
 	}
@@ -1373,15 +1368,14 @@ static int musb_gadget_fifo_status(struct usb_ep *ep)
 static void musb_gadget_fifo_flush(struct usb_ep *ep)
 {
 	struct musb_ep	*musb_ep = to_musb_ep(ep);
-	struct musb	*musb;
+	struct musb	*musb = musb_ep->pThis;
+	u8		nEnd = musb_ep->bEndNumber;
+	void __iomem	*epio = musb->aLocalEnd[nEnd].regs;
 	void __iomem	*mbase;
-	u8		nEnd;
 	unsigned long	flags;
 	u16		wCsr, wIntrTxE;
 
-	musb = musb_ep->pThis;
 	mbase = musb->pRegs;
-	nEnd = musb_ep->bEndNumber;
 
 	spin_lock_irqsave(&musb->Lock, flags);
 	MGC_SelectEnd(mbase, (u8) nEnd);
@@ -1391,7 +1385,7 @@ static void musb_gadget_fifo_flush(struct usb_ep *ep)
 	musb_writew(mbase, MGC_O_HDRC_INTRTXE, wIntrTxE & ~(1 << nEnd));
 
 	if (musb_ep->is_in) {
-		wCsr = MGC_ReadCsr16(mbase, MGC_O_HDRC_TXCSR, nEnd);
+		wCsr = musb_readw(epio, MGC_O_HDRC_TXCSR);
 		if (wCsr & MGC_M_TXCSR_FIFONOTEMPTY) {
 			wCsr |= MGC_M_TXCSR_FLUSHFIFO | MGC_M_TXCSR_P_WZC_BITS;
 			MGC_WriteCsr16(mbase, MGC_O_HDRC_TXCSR, nEnd, wCsr);
@@ -1399,7 +1393,7 @@ static void musb_gadget_fifo_flush(struct usb_ep *ep)
 			MGC_WriteCsr16(mbase, MGC_O_HDRC_TXCSR, nEnd, wCsr);
 		}
 	} else {
-		wCsr = MGC_ReadCsr16(mbase, MGC_O_HDRC_RXCSR, nEnd);
+		wCsr = musb_readw(epio, MGC_O_HDRC_RXCSR);
 		wCsr |= MGC_M_RXCSR_FLUSHFIFO | MGC_M_RXCSR_P_WZC_BITS;
 		MGC_WriteCsr16(mbase, MGC_O_HDRC_RXCSR, nEnd, wCsr);
 		MGC_WriteCsr16(mbase, MGC_O_HDRC_RXCSR, nEnd, wCsr);

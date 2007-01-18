@@ -292,7 +292,7 @@ static inline void musb_save_toggle(struct musb_hw_ep *ep, int is_in, struct urb
 {
 	struct usb_device	*udev = urb->dev;
 	u16			csr;
-	void __iomem		*hw = ep->musb->pRegs;
+	void __iomem		*epio = ep->regs;
 	struct musb_qh		*qh;
 
 	/* FIXME:  the current Mentor DMA code seems to have
@@ -305,14 +305,12 @@ static inline void musb_save_toggle(struct musb_hw_ep *ep, int is_in, struct urb
 		qh = ep->out_qh;
 
 	if (!is_in) {
-		csr = MGC_ReadCsr16(hw, MGC_O_HDRC_TXCSR,
-				ep->bLocalEnd);
+		csr = musb_readw(epio, MGC_O_HDRC_TXCSR);
 		usb_settoggle(udev, qh->epnum, 1,
 			(csr & MGC_M_TXCSR_H_DATATOGGLE)
 				? 1 : 0);
 	} else {
-		csr = MGC_ReadCsr16(hw, MGC_O_HDRC_RXCSR,
-				ep->bLocalEnd);
+		csr = musb_readw(epio, MGC_O_HDRC_RXCSR);
 		usb_settoggle(udev, qh->epnum, 0,
 			(csr & MGC_M_RXCSR_H_DATATOGGLE)
 				? 1 : 0);
@@ -471,12 +469,13 @@ static u8 musb_host_packet_rx(struct musb *pThis, struct urb *pUrb,
 	int			do_flush = 0;
 	void __iomem		*pBase = pThis->pRegs;
 	struct musb_hw_ep	*pEnd = pThis->aLocalEnd + bEnd;
+	void __iomem		*epio = pEnd->regs;
 	struct musb_qh		*qh = pEnd->in_qh;
 	int			nPipe = pUrb->pipe;
 	void			*buffer = pUrb->transfer_buffer;
 
 	// MGC_SelectEnd(pBase, bEnd);
-	wRxCount = MGC_ReadCsr16(pBase, MGC_O_HDRC_RXCOUNT, bEnd);
+	wRxCount = musb_readw(epio, MGC_O_HDRC_RXCOUNT);
 
 	/* unload FIFO */
 	if (usb_pipeisoc(nPipe)) {
@@ -535,7 +534,7 @@ static u8 musb_host_packet_rx(struct musb *pThis, struct urb *pUrb,
 
 	musb_read_fifo(pEnd, length, pBuffer);
 
-	wCsr = MGC_ReadCsr16(pBase, MGC_O_HDRC_RXCSR, bEnd);
+	wCsr = musb_readw(epio, MGC_O_HDRC_RXCSR);
 	wCsr |= MGC_M_RXCSR_H_WZC_BITS;
 	if (unlikely(do_flush))
 		musb_h_flush_rxfifo(pEnd, wCsr);
@@ -672,7 +671,7 @@ static void musb_ep_program(struct musb *pThis, u8 bEnd,
 		u16	wIntrTxE;
 		u16	wLoadCount;
 
-		wCsr = MGC_ReadCsr16(pBase, MGC_O_HDRC_TXCSR, bEnd);
+		wCsr = musb_readw(epio, MGC_O_HDRC_TXCSR);
 
 		/* disable interrupt in case we flush */
 		wIntrTxE = musb_readw(pBase, MGC_O_HDRC_INTRTXE);
@@ -710,8 +709,7 @@ static void musb_ep_program(struct musb *pThis, u8 bEnd,
 			/* REVISIT may need to clear FLUSHFIFO ... */
 			MGC_WriteCsr16(pBase, MGC_O_HDRC_TXCSR, bEnd,
 					csr);
-			wCsr = MGC_ReadCsr16(pBase, MGC_O_HDRC_TXCSR,
-					bEnd);
+			wCsr = musb_readw(epio, MGC_O_HDRC_TXCSR);
 		} else {
 			/* endpoint 0: just flush */
 			MGC_WriteCsr16(pBase, MGC_O_HDRC_CSR0, bEnd,
@@ -764,7 +762,7 @@ static void musb_ep_program(struct musb *pThis, u8 bEnd,
 		if (pDmaChannel) {
 
 			/* clear previous state */
-			wCsr = MGC_ReadCsr16(pBase, MGC_O_HDRC_TXCSR, bEnd);
+			wCsr = musb_readw(epio, MGC_O_HDRC_TXCSR);
 			wCsr &= ~(MGC_M_TXCSR_AUTOSET
 				| MGC_M_TXCSR_DMAMODE
 				| MGC_M_TXCSR_DMAENAB);
@@ -817,7 +815,7 @@ static void musb_ep_program(struct musb *pThis, u8 bEnd,
 			 * assume CPPI setup succeeds.
 			 * defer enabling dma.
 			 */
-			wCsr = MGC_ReadCsr16(pBase, MGC_O_HDRC_TXCSR, bEnd);
+			wCsr = musb_readw(epio, MGC_O_HDRC_TXCSR);
 			wCsr &= ~(MGC_M_TXCSR_AUTOSET
 					| MGC_M_TXCSR_DMAMODE
 					| MGC_M_TXCSR_DMAENAB);
@@ -857,7 +855,7 @@ static void musb_ep_program(struct musb *pThis, u8 bEnd,
 			/* PIO to load FIFO */
 			qh->segsize = wLoadCount;
 			musb_write_fifo(pEnd, wLoadCount, pBuffer);
-			wCsr = MGC_ReadCsr16(pBase, MGC_O_HDRC_TXCSR, bEnd);
+			wCsr = musb_readw(epio, MGC_O_HDRC_TXCSR);
 			wCsr &= ~(MGC_M_TXCSR_DMAENAB
 				| MGC_M_TXCSR_DMAMODE
 				| MGC_M_TXCSR_AUTOSET);
@@ -1042,7 +1040,7 @@ irqreturn_t musb_h_ep0_irq(struct musb *pThis)
 	pUrb = next_urb(qh);
 
 	MGC_SelectEnd(pBase, 0);
-	wCsrVal = MGC_ReadCsr16(pBase, MGC_O_HDRC_CSR0, 0);
+	wCsrVal = musb_readw(epio, MGC_O_HDRC_CSR0);
 	wCount = musb_readb(epio, MGC_O_HDRC_COUNT0);
 
 	DBG(4, "<== csr0 %04x, qh %p, count %d, urb %p, stage %d\n",
@@ -1181,7 +1179,7 @@ void musb_host_tx(struct musb *pThis, u8 bEnd)
 	pUrb = next_urb(qh);
 
 	MGC_SelectEnd(pBase, bEnd);
-	wTxCsrVal = MGC_ReadCsr16(pBase, MGC_O_HDRC_TXCSR, bEnd);
+	wTxCsrVal = musb_readw(epio, MGC_O_HDRC_TXCSR);
 
 	/* with CPPI, DMA sometimes triggers "extra" irqs */
 	if (!pUrb) {
@@ -1417,7 +1415,7 @@ void musb_host_rx(struct musb *pThis, u8 bEnd)
 	status = 0;
 	xfer_len = 0;
 
-	wVal = wRxCsrVal = MGC_ReadCsr16(pBase, MGC_O_HDRC_RXCSR, bEnd);
+	wVal = wRxCsrVal = musb_readw(epio, MGC_O_HDRC_RXCSR);
 
 	if (unlikely(!pUrb)) {
 		/* REVISIT -- THIS SHOULD NEVER HAPPEN ... but, at least
@@ -1425,7 +1423,7 @@ void musb_host_rx(struct musb *pThis, u8 bEnd)
 		 * with fifo full.  (Only with DMA??)
 		 */
 		DBG(3, "BOGUS RX%d ready, csr %04x, count %d\n", bEnd, wVal,
-			MGC_ReadCsr16(pBase, MGC_O_HDRC_RXCOUNT, bEnd));
+			musb_readw(epio, MGC_O_HDRC_RXCOUNT));
 		musb_h_flush_rxfifo(pEnd, MGC_M_RXCSR_CLRDATATOG);
 		return;
 	}
@@ -1550,8 +1548,8 @@ void musb_host_rx(struct musb *pThis, u8 bEnd)
 
 		DBG(4, "ep %d dma %s, rxcsr %04x, rxcount %d\n", bEnd,
 			bDone ? "off" : "reset",
-			MGC_ReadCsr16(pBase, MGC_O_HDRC_RXCSR, bEnd),
-			MGC_ReadCsr16(pBase, MGC_O_HDRC_RXCOUNT, bEnd));
+			musb_readw(epio, MGC_O_HDRC_RXCSR),
+			musb_readw(epio, MGC_O_HDRC_RXCOUNT));
 #else
 		bDone = TRUE;
 #endif
@@ -1578,8 +1576,7 @@ void musb_host_rx(struct musb *pThis, u8 bEnd)
 			u16			wRxCount;
 			int			status;
 
-			wRxCount = MGC_ReadCsr16(pBase,
-					MGC_O_HDRC_RXCOUNT, bEnd);
+			wRxCount = musb_readw(epio, MGC_O_HDRC_RXCOUNT);
 
 			DBG(2, "RX%d count %d, buffer 0x%x len %d/%d\n",
 					bEnd, wRxCount,
@@ -1620,7 +1617,7 @@ void musb_host_rx(struct musb *pThis, u8 bEnd)
  *	wait for an interrupt when the pkt is recd. Well, you won't get any!
  */
 
-			wVal = MGC_ReadCsr16(pBase, MGC_O_HDRC_RXCSR, bEnd);
+			wVal = musb_readw(epio, MGC_O_HDRC_RXCSR);
 			wVal &= ~MGC_M_RXCSR_H_REQPKT;
 
 			if (dma->bDesiredMode == 0)
@@ -1923,6 +1920,7 @@ done:
 static int musb_cleanup_urb(struct urb *urb, struct musb_qh *qh, int is_in)
 {
 	struct musb_hw_ep	*ep = qh->hw_ep;
+	void __iomem		*epio = ep->regs;
 	unsigned		hw_end = ep->bLocalEnd;
 	void __iomem		*regs = ep->musb->pRegs;
 	u16			csr;
@@ -1955,7 +1953,7 @@ static int musb_cleanup_urb(struct urb *urb, struct musb_qh *qh, int is_in)
 		 */
 	} else {
 // SCRUB (TX)
-		csr = MGC_ReadCsr16(regs, MGC_O_HDRC_TXCSR, hw_end);
+		csr = musb_readw(epio, MGC_O_HDRC_TXCSR);
 		if (csr & MGC_M_TXCSR_FIFONOTEMPTY)
 			csr |= MGC_M_TXCSR_FLUSHFIFO;
 		csr &= ~( MGC_M_TXCSR_AUTOSET
@@ -1969,7 +1967,7 @@ static int musb_cleanup_urb(struct urb *urb, struct musb_qh *qh, int is_in)
 		/* REVISIT may need to clear FLUSHFIFO ... */
 		MGC_WriteCsr16(regs, MGC_O_HDRC_TXCSR, 0, csr);
 		/* flush cpu writebuffer */
-		csr = MGC_ReadCsr16(regs, MGC_O_HDRC_TXCSR, hw_end);
+		csr = musb_readw(epio, MGC_O_HDRC_TXCSR);
 	}
 	if (status == 0)
 		musb_advance_schedule(ep->musb, urb, ep, is_in);
