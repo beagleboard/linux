@@ -583,6 +583,12 @@ ENTRY(__switch_to)
 	add	ip, r1, #TI_CPU_SAVE
 	ldr	r3, [r2, #TI_TP_VALUE]
 	stmia	ip!, {r4 - sl, fp, sp, lr}	@ Store most regs on stack
+#ifdef CONFIG_ARM_XENON
+	mrc	p14, 6, r4, c1, c0, 0		@ current xenon state
+	ldr	r5, [r2, #TI_XENONSTATE]	@ value to restore
+	str	r4, [r1, #TI_XENONSTATE]	@ save current
+	mcr	p14, 6, r5, c1, c0, 0		@ restore new value
+#endif
 #ifdef CONFIG_MMU
 	ldr	r6, [r2, #TI_CPU_DOMAIN]
 #endif
