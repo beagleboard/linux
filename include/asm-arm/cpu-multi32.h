@@ -54,6 +54,10 @@ extern struct processor {
 	 * ignore 'ext'.
 	 */
 	void (*set_pte_ext)(pte_t *ptep, pte_t pte, unsigned int ext);
+	/*
+	 * Retrieve prefetch fault address.
+	 */
+	unsigned long (*pabort_addr)(unsigned long lr);
 } processor;
 
 #define cpu_proc_init()			processor._proc_init()
