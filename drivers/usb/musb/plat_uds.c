@@ -472,9 +472,11 @@ static irqreturn_t musb_stage0_irq(struct musb * pThis, u8 bIntrUSB,
 	}
 
 	if (bIntrUSB & MGC_M_INTR_CONNECT) {
+		struct usb_hcd *hcd = musb_to_hcd(pThis);
+
 		handled = IRQ_HANDLED;
 		pThis->is_active = 1;
-		set_bit(HCD_FLAG_SAW_IRQ, &musb_to_hcd(pThis)->flags);
+		set_bit(HCD_FLAG_SAW_IRQ, &hcd->flags);
 
 		pThis->bEnd0Stage = MGC_END0_START;
 
@@ -496,7 +498,10 @@ static irqreturn_t musb_stage0_irq(struct musb * pThis, u8 bIntrUSB,
 		if (devctl & MGC_M_DEVCTL_LSDEV)
 			pThis->port1_status |= USB_PORT_STAT_LOW_SPEED;
 
-		usb_hcd_poll_rh_status(musb_to_hcd(pThis));
+		if (hcd->status_urb)
+			usb_hcd_poll_rh_status(hcd);
+		else
+			usb_hcd_resume_root_hub(hcd);
 
 		MUSB_HST_MODE(pThis);
 
