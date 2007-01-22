@@ -473,6 +473,13 @@ __und_usr:
  * co-processor instructions.  However, we have to watch out
  * for the ARM6/ARM7 SWI bug.
  *
+ * Neon is a special case that has to be handled here. Not all
+ * Neon instructions are co-processor instructions, so we have
+ * to make a special case of checking for them. Plus, there's
+ * five groups of them, so we have a table of mask/opcode pairs
+ * to check against, and if any match then we branch off into the
+ * Neon handler code.
+ *
  * Emulators may wish to make use of the following registers:
  *  r0  = instruction opcode.
  *  r2  = PC+4
@@ -481,6 +488,21 @@ __und_usr:
  *  lr  = unrecognised instruction return address
  */
 call_fpe:
+#ifdef CONFIG_NEON
+	adr	r6, .LCneon_opcodes
+2:
+	ldr	r7, [r6],#4			@ mask value
+	cmp	r7, #0
+	beq	1f				@ if mask is 0 then we've done
+	and	r8, r0, r7
+	ldr	r7, [r6],#4			@ opcode bits matching in mask
+	cmp	r8, r7
+	bne	2b
+	get_thread_info r10
+	enable_irq
+	b	do_vfp				@ Let VFP handler handle this
+1:
+#endif
 	tst	r0, #0x08000000			@ only CDP/CPRT/LDC/STC have bit 27
 #if defined(CONFIG_CPU_ARM610) || defined(CONFIG_CPU_ARM710)
 	and	r8, r0, #0x0f000000		@ mask out op-code bits
@@ -529,6 +551,29 @@ call_fpe:
 	mov	pc, lr				@ CP#13
 	mov	pc, lr				@ CP#14 (Debug)
 	mov	pc, lr				@ CP#15 (Control)
+
+#ifdef CONFIG_NEON
+	.align	6
+
+.LCneon_opcodes:
+	.word	0xfe000000			@ mask
+	.word	0xf2000000			@ opcode
+
+	.word	0x0e000f00			@ mask
+	.word	0x0c000b00			@ opcode
+
+	.word	0xff100000			@ mask
+	.word	0xf4000000			@ opcode
+
+	.word	0x0f000f10			@ mask
+	.word	0x0e000b10			@ opcode
+
+	.word	0x0fe00fd0			@ mask
+	.word	0x0c400b10			@ opcode
+
+	.word	0x00000000			@ mask
+	.word	0x00000000			@ opcode
+#endif
 
 do_fpe:
 	enable_irq
