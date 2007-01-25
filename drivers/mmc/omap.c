@@ -2,7 +2,7 @@
  *  linux/drivers/media/mmc/omap.c
  *
  *  Copyright (C) 2004 Nokia Corporation
- *  Written by Tuukka Tikkanen and Juha Yrjölä <juha.yrjola@nokia.com>
+ *  Written by Tuukka Tikkanen and Juha Yrjölä<juha.yrjola@nokia.com>
  *  Misc hacks here and there by Tony Lindgren <tony@atomide.com>
  *  Other hacks (DMA, SD, etc) by David Brownell
  *
@@ -37,7 +37,6 @@
 #include <asm/arch/mux.h>
 #include <asm/arch/fpga.h>
 #include <asm/arch/tps65010.h>
-#include <asm/arch/board-sx1.h>
 
 #define	OMAP_MMC_REG_CMD	0x00
 #define	OMAP_MMC_REG_ARGL	0x04
@@ -209,7 +208,7 @@ mmc_omap_start_command(struct mmc_omap_host *host, struct mmc_command *cmd)
 		break;
 	case MMC_RSP_R1:
 	case MMC_RSP_R1B:
-		/* resp 1, resp 1b */
+		/* resp 1, 1b, 6, 7 */
 		resptype = 1;
 		break;
 	case MMC_RSP_R2:
@@ -217,9 +216,6 @@ mmc_omap_start_command(struct mmc_omap_host *host, struct mmc_command *cmd)
 		break;
 	case MMC_RSP_R3:
 		resptype = 3;
-		break;
-	case MMC_RSP_R6:
-		resptype = 6;
 		break;
 	default:
 		dev_err(mmc_dev(host->mmc), "Invalid response type: %04x\n", mmc_resp_type(cmd));
@@ -911,9 +907,7 @@ static void innovator_fpga_socket_power(int on)
  */
 static void mmc_omap_power(struct mmc_omap_host *host, int on)
 {
-	if (machine_is_sx1())
-		sx1_setmmcpower(on);
-	else if (on) {
+	if (on) {
 		if (machine_is_omap_innovator())
 			innovator_fpga_socket_power(1);
 		else if (machine_is_omap_h2())
@@ -927,7 +921,6 @@ static void mmc_omap_power(struct mmc_omap_host *host, int on)
 		} else
 			if (host->power_pin >= 0)
 				omap_set_gpio_dataout(host->power_pin, 1);
-		msleep(1);
 	} else {
 		if (machine_is_omap_innovator())
 			innovator_fpga_socket_power(0);
@@ -947,31 +940,30 @@ static void mmc_omap_power(struct mmc_omap_host *host, int on)
 static void mmc_omap_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 {
 	struct mmc_omap_host *host = mmc_priv(mmc);
-	int fclk_rate;
 	int dsor;
-	int freq, i;
+	int realclock, i;
 
-	freq = ios->clock;
+	realclock = ios->clock;
 
-	/* At least on OMAP2420, the divisor must be != 0 for the
-	 * initialization sequence to complete successfully. */
-	if (freq == 0)
-		freq = 4000000;
+	if (ios->clock == 0)
+		dsor = 0;
+	else {
+		int func_clk_rate = clk_get_rate(host->fclk);
 
-	fclk_rate = clk_get_rate(host->fclk);
-	dsor = fclk_rate / freq;
-	if (dsor < 1)
-		dsor = 1;
+		dsor = func_clk_rate / realclock;
+		if (dsor < 1)
+			dsor = 1;
 
-	if (fclk_rate / dsor > freq)
+		if (func_clk_rate / dsor > realclock)
+			dsor++;
+
+		if (dsor > 250)
+			dsor = 250;
 		dsor++;
 
-	if (dsor > 250)
-		dsor = 250;
-	dsor++;
-
-	if (ios->bus_width == MMC_BUS_WIDTH_4)
-		dsor |= 1 << 15;
+		if (ios->bus_width == MMC_BUS_WIDTH_4)
+			dsor |= 1 << 15;
+	}
 
 	switch (ios->power_mode) {
 	case MMC_POWER_OFF:
@@ -1039,7 +1031,7 @@ static int __init mmc_omap_probe(struct platform_device *pdev)
 		return -ENXIO;
 
 	res = request_mem_region(res->start, res->end - res->start + 1,
-				 pdev->name);
+			         pdev->name);
 	if (res == NULL)
 		return -EBUSY;
 
@@ -1054,7 +1046,6 @@ static int __init mmc_omap_probe(struct platform_device *pdev)
 
 	spin_lock_init(&host->dma_lock);
 	init_timer(&host->dma_timer);
-
 	host->dma_timer.function = mmc_omap_dma_timer;
 	host->dma_timer.data = (unsigned long) host;
 

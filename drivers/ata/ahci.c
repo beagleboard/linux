@@ -361,7 +361,7 @@ static const struct pci_device_id ahci_pci_tbl[] = {
 	{ PCI_VDEVICE(INTEL, 0x27c1), board_ahci }, /* ICH7 */
 	{ PCI_VDEVICE(INTEL, 0x27c5), board_ahci }, /* ICH7M */
 	{ PCI_VDEVICE(INTEL, 0x27c3), board_ahci }, /* ICH7R */
-	{ PCI_VDEVICE(AL, 0x5288), board_ahci }, /* ULi M5288 */
+	{ PCI_VDEVICE(AL, 0x5288), board_ahci_ign_iferr }, /* ULi M5288 */
 	{ PCI_VDEVICE(INTEL, 0x2681), board_ahci }, /* ESB2 */
 	{ PCI_VDEVICE(INTEL, 0x2682), board_ahci }, /* ESB2 */
 	{ PCI_VDEVICE(INTEL, 0x2683), board_ahci }, /* ESB2 */
@@ -586,35 +586,18 @@ static void ahci_power_down(void __iomem *port_mmio, u32 cap)
 {
 	u32 cmd, scontrol;
 
+	if (!(cap & HOST_CAP_SSS))
+		return;
+
+	/* put device into listen mode, first set PxSCTL.DET to 0 */
+	scontrol = readl(port_mmio + PORT_SCR_CTL);
+	scontrol &= ~0xf;
+	writel(scontrol, port_mmio + PORT_SCR_CTL);
+
+	/* then set PxCMD.SUD to 0 */
 	cmd = readl(port_mmio + PORT_CMD) & ~PORT_CMD_ICC_MASK;
-
-	if (cap & HOST_CAP_SSC) {
-		/* enable transitions to slumber mode */
-		scontrol = readl(port_mmio + PORT_SCR_CTL);
-		if ((scontrol & 0x0f00) > 0x100) {
-			scontrol &= ~0xf00;
-			writel(scontrol, port_mmio + PORT_SCR_CTL);
-		}
-
-		/* put device into slumber mode */
-		writel(cmd | PORT_CMD_ICC_SLUMBER, port_mmio + PORT_CMD);
-
-		/* wait for the transition to complete */
-		ata_wait_register(port_mmio + PORT_CMD, PORT_CMD_ICC_SLUMBER,
-				  PORT_CMD_ICC_SLUMBER, 1, 50);
-	}
-
-	/* put device into listen mode */
-	if (cap & HOST_CAP_SSS) {
-		/* first set PxSCTL.DET to 0 */
-		scontrol = readl(port_mmio + PORT_SCR_CTL);
-		scontrol &= ~0xf;
-		writel(scontrol, port_mmio + PORT_SCR_CTL);
-
-		/* then set PxCMD.SUD to 0 */
-		cmd &= ~PORT_CMD_SPIN_UP;
-		writel(cmd, port_mmio + PORT_CMD);
-	}
+	cmd &= ~PORT_CMD_SPIN_UP;
+	writel(cmd, port_mmio + PORT_CMD);
 }
 
 static void ahci_init_port(void __iomem *port_mmio, u32 cap,
