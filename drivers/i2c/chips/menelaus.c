@@ -14,7 +14,9 @@
  * Tony Lindgren <tony@atomide.com> and Imre Deak <imre.deak@nokia.com>
  * Cleanup and generalized support for voltage setting by
  * Juha Yrjola
- * Copyright (C) 2005-2006 Nokia Corporation
+ * Added support for controlling VCORE and regulator sleep states,
+ * Amit Kucheria <amit.kucheria@nokia.com>
+ * Copyright (C) 2005, 2006 Nokia Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -143,12 +145,14 @@ struct menelaus_chip {
 	struct i2c_client	client;
 	struct work_struct	work;
 	int			irq;
+	unsigned		vcore_hw_mode:1;
 	void			*handlers[16];
 	void			(*mmc_callback)(void *data, u8 mask);
 	void			*mmc_callback_data;
 };
 
 static struct menelaus_chip menelaus;
+static struct menelaus_platform_data *menelaus_pdata;
 
 static int menelaus_write_reg(int reg, u8 value)
 {
@@ -470,6 +474,93 @@ static int menelaus_get_vtg_value(int vtg, const struct menelaus_vtg_value *tbl,
 	return -EINVAL;
 }
 
+/* Vcore can be programmed in two ways:
+ * SW-controlled: Required voltage is programmed into VCORE_CTRL1
+ * HW-controlled: Required range (roof-floor) is programmed into VCORE_CTRL3
+ * and VCORE_CTRL4
+
+ * Call correct 'set' function accordingly
+ */
+
+static const struct menelaus_vtg_value vcore_values[] = {
+	{ 1000, 0 },
+	{ 1025, 1 },
+	{ 1050, 2 },
+	{ 1075, 3 },
+	{ 1100, 4 },
+	{ 1125, 5 },
+	{ 1150, 6 },
+	{ 1175, 7 },
+	{ 1200, 8 },
+	{ 1225, 9 },
+	{ 1250, 10 },
+	{ 1275, 11 },
+	{ 1300, 12 },
+	{ 1325, 13 },
+	{ 1350, 14 },
+	{ 1375, 15 },
+	{ 1400, 16 },
+	{ 1425, 17 },
+	{ 1450, 18 },
+};
+
+int menelaus_set_vcore_sw(unsigned int mV)
+{
+	int val, ret;
+
+	val = menelaus_get_vtg_value(mV, vcore_values, ARRAY_SIZE(vcore_values));
+	if (val < 0)
+		return -EINVAL;
+#ifdef DEBUG
+	printk("menelaus: Setting VCORE to %d mV (val 0x%02x)\n", mV, val);
+#endif
+
+	/* Set SW mode and the voltage in one go. */
+	mutex_lock(&menelaus.lock);
+	ret = menelaus_write_reg(MENELAUS_VCORE_CTRL1, val);
+	if (ret == 0)
+		menelaus.vcore_hw_mode = 0;
+	mutex_unlock(&menelaus.lock);
+	msleep(1);
+
+	return ret;
+}
+
+int menelaus_set_vcore_hw(unsigned int roof_mV, unsigned int floor_mV)
+{
+	int fval, rval, val, ret;
+
+	rval = menelaus_get_vtg_value(roof_mV, vcore_values, ARRAY_SIZE(vcore_values));
+	if (rval < 0)
+		return -EINVAL;
+	fval = menelaus_get_vtg_value(floor_mV, vcore_values, ARRAY_SIZE(vcore_values));
+	if (fval < 0)
+		return -EINVAL;
+
+#ifdef DEBUG
+	printk("menelaus: Setting VCORE FLOOR to %d mV and ROOF to %d mV\n",
+	       floor_mV, roof_mV);
+#endif
+
+	mutex_lock(&menelaus.lock);
+	ret = menelaus_write_reg(MENELAUS_VCORE_CTRL3, fval);
+	if (ret < 0)
+		goto out;
+	ret = menelaus_write_reg(MENELAUS_VCORE_CTRL4, rval);
+	if (ret < 0)
+		goto out;
+	if (!menelaus.vcore_hw_mode) {
+		val = menelaus_read_reg(MENELAUS_VCORE_CTRL1);
+		val |= ((1 << 7) | (1 << 5)); /* HW mode, turn OFF byte comparator */
+		ret = menelaus_write_reg(MENELAUS_VCORE_CTRL1, val);
+		menelaus.vcore_hw_mode = 1;
+	}
+	msleep(1);
+out:
+	mutex_unlock(&menelaus.lock);
+	return ret;
+}
+
 static const struct menelaus_vtg vmem_vtg = {
 	.name = "VMEM",
 	.vtg_reg = MENELAUS_LDO_CTRL1,
@@ -641,6 +732,31 @@ int menelaus_get_slot_pin_states(void)
 }
 EXPORT_SYMBOL(menelaus_get_slot_pin_states);
 
+int menelaus_set_regulator_sleep(int enable, u32 val)
+{
+	int t, ret;
+
+        mutex_lock(&menelaus.lock);
+	ret = menelaus_write_reg(MENELAUS_SLEEP_CTRL2, val);
+	if (ret < 0)
+		goto out;
+#ifdef DEBUG
+	printk("menelaus: regulator sleep configuration: %02x\n", val);
+#endif
+	ret = menelaus_read_reg(MENELAUS_GPIO_CTRL);
+	if (ret < 0)
+		goto out;
+	t = ((1 << 6) | 0x04);
+	if (enable)
+		ret |= t;
+	else
+		ret &= ~t;
+	ret = menelaus_write_reg(MENELAUS_GPIO_CTRL, ret);
+out:
+	mutex_unlock(&menelaus.lock);
+	return ret;
+}
+
 /*-----------------------------------------------------------------------*/
 
 /* Handles Menelaus interrupts. Does not run in interrupt context */
@@ -695,7 +811,7 @@ static struct i2c_driver menelaus_i2c_driver;
 static int menelaus_probe(struct i2c_adapter *adapter, int address, int kind)
 {
 	struct i2c_client	*c;
-	int			rev = 0;
+	int			rev = 0, val;
 	int			err = 0;
 
 	if (test_and_set_bit(0, &menelaus.initialized))
@@ -746,8 +862,24 @@ static int menelaus_probe(struct i2c_adapter *adapter, int address, int kind)
 	if (kind < 0)
 		pr_info("Menelaus rev %d.%d\n", rev >> 4, rev & 0x0f);
 
-	return 0;
+	val = menelaus_read_reg(MENELAUS_VCORE_CTRL1);
+	if (val < 0)
+		goto fail3;
+	if (val & (1 << 7))
+		menelaus.vcore_hw_mode = 1;
+	else
+		menelaus.vcore_hw_mode = 0;
 
+	if (menelaus_pdata != NULL && menelaus_pdata->late_init != NULL) {
+		err = menelaus_pdata->late_init(&c->dev);
+		if (err < 0)
+			goto fail3;
+	}
+
+	return 0;
+fail3:
+	free_irq(menelaus.irq, &menelaus);
+	flush_scheduled_work();
 fail2:
 	i2c_detach_client(c);
 fail1:
@@ -812,6 +944,11 @@ static void __exit menelaus_exit(void)
 		pr_err("driver remove failed\n");
 
 	/* FIXME: Shutdown menelaus parts that can be shut down */
+}
+
+void __init menelaus_set_platform_data(struct menelaus_platform_data *pdata)
+{
+	menelaus_pdata = pdata;
 }
 
 MODULE_AUTHOR("Texas Instruments, Inc.");
