@@ -9,7 +9,7 @@ obj-y := irq.o id.o io.o sram-fn.o memory.o prcm.o clock.o mux.o devices.o \
 obj-$(CONFIG_OMAP_MPU_TIMER)		+= timer-gp.o
 
 # Power Management
-obj-$(CONFIG_PM) += pm.o pm-domain.o sleep.o
+obj-$(CONFIG_PM) += pm.o sleep.o
 
 # DSP
 obj-$(CONFIG_OMAP_DSP)	+= mailbox_mach.o
