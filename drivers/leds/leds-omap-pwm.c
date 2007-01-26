@@ -253,19 +253,30 @@ static int omap_pwm_led_probe(struct platform_device *pdev)
 		if (led->blink_timer == NULL) {
 			dev_err(&pdev->dev, "failed to request blinking pwm timer\n");
 			ret = -ENODEV;
-			goto error_blink;
+			goto error_blink1;
 		}
 		omap_dm_timer_disable(led->blink_timer);
 
-		class_device_create_file(led->cdev.class_dev,
-					 &class_device_attr_on_period);
-		class_device_create_file(led->cdev.class_dev,
-					 &class_device_attr_off_period);
+		ret = class_device_create_file(led->cdev.class_dev,
+					       &class_device_attr_on_period);
+		if(ret)
+			goto error_blink2;
+
+		ret = class_device_create_file(led->cdev.class_dev,
+					        &class_device_attr_off_period);
+		if(ret)
+			goto error_blink3;
+
 	}
 
 	return 0;
 
-error_blink:
+error_blink3:
+	class_device_remove_file(led->cdev.class_dev,
+				 &class_device_attr_on_period);
+error_blink2:
+	dev_err(&pdev->dev, "failed to create device file(s)\n");
+error_blink1:
 	omap_dm_timer_free(led->intensity_timer);
 error_intensity:
 	led_classdev_unregister(&led->cdev);
