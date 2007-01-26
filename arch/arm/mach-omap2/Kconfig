@@ -55,3 +55,12 @@ config MACH_OMAP_APOLLON
 config MACH_OMAP_2430SDP
 	bool "OMAP 2430 SDP board"
 	depends on ARCH_OMAP2 && ARCH_OMAP24XX
+
+config MACH_NOKIA_N800
+	bool "Nokia N800"
+	depends on ARCH_OMAP24XX
+
+config MACH_OMAP2_TUSB6010
+       bool
+       depends on ARCH_OMAP2 && ARCH_OMAP2420
+       default y if MACH_NOKIA_N800

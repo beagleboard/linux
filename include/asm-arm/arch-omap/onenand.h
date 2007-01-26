@@ -16,4 +16,5 @@ struct omap_onenand_platform_data {
 	int			gpio_irq;
 	struct mtd_partition	*parts;
 	int			nr_parts;
+	int                     (*onenand_setup)(void __iomem *);
 };
