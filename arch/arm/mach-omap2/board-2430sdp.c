@@ -1,5 +1,5 @@
 /*
- * linux/arch/arm/mach-omap/omap2/board-2430sdp.c
+ * linux/arch/arm/mach-omap2/board-2430sdp.c
  *
  * Copyright (C) 2006 Texas Instruments
  *
@@ -19,8 +19,6 @@
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
 #include <linux/delay.h>
-#include <linux/workqueue.h>
-#include <linux/input.h>
 #include <linux/err.h>
 #include <linux/clk.h>
 
@@ -31,15 +29,9 @@
 #include <asm/mach/flash.h>
 
 #include <asm/arch/gpio.h>
-#include <asm/arch/gpioexpander.h>
 #include <asm/arch/mux.h>
-#include <asm/arch/usb.h>
-#include <asm/arch/irda.h>
 #include <asm/arch/board.h>
 #include <asm/arch/common.h>
-#include <asm/arch/keypad.h>
-#include <asm/arch/menelaus.h>
-#include <asm/arch/dma.h>
 #include <asm/arch/gpmc.h>
 #include "prcm-regs.h"
 
