@@ -851,7 +851,9 @@ int __init omap2_pm_init(void)
 	pm_set_ops(&omap_pm_ops);
 	pm_idle = omap2_pm_idle;
 
-	subsys_create_file(&power_subsys, &sleep_while_idle_attr);
+	l = subsys_create_file(&power_subsys, &sleep_while_idle_attr);
+	if (l)
+		printk(KERN_ERR "subsys_create_file failed: %d\n", l);
 
 	return 0;
 }
