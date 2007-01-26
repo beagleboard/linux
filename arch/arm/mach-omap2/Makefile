@@ -16,4 +16,8 @@ obj-$(CONFIG_MACH_OMAP_GENERIC)		+= board-generic.o
 obj-$(CONFIG_MACH_OMAP_H4)		+= board-h4.o
 obj-$(CONFIG_MACH_OMAP_2430SDP)		+= board-2430sdp.o
 obj-$(CONFIG_MACH_OMAP_APOLLON)		+= board-apollon.o
+obj-$(CONFIG_MACH_NOKIA_N800)		+= board-n800.o board-n800-flash.o \
+					   board-n800-mmc.o board-n800-bt.o \
+					   board-n800-audio.o board-n800-usb.o \
+					   board-n800-dsp.o board-n800-pm.o
 
