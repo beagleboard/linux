@@ -626,10 +626,15 @@ int omapfb_update_window_async(struct fb_info *fbi,
 				void (*callback)(void *),
 				void *callback_data)
 {
-	struct omapfb_plane_struct *plane = fbi->par;
-	struct omapfb_device *fbdev = plane->fbdev;
+	struct omapfb_plane_struct *plane;
+	struct omapfb_device *fbdev;
 	struct fb_var_screeninfo *var;
 
+	if (!fbi)
+		return -EINVAL;
+
+	plane = fbi->par;
+	fbdev = plane->fbdev;
 	var = &fbi->var;
 
 	if (win->x >= var->xres || win->y >= var->yres)
