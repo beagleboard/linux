@@ -1033,8 +1033,8 @@ static int tsc2102_probe(struct spi_device *spi)
 
 	clk_enable(tsc.bclk_ck);
 
-	if (request_irq(spi->irq, tsc2102_handler, SA_SAMPLE_RANDOM |
-				SA_TRIGGER_FALLING, "tsc2102", &tsc)) {
+	if (request_irq(spi->irq, tsc2102_handler, IRQF_SAMPLE_RANDOM |
+				IRQF_TRIGGER_FALLING, "tsc2102", &tsc)) {
 		printk(KERN_ERR "Could not allocate touchscreen IRQ!\n");
 		err = -EINVAL;
 		goto err_clk;

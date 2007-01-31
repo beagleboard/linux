@@ -382,7 +382,7 @@ dma_controller_create(struct musb *pThis, void __iomem *pCoreBase)
 	pController->Controller.channel_program = hsdma_channel_program;
 	pController->Controller.channel_abort = hsdma_channel_abort;
 
-	if (request_irq(irq, hsdma_irq, SA_INTERRUPT,
+	if (request_irq(irq, hsdma_irq, IRQF_DISABLED,
 			pThis->controller->bus_id, &pController->Controller)) {
 		dev_err(dev, "request_irq %d failed!\n", irq);
 		kfree(pController);

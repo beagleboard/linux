@@ -2498,7 +2498,7 @@ int __init dsp_mem_init(void)
 	/*
 	 * DSP MMU interrupt setup
 	 */
-	ret = request_irq(omap_dsp->mmu_irq, dsp_mmu_interrupt, SA_INTERRUPT,
+	ret = request_irq(omap_dsp->mmu_irq, dsp_mmu_interrupt, IRQF_DISABLED,
 			  "dsp_mmu",  &devid_mmu);
 	if (ret) {
 		printk(KERN_ERR

@@ -420,7 +420,7 @@ static void do_twl4030_module_irq(unsigned int irq, irq_desc_t *desc)
 				action = action->next;
 			} while (action);
 
-			if (status & SA_SAMPLE_RANDOM)
+			if (status & IRQF_SAMPLE_RANDOM)
 				add_interrupt_randomness(irq);
 
 			local_irq_disable();

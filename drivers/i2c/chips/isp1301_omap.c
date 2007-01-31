@@ -927,7 +927,7 @@ static int otg_bind(struct isp1301 *isp)
 
 	if (otg_dev)
 		status = request_irq(otg_dev->resource[1].start, omap_otg_irq,
-				SA_INTERRUPT, DRIVER_NAME, isp);
+				IRQF_DISABLED, DRIVER_NAME, isp);
 	else
 		status = -ENODEV;
 
@@ -1609,7 +1609,7 @@ fail1:
 		isp->irq = OMAP_GPIO_IRQ(2);
 		omap_request_gpio(2);
 		omap_set_gpio_direction(2, 1);
-		isp->irq_type = SA_TRIGGER_FALLING;
+		isp->irq_type = IRQF_TRIGGER_FALLING;
 	}
 
 	if (machine_is_omap_h3()) {
@@ -1618,7 +1618,7 @@ fail1:
 		isp->irq = OMAP_GPIO_IRQ(14);
 		omap_request_gpio(14);
 		omap_set_gpio_direction(14, 1);
-		isp->irq_type = SA_TRIGGER_FALLING;
+		isp->irq_type = IRQF_TRIGGER_FALLING;
 	}
 
 	if (machine_is_omap_h4()) {

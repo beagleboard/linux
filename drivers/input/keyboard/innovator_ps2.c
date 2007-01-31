@@ -1108,7 +1108,7 @@ innovator_hid_open(struct input_dev *dev)
 		return 0;
 
 	if (request_irq(OMAP1510_INT_FPGA_ATN, (void *) innovator_hid_interrupt,
-			SA_INTERRUPT, PFX, hid) < 0)
+			IRQF_DISABLED, PFX, hid) < 0)
 		return -EINVAL;
 
 	return 0;

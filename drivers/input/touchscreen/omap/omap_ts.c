@@ -157,7 +157,7 @@ static int __init omap_ts_probe(struct platform_device *pdev)
 	/* request irq */
 	if (ts_omap.irq != -1) {
 		if (request_irq(ts_omap.irq, omap_ts_handler,
-				SA_SAMPLE_RANDOM | ts_omap.irq_type,
+				IRQF_SAMPLE_RANDOM | ts_omap.irq_type,
 				OMAP_TS_NAME, &ts_omap)) {
 			printk(KERN_ERR
 	  "omap_ts.c: Could not allocate touchscreen IRQ!\n");

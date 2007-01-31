@@ -117,7 +117,7 @@ static const unsigned char days_in_mo[] =
 {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
 /*
- *	A very tiny interrupt handler. It runs with SA_INTERRUPT set.
+ *	A very tiny interrupt handler. It runs with IRQF_DISABLED set.
  */
 
 irqreturn_t rtc_interrupt(int irq, void *dev_id)
@@ -484,14 +484,14 @@ static int __init omap_rtc_probe(struct platform_device *pdev)
 		CMOS_WRITE(OMAP_RTC_STATUS_ALARM, OMAP_RTC_STATUS_REG);
 	}
 
-	if (request_irq(omap_rtc_timer, rtc_interrupt, SA_INTERRUPT,
+	if (request_irq(omap_rtc_timer, rtc_interrupt, IRQF_DISABLED,
 			pdev->name, NULL)) {
 		pr_debug("%s: RTC timer interrupt IRQ%d is not free.\n",
 			pdev->name, omap_rtc_timer);
 		goto fail;
 	}
 
-	if (request_irq(omap_rtc_alarm, rtc_interrupt, SA_INTERRUPT,
+	if (request_irq(omap_rtc_alarm, rtc_interrupt, IRQF_DISABLED,
 			pdev->name, NULL)) {
 		pr_debug("%s: RTC alarm interrupt IRQ%d is not free.\n",
 			pdev->name, omap_rtc_alarm);

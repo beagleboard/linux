@@ -376,7 +376,7 @@ static int __devinit sti_probe(struct platform_device *pdev)
 	}
 
 	ret = request_irq(platform_get_irq(pdev, 0), sti_interrupt,
-			  SA_INTERRUPT, "sti", NULL);
+			  IRQF_DISABLED, "sti", NULL);
 	if (unlikely(ret != 0))
 		goto err_badirq;
 

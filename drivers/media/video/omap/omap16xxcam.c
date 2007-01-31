@@ -475,7 +475,7 @@ omap16xxcam_open(void *priv)
 	struct omap16xxcam *data = (struct omap16xxcam *) priv;
 	int ret;
 
-	if ((ret = request_irq(INT_CAMERA, omap16xx_cam_isr, SA_INTERRUPT, 
+	if ((ret = request_irq(INT_CAMERA, omap16xx_cam_isr, IRQF_DISABLED,
 					"camera", data))) {
 		printk("FAILED to aquire irq\n");
 		return ret;

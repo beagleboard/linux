@@ -188,7 +188,7 @@ static int omap_otg_probe(struct device *dev)
 	}
 
 	return request_irq(tahvo_otg_dev->resource[1].start,
-			   omap_otg_irq, SA_INTERRUPT, DRIVER_NAME,
+			   omap_otg_irq, IRQF_DISABLED, DRIVER_NAME,
 			   &tahvo_usb_device);
 }
 

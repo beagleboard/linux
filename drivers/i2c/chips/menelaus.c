@@ -849,7 +849,7 @@ static int menelaus_probe(struct i2c_adapter *adapter, int address, int kind)
 	/* Set output buffer strengths */
 	menelaus_write_reg(MENELAUS_MCT_CTRL1, 0x73);
 
-	err = request_irq(menelaus.irq, menelaus_irq, SA_INTERRUPT,
+	err = request_irq(menelaus.irq, menelaus_irq, IRQF_DISABLED,
 			  DRIVER_NAME, &menelaus);
 	if (err) {
 		printk(KERN_ERR "Could not get Menelaus IRQ\n");
