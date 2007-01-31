@@ -301,16 +301,16 @@ static int __init new_switch(struct gpio_switch *sw)
 		return 0;
 
 	if (can_do_both_edges(sw)) {
-		trigger = SA_TRIGGER_FALLING | SA_TRIGGER_RISING;
+		trigger = IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING;
 		sw->both_edges = 1;
 	} else {
 		if (omap_get_gpio_datain(sw->gpio))
-			trigger = SA_TRIGGER_FALLING;
+			trigger = IRQF_TRIGGER_FALLING;
 		else
-			trigger = SA_TRIGGER_RISING;
+			trigger = IRQF_TRIGGER_RISING;
 	}
 	r = request_irq(OMAP_GPIO_IRQ(sw->gpio), gpio_sw_irq_handler,
-			SA_SHIRQ | trigger, sw->name, sw);
+			IRQF_SHIRQ | trigger, sw->name, sw);
 	if (r < 0) {
 		printk(KERN_ERR "gpio-switch: request_irq() failed "
 		       "for GPIO %d\n", sw->gpio);

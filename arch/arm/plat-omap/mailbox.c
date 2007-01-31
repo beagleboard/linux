@@ -247,7 +247,7 @@ static int omap_mbox_init(struct omap_mbox *mbox)
 	if (unlikely(ret))
 		goto fail2;
 
-	ret = request_irq(mbox->irq, mbox_interrupt, SA_INTERRUPT,
+	ret = request_irq(mbox->irq, mbox_interrupt, IRQF_DISABLED,
 			  mbox->name, mbox);
 	if (unlikely(ret)) {
 		printk(KERN_ERR
