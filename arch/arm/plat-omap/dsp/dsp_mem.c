@@ -2052,7 +2052,7 @@ void mbox_fbctl_upd(void)
 		return;
 	}
 	//printk("calling omapfb_update_window_async()\n");
-	omapfb_update_window_async(registered_fb[1], &win, fbupd_cb, NULL);
+	omapfb_update_window_async(registered_fb[0], &win, fbupd_cb, NULL);
 }
 
 #else /* CONFIG_FB_OMAP_LCDC_EXTERNAL */
