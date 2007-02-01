@@ -669,12 +669,12 @@ static int __init add_dynamic_parts(struct mtd_info *mtd)
 {
 	static const char *part_parsers[] = { "cmdlinepart", NULL };
 	struct mtd_partition *parts;
-	const struct omap_flash_part_config *cfg;
+	const struct omap_flash_part_str_config *cfg;
 	char *part_str = NULL;
 	size_t part_str_len;
 	int c;
 
-	cfg = omap_get_var_config(OMAP_TAG_FLASH_PART, &part_str_len);
+	cfg = omap_get_var_config(OMAP_TAG_FLASH_PART_STR, &part_str_len);
 	if (cfg != NULL) {
 		part_str = kmalloc(part_str_len + 1, GFP_KERNEL);
 		if (part_str == NULL)
