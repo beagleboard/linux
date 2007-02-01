@@ -1511,7 +1511,26 @@ musb_mode_show(struct device *dev, struct device_attribute *attr, char *buf)
 
 	return ret;
 }
-static DEVICE_ATTR(mode, S_IRUGO, musb_mode_show, NULL);
+
+static ssize_t
+musb_mode_store(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t n)
+{
+	struct musb	*musb = dev_to_musb(dev);
+	unsigned long	flags;
+
+	spin_lock_irqsave(&musb->Lock, flags);
+	if (!strncmp(buf, "host", 4))
+		musb_platform_set_mode(musb, MUSB_HOST);
+	if (!strncmp(buf, "peripheral", 10))
+		musb_platform_set_mode(musb, MUSB_PERIPHERAL);
+	if (!strncmp(buf, "otg", 3))
+		musb_platform_set_mode(musb, MUSB_OTG);
+	spin_unlock_irqrestore(&musb->Lock, flags);
+
+	return n;
+}
+static DEVICE_ATTR(mode, 0644, musb_mode_show, musb_mode_store);
 
 static ssize_t
 musb_cable_show(struct device *dev, struct device_attribute *attr, char *buf)

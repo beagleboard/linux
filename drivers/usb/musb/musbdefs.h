@@ -506,9 +506,11 @@ extern void musb_platform_disable(struct musb *musb);
 #ifdef CONFIG_USB_TUSB6010
 extern void musb_platform_try_idle(struct musb *musb);
 extern int musb_platform_get_vbus_status(struct musb *musb);
+extern void musb_platform_set_mode(struct musb *musb, u8 musb_mode);
 #else
 #define musb_platform_try_idle(x)		do {} while (0)
 #define musb_platform_get_vbus_status(x)	0
+#define musb_platform_set_mode(x, y)		do {} while (0)
 #endif
 
 extern int __init musb_platform_init(struct musb *musb);

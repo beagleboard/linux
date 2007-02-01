@@ -400,6 +400,88 @@ static void tusb_source_power(struct musb *musb, int is_on)
 		conf, prcm);
 }
 
+/*
+ * Sets the mode to OTG, peripheral or host by changing the ID detection.
+ * Caller must take care of locking.
+ *
+ * Note that if a mini-A cable is plugged in the ID line will stay down as
+ * the weak ID pull-up is not able to pull the ID up.
+ *
+ * REVISIT: It would be possible to add support for changing between host
+ * and peripheral modes in non-OTG configurations by reconfiguring hardware
+ * and then setting musb->board_mode. For now, only support OTG mode.
+ */
+void musb_platform_set_mode(struct musb *musb, u8 musb_mode)
+{
+	void __iomem	*base = musb->ctrl_base;
+	u32		otg_stat, phy_otg_ena, phy_otg_ctrl, dev_conf;
+	int		vbus = 0;
+
+	if (musb->board_mode != MUSB_OTG) {
+		ERR("Changing mode currently only supported in OTG mode\n");
+		return;
+	}
+
+	otg_stat = musb_readl(base, TUSB_DEV_OTG_STAT);
+	phy_otg_ena = musb_readl(base, TUSB_PHY_OTG_CTRL_ENABLE);
+	phy_otg_ctrl = musb_readl(base, TUSB_PHY_OTG_CTRL);
+	dev_conf = musb_readl(base, TUSB_DEV_CONF);
+
+	switch (musb_mode) {
+
+#ifdef CONFIG_USB_MUSB_HDRC_HCD
+	case MUSB_HOST:		/* Disable PHY ID detect, ground ID */
+		if (!(otg_stat & TUSB_DEV_OTG_STAT_ID_STATUS)) {
+			ERR("Already in host mode otg_stat: %08x\n", otg_stat);
+			return;
+		}
+		phy_otg_ena |= TUSB_PHY_OTG_CTRL_OTG_ID_PULLUP;
+		phy_otg_ctrl &= ~TUSB_PHY_OTG_CTRL_OTG_ID_PULLUP;
+		dev_conf |= TUSB_DEV_CONF_ID_SEL;
+		dev_conf &= ~TUSB_DEV_CONF_SOFT_ID;
+		vbus = 1;
+		break;
+#endif
+
+#ifdef CONFIG_USB_GADGET_MUSB_HDRC
+	case MUSB_PERIPHERAL:	/* Disable PHY ID detect, keep ID pull-up on */
+		if (otg_stat & TUSB_DEV_OTG_STAT_ID_STATUS) {
+			ERR("Already in peripheral mode otg_stat: %08x\n",
+				otg_stat);
+			return;
+		}
+		phy_otg_ena |= TUSB_PHY_OTG_CTRL_OTG_ID_PULLUP;
+		phy_otg_ctrl |= TUSB_PHY_OTG_CTRL_OTG_ID_PULLUP;
+		dev_conf |= (TUSB_DEV_CONF_ID_SEL | TUSB_DEV_CONF_SOFT_ID);
+		break;
+#endif
+
+#ifdef CONFIG_USB_MUSB_OTG
+	case MUSB_OTG:		/* Use PHY ID detection */
+		phy_otg_ena &= ~TUSB_PHY_OTG_CTRL_OTG_ID_PULLUP;
+		phy_otg_ctrl &= ~TUSB_PHY_OTG_CTRL_OTG_ID_PULLUP;
+		dev_conf &= ~(TUSB_DEV_CONF_ID_SEL | TUSB_DEV_CONF_SOFT_ID);
+		break;
+#endif
+
+	default:
+		DBG(2, "Trying to set unknown mode %i\n", musb_mode);
+	}
+
+	musb_writel(base, TUSB_PHY_OTG_CTRL_ENABLE,
+			TUSB_PHY_OTG_CTRL_WRPROTECT | phy_otg_ena);
+	musb_writel(base, TUSB_PHY_OTG_CTRL,
+			TUSB_PHY_OTG_CTRL_WRPROTECT | phy_otg_ctrl);
+	musb_writel(base, TUSB_DEV_CONF, dev_conf);
+
+	msleep(1);
+	otg_stat = musb_readl(base, TUSB_DEV_OTG_STAT);
+	if ((musb_mode == MUSB_PERIPHERAL) &&
+		!(otg_stat & TUSB_DEV_OTG_STAT_ID_STATUS))
+			ERR("Cannot be peripheral with mini-A cable "
+			"otg_stat: %08x\n", otg_stat);
+}
+
 static inline void
 tusb_otg_ints(struct musb *musb, u32 int_src, void __iomem *base)
 {
