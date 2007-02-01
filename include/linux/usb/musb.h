@@ -17,9 +17,14 @@ enum musb_mode {
 	MUSB_OTG		/* Mini-AB connector */
 };
 
+struct clk;
+
 struct musb_hdrc_platform_data {
 	/* MUSB_HOST, MUSB_PERIPHERAL, or MUSB_OTG */
 	u8		mode;
+
+	/* for clk_get() */
+	const char	*clock;
 
 	/* (HOST or OTG) switch VBUS on/off */
 	int		(*set_vbus)(struct device *dev, int is_on);
@@ -40,6 +45,9 @@ struct musb_hdrc_platform_data {
 
 	/* Power the device on or off */
 	int		(*set_power)(int state);
+
+	/* Turn device clock on or off */
+	int		(*set_clock)(struct clk *clock, int is_on);
 };
 
 

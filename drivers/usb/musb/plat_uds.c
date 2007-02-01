@@ -97,7 +97,6 @@
 #include <linux/list.h>
 #include <linux/kobject.h>
 #include <linux/platform_device.h>
-#include <linux/clk.h>
 
 #include <asm/io.h>
 
@@ -792,6 +791,10 @@ static void musb_shutdown(struct platform_device *pdev)
 	spin_lock_irqsave(&musb->Lock, flags);
 	musb_platform_disable(musb);
 	musb_generic_disable(musb);
+	if (musb->clock) {
+		clk_put(musb->clock);
+		musb->clock = NULL;
+	}
 	spin_unlock_irqrestore(&musb->Lock, flags);
 
 	/* FIXME power down */
@@ -1712,7 +1715,22 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 	spin_lock_init(&pThis->Lock);
 	pThis->board_mode = plat->mode;
 	pThis->board_set_power = plat->set_power;
+	pThis->set_clock = plat->set_clock;
 	pThis->min_power = plat->min_power;
+
+	/* Clock usage is chip-specific ... functional clock (DaVinci,
+	 * OMAP2430), or PHY ref (some TUSB6010 boards).  All this core
+	 * code does is make sure a clock handle is available; platform
+	 * code manages it during start/stop and suspend/resume.
+	 */
+	if (plat->clock) {
+		pThis->clock = clk_get(dev, plat->clock);
+		if (IS_ERR(pThis->clock)) {
+			status = PTR_ERR(pThis->clock);
+			pThis->clock = NULL;
+			goto fail;
+		}
+	}
 
 	/* assume vbus is off */
 
@@ -1825,6 +1843,8 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 		musb_debug_create("driver/musb_hdrc", pThis);
 	else {
 fail:
+		if (pThis->clock)
+			clk_put(pThis->clock);
 		device_init_wakeup(dev, 0);
 		musb_free(pThis);
 		return status;

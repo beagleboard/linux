@@ -159,6 +159,9 @@ static int tusb_draw_power(struct otg_transceiver *x, unsigned mA)
 	/* tps65030 seems to consume max 100mA, with maybe 60mA available
 	 * (measured on one board) for things other than tps and tusb.
 	 *
+	 * Boards sharing the CPU clock with CLKIN will need to prevent
+	 * certain idle sleep states while the USB link is active.
+	 *
 	 * REVISIT we could use VBUS to supply only _one_ of { 1.5V, 3.3V }.
 	 * The actual current usage would be very board-specific.  For now,
 	 * it's simpler to just use an aggregate (also board-specific).
@@ -168,11 +171,15 @@ static int tusb_draw_power(struct otg_transceiver *x, unsigned mA)
 
 	reg = musb_readl(base, TUSB_PRCM_MNGMT);
 	if (mA) {
+		if (musb->set_clock)
+			musb->set_clock(musb->clock, 1);
 		musb->is_bus_powered = 1;
 		reg |= TUSB_PRCM_MNGMT_15_SW_EN | TUSB_PRCM_MNGMT_33_SW_EN;
 	} else {
 		musb->is_bus_powered = 0;
 		reg &= ~(TUSB_PRCM_MNGMT_15_SW_EN | TUSB_PRCM_MNGMT_33_SW_EN);
+		if (musb->set_clock)
+			musb->set_clock(musb->clock, 0);
 	}
 	musb_writel(base, TUSB_PRCM_MNGMT, reg);
 

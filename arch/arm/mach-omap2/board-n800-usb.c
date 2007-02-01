@@ -10,12 +10,14 @@
  */
 
 #include <linux/types.h>
-#include <linux/errno.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
+#include <linux/clk.h>
+#include <linux/err.h>
 #include <linux/usb/musb.h>
 #include <asm/arch/gpmc.h>
 #include <asm/arch/gpio.h>
+#include <asm/arch/pm.h>
 
 #define TUSB_ASYNC_CS		1
 #define TUSB_SYNC_CS		4
@@ -23,6 +25,7 @@
 #define GPIO_TUSB_ENABLE	0
 
 static int tusb_set_power(int state);
+static int tusb_set_clock(struct clk *osc_ck, int state);
 
 #if	defined(CONFIG_USB_MUSB_OTG)
 #	define BOARD_MODE	MUSB_OTG
@@ -36,7 +39,9 @@ static struct musb_hdrc_platform_data tusb_data = {
 	.mode		= BOARD_MODE,
 	.multipoint	= 1,
 	.set_power	= tusb_set_power,
+	.set_clock	= tusb_set_clock,
 	.min_power	= 25,	/* x2 = 50 mA drawn from VBUS as peripheral */
+	.clock		= "osc_ck",
 };
 
 /*
@@ -69,6 +74,29 @@ static int tusb_set_power(int state)
 	}
 
 	return retval;
+}
+
+static int		osc_ck_on;
+
+static int tusb_set_clock(struct clk *osc_ck, int state)
+{
+	if (state) {
+		if (osc_ck_on > 0)
+			return -ENODEV;
+
+		omap2_block_sleep();
+		clk_enable(osc_ck);
+		osc_ck_on = 1;
+	} else {
+		if (osc_ck_on == 0)
+			return -ENODEV;
+
+		clk_disable(osc_ck);
+		osc_ck_on = 0;
+		omap2_allow_sleep();
+	}
+
+	return 0;
 }
 
 void __init n800_usb_init(void)

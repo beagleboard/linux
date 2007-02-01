@@ -39,6 +39,7 @@
 #include <linux/interrupt.h>
 #include <linux/smp_lock.h>
 #include <linux/errno.h>
+#include <linux/clk.h>
 #include <linux/device.h>
 #include <linux/usb/ch9.h>
 #include <linux/usb_gadget.h>
@@ -401,6 +402,8 @@ struct musb {
 
 	u8 board_mode;		/* enum musb_mode */
 	int			(*board_set_power)(int state);
+
+	int			(*set_clock)(struct clk *clk, int is_active);
 
 	u8			min_power;	/* vbus for periph, in mA/2 */
 
