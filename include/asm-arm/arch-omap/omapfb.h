@@ -39,6 +39,7 @@
 #define OMAPFB_VSYNC		OMAP_IO(38)
 #define OMAPFB_SET_UPDATE_MODE	OMAP_IOW(40, int)
 #define OMAPFB_UPDATE_WINDOW_OLD OMAP_IOW(41, struct omapfb_update_window_old)
+#define OMAPFB_GET_CAPS		OMAP_IOR(42, unsigned long)
 #define OMAPFB_GET_UPDATE_MODE	OMAP_IOW(43, int)
 #define OMAPFB_LCD_TEST		OMAP_IOW(45, int)
 #define OMAPFB_CTRL_TEST	OMAP_IOW(46, int)
@@ -53,11 +54,14 @@
 #define OMAPFB_CAPS_PANEL_MASK		0xff000000
 
 #define OMAPFB_CAPS_MANUAL_UPDATE	0x00001000
+#define OMAPFB_CAPS_TEARSYNC		0x00002000
 #define OMAPFB_CAPS_SET_BACKLIGHT	0x01000000
 
 /* Values from DSP must map to lower 16-bits */
-#define OMAPFB_FORMAT_MASK         0x00ff
-#define OMAPFB_FORMAT_FLAG_DOUBLE  0x0100
+#define OMAPFB_FORMAT_MASK		0x00ff
+#define OMAPFB_FORMAT_FLAG_DOUBLE	0x0100
+#define OMAPFB_FORMAT_FLAG_TEARSYNC	0x0200
+#define OMAPFB_FORMAT_FLAG_FORCE_VSYNC	0x0400
 
 #define OMAPFB_EVENT_READY	1
 #define OMAPFB_EVENT_DISABLED	2
@@ -216,6 +220,7 @@ struct lcd_ctrl_extif {
 	int  (*init)		(struct omapfb_device *fbdev);
 	void (*cleanup)		(void);
 	void (*get_clk_info)	(u32 *clk_period, u32 *max_clk_div);
+	unsigned long (*get_max_tx_rate)(void);
 	int  (*convert_timings)	(struct extif_timings *timings);
 	void (*set_timings)	(const struct extif_timings *timings);
 	void (*set_bits_per_cycle)(int bpc);
@@ -224,6 +229,10 @@ struct lcd_ctrl_extif {
 	void (*write_data)	(const void *buf, unsigned int len);
 	void (*transfer_area)	(int width, int height,
 				 void (callback)(void * data), void *data);
+	int  (*setup_tearsync)	(unsigned pin_cnt,
+				 unsigned hs_pulse_time, unsigned vs_pulse_time,
+				 int hs_pol_inv, int vs_pol_inv, int div);
+	int  (*enable_tearsync) (int enable, unsigned line);
 
 	unsigned long		max_transmit_size;
 };
