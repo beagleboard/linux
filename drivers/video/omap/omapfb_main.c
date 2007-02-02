@@ -58,6 +58,7 @@ static struct caps_table_struct {
         const char *name;
 } omapfb_caps_table[] = {
 	{ OMAPFB_CAPS_MANUAL_UPDATE, "manual update" },
+	{ OMAPFB_CAPS_TEARSYNC,      "tearing synchronization" },
 	{ OMAPFB_CAPS_SET_BACKLIGHT, "backlight setting" },
 };
 
@@ -69,6 +70,7 @@ static struct caps_table_struct {
 extern struct lcd_ctrl omap1_int_ctrl;
 extern struct lcd_ctrl omap2_int_ctrl;
 extern struct lcd_ctrl hwa742_ctrl;
+extern struct lcd_ctrl blizzard_ctrl;
 
 static struct lcd_ctrl *ctrls[] = {
 #ifdef CONFIG_ARCH_OMAP1
@@ -79,6 +81,9 @@ static struct lcd_ctrl *ctrls[] = {
 
 #ifdef CONFIG_FB_OMAP_LCDC_HWA742
 	&hwa742_ctrl,
+#endif
+#ifdef CONFIG_FB_OMAP_LCDC_BLIZZARD
+	&blizzard_ctrl,
 #endif
 };
 
@@ -952,6 +957,11 @@ static int omapfb_ioctl(struct fb_info *fbi, unsigned int cmd,
 			break;
 		if (copy_to_user((void __user *)arg, &p.color_key,
 				 sizeof(p.color_key)))
+			r = -EFAULT;
+		break;
+	case OMAPFB_GET_CAPS:
+		p.caps = omapfb_get_caps(fbdev);
+		if (put_user(p.caps, (unsigned long __user *)arg))
 			r = -EFAULT;
 		break;
 	case OMAPFB_LCD_TEST:

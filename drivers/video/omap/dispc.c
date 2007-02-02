@@ -836,18 +836,14 @@ EXPORT_SYMBOL(omap_dispc_free_irq);
 static irqreturn_t omap_dispc_irq_handler(int irq, void *dev)
 {
 	u32 stat = dispc_read_reg(DISPC_IRQSTATUS);
-	static int jabber;
 
 	if (stat & DISPC_IRQ_FRAMEMASK)
 		complete(&dispc.frame_done);
 
 	if (stat & DISPC_IRQ_MASK_ERROR) {
-		if (jabber++ < 5) {
+		if (printk_ratelimit()) {
 			dev_err(dispc.fbdev->dev, "irq error status %04x\n",
 				stat & 0x7fff);
-		} else {
-			dev_err(dispc.fbdev->dev, "disable irq\n");
-			dispc_write_reg(DISPC_IRQENABLE, 0);
 		}
 	}
 

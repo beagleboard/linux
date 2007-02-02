@@ -34,6 +34,9 @@
 
 #include "dispc.h"
 
+/* To work around an RFBI transfer rate limitation */
+#define OMAP_RFBI_RATE_LIMIT	1
+
 #define RFBI_BASE		0x48050800
 #define RFBI_REVISION		0x0000
 #define RFBI_SYSCONFIG		0x0010
@@ -67,6 +70,8 @@ static struct {
 	struct omapfb_device *fbdev;
 	struct clk	*dss_ick;
 	struct clk	*dss1_fck;
+	unsigned	tearsync_pin_cnt;
+	unsigned	tearsync_mode;
 } rfbi;
 
 static inline void rfbi_write_reg(int idx, u32 val)
@@ -181,6 +186,58 @@ static int ps_to_rfbi_ticks(int time, int div)
 	return ret;
 }
 
+#ifdef OMAP_RFBI_RATE_LIMIT
+static unsigned long rfbi_get_max_tx_rate(void)
+{
+	unsigned long	l4_rate, dss1_rate;
+	int		min_l4_ticks = 0;
+	int		i;
+
+	/* According to TI this can't be calculated so make the
+	 * adjustments for a couple of known frequencies and warn for
+	 * others.
+	 */
+	static const struct {
+		unsigned long l4_clk;		/* HZ */
+		unsigned long dss1_clk;		/* HZ */
+		unsigned long min_l4_ticks;
+	} ftab[] = {
+		{ 55,	132,	7, },		/* 7.86 MPix/s */
+		{ 110,	110,	12, },		/* 9.16 MPix/s */
+		{ 110,	132,	10, },		/* 11   Mpix/s */
+		{ 120,	120,	10, },		/* 12   Mpix/s */
+		{ 133,	133,	10, },		/* 13.3 Mpix/s */
+	};
+
+	l4_rate = rfbi.l4_khz / 1000;
+	dss1_rate = clk_get_rate(rfbi.dss1_fck) / 1000000;
+
+	for (i = 0; i < ARRAY_SIZE(ftab); i++) {
+		if (ftab[i].l4_clk == l4_rate &&
+		    ftab[i].dss1_clk == dss1_rate) {
+			min_l4_ticks = ftab[i].min_l4_ticks;
+			break;
+		}
+	}
+	if (i == ARRAY_SIZE(ftab)) {
+		/* Can't be sure, return anyway the maximum not
+		 * rate-limited. This might cause a problem only for the
+		 * tearing synchronisation.
+		 */
+		dev_err(rfbi.fbdev->dev,
+			"can't determine maximum RFBI transfer rate\n");
+		return rfbi.l4_khz * 1000;
+	}
+	return rfbi.l4_khz * 1000 / min_l4_ticks;
+}
+#else
+static int rfbi_get_max_tx_rate(void)
+{
+	return rfbi.l4_khz * 1000;
+}
+#endif
+
+
 static int rfbi_convert_timings(struct extif_timings *t)
 {
 	u32 l;
@@ -269,6 +326,76 @@ static int rfbi_convert_timings(struct extif_timings *t)
 	return 0;
 }
 
+static int rfbi_setup_tearsync(unsigned pin_cnt,
+			       unsigned hs_pulse_time, unsigned vs_pulse_time,
+			       int hs_pol_inv, int vs_pol_inv, int extif_div)
+{
+	int hs, vs;
+	int min;
+	u32 l;
+
+	if (pin_cnt != 1 && pin_cnt != 2)
+		return -EINVAL;
+
+	hs = ps_to_rfbi_ticks(hs_pulse_time, 1);
+	vs = ps_to_rfbi_ticks(vs_pulse_time, 1);
+	if (hs < 2)
+		return -EDOM;
+	if (pin_cnt == 2)
+		min = 2;
+	else
+		min = 4;
+	if (vs < min)
+		return -EDOM;
+	if (vs == hs)
+		return -EINVAL;
+	rfbi.tearsync_pin_cnt = pin_cnt;
+	dev_dbg(rfbi.fbdev->dev,
+		"setup_tearsync: pins %d hs %d vs %d hs_inv %d vs_inv %d\n",
+		pin_cnt, hs, vs, hs_pol_inv, vs_pol_inv);
+
+	rfbi_enable_clocks(1);
+	rfbi_write_reg(RFBI_HSYNC_WIDTH, hs);
+	rfbi_write_reg(RFBI_VSYNC_WIDTH, vs);
+
+	l = rfbi_read_reg(RFBI_CONFIG0);
+	if (hs_pol_inv)
+		l &= ~(1 << 21);
+	else
+		l |= 1 << 21;
+	if (vs_pol_inv)
+		l &= ~(1 << 20);
+	else
+		l |= 1 << 20;
+	rfbi_enable_clocks(0);
+
+	return 0;
+}
+
+static int rfbi_enable_tearsync(int enable, unsigned line)
+{
+	u32 l;
+
+	dev_dbg(rfbi.fbdev->dev, "tearsync %d line %d mode %d\n",
+		enable, line, rfbi.tearsync_mode);
+	if (line > (1 << 11) - 1)
+		return -EINVAL;
+
+	rfbi_enable_clocks(1);
+	l = rfbi_read_reg(RFBI_CONFIG0);
+	l &= ~(0x3 << 2);
+	if (enable) {
+		rfbi.tearsync_mode = rfbi.tearsync_pin_cnt;
+		l |= rfbi.tearsync_mode << 2;
+	} else
+		rfbi.tearsync_mode = 0;
+	rfbi_write_reg(RFBI_CONFIG0, l);
+	rfbi_write_reg(RFBI_LINE_NUMBER, line);
+	rfbi_enable_clocks(0);
+
+	return 0;
+}
+
 static void rfbi_write_command(const void *buf, unsigned int len)
 {
 	rfbi_enable_clocks(1);
@@ -340,8 +467,10 @@ static void rfbi_transfer_area(int width, int height,
 	rfbi_write_reg(RFBI_PIXEL_CNT, width * height);
 
 	w = rfbi_read_reg(RFBI_CONTROL);
-	/* Enable, Internal trigger */
-	rfbi_write_reg(RFBI_CONTROL, w | (1 << 0) | (1 << 4));
+	w |= 1;				/* enable */
+	if (!rfbi.tearsync_mode)
+		w |= 1 << 4;		/* internal trigger, reset by HW */
+	rfbi_write_reg(RFBI_CONTROL, w);
 
 	omap_dispc_enable_lcd_out(1);
 }
@@ -443,6 +572,7 @@ const struct lcd_ctrl_extif omap2_ext_if = {
 	.init			= rfbi_init,
 	.cleanup		= rfbi_cleanup,
 	.get_clk_info		= rfbi_get_clk_info,
+	.get_max_tx_rate	= rfbi_get_max_tx_rate,
 	.set_bits_per_cycle	= rfbi_set_bits_per_cycle,
 	.convert_timings	= rfbi_convert_timings,
 	.set_timings		= rfbi_set_timings,
@@ -450,6 +580,8 @@ const struct lcd_ctrl_extif omap2_ext_if = {
 	.read_data		= rfbi_read_data,
 	.write_data		= rfbi_write_data,
 	.transfer_area		= rfbi_transfer_area,
+	.setup_tearsync		= rfbi_setup_tearsync,
+	.enable_tearsync	= rfbi_enable_tearsync,
 
 	.max_transmit_size	= (u32)~0,
 };
