@@ -1,5 +1,5 @@
 /*
- * linux/arch/arm/mach-omap/omap2/board-n800-audio.c
+ * linux/arch/arm/mach-omap2/board-n800-audio.c
  *
  * Copyright (C) 2006 Nokia Corporation
  * Contact: Juha Yrj?l?

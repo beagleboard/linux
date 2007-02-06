@@ -1,5 +1,5 @@
 /*
- * linux/arch/arm/mach-omap/omap2/board-n800.c
+ * linux/arch/arm/mach-omap2/board-n800.c
  *
  * Copyright (C) 2005 Nokia Corporation
  * Author: Juha Yrj?l? <juha.yrjola@nokia.com>

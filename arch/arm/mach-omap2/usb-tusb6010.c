@@ -1,5 +1,5 @@
 /*
- * linux/arch/arm/mach-omap/omap2/usb-tusb6010.c
+ * linux/arch/arm/mach-omap2/usb-tusb6010.c
  *
  * Copyright (C) 2006 Nokia Corporation
  *
