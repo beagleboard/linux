@@ -1,5 +1,5 @@
 /*
- * linux/arch/arm/mach-omap/omap2/board-n800-flash.c
+ * linux/arch/arm/mach-omap2/board-n800-flash.c
  *
  * Copyright (C) 2006 Nokia Corporation
  * Author: Juha Yrjola
