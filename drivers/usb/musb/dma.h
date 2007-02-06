@@ -73,6 +73,11 @@ struct musb_hw_ep;
 #define	is_cppi_enabled()	0
 #endif
 
+#ifdef CONFIG_USB_TUSB_OMAP_DMA
+#define tusb_dma_omap()			1
+#else
+#define tusb_dma_omap()			0
+#endif
 
 /*
  * DMA channel status ... updated by the dma controller driver whenever that

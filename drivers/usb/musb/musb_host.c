@@ -236,7 +236,7 @@ start:
 
 		if (!pEnd->tx_channel)
 			musb_h_tx_start(pEnd);
-		else if (is_cppi_enabled())
+		else if (is_cppi_enabled() || tusb_dma_omap())
 			cppi_host_txdma_start(pEnd);
 	}
 }
@@ -806,7 +806,7 @@ static void musb_ep_program(struct musb *pThis, u8 bEnd,
 #endif
 
 		/* candidate for DMA */
-		if (is_cppi_enabled() && pDmaChannel) {
+		if ((is_cppi_enabled() || tusb_dma_omap()) && pDmaChannel) {
 
 			/* program endpoint CSRs first, then setup DMA.
 			 * assume CPPI setup succeeds.
@@ -897,7 +897,7 @@ static void musb_ep_program(struct musb *pThis, u8 bEnd,
 
 		/* kick things off */
 
-		if (is_cppi_enabled()) {
+		if ((is_cppi_enabled() || tusb_dma_omap()) && pDmaChannel) {
 			/* candidate for DMA */
 			if (pDmaChannel) {
 				pDmaChannel->dwActualLength = 0L;
