@@ -4,7 +4,7 @@
  * Copyright (C) 2005,2006 Samsung Electronics
  * Author: Kyungmin Park <kyungmin.park@samsung.com>
  *
- * Modified from mach-omap/omap2/board-h4.c
+ * Modified from mach-omap2/board-h4.c
  *
  * Code for apollon OMAP2 board. Should work on many OMAP2 systems where
  * the bootloader passes the board-specific data to the kernel.
