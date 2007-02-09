@@ -171,7 +171,22 @@ static void tusb_omap_dma_cb(int lch, u16 ch_status, void *data)
 	remaining = TUSB_EP_CONFIG_XFR_SIZE(remaining);
 	channel->dwActualLength = chdat->transfer_len - remaining;
 
-	DBG(2, "remaining %lu/%u\n", remaining, chdat->transfer_len);
+	DBG(2, "DMA remaining %lu/%u\n", remaining, chdat->transfer_len);
+
+	/* Transfer remaining 1 - 31 bytes if DMA worked */
+	if (remaining == 0) {
+		u32	pio;
+		u8	*buf;
+
+		pio = chdat->len - channel->dwActualLength;
+		buf = phys_to_virt((u32)chdat->dma_addr)
+				+ chdat->transfer_len;
+		if (chdat->tx)
+			musb_write_fifo(hw_ep, pio, buf);
+		else
+			musb_read_fifo(hw_ep, pio, buf);
+		channel->dwActualLength += pio;
+	}
 
 	if (!dmareq_works())
 		tusb_omap_free_shared_dmareq(chdat);
@@ -224,14 +239,10 @@ static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,
 	s8				dmareq;
 	s8				sync_dev;
 
-	if (unlikely(dma_addr & 0x1))
+	if (unlikely(dma_addr & 0x1) || len < 32)
 		return FALSE;
-	if (len < 32)
-		return FALSE;
-	if ((len % 32 != 0))
-		return FALSE;
-	else
-		chdat->transfer_len = len;
+
+	chdat->transfer_len = len & ~0x1f;
 
 	if (len < packet_sz)
 		chdat->transfer_packet_sz = chdat->transfer_len;
