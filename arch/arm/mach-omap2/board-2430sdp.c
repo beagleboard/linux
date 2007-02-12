@@ -36,7 +36,6 @@
 #include "prcm-regs.h"
 
 #include <asm/io.h>
-#include <asm/delay.h>
 
 #define	SDP2430_FLASH_CS	0
 #define	SDP2430_SMC91X_CS	5

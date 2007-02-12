@@ -18,10 +18,10 @@
 #include <linux/sysdev.h>
 #include <linux/err.h>
 #include <linux/clk.h>
+#include <linux/delay.h>
 
 #include <asm/hardware.h>
 #include <asm/irq.h>
-#include <asm/delay.h>
 #include <asm/arch/irqs.h>
 #include <asm/arch/gpio.h>
 #include <asm/mach/irq.h>

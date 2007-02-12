@@ -28,8 +28,8 @@
 #include <linux/interrupt.h>
 #include <linux/device.h>
 #include <linux/err.h>
+#include <linux/delay.h>
 #include <asm/io.h>
-#include <asm/delay.h>
 #include <asm/arch/mailbox.h>
 #include "mailbox.h"
 

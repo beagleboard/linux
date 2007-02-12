@@ -21,6 +21,7 @@
 #include <linux/input.h>
 #include <linux/err.h>
 #include <linux/clk.h>
+#include <linux/delay.h>
 
 #include <asm/hardware.h>
 #include <asm/mach-types.h>
@@ -42,7 +43,6 @@
 #include "prcm-regs.h"
 
 #include <asm/io.h>
-#include <asm/delay.h>
 
 #define H4_FLASH_CS	0
 #define H4_SMC91X_CS	1
