@@ -21,6 +21,9 @@
  *
  */
 
+#ifndef __ARCH_OMAP_DSP_H
+#define __ARCH_OMAP_DSP_H
+
 /*
  * for /dev/dspctl/ctl
  */
@@ -55,18 +58,18 @@
 #define DSPCTL_IOCTL_MBSEND		99
 
 struct omap_dsp_mailbox_cmd {
-	__u16 cmd;
-	__u16 data;
+	__u16	cmd;
+	__u16	data;
 };
 
 struct omap_dsp_reginfo {
-	__u16 adr;
-	__u16 val;
+	__u16	adr;
+	__u16	val;
 };
 
 struct omap_dsp_varinfo {
-	__u8 varid;
-	__u16 val[0];
+	__u8	varid;
+	__u16	val[0];
 };
 
 /*
@@ -86,16 +89,14 @@ struct omap_dsp_varinfo {
 #define MEM_IOCTL_EXUNMAP	2
 #define MEM_IOCTL_EXMAP_FLUSH	3
 #define MEM_IOCTL_FBEXPORT	5
-#ifdef CONFIG_ARCH_OMAP1
 #define MEM_IOCTL_MMUITACK	7
-#endif
 #define MEM_IOCTL_MMUINIT	9
 #define MEM_IOCTL_KMEM_RESERVE	11
 #define MEM_IOCTL_KMEM_RELEASE	12
 
 struct omap_dsp_mapinfo {
-	__u32 dspadr;
-	__u32 size;
+	__u32	dspadr;
+	__u32	size;
 };
 
 /*
@@ -108,8 +109,10 @@ struct omap_dsp_mapinfo {
 #define TWCH_IOCTL_TKILL	13
 
 struct omap_dsp_taddinfo {
-	__u8 minor;
-	__u32 taskadr;
+	__u8	minor;
+	__u32	taskadr;
 };
 
 #define TADD_ABORTADR	0xffffffff
+
+#endif /* __ARCH_OMAP_DSP_H */

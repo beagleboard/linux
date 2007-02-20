@@ -36,13 +36,13 @@
 #include <asm/uaccess.h>
 #include <asm/io.h>
 #include <asm/arch/mailbox.h>
+#include <asm/arch/dsp.h>
 #include "uaccess_dsp.h"
 #include "dsp_mbcmd.h"
 #include "dsp.h"
 #include "ipbuf.h"
 #include "fifo.h"
 #include "proclist.h"
-#include "ioctl.h"
 
 #define is_aligned(adr,align)	(!((adr)&((align)-1)))
 
@@ -1358,7 +1358,7 @@ static void dsp_task_mmap_open(struct vm_area_struct *vma)
 
 	BUG_ON(!(dev->state & TASKDEV_ST_ATTACHED));
 	task = dev->task;
-	exmap_use(task->map_base, len);
+	omap_mmu_exmap_use(&dsp_mmu, task->map_base, len);
 }
 
 static void dsp_task_mmap_close(struct vm_area_struct *vma)
@@ -1369,7 +1369,7 @@ static void dsp_task_mmap_close(struct vm_area_struct *vma)
 
 	BUG_ON(!(dev->state & TASKDEV_ST_ATTACHED));
 	task = dev->task;
-	exmap_unuse(task->map_base, len);
+	omap_mmu_exmap_unuse(&dsp_mmu, task->map_base, len);
 }
 
 /**
@@ -1416,7 +1416,7 @@ static int dsp_task_mmap(struct file *filp, struct vm_area_struct *vma)
 	tmp_vmadr = vma->vm_start;
 	tmp_vadr = task->map_base + off;
 	do {
-		tmp_padr = dsp_virt_to_phys(tmp_vadr, &tmp_len);
+		tmp_padr = omap_mmu_virt_to_phys(&dsp_mmu, tmp_vadr, &tmp_len);
 		if (tmp_padr == 0) {
 			printk(KERN_ERR
 			       "omapdsp: task %s: illegal address "
@@ -1449,7 +1449,7 @@ static int dsp_task_mmap(struct file *filp, struct vm_area_struct *vma)
 
 	vma->vm_ops = &dsp_task_vm_ops;
 	vma->vm_private_data = dev;
-	exmap_use(task->map_base, vma->vm_end - vma->vm_start);
+	omap_mmu_exmap_use(&dsp_mmu, task->map_base, vma->vm_end - vma->vm_start);
 
 unlock_out:
 	devstate_read_unlock(dev);

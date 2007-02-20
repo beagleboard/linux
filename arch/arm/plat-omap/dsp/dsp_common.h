@@ -141,10 +141,8 @@ void dsp_cpustat_request(enum cpustat_e req);
 enum cpustat_e dsp_cpustat_get_stat(void);
 u16 dsp_cpustat_get_icrmask(void);
 void dsp_cpustat_set_icrmask(u16 mask);
-#ifdef CONFIG_ARCH_OMAP1
 void dsp_register_mem_cb(int (*req_cb)(void), void (*rel_cb)(void));
 void dsp_unregister_mem_cb(void);
-#endif
 
 #if defined(CONFIG_ARCH_OMAP1)
 static inline void dsp_clk_autoidle(void) {}

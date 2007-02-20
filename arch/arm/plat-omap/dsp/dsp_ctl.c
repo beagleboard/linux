@@ -34,11 +34,11 @@
 #include <asm/io.h>
 #include <asm/ioctls.h>
 #include <asm/arch/mailbox.h>
+#include <asm/arch/dsp.h>
 #include "hardware_dsp.h"
 #include "dsp_mbcmd.h"
 #include "dsp.h"
 #include "ipbuf.h"
-#include "ioctl.h"
 
 enum dsp_space_e {
 	SPACE_MEM,

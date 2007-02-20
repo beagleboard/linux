@@ -568,6 +568,9 @@ void dsp_unregister_mem_cb(void)
 	cpustat.mem_rel_cb = NULL;
 	mutex_unlock(&cpustat.lock);
 }
+#else
+void dsp_register_mem_cb(int (*req_cb)(void), void (*rel_cb)(void)) { }
+void dsp_unregister_mem_cb(void) { }
 #endif /* CONFIG_ARCH_OMAP1 */
 
 arch_initcall(omap_dsp_init);

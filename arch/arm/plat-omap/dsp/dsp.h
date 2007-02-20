@@ -23,6 +23,7 @@
 
 #include "hardware_dsp.h"
 #include "dsp_common.h"
+#include <asm/arch/mmu.h>
 
 /*
  * MAJOR device number: !! allocated arbitrary !!
@@ -199,8 +200,6 @@ extern int dsp_mem_sync_inc(void);
 extern int dsp_mem_sync_config(struct mem_sync_struct *sync);
 extern enum dsp_mem_type_e dsp_mem_type(void *vadr, size_t len);
 extern int dsp_address_validate(void *p, size_t len, char *fmt, ...);
-extern int dsp_mem_enable(void *adr);
-extern void dsp_mem_disable(void *adr);
 #ifdef CONFIG_ARCH_OMAP1
 extern void dsp_mem_usecount_clear(void);
 #endif
@@ -238,3 +237,8 @@ extern const struct cmdinfo *cmdinfo[];
 extern char *subcmd_name(struct mbcmd *mb);
 
 extern void mblog_add(struct mbcmd *mb, arm_dsp_dir_t dir);
+
+extern struct omap_mmu dsp_mmu;
+
+#define dsp_mem_enable(addr)	omap_mmu_mem_enable(&dsp_mmu, (addr))
+#define dsp_mem_disable(addr)	omap_mmu_mem_disable(&dsp_mmu, (addr))
