@@ -1,0 +1,274 @@
+/*
+ * linux/arch/arm/mach-omap2/mmu.c
+ *
+ * Support for non-MPU OMAP1 MMUs.
+ *
+ * Copyright (C) 2002-2005 Nokia Corporation
+ *
+ * Written by Toshihiro Kobayashi <toshihiro.kobayashi@nokia.com>
+ *        and Paul Mundt <paul.mundt@nokia.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ */
+#include <linux/types.h>
+#include <linux/init.h>
+#include <linux/rwsem.h>
+#include <linux/device.h>
+#include <linux/kernel.h>
+#include <linux/mm.h>
+#include <linux/err.h>
+#include "mmu.h"
+#include <asm/tlbflush.h>
+
+static void *dspvect_page;
+#define DSP_INIT_PAGE	0xfff000
+
+static unsigned int get_cam_l_va_mask(u16 pgsz)
+{
+	switch (pgsz) {
+	case OMAP_MMU_CAM_PAGESIZE_1MB:
+		return OMAP_MMU_CAM_L_VA_TAG_L1_MASK |
+		       OMAP_MMU_CAM_L_VA_TAG_L2_MASK_1MB;
+	case OMAP_MMU_CAM_PAGESIZE_64KB:
+		return OMAP_MMU_CAM_L_VA_TAG_L1_MASK |
+		       OMAP_MMU_CAM_L_VA_TAG_L2_MASK_64KB;
+	case OMAP_MMU_CAM_PAGESIZE_4KB:
+		return OMAP_MMU_CAM_L_VA_TAG_L1_MASK |
+		       OMAP_MMU_CAM_L_VA_TAG_L2_MASK_4KB;
+	case OMAP_MMU_CAM_PAGESIZE_1KB:
+		return OMAP_MMU_CAM_L_VA_TAG_L1_MASK |
+		       OMAP_MMU_CAM_L_VA_TAG_L2_MASK_1KB;
+	}
+	return 0;
+}
+
+#define get_cam_va_mask(pgsz) \
+	((u32)OMAP_MMU_CAM_H_VA_TAG_H_MASK << 22 | \
+	 (u32)get_cam_l_va_mask(pgsz) << 6)
+
+static int intmem_usecount;
+
+/* for safety */
+void dsp_mem_usecount_clear(void)
+{
+	if (intmem_usecount != 0) {
+		printk(KERN_WARNING
+		       "MMU: unbalanced memory request/release detected.\n"
+		       "         intmem_usecount is not zero at where "
+		       "it should be! ... fixed to be zero.\n");
+		intmem_usecount = 0;
+		omap_dsp_release_mem();
+	}
+}
+
+static int omap1_mmu_mem_enable(struct omap_mmu *mmu, void *addr)
+{
+	int ret = 0;
+
+	if (omap_mmu_internal_memory(mmu, addr)) {
+		if (intmem_usecount++ == 0)
+			ret = omap_dsp_request_mem();
+	} else
+		ret = -EIO;
+
+	return ret;
+}
+
+static int omap1_mmu_mem_disable(struct omap_mmu *mmu, void *addr)
+{
+	int ret = 0;
+
+	if (omap_mmu_internal_memory(mmu, addr)) {
+		if (--intmem_usecount == 0)
+			omap_dsp_release_mem();
+	} else
+		ret = -EIO;
+
+	return ret;
+}
+
+static inline void
+omap1_mmu_read_tlb(struct omap_mmu *mmu, struct cam_ram_regset *cr)
+{
+	/* read a TLB entry */
+	omap_mmu_write_reg(mmu, OMAP_MMU_LD_TLB_RD, OMAP_MMU_LD_TLB);
+
+	cr->cam_h = omap_mmu_read_reg(mmu, OMAP_MMU_READ_CAM_H);
+	cr->cam_l = omap_mmu_read_reg(mmu, OMAP_MMU_READ_CAM_L);
+	cr->ram_h = omap_mmu_read_reg(mmu, OMAP_MMU_READ_RAM_H);
+	cr->ram_l = omap_mmu_read_reg(mmu, OMAP_MMU_READ_RAM_L);
+}
+
+static inline void
+omap1_mmu_load_tlb(struct omap_mmu *mmu, struct cam_ram_regset *cr)
+{
+	/* Set the CAM and RAM entries */
+	omap_mmu_write_reg(mmu, cr->cam_h, OMAP_MMU_CAM_H);
+	omap_mmu_write_reg(mmu, cr->cam_l, OMAP_MMU_CAM_L);
+	omap_mmu_write_reg(mmu, cr->ram_h, OMAP_MMU_RAM_H);
+	omap_mmu_write_reg(mmu, cr->ram_l, OMAP_MMU_RAM_L);
+}
+
+static ssize_t omap1_mmu_show(struct omap_mmu *mmu, char *buf,
+			      struct omap_mmu_tlb_lock *tlb_lock)
+{
+	int i, len;
+
+	len = sprintf(buf, "P: preserved, V: valid\n"
+			   "ety P V size   cam_va     ram_pa ap\n");
+			 /* 00: P V  4KB 0x300000 0x10171800 FA */
+
+	for (i = 0; i < mmu->nr_tlb_entries; i++) {
+		struct omap_mmu_tlb_entry ent;
+		struct cam_ram_regset cr;
+		struct omap_mmu_tlb_lock entry_lock;
+		char *pgsz_str, *ap_str;
+
+		/* read a TLB entry */
+		entry_lock.base   = tlb_lock->base;
+		entry_lock.victim = i;
+		omap_mmu_read_tlb(mmu, &entry_lock, &cr);
+
+		ent.pgsz  = cr.cam_l & OMAP_MMU_CAM_PAGESIZE_MASK;
+		ent.prsvd = cr.cam_l & OMAP_MMU_CAM_P;
+		ent.valid = cr.cam_l & OMAP_MMU_CAM_V;
+		ent.ap    = cr.ram_l & OMAP_MMU_RAM_L_AP_MASK;
+		ent.va = (u32)(cr.cam_h & OMAP_MMU_CAM_H_VA_TAG_H_MASK) << 22 |
+			 (u32)(cr.cam_l & get_cam_l_va_mask(ent.pgsz)) << 6;
+		ent.pa = (unsigned long)cr.ram_h << 16 |
+			 (cr.ram_l & OMAP_MMU_RAM_L_RAM_LSB_MASK);
+
+		pgsz_str = (ent.pgsz == OMAP_MMU_CAM_PAGESIZE_1MB)  ? " 1MB":
+			   (ent.pgsz == OMAP_MMU_CAM_PAGESIZE_64KB) ? "64KB":
+			   (ent.pgsz == OMAP_MMU_CAM_PAGESIZE_4KB)  ? " 4KB":
+			   (ent.pgsz == OMAP_MMU_CAM_PAGESIZE_1KB)  ? " 1KB":
+								     " ???";
+		ap_str = (ent.ap == OMAP_MMU_RAM_L_AP_RO) ? "RO":
+			 (ent.ap == OMAP_MMU_RAM_L_AP_FA) ? "FA":
+			 (ent.ap == OMAP_MMU_RAM_L_AP_NA) ? "NA":
+							   "??";
+
+		if (i == tlb_lock->base)
+			len += sprintf(buf + len, "lock base = %d\n",
+				       tlb_lock->base);
+		if (i == tlb_lock->victim)
+			len += sprintf(buf + len, "victim    = %d\n",
+				       tlb_lock->victim);
+		len += sprintf(buf + len,
+			       /* 00: P V  4KB 0x300000 0x10171800 FA */
+			       "%02d: %c %c %s 0x%06lx 0x%08lx %s\n",
+			       i,
+			       ent.prsvd ? 'P' : ' ',
+			       ent.valid ? 'V' : ' ',
+			       pgsz_str, ent.va, ent.pa, ap_str);
+	}
+
+	return len;
+}
+
+static int exmap_setup_preserved_entries(struct omap_mmu *mmu)
+{
+	int n = 0;
+
+	exmap_setup_preserved_mem_page(mmu, dspvect_page, DSP_INIT_PAGE, n++);
+
+	return n;
+}
+
+static void exmap_clear_preserved_entries(struct omap_mmu *mmu)
+{
+	exmap_clear_mem_page(mmu, DSP_INIT_PAGE);
+}
+
+static int omap1_mmu_startup(struct omap_mmu *mmu)
+{
+	dspvect_page = (void *)__get_dma_pages(GFP_KERNEL, 0);
+	if (dspvect_page == NULL) {
+		printk(KERN_ERR "MMU: failed to allocate memory "
+				"for dsp vector table\n");
+		return -ENOMEM;
+	}
+
+	mmu->nr_exmap_preserved = exmap_setup_preserved_entries(mmu);
+
+	return 0;
+}
+
+static void omap1_mmu_shutdown(struct omap_mmu *mmu)
+{
+	exmap_clear_preserved_entries(mmu);
+
+	if (dspvect_page != NULL) {
+		unsigned long virt;
+
+		down_read(&mmu->exmap_sem);
+
+		virt = (unsigned long)omap_mmu_to_virt(mmu, DSP_INIT_PAGE);
+		flush_tlb_kernel_range(virt, virt + PAGE_SIZE);
+		free_page((unsigned long)dspvect_page);
+		dspvect_page = NULL;
+
+		up_read(&mmu->exmap_sem);
+	}
+}
+
+static inline unsigned long omap1_mmu_cam_va(struct cam_ram_regset *cr)
+{
+	unsigned int page_size = cr->cam_l & OMAP_MMU_CAM_PAGESIZE_MASK;
+
+	return (u32)(cr->cam_h & OMAP_MMU_CAM_H_VA_TAG_H_MASK)  << 22 |
+	       (u32)(cr->cam_l & get_cam_l_va_mask(page_size)) << 6;
+}
+
+static struct cam_ram_regset *
+omap1_mmu_cam_ram_alloc(struct omap_mmu_tlb_entry *entry)
+{
+	struct cam_ram_regset *cr;
+
+	if (entry->va & ~(get_cam_va_mask(entry->pgsz))) {
+		printk(KERN_ERR "MMU: mapping vadr (0x%06lx) is not on an "
+		       "aligned boundary\n", entry->va);
+		return ERR_PTR(-EINVAL);
+	}
+
+	cr = kmalloc(sizeof(struct cam_ram_regset), GFP_KERNEL);
+
+	cr->cam_h = entry->va >> 22;
+	cr->cam_l = (entry->va >> 6 & get_cam_l_va_mask(entry->pgsz)) |
+		   entry->prsvd | entry->pgsz;
+	cr->ram_h = entry->pa >> 16;
+	cr->ram_l = (entry->pa & OMAP_MMU_RAM_L_RAM_LSB_MASK) | entry->ap;
+
+	return cr;
+}
+
+static inline int omap1_mmu_cam_ram_valid(struct cam_ram_regset *cr)
+{
+	return cr->cam_l & OMAP_MMU_CAM_V;
+}
+
+struct omap_mmu_ops omap1_mmu_ops = {
+	.startup	= omap1_mmu_startup,
+	.shutdown	= omap1_mmu_shutdown,
+	.mem_enable	= omap1_mmu_mem_enable,
+	.mem_disable	= omap1_mmu_mem_disable,
+	.read_tlb	= omap1_mmu_read_tlb,
+	.load_tlb	= omap1_mmu_load_tlb,
+	.show		= omap1_mmu_show,
+	.cam_va		= omap1_mmu_cam_va,
+	.cam_ram_alloc	= omap1_mmu_cam_ram_alloc,
+	.cam_ram_valid	= omap1_mmu_cam_ram_valid,
+};
+
