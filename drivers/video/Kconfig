@@ -1654,6 +1654,10 @@ if FB || SGI_NEWPORT_CONSOLE
 	source "drivers/video/logo/Kconfig"
 endif
 
+if ARCH_OMAP
+	source "drivers/video/omap/Kconfig"
+endif
+
 if SYSFS
 	source "drivers/video/backlight/Kconfig"
 endif
