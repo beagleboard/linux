@@ -107,13 +107,13 @@ struct omap_mmu_tlb_entry {
 static inline unsigned short
 omap_mmu_read_reg(struct omap_mmu *mmu, unsigned long reg)
 {
-	return omap_readw(mmu->base + reg);
+	return __raw_readw(mmu->base + reg);
 }
 
 static void omap_mmu_write_reg(struct omap_mmu *mmu,
 			       unsigned short val, unsigned long reg)
 {
-	omap_writew(val, mmu->base + reg);
+	__raw_writew(val, mmu->base + reg);
 }
 
 int omap_dsp_request_mem(void);

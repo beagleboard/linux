@@ -286,3 +286,6 @@ struct omap_mmu_ops omap2_mmu_ops = {
 	.cam_ram_alloc	= omap2_mmu_cam_ram_alloc,
 	.cam_ram_valid	= omap2_mmu_cam_ram_valid,
 };
+EXPORT_SYMBOL_GPL(omap2_mmu_ops);
+
+MODULE_LICENSE("GPL");

@@ -119,6 +119,22 @@ config OMAP_MCBSP
 	  Say Y here if you want support for the OMAP Multichannel
 	  Buffered Serial Port.
 
+config OMAP_MMU_FWK
+	tristate "MMU framework support"
+	depends on ARCH_OMAP
+	default n
+	help
+	  Say Y here if you want to use OMAP MMU framework support for
+	  DSP, IVA1.0 and Camera in OMAP1/2.
+
+config OMAP_MBOX_FWK
+	tristate "Mailbox framework support"
+	depends on ARCH_OMAP
+	default n
+	help
+	  Say Y here if you want to use OMAP Mailbox framework support for
+	  DSP and IVA1.0 in OMAP1/2.
+
 choice
         prompt "System timer"
 	default OMAP_MPU_TIMER

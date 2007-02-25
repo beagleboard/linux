@@ -72,6 +72,7 @@ void dsp_mem_usecount_clear(void)
 		omap_dsp_release_mem();
 	}
 }
+EXPORT_SYMBOL_GPL(dsp_mem_usecount_clear);
 
 static int omap1_mmu_mem_enable(struct omap_mmu *mmu, void *addr)
 {
@@ -271,4 +272,4 @@ struct omap_mmu_ops omap1_mmu_ops = {
 	.cam_ram_alloc	= omap1_mmu_cam_ram_alloc,
 	.cam_ram_valid	= omap1_mmu_cam_ram_valid,
 };
-
+EXPORT_SYMBOL_GPL(omap1_mmu_ops);

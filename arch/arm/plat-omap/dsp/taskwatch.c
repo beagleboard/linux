@@ -26,9 +26,9 @@
 #include <linux/poll.h>
 #include <linux/sched.h>
 #include <asm/uaccess.h>
+#include <asm/arch/dsp.h>
 #include "dsp_mbcmd.h"
 #include "dsp.h"
-#include "ioctl.h"
 
 static DECLARE_WAIT_QUEUE_HEAD(read_wait_q);
 static unsigned int change_cnt;

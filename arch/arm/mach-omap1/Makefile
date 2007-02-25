@@ -11,8 +11,10 @@ obj-$(CONFIG_OMAP_MPU_TIMER)		+= time.o
 obj-$(CONFIG_PM) += pm.o sleep.o
 
 # DSP
-obj-$(CONFIG_OMAP_DSP)	+= mailbox_mach.o mmu.o
-mailbox_mach-objs	:= mailbox.o
+obj-$(CONFIG_OMAP_MMU_FWK)	+= mmu_mach.o
+obj-$(CONFIG_OMAP_MBOX_FWK)	+= mailbox_mach.o
+mailbox_mach-objs		:= mailbox.o
+mmu_mach-objs			:= mmu.o
 
 led-y := leds.o
 

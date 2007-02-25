@@ -103,7 +103,7 @@
 /*
  * DSP MMU
  */
-#define DSP_MMU_BASE			(0xfffed200)
+#define DSP_MMU_BASE			(0xfefed200)
 #define DSP_MMU_PREFETCH		(DSP_MMU_BASE + 0x00)
 #define DSP_MMU_WALKING_ST		(DSP_MMU_BASE + 0x04)
 #define DSP_MMU_CNTL			(DSP_MMU_BASE + 0x08)

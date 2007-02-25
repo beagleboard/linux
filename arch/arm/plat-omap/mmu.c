@@ -281,6 +281,7 @@ start:
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(exmap_valid);
 
 /*
  * omap_mmu_exmap_use(), unuse():
@@ -361,6 +362,7 @@ omap_mmu_virt_to_phys(struct omap_mmu *mmu, void *vadr, size_t *len)
 	/* valid mapping not found */
 	return 0;
 }
+EXPORT_SYMBOL_GPL(omap_mmu_virt_to_phys);
 
 /*
  * MMU operations
@@ -708,6 +710,7 @@ fail:
 	omap_mmu_exunmap(mmu, dspadr);
 	return status;
 }
+EXPORT_SYMBOL_GPL(omap_mmu_exmap);
 
 static unsigned long unmap_free_arm(struct exmap_tbl *ent)
 {
@@ -831,6 +834,7 @@ void exmap_setup_preserved_mem_page(struct omap_mmu *mmu, void *buf,
 	INIT_TLB_ENTRY_4KB_PRESERVED(&tlb_ent, dspadr, phys);
 	omap_mmu_load_tlb_entry(mmu, &tlb_ent);
 }
+EXPORT_SYMBOL_GPL(exmap_setup_preserved_mem_page);
 
 void exmap_clear_mem_page(struct omap_mmu *mmu, unsigned long dspadr)
 {
@@ -839,6 +843,7 @@ void exmap_clear_mem_page(struct omap_mmu *mmu, unsigned long dspadr)
 	exmap_clear_armmmu((unsigned long)virt, PAGE_SIZE);
 	/* DSP MMU is shutting down. not handled here. */
 }
+EXPORT_SYMBOL_GPL(exmap_clear_mem_page);
 
 static void omap_mmu_reset(struct omap_mmu *mmu)
 {
@@ -1300,6 +1305,7 @@ err_dev_register:
 	mmu->exmap_tbl = NULL;
 	return ret;
 }
+EXPORT_SYMBOL_GPL(omap_mmu_register);
 
 void omap_mmu_unregister(struct omap_mmu *mmu)
 {
@@ -1318,6 +1324,7 @@ void omap_mmu_unregister(struct omap_mmu *mmu)
 
 	device_unregister(&mmu->dev);
 }
+EXPORT_SYMBOL_GPL(omap_mmu_unregister);
 
 static int __init omap_mmu_class_init(void)
 {
@@ -1336,3 +1343,5 @@ static void __exit omap_mmu_class_exit(void)
 
 subsys_initcall(omap_mmu_class_init);
 module_exit(omap_mmu_class_exit);
+
+MODULE_LICENSE("GPL");

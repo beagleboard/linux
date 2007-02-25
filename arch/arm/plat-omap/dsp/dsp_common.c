@@ -607,10 +607,8 @@ EXPORT_SYMBOL(dsp_cpustat_request);
 EXPORT_SYMBOL(dsp_cpustat_get_stat);
 EXPORT_SYMBOL(dsp_cpustat_get_icrmask);
 EXPORT_SYMBOL(dsp_cpustat_set_icrmask);
-#ifdef CONFIG_ARCH_OMAP1
 EXPORT_SYMBOL(dsp_register_mem_cb);
 EXPORT_SYMBOL(dsp_unregister_mem_cb);
-#endif /* CONFIG_ARCH_OMAP1 */
 
 EXPORT_SYMBOL(__cpu_flush_kern_tlb_range);
 EXPORT_SYMBOL(cpu_architecture);

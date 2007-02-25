@@ -27,6 +27,11 @@ obj-$(CONFIG_OMAP_GPIO_SWITCH) += gpio-switch.o
 obj-$(CONFIG_OMAP_DEBUG_DEVICES) += debug-devices.o
 obj-$(CONFIG_OMAP_DEBUG_LEDS) += debug-leds.o
 
+# OMAP MMU framework
+obj-$(CONFIG_OMAP_MMU_FWK) += mmu.o
+
+# OMAP mailbox framework
+obj-$(CONFIG_OMAP_MBOX_FWK) += mailbox.o
+
 # DSP subsystem
 obj-y += dsp/
-obj-$(CONFIG_OMAP_DSP) += mailbox.o mmu.o
