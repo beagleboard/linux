@@ -1503,7 +1503,11 @@ static irqreturn_t serial8250_interrupt(int irq, void *dev_id)
 
 	DEBUG_INTR("end.\n");
 
+#ifdef CONFIG_ARCH_OMAP15XX
+	return IRQ_HANDLED;	/* FIXME: iir status not ready on 1510 */
+#else
 	return IRQ_RETVAL(handled);
+#endif
 }
 
 /*
@@ -2154,6 +2158,19 @@ serial8250_set_termios(struct uart_port *port, struct ktermios *termios,
 			/* emulated UARTs (Lucent Venus 167x) need two steps */
 			serial_outp(up, UART_FCR, UART_FCR_ENABLE_FIFO);
 		}
+
+		/* Note that we need to set ECB to access write water mark
+		 * bits. First allow FCR tx fifo write, then set fcr with
+		 * possible TX fifo settings. */
+		if (uart_config[up->port.type].flags & UART_CAP_EFR) {
+			serial_outp(up, UART_LCR, 0xbf);	/* Access EFR */
+			serial_outp(up, UART_EFR, UART_EFR_ECB);
+			serial_outp(up, UART_LCR, 0x0);		/* Access FCR */
+			serial_outp(up, UART_FCR, fcr);
+			serial_outp(up, UART_LCR, 0xbf);	/* Access EFR */
+			serial_outp(up, UART_EFR, 0);
+			serial_outp(up, UART_LCR, cval);	/* Access FCR */
+        } else
 		serial_outp(up, UART_FCR, fcr);		/* set fcr */
 	}
 	serial8250_set_mctrl(&up->port, up->port.mctrl);
@@ -2179,6 +2196,11 @@ static int serial8250_request_std_resource(struct uart_8250_port *up)
 {
 	unsigned int size = 8 << up->port.regshift;
 	int ret = 0;
+
+#ifdef CONFIG_ARCH_OMAP
+	if (is_omap_port((unsigned int)up->port.membase))
+		size = 0x16 << up->port.regshift;
+#endif
 
 	switch (up->port.iotype) {
 	case UPIO_AU:
