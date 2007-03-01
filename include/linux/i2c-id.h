@@ -120,8 +120,6 @@
 
 #define I2C_DRIVERID_MISC	99	/* Whatever until sorted out	*/
 
-#define I2C_DRIVERID_MISC	99	/* Whatever until sorted out	*/
-
 #define I2C_DRIVERID_I2CDEV	900
 #define I2C_DRIVERID_ARP        902    /* SMBus ARP Client              */
 #define I2C_DRIVERID_ALERT      903    /* SMBus Alert Responder Client  */
