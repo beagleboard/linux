@@ -1,7 +1,19 @@
+struct sysfs_dirent {
+	atomic_t		s_count;
+	struct list_head	s_sibling;
+	struct list_head	s_children;
+	void 			* s_element;
+	int			s_type;
+	umode_t			s_mode;
+	struct dentry		* s_dentry;
+	struct iattr		* s_iattr;
+	atomic_t		s_event;
+};
 
 extern struct vfsmount * sysfs_mount;
 extern struct kmem_cache *sysfs_dir_cachep;
 
+extern void sysfs_delete_inode(struct inode *inode);
 extern struct inode * sysfs_new_inode(mode_t mode, struct sysfs_dirent *);
 extern int sysfs_create(struct dentry *, int mode, int (*init)(struct inode *));
 
@@ -25,12 +37,28 @@ extern struct super_block * sysfs_sb;
 extern const struct file_operations sysfs_dir_operations;
 extern const struct file_operations sysfs_file_operations;
 extern const struct file_operations bin_fops;
-extern struct inode_operations sysfs_dir_inode_operations;
-extern struct inode_operations sysfs_symlink_inode_operations;
+extern const struct inode_operations sysfs_dir_inode_operations;
+extern const struct inode_operations sysfs_symlink_inode_operations;
 
 struct sysfs_symlink {
 	char * link_name;
 	struct kobject * target_kobj;
+};
+
+struct sysfs_buffer {
+	struct list_head		associates;
+	size_t				count;
+	loff_t				pos;
+	char				* page;
+	struct sysfs_ops		* ops;
+	struct semaphore		sem;
+	int				orphaned;
+	int				needs_read_fill;
+	int				event;
+};
+
+struct sysfs_buffer_collection {
+	struct list_head	associates;
 };
 
 static inline struct kobject * to_kobj(struct dentry * dentry)
@@ -96,3 +124,7 @@ static inline void sysfs_put(struct sysfs_dirent * sd)
 		release_sysfs_dirent(sd);
 }
 
+static inline int sysfs_is_shadowed_inode(struct inode *inode)
+{
+	return S_ISDIR(inode->i_mode) && inode->i_op->follow_link;
+}

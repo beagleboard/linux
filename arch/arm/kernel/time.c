@@ -40,12 +40,14 @@
  */
 struct sys_timer *system_timer;
 
+#if defined(CONFIG_RTC_DRV_CMOS) || defined(CONFIG_RTC_DRV_CMOS_MODULE)
 /* this needs a better home */
 DEFINE_SPINLOCK(rtc_lock);
 
-#ifdef CONFIG_SA1100_RTC_MODULE
+#ifdef CONFIG_RTC_DRV_CMOS_MODULE
 EXPORT_SYMBOL(rtc_lock);
 #endif
+#endif	/* pc-style 'CMOS' RTC support */
 
 /* change this if you have some constant time drift */
 #define USECS_PER_JIFFY	(1000000/HZ)
@@ -76,16 +78,6 @@ static unsigned long dummy_gettimeoffset(void)
 	return 0;
 }
 #endif
-
-/*
- * Scheduler clock - returns current time in nanosec units.
- * This is the default implementation.  Sub-architecture
- * implementations can override this.
- */
-unsigned long long __attribute__((weak)) sched_clock(void)
-{
-	return (unsigned long long)jiffies * (1000000000 / HZ);
-}
 
 /*
  * An implementation of printk_clock() independent from

@@ -11,6 +11,7 @@
 #include <linux/timer.h>
 #include <linux/ctype.h>
 #include <linux/device.h>
+#include <linux/usb/quirks.h>
 #include <asm/byteorder.h>
 #include <asm/scatterlist.h>
 
@@ -685,7 +686,10 @@ static int usb_string_sub(struct usb_device *dev, unsigned int langid,
 
 	/* Try to read the string descriptor by asking for the maximum
 	 * possible number of bytes */
-	rc = usb_get_string(dev, langid, index, buf, 255);
+	if (dev->quirks & USB_QUIRK_STRING_FETCH_255)
+		rc = -EIO;
+	else
+		rc = usb_get_string(dev, langid, index, buf, 255);
 
 	/* If that failed try to read the descriptor length, then
 	 * ask for just that many bytes */
@@ -1316,6 +1320,14 @@ static void release_interface(struct device *dev)
  * use this kind of configurability; many devices only have one
  * configuration.
  *
+ * @configuration is the value of the configuration to be installed.
+ * According to the USB spec (e.g. section 9.1.1.5), configuration values
+ * must be non-zero; a value of zero indicates that the device in
+ * unconfigured.  However some devices erroneously use 0 as one of their
+ * configuration values.  To help manage such devices, this routine will
+ * accept @configuration = -1 as indicating the device should be put in
+ * an unconfigured state.
+ *
  * USB device configurations may affect Linux interoperability,
  * power consumption and the functionality available.  For example,
  * the default configuration is limited to using 100mA of bus power,
@@ -1347,10 +1359,15 @@ int usb_set_configuration(struct usb_device *dev, int configuration)
 	struct usb_interface **new_interfaces = NULL;
 	int n, nintf;
 
-	for (i = 0; i < dev->descriptor.bNumConfigurations; i++) {
-		if (dev->config[i].desc.bConfigurationValue == configuration) {
-			cp = &dev->config[i];
-			break;
+	if (configuration == -1)
+		configuration = 0;
+	else {
+		for (i = 0; i < dev->descriptor.bNumConfigurations; i++) {
+			if (dev->config[i].desc.bConfigurationValue ==
+					configuration) {
+				cp = &dev->config[i];
+				break;
+			}
 		}
 	}
 	if ((!cp && configuration != 0))
@@ -1359,6 +1376,7 @@ int usb_set_configuration(struct usb_device *dev, int configuration)
 	/* The USB spec says configuration 0 means unconfigured.
 	 * But if a device includes a configuration numbered 0,
 	 * we will accept it as a correctly configured state.
+	 * Use -1 if you really want to unconfigure the device.
 	 */
 	if (cp && configuration == 0)
 		dev_warn(&dev->dev, "config 0 descriptor??\n");
@@ -1545,11 +1563,7 @@ int usb_driver_set_configuration(struct usb_device *udev, int config)
 	INIT_WORK(&req->work, driver_set_config_work);
 
 	usb_get_dev(udev);
-	if (!schedule_work(&req->work)) {
-		usb_put_dev(udev);
-		kfree(req);
-		return -EINVAL;
-	}
+	schedule_work(&req->work);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(usb_driver_set_configuration);

@@ -42,7 +42,7 @@
 
 
 #define DRV_NAME "pata_pcmcia"
-#define DRV_VERSION "0.2.11"
+#define DRV_VERSION "0.3.0"
 
 /*
  *	Private data structure to glue stuff together
@@ -88,14 +88,14 @@ static struct ata_port_operations pcmcia_port_ops = {
 	.qc_prep 	= ata_qc_prep,
 	.qc_issue	= ata_qc_issue_prot,
 
-	.data_xfer	= ata_pio_data_xfer_noirq,
+	.data_xfer	= ata_data_xfer_noirq,
 
 	.irq_handler	= ata_interrupt,
 	.irq_clear	= ata_bmdma_irq_clear,
+	.irq_on		= ata_irq_on,
+	.irq_ack	= ata_irq_ack,
 
 	.port_start	= ata_port_start,
-	.port_stop	= ata_port_stop,
-	.host_stop	= ata_host_stop
 };
 
 #define CS_CHECK(fn, ret) \
@@ -123,6 +123,7 @@ static int pcmcia_init_one(struct pcmcia_device *pdev)
 	cistpl_cftable_entry_t *cfg;
 	int pass, last_ret = 0, last_fn = 0, is_kme = 0, ret = -ENOMEM;
 	unsigned long io_base, ctl_base;
+	void __iomem *io_addr, *ctl_addr;
 
 	info = kzalloc(sizeof(*info), GFP_KERNEL);
 	if (info == NULL)
@@ -233,10 +234,17 @@ next_entry:
 	CS_CHECK(RequestIRQ, pcmcia_request_irq(pdev, &pdev->irq));
 	CS_CHECK(RequestConfiguration, pcmcia_request_configuration(pdev, &pdev->conf));
 
+	/* iomap */
+	ret = -ENOMEM;
+	io_addr = devm_ioport_map(&pdev->dev, io_base, 8);
+	ctl_addr = devm_ioport_map(&pdev->dev, ctl_base, 1);
+	if (!io_addr || !ctl_addr)
+		goto failed;
+
 	/* Success. Disable the IRQ nIEN line, do quirks */
-	outb(0x02, ctl_base);
+	iowrite8(0x02, ctl_addr);
 	if (is_kme)
-		outb(0x81, ctl_base + 0x01);
+		iowrite8(0x81, ctl_addr + 0x01);
 
 	/* FIXME: Could be more ports at base + 0x10 but we only deal with
 	   one right now */
@@ -256,13 +264,14 @@ next_entry:
 	ae.n_ports = 1;
 	ae.pio_mask = 1;		/* ISA so PIO 0 cycles */
 	ae.irq = pdev->irq.AssignedIRQ;
-	ae.irq_flags = SA_SHIRQ;
+	ae.irq_flags = IRQF_SHARED;
 	ae.port_flags = ATA_FLAG_SLAVE_POSS | ATA_FLAG_SRST;
-	ae.port[0].cmd_addr = io_base;
-	ae.port[0].altstatus_addr = ctl_base;
-	ae.port[0].ctl_addr = ctl_base;
+	ae.port[0].cmd_addr = io_addr;
+	ae.port[0].altstatus_addr = ctl_addr;
+	ae.port[0].ctl_addr = ctl_addr;
 	ata_std_ports(&ae.port[0]);
 
+	ret = -ENODEV;
 	if (ata_device_add(&ae) == 0)
 		goto failed;
 
@@ -298,8 +307,7 @@ static void pcmcia_remove_one(struct pcmcia_device *pdev)
 		/* If we have attached the device to the ATA layer, detach it */
 		if (info->ndev) {
 			struct ata_host *host = dev_get_drvdata(dev);
-			ata_host_remove(host);
-			dev_set_drvdata(dev, NULL);
+			ata_host_detach(host);
 		}
 		info->ndev = 0;
 		pdev->priv = NULL;
@@ -311,14 +319,17 @@ static void pcmcia_remove_one(struct pcmcia_device *pdev)
 static struct pcmcia_device_id pcmcia_devices[] = {
 	PCMCIA_DEVICE_FUNC_ID(4),
 	PCMCIA_DEVICE_MANF_CARD(0x0007, 0x0000),	/* Hitachi */
+	PCMCIA_DEVICE_MANF_CARD(0x000a, 0x0000),	/* I-O Data CFA */
+	PCMCIA_DEVICE_MANF_CARD(0x001c, 0x0001),	/* Mitsubishi CFA */
 	PCMCIA_DEVICE_MANF_CARD(0x0032, 0x0704),
-	PCMCIA_DEVICE_MANF_CARD(0x0045, 0x0401),
+	PCMCIA_DEVICE_MANF_CARD(0x0045, 0x0401),	/* SanDisk CFA */
 	PCMCIA_DEVICE_MANF_CARD(0x0098, 0x0000),	/* Toshiba */
 	PCMCIA_DEVICE_MANF_CARD(0x00a4, 0x002d),
 	PCMCIA_DEVICE_MANF_CARD(0x00ce, 0x0000),	/* Samsung */
  	PCMCIA_DEVICE_MANF_CARD(0x0319, 0x0000),	/* Hitachi */
 	PCMCIA_DEVICE_MANF_CARD(0x2080, 0x0001),
-	PCMCIA_DEVICE_MANF_CARD(0x4e01, 0x0200),	/* Lexar */
+	PCMCIA_DEVICE_MANF_CARD(0x4e01, 0x0100),	/* Viking CFA */
+	PCMCIA_DEVICE_MANF_CARD(0x4e01, 0x0200),	/* Lexar, Viking CFA */
 	PCMCIA_DEVICE_PROD_ID123("Caravelle", "PSC-IDE ", "PSC000", 0x8c36137c, 0xd0693ab8, 0x2768a9f0),
 	PCMCIA_DEVICE_PROD_ID123("CDROM", "IDE", "MCD-601p", 0x1b9179ca, 0xede88951, 0x0d902f74),
 	PCMCIA_DEVICE_PROD_ID123("PCMCIA", "IDE CARD", "F1", 0x281f1c5d, 0x1907960c, 0xf7fde8b9),

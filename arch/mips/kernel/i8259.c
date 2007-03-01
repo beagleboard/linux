@@ -28,7 +28,7 @@
  * moves to arch independent land
  */
 
-static int i8259A_auto_eoi;
+static int i8259A_auto_eoi = -1;
 DEFINE_SPINLOCK(i8259A_lock);
 /* some platforms call this... */
 void mask_and_ack_8259A(unsigned int);
@@ -54,9 +54,11 @@ static unsigned int cached_irq_mask = 0xffff;
 
 void disable_8259A_irq(unsigned int irq)
 {
-	unsigned int mask = 1 << irq;
+	unsigned int mask;
 	unsigned long flags;
 
+	irq -= I8259A_IRQ_BASE;
+	mask = 1 << irq;
 	spin_lock_irqsave(&i8259A_lock, flags);
 	cached_irq_mask |= mask;
 	if (irq & 8)
@@ -68,9 +70,11 @@ void disable_8259A_irq(unsigned int irq)
 
 void enable_8259A_irq(unsigned int irq)
 {
-	unsigned int mask = ~(1 << irq);
+	unsigned int mask;
 	unsigned long flags;
 
+	irq -= I8259A_IRQ_BASE;
+	mask = ~(1 << irq);
 	spin_lock_irqsave(&i8259A_lock, flags);
 	cached_irq_mask &= mask;
 	if (irq & 8)
@@ -82,10 +86,12 @@ void enable_8259A_irq(unsigned int irq)
 
 int i8259A_irq_pending(unsigned int irq)
 {
-	unsigned int mask = 1 << irq;
+	unsigned int mask;
 	unsigned long flags;
 	int ret;
 
+	irq -= I8259A_IRQ_BASE;
+	mask = 1 << irq;
 	spin_lock_irqsave(&i8259A_lock, flags);
 	if (irq < 8)
 		ret = inb(PIC_MASTER_CMD) & mask;
@@ -134,9 +140,11 @@ static inline int i8259A_irq_real(unsigned int irq)
  */
 void mask_and_ack_8259A(unsigned int irq)
 {
-	unsigned int irqmask = 1 << irq;
+	unsigned int irqmask;
 	unsigned long flags;
 
+	irq -= I8259A_IRQ_BASE;
+	irqmask = 1 << irq;
 	spin_lock_irqsave(&i8259A_lock, flags);
 	/*
 	 * Lightweight spurious IRQ detection. We do not want
@@ -169,8 +177,8 @@ handle_real_irq:
 		outb(0x60+irq,PIC_MASTER_CMD);	/* 'Specific EOI to master */
 	}
 #ifdef CONFIG_MIPS_MT_SMTC
-        if (irq_hwmask[irq] & ST0_IM)
-        	set_c0_status(irq_hwmask[irq] & ST0_IM);
+	if (irq_hwmask[irq] & ST0_IM)
+		set_c0_status(irq_hwmask[irq] & ST0_IM);
 #endif /* CONFIG_MIPS_MT_SMTC */
 	spin_unlock_irqrestore(&i8259A_lock, flags);
 	return;
@@ -208,7 +216,8 @@ spurious_8259A_irq:
 
 static int i8259A_resume(struct sys_device *dev)
 {
-	init_8259A(i8259A_auto_eoi);
+	if (i8259A_auto_eoi >= 0)
+		init_8259A(i8259A_auto_eoi);
 	return 0;
 }
 
@@ -218,8 +227,10 @@ static int i8259A_shutdown(struct sys_device *dev)
 	 * the kernel initialization code can get it
 	 * out of.
 	 */
-	outb(0xff, PIC_MASTER_IMR);	/* mask all of 8259A-1 */
-	outb(0xff, PIC_SLAVE_IMR);	/* mask all of 8259A-1 */
+	if (i8259A_auto_eoi >= 0) {
+		outb(0xff, PIC_MASTER_IMR);	/* mask all of 8259A-1 */
+		outb(0xff, PIC_SLAVE_IMR);	/* mask all of 8259A-1 */
+	}
 	return 0;
 }
 
@@ -244,7 +255,7 @@ static int __init i8259A_init_sysfs(void)
 
 device_initcall(i8259A_init_sysfs);
 
-void __init init_8259A(int auto_eoi)
+void init_8259A(int auto_eoi)
 {
 	unsigned long flags;
 
@@ -322,8 +333,8 @@ void __init init_i8259_irqs (void)
 
 	init_8259A(0);
 
-	for (i = 0; i < 16; i++)
+	for (i = I8259A_IRQ_BASE; i < I8259A_IRQ_BASE + 16; i++)
 		set_irq_chip_and_handler(i, &i8259A_chip, handle_level_irq);
 
-	setup_irq(PIC_CASCADE_IR, &irq2);
+	setup_irq(I8259A_IRQ_BASE + PIC_CASCADE_IR, &irq2);
 }

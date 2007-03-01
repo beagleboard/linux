@@ -489,7 +489,7 @@ static void bdev_clear_inode(struct inode *inode)
 	spin_unlock(&bdev_lock);
 }
 
-static struct super_operations bdev_sops = {
+static const struct super_operations bdev_sops = {
 	.statfs = simple_statfs,
 	.alloc_inode = bdev_alloc_inode,
 	.destroy_inode = bdev_destroy_inode,
@@ -1100,6 +1100,13 @@ EXPORT_SYMBOL(bd_set_size);
 static int __blkdev_get(struct block_device *bdev, mode_t mode, unsigned flags,
 			int for_part);
 static int __blkdev_put(struct block_device *bdev, int for_part);
+
+/*
+ * bd_mutex locking:
+ *
+ *  mutex_lock(part->bd_mutex)
+ *    mutex_lock_nested(whole->bd_mutex, 1)
+ */
 
 static int do_open(struct block_device *bdev, struct file *file, int for_part)
 {

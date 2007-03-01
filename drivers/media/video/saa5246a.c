@@ -40,7 +40,6 @@
 
 #include <linux/module.h>
 #include <linux/kernel.h>
-#include <linux/sched.h>
 #include <linux/mm.h>
 #include <linux/init.h>
 #include <linux/i2c.h>
@@ -112,7 +111,7 @@ static int saa5246a_attach(struct i2c_adapter *adap, int addr, int kind)
 	for (pgbuf = 0; pgbuf < NUM_DAUS; pgbuf++)
 	{
 		memset(t->pgbuf[pgbuf], ' ', sizeof(t->pgbuf[0]));
-		t->is_searching[pgbuf] = FALSE;
+		t->is_searching[pgbuf] = false;
 	}
 	vd->priv=t;
 
@@ -199,7 +198,7 @@ static int i2c_senddata(struct saa5246a_device *t, ...)
 
 /* Get count number of bytes from I²C-device at address adr, store them in buf.
  * Start & stop handshaking is done by this routine, ack will be sent after the
- * last byte to inhibit further sending of data. If uaccess is TRUE, data is
+ * last byte to inhibit further sending of data. If uaccess is 'true', data is
  * written to user-space with put_user. Returns -1 if I²C-device didn't send
  * acknowledge, 0 otherwise
  */
@@ -339,7 +338,7 @@ static int saa5246a_request_page(struct saa5246a_device *t,
 		return -EIO;
 	}
 
-	t->is_searching[req->pgbuf] = TRUE;
+	t->is_searching[req->pgbuf] = true;
 	return 0;
 }
 
@@ -453,7 +452,7 @@ static inline int saa5246a_get_status(struct saa5246a_device *t,
 		}
 	}
 	if (!info->hamming && !info->notfound)
-		t->is_searching[dau_no] = FALSE;
+		t->is_searching[dau_no] = false;
 	return 0;
 }
 
@@ -565,7 +564,7 @@ static inline int saa5246a_stop_dau(struct saa5246a_device *t,
 	{
 		return -EIO;
 	}
-	t->is_searching[dau_no] = FALSE;
+	t->is_searching[dau_no] = false;
 	return 0;
 }
 
@@ -817,7 +816,7 @@ static void __exit cleanup_saa_5246a (void)
 module_init(init_saa_5246a);
 module_exit(cleanup_saa_5246a);
 
-static struct file_operations saa_fops = {
+static const struct file_operations saa_fops = {
 	.owner	 = THIS_MODULE,
 	.open	 = saa5246a_open,
 	.release = saa5246a_release,

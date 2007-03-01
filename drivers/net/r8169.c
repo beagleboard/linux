@@ -1733,6 +1733,8 @@ rtl8169_remove_one(struct pci_dev *pdev)
 	assert(dev != NULL);
 	assert(tp != NULL);
 
+	flush_scheduled_work();
+
 	unregister_netdev(dev);
 	rtl8169_release_board(pdev, dev, tp->mmio_addr);
 	pci_set_drvdata(pdev, NULL);
@@ -2016,7 +2018,7 @@ static int rtl8169_alloc_rx_skb(struct pci_dev *pdev, struct sk_buff **sk_buff,
 	if (!skb)
 		goto err_out;
 
-	skb_reserve(skb, (align - 1) & (u32)skb->data);
+	skb_reserve(skb, (align - 1) & (unsigned long)skb->data);
 	*sk_buff = skb;
 
 	mapping = pci_map_single(pdev, skb->data, rx_buf_sz,
@@ -2161,10 +2163,13 @@ static void rtl8169_reinit_task(struct work_struct *work)
 	struct net_device *dev = tp->dev;
 	int ret;
 
-	if (netif_running(dev)) {
-		rtl8169_wait_for_quiescence(dev);
-		rtl8169_close(dev);
-	}
+	rtnl_lock();
+
+	if (!netif_running(dev))
+		goto out_unlock;
+
+	rtl8169_wait_for_quiescence(dev);
+	rtl8169_close(dev);
 
 	ret = rtl8169_open(dev);
 	if (unlikely(ret < 0)) {
@@ -2179,6 +2184,9 @@ static void rtl8169_reinit_task(struct work_struct *work)
 		}
 		rtl8169_schedule_work(dev, rtl8169_reinit_task);
 	}
+
+out_unlock:
+	rtnl_unlock();
 }
 
 static void rtl8169_reset_task(struct work_struct *work)
@@ -2187,8 +2195,10 @@ static void rtl8169_reset_task(struct work_struct *work)
 		container_of(work, struct rtl8169_private, task.work);
 	struct net_device *dev = tp->dev;
 
+	rtnl_lock();
+
 	if (!netif_running(dev))
-		return;
+		goto out_unlock;
 
 	rtl8169_wait_for_quiescence(dev);
 
@@ -2210,6 +2220,9 @@ static void rtl8169_reset_task(struct work_struct *work)
 		}
 		rtl8169_schedule_work(dev, rtl8169_reset_task);
 	}
+
+out_unlock:
+	rtnl_unlock();
 }
 
 static void rtl8169_tx_timeout(struct net_device *dev)
@@ -2487,7 +2500,7 @@ static inline int rtl8169_try_rx_copy(struct sk_buff **sk_buff, int pkt_size,
 
 		skb = dev_alloc_skb(pkt_size + align);
 		if (skb) {
-			skb_reserve(skb, (align - 1) & (u32)skb->data);
+			skb_reserve(skb, (align - 1) & (unsigned long)skb->data);
 			eth_copy_and_sum(skb, sk_buff[0]->data, pkt_size, 0);
 			*sk_buff = skb;
 			rtl8169_mark_to_asic(desc, rx_buf_sz);
@@ -2721,8 +2734,6 @@ static void rtl8169_down(struct net_device *dev)
 	rtl8169_delete_timer(dev);
 
 	netif_stop_queue(dev);
-
-	flush_scheduled_work();
 
 core_down:
 	spin_lock_irq(&tp->lock);

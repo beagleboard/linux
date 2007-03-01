@@ -30,7 +30,6 @@
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
-#include <linux/sched.h>
 #include <linux/smp_lock.h>
 #include <linux/mm.h>
 #include <linux/string.h>
@@ -1454,6 +1453,26 @@ static int __video_do_ioctl(struct inode *inode, struct file *file,
 		ret=vfd->vidioc_log_status(file, fh);
 		break;
 	}
+#ifdef CONFIG_VIDEO_ADV_DEBUG
+	case VIDIOC_DBG_G_REGISTER:
+	{
+		struct v4l2_register *p=arg;
+		if (!capable(CAP_SYS_ADMIN))
+			ret=-EPERM;
+		else if (vfd->vidioc_g_register)
+			ret=vfd->vidioc_g_register(file, fh, p);
+		break;
+	}
+	case VIDIOC_DBG_S_REGISTER:
+	{
+		struct v4l2_register *p=arg;
+		if (!capable(CAP_SYS_ADMIN))
+			ret=-EPERM;
+		else if (vfd->vidioc_s_register)
+			ret=vfd->vidioc_s_register(file, fh, p);
+		break;
+	}
+#endif
 	} /* switch */
 
 	if (vfd->debug & V4L2_DEBUG_IOCTL_ARG) {
@@ -1561,7 +1580,7 @@ out:
 }
 
 
-static struct file_operations video_fops;
+static const struct file_operations video_fops;
 
 /**
  *	video_register_device - register video4linux devices
@@ -1709,7 +1728,7 @@ void video_unregister_device(struct video_device *vfd)
 /*
  * Video fs operations
  */
-static struct file_operations video_fops=
+static const struct file_operations video_fops=
 {
 	.owner		= THIS_MODULE,
 	.llseek		= no_llseek,

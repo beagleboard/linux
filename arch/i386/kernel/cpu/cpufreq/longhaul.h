@@ -56,7 +56,7 @@ union msr_longhaul {
 /*
  * VIA C3 Samuel 1  & Samuel 2 (stepping 0)
  */
-static int __initdata samuel1_clock_ratio[16] = {
+static const int __initdata samuel1_clock_ratio[16] = {
 	-1, /* 0000 -> RESERVED */
 	30, /* 0001 ->  3.0x */
 	40, /* 0010 ->  4.0x */
@@ -75,7 +75,7 @@ static int __initdata samuel1_clock_ratio[16] = {
 	-1, /* 1111 -> RESERVED */
 };
 
-static int __initdata samuel1_eblcr[16] = {
+static const int __initdata samuel1_eblcr[16] = {
 	50, /* 0000 -> RESERVED */
 	30, /* 0001 ->  3.0x */
 	40, /* 0010 ->  4.0x */
@@ -97,7 +97,7 @@ static int __initdata samuel1_eblcr[16] = {
 /*
  * VIA C3 Samuel2 Stepping 1->15
  */
-static int __initdata samuel2_eblcr[16] = {
+static const int __initdata samuel2_eblcr[16] = {
 	50,  /* 0000 ->  5.0x */
 	30,  /* 0001 ->  3.0x */
 	40,  /* 0010 ->  4.0x */
@@ -119,7 +119,7 @@ static int __initdata samuel2_eblcr[16] = {
 /*
  * VIA C3 Ezra
  */
-static int __initdata ezra_clock_ratio[16] = {
+static const int __initdata ezra_clock_ratio[16] = {
 	100, /* 0000 -> 10.0x */
 	30,  /* 0001 ->  3.0x */
 	40,  /* 0010 ->  4.0x */
@@ -138,7 +138,7 @@ static int __initdata ezra_clock_ratio[16] = {
 	120, /* 1111 -> 12.0x */
 };
 
-static int __initdata ezra_eblcr[16] = {
+static const int __initdata ezra_eblcr[16] = {
 	50,  /* 0000 ->  5.0x */
 	30,  /* 0001 ->  3.0x */
 	40,  /* 0010 ->  4.0x */
@@ -160,7 +160,7 @@ static int __initdata ezra_eblcr[16] = {
 /*
  * VIA C3 (Ezra-T) [C5M].
  */
-static int __initdata ezrat_clock_ratio[32] = {
+static const int __initdata ezrat_clock_ratio[32] = {
 	100, /* 0000 -> 10.0x */
 	30,  /* 0001 ->  3.0x */
 	40,  /* 0010 ->  4.0x */
@@ -196,7 +196,7 @@ static int __initdata ezrat_clock_ratio[32] = {
 	-1,  /* 1111 -> RESERVED (12.0x) */
 };
 
-static int __initdata ezrat_eblcr[32] = {
+static const int __initdata ezrat_eblcr[32] = {
 	50,  /* 0000 ->  5.0x */
 	30,  /* 0001 ->  3.0x */
 	40,  /* 0010 ->  4.0x */
@@ -235,49 +235,14 @@ static int __initdata ezrat_eblcr[32] = {
 /*
  * VIA C3 Nehemiah */
 
-static int __initdata nehemiah_a_clock_ratio[32] = {
+static const int __initdata  nehemiah_clock_ratio[32] = {
 	100, /* 0000 -> 10.0x */
 	160, /* 0001 -> 16.0x */
-	-1,  /* 0010 ->  RESERVED */
+	40,  /* 0010 ->  4.0x */
 	90,  /* 0011 ->  9.0x */
 	95,  /* 0100 ->  9.5x */
 	-1,  /* 0101 ->  RESERVED */
-	-1,  /* 0110 ->  RESERVED */
-	55,  /* 0111 ->  5.5x */
-	60,  /* 1000 ->  6.0x */
-	70,  /* 1001 ->  7.0x */
-	80,  /* 1010 ->  8.0x */
-	50,  /* 1011 ->  5.0x */
-	65,  /* 1100 ->  6.5x */
-	75,  /* 1101 ->  7.5x */
-	85,  /* 1110 ->  8.5x */
-	120, /* 1111 -> 12.0x */
-	100, /* 0000 -> 10.0x */
-	-1,  /* 0001 -> RESERVED */
-	120, /* 0010 -> 12.0x */
-	90,  /* 0011 ->  9.0x */
-	105, /* 0100 -> 10.5x */
-	115, /* 0101 -> 11.5x */
-	125, /* 0110 -> 12.5x */
-	135, /* 0111 -> 13.5x */
-	140, /* 1000 -> 14.0x */
-	150, /* 1001 -> 15.0x */
-	160, /* 1010 -> 16.0x */
-	130, /* 1011 -> 13.0x */
-	145, /* 1100 -> 14.5x */
-	155, /* 1101 -> 15.5x */
-	-1,  /* 1110 -> RESERVED (13.0x) */
-	120, /* 1111 -> 12.0x */
-};
-
-static int __initdata  nehemiah_b_clock_ratio[32] = {
-	100, /* 0000 -> 10.0x */
-	160, /* 0001 -> 16.0x */
-	-1,  /* 0010 ->  RESERVED */
-	90,  /* 0011 ->  9.0x */
-	95,  /* 0100 ->  9.5x */
-	-1,  /* 0101 ->  RESERVED */
-	-1,  /* 0110 ->  RESERVED */
+	45,  /* 0110 ->  4.5x */
 	55,  /* 0111 ->  5.5x */
 	60,  /* 1000 ->  6.0x */
 	70,  /* 1001 ->  7.0x */
@@ -305,84 +270,14 @@ static int __initdata  nehemiah_b_clock_ratio[32] = {
 	120, /* 1111 -> 12.0x */
 };
 
-static int __initdata  nehemiah_c_clock_ratio[32] = {
-	100, /* 0000 -> 10.0x */
-	160, /* 0001 -> 16.0x */
-	40,  /* 0010 ->  RESERVED */
-	90,  /* 0011 ->  9.0x */
-	95,  /* 0100 ->  9.5x */
-	-1,  /* 0101 ->  RESERVED */
-	45,  /* 0110 ->  RESERVED */
-	55,  /* 0111 ->  5.5x */
-	60,  /* 1000 ->  6.0x */
-	70,  /* 1001 ->  7.0x */
-	80,  /* 1010 ->  8.0x */
-	50,  /* 1011 ->  5.0x */
-	65,  /* 1100 ->  6.5x */
-	75,  /* 1101 ->  7.5x */
-	85,  /* 1110 ->  8.5x */
-	120, /* 1111 -> 12.0x */
-	100, /* 0000 -> 10.0x */
-	110, /* 0001 -> 11.0x */
-	120, /* 0010 -> 12.0x */
-	90,  /* 0011 ->  9.0x */
-	105, /* 0100 -> 10.5x */
-	115, /* 0101 -> 11.5x */
-	125, /* 0110 -> 12.5x */
-	135, /* 0111 -> 13.5x */
-	140, /* 1000 -> 14.0x */
-	150, /* 1001 -> 15.0x */
-	160, /* 1010 -> 16.0x */
-	130, /* 1011 -> 13.0x */
-	145, /* 1100 -> 14.5x */
-	155, /* 1101 -> 15.5x */
-	-1,  /* 1110 -> RESERVED (13.0x) */
-	120, /* 1111 -> 12.0x */
-};
-
-static int __initdata nehemiah_a_eblcr[32] = {
+static const int __initdata nehemiah_eblcr[32] = {
 	50,  /* 0000 ->  5.0x */
 	160, /* 0001 -> 16.0x */
-	-1,  /* 0010 ->  RESERVED */
+	40,  /* 0010 ->  4.0x */
 	100, /* 0011 -> 10.0x */
 	55,  /* 0100 ->  5.5x */
 	-1,  /* 0101 ->  RESERVED */
-	-1,  /* 0110 ->  RESERVED */
-	95,  /* 0111 ->  9.5x */
-	90,  /* 1000 ->  9.0x */
-	70,  /* 1001 ->  7.0x */
-	80,  /* 1010 ->  8.0x */
-	60,  /* 1011 ->  6.0x */
-	120, /* 1100 -> 12.0x */
-	75,  /* 1101 ->  7.5x */
-	85,  /* 1110 ->  8.5x */
-	65,  /* 1111 ->  6.5x */
-	90,  /* 0000 ->  9.0x */
-	-1,  /* 0001 -> RESERVED */
-	120, /* 0010 -> 12.0x */
-	100, /* 0011 -> 10.0x */
-	135, /* 0100 -> 13.5x */
-	115, /* 0101 -> 11.5x */
-	125, /* 0110 -> 12.5x */
-	105, /* 0111 -> 10.5x */
-	130, /* 1000 -> 13.0x */
-	150, /* 1001 -> 15.0x */
-	160, /* 1010 -> 16.0x */
-	140, /* 1011 -> 14.0x */
-	120, /* 1100 -> 12.0x */
-	155, /* 1101 -> 15.5x */
-	-1,  /* 1110 -> RESERVED (13.0x) */
-	145 /* 1111 -> 14.5x */
-   /* end of table  */
-};
-static int __initdata nehemiah_b_eblcr[32] = {
-	50,  /* 0000 ->  5.0x */
-	160, /* 0001 -> 16.0x */
-	-1,  /* 0010 ->  RESERVED */
-	100, /* 0011 -> 10.0x */
-	55,  /* 0100 ->  5.5x */
-	-1,  /* 0101 ->  RESERVED */
-	-1,  /* 0110 ->  RESERVED */
+	45,  /* 0110 ->  4.5x */
 	95,  /* 0111 ->  9.5x */
 	90,  /* 1000 ->  9.0x */
 	70,  /* 1001 ->  7.0x */
@@ -408,42 +303,6 @@ static int __initdata nehemiah_b_eblcr[32] = {
 	155, /* 1101 -> 15.5x */
 	-1,  /* 1110 -> RESERVED (13.0x) */
 	145 /* 1111 -> 14.5x */
-	   /* end of table  */
-};
-static int __initdata nehemiah_c_eblcr[32] = {
-	50,  /* 0000 ->  5.0x */
-	160, /* 0001 -> 16.0x */
-	40,  /* 0010 ->  RESERVED */
-	100, /* 0011 -> 10.0x */
-	55,  /* 0100 ->  5.5x */
-	-1,  /* 0101 ->  RESERVED */
-	45,  /* 0110 ->  RESERVED */
-	95,  /* 0111 ->  9.5x */
-	90,  /* 1000 ->  9.0x */
-	70,  /* 1001 ->  7.0x */
-	80,  /* 1010 ->  8.0x */
-	60,  /* 1011 ->  6.0x */
-	120, /* 1100 -> 12.0x */
-	75,  /* 1101 ->  7.5x */
-	85,  /* 1110 ->  8.5x */
-	65,  /* 1111 ->  6.5x */
-	90,  /* 0000 ->  9.0x */
-	110, /* 0001 -> 11.0x */
-	120, /* 0010 -> 12.0x */
-	100, /* 0011 -> 10.0x */
-	135, /* 0100 -> 13.5x */
-	115, /* 0101 -> 11.5x */
-	125, /* 0110 -> 12.5x */
-	105, /* 0111 -> 10.5x */
-	130, /* 1000 -> 13.0x */
-	150, /* 1001 -> 15.0x */
-	160, /* 1010 -> 16.0x */
-	140, /* 1011 -> 14.0x */
-	120, /* 1100 -> 12.0x */
-	155, /* 1101 -> 15.5x */
-	-1,  /* 1110 -> RESERVED (13.0x) */
-	145 /* 1111 -> 14.5x */
-	  /* end of table  */
 };
 
 /*
@@ -456,7 +315,7 @@ struct mV_pos {
 	unsigned short pos;
 };
 
-static struct mV_pos __initdata vrm85_mV[32] = {
+static const struct mV_pos __initdata vrm85_mV[32] = {
 	{1250, 8},	{1200, 6},	{1150, 4},	{1100, 2},
 	{1050, 0},	{1800, 30},	{1750, 28},	{1700, 26},
 	{1650, 24},	{1600, 22},	{1550, 20},	{1500, 18},
@@ -467,14 +326,14 @@ static struct mV_pos __initdata vrm85_mV[32] = {
 	{1475, 17},	{1425, 15},	{1375, 13},	{1325, 11}
 };
 
-static unsigned char __initdata mV_vrm85[32] = {
+static const unsigned char __initdata mV_vrm85[32] = {
 	0x04,	0x14,	0x03,	0x13,	0x02,	0x12,	0x01,	0x11,
 	0x00,	0x10,	0x0f,	0x1f,	0x0e,	0x1e,	0x0d,	0x1d,
 	0x0c,	0x1c,	0x0b,	0x1b,	0x0a,	0x1a,	0x09,	0x19,
 	0x08,	0x18,	0x07,	0x17,	0x06,	0x16,	0x05,	0x15
 };
 
-static struct mV_pos __initdata mobilevrm_mV[32] = {
+static const struct mV_pos __initdata mobilevrm_mV[32] = {
 	{1750, 31},	{1700, 30},	{1650, 29},	{1600, 28},
 	{1550, 27},	{1500, 26},	{1450, 25},	{1400, 24},
 	{1350, 23},	{1300, 22},	{1250, 21},	{1200, 20},
@@ -485,7 +344,7 @@ static struct mV_pos __initdata mobilevrm_mV[32] = {
 	{675, 3},	{650, 2},	{625, 1},	{600, 0}
 };
 
-static unsigned char __initdata mV_mobilevrm[32] = {
+static const unsigned char __initdata mV_mobilevrm[32] = {
 	0x1f,	0x1e,	0x1d,	0x1c,	0x1b,	0x1a,	0x19,	0x18,
 	0x17,	0x16,	0x15,	0x14,	0x13,	0x12,	0x11,	0x10,
 	0x0f,	0x0e,	0x0d,	0x0c,	0x0b,	0x0a,	0x09,	0x08,

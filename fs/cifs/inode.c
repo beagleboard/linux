@@ -90,6 +90,9 @@ int cifs_get_inode_info_unix(struct inode **pinode,
 				(*pinode)->i_ino =
 					(unsigned long)findData.UniqueId;
 			} /* note ino incremented to unique num in new_inode */
+			if(sb->s_flags & MS_NOATIME)
+				(*pinode)->i_flags |= S_NOATIME | S_NOCMTIME;
+				
 			insert_inode_hash(*pinode);
 		}
 
@@ -140,7 +143,7 @@ int cifs_get_inode_info_unix(struct inode **pinode,
 		inode->i_gid = le64_to_cpu(findData.Gid);
 		inode->i_nlink = le64_to_cpu(findData.Nlinks);
 
-		if (is_size_safe_to_change(cifsInfo)) {
+		if (is_size_safe_to_change(cifsInfo, end_of_file)) {
 		/* can not safely change the file size here if the
 		   client is writing to it due to potential races */
 
@@ -421,6 +424,8 @@ int cifs_get_inode_info(struct inode **pinode,
 				} else /* do we need cast or hash to ino? */
 					(*pinode)->i_ino = inode_num;
 			} /* else ino incremented to unique num in new_inode*/
+			if(sb->s_flags & MS_NOATIME)
+				(*pinode)->i_flags |= S_NOATIME | S_NOCMTIME;
 			insert_inode_hash(*pinode);
 		}
 		inode = *pinode;
@@ -491,8 +496,8 @@ int cifs_get_inode_info(struct inode **pinode,
 		/* BB add code here -
 		   validate if device or weird share or device type? */
 		}
-		if (is_size_safe_to_change(cifsInfo)) {
-			/* can not safely change the file size here if the
+		if (is_size_safe_to_change(cifsInfo, le64_to_cpu(pfindData->EndOfFile))) {
+			/* can not safely shrink the file size here if the
 			   client is writing to it due to potential races */
 			i_size_write(inode,le64_to_cpu(pfindData->EndOfFile));
 
@@ -1359,7 +1364,7 @@ int cifs_setattr(struct dentry *direntry, struct iattr *attrs)
 		and this check ensures that we are not being called from
 		sys_utimes in which case we ought to fail the call back to
 		the user when the server rejects the call */
-		if((rc) && (attrs->ia_valid &&
+		if((rc) && (attrs->ia_valid &
 			 (ATTR_MODE | ATTR_GID | ATTR_UID | ATTR_SIZE)))
 			rc = 0;
 	}

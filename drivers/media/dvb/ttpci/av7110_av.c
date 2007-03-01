@@ -31,7 +31,6 @@
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/string.h>
-#include <linux/sched.h>
 #include <linux/delay.h>
 #include <linux/smp_lock.h>
 #include <linux/fs.h>
@@ -881,8 +880,8 @@ static int dvb_video_get_event (struct av7110 *av7110, struct video_event *event
 
 static unsigned int dvb_video_poll(struct file *file, poll_table *wait)
 {
-	struct dvb_device *dvbdev = (struct dvb_device *) file->private_data;
-	struct av7110 *av7110 = (struct av7110 *) dvbdev->priv;
+	struct dvb_device *dvbdev = file->private_data;
+	struct av7110 *av7110 = dvbdev->priv;
 	unsigned int mask = 0;
 
 	dprintk(2, "av7110:%p, \n", av7110);
@@ -909,8 +908,8 @@ static unsigned int dvb_video_poll(struct file *file, poll_table *wait)
 static ssize_t dvb_video_write(struct file *file, const char __user *buf,
 			       size_t count, loff_t *ppos)
 {
-	struct dvb_device *dvbdev = (struct dvb_device *) file->private_data;
-	struct av7110 *av7110 = (struct av7110 *) dvbdev->priv;
+	struct dvb_device *dvbdev = file->private_data;
+	struct av7110 *av7110 = dvbdev->priv;
 
 	dprintk(2, "av7110:%p, \n", av7110);
 
@@ -925,8 +924,8 @@ static ssize_t dvb_video_write(struct file *file, const char __user *buf,
 
 static unsigned int dvb_audio_poll(struct file *file, poll_table *wait)
 {
-	struct dvb_device *dvbdev = (struct dvb_device *) file->private_data;
-	struct av7110 *av7110 = (struct av7110 *) dvbdev->priv;
+	struct dvb_device *dvbdev = file->private_data;
+	struct av7110 *av7110 = dvbdev->priv;
 	unsigned int mask = 0;
 
 	dprintk(2, "av7110:%p, \n", av7110);
@@ -945,8 +944,8 @@ static unsigned int dvb_audio_poll(struct file *file, poll_table *wait)
 static ssize_t dvb_audio_write(struct file *file, const char __user *buf,
 			       size_t count, loff_t *ppos)
 {
-	struct dvb_device *dvbdev = (struct dvb_device *) file->private_data;
-	struct av7110 *av7110 = (struct av7110 *) dvbdev->priv;
+	struct dvb_device *dvbdev = file->private_data;
+	struct av7110 *av7110 = dvbdev->priv;
 
 	dprintk(2, "av7110:%p, \n", av7110);
 
@@ -990,8 +989,8 @@ static int play_iframe(struct av7110 *av7110, u8 __user *buf, unsigned int len, 
 static int dvb_video_ioctl(struct inode *inode, struct file *file,
 			   unsigned int cmd, void *parg)
 {
-	struct dvb_device *dvbdev = (struct dvb_device *) file->private_data;
-	struct av7110 *av7110 = (struct av7110 *) dvbdev->priv;
+	struct dvb_device *dvbdev = file->private_data;
+	struct av7110 *av7110 = dvbdev->priv;
 	unsigned long arg = (unsigned long) parg;
 	int ret = 0;
 
@@ -1204,8 +1203,8 @@ static int dvb_video_ioctl(struct inode *inode, struct file *file,
 static int dvb_audio_ioctl(struct inode *inode, struct file *file,
 			   unsigned int cmd, void *parg)
 {
-	struct dvb_device *dvbdev = (struct dvb_device *) file->private_data;
-	struct av7110 *av7110 = (struct av7110 *) dvbdev->priv;
+	struct dvb_device *dvbdev = file->private_data;
+	struct av7110 *av7110 = dvbdev->priv;
 	unsigned long arg = (unsigned long) parg;
 	int ret = 0;
 
@@ -1350,8 +1349,8 @@ static int dvb_audio_ioctl(struct inode *inode, struct file *file,
 
 static int dvb_video_open(struct inode *inode, struct file *file)
 {
-	struct dvb_device *dvbdev = (struct dvb_device *) file->private_data;
-	struct av7110 *av7110 = (struct av7110 *) dvbdev->priv;
+	struct dvb_device *dvbdev = file->private_data;
+	struct av7110 *av7110 = dvbdev->priv;
 	int err;
 
 	dprintk(2, "av7110:%p, \n", av7110);
@@ -1375,8 +1374,8 @@ static int dvb_video_open(struct inode *inode, struct file *file)
 
 static int dvb_video_release(struct inode *inode, struct file *file)
 {
-	struct dvb_device *dvbdev = (struct dvb_device *) file->private_data;
-	struct av7110 *av7110 = (struct av7110 *) dvbdev->priv;
+	struct dvb_device *dvbdev = file->private_data;
+	struct av7110 *av7110 = dvbdev->priv;
 
 	dprintk(2, "av7110:%p, \n", av7110);
 
@@ -1389,9 +1388,9 @@ static int dvb_video_release(struct inode *inode, struct file *file)
 
 static int dvb_audio_open(struct inode *inode, struct file *file)
 {
-	struct dvb_device *dvbdev = (struct dvb_device *) file->private_data;
-	struct av7110 *av7110 = (struct av7110 *) dvbdev->priv;
-	int err=dvb_generic_open(inode, file);
+	struct dvb_device *dvbdev = file->private_data;
+	struct av7110 *av7110 = dvbdev->priv;
+	int err = dvb_generic_open(inode, file);
 
 	dprintk(2, "av7110:%p, \n", av7110);
 
@@ -1404,8 +1403,8 @@ static int dvb_audio_open(struct inode *inode, struct file *file)
 
 static int dvb_audio_release(struct inode *inode, struct file *file)
 {
-	struct dvb_device *dvbdev = (struct dvb_device *) file->private_data;
-	struct av7110 *av7110 = (struct av7110 *) dvbdev->priv;
+	struct dvb_device *dvbdev = file->private_data;
+	struct av7110 *av7110 = dvbdev->priv;
 
 	dprintk(2, "av7110:%p, \n", av7110);
 

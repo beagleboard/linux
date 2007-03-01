@@ -171,6 +171,7 @@ extern unsigned long		 affs_parent_ino(struct inode *dir);
 extern struct inode		*affs_new_inode(struct inode *dir);
 extern int			 affs_notify_change(struct dentry *dentry, struct iattr *attr);
 extern void			 affs_put_inode(struct inode *inode);
+extern void			 affs_drop_inode(struct inode *inode);
 extern void			 affs_delete_inode(struct inode *inode);
 extern void			 affs_clear_inode(struct inode *inode);
 extern void			 affs_read_inode(struct inode *inode);
@@ -188,9 +189,9 @@ extern void   affs_dir_truncate(struct inode *);
 
 /* jump tables */
 
-extern struct inode_operations	 affs_file_inode_operations;
-extern struct inode_operations	 affs_dir_inode_operations;
-extern struct inode_operations   affs_symlink_inode_operations;
+extern const struct inode_operations	 affs_file_inode_operations;
+extern const struct inode_operations	 affs_dir_inode_operations;
+extern const struct inode_operations   affs_symlink_inode_operations;
 extern const struct file_operations	 affs_file_operations;
 extern const struct file_operations	 affs_file_operations_ofs;
 extern const struct file_operations	 affs_dir_operations;

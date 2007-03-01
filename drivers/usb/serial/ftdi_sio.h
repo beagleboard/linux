@@ -364,7 +364,6 @@
  * USB-TTY activ, USB-TTY passiv.  Some PIDs are used by several devices
  * and I'm not entirely sure which are used by which.
  */
-#define FTDI_4N_GALAXY_DE_0_PID	0x8372
 #define FTDI_4N_GALAXY_DE_1_PID	0xF3C0
 #define FTDI_4N_GALAXY_DE_2_PID	0xF3C1
 
@@ -491,6 +490,12 @@
 #define FTDI_TACTRIX_OPENPORT_13M_PID	0xCC48	/* OpenPort 1.3 Mitsubishi */
 #define FTDI_TACTRIX_OPENPORT_13S_PID	0xCC49	/* OpenPort 1.3 Subaru */
 #define FTDI_TACTRIX_OPENPORT_13U_PID	0xCC4A	/* OpenPort 1.3 Universal */
+
+/*
+ * Telldus Technologies
+ */
+#define TELLDUS_VID			0x1781	/* Vendor ID */
+#define TELLDUS_TELLSTICK_PID		0x0C30	/* RF control dongle 433 MHz using FT232RL */
 
 /* Commands */
 #define FTDI_SIO_RESET 		0 /* Reset the port */

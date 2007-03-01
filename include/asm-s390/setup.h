@@ -16,7 +16,6 @@
 
 #define PARMAREA		0x10400
 #define MEMORY_CHUNKS		16	/* max 0x7fff */
-#define IPL_PARMBLOCK_ORIGIN	0x2000
 
 #ifndef __ASSEMBLY__
 
@@ -41,6 +40,18 @@ struct mem_chunk {
 };
 
 extern struct mem_chunk memory_chunk[];
+
+#ifdef CONFIG_S390_SWITCH_AMODE
+extern unsigned int switch_amode;
+#else
+#define switch_amode	(0)
+#endif
+
+#ifdef CONFIG_S390_EXEC_PROTECT
+extern unsigned int s390_noexec;
+#else
+#define s390_noexec	(0)
+#endif
 
 /*
  * Machine features detected in head.S
@@ -74,6 +85,9 @@ extern unsigned int console_mode;
 extern unsigned int console_devno;
 extern unsigned int console_irq;
 
+extern char vmhalt_cmd[];
+extern char vmpoff_cmd[];
+
 #define CONSOLE_IS_UNDEFINED	(console_mode == 0)
 #define CONSOLE_IS_SCLP		(console_mode == 1)
 #define CONSOLE_IS_3215		(console_mode == 2)
@@ -82,75 +96,8 @@ extern unsigned int console_irq;
 #define SET_CONSOLE_3215	do { console_mode = 2; } while (0)
 #define SET_CONSOLE_3270	do { console_mode = 3; } while (0)
 
-struct ipl_list_hdr {
-	u32 len;
-	u8  reserved1[3];
-	u8  version;
-	u32 blk0_len;
-	u8  pbt;
-	u8  flags;
-	u16 reserved2;
-} __attribute__((packed));
-
-struct ipl_block_fcp {
-	u8  reserved1[313-1];
-	u8  opt;
-	u8  reserved2[3];
-	u16 reserved3;
-	u16 devno;
-	u8  reserved4[4];
-	u64 wwpn;
-	u64 lun;
-	u32 bootprog;
-	u8  reserved5[12];
-	u64 br_lba;
-	u32 scp_data_len;
-	u8  reserved6[260];
-	u8  scp_data[];
-} __attribute__((packed));
-
-struct ipl_block_ccw {
-	u8  load_param[8];
-	u8  reserved1[84];
-	u8  reserved2[2];
-	u16 devno;
-	u8  vm_flags;
-	u8  reserved3[3];
-	u32 vm_parm_len;
-} __attribute__((packed));
-
-struct ipl_parameter_block {
-	struct ipl_list_hdr hdr;
-	union {
-		struct ipl_block_fcp fcp;
-		struct ipl_block_ccw ccw;
-	} ipl_info;
-} __attribute__((packed));
-
-#define IPL_PARM_BLK_FCP_LEN (sizeof(struct ipl_list_hdr) + \
-			      sizeof(struct ipl_block_fcp))
-
-#define IPL_PARM_BLK_CCW_LEN (sizeof(struct ipl_list_hdr) + \
-			      sizeof(struct ipl_block_ccw))
-
-#define IPL_MAX_SUPPORTED_VERSION (0)
-
-/*
- * IPL validity flags and parameters as detected in head.S
- */
-extern u32 ipl_flags;
-extern u16 ipl_devno;
-
-void do_reipl(void);
-
-enum {
-	IPL_DEVNO_VALID	= 1,
-	IPL_PARMBLOCK_VALID = 2,
-};
-
-#define IPL_PARMBLOCK_START	((struct ipl_parameter_block *) \
-				 IPL_PARMBLOCK_ORIGIN)
-#define IPL_PARMBLOCK_SIZE	(IPL_PARMBLOCK_START->hdr.len)
+#define NSS_NAME_SIZE	8
+extern char kernel_nss_name[];
 
 #else /* __ASSEMBLY__ */
 

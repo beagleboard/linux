@@ -22,23 +22,24 @@
 
 #include <linux/module.h>
 #include <linux/init.h>
-
 #include <linux/mm.h>
 #include <linux/spinlock.h>
 #include <linux/kernel_stat.h>
 #include <linux/smp_lock.h>
-
 #include <linux/delay.h>
 #include <linux/cache.h>
 #include <linux/interrupt.h>
 #include <linux/cpu.h>
-
+#include <linux/timex.h>
+#include <asm/ipl.h>
+#include <asm/setup.h>
 #include <asm/sigp.h>
 #include <asm/pgalloc.h>
 #include <asm/irq.h>
 #include <asm/s390_ext.h>
 #include <asm/cpcmd.h>
 #include <asm/tlbflush.h>
+#include <asm/timer.h>
 
 extern volatile int __cpu_logical_map[];
 
@@ -53,26 +54,19 @@ cpumask_t cpu_possible_map = CPU_MASK_NONE;
 
 static struct task_struct *current_set[NR_CPUS];
 
-/*
- * Reboot, halt and power_off routines for SMP.
- */
-extern char vmhalt_cmd[];
-extern char vmpoff_cmd[];
-
 static void smp_ext_bitcall(int, ec_bit_sig);
-static void smp_ext_bitcall_others(ec_bit_sig);
 
 /*
-5B * Structure and data for smp_call_function(). This is designed to minimise
- * static memory requirements. It also looks cleaner.
+ * Structure and data for __smp_call_function_map(). This is designed to
+ * minimise static memory requirements. It also looks cleaner.
  */
 static DEFINE_SPINLOCK(call_lock);
 
 struct call_data_struct {
 	void (*func) (void *info);
 	void *info;
-	atomic_t started;
-	atomic_t finished;
+	cpumask_t started;
+	cpumask_t finished;
 	int wait;
 };
 
@@ -87,120 +81,118 @@ static void do_call_function(void)
 	void *info = call_data->info;
 	int wait = call_data->wait;
 
-	atomic_inc(&call_data->started);
+	cpu_set(smp_processor_id(), call_data->started);
 	(*func)(info);
 	if (wait)
-		atomic_inc(&call_data->finished);
+		cpu_set(smp_processor_id(), call_data->finished);;
 }
 
-/*
- * this function sends a 'generic call function' IPI to all other CPUs
- * in the system.
- */
-
-int smp_call_function (void (*func) (void *info), void *info, int nonatomic,
-			int wait)
-/*
- * [SUMMARY] Run a function on all other CPUs.
- * <func> The function to run. This must be fast and non-blocking.
- * <info> An arbitrary pointer to pass to the function.
- * <nonatomic> currently unused.
- * <wait> If true, wait (atomically) until function has completed on other CPUs.
- * [RETURNS] 0 on success, else a negative status code. Does not return until
- * remote CPUs are nearly ready to execute <<func>> or are or have executed.
- *
- * You must not call this function with disabled interrupts or from a
- * hardware interrupt handler or from a bottom half handler.
- */
+static void __smp_call_function_map(void (*func) (void *info), void *info,
+				    int nonatomic, int wait, cpumask_t map)
 {
 	struct call_data_struct data;
-	int cpus = num_online_cpus()-1;
+	int cpu, local = 0;
 
-	if (cpus <= 0)
-		return 0;
+	/*
+	 * Can deadlock when interrupts are disabled or if in wrong context,
+	 * caller must disable preemption
+	 */
+	WARN_ON(irqs_disabled() || in_irq() || preemptible());
 
-	/* Can deadlock when called with interrupts disabled */
-	WARN_ON(irqs_disabled());
-
-	data.func = func;
-	data.info = info;
-	atomic_set(&data.started, 0);
-	data.wait = wait;
-	if (wait)
-		atomic_set(&data.finished, 0);
-
-	spin_lock(&call_lock);
-	call_data = &data;
-	/* Send a message to all other CPUs and wait for them to respond */
-        smp_ext_bitcall_others(ec_call_function);
-
-	/* Wait for response */
-	while (atomic_read(&data.started) != cpus)
-		cpu_relax();
-
-	if (wait)
-		while (atomic_read(&data.finished) != cpus)
-			cpu_relax();
-	spin_unlock(&call_lock);
-
-	return 0;
-}
-
-/*
- * Call a function on one CPU
- * cpu : the CPU the function should be executed on
- *
- * You must not call this function with disabled interrupts or from a
- * hardware interrupt handler. You may call it from a bottom half.
- *
- * It is guaranteed that the called function runs on the specified CPU,
- * preemption is disabled.
- */
-int smp_call_function_on(void (*func) (void *info), void *info,
-			 int nonatomic, int wait, int cpu)
-{
-	struct call_data_struct data;
-	int curr_cpu;
-
-	if (!cpu_online(cpu))
-		return -EINVAL;
-
-	/* disable preemption for local function call */
-	curr_cpu = get_cpu();
-
-	if (curr_cpu == cpu) {
-		/* direct call to function */
-		func(info);
-		put_cpu();
-		return 0;
+	/*
+	 * Check for local function call. We have to have the same call order
+	 * as in on_each_cpu() because of machine_restart_smp().
+	 */
+	if (cpu_isset(smp_processor_id(), map)) {
+		local = 1;
+		cpu_clear(smp_processor_id(), map);
 	}
 
+	cpus_and(map, map, cpu_online_map);
+	if (cpus_empty(map))
+		goto out;
+
 	data.func = func;
 	data.info = info;
-	atomic_set(&data.started, 0);
+	data.started = CPU_MASK_NONE;
 	data.wait = wait;
 	if (wait)
-		atomic_set(&data.finished, 0);
+		data.finished = CPU_MASK_NONE;
 
 	spin_lock_bh(&call_lock);
 	call_data = &data;
-	smp_ext_bitcall(cpu, ec_call_function);
+
+	for_each_cpu_mask(cpu, map)
+		smp_ext_bitcall(cpu, ec_call_function);
 
 	/* Wait for response */
-	while (atomic_read(&data.started) != 1)
+	while (!cpus_equal(map, data.started))
 		cpu_relax();
 
 	if (wait)
-		while (atomic_read(&data.finished) != 1)
+		while (!cpus_equal(map, data.finished))
 			cpu_relax();
 
 	spin_unlock_bh(&call_lock);
-	put_cpu();
+
+out:
+	local_irq_disable();
+	if (local)
+		func(info);
+	local_irq_enable();
+}
+
+/*
+ * smp_call_function:
+ * @func: the function to run; this must be fast and non-blocking
+ * @info: an arbitrary pointer to pass to the function
+ * @nonatomic: unused
+ * @wait: if true, wait (atomically) until function has completed on other CPUs
+ *
+ * Run a function on all other CPUs.
+ *
+ * You must not call this function with disabled interrupts or from a
+ * hardware interrupt handler. Must be called with preemption disabled.
+ * You may call it from a bottom half.
+ */
+int smp_call_function(void (*func) (void *info), void *info, int nonatomic,
+		      int wait)
+{
+	cpumask_t map;
+
+	map = cpu_online_map;
+	cpu_clear(smp_processor_id(), map);
+	__smp_call_function_map(func, info, nonatomic, wait, map);
+	return 0;
+}
+EXPORT_SYMBOL(smp_call_function);
+
+/*
+ * smp_call_function_on:
+ * @func: the function to run; this must be fast and non-blocking
+ * @info: an arbitrary pointer to pass to the function
+ * @nonatomic: unused
+ * @wait: if true, wait (atomically) until function has completed on other CPUs
+ * @cpu: the CPU where func should run
+ *
+ * Run a function on one processor.
+ *
+ * You must not call this function with disabled interrupts or from a
+ * hardware interrupt handler. Must be called with preemption disabled.
+ * You may call it from a bottom half.
+ */
+int smp_call_function_on(void (*func) (void *info), void *info, int nonatomic,
+			  int wait, int cpu)
+{
+	cpumask_t map = CPU_MASK_NONE;
+
+	cpu_set(cpu, map);
+	__smp_call_function_map(func, info, nonatomic, wait, map);
 	return 0;
 }
 EXPORT_SYMBOL(smp_call_function_on);
 
-static inline void do_send_stop(void)
+static void do_send_stop(void)
 {
         int cpu, rc;
 
@@ -214,7 +206,7 @@ static inline void do_send_stop(void)
 	}
 }
 
-static inline void do_store_status(void)
+static void do_store_status(void)
 {
         int cpu, rc;
 
@@ -230,7 +222,7 @@ static inline void do_store_status(void)
         }
 }
 
-static inline void do_wait_for_stop(void)
+static void do_wait_for_stop(void)
 {
 	int cpu;
 
@@ -250,7 +242,7 @@ static inline void do_wait_for_stop(void)
 void smp_send_stop(void)
 {
 	/* Disable all interrupts/machine checks */
-	__load_psw_mask(PSW_KERNEL_BITS & ~PSW_MASK_MCHECK);
+	__load_psw_mask(psw_kernel_bits & ~PSW_MASK_MCHECK);
 
         /* write magic number to zero page (absolute 0) */
 	lowcore_ptr[smp_processor_id()]->panic_magic = __PANIC_MAGIC;
@@ -298,7 +290,7 @@ void machine_power_off_smp(void)
  * cpus are handled.
  */
 
-void do_ext_call_interrupt(__u16 code)
+static void do_ext_call_interrupt(__u16 code)
 {
         unsigned long bits;
 
@@ -326,26 +318,6 @@ static void smp_ext_bitcall(int cpu, ec_bit_sig sig)
 	set_bit(sig, (unsigned long *) &lowcore_ptr[cpu]->ext_call_fast);
 	while(signal_processor(cpu, sigp_emergency_signal) == sigp_busy)
 		udelay(10);
-}
-
-/*
- * Send an external call sigp to every other cpu in the system and
- * return without waiting for its completion.
- */
-static void smp_ext_bitcall_others(ec_bit_sig sig)
-{
-        int cpu;
-
-	for_each_online_cpu(cpu) {
-		if (cpu == smp_processor_id())
-                        continue;
-                /*
-                 * Set signaling bit in lowcore of target cpu and kick it
-                 */
-		set_bit(sig, (unsigned long *) &lowcore_ptr[cpu]->ext_call_fast);
-		while (signal_processor(cpu, sigp_emergency_signal) == sigp_busy)
-			udelay(10);
-        }
 }
 
 #ifndef CONFIG_64BIT
@@ -385,7 +357,7 @@ struct ec_creg_mask_parms {
 /*
  * callback for setting/clearing control bits
  */
-void smp_ctl_bit_callback(void *info) {
+static void smp_ctl_bit_callback(void *info) {
 	struct ec_creg_mask_parms *pp = info;
 	unsigned long cregs[16];
 	int i;
@@ -458,17 +430,15 @@ __init smp_count_cpus(void)
 /*
  *      Activate a secondary processor.
  */
-extern void init_cpu_timer(void);
-extern void init_cpu_vtimer(void);
-
 int __devinit start_secondary(void *cpuvoid)
 {
         /* Setup the cpu */
         cpu_init();
 	preempt_disable();
-        /* init per CPU timer */
+	/* Enable TOD clock interrupts on the secondary cpu. */
         init_cpu_timer();
 #ifdef CONFIG_VIRT_TIMER
+	/* Enable cpu timer interrupts on the secondary cpu. */
         init_cpu_vtimer();
 #endif
 	/* Enable pfault pseudo page faults on this cpu. */
@@ -542,7 +512,7 @@ smp_put_cpu(int cpu)
 	spin_unlock_irqrestore(&smp_reserve_lock, flags);
 }
 
-static inline int
+static int
 cpu_stopped(int cpu)
 {
 	__u32 status;
@@ -812,6 +782,5 @@ EXPORT_SYMBOL(cpu_possible_map);
 EXPORT_SYMBOL(lowcore_ptr);
 EXPORT_SYMBOL(smp_ctl_set_bit);
 EXPORT_SYMBOL(smp_ctl_clear_bit);
-EXPORT_SYMBOL(smp_call_function);
 EXPORT_SYMBOL(smp_get_cpu);
 EXPORT_SYMBOL(smp_put_cpu);

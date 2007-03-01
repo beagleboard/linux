@@ -15,7 +15,6 @@
 #include <asm/system.h>
 #include <asm/uaccess.h>
 #include <linux/types.h>
-#include <linux/sched.h>
 #include <linux/errno.h>
 #include <linux/timer.h>
 #include <linux/mm.h>
@@ -33,6 +32,7 @@
 #include <linux/module.h>
 #include <linux/mroute.h>
 #include <linux/init.h>
+#include <linux/random.h>
 #include <net/ip.h>
 #include <net/protocol.h>
 #include <linux/skbuff.h>
@@ -49,21 +49,6 @@
 
 #define MULTIPATH_MAX_CANDIDATES 40
 
-/* interface to random number generation */
-static unsigned int RANDOM_SEED = 93186752;
-
-static inline unsigned int random(unsigned int ubound)
-{
-	static unsigned int a = 1588635695,
-		q = 2,
-		r = 1117695901;
-
-	RANDOM_SEED = a*(RANDOM_SEED % q) - r*(RANDOM_SEED / q);
-
-	return RANDOM_SEED % ubound;
-}
-
-
 static void random_select_route(const struct flowi *flp,
 				struct rtable *first,
 				struct rtable **rp)
@@ -74,7 +59,7 @@ static void random_select_route(const struct flowi *flp,
 
 	/* count all candidate */
 	for (rt = rcu_dereference(first); rt;
-	     rt = rcu_dereference(rt->u.rt_next)) {
+	     rt = rcu_dereference(rt->u.dst.rt_next)) {
 		if ((rt->u.dst.flags & DST_BALANCED) != 0 &&
 		    multipath_comparekeys(&rt->fl, flp))
 			++candidate_count;
@@ -85,12 +70,12 @@ static void random_select_route(const struct flowi *flp,
 	if (candidate_count > 1) {
 		unsigned char i = 0;
 		unsigned char candidate_no = (unsigned char)
-			random(candidate_count);
+			(random32() % candidate_count);
 
 		/* find chosen candidate and adjust GC data for all candidates
 		 * to ensure they stay in cache
 		 */
-		for (rt = first; rt; rt = rt->u.rt_next) {
+		for (rt = first; rt; rt = rt->u.dst.rt_next) {
 			if ((rt->u.dst.flags & DST_BALANCED) != 0 &&
 			    multipath_comparekeys(&rt->fl, flp)) {
 				rt->u.dst.lastuse = jiffies;

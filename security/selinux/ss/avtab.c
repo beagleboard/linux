@@ -36,10 +36,9 @@ avtab_insert_node(struct avtab *h, int hvalue,
 		  struct avtab_key *key, struct avtab_datum *datum)
 {
 	struct avtab_node * newnode;
-	newnode = kmem_cache_alloc(avtab_node_cachep, GFP_KERNEL);
+	newnode = kmem_cache_zalloc(avtab_node_cachep, GFP_KERNEL);
 	if (newnode == NULL)
 		return NULL;
-	memset(newnode, 0, sizeof(struct avtab_node));
 	newnode->key = *key;
 	newnode->datum = *datum;
 	if (prev) {
@@ -278,7 +277,7 @@ void avtab_hash_eval(struct avtab *h, char *tag)
 		}
 	}
 
-	printk(KERN_INFO "%s:  %d entries and %d/%d buckets used, longest "
+	printk(KERN_DEBUG "%s:  %d entries and %d/%d buckets used, longest "
 	       "chain length %d\n", tag, h->nel, slots_used, AVTAB_SIZE,
 	       max_chain_len);
 }

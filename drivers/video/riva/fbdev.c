@@ -282,7 +282,6 @@ static const struct riva_regs reg_template = {
 
 static struct backlight_properties riva_bl_data;
 
-/* Call with fb_info->bl_mutex held */
 static int riva_bl_get_level_brightness(struct riva_par *par,
 		int level)
 {
@@ -290,6 +289,7 @@ static int riva_bl_get_level_brightness(struct riva_par *par,
 	int nlevel;
 
 	/* Get and convert the value */
+	/* No locking on bl_curve since accessing a single value */
 	nlevel = MIN_LEVEL + info->bl_curve[level] * LEVEL_STEP;
 
 	if (nlevel < 0)
@@ -302,18 +302,17 @@ static int riva_bl_get_level_brightness(struct riva_par *par,
 	return nlevel;
 }
 
-/* Call with fb_info->bl_mutex held */
-static int __riva_bl_update_status(struct backlight_device *bd)
+static int riva_bl_update_status(struct backlight_device *bd)
 {
 	struct riva_par *par = class_get_devdata(&bd->class_dev);
 	U032 tmp_pcrt, tmp_pmc;
 	int level;
 
-	if (bd->props->power != FB_BLANK_UNBLANK ||
-	    bd->props->fb_blank != FB_BLANK_UNBLANK)
+	if (bd->props.power != FB_BLANK_UNBLANK ||
+	    bd->props.fb_blank != FB_BLANK_UNBLANK)
 		level = 0;
 	else
-		level = bd->props->brightness;
+		level = bd->props.brightness;
 
 	tmp_pmc = par->riva.PMC[0x10F0/4] & 0x0000FFFF;
 	tmp_pcrt = par->riva.PCRTC0[0x081C/4] & 0xFFFFFFFC;
@@ -328,44 +327,15 @@ static int __riva_bl_update_status(struct backlight_device *bd)
 	return 0;
 }
 
-static int riva_bl_update_status(struct backlight_device *bd)
-{
-	struct riva_par *par = class_get_devdata(&bd->class_dev);
-	struct fb_info *info = pci_get_drvdata(par->pdev);
-	int ret;
-
-	mutex_lock(&info->bl_mutex);
-	ret = __riva_bl_update_status(bd);
-	mutex_unlock(&info->bl_mutex);
-
-	return ret;
-}
-
 static int riva_bl_get_brightness(struct backlight_device *bd)
 {
-	return bd->props->brightness;
+	return bd->props.brightness;
 }
 
-static struct backlight_properties riva_bl_data = {
-	.owner    = THIS_MODULE,
+static struct backlight_ops riva_bl_ops = {
 	.get_brightness = riva_bl_get_brightness,
 	.update_status	= riva_bl_update_status,
-	.max_brightness = (FB_BACKLIGHT_LEVELS - 1),
 };
-
-static void riva_bl_set_power(struct fb_info *info, int power)
-{
-	mutex_lock(&info->bl_mutex);
-
-	if (info->bl_dev) {
-		down(&info->bl_dev->sem);
-		info->bl_dev->props->power = power;
-		__riva_bl_update_status(info->bl_dev);
-		up(&info->bl_dev->sem);
-	}
-
-	mutex_unlock(&info->bl_mutex);
-}
 
 static void riva_bl_init(struct riva_par *par)
 {
@@ -384,32 +354,22 @@ static void riva_bl_init(struct riva_par *par)
 
 	snprintf(name, sizeof(name), "rivabl%d", info->node);
 
-	bd = backlight_device_register(name, info->dev, par, &riva_bl_data);
+	bd = backlight_device_register(name, info->dev, par, &riva_bl_ops);
 	if (IS_ERR(bd)) {
 		info->bl_dev = NULL;
 		printk(KERN_WARNING "riva: Backlight registration failed\n");
 		goto error;
 	}
 
-	mutex_lock(&info->bl_mutex);
 	info->bl_dev = bd;
 	fb_bl_default_curve(info, 0,
 		MIN_LEVEL * FB_BACKLIGHT_MAX / MAX_LEVEL,
 		FB_BACKLIGHT_MAX);
-	mutex_unlock(&info->bl_mutex);
 
-	down(&bd->sem);
-	bd->props->brightness = riva_bl_data.max_brightness;
-	bd->props->power = FB_BLANK_UNBLANK;
-	bd->props->update_status(bd);
-	up(&bd->sem);
-
-#ifdef CONFIG_PMAC_BACKLIGHT
-	mutex_lock(&pmac_backlight_mutex);
-	if (!pmac_backlight)
-		pmac_backlight = bd;
-	mutex_unlock(&pmac_backlight_mutex);
-#endif
+	bd->props.max_brightness = FB_BACKLIGHT_LEVELS - 1;
+	bd->props.brightness = riva_bl_data.max_brightness;
+	bd->props.power = FB_BLANK_UNBLANK;
+	backlight_update_status(bd);
 
 	printk("riva: Backlight initialized (%s)\n", name);
 
@@ -419,35 +379,16 @@ error:
 	return;
 }
 
-static void riva_bl_exit(struct riva_par *par)
+static void riva_bl_exit(struct fb_info *info)
 {
-	struct fb_info *info = pci_get_drvdata(par->pdev);
+	struct backlight_device *bd = info->bl_dev;
 
-#ifdef CONFIG_PMAC_BACKLIGHT
-	mutex_lock(&pmac_backlight_mutex);
-#endif
-
-	mutex_lock(&info->bl_mutex);
-	if (info->bl_dev) {
-#ifdef CONFIG_PMAC_BACKLIGHT
-		if (pmac_backlight == info->bl_dev)
-			pmac_backlight = NULL;
-#endif
-
-		backlight_device_unregister(info->bl_dev);
-
-		printk("riva: Backlight unloaded\n");
-	}
-	mutex_unlock(&info->bl_mutex);
-
-#ifdef CONFIG_PMAC_BACKLIGHT
-	mutex_unlock(&pmac_backlight_mutex);
-#endif
+	backlight_device_unregister(bd);
+	printk("riva: Backlight unloaded\n");
 }
 #else
 static inline void riva_bl_init(struct riva_par *par) {}
-static inline void riva_bl_exit(struct riva_par *par) {}
-static inline void riva_bl_set_power(struct fb_info *info, int power) {}
+static inline void riva_bl_exit(struct fb_info *info) {}
 #endif /* CONFIG_FB_RIVA_BACKLIGHT */
 
 /* ------------------------------------------------------------------------- *
@@ -894,7 +835,8 @@ out:
 	return rc;
 }
 
-static void riva_update_var(struct fb_var_screeninfo *var, struct fb_videomode *modedb)
+static void riva_update_var(struct fb_var_screeninfo *var,
+			    const struct fb_videomode *modedb)
 {
 	NVTRACE_ENTER();
 	var->xres = var->xres_virtual = modedb->xres;
@@ -1101,10 +1043,10 @@ static int riva_get_cmap_len(const struct fb_var_screeninfo *var)
 static int rivafb_open(struct fb_info *info, int user)
 {
 	struct riva_par *par = info->par;
-	int cnt = atomic_read(&par->ref_count);
 
 	NVTRACE_ENTER();
-	if (!cnt) {
+	mutex_lock(&par->open_lock);
+	if (!par->ref_count) {
 #ifdef CONFIG_X86
 		memset(&par->state, 0, sizeof(struct vgastate));
 		par->state.flags = VGA_SAVE_MODE  | VGA_SAVE_FONTS;
@@ -1119,7 +1061,8 @@ static int rivafb_open(struct fb_info *info, int user)
 	
 		riva_save_state(par, &par->initial_state);
 	}
-	atomic_inc(&par->ref_count);
+	par->ref_count++;
+	mutex_unlock(&par->open_lock);
 	NVTRACE_LEAVE();
 	return 0;
 }
@@ -1127,12 +1070,14 @@ static int rivafb_open(struct fb_info *info, int user)
 static int rivafb_release(struct fb_info *info, int user)
 {
 	struct riva_par *par = info->par;
-	int cnt = atomic_read(&par->ref_count);
 
 	NVTRACE_ENTER();
-	if (!cnt)
+	mutex_lock(&par->open_lock);
+	if (!par->ref_count) {
+		mutex_unlock(&par->open_lock);
 		return -EINVAL;
-	if (cnt == 1) {
+	}
+	if (par->ref_count == 1) {
 		par->riva.LockUnlock(&par->riva, 0);
 		par->riva.LoadStateExt(&par->riva, &par->initial_state.ext);
 		riva_load_state(par, &par->initial_state);
@@ -1141,14 +1086,15 @@ static int rivafb_release(struct fb_info *info, int user)
 #endif
 		par->riva.LockUnlock(&par->riva, 1);
 	}
-	atomic_dec(&par->ref_count);
+	par->ref_count--;
+	mutex_unlock(&par->open_lock);
 	NVTRACE_LEAVE();
 	return 0;
 }
 
 static int rivafb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
 {
-	struct fb_videomode *mode;
+	const struct fb_videomode *mode;
 	struct riva_par *par = info->par;
 	int nom, den;		/* translating from pixels->bytes */
 	int mode_valid = 0;
@@ -1342,8 +1288,6 @@ static int rivafb_blank(int blank, struct fb_info *info)
 
 	SEQout(par, 0x01, tmp);
 	CRTCout(par, 0x1a, vesa);
-
-	riva_bl_set_power(info, blank);
 
 	NVTRACE_LEAVE();
 
@@ -1980,12 +1924,11 @@ static int __devinit rivafb_probe(struct pci_dev *pd,
 	default_par = info->par;
 	default_par->pdev = pd;
 
-	info->pixmap.addr = kmalloc(8 * 1024, GFP_KERNEL);
+	info->pixmap.addr = kzalloc(8 * 1024, GFP_KERNEL);
 	if (info->pixmap.addr == NULL) {
 	    	ret = -ENOMEM;
 		goto err_framebuffer_release;
 	}
-	memset(info->pixmap.addr, 0, 8 * 1024);
 
 	ret = pci_enable_device(pd);
 	if (ret < 0) {
@@ -1999,6 +1942,7 @@ static int __devinit rivafb_probe(struct pci_dev *pd,
 		goto err_disable_device;
 	}
 
+	mutex_init(&default_par->open_lock);
 	default_par->riva.Architecture = riva_get_arch(pd);
 
 	default_par->Chipset = (pd->vendor << 16) | pd->device;
@@ -2161,14 +2105,15 @@ static void __exit rivafb_remove(struct pci_dev *pd)
 	
 	NVTRACE_ENTER();
 
-	riva_bl_exit(par);
-
 #ifdef CONFIG_FB_RIVA_I2C
 	riva_delete_i2c_busses(par);
 	kfree(par->EDID);
 #endif
 
 	unregister_framebuffer(info);
+
+	riva_bl_exit(info);
+
 #ifdef CONFIG_MTRR
 	if (par->mtrr.vram_valid)
 		mtrr_del(par->mtrr.vram, info->fix.smem_start,

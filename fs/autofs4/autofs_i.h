@@ -52,6 +52,8 @@ struct autofs_info {
 
 	int		flags;
 
+	struct list_head rehash;
+
 	struct autofs_sb_info *sbi;
 	unsigned long last_used;
 	atomic_t count;
@@ -110,6 +112,8 @@ struct autofs_sb_info {
 	struct mutex wq_mutex;
 	spinlock_t fs_lock;
 	struct autofs_wait_queue *queues; /* Wait queue pointer */
+	spinlock_t rehash_lock;
+	struct list_head rehash_list;
 };
 
 static inline struct autofs_sb_info *autofs4_sbi(struct super_block *sb)
@@ -168,11 +172,11 @@ int autofs4_expire_multi(struct super_block *, struct vfsmount *,
 
 /* Operations structures */
 
-extern struct inode_operations autofs4_symlink_inode_operations;
-extern struct inode_operations autofs4_dir_inode_operations;
-extern struct inode_operations autofs4_root_inode_operations;
-extern struct inode_operations autofs4_indirect_root_inode_operations;
-extern struct inode_operations autofs4_direct_root_inode_operations;
+extern const struct inode_operations autofs4_symlink_inode_operations;
+extern const struct inode_operations autofs4_dir_inode_operations;
+extern const struct inode_operations autofs4_root_inode_operations;
+extern const struct inode_operations autofs4_indirect_root_inode_operations;
+extern const struct inode_operations autofs4_direct_root_inode_operations;
 extern const struct file_operations autofs4_dir_operations;
 extern const struct file_operations autofs4_root_operations;
 

@@ -26,16 +26,6 @@
  * This file should be built into the kernel only if CONFIG_MIPS_MT_SMTC is set.
  */
 
-/*
- * MIPSCPU_INT_BASE is identically defined in both
- * asm-mips/mips-boards/maltaint.h and asm-mips/mips-boards/simint.h,
- * but as yet there's no properly organized include structure that
- * will ensure that the right *int.h file will be included for a
- * given platform build.
- */
-
-#define MIPSCPU_INT_BASE	16
-
 #define MIPS_CPU_IPI_IRQ	1
 
 #define LOCK_MT_PRA() \
@@ -77,15 +67,15 @@ unsigned int ipi_timer_latch[NR_CPUS];
 
 #define IPIBUF_PER_CPU 4
 
-struct smtc_ipi_q IPIQ[NR_CPUS];
-struct smtc_ipi_q freeIPIq;
+static struct smtc_ipi_q IPIQ[NR_CPUS];
+static struct smtc_ipi_q freeIPIq;
 
 
 /* Forward declarations */
 
 void ipi_decode(struct smtc_ipi *);
-void post_direct_ipi(int cpu, struct smtc_ipi *pipi);
-void setup_cross_vpe_interrupts(void);
+static void post_direct_ipi(int cpu, struct smtc_ipi *pipi);
+static void setup_cross_vpe_interrupts(void);
 void init_smtc_stats(void);
 
 /* Global SMTC Status */
@@ -151,10 +141,7 @@ __setup("ipibufs=", ipibufs);
 __setup("nostlb", stlb_disable);
 __setup("asidmask=", asidmask_set);
 
-/* Enable additional debug checks before going into CPU idle loop */
-#define SMTC_IDLE_HOOK_DEBUG
-
-#ifdef SMTC_IDLE_HOOK_DEBUG
+#ifdef CONFIG_SMTC_IDLE_HOOK_DEBUG
 
 static int hang_trig = 0;
 
@@ -186,7 +173,7 @@ int tcnoprog[NR_CPUS];
 static atomic_t idle_hook_initialized = {0};
 static int clock_hang_reported[NR_CPUS];
 
-#endif /* SMTC_IDLE_HOOK_DEBUG */
+#endif /* CONFIG_SMTC_IDLE_HOOK_DEBUG */
 
 /* Initialize shared TLB - the should probably migrate to smtc_setup_cpus() */
 
@@ -200,7 +187,7 @@ void __init sanitize_tlb_entries(void)
  * Configure shared TLB - VPC configuration bit must be set by caller
  */
 
-void smtc_configure_tlb(void)
+static void smtc_configure_tlb(void)
 {
 	int i,tlbsiz,vpes;
 	unsigned long mvpconf0;
@@ -404,10 +391,10 @@ void mipsmt_prepare_cpus(void)
 		printk("ASID mask value override to 0x%x\n", asidmask);
 
 	/* Temporary */
-#ifdef SMTC_IDLE_HOOK_DEBUG
+#ifdef CONFIG_SMTC_IDLE_HOOK_DEBUG
 	if (hang_trig)
 		printk("Logic Analyser Trigger on suspected TC hang\n");
-#endif /* SMTC_IDLE_HOOK_DEBUG */
+#endif /* CONFIG_SMTC_IDLE_HOOK_DEBUG */
 
 	/* Put MVPE's into 'configuration state' */
 	write_c0_mvpcontrol( read_c0_mvpcontrol() | MVPCONTROL_VPC );
@@ -648,7 +635,7 @@ int setup_irq_smtc(unsigned int irq, struct irqaction * new,
  * the VPE.
  */
 
-void smtc_ipi_qdump(void)
+static void smtc_ipi_qdump(void)
 {
 	int i;
 
@@ -685,28 +672,6 @@ static __inline__ int atomic_postincrement(unsigned int *pv)
 
 	return result;
 }
-
-/* No longer used in IPI dispatch, but retained for future recycling */
-
-static __inline__ int atomic_postclear(unsigned int *pv)
-{
-	unsigned long result;
-
-	unsigned long temp;
-
-	__asm__ __volatile__(
-	"1:	ll	%0, %2					\n"
-	"	or	%1, $0, $0				\n"
-	"	sc	%1, %2					\n"
-	"	beqz	%1, 1b					\n"
-	"	sync						\n"
-	: "=&r" (result), "=&r" (temp), "=m" (*pv)
-	: "m" (*pv)
-	: "memory");
-
-	return result;
-}
-
 
 void smtc_send_ipi(int cpu, int type, unsigned int action)
 {
@@ -781,7 +746,7 @@ void smtc_send_ipi(int cpu, int type, unsigned int action)
 /*
  * Send IPI message to Halted TC, TargTC/TargVPE already having been set
  */
-void post_direct_ipi(int cpu, struct smtc_ipi *pipi)
+static void post_direct_ipi(int cpu, struct smtc_ipi *pipi)
 {
 	struct pt_regs *kstack;
 	unsigned long tcstatus;
@@ -849,9 +814,9 @@ void ipi_decode(struct smtc_ipi *pipi)
 	case SMTC_CLOCK_TICK:
 		/* Invoke Clock "Interrupt" */
 		ipi_timer_latch[dest_copy] = 0;
-#ifdef SMTC_IDLE_HOOK_DEBUG
+#ifdef CONFIG_SMTC_IDLE_HOOK_DEBUG
 		clock_hang_reported[dest_copy] = 0;
-#endif /* SMTC_IDLE_HOOK_DEBUG */
+#endif /* CONFIG_SMTC_IDLE_HOOK_DEBUG */
 		local_timer_interrupt(0, NULL);
 		break;
 	case LINUX_SMP_IPI:
@@ -921,7 +886,7 @@ void smtc_timer_broadcast(int vpe)
  * interrupts.
  */
 
-static int cpu_ipi_irq = MIPSCPU_INT_BASE + MIPS_CPU_IPI_IRQ;
+static int cpu_ipi_irq = MIPS_CPU_IRQ_BASE + MIPS_CPU_IPI_IRQ;
 
 static irqreturn_t ipi_interrupt(int irq, void *dev_idm)
 {
@@ -1000,7 +965,7 @@ static void ipi_irq_dispatch(void)
 
 static struct irqaction irq_ipi;
 
-void setup_cross_vpe_interrupts(void)
+static void setup_cross_vpe_interrupts(void)
 {
 	if (!cpu_has_vint)
 		panic("SMTC Kernel requires Vectored Interupt support");
@@ -1052,7 +1017,7 @@ EXPORT_SYMBOL(smtc_ipi_replay);
 
 void smtc_idle_loop_hook(void)
 {
-#ifdef SMTC_IDLE_HOOK_DEBUG
+#ifdef CONFIG_SMTC_IDLE_HOOK_DEBUG
 	int im;
 	int flags;
 	int mtflags;
@@ -1145,7 +1110,7 @@ void smtc_idle_loop_hook(void)
 	local_irq_restore(flags);
 	if (pdb_msg != &id_ho_db_msg[0])
 		printk("CPU%d: %s", smp_processor_id(), id_ho_db_msg);
-#endif /* SMTC_IDLE_HOOK_DEBUG */
+#endif /* CONFIG_SMTC_IDLE_HOOK_DEBUG */
 
 	/*
 	 * Replay any accumulated deferred IPIs. If "Instant Replay"
@@ -1191,7 +1156,7 @@ void smtc_get_new_mmu_context(struct mm_struct *mm, unsigned long cpu)
 	 * It would be nice to be able to use a spinlock here,
 	 * but this is invoked from within TLB flush routines
 	 * that protect themselves with DVPE, so if a lock is
-         * held by another TC, it'll never be freed.
+	 * held by another TC, it'll never be freed.
 	 *
 	 * DVPE/DMT must not be done with interrupts enabled,
 	 * so even so most callers will already have disabled
@@ -1296,7 +1261,7 @@ void smtc_flush_tlb_asid(unsigned long asid)
  * Support for single-threading cache flush operations.
  */
 
-int halt_state_save[NR_CPUS];
+static int halt_state_save[NR_CPUS];
 
 /*
  * To really, really be sure that nothing is being done

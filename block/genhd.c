@@ -5,6 +5,7 @@
 #include <linux/module.h>
 #include <linux/fs.h>
 #include <linux/genhd.h>
+#include <linux/kdev_t.h>
 #include <linux/kernel.h>
 #include <linux/blkdev.h>
 #include <linux/init.h>
@@ -61,6 +62,8 @@ int register_blkdev(unsigned int major, const char *name)
 	/* temporary */
 	if (major == 0) {
 		for (index = ARRAY_SIZE(major_names)-1; index > 0; index--) {
+			if (is_lanana_major(index))
+				continue;
 			if (major_names[index] == NULL)
 				break;
 		}

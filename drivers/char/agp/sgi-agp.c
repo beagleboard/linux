@@ -247,7 +247,7 @@ static struct agp_bridge_data *sgi_tioca_find_bridge(struct pci_dev *pdev)
 	return bridge;
 }
 
-struct agp_bridge_driver sgi_tioca_driver = {
+struct const agp_bridge_driver sgi_tioca_driver = {
 	.owner = THIS_MODULE,
 	.size_type = U16_APER_SIZE,
 	.configure = sgi_tioca_configure,
@@ -265,6 +265,7 @@ struct agp_bridge_driver sgi_tioca_driver = {
 	.free_by_type = agp_generic_free_by_type,
 	.agp_alloc_page = sgi_tioca_alloc_page,
 	.agp_destroy_page = agp_generic_destroy_page,
+	.agp_type_to_mask_type  = agp_generic_type_to_mask_type,
 	.cant_use_aperture = 1,
 	.needs_scratch_page = 0,
 	.num_aperture_sizes = 1,

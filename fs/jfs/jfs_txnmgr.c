@@ -135,7 +135,7 @@ static inline void TXN_SLEEP_DROP_LOCK(wait_queue_head_t * event)
 	add_wait_queue(event, &wait);
 	set_current_state(TASK_UNINTERRUPTIBLE);
 	TXN_UNLOCK();
-	schedule();
+	io_schedule();
 	current->state = TASK_RUNNING;
 	remove_wait_queue(event, &wait);
 }
@@ -1919,7 +1919,8 @@ static void xtLog(struct jfs_log * log, struct tblock * tblk, struct lrd * lrd,
 	 * header ?
 	 */
 	if (tlck->type & tlckTRUNCATE) {
-		pxd_t pxd;	/* truncated extent of xad */
+		/* This odd declaration suppresses a bogus gcc warning */
+		pxd_t pxd = pxd;	/* truncated extent of xad */
 		int twm;
 
 		/*

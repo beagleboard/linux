@@ -16,7 +16,6 @@
 #define _BR_PRIVATE_H
 
 #include <linux/netdevice.h>
-#include <linux/miscdevice.h>
 #include <linux/if_bridge.h>
 
 #define BR_HASH_BITS 8
@@ -26,8 +25,6 @@
 
 #define BR_PORT_BITS	10
 #define BR_MAX_PORTS	(1<<BR_PORT_BITS)
-
-#define BR_PORT_DEBOUNCE (HZ/10)
 
 #define BR_VERSION	"2.2"
 
@@ -82,7 +79,6 @@ struct net_bridge_port
 	struct timer_list		hold_timer;
 	struct timer_list		message_age_timer;
 	struct kobject			kobj;
-	struct delayed_work		carrier_check;
 	struct rcu_head			rcu;
 };
 
@@ -149,7 +145,7 @@ extern struct net_bridge_fdb_entry *__br_fdb_get(struct net_bridge *br,
 extern struct net_bridge_fdb_entry *br_fdb_get(struct net_bridge *br,
 					       unsigned char *addr);
 extern void br_fdb_put(struct net_bridge_fdb_entry *ent);
-extern int br_fdb_fillbuf(struct net_bridge *br, void *buf, 
+extern int br_fdb_fillbuf(struct net_bridge *br, void *buf,
 			  unsigned long count, unsigned long off);
 extern int br_fdb_insert(struct net_bridge *br,
 			 struct net_bridge_port *source,
@@ -173,6 +169,7 @@ extern void br_flood_forward(struct net_bridge *br,
 		      int clone);
 
 /* br_if.c */
+extern void br_port_carrier_check(struct net_bridge_port *p);
 extern int br_add_bridge(const char *name);
 extern int br_del_bridge(const char *name);
 extern void br_cleanup_bridges(void);
@@ -203,7 +200,7 @@ extern void br_netfilter_fini(void);
 /* br_stp.c */
 extern void br_log_state(const struct net_bridge_port *p);
 extern struct net_bridge_port *br_get_port(struct net_bridge *br,
-				    	   u16 port_no);
+					   u16 port_no);
 extern void br_init_port(struct net_bridge_port *p);
 extern void br_become_designated_port(struct net_bridge_port *p);
 

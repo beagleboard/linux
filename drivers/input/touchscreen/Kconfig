@@ -14,13 +14,10 @@ if INPUT_TOUCHSCREEN
 config TOUCHSCREEN_ADS7846
 	tristate "ADS 7846 based touchscreens"
 	depends on SPI_MASTER
-	select HWMON
 	help
 	  Say Y here if you have a touchscreen interface using the
 	  ADS7846 controller, and your board-specific initialization
-	  code includes that in its table of SPI devices.  You will
-	  also get hwmon interfaces for the temperature and voltage
-	  sensors this chip provides.
+	  code includes that in its table of SPI devices.
 
 	  If unsure, say N (but it's safe to say "Y").
 
@@ -161,33 +158,5 @@ config TOUCHSCREEN_UCB1400
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called ucb1400_ts.
-
-config TOUCHSCREEN_TSC2102
-	tristate "TSC 2102 based touchscreens"
-	depends on SPI_MASTER
-	select TSC2102
-	help
-	  Say Y here if you have a touchscreen interface using the
-	  TI TSC 2102 controller, and your board-specific initialization
-	  code includes that in its table of SPI devices.  Also make
-	  sure the proper SPI controller is selected.
-
-	  If unsure, say N (but it's safe to say "Y").
-
-	  To compile this driver as a module, choose M here: the
-	  module will be called tsc2102_ts.
-
-config TOUCHSCREEN_OMAP
-	tristate "OMAP touchscreen input driver"
-	depends on INPUT && INPUT_TOUCHSCREEN && (MACH_OMAP_H2 || MACH_OMAP_H3)
-	help
-	  Say Y here if you have an OMAP based board with touchscreen
-	  attached to it, e.g. OMAP H2 or H3
-
-	  If unsure, or you're using drivers in the newer SPI
-	  framework (as with Innovator or OSK/Mistral), say N.
-
-	  To compile this driver as a module, choose M here: the
-	  module will be called omap_ts.
 
 endif

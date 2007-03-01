@@ -13,7 +13,7 @@
  * (C) Copyright 2000 Yggdrasil Computing, Inc. (port of new PCI interface
  *               support from usb-ohci.c by Adam Richter, adam@yggdrasil.com).
  * (C) Copyright 1999 Gregory P. Smith (from usb-ohci.c)
- * (C) Copyright 2004-2006 Alan Stern, stern@rowland.harvard.edu
+ * (C) Copyright 2004-2007 Alan Stern, stern@rowland.harvard.edu
  */
 
 
@@ -45,15 +45,43 @@ static inline void uhci_clear_next_interrupt(struct uhci_hcd *uhci)
  */
 static void uhci_fsbr_on(struct uhci_hcd *uhci)
 {
+	struct uhci_qh *fsbr_qh, *lqh, *tqh;
+
 	uhci->fsbr_is_on = 1;
-	uhci->skel_term_qh->link = cpu_to_le32(
-			uhci->skel_fs_control_qh->dma_handle) | UHCI_PTR_QH;
+	lqh = list_entry(uhci->skel_async_qh->node.prev,
+			struct uhci_qh, node);
+
+	/* Find the first FSBR QH.  Linear search through the list is
+	 * acceptable because normally FSBR gets turned on as soon as
+	 * one QH needs it. */
+	fsbr_qh = NULL;
+	list_for_each_entry_reverse(tqh, &uhci->skel_async_qh->node, node) {
+		if (tqh->skel < SKEL_FSBR)
+			break;
+		fsbr_qh = tqh;
+	}
+
+	/* No FSBR QH means we must insert the terminating skeleton QH */
+	if (!fsbr_qh) {
+		uhci->skel_term_qh->link = LINK_TO_QH(uhci->skel_term_qh);
+		wmb();
+		lqh->link = uhci->skel_term_qh->link;
+
+	/* Otherwise loop the last QH to the first FSBR QH */
+	} else
+		lqh->link = LINK_TO_QH(fsbr_qh);
 }
 
 static void uhci_fsbr_off(struct uhci_hcd *uhci)
 {
+	struct uhci_qh *lqh;
+
 	uhci->fsbr_is_on = 0;
-	uhci->skel_term_qh->link = UHCI_PTR_TERM;
+	lqh = list_entry(uhci->skel_async_qh->node.prev,
+			struct uhci_qh, node);
+
+	/* End the async list normally and unlink the terminating QH */
+	lqh->link = uhci->skel_term_qh->link = UHCI_PTR_TERM;
 }
 
 static void uhci_add_fsbr(struct uhci_hcd *uhci, struct urb *urb)
@@ -158,11 +186,11 @@ static inline void uhci_insert_td_in_frame_list(struct uhci_hcd *uhci,
 
 		td->link = ltd->link;
 		wmb();
-		ltd->link = cpu_to_le32(td->dma_handle);
+		ltd->link = LINK_TO_TD(td);
 	} else {
 		td->link = uhci->frame[framenum];
 		wmb();
-		uhci->frame[framenum] = cpu_to_le32(td->dma_handle);
+		uhci->frame[framenum] = LINK_TO_TD(td);
 		uhci->frame_cpu[framenum] = td;
 	}
 }
@@ -184,7 +212,7 @@ static inline void uhci_remove_td_from_frame_list(struct uhci_hcd *uhci,
 			struct uhci_td *ntd;
 
 			ntd = list_entry(td->fl_list.next, struct uhci_td, fl_list);
-			uhci->frame[td->frame] = cpu_to_le32(ntd->dma_handle);
+			uhci->frame[td->frame] = LINK_TO_TD(ntd);
 			uhci->frame_cpu[td->frame] = ntd;
 		}
 	} else {
@@ -248,16 +276,26 @@ static struct uhci_qh *uhci_alloc_qh(struct uhci_hcd *uhci,
 	INIT_LIST_HEAD(&qh->node);
 
 	if (udev) {		/* Normal QH */
-		qh->dummy_td = uhci_alloc_td(uhci);
-		if (!qh->dummy_td) {
-			dma_pool_free(uhci->qh_pool, qh, dma_handle);
-			return NULL;
+		qh->type = hep->desc.bmAttributes & USB_ENDPOINT_XFERTYPE_MASK;
+		if (qh->type != USB_ENDPOINT_XFER_ISOC) {
+			qh->dummy_td = uhci_alloc_td(uhci);
+			if (!qh->dummy_td) {
+				dma_pool_free(uhci->qh_pool, qh, dma_handle);
+				return NULL;
+			}
 		}
 		qh->state = QH_STATE_IDLE;
 		qh->hep = hep;
 		qh->udev = udev;
 		hep->hcpriv = qh;
-		qh->type = hep->desc.bmAttributes & USB_ENDPOINT_XFERTYPE_MASK;
+
+		if (qh->type == USB_ENDPOINT_XFER_INT ||
+				qh->type == USB_ENDPOINT_XFER_ISOC)
+			qh->load = usb_calc_bus_time(udev->speed,
+					usb_endpoint_dir_in(&hep->desc),
+					qh->type == USB_ENDPOINT_XFER_ISOC,
+					le16_to_cpu(hep->desc.wMaxPacketSize))
+				/ 1000 + 1;
 
 	} else {		/* Skeleton QH */
 		qh->state = QH_STATE_ACTIVE;
@@ -275,7 +313,8 @@ static void uhci_free_qh(struct uhci_hcd *uhci, struct uhci_qh *qh)
 	list_del(&qh->node);
 	if (qh->udev) {
 		qh->hep->hcpriv = NULL;
-		uhci_free_td(uhci, qh->dummy_td);
+		if (qh->dummy_td)
+			uhci_free_td(uhci, qh->dummy_td);
 	}
 	dma_pool_free(uhci->qh_pool, qh, qh->dma_handle);
 }
@@ -327,7 +366,7 @@ static int uhci_cleanup_queue(struct uhci_hcd *uhci, struct uhci_qh *qh,
 		goto done;
 	qh->element = UHCI_PTR_TERM;
 
-	/* Control pipes have to worry about toggles */
+	/* Control pipes don't have to worry about toggles */
 	if (qh->type == USB_ENDPOINT_XFER_CONTROL)
 		goto done;
 
@@ -394,12 +433,81 @@ static void uhci_fixup_toggles(struct uhci_qh *qh, int skip_first)
 }
 
 /*
+ * Link an Isochronous QH into its skeleton's list
+ */
+static inline void link_iso(struct uhci_hcd *uhci, struct uhci_qh *qh)
+{
+	list_add_tail(&qh->node, &uhci->skel_iso_qh->node);
+
+	/* Isochronous QHs aren't linked by the hardware */
+}
+
+/*
+ * Link a high-period interrupt QH into the schedule at the end of its
+ * skeleton's list
+ */
+static void link_interrupt(struct uhci_hcd *uhci, struct uhci_qh *qh)
+{
+	struct uhci_qh *pqh;
+
+	list_add_tail(&qh->node, &uhci->skelqh[qh->skel]->node);
+
+	pqh = list_entry(qh->node.prev, struct uhci_qh, node);
+	qh->link = pqh->link;
+	wmb();
+	pqh->link = LINK_TO_QH(qh);
+}
+
+/*
+ * Link a period-1 interrupt or async QH into the schedule at the
+ * correct spot in the async skeleton's list, and update the FSBR link
+ */
+static void link_async(struct uhci_hcd *uhci, struct uhci_qh *qh)
+{
+	struct uhci_qh *pqh, *lqh;
+	__le32 link_to_new_qh;
+	__le32 *extra_link = &link_to_new_qh;
+
+	/* Find the predecessor QH for our new one and insert it in the list.
+	 * The list of QHs is expected to be short, so linear search won't
+	 * take too long. */
+	list_for_each_entry_reverse(pqh, &uhci->skel_async_qh->node, node) {
+		if (pqh->skel <= qh->skel)
+			break;
+	}
+	list_add(&qh->node, &pqh->node);
+	qh->link = pqh->link;
+
+	link_to_new_qh = LINK_TO_QH(qh);
+
+	/* If this is now the first FSBR QH, take special action */
+	if (uhci->fsbr_is_on && pqh->skel < SKEL_FSBR &&
+			qh->skel >= SKEL_FSBR) {
+		lqh = list_entry(uhci->skel_async_qh->node.prev,
+				struct uhci_qh, node);
+
+		/* If the new QH is also the last one, we must unlink
+		 * the terminating skeleton QH and make the new QH point
+		 * back to itself. */
+		if (qh == lqh) {
+			qh->link = link_to_new_qh;
+			extra_link = &uhci->skel_term_qh->link;
+
+		/* Otherwise the last QH must point to the new QH */
+		} else
+			extra_link = &lqh->link;
+	}
+
+	/* Link it into the schedule */
+	wmb();
+	*extra_link = pqh->link = link_to_new_qh;
+}
+
+/*
  * Put a QH on the schedule in both hardware and software
  */
 static void uhci_activate_qh(struct uhci_hcd *uhci, struct uhci_qh *qh)
 {
-	struct uhci_qh *pqh;
-
 	WARN_ON(list_empty(&qh->queue));
 
 	/* Set the element pointer if it isn't set already.
@@ -410,7 +518,7 @@ static void uhci_activate_qh(struct uhci_hcd *uhci, struct uhci_qh *qh)
 		struct uhci_td *td = list_entry(urbp->td_list.next,
 				struct uhci_td, list);
 
-		qh->element = cpu_to_le32(td->dma_handle);
+		qh->element = LINK_TO_TD(td);
 	}
 
 	/* Treat the queue as if it has just advanced */
@@ -421,18 +529,64 @@ static void uhci_activate_qh(struct uhci_hcd *uhci, struct uhci_qh *qh)
 		return;
 	qh->state = QH_STATE_ACTIVE;
 
-	/* Move the QH from its old list to the end of the appropriate
+	/* Move the QH from its old list to the correct spot in the appropriate
 	 * skeleton's list */
 	if (qh == uhci->next_qh)
 		uhci->next_qh = list_entry(qh->node.next, struct uhci_qh,
 				node);
-	list_move_tail(&qh->node, &qh->skel->node);
+	list_del(&qh->node);
 
-	/* Link it into the schedule */
+	if (qh->skel == SKEL_ISO)
+		link_iso(uhci, qh);
+	else if (qh->skel < SKEL_ASYNC)
+		link_interrupt(uhci, qh);
+	else
+		link_async(uhci, qh);
+}
+
+/*
+ * Unlink a high-period interrupt QH from the schedule
+ */
+static void unlink_interrupt(struct uhci_hcd *uhci, struct uhci_qh *qh)
+{
+	struct uhci_qh *pqh;
+
 	pqh = list_entry(qh->node.prev, struct uhci_qh, node);
-	qh->link = pqh->link;
-	wmb();
-	pqh->link = UHCI_PTR_QH | cpu_to_le32(qh->dma_handle);
+	pqh->link = qh->link;
+	mb();
+}
+
+/*
+ * Unlink a period-1 interrupt or async QH from the schedule
+ */
+static void unlink_async(struct uhci_hcd *uhci, struct uhci_qh *qh)
+{
+	struct uhci_qh *pqh, *lqh;
+	__le32 link_to_next_qh = qh->link;
+
+	pqh = list_entry(qh->node.prev, struct uhci_qh, node);
+
+	/* If this is the first FSBQ QH, take special action */
+	if (uhci->fsbr_is_on && pqh->skel < SKEL_FSBR &&
+			qh->skel >= SKEL_FSBR) {
+		lqh = list_entry(uhci->skel_async_qh->node.prev,
+				struct uhci_qh, node);
+
+		/* If this QH is also the last one, we must link in
+		 * the terminating skeleton QH. */
+		if (qh == lqh) {
+			link_to_next_qh = LINK_TO_QH(uhci->skel_term_qh);
+			uhci->skel_term_qh->link = link_to_next_qh;
+			wmb();
+			qh->link = link_to_next_qh;
+
+		/* Otherwise the last QH must point to the new first FSBR QH */
+		} else
+			lqh->link = link_to_next_qh;
+	}
+
+	pqh->link = link_to_next_qh;
+	mb();
 }
 
 /*
@@ -440,17 +594,18 @@ static void uhci_activate_qh(struct uhci_hcd *uhci, struct uhci_qh *qh)
  */
 static void uhci_unlink_qh(struct uhci_hcd *uhci, struct uhci_qh *qh)
 {
-	struct uhci_qh *pqh;
-
 	if (qh->state == QH_STATE_UNLINKING)
 		return;
 	WARN_ON(qh->state != QH_STATE_ACTIVE || !qh->udev);
 	qh->state = QH_STATE_UNLINKING;
 
 	/* Unlink the QH from the schedule and record when we did it */
-	pqh = list_entry(qh->node.prev, struct uhci_qh, node);
-	pqh->link = qh->link;
-	mb();
+	if (qh->skel == SKEL_ISO)
+		;
+	else if (qh->skel < SKEL_ASYNC)
+		unlink_interrupt(uhci, qh);
+	else
+		unlink_async(uhci, qh);
 
 	uhci_get_current_frame_number(uhci);
 	qh->unlink_frame = uhci->frame_number;
@@ -493,16 +648,129 @@ static void uhci_make_qh_idle(struct uhci_hcd *uhci, struct uhci_qh *qh)
 		wake_up_all(&uhci->waitqh);
 }
 
+/*
+ * Find the highest existing bandwidth load for a given phase and period.
+ */
+static int uhci_highest_load(struct uhci_hcd *uhci, int phase, int period)
+{
+	int highest_load = uhci->load[phase];
+
+	for (phase += period; phase < MAX_PHASE; phase += period)
+		highest_load = max_t(int, highest_load, uhci->load[phase]);
+	return highest_load;
+}
+
+/*
+ * Set qh->phase to the optimal phase for a periodic transfer and
+ * check whether the bandwidth requirement is acceptable.
+ */
+static int uhci_check_bandwidth(struct uhci_hcd *uhci, struct uhci_qh *qh)
+{
+	int minimax_load;
+
+	/* Find the optimal phase (unless it is already set) and get
+	 * its load value. */
+	if (qh->phase >= 0)
+		minimax_load = uhci_highest_load(uhci, qh->phase, qh->period);
+	else {
+		int phase, load;
+		int max_phase = min_t(int, MAX_PHASE, qh->period);
+
+		qh->phase = 0;
+		minimax_load = uhci_highest_load(uhci, qh->phase, qh->period);
+		for (phase = 1; phase < max_phase; ++phase) {
+			load = uhci_highest_load(uhci, phase, qh->period);
+			if (load < minimax_load) {
+				minimax_load = load;
+				qh->phase = phase;
+			}
+		}
+	}
+
+	/* Maximum allowable periodic bandwidth is 90%, or 900 us per frame */
+	if (minimax_load + qh->load > 900) {
+		dev_dbg(uhci_dev(uhci), "bandwidth allocation failed: "
+				"period %d, phase %d, %d + %d us\n",
+				qh->period, qh->phase, minimax_load, qh->load);
+		return -ENOSPC;
+	}
+	return 0;
+}
+
+/*
+ * Reserve a periodic QH's bandwidth in the schedule
+ */
+static void uhci_reserve_bandwidth(struct uhci_hcd *uhci, struct uhci_qh *qh)
+{
+	int i;
+	int load = qh->load;
+	char *p = "??";
+
+	for (i = qh->phase; i < MAX_PHASE; i += qh->period) {
+		uhci->load[i] += load;
+		uhci->total_load += load;
+	}
+	uhci_to_hcd(uhci)->self.bandwidth_allocated =
+			uhci->total_load / MAX_PHASE;
+	switch (qh->type) {
+	case USB_ENDPOINT_XFER_INT:
+		++uhci_to_hcd(uhci)->self.bandwidth_int_reqs;
+		p = "INT";
+		break;
+	case USB_ENDPOINT_XFER_ISOC:
+		++uhci_to_hcd(uhci)->self.bandwidth_isoc_reqs;
+		p = "ISO";
+		break;
+	}
+	qh->bandwidth_reserved = 1;
+	dev_dbg(uhci_dev(uhci),
+			"%s dev %d ep%02x-%s, period %d, phase %d, %d us\n",
+			"reserve", qh->udev->devnum,
+			qh->hep->desc.bEndpointAddress, p,
+			qh->period, qh->phase, load);
+}
+
+/*
+ * Release a periodic QH's bandwidth reservation
+ */
+static void uhci_release_bandwidth(struct uhci_hcd *uhci, struct uhci_qh *qh)
+{
+	int i;
+	int load = qh->load;
+	char *p = "??";
+
+	for (i = qh->phase; i < MAX_PHASE; i += qh->period) {
+		uhci->load[i] -= load;
+		uhci->total_load -= load;
+	}
+	uhci_to_hcd(uhci)->self.bandwidth_allocated =
+			uhci->total_load / MAX_PHASE;
+	switch (qh->type) {
+	case USB_ENDPOINT_XFER_INT:
+		--uhci_to_hcd(uhci)->self.bandwidth_int_reqs;
+		p = "INT";
+		break;
+	case USB_ENDPOINT_XFER_ISOC:
+		--uhci_to_hcd(uhci)->self.bandwidth_isoc_reqs;
+		p = "ISO";
+		break;
+	}
+	qh->bandwidth_reserved = 0;
+	dev_dbg(uhci_dev(uhci),
+			"%s dev %d ep%02x-%s, period %d, phase %d, %d us\n",
+			"release", qh->udev->devnum,
+			qh->hep->desc.bEndpointAddress, p,
+			qh->period, qh->phase, load);
+}
+
 static inline struct urb_priv *uhci_alloc_urb_priv(struct uhci_hcd *uhci,
 		struct urb *urb)
 {
 	struct urb_priv *urbp;
 
-	urbp = kmem_cache_alloc(uhci_up_cachep, GFP_ATOMIC);
+	urbp = kmem_cache_zalloc(uhci_up_cachep, GFP_ATOMIC);
 	if (!urbp)
 		return NULL;
-
-	memset((void *)urbp, 0, sizeof(*urbp));
 
 	urbp->urb = urb;
 	urb->hcpriv = urbp;
@@ -573,6 +841,7 @@ static int uhci_submit_control(struct uhci_hcd *uhci, struct urb *urb,
 	dma_addr_t data = urb->transfer_dma;
 	__le32 *plink;
 	struct urb_priv *urbp = urb->hcpriv;
+	int skel;
 
 	/* The "pipe" thing contains the destination in bits 8--18 */
 	destination = (urb->pipe & PIPE_DEVEP_MASK) | USB_PID_SETUP;
@@ -613,7 +882,7 @@ static int uhci_submit_control(struct uhci_hcd *uhci, struct urb *urb,
 		td = uhci_alloc_td(uhci);
 		if (!td)
 			goto nomem;
-		*plink = cpu_to_le32(td->dma_handle);
+		*plink = LINK_TO_TD(td);
 
 		/* Alternate Data0/1 (start with Data1) */
 		destination ^= TD_TOKEN_TOGGLE;
@@ -633,7 +902,7 @@ static int uhci_submit_control(struct uhci_hcd *uhci, struct urb *urb,
 	td = uhci_alloc_td(uhci);
 	if (!td)
 		goto nomem;
-	*plink = cpu_to_le32(td->dma_handle);
+	*plink = LINK_TO_TD(td);
 
 	/*
 	 * It's IN if the pipe is an output pipe or we're not expecting
@@ -660,7 +929,7 @@ static int uhci_submit_control(struct uhci_hcd *uhci, struct urb *urb,
 	td = uhci_alloc_td(uhci);
 	if (!td)
 		goto nomem;
-	*plink = cpu_to_le32(td->dma_handle);
+	*plink = LINK_TO_TD(td);
 
 	uhci_fill_td(td, 0, USB_PID_OUT | uhci_explen(0), 0);
 	wmb();
@@ -673,11 +942,13 @@ static int uhci_submit_control(struct uhci_hcd *uhci, struct urb *urb,
 	 * isn't in the CONFIGURED state. */
 	if (urb->dev->speed == USB_SPEED_LOW ||
 			urb->dev->state != USB_STATE_CONFIGURED)
-		qh->skel = uhci->skel_ls_control_qh;
+		skel = SKEL_LS_CONTROL;
 	else {
-		qh->skel = uhci->skel_fs_control_qh;
+		skel = SKEL_FS_CONTROL;
 		uhci_add_fsbr(uhci, urb);
 	}
+	if (qh->state != QH_STATE_ACTIVE)
+		qh->skel = skel;
 
 	urb->actual_length = -8;	/* Account for the SETUP packet */
 	return 0;
@@ -736,7 +1007,7 @@ static int uhci_submit_common(struct uhci_hcd *uhci, struct urb *urb,
 			td = uhci_alloc_td(uhci);
 			if (!td)
 				goto nomem;
-			*plink = cpu_to_le32(td->dma_handle);
+			*plink = LINK_TO_TD(td);
 		}
 		uhci_add_td_to_urbp(td, urbp);
 		uhci_fill_td(td, status,
@@ -764,7 +1035,7 @@ static int uhci_submit_common(struct uhci_hcd *uhci, struct urb *urb,
 		td = uhci_alloc_td(uhci);
 		if (!td)
 			goto nomem;
-		*plink = cpu_to_le32(td->dma_handle);
+		*plink = LINK_TO_TD(td);
 
 		uhci_add_td_to_urbp(td, urbp);
 		uhci_fill_td(td, status,
@@ -790,13 +1061,12 @@ static int uhci_submit_common(struct uhci_hcd *uhci, struct urb *urb,
 	td = uhci_alloc_td(uhci);
 	if (!td)
 		goto nomem;
-	*plink = cpu_to_le32(td->dma_handle);
+	*plink = LINK_TO_TD(td);
 
 	uhci_fill_td(td, 0, USB_PID_OUT | uhci_explen(0), 0);
 	wmb();
 	qh->dummy_td->status |= __constant_cpu_to_le32(TD_CTRL_ACTIVE);
 	qh->dummy_td = td;
-	qh->period = urb->interval;
 
 	usb_settoggle(urb->dev, usb_pipeendpoint(urb->pipe),
 			usb_pipeout(urb->pipe), toggle);
@@ -808,7 +1078,7 @@ nomem:
 	return -ENOMEM;
 }
 
-static inline int uhci_submit_bulk(struct uhci_hcd *uhci, struct urb *urb,
+static int uhci_submit_bulk(struct uhci_hcd *uhci, struct urb *urb,
 		struct uhci_qh *qh)
 {
 	int ret;
@@ -817,7 +1087,8 @@ static inline int uhci_submit_bulk(struct uhci_hcd *uhci, struct urb *urb,
 	if (urb->dev->speed == USB_SPEED_LOW)
 		return -EINVAL;
 
-	qh->skel = uhci->skel_bulk_qh;
+	if (qh->state != QH_STATE_ACTIVE)
+		qh->skel = SKEL_BULK;
 	ret = uhci_submit_common(uhci, urb, qh);
 	if (ret == 0)
 		uhci_add_fsbr(uhci, urb);
@@ -827,28 +1098,42 @@ static inline int uhci_submit_bulk(struct uhci_hcd *uhci, struct urb *urb,
 static int uhci_submit_interrupt(struct uhci_hcd *uhci, struct urb *urb,
 		struct uhci_qh *qh)
 {
-	int exponent;
+	int ret;
 
 	/* USB 1.1 interrupt transfers only involve one packet per interval.
 	 * Drivers can submit URBs of any length, but longer ones will need
 	 * multiple intervals to complete.
 	 */
 
-	/* Figure out which power-of-two queue to use */
-	for (exponent = 7; exponent >= 0; --exponent) {
-		if ((1 << exponent) <= urb->interval)
-			break;
+	if (!qh->bandwidth_reserved) {
+		int exponent;
+
+		/* Figure out which power-of-two queue to use */
+		for (exponent = 7; exponent >= 0; --exponent) {
+			if ((1 << exponent) <= urb->interval)
+				break;
+		}
+		if (exponent < 0)
+			return -EINVAL;
+		qh->period = 1 << exponent;
+		qh->skel = SKEL_INDEX(exponent);
+
+		/* For now, interrupt phase is fixed by the layout
+		 * of the QH lists. */
+		qh->phase = (qh->period / 2) & (MAX_PHASE - 1);
+		ret = uhci_check_bandwidth(uhci, qh);
+		if (ret)
+			return ret;
+	} else if (qh->period > urb->interval)
+		return -EINVAL;		/* Can't decrease the period */
+
+	ret = uhci_submit_common(uhci, urb, qh);
+	if (ret == 0) {
+		urb->interval = qh->period;
+		if (!qh->bandwidth_reserved)
+			uhci_reserve_bandwidth(uhci, qh);
 	}
-	if (exponent < 0)
-		return -EINVAL;
-	urb->interval = 1 << exponent;
-
-	if (qh->period == 0)
-		qh->skel = uhci->skelqh[UHCI_SKEL_INDEX(exponent)];
-	else if (qh->period != urb->interval)
-		return -EINVAL;		/* Can't change the period */
-
-	return uhci_submit_common(uhci, urb, qh);
+	return ret;
 }
 
 /*
@@ -868,7 +1153,7 @@ static int uhci_fixup_short_transfer(struct uhci_hcd *uhci,
 		 * the queue at the status stage transaction, which is
 		 * the last TD. */
 		WARN_ON(list_empty(&urbp->td_list));
-		qh->element = cpu_to_le32(td->dma_handle);
+		qh->element = LINK_TO_TD(td);
 		tmp = td->list.prev;
 		ret = -EINPROGRESS;
 
@@ -995,15 +1280,32 @@ static int uhci_submit_isochronous(struct uhci_hcd *uhci, struct urb *urb,
 		return -EFBIG;
 
 	/* Check the period and figure out the starting frame number */
-	if (qh->period == 0) {
+	if (!qh->bandwidth_reserved) {
+		qh->period = urb->interval;
 		if (urb->transfer_flags & URB_ISO_ASAP) {
+			qh->phase = -1;		/* Find the best phase */
+			i = uhci_check_bandwidth(uhci, qh);
+			if (i)
+				return i;
+
+			/* Allow a little time to allocate the TDs */
 			uhci_get_current_frame_number(uhci);
-			urb->start_frame = uhci->frame_number + 10;
+			frame = uhci->frame_number + 10;
+
+			/* Move forward to the first frame having the
+			 * correct phase */
+			urb->start_frame = frame + ((qh->phase - frame) &
+					(qh->period - 1));
 		} else {
 			i = urb->start_frame - uhci->last_iso_frame;
 			if (i <= 0 || i >= UHCI_NUMFRAMES)
 				return -EINVAL;
+			qh->phase = urb->start_frame & (qh->period - 1);
+			i = uhci_check_bandwidth(uhci, qh);
+			if (i)
+				return i;
 		}
+
 	} else if (qh->period != urb->interval) {
 		return -EINVAL;		/* Can't change the period */
 
@@ -1049,9 +1351,6 @@ static int uhci_submit_isochronous(struct uhci_hcd *uhci, struct urb *urb,
 	/* Set the interrupt-on-completion flag on the last packet. */
 	td->status |= __constant_cpu_to_le32(TD_CTRL_IOC);
 
-	qh->skel = uhci->skel_iso_qh;
-	qh->period = urb->interval;
-
 	/* Add the TDs to the frame list */
 	frame = urb->start_frame;
 	list_for_each_entry(td, &urbp->td_list, list) {
@@ -1065,6 +1364,9 @@ static int uhci_submit_isochronous(struct uhci_hcd *uhci, struct urb *urb,
 		qh->iso_status = 0;
 	}
 
+	qh->skel = SKEL_ISO;
+	if (!qh->bandwidth_reserved)
+		uhci_reserve_bandwidth(uhci, qh);
 	return 0;
 }
 
@@ -1119,7 +1421,6 @@ static int uhci_urb_enqueue(struct usb_hcd *hcd,
 	unsigned long flags;
 	struct urb_priv *urbp;
 	struct uhci_qh *qh;
-	int bustime;
 
 	spin_lock_irqsave(&uhci->lock, flags);
 
@@ -1149,35 +1450,11 @@ static int uhci_urb_enqueue(struct usb_hcd *hcd,
 		ret = uhci_submit_bulk(uhci, urb, qh);
 		break;
 	case USB_ENDPOINT_XFER_INT:
-		if (list_empty(&qh->queue)) {
-			bustime = usb_check_bandwidth(urb->dev, urb);
-			if (bustime < 0)
-				ret = bustime;
-			else {
-				ret = uhci_submit_interrupt(uhci, urb, qh);
-				if (ret == 0)
-					usb_claim_bandwidth(urb->dev, urb, bustime, 0);
-			}
-		} else {	/* inherit from parent */
-			struct urb_priv *eurbp;
-
-			eurbp = list_entry(qh->queue.prev, struct urb_priv,
-					node);
-			urb->bandwidth = eurbp->urb->bandwidth;
-			ret = uhci_submit_interrupt(uhci, urb, qh);
-		}
+		ret = uhci_submit_interrupt(uhci, urb, qh);
 		break;
 	case USB_ENDPOINT_XFER_ISOC:
 		urb->error_count = 0;
-		bustime = usb_check_bandwidth(urb->dev, urb);
-		if (bustime < 0) {
-			ret = bustime;
-			break;
-		}
-
 		ret = uhci_submit_isochronous(uhci, urb, qh);
-		if (ret == 0)
-			usb_claim_bandwidth(urb->dev, urb, bustime, 1);
 		break;
 	}
 	if (ret != 0)
@@ -1274,24 +1551,6 @@ __acquires(uhci->lock)
 
 	uhci_free_urb_priv(uhci, urbp);
 
-	switch (qh->type) {
-	case USB_ENDPOINT_XFER_ISOC:
-		/* Release bandwidth for Interrupt or Isoc. transfers */
-		if (urb->bandwidth)
-			usb_release_bandwidth(urb->dev, urb, 1);
-		break;
-	case USB_ENDPOINT_XFER_INT:
-		/* Release bandwidth for Interrupt or Isoc. transfers */
-		/* Make sure we don't release if we have a queued URB */
-		if (list_empty(&qh->queue) && urb->bandwidth)
-			usb_release_bandwidth(urb->dev, urb, 0);
-		else
-			/* bandwidth was passed on to queued URB, */
-			/* so don't let usb_unlink_urb() release it */
-			urb->bandwidth = 0;
-		break;
-	}
-
 	spin_unlock(&uhci->lock);
 	usb_hcd_giveback_urb(uhci_to_hcd(uhci), urb);
 	spin_lock(&uhci->lock);
@@ -1300,9 +1559,8 @@ __acquires(uhci->lock)
 	 * reserved bandwidth. */
 	if (list_empty(&qh->queue)) {
 		uhci_unlink_qh(uhci, qh);
-
-		/* Bandwidth stuff not yet implemented */
-		qh->period = 0;
+		if (qh->bandwidth_reserved)
+			uhci_release_bandwidth(uhci, qh);
 	}
 }
 
@@ -1456,8 +1714,7 @@ static int uhci_advance_check(struct uhci_hcd *uhci, struct uhci_qh *qh)
 	if (time_after(jiffies, qh->advance_jiffies + QH_WAIT_TIMEOUT)) {
 
 		/* Detect the Intel bug and work around it */
-		if (qh->post_td && qh_element(qh) ==
-				cpu_to_le32(qh->post_td->dma_handle)) {
+		if (qh->post_td && qh_element(qh) == LINK_TO_TD(qh->post_td)) {
 			qh->element = qh->post_td->link;
 			qh->advance_jiffies = jiffies;
 			ret = 1;

@@ -64,7 +64,7 @@ extern struct task_struct * oplockThread; /* remove sparse warning */
 struct task_struct * oplockThread = NULL;
 extern struct task_struct * dnotifyThread; /* remove sparse warning */
 struct task_struct * dnotifyThread = NULL;
-static struct super_operations cifs_super_ops; 
+static const struct super_operations cifs_super_ops;
 unsigned int CIFSMaxBufSize = CIFS_MAX_MSGSIZE;
 module_param(CIFSMaxBufSize, int, 0);
 MODULE_PARM_DESC(CIFSMaxBufSize,"Network buffer size (not including header). Default: 16384 Range: 8192 to 130048");
@@ -91,8 +91,9 @@ cifs_read_super(struct super_block *sb, void *data,
 	struct inode *inode;
 	struct cifs_sb_info *cifs_sb;
 	int rc = 0;
-
-	sb->s_flags |= MS_NODIRATIME; /* and probably even noatime */
+	
+	/* BB should we make this contingent on mount parm? */
+	sb->s_flags |= MS_NODIRATIME | MS_NOATIME;
 	sb->s_fs_info = kzalloc(sizeof(struct cifs_sb_info),GFP_KERNEL);
 	cifs_sb = CIFS_SB(sb);
 	if(cifs_sb == NULL)
@@ -258,7 +259,10 @@ cifs_alloc_inode(struct super_block *sb)
 	cifs_inode->clientCanCacheRead = FALSE;
 	cifs_inode->clientCanCacheAll = FALSE;
 	cifs_inode->vfs_inode.i_blkbits = 14;  /* 2**14 = CIFS_MAX_MSGSIZE */
-	cifs_inode->vfs_inode.i_flags = S_NOATIME | S_NOCMTIME;
+	
+	/* Can not set i_flags here - they get immediately overwritten
+	   to zero by the VFS */
+/*	cifs_inode->vfs_inode.i_flags = S_NOATIME | S_NOCMTIME;*/
 	INIT_LIST_HEAD(&cifs_inode->openFileList);
 	return &cifs_inode->vfs_inode;
 }
@@ -283,6 +287,7 @@ cifs_show_options(struct seq_file *s, struct vfsmount *m)
 
 	if (cifs_sb) {
 		if (cifs_sb->tcon) {
+/* BB add prepath to mount options displayed */
 			seq_printf(s, ",unc=%s", cifs_sb->tcon->treeName);
 			if (cifs_sb->tcon->ses) {
 				if (cifs_sb->tcon->ses->userName)
@@ -453,7 +458,7 @@ static int cifs_remount(struct super_block *sb, int *flags, char *data)
 	return 0;
 }
 
-static struct super_operations cifs_super_ops = {
+static const struct super_operations cifs_super_ops = {
 	.read_inode = cifs_read_inode,
 	.put_super = cifs_put_super,
 	.statfs = cifs_statfs,
@@ -511,7 +516,15 @@ static loff_t cifs_llseek(struct file *file, loff_t offset, int origin)
 {
 	/* origin == SEEK_END => we must revalidate the cached file length */
 	if (origin == SEEK_END) {
-		int retval = cifs_revalidate(file->f_path.dentry);
+		int retval;
+
+		/* some applications poll for the file length in this strange
+		   way so we must seek to end on non-oplocked files by
+		   setting the revalidate time to zero */
+		if(file->f_path.dentry->d_inode)		
+			CIFS_I(file->f_path.dentry->d_inode)->time = 0;
+
+		retval = cifs_revalidate(file->f_path.dentry);
 		if (retval < 0)
 			return (loff_t)retval;
 	}
@@ -525,7 +538,7 @@ static struct file_system_type cifs_fs_type = {
 	.kill_sb = kill_anon_super,
 	/*  .fs_flags */
 };
-struct inode_operations cifs_dir_inode_ops = {
+const struct inode_operations cifs_dir_inode_ops = {
 	.create = cifs_create,
 	.lookup = cifs_lookup,
 	.getattr = cifs_getattr,
@@ -547,7 +560,7 @@ struct inode_operations cifs_dir_inode_ops = {
 #endif
 };
 
-struct inode_operations cifs_file_inode_ops = {
+const struct inode_operations cifs_file_inode_ops = {
 /*	revalidate:cifs_revalidate, */
 	.setattr = cifs_setattr,
 	.getattr = cifs_getattr, /* do we need this anymore? */
@@ -561,7 +574,7 @@ struct inode_operations cifs_file_inode_ops = {
 #endif 
 };
 
-struct inode_operations cifs_symlink_inode_ops = {
+const struct inode_operations cifs_symlink_inode_ops = {
 	.readlink = generic_readlink, 
 	.follow_link = cifs_follow_link,
 	.put_link = cifs_put_link,

@@ -173,10 +173,12 @@ static ssize_t fat_direct_IO(int rw, struct kiocb *iocb,
 		 *
 		 * But we must fill the remaining area or hole by nul for
 		 * updating ->mmu_private.
+		 *
+		 * Return 0, and fallback to normal buffered write.
 		 */
 		loff_t size = offset + iov_length(iov, nr_segs);
 		if (MSDOS_I(inode)->mmu_private < size)
-			return -EINVAL;
+			return 0;
 	}
 
 	/*
@@ -618,7 +620,7 @@ int fat_sync_inode(struct inode *inode)
 EXPORT_SYMBOL_GPL(fat_sync_inode);
 
 static int fat_show_options(struct seq_file *m, struct vfsmount *mnt);
-static struct super_operations fat_sops = {
+static const struct super_operations fat_sops = {
 	.alloc_inode	= fat_alloc_inode,
 	.destroy_inode	= fat_destroy_inode,
 	.write_inode	= fat_write_inode,
@@ -1151,7 +1153,7 @@ static int fat_read_root(struct inode *inode)
  * Read the super block of an MS-DOS FS.
  */
 int fat_fill_super(struct super_block *sb, void *data, int silent,
-		   struct inode_operations *fs_dir_inode_ops, int isvfat)
+		   const struct inode_operations *fs_dir_inode_ops, int isvfat)
 {
 	struct inode *root_inode = NULL;
 	struct buffer_head *bh;

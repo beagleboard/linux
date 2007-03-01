@@ -79,6 +79,14 @@ void __init register_pci_controller(struct pci_controller *hose)
 {
 	*hose_tail = hose;
 	hose_tail = &hose->next;
+
+	/*
+	 * Do not panic here but later - this might hapen before console init.
+	 */
+	if (!hose->io_map_base) {
+		printk(KERN_WARNING
+		       "registering PCI controller with io_map_base unset\n");
+	}
 }
 
 /* Most MIPS systems have straight-forward swizzling needs.  */
@@ -223,7 +231,7 @@ int pcibios_enable_device(struct pci_dev *dev, int mask)
 	return pcibios_plat_dev_init(dev);
 }
 
-static void __init pcibios_fixup_device_resources(struct pci_dev *dev,
+static void __devinit pcibios_fixup_device_resources(struct pci_dev *dev,
 	struct pci_bus *bus)
 {
 	/* Update device resources.  */

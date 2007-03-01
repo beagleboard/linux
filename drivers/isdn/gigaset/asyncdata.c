@@ -13,6 +13,11 @@
  * =====================================================================
  */
 
+/* not set by Kbuild when building both ser_gigaset and usb_gigaset */
+#ifndef KBUILD_MODNAME
+#define KBUILD_MODNAME "asy_gigaset"
+#endif
+
 #include "gigaset.h"
 #include <linux/crc-ccitt.h>
 #include <linux/bitrev.h>
@@ -439,6 +444,7 @@ nextbyte:
 		atomic_set(&inbuf->head, head);
 	}
 }
+EXPORT_SYMBOL_GPL(gigaset_m10x_input);
 
 
 /* == data output ========================================================== */
@@ -586,3 +592,4 @@ int gigaset_m10x_send_skb(struct bc_state *bcs, struct sk_buff *skb)
 
 	return len;	/* ok so far */
 }
+EXPORT_SYMBOL_GPL(gigaset_m10x_send_skb);

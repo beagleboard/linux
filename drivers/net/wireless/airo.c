@@ -1623,7 +1623,7 @@ static void emmh32_setseed(emmh32_context *context, u8 *pkey, int keylen,
 
 	crypto_cipher_setkey(tfm, pkey, 16);
 	counter = 0;
-	for (i = 0; i < (sizeof(context->coeff)/sizeof(context->coeff[0])); ) {
+	for (i = 0; i < ARRAY_SIZE(context->coeff); ) {
 		aes_counter[15] = (u8)(counter >> 0);
 		aes_counter[14] = (u8)(counter >> 8);
 		aes_counter[13] = (u8)(counter >> 16);
@@ -1632,7 +1632,7 @@ static void emmh32_setseed(emmh32_context *context, u8 *pkey, int keylen,
 		memcpy (plain, aes_counter, 16);
 		crypto_cipher_encrypt_one(tfm, plain, plain);
 		cipher = plain;
-		for (j=0; (j<16) && (i< (sizeof(context->coeff)/sizeof(context->coeff[0]))); ) {
+		for (j = 0; (j < 16) && (i < ARRAY_SIZE(context->coeff)); ) {
 			context->coeff[i++] = ntohl(*(u32 *)&cipher[j]);
 			j += 4;
 		}
@@ -4430,53 +4430,53 @@ static int proc_BSSList_open( struct inode *inode, struct file *file );
 static int proc_config_open( struct inode *inode, struct file *file );
 static int proc_wepkey_open( struct inode *inode, struct file *file );
 
-static struct file_operations proc_statsdelta_ops = {
+static const struct file_operations proc_statsdelta_ops = {
 	.read		= proc_read,
 	.open		= proc_statsdelta_open,
 	.release	= proc_close
 };
 
-static struct file_operations proc_stats_ops = {
+static const struct file_operations proc_stats_ops = {
 	.read		= proc_read,
 	.open		= proc_stats_open,
 	.release	= proc_close
 };
 
-static struct file_operations proc_status_ops = {
+static const struct file_operations proc_status_ops = {
 	.read		= proc_read,
 	.open		= proc_status_open,
 	.release	= proc_close
 };
 
-static struct file_operations proc_SSID_ops = {
+static const struct file_operations proc_SSID_ops = {
 	.read		= proc_read,
 	.write		= proc_write,
 	.open		= proc_SSID_open,
 	.release	= proc_close
 };
 
-static struct file_operations proc_BSSList_ops = {
+static const struct file_operations proc_BSSList_ops = {
 	.read		= proc_read,
 	.write		= proc_write,
 	.open		= proc_BSSList_open,
 	.release	= proc_close
 };
 
-static struct file_operations proc_APList_ops = {
+static const struct file_operations proc_APList_ops = {
 	.read		= proc_read,
 	.write		= proc_write,
 	.open		= proc_APList_open,
 	.release	= proc_close
 };
 
-static struct file_operations proc_config_ops = {
+static const struct file_operations proc_config_ops = {
 	.read		= proc_read,
 	.write		= proc_write,
 	.open		= proc_config_open,
 	.release	= proc_close
 };
 
-static struct file_operations proc_wepkey_ops = {
+static const struct file_operations proc_wepkey_ops = {
 	.read		= proc_read,
 	.write		= proc_write,
 	.open		= proc_wepkey_open,

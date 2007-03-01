@@ -109,7 +109,7 @@ static unsigned long piranha_bad_128k = 0;
 
 #ifdef SBA_AGP_SUPPORT
 static int sba_reserve_agpgart = 1;
-module_param(sba_reserve_agpgart, int, 1);
+module_param(sba_reserve_agpgart, int, 0444);
 MODULE_PARM_DESC(sba_reserve_agpgart, "Reserve half of IO pdir as AGPGART");
 #endif
 
@@ -846,7 +846,7 @@ static void *sba_alloc_consistent(struct device *hwdev, size_t size,
 	if (!hwdev) {
 		/* only support PCI */
 		*dma_handle = 0;
-		return 0;
+		return NULL;
 	}
 
         ret = (void *) __get_free_pages(gfp, get_order(size));
@@ -1799,7 +1799,7 @@ sba_proc_open(struct inode *i, struct file *f)
 	return single_open(f, &sba_proc_info, NULL);
 }
 
-static struct file_operations sba_proc_fops = {
+static const struct file_operations sba_proc_fops = {
 	.owner = THIS_MODULE,
 	.open = sba_proc_open,
 	.read = seq_read,
@@ -1831,7 +1831,7 @@ sba_proc_bitmap_open(struct inode *i, struct file *f)
 	return single_open(f, &sba_proc_bitmap_info, NULL);
 }
 
-static struct file_operations sba_proc_bitmap_fops = {
+static const struct file_operations sba_proc_bitmap_fops = {
 	.owner = THIS_MODULE,
 	.open = sba_proc_bitmap_open,
 	.read = seq_read,

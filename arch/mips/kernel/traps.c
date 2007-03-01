@@ -229,6 +229,9 @@ void show_regs(struct pt_regs *regs)
 			printk("\n");
 	}
 
+#ifdef CONFIG_CPU_HAS_SMARTMIPS
+	printk("Acx    : %0*lx\n", field, regs->acx);
+#endif
 	printk("Hi    : %0*lx\n", field, regs->hi);
 	printk("Lo    : %0*lx\n", field, regs->lo);
 
@@ -340,13 +343,9 @@ NORET_TYPE void ATTRIB_NORET die(const char * str, struct pt_regs * regs)
 extern const struct exception_table_entry __start___dbe_table[];
 extern const struct exception_table_entry __stop___dbe_table[];
 
-void __declare_dbe_table(void)
-{
-	__asm__ __volatile__(
-	".section\t__dbe_table,\"a\"\n\t"
-	".previous"
-	);
-}
+__asm__(
+"	.section	__dbe_table, \"a\"\n"
+"	.previous			\n");
 
 /* Given an address, look for it in the exception tables. */
 static const struct exception_table_entry *search_dbe_tables(unsigned long addr)
@@ -708,6 +707,7 @@ asmlinkage void do_bp(struct pt_regs *regs)
 		die_if_kernel("Break instruction in kernel code", regs);
 		force_sig(SIGTRAP, current);
 	}
+	return;
 
 out_sigsegv:
 	force_sig(SIGSEGV, current);
@@ -751,6 +751,7 @@ asmlinkage void do_tr(struct pt_regs *regs)
 		die_if_kernel("Trap instruction in kernel code", regs);
 		force_sig(SIGTRAP, current);
 	}
+	return;
 
 out_sigsegv:
 	force_sig(SIGSEGV, current);

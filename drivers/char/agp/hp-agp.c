@@ -419,7 +419,7 @@ hp_zx1_enable (struct agp_bridge_data *bridge, u32 mode)
 	agp_device_command(command, (mode & AGP8X_MODE) != 0);
 }
 
-struct agp_bridge_driver hp_zx1_driver = {
+struct const agp_bridge_driver hp_zx1_driver = {
 	.owner			= THIS_MODULE,
 	.size_type		= FIXED_APER_SIZE,
 	.configure		= hp_zx1_configure,
@@ -438,6 +438,7 @@ struct agp_bridge_driver hp_zx1_driver = {
 	.free_by_type		= agp_generic_free_by_type,
 	.agp_alloc_page		= agp_generic_alloc_page,
 	.agp_destroy_page	= agp_generic_destroy_page,
+	.agp_type_to_mask_type  = agp_generic_type_to_mask_type,
 	.cant_use_aperture	= 1,
 };
 
