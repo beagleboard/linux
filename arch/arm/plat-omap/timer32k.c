@@ -272,22 +272,6 @@ static int omap_32k_timer_disable_dyn_tick(void)
 	return 0;
 }
 
-static irqreturn_t omap_32k_timer_handler(int irq, void *dev_id)
-{
-	unsigned long now;
-
-	now = omap_32k_sync_timer_read();
-
-	/* Don't bother reprogramming timer if last tick was before next
-	 * jiffie. We will get another interrupt when previously programmed
-	 * timer expires. This cuts down interrupt load quite a bit.
-	 */
-	if (now - omap_32k_last_tick < OMAP_32K_TICKS_PER_HZ)
-		return IRQ_HANDLED;
-
-	return _omap_32k_timer_interrupt(irq, dev_id);
-}
-
 static struct dyn_tick_timer omap_dyn_tick_timer = {
 	.enable		= omap_32k_timer_enable_dyn_tick,
 	.disable	= omap_32k_timer_disable_dyn_tick,
