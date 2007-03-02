@@ -1821,9 +1821,9 @@ static int taskdev_init(struct taskdev *dev, char *name, unsigned char minor)
 	ret |= device_create_file(&dev->dev, &dev_attr_proc_list);
 	if (ret)
 		printk(KERN_ERR "device_create_file failed: %d\n", ret);
-	class_device_create(dsp_task_class, NULL,
-			    MKDEV(OMAP_DSP_TASK_MAJOR, minor),
-			    NULL, "dsptask%d", minor);
+	device_create(dsp_task_class, NULL,
+			MKDEV(OMAP_DSP_TASK_MAJOR, minor),
+			"dsptask%d", minor);
 
 	init_waitqueue_head(&dev->state_wait_q);
 	init_rwsem(&dev->state_sem);
@@ -1840,7 +1840,7 @@ static void taskdev_delete(unsigned char minor)
 	device_remove_file(&dev->dev, &dev_attr_devname);
 	device_remove_file(&dev->dev, &dev_attr_devstate);
 	device_remove_file(&dev->dev, &dev_attr_proc_list);
-	class_device_destroy(dsp_task_class, MKDEV(OMAP_DSP_TASK_MAJOR, minor));
+	device_destroy(dsp_task_class, MKDEV(OMAP_DSP_TASK_MAJOR, minor));
 	device_unregister(&dev->dev);
 	proc_list_flush(&dev->proc_list_lock, &dev->proc_list);
 	taskdev[minor] = NULL;

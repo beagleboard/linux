@@ -107,10 +107,10 @@ int __init dsp_ctl_core_init(void)
 
 	dsp_ctl_class = class_create(THIS_MODULE, "dspctl");
 	for (i = 0; i < ARRAY_SIZE(dev_list); i++) {
-		class_device_create(dsp_ctl_class, NULL,
+		device_create(dsp_ctl_class, NULL,
 				    MKDEV(OMAP_DSP_CTL_MAJOR,
 					  dev_list[i].minor),
-				    NULL, dev_list[i].devname);
+				    dev_list[i].devname);
 	}
 
 	return 0;
@@ -121,9 +121,9 @@ void dsp_ctl_core_exit(void)
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(dev_list); i++) {
-		class_device_destroy(dsp_ctl_class,
-				     MKDEV(OMAP_DSP_CTL_MAJOR,
-					   dev_list[i].minor));
+		device_destroy(dsp_ctl_class,
+				MKDEV(OMAP_DSP_CTL_MAJOR,
+					dev_list[i].minor));
 	}
 	class_destroy(dsp_ctl_class);
 

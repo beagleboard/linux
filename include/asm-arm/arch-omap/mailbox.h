@@ -51,7 +51,7 @@ struct omap_mbox {
 
 	mbox_msg_t seq_snd, seq_rcv;
 
-	struct class_device class_dev;
+	struct device dev;
 
 	void *priv;
 

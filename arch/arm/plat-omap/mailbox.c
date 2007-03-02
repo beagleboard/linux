@@ -178,12 +178,13 @@ static irqreturn_t mbox_interrupt(int irq, void *p)
 /*
  * sysfs files
  */
-static ssize_t mbox_attr_write(struct class_device *dev, const char *buf,
-			      size_t count)
+static ssize_t mbox_attr_write(struct device *dev,
+			       struct device_attribute *attr,
+			       const char *buf, size_t count)
 {
 	int ret;
 	mbox_msg_t msg;
-	struct omap_mbox *mbox = class_get_devdata(dev);
+	struct omap_mbox *mbox = dev_get_drvdata(dev);
 
 	msg = (mbox_msg_t) simple_strtoul(buf, NULL, 16);
 
@@ -194,14 +195,15 @@ static ssize_t mbox_attr_write(struct class_device *dev, const char *buf,
 	return count;
 }
 
-static ssize_t mbox_attr_read(struct class_device *dev, char *buf)
+static ssize_t mbox_attr_read(struct device *dev, struct device_attribute *attr,
+			      char *buf)
 {
-	struct omap_mbox *mbox = class_get_devdata(dev);
+	struct omap_mbox *mbox = dev_get_drvdata(dev);
 
 	return sprintf(buf, mbox->name);
 }
 
-static CLASS_DEVICE_ATTR(mbox, S_IALLUGO, mbox_attr_read, mbox_attr_write);
+static DEVICE_ATTR(mbox, S_IALLUGO, mbox_attr_read, mbox_attr_write);
 
 static ssize_t mbox_show(struct class *class, char *buf)
 {
@@ -224,18 +226,18 @@ static int omap_mbox_init(struct omap_mbox *mbox)
 			return ret;
 	}
 
-	mbox->class_dev.class = &omap_mbox_class;
-	strlcpy(mbox->class_dev.class_id, mbox->name, KOBJ_NAME_LEN);
-	class_set_devdata(&mbox->class_dev, mbox);
+	mbox->dev.class = &omap_mbox_class;
+	strlcpy(mbox->dev.bus_id, mbox->name, KOBJ_NAME_LEN);
+	dev_set_drvdata(&mbox->dev, mbox);
 
-	ret = class_device_register(&mbox->class_dev);
+	ret = device_register(&mbox->dev);
 	if (unlikely(ret))
 		return ret;
 
-	ret = class_device_create_file(&mbox->class_dev, &class_device_attr_mbox);
+	ret = device_create_file(&mbox->dev, &dev_attr_mbox);
 	if (unlikely(ret)) {
 		printk(KERN_ERR
-		       "class_device_create_file failed: %d\n", ret);
+		       "device_create_file failed: %d\n", ret);
 		goto fail1;
 	}
 
