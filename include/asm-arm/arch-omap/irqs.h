@@ -125,6 +125,7 @@
 #define INT_UART2		(15 + IH2_BASE)
 #define INT_BT_MCSI1TX		(16 + IH2_BASE)
 #define INT_BT_MCSI1RX		(17 + IH2_BASE)
+#define INT_SOSSI_MATCH		(19 + IH2_BASE)
 #define INT_USB_W2FC		(20 + IH2_BASE)
 #define INT_1WIRE		(21 + IH2_BASE)
 #define INT_OS_TIMER		(22 + IH2_BASE)
