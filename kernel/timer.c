@@ -711,6 +711,7 @@ static unsigned long cmp_next_hrtimer_event(unsigned long now,
 
 /**
  * next_timer_interrupt - return the jiffy of the next pending timer
+ * @now: current time (in jiffies)
  */
 unsigned long get_next_timer_interrupt(unsigned long now)
 {
@@ -908,7 +909,7 @@ static inline void change_clocksource(void) { }
 #endif
 
 /**
- * timeofday_is_continuous - check to see if timekeeping is free running
+ * timekeeping_is_continuous - check to see if timekeeping is free running
  */
 int timekeeping_is_continuous(void)
 {

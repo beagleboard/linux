@@ -3547,7 +3547,7 @@ need_resched_nonpreemptible:
 		}
 	}
 	next->sleep_type = SLEEP_NORMAL;
-	if (dependent_sleeper(cpu, rq, next))
+	if (rq->nr_running == 1 && dependent_sleeper(cpu, rq, next))
 		next = rq->idle;
 switch_tasks:
 	if (next == rq->idle)
@@ -3566,7 +3566,7 @@ switch_tasks:
 
 	sched_info_switch(prev, next);
 	if (likely(prev != next)) {
-		next->timestamp = now;
+		next->timestamp = next->last_ran = now;
 		rq->nr_switches++;
 		rq->curr = next;
 		++*switch_count;
