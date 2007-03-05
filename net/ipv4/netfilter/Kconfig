@@ -238,6 +238,16 @@ config IP_NF_TARGET_SAME
 
 	  To compile it as a module, choose M here.  If unsure, say N.
 
+config IP_NF_TARGET_IDLETIMER
+	tristate  "IDLETIMER target support"
+	depends on IP_NF_IPTABLES
+	help
+	  This option adds a `IDLETIMER' target. Each matching packet resets
+	  the timer associated with input and/or output interfaces. Timer
+	  expiry causes kobject uevent. Idle timer can be read via sysfs.
+
+	  To compile it as a module, choose M here.  If unsure, say N.
+
 config NF_NAT_SNMP_BASIC
 	tristate "Basic SNMP-ALG support (EXPERIMENTAL)"
 	depends on EXPERIMENTAL && NF_NAT
