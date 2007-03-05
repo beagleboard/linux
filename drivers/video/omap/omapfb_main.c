@@ -53,13 +53,32 @@ static struct platform_device	*fbdev_pdev;
 static struct lcd_panel		*fbdev_panel;
 static struct omapfb_device	*omapfb_dev;
 
-static struct caps_table_struct {
+struct caps_table_struct {
         unsigned long flag;
         const char *name;
-} omapfb_caps_table[] = {
+};
+
+static struct caps_table_struct ctrl_caps[] = {
 	{ OMAPFB_CAPS_MANUAL_UPDATE, "manual update" },
 	{ OMAPFB_CAPS_TEARSYNC,      "tearing synchronization" },
+	{ OMAPFB_CAPS_PLANE_RELOCATE_MEM, "relocate plane memory" },
+	{ OMAPFB_CAPS_PLANE_SCALE,   "scale plane" },
+	{ OMAPFB_CAPS_WINDOW_PIXEL_DOUBLE, "pixel double window" },
+	{ OMAPFB_CAPS_WINDOW_SCALE,  "scale window" },
+	{ OMAPFB_CAPS_WINDOW_OVERLAY,"overlay window" },
 	{ OMAPFB_CAPS_SET_BACKLIGHT, "backlight setting" },
+};
+
+static struct caps_table_struct color_caps[] = {
+	{ 1 << OMAPFB_COLOR_RGB565,	"RGB565", },
+	{ 1 << OMAPFB_COLOR_YUV422,	"YUV422", },
+	{ 1 << OMAPFB_COLOR_YUV420,	"YUV420", },
+	{ 1 << OMAPFB_COLOR_CLUT_8BPP,	"CLUT8", },
+	{ 1 << OMAPFB_COLOR_CLUT_4BPP,	"CLUT4", },
+	{ 1 << OMAPFB_COLOR_CLUT_2BPP,	"CLUT2", },
+	{ 1 << OMAPFB_COLOR_CLUT_1BPP,	"CLUT1", },
+	{ 1 << OMAPFB_COLOR_RGB444,	"RGB444", },
+	{ 1 << OMAPFB_COLOR_YUY422,	"YUY422", },
 };
 
 /*
@@ -132,7 +151,8 @@ static int ctrl_init(struct omapfb_device *fbdev)
 	/* kernel/module vram parameters override boot tags/board config */
 	if (def_vram_cnt) {
 		for (i = 0; i < def_vram_cnt; i++)
-			fbdev->mem_desc.region[i].size = def_vram[i];
+			fbdev->mem_desc.region[i].size =
+				PAGE_ALIGN(def_vram[i]);
 		fbdev->mem_desc.region_cnt = i;
 	} else {
 		struct omapfb_platform_data *conf;
@@ -151,7 +171,7 @@ static int ctrl_init(struct omapfb_device *fbdev)
 			bpp = 16;
 		def_size = def_vxres * def_vyres * bpp / 8;
 		fbdev->mem_desc.region_cnt = 1;
-		fbdev->mem_desc.region[0].size = def_size;
+		fbdev->mem_desc.region[0].size = PAGE_ALIGN(def_size);
 	}
 	r = fbdev->ctrl->init(fbdev, 0, &fbdev->mem_desc);
 	if (r < 0) {
@@ -176,6 +196,7 @@ static void ctrl_cleanup(struct omapfb_device *fbdev)
 	fbdev->ctrl->cleanup();
 }
 
+/* Must be called with fbdev->rqueue_mutex held. */
 static int ctrl_change_mode(struct fb_info *fbi)
 {
 	int r;
@@ -187,7 +208,8 @@ static int ctrl_change_mode(struct fb_info *fbi)
 	offset = var->yoffset * fbi->fix.line_length +
 		 var->xoffset * var->bits_per_pixel / 8;
 
-	omapfb_rqueue_lock(fbdev);
+	if (fbdev->ctrl->sync)
+		fbdev->ctrl->sync();
 	r = fbdev->ctrl->setup_plane(plane->idx, plane->info.channel_out,
 				 offset, var->xres_virtual,
 				 plane->info.pos_x, plane->info.pos_y,
@@ -197,7 +219,6 @@ static int ctrl_change_mode(struct fb_info *fbi)
 				   var->xres, var->yres,
 				   plane->info.out_width,
 				   plane->info.out_height);
-	omapfb_rqueue_unlock(fbdev);
 
 	return r;
 }
@@ -364,7 +385,14 @@ static void set_fb_fix(struct fb_info *fbi)
 {
 	struct fb_fix_screeninfo *fix = &fbi->fix;
 	struct fb_var_screeninfo *var = &fbi->var;
+	struct omapfb_plane_struct *plane = fbi->par;
+	struct omapfb_mem_region *rg;
 	int bpp;
+
+	rg = &plane->fbdev->mem_desc.region[plane->idx];
+	fbi->screen_base	= (char __iomem *)rg->vaddr;
+	fix->smem_start		= rg->paddr;
+	fix->smem_len		= rg->size;
 
 	fix->type = FB_TYPE_PACKED_PIXELS;
 	bpp = var->bits_per_pixel;
@@ -509,6 +537,13 @@ static int set_fb_var(struct fb_info *fbi,
 			line_size = var->xres * bpp / 8;
 			var->yres_virtual = max_frame_size / line_size;
 		}
+		/* Recheck this, as the virtual size changed. */
+		if (var->xres_virtual < var->xres)
+			var->xres = var->xres_virtual;
+		if (var->yres_virtual < var->yres)
+			var->yres = var->yres_virtual;
+		if (var->xres < xres_min || var->yres < yres_min)
+			return -EINVAL;
 	}
 	if (var->xres + var->xoffset > var->xres_virtual)
 		var->xoffset = var->xres_virtual - var->xres;
@@ -552,20 +587,26 @@ static int set_fb_var(struct fb_info *fbi,
 	return 0;
 }
 
-static struct fb_var_screeninfo new_var;
 
 /* Set rotation (0, 90, 180, 270 degree), and switch to the new mode. */
 static void omapfb_rotate(struct fb_info *fbi, int rotate)
 {
+	struct omapfb_plane_struct *plane = fbi->par;
+	struct omapfb_device *fbdev = plane->fbdev;
+
+	omapfb_rqueue_lock(fbdev);
 	if (cpu_is_omap15xx() && rotate != fbi->var.rotate) {
-		memcpy(&new_var, &fbi->var, sizeof(new_var));
-		new_var.rotate = rotate;
-		if (set_fb_var(fbi, &new_var) == 0 &&
-		    memcmp(&new_var, &fbi->var, sizeof(new_var))) {
-			memcpy(&fbi->var, &new_var, sizeof(new_var));
+		struct fb_var_screeninfo *new_var = &fbdev->new_var;
+
+		memcpy(new_var, &fbi->var, sizeof(*new_var));
+		new_var->rotate = rotate;
+		if (set_fb_var(fbi, new_var) == 0 &&
+		    memcmp(new_var, &fbi->var, sizeof(*new_var))) {
+			memcpy(&fbi->var, new_var, sizeof(*new_var));
 			ctrl_change_mode(fbi);
 		}
 	}
+	omapfb_rqueue_unlock(fbdev);
 }
 
 /* Set new x,y offsets in the virtual display for the visible area and switch
@@ -574,20 +615,26 @@ static void omapfb_rotate(struct fb_info *fbi, int rotate)
 static int omapfb_pan_display(struct fb_var_screeninfo *var,
 			       struct fb_info *fbi)
 {
+	struct omapfb_plane_struct *plane = fbi->par;
+	struct omapfb_device *fbdev = plane->fbdev;
 	int r = 0;
 
+	omapfb_rqueue_lock(fbdev);
 	if (var->xoffset != fbi->var.xoffset ||
 	    var->yoffset != fbi->var.yoffset) {
-		memcpy(&new_var, &fbi->var, sizeof(new_var));
-		new_var.xoffset = var->xoffset;
-		new_var.yoffset = var->yoffset;
-		if (set_fb_var(fbi, &new_var))
+		struct fb_var_screeninfo *new_var = &fbdev->new_var;
+
+		memcpy(new_var, &fbi->var, sizeof(*new_var));
+		new_var->xoffset = var->xoffset;
+		new_var->yoffset = var->yoffset;
+		if (set_fb_var(fbi, new_var))
 			r = -EINVAL;
 		else {
-			memcpy(&fbi->var, &new_var, sizeof(new_var));
+			memcpy(&fbi->var, new_var, sizeof(*new_var));
 			ctrl_change_mode(fbi);
 		}
 	}
+	omapfb_rqueue_unlock(fbdev);
 
 	return r;
 }
@@ -596,8 +643,10 @@ static int omapfb_pan_display(struct fb_var_screeninfo *var,
 static int omapfb_mirror(struct fb_info *fbi, int mirror)
 {
 	struct omapfb_plane_struct *plane = fbi->par;
+	struct omapfb_device *fbdev = plane->fbdev;
 	int r = 0;
 
+	omapfb_rqueue_lock(fbdev);
 	mirror = mirror ? 1 : 0;
 	if (cpu_is_omap15xx())
 		r = -EINVAL;
@@ -605,6 +654,7 @@ static int omapfb_mirror(struct fb_info *fbi, int mirror)
 		plane->info.mirror = mirror;
 		r = ctrl_change_mode(fbi);
 	}
+	omapfb_rqueue_unlock(fbdev);
 
 	return r;
 }
@@ -614,7 +664,17 @@ static int omapfb_mirror(struct fb_info *fbi, int mirror)
  */
 static int omapfb_check_var(struct fb_var_screeninfo *var, struct fb_info *fbi)
 {
-	return set_fb_var(fbi, var);
+	struct omapfb_plane_struct *plane = fbi->par;
+	struct omapfb_device *fbdev = plane->fbdev;
+	int r;
+
+	omapfb_rqueue_lock(fbdev);
+	if (fbdev->ctrl->sync != NULL)
+		fbdev->ctrl->sync();
+	r = set_fb_var(fbi, var);
+	omapfb_rqueue_unlock(fbdev);
+
+	return r;
 }
 
 /* Switch to a new mode. The parameters for it has been check already by
@@ -622,8 +682,16 @@ static int omapfb_check_var(struct fb_var_screeninfo *var, struct fb_info *fbi)
  */
 static int omapfb_set_par(struct fb_info *fbi)
 {
+	struct omapfb_plane_struct *plane = fbi->par;
+	struct omapfb_device *fbdev = plane->fbdev;
+	int r = 0;
+
+	omapfb_rqueue_lock(fbdev);
 	set_fb_fix(fbi);
-	return ctrl_change_mode(fbi);
+	r = ctrl_change_mode(fbi);
+	omapfb_rqueue_unlock(fbdev);
+
+	return r;
 }
 
 int omapfb_update_window_async(struct fb_info *fbi,
@@ -631,18 +699,13 @@ int omapfb_update_window_async(struct fb_info *fbi,
 				void (*callback)(void *),
 				void *callback_data)
 {
-	struct omapfb_plane_struct *plane;
-	struct omapfb_device *fbdev;
+	struct omapfb_plane_struct *plane = fbi->par;
+	struct omapfb_device *fbdev = plane->fbdev;
 	struct fb_var_screeninfo *var;
 
-	if (!fbi)
-		return -EINVAL;
-
-	plane = fbi->par;
-	fbdev = plane->fbdev;
 	var = &fbi->var;
-
-	if (win->x >= var->xres || win->y >= var->yres)
+	if (win->x >= var->xres || win->y >= var->yres ||
+	    win->out_x > var->xres || win->out_y >= var->yres)
 		return -EINVAL;
 
 	if (!fbdev->ctrl->update_window ||
@@ -653,7 +716,12 @@ int omapfb_update_window_async(struct fb_info *fbi,
 		win->width = var->xres - win->x;
 	if (win->y + win->height >= var->yres)
 		win->height = var->yres - win->y;
-	if (!win->width || !win->height)
+	/* The out sizes should be cropped to the LCD size */
+	if (win->out_x + win->out_width > fbdev->panel->x_res)
+		win->out_width = fbdev->panel->x_res - win->out_x;
+	if (win->out_y + win->out_height > fbdev->panel->y_res)
+		win->out_height = fbdev->panel->y_res - win->out_y;
+	if (!win->width || !win->height || !win->out_width || !win->out_height)
 		return 0;
 
 	return fbdev->ctrl->update_window(fbi, win, callback, callback_data);
@@ -702,17 +770,38 @@ static int omapfb_setup_plane(struct fb_info *fbi, struct omapfb_plane_info *pi)
 	struct omapfb_plane_struct *plane = fbi->par;
 	struct omapfb_device *fbdev = plane->fbdev;
 	struct lcd_panel *panel = fbdev->panel;
-	int r;
+	struct omapfb_plane_info old_info;
+	int r = 0;
 
 	if (pi->pos_x + pi->out_width > panel->x_res ||
 	    pi->pos_y + pi->out_height > panel->y_res)
 		return -EINVAL;
 
+	omapfb_rqueue_lock(fbdev);
+	if (pi->enabled && !fbdev->mem_desc.region[plane->idx].size) {
+		/* This plane's memory was freed, can't enable it
+		 * until it's reallocated.
+		 */
+		r = -EINVAL;
+		goto out;
+	}
+	old_info = plane->info;
 	plane->info = *pi;
-	r = ctrl_change_mode(fbi);
-	if (r < 0)
-		return r;
-	return fbdev->ctrl->enable_plane(plane->idx, pi->enabled);
+	if (pi->enabled) {
+		r = ctrl_change_mode(fbi);
+		if (r < 0) {
+			plane->info = old_info;
+			goto out;
+		}
+	}
+	r = fbdev->ctrl->enable_plane(plane->idx, pi->enabled);
+	if (r < 0) {
+		plane->info = old_info;
+		goto out;
+	}
+out:
+	omapfb_rqueue_unlock(fbdev);
+	return r;
 }
 
 static int omapfb_query_plane(struct fb_info *fbi, struct omapfb_plane_info *pi)
@@ -720,6 +809,92 @@ static int omapfb_query_plane(struct fb_info *fbi, struct omapfb_plane_info *pi)
 	struct omapfb_plane_struct *plane = fbi->par;
 
 	*pi = plane->info;
+	return 0;
+}
+
+static int omapfb_setup_mem(struct fb_info *fbi, struct omapfb_mem_info *mi)
+{
+	struct omapfb_plane_struct *plane = fbi->par;
+	struct omapfb_device *fbdev = plane->fbdev;
+	struct omapfb_mem_region *rg = &fbdev->mem_desc.region[plane->idx];
+	size_t size;
+	int r = 0;
+
+	if (fbdev->ctrl->setup_mem == NULL)
+		return -ENODEV;
+	if (mi->type > OMAPFB_MEMTYPE_MAX)
+		return -EINVAL;
+
+	size = PAGE_ALIGN(mi->size);
+	omapfb_rqueue_lock(fbdev);
+	if (plane->info.enabled) {
+		r = -EBUSY;
+		goto out;
+	}
+	if (rg->size != size || rg->type != mi->type) {
+		struct fb_var_screeninfo *new_var = &fbdev->new_var;
+		unsigned long old_size = rg->size;
+		u8	      old_type = rg->type;
+		unsigned long paddr;
+
+		rg->size = size;
+		rg->type = mi->type;
+		/* size == 0 is a special case, for which we
+		 * don't check / adjust the screen parameters.
+		 * This isn't a problem since the plane can't
+		 * be reenabled unless its size is > 0.
+		 */
+		if (old_size != size && size) {
+			if (size) {
+				memcpy(new_var, &fbi->var, sizeof(*new_var));
+				r = set_fb_var(fbi, new_var);
+				if (r < 0)
+					goto out;
+			}
+		}
+
+		if (fbdev->ctrl->sync)
+			fbdev->ctrl->sync();
+		r = fbdev->ctrl->setup_mem(plane->idx, size, mi->type, &paddr);
+		if (r < 0) {
+			/* Revert changes. */
+			rg->size = old_size;
+			rg->type = old_type;
+			goto out;
+		}
+		rg->paddr = paddr;
+
+		if (old_size != size) {
+			if (size) {
+				memcpy(&fbi->var, new_var, sizeof(fbi->var));
+				set_fb_fix(fbi);
+			} else {
+				/* Set these explicitly to indicate that the
+				 * plane memory is dealloce'd, the other
+				 * screen parameters in var / fix are invalid.
+				 */
+				fbi->fix.smem_start = 0;
+				fbi->fix.smem_len = 0;
+			}
+		}
+	}
+out:
+	omapfb_rqueue_unlock(fbdev);
+
+	return r;
+}
+
+static int omapfb_query_mem(struct fb_info *fbi, struct omapfb_mem_info *mi)
+{
+	struct omapfb_plane_struct *plane = fbi->par;
+	struct omapfb_device *fbdev = plane->fbdev;
+	struct omapfb_mem_region *rg;
+
+	rg = &fbdev->mem_desc.region[plane->idx];
+	memset(mi, 0, sizeof(*mi));
+	mi->size = rg->size;
+	mi->type = rg->type;
+
 	return 0;
 }
 
@@ -839,14 +1014,12 @@ static enum omapfb_update_mode omapfb_get_update_mode(struct omapfb_device *fbde
 	return r;
 }
 
-static unsigned long omapfb_get_caps(struct omapfb_device *fbdev)
+static void omapfb_get_caps(struct omapfb_device *fbdev, int plane,
+				     struct omapfb_caps *caps)
 {
-	unsigned long caps;
-
-	caps = 0;
-	caps |= fbdev->panel->get_caps(fbdev->panel);
-	caps |= fbdev->ctrl->get_caps();
-	return caps;
+	memset(caps, 0, sizeof(*caps));
+	fbdev->ctrl->get_caps(plane, caps);
+	caps->ctrl |= fbdev->panel->get_caps(fbdev->panel);
 }
 
 /* For lcd testing */
@@ -857,11 +1030,11 @@ void omapfb_write_first_pixel(struct omapfb_device *fbdev, u16 pixval)
 	if (fbdev->ctrl->get_update_mode() == OMAPFB_MANUAL_UPDATE) {
 		struct omapfb_update_window win;
 
-		win.x = 0;
-		win.y = 0;
-		win.width = 1;
-		win.height = 1;
-		win.format = 0;
+		memset(&win, 0, sizeof(win));
+		win.width = 2;
+		win.height = 2;
+		win.out_width = 2;
+		win.out_height = 2;
 		fbdev->ctrl->update_window(fbdev->fb_info[0], &win, NULL, 0);
 	}
 	omapfb_rqueue_unlock(fbdev);
@@ -880,9 +1053,10 @@ static int omapfb_ioctl(struct fb_info *fbi, unsigned int cmd,
 	union {
 		struct omapfb_update_window	update_window;
 		struct omapfb_plane_info	plane_info;
+		struct omapfb_mem_info		mem_info;
 		struct omapfb_color_key		color_key;
 		enum omapfb_update_mode		update_mode;
-		unsigned long		caps;
+		struct omapfb_caps		caps;
 		unsigned int		mirror;
 		int			plane_out;
 		int			enable_plane;
@@ -920,8 +1094,13 @@ static int omapfb_ioctl(struct fb_info *fbi, unsigned int cmd,
 				   sizeof(struct omapfb_update_window_old)))
 			r = -EFAULT;
 		else {
-			p.update_window.format = 0;
-			r = omapfb_update_win(fbi, &p.update_window);
+			struct omapfb_update_window *u = &p.update_window;
+			u->out_x = u->x;
+			u->out_y = u->y;
+			u->out_width = u->width;
+			u->out_height = u->height;
+			memset(u->reserved, 0, sizeof(u->reserved));
+			r = omapfb_update_win(fbi, u);
 		}
 		break;
 	case OMAPFB_UPDATE_WINDOW:
@@ -945,6 +1124,20 @@ static int omapfb_ioctl(struct fb_info *fbi, unsigned int cmd,
 				   sizeof(p.plane_info)))
 			r = -EFAULT;
 		break;
+	case OMAPFB_SETUP_MEM:
+		if (copy_from_user(&p.mem_info, (void __user *)arg,
+				   sizeof(p.mem_info)))
+			r = -EFAULT;
+		else
+			r = omapfb_setup_mem(fbi, &p.mem_info);
+		break;
+	case OMAPFB_QUERY_MEM:
+		if ((r = omapfb_query_mem(fbi, &p.mem_info)) < 0)
+			break;
+		if (copy_to_user((void __user *)arg, &p.mem_info,
+				   sizeof(p.mem_info)))
+			r = -EFAULT;
+		break;
 	case OMAPFB_SET_COLOR_KEY:
 		if (copy_from_user(&p.color_key, (void __user *)arg,
 				   sizeof(p.color_key)))
@@ -960,8 +1153,8 @@ static int omapfb_ioctl(struct fb_info *fbi, unsigned int cmd,
 			r = -EFAULT;
 		break;
 	case OMAPFB_GET_CAPS:
-		p.caps = omapfb_get_caps(fbdev);
-		if (put_user(p.caps, (unsigned long __user *)arg))
+		omapfb_get_caps(fbdev, plane->idx, &p.caps);
+		if (copy_to_user((void __user *)arg, &p.caps, sizeof(p.caps)))
 			r = -EFAULT;
 		break;
 	case OMAPFB_LCD_TEST:
@@ -1001,6 +1194,19 @@ static int omapfb_ioctl(struct fb_info *fbi, unsigned int cmd,
 	return r;
 }
 
+static int omapfb_mmap(struct fb_info *info, struct vm_area_struct *vma)
+{
+	struct omapfb_plane_struct *plane = info->par;
+	struct omapfb_device *fbdev = plane->fbdev;
+	int r;
+
+	omapfb_rqueue_lock(fbdev);
+	r = fbdev->ctrl->mmap(info, vma);
+	omapfb_rqueue_unlock(fbdev);
+
+	return r;
+}
+
 /* Callback table for the frame buffer framework. Some of these pointers
  * will be changed according to the current setting of fb_info->accel_flags.
  */
@@ -1027,28 +1233,67 @@ static struct fb_ops omapfb_ops = {
  * ---------------------------------------------------------------------------
  */
 /* omapfbX sysfs entries */
-static ssize_t omapfb_show_caps_num(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t omapfb_show_caps_num(struct device *dev,
+				    struct device_attribute *attr, char *buf)
 {
 	struct omapfb_device *fbdev = (struct omapfb_device *)dev->driver_data;
+	int plane;
+	size_t size;
+	struct omapfb_caps caps;
 
-	return snprintf(buf, PAGE_SIZE, "%#010lx\n", omapfb_get_caps(fbdev));
+	plane = 0;
+	size = 0;
+	while (size < PAGE_SIZE && plane < OMAPFB_PLANE_NUM) {
+		omapfb_get_caps(fbdev, plane, &caps);
+		size += snprintf(&buf[size], PAGE_SIZE - size,
+			"plane#%d %#010x %#010x %#010x\n",
+			plane, caps.ctrl, caps.plane_color, caps.wnd_color);
+		plane++;
+	}
+	return size;
 }
 
-static ssize_t omapfb_show_caps_text(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t omapfb_show_caps_text(struct device *dev,
+				     struct device_attribute *attr, char *buf)
 {
 	struct omapfb_device *fbdev = (struct omapfb_device *)dev->driver_data;
-	int pos = 0;
 	int i;
-	unsigned long caps;
+	struct omapfb_caps caps;
+	int plane;
+	size_t size;
 
-	caps = omapfb_get_caps(fbdev);
-	for (i = 0; i < ARRAY_SIZE(omapfb_caps_table) && pos < PAGE_SIZE; i++) {
-		if (omapfb_caps_table[i].flag & caps) {
-			pos += snprintf(&buf[pos], PAGE_SIZE - pos, "%s\n",
-					omapfb_caps_table[i].name);
+	plane = 0;
+	size = 0;
+	while (size < PAGE_SIZE && plane < OMAPFB_PLANE_NUM) {
+		omapfb_get_caps(fbdev, plane, &caps);
+		size += snprintf(&buf[size], PAGE_SIZE - size,
+				 "plane#%d:\n", plane);
+		for (i = 0; i < ARRAY_SIZE(ctrl_caps) &&
+		     size < PAGE_SIZE; i++) {
+			if (ctrl_caps[i].flag & caps.ctrl)
+				size += snprintf(&buf[size], PAGE_SIZE - size,
+					" %s\n", ctrl_caps[i].name);
 		}
+		size += snprintf(&buf[size], PAGE_SIZE - size,
+				 " plane colors:\n");
+		for (i = 0; i < ARRAY_SIZE(color_caps) &&
+		     size < PAGE_SIZE; i++) {
+			if (color_caps[i].flag & caps.plane_color)
+				size += snprintf(&buf[size], PAGE_SIZE - size,
+					"  %s\n", color_caps[i].name);
+		}
+		size += snprintf(&buf[size], PAGE_SIZE - size,
+				 " window colors:\n");
+		for (i = 0; i < ARRAY_SIZE(color_caps) &&
+		     size < PAGE_SIZE; i++) {
+			if (color_caps[i].flag & caps.wnd_color)
+				size += snprintf(&buf[size], PAGE_SIZE - size,
+					"  %s\n", color_caps[i].name);
+		}
+
+		plane++;
 	}
-	return min((int)PAGE_SIZE, pos);
+	return size;
 }
 
 static DEVICE_ATTR(caps_num, 0444, omapfb_show_caps_num, NULL);
@@ -1195,8 +1440,7 @@ static void omapfb_unregister_sysfs(struct omapfb_device *fbdev)
 /* Initialize system fb_info object and set the default video mode.
  * The frame buffer memory already allocated by lcddma_init
  */
-static int fbinfo_init(struct omapfb_device *fbdev, struct fb_info *info,
-			struct omapfb_mem_region *region)
+static int fbinfo_init(struct omapfb_device *fbdev, struct fb_info *info)
 {
 	struct fb_var_screeninfo	*var = &info->var;
 	struct fb_fix_screeninfo	*fix = &info->fix;
@@ -1206,10 +1450,6 @@ static int fbinfo_init(struct omapfb_device *fbdev, struct fb_info *info,
 	info->flags = FBINFO_FLAG_DEFAULT;
 
 	strncpy(fix->id, MODULE_NAME, sizeof(fix->id));
-
-	info->screen_base	= (char __iomem *)region->vaddr;
-	fix->smem_start		= region->paddr;
-	fix->smem_len		= region->size;
 
 	info->pseudo_palette = fbdev->pseudo_palette;
 
@@ -1271,8 +1511,7 @@ static int planes_init(struct omapfb_device *fbdev)
 		plane->info.mirror = def_mirror;
 		fbdev->fb_info[i] = fbi;
 
-		if ((r = fbinfo_init(fbdev, fbi,
-					&fbdev->mem_desc.region[i])) < 0) {
+		if ((r = fbinfo_init(fbdev, fbi)) < 0) {
 			framebuffer_release(fbi);
 			planes_cleanup(fbdev);
 			return r;
@@ -1446,6 +1685,8 @@ static int omapfb_do_probe(struct platform_device *pdev, struct lcd_panel *panel
 	r = ctrl_init(fbdev);
 	if (r)
 		goto cleanup;
+	if (fbdev->ctrl->mmap != NULL)
+		omapfb_ops.fb_mmap = omapfb_mmap;
 	init_state++;
 
 	check_required_callbacks(fbdev);
