@@ -48,6 +48,7 @@
 #endif
 #include <sound/driver.h>
 #include <sound/core.h>
+#include <sound/pcm.h>
 
 #include <asm/arch/omap-alsa.h>
 #include "omap-alsa-dma.h"
@@ -135,8 +136,8 @@ static int audio_dma_free(struct audio_stream *s)
  */
 static u_int audio_get_dma_pos(struct audio_stream *s)
 {
-	snd_pcm_substream_t *substream = s->stream;
-	snd_pcm_runtime_t *runtime = substream->runtime;
+	struct snd_pcm_substream *substream = s->stream;
+	struct snd_pcm_runtime *runtime = substream->runtime;
 	unsigned int offset;
 	unsigned long flags;
 	dma_addr_t count;
@@ -185,8 +186,8 @@ static void audio_stop_dma(struct audio_stream *s)
  */
 static void audio_process_dma(struct audio_stream *s)
 {
-	snd_pcm_substream_t *substream = s->stream;
-	snd_pcm_runtime_t *runtime;
+	struct snd_pcm_substream *substream = s->stream;
+	struct snd_pcm_runtime *runtime;
 	unsigned int dma_size;
 	unsigned int offset;
 	int ret;
@@ -250,7 +251,7 @@ void callback_omap_alsa_sound_dma(void *data)
  * Alsa section
  * PCM settings and callbacks
  */
-static int snd_omap_alsa_trigger(snd_pcm_substream_t * substream, int cmd)
+static int snd_omap_alsa_trigger(struct snd_pcm_substream * substream, int cmd)
 {
 	struct snd_card_omap_codec *chip =
 	    snd_pcm_substream_chip(substream);
@@ -280,10 +281,10 @@ static int snd_omap_alsa_trigger(snd_pcm_substream_t * substream, int cmd)
 	return err;
 }
 
-static int snd_omap_alsa_prepare(snd_pcm_substream_t * substream)
+static int snd_omap_alsa_prepare(struct snd_pcm_substream * substream)
 {
 	struct snd_card_omap_codec *chip = snd_pcm_substream_chip(substream);
-	snd_pcm_runtime_t *runtime = substream->runtime;
+	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct audio_stream *s = &chip->s[substream->pstr->stream];
 	
 	ADEBUG();
@@ -297,7 +298,7 @@ static int snd_omap_alsa_prepare(snd_pcm_substream_t * substream)
 	return 0;
 }
 
-static snd_pcm_uframes_t snd_omap_alsa_pointer(snd_pcm_substream_t *substream)
+static snd_pcm_uframes_t snd_omap_alsa_pointer(struct snd_pcm_substream *substream)
 {
 	struct snd_card_omap_codec *chip = snd_pcm_substream_chip(substream);
 
@@ -305,11 +306,11 @@ static snd_pcm_uframes_t snd_omap_alsa_pointer(snd_pcm_substream_t *substream)
 	return audio_get_dma_pos(&chip->s[substream->pstr->stream]);
 }
 
-static int snd_card_omap_alsa_open(snd_pcm_substream_t * substream)
+static int snd_card_omap_alsa_open(struct snd_pcm_substream * substream)
 {
 	struct snd_card_omap_codec *chip =
 	    snd_pcm_substream_chip(substream);
-	snd_pcm_runtime_t *runtime = substream->runtime;
+	struct snd_pcm_runtime *runtime = substream->runtime;
 	int stream_id = substream->pstr->stream;
 	int err;
 	
@@ -334,7 +335,7 @@ static int snd_card_omap_alsa_open(snd_pcm_substream_t * substream)
 	return 0;
 }
 
-static int snd_card_omap_alsa_close(snd_pcm_substream_t * substream)
+static int snd_card_omap_alsa_close(struct snd_pcm_substream * substream)
 {
 	struct snd_card_omap_codec *chip = snd_pcm_substream_chip(substream);
 	
@@ -346,20 +347,20 @@ static int snd_card_omap_alsa_close(snd_pcm_substream_t * substream)
 }
 
 /* HW params & free */
-static int snd_omap_alsa_hw_params(snd_pcm_substream_t * substream,
-				    snd_pcm_hw_params_t * hw_params)
+static int snd_omap_alsa_hw_params(struct snd_pcm_substream * substream,
+				   struct snd_pcm_hw_params * hw_params)
 {
 	return snd_pcm_lib_malloc_pages(substream,
 					params_buffer_bytes(hw_params));
 }
 
-static int snd_omap_alsa_hw_free(snd_pcm_substream_t * substream)
+static int snd_omap_alsa_hw_free(struct snd_pcm_substream * substream)
 {
 	return snd_pcm_lib_free_pages(substream);
 }
 
 /* pcm operations */
-static snd_pcm_ops_t snd_card_omap_alsa_playback_ops = {
+static struct snd_pcm_ops snd_card_omap_alsa_playback_ops = {
 	.open =		snd_card_omap_alsa_open,
 	.close =	snd_card_omap_alsa_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -370,7 +371,7 @@ static snd_pcm_ops_t snd_card_omap_alsa_playback_ops = {
 	.pointer =	snd_omap_alsa_pointer,
 };
 
-static snd_pcm_ops_t snd_card_omap_alsa_capture_ops = {
+static struct snd_pcm_ops snd_card_omap_alsa_capture_ops = {
 	.open =		snd_card_omap_alsa_open,
 	.close =	snd_card_omap_alsa_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -389,7 +390,7 @@ static snd_pcm_ops_t snd_card_omap_alsa_capture_ops = {
 static int __init snd_card_omap_alsa_pcm(struct snd_card_omap_codec *omap_alsa, 
 					int device)
 {
-	snd_pcm_t *pcm;
+	struct snd_pcm *pcm;
 	int err;
 	
 	ADEBUG();
@@ -432,7 +433,7 @@ static int __init snd_card_omap_alsa_pcm(struct snd_card_omap_codec *omap_alsa,
 int snd_omap_alsa_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	struct snd_card_omap_codec *chip;
-	snd_card_t *card = platform_get_drvdata(pdev);
+	struct snd_card *card = platform_get_drvdata(pdev);
 	
 	if (card->power_state != SNDRV_CTL_POWER_D3hot) {
 		chip = card->private_data;
@@ -450,7 +451,7 @@ int snd_omap_alsa_suspend(struct platform_device *pdev, pm_message_t state)
 int snd_omap_alsa_resume(struct platform_device *pdev)
 {
 	struct snd_card_omap_codec *chip;
-	snd_card_t *card = platform_get_drvdata(pdev);
+	struct snd_card *card = platform_get_drvdata(pdev);
 
 	if (card->power_state != SNDRV_CTL_POWER_D0) {				
 		chip = card->private_data;
@@ -465,7 +466,7 @@ int snd_omap_alsa_resume(struct platform_device *pdev)
 
 #endif	/* CONFIG_PM */
 
-void snd_omap_alsa_free(snd_card_t * card)
+void snd_omap_alsa_free(struct snd_card * card)
 {
 	struct snd_card_omap_codec *chip = card->private_data;
 	ADEBUG();
@@ -494,7 +495,7 @@ int snd_omap_alsa_post_probe(struct platform_device *pdev, struct omap_alsa_code
 {
 	int err = 0;
 	int def_rate;
-	snd_card_t *card;
+	struct snd_card *card;
 	
 	ADEBUG();
 	alsa_codec_config	= config;
@@ -565,7 +566,7 @@ nodev1:
 
 int snd_omap_alsa_remove(struct platform_device *pdev)
 {
-	snd_card_t *card = platform_get_drvdata(pdev);
+	struct snd_card *card = platform_get_drvdata(pdev);
 	struct snd_card_omap_codec *chip = card->private_data;
 	
 	snd_card_free(card);

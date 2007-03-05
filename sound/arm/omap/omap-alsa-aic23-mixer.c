@@ -139,7 +139,8 @@ u16 snd_sidetone[6] = {
 
 /* Begin Bool Functions */
 
-static int snd_omap_info_bool(snd_kcontrol_t *kcontrol, snd_ctl_elem_info_t * uinfo)
+static int snd_omap_info_bool(struct snd_kcontrol *kcontrol,
+			      struct snd_ctl_elem_info * uinfo)
 {
 	uinfo->type = SNDRV_CTL_ELEM_TYPE_BOOLEAN;
 	uinfo->count = 1;
@@ -149,8 +150,8 @@ static int snd_omap_info_bool(snd_kcontrol_t *kcontrol, snd_ctl_elem_info_t * ui
 	return 0;
 }
 
-static int snd_omap_get_bool(snd_kcontrol_t * kcontrol,
-				 snd_ctl_elem_value_t * ucontrol)
+static int snd_omap_get_bool(struct snd_kcontrol * kcontrol,
+			     struct snd_ctl_elem_value * ucontrol)
 {
 	int mic_index = (kcontrol->private_value >> 8) & 0x03;
 	u16 mask = (kcontrol->private_value >> 12) & 0xff;
@@ -166,8 +167,8 @@ static int snd_omap_get_bool(snd_kcontrol_t * kcontrol,
 	return 0;
 }
 
-static int snd_omap_put_bool(snd_kcontrol_t * kcontrol,
-				 snd_ctl_elem_value_t * ucontrol)
+static int snd_omap_put_bool(struct snd_kcontrol * kcontrol,
+			     struct snd_ctl_elem_value * ucontrol)
 {
 	int mic_index = (kcontrol->private_value >> 8) & 0x03;
 	u16 mask = (kcontrol->private_value >> 12) & 0xff;
@@ -196,8 +197,8 @@ static int snd_omap_put_bool(snd_kcontrol_t * kcontrol,
 
 /* Begin Mux Functions */
 
-static int snd_omap_info_mux(snd_kcontrol_t *kcontrol,
-				 snd_ctl_elem_info_t * uinfo)
+static int snd_omap_info_mux(struct snd_kcontrol *kcontrol,
+			     struct snd_ctl_elem_info * uinfo)
 {
 	/* Mic = 0
 	 * Line = 1 */
@@ -216,8 +217,8 @@ static int snd_omap_info_mux(snd_kcontrol_t *kcontrol,
 	return 0;
 }
 
-static int snd_omap_get_mux(snd_kcontrol_t * kcontrol,
-				snd_ctl_elem_value_t * ucontrol)
+static int snd_omap_get_mux(struct snd_kcontrol * kcontrol,
+			    struct snd_ctl_elem_value * ucontrol)
 {
 	u16 mask = (kcontrol->private_value >> 10) & 0xff;
 	int mux_index = (kcontrol->private_value >> 8) & 0x03;
@@ -228,8 +229,8 @@ static int snd_omap_get_mux(snd_kcontrol_t * kcontrol,
 	return 0;
 }
 
-static int snd_omap_put_mux(snd_kcontrol_t * kcontrol,
-				snd_ctl_elem_value_t * ucontrol)
+static int snd_omap_put_mux(struct snd_kcontrol * kcontrol,
+			    struct snd_ctl_elem_value * ucontrol)
 {
 	u16 reg = kcontrol->private_value & 0xff;
 	u16 mask = (kcontrol->private_value >> 10) & 0xff;
@@ -251,8 +252,8 @@ static int snd_omap_put_mux(snd_kcontrol_t * kcontrol,
 
 /* Begin Single Functions */
 
-static int snd_omap_info_single(snd_kcontrol_t *kcontrol,
-				snd_ctl_elem_info_t * uinfo)
+static int snd_omap_info_single(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_info * uinfo)
 {
 	int mask = (kcontrol->private_value >> 18) & 0xff;
 	int reg_val = (kcontrol->private_value >> 8) & 0xff;
@@ -266,8 +267,8 @@ static int snd_omap_info_single(snd_kcontrol_t *kcontrol,
 	return 0;
 }
 
-static int snd_omap_get_single(snd_kcontrol_t * kcontrol,
-					snd_ctl_elem_value_t * ucontrol)
+static int snd_omap_get_single(struct snd_kcontrol * kcontrol,
+			       struct snd_ctl_elem_value * ucontrol)
 {
 	u16 reg_val = (kcontrol->private_value >> 8) & 0xff;
 
@@ -276,8 +277,8 @@ static int snd_omap_get_single(snd_kcontrol_t * kcontrol,
 	return 0;
 }
 
-static int snd_omap_put_single(snd_kcontrol_t * kcontrol,
-					snd_ctl_elem_value_t * ucontrol)
+static int snd_omap_put_single(struct snd_kcontrol * kcontrol,
+			       struct snd_ctl_elem_value * ucontrol)
 {
 	u16 reg_index = (kcontrol->private_value >> 16) & 0x03;
 	u16 mask = (kcontrol->private_value >> 18) & 0x1ff;
@@ -308,8 +309,8 @@ static int snd_omap_put_single(snd_kcontrol_t * kcontrol,
 
 /* Begin Double Functions */
 
-static int snd_omap_info_double(snd_kcontrol_t *kcontrol,
-				snd_ctl_elem_info_t * uinfo)
+static int snd_omap_info_double(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_info * uinfo)
 {
 	/* mask == 0 : Switch
 	 * mask != 0 : Volume */
@@ -324,7 +325,8 @@ static int snd_omap_info_double(snd_kcontrol_t *kcontrol,
 	return 0;
 }
 
-static int snd_omap_get_double(snd_kcontrol_t * kcontrol, snd_ctl_elem_value_t * ucontrol)
+static int snd_omap_get_double(struct snd_kcontrol * kcontrol,
+			       struct snd_ctl_elem_value * ucontrol)
 {
 	/* mask == 0 : Switch
 	 * mask != 0 : Volume */
@@ -343,7 +345,8 @@ static int snd_omap_get_double(snd_kcontrol_t * kcontrol, snd_ctl_elem_value_t *
 	return 0;
 }
 
-static int snd_omap_put_double(snd_kcontrol_t * kcontrol, snd_ctl_elem_value_t * ucontrol)
+static int snd_omap_put_double(struct snd_kcontrol * kcontrol,
+			       struct snd_ctl_elem_value * ucontrol)
 {
 	/* mask == 0 : Switch
 	 * mask != 0 : Volume */
@@ -393,7 +396,7 @@ static int snd_omap_put_double(snd_kcontrol_t * kcontrol, snd_ctl_elem_value_t *
 
 /* End Double Functions */
 
-static snd_kcontrol_new_t snd_omap_controls[] = {
+static struct snd_kcontrol_new snd_omap_controls[] = {
 	OMAP_DOUBLE("PCM Playback Switch", 0, LEFT_CHANNEL_VOLUME_ADDR, RIGHT_CHANNEL_VOLUME_ADDR,
 		     PCM_INDEX, 0x00),
 	OMAP_DOUBLE("PCM Playback Volume", 0, LEFT_CHANNEL_VOLUME_ADDR, RIGHT_CHANNEL_VOLUME_ADDR,
@@ -475,7 +478,7 @@ void snd_omap_init_mixer(void)
 
 int snd_omap_mixer(struct snd_card_omap_codec *chip)
 {
-	snd_card_t *card;
+	struct snd_card *card;
 	unsigned int idx;
 	int err;
 
