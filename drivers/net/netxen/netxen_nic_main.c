@@ -42,8 +42,6 @@
 #include <linux/dma-mapping.h>
 #include <linux/vmalloc.h>
 
-#define PHAN_VENDOR_ID 0x4040
-
 MODULE_DESCRIPTION("NetXen Multi port (1/10) Gigabit Network Driver");
 MODULE_LICENSE("GPL");
 MODULE_VERSION(NETXEN_NIC_LINUX_VERSIONID);
@@ -379,6 +377,8 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		netdev->tx_timeout = netxen_tx_timeout;
 		netdev->watchdog_timeo = HZ;
 
+		netxen_nic_change_mtu(netdev, netdev->mtu);
+
 		SET_ETHTOOL_OPS(netdev, &netxen_nic_ethtool_ops);
 		netdev->poll = netxen_nic_poll;
 		netdev->weight = NETXEN_NETDEV_WEIGHT;
@@ -434,13 +434,11 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		adapter->port_count++;
 		adapter->port[i] = port;
 	}
-#ifndef CONFIG_PPC64
 	writel(0, NETXEN_CRB_NORMALIZE(adapter, CRB_CMDPEG_STATE));
 	netxen_pinit_from_rom(adapter, 0);
 	udelay(500);
 	netxen_load_firmware(adapter);
 	netxen_phantom_init(adapter, NETXEN_NIC_PEG_TUNE);
-#endif
 	/*
 	 * delay a while to ensure that the Pegs are up & running.
 	 * Otherwise, we might see some flaky behaviour.
@@ -529,12 +527,13 @@ static void __devexit netxen_nic_remove(struct pci_dev *pdev)
 		free_irq(adapter->irq, adapter);
 	netxen_nic_stop_all_ports(adapter);
 	/* leave the hw in the same state as reboot */
-	netxen_pinit_from_rom(adapter, 0);
 	writel(0, NETXEN_CRB_NORMALIZE(adapter, CRB_CMDPEG_STATE));
+	netxen_pinit_from_rom(adapter, 0);
+	udelay(500);
 	netxen_load_firmware(adapter);
 	netxen_free_adapter_offload(adapter);
 
-	udelay(500);		/* Delay for a while to drain the DMA engines */
+	mdelay(1000);		/* Delay for a while to drain the DMA engines */
 	for (i = 0; i < adapter->port_count; i++) {
 		port = adapter->port[i];
 		if ((port) && (port->netdev)) {
@@ -545,7 +544,6 @@ static void __devexit netxen_nic_remove(struct pci_dev *pdev)
 
 	if ((adapter->flags & NETXEN_NIC_MSI_ENABLED))
 		pci_disable_msi(pdev);
-	pci_set_drvdata(pdev, NULL);
 	if (adapter->is_up == NETXEN_ADAPTER_UP_MAGIC)
 		netxen_free_hw_resources(adapter);
 
@@ -556,6 +554,7 @@ static void __devexit netxen_nic_remove(struct pci_dev *pdev)
 
 	pci_release_regions(pdev);
 	pci_disable_device(pdev);
+	pci_set_drvdata(pdev, NULL);
 
 	for (ctxid = 0; ctxid < MAX_RCV_CTX; ++ctxid) {
 		recv_ctx = &adapter->recv_ctx[ctxid];
