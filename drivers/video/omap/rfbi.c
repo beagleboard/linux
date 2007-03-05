@@ -213,8 +213,11 @@ static unsigned long rfbi_get_max_tx_rate(void)
 	dss1_rate = clk_get_rate(rfbi.dss1_fck) / 1000000;
 
 	for (i = 0; i < ARRAY_SIZE(ftab); i++) {
-		if (ftab[i].l4_clk == l4_rate &&
-		    ftab[i].dss1_clk == dss1_rate) {
+		/* Use a window instead of an exact match, to account
+		 * for different DPLL multiplier / divider pairs.
+		 */
+		if (abs(ftab[i].l4_clk - l4_rate) < 3 &&
+		    abs(ftab[i].dss1_clk - dss1_rate) < 3) {
 			min_l4_ticks = ftab[i].min_l4_ticks;
 			break;
 		}
