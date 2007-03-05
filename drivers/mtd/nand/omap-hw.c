@@ -824,7 +824,6 @@ static int __init omap_nand_init(void)
 		this->ecc.steps = 1;
 		this->ecc.size = 2048;
 		this->ecc.bytes = 12;
-		omap_mtd->eccsize = 2048;
 		nand_write_reg(NND_ECC_SELECT, 6);
 	}
 
