@@ -1661,10 +1661,6 @@ config FB_VIRTUAL
 
 	  If unsure, say N.
 
-if ARCH_OMAP
-	source "drivers/video/omap/Kconfig"
-endif
-
 if VT
 	source "drivers/video/console/Kconfig"
 endif
