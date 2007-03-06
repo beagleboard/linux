@@ -893,14 +893,15 @@ static int setup_tearsync(unsigned long pix_clk, int extif_div)
 					    hs_pol_inv, vs_pol_inv, extif_div);
 }
 
-static unsigned long hwa742_get_caps(void)
+static void hwa742_get_caps(int plane, struct omapfb_caps *caps)
 {
-	unsigned long caps;
-
-	caps = OMAPFB_CAPS_MANUAL_UPDATE;
+	hwa742.int_ctrl->get_caps(plane, caps);
+	caps->ctrl |= OMAPFB_CAPS_MANUAL_UPDATE |
+		      OMAPFB_CAPS_WINDOW_PIXEL_DOUBLE;
 	if (hwa742.te_connected)
-		caps |= OMAPFB_CAPS_TEARSYNC;
-	return caps;
+		caps->ctrl |= OMAPFB_CAPS_TEARSYNC;
+	caps->wnd_color |= (1 << OMAPFB_COLOR_RGB565) |
+			   (1 << OMAPFB_COLOR_YUV420);
 }
 
 static void hwa742_suspend(void)
