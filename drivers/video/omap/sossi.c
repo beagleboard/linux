@@ -23,7 +23,6 @@
 #include <linux/module.h>
 #include <linux/mm.h>
 #include <linux/clk.h>
-#include <linux/irq.h>
 
 #include <asm/io.h>
 
@@ -662,7 +661,7 @@ static void sossi_cleanup(void)
 	clk_put(sossi.fck);
 }
 
-struct lcd_ctrl_extif omap1_ext_if = {
+struct lcd_ctrl_extif sossi_extif = {
 	.init			= sossi_init,
 	.cleanup		= sossi_cleanup,
 	.get_clk_info		= sossi_get_clk_info,

@@ -9,7 +9,7 @@ config FB_OMAP_LCDC_EXTERNAL
 	depends on FB_OMAP
 	help
 	  Say Y here, if you want to have support for boards with an
-	  external LCD controller connected to the SoSSI/RFBI interface. 
+	  external LCD controller connected to the SoSSI/RFBI interface.
 
 config FB_OMAP_LCDC_HWA742
 	bool "Epson HWA742 LCD controller support"
