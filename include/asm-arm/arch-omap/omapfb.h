@@ -66,6 +66,10 @@
 #define OMAPFB_EVENT_READY	1
 #define OMAPFB_EVENT_DISABLED	2
 
+#define OMAPFB_MEMTYPE_SDRAM		0
+#define OMAPFB_MEMTYPE_SRAM		1
+#define OMAPFB_MEMTYPE_MAX		1
+
 enum omapfb_color_format {
 	OMAPFB_COLOR_RGB565 = 0,
 	OMAPFB_COLOR_YUV422,
@@ -251,6 +255,7 @@ struct omapfb_mem_region {
 	dma_addr_t	paddr;
 	void		*vaddr;
 	unsigned long	size;
+	u8		type;		/* OMAPFB_PLANE_MEM_* */
 	int		alloc:1;
 };
 
