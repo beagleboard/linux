@@ -29,6 +29,7 @@ extern int omap2_clk_init(void);
 extern void omap2_check_revision(void);
 extern void omap2_init_memory(void);
 extern void gpmc_init(void);
+extern void omapfb_reserve_sdram(void);
 
 /*
  * The machine specific code may provide the extra mapping besides the
@@ -94,7 +95,7 @@ void __init omap2_map_common_io(void)
 
 	omap2_check_revision();
 	omap_sram_init();
-	omapfb_reserve_mem();
+	omapfb_reserve_sdram();
 }
 
 void __init omap2_init_common_hw(void)
