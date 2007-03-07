@@ -18,7 +18,6 @@
 #include <linux/sysdev.h>
 #include <linux/err.h>
 #include <linux/clk.h>
-#include <linux/delay.h>
 
 #include <asm/hardware.h>
 #include <asm/irq.h>

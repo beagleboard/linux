@@ -105,7 +105,7 @@ static struct platform_device tahvo_usb_device;
  * OTG related functions
  *
  * These shoud be separated into omap-otg.c driver module, as they are used
- * by various transceivers. These functions are needed in the UDC-only case 
+ * by various transceivers. These functions are needed in the UDC-only case
  * as well. These functions are copied from GPL isp1301_omap.c
  * ---------------------------------------------------------------------------
  */

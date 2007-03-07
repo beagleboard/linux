@@ -91,7 +91,7 @@ static int __init retubutton_init(void)
 	pwrbtn_dev = input_allocate_device();
 	if (!pwrbtn_dev)
 		return -ENOMEM;
-	
+
 	pwrbtn_dev->evbit[0] = BIT(EV_KEY);
 	pwrbtn_dev->keybit[LONG(KEY_POWER)] = BIT(KEY_POWER);
 	pwrbtn_dev->name = "retu-pwrbutton";

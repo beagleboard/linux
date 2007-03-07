@@ -77,7 +77,7 @@ int dsp_kfunc_device_register(struct dsp_kfunc_device *kdev)
 	mutex_init(&kdev->lock);
 
 	mutex_lock(&dsp_pdata_lock);
- 	list_add_tail(&kdev->entry, &dsp_pdata.kdev_list);
+	list_add_tail(&kdev->entry, &dsp_pdata.kdev_list);
 	mutex_unlock(&dsp_pdata_lock);
 
 	return 0;

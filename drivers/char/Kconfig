@@ -703,16 +703,6 @@ config NWFLASH
 
 source "drivers/char/hw_random/Kconfig"
 
-config OMAP_RNG
-	tristate "OMAP Random Number Generator support"
-	depends on ARCH_OMAP16XX || ARCH_OMAP24XX
-	---help---
-	  This driver provides kernel-side support for the Random Number
-	  Generator hardware found on OMAP16xx and OMAP24xx multimedia
-	  processors.
-
-	  If unsure, say N.
-
 config NVRAM
 	tristate "/dev/nvram support"
 	depends on ATARI || X86 || ARM || GENERIC_NVRAM
