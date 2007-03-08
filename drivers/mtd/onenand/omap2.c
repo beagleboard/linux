@@ -80,8 +80,7 @@ static void omap2_onenand_dma_cb(int lch, u16 ch_status, void *data)
 	complete(&info->dma_done);
 }
 
-static irqreturn_t omap2_onenand_interrupt(int irq, void *dev_id,
-					   struct pt_regs *regs)
+static irqreturn_t omap2_onenand_interrupt(int irq, void *dev_id)
 {
 	struct omap2_onenand *info = dev_id;
 
