@@ -516,14 +516,13 @@ int dsp_late_init(void)
 {
 	int ret;
 
-	dsp_clk_autoidle();
+	/*dsp_clk_autoidle();*/
+	dsp_clk_enable();
 
-#ifdef CONFIG_ARCH_OMAP2
-	clk_enable(dsp_fck_handle);
-	clk_enable(dsp_ick_handle);
-	__dsp_per_enable();
-#endif
 	dsp_mem_late_init();
+	ret = dsp_mbox_init();
+	if (ret)
+		goto fail_mbox;
 
 #ifdef CONFIG_ARCH_OMAP1
 	dsp_set_idle_boot_base(IDLEPG_BASE, IDLEPG_SIZE);
@@ -531,9 +530,17 @@ int dsp_late_init(void)
 	ret = dsp_kfunc_enable_devices(omap_dsp,
 				       DSP_KFUNC_DEV_TYPE_COMMON, 0);
 	if (ret == 0)
-		omap_dsp->enabled = 0;
+		goto fail_kfunc;
+
+	omap_dsp->enabled = 1;
 
 	return 0;
+
+fail_kfunc:
+	dsp_mbox_exit();
+fail_mbox:
+	dsp_clk_disable();
+	return ret;
 }
 
 extern int  dsp_ctl_core_init(void);
@@ -590,13 +597,9 @@ static int __init dsp_drv_probe(struct platform_device *pdev)
 	mblog_init();
 	if ((ret = dsp_taskmod_init()) < 0)
 		goto fail4;
-	if ((ret = dsp_mbox_init()) < 0)
-		goto fail5;
 
 	return 0;
 
- fail5:
-	dsp_taskmod_exit();
  fail4:
 	mblog_exit();
 	dsp_ctl_exit();

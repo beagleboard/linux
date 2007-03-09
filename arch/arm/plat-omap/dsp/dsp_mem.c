@@ -330,7 +330,7 @@ void mbox_fbctl_upd(void) { }
 static ssize_t dsp_mem_read(struct file *file, char __user *buf, size_t count,
 			    loff_t *ppos)
 {
-	return __omap_mmu_mem_read(&dsp_mmu, buf, *ppos, count);
+	return __omap_mmu_mem_read(&dsp_mmu, (char __user *)buf, *ppos, count);
 }
 
 static ssize_t dsp_mem_write(struct file *file, const char __user *buf,

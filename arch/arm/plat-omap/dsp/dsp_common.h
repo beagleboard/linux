@@ -156,6 +156,31 @@ static inline void dsp_clk_autoidle(void)
 }
 #endif
 
+#if defined(CONFIG_ARCH_OMAP1)
+static inline void dsp_clk_enable(void) {}
+static inline void dsp_clk_disable(void) {}
+#elif defined(CONFIG_ARCH_OMAP2)
+static inline void dsp_clk_enable(void)
+{
+	/*XXX should be handled in mach-omap[1,2] XXX*/
+	PM_PWSTCTRL_DSP = (1 << 18) | (1 << 0);
+	CM_AUTOIDLE_DSP |= (1 << 1);
+	CM_CLKSTCTRL_DSP |= (1 << 0);
+
+	clk_enable(dsp_fck_handle);
+	clk_enable(dsp_ick_handle);
+	__dsp_per_enable();
+}
+static inline void dsp_clk_disable(void)
+{
+	__dsp_per_disable();
+	clk_disable(dsp_ick_handle);
+	clk_disable(dsp_fck_handle);
+
+	PM_PWSTCTRL_DSP = (1 << 18) | (3 << 0);
+}
+#endif
+
 struct dsp_kfunc_device {
 	char		*name;
 	struct clk	*fck;
