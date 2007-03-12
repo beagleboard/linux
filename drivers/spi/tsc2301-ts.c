@@ -629,19 +629,23 @@ int __devinit tsc2301_ts_init(struct tsc2301 *tsc,
 	}
 	set_irq_wake(ts->irq, 1);
 
-	device_create_file(&tsc->spi->dev, &dev_attr_pen_down);
-	device_create_file(&tsc->spi->dev, &dev_attr_disable_ts);
+	if (device_create_file(&tsc->spi->dev, &dev_attr_pen_down) < 0)
+		goto err4;
+	if (device_create_file(&tsc->spi->dev, &dev_attr_disable_ts) < 0)
+		goto err5;
 
 	r = input_register_device(idev);
 	if (r < 0) {
 		dev_err(&tsc->spi->dev, "can't register touchscreen device\n");
-		goto err4;
+		goto err6;
 	}
 
 	return 0;
-err4:
+err6:
 	device_remove_file(&tsc->spi->dev, &dev_attr_disable_ts);
+err5:
 	device_remove_file(&tsc->spi->dev, &dev_attr_pen_down);
+err4:
 	free_irq(ts->irq, tsc);
 err3:
 	tsc2301_ts_stop_scan(tsc);
