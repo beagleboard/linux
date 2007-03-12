@@ -96,6 +96,7 @@ struct tsc2301 {
 #define TSC2301_REG_KEY		TSC2301_REG(1, 1)
 #define TSC2301_REG_DAC		TSC2301_REG(1, 2)
 #define TSC2301_REG_REF		TSC2301_REG(1, 3)
+#define TSC2301_REG_RESET	TSC2301_REG(1, 4)
 #define TSC2301_REG_CONFIG	TSC2301_REG(1, 5)
 #define TSC2301_REG_CONFIG2	TSC2301_REG(1, 6)
 #define TSC2301_REG_KPMASK	TSC2301_REG(1, 16)
@@ -118,6 +119,7 @@ struct tsc2301 {
 #define TSC2301_REG_PD_MISC_ADPDR	(1 << 8)
 #define TSC2301_REG_PD_MISC_PDSTS	(1 << 7)
 #define TSC2301_REG_PD_MISC_MIBPD	(1 << 6)
+#define TSC2301_REG_PD_MISC_OTSYN	(1 << 2)
 
 /* I2S sample rate */
 #define TSC2301_I2S_SR_48000	0x00
@@ -156,8 +158,6 @@ extern void tsc2301_read_buf(struct tsc2301 *tsc, int reg, u16 *buf, int len);
 extern int  tsc2301_##module##_init(struct tsc2301 *tsc,		\
 			   struct tsc2301_platform_data *pdata);	\
 extern void tsc2301_##module##_exit(struct tsc2301 *tsc);		\
-extern void tsc2301_##module##_prep_for_clk_stop(struct tsc2301 *tsc);	\
-extern void tsc2301_##module##_cont_after_clk_stop(struct tsc2301 *tsc);\
 extern int  tsc2301_##module##_suspend(struct tsc2301 *tsc);		\
 extern void tsc2301_##module##_resume(struct tsc2301 *tsc);
 
@@ -168,10 +168,6 @@ static inline int tsc2301_##module##_init(struct tsc2301 *tsc,		\
 	return 0;							\
 }									\
 static inline void tsc2301_##module##_exit(struct tsc2301 *tsc) {}	\
-static inline void tsc2301_##module##_prep_for_clk_stop			\
-					(struct tsc2301 *tsc) {}	\
-static inline void tsc2301_##module##_cont_after_clk_stop		\
-					(struct tsc2301 *tsc) {}	\
 static inline int  tsc2301_##module##_suspend(struct tsc2301 *tsc)	\
 {									\
 	return 0;							\
@@ -180,8 +176,10 @@ static inline void tsc2301_##module##_resume(struct tsc2301 *tsc) {}
 
 #ifdef CONFIG_SPI_TSC2301_KEYPAD
 TSC2301_DECL_MOD(kp)
+void tsc2301_kp_restart(struct tsc2301 *tsc);
 #else
 TSC2301_DECL_EMPTY_MOD(kp)
+void tsc2301_kp_restart(struct tsc2301 *tsc) {}
 #endif
 
 #ifdef CONFIG_SPI_TSC2301_TOUCHSCREEN
@@ -201,7 +199,7 @@ extern int tsc2301_mixer_register_controls(struct device *tsc_dev,
 TSC2301_DECL_EMPTY_MOD(mixer)
 #endif
 
-extern void tsc2301_enable_mclk(struct device *tsc_dev);
-extern void tsc2301_disable_mclk(struct device *tsc_dev);
+extern void tsc2301_mixer_enable_mclk(struct device *tsc_dev);
+extern void tsc2301_mixer_disable_mclk(struct device *tsc_dev);
 
 #endif

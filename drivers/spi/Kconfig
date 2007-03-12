@@ -167,6 +167,42 @@ config SPI_AT25
 	  This driver can also be built as a module.  If so, the module
 	  will be called at25.
 
+config SPI_TSC2301
+	tristate "TSC2301 driver"
+	depends on SPI_MASTER
+	help
+	  Say Y here if you have a TSC2301 chip connected to an SPI
+	  bus on your board.
+
+	  The TSC2301 is a highly integrated PDA analog interface circuit.
+	  It contains a complete 12-bit A/D resistive touch screen
+	  converter (ADC) including drivers, touch pressure measurement
+	  capability, keypad controller, and 8-bit D/A converter (DAC) output
+	  for LCD contrast control.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called tsc2301.
+
+config SPI_TSC2301_KEYPAD
+	boolean "TSC2301 keypad support"
+	depends on SPI_TSC2301
+	select INPUT_KEYBOARD
+	help
+	  Say Y here for if you are using the keypad features of TSC2301.
+
+config SPI_TSC2301_TOUCHSCREEN
+	boolean "TSC2301 touchscreen support"
+	depends on SPI_TSC2301
+	select INPUT_TOUCHSCREEN
+	help
+	  Say Y here for if you are using the touchscreen features of TSC2301.
+
+config SPI_TSC2301_AUDIO
+	boolean "TSC2301 audio support"
+	depends on SPI_TSC2301 && SND
+	help
+	  Say Y here for if you are using the audio features of TSC2301.
+
 #
 # Add new SPI protocol masters in alphabetical order above this line
 #
