@@ -93,6 +93,14 @@ config SECURITY_ROOTPLUG
 	  
 	  If you are unsure how to answer this question, answer N.
 
+config SECURITY_LOWMEM
+	tristate "Low memory watermark support"
+	depends on SECURITY
+	help
+	  Implements low memory watermark support.
+
+	  If you are unsure how to answer this question, answer N.
+
 source security/selinux/Kconfig
 
 endmenu
