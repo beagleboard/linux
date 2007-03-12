@@ -78,4 +78,12 @@ config CBUS_RETU_WDT
 	  Say Y here if you want support for the watchdog in Retu. This will
 	  expose a sysfs interface to grok it.
 
+config CBUS_RETU_HEADSET
+	depends on CBUS_RETU && SYSFS
+	tristate "Support for headset detection with Retu/Vilma"
+	---help---
+	  Say Y here if you want support detecting a headset that's connected
+	  to Retu/Vilma. Detection state and events are exposed through
+	  sysfs.
+
 endmenu

@@ -40,6 +40,7 @@
 #define RETU_REG_CTRL_SET	0x10	/* Regulator set register */
 #define RETU_REG_STATUS		0x16	/* Status register */
 #define RETU_REG_WATCHDOG	0x17	/* Watchdog register */
+#define RETU_REG_AUDTXR		0x18	/* Audio Codec Tx register */
 #define RETU_REG_MAX		0x1f
 
 /* Interrupt sources */
@@ -49,6 +50,8 @@
 #define RETU_INT_RTCM		3
 #define RETU_INT_RTCD		4
 #define RETU_INT_RTCA		5
+#define RETU_INT_HOOK		6
+#define RETU_INT_HEAD		7
 #define RETU_INT_ADCS		8
 
 #define	MAX_RETU_IRQ_HANDLERS	16
