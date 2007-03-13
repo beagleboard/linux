@@ -650,7 +650,7 @@ static int omap2_mcspi_setup(struct spi_device *spi)
 	return omap2_mcspi_setup_transfer(spi, NULL);
 }
 
-static void omap2_mcspi_cleanup(const struct spi_device *spi)
+static void omap2_mcspi_cleanup(struct spi_device *spi)
 {
 	struct omap2_mcspi * mcspi;
 	struct omap2_mcspi_dma * mcspi_dma;
