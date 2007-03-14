@@ -28,6 +28,9 @@
 #include <linux/mtd/partitions.h>
 #include <linux/input.h>
 #include <linux/workqueue.h>
+#include <linux/spi/spi.h>
+#include <linux/spi/tsc2101.h>
+#include <linux/clk.h>
 
 #include <asm/hardware.h>
 #include <asm/mach-types.h>
@@ -297,6 +300,78 @@ static struct platform_device h2_lcd_device = {
 	.id		= -1,
 };
 
+struct {
+	struct clk	*mclk;
+	int		initialized;
+} h2_tsc2101;
+
+#define TSC2101_MUX_MCLK_ON	R10_1610_MCLK_ON
+#define TSC2101_MUX_MCLK_OFF	R10_1610_MCLK_OFF
+
+static int h2_tsc2101_init(struct spi_device *spi)
+{
+	int r;
+
+	if (h2_tsc2101.initialized) {
+		printk(KERN_ERR "tsc2101: already initialized\n");
+		return -ENODEV;
+	}
+
+	/* Get the MCLK */
+	h2_tsc2101.mclk = clk_get(&spi->dev, "mclk");
+	if (IS_ERR(h2_tsc2101.mclk)) {
+		dev_err(&spi->dev, "unable to get the clock MCLK\n");
+		return PTR_ERR(h2_tsc2101.mclk);
+	}
+	if ((r = clk_set_rate(h2_tsc2101.mclk, 12000000)) < 0) {
+		dev_err(&spi->dev, "unable to set rate to the MCLK\n");
+		goto err;
+	}
+
+	omap_cfg_reg(TSC2101_MUX_MCLK_OFF);
+	omap_cfg_reg(N15_1610_UWIRE_CS1);
+
+	return 0;
+err:
+	clk_put(h2_tsc2101.mclk);
+	return r;
+}
+
+static void h2_tsc2101_cleanup(struct spi_device *spi)
+{
+	clk_put(h2_tsc2101.mclk);
+	omap_cfg_reg(TSC2101_MUX_MCLK_OFF);
+}
+
+static void h2_tsc2101_enable_mclk(struct spi_device *spi)
+{
+	omap_cfg_reg(TSC2101_MUX_MCLK_ON);
+	clk_enable(h2_tsc2101.mclk);
+}
+
+static void h2_tsc2101_disable_mclk(struct spi_device *spi)
+{
+	clk_disable(h2_tsc2101.mclk);
+	omap_cfg_reg(R10_1610_MCLK_OFF);
+}
+
+static struct tsc2101_platform_data h2_tsc2101_platform_data = {
+	.init		= h2_tsc2101_init,
+	.cleanup	= h2_tsc2101_cleanup,
+	.enable_mclk	= h2_tsc2101_enable_mclk,
+	.disable_mclk	= h2_tsc2101_disable_mclk,
+};
+
+static struct spi_board_info h2_spi_board_info[] __initdata = {
+	[0] = {
+		.modalias	= "tsc2101",
+		.bus_num	= 2,
+		.chip_select	= 1,
+		.max_speed_hz	= 16000000,
+		.platform_data	= &h2_tsc2101_platform_data,
+	},
+};
+
 static struct omap_mcbsp_reg_cfg mcbsp_regs = {
 	.spcr2 = FREE | FRST | GRST | XRST | XINTM(3),
 	.spcr1 = RINTM(3) | RRST,
@@ -443,6 +518,8 @@ static void __init h2_init(void)
 #endif
 
 	platform_add_devices(h2_devices, ARRAY_SIZE(h2_devices));
+	spi_register_board_info(h2_spi_board_info,
+				ARRAY_SIZE(h2_spi_board_info));
 	omap_board_config = h2_config;
 	omap_board_config_size = ARRAY_SIZE(h2_config);
 	omap_serial_init();
