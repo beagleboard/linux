@@ -409,7 +409,7 @@ static struct platform_device n800_keypad_led_device = {
 };
 #endif
 
-#if defined(CONFIG_SPI_TSC2301_TOUCHSCREEN)
+#if defined(CONFIG_TOUCHSCREEN_TSC2301)
 static void __init n800_ts_set_config(void)
 {
 	const struct omap_lcd_config *conf;
