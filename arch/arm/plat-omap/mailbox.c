@@ -59,8 +59,8 @@ static int __mbox_msg_send(struct omap_mbox *mbox, mbox_msg_t msg, void *arg)
 		udelay(1);
 	}
 
-	if (mbox->msg_sender_cb && arg) {
-		ret = mbox->msg_sender_cb(arg);
+	if (arg && mbox->txq->callback) {
+		ret = mbox->txq->callback(arg);
 		if (ret)
 			goto out;
 	}
@@ -74,78 +74,113 @@ static int __mbox_msg_send(struct omap_mbox *mbox, mbox_msg_t msg, void *arg)
 int omap_mbox_msg_send(struct omap_mbox *mbox, mbox_msg_t msg, void* arg)
 {
 	struct request *rq;
+	struct request_queue *q = mbox->txq->queue;
 	int ret = 0;
 
-	rq = blk_get_request(mbox->txq, WRITE, GFP_ATOMIC);
+	rq = blk_get_request(q, WRITE, GFP_ATOMIC);
 	if (unlikely(!rq)) {
 		ret = -ENOMEM;
 		goto fail;
 	}
 
 	rq->data = (void *)msg;
-	blk_insert_request(mbox->txq, rq, 0, arg);
+	blk_insert_request(q, rq, 0, arg);
+
+	schedule_work(&mbox->txq->work);
  fail:
 	return ret;
 }
 EXPORT_SYMBOL(omap_mbox_msg_send);
 
+static void mbox_tx_work(struct work_struct *work)
+{
+	int ret;
+	struct request *rq;
+	struct omap_mbox_queue *mq = container_of(work, struct omap_mbox_queue, work);
+	struct omap_mbox *mbox = mq->queue->queuedata;
+	struct request_queue *q = mbox->txq->queue;
+
+	while (1) {
+		spin_lock(q->queue_lock);
+		rq = elv_next_request(q);
+		spin_unlock(q->queue_lock);
+
+		if (!rq)
+			break;
+
+		ret = __mbox_msg_send(mbox, (mbox_msg_t) rq->data, rq->special);
+		if (ret) {
+			enable_mbox_irq(mbox, IRQ_TX);
+			return;
+		}
+
+		spin_lock(q->queue_lock);
+		blkdev_dequeue_request(rq);
+		end_that_request_last(rq, 0);
+		spin_unlock(q->queue_lock);
+	}
+}
+
 /*
  * Message receiver(workqueue)
  */
-static void mbox_msg_receiver(struct work_struct *work)
+static void mbox_rx_work(struct work_struct *work)
 {
-	struct omap_mbox *mbox =
-	    container_of(work, struct omap_mbox, msg_receive);
-	struct request_queue *q = mbox->rxq;
+	struct omap_mbox_queue *mq = container_of(work, struct omap_mbox_queue, work);
+	struct omap_mbox *mbox = mq->queue->queuedata;
+	struct request_queue *q = mbox->rxq->queue;
 	struct request *rq;
 	mbox_msg_t msg;
+	unsigned long flags;
 
-	if (mbox->msg_receive_cb == NULL) {
+	if (mbox->rxq->callback == NULL) {
 		sysfs_notify(&mbox->dev.kobj, NULL, "mbox");
 		return;
 	}
 
 	while (1) {
+		spin_lock_irqsave(q->queue_lock, flags);
 		rq = elv_next_request(q);
+		spin_unlock_irqrestore(q->queue_lock, flags);
 		if (!rq)
 			break;
 
-		msg = (mbox_msg_t)rq->data;
+		msg = (mbox_msg_t) rq->data;
 
+		spin_lock_irqsave(q->queue_lock, flags);
 		blkdev_dequeue_request(rq);
 		end_that_request_last(rq, 0);
+		spin_unlock_irqrestore(q->queue_lock, flags);
 
-		if (mbox->msg_receive_cb)
-			mbox->msg_receive_cb(msg);
+		mbox->rxq->callback((void *)msg);
 	}
 }
 
 /*
  * Mailbox interrupt handler
  */
-static void mbox_txq_fn(request_queue_t *q)
+static void mbox_txq_fn(request_queue_t * q)
 {
-	struct omap_mbox *mbox = q->queuedata;
-	int ret;
-	struct request *rq;
-
-	while ((rq = elv_next_request(q)) != NULL) {
-		ret = __mbox_msg_send(mbox, (mbox_msg_t)rq->data, rq->special);
-		if (ret) {
-			blk_stop_queue(q);
-			enable_mbox_irq(mbox, IRQ_TX);
-			return;
-		}
-		blkdev_dequeue_request(rq);
-		end_that_request_last(rq, 0);
-	}
 }
 
-static void mbox_rxq_fn(request_queue_t *q)
+static void mbox_rxq_fn(request_queue_t * q)
+{
+}
+
+static void __mbox_tx_interrupt(struct omap_mbox *mbox)
+{
+	disable_mbox_irq(mbox, IRQ_TX);
+	ack_mbox_irq(mbox, IRQ_TX);
+	schedule_work(&mbox->txq->work);
+}
+
+static void __mbox_rx_interrupt(struct omap_mbox *mbox)
 {
 	struct request *rq;
-	struct omap_mbox *mbox = q->queuedata;
 	mbox_msg_t msg;
+	request_queue_t *q = mbox->rxq->queue;
+
+	disable_mbox_irq(mbox, IRQ_RX);
 
 	while (!mbox_fifo_empty(mbox)) {
 		rq = blk_get_request(q, WRITE, GFP_ATOMIC);
@@ -161,7 +196,7 @@ static void mbox_rxq_fn(request_queue_t *q)
 				mbox->err_notify();
 		}
 
-		blk_insert_request(mbox->rxq, rq, 0, NULL);
+		blk_insert_request(q, rq, 0, NULL);
 		if (mbox->ops->type == OMAP_MBOX_TYPE1)
 			break;
 	}
@@ -169,24 +204,19 @@ static void mbox_rxq_fn(request_queue_t *q)
 	/* no more messages in the fifo. clear IRQ source. */
 	ack_mbox_irq(mbox, IRQ_RX);
 	enable_mbox_irq(mbox, IRQ_RX);
- nomem:
-	queue_work(mbox->workq, &mbox->msg_receive);
+      nomem:
+	schedule_work(&mbox->rxq->work);
 }
 
 static irqreturn_t mbox_interrupt(int irq, void *p)
 {
 	struct omap_mbox *mbox = (struct omap_mbox *)p;
 
-	if (is_mbox_irq(mbox, IRQ_TX)) {
-		disable_mbox_irq(mbox, IRQ_TX);
-		ack_mbox_irq(mbox, IRQ_TX);
-		blk_start_queue(mbox->txq);
-	}
+	if (is_mbox_irq(mbox, IRQ_TX))
+		__mbox_tx_interrupt(mbox);
 
-	if (is_mbox_irq(mbox, IRQ_RX)) {
-		disable_mbox_irq(mbox, IRQ_RX);
-		blk_start_queue(mbox->rxq);
-	}
+	if (is_mbox_irq(mbox, IRQ_RX))
+		__mbox_rx_interrupt(mbox);
 
 	return IRQ_HANDLED;
 }
@@ -213,18 +243,28 @@ omap_mbox_write(struct device *dev, struct device_attribute *attr,
 }
 
 static ssize_t
-omap_mbox_read(struct device *dev, struct device_attribute *attr,
-	       char * buf)
+omap_mbox_read(struct device *dev, struct device_attribute *attr, char *buf)
 {
+	unsigned long flags;
 	struct request *rq;
-	mbox_msg_t *p = (mbox_msg_t *)buf;
+	mbox_msg_t *p = (mbox_msg_t *) buf;
 	struct omap_mbox *mbox = dev_get_drvdata(dev);
-	struct request_queue *q = mbox->rxq;
+	struct request_queue *q = mbox->rxq->queue;
 
-	while ((rq = elv_next_request(q)) != NULL) {
-		*p = (mbox_msg_t)rq->data;
+	while (1) {
+		spin_lock_irqsave(q->queue_lock, flags);
+		rq = elv_next_request(q);
+		spin_unlock_irqrestore(q->queue_lock, flags);
+
+		if (!rq)
+			break;
+
+		*p = (mbox_msg_t) rq->data;
+
+		spin_lock_irqsave(q->queue_lock, flags);
 		blkdev_dequeue_request(rq);
 		end_that_request_last(rq, 0);
+		spin_unlock_irqrestore(q->queue_lock, flags);
 
 		if (unlikely(mbox_seq_test(mbox, *p))) {
 			pr_info("mbox: Illegal seq bit!(%08x) ignored\n", *p);
@@ -235,7 +275,7 @@ omap_mbox_read(struct device *dev, struct device_attribute *attr,
 
 	pr_debug("%02x %02x %02x %02x\n", buf[0], buf[1], buf[2], buf[3]);
 
-	return (size_t)((char *)p - buf);
+	return (size_t) ((char *)p - buf);
 }
 
 static DEVICE_ATTR(mbox, S_IRUGO | S_IWUSR, omap_mbox_read, omap_mbox_write);
@@ -251,10 +291,43 @@ static struct class omap_mbox_class = {
 	.name = "omap_mbox",
 };
 
+static struct omap_mbox_queue *mbox_queue_alloc(struct omap_mbox *mbox,
+					request_fn_proc * proc,
+					void (*work) (struct work_struct *))
+{
+	request_queue_t *q;
+	struct omap_mbox_queue *mq;
+
+	mq = kzalloc(sizeof(struct omap_mbox_queue), GFP_KERNEL);
+	if (!mq)
+		return NULL;
+
+	spin_lock_init(&mq->lock);
+
+	q = blk_init_queue(proc, &mq->lock);
+	if (!q)
+		goto error;
+	q->queuedata = mbox;
+	mq->queue = q;
+
+	INIT_WORK(&mq->work, work);
+
+	return mq;
+error:
+	kfree(mq);
+	return NULL;
+}
+
+static void mbox_queue_free(struct omap_mbox_queue *q)
+{
+	blk_cleanup_queue(q->queue);
+	kfree(q);
+}
+
 static int omap_mbox_init(struct omap_mbox *mbox)
 {
 	int ret;
-	request_queue_t *q;
+	struct omap_mbox_queue *mq;
 
 	if (likely(mbox->ops->startup)) {
 		ret = mbox->ops->startup(mbox);
@@ -277,9 +350,6 @@ static int omap_mbox_init(struct omap_mbox *mbox)
 		goto fail_create_mbox;
 	}
 
-	spin_lock_init(&mbox->lock);
-	INIT_WORK(&mbox->msg_receive, mbox_msg_receiver);
-
 	ret = request_irq(mbox->irq, mbox_interrupt, IRQF_DISABLED,
 			  mbox->name, mbox);
 	if (unlikely(ret)) {
@@ -289,23 +359,25 @@ static int omap_mbox_init(struct omap_mbox *mbox)
 	}
 	enable_mbox_irq(mbox, IRQ_RX);
 
-	q = blk_init_queue(mbox_txq_fn, &mbox->lock);
-	if (!q)
-		goto fail_blkinit_txq;
-	mbox->txq = q;
-	q->queuedata = mbox;
+	mq = mbox_queue_alloc(mbox, mbox_txq_fn, mbox_tx_work);
+	if (!mq) {
+		ret = -ENOMEM;
+		goto fail_alloc_txq;
+	}
+	mbox->txq = mq;
 
-	q = blk_init_queue(mbox_rxq_fn, &mbox->lock);
-	if (!q)
-		goto fail_blkinit_rxq;
-	mbox->rxq = q;
-	q->queuedata = mbox;
+	mq = mbox_queue_alloc(mbox, mbox_rxq_fn, mbox_rx_work);
+	if (!mq) {
+		ret = -ENOMEM;
+		goto fail_alloc_rxq;
+	}
+	mbox->rxq = mq;
 
 	return 0;
 
- fail_blkinit_rxq:
-	blk_cleanup_queue(mbox->txq);
- fail_blkinit_txq:
+ fail_alloc_rxq:
+	mbox_queue_free(mbox->txq);
+ fail_alloc_txq:
 	free_irq(mbox->irq, mbox);
  fail_request_irq:
 	device_remove_file(&mbox->dev, &dev_attr_mbox);
@@ -320,11 +392,8 @@ static int omap_mbox_init(struct omap_mbox *mbox)
 
 static void omap_mbox_fini(struct omap_mbox *mbox)
 {
-	blk_cleanup_queue(mbox->txq);
-	blk_cleanup_queue(mbox->rxq);
-
-	flush_workqueue(mbox->workq);
-	destroy_workqueue(mbox->workq);
+	mbox_queue_free(mbox->txq);
+	mbox_queue_free(mbox->rxq);
 
 	free_irq(mbox->irq, mbox);
 	device_remove_file(&mbox->dev, &dev_attr_mbox);
@@ -349,7 +418,6 @@ static struct omap_mbox **find_mboxes(const char *name)
 struct omap_mbox *omap_mbox_get(const char *name)
 {
 	struct omap_mbox *mbox;
-	char queue_name[MBOX_NAME_LEN];
 	int ret;
 
 	read_lock(&mboxes_lock);
@@ -358,10 +426,6 @@ struct omap_mbox *omap_mbox_get(const char *name)
 		read_unlock(&mboxes_lock);
 		return ERR_PTR(-ENOENT);
 	}
-
-	strcpy(queue_name, "mailbox/");
-	strcat(queue_name, mbox->name);
-	mbox->workq = create_singlethread_workqueue(queue_name);
 
 	read_unlock(&mboxes_lock);
 

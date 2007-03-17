@@ -339,14 +339,14 @@ int dsp_mbcmd_send_and_wait_exarg(struct mbcmd *mb, struct mb_exarg *arg,
 /*
  * mbcmd receiver
  */
-static void mbcmd_receiver(mbox_msg_t msg)
+static int mbcmd_receiver(void *data)
 {
-	struct mbcmd *mb = (struct mbcmd *)&msg;
+	struct mbcmd *mb = data;
 
 	if (cmdinfo[mb->cmd_h] == NULL) {
 		printk(KERN_ERR
-		       "invalid message (%08x) for mbcmd_receiver().\n", msg);
-		return;
+		       "invalid message for mbcmd_receiver().\n");
+		return -EINVAL;
 	}
 
 	(*mbseq_expect)++;
@@ -359,6 +359,7 @@ static void mbcmd_receiver(mbox_msg_t msg)
 	else
 		printk(KERN_ERR "mbox: %s is not allowed from DSP.\n",
 		       cmd_name(*mb));
+	return 0;
 }
 
 static int mbsync_hold_mem_active;
@@ -411,16 +412,16 @@ static int __init dsp_mbox_init(void)
 		return -ENODEV;
 	}
 
-	omap_dsp->mbox->msg_receive_cb = mbcmd_receiver;
-	omap_dsp->mbox->msg_sender_cb = mbcmd_sender_prepare;
+	omap_dsp->mbox->rxq->callback = mbcmd_receiver;
+	omap_dsp->mbox->txq->callback = mbcmd_sender_prepare;
 
 	return 0;
 }
 
 static void dsp_mbox_exit(void)
 {
-	omap_dsp->mbox->msg_sender_cb = NULL;
-	omap_dsp->mbox->msg_receive_cb = NULL;
+	omap_dsp->mbox->rxq->callback = NULL;
+	omap_dsp->mbox->txq->callback = NULL;
 
 	if (mbsync_hold_mem_active) {
 		dsp_mem_disable((void *)daram_base);

@@ -35,18 +35,19 @@ struct omap_mbox_ops {
 	int		(*is_irq)(struct omap_mbox *mbox, omap_mbox_irq_t irq);
 };
 
+struct omap_mbox_queue {
+	spinlock_t		lock;
+	request_queue_t		*queue;
+	struct work_struct	work;
+	int	(*callback)(void *);
+	struct omap_mbox	*mbox;
+};
+
 struct omap_mbox {
 	char			*name;
-	spinlock_t		lock;
 	unsigned int		irq;
 
-	struct workqueue_struct	*workq;
-	struct work_struct	msg_receive;
-
-	request_queue_t		*txq, *rxq;
-
-	void	(*msg_receive_cb)(mbox_msg_t);
-	int	(*msg_sender_cb)(void*);
+	struct omap_mbox_queue	*txq, *rxq;
 
 	struct omap_mbox_ops	*ops;
 

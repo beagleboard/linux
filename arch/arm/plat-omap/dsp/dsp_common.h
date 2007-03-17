@@ -24,6 +24,7 @@
 #ifndef DRIVER_DSP_COMMON_H
 #define DRIVER_DSP_COMMON_H
 
+#include <linux/clk.h>
 #include "hardware_dsp.h"
 
 #define DSPSPACE_SIZE	0x1000000
