@@ -12,8 +12,6 @@
 #ifndef __ARCH_ARM_PLAT_MAILBOX_H
 #define __ARCH_ARM_PLAT_MAILBOX_H
 
-#define MBOX_NAME_LEN 255
-
 /*
  * Mailbox sequence bit API
  */

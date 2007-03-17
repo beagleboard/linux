@@ -109,7 +109,7 @@ omap1_mbox_is_irq(struct omap_mbox *mbox, omap_mbox_type_t irq)
 	return 1;
 }
 
-struct omap_mbox_ops omap1_mbox_ops = {
+static struct omap_mbox_ops omap1_mbox_ops = {
 	.type = OMAP_MBOX_TYPE1,
 	.fifo_read = omap1_mbox_fifo_read,
 	.fifo_write = omap1_mbox_fifo_write,

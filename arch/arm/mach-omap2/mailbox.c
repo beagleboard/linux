@@ -48,7 +48,7 @@
 #define MAILBOX_IRQSTATUS_3		0x118
 #define MAILBOX_IRQENABLE_3		0x11c
 
-unsigned long mbox_base;
+static unsigned long mbox_base;
 
 #define MAILBOX_IRQ_NOTFULL(n)		(1 << (2 * (n) + 1))
 #define MAILBOX_IRQ_NEWMSG(n)		(1 << (2 * (n)))
@@ -68,7 +68,7 @@ struct omap_mbox2_priv {
 	u32 notfull_bit;
 };
 
-struct clk *mbox_ick_handle;
+static struct clk *mbox_ick_handle;
 
 static inline unsigned int mbox_read_reg(unsigned int reg)
 {
@@ -170,7 +170,7 @@ static inline int omap2_mbox_is_irq(struct omap_mbox *mbox, omap_mbox_type_t irq
 	return (enable & status & bit);
 }
 
-struct omap_mbox_ops omap2_mbox_ops = {
+static struct omap_mbox_ops omap2_mbox_ops = {
 	.type = OMAP_MBOX_TYPE2,
 	.startup = omap2_mbox_startup,
 	.shutdown = omap2_mbox_shutdown,
@@ -294,7 +294,7 @@ static struct platform_driver omap2_mbox_driver = {
 	},
 };
 
-int __init omap2_mbox_init(void)
+static int __init omap2_mbox_init(void)
 {
 	return platform_driver_register(&omap2_mbox_driver);
 }
