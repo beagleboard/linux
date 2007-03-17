@@ -146,18 +146,6 @@ void dsp_register_mem_cb(int (*req_cb)(void), void (*rel_cb)(void));
 void dsp_unregister_mem_cb(void);
 
 #if defined(CONFIG_ARCH_OMAP1)
-static inline void dsp_clk_autoidle(void) {}
-#elif defined(CONFIG_ARCH_OMAP2)
-static inline void dsp_clk_autoidle(void)
-{
-	/*XXX should be handled in mach-omap[1,2] XXX*/
-	PM_PWSTCTRL_DSP = (1 << 18) | (1 << 0);
-	CM_AUTOIDLE_DSP |= (1 << 1);
-	CM_CLKSTCTRL_DSP |= (1 << 0);
-}
-#endif
-
-#if defined(CONFIG_ARCH_OMAP1)
 static inline void dsp_clk_enable(void) {}
 static inline void dsp_clk_disable(void) {}
 #elif defined(CONFIG_ARCH_OMAP2)
@@ -186,7 +174,7 @@ struct dsp_kfunc_device {
 	char		*name;
 	struct clk	*fck;
 	struct clk	*ick;;
-	struct mutex	 lock;
+	spinlock_t	 lock;
 	int		 enabled;
 	int		 type;
 #define DSP_KFUNC_DEV_TYPE_COMMON	1
@@ -194,8 +182,8 @@ struct dsp_kfunc_device {
 
 	struct list_head	entry;
 
-	int	(*probe)(struct dsp_kfunc_device *);
-	int	(*remove)(struct dsp_kfunc_device *);
+	int	(*probe)(struct dsp_kfunc_device *, int);
+	int	(*remove)(struct dsp_kfunc_device *, int);
 	int	(*enable)(struct dsp_kfunc_device *, int);
 	int	(*disable)(struct dsp_kfunc_device *, int);
 };
@@ -212,7 +200,7 @@ struct omap_dsp {
 	int			mmu_irq;
 	struct omap_mbox	*mbox;
 	struct device		*dev;
-	struct list_head 	*kdev_list;
+	struct list_head	*kdev_list;
 	int			initialized;
 };
 

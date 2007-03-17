@@ -21,6 +21,9 @@
  *
  */
 
+#ifndef __PLAT_OMAP_DSP_IPBUF_H
+#define __PLAT_OMAP_DSP_IPBUF_H
+
 struct ipbuf {
 	u16 c;			/* count */
 	u16 next;		/* link */
@@ -61,19 +64,8 @@ struct ipbuf_head {
 extern struct ipbcfg ipbcfg;
 extern struct ipbuf_sys *ipbuf_sys_da, *ipbuf_sys_ad;
 
-#define ipb_bsycnt_inc(ipbcfg)				\
-	do {						\
-		disable_irq(omap_dsp->mbox->irq);	\
-		(ipbcfg)->bsycnt++;			\
-		enable_irq(omap_dsp->mbox->irq);	\
-	} while(0)
-
-#define ipb_bsycnt_dec(ipbcfg)				\
-	do {						\
-		disable_irq(omap_dsp->mbox->irq);	\
-		(ipbcfg)->bsycnt--;			\
-		enable_irq(omap_dsp->mbox->irq);	\
-	} while(0)
+#define ipb_bsycnt_inc(ipbcfg)	atomic_inc((atomic_t *)&((ipbcfg)->bsycnt))
+#define ipb_bsycnt_dec(ipbcfg)	atomic_dec((atomic_t *)&((ipbcfg)->bsycnt))
 
 #define dsp_mem_enable_ipbuf()	dsp_mem_enable(ipbcfg.base)
 #define dsp_mem_disable_ipbuf()	dsp_mem_disable(ipbcfg.base)
@@ -105,7 +97,7 @@ struct ipblink {
 
 #define ipblink_empty(link)	((link)->top == BID_NULL)
 
-static __inline__ void __ipblink_del_top(struct ipblink *link)
+static inline void __ipblink_del_top(struct ipblink *link)
 {
 	struct ipbuf_head *ipb_h = bid_to_ipbuf(link->top);
 
@@ -115,14 +107,14 @@ static __inline__ void __ipblink_del_top(struct ipblink *link)
 		ipb_h->p->next = BID_NULL;
 }
 
-static __inline__ void ipblink_del_top(struct ipblink *link)
+static inline void ipblink_del_top(struct ipblink *link)
 {
 	spin_lock(&link->lock);
 	__ipblink_del_top(link);
 	spin_unlock(&link->lock);
 }
 
-static __inline__ void __ipblink_add_tail(struct ipblink *link, u16 bid)
+static inline void __ipblink_add_tail(struct ipblink *link, u16 bid)
 {
 	if (ipblink_empty(link))
 		link->top = bid;
@@ -131,14 +123,14 @@ static __inline__ void __ipblink_add_tail(struct ipblink *link, u16 bid)
 	link->tail = bid;
 }
 
-static __inline__ void ipblink_add_tail(struct ipblink *link, u16 bid)
+static inline void ipblink_add_tail(struct ipblink *link, u16 bid)
 {
 	spin_lock(&link->lock);
 	__ipblink_add_tail(link, bid);
 	spin_unlock(&link->lock);
 }
 
-static __inline__ void __ipblink_flush(struct ipblink *link)
+static inline void __ipblink_flush(struct ipblink *link)
 {
 	u16 bid;
 
@@ -149,46 +141,46 @@ static __inline__ void __ipblink_flush(struct ipblink *link)
 	}
 }
 
-static __inline__ void ipblink_flush(struct ipblink *link)
+static inline void ipblink_flush(struct ipblink *link)
 {
 	spin_lock(&link->lock);
 	__ipblink_flush(link);
 	spin_unlock(&link->lock);
 }
 
-static __inline__ void __ipblink_add_pvt(struct ipblink *link)
+static inline void __ipblink_add_pvt(struct ipblink *link)
 {
 	link->top  = BID_PVT;
 	link->tail = BID_PVT;
 }
 
-static __inline__ void ipblink_add_pvt(struct ipblink *link)
+static inline void ipblink_add_pvt(struct ipblink *link)
 {
 	spin_lock(&link->lock);
 	__ipblink_add_pvt(link);
 	spin_unlock(&link->lock);
 }
 
-static __inline__ void __ipblink_del_pvt(struct ipblink *link)
+static inline void __ipblink_del_pvt(struct ipblink *link)
 {
 	link->top  = BID_NULL;
 	link->tail = BID_NULL;
 }
 
-static __inline__ void ipblink_del_pvt(struct ipblink *link)
+static inline void ipblink_del_pvt(struct ipblink *link)
 {
 	spin_lock(&link->lock);
 	__ipblink_del_pvt(link);
 	spin_unlock(&link->lock);
 }
 
-static __inline__ void __ipblink_flush_pvt(struct ipblink *link)
+static inline void __ipblink_flush_pvt(struct ipblink *link)
 {
 	if (!ipblink_empty(link))
 		ipblink_del_pvt(link);
 }
 
-static __inline__ void ipblink_flush_pvt(struct ipblink *link)
+static inline void ipblink_flush_pvt(struct ipblink *link)
 {
 	spin_lock(&link->lock);
 	__ipblink_flush_pvt(link);
@@ -197,3 +189,5 @@ static __inline__ void ipblink_flush_pvt(struct ipblink *link)
 
 #define ipblink_for_each(bid, link) \
 	for (bid = (link)->top; bid != BID_NULL; bid = bid_to_ipbuf(bid)->p->next)
+
+#endif /* __PLAT_OMAP_DSP_IPBUF_H */

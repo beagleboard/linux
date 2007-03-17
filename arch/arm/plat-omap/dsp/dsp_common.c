@@ -56,7 +56,7 @@ dsp_long_t dspmem_base, dspmem_size,
 	   daram_base, daram_size,
 	   saram_base, saram_size;
 
-struct cpustat {
+static struct cpustat {
 	struct mutex lock;
 	enum cpustat_e stat;
 	enum cpustat_e req;
@@ -317,6 +317,8 @@ static int __init omap_dsp_init(void)
 	api_ck_handle = clk_get(NULL, "api_ck");
 	if (IS_ERR(api_ck_handle)) {
 		printk(KERN_ERR "omapdsp: could not acquire api_ck handle.\n");
+		if (dsp_ck_handle != NULL)
+			clk_put(dsp_ck_handle);
 		return PTR_ERR(api_ck_handle);
 	}
 
@@ -337,12 +339,14 @@ static int __init omap_dsp_init(void)
 	dsp_ick_handle = clk_get(NULL, "dsp_ick");
 	if (IS_ERR(dsp_ick_handle)) {
 		printk(KERN_ERR "omapdsp: could not acquire dsp_ick handle.\n");
+		if (dsp_fck_handle != NULL)
+			clk_put(dsp_fck_handle);
 		return PTR_ERR(dsp_ick_handle);
 	}
 #endif
 
 	init_done = 1;
-	printk(KERN_INFO "omap_dsp_init() done\n");
+	pr_info("omap_dsp_init() done\n");
 	return 0;
 }
 

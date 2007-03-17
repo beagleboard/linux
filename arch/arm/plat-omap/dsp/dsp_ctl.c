@@ -269,15 +269,15 @@ static int dsp_cfg(void)
 #endif
 
 	/* send parameter */
-	if ((ret = dsp_setvar(VARID_ICRMASK, dsp_cpustat_get_icrmask())) < 0)
+	ret = dsp_setvar(VARID_ICRMASK, dsp_cpustat_get_icrmask());
+	if (ret < 0)
 		goto out;
 
 	/* create runtime sysfs entries */
 	ret = device_create_file(omap_dsp->dev, &dev_attr_loadinfo);
 	if (ret)
 		printk(KERN_ERR "device_create_file failed: %d\n", ret);
-
-out:
+ out:
 	dsp_mem_disable((void *)dspmem_base);
 	return ret;
 }
@@ -749,9 +749,8 @@ void mbox_dspcfg(struct mbcmd *mb)
 	 * revision check has been passed.
 	 */
 	if (!mbox_revision < 0) {
-		printk(KERN_INFO
-		       "mbox: DSPCFG command received, "
-		       "but revision check has not been passed.\n");
+		pr_info("mbox: DSPCFG command received, "
+			"but revision check has not been passed.\n");
 		return;
 	}
 
@@ -1038,15 +1037,28 @@ out:
 	return len;
 }
 
-void __init dsp_ctl_init(void)
+int __init dsp_ctl_init(void)
 {
 	int ret;
 
 	ret = device_create_file(omap_dsp->dev, &dev_attr_ifver);
-	ret |= device_create_file(omap_dsp->dev, &dev_attr_cpustat);
-	ret |= device_create_file(omap_dsp->dev, &dev_attr_icrmask);
-	if (ret)
-		printk(KERN_ERR "device_create_file failed: %d\n", ret);
+	if (unlikely(ret))
+		return ret;
+	ret = device_create_file(omap_dsp->dev, &dev_attr_cpustat);
+	if (unlikely(ret))
+		goto fail_create_cpustat;
+	ret = device_create_file(omap_dsp->dev, &dev_attr_icrmask);
+	if (unlikely(ret))
+		goto fail_create_icrmask;
+
+	return 0;
+
+fail_create_icrmask:
+	device_remove_file(omap_dsp->dev, &dev_attr_cpustat);
+fail_create_cpustat:
+	device_remove_file(omap_dsp->dev, &dev_attr_ifver);
+
+	return ret;
 }
 
 void dsp_ctl_exit(void)

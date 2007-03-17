@@ -73,7 +73,7 @@
 #define TASKDEV_ST_STATE_MASK	0x7fffffff
 #define TASKDEV_ST_STALE	0x80000000
 
-struct {
+static struct {
 	long state;
 	char *name;
 } devstate_desc[] = {
@@ -90,7 +90,8 @@ struct {
 	{ TASKDEV_ST_KILLING,  "killing" },
 };
 
-static char *devstate_name(long state) {
+static char *devstate_name(long state)
+{
 	int i;
 	int max = ARRAY_SIZE(devstate_desc);
 
@@ -183,7 +184,7 @@ struct dsptask {
 #define rcvtyp_pvt(ttyp)	((ttyp) & TTYP_PVMD)
 #define rcvtyp_gbl(ttyp)	(!((ttyp) & TTYP_PVMD))
 
-static __inline__ int has_taskdev_lock(struct taskdev *dev);
+static inline int has_taskdev_lock(struct taskdev *dev);
 static int dsp_rmdev_minor(unsigned char minor);
 static int taskdev_init(struct taskdev *dev, char *name, unsigned char minor);
 static void taskdev_delete(unsigned char minor);
@@ -254,100 +255,58 @@ static struct device_attribute dev_attr_ipblink   = __ATTR_RO(ipblink);
 static struct device_attribute dev_attr_wsz       = __ATTR_RO(wsz);
 static struct device_attribute dev_attr_mmap      = __ATTR_RO(mmap);
 
+static inline void set_taskdev_state(struct taskdev *dev, int state)
+{
+	pr_debug("omapdsp: devstate: CHANGE %s[%d]:\"%s\"->\"%s\"\n",
+		 dev->name,
+		 (dev->task ? dev->task->tid : -1),
+		 devstate_name(dev->state),
+		 devstate_name(state));
+	dev->state = state;
+}
+
 /*
  * devstate_read_lock_timeout()
  * devstate_write_lock_timeout():
  * timeout != 0: dev->state can be diffeent from what you want.
  * timeout == 0: no timeout
  */
-static int devstate_read_lock_timeout(struct taskdev *dev, long devstate,
-				      int timeout)
-{
-	DECLARE_WAITQUEUE(wait, current);
-	long current_state = current->state;
-	int ret = 0;
-
-	down_read(&dev->state_sem);
-	if (dev->state & devstate)
-		return 0;
-
-	add_wait_queue(&dev->state_wait_q, &wait);
-	do {
-		set_current_state(TASK_INTERRUPTIBLE);
-		up_read(&dev->state_sem);
-		if (timeout) {
-			if ((timeout = schedule_timeout(timeout)) == 0) {
-				/* timeout */
-				down_read(&dev->state_sem);
-				break;
-			}
-		} else
-			schedule();
-		if (signal_pending(current)) {
-			ret = -EINTR;
-			break;
-		}
-		down_read(&dev->state_sem);
-	} while (!(dev->state & devstate));
-	remove_wait_queue(&dev->state_wait_q, &wait);
-	set_current_state(current_state);
-	return ret;
+#define BUILD_DEVSTATE_LOCK_TIMEOUT(rw)						\
+static int devstate_##rw##_lock_timeout(struct taskdev *dev, long devstate,     \
+				      int timeout)				\
+{										\
+	DEFINE_WAIT(wait);							\
+	down_##rw(&dev->state_sem);						\
+	while (!(dev->state & devstate)) {					\
+		up_##rw(&dev->state_sem);					\
+		prepare_to_wait(&dev->state_wait_q, &wait, TASK_INTERRUPTIBLE);	\
+		if (!timeout)							\
+			timeout = MAX_SCHEDULE_TIMEOUT;				\
+		timeout = schedule_timeout(timeout);				\
+		finish_wait(&dev->state_wait_q, &wait);				\
+		if (timeout == 0)						\
+			return -ETIME;						\
+		if (signal_pending(current))					\
+			return -EINTR;						\
+		down_##rw(&dev->state_sem);					\
+	}									\
+	return 0;                                                               \
 }
+BUILD_DEVSTATE_LOCK_TIMEOUT(read)
+BUILD_DEVSTATE_LOCK_TIMEOUT(write)
 
-static int devstate_read_lock_and_test(struct taskdev *dev, long devstate)
-{
-	down_read(&dev->state_sem);
-	if (dev->state & devstate)
-		return 1;	/* success */
-	/* failure */
-	up_read(&dev->state_sem);
-	return 0;
+#define BUILD_DEVSTATE_LOCK_AND_TEST(rw)					\
+static int devstate_##rw##_lock_and_test(struct taskdev *dev, long devstate)	\
+{										\
+	down_##rw(&dev->state_sem);						\
+	if (dev->state & devstate)						\
+		return 1;	/* success */					\
+	/* failure */								\
+	up_##rw(&dev->state_sem);						\
+	return 0;								\
 }
-
-static int devstate_write_lock_timeout(struct taskdev *dev, long devstate,
-				       int timeout)
-{
-	DECLARE_WAITQUEUE(wait, current);
-	long current_state = current->state;
-	int ret = 0;
-
-	down_write(&dev->state_sem);
-	if (dev->state & devstate)
-		return 0;
-
-	add_wait_queue(&dev->state_wait_q, &wait);
-	do {
-		set_current_state(TASK_INTERRUPTIBLE);
-		up_write(&dev->state_sem);
-		if (timeout) {
-			if ((timeout = schedule_timeout(timeout)) == 0) {
-				/* timeout */
-				down_write(&dev->state_sem);
-				break;
-			}
-		} else
-			schedule();
-		if (signal_pending(current)) {
-			ret = -EINTR;
-			break;
-		}
-		down_write(&dev->state_sem);
-	} while (!(dev->state & devstate));
-	remove_wait_queue(&dev->state_wait_q, &wait);
-	set_current_state(current_state);
-	return ret;
-}
-
-static int devstate_write_lock_and_test(struct taskdev *dev, long devstate)
-{
-	down_write(&dev->state_sem);
-	if (dev->state & devstate)	/* success */
-		return 1;
-
-	/* failure */
-	up_write(&dev->state_sem);
-	return -1;
-}
+BUILD_DEVSTATE_LOCK_AND_TEST(read)
+BUILD_DEVSTATE_LOCK_AND_TEST(write)
 
 static int taskdev_lock_interruptible(struct taskdev *dev,
 				      struct mutex *lock)
@@ -380,7 +339,7 @@ static int taskdev_lock_and_statelock_attached(struct taskdev *dev,
 	return ret;
 }
 
-static __inline__ void taskdev_unlock_and_stateunlock(struct taskdev *dev,
+static inline void taskdev_unlock_and_stateunlock(struct taskdev *dev,
 						      struct mutex *lock)
 {
 	mutex_unlock(lock);
@@ -448,7 +407,7 @@ static int taskdev_set_fifosz(struct taskdev *dev, unsigned long sz)
 	return 0;
 }
 
-static __inline__ int has_taskdev_lock(struct taskdev *dev)
+static inline int has_taskdev_lock(struct taskdev *dev)
 {
 	return (dev->lock_pid == current->pid);
 }
@@ -501,7 +460,7 @@ static int dsp_task_config(struct dsptask *task, u8 tid)
 
 	if (strlen(task->name) <= 1)
 		sprintf(task->name, "%d", tid);
-	printk(KERN_INFO "omapdsp: task %d: name %s\n", tid, task->name);
+	pr_info("omapdsp: task %d: name %s\n", tid, task->name);
 
 	ttyp = task->ttyp;
 
@@ -563,7 +522,7 @@ int dsp_task_config_all(u8 n)
 	struct dsptask *taskheap;
 	size_t devheapsz, taskheapsz;
 
-	printk(KERN_INFO "omapdsp: found %d task(s)\n", n);
+	pr_info("omapdsp: found %d task(s)\n", n);
 	if (n == 0)
 		return 0;
 
@@ -590,7 +549,7 @@ int dsp_task_config_all(u8 n)
 		if ((ret = taskdev_attach_task(dev, task)) < 0)
 			return ret;
 		dsp_task_init(task);
-		printk(KERN_INFO "omapdsp: taskdev %s enabled.\n", dev->name);
+		pr_info("omapdsp: taskdev %s enabled.\n", dev->name);
 	}
 
 	return 0;
@@ -696,6 +655,7 @@ static ssize_t dsp_task_read_wd_acv(struct file *file, char __user *buf,
 	unsigned int minor = MINOR(file->f_dentry->d_inode->i_rdev);
 	struct taskdev *dev = taskdev[minor];
 	int ret = 0;
+	DEFINE_WAIT(wait);
 
 	if (count == 0) {
 		return 0;
@@ -708,27 +668,22 @@ static ssize_t dsp_task_read_wd_acv(struct file *file, char __user *buf,
 	if (taskdev_lock_and_statelock_attached(dev, &dev->read_mutex))
 		return -ENODEV;
 
-	if (fifo_empty(&dev->rcvdt.fifo)) {
-		long current_state = current->state;
-		DECLARE_WAITQUEUE(wait, current);
 
-		set_current_state(TASK_INTERRUPTIBLE);
-		add_wait_queue(&dev->read_wait_q, &wait);
-		if (fifo_empty(&dev->rcvdt.fifo))	/* last check */
-			schedule();
-		set_current_state(current_state);
-		remove_wait_queue(&dev->read_wait_q, &wait);
-		if (fifo_empty(&dev->rcvdt.fifo)) {
-			/* failure */
-			if (signal_pending(current))
-				ret = -EINTR;
-			goto up_out;
-		}
+	prepare_to_wait(&dev->read_wait_q, &wait, TASK_INTERRUPTIBLE);
+	if (fifo_empty(&dev->rcvdt.fifo))
+		schedule();
+	finish_wait(&dev->read_wait_q, &wait);
+	if (fifo_empty(&dev->rcvdt.fifo)) {
+		/* failure */
+		if (signal_pending(current))
+			ret = -EINTR;
+		goto up_out;
 	}
+
 
 	ret = copy_to_user_fm_fifo(buf, &dev->rcvdt.fifo, count);
 
-up_out:
+ up_out:
 	taskdev_unlock_and_stateunlock(dev, &dev->read_mutex);
 	return ret;
 }
@@ -740,6 +695,7 @@ static ssize_t dsp_task_read_bk_acv(struct file *file, char __user *buf,
 	struct taskdev *dev = taskdev[minor];
 	struct rcvdt_bk_struct *rcvdt = &dev->rcvdt.bk;
 	ssize_t ret = 0;
+	DEFINE_WAIT(wait);
 
 	if (count == 0) {
 		return 0;
@@ -757,23 +713,15 @@ static ssize_t dsp_task_read_bk_acv(struct file *file, char __user *buf,
 	if (taskdev_lock_and_statelock_attached(dev, &dev->read_mutex))
 		return -ENODEV;
 
+	prepare_to_wait(&dev->read_wait_q, &wait, TASK_INTERRUPTIBLE);
+	if (ipblink_empty(&rcvdt->link))
+		schedule();
+	finish_wait(&dev->read_wait_q, &wait);
 	if (ipblink_empty(&rcvdt->link)) {
-		long current_state;
-		DECLARE_WAITQUEUE(wait, current);
-
-		add_wait_queue(&dev->read_wait_q, &wait);
-		current_state = current->state;
-		set_current_state(TASK_INTERRUPTIBLE);
-		if (ipblink_empty(&rcvdt->link))	/* last check */
-			schedule();
-		set_current_state(current_state);
-		remove_wait_queue(&dev->read_wait_q, &wait);
-		if (ipblink_empty(&rcvdt->link)) {
-			/* failure */
-			if (signal_pending(current))
-				ret = -EINTR;
-			goto up_out;
-		}
+		/* failure */
+		if (signal_pending(current))
+			ret = -EINTR;
+		goto up_out;
 	}
 
 	/* copy from delayed IPBUF */
@@ -818,9 +766,9 @@ static ssize_t dsp_task_read_bk_acv(struct file *file, char __user *buf,
 				release_ipbuf_pvt(ipbp);
 				rcvdt->rp = 0;
 			}
-pv_out2:
+		pv_out2:
 			dsp_mem_disable(src);
-pv_out1:
+		pv_out1:
 			dsp_mem_disable(ipbp);
 		}
 	} else {
@@ -857,11 +805,11 @@ pv_out1:
 				rcvdt->rp = 0;
 			}
 		}
-gb_out:
+	gb_out:
 		dsp_mem_disable_ipbuf();
 	}
 
-up_out:
+ up_out:
 	taskdev_unlock_and_stateunlock(dev, &dev->read_mutex);
 	return ret;
 }
@@ -1009,6 +957,7 @@ static ssize_t dsp_task_write_wd(struct file *file, const char __user *buf,
 	struct taskdev *dev = taskdev[minor];
 	u16 wd;
 	int ret = 0;
+	DEFINE_WAIT(wait);
 
 	if (count == 0) {
 		return 0;
@@ -1024,23 +973,15 @@ static ssize_t dsp_task_write_wd(struct file *file, const char __user *buf,
 	if (taskdev_lock_and_statelock_attached(dev, &dev->write_mutex))
 		return -ENODEV;
 
+	prepare_to_wait(&dev->write_wait_q, &wait, TASK_INTERRUPTIBLE);
+	if (dev->wsz == 0)
+		schedule();
+	finish_wait(&dev->write_wait_q, &wait);
 	if (dev->wsz == 0) {
-		long current_state;
-		DECLARE_WAITQUEUE(wait, current);
-
-		add_wait_queue(&dev->write_wait_q, &wait);
-		current_state = current->state;
-		set_current_state(TASK_INTERRUPTIBLE);
-		if (dev->wsz == 0)	/* last check */
-			schedule();
-		set_current_state(current_state);
-		remove_wait_queue(&dev->write_wait_q, &wait);
-		if (dev->wsz == 0) {
-			/* failure */
-			if (signal_pending(current))
-				ret = -EINTR;
-			goto up_out;
-		}
+		/* failure */
+		if (signal_pending(current))
+			ret = -EINTR;
+		goto up_out;
 	}
 
 	if (copy_from_user(&wd, buf, count)) {
@@ -1058,7 +999,7 @@ static ssize_t dsp_task_write_wd(struct file *file, const char __user *buf,
 		dev->wsz = 0;
 	spin_unlock(&dev->wsz_lock);
 
-up_out:
+ up_out:
 	taskdev_unlock_and_stateunlock(dev, &dev->write_mutex);
 	return ret;
 }
@@ -1069,6 +1010,7 @@ static ssize_t dsp_task_write_bk(struct file *file, const char __user *buf,
 	unsigned int minor = MINOR(file->f_dentry->d_inode->i_rdev);
 	struct taskdev *dev = taskdev[minor];
 	int ret = 0;
+	DEFINE_WAIT(wait);
 
 	if (count == 0) {
 		return 0;
@@ -1086,23 +1028,15 @@ static ssize_t dsp_task_write_bk(struct file *file, const char __user *buf,
 	if (taskdev_lock_and_statelock_attached(dev, &dev->write_mutex))
 		return -ENODEV;
 
+	prepare_to_wait(&dev->write_wait_q, &wait, TASK_INTERRUPTIBLE);
+	if (dev->wsz == 0)
+		schedule();
+	finish_wait(&dev->write_wait_q, &wait);
 	if (dev->wsz == 0) {
-		long current_state;
-		DECLARE_WAITQUEUE(wait, current);
-
-		add_wait_queue(&dev->write_wait_q, &wait);
-		current_state = current->state;
-		set_current_state(TASK_INTERRUPTIBLE);
-		if (dev->wsz == 0)	/* last check */
-			schedule();
-		set_current_state(current_state);
-		remove_wait_queue(&dev->write_wait_q, &wait);
-		if (dev->wsz == 0) {
-			/* failure */
-			if (signal_pending(current))
-				ret = -EINTR;
-			goto up_out;
-		}
+		/* failure */
+		if (signal_pending(current))
+			ret = -EINTR;
+		goto up_out;
 	}
 
 	if (count > dev->wsz)
@@ -1140,9 +1074,9 @@ static ssize_t dsp_task_write_bk(struct file *file, const char __user *buf,
 			ret = count;
 		}
 		spin_unlock(&dev->wsz_lock);
-pv_out2:
+	pv_out2:
 		dsp_mem_disable(dst);
-pv_out1:
+	pv_out1:
 		dsp_mem_disable(ipbp);
 	} else {
 		/* global */
@@ -1170,11 +1104,11 @@ pv_out1:
 		} else
 			release_ipbuf(ipb_h);
 		spin_unlock(&dev->wsz_lock);
-gb_out:
+	gb_out:
 		dsp_mem_disable_ipbuf();
 	}
 
-up_out:
+ up_out:
 	taskdev_unlock_and_stateunlock(dev, &dev->write_mutex);
 	return ret;
 }
@@ -1428,10 +1362,9 @@ static int dsp_task_mmap(struct file *filp, struct vm_area_struct *vma)
 		if (tmp_len > req_len)
 			tmp_len = req_len;
 
-		printk(KERN_DEBUG
-		       "omapdsp: mmap info: "
-		       "vmadr = %08lx, padr = %08lx, len = %x\n",
-		       tmp_vmadr, tmp_padr, tmp_len);
+		pr_debug("omapdsp: mmap info: "
+			 "vmadr = %08lx, padr = %08lx, len = %x\n",
+			 tmp_vmadr, tmp_padr, tmp_len);
 		if (remap_pfn_range(vma, tmp_vmadr, tmp_padr >> PAGE_SHIFT,
 				    tmp_len, vma->vm_page_prot) != 0) {
 			printk(KERN_ERR
@@ -1465,49 +1398,49 @@ static int dsp_task_open(struct inode *inode, struct file *file)
 	if ((minor >= TASKDEV_MAX) || ((dev = taskdev[minor]) == NULL))
 		return -ENODEV;
 
-restart:
+ restart:
 	mutex_lock(&dev->usecount_lock);
 	down_write(&dev->state_sem);
 
 	/* state can be NOTASK, ATTACHED/FREEZED, KILLING, GARBAGE or INVALID here. */
 	switch (dev->state & TASKDEV_ST_STATE_MASK) {
-		case TASKDEV_ST_NOTASK:
-			break;
-		case TASKDEV_ST_ATTACHED:
-			goto attached;
+	case TASKDEV_ST_NOTASK:
+		break;
+	case TASKDEV_ST_ATTACHED:
+		goto attached;
 
-		case TASKDEV_ST_INVALID:
-			up_write(&dev->state_sem);
-			mutex_unlock(&dev->usecount_lock);
-			return -ENODEV;
+	case TASKDEV_ST_INVALID:
+		up_write(&dev->state_sem);
+		mutex_unlock(&dev->usecount_lock);
+		return -ENODEV;
 
-		case TASKDEV_ST_FREEZED:
-		case TASKDEV_ST_KILLING:
-		case TASKDEV_ST_GARBAGE:
-		case TASKDEV_ST_DELREQ:
-			/* on the kill process. wait until it becomes NOTASK. */
-			up_write(&dev->state_sem);
-			mutex_unlock(&dev->usecount_lock);
-			if (devstate_write_lock(dev, TASKDEV_ST_NOTASK) < 0)
-				return -EINTR;
-			devstate_write_unlock(dev);
-			goto restart;
+	case TASKDEV_ST_FREEZED:
+	case TASKDEV_ST_KILLING:
+	case TASKDEV_ST_GARBAGE:
+	case TASKDEV_ST_DELREQ:
+		/* on the kill process. wait until it becomes NOTASK. */
+		up_write(&dev->state_sem);
+		mutex_unlock(&dev->usecount_lock);
+		if (devstate_write_lock(dev, TASKDEV_ST_NOTASK) < 0)
+			return -EINTR;
+		devstate_write_unlock(dev);
+		goto restart;
 	}
 
 	/* NOTASK */
-	dev->state = TASKDEV_ST_ADDREQ;
+	set_taskdev_state(dev, TASKDEV_ST_ADDREQ);
 	/* wake up twch daemon for tadd */
 	dsp_twch_touch();
 	up_write(&dev->state_sem);
 	if (devstate_write_lock(dev, TASKDEV_ST_ATTACHED |
-				     TASKDEV_ST_ADDFAIL) < 0) {
+				TASKDEV_ST_ADDFAIL) < 0) {
 		/* cancelled */
 		if (!devstate_write_lock_and_test(dev, TASKDEV_ST_ADDREQ)) {
 			mutex_unlock(&dev->usecount_lock);
 			/* out of control ??? */
 			return -EINTR;
 		}
-		dev->state = TASKDEV_ST_NOTASK;
+		set_taskdev_state(dev, TASKDEV_ST_NOTASK);
 		ret = -EINTR;
 		goto change_out;
 	}
@@ -1515,11 +1448,11 @@ restart:
 		printk(KERN_ERR "omapdsp: task attach failed for %s!\n",
 		       dev->name);
 		ret = -EBUSY;
-		dev->state = TASKDEV_ST_NOTASK;
+		set_taskdev_state(dev, TASKDEV_ST_NOTASK);
 		goto change_out;
 	}
 
-attached:
+ attached:
 	/* ATTACHED */
 #ifndef CONFIG_OMAP_DSP_TASK_MULTIOPEN
 	if (dev->usecount > 0) {
@@ -1527,8 +1460,12 @@ attached:
 		return -EBUSY;
 	}
 #endif
+	ret = proc_list_add(&dev->proc_list_lock,
+			    &dev->proc_list, current, file);
+	if (ret)
+		goto out;
+
 	dev->usecount++;
-	proc_list_add(&dev->proc_list_lock, &dev->proc_list, current, file);
 	file->f_op = &dev->fops;
 	up_write(&dev->state_sem);
 	mutex_unlock(&dev->usecount_lock);
@@ -1539,8 +1476,9 @@ attached:
 #endif /* DSP_PTE_FREE */
 	return 0;
 
-change_out:
+ change_out:
 	wake_up_interruptible_all(&dev->state_wait_q);
+ out:
 	up_write(&dev->state_sem);
 	mutex_unlock(&dev->usecount_lock);
 	return ret;
@@ -1576,14 +1514,14 @@ static int dsp_task_release(struct inode *inode, struct file *file)
 		break;
 
 	case TASKDEV_ST_GARBAGE:
-		dev->state = TASKDEV_ST_NOTASK;
+		set_taskdev_state(dev, TASKDEV_ST_NOTASK);
 		wake_up_interruptible_all(&dev->state_wait_q);
 		break;
 
 	case TASKDEV_ST_ATTACHED:
 	case TASKDEV_ST_FREEZED:
 		if (is_dynamic_task(minor)) {
-			dev->state = TASKDEV_ST_DELREQ;
+			set_taskdev_state(dev, TASKDEV_ST_DELREQ);
 			/* wake up twch daemon for tdel */
 			dsp_twch_touch();
 		}
@@ -1706,7 +1644,7 @@ static int dsp_rmdev_minor(unsigned char minor)
 			 * ATTACHED -> FREEZED can be changed under
 			 * down_read of state_sem..
 			 */
-			dev->state = TASKDEV_ST_FREEZED;
+			set_taskdev_state(dev, TASKDEV_ST_FREEZED);
 			wake_up_interruptible_all(&dev->read_wait_q);
 			wake_up_interruptible_all(&dev->write_wait_q);
 			wake_up_interruptible_all(&dev->tctl_wait_q);
@@ -1718,26 +1656,27 @@ static int dsp_rmdev_minor(unsigned char minor)
 	switch (dev->state & TASKDEV_ST_STATE_MASK) {
 
 	case TASKDEV_ST_NOTASK:
+	case TASKDEV_ST_INVALID:
 		/* fine */
 		goto notask;
 
 	case TASKDEV_ST_ATTACHED:
 	case TASKDEV_ST_FREEZED:
 		/* task is working. kill it. */
-		dev->state = TASKDEV_ST_KILLING;
+		set_taskdev_state(dev, TASKDEV_ST_KILLING);
 		up_write(&dev->state_sem);
 		dsp_tdel_bh(dev, TDEL_KILL);
 		goto invalidate;
 
 	case TASKDEV_ST_ADDREQ:
 		/* open() is waiting. drain it. */
-		dev->state = TASKDEV_ST_ADDFAIL;
+		set_taskdev_state(dev, TASKDEV_ST_ADDFAIL);
 		wake_up_interruptible_all(&dev->state_wait_q);
 		break;
 
 	case TASKDEV_ST_DELREQ:
 		/* nobody is waiting. */
-		dev->state = TASKDEV_ST_NOTASK;
+		set_taskdev_state(dev, TASKDEV_ST_NOTASK);
 		wake_up_interruptible_all(&dev->state_wait_q);
 		break;
 
@@ -1762,7 +1701,7 @@ invalidate:
 		       devstate_name(dev->state), dev->name);
 	}
 notask:
-	dev->state = TASKDEV_ST_INVALID;
+	set_taskdev_state(dev, TASKDEV_ST_INVALID);
 	devstate_read_unlock(dev);
 
 	taskdev_delete(minor);
@@ -1771,7 +1710,7 @@ notask:
 	return 0;
 }
 
-struct file_operations dsp_task_fops = {
+static struct file_operations dsp_task_fops = {
 	.owner   = THIS_MODULE,
 	.poll    = dsp_task_poll,
 	.ioctl   = dsp_task_ioctl,
@@ -1786,6 +1725,7 @@ static void dsptask_dev_release(struct device *dev)
 static int taskdev_init(struct taskdev *dev, char *name, unsigned char minor)
 {
 	int ret;
+	struct device *task_dev;
 
 	taskdev[minor] = dev;
 
@@ -1804,7 +1744,7 @@ static int taskdev_init(struct taskdev *dev, char *name, unsigned char minor)
 
 	strncpy(dev->name, name, TNM_LEN);
 	dev->name[TNM_LEN-1] = '\0';
-	dev->state = (minor < n_task) ? TASKDEV_ST_ATTACHED : TASKDEV_ST_NOTASK;
+	set_taskdev_state(dev, (minor < n_task) ? TASKDEV_ST_ATTACHED : TASKDEV_ST_NOTASK);
 	dev->usecount = 0;
 	mutex_init(&dev->usecount_lock);
 	memcpy(&dev->fops, &dsp_task_fops, sizeof(struct file_operations));
@@ -1814,21 +1754,43 @@ static int taskdev_init(struct taskdev *dev, char *name, unsigned char minor)
 	sprintf(dev->dev.bus_id, "dsptask%d", minor);
 	dev->dev.release = dsptask_dev_release;
 	ret = device_register(&dev->dev);
-	if (ret)
+	if (ret) {
 		printk(KERN_ERR "device_register failed: %d\n", ret);
+		return ret;
+	}
 	ret = device_create_file(&dev->dev, &dev_attr_devname);
-	ret |= device_create_file(&dev->dev, &dev_attr_devstate);
-	ret |= device_create_file(&dev->dev, &dev_attr_proc_list);
 	if (ret)
-		printk(KERN_ERR "device_create_file failed: %d\n", ret);
-	device_create(dsp_task_class, NULL,
-			MKDEV(OMAP_DSP_TASK_MAJOR, minor),
-			"dsptask%d", minor);
+		goto fail_create_devname;
+	ret = device_create_file(&dev->dev, &dev_attr_devstate);
+	if (ret)
+		goto fail_create_devstate;
+	ret = device_create_file(&dev->dev, &dev_attr_proc_list);
+	if (ret)
+		goto fail_create_proclist;
+
+	task_dev = device_create(dsp_task_class, NULL,
+				 MKDEV(OMAP_DSP_TASK_MAJOR, minor),
+				 "dsptask%d", (int)minor);
+	
+	if (unlikely(IS_ERR(task_dev))) {
+		ret = -EINVAL;
+		goto fail_create_taskclass;
+	}
 
 	init_waitqueue_head(&dev->state_wait_q);
 	init_rwsem(&dev->state_sem);
 
 	return 0;
+
+ fail_create_taskclass:
+	device_remove_file(&dev->dev, &dev_attr_proc_list);
+ fail_create_proclist:
+	device_remove_file(&dev->dev, &dev_attr_devstate);
+ fail_create_devstate:
+	device_remove_file(&dev->dev, &dev_attr_devname);
+ fail_create_devname:
+	device_unregister(&dev->dev);
+	return ret;
 }
 
 static void taskdev_delete(unsigned char minor)
@@ -1853,17 +1815,17 @@ static int taskdev_attach_task(struct taskdev *dev, struct dsptask *task)
 
 	dev->fops.read =
 		sndtyp_acv(ttyp) ?
-			sndtyp_wd(ttyp) ? dsp_task_read_wd_acv:
-			/* sndtyp_bk */   dsp_task_read_bk_acv:
+		sndtyp_wd(ttyp) ? dsp_task_read_wd_acv:
+		/* sndtyp_bk */   dsp_task_read_bk_acv:
 		/* sndtyp_psv */
-			sndtyp_wd(ttyp) ? dsp_task_read_wd_psv:
-			/* sndtyp_bk */   dsp_task_read_bk_psv;
+		sndtyp_wd(ttyp) ? dsp_task_read_wd_psv:
+		/* sndtyp_bk */   dsp_task_read_bk_psv;
 	if (sndtyp_wd(ttyp)) {
 		/* word */
 		size_t fifosz;
 
 		fifosz = sndtyp_psv(ttyp) ? 2 :	/* passive */
-					    32;	/* active */
+			32;	/* active */
 		if (init_fifo(&dev->rcvdt.fifo, fifosz) < 0) {
 			printk(KERN_ERR
 			       "omapdsp: unable to allocate receive buffer. "
@@ -1880,29 +1842,72 @@ static int taskdev_attach_task(struct taskdev *dev, struct dsptask *task)
 		rcvtyp_wd(ttyp) ? dsp_task_write_wd:
 		/* rcvbyp_bk */	  dsp_task_write_bk;
 	dev->wsz = rcvtyp_acv(ttyp) ? 0 :		/* active */
-		   rcvtyp_wd(ttyp)  ? 2 :		/* passive word */
-				      ipbcfg.lsz*2;	/* passive block */
+		rcvtyp_wd(ttyp)  ? 2 :		/* passive word */
+		ipbcfg.lsz*2;	/* passive block */
 
 	if (task->map_length)
 		dev->fops.mmap = dsp_task_mmap;
 
 	ret = device_create_file(&dev->dev, &dev_attr_taskname);
-	ret |= device_create_file(&dev->dev, &dev_attr_ttyp);
+	if (unlikely(ret))
+		goto fail_create_taskname;
+	ret = device_create_file(&dev->dev, &dev_attr_ttyp);
+	if (unlikely(ret))
+		goto fail_create_ttyp;
+	ret = device_create_file(&dev->dev, &dev_attr_wsz);
+	if (unlikely(ret))
+		goto fail_create_wsz;
+	if (task->map_length) {
+		ret = device_create_file(&dev->dev, &dev_attr_mmap);
+		if (unlikely(ret))
+			goto fail_create_mmap;
+	}
 	if (sndtyp_wd(ttyp)) {
-		ret |= device_create_file(&dev->dev, &dev_attr_fifosz);
-		ret |= device_create_file(&dev->dev, &dev_attr_fifocnt);
-	} else
-		ret |= device_create_file(&dev->dev, &dev_attr_ipblink);
-	ret |= device_create_file(&dev->dev, &dev_attr_wsz);
-	if (task->map_length)
-		ret |= device_create_file(&dev->dev, &dev_attr_mmap);
-	if (ret)
-		printk(KERN_ERR "device_create_file failed: %d\n", ret);
+		ret = device_create_file(&dev->dev, &dev_attr_fifosz);
+		if (unlikely(ret))
+			goto fail_create_fifosz;
+		ret = device_create_file(&dev->dev, &dev_attr_fifocnt);
+		if (unlikely(ret))
+			goto fail_create_fifocnt;
+	} else {
+		ret = device_create_file(&dev->dev, &dev_attr_ipblink);
+		if (unlikely(ret))
+			goto fail_create_ipblink;
+	}
 
 	dev->task = task;
 	task->dev = dev;
 
 	return 0;
+
+ fail_create_fifocnt:
+	device_remove_file(&dev->dev, &dev_attr_fifosz);
+ fail_create_ipblink:
+ fail_create_fifosz:
+	if (task->map_length)
+		device_remove_file(&dev->dev, &dev_attr_mmap);
+ fail_create_mmap:
+	device_remove_file(&dev->dev, &dev_attr_wsz);
+ fail_create_wsz:
+	device_remove_file(&dev->dev, &dev_attr_ttyp);
+ fail_create_ttyp:
+	device_remove_file(&dev->dev, &dev_attr_taskname);
+ fail_create_taskname:
+	if (task->map_length)
+		dev->fops.mmap = NULL;
+
+	dev->fops.write = NULL;
+	dev->wsz = 0;
+
+	dev->fops.read = NULL;
+	taskdev_flush_buf(dev);
+
+	if (sndtyp_wd(ttyp))
+		free_fifo(&dev->rcvdt.fifo);
+
+	dev->task = NULL;
+
+	return ret;
 }
 
 static void taskdev_detach_task(struct taskdev *dev)
@@ -1917,8 +1922,10 @@ static void taskdev_detach_task(struct taskdev *dev)
 	} else
 		device_remove_file(&dev->dev, &dev_attr_ipblink);
 	device_remove_file(&dev->dev, &dev_attr_wsz);
-	if (dev->task->map_length)
+	if (dev->task->map_length) {
 		device_remove_file(&dev->dev, &dev_attr_mmap);
+		dev->fops.mmap = NULL;
+	}
 
 	dev->fops.read = NULL;
 	taskdev_flush_buf(dev);
@@ -1928,7 +1935,7 @@ static void taskdev_detach_task(struct taskdev *dev)
 	dev->fops.write = NULL;
 	dev->wsz = 0;
 
-	printk(KERN_INFO "omapdsp: taskdev %s disabled.\n", dev->name);
+	pr_info("omapdsp: taskdev %s disabled.\n", dev->name);
 	dev->task = NULL;
 }
 
@@ -1949,12 +1956,12 @@ static int dsp_tadd(struct taskdev *dev, dsp_long_t adr)
 		       "(state is %s)\n", dev->name, devstate_name(dev->state));
 		return -EINVAL;
 	}
-	dev->state = TASKDEV_ST_ADDING;
+	set_taskdev_state(dev, TASKDEV_ST_ADDING);
 	devstate_write_unlock(dev);
 
 	if (adr == TADD_ABORTADR) {
 		/* aborting tadd intentionally */
-		printk(KERN_INFO "omapdsp: tadd address is ABORTADR.\n");
+		pr_info("omapdsp: tadd address is ABORTADR.\n");
 		goto fail_out;
 	}
 	if (adr >= DSPSPACE_SIZE) {
@@ -2020,8 +2027,8 @@ static int dsp_tadd(struct taskdev *dev, dsp_long_t adr)
 		goto free_out;
 
 	dsp_task_init(task);
-	printk(KERN_INFO "omapdsp: taskdev %s enabled.\n", dev->name);
-	dev->state = TASKDEV_ST_ATTACHED;
+	pr_info("omapdsp: taskdev %s enabled.\n", dev->name);
+	set_taskdev_state(dev, TASKDEV_ST_ATTACHED);
 	wake_up_interruptible_all(&dev->state_wait_q);
 	return 0;
 
@@ -2031,7 +2038,7 @@ free_out:
 del_out:
 	printk(KERN_ERR "omapdsp: deleting the task...\n");
 
-	dev->state = TASKDEV_ST_DELING;
+	set_taskdev_state(dev, TASKDEV_ST_DELING);
 
 	if (mutex_lock_interruptible(&cfg_lock)) {
 		printk(KERN_ERR "omapdsp: aborting tdel process. "
@@ -2051,7 +2058,7 @@ del_out:
 				"DSP side could be corrupted.\n");
 
 fail_out:
-	dev->state = TASKDEV_ST_ADDFAIL;
+	set_taskdev_state(dev, TASKDEV_ST_ADDFAIL);
 	wake_up_interruptible_all(&dev->state_wait_q);
 	return ret;
 }
@@ -2088,7 +2095,7 @@ static int dsp_tdel(struct taskdev *dev)
 		       "(state is %s)\n", dev->name, devstate_name(dev->state));
 		return -EINVAL;
 	}
-	dev->state = TASKDEV_ST_DELING;
+	set_taskdev_state(dev, TASKDEV_ST_DELING);
 	devstate_write_unlock(dev);
 
 	return dsp_tdel_bh(dev, TDEL_SAFE);
@@ -2130,7 +2137,7 @@ static int dsp_tkill(struct taskdev *dev)
 			return -EINVAL;
 		}
 		/* ATTACHED -> FREEZED can be changed under read semaphore. */
-		dev->state = TASKDEV_ST_FREEZED;
+		set_taskdev_state(dev, TASKDEV_ST_FREEZED);
 		wake_up_interruptible_all(&dev->read_wait_q);
 		wake_up_interruptible_all(&dev->write_wait_q);
 		wake_up_interruptible_all(&dev->tctl_wait_q);
@@ -2152,7 +2159,7 @@ static int dsp_tkill(struct taskdev *dev)
 		devstate_write_unlock(dev);
 		return -EINVAL;
 	}
-	dev->state = TASKDEV_ST_KILLING;
+	set_taskdev_state(dev, TASKDEV_ST_KILLING);
 	devstate_write_unlock(dev);
 
 	return dsp_tdel_bh(dev, TDEL_KILL);
@@ -2193,7 +2200,7 @@ static int dsp_tdel_bh(struct taskdev *dev, u16 type)
 	tid = task->tid;
 	if (mutex_lock_interruptible(&cfg_lock)) {
 		if (type == TDEL_SAFE) {
-			dev->state = TASKDEV_ST_DELREQ;
+			set_taskdev_state(dev, TASKDEV_ST_DELREQ);
 			return -EINTR;
 		} else {
 			tid_response = TID_ANON;
@@ -2220,8 +2227,8 @@ detach_out:
 		ret = -EINVAL;
 	}
 	down_write(&dev->state_sem);
-	dev->state = (dev->usecount > 0) ? TASKDEV_ST_GARBAGE :
-					   TASKDEV_ST_NOTASK;
+	set_taskdev_state(dev, (dev->usecount > 0) ? TASKDEV_ST_GARBAGE :
+					   TASKDEV_ST_NOTASK);
 	wake_up_interruptible_all(&dev->state_wait_q);
 	up_write(&dev->state_sem);
 
@@ -2443,7 +2450,7 @@ void mbox_bksndp(struct mbcmd *mb)
 		printk(KERN_ERR "mbox: BKSNDP - IPBUF sync failed!\n");
 		return;
 	}
-	printk(KERN_DEBUG "mbox: ipbuf_pvt_r->a = 0x%08lx\n",
+	pr_debug("mbox: ipbuf_pvt_r->a = 0x%08lx\n",
 	       MKLONG(ipbp->ah, ipbp->al));
 	ipblink_add_pvt(&task->dev->rcvdt.bk.link);
 	wake_up_interruptible(&task->dev->read_wait_q);
@@ -2481,7 +2488,7 @@ void mbox_bkreqp(struct mbcmd *mb)
 		printk(KERN_ERR "mbox: BKREQP - IPBUF sync failed!\n");
 		return;
 	}
-	printk(KERN_DEBUG "mbox: ipbuf_pvt_w->a = 0x%08lx\n",
+	pr_debug("mbox: ipbuf_pvt_w->a = 0x%08lx\n",
 	       MKLONG(ipbp->ah, ipbp->al));
 	dev = task->dev;
 	spin_lock(&dev->wsz_lock);
@@ -2701,20 +2708,20 @@ void mbox_dbg(struct mbcmd *mb)
 		*(p++) = tmp & 0xff;
 		if (*(p-1) == '\n') {
 			*p = '\0';
-			printk(KERN_INFO "%s", s);
+			pr_info("%s", s);
 			p = s;
 			continue;
 		}
 		if (p == s_end) {
 			*p = '\0';
-			printk(KERN_INFO "%s\n", s);
+			pr_info("%s\n", s);
 			p = s;
 			continue;
 		}
 	}
 	if (p > s) {
 		*p = '\0';
-		printk(KERN_INFO "%s\n", s);
+		pr_info("%s\n", s);
 	}
 	if ((dbg_rp += cnt + 1) > dbg_buf_sz - dbg_line_sz)
 		dbg_rp = 0;
@@ -2769,20 +2776,20 @@ static void mbox_dbg_old(struct mbcmd *mb)
 		*(p++) = tmp & 0xff;
 		if (*(p-1) == '\n') {
 			*p = '\0';
-			printk(KERN_INFO "%s", s);
+			pr_info("%s", s);
 			p = s;
 			continue;
 		}
 		if (p == s_end) {
 			*p = '\0';
-			printk(KERN_INFO "%s\n", s);
+			pr_info("%s\n", s);
 			p = s;
 			continue;
 		}
 	}
 	if (p > s) {
 		*p = '\0';
-		printk(KERN_INFO "%s\n", s);
+		pr_info("%s\n", s);
 	}
 
 	dsp_mem_disable(src);
@@ -2909,7 +2916,7 @@ static ssize_t fifocnt_show(struct device *d, struct device_attribute *attr,
 }
 
 /* ipblink */
-static __inline__ char *bid_name(u16 bid)
+static inline char *bid_name(u16 bid)
 {
 	static char s[6];
 
@@ -3012,6 +3019,13 @@ int __init dsp_taskmod_init(void)
 		return -EINVAL;
 	}
 	dsp_task_class = class_create(THIS_MODULE, "dsptask");
+	if (IS_ERR(dsp_task_class)) {
+		printk(KERN_ERR "omapdsp: failed to create DSP task class\n");
+		driver_unregister(&dsptask_driver);
+		bus_unregister(&dsptask_bus);
+		unregister_chrdev(OMAP_DSP_TASK_MAJOR, "dsptask");
+		return -EINVAL;
+	}
 
 	return 0;
 }

@@ -21,6 +21,8 @@
  *
  */
 
+#ifndef __PLAT_OMAP_DSP_MBCMD_H
+#define __PLAT_OMAP_DSP_MBCMD_H
 /*
  * mailbox command: 0x00 - 0x7f
  * when a driver wants to use mailbox, it must reserve mailbox commands here.
@@ -141,3 +143,5 @@
 
 #define BID_NULL		0xffff
 #define BID_PVT			0xfffe
+
+#endif /* __PLAT_OMAP_DSP_MBCMD_H */

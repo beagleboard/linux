@@ -48,28 +48,21 @@ static ssize_t dsp_twch_read(struct file *file, char __user *buf, size_t count,
 	long taskstat[TASKDEV_MAX];
 	int devcount = count / sizeof(long);
 	int i;
+	DEFINE_WAIT(wait);
 
 	if (dsp_cfgstat_get_stat() != CFGSTAT_READY) {
 		printk(KERN_ERR "omapdsp: dsp has not been configured.\n");
 		return -EINVAL;
 	}
 
-	if (change_cnt == 0) {
-		long current_state;
-		DECLARE_WAITQUEUE(wait, current);
+	prepare_to_wait(&read_wait_q, &wait, TASK_INTERRUPTIBLE);
+	if (change_cnt == 0)	/* last check */
+		schedule();
+	finish_wait(&read_wait_q, &wait);
 
-		add_wait_queue(&read_wait_q, &wait);
-		current_state = current->state;
-		set_current_state(TASK_INTERRUPTIBLE);
-		if (change_cnt == 0)	/* last check */
-			schedule();
-		set_current_state(current_state);
-		remove_wait_queue(&read_wait_q, &wait);
-
-		/* unconfigured while waiting ;-( */
-		if (dsp_cfgstat_get_stat() != CFGSTAT_READY)
-			return -EINVAL;
-	}
+	/* unconfigured while waiting ;-( */
+	if ((change_cnt == 0) && (dsp_cfgstat_get_stat() != CFGSTAT_READY))
+		return -EINVAL;
 
 	if (devcount > TASKDEV_MAX)
 		devcount = TASKDEV_MAX;

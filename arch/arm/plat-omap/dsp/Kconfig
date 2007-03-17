@@ -23,7 +23,7 @@ config OMAP_DSP_TASK_MULTIOPEN
 
 config OMAP_DSP_FBEXPORT
 	bool "Framebuffer export to DSP"
-	depends on OMAP_DSP
+	depends on OMAP_DSP && FB
 	help
           This enables to map the frame buffer to DSP.
 	  By doing this, DSP can access the frame buffer directly without

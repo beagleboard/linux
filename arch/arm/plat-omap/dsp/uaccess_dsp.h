@@ -37,7 +37,7 @@ extern unsigned long __copy_to_user_dsp_2b(void __user *to,
 #endif
 
 #ifndef HAVE_ASM_COPY_FROM_USER_DSP_2B
-static __inline__ unsigned long copy_from_user_dsp_2b(void *to,
+static inline unsigned long copy_from_user_dsp_2b(void *to,
 						      const void *from)
 {
 	unsigned short tmp;
@@ -53,7 +53,7 @@ static __inline__ unsigned long copy_from_user_dsp_2b(void *to,
 /*
  * @n must be multiple of 2
  */
-static __inline__ unsigned long copy_from_user_dsp(void *to, const void *from,
+static inline unsigned long copy_from_user_dsp(void *to, const void *from,
 						   unsigned long n)
 {
 	if (access_ok(VERIFY_READ, from, n)) {
@@ -108,7 +108,7 @@ static __inline__ unsigned long copy_from_user_dsp(void *to, const void *from,
 }
 
 #ifndef HAVE_ASM_COPY_FROM_USER_DSP_2B
-static __inline__ unsigned long copy_to_user_dsp_2b(void *to, const void *from)
+static inline unsigned long copy_to_user_dsp_2b(void *to, const void *from)
 {
 	/* expecting compiler to generate "strh" instruction */
 	unsigned short tmp = *(unsigned short *)from;
@@ -120,7 +120,7 @@ static __inline__ unsigned long copy_to_user_dsp_2b(void *to, const void *from)
 /*
  * @n must be multiple of 2
  */
-static __inline__ unsigned long copy_to_user_dsp(void *to, const void *from,
+static inline unsigned long copy_to_user_dsp(void *to, const void *from,
 						 unsigned long n)
 {
 	if (access_ok(VERIFY_WRITE, to, n)) {

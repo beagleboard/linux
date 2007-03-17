@@ -1239,13 +1239,13 @@ static ssize_t mempool_show(struct class *class, char *buf)
 
 static CLASS_ATTR(mempool, S_IRUGO, mempool_show, NULL);
 
-static void omap_mmu_class_dev_release(struct class_device *cd)
+static void omap_mmu_class_dev_release(struct device *dev)
 {
 }
 
 static struct class omap_mmu_class = {
 	.name		= "mmu",
-	.release	= omap_mmu_class_dev_release,
+	.dev_release	= omap_mmu_class_dev_release,
 };
 
 int omap_mmu_register(struct omap_mmu *mmu)

@@ -274,4 +274,20 @@ static void intmem_disable(void) { }
 static int dsp_mmu_itack(void) { return 0; }
 #endif
 
+#ifdef CONFIG_ARCH_OMAP2
+static inline void dsp_mem_ipi_init(void)
+{
+	int i, dspmem_pg_count;
+	dspmem_pg_count = dspmem_size >> 12;
+	for (i = 0; i < dspmem_pg_count; i++) {
+		writel(i, DSP_IPI_INDEX);
+		writel(DSP_IPI_ENTRY_ELMSIZEVALUE_16, DSP_IPI_ENTRY);
+	}
+	writel(1, DSP_IPI_ENABLE);
+	writel(IOMAP_VAL, DSP_IPI_IOMAP);
+}
+#else
+static inline void dsp_mem_ipi_init(void) { }
+#endif
+
 #endif /* __PLAT_OMAP_DSP_MMU_H */

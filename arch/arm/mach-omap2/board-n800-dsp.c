@@ -50,7 +50,7 @@ static struct dsp_kfunc_device n800_audio_device = {
 /*
  * dsp peripheral device: TIMER
  */
-static int dsp_timer_probe(struct dsp_kfunc_device *kdev)
+static int dsp_timer_probe(struct dsp_kfunc_device *kdev, int stage)
 {
 	char clockname[20];
 
@@ -80,7 +80,7 @@ static int dsp_timer_probe(struct dsp_kfunc_device *kdev)
 	return PTR_ERR(kdev->ick);
 }
 
-static int dsp_timer_remove(struct dsp_kfunc_device *kdev)
+static int dsp_timer_remove(struct dsp_kfunc_device *kdev, int stage)
 {
 	clk_put(kdev->ick);
 	clk_put(kdev->fck);
@@ -92,7 +92,7 @@ static int dsp_timer_enable(struct dsp_kfunc_device *kdev, int stage)
 {
 	pr_debug("%s enabled(%d)\n", kdev->name, stage);
 
-	mutex_lock(&kdev->lock);
+	spin_lock(&kdev->lock);
 
 	if (kdev->enabled)
 		goto out;
@@ -101,7 +101,7 @@ static int dsp_timer_enable(struct dsp_kfunc_device *kdev, int stage)
 	clk_enable(kdev->fck);
 	clk_enable(kdev->ick);
  out:
-	mutex_unlock(&kdev->lock);
+	spin_unlock(&kdev->lock);
 
 	return 0;
 }
@@ -110,7 +110,7 @@ static int dsp_timer_disable(struct dsp_kfunc_device *kdev, int stage)
 {
 	pr_debug("%s disabled(%d)\n", kdev->name, stage);
 
-	mutex_lock(&kdev->lock);
+	spin_lock(&kdev->lock);
 
 	if (kdev->enabled == 0)
 		goto out;
@@ -119,7 +119,7 @@ static int dsp_timer_disable(struct dsp_kfunc_device *kdev, int stage)
 	clk_disable(kdev->ick);
 	clk_disable(kdev->fck);
  out:
-	mutex_unlock(&kdev->lock);
+	spin_unlock(&kdev->lock);
 
 	return 0;
 }

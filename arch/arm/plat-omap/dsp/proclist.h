@@ -21,26 +21,33 @@
  *
  */
 
+#ifndef __PLAT_OMAP_DSP_PROCLIST_H
+#define __PLAT_OMAP_DSP_PROCLIST_H
+
 struct proc_list {
 	struct list_head list_head;
 	pid_t pid;
 	struct file *file;
 };
 
-static __inline__ void proc_list_add(spinlock_t *lock, struct list_head *list,
+static inline int proc_list_add(spinlock_t *lock, struct list_head *list,
 				     struct task_struct *tsk, struct file *file)
 {
 	struct proc_list *new;
 
 	new = kmalloc(sizeof(struct proc_list), GFP_KERNEL);
+	if (new == NULL)
+		return -ENOMEM;
 	new->pid = tsk->pid;
 	new->file = file;
 	spin_lock(lock);
 	list_add_tail(&new->list_head, list);
 	spin_unlock(lock);
+
+	return 0;
 }
 
-static __inline__ void proc_list_del(spinlock_t *lock, struct list_head *list,
+static inline void proc_list_del(spinlock_t *lock, struct list_head *list,
 				     struct task_struct *tsk, struct file *file)
 {
 	struct proc_list *pl;
@@ -64,7 +71,7 @@ static __inline__ void proc_list_del(spinlock_t *lock, struct list_head *list,
 	spin_unlock(lock);
 }
 
-static __inline__ void proc_list_flush(spinlock_t *lock, struct list_head *list)
+static inline void proc_list_flush(spinlock_t *lock, struct list_head *list)
 {
 	struct proc_list *pl;
 
@@ -76,3 +83,5 @@ static __inline__ void proc_list_flush(spinlock_t *lock, struct list_head *list)
 	}
 	spin_unlock(lock);
 }
+
+#endif /* __PLAT_OMAP_DSP_PROCLIST_H */

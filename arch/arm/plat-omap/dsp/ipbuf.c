@@ -112,10 +112,9 @@ int ipbuf_config(u16 ln, u16 lsz, void *base)
 	ipbcfg.bsycnt   = ln;	/* DSP holds all ipbufs initially. */
 	ipbcfg.cnt_full = 0;
 
-	printk(KERN_INFO
-	       "omapdsp: IPBUF configuration\n"
-	       "           %d words * %d lines at 0x%p.\n",
-	       ipbcfg.lsz, ipbcfg.ln, ipbcfg.base);
+	pr_info("omapdsp: IPBUF configuration\n"
+		"           %d words * %d lines at 0x%p.\n",
+		ipbcfg.lsz, ipbcfg.ln, ipbcfg.base);
 
 	ret = device_create_file(omap_dsp->dev, &dev_attr_ipbuf);
 	if (ret)
@@ -123,7 +122,7 @@ int ipbuf_config(u16 ln, u16 lsz, void *base)
 
 	return ret;
 
-free_out:
+ free_out:
 	kfree(g_ipbuf);
 	g_ipbuf = NULL;
 	return ret;

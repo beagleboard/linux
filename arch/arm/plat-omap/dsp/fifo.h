@@ -21,6 +21,9 @@
  *
  */
 
+#ifndef __PLAT_OMAP_DSP_FIFO_H
+#define __PLAT_OMAP_DSP_FIFO_H
+
 struct fifo_struct {
 	spinlock_t lock;
 	char *buf;
@@ -168,3 +171,5 @@ out:
 	spin_unlock(&fifo->lock);
 	return ret;
 }
+
+#endif /* __PLAT_OMAP_DSP_FIFO_H */

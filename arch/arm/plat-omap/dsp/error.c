@@ -26,6 +26,7 @@
 #include <linux/poll.h>
 #include <linux/sched.h>
 #include <linux/interrupt.h>
+#include <asm/arch/mailbox.h>
 #include <asm/uaccess.h>
 #include "dsp_mbcmd.h"
 #include "dsp.h"
@@ -50,24 +51,17 @@ static ssize_t dsp_err_read(struct file *file, char __user *buf, size_t count,
 {
 	unsigned long flags;
 	int status;
+	DEFINE_WAIT(wait);
 
 	if (count < 4)
 		return 0;
 
-	if (errcnt == 0) {
-		long current_state;
-		DECLARE_WAITQUEUE(wait, current);
-
-		add_wait_queue(&err_wait_q, &wait);
-		current_state = current->state;
-		set_current_state(TASK_INTERRUPTIBLE);
-		if (errcnt == 0)	/* last check */
-			schedule();
-		set_current_state(current_state);
-		remove_wait_queue(&err_wait_q, &wait);
-		if (signal_pending(current))
-			return -EINTR;
-	}
+	prepare_to_wait(&err_wait_q, &wait, TASK_INTERRUPTIBLE);
+	if (errcnt == 0)
+		schedule();
+	finish_wait(&err_wait_q, &wait);
+	if (signal_pending(current))
+		return -EINTR;
 
 	local_irq_save(flags);
 	status = copy_to_user(buf, &errval, 4);
@@ -155,6 +149,12 @@ int dsp_err_isset(enum errcode_e code)
 	return (errval & dsp_err_desc[code].val) ? 1 : 0;
 }
 
+void dsp_err_notify(void)
+{
+	/* new error code should be assigned */
+	dsp_err_set(DSP_ERR_WDT, 0);
+}
+
 /*
  * functions called from mailbox interrupt routine
  */
@@ -216,11 +216,12 @@ void dsp_err_start(void)
 		if (dsp_err_isset(i))
 			dsp_err_clear(i);
 	}
-
+	omap_dsp->mbox->err_notify = dsp_err_notify;
 	errcnt = 0;
 }
 
 void dsp_err_stop(void)
 {
 	wake_up_interruptible(&err_wait_q);
+	omap_dsp->mbox->err_notify = NULL;
 }

@@ -48,7 +48,16 @@ char *subcmd_name(struct mbcmd *mb)
 		break;
 	case MBOX_CMD_DSP_KFUNC:
 		s = (cmd_l == KFUNC_FBCTL) ? "FBCTL":
-		    (cmd_l == KFUNC_POWER) ? "POWER":
+			(cmd_l == KFUNC_POWER) ?
+			((mb->data == AUDIO_PWR_UP)	? "PWR AUD /UP":
+			 (mb->data == AUDIO_PWR_DOWN)	? "PWR AUD /DOWN":
+			 (mb->data == AUDIO_PWR_DOWN2)	? "PWR AUD /DOWN(2)":
+			 (mb->data == DSP_PWR_UP)	? "PWR DSP /UP":
+			 (mb->data == DSP_PWR_DOWN)	? "PWR DSP /DOWN":
+			 (mb->data == DVFS_START)	? "PWR DVFS/START":
+			 (mb->data == DVFS_STOP)	? "PWR DVFS/STOP":
+			 NULL):
+
 		    NULL;
 		break;
 	case MBOX_CMD_DSP_DSPCFG:
@@ -138,22 +147,19 @@ static inline void mblog_print_cmd(struct mbcmd *mb, arm_dsp_dir_t dir)
 		subname = subcmd_name(mb);
 		if (unlikely(!subname))
 			subname = "Unknown";
-		printk(KERN_DEBUG
-		       "mbox: %s seq=%d, cmd=%02x:%02x(%s:%s), data=%04x\n",
-		       dir_str, mb->seq, mb->cmd_h, mb->cmd_l,
-		       ci->name, subname, mb->data);
+		pr_debug("mbox: %s seq=%d, cmd=%02x:%02x(%s:%s), data=%04x\n",
+			 dir_str, mb->seq, mb->cmd_h, mb->cmd_l,
+			 ci->name, subname, mb->data);
 		break;
 	case CMD_L_TYPE_TID:
-		printk(KERN_DEBUG
-		       "mbox: %s seq=%d, cmd=%02x:%02x(%s:task %d), data=%04x\n",
-		       dir_str, mb->seq, mb->cmd_h, mb->cmd_l,
-		       ci->name, mb->cmd_l, mb->data);
+		pr_debug("mbox: %s seq=%d, cmd=%02x:%02x(%s:task %d), data=%04x\n",
+			 dir_str, mb->seq, mb->cmd_h, mb->cmd_l,
+			 ci->name, mb->cmd_l, mb->data);
 		break;
 	case CMD_L_TYPE_NULL:
-		printk(KERN_DEBUG
-		       "mbox: %s seq=%d, cmd=%02x:%02x(%s), data=%04x\n",
-		       dir_str, mb->seq, mb->cmd_h, mb->cmd_l,
-		       ci->name, mb->data);
+		pr_debug("mbox: %s seq=%d, cmd=%02x:%02x(%s), data=%04x\n",
+			 dir_str, mb->seq, mb->cmd_h, mb->cmd_l,
+			 ci->name, mb->data);
 		break;
 	}
 }

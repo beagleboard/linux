@@ -352,6 +352,7 @@ static int dsp_mem_ioctl(struct inode *inode, struct file *file,
 	case MEM_IOCTL_MMUINIT:
 		if (dsp_mmu.exmap_tbl)
 			omap_mmu_unregister(&dsp_mmu);
+		dsp_mem_ipi_init();
 		return omap_mmu_register(&dsp_mmu);
 
 	case MEM_IOCTL_EXMAP:
@@ -432,17 +433,9 @@ void dsp_mem_stop(void)
 void dsp_mem_late_init(void)
 {
 	int ret = 0;
+
+	dsp_mem_ipi_init();
 #ifdef CONFIG_ARCH_OMAP2
-	int i, dspmem_pg_count;
-
-	dspmem_pg_count = dspmem_size >> 12;
-	for (i = 0; i < dspmem_pg_count; i++) {
-		writel(i, DSP_IPI_INDEX);
-		writel(DSP_IPI_ENTRY_ELMSIZEVALUE_16, DSP_IPI_ENTRY);
-	}
-	writel(1, DSP_IPI_ENABLE);
-	writel(IOMAP_VAL, DSP_IPI_IOMAP);
-
 	dsp_mmu.clk    = dsp_fck_handle;
 	dsp_mmu.memclk = dsp_ick_handle;
 #elif defined(CONFIG_ARCH_OMAP1)
