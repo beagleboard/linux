@@ -135,7 +135,7 @@ EXPORT_SYMBOL_GPL(ktime_get_ts);
 static void hrtimer_get_softirq_time(struct hrtimer_cpu_base *base)
 {
 	ktime_t xtim, tomono;
-	struct timespec xts;
+	struct timespec xts, tom;
 	unsigned long seq;
 
 	do {
@@ -145,10 +145,11 @@ static void hrtimer_get_softirq_time(struct hrtimer_cpu_base *base)
 #else
 		xts = xtime;
 #endif
+		tom = wall_to_monotonic;
 	} while (read_seqretry(&xtime_lock, seq));
 
 	xtim = timespec_to_ktime(xts);
-	tomono = timespec_to_ktime(wall_to_monotonic);
+	tomono = timespec_to_ktime(tom);
 	base->clock_base[CLOCK_REALTIME].softirq_time = xtim;
 	base->clock_base[CLOCK_MONOTONIC].softirq_time =
 		ktime_add(xtim, tomono);
@@ -644,6 +645,12 @@ hrtimer_forward(struct hrtimer *timer, ktime_t now, ktime_t interval)
 		orun++;
 	}
 	timer->expires = ktime_add(timer->expires, interval);
+	/*
+	 * Make sure, that the result did not wrap with a very large
+	 * interval.
+	 */
+	if (timer->expires.tv64 < 0)
+		timer->expires = ktime_set(KTIME_SEC_MAX, 0);
 
 	return orun;
 }
