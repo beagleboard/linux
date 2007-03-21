@@ -2,6 +2,7 @@
 #define __ARCH_OMAP_MMU_H
 
 #include <linux/device.h>
+#include <linux/workqueue.h>
 
 #define MMU_REVISION		0x00
 #define MMU_SYSCONFIG		0x10
@@ -94,6 +95,8 @@ struct omap_mmu_ops {
 	/* Memory operations */
 	int (*mem_enable)(struct omap_mmu *, void *);
 	int (*mem_disable)(struct omap_mmu *, void *);
+
+	void (*interrupt)(struct omap_mmu *);
 };
 
 struct omap_mmu {
@@ -116,6 +119,11 @@ struct omap_mmu {
 
 	/* Size of virtual address space, in bits */
 	unsigned int addrspace;
+
+	/* Interrupt */
+	unsigned int irq;
+	unsigned long fault_address;
+	struct work_struct irq_work;
 
 	struct omap_mmu_ops *ops;
 };

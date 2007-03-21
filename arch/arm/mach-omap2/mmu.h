@@ -88,10 +88,12 @@ omap_mmu_read_reg(struct omap_mmu *mmu, unsigned long reg)
 	return __raw_readl(mmu->base + reg);
 }
 
-static void omap_mmu_write_reg(struct omap_mmu *mmu,
+static inline void omap_mmu_write_reg(struct omap_mmu *mmu,
 			       unsigned long val, unsigned long reg)
 {
 	__raw_writel(val, mmu->base + reg);
 }
-
+static inline void omap_mmu_itack(struct omap_mmu *mmu)
+{
+}
 #endif /* __MACH_OMAP2_MMU_H */

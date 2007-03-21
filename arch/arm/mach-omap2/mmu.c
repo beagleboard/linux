@@ -27,6 +27,7 @@
 #include <linux/rwsem.h>
 #include <linux/device.h>
 #include <linux/mm.h>
+#include <linux/interrupt.h>
 #include "mmu.h"
 #include <asm/arch/mmu.h>
 #include <asm/tlbflush.h>
@@ -276,6 +277,26 @@ static inline int omap2_mmu_cam_ram_valid(struct cam_ram_regset *cr)
 	return cr->cam & OMAP_MMU_CAM_V;
 }
 
+static void omap2_mmu_interrupt(struct omap_mmu *mmu)
+{
+	unsigned long status, va;
+
+	status = MMU_IRQ_MASK & omap_mmu_read_reg(mmu, MMU_IRQSTATUS);
+	va = omap_mmu_read_reg(mmu, MMU_FAULT_AD);
+
+	pr_info("%s\n", (status & OMAP_MMU_IRQ_MULTIHITFAULT)		? "multi hit":"");
+	pr_info("%s\n", (status & OMAP_MMU_IRQ_TABLEWALKFAULT)		? "table walk fault":"");
+	pr_info("%s\n", (status & OMAP_MMU_IRQ_EMUMISS)			? "EMU miss":"");
+	pr_info("%s\n", (status & OMAP_MMU_IRQ_TRANSLATIONFAULT)	? "translation fault":"");
+	pr_info("%s\n", (status & OMAP_MMU_IRQ_TLBMISS)			? "TLB miss":"");
+	pr_info("fault address = %#08lx\n", va);
+
+	omap_mmu_disable(mmu);
+	omap_mmu_write_reg(mmu, status, MMU_IRQSTATUS);
+
+	mmu->fault_address = va;
+	schedule_work(&mmu->irq_work);
+}
 struct omap_mmu_ops omap2_mmu_ops = {
 	.startup	= omap2_mmu_startup,
 	.shutdown	= omap2_mmu_shutdown,
@@ -285,6 +306,7 @@ struct omap_mmu_ops omap2_mmu_ops = {
 	.cam_va		= omap2_mmu_cam_va,
 	.cam_ram_alloc	= omap2_mmu_cam_ram_alloc,
 	.cam_ram_valid	= omap2_mmu_cam_ram_valid,
+	.interrupt	= omap2_mmu_interrupt,
 };
 EXPORT_SYMBOL_GPL(omap2_mmu_ops);
 

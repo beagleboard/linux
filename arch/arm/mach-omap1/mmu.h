@@ -110,7 +110,7 @@ omap_mmu_read_reg(struct omap_mmu *mmu, unsigned long reg)
 	return __raw_readw(mmu->base + reg);
 }
 
-static void omap_mmu_write_reg(struct omap_mmu *mmu,
+static inline void omap_mmu_write_reg(struct omap_mmu *mmu,
 			       unsigned short val, unsigned long reg)
 {
 	__raw_writew(val, mmu->base + reg);
@@ -119,7 +119,7 @@ static void omap_mmu_write_reg(struct omap_mmu *mmu,
 int omap_dsp_request_mem(void);
 void omap_dsp_release_mem(void);
 
-static inline void __dsp_mmu_itack(struct omap_mmu *mmu)
+static inline void omap_mmu_itack(struct omap_mmu *mmu)
 {
 	omap_mmu_write_reg(mmu, OMAP_MMU_IT_ACK_IT_ACK, OMAP_MMU_IT_ACK);
 }

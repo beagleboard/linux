@@ -260,6 +260,71 @@ static inline int omap1_mmu_cam_ram_valid(struct cam_ram_regset *cr)
 	return cr->cam_l & OMAP_MMU_CAM_V;
 }
 
+static void omap1_mmu_interrupt(struct omap_mmu *mmu)
+{
+	unsigned long status;
+	unsigned long adh, adl;
+	unsigned long dp;
+	unsigned long va;
+
+	status = omap_mmu_read_reg(mmu, MMU_FAULT_ST);
+	adh = omap_mmu_read_reg(mmu, MMU_FAULT_AD_H);
+	adl = omap_mmu_read_reg(mmu, MMU_FAULT_AD_L);
+	dp = adh & MMU_FAULT_AD_H_DP;
+	va = MK32(adh & MMU_FAULT_AD_H_ADR_MASK, adl);
+
+	/* if the fault is masked, nothing to do */
+	if ((status & MMUFAULT_MASK) == 0) {
+		pr_debug( "MMU interrupt, but ignoring.\n");
+		/*
+		 * note: in OMAP1710,
+		 * when CACHE + DMA domain gets out of idle in DSP,
+		 * MMU interrupt occurs but MMU_FAULT_ST is not set.
+		 * in this case, we just ignore the interrupt.
+		 */
+		if (status) {
+			pr_debug( "%s%s%s%s\n",
+				  (status & MMU_FAULT_ST_PREF)?
+				  "  (prefetch err)" : "",
+				  (status & MMU_FAULT_ST_PERM)?
+				  "  (permission fault)" : "",
+				  (status & MMU_FAULT_ST_TLB_MISS)?
+				  "  (TLB miss)" : "",
+				  (status & MMU_FAULT_ST_TRANS) ?
+				  "  (translation fault)": "");
+			pr_debug( "fault address = %#08x\n", va);
+		}
+		enable_irq(mmu->irq);
+		return;
+	}
+
+	pr_info("%s%s%s%s\n",
+		(status & MMU_FAULT_ST_PREF)?
+		(MMUFAULT_MASK & MMU_FAULT_ST_PREF)?
+		"  prefetch err":
+		"  (prefetch err)":
+		"",
+		(status & MMU_FAULT_ST_PERM)?
+		(MMUFAULT_MASK & MMU_FAULT_ST_PERM)?
+		"  permission fault":
+		"  (permission fault)":
+		"",
+		(status & MMU_FAULT_ST_TLB_MISS)?
+		(MMUFAULT_MASK & MMU_FAULT_ST_TLB_MISS)?
+		"  TLB miss":
+		"  (TLB miss)":
+		"",
+		(status & MMU_FAULT_ST_TRANS)?
+		(MMUFAULT_MASK & MMU_FAULT_ST_TRANS)?
+		"  translation fault":
+		"  (translation fault)":
+		"");
+	pr_info("fault address = %#08x\n", va);
+
+	mmu->fault_address = va;
+	schedule_work(&mmu->irq_work);
+}
+
 struct omap_mmu_ops omap1_mmu_ops = {
 	.startup	= omap1_mmu_startup,
 	.shutdown	= omap1_mmu_shutdown,
@@ -271,5 +336,6 @@ struct omap_mmu_ops omap1_mmu_ops = {
 	.cam_va		= omap1_mmu_cam_va,
 	.cam_ram_alloc	= omap1_mmu_cam_ram_alloc,
 	.cam_ram_valid	= omap1_mmu_cam_ram_valid,
+	.interrupt	= omap1_mmu_interrupt,
 };
 EXPORT_SYMBOL_GPL(omap1_mmu_ops);

@@ -28,6 +28,7 @@
 #include <linux/delay.h>
 #include <linux/clk.h>
 #include <linux/device.h>
+#include <linux/interrupt.h>
 #include <asm/uaccess.h>
 #include <asm/io.h>
 #include <asm/pgalloc.h>
@@ -871,6 +872,16 @@ void omap_mmu_enable(struct omap_mmu *mmu, int reset)
 }
 EXPORT_SYMBOL_GPL(omap_mmu_enable);
 
+static irqreturn_t omap_mmu_interrupt(int irq, void *dev_id)
+{
+	struct omap_mmu *mmu = dev_id;
+
+	if (likely(mmu->ops->interrupt))
+		mmu->ops->interrupt(mmu);
+
+	return IRQ_HANDLED;
+}
+
 static int omap_mmu_init(struct omap_mmu *mmu)
 {
 	struct omap_mmu_tlb_lock tlb_lock;
@@ -879,6 +890,14 @@ static int omap_mmu_init(struct omap_mmu *mmu)
 	clk_enable(mmu->clk);
 	omap_dsp_request_mem();
 	down_write(&mmu->exmap_sem);
+
+	ret = request_irq(mmu->irq, omap_mmu_interrupt, IRQF_DISABLED,
+			  mmu->name,  mmu);
+	if (ret < 0) {
+		printk(KERN_ERR
+		       "failed to register MMU interrupt: %d\n", ret);
+		goto fail;
+	}
 
 	omap_mmu_disable(mmu);	/* clear all */
 	udelay(100);
@@ -889,7 +908,7 @@ static int omap_mmu_init(struct omap_mmu *mmu)
 
 	if (unlikely(mmu->ops->startup))
 		ret = mmu->ops->startup(mmu);
-
+ fail:
 	up_write(&mmu->exmap_sem);
 	omap_dsp_release_mem();
 	clk_disable(mmu->clk);
@@ -899,6 +918,8 @@ static int omap_mmu_init(struct omap_mmu *mmu)
 
 static void omap_mmu_shutdown(struct omap_mmu *mmu)
 {
+	free_irq(mmu->irq, mmu);
+
 	if (unlikely(mmu->ops->shutdown))
 		mmu->ops->shutdown(mmu);
 
