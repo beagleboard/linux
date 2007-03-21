@@ -45,7 +45,6 @@
 #include <asm/arch/dma.h>
 #include <asm/arch/board.h>
 
-#define PRCM_BASE		0x48008000
 #define PRCM_REVISION		0x000
 #define PRCM_SYSCONFIG		0x010
 #define PRCM_IRQSTATUS_MPU	0x018
@@ -144,7 +143,7 @@ static void (*omap2_sram_idle)(void);
 static void (*omap2_sram_suspend)(int dllctrl);
 static void (*saved_idle)(void);
 
-static u32 prcm_base = IO_ADDRESS(PRCM_BASE);
+static u32 prcm_base = IO_ADDRESS(OMAP24XX_PRCM_BASE);
 
 static inline void prcm_write_reg(int idx, u32 val)
 {
