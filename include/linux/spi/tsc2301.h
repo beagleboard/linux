@@ -174,15 +174,15 @@ static inline int  tsc2301_##module##_suspend(struct tsc2301 *tsc)	\
 }									\
 static inline void tsc2301_##module##_resume(struct tsc2301 *tsc) {}
 
-#ifdef CONFIG_SPI_TSC2301_KEYPAD
+#ifdef CONFIG_KEYBOARD_TSC2301
 TSC2301_DECL_MOD(kp)
 void tsc2301_kp_restart(struct tsc2301 *tsc);
 #else
 TSC2301_DECL_EMPTY_MOD(kp)
-void tsc2301_kp_restart(struct tsc2301 *tsc) {}
+static inline void tsc2301_kp_restart(struct tsc2301 *tsc) {}
 #endif
 
-#ifdef CONFIG_SPI_TSC2301_TOUCHSCREEN
+#ifdef CONFIG_TOUCHSCREEN_TSC2301
 TSC2301_DECL_MOD(ts)
 #else
 TSC2301_DECL_EMPTY_MOD(ts)

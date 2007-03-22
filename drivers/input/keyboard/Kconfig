@@ -239,4 +239,10 @@ config KEYBOARD_GPIO
 	  To compile this driver as a module, choose M here: the
 	  module will be called gpio-keys.
 
+config KEYBOARD_TSC2301
+	tristate "TSC2301 keypad support"
+	depends on SPI_TSC2301
+	help
+	  Say Y here for if you are using the keypad features of TSC2301.
+
 endif

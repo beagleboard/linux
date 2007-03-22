@@ -196,20 +196,6 @@ config SPI_TSC2301
 	  To compile this driver as a module, choose M here: the
 	  module will be called tsc2301.
 
-config SPI_TSC2301_KEYPAD
-	boolean "TSC2301 keypad support"
-	depends on SPI_TSC2301
-	select INPUT_KEYBOARD
-	help
-	  Say Y here for if you are using the keypad features of TSC2301.
-
-config SPI_TSC2301_TOUCHSCREEN
-	boolean "TSC2301 touchscreen support"
-	depends on SPI_TSC2301
-	select INPUT_TOUCHSCREEN
-	help
-	  Say Y here for if you are using the touchscreen features of TSC2301.
-
 config SPI_TSC2301_AUDIO
 	boolean "TSC2301 audio support"
 	depends on SPI_TSC2301 && SND
