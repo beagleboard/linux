@@ -648,7 +648,9 @@ static int musb_proc_write(struct file *file, const char __user *buffer,
 
 	/* MOD_INC_USE_COUNT; */
 
-	copy_from_user(&cmd, buffer, 1);
+	if (unlikely(copy_from_user(&cmd, buffer, 1)))
+		return -EFAULT;
+
 	switch (cmd) {
 	case 'C':
 		if (pBase) {
@@ -722,7 +724,8 @@ static int musb_proc_write(struct file *file, const char __user *buffer,
 				int i = 0, level = 0, sign = 1;
 				int len = min(count - 1, (unsigned long)8);
 
-				copy_from_user(&digits, &buffer[1], len);
+				if (copy_from_user(&digits, &buffer[1], len))
+					return -EFAULT;
 
 				/* optional sign */
 				if (*p == '-') {
