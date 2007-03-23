@@ -142,13 +142,15 @@ void musb_read_fifo(struct musb_hw_ep *hw_ep, u16 len, u8 *buf)
 	}
 }
 
+#ifdef CONFIG_USB_GADGET_MUSB_HDRC
+
 /* This is used by gadget drivers, and OTG transceiver logic, allowing
  * at most mA current to be drawn from VBUS during a Default-B session
  * (that is, while VBUS exceeds 4.4V).  In Default-A (including pure host
  * mode), or low power Default-B sessions, something else supplies power.
  * Caller must take care of locking.
  */
-static int tusb_set_power(struct otg_transceiver *x, unsigned mA)
+static int tusb_draw_power(struct otg_transceiver *x, unsigned mA)
 {
 	struct musb	*musb = container_of(x, struct musb, xceiv);
 	void __iomem	*base = musb->ctrl_base;
@@ -165,15 +167,22 @@ static int tusb_set_power(struct otg_transceiver *x, unsigned mA)
 		mA = 0;
 
 	reg = musb_readl(base, TUSB_PRCM_MNGMT);
-	if (mA)
+	if (mA) {
+		musb->is_bus_powered = 1;
 		reg |= TUSB_PRCM_MNGMT_15_SW_EN | TUSB_PRCM_MNGMT_33_SW_EN;
-	else
+	} else {
+		musb->is_bus_powered = 0;
 		reg &= ~(TUSB_PRCM_MNGMT_15_SW_EN | TUSB_PRCM_MNGMT_33_SW_EN);
+	}
 	musb_writel(base, TUSB_PRCM_MNGMT, reg);
 
 	DBG(2, "draw max %d mA VBUS\n", mA);
 	return 0;
 }
+
+#else
+#define tusb_draw_power	NULL
+#endif
 
 /* workaround for issue 13:  change clock during chip idle
  * (to be fixed in rev3 silicon) ... symptoms include disconnect
@@ -330,7 +339,7 @@ void musb_platform_try_idle(struct musb *musb)
 				| TUSB_DEV_OTG_TIMER_ENABLE) \
 		: 0)
 
-static void tusb_set_vbus(struct musb *musb, int is_on)
+static void tusb_source_power(struct musb *musb, int is_on)
 {
 	void __iomem	*base = musb->ctrl_base;
 	u32		conf, prcm, timer;
@@ -399,7 +408,7 @@ tusb_otg_ints(struct musb *musb, u32 int_src, void __iomem *base)
 			default_a = is_host_enabled(musb);
 		DBG(2, "Default-%c\n", default_a ? 'A' : 'B');
 		musb->xceiv.default_a = default_a;
-		tusb_set_vbus(musb, default_a);
+		tusb_source_power(musb, default_a);
 	}
 
 	/* VBUS state change */
@@ -447,7 +456,7 @@ tusb_otg_ints(struct musb *musb, u32 int_src, void __iomem *base)
 				 */
 				if (musb->vbuserr_retry) {
 					musb->vbuserr_retry--;
-					tusb_set_vbus(musb, 1);
+					tusb_source_power(musb, 1);
 				}
 				break;
 			default:
@@ -491,12 +500,12 @@ tusb_otg_ints(struct musb *musb, u32 int_src, void __iomem *base)
 			} else {
 				/* REVISIT report overcurrent to hub? */
 				ERR("vbus too slow, devctl %02x\n", devctl);
-				tusb_set_vbus(musb, 0);
+				tusb_source_power(musb, 0);
 			}
 			break;
 		case OTG_STATE_A_WAIT_BCON:
 			if (OTG_TIME_A_WAIT_BCON)
-				tusb_set_vbus(musb, 0);
+				tusb_source_power(musb, 0);
 			break;
 		case OTG_STATE_A_SUSPEND:
 			break;
@@ -832,9 +841,9 @@ int __init musb_platform_init(struct musb *musb)
 	musb->isr = tusb_interrupt;
 
 	if (is_host_enabled(musb))
-		musb->board_set_vbus = tusb_set_vbus;
+		musb->board_set_vbus = tusb_source_power;
 	if (is_peripheral_enabled(musb))
-		musb->xceiv.set_power = tusb_set_power;
+		musb->xceiv.set_power = tusb_draw_power;
 
 	setup_timer(&musb_idle_timer, musb_do_idle, (unsigned long) musb);
 

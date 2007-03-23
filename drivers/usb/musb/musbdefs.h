@@ -402,7 +402,7 @@ struct musb {
 	u8			min_power;	/* vbus for periph, in mA/2 */
 
 	/* active means connected and not suspended */
-	unsigned is_active:1;
+	unsigned		is_active:1;
 
 	unsigned bIsMultipoint:1;
 	unsigned bIsHost:1;
@@ -430,8 +430,16 @@ struct musb {
 #endif
 
 #ifdef CONFIG_USB_GADGET_MUSB_HDRC
-	unsigned bIsSelfPowered:1;
-	unsigned bMayWakeup:1;
+	/* may_wakeup means remote wakeup is enabled */
+	unsigned		may_wakeup:1;
+
+	/* is_self_powered is reported in device status and the
+	 * config descriptor.  is_bus_powered means B_PERIPHERAL
+	 * draws some VBUS current; both can be true.
+	 */
+	unsigned		is_self_powered:1;
+	unsigned		is_bus_powered:1;
+
 	unsigned bSetAddress:1;
 	unsigned bTestMode:1;
 	unsigned softconnect:1;
