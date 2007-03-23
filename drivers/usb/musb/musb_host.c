@@ -2121,10 +2121,13 @@ static int musb_h_get_frame_number(struct usb_hcd *hcd)
 
 static int musb_h_start(struct usb_hcd *hcd)
 {
+	struct musb	*musb = hcd_to_musb(hcd);
+
 	/* NOTE: musb_start() is called when the hub driver turns
 	 * on port power, or when (OTG) peripheral starts.
 	 */
 	hcd->state = HC_STATE_RUNNING;
+	musb->port1_status = 0;
 	return 0;
 }
 

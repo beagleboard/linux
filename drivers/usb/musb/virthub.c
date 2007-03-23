@@ -41,6 +41,8 @@
 #include <linux/time.h>
 #include <linux/timer.h>
 
+#include <asm/unaligned.h>
+
 #include "musbdefs.h"
 
 
@@ -300,11 +302,11 @@ int musb_hub_control(
 			musb->xceiv.state = OTG_STATE_A_HOST;
 		}
 
-		*(__le32 *) buf = cpu_to_le32(musb->port1_status
-				& ~MUSB_PORT_STAT_RESUME);
+		put_unaligned(cpu_to_le32(musb->port1_status & ~MUSB_PORT_STAT_RESUME),
+				(__le32 *) buf);
 
 		/* port change status is more interesting */
-		DBG((*(u16*)(buf+2)) ? 2 : 5, "port status %08x\n",
+		DBG(get_unaligned((u16*)(buf+2)) ? 2 : 5, "port status %08x\n",
 				musb->port1_status);
 		break;
 	case SetPortFeature:
