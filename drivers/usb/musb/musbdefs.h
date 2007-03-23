@@ -176,10 +176,13 @@ static inline void musb_host_rx(struct musb *m, u8 e) {}
 #endif
 
 /* host side ep0 states */
-#define MGC_END0_START  0x0
-#define MGC_END0_OUT    0x2
-#define MGC_END0_IN     0x4
-#define MGC_END0_STATUS 0x8
+enum musb_h_ep0_state {
+	MGC_END0_IDLE,
+	MGC_END0_START,			/* expect ack of setup */
+	MGC_END0_IN,			/* expect IN DATA */
+	MGC_END0_OUT,			/* expect ack of OUT DATA */
+	MGC_END0_STATUS,		/* expect ack of STATUS */
+} __attribute__ ((packed));
 
 /* peripheral side ep0 states */
 enum musb_g_ep0_state {
@@ -347,7 +350,7 @@ struct musb {
 	u32			port1_status;
 	unsigned long		rh_timer;
 
-	u8 bEnd0Stage;		/* end0 stage while in host */
+	enum musb_h_ep0_state	bEnd0Stage;
 
 	/* bulk traffic normally dedicates endpoint hardware, and each
 	 * direction has its own ring of host side endpoints.

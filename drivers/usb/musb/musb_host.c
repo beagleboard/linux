@@ -936,21 +936,20 @@ static void musb_ep_program(struct musb *pThis, u8 bEnd,
 
 /*
  * Service the default endpoint (ep0) as host.
- * return TRUE if more packets are required for this transaction
+ * Return TRUE until it's time to start the status stage.
  */
-static u8 musb_h_ep0_continue(struct musb *pThis,
+static int musb_h_ep0_continue(struct musb *pThis,
 				u16 wCount, struct urb *pUrb)
 {
-	u8 bMore = FALSE;
+	int			 bMore = FALSE;
 	u8 *pFifoDest = NULL;
 	u16 wFifoCount = 0;
 	struct musb_hw_ep	*pEnd = pThis->control_ep;
 	struct musb_qh		*qh = pEnd->in_qh;
 	struct usb_ctrlrequest	*pRequest;
 
-	pRequest = (struct usb_ctrlrequest *) pUrb->setup_packet;
-	if (MGC_END0_IN == pThis->bEnd0Stage) {
-		/* we are receiving from peripheral */
+	switch (pThis->bEnd0Stage) {
+	case MGC_END0_IN:
 		pFifoDest = pUrb->transfer_buffer + pUrb->actual_length;
 		wFifoCount = min(wCount, ((u16) (pUrb->transfer_buffer_length
 					- pUrb->actual_length)));
@@ -964,50 +963,46 @@ static u8 musb_h_ep0_continue(struct musb *pThis,
 			/* always terminate on short read; it's
 			 * rarely reported as an error.
 			 */
-			if ((pUrb->transfer_flags & URB_SHORT_NOT_OK)
-					&& (pUrb->actual_length <
-						pUrb->transfer_buffer_length))
-				pUrb->status = -EREMOTEIO;
 		} else if (pUrb->actual_length <
 				pUrb->transfer_buffer_length)
 			bMore = TRUE;
-	} else {
-/*
-	DBG(3, "%s hw%d urb %p spd%d dev%d ep%d%s "
-				"hub%d port%d%s bytes %d\n",
-			is_out ? "-->" : "<--",
-			bEnd, pUrb, pUrb->dev->speed,
-			bAddress, qh->epnum, is_out ? "out" : "in",
-			bHubAddr, bHubPort + 1,
-			bIsMulti ? " multi" : "",
-			dwLength);
-*/
-		if ((MGC_END0_START == pThis->bEnd0Stage)
-				&& (pRequest->bRequestType & USB_DIR_IN)) {
-			/* this means we just did setup; switch to IN */
+		break;
+	case MGC_END0_START:
+		pRequest = (struct usb_ctrlrequest *) pUrb->setup_packet;
+
+		if (!pRequest->wLength) {
+			DBG(4, "start no-DATA\n");
+			break;
+		} else if (pRequest->bRequestType & USB_DIR_IN) {
 			DBG(4, "start IN-DATA\n");
 			pThis->bEnd0Stage = MGC_END0_IN;
 			bMore = TRUE;
-
-		} else if (pRequest->wLength
-				&& (MGC_END0_START == pThis->bEnd0Stage)) {
+			break;
+		} else {
+			DBG(4, "start OUT-DATA\n");
 			pThis->bEnd0Stage = MGC_END0_OUT;
+			bMore = TRUE;
+		}
+		/* FALLTHROUGH */
+	case MGC_END0_OUT:
+		wFifoCount = min(qh->maxpacket, ((u16)
+				(pUrb->transfer_buffer_length
+				- pUrb->actual_length)));
+
+		if (wFifoCount) {
 			pFifoDest = (u8 *) (pUrb->transfer_buffer
 					+ pUrb->actual_length);
-			wFifoCount = min(qh->maxpacket, ((u16)
-					(pUrb->transfer_buffer_length
-					- pUrb->actual_length)));
 			DBG(3, "Sending %d bytes to %p\n",
 					wFifoCount, pFifoDest);
 			musb_write_fifo(pEnd, wFifoCount, pFifoDest);
 
-			qh->segsize = wFifoCount;
 			pUrb->actual_length += wFifoCount;
-			if (pUrb->actual_length
-					< pUrb->transfer_buffer_length) {
-				bMore = TRUE;
-			}
+			bMore = TRUE;
 		}
+		break;
+	default:
+		ERR("bogus ep0 stage %d\n", pThis->bEnd0Stage);
+		break;
 	}
 
 	return bMore;
@@ -1036,7 +1031,9 @@ irqreturn_t musb_h_ep0_irq(struct musb *pThis)
 
 	MGC_SelectEnd(pBase, 0);
 	wCsrVal = musb_readw(epio, MGC_O_HDRC_CSR0);
-	wCount = musb_readb(epio, MGC_O_HDRC_COUNT0);
+	wCount = (wCsrVal & MGC_M_CSR0_RXPKTRDY)
+			? musb_readb(epio, MGC_O_HDRC_COUNT0)
+			: 0;
 
 	DBG(4, "<== csr0 %04x, qh %p, count %d, urb %p, stage %d\n",
 		wCsrVal, qh, wCount, pUrb, pThis->bEnd0Stage);
@@ -1117,10 +1114,14 @@ irqreturn_t musb_h_ep0_irq(struct musb *pThis)
 				?  MGC_M_CSR0_H_REQPKT : MGC_M_CSR0_TXPKTRDY;
 		} else {
 			/* data transfer complete; perform status phase */
-			wCsrVal = MGC_M_CSR0_H_STATUSPKT
-				| (usb_pipeout(pUrb->pipe)
-					? MGC_M_CSR0_H_REQPKT
-					: MGC_M_CSR0_TXPKTRDY);
+			if (usb_pipeout(pUrb->pipe)
+					|| !pUrb->transfer_buffer_length)
+				wCsrVal = MGC_M_CSR0_H_STATUSPKT
+					| MGC_M_CSR0_H_REQPKT;
+			else
+				wCsrVal = MGC_M_CSR0_H_STATUSPKT
+					| MGC_M_CSR0_TXPKTRDY;
+
 			/* flag status stage */
 			pThis->bEnd0Stage = MGC_END0_STATUS;
 
@@ -1129,7 +1130,8 @@ irqreturn_t musb_h_ep0_irq(struct musb *pThis)
 		}
 		musb_writew(epio, MGC_O_HDRC_CSR0, wCsrVal);
 		retval = IRQ_HANDLED;
-	}
+	} else
+		pThis->bEnd0Stage = MGC_END0_IDLE;
 
 	/* call completion handler if done */
 	if (bComplete)
