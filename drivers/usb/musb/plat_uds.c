@@ -330,8 +330,8 @@ static irqreturn_t musb_stage0_irq(struct musb * pThis, u8 bIntrUSB,
 						power | MGC_M_POWER_RESUME);
 
 					pThis->port1_status |=
-						  MUSB_PORT_STAT_RESUME
-						| USB_PORT_STAT_C_SUSPEND;
+						(USB_PORT_STAT_C_SUSPEND << 16)
+						| MUSB_PORT_STAT_RESUME;
 					pThis->rh_timer = jiffies
 						+ msecs_to_jiffies(20);
 
