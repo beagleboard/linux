@@ -368,6 +368,15 @@ static irqreturn_t musb_stage0_irq(struct musb * pThis, u8 bIntrUSB,
 #ifdef CONFIG_USB_GADGET_MUSB_HDRC
 			case OTG_STATE_B_WAIT_ACON:
 			case OTG_STATE_B_PERIPHERAL:
+				/* disconnect while suspended?  we may
+				 * not get a disconnect irq...
+				 */
+				if ((devctl & MGC_M_DEVCTL_VBUS)
+						!= (3 << MGC_S_DEVCTL_VBUS)) {
+					pThis->int_usb |= MGC_M_INTR_DISCONNECT;
+					pThis->int_usb &= ~MGC_M_INTR_SUSPEND;
+					break;
+				}
 				musb_g_resume(pThis);
 				break;
 			case OTG_STATE_B_IDLE:
@@ -646,8 +655,8 @@ static irqreturn_t musb_stage2_irq(struct musb * pThis, u8 bIntrUSB,
 	}
 
 	if (bIntrUSB & MGC_M_INTR_SUSPEND) {
-		DBG(1, "SUSPEND (%s) devctl %02x\n",
-				otg_state_string(pThis), devctl);
+		DBG(1, "SUSPEND (%s) devctl %02x power %02x\n",
+				otg_state_string(pThis), devctl, power);
 		handled = IRQ_HANDLED;
 
 		switch (pThis->xceiv.state) {

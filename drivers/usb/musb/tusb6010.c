@@ -199,7 +199,7 @@ static void tusb_set_clock_source(struct musb *musb, unsigned mode)
 	/* 0 = refclk (clkin, XI)
 	 * 1 = PHY 60 MHz (internal PLL)
 	 * 2 = not supported
-	 * 3 = NOR clock (huh?)
+	 * 3 = what?
 	 */
 	if (mode > 0)
 		reg |= TUSB_PRCM_CONF_SYS_CLKSEL(mode & 0x3);
@@ -242,7 +242,7 @@ static void tusb_allow_idle(struct musb *musb, u32 wakeup_enables)
 	reg |= TUSB_PRCM_MNGMT_PM_IDLE | TUSB_PRCM_MNGMT_DEV_IDLE;
 	musb_writel(base, TUSB_PRCM_MNGMT, reg);
 
-	DBG(2, "idle, wake on %02x\n", wakeup_enables);
+	DBG(6, "idle, wake on %02x\n", wakeup_enables);
 }
 
 /*
@@ -545,7 +545,7 @@ static irqreturn_t tusb_interrupt(int irq, void *__hci)
 			reg = musb_readl(base, TUSB_SCRATCH_PAD);
 			if (reg == i)
 				break;
-			DBG(1, "TUSB NOR not ready\n");
+			DBG(6, "TUSB NOR not ready\n");
 		}
 
 		/* work around issue 13 (2nd half) */

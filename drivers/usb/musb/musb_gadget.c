@@ -1426,16 +1426,12 @@ static int musb_gadget_get_frame(struct usb_gadget *gadget)
 static int musb_gadget_wakeup(struct usb_gadget *gadget)
 {
 	struct musb	*musb = gadget_to_musb(gadget);
+	void __iomem	*mregs = musb->pRegs;
 	unsigned long	flags;
 	int		status = -EINVAL;
-	u8		power;
+	u8		power, devctl;
 
 	spin_lock_irqsave(&musb->Lock, flags);
-
-	/* fail if we're not suspended */
-	power = musb_readb(musb->pRegs, MGC_O_HDRC_POWER);
-	if (!(power & MGC_M_POWER_SUSPENDM))
-		goto done;
 
 	switch (musb->xceiv.state) {
 	case OTG_STATE_B_PERIPHERAL:
@@ -1443,37 +1439,34 @@ static int musb_gadget_wakeup(struct usb_gadget *gadget)
 		 * that's part of the standard usb 1.1 state machine, and
 		 * doesn't affect OTG transitions.
 		 */
-		if (musb->may_wakeup)
+		if (musb->may_wakeup && musb->is_suspended)
 			break;
 		goto done;
 	case OTG_STATE_B_IDLE:
-		/* REVISIT we might be able to do SRP even without OTG,
-		 * though Linux doesn't yet expose that capability.  SRP
-		 * starts by setting DEVCTL.SESSION (not POWER.RESUME);
-		 * though DaVinci can't do it.
-		 */
-		if (is_otg_enabled(musb)) {
-			musb->xceiv.state = OTG_STATE_B_SRP_INIT;
-			break;
-		}
-		/* FALLTHROUGH */
+		/* Start SRP ... OTG not required. */
+		devctl = musb_readb(mregs, MGC_O_HDRC_DEVCTL);
+		devctl |= MGC_M_DEVCTL_SESSION;
+		musb_writeb(mregs, MGC_O_HDRC_DEVCTL, devctl);
+		DBG(2, "SRP\n");
+		status = 0;
+		goto done;
 	default:
 		goto done;
 	}
 
 	status = 0;
+
+	power = musb_readb(mregs, MGC_O_HDRC_POWER);
 	power |= MGC_M_POWER_RESUME;
-	musb_writeb(musb->pRegs, MGC_O_HDRC_POWER, power);
+	musb_writeb(mregs, MGC_O_HDRC_POWER, power);
+	DBG(2, "issue wakeup\n");
 
 	/* FIXME do this next chunk in a timer callback, no udelay */
 	mdelay(2);
 
-	power = musb_readb(musb->pRegs, MGC_O_HDRC_POWER);
+	power = musb_readb(mregs, MGC_O_HDRC_POWER);
 	power &= ~MGC_M_POWER_RESUME;
-	musb_writeb(musb->pRegs, MGC_O_HDRC_POWER, power);
-
-	if (musb->xceiv.state == OTG_STATE_B_SRP_INIT)
-		musb->xceiv.state = OTG_STATE_B_IDLE;
+	musb_writeb(mregs, MGC_O_HDRC_POWER, power);
 done:
 	spin_unlock_irqrestore(&musb->Lock, flags);
 	return status;
@@ -1898,6 +1891,7 @@ EXPORT_SYMBOL(usb_gadget_unregister_driver);
 
 void musb_g_resume(struct musb *musb)
 {
+	musb->is_suspended = 0;
 	switch (musb->xceiv.state) {
 	case OTG_STATE_B_IDLE:
 		break;
@@ -1930,6 +1924,7 @@ void musb_g_suspend(struct musb *musb)
 			musb->xceiv.state = OTG_STATE_B_PERIPHERAL;
 		break;
 	case OTG_STATE_B_PERIPHERAL:
+		musb->is_suspended = 1;
 		if (musb->pGadgetDriver && musb->pGadgetDriver->suspend) {
 			spin_unlock(&musb->Lock);
 			musb->pGadgetDriver->suspend(&musb->g);
@@ -2017,6 +2012,7 @@ __acquires(musb->Lock)
 
 	/* start in USB_STATE_DEFAULT */
 	musb->is_active = 1;
+	musb->is_suspended = 0;
 	MUSB_DEV_MODE(musb);
 	musb->bAddress = 0;
 	musb->ep0_state = MGC_END0_STAGE_SETUP;

@@ -330,6 +330,10 @@ __acquires(musb->Lock)
 					musb->g.b_hnp_enable = 1;
 					devctl = musb_readb(pBase,
 							MGC_O_HDRC_DEVCTL);
+					/* NOTE:  at least DaVinci doesn't
+					 * like to set HR ...
+					 */
+					DBG(1, "set HR\n");
 					musb_writeb(pBase, MGC_O_HDRC_DEVCTL,
 						devctl | MGC_M_DEVCTL_HR);
 					}

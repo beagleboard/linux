@@ -534,6 +534,15 @@ static int dump_header_stats(struct musb *pThis, char *buffer)
 	count += code;
 	buffer += code;
 
+#ifdef	CONFIG_USB_GADGET_MUSB_HDRC
+	code = sprintf(buffer, "Peripheral address: %02x\n",
+			musb_readb(pThis, MGC_O_HDRC_FADDR));
+	if (code <= 0)
+		goto done;
+	buffer += code;
+	count += code;
+#endif
+
 #ifdef	CONFIG_USB_MUSB_HDRC_HCD
 	code = sprintf(buffer, "Root port status: %08x\n",
 			pThis->port1_status);
