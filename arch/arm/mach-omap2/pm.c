@@ -389,8 +389,12 @@ static void omap2_pm_dump(int mode, int resume, unsigned int us)
 	}
 
 	if (!resume)
+#if defined(CONFIG_NO_IDLE_HZ) || defined(CONFIG_NO_HZ)
 		printk("--- Going to %s %s (next timer after %u ms)\n", s1, s2,
 		       jiffies_to_msecs(next_timer_interrupt() - jiffies));
+#else
+		printk("--- Going to %s %s\n", s1, s2);
+#endif
 	else
 		printk("--- Woke up (slept for %u.%03u ms)\n", us / 1000, us % 1000);
 	for (i = 0; i < reg_count; i++)
