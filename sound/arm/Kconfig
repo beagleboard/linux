@@ -86,4 +86,19 @@ config SND_OMAP_TSC2102
  	  To compile this driver as a module, choose M here: the module
  	  will be called snd-omap-tsc2102.
 
+config SND_OMAP24XX_EAC
+	tristate "Audio driver for OMAP24xx EAC"
+	depends on SND
+	help
+	  Audio driver for Enhanced Audio Controller found in TI's OMAP24xx
+	  processors.
+
+	  Currently contains only low-level support functions for
+	  initializing EAC HW, creating ALSA sound card instance for it
+	  and registering mixer controls implemented by a codec driver.
+	  PCM stream is expected to be under DSP co-processor control.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called snd-omap24xx-eac.
+
 endmenu
