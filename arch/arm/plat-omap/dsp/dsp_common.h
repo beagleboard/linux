@@ -25,6 +25,7 @@
 #define DRIVER_DSP_COMMON_H
 
 #include <linux/clk.h>
+#include <asm/arch/mmu.h>
 #include "hardware_dsp.h"
 
 #define DSPSPACE_SIZE	0x1000000
@@ -134,10 +135,8 @@ enum cpustat_e {
 
 int dsp_set_rstvect(dsp_long_t adr);
 dsp_long_t dsp_get_rstvect(void);
-#ifdef CONFIG_ARCH_OMAP1
 void dsp_set_idle_boot_base(dsp_long_t adr, size_t size);
 void dsp_reset_idle_boot_base(void);
-#endif
 void dsp_cpustat_request(enum cpustat_e req);
 enum cpustat_e dsp_cpustat_get_stat(void);
 u16 dsp_cpustat_get_icrmask(void);
@@ -197,7 +196,7 @@ struct dsp_platform_data {
 struct omap_dsp {
 	struct mutex		lock;
 	int			enabled;	/* stored peripheral status */
-	int			mmu_irq;
+	struct omap_mmu		*mmu;
 	struct omap_mbox	*mbox;
 	struct device		*dev;
 	struct list_head	*kdev_list;

@@ -406,16 +406,6 @@ struct file_operations dsp_mem_fops = {
 	.ioctl   = dsp_mem_ioctl,
 };
 
-/*
- * DSP MMU interrupt handler
- */
-static irqreturn_t dsp_mmu_interrupt(int irq, void *dev_id)
-{
-	disable_irq(omap_dsp->mmu_irq);
-	schedule_work(&mmu_int_work);
-	return IRQ_HANDLED;
-}
-
 void dsp_mem_start(void)
 {
 	dsp_register_mem_cb(intmem_enable, intmem_disable);
@@ -427,14 +417,42 @@ void dsp_mem_stop(void)
 	dsp_unregister_mem_cb();
 }
 
+static void dsp_mmu_irq_work(struct work_struct *work)
+{
+	struct omap_mmu *mmu = container_of(work, struct omap_mmu, irq_work);
+
+	if (dsp_cfgstat_get_stat() == CFGSTAT_READY) {
+		dsp_err_set(ERRCODE_MMU, mmu->fault_address);
+		return;
+	}
+	omap_mmu_itack(mmu);
+	pr_info("Resetting DSP...\n");
+	dsp_cpustat_request(CPUSTAT_RESET);
+	omap_mmu_enable(mmu, 0);
+}
+
 /*
  * later half of dsp memory initialization
  */
-void dsp_mem_late_init(void)
+int dsp_mem_late_init(void)
 {
-	int ret = 0;
+	int ret;
 
 	dsp_mem_ipi_init();
+
+	INIT_WORK(&dsp_mmu.irq_work, dsp_mmu_irq_work);
+	ret = omap_mmu_register(&dsp_mmu);
+	if (ret) {
+		dsp_reset_idle_boot_base();
+		goto out;
+	}
+	omap_dsp->mmu = &dsp_mmu;
+ out:
+	return ret;
+}
+
+int __init dsp_mem_init(void)
+{
 #ifdef CONFIG_ARCH_OMAP2
 	dsp_mmu.clk    = dsp_fck_handle;
 	dsp_mmu.memclk = dsp_ick_handle;
@@ -442,43 +460,11 @@ void dsp_mem_late_init(void)
 	dsp_mmu.clk    = dsp_ck_handle;
 	dsp_mmu.memclk = api_ck_handle;
 #endif
-	ret = omap_mmu_register(&dsp_mmu);
-}
-
-int __init dsp_mem_init(void)
-{
-	int ret;
-	/*
-	 * DSP MMU interrupt setup
-	 */
-	ret = request_irq(omap_dsp->mmu_irq, dsp_mmu_interrupt, IRQF_DISABLED,
-			  "dsp_mmu",  NULL);
-	if (ret) {
-		printk(KERN_ERR
-		       "failed to register DSP MMU interrupt: %d\n", ret);
-		goto fail;
-	}
-
-	/* MMU interrupt is not enabled until DSP runs */
-	disable_irq(omap_dsp->mmu_irq);
-
 	return 0;
- fail:
-#ifdef CONFIG_ARCH_OMAP1
-	dsp_reset_idle_boot_base();
-#endif
-	return ret;
 }
 
 void dsp_mem_exit(void)
 {
-	free_irq(omap_dsp->mmu_irq, NULL);
-
-	/* recover disable_depth */
-	enable_irq(omap_dsp->mmu_irq);
-
-#ifdef CONFIG_ARCH_OMAP1
 	dsp_reset_idle_boot_base();
-#endif
 	omap_mmu_unregister(&dsp_mmu);
 }

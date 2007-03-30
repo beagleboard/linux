@@ -44,7 +44,7 @@ static struct sync_seq *mbseq;
 static u16 mbseq_expect_tmp;
 static u16 *mbseq_expect = &mbseq_expect_tmp;
 
-extern void dsp_mem_late_init(void);
+extern int dsp_mem_late_init(void);
 
 /*
  * mailbox commands
@@ -459,7 +459,9 @@ int dsp_late_init(void)
 	int ret;
 
 	dsp_clk_enable();
-	dsp_mem_late_init();
+	ret = dsp_mem_late_init();
+	if (ret)
+		return ret;
 	ret = dsp_mbox_init();
 	if (ret)
 		goto fail_mbox;
@@ -522,12 +524,6 @@ static int __init dsp_drv_probe(struct platform_device *pdev)
 		goto fail_kfunc;
 	}
 
-	info->mmu_irq = platform_get_irq_byname(pdev, "dsp_mmu");
-	if (unlikely(info->mmu_irq) < 0) {
-		ret = -ENXIO;
-		goto fail_irq;
-	}
-
 	ret = dsp_ctl_core_init();
 	if (ret)
 		goto fail_ctl_core;
@@ -552,7 +548,6 @@ static int __init dsp_drv_probe(struct platform_device *pdev)
  fail_mem:
 	dsp_ctl_core_exit();
  fail_ctl_core:
- fail_irq:
 	dsp_kfunc_remove_devices(info);
  fail_kfunc:
 	kfree(info);

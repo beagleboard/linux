@@ -262,7 +262,8 @@ void dsp_reset_idle_boot_base(void)
 {
 	idle_boot_base = DSP_BOOT_ADR_MPUI;
 }
-
+#else
+void dsp_reset_idle_boot_base(void) { }
 #endif /* CONFIG_ARCH_OMAP1 */
 
 static int init_done;
@@ -377,8 +378,6 @@ static void dsp_cpustat_update(void)
 			__dsp_core_enable();
 #endif
 			cpustat.stat = CPUSTAT_RUN;
-			if (omap_dsp != NULL)
-				enable_irq(omap_dsp->mmu_irq);
 		}
 		return;
 	}
@@ -386,8 +385,6 @@ static void dsp_cpustat_update(void)
 	/* cpustat.req < CPUSTAT_RUN */
 
 	if (cpustat.stat == CPUSTAT_RUN) {
-		if (omap_dsp != NULL)
-			disable_irq(omap_dsp->mmu_irq);
 #ifdef CONFIG_ARCH_OMAP1
 		clk_disable(api_ck_handle);
 #endif
