@@ -23,6 +23,6 @@
 #define OTG_INTERFSEL		HS_OTG(0x40c)
 #define OTG_SIMENABLE		HS_OTG(0x410)
 
-#endif	/* CONFIG_ARCH_OMAP243X */
+#endif	/* CONFIG_ARCH_OMAP2430 */
 
 #endif	/* __MUSB_OMAP243X_H__ */

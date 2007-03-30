@@ -1314,7 +1314,7 @@ static int __init musb_core_init(u16 wType, struct musb *pThis)
 
 /*-------------------------------------------------------------------------*/
 
-#ifdef CONFIG_ARCH_OMAP243X
+#ifdef CONFIG_ARCH_OMAP2430
 
 static irqreturn_t generic_interrupt(int irq, void *__hci)
 {
