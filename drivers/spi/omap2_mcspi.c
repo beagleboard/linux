@@ -604,7 +604,7 @@ static int omap2_mcspi_request_dma(struct spi_device *spi)
 		printk(KERN_ERR "Unable to request DMA channel for McSPI RX\n");
 		return -EAGAIN;
 	}
-	
+
 	if (omap_request_dma(tx_dev_id, "McSPI TX",
 			     omap2_mcspi_dma_tx_callback, spi,
 			     &mcspi_dma->dma_tx_channel)) {
@@ -613,13 +613,13 @@ static int omap2_mcspi_request_dma(struct spi_device *spi)
 		printk(KERN_ERR "Unable to request DMA channel for McSPI TX\n");
 		return -EAGAIN;
 	}
-	
+
 	mcspi_dma->dma_rx_sync_dev = rx_dev_id;
 	mcspi_dma->dma_tx_sync_dev = tx_dev_id;
 
 	init_completion(&mcspi_dma->dma_rx_completion);
 	init_completion(&mcspi_dma->dma_tx_completion);
-	
+
 	return 0;
 }
 
@@ -639,7 +639,7 @@ static int omap2_mcspi_setup(struct spi_device *spi)
 			return -ENOMEM;
 		spi->controller_state = cs;
 	}
-	
+
 	if (mcspi_dma->dma_rx_channel == -1 ||
 	    mcspi_dma->dma_tx_channel == -1) {
 		ret = omap2_mcspi_request_dma(spi);
@@ -783,7 +783,7 @@ static int __devinit omap2_mcspi_probe(struct platform_device *pdev)
 	struct omap2_mcspi		*mcspi;
 	struct resource                 *r;
 	int				status = 0, i;
-		
+
 	if (!pdata)
 		return -EINVAL;
 
@@ -817,7 +817,7 @@ static int __devinit omap2_mcspi_probe(struct platform_device *pdev)
 		status = -ENODEV;
 		goto err1;
 	}
-	
+
 	mcspi->base = io_p2v(r->start);
 
 	INIT_WORK(&mcspi->work, omap2_mcspi_work);
@@ -840,11 +840,11 @@ static int __devinit omap2_mcspi_probe(struct platform_device *pdev)
 	}
 	clk_enable(mcspi->fck);
 
-	mcspi->dma_channels = 
+	mcspi->dma_channels =
 		(struct omap2_mcspi_dma *)kzalloc(master->num_chipselect *
 						  sizeof(struct omap2_mcspi_dma),
 						  GFP_KERNEL);
-	
+
 	if (mcspi->dma_channels == NULL)
 		goto err3;
 
