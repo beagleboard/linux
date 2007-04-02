@@ -190,6 +190,28 @@ config SPI_TSC2102
          Say Y here if you want support for the TSC2102 chip.  It
 	 will be needed for the touchscreen driver on some boards.
 	 
+config SPI_TSC2301
+	tristate "TSC2301 driver"
+	depends on SPI_MASTER
+	help
+	  Say Y here if you have a TSC2301 chip connected to an SPI
+	  bus on your board.
+
+	  The TSC2301 is a highly integrated PDA analog interface circuit.
+	  It contains a complete 12-bit A/D resistive touch screen
+	  converter (ADC) including drivers, touch pressure measurement
+	  capability, keypad controller, and 8-bit D/A converter (DAC) output
+	  for LCD contrast control.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called tsc2301.
+
+config SPI_TSC2301_AUDIO
+	boolean "TSC2301 audio support"
+	depends on SPI_TSC2301 && SND
+	help
+	  Say Y here for if you are using the audio features of TSC2301.
+
 config SPI_SPIDEV
 	tristate "User mode SPI device driver support"
 	depends on SPI_MASTER && EXPERIMENTAL
