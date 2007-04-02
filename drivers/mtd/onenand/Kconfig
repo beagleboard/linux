@@ -27,6 +27,13 @@ config MTD_ONENAND_GENERIC
 	help
 	  Support for OneNAND flash via platform device driver.
 
+config MTD_ONENAND_OMAP2
+	tristate "OneNAND on OMAP2 support"
+	depends on MTD_ONENAND && ARCH_OMAP2
+	help
+	  Support for a OneNAND flash device connected to an OMAP2 CPU
+	  via the GPMC memory controller.
+
 config MTD_ONENAND_OTP
 	bool "OneNAND OTP Support"
 	help
