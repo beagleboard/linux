@@ -31,7 +31,7 @@
 
 #include "../plat-omap/dsp/dsp_common.h"
 
-#if defined(CONFIG_SND_SOC_TSC2301) && defined(CONFIG_SND_OMAP24XX_EAC)
+#if defined(CONFIG_SPI_TSC2301_AUDIO) && defined(CONFIG_SND_OMAP24XX_EAC)
 #define AUDIO_ENABLED
 
 static struct clk *sys_clkout2;
