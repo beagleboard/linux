@@ -1023,6 +1023,10 @@ source "drivers/mmc/Kconfig"
 
 source "drivers/rtc/Kconfig"
 
+if ARCH_OMAP
+source "drivers/cbus/Kconfig"
+endif
+
 endmenu
 
 source "fs/Kconfig"
