@@ -52,8 +52,7 @@ config SND_OMAP_TSC2101
  	tristate "OMAP TSC2101 alsa driver"
  	depends on ARCH_OMAP && SND
  	select SND_PCM
-         select OMAP_TSC2101
-         select OMAP_UWIRE if ARCH_OMAP
+         select SPI_TSC2101
 	 select OMAP_MCBSP
  	help
  	  Say Y here if you have a OMAP platform board
@@ -78,7 +77,7 @@ config SND_OMAP_TSC2102
  	tristate "OMAP TSC2102 alsa driver"
  	depends on ARCH_OMAP && SND
  	select SND_PCM
-	select TSC2102
+	select SPI_TSC2102
  	help
  	  Say Y here if you have an OMAP platform board
  	  and want to use its TSC2102 audio chip.
