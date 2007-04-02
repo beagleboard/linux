@@ -83,7 +83,7 @@ static int dsp_mmu_itack(void)
 		printk(KERN_ERR "omapdsp: DSP MMU error has not been set.\n");
 		return -EINVAL;
 	}
-	dspadr = dsp_fault_adr & ~(SZ_4K-1);
+	dspadr = dsp_mmu.fault_address & ~(SZ_4K-1);
 	/* FIXME: reserve TLB entry for this */
 	omap_mmu_exmap(&dsp_mmu, dspadr, 0, SZ_4K, EXMAP_TYPE_MEM);
 	pr_info("omapdsp: falling into recovery runlevel...\n");

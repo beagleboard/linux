@@ -344,8 +344,6 @@ static int dsp_mem_ioctl(struct inode *inode, struct file *file,
 			 unsigned int cmd, unsigned long arg)
 {
 	struct omap_dsp_mapinfo mapinfo;
-	dsp_long_t dspadr;
-	int ret;
 	__u32 size;
 
 	switch (cmd) {
@@ -370,6 +368,9 @@ static int dsp_mem_ioctl(struct inode *inode, struct file *file,
 		return 0;
 #ifdef CONFIG_OMAP_DSP_FBEXPORT
 	case MEM_IOCTL_FBEXPORT:
+	{
+		dsp_long_t dspadr;
+		int ret;
 		if (copy_from_user(&dspadr, (void __user *)arg,
 				   sizeof(dsp_long_t)))
 			return -EFAULT;
@@ -378,6 +379,7 @@ static int dsp_mem_ioctl(struct inode *inode, struct file *file,
 				 sizeof(dsp_long_t)))
 			return -EFAULT;
 		return ret;
+	}
 #endif
 	case MEM_IOCTL_MMUITACK:
 		return dsp_mmu_itack();

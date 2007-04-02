@@ -28,12 +28,17 @@
 #include <linux/device.h>
 #include <linux/kernel.h>
 #include <linux/mm.h>
+#include <linux/interrupt.h>
 #include <linux/err.h>
 #include "mmu.h"
 #include <asm/tlbflush.h>
 
 static void *dspvect_page;
 #define DSP_INIT_PAGE	0xfff000
+
+#define MMUFAULT_MASK (OMAP_MMU_FAULT_ST_PERM |\
+		       OMAP_MMU_FAULT_ST_TLB_MISS |\
+		       OMAP_MMU_FAULT_ST_TRANS)
 
 static unsigned int get_cam_l_va_mask(u16 pgsz)
 {
@@ -267,11 +272,11 @@ static void omap1_mmu_interrupt(struct omap_mmu *mmu)
 	unsigned long dp;
 	unsigned long va;
 
-	status = omap_mmu_read_reg(mmu, MMU_FAULT_ST);
-	adh = omap_mmu_read_reg(mmu, MMU_FAULT_AD_H);
-	adl = omap_mmu_read_reg(mmu, MMU_FAULT_AD_L);
-	dp = adh & MMU_FAULT_AD_H_DP;
-	va = MK32(adh & MMU_FAULT_AD_H_ADR_MASK, adl);
+	status = omap_mmu_read_reg(mmu, OMAP_MMU_FAULT_ST);
+	adh = omap_mmu_read_reg(mmu, OMAP_MMU_FAULT_AD_H);
+	adl = omap_mmu_read_reg(mmu, OMAP_MMU_FAULT_AD_L);
+	dp = adh & OMAP_MMU_FAULT_AD_H_DP;
+	va = (((adh & OMAP_MMU_FAULT_AD_H_ADR_MASK) << 16) | adl);
 
 	/* if the fault is masked, nothing to do */
 	if ((status & MMUFAULT_MASK) == 0) {
@@ -284,42 +289,42 @@ static void omap1_mmu_interrupt(struct omap_mmu *mmu)
 		 */
 		if (status) {
 			pr_debug( "%s%s%s%s\n",
-				  (status & MMU_FAULT_ST_PREF)?
+				  (status & OMAP_MMU_FAULT_ST_PREF)?
 				  "  (prefetch err)" : "",
-				  (status & MMU_FAULT_ST_PERM)?
+				  (status & OMAP_MMU_FAULT_ST_PERM)?
 				  "  (permission fault)" : "",
-				  (status & MMU_FAULT_ST_TLB_MISS)?
+				  (status & OMAP_MMU_FAULT_ST_TLB_MISS)?
 				  "  (TLB miss)" : "",
-				  (status & MMU_FAULT_ST_TRANS) ?
+				  (status & OMAP_MMU_FAULT_ST_TRANS) ?
 				  "  (translation fault)": "");
-			pr_debug( "fault address = %#08x\n", va);
+			pr_debug( "fault address = %#08lx\n", va);
 		}
 		enable_irq(mmu->irq);
 		return;
 	}
 
 	pr_info("%s%s%s%s\n",
-		(status & MMU_FAULT_ST_PREF)?
-		(MMUFAULT_MASK & MMU_FAULT_ST_PREF)?
+		(status & OMAP_MMU_FAULT_ST_PREF)?
+		(MMUFAULT_MASK & OMAP_MMU_FAULT_ST_PREF)?
 		"  prefetch err":
 		"  (prefetch err)":
 		"",
-		(status & MMU_FAULT_ST_PERM)?
-		(MMUFAULT_MASK & MMU_FAULT_ST_PERM)?
+		(status & OMAP_MMU_FAULT_ST_PERM)?
+		(MMUFAULT_MASK & OMAP_MMU_FAULT_ST_PERM)?
 		"  permission fault":
 		"  (permission fault)":
 		"",
-		(status & MMU_FAULT_ST_TLB_MISS)?
-		(MMUFAULT_MASK & MMU_FAULT_ST_TLB_MISS)?
+		(status & OMAP_MMU_FAULT_ST_TLB_MISS)?
+		(MMUFAULT_MASK & OMAP_MMU_FAULT_ST_TLB_MISS)?
 		"  TLB miss":
 		"  (TLB miss)":
 		"",
-		(status & MMU_FAULT_ST_TRANS)?
-		(MMUFAULT_MASK & MMU_FAULT_ST_TRANS)?
+		(status & OMAP_MMU_FAULT_ST_TRANS)?
+		(MMUFAULT_MASK & OMAP_MMU_FAULT_ST_TRANS)?
 		"  translation fault":
 		"  (translation fault)":
 		"");
-	pr_info("fault address = %#08x\n", va);
+	pr_info("fault address = %#08lx\n", va);
 
 	mmu->fault_address = va;
 	schedule_work(&mmu->irq_work);
