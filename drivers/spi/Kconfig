@@ -164,6 +164,14 @@ config SPI_AT25
 	  This driver can also be built as a module.  If so, the module
 	  will be called at25.
 
+config SPI_TSC2101
+       depends on SPI_MASTER
+       tristate "TSC2101 chip support"
+       ---help---
+         Say Y here if you want support for the TSC2101 chip.
+	 At the moment it provides basic register read / write interface
+	 as well as a way to enable the MCLK clock.
+
 #
 # Add new SPI protocol masters in alphabetical order above this line
 #
