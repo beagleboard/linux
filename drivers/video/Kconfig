@@ -1783,6 +1783,10 @@ config FB_PS3_DEFAULT_SIZE_M
 	  The default value can be overridden on the kernel command line
 	  using the "ps3fb" option (e.g. "ps3fb=9M");
 
+if ARCH_OMAP
+	source "drivers/video/omap/Kconfig"
+endif
+
 config FB_XILINX
 	tristate "Xilinx frame buffer support"
 	depends on FB && XILINX_VIRTEX
