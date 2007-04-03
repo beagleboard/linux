@@ -157,6 +157,10 @@ static inline void omap_init_i2c(void) {}
 
 static void omap_init_kp(void)
 {
+	/* REVISIT: 2430 keypad is on TWL4030 */
+	if (cpu_is_omap2430())
+		return;
+
 	if (machine_is_omap_h2() || machine_is_omap_h3()) {
 		omap_cfg_reg(F18_1610_KBC0);
 		omap_cfg_reg(D20_1610_KBC1);
@@ -282,6 +286,10 @@ static void __init omap_init_mmc(void)
 {
 	const struct omap_mmc_config	*mmc_conf;
 	const struct omap_mmc_conf	*mmc;
+
+	/* REVISIT: 2430 has HS MMC */
+	if (cpu_is_omap2430())
+		return;
 
 	/* NOTE:  assumes MMC was never (wrongly) enabled */
 	mmc_conf = omap_get_config(OMAP_TAG_MMC, struct omap_mmc_config);
@@ -495,10 +503,6 @@ static inline void omap_init_rng(void) {}
  */
 static int __init omap_init_devices(void)
 {
-/*
- * Need to enable relevant once for 2430 SDP
- */
-#ifndef CONFIG_MACH_OMAP_2430SDP
 	/* please keep these calls, and their implementations above,
 	 * in alphabetical order so they're easier to sort through.
 	 */
@@ -508,7 +512,6 @@ static int __init omap_init_devices(void)
 	omap_init_uwire();
 	omap_init_wdt();
 	omap_init_rng();
-#endif
 	omap_init_i2c();
 	return 0;
 }
