@@ -308,6 +308,17 @@ struct {
 #define TSC2101_MUX_MCLK_ON	R10_1610_MCLK_ON
 #define TSC2101_MUX_MCLK_OFF	R10_1610_MCLK_OFF
 
+static void h2_lcd_dev_init(struct spi_device *tsc2101)
+{
+	/* The LCD is connected to the GPIO pins of the TSC2101, so
+	 * we have to tie them here. We can also register the LCD driver
+	 * first only here, where we know that the TSC driver is ready.
+	 */
+
+	h2_lcd_device.dev.platform_data = tsc2101;
+	platform_device_register(&h2_lcd_device);
+}
+
 static int h2_tsc2101_init(struct spi_device *spi)
 {
 	int r;
@@ -330,6 +341,8 @@ static int h2_tsc2101_init(struct spi_device *spi)
 
 	omap_cfg_reg(TSC2101_MUX_MCLK_OFF);
 	omap_cfg_reg(N15_1610_UWIRE_CS1);
+
+	h2_lcd_dev_init(spi);
 
 	return 0;
 err:
@@ -413,7 +426,6 @@ static struct platform_device *h2_devices[] __initdata = {
 	&h2_smc91x_device,
 	&h2_irda_device,
 	&h2_kp_device,
-	&h2_lcd_device,
 	&h2_mcbsp1_device,
 };
 
