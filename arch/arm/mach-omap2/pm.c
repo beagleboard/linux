@@ -573,8 +573,7 @@ static int omap2_allow_mpu_retention(void)
 	if (sti_console_enabled)
 		return 0;
 
-	/* FIXME: Enable soon */
-	return 0;
+	return 1;
 }
 
 static void omap2_enter_mpu_retention(void)
