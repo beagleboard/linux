@@ -23,42 +23,18 @@
 
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/spi/tsc2101.h>
 
 #include <asm/arch/mux.h>
 #include <asm/arch/omapfb.h>
 
-#include "../drivers/ssi/omap-uwire.h"
-
-#define MODULE_NAME		"omapfb-lcd_h2"
-#define TSC2101_UWIRE_CS	1
-
-#define pr_err(fmt, args...) printk(KERN_ERR MODULE_NAME ": " fmt, ## args)
-
-static int tsc2101_write_reg(int page, int reg, u16 data)
-{
-	u16	cmd;
-	int	r;
-
-	cmd = ((page & 3) << 11) | ((reg & 0x3f) << 5);
-	if (omap_uwire_data_transfer(TSC2101_UWIRE_CS, cmd, 16, 0, NULL, 1))
-		r = -1;
-	else
-		r = omap_uwire_data_transfer(TSC2101_UWIRE_CS, data, 16, 0,
-					     NULL, 0);
-
-	return r;
-}
+static struct {
+	struct platform_device	*lcd_dev;
+	struct spi_device	*tsc2101_dev;
+} h2_panel_dev;
 
 static int h2_panel_init(struct lcd_panel *panel, struct omapfb_device *fbdev)
 {
-	unsigned long uwire_flags;
-
-	 /* Configure N15 pin to be uWire CS1 */
-	omap_cfg_reg(N15_1610_UWIRE_CS1);
-	uwire_flags = UWIRE_READ_RISING_EDGE | UWIRE_WRITE_RISING_EDGE;
-	uwire_flags |= UWIRE_FREQ_DIV_8;
-	omap_uwire_configure_mode(TSC2101_UWIRE_CS, uwire_flags);
-
 	return 0;
 }
 
@@ -73,7 +49,10 @@ static int h2_panel_enable(struct lcd_panel *panel)
 	/* Assert LCD_EN, BKLIGHT_EN pins on LCD panel
 	 * page2, GPIO config reg, GPIO(0,1) to out and asserted
 	 */
-	r = tsc2101_write_reg(2, 0x23, 0xCC00) ? -1 : 0;
+	r = tsc2101_write_sync(h2_panel_dev.tsc2101_dev, 2, 0x23, 0xcc00);
+	if (r < 0)
+		dev_err(&h2_panel_dev.lcd_dev->dev,
+			"failed to enable LCD panel\n");
 
 	return r;
 }
@@ -83,8 +62,9 @@ static void h2_panel_disable(struct lcd_panel *panel)
 	/* Deassert LCD_EN and BKLIGHT_EN pins on LCD panel
 	 * page2, GPIO config reg, GPIO(0,1) to out and deasserted
 	 */
-	if (tsc2101_write_reg(2, 0x23, 0x8800))
-		pr_err("failed to disable LCD panel\n");
+	if (tsc2101_write_sync(h2_panel_dev.tsc2101_dev, 2, 0x23, 0x8800))
+		dev_err(&h2_panel_dev.lcd_dev->dev,
+			"failed to disable LCD panel\n");
 }
 
 static unsigned long h2_panel_get_caps(struct lcd_panel *panel)
@@ -117,6 +97,19 @@ struct lcd_panel h2_panel = {
 
 static int h2_panel_probe(struct platform_device *pdev)
 {
+	struct spi_device *tsc2101;
+
+	tsc2101 = pdev->dev.platform_data;
+	if (tsc2101 == NULL) {
+		dev_err(&pdev->dev, "no platform data\n");
+		return -ENODEV;
+	}
+	if (strncmp(tsc2101->modalias, "tsc2101", 8) != 0) {
+		dev_err(&pdev->dev, "tsc2101 not found\n");
+		return -EINVAL;
+	}
+	h2_panel_dev.lcd_dev = pdev;
+	h2_panel_dev.tsc2101_dev = tsc2101;
 	omapfb_register_panel(&h2_panel);
 	return 0;
 }

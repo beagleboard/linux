@@ -762,7 +762,7 @@ CONFIG_SPI_OMAP_UWIRE=y
 #
 # SPI Protocol Masters
 #
-CONFIG_TSC2101=y
+CONFIG_SPI_TSC2101=y
 # CONFIG_TSC2102 is not set
 # CONFIG_SPI_AT25 is not set
 
