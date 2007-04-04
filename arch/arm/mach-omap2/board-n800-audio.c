@@ -127,7 +127,7 @@ static int n800_audio_register_controls(void *pdata, struct snd_card *card)
 
 static struct eac_codec n800_eac_codec = {
 	.mclk_src = EAC_MCLK_EXT_2x12288000,
-	.codec_mode = EAC_CODEC_I2S,
+	.codec_mode = EAC_CODEC_I2S_MASTER,
 	.codec_conf.i2s.polarity_changed_mode = 0,
 	.codec_conf.i2s.sync_delay_enable = 0,
 	.default_rate = 48000,
