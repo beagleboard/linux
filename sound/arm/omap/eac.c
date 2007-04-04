@@ -435,23 +435,28 @@ static int eac_configure_i2s(struct omap_eac *eac, struct eac_codec *conf)
 
 	/* configuration for normal I2S or polarity-changed I2S */
 	if (!conf->codec_conf.i2s.polarity_changed_mode) {
-		/* I2S */
 		cpcfr1 |= CPCFR1_MODE(4); /* I2S mode */
-		MOD_REG_BIT(cpcfr3, CPCFR3_CSCLKD, 0); /* CP_SCLK output */
-		MOD_REG_BIT(cpcfr3, CPCFR3_CSYNCD, 0); /* CP_SYNC output */
 		MOD_REG_BIT(cpcfr3, CPCFR3_CSYNCP, 0); /* CP_SYNC active low */
 		/* audio time slots configuration for I2S */
 		cpcfr4 |= CPCFR4_ATSL(0);
 	} else {
-		/* polarity changed I2S mode */
-		cpcfr1 |= CPCFR1_MODE(1); /* polarity changed I2S mode */
-		MOD_REG_BIT(cpcfr3, CPCFR3_CSCLKD, 1); /* CP_SCLK input */
-		MOD_REG_BIT(cpcfr3, CPCFR3_CSYNCD, 1); /* CP_SYNC input */
+		cpcfr1 |= CPCFR1_MODE(1); /* PCM mode/polarity-changed I2S */
 		MOD_REG_BIT(cpcfr3, CPCFR3_CSYNCP, 1); /* CP_SYNC active
 							  high */
 		/* audio time slots configuration for polarity-changed I2S */
 		cpcfr4 |= CPCFR4_ATSL(0xf);
 	};
+
+	/* master/slave configuration */
+	if (conf->codec_mode == EAC_CODEC_I2S_MASTER) {
+		/* EAC is master. Set CP_SCLK and CP_SYNC as outputs */
+		MOD_REG_BIT(cpcfr3, CPCFR3_CSCLKD, 0);
+		MOD_REG_BIT(cpcfr3, CPCFR3_CSYNCD, 0);
+	} else {
+		/* EAC is slave. Set CP_SCLK and CP_SYNC as inputs */
+		MOD_REG_BIT(cpcfr3, CPCFR3_CSCLKD, 1);
+		MOD_REG_BIT(cpcfr3, CPCFR3_CSYNCD, 1);
+	}
 
 	eac_write_reg(eac, EAC_CPCFR1, cpcfr1);
 	eac_write_reg(eac, EAC_CPCFR2, cpcfr2);
@@ -528,11 +533,13 @@ static int eac_codec_port_init(struct omap_eac *eac, struct eac_codec *conf)
 	agcfr3 &= ~AGCFR3_FSINT_BITS;
 	agcfr3 |= AGCFR3_FSINT(eac_calc_agcfr3_fsint(conf->default_rate));
 
-	/* transparent DMA enable/disable bits
-	 * TODO: Are these needed? */
+	/* transparent DMA enable bits */
 	MOD_REG_BIT(agcfr3, AGCFR3_MD_TR_DMA, 1); /* modem */
 	MOD_REG_BIT(agcfr3, AGCFR3_BT_TR_DMA, 1); /* BT */
-	MOD_REG_BIT(agcfr3, AGCFR3_CP_TR_DMA, 0); /* codec port */
+	if (conf->codec_mode != EAC_CODEC_I2S_SLAVE)
+		MOD_REG_BIT(agcfr3, AGCFR3_CP_TR_DMA, 0);
+	else
+		MOD_REG_BIT(agcfr3, AGCFR3_CP_TR_DMA, 1);
 
 	/* step 4 (see TRM) */
 	eac_write_reg(eac, EAC_AGCFR3, agcfr3);

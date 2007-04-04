@@ -48,14 +48,14 @@ enum eac_mclk_src {
 enum eac_codec_mode {
 	EAC_CODEC_PCM,
 	EAC_CODEC_AC97,
-	EAC_CODEC_I2S,
+	EAC_CODEC_I2S_MASTER, /* codec port, I.e. EAC is the master */
+	EAC_CODEC_I2S_SLAVE,
 };
 
 /* configuration structure for I2S mode */
 struct eac_i2s_conf {
-	/* it seems according to TRM that the polarity-changed I2S mode is not
-	 * only that frame sync polarity (EAC.AC_FS) is changed but also direction
-	 * of it and interface serial clock (EAC.AC_SCLK) */
+	/* if enabled, then first data slot (left channel) is signaled as
+	 * positive level of frame sync EAC.AC_FS */
 	unsigned	polarity_changed_mode:1;
 	/* if enabled, then serial data starts one clock cycle after the
 	 * of EAC.AC_FS for first audio slot */
