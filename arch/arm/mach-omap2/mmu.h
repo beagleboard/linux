@@ -48,6 +48,7 @@ do {								\
 	(ent)->endian	= OMAP_MMU_RAM_ENDIANNESS_LITTLE;	\
 	(ent)->elsz	= OMAP_MMU_RAM_ELEMENTSIZE_16;		\
 	(ent)->mixed	= 0;					\
+	(ent)->tlb	= 1;					\
 } while (0)
 
 #define INIT_TLB_ENTRY_4KB_PRESERVED(ent,v,p) \
@@ -80,6 +81,7 @@ struct omap_mmu_tlb_entry {
 	unsigned int pgsz, prsvd, valid;
 
 	u32 endian, elsz, mixed;
+	unsigned int tlb;
 };
 
 static inline unsigned long

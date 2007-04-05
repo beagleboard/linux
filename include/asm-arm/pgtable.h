@@ -295,6 +295,7 @@ PTE_BIT_FUNC(mkyoung,   |= L_PTE_YOUNG);
 #define pmd_none(pmd)		(!pmd_val(pmd))
 #define pmd_present(pmd)	(pmd_val(pmd))
 #define pmd_bad(pmd)		(pmd_val(pmd) & 2)
+#define pmd_table(pmd)		((pmd_val(pmd) & PMD_TYPE_MASK) == PMD_TYPE_TABLE)
 
 #define copy_pmd(pmdpd,pmdps)		\
 	do {				\

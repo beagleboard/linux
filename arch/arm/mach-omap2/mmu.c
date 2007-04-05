@@ -3,10 +3,12 @@
  *
  * Support for non-MPU OMAP2 MMUs.
  *
- * Copyright (C) 2002-2005 Nokia Corporation
+ * Copyright (C) 2002-2007 Nokia Corporation
  *
  * Written by Toshihiro Kobayashi <toshihiro.kobayashi@nokia.com>
  *        and Paul Mundt <paul.mundt@nokia.com>
+ *
+ * TWL support: Hiroshi DOYU <Hiroshi.DOYU@nokia.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -64,7 +66,7 @@ static void exmap_setup_iomap_page(struct omap_mmu *mmu, unsigned long phys,
 	exmap_set_armmmu((unsigned long)virt, phys, PAGE_SIZE);
 	INIT_EXMAP_TBL_ENTRY_4KB_PRESERVED(mmu->exmap_tbl + index, NULL, virt);
 	INIT_TLB_ENTRY_4KB_ES32_PRESERVED(&tlb_ent, dspadr, phys);
-	omap_mmu_load_tlb_entry(mmu, &tlb_ent);
+	omap_mmu_load_pte_entry(mmu, &tlb_ent);
 }
 
 static void exmap_clear_iomap_page(struct omap_mmu *mmu,
@@ -138,8 +140,7 @@ static void exmap_clear_preserved_entries(struct omap_mmu *mmu)
 	(OMAP_MMU_IRQ_MULTIHITFAULT | \
 	 OMAP_MMU_IRQ_TABLEWALKFAULT | \
 	 OMAP_MMU_IRQ_EMUMISS | \
-	 OMAP_MMU_IRQ_TRANSLATIONFAULT | \
-	 OMAP_MMU_IRQ_TLBMISS)
+	 OMAP_MMU_IRQ_TRANSLATIONFAULT)
 
 static int omap2_mmu_startup(struct omap_mmu *mmu)
 {
@@ -297,6 +298,19 @@ static void omap2_mmu_interrupt(struct omap_mmu *mmu)
 	mmu->fault_address = va;
 	schedule_work(&mmu->irq_work);
 }
+
+static pgprot_t omap2_mmu_pte_get_attr(struct omap_mmu_tlb_entry *entry)
+{
+	u32 attr;
+
+	attr = entry->mixed << 5;
+	attr |= entry->endian;
+	attr |= entry->elsz >> 3;
+	attr <<= ((entry->pgsz & OMAP_MMU_CAM_PAGESIZE_4KB) ? 0:6);
+
+	return attr;
+}
+
 struct omap_mmu_ops omap2_mmu_ops = {
 	.startup	= omap2_mmu_startup,
 	.shutdown	= omap2_mmu_shutdown,
@@ -307,6 +321,7 @@ struct omap_mmu_ops omap2_mmu_ops = {
 	.cam_ram_alloc	= omap2_mmu_cam_ram_alloc,
 	.cam_ram_valid	= omap2_mmu_cam_ram_valid,
 	.interrupt	= omap2_mmu_interrupt,
+	.pte_get_attr	= omap2_mmu_pte_get_attr,
 };
 EXPORT_SYMBOL_GPL(omap2_mmu_ops);
 

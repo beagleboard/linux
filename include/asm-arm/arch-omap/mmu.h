@@ -97,6 +97,9 @@ struct omap_mmu_ops {
 	int (*mem_disable)(struct omap_mmu *, void *);
 
 	void (*interrupt)(struct omap_mmu *);
+
+	/* PTE attribute operations */
+	pgprot_t (*pte_get_attr)(struct omap_mmu_tlb_entry *);
 };
 
 struct omap_mmu {
@@ -116,6 +119,8 @@ struct omap_mmu {
 
 	unsigned int nr_tlb_entries;
 	unsigned int nr_exmap_preserved;
+
+	struct mm_struct *twl_mm;
 
 	/* Size of virtual address space, in bits */
 	unsigned int addrspace;
@@ -177,6 +182,10 @@ void omap_mmu_read_tlb(struct omap_mmu *mmu, struct omap_mmu_tlb_lock *lock,
 
 int omap_mmu_load_tlb_entry(struct omap_mmu *, struct omap_mmu_tlb_entry *);
 int omap_mmu_clear_tlb_entry(struct omap_mmu *, unsigned long vadr);
+
+int omap_mmu_load_pte_entry(struct omap_mmu *mmu,
+			    struct omap_mmu_tlb_entry *entry);
+int omap_mmu_clear_pte_entry(struct omap_mmu *mmu, unsigned long vadr);
 
 int omap_mmu_kmem_reserve(struct omap_mmu *mmu, unsigned long size);
 void omap_mmu_kmem_release(void);

@@ -67,6 +67,7 @@
 #define OMAP_MMU_CAM_PAGESIZE_64KB	OMAP_MMU_CAM_L_PAGESIZE_64KB
 #define OMAP_MMU_CAM_PAGESIZE_4KB	OMAP_MMU_CAM_L_PAGESIZE_4KB
 #define OMAP_MMU_CAM_PAGESIZE_1KB	OMAP_MMU_CAM_L_PAGESIZE_1KB
+#define OMAP_MMU_CAM_PAGESIZE_16MB	-1 /* unused in omap1 */
 
 #define OMAP_MMU_RAM_L_RAM_LSB_MASK	0xfc00
 #define OMAP_MMU_RAM_L_AP_MASK		0x0300
@@ -83,6 +84,7 @@ do {							\
 	(ent)->pgsz	= (ps);				\
 	(ent)->prsvd	= 0;				\
 	(ent)->ap	= OMAP_MMU_RAM_L_AP_FA;		\
+	(ent)->tlb	= 1;				\
 } while (0)
 
 #define INIT_TLB_ENTRY_4KB_PRESERVED(ent,v,p)		\
@@ -102,6 +104,7 @@ struct omap_mmu_tlb_entry {
 	unsigned int pgsz, prsvd, valid;
 
 	u16 ap;
+	unsigned int tlb;
 };
 
 static inline unsigned short
