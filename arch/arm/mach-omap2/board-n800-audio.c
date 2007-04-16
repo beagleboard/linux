@@ -188,14 +188,14 @@ static int n800_codec_get_clocks(struct device *dev)
 {
 	sys_clkout2 = clk_get(dev, "sys_clkout2");
 	if (IS_ERR(sys_clkout2)) {
-		printk(KERN_ERR "Could not get sys_clkout2\n");
+		dev_err(dev, "Could not get sys_clkout2\n");
 		return -ENODEV;
 	}
 	/* configure 12 MHz output on SYS_CLKOUT2. Therefore we must use
 	 * 96 MHz as its parent in order to get 12 MHz */
 	func96m_clk = clk_get(dev, "func_96m_ck");
 	if (IS_ERR(func96m_clk)) {
-		printk(KERN_ERR "could not get func 96M clock\n");
+		dev_err(dev, "Could not get func 96M clock\n");
 		clk_put(sys_clkout2);
 		return -ENODEV;
 	}

@@ -2,7 +2,7 @@
  * linux/arch/arm/mach-omap2/board-n800.c
  *
  * Copyright (C) 2005 Nokia Corporation
- * Author: Juha Yrj?l? <juha.yrjola@nokia.com>
+ * Author: Juha Yrjola <juha.yrjola@nokia.com>
  *
  * Modified from mach-omap2/board-generic.c
  *
@@ -333,7 +333,7 @@ static void tsc2301_dev_init(void)
 	int gpio = N800_KEYB_IRQ_GPIO;
 
 	if (omap_request_gpio(gpio) < 0) {
-		printk("can't get KBIRQ GPIO\n");
+		printk(KERN_ERR "can't get KBIRQ GPIO\n");
 		return;
 	}
 	omap_set_gpio_direction(gpio, 1);
@@ -442,8 +442,6 @@ static inline void n800_ts_set_config(void)
 }
 #endif
 
-extern void n800_mmc_slot1_cover_handler(void *arg, int state);
-
 static struct omap_gpio_switch n800_gpio_switches[] __initdata = {
 	{
 		.name			= "bat_cover",
@@ -475,14 +473,6 @@ static struct platform_device *n800_devices[] __initdata = {
 	&n800_keypad_led_device,
 #endif
 };
-
-extern void __init n800_flash_init(void);
-extern void __init n800_mmc_init(void);
-extern void __init n800_bt_init(void);
-extern void __init n800_audio_init(struct tsc2301_platform_data *);
-extern void __init n800_dsp_init(void);
-extern void __init n800_usb_init(void);
-extern void __init n800_pm_init(void);
 
 static void __init nokia_n800_init(void)
 {

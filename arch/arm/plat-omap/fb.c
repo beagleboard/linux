@@ -86,7 +86,8 @@ static int fbmem_region_reserved(unsigned long start, size_t size)
 	return 0;
 }
 
-/* Get the region_idx`th region from board config/ATAG and convert it to
+/*
+ * Get the region_idx`th region from board config/ATAG and convert it to
  * our internal format.
  */
 static int get_fbmem_region(int region_idx, struct omapfb_mem_region *rg)
@@ -100,7 +101,8 @@ static int get_fbmem_region(int region_idx, struct omapfb_mem_region *rg)
 		return -ENOENT;
 
 	paddr = conf->start;
-	/* Low bits encode the page allocation mode, if high bits
+	/*
+	 * Low bits encode the page allocation mode, if high bits
 	 * are zero. Otherwise we need a page aligned fixed
 	 * address.
 	 */
@@ -115,7 +117,8 @@ static int set_fbmem_region_type(struct omapfb_mem_region *rg, int mem_type,
 				  unsigned long mem_start,
 				  unsigned long mem_size)
 {
-	/* Check if the configuration specifies the type explicitly.
+	/*
+	 * Check if the configuration specifies the type explicitly.
 	 * type = 0 && paddr = 0, a default don't care case maps to
 	 * the SDRAM type.
 	 */
@@ -150,7 +153,8 @@ static int check_fbmem_region(int region_idx, struct omapfb_mem_region *rg,
 		/* Allocate this dynamically, leave paddr 0 for now. */
 		return 0;
 
-	/* Fixed region for the given RAM range. Check if it's already
+	/*
+	 * Fixed region for the given RAM range. Check if it's already
 	 * reserved by the FB code or someone else.
 	 */
 	if (fbmem_region_reserved(paddr, size) ||
@@ -163,7 +167,8 @@ static int check_fbmem_region(int region_idx, struct omapfb_mem_region *rg,
 	return 0;
 }
 
-/* Called from map_io. We need to call to this early enough so that we
+/*
+ * Called from map_io. We need to call to this early enough so that we
  * can reserve the fixed SDRAM regions before VM could get hold of them.
  */
 void omapfb_reserve_sdram(void)
@@ -213,7 +218,8 @@ void omapfb_reserve_sdram(void)
 			 reserved);
 }
 
-/* Called at sram init time, before anything is pushed to the SRAM stack.
+/*
+ * Called at sram init time, before anything is pushed to the SRAM stack.
  * Because of the stack scheme, we will allocate everything from the
  * start of the lowest address region to the end of SRAM. This will also
  * include padding for page alignment and possible holes between regions.
@@ -271,13 +277,13 @@ unsigned long omapfb_reserve_sram(unsigned long sram_pstart,
 			size_avail = (size_avail - rg.size) & PAGE_MASK;
 			rg.paddr = pstart_avail + size_avail;
 		}
-		/* Reserve everything above the start of the region.
-		 */
+		/* Reserve everything above the start of the region. */
 		if (pend_avail - rg.paddr > reserved)
 			reserved = pend_avail - rg.paddr;
 		size_avail = pend_avail - reserved - pstart_avail;
 
-		/* We have a kernel mapping for this already, so the
+		/*
+		 * We have a kernel mapping for this already, so the
 		 * driver won't have to make one.
 		 */
 		rg.vaddr = (void *)(sram_vstart + rg.paddr - sram_pstart);

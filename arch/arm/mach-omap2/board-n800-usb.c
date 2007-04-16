@@ -2,7 +2,7 @@
  * linux/arch/arm/mach-omap2/board-n800-usb.c
  *
  * Copyright (C) 2006 Nokia Corporation
- * Author: Juha Yrj?l?
+ * Author: Juha Yrjola
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as

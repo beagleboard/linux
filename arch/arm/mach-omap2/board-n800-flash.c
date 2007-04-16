@@ -28,7 +28,7 @@ static struct omap_onenand_platform_data n800_onenand_data = {
 	.gpio_irq = 26,
 	.parts = n800_partitions,
 	.nr_parts = 0, /* filled later */
-	.onenand_setup = n800_onenand_setup
+	.onenand_setup = n800_onenand_setup,
 };
 
 static struct platform_device n800_onenand_device = {
@@ -134,7 +134,7 @@ void __init n800_flash_init(void)
 	int i = 0;
 
 	while ((part = omap_get_nr_config(OMAP_TAG_PARTITION,
-					  struct omap_partition_config, i)) != NULL) {
+				struct omap_partition_config, i)) != NULL) {
 		struct mtd_partition *mpart;
 
 		mpart = n800_partitions + i;

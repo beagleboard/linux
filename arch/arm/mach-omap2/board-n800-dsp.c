@@ -29,11 +29,9 @@
 
 #include <asm/io.h>
 #include <asm/arch/clock.h>
+#include <asm/arch/board.h>
 
 #include "../plat-omap/dsp/dsp_common.h"
-
-extern int n800_audio_enable(struct dsp_kfunc_device *kdev, int stage);
-extern int n800_audio_disable(struct dsp_kfunc_device *kdev, int stage);
 
 #if	defined(CONFIG_OMAP_DSP)
 

@@ -3,21 +3,15 @@
  *
  * OMAP2 Power Management Routines
  *
+ * Copyright (C) 2005 Texas Instruments, Inc.
  * Copyright (C) 2006 Nokia Corporation
- * Tony Lindgren <tony@atomide.com>
  *
- * Fixed suspend-resume/dynamic-idle to get OMAP to retention
+ * Written by:
+ * Richard Woodruff <r-woodruff2@ti.com>
+ * Tony Lindgren
+ * Juha Yrjola
  * Amit Kucheria <amit.kucheria@nokia.com>
  * Igor Stoppa <igor.stoppa@nokia.com>
- *
- * Fixed MPU sleep to get ARM idle
- * Igor Stoppa <igor.stoppa@nokia.com>
- *
- * Fixed MPU sleep some more
- * Juha Yrjola
- *
- * Copyright (C) 2005 Texas Instruments, Inc.
- * Richard Woodruff <r-woodruff2@ti.com>
  *
  * Based on pm.c for omap1
  *
@@ -440,8 +434,6 @@ static struct subsys_attribute sleep_while_idle_attr = {
 	.store  = omap_pm_sleep_while_idle_store,
 };
 
-extern struct subsystem power_subsys;
-
 static struct clk *osc_ck, *emul_ck;
 
 #define CONTROL_DEVCONF		__REG32(0x48000274)
@@ -486,9 +478,6 @@ void omap2_allow_sleep(void)
 	i = atomic_dec_return(&sleep_block);
 	BUG_ON(i < 0);
 }
-
-extern void omap2_gpio_prepare_for_retention(void);
-extern void omap2_gpio_resume_after_retention(void);
 
 static void omap2_enter_full_retention(void)
 {

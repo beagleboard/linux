@@ -2,7 +2,7 @@
  * linux/arch/arm/mach-omap2/board-n800-mmc.c
  *
  * Copyright (C) 2006 Nokia Corporation
- * Author: Juha Yrj?l?
+ * Author: Juha Yrjola
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -31,7 +31,7 @@ static struct device *mmc_device;
 static int n800_mmc_switch_slot(struct device *dev, int slot)
 {
 #ifdef CONFIG_MMC_DEBUG
-	printk("Choose slot %d\n", slot + 1);
+	dev_dbg(dev, "Choose slot %d\n", slot + 1);
 #endif
 	if (slot == 0)
 		omap_set_gpio_dataout(slot_switch_gpio, 0);
@@ -40,13 +40,14 @@ static int n800_mmc_switch_slot(struct device *dev, int slot)
 	return 0;
 }
 
-static int n800_mmc_set_power(struct device *dev, int slot, int power_on, int vdd)
+static int n800_mmc_set_power(struct device *dev, int slot, int power_on,
+				int vdd)
 {
 	int mV;
 
 #ifdef CONFIG_MMC_DEBUG
-	printk("Set slot %d power: %s (vdd %d)\n", slot + 1,
-	       power_on ? "on" : "off", vdd);
+	dev_dbg(dev, "Set slot %d power: %s (vdd %d)\n", slot + 1,
+		power_on ? "on" : "off", vdd);
 #endif
 	if (slot == 0) {
 		if (!power_on)
@@ -119,8 +120,8 @@ static int n800_mmc_set_bus_mode(struct device *dev, int slot, int bus_mode)
 	int r;
 
 #ifdef CONFIG_MMC_DEBUG
-	printk("Set slot %d bus mode %s\n", slot + 1,
-	       bus_mode == MMC_BUSMODE_OPENDRAIN ? "open-drain" : "push-pull");
+	dev_dbg(dev, "Set slot %d bus mode %s\n", slot + 1,
+		bus_mode == MMC_BUSMODE_OPENDRAIN ? "open-drain" : "push-pull");
 #endif
 	BUG_ON(slot != 0 && slot != 1);
 	slot++;
@@ -135,7 +136,8 @@ static int n800_mmc_set_bus_mode(struct device *dev, int slot, int bus_mode)
 		BUG();
 	}
 	if (r != 0 && printk_ratelimit())
-		printk(KERN_ERR "MMC: unable to set bus mode for slot %d\n", slot);
+		dev_err(dev, "MMC: unable to set bus mode for slot %d\n",
+			slot);
 	return r;
 }
 
@@ -150,7 +152,8 @@ static int n800_mmc_get_ro(struct device *dev, int slot)
 	else
 		ro = omap_get_gpio_datain(slot2_wp_gpio);
 #ifdef CONFIG_MMC_DEBUG
-	printk("Get RO slot %d: %s\n", slot, ro ? "read-only" : "read-write");
+	dev_dbg(dev, "Get RO slot %d: %s\n",
+		slot, ro ? "read-only" : "read-write");
 #endif
 	return ro;
 }
