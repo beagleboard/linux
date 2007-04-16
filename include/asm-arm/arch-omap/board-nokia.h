@@ -11,13 +11,15 @@
 
 #include <linux/types.h>
 
-extern void __init n800_flash_init(void);
-extern void __init n800_mmc_init(void);
-extern void __init n800_bt_init(void);
-extern void __init n800_audio_init(struct tsc2301_platform_data *);
-extern void __init n800_dsp_init(void);
-extern void __init n800_usb_init(void);
-extern void __init n800_pm_init(void);
+struct tsc2301_platform_data;
+struct dsp_kfunc_device;
+extern void n800_bt_init(void);
+extern void n800_dsp_init(void);
+extern void n800_flash_init(void);
+extern void n800_mmc_init(void);
+extern void n800_pm_init(void);
+extern void n800_usb_init(void);
+extern void n800_audio_init(struct tsc2301_platform_data *);
 extern int n800_audio_enable(struct dsp_kfunc_device *kdev, int stage);
 extern int n800_audio_disable(struct dsp_kfunc_device *kdev, int stage);
 extern void n800_mmc_slot1_cover_handler(void *arg, int state);
@@ -26,7 +28,6 @@ extern void n800_mmc_slot1_cover_handler(void *arg, int state);
 #define OMAP_TAG_WLAN_CX3110X	0x4e02
 #define OMAP_TAG_CBUS		0x4e03
 #define OMAP_TAG_EM_ASIC_BB5	0x4e04
-
 
 #define BT_CHIP_CSR		1
 #define BT_CHIP_TI		2
