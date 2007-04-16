@@ -109,30 +109,35 @@ static inline void omap2_mbox_shutdown(struct omap_mbox *mbox)
 /* Mailbox FIFO handle functions */
 static inline mbox_msg_t omap2_mbox_fifo_read(struct omap_mbox *mbox)
 {
-	struct omap_mbox2_fifo *fifo = &((struct omap_mbox2_priv *)mbox->priv)->rx_fifo;
+	struct omap_mbox2_fifo *fifo =
+		&((struct omap_mbox2_priv *)mbox->priv)->rx_fifo;
 	return (mbox_msg_t) mbox_read_reg(fifo->msg);
 }
 
 static inline void omap2_mbox_fifo_write(struct omap_mbox *mbox, mbox_msg_t msg)
 {
-	struct omap_mbox2_fifo *fifo = &((struct omap_mbox2_priv *)mbox->priv)->tx_fifo;
+	struct omap_mbox2_fifo *fifo =
+		&((struct omap_mbox2_priv *)mbox->priv)->tx_fifo;
 	mbox_write_reg(msg, fifo->msg);
 }
 
 static inline int omap2_mbox_fifo_empty(struct omap_mbox *mbox)
 {
-	struct omap_mbox2_fifo *fifo = &((struct omap_mbox2_priv *)mbox->priv)->rx_fifo;
+	struct omap_mbox2_fifo *fifo =
+		&((struct omap_mbox2_priv *)mbox->priv)->rx_fifo;
 	return (mbox_read_reg(fifo->msg_stat) == 0);
 }
 
 static inline int omap2_mbox_fifo_full(struct omap_mbox *mbox)
 {
-	struct omap_mbox2_fifo *fifo = &((struct omap_mbox2_priv *)mbox->priv)->tx_fifo;
+	struct omap_mbox2_fifo *fifo =
+		&((struct omap_mbox2_priv *)mbox->priv)->tx_fifo;
 	return (mbox_read_reg(fifo->fifo_stat));
 }
 
 /* Mailbox IRQ handle functions */
-static inline void omap2_mbox_enable_irq(struct omap_mbox *mbox, omap_mbox_type_t irq)
+static inline void omap2_mbox_enable_irq(struct omap_mbox *mbox,
+		omap_mbox_type_t irq)
 {
 	struct omap_mbox2_priv *p = (struct omap_mbox2_priv *)mbox->priv;
 	u32 l, bit = (irq == IRQ_TX) ? p->notfull_bit : p->newmsg_bit;
@@ -142,7 +147,8 @@ static inline void omap2_mbox_enable_irq(struct omap_mbox *mbox, omap_mbox_type_
 	mbox_write_reg(l, p->irqenable);
 }
 
-static inline void omap2_mbox_disable_irq(struct omap_mbox *mbox, omap_mbox_type_t irq)
+static inline void omap2_mbox_disable_irq(struct omap_mbox *mbox,
+		omap_mbox_type_t irq)
 {
 	struct omap_mbox2_priv *p = (struct omap_mbox2_priv *)mbox->priv;
 	u32 l, bit = (irq == IRQ_TX) ? p->notfull_bit : p->newmsg_bit;
@@ -152,7 +158,8 @@ static inline void omap2_mbox_disable_irq(struct omap_mbox *mbox, omap_mbox_type
 	mbox_write_reg(l, p->irqenable);
 }
 
-static inline void omap2_mbox_ack_irq(struct omap_mbox *mbox, omap_mbox_type_t irq)
+static inline void omap2_mbox_ack_irq(struct omap_mbox *mbox,
+		omap_mbox_type_t irq)
 {
 	struct omap_mbox2_priv *p = (struct omap_mbox2_priv *)mbox->priv;
 	u32 bit = (irq == IRQ_TX) ? p->notfull_bit : p->newmsg_bit;
@@ -160,7 +167,8 @@ static inline void omap2_mbox_ack_irq(struct omap_mbox *mbox, omap_mbox_type_t i
 	mbox_write_reg(bit, p->irqstatus);
 }
 
-static inline int omap2_mbox_is_irq(struct omap_mbox *mbox, omap_mbox_type_t irq)
+static inline int omap2_mbox_is_irq(struct omap_mbox *mbox,
+		omap_mbox_type_t irq)
 {
 	struct omap_mbox2_priv *p = (struct omap_mbox2_priv *)mbox->priv;
 	u32 bit = (irq == IRQ_TX) ? p->notfull_bit : p->newmsg_bit;
@@ -171,17 +179,17 @@ static inline int omap2_mbox_is_irq(struct omap_mbox *mbox, omap_mbox_type_t irq
 }
 
 static struct omap_mbox_ops omap2_mbox_ops = {
-	.type = OMAP_MBOX_TYPE2,
-	.startup = omap2_mbox_startup,
-	.shutdown = omap2_mbox_shutdown,
-	.fifo_read = omap2_mbox_fifo_read,
-	.fifo_write = omap2_mbox_fifo_write,
-	.fifo_empty = omap2_mbox_fifo_empty,
-	.fifo_full = omap2_mbox_fifo_full,
-	.enable_irq = omap2_mbox_enable_irq,
-	.disable_irq = omap2_mbox_disable_irq,
-	.ack_irq = omap2_mbox_ack_irq,
-	.is_irq = omap2_mbox_is_irq,
+	.type		= OMAP_MBOX_TYPE2,
+	.startup	= omap2_mbox_startup,
+	.shutdown	= omap2_mbox_shutdown,
+	.fifo_read	= omap2_mbox_fifo_read,
+	.fifo_write	= omap2_mbox_fifo_write,
+	.fifo_empty	= omap2_mbox_fifo_empty,
+	.fifo_full	= omap2_mbox_fifo_full,
+	.enable_irq	= omap2_mbox_enable_irq,
+	.disable_irq	= omap2_mbox_disable_irq,
+	.ack_irq	= omap2_mbox_ack_irq,
+	.is_irq		= omap2_mbox_is_irq,
 };
 
 /*
@@ -196,46 +204,46 @@ static struct omap_mbox_ops omap2_mbox_ops = {
 /* DSP */
 static struct omap_mbox2_priv omap2_mbox_dsp_priv = {
 	.tx_fifo = {
-		.msg = MAILBOX_MESSAGE_0,
-		.fifo_stat = MAILBOX_FIFOSTATUS_0,
+		.msg		= MAILBOX_MESSAGE_0,
+		.fifo_stat	= MAILBOX_FIFOSTATUS_0,
 	},
 	.rx_fifo = {
-		.msg = MAILBOX_MESSAGE_1,
-		.msg_stat = MAILBOX_MSGSTATUS_1,
+		.msg		= MAILBOX_MESSAGE_1,
+		.msg_stat	= MAILBOX_MSGSTATUS_1,
 	},
-	.irqenable = MAILBOX_IRQENABLE_0,
-	.irqstatus = MAILBOX_IRQSTATUS_0,
-	.notfull_bit = MAILBOX_IRQ_NOTFULL(0),
-	.newmsg_bit = MAILBOX_IRQ_NEWMSG(1),
+	.irqenable	= MAILBOX_IRQENABLE_0,
+	.irqstatus	= MAILBOX_IRQSTATUS_0,
+	.notfull_bit	= MAILBOX_IRQ_NOTFULL(0),
+	.newmsg_bit	= MAILBOX_IRQ_NEWMSG(1),
 };
 
 struct omap_mbox mbox_dsp_info = {
-	.name = "dsp",
-	.ops = &omap2_mbox_ops,
-	.priv = &omap2_mbox_dsp_priv,
+	.name	= "dsp",
+	.ops	= &omap2_mbox_ops,
+	.priv	= &omap2_mbox_dsp_priv,
 };
 EXPORT_SYMBOL(mbox_dsp_info);
 
 /* IVA */
 static struct omap_mbox2_priv omap2_mbox_iva_priv = {
 	.tx_fifo = {
-		.msg = MAILBOX_MESSAGE_2,
-		.fifo_stat = MAILBOX_FIFOSTATUS_2,
+		.msg		= MAILBOX_MESSAGE_2,
+		.fifo_stat	= MAILBOX_FIFOSTATUS_2,
 	},
 	.rx_fifo = {
-		.msg = MAILBOX_MESSAGE_3,
-		.msg_stat = MAILBOX_MSGSTATUS_3,
+		.msg		= MAILBOX_MESSAGE_3,
+		.msg_stat	= MAILBOX_MSGSTATUS_3,
 	},
-	.irqenable = MAILBOX_IRQENABLE_3,
-	.irqstatus = MAILBOX_IRQSTATUS_3,
-	.notfull_bit = MAILBOX_IRQ_NOTFULL(2),
-	.newmsg_bit = MAILBOX_IRQ_NEWMSG(3),
+	.irqenable	= MAILBOX_IRQENABLE_3,
+	.irqstatus	= MAILBOX_IRQSTATUS_3,
+	.notfull_bit	= MAILBOX_IRQ_NOTFULL(2),
+	.newmsg_bit	= MAILBOX_IRQ_NEWMSG(3),
 };
 
 static struct omap_mbox mbox_iva_info = {
-	.name = "iva",
-	.ops = &omap2_mbox_ops,
-	.priv = &omap2_mbox_iva_priv,
+	.name	= "iva",
+	.ops	= &omap2_mbox_ops,
+	.priv	= &omap2_mbox_iva_priv,
 };
 
 static int __init omap2_mbox_probe(struct platform_device *pdev)

@@ -96,7 +96,8 @@ static void mbox_tx_work(struct work_struct *work)
 {
 	int ret;
 	struct request *rq;
-	struct omap_mbox_queue *mq = container_of(work, struct omap_mbox_queue, work);
+	struct omap_mbox_queue *mq = container_of(work,
+				struct omap_mbox_queue, work);
 	struct omap_mbox *mbox = mq->queue->queuedata;
 	struct request_queue *q = mbox->txq->queue;
 
@@ -126,7 +127,8 @@ static void mbox_tx_work(struct work_struct *work)
  */
 static void mbox_rx_work(struct work_struct *work)
 {
-	struct omap_mbox_queue *mq = container_of(work, struct omap_mbox_queue, work);
+	struct omap_mbox_queue *mq =
+			container_of(work, struct omap_mbox_queue, work);
 	struct omap_mbox *mbox = mq->queue->queuedata;
 	struct request_queue *q = mbox->rxq->queue;
 	struct request *rq;
@@ -204,7 +206,7 @@ static void __mbox_rx_interrupt(struct omap_mbox *mbox)
 	/* no more messages in the fifo. clear IRQ source. */
 	ack_mbox_irq(mbox, IRQ_RX);
 	enable_mbox_irq(mbox, IRQ_RX);
-      nomem:
+	nomem:
 	schedule_work(&mbox->rxq->work);
 }
 
@@ -239,7 +241,7 @@ omap_mbox_write(struct device *dev, struct device_attribute *attr,
 		p++;
 	}
 
-	return  (size_t)((char *)p - buf);
+	return (size_t)((char *)p - buf);
 }
 
 static ssize_t
@@ -346,15 +348,15 @@ static int omap_mbox_init(struct omap_mbox *mbox)
 	ret = device_create_file(&mbox->dev, &dev_attr_mbox);
 	if (unlikely(ret)) {
 		printk(KERN_ERR
-		       "device_create_file failed: %d\n", ret);
+			"device_create_file failed: %d\n", ret);
 		goto fail_create_mbox;
 	}
 
 	ret = request_irq(mbox->irq, mbox_interrupt, IRQF_DISABLED,
-			  mbox->name, mbox);
+				mbox->name, mbox);
 	if (unlikely(ret)) {
 		printk(KERN_ERR
-		       "failed to register mailbox interrupt:%d\n", ret);
+			"failed to register mailbox interrupt:%d\n", ret);
 		goto fail_request_irq;
 	}
 	enable_mbox_irq(mbox, IRQ_RX);

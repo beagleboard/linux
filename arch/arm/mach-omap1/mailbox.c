@@ -110,36 +110,36 @@ omap1_mbox_is_irq(struct omap_mbox *mbox, omap_mbox_type_t irq)
 }
 
 static struct omap_mbox_ops omap1_mbox_ops = {
-	.type = OMAP_MBOX_TYPE1,
-	.fifo_read = omap1_mbox_fifo_read,
-	.fifo_write = omap1_mbox_fifo_write,
-	.fifo_empty = omap1_mbox_fifo_empty,
-	.fifo_full = omap1_mbox_fifo_full,
-	.enable_irq = omap1_mbox_enable_irq,
-	.disable_irq = omap1_mbox_disable_irq,
-	.is_irq = omap1_mbox_is_irq,
+	.type		= OMAP_MBOX_TYPE1,
+	.fifo_read	= omap1_mbox_fifo_read,
+	.fifo_write	= omap1_mbox_fifo_write,
+	.fifo_empty	= omap1_mbox_fifo_empty,
+	.fifo_full	= omap1_mbox_fifo_full,
+	.enable_irq	= omap1_mbox_enable_irq,
+	.disable_irq	= omap1_mbox_disable_irq,
+	.is_irq		= omap1_mbox_is_irq,
 };
 
-/* FIXME: the following struct should be created automatically by the user id  */
+/* FIXME: the following struct should be created automatically by the user id */
 
 /* DSP */
 static struct omap_mbox1_priv omap1_mbox_dsp_priv = {
 	.tx_fifo = {
-		.cmd  = MAILBOX_ARM2DSP1b,
-		.data =	MAILBOX_ARM2DSP1,
-		.flag =	MAILBOX_ARM2DSP1_Flag,
+		.cmd	= MAILBOX_ARM2DSP1b,
+		.data	= MAILBOX_ARM2DSP1,
+		.flag	= MAILBOX_ARM2DSP1_Flag,
 	},
 	.rx_fifo = {
-		.cmd  = MAILBOX_DSP2ARM1b,
-		.data =	MAILBOX_DSP2ARM1,
-		.flag =	MAILBOX_DSP2ARM1_Flag,
+		.cmd	= MAILBOX_DSP2ARM1b,
+		.data	= MAILBOX_DSP2ARM1,
+		.flag	= MAILBOX_DSP2ARM1_Flag,
 	},
 };
 
 struct omap_mbox mbox_dsp_info = {
-	.name = "dsp",
-	.ops  = &omap1_mbox_ops,
-	.priv = &omap1_mbox_dsp_priv,
+	.name	= "dsp",
+	.ops	= &omap1_mbox_ops,
+	.priv	= &omap1_mbox_dsp_priv,
 };
 EXPORT_SYMBOL(mbox_dsp_info);
 
@@ -184,9 +184,9 @@ static int omap1_mbox_remove(struct platform_device *pdev)
 
 static struct platform_driver omap1_mbox_driver = {
 	.probe	= omap1_mbox_probe,
-	.remove = omap1_mbox_remove,
-	.driver = {
-		.name = "mailbox",
+	.remove	= omap1_mbox_remove,
+	.driver	= {
+		.name	= "mailbox",
 	},
 };
 
