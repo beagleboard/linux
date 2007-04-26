@@ -89,6 +89,7 @@ static inline void omap_init_dsp(void) { }
 #endif	/* CONFIG_OMAP_DSP */
 
 /*-------------------------------------------------------------------------*/
+#if	!defined(CONFIG_ARCH_OMAP243X)
 #if	defined(CONFIG_I2C_OMAP) || defined(CONFIG_I2C_OMAP_MODULE)
 
 #define	OMAP1_I2C_BASE		0xfffb3800
@@ -96,6 +97,8 @@ static inline void omap_init_dsp(void) { }
 #define OMAP_I2C_SIZE		0x3f
 #define OMAP1_I2C_INT		INT_I2C
 #define OMAP2_I2C_INT1		56
+
+static u32 omap2_i2c1_clkrate	= 100;
 
 static struct resource i2c_resources1[] = {
 	{
@@ -116,12 +119,15 @@ static struct platform_device omap_i2c_device1 = {
 	.id             = 1,
 	.num_resources	= ARRAY_SIZE(i2c_resources1),
 	.resource	= i2c_resources1,
+	.dev		= {
+		.platform_data	= &omap2_i2c1_clkrate,
+	},
 };
 
 /* See also arch/arm/mach-omap2/devices.c for second I2C on 24xx */
 static void omap_init_i2c(void)
 {
-	if (cpu_is_omap24xx()) {
+	if (cpu_is_omap242x()) {
 		i2c_resources1[0].start = OMAP2_I2C_BASE1;
 		i2c_resources1[0].end = OMAP2_I2C_BASE1 + OMAP_I2C_SIZE;
 		i2c_resources1[1].start = OMAP2_I2C_INT1;
@@ -151,7 +157,7 @@ static void omap_init_i2c(void)
 #else
 static inline void omap_init_i2c(void) {}
 #endif
-
+#endif
 /*-------------------------------------------------------------------------*/
 #if	defined(CONFIG_KEYBOARD_OMAP) || defined(CONFIG_KEYBOARD_OMAP_MODULE)
 
@@ -257,6 +263,7 @@ static struct platform_device mmc_omap_device1 = {
 static struct omap_mmc_conf mmc2_conf;
 
 static u64 mmc2_dmamask = 0xffffffff;
+
 
 static struct resource mmc2_resources[] = {
 	{
@@ -519,7 +526,9 @@ static int __init omap_init_devices(void)
 	omap_init_uwire();
 	omap_init_wdt();
 	omap_init_rng();
-	omap_init_i2c();
+	if (!cpu_is_omap2430()) {
+		omap_init_i2c();
+	}
 	return 0;
 }
 arch_initcall(omap_init_devices);

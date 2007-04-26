@@ -1761,7 +1761,8 @@ static struct clk i2c2_fck = {
 };
 
 static struct clk i2chs2_fck = {
-	.name		= "i2chs2_fck",
+	.name		= "i2chs_fck",
+	.id		= 2,
 	.parent		= &func_96m_ck,
 	.flags		= CLOCK_IN_OMAP243X,
 	.enable_reg	= (void __iomem *)&CM_FCLKEN2_CORE,
@@ -1790,7 +1791,8 @@ static struct clk i2c1_fck = {
 };
 
 static struct clk i2chs1_fck = {
-	.name		= "i2chs1_fck",
+	.name		= "i2chs_fck",
+	.id		= 1,
 	.parent		= &func_96m_ck,
 	.flags		= CLOCK_IN_OMAP243X,
 	.enable_reg	= (void __iomem *)&CM_FCLKEN2_CORE,
