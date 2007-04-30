@@ -169,6 +169,13 @@ static void tusb_omap_dma_cb(int lch, u16 ch_status, void *data)
 		remaining = musb_readl(ep_conf, TUSB_EP_RX_OFFSET);
 
 	remaining = TUSB_EP_CONFIG_XFR_SIZE(remaining);
+
+	/* HW issue #10: XFR_SIZE may get corrupt on async DMA */
+	if (unlikely(remaining > chdat->transfer_len)) {
+		WARN("Corrupt XFR_SIZE with async DMA: %lu\n", remaining);
+		remaining = 0;
+	}
+
 	channel->dwActualLength = chdat->transfer_len - remaining;
 	pio = chdat->len - channel->dwActualLength;
 
@@ -244,6 +251,15 @@ static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,
 	s8				sync_dev;
 
 	if (unlikely(dma_addr & 0x1) || (len < 32) || (len > packet_sz))
+		return FALSE;
+
+	/*
+	 * HW issue #10: Async dma will eventually corrupt the XFR_SIZE
+	 * register which will cause missed DMA interrupt. We could try to
+	 * use a timer for the callback, but it is unsafe as the XFR_SIZE
+	 * register is corrupt, and we won't know if the DMA worked.
+	 */
+	if (dma_addr & 0x2)
 		return FALSE;
 
 	chdat->transfer_len = len & ~0x1f;
