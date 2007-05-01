@@ -611,9 +611,9 @@ static void omap_lcdc_resume(void)
 	}
 }
 
-static unsigned long omap_lcdc_get_caps(void)
+static void omap_lcdc_get_caps(int plane, struct omapfb_caps *caps)
 {
-	return 0;
+	return;
 }
 
 int omap_lcdc_set_dma_callback(void (*callback)(void *data), void *data)
