@@ -1318,8 +1318,8 @@ static struct clk mcbsp1_ick = {
 	.name		= "mcbsp1_ick",
 	.parent		= &l4_ck,
 	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X,
-	.enable_bit	= 15,
 	.enable_reg	= (void __iomem *)&CM_ICLKEN1_CORE,	 /* bit16 */
+	.enable_bit	= 15,
 	.recalc		= &omap2_followparent_recalc,
 };
 
@@ -1327,8 +1327,8 @@ static struct clk mcbsp1_fck = {
 	.name		= "mcbsp1_fck",
 	.parent		= &func_96m_ck,
 	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X,
-	.enable_bit	= 15,
 	.enable_reg	= (void __iomem *)&CM_FCLKEN1_CORE,
+	.enable_bit	= 15,
 	.recalc		= &omap2_followparent_recalc,
 };
 
@@ -1336,8 +1336,8 @@ static struct clk mcbsp2_ick = {
 	.name		= "mcbsp2_ick",
 	.parent		= &l4_ck,
 	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X,
-	.enable_bit	= 16,
 	.enable_reg	= (void __iomem *)&CM_ICLKEN1_CORE,
+	.enable_bit	= 16,
 	.recalc		= &omap2_followparent_recalc,
 };
 
@@ -1345,8 +1345,8 @@ static struct clk mcbsp2_fck = {
 	.name		= "mcbsp2_fck",
 	.parent		= &func_96m_ck,
 	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X,
-	.enable_bit	= 16,
 	.enable_reg	= (void __iomem *)&CM_FCLKEN1_CORE,
+	.enable_bit	= 16,
 	.recalc		= &omap2_followparent_recalc,
 };
 
