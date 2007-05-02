@@ -534,19 +534,14 @@ static irqreturn_t musb_stage0_irq(struct musb * pThis, u8 bIntrUSB,
 	 */
 	if (bIntrUSB & MGC_M_INTR_RESET) {
 		if (devctl & MGC_M_DEVCTL_HM) {
-			DBG(1, "BABBLE\n");
-
-			/* REVISIT it's unclear how to handle this.  Mentor's
-			 * code stopped the whole USB host, which is clearly
-			 * very wrong.  Docs say (15.1) that babble ends the
-			 * current sesssion, so shutdown _with restart_ would
-			 * be appropriate ... except that seems to be wrong,
-			 * at least some lowspeed enumerations trigger the
-			 * babbles without aborting the session!
-			 *
-			 * (A "babble" IRQ seems quite pointless...)
+			/*
+			 * BABBLE is an error condition, so the solution is
+			 * to avoid babble in the first place and fix whatever
+			 * causes BABBLE. When BABBLE happens we can only stop
+			 * the session.
 			 */
-
+			ERR("Stopping host session because of babble\n");
+			musb_writeb(pBase, MGC_O_HDRC_DEVCTL, 0);
 		} else {
 			DBG(1, "BUS RESET\n");
 
