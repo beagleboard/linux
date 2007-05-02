@@ -17,4 +17,5 @@ struct omap_onenand_platform_data {
 	struct mtd_partition	*parts;
 	int			nr_parts;
 	int                     (*onenand_setup)(void __iomem *);
+	int			dma_channel;
 };
