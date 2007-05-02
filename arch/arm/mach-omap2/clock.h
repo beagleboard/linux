@@ -832,7 +832,7 @@ static struct clk dsp_ick = {
 	.parent		= &dsp_fck,
 	.flags		= CLOCK_IN_OMAP242X | RATE_CKCTL | CM_DSP_SEL1 |
 				DELAYED_APP | CONFIG_PARTICIPANT,
-	.rate_offset = 5,
+	.rate_offset	= 5,
 	.enable_reg	= (void __iomem *)&CM_ICLKEN_DSP,
 	.enable_bit	= 1,		/* for ipi */
 	.recalc		= &omap2_clksel_recalc,
@@ -843,7 +843,7 @@ static struct clk iva1_ifck = {
 	.parent		= &core_ck,
 	.flags		= CLOCK_IN_OMAP242X | CM_DSP_SEL1 | RATE_CKCTL |
 			CONFIG_PARTICIPANT | RATE_PROPAGATES | DELAYED_APP,
-	.rate_offset= 8,
+	.rate_offset	= 8,
 	.enable_reg	= (void __iomem *)&CM_FCLKEN_DSP,
 	.enable_bit	= 10,
 	.recalc		= &omap2_clksel_recalc,
@@ -897,7 +897,7 @@ static struct clk usb_l4_ick = {	/* FS-USB interface clock */
 				CONFIG_PARTICIPANT,
 	.enable_reg	= (void __iomem *)&CM_ICLKEN2_CORE,
 	.enable_bit	= 0,
-	.rate_offset = 25,
+	.rate_offset	= 25,
 	.recalc		= &omap2_clksel_recalc,
 };
 
@@ -916,7 +916,7 @@ static struct clk ssi_ssr_sst_fck = {
 				RATE_CKCTL | CM_CORE_SEL1 | DELAYED_APP,
 	.enable_reg	= (void __iomem *)&CM_FCLKEN2_CORE,	/* bit 1 */
 	.enable_bit	= 1,
-	.rate_offset = 20,
+	.rate_offset	= 20,
 	.recalc		= &omap2_clksel_recalc,
 };
 
@@ -938,7 +938,7 @@ static struct clk gfx_3d_fck = {
 				RATE_CKCTL | CM_GFX_SEL1,
 	.enable_reg	= (void __iomem *)&CM_FCLKEN_GFX,
 	.enable_bit	= 2,
-	.rate_offset= 0,
+	.rate_offset	= 0,
 	.recalc		= &omap2_clksel_recalc,
 };
 
@@ -949,7 +949,7 @@ static struct clk gfx_2d_fck = {
 				RATE_CKCTL | CM_GFX_SEL1,
 	.enable_reg	= (void __iomem *)&CM_FCLKEN_GFX,
 	.enable_bit	= 1,
-	.rate_offset= 0,
+	.rate_offset	= 0,
 	.recalc		= &omap2_clksel_recalc,
 };
 
