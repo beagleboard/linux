@@ -158,7 +158,7 @@ static inline u32 prcm_read_reg(int idx)
 
 static u32 omap2_read_32k_sync_counter(void)
 {
-        return omap_readl(0x48004010);
+        return omap_readl(OMAP2_32KSYNCT_BASE + 0x0010);
 }
 
 #ifdef CONFIG_PM_DEBUG
