@@ -2,7 +2,7 @@
 #define __ARCH_ASM_MACH_OMAP2_PRCM_COMMON_H
 
 /*
- * OMAP2 PRCM base and module definitions
+ * OMAP2/3 PRCM base and module definitions
  *
  * Copyright (C) 2007 Texas Instruments, Inc.
  * Copyright (C) 2007 Nokia Corporation
@@ -31,6 +31,16 @@
 #define OMAP24XX_DSP_MOD				0x800
 
 #define OMAP2430_MDM_MOD				0xc00
+
+/* IVA2 module is < base on 3430 */
+#define OMAP3430_IVA2_MOD				-0x800
+#define OMAP3430_CCR_MOD				PLL_MOD
+#define OMAP3430_DSS_MOD				0x600
+#define OMAP3430_CAM_MOD				0x700
+#define OMAP3430_PER_MOD				0x800
+#define OMAP3430_EMU_MOD				0x900
+#define OMAP3430_GR_MOD					0xa00
+#define OMAP3430_NEON_MOD				0xb00
 
 
 /* 24XX register bits shared between CM & PRM registers */
