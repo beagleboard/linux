@@ -29,6 +29,8 @@ static void omap2_sys_clk_recalc(struct clk * clk);
 static u32 omap2_clksel_to_divisor(u32 div_sel, u32 field_val);
 static u32 omap2_clksel_get_divisor(struct clk *clk);
 
+/* REVISIT: should use a clock flag for this, not a magic number */
+#define PARENT_CONTROLS_CLOCK	0xff
 
 #define RATE_IN_242X	(1 << 0)
 #define RATE_IN_243X	(1 << 1)
@@ -664,7 +666,7 @@ static struct clk func_54m_ck = {
 				RATE_FIXED | CM_PLL_SEL1 | RATE_PROPAGATES,
 	.src_offset	= 5,
 	.enable_reg	= (void __iomem *)&CM_CLKEN_PLL,
-	.enable_bit	= 0xff,
+	.enable_bit	= PARENT_CONTROLS_CLOCK,
 	.recalc		= &omap2_propagate_rate,
 };
 
@@ -691,7 +693,7 @@ static struct clk func_96m_ck = {
 	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X |
 				RATE_FIXED | RATE_PROPAGATES,
 	.enable_reg	= (void __iomem *)&CM_CLKEN_PLL,
-	.enable_bit	= 0xff,
+	.enable_bit	= PARENT_CONTROLS_CLOCK,
 	.recalc		= &omap2_propagate_rate,
 };
 
@@ -703,7 +705,7 @@ static struct clk func_48m_ck = {
 				RATE_FIXED | CM_PLL_SEL1 | RATE_PROPAGATES,
 	.src_offset	= 3,
 	.enable_reg	= (void __iomem *)&CM_CLKEN_PLL,
-	.enable_bit	= 0xff,
+	.enable_bit	= PARENT_CONTROLS_CLOCK,
 	.recalc		= &omap2_propagate_rate,
 };
 
@@ -715,7 +717,7 @@ static struct clk func_12m_ck = {
 				RATE_FIXED | RATE_PROPAGATES,
 	.recalc		= &omap2_propagate_rate,
 	.enable_reg	= (void __iomem *)&CM_CLKEN_PLL,
-	.enable_bit	= 0xff,
+	.enable_bit	= PARENT_CONTROLS_CLOCK,
 };
 
 /* Secure timer, only available in secure mode */
