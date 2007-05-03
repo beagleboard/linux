@@ -29,7 +29,7 @@
 
 #ifndef __ASSEMBLER__
 
-#define PRCM_REG32(offset)	__REG32(OMAP24XX_PRCM_BASE + (offset))
+#define PRCM_REG32(offset)	__REG32(OMAP2_PRCM_BASE + (offset))
 
 #define PRCM_REVISION		PRCM_REG32(0x000)
 #define PRCM_SYSCONFIG		PRCM_REG32(0x010)

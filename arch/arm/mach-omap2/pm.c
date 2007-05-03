@@ -144,7 +144,7 @@ static void (*omap2_sram_idle)(void);
 static void (*omap2_sram_suspend)(int dllctrl);
 static void (*saved_idle)(void);
 
-static u32 prcm_base = IO_ADDRESS(OMAP24XX_PRCM_BASE);
+static u32 prcm_base = IO_ADDRESS(OMAP2_PRCM_BASE);
 
 static inline void prcm_write_reg(int idx, u32 val)
 {

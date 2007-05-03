@@ -96,7 +96,8 @@ static int exmap_setup_preserved_entries(struct omap_mmu *mmu)
 
 	exmap_setup_preserved_mem_page(mmu, dspvect_page, DSP_INIT_PAGE, n++);
 
-	exmap_setup_iomap_page(mmu, OMAP24XX_PRCM_BASE, 0x7000, n++);
+	/* REVISIT: This will need to be revisited for 3430 */
+	exmap_setup_iomap_page(mmu, OMAP2_PRCM_BASE, 0x7000, n++);
 	exmap_setup_iomap_page(mmu, OMAP24XX_MAILBOX_BASE, 0x11000, n++);
 
 	if (cpu_is_omap2420()) {
