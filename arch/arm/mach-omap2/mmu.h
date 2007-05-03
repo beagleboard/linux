@@ -1,7 +1,6 @@
 #ifndef __MACH_OMAP2_MMU_H
 #define __MACH_OMAP2_MMU_H
 
-#include "prcm-regs.h"
 #include <asm/arch/mmu.h>
 #include <asm/io.h>
 

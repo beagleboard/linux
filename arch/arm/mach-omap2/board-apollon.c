@@ -39,7 +39,6 @@
 #include <asm/arch/board.h>
 #include <asm/arch/common.h>
 #include <asm/arch/gpmc.h>
-#include "prcm-regs.h"
 
 /* LED & Switch macros */
 #define LED0_GPIO13		13

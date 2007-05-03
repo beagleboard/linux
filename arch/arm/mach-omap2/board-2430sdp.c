@@ -38,7 +38,6 @@
 #include <asm/arch/keypad.h>
 #include <asm/arch/gpmc.h>
 #include <asm/arch/mcspi.h>
-#include "prcm-regs.h"
 
 #include <asm/io.h>
 

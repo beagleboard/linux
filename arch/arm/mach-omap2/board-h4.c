@@ -39,7 +39,6 @@
 #include <asm/arch/menelaus.h>
 #include <asm/arch/dma.h>
 #include <asm/arch/gpmc.h>
-#include "prcm-regs.h"
 
 #include <asm/io.h>
 
