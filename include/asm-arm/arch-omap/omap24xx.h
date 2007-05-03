@@ -51,7 +51,6 @@
 /* Mailbox */
 #define OMAP24XX_MAILBOX_BASE	(L4_24XX_BASE + 0x94000)
 
-
 #if defined(CONFIG_ARCH_OMAP2420)
 
 #define OMAP2_32KSYNCT_BASE	OMAP2420_32KSYNCT_BASE
@@ -76,8 +75,6 @@
 #define OMAP2_VA_IC_BASE	IO_ADDRESS(OMAP24XX_IC_BASE)
 #define OMAP2_CTRL_BASE		OMAP243X_CTRL_BASE
 
-#else
-#error "Unknown architecture"
 #endif
 
 #endif /* __ASM_ARCH_OMAP24XX_H */
