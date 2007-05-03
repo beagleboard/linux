@@ -108,6 +108,29 @@ static void musb_ep_program(struct musb *pThis, u8 bEnd,
 			u8 * pBuffer, u32 dwLength);
 
 /*
+ * Clear TX fifo. Needed to avoid BABBLE errors.
+ */
+static inline void musb_h_tx_flush_fifo(struct musb_hw_ep *ep)
+{
+	void __iomem	*epio = ep->regs;
+	u16		csr;
+	int		retries = 1000;
+
+	csr = musb_readw(epio, MGC_O_HDRC_TXCSR);
+	while (csr & MGC_M_TXCSR_FIFONOTEMPTY) {
+		DBG(5, "Host TX FIFONOTEMPTY csr: %02x\n", csr);
+		csr |= MGC_M_TXCSR_FLUSHFIFO;
+		musb_writew(epio, MGC_O_HDRC_TXCSR, csr);
+		csr = musb_readw(epio, MGC_O_HDRC_TXCSR);
+		if (retries-- < 1) {
+			ERR("Could not flush host TX fifo: csr: %04x\n", csr);
+			return;
+		}
+		mdelay(1);
+	}
+}
+
+/*
  * Start transmit. Caller is responsible for locking shared resources.
  * pThis must be locked.
  */
@@ -570,14 +593,9 @@ musb_rx_reinit(struct musb *musb, struct musb_qh *qh, struct musb_hw_ep *ep)
 	if (ep->bIsSharedFifo) {
 		csr = musb_readw(ep->regs, MGC_O_HDRC_TXCSR);
 		if (csr & MGC_M_TXCSR_MODE) {
-			if (csr & MGC_M_TXCSR_FIFONOTEMPTY) {
-				/* this shouldn't happen; irq?? */
-				ERR("shared fifo not empty?\n");
-				musb_writew(ep->regs, MGC_O_HDRC_TXCSR,
-						MGC_M_TXCSR_FLUSHFIFO);
-				musb_writew(ep->regs, MGC_O_HDRC_TXCSR,
-						MGC_M_TXCSR_FRCDATATOG);
-			}
+			musb_h_tx_flush_fifo(ep);
+			musb_writew(ep->regs, MGC_O_HDRC_TXCSR,
+					MGC_M_TXCSR_FRCDATATOG);
 		}
 		/* clear mode (and everything else) to enable Rx */
 		musb_writew(ep->regs, MGC_O_HDRC_TXCSR, 0);
@@ -683,14 +701,12 @@ static void musb_ep_program(struct musb *pThis, u8 bEnd,
 			/* ASSERT:  TXCSR_DMAENAB was already cleared */
 
 			/* flush all old state, set default */
-			if (csr & MGC_M_TXCSR_FIFONOTEMPTY)
-				csr |= MGC_M_TXCSR_FLUSHFIFO;
+			musb_h_tx_flush_fifo(pEnd);
 			csr &= ~(MGC_M_TXCSR_H_NAKTIMEOUT
 					| MGC_M_TXCSR_DMAMODE
 					| MGC_M_TXCSR_FRCDATATOG
 					| MGC_M_TXCSR_H_RXSTALL
 					| MGC_M_TXCSR_H_ERROR
-					| MGC_M_TXCSR_FIFONOTEMPTY
 					| MGC_M_TXCSR_TXPKTRDY
 					);
 			csr |= MGC_M_TXCSR_MODE;
@@ -1229,11 +1245,8 @@ void musb_host_tx(struct musb *pThis, u8 bEnd)
 		/* do the proper sequence to abort the transfer in the
 		 * usb core; the dma engine should already be stopped.
 		 */
-// SCRUB (TX)
-		if (wTxCsrVal & MGC_M_TXCSR_FIFONOTEMPTY)
-			wTxCsrVal |= MGC_M_TXCSR_FLUSHFIFO;
-		wTxCsrVal &= ~(MGC_M_TXCSR_FIFONOTEMPTY
-				| MGC_M_TXCSR_AUTOSET
+		musb_h_tx_flush_fifo(pEnd);
+		wTxCsrVal &= ~(MGC_M_TXCSR_AUTOSET
 				| MGC_M_TXCSR_DMAENAB
 				| MGC_M_TXCSR_H_ERROR
 				| MGC_M_TXCSR_H_RXSTALL
@@ -1949,16 +1962,13 @@ static int musb_cleanup_urb(struct urb *urb, struct musb_qh *qh, int is_in)
 		 * clearing that status is platform-specific...
 		 */
 	} else {
-// SCRUB (TX)
+		musb_h_tx_flush_fifo(ep);
 		csr = musb_readw(epio, MGC_O_HDRC_TXCSR);
-		if (csr & MGC_M_TXCSR_FIFONOTEMPTY)
-			csr |= MGC_M_TXCSR_FLUSHFIFO;
 		csr &= ~( MGC_M_TXCSR_AUTOSET
 			| MGC_M_TXCSR_DMAENAB
 			| MGC_M_TXCSR_H_RXSTALL
 			| MGC_M_TXCSR_H_NAKTIMEOUT
 			| MGC_M_TXCSR_H_ERROR
-			| MGC_M_TXCSR_FIFONOTEMPTY
 			);
 		musb_writew(epio, MGC_O_HDRC_TXCSR, csr);
 		/* REVISIT may need to clear FLUSHFIFO ... */
@@ -2002,6 +2012,14 @@ static int musb_urb_dequeue(struct usb_hcd *hcd, struct urb *urb)
 		}
 	}
 	spin_unlock(&urb->lock);
+
+	/* already completed */
+	if (!qh) {
+		status = 0;
+		goto done;
+	}
+
+	/* still queued but not found on the list */
 	if (status)
 		goto done;
 
