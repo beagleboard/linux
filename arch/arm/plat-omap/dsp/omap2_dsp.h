@@ -32,7 +32,6 @@
 #endif
 
 #include <asm/arch/hardware.h>
-#include "../../mach-omap2/prcm-regs.h"
 
 /*
  * DSP IPI registers: mapped to 0xe1000000 -- use readX(), writeX()
