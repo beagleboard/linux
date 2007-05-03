@@ -73,7 +73,6 @@
 #endif
 
 /* Temporary defines to be cleaned up in following patches */
-#define OMAP24XX_SDRC_BASE	OMAP2_SDRC_BASE
 #define OMAP24XX_CTRL_BASE	OMAP2_CTRL_BASE
 
 #endif /* __ASM_ARCH_OMAP24XX_H */
