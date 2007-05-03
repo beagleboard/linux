@@ -296,6 +296,7 @@ struct musb_hw_ep {
 	/* TUSB has "asynchronous" and "synchronous" dma modes */
 	dma_addr_t		fifo_async;
 	dma_addr_t		fifo_sync;
+	void __iomem		*fifo_sync_va;
 #endif
 
 #ifdef CONFIG_USB_MUSB_HDRC_HCD
@@ -381,6 +382,7 @@ struct musb {
 #ifdef CONFIG_USB_TUSB6010
 	dma_addr_t		async;
 	dma_addr_t		sync;
+	void __iomem		*sync_va;
 #endif
 
 	/* passed down from chip/board specific irq handlers */

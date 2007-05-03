@@ -31,19 +31,58 @@
  * so both loading and unloading FIFOs need explicit byte counts.
  */
 
+static inline void
+tusb_fifo_write_unaligned(void __iomem *fifo, const u8 *buf, u16 len)
+{
+	u32		val;
+	int		i;
+
+	if (len > 4) {
+		for (i = 0; i < (len >> 2); i++) {
+			memcpy(&val, buf, 4);
+			musb_writel(fifo, 0, val);
+			buf += 4;
+		}
+		len %= 4;
+	}
+	if (len > 0) {
+		/* Write the rest 1 - 3 bytes to FIFO */
+		memcpy(&val, buf, len);
+		musb_writel(fifo, 0, val);
+	}
+}
+
+static inline void tusb_fifo_read_unaligned(void __iomem *fifo,
+						void __iomem *buf, u16 len)
+{
+	u32		val;
+	int		i;
+
+	if (len > 4) {
+		for (i = 0; i < (len >> 2); i++) {
+			val = musb_readl(fifo, 0);
+			memcpy(buf, &val, 4);
+			buf += 4;
+		}
+		len %= 4;
+	}
+	if (len > 0) {
+		/* Read the rest 1 - 3 bytes from FIFO */
+		val = musb_readl(fifo, 0);
+		memcpy(buf, &val, len);
+	}
+}
+
 void musb_write_fifo(struct musb_hw_ep *hw_ep, u16 len, const u8 *buf)
 {
 	void __iomem	*ep_conf = hw_ep->conf;
 	void __iomem	*fifo = hw_ep->fifo;
 	u8		epnum = hw_ep->bLocalEnd;
-	u8		*bufp = (u8 *)buf;
-	int		i, remain;
-	u32		val;
 
-	prefetch(bufp);
+	prefetch(buf);
 
 	DBG(4, "%cX ep%d fifo %p count %d buf %p\n",
-			'T', epnum, fifo, len, bufp);
+			'T', epnum, fifo, len, buf);
 
 	if (epnum)
 		musb_writel(ep_conf, TUSB_EP_TX_OFFSET,
@@ -52,40 +91,35 @@ void musb_write_fifo(struct musb_hw_ep *hw_ep, u16 len, const u8 *buf)
 		musb_writel(ep_conf, 0, TUSB_EP0_CONFIG_DIR_TX |
 			TUSB_EP0_CONFIG_XFR_SIZE(len));
 
-	/* Write 32-bit blocks from buffer to FIFO
-	 * REVISIT: Optimize for burst ... writesl/writesw
-	 */
-	if (len >= 4) {
-		if (((unsigned long)bufp & 0x3) == 0) {
-			for (i = 0; i < (len / 4); i++ ) {
-				val = *(u32 *)bufp;
-				bufp += 4;
-				musb_writel(fifo, 0, val);
-			}
-		} else if (((unsigned long)bufp & 0x2) == 0x2) {
-			for (i = 0; i < (len / 4); i++ ) {
-				val = (u32)(*(u16 *)bufp);
-				bufp += 2;
-				val |= (*(u16 *)bufp) << 16;
-				bufp += 2;
-				musb_writel(fifo, 0, val);
+	if (likely((0x01 & (unsigned long) buf) == 0)) {
+
+		/* Best case is 32bit-aligned destination address */
+		if ((0x02 & (unsigned long) buf) == 0) {
+			if (len >= 4) {
+				writesl(fifo, buf, len >> 2);
+				buf += (len & ~0x03);
+				len &= 0x03;
 			}
 		} else {
-			for (i = 0; i < (len / 4); i++ ) {
-				memcpy(&val, bufp, 4);
-				bufp += 4;
-				musb_writel(fifo, 0, val);
+			if (len >= 2) {
+				u32 val;
+				int i;
+
+				/* Cannot use writesw, fifo is 32-bit */
+				for (i = 0; i < (len >> 2); i++) {
+					val = (u32)(*(u16 *)buf);
+					buf += 2;
+					val |= (*(u16 *)buf) << 16;
+					buf += 2;
+					musb_writel(fifo, 0, val);
+				}
+				len &= 0x03;
 			}
 		}
-		remain = len - (i * 4);
-	} else
-		remain = len;
-
-	if (remain) {
-		/* Write rest of 1-3 bytes from buffer into FIFO */
-		memcpy(&val, bufp, remain);
-		musb_writel(fifo, 0, val);
 	}
+
+	if (len > 0)
+		tusb_fifo_write_unaligned(fifo, buf, len);
 }
 
 void musb_read_fifo(struct musb_hw_ep *hw_ep, u16 len, u8 *buf)
@@ -93,12 +127,9 @@ void musb_read_fifo(struct musb_hw_ep *hw_ep, u16 len, u8 *buf)
 	void __iomem	*ep_conf = hw_ep->conf;
 	void __iomem	*fifo = hw_ep->fifo;
 	u8		epnum = hw_ep->bLocalEnd;
-	u8		*bufp = (u8 *)buf;
-	int		i, remain;
-	u32		val;
 
 	DBG(4, "%cX ep%d fifo %p count %d buf %p\n",
-			'R', epnum, fifo, len, bufp);
+			'R', epnum, fifo, len, buf);
 
 	if (epnum)
 		musb_writel(ep_conf, TUSB_EP_RX_OFFSET,
@@ -106,40 +137,35 @@ void musb_read_fifo(struct musb_hw_ep *hw_ep, u16 len, u8 *buf)
 	else
 		musb_writel(ep_conf, 0, TUSB_EP0_CONFIG_XFR_SIZE(len));
 
-	/* Read 32-bit blocks from FIFO to buffer
-	 * REVISIT: Optimize for burst ... writesl/writesw
-	 */
-	if (len >= 4) {
-		if (((unsigned long)bufp & 0x3) == 0) {
-			for (i = 0; i < (len / 4); i++) {
-				val = musb_readl(fifo, 0);
-				*(u32 *)bufp = val;
-				bufp += 4;
-			}
-		} else if (((unsigned long)bufp & 0x2) == 0x2) {
-			for (i = 0; i < (len / 4); i++) {
-				val = musb_readl(fifo, 0);
-				*(u16 *)bufp = (u16)(val & 0xffff);
-				bufp += 2;
-				*(u16 *)bufp = (u16)(val >> 16);
-				bufp += 2;
+	if (likely((0x01 & (unsigned long) buf) == 0)) {
+
+		/* Best case is 32bit-aligned destination address */
+		if ((0x02 & (unsigned long) buf) == 0) {
+			if (len >= 4) {
+				readsl(fifo, buf, len >> 2);
+				buf += (len & ~0x03);
+				len &= 0x03;
 			}
 		} else {
-			for (i = 0; i < (len / 4); i++) {
-				val = musb_readl(fifo, 0);
-				memcpy(bufp, &val, 4);
-				bufp += 4;
+			if (len >= 2) {
+				u32 val;
+				int i;
+
+				/* Cannot use readsw, fifo is 32-bit */
+				for (i = 0; i < (len >> 2); i++) {
+					val = musb_readl(fifo, 0);
+					*(u16 *)buf = (u16)(val & 0xffff);
+					buf += 2;
+					*(u16 *)buf = (u16)(val >> 16);
+					buf += 2;
+				}
+				len &= 0x03;
 			}
 		}
-		remain = len - (i * 4);
-	} else
-		remain = len;
-
-	if (remain) {
-		/* Read rest of 1-3 bytes from FIFO */
-		val = musb_readl(fifo, 0);
-		memcpy(bufp, &val, remain);
 	}
+
+	if (len > 0)
+		tusb_fifo_read_unaligned(fifo, buf, len);
 }
 
 #ifdef CONFIG_USB_GADGET_MUSB_HDRC
@@ -900,6 +926,7 @@ int __init musb_platform_init(struct musb *musb)
 {
 	struct platform_device	*pdev;
 	struct resource		*mem;
+	void __iomem		*sync;
 	int			ret;
 
 	pdev = to_platform_device(musb->controller);
@@ -915,6 +942,13 @@ int __init musb_platform_init(struct musb *musb)
 		return -ENODEV;
 	}
 	musb->sync = mem->start;
+
+	sync = ioremap(mem->start, mem->end - mem->start + 1);
+	if (!sync) {
+		pr_debug("ioremap for sync failed\n");
+		return -ENOMEM;
+	}
+	musb->sync_va = sync;
 
 	/* Offsets from base: VLYNQ at 0x000, MUSB regs at 0x400,
 	 * FIFOs at 0x600, TUSB at 0x800
@@ -945,6 +979,8 @@ int musb_platform_exit(struct musb *musb)
 
 	if (musb->board_set_power)
 		musb->board_set_power(0);
+
+	iounmap(musb->sync_va);
 
 	return 0;
 }
