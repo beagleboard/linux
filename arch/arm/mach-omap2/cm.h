@@ -2,7 +2,7 @@
 #define __ARCH_ASM_MACH_OMAP2_CM_H
 
 /*
- * OMAP2 Clock Management (CM) register definitions
+ * OMAP2/3 Clock Management (CM) register definitions
  *
  * Copyright (C) 2007 Texas Instruments, Inc.
  * Copyright (C) 2007 Nokia Corporation
@@ -26,7 +26,10 @@
  * Use cm_{read,write}_reg() with these registers.
  */
 
-/* None currently */
+#define OMAP3430_CM_REVISION		OMAP_CM_REGADDR(OCP_MOD, 0x0000)
+#define OMAP3430_CM_SYSCONFIG		OMAP_CM_REGADDR(OCP_MOD, 0x0010)
+#define OMAP3430_CM_POLCTRL		OMAP_CM_REGADDR(OCP_MOD, 0x009c)
+
 
 /* Clock management global register get/set */
 
@@ -103,6 +106,18 @@ static u32 __attribute__((unused)) cm_read_mod_reg(s16 module, s16 idx)
 
 /* CM_IDLEST_GFX */
 #define OMAP_ST_GFX					(1 << 0)
+
+#define OMAP3430_CM_CLKEN_PLL				0x0004
+#define OMAP3430_CM_IDLEST_PLL				CM_IDLEST2
+#define OMAP3430_CM_AUTOIDLE_PLL			CM_AUTOIDLE2
+#define OMAP3430_CM_CLKSEL1				CM_CLKSEL
+#define OMAP3430_CM_CLKSEL1_PLL				CM_CLKSEL
+#define OMAP3430_CM_CLKSEL2_PLL				CM_CLKSEL2
+#define OMAP3430_CM_SLEEPDEP				CM_CLKSEL2
+#define OMAP3430_CM_CLKSEL3				CM_CLKSTCTRL
+#define OMAP3430_CM_CLKSTST				0x004c
+#define OMAP3430_CM_CLKSEL2_EMU				0x0050
+#define OMAP3430_CM_CLKSEL3_EMU				0x0054
 
 
 
