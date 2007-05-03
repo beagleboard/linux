@@ -91,4 +91,19 @@ static u32 __attribute__((unused)) cm_read_mod_reg(s16 module, s16 idx)
 	return cm_read_reg(OMAP_CM_REGADDR(module, idx));
 }
 
+/* CM register bits shared between 24XX and 3430 */
+
+/* CM_CLKSEL_GFX */
+#define OMAP_CLKSEL_GFX_SHIFT				0
+#define OMAP_CLKSEL_GFX_MASK				(0x7 << 0)
+
+/* CM_ICLKEN_GFX */
+#define OMAP_EN_GFX_SHIFT				0
+#define OMAP_EN_GFX					(1 << 0)
+
+/* CM_IDLEST_GFX */
+#define OMAP_ST_GFX					(1 << 0)
+
+
+
 #endif
