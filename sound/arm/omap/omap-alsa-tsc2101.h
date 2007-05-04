@@ -1,5 +1,5 @@
 /*
- * arch/arc/mach-omap1/omap-alsa-tsc2101.h
+ * sound/arm/omap/omap-alsa-tsc2101.h
  * 
  * Alsa Driver for TSC2101 codec for OMAP platform boards.
  *

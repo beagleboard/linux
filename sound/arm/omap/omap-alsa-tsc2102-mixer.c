@@ -99,8 +99,8 @@ void snd_omap_init_mixer(void)
 	FN_OUT(0);
 }
 
-static int __pcm_playback_volume_info(
-		snd_kcontrol_t *kcontrol, snd_ctl_elem_info_t *uinfo)
+static int __pcm_playback_volume_info(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_info *uinfo)
 {
 	uinfo->type			= SNDRV_CTL_ELEM_TYPE_INTEGER;
 	uinfo->count			= 2;
@@ -109,8 +109,8 @@ static int __pcm_playback_volume_info(
 	return 0;
 }
 
-static int __pcm_playback_volume_get(
-		snd_kcontrol_t *kcontrol, snd_ctl_elem_value_t *ucontrol)
+static int __pcm_playback_volume_get(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
 {
 	ucontrol->value.integer.value[0] = vol[0];	/* L */
 	ucontrol->value.integer.value[1] = vol[1];	/* R */
@@ -118,8 +118,8 @@ static int __pcm_playback_volume_get(
 	return 0;
 }
 
-static int __pcm_playback_volume_put(
-		snd_kcontrol_t *kcontrol, snd_ctl_elem_value_t *ucontrol)
+static int __pcm_playback_volume_put(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
 {
 	set_dac_gain_stereo(
 			ucontrol->value.integer.value[0],	/* L */
@@ -127,8 +127,8 @@ static int __pcm_playback_volume_put(
 	return 1;
 }
 
-static int __pcm_playback_switch_info(
-		snd_kcontrol_t *kcontrol, snd_ctl_elem_info_t *uinfo)
+static int __pcm_playback_switch_info(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_info *uinfo)
 {
 	uinfo->type			= SNDRV_CTL_ELEM_TYPE_BOOLEAN;
 	uinfo->count			= 2;
@@ -137,8 +137,8 @@ static int __pcm_playback_switch_info(
 	return 0;
 }
 
-static int __pcm_playback_switch_get(
-		snd_kcontrol_t *kcontrol, snd_ctl_elem_value_t *ucontrol)
+static int __pcm_playback_switch_get(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
 {
 	ucontrol->value.integer.value[0] = !mute[0];		/* L */
 	ucontrol->value.integer.value[1] = !mute[1];		/* R */
@@ -146,8 +146,8 @@ static int __pcm_playback_switch_get(
 	return 0;
 }
 
-static int __pcm_playback_switch_put(
-		snd_kcontrol_t *kcontrol, snd_ctl_elem_value_t *ucontrol) 
+static int __pcm_playback_switch_put(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol) 
 {
 	mute[0] = (ucontrol->value.integer.value[0] == 0);	/* L */
 	mute[1] = (ucontrol->value.integer.value[1] == 0);	/* R */
@@ -156,8 +156,8 @@ static int __pcm_playback_switch_put(
 	return 1;
 }
 
-static int __pcm_playback_deemphasis_info(
-		snd_kcontrol_t *kcontrol, snd_ctl_elem_info_t *uinfo)
+static int __pcm_playback_deemphasis_info(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_info *uinfo)
 {
 	uinfo->type			= SNDRV_CTL_ELEM_TYPE_BOOLEAN;
 	uinfo->count			= 1;
@@ -166,15 +166,15 @@ static int __pcm_playback_deemphasis_info(
 	return 0;
 }
 
-static int __pcm_playback_deemphasis_get(
-		snd_kcontrol_t *kcontrol, snd_ctl_elem_value_t *ucontrol)
+static int __pcm_playback_deemphasis_get(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
 {
 	ucontrol->value.integer.value[0] = filter[0];
 	return 0;
 }
 
-static int __pcm_playback_deemphasis_put(
-		snd_kcontrol_t *kcontrol, snd_ctl_elem_value_t *ucontrol) 
+static int __pcm_playback_deemphasis_put(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol) 
 {
 	filter[0] = (ucontrol->value.integer.value[0] > 0);
 
@@ -182,8 +182,8 @@ static int __pcm_playback_deemphasis_put(
 	return 1;
 }
 
-static int __pcm_playback_bassboost_info(
-		snd_kcontrol_t *kcontrol, snd_ctl_elem_info_t *uinfo)
+static int __pcm_playback_bassboost_info(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_info *uinfo)
 {
 	uinfo->type			= SNDRV_CTL_ELEM_TYPE_BOOLEAN;
 	uinfo->count			= 1;
@@ -192,15 +192,15 @@ static int __pcm_playback_bassboost_info(
 	return 0;
 }
 
-static int __pcm_playback_bassboost_get(
-		snd_kcontrol_t *kcontrol, snd_ctl_elem_value_t *ucontrol)
+static int __pcm_playback_bassboost_get(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
 {
 	ucontrol->value.integer.value[0] = filter[1];
 	return 0;
 }
 
-static int __pcm_playback_bassboost_put(
-		snd_kcontrol_t *kcontrol, snd_ctl_elem_value_t *ucontrol) 
+static int __pcm_playback_bassboost_put(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol) 
 {
 	filter[1] = (ucontrol->value.integer.value[0] > 0);
 
@@ -208,7 +208,7 @@ static int __pcm_playback_bassboost_put(
 	return 1;
 }
 
-static snd_kcontrol_new_t tsc2102_control[] __devinitdata = {
+static struct snd_kcontrol_new tsc2102_controls[] __devinitdata = {
 	{
 		.name	= "Master Playback Volume",
 		.iface	= SNDRV_CTL_ELEM_IFACE_MIXER,
@@ -271,9 +271,9 @@ int snd_omap_mixer(struct snd_card_omap_codec *tsc2102)
 	if (!tsc2102)
 		return -EINVAL;
 
-	for (i = 0; i < ARRAY_SIZE(tsc2102_control); i ++) {
+	for (i = 0; i < ARRAY_SIZE(tsc2102_controls); i ++) {
 		err = snd_ctl_add(tsc2102->card,
-				snd_ctl_new1(&tsc2102_control[i],
+				snd_ctl_new1(&tsc2102_controls[i],
 				tsc2102->card));
 
 		if (err < 0)

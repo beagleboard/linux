@@ -38,13 +38,13 @@ static unsigned int rates[] = {
 	16000, 22050, 24000, 29400, 32000, 44100, 48000,
 };
 
-static snd_pcm_hw_constraint_list_t tsc2102_hw_constraints_rates = {
+static struct snd_pcm_hw_constraint_list tsc2102_hw_constraints_rates = {
 	.count = ARRAY_SIZE(rates),
 	.list = rates,
 	.mask = 0,
 };
 
-static snd_pcm_hardware_t tsc2102_snd_omap_alsa_playback = {
+static struct snd_pcm_hardware tsc2102_snd_omap_alsa_playback = {
 	.info			= SNDRV_PCM_INFO_INTERLEAVED |
 		SNDRV_PCM_INFO_BLOCK_TRANSFER | SNDRV_PCM_INFO_MMAP |
 		SNDRV_PCM_INFO_MMAP_VALID,

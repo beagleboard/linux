@@ -1,5 +1,5 @@
 /*
- * arch/arm/mach-omap1/omap-alsa-tsc2101.c
+ * sound/arm/omap/omap-alsa-tsc2101.c
  * 
  * Alsa codec Driver for TSC2101 chip for OMAP platform boards. 
  * Code obtained from oss omap drivers
@@ -59,7 +59,7 @@ static unsigned int rates[] = {
 	29400, 32000, 44100, 48000,
 };
 
-static snd_pcm_hw_constraint_list_t tsc2101_hw_constraints_rates = {
+static struct snd_pcm_hw_constraint_list tsc2101_hw_constraints_rates = {
 	.count = ARRAY_SIZE(rates),
 	.list = rates,
 	.mask = 0,
@@ -93,7 +93,7 @@ static const struct tsc2101_samplerate_reg_info
 	{48000, 0, 0},		
 };
 
-static snd_pcm_hardware_t tsc2101_snd_omap_alsa_playback = {
+static struct snd_pcm_hardware tsc2101_snd_omap_alsa_playback = {
 	.info = (SNDRV_PCM_INFO_INTERLEAVED | SNDRV_PCM_INFO_BLOCK_TRANSFER |
 		 SNDRV_PCM_INFO_MMAP | SNDRV_PCM_INFO_MMAP_VALID),	
 #ifdef CONFIG_MACH_OMAP_H6300

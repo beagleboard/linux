@@ -699,7 +699,8 @@ void snd_omap_init_mixer(void)
 	FN_OUT(0);
 }
 
-static int __pcm_playback_target_info(snd_kcontrol_t *kcontrol, snd_ctl_elem_info_t *uinfo) 
+static int __pcm_playback_target_info(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_info *uinfo)
 {
 	static char *texts[PLAYBACK_TARGET_COUNT] = {
         	"Loudspeaker", "Headphone", "Cellphone"
@@ -716,13 +717,15 @@ static int __pcm_playback_target_info(snd_kcontrol_t *kcontrol, snd_ctl_elem_inf
 	return 0;
 }
 
-static int __pcm_playback_target_get(snd_kcontrol_t *kcontrol, snd_ctl_elem_value_t *ucontrol) 
+static int __pcm_playback_target_get(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
 {
 	ucontrol->value.integer.value[0] = current_playback_target;
 	return 0;
 }
 
-static int __pcm_playback_target_put(snd_kcontrol_t *kcontrol, snd_ctl_elem_value_t *ucontrol) 
+static int __pcm_playback_target_put(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
 {
 	int	retVal;
 	int	curVal;
@@ -749,7 +752,8 @@ static int __pcm_playback_target_put(snd_kcontrol_t *kcontrol, snd_ctl_elem_valu
 	return retVal;
 }	
 
-static int __pcm_playback_volume_info(snd_kcontrol_t *kcontrol, snd_ctl_elem_info_t *uinfo) 
+static int __pcm_playback_volume_info(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_info *uinfo)
 {
 	uinfo->type			= SNDRV_CTL_ELEM_TYPE_INTEGER;
 	uinfo->count			= 2;
@@ -762,7 +766,8 @@ static int __pcm_playback_volume_info(snd_kcontrol_t *kcontrol, snd_ctl_elem_inf
  * Alsa mixer interface function for getting the volume read from the DGC in a 
  * 0 -100 alsa mixer format.
  */
-static int __pcm_playback_volume_get(snd_kcontrol_t *kcontrol, snd_ctl_elem_value_t *ucontrol) 
+static int __pcm_playback_volume_get(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
 {
 	u16 volL;
 	u16 volR;	
@@ -786,13 +791,15 @@ static int __pcm_playback_volume_get(snd_kcontrol_t *kcontrol, snd_ctl_elem_valu
 	return 0;
 }
 
-static int __pcm_playback_volume_put(snd_kcontrol_t *kcontrol, snd_ctl_elem_value_t *ucontrol) 
+static int __pcm_playback_volume_put(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
 {
 	return set_mixer_volume_as_dac_gain_control_volume(ucontrol->value.integer.value[0], 
 							ucontrol->value.integer.value[1]);
 }
 
-static int __pcm_playback_switch_info(snd_kcontrol_t *kcontrol, snd_ctl_elem_info_t *uinfo) 
+static int __pcm_playback_switch_info(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_info *uinfo)
 {
 	uinfo->type			= SNDRV_CTL_ELEM_TYPE_BOOLEAN;
 	uinfo->count			= 2;
@@ -806,7 +813,8 @@ static int __pcm_playback_switch_info(snd_kcontrol_t *kcontrol, snd_ctl_elem_inf
  * When DGC_DALMU is 0, left channel is not muted.
  * Same logic apply also for the right channel.
  */
-static int __pcm_playback_switch_get(snd_kcontrol_t *kcontrol, snd_ctl_elem_value_t *ucontrol) 
+static int __pcm_playback_switch_get(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
 {
 	u16 val	= omap_tsc2101_audio_read(TSC2101_DAC_GAIN_CTRL);
 	
@@ -815,13 +823,15 @@ static int __pcm_playback_switch_get(snd_kcontrol_t *kcontrol, snd_ctl_elem_valu
 	return 0;
 }
 
-static int __pcm_playback_switch_put(snd_kcontrol_t *kcontrol, snd_ctl_elem_value_t *ucontrol) 
+static int __pcm_playback_switch_put(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
 {
 	return dac_gain_control_unmute(ucontrol->value.integer.value[0], 
 					ucontrol->value.integer.value[1]);
 }
 
-static int __headset_playback_volume_info(snd_kcontrol_t *kcontrol, snd_ctl_elem_info_t *uinfo) 
+static int __headset_playback_volume_info(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_info *uinfo)
 {
 	uinfo->type			= SNDRV_CTL_ELEM_TYPE_INTEGER;
 	uinfo->count			= 1;
@@ -830,7 +840,8 @@ static int __headset_playback_volume_info(snd_kcontrol_t *kcontrol, snd_ctl_elem
 	return 0;
 }
 
-static int __headset_playback_volume_get(snd_kcontrol_t *kcontrol, snd_ctl_elem_value_t *ucontrol) 
+static int __headset_playback_volume_get(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
 {
 	u16 val;
 	u16 vol;
@@ -847,12 +858,14 @@ static int __headset_playback_volume_get(snd_kcontrol_t *kcontrol, snd_ctl_elem_
 	return 0;
 }
 
-static int __headset_playback_volume_put(snd_kcontrol_t *kcontrol, snd_ctl_elem_value_t *ucontrol) 
+static int __headset_playback_volume_put(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
 {
 	return set_mixer_volume_as_headset_gain_control_volume(ucontrol->value.integer.value[0]);	
 }
 
-static int __headset_playback_switch_info(snd_kcontrol_t *kcontrol, snd_ctl_elem_info_t *uinfo) 
+static int __headset_playback_switch_info(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_info *uinfo)
 {
 	uinfo->type 			= SNDRV_CTL_ELEM_TYPE_BOOLEAN;
 	uinfo->count			= 1;
@@ -864,14 +877,16 @@ static int __headset_playback_switch_info(snd_kcontrol_t *kcontrol, snd_ctl_elem
 /* When HGC_ADMUT_HED (bit 15) is 1, the headset is muted.
  * When HGC_ADMUT_HED is 0, headset is not muted.
  */
-static int __headset_playback_switch_get(snd_kcontrol_t *kcontrol, snd_ctl_elem_value_t *ucontrol) 
+static int __headset_playback_switch_get(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
 {
 	u16 val = omap_tsc2101_audio_read(TSC2101_HEADSET_GAIN_CTRL);
 	ucontrol->value.integer.value[0]	= IS_UNMUTED(15, val);
 	return 0;
 }
 
-static int __headset_playback_switch_put(snd_kcontrol_t *kcontrol, snd_ctl_elem_value_t *ucontrol) 
+static int __headset_playback_switch_put(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
 {
 	// mute/unmute headset
 	return adc_pga_unmute_control(ucontrol->value.integer.value[0],
@@ -879,7 +894,8 @@ static int __headset_playback_switch_put(snd_kcontrol_t *kcontrol, snd_ctl_elem_
 				15);
 }
 
-static int __handset_playback_volume_info(snd_kcontrol_t *kcontrol, snd_ctl_elem_info_t *uinfo) 
+static int __handset_playback_volume_info(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_info *uinfo)
 {
 	uinfo->type			= SNDRV_CTL_ELEM_TYPE_INTEGER;
 	uinfo->count			= 1;
@@ -888,7 +904,8 @@ static int __handset_playback_volume_info(snd_kcontrol_t *kcontrol, snd_ctl_elem
 	return 0;
 }
 
-static int __handset_playback_volume_get(snd_kcontrol_t *kcontrol, snd_ctl_elem_value_t *ucontrol) 
+static int __handset_playback_volume_get(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
 {
 	u16 val;
 	u16 vol;
@@ -904,12 +921,14 @@ static int __handset_playback_volume_get(snd_kcontrol_t *kcontrol, snd_ctl_elem_
 	return 0;
 }
 
-static int __handset_playback_volume_put(snd_kcontrol_t *kcontrol, snd_ctl_elem_value_t *ucontrol) 
+static int __handset_playback_volume_put(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
 {
 	return set_mixer_volume_as_handset_gain_control_volume(ucontrol->value.integer.value[0]);	
 }
 
-static int __handset_playback_switch_info(snd_kcontrol_t *kcontrol, snd_ctl_elem_info_t *uinfo) 
+static int __handset_playback_switch_info(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_info *uinfo)
 {
 	uinfo->type 			= SNDRV_CTL_ELEM_TYPE_BOOLEAN;
 	uinfo->count			= 1;
@@ -921,14 +940,16 @@ static int __handset_playback_switch_info(snd_kcontrol_t *kcontrol, snd_ctl_elem
 /* When HNGC_ADMUT_HND (bit 15) is 1, the handset is muted.
  * When HNGC_ADMUT_HND is 0, handset is not muted.
  */
-static int __handset_playback_switch_get(snd_kcontrol_t *kcontrol, snd_ctl_elem_value_t *ucontrol) 
+static int __handset_playback_switch_get(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
 {
 	u16 val = omap_tsc2101_audio_read(TSC2101_HANDSET_GAIN_CTRL);
 	ucontrol->value.integer.value[0]	= IS_UNMUTED(15, val);
 	return 0;
 }
 
-static int __handset_playback_switch_put(snd_kcontrol_t *kcontrol, snd_ctl_elem_value_t *ucontrol) 
+static int __handset_playback_switch_put(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
 {
 	// handset mute/unmute
 	return adc_pga_unmute_control(ucontrol->value.integer.value[0],
@@ -936,7 +957,8 @@ static int __handset_playback_switch_put(snd_kcontrol_t *kcontrol, snd_ctl_elem_
 				15);
 }
 
-static int __cellphone_input_switch_info(snd_kcontrol_t *kcontrol, snd_ctl_elem_info_t *uinfo) 
+static int __cellphone_input_switch_info(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_info *uinfo)
 {
 	uinfo->type 			= SNDRV_CTL_ELEM_TYPE_BOOLEAN;
 	uinfo->count			= 1;
@@ -948,21 +970,24 @@ static int __cellphone_input_switch_info(snd_kcontrol_t *kcontrol, snd_ctl_elem_
 /* When BGC_MUT_CP (bit 15) = 1, power down cellphone input pga.
  * When BGC_MUT_CP = 0, power up cellphone input pga.
  */
-static int __cellphone_input_switch_get(snd_kcontrol_t *kcontrol, snd_ctl_elem_value_t *ucontrol) 
+static int __cellphone_input_switch_get(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
 {
 	u16 val = omap_tsc2101_audio_read(TSC2101_BUZZER_GAIN_CTRL);
 	ucontrol->value.integer.value[0]	= IS_UNMUTED(15, val);
 	return 0;
 }
 
-static int __cellphone_input_switch_put(snd_kcontrol_t *kcontrol, snd_ctl_elem_value_t *ucontrol) 
+static int __cellphone_input_switch_put(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
 {
 	return adc_pga_unmute_control(ucontrol->value.integer.value[0],
 				TSC2101_BUZZER_GAIN_CTRL,
 				15);	
 }
 
-static int __buzzer_input_switch_info(snd_kcontrol_t *kcontrol, snd_ctl_elem_info_t *uinfo) 
+static int __buzzer_input_switch_info(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_info *uinfo)
 {
 	uinfo->type 			= SNDRV_CTL_ELEM_TYPE_BOOLEAN;
 	uinfo->count			= 1;
@@ -974,21 +999,23 @@ static int __buzzer_input_switch_info(snd_kcontrol_t *kcontrol, snd_ctl_elem_inf
 /* When BGC_MUT_BU (bit 6) = 1, power down cellphone input pga.
  * When BGC_MUT_BU = 0, power up cellphone input pga.
  */
-static int __buzzer_input_switch_get(snd_kcontrol_t *kcontrol, snd_ctl_elem_value_t *ucontrol) 
+static int __buzzer_input_switch_get(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
 {
 	u16 val = omap_tsc2101_audio_read(TSC2101_BUZZER_GAIN_CTRL);
 	ucontrol->value.integer.value[0]	= IS_UNMUTED(6, val);
 	return 0;
 }
 
-static int __buzzer_input_switch_put(snd_kcontrol_t *kcontrol, snd_ctl_elem_value_t *ucontrol) 
+static int __buzzer_input_switch_put(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
 {
 	return adc_pga_unmute_control(ucontrol->value.integer.value[0],
 				TSC2101_BUZZER_GAIN_CTRL,
 				6);	
 }
 
-static snd_kcontrol_new_t tsc2101_control[] __devinitdata = {
+static struct snd_kcontrol_new tsc2101_control[] __devinitdata = {
 	{
 		.name  = "Target Playback Route",
 		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,

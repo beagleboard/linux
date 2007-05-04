@@ -1,5 +1,5 @@
 /*
- * sound/arm/omap/omap-alsa-tsc2101-mixer.c
+ * sound/arm/omap/omap-alsa-tsc2101-mixer.h
  * 
  * Alsa Driver for TSC2101 codec for OMAP platform boards.
  *
