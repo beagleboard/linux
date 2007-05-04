@@ -21,6 +21,8 @@
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/clk.h>
+#include <linux/spi/spi.h>
+#include <linux/spi/tsc2046.h>
 
 #include <asm/hardware.h>
 #include <asm/mach-types.h>
@@ -33,12 +35,16 @@
 #include <asm/arch/board.h>
 #include <asm/arch/common.h>
 #include <asm/arch/gpmc.h>
+#include <asm/arch/mcspi.h>
 #include "prcm-regs.h"
 
 #include <asm/io.h>
 
 #define	SDP2430_FLASH_CS	0
 #define	SDP2430_SMC91X_CS	5
+
+/* TSC2046 (touchscreen) */
+#define TS_GPIO                 24
 
 static struct mtd_partition sdp2430_partitions[] = {
 	/* bootloader (U-Boot, etc) in first sector */
@@ -117,6 +123,29 @@ static struct platform_device sdp2430_smc91x_device = {
 static struct platform_device *sdp2430_devices[] __initdata = {
 	&sdp2430_smc91x_device,
 	&sdp2430_flash_device,
+};
+
+static struct tsc2046_platform_data tsc2046_config = {
+	.dav_gpio       = TS_GPIO,
+	.gpio_debounce  = 0xa,
+};
+
+static struct omap2_mcspi_device_config tsc2046_mcspi_config = {
+	.turbo_mode	= 0,
+	.single_channel = 0,  /* 0: slave, 1: master */
+};
+
+static struct spi_board_info sdp2430_spi_board_info[] __initdata = {
+	[0] = {
+		/* TSC2046 operates at a max freqency of 2MHz, so
+		 * operate slightly below at 1.5MHz */
+		.modalias	= "tsc2046",
+		.bus_num	= 1,
+		.chip_select	= 0,
+		.max_speed_hz   = 1500000,
+		.controller_data= &tsc2046_mcspi_config,
+		.platform_data  = &tsc2046_config,
+	},
 };
 
 static inline void __init sdp2430_init_smc91x(void)
@@ -274,6 +303,9 @@ static void __init omap_2430sdp_init(void)
 	omap_serial_init();
 
 	sdp2430_flash_init();
+
+	spi_register_board_info(sdp2430_spi_board_info,
+				ARRAY_SIZE(sdp2430_spi_board_info));
 }
 
 static void __init omap_2430sdp_map_io(void)
