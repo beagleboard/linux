@@ -44,6 +44,7 @@
 #include <asm/arch/mux.h>
 #include <asm/arch/dma.h>
 #include <asm/arch/board.h>
+#include <asm/arch/gpio.h>
 
 #define PRCM_REVISION		0x000
 #define PRCM_SYSCONFIG		0x010
