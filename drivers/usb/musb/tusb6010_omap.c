@@ -185,7 +185,7 @@ static void tusb_omap_dma_cb(int lch, u16 ch_status, void *data)
 	if (pio > 0 && pio < 32) {
 		u8	*buf;
 
-		DBG(2, "Using PIO for remaining %i bytes\n", pio);
+		DBG(2, "Using PIO for remaining %lu bytes\n", pio);
 		buf = phys_to_virt((u32)chdat->dma_addr) + chdat->transfer_len;
 		if (chdat->tx) {
 			consistent_sync(phys_to_virt((u32)chdat->dma_addr),
