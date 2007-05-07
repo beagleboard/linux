@@ -137,14 +137,16 @@ static struct omap2_mcspi_device_config tsc2046_mcspi_config = {
 
 static struct spi_board_info sdp2430_spi_board_info[] __initdata = {
 	[0] = {
-		/* TSC2046 operates at a max freqency of 2MHz, so
-		 * operate slightly below at 1.5MHz */
-		.modalias	= "tsc2046",
-		.bus_num	= 1,
-		.chip_select	= 0,
-		.max_speed_hz   = 1500000,
-		.controller_data= &tsc2046_mcspi_config,
-		.platform_data  = &tsc2046_config,
+		/*
+		 * TSC2046 operates at a max freqency of 2MHz, so
+		 * operate slightly below at 1.5MHz
+		 */
+		.modalias	 = "tsc2046",
+		.bus_num	 = 1,
+		.chip_select	 = 0,
+		.max_speed_hz    = 1500000,
+		.controller_data = &tsc2046_mcspi_config,
+		.platform_data   = &tsc2046_config,
 	},
 };
 
