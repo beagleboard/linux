@@ -254,8 +254,9 @@ static void tsc2046_ts_enable(struct tsc2046 *tsc)
 }
 
 #ifdef CONFIG_PM
-int tsc2046_ts_suspend(struct tsc2046 *tsc)
+static int tsc2046_suspend(struct spi_device *spi, pm_message_t mesg)
 {
+	struct tsc2046 *tsc = dev_get_drvdata(&spi->dev);
 	struct tsc2046_ts *ts = tsc->ts;
 
 	spin_lock_irq(&ts->lock);
@@ -265,13 +266,16 @@ int tsc2046_ts_suspend(struct tsc2046 *tsc)
 	return 0;
 }
 
-void tsc2046_ts_resume(struct tsc2046 *tsc)
+static int tsc2046_resume(struct spi_device *spi)
 {
+	struct tsc2046 *tsc = dev_get_drvdata(&spi->dev);
 	struct tsc2046_ts *ts = tsc->ts;
 
 	spin_lock_irq(&ts->lock);
 	tsc2046_ts_enable(tsc);
 	spin_unlock_irq(&ts->lock);
+
+	return 0;
 }
 #endif
 
@@ -535,6 +539,10 @@ static struct spi_driver tsc2046_driver = {
 	},
 	.probe = tsc2046_probe,
 	.remove = __devexit_p(tsc2046_remove),
+#ifdef CONFIG_PM
+	.suspend = tsc2046_suspend,
+	.resume = tsc2046_resume,
+#endif
 };
 
 static int __init tsc2046_init(void)
