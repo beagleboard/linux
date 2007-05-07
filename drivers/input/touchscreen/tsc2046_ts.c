@@ -134,7 +134,8 @@ static void tsc2046_ts_rx(void *arg)
 	} else
 		pressure = 0;
 
-	/* If pressure value is above a preset limit (pen is barely
+	/*
+	 * If pressure value is above a preset limit (pen is barely
 	 * touching the screen) we can't trust the coordinate values.
 	 */
 	if (pressure < ts->pressure_limit && x < MAX_12BIT && y < MAX_12BIT) {
@@ -381,14 +382,12 @@ int __devinit tsc2046_ts_init(struct tsc2046 *tsc,
 
 	ts->irq = OMAP_GPIO_IRQ(dav_gpio);
 #endif
-	init_timer(&ts->timer);
-	ts->timer.data = (unsigned long) tsc;
-	ts->timer.function = tsc2046_ts_timer;
+	setup_timer(&ts->timer, tsc2046_ts_timer, (unsigned long)tsc);
 
 	spin_lock_init(&ts->lock);
 
 	ts->x_plate_ohm	= pdata->ts_x_plate_ohm ? : 280;
-	ts->max_pressure= pdata->ts_max_pressure ? : MAX_12BIT;
+	ts->max_pressure = pdata->ts_max_pressure ? : MAX_12BIT;
 	ts->touch_pressure = pdata->ts_touch_pressure ? : ts->max_pressure;
 	ts->ignore_last	= pdata->ts_ignore_last;
 
@@ -415,7 +414,7 @@ int __devinit tsc2046_ts_init(struct tsc2046 *tsc,
 
 	ts->irq_enabled = 1;
 	r = request_irq(ts->irq, tsc2046_ts_irq_handler,
-			SA_SAMPLE_RANDOM | SA_TRIGGER_FALLING,
+			IRQF_SAMPLE_RANDOM | IRQF_TRIGGER_FALLING,
 			"tsc2046-ts", tsc);
 	if (r < 0) {
 		dev_err(&tsc->spi->dev, "unable to get DAV IRQ");
@@ -450,7 +449,7 @@ err2:
 #ifdef CONFIG_ARCH_OMAP
 	omap_free_gpio(dav_gpio);
 #endif
- err1:
+err1:
 	kfree(ts);
 	return r;
 }
@@ -503,8 +502,10 @@ static int __devinit tsc2046_probe(struct spi_device *spi)
 	spi->mode = SPI_MODE_1;
 	spi->bits_per_word = 16;
 
-	/* The max speed might've been defined by the board-specific
-	 * struct */
+	/*
+	 * The max speed might've been defined by the board-specific
+	 * struct
+	 */
 	if (!spi->max_speed_hz)
 		spi->max_speed_hz = TSC2046_HZ;
 	spi_setup(spi);
@@ -514,7 +515,7 @@ static int __devinit tsc2046_probe(struct spi_device *spi)
 		goto err1;
 
 	return 0;
- err1:
+err1:
 	kfree(tsc);
 	return r;
 }
@@ -525,7 +526,7 @@ static int __devexit tsc2046_remove(struct spi_device *spi)
 
 	dev_dbg(&tsc->spi->dev, "%s\n", __FUNCTION__);
 
-        tsc2046_ts_exit(tsc);
+	tsc2046_ts_exit(tsc);
 	kfree(tsc);
 
 	return 0;
