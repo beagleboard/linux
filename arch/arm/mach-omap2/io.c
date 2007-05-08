@@ -74,12 +74,14 @@ static struct map_desc omap2_io_desc[] __initdata = {
 		.length		= DSP_MEM_24XX_SIZE,
 		.type		= MT_DEVICE
 	},
+#ifdef CONFIG_ARCH_OMAP2420
 	{
 		.virtual	= DSP_IPI_24XX_VIRT,
 		.pfn		= __phys_to_pfn(DSP_IPI_24XX_PHYS),
 		.length		= DSP_IPI_24XX_SIZE,
 		.type		= MT_DEVICE
 	},
+#endif
 	{
 		.virtual	= DSP_MMU_24XX_VIRT,
 		.pfn		= __phys_to_pfn(DSP_MMU_24XX_PHYS),
