@@ -325,6 +325,7 @@ int twl4030_i2c_read(u8 mod_no, u8 * value, u8 reg, u8 num_bytes)
 	msg = &(client->xfer_msg[0]);
 	msg->addr = client->address;
 	msg->len = 1;
+	msg->flags = 0;	/* Read the register value */
 	val = twl4030_map[mod_no].base + reg;
 	msg->buf = &val;
 	/* [MSG2] fill the data rx buffer */
@@ -393,7 +394,7 @@ static void do_twl4030_module_irq(unsigned int irq, irq_desc_t *desc)
 	/*
 	 * Earlier this was desc->triggered = 1;
 	 */
-	desc->status = IRQ_INPROGRESS;
+	desc->status |= IRQ_LEVEL;
 
 	/*
 	 * The desc->handle method would normally call the desc->chip->ack
@@ -510,12 +511,11 @@ static int twl4030_irq_thread(void *data)
 static void do_twl4030_irq(unsigned int irq, irq_desc_t *desc)
 {
 	const unsigned int cpu = smp_processor_id();
-	struct task_struct *thread = (struct task_struct *)desc->chip_data;
-
+	struct task_struct *thread = get_irq_data(irq);
 	/*
 	 * Earlier this was desc->triggered = 1;
 	 */
-	desc->status = IRQ_INPROGRESS;
+	desc->status |= IRQ_LEVEL;
 
 	/*
 	 * Acknowledge, clear _AND_ disable the interrupt.
