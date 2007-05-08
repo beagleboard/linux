@@ -21,6 +21,7 @@
 #include <linux/delay.h>
 #include <linux/spinlock.h>
 #include <linux/timer.h>
+#include <linux/mmc/mmc.h>
 #include <linux/mmc/host.h>
 #include <linux/mmc/card.h>
 #include <linux/clk.h>
@@ -587,9 +588,8 @@ static void mmc_omap_switch_timer(unsigned long arg)
 static void mmc_omap_switch_handler(struct work_struct *work)
 {
 	struct mmc_omap_host *host = container_of(work, struct mmc_omap_host, switch_work);
-	struct mmc_card *card;
 	static int complained = 0;
-	int cards = 0, cover_open;
+	int cover_open;
 
 	if (host->switch_pin == -1)
 		return;
@@ -599,10 +599,6 @@ static void mmc_omap_switch_handler(struct work_struct *work)
 		host->switch_last_state = cover_open;
 	}
 	mmc_detect_change(host->mmc, 0);
-	list_for_each_entry(card, &host->mmc->cards, node) {
-		if (mmc_card_present(card))
-			cards++;
-	}
 	if (mmc_omap_cover_is_open(host)) {
 		if (!complained) {
 			dev_info(mmc_dev(host->mmc), "cover is open\n");
