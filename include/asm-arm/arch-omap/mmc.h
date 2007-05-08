@@ -13,7 +13,6 @@
 
 #include <linux/types.h>
 #include <linux/device.h>
-#include <linux/mmc/protocol.h>
 #include <linux/mmc/host.h>
 
 #define OMAP_MMC_MAX_SLOTS	2
