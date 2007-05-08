@@ -219,7 +219,7 @@ static void utimer_fini(void)
 
 	rtnl_lock();
 	unregister_netdevice_notifier(&utimer_notifier_block);
-	for (dev = dev_base; dev; dev = dev->next)
+	for_each_netdev(dev)
 		utimer_notifier_call(&utimer_notifier_block,
 				     NETDEV_DOWN, dev);
 	rtnl_unlock();
