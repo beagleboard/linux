@@ -407,12 +407,12 @@ static inline void serial_console_fclk_mask(u32 *f1, u32 *f2) {}
 
 static unsigned short enable_dyn_sleep = 0; /* disabled till drivers are fixed */
 
-static ssize_t omap_pm_sleep_while_idle_show(struct subsystem * subsys, char *buf)
+static ssize_t omap_pm_sleep_while_idle_show(struct kset * subsys, char *buf)
 {
 	return sprintf(buf, "%hu\n", enable_dyn_sleep);
 }
 
-static ssize_t omap_pm_sleep_while_idle_store(struct subsystem * subsys,
+static ssize_t omap_pm_sleep_while_idle_store(struct kset * subsys,
 					      const char * buf,
 					      size_t n)
 {
