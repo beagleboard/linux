@@ -1925,6 +1925,8 @@ blk_init_queue_node(request_fn_proc *rfn, spinlock_t *lock, int node_id)
 	blk_queue_max_hw_segments(q, MAX_HW_SEGMENTS);
 	blk_queue_max_phys_segments(q, MAX_PHYS_SEGMENTS);
 
+	q->sg_reserved_size = INT_MAX;
+
 	/*
 	 * all done
 	 */
@@ -3741,6 +3743,7 @@ static struct io_context *current_io_context(gfp_t gfp_flags, int node)
 		ret->nr_batch_requests = 0; /* because this is 0 */
 		ret->aic = NULL;
 		ret->cic_root.rb_node = NULL;
+		ret->ioc_data = NULL;
 		/* make sure set_task_ioprio() sees the settings above */
 		smp_wmb();
 		tsk->io_context = ret;

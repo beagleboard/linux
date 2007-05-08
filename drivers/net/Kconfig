@@ -311,7 +311,7 @@ config MAC8390
 
 config MAC89x0
 	tristate "Macintosh CS89x0 based ethernet cards"
-	depends on NET_ETHERNET && MAC && BROKEN
+	depends on NET_ETHERNET && MAC
 	---help---
 	  Support for CS89x0 chipset based Ethernet cards.  If you have a
 	  Nubus or LC-PDS network (Ethernet) card of this type, say Y and
@@ -337,8 +337,8 @@ config MACSONIC
 	  be called macsonic.
 
 config MACMACE
-	bool "Macintosh (AV) onboard MACE ethernet (EXPERIMENTAL)"
-	depends on NET_ETHERNET && MAC && EXPERIMENTAL
+	bool "Macintosh (AV) onboard MACE ethernet"
+	depends on NET_ETHERNET && MAC
 	select CRC32
 	help
 	  Support for the onboard AMD 79C940 MACE Ethernet controller used in
@@ -486,8 +486,8 @@ config SGI_IOC3_ETH_HW_TX_CSUM
 	  enables offloading for checksums on transmit.  If unsure, say Y.
 
 config MIPS_SIM_NET
-	tristate "MIPS simulator Network device (EXPERIMENTAL)"
-	depends on MIPS_SIM && EXPERIMENTAL
+	tristate "MIPS simulator Network device"
+	depends on NET_ETHERNET && MIPS_SIM
 	help
 	  The MIPSNET device is a simple Ethernet network device which is
 	  emulated by the MIPS Simulator.
@@ -822,7 +822,7 @@ config SMC91X
 	tristate "SMC 91C9x/91C1xxx support"
 	select CRC32
 	select MII
-	depends on NET_ETHERNET && (ARM || REDWOOD_5 || REDWOOD_6 || M32R || SUPERH || SOC_AU1X00)
+	depends on NET_ETHERNET && (ARM || REDWOOD_5 || REDWOOD_6 || M32R || SUPERH || SOC_AU1X00 || BFIN)
 	help
 	  This is a driver for SMC's 91x series of Ethernet chipsets,
 	  including the SMC91C94 and the SMC91C111. Say Y if you want it
@@ -833,8 +833,8 @@ config SMC91X
 	  This driver is also available as a module ( = code which can be
 	  inserted in and removed from the running kernel whenever you want).
 	  The module will be called smc91x.  If you want to compile it as a
-	  module, say M here and read <file:Documentation/modules.txt> as well
-	  as <file:Documentation/networking/net-modules.txt>.
+	  module, say M here and read <file:Documentation/kbuild/modules.txt>
+	  as well as <file:Documentation/networking/net-modules.txt>.
 
 config SMC9194
 	tristate "SMC 9194 support"
@@ -889,7 +889,7 @@ config SMC911X
 
 	  This driver is also available as a module. The module will be 
 	  called smc911x.  If you want to compile it as a module, say M 
-	  here and read <file:Documentation/modules.txt>
+	  here and read <file:Documentation/kbuild/modules.txt>
 
 config NET_VENDOR_RACAL
 	bool "Racal-Interlan (Micom) NI cards"
@@ -1444,7 +1444,8 @@ config CS89x0
 
 config TC35815
 	tristate "TOSHIBA TC35815 Ethernet support"
-	depends on NET_PCI && PCI && TOSHIBA_JMR3927
+	depends on NET_PCI && PCI && MIPS
+	select MII
 
 config DGRS
 	tristate "Digi Intl. RightSwitch SE-X support"
@@ -2273,11 +2274,12 @@ config GFAR_NAPI
 	depends on GIANFAR
 
 config UCC_GETH
-	tristate "Freescale QE UCC GETH"
-	depends on QUICC_ENGINE && UCC_FAST
+	tristate "Freescale QE Gigabit Ethernet"
+	depends on QUICC_ENGINE
+	select UCC_FAST
 	help
-	  This driver supports the Gigabit Ethernet mode of QE UCC.
-	  QE can be found on MPC836x CPUs.
+	  This driver supports the Gigabit Ethernet mode of the QUICC Engine,
+	  which is available on some Freescale SOCs.
 
 config UGETH_NAPI
 	bool "NAPI Support"
@@ -2291,13 +2293,9 @@ config UGETH_FILTERING
 	bool "Mac address filtering support"
 	depends on UCC_GETH
 
-config UGETH_TX_ON_DEMOND
-	bool "Transmit on Demond support"
+config UGETH_TX_ON_DEMAND
+	bool "Transmit on Demand support"
 	depends on UCC_GETH
-
-config UGETH_HAS_GIGA
-	bool
-	depends on UCC_GETH && PPC_MPC836x
 
 config MV643XX_ETH
 	tristate "MV-643XX Ethernet support"
@@ -2928,11 +2926,6 @@ endif #NETDEVICES
 
 config NETPOLL
 	def_bool NETCONSOLE
-
-config NETPOLL_RX
-	bool "Netpoll support for trapping incoming packets"
-	default n
-	depends on NETPOLL
 
 config NETPOLL_TRAP
 	bool "Netpoll traffic trapping"

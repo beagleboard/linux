@@ -42,7 +42,6 @@
 #include <linux/timer.h>
 #include <linux/time.h>
 #include <linux/interrupt.h>
-#include <linux/pci.h>
 #include <linux/tty.h>
 #include <linux/tty_flip.h>
 #include <linux/serial.h>
@@ -4169,7 +4168,7 @@ static int hdlcdev_xmit(struct sk_buff *skb, struct net_device *dev)
 	netif_stop_queue(dev);
 
 	/* copy data to device buffers */
-	memcpy(info->tx_buf, skb->data, skb->len);
+	skb_copy_from_linear_data(skb, info->tx_buf, skb->len);
 	info->tx_get = 0;
 	info->tx_put = info->tx_count = skb->len;
 

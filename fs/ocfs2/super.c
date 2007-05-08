@@ -806,9 +806,6 @@ static int __init ocfs2_init(void)
 
 	ocfs2_print_version();
 
-	if (init_ocfs2_extent_maps())
-		return -ENOMEM;
-
 	status = init_ocfs2_uptodate_cache();
 	if (status < 0) {
 		mlog_errno(status);
@@ -837,7 +834,6 @@ leave:
 	if (status < 0) {
 		ocfs2_free_mem_caches();
 		exit_ocfs2_uptodate_cache();
-		exit_ocfs2_extent_maps();
 	}
 
 	mlog_exit(status);
@@ -862,8 +858,6 @@ static void __exit ocfs2_exit(void)
 	ocfs2_free_mem_caches();
 
 	unregister_filesystem(&ocfs2_fs_type);
-
-	exit_ocfs2_extent_maps();
 
 	exit_ocfs2_uptodate_cache();
 
@@ -943,8 +937,7 @@ static void ocfs2_inode_init_once(void *data,
 {
 	struct ocfs2_inode_info *oi = data;
 
-	if ((flags & (SLAB_CTOR_VERIFY|SLAB_CTOR_CONSTRUCTOR)) ==
-	    SLAB_CTOR_CONSTRUCTOR) {
+	if (flags & SLAB_CTOR_CONSTRUCTOR) {
 		oi->ip_flags = 0;
 		oi->ip_open_count = 0;
 		spin_lock_init(&oi->ip_lock);
@@ -963,6 +956,7 @@ static void ocfs2_inode_init_once(void *data,
 		ocfs2_lock_res_init_once(&oi->ip_rw_lockres);
 		ocfs2_lock_res_init_once(&oi->ip_meta_lockres);
 		ocfs2_lock_res_init_once(&oi->ip_data_lockres);
+		ocfs2_lock_res_init_once(&oi->ip_open_lockres);
 
 		ocfs2_metadata_cache_init(&oi->vfs_inode);
 
@@ -1543,7 +1537,7 @@ static int ocfs2_verify_volume(struct ocfs2_dinode *di,
 		} else if (bh->b_blocknr != le64_to_cpu(di->i_blkno)) {
 			mlog(ML_ERROR, "bad block number on superblock: "
 			     "found %llu, should be %llu\n",
-			     (unsigned long long)di->i_blkno,
+			     (unsigned long long)le64_to_cpu(di->i_blkno),
 			     (unsigned long long)bh->b_blocknr);
 		} else if (le32_to_cpu(di->id2.i_super.s_clustersize_bits) < 12 ||
 			    le32_to_cpu(di->id2.i_super.s_clustersize_bits) > 20) {

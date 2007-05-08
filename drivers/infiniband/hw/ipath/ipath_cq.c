@@ -76,7 +76,20 @@ void ipath_cq_enter(struct ipath_cq *cq, struct ib_wc *entry, int solicited)
 		}
 		return;
 	}
-	wc->queue[head] = *entry;
+	wc->queue[head].wr_id = entry->wr_id;
+	wc->queue[head].status = entry->status;
+	wc->queue[head].opcode = entry->opcode;
+	wc->queue[head].vendor_err = entry->vendor_err;
+	wc->queue[head].byte_len = entry->byte_len;
+	wc->queue[head].imm_data = (__u32 __force)entry->imm_data;
+	wc->queue[head].qp_num = entry->qp->qp_num;
+	wc->queue[head].src_qp = entry->src_qp;
+	wc->queue[head].wc_flags = entry->wc_flags;
+	wc->queue[head].pkey_index = entry->pkey_index;
+	wc->queue[head].slid = entry->slid;
+	wc->queue[head].sl = entry->sl;
+	wc->queue[head].dlid_path_bits = entry->dlid_path_bits;
+	wc->queue[head].port_num = entry->port_num;
 	wc->head = next;
 
 	if (cq->notify == IB_CQ_NEXT_COMP ||
@@ -122,9 +135,30 @@ int ipath_poll_cq(struct ib_cq *ibcq, int num_entries, struct ib_wc *entry)
 	if (tail > (u32) cq->ibcq.cqe)
 		tail = (u32) cq->ibcq.cqe;
 	for (npolled = 0; npolled < num_entries; ++npolled, ++entry) {
+		struct ipath_qp *qp;
+
 		if (tail == wc->head)
 			break;
-		*entry = wc->queue[tail];
+
+		qp = ipath_lookup_qpn(&to_idev(cq->ibcq.device)->qp_table,
+				      wc->queue[tail].qp_num);
+		entry->qp = &qp->ibqp;
+		if (atomic_dec_and_test(&qp->refcount))
+			wake_up(&qp->wait);
+
+		entry->wr_id = wc->queue[tail].wr_id;
+		entry->status = wc->queue[tail].status;
+		entry->opcode = wc->queue[tail].opcode;
+		entry->vendor_err = wc->queue[tail].vendor_err;
+		entry->byte_len = wc->queue[tail].byte_len;
+		entry->imm_data = wc->queue[tail].imm_data;
+		entry->src_qp = wc->queue[tail].src_qp;
+		entry->wc_flags = wc->queue[tail].wc_flags;
+		entry->pkey_index = wc->queue[tail].pkey_index;
+		entry->slid = wc->queue[tail].slid;
+		entry->sl = wc->queue[tail].sl;
+		entry->dlid_path_bits = wc->queue[tail].dlid_path_bits;
+		entry->port_num = wc->queue[tail].port_num;
 		if (tail >= cq->ibcq.cqe)
 			tail = 0;
 		else
@@ -170,7 +204,7 @@ static void send_complete(unsigned long data)
  *
  * Called by ib_create_cq() in the generic verbs code.
  */
-struct ib_cq *ipath_create_cq(struct ib_device *ibdev, int entries,
+struct ib_cq *ipath_create_cq(struct ib_device *ibdev, int entries, int comp_vector,
 			      struct ib_ucontext *context,
 			      struct ib_udata *udata)
 {
@@ -209,33 +243,21 @@ struct ib_cq *ipath_create_cq(struct ib_device *ibdev, int entries,
 	 * See ipath_mmap() for details.
 	 */
 	if (udata && udata->outlen >= sizeof(__u64)) {
-		struct ipath_mmap_info *ip;
-		__u64 offset = (__u64) wc;
 		int err;
+		u32 s = sizeof *wc + sizeof(struct ib_wc) * entries;
 
-		err = ib_copy_to_udata(udata, &offset, sizeof(offset));
-		if (err) {
-			ret = ERR_PTR(err);
-			goto bail_wc;
-		}
-
-		/* Allocate info for ipath_mmap(). */
-		ip = kmalloc(sizeof(*ip), GFP_KERNEL);
-		if (!ip) {
+		cq->ip = ipath_create_mmap_info(dev, s, context, wc);
+		if (!cq->ip) {
 			ret = ERR_PTR(-ENOMEM);
 			goto bail_wc;
 		}
-		cq->ip = ip;
-		ip->context = context;
-		ip->obj = wc;
-		kref_init(&ip->ref);
-		ip->mmap_cnt = 0;
-		ip->size = PAGE_ALIGN(sizeof(*wc) +
-				      sizeof(struct ib_wc) * entries);
-		spin_lock_irq(&dev->pending_lock);
-		ip->next = dev->pending_mmaps;
-		dev->pending_mmaps = ip;
-		spin_unlock_irq(&dev->pending_lock);
+
+		err = ib_copy_to_udata(udata, &cq->ip->offset,
+				       sizeof(cq->ip->offset));
+		if (err) {
+			ret = ERR_PTR(err);
+			goto bail_ip;
+		}
 	} else
 		cq->ip = NULL;
 
@@ -243,11 +265,17 @@ struct ib_cq *ipath_create_cq(struct ib_device *ibdev, int entries,
 	if (dev->n_cqs_allocated == ib_ipath_max_cqs) {
 		spin_unlock(&dev->n_cqs_lock);
 		ret = ERR_PTR(-ENOMEM);
-		goto bail_wc;
+		goto bail_ip;
 	}
 
 	dev->n_cqs_allocated++;
 	spin_unlock(&dev->n_cqs_lock);
+
+	if (cq->ip) {
+		spin_lock_irq(&dev->pending_lock);
+		list_add(&cq->ip->pending_mmaps, &dev->pending_mmaps);
+		spin_unlock_irq(&dev->pending_lock);
+	}
 
 	/*
 	 * ib_create_cq() will initialize cq->ibcq except for cq->ibcq.cqe.
@@ -267,12 +295,12 @@ struct ib_cq *ipath_create_cq(struct ib_device *ibdev, int entries,
 
 	goto done;
 
+bail_ip:
+	kfree(cq->ip);
 bail_wc:
 	vfree(wc);
-
 bail_cq:
 	kfree(cq);
-
 done:
 	return ret;
 }
@@ -306,17 +334,18 @@ int ipath_destroy_cq(struct ib_cq *ibcq)
 /**
  * ipath_req_notify_cq - change the notification type for a completion queue
  * @ibcq: the completion queue
- * @notify: the type of notification to request
+ * @notify_flags: the type of notification to request
  *
  * Returns 0 for success.
  *
  * This may be called from interrupt context.  Also called by
  * ib_req_notify_cq() in the generic verbs code.
  */
-int ipath_req_notify_cq(struct ib_cq *ibcq, enum ib_cq_notify notify)
+int ipath_req_notify_cq(struct ib_cq *ibcq, enum ib_cq_notify_flags notify_flags)
 {
 	struct ipath_cq *cq = to_icq(ibcq);
 	unsigned long flags;
+	int ret = 0;
 
 	spin_lock_irqsave(&cq->lock, flags);
 	/*
@@ -324,9 +353,15 @@ int ipath_req_notify_cq(struct ib_cq *ibcq, enum ib_cq_notify notify)
 	 * any other transitions (see C11-31 and C11-32 in ch. 11.4.2.2).
 	 */
 	if (cq->notify != IB_CQ_NEXT_COMP)
-		cq->notify = notify;
+		cq->notify = notify_flags & IB_CQ_SOLICITED_MASK;
+
+	if ((notify_flags & IB_CQ_REPORT_MISSED_EVENTS) &&
+	    cq->queue->head != cq->queue->tail)
+		ret = 1;
+
 	spin_unlock_irqrestore(&cq->lock, flags);
-	return 0;
+
+	return ret;
 }
 
 /**
@@ -409,13 +444,12 @@ int ipath_resize_cq(struct ib_cq *ibcq, int cqe, struct ib_udata *udata)
 	if (cq->ip) {
 		struct ipath_ibdev *dev = to_idev(ibcq->device);
 		struct ipath_mmap_info *ip = cq->ip;
+		u32 s = sizeof *wc + sizeof(struct ib_wc) * cqe;
 
-		ip->obj = wc;
-		ip->size = PAGE_ALIGN(sizeof(*wc) +
-				      sizeof(struct ib_wc) * cqe);
+		ipath_update_mmap_info(dev, ip, s, wc);
 		spin_lock_irq(&dev->pending_lock);
-		ip->next = dev->pending_mmaps;
-		dev->pending_mmaps = ip;
+		if (list_empty(&ip->pending_mmaps))
+			list_add(&ip->pending_mmaps, &dev->pending_mmaps);
 		spin_unlock_irq(&dev->pending_lock);
 	}
 

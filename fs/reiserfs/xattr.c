@@ -68,7 +68,7 @@ static struct dentry *get_xa_root(struct super_block *sb, int flags)
 	if (!privroot)
 		return ERR_PTR(-ENODATA);
 
-	mutex_lock(&privroot->d_inode->i_mutex);
+	mutex_lock_nested(&privroot->d_inode->i_mutex, I_MUTEX_XATTR);
 	if (REISERFS_SB(sb)->xattr_root) {
 		xaroot = dget(REISERFS_SB(sb)->xattr_root);
 		goto out;
@@ -410,11 +410,7 @@ static struct page *reiserfs_get_page(struct inode *dir, unsigned long n)
 	mapping_set_gfp_mask(mapping, GFP_NOFS);
 	page = read_mapping_page(mapping, n, NULL);
 	if (!IS_ERR(page)) {
-		wait_on_page_locked(page);
 		kmap(page);
-		if (!PageUptodate(page))
-			goto fail;
-
 		if (PageError(page))
 			goto fail;
 	}

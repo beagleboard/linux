@@ -756,6 +756,10 @@ static int omapfb_update_full_screen(struct fb_info *fbi)
 	win.y = 0;
 	win.width = fbi->var.xres;
 	win.height = fbi->var.yres;
+	win.out_x = 0;
+	win.out_y = 0;
+	win.out_width = fbi->var.xres;
+	win.out_height = fbi->var.yres;
 	win.format = 0;
 
 	omapfb_rqueue_lock(fbdev);

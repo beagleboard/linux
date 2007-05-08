@@ -122,26 +122,24 @@ SCTP_STATIC void sctp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
 			     int type, int code, int offset, __be32 info)
 {
 	struct inet6_dev *idev;
-	struct ipv6hdr *iph = (struct ipv6hdr *)skb->data;
-	struct sctphdr *sh = (struct sctphdr *)(skb->data + offset);
 	struct sock *sk;
 	struct sctp_association *asoc;
 	struct sctp_transport *transport;
 	struct ipv6_pinfo *np;
-	char *saveip, *savesctp;
+	sk_buff_data_t saveip, savesctp;
 	int err;
 
 	idev = in6_dev_get(skb->dev);
 
 	/* Fix up skb to look at the embedded net header. */
-	saveip = skb->nh.raw;
-	savesctp  = skb->h.raw;
-	skb->nh.ipv6h = iph;
-	skb->h.raw = (char *)sh;
-	sk = sctp_err_lookup(AF_INET6, skb, sh, &asoc, &transport);
+	saveip	 = skb->network_header;
+	savesctp = skb->transport_header;
+	skb_reset_network_header(skb);
+	skb_set_transport_header(skb, offset);
+	sk = sctp_err_lookup(AF_INET6, skb, sctp_hdr(skb), &asoc, &transport);
 	/* Put back, the original pointers. */
-	skb->nh.raw = saveip;
-	skb->h.raw = savesctp;
+	skb->network_header   = saveip;
+	skb->transport_header = savesctp;
 	if (!sk) {
 		ICMP6_INC_STATS_BH(idev, ICMP6_MIB_INERRORS);
 		goto out;
@@ -391,13 +389,13 @@ static void sctp_v6_from_skb(union sctp_addr *addr,struct sk_buff *skb,
 	addr->v6.sin6_flowinfo = 0; /* FIXME */
 	addr->v6.sin6_scope_id = ((struct inet6_skb_parm *)skb->cb)->iif;
 
-	sh = (struct sctphdr *) skb->h.raw;
+	sh = sctp_hdr(skb);
 	if (is_saddr) {
 		*port  = sh->source;
-		from = &skb->nh.ipv6h->saddr;
+		from = &ipv6_hdr(skb)->saddr;
 	} else {
 		*port = sh->dest;
-		from = &skb->nh.ipv6h->daddr;
+		from = &ipv6_hdr(skb)->daddr;
 	}
 	ipv6_addr_copy(&addr->v6.sin6_addr, from);
 }
@@ -606,7 +604,7 @@ static sctp_scope_t sctp_v6_scope(union sctp_addr *addr)
 	default:
 		retval = SCTP_SCOPE_GLOBAL;
 		break;
-	};
+	}
 
 	return retval;
 }
@@ -699,7 +697,7 @@ static int sctp_v6_skb_iif(const struct sk_buff *skb)
 /* Was this packet marked by Explicit Congestion Notification? */
 static int sctp_v6_is_ce(const struct sk_buff *skb)
 {
-	return *((__u32 *)(skb->nh.ipv6h)) & htonl(1<<20);
+	return *((__u32 *)(ipv6_hdr(skb))) & htonl(1 << 20);
 }
 
 /* Dump the v6 addr to the seq file. */
@@ -766,19 +764,19 @@ static void sctp_inet6_skb_msgname(struct sk_buff *skb, char *msgname,
 	if (msgname) {
 		sctp_inet6_msgname(msgname, addr_len);
 		sin6 = (struct sockaddr_in6 *)msgname;
-		sh = (struct sctphdr *)skb->h.raw;
+		sh = sctp_hdr(skb);
 		sin6->sin6_port = sh->source;
 
 		/* Map ipv4 address into v4-mapped-on-v6 address. */
 		if (sctp_sk(skb->sk)->v4mapped &&
-		    skb->nh.iph->version == 4) {
+		    ip_hdr(skb)->version == 4) {
 			sctp_v4_map_v6((union sctp_addr *)sin6);
-			sin6->sin6_addr.s6_addr32[3] = skb->nh.iph->saddr;
+			sin6->sin6_addr.s6_addr32[3] = ip_hdr(skb)->saddr;
 			return;
 		}
 
 		/* Otherwise, just copy the v6 address. */
-		ipv6_addr_copy(&sin6->sin6_addr, &skb->nh.ipv6h->saddr);
+		ipv6_addr_copy(&sin6->sin6_addr, &ipv6_hdr(skb)->saddr);
 		if (ipv6_addr_type(&sin6->sin6_addr) & IPV6_ADDR_LINKLOCAL) {
 			struct sctp_ulpevent *ev = sctp_skb2event(skb);
 			sin6->sin6_scope_id = ev->iif;
@@ -994,21 +992,10 @@ static struct sctp_pf sctp_pf_inet6_specific = {
 	.af            = &sctp_ipv6_specific,
 };
 
-/* Initialize IPv6 support and register with inet6 stack.  */
+/* Initialize IPv6 support and register with socket layer.  */
 int sctp_v6_init(void)
 {
-	int rc = proto_register(&sctpv6_prot, 1);
-
-	if (rc)
-		goto out;
-	/* Register inet6 protocol. */
-	rc = -EAGAIN;
-	if (inet6_add_protocol(&sctpv6_protocol, IPPROTO_SCTP) < 0)
-		goto out_unregister_sctp_proto;
-
-	/* Add SCTPv6(UDP and TCP style) to inetsw6 linked list. */
-	inet6_register_protosw(&sctpv6_seqpacket_protosw);
-	inet6_register_protosw(&sctpv6_stream_protosw);
+	int rc;
 
 	/* Register the SCTP specific PF_INET6 functions. */
 	sctp_register_pf(&sctp_pf_inet6_specific, PF_INET6);
@@ -1016,23 +1003,41 @@ int sctp_v6_init(void)
 	/* Register the SCTP specific AF_INET6 functions. */
 	sctp_register_af(&sctp_ipv6_specific);
 
+	rc = proto_register(&sctpv6_prot, 1);
+	if (rc)
+		return rc;
+
+	/* Add SCTPv6(UDP and TCP style) to inetsw6 linked list. */
+	inet6_register_protosw(&sctpv6_seqpacket_protosw);
+	inet6_register_protosw(&sctpv6_stream_protosw);
+
+	return 0;
+}
+
+/* Register with inet6 layer. */
+int sctp_v6_add_protocol(void)
+{
 	/* Register notifier for inet6 address additions/deletions. */
 	register_inet6addr_notifier(&sctp_inet6addr_notifier);
-	rc = 0;
-out:
-	return rc;
-out_unregister_sctp_proto:
-	proto_unregister(&sctpv6_prot);
-	goto out;
+
+	if (inet6_add_protocol(&sctpv6_protocol, IPPROTO_SCTP) < 0)
+		return -EAGAIN;
+
+	return 0;
 }
 
 /* IPv6 specific exit support. */
 void sctp_v6_exit(void)
 {
-	list_del(&sctp_ipv6_specific.list);
-	inet6_del_protocol(&sctpv6_protocol, IPPROTO_SCTP);
 	inet6_unregister_protosw(&sctpv6_seqpacket_protosw);
 	inet6_unregister_protosw(&sctpv6_stream_protosw);
-	unregister_inet6addr_notifier(&sctp_inet6addr_notifier);
 	proto_unregister(&sctpv6_prot);
+	list_del(&sctp_ipv6_specific.list);
+}
+
+/* Unregister with inet6 layer. */
+void sctp_v6_del_protocol(void)
+{
+	inet6_del_protocol(&sctpv6_protocol, IPPROTO_SCTP);
+	unregister_inet6addr_notifier(&sctp_inet6addr_notifier);
 }

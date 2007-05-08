@@ -276,6 +276,7 @@ struct sctp_sock {
 	__u32 default_context;
 	__u32 default_timetolive;
 	__u32 default_rcv_context;
+	int max_burst;
 
 	/* Heartbeat interval: The endpoint sends out a Heartbeat chunk to
 	 * the destination address every heartbeat interval. This value
@@ -304,10 +305,12 @@ struct sctp_sock {
 	__u32 autoclose;
 	__u8 nodelay;
 	__u8 disable_fragments;
-	__u8 pd_mode;
 	__u8 v4mapped;
+	__u8 frag_interleave;
 	__u32 adaptation_ind;
+	__u32 pd_point;
 
+	atomic_t pd_mode;
 	/* Receive to here while partial delivery is in effect. */
 	struct sk_buff_head pd_lobby;
 };
@@ -1854,6 +1857,7 @@ int sctp_assoc_set_bind_addr_from_ep(struct sctp_association *,
 int sctp_assoc_set_bind_addr_from_cookie(struct sctp_association *,
 					 struct sctp_cookie*,
 					 gfp_t gfp);
+int sctp_assoc_set_id(struct sctp_association *, gfp_t);
 
 int sctp_cmp_addr_exact(const union sctp_addr *ss1,
 			const union sctp_addr *ss2);

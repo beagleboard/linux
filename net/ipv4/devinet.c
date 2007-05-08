@@ -48,7 +48,6 @@
 #include <linux/netdevice.h>
 #include <linux/etherdevice.h>
 #include <linux/skbuff.h>
-#include <linux/rtnetlink.h>
 #include <linux/init.h>
 #include <linux/notifier.h>
 #include <linux/inetdevice.h>
@@ -62,7 +61,7 @@
 #include <net/ip.h>
 #include <net/route.h>
 #include <net/ip_fib.h>
-#include <net/netlink.h>
+#include <net/rtnetlink.h>
 
 struct ipv4_devconf ipv4_devconf = {
 	.accept_redirects = 1,
@@ -633,7 +632,7 @@ int devinet_ioctl(unsigned int cmd, void __user *arg)
 	dev_load(ifr.ifr_name);
 #endif
 
-	switch(cmd) {
+	switch (cmd) {
 	case SIOCGIFADDR:	/* Get interface address */
 	case SIOCGIFBRDADDR:	/* Get the broadcast address */
 	case SIOCGIFDSTADDR:	/* Get the destination address */
@@ -708,7 +707,7 @@ int devinet_ioctl(unsigned int cmd, void __user *arg)
 	if (!ifa && cmd != SIOCSIFADDR && cmd != SIOCSIFFLAGS)
 		goto done;
 
-	switch(cmd) {
+	switch (cmd) {
 	case SIOCGIFADDR:	/* Get interface address */
 		sin->sin_addr.s_addr = ifa->ifa_local;
 		goto rarok;
@@ -911,7 +910,7 @@ no_in_dev:
 	 */
 	read_lock(&dev_base_lock);
 	rcu_read_lock();
-	for (dev = dev_base; dev; dev = dev->next) {
+	for_each_netdev(dev) {
 		if ((in_dev = __in_dev_get_rcu(dev)) == NULL)
 			continue;
 
@@ -990,7 +989,7 @@ __be32 inet_confirm_addr(const struct net_device *dev, __be32 dst, __be32 local,
 
 	read_lock(&dev_base_lock);
 	rcu_read_lock();
-	for (dev = dev_base; dev; dev = dev->next) {
+	for_each_netdev(dev) {
 		if ((in_dev = __in_dev_get_rcu(dev))) {
 			addr = confirm_addr_indev(in_dev, dst, local, scope);
 			if (addr)
@@ -1183,34 +1182,29 @@ static int inet_dump_ifaddr(struct sk_buff *skb, struct netlink_callback *cb)
 	int s_ip_idx, s_idx = cb->args[0];
 
 	s_ip_idx = ip_idx = cb->args[1];
-	read_lock(&dev_base_lock);
-	for (dev = dev_base, idx = 0; dev; dev = dev->next, idx++) {
+	idx = 0;
+	for_each_netdev(dev) {
 		if (idx < s_idx)
-			continue;
+			goto cont;
 		if (idx > s_idx)
 			s_ip_idx = 0;
-		rcu_read_lock();
-		if ((in_dev = __in_dev_get_rcu(dev)) == NULL) {
-			rcu_read_unlock();
-			continue;
-		}
+		if ((in_dev = __in_dev_get_rtnl(dev)) == NULL)
+			goto cont;
 
 		for (ifa = in_dev->ifa_list, ip_idx = 0; ifa;
 		     ifa = ifa->ifa_next, ip_idx++) {
 			if (ip_idx < s_ip_idx)
-				continue;
+				goto cont;
 			if (inet_fill_ifaddr(skb, ifa, NETLINK_CB(cb->skb).pid,
 					     cb->nlh->nlmsg_seq,
-					     RTM_NEWADDR, NLM_F_MULTI) <= 0) {
-				rcu_read_unlock();
+					     RTM_NEWADDR, NLM_F_MULTI) <= 0)
 				goto done;
-			}
 		}
-		rcu_read_unlock();
+cont:
+		idx++;
 	}
 
 done:
-	read_unlock(&dev_base_lock);
 	cb->args[0] = idx;
 	cb->args[1] = ip_idx;
 
@@ -1241,19 +1235,6 @@ errout:
 		rtnl_set_sk_err(RTNLGRP_IPV4_IFADDR, err);
 }
 
-static struct rtnetlink_link inet_rtnetlink_table[RTM_NR_MSGTYPES] = {
-	[RTM_NEWADDR  - RTM_BASE] = { .doit	= inet_rtm_newaddr,	},
-	[RTM_DELADDR  - RTM_BASE] = { .doit	= inet_rtm_deladdr,	},
-	[RTM_GETADDR  - RTM_BASE] = { .dumpit	= inet_dump_ifaddr,	},
-	[RTM_NEWROUTE - RTM_BASE] = { .doit	= inet_rtm_newroute,	},
-	[RTM_DELROUTE - RTM_BASE] = { .doit	= inet_rtm_delroute,	},
-	[RTM_GETROUTE - RTM_BASE] = { .doit	= inet_rtm_getroute,
-				      .dumpit	= inet_dump_fib,	},
-#ifdef CONFIG_IP_MULTIPLE_TABLES
-	[RTM_GETRULE  - RTM_BASE] = { .dumpit	= fib4_rules_dump,	},
-#endif
-};
-
 #ifdef CONFIG_SYSCTL
 
 void inet_forward_change(void)
@@ -1265,7 +1246,7 @@ void inet_forward_change(void)
 	ipv4_devconf_dflt.forwarding = on;
 
 	read_lock(&dev_base_lock);
-	for (dev = dev_base; dev; dev = dev->next) {
+	for_each_netdev(dev) {
 		struct in_device *in_dev;
 		rcu_read_lock();
 		in_dev = __in_dev_get_rcu(dev);
@@ -1636,7 +1617,10 @@ void __init devinet_init(void)
 {
 	register_gifconf(PF_INET, inet_gifconf);
 	register_netdevice_notifier(&ip_netdev_notifier);
-	rtnetlink_links[PF_INET] = inet_rtnetlink_table;
+
+	rtnl_register(PF_INET, RTM_NEWADDR, inet_rtm_newaddr, NULL);
+	rtnl_register(PF_INET, RTM_DELADDR, inet_rtm_deladdr, NULL);
+	rtnl_register(PF_INET, RTM_GETADDR, NULL, inet_dump_ifaddr);
 #ifdef CONFIG_SYSCTL
 	devinet_sysctl.sysctl_header =
 		register_sysctl_table(devinet_sysctl.devinet_root_dir);

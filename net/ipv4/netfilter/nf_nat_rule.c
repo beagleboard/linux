@@ -191,7 +191,7 @@ static unsigned int ipt_dnat_target(struct sk_buff **pskb,
 
 	if (hooknum == NF_IP_LOCAL_OUT &&
 	    mr->range[0].flags & IP_NAT_RANGE_MAP_IPS)
-		warn_if_extra_mangle((*pskb)->nh.iph->daddr,
+		warn_if_extra_mangle(ip_hdr(*pskb)->daddr,
 				     mr->range[0].min_ip);
 
 	return nf_nat_setup_info(ct, &mr->range[0], hooknum);
@@ -224,10 +224,6 @@ static int ipt_dnat_checkentry(const char *tablename,
 	/* Must be a valid range */
 	if (mr->rangesize != 1) {
 		printk("DNAT: multiple ranges no longer supported\n");
-		return 0;
-	}
-	if (mr->range[0].flags & IP_NAT_RANGE_PROTO_RANDOM) {
-		printk("DNAT: port randomization not supported\n");
 		return 0;
 	}
 	return 1;

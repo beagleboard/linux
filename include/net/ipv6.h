@@ -166,13 +166,6 @@ DECLARE_SNMP_STAT(struct udp_mib, udplite_stats_in6);
 	if (is_udplite) SNMP_INC_STATS_USER(udplite_stats_in6, field);         \
 	else		SNMP_INC_STATS_USER(udp_stats_in6, field);    } while(0)
 
-int snmp6_register_dev(struct inet6_dev *idev);
-int snmp6_unregister_dev(struct inet6_dev *idev);
-int snmp6_alloc_dev(struct inet6_dev *idev);
-int snmp6_free_dev(struct inet6_dev *idev);
-int snmp6_mib_init(void *ptr[2], size_t mibsize, size_t mibalign);
-void snmp6_mib_free(void *ptr[2]);
-
 struct ip6_ra_chain
 {
 	struct ip6_ra_chain	*next;
@@ -211,9 +204,9 @@ struct ip6_flowlabel
 {
 	struct ip6_flowlabel	*next;
 	__be32			label;
+	atomic_t		users;
 	struct in6_addr		dst;
 	struct ipv6_txoptions	*opt;
-	atomic_t		users;
 	unsigned long		linger;
 	u8			share;
 	u32			owner;
@@ -298,7 +291,7 @@ static inline int ipv6_addr_src_scope(const struct in6_addr *addr)
 
 static inline int ipv6_addr_cmp(const struct in6_addr *a1, const struct in6_addr *a2)
 {
-	return memcmp((const void *) a1, (const void *) a2, sizeof(struct in6_addr));
+	return memcmp(a1, a2, sizeof(struct in6_addr));
 }
 
 static inline int
@@ -315,7 +308,7 @@ ipv6_masked_addr_cmp(const struct in6_addr *a1, const struct in6_addr *m,
 
 static inline void ipv6_addr_copy(struct in6_addr *a1, const struct in6_addr *a2)
 {
-	memcpy((void *) a1, (const void *) a2, sizeof(struct in6_addr));
+	memcpy(a1, a2, sizeof(struct in6_addr));
 }
 
 static inline void ipv6_addr_prefix(struct in6_addr *pfx, 
@@ -326,16 +319,12 @@ static inline void ipv6_addr_prefix(struct in6_addr *pfx,
 	int o = plen >> 3,
 	    b = plen & 0x7;
 
+	memset(pfx->s6_addr, 0, sizeof(pfx->s6_addr));
 	memcpy(pfx->s6_addr, addr, o);
-	if (b != 0) {
+	if (b != 0)
 		pfx->s6_addr[o] = addr->s6_addr[o] & (0xff00 >> b);
-		o++;
-	}
-	if (o < 16)
-		memset(pfx->s6_addr + o, 0, 16 - o);
 }
 
-#ifndef __HAVE_ARCH_ADDR_SET
 static inline void ipv6_addr_set(struct in6_addr *addr, 
 				     __be32 w1, __be32 w2,
 				     __be32 w3, __be32 w4)
@@ -345,7 +334,6 @@ static inline void ipv6_addr_set(struct in6_addr *addr,
 	addr->s6_addr32[2] = w3;
 	addr->s6_addr32[3] = w4;
 }
-#endif
 
 static inline int ipv6_addr_equal(const struct in6_addr *a1,
 				  const struct in6_addr *a2)
@@ -605,8 +593,20 @@ extern int  udplite6_proc_init(void);
 extern void udplite6_proc_exit(void);
 extern int  ipv6_misc_proc_init(void);
 extern void ipv6_misc_proc_exit(void);
+extern int snmp6_register_dev(struct inet6_dev *idev);
+extern int snmp6_unregister_dev(struct inet6_dev *idev);
 
 extern struct rt6_statistics rt6_stats;
+#else
+static inline int snmp6_register_dev(struct inet6_dev *idev)
+{
+	return 0;
+}
+
+static inline int snmp6_unregister_dev(struct inet6_dev *idev)
+{
+	return 0;
+}
 #endif
 
 #ifdef CONFIG_SYSCTL

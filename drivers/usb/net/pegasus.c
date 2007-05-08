@@ -575,7 +575,6 @@ static void fill_skb_pool(pegasus_t * pegasus)
 		 */
 		if (pegasus->rx_pool[i] == NULL)
 			return;
-		pegasus->rx_pool[i]->dev = pegasus->net;
 		skb_reserve(pegasus->rx_pool[i], 2);
 	}
 }
@@ -848,16 +847,6 @@ static void intr_callback(struct urb *urb)
 		 * d[0].NO_CARRIER kicks in only with failed TX.
 		 * ... so monitoring with MII may be safest.
 		 */
-		if (pegasus->features & TRUST_LINK_STATUS) {
-			if (d[5] & LINK_STATUS)
-				netif_carrier_on(net);
-			else
-				netif_carrier_off(net);
-		} else {
-			/* Never set carrier _on_ based on ! NO_CARRIER */
-			if (d[0] & NO_CARRIER)
-				netif_carrier_off(net);	
-		}
 
 		/* bytes 3-4 == rx_lostpkt, reg 2E/2F */
 		pegasus->stats.rx_missed_errors += ((d[3] & 0x7f) << 8) | d[4];
@@ -890,7 +879,7 @@ static int pegasus_start_xmit(struct sk_buff *skb, struct net_device *net)
 	netif_stop_queue(net);
 
 	((__le16 *) pegasus->tx_buff)[0] = cpu_to_le16(l16);
-	memcpy(pegasus->tx_buff + 2, skb->data, skb->len);
+	skb_copy_from_linear_data(skb, pegasus->tx_buff + 2, skb->len);
 	usb_fill_bulk_urb(pegasus->tx_urb, pegasus->usb,
 			  usb_sndbulkpipe(pegasus->usb, 2),
 			  pegasus->tx_buff, count,
@@ -1415,8 +1404,10 @@ static void pegasus_disconnect(struct usb_interface *intf)
 	unlink_all_urbs(pegasus);
 	free_all_urbs(pegasus);
 	free_skb_pool(pegasus);
-	if (pegasus->rx_skb)
+	if (pegasus->rx_skb != NULL) {
 		dev_kfree_skb(pegasus->rx_skb);
+		pegasus->rx_skb = NULL;
+	}
 	free_netdev(pegasus->net);
 }
 

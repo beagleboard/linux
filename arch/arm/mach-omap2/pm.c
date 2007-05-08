@@ -616,6 +616,8 @@ static int omap2_can_sleep(void)
 		return 0;
 	if (atomic_read(&sleep_block) > 0)
 		return 0;
+	if (clk_get_usecount(osc_ck) > 1)
+		return 0;
 	if (omap_dma_running())
 		return 0;
 
@@ -727,10 +729,10 @@ static int omap2_pm_finish(suspend_state_t state)
 }
 
 static struct pm_ops omap_pm_ops = {
-	.pm_disk_mode	= 0,
 	.prepare	= omap2_pm_prepare,
 	.enter		= omap2_pm_enter,
 	.finish		= omap2_pm_finish,
+	.valid		= pm_valid_only_mem,
 };
 
 static void __init prcm_setup_regs(void)

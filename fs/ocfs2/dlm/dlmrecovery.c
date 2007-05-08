@@ -611,6 +611,7 @@ static int dlm_remaster_locks(struct dlm_ctxt *dlm, u8 dead_node)
 			}
 		} while (status != 0);
 
+		spin_lock(&dlm_reco_state_lock);
 		switch (ndata->state) {
 			case DLM_RECO_NODE_DATA_INIT:
 			case DLM_RECO_NODE_DATA_FINALIZE_SENT:
@@ -641,6 +642,7 @@ static int dlm_remaster_locks(struct dlm_ctxt *dlm, u8 dead_node)
 				     ndata->node_num, dead_node);
 				break;
 		}
+		spin_unlock(&dlm_reco_state_lock);
 	}
 
 	mlog(0, "done requesting all lock info\n");
@@ -1767,7 +1769,7 @@ static int dlm_process_recovery_data(struct dlm_ctxt *dlm,
 			/* lock is always created locally first, and
 			 * destroyed locally last.  it must be on the list */
 			if (!lock) {
-				u64 c = ml->cookie;
+				__be64 c = ml->cookie;
 				mlog(ML_ERROR, "could not find local lock "
 					       "with cookie %u:%llu!\n",
 				     dlm_get_lock_cookie_node(be64_to_cpu(c)),
@@ -1876,7 +1878,7 @@ skip_lvb:
 		spin_lock(&res->spinlock);
 		list_for_each_entry(lock, queue, list) {
 			if (lock->ml.cookie == ml->cookie) {
-				u64 c = lock->ml.cookie;
+				__be64 c = lock->ml.cookie;
 				mlog(ML_ERROR, "%s:%.*s: %u:%llu: lock already "
 				     "exists on this lockres!\n", dlm->name,
 				     res->lockname.len, res->lockname.name,

@@ -181,6 +181,15 @@ enum {
 	XFRM_MSG_MIGRATE,
 #define XFRM_MSG_MIGRATE XFRM_MSG_MIGRATE
 
+	XFRM_MSG_NEWSADINFO,
+#define XFRM_MSG_NEWSADINFO XFRM_MSG_NEWSADINFO
+	XFRM_MSG_GETSADINFO,
+#define XFRM_MSG_GETSADINFO XFRM_MSG_GETSADINFO
+
+	XFRM_MSG_NEWSPDINFO,
+#define XFRM_MSG_NEWSPDINFO XFRM_MSG_NEWSPDINFO
+	XFRM_MSG_GETSPDINFO,
+#define XFRM_MSG_GETSPDINFO XFRM_MSG_GETSPDINFO
 	__XFRM_MSG_MAX
 };
 #define XFRM_MSG_MAX (__XFRM_MSG_MAX - 1)
@@ -263,6 +272,43 @@ enum xfrm_attr_type_t {
 	__XFRMA_MAX
 
 #define XFRMA_MAX (__XFRMA_MAX - 1)
+};
+
+enum xfrm_sadattr_type_t {
+	XFRMA_SAD_UNSPEC,
+	XFRMA_SAD_CNT,
+	XFRMA_SAD_HINFO,
+	__XFRMA_SAD_MAX
+
+#define XFRMA_SAD_MAX (__XFRMA_SAD_MAX - 1)
+};
+
+struct xfrmu_sadhinfo {
+	__u32 sadhcnt; /* current hash bkts */
+	__u32 sadhmcnt; /* max allowed hash bkts */
+};
+
+enum xfrm_spdattr_type_t {
+	XFRMA_SPD_UNSPEC,
+	XFRMA_SPD_INFO,
+	XFRMA_SPD_HINFO,
+	__XFRMA_SPD_MAX
+
+#define XFRMA_SPD_MAX (__XFRMA_SPD_MAX - 1)
+};
+
+struct xfrmu_spdinfo {
+	__u32 incnt;
+	__u32 outcnt;
+	__u32 fwdcnt;
+	__u32 inscnt;
+	__u32 outscnt;
+	__u32 fwdscnt;
+};
+
+struct xfrmu_spdhinfo {
+	__u32 spdhcnt;
+	__u32 spdhmcnt;
 };
 
 struct xfrm_usersa_info {

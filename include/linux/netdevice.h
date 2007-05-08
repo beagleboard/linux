@@ -42,6 +42,8 @@
 struct vlan_group;
 struct ethtool_ops;
 struct netpoll_info;
+/* 802.11 specific */
+struct wireless_dev;
 					/* source back-compat hooks */
 #define SET_ETHTOOL_OPS(netdev,ops) \
 	( (netdev)->ethtool_ops = (ops) )
@@ -302,7 +304,7 @@ struct net_device
 
 	unsigned long		state;
 
-	struct net_device	*next;
+	struct list_head	dev_list;
 	
 	/* The device initialization function. Called only once. */
 	int			(*init)(struct net_device *dev);
@@ -347,13 +349,15 @@ struct net_device
 
 
 	struct net_device_stats* (*get_stats)(struct net_device *dev);
+	struct net_device_stats	stats;
 
+#ifdef CONFIG_WIRELESS_EXT
 	/* List of functions to handle Wireless Extensions (instead of ioctl).
 	 * See <net/iw_handler.h> for details. Jean II */
 	const struct iw_handler_def *	wireless_handlers;
 	/* Instance data managed by the core of Wireless Extensions. */
 	struct iw_public_data *	wireless_data;
-
+#endif
 	const struct ethtool_ops *ethtool_ops;
 
 	/*
@@ -398,6 +402,8 @@ struct net_device
 	void                    *ip6_ptr;       /* IPv6 specific data */
 	void			*ec_ptr;	/* Econet specific data	*/
 	void			*ax25_ptr;	/* AX.25 specific data */
+	struct wireless_dev	*ieee80211_ptr;	/* IEEE 802.11 specific data,
+						   assign before registering */
 
 /*
  * Cache line mostly used on receive path (including eth_type_trans())
@@ -569,13 +575,36 @@ struct packet_type {
 #include <linux/notifier.h>
 
 extern struct net_device		loopback_dev;		/* The loopback */
-extern struct net_device		*dev_base;		/* All devices */
+extern struct list_head			dev_base_head;		/* All devices */
 extern rwlock_t				dev_base_lock;		/* Device list lock */
+
+#define for_each_netdev(d)		\
+		list_for_each_entry(d, &dev_base_head, dev_list)
+#define for_each_netdev_safe(d, n)	\
+		list_for_each_entry_safe(d, n, &dev_base_head, dev_list)
+#define for_each_netdev_continue(d)		\
+		list_for_each_entry_continue(d, &dev_base_head, dev_list)
+#define net_device_entry(lh)	list_entry(lh, struct net_device, dev_list)
+
+static inline struct net_device *next_net_device(struct net_device *dev)
+{
+	struct list_head *lh;
+
+	lh = dev->dev_list.next;
+	return lh == &dev_base_head ? NULL : net_device_entry(lh);
+}
+
+static inline struct net_device *first_net_device(void)
+{
+	return list_empty(&dev_base_head) ? NULL :
+		net_device_entry(dev_base_head.next);
+}
 
 extern int 			netdev_boot_setup_check(struct net_device *dev);
 extern unsigned long		netdev_boot_base(const char *prefix, int unit);
 extern struct net_device    *dev_getbyhwaddr(unsigned short type, char *hwaddr);
 extern struct net_device *dev_getfirstbyhwtype(unsigned short type);
+extern struct net_device *__dev_getfirstbyhwtype(unsigned short type);
 extern void		dev_add_pack(struct packet_type *pt);
 extern void		dev_remove_pack(struct packet_type *pt);
 extern void		__dev_remove_pack(struct packet_type *pt);
@@ -647,8 +676,10 @@ static inline void netif_start_queue(struct net_device *dev)
 static inline void netif_wake_queue(struct net_device *dev)
 {
 #ifdef CONFIG_NETPOLL_TRAP
-	if (netpoll_trap())
+	if (netpoll_trap()) {
+		clear_bit(__LINK_STATE_XOFF, &dev->state);
 		return;
+	}
 #endif
 	if (test_and_clear_bit(__LINK_STATE_XOFF, &dev->state))
 		__netif_schedule(dev);
@@ -656,10 +687,6 @@ static inline void netif_wake_queue(struct net_device *dev)
 
 static inline void netif_stop_queue(struct net_device *dev)
 {
-#ifdef CONFIG_NETPOLL_TRAP
-	if (netpoll_trap())
-		return;
-#endif
 	set_bit(__LINK_STATE_XOFF, &dev->state);
 }
 

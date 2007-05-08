@@ -49,7 +49,7 @@ struct iscsi_internal {
 	struct class_device_attribute *session_attrs[ISCSI_SESSION_ATTRS + 1];
 };
 
-static int iscsi_session_nr;	/* sysfs session id for next new session */
+static atomic_t iscsi_session_nr; /* sysfs session id for next new session */
 
 /*
  * list of registered transports and lock that must
@@ -300,7 +300,7 @@ int iscsi_add_session(struct iscsi_cls_session *session, unsigned int target_id)
 	int err;
 
 	ihost = shost->shost_data;
-	session->sid = iscsi_session_nr++;
+	session->sid = atomic_add_return(1, &iscsi_session_nr);
 	session->target_id = target_id;
 
 	snprintf(session->dev.bus_id, BUS_ID_SIZE, "session%u",
@@ -1081,7 +1081,7 @@ iscsi_if_rx(struct sock *sk, int len)
 			struct nlmsghdr	*nlh;
 			struct iscsi_uevent *ev;
 
-			nlh = (struct nlmsghdr *)skb->data;
+			nlh = nlmsg_hdr(skb);
 			if (nlh->nlmsg_len < sizeof(*nlh) ||
 			    skb->len < nlh->nlmsg_len) {
 				break;
@@ -1419,6 +1419,8 @@ static __init int iscsi_transport_init(void)
 	printk(KERN_INFO "Loading iSCSI transport class v%s.\n",
 		ISCSI_TRANSPORT_VERSION);
 
+	atomic_set(&iscsi_session_nr, 0);
+
 	err = class_register(&iscsi_transport_class);
 	if (err)
 		return err;
@@ -1435,7 +1437,7 @@ static __init int iscsi_transport_init(void)
 	if (err)
 		goto unregister_conn_class;
 
-	nls = netlink_kernel_create(NETLINK_ISCSI, 1, iscsi_if_rx,
+	nls = netlink_kernel_create(NETLINK_ISCSI, 1, iscsi_if_rx, NULL,
 			THIS_MODULE);
 	if (!nls) {
 		err = -ENOBUFS;

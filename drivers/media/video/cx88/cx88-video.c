@@ -1,4 +1,3 @@
-
 /*
  *
  * device driver for Conexant 2388x based TV cards
@@ -34,6 +33,7 @@
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/interrupt.h>
+#include <linux/dma-mapping.h>
 #include <linux/delay.h>
 #include <linux/kthread.h>
 #include <asm/div64.h>
@@ -1555,7 +1555,8 @@ static void cx8800_vid_irq(struct cx8800_dev *dev)
 	cx_write(MO_VID_INTSTAT, status);
 	if (irq_debug  ||  (status & mask & ~0xff))
 		cx88_print_irqbits(core->name, "irq vid",
-				   cx88_vid_irqs, status, mask);
+				   cx88_vid_irqs, ARRAY_SIZE(cx88_vid_irqs),
+				   status, mask);
 
 	/* risc op code error */
 	if (status & (1 << 16)) {
@@ -1778,7 +1779,7 @@ static int __devinit cx8800_initdev(struct pci_dev *pci_dev,
 	       dev->pci_lat,(unsigned long long)pci_resource_start(pci_dev,0));
 
 	pci_set_master(pci_dev);
-	if (!pci_dma_supported(pci_dev,0xffffffff)) {
+	if (!pci_dma_supported(pci_dev,DMA_32BIT_MASK)) {
 		printk("%s/0: Oops: no 32bit PCI DMA ???\n",core->name);
 		err = -EIO;
 		goto fail_core;

@@ -375,7 +375,7 @@ static int hci_sock_recvmsg(struct kiocb *iocb, struct socket *sock,
 		copied = len;
 	}
 
-	skb->h.raw = skb->data;
+	skb_reset_transport_header(skb);
 	err = skb_copy_datagram_iovec(skb, 0, msg->msg_iov, copied);
 
 	hci_sock_cmsg(sk, msg, skb);
@@ -499,6 +499,15 @@ static int hci_sock_setsockopt(struct socket *sock, int level, int optname, char
 		break;
 
 	case HCI_FILTER:
+		{
+			struct hci_filter *f = &hci_pi(sk)->filter;
+
+			uf.type_mask = f->type_mask;
+			uf.opcode    = f->opcode;
+			uf.event_mask[0] = *((u32 *) f->event_mask + 0);
+			uf.event_mask[1] = *((u32 *) f->event_mask + 1);
+		}
+
 		len = min_t(unsigned int, len, sizeof(uf));
 		if (copy_from_user(&uf, optval, len)) {
 			err = -EFAULT;

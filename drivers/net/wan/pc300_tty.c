@@ -38,7 +38,6 @@
 
 #include <linux/module.h>
 #include <linux/kernel.h>
-#include <linux/pci.h>
 #include <linux/errno.h>
 #include <linux/string.h>
 #include <linux/init.h>
@@ -1003,17 +1002,17 @@ static void cpc_tty_trace(pc300dev_t *dev, char* buf, int len, char rxtx)
 	skb_put (skb, 10 + len); 
 	skb->dev = dev->dev; 
 	skb->protocol = htons(ETH_P_CUST); 
-	skb->mac.raw = skb->data; 
+	skb_reset_mac_header(skb);
 	skb->pkt_type = PACKET_HOST; 
 	skb->len = 10 + len; 
 
-	memcpy(skb->data,dev->dev->name,5);
+	skb_copy_to_linear_data(skb, dev->dev->name, 5);
 	skb->data[5] = '['; 
 	skb->data[6] = rxtx; 
 	skb->data[7] = ']'; 
 	skb->data[8] = ':'; 
 	skb->data[9] = ' '; 
-	memcpy(&skb->data[10], buf, len); 
+	skb_copy_to_linear_data_offset(skb, 10, buf, len);
 	netif_rx(skb); 
 } 	
 

@@ -29,6 +29,8 @@
 #include <linux/if_arp.h>
 #include <linux/if_ether.h>
 #include <linux/if_vlan.h>
+#include <linux/if_pppox.h>
+#include <linux/ppp_defs.h>
 #include <linux/netfilter_bridge.h>
 #include <linux/netfilter_ipv4.h>
 #include <linux/netfilter_ipv6.h>
@@ -48,8 +50,8 @@
 
 #define skb_origaddr(skb)	 (((struct bridge_skb_cb *) \
 				 (skb->nf_bridge->data))->daddr.ipv4)
-#define store_orig_dstaddr(skb)	 (skb_origaddr(skb) = (skb)->nh.iph->daddr)
-#define dnat_took_place(skb)	 (skb_origaddr(skb) != (skb)->nh.iph->daddr)
+#define store_orig_dstaddr(skb)	 (skb_origaddr(skb) = ip_hdr(skb)->daddr)
+#define dnat_took_place(skb)	 (skb_origaddr(skb) != ip_hdr(skb)->daddr)
 
 #ifdef CONFIG_SYSCTL
 static struct ctl_table_header *brnf_sysctl_header;
@@ -57,8 +59,10 @@ static int brnf_call_iptables __read_mostly = 1;
 static int brnf_call_ip6tables __read_mostly = 1;
 static int brnf_call_arptables __read_mostly = 1;
 static int brnf_filter_vlan_tagged __read_mostly = 1;
+static int brnf_filter_pppoe_tagged __read_mostly = 1;
 #else
 #define brnf_filter_vlan_tagged 1
+#define brnf_filter_pppoe_tagged 1
 #endif
 
 static inline __be16 vlan_proto(const struct sk_buff *skb)
@@ -80,6 +84,22 @@ static inline __be16 vlan_proto(const struct sk_buff *skb)
 	(skb->protocol == htons(ETH_P_8021Q) &&	\
 	 vlan_proto(skb) == htons(ETH_P_ARP) &&	\
 	 brnf_filter_vlan_tagged)
+
+static inline __be16 pppoe_proto(const struct sk_buff *skb)
+{
+	return *((__be16 *)(skb_mac_header(skb) + ETH_HLEN +
+			    sizeof(struct pppoe_hdr)));
+}
+
+#define IS_PPPOE_IP(skb) \
+	(skb->protocol == htons(ETH_P_PPP_SES) && \
+	 pppoe_proto(skb) == htons(PPP_IP) && \
+	 brnf_filter_pppoe_tagged)
+
+#define IS_PPPOE_IPV6(skb) \
+	(skb->protocol == htons(ETH_P_PPP_SES) && \
+	 pppoe_proto(skb) == htons(PPP_IPV6) && \
+	 brnf_filter_pppoe_tagged)
 
 /* We need these fake structures to make netfilter happy --
  * lots of places assume that skb->dst != NULL, which isn't
@@ -122,14 +142,36 @@ static inline struct nf_bridge_info *nf_bridge_alloc(struct sk_buff *skb)
 	return skb->nf_bridge;
 }
 
+static inline void nf_bridge_push_encap_header(struct sk_buff *skb)
+{
+	unsigned int len = nf_bridge_encap_header_len(skb);
+
+	skb_push(skb, len);
+	skb->network_header -= len;
+}
+
+static inline void nf_bridge_pull_encap_header(struct sk_buff *skb)
+{
+	unsigned int len = nf_bridge_encap_header_len(skb);
+
+	skb_pull(skb, len);
+	skb->network_header += len;
+}
+
+static inline void nf_bridge_pull_encap_header_rcsum(struct sk_buff *skb)
+{
+	unsigned int len = nf_bridge_encap_header_len(skb);
+
+	skb_pull_rcsum(skb, len);
+	skb->network_header += len;
+}
+
 static inline void nf_bridge_save_header(struct sk_buff *skb)
 {
-	int header_size = ETH_HLEN;
+	int header_size = ETH_HLEN + nf_bridge_encap_header_len(skb);
 
-	if (skb->protocol == htons(ETH_P_8021Q))
-		header_size += VLAN_HLEN;
-
-	memcpy(skb->nf_bridge->data, skb->data - header_size, header_size);
+	skb_copy_from_linear_data_offset(skb, -header_size,
+					 skb->nf_bridge->data, header_size);
 }
 
 /*
@@ -139,19 +181,15 @@ static inline void nf_bridge_save_header(struct sk_buff *skb)
 int nf_bridge_copy_header(struct sk_buff *skb)
 {
 	int err;
-	int header_size = ETH_HLEN;
-
-	if (skb->protocol == htons(ETH_P_8021Q))
-		header_size += VLAN_HLEN;
+	int header_size = ETH_HLEN + nf_bridge_encap_header_len(skb);
 
 	err = skb_cow(skb, header_size);
 	if (err)
 		return err;
 
-	memcpy(skb->data - header_size, skb->nf_bridge->data, header_size);
-
-	if (skb->protocol == htons(ETH_P_8021Q))
-		__skb_push(skb, VLAN_HLEN);
+	skb_copy_to_linear_data_offset(skb, -header_size,
+				       skb->nf_bridge->data, header_size);
+	__skb_push(skb, nf_bridge_encap_header_len(skb));
 	return 0;
 }
 
@@ -172,10 +210,7 @@ static int br_nf_pre_routing_finish_ipv6(struct sk_buff *skb)
 	dst_hold(skb->dst);
 
 	skb->dev = nf_bridge->physindev;
-	if (skb->protocol == htons(ETH_P_8021Q)) {
-		skb_push(skb, VLAN_HLEN);
-		skb->nh.raw -= VLAN_HLEN;
-	}
+	nf_bridge_push_encap_header(skb);
 	NF_HOOK_THRESH(PF_BRIDGE, NF_BR_PRE_ROUTING, skb, skb->dev, NULL,
 		       br_handle_frame_finish, 1);
 
@@ -253,10 +288,7 @@ static int br_nf_pre_routing_finish_bridge(struct sk_buff *skb)
 	if (!skb->dev)
 		kfree_skb(skb);
 	else {
-		if (skb->protocol == htons(ETH_P_8021Q)) {
-			skb_pull(skb, VLAN_HLEN);
-			skb->nh.raw += VLAN_HLEN;
-		}
+		nf_bridge_pull_encap_header(skb);
 		skb->dst->output(skb);
 	}
 	return 0;
@@ -265,7 +297,7 @@ static int br_nf_pre_routing_finish_bridge(struct sk_buff *skb)
 static int br_nf_pre_routing_finish(struct sk_buff *skb)
 {
 	struct net_device *dev = skb->dev;
-	struct iphdr *iph = skb->nh.iph;
+	struct iphdr *iph = ip_hdr(skb);
 	struct nf_bridge_info *nf_bridge = skb->nf_bridge;
 	int err;
 
@@ -322,11 +354,7 @@ bridged_dnat:
 				 * bridged frame */
 				nf_bridge->mask |= BRNF_BRIDGED_DNAT;
 				skb->dev = nf_bridge->physindev;
-				if (skb->protocol ==
-				    htons(ETH_P_8021Q)) {
-					skb_push(skb, VLAN_HLEN);
-					skb->nh.raw -= VLAN_HLEN;
-				}
+				nf_bridge_push_encap_header(skb);
 				NF_HOOK_THRESH(PF_BRIDGE, NF_BR_PRE_ROUTING,
 					       skb, skb->dev, NULL,
 					       br_nf_pre_routing_finish_bridge,
@@ -342,10 +370,7 @@ bridged_dnat:
 	}
 
 	skb->dev = nf_bridge->physindev;
-	if (skb->protocol == htons(ETH_P_8021Q)) {
-		skb_push(skb, VLAN_HLEN);
-		skb->nh.raw -= VLAN_HLEN;
-	}
+	nf_bridge_push_encap_header(skb);
 	NF_HOOK_THRESH(PF_BRIDGE, NF_BR_PRE_ROUTING, skb, skb->dev, NULL,
 		       br_handle_frame_finish, 1);
 
@@ -372,9 +397,10 @@ static struct net_device *setup_pre_routing(struct sk_buff *skb)
 /* We only check the length. A bridge shouldn't do any hop-by-hop stuff anyway */
 static int check_hbh_len(struct sk_buff *skb)
 {
-	unsigned char *raw = (u8 *) (skb->nh.ipv6h + 1);
+	unsigned char *raw = (u8 *)(ipv6_hdr(skb) + 1);
 	u32 pkt_len;
-	int off = raw - skb->nh.raw;
+	const unsigned char *nh = skb_network_header(skb);
+	int off = raw - nh;
 	int len = (raw[1] + 1) << 3;
 
 	if ((raw + len) - skb->data > skb_headlen(skb))
@@ -384,9 +410,9 @@ static int check_hbh_len(struct sk_buff *skb)
 	len -= 2;
 
 	while (len > 0) {
-		int optlen = skb->nh.raw[off + 1] + 2;
+		int optlen = nh[off + 1] + 2;
 
-		switch (skb->nh.raw[off]) {
+		switch (nh[off]) {
 		case IPV6_TLV_PAD0:
 			optlen = 1;
 			break;
@@ -395,17 +421,18 @@ static int check_hbh_len(struct sk_buff *skb)
 			break;
 
 		case IPV6_TLV_JUMBO:
-			if (skb->nh.raw[off + 1] != 4 || (off & 3) != 2)
+			if (nh[off + 1] != 4 || (off & 3) != 2)
 				goto bad;
-			pkt_len = ntohl(*(__be32 *) (skb->nh.raw + off + 2));
+			pkt_len = ntohl(*(__be32 *) (nh + off + 2));
 			if (pkt_len <= IPV6_MAXPLEN ||
-			    skb->nh.ipv6h->payload_len)
+			    ipv6_hdr(skb)->payload_len)
 				goto bad;
 			if (pkt_len > skb->len - sizeof(struct ipv6hdr))
 				goto bad;
 			if (pskb_trim_rcsum(skb,
 					    pkt_len + sizeof(struct ipv6hdr)))
 				goto bad;
+			nh = skb_network_header(skb);
 			break;
 		default:
 			if (optlen > len)
@@ -439,7 +466,7 @@ static unsigned int br_nf_pre_routing_ipv6(unsigned int hook,
 	if (!pskb_may_pull(skb, sizeof(struct ipv6hdr)))
 		goto inhdr_error;
 
-	hdr = skb->nh.ipv6h;
+	hdr = ipv6_hdr(skb);
 
 	if (hdr->version != 6)
 		goto inhdr_error;
@@ -485,18 +512,15 @@ static unsigned int br_nf_pre_routing(unsigned int hook, struct sk_buff **pskb,
 	__u32 len;
 	struct sk_buff *skb = *pskb;
 
-	if (skb->protocol == htons(ETH_P_IPV6) || IS_VLAN_IPV6(skb)) {
+	if (skb->protocol == htons(ETH_P_IPV6) || IS_VLAN_IPV6(skb) ||
+	    IS_PPPOE_IPV6(skb)) {
 #ifdef CONFIG_SYSCTL
 		if (!brnf_call_ip6tables)
 			return NF_ACCEPT;
 #endif
 		if ((skb = skb_share_check(*pskb, GFP_ATOMIC)) == NULL)
 			goto out;
-
-		if (skb->protocol == htons(ETH_P_8021Q)) {
-			skb_pull_rcsum(skb, VLAN_HLEN);
-			skb->nh.raw += VLAN_HLEN;
-		}
+		nf_bridge_pull_encap_header_rcsum(skb);
 		return br_nf_pre_routing_ipv6(hook, skb, in, out, okfn);
 	}
 #ifdef CONFIG_SYSCTL
@@ -504,28 +528,25 @@ static unsigned int br_nf_pre_routing(unsigned int hook, struct sk_buff **pskb,
 		return NF_ACCEPT;
 #endif
 
-	if (skb->protocol != htons(ETH_P_IP) && !IS_VLAN_IP(skb))
+	if (skb->protocol != htons(ETH_P_IP) && !IS_VLAN_IP(skb) &&
+	    !IS_PPPOE_IP(skb))
 		return NF_ACCEPT;
 
 	if ((skb = skb_share_check(*pskb, GFP_ATOMIC)) == NULL)
 		goto out;
-
-	if (skb->protocol == htons(ETH_P_8021Q)) {
-		skb_pull_rcsum(skb, VLAN_HLEN);
-		skb->nh.raw += VLAN_HLEN;
-	}
+	nf_bridge_pull_encap_header_rcsum(skb);
 
 	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
 		goto inhdr_error;
 
-	iph = skb->nh.iph;
+	iph = ip_hdr(skb);
 	if (iph->ihl < 5 || iph->version != 4)
 		goto inhdr_error;
 
 	if (!pskb_may_pull(skb, 4 * iph->ihl))
 		goto inhdr_error;
 
-	iph = skb->nh.iph;
+	iph = ip_hdr(skb);
 	if (ip_fast_csum((__u8 *) iph, iph->ihl) != 0)
 		goto inhdr_error;
 
@@ -591,10 +612,7 @@ static int br_nf_forward_finish(struct sk_buff *skb)
 	} else {
 		in = *((struct net_device **)(skb->cb));
 	}
-	if (skb->protocol == htons(ETH_P_8021Q)) {
-		skb_push(skb, VLAN_HLEN);
-		skb->nh.raw -= VLAN_HLEN;
-	}
+	nf_bridge_push_encap_header(skb);
 	NF_HOOK_THRESH(PF_BRIDGE, NF_BR_FORWARD, skb, in,
 		       skb->dev, br_forward_finish, 1);
 	return 0;
@@ -622,15 +640,13 @@ static unsigned int br_nf_forward_ip(unsigned int hook, struct sk_buff **pskb,
 	if (!parent)
 		return NF_DROP;
 
-	if (skb->protocol == htons(ETH_P_IP) || IS_VLAN_IP(skb))
+	if (skb->protocol == htons(ETH_P_IP) || IS_VLAN_IP(skb) ||
+	    IS_PPPOE_IP(skb))
 		pf = PF_INET;
 	else
 		pf = PF_INET6;
 
-	if (skb->protocol == htons(ETH_P_8021Q)) {
-		skb_pull(*pskb, VLAN_HLEN);
-		(*pskb)->nh.raw += VLAN_HLEN;
-	}
+	nf_bridge_pull_encap_header(*pskb);
 
 	nf_bridge = skb->nf_bridge;
 	if (skb->pkt_type == PACKET_OTHERHOST) {
@@ -664,15 +680,12 @@ static unsigned int br_nf_forward_arp(unsigned int hook, struct sk_buff **pskb,
 	if (skb->protocol != htons(ETH_P_ARP)) {
 		if (!IS_VLAN_ARP(skb))
 			return NF_ACCEPT;
-		skb_pull(*pskb, VLAN_HLEN);
-		(*pskb)->nh.raw += VLAN_HLEN;
+		nf_bridge_pull_encap_header(*pskb);
 	}
 
-	if (skb->nh.arph->ar_pln != 4) {
-		if (IS_VLAN_ARP(skb)) {
-			skb_push(*pskb, VLAN_HLEN);
-			(*pskb)->nh.raw -= VLAN_HLEN;
-		}
+	if (arp_hdr(skb)->ar_pln != 4) {
+		if (IS_VLAN_ARP(skb))
+			nf_bridge_push_encap_header(*pskb);
 		return NF_ACCEPT;
 	}
 	*d = (struct net_device *)in;
@@ -719,10 +732,7 @@ static unsigned int br_nf_local_out(unsigned int hook, struct sk_buff **pskb,
 		skb->pkt_type = PACKET_OTHERHOST;
 		nf_bridge->mask ^= BRNF_PKT_TYPE;
 	}
-	if (skb->protocol == htons(ETH_P_8021Q)) {
-		skb_push(skb, VLAN_HLEN);
-		skb->nh.raw -= VLAN_HLEN;
-	}
+	nf_bridge_push_encap_header(skb);
 
 	NF_HOOK(PF_BRIDGE, NF_BR_FORWARD, skb, realindev, skb->dev,
 		br_forward_finish);
@@ -753,7 +763,8 @@ static unsigned int br_nf_post_routing(unsigned int hook, struct sk_buff **pskb,
 #ifdef CONFIG_NETFILTER_DEBUG
 	/* Be very paranoid. This probably won't happen anymore, but let's
 	 * keep the check just to be sure... */
-	if (skb->mac.raw < skb->head || skb->mac.raw + ETH_HLEN > skb->data) {
+	if (skb_mac_header(skb) < skb->head ||
+	    skb_mac_header(skb) + ETH_HLEN > skb->data) {
 		printk(KERN_CRIT "br_netfilter: Argh!! br_nf_post_routing: "
 		       "bad mac.raw pointer.\n");
 		goto print_error;
@@ -766,7 +777,8 @@ static unsigned int br_nf_post_routing(unsigned int hook, struct sk_buff **pskb,
 	if (!realoutdev)
 		return NF_DROP;
 
-	if (skb->protocol == htons(ETH_P_IP) || IS_VLAN_IP(skb))
+	if (skb->protocol == htons(ETH_P_IP) || IS_VLAN_IP(skb) ||
+	    IS_PPPOE_IP(skb))
 		pf = PF_INET;
 	else
 		pf = PF_INET6;
@@ -785,11 +797,7 @@ static unsigned int br_nf_post_routing(unsigned int hook, struct sk_buff **pskb,
 		nf_bridge->mask |= BRNF_PKT_TYPE;
 	}
 
-	if (skb->protocol == htons(ETH_P_8021Q)) {
-		skb_pull(skb, VLAN_HLEN);
-		skb->nh.raw += VLAN_HLEN;
-	}
-
+	nf_bridge_pull_encap_header(skb);
 	nf_bridge_save_header(skb);
 
 #if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
@@ -808,7 +816,7 @@ print_error:
 		if (realoutdev)
 			printk("[%s]", realoutdev->name);
 	}
-	printk(" head:%p, raw:%p, data:%p\n", skb->head, skb->mac.raw,
+	printk(" head:%p, raw:%p, data:%p\n", skb->head, skb_mac_header(skb),
 	       skb->data);
 	dump_stack();
 	return NF_ACCEPT;
@@ -921,6 +929,14 @@ static ctl_table brnf_table[] = {
 		.ctl_name	= NET_BRIDGE_NF_FILTER_VLAN_TAGGED,
 		.procname	= "bridge-nf-filter-vlan-tagged",
 		.data		= &brnf_filter_vlan_tagged,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &brnf_sysctl_call_tables,
+	},
+	{
+		.ctl_name	= NET_BRIDGE_NF_FILTER_PPPOE_TAGGED,
+		.procname	= "bridge-nf-filter-pppoe-tagged",
+		.data		= &brnf_filter_pppoe_tagged,
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
 		.proc_handler	= &brnf_sysctl_call_tables,

@@ -36,12 +36,13 @@ static struct device_node *allnodes;
  */
 static DEFINE_RWLOCK(devtree_lock);
 
-int of_device_is_compatible(struct device_node *device, const char *compat)
+int of_device_is_compatible(const struct device_node *device,
+			    const char *compat)
 {
 	const char* cp;
 	int cplen, l;
 
-	cp = (char *) of_get_property(device, "compatible", &cplen);
+	cp = of_get_property(device, "compatible", &cplen);
 	if (cp == NULL)
 		return 0;
 	while (cplen > 0) {
@@ -154,13 +155,14 @@ struct device_node *of_find_compatible_node(struct device_node *from,
 }
 EXPORT_SYMBOL(of_find_compatible_node);
 
-struct property *of_find_property(struct device_node *np, const char *name,
+struct property *of_find_property(const struct device_node *np,
+				  const char *name,
 				  int *lenp)
 {
 	struct property *pp;
 
 	for (pp = np->properties; pp != 0; pp = pp->next) {
-		if (strcmp(pp->name, name) == 0) {
+		if (strcasecmp(pp->name, name) == 0) {
 			if (lenp != 0)
 				*lenp = pp->length;
 			break;
@@ -174,7 +176,8 @@ EXPORT_SYMBOL(of_find_property);
  * Find a property with a given name for a given node
  * and return the value.
  */
-void *of_get_property(struct device_node *np, const char *name, int *lenp)
+const void *of_get_property(const struct device_node *np, const char *name,
+		      int *lenp)
 {
 	struct property *pp = of_find_property(np,name,lenp);
 	return pp ? pp->value : NULL;
@@ -196,7 +199,7 @@ EXPORT_SYMBOL(of_getintprop_default);
 
 int of_n_addr_cells(struct device_node *np)
 {
-	int* ip;
+	const int* ip;
 	do {
 		if (np->parent)
 			np = np->parent;
@@ -211,7 +214,7 @@ EXPORT_SYMBOL(of_n_addr_cells);
 
 int of_n_size_cells(struct device_node *np)
 {
-	int* ip;
+	const int* ip;
 	do {
 		if (np->parent)
 			np = np->parent;
@@ -243,7 +246,7 @@ int of_set_property(struct device_node *dp, const char *name, void *val, int len
 	while (*prevp) {
 		struct property *prop = *prevp;
 
-		if (!strcmp(prop->name, name)) {
+		if (!strcasecmp(prop->name, name)) {
 			void *old_val = prop->value;
 			int ret;
 
@@ -383,11 +386,9 @@ static unsigned int psycho_irq_build(struct device_node *dp,
 
 	/* Now build the IRQ bucket. */
 	imap = controller_regs + imap_off;
-	imap += 4;
 
 	iclr_off = psycho_iclr_offset(ino);
 	iclr = controller_regs + iclr_off;
-	iclr += 4;
 
 	if ((ino & 0x20) == 0)
 		inofixup = ino & 0x03;
@@ -395,9 +396,9 @@ static unsigned int psycho_irq_build(struct device_node *dp,
 	return build_irq(inofixup, iclr, imap);
 }
 
-static void psycho_irq_trans_init(struct device_node *dp)
+static void __init psycho_irq_trans_init(struct device_node *dp)
 {
-	struct linux_prom64_registers *regs;
+	const struct linux_prom64_registers *regs;
 
 	dp->irq_trans = prom_early_alloc(sizeof(struct of_irq_controller));
 	dp->irq_trans->irq_build = psycho_irq_build;
@@ -547,7 +548,7 @@ static unsigned long __sabre_onboard_imap_off[] = {
 static int sabre_device_needs_wsync(struct device_node *dp)
 {
 	struct device_node *parent = dp->parent;
-	char *parent_model, *parent_compat;
+	const char *parent_model, *parent_compat;
 
 	/* This traversal up towards the root is meant to
 	 * handle two cases:
@@ -589,7 +590,7 @@ static unsigned int sabre_irq_build(struct device_node *dp,
 {
 	struct sabre_irq_data *irq_data = _data;
 	unsigned long controller_regs = irq_data->controller_regs;
-	struct linux_prom_pci_registers *regs;
+	const struct linux_prom_pci_registers *regs;
 	unsigned long imap, iclr;
 	unsigned long imap_off, iclr_off;
 	int inofixup = 0;
@@ -610,11 +611,9 @@ static unsigned int sabre_irq_build(struct device_node *dp,
 
 	/* Now build the IRQ bucket. */
 	imap = controller_regs + imap_off;
-	imap += 4;
 
 	iclr_off = sabre_iclr_offset(ino);
 	iclr = controller_regs + iclr_off;
-	iclr += 4;
 
 	if ((ino & 0x20) == 0)
 		inofixup = ino & 0x03;
@@ -637,11 +636,11 @@ static unsigned int sabre_irq_build(struct device_node *dp,
 	return virt_irq;
 }
 
-static void sabre_irq_trans_init(struct device_node *dp)
+static void __init sabre_irq_trans_init(struct device_node *dp)
 {
-	struct linux_prom64_registers *regs;
+	const struct linux_prom64_registers *regs;
 	struct sabre_irq_data *irq_data;
-	u32 *busrange;
+	const u32 *busrange;
 
 	dp->irq_trans = prom_early_alloc(sizeof(struct of_irq_controller));
 	dp->irq_trans->irq_build = sabre_irq_build;
@@ -676,13 +675,14 @@ static unsigned long schizo_iclr_offset(unsigned long ino)
 static unsigned long schizo_ino_to_iclr(unsigned long pbm_regs,
 					unsigned int ino)
 {
-	return pbm_regs + schizo_iclr_offset(ino) + 4;
+
+	return pbm_regs + schizo_iclr_offset(ino);
 }
 
 static unsigned long schizo_ino_to_imap(unsigned long pbm_regs,
 					unsigned int ino)
 {
-	return pbm_regs + schizo_imap_offset(ino) + 4;
+	return pbm_regs + schizo_imap_offset(ino);
 }
 
 #define schizo_read(__reg) \
@@ -793,9 +793,10 @@ static unsigned int schizo_irq_build(struct device_node *dp,
 	return virt_irq;
 }
 
-static void __schizo_irq_trans_init(struct device_node *dp, int is_tomatillo)
+static void __init __schizo_irq_trans_init(struct device_node *dp,
+					   int is_tomatillo)
 {
-	struct linux_prom64_registers *regs;
+	const struct linux_prom64_registers *regs;
 	struct schizo_irq_data *irq_data;
 
 	dp->irq_trans = prom_early_alloc(sizeof(struct of_irq_controller));
@@ -815,12 +816,12 @@ static void __schizo_irq_trans_init(struct device_node *dp, int is_tomatillo)
 	irq_data->chip_version = of_getintprop_default(dp, "version#", 0);
 }
 
-static void schizo_irq_trans_init(struct device_node *dp)
+static void __init schizo_irq_trans_init(struct device_node *dp)
 {
 	__schizo_irq_trans_init(dp, 0);
 }
 
-static void tomatillo_irq_trans_init(struct device_node *dp)
+static void __init tomatillo_irq_trans_init(struct device_node *dp)
 {
 	__schizo_irq_trans_init(dp, 1);
 }
@@ -834,9 +835,9 @@ static unsigned int pci_sun4v_irq_build(struct device_node *dp,
 	return sun4v_build_irq(devhandle, devino);
 }
 
-static void pci_sun4v_irq_trans_init(struct device_node *dp)
+static void __init pci_sun4v_irq_trans_init(struct device_node *dp)
 {
-	struct linux_prom64_registers *regs;
+	const struct linux_prom64_registers *regs;
 
 	dp->irq_trans = prom_early_alloc(sizeof(struct of_irq_controller));
 	dp->irq_trans->irq_build = pci_sun4v_irq_build;
@@ -844,6 +845,85 @@ static void pci_sun4v_irq_trans_init(struct device_node *dp)
 	regs = of_get_property(dp, "reg", NULL);
 	dp->irq_trans->data = (void *) (unsigned long)
 		((regs->phys_addr >> 32UL) & 0x0fffffff);
+}
+
+struct fire_irq_data {
+	unsigned long pbm_regs;
+	u32 portid;
+};
+
+#define FIRE_IMAP_BASE	0x001000
+#define FIRE_ICLR_BASE	0x001400
+
+static unsigned long fire_imap_offset(unsigned long ino)
+{
+	return FIRE_IMAP_BASE + (ino * 8UL);
+}
+
+static unsigned long fire_iclr_offset(unsigned long ino)
+{
+	return FIRE_ICLR_BASE + (ino * 8UL);
+}
+
+static unsigned long fire_ino_to_iclr(unsigned long pbm_regs,
+					    unsigned int ino)
+{
+	return pbm_regs + fire_iclr_offset(ino);
+}
+
+static unsigned long fire_ino_to_imap(unsigned long pbm_regs,
+					    unsigned int ino)
+{
+	return pbm_regs + fire_imap_offset(ino);
+}
+
+static unsigned int fire_irq_build(struct device_node *dp,
+					 unsigned int ino,
+					 void *_data)
+{
+	struct fire_irq_data *irq_data = _data;
+	unsigned long pbm_regs = irq_data->pbm_regs;
+	unsigned long imap, iclr;
+	unsigned long int_ctrlr;
+
+	ino &= 0x3f;
+
+	/* Now build the IRQ bucket. */
+	imap = fire_ino_to_imap(pbm_regs, ino);
+	iclr = fire_ino_to_iclr(pbm_regs, ino);
+
+	/* Set the interrupt controller number.  */
+	int_ctrlr = 1 << 6;
+	upa_writeq(int_ctrlr, imap);
+
+	/* The interrupt map registers do not have an INO field
+	 * like other chips do.  They return zero in the INO
+	 * field, and the interrupt controller number is controlled
+	 * in bits 6 thru 9.  So in order for build_irq() to get
+	 * the INO right we pass it in as part of the fixup
+	 * which will get added to the map register zero value
+	 * read by build_irq().
+	 */
+	ino |= (irq_data->portid << 6);
+	ino -= int_ctrlr;
+	return build_irq(ino, iclr, imap);
+}
+
+static void __init fire_irq_trans_init(struct device_node *dp)
+{
+	const struct linux_prom64_registers *regs;
+	struct fire_irq_data *irq_data;
+
+	dp->irq_trans = prom_early_alloc(sizeof(struct of_irq_controller));
+	dp->irq_trans->irq_build = fire_irq_build;
+
+	irq_data = prom_early_alloc(sizeof(struct fire_irq_data));
+
+	regs = of_get_property(dp, "reg", NULL);
+	dp->irq_trans->data = irq_data;
+
+	irq_data->pbm_regs = regs[0].phys_addr;
+	irq_data->portid = of_getintprop_default(dp, "portid", 0);
 }
 #endif /* CONFIG_PCI */
 
@@ -940,7 +1020,7 @@ static unsigned int sbus_of_build_irq(struct device_node *dp,
 				      void *_data)
 {
 	unsigned long reg_base = (unsigned long) _data;
-	struct linux_prom_registers *regs;
+	const struct linux_prom_registers *regs;
 	unsigned long imap, iclr;
 	int sbus_slot = 0;
 	int sbus_level = 0;
@@ -992,9 +1072,9 @@ static unsigned int sbus_of_build_irq(struct device_node *dp,
 	return build_irq(sbus_level, iclr, imap);
 }
 
-static void sbus_irq_trans_init(struct device_node *dp)
+static void __init sbus_irq_trans_init(struct device_node *dp)
 {
-	struct linux_prom64_registers *regs;
+	const struct linux_prom64_registers *regs;
 
 	dp->irq_trans = prom_early_alloc(sizeof(struct of_irq_controller));
 	dp->irq_trans->irq_build = sbus_of_build_irq;
@@ -1039,7 +1119,7 @@ static unsigned int central_build_irq(struct device_node *dp,
 	return build_irq(0, iclr, imap);
 }
 
-static void central_irq_trans_init(struct device_node *dp)
+static void __init central_irq_trans_init(struct device_node *dp)
 {
 	dp->irq_trans = prom_early_alloc(sizeof(struct of_irq_controller));
 	dp->irq_trans->irq_build = central_build_irq;
@@ -1053,7 +1133,7 @@ struct irq_trans {
 };
 
 #ifdef CONFIG_PCI
-static struct irq_trans pci_irq_trans_table[] = {
+static struct irq_trans __initdata pci_irq_trans_table[] = {
 	{ "SUNW,sabre", sabre_irq_trans_init },
 	{ "pci108e,a000", sabre_irq_trans_init },
 	{ "pci108e,a001", sabre_irq_trans_init },
@@ -1066,6 +1146,7 @@ static struct irq_trans pci_irq_trans_table[] = {
 	{ "SUNW,tomatillo", tomatillo_irq_trans_init },
 	{ "pci108e,a801", tomatillo_irq_trans_init },
 	{ "SUNW,sun4v-pci", pci_sun4v_irq_trans_init },
+	{ "pciex108e,80f0", fire_irq_trans_init },
 };
 #endif
 
@@ -1078,9 +1159,9 @@ static unsigned int sun4v_vdev_irq_build(struct device_node *dp,
 	return sun4v_build_irq(devhandle, devino);
 }
 
-static void sun4v_vdev_irq_trans_init(struct device_node *dp)
+static void __init sun4v_vdev_irq_trans_init(struct device_node *dp)
 {
-	struct linux_prom64_registers *regs;
+	const struct linux_prom64_registers *regs;
 
 	dp->irq_trans = prom_early_alloc(sizeof(struct of_irq_controller));
 	dp->irq_trans->irq_build = sun4v_vdev_irq_build;
@@ -1090,7 +1171,7 @@ static void sun4v_vdev_irq_trans_init(struct device_node *dp)
 		((regs->phys_addr >> 32UL) & 0x0fffffff);
 }
 
-static void irq_trans_init(struct device_node *dp)
+static void __init irq_trans_init(struct device_node *dp)
 {
 #ifdef CONFIG_PCI
 	const char *model;

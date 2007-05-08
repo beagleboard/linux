@@ -316,12 +316,11 @@ void set_huge_pte_at(struct mm_struct *mm, unsigned long addr,
 {
 	if (pte_present(*ptep)) {
 		/* We open-code pte_clear because we need to pass the right
-		 * argument to hpte_update (huge / !huge)
+		 * argument to hpte_need_flush (huge / !huge). Might not be
+		 * necessary anymore if we make hpte_need_flush() get the
+		 * page size from the slices
 		 */
-		unsigned long old = pte_update(ptep, ~0UL);
-		if (old & _PAGE_HASHPTE)
-			hpte_update(mm, addr & HPAGE_MASK, ptep, old, 1);
-		flush_tlb_pending();
+		pte_update(mm, addr & HPAGE_MASK, ptep, ~0UL, 1);
 	}
 	*ptep = __pte(pte_val(pte) & ~_PAGE_HPTEFLAGS);
 }
@@ -329,12 +328,7 @@ void set_huge_pte_at(struct mm_struct *mm, unsigned long addr,
 pte_t huge_ptep_get_and_clear(struct mm_struct *mm, unsigned long addr,
 			      pte_t *ptep)
 {
-	unsigned long old = pte_update(ptep, ~0UL);
-
-	if (old & _PAGE_HASHPTE)
-		hpte_update(mm, addr & HPAGE_MASK, ptep, old, 1);
-	*ptep = __pte(0);
-
+	unsigned long old = pte_update(mm, addr, ptep, ~0UL, 1);
 	return __pte(old);
 }
 
@@ -572,6 +566,13 @@ unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr,
 	if (len > TASK_SIZE)
 		return -ENOMEM;
 
+	/* handle fixed mapping: prevent overlap with huge pages */
+	if (flags & MAP_FIXED) {
+		if (is_hugepage_only_range(mm, addr, len))
+			return -EINVAL;
+		return addr;
+	}
+
 	if (addr) {
 		addr = PAGE_ALIGN(addr);
 		vma = find_vma(mm, addr);
@@ -646,6 +647,13 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 	/* requested length too big for entire address space */
 	if (len > TASK_SIZE)
 		return -ENOMEM;
+
+	/* handle fixed mapping: prevent overlap with huge pages */
+	if (flags & MAP_FIXED) {
+		if (is_hugepage_only_range(mm, addr, len))
+			return -EINVAL;
+		return addr;
+	}
 
 	/* dont allow allocations above current base */
 	if (mm->free_area_cache > base)
@@ -828,6 +836,13 @@ unsigned long hugetlb_get_unmapped_area(struct file *file, unsigned long addr,
 
 	/* Paranoia, caller should have dealt with this */
 	BUG_ON((addr + len)  < addr);
+
+	/* Handle MAP_FIXED */
+	if (flags & MAP_FIXED) {
+		if (prepare_hugepage_range(addr, len, pgoff))
+			return -EINVAL;
+		return addr;
+	}
 
 	if (test_thread_flag(TIF_32BIT)) {
 		curareas = current->mm->context.low_htlb_areas;
@@ -1063,8 +1078,7 @@ static int __init hugetlbpage_init(void)
 	huge_pgtable_cache = kmem_cache_create("hugepte_cache",
 					       HUGEPTE_TABLE_SIZE,
 					       HUGEPTE_TABLE_SIZE,
-					       SLAB_HWCACHE_ALIGN |
-					       SLAB_MUST_HWCACHE_ALIGN,
+					       0,
 					       zero_ctor, NULL);
 	if (! huge_pgtable_cache)
 		panic("hugetlbpage_init(): could not create hugepte cache\n");

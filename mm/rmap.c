@@ -162,8 +162,7 @@ void anon_vma_unlink(struct vm_area_struct *vma)
 static void anon_vma_ctor(void *data, struct kmem_cache *cachep,
 			  unsigned long flags)
 {
-	if ((flags & (SLAB_CTOR_VERIFY|SLAB_CTOR_CONSTRUCTOR)) ==
-						SLAB_CTOR_CONSTRUCTOR) {
+	if (flags & SLAB_CTOR_CONSTRUCTOR) {
 		struct anon_vma *anon_vma = data;
 
 		spin_lock_init(&anon_vma->lock);
@@ -498,8 +497,10 @@ int page_mkclean(struct page *page)
 		struct address_space *mapping = page_mapping(page);
 		if (mapping)
 			ret = page_mkclean_file(mapping, page);
-		if (page_test_and_clear_dirty(page))
+		if (page_test_dirty(page)) {
+			page_clear_dirty(page);
 			ret = 1;
+		}
 	}
 
 	return ret;
@@ -605,8 +606,10 @@ void page_remove_rmap(struct page *page, struct vm_area_struct *vma)
 		 * Leaving it set also helps swapoff to reinstate ptes
 		 * faster for those pages still in swapcache.
 		 */
-		if (page_test_and_clear_dirty(page))
+		if (page_test_dirty(page)) {
+			page_clear_dirty(page);
 			set_page_dirty(page);
+		}
 		__dec_zone_page_state(page,
 				PageAnon(page) ? NR_ANON_PAGES : NR_FILE_MAPPED);
 	}

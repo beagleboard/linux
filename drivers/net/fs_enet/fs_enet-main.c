@@ -24,7 +24,6 @@
 #include <linux/ioport.h>
 #include <linux/slab.h>
 #include <linux/interrupt.h>
-#include <linux/pci.h>
 #include <linux/init.h>
 #include <linux/delay.h>
 #include <linux/netdevice.h>
@@ -160,7 +159,8 @@ static int fs_enet_rx_napi(struct net_device *dev, int *budget)
 				skbn = dev_alloc_skb(pkt_len + 2);
 				if (skbn != NULL) {
 					skb_reserve(skbn, 2);	/* align IP header */
-					memcpy(skbn->data, skb->data, pkt_len);
+					skb_copy_from_linear_data(skb,
+						      skbn->data, pkt_len);
 					/* swap */
 					skbt = skb;
 					skb = skbn;
@@ -170,7 +170,6 @@ static int fs_enet_rx_napi(struct net_device *dev, int *budget)
 				skbn = dev_alloc_skb(ENET_RX_FRSIZE);
 
 			if (skbn != NULL) {
-				skb->dev = dev;
 				skb_put(skb, pkt_len);	/* Make room */
 				skb->protocol = eth_type_trans(skb, dev);
 				received++;
@@ -294,7 +293,8 @@ static int fs_enet_rx_non_napi(struct net_device *dev)
 				skbn = dev_alloc_skb(pkt_len + 2);
 				if (skbn != NULL) {
 					skb_reserve(skbn, 2);	/* align IP header */
-					memcpy(skbn->data, skb->data, pkt_len);
+					skb_copy_from_linear_data(skb,
+						      skbn->data, pkt_len);
 					/* swap */
 					skbt = skb;
 					skb = skbn;
@@ -304,7 +304,6 @@ static int fs_enet_rx_non_napi(struct net_device *dev)
 				skbn = dev_alloc_skb(ENET_RX_FRSIZE);
 
 			if (skbn != NULL) {
-				skb->dev = dev;
 				skb_put(skb, pkt_len);	/* Make room */
 				skb->protocol = eth_type_trans(skb, dev);
 				received++;
@@ -516,7 +515,6 @@ void fs_init_bds(struct net_device *dev)
 			break;
 		}
 		fep->rx_skbuff[i] = skb;
-		skb->dev = dev;
 		CBDW_BUFADDR(bdp,
 			dma_map_single(fep->dev, skb->data,
 				L1_CACHE_ALIGN(PKT_MAXBUF_SIZE),

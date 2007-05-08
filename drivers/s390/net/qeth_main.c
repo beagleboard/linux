@@ -315,7 +315,8 @@ qeth_alloc_card(void)
 }
 
 static long
-__qeth_check_irb_error(struct ccw_device *cdev, struct irb *irb)
+__qeth_check_irb_error(struct ccw_device *cdev, unsigned long intparm,
+		       struct irb *irb)
 {
 	if (!IS_ERR(irb))
 		return 0;
@@ -330,6 +331,14 @@ __qeth_check_irb_error(struct ccw_device *cdev, struct irb *irb)
 		PRINT_WARN("timeout on device %s\n", cdev->dev.bus_id);
 		QETH_DBF_TEXT(trace, 2, "ckirberr");
 		QETH_DBF_TEXT_(trace, 2, "  rc%d", -ETIMEDOUT);
+		if (intparm == QETH_RCD_PARM) {
+			struct qeth_card *card = CARD_FROM_CDEV(cdev);
+
+			if (card && (card->data.ccwdev == cdev)) {
+				card->data.state = CH_STATE_DOWN;
+				wake_up(&card->wait_q);
+			}
+		}
 		break;
 	default:
 		PRINT_WARN("unknown error %ld on device %s\n", PTR_ERR(irb),
@@ -401,7 +410,7 @@ qeth_irq(struct ccw_device *cdev, unsigned long intparm, struct irb *irb)
 
 	QETH_DBF_TEXT(trace,5,"irq");
 
-	if (__qeth_check_irb_error(cdev, irb))
+	if (__qeth_check_irb_error(cdev, intparm, irb))
 		return;
 	cstat = irb->scsw.cstat;
 	dstat = irb->scsw.dstat;
@@ -429,7 +438,8 @@ qeth_irq(struct ccw_device *cdev, unsigned long intparm, struct irb *irb)
 		channel->state = CH_STATE_HALTED;
 
 	/*let's wake up immediately on data channel*/
-	if ((channel == &card->data) && (intparm != 0))
+	if ((channel == &card->data) && (intparm != 0) &&
+	    (intparm != QETH_RCD_PARM))
 		goto out;
 
 	if (intparm == QETH_CLEAR_CHANNEL_PARM) {
@@ -453,6 +463,10 @@ qeth_irq(struct ccw_device *cdev, unsigned long intparm, struct irb *irb)
 			HEXDUMP16(WARN,"irb: ",irb);
 			HEXDUMP16(WARN,"sense data: ",irb->ecw);
 		}
+		if (intparm == QETH_RCD_PARM) {
+			channel->state = CH_STATE_DOWN;
+			goto out;
+		}
 		rc = qeth_get_problem(cdev,irb);
 		if (rc) {
 			qeth_schedule_recovery(card);
@@ -460,6 +474,10 @@ qeth_irq(struct ccw_device *cdev, unsigned long intparm, struct irb *irb)
 		}
 	}
 
+	if (intparm == QETH_RCD_PARM) {
+		channel->state = CH_STATE_RCD_DONE;
+		goto out;
+	}
 	if (intparm) {
 		buffer = (struct qeth_cmd_buffer *) __va((addr_t)intparm);
 		buffer->state = BUF_STATE_PROCESSED;
@@ -1204,6 +1222,54 @@ qeth_probe_device(struct ccwgroup_device *gdev)
 }
 
 
+static int qeth_read_conf_data(struct qeth_card *card, void **buffer,
+			       int *length)
+{
+	struct ciw *ciw;
+	char *rcd_buf;
+	int ret;
+	struct qeth_channel *channel = &card->data;
+	unsigned long flags;
+
+	/*
+	 * scan for RCD command in extended SenseID data
+	 */
+	ciw = ccw_device_get_ciw(channel->ccwdev, CIW_TYPE_RCD);
+	if (!ciw || ciw->cmd == 0)
+		return -EOPNOTSUPP;
+	rcd_buf = kzalloc(ciw->count, GFP_KERNEL | GFP_DMA);
+	if (!rcd_buf)
+		return -ENOMEM;
+
+	channel->ccw.cmd_code = ciw->cmd;
+	channel->ccw.cda = (__u32) __pa (rcd_buf);
+	channel->ccw.count = ciw->count;
+	channel->ccw.flags = CCW_FLAG_SLI;
+	channel->state = CH_STATE_RCD;
+	spin_lock_irqsave(get_ccwdev_lock(channel->ccwdev), flags);
+	ret = ccw_device_start_timeout(channel->ccwdev, &channel->ccw,
+				       QETH_RCD_PARM, LPM_ANYPATH, 0,
+				       QETH_RCD_TIMEOUT);
+	spin_unlock_irqrestore(get_ccwdev_lock(channel->ccwdev), flags);
+	if (!ret)
+		wait_event(card->wait_q,
+			   (channel->state == CH_STATE_RCD_DONE ||
+			    channel->state == CH_STATE_DOWN));
+	if (channel->state == CH_STATE_DOWN)
+		ret = -EIO;
+	else
+		channel->state = CH_STATE_DOWN;
+	if (ret) {
+		kfree(rcd_buf);
+		*buffer = NULL;
+		*length = 0;
+	} else {
+		*length = ciw->count;
+		*buffer = rcd_buf;
+	}
+	return ret;
+}
+
 static int
 qeth_get_unitaddr(struct qeth_card *card)
 {
@@ -1212,9 +1278,9 @@ qeth_get_unitaddr(struct qeth_card *card)
 	int rc;
 
 	QETH_DBF_TEXT(setup, 2, "getunit");
-	rc = read_conf_data(CARD_DDEV(card), (void **) &prcd, &length);
+	rc = qeth_read_conf_data(card, (void **) &prcd, &length);
 	if (rc) {
-		PRINT_ERR("read_conf_data for device %s returned %i\n",
+		PRINT_ERR("qeth_read_conf_data for device %s returned %i\n",
 			  CARD_DDEV_ID(card), rc);
 		return rc;
 	}
@@ -1223,6 +1289,7 @@ qeth_get_unitaddr(struct qeth_card *card)
 	card->info.cula = prcd[63];
 	card->info.guestlan = ((prcd[0x10] == _ascebc['V']) &&
 			       (prcd[0x11] == _ascebc['M']));
+	kfree(prcd);
 	return 0;
 }
 
@@ -2278,7 +2345,7 @@ qeth_type_trans(struct sk_buff *skb, struct net_device *dev)
 	    (card->info.link_type == QETH_LINK_TYPE_LANE_TR))
 	 	return tr_type_trans(skb,dev);
 #endif /* CONFIG_TR */
-	skb->mac.raw = skb->data;
+	skb_reset_mac_header(skb);
 	skb_pull(skb, ETH_HLEN );
 	eth = eth_hdr(skb);
 
@@ -2306,9 +2373,9 @@ qeth_rebuild_skb_fake_ll_tr(struct qeth_card *card, struct sk_buff *skb,
 	struct iphdr *ip_hdr;
 
 	QETH_DBF_TEXT(trace,5,"skbfktr");
-	skb->mac.raw = skb->data - QETH_FAKE_LL_LEN_TR;
+	skb_set_mac_header(skb, -QETH_FAKE_LL_LEN_TR);
 	/* this is a fake ethernet header */
-	fake_hdr = (struct trh_hdr *) skb->mac.raw;
+	fake_hdr = tr_hdr(skb);
 
 	/* the destination MAC address */
 	switch (skb->pkt_type){
@@ -2359,9 +2426,9 @@ qeth_rebuild_skb_fake_ll_eth(struct qeth_card *card, struct sk_buff *skb,
 	struct iphdr *ip_hdr;
 
 	QETH_DBF_TEXT(trace,5,"skbfketh");
-	skb->mac.raw = skb->data - QETH_FAKE_LL_LEN_ETH;
+	skb_set_mac_header(skb, -QETH_FAKE_LL_LEN_ETH);
 	/* this is a fake ethernet header */
-	fake_hdr = (struct ethhdr *) skb->mac.raw;
+	fake_hdr = eth_hdr(skb);
 
 	/* the destination MAC address */
 	switch (skb->pkt_type){
@@ -2461,7 +2528,7 @@ qeth_rebuild_skb(struct qeth_card *card, struct sk_buff *skb,
 	if (card->options.fake_ll)
 		qeth_rebuild_skb_fake_ll(card, skb, hdr);
 	else
-		skb->mac.raw = skb->data;
+		skb_reset_mac_header(skb);
 	skb->ip_summed = card->options.checksum_type;
 	if (card->options.checksum_type == HW_CHECKSUMMING){
 		if ( (hdr->hdr.l3.ext_flags &
@@ -2501,7 +2568,8 @@ qeth_process_inbound_buffer(struct qeth_card *card,
 			vlan_tag = qeth_rebuild_skb(card, skb, hdr);
 		else { /*in case of OSN*/
 			skb_push(skb, sizeof(struct qeth_hdr));
-			memcpy(skb->data, hdr, sizeof(struct qeth_hdr));
+			skb_copy_to_linear_data(skb, hdr,
+						sizeof(struct qeth_hdr));
 		}
 		/* is device UP ? */
 		if (!(card->dev->flags & IFF_UP)){
@@ -3778,9 +3846,11 @@ qeth_get_cast_type(struct qeth_card *card, struct sk_buff *skb)
 	}
 	/* try something else */
 	if (skb->protocol == ETH_P_IPV6)
-		return (skb->nh.raw[24] == 0xff) ? RTN_MULTICAST : 0;
+		return (skb_network_header(skb)[24] == 0xff) ?
+				RTN_MULTICAST : 0;
 	else if (skb->protocol == ETH_P_IP)
-		return ((skb->nh.raw[16] & 0xf0) == 0xe0) ? RTN_MULTICAST : 0;
+		return ((skb_network_header(skb)[16] & 0xf0) == 0xe0) ?
+				RTN_MULTICAST : 0;
 	/* ... */
 	if (!memcmp(skb->data, skb->dev->broadcast, 6))
 		return RTN_BROADCAST;
@@ -3818,18 +3888,20 @@ qeth_get_priority_queue(struct qeth_card *card, struct sk_buff *skb,
 			return card->info.is_multicast_different &
 				(card->qdio.no_out_queues - 1);
 		if (card->qdio.do_prio_queueing && (ipv == 4)) {
+			const u8 tos = ip_hdr(skb)->tos;
+
 			if (card->qdio.do_prio_queueing==QETH_PRIO_Q_ING_TOS){
-				if (skb->nh.iph->tos & IP_TOS_NOTIMPORTANT)
+				if (tos & IP_TOS_NOTIMPORTANT)
 					return 3;
-				if (skb->nh.iph->tos & IP_TOS_HIGHRELIABILITY)
+				if (tos & IP_TOS_HIGHRELIABILITY)
 					return 2;
-				if (skb->nh.iph->tos & IP_TOS_HIGHTHROUGHPUT)
+				if (tos & IP_TOS_HIGHTHROUGHPUT)
 					return 1;
-				if (skb->nh.iph->tos & IP_TOS_LOWDELAY)
+				if (tos & IP_TOS_LOWDELAY)
 					return 0;
 			}
 			if (card->qdio.do_prio_queueing==QETH_PRIO_Q_ING_PREC)
-				return 3 - (skb->nh.iph->tos >> 6);
+				return 3 - (tos >> 6);
 		} else if (card->qdio.do_prio_queueing && (ipv == 6)) {
 			/* TODO: IPv6!!! */
 		}
@@ -3866,9 +3938,9 @@ __qeth_prepare_skb(struct qeth_card *card, struct sk_buff *skb, int ipv)
 		 * memcpys instead of one memmove to save cycles.
 		 */
 		skb_push(skb, VLAN_HLEN);
-		memcpy(skb->data, skb->data + 4, 4);
-		memcpy(skb->data + 4, skb->data + 8, 4);
-		memcpy(skb->data + 8, skb->data + 12, 4);
+		skb_copy_to_linear_data(skb, skb->data + 4, 4);
+		skb_copy_to_linear_data_offset(skb, 4, skb->data + 8, 4);
+		skb_copy_to_linear_data_offset(skb, 8, skb->data + 12, 4);
 		tag = (u16 *)(skb->data + 12);
 		/*
 		 * first two bytes  = ETH_P_8021Q (0x8100)
@@ -4039,7 +4111,8 @@ qeth_fill_header(struct qeth_card *card, struct qeth_hdr *hdr,
 			    *((u32 *) skb->dst->neighbour->primary_key);
 		} else {
 			/* fill in destination address used in ip header */
-			*((u32 *) (&hdr->hdr.l3.dest_addr[12])) = skb->nh.iph->daddr;
+			*((u32 *)(&hdr->hdr.l3.dest_addr[12])) =
+							   ip_hdr(skb)->daddr;
 		}
 	} else if (ipv == 6) { /* IPv6 or passthru */
 		hdr->hdr.l3.flags = qeth_get_qeth_hdr_flags6(cast_type);
@@ -4048,7 +4121,8 @@ qeth_fill_header(struct qeth_card *card, struct qeth_hdr *hdr,
 			       skb->dst->neighbour->primary_key, 16);
 		} else {
 			/* fill in destination address used in ip header */
-			memcpy(hdr->hdr.l3.dest_addr, &skb->nh.ipv6h->daddr, 16);
+			memcpy(hdr->hdr.l3.dest_addr,
+			       &ipv6_hdr(skb)->daddr, 16);
 		}
 	} else { /* passthrough */
                 if((skb->dev->type == ARPHRD_IEEE802_TR) &&

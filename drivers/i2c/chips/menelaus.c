@@ -205,7 +205,7 @@ static int menelaus_ack_irq(int irq)
 	if (irq > 7)
 		return menelaus_write_reg(MENELAUS_INT_ACK2, 1 << (irq - 8));
 	else
-		return menelaus_write_reg(MENELAUS_INT_ACK1, 1 << irq);	
+		return menelaus_write_reg(MENELAUS_INT_ACK1, 1 << irq);
 }
 
 /* Adds a handler for an interrupt. Does not run in interrupt context */

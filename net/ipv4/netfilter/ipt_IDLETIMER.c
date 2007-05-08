@@ -8,8 +8,8 @@
  * Written by Timo Teras <ext-timo.teras@nokia.com>
  *
  * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License 
- * version 2 as published by the Free Software Foundation. 
+ * modify it under the terms of the GNU General Public License
+ * version 2 as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -92,7 +92,7 @@ static void utimer_expired(unsigned long data)
 	spin_lock_bh(&list_lock);
 	utimer_delete(timer);
 	spin_unlock_bh(&list_lock);
-	
+
 	schedule_work(&timer->work);
 }
 

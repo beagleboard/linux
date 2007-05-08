@@ -55,7 +55,6 @@
 #include <linux/usb.h>
 #include <linux/types.h>
 #include <linux/ethtool.h>
-#include <linux/pci.h>
 #include <linux/dma-mapping.h>
 #include <linux/wait.h>
 #include <asm/uaccess.h>
@@ -635,8 +634,6 @@ static void kaweth_usb_receive(struct urb *urb)
 		}
 
 		skb_reserve(skb, 2);    /* Align IP on 16 byte boundaries */
-
-		skb->dev = net;
 
 		eth_copy_and_sum(skb, kaweth->rx_buf + 2, pkt_len, 0);
 

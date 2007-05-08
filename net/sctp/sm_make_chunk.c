@@ -86,7 +86,7 @@ int sctp_chunk_iif(const struct sctp_chunk *chunk)
 	struct sctp_af *af;
 	int iif = 0;
 
-	af = sctp_get_af_specific(ipver2af(chunk->skb->nh.iph->version));
+	af = sctp_get_af_specific(ipver2af(ip_hdr(chunk->skb)->version));
 	if (af)
 		iif = af->skb_iif(chunk->skb);
 
@@ -1143,7 +1143,7 @@ void *sctp_addto_chunk(struct sctp_chunk *chunk, int len, const void *data)
 
 	/* Adjust the chunk length field.  */
 	chunk->chunk_hdr->length = htons(chunklen + padlen + len);
-	chunk->chunk_end = chunk->skb->tail;
+	chunk->chunk_end = skb_tail_pointer(chunk->skb);
 
 	return target;
 }
@@ -1168,7 +1168,7 @@ int sctp_user_addto_chunk(struct sctp_chunk *chunk, int off, int len,
 	/* Adjust the chunk length field.  */
 	chunk->chunk_hdr->length =
 		htons(ntohs(chunk->chunk_hdr->length) + len);
-	chunk->chunk_end = chunk->skb->tail;
+	chunk->chunk_end = skb_tail_pointer(chunk->skb);
 
 out:
 	return err;
@@ -1233,7 +1233,7 @@ struct sctp_association *sctp_make_temp_asoc(const struct sctp_endpoint *ep,
 	asoc->temp = 1;
 	skb = chunk->skb;
 	/* Create an entry for the source address of the packet.  */
-	af = sctp_get_af_specific(ipver2af(skb->nh.iph->version));
+	af = sctp_get_af_specific(ipver2af(ip_hdr(skb)->version));
 	if (unlikely(!af))
 		goto fail;
 	af->from_skb(&asoc->c.peer_addr, skb, 1);
@@ -1939,7 +1939,6 @@ int sctp_process_init(struct sctp_association *asoc, sctp_cid_t cid,
 	 * association.
 	 */
 	if (!asoc->temp) {
-		int assoc_id;
 		int error;
 
 		asoc->ssnmap = sctp_ssnmap_new(asoc->c.sinit_max_instreams,
@@ -1947,19 +1946,9 @@ int sctp_process_init(struct sctp_association *asoc, sctp_cid_t cid,
 		if (!asoc->ssnmap)
 			goto clean_up;
 
-	retry:
-		if (unlikely(!idr_pre_get(&sctp_assocs_id, gfp)))
+		error = sctp_assoc_set_id(asoc, gfp);
+		if (error)
 			goto clean_up;
-		spin_lock_bh(&sctp_assocs_id_lock);
-		error = idr_get_new_above(&sctp_assocs_id, (void *)asoc, 1,
-					  &assoc_id);
-		spin_unlock_bh(&sctp_assocs_id_lock);
-		if (error == -EAGAIN)
-			goto retry;
-		else if (error)
-			goto clean_up;
-
-		asoc->assoc_id = (sctp_assoc_t) assoc_id;
 	}
 
 	/* ADDIP Section 4.1 ASCONF Chunk Procedures
@@ -2077,7 +2066,7 @@ static int sctp_process_param(struct sctp_association *asoc,
 
 			default: /* Just ignore anything else.  */
 				break;
-			};
+			}
 		}
 		break;
 
@@ -2118,7 +2107,7 @@ static int sctp_process_param(struct sctp_association *asoc,
 		SCTP_DEBUG_PRINTK("Ignoring param: %d for association %p.\n",
 				  ntohs(param.p->type), asoc);
 		break;
-	};
+	}
 
 	return retval;
 }

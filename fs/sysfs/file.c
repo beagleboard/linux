@@ -13,8 +13,7 @@
 
 #include "sysfs.h"
 
-#define to_subsys(k) container_of(k,struct subsystem,kset.kobj)
-#define to_sattr(a) container_of(a,struct subsys_attribute,attr)
+#define to_sattr(a) container_of(a,struct subsys_attribute, attr)
 
 /*
  * Subsystem file operations.
@@ -24,12 +23,12 @@
 static ssize_t 
 subsys_attr_show(struct kobject * kobj, struct attribute * attr, char * page)
 {
-	struct subsystem * s = to_subsys(kobj);
+	struct kset *kset = to_kset(kobj);
 	struct subsys_attribute * sattr = to_sattr(attr);
 	ssize_t ret = -EIO;
 
 	if (sattr->show)
-		ret = sattr->show(s,page);
+		ret = sattr->show(kset, page);
 	return ret;
 }
 
@@ -37,12 +36,12 @@ static ssize_t
 subsys_attr_store(struct kobject * kobj, struct attribute * attr, 
 		  const char * page, size_t count)
 {
-	struct subsystem * s = to_subsys(kobj);
+	struct kset *kset = to_kset(kobj);
 	struct subsys_attribute * sattr = to_sattr(attr);
 	ssize_t ret = -EIO;
 
 	if (sattr->store)
-		ret = sattr->store(s,page,count);
+		ret = sattr->store(kset, page, count);
 	return ret;
 }
 
@@ -633,6 +632,7 @@ struct sysfs_schedule_callback_struct {
 	struct kobject 		*kobj;
 	void			(*func)(void *);
 	void			*data;
+	struct module		*owner;
 	struct work_struct	work;
 };
 
@@ -643,6 +643,7 @@ static void sysfs_schedule_callback_work(struct work_struct *work)
 
 	(ss->func)(ss->data);
 	kobject_put(ss->kobj);
+	module_put(ss->owner);
 	kfree(ss);
 }
 
@@ -651,6 +652,7 @@ static void sysfs_schedule_callback_work(struct work_struct *work)
  * @kobj: object we're acting for.
  * @func: callback function to invoke later.
  * @data: argument to pass to @func.
+ * @owner: module owning the callback code
  *
  * sysfs attribute methods must not unregister themselves or their parent
  * kobject (which would amount to the same thing).  Attempts to do so will
@@ -663,20 +665,25 @@ static void sysfs_schedule_callback_work(struct work_struct *work)
  * until @func returns.
  *
  * Returns 0 if the request was submitted, -ENOMEM if storage could not
- * be allocated.
+ * be allocated, -ENODEV if a reference to @owner isn't available.
  */
 int sysfs_schedule_callback(struct kobject *kobj, void (*func)(void *),
-		void *data)
+		void *data, struct module *owner)
 {
 	struct sysfs_schedule_callback_struct *ss;
 
+	if (!try_module_get(owner))
+		return -ENODEV;
 	ss = kmalloc(sizeof(*ss), GFP_KERNEL);
-	if (!ss)
+	if (!ss) {
+		module_put(owner);
 		return -ENOMEM;
+	}
 	kobject_get(kobj);
 	ss->kobj = kobj;
 	ss->func = func;
 	ss->data = data;
+	ss->owner = owner;
 	INIT_WORK(&ss->work, sysfs_schedule_callback_work);
 	schedule_work(&ss->work);
 	return 0;

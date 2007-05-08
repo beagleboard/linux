@@ -279,7 +279,7 @@ static void sun4u_irq_enable(unsigned int virt_irq)
 	struct irq_handler_data *data = get_irq_chip_data(virt_irq);
 
 	if (likely(data)) {
-		unsigned long cpuid, imap;
+		unsigned long cpuid, imap, val;
 		unsigned int tid;
 
 		cpuid = irq_choose_cpu(virt_irq);
@@ -287,7 +287,11 @@ static void sun4u_irq_enable(unsigned int virt_irq)
 
 		tid = sun4u_compute_tid(imap, cpuid);
 
-		upa_writel(tid | IMAP_VALID, imap);
+		val = upa_readq(imap);
+		val &= ~(IMAP_TID_UPA | IMAP_TID_JBUS |
+			 IMAP_AID_SAFARI | IMAP_NID_SAFARI);
+		val |= tid | IMAP_VALID;
+		upa_writeq(val, imap);
 	}
 }
 
@@ -297,10 +301,10 @@ static void sun4u_irq_disable(unsigned int virt_irq)
 
 	if (likely(data)) {
 		unsigned long imap = data->imap;
-		u32 tmp = upa_readl(imap);
+		u32 tmp = upa_readq(imap);
 
 		tmp &= ~IMAP_VALID;
-		upa_writel(tmp, imap);
+		upa_writeq(tmp, imap);
 	}
 }
 
@@ -309,7 +313,7 @@ static void sun4u_irq_end(unsigned int virt_irq)
 	struct irq_handler_data *data = get_irq_chip_data(virt_irq);
 
 	if (likely(data))
-		upa_writel(ICLR_IDLE, data->iclr);
+		upa_writeq(ICLR_IDLE, data->iclr);
 }
 
 static void sun4v_irq_enable(unsigned int virt_irq)
@@ -465,7 +469,7 @@ unsigned int build_irq(int inofixup, unsigned long iclr, unsigned long imap)
 
 	BUG_ON(tlb_type == hypervisor);
 
-	ino = (upa_readl(imap) & (IMAP_IGN | IMAP_INO)) + inofixup;
+	ino = (upa_readq(imap) & (IMAP_IGN | IMAP_INO)) + inofixup;
 	bucket = &ivector_table[ino];
 	if (!bucket->virt_irq) {
 		bucket->virt_irq = virt_irq_alloc(__irq(bucket));
@@ -589,32 +593,6 @@ void ack_bad_irq(unsigned int virt_irq)
 	       ino, virt_irq);
 }
 
-#ifndef CONFIG_SMP
-extern irqreturn_t timer_interrupt(int, void *);
-
-void timer_irq(int irq, struct pt_regs *regs)
-{
-	unsigned long clr_mask = 1 << irq;
-	unsigned long tick_mask = tick_ops->softint_mask;
-	struct pt_regs *old_regs;
-
-	if (get_softint() & tick_mask) {
-		irq = 0;
-		clr_mask = tick_mask;
-	}
-	clear_softint(clr_mask);
-
-	old_regs = set_irq_regs(regs);
-	irq_enter();
-
-	kstat_this_cpu.irqs[0]++;
-	timer_interrupt(irq, NULL);
-
-	irq_exit();
-	set_irq_regs(old_regs);
-}
-#endif
-
 void handler_irq(int irq, struct pt_regs *regs)
 {
 	struct ino_bucket *bucket;
@@ -653,7 +631,7 @@ static u64 prom_limit0, prom_limit1;
 static void map_prom_timers(void)
 {
 	struct device_node *dp;
-	unsigned int *addr;
+	const unsigned int *addr;
 
 	/* PROM timer node hangs out in the top level of device siblings... */
 	dp = of_find_node_by_path("/");

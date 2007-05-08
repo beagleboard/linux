@@ -261,8 +261,7 @@ static void init_once(void *foo, struct kmem_cache *cachep, unsigned long flags)
 {
 	struct socket_alloc *ei = (struct socket_alloc *)foo;
 
-	if ((flags & (SLAB_CTOR_VERIFY|SLAB_CTOR_CONSTRUCTOR))
-	    == SLAB_CTOR_CONSTRUCTOR)
+	if (flags & SLAB_CTOR_CONSTRUCTOR)
 		inode_init_once(&ei->vfs_inode);
 }
 
@@ -584,6 +583,37 @@ int kernel_sendmsg(struct socket *sock, struct msghdr *msg,
 	set_fs(oldfs);
 	return result;
 }
+
+/*
+ * called from sock_recv_timestamp() if sock_flag(sk, SOCK_RCVTSTAMP)
+ */
+void __sock_recv_timestamp(struct msghdr *msg, struct sock *sk,
+	struct sk_buff *skb)
+{
+	ktime_t kt = skb->tstamp;
+
+	if (!sock_flag(sk, SOCK_RCVTSTAMPNS)) {
+		struct timeval tv;
+		/* Race occurred between timestamp enabling and packet
+		   receiving.  Fill in the current time for now. */
+		if (kt.tv64 == 0)
+			kt = ktime_get_real();
+		skb->tstamp = kt;
+		tv = ktime_to_timeval(kt);
+		put_cmsg(msg, SOL_SOCKET, SCM_TIMESTAMP, sizeof(tv), &tv);
+	} else {
+		struct timespec ts;
+		/* Race occurred between timestamp enabling and packet
+		   receiving.  Fill in the current time for now. */
+		if (kt.tv64 == 0)
+			kt = ktime_get_real();
+		skb->tstamp = kt;
+		ts = ktime_to_timespec(kt);
+		put_cmsg(msg, SOL_SOCKET, SCM_TIMESTAMPNS, sizeof(ts), &ts);
+	}
+}
+
+EXPORT_SYMBOL_GPL(__sock_recv_timestamp);
 
 static inline int __sock_recvmsg(struct kiocb *iocb, struct socket *sock,
 				 struct msghdr *msg, size_t size, int flags)
@@ -1292,7 +1322,7 @@ asmlinkage long sys_bind(int fd, struct sockaddr __user *umyaddr, int addrlen)
 	int err, fput_needed;
 
 	sock = sockfd_lookup_light(fd, &err, &fput_needed);
-	if(sock) {
+	if (sock) {
 		err = move_addr_to_kernel(umyaddr, addrlen, address);
 		if (err >= 0) {
 			err = security_socket_bind(sock,

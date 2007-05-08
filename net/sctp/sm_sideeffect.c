@@ -464,7 +464,7 @@ static void sctp_cmd_init_failed(sctp_cmd_seq_t *commands,
 	struct sctp_ulpevent *event;
 
 	event = sctp_ulpevent_make_assoc_change(asoc,0, SCTP_CANT_STR_ASSOC,
-						(__u16)error, 0, 0,
+						(__u16)error, 0, 0, NULL,
 						GFP_ATOMIC);
 
 	if (event)
@@ -492,8 +492,13 @@ static void sctp_cmd_assoc_failed(sctp_cmd_seq_t *commands,
 	/* Cancel any partial delivery in progress. */
 	sctp_ulpq_abort_pd(&asoc->ulpq, GFP_ATOMIC);
 
-	event = sctp_ulpevent_make_assoc_change(asoc, 0, SCTP_COMM_LOST,
-						(__u16)error, 0, 0,
+	if (event_type == SCTP_EVENT_T_CHUNK && subtype.chunk == SCTP_CID_ABORT)
+		event = sctp_ulpevent_make_assoc_change(asoc, 0, SCTP_COMM_LOST,
+						(__u16)error, 0, 0, chunk,
+						GFP_ATOMIC);
+	else
+		event = sctp_ulpevent_make_assoc_change(asoc, 0, SCTP_COMM_LOST,
+						(__u16)error, 0, 0, NULL,
 						GFP_ATOMIC);
 	if (event)
 		sctp_add_cmd_sf(commands, SCTP_CMD_EVENT_ULP,
@@ -857,6 +862,33 @@ static void sctp_cmd_set_sk_err(struct sctp_association *asoc, int error)
 		sk->sk_err = error;
 }
 
+/* Helper function to generate an association change event */
+static void sctp_cmd_assoc_change(sctp_cmd_seq_t *commands,
+				 struct sctp_association *asoc,
+				 u8 state)
+{
+	struct sctp_ulpevent *ev;
+
+	ev = sctp_ulpevent_make_assoc_change(asoc, 0, state, 0,
+					    asoc->c.sinit_num_ostreams,
+					    asoc->c.sinit_max_instreams,
+					    NULL, GFP_ATOMIC);
+	if (ev)
+		sctp_ulpq_tail_event(&asoc->ulpq, ev);
+}
+
+/* Helper function to generate an adaptation indication event */
+static void sctp_cmd_adaptation_ind(sctp_cmd_seq_t *commands,
+				    struct sctp_association *asoc)
+{
+	struct sctp_ulpevent *ev;
+
+	ev = sctp_ulpevent_make_adaptation_indication(asoc, GFP_ATOMIC);
+
+	if (ev)
+		sctp_ulpq_tail_event(&asoc->ulpq, ev);
+}
+
 /* These three macros allow us to pull the debugging code out of the
  * main flow of sctp_do_sm() to keep attention focused on the real
  * functionality there.
@@ -1004,7 +1036,7 @@ static int sctp_side_effects(sctp_event_t event_type, sctp_subtype_t subtype,
 		       status, state, event_type, subtype.chunk);
 		BUG();
 		break;
-	};
+	}
 
 bail:
 	return error;
@@ -1480,11 +1512,20 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
 		case SCTP_CMD_SET_SK_ERR:
 			sctp_cmd_set_sk_err(asoc, cmd->obj.error);
 			break;
+		case SCTP_CMD_ASSOC_CHANGE:
+			sctp_cmd_assoc_change(commands, asoc,
+					      cmd->obj.u8);
+			break;
+		case SCTP_CMD_ADAPTATION_IND:
+			sctp_cmd_adaptation_ind(commands, asoc);
+			break;
+
 		default:
 			printk(KERN_WARNING "Impossible command: %u, %p\n",
 			       cmd->verb, cmd->obj.ptr);
 			break;
-		};
+		}
+
 		if (error)
 			break;
 	}

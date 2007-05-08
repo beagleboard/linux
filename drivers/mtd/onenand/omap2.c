@@ -4,7 +4,7 @@
  *  OneNAND driver for OMAP2
  *
  *  Copyright (C) 2005-2006 Nokia Corporation
- * 
+ *
  *  Author: Jarkko Lavinen <jarkko.lavinen@nokia.com> and Juha Yrjola
  *  IRQ and DMA support written by Timo Teras
  *
@@ -340,7 +340,7 @@ static int __devinit omap2_onenand_probe(struct platform_device *pdev)
 		r = pdata->onenand_setup(info->onenand.base);
 		if (r < 0) {
 			dev_err(&pdev->dev, "Onenand platform setup failed: %d\n", r);
-			goto err_iounmap;                       
+			goto err_iounmap;
 		}
         }
 

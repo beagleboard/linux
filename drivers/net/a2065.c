@@ -320,7 +320,6 @@ static int lance_rx (struct net_device *dev)
 				return 0;
 			}
 
-			skb->dev = dev;
 			skb_reserve (skb, 2);		/* 16 byte align */
 			skb_put (skb, len);		/* make room */
 			eth_copy_and_sum(skb,
@@ -563,7 +562,6 @@ static int lance_start_xmit (struct sk_buff *skb, struct net_device *dev)
 	volatile struct lance_init_block *ib = lp->init_block;
 	int entry, skblen, len;
 	int status = 0;
-	static int outs;
 	unsigned long flags;
 
 	skblen = skb->len;
@@ -599,17 +597,16 @@ static int lance_start_xmit (struct sk_buff *skb, struct net_device *dev)
 	ib->btx_ring [entry].length = (-len) | 0xf000;
 	ib->btx_ring [entry].misc = 0;
 
-	memcpy ((char *)&ib->tx_buf [entry][0], skb->data, skblen);
+	skb_copy_from_linear_data(skb, (void *)&ib->tx_buf [entry][0], skblen);
 
 	/* Clear the slack of the packet, do I need this? */
 	if (len != skblen)
-		memset ((char *) &ib->tx_buf [entry][skblen], 0, len - skblen);
+		memset ((void *) &ib->tx_buf [entry][skblen], 0, len - skblen);
 
 	/* Now, give the packet to the lance */
 	ib->btx_ring [entry].tmd1_bits = (LE_T1_POK|LE_T1_OWN);
 	lp->tx_new = (lp->tx_new+1) & lp->tx_ring_mod_mask;
-
-	outs++;
+	lp->stats.tx_bytes += skblen;
 
 	if (TX_BUFFS_AVAIL <= 0)
 		netif_stop_queue(dev);

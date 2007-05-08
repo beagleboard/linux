@@ -435,7 +435,8 @@ static int ocfs2_journal_toggle_dirty(struct ocfs2_super *osb,
 		 * handle the errors in a specific manner, so no need
 		 * to call ocfs2_error() here. */
 		mlog(ML_ERROR, "Journal dinode %llu  has invalid "
-		     "signature: %.*s", (unsigned long long)fe->i_blkno, 7,
+		     "signature: %.*s",
+		     (unsigned long long)le64_to_cpu(fe->i_blkno), 7,
 		     fe->i_signature);
 		status = -EIO;
 		goto out;
@@ -649,29 +650,20 @@ bail:
 static int ocfs2_force_read_journal(struct inode *inode)
 {
 	int status = 0;
-	int i, p_blocks;
-	u64 v_blkno, p_blkno;
-#define CONCURRENT_JOURNAL_FILL 32
+	int i;
+	u64 v_blkno, p_blkno, p_blocks, num_blocks;
+#define CONCURRENT_JOURNAL_FILL 32ULL
 	struct buffer_head *bhs[CONCURRENT_JOURNAL_FILL];
 
 	mlog_entry_void();
 
-	BUG_ON(inode->i_blocks !=
-		     ocfs2_align_bytes_to_sectors(i_size_read(inode)));
-
 	memset(bhs, 0, sizeof(struct buffer_head *) * CONCURRENT_JOURNAL_FILL);
 
-	mlog(0, "Force reading %llu blocks\n",
-		(unsigned long long)(inode->i_blocks >>
-			(inode->i_sb->s_blocksize_bits - 9)));
-
+	num_blocks = ocfs2_blocks_for_bytes(inode->i_sb, inode->i_size);
 	v_blkno = 0;
-	while (v_blkno <
-	       (inode->i_blocks >> (inode->i_sb->s_blocksize_bits - 9))) {
-
+	while (v_blkno < num_blocks) {
 		status = ocfs2_extent_map_get_blocks(inode, v_blkno,
-						     1, &p_blkno,
-						     &p_blocks);
+						     &p_blkno, &p_blocks, NULL);
 		if (status < 0) {
 			mlog_errno(status);
 			goto bail;
@@ -751,7 +743,7 @@ void ocfs2_complete_recovery(struct work_struct *work)
 		la_dinode = item->lri_la_dinode;
 		if (la_dinode) {
 			mlog(0, "Clean up local alloc %llu\n",
-			     (unsigned long long)la_dinode->i_blkno);
+			     (unsigned long long)le64_to_cpu(la_dinode->i_blkno));
 
 			ret = ocfs2_complete_local_alloc_recovery(osb,
 								  la_dinode);
@@ -764,7 +756,7 @@ void ocfs2_complete_recovery(struct work_struct *work)
 		tl_dinode = item->lri_tl_dinode;
 		if (tl_dinode) {
 			mlog(0, "Clean up truncate log %llu\n",
-			     (unsigned long long)tl_dinode->i_blkno);
+			     (unsigned long long)le64_to_cpu(tl_dinode->i_blkno));
 
 			ret = ocfs2_complete_truncate_log_recovery(osb,
 								   tl_dinode);
@@ -1306,7 +1298,7 @@ static int ocfs2_queue_orphans(struct ocfs2_super *osb,
 				continue;
 
 			iter = ocfs2_iget(osb, le64_to_cpu(de->inode),
-					  OCFS2_FI_FLAG_NOLOCK);
+					  OCFS2_FI_FLAG_ORPHAN_RECOVERY);
 			if (IS_ERR(iter))
 				continue;
 
@@ -1418,7 +1410,6 @@ static int ocfs2_recover_orphans(struct ocfs2_super *osb,
 		/* Set the proper information to get us going into
 		 * ocfs2_delete_inode. */
 		oi->ip_flags |= OCFS2_INODE_MAYBE_ORPHANED;
-		oi->ip_orphaned_slot = slot;
 		spin_unlock(&oi->ip_lock);
 
 		iput(inode);

@@ -103,7 +103,7 @@ static int aic23_detect_client(struct i2c_adapter *adapter, int address,
 
 	if (!i2c_check_functionality(adapter, I2C_FUNC_SMBUS_WORD_DATA |
 				     I2C_FUNC_SMBUS_WRITE_BYTE)) {
-		printk(KERN_WARNING "%s functinality check failed\n", 
+		printk(KERN_WARNING "%s functinality check failed\n",
 		       client_name);
 		return err;
 	}
@@ -111,7 +111,7 @@ static int aic23_detect_client(struct i2c_adapter *adapter, int address,
 	if (!(new_client = kmalloc(sizeof(struct i2c_client),
 				   GFP_KERNEL))) {
 		err = -ENOMEM;
-		printk(KERN_WARNING "Couldn't allocate memory for %s\n", 
+		printk(KERN_WARNING "Couldn't allocate memory for %s\n",
 		       client_name);
 		return err;
 	}
@@ -165,7 +165,7 @@ static struct i2c_driver aic23_driver = {
 /*
  * Configures the McBSP3 which is used to send clock to the AIC23 codec.
  * The input clock rate from DSP is 12MHz.
- * The DSP clock must be on before this is called. 
+ * The DSP clock must be on before this is called.
  */
 static int omap_mcbsp3_aic23_clock_init(void)
 {
@@ -223,7 +223,7 @@ static void set_mic(int mic_en)
 		aic23_info_l.power =
 			OSC_OFF | ADC_OFF | MIC_OFF | LINE_OFF;
 		dg_ctrl = 0x00;
-		aic23_info_l.mask = 
+		aic23_info_l.mask =
 			DAC_SELECTED | INSEL_MIC | MICM_MUTED;
 	}
 	aic23_write_value(POWER_DOWN_CONTROL_ADDR,
@@ -239,7 +239,7 @@ static void set_mic(int mic_en)
 static void aic23_init_power(void)
 {
 	aic23_write_value(RESET_CONTROL_ADDR, 0x00);
-	
+
 	if (aic23_info_l.initialized == 0) {
 		aic23_write_value(LEFT_CHANNEL_VOLUME_ADDR, LHV_MIN);
 		aic23_write_value(RIGHT_CHANNEL_VOLUME_ADDR, LHV_MIN);
@@ -248,7 +248,7 @@ static void aic23_init_power(void)
 		update_volume_left(aic23_info_l.volume_reg_left);
 		update_volume_right(aic23_info_l.volume_reg_right);
 	}
-	
+
 	aic23_info_l.mask = DAC_SELECTED | INSEL_MIC | MICM_MUTED;
 	aic23_write_value(ANALOG_AUDIO_CONTROL_ADDR,
 			        aic23_info_l.mask);
@@ -418,7 +418,7 @@ static ssize_t store_mic_loopback(struct device *dev,
 					OSC_OFF | ADC_OFF | LINE_OFF);
 		aic23_info_l.mask = STE_ENABLED | DAC_SELECTED \
 					  | INSEL_MIC | MICB_20DB;
-		aic23_write_value(ANALOG_AUDIO_CONTROL_ADDR, 
+		aic23_write_value(ANALOG_AUDIO_CONTROL_ADDR,
 					aic23_info_l.mask);
 		mic = 1;
 	}
@@ -644,7 +644,7 @@ static int __init aic23_init(void)
 	if (!aic23_info_l.power_down)
 		aic23_power_up();
 	aic23_info_l.initialized = 1;
-	printk("TLV320AIC23 I2C version %s (%s)\n", 
+	printk("TLV320AIC23 I2C version %s (%s)\n",
 	       TLV320AIC23_VERSION, TLV320AIC23_DATE);
 
 	return selftest;
@@ -655,7 +655,7 @@ static void __exit aic23_exit(void)
 	int res;
 
 	aic23_power_down();
-	if ((res = i2c_del_driver(&aic23_driver))) 
+	if ((res = i2c_del_driver(&aic23_driver)))
 		printk("aic23 i2c: Driver remove failed, module not removed.\n");
 
 	platform_device_unregister(&audio_i2c_device);

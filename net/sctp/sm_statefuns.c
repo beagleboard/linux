@@ -186,7 +186,7 @@ sctp_disposition_t sctp_sf_do_4_C(const struct sctp_endpoint *ep,
 	 * notification is passed to the upper layer.
 	 */
 	ev = sctp_ulpevent_make_assoc_change(asoc, 0, SCTP_SHUTDOWN_COMP,
-					     0, 0, 0, GFP_ATOMIC);
+					     0, 0, 0, NULL, GFP_ATOMIC);
 	if (ev)
 		sctp_add_cmd_sf(commands, SCTP_CMD_EVENT_ULP,
 				SCTP_ULPEVENT(ev));
@@ -629,7 +629,7 @@ sctp_disposition_t sctp_sf_do_5_1D_ce(const struct sctp_endpoint *ep,
 		case -SCTP_IERROR_BAD_SIG:
 		default:
 			return sctp_sf_pdiscard(ep, asoc, type, arg, commands);
-		};
+		}
 	}
 
 
@@ -661,7 +661,7 @@ sctp_disposition_t sctp_sf_do_5_1D_ce(const struct sctp_endpoint *ep,
 	ev = sctp_ulpevent_make_assoc_change(new_asoc, 0, SCTP_COMM_UP, 0,
 					     new_asoc->c.sinit_num_ostreams,
 					     new_asoc->c.sinit_max_instreams,
-					     GFP_ATOMIC);
+					     NULL, GFP_ATOMIC);
 	if (!ev)
 		goto nomem_ev;
 
@@ -790,7 +790,7 @@ sctp_disposition_t sctp_sf_do_5_1E_ca(const struct sctp_endpoint *ep,
 	ev = sctp_ulpevent_make_assoc_change(asoc, 0, SCTP_COMM_UP,
 					     0, asoc->c.sinit_num_ostreams,
 					     asoc->c.sinit_max_instreams,
-					     GFP_ATOMIC);
+					     NULL, GFP_ATOMIC);
 
 	if (!ev)
 		goto nomem;
@@ -1195,7 +1195,7 @@ static void sctp_tietags_populate(struct sctp_association *new_asoc,
 		new_asoc->c.my_ttag   = asoc->c.my_vtag;
 		new_asoc->c.peer_ttag = asoc->c.peer_vtag;
 		break;
-	};
+	}
 
 	/* Other parameters for the endpoint SHOULD be copied from the
 	 * existing parameters of the association (e.g. number of
@@ -1625,7 +1625,7 @@ static sctp_disposition_t sctp_sf_do_dupcook_a(const struct sctp_endpoint *ep,
 	ev = sctp_ulpevent_make_assoc_change(asoc, 0, SCTP_RESTART, 0,
 					     new_asoc->c.sinit_num_ostreams,
 					     new_asoc->c.sinit_max_instreams,
-					     GFP_ATOMIC);
+					     NULL, GFP_ATOMIC);
 	if (!ev)
 		goto nomem_ev;
 
@@ -1656,7 +1656,6 @@ static sctp_disposition_t sctp_sf_do_dupcook_b(const struct sctp_endpoint *ep,
 					struct sctp_association *new_asoc)
 {
 	sctp_init_chunk_t *peer_init;
-	struct sctp_ulpevent *ev;
 	struct sctp_chunk *repl;
 
 	/* new_asoc is a brand-new association, so these are not yet
@@ -1687,34 +1686,28 @@ static sctp_disposition_t sctp_sf_do_dupcook_b(const struct sctp_endpoint *ep,
 	 * D) IMPLEMENTATION NOTE: An implementation may choose to
 	 * send the Communication Up notification to the SCTP user
 	 * upon reception of a valid COOKIE ECHO chunk.
+	 *
+	 * Sadly, this needs to be implemented as a side-effect, because
+	 * we are not guaranteed to have set the association id of the real
+	 * association and so these notifications need to be delayed until
+	 * the association id is allocated.
 	 */
-	ev = sctp_ulpevent_make_assoc_change(asoc, 0, SCTP_COMM_UP, 0,
-					     new_asoc->c.sinit_num_ostreams,
-					     new_asoc->c.sinit_max_instreams,
-					     GFP_ATOMIC);
-	if (!ev)
-		goto nomem_ev;
 
-	sctp_add_cmd_sf(commands, SCTP_CMD_EVENT_ULP, SCTP_ULPEVENT(ev));
+	sctp_add_cmd_sf(commands, SCTP_CMD_ASSOC_CHANGE, SCTP_U8(SCTP_COMM_UP));
 
 	/* Sockets API Draft Section 5.3.1.6
 	 * When a peer sends a Adaptation Layer Indication parameter , SCTP
 	 * delivers this notification to inform the application that of the
 	 * peers requested adaptation layer.
+	 *
+	 * This also needs to be done as a side effect for the same reason as
+	 * above.
 	 */
-	if (asoc->peer.adaptation_ind) {
-		ev = sctp_ulpevent_make_adaptation_indication(asoc, GFP_ATOMIC);
-		if (!ev)
-			goto nomem_ev;
-
-		sctp_add_cmd_sf(commands, SCTP_CMD_EVENT_ULP,
-				SCTP_ULPEVENT(ev));
-	}
+	if (asoc->peer.adaptation_ind)
+		sctp_add_cmd_sf(commands, SCTP_CMD_ADAPTATION_IND, SCTP_NULL());
 
 	return SCTP_DISPOSITION_CONSUME;
 
-nomem_ev:
-	sctp_chunk_free(repl);
 nomem:
 	return SCTP_DISPOSITION_NOMEM;
 }
@@ -1786,7 +1779,7 @@ static sctp_disposition_t sctp_sf_do_dupcook_d(const struct sctp_endpoint *ep,
 					     SCTP_COMM_UP, 0,
 					     asoc->c.sinit_num_ostreams,
 					     asoc->c.sinit_max_instreams,
-					     GFP_ATOMIC);
+                                             NULL, GFP_ATOMIC);
 		if (!ev)
 			goto nomem;
 
@@ -1904,7 +1897,7 @@ sctp_disposition_t sctp_sf_do_5_2_4_dupcook(const struct sctp_endpoint *ep,
 		case -SCTP_IERROR_BAD_SIG:
 		default:
 			return sctp_sf_pdiscard(ep, asoc, type, arg, commands);
-		};
+		}
 	}
 
 	/* Compare the tie_tag in cookie with the verification tag of
@@ -1936,7 +1929,7 @@ sctp_disposition_t sctp_sf_do_5_2_4_dupcook(const struct sctp_endpoint *ep,
 	default: /* Discard packet for all others. */
 		retval = sctp_sf_pdiscard(ep, asoc, type, arg, commands);
 		break;
-	};
+	}
 
 	/* Delete the tempory new association. */
 	sctp_add_cmd_sf(commands, SCTP_CMD_NEW_ASOC, SCTP_ASOC(new_asoc));
@@ -3035,7 +3028,7 @@ sctp_disposition_t sctp_sf_do_9_2_final(const struct sctp_endpoint *ep,
 	 * notification is passed to the upper layer.
 	 */
 	ev = sctp_ulpevent_make_assoc_change(asoc, 0, SCTP_SHUTDOWN_COMP,
-					     0, 0, 0, GFP_ATOMIC);
+					     0, 0, 0, NULL, GFP_ATOMIC);
 	if (!ev)
 		goto nomem;
 
@@ -3115,7 +3108,7 @@ sctp_disposition_t sctp_sf_ootb(const struct sctp_endpoint *ep,
 			break;
 
 		ch_end = ((__u8 *)ch) + WORD_ROUND(ntohs(ch->length));
-		if (ch_end > skb->tail)
+		if (ch_end > skb_tail_pointer(skb))
 			break;
 
 		if (SCTP_CID_SHUTDOWN_ACK == ch->type)
@@ -3130,7 +3123,7 @@ sctp_disposition_t sctp_sf_ootb(const struct sctp_endpoint *ep,
 			return sctp_sf_pdiscard(ep, asoc, type, arg, commands);
 
 		ch = (sctp_chunkhdr_t *) ch_end;
-	} while (ch_end < skb->tail);
+	} while (ch_end < skb_tail_pointer(skb));
 
 	if (ootb_shut_ack)
 		sctp_sf_shut_8_4_5(ep, asoc, type, arg, commands);
@@ -4816,7 +4809,7 @@ sctp_disposition_t sctp_sf_t2_timer_expire(const struct sctp_endpoint *ep,
 	default:
 		BUG();
 		break;
-	};
+	}
 
 	if (!reply)
 		goto nomem;
@@ -5286,7 +5279,7 @@ static int sctp_eat_data(const struct sctp_association *asoc,
 		chunk->ecn_ce_done = 1;
 
 		af = sctp_get_af_specific(
-			ipver2af(chunk->skb->nh.iph->version));
+			ipver2af(ip_hdr(chunk->skb)->version));
 
 		if (af && af->is_ce(chunk->skb) && asoc->peer.ecn_capable) {
 			/* Do real work as sideffect. */

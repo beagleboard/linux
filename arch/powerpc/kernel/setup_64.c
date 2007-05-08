@@ -20,7 +20,6 @@
 #include <linux/reboot.h>
 #include <linux/delay.h>
 #include <linux/initrd.h>
-#include <linux/ide.h>
 #include <linux/seq_file.h>
 #include <linux/ioport.h>
 #include <linux/console.h>
@@ -110,7 +109,7 @@ static void check_smt_enabled(void)
 	dn = of_find_node_by_path("/options");
 
 	if (dn) {
-		smt_option = get_property(dn, "ibm,smt-enabled", NULL);
+		smt_option = of_get_property(dn, "ibm,smt-enabled", NULL);
 
                 if (smt_option) {
 			if (!strcmp(smt_option, "on"))
@@ -305,10 +304,10 @@ static void __init initialize_cache_info(void)
 
 			size = 0;
 			lsize = cur_cpu_spec->dcache_bsize;
-			sizep = get_property(np, "d-cache-size", NULL);
+			sizep = of_get_property(np, "d-cache-size", NULL);
 			if (sizep != NULL)
 				size = *sizep;
-			lsizep = get_property(np, dc, NULL);
+			lsizep = of_get_property(np, dc, NULL);
 			if (lsizep != NULL)
 				lsize = *lsizep;
 			if (sizep == 0 || lsizep == 0)
@@ -322,10 +321,10 @@ static void __init initialize_cache_info(void)
 
 			size = 0;
 			lsize = cur_cpu_spec->icache_bsize;
-			sizep = get_property(np, "i-cache-size", NULL);
+			sizep = of_get_property(np, "i-cache-size", NULL);
 			if (sizep != NULL)
 				size = *sizep;
-			lsizep = get_property(np, ic, NULL);
+			lsizep = of_get_property(np, ic, NULL);
 			if (lsizep != NULL)
 				lsize = *lsizep;
 			if (sizep == 0 || lsizep == 0)
@@ -583,14 +582,14 @@ void __init setup_per_cpu_areas(void)
 	char *ptr;
 
 	/* Copy section for each CPU (we discard the original) */
-	size = ALIGN(__per_cpu_end - __per_cpu_start, SMP_CACHE_BYTES);
+	size = ALIGN(__per_cpu_end - __per_cpu_start, PAGE_SIZE);
 #ifdef CONFIG_MODULES
 	if (size < PERCPU_ENOUGH_ROOM)
 		size = PERCPU_ENOUGH_ROOM;
 #endif
 
 	for_each_possible_cpu(i) {
-		ptr = alloc_bootmem_node(NODE_DATA(cpu_to_node(i)), size);
+		ptr = alloc_bootmem_pages_node(NODE_DATA(cpu_to_node(i)), size);
 		if (!ptr)
 			panic("Cannot allocate cpu data for CPU %d\n", i);
 

@@ -31,7 +31,6 @@
 #include <linux/timex.h>
 #include <linux/init.h>
 #include <linux/slab.h>
-#include <linux/pci.h>
 #include <linux/delay.h>
 #include <linux/irq.h>
 #include <linux/random.h>
@@ -85,7 +84,7 @@ static void request_ras_irqs(struct device_node *np,
 	 * map those interrupts using the default interrupt host and default
 	 * trigger
 	 */
-	opicprop = get_property(np, "open-pic-interrupt", &opicplen);
+	opicprop = of_get_property(np, "open-pic-interrupt", &opicplen);
 	if (opicprop) {
 		opicplen /= sizeof(u32);
 		for (i = 0; i < opicplen; i++) {

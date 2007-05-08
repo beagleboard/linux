@@ -71,12 +71,12 @@ static unsigned int mpui1610_sleep_save[MPUI1610_SLEEP_SAVE_SIZE];
 
 static unsigned short enable_dyn_sleep = 1;
 
-static ssize_t omap_pm_sleep_while_idle_show(struct subsystem * subsys, char *buf)
+static ssize_t omap_pm_sleep_while_idle_show(struct kset *kset, char *buf)
 {
 	return sprintf(buf, "%hu\n", enable_dyn_sleep);
 }
 
-static ssize_t omap_pm_sleep_while_idle_store(struct subsystem * subsys,
+static ssize_t omap_pm_sleep_while_idle_store(struct kset *kset,
 					      const char * buf,
 					      size_t n)
 {
@@ -99,7 +99,7 @@ static struct subsys_attribute sleep_while_idle_attr = {
 	.store  = omap_pm_sleep_while_idle_store,
 };
 
-extern struct subsystem power_subsys;
+extern struct kset power_subsys;
 static void (*omap_sram_idle)(void) = NULL;
 static void (*omap_sram_suspend)(unsigned long r0, unsigned long r1) = NULL;
 
@@ -684,10 +684,10 @@ static struct irqaction omap_wakeup_irq = {
 
 
 static struct pm_ops omap_pm_ops ={
-	.pm_disk_mode	= 0,
 	.prepare	= omap_pm_prepare,
 	.enter		= omap_pm_enter,
 	.finish		= omap_pm_finish,
+	.valid		= pm_valid_only_mem,
 };
 
 static int __init omap_pm_init(void)

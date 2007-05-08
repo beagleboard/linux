@@ -223,7 +223,7 @@ static void *dev_mc_seq_start(struct seq_file *seq, loff_t *pos)
 	loff_t off = 0;
 
 	read_lock(&dev_base_lock);
-	for (dev = dev_base; dev; dev = dev->next) {
+	for_each_netdev(dev) {
 		if (off++ == *pos)
 			return dev;
 	}
@@ -232,9 +232,8 @@ static void *dev_mc_seq_start(struct seq_file *seq, loff_t *pos)
 
 static void *dev_mc_seq_next(struct seq_file *seq, void *v, loff_t *pos)
 {
-	struct net_device *dev = v;
 	++*pos;
-	return dev->next;
+	return next_net_device((struct net_device *)v);
 }
 
 static void dev_mc_seq_stop(struct seq_file *seq, void *v)
@@ -264,7 +263,7 @@ static int dev_mc_seq_show(struct seq_file *seq, void *v)
 	return 0;
 }
 
-static struct seq_operations dev_mc_seq_ops = {
+static const struct seq_operations dev_mc_seq_ops = {
 	.start = dev_mc_seq_start,
 	.next  = dev_mc_seq_next,
 	.stop  = dev_mc_seq_stop,

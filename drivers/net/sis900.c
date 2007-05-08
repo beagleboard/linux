@@ -1160,7 +1160,6 @@ sis900_init_rx_ring(struct net_device *net_dev)
 			   buffer */
 			break;
 		}
-		skb->dev = net_dev;
 		sis_priv->rx_skbuff[i] = skb;
 		sis_priv->rx_ring[i].cmdsts = RX_BUF_SIZE;
                 sis_priv->rx_ring[i].bufptr = pci_map_single(sis_priv->pci_dev,
@@ -1754,6 +1753,7 @@ static int sis900_rx(struct net_device *net_dev)
 			sis_priv->rx_ring[entry].cmdsts = RX_BUF_SIZE;
 		} else {
 			struct sk_buff * skb;
+			struct sk_buff * rx_skb;
 
 			pci_unmap_single(sis_priv->pci_dev,
 				sis_priv->rx_ring[entry].bufptr, RX_BUF_SIZE,
@@ -1787,10 +1787,10 @@ static int sis900_rx(struct net_device *net_dev)
 			}
 
 			/* give the socket buffer to upper layers */
-			skb = sis_priv->rx_skbuff[entry];
-			skb_put(skb, rx_size);
-			skb->protocol = eth_type_trans(skb, net_dev);
-			netif_rx(skb);
+			rx_skb = sis_priv->rx_skbuff[entry];
+			skb_put(rx_skb, rx_size);
+			rx_skb->protocol = eth_type_trans(rx_skb, net_dev);
+			netif_rx(rx_skb);
 
 			/* some network statistics */
 			if ((rx_status & BCAST) == MCAST)
@@ -1800,7 +1800,6 @@ static int sis900_rx(struct net_device *net_dev)
 			sis_priv->stats.rx_packets++;
 			sis_priv->dirty_rx++;
 refill_rx_ring:
-			skb->dev = net_dev;
 			sis_priv->rx_skbuff[entry] = skb;
 			sis_priv->rx_ring[entry].cmdsts = RX_BUF_SIZE;
                 	sis_priv->rx_ring[entry].bufptr =
@@ -1832,7 +1831,6 @@ refill_rx_ring:
 				sis_priv->stats.rx_dropped++;
 				break;
 			}
-			skb->dev = net_dev;
 			sis_priv->rx_skbuff[entry] = skb;
 			sis_priv->rx_ring[entry].cmdsts = RX_BUF_SIZE;
                 	sis_priv->rx_ring[entry].bufptr =

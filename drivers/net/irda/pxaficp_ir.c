@@ -134,7 +134,7 @@ static int pxa_irda_set_speed(struct pxa_irda *si, int speed)
 			DCSR(si->rxdma) &= ~DCSR_RUN;
 			/* disable FICP */
 			ICCR0 = 0;
-			pxa_set_cken(CKEN13_FICP, 0);
+			pxa_set_cken(CKEN_FICP, 0);
 
 			/* set board transceiver to SIR mode */
 			si->pdata->transceiver_mode(si->dev, IR_SIRMODE);
@@ -144,7 +144,7 @@ static int pxa_irda_set_speed(struct pxa_irda *si, int speed)
 			pxa_gpio_mode(GPIO47_STTXD_MD);
 
 			/* enable the STUART clock */
-			pxa_set_cken(CKEN5_STUART, 1);
+			pxa_set_cken(CKEN_STUART, 1);
 		}
 
 		/* disable STUART first */
@@ -169,7 +169,7 @@ static int pxa_irda_set_speed(struct pxa_irda *si, int speed)
 		/* disable STUART */
 		STIER = 0;
 		STISR = 0;
-		pxa_set_cken(CKEN5_STUART, 0);
+		pxa_set_cken(CKEN_STUART, 0);
 
 		/* disable FICP first */
 		ICCR0 = 0;
@@ -182,7 +182,7 @@ static int pxa_irda_set_speed(struct pxa_irda *si, int speed)
 		pxa_gpio_mode(GPIO47_ICPTXD_MD);
 
 		/* enable the FICP clock */
-		pxa_set_cken(CKEN13_FICP, 1);
+		pxa_set_cken(CKEN_FICP, 1);
 
 		si->speed = speed;
 		pxa_irda_fir_dma_rx_start(si);
@@ -386,12 +386,12 @@ static void pxa_irda_fir_irq_eif(struct pxa_irda *si, struct net_device *dev, in
 
 		/* Align IP header to 20 bytes  */
 		skb_reserve(skb, 1);
-		memcpy(skb->data, si->dma_rx_buff, len);
+		skb_copy_to_linear_data(skb, si->dma_rx_buff, len);
 		skb_put(skb, len);
 
 		/* Feed it to IrLAP  */
 		skb->dev = dev;
-		skb->mac.raw  = skb->data;
+		skb_reset_mac_header(skb);
 		skb->protocol = htons(ETH_P_IRDA);
 		netif_rx(skb);
 
@@ -484,7 +484,7 @@ static int pxa_irda_hard_xmit(struct sk_buff *skb, struct net_device *dev)
 		unsigned long mtt = irda_get_mtt(skb);
 
 		si->dma_tx_buff_len = skb->len;
-		memcpy(si->dma_tx_buff, skb->data, skb->len);
+		skb_copy_from_linear_data(skb, si->dma_tx_buff, skb->len);
 
 		if (mtt)
 			while ((unsigned)(OSCR - si->last_oscr)/4 < mtt)
@@ -593,7 +593,7 @@ static void pxa_irda_shutdown(struct pxa_irda *si)
 	/* disable STUART SIR mode */
 	STISR = 0;
 	/* disable the STUART clock */
-	pxa_set_cken(CKEN5_STUART, 0);
+	pxa_set_cken(CKEN_STUART, 0);
 
 	/* disable DMA */
 	DCSR(si->txdma) &= ~DCSR_RUN;
@@ -601,7 +601,7 @@ static void pxa_irda_shutdown(struct pxa_irda *si)
 	/* disable FICP */
 	ICCR0 = 0;
 	/* disable the FICP clock */
-	pxa_set_cken(CKEN13_FICP, 0);
+	pxa_set_cken(CKEN_FICP, 0);
 
 	DRCMR17 = 0;
 	DRCMR18 = 0;

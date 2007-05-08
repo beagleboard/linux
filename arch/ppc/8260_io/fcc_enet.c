@@ -29,7 +29,6 @@
 #include <linux/ioport.h>
 #include <linux/slab.h>
 #include <linux/interrupt.h>
-#include <linux/pci.h>
 #include <linux/init.h>
 #include <linux/delay.h>
 #include <linux/netdevice.h>
@@ -734,7 +733,6 @@ for (;;) {
 			cep->stats.rx_dropped++;
 		}
 		else {
-			skb->dev = dev;
 			skb_put(skb,pkt_len);	/* Make room */
 			eth_copy_and_sum(skb,
 				(unsigned char *)__va(bdp->cbd_bufaddr),
