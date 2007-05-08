@@ -46,6 +46,8 @@
 #include <asm/arch/board.h>
 #include <asm/arch/gpio.h>
 
+#include "sdrc.h"
+
 #define PRCM_REVISION		0x000
 #define PRCM_SYSCONFIG		0x010
 #define PRCM_IRQSTATUS_MPU	0x018
@@ -141,7 +143,7 @@
 #define PM_PWSTST_DSP		0x8e4
 
 static void (*omap2_sram_idle)(void);
-static void (*omap2_sram_suspend)(int dllctrl);
+static void (*omap2_sram_suspend)(void __iomem *dllctrl);
 static void (*saved_idle)(void);
 
 static u32 prcm_base = IO_ADDRESS(OMAP2_PRCM_BASE);
@@ -438,7 +440,6 @@ static struct subsys_attribute sleep_while_idle_attr = {
 static struct clk *osc_ck, *emul_ck;
 
 #define CONTROL_DEVCONF		__REG32(0x48000274)
-#define SDRC_DLLA_CTRL		__REG32(0x68009060)
 
 static int omap2_fclks_active(void)
 {
@@ -516,7 +517,7 @@ static void omap2_enter_full_retention(void)
 
 	serial_console_sleep(1);
 	/* Jump to SRAM suspend code */
-	omap2_sram_suspend(SDRC_DLLA_CTRL);
+	omap2_sram_suspend(OMAP_SDRC_REGADDR(SDRC_DLLA_CTRL));
 no_sleep:
 	serial_console_sleep(0);
 

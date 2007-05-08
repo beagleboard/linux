@@ -27,9 +27,10 @@
 #include <asm/arch/clock.h>
 #include <asm/arch/sram.h>
 
-#include "prcm-regs.h"
 #include "memory.h"
+#include "sdrc.h"
 
+#define SMS_SYSCONFIG			(OMAP2_SMS_BASE + 0x010)
 
 static struct memory_timings mem_timings;
 
@@ -53,7 +54,7 @@ void omap2_init_memory_params(u32 force_lock_to_unlock_mode)
 	unsigned long dll_cnt;
 	u32 fast_dll = 0;
 
-	mem_timings.m_type = !((SDRC_MR_0 & 0x3) == 0x1); /* DDR = 1, SDR = 0 */
+	mem_timings.m_type = !((sdrc_read_reg(SDRC_MR_0) & 0x3) == 0x1); /* DDR = 1, SDR = 0 */
 
 	/* 2422 es2.05 and beyond has a single SIP DDR instead of 2 like others.
 	 * In the case of 2422, its ok to use CS1 instead of CS0.
@@ -73,11 +74,11 @@ void omap2_init_memory_params(u32 force_lock_to_unlock_mode)
 		mem_timings.dll_mode = M_LOCK;
 
 	if (mem_timings.base_cs == 0) {
-		fast_dll = SDRC_DLLA_CTRL;
-		dll_cnt = SDRC_DLLA_STATUS & 0xff00;
+		fast_dll = sdrc_read_reg(SDRC_DLLA_CTRL);
+		dll_cnt = sdrc_read_reg(SDRC_DLLA_STATUS) & 0xff00;
 	} else {
-		fast_dll = SDRC_DLLB_CTRL;
-		dll_cnt = SDRC_DLLB_STATUS & 0xff00;
+		fast_dll = sdrc_read_reg(SDRC_DLLB_CTRL);
+		dll_cnt = sdrc_read_reg(SDRC_DLLB_STATUS) & 0xff00;
 	}
 	if (force_lock_to_unlock_mode) {
 		fast_dll &= ~0xff00;
@@ -106,14 +107,14 @@ void __init omap2_init_memory(void)
 {
 	u32 l;
 
-	l = SMS_SYSCONFIG;
+	l = omap_readl(SMS_SYSCONFIG);
 	l &= ~(0x3 << 3);
 	l |= (0x2 << 3);
-	SMS_SYSCONFIG = l;
+	omap_writel(l, SMS_SYSCONFIG);
 
-	l = SDRC_SYSCONFIG;
+	l = sdrc_read_reg(SDRC_SYSCONFIG);
 	l &= ~(0x3 << 3);
 	l |= (0x2 << 3);
-	SDRC_SYSCONFIG = l;
+	sdrc_write_reg(l, SDRC_SYSCONFIG);
 
 }

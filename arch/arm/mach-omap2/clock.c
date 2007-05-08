@@ -32,6 +32,7 @@
 #include "prcm-regs.h"
 #include "memory.h"
 #include "clock.h"
+#include "sdrc.h"
 
 #undef DEBUG
 
@@ -447,7 +448,8 @@ static long omap2_clk_round_rate(struct clk *clk, unsigned long rate)
  */
 static u32 omap2_dll_force_needed(void)
 {
-	u32 dll_state = SDRC_DLLA_CTRL;		/* dlla and dllb are a set */
+	/* dlla and dllb are a set */
+	u32 dll_state = sdrc_read_reg(SDRC_DLLA_CTRL);
 
 	if ((dll_state & (1 << 2)) == (1 << 2))
 		return 1;
