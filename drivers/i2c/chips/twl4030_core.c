@@ -891,9 +891,7 @@ static int __init twl4030_init(void)
 
 static void __exit twl4030_exit(void)
 {
-	if (i2c_del_driver(&twl4030_driver))
-		printk(KERN_ERR
-			"TWL4030: Driver remove failed, module not removed\n");
+	i2c_del_driver(&twl4030_driver);
 	twl_irq_used = FREE;
 }
 

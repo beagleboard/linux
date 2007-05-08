@@ -655,8 +655,7 @@ static void __exit aic23_exit(void)
 	int res;
 
 	aic23_power_down();
-	if ((res = i2c_del_driver(&aic23_driver)))
-		printk("aic23 i2c: Driver remove failed, module not removed.\n");
+	i2c_del_driver(&aic23_driver);
 
 	platform_device_unregister(&audio_i2c_device);
 	platform_driver_unregister(&audio_i2c_driver);

@@ -940,8 +940,7 @@ static int __init menelaus_init(void)
 
 static void __exit menelaus_exit(void)
 {
-	if (i2c_del_driver(&menelaus_i2c_driver) < 0)
-		pr_err("driver remove failed\n");
+	i2c_del_driver(&menelaus_i2c_driver);
 
 	/* FIXME: Shutdown menelaus parts that can be shut down */
 }
