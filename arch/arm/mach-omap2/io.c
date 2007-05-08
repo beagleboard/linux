@@ -88,50 +88,6 @@ static struct map_desc omap2_io_desc[] __initdata = {
 		.length		= DSP_MMU_24XX_SIZE,
 		.type		= MT_DEVICE
 	},
-#ifdef CONFIG_ARCH_OMAP2430
-	{
-		.virtual	= L4_WK_243X_VIRT,
-		.pfn		= __phys_to_pfn(L4_WK_243X_PHYS),
-		.length		= L4_WK_243X_SIZE,
-		.type		= MT_DEVICE
-	},
-	{
-		.virtual	= OMAP243X_GPMC_VIRT,
-		.pfn		= __phys_to_pfn(OMAP243X_GPMC_PHYS),
-		.length		= OMAP243X_GPMC_SIZE,
-		.type		= MT_DEVICE
-	},
-	{
-		.virtual	= OMAP243X_SDRC_VIRT,
-		.pfn		= __phys_to_pfn(OMAP243X_SDRC_PHYS),
-		.length		= OMAP243X_SDRC_SIZE,
-		.type		= MT_DEVICE
-	},
-	{
-		.virtual	= OMAP243X_SMS_VIRT,
-		.pfn		= __phys_to_pfn(OMAP243X_SMS_PHYS),
-		.length		= OMAP243X_SMS_SIZE,
-		.type		= MT_DEVICE
-	},
-#endif
-	{
-		.virtual	= DSP_MEM_24XX_VIRT,
-		.pfn		= __phys_to_pfn(DSP_MEM_24XX_PHYS),
-		.length		= DSP_MEM_24XX_SIZE,
-		.type		= MT_DEVICE
-	},
-	{
-		.virtual	= DSP_IPI_24XX_VIRT,
-		.pfn		= __phys_to_pfn(DSP_IPI_24XX_PHYS),
-		.length		= DSP_IPI_24XX_SIZE,
-		.type		= MT_DEVICE
-	},
-	{
-		.virtual	= DSP_MMU_24XX_VIRT,
-		.pfn		= __phys_to_pfn(DSP_MMU_24XX_PHYS),
-		.length		= DSP_MMU_24XX_SIZE,
-		.type		= MT_DEVICE
-	}
 };
 
 void __init omap2_map_common_io(void)
