@@ -115,7 +115,7 @@
 
 #include <linux/clk.h>
 
-extern struct subsystem power_subsys;
+extern struct kset power_subsys;
 
 extern void prevent_idle_sleep(void);
 extern void allow_idle_sleep(void);
