@@ -142,7 +142,8 @@ static void sti_netlink_receive(struct sock *sk, int len)
 static int __init sti_netlink_init(void)
 {
 	sti_sock = netlink_kernel_create(NETLINK_USERSOCK, 0,
-					 sti_netlink_receive, THIS_MODULE);
+					 sti_netlink_receive, NULL,
+					 THIS_MODULE);
 	if (!sti_sock) {
 		printk(KERN_ERR "STI: Failed to create netlink socket\n");
 		return -ENODEV;
