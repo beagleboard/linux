@@ -395,7 +395,7 @@ omap_irda_irq(int irq, void *dev_id)
 					w - 4);
 
 		skb->dev = dev;
-		skb->mac.raw = skb->data;
+		skb_reset_mac_header(skb);
 		skb->protocol = htons(ETH_P_IRDA);
 		omap_ir->stats.rx_packets++;
 		omap_ir->stats.rx_bytes += skb->len;
@@ -444,7 +444,7 @@ static int omap_irda_hard_xmit(struct sk_buff *skb, struct net_device *dev)
 	netif_stop_queue(dev);
 
 	/* Copy skb data to DMA buffer */
-	memcpy(omap_ir->tx_buf_dma_virt, skb->data, skb->len);
+	skb_copy_from_linear_data(skb, omap_ir->tx_buf_dma_virt, skb->len);
 
 	/* Copy skb data to DMA buffer */
 	omap_ir->stats.tx_bytes += skb->len;
