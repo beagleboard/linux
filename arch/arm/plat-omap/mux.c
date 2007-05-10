@@ -32,7 +32,6 @@
 
 #ifdef CONFIG_OMAP_MUX
 
-#define OMAP24XX_L4_BASE	0x48000000
 #define OMAP24XX_PULL_ENA	(1 << 3)
 #define OMAP24XX_PULL_UP	(1 << 4)
 
@@ -75,6 +74,7 @@ int __init_or_module omap_cfg_reg(const unsigned long index)
 	}
 
 	cfg = (struct pin_config *)&pin_table[index];
+#ifdef CONFIG_ARCH_OMAP24XX
 	if (cpu_is_omap24xx()) {
 		u8 reg = 0;
 
@@ -85,7 +85,7 @@ int __init_or_module omap_cfg_reg(const unsigned long index)
 			reg |= OMAP24XX_PULL_UP;
 #if defined(CONFIG_OMAP_MUX_DEBUG) || defined(CONFIG_OMAP_MUX_WARNINGS)
 		{
-			u8 orig = omap_readb(OMAP24XX_L4_BASE + cfg->mux_reg);
+			u8 orig = omap_readb(OMAP24XX_CTRL_BASE + cfg->mux_reg);
 			u8 debug = 0;
 
 #ifdef	CONFIG_OMAP_MUX_DEBUG
@@ -95,14 +95,15 @@ int __init_or_module omap_cfg_reg(const unsigned long index)
 			if (debug || warn)
 				printk("MUX: setup %s (0x%08x): 0x%02x -> 0x%02x\n",
 						cfg->name,
-						OMAP24XX_L4_BASE + cfg->mux_reg,
+						OMAP24XX_CTRL_BASE + cfg->mux_reg,
 						orig, reg);
 		}
 #endif
-		omap_writeb(reg, OMAP24XX_L4_BASE + cfg->mux_reg);
+		omap_writeb(reg, OMAP24XX_CTRL_BASE + cfg->mux_reg);
 
 		return 0;
 	}
+#endif /* ARCH_OMAP24XX */
 
 	/* Check the mux register in question */
 	if (cfg->mux_reg) {
