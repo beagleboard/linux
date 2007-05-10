@@ -279,6 +279,10 @@
 #define INT_24XX_USB_IRQ_OTG	80
 #define INT_24XX_MMC_IRQ	83
 
+#define	INT_243X_HS_USB_MC	92
+#define	INT_243X_HS_USB_DMA	93
+#define	INT_243X_CARKIT		94
+
 /* Max. 128 level 2 IRQs (OMAP1610), 192 GPIOs (OMAP730) and
  * 16 MPUIO lines */
 #define OMAP_MAX_GPIO_LINES	192

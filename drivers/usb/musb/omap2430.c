@@ -61,6 +61,12 @@ static void omap_vbus_power(struct musb *musb, int is_on, int sleeping)
 {
 }
 
+static void omap_set_vbus(struct musb *musb, int is_on)
+{
+	WARN_ON(is_on && is_peripheral_active(musb));
+	return omap_vbus_power(musb, is_on, 0);
+}
+
 int __init musb_platform_init(struct musb *musb)
 {
 	/* Erratum - reset value of STP has pull-down.
@@ -82,12 +88,13 @@ int __init musb_platform_init(struct musb *musb)
 			omap_readl(OTG_SYSSTATUS), omap_readl(OTG_INTERFSEL),
 			omap_readl(OTG_SIMENABLE));
 
+	musb->board_set_vbus = omap_set_vbus;
 	omap_vbus_power(musb, musb->board_mode == MUSB_HOST, 1);
 
 	return 0;
 }
 
-int __exit musb_platform_exit(struct musb *musb)
+int musb_platform_exit(struct musb *musb)
 {
 	omap_vbus_power(musb, 0 /*off*/, 1);
 	clk_disable(musb->clock);

@@ -296,6 +296,7 @@ static int __init omap2430_i2c_init(void)
 }
 
 extern void __init sdp2430_flash_init(void);
+extern void __init sdp2430_usb_init(void);
 
 static void __init omap_2430sdp_init(void)
 {
@@ -305,6 +306,7 @@ static void __init omap_2430sdp_init(void)
 	omap_serial_init();
 
 	sdp2430_flash_init();
+	sdp2430_usb_init();
 
 	spi_register_board_info(sdp2430_spi_board_info,
 				ARRAY_SIZE(sdp2430_spi_board_info));

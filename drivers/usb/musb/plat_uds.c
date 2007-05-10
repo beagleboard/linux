@@ -1997,6 +1997,7 @@ static struct platform_driver musb_driver = {
 		.bus		= &platform_bus_type,
 		.owner		= THIS_MODULE,
 	},
+	.probe		= musb_probe,
 	.remove		= __devexit_p(musb_remove),
 	.shutdown	= musb_shutdown,
 	.suspend	= musb_suspend,

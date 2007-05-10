@@ -11,6 +11,9 @@
 #define __MUSB_OMAP243X_H__
 
 #ifdef CONFIG_ARCH_OMAP2430
+
+#include <asm/arch/usb.h>
+
 /*
  * OMAP2430-specific definitions
  */
