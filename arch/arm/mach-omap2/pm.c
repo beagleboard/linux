@@ -676,8 +676,6 @@ static int omap2_pm_prepare(suspend_state_t state)
 	case PM_SUSPEND_STANDBY:
 	case PM_SUSPEND_MEM:
 		break;
-	case PM_SUSPEND_DISK:
-		return -ENOTSUPP;
 	default:
 		return -EINVAL;
 	}
@@ -712,9 +710,6 @@ static int omap2_pm_enter(suspend_state_t state)
 	case PM_SUSPEND_STANDBY:
 	case PM_SUSPEND_MEM:
 		ret = omap2_pm_suspend();
-		break;
-	case PM_SUSPEND_DISK:
-		ret = -ENOTSUPP;
 		break;
 	default:
 		ret = -EINVAL;
