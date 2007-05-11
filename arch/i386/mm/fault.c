@@ -14,20 +14,20 @@
 #include <linux/mman.h>
 #include <linux/mm.h>
 #include <linux/smp.h>
-#include <linux/smp_lock.h>
 #include <linux/interrupt.h>
 #include <linux/init.h>
 #include <linux/tty.h>
 #include <linux/vt_kern.h>		/* For unblank_screen() */
 #include <linux/highmem.h>
 #include <linux/bootmem.h>		/* for max_low_pfn */
+#include <linux/vmalloc.h>
 #include <linux/module.h>
 #include <linux/kprobes.h>
 #include <linux/uaccess.h>
+#include <linux/kdebug.h>
 
 #include <asm/system.h>
 #include <asm/desc.h>
-#include <asm/kdebug.h>
 #include <asm/segment.h>
 
 extern void die(const char *,struct pt_regs *,long);

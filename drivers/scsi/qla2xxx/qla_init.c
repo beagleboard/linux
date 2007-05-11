@@ -13,7 +13,6 @@
 
 #ifdef CONFIG_SPARC
 #include <asm/prom.h>
-#include <asm/pbm.h>
 #endif
 
 /* XXX(hch): this is ugly, but we don't want to pull in exioctl.h */
@@ -130,18 +129,17 @@ qla2x00_initialize_adapter(scsi_qla_host_t *ha)
 int
 qla2100_pci_config(scsi_qla_host_t *ha)
 {
-	uint16_t w, mwi;
+	int ret;
+	uint16_t w;
 	uint32_t d;
 	unsigned long flags;
 	struct device_reg_2xxx __iomem *reg = &ha->iobase->isp;
 
 	pci_set_master(ha->pdev);
-	mwi = 0;
-	if (pci_set_mwi(ha->pdev))
-		mwi = PCI_COMMAND_INVALIDATE;
+	ret = pci_set_mwi(ha->pdev);
 
 	pci_read_config_word(ha->pdev, PCI_COMMAND, &w);
-	w |= mwi | (PCI_COMMAND_PARITY | PCI_COMMAND_SERR);
+	w |= (PCI_COMMAND_PARITY | PCI_COMMAND_SERR);
 	pci_write_config_word(ha->pdev, PCI_COMMAND, w);
 
 	/* Reset expansion ROM address decode enable */
@@ -166,22 +164,22 @@ qla2100_pci_config(scsi_qla_host_t *ha)
 int
 qla2300_pci_config(scsi_qla_host_t *ha)
 {
-	uint16_t	w, mwi;
+	int		ret;
+	uint16_t	w;
 	uint32_t	d;
 	unsigned long   flags = 0;
 	uint32_t	cnt;
 	struct device_reg_2xxx __iomem *reg = &ha->iobase->isp;
 
 	pci_set_master(ha->pdev);
-	mwi = 0;
-	if (pci_set_mwi(ha->pdev))
-		mwi = PCI_COMMAND_INVALIDATE;
+	ret = pci_set_mwi(ha->pdev);
 
 	pci_read_config_word(ha->pdev, PCI_COMMAND, &w);
-	w |= mwi | (PCI_COMMAND_PARITY | PCI_COMMAND_SERR);
+	w |= (PCI_COMMAND_PARITY | PCI_COMMAND_SERR);
 
 	if (IS_QLA2322(ha) || IS_QLA6322(ha))
 		w &= ~PCI_COMMAND_INTX_DISABLE;
+	pci_write_config_word(ha->pdev, PCI_COMMAND, w);
 
 	/*
 	 * If this is a 2300 card and not 2312, reset the
@@ -210,7 +208,7 @@ qla2300_pci_config(scsi_qla_host_t *ha)
 		ha->fb_rev = RD_FB_CMD_REG(ha, reg);
 
 		if (ha->fb_rev == FPM_2300)
-			w &= ~PCI_COMMAND_INVALIDATE;
+			pci_clear_mwi(ha->pdev);
 
 		/* Deselect FPM registers. */
 		WRT_REG_WORD(&reg->ctrl_status, 0x0);
@@ -227,7 +225,6 @@ qla2300_pci_config(scsi_qla_host_t *ha)
 
 		spin_unlock_irqrestore(&ha->hardware_lock, flags);
 	}
-	pci_write_config_word(ha->pdev, PCI_COMMAND, w);
 
 	pci_write_config_byte(ha->pdev, PCI_LATENCY_TIMER, 0x80);
 
@@ -253,19 +250,18 @@ qla2300_pci_config(scsi_qla_host_t *ha)
 int
 qla24xx_pci_config(scsi_qla_host_t *ha)
 {
-	uint16_t w, mwi;
+	int ret;
+	uint16_t w;
 	uint32_t d;
 	unsigned long flags = 0;
 	struct device_reg_24xx __iomem *reg = &ha->iobase->isp24;
 	int pcix_cmd_reg, pcie_dctl_reg;
 
 	pci_set_master(ha->pdev);
-	mwi = 0;
-	if (pci_set_mwi(ha->pdev))
-		mwi = PCI_COMMAND_INVALIDATE;
+	ret = pci_set_mwi(ha->pdev);
 
 	pci_read_config_word(ha->pdev, PCI_COMMAND, &w);
-	w |= mwi | (PCI_COMMAND_PARITY | PCI_COMMAND_SERR);
+	w |= (PCI_COMMAND_PARITY | PCI_COMMAND_SERR);
 	w &= ~PCI_COMMAND_INTX_DISABLE;
 	pci_write_config_word(ha->pdev, PCI_COMMAND, w);
 
@@ -1400,9 +1396,8 @@ static void qla2xxx_nvram_wwn_from_ofw(scsi_qla_host_t *ha, nvram_t *nv)
 {
 #ifdef CONFIG_SPARC
 	struct pci_dev *pdev = ha->pdev;
-	struct pcidev_cookie *pcp = pdev->sysdata;
-	struct device_node *dp = pcp->prom_node;
-	u8 *val;
+	struct device_node *dp = pci_device_to_OF_node(pdev);
+	const u8 *val;
 	int len;
 
 	val = of_get_property(dp, "port-wwn", &len);
@@ -3373,9 +3368,8 @@ static void qla24xx_nvram_wwn_from_ofw(scsi_qla_host_t *ha, struct nvram_24xx *n
 {
 #ifdef CONFIG_SPARC
 	struct pci_dev *pdev = ha->pdev;
-	struct pcidev_cookie *pcp = pdev->sysdata;
-	struct device_node *dp = pcp->prom_node;
-	u8 *val;
+	struct device_node *dp = pci_device_to_OF_node(pdev);
+	const u8 *val;
 	int len;
 
 	val = of_get_property(dp, "port-wwn", &len);
@@ -3930,6 +3924,8 @@ qla2x00_try_to_stop_firmware(scsi_qla_host_t *ha)
 	int ret, retries;
 
 	if (!IS_QLA24XX(ha) && !IS_QLA54XX(ha))
+		return;
+	if (!ha->fw_major_version)
 		return;
 
 	ret = qla2x00_stop_firmware(ha);

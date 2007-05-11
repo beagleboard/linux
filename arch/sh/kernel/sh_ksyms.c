@@ -5,7 +5,6 @@
 #include <linux/sched.h>
 #include <linux/in6.h>
 #include <linux/interrupt.h>
-#include <linux/smp_lock.h>
 #include <linux/vmalloc.h>
 #include <linux/pci.h>
 #include <linux/irq.h>
@@ -58,8 +57,6 @@ EXPORT_SYMBOL(__down_interruptible);
 EXPORT_SYMBOL(__udelay);
 EXPORT_SYMBOL(__ndelay);
 EXPORT_SYMBOL(__const_udelay);
-
-EXPORT_SYMBOL(__div64_32);
 
 #define DECLARE_EXPORT(name) extern void name(void);EXPORT_SYMBOL(name)
 

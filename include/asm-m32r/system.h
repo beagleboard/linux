@@ -122,8 +122,6 @@ static inline void local_irq_disable(void)
 #define xchg(ptr,x) \
 	((__typeof__(*(ptr)))__xchg((unsigned long)(x),(ptr),sizeof(*(ptr))))
 
-#define tas(ptr)	(xchg((ptr),1))
-
 #ifdef CONFIG_SMP
 extern void  __xchg_called_with_bad_pointer(void);
 #endif
@@ -138,7 +136,7 @@ extern void  __xchg_called_with_bad_pointer(void);
 	"add3	"reg0", "addr", #0x2000;		\n\t"	\
 	"ld	"reg0", @"reg0";			\n\t"	\
 	"unlock	"reg0", @"reg1";			\n\t"
-	/* FIXME: This workaround code cannot handle kenrel modules
+	/* FIXME: This workaround code cannot handle kernel modules
 	 * correctly under SMP environment.
 	 */
 #else	/* CONFIG_CHIP_M32700_TS1 */

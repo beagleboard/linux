@@ -52,7 +52,7 @@
 #include <asm/unwind.h>
 #include <asm/smp.h>
 #include <asm/arch_hooks.h>
-#include <asm/kdebug.h>
+#include <linux/kdebug.h>
 #include <asm/stacktrace.h>
 
 #include <linux/module.h>
@@ -95,20 +95,6 @@ asmlinkage void machine_check(void);
 
 int kstack_depth_to_print = 24;
 static unsigned int code_bytes = 64;
-ATOMIC_NOTIFIER_HEAD(i386die_chain);
-
-int register_die_notifier(struct notifier_block *nb)
-{
-	vmalloc_sync_all();
-	return atomic_notifier_chain_register(&i386die_chain, nb);
-}
-EXPORT_SYMBOL(register_die_notifier); /* used modular by kdb */
-
-int unregister_die_notifier(struct notifier_block *nb)
-{
-	return atomic_notifier_chain_unregister(&i386die_chain, nb);
-}
-EXPORT_SYMBOL(unregister_die_notifier); /* used modular by kdb */
 
 static inline int valid_stack_ptr(struct thread_info *tinfo, void *p)
 {
@@ -319,7 +305,7 @@ void show_registers(struct pt_regs *regs)
 	       regs->xds & 0xffff, regs->xes & 0xffff, regs->xfs & 0xffff, gs, ss);
 	printk(KERN_EMERG "Process %.*s (pid: %d, ti=%p task=%p task.ti=%p)",
 		TASK_COMM_LEN, current->comm, current->pid,
-		current_thread_info(), current, current->thread_info);
+		current_thread_info(), current, task_thread_info(current));
 	/*
 	 * When in-kernel, we also print out the stack and code at the
 	 * time of the fault..
@@ -747,6 +733,11 @@ static __kprobes void default_do_nmi(struct pt_regs * regs)
 		 */
 		if (nmi_watchdog_tick(regs, reason))
 			return;
+#endif
+		if (notify_die(DIE_NMI_POST, "nmi_post", regs, reason, 2, 0)
+							== NOTIFY_STOP)
+			return;
+#ifdef CONFIG_X86_LOCAL_APIC
 		if (!do_nmi_callback(regs, smp_processor_id()))
 #endif
 			unknown_nmi_error(reason, regs);

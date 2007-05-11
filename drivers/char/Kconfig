@@ -127,7 +127,7 @@ config ROCKETPORT
 
 config CYCLADES
 	tristate "Cyclades async mux support"
-	depends on SERIAL_NONSTANDARD
+	depends on SERIAL_NONSTANDARD && (PCI || ISA)
 	---help---
 	  This driver supports Cyclades Z and Y multiserial boards.
 	  You would need something like this to connect more than two modems to
@@ -631,7 +631,8 @@ config HVC_CONSOLE
 
 config HVC_ISERIES
 	bool "iSeries Hypervisor Virtual Console support"
-	depends on PPC_ISERIES && !VIOCONS
+	depends on PPC_ISERIES
+	default y
 	select HVC_DRIVER
 	help
 	  iSeries machines support a hypervisor virtual console.
@@ -1075,6 +1076,12 @@ config TELCLOCK
 	  fabric.  Upon loading, the driver exports a sysfs directory,
 	  /sys/devices/platform/telco_clock, with a number of files for
 	  controlling the behavior of this hardware.
+
+config DEVPORT
+	bool
+	depends on !M68K
+	depends on ISA || PCI
+	default y
 
 endmenu
 

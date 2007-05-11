@@ -22,7 +22,6 @@
 #include <linux/quotaops.h>
 #include <linux/pagemap.h>
 #include <linux/fsnotify.h>
-#include <linux/smp_lock.h>
 #include <linux/personality.h>
 #include <linux/security.h>
 #include <linux/syscalls.h>
@@ -1153,14 +1152,12 @@ static int fastcall do_path_lookup(int dfd, const char *name,
 
 		fput_light(file, fput_needed);
 	}
-	current->total_link_count = 0;
-	retval = link_path_walk(name, nd);
+
+	retval = path_walk(name, nd);
 out:
-	if (likely(retval == 0)) {
-		if (unlikely(!audit_dummy_context() && nd && nd->dentry &&
+	if (unlikely(!retval && !audit_dummy_context() && nd->dentry &&
 				nd->dentry->d_inode))
 		audit_inode(name, nd->dentry->d_inode);
-	}
 out_fail:
 	return retval;
 
@@ -1350,17 +1347,6 @@ struct dentry *lookup_one_len_kern(const char *name, struct dentry *base, int le
 	return __lookup_hash_kern(&this, base, NULL);
 }
 
-/*
- *	namei()
- *
- * is used by most simple commands to get the inode of a specified name.
- * Open, link etc use their own routines, but this is enough for things
- * like 'chmod' etc.
- *
- * namei exists in two versions: namei/lnamei. The only difference is
- * that namei follows links, while lnamei does not.
- * SMP-safe
- */
 int fastcall __user_walk_fd(int dfd, const char __user *name, unsigned flags,
 			    struct nameidata *nd)
 {

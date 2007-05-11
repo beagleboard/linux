@@ -42,18 +42,17 @@
 
 #include <linux/mm.h>
 #include <linux/kernel_stat.h>
-#include <linux/smp_lock.h>
 #include <linux/bootmem.h>
 #include <linux/thread_info.h>
 #include <linux/module.h>
 #include <linux/delay.h>
 #include <linux/mc146818rtc.h>
 #include <linux/smp.h>
+#include <linux/kdebug.h>
 
 #include <asm/mtrr.h>
 #include <asm/pgalloc.h>
 #include <asm/desc.h>
-#include <asm/kdebug.h>
 #include <asm/tlbflush.h>
 #include <asm/proto.h>
 #include <asm/nmi.h>

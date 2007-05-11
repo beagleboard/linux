@@ -1104,7 +1104,7 @@ config ETH16I
 
 config NE2000
 	tristate "NE2000/NE1000 support"
-	depends on NET_ISA || (Q40 && m) || M32R
+	depends on NET_ISA || (Q40 && m) || M32R || TOSHIBA_RBTX4927 || TOSHIBA_RBTX4938
 	select CRC32
 	---help---
 	  If you have a network (Ethernet) card of this type, say Y and read
@@ -2488,15 +2488,32 @@ config NETXEN_NIC
 config PASEMI_MAC
 	tristate "PA Semi 1/10Gbit MAC"
 	depends on PPC64 && PCI
+	select PHYLIB
 	help
 	  This driver supports the on-chip 1/10Gbit Ethernet controller on
 	  PA Semi's PWRficient line of chips.
+
+config MLX4_CORE
+	tristate
+	depends on PCI
+	default n
+
+config MLX4_DEBUG
+	bool "Verbose debugging output" if (MLX4_CORE && EMBEDDED)
+	default y
+	---help---
+	  This option causes debugging code to be compiled into the
+	  mlx4_core driver.  The output can be turned on via the
+	  debug_level module parameter (which can also be set after
+	  the driver is loaded through sysfs).
 
 endmenu
 
 source "drivers/net/tokenring/Kconfig"
 
 source "drivers/net/wireless/Kconfig"
+
+source "drivers/net/usb/Kconfig"
 
 source "drivers/net/pcmcia/Kconfig"
 

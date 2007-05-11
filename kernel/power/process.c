@@ -8,7 +8,6 @@
 
 #undef DEBUG
 
-#include <linux/smp_lock.h>
 #include <linux/interrupt.h>
 #include <linux/suspend.h>
 #include <linux/module.h>
@@ -25,10 +24,9 @@
 
 static inline int freezeable(struct task_struct * p)
 {
-	if ((p == current) || 
+	if ((p == current) ||
 	    (p->flags & PF_NOFREEZE) ||
-	    (p->exit_state == EXIT_ZOMBIE) ||
-	    (p->exit_state == EXIT_DEAD))
+	    (p->exit_state != 0))
 		return 0;
 	return 1;
 }

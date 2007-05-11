@@ -64,6 +64,17 @@ config SPI_BFIN
 	help
 	  This is the SPI controller master driver for Blackfin 5xx processor.
 
+config SPI_AU1550
+	tristate "Au1550/Au12x0 SPI Controller"
+	depends on SPI_MASTER && (SOC_AU1550 || SOC_AU1200) && EXPERIMENTAL
+	select SPI_BITBANG
+	help
+	  If you say yes to this option, support will be included for the
+	  Au1550 SPI controller (may also work with Au1200,Au1210,Au1250).
+
+	  This driver can also be built as a module.  If so, the module
+	  will be called au1550_spi.
+
 config SPI_BITBANG
 	tristate "Bitbanging SPI master"
 	depends on SPI_MASTER && EXPERIMENTAL
@@ -171,14 +182,14 @@ config SPI_TSC2101
          Say Y here if you want support for the TSC2101 chip.
 	 At the moment it provides basic register read / write interface
 	 as well as a way to enable the MCLK clock.
-
+	 
 config SPI_TSC2102
        depends on SPI_MASTER
        tristate "TSC2102 codec support"
        ---help---
          Say Y here if you want support for the TSC2102 chip.  It
 	 will be needed for the touchscreen driver on some boards.
-
+	 
 config SPI_TSC2301
 	tristate "TSC2301 driver"
 	depends on SPI_MASTER
@@ -200,6 +211,15 @@ config SPI_TSC2301_AUDIO
 	depends on SPI_TSC2301 && SND
 	help
 	  Say Y here for if you are using the audio features of TSC2301.
+
+config SPI_SPIDEV
+	tristate "User mode SPI device driver support"
+	depends on SPI_MASTER && EXPERIMENTAL
+	help
+	  This supports user mode SPI protocol drivers.
+
+	  Note that this application programming interface is EXPERIMENTAL
+	  and hence SUBJECT TO CHANGE WITHOUT NOTICE while it stabilizes.
 
 #
 # Add new SPI protocol masters in alphabetical order above this line

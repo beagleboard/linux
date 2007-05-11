@@ -243,8 +243,6 @@ static inline pte_t pte_mkyoung(pte_t pte)	{ (pte).pte_low |= _PAGE_ACCESSED; re
 static inline pte_t pte_mkwrite(pte_t pte)	{ (pte).pte_low |= _PAGE_RW; return pte; }
 static inline pte_t pte_mkhuge(pte_t pte)	{ (pte).pte_low |= _PAGE_PSE; return pte; }
 
-extern void vmalloc_sync_all(void);
-
 #ifdef CONFIG_X86_PAE
 # include <asm/pgtable-3level.h>
 #else
@@ -543,10 +541,6 @@ static inline void paravirt_pagetable_setup_done(pgd_t *base)
 
 #define io_remap_pfn_range(vma, vaddr, pfn, size, prot)		\
 		remap_pfn_range(vma, vaddr, pfn, size, prot)
-
-#define MK_IOSPACE_PFN(space, pfn)	(pfn)
-#define GET_IOSPACE(pfn)		0
-#define GET_PFN(pfn)			(pfn)
 
 #include <asm-generic/pgtable.h>
 

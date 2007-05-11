@@ -25,7 +25,6 @@
 #include <linux/init.h>
 #include <linux/delay.h>
 #include <linux/sched.h>
-#include <linux/smp_lock.h>
 #include <linux/pci.h>
 #include <linux/mc146818rtc.h>
 #include <linux/acpi.h>
@@ -1414,7 +1413,7 @@ static void ack_apic_level(unsigned int irq)
 
 	/*
 	 * We must acknowledge the irq before we move it or the acknowledge will
-	 * not propogate properly.
+	 * not propagate properly.
 	 */
 	ack_APIC_irq();
 

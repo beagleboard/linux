@@ -82,16 +82,6 @@ static inline void sched_cacheflush(void)
 }
 #endif
 
-static inline unsigned long tas(volatile int *m)
-{
-	unsigned long retval;
-
-	__asm__ __volatile__ ("tas.b	@%1\n\t"
-			      "movt	%0"
-			      : "=r" (retval): "r" (m): "t", "memory");
-	return retval;
-}
-
 /*
  * A brief note on ctrl_barrier(), the control register write barrier.
  *
@@ -264,6 +254,15 @@ static inline void *set_exception_table_evt(unsigned int evt, void *handler)
 {
 	return set_exception_table_vec(evt >> 5, handler);
 }
+
+/*
+ * SH-2A has both 16 and 32-bit opcodes, do lame encoding checks.
+ */
+#ifdef CONFIG_CPU_SH2A
+extern unsigned int instruction_size(unsigned int insn);
+#else
+#define instruction_size(insn)	(2)
+#endif
 
 /* XXX
  * disable hlt during certain critical i/o operations

@@ -4,7 +4,7 @@
  * OMAP2 I/O mapping code
  *
  * Copyright (C) 2005 Nokia Corporation
- * Author: Juha Yrjölä <juha.yrjola@nokia.com>
+ * Author: Juha Yrjola<juha.yrjola@nokia.com>
  * Updated map desc to add 2430 support : <x0khasim@ti.com>
  *
  * This program is free software; you can redistribute it and/or modify

@@ -42,7 +42,6 @@
 #include <linux/seq_file.h>
 #include <linux/security.h>
 #include <linux/slab.h>
-#include <linux/smp_lock.h>
 #include <linux/spinlock.h>
 #include <linux/stat.h>
 #include <linux/string.h>
@@ -822,11 +821,22 @@ static int update_cpumask(struct cpuset *cs, char *buf)
 		return -EACCES;
 
 	trialcs = *cs;
-	retval = cpulist_parse(buf, trialcs.cpus_allowed);
-	if (retval < 0)
-		return retval;
+
+	/*
+	 * We allow a cpuset's cpus_allowed to be empty; if it has attached
+	 * tasks, we'll catch it later when we validate the change and return
+	 * -ENOSPC.
+	 */
+	if (!buf[0] || (buf[0] == '\n' && !buf[1])) {
+		cpus_clear(trialcs.cpus_allowed);
+	} else {
+		retval = cpulist_parse(buf, trialcs.cpus_allowed);
+		if (retval < 0)
+			return retval;
+	}
 	cpus_and(trialcs.cpus_allowed, trialcs.cpus_allowed, cpu_online_map);
-	if (cpus_empty(trialcs.cpus_allowed))
+	/* cpus_allowed cannot be empty for a cpuset with attached tasks. */
+	if (atomic_read(&cs->count) && cpus_empty(trialcs.cpus_allowed))
 		return -ENOSPC;
 	retval = validate_change(cs, &trialcs);
 	if (retval < 0)
@@ -919,16 +929,27 @@ static int update_nodemask(struct cpuset *cs, char *buf)
 		return -EACCES;
 
 	trialcs = *cs;
-	retval = nodelist_parse(buf, trialcs.mems_allowed);
-	if (retval < 0)
-		goto done;
+
+	/*
+	 * We allow a cpuset's mems_allowed to be empty; if it has attached
+	 * tasks, we'll catch it later when we validate the change and return
+	 * -ENOSPC.
+	 */
+	if (!buf[0] || (buf[0] == '\n' && !buf[1])) {
+		nodes_clear(trialcs.mems_allowed);
+	} else {
+		retval = nodelist_parse(buf, trialcs.mems_allowed);
+		if (retval < 0)
+			goto done;
+	}
 	nodes_and(trialcs.mems_allowed, trialcs.mems_allowed, node_online_map);
 	oldmem = cs->mems_allowed;
 	if (nodes_equal(oldmem, trialcs.mems_allowed)) {
 		retval = 0;		/* Too easy - nothing to do */
 		goto done;
 	}
-	if (nodes_empty(trialcs.mems_allowed)) {
+	/* mems_allowed cannot be empty for a cpuset with attached tasks. */
+	if (atomic_read(&cs->count) && nodes_empty(trialcs.mems_allowed)) {
 		retval = -ENOSPC;
 		goto done;
 	}
@@ -1751,12 +1772,7 @@ static ssize_t cpuset_tasks_read(struct file *file, char __user *buf,
 {
 	struct ctr_struct *ctr = file->private_data;
 
-	if (*ppos + nbytes > ctr->bufsz)
-		nbytes = ctr->bufsz - *ppos;
-	if (copy_to_user(buf, ctr->buf + *ppos, nbytes))
-		return -EFAULT;
-	*ppos += nbytes;
-	return nbytes;
+	return simple_read_from_buffer(buf, nbytes, ppos, ctr->buf, ctr->bufsz);
 }
 
 static int cpuset_tasks_release(struct inode *unused_inode, struct file *file)
@@ -2200,10 +2216,6 @@ void cpuset_fork(struct task_struct *child)
  * it is holding that mutex while calling check_for_release(),
  * which calls kmalloc(), so can't be called holding callback_mutex().
  *
- * We don't need to task_lock() this reference to tsk->cpuset,
- * because tsk is already marked PF_EXITING, so attach_task() won't
- * mess with it, or task is a failed fork, never visible to attach_task.
- *
  * the_top_cpuset_hack:
  *
  *    Set the exiting tasks cpuset to the root cpuset (top_cpuset).
@@ -2242,8 +2254,10 @@ void cpuset_exit(struct task_struct *tsk)
 {
 	struct cpuset *cs;
 
+	task_lock(current);
 	cs = tsk->cpuset;
 	tsk->cpuset = &top_cpuset;	/* the_top_cpuset_hack - see above */
+	task_unlock(current);
 
 	if (notify_on_release(cs)) {
 		char *pathbuf = NULL;

@@ -284,12 +284,8 @@ static void handle_write_error(struct address_space *mapping,
 				struct page *page, int error)
 {
 	lock_page(page);
-	if (page_mapping(page) == mapping) {
-		if (error == -ENOSPC)
-			set_bit(AS_ENOSPC, &mapping->flags);
-		else
-			set_bit(AS_EIO, &mapping->flags);
-	}
+	if (page_mapping(page) == mapping)
+		mapping_set_error(mapping, error);
 	unlock_page(page);
 }
 
@@ -1532,7 +1528,7 @@ static int __devinit cpu_callback(struct notifier_block *nfb,
 	pg_data_t *pgdat;
 	cpumask_t mask;
 
-	if (action == CPU_ONLINE) {
+	if (action == CPU_ONLINE || action == CPU_ONLINE_FROZEN) {
 		for_each_online_pgdat(pgdat) {
 			mask = node_to_cpumask(pgdat->node_id);
 			if (any_online_cpu(mask) != NR_CPUS)

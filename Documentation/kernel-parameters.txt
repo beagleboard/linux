@@ -496,6 +496,30 @@ and is between 256 and 4096 characters. It is defined in the file
 			Format: <area>[,<node>]
 			See also Documentation/networking/decnet.txt.
 
+	default_blu=	[VT]
+			Format: <blue0>,<blue1>,<blue2>,...,<blue15>
+			Change the default blue palette of the console.
+			This is a 16-member array composed of values
+			ranging from 0-255.
+
+	default_grn=	[VT]
+			Format: <green0>,<green1>,<green2>,...,<green15>
+			Change the default green palette of the console.
+			This is a 16-member array composed of values
+			ranging from 0-255.
+
+	default_red=	[VT]
+			Format: <red0>,<red1>,<red2>,...,<red15>
+			Change the default red palette of the console.
+			This is a 16-member array composed of values
+			ranging from 0-255.
+
+	default_utf8=   [VT]
+			Format=<0|1>
+			Set system-wide default UTF-8 mode for all tty's.
+			Default is 0 and by setting to 1, it enables UTF-8
+			mode for all newly opened or allocated terminals.
+
 	dhash_entries=	[KNL]
 			Set number of hash buckets for dentry cache.
 
@@ -730,14 +754,6 @@ and is between 256 and 4096 characters. It is defined in the file
 	inport.irq=	[HW] Inport (ATI XL and Microsoft) busmouse driver
 			Format: <irq>
 
-	combined_mode=	[HW] control which driver uses IDE ports in combined
-			mode: legacy IDE driver, libata, or both
-			(in the libata case, libata.atapi_enabled=1 may be
-			useful as well).  Note that using the ide or libata
-			options may affect your device naming (e.g. by
-			changing hdc to sdb).
-			Format: combined (default), ide, or libata
-
 	inttest=	[IA64]
 
 	io7=		[HW] IO7 for Marvel based alpha systems
@@ -815,6 +831,11 @@ and is between 256 and 4096 characters. It is defined in the file
 
 	lasi=		[HW,SCSI] PARISC LASI driver for the 53c700 chip
 			Format: addr:<io>,irq:<irq>
+
+	legacy_serial.force [HW,IA-32,X86-64]
+			Probe for COM ports at legacy addresses even
+			if PNPBIOS or ACPI should describe them.  This
+			is for working around firmware defects.
 
 	llsc*=		[IA64] See function print_params() in
 			arch/ia64/sn/kernel/llsc4.c.
@@ -1577,6 +1598,17 @@ and is between 256 and 4096 characters. It is defined in the file
 
 	smp-alt-once	[IA-32,SMP] On a hotplug CPU system, only
 			attempt to substitute SMP alternatives once at boot.
+
+	smsc-ircc2.nopnp	[HW] Don't use PNP to discover SMC devices
+	smsc-ircc2.ircc_cfg=	[HW] Device configuration I/O port
+	smsc-ircc2.ircc_sir=	[HW] SIR base I/O port
+	smsc-ircc2.ircc_fir=	[HW] FIR base I/O port
+	smsc-ircc2.ircc_irq=	[HW] IRQ line
+	smsc-ircc2.ircc_dma=	[HW] DMA channel
+	smsc-ircc2.ircc_transceiver= [HW] Transceiver type:
+				0: Toshiba Satellite 1800 (GP data pin select)
+				1: Fast pin select (default)
+				2: ATC IRMode
 
 	snd-ad1816a=	[HW,ALSA]
 

@@ -20,10 +20,10 @@
 #include <linux/percpu.h>
 #include <linux/ctype.h>
 #include <linux/kmod.h>
+#include <linux/kdebug.h>
 #include <asm/processor.h> 
 #include <asm/msr.h>
 #include <asm/mce.h>
-#include <asm/kdebug.h>
 #include <asm/uaccess.h>
 #include <asm/smp.h>
 
@@ -720,9 +720,11 @@ mce_cpu_callback(struct notifier_block *nfb, unsigned long action, void *hcpu)
 
 	switch (action) {
 	case CPU_ONLINE:
+	case CPU_ONLINE_FROZEN:
 		mce_create_device(cpu);
 		break;
 	case CPU_DEAD:
+	case CPU_DEAD_FROZEN:
 		mce_remove_device(cpu);
 		break;
 	}
