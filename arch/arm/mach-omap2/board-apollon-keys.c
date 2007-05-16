@@ -24,17 +24,17 @@
 
 static struct gpio_keys_button apollon_gpio_keys_buttons[] = {
 	[0] = {
-		.keycode	= KEY_ENTER,
+		.code		= KEY_ENTER,
 		.gpio		= SW_ENTER_GPIO16,
 		.desc		= "enter sw",
 	},
 	[1] = {
-		.keycode	= KEY_UP,
+		.code		= KEY_UP,
 		.gpio		= SW_UP_GPIO17,
 		.desc		= "up sw",
 	},
 	[2] = {
-		.keycode	= KEY_DOWN,
+		.code		= KEY_DOWN,
 		.gpio		= SW_DOWN_GPIO58,
 		.desc		= "down sw",
 	},
