@@ -72,8 +72,5 @@
 #error "Unknown architecture"
 #endif
 
-/* Temporary defines to be cleaned up in following patches */
-#define OMAP24XX_CTRL_BASE	OMAP2_CTRL_BASE
-
 #endif /* __ASM_ARCH_OMAP24XX_H */
 
