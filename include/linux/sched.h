@@ -88,6 +88,7 @@ struct sched_param {
 
 struct exec_domain;
 struct futex_pi_state;
+struct bio;
 
 /*
  * List of flags we want to share for kernel threads,
@@ -391,6 +392,7 @@ struct sighand_struct {
 	atomic_t		count;
 	struct k_sigaction	action[_NSIG];
 	spinlock_t		siglock;
+	struct list_head        signalfd_list;
 };
 
 struct pacct_struct {
@@ -469,6 +471,7 @@ struct signal_struct {
 	cputime_t utime, stime, cutime, cstime;
 	unsigned long nvcsw, nivcsw, cnvcsw, cnivcsw;
 	unsigned long min_flt, maj_flt, cmin_flt, cmaj_flt;
+	unsigned long inblock, oublock, cinblock, coublock;
 
 	/*
 	 * Cumulative ns of scheduled CPU time for dead threads in the
@@ -1013,6 +1016,9 @@ struct task_struct {
 
 /* journalling filesystem info */
 	void *journal_info;
+
+/* stacked block device info */
+	struct bio *bio_list, **bio_tail;
 
 /* VM state */
 	struct reclaim_state *reclaim_state;

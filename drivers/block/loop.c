@@ -1317,18 +1317,6 @@ static long lo_compat_ioctl(struct file *file, unsigned int cmd, unsigned long a
 }
 #endif
 
-static struct loop_device *loop_find_dev(int number)
-{
-	struct loop_device *lo;
-
-	list_for_each_entry(lo, &loop_devices, lo_list) {
-		if (lo->lo_number == number)
-			return lo;
-	}
-	return NULL;
-}
-
-static struct loop_device *loop_init_one(int i);
 static int lo_open(struct inode *inode, struct file *file)
 {
 	struct loop_device *lo = inode->i_bdev->bd_disk->private_data;
@@ -1336,11 +1324,6 @@ static int lo_open(struct inode *inode, struct file *file)
 	mutex_lock(&lo->lo_ctl_mutex);
 	lo->lo_refcnt++;
 	mutex_unlock(&lo->lo_ctl_mutex);
-
-	mutex_lock(&loop_devices_mutex);
-	if (!loop_find_dev(lo->lo_number + 1))
-		loop_init_one(lo->lo_number + 1);
-	mutex_unlock(&loop_devices_mutex);
 
 	return 0;
 }
@@ -1416,6 +1399,11 @@ static struct loop_device *loop_init_one(int i)
 	struct loop_device *lo;
 	struct gendisk *disk;
 
+	list_for_each_entry(lo, &loop_devices, lo_list) {
+		if (lo->lo_number == i)
+			return lo;
+	}
+
 	lo = kzalloc(sizeof(*lo), GFP_KERNEL);
 	if (!lo)
 		goto out;
@@ -1448,7 +1436,7 @@ out_free_queue:
 out_free_dev:
 	kfree(lo);
 out:
-	return ERR_PTR(-ENOMEM);
+	return NULL;
 }
 
 static void loop_del_one(struct loop_device *lo)
@@ -1462,34 +1450,24 @@ static void loop_del_one(struct loop_device *lo)
 
 static struct kobject *loop_probe(dev_t dev, int *part, void *data)
 {
-	unsigned int number = dev & MINORMASK;
 	struct loop_device *lo;
+	struct kobject *kobj;
 
 	mutex_lock(&loop_devices_mutex);
-	lo = loop_find_dev(number);
-	if (lo == NULL)
-		lo = loop_init_one(number);
+	lo = loop_init_one(dev & MINORMASK);
+	kobj = lo ? get_disk(lo->lo_disk) : ERR_PTR(-ENOMEM);
 	mutex_unlock(&loop_devices_mutex);
 
 	*part = 0;
-	if (IS_ERR(lo))
-		return (void *)lo;
-	else
-		return &lo->lo_disk->kobj;
+	return kobj;
 }
 
 static int __init loop_init(void)
 {
-	struct loop_device *lo;
-
 	if (register_blkdev(LOOP_MAJOR, "loop"))
 		return -EIO;
 	blk_register_region(MKDEV(LOOP_MAJOR, 0), 1UL << MINORBITS,
 				  THIS_MODULE, loop_probe, NULL, NULL);
-
-	lo = loop_init_one(0);
-	if (IS_ERR(lo))
-		goto out;
 
 	if (max_loop) {
 		printk(KERN_INFO "loop: the max_loop option is obsolete "
@@ -1498,11 +1476,6 @@ static int __init loop_init(void)
 	}
 	printk(KERN_INFO "loop: module loaded\n");
 	return 0;
-
-out:
-	unregister_blkdev(LOOP_MAJOR, "loop");
-	printk(KERN_ERR "loop: ran out of memory\n");
-	return -ENOMEM;
 }
 
 static void __exit loop_exit(void)

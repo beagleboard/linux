@@ -14,6 +14,7 @@
 #include <linux/prctl.h>
 #include <linux/highuid.h>
 #include <linux/fs.h>
+#include <linux/resource.h>
 #include <linux/kernel.h>
 #include <linux/kexec.h>
 #include <linux/workqueue.h>
@@ -29,6 +30,7 @@
 #include <linux/signal.h>
 #include <linux/cn_proc.h>
 #include <linux/getcpu.h>
+#include <linux/task_io_accounting_ops.h>
 
 #include <linux/compat.h>
 #include <linux/syscalls.h>
@@ -658,7 +660,7 @@ asmlinkage long sys_setpriority(int which, int who, int niceval)
 	int error = -EINVAL;
 	struct pid *pgrp;
 
-	if (which > 2 || which < 0)
+	if (which > PRIO_USER || which < PRIO_PROCESS)
 		goto out;
 
 	/* normalize: avoid signed division (rounding problems) */
@@ -722,7 +724,7 @@ asmlinkage long sys_getpriority(int which, int who)
 	long niceval, retval = -ESRCH;
 	struct pid *pgrp;
 
-	if (which > 2 || which < 0)
+	if (which > PRIO_USER || which < PRIO_PROCESS)
 		return -EINVAL;
 
 	read_lock(&tasklist_lock);
@@ -1486,7 +1488,7 @@ asmlinkage long sys_setpgid(pid_t pid, pid_t pgid)
 	if (process_group(p) != pgid) {
 		detach_pid(p, PIDTYPE_PGID);
 		p->signal->pgrp = pgid;
-		attach_pid(p, PIDTYPE_PGID, pgid);
+		attach_pid(p, PIDTYPE_PGID, find_pid(pgid));
 	}
 
 	err = 0;
@@ -2082,6 +2084,8 @@ static void k_getrusage(struct task_struct *p, int who, struct rusage *r)
 			r->ru_nivcsw = p->signal->cnivcsw;
 			r->ru_minflt = p->signal->cmin_flt;
 			r->ru_majflt = p->signal->cmaj_flt;
+			r->ru_inblock = p->signal->cinblock;
+			r->ru_oublock = p->signal->coublock;
 
 			if (who == RUSAGE_CHILDREN)
 				break;
@@ -2093,6 +2097,8 @@ static void k_getrusage(struct task_struct *p, int who, struct rusage *r)
 			r->ru_nivcsw += p->signal->nivcsw;
 			r->ru_minflt += p->signal->min_flt;
 			r->ru_majflt += p->signal->maj_flt;
+			r->ru_inblock += p->signal->inblock;
+			r->ru_oublock += p->signal->oublock;
 			t = p;
 			do {
 				utime = cputime_add(utime, t->utime);
@@ -2101,6 +2107,8 @@ static void k_getrusage(struct task_struct *p, int who, struct rusage *r)
 				r->ru_nivcsw += t->nivcsw;
 				r->ru_minflt += t->min_flt;
 				r->ru_majflt += t->maj_flt;
+				r->ru_inblock += task_io_get_inblock(t);
+				r->ru_oublock += task_io_get_oublock(t);
 				t = next_thread(t);
 			} while (t != p);
 			break;

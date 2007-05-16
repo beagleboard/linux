@@ -151,6 +151,12 @@ static int tty_open(struct inode *, struct file *);
 static int tty_release(struct inode *, struct file *);
 int tty_ioctl(struct inode * inode, struct file * file,
 	      unsigned int cmd, unsigned long arg);
+#ifdef CONFIG_COMPAT
+static long tty_compat_ioctl(struct file * file, unsigned int cmd,
+				unsigned long arg);
+#else
+#define tty_compat_ioctl NULL
+#endif
 static int tty_fasync(int fd, struct file * filp, int on);
 static void release_tty(struct tty_struct *tty, int idx);
 static void __proc_set_tty(struct task_struct *tsk, struct tty_struct *tty);
@@ -360,6 +366,29 @@ static void tty_buffer_free(struct tty_struct *tty, struct tty_buffer *b)
 		b->next = tty->buf.free;
 		tty->buf.free = b;
 	}
+}
+
+/**
+ *	tty_buffer_flush		-	flush full tty buffers
+ *	@tty: tty to flush
+ *
+ *	flush all the buffers containing receive data
+ *
+ *	Locking: none
+ */
+
+static void tty_buffer_flush(struct tty_struct *tty)
+{
+	struct tty_buffer *thead;
+	unsigned long flags;
+
+	spin_lock_irqsave(&tty->buf.lock, flags);
+	while((thead = tty->buf.head) != NULL) {
+		tty->buf.head = thead->next;
+		tty_buffer_free(tty, thead);
+	}
+	tty->buf.tail = NULL;
+	spin_unlock_irqrestore(&tty->buf.lock, flags);
 }
 
 /**
@@ -1143,8 +1172,8 @@ static unsigned int hung_up_tty_poll(struct file * filp, poll_table * wait)
 	return POLLIN | POLLOUT | POLLERR | POLLHUP | POLLRDNORM | POLLWRNORM;
 }
 
-static int hung_up_tty_ioctl(struct inode * inode, struct file * file,
-			     unsigned int cmd, unsigned long arg)
+static long hung_up_tty_ioctl(struct file * file,
+			      unsigned int cmd, unsigned long arg)
 {
 	return cmd == TIOCSPGRP ? -ENOTTY : -EIO;
 }
@@ -1155,6 +1184,7 @@ static const struct file_operations tty_fops = {
 	.write		= tty_write,
 	.poll		= tty_poll,
 	.ioctl		= tty_ioctl,
+	.compat_ioctl	= tty_compat_ioctl,
 	.open		= tty_open,
 	.release	= tty_release,
 	.fasync		= tty_fasync,
@@ -1167,6 +1197,7 @@ static const struct file_operations ptmx_fops = {
 	.write		= tty_write,
 	.poll		= tty_poll,
 	.ioctl		= tty_ioctl,
+	.compat_ioctl	= tty_compat_ioctl,
 	.open		= ptmx_open,
 	.release	= tty_release,
 	.fasync		= tty_fasync,
@@ -1179,6 +1210,7 @@ static const struct file_operations console_fops = {
 	.write		= redirected_tty_write,
 	.poll		= tty_poll,
 	.ioctl		= tty_ioctl,
+	.compat_ioctl	= tty_compat_ioctl,
 	.open		= tty_open,
 	.release	= tty_release,
 	.fasync		= tty_fasync,
@@ -1189,7 +1221,8 @@ static const struct file_operations hung_up_tty_fops = {
 	.read		= hung_up_tty_read,
 	.write		= hung_up_tty_write,
 	.poll		= hung_up_tty_poll,
-	.ioctl		= hung_up_tty_ioctl,
+	.unlocked_ioctl = hung_up_tty_ioctl,
+	.compat_ioctl	= hung_up_tty_ioctl,
 	.release	= tty_release,
 };
 
@@ -1238,6 +1271,7 @@ void tty_ldisc_flush(struct tty_struct *tty)
 			ld->flush_buffer(tty);
 		tty_ldisc_deref(ld);
 	}
+	tty_buffer_flush(tty);
 }
 
 EXPORT_SYMBOL_GPL(tty_ldisc_flush);
@@ -3340,6 +3374,15 @@ int tty_ioctl(struct inode * inode, struct file * file,
 		case TIOCMBIC:
 		case TIOCMBIS:
 			return tty_tiocmset(tty, file, cmd, p);
+		case TCFLSH:
+			switch (arg) {
+			case TCIFLUSH:
+			case TCIOFLUSH:
+				/* flush tty buffer and allow ldisc to process ioctl */
+				tty_buffer_flush(tty);
+				break;
+			}
+			break;
 	}
 	if (tty->driver->ioctl) {
 		retval = (tty->driver->ioctl)(tty, file, cmd, arg);
@@ -3357,6 +3400,32 @@ int tty_ioctl(struct inode * inode, struct file * file,
 	return retval;
 }
 
+#ifdef CONFIG_COMPAT
+static long tty_compat_ioctl(struct file * file, unsigned int cmd,
+				unsigned long arg)
+{
+	struct inode *inode = file->f_dentry->d_inode;
+	struct tty_struct *tty = file->private_data;
+	struct tty_ldisc *ld;
+	int retval = -ENOIOCTLCMD;
+
+	if (tty_paranoia_check(tty, inode, "tty_ioctl"))
+		return -EINVAL;
+
+	if (tty->driver->compat_ioctl) {
+		retval = (tty->driver->compat_ioctl)(tty, file, cmd, arg);
+		if (retval != -ENOIOCTLCMD)
+			return retval;
+	}
+
+	ld = tty_ldisc_ref_wait(tty);
+	if (ld->compat_ioctl)
+		retval = ld->compat_ioctl(tty, file, cmd, arg);
+	tty_ldisc_deref(ld);
+
+	return retval;
+}
+#endif
 
 /*
  * This implements the "Secure Attention Key" ---  the idea is to
@@ -3689,6 +3758,7 @@ void tty_set_operations(struct tty_driver *driver,
 	driver->write_room = op->write_room;
 	driver->chars_in_buffer = op->chars_in_buffer;
 	driver->ioctl = op->ioctl;
+	driver->compat_ioctl = op->compat_ioctl;
 	driver->set_termios = op->set_termios;
 	driver->throttle = op->throttle;
 	driver->unthrottle = op->unthrottle;
@@ -3843,6 +3913,7 @@ void proc_clear_tty(struct task_struct *p)
 	p->signal->tty = NULL;
 	spin_unlock_irq(&p->sighand->siglock);
 }
+EXPORT_SYMBOL(proc_clear_tty);
 
 static void __proc_set_tty(struct task_struct *tsk, struct tty_struct *tty)
 {

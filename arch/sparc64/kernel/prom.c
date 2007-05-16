@@ -899,7 +899,7 @@ static unsigned int fire_irq_build(struct device_node *dp,
 	/* The interrupt map registers do not have an INO field
 	 * like other chips do.  They return zero in the INO
 	 * field, and the interrupt controller number is controlled
-	 * in bits 6 thru 9.  So in order for build_irq() to get
+	 * in bits 6 to 9.  So in order for build_irq() to get
 	 * the INO right we pass it in as part of the fixup
 	 * which will get added to the map register zero value
 	 * read by build_irq().
@@ -1636,10 +1636,21 @@ static struct device_node * __init create_node(phandle node, struct device_node 
 
 static struct device_node * __init build_tree(struct device_node *parent, phandle node, struct device_node ***nextp)
 {
+	struct device_node *ret = NULL, *prev_sibling = NULL;
 	struct device_node *dp;
 
-	dp = create_node(node, parent);
-	if (dp) {
+	while (1) {
+		dp = create_node(node, parent);
+		if (!dp)
+			break;
+
+		if (prev_sibling)
+			prev_sibling->sibling = dp;
+
+		if (!ret)
+			ret = dp;
+		prev_sibling = dp;
+
 		*(*nextp) = dp;
 		*nextp = &dp->allnext;
 
@@ -1648,10 +1659,10 @@ static struct device_node * __init build_tree(struct device_node *parent, phandl
 
 		dp->child = build_tree(dp, prom_getchild(node), nextp);
 
-		dp->sibling = build_tree(parent, prom_getsibling(node), nextp);
+		node = prom_getsibling(node);
 	}
 
-	return dp;
+	return ret;
 }
 
 void __init prom_build_devicetree(void)

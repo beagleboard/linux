@@ -288,7 +288,8 @@ int start_userspace(unsigned long stub_stack)
 void userspace(union uml_pt_regs *regs)
 {
 	int err, status, op, pid = userspace_pid[0];
-	int local_using_sysemu; /*To prevent races if using_sysemu changes under us.*/
+	/* To prevent races if using_sysemu changes under us.*/
+	int local_using_sysemu;
 
 	while(1){
 		restore_registers(pid, regs);
@@ -296,7 +297,8 @@ void userspace(union uml_pt_regs *regs)
 		/* Now we set local_using_sysemu to be used for one loop */
 		local_using_sysemu = get_using_sysemu();
 
-		op = SELECT_PTRACE_OPERATION(local_using_sysemu, singlestepping(NULL));
+		op = SELECT_PTRACE_OPERATION(local_using_sysemu,
+					     singlestepping(NULL));
 
 		err = ptrace(op, pid, 0, 0);
 		if(err)
@@ -490,8 +492,8 @@ void map_stub_pages(int fd, unsigned long code,
 void new_thread(void *stack, jmp_buf *buf, void (*handler)(void))
 {
 	(*buf)[0].JB_IP = (unsigned long) handler;
-	(*buf)[0].JB_SP = (unsigned long) stack +
-		(PAGE_SIZE << UML_CONFIG_KERNEL_STACK_ORDER) - sizeof(void *);
+	(*buf)[0].JB_SP = (unsigned long) stack + UM_THREAD_SIZE -
+		sizeof(void *);
 }
 
 #define INIT_JMP_NEW_THREAD 0
@@ -533,8 +535,7 @@ int start_idle_thread(void *stack, jmp_buf *switch_buf)
 	case INIT_JMP_NEW_THREAD:
 		(*switch_buf)[0].JB_IP = (unsigned long) new_thread_handler;
 		(*switch_buf)[0].JB_SP = (unsigned long) stack +
-			(PAGE_SIZE << UML_CONFIG_KERNEL_STACK_ORDER) -
-			sizeof(void *);
+			UM_THREAD_SIZE - sizeof(void *);
 		break;
 	case INIT_JMP_CALLBACK:
 		(*cb_proc)(cb_arg);

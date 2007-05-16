@@ -24,6 +24,7 @@
 #include <linux/pid_namespace.h>
 #include <linux/ptrace.h>
 #include <linux/profile.h>
+#include <linux/signalfd.h>
 #include <linux/mount.h>
 #include <linux/proc_fs.h>
 #include <linux/kthread.h>
@@ -42,6 +43,7 @@
 #include <linux/audit.h> /* for audit_free() */
 #include <linux/resource.h>
 #include <linux/blkdev.h>
+#include <linux/task_io_accounting_ops.h>
 
 #include <asm/uaccess.h>
 #include <asm/unistd.h>
@@ -82,6 +84,14 @@ static void __exit_signal(struct task_struct *tsk)
 	sighand = rcu_dereference(tsk->sighand);
 	spin_lock(&sighand->siglock);
 
+	/*
+	 * Notify that this sighand has been detached. This must
+	 * be called with the tsk->sighand lock held. Also, this
+	 * access tsk->sighand internally, so it must be called
+	 * before tsk->sighand is reset.
+	 */
+	signalfd_detach_locked(tsk);
+
 	posix_cpu_timers_exit(tsk);
 	if (atomic_dec_and_test(&sig->count))
 		posix_cpu_timers_exit_group(tsk);
@@ -113,6 +123,8 @@ static void __exit_signal(struct task_struct *tsk)
 		sig->nvcsw += tsk->nvcsw;
 		sig->nivcsw += tsk->nivcsw;
 		sig->sched_time += tsk->sched_time;
+		sig->inblock += task_io_get_inblock(tsk);
+		sig->oublock += task_io_get_oublock(tsk);
 		sig = NULL; /* Marker for below. */
 	}
 
@@ -299,12 +311,12 @@ void __set_special_pids(pid_t session, pid_t pgrp)
 	if (process_session(curr) != session) {
 		detach_pid(curr, PIDTYPE_SID);
 		set_signal_session(curr->signal, session);
-		attach_pid(curr, PIDTYPE_SID, session);
+		attach_pid(curr, PIDTYPE_SID, find_pid(session));
 	}
 	if (process_group(curr) != pgrp) {
 		detach_pid(curr, PIDTYPE_PGID);
 		curr->signal->pgrp = pgrp;
-		attach_pid(curr, PIDTYPE_PGID, pgrp);
+		attach_pid(curr, PIDTYPE_PGID, find_pid(pgrp));
 	}
 }
 
@@ -1193,6 +1205,12 @@ static int wait_task_zombie(struct task_struct *p, int noreap,
 			p->nvcsw + sig->nvcsw + sig->cnvcsw;
 		psig->cnivcsw +=
 			p->nivcsw + sig->nivcsw + sig->cnivcsw;
+		psig->cinblock +=
+			task_io_get_inblock(p) +
+			sig->inblock + sig->cinblock;
+		psig->coublock +=
+			task_io_get_oublock(p) +
+			sig->oublock + sig->coublock;
 		spin_unlock_irq(&p->parent->sighand->siglock);
 	}
 

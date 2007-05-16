@@ -716,4 +716,7 @@ ia32_sys_call_table:
 	.quad sys_getcpu
 	.quad sys_epoll_pwait
 	.quad compat_sys_utimensat	/* 320 */
-ia32_syscall_end:		
+	.quad compat_sys_signalfd
+	.quad compat_sys_timerfd
+	.quad sys_eventfd
+ia32_syscall_end:

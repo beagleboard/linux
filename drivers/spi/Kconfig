@@ -6,6 +6,7 @@
 # fully appropriate there, so it'd need some thought to do well.
 #
 menu "SPI support"
+	depends on HAS_IOMEM
 
 config SPI
 	bool "SPI support"
@@ -105,6 +106,13 @@ config SPI_IMX
 	help
 	  This enables using the Freescale iMX SPI controller in master
 	  mode.
+
+config SPI_MPC52xx_PSC
+	tristate "Freescale MPC52xx PSC SPI controller"
+	depends on SPI_MASTER && PPC_MPC52xx && EXPERIMENTAL
+	help
+	  This enables using the Freescale MPC52xx Programmable Serial
+	  Controller in master SPI mode.
 
 config SPI_MPC83xx
 	tristate "Freescale MPC83xx SPI controller"

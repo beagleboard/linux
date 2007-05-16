@@ -4,6 +4,7 @@
 
 menuconfig I2C
 	tristate "I2C support"
+	depends on HAS_IOMEM
 	default y if MACH_OMAP_H3 || MACH_OMAP_OSK
 	---help---
 	  I2C (pronounce: I-square-C) is a slow serial bus protocol used in

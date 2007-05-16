@@ -537,6 +537,13 @@ static int __init build_one_resource(struct device_node *parent,
 			return 0;
 	}
 
+	/* When we miss an I/O space match on PCI, just pass it up
+	 * to the next PCI bridge and/or controller.
+	 */
+	if (!strcmp(bus->name, "pci") &&
+	    (addr[0] & 0x03000000) == 0x01000000)
+		return 0;
+
 	return 1;
 }
 
@@ -596,7 +603,7 @@ static void __init build_device_resources(struct of_device *op,
 	/* Convert to num-entries.  */
 	num_reg /= na + ns;
 
-	/* Prevent overruning the op->resources[] array.  */
+	/* Prevent overrunning the op->resources[] array.  */
 	if (num_reg > PROMREG_MAX) {
 		printk(KERN_WARNING "%s: Too many regs (%d), "
 		       "limiting to %d.\n",
@@ -904,7 +911,7 @@ static struct of_device * __init scan_one_device(struct device_node *dp,
 		op->num_irqs = 0;
 	}
 
-	/* Prevent overruning the op->irqs[] array.  */
+	/* Prevent overrunning the op->irqs[] array.  */
 	if (op->num_irqs > PROMINTR_MAX) {
 		printk(KERN_WARNING "%s: Too many irqs (%d), "
 		       "limiting to %d.\n",

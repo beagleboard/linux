@@ -122,7 +122,7 @@ static int afs_prepare_page(struct afs_vnode *vnode, struct page *page,
 	if (offset == 0 && to == PAGE_SIZE)
 		return 0;
 
-	p = kmap(page);
+	p = kmap_atomic(page, KM_USER0);
 
 	i_size = i_size_read(&vnode->vfs_inode);
 	pos = (loff_t) page->index << PAGE_SHIFT;
@@ -133,7 +133,7 @@ static int afs_prepare_page(struct afs_vnode *vnode, struct page *page,
 			memset(p, 0, offset);
 		if (to < PAGE_SIZE)
 			memset(p + to, 0, PAGE_SIZE - to);
-		kunmap(page);
+		kunmap_atomic(p, KM_USER0);
 		return 0;
 	}
 
@@ -152,7 +152,7 @@ static int afs_prepare_page(struct afs_vnode *vnode, struct page *page,
 			memset(p + eof, 0, PAGE_SIZE - eof);
 	}
 
-	kunmap(p);
+	kunmap_atomic(p, KM_USER0);
 
 	ret = 0;
 	if (offset > 0 || eof > to) {
@@ -395,8 +395,9 @@ static int afs_write_back_from_locked_page(struct afs_writeback *wb,
 		if (n == 0)
 			goto no_more;
 		if (pages[0]->index != start) {
-			for (n--; n >= 0; n--)
-				put_page(pages[n]);
+			do {
+				put_page(pages[--n]);
+			} while (n > 0);
 			goto no_more;
 		}
 
@@ -488,14 +489,6 @@ int afs_writepage(struct page *page, struct writeback_control *wbc)
 	int ret;
 
 	_enter("{%lx},", page->index);
-
-	if (wbc->sync_mode != WB_SYNC_NONE)
-		wait_on_page_writeback(page);
-
-	if (PageWriteback(page) || !PageDirty(page)) {
-		unlock_page(page);
-		return 0;
-	}
 
 	wb = (struct afs_writeback *) page_private(page);
 	ASSERT(wb != NULL);
@@ -677,7 +670,7 @@ void afs_pages_written_back(struct afs_vnode *vnode, struct afs_call *call)
 	pagevec_init(&pv, 0);
 
 	do {
-		_debug("attach %lx-%lx", first, last);
+		_debug("done %lx-%lx", first, last);
 
 		count = last - first + 1;
 		if (count > PAGEVEC_SIZE)
@@ -709,7 +702,7 @@ void afs_pages_written_back(struct afs_vnode *vnode, struct afs_call *call)
 		}
 
 		__pagevec_release(&pv);
-	} while (first < last);
+	} while (first <= last);
 
 	_leave("");
 }

@@ -377,7 +377,7 @@ struct pci_dev *of_create_pci_dev(struct pci_pbm_info *pbm,
 	const char *type;
 	u32 class;
 
-	dev = kzalloc(sizeof(struct pci_dev), GFP_KERNEL);
+	dev = alloc_pci_dev();
 	if (!dev)
 		return NULL;
 
@@ -495,8 +495,8 @@ static void __devinit apb_calc_first_last(u8 map, u32 *first_p, u32 *last_p)
 	*last_p = last;
 }
 
-static void __init pci_resource_adjust(struct resource *res,
-				       struct resource *root)
+static void pci_resource_adjust(struct resource *res,
+				struct resource *root)
 {
 	res->start += root->start;
 	res->end += root->start;

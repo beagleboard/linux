@@ -50,6 +50,7 @@
 #include <linux/tsacct_kern.h>
 #include <linux/cn_proc.h>
 #include <linux/audit.h>
+#include <linux/signalfd.h>
 
 #include <asm/uaccess.h>
 #include <asm/mmu_context.h>
@@ -582,6 +583,13 @@ static int de_thread(struct task_struct *tsk)
 	int count;
 
 	/*
+	 * Tell all the sighand listeners that this sighand has
+	 * been detached. The signalfd_detach() function grabs the
+	 * sighand lock, if signal listeners are present on the sighand.
+	 */
+	signalfd_detach(tsk);
+
+	/*
 	 * If we don't share sighandlers, then we aren't sharing anything
 	 * and we can just re-use it all.
 	 */
@@ -702,7 +710,7 @@ static int de_thread(struct task_struct *tsk)
 		 */
 		detach_pid(tsk, PIDTYPE_PID);
 		tsk->pid = leader->pid;
-		attach_pid(tsk, PIDTYPE_PID,  tsk->pid);
+		attach_pid(tsk, PIDTYPE_PID,  find_pid(tsk->pid));
 		transfer_pid(leader, tsk, PIDTYPE_PGID);
 		transfer_pid(leader, tsk, PIDTYPE_SID);
 		list_replace_rcu(&leader->tasks, &tsk->tasks);
@@ -757,8 +765,7 @@ no_thread_group:
 		spin_unlock(&oldsighand->siglock);
 		write_unlock_irq(&tasklist_lock);
 
-		if (atomic_dec_and_test(&oldsighand->count))
-			kmem_cache_free(sighand_cachep, oldsighand);
+		__cleanup_sighand(oldsighand);
 	}
 
 	BUG_ON(!thread_group_leader(tsk));
@@ -1487,6 +1494,8 @@ int do_coredump(long signr, int exit_code, struct pt_regs * regs)
 	int fsuid = current->fsuid;
 	int flag = 0;
 	int ispipe = 0;
+
+	audit_core_dumps(signr);
 
 	binfmt = current->binfmt;
 	if (!binfmt || !binfmt->core_dump)

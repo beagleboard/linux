@@ -3,6 +3,7 @@
 #
 
 menu "Graphics support"
+	depends on HAS_IOMEM
 
 source "drivers/video/backlight/Kconfig"
 source "drivers/video/display/Kconfig"
@@ -747,6 +748,22 @@ config FB_S1D13XXX
 	  working with S1D13806). Product specs at
 	  <http://www.erd.epson.com/vdc/html/legacy_13xxx.htm>
 
+config FB_ATMEL
+	tristate "AT91/AT32 LCD Controller support"
+	depends on FB && (ARCH_AT91SAM9261 || ARCH_AT91SAM9263 || AVR32)
+	select FB_CFB_FILLRECT
+	select FB_CFB_COPYAREA
+	select FB_CFB_IMAGEBLIT
+	help
+	  This enables support for the AT91/AT32 LCD Controller.
+
+config FB_INTSRAM
+	bool "Frame Buffer in internal SRAM"
+	depends on FB_ATMEL && ARCH_AT91SAM9261
+	help
+	  Say Y if you want to map Frame Buffer in internal SRAM. Say N if you want
+	  to let frame buffer in external SDRAM.
+
 config FB_NVIDIA
 	tristate "nVidia Framebuffer Support"
 	depends on FB && PCI
@@ -778,6 +795,15 @@ config FB_NVIDIA_I2C
 	  Because fbdev-2.6 requires that drivers must be able to
 	  independently validate video mode parameters, you should say Y
 	  here.
+
+config FB_NVIDIA_DEBUG
+	bool "Lots of debug output"
+	depends on FB_NVIDIA
+	default n
+	help
+	  Say Y here if you want the nVidia driver to output all sorts
+	  of debugging information to provide to the maintainer when
+	  something goes wrong.
 
 config FB_NVIDIA_BACKLIGHT
 	bool "Support for backlight control"
@@ -818,7 +844,7 @@ config FB_RIVA_I2C
 	  here.
 
 config FB_RIVA_DEBUG
-	bool "Lots of debug output from Riva(nVidia) driver"
+	bool "Lots of debug output"
 	depends on FB_RIVA
 	default n
 	help
@@ -1430,8 +1456,11 @@ config FB_ARK
 	  and ICS 5342 RAMDAC.
 
 config FB_PM3
-	tristate "Permedia3 support"
-	depends on FB && PCI && BROKEN
+	tristate "Permedia3 support (EXPERIMENTAL)"
+	depends on FB && PCI && EXPERIMENTAL
+	select FB_CFB_FILLRECT
+	select FB_CFB_COPYAREA
+	select FB_CFB_IMAGEBLIT
 	help
 	  This is the frame buffer device driver for the 3DLabs Permedia3
 	  chipset, used in Formac ProFormance III, 3DLabs Oxygen VX1 &
@@ -1506,7 +1535,7 @@ config FB_LEO
 
 config FB_XVR500
 	bool "Sun XVR-500 3DLABS Wildcat support"
-	depends on FB && PCI && SPARC64
+	depends on (FB = y) && PCI && SPARC64
 	select FB_CFB_FILLRECT
 	select FB_CFB_COPYAREA
 	select FB_CFB_IMAGEBLIT
@@ -1519,7 +1548,7 @@ config FB_XVR500
 
 config FB_XVR2500
 	bool "Sun XVR-2500 3DLABS Wildcat support"
-	depends on FB && PCI && SPARC64
+	depends on (FB = y) && PCI && SPARC64
 	select FB_CFB_FILLRECT
 	select FB_CFB_COPYAREA
 	select FB_CFB_IMAGEBLIT
