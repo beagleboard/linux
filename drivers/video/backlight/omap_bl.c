@@ -109,20 +109,21 @@ static int omapbl_update_status(struct backlight_device *dev)
 {
 	struct omap_backlight *bl = class_get_devdata(&dev->class_dev);
 
-	if (bl->current_intensity != dev->props->brightness) {
-		if (dev->props->brightness < 0)
+	if (bl->current_intensity != dev->props.brightness) {
+		if (dev->props.brightness < 0)
 			return -EPERM;	/* Leave current_intensity untouched */
 
 		if (bl->powermode == FB_BLANK_UNBLANK)
-			omapbl_send_intensity(dev->props->brightness);
-		bl->current_intensity = dev->props->brightness;
+			omapbl_send_intensity(dev->props.brightness);
+		bl->current_intensity = dev->props.brightness;
 	}
 
-	if (dev->props->fb_blank != bl->powermode)
-		omapbl_set_power(dev, dev->props->fb_blank);
+	if (dev->props.fb_blank != bl->powermode)
+		omapbl_set_power(dev, dev->props.fb_blank);
 
 	return 0;
 }
+
 
 static int omapbl_get_intensity(struct backlight_device *dev)
 {
@@ -130,12 +131,11 @@ static int omapbl_get_intensity(struct backlight_device *dev)
 	return bl->current_intensity;
 }
 
-static struct backlight_properties omapbl_data = {
-	.owner		= THIS_MODULE,
-	.get_brightness	= omapbl_get_intensity,
-	.update_status	= omapbl_update_status,
-	.max_brightness = OMAPBL_MAX_INTENSITY,
+static struct backlight_ops omapbl_ops = {
+	.get_brightness = omapbl_get_intensity,
+	.update_status  = omapbl_update_status,
 };
+
 
 static int omapbl_probe(struct platform_device *pdev)
 {
@@ -146,14 +146,14 @@ static int omapbl_probe(struct platform_device *pdev)
 	if (!pdata)
 		return -ENXIO;
 
-	omapbl_data.check_fb = pdata->check_fb;
+	omapbl_ops.check_fb = pdata->check_fb;
 
 	bl = kzalloc(sizeof(struct omap_backlight), GFP_KERNEL);
 	if (unlikely(!bl))
 		return -ENOMEM;
 
 	dev = backlight_device_register("omap-bl", &pdev->dev,
-			bl, &omapbl_data);
+			bl, &omapbl_ops);
 	if (IS_ERR(dev)) {
 		kfree(bl);
 		return PTR_ERR(dev);
@@ -169,8 +169,8 @@ static int omapbl_probe(struct platform_device *pdev)
 
 	omap_cfg_reg(PWL);	/* Conflicts with UART3 */
 
-	omapbl_data.fb_blank = FB_BLANK_UNBLANK;
-	omapbl_data.brightness = pdata->default_intensity;
+	dev->props.fb_blank = FB_BLANK_UNBLANK;
+	dev->props.brightness = pdata->default_intensity;
 	omapbl_update_status(dev);
 
 	printk(KERN_INFO "OMAP LCD backlight initialised\n");
