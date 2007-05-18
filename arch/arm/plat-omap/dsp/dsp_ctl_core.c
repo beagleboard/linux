@@ -43,7 +43,8 @@ static int dsp_ctl_core_open(struct inode *inode, struct file *file)
 	static DEFINE_MUTEX(open_lock);
 	int ret = 0;
 
-	mutex_lock_interruptible(&open_lock);
+	if (mutex_lock_interruptible(&open_lock))
+		return -EINTR;
 	if (omap_dsp->initialized == 0) {
 		ret = dsp_late_init();
 		if (ret != 0) {
