@@ -268,7 +268,7 @@ void dsp_reset_idle_boot_base(void) { }
 
 static int init_done;
 
-static int __init omap_dsp_init(void)
+static int omap_dsp_init(void)
 {
 	mutex_init(&cpustat.lock);
 
