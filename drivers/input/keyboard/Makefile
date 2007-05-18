@@ -23,4 +23,4 @@ obj-$(CONFIG_KEYBOARD_PXA27x)		+= pxa27x_keyboard.o
 obj-$(CONFIG_KEYBOARD_AAED2000)         += aaed2000_kbd.o
 obj-$(CONFIG_KEYBOARD_GPIO)		+= gpio_keys.o
 obj-$(CONFIG_KEYBOARD_TSC2301)		+= tsc2301_kp.o
-
+obj-$(CONFIG_KEYBOARD_TWL4030)	  += omap-twl4030keypad.o

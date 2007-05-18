@@ -19,6 +19,7 @@
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
 #include <linux/delay.h>
+#include <linux/input.h>
 #include <linux/err.h>
 #include <linux/clk.h>
 #include <linux/spi/spi.h>
@@ -34,6 +35,7 @@
 #include <asm/arch/mux.h>
 #include <asm/arch/board.h>
 #include <asm/arch/common.h>
+#include <asm/arch/keypad.h>
 #include <asm/arch/gpmc.h>
 #include <asm/arch/mcspi.h>
 #include "prcm-regs.h"
@@ -120,9 +122,64 @@ static struct platform_device sdp2430_smc91x_device = {
 	.resource	= sdp2430_smc91x_resources,
 };
 
+/*
+ * Key mapping for 2430 SDP board
+ */
+
+static int sdp2430_keymap[] = {
+	KEY(0, 0, KEY_LEFT),
+	KEY(0, 1, KEY_RIGHT),
+	KEY(0, 2, KEY_A),
+	KEY(0, 3, KEY_B),
+	KEY(0, 4, KEY_C),
+	KEY(1, 0, KEY_DOWN),
+	KEY(1, 1, KEY_UP),
+	KEY(1, 2, KEY_E),
+	KEY(1, 3, KEY_F),
+	KEY(1, 4, KEY_G),
+	KEY(2, 0, KEY_ENTER),
+	KEY(2, 1, KEY_I),
+	KEY(2, 2, KEY_J),
+	KEY(2, 3, KEY_K),
+	KEY(2, 4, KEY_3),
+	KEY(3, 0, KEY_M),
+	KEY(3, 1, KEY_N),
+	KEY(3, 2, KEY_O),
+	KEY(3, 3, KEY_P),
+	KEY(3, 4, KEY_Q),
+	KEY(4, 0, KEY_R),
+	KEY(4, 1, KEY_4),
+	KEY(4, 2, KEY_T),
+	KEY(4, 3, KEY_U),
+	KEY(4, 4, KEY_D),
+	KEY(5, 0, KEY_V),
+	KEY(5, 1, KEY_W),
+	KEY(5, 2, KEY_L),
+	KEY(5, 3, KEY_S),
+	KEY(5, 4, KEY_H),
+	0
+};
+
+static struct omap_kp_platform_data sdp2430_kp_data = {
+	.rows		= 5,
+	.cols		= 6,
+	.keymap 	= sdp2430_keymap,
+	.keymapsize 	= ARRAY_SIZE(sdp2430_keymap),
+	.rep		= 1,
+};
+
+static struct platform_device sdp2430_kp_device = {
+	.name		= "omap_twl4030keypad",
+	.id		= -1,
+	.dev		= {
+		.platform_data	= &sdp2430_kp_data,
+	},
+};
+
 static struct platform_device *sdp2430_devices[] __initdata = {
 	&sdp2430_smc91x_device,
 	&sdp2430_flash_device,
+	&sdp2430_kp_device,
 };
 
 static struct tsc2046_platform_data tsc2046_config = {

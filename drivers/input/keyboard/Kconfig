@@ -214,6 +214,16 @@ config KEYBOARD_OMAP
 	  To compile this driver as a module, choose M here: the
 	  module will be called omap-keypad.
 
+config KEYBOARD_TWL4030
+	tristate "TI TWL4030 keypad support"
+	depends on TWL4030_CORE && MACH_OMAP_2430SDP
+	help
+	  Say Y here if you want to use the OMAP TWL4030 keypad.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called omap-twl4030keypad. This driver depends on
+	  TWL4030 Core and TWL4030 GPIO I2C client driver
+
 config OMAP_PS2
 	tristate "TI OMAP Innovator 1510 PS/2 keyboard & mouse support"
 	depends on ARCH_OMAP15XX && MACH_OMAP_INNOVATOR
