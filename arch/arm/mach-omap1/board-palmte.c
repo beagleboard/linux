@@ -324,7 +324,7 @@ static struct tsc2102_config palmte_tsc2102_config = {
 	.alsa_config	= &palmte_alsa_config,
 };
 
-static struct omap_board_config_kernel palmte_config[] = {
+static struct omap_board_config_kernel palmte_config[] __initdata = {
 	{ OMAP_TAG_USB,		&palmte_usb_config },
 	{ OMAP_TAG_MMC,		&palmte_mmc_config },
 	{ OMAP_TAG_LCD,		&palmte_lcd_config },
