@@ -652,8 +652,6 @@ static int __init aic23_init(void)
 
 static void __exit aic23_exit(void)
 {
-	int res;
-
 	aic23_power_down();
 	i2c_del_driver(&aic23_driver);
 
