@@ -82,13 +82,13 @@ static unsigned int rates[] = {
 	 32000, 44100, 48000,
 };
 
-static snd_pcm_hw_constraint_list_t egold_hw_constraints_rates = {
+static struct snd_pcm_hw_constraint_list egold_hw_constraints_rates = {
 	.count	= ARRAY_SIZE(rates),
 	.list	= rates,
 	.mask	= 0,
 };
 
-static snd_pcm_hardware_t egold_snd_omap_alsa_playback = {
+static struct snd_pcm_hardware egold_snd_omap_alsa_playback = {
 	.info = (SNDRV_PCM_INFO_INTERLEAVED | SNDRV_PCM_INFO_BLOCK_TRANSFER |
 		 SNDRV_PCM_INFO_MMAP | SNDRV_PCM_INFO_MMAP_VALID),
 	.formats = (SNDRV_PCM_FMTBIT_S16_LE),
@@ -109,7 +109,7 @@ static snd_pcm_hardware_t egold_snd_omap_alsa_playback = {
 	.fifo_size		= 0,
 };
 
-static snd_pcm_hardware_t egold_snd_omap_alsa_capture = {
+static struct snd_pcm_hardware egold_snd_omap_alsa_capture = {
 	.info = (SNDRV_PCM_INFO_INTERLEAVED | SNDRV_PCM_INFO_BLOCK_TRANSFER |
 		 SNDRV_PCM_INFO_MMAP | SNDRV_PCM_INFO_MMAP_VALID),
 	.formats = (SNDRV_PCM_FMTBIT_S16_LE),
