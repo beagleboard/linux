@@ -621,7 +621,7 @@ int __devinit tsc2301_ts_init(struct tsc2301 *tsc,
 
 	ts->irq_enabled = 1;
 	r = request_irq(ts->irq, tsc2301_ts_irq_handler,
-			SA_SAMPLE_RANDOM | SA_TRIGGER_FALLING,
+			IRQF_SAMPLE_RANDOM | IRQF_TRIGGER_FALLING,
 			"tsc2301-ts", tsc);
 	if (r < 0) {
 		dev_err(&tsc->spi->dev, "unable to get DAV IRQ");

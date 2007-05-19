@@ -352,7 +352,7 @@ static int __devinit omap2_onenand_probe(struct platform_device *pdev)
 	omap_set_gpio_direction(info->gpio_irq, 1);
 
 	if ((r = request_irq(OMAP_GPIO_IRQ(info->gpio_irq),
-			     omap2_onenand_interrupt, SA_TRIGGER_RISING,
+			     omap2_onenand_interrupt, IRQF_TRIGGER_RISING,
 			     pdev->dev.driver->name, info)) < 0)
 		goto err_release_gpio;
 

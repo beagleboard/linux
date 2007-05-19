@@ -515,7 +515,7 @@ int __devinit tsc2301_kp_init(struct tsc2301 *tsc,
 
 	set_irq_type(kp->irq, IRQT_FALLING);
 
-	r = request_irq(kp->irq, tsc2301_kp_irq_handler, SA_SAMPLE_RANDOM,
+	r = request_irq(kp->irq, tsc2301_kp_irq_handler, IRQF_SAMPLE_RANDOM,
 			"tsc2301-kp", tsc);
 	if (r < 0) {
 		dev_err(&tsc->spi->dev, "unable to get kbirq IRQ");
