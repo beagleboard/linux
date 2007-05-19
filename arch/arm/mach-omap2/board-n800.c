@@ -285,7 +285,7 @@ static inline void n800_cam_init(void) {}
 
 #endif
 
-static struct omap_board_config_kernel n800_config[] = {
+static struct omap_board_config_kernel n800_config[] __initdata = {
 	{ OMAP_TAG_UART,	                &n800_uart_config },
 #ifdef SUPPORT_SENSOR
 	{ OMAP_TAG_CAMERA_SENSOR,		&n800_sensor_config },
