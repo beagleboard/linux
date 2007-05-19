@@ -210,11 +210,13 @@ void mbox_fbctl_upd(void)
 	win.format = buf[4];
 	release_ipbuf_pvt(ipbuf_sys_da);
 
+#ifdef CONFIG_FB_OMAP_LCDC_EXTERNAL
 	if (!omapfb_ready) {
 		printk(KERN_WARNING
 		       "omapdsp: fbupd() called while HWA742 is not ready!\n");
 		return;
 	}
+#endif
 	omapfb_update_window_async(registered_fb[0], &win, fbupd_cb, NULL);
 }
 
@@ -237,7 +239,10 @@ static int dsp_fbexport(dsp_long_t *dspadr)
 {
 	dsp_long_t dspadr_actual;
 	unsigned long padr_sys, padr, fbsz_sys, fbsz;
-	int cnt, status;
+	int cnt;
+#ifdef CONFIG_FB_OMAP_LCDC_EXTERNAL
+	int status;
+#endif
 
 	pr_debug( "omapdsp: frame buffer export\n");
 
