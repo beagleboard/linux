@@ -79,7 +79,7 @@ static struct omap_uart_config generic_uart_config __initdata = {
 	.enabled_uarts = ((1 << 0) | (1 << 1) | (1 << 2)),
 };
 
-static struct omap_board_config_kernel generic_config[] = {
+static struct omap_board_config_kernel generic_config[] __initdata = {
 	{ OMAP_TAG_USB,           NULL },
 	{ OMAP_TAG_MMC,           &generic_mmc_config },
 	{ OMAP_TAG_UART,	&generic_uart_config },
