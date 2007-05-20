@@ -51,7 +51,7 @@ static struct omap_mmc_config generic_mmc_config __initdata = {
 	},
 };
 
-static struct omap_board_config_kernel generic_config[] = {
+static struct omap_board_config_kernel generic_config[] __initdata = {
 	{ OMAP_TAG_UART,	&generic_uart_config },
 	{ OMAP_TAG_MMC,		&generic_mmc_config },
 };
