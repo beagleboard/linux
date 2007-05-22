@@ -58,7 +58,7 @@ config BACKLIGHT_HP680
 
 config BACKLIGHT_OMAP
 	tristate "OMAP LCD Backlight"
-	depends on BACKLIGHT_DEVICE && (ARCH_OMAP1 || ARCH_OMAP2)
+	depends on BACKLIGHT_CLASS_DEVICE && (ARCH_OMAP1 || ARCH_OMAP2)
 	default y
 	help
 	  This driver controls the LCD backlight level and power
