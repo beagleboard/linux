@@ -81,7 +81,6 @@ static int tsc2102_ts_probe(struct platform_device *pdev)
 	}
 
 	dev->name = "TSC2102 Touchscreen";
-	dev->dev = &pdev->dev;
 	dev->cdev.dev = &pdev->dev;
 	dev->evbit[0] = BIT(EV_KEY) | BIT(EV_ABS);
 	dev->keybit[LONG(BTN_TOUCH)] |= BIT(BTN_TOUCH);

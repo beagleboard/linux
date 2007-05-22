@@ -164,6 +164,21 @@ config TOUCHSCREEN_UCB1400
 	  To compile this driver as a module, choose M here: the
 	  module will be called ucb1400_ts.
 
+config TOUCHSCREEN_TSC2102
+	tristate "TSC 2102 based touchscreens"
+	depends on SPI_MASTER
+	select SPI_TSC2102
+	help
+	  Say Y here if you have a touchscreen interface using the
+	  TI TSC 2102 controller, and your board-specific initialization
+	  code includes that in its table of SPI devices.  Also make
+	  sure the proper SPI controller is selected.
+
+	  If unsure, say N (but it's safe to say "Y").
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called tsc2102_ts.
+
 config TOUCHSCREEN_TSC2301
 	tristate "TSC2301 touchscreen support"
 	depends on SPI_TSC2301
