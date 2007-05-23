@@ -43,7 +43,6 @@
 #define OMAPALSATSC2101MIXER_H_
 
 #include <asm/hardware/tsc2101.h>
-#include <../drivers/ssi/omap-tsc2101.h>
 #include "omap-alsa-dma.h"
 
 /* tsc2101 DAC gain control volume specific  */

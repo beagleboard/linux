@@ -34,7 +34,6 @@
 #include <asm/arch/clock.h>
 
 #include <asm/hardware/tsc2101.h>
-#include <../drivers/ssi/omap-tsc2101.h>
 
 #include <asm/arch/omap-alsa.h>
 #include "omap-alsa-tsc2101.h"
@@ -118,7 +117,7 @@ static struct snd_pcm_hardware tsc2101_snd_omap_alsa_playback = {
 	.fifo_size = 0,
 };
 
-static snd_pcm_hardware_t tsc2101_snd_omap_alsa_capture = {
+static struct snd_pcm_hardware tsc2101_snd_omap_alsa_capture = {
 	.info = (SNDRV_PCM_INFO_INTERLEAVED | SNDRV_PCM_INFO_BLOCK_TRANSFER |
 		 SNDRV_PCM_INFO_MMAP | SNDRV_PCM_INFO_MMAP_VALID),
 	.formats = (SNDRV_PCM_FMTBIT_S16_LE),
