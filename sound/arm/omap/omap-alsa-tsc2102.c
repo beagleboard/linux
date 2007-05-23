@@ -19,7 +19,8 @@
 #include <linux/module.h>
 #include <linux/spi/tsc2102.h>
 
-#include <asm/arch/mcbsp.h>
+#include <asm/io.h>
+
 #include <asm/arch/dma.h>
 #include <asm/arch/clock.h>
 #include <asm/arch/omap-alsa.h>

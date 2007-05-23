@@ -26,8 +26,9 @@
 #endif
 
 #define DEFAULT_SAMPLE_RATE		44100
+
+/* FIXME codec clock rate is board-specific */
 #define CODEC_CLOCK			12000000
-#define AUDIO_MCBSP			OMAP_MCBSP1
 
 /*
  * ALSA mixer related macros

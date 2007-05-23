@@ -583,7 +583,8 @@ static void tsc2102_pressure(unsigned long data)
 			&dev->adc_status, tsc2102_pressure_report);
 }
 
-#ifdef CONFIG_SOUND
+#if defined(CONFIG_SND_OMAP_TSC2102) || defined(CONFIG_SND_OMAP_TSC2102_MODULE)
+
 /*
  * Volume level values should be in the range [0, 127].
  * Higher values mean lower volume.
@@ -607,6 +608,7 @@ void tsc2102_set_volume(uint8_t left_ch, uint8_t right_ch)
 
 	spin_unlock(&tsc.lock_sync);
 }
+EXPORT_SYMBOL_GPL(tsc2102_set_volume);
 
 void tsc2102_set_mute(int left_ch, int right_ch)
 {
@@ -622,6 +624,7 @@ void tsc2102_set_mute(int left_ch, int right_ch)
 
 	spin_unlock(&tsc.lock_sync);
 }
+EXPORT_SYMBOL_GPL(tsc2102_set_mute);
 
 void tsc2102_get_mute(int *left_ch, int *right_ch)
 {
@@ -650,6 +653,7 @@ void tsc2102_set_deemphasis(int enable)
 	tsc2102_write_sync(TSC2102_DAC_POWER_CTRL, val);
 	spin_unlock(&tsc.lock_sync);
 }
+EXPORT_SYMBOL_GPL(tsc2102_set_deemphasis);
 
 void tsc2102_set_bassboost(int enable)
 {
@@ -665,6 +669,7 @@ void tsc2102_set_bassboost(int enable)
 	tsc2102_write_sync(TSC2102_DAC_POWER_CTRL, val);
 	spin_unlock(&tsc.lock_sync);
 }
+EXPORT_SYMBOL_GPL(tsc2102_set_bassboost);
 
 /*	{rate, dsor, fsref}	*/
 static const struct tsc2102_rate_info_s tsc2102_rates[] = {
@@ -730,6 +735,7 @@ int tsc2102_set_rate(int rate)
 	spin_unlock(&tsc.lock_sync);
 	return 0;
 }
+EXPORT_SYMBOL(tsc2102_set_rate);
 
 /*
  * Perform basic set-up with default values and power the DAC on.
@@ -762,6 +768,7 @@ void tsc2102_dac_power(int state)
 
 	spin_unlock(&tsc.lock_sync);
 }
+EXPORT_SYMBOL_GPL(tsc2102_dac_power);
 
 void tsc2102_set_i2s_master(int state)
 {
@@ -777,7 +784,9 @@ void tsc2102_set_i2s_master(int state)
 
 	spin_unlock(&tsc.lock_sync);
 }
-#endif	/* CONFIG_SOUND */
+EXPORT_SYMBOL_GPL(tsc2102_set_i2s_master);
+
+#endif	/* CONFIG_SND_OMAP_TSC2101 */
 
 static int tsc2102_configure(struct tsc2102_dev *dev)
 {

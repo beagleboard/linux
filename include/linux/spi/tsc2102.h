@@ -53,7 +53,7 @@ extern int tsc2102_ports_cb(tsc2102_ports_t handler);
 extern int tsc2102_temp1_cb(tsc2102_temp_t handler);
 extern int tsc2102_temp2_cb(tsc2102_temp_t handler);
 
-#ifdef CONFIG_SOUND
+#if defined(CONFIG_SND_OMAP_TSC2102) || defined(CONFIG_SND_OMAP_TSC2102_MODULE)
 extern void tsc2102_set_volume(uint8_t left_ch, uint8_t right_ch);
 extern void tsc2102_set_mute(int left_ch, int right_ch);
 extern void tsc2102_get_mute(int *left_ch, int *right_ch);
