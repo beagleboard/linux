@@ -43,7 +43,7 @@
 #include <linux/libata.h>
 
 #define DRV_NAME		"pata_scc"
-#define DRV_VERSION		"0.1"
+#define DRV_VERSION		"0.2"
 
 #define PCI_DEVICE_ID_TOSHIBA_SCC_ATA		0x01b4
 
@@ -864,10 +864,10 @@ static void scc_bmdma_freeze (struct ata_port *ap)
  *	@ap: ATA port to be reset
  */
 
-static int scc_pata_prereset (struct ata_port *ap)
+static int scc_pata_prereset (struct ata_port *ap, unsigned long deadline)
 {
 	ap->cbl = ATA_CBL_PATA80;
-	return ata_std_prereset(ap);
+	return ata_std_prereset(ap, deadline);
 }
 
 /**
