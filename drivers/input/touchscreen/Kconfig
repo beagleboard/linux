@@ -185,12 +185,6 @@ config TOUCHSCREEN_TSC2301
 	help
 	  Say Y here for if you are using the touchscreen features of TSC2301.
 
-config TOUCHSCREEN_TSC2046
-	tristate "TSC2046 touchscreen support"
-	default MACH_OMAP2430SDP
-	  help
-	  Say Y here for if you are using the touchscreen features of TSC2046
-
 config TOUCHSCREEN_USB_COMPOSITE
 	tristate "USB Touchscreen Driver"
 	depends on USB_ARCH_HAS_HCD

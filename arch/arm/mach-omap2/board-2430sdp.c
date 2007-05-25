@@ -23,7 +23,7 @@
 #include <linux/err.h>
 #include <linux/clk.h>
 #include <linux/spi/spi.h>
-#include <linux/spi/tsc2046.h>
+#include <linux/spi/ads7846.h>
 
 #include <asm/hardware.h>
 #include <asm/mach-types.h>
@@ -45,7 +45,10 @@
 #define	SDP2430_FLASH_CS	0
 #define	SDP2430_SMC91X_CS	5
 
-/* TSC2046 (touchscreen) */
+/* GPIO used for TSC2046 (touchscreen)
+ *
+ * Also note that the tsc2046 is the same silicon as the ads7846, so
+ * that driver is used for the touchscreen. */
 #define TS_GPIO                 24
 
 static struct mtd_partition sdp2430_partitions[] = {
@@ -182,9 +185,25 @@ static struct platform_device *sdp2430_devices[] __initdata = {
 	&sdp2430_kp_device,
 };
 
-static struct tsc2046_platform_data tsc2046_config = {
-	.dav_gpio       = TS_GPIO,
-	.gpio_debounce  = 0xa,
+static void ads7846_dev_init(void)
+{
+	if (omap_request_gpio(TS_GPIO) < 0)
+		printk(KERN_ERR "can't get ads746 pen down GPIO\n");
+
+	omap_set_gpio_direction(TS_GPIO, 1);
+
+	omap_set_gpio_debounce(TS_GPIO, 1);
+	omap_set_gpio_debounce_time(TS_GPIO, 0xa);
+}
+
+static int ads7846_get_pendown_state(void)
+{
+	return !omap_get_gpio_datain(TS_GPIO);
+}
+
+static struct ads7846_platform_data tsc2046_config __initdata = {
+	.get_pendown_state = ads7846_get_pendown_state,
+	.keep_vref_on	   = 1,
 };
 
 static struct omap2_mcspi_device_config tsc2046_mcspi_config = {
@@ -198,11 +217,12 @@ static struct spi_board_info sdp2430_spi_board_info[] __initdata = {
 		 * TSC2046 operates at a max freqency of 2MHz, so
 		 * operate slightly below at 1.5MHz
 		 */
-		.modalias	 = "tsc2046",
+		.modalias	 = "ads7846",
 		.bus_num	 = 1,
 		.chip_select	 = 0,
 		.max_speed_hz    = 1500000,
 		.controller_data = &tsc2046_mcspi_config,
+		.irq		 = OMAP_GPIO_IRQ(TS_GPIO),
 		.platform_data   = &tsc2046_config,
 	},
 };
@@ -367,6 +387,7 @@ static void __init omap_2430sdp_init(void)
 
 	spi_register_board_info(sdp2430_spi_board_info,
 				ARRAY_SIZE(sdp2430_spi_board_info));
+	ads7846_dev_init();
 }
 
 static void __init omap_2430sdp_map_io(void)
