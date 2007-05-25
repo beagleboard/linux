@@ -494,6 +494,9 @@ static irqreturn_t musb_stage0_irq(struct musb * pThis, u8 bIntrUSB,
 			// REVISIT HNP; just force disconnect
 		}
 		pThis->bDelayPortPowerOff = FALSE;
+		musb_writew(pBase, MGC_O_HDRC_INTRTXE, pThis->wEndMask);
+		musb_writew(pBase, MGC_O_HDRC_INTRRXE, pThis->wEndMask & 0xfffe);
+		musb_writeb(pBase, MGC_O_HDRC_INTRUSBE, 0xf7);
 #endif
 		pThis->port1_status &= ~(USB_PORT_STAT_LOW_SPEED
 					|USB_PORT_STAT_HIGH_SPEED
@@ -741,8 +744,8 @@ static void musb_generic_disable(struct musb *pThis)
 
 	/* disable interrupts */
 	musb_writeb(pBase, MGC_O_HDRC_INTRUSBE, 0);
-	musb_writew(pBase, MGC_O_HDRC_INTRTX, 0);
-	musb_writew(pBase, MGC_O_HDRC_INTRRX, 0);
+	musb_writew(pBase, MGC_O_HDRC_INTRTXE, 0);
+	musb_writew(pBase, MGC_O_HDRC_INTRRXE, 0);
 
 	/* off */
 	musb_writeb(pBase, MGC_O_HDRC_DEVCTL, 0);
@@ -1312,7 +1315,7 @@ static int __init musb_core_init(u16 wType, struct musb *pThis)
 
 /*-------------------------------------------------------------------------*/
 
-#ifdef CONFIG_ARCH_OMAP2430
+#if defined(CONFIG_ARCH_OMAP2430) || defined(CONFIG_ARCH_OMAP3430)
 
 static irqreturn_t generic_interrupt(int irq, void *__hci)
 {
@@ -1780,6 +1783,7 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 
 	/* be sure interrupts are disabled before connecting ISR */
 	musb_platform_disable(pThis);
+	musb_generic_disable(pThis);
 
 	/* setup musb parts of the core (especially endpoints) */
 	status = musb_core_init(plat->multipoint
@@ -1997,7 +2001,6 @@ static struct platform_driver musb_driver = {
 		.bus		= &platform_bus_type,
 		.owner		= THIS_MODULE,
 	},
-	.probe		= musb_probe,
 	.remove		= __devexit_p(musb_remove),
 	.shutdown	= musb_shutdown,
 	.suspend	= musb_suspend,
