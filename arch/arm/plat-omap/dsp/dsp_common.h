@@ -28,10 +28,12 @@
 #include <asm/arch/mmu.h>
 #include "hardware_dsp.h"
 
+#ifdef CONFIG_ARCH_OMAP2
 #include "../../mach-omap2/prm.h"
 #include "../../mach-omap2/prm_regbits_24xx.h"
 #include "../../mach-omap2/cm.h"
 #include "../../mach-omap2/cm_regbits_24xx.h"
+#endif
 
 #define DSPSPACE_SIZE	0x1000000
 
