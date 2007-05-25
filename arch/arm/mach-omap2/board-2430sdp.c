@@ -117,6 +117,11 @@ static struct resource sdp2430_smc91x_resources[] = {
 	},
 };
 
+static struct platform_device sdp2430_lcd_device = {
+	.name		= "sdp2430_lcd",
+	.id		= -1,
+};
+
 static struct platform_device sdp2430_smc91x_device = {
 	.name		= "smc91x",
 	.id		= -1,
@@ -182,6 +187,7 @@ static struct platform_device *sdp2430_devices[] __initdata = {
 	&sdp2430_smc91x_device,
 	&sdp2430_flash_device,
 	&sdp2430_kp_device,
+	&sdp2430_lcd_device,
 };
 
 static void ads7846_dev_init(void)
@@ -208,6 +214,10 @@ static struct ads7846_platform_data tsc2046_config __initdata = {
 static struct omap2_mcspi_device_config tsc2046_mcspi_config = {
 	.turbo_mode	= 0,
 	.single_channel = 0,  /* 0: slave, 1: master */
+};
+
+static struct omap_lcd_config sdp2430_lcd_config __initdata = {
+	.ctrl_name	= "internal",
 };
 
 static struct spi_board_info sdp2430_spi_board_info[] __initdata = {
@@ -297,6 +307,7 @@ static struct omap_uart_config sdp2430_uart_config __initdata = {
 
 static struct omap_board_config_kernel sdp2430_config[] __initdata = {
 	{OMAP_TAG_UART, &sdp2430_uart_config},
+	{OMAP_TAG_LCD, &sdp2430_lcd_config},
 };
 
 #if	defined(CONFIG_I2C_OMAP) || defined(CONFIG_I2C_OMAP_MODULE)
