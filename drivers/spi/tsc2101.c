@@ -237,7 +237,7 @@ static int tsc2101_probe(struct spi_device *spi)
 
 	mutex_init(&tsc2101->mutex);
 
-	spi->mode = SPI_MODE_0;
+	spi->mode = SPI_MODE_1;
 	spi->bits_per_word = 16;
 	if ((r = spi_setup(spi)) < 0) {
 		dev_err(&spi->dev, "SPI setup failed\n");

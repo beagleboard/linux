@@ -550,9 +550,9 @@ static int omap2_mcspi_setup_transfer(struct spi_device *spi,
 	else
 		l &= ~OMAP2_MCSPI_CHCONF_POL;
 	if (spi->mode & SPI_CPHA)
-		l &= ~OMAP2_MCSPI_CHCONF_PHA;
-	else
 		l |= OMAP2_MCSPI_CHCONF_PHA;
+	else
+		l &= ~OMAP2_MCSPI_CHCONF_PHA;
 	mcspi_write_cs_reg(spi, OMAP2_MCSPI_CHCONF0, l);
 
 	dev_dbg(&spi->dev, "setup: speed %d, sample %s edge, clk %s inverted\n",

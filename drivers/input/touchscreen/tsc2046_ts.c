@@ -499,7 +499,7 @@ static int __devinit tsc2046_probe(struct spi_device *spi)
 	tsc->spi = spi;
 	spi->dev.power.power_state = PMSG_ON;
 
-	spi->mode = SPI_MODE_1;
+	spi->mode = SPI_MODE_0;
 	spi->bits_per_word = 16;
 
 	/*
