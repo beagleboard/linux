@@ -159,12 +159,24 @@ __acquires(ep->musb->Lock)
 static void nuke(struct musb_ep *ep, const int status)
 {
 	struct musb_request	*req = NULL;
+	void __iomem *epio = ep->pThis->aLocalEnd[ep->bEndNumber].regs;
 
 	ep->busy = 1;
 
 	if (is_dma_capable() && ep->dma) {
 		struct dma_controller	*c = ep->pThis->pDmaController;
 		int value;
+		if (ep->is_in) {
+			musb_writew(epio, MGC_O_HDRC_TXCSR,
+					0 | MGC_M_TXCSR_FLUSHFIFO);
+			musb_writew(epio, MGC_O_HDRC_TXCSR,
+					0 | MGC_M_TXCSR_FLUSHFIFO);
+		} else {
+			musb_writew(epio, MGC_O_HDRC_RXCSR,
+					0 | MGC_M_RXCSR_FLUSHFIFO);
+			musb_writew(epio, MGC_O_HDRC_RXCSR,
+					0 | MGC_M_RXCSR_FLUSHFIFO);
+		}
 
 		value = c->channel_abort(ep->dma);
 		DBG(value ? 1 : 6, "%s: abort DMA --> %d\n", ep->name, value);
@@ -454,12 +466,12 @@ void musb_g_tx(struct musb *musb, u8 bEnd)
 				musb_writew(epio, MGC_O_HDRC_TXCSR, wCsrVal);
 				/* ensure writebuffer is empty */
 				wCsrVal = musb_readw(epio, MGC_O_HDRC_TXCSR);
+				pRequest->actual += pEnd->dma->dwActualLength;
 				DBG(4, "TXCSR%d %04x, dma off, "
 						"len %Zd, req %p\n",
 					bEnd, wCsrVal,
 					pEnd->dma->dwActualLength,
 					pRequest);
-				pRequest->actual += pEnd->dma->dwActualLength;
 			}
 
 			if (is_dma || pRequest->actual == pRequest->length) {
@@ -475,8 +487,9 @@ void musb_g_tx(struct musb *musb, u8 bEnd)
 							== 0)
 #ifdef CONFIG_USB_INVENTRA_DMA
 					|| (is_dma &&
-						(pRequest->actual
-							< pEnd->wPacketSize))
+						((!dma->bDesiredMode) ||
+						    (pRequest->actual &
+						    (pEnd->wPacketSize - 1))))
 #endif
 				) {
 					/* on dma completion, fifo may not
@@ -489,6 +502,7 @@ void musb_g_tx(struct musb *musb, u8 bEnd)
 					musb_writew(epio, MGC_O_HDRC_TXCSR,
 							MGC_M_TXCSR_MODE
 							| MGC_M_TXCSR_TXPKTRDY);
+					pRequest->zero = 0;
 				}
 
 				/* ... or if not, then complete it */
@@ -1143,6 +1157,8 @@ static int musb_gadget_queue(struct usb_ep *ep, struct usb_request *req,
 
 	if (!ep || !req)
 		return -EINVAL;
+	if (!req->buf)
+		return -ENODATA;
 
 	pEnd = to_musb_ep(ep);
 	musb = pEnd->pThis;
@@ -1275,6 +1291,8 @@ int musb_gadget_set_halt(struct usb_ep *ep, int value)
 	struct musb_request	*pRequest = NULL;
 	int			status = 0;
 
+	if (!ep)
+		return -EINVAL;
 	pBase = musb->pRegs;
 
 	spin_lock_irqsave(&musb->Lock, flags);

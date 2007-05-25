@@ -10,21 +10,45 @@
 #ifndef __MUSB_OMAP243X_H__
 #define __MUSB_OMAP243X_H__
 
-#ifdef CONFIG_ARCH_OMAP2430
-
+#if defined(CONFIG_ARCH_OMAP2430) || defined(CONFIG_ARCH_OMAP3430)
+#include <asm/arch/hardware.h>
 #include <asm/arch/usb.h>
-
 /*
  * OMAP2430-specific definitions
  */
 
 #define MENTOR_BASE_OFFSET	0
-#define HS_OTG(offset)		(OMAP243X_HS_BASE + (offset))
-#define OTG_REVISION		HS_OTG(0x400)
-#define OTG_SYSCONFIG		HS_OTG(0x404)
-#define OTG_SYSSTATUS		HS_OTG(0x408)
-#define OTG_INTERFSEL		HS_OTG(0x40c)
-#define OTG_SIMENABLE		HS_OTG(0x410)
+#if	defined(CONFIG_ARCH_OMAP2430)
+#define	OMAP_HSOTG_BASE		(OMAP243X_HS_BASE)
+#elif	defined(CONFIG_ARCH_OMAP3430)
+#define	OMAP_HSOTG_BASE		(HS_BASE)
+#endif
+#define OMAP_HSOTG(offset)	__REG32(OMAP_HSOTG_BASE + 0x400 + (offset))
+#define OTG_REVISION_REG	OMAP_HSOTG(0x0)
+#define OTG_SYSCONFIG_REG	OMAP_HSOTG(0x4)
+#	define	MIDLEMODE	12	/* bit position */
+#	define	FORCESTDBY		(0 << MIDLEMODE)
+#	define	NOSTDBY			(1 << MIDLEMODE)
+#	define	SMARTSTDBY		(2 << MIDLEMODE)
+#	define	SIDLEMODE		3	/* bit position */
+#	define	FORCEIDLE		(0 << SIDLEMODE)
+#	define	NOIDLE			(1 << SIDLEMODE)
+#	define	SMARTIDLE		(2 << SIDLEMODE)
+#	define	ENABLEWAKEUP		(1 << 2)
+#	define	SOFTRST			(1 << 1)
+#	define	AUTOIDLE		(1 << 0)
+#define OTG_SYSSTATUS_REG	OMAP_HSOTG(0x8)
+#	define	RESETDONE		(1 << 0)
+#define OTG_INTERFSEL_REG	OMAP_HSOTG(0xc)
+#	define	EXTCP			(1 << 2)
+#	define	PHYSEL		0	/* bit position */
+#	define	UTMI_8BIT		(0 << PHYSEL)
+#	define	ULPI_12PIN		(1 << PHYSEL)
+#	define	ULPI_8PIN		(2 << PHYSEL)
+#define OTG_SIMENABLE_REG     	OMAP_HSOTG(0x10)
+#	define	TM1			(1 << 0)
+#define OTG_FORCESTDBY_REG	OMAP_HSOTG(0x14)
+#	define	ENABLEFORCE		(1 << 0)
 
 #endif	/* CONFIG_ARCH_OMAP2430 */
 

@@ -435,21 +435,6 @@ musb_advance_schedule(struct musb *pThis, struct urb *urb,
 		qh = pEnd->out_qh;
 	qh = musb_giveback(qh, urb, 0);
 
-#ifdef CONFIG_USB_INVENTRA_DMA
-	/* REVISIT udelay reportedly works around issues in unmodified
-	 * Mentor RTL before v1.5, where it doesn't disable the pull-up
-	 * resisters in high speed mode.  That causes signal reflection
-	 * and errors because inter packet IDLE time vanishes.
-	 *
-	 * Yes, this delay makes DMA-OUT a bit slower than PIO.  But
-	 * without it, some devices are unusable.  But there seem to be
-	 * other issues too, at least on DaVinci; the delay improves
-	 * some full speed cases, and being DMA-coupled is strange...
-	 */
-	if (is_dma_capable() && !is_in && pEnd->tx_channel)
-		udelay(15);	/* 10 usec ~= 1x 512byte packet */
-#endif
-
 	if (qh && qh->is_ready && !list_empty(&qh->hep->urb_list)) {
 		DBG(4, "... next ep%d %cX urb %p\n",
 				pEnd->bLocalEnd, is_in ? 'R' : 'T',
@@ -498,6 +483,9 @@ static u8 musb_host_packet_rx(struct musb *pThis, struct urb *pUrb,
 
 	// MGC_SelectEnd(pBase, bEnd);
 	wRxCount = musb_readw(epio, MGC_O_HDRC_RXCOUNT);
+	DBG(3, "RX%d count %d, buffer %p len %d/%d\n", bEnd, wRxCount,
+			pUrb->transfer_buffer, qh->offset,
+			pUrb->transfer_buffer_length);
 
 	/* unload FIFO */
 	if (usb_pipeisoc(nPipe)) {
@@ -1271,20 +1259,6 @@ void musb_host_tx(struct musb *pThis, u8 bEnd)
 
 	/* REVISIT this looks wrong... */
 	if (!status || dma || usb_pipeisoc(nPipe)) {
-
-#ifdef CONFIG_USB_INVENTRA_DMA
-		/* mode 0 or last short packet)
-		 * REVISIT how about ZLP?
-		 */
-		if ((dma->bDesiredMode == 0)
-				|| (dma->dwActualLength
-					& (qh->maxpacket - 1))) {
-			/* Send out the packet first ... */
-			MGC_SelectEnd(pBase, bEnd);
-			musb_writew(epio, MGC_O_HDRC_TXCSR,
-					MGC_M_TXCSR_TXPKTRDY);
-		}
-#endif
 		if (dma)
 			wLength = dma->dwActualLength;
 		else
@@ -1542,11 +1516,9 @@ void musb_host_rx(struct musb *pThis, u8 bEnd)
 		musb_writew(pEnd->regs, MGC_O_HDRC_RXCSR, wVal);
 
 #ifdef CONFIG_USB_INVENTRA_DMA
-		pUrb->actual_length += xfer_len;
-		qh->offset += xfer_len;
-
 		/* bDone if pUrb buffer is full or short packet is recd */
-		bDone = (pUrb->actual_length >= pUrb->transfer_buffer_length)
+		bDone = ((pUrb->actual_length + xfer_len) >=
+				pUrb->transfer_buffer_length)
 			|| (dma->dwActualLength & (qh->maxpacket - 1));
 
 		/* send IN token for next packet, without AUTOREQ */
@@ -1969,6 +1941,7 @@ static int musb_cleanup_urb(struct urb *urb, struct musb_qh *qh, int is_in)
 			| MGC_M_TXCSR_H_RXSTALL
 			| MGC_M_TXCSR_H_NAKTIMEOUT
 			| MGC_M_TXCSR_H_ERROR
+			| MGC_M_TXCSR_TXPKTRDY
 			);
 		musb_writew(epio, MGC_O_HDRC_TXCSR, csr);
 		/* REVISIT may need to clear FLUSHFIFO ... */
