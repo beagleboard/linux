@@ -21,6 +21,7 @@
 #include <linux/input.h>
 #include <linux/err.h>
 #include <linux/clk.h>
+#include <linux/i2c.h>
 
 #include <asm/hardware.h>
 #include <asm/mach-types.h>
@@ -491,6 +492,15 @@ static void __init tusb_evm_setup(void)
 
 #endif
 
+static struct i2c_board_info __initdata h4_i2c_board_info[] = {
+#ifdef CONFIG_MENELAUS
+	{
+		I2C_BOARD_INFO("menelaus", 0x72),
+		.irq = INT_24XX_SYS_NIRQ,
+	},
+#endif
+};
+
 static void __init omap_h4_init(void)
 {
 	/*
@@ -518,6 +528,9 @@ static void __init omap_h4_init(void)
 	omap_cfg_reg(W20_24XX_USB1_TXEN);
 	omap_cfg_reg(V19_24XX_USB1_RCV);
 #endif
+
+	i2c_register_board_info(1, h4_i2c_board_info,
+			ARRAY_SIZE(h4_i2c_board_info));
 
 	platform_add_devices(h4_devices, ARRAY_SIZE(h4_devices));
 	omap_board_config = h4_config;
