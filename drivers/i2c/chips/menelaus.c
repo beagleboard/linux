@@ -47,8 +47,6 @@
 #include <asm/arch/gpio.h>
 #include <asm/arch/menelaus.h>
 
-#define DEBUG
-
 #define DRIVER_NAME			"menelaus"
 
 #define pr_err(fmt, arg...)	printk(KERN_ERR DRIVER_NAME ": ", ## arg);
@@ -134,29 +132,21 @@
 
 static void menelaus_work(struct work_struct *_menelaus);
 
-/* Initialized by menelaus_init */
-static unsigned short normal_i2c[] = { MENELAUS_I2C_ADDRESS, I2C_CLIENT_END };
-
-I2C_CLIENT_INSMOD;
-
 struct menelaus_chip {
-	unsigned long		initialized;
 	struct mutex		lock;
-	struct i2c_client	client;
+	struct i2c_client	*client;
 	struct work_struct	work;
-	int			irq;
 	unsigned		vcore_hw_mode:1;
 	void			*handlers[16];
 	void			(*mmc_callback)(void *data, u8 mask);
 	void			*mmc_callback_data;
 };
 
-static struct menelaus_chip menelaus;
-static struct menelaus_platform_data *menelaus_pdata;
+static struct menelaus_chip *the_menelaus;
 
 static int menelaus_write_reg(int reg, u8 value)
 {
-	int val = i2c_smbus_write_byte_data(&menelaus.client, reg, value);
+	int val = i2c_smbus_write_byte_data(the_menelaus->client, reg, value);
 
 	if (val < 0) {
 		pr_err("write error");
@@ -168,7 +158,7 @@ static int menelaus_write_reg(int reg, u8 value)
 
 static int menelaus_read_reg(int reg)
 {
-	int val = i2c_smbus_read_byte_data(&menelaus.client, reg);
+	int val = i2c_smbus_read_byte_data(the_menelaus->client, reg);
 
 	if (val < 0)
 		pr_err("read error");
@@ -213,10 +203,10 @@ static int menelaus_add_irq_work(int irq, void * handler)
 {
 	int ret = 0;
 
-	mutex_lock(&menelaus.lock);
-	menelaus.handlers[irq] = handler;
+	mutex_lock(&the_menelaus->lock);
+	the_menelaus->handlers[irq] = handler;
 	ret = menelaus_enable_irq(irq);
-	mutex_unlock(&menelaus.lock);
+	mutex_unlock(&the_menelaus->lock);
 
 	return ret;
 }
@@ -226,10 +216,10 @@ static int menelaus_remove_irq_work(int irq)
 {
 	int ret = 0;
 
-	mutex_lock(&menelaus.lock);
+	mutex_lock(&the_menelaus->lock);
 	ret = menelaus_disable_irq(irq);
-	menelaus.handlers[irq] = NULL;
-	mutex_unlock(&menelaus.lock);
+	the_menelaus->handlers[irq] = NULL;
+	mutex_unlock(&the_menelaus->lock);
 
 	return ret;
 }
@@ -271,10 +261,10 @@ int menelaus_set_mmc_opendrain(int slot, int enable)
 
 	if (slot != 1 && slot != 2)
 		return -EINVAL;
-	mutex_lock(&menelaus.lock);
+	mutex_lock(&the_menelaus->lock);
 	ret = menelaus_read_reg(MENELAUS_MCT_CTRL1);
 	if (ret < 0) {
-		mutex_unlock(&menelaus.lock);
+		mutex_unlock(&the_menelaus->lock);
 		return ret;
 	}
 	val = ret;
@@ -290,7 +280,7 @@ int menelaus_set_mmc_opendrain(int slot, int enable)
 			val &= ~(1 << 3);
 	}
 	ret = menelaus_write_reg(MENELAUS_MCT_CTRL1, val);
-	mutex_unlock(&menelaus.lock);
+	mutex_unlock(&the_menelaus->lock);
 
 	return ret;
 }
@@ -300,7 +290,7 @@ int menelaus_set_slot_sel(int enable)
 {
 	int ret;
 
-	mutex_lock(&menelaus.lock);
+	mutex_lock(&the_menelaus->lock);
 	ret = menelaus_read_reg(MENELAUS_GPIO_CTRL);
 	if (ret < 0)
 		goto out;
@@ -311,7 +301,7 @@ int menelaus_set_slot_sel(int enable)
 		ret &= ~(1 << 5);
 	ret = menelaus_write_reg(MENELAUS_GPIO_CTRL, ret);
 out:
-	mutex_unlock(&menelaus.lock);
+	mutex_unlock(&the_menelaus->lock);
 	return ret;
 }
 EXPORT_SYMBOL(menelaus_set_slot_sel);
@@ -325,7 +315,7 @@ int menelaus_set_mmc_slot(int slot, int enable, int power, int cd_en)
 	if (power >= 3)
 		return -EINVAL;
 
-	mutex_lock(&menelaus.lock);
+	mutex_lock(&the_menelaus->lock);
 
 	ret = menelaus_read_reg(MENELAUS_MCT_CTRL2);
 	if (ret < 0)
@@ -373,7 +363,7 @@ int menelaus_set_mmc_slot(int slot, int enable, int power, int cd_en)
 	val &= ~(0x03 << 2);
 	ret = menelaus_write_reg(MENELAUS_MCT_CTRL3, val);
 out:
-	mutex_unlock(&menelaus.lock);
+	mutex_unlock(&the_menelaus->lock);
 	return ret;
 }
 EXPORT_SYMBOL(menelaus_set_mmc_slot);
@@ -385,8 +375,8 @@ int menelaus_register_mmc_callback(void (*callback)(void *data, u8 card_mask),
 {
 	int ret = 0;
 
-	menelaus.mmc_callback_data = data;
-	menelaus.mmc_callback = callback;
+	the_menelaus->mmc_callback_data = data;
+	the_menelaus->mmc_callback = callback;
 	ret = menelaus_add_irq_work(MENELAUS_MMC_S1CD_IRQ,
 				    menelaus_mmc_cd_work);
 	if (ret < 0)
@@ -413,8 +403,8 @@ void menelaus_unregister_mmc_callback(void)
 	menelaus_remove_irq_work(MENELAUS_MMC_S1D1_IRQ);
 	menelaus_remove_irq_work(MENELAUS_MMC_S2D1_IRQ);
 
-	menelaus.mmc_callback = NULL;
-	menelaus.mmc_callback_data = 0;
+	the_menelaus->mmc_callback = NULL;
+	the_menelaus->mmc_callback_data = 0;
 }
 EXPORT_SYMBOL(menelaus_unregister_mmc_callback);
 
@@ -435,8 +425,9 @@ static int menelaus_set_voltage(const struct menelaus_vtg *vtg, int mV,
 				int vtg_val, int mode)
 {
 	int val, ret;
+	struct i2c_client *c = the_menelaus->client;
 
-	mutex_lock(&menelaus.lock);
+	mutex_lock(&the_menelaus->lock);
 	if (vtg == 0)
 		goto set_voltage;
 
@@ -445,17 +436,17 @@ static int menelaus_set_voltage(const struct menelaus_vtg *vtg, int mV,
 		goto out;
 	val = ret & ~(((1 << vtg->vtg_bits) - 1) << vtg->vtg_shift);
 	val |= vtg_val << vtg->vtg_shift;
-#ifdef DEBUG
-	printk("menelaus: Setting voltage '%s' to %d mV (reg 0x%02x, val 0x%02x)\n",
+
+	dev_dbg(&c->dev, "Setting voltage '%s' to %d mV (reg 0x%02x, val 0x%02x)\n",
 	       vtg->name, mV, vtg->vtg_reg, val);
-#endif
+
 	ret = menelaus_write_reg(vtg->vtg_reg, val);
 	if (ret < 0)
 		goto out;
 set_voltage:
 	ret = menelaus_write_reg(vtg->mode_reg, mode);
 out:
-	mutex_unlock(&menelaus.lock);
+	mutex_unlock(&the_menelaus->lock);
 	if (ret == 0) {
 		/* Wait for voltage to stabilize */
 		msleep(1);
@@ -474,11 +465,12 @@ static int menelaus_get_vtg_value(int vtg, const struct menelaus_vtg_value *tbl,
 	return -EINVAL;
 }
 
-/* Vcore can be programmed in two ways:
+/*
+ * Vcore can be programmed in two ways:
  * SW-controlled: Required voltage is programmed into VCORE_CTRL1
  * HW-controlled: Required range (roof-floor) is programmed into VCORE_CTRL3
  * and VCORE_CTRL4
-
+ *
  * Call correct 'set' function accordingly
  */
 
@@ -507,20 +499,20 @@ static const struct menelaus_vtg_value vcore_values[] = {
 int menelaus_set_vcore_sw(unsigned int mV)
 {
 	int val, ret;
+	struct i2c_client *c = the_menelaus->client;
 
 	val = menelaus_get_vtg_value(mV, vcore_values, ARRAY_SIZE(vcore_values));
 	if (val < 0)
 		return -EINVAL;
-#ifdef DEBUG
-	printk("menelaus: Setting VCORE to %d mV (val 0x%02x)\n", mV, val);
-#endif
+
+	dev_dbg(&c->dev, "Setting VCORE to %d mV (val 0x%02x)\n", mV, val);
 
 	/* Set SW mode and the voltage in one go. */
-	mutex_lock(&menelaus.lock);
+	mutex_lock(&the_menelaus->lock);
 	ret = menelaus_write_reg(MENELAUS_VCORE_CTRL1, val);
 	if (ret == 0)
-		menelaus.vcore_hw_mode = 0;
-	mutex_unlock(&menelaus.lock);
+		the_menelaus->vcore_hw_mode = 0;
+	mutex_unlock(&the_menelaus->lock);
 	msleep(1);
 
 	return ret;
@@ -529,35 +521,37 @@ int menelaus_set_vcore_sw(unsigned int mV)
 int menelaus_set_vcore_hw(unsigned int roof_mV, unsigned int floor_mV)
 {
 	int fval, rval, val, ret;
+	struct i2c_client *c = the_menelaus->client;
 
-	rval = menelaus_get_vtg_value(roof_mV, vcore_values, ARRAY_SIZE(vcore_values));
+	rval = menelaus_get_vtg_value(roof_mV, vcore_values,
+				      ARRAY_SIZE(vcore_values));
 	if (rval < 0)
 		return -EINVAL;
-	fval = menelaus_get_vtg_value(floor_mV, vcore_values, ARRAY_SIZE(vcore_values));
+	fval = menelaus_get_vtg_value(floor_mV, vcore_values,
+				      ARRAY_SIZE(vcore_values));
 	if (fval < 0)
 		return -EINVAL;
 
-#ifdef DEBUG
-	printk("menelaus: Setting VCORE FLOOR to %d mV and ROOF to %d mV\n",
+	dev_dbg(&c->dev, "Setting VCORE FLOOR to %d mV and ROOF to %d mV\n",
 	       floor_mV, roof_mV);
-#endif
 
-	mutex_lock(&menelaus.lock);
+	mutex_lock(&the_menelaus->lock);
 	ret = menelaus_write_reg(MENELAUS_VCORE_CTRL3, fval);
 	if (ret < 0)
 		goto out;
 	ret = menelaus_write_reg(MENELAUS_VCORE_CTRL4, rval);
 	if (ret < 0)
 		goto out;
-	if (!menelaus.vcore_hw_mode) {
+	if (!the_menelaus->vcore_hw_mode) {
 		val = menelaus_read_reg(MENELAUS_VCORE_CTRL1);
-		val |= ((1 << 7) | (1 << 5)); /* HW mode, turn OFF byte comparator */
+		/* HW mode, turn OFF byte comparator */
+		val |= ((1 << 7) | (1 << 5));
 		ret = menelaus_write_reg(MENELAUS_VCORE_CTRL1, val);
-		menelaus.vcore_hw_mode = 1;
+		the_menelaus->vcore_hw_mode = 1;
 	}
 	msleep(1);
 out:
-	mutex_unlock(&menelaus.lock);
+	mutex_unlock(&the_menelaus->lock);
 	return ret;
 }
 
@@ -661,7 +655,8 @@ int menelaus_set_vdcdc(int dcdc, unsigned int mV)
 	if (mV == 0)
 		return menelaus_set_voltage(vtg, 0, 0, 0);
 
-	val = menelaus_get_vtg_value(mV, vdcdc_values, ARRAY_SIZE(vdcdc_values));
+	val = menelaus_get_vtg_value(mV, vdcdc_values,
+				     ARRAY_SIZE(vdcdc_values));
 	if (val < 0)
 		return -EINVAL;
 	return menelaus_set_voltage(vtg, mV, val, 0x03);
@@ -735,14 +730,15 @@ EXPORT_SYMBOL(menelaus_get_slot_pin_states);
 int menelaus_set_regulator_sleep(int enable, u32 val)
 {
 	int t, ret;
+	struct i2c_client *c = the_menelaus->client;
 
-        mutex_lock(&menelaus.lock);
+	mutex_lock(&the_menelaus->lock);
 	ret = menelaus_write_reg(MENELAUS_SLEEP_CTRL2, val);
 	if (ret < 0)
 		goto out;
-#ifdef DEBUG
-	printk("menelaus: regulator sleep configuration: %02x\n", val);
-#endif
+
+	dev_dbg(&c->dev, "regulator sleep configuration: %02x\n", val);
+
 	ret = menelaus_read_reg(MENELAUS_GPIO_CTRL);
 	if (ret < 0)
 		goto out;
@@ -753,7 +749,7 @@ int menelaus_set_regulator_sleep(int enable, u32 val)
 		ret &= ~t;
 	ret = menelaus_write_reg(MENELAUS_GPIO_CTRL, ret);
 out:
-	mutex_unlock(&menelaus.lock);
+	mutex_unlock(&the_menelaus->lock);
 	return ret;
 }
 
@@ -790,7 +786,7 @@ static void menelaus_work(struct work_struct *_menelaus)
 			}
 		}
 	}
-	enable_irq(menelaus->irq);
+	enable_irq(menelaus->client->irq);
 }
 
 /*
@@ -808,37 +804,38 @@ static irqreturn_t menelaus_irq(int irq, void *_menelaus)
 
 static struct i2c_driver menelaus_i2c_driver;
 
-static int menelaus_probe(struct i2c_adapter *adapter, int address, int kind)
+static int menelaus_probe(struct i2c_client *client)
 {
-	struct i2c_client	*c;
+	struct menelaus_chip	*menelaus;
 	int			rev = 0, val;
 	int			err = 0;
+	struct menelaus_platform_data *menelaus_pdata =
+					client->dev.platform_data;
 
-	if (test_and_set_bit(0, &menelaus.initialized))
-		return -EBUSY;
-
-	c = &menelaus.client;
-	strncpy(c->name, DRIVER_NAME, sizeof(c->name));
-	c->addr		= address;
-	c->adapter	= adapter;
-	c->driver	= &menelaus_i2c_driver;
-	c->flags	= 0;
-
-	if ((err = i2c_attach_client(c)) < 0) {
-		pr_err("couldn't attach\n");
-		goto fail1;
+	if (the_menelaus) {
+		dev_dbg(&client->dev, "only one %s for now\n",
+				DRIVER_NAME);
+		return -ENODEV;
 	}
 
+	menelaus = kzalloc(sizeof *menelaus, GFP_KERNEL);
+	if (!menelaus)
+		return -ENOMEM;
+
+	i2c_set_clientdata(client, menelaus);
+
+	the_menelaus = menelaus;
+	menelaus->client = client;
+
 	/* If a true probe check the device */
-	if (kind < 0 && (rev = menelaus_read_reg(MENELAUS_REV)) < 0) {
+	if ((rev = menelaus_read_reg(MENELAUS_REV)) < 0) {
 		pr_err("device not found");
 		err = -ENODEV;
-		goto fail2;
+		goto fail1;
 	}
 
 	/* Most likely Menelaus interrupt is at SYS_NIRQ */
 	omap_cfg_reg(W19_24XX_SYS_NIRQ);
-	menelaus.irq = INT_24XX_SYS_NIRQ;
 
 	/* Ack and disable all Menelaus interrupts */
 	menelaus_write_reg(MENELAUS_INT_ACK1, 0xff);
@@ -849,71 +846,51 @@ static int menelaus_probe(struct i2c_adapter *adapter, int address, int kind)
 	/* Set output buffer strengths */
 	menelaus_write_reg(MENELAUS_MCT_CTRL1, 0x73);
 
-	err = request_irq(menelaus.irq, menelaus_irq, IRQF_DISABLED,
-			  DRIVER_NAME, &menelaus);
-	if (err) {
-		printk(KERN_ERR "Could not get Menelaus IRQ\n");
-		goto fail2;
+	if (client->irq > 0) {
+		err = request_irq(client->irq, menelaus_irq, IRQF_DISABLED,
+				  DRIVER_NAME, menelaus);
+		if (err) {
+			dev_dbg(&client->dev,  "can't get IRQ %d, err %d",
+					client->irq, err);
+			goto fail1;
+		}
 	}
 
-	mutex_init(&menelaus.lock);
-	INIT_WORK(&menelaus.work, menelaus_work);
+	mutex_init(&menelaus->lock);
+	INIT_WORK(&menelaus->work, menelaus_work);
 
-	if (kind < 0)
-		pr_info("Menelaus rev %d.%d\n", rev >> 4, rev & 0x0f);
+	pr_info("Menelaus rev %d.%d\n", rev >> 4, rev & 0x0f);
 
 	val = menelaus_read_reg(MENELAUS_VCORE_CTRL1);
 	if (val < 0)
-		goto fail3;
+		goto fail2;
 	if (val & (1 << 7))
-		menelaus.vcore_hw_mode = 1;
+		menelaus->vcore_hw_mode = 1;
 	else
-		menelaus.vcore_hw_mode = 0;
+		menelaus->vcore_hw_mode = 0;
 
 	if (menelaus_pdata != NULL && menelaus_pdata->late_init != NULL) {
-		err = menelaus_pdata->late_init(&c->dev);
+		err = menelaus_pdata->late_init(&client->dev);
 		if (err < 0)
-			goto fail3;
+			goto fail2;
 	}
 
 	return 0;
-fail3:
-	free_irq(menelaus.irq, &menelaus);
-	flush_scheduled_work();
 fail2:
-	i2c_detach_client(c);
+	free_irq(client->irq, menelaus);
+	flush_scheduled_work();
 fail1:
-	clear_bit(0, &menelaus.initialized);
+	kfree(menelaus);
 	return err;
 }
 
-static int menelaus_remove(struct i2c_client *client)
+static int __exit menelaus_remove(struct i2c_client *client)
 {
-	int err;
+	struct menelaus_chip	*menelaus = i2c_get_clientdata(client);
 
-	free_irq(menelaus.irq, &menelaus);
-
-	if ((err = i2c_detach_client(client))) {
-		pr_err("client deregistration failed\n");
-		return err;
-	}
-
-	clear_bit(0, &menelaus.initialized);
-
+	free_irq(client->irq, menelaus);
+	the_menelaus = NULL;
 	return 0;
-}
-
-/*-----------------------------------------------------------------------*/
-
-static int menelaus_scan_bus(struct i2c_adapter *bus)
-{
-	if (!i2c_check_functionality(bus, I2C_FUNC_SMBUS_BYTE_DATA |
-					  I2C_FUNC_SMBUS_WRITE_BYTE)) {
-		pr_err("invalid i2c bus functionality\n");
-		return -EINVAL;
-	}
-
-	return i2c_probe(bus, &addr_data, menelaus_probe);
 }
 
 static struct i2c_driver menelaus_i2c_driver = {
@@ -922,8 +899,8 @@ static struct i2c_driver menelaus_i2c_driver = {
 	},
 	.id		= I2C_DRIVERID_MISC, /*FIXME:accroding to i2c-ids.h */
 	.class		= I2C_CLASS_HWMON,
-	.attach_adapter	= menelaus_scan_bus,
-	.detach_client	= menelaus_remove,
+	.probe		= menelaus_probe,
+	.remove		= __exit_p(menelaus_remove),
 };
 
 static int __init menelaus_init(void)
@@ -943,11 +920,6 @@ static void __exit menelaus_exit(void)
 	i2c_del_driver(&menelaus_i2c_driver);
 
 	/* FIXME: Shutdown menelaus parts that can be shut down */
-}
-
-void __init menelaus_set_platform_data(struct menelaus_platform_data *pdata)
-{
-	menelaus_pdata = pdata;
 }
 
 MODULE_AUTHOR("Texas Instruments, Inc.");
