@@ -13,9 +13,6 @@ struct menelaus_platform_data {
 	int (* late_init)(struct device *dev);
 };
 
-/* Call only at init time. */
-extern void menelaus_set_platform_data(struct menelaus_platform_data *pdata);
-
 extern int menelaus_register_mmc_callback(void (*callback)(void *data, u8 card_mask),
 					  void *data);
 extern void menelaus_unregister_mmc_callback(void);

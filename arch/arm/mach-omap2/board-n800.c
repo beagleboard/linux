@@ -22,6 +22,7 @@
 #include <linux/delay.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
+#include <linux/i2c.h>
 #include <asm/hardware.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -474,9 +475,74 @@ static struct platform_device *n800_devices[] __initdata = {
 #endif
 };
 
+#ifdef CONFIG_MENELAUS
+static int n800_auto_sleep_regulators(void)
+{
+	u32 val;
+	int ret;
+
+	val = EN_VPLL_SLEEP | EN_VMMC_SLEEP    \
+		| EN_VAUX_SLEEP | EN_VIO_SLEEP \
+		| EN_VMEM_SLEEP | EN_DC3_SLEEP \
+		| EN_VC_SLEEP | EN_DC2_SLEEP;
+
+	ret = menelaus_set_regulator_sleep(1, val);
+	if (ret < 0) {
+		printk(KERN_ERR "Could not set regulators to sleep on "
+			"menelaus: %u\n", ret);
+		return ret;
+	}
+	return 0;
+}
+
+static int n800_auto_voltage_scale(void)
+{
+	int ret;
+
+	ret = menelaus_set_vcore_hw(1400, 1050);
+	if (ret < 0) {
+		printk(KERN_ERR "Could not set VCORE voltage on "
+			"menelaus: %u\n", ret);
+		return ret;
+	}
+	return 0;
+}
+
+static int n800_menelaus_init(struct device *dev)
+{
+	int ret;
+
+	ret = n800_auto_voltage_scale();
+	if (ret < 0)
+		return ret;
+	ret = n800_auto_sleep_regulators();
+	if (ret < 0)
+		return ret;
+	return 0;
+}
+
+static struct menelaus_platform_data n800_menelaus_platform_data = {
+	.late_init = n800_menelaus_init,
+};
+#endif
+
+static struct i2c_board_info __initdata n800_i2c_board_info[] = {
+#ifdef CONFIG_MENELAUS
+	{
+		I2C_BOARD_INFO("menelaus", 0x72),
+		.irq = INT_24XX_SYS_NIRQ,
+		.platform_data = &n800_menelaus_platform_data,
+	},
+#endif
+};
+
 static void __init nokia_n800_init(void)
 {
 	platform_add_devices(n800_devices, ARRAY_SIZE(n800_devices));
+
+	i2c_register_board_info(1, n800_i2c_board_info,
+			ARRAY_SIZE(n800_i2c_board_info));
+
 	n800_flash_init();
 	n800_mmc_init();
 	n800_bt_init();
@@ -493,7 +559,6 @@ static void __init nokia_n800_init(void)
 	tsc2301_dev_init();
 	omap_register_gpio_switches(n800_gpio_switches,
 				    ARRAY_SIZE(n800_gpio_switches));
-	n800_pm_init();
 }
 
 static void __init nokia_n800_map_io(void)
