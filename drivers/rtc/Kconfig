@@ -213,6 +213,16 @@ config RTC_DRV_PCF8583
 	  This driver can also be built as a module. If so, the module
 	  will be called rtc-pcf8583.
 
+config RTC_DRV_TWL4030
+	tristate "OMAP TWL4030 Real Time Clock"
+	depends on RTC_CLASS && TWL4030_CORE
+	help
+	  If you say yes here you get support for internal Real-Time 
+	  Clock of TWL4030 chip.
+	
+	  This driver can also be built as a module. If so, the module
+	  will be called rtc-twl4030.
+
 comment "SPI RTC drivers"
 	depends on RTC_CLASS
 

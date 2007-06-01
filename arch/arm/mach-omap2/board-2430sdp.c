@@ -38,6 +38,7 @@
 #include <asm/arch/keypad.h>
 #include <asm/arch/gpmc.h>
 #include <asm/arch/mcspi.h>
+#include <asm/arch/twl4030-rtc.h>
 
 #include <asm/io.h>
 
@@ -49,6 +50,8 @@
  * Also note that the tsc2046 is the same silicon as the ads7846, so
  * that driver is used for the touchscreen. */
 #define TS_GPIO                 24
+
+#define TWL4030_MSECURE_GPIO	118
 
 static struct mtd_partition sdp2430_partitions[] = {
 	/* bootloader (U-Boot, etc) in first sector */
@@ -183,11 +186,51 @@ static struct platform_device sdp2430_kp_device = {
 	},
 };
 
+static int twl4030_rtc_init(void)
+{
+	int ret = 0;
+
+	ret = omap_request_gpio(TWL4030_MSECURE_GPIO);
+	if (ret < 0) {
+		printk(KERN_ERR "twl4030_rtc_init: can't reserve GPIO:%d !\n",
+			TWL4030_MSECURE_GPIO);
+		goto out;
+	}
+	/*
+	 * TWL4030 will be in secure mode if msecure line from OMAP is low.
+	 * Make msecure line high in order to change the TWL4030 RTC time
+	 * and calender registers.
+	 */
+	omap_set_gpio_direction(TWL4030_MSECURE_GPIO, 0);	/*dir out */
+	omap_set_gpio_dataout(TWL4030_MSECURE_GPIO, 1);
+out:
+	return ret;
+}
+
+static void twl4030_rtc_exit(void)
+{
+	omap_free_gpio(TWL4030_MSECURE_GPIO);
+}
+
+static struct twl4030rtc_platform_data sdp2430_twl4030rtc_data = {
+	.init = &twl4030_rtc_init,
+	.exit = &twl4030_rtc_exit,
+};
+
+static struct platform_device sdp2430_twl4030rtc_device = {
+ 	.name		= "twl4030_rtc",
+ 	.id		= -1,
+	.dev		= {
+		.platform_data	= &sdp2430_twl4030rtc_data,
+	},
+};
+
 static struct platform_device *sdp2430_devices[] __initdata = {
 	&sdp2430_smc91x_device,
 	&sdp2430_flash_device,
 	&sdp2430_kp_device,
 	&sdp2430_lcd_device,
+	&sdp2430_twl4030rtc_device,	
 };
 
 static void ads7846_dev_init(void)
