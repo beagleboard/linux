@@ -192,6 +192,20 @@ config TOUCHSCREEN_TSC2102
 	  To compile this driver as a module, choose M here: the
 	  module will be called tsc2102_ts.
 
+config TOUCHSCREEN_TSC210X
+	tristate "TSC 2101/2102 based touchscreens"
+	depends on SPI_MASTER
+	select SPI_TSC210X
+	help
+	  Say Y here if you have a touchscreen interface using a
+	  TI TSC 210x controller, and your board-specific initialisation
+	  code includes that in its table of SPI devices.
+
+	  If unsure, say N (but it's safe to say "Y").
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called tsc210x_ts.
+
 config TOUCHSCREEN_TSC2301
 	tristate "TSC2301 touchscreen support"
 	depends on SPI_TSC2301

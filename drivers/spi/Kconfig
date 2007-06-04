@@ -226,7 +226,19 @@ config SPI_TSC2102
        ---help---
          Say Y here if you want support for the TSC2102 chip.  It
 	 will be needed for the touchscreen driver on some boards.
-	 
+
+config SPI_TSC210X
+	depends on SPI_MASTER && EXPERIMENTAL
+	tristate "TSC2101/TSC2102 chips support"
+	help
+	  Say Y here if you want support for the TSC210x chips.  It
+	  will be needed for the touchscreen driver on some boards.
+
+	  Note that the device has to be present in the board's SPI
+	  devices table for this driver to load.  This driver doesn't
+	  automatically enable touchscreen, sensors or audio
+	  functionality - enable these in their respective menus.
+
 config SPI_TSC2301
 	tristate "TSC2301 driver"
 	depends on SPI_MASTER
