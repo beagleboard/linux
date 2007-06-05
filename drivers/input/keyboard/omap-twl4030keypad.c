@@ -253,9 +253,6 @@ static int __init omap_kp_probe(struct platform_device *pdev)
 	omap_twl4030kp->keycodesize	= sizeof(unsigned int);
 	omap_twl4030kp->keycodemax	= pdata->keymapsize;
 
-	/* Get the debug Device to omap keypad device */
-	dbg_dev = &(omap_twl4030kp->dev);
-
 	ret = input_register_device(omap_twl4030kp);
 	if (ret < 0) {
 		dev_err(dbg_dev, "Unable to register twl4030 keypad device\n");
