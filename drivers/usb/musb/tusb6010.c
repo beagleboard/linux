@@ -810,8 +810,12 @@ static void __init tusb_setup_cpu_interface(struct musb *musb)
 {
 	void __iomem	*base = musb->ctrl_base;
 
-	/* Disable GPIO[7:0] pullups (used as output DMA requests) */
-	musb_writel(base, TUSB_PULLUP_1_CTRL, 0x000000FF);
+	/*
+	 * Disable GPIO[5:0] pullups (used as output DMA requests)
+	 * Don't disable GPIO[7:6] as they are needed for wake-up.
+	 */
+	musb_writel(base, TUSB_PULLUP_1_CTRL, 0x0000003F);
+
 	/* Disable all pullups on NOR IF, DMAREQ0 and DMAREQ1 */
 	musb_writel(base, TUSB_PULLUP_2_CTRL, 0x01FFFFFF);
 
