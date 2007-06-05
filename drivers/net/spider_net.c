@@ -1014,12 +1014,12 @@ spider_net_pass_skb_up(struct spider_net_descr *descr,
 		 */
 	}
 
-	/* pass skb up to stack */
-	netif_receive_skb(skb);
-
 	/* update netdevice statistics */
 	card->netdev_stats.rx_packets++;
 	card->netdev_stats.rx_bytes += skb->len;
+
+	/* pass skb up to stack */
+	netif_receive_skb(skb);
 }
 
 #ifdef DEBUG
@@ -1188,43 +1188,6 @@ spider_net_poll(struct net_device *netdev, int *budget)
 	}
 
 	return 1;
-}
-
-/**
- * spider_net_vlan_rx_reg - initializes VLAN structures in the driver and card
- * @netdev: interface device structure
- * @grp: vlan_group structure that is registered (NULL on destroying interface)
- */
-static void
-spider_net_vlan_rx_reg(struct net_device *netdev, struct vlan_group *grp)
-{
-	/* further enhancement... yet to do */
-	return;
-}
-
-/**
- * spider_net_vlan_rx_add - adds VLAN id to the card filter
- * @netdev: interface device structure
- * @vid: VLAN id to add
- */
-static void
-spider_net_vlan_rx_add(struct net_device *netdev, uint16_t vid)
-{
-	/* further enhancement... yet to do */
-	/* add vid to card's VLAN filter table */
-	return;
-}
-
-/**
- * spider_net_vlan_rx_kill - removes VLAN id to the card filter
- * @netdev: interface device structure
- * @vid: VLAN id to remove
- */
-static void
-spider_net_vlan_rx_kill(struct net_device *netdev, uint16_t vid)
-{
-	/* further enhancement... yet to do */
-	/* remove vid from card's VLAN filter table */
 }
 
 /**
@@ -2177,9 +2140,6 @@ spider_net_setup_netdev_ops(struct net_device *netdev)
 	netdev->poll = &spider_net_poll;
 	netdev->weight = SPIDER_NET_NAPI_WEIGHT;
 	/* HW VLAN */
-	netdev->vlan_rx_register = &spider_net_vlan_rx_reg;
-	netdev->vlan_rx_add_vid = &spider_net_vlan_rx_add;
-	netdev->vlan_rx_kill_vid = &spider_net_vlan_rx_kill;
 #ifdef CONFIG_NET_POLL_CONTROLLER
 	/* poll controller */
 	netdev->poll_controller = &spider_net_poll_controller;

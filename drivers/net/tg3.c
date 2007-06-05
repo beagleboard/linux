@@ -64,8 +64,8 @@
 
 #define DRV_MODULE_NAME		"tg3"
 #define PFX DRV_MODULE_NAME	": "
-#define DRV_MODULE_VERSION	"3.76"
-#define DRV_MODULE_RELDATE	"May 5, 2007"
+#define DRV_MODULE_VERSION	"3.77"
+#define DRV_MODULE_RELDATE	"May 31, 2007"
 
 #define TG3_DEF_MAC_MODE	0
 #define TG3_DEF_RX_MODE		0
@@ -9121,21 +9121,6 @@ static void tg3_vlan_rx_register(struct net_device *dev, struct vlan_group *grp)
 	if (netif_running(dev))
 		tg3_netif_start(tp);
 }
-
-static void tg3_vlan_rx_kill_vid(struct net_device *dev, unsigned short vid)
-{
-	struct tg3 *tp = netdev_priv(dev);
-
-	if (netif_running(dev))
-		tg3_netif_stop(tp);
-
-	tg3_full_lock(tp, 0);
-	vlan_group_set_device(tp->vlgrp, vid, NULL);
-	tg3_full_unlock(tp);
-
-	if (netif_running(dev))
-		tg3_netif_start(tp);
-}
 #endif
 
 static int tg3_get_coalesce(struct net_device *dev, struct ethtool_coalesce *ec)
@@ -10976,6 +10961,7 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
 	 * upon subsystem IDs.
 	 */
 	if (tp->pdev->subsystem_vendor == PCI_VENDOR_ID_DELL &&
+	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5701 &&
 	    !(tp->tg3_flags2 & TG3_FLG2_PHY_SERDES)) {
 		tp->tg3_flags |= (TG3_FLAG_USE_MI_INTERRUPT |
 				  TG3_FLAG_USE_LINKCHG_REG);
@@ -11778,7 +11764,6 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
 #if TG3_VLAN_TAG_USED
 	dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
 	dev->vlan_rx_register = tg3_vlan_rx_register;
-	dev->vlan_rx_kill_vid = tg3_vlan_rx_kill_vid;
 #endif
 
 	tp = netdev_priv(dev);

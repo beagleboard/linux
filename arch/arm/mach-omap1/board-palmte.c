@@ -7,7 +7,7 @@
  *
  * Original version : Laurent Gonzalez
  *
- * Maintainters : http://palmtelinux.sf.net
+ * Maintainers : http://palmtelinux.sf.net
  *                palmtelinux-developpers@lists.sf.net
  *
  * Copyright (c) 2006 Andrzej Zaborowski  <balrog@zabor.org>

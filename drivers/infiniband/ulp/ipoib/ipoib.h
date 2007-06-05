@@ -156,7 +156,7 @@ struct ipoib_cm_data {
  * - and then invoke a Destroy QP or Reset QP.
  *
  * We use the second option and wait for a completion on the
- * rx_drain_qp before destroying QPs attached to our SRQ.
+ * same CQ before destroying QPs attached to our SRQ.
  */
 
 enum ipoib_cm_state {
@@ -199,7 +199,6 @@ struct ipoib_cm_dev_priv {
 	struct ib_srq  	       *srq;
 	struct ipoib_cm_rx_buf *srq_ring;
 	struct ib_cm_id        *id;
-	struct ib_qp           *rx_drain_qp;   /* generates WR described in 10.3.1 */
 	struct list_head        passive_ids;   /* state: LIVE */
 	struct list_head        rx_error_list; /* state: ERROR */
 	struct list_head        rx_flush_list; /* state: FLUSH, drain not started */
@@ -429,6 +428,7 @@ int ipoib_vlan_delete(struct net_device *pdev, unsigned short pkey);
 
 void ipoib_pkey_poll(struct work_struct *work);
 int ipoib_pkey_dev_delay_open(struct net_device *dev);
+void ipoib_drain_cq(struct net_device *dev);
 
 #ifdef CONFIG_INFINIBAND_IPOIB_CM
 

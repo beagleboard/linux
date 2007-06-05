@@ -1142,13 +1142,16 @@ e1000_probe(struct pci_dev *pdev,
 	    !e1000_check_mng_mode(&adapter->hw))
 		e1000_get_hw_control(adapter);
 
-	strcpy(netdev->name, "eth%d");
-	if ((err = register_netdev(netdev)))
-		goto err_register;
-
 	/* tell the stack to leave us alone until e1000_open() is called */
 	netif_carrier_off(netdev);
 	netif_stop_queue(netdev);
+#ifdef CONFIG_E1000_NAPI
+	netif_poll_disable(netdev);
+#endif
+
+	strcpy(netdev->name, "eth%d");
+	if ((err = register_netdev(netdev)))
+		goto err_register;
 
 	DPRINTK(PROBE, INFO, "Intel(R) PRO/1000 Network Connection\n");
 
@@ -1325,7 +1328,10 @@ e1000_sw_init(struct e1000_adapter *adapter)
 	spin_lock_init(&adapter->tx_queue_lock);
 #endif
 
-	atomic_set(&adapter->irq_sem, 1);
+	/* Explicitly disable IRQ since the NIC can be in any state. */
+	atomic_set(&adapter->irq_sem, 0);
+	e1000_irq_disable(adapter);
+
 	spin_lock_init(&adapter->stats_lock);
 
 	set_bit(__E1000_DOWN, &adapter->flags);
@@ -1430,6 +1436,10 @@ e1000_open(struct net_device *netdev)
 
 	/* From here on the code is the same as e1000_up() */
 	clear_bit(__E1000_DOWN, &adapter->flags);
+
+#ifdef CONFIG_E1000_NAPI
+	netif_poll_enable(netdev);
+#endif
 
 	e1000_irq_enable(adapter);
 

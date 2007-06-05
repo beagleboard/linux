@@ -195,7 +195,7 @@ enum {
 #define NVREG_IRQ_TX_FORCED		0x0100
 #define NVREG_IRQ_RECOVER_ERROR		0x8000
 #define NVREG_IRQMASK_THROUGHPUT	0x00df
-#define NVREG_IRQMASK_CPU		0x0040
+#define NVREG_IRQMASK_CPU		0x0060
 #define NVREG_IRQ_TX_ALL		(NVREG_IRQ_TX_ERR|NVREG_IRQ_TX_OK|NVREG_IRQ_TX_FORCED)
 #define NVREG_IRQ_RX_ALL		(NVREG_IRQ_RX_ERROR|NVREG_IRQ_RX|NVREG_IRQ_RX_NOBUF|NVREG_IRQ_RX_FORCED)
 #define NVREG_IRQ_OTHER			(NVREG_IRQ_TIMER|NVREG_IRQ_LINK|NVREG_IRQ_RECOVER_ERROR)
@@ -4605,12 +4605,7 @@ static void nv_vlan_rx_register(struct net_device *dev, struct vlan_group *grp)
 	writel(np->txrxctl_bits, get_hwbase(dev) + NvRegTxRxControl);
 
 	spin_unlock_irq(&np->lock);
-};
-
-static void nv_vlan_rx_kill_vid(struct net_device *dev, unsigned short vid)
-{
-	/* nothing to do */
-};
+}
 
 /* The mgmt unit and driver use a semaphore to access the phy during init */
 static int nv_mgmt_acquire_sema(struct net_device *dev)
@@ -4956,7 +4951,6 @@ static int __devinit nv_probe(struct pci_dev *pci_dev, const struct pci_device_i
 		np->vlanctl_bits = NVREG_VLANCONTROL_ENABLE;
 		dev->features |= NETIF_F_HW_VLAN_RX | NETIF_F_HW_VLAN_TX;
 		dev->vlan_rx_register = nv_vlan_rx_register;
-		dev->vlan_rx_kill_vid = nv_vlan_rx_kill_vid;
 	}
 
 	np->msi_flags = 0;

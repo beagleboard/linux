@@ -169,8 +169,8 @@ requeue:
 		else
 			q->ops->requeue(skb, q);
 		netif_schedule(dev);
-		return 0;
 	}
+	return 0;
 
 out:
 	BUG_ON((int) q->q.qlen < 0);
@@ -224,7 +224,8 @@ void __netdev_watchdog_up(struct net_device *dev)
 	if (dev->tx_timeout) {
 		if (dev->watchdog_timeo <= 0)
 			dev->watchdog_timeo = 5*HZ;
-		if (!mod_timer(&dev->watchdog_timer, jiffies + dev->watchdog_timeo))
+		if (!mod_timer(&dev->watchdog_timer,
+			       round_jiffies(jiffies + dev->watchdog_timeo)))
 			dev_hold(dev);
 	}
 }

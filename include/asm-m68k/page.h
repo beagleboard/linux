@@ -27,6 +27,8 @@
 
 #ifndef __ASSEMBLY__
 
+#include <asm/module.h>
+
 #define get_user_page(vaddr)		__get_free_page(GFP_KERNEL)
 #define free_user_page(page, addr)	free_page(addr)
 
@@ -114,18 +116,33 @@ typedef struct { unsigned long pgprot; } pgprot_t;
 
 #ifndef __ASSEMBLY__
 
+extern unsigned long m68k_memoffset;
+
 #ifndef CONFIG_SUN3
 
 #define WANT_PAGE_VIRTUAL
-#ifdef CONFIG_SINGLE_MEMORY_CHUNK
-extern unsigned long m68k_memoffset;
 
-#define __pa(vaddr)		((unsigned long)(vaddr)+m68k_memoffset)
-#define __va(paddr)		((void *)((unsigned long)(paddr)-m68k_memoffset))
-#else
-#define __pa(vaddr)		virt_to_phys((void *)(vaddr))
-#define __va(paddr)		phys_to_virt((unsigned long)(paddr))
-#endif
+static inline unsigned long ___pa(void *vaddr)
+{
+	unsigned long paddr;
+	asm (
+		"1:	addl #0,%0\n"
+		m68k_fixup(%c2, 1b+2)
+		: "=r" (paddr)
+		: "0" (vaddr), "i" (m68k_fixup_memoffset));
+	return paddr;
+}
+#define __pa(vaddr)	___pa((void *)(vaddr))
+static inline void *__va(unsigned long paddr)
+{
+	void *vaddr;
+	asm (
+		"1:	subl #0,%0\n"
+		m68k_fixup(%c2, 1b+2)
+		: "=r" (vaddr)
+		: "0" (paddr), "i" (m68k_fixup_memoffset));
+	return vaddr;
+}
 
 #else	/* !CONFIG_SUN3 */
 /* This #define is a horrible hack to suppress lots of warnings. --m */
@@ -161,11 +178,47 @@ static inline void *__va(unsigned long x)
 #define virt_to_pfn(kaddr)	(__pa(kaddr) >> PAGE_SHIFT)
 #define pfn_to_virt(pfn)	__va((pfn) << PAGE_SHIFT)
 
-#define virt_to_page(kaddr)	(mem_map + (((unsigned long)(kaddr)-PAGE_OFFSET) >> PAGE_SHIFT))
-#define page_to_virt(page)	((((page) - mem_map) << PAGE_SHIFT) + PAGE_OFFSET)
+extern int m68k_virt_to_node_shift;
 
-#define pfn_to_page(pfn)	virt_to_page(pfn_to_virt(pfn))
-#define page_to_pfn(page)	virt_to_pfn(page_to_virt(page))
+#ifdef CONFIG_SINGLE_MEMORY_CHUNK
+#define __virt_to_node(addr)	(&pg_data_map[0])
+#else
+extern struct pglist_data *pg_data_table[];
+
+static inline __attribute_const__ int __virt_to_node_shift(void)
+{
+	int shift;
+
+	asm (
+		"1:	moveq	#0,%0\n"
+		m68k_fixup(%c1, 1b)
+		: "=d" (shift)
+		: "i" (m68k_fixup_vnode_shift));
+	return shift;
+}
+
+#define __virt_to_node(addr)	(pg_data_table[(unsigned long)(addr) >> __virt_to_node_shift()])
+#endif
+
+#define virt_to_page(addr) ({						\
+	pfn_to_page(virt_to_pfn(addr));					\
+})
+#define page_to_virt(page) ({						\
+	pfn_to_virt(page_to_pfn(page));					\
+})
+
+#define pfn_to_page(pfn) ({						\
+	unsigned long __pfn = (pfn);					\
+	struct pglist_data *pgdat;					\
+	pgdat = __virt_to_node((unsigned long)pfn_to_virt(__pfn));	\
+	pgdat->node_mem_map + (__pfn - pgdat->node_start_pfn);		\
+})
+#define page_to_pfn(_page) ({						\
+	struct page *__p = (_page);					\
+	struct pglist_data *pgdat;					\
+	pgdat = &pg_data_map[page_to_nid(__p)];				\
+	((__p) - pgdat->node_mem_map) + pgdat->node_start_pfn;		\
+})
 
 #define virt_addr_valid(kaddr)	((void *)(kaddr) >= (void *)PAGE_OFFSET && (void *)(kaddr) < high_memory)
 #define pfn_valid(pfn)		virt_addr_valid(pfn_to_virt(pfn))
