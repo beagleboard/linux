@@ -251,6 +251,8 @@ static struct omap_mmc_config apollon_mmc_config __initdata = {
 	.mmc [0] = {
 		.enabled 	= 1,
 		.wire4		= 1,
+	/* Use internal loop-back in MMC/SDIO Module Input Clock selection */
+		.internal_clock	= 1,
 		.wp_pin		= -1,
 		.power_pin	= -1,
 	/* Note: If you want to detect card feature, please assign 37 */
@@ -310,9 +312,6 @@ static void __init omap_apollon_init(void)
 	apollon_led_init();
 	apollon_flash_init();
 	apollon_usb_init();
-
-	/* Use Interal loop-back in MMC/SDIO Module Input Clock selection */
-	CONTROL_DEVCONF |= (1 << 24);
 
 	/*
  	 * Make sure the serial ports are muxed on at this point.

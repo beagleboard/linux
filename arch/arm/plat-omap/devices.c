@@ -339,6 +339,17 @@ static void __init omap_init_mmc(void)
 				omap_cfg_reg(MMC_DAT3);
 			}
 		}
+		if (mmc->internal_clock) {
+			/*
+			 * Use internal loop-back in MMC/SDIO
+			 * Module Input Clock selection
+			 */
+			if (cpu_is_omap24xx()) {
+				u32 v = omap_readl(OMAP24XX_CONTROL_DEVCONF);
+				v |= (1 << 24);
+				omap_writel(v, OMAP24XX_CONTROL_DEVCONF);
+			}
+		}
 		mmc1_conf = *mmc;
 		(void) platform_device_register(&mmc_omap_device1);
 	}
