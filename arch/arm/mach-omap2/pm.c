@@ -138,7 +138,7 @@ static void serial_console_sleep(int enable)
 				serial_wakeup = 1;
 			break;
 		case 3:
-			l = prm_read_mod_reg(CORE_MOD, PM_WKST2);
+			l = prm_read_mod_reg(CORE_MOD, OMAP24XX_PM_WKST2);
 			if (l & OMAP24XX_ST_UART3)
 				serial_wakeup = 1;
 			break;
@@ -180,19 +180,19 @@ static void pm_init_serial_console(void)
 	}
 	switch (serial_console_uart) {
 	case 1:
-		l = prcm_read_mod_reg(CORE_MOD, PM_WKEN1);
+		l = prm_read_mod_reg(CORE_MOD, PM_WKEN1);
 		l |= OMAP24XX_ST_UART1;
 		prm_write_mod_reg(l, CORE_MOD, PM_WKEN1);
 		break;
 	case 2:
-		l = prcm_read_mod_reg(CORE_MOD, PM_WKEN1);
+		l = prm_read_mod_reg(CORE_MOD, PM_WKEN1);
 		l |= OMAP24XX_ST_UART2;
 		prm_write_mod_reg(l, CORE_MOD, PM_WKEN1);
 		break;
 	case 3:
-		l = prcm_read_mod_reg(CORE_MOD, PM_WKEN2);
+		l = prm_read_mod_reg(CORE_MOD, OMAP24XX_PM_WKEN2);
 		l |= OMAP24XX_ST_UART3;
-		prm_write_mod_reg(l, CORE_MOD, PM_WKEN2);
+		prm_write_mod_reg(l, CORE_MOD, OMAP24XX_PM_WKEN2);
 		break;
 	}
 }
@@ -265,7 +265,7 @@ static void omap2_pm_dump(int mode, int resume, unsigned int us)
 #endif
 	} else {
 		DUMP_PRM_MOD_REG(CORE_MOD, PM_WKST1);
-		DUMP_PRM_MOD_REG(CORE_MOD, PM_WKST2);
+		DUMP_PRM_MOD_REG(CORE_MOD, OMAP24XX_PM_WKST2);
 		DUMP_PRM_MOD_REG(WKUP_MOD, PM_WKST);
 		DUMP_PRM_REG(OMAP24XX_PRCM_IRQSTATUS_MPU);
 #if 1
@@ -293,7 +293,8 @@ static void omap2_pm_dump(int mode, int resume, unsigned int us)
 	if (!resume)
 #if defined(CONFIG_NO_IDLE_HZ) || defined(CONFIG_NO_HZ)
 		printk("--- Going to %s %s (next timer after %u ms)\n", s1, s2,
-		       jiffies_to_msecs(next_timer_interrupt() - jiffies));
+		       jiffies_to_msecs(get_next_timer_interrupt(jiffies) - 
+					jiffies));
 #else
 		printk("--- Going to %s %s\n", s1, s2);
 #endif
