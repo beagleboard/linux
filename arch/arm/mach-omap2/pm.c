@@ -783,11 +783,13 @@ int __init omap2_pm_init(void)
 		return -ENODEV;
 	}
 
-	emul_ck = clk_get(NULL, "emul_ck");
-	if (IS_ERR(emul_ck)) {
-		printk(KERN_ERR "could not get emul_ck\n");
-		clk_put(osc_ck);
-		return -ENODEV;
+	if (cpu_is_omap242x()) {
+		emul_ck = clk_get(NULL, "emul_ck");
+		if (IS_ERR(emul_ck)) {
+			printk(KERN_ERR "could not get emul_ck\n");
+			clk_put(osc_ck);
+			return -ENODEV;
+		}
 	}
 
 	prcm_setup_regs();
