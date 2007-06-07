@@ -841,11 +841,6 @@ config GEN_RTC_X
 config EFI_RTC
 	bool "EFI Real Time Clock Services"
 	depends on IA64
-config OMAP_RTC
-	bool "TI OMAP Real Time Clock"
-	depends on !RTC_DRV_OMAP && (ARCH_OMAP15XX || ARCH_OMAP16XX || ARCH_OMAP730)
-	help
-	  Support for TI OMAP RTC
 
 config DS1302
 	tristate "DS1302 RTC support"
