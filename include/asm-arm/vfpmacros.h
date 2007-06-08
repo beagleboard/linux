@@ -21,6 +21,9 @@
 #else
 	LDC	p11, cr0, [\base],#32*4		    @ FLDMIAD \base!, {d0-d15}
 #endif
+#ifdef CONFIG_VFPv3
+	LDCL	p11, cr0, [\base],#32*4		    @ FLDMIAD \base!, {d16-d31}
+#endif
 	.endm
 
 	@ write all the working registers out of the VFP
@@ -29,5 +32,8 @@
 	STC	p11, cr0, [\base],#33*4		    @ FSTMIAX \base!, {d0-d15}
 #else
 	STC	p11, cr0, [\base],#32*4		    @ FSTMIAD \base!, {d0-d15}
+#endif
+#ifdef CONFIG_VFPv3
+	STCL	p11, cr0, [\base],#32*4		    @ FSTMIAD \base!, {d16-d31}
 #endif
 	.endm

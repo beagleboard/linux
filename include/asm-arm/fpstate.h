@@ -24,17 +24,23 @@
  */
 
 struct vfp_hard_struct {
+#ifdef CONFIG_VFPv3
+	__u64 fpregs[32];
+#else
 	__u64 fpregs[16];
+#endif
 #if __LINUX_ARM_ARCH__ < 6
 	__u32 fpmx_state;
 #endif
 	__u32 fpexc;
 	__u32 fpscr;
+#ifndef CONFIG_VFPv3
 	/*
 	 * VFP implementation specific state
 	 */
 	__u32 fpinst;
 	__u32 fpinst2;
+#endif
 #ifdef CONFIG_SMP
 	__u32 cpu;
 #endif

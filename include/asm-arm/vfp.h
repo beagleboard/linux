@@ -55,11 +55,13 @@
 #define FPSCR_IXC		(1<<4)
 #define FPSCR_IDC		(1<<7)
 
+#ifndef CONFIG_VFPv3
 /*
  * VFP9-S specific.
  */
 #define FPINST			cr9
 #define FPINST2			cr10
+#endif
 
 /* FPEXC bits */
 #define FPEXC_FPV2		(1<<28)
