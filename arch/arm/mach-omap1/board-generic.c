@@ -55,6 +55,7 @@ static struct omap_usb_config generic1610_usb_config __initdata = {
 	.hmc_mode	= 16,
 	.pins[0]	= 6,
 };
+#endif
 
 static struct omap_mmc_config generic_mmc_config __initdata = {
 	.mmc [0] = {
@@ -73,15 +74,13 @@ static struct omap_mmc_config generic_mmc_config __initdata = {
 	},
 };
 
-#endif
-
 static struct omap_uart_config generic_uart_config __initdata = {
 	.enabled_uarts = ((1 << 0) | (1 << 1) | (1 << 2)),
 };
 
 static struct omap_board_config_kernel generic_config[] __initdata = {
-	{ OMAP_TAG_USB,           NULL },
-	{ OMAP_TAG_MMC,           &generic_mmc_config },
+	{ OMAP_TAG_USB,		NULL },
+	{ OMAP_TAG_MMC,		&generic_mmc_config },
 	{ OMAP_TAG_UART,	&generic_uart_config },
 };
 
