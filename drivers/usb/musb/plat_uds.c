@@ -1497,17 +1497,7 @@ musb_mode_show(struct device *dev, struct device_attribute *attr, char *buf)
 	int ret = -EINVAL;
 
 	spin_lock_irqsave(&musb->Lock, flags);
-	switch (musb->board_mode) {
-	case MUSB_HOST:
-		ret = sprintf(buf, "host\n");
-		break;
-	case MUSB_PERIPHERAL:
-		ret = sprintf(buf, "peripheral\n");
-		break;
-	case MUSB_OTG:
-		ret = sprintf(buf, "otg\n");
-		break;
-	}
+	ret = sprintf(buf, "%s\n", otg_state_string(musb));
 	spin_unlock_irqrestore(&musb->Lock, flags);
 
 	return ret;
