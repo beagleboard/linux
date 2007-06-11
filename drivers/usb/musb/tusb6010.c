@@ -60,6 +60,53 @@ static int __init tusb_print_revision(struct musb *musb)
 	return TUSB_REV_MAJOR(musb_readl(base, TUSB_INT_CTRL_REV));
 }
 
+#define WBUS_QUIRK_MASK	(TUSB_PHY_OTG_CTRL_TESTM2 | TUSB_PHY_OTG_CTRL_TESTM1	\
+				| TUSB_PHY_OTG_CTRL_TESTM0)
+
+/*
+ * Workaround for spontaneous WBUS wake-up issue #2 for tusb3.0.
+ * Disables power detection in PHY for the duration of idle.
+ */
+static void tusb_wbus_quirk(struct musb *musb, int enabled)
+{
+	void __iomem	*base = musb->ctrl_base;
+	static u32	phy_otg_ena = 0, phy_otg_ctrl = 0;
+	u32		int_src, tmp;
+
+	if (enabled) {
+		phy_otg_ena = musb_readl(base, TUSB_PHY_OTG_CTRL_ENABLE);
+		phy_otg_ctrl = musb_readl(base, TUSB_PHY_OTG_CTRL);
+		tmp = TUSB_PHY_OTG_CTRL_WRPROTECT
+				| phy_otg_ena | WBUS_QUIRK_MASK;
+		musb_writel(base, TUSB_PHY_OTG_CTRL_ENABLE, tmp);
+		tmp = phy_otg_ctrl & ~WBUS_QUIRK_MASK;
+		tmp |= TUSB_PHY_OTG_CTRL_WRPROTECT | TUSB_PHY_OTG_CTRL_TESTM2;
+		musb_writel(base, TUSB_PHY_OTG_CTRL, tmp);
+		DBG(2, "Enabled tusb wbus quirk ena %08x ctrl %08x\n",
+			musb_readl(base, TUSB_PHY_OTG_CTRL_ENABLE),
+			musb_readl(base, TUSB_PHY_OTG_CTRL));
+	} else if (musb_readl(base, TUSB_PHY_OTG_CTRL_ENABLE)
+					& TUSB_PHY_OTG_CTRL_TESTM2) {
+		tmp = TUSB_PHY_OTG_CTRL_WRPROTECT
+				| phy_otg_ena | WBUS_QUIRK_MASK;
+		musb_writel(base, TUSB_PHY_OTG_CTRL_ENABLE, tmp);
+		tmp = TUSB_PHY_OTG_CTRL_WRPROTECT | phy_otg_ctrl;
+		musb_writel(base, TUSB_PHY_OTG_CTRL, tmp);
+		tmp = TUSB_PHY_OTG_CTRL_WRPROTECT | phy_otg_ena;
+		musb_writel(base, TUSB_PHY_OTG_CTRL_ENABLE, tmp);
+		DBG(2, "Disabled tusb wbus quirk ena %08x ctrl %08x\n",
+			musb_readl(base, TUSB_PHY_OTG_CTRL_ENABLE),
+			musb_readl(base, TUSB_PHY_OTG_CTRL));
+		phy_otg_ena = 0;
+		phy_otg_ctrl = 0;
+	}
+
+	int_src = musb_readl(base, TUSB_INT_SRC);
+	if (int_src & TUSB_INT_SRC_ID_STATUS_CHNG)
+		musb_writel(base, TUSB_INT_SRC_CLEAR,
+				TUSB_INT_SRC_ID_STATUS_CHNG);
+}
+
 /*
  * TUSB 6010 may use a parallel bus that doesn't support byte ops;
  * so both loading and unloading FIFOs need explicit byte counts.
@@ -286,6 +333,10 @@ static void tusb_allow_idle(struct musb *musb, u32 wakeup_enables)
 {
 	void __iomem	*base = musb->ctrl_base;
 	u32		reg;
+
+	if ((wakeup_enables & TUSB_PRCM_WBUS)
+			&& (tusb_get_revision(musb) == TUSB_REV_30))
+		tusb_wbus_quirk(musb, 1);
 
 	tusb_set_clock_source(musb, 0);
 
@@ -684,6 +735,9 @@ static irqreturn_t tusb_interrupt(int irq, void *__hci)
 	if (int_src & TUSB_INT_SRC_DEV_WAKEUP) {
 		u32	reg;
 		u32	i;
+
+		if (tusb_get_revision(musb) == TUSB_REV_30)
+			tusb_wbus_quirk(musb, 0);
 
 		/* there are issues re-locking the PLL on wakeup ... */
 
