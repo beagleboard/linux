@@ -387,7 +387,7 @@ int musb_platform_get_vbus_status(struct musb *musb)
 		musb_writel(base, TUSB_PRCM_MNGMT, prcm_mngmt);
 	}
 
-	if (otg_stat & TUSB_DEV_OTG_STAT_VBUS_SENSE)
+	if (otg_stat & TUSB_DEV_OTG_STAT_VBUS_VALID)
 		ret = 1;
 
 	return ret;
@@ -569,8 +569,8 @@ void musb_platform_set_mode(struct musb *musb, u8 musb_mode)
 
 #ifdef CONFIG_USB_MUSB_OTG
 	case MUSB_OTG:		/* Use PHY ID detection */
-		phy_otg_ena &= ~TUSB_PHY_OTG_CTRL_OTG_ID_PULLUP;
-		phy_otg_ctrl &= ~TUSB_PHY_OTG_CTRL_OTG_ID_PULLUP;
+		phy_otg_ena |= TUSB_PHY_OTG_CTRL_OTG_ID_PULLUP;
+		phy_otg_ctrl |= TUSB_PHY_OTG_CTRL_OTG_ID_PULLUP;
 		dev_conf &= ~(TUSB_DEV_CONF_ID_SEL | TUSB_DEV_CONF_SOFT_ID);
 		break;
 #endif
@@ -585,7 +585,6 @@ void musb_platform_set_mode(struct musb *musb, u8 musb_mode)
 			TUSB_PHY_OTG_CTRL_WRPROTECT | phy_otg_ctrl);
 	musb_writel(base, TUSB_DEV_CONF, dev_conf);
 
-	msleep(1);
 	otg_stat = musb_readl(base, TUSB_DEV_OTG_STAT);
 	if ((musb_mode == MUSB_PERIPHERAL) &&
 		!(otg_stat & TUSB_DEV_OTG_STAT_ID_STATUS))
@@ -629,6 +628,7 @@ tusb_otg_ints(struct musb *musb, u32 int_src, void __iomem *base)
 #endif
 
 			if (otg_stat & TUSB_DEV_OTG_STAT_SESS_END) {
+				DBG(1, "Forcing disconnect (no interrupt)\n");
 				if (musb->xceiv.state != OTG_STATE_B_IDLE) {
 					/* INTR_DISCONNECT can hide... */
 					musb->xceiv.state = OTG_STATE_B_IDLE;
@@ -641,7 +641,7 @@ tusb_otg_ints(struct musb *musb, u32 int_src, void __iomem *base)
 			schedule_work(&musb->irq_work);
 
 		} else /* A-dev state machine */ {
-			DBG(4, "vbus change, %s, otg %03x\n",
+			DBG(2, "vbus change, %s, otg %03x\n",
 				otg_state_string(musb), otg_stat);
 
 			switch (musb->xceiv.state) {
@@ -975,13 +975,13 @@ static int __init tusb_start(struct musb *musb)
 	tusb_setup_cpu_interface(musb);
 
 	/* simplify:  always sense/pullup ID pins, as if in OTG mode */
-	reg = musb_readl(base, TUSB_PHY_OTG_CTRL);
-	reg |= TUSB_PHY_OTG_CTRL_WRPROTECT | TUSB_PHY_OTG_CTRL_OTG_ID_PULLUP;
-	musb_writel(base, TUSB_PHY_OTG_CTRL, reg);
-
 	reg = musb_readl(base, TUSB_PHY_OTG_CTRL_ENABLE);
 	reg |= TUSB_PHY_OTG_CTRL_WRPROTECT | TUSB_PHY_OTG_CTRL_OTG_ID_PULLUP;
 	musb_writel(base, TUSB_PHY_OTG_CTRL_ENABLE, reg);
+
+	reg = musb_readl(base, TUSB_PHY_OTG_CTRL);
+	reg |= TUSB_PHY_OTG_CTRL_WRPROTECT | TUSB_PHY_OTG_CTRL_OTG_ID_PULLUP;
+	musb_writel(base, TUSB_PHY_OTG_CTRL, reg);
 
 	spin_unlock_irqrestore(&musb->Lock, flags);
 
