@@ -25,6 +25,40 @@
 
 #include "musbdefs.h"
 
+/*
+ * Checks the revision. We need to use the DMA register as 3.0 does not
+ * have correct versions for TUSB_PRCM_REV or TUSB_INT_CTRL_REV.
+ */
+static u8 tusb_get_revision(struct musb *musb)
+{
+	void __iomem	*base = musb->ctrl_base;
+
+	return musb_readl(base, TUSB_DMA_CTRL_REV) & 0xff;
+}
+
+#define TUSB_REV_MAJOR(reg_val)		((reg_val >> 4) & 0xf)
+#define TUSB_REV_MINOR(reg_val)		(reg_val & 0xf)
+
+static int __init tusb_print_revision(struct musb *musb)
+{
+	void __iomem	*base = musb->ctrl_base;
+
+	pr_info("tusb: Revisions: %s%i.%i %s%i.%i %s%i.%i %s%i.%i\n",
+		"prcm",
+		TUSB_REV_MAJOR(musb_readl(base, TUSB_PRCM_REV)),
+		TUSB_REV_MINOR(musb_readl(base, TUSB_PRCM_REV)),
+		"int",
+		TUSB_REV_MAJOR(musb_readl(base, TUSB_INT_CTRL_REV)),
+		TUSB_REV_MINOR(musb_readl(base, TUSB_INT_CTRL_REV)),
+		"gpio",
+		TUSB_REV_MAJOR(musb_readl(base, TUSB_GPIO_REV)),
+		TUSB_REV_MINOR(musb_readl(base, TUSB_GPIO_REV)),
+		"dma",
+		TUSB_REV_MAJOR(musb_readl(base, TUSB_DMA_CTRL_REV)),
+		TUSB_REV_MINOR(musb_readl(base, TUSB_DMA_CTRL_REV)));
+
+	return TUSB_REV_MAJOR(musb_readl(base, TUSB_INT_CTRL_REV));
+}
 
 /*
  * TUSB 6010 may use a parallel bus that doesn't support byte ops;
@@ -831,30 +865,6 @@ static void __init tusb_setup_cpu_interface(struct musb *musb)
 
 	/* Set 0 wait count for synchronous burst access */
 	musb_writel(base, TUSB_WAIT_COUNT, 1);
-}
-
-#define TUSB_REV_MAJOR(reg_val)		((reg_val >> 4) & 0xf)
-#define TUSB_REV_MINOR(reg_val)		(reg_val & 0xf)
-
-static int __init tusb_print_revision(struct musb *musb)
-{
-	void __iomem	*base = musb->ctrl_base;
-
-	pr_info("tusb: Revisions: %s%i.%i %s%i.%i %s%i.%i %s%i.%i\n",
-		"prcm",
-		TUSB_REV_MAJOR(musb_readl(base, TUSB_PRCM_REV)),
-		TUSB_REV_MINOR(musb_readl(base, TUSB_PRCM_REV)),
-		"int",
-		TUSB_REV_MAJOR(musb_readl(base, TUSB_INT_CTRL_REV)),
-		TUSB_REV_MINOR(musb_readl(base, TUSB_INT_CTRL_REV)),
-		"gpio",
-		TUSB_REV_MAJOR(musb_readl(base, TUSB_GPIO_REV)),
-		TUSB_REV_MINOR(musb_readl(base, TUSB_GPIO_REV)),
-		"dma",
-		TUSB_REV_MAJOR(musb_readl(base, TUSB_DMA_CTRL_REV)),
-		TUSB_REV_MINOR(musb_readl(base, TUSB_DMA_CTRL_REV)));
-
-	return TUSB_REV_MAJOR(musb_readl(base, TUSB_INT_CTRL_REV));
 }
 
 static int __init tusb_start(struct musb *musb)

@@ -216,6 +216,10 @@
 #define TUSB_PROD_TEST_RESET_VAL		0xa596
 #define TUSB_EP_FIFO(ep)			(TUSB_FIFO_BASE + (ep) * 0x20)
 
+#define TUSB_REV_1	0x10
+#define TUSB_REV_2	0x20
+#define TUSB_REV_30	0x30
+
 /*----------------------------------------------------------------------------*/
 
 #ifdef CONFIG_USB_TUSB6010
