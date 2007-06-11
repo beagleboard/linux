@@ -722,9 +722,13 @@ static irqreturn_t tusb_interrupt(int irq, void *__hci)
 	struct musb	*musb = __hci;
 	void __iomem	*base = musb->ctrl_base;
 	unsigned long	flags;
-	u32		int_src;
+	u32		int_mask, int_src;
 
 	spin_lock_irqsave(&musb->Lock, flags);
+
+	/* Mask all interrupts to allow using both edge and level GPIO irq */
+	int_mask = musb_readl(base, TUSB_INT_MASK);
+	musb_writel(base, TUSB_INT_MASK, ~TUSB_INT_MASK_RESERVED_BITS);
 
 	int_src = musb_readl(base, TUSB_INT_SRC) & ~TUSB_INT_SRC_RESERVED_BITS;
 	DBG(3, "TUSB IRQ %08x\n", int_src);
@@ -813,6 +817,8 @@ static irqreturn_t tusb_interrupt(int irq, void *__hci)
 		int_src & ~TUSB_INT_MASK_RESERVED_BITS);
 
 	musb_platform_try_idle(musb);
+
+	musb_writel(base, TUSB_INT_MASK, int_mask);
 	spin_unlock_irqrestore(&musb->Lock, flags);
 
 	return IRQ_HANDLED;
