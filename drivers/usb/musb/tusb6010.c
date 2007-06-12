@@ -542,10 +542,6 @@ void musb_platform_set_mode(struct musb *musb, u8 musb_mode)
 
 #ifdef CONFIG_USB_MUSB_HDRC_HCD
 	case MUSB_HOST:		/* Disable PHY ID detect, ground ID */
-		if (!(otg_stat & TUSB_DEV_OTG_STAT_ID_STATUS)) {
-			ERR("Already in host mode otg_stat: %08x\n", otg_stat);
-			return;
-		}
 		phy_otg_ena |= TUSB_PHY_OTG_CTRL_OTG_ID_PULLUP;
 		phy_otg_ctrl &= ~TUSB_PHY_OTG_CTRL_OTG_ID_PULLUP;
 		dev_conf |= TUSB_DEV_CONF_ID_SEL;
@@ -556,11 +552,6 @@ void musb_platform_set_mode(struct musb *musb, u8 musb_mode)
 
 #ifdef CONFIG_USB_GADGET_MUSB_HDRC
 	case MUSB_PERIPHERAL:	/* Disable PHY ID detect, keep ID pull-up on */
-		if (otg_stat & TUSB_DEV_OTG_STAT_ID_STATUS) {
-			ERR("Already in peripheral mode otg_stat: %08x\n",
-				otg_stat);
-			return;
-		}
 		phy_otg_ena |= TUSB_PHY_OTG_CTRL_OTG_ID_PULLUP;
 		phy_otg_ctrl |= TUSB_PHY_OTG_CTRL_OTG_ID_PULLUP;
 		dev_conf |= (TUSB_DEV_CONF_ID_SEL | TUSB_DEV_CONF_SOFT_ID);
@@ -588,7 +579,7 @@ void musb_platform_set_mode(struct musb *musb, u8 musb_mode)
 	otg_stat = musb_readl(base, TUSB_DEV_OTG_STAT);
 	if ((musb_mode == MUSB_PERIPHERAL) &&
 		!(otg_stat & TUSB_DEV_OTG_STAT_ID_STATUS))
-			ERR("Cannot be peripheral with mini-A cable "
+			INFO("Cannot be peripheral with mini-A cable "
 			"otg_stat: %08x\n", otg_stat);
 }
 
