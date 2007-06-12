@@ -628,7 +628,7 @@ void omap_clear_dma(int lch)
 
 	if (cpu_is_omap24xx()) {
 		int i;
-		u32 lch_base = OMAP24XX_DMA_BASE + lch * 0x60 + 0x80;
+		u32 lch_base = OMAP_DMA4_BASE + lch * 0x60 + 0x80;
 		for (i = 0; i < 0x44; i += 4)
 			omap_writel(0, lch_base + i);
 	}
