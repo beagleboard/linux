@@ -493,12 +493,15 @@ static void __init tusb_evm_setup(void)
 #endif
 
 static struct i2c_board_info __initdata h4_i2c_board_info[] = {
-#ifdef CONFIG_MENELAUS
+	{
+		I2C_BOARD_INFO("rtc-rs5c372", 0x32),
+		.type = "rv5c387a",
+		/* no IRQ wired to OMAP; nINTB goes to AGPS */
+	},
 	{
 		I2C_BOARD_INFO("menelaus", 0x72),
 		.irq = INT_24XX_SYS_NIRQ,
 	},
-#endif
 };
 
 static void __init omap_h4_init(void)
@@ -528,6 +531,9 @@ static void __init omap_h4_init(void)
 	omap_cfg_reg(W20_24XX_USB1_TXEN);
 	omap_cfg_reg(V19_24XX_USB1_RCV);
 #endif
+
+	/* Menelaus interrupt */
+	omap_cfg_reg(W19_24XX_SYS_NIRQ);
 
 	i2c_register_board_info(1, h4_i2c_board_info,
 			ARRAY_SIZE(h4_i2c_board_info));
