@@ -43,7 +43,6 @@
 #include <asm/mach-types.h>
 #include <asm/mach/irq.h>
 
-#include <asm/arch/mux.h>
 #include <asm/arch/gpio.h>
 #include <asm/arch/menelaus.h>
 
@@ -833,9 +832,6 @@ static int menelaus_probe(struct i2c_client *client)
 		err = -ENODEV;
 		goto fail1;
 	}
-
-	/* Most likely Menelaus interrupt is at SYS_NIRQ */
-	omap_cfg_reg(W19_24XX_SYS_NIRQ);
 
 	/* Ack and disable all Menelaus interrupts */
 	menelaus_write_reg(MENELAUS_INT_ACK1, 0xff);
