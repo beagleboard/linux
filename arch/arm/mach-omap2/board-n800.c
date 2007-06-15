@@ -527,13 +527,11 @@ static struct menelaus_platform_data n800_menelaus_platform_data = {
 #endif
 
 static struct i2c_board_info __initdata n800_i2c_board_info[] = {
-#ifdef CONFIG_MENELAUS
 	{
 		I2C_BOARD_INFO("menelaus", 0x72),
 		.irq = INT_24XX_SYS_NIRQ,
 		.platform_data = &n800_menelaus_platform_data,
 	},
-#endif
 };
 
 static void __init nokia_n800_init(void)
