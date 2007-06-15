@@ -1239,6 +1239,7 @@ static int __exit menelaus_remove(struct i2c_client *client)
 	struct menelaus_chip	*menelaus = i2c_get_clientdata(client);
 
 	free_irq(client->irq, menelaus);
+	kfree(menelaus);
 	the_menelaus = NULL;
 	return 0;
 }
@@ -1247,8 +1248,6 @@ static struct i2c_driver menelaus_i2c_driver = {
 	.driver = {
 		.name		= DRIVER_NAME,
 	},
-	.id		= I2C_DRIVERID_MISC, /*FIXME:accroding to i2c-ids.h */
-	.class		= I2C_CLASS_HWMON,
 	.probe		= menelaus_probe,
 	.remove		= __exit_p(menelaus_remove),
 };
