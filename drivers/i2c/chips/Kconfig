@@ -115,10 +115,14 @@ config GPIOEXPANDER_OMAP
 	  to configure IrDA, Camera and audio devices.
 
 config MENELAUS
-	bool "Menelaus PM chip"
+	bool "TWL92330/Menelaus PM chip"
 	depends on I2C=y && ARCH_OMAP24XX
 	help
-	  Say yes here if you have Menelaus chip on your board
+	  If you say yes here you get support for the Texas Instruments
+	  TWL92330/Menelaus Power Management chip. This include voltage
+	  regulators, Dual slot memory card tranceivers, real-time clock
+	  and other features that are often used in portable devices like
+	  cell phones and PDAs.
 
 config TWL4030_CORE
 	bool "TI's TWL4030 companion chip Core Driver Support"
