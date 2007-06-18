@@ -1,6 +1,4 @@
 /*
- * File: drivers/video/omap/lcd-h4.c
- *
  * LCD panel support for the TI OMAP H4 board
  *
  * Copyright (C) 2004 Nokia Corporation

@@ -1,6 +1,4 @@
 /*
- * File: drivers/video/omap/lcd_palmz71.c
- *
  * LCD panel support for the Palm Zire71
  *
  * Original version : Romain Goyet

@@ -1,6 +1,4 @@
 /*
- * File: drivers/video/omap/lcd-p2.c
- *
  * LCD panel support for the TI OMAP P2 board
  *
  * Authors:

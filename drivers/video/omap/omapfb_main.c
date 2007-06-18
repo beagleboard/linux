@@ -1,6 +1,4 @@
 /*
- * File: drivers/video/omap/omapfb_main.c
- *
  * Framebuffer driver for TI OMAP boards
  *
  * Copyright (C) 2004 Nokia Corporation
@@ -138,7 +136,8 @@ static const int dma_elem_type[] = {
 	OMAP_DMA_DATA_TYPE_S32,
 };
 
-/* Allocate resources needed for LCD controller and LCD DMA operations. Video
+/*
+ * Allocate resources needed for LCD controller and LCD DMA operations. Video
  * memory is allocated from system memory according to the virtual display
  * size, except if a bigger memory size is specified explicitly as a kernel
  * parameter.
@@ -378,7 +377,8 @@ static void omapfb_sync(struct fb_info *fbi)
 	omapfb_rqueue_unlock(fbdev);
 }
 
-/* Set fb_info.fix fields and also updates fbdev.
+/*
+ * Set fb_info.fix fields and also updates fbdev.
  * When calling this fb_info.var must be set up already.
  */
 static void set_fb_fix(struct fb_info *fbi)
@@ -463,7 +463,8 @@ static int set_color_mode(struct omapfb_plane_struct *plane,
 	}
 }
 
-/* Check the values in var against our capabilities and in case of out of
+/*
+ * Check the values in var against our capabilities and in case of out of
  * bound values try to adjust them.
  */
 static int set_fb_var(struct fb_info *fbi,
@@ -609,7 +610,8 @@ static void omapfb_rotate(struct fb_info *fbi, int rotate)
 	omapfb_rqueue_unlock(fbdev);
 }
 
-/* Set new x,y offsets in the virtual display for the visible area and switch
+/*
+ * Set new x,y offsets in the virtual display for the visible area and switch
  * to the new mode.
  */
 static int omapfb_pan_display(struct fb_var_screeninfo *var,
@@ -659,7 +661,8 @@ static int omapfb_mirror(struct fb_info *fbi, int mirror)
 	return r;
 }
 
-/* Check values in var, try to adjust them in case of out of bound values if
+/*
+ * Check values in var, try to adjust them in case of out of bound values if
  * possible, or return error.
  */
 static int omapfb_check_var(struct fb_var_screeninfo *var, struct fb_info *fbi)
@@ -677,7 +680,8 @@ static int omapfb_check_var(struct fb_var_screeninfo *var, struct fb_info *fbi)
 	return r;
 }
 
-/* Switch to a new mode. The parameters for it has been check already by
+/*
+ * Switch to a new mode. The parameters for it has been check already by
  * omapfb_check_var.
  */
 static int omapfb_set_par(struct fb_info *fbi)
@@ -783,7 +787,8 @@ static int omapfb_setup_plane(struct fb_info *fbi, struct omapfb_plane_info *pi)
 
 	omapfb_rqueue_lock(fbdev);
 	if (pi->enabled && !fbdev->mem_desc.region[plane->idx].size) {
-		/* This plane's memory was freed, can't enable it
+		/*
+		 * This plane's memory was freed, can't enable it
 		 * until it's reallocated.
 		 */
 		r = -EINVAL;
@@ -843,7 +848,8 @@ static int omapfb_setup_mem(struct fb_info *fbi, struct omapfb_mem_info *mi)
 
 		rg->size = size;
 		rg->type = mi->type;
-		/* size == 0 is a special case, for which we
+		/*
+		 * size == 0 is a special case, for which we
 		 * don't check / adjust the screen parameters.
 		 * This isn't a problem since the plane can't
 		 * be reenabled unless its size is > 0.
@@ -873,7 +879,8 @@ static int omapfb_setup_mem(struct fb_info *fbi, struct omapfb_mem_info *mi)
 				memcpy(&fbi->var, new_var, sizeof(fbi->var));
 				set_fb_fix(fbi);
 			} else {
-				/* Set these explicitly to indicate that the
+				/*
+				 * Set these explicitly to indicate that the
 				 * plane memory is dealloce'd, the other
 				 * screen parameters in var / fix are invalid.
 				 */
@@ -1045,7 +1052,8 @@ void omapfb_write_first_pixel(struct omapfb_device *fbdev, u16 pixval)
 }
 EXPORT_SYMBOL(omapfb_write_first_pixel);
 
-/* Ioctl interface. Part of the kernel mode frame buffer API is duplicated
+/*
+ * Ioctl interface. Part of the kernel mode frame buffer API is duplicated
  * here to be accessible by user mode code.
  */
 static int omapfb_ioctl(struct fb_info *fbi, unsigned int cmd,
@@ -1211,7 +1219,8 @@ static int omapfb_mmap(struct fb_info *info, struct vm_area_struct *vma)
 	return r;
 }
 
-/* Callback table for the frame buffer framework. Some of these pointers
+/*
+ * Callback table for the frame buffer framework. Some of these pointers
  * will be changed according to the current setting of fb_info->accel_flags.
  */
 static struct fb_ops omapfb_ops = {
@@ -1526,7 +1535,8 @@ static int planes_init(struct omapfb_device *fbdev)
 	return 0;
 }
 
-/* Free driver resources. Can be called to rollback an aborted initialization
+/*
+ * Free driver resources. Can be called to rollback an aborted initialization
  * sequence.
  */
 static void omapfb_free_resources(struct omapfb_device *fbdev, int state)
@@ -1607,7 +1617,8 @@ static void check_required_callbacks(struct omapfb_device *fbdev)
 #undef _C
 }
 
-/* Called by LDM binding to probe and attach a new device.
+/*
+ * Called by LDM binding to probe and attach a new device.
  * Initialization sequence:
  *   1. allocate system omapfb_device structure
  *   2. select controller type according to platform configuration

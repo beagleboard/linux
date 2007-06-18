@@ -1,6 +1,4 @@
 /*
- * File: drivers/video/omap/lcd_palmtt.c
- *
  * LCD panel support for Palm Tungsten|T
  * Current version : Marek Vasut <marek.vasut@gmail.com>
  *

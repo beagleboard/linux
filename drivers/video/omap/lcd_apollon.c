@@ -1,6 +1,4 @@
 /*
- * File: drivers/video/omap/lcd_apollon.c
- *
  * LCD panel support for the Samsung OMAP2 Apollon board
  *
  * Copyright (C) 2005,2006 Samsung Electronics

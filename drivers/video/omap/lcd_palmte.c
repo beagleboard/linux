@@ -1,6 +1,4 @@
 /*
- * File: drivers/video/omap/lcd_palmte.c
- *
  * LCD panel support for the Palm Tungsten E
  *
  * Original version : Romain Goyet

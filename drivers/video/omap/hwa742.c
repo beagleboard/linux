@@ -1,6 +1,4 @@
 /*
- * File: drivers/video/omap/hwa742.c
- *
  * Epson HWA742 LCD controller driver
  *
  * Copyright (C) 2004-2005 Nokia Corporation
@@ -817,7 +815,8 @@ static int setup_tearsync(unsigned long pix_clk, int extif_div)
 	/* time to transfer one pixel (16bpp) in ps */
 	hwa742.pix_tx_time = hwa742.reg_timings.we_cycle_time;
 	if (hwa742.extif->get_max_tx_rate != NULL) {
-		/* The external interface might have a rate limitation,
+		/*
+		 * The external interface might have a rate limitation,
 		 * if so, we have to maximize our transfer rate.
 		 */
 		unsigned long min_tx_time;
@@ -834,24 +833,30 @@ static int setup_tearsync(unsigned long pix_clk, int extif_div)
 	hwa742.line_upd_time = (hdisp + hndp) * 1000000 / (pix_clk / 1000);
 	hwa742.line_upd_time *= 1000;
 	if (hdisp * hwa742.pix_tx_time > hwa742.line_upd_time)
-		/* transfer speed too low, we might have to use both
-		 * HS and VS */
+		/*
+		 * transfer speed too low, we might have to use both
+		 * HS and VS
+		 */
 		use_hsvs = 1;
 	else
 		/* decent transfer speed, we'll always use only VS */
 		use_hsvs = 0;
 
 	if (use_hsvs && (hs_pol_inv || vs_pol_inv)) {
-		/* HS or'ed with VS doesn't work, use the active high
-		 * TE signal based on HNDP / VNDP */
+		/*
+		 * HS or'ed with VS doesn't work, use the active high
+		 * TE signal based on HNDP / VNDP
+		 */
 		use_ndp = 1;
 		hs_pol_inv = 0;
 		vs_pol_inv = 0;
 		hs = hndp;
 		vs = vndp;
 	} else {
-		/* Use HS or'ed with VS as a TE signal if both are needed
-		 * or VNDP if only vsync is needed. */
+		/*
+		 * Use HS or'ed with VS as a TE signal if both are needed
+		 * or VNDP if only vsync is needed.
+		 */
 		use_ndp = 0;
 		hs = hsw;
 		vs = vsw;

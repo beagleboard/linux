@@ -1,6 +1,4 @@
 /*
- * File: drivers/video/omap/omap2/rfbi.c
- *
  * OMAP2 Remote Frame Buffer Interface support
  *
  * Copyright (C) 2005 Nokia Corporation

@@ -1,6 +1,4 @@
 /*
- * File: drivers/video/omap/omap2/dispc.c
- *
  * OMAP2 display controller support
  *
  * Copyright (C) 2005 Nokia Corporation
@@ -527,7 +525,8 @@ static int omap_dispc_set_scale(int plane,
 
 	enable_lcd_clocks(1);
 	if (orig_width < out_width) {
-		/* Upsampling.
+		/*
+		 * Upsampling.
 		 * Currently you can only scale both dimensions in one way.
 		 */
 		if (orig_height > out_height ||

@@ -1,6 +1,4 @@
 /*
- * File: drivers/video/omap/lcd-inn1610.c
- *
  * LCD panel support for the TI OMAP1610 Innovator board
  *
  * Copyright (C) 2004 Nokia Corporation

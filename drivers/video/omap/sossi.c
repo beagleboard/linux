@@ -1,6 +1,4 @@
 /*
- * File: drivers/video/omap/omap1/sossi.c
- *
  * OMAP1 Special OptimiSed Screen Interface support
  *
  * Copyright (C) 2004-2005 Nokia Corporation
@@ -73,7 +71,8 @@ static struct {
 	int		clk_div;
 	u8		clk_tw0[2];
 	u8		clk_tw1[2];
-	/* if last_access is the same as current we don't have to change
+	/*
+	 * if last_access is the same as current we don't have to change
 	 * the timings
 	 */
 	int		last_access;
@@ -135,7 +134,8 @@ static int calc_rd_timings(struct extif_timings *t)
 	int reon, reoff, recyc, actim;
 	int div = t->clk_div;
 
-	/* Make sure that after conversion it still holds that:
+	/*
+	 * Make sure that after conversion it still holds that:
 	 * reoff > reon, recyc >= reoff, actim > reon
 	 */
 	reon = ps_to_sossi_ticks(t->re_on_time, div);
@@ -166,7 +166,8 @@ static int calc_rd_timings(struct extif_timings *t)
 	actim = ps_to_sossi_ticks(t->access_time, div);
 	if (actim < reoff)
 		actim++;
-	/* access time (data hold time) will be exactly one sossi
+	/*
+	 * access time (data hold time) will be exactly one sossi
 	 * tick
 	 */
 	if (actim - reoff > 1)
@@ -184,7 +185,8 @@ static int calc_wr_timings(struct extif_timings *t)
 	int weon, weoff, wecyc;
 	int div = t->clk_div;
 
-	/* Make sure that after conversion it still holds that:
+	/*
+	 * Make sure that after conversion it still holds that:
 	 * weoff > weon, wecyc >= weoff
 	 */
 	weon = ps_to_sossi_ticks(t->we_on_time, div);
@@ -367,7 +369,8 @@ static void sossi_set_bits_per_cycle(int bpc)
 {
 	int bus_pick_count, bus_pick_width;
 
-	/* We set explicitly the the bus_pick_count as well, although
+	/*
+	 * We set explicitly the the bus_pick_count as well, although
 	 * with remapping/reordering disabled it will be calculated by HW
 	 * as (32 / bus_pick_width).
 	 */
@@ -500,7 +503,8 @@ static void sossi_transfer_area(int width, int height,
 
 	sossi_start_transfer();
 	if (sossi.tearsync_mode) {
-		/* Wait for the sync signal and start the transfer only
+		/*
+		 * Wait for the sync signal and start the transfer only
 		 * then. We can't seem to be able to use HW sync DMA for
 		 * this since LCD DMA shows huge latencies, as if it
 		 * would ignore some of the DMA requests from SoSSI.
@@ -580,7 +584,8 @@ static int sossi_init(struct omapfb_device *fbdev)
 		dev_err(fbdev->dev, "can't get DPLL1OUT clock\n");
 		return PTR_ERR(dpll1out_ck);
 	}
-	/* We need the parent clock rate, which we might divide further
+	/*
+	 * We need the parent clock rate, which we might divide further
 	 * depending on the timing requirements of the controller. See
 	 * _set_timings.
 	 */

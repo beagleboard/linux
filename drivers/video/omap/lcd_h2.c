@@ -1,6 +1,4 @@
 /*
- * File: drivers/video/omap/lcd-h2.c
- *
  * LCD panel support for the TI OMAP H2 board
  *
  * Copyright (C) 2004 Nokia Corporation
@@ -46,7 +44,8 @@ static int h2_panel_enable(struct lcd_panel *panel)
 {
 	int r;
 
-	/* Assert LCD_EN, BKLIGHT_EN pins on LCD panel
+	/*
+	 * Assert LCD_EN, BKLIGHT_EN pins on LCD panel
 	 * page2, GPIO config reg, GPIO(0,1) to out and asserted
 	 */
 	r = tsc2101_write_sync(h2_panel_dev.tsc2101_dev, 2, 0x23, 0xcc00);
@@ -59,7 +58,8 @@ static int h2_panel_enable(struct lcd_panel *panel)
 
 static void h2_panel_disable(struct lcd_panel *panel)
 {
-	/* Deassert LCD_EN and BKLIGHT_EN pins on LCD panel
+	/*
+	 * Deassert LCD_EN and BKLIGHT_EN pins on LCD panel
 	 * page2, GPIO config reg, GPIO(0,1) to out and deasserted
 	 */
 	if (tsc2101_write_sync(h2_panel_dev.tsc2101_dev, 2, 0x23, 0x8800))

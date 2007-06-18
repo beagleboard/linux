@@ -1,6 +1,4 @@
 /*
- * File: drivers/video/omap/lcd_mipid.c
- *
  * LCD driver for MIPI DBI-C / DCS compatible LCDs
  *
  * Copyright (C) 2006 Nokia Corporation
@@ -198,7 +196,8 @@ static void set_sleep_mode(struct mipid_device *md, int on)
 	hw_guard_wait(md);
 	mipid_cmd(md, cmd);
 	hw_guard_start(md, 120);
-	/* When we enable the panel, it seems we _have_ to sleep
+	/*
+	 * When we enable the panel, it seems we _have_ to sleep
 	 * 120 ms before sending the init string. When disabling the
 	 * panel we'll sleep for the duration of 2 frames, so that the
 	 * controller can still provide the PCLK,HS,VS signals. */
@@ -425,8 +424,10 @@ static void mipid_disable(struct lcd_panel *panel)
 {
 	struct mipid_device *md = to_mipid_device(panel);
 
-	/* A final ESD work might be called before returning,
-	 * so do this without holding the lock. */
+	/*
+	 * A final ESD work might be called before returning,
+	 * so do this without holding the lock.
+	 */
 	mipid_esd_stop_check(md);
 	mutex_lock(&md->mutex);
 

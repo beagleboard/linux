@@ -1,6 +1,4 @@
 /*
- * File: drivers/video/omap/omap1/lcdc.c
- *
  * OMAP1 internal LCD controller
  *
  * Copyright (C) 2004 Nokia Corporation
@@ -158,7 +156,8 @@ static void disable_controller_async(void)
 
 	l = omap_readl(OMAP_LCDC_CONTROL);
 	mask = OMAP_LCDC_CTRL_LCD_EN | OMAP_LCDC_IRQ_MASK;
-	/* Preserve the DONE mask, since we still want to get the
+	/*
+	 * Preserve the DONE mask, since we still want to get the
 	 * final DONE irq. It will be disabled in the IRQ handler.
 	 */
 	mask &= ~OMAP_LCDC_IRQ_DONE;
@@ -197,7 +196,8 @@ static void reset_controller(u32 status)
 	}
 }
 
-/* Configure the LCD DMA according to the current mode specified by parameters
+/*
+ * Configure the LCD DMA according to the current mode specified by parameters
  * in lcdc.fbdev and fbdev->var.
  */
 static void setup_lcd_dma(void)
@@ -250,7 +250,8 @@ static void setup_lcd_dma(void)
 	if (!cpu_is_omap15xx()) {
 		int bpp = lcdc.bpp;
 
-		/* YUV support is only for external mode when we have the
+		/*
+		 * YUV support is only for external mode when we have the
 		 * YUV window embedded in a 16bpp frame buffer.
 		 */
 		if (lcdc.color_mode == OMAPFB_COLOR_YUV420)
@@ -277,7 +278,8 @@ static irqreturn_t lcdc_irq_handler(int irq, void *dev_id)
 		if (status & OMAP_LCDC_STAT_DONE) {
 			u32 l;
 
-			/* Disable IRQ_DONE. The status bit will be cleared
+			/*
+			 * Disable IRQ_DONE. The status bit will be cleared
 			 * only when the controller is reenabled and we don't
 			 * want to get more interrupts.
 			 */
@@ -292,7 +294,8 @@ static irqreturn_t lcdc_irq_handler(int irq, void *dev_id)
 		}
 	}
 
-	/* Clear these interrupt status bits.
+	/*
+	 * Clear these interrupt status bits.
 	 * Sync_lost, FUF bits were cleared by disabling the LCD controller
 	 * LOADED_PALETTE can be cleared this way only in palette only
 	 * load mode. In other load modes it's cleared by disabling the
@@ -306,7 +309,8 @@ static irqreturn_t lcdc_irq_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-/* Change to a new video mode. We defer this to a later time to avoid any
+/*
+ * Change to a new video mode. We defer this to a later time to avoid any
  * flicker and not to mess up the current LCD DMA context. For this we disable
  * the LCD controler, which will generate a DONE irq after the last frame has
  * been transferred. Then it'll be safe to reconfigure both the LCD controller
@@ -410,7 +414,8 @@ static int omap_lcdc_enable_plane(int plane, int enable)
 	return 0;
 }
 
-/* Configure the LCD DMA for a palette load operation and do the palette
+/*
+ * Configure the LCD DMA for a palette load operation and do the palette
  * downloading synchronously. We don't use the frame+palette load mode of
  * the controller, since the palette can always be downloaded seperately.
  */
@@ -549,7 +554,8 @@ static void inline setup_regs(void)
 	panel->pixel_clock = lck / pcd / 1000;
 }
 
-/* Configure the LCD controller, download the color palette and start a looped
+/*
+ * Configure the LCD controller, download the color palette and start a looped
  * DMA transfer of the frame image data. Called only in internal
  * controller mode.
  */

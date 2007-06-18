@@ -1,6 +1,4 @@
 /*
- * File: drivers/video/omap/lcd-osk.c
- *
  * LCD panel support for the TI OMAP OSK board
  *
  * Copyright (C) 2004 Nokia Corporation

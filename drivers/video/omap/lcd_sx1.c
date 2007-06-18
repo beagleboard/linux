@@ -1,9 +1,7 @@
 /*
- * File: drivers/video/omap/lcd_sx1.c
- *
  * LCD panel support for the Siemens SX1 mobile phone
  *
- * Current version : Vovan888 at gmail com, great help from FCA00000
+ * Current version : Vovan888@gmail com, great help from FCA00000
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -41,7 +39,7 @@
 #define GPIO_PIN_CONTROL	0xfffce018
 
 
-#define A_LCD_SSC_RD 	3
+#define A_LCD_SSC_RD	3
 #define A_LCD_SSC_SD	7
 #define _A_LCD_RESET	9
 #define _A_LCD_SSC_CS	12
@@ -266,16 +264,16 @@ struct lcd_panel sx1_panel = {
 			  OMAP_LCDC_INV_HSYNC | OMAP_LCDC_INV_PIX_CLOCK |
 			  OMAP_LCDC_INV_OUTPUT_EN,
 
-	.x_res 		= 176,
-	.y_res 		= 220,
+	.x_res		= 176,
+	.y_res		= 220,
 	.data_lines	= 16,
-	.bpp 		= 16,
-	.hsw 		= 5,
-	.hfp 		= 5,
-	.hbp 		= 5,
-	.vsw 		= 2,
-	.vfp 		= 1,
-	.vbp 		= 1,
+	.bpp		= 16,
+	.hsw		= 5,
+	.hfp		= 5,
+	.hbp		= 5,
+	.vsw		= 2,
+	.vfp		= 1,
+	.vbp		= 1,
 	.pixel_clock	= 1500,
 
 	.init		= sx1_panel_init,
