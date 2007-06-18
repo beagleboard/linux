@@ -538,13 +538,18 @@ static irqreturn_t musb_stage0_irq(struct musb * pThis, u8 bIntrUSB,
 	if (bIntrUSB & MGC_M_INTR_RESET) {
 		if (devctl & MGC_M_DEVCTL_HM) {
 			/*
-			 * BABBLE is an error condition, so the solution is
-			 * to avoid babble in the first place and fix whatever
-			 * causes BABBLE. When BABBLE happens we can only stop
+			 * Looks like non-HS BABBLE can be ignored, but
+			 * HS BABBLE is an error condition. For HS the solution
+			 * is to avoid babble in the first place and fix whatever
+			 * causes BABBLE. When HS BABBLE happens we can only stop
 			 * the session.
 			 */
-			ERR("Stopping host session because of babble\n");
-			musb_writeb(pBase, MGC_O_HDRC_DEVCTL, 0);
+			if (devctl & (MGC_M_DEVCTL_FSDEV | MGC_M_DEVCTL_LSDEV))
+				DBG(1, "BABBLE devctl: %02x\n", devctl);
+			else {
+				ERR("Stopping host session because of babble\n");
+				musb_writeb(pBase, MGC_O_HDRC_DEVCTL, 0);
+			}
 		} else {
 			DBG(1, "BUS RESET\n");
 
