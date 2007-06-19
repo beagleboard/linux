@@ -1071,7 +1071,7 @@ static struct clk dss_54m_fck = {	/* Alt clk used in power management */
 	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X |
 				RATE_FIXED | RATE_PROPAGATES,
 	.enable_reg	= OMAP_CM_REGADDR(CORE_MOD, CM_FCLKEN1),
-	.enable_bit	= OMAP24XX_EN_DSS2_SHIFT,
+	.enable_bit	= OMAP24XX_EN_TV_SHIFT,
 	.recalc		= &omap2_propagate_rate,
 };
 
