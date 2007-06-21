@@ -49,6 +49,7 @@ static struct prcm_config *curr_prcm_set;
 static u32 curr_perf_level = PRCM_FULL_SPEED;
 static struct clk *vclk;
 static struct clk *sclk;
+static u8 cpu_mask;
 
 /*-------------------------------------------------------------------------
  * Omap2 specific clock functions
@@ -609,6 +610,8 @@ static long omap2_round_to_table_rate(struct clk * clk, unsigned long rate)
 	highest_rate = -EINVAL;
 
 	for (ptr = rate_table; ptr->mpu_speed; ptr++) {
+		if (!(ptr->flags & cpu_mask))
+			continue;
 		if (ptr->xtal_speed != sys_ck.rate)
 			continue;
 
@@ -996,18 +999,11 @@ static int omap2_clk_set_parent(struct clk *clk, struct clk *new_parent)
 static int omap2_select_table_rate(struct clk * clk, unsigned long rate)
 {
 	u32 flags, cur_rate, done_rate, bypass = 0, tmp;
-	u8 cpu_mask = 0;
 	struct prcm_config *prcm;
 	unsigned long found_speed = 0;
 
 	if (clk != &virt_prcm_set)
 		return -EINVAL;
-
-	/* FIXME: Change cpu_is_omap2420() to cpu_is_omap242x() */
-	if (cpu_is_omap2420())
-		cpu_mask = RATE_IN_242X;
-	else if (cpu_is_omap2430())
-		cpu_mask = RATE_IN_243X;
 
 	for (prcm = rate_table; prcm->mpu_speed; prcm++) {
 		if (!(prcm->flags & cpu_mask))
@@ -1191,9 +1187,16 @@ int __init omap2_clk_init(void)
 		}
 	}
 
+	if (cpu_is_omap242x())
+		cpu_mask = RATE_IN_242X;
+	else if (cpu_is_omap2430())
+		cpu_mask = RATE_IN_243X;
+
 	/* Check the MPU rate set by bootloader */
 	clkrate = omap2_get_dpll_rate(&dpll_ck);
 	for (prcm = rate_table; prcm->mpu_speed; prcm++) {
+		if (!(prcm->flags & cpu_mask))
+			continue;
 		if (prcm->xtal_speed != sys_ck.rate)
 			continue;
 		if (prcm->dpll_speed <= clkrate)
