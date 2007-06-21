@@ -45,7 +45,12 @@
 #define OMAP_DMA_PCHD_SR		(OMAP_DMA_BASE + 0x4c0)
 
 /* Hardware registers for omap2 */
-#define OMAP_DMA4_BASE			(L4_OMAP_BASE + 0x56000)
+#if defined(CONFIG_ARCH_OMAP3)
+#define OMAP_DMA4_BASE			(L4_34XX_BASE + 0x56000)
+#elif defined(CONFIG_ARCH_OMAP2)
+#define OMAP_DMA4_BASE			(L4_24XX_BASE + 0x56000)
+#endif
+
 #define OMAP_DMA4_REVISION		(OMAP_DMA4_BASE + 0x00)
 #define OMAP_DMA4_GCR_REG		(OMAP_DMA4_BASE + 0x78)
 #define OMAP_DMA4_IRQSTATUS_L0		(OMAP_DMA4_BASE + 0x08)

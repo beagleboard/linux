@@ -283,8 +283,9 @@
 
 #include "omap730.h"
 #include "omap1510.h"
-#include "omap24xx.h"
 #include "omap16xx.h"
+#include "omap24xx.h"
+#include "omap34xx.h"
 
 #ifndef __ASSEMBLER__
 
@@ -320,6 +321,10 @@
 
 #ifdef CONFIG_MACH_OMAP_2430SDP
 #include "board-2430sdp.h"
+#endif
+
+#ifdef CONFIG_MACH_OMAP_3430SDP
+#include "board-3430sdp.h"
 #endif
 
 #ifdef CONFIG_MACH_OMAP_APOLLON

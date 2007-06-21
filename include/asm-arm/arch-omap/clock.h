@@ -87,5 +87,6 @@ extern int clk_get_usecount(struct clk *clk);
 #define CLOCK_IN_OMAP16XX	(1 << 24)
 #define CLOCK_IN_OMAP242X	(1 << 25)
 #define CLOCK_IN_OMAP243X	(1 << 26)
+#define CLOCK_IN_OMAP343X	(1 << 27)
 
 #endif

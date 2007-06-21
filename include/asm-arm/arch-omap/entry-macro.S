@@ -54,9 +54,15 @@
 1510:
 		.endm
 
-#elif defined(CONFIG_ARCH_OMAP24XX)
+#endif
+#if defined(CONFIG_ARCH_OMAP24XX) || defined(CONFIG_ARCH_OMAP34XX)
 
+#if defined(CONFIG_ARCH_OMAP24XX)
 #include <asm/arch/omap24xx.h>
+#endif
+#if defined(CONFIG_ARCH_OMAP34XX)
+#include <asm/arch/omap34xx.h>
+#endif
 
 		.macro	disable_fiq
 		.endm

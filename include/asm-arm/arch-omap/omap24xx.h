@@ -35,7 +35,6 @@
 #define L4_24XX_BASE		0x48000000
 #define L4_WK_243X_BASE		0x49000000
 #define L3_24XX_BASE		0x68000000
-#define L4_OMAP_BASE		L4_24XX_BASE
 
 /* interrupt controller */
 #define OMAP24XX_IC_BASE	(L4_24XX_BASE + 0xfe000)

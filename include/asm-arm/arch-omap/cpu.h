@@ -35,6 +35,7 @@ extern unsigned int system_rev;
  */
 #undef MULTI_OMAP1
 #undef MULTI_OMAP2
+#undef MULTI_OMAP3
 #undef OMAP_NAME
 
 #ifdef CONFIG_ARCH_OMAP730
@@ -69,6 +70,14 @@ extern unsigned int system_rev;
 #  define OMAP_NAME omap24xx
 # endif
 #endif
+#ifdef CONFIG_ARCH_OMAP34XX
+# if (defined(OMAP_NAME) || defined(MULTI_OMAP1) || defined(MULTI_OMAP2))
+#  error "OMAP1 / OMAP2 / OMAP3 can't be selected at the same time"
+# else
+#  undef MULTI_OMAP3
+#  define OMAP_NAME omap34xx
+# endif
+#endif
 
 /*
  * Macros to group OMAP into cpu classes.
@@ -79,6 +88,7 @@ extern unsigned int system_rev;
  * cpu_is_omap24xx():	True for OMAP2420, OMAP2422, OMAP2423, OMAP2430
  * cpu_is_omap242x():	True for OMAP2420, OMAP2422, OMAP2423
  * cpu_is_omap243x():	True for OMAP2430
+ * cpu_is_omap343x():	True for OMAP3430
  */
 #define GET_OMAP_CLASS	(system_rev & 0xff)
 
@@ -100,9 +110,11 @@ IS_OMAP_CLASS(7xx, 0x07)
 IS_OMAP_CLASS(15xx, 0x15)
 IS_OMAP_CLASS(16xx, 0x16)
 IS_OMAP_CLASS(24xx, 0x24)
+IS_OMAP_CLASS(34xx, 0x34)
 
 IS_OMAP_SUBCLASS(242x, 0x242)
 IS_OMAP_SUBCLASS(243x, 0x243)
+IS_OMAP_SUBCLASS(343x, 0x343)
 
 #define cpu_is_omap7xx()		0
 #define cpu_is_omap15xx()		0
@@ -110,6 +122,7 @@ IS_OMAP_SUBCLASS(243x, 0x243)
 #define cpu_is_omap24xx()		0
 #define cpu_is_omap242x()		0
 #define cpu_is_omap243x()		0
+#define cpu_is_omap343x()		0
 
 #if defined(MULTI_OMAP1)
 # if defined(CONFIG_ARCH_OMAP730)
@@ -144,6 +157,12 @@ IS_OMAP_SUBCLASS(243x, 0x243)
 #  define cpu_is_omap24xx()		1
 #  define cpu_is_omap242x()		is_omap242x()
 #  define cpu_is_omap243x()		is_omap243x()
+# endif
+# if defined(CONFIG_ARCH_OMAP34XX)
+#  undef  cpu_is_omap34xx
+#  define cpu_is_omap34xx()		1
+# else
+#  define cpu_is_omap34xx()		0
 # endif
 #endif
 
@@ -183,6 +202,7 @@ IS_OMAP_TYPE(2420, 0x2420)
 IS_OMAP_TYPE(2422, 0x2422)
 IS_OMAP_TYPE(2423, 0x2423)
 IS_OMAP_TYPE(2430, 0x2430)
+IS_OMAP_TYPE(3430, 0x3430)
 
 #define cpu_is_omap310()		0
 #define cpu_is_omap730()		0
@@ -196,6 +216,7 @@ IS_OMAP_TYPE(2430, 0x2430)
 #define cpu_is_omap2422()		0
 #define cpu_is_omap2423()		0
 #define cpu_is_omap2430()		0
+#define cpu_is_omap3430()		0
 
 #if defined(MULTI_OMAP1)
 # if defined(CONFIG_ARCH_OMAP730)
@@ -244,9 +265,14 @@ IS_OMAP_TYPE(2430, 0x2430)
 # define cpu_is_omap2430()		is_omap2430()
 #endif
 
+#if defined(CONFIG_ARCH_OMAP34XX)
+# undef cpu_is_omap3430
+# define cpu_is_omap3430()		is_omap3430()
+#endif
+
 /* Macros to detect if we have OMAP1 or OMAP2 */
 #define cpu_class_is_omap1()	(cpu_is_omap730() || cpu_is_omap15xx() || \
 				cpu_is_omap16xx())
-#define cpu_class_is_omap2()	cpu_is_omap24xx()
+#define cpu_class_is_omap2()	cpu_is_omap24xx() || cpu_is_omap34xx()
 
 #endif
