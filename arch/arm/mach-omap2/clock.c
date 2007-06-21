@@ -995,7 +995,7 @@ static int omap2_clk_set_parent(struct clk *clk, struct clk *new_parent)
 /* Sets basic clocks based on the specified rate */
 static int omap2_select_table_rate(struct clk * clk, unsigned long rate)
 {
-	u32 flags, cur_rate, done_rate, bypass = 0;
+	u32 flags, cur_rate, done_rate, bypass = 0, tmp;
 	u8 cpu_mask = 0;
 	struct prcm_config *prcm;
 	unsigned long found_speed = 0;
@@ -1056,7 +1056,8 @@ static int omap2_select_table_rate(struct clk * clk, unsigned long rate)
 		cm_write_mod_reg(prcm->cm_clksel_gfx, GFX_MOD, CM_CLKSEL);
 
 		/* Major subsystem dividers */
-		cm_write_mod_reg(prcm->cm_clksel1_core, CORE_MOD, CM_CLKSEL1);
+		tmp = cm_read_mod_reg(CORE_MOD, CM_CLKSEL1) & 0x2000;
+		cm_write_mod_reg(prcm->cm_clksel1_core | tmp, CORE_MOD, CM_CLKSEL1);
 		if (cpu_is_omap2430())
 			cm_write_mod_reg(prcm->cm_clksel_mdm,
 					 OMAP2430_MDM_MOD, CM_CLKSEL);
