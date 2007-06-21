@@ -53,40 +53,18 @@
 
 unsigned long cpu_khz;
 
-#if defined(CONFIG_MIPS_ATLAS)
-static char display_string[] = "        LINUX ON ATLAS       ";
-#endif
-#if defined(CONFIG_MIPS_MALTA)
-#if defined(CONFIG_MIPS_MT_SMTC)
-static char display_string[] = "       SMTC LINUX ON MALTA       ";
-#else
-static char display_string[] = "        LINUX ON MALTA       ";
-#endif /* CONFIG_MIPS_MT_SMTC */
-#endif
-#if defined(CONFIG_MIPS_SEAD)
-static char display_string[] = "        LINUX ON SEAD       ";
-#endif
-static unsigned int display_count;
-#define MAX_DISPLAY_COUNT (sizeof(display_string) - 8)
-
-#define CPUCTR_IMASKBIT (0x100 << MIPSCPU_INT_CPUCTR)
-
-static unsigned int timer_tick_count;
 static int mips_cpu_timer_irq;
+extern int mipsxx_perfcount_irq;
 extern void smtc_timer_broadcast(int);
-
-static inline void scroll_display_message(void)
-{
-	if ((timer_tick_count++ % HZ) == 0) {
-		mips_display_message(&display_string[display_count++]);
-		if (display_count == MAX_DISPLAY_COUNT)
-			display_count = 0;
-	}
-}
 
 static void mips_timer_dispatch(void)
 {
 	do_IRQ(mips_cpu_timer_irq);
+}
+
+static void mips_perf_dispatch(void)
+{
+	do_IRQ(mipsxx_perfcount_irq);
 }
 
 /*
@@ -95,6 +73,24 @@ static void mips_timer_dispatch(void)
 extern int null_perf_irq(void);
 
 extern int (*perf_irq)(void);
+
+/*
+ * Possibly handle a performance counter interrupt.
+ * Return true if the timer interrupt should not be checked
+ */
+static inline int handle_perf_irq (int r2)
+{
+	/*
+	 * The performance counter overflow interrupt may be shared with the
+	 * timer interrupt (mipsxx_perfcount_irq < 0). If it is and a
+	 * performance counter has overflowed (perf_irq() == IRQ_HANDLED)
+	 * and we can't reliably determine if a counter interrupt has also
+	 * happened (!r2) then don't check for a timer interrupt.
+	 */
+	return (mipsxx_perfcount_irq < 0) &&
+		perf_irq() == IRQ_HANDLED &&
+		!r2;
+}
 
 irqreturn_t mips_timer_interrupt(int irq, void *dev_id)
 {
@@ -114,25 +110,13 @@ irqreturn_t mips_timer_interrupt(int irq, void *dev_id)
 	 *  the general MIPS timer_interrupt routine.
 	 */
 
-	int vpflags;
-
 	/*
 	 * We could be here due to timer interrupt,
 	 * perf counter overflow, or both.
 	 */
-	if (read_c0_cause() & (1 << 26))
-		perf_irq();
+	(void) handle_perf_irq(1);
 
 	if (read_c0_cause() & (1 << 30)) {
-		/* If timer interrupt, make it de-assert */
-		write_c0_compare (read_c0_count() - 1);
-		/*
-		 * DVPE is necessary so long as cross-VPE interrupts
-		 * are done via read-modify-write of Cause register.
-		 */
-		vpflags = dvpe();
-		clear_c0_cause(CPUCTR_IMASKBIT);
-		evpe(vpflags);
 		/*
 		 * There are things we only want to do once per tick
 		 * in an "MP" system.   One TC of each VPE will take
@@ -141,18 +125,22 @@ irqreturn_t mips_timer_interrupt(int irq, void *dev_id)
 		 * the tick on VPE 0 to run the full timer_interrupt().
 		 */
 		if (cpu_data[cpu].vpe_id == 0) {
-				timer_interrupt(irq, NULL);
-				smtc_timer_broadcast(cpu_data[cpu].vpe_id);
-				scroll_display_message();
+			timer_interrupt(irq, NULL);
 		} else {
 			write_c0_compare(read_c0_count() +
 			                 (mips_hpt_frequency/HZ));
 			local_timer_interrupt(irq, dev_id);
-			smtc_timer_broadcast(cpu_data[cpu].vpe_id);
 		}
+		smtc_timer_broadcast(cpu_data[cpu].vpe_id);
 	}
 #else /* CONFIG_MIPS_MT_SMTC */
 	int r2 = cpu_has_mips_r2;
+
+	if (handle_perf_irq(r2))
+		goto out;
+
+	if (r2 && ((read_c0_cause() & (1 << 30)) == 0))
+		goto out;
 
 	if (cpu == 0) {
 		/*
@@ -160,15 +148,7 @@ irqreturn_t mips_timer_interrupt(int irq, void *dev_id)
 		 * accounting resets count/compare registers to trigger next
 		 * timer int.
 		 */
-		if (!r2 || (read_c0_cause() & (1 << 26)))
-			if (perf_irq())
-				goto out;
-
-		/* we keep interrupt disabled all the time */
-		if (!r2 || (read_c0_cause() & (1 << 30)))
-			timer_interrupt(irq, NULL);
-
-		scroll_display_message();
+		timer_interrupt(irq, NULL);
 	} else {
 		/* Everyone else needs to reset the timer int here as
 		   ll_local_timer_interrupt doesn't */
@@ -262,37 +242,89 @@ void __init mips_time_init(void)
 	       (est_freq%1000000)*100/1000000);
 
         cpu_khz = est_freq / 1000;
+
+	mips_scroll_message();
+}
+
+irqreturn_t mips_perf_interrupt(int irq, void *dev_id)
+{
+	return perf_irq();
+}
+
+static struct irqaction perf_irqaction = {
+	.handler = mips_perf_interrupt,
+	.flags = IRQF_DISABLED | IRQF_PERCPU,
+	.name = "performance",
+};
+
+void __init plat_perf_setup(struct irqaction *irq)
+{
+	int hwint = 0;
+	mipsxx_perfcount_irq = -1;
+
+#ifdef MSC01E_INT_BASE
+	if (cpu_has_veic) {
+		set_vi_handler (MSC01E_INT_PERFCTR, mips_perf_dispatch);
+		mipsxx_perfcount_irq = MSC01E_INT_BASE + MSC01E_INT_PERFCTR;
+	} else
+#endif
+	if (cpu_has_mips_r2) {
+		/*
+		 * Read IntCtl.IPPCI to determine the performance
+		 * counter interrupt
+		 */
+		hwint = (read_c0_intctl () >> 26) & 7;
+		if (hwint != MIPSCPU_INT_CPUCTR) {
+			if (cpu_has_vint)
+				set_vi_handler (hwint, mips_perf_dispatch);
+			mipsxx_perfcount_irq = MIPSCPU_INT_BASE + hwint;
+		}
+	}
+	if (mipsxx_perfcount_irq >= 0) {
+#ifdef CONFIG_MIPS_MT_SMTC
+		setup_irq_smtc(mipsxx_perfcount_irq, irq, 0x100 << hwint);
+#else
+		setup_irq(mipsxx_perfcount_irq, irq);
+#endif /* CONFIG_MIPS_MT_SMTC */
+#ifdef CONFIG_SMP
+		set_irq_handler(mipsxx_perfcount_irq, handle_percpu_irq);
+#endif
+	}
 }
 
 void __init plat_timer_setup(struct irqaction *irq)
 {
+	int hwint = 0;
 #ifdef MSC01E_INT_BASE
 	if (cpu_has_veic) {
 		set_vi_handler (MSC01E_INT_CPUCTR, mips_timer_dispatch);
 		mips_cpu_timer_irq = MSC01E_INT_BASE + MSC01E_INT_CPUCTR;
-	} else
+	}
+	else
 #endif
 	{
+		if (cpu_has_mips_r2)
+			/*
+			 * Read IntCtl.IPTI to determine the timer interrupt
+			 */
+			hwint = (read_c0_intctl () >> 29) & 7;
+		else
+			hwint = MIPSCPU_INT_CPUCTR;
 		if (cpu_has_vint)
-			set_vi_handler (MIPSCPU_INT_CPUCTR, mips_timer_dispatch);
-		mips_cpu_timer_irq = MIPSCPU_INT_BASE + MIPSCPU_INT_CPUCTR;
+			set_vi_handler (hwint, mips_timer_dispatch);
+		mips_cpu_timer_irq = MIPSCPU_INT_BASE + hwint;
 	}
-
 
 	/* we are using the cpu counter for timer interrupts */
 	irq->handler = mips_timer_interrupt;	/* we use our own handler */
 #ifdef CONFIG_MIPS_MT_SMTC
-	setup_irq_smtc(mips_cpu_timer_irq, irq, CPUCTR_IMASKBIT);
+	setup_irq_smtc(mips_cpu_timer_irq, irq, 0x100 << hwint);
 #else
 	setup_irq(mips_cpu_timer_irq, irq);
 #endif /* CONFIG_MIPS_MT_SMTC */
-
 #ifdef CONFIG_SMP
-	/* irq_desc(riptor) is a global resource, when the interrupt overlaps
-	   on seperate cpu's the first one tries to handle the second interrupt.
-	   The effect is that the int remains disabled on the second cpu.
-	   Mark the interrupt with IRQ_PER_CPU to avoid any confusion */
-	irq_desc[mips_cpu_timer_irq].status |= IRQ_PER_CPU;
 	set_irq_handler(mips_cpu_timer_irq, handle_percpu_irq);
 #endif
+
+	plat_perf_setup(&perf_irqaction);
 }

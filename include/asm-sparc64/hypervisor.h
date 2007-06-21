@@ -2615,8 +2615,9 @@ struct ldc_mtable_entry {
 /* ldc_revoke()
  * TRAP:	HV_FAST_TRAP
  * FUNCTION:	HV_FAST_LDC_REVOKE
- * ARG0:	cookie
- * ARG1:	ldc_mtable_entry cookie
+ * ARG0:	channel ID
+ * ARG1:	cookie
+ * ARG2:	ldc_mtable_entry cookie
  * RET0:	status
  */
 #define HV_FAST_LDC_REVOKE		0xef
@@ -2663,7 +2664,8 @@ extern unsigned long sun4v_ldc_mapin(unsigned long channel,
 				     unsigned long *ra,
 				     unsigned long *perm);
 extern unsigned long sun4v_ldc_unmap(unsigned long ra);
-extern unsigned long sun4v_ldc_revoke(unsigned long cookie,
+extern unsigned long sun4v_ldc_revoke(unsigned long channel,
+				      unsigned long cookie,
 				      unsigned long mte_cookie);
 #endif
 
@@ -2797,6 +2799,11 @@ struct hv_mmu_statistics {
  * MMU statistics buffer on the current virtual CPU.
  */
 #define HV_FAST_MMUSTAT_INFO		0x103
+
+#ifndef __ASSEMBLY__
+extern unsigned long sun4v_mmustat_conf(unsigned long ra, unsigned long *orig_ra);
+extern unsigned long sun4v_mmustat_info(unsigned long *ra);
+#endif
 
 /* NCS crypto services  */
 

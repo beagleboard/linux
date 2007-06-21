@@ -11,6 +11,7 @@
  * Copyright (C) 2000, 01 MIPS Technologies, Inc.
  * Copyright (C) 2002, 2003, 2004, 2005  Maciej W. Rozycki
  */
+#include <linux/bug.h>
 #include <linux/init.h>
 #include <linux/mm.h>
 #include <linux/module.h>
@@ -927,12 +928,6 @@ asmlinkage void do_reserved(struct pt_regs *regs)
 	      (regs->cp0_cause & 0x7f) >> 2);
 }
 
-static asmlinkage void do_default_vi(void)
-{
-	show_regs(get_irq_regs());
-	panic("Caught unexpected vectored interrupt.");
-}
-
 /*
  * Some MIPS CPUs can enable/disable for cache parity detection, but do
  * it different ways.
@@ -1128,6 +1123,12 @@ void mips_srs_free(int set)
 	clear_bit(set, &sr->sr_allocated);
 }
 
+static asmlinkage void do_default_vi(void)
+{
+	show_regs(get_irq_regs());
+	panic("Caught unexpected vectored interrupt.");
+}
+
 static void *set_vi_srs_handler(int n, vi_handler_t addr, int srs)
 {
 	unsigned long handler;
@@ -1190,8 +1191,8 @@ static void *set_vi_srs_handler(int n, vi_handler_t addr, int srs)
 
 		memcpy (b, &except_vec_vi, handler_len);
 #ifdef CONFIG_MIPS_MT_SMTC
-		if (n > 7)
-			printk("Vector index %d exceeds SMTC maximum\n", n);
+		BUG_ON(n > 7);	/* Vector index %d exceeds SMTC maximum. */
+
 		w = (u32 *)(b + mori_offset);
 		*w = (*w & 0xffff0000) | (0x100 << n);
 #endif /* CONFIG_MIPS_MT_SMTC */
@@ -1383,6 +1384,13 @@ void __init per_cpu_trap_init(void)
 		cpu_cache_init();
 		tlb_init();
 #ifdef CONFIG_MIPS_MT_SMTC
+	} else if (!secondaryTC) {
+		/*
+		 * First TC in non-boot VPE must do subset of tlb_init()
+		 * for MMU countrol registers.
+		 */
+		write_c0_pagemask(PM_DEFAULT_MASK);
+		write_c0_wired(0);
 	}
 #endif /* CONFIG_MIPS_MT_SMTC */
 }
@@ -1531,8 +1539,7 @@ void __init trap_init(void)
 	if (cpu_has_mipsmt)
 		set_except_vector(25, handle_mt);
 
-	if (cpu_has_dsp)
-		set_except_vector(26, handle_dsp);
+	set_except_vector(26, handle_dsp);
 
 	if (cpu_has_vce)
 		/* Special exception: R4[04]00 uses also the divec space. */

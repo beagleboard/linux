@@ -13,14 +13,26 @@
 #include "sysfs.h"
 
 DECLARE_RWSEM(sysfs_rename_sem);
+spinlock_t sysfs_lock = SPIN_LOCK_UNLOCKED;
 
 static void sysfs_d_iput(struct dentry * dentry, struct inode * inode)
 {
 	struct sysfs_dirent * sd = dentry->d_fsdata;
 
 	if (sd) {
-		BUG_ON(sd->s_dentry != dentry);
-		sd->s_dentry = NULL;
+		/* sd->s_dentry is protected with sysfs_lock.  This
+		 * allows sysfs_drop_dentry() to dereference it.
+		 */
+		spin_lock(&sysfs_lock);
+
+		/* The dentry might have been deleted or another
+		 * lookup could have happened updating sd->s_dentry to
+		 * point the new dentry.  Ignore if it isn't pointing
+		 * to this dentry.
+		 */
+		if (sd->s_dentry == dentry)
+			sd->s_dentry = NULL;
+		spin_unlock(&sysfs_lock);
 		sysfs_put(sd);
 	}
 	iput(inode);
@@ -29,6 +41,14 @@ static void sysfs_d_iput(struct dentry * dentry, struct inode * inode)
 static struct dentry_operations sysfs_dentry_ops = {
 	.d_iput		= sysfs_d_iput,
 };
+
+static unsigned int sysfs_inode_counter;
+ino_t sysfs_get_inum(void)
+{
+	if (unlikely(sysfs_inode_counter < 3))
+		sysfs_inode_counter = 3;
+	return sysfs_inode_counter++;
+}
 
 /*
  * Allocates a new sysfs_dirent and links it to the parent sysfs_dirent
@@ -41,6 +61,7 @@ static struct sysfs_dirent * __sysfs_new_dirent(void * element)
 	if (!sd)
 		return NULL;
 
+	sd->s_ino = sysfs_get_inum();
 	atomic_set(&sd->s_count, 1);
 	atomic_set(&sd->s_event, 1);
 	INIT_LIST_HEAD(&sd->s_children);
@@ -238,7 +259,10 @@ static int sysfs_attach_attr(struct sysfs_dirent * sd, struct dentry * dentry)
         }
 
 	dentry->d_fsdata = sysfs_get(sd);
+	/* protect sd->s_dentry against sysfs_d_iput */
+	spin_lock(&sysfs_lock);
 	sd->s_dentry = dentry;
+	spin_unlock(&sysfs_lock);
 	error = sysfs_create(dentry, (attr->mode & S_IALLUGO) | S_IFREG, init);
 	if (error) {
 		sysfs_put(sd);
@@ -260,7 +284,10 @@ static int sysfs_attach_link(struct sysfs_dirent * sd, struct dentry * dentry)
 	int err = 0;
 
 	dentry->d_fsdata = sysfs_get(sd);
+	/* protect sd->s_dentry against sysfs_d_iput */
+	spin_lock(&sysfs_lock);
 	sd->s_dentry = dentry;
+	spin_unlock(&sysfs_lock);
 	err = sysfs_create(dentry, S_IFLNK|S_IRWXUGO, init_symlink);
 	if (!err) {
 		dentry->d_op = &sysfs_dentry_ops;
@@ -509,7 +536,7 @@ static int sysfs_readdir(struct file * filp, void * dirent, filldir_t filldir)
 
 	switch (i) {
 		case 0:
-			ino = dentry->d_inode->i_ino;
+			ino = parent_sd->s_ino;
 			if (filldir(dirent, ".", 1, i, ino, DT_DIR) < 0)
 				break;
 			filp->f_pos++;
@@ -538,10 +565,7 @@ static int sysfs_readdir(struct file * filp, void * dirent, filldir_t filldir)
 
 				name = sysfs_get_name(next);
 				len = strlen(name);
-				if (next->s_dentry)
-					ino = next->s_dentry->d_inode->i_ino;
-				else
-					ino = iunique(sysfs_sb, 2);
+				ino = next->s_ino;
 
 				if (filldir(dirent, name, len, filp->f_pos, ino,
 						 dt_type(next)) < 0)

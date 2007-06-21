@@ -2241,7 +2241,7 @@ void *__kmalloc(size_t size, gfp_t flags)
 
 	if (s)
 		return slab_alloc(s, flags, -1, __builtin_return_address(0));
-	return NULL;
+	return ZERO_SIZE_PTR;
 }
 EXPORT_SYMBOL(__kmalloc);
 
@@ -2252,16 +2252,20 @@ void *__kmalloc_node(size_t size, gfp_t flags, int node)
 
 	if (s)
 		return slab_alloc(s, flags, node, __builtin_return_address(0));
-	return NULL;
+	return ZERO_SIZE_PTR;
 }
 EXPORT_SYMBOL(__kmalloc_node);
 #endif
 
 size_t ksize(const void *object)
 {
-	struct page *page = get_object_page(object);
+	struct page *page;
 	struct kmem_cache *s;
 
+	if (object == ZERO_SIZE_PTR)
+		return 0;
+
+	page = get_object_page(object);
 	BUG_ON(!page);
 	s = page->slab;
 	BUG_ON(!s);
@@ -2293,7 +2297,13 @@ void kfree(const void *x)
 	struct kmem_cache *s;
 	struct page *page;
 
-	if (!x)
+	/*
+	 * This has to be an unsigned comparison. According to Linus
+	 * some gcc version treat a pointer as a signed entity. Then
+	 * this comparison would be true for all "negative" pointers
+	 * (which would cover the whole upper half of the address space).
+	 */
+	if ((unsigned long)x <= (unsigned long)ZERO_SIZE_PTR)
 		return;
 
 	page = virt_to_head_page(x);
@@ -2398,12 +2408,12 @@ void *krealloc(const void *p, size_t new_size, gfp_t flags)
 	void *ret;
 	size_t ks;
 
-	if (unlikely(!p))
+	if (unlikely(!p || p == ZERO_SIZE_PTR))
 		return kmalloc(new_size, flags);
 
 	if (unlikely(!new_size)) {
 		kfree(p);
-		return NULL;
+		return ZERO_SIZE_PTR;
 	}
 
 	ks = ksize(p);
@@ -2426,6 +2436,7 @@ EXPORT_SYMBOL(krealloc);
 void __init kmem_cache_init(void)
 {
 	int i;
+	int caches = 0;
 
 #ifdef CONFIG_NUMA
 	/*
@@ -2436,20 +2447,29 @@ void __init kmem_cache_init(void)
 	create_kmalloc_cache(&kmalloc_caches[0], "kmem_cache_node",
 		sizeof(struct kmem_cache_node), GFP_KERNEL);
 	kmalloc_caches[0].refcount = -1;
+	caches++;
 #endif
 
 	/* Able to allocate the per node structures */
 	slab_state = PARTIAL;
 
 	/* Caches that are not of the two-to-the-power-of size */
-	create_kmalloc_cache(&kmalloc_caches[1],
+	if (KMALLOC_MIN_SIZE <= 64) {
+		create_kmalloc_cache(&kmalloc_caches[1],
 				"kmalloc-96", 96, GFP_KERNEL);
-	create_kmalloc_cache(&kmalloc_caches[2],
+		caches++;
+	}
+	if (KMALLOC_MIN_SIZE <= 128) {
+		create_kmalloc_cache(&kmalloc_caches[2],
 				"kmalloc-192", 192, GFP_KERNEL);
+		caches++;
+	}
 
-	for (i = KMALLOC_SHIFT_LOW; i <= KMALLOC_SHIFT_HIGH; i++)
+	for (i = KMALLOC_SHIFT_LOW; i <= KMALLOC_SHIFT_HIGH; i++) {
 		create_kmalloc_cache(&kmalloc_caches[i],
 			"kmalloc", 1 << i, GFP_KERNEL);
+		caches++;
+	}
 
 	slab_state = UP;
 
@@ -2466,8 +2486,8 @@ void __init kmem_cache_init(void)
 				nr_cpu_ids * sizeof(struct page *);
 
 	printk(KERN_INFO "SLUB: Genslabs=%d, HWalign=%d, Order=%d-%d, MinObjects=%d,"
-		" Processors=%d, Nodes=%d\n",
-		KMALLOC_SHIFT_HIGH, cache_line_size(),
+		" CPUs=%d, Nodes=%d\n",
+		caches, cache_line_size(),
 		slub_min_order, slub_max_order, slub_min_objects,
 		nr_cpu_ids, nr_node_ids);
 }
@@ -2652,7 +2672,7 @@ void *__kmalloc_track_caller(size_t size, gfp_t gfpflags, void *caller)
 	struct kmem_cache *s = get_slab(size, gfpflags);
 
 	if (!s)
-		return NULL;
+		return ZERO_SIZE_PTR;
 
 	return slab_alloc(s, gfpflags, -1, caller);
 }
@@ -2663,7 +2683,7 @@ void *__kmalloc_node_track_caller(size_t size, gfp_t gfpflags,
 	struct kmem_cache *s = get_slab(size, gfpflags);
 
 	if (!s)
-		return NULL;
+		return ZERO_SIZE_PTR;
 
 	return slab_alloc(s, gfpflags, node, caller);
 }
@@ -2857,7 +2877,7 @@ static int alloc_loc_track(struct loc_track *t, unsigned long max)
 
 	order = get_order(sizeof(struct location) * max);
 
-	l = (void *)__get_free_pages(GFP_KERNEL, order);
+	l = (void *)__get_free_pages(GFP_ATOMIC, order);
 
 	if (!l)
 		return 0;
