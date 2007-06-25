@@ -109,6 +109,59 @@ static struct map_desc omap243x_io_desc[] __initdata = {
 #endif
 #endif
 
+#ifdef	CONFIG_ARCH_OMAP34XX
+static struct map_desc omap34xx_io_desc[] __initdata = {
+	{
+		.virtual	= L3_34XX_VIRT,
+		.pfn		= __phys_to_pfn(L3_34XX_PHYS),
+		.length		= L3_34XX_SIZE,
+		.type		= MT_DEVICE
+	},
+	{
+		.virtual	= L4_34XX_VIRT,
+		.pfn		= __phys_to_pfn(L4_34XX_PHYS),
+		.length		= L4_34XX_SIZE,
+		.type		= MT_DEVICE
+	},
+	{
+		.virtual	= L4_WK_34XX_VIRT,
+		.pfn		= __phys_to_pfn(L4_WK_34XX_PHYS),
+		.length		= L4_WK_34XX_SIZE,
+		.type		= MT_DEVICE
+	},
+	{
+		.virtual	= OMAP34XX_GPMC_VIRT,
+		.pfn		= __phys_to_pfn(OMAP34XX_GPMC_PHYS),
+		.length		= OMAP34XX_GPMC_SIZE,
+		.type		= MT_DEVICE
+	},
+	{
+		.virtual	= OMAP343X_SMS_VIRT,
+		.pfn		= __phys_to_pfn(OMAP343X_SMS_PHYS),
+		.length		= OMAP343X_SMS_SIZE,
+		.type		= MT_DEVICE
+	},
+	{
+		.virtual	= OMAP343X_SDRC_VIRT,
+		.pfn		= __phys_to_pfn(OMAP343X_SDRC_PHYS),
+		.length		= OMAP343X_SDRC_SIZE,
+		.type		= MT_DEVICE
+	},
+	{
+		.virtual	= L4_PER_34XX_VIRT,
+		.pfn		= __phys_to_pfn(L4_PER_34XX_PHYS),
+		.length		= L4_PER_34XX_SIZE,
+		.type		= MT_DEVICE
+	},
+	{
+		.virtual	= L4_EMU_34XX_VIRT,
+		.pfn		= __phys_to_pfn(L4_EMU_34XX_PHYS),
+		.length		= L4_EMU_34XX_SIZE,
+		.type		= MT_DEVICE
+	},
+};
+#endif
+
 void __init omap2_map_common_io(void)
 {
 #if defined(CONFIG_ARCH_OMAP2420)
@@ -117,6 +170,8 @@ void __init omap2_map_common_io(void)
 #elif defined(CONFIG_ARCH_OMAP2430)
 	iotable_init(omap24xx_io_desc, ARRAY_SIZE(omap24xx_io_desc));
 	iotable_init(omap243x_io_desc, ARRAY_SIZE(omap243x_io_desc));
+#elif defined(CONFIG_ARCH_OMAP34XX)
+	iotable_init(omap34xx_io_desc, ARRAY_SIZE(omap34xx_io_desc));
 #endif
 	/* Normally devicemaps_init() would flush caches and tlb after
 	 * mdesc->map_io(), but we must also do it here because of the CPU
