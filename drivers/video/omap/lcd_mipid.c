@@ -565,7 +565,7 @@ static int mipid_spi_probe(struct spi_device *spi)
 		return -ENOMEM;
 	}
 
-	spi->mode = SPI_MODE_1;
+	spi->mode = SPI_MODE_0;
 	md->spi = spi;
 	dev_set_drvdata(&spi->dev, md);
 	md->panel = mipid_panel;
