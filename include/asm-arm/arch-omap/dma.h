@@ -47,7 +47,7 @@
 /* Hardware registers for omap2 */
 #if defined(CONFIG_ARCH_OMAP3)
 #define OMAP_DMA4_BASE			(L4_34XX_BASE + 0x56000)
-#elif defined(CONFIG_ARCH_OMAP2)
+#else	/* CONFIG_ARCH_OMAP2 */
 #define OMAP_DMA4_BASE			(L4_24XX_BASE + 0x56000)
 #endif
 
