@@ -70,41 +70,33 @@ static int __init tusb_print_revision(struct musb *musb)
 static void tusb_wbus_quirk(struct musb *musb, int enabled)
 {
 	void __iomem	*base = musb->ctrl_base;
-	static u32	phy_otg_ena = 0, phy_otg_ctrl = 0;
+	static u32	phy_otg_ctrl = 0, phy_otg_ena = 0;
 	u32		int_src, tmp;
 
 	if (enabled) {
-		phy_otg_ena = musb_readl(base, TUSB_PHY_OTG_CTRL_ENABLE);
 		phy_otg_ctrl = musb_readl(base, TUSB_PHY_OTG_CTRL);
+		phy_otg_ena = musb_readl(base, TUSB_PHY_OTG_CTRL_ENABLE);
 		tmp = TUSB_PHY_OTG_CTRL_WRPROTECT
 				| phy_otg_ena | WBUS_QUIRK_MASK;
-		musb_writel(base, TUSB_PHY_OTG_CTRL_ENABLE, tmp);
-		tmp = phy_otg_ctrl & ~WBUS_QUIRK_MASK;
-		tmp |= TUSB_PHY_OTG_CTRL_WRPROTECT | TUSB_PHY_OTG_CTRL_TESTM2;
 		musb_writel(base, TUSB_PHY_OTG_CTRL, tmp);
-		DBG(2, "Enabled tusb wbus quirk ena %08x ctrl %08x\n",
-			musb_readl(base, TUSB_PHY_OTG_CTRL_ENABLE),
-			musb_readl(base, TUSB_PHY_OTG_CTRL));
+		tmp = phy_otg_ena & ~WBUS_QUIRK_MASK;
+		tmp |= TUSB_PHY_OTG_CTRL_WRPROTECT | TUSB_PHY_OTG_CTRL_TESTM2;
+		musb_writel(base, TUSB_PHY_OTG_CTRL_ENABLE, tmp);
+		DBG(2, "Enabled tusb wbus quirk ctrl %08x ena %08x\n",
+			musb_readl(base, TUSB_PHY_OTG_CTRL),
+			musb_readl(base, TUSB_PHY_OTG_CTRL_ENABLE));
 	} else if (musb_readl(base, TUSB_PHY_OTG_CTRL_ENABLE)
 					& TUSB_PHY_OTG_CTRL_TESTM2) {
-		tmp = TUSB_PHY_OTG_CTRL_WRPROTECT
-				| phy_otg_ena | WBUS_QUIRK_MASK;
-		musb_writel(base, TUSB_PHY_OTG_CTRL_ENABLE, tmp);
 		tmp = TUSB_PHY_OTG_CTRL_WRPROTECT | phy_otg_ctrl;
 		musb_writel(base, TUSB_PHY_OTG_CTRL, tmp);
 		tmp = TUSB_PHY_OTG_CTRL_WRPROTECT | phy_otg_ena;
 		musb_writel(base, TUSB_PHY_OTG_CTRL_ENABLE, tmp);
-		DBG(2, "Disabled tusb wbus quirk ena %08x ctrl %08x\n",
-			musb_readl(base, TUSB_PHY_OTG_CTRL_ENABLE),
-			musb_readl(base, TUSB_PHY_OTG_CTRL));
-		phy_otg_ena = 0;
+		DBG(2, "Disabled tusb wbus quirk ctrl %08x ena %08x\n",
+			musb_readl(base, TUSB_PHY_OTG_CTRL),
+			musb_readl(base, TUSB_PHY_OTG_CTRL_ENABLE));
 		phy_otg_ctrl = 0;
+		phy_otg_ena = 0;
 	}
-
-	int_src = musb_readl(base, TUSB_INT_SRC);
-	if (int_src & TUSB_INT_SRC_ID_STATUS_CHNG)
-		musb_writel(base, TUSB_INT_SRC_CLEAR,
-				TUSB_INT_SRC_ID_STATUS_CHNG);
 }
 
 /*
@@ -525,7 +517,7 @@ static void tusb_source_power(struct musb *musb, int is_on)
 void musb_platform_set_mode(struct musb *musb, u8 musb_mode)
 {
 	void __iomem	*base = musb->ctrl_base;
-	u32		otg_stat, phy_otg_ena, phy_otg_ctrl, dev_conf;
+	u32		otg_stat, phy_otg_ctrl, phy_otg_ena, dev_conf;
 	int		vbus = 0;
 
 	if (musb->board_mode != MUSB_OTG) {
@@ -534,16 +526,16 @@ void musb_platform_set_mode(struct musb *musb, u8 musb_mode)
 	}
 
 	otg_stat = musb_readl(base, TUSB_DEV_OTG_STAT);
-	phy_otg_ena = musb_readl(base, TUSB_PHY_OTG_CTRL_ENABLE);
 	phy_otg_ctrl = musb_readl(base, TUSB_PHY_OTG_CTRL);
+	phy_otg_ena = musb_readl(base, TUSB_PHY_OTG_CTRL_ENABLE);
 	dev_conf = musb_readl(base, TUSB_DEV_CONF);
 
 	switch (musb_mode) {
 
 #ifdef CONFIG_USB_MUSB_HDRC_HCD
 	case MUSB_HOST:		/* Disable PHY ID detect, ground ID */
-		phy_otg_ena |= TUSB_PHY_OTG_CTRL_OTG_ID_PULLUP;
 		phy_otg_ctrl &= ~TUSB_PHY_OTG_CTRL_OTG_ID_PULLUP;
+		phy_otg_ena |= TUSB_PHY_OTG_CTRL_OTG_ID_PULLUP;
 		dev_conf |= TUSB_DEV_CONF_ID_SEL;
 		dev_conf &= ~TUSB_DEV_CONF_SOFT_ID;
 		vbus = 1;
@@ -552,16 +544,16 @@ void musb_platform_set_mode(struct musb *musb, u8 musb_mode)
 
 #ifdef CONFIG_USB_GADGET_MUSB_HDRC
 	case MUSB_PERIPHERAL:	/* Disable PHY ID detect, keep ID pull-up on */
-		phy_otg_ena |= TUSB_PHY_OTG_CTRL_OTG_ID_PULLUP;
 		phy_otg_ctrl |= TUSB_PHY_OTG_CTRL_OTG_ID_PULLUP;
+		phy_otg_ena |= TUSB_PHY_OTG_CTRL_OTG_ID_PULLUP;
 		dev_conf |= (TUSB_DEV_CONF_ID_SEL | TUSB_DEV_CONF_SOFT_ID);
 		break;
 #endif
 
 #ifdef CONFIG_USB_MUSB_OTG
 	case MUSB_OTG:		/* Use PHY ID detection */
-		phy_otg_ena |= TUSB_PHY_OTG_CTRL_OTG_ID_PULLUP;
 		phy_otg_ctrl |= TUSB_PHY_OTG_CTRL_OTG_ID_PULLUP;
+		phy_otg_ena |= TUSB_PHY_OTG_CTRL_OTG_ID_PULLUP;
 		dev_conf &= ~(TUSB_DEV_CONF_ID_SEL | TUSB_DEV_CONF_SOFT_ID);
 		break;
 #endif
@@ -570,10 +562,10 @@ void musb_platform_set_mode(struct musb *musb, u8 musb_mode)
 		DBG(2, "Trying to set unknown mode %i\n", musb_mode);
 	}
 
-	musb_writel(base, TUSB_PHY_OTG_CTRL_ENABLE,
-			TUSB_PHY_OTG_CTRL_WRPROTECT | phy_otg_ena);
 	musb_writel(base, TUSB_PHY_OTG_CTRL,
 			TUSB_PHY_OTG_CTRL_WRPROTECT | phy_otg_ctrl);
+	musb_writel(base, TUSB_PHY_OTG_CTRL_ENABLE,
+			TUSB_PHY_OTG_CTRL_WRPROTECT | phy_otg_ena);
 	musb_writel(base, TUSB_DEV_CONF, dev_conf);
 
 	otg_stat = musb_readl(base, TUSB_DEV_OTG_STAT);
