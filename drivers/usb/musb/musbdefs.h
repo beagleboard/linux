@@ -124,6 +124,7 @@ extern void musb_g_rx(struct musb *, u8);
 extern void musb_g_reset(struct musb *);
 extern void musb_g_suspend(struct musb *);
 extern void musb_g_resume(struct musb *);
+extern void musb_g_wakeup(struct musb *);
 extern void musb_g_disconnect(struct musb *);
 
 #else
@@ -134,6 +135,7 @@ static inline irqreturn_t musb_g_ep0_irq(struct musb *m) { return IRQ_NONE; }
 static inline void musb_g_reset(struct musb *m) {}
 static inline void musb_g_suspend(struct musb *m) {}
 static inline void musb_g_resume(struct musb *m) {}
+static inline void musb_g_wakeup(struct musb *m) {}
 static inline void musb_g_disconnect(struct musb *m) {}
 
 #endif
@@ -417,6 +419,9 @@ struct musb {
 	unsigned bIsHost:1;
 	unsigned bIgnoreDisconnect:1;	/* during bus resets */
 
+	int			a_wait_bcon;	/* VBUS timeout in msecs */
+	unsigned long		idle_timeout;	/* Next timeout in jiffies */
+
 #ifdef C_MP_TX
 	unsigned bBulkSplit:1;
 #define	can_bulk_split(musb,type) \
@@ -506,12 +511,14 @@ extern irqreturn_t musb_interrupt(struct musb *);
 extern void musb_platform_enable(struct musb *musb);
 extern void musb_platform_disable(struct musb *musb);
 
+extern void musb_hnp_stop(struct musb *musb);
+
 #ifdef CONFIG_USB_TUSB6010
-extern void musb_platform_try_idle(struct musb *musb);
+extern void musb_platform_try_idle(struct musb *musb, unsigned long timeout);
 extern int musb_platform_get_vbus_status(struct musb *musb);
 extern void musb_platform_set_mode(struct musb *musb, u8 musb_mode);
 #else
-#define musb_platform_try_idle(x)		do {} while (0)
+#define musb_platform_try_idle(x, y)		do {} while (0)
 #define musb_platform_get_vbus_status(x)	0
 #define musb_platform_set_mode(x, y)		do {} while (0)
 #endif

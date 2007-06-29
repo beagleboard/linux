@@ -281,6 +281,69 @@ void musb_load_testpacket(struct musb *musb)
 
 /*-------------------------------------------------------------------------*/
 
+#ifdef	CONFIG_USB_MUSB_OTG
+
+/*
+ * See also USB_OTG_1-3.pdf 6.6.5 Timers
+ * REVISIT: Are the other timers done in the hardware?
+ */
+#define TB_ASE0_BRST		100	/* Min 3.125 ms */
+
+/*
+ * Handles OTG hnp timeouts, such as b_ase0_brst
+ */
+void musb_otg_timer_func(unsigned long data)
+{
+	struct musb	*musb = (struct musb *)data;
+	unsigned long	flags;
+
+	spin_lock_irqsave(&musb->Lock, flags);
+	if (musb->xceiv.state == OTG_STATE_B_WAIT_ACON) {
+		DBG(1, "HNP: B_WAIT_ACON timeout, going back to B_PERIPHERAL\n");
+		musb_g_disconnect(musb);
+		musb->xceiv.state = OTG_STATE_B_PERIPHERAL;
+		musb->is_active = 0;
+	}
+	spin_unlock_irqrestore(&musb->Lock, flags);
+}
+
+static DEFINE_TIMER(musb_otg_timer, musb_otg_timer_func, 0, 0);
+
+/*
+ * Stops the B-device HNP state. Caller must take care of locking.
+ */
+void musb_hnp_stop(struct musb *musb)
+{
+	struct usb_hcd	*hcd = musb_to_hcd(musb);
+	void __iomem	*pBase = musb->pRegs;
+	u8	reg;
+
+	switch (musb->xceiv.state) {
+	case OTG_STATE_A_PERIPHERAL:
+	case OTG_STATE_A_WAIT_VFALL:
+		DBG(1, "HNP: Switching back to A-host\n");
+		musb_g_disconnect(musb);
+		musb_root_disconnect(musb);
+		musb->xceiv.state = OTG_STATE_A_IDLE;
+		musb->is_active = 0;
+		break;
+	case OTG_STATE_B_HOST:
+		DBG(1, "HNP: Disabling HR\n");
+		hcd->self.is_b_host = 0;
+		musb->xceiv.state = OTG_STATE_B_PERIPHERAL;
+		reg = musb_readb(pBase, MGC_O_HDRC_POWER);
+		reg |= MGC_M_POWER_SUSPENDM;
+		musb_writeb(pBase, MGC_O_HDRC_POWER, reg);
+		/* REVISIT: Start SESSION_REQUEST here? */
+		break;
+	default:
+		DBG(1, "HNP: Stopping in unknown state %s\n",
+			otg_state_string(musb));
+	}
+}
+
+#endif
+
 /*
  * Interrupt Service Routine to record USB "global" interrupts.
  * Since these do not happen often and signify things of
@@ -519,12 +582,16 @@ static irqreturn_t musb_stage0_irq(struct musb * pThis, u8 bIntrUSB,
 		/* indicate new connection to OTG machine */
 		switch (pThis->xceiv.state) {
 		case OTG_STATE_B_WAIT_ACON:
+			DBG(1, "HNP: Waiting to switch to b_host state\n");
 			pThis->xceiv.state = OTG_STATE_B_HOST;
+			hcd->self.is_b_host = 1;
 			break;
 		default:
 			if ((devctl & MGC_M_DEVCTL_VBUS)
-					== (3 << MGC_S_DEVCTL_VBUS))
+					== (3 << MGC_S_DEVCTL_VBUS)) {
 				pThis->xceiv.state = OTG_STATE_A_HOST;
+				hcd->self.is_b_host = 0;
+			}
 			break;
 		}
 		DBG(1, "CONNECT (%s) devctl %02x\n",
@@ -633,11 +700,17 @@ static irqreturn_t musb_stage2_irq(struct musb * pThis, u8 bIntrUSB,
 		case OTG_STATE_A_HOST:
 		case OTG_STATE_A_SUSPEND:
 			musb_root_disconnect(pThis);
+			if (pThis->a_wait_bcon != 0)
+				musb_platform_try_idle(pThis, jiffies
+					+ msecs_to_jiffies(pThis->a_wait_bcon));
 			break;
 #endif	/* HOST */
 #ifdef CONFIG_USB_MUSB_OTG
-		case OTG_STATE_A_PERIPHERAL:
 		case OTG_STATE_B_HOST:
+			musb_hnp_stop(pThis);
+			break;
+			/* FALLTHROUGH */
+		case OTG_STATE_A_PERIPHERAL:
 			musb_root_disconnect(pThis);
 			/* FALLTHROUGH */
 		case OTG_STATE_B_WAIT_ACON:
@@ -662,19 +735,36 @@ static irqreturn_t musb_stage2_irq(struct musb * pThis, u8 bIntrUSB,
 		handled = IRQ_HANDLED;
 
 		switch (pThis->xceiv.state) {
+		case OTG_STATE_A_PERIPHERAL:
+			musb_hnp_stop(pThis);
+			break;
 		case OTG_STATE_B_PERIPHERAL:
 			musb_g_suspend(pThis);
 			pThis->is_active = is_otg_enabled(pThis)
 					&& pThis->xceiv.gadget->b_hnp_enable;
 			if (pThis->is_active) {
 				pThis->xceiv.state = OTG_STATE_B_WAIT_ACON;
-				/* REVISIT timeout for b_ase0_brst, etc */
+#ifdef	CONFIG_USB_MUSB_OTG
+				DBG(1, "HNP: Setting timer for b_ase0_brst\n");
+				musb_otg_timer.data = (unsigned long)pThis;
+				mod_timer(&musb_otg_timer, jiffies
+					+ msecs_to_jiffies(TB_ASE0_BRST));
+#endif
 			}
+			break;
+		case OTG_STATE_A_WAIT_BCON:
+			if (pThis->a_wait_bcon != 0)
+				musb_platform_try_idle(pThis, jiffies
+					+ msecs_to_jiffies(pThis->a_wait_bcon));
 			break;
 		case OTG_STATE_A_HOST:
 			pThis->xceiv.state = OTG_STATE_A_SUSPEND;
 			pThis->is_active = is_otg_enabled(pThis)
 					&& pThis->xceiv.host->b_hnp_enable;
+			break;
+		case OTG_STATE_B_HOST:
+			/* Transition to B_PERIPHERAL, see 6.8.2.6 p 44 */
+			DBG(1, "REVISIT: SUSPEND as B_HOST\n");
 			break;
 		default:
 			/* "should not happen" */
@@ -783,7 +873,7 @@ void musb_stop(struct musb *musb)
 	 *    OTG mode, gadget driver module rmmod/modprobe cycles that
 	 *  - ...
 	 */
-	musb_platform_try_idle(musb);
+	musb_platform_try_idle(musb, 0);
 }
 
 static void musb_shutdown(struct platform_device *pdev)
@@ -1567,13 +1657,72 @@ musb_cable_show(struct device *dev, struct device_attribute *attr, char *buf)
 	} else	/* VBUS level below A-Valid */
 		v2 = "disconnected";
 #endif
-	musb_platform_try_idle(musb);
+	musb_platform_try_idle(musb, 0);
 	spin_unlock_irqrestore(&musb->Lock, flags);
 
 	return sprintf(buf, "%s%s\n", v1, v2);
 }
 static DEVICE_ATTR(cable, S_IRUGO, musb_cable_show, NULL);
 
+static ssize_t
+musb_vbus_store(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t n)
+{
+	struct musb	*musb = dev_to_musb(dev);
+	unsigned long	flags;
+	unsigned long	val;
+
+	spin_lock_irqsave(&musb->Lock, flags);
+	if (sscanf(buf, "%lu", &val) < 1) {
+		printk(KERN_ERR "Invalid VBUS timeout ms value\n");
+		return -EINVAL;
+	}
+	musb->a_wait_bcon = val;
+	if (musb->xceiv.state == OTG_STATE_A_WAIT_BCON)
+		musb->is_active = 0;
+	musb_platform_try_idle(musb, jiffies + msecs_to_jiffies(val));
+	spin_unlock_irqrestore(&musb->Lock, flags);
+
+	return n;
+}
+
+static ssize_t
+musb_vbus_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct musb	*musb = dev_to_musb(dev);
+	unsigned long	flags;
+	unsigned long	val;
+
+	spin_lock_irqsave(&musb->Lock, flags);
+	val = musb->a_wait_bcon;
+	spin_unlock_irqrestore(&musb->Lock, flags);
+
+	return sprintf(buf, "%lu\n", val);
+}
+static DEVICE_ATTR(vbus, 0644, musb_vbus_show, musb_vbus_store);
+
+static ssize_t
+musb_srp_store(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t n)
+{
+	struct musb	*musb=dev_to_musb(dev);
+	unsigned long	flags;
+	unsigned short	srp;
+
+	if (sscanf(buf, "%hu", &srp) != 1
+			|| (srp != 1)) {
+		printk (KERN_ERR "SRP: Value must be 1\n");
+		return -EINVAL;
+	}
+
+	spin_lock_irqsave(&musb->Lock, flags);
+	if (srp == 1)
+		musb_g_wakeup(musb);
+	spin_unlock_irqrestore(&musb->Lock, flags);
+
+	return n;
+}
+static DEVICE_ATTR(srp, 0644, NULL, musb_srp_store);
 #endif
 
 /* Only used to provide cable state change events */
@@ -1643,6 +1792,10 @@ static void musb_free(struct musb *musb)
 #ifdef CONFIG_SYSFS
 	device_remove_file(musb->controller, &dev_attr_mode);
 	device_remove_file(musb->controller, &dev_attr_cable);
+	device_remove_file(musb->controller, &dev_attr_vbus);
+#ifdef CONFIG_USB_MUSB_OTG
+	device_remove_file(musb->controller, &dev_attr_srp);
+#endif
 #endif
 
 #ifdef CONFIG_USB_GADGET_MUSB_HDRC
@@ -1871,6 +2024,10 @@ fail:
 #ifdef CONFIG_SYSFS
 	status = device_create_file(dev, &dev_attr_mode);
 	status = device_create_file(dev, &dev_attr_cable);
+	status = device_create_file(dev, &dev_attr_vbus);
+#ifdef CONFIG_USB_MUSB_OTG
+	status = device_create_file(dev, &dev_attr_srp);
+#endif /* CONFIG_USB_MUSB_OTG */
 	status = 0;
 #endif
 

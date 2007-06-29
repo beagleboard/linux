@@ -773,7 +773,7 @@ static int musb_proc_write(struct file *file, const char __user *buffer,
 		break;
 	}
 
-	musb_platform_try_idle(musb);
+	musb_platform_try_idle(musb, 0);
 
 	return count;
 }
@@ -811,7 +811,7 @@ static int musb_proc_read(char *page, char **start,
 		}
 	}
 
-	musb_platform_try_idle(pThis);
+	musb_platform_try_idle(pThis, 0);
 
 	spin_unlock_irqrestore(&pThis->Lock, flags);
 	*eof = 1;

@@ -61,9 +61,19 @@ static void musb_port_suspend(struct musb *musb, u8 bSuspend)
 	 */
 	power = musb_readb(pBase, MGC_O_HDRC_POWER);
 	if (bSuspend) {
+		int retries = 10000;
+
 		power &= ~MGC_M_POWER_RESUME;
 		power |= MGC_M_POWER_SUSPENDM;
 		musb_writeb(pBase, MGC_O_HDRC_POWER, power);
+
+		/* Needed for OPT A tests */
+		power = musb_readb(pBase, MGC_O_HDRC_POWER);
+		while (power & MGC_M_POWER_SUSPENDM) {
+			power = musb_readb(pBase, MGC_O_HDRC_POWER);
+			if (retries-- < 1)
+				break;
+		}
 
 		DBG(3, "Root port suspended, power %02x\n", power);
 
@@ -73,7 +83,7 @@ static void musb_port_suspend(struct musb *musb, u8 bSuspend)
 			musb->xceiv.state = OTG_STATE_A_SUSPEND;
 			musb->is_active = is_otg_enabled(musb)
 					&& musb->xceiv.host->b_hnp_enable;
-			musb_platform_try_idle(musb);
+			musb_platform_try_idle(musb, 0);
 			break;
 		case OTG_STATE_B_HOST:
 			musb->xceiv.state = OTG_STATE_B_PERIPHERAL;
@@ -362,7 +372,11 @@ int musb_hub_control(
 				temp = MGC_M_TEST_FORCE_HOST
 					| MGC_M_TEST_FORCE_HS;
 
-				/* FIXME and enable a session too */
+				musb_writeb(musb->pRegs, MGC_O_HDRC_DEVCTL, MGC_M_DEVCTL_SESSION);
+				break;
+			case 6:
+				pr_debug("TEST_FIFO_ACCESS\n");
+				temp = MGC_M_TEST_FIFO_ACCESS;
 				break;
 			default:
 				goto error;

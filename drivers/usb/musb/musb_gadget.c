@@ -1462,10 +1462,15 @@ static int musb_gadget_wakeup(struct usb_gadget *gadget)
 		goto done;
 	case OTG_STATE_B_IDLE:
 		/* Start SRP ... OTG not required. */
+		DBG(2, "Sending SRP\n");
 		devctl = musb_readb(mregs, MGC_O_HDRC_DEVCTL);
 		devctl |= MGC_M_DEVCTL_SESSION;
 		musb_writeb(mregs, MGC_O_HDRC_DEVCTL, devctl);
-		DBG(2, "SRP\n");
+
+		/* Block idling for at least 1s */
+		musb_platform_try_idle(musb,
+			msecs_to_jiffies(1 * HZ));
+
 		status = 0;
 		goto done;
 	default:
@@ -1689,7 +1694,7 @@ int __init musb_gadget_setup(struct musb *musb)
 	musb_g_init_endpoints(musb);
 
 	musb->is_active = 0;
-	musb_platform_try_idle(musb);
+	musb_platform_try_idle(musb, 0);
 
 	status = device_register(&musb->g.dev);
 	if (status != 0)
@@ -1872,6 +1877,11 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 	 */
 
 	spin_lock_irqsave(&musb->Lock, flags);
+
+#ifdef	CONFIG_USB_MUSB_OTG
+	musb_hnp_stop(musb);
+#endif
+
 	if (musb->pGadgetDriver == driver) {
 		musb->xceiv.state = OTG_STATE_UNDEFINED;
 		stop_activity(musb, driver);
@@ -1885,7 +1895,7 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 		musb->g.dev.driver = NULL;
 
 		musb->is_active = 0;
-		musb_platform_try_idle(musb);
+		musb_platform_try_idle(musb, 0);
 	} else
 		retval = -EINVAL;
 	spin_unlock_irqrestore(&musb->Lock, flags);
@@ -1958,6 +1968,12 @@ void musb_g_suspend(struct musb *musb)
 	}
 }
 
+/* Called during SRP. Caller must hold lock */
+void musb_g_wakeup(struct musb *musb)
+{
+	musb_gadget_wakeup(&musb->g);
+}
+
 /* called when VBUS drops below session threshold, and in other cases */
 void musb_g_disconnect(struct musb *musb)
 {
@@ -1983,6 +1999,9 @@ void musb_g_disconnect(struct musb *musb)
 	default:
 #ifdef	CONFIG_USB_MUSB_OTG
 		musb->xceiv.state = OTG_STATE_A_IDLE;
+		break;
+	case OTG_STATE_A_PERIPHERAL:
+		musb->xceiv.state = OTG_STATE_A_WAIT_VFALL;
 		break;
 	case OTG_STATE_B_WAIT_ACON:
 	case OTG_STATE_B_HOST:

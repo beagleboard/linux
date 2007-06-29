@@ -201,6 +201,19 @@ static void musb_g_ep0_giveback(struct musb *musb, struct usb_request *req)
 }
 
 /*
+ * Tries to start B-device HNP negotiation if enabled via sysfs
+ */
+static inline void musb_try_b_hnp_enable(struct musb *musb)
+{
+	void __iomem	*pBase = musb->pRegs;
+	u8		devctl;
+
+	DBG(1, "HNP: Setting HR\n");
+	devctl = musb_readb(pBase, MGC_O_HDRC_DEVCTL);
+	musb_writeb(pBase, MGC_O_HDRC_DEVCTL, devctl | MGC_M_DEVCTL_HR);
+}
+
+/*
  * Handle all control requests with no DATA stage, including standard
  * requests such as:
  * USB_REQ_SET_CONFIGURATION, USB_REQ_SET_INTERFACE, unrecognized
@@ -326,17 +339,8 @@ __acquires(musb->Lock)
 				case USB_DEVICE_B_HNP_ENABLE:
 					if (!musb->g.is_otg)
 						goto stall;
-					{ u8 devctl;
 					musb->g.b_hnp_enable = 1;
-					devctl = musb_readb(pBase,
-							MGC_O_HDRC_DEVCTL);
-					/* NOTE:  at least DaVinci doesn't
-					 * like to set HR ...
-					 */
-					DBG(1, "set HR\n");
-					musb_writeb(pBase, MGC_O_HDRC_DEVCTL,
-						devctl | MGC_M_DEVCTL_HR);
-					}
+					musb_try_b_hnp_enable(musb);
 					break;
 				case USB_DEVICE_A_HNP_SUPPORT:
 					if (!musb->g.is_otg)
