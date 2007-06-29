@@ -1448,6 +1448,7 @@ static int musb_gadget_wakeup(struct usb_gadget *gadget)
 	unsigned long	flags;
 	int		status = -EINVAL;
 	u8		power, devctl;
+	int		retries;
 
 	spin_lock_irqsave(&musb->Lock, flags);
 
@@ -1462,14 +1463,27 @@ static int musb_gadget_wakeup(struct usb_gadget *gadget)
 		goto done;
 	case OTG_STATE_B_IDLE:
 		/* Start SRP ... OTG not required. */
-		DBG(2, "Sending SRP\n");
 		devctl = musb_readb(mregs, MGC_O_HDRC_DEVCTL);
+		DBG(2, "Sending SRP: devctl: %02x\n", devctl);
 		devctl |= MGC_M_DEVCTL_SESSION;
 		musb_writeb(mregs, MGC_O_HDRC_DEVCTL, devctl);
+		devctl = musb_readb(mregs, MGC_O_HDRC_DEVCTL);
+		retries = 100;
+		while (!(devctl & MGC_M_DEVCTL_SESSION)) {
+			devctl = musb_readb(mregs, MGC_O_HDRC_DEVCTL);
+			if (retries-- < 1)
+				break;
+		}
+		retries = 10000;
+		while (devctl & MGC_M_DEVCTL_SESSION) {
+			devctl = musb_readb(mregs, MGC_O_HDRC_DEVCTL);
+			if (retries-- < 1)
+				break;
+		}
 
 		/* Block idling for at least 1s */
 		musb_platform_try_idle(musb,
-			msecs_to_jiffies(1 * HZ));
+			jiffies + msecs_to_jiffies(1 * HZ));
 
 		status = 0;
 		goto done;
