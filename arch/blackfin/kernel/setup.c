@@ -307,10 +307,20 @@ void __init setup_arch(char **cmdline_p)
 	init_leds();
 
 	printk(KERN_INFO "Blackfin support (C) 2004-2007 Analog Devices, Inc.\n");
-	printk(KERN_INFO "Compiled for ADSP-%s Rev 0.%d\n", CPU, bfin_compiled_revid());
-	if (bfin_revid() != bfin_compiled_revid())
-		printk(KERN_ERR "Warning: Compiled for Rev %d, but running on Rev %d\n",
-		       bfin_compiled_revid(), bfin_revid());
+	if (bfin_compiled_revid() == 0xffff)
+		printk(KERN_INFO "Compiled for ADSP-%s Rev any\n", CPU);
+	else if (bfin_compiled_revid() == -1)
+		printk(KERN_INFO "Compiled for ADSP-%s Rev none\n", CPU);
+	else
+		printk(KERN_INFO "Compiled for ADSP-%s Rev 0.%d\n", CPU, bfin_compiled_revid());
+	if (bfin_revid() != bfin_compiled_revid()) {
+		if (bfin_compiled_revid() == -1)
+			printk(KERN_ERR "Warning: Compiled for Rev none, but running on Rev %d\n",
+			       bfin_revid());
+		else if (bfin_compiled_revid() != 0xffff)
+			printk(KERN_ERR "Warning: Compiled for Rev %d, but running on Rev %d\n",
+			       bfin_compiled_revid(), bfin_revid());
+	}
 	if (bfin_revid() < SUPPORTED_REVID)
 		printk(KERN_ERR "Warning: Unsupported Chip Revision ADSP-%s Rev 0.%d detected\n",
 		       CPU, bfin_revid());
@@ -329,9 +339,10 @@ void __init setup_arch(char **cmdline_p)
 
 	printk(KERN_INFO "Memory map:\n"
 	       KERN_INFO "  text      = 0x%p-0x%p\n"
-	       KERN_INFO "  init      = 0x%p-0x%p\n"
+	       KERN_INFO "  rodata    = 0x%p-0x%p\n"
 	       KERN_INFO "  data      = 0x%p-0x%p\n"
-	       KERN_INFO "  stack     = 0x%p-0x%p\n"
+	       KERN_INFO "    stack   = 0x%p-0x%p\n"
+	       KERN_INFO "  init      = 0x%p-0x%p\n"
 	       KERN_INFO "  bss       = 0x%p-0x%p\n"
 	       KERN_INFO "  available = 0x%p-0x%p\n"
 #ifdef CONFIG_MTD_UCLINUX
@@ -341,9 +352,10 @@ void __init setup_arch(char **cmdline_p)
 	       KERN_INFO "  DMA Zone  = 0x%p-0x%p\n"
 #endif
 	       , _stext, _etext,
-	       __init_begin, __init_end,
+	       __start_rodata, __end_rodata,
 	       _sdata, _edata,
 	       (void*)&init_thread_union, (void*)((int)(&init_thread_union) + 0x2000),
+	       __init_begin, __init_end,
 	       __bss_start, __bss_stop,
 	       (void*)_ramstart, (void*)memory_end
 #ifdef CONFIG_MTD_UCLINUX

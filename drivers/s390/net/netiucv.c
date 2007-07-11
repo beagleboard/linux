@@ -134,18 +134,6 @@ PRINT_##importance(header "%02x %02x %02x %02x  %02x %02x %02x %02x  " \
 		   *(((char*)ptr)+28),*(((char*)ptr)+29), \
 		   *(((char*)ptr)+30),*(((char*)ptr)+31));
 
-static inline void iucv_hex_dump(unsigned char *buf, size_t len)
-{
-	size_t i;
-
-	for (i = 0; i < len; i++) {
-		if (i && !(i % 16))
-			printk("\n");
-		printk("%02x ", *(buf + i));
-	}
-	printk("\n");
-}
-
 #define PRINTK_HEADER " iucv: "       /* for debugging */
 
 static struct device_driver netiucv_driver = {
@@ -212,7 +200,7 @@ struct iucv_connection {
  */
 static struct list_head iucv_connection_list =
 	LIST_HEAD_INIT(iucv_connection_list);
-static rwlock_t iucv_connection_rwlock = RW_LOCK_UNLOCKED;
+static DEFINE_RWLOCK(iucv_connection_rwlock);
 
 /**
  * Representation of event-data for the
@@ -280,7 +268,7 @@ static u8 iucvMagic[16] = {
  *
  * @returns The printable string (static data!!)
  */
-static inline char *netiucv_printname(char *name)
+static char *netiucv_printname(char *name)
 {
 	static char tmp[9];
 	char *p = tmp;
@@ -1315,7 +1303,8 @@ static int netiucv_tx(struct sk_buff *skb, struct net_device *dev)
 	 * and throw away packet.
 	 */
 	if (fsm_getstate(privptr->fsm) != DEV_STATE_RUNNING) {
-		fsm_event(privptr->fsm, DEV_EVENT_START, dev);
+		if (!in_atomic())
+			fsm_event(privptr->fsm, DEV_EVENT_START, dev);
 		dev_kfree_skb(skb);
 		privptr->stats.tx_dropped++;
 		privptr->stats.tx_errors++;
@@ -1729,7 +1718,7 @@ static struct attribute_group netiucv_stat_attr_group = {
 	.attrs = netiucv_stat_attrs,
 };
 
-static inline int netiucv_add_files(struct device *dev)
+static int netiucv_add_files(struct device *dev)
 {
 	int ret;
 
@@ -1743,7 +1732,7 @@ static inline int netiucv_add_files(struct device *dev)
 	return ret;
 }
 
-static inline void netiucv_remove_files(struct device *dev)
+static void netiucv_remove_files(struct device *dev)
 {
 	IUCV_DBF_TEXT(trace, 3, __FUNCTION__);
 	sysfs_remove_group(&dev->kobj, &netiucv_stat_attr_group);

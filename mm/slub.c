@@ -1798,8 +1798,6 @@ static struct kmem_cache_node * __init early_kmem_cache_node_alloc(gfp_t gfpflag
 	BUG_ON(kmalloc_caches->size < sizeof(struct kmem_cache_node));
 
 	page = new_slab(kmalloc_caches, gfpflags | GFP_THISNODE, node);
-	/* new_slab() disables interupts */
-	local_irq_enable();
 
 	BUG_ON(!page);
 	n = page->freelist;
@@ -1811,6 +1809,12 @@ static struct kmem_cache_node * __init early_kmem_cache_node_alloc(gfp_t gfpflag
 	init_kmem_cache_node(n);
 	atomic_long_inc(&n->nr_slabs);
 	add_partial(n, page);
+
+	/*
+	 * new_slab() disables interupts. If we do not reenable interrupts here
+	 * then bootup would continue with interrupts disabled.
+	 */
+	local_irq_enable();
 	return n;
 }
 
@@ -2016,7 +2020,6 @@ error:
 			s->offset, flags);
 	return 0;
 }
-EXPORT_SYMBOL(kmem_cache_open);
 
 /*
  * Check if a given pointer is valid
@@ -3042,13 +3045,15 @@ static int list_locations(struct kmem_cache *s, char *buf,
 			n += sprintf(buf + n, " pid=%ld",
 				l->min_pid);
 
-		if (num_online_cpus() > 1 && !cpus_empty(l->cpus)) {
+		if (num_online_cpus() > 1 && !cpus_empty(l->cpus) &&
+				n < PAGE_SIZE - 60) {
 			n += sprintf(buf + n, " cpus=");
 			n += cpulist_scnprintf(buf + n, PAGE_SIZE - n - 50,
 					l->cpus);
 		}
 
-		if (num_online_nodes() > 1 && !nodes_empty(l->nodes)) {
+		if (num_online_nodes() > 1 && !nodes_empty(l->nodes) &&
+				n < PAGE_SIZE - 60) {
 			n += sprintf(buf + n, " nodes=");
 			n += nodelist_scnprintf(buf + n, PAGE_SIZE - n - 50,
 					l->nodes);

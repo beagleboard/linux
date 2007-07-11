@@ -1159,21 +1159,72 @@ void wait_task_inactive(struct task_struct *p)
 {
 	unsigned long flags;
 	struct rq *rq;
-	int preempted;
+	struct prio_array *array;
+	int running;
 
 repeat:
-	rq = task_rq_lock(p, &flags);
-	/* Must be off runqueue entirely, not preempted. */
-	if (unlikely(p->array || task_running(rq, p))) {
-		/* If it's preempted, we yield.  It could be a while. */
-		preempted = !task_running(rq, p);
-		task_rq_unlock(rq, &flags);
+	/*
+	 * We do the initial early heuristics without holding
+	 * any task-queue locks at all. We'll only try to get
+	 * the runqueue lock when things look like they will
+	 * work out!
+	 */
+	rq = task_rq(p);
+
+	/*
+	 * If the task is actively running on another CPU
+	 * still, just relax and busy-wait without holding
+	 * any locks.
+	 *
+	 * NOTE! Since we don't hold any locks, it's not
+	 * even sure that "rq" stays as the right runqueue!
+	 * But we don't care, since "task_running()" will
+	 * return false if the runqueue has changed and p
+	 * is actually now running somewhere else!
+	 */
+	while (task_running(rq, p))
 		cpu_relax();
-		if (preempted)
-			yield();
+
+	/*
+	 * Ok, time to look more closely! We need the rq
+	 * lock now, to be *sure*. If we're wrong, we'll
+	 * just go back and repeat.
+	 */
+	rq = task_rq_lock(p, &flags);
+	running = task_running(rq, p);
+	array = p->array;
+	task_rq_unlock(rq, &flags);
+
+	/*
+	 * Was it really running after all now that we
+	 * checked with the proper locks actually held?
+	 *
+	 * Oops. Go back and try again..
+	 */
+	if (unlikely(running)) {
+		cpu_relax();
 		goto repeat;
 	}
-	task_rq_unlock(rq, &flags);
+
+	/*
+	 * It's not enough that it's not actively running,
+	 * it must be off the runqueue _entirely_, and not
+	 * preempted!
+	 *
+	 * So if it wa still runnable (but just not actively
+	 * running right now), it's preempted, and we should
+	 * yield - it could be a while.
+	 */
+	if (unlikely(array)) {
+		yield();
+		goto repeat;
+	}
+
+	/*
+	 * Ahh, all good. It wasn't running, and it wasn't
+	 * runnable, which means that it will never become
+	 * running in the future either. We're all done!
+	 */
 }
 
 /***
@@ -2887,17 +2938,21 @@ static void idle_balance(int this_cpu, struct rq *this_rq)
 	unsigned long next_balance = jiffies + 60 *  HZ;
 
 	for_each_domain(this_cpu, sd) {
-		if (sd->flags & SD_BALANCE_NEWIDLE) {
+		unsigned long interval;
+
+		if (!(sd->flags & SD_LOAD_BALANCE))
+			continue;
+
+		if (sd->flags & SD_BALANCE_NEWIDLE)
 			/* If we've pulled tasks over stop searching: */
 			pulled_task = load_balance_newidle(this_cpu,
-							this_rq, sd);
-			if (time_after(next_balance,
-				  sd->last_balance + sd->balance_interval))
-				next_balance = sd->last_balance
-						+ sd->balance_interval;
-			if (pulled_task)
-				break;
-		}
+								this_rq, sd);
+
+		interval = msecs_to_jiffies(sd->balance_interval);
+		if (time_after(next_balance, sd->last_balance + interval))
+			next_balance = sd->last_balance + interval;
+		if (pulled_task)
+			break;
 	}
 	if (!pulled_task)
 		/*
@@ -7071,12 +7126,13 @@ EXPORT_SYMBOL(__might_sleep);
 void normalize_rt_tasks(void)
 {
 	struct prio_array *array;
-	struct task_struct *p;
+	struct task_struct *g, *p;
 	unsigned long flags;
 	struct rq *rq;
 
 	read_lock_irq(&tasklist_lock);
-	for_each_process(p) {
+
+	do_each_thread(g, p) {
 		if (!rt_task(p))
 			continue;
 
@@ -7094,7 +7150,8 @@ void normalize_rt_tasks(void)
 
 		__task_rq_unlock(rq);
 		spin_unlock_irqrestore(&p->pi_lock, flags);
-	}
+	} while_each_thread(g, p);
+
 	read_unlock_irq(&tasklist_lock);
 }
 

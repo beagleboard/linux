@@ -42,7 +42,7 @@ static int mtrr_show;
 module_param_named(show, mtrr_show, bool, 0);
 
 /*  Get the MSR pair relating to a var range  */
-static void __init
+static void
 get_mtrr_var_range(unsigned int index, struct mtrr_var_range *vr)
 {
 	rdmsr(MTRRphysBase_MSR(index), vr->base_lo, vr->base_hi);
@@ -65,10 +65,11 @@ get_fixed_ranges(mtrr_type * frs)
 
 void mtrr_save_fixed_ranges(void *info)
 {
-	get_fixed_ranges(mtrr_state.fixed_ranges);
+	if (cpu_has_mtrr)
+		get_fixed_ranges(mtrr_state.fixed_ranges);
 }
 
-static void __cpuinit print_fixed(unsigned base, unsigned step, const mtrr_type*types)
+static void print_fixed(unsigned base, unsigned step, const mtrr_type*types)
 {
 	unsigned i;
 
@@ -469,11 +470,6 @@ int generic_validate_add_page(unsigned long base, unsigned long size, unsigned i
 		}
 	}
 
-	if (base < 0x100) {
-		printk(KERN_WARNING "mtrr: cannot set region below 1 MiB (0x%lx000,0x%lx000)\n",
-		       base, size);
-		return -EINVAL;
-	}
 	/*  Check upper bits of base and last are equal and lower bits are 0
 	    for base and 1 for last  */
 	last = base + size - 1;

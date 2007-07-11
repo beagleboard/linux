@@ -250,22 +250,23 @@ static void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb)
 		unsigned long flags;
 
 		local_irq_save(flags);
-		if (netif_tx_trylock(dev)) {
-			/* try until next clock tick */
-			for (tries = jiffies_to_usecs(1)/USEC_PER_POLL;
-					tries > 0; --tries) {
+		/* try until next clock tick */
+		for (tries = jiffies_to_usecs(1)/USEC_PER_POLL;
+		     tries > 0; --tries) {
+			if (netif_tx_trylock(dev)) {
 				if (!netif_queue_stopped(dev))
 					status = dev->hard_start_xmit(skb, dev);
+				netif_tx_unlock(dev);
 
 				if (status == NETDEV_TX_OK)
 					break;
 
-				/* tickle device maybe there is some cleanup */
-				netpoll_poll(np);
-
-				udelay(USEC_PER_POLL);
 			}
-			netif_tx_unlock(dev);
+
+			/* tickle device maybe there is some cleanup */
+			netpoll_poll(np);
+
+			udelay(USEC_PER_POLL);
 		}
 		local_irq_restore(flags);
 	}
@@ -785,8 +786,13 @@ void netpoll_cleanup(struct netpoll *np)
 				skb_queue_purge(&npinfo->arp_tx);
 				skb_queue_purge(&npinfo->txq);
 				cancel_rearming_delayed_work(&npinfo->tx_work);
-				flush_scheduled_work();
 
+				/* clean after last, unfinished work */
+				if (!skb_queue_empty(&npinfo->txq)) {
+					struct sk_buff *skb;
+					skb = __skb_dequeue(&npinfo->txq);
+					kfree_skb(skb);
+				}
 				kfree(npinfo);
 			}
 		}

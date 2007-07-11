@@ -1882,6 +1882,10 @@
 #define V_COPYALLFRAMES(x) ((x) << S_COPYALLFRAMES)
 #define F_COPYALLFRAMES    V_COPYALLFRAMES(1U)
 
+#define S_DISBCAST    1
+#define V_DISBCAST(x) ((x) << S_DISBCAST)
+#define F_DISBCAST    V_DISBCAST(1U)
+
 #define A_XGM_RX_HASH_LOW 0x814
 
 #define A_XGM_RX_HASH_HIGH 0x818
@@ -2128,6 +2132,8 @@
 #define F_RESETPLL01    V_RESETPLL01(1U)
 
 #define A_XGM_SERDES_STAT0 0x8f0
+#define A_XGM_SERDES_STAT1 0x8f4
+#define A_XGM_SERDES_STAT2 0x8f8
 
 #define S_LOWSIG0    0
 #define V_LOWSIG0(x) ((x) << S_LOWSIG0)
