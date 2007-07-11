@@ -18,11 +18,11 @@
 #include <asm/io.h>
 
 #if defined(CONFIG_ARCH_OMAP2420)
-#define OMAP24XX_TAP_BASE	io_p2v(0x48014000)
-#endif
-
-#if defined(CONFIG_ARCH_OMAP2430)
-#define OMAP24XX_TAP_BASE	io_p2v(0x4900A000)
+#define TAP_BASE	io_p2v(0x48014000)
+#elif defined(CONFIG_ARCH_OMAP2430)
+#define TAP_BASE	io_p2v(0x4900A000)
+#elif defined(CONFIG_ARCH_OMAP34XX)
+#define TAP_BASE	io_p2v(0x54004000)
 #endif
 
 #define OMAP_TAP_IDCODE		0x0204
@@ -58,7 +58,7 @@ static struct omap_id omap_ids[] __initdata = {
 
 static u32 __init read_tap_reg(int reg)
 {
-	return __raw_readl(OMAP24XX_TAP_BASE + reg);
+	return __raw_readl(TAP_BASE + reg);
 }
 
 void __init omap2_check_revision(void)
@@ -118,9 +118,16 @@ void __init omap2_check_revision(void)
 
 	system_rev |= rev << 8;
 
-	/* Add the cpu class info (24xx) */
-	system_rev |= 0x24;
+	/* REVISIT:
+	 * OMAP 3430 ES 1.0 does't populate IDCODE registers
+	 * Following lines have to be revisited for next version
+	 */
 
+#ifndef CONFIG_ARCH_OMAP3
+	system_rev |= 0x24;
+#else
+	system_rev |= 0x34;
+#endif
 	pr_info("OMAP%04x", system_rev >> 16);
 	if ((system_rev >> 8) & 0x0f)
 		printk("%x", (system_rev >> 8) & 0x0f);

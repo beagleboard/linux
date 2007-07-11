@@ -72,6 +72,8 @@ struct sys_timer omap_timer;
 #define TIMER_32K_SYNCHRONIZED		0xfffbc410
 #elif defined(CONFIG_ARCH_OMAP24XX)
 #define TIMER_32K_SYNCHRONIZED		(OMAP2_32KSYNCT_BASE + 0x10)
+#elif defined(CONFIG_ARCH_OMAP34XX)
+#define TIMER_32K_SYNCHRONIZED		0x48320010
 #else
 #error OMAP 32KHz timer does not currently work on 15XX!
 #endif
@@ -120,7 +122,7 @@ static inline void omap_32k_timer_stop(void)
 
 #define omap_32k_timer_ack_irq()
 
-#elif defined(CONFIG_ARCH_OMAP2)
+#elif defined(CONFIG_ARCH_OMAP2) || defined(CONFIG_ARCH_OMAP3)
 
 static struct omap_dm_timer *gptimer;
 
@@ -223,9 +225,9 @@ static __init void omap_init_32k_timer(void)
 	if (cpu_class_is_omap1())
 		setup_irq(INT_OS_TIMER, &omap_32k_timer_irq);
 
-#ifdef CONFIG_ARCH_OMAP2
+#if defined(CONFIG_ARCH_OMAP2) || defined(CONFIG_ARCH_OMAP3)
 	/* REVISIT: Check 24xx TIOCP_CFG settings after idle works */
-	if (cpu_is_omap24xx()) {
+	if (cpu_class_is_omap2()) {
 		gptimer = omap_dm_timer_request_specific(1);
 		BUG_ON(gptimer == NULL);
 

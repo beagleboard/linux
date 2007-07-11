@@ -218,7 +218,7 @@ static int __init omap_init_clocksource_32k(void)
 	static char err[] __initdata = KERN_ERR
 			"%s: can't register clocksource!\n";
 
-	if (cpu_is_omap16xx() || cpu_is_omap24xx()) {
+	if (cpu_is_omap16xx() || cpu_class_is_omap2()) {
 		clocksource_32k.mult = clocksource_hz2mult(32768,
 					    clocksource_32k.shift);
 

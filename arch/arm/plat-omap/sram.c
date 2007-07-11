@@ -31,7 +31,7 @@
 #define OMAP2_SRAM_VA		0xd0000000
 #define OMAP2_SRAM_PUB_VA	0xd0000800
 
-#if defined(CONFIG_ARCH_OMAP24XX)
+#if defined(CONFIG_ARCH_OMAP24XX) || defined(CONFIG_ARCH_OMAP34XX)
 #define SRAM_BOOTLOADER_SZ	0x00
 #else
 #define SRAM_BOOTLOADER_SZ	0x80
@@ -92,7 +92,7 @@ void __init omap_detect_sram(void)
 {
 	unsigned long reserved;
 
-	if (cpu_is_omap24xx()) {
+	if (cpu_class_is_omap2()) {
 		if (is_sram_locked()) {
 			omap_sram_base = OMAP2_SRAM_PUB_VA;
 			omap_sram_start = OMAP2_SRAM_PUB_PA;
@@ -102,7 +102,7 @@ void __init omap_detect_sram(void)
 			omap_sram_start = OMAP2_SRAM_PA;
 			if (cpu_is_omap242x())
 				omap_sram_size = 0xa0000; /* 640K */
-			else if (cpu_is_omap243x())
+			else if (cpu_is_omap243x() || cpu_is_omap34xx())
 				omap_sram_size = 0x10000; /* 64K */
 		}
 	} else {
@@ -149,7 +149,7 @@ void __init omap_map_sram(void)
 	if (omap_sram_size == 0)
 		return;
 
-	if (cpu_is_omap24xx()) {
+	if (cpu_class_is_omap2()) {
 		omap_sram_io_desc[0].virtual = OMAP2_SRAM_VA;
 
 		base = OMAP2_SRAM_PA;
@@ -224,7 +224,7 @@ int __init omap1_sram_init(void)
 #define omap1_sram_init()	do {} while (0)
 #endif
 
-#ifdef CONFIG_ARCH_OMAP2
+#if defined(CONFIG_ARCH_OMAP2) || defined(CONFIG_ARCH_OMAP3)
 
 static void (*_omap2_sram_ddr_init)(u32 *slow_dll_ctrl, u32 fast_dll_ctrl,
 			      u32 base_cs, u32 force_unlock);
@@ -279,7 +279,7 @@ int __init omap_sram_init(void)
 	omap_detect_sram();
 	omap_map_sram();
 
-	if (!cpu_is_omap24xx())
+	if (!(cpu_class_is_omap2()))
 		omap1_sram_init();
 	else
 		omap2_sram_init();

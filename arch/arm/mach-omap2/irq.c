@@ -17,7 +17,6 @@
 #include <asm/mach/irq.h>
 #include <asm/irq.h>
 #include <asm/io.h>
-#include <asm/arch/cpu.h>
 
 #define INTC_REVISION	0x0000
 #define INTC_SYSCONFIG	0x0010
@@ -117,10 +116,12 @@ void __init omap_init_irq(void)
 	for (i = 0; i < ARRAY_SIZE(irq_banks); i++) {
 		struct omap_irq_bank *bank = irq_banks + i;
 
-		if (cpu_is_omap24xx())
+		if (cpu_is_omap24xx()) {
 			bank->base_reg = IO_ADDRESS(OMAP24XX_IC_BASE);
-		else if (cpu_is_omap34xx())
+		}
+		if (cpu_is_omap34xx()) {
 			bank->base_reg = IO_ADDRESS(OMAP34XX_IC_BASE);
+		}
 		omap_irq_bank_init_one(bank);
 
 		nr_irqs += bank->nr_irqs;

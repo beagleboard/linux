@@ -141,7 +141,7 @@ static void omap_init_i2c(void)
 	 * either don't wire up I2C, or chips that mux it differently...
 	 * it can include clocking and address info, maybe more.
 	 */
-	if (cpu_is_omap24xx()) {
+	if (cpu_class_is_omap2()) {
 		if (machine_is_omap_h4()) {
 			omap_cfg_reg(M19_24XX_I2C1_SCL);
 			omap_cfg_reg(L15_24XX_I2C1_SDA);
@@ -164,7 +164,7 @@ static inline void omap_init_i2c(void) {}
 static void omap_init_kp(void)
 {
 	/* REVISIT: 2430 keypad is on TWL4030 */
-	if (cpu_is_omap2430())
+	if (cpu_is_omap2430() || cpu_is_omap34xx())
 		return;
 
 	if (machine_is_omap_h2() || machine_is_omap_h3()) {
@@ -295,7 +295,7 @@ static void __init omap_init_mmc(void)
 	const struct omap_mmc_conf	*mmc;
 
 	/* REVISIT: 2430 has HS MMC */
-	if (cpu_is_omap2430())
+	if (cpu_is_omap2430() || cpu_is_omap34xx())
 		return;
 
 	/* NOTE:  assumes MMC was never (wrongly) enabled */
@@ -537,7 +537,7 @@ static int __init omap_init_devices(void)
 	omap_init_uwire();
 	omap_init_wdt();
 	omap_init_rng();
-	if (!cpu_is_omap2430()) {
+	if (!cpu_is_omap2430() && !cpu_is_omap34xx()) {
 		omap_init_i2c();
 	}
 	return 0;

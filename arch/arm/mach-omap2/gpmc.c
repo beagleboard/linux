@@ -22,12 +22,10 @@
 
 #undef DEBUG
 
-#ifdef CONFIG_ARCH_OMAP2420
+#if defined(CONFIG_ARCH_OMAP2420)
 #define GPMC_BASE		0x6800a000
-#endif
-
-#ifdef CONFIG_ARCH_OMAP2430
-#define GPMC_BASE		0x6E000000
+#elif defined(CONFIG_ARCH_OMAP2430) || defined(CONFIG_ARCH_OMAP3430)
+#define GPMC_BASE		0x6e000000
 #endif
 
 #define GPMC_REVISION		0x00
