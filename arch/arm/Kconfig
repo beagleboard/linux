@@ -393,7 +393,7 @@ config ARCH_OMAP
 	select GENERIC_TIME
 	select GENERIC_CLOCKEVENTS
 	help
-	  Support for TI's OMAP platform (OMAP1 and OMAP2).
+	  Support for TI's OMAP platform (OMAP1, OMAP2 and OMAP3).
 
 endchoice
 
