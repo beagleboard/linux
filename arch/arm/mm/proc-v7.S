@@ -176,6 +176,38 @@ __v7_setup:
 	mcr	p15, 0, r4, c2, c0, 1		@ load TTB1
 	mov	r10, #0x1f			@ domains 0, 1 = manager
 	mcr	p15, 0, r10, c3, c0, 0		@ load domain access register
+
+#if defined(CONFIG_ARCH_OMAP3)
+
+#ifndef CONFIG_CPU_L2CACHE_DISABLE
+	@ L2 cache is enabled in the aux control register
+	mrc	p15, 0, r0, c1, c0, 1
+	orr	r0, r0, #0x13		@ speculative+enable+no-alais protection
+	mov	r10, r12		@ r12 is this function's sp. back it up.
+	mov	r12, #0x3		@ AUXCR service
+	.word 0xE1600070		@ Call OMAP SMI monitor service
+	mov	r12, r10		@ restore r12.
+#endif
+	adr	r5, v7_crval
+	ldmia	r5, {r5, r6}
+	mrc	p15, 0, r0, c1, c0, 0	@ read control register
+	bic	r0, r0, r5		@ clear bits them
+	orr	r0, r0, r6		@ set them
+	mov	pc, lr			@ return to head.S:__ret
+
+	/*
+	 *  TAT N EV   F	H   R
+	 * .EFR M.EE .UI. ..A. .RVI Z... B... .CAM
+	 * 0xxx x0xx 11x0 01x1 0xxx x000 0111 1xxx < forced typical
+	 * r	rr   rr r rr r r	 rrr rrrr r	< always read only
+	 * .000 ..00 ..0. ..0. .011 1... .... .101 < we want
+	 */
+	.type   v7_crval, #object
+v7_crval:
+	crval   clear=0x7322f006, mmuset=0x00003805, ucset=0x00001804
+
+#else
+
 #ifndef CONFIG_CPU_L2CACHE_DISABLE
 	@ L2 cache configuration in the L2 aux control register
 	mrc	p15, 1, r10, c9, c0, 2
@@ -205,6 +237,7 @@ cr1_clear:
 	.word	0x0120c302
 cr1_set:
 	.word	0x00c0387d
+#endif
 
 __v7_setup_stack:
 	.space	4 * 11				@ 11 registers
