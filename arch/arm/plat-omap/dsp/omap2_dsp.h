@@ -36,7 +36,14 @@
 /*
  * DSP IPI registers: mapped to 0xe1000000 -- use readX(), writeX()
  */
+#ifdef CONFIG_ARCH_OMAP24XX
 #define DSP_IPI_BASE			DSP_IPI_24XX_VIRT
+#endif
+
+#ifdef CONFIG_ARCH_OMAP34XX
+#define DSP_IPI_BASE			DSP_IPI_34XX_VIRT
+#endif
+
 #define DSP_IPI_REVISION		(DSP_IPI_BASE + 0x00)
 #define DSP_IPI_SYSCONFIG		(DSP_IPI_BASE + 0x10)
 #define DSP_IPI_INDEX			(DSP_IPI_BASE + 0x40)

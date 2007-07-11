@@ -27,7 +27,7 @@
 #ifdef CONFIG_ARCH_OMAP1
 #include "omap1_dsp.h"
 #endif
-#ifdef CONFIG_ARCH_OMAP2
+#if defined(CONFIG_ARCH_OMAP2) || defined(CONFIG_ARCH_OMAP3430)
 #include "omap2_dsp.h"
 #endif
 
