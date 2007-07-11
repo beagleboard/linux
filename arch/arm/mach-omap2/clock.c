@@ -58,11 +58,15 @@ static u8 cpu_mask;
 /* Recalculate SYST_CLK */
 static void omap2_sys_clk_recalc(struct clk * clk)
 {
-	u32 div = prm_read_reg(OMAP24XX_PRCM_CLKSRC_CTRL);
-	/* Test if ext clk divided by 1 or 2 */
-	div &= (0x3 << OMAP_SYSCLKDIV_SHIFT);
-	div >>= clk->rate_offset;
-	clk->rate = (clk->parent->rate / div);
+	u32 div;
+
+	if (!cpu_is_omap34xx()) {
+		div = prm_read_reg(OMAP24XX_PRCM_CLKSRC_CTRL);
+		/* Test if ext clk divided by 1 or 2 */
+		div &= (0x3 << OMAP_SYSCLKDIV_SHIFT);
+		div >>= clk->rate_offset;
+		clk->rate = (clk->parent->rate / div);
+	}
 	propagate_rate(clk);
 }
 
@@ -1181,7 +1185,7 @@ int __init omap2_clk_init(void)
 			continue;
 		}
 
-		if ((*clkp)->flags & CLOCK_IN_OMAP243X && cpu_is_omap2430()) {
+		if ((*clkp)->flags & CLOCK_IN_OMAP243X && (cpu_is_omap2430() || cpu_is_omap34xx())) {
 			clk_register(*clkp);
 			continue;
 		}
