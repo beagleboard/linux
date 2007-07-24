@@ -346,7 +346,7 @@ static struct subsys_attribute sleep_while_idle_attr = {
 
 static struct clk *osc_ck, *emul_ck;
 
-#define CONTROL_DEVCONF		__REG32(0x48000274)
+#define CONTROL_DEVCONF		__REG32(OMAP2_CTRL_BASE + 0x274)
 
 static int omap2_fclks_active(void)
 {
