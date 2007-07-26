@@ -48,7 +48,7 @@
 #define TWL4030_MODULE_BACKUP		0x10
 #define TWL4030_MODULE_INT		0x11
 #define TWL4030_MODULE_PM_MASTER	0x12
-#define TWL4030_MODULE_PM_RECIEVER	0x13
+#define TWL4030_MODULE_PM_RECEIVER	0x13
 #define TWL4030_MODULE_RTC		0x14
 #define TWL4030_MODULE_SECURED_REG	0x15
 
@@ -105,5 +105,14 @@ int twl4030_i2c_read_u8(u8 mod_no, u8* val, u8 reg);
   */
 int twl4030_i2c_write(u8 mod_no, u8 * value, u8 reg, u8 num_bytes);
 int twl4030_i2c_read(u8 mod_no, u8 * value, u8 reg, u8 num_bytes);
+
+/*
+ * Exported TWL4030 GPIO APIs
+ */
+int twl4030_get_gpio_datain(int gpio);
+int twl4030_request_gpio(int gpio);
+int twl4030_set_gpio_edge_ctrl(int gpio, int edge);
+int twl4030_set_gpio_debounce(int gpio, int enable);
+int twl4030_free_gpio(int gpio);
 
 #endif /* End of __TWL4030_H */
