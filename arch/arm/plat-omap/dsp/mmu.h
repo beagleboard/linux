@@ -7,7 +7,7 @@
 struct omap_mmu dsp_mmu = {
 	.name		= "mmu:dsp",
 	.type		= OMAP_MMU_DSP,
-	.base		= DSP_MMU_BASE,
+	.base		= IO_ADDRESS(OMAP1510_DSP_MMU_BASE),
 	.membase	= OMAP1510_DSP_BASE,
 	.memsize	= OMAP1510_DSP_SIZE,
 	.nr_tlb_entries	= 32,
@@ -20,7 +20,7 @@ struct omap_mmu dsp_mmu = {
 struct omap_mmu dsp_mmu = {
 	.name		= "mmu:dsp",
 	.type		= OMAP_MMU_DSP,
-	.base		= DSP_MMU_BASE,
+	.base		= IO_ADDRESS(OMAP16XX_DSP_MMU_BASE),
 	.membase	= OMAP16XX_DSP_BASE,
 	.memsize	= OMAP16XX_DSP_SIZE,
 	.nr_tlb_entries	= 32,
