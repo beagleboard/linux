@@ -1453,13 +1453,6 @@ static int dsp_task_open(struct inode *inode, struct file *file)
 	}
 
  attached:
-	/* ATTACHED */
-#ifndef CONFIG_OMAP_DSP_TASK_MULTIOPEN
-	if (dev->usecount > 0) {
-		up_write(&dev->state_sem);
-		return -EBUSY;
-	}
-#endif
 	ret = proc_list_add(&dev->proc_list_lock,
 			    &dev->proc_list, current, file);
 	if (ret)
