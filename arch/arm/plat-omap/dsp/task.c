@@ -44,8 +44,6 @@
 #include "ipbuf.h"
 #include "proclist.h"
 
-#define is_aligned(adr,align)	(!((adr)&((align)-1)))
-
 /*
  * devstate: task device state machine
  * NOTASK:	task is not attached.
@@ -493,8 +491,8 @@ static int dsp_task_config(struct dsptask *task, u8 tid)
 
 	/* mmap buffer configuration check */
 	if ((task->map_length > 0) &&
-	    ((!is_aligned((unsigned long)task->map_base, PAGE_SIZE)) ||
-	     (!is_aligned(task->map_length, PAGE_SIZE)) ||
+	    ((!ALIGN((unsigned long)task->map_base, PAGE_SIZE)) ||
+	     (!ALIGN(task->map_length, PAGE_SIZE)) ||
 	     (dsp_mem_type(task->map_base, task->map_length) != MEM_TYPE_EXTERN))) {
 		printk(KERN_ERR
 		       "omapdsp: illegal mmap buffer address(0x%p) or "
