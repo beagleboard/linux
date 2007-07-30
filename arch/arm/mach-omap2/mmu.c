@@ -43,16 +43,16 @@ static void *dspvect_page;
 static inline void
 omap2_mmu_read_tlb(struct omap_mmu *mmu, struct cam_ram_regset *cr)
 {
-	cr->cam = omap_mmu_read_reg(mmu, MMU_READ_CAM);
-	cr->ram = omap_mmu_read_reg(mmu, MMU_READ_RAM);
+	cr->cam = omap_mmu_read_reg(mmu, OMAP_MMU_READ_CAM);
+	cr->ram = omap_mmu_read_reg(mmu, OMAP_MMU_READ_RAM);
 }
 
 static inline void
 omap2_mmu_load_tlb(struct omap_mmu *mmu, struct cam_ram_regset *cr)
 {
 	/* Set the CAM and RAM entries */
-	omap_mmu_write_reg(mmu, cr->cam | OMAP_MMU_CAM_V, MMU_CAM);
-	omap_mmu_write_reg(mmu, cr->ram, MMU_RAM);
+	omap_mmu_write_reg(mmu, cr->cam | OMAP_MMU_CAM_V, OMAP_MMU_CAM);
+	omap_mmu_write_reg(mmu, cr->ram, OMAP_MMU_RAM);
 }
 
 static void exmap_setup_iomap_page(struct omap_mmu *mmu, unsigned long phys,
@@ -146,6 +146,11 @@ static void exmap_clear_preserved_entries(struct omap_mmu *mmu)
 
 static int omap2_mmu_startup(struct omap_mmu *mmu)
 {
+	u32 rev = omap_mmu_read_reg(mmu, OMAP_MMU_REVISION);
+
+	pr_info("MMU: OMAP %s MMU initialized (HW v%d.%d)\n", mmu->name,
+		(rev >> 4) & 0xf, rev & 0xf);
+
 	dspvect_page = (void *)__get_dma_pages(GFP_KERNEL, 0);
 	if (dspvect_page == NULL) {
 		printk(KERN_ERR "MMU: failed to allocate memory "
@@ -155,7 +160,7 @@ static int omap2_mmu_startup(struct omap_mmu *mmu)
 
 	mmu->nr_exmap_preserved = exmap_setup_preserved_entries(mmu);
 
-	omap_mmu_write_reg(mmu, MMU_IRQ_MASK, MMU_IRQENABLE);
+	omap_mmu_write_reg(mmu, MMU_IRQ_MASK, OMAP_MMU_IRQENABLE);
 
 	return 0;
 }
@@ -284,8 +289,8 @@ static void omap2_mmu_interrupt(struct omap_mmu *mmu)
 {
 	unsigned long status, va;
 
-	status = MMU_IRQ_MASK & omap_mmu_read_reg(mmu, MMU_IRQSTATUS);
-	va = omap_mmu_read_reg(mmu, MMU_FAULT_AD);
+	status = MMU_IRQ_MASK & omap_mmu_read_reg(mmu, OMAP_MMU_IRQSTATUS);
+	va = omap_mmu_read_reg(mmu, OMAP_MMU_FAULT_AD);
 
 	pr_info("%s\n", (status & OMAP_MMU_IRQ_MULTIHITFAULT)		? "multi hit":"");
 	pr_info("%s\n", (status & OMAP_MMU_IRQ_TABLEWALKFAULT)		? "table walk fault":"");
@@ -295,7 +300,7 @@ static void omap2_mmu_interrupt(struct omap_mmu *mmu)
 	pr_info("fault address = %#08lx\n", va);
 
 	omap_mmu_disable(mmu);
-	omap_mmu_write_reg(mmu, status, MMU_IRQSTATUS);
+	omap_mmu_write_reg(mmu, status, OMAP_MMU_IRQSTATUS);
 
 	mmu->fault_address = va;
 	schedule_work(&mmu->irq_work);

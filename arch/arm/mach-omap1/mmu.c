@@ -86,8 +86,7 @@ static int omap1_mmu_mem_enable(struct omap_mmu *mmu, void *addr)
 	if (omap_mmu_internal_memory(mmu, addr)) {
 		if (intmem_usecount++ == 0)
 			ret = omap_dsp_request_mem();
-	} else
-		ret = -EIO;
+	}
 
 	return ret;
 }

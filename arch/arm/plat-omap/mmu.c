@@ -524,7 +524,7 @@ static int omap_mmu_cam_ram_valid(struct omap_mmu *mmu,
 static inline void
 omap_mmu_get_tlb_lock(struct omap_mmu *mmu, struct omap_mmu_tlb_lock *tlb_lock)
 {
-	unsigned long lock = omap_mmu_read_reg(mmu, MMU_LOCK);
+	unsigned long lock = omap_mmu_read_reg(mmu, OMAP_MMU_LOCK);
 	int mask;
 
 	mask = (mmu->type == OMAP_MMU_CAMERA) ?
@@ -541,17 +541,18 @@ omap_mmu_set_tlb_lock(struct omap_mmu *mmu, struct omap_mmu_tlb_lock *lock)
 {
 	omap_mmu_write_reg(mmu,
 			   (lock->base << MMU_LOCK_BASE_SHIFT) |
-			   (lock->victim << MMU_LOCK_VICTIM_SHIFT), MMU_LOCK);
+			   (lock->victim << MMU_LOCK_VICTIM_SHIFT),
+			   OMAP_MMU_LOCK);
 }
 
 static inline void omap_mmu_flush(struct omap_mmu *mmu)
 {
-	omap_mmu_write_reg(mmu, 0x1, MMU_FLUSH_ENTRY);
+	omap_mmu_write_reg(mmu, 0x1, OMAP_MMU_FLUSH_ENTRY);
 }
 
 static inline void omap_mmu_ldtlb(struct omap_mmu *mmu)
 {
-	omap_mmu_write_reg(mmu, 0x1, MMU_LD_TLB);
+	omap_mmu_write_reg(mmu, 0x1, OMAP_MMU_LD_TLB);
 }
 
 void omap_mmu_read_tlb(struct omap_mmu *mmu, struct omap_mmu_tlb_lock *lock,
@@ -672,7 +673,7 @@ static void omap_mmu_gflush(struct omap_mmu *mmu)
 	clk_enable(mmu->clk);
 	omap_dsp_request_mem();
 
-	omap_mmu_write_reg(mmu, 0x1, MMU_GFLUSH);
+	omap_mmu_write_reg(mmu, 0x1, OMAP_MMU_GFLUSH);
 	lock.base = lock.victim = mmu->nr_exmap_preserved;
 	omap_mmu_set_tlb_lock(mmu, &lock);
 
@@ -1016,35 +1017,39 @@ EXPORT_SYMBOL_GPL(exmap_clear_mem_page);
 
 static void omap_mmu_reset(struct omap_mmu *mmu)
 {
+#if defined(CONFIG_ARCH_OMAP2) /* FIXME */
 	int i;
 
-	omap_mmu_write_reg(mmu, 0x2, MMU_SYSCONFIG);
+	omap_mmu_write_reg(mmu, 0x2, OMAP_MMU_SYSCONFIG);
 
 	for (i = 0; i < 10000; i++)
-		if (likely(omap_mmu_read_reg(mmu, MMU_SYSSTATUS) & 0x1))
+		if (likely(omap_mmu_read_reg(mmu, OMAP_MMU_SYSSTATUS) & 0x1))
 			break;
+#endif
 }
 
 void omap_mmu_disable(struct omap_mmu *mmu)
 {
-	omap_mmu_write_reg(mmu, 0x00, MMU_CNTL);
+	omap_mmu_write_reg(mmu, 0x00, OMAP_MMU_CNTL);
 }
 EXPORT_SYMBOL_GPL(omap_mmu_disable);
 
 void omap_mmu_enable(struct omap_mmu *mmu, int reset)
 {
-	u32 val = MMU_CNTL_MMUENABLE;
-	u32 pa = (u32)virt_to_phys(mmu->twl_mm->pgd);
+	u32 val = OMAP_MMU_CNTL_MMU_EN;
 
 	if (likely(reset))
 		omap_mmu_reset(mmu);
-
+#if defined(CONFIG_ARCH_OMAP2) /* FIXME */
 	if (mmu->ops->pte_get_attr) {
-		omap_mmu_write_reg(mmu, pa, MMU_TTB);
+		omap_mmu_write_reg(mmu, (u32)virt_to_phys(mmu->twl_mm->pgd),
+				   OMAP_MMU_TTB);
 		val |= MMU_CNTL_TWLENABLE;
 	}
-
-	omap_mmu_write_reg(mmu, val, MMU_CNTL);
+#else
+	val |= OMAP_MMU_CNTL_RESET_SW;
+#endif
+	omap_mmu_write_reg(mmu, val, OMAP_MMU_CNTL);
 }
 EXPORT_SYMBOL_GPL(omap_mmu_enable);
 
@@ -1472,10 +1477,6 @@ int omap_mmu_register(struct omap_mmu *mmu)
 		goto err_dev_register;
 
 	init_rwsem(&mmu->exmap_sem);
-
-	ret = omap_mmu_read_reg(mmu, MMU_REVISION);
-	printk(KERN_NOTICE "MMU: OMAP %s MMU initialized (HW v%d.%d)\n",
-	       mmu->name, (ret >> 4) & 0xf, ret & 0xf);
 
 	ret = omap_mmu_init(mmu);
 	if (unlikely(ret))
