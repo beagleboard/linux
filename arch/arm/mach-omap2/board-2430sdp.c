@@ -52,6 +52,7 @@
 #define TS_GPIO                 24
 
 #define TWL4030_MSECURE_GPIO	118
+#define SECONDARY_LCD_GPIO	147
 
 static struct mtd_partition sdp2430_partitions[] = {
 	/* bootloader (U-Boot, etc) in first sector */
@@ -441,6 +442,10 @@ static void __init omap_2430sdp_init(void)
 	spi_register_board_info(sdp2430_spi_board_info,
 				ARRAY_SIZE(sdp2430_spi_board_info));
 	ads7846_dev_init();
+
+	/* turn off secondary LCD backlight */
+	omap_set_gpio_direction(SECONDARY_LCD_GPIO, 0);
+	omap_set_gpio_dataout(SECONDARY_LCD_GPIO, 0);
 }
 
 static void __init omap_2430sdp_map_io(void)
