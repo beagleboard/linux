@@ -685,12 +685,10 @@ int omap_mmu_load_pte_entry(struct omap_mmu *mmu,
 			    struct omap_mmu_tlb_entry *entry)
 {
 	int ret = -1;
-	if ((!entry->prsvd) && (mmu->ops->pte_get_attr)) {
-		/*XXX use PG_flag for prsvd */
-		ret = omap_mmu_load_pte(mmu, entry);
-		if (ret)
-			return ret;
-	}
+	/*XXX use PG_flag for prsvd */
+	ret = omap_mmu_load_pte(mmu, entry);
+	if (ret)
+		return ret;
 	if (entry->tlb)
 		ret = omap_mmu_load_tlb_entry(mmu, entry);
 	return ret;
@@ -702,8 +700,7 @@ int omap_mmu_clear_pte_entry(struct omap_mmu *mmu, unsigned long vadr)
 	int ret = omap_mmu_clear_tlb_entry(mmu, vadr);
 	if (ret)
 		return ret;
-	if (mmu->ops->pte_get_attr)
-		omap_mmu_clear_pte(mmu, vadr);
+	omap_mmu_clear_pte(mmu, vadr);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(omap_mmu_clear_pte_entry);
@@ -1036,17 +1033,18 @@ EXPORT_SYMBOL_GPL(omap_mmu_disable);
 
 void omap_mmu_enable(struct omap_mmu *mmu, int reset)
 {
-	u32 val = OMAP_MMU_CNTL_MMU_EN;
+	u32 val = OMAP_MMU_CNTL_MMU_EN | MMU_CNTL_TWLENABLE;
 
 	if (likely(reset))
 		omap_mmu_reset(mmu);
 #if defined(CONFIG_ARCH_OMAP2) /* FIXME */
-	if (mmu->ops->pte_get_attr) {
-		omap_mmu_write_reg(mmu, (u32)virt_to_phys(mmu->twl_mm->pgd),
-				   OMAP_MMU_TTB);
-		val |= MMU_CNTL_TWLENABLE;
-	}
+	omap_mmu_write_reg(mmu, (u32)virt_to_phys(mmu->twl_mm->pgd),
+			   OMAP_MMU_TTB);
 #else
+	omap_mmu_write_reg(mmu, (u32)virt_to_phys(mmu->twl_mm->pgd) & 0xffff,
+			   OMAP_MMU_TTB_L);
+	omap_mmu_write_reg(mmu, (u32)virt_to_phys(mmu->twl_mm->pgd) >> 16,
+			   OMAP_MMU_TTB_H);
 	val |= OMAP_MMU_CNTL_RESET_SW;
 #endif
 	omap_mmu_write_reg(mmu, val, OMAP_MMU_CNTL);
@@ -1463,13 +1461,10 @@ int omap_mmu_register(struct omap_mmu *mmu)
 	if (!mmu->exmap_tbl)
 		return -ENOMEM;
 
-	if (mmu->ops->pte_get_attr) {
-		struct mm_struct *mm =  mm_alloc();
-		if (!mm) {
-			ret = -ENOMEM;
-			goto err_mm_alloc;
-		}
-		mmu->twl_mm = mm;
+	mmu->twl_mm = mm_alloc();
+	if (!mmu->twl_mm) {
+		ret = -ENOMEM;
+		goto err_mm_alloc;
 	}
 
 	ret = device_register(&mmu->dev);
@@ -1532,11 +1527,9 @@ void omap_mmu_unregister(struct omap_mmu *mmu)
 	kfree(mmu->exmap_tbl);
 	mmu->exmap_tbl = NULL;
 
-	if (mmu->ops->pte_get_attr) {
-		if (mmu->twl_mm) {
-			__mmdrop(mmu->twl_mm);
-			mmu->twl_mm = NULL;
-		}
+	if (mmu->twl_mm) {
+		__mmdrop(mmu->twl_mm);
+		mmu->twl_mm = NULL;
 	}
 
 	device_unregister(&mmu->dev);

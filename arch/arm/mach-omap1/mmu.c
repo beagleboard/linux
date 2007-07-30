@@ -1,5 +1,5 @@
 /*
- * linux/arch/arm/mach-omap2/mmu.c
+ * linux/arch/arm/mach-omap1/mmu.c
  *
  * Support for non-MPU OMAP1 MMUs.
  *
@@ -329,6 +329,14 @@ static void omap1_mmu_interrupt(struct omap_mmu *mmu)
 	schedule_work(&mmu->irq_work);
 }
 
+static pgprot_t omap1_mmu_pte_get_attr(struct omap_mmu_tlb_entry *entry)
+{
+	/* 4KB AP position as default */
+	u32 attr = entry->ap >> 4;
+	attr <<= ((entry->pgsz == OMAP_MMU_CAM_PAGESIZE_1MB) ? 6:0);
+	return attr;
+}
+
 struct omap_mmu_ops omap1_mmu_ops = {
 	.startup	= omap1_mmu_startup,
 	.shutdown	= omap1_mmu_shutdown,
@@ -341,5 +349,6 @@ struct omap_mmu_ops omap1_mmu_ops = {
 	.cam_ram_alloc	= omap1_mmu_cam_ram_alloc,
 	.cam_ram_valid	= omap1_mmu_cam_ram_valid,
 	.interrupt	= omap1_mmu_interrupt,
+	.pte_get_attr	= omap1_mmu_pte_get_attr,
 };
 EXPORT_SYMBOL_GPL(omap1_mmu_ops);
