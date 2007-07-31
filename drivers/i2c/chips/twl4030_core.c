@@ -669,7 +669,7 @@ static int unprotect_pm_master(void)
 	return e;
 }
 
-int power_companion_init(void)
+static int power_companion_init(void)
 {
 	struct clk *osc;
 	u32 rate, ctrl = HFCLK_FREQ_26_MHZ;
