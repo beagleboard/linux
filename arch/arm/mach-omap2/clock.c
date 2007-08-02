@@ -134,6 +134,20 @@ static void omap2_followparent_recalc(struct clk *clk)
 	followparent_recalc(clk);
 }
 
+/*
+ * Used for clocks that have the same value as the parent clock,
+ * divided by some factor
+ */
+static void omap2_fixed_divisor_recalc(struct clk *clk)
+{
+	WARN_ON(!clk->fixed_div);
+
+	clk->rate = clk->parent->rate / clk->fixed_div;
+
+	if (clk->flags & RATE_PROPAGATES)
+		propagate_rate(clk);
+}
+
 static void omap2_propagate_rate(struct clk * clk)
 {
 	if (!(clk->flags & RATE_FIXED))
@@ -400,39 +414,27 @@ static void omap2_dpll_recalc(struct clk *clk)
  */
 static void omap2_clksel_recalc(struct clk * clk)
 {
-	u32 fixed = 0, div = 0;
-	u32 clksel1_core;
-
-	if (clk == &iva1_mpu_int_ifck) {
-		div = 2;
-		fixed = 1;
-	}
+	u32 clksel1_core, div = 0;
 
 	clksel1_core = cm_read_mod_reg(CORE_MOD, CM_CLKSEL1);
 
 	if ((clk == &dss1_fck) &&
 	    (clksel1_core & OMAP24XX_CLKSEL_DSS1_MASK) == 0) {
-		clk->rate = sys_ck.rate;
-		return;
+		div = 1;
 	}
 
 	if ((clk == &vlynq_fck) && cpu_is_omap2420() &&
 	    (clksel1_core & OMAP2420_CLKSEL_VLYNQ_MASK) == CLKSEL_VLYNQ_96MHZ) {
-		clk->rate = func_96m_ck.rate;
+		div = 1;
+	}
+
+	div = omap2_clksel_get_divisor(clk);
+	if (div == 0)
 		return;
-	}
 
-	if (!fixed) {
-		div = omap2_clksel_get_divisor(clk);
-		if (div == 0)
-			return;
-	}
-
-	if (div != 0) {
-		if (unlikely(clk->rate == clk->parent->rate / div))
-			return;
-		clk->rate = clk->parent->rate / div;
-	}
+	if (unlikely(clk->rate == clk->parent->rate / div))
+		return;
+	clk->rate = clk->parent->rate / div;
 
 	if (unlikely(clk->flags & RATE_PROPAGATES))
 		propagate_rate(clk);
@@ -832,12 +834,13 @@ static int omap2_clk_set_rate(struct clk *clk, unsigned long rate)
 /* Converts encoded control register address into a full address */
 static u32 omap2_clksel_get_src_field(void __iomem **src_addr,
 				      struct clk *src_clk, u32 *field_mask,
-				      struct clk *clk)
+				      struct clk *clk, u32 *parent_div)
 {
 	u32 val = ~0, mask = 0;
 	void __iomem *src_reg_addr = 0;
 	u32 reg_offset;
 
+	*parent_div = 0;
 	reg_offset = clk->src_offset;
 
 	/* Find target control register.*/
@@ -854,21 +857,25 @@ static u32 omap2_clksel_get_src_field(void __iomem **src_addr,
 				WARN_ON(1); /* unknown src_clk */
 		} else if (reg_offset == OMAP24XX_CLKSEL_DSS1_SHIFT) {
 			mask = OMAP24XX_CLKSEL_DSS1_MASK;
-			if (src_clk == &sys_ck)
+			if (src_clk == &sys_ck) {
 				val = CLKSEL_DSS1_SYSCLK;
-			else if (src_clk == &core_ck)	/* divided clock */
-				val = CLKSEL_DSS1_CORECLK_16;	/* rate needs fixing */
-			else
+			} else if (src_clk == &core_ck) {
+				val = CLKSEL_DSS1_CORECLK_16;
+				*parent_div = 16;
+			} else {
 				WARN_ON(1); /* unknown src clk */
+			}
 		} else if ((reg_offset == OMAP2420_CLKSEL_VLYNQ_SHIFT) &&
 			   cpu_is_omap2420()) {
 			mask = OMAP2420_CLKSEL_VLYNQ_MASK;
-			if (src_clk == &func_96m_ck)
+			if (src_clk == &func_96m_ck) {
 				val = CLKSEL_VLYNQ_96MHZ;
-			else if (src_clk == &core_ck)
+			} else if (src_clk == &core_ck) {
 				val = CLKSEL_VLYNQ_CORECLK_16;
-			else
+				*parent_div = 16;
+			} else {
 				WARN_ON(1); /* unknown src_clk */
+			}
 		} else {
 			WARN_ON(1); /* unknown reg_offset */
 		}
@@ -974,7 +981,7 @@ static u32 omap2_clksel_get_src_field(void __iomem **src_addr,
 static int omap2_clk_set_parent(struct clk *clk, struct clk *new_parent)
 {
 	void __iomem *src_addr;
-	u32 field_val, field_mask, reg_val;
+	u32 field_val, field_mask, reg_val, parent_div;
 
 	if (unlikely(clk->flags & CONFIG_PARTICIPANT))
 		return -EINVAL;
@@ -983,7 +990,7 @@ static int omap2_clk_set_parent(struct clk *clk, struct clk *new_parent)
 		return -EINVAL;
 
 	field_val = omap2_clksel_get_src_field(&src_addr, new_parent,
-					       &field_mask, clk);
+					       &field_mask, clk, &parent_div);
 	if (src_addr == 0)
 		return -EINVAL;
 
@@ -1001,17 +1008,17 @@ static int omap2_clk_set_parent(struct clk *clk, struct clk *new_parent)
 			      OMAP24XX_PRCM_CLKCFG_CTRL);
 		wmb();
 	}
+
 	if (clk->usecount > 0)
 		_omap2_clk_enable(clk);
 
 	clk->parent = new_parent;
 
 	/* SRC_RATE_SEL_MASK clocks follow their parents rates.*/
-	if ((new_parent == &core_ck) &&
-	    (clk == &dss1_fck || clk == &vlynq_fck))
-		clk->rate = new_parent->rate / 0x10;
-	else
-		clk->rate = new_parent->rate;
+	clk->rate = new_parent->rate;
+
+	if (parent_div > 0)
+		clk->rate /= parent_div;
 
 	if (unlikely(clk->flags & RATE_PROPAGATES))
 		propagate_rate(clk);

@@ -34,6 +34,7 @@ static void omap2_sys_clk_recalc(struct clk * clk);
 static u32 omap2_clksel_to_divisor(u32 div_sel, u32 field_val);
 static u32 omap2_clksel_get_divisor(struct clk *clk);
 static void omap2_dpll_recalc(struct clk *clk);
+static void omap2_fixed_divisor_recalc(struct clk *clk);
 
 #define RATE_IN_242X	(1 << 0)
 #define RATE_IN_243X	(1 << 1)
@@ -704,11 +705,10 @@ static struct clk func_48m_ck = {
 static struct clk func_12m_ck = {
 	.name		= "func_12m_ck",
 	.parent		= &func_48m_ck,
-	.rate		= 12000000,
+	.fixed_div	= 4,
 	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X |
-				RATE_FIXED | RATE_PROPAGATES |
-				PARENT_CONTROLS_CLOCK,
-	.recalc		= &omap2_propagate_rate,
+				RATE_PROPAGATES | PARENT_CONTROLS_CLOCK,
+	.recalc		= &omap2_fixed_divisor_recalc,
 };
 
 /* Secure timer, only available in secure mode */
@@ -848,7 +848,8 @@ static struct clk iva1_mpu_int_ifck = {
 	.flags		= CLOCK_IN_OMAP242X,
 	.enable_reg	= OMAP_CM_REGADDR(OMAP24XX_DSP_MOD, OMAP24XX_CM_FCLKEN),
 	.enable_bit	= OMAP2420_EN_IVA_MPU_SHIFT,
-	.recalc		= &omap2_clksel_recalc,
+	.fixed_div	= 2,
+	.recalc		= &omap2_fixed_divisor_recalc,
 };
 
 /*
