@@ -88,6 +88,8 @@ extern int clk_get_usecount(struct clk *clk);
 #define CLOCK_IN_OMAP242X	(1 << 25)
 #define CLOCK_IN_OMAP243X	(1 << 26)
 #define CLOCK_IN_OMAP343X	(1 << 27)
+#define PARENT_CONTROLS_CLOCK	(1 << 28)
+
 
 
 /* CM_CLKSEL2_PLL.CORE_CLK_SRC options (24XX) */

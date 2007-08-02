@@ -122,9 +122,6 @@ static void omap2_clk_fixed_enable(struct clk *clk)
 {
 	u32 cval, i=0;
 
-	if (clk->enable_bit == PARENT_CONTROLS_CLOCK)	/* Parent will do it */
-		return;
-
 	cval = cm_read_mod_reg(PLL_MOD, CM_CLKEN);
 
 	if ((cval & (0x3 << clk->enable_bit)) == (0x3 << clk->enable_bit))
@@ -197,7 +194,7 @@ static int _omap2_clk_enable(struct clk * clk)
 {
 	u32 regval32;
 
-	if (clk->flags & ALWAYS_ENABLED)
+	if (clk->flags & (ALWAYS_ENABLED | PARENT_CONTROLS_CLOCK))
 		return 0;
 
 	if (unlikely(clk == &osc_ck)) {
@@ -211,7 +208,7 @@ static int _omap2_clk_enable(struct clk * clk)
 		return 0;
 	}
 
-	if (clk->enable_reg == (void __iomem *)OMAP_CM_REGADDR(PLL_MOD, CM_CLKEN)) {
+	if (clk->enable_reg == OMAP_CM_REGADDR(PLL_MOD, CM_CLKEN)) {
 		omap2_clk_fixed_enable(clk);
 		return 0;
 	}
@@ -231,9 +228,6 @@ static void omap2_clk_fixed_disable(struct clk *clk)
 {
 	u32 cval;
 
-	if (clk->enable_bit == PARENT_CONTROLS_CLOCK)
-		return;		/* let parent off do it */
-
 	cval = cm_read_mod_reg(PLL_MOD, CM_CLKEN);
 	cval &= ~(0x3 << clk->enable_bit);
 	cm_write_mod_reg(cval, PLL_MOD, CM_CLKEN);
@@ -244,6 +238,9 @@ static void _omap2_clk_disable(struct clk *clk)
 {
 	u32 regval32;
 
+	if (clk->flags & (ALWAYS_ENABLED | PARENT_CONTROLS_CLOCK))
+		return;
+
 	if (unlikely(clk == &osc_ck)) {
 		omap2_set_osc_ck(0);
 		return;
@@ -252,7 +249,7 @@ static void _omap2_clk_disable(struct clk *clk)
 	if (clk->enable_reg == 0)
 		return;
 
-	if (clk->enable_reg == (void __iomem *)OMAP_CM_REGADDR(PLL_MOD, CM_CLKEN)) {
+	if (clk->enable_reg == OMAP_CM_REGADDR(PLL_MOD, CM_CLKEN)) {
 		omap2_clk_fixed_disable(clk);
 		return;
 	}

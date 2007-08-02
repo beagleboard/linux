@@ -34,9 +34,6 @@ static void omap2_sys_clk_recalc(struct clk * clk);
 static u32 omap2_clksel_to_divisor(u32 div_sel, u32 field_val);
 static u32 omap2_clksel_get_divisor(struct clk *clk);
 
-/* REVISIT: should use a clock flag for this, not a magic number */
-#define PARENT_CONTROLS_CLOCK	0xff
-
 #define RATE_IN_242X	(1 << 0)
 #define RATE_IN_243X	(1 << 1)
 #define RATE_IN_343X	(1 << 2)
@@ -667,10 +664,9 @@ static struct clk func_54m_ck = {
 	.parent		= &apll54_ck,	/* can also be alt_clk */
 	.rate		= 54000000,
 	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X |
-				RATE_FIXED | CM_PLL_SEL1 | RATE_PROPAGATES,
+				RATE_FIXED | CM_PLL_SEL1 | RATE_PROPAGATES |
+				PARENT_CONTROLS_CLOCK,
 	.src_offset	= OMAP24XX_54M_SOURCE_SHIFT,
-	.enable_reg	= OMAP_CM_REGADDR(PLL_MOD, CM_CLKEN),
-	.enable_bit	= PARENT_CONTROLS_CLOCK,
 	.recalc		= &omap2_propagate_rate,
 };
 
@@ -687,9 +683,8 @@ static struct clk func_96m_ck = {
 	.parent		= &apll96_ck,
 	.rate		= 96000000,
 	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X |
-				RATE_FIXED | RATE_PROPAGATES,
-	.enable_reg	= OMAP_CM_REGADDR(PLL_MOD, CM_CLKEN),
-	.enable_bit	= PARENT_CONTROLS_CLOCK,
+				RATE_FIXED | RATE_PROPAGATES |
+				PARENT_CONTROLS_CLOCK,
 	.recalc		= &omap2_propagate_rate,
 };
 
@@ -698,10 +693,9 @@ static struct clk func_48m_ck = {
 	.parent		= &apll96_ck,	 /* 96M or Alt */
 	.rate		= 48000000,
 	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X |
-				RATE_FIXED | CM_PLL_SEL1 | RATE_PROPAGATES,
+				RATE_FIXED | CM_PLL_SEL1 | RATE_PROPAGATES |
+				PARENT_CONTROLS_CLOCK,
 	.src_offset	= OMAP24XX_48M_SOURCE_SHIFT,
-	.enable_reg	= OMAP_CM_REGADDR(PLL_MOD, CM_CLKEN),
-	.enable_bit	= PARENT_CONTROLS_CLOCK,
 	.recalc		= &omap2_propagate_rate,
 };
 
@@ -710,10 +704,9 @@ static struct clk func_12m_ck = {
 	.parent		= &func_48m_ck,
 	.rate		= 12000000,
 	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X |
-				RATE_FIXED | RATE_PROPAGATES,
+				RATE_FIXED | RATE_PROPAGATES |
+				PARENT_CONTROLS_CLOCK,
 	.recalc		= &omap2_propagate_rate,
-	.enable_reg	= OMAP_CM_REGADDR(PLL_MOD, CM_CLKEN),
-	.enable_bit	= PARENT_CONTROLS_CLOCK,
 };
 
 /* Secure timer, only available in secure mode */
