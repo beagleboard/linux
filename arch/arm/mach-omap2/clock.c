@@ -469,15 +469,12 @@ static u32 omap2_clksel_round_rate(struct clk *tclk, u32 target_rate,
 static long omap2_clk_round_rate(struct clk *clk, unsigned long rate)
 {
 	u32 new_div = 0;
-	int valid_rate;
 
 	if (clk->flags & RATE_FIXED)
 		return clk->rate;
 
-	if (clk->flags & RATE_CKCTL) {
-		valid_rate = omap2_clksel_round_rate(clk, rate, &new_div);
-		return valid_rate;
-	}
+	if (clk->flags & RATE_CKCTL)
+		return omap2_clksel_round_rate(clk, rate, &new_div);
 
 	if (clk->round_rate != 0)
 		return clk->round_rate(clk, rate);
