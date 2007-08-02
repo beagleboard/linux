@@ -960,6 +960,7 @@ static struct clk gfx_ick = {
  *	CLOCKS:
  *		MDM_OSC_CLK
  *		MDM_ICLK
+ * These clocks are usable in chassis mode only.
  */
 static struct clk mdm_ick = {		/* used both as a ick and fck */
 	.name		= "mdm_ick",
@@ -974,9 +975,8 @@ static struct clk mdm_ick = {		/* used both as a ick and fck */
 
 static struct clk mdm_osc_ck = {
 	.name		= "mdm_osc_ck",
-	.rate		= 26000000,
 	.parent		= &osc_ck,
-	.flags		= CLOCK_IN_OMAP243X | RATE_FIXED,
+	.flags		= CLOCK_IN_OMAP243X,
 	.enable_reg	= OMAP_CM_REGADDR(OMAP2430_MDM_MOD, OMAP24XX_CM_FCLKEN),
 	.enable_bit	= OMAP2430_EN_OSC_SHIFT,
 	.recalc		= &omap2_followparent_recalc,
