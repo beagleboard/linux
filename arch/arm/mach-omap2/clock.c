@@ -218,7 +218,7 @@ static int _omap2_clk_enable(struct clk * clk)
 	if (unlikely(clk->enable_reg == 0)) {
 		printk(KERN_ERR "clock.c: Enable for %s without enable code\n",
 		       clk->name);
-		return 0;
+		return -EINVAL;
 	}
 
 	if (clk->enable_reg == OMAP_CM_REGADDR(PLL_MOD, CM_CLKEN)) {
@@ -259,8 +259,15 @@ static void _omap2_clk_disable(struct clk *clk)
 		return;
 	}
 
-	if (clk->enable_reg == 0)
+	if (clk->enable_reg == 0) {
+		/*
+		 * 'Independent' here refers to a clock which is not
+		 * controlled by its parent.
+		 */
+		printk(KERN_ERR "clock: clk_disable called on independent "
+		       "clock %s which has no enable_reg\n", clk->name);
 		return;
+	}
 
 	if (clk->enable_reg == OMAP_CM_REGADDR(PLL_MOD, CM_CLKEN)) {
 		omap2_clk_fixed_disable(clk);

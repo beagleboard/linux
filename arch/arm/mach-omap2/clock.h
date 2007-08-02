@@ -630,7 +630,8 @@ static struct clk dpll_ck = {
 	.name		= "dpll_ck",
 	.parent		= &sys_ck,		/* Can be func_32k also */
 	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X |
-				RATE_PROPAGATES | RATE_CKCTL | CM_PLL_SEL1,
+				RATE_PROPAGATES | RATE_CKCTL | CM_PLL_SEL1 |
+				ALWAYS_ENABLED,
 	.recalc		= &omap2_clksel_recalc,
 };
 
