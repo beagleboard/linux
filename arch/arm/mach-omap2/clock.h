@@ -684,14 +684,6 @@ static struct clk core_ck = {
 	.recalc		= &omap2_propagate_rate,
 };
 
-static struct clk sleep_ck = {		/* sys_clk or 32k */
-	.name		= "sleep_ck",
-	.parent		= &func_32k_ck,
-	.rate		= 32000,
-	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X,
-	.recalc		= &omap2_propagate_rate,
-};
-
 static struct clk func_96m_ck = {
 	.name		= "func_96m_ck",
 	.parent		= &apll96_ck,
@@ -2017,7 +2009,6 @@ static struct clk *onchip_clks[] = {
 	/* internal prcm root sources */
 	&func_54m_ck,
 	&core_ck,
-	&sleep_ck,
 	&func_96m_ck,
 	&func_48m_ck,
 	&func_12m_ck,
