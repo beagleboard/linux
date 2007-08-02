@@ -33,6 +33,7 @@ static void omap2_clk_disable(struct clk *clk);
 static void omap2_sys_clk_recalc(struct clk * clk);
 static u32 omap2_clksel_to_divisor(u32 div_sel, u32 field_val);
 static u32 omap2_clksel_get_divisor(struct clk *clk);
+static void omap2_dpll_recalc(struct clk *clk);
 
 #define RATE_IN_242X	(1 << 0)
 #define RATE_IN_243X	(1 << 1)
@@ -632,7 +633,7 @@ static struct clk dpll_ck = {
 	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X |
 				RATE_PROPAGATES | RATE_CKCTL | CM_PLL_SEL1 |
 				ALWAYS_ENABLED,
-	.recalc		= &omap2_clksel_recalc,
+	.recalc		= &omap2_dpll_recalc,
 };
 
 static struct clk apll96_ck = {

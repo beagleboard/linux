@@ -387,6 +387,13 @@ static u32 omap2_dpll_round_rate(unsigned long target_rate)
 
 }
 
+static void omap2_dpll_recalc(struct clk *clk)
+{
+	clk->rate = omap2_get_dpll_rate(clk);
+
+	propagate_rate(clk);
+}
+
 /*
  * Used for clocks that are part of CLKSEL_xyz governed clocks.
  * REVISIT: Maybe change to use clk->enable() functions like on omap1?
@@ -395,12 +402,6 @@ static void omap2_clksel_recalc(struct clk * clk)
 {
 	u32 fixed = 0, div = 0;
 	u32 clksel1_core;
-
-	if (clk == &dpll_ck) {
-		clk->rate = omap2_get_dpll_rate(clk);
-		fixed = 1;
-		div = 0;
-	}
 
 	if (clk == &iva1_mpu_int_ifck) {
 		div = 2;
@@ -594,7 +595,7 @@ static int omap2_reprogram_dpll(struct clk * clk, unsigned long rate)
 		omap2_init_memory_params(omap2_dll_force_needed());
 		omap2_reprogram_sdrc(done_rate, 0);
 	}
-	omap2_clksel_recalc(&dpll_ck);
+	omap2_dpll_recalc(&dpll_ck);
 	ret = 0;
 
 dpll_exit:
@@ -1093,7 +1094,7 @@ static int omap2_select_table_rate(struct clk * clk, unsigned long rate)
 
 		local_irq_restore(flags);
 	}
-	omap2_clksel_recalc(&dpll_ck);
+	omap2_dpll_recalc(&dpll_ck);
 
 	return 0;
 }
