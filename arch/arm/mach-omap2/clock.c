@@ -129,11 +129,6 @@ static u32 omap2_get_dpll_rate(struct clk * tclk)
 	return dpll_clk;
 }
 
-static void omap2_followparent_recalc(struct clk *clk)
-{
-	followparent_recalc(clk);
-}
-
 /*
  * Used for clocks that have the same value as the parent clock,
  * divided by some factor
