@@ -819,7 +819,7 @@ static int omap2_clk_set_rate(struct clk *clk, unsigned long rate)
 		reg_val |= (field_val << div_off);
 		cm_write_reg(reg_val, reg);
 		wmb();
-		clk->rate = clk->parent->rate / field_val;
+		clk->rate = clk->parent->rate / new_div;
 
 		if (clk->flags & DELAYED_APP) {
 			prm_write_reg(OMAP24XX_VALID_CONFIG,
