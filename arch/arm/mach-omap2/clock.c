@@ -913,63 +913,56 @@ static u32 omap2_get_src_field(u32 *type_to_addr, u32 reg_offset,
 static int omap2_clk_set_parent(struct clk *clk, struct clk *new_parent)
 {
 	void __iomem * reg;
-	u32 src_sel, src_off, field_val, field_mask, reg_val, rate;
+	u32 src_sel, src_off, field_val, field_mask, reg_val;
 	int ret = -EINVAL;
 
 	if (unlikely(clk->flags & CONFIG_PARTICIPANT))
 		return ret;
 
-	if (clk->flags & SRC_SEL_MASK) {	/* On-chip SEL collection */
-		src_sel = (SRC_RATE_SEL_MASK & clk->flags);
-		src_off = clk->src_offset;
+	if (unlikely(!(clk->flags & SRC_SEL_MASK)))
+		return ret;
 
-		if (src_sel == 0)
-			goto set_parent_error;
+	src_sel = (SRC_RATE_SEL_MASK & clk->flags);
+	src_off = clk->src_offset;
 
-		field_val = omap2_get_src_field(&src_sel, src_off, new_parent,
-						&field_mask);
+	if (src_sel == 0)
+		return ret;
 
-		reg = (void __iomem *)src_sel;
+	field_val = omap2_get_src_field(&src_sel, src_off, new_parent,
+					&field_mask);
 
-		if (clk->usecount > 0)
-			_omap2_clk_disable(clk);
+	reg = (void __iomem *)src_sel;
 
-		/* Set new source value (previous dividers if any in effect) */
-		reg_val = __raw_readl(reg) & ~(field_mask << src_off);
-		reg_val |= (field_val << src_off);
-		__raw_writel(reg_val, reg);
+	if (clk->usecount > 0)
+		_omap2_clk_disable(clk);
+
+	/* Set new source value (previous dividers if any in effect) */
+	reg_val = __raw_readl(reg) & ~(field_mask << src_off);
+	reg_val |= (field_val << src_off);
+	__raw_writel(reg_val, reg);
+	wmb();
+
+	if (clk->flags & DELAYED_APP) {
+		prm_write_reg(OMAP24XX_VALID_CONFIG,
+			      OMAP24XX_PRCM_CLKCFG_CTRL);
 		wmb();
-
-		if (clk->flags & DELAYED_APP) {
-			prm_write_reg(OMAP24XX_VALID_CONFIG,
-				      OMAP24XX_PRCM_CLKCFG_CTRL);
-			wmb();
-		}
-		if (clk->usecount > 0)
-			_omap2_clk_enable(clk);
-
-		clk->parent = new_parent;
-
-		/* SRC_RATE_SEL_MASK clocks follow their parents rates.*/
-		if ((new_parent == &core_ck) &&
-		    (clk == &dss1_fck || clk == &vlynq_fck))
-			clk->rate = new_parent->rate / 0x10;
-		else
-			clk->rate = new_parent->rate;
-
-		if (unlikely(clk->flags & RATE_PROPAGATES))
-			propagate_rate(clk);
-
-		return 0;
-	} else {
-		clk->parent = new_parent;
-		rate = new_parent->rate;
-		omap2_clk_set_rate(clk, rate);
-		ret = 0;
 	}
+	if (clk->usecount > 0)
+		_omap2_clk_enable(clk);
 
- set_parent_error:
-	return ret;
+	clk->parent = new_parent;
+
+	/* SRC_RATE_SEL_MASK clocks follow their parents rates.*/
+	if ((new_parent == &core_ck) &&
+	    (clk == &dss1_fck || clk == &vlynq_fck))
+		clk->rate = new_parent->rate / 0x10;
+	else
+		clk->rate = new_parent->rate;
+
+	if (unlikely(clk->flags & RATE_PROPAGATES))
+		propagate_rate(clk);
+
+	return 0;
 }
 
 /* Sets basic clocks based on the specified rate */
