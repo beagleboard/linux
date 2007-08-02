@@ -823,7 +823,7 @@ static u32 omap2_get_src_field(u32 *type_to_addr, u32 reg_offset,
 			if (src_clk == &func_96m_ck)
 				val = 0;
 			else if (src_clk == &core_ck)
-				val = 0x10;
+				val = 0x10;             /* rate needs fixing */
 		}
 		break;
 	case CM_CORE_SEL2:
@@ -934,7 +934,8 @@ static int omap2_clk_set_parent(struct clk *clk, struct clk *new_parent)
 		clk->parent = new_parent;
 
 		/* SRC_RATE_SEL_MASK clocks follow their parents rates.*/
-		if ((new_parent == &core_ck) && (clk == &dss1_fck))
+		if ((new_parent == &core_ck) &&
+		    (clk == &dss1_fck || clk == &vlynq_fck))
 			clk->rate = new_parent->rate / 0x10;
 		else
 			clk->rate = new_parent->rate;
