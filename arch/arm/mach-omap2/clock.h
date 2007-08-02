@@ -1824,7 +1824,7 @@ static struct clk vlynq_fck = {
 	.enable_reg	= OMAP_CM_REGADDR(CORE_MOD, CM_FCLKEN1),
 	.enable_bit	= OMAP2420_EN_VLYNQ_SHIFT,
 	.src_offset	= 15,
-	.recalc		= &omap2_followparent_recalc,
+	.recalc		= &omap2_clksel_recalc,
 };
 
 static struct clk sdrc_ick = {

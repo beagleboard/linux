@@ -39,6 +39,10 @@
 
 #undef DEBUG
 
+/* CM_CLKSEL1_CORE.CLKSEL_VLYNQ options (2420) */
+#define CLKSEL_VLYNQ_96MHZ		0
+#define CLKSEL_VLYNQ_CORECLK_16		0x10
+
 /* SET_PERFORMANCE_LEVEL PARAMETERS */
 #define PRCM_HALF_SPEED		1
 #define PRCM_FULL_SPEED		2
@@ -355,6 +359,12 @@ static void omap2_clksel_recalc(struct clk * clk)
 	if ((clk == &dss1_fck) &&
 	    (clksel1_core & OMAP24XX_CLKSEL_DSS1_MASK) == 0) {
 		clk->rate = sys_ck.rate;
+		return;
+	}
+
+	if ((clk == &vlynq_fck) && cpu_is_omap2420() &&
+	    (clksel1_core & OMAP2420_CLKSEL_VLYNQ_MASK) == CLKSEL_VLYNQ_96MHZ) {
+		clk->rate = func_96m_ck.rate;
 		return;
 	}
 
