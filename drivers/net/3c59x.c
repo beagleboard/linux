@@ -324,7 +324,7 @@ static struct vortex_chip_info {
 	{"3c980C Python-T",
 	 PCI_USES_MASTER, IS_CYCLONE|HAS_NWAY|HAS_HWCKSM, 128, },
 	{"3cSOHO100-TX Hurricane",
-	 PCI_USES_MASTER, IS_CYCLONE|HAS_NWAY|HAS_HWCKSM, 128, },
+	 PCI_USES_MASTER, IS_CYCLONE|HAS_NWAY|HAS_HWCKSM|EXTRA_PREAMBLE, 128, },
 	{"3c555 Laptop Hurricane",
 	 PCI_USES_MASTER, IS_CYCLONE|EEPROM_8BIT|HAS_HWCKSM, 128, },
 	{"3c556 Laptop Tornado",
@@ -2886,7 +2886,6 @@ static const struct ethtool_ops vortex_ethtool_ops = {
 	.set_settings           = vortex_set_settings,
 	.get_link               = ethtool_op_get_link,
 	.nway_reset             = vortex_nway_reset,
-	.get_perm_addr		= ethtool_op_get_perm_addr,
 };
 
 #ifdef CONFIG_PCI

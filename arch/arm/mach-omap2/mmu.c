@@ -30,6 +30,7 @@
 #include <linux/device.h>
 #include <linux/mm.h>
 #include <linux/interrupt.h>
+#include <linux/err.h>
 #include "mmu.h"
 #include <asm/arch/mmu.h>
 #include <asm/tlbflush.h>

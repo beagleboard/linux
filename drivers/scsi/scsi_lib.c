@@ -654,7 +654,7 @@ void scsi_run_host_queues(struct Scsi_Host *shost)
 static struct scsi_cmnd *scsi_end_request(struct scsi_cmnd *cmd, int uptodate,
 					  int bytes, int requeue)
 {
-	request_queue_t *q = cmd->device->request_queue;
+	struct request_queue *q = cmd->device->request_queue;
 	struct request *req = cmd->request;
 	unsigned long flags;
 
@@ -818,7 +818,7 @@ void scsi_io_completion(struct scsi_cmnd *cmd, unsigned int good_bytes)
 {
 	int result = cmd->result;
 	int this_count = cmd->request_bufflen;
-	request_queue_t *q = cmd->device->request_queue;
+	struct request_queue *q = cmd->device->request_queue;
 	struct request *req = cmd->request;
 	int clear_errors = 1;
 	struct scsi_sense_hdr sshdr;
@@ -1038,7 +1038,7 @@ static int scsi_init_io(struct scsi_cmnd *cmd)
 	return BLKPREP_KILL;
 }
 
-static int scsi_issue_flush_fn(request_queue_t *q, struct gendisk *disk,
+static int scsi_issue_flush_fn(struct request_queue *q, struct gendisk *disk,
 			       sector_t *error_sector)
 {
 	struct scsi_device *sdev = q->queuedata;
@@ -1340,7 +1340,7 @@ static inline int scsi_host_queue_ready(struct request_queue *q,
 /*
  * Kill a request for a dead device
  */
-static void scsi_kill_request(struct request *req, request_queue_t *q)
+static void scsi_kill_request(struct request *req, struct request_queue *q)
 {
 	struct scsi_cmnd *cmd = req->special;
 	struct scsi_device *sdev = cmd->device;
@@ -1661,7 +1661,7 @@ int __init scsi_init_queue(void)
 
 	scsi_io_context_cache = kmem_cache_create("scsi_io_context",
 					sizeof(struct scsi_io_context),
-					0, 0, NULL, NULL);
+					0, 0, NULL);
 	if (!scsi_io_context_cache) {
 		printk(KERN_ERR "SCSI: can't init scsi io context cache\n");
 		return -ENOMEM;
@@ -1672,7 +1672,7 @@ int __init scsi_init_queue(void)
 		int size = sgp->size * sizeof(struct scatterlist);
 
 		sgp->slab = kmem_cache_create(sgp->name, size, 0,
-				SLAB_HWCACHE_ALIGN, NULL, NULL);
+				SLAB_HWCACHE_ALIGN, NULL);
 		if (!sgp->slab) {
 			printk(KERN_ERR "SCSI: can't init sg slab %s\n",
 					sgp->name);
@@ -2119,7 +2119,7 @@ EXPORT_SYMBOL(scsi_target_resume);
 int
 scsi_internal_device_block(struct scsi_device *sdev)
 {
-	request_queue_t *q = sdev->request_queue;
+	struct request_queue *q = sdev->request_queue;
 	unsigned long flags;
 	int err = 0;
 
@@ -2159,7 +2159,7 @@ EXPORT_SYMBOL_GPL(scsi_internal_device_block);
 int
 scsi_internal_device_unblock(struct scsi_device *sdev)
 {
-	request_queue_t *q = sdev->request_queue; 
+	struct request_queue *q = sdev->request_queue; 
 	int err;
 	unsigned long flags;
 	

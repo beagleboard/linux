@@ -1,8 +1,8 @@
 /*
  * LCD panel support for the Palm Tungsten E
  *
- * Original version : Romain Goyet
- * Current version : Laurent Gonzalez
+ * Original version : Romain Goyet <r.goyet@gmail.com>
+ * Current version : Laurent Gonzalez <palmte.linux@free.fr>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -21,8 +21,7 @@
 
 #include <linux/module.h>
 #include <linux/platform_device.h>
-
-#include <asm/io.h>
+#include <linux/io.h>
 
 #include <asm/arch/fpga.h>
 #include <asm/arch/omapfb.h>

@@ -176,8 +176,8 @@ static void disable_controller(void)
 
 static void reset_controller(u32 status)
 {
-	static unsigned long reset_count = 0;
-	static unsigned long last_jiffies = 0;
+	static unsigned long reset_count;
+	static unsigned long last_jiffies;
 
 	disable_controller_async();
 	reset_count++;
@@ -863,7 +863,7 @@ fail2:
 fail1:
 	clk_put(lcdc.lcd_ck);
 fail0:
-        return r;
+	return r;
 }
 
 static void omap_lcdc_cleanup(void)

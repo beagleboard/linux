@@ -1068,23 +1068,6 @@ void musb_free_request(struct usb_ep *ep, struct usb_request *req)
 	kfree(to_musb_request(req));
 }
 
-/*
- * dma-coherent memory allocation (for dma-capable endpoints)
- *
- * NOTE: the dma_*_coherent() API calls suck; most implementations are
- * (a) page-oriented, so small buffers lose big, and (b) asymmetric with
- * respect to calls with irqs disabled:  alloc is safe, free is not.
- */
-static void *musb_gadget_alloc_buffer(struct usb_ep *ep, unsigned bytes,
-			dma_addr_t * dma, gfp_t gfp_flags)
-{
-	struct musb_ep *musb_ep = to_musb_ep(ep);
-
-	return dma_alloc_coherent(musb_ep->pThis->controller,
-			bytes, dma, gfp_flags);
-}
-
-static DEFINE_SPINLOCK(buflock);
 static LIST_HEAD(buffers);
 
 struct free_record {
@@ -1093,42 +1076,6 @@ struct free_record {
 	unsigned		bytes;
 	dma_addr_t		dma;
 };
-
-static void do_free(unsigned long ignored)
-{
-	spin_lock_irq(&buflock);
-	while (!list_empty(&buffers)) {
-		struct free_record	*buf;
-
-		buf = list_entry(buffers.next, struct free_record, list);
-		list_del(&buf->list);
-		spin_unlock_irq(&buflock);
-
-		dma_free_coherent(buf->dev, buf->bytes, buf, buf->dma);
-
-		spin_lock_irq(&buflock);
-	}
-	spin_unlock_irq(&buflock);
-}
-
-static DECLARE_TASKLET(deferred_free, do_free, 0);
-
-static void musb_gadget_free_buffer(struct usb_ep *ep,
-		void *address, dma_addr_t dma, unsigned bytes)
-{
-	struct musb_ep		*musb_ep = to_musb_ep(ep);
-	struct free_record	*buf = address;
-	unsigned long		flags;
-
-	buf->dev = musb_ep->pThis->controller;
-	buf->bytes = bytes;
-	buf->dma = dma;
-
-	spin_lock_irqsave(&buflock, flags);
-	list_add_tail(&buf->list, &buffers);
-	tasklet_schedule(&deferred_free);
-	spin_unlock_irqrestore(&buflock, flags);
-}
 
 /*
  * Context: controller locked, IRQs blocked.
@@ -1423,8 +1370,6 @@ static const struct usb_ep_ops musb_ep_ops = {
 	.disable	= musb_gadget_disable,
 	.alloc_request	= musb_alloc_request,
 	.free_request	= musb_free_request,
-	.alloc_buffer	= musb_gadget_alloc_buffer,
-	.free_buffer	= musb_gadget_free_buffer,
 	.queue		= musb_gadget_queue,
 	.dequeue	= musb_gadget_dequeue,
 	.set_halt	= musb_gadget_set_halt,

@@ -1,6 +1,4 @@
 /*
- * File: drivers/video/omap/blizzard.c
- *
  * Epson Blizzard LCD controller driver
  *
  * Copyright (C) 2004-2005 Nokia Corporation

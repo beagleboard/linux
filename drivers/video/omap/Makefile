@@ -20,17 +20,12 @@ objs-y$(CONFIG_MACH_OMAP_H4) += lcd_h4.o
 objs-y$(CONFIG_MACH_OMAP_H3) += lcd_h3.o
 objs-y$(CONFIG_MACH_OMAP_H2) += lcd_h2.o
 objs-y$(CONFIG_MACH_OMAP_PALMTE) += lcd_palmte.o
-objs-y$(CONFIG_MACH_OMAP_PALMZ71) += lcd_palmz71.o
 objs-y$(CONFIG_MACH_OMAP_PALMTT) += lcd_palmtt.o
+objs-y$(CONFIG_MACH_OMAP_PALMZ71) += lcd_palmz71.o
 objs-$(CONFIG_ARCH_OMAP16XX)$(CONFIG_MACH_OMAP_INNOVATOR) += lcd_inn1610.o
 objs-$(CONFIG_ARCH_OMAP15XX)$(CONFIG_MACH_OMAP_INNOVATOR) += lcd_inn1510.o
-objs-y$(CONFIG_MACH_SX1) += lcd_sx1.o
 objs-y$(CONFIG_MACH_OMAP_OSK) += lcd_osk.o
-objs-y$(CONFIG_MACH_OMAP_PERSEUS2) += lcd_p2.o
-objs-y$(CONFIG_MACH_OMAP_APOLLON) += lcd_apollon.o
-objs-y$(CONFIG_MACH_OMAP_2430SDP) += lcd_2430sdp.o
-
-objs-y$(CONFIG_FB_OMAP_LCD_MIPID) += lcd_mipid.o
+objs-y$(CONFIG_MACH_SX1) += lcd_sx1.o
 
 omapfb-objs := $(objs-yy)
 

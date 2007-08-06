@@ -22,8 +22,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/vmalloc.h>
 #include <linux/clk.h>
-
-#include <asm/io.h>
+#include <linux/io.h>
 
 #include <asm/arch/sram.h>
 #include <asm/arch/omapfb.h>
@@ -279,7 +278,7 @@ static void setup_plane_fifo(int plane, int ext_mode)
 			        DISPC_VID2_BASE + DISPC_VID_FIFO_THRESHOLD };
 	const u32 fsz_reg[] = { DISPC_GFX_FIFO_SIZE_STATUS,
 				DISPC_VID1_BASE + DISPC_VID_FIFO_SIZE_STATUS,
-			        DISPC_VID2_BASE + DISPC_VID_FIFO_SIZE_STATUS };
+				DISPC_VID2_BASE + DISPC_VID_FIFO_SIZE_STATUS };
 	int low, high;
 	u32 l;
 
@@ -333,7 +332,7 @@ static inline int _setup_plane(int plane, int channel_out,
 	const u32 ri_reg[] = { DISPC_GFX_ROW_INC,
 				DISPC_VID1_BASE + DISPC_VID_ROW_INC,
 			        DISPC_VID2_BASE + DISPC_VID_ROW_INC };
-	const u32 vs_reg[]= { 0, DISPC_VID1_BASE + DISPC_VID_SIZE,
+	const u32 vs_reg[] = { 0, DISPC_VID1_BASE + DISPC_VID_SIZE,
 				DISPC_VID2_BASE + DISPC_VID_SIZE };
 
 	int chout_shift, burst_shift;
@@ -345,8 +344,8 @@ static inline int _setup_plane(int plane, int channel_out,
 	u32 l;
 
 #ifdef VERBOSE
-	dev_dbg(dispc.fbdev->dev, "plane %d channel %d paddr %#08x scr_width %d "
-		    "pos_x %d pos_y %d width %d height %d color_mode %d\n",
+	dev_dbg(dispc.fbdev->dev, "plane %d channel %d paddr %#08x scr_width %d"
+		    " pos_x %d pos_y %d width %d height %d color_mode %d\n",
 		    plane, channel_out, paddr, screen_width, pos_x, pos_y,
 		    width, height, color_mode);
 #endif
@@ -506,11 +505,11 @@ static int omap_dispc_set_scale(int plane,
 				int out_width, int out_height)
 {
 	const u32 at_reg[]  = { 0, DISPC_VID1_BASE + DISPC_VID_ATTRIBUTES,
-			           DISPC_VID2_BASE + DISPC_VID_ATTRIBUTES };
+				DISPC_VID2_BASE + DISPC_VID_ATTRIBUTES };
 	const u32 vs_reg[]  = { 0, DISPC_VID1_BASE + DISPC_VID_SIZE,
-				   DISPC_VID2_BASE + DISPC_VID_SIZE };
+				DISPC_VID2_BASE + DISPC_VID_SIZE };
 	const u32 fir_reg[] = { 0, DISPC_VID1_BASE + DISPC_VID_FIR,
-				   DISPC_VID2_BASE + DISPC_VID_FIR };
+				DISPC_VID2_BASE + DISPC_VID_FIR };
 
 	u32 l;
 	int fir_hinc;
@@ -713,14 +712,6 @@ static void setup_color_conv_coef(void)
 	}  ctbl_bt601_5 = {
 		    298,  409,    0,  298, -208, -100,  298,    0,  517, 0,
 	};
-#if 0
-	const struct color_conv_coef ctbl_bt601_5_full = {
-		    256,  351,    0,  256, -179,  -86,  256,    0,  443, 1,
-	}, ctbl_bt709 = {
-		    298,  459,    0,  298, -137,  -55,  298,    0,  541, 0,
-	}, ctbl_bt709_f = {
-		    256,  394,    0,  256, -118,  -47,  256,    0,  465, 1,	},
-#endif
 	const struct color_conv_coef *ct;
 #define CVAL(x, y)	(((x & 2047) << 16) | (y & 2047))
 

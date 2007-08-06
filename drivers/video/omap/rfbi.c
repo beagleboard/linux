@@ -2,7 +2,7 @@
  * OMAP2 Remote Frame Buffer Interface support
  *
  * Copyright (C) 2005 Nokia Corporation
- * Author: Juha Yrjölä <juha.yrjola@nokia.com>
+ * Author: Juha Yrjï¿½lï¿½ <juha.yrjola@nokia.com>
  *	   Imre Deak <imre.deak@nokia.com>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -25,8 +25,7 @@
 #include <linux/err.h>
 #include <linux/interrupt.h>
 #include <linux/clk.h>
-
-#include <asm/io.h>
+#include <linux/io.h>
 
 #include <asm/arch/omapfb.h>
 
@@ -498,8 +497,8 @@ static void rfbi_set_bits_per_cycle(int bpc)
 	rfbi_enable_clocks(1);
 	l = rfbi_read_reg(RFBI_CONFIG0);
 	l &= ~(0x03 << 0);
-	switch (bpc)
-	{
+
+	switch (bpc) {
 	case 8:
 		break;
 	case 16:
@@ -584,6 +583,6 @@ const struct lcd_ctrl_extif omap2_ext_if = {
 	.setup_tearsync		= rfbi_setup_tearsync,
 	.enable_tearsync	= rfbi_enable_tearsync,
 
-	.max_transmit_size	= (u32)~0,
+	.max_transmit_size	= (u32) ~0,
 };
 

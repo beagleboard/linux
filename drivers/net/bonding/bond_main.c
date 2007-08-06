@@ -187,7 +187,7 @@ static void bond_send_gratuitous_arp(struct bonding *bond);
 
 /*---------------------------- General routines -----------------------------*/
 
-const char *bond_mode_name(int mode)
+static const char *bond_mode_name(int mode)
 {
 	switch (mode) {
 	case BOND_MODE_ROUNDROBIN :
@@ -613,38 +613,20 @@ down:
 static int bond_update_speed_duplex(struct slave *slave)
 {
 	struct net_device *slave_dev = slave->dev;
-	static int (* ioctl)(struct net_device *, struct ifreq *, int);
-	struct ifreq ifr;
 	struct ethtool_cmd etool;
+	int res;
 
 	/* Fake speed and duplex */
 	slave->speed = SPEED_100;
 	slave->duplex = DUPLEX_FULL;
 
-	if (slave_dev->ethtool_ops) {
-		int res;
-
-		if (!slave_dev->ethtool_ops->get_settings) {
-			return -1;
-		}
-
-		res = slave_dev->ethtool_ops->get_settings(slave_dev, &etool);
-		if (res < 0) {
-			return -1;
-		}
-
-		goto verify;
-	}
-
-	ioctl = slave_dev->do_ioctl;
-	strncpy(ifr.ifr_name, slave_dev->name, IFNAMSIZ);
-	etool.cmd = ETHTOOL_GSET;
-	ifr.ifr_data = (char*)&etool;
-	if (!ioctl || (IOCTL(slave_dev, &ifr, SIOCETHTOOL) < 0)) {
+	if (!slave_dev->ethtool_ops || !slave_dev->ethtool_ops->get_settings)
 		return -1;
-	}
 
-verify:
+	res = slave_dev->ethtool_ops->get_settings(slave_dev, &etool);
+	if (res < 0)
+		return -1;
+
 	switch (etool.speed) {
 	case SPEED_10:
 	case SPEED_100:
@@ -690,7 +672,6 @@ static int bond_check_dev_link(struct bonding *bond, struct net_device *slave_de
 	static int (* ioctl)(struct net_device *, struct ifreq *, int);
 	struct ifreq ifr;
 	struct mii_ioctl_data *mii;
-	struct ethtool_value etool;
 
 	if (bond->params.use_carrier) {
 		return netif_carrier_ok(slave_dev) ? BMSR_LSTATUS : 0;
@@ -721,9 +702,10 @@ static int bond_check_dev_link(struct bonding *bond, struct net_device *slave_de
 		}
 	}
 
-	/* try SIOCETHTOOL ioctl, some drivers cache ETHTOOL_GLINK */
-	/* for a period of time so we attempt to get link status   */
-	/* from it last if the above MII ioctls fail...            */
+	/*
+	 * Some drivers cache ETHTOOL_GLINK for a period of time so we only
+	 * attempt to get link status from it if the above MII ioctls fail.
+	 */
 	if (slave_dev->ethtool_ops) {
 		if (slave_dev->ethtool_ops->get_link) {
 			u32 link;
@@ -734,23 +716,9 @@ static int bond_check_dev_link(struct bonding *bond, struct net_device *slave_de
 		}
 	}
 
-	if (ioctl) {
-		strncpy(ifr.ifr_name, slave_dev->name, IFNAMSIZ);
-		etool.cmd = ETHTOOL_GLINK;
-		ifr.ifr_data = (char*)&etool;
-		if (IOCTL(slave_dev, &ifr, SIOCETHTOOL) == 0) {
-			if (etool.data == 1) {
-				return BMSR_LSTATUS;
-			} else {
-				dprintk("SIOCETHTOOL shows link down\n");
-				return 0;
-			}
-		}
-	}
-
 	/*
 	 * If reporting, report that either there's no dev->do_ioctl,
-	 * or both SIOCGMIIREG and SIOCETHTOOL failed (meaning that we
+	 * or both SIOCGMIIREG and get_link failed (meaning that we
 	 * cannot report link status).  If not reporting, pretend
 	 * we're ok.
 	 */
@@ -1224,7 +1192,8 @@ static void bond_detach_slave(struct bonding *bond, struct slave *slave)
 
 /*---------------------------------- IOCTL ----------------------------------*/
 
-int bond_sethwaddr(struct net_device *bond_dev, struct net_device *slave_dev)
+static int bond_sethwaddr(struct net_device *bond_dev,
+			  struct net_device *slave_dev)
 {
 	dprintk("bond_dev=%p\n", bond_dev);
 	dprintk("slave_dev=%p\n", slave_dev);
@@ -1390,17 +1359,16 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
 		goto err_free;
 	}
 
+	res = netdev_set_master(slave_dev, bond_dev);
+	if (res) {
+		dprintk("Error %d calling netdev_set_master\n", res);
+		goto err_close;
+	}
 	/* open the slave since the application closed it */
 	res = dev_open(slave_dev);
 	if (res) {
 		dprintk("Openning slave %s failed\n", slave_dev->name);
 		goto err_restore_mac;
-	}
-
-	res = netdev_set_master(slave_dev, bond_dev);
-	if (res) {
-		dprintk("Error %d calling netdev_set_master\n", res);
-		goto err_close;
 	}
 
 	new_slave->dev = slave_dev;

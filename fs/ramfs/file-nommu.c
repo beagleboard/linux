@@ -42,7 +42,7 @@ const struct file_operations ramfs_file_operations = {
 	.write			= do_sync_write,
 	.aio_write		= generic_file_aio_write,
 	.fsync			= simple_sync_file,
-	.sendfile		= generic_file_sendfile,
+	.splice_read		= generic_file_splice_read,
 	.llseek			= generic_file_llseek,
 };
 
@@ -295,5 +295,10 @@ unsigned long ramfs_nommu_get_unmapped_area(struct file *file,
  */
 int ramfs_nommu_mmap(struct file *file, struct vm_area_struct *vma)
 {
-	return vma->vm_flags & VM_SHARED ? 0 : -ENOSYS;
+	if (!(vma->vm_flags & VM_SHARED))
+		return -ENOSYS;
+
+	file_accessed(file);
+	vma->vm_ops = &generic_file_vm_ops;
+	return 0;
 }

@@ -285,6 +285,10 @@ static int ivtv_video_command(struct ivtv *itv, struct ivtv_open_id *id,
 
 		if (ivtv_set_output_mode(itv, OUT_MPG) != OUT_MPG)
 			return -EBUSY;
+		if (test_and_clear_bit(IVTV_F_I_DEC_PAUSED, &itv->i_flags)) {
+			/* forces ivtv_set_speed to be called */
+			itv->speed = 0;
+		}
 		return ivtv_start_decoding(id, vc->play.speed);
 	}
 
@@ -309,6 +313,7 @@ static int ivtv_video_command(struct ivtv *itv, struct ivtv_open_id *id,
 		if (atomic_read(&itv->decoding) > 0) {
 			ivtv_vapi(itv, CX2341X_DEC_PAUSE_PLAYBACK, 1,
 				(vc->flags & VIDEO_CMD_FREEZE_TO_BLACK) ? 1 : 0);
+			set_bit(IVTV_F_I_DEC_PAUSED, &itv->i_flags);
 		}
 		break;
 
@@ -317,8 +322,10 @@ static int ivtv_video_command(struct ivtv *itv, struct ivtv_open_id *id,
 		if (try) break;
 		if (itv->output_mode != OUT_MPG)
 			return -EBUSY;
-		if (atomic_read(&itv->decoding) > 0) {
-			ivtv_vapi(itv, CX2341X_DEC_START_PLAYBACK, 2, 0, 0);
+		if (test_and_clear_bit(IVTV_F_I_DEC_PAUSED, &itv->i_flags)) {
+			int speed = itv->speed;
+			itv->speed = 0;
+			return ivtv_start_decoding(id, speed);
 		}
 		break;
 
@@ -1159,7 +1166,7 @@ int ivtv_v4l2_ioctls(struct ivtv *itv, struct file *filp, unsigned int cmd, void
 
 		memset(fb, 0, sizeof(*fb));
 		if (!(itv->v4l2_cap & V4L2_CAP_VIDEO_OUTPUT_OVERLAY))
-			break;
+			return -EINVAL;
 		fb->capability = V4L2_FBUF_CAP_EXTERNOVERLAY | V4L2_FBUF_CAP_CHROMAKEY |
 			V4L2_FBUF_CAP_LOCAL_ALPHA | V4L2_FBUF_CAP_GLOBAL_ALPHA;
 		fb->fmt.pixelformat = itv->osd_pixelformat;
@@ -1179,7 +1186,7 @@ int ivtv_v4l2_ioctls(struct ivtv *itv, struct file *filp, unsigned int cmd, void
 		struct v4l2_framebuffer *fb = arg;
 
 		if (!(itv->v4l2_cap & V4L2_CAP_VIDEO_OUTPUT_OVERLAY))
-			break;
+			return -EINVAL;
 		itv->osd_global_alpha_state = (fb->flags & V4L2_FBUF_FLAG_GLOBAL_ALPHA) != 0;
 		itv->osd_local_alpha_state = (fb->flags & V4L2_FBUF_FLAG_LOCAL_ALPHA) != 0;
 		itv->osd_color_key_state = (fb->flags & V4L2_FBUF_FLAG_CHROMAKEY) != 0;

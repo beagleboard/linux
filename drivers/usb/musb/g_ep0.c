@@ -814,19 +814,6 @@ static int musb_g_ep0_disable(struct usb_ep *e)
 	return -EINVAL;
 }
 
-static void *musb_g_ep0_alloc_buffer(struct usb_ep *ep, unsigned bytes,
-			dma_addr_t * dma, gfp_t gfp_flags)
-{
-	*dma = DMA_ADDR_INVALID;
-	return kmalloc(bytes, gfp_flags);
-}
-
-static void musb_g_ep0_free_buffer(struct usb_ep *ep, void *address,
-			dma_addr_t dma, unsigned bytes)
-{
-	kfree(address);
-}
-
 static int
 musb_g_ep0_queue(struct usb_ep *e, struct usb_request *r, gfp_t gfp_flags)
 {
@@ -967,8 +954,6 @@ const struct usb_ep_ops musb_g_ep0_ops = {
 	.disable	= musb_g_ep0_disable,
 	.alloc_request	= musb_alloc_request,
 	.free_request	= musb_free_request,
-	.alloc_buffer	= musb_g_ep0_alloc_buffer,
-	.free_buffer	= musb_g_ep0_free_buffer,
 	.queue		= musb_g_ep0_queue,
 	.dequeue	= musb_g_ep0_dequeue,
 	.set_halt	= musb_g_ep0_halt,

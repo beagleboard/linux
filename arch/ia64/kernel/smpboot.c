@@ -395,9 +395,13 @@ smp_callin (void)
 	fix_b0_for_bsp();
 
 	lock_ipi_calllock();
+	spin_lock(&vector_lock);
+	/* Setup the per cpu irq handling data structures */
+	__setup_vector_irq(cpuid);
 	cpu_set(cpuid, cpu_online_map);
 	unlock_ipi_calllock();
 	per_cpu(cpu_state, cpuid) = CPU_ONLINE;
+	spin_unlock(&vector_lock);
 
 	smp_setup_percpu_timer();
 
@@ -483,7 +487,7 @@ struct create_idle {
 	int cpu;
 };
 
-void
+void __cpuinit
 do_fork_idle(struct work_struct *work)
 {
 	struct create_idle *c_idle =
@@ -493,7 +497,7 @@ do_fork_idle(struct work_struct *work)
 	complete(&c_idle->done);
 }
 
-static int __devinit
+static int __cpuinit
 do_boot_cpu (int sapicid, int cpu)
 {
 	int timeout;
@@ -804,7 +808,7 @@ set_cpu_sibling_map(int cpu)
 	}
 }
 
-int __devinit
+int __cpuinit
 __cpu_up (unsigned int cpu)
 {
 	int ret;

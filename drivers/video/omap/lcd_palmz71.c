@@ -22,10 +22,8 @@
 
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/io.h>
 
-#include <asm/io.h>
-
-#include <asm/arch/gpio.h>
 #include <asm/arch/omapfb.h>
 
 static int palmz71_panel_init(struct lcd_panel *panel,
@@ -89,7 +87,8 @@ static int palmz71_panel_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static int palmz71_panel_suspend(struct platform_device *pdev, pm_message_t mesg)
+static int palmz71_panel_suspend(struct platform_device *pdev,
+				 pm_message_t mesg)
 {
 	return 0;
 }

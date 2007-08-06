@@ -1,7 +1,5 @@
 #define DEBUG
 /*
- * drivers/i2c/chips/menelaus.c
- *
  * Copyright (C) 2004 Texas Instruments, Inc.
  *
  * Some parts based tps65010.c:
@@ -40,6 +38,7 @@
 #include <linux/sched.h>
 #include <linux/mutex.h>
 #include <linux/workqueue.h>
+#include <linux/delay.h>
 #include <linux/rtc.h>
 #include <linux/bcd.h>
 
@@ -243,7 +242,7 @@ static int menelaus_remove_irq_work(int irq)
  * in each slot. In this case the cards are not seen by menelaus.
  * FIXME: Add handling for D1 too
  */
-static void menelaus_mmc_cd_work(struct menelaus_chip * menelaus_hw)
+static void menelaus_mmc_cd_work(struct menelaus_chip *menelaus_hw)
 {
 	int reg;
 	unsigned char card_mask = 0;
@@ -379,8 +378,6 @@ out:
 }
 EXPORT_SYMBOL(menelaus_set_mmc_slot);
 
-#include <linux/delay.h>
-
 int menelaus_register_mmc_callback(void (*callback)(void *data, u8 card_mask),
 				   void *data)
 {
@@ -448,8 +445,9 @@ static int menelaus_set_voltage(const struct menelaus_vtg *vtg, int mV,
 	val = ret & ~(((1 << vtg->vtg_bits) - 1) << vtg->vtg_shift);
 	val |= vtg_val << vtg->vtg_shift;
 
-	dev_dbg(&c->dev, "Setting voltage '%s' to %d mV (reg 0x%02x, val 0x%02x)\n",
-	       vtg->name, mV, vtg->vtg_reg, val);
+	dev_dbg(&c->dev, "Setting voltage '%s'"
+			 "to %d mV (reg 0x%02x, val 0x%02x)\n",
+			vtg->name, mV, vtg->vtg_reg, val);
 
 	ret = menelaus_write_reg(vtg->vtg_reg, val);
 	if (ret < 0)
@@ -512,7 +510,8 @@ int menelaus_set_vcore_sw(unsigned int mV)
 	int val, ret;
 	struct i2c_client *c = the_menelaus->client;
 
-	val = menelaus_get_vtg_value(mV, vcore_values, ARRAY_SIZE(vcore_values));
+	val = menelaus_get_vtg_value(mV, vcore_values,
+				     ARRAY_SIZE(vcore_values));
 	if (val < 0)
 		return -EINVAL;
 
@@ -934,8 +933,8 @@ static int menelaus_set_time(struct device *dev, struct rtc_time *t)
 		return status;
 	status = menelaus_write_reg(MENELAUS_RTC_WKDAY, BIN2BCD(t->tm_wday));
 	if (status < 0) {
-		dev_err(&the_menelaus->client->dev, "rtc write reg %02x, err %d\n",
-				MENELAUS_RTC_WKDAY, status);
+		dev_err(&the_menelaus->client->dev, "rtc write reg %02x",
+				"err %d\n", MENELAUS_RTC_WKDAY, status);
 		return status;
 	}
 
@@ -1177,7 +1176,8 @@ static int menelaus_probe(struct i2c_client *client)
 	menelaus->client = client;
 
 	/* If a true probe check the device */
-	if ((rev = menelaus_read_reg(MENELAUS_REV)) < 0) {
+	rev = menelaus_read_reg(MENELAUS_REV);
+	if (rev < 0) {
 		pr_err("device not found");
 		err = -ENODEV;
 		goto fail1;
@@ -1240,6 +1240,7 @@ static int __exit menelaus_remove(struct i2c_client *client)
 
 	free_irq(client->irq, menelaus);
 	kfree(menelaus);
+	i2c_set_clientdata(client, NULL);
 	the_menelaus = NULL;
 	return 0;
 }
@@ -1256,7 +1257,8 @@ static int __init menelaus_init(void)
 {
 	int res;
 
-	if ((res = i2c_add_driver(&menelaus_i2c_driver)) < 0) {
+	res = i2c_add_driver(&menelaus_i2c_driver);
+	if (res < 0) {
 		pr_err("driver registration failed\n");
 		return res;
 	}
@@ -1271,7 +1273,7 @@ static void __exit menelaus_exit(void)
 	/* FIXME: Shutdown menelaus parts that can be shut down */
 }
 
-MODULE_AUTHOR("Texas Instruments, Inc.");
+MODULE_AUTHOR("Texas Instruments, Inc. (and others)");
 MODULE_DESCRIPTION("I2C interface for Menelaus.");
 MODULE_LICENSE("GPL");
 

@@ -142,18 +142,20 @@ static void omap_pwm_led_set(struct led_classdev *led_cdev,
 	}
 }
 
-static ssize_t omap_pwm_led_on_period_show(struct class_device *cdev, char *buf)
+static ssize_t omap_pwm_led_on_period_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
 {
-	struct led_classdev *led_cdev = class_get_devdata(cdev);
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
 	struct omap_pwm_led *led = cdev_to_omap_pwm_led(led_cdev);
 
 	return sprintf(buf, "%u\n", led->on_period) + 1;
 }
 
-static ssize_t omap_pwm_led_on_period_store(struct class_device *cdev,
-					    const char *buf, size_t size)
+static ssize_t omap_pwm_led_on_period_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t size)
 {
-	struct led_classdev *led_cdev = class_get_devdata(cdev);
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
 	struct omap_pwm_led *led = cdev_to_omap_pwm_led(led_cdev);
 	int ret = -EINVAL;
 	unsigned long val;
@@ -174,18 +176,20 @@ static ssize_t omap_pwm_led_on_period_store(struct class_device *cdev,
 	return ret;
 }
 
-static ssize_t omap_pwm_led_off_period_show(struct class_device *cdev, char *buf)
+static ssize_t omap_pwm_led_off_period_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
 {
-	struct led_classdev *led_cdev = class_get_devdata(cdev);
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
 	struct omap_pwm_led *led = cdev_to_omap_pwm_led(led_cdev);
 
 	return sprintf(buf, "%u\n", led->off_period) + 1;
 }
 
-static ssize_t omap_pwm_led_off_period_store(struct class_device *cdev,
-					     const char *buf, size_t size)
+static ssize_t omap_pwm_led_off_period_store(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t size)
 {
-	struct led_classdev *led_cdev = class_get_devdata(cdev);
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
 	struct omap_pwm_led *led = cdev_to_omap_pwm_led(led_cdev);
 	int ret = -EINVAL;
 	unsigned long val;
@@ -206,10 +210,10 @@ static ssize_t omap_pwm_led_off_period_store(struct class_device *cdev,
 	return ret;
 }
 
-static CLASS_DEVICE_ATTR(on_period, 0644, omap_pwm_led_on_period_show,
-			 omap_pwm_led_on_period_store);
-static CLASS_DEVICE_ATTR(off_period, 0644, omap_pwm_led_off_period_show,
-			 omap_pwm_led_off_period_store);
+static DEVICE_ATTR(on_period, 0644, omap_pwm_led_on_period_show,
+				omap_pwm_led_on_period_store);
+static DEVICE_ATTR(off_period, 0644, omap_pwm_led_off_period_show,
+				omap_pwm_led_off_period_store);
 
 static int omap_pwm_led_probe(struct platform_device *pdev)
 {
@@ -257,13 +261,13 @@ static int omap_pwm_led_probe(struct platform_device *pdev)
 		}
 		omap_dm_timer_disable(led->blink_timer);
 
-		ret = class_device_create_file(led->cdev.class_dev,
-					       &class_device_attr_on_period);
+		ret = device_create_file(led->cdev.dev,
+					       &dev_attr_on_period);
 		if(ret)
 			goto error_blink2;
 
-		ret = class_device_create_file(led->cdev.class_dev,
-					        &class_device_attr_off_period);
+		ret = device_create_file(led->cdev.dev,
+					&dev_attr_off_period);
 		if(ret)
 			goto error_blink3;
 
@@ -272,8 +276,8 @@ static int omap_pwm_led_probe(struct platform_device *pdev)
 	return 0;
 
 error_blink3:
-	class_device_remove_file(led->cdev.class_dev,
-				 &class_device_attr_on_period);
+	device_remove_file(led->cdev.dev,
+				 &dev_attr_on_period);
 error_blink2:
 	dev_err(&pdev->dev, "failed to create device file(s)\n");
 error_blink1:
@@ -289,10 +293,10 @@ static int omap_pwm_led_remove(struct platform_device *pdev)
 {
 	struct omap_pwm_led *led = pdev_to_omap_pwm_led(pdev);
 
-	class_device_remove_file(led->cdev.class_dev,
-				 &class_device_attr_on_period);
-	class_device_remove_file(led->cdev.class_dev,
-				 &class_device_attr_off_period);
+	device_remove_file(led->cdev.dev,
+				 &dev_attr_on_period);
+	device_remove_file(led->cdev.dev,
+				 &dev_attr_off_period);
 	led_classdev_unregister(&led->cdev);
 
 	omap_pwm_led_set(&led->cdev, LED_OFF);

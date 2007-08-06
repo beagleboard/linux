@@ -26,6 +26,7 @@
 #include <linux/sched.h>
 #include <linux/delay.h>
 #include <linux/mm.h>
+#include <linux/err.h>
 #include <linux/clk.h>
 #include <linux/mutex.h>
 #include <linux/interrupt.h>
