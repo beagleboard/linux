@@ -39,7 +39,6 @@ config SND_OMAP_AIC23
 	select SND_PCM
 	select I2C
 	select I2C_OMAP if ARCH_OMAP
-	select OMAP_MCBSP
 	select SENSORS_TLV320AIC23
 	help
 	  Say Y here if you have a OSK platform board
@@ -53,7 +52,6 @@ config SND_OMAP_TSC2101
  	depends on ARCH_OMAP && SND
  	select SND_PCM
          select SPI_TSC2101
-	 select OMAP_MCBSP
  	help
  	  Say Y here if you have a OMAP platform board
  	  and want to use its TSC2101 audio chip. Driver has
@@ -66,7 +64,6 @@ config SND_SX1
  	tristate "Siemens SX1 Egold alsa driver"
  	depends on ARCH_OMAP && SND
  	select SND_PCM
-	select OMAP_MCBSP
  	help
  	  Say Y here if you have a OMAP310 based Siemens SX1.
 
