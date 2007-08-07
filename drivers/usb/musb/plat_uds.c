@@ -2120,7 +2120,10 @@ static int musb_suspend(struct platform_device *pdev, pm_message_t message)
 		 */
 	}
 
-	clk_disable(musb->clock);
+	if (musb->set_clock)
+		musb->set_clock(musb->clock, 0);
+	else
+		clk_disable(musb->clock);
 	spin_unlock_irqrestore(&musb->Lock, flags);
 	return 0;
 }
@@ -2134,7 +2137,12 @@ static int musb_resume(struct platform_device *pdev)
 		return 0;
 
 	spin_lock_irqsave(&musb->Lock, flags);
-	clk_enable(musb->clock);
+
+	if (musb->set_clock)
+		musb->set_clock(musb->clock, 1);
+	else
+		clk_enable(musb->clock);
+
 	/* for static cmos like DaVinci, register values were preserved
 	 * unless for some reason the whole soc powered down and we're
 	 * not treating that as a whole-system restart (e.g. swsusp)
