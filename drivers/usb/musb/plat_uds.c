@@ -386,26 +386,27 @@ static irqreturn_t musb_stage0_irq(struct musb * pThis, u8 bIntrUSB,
 				/* remote wakeup?  later, GetPortStatus
 				 * will stop RESUME signaling
 				 */
-				if (power & MGC_M_POWER_RESUME) {
-					power &= ~MGC_M_POWER_SUSPENDM;
-					musb_writeb(pBase, MGC_O_HDRC_POWER,
-						power | MGC_M_POWER_RESUME);
 
-					pThis->port1_status |=
-						(USB_PORT_STAT_C_SUSPEND << 16)
-						| MUSB_PORT_STAT_RESUME;
-					pThis->rh_timer = jiffies
-						+ msecs_to_jiffies(20);
-
-					pThis->xceiv.state = OTG_STATE_A_HOST;
-					pThis->is_active = 1;
-					usb_hcd_resume_root_hub(
-							musb_to_hcd(pThis));
-
-				} else if (power & MGC_M_POWER_SUSPENDM) {
+				if (power & MGC_M_POWER_SUSPENDM) {
 					/* spurious */
 					pThis->int_usb &= ~MGC_M_INTR_SUSPEND;
+					DBG(2, "Spurious SUSPENDM\n");
+					break;
 				}
+
+				power &= ~MGC_M_POWER_SUSPENDM;
+				musb_writeb(pBase, MGC_O_HDRC_POWER,
+						power | MGC_M_POWER_RESUME);
+
+				pThis->port1_status |=
+						(USB_PORT_STAT_C_SUSPEND << 16)
+						| MUSB_PORT_STAT_RESUME;
+				pThis->rh_timer = jiffies
+						+ msecs_to_jiffies(20);
+
+				pThis->xceiv.state = OTG_STATE_A_HOST;
+				pThis->is_active = 1;
+				usb_hcd_resume_root_hub(musb_to_hcd(pThis));
 				break;
 			case OTG_STATE_B_WAIT_ACON:
 				pThis->xceiv.state = OTG_STATE_B_PERIPHERAL;

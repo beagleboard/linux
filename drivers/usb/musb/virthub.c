@@ -129,6 +129,22 @@ static void musb_port_reset(struct musb *musb, u8 bReset)
 	 */
 	power = musb_readb(pBase, MGC_O_HDRC_POWER);
 	if (bReset) {
+
+		/*
+		 * If RESUME is set, we must make sure it stays minimum 20 ms.
+		 * Then we must clear RESUME and wait a bit to let musb start
+		 * generating SOFs. If we don't do this, OPT HS A 6.8 tests
+		 * fail with "Error! Did not receive an SOF before suspend
+		 * detected".
+		 */
+		if (power &  MGC_M_POWER_RESUME) {
+			while (time_before(jiffies, musb->rh_timer))
+				msleep(1);
+			musb_writeb(pBase, MGC_O_HDRC_POWER,
+				power & ~MGC_M_POWER_RESUME);
+			msleep(1);
+		}
+
 		musb->bIgnoreDisconnect = TRUE;
 		power &= 0xf0;
 		musb_writeb(pBase, MGC_O_HDRC_POWER,
