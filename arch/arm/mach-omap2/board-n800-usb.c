@@ -41,6 +41,7 @@ static struct musb_hdrc_platform_data tusb_data = {
 	.set_power	= tusb_set_power,
 	.set_clock	= tusb_set_clock,
 	.min_power	= 25,	/* x2 = 50 mA drawn from VBUS as peripheral */
+	.power		= 100,	/* Max 100 mA VBUS for host mode */
 	.clock		= "osc_ck",
 };
 
