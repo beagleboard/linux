@@ -25,6 +25,7 @@
 #include <linux/err.h>
 #include <linux/kfifo.h>
 #include <linux/log2.h>
+#include <linux/uaccess.h>
 
 /**
  * kfifo_init - allocates a new FIFO using a preallocated buffer
@@ -195,3 +196,59 @@ unsigned int __kfifo_get(struct kfifo *fifo,
 	return len;
 }
 EXPORT_SYMBOL(__kfifo_get);
+
+/**
+ * __kfifo_get_to_user - gets some data from the FIFO, no locking version
+ * @fifo: the fifo to be used.
+ * @buffer: where the data must be copied. user buffer.
+ * @len: the size of the destination buffer.
+ *
+ * This function copies at most @len bytes from the FIFO into the
+ * user @buffer and returns the number of copied bytes.
+ *
+ * Note that with only one concurrent reader and one concurrent
+ * writer, you don't need extra locking to use these functions.
+ */
+unsigned int __kfifo_get_to_user(struct kfifo *fifo,
+				 unsigned char __user *buffer,
+				 unsigned int len)
+{
+	unsigned int n1, n2;
+	int ret;
+
+	len = min(len, fifo->in - fifo->out);
+
+	/*
+	 * Ensure that we sample the fifo->in index -before- we
+	 * start removing bytes from the kfifo.
+	 */
+
+	smp_rmb();
+
+	/* first get the data from fifo->out until the end of the buffer */
+	n1 = min(len, fifo->size - (fifo->out & (fifo->size - 1)));
+	n2 = len -n1;
+	ret = copy_to_user(buffer,
+			   fifo->buffer + (fifo->out & (fifo->size - 1)), n1);
+	if (ret) {
+		len = n1 - ret;
+		goto out;
+	}
+
+	/* then get the rest (if any) from the beginning of the buffer */
+	ret = copy_to_user(buffer + n1, fifo->buffer, n2);
+	if (ret)
+		len = n1 + n2 - ret;
+
+	/*
+	 * Ensure that we remove the bytes from the kfifo -before-
+	 * we update the fifo->out index.
+	 */
+out:
+	smp_mb();
+
+	fifo->out += len;
+
+	return len;
+}
+EXPORT_SYMBOL(__kfifo_get_to_user);
