@@ -34,7 +34,7 @@ struct clk {
 	void			(*init)(struct clk *);
 	int			(*enable)(struct clk *);
 	void			(*disable)(struct clk *);
-#if defined(CONFIG_ARCH_OMAP2420)
+#if defined(CONFIG_ARCH_OMAP2)
 	u8			fixed_div;
 #endif
 };
