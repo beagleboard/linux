@@ -1,4 +1,3 @@
-#define DEBUG
 /*
  * Copyright (C) 2004 Texas Instruments, Inc.
  *
@@ -49,8 +48,6 @@
 #include <asm/arch/menelaus.h>
 
 #define DRIVER_NAME			"menelaus"
-
-#define pr_err(fmt, arg...)	printk(KERN_ERR DRIVER_NAME ": ", ## arg);
 
 #define MENELAUS_I2C_ADDRESS		0x72
 
@@ -156,7 +153,7 @@ static int menelaus_write_reg(int reg, u8 value)
 	int val = i2c_smbus_write_byte_data(the_menelaus->client, reg, value);
 
 	if (val < 0) {
-		pr_err("write error");
+		dev_err(&the_menelaus->client->dev, "write error");
 		return val;
 	}
 
@@ -168,7 +165,7 @@ static int menelaus_read_reg(int reg)
 	int val = i2c_smbus_read_byte_data(the_menelaus->client, reg);
 
 	if (val < 0)
-		pr_err("read error");
+		dev_err(&the_menelaus->client->dev, "read error");
 
 	return val;
 }
@@ -1178,7 +1175,7 @@ static int menelaus_probe(struct i2c_client *client)
 	/* If a true probe check the device */
 	rev = menelaus_read_reg(MENELAUS_REV);
 	if (rev < 0) {
-		pr_err("device not found");
+		dev_err(&client->dev, "device not found");
 		err = -ENODEV;
 		goto fail1;
 	}
@@ -1207,7 +1204,7 @@ static int menelaus_probe(struct i2c_client *client)
 	mutex_init(&menelaus->lock);
 	INIT_WORK(&menelaus->work, menelaus_work);
 
-	pr_info("Menelaus rev %d.%d\n", rev >> 4, rev & 0x0f);
+	dev_info(&client->dev, "Menelaus rev %d.%d\n", rev >> 4, rev & 0x0f);
 
 	val = menelaus_read_reg(MENELAUS_VCORE_CTRL1);
 	if (val < 0)
@@ -1259,7 +1256,7 @@ static int __init menelaus_init(void)
 
 	res = i2c_add_driver(&menelaus_i2c_driver);
 	if (res < 0) {
-		pr_err("driver registration failed\n");
+		dev_err(&the_menelaus->client->dev, "driver registration failed\n");
 		return res;
 	}
 
