@@ -20,9 +20,63 @@
 #include <asm/arch/onenand.h>
 #include <asm/arch/board.h>
 #include <asm/arch/gpmc.h>
+#include <asm/arch/nand.h>
 
 #define ONENAND_MAP 0x20000000
 #define GPMC_OFF_CONFIG1_0 0x60
+
+enum fsType {
+	NAND = 0,
+	NOR,
+	ONENAND,
+	UNKNOWN=-1
+};
+
+static enum fsType flashType = NAND;
+
+static struct mtd_partition nand_partitions[] = {
+	{
+		.name		= "X-Loader",
+		.offset		= 0,
+		.size		= 4*(64*2048),  /* 0-3 blks reserved.
+						   Mandated by ROM code */
+		.mask_flags	= MTD_WRITEABLE	/* force read-only */
+	},
+	{
+		.name		= "U-Boot",
+		.offset		= MTDPART_OFS_APPEND,
+		.size		=  4*(64*2048),
+		.mask_flags	= MTD_WRITEABLE	/* force read-only */
+	},
+	{
+		.name		= "U-Boot Environment",
+		.offset		= MTDPART_OFS_APPEND,
+		.size		= 2*(64*2048),
+	},
+	{
+		.name		= "Kernel",
+		.offset		= MTDPART_OFS_APPEND,
+		.size		= 32*(64*2048),		/* 4*1M */
+	},
+	{
+		.name		= "File System",
+		.offset		= MTDPART_OFS_APPEND,
+		.size		= MTDPART_SIZ_FULL,
+	},
+};
+static struct omap_nand_platform_data sdp_nand_data = {
+	.parts		= nand_partitions,
+	.nr_parts	= ARRAY_SIZE(nand_partitions),
+	.dma_channel	= -1,	/* disable DMA in OMAP OneNAND driver */
+};
+
+static struct platform_device sdp_nand_device = {
+	.name		= "omap2-nand",
+	.id		= -1,
+	.dev = {
+		.platform_data = &sdp_nand_data,
+	},
+};
 
 static struct mtd_partition onenand_partitions[] = {
 	{
@@ -82,29 +136,50 @@ void __init sdp2430_flash_init(void)
 		gpmc_cs_base_add =
 			(gpmc_base_add + GPMC_OFF_CONFIG1_0 + (cs*0x30));
 
-		/* xloader/Uboot would have programmed the oneNAND
+		/* xloader/Uboot would have programmed the NAND/oneNAND
 		 * base address for us This is a ugly hack. The proper
 		 * way of doing this is to pass the setup of u-boot up
 		 * to kernel using kernel params - something on the
-		 * lines of machineID. Check if oneNAND is
+		 * lines of machineID. Check if Nand/oneNAND is
 		 * configured */
+		ret = __raw_readl(gpmc_cs_base_add + GPMC_CS_CONFIG1);
+		if ((ret & 0xC00) == (0x800)) {
+			/* Found it!! */
+			printk("NAND: Found NAND on CS %d \n",cs);
+			flashType = NAND; 
+			break;
+		}
 		ret = __raw_readl(gpmc_cs_base_add + GPMC_CS_CONFIG7);
 		if ((ret & 0x3F) == (ONENAND_MAP >> 24)) {
 			/* Found it!! */
+			flashType = ONENAND;
 			break;
 		}
 		cs++;
 	}
 	if (cs >= GPMC_CS_NUM) {
-		printk("OneNAND: Unable to find oneNAND configuration in GPMC "
+		printk("MTD: Unable to find MTD configuration in GPMC "
 		       " - not registering.\n");
 		return;
 	}
 
+	if (flashType == NAND) {
+		sdp_nand_data.cs             = cs;
+		sdp_nand_data.gpmcCsBaseAddr = gpmc_cs_base_add;
+		sdp_nand_data.gpmcBaseAddr   = gpmc_base_add;
+
+		if (platform_device_register(&sdp_nand_device) < 0) {
+			printk(KERN_ERR "Unable to register NAND device\n");
+			return;
+		}
+	}
+
+	if (flashType == ONENAND) {
 	sdp_onenand_data.cs = cs;
 
 	if (platform_device_register(&sdp_onenand_device) < 0) {
 		printk(KERN_ERR "Unable to register OneNAND device\n");
 		return;
+	}
 	}
 }
