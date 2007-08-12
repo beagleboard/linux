@@ -1178,8 +1178,9 @@ static ssize_t exmem_read(struct omap_mmu *mmu, char *buf, size_t count,
 	return count;
 }
 
-static ssize_t omap_mmu_mem_read(struct kobject *kobj, char *buf,
-				 loff_t offset, size_t count)
+static ssize_t omap_mmu_mem_read(struct kobject *kobj,
+				 struct bin_attribute * attr,
+				 char *buf, loff_t offset, size_t count)
 {
 	struct device *dev = to_dev(kobj);
 	struct omap_mmu *mmu = dev_get_drvdata(dev);
@@ -1245,8 +1246,9 @@ static ssize_t exmem_write(struct omap_mmu *mmu, char *buf, size_t count,
 	return count;
 }
 
-static ssize_t omap_mmu_mem_write(struct kobject *kobj, char *buf,
-				  loff_t offset, size_t count)
+static ssize_t omap_mmu_mem_write(struct kobject *kobj,
+				  struct bin_attribute * attr,
+				  char *buf, loff_t offset, size_t count)
 {
 	struct device *dev = to_dev(kobj);
 	struct omap_mmu *mmu = dev_get_drvdata(dev);
@@ -1279,17 +1281,19 @@ static struct bin_attribute dev_attr_mem = {
 };
 
 /* To be obsolete for backward compatibility */
-ssize_t __omap_mmu_mem_read(struct omap_mmu *mmu, char *buf,
-			    loff_t offset, size_t count)
+ssize_t __omap_mmu_mem_read(struct omap_mmu *mmu,
+			    struct bin_attribute * attr,
+			    char *buf, loff_t offset, size_t count)
 {
-	return omap_mmu_mem_read(&mmu->dev.kobj, buf, offset, count);
+	return omap_mmu_mem_read(&mmu->dev.kobj, attr, buf, offset, count);
 }
 EXPORT_SYMBOL_GPL(__omap_mmu_mem_read);
 
-ssize_t __omap_mmu_mem_write(struct omap_mmu *mmu, char *buf,
-			     loff_t offset, size_t count)
+ssize_t __omap_mmu_mem_write(struct omap_mmu *mmu,
+			     struct bin_attribute * attr,
+			     char *buf, loff_t offset, size_t count)
 {
-	return omap_mmu_mem_write(&mmu->dev.kobj, buf, offset, count);
+	return omap_mmu_mem_write(&mmu->dev.kobj, attr, buf, offset, count);
 }
 EXPORT_SYMBOL_GPL(__omap_mmu_mem_write);
 

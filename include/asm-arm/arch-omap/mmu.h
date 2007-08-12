@@ -190,7 +190,7 @@ void exmap_clear_mem_page(struct omap_mmu *mmu, unsigned long dspadr);
 int exmap_valid(struct omap_mmu *mmu, void *vadr, size_t len);
 
 /* To be obsolete for backward compatibility */
-ssize_t __omap_mmu_mem_read(struct omap_mmu *mmu, char *buf, loff_t offset, size_t count);
-ssize_t __omap_mmu_mem_write(struct omap_mmu *mmu, char *buf, loff_t offset, size_t count);
+ssize_t __omap_mmu_mem_read(struct omap_mmu *mmu, struct bin_attribute *, char *buf, loff_t offset, size_t count);
+ssize_t __omap_mmu_mem_write(struct omap_mmu *mmu, struct bin_attribute *, char *buf, loff_t offset, size_t count);
 
 #endif /* __ARCH_OMAP_MMU_H */
