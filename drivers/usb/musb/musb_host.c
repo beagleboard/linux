@@ -947,7 +947,7 @@ static int musb_h_ep0_continue(struct musb *musb,
 {
 	int			 bMore = FALSE;
 	u8 *pFifoDest = NULL;
-	u16 wFifoCount = 0;
+	u16 fifo_count = 0;
 	struct musb_hw_ep	*hw_ep = musb->control_ep;
 	struct musb_qh		*qh = hw_ep->in_qh;
 	struct usb_ctrlrequest	*pRequest;
@@ -955,14 +955,14 @@ static int musb_h_ep0_continue(struct musb *musb,
 	switch (musb->bEnd0Stage) {
 	case MGC_END0_IN:
 		pFifoDest = pUrb->transfer_buffer + pUrb->actual_length;
-		wFifoCount = min(wCount, ((u16) (pUrb->transfer_buffer_length
+		fifo_count = min(wCount, ((u16) (pUrb->transfer_buffer_length
 					- pUrb->actual_length)));
-		if (wFifoCount < wCount)
+		if (fifo_count < wCount)
 			pUrb->status = -EOVERFLOW;
 
-		musb_read_fifo(hw_ep, wFifoCount, pFifoDest);
+		musb_read_fifo(hw_ep, fifo_count, pFifoDest);
 
-		pUrb->actual_length += wFifoCount;
+		pUrb->actual_length += fifo_count;
 		if (wCount < qh->maxpacket) {
 			/* always terminate on short read; it's
 			 * rarely reported as an error.
@@ -989,18 +989,18 @@ static int musb_h_ep0_continue(struct musb *musb,
 		}
 		/* FALLTHROUGH */
 	case MGC_END0_OUT:
-		wFifoCount = min(qh->maxpacket, ((u16)
+		fifo_count = min(qh->maxpacket, ((u16)
 				(pUrb->transfer_buffer_length
 				- pUrb->actual_length)));
 
-		if (wFifoCount) {
+		if (fifo_count) {
 			pFifoDest = (u8 *) (pUrb->transfer_buffer
 					+ pUrb->actual_length);
 			DBG(3, "Sending %d bytes to %p\n",
-					wFifoCount, pFifoDest);
-			musb_write_fifo(hw_ep, wFifoCount, pFifoDest);
+					fifo_count, pFifoDest);
+			musb_write_fifo(hw_ep, fifo_count, pFifoDest);
 
-			pUrb->actual_length += wFifoCount;
+			pUrb->actual_length += fifo_count;
 			bMore = TRUE;
 		}
 		break;

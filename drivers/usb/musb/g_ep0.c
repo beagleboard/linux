@@ -487,7 +487,7 @@ static void ep0_txstate(struct musb *musb)
 	struct usb_request	*pRequest = next_ep0_request(musb);
 	u16			wCsrVal = MGC_M_CSR0_TXPKTRDY;
 	u8			*pFifoSource;
-	u8			wFifoCount;
+	u8			fifo_count;
 
 	if (!pRequest) {
 		// WARN_ON(1);
@@ -497,13 +497,13 @@ static void ep0_txstate(struct musb *musb)
 
 	/* load the data */
 	pFifoSource = (u8 *) pRequest->buf + pRequest->actual;
-	wFifoCount = min((unsigned) MGC_END0_FIFOSIZE,
+	fifo_count = min((unsigned) MGC_END0_FIFOSIZE,
 		pRequest->length - pRequest->actual);
-	musb_write_fifo(&musb->aLocalEnd[0], wFifoCount, pFifoSource);
-	pRequest->actual += wFifoCount;
+	musb_write_fifo(&musb->aLocalEnd[0], fifo_count, pFifoSource);
+	pRequest->actual += fifo_count;
 
 	/* update the flags */
-	if (wFifoCount < MUSB_MAX_END0_PACKET
+	if (fifo_count < MUSB_MAX_END0_PACKET
 			|| pRequest->actual == pRequest->length) {
 		musb->ep0_state = MGC_END0_STAGE_STATUSOUT;
 		wCsrVal |= MGC_M_CSR0_P_DATAEND;

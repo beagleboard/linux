@@ -256,7 +256,7 @@ static void txstate(struct musb *musb, struct musb_request *req)
 	struct musb_ep		*musb_ep;
 	void __iomem		*epio = musb->aLocalEnd[bEnd].regs;
 	struct usb_request	*pRequest;
-	u16			wFifoCount = 0, wCsrVal;
+	u16			fifo_count = 0, wCsrVal;
 	int			use_dma = 0;
 
 	musb_ep = req->ep;
@@ -271,7 +271,7 @@ static void txstate(struct musb *musb, struct musb_request *req)
 	wCsrVal = musb_readw(epio, MGC_O_HDRC_TXCSR);
 
 	pRequest = &req->request;
-	wFifoCount = min(max_ep_writesize(musb, musb_ep),
+	fifo_count = min(max_ep_writesize(musb, musb_ep),
 			(int)(pRequest->length - pRequest->actual));
 
 	if (wCsrVal & MGC_M_TXCSR_TXPKTRDY) {
@@ -287,7 +287,7 @@ static void txstate(struct musb *musb, struct musb_request *req)
 	}
 
 	DBG(4, "hw_ep%d, maxpacket %d, fifo count %d, txcsr %03x\n",
-			bEnd, musb_ep->wPacketSize, wFifoCount,
+			bEnd, musb_ep->wPacketSize, fifo_count,
 			wCsrVal);
 
 #ifndef	CONFIG_USB_INVENTRA_FIFO
@@ -381,9 +381,9 @@ static void txstate(struct musb *musb, struct musb_request *req)
 #endif
 
 	if (!use_dma) {
-		musb_write_fifo(musb_ep->hw_ep, wFifoCount,
+		musb_write_fifo(musb_ep->hw_ep, fifo_count,
 				(u8 *) (pRequest->buf + pRequest->actual));
-		pRequest->actual += wFifoCount;
+		pRequest->actual += fifo_count;
 		wCsrVal |= MGC_M_TXCSR_TXPKTRDY;
 		wCsrVal &= ~MGC_M_TXCSR_P_UNDERRUN;
 		musb_writew(epio, MGC_O_HDRC_TXCSR, wCsrVal);
@@ -394,7 +394,7 @@ static void txstate(struct musb *musb, struct musb_request *req)
 			musb_ep->end_point.name, use_dma ? "dma" : "pio",
 			pRequest->actual, pRequest->length,
 			musb_readw(epio, MGC_O_HDRC_TXCSR),
-			wFifoCount,
+			fifo_count,
 			musb_readw(epio, MGC_O_HDRC_TXMAXP));
 }
 
@@ -577,7 +577,7 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 	struct usb_request	*pRequest = &req->request;
 	struct musb_ep		*musb_ep = &musb->aLocalEnd[bEnd].ep_out;
 	void __iomem		*epio = musb->aLocalEnd[bEnd].regs;
-	u16			wFifoCount = 0;
+	u16			fifo_count = 0;
 	u16			wCount = musb_ep->wPacketSize;
 
 	wCsrVal = musb_readw(epio, MGC_O_HDRC_RXCSR);
@@ -684,13 +684,13 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 			}
 #endif	/* Mentor's USB */
 
-			wFifoCount = pRequest->length - pRequest->actual;
+			fifo_count = pRequest->length - pRequest->actual;
 			DBG(3, "%s OUT/RX pio fifo %d/%d, maxpacket %d\n",
 					musb_ep->end_point.name,
-					wCount, wFifoCount,
+					wCount, fifo_count,
 					musb_ep->wPacketSize);
 
-			wFifoCount = min(wCount, wFifoCount);
+			fifo_count = min(wCount, fifo_count);
 
 #ifdef	CONFIG_USB_TUSB_OMAP_DMA
 			if (tusb_dma_omap() && musb_ep->dma) {
@@ -703,15 +703,15 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 						musb_ep->wPacketSize,
 						channel->bDesiredMode,
 						dma_addr,
-						wFifoCount);
+						fifo_count);
 				if (ret == TRUE)
 					return;
 			}
 #endif
 
-			musb_read_fifo(musb_ep->hw_ep, wFifoCount, (u8 *)
+			musb_read_fifo(musb_ep->hw_ep, fifo_count, (u8 *)
 					(pRequest->buf + pRequest->actual));
-			pRequest->actual += wFifoCount;
+			pRequest->actual += fifo_count;
 
 			/* REVISIT if we left anything in the fifo, flush
 			 * it and report -EOVERFLOW
