@@ -578,7 +578,7 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 	struct musb_ep		*musb_ep = &musb->aLocalEnd[bEnd].ep_out;
 	void __iomem		*epio = musb->aLocalEnd[bEnd].regs;
 	u16			fifo_count = 0;
-	u16			wCount = musb_ep->wPacketSize;
+	u16			len = musb_ep->wPacketSize;
 
 	wCsrVal = musb_readw(epio, MGC_O_HDRC_RXCSR);
 
@@ -610,7 +610,7 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 	}
 
 	if (wCsrVal & MGC_M_RXCSR_RXPKTRDY) {
-		wCount = musb_readw(epio, MGC_O_HDRC_RXCOUNT);
+		len = musb_readw(epio, MGC_O_HDRC_RXCOUNT);
 		if (pRequest->actual < pRequest->length) {
 #ifdef CONFIG_USB_INVENTRA_DMA
 			if (is_dma_capable() && musb_ep->dma) {
@@ -663,7 +663,7 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 					transfer_size = min(pRequest->length,
 							channel->dwMaxLength);
 #else
-					transfer_size = wCount;
+					transfer_size = len;
 #endif
 					if (transfer_size <= musb_ep->wPacketSize)
 						musb_ep->dma->bDesiredMode = 0;
@@ -687,10 +687,10 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 			fifo_count = pRequest->length - pRequest->actual;
 			DBG(3, "%s OUT/RX pio fifo %d/%d, maxpacket %d\n",
 					musb_ep->end_point.name,
-					wCount, fifo_count,
+					len, fifo_count,
 					musb_ep->wPacketSize);
 
-			fifo_count = min(wCount, fifo_count);
+			fifo_count = min(len, fifo_count);
 
 #ifdef	CONFIG_USB_TUSB_OMAP_DMA
 			if (tusb_dma_omap() && musb_ep->dma) {
@@ -725,7 +725,7 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 	}
 
 	/* reach the end or short packet detected */
-	if (pRequest->actual == pRequest->length || wCount < musb_ep->wPacketSize)
+	if (pRequest->actual == pRequest->length || len < musb_ep->wPacketSize)
 		musb_g_giveback(musb_ep, pRequest, 0);
 }
 

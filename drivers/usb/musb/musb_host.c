@@ -943,7 +943,7 @@ static void musb_ep_program(struct musb *musb, u8 bEnd,
  * Return TRUE until it's time to start the status stage.
  */
 static int musb_h_ep0_continue(struct musb *musb,
-				u16 wCount, struct urb *pUrb)
+				u16 len, struct urb *pUrb)
 {
 	int			 bMore = FALSE;
 	u8 *pFifoDest = NULL;
@@ -955,15 +955,15 @@ static int musb_h_ep0_continue(struct musb *musb,
 	switch (musb->bEnd0Stage) {
 	case MGC_END0_IN:
 		pFifoDest = pUrb->transfer_buffer + pUrb->actual_length;
-		fifo_count = min(wCount, ((u16) (pUrb->transfer_buffer_length
+		fifo_count = min(len, ((u16) (pUrb->transfer_buffer_length
 					- pUrb->actual_length)));
-		if (fifo_count < wCount)
+		if (fifo_count < len)
 			pUrb->status = -EOVERFLOW;
 
 		musb_read_fifo(hw_ep, fifo_count, pFifoDest);
 
 		pUrb->actual_length += fifo_count;
-		if (wCount < qh->maxpacket) {
+		if (len < qh->maxpacket) {
 			/* always terminate on short read; it's
 			 * rarely reported as an error.
 			 */
@@ -1021,7 +1021,7 @@ static int musb_h_ep0_continue(struct musb *musb,
 irqreturn_t musb_h_ep0_irq(struct musb *musb)
 {
 	struct urb		*pUrb;
-	u16			wCsrVal, wCount;
+	u16			wCsrVal, len;
 	int			status = 0;
 	void __iomem		*mbase = musb->mregs;
 	struct musb_hw_ep	*hw_ep = musb->control_ep;
@@ -1035,12 +1035,12 @@ irqreturn_t musb_h_ep0_irq(struct musb *musb)
 
 	MGC_SelectEnd(mbase, 0);
 	wCsrVal = musb_readw(epio, MGC_O_HDRC_CSR0);
-	wCount = (wCsrVal & MGC_M_CSR0_RXPKTRDY)
+	len = (wCsrVal & MGC_M_CSR0_RXPKTRDY)
 			? musb_readb(epio, MGC_O_HDRC_COUNT0)
 			: 0;
 
 	DBG(4, "<== csr0 %04x, qh %p, count %d, urb %p, stage %d\n",
-		wCsrVal, qh, wCount, pUrb, musb->bEnd0Stage);
+		wCsrVal, qh, len, pUrb, musb->bEnd0Stage);
 
 	/* if we just did status stage, we are done */
 	if (MGC_END0_STATUS == musb->bEnd0Stage) {
@@ -1112,7 +1112,7 @@ irqreturn_t musb_h_ep0_irq(struct musb *musb)
 
 	if (!bComplete) {
 		/* call common logic and prepare response */
-		if (musb_h_ep0_continue(musb, wCount, pUrb)) {
+		if (musb_h_ep0_continue(musb, len, pUrb)) {
 			/* more packets required */
 			wCsrVal = (MGC_END0_IN == musb->bEnd0Stage)
 				?  MGC_M_CSR0_H_REQPKT : MGC_M_CSR0_TXPKTRDY;

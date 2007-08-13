@@ -169,14 +169,14 @@ static inline struct musb *dev_to_musb(struct device *dev)
 /*
  * Load an endpoint's FIFO
  */
-void musb_write_fifo(struct musb_hw_ep *hw_ep, u16 wCount, const u8 *src)
+void musb_write_fifo(struct musb_hw_ep *hw_ep, u16 len, const u8 *src)
 {
 	void __iomem *fifo = hw_ep->fifo;
 
 	prefetch((u8 *)src);
 
 	DBG(4, "%cX ep%d fifo %p count %d buf %p\n",
-			'T', hw_ep->bLocalEnd, fifo, wCount, src);
+			'T', hw_ep->bLocalEnd, fifo, len, src);
 
 	/* we can't assume unaligned reads work */
 	if (likely((0x01 & (unsigned long) src) == 0)) {
@@ -184,37 +184,37 @@ void musb_write_fifo(struct musb_hw_ep *hw_ep, u16 wCount, const u8 *src)
 
 		/* best case is 32bit-aligned source address */
 		if ((0x02 & (unsigned long) src) == 0) {
-			if (wCount >= 4) {
-				writesl(fifo, src + index, wCount >> 2);
-				index += wCount & ~0x03;
+			if (len >= 4) {
+				writesl(fifo, src + index, len >> 2);
+				index += len & ~0x03;
 			}
-			if (wCount & 0x02) {
+			if (len & 0x02) {
 				musb_writew(fifo, 0, *(u16*)&src[index]);
 				index += 2;
 			}
 		} else {
-			if (wCount >= 2) {
-				writesw(fifo, src + index, wCount >> 1);
-				index += wCount & ~0x01;
+			if (len >= 2) {
+				writesw(fifo, src + index, len >> 1);
+				index += len & ~0x01;
 			}
 		}
-		if (wCount & 0x01)
+		if (len & 0x01)
 			musb_writeb(fifo, 0, src[index]);
 	} else  {
 		/* byte aligned */
-		writesb(fifo, src, wCount);
+		writesb(fifo, src, len);
 	}
 }
 
 /*
  * Unload an endpoint's FIFO
  */
-void musb_read_fifo(struct musb_hw_ep *hw_ep, u16 wCount, u8 *dst)
+void musb_read_fifo(struct musb_hw_ep *hw_ep, u16 len, u8 *dst)
 {
 	void __iomem *fifo = hw_ep->fifo;
 
 	DBG(4, "%cX ep%d fifo %p count %d buf %p\n",
-			'R', hw_ep->bLocalEnd, fifo, wCount, dst);
+			'R', hw_ep->bLocalEnd, fifo, len, dst);
 
 	/* we can't assume unaligned writes work */
 	if (likely((0x01 & (unsigned long) dst) == 0)) {
@@ -222,25 +222,25 @@ void musb_read_fifo(struct musb_hw_ep *hw_ep, u16 wCount, u8 *dst)
 
 		/* best case is 32bit-aligned destination address */
 		if ((0x02 & (unsigned long) dst) == 0) {
-			if (wCount >= 4) {
-				readsl(fifo, dst, wCount >> 2);
-				index = wCount & ~0x03;
+			if (len >= 4) {
+				readsl(fifo, dst, len >> 2);
+				index = len & ~0x03;
 			}
-			if (wCount & 0x02) {
+			if (len & 0x02) {
 				*(u16*)&dst[index] = musb_readw(fifo, 0);
 				index += 2;
 			}
 		} else {
-			if (wCount >= 2) {
-				readsw(fifo, dst, wCount >> 1);
-				index = wCount & ~0x01;
+			if (len >= 2) {
+				readsw(fifo, dst, len >> 1);
+				index = len & ~0x01;
 			}
 		}
-		if (wCount & 0x01)
+		if (len & 0x01)
 			dst[index] = musb_readb(fifo, 0);
 	} else  {
 		/* byte aligned */
-		readsb(fifo, dst, wCount);
+		readsb(fifo, dst, len);
 	}
 }
 

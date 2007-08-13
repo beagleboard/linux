@@ -599,17 +599,17 @@ __acquires(musb->Lock)
 irqreturn_t musb_g_ep0_irq(struct musb *musb)
 {
 	u16		wCsrVal;
-	u16		wCount;
+	u16		len;
 	void __iomem	*mbase = musb->mregs;
 	void __iomem	*regs = musb->aLocalEnd[0].regs;
 	irqreturn_t	retval = IRQ_NONE;
 
 	MGC_SelectEnd(mbase, 0);	/* select ep0 */
 	wCsrVal = musb_readw(regs, MGC_O_HDRC_CSR0);
-	wCount = musb_readb(regs, MGC_O_HDRC_COUNT0);
+	len = musb_readb(regs, MGC_O_HDRC_COUNT0);
 
 	DBG(4, "csr %04x, count %d, myaddr %d, ep0stage %s\n",
-			wCsrVal, wCount,
+			wCsrVal, len,
 			musb_readb(mbase, MGC_O_HDRC_FADDR),
 			decode_ep0stage(musb->ep0_state));
 
@@ -696,8 +696,8 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 			struct usb_ctrlrequest	setup;
 			int			handled = 0;
 
-			if (wCount != 8) {
-				ERR("SETUP packet len %d != 8 ?\n", wCount);
+			if (len != 8) {
+				ERR("SETUP packet len %d != 8 ?\n", len);
 				break;
 			}
 			musb_read_setup(musb, &setup);
