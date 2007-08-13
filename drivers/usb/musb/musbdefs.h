@@ -269,7 +269,7 @@ struct musb_hw_ep {
 	u8			is_shared_fifo;
 	u8			tx_double_buffered;
 	u8			rx_double_buffered;
-	u16			wMaxPacketSizeTx;
+	u16			max_packet_sz_tx;
 	u16			wMaxPacketSizeRx;
 
 	struct dma_channel	*tx_channel;

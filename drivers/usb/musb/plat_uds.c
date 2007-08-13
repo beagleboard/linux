@@ -1059,7 +1059,7 @@ fifo_setup(struct musb *musb, struct musb_hw_ep  *hw_ep,
 		musb_writeb(mbase, MGC_O_HDRC_TXFIFOSZ, c_size);
 		musb_writew(mbase, MGC_O_HDRC_TXFIFOADD, c_off);
 		hw_ep->tx_double_buffered = !!(c_size & MGC_M_FIFOSZ_DPB);
-		hw_ep->wMaxPacketSizeTx = maxpacket;
+		hw_ep->max_packet_sz_tx = maxpacket;
 		break;
 	case FIFO_RX:
 		musb_writeb(mbase, MGC_O_HDRC_RXFIFOSZ, c_size);
@@ -1076,7 +1076,7 @@ fifo_setup(struct musb *musb, struct musb_hw_ep  *hw_ep,
 		musb_writeb(mbase, MGC_O_HDRC_RXFIFOSZ, c_size);
 		musb_writew(mbase, MGC_O_HDRC_RXFIFOADD, c_off);
 		hw_ep->tx_double_buffered = hw_ep->rx_double_buffered;
-		hw_ep->wMaxPacketSizeTx = maxpacket;
+		hw_ep->max_packet_sz_tx = maxpacket;
 
 		hw_ep->is_shared_fifo = TRUE;
 		break;
@@ -1199,11 +1199,11 @@ static int __init ep_config_from_hw(struct musb *musb)
 		musb->nr_endpoints++;
 		musb->wEndMask |= (1 << epnum);
 
-		hw_ep->wMaxPacketSizeTx = 1 << (reg & 0x0f);
+		hw_ep->max_packet_sz_tx = 1 << (reg & 0x0f);
 
 		/* shared TX/RX FIFO? */
 		if ((reg & 0xf0) == 0xf0) {
-			hw_ep->wMaxPacketSizeRx = hw_ep->wMaxPacketSizeTx;
+			hw_ep->wMaxPacketSizeRx = hw_ep->max_packet_sz_tx;
 			hw_ep->is_shared_fifo = TRUE;
 			continue;
 		} else {
@@ -1215,7 +1215,7 @@ static int __init ep_config_from_hw(struct musb *musb)
 
 #ifdef CONFIG_USB_MUSB_HDRC_HCD
 		/* pick an RX/TX endpoint for bulk */
-		if (hw_ep->wMaxPacketSizeTx < 512
+		if (hw_ep->max_packet_sz_tx < 512
 				|| hw_ep->wMaxPacketSizeRx < 512)
 			continue;
 
@@ -1334,7 +1334,7 @@ static int __init musb_core_init(u16 wType, struct musb *musb)
 			musb_driver_name, type, aRevision, aDate);
 
 	/* configure ep0 */
-	musb->endpoints[0].wMaxPacketSizeTx = MGC_END0_FIFOSIZE;
+	musb->endpoints[0].max_packet_sz_tx = MGC_END0_FIFOSIZE;
 	musb->endpoints[0].wMaxPacketSizeRx = MGC_END0_FIFOSIZE;
 
 	/* discover endpoint configuration */
@@ -1384,14 +1384,14 @@ static int __init musb_core_init(u16 wType, struct musb *musb)
 		hw_ep->tx_reinit = 1;
 #endif
 
-		if (hw_ep->wMaxPacketSizeTx) {
+		if (hw_ep->max_packet_sz_tx) {
 			printk(KERN_DEBUG
 				"%s: hw_ep %d%s, %smax %d\n",
 				musb_driver_name, i,
 				hw_ep->is_shared_fifo ? "shared" : "tx",
 				hw_ep->tx_double_buffered
 					? "doublebuffer, " : "",
-				hw_ep->wMaxPacketSizeTx);
+				hw_ep->max_packet_sz_tx);
 		}
 		if (hw_ep->wMaxPacketSizeRx && !hw_ep->is_shared_fifo) {
 			printk(KERN_DEBUG
@@ -1402,7 +1402,7 @@ static int __init musb_core_init(u16 wType, struct musb *musb)
 					? "doublebuffer, " : "",
 				hw_ep->wMaxPacketSizeRx);
 		}
-		if (!(hw_ep->wMaxPacketSizeTx || hw_ep->wMaxPacketSizeRx))
+		if (!(hw_ep->max_packet_sz_tx || hw_ep->wMaxPacketSizeRx))
 			DBG(1, "hw_ep %d not configured\n", i);
 	}
 

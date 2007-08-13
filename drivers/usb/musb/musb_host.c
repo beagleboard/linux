@@ -740,7 +740,7 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 			if (can_bulk_split(musb, qh->type))
 				musb_writew(epio, MGC_O_HDRC_TXMAXP,
 					wPacketSize
-					| ((hw_ep->wMaxPacketSizeTx /
+					| ((hw_ep->max_packet_sz_tx /
 						wPacketSize) - 1) << 11);
 			else
 				musb_writew(epio, MGC_O_HDRC_TXMAXP,
@@ -754,7 +754,7 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 		}
 
 		if (can_bulk_split(musb, qh->type))
-			wLoadCount = min((u32) hw_ep->wMaxPacketSizeTx,
+			wLoadCount = min((u32) hw_ep->max_packet_sz_tx,
 						dwLength);
 		else
 			wLoadCount = min((u32) wPacketSize, dwLength);
@@ -1718,7 +1718,7 @@ static int musb_schedule(
 		if (is_in)
 			diff = hw_ep->wMaxPacketSizeRx - qh->maxpacket;
 		else
-			diff = hw_ep->wMaxPacketSizeTx - qh->maxpacket;
+			diff = hw_ep->max_packet_sz_tx - qh->maxpacket;
 
 		if (diff > 0 && wBestDiff > diff) {
 			wBestDiff = diff;

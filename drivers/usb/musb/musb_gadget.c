@@ -203,7 +203,7 @@ static void nuke(struct musb_ep *ep, const int status)
 static inline int max_ep_writesize(struct musb *musb, struct musb_ep *ep)
 {
 	if (can_bulk_split(musb, ep->type))
-		return ep->hw_ep->wMaxPacketSizeTx;
+		return ep->hw_ep->max_packet_sz_tx;
 	else
 		return ep->wPacketSize;
 }
@@ -900,7 +900,7 @@ static int musb_gadget_enable(struct usb_ep *ep,
 			musb_ep->is_in = 1;
 		if (!musb_ep->is_in)
 			goto fail;
-		if (tmp > hw_ep->wMaxPacketSizeTx)
+		if (tmp > hw_ep->max_packet_sz_tx)
 			goto fail;
 
 		wIntrTxE |= (1 << epnum);
@@ -1579,7 +1579,7 @@ init_peripheral_ep(struct musb *musb, struct musb_ep *ep, u8 epnum, int is_in)
 		musb->g.ep0 = &ep->end_point;
 	} else {
 		if (is_in)
-			ep->end_point.maxpacket = hw_ep->wMaxPacketSizeTx;
+			ep->end_point.maxpacket = hw_ep->max_packet_sz_tx;
 		else
 			ep->end_point.maxpacket = hw_ep->wMaxPacketSizeRx;
 		ep->end_point.ops = &musb_ep_ops;
@@ -1607,7 +1607,7 @@ static inline void __init musb_g_init_endpoints(struct musb *musb)
 			init_peripheral_ep(musb, &hw_ep->ep_in, epnum, 0);
 			count++;
 		} else {
-			if (hw_ep->wMaxPacketSizeTx) {
+			if (hw_ep->max_packet_sz_tx) {
 				init_peripheral_ep(musb, &hw_ep->ep_in,
 							epnum, 1);
 				count++;
@@ -1803,7 +1803,7 @@ stop_activity(struct musb *musb, struct usb_gadget_driver *driver)
 			if (hw_ep->is_shared_fifo /* || !epnum */) {
 				nuke(&hw_ep->ep_in, -ESHUTDOWN);
 			} else {
-				if (hw_ep->wMaxPacketSizeTx)
+				if (hw_ep->max_packet_sz_tx)
 					nuke(&hw_ep->ep_in, -ESHUTDOWN);
 				if (hw_ep->wMaxPacketSizeRx)
 					nuke(&hw_ep->ep_out, -ESHUTDOWN);
