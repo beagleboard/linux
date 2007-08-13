@@ -1601,7 +1601,7 @@ static inline void __init musb_g_init_endpoints(struct musb *musb)
 	INIT_LIST_HEAD(&(musb->g.ep_list));
 
 	for (bEnd = 0, hw_ep = musb->endpoints;
-			bEnd < musb->bEndCount;
+			bEnd < musb->nr_endpoints;
 			bEnd++, hw_ep++) {
 		if (hw_ep->bIsSharedFifo /* || !bEnd */) {
 			init_peripheral_ep(musb, &hw_ep->ep_in, bEnd, 0);
@@ -1797,7 +1797,7 @@ stop_activity(struct musb *musb, struct usb_gadget_driver *driver)
 	 */
 	if (driver) {
 		for (i = 0, hw_ep = musb->endpoints;
-				i < musb->bEndCount;
+				i < musb->nr_endpoints;
 				i++, hw_ep++) {
 			MGC_SelectEnd(musb->mregs, i);
 			if (hw_ep->bIsSharedFifo /* || !bEnd */) {

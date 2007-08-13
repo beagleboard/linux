@@ -528,7 +528,7 @@ static int dump_header_stats(struct musb *musb, char *buffer)
 #endif
 			", debug=%d [eps=%d]\n",
 		debug,
-		musb->bEndCount);
+		musb->nr_endpoints);
 	if (code <= 0)
 		goto done;
 	count += code;
@@ -802,7 +802,7 @@ static int musb_proc_read(char *page, char **start,
 
 	/* generate the report for the end points */
 	// REVISIT ... not unless something's connected!
-	for (bEnd = 0; count >= 0 && bEnd < musb->bEndCount;
+	for (bEnd = 0; count >= 0 && bEnd < musb->nr_endpoints;
 			bEnd++) {
 		code = dump_end_info(musb, bEnd, buffer, count);
 		if (code > 0) {

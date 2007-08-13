@@ -403,7 +403,7 @@ struct musb {
 #define VBUSERR_RETRY_COUNT	3
 	u16			vbuserr_retry;
 	u16 wEndMask;
-	u8 bEndCount;
+	u8 nr_endpoints;
 
 	u8 board_mode;		/* enum musb_mode */
 	int			(*board_set_power)(int state);

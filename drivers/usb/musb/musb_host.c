@@ -1706,7 +1706,7 @@ static int musb_schedule(
 	wBestDiff = 4096;
 	nBestEnd = -1;
 
-	for (nEnd = 1; nEnd < musb->bEndCount; nEnd++) {
+	for (nEnd = 1; nEnd < musb->nr_endpoints; nEnd++) {
 		int	diff;
 
 		if (musb->periodic[nEnd])

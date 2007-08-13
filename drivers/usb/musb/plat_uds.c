@@ -671,7 +671,7 @@ static irqreturn_t musb_stage2_irq(struct musb * musb, u8 bIntrUSB,
 		/* start any periodic Tx transfers waiting for current frame */
 		wFrame = musb_readw(mbase, MGC_O_HDRC_FRAME);
 		ep = musb->endpoints;
-		for (bEnd = 1; (bEnd < musb->bEndCount)
+		for (bEnd = 1; (bEnd < musb->nr_endpoints)
 					&& (musb->wEndMask >= (1 << bEnd));
 				bEnd++, ep++) {
 			// FIXME handle framecounter wraps (12 bits)
@@ -1153,7 +1153,7 @@ static int __init ep_config_from_table(struct musb *musb)
 			return -EINVAL;
 		}
 		epn++;
-		musb->bEndCount = max(epn, musb->bEndCount);
+		musb->nr_endpoints = max(epn, musb->nr_endpoints);
 	}
 
 	printk(KERN_DEBUG "%s: %d/%d max ep, %d/%d memory\n",
@@ -1196,7 +1196,7 @@ static int __init ep_config_from_hw(struct musb *musb)
 			/* 0's returned when no more endpoints */
 			break;
 		}
-		musb->bEndCount++;
+		musb->nr_endpoints++;
 		musb->wEndMask |= (1 << bEnd);
 
 		hw_ep->wMaxPacketSizeTx = 1 << (reg & 0x0f);
@@ -1338,7 +1338,7 @@ static int __init musb_core_init(u16 wType, struct musb *musb)
 	musb->endpoints[0].wMaxPacketSizeRx = MGC_END0_FIFOSIZE;
 
 	/* discover endpoint configuration */
-	musb->bEndCount = 1;
+	musb->nr_endpoints = 1;
 	musb->wEndMask = 1;
 
 	if (reg & MGC_M_CONFIGDATA_DYNFIFO) {
@@ -1361,7 +1361,7 @@ static int __init musb_core_init(u16 wType, struct musb *musb)
 		return status;
 
 	/* finish init, and print endpoint config */
-	for (i = 0; i < musb->bEndCount; i++) {
+	for (i = 0; i < musb->nr_endpoints; i++) {
 		struct musb_hw_ep	*hw_ep = musb->endpoints + i;
 
 		hw_ep->fifo = MUSB_FIFO_OFFSET(i) + mbase;
