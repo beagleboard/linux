@@ -1716,7 +1716,7 @@ static int musb_schedule(
 			continue;
 
 		if (is_in)
-			diff = hw_ep->wMaxPacketSizeRx - qh->maxpacket;
+			diff = hw_ep->max_packet_sz_rx - qh->maxpacket;
 		else
 			diff = hw_ep->max_packet_sz_tx - qh->maxpacket;
 

@@ -930,7 +930,7 @@ static int musb_gadget_enable(struct usb_ep *ep,
 			musb_ep->is_in = 0;
 		if (musb_ep->is_in)
 			goto fail;
-		if (tmp > hw_ep->wMaxPacketSizeRx)
+		if (tmp > hw_ep->max_packet_sz_rx)
 			goto fail;
 
 		wIntrRxE |= (1 << epnum);
@@ -1581,7 +1581,7 @@ init_peripheral_ep(struct musb *musb, struct musb_ep *ep, u8 epnum, int is_in)
 		if (is_in)
 			ep->end_point.maxpacket = hw_ep->max_packet_sz_tx;
 		else
-			ep->end_point.maxpacket = hw_ep->wMaxPacketSizeRx;
+			ep->end_point.maxpacket = hw_ep->max_packet_sz_rx;
 		ep->end_point.ops = &musb_ep_ops;
 		list_add_tail(&ep->end_point.ep_list, &musb->g.ep_list);
 	}
@@ -1612,7 +1612,7 @@ static inline void __init musb_g_init_endpoints(struct musb *musb)
 							epnum, 1);
 				count++;
 			}
-			if (hw_ep->wMaxPacketSizeRx) {
+			if (hw_ep->max_packet_sz_rx) {
 				init_peripheral_ep(musb, &hw_ep->ep_out,
 							epnum, 0);
 				count++;
@@ -1805,7 +1805,7 @@ stop_activity(struct musb *musb, struct usb_gadget_driver *driver)
 			} else {
 				if (hw_ep->max_packet_sz_tx)
 					nuke(&hw_ep->ep_in, -ESHUTDOWN);
-				if (hw_ep->wMaxPacketSizeRx)
+				if (hw_ep->max_packet_sz_rx)
 					nuke(&hw_ep->ep_out, -ESHUTDOWN);
 			}
 		}

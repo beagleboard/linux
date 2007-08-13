@@ -270,7 +270,7 @@ struct musb_hw_ep {
 	u8			tx_double_buffered;
 	u8			rx_double_buffered;
 	u16			max_packet_sz_tx;
-	u16			wMaxPacketSizeRx;
+	u16			max_packet_sz_rx;
 
 	struct dma_channel	*tx_channel;
 	struct dma_channel	*rx_channel;
