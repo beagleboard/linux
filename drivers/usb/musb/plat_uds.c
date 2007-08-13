@@ -1275,7 +1275,7 @@ static int __init musb_core_init(u16 wType, struct musb *musb)
 	if (reg & MGC_M_CONFIGDATA_MPTXE) {
 		strcat(aInfo, ", bulk split");
 #ifdef C_MP_TX
-		musb->bBulkSplit = TRUE;
+		musb->bulk_split = TRUE;
 #else
 		strcat(aInfo, " (X)");		/* no driver support */
 #endif

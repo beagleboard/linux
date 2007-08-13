@@ -403,9 +403,9 @@ struct musb {
 	unsigned long		idle_timeout;	/* Next timeout in jiffies */
 
 #ifdef C_MP_TX
-	unsigned bBulkSplit:1;
+	unsigned bulk_split:1;
 #define	can_bulk_split(musb,type) \
-		(((type) == USB_ENDPOINT_XFER_BULK) && (musb)->bBulkSplit)
+		(((type) == USB_ENDPOINT_XFER_BULK) && (musb)->bulk_split)
 #else
 #define	can_bulk_split(musb,type)	0
 #endif
