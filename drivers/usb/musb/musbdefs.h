@@ -355,7 +355,7 @@ struct musb {
 	u32			port1_status;
 	unsigned long		rh_timer;
 
-	enum musb_h_ep0_state	bEnd0Stage;
+	enum musb_h_ep0_state	ep0_stage;
 
 	/* bulk traffic normally dedicates endpoint hardware, and each
 	 * direction has its own ring of host side endpoints.
