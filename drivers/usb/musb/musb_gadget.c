@@ -427,7 +427,7 @@ void musb_g_tx(struct musb *musb, u8 epnum)
 			wCsrVal &= ~MGC_M_TXCSR_P_SENTSTALL;
 			musb_writew(epio, MGC_O_HDRC_TXCSR, wCsrVal);
 			if (dma_channel_status(dma) == MGC_DMA_STATUS_BUSY) {
-				dma->bStatus = MGC_DMA_STATUS_CORE_ABORT;
+				dma->status = MGC_DMA_STATUS_CORE_ABORT;
 				musb->dma_controller->channel_abort(dma);
 			}
 
@@ -753,7 +753,7 @@ void musb_g_rx(struct musb *musb, u8 epnum)
 
 	if (wCsrVal & MGC_M_RXCSR_P_SENTSTALL) {
 		if (dma_channel_status(dma) == MGC_DMA_STATUS_BUSY) {
-			dma->bStatus = MGC_DMA_STATUS_CORE_ABORT;
+			dma->status = MGC_DMA_STATUS_CORE_ABORT;
 			(void) musb->dma_controller->channel_abort(dma);
 			pRequest->actual += musb_ep->dma->actual_len;
 		}

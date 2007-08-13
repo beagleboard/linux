@@ -1226,7 +1226,7 @@ void musb_host_tx(struct musb *musb, u8 epnum)
 
 	if (status) {
 		if (dma_channel_status(dma) == MGC_DMA_STATUS_BUSY) {
-			dma->bStatus = MGC_DMA_STATUS_CORE_ABORT;
+			dma->status = MGC_DMA_STATUS_CORE_ABORT;
 			(void) musb->dma_controller->channel_abort(dma);
 		}
 
@@ -1460,7 +1460,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 	if (status) {
 		/* clean up dma and collect transfer count */
 		if (dma_channel_status(dma) == MGC_DMA_STATUS_BUSY) {
-			dma->bStatus = MGC_DMA_STATUS_CORE_ABORT;
+			dma->status = MGC_DMA_STATUS_CORE_ABORT;
 			(void) musb->dma_controller->channel_abort(dma);
 			xfer_len = dma->actual_len;
 		}
@@ -1491,7 +1491,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 		 * shouldn't this be the "half full" double buffer case?
 		 */
 		if (dma_channel_status(dma) == MGC_DMA_STATUS_BUSY) {
-			dma->bStatus = MGC_DMA_STATUS_CORE_ABORT;
+			dma->status = MGC_DMA_STATUS_CORE_ABORT;
 			(void) musb->dma_controller->channel_abort(dma);
 			xfer_len = dma->actual_len;
 			bDone = TRUE;

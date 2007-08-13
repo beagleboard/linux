@@ -144,7 +144,7 @@ static struct dma_channel* dma_channel_allocate(struct dma_controller *c,
 			pImplChannel->bTransmit = bTransmit;
 			pChannel = &(pImplChannel->Channel);
 			pChannel->private_data = pImplChannel;
-			pChannel->bStatus = MGC_DMA_STATUS_FREE;
+			pChannel->status = MGC_DMA_STATUS_FREE;
 			pChannel->max_len = 0x10000;
 			/* Tx => mode 1; Rx => mode 0 */
 			pChannel->bDesiredMode = bTransmit;
@@ -167,7 +167,7 @@ static void dma_channel_release(struct dma_channel *pChannel)
 	pImplChannel->pController->bmUsedChannels &=
 		~(1 << pImplChannel->bIndex);
 
-	pChannel->bStatus = MGC_DMA_STATUS_UNKNOWN;
+	pChannel->status = MGC_DMA_STATUS_UNKNOWN;
 }
 
 static void configure_channel(struct dma_channel *pChannel,
@@ -232,14 +232,14 @@ static int dma_channel_program(struct dma_channel * pChannel,
 		pImplChannel->bTransmit ? "Tx" : "Rx",
 		wPacketSize, dma_addr, dwLength, bMode);
 
-	BUG_ON(pChannel->bStatus == MGC_DMA_STATUS_UNKNOWN ||
-		pChannel->bStatus == MGC_DMA_STATUS_BUSY);
+	BUG_ON(pChannel->status == MGC_DMA_STATUS_UNKNOWN ||
+		pChannel->status == MGC_DMA_STATUS_BUSY);
 
 	pChannel->actual_len = 0;
 	pImplChannel->dwStartAddress = dma_addr;
 	pImplChannel->len = dwLength;
 	pImplChannel->wMaxPacketSize = wPacketSize;
-	pChannel->bStatus = MGC_DMA_STATUS_BUSY;
+	pChannel->status = MGC_DMA_STATUS_BUSY;
 
 	if ((bMode == 1) && (dwLength >= wPacketSize)) {
 		configure_channel(pChannel, wPacketSize, 1, dma_addr,
@@ -259,7 +259,7 @@ static int dma_channel_abort(struct dma_channel *pChannel)
 	u8 *mbase = pImplChannel->pController->pCoreBase;
 	u16 csr;
 
-	if (pChannel->bStatus == MGC_DMA_STATUS_BUSY) {
+	if (pChannel->status == MGC_DMA_STATUS_BUSY) {
 		if (pImplChannel->bTransmit) {
 
 			csr = musb_readw(mbase,
@@ -289,7 +289,7 @@ static int dma_channel_abort(struct dma_channel *pChannel)
 		musb_writel(mbase,
 		   MGC_HSDMA_CHANNEL_OFFSET(bChannel, MGC_O_HSDMA_COUNT), 0);
 
-		pChannel->bStatus = MGC_DMA_STATUS_FREE;
+		pChannel->status = MGC_DMA_STATUS_FREE;
 	}
 	return 0;
 }
@@ -322,7 +322,7 @@ static irqreturn_t dma_controller_irq(int irq, void *private_data)
 							MGC_O_HSDMA_CONTROL));
 
 			if (wCsr & (1 << MGC_S_HSDMA_BUSERROR)) {
-				pImplChannel->Channel.bStatus =
+				pImplChannel->Channel.status =
 				    MGC_DMA_STATUS_BUS_ABORT;
 			} else {
 				dwAddress = musb_readl(mbase,
@@ -343,7 +343,7 @@ static irqreturn_t dma_controller_irq(int irq, void *private_data)
 				u8 devctl = musb_readb(mbase,
 						MGC_O_HDRC_DEVCTL);
 
-				pChannel->bStatus = MGC_DMA_STATUS_FREE;
+				pChannel->status = MGC_DMA_STATUS_FREE;
 
 				/* completed */
 				if ((devctl & MGC_M_DEVCTL_HM)

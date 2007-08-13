@@ -104,7 +104,7 @@ struct dma_controller;
  * @wMaxLength: the maximum number of bytes the channel can move in one
  *	transaction (typically representing many USB maximum-sized packets)
  * @actual_len: how many bytes have been transferred
- * @bStatus: current channel status (updated e.g. on interrupt)
+ * @status: current channel status (updated e.g. on interrupt)
  * @bDesiredMode: TRUE if mode 1 is desired; FALSE if mode 0 is desired
  *
  * channels are associated with an endpoint for the duration of at least
@@ -115,7 +115,7 @@ struct dma_channel {
 	// FIXME not void* private_data, but a dma_controller *
 	size_t			max_len;
 	size_t			actual_len;
-	enum dma_channel_status	bStatus;
+	enum dma_channel_status	status;
 	u8			bDesiredMode;
 };
 
@@ -151,7 +151,7 @@ typedef int (*MGC_pfDmaProgramChannel) (
 static inline enum dma_channel_status
 dma_channel_status(struct dma_channel *c)
 {
-	return (is_dma_capable() && c) ? c->bStatus : MGC_DMA_STATUS_UNKNOWN;
+	return (is_dma_capable() && c) ? c->status : MGC_DMA_STATUS_UNKNOWN;
 }
 
 /**
