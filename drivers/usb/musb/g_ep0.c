@@ -333,7 +333,7 @@ __acquires(musb->lock)
 
 					/* enter test mode after irq */
 					if (handled > 0)
-						musb->bTestMode = TRUE;
+						musb->test_mode = TRUE;
 					break;
 #ifdef CONFIG_USB_MUSB_OTG
 				case USB_DEVICE_B_HNP_ENABLE:
@@ -667,7 +667,7 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 		}
 
 		/* enter test mode if needed (exit by reset) */
-		else if (musb->bTestMode) {
+		else if (musb->test_mode) {
 			DBG(1, "entering TESTMODE\n");
 
 			if (MGC_M_TEST_PACKET == musb->test_mode_nr)

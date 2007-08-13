@@ -438,7 +438,7 @@ struct musb {
 	unsigned		is_bus_powered:1;
 
 	unsigned bSetAddress:1;
-	unsigned bTestMode:1;
+	unsigned test_mode:1;
 	unsigned softconnect:1;
 
 	enum musb_g_ep0_state	ep0_state;
