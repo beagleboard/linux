@@ -133,7 +133,7 @@ struct dma_channel {
  *
  * Returns TRUE on success, else FALSE
  */
-typedef int (*MGC_pfDmaProgramChannel) (
+typedef int (*dma_program_channel) (
 		struct dma_channel	*channel,
 		u16			maxpacket,
 		u8			mode,
@@ -175,7 +175,7 @@ struct dma_controller {
 	struct dma_channel	*(*channel_alloc)(struct dma_controller *,
 					struct musb_hw_ep *, u8 is_tx);
 	void			(*channel_release)(struct dma_channel *);
-	MGC_pfDmaProgramChannel	channel_program;
+	dma_program_channel	channel_program;
 	int			(*channel_abort)(struct dma_channel *);
 };
 
