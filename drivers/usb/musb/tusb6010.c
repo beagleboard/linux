@@ -394,7 +394,7 @@ static void musb_do_idle(unsigned long _musb)
 	struct musb	*musb = (void *)_musb;
 	unsigned long	flags;
 
-	spin_lock_irqsave(&musb->Lock, flags);
+	spin_lock_irqsave(&musb->lock, flags);
 
 	switch (musb->xceiv.state) {
 	case OTG_STATE_A_WAIT_BCON:
@@ -437,7 +437,7 @@ static void musb_do_idle(unsigned long _musb)
 		tusb_allow_idle(musb, wakeups);
 	}
 done:
-	spin_unlock_irqrestore(&musb->Lock, flags);
+	spin_unlock_irqrestore(&musb->lock, flags);
 }
 
 /*
@@ -771,7 +771,7 @@ static irqreturn_t tusb_interrupt(int irq, void *__hci)
 	unsigned long	flags, idle_timeout = 0;
 	u32		int_mask, int_src;
 
-	spin_lock_irqsave(&musb->Lock, flags);
+	spin_lock_irqsave(&musb->lock, flags);
 
 	/* Mask all interrupts to allow using both edge and level GPIO irq */
 	int_mask = musb_readl(base, TUSB_INT_MASK);
@@ -869,7 +869,7 @@ static irqreturn_t tusb_interrupt(int irq, void *__hci)
 	musb_platform_try_idle(musb, idle_timeout);
 
 	musb_writel(base, TUSB_INT_MASK, int_mask);
-	spin_unlock_irqrestore(&musb->Lock, flags);
+	spin_unlock_irqrestore(&musb->lock, flags);
 
 	return IRQ_HANDLED;
 }
@@ -991,7 +991,7 @@ static int __init tusb_start(struct musb *musb)
 		return ret;
 	}
 
-	spin_lock_irqsave(&musb->Lock, flags);
+	spin_lock_irqsave(&musb->lock, flags);
 
 	if (musb_readl(base, TUSB_PROD_TEST_RESET) !=
 		TUSB_PROD_TEST_RESET_VAL) {
@@ -1033,12 +1033,12 @@ static int __init tusb_start(struct musb *musb)
 	reg |= TUSB_PHY_OTG_CTRL_WRPROTECT | TUSB_PHY_OTG_CTRL_OTG_ID_PULLUP;
 	musb_writel(base, TUSB_PHY_OTG_CTRL, reg);
 
-	spin_unlock_irqrestore(&musb->Lock, flags);
+	spin_unlock_irqrestore(&musb->lock, flags);
 
 	return 0;
 
 err:
-	spin_unlock_irqrestore(&musb->Lock, flags);
+	spin_unlock_irqrestore(&musb->lock, flags);
 
 	if (musb->board_set_power)
 		musb->board_set_power(0);

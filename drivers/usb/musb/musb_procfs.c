@@ -792,7 +792,7 @@ static int musb_proc_read(char *page, char **start,
 	if (count <= 0)
 		return -EINVAL;
 
-	spin_lock_irqsave(&musb->Lock, flags);
+	spin_lock_irqsave(&musb->lock, flags);
 
 	code = dump_header_stats(musb, buffer);
 	if (code > 0) {
@@ -813,7 +813,7 @@ static int musb_proc_read(char *page, char **start,
 
 	musb_platform_try_idle(musb, 0);
 
-	spin_unlock_irqrestore(&musb->Lock, flags);
+	spin_unlock_irqrestore(&musb->lock, flags);
 	*eof = 1;
 
 	return buffer - page;

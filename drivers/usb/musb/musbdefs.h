@@ -342,7 +342,7 @@ static inline struct usb_request *next_out_request(struct musb_hw_ep *hw_ep)
  * struct musb - Driver instance data.
  */
 struct musb {
-	spinlock_t		Lock;
+	spinlock_t		lock;
 	struct clk		*clock;
 	irqreturn_t		(*isr)(int, void *);
 	struct work_struct	irq_work;

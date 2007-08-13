@@ -149,7 +149,7 @@ static void tusb_omap_dma_cb(int lch, u16 ch_status, void *data)
 	unsigned long		remaining, flags, pio;
 	int			ch;
 
-	spin_lock_irqsave(&musb->Lock, flags);
+	spin_lock_irqsave(&musb->lock, flags);
 
 	if (dmareq_works())
 		ch = chdat->ch;
@@ -230,7 +230,7 @@ static void tusb_omap_dma_cb(int lch, u16 ch_status, void *data)
 		}
 	}
 
-	spin_unlock_irqrestore(&musb->Lock, flags);
+	spin_unlock_irqrestore(&musb->lock, flags);
 }
 
 static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,

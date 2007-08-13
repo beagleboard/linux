@@ -210,7 +210,7 @@ static void otg_timer(unsigned long _musb)
 	devctl = musb_readb(mregs, MGC_O_HDRC_DEVCTL);
 	DBG(7, "poll devctl %02x (%s)\n", devctl, otg_state_string(musb));
 
-	spin_lock_irqsave(&musb->Lock, flags);
+	spin_lock_irqsave(&musb->lock, flags);
 	switch (musb->xceiv.state) {
 	case OTG_STATE_A_WAIT_VFALL:
 		/* Wait till VBUS falls below SessionEnd (~0.2V); the 1.3 RTL
@@ -252,7 +252,7 @@ static void otg_timer(unsigned long _musb)
 	default:
 		break;
 	}
-	spin_unlock_irqrestore(&musb->Lock, flags);
+	spin_unlock_irqrestore(&musb->lock, flags);
 }
 
 static irqreturn_t davinci_interrupt(int irq, void *__hci)
@@ -263,7 +263,7 @@ static irqreturn_t davinci_interrupt(int irq, void *__hci)
 	void		*__iomem tibase = musb->ctrl_base;
 	u32		tmp;
 
-	spin_lock_irqsave(&musb->Lock, flags);
+	spin_lock_irqsave(&musb->lock, flags);
 
 	/* NOTE: DaVinci shadows the Mentor IRQs.  Don't manage them through
 	 * the Mentor registers (except for setup), use the TI ones and EOI.
@@ -366,7 +366,7 @@ static irqreturn_t davinci_interrupt(int irq, void *__hci)
 			&& musb->xceiv.state == OTG_STATE_B_IDLE)
 		mod_timer(&otg_workaround, jiffies + POLL_SECONDS * HZ);
 
-	spin_unlock_irqrestore(&musb->Lock, flags);
+	spin_unlock_irqrestore(&musb->lock, flags);
 
 	/* REVISIT we sometimes get unhandled IRQs
 	 * (e.g. ep0).  not clear why...

@@ -267,8 +267,8 @@ start:
 /* caller owns controller lock, irqs are blocked */
 static void
 __musb_giveback(struct musb *musb, struct urb *urb, int status)
-__releases(musb->Lock)
-__acquires(musb->Lock)
+__releases(musb->lock)
+__acquires(musb->lock)
 {
 	if ((urb->transfer_flags & URB_SHORT_NOT_OK)
 			&& (urb->actual_length < urb->transfer_buffer_length)
@@ -305,9 +305,9 @@ __acquires(musb->Lock)
 			urb->actual_length, urb->transfer_buffer_length
 			);
 
-	spin_unlock(&musb->Lock);
+	spin_unlock(&musb->lock);
 	usb_hcd_giveback_urb(musb_to_hcd(musb), urb);
-	spin_lock(&musb->Lock);
+	spin_lock(&musb->lock);
 }
 
 /* for bulk/interrupt endpoints only */
@@ -1868,7 +1868,7 @@ static int musb_urb_enqueue(
 	 * until we get real dma queues (with an entry for each urb/buffer),
 	 * we only have work to do in the former case.
 	 */
-	spin_lock_irqsave(&musb->Lock, flags);
+	spin_lock_irqsave(&musb->lock, flags);
 	if (hep->hcpriv) {
 		/* some concurrent activity submitted another urb to hep...
 		 * odd, rare, error prone, but legal.
@@ -1885,7 +1885,7 @@ static int musb_urb_enqueue(
 		 * musb_start_urb(), but otherwise only konicawc cares ...
 		 */
 	}
-	spin_unlock_irqrestore(&musb->Lock, flags);
+	spin_unlock_irqrestore(&musb->lock, flags);
 
 done:
 	if (status != 0)
@@ -1968,7 +1968,7 @@ static int musb_urb_dequeue(struct usb_hcd *hcd, struct urb *urb)
 			usb_pipeendpoint(urb->pipe),
 			usb_pipein(urb->pipe) ? "in" : "out");
 
-	spin_lock_irqsave(&musb->Lock, flags);
+	spin_lock_irqsave(&musb->lock, flags);
 
 	/* make sure the urb is still queued and not completed */
 	spin_lock(&urb->lock);
@@ -2039,7 +2039,7 @@ static int musb_urb_dequeue(struct usb_hcd *hcd, struct urb *urb)
 	} else
 		status = musb_cleanup_urb(urb, qh, urb->pipe & USB_DIR_IN);
 done:
-	spin_unlock_irqrestore(&musb->Lock, flags);
+	spin_unlock_irqrestore(&musb->lock, flags);
 	return status;
 }
 
@@ -2058,7 +2058,7 @@ musb_h_disable(struct usb_hcd *hcd, struct usb_host_endpoint *hep)
 	if (!qh)
 		return;
 
-	spin_lock_irqsave(&musb->Lock, flags);
+	spin_lock_irqsave(&musb->lock, flags);
 
 	switch (qh->type) {
 	case USB_ENDPOINT_XFER_CONTROL:
@@ -2100,7 +2100,7 @@ musb_h_disable(struct usb_hcd *hcd, struct usb_host_endpoint *hep)
 	list_for_each_entry_safe_from(urb, tmp, &hep->urb_list, urb_list)
 		musb_giveback(qh, urb, -ESHUTDOWN);
 
-	spin_unlock_irqrestore(&musb->Lock, flags);
+	spin_unlock_irqrestore(&musb->lock, flags);
 }
 
 static int musb_h_get_frame_number(struct usb_hcd *hcd)

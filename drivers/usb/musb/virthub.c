@@ -233,7 +233,7 @@ int musb_hub_control(
 	 * port features: reported, sometimes updated when host is active
 	 * no indicators
 	 */
-	spin_lock_irqsave(&musb->Lock, flags);
+	spin_lock_irqsave(&musb->lock, flags);
 	switch (typeReq) {
 	case ClearHubFeature:
 	case SetHubFeature:
@@ -411,6 +411,6 @@ error:
 		/* "protocol stall" on error */
 		retval = -EPIPE;
 	}
-	spin_unlock_irqrestore(&musb->Lock, flags);
+	spin_unlock_irqrestore(&musb->lock, flags);
 	return retval;
 }

@@ -45,7 +45,7 @@
 #define	next_ep0_request(musb)	next_in_request(&(musb)->endpoints[0])
 
 /*
- * Locking note:  we use only the controller lock, for simpler correctness.
+ * locking note:  we use only the controller lock, for simpler correctness.
  * It's always held with IRQs blocked.
  *
  * It protects the ep0 request queue as well as ep0_state, not just the
@@ -226,8 +226,8 @@ static inline void musb_try_b_hnp_enable(struct musb *musb)
 static int
 service_zero_data_request(struct musb *musb,
 		struct usb_ctrlrequest *pControlRequest)
-__releases(musb->Lock)
-__acquires(musb->Lock)
+__releases(musb->lock)
+__acquires(musb->lock)
 {
 	int handled = -EINVAL;
 	void __iomem *mbase = musb->mregs;
@@ -273,9 +273,9 @@ __acquires(musb->Lock)
 					break;
 
 				/* REVISIT do it directly, no locking games */
-				spin_unlock(&musb->Lock);
+				spin_unlock(&musb->lock);
 				musb_gadget_set_halt(&musb_ep->end_point, 0);
-				spin_lock(&musb->Lock);
+				spin_lock(&musb->lock);
 
 				/* select ep0 again */
 				MGC_SelectEnd(mbase, 0);
@@ -579,15 +579,15 @@ musb_read_setup(struct musb *musb, struct usb_ctrlrequest *req)
 static int
 forward_to_driver(struct musb *musb,
 		const struct usb_ctrlrequest *pControlRequest)
-__releases(musb->Lock)
-__acquires(musb->Lock)
+__releases(musb->lock)
+__acquires(musb->lock)
 {
 	int retval;
 	if (!musb->pGadgetDriver)
 		return -EOPNOTSUPP;
-	spin_unlock(&musb->Lock);
+	spin_unlock(&musb->lock);
 	retval = musb->pGadgetDriver->setup(&musb->g, pControlRequest);
-	spin_lock(&musb->Lock);
+	spin_lock(&musb->lock);
 	return retval;
 }
 
@@ -837,7 +837,7 @@ musb_g_ep0_queue(struct usb_ep *e, struct usb_request *r, gfp_t gfp_flags)
 	req->request.status = -EINPROGRESS;
 	req->bTx = ep->is_in;
 
-	spin_lock_irqsave(&musb->Lock, lockflags);
+	spin_lock_irqsave(&musb->lock, lockflags);
 
 	if (!list_empty(&ep->req_list)) {
 		status = -EBUSY;
@@ -892,7 +892,7 @@ musb_g_ep0_queue(struct usb_ep *e, struct usb_request *r, gfp_t gfp_flags)
 	}
 
 cleanup:
-	spin_unlock_irqrestore(&musb->Lock, lockflags);
+	spin_unlock_irqrestore(&musb->lock, lockflags);
 	return status;
 }
 
@@ -920,7 +920,7 @@ static int musb_g_ep0_halt(struct usb_ep *e, int value)
 	base = musb->mregs;
 	regs = musb->control_ep->regs;
 
-	spin_lock_irqsave(&musb->Lock, flags);
+	spin_lock_irqsave(&musb->lock, flags);
 
 	if (!list_empty(&ep->req_list)) {
 		status = -EBUSY;
@@ -945,7 +945,7 @@ static int musb_g_ep0_halt(struct usb_ep *e, int value)
 	}
 
 cleanup:
-	spin_unlock_irqrestore(&musb->Lock, flags);
+	spin_unlock_irqrestore(&musb->lock, flags);
 	return status;
 }
 

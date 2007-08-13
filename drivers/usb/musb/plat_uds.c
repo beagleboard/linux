@@ -297,14 +297,14 @@ void musb_otg_timer_func(unsigned long data)
 	struct musb	*musb = (struct musb *)data;
 	unsigned long	flags;
 
-	spin_lock_irqsave(&musb->Lock, flags);
+	spin_lock_irqsave(&musb->lock, flags);
 	if (musb->xceiv.state == OTG_STATE_B_WAIT_ACON) {
 		DBG(1, "HNP: B_WAIT_ACON timeout, going back to B_PERIPHERAL\n");
 		musb_g_disconnect(musb);
 		musb->xceiv.state = OTG_STATE_B_PERIPHERAL;
 		musb->is_active = 0;
 	}
-	spin_unlock_irqrestore(&musb->Lock, flags);
+	spin_unlock_irqrestore(&musb->lock, flags);
 }
 
 static DEFINE_TIMER(musb_otg_timer, musb_otg_timer_func, 0, 0);
@@ -882,14 +882,14 @@ static void musb_shutdown(struct platform_device *pdev)
 	struct musb	*musb = dev_to_musb(&pdev->dev);
 	unsigned long	flags;
 
-	spin_lock_irqsave(&musb->Lock, flags);
+	spin_lock_irqsave(&musb->lock, flags);
 	musb_platform_disable(musb);
 	musb_generic_disable(musb);
 	if (musb->clock) {
 		clk_put(musb->clock);
 		musb->clock = NULL;
 	}
-	spin_unlock_irqrestore(&musb->Lock, flags);
+	spin_unlock_irqrestore(&musb->lock, flags);
 
 	/* FIXME power down */
 }
@@ -1419,7 +1419,7 @@ static irqreturn_t generic_interrupt(int irq, void *__hci)
 	irqreturn_t	retval = IRQ_NONE;
 	struct musb	*musb = __hci;
 
-	spin_lock_irqsave(&musb->Lock, flags);
+	spin_lock_irqsave(&musb->lock, flags);
 
 	musb->int_usb = musb_readb(musb->mregs, MGC_O_HDRC_INTRUSB);
 	musb->int_tx = musb_readw(musb->mregs, MGC_O_HDRC_INTRTX);
@@ -1428,7 +1428,7 @@ static irqreturn_t generic_interrupt(int irq, void *__hci)
 	if (musb->int_usb || musb->int_tx || musb->int_rx)
 		retval = musb_interrupt(musb);
 
-	spin_unlock_irqrestore(&musb->Lock, flags);
+	spin_unlock_irqrestore(&musb->lock, flags);
 
 	/* REVISIT we sometimes get spurious IRQs on g_ep0
 	 * not clear why...
@@ -1592,9 +1592,9 @@ musb_mode_show(struct device *dev, struct device_attribute *attr, char *buf)
 	unsigned long flags;
 	int ret = -EINVAL;
 
-	spin_lock_irqsave(&musb->Lock, flags);
+	spin_lock_irqsave(&musb->lock, flags);
 	ret = sprintf(buf, "%s\n", otg_state_string(musb));
-	spin_unlock_irqrestore(&musb->Lock, flags);
+	spin_unlock_irqrestore(&musb->lock, flags);
 
 	return ret;
 }
@@ -1606,14 +1606,14 @@ musb_mode_store(struct device *dev, struct device_attribute *attr,
 	struct musb	*musb = dev_to_musb(dev);
 	unsigned long	flags;
 
-	spin_lock_irqsave(&musb->Lock, flags);
+	spin_lock_irqsave(&musb->lock, flags);
 	if (!strncmp(buf, "host", 4))
 		musb_platform_set_mode(musb, MUSB_HOST);
 	if (!strncmp(buf, "peripheral", 10))
 		musb_platform_set_mode(musb, MUSB_PERIPHERAL);
 	if (!strncmp(buf, "otg", 3))
 		musb_platform_set_mode(musb, MUSB_OTG);
-	spin_unlock_irqrestore(&musb->Lock, flags);
+	spin_unlock_irqrestore(&musb->lock, flags);
 
 	return n;
 }
@@ -1627,7 +1627,7 @@ musb_cable_show(struct device *dev, struct device_attribute *attr, char *buf)
 	unsigned long flags;
 	int vbus;
 
-	spin_lock_irqsave(&musb->Lock, flags);
+	spin_lock_irqsave(&musb->lock, flags);
 #if defined(CONFIG_USB_TUSB6010) && !defined(CONFIG_USB_MUSB_OTG)
 	/* REVISIT: connect-A != connect-B ... */
 	vbus = musb_platform_get_vbus_status(musb);
@@ -1659,7 +1659,7 @@ musb_cable_show(struct device *dev, struct device_attribute *attr, char *buf)
 		v2 = "disconnected";
 #endif
 	musb_platform_try_idle(musb, 0);
-	spin_unlock_irqrestore(&musb->Lock, flags);
+	spin_unlock_irqrestore(&musb->lock, flags);
 
 	return sprintf(buf, "%s%s\n", v1, v2);
 }
@@ -1673,7 +1673,7 @@ musb_vbus_store(struct device *dev, struct device_attribute *attr,
 	unsigned long	flags;
 	unsigned long	val;
 
-	spin_lock_irqsave(&musb->Lock, flags);
+	spin_lock_irqsave(&musb->lock, flags);
 	if (sscanf(buf, "%lu", &val) < 1) {
 		printk(KERN_ERR "Invalid VBUS timeout ms value\n");
 		return -EINVAL;
@@ -1682,7 +1682,7 @@ musb_vbus_store(struct device *dev, struct device_attribute *attr,
 	if (musb->xceiv.state == OTG_STATE_A_WAIT_BCON)
 		musb->is_active = 0;
 	musb_platform_try_idle(musb, jiffies + msecs_to_jiffies(val));
-	spin_unlock_irqrestore(&musb->Lock, flags);
+	spin_unlock_irqrestore(&musb->lock, flags);
 
 	return n;
 }
@@ -1694,9 +1694,9 @@ musb_vbus_show(struct device *dev, struct device_attribute *attr, char *buf)
 	unsigned long	flags;
 	unsigned long	val;
 
-	spin_lock_irqsave(&musb->Lock, flags);
+	spin_lock_irqsave(&musb->lock, flags);
 	val = musb->a_wait_bcon;
-	spin_unlock_irqrestore(&musb->Lock, flags);
+	spin_unlock_irqrestore(&musb->lock, flags);
 
 	return sprintf(buf, "%lu\n", val);
 }
@@ -1716,10 +1716,10 @@ musb_srp_store(struct device *dev, struct device_attribute *attr,
 		return -EINVAL;
 	}
 
-	spin_lock_irqsave(&musb->Lock, flags);
+	spin_lock_irqsave(&musb->lock, flags);
 	if (srp == 1)
 		musb_g_wakeup(musb);
-	spin_unlock_irqrestore(&musb->Lock, flags);
+	spin_unlock_irqrestore(&musb->lock, flags);
 
 	return n;
 }
@@ -1881,7 +1881,7 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 	if (!musb)
 		return -ENOMEM;
 
-	spin_lock_init(&musb->Lock);
+	spin_lock_init(&musb->lock);
 	musb->board_mode = plat->mode;
 	musb->board_set_power = plat->set_power;
 	musb->set_clock = plat->set_clock;
@@ -2108,7 +2108,7 @@ static int musb_suspend(struct platform_device *pdev, pm_message_t message)
 	if (!musb->clock)
 		return 0;
 
-	spin_lock_irqsave(&musb->Lock, flags);
+	spin_lock_irqsave(&musb->lock, flags);
 
 	if (is_peripheral_active(musb)) {
 		/* FIXME force disconnect unless we know USB will wake
@@ -2124,7 +2124,7 @@ static int musb_suspend(struct platform_device *pdev, pm_message_t message)
 		musb->set_clock(musb->clock, 0);
 	else
 		clk_disable(musb->clock);
-	spin_unlock_irqrestore(&musb->Lock, flags);
+	spin_unlock_irqrestore(&musb->lock, flags);
 	return 0;
 }
 
@@ -2136,7 +2136,7 @@ static int musb_resume(struct platform_device *pdev)
 	if (!musb->clock)
 		return 0;
 
-	spin_lock_irqsave(&musb->Lock, flags);
+	spin_lock_irqsave(&musb->lock, flags);
 
 	if (musb->set_clock)
 		musb->set_clock(musb->clock, 1);
@@ -2147,7 +2147,7 @@ static int musb_resume(struct platform_device *pdev)
 	 * unless for some reason the whole soc powered down and we're
 	 * not treating that as a whole-system restart (e.g. swsusp)
 	 */
-	spin_unlock_irqrestore(&musb->Lock, flags);
+	spin_unlock_irqrestore(&musb->lock, flags);
 	return 0;
 }
 

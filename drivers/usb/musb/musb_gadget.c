@@ -102,8 +102,8 @@ void musb_g_giveback(
 	struct musb_ep		*ep,
 	struct usb_request	*pRequest,
 	int status)
-__releases(ep->musb->Lock)
-__acquires(ep->musb->Lock)
+__releases(ep->musb->lock)
+__acquires(ep->musb->lock)
 {
 	struct musb_request	*req;
 	struct musb		*musb;
@@ -117,7 +117,7 @@ __acquires(ep->musb->Lock)
 	musb = req->musb;
 
 	ep->busy = 1;
-	spin_unlock(&musb->Lock);
+	spin_unlock(&musb->lock);
 	if (is_dma_capable()) {
 		if (req->mapped) {
 			dma_unmap_single(musb->controller,
@@ -146,7 +146,7 @@ __acquires(ep->musb->Lock)
 				req->request.actual, req->request.length,
 				pRequest->status);
 	req->request.complete(&req->ep->end_point, &req->request);
-	spin_lock(&musb->Lock);
+	spin_lock(&musb->lock);
 	ep->busy = busy;
 }
 
@@ -871,7 +871,7 @@ static int musb_gadget_enable(struct usb_ep *ep,
 	mbase = musb->mregs;
 	epnum = musb_ep->current_epnum;
 
-	spin_lock_irqsave(&musb->Lock, flags);
+	spin_lock_irqsave(&musb->lock, flags);
 
 	if (musb_ep->desc) {
 		status = -EBUSY;
@@ -988,7 +988,7 @@ static int musb_gadget_enable(struct usb_ep *ep,
 	schedule_work(&musb->irq_work);
 
 fail:
-	spin_unlock_irqrestore(&musb->Lock, flags);
+	spin_unlock_irqrestore(&musb->lock, flags);
 	return status;
 }
 
@@ -1009,7 +1009,7 @@ static int musb_gadget_disable(struct usb_ep *ep)
 	epnum = musb_ep->current_epnum;
 	epio = musb->endpoints[epnum].regs;
 
-	spin_lock_irqsave(&musb->Lock, flags);
+	spin_lock_irqsave(&musb->lock, flags);
 	MGC_SelectEnd(musb->mregs, epnum);
 
 	/* zero the endpoint sizes */
@@ -1032,7 +1032,7 @@ static int musb_gadget_disable(struct usb_ep *ep)
 
 	schedule_work(&musb->irq_work);
 
-	spin_unlock_irqrestore(&(musb->Lock), flags);
+	spin_unlock_irqrestore(&(musb->lock), flags);
 
 	DBG(2, "%s\n", musb_ep->end_point.name);
 
@@ -1148,7 +1148,7 @@ static int musb_gadget_queue(struct usb_ep *ep, struct usb_request *req,
 	} else
 		pRequest->mapped = 0;
 
-	spin_lock_irqsave(&musb->Lock, lockflags);
+	spin_lock_irqsave(&musb->lock, lockflags);
 
 	/* don't queue if the ep is down */
 	if (!musb_ep->desc) {
@@ -1166,7 +1166,7 @@ static int musb_gadget_queue(struct usb_ep *ep, struct usb_request *req,
 		musb_ep_restart(musb, pRequest);
 
 cleanup:
-	spin_unlock_irqrestore(&musb->Lock, lockflags);
+	spin_unlock_irqrestore(&musb->lock, lockflags);
 	return status;
 }
 
@@ -1181,7 +1181,7 @@ static int musb_gadget_dequeue(struct usb_ep *ep, struct usb_request *pRequest)
 	if (!ep || !pRequest || to_musb_request(pRequest)->ep != musb_ep)
 		return -EINVAL;
 
-	spin_lock_irqsave(&musb->Lock, flags);
+	spin_lock_irqsave(&musb->lock, flags);
 
 	list_for_each_entry(r, &musb_ep->req_list, list) {
 		if (r == pRequest)
@@ -1216,7 +1216,7 @@ static int musb_gadget_dequeue(struct usb_ep *ep, struct usb_request *pRequest)
 	}
 
 done:
-	spin_unlock_irqrestore(&musb->Lock, flags);
+	spin_unlock_irqrestore(&musb->lock, flags);
 	return status;
 }
 
@@ -1242,7 +1242,7 @@ int musb_gadget_set_halt(struct usb_ep *ep, int value)
 		return -EINVAL;
 	mbase = musb->mregs;
 
-	spin_lock_irqsave(&musb->Lock, flags);
+	spin_lock_irqsave(&musb->lock, flags);
 
 	if ((USB_ENDPOINT_XFER_ISOC == musb_ep->type)) {
 		status = -EINVAL;
@@ -1257,7 +1257,7 @@ int musb_gadget_set_halt(struct usb_ep *ep, int value)
 		wCsr = musb_readw(epio, MGC_O_HDRC_TXCSR);
 		if (wCsr & MGC_M_TXCSR_FIFONOTEMPTY) {
 			DBG(3, "%s fifo busy, cannot halt\n", ep->name);
-			spin_unlock_irqrestore(&musb->Lock, flags);
+			spin_unlock_irqrestore(&musb->lock, flags);
 			return -EAGAIN;
 		}
 
@@ -1299,7 +1299,7 @@ done:
 		musb_ep_restart(musb, pRequest);
 	}
 
-	spin_unlock_irqrestore(&musb->Lock, flags);
+	spin_unlock_irqrestore(&musb->lock, flags);
 	return status;
 }
 
@@ -1315,13 +1315,13 @@ static int musb_gadget_fifo_status(struct usb_ep *ep)
 		void __iomem		*mbase = musb->mregs;
 		unsigned long		flags;
 
-		spin_lock_irqsave(&musb->Lock, flags);
+		spin_lock_irqsave(&musb->lock, flags);
 
 		MGC_SelectEnd(mbase, epnum);
 		/* FIXME return zero unless RXPKTRDY is set */
 		retval = musb_readw(epio, MGC_O_HDRC_RXCOUNT);
 
-		spin_unlock_irqrestore(&musb->Lock, flags);
+		spin_unlock_irqrestore(&musb->lock, flags);
 	}
 	return retval;
 }
@@ -1338,7 +1338,7 @@ static void musb_gadget_fifo_flush(struct usb_ep *ep)
 
 	mbase = musb->mregs;
 
-	spin_lock_irqsave(&musb->Lock, flags);
+	spin_lock_irqsave(&musb->lock, flags);
 	MGC_SelectEnd(mbase, (u8) nEnd);
 
 	/* disable interrupts */
@@ -1362,7 +1362,7 @@ static void musb_gadget_fifo_flush(struct usb_ep *ep)
 
 	/* re-enable interrupt */
 	musb_writew(mbase, MGC_O_HDRC_INTRTXE, wIntrTxE);
-	spin_unlock_irqrestore(&musb->Lock, flags);
+	spin_unlock_irqrestore(&musb->lock, flags);
 }
 
 static const struct usb_ep_ops musb_ep_ops = {
@@ -1395,7 +1395,7 @@ static int musb_gadget_wakeup(struct usb_gadget *gadget)
 	u8		power, devctl;
 	int		retries;
 
-	spin_lock_irqsave(&musb->Lock, flags);
+	spin_lock_irqsave(&musb->lock, flags);
 
 	switch (musb->xceiv.state) {
 	case OTG_STATE_B_PERIPHERAL:
@@ -1450,7 +1450,7 @@ static int musb_gadget_wakeup(struct usb_gadget *gadget)
 	power &= ~MGC_M_POWER_RESUME;
 	musb_writeb(mregs, MGC_O_HDRC_POWER, power);
 done:
-	spin_unlock_irqrestore(&musb->Lock, flags);
+	spin_unlock_irqrestore(&musb->lock, flags);
 	return status;
 }
 
@@ -1519,12 +1519,12 @@ static int musb_gadget_pullup(struct usb_gadget *gadget, int is_on)
 	/* NOTE: this assumes we are sensing vbus; we'd rather
 	 * not pullup unless the B-session is active.
 	 */
-	spin_lock_irqsave(&musb->Lock, flags);
+	spin_lock_irqsave(&musb->lock, flags);
 	if (is_on != musb->softconnect) {
 		musb->softconnect = is_on;
 		musb_pullup(musb, is_on);
 	}
-	spin_unlock_irqrestore(&musb->Lock, flags);
+	spin_unlock_irqrestore(&musb->lock, flags);
 	return 0;
 }
 
@@ -1701,7 +1701,7 @@ int usb_gadget_register_driver(struct usb_gadget_driver *driver)
 	}
 
 	DBG(3, "registering driver %s\n", driver->function);
-	spin_lock_irqsave(&musb->Lock, flags);
+	spin_lock_irqsave(&musb->lock, flags);
 
 	if (musb->pGadgetDriver) {
 		DBG(1, "%s is already bound to %s\n",
@@ -1716,7 +1716,7 @@ int usb_gadget_register_driver(struct usb_gadget_driver *driver)
 		retval = 0;
 	}
 
-	spin_unlock_irqrestore(&musb->Lock, flags);
+	spin_unlock_irqrestore(&musb->lock, flags);
 
 	if (retval == 0)
 		retval = driver->bind(&musb->g);
@@ -1729,7 +1729,7 @@ int usb_gadget_register_driver(struct usb_gadget_driver *driver)
 
 	/* start peripheral and/or OTG engines */
 	if (retval == 0) {
-		spin_lock_irqsave(&musb->Lock, flags);
+		spin_lock_irqsave(&musb->lock, flags);
 
 		/* REVISIT always use otg_set_peripheral(), handling
 		 * issues including the root hub one below ...
@@ -1747,7 +1747,7 @@ int usb_gadget_register_driver(struct usb_gadget_driver *driver)
 		if (!is_otg_enabled(musb))
 			musb_start(musb);
 
-		spin_unlock_irqrestore(&musb->Lock, flags);
+		spin_unlock_irqrestore(&musb->lock, flags);
 
 		if (is_otg_enabled(musb)) {
 			DBG(3, "OTG startup...\n");
@@ -1759,12 +1759,12 @@ int usb_gadget_register_driver(struct usb_gadget_driver *driver)
 			retval = usb_add_hcd(musb_to_hcd(musb), -1, 0);
 			if (retval < 0) {
 				DBG(1, "add_hcd failed, %d\n", retval);
-				spin_lock_irqsave(&musb->Lock, flags);
+				spin_lock_irqsave(&musb->lock, flags);
 				musb->xceiv.gadget = NULL;
 				musb->xceiv.state = OTG_STATE_UNDEFINED;
 				musb->pGadgetDriver = NULL;
 				musb->g.dev.driver = NULL;
-				spin_unlock_irqrestore(&musb->Lock, flags);
+				spin_unlock_irqrestore(&musb->lock, flags);
 			}
 		}
 	}
@@ -1810,9 +1810,9 @@ stop_activity(struct musb *musb, struct usb_gadget_driver *driver)
 			}
 		}
 
-		spin_unlock(&musb->Lock);
+		spin_unlock(&musb->lock);
 		driver->disconnect (&musb->g);
-		spin_lock(&musb->Lock);
+		spin_lock(&musb->lock);
 	}
 }
 
@@ -1835,7 +1835,7 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 	 * this needs to shut down the OTG engine.
 	 */
 
-	spin_lock_irqsave(&musb->Lock, flags);
+	spin_lock_irqsave(&musb->lock, flags);
 
 #ifdef	CONFIG_USB_MUSB_OTG
 	musb_hnp_stop(musb);
@@ -1846,9 +1846,9 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 		stop_activity(musb, driver);
 
 		DBG(3, "unregistering driver %s\n", driver->function);
-		spin_unlock_irqrestore(&musb->Lock, flags);
+		spin_unlock_irqrestore(&musb->lock, flags);
 		driver->unbind(&musb->g);
-		spin_lock_irqsave(&musb->Lock, flags);
+		spin_lock_irqsave(&musb->lock, flags);
 
 		musb->pGadgetDriver = NULL;
 		musb->g.dev.driver = NULL;
@@ -1857,7 +1857,7 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 		musb_platform_try_idle(musb, 0);
 	} else
 		retval = -EINVAL;
-	spin_unlock_irqrestore(&musb->Lock, flags);
+	spin_unlock_irqrestore(&musb->lock, flags);
 
 	if (is_otg_enabled(musb) && retval == 0) {
 		usb_remove_hcd(musb_to_hcd(musb));
@@ -1886,9 +1886,9 @@ void musb_g_resume(struct musb *musb)
 	case OTG_STATE_B_PERIPHERAL:
 		musb->is_active = 1;
 		if (musb->pGadgetDriver && musb->pGadgetDriver->resume) {
-			spin_unlock(&musb->Lock);
+			spin_unlock(&musb->lock);
 			musb->pGadgetDriver->resume(&musb->g);
-			spin_lock(&musb->Lock);
+			spin_lock(&musb->lock);
 		}
 		break;
 	default:
@@ -1913,9 +1913,9 @@ void musb_g_suspend(struct musb *musb)
 	case OTG_STATE_B_PERIPHERAL:
 		musb->is_suspended = 1;
 		if (musb->pGadgetDriver && musb->pGadgetDriver->suspend) {
-			spin_unlock(&musb->Lock);
+			spin_unlock(&musb->lock);
 			musb->pGadgetDriver->suspend(&musb->g);
-			spin_lock(&musb->Lock);
+			spin_lock(&musb->lock);
 		}
 		break;
 	default:
@@ -1949,9 +1949,9 @@ void musb_g_disconnect(struct musb *musb)
 
 	musb->g.speed = USB_SPEED_UNKNOWN;
 	if (musb->pGadgetDriver && musb->pGadgetDriver->disconnect) {
-		spin_unlock(&musb->Lock);
+		spin_unlock(&musb->lock);
 		musb->pGadgetDriver->disconnect(&musb->g);
-		spin_lock(&musb->Lock);
+		spin_lock(&musb->lock);
 	}
 
 	switch (musb->xceiv.state) {
@@ -1976,8 +1976,8 @@ void musb_g_disconnect(struct musb *musb)
 }
 
 void musb_g_reset(struct musb *musb)
-__releases(musb->Lock)
-__acquires(musb->Lock)
+__releases(musb->lock)
+__acquires(musb->lock)
 {
 	void __iomem	*mbase = musb->mregs;
 	u8		devctl = musb_readb(mbase, MGC_O_HDRC_DEVCTL);
