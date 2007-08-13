@@ -147,7 +147,7 @@ static struct dma_channel* dma_channel_allocate(struct dma_controller *c,
 			pChannel->status = MGC_DMA_STATUS_FREE;
 			pChannel->max_len = 0x10000;
 			/* Tx => mode 1; Rx => mode 0 */
-			pChannel->bDesiredMode = bTransmit;
+			pChannel->desired_mode = bTransmit;
 			pChannel->actual_len = 0;
 			break;
 		}
@@ -348,7 +348,7 @@ static irqreturn_t dma_controller_irq(int irq, void *private_data)
 				/* completed */
 				if ((devctl & MGC_M_DEVCTL_HM)
 				    && (pImplChannel->bTransmit)
-				    && ((pChannel->bDesiredMode == 0)
+				    && ((pChannel->desired_mode == 0)
 					|| (pChannel->actual_len &
 					    (pImplChannel->wMaxPacketSize - 1)))
 				   ) {

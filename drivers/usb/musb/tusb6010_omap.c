@@ -549,7 +549,7 @@ tusb_omap_dma_allocate(struct dma_controller *c,
 	chdat->tusb_dma = tusb_dma;
 
 	channel->max_len = 0x7fffffff;
-	channel->bDesiredMode = 0;
+	channel->desired_mode = 0;
 	channel->actual_len = 0;
 
 	if (dmareq_works()) {

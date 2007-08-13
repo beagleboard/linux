@@ -306,16 +306,16 @@ static void txstate(struct musb *musb, struct musb_request *req)
 			request_size = min(pRequest->length,
 						musb_ep->dma->max_len);
 			if (request_size <= musb_ep->wPacketSize)
-				musb_ep->dma->bDesiredMode = 0;
+				musb_ep->dma->desired_mode = 0;
 			else
-				musb_ep->dma->bDesiredMode = 1;
+				musb_ep->dma->desired_mode = 1;
 
 			use_dma = use_dma && c->channel_program(
 					musb_ep->dma, musb_ep->wPacketSize,
-					musb_ep->dma->bDesiredMode,
+					musb_ep->dma->desired_mode,
 					pRequest->dma, request_size);
 			if (use_dma) {
-				if (musb_ep->dma->bDesiredMode == 0) {
+				if (musb_ep->dma->desired_mode == 0) {
 					/* ASSERT: DMAENAB is clear */
 					wCsrVal &= ~(MGC_M_TXCSR_AUTOSET |
 							MGC_M_TXCSR_DMAMODE);
@@ -487,7 +487,7 @@ void musb_g_tx(struct musb *musb, u8 epnum)
 							== 0)
 #ifdef CONFIG_USB_INVENTRA_DMA
 					|| (is_dma &&
-						((!dma->bDesiredMode) ||
+						((!dma->desired_mode) ||
 						    (pRequest->actual &
 						    (musb_ep->wPacketSize - 1))))
 #endif
@@ -666,14 +666,14 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 					transfer_size = len;
 #endif
 					if (transfer_size <= musb_ep->wPacketSize)
-						musb_ep->dma->bDesiredMode = 0;
+						musb_ep->dma->desired_mode = 0;
 					else
-						musb_ep->dma->bDesiredMode = 1;
+						musb_ep->dma->desired_mode = 1;
 
 					use_dma = c->channel_program(
 							channel,
 							musb_ep->wPacketSize,
-							channel->bDesiredMode,
+							channel->desired_mode,
 							pRequest->dma
 							+ pRequest->actual,
 							transfer_size);
@@ -701,7 +701,7 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 
 				ret = c->channel_program(channel,
 						musb_ep->wPacketSize,
-						channel->bDesiredMode,
+						channel->desired_mode,
 						dma_addr,
 						fifo_count);
 				if (ret == TRUE)
@@ -805,7 +805,7 @@ void musb_g_rx(struct musb *musb, u8 epnum)
 
 #if defined(CONFIG_USB_INVENTRA_DMA) || defined(CONFIG_USB_TUSB_OMAP_DMA)
 		/* Autoclear doesn't clear RxPktRdy for short packets */
-		if ((dma->bDesiredMode == 0)
+		if ((dma->desired_mode == 0)
 				|| (dma->actual_len
 					& (musb_ep->wPacketSize - 1))) {
 			/* ack the read! */

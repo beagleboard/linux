@@ -774,12 +774,12 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 			qh->segsize = min(dwLength, pDmaChannel->max_len);
 
 			if (qh->segsize <= wPacketSize)
-				pDmaChannel->bDesiredMode = 0;
+				pDmaChannel->desired_mode = 0;
 			else
-				pDmaChannel->bDesiredMode = 1;
+				pDmaChannel->desired_mode = 1;
 
 
-			if (pDmaChannel->bDesiredMode == 0) {
+			if (pDmaChannel->desired_mode == 0) {
 				wCsr &= ~(MGC_M_TXCSR_AUTOSET
 					| MGC_M_TXCSR_DMAMODE);
 				wCsr |= (MGC_M_TXCSR_DMAENAB);
@@ -793,7 +793,7 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 
 			bDmaOk = dma_controller->channel_program(
 					pDmaChannel, wPacketSize,
-					pDmaChannel->bDesiredMode,
+					pDmaChannel->desired_mode,
 					pUrb->transfer_dma,
 					qh->segsize);
 			if (bDmaOk) {
@@ -1569,7 +1569,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 
 			c = musb->dma_controller;
 
-			dma->bDesiredMode = 0;
+			dma->desired_mode = 0;
 #ifdef USE_MODE1
 			/* because of the issue below, mode 1 will
 			 * only rarely behave with correct semantics.
@@ -1579,7 +1579,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 				&& (pUrb->transfer_buffer_length -
 						pUrb->actual_length)
 					> qh->maxpacket)
-				dma->bDesiredMode = 1;
+				dma->desired_mode = 1;
 #endif
 
 /* Disadvantage of using mode 1:
@@ -1602,7 +1602,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 			wVal = musb_readw(epio, MGC_O_HDRC_RXCSR);
 			wVal &= ~MGC_M_RXCSR_H_REQPKT;
 
-			if (dma->bDesiredMode == 0)
+			if (dma->desired_mode == 0)
 				wVal &= ~MGC_M_RXCSR_H_AUTOREQ;
 			else
 				wVal |= MGC_M_RXCSR_H_AUTOREQ;
@@ -1617,10 +1617,10 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 			 */
 			status = c->channel_program(
 				dma, qh->maxpacket,
-				dma->bDesiredMode,
+				dma->desired_mode,
 				pUrb->transfer_dma
 					+ pUrb->actual_length,
-				(dma->bDesiredMode == 0)
+				(dma->desired_mode == 0)
 					? wRxCount
 					: pUrb->transfer_buffer_length);
 
