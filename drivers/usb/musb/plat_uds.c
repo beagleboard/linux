@@ -557,7 +557,7 @@ static irqreturn_t musb_stage0_irq(struct musb * musb, u8 bIntrUSB,
 		if (is_peripheral_active(musb)) {
 			// REVISIT HNP; just force disconnect
 		}
-		musb->bDelayPortPowerOff = FALSE;
+		musb->delay_port_power_off = FALSE;
 		musb_writew(mbase, MGC_O_HDRC_INTRTXE, musb->wEndMask);
 		musb_writew(mbase, MGC_O_HDRC_INTRRXE, musb->wEndMask & 0xfffe);
 		musb_writeb(mbase, MGC_O_HDRC_INTRUSBE, 0xf7);

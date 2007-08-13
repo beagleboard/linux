@@ -116,7 +116,7 @@ static void musb_port_reset(struct musb *musb, u8 bReset)
 	/* REVISIT this looks wrong for HNP */
 	u8 devctl = musb_readb(mbase, MGC_O_HDRC_DEVCTL);
 
-	if (musb->bDelayPortPowerOff || !(devctl & MGC_M_DEVCTL_HM)) {
+	if (musb->delay_port_power_off || !(devctl & MGC_M_DEVCTL_HM)) {
 		return;
 	}
 #endif

@@ -451,7 +451,7 @@ struct musb {
 
 #ifdef CONFIG_USB_MUSB_OTG
 	/* FIXME this can't be OTG-specific ... ? */
-	u8 bDelayPortPowerOff;
+	u8 delay_port_power_off;
 #endif
 
 #ifdef MUSB_CONFIG_PROC_FS
