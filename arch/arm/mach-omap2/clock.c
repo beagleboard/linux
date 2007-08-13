@@ -1149,8 +1149,8 @@ static void __init omap2_get_crystal_rate(struct clk *osc, struct clk *sys)
 	div &= OMAP_SYSCLKDIV_MASK;
 	div >>= sys->rate_offset;
 
-	osc->rate = sclk;
-	sys->rate = osc->rate / div;
+	osc->rate = sclk * div;
+	sys->rate = sclk;
 }
 
 /*
