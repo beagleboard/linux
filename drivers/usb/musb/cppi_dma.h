@@ -65,7 +65,7 @@ struct cppi_channel {
 	struct cppi		*pController;
 
 	/* which direction of which endpoint? */
-	struct musb_hw_ep	*pEndPt;
+	struct musb_hw_ep	*hw_ep;
 	u8			bTransmit;
 	u8			chNo;
 
