@@ -126,7 +126,7 @@ struct dma_channel {
  *
  * @channel: pointer to a channel obtained by channel_alloc
  * @maxpacket: the maximum packet size
- * @bMode: TRUE if mode 1; FALSE if mode 0
+ * @mode: TRUE if mode 1; FALSE if mode 0
  * @dma_addr: base address of data (in DMA space)
  * @length: the number of bytes to transfer; no larger than the channel's
  *	reported max_len
@@ -136,7 +136,7 @@ struct dma_channel {
 typedef int (*MGC_pfDmaProgramChannel) (
 		struct dma_channel	*channel,
 		u16			maxpacket,
-		u8			bMode,
+		u8			mode,
 		dma_addr_t		dma_addr,
 		u32			length);
 

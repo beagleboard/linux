@@ -171,7 +171,7 @@ static void dma_channel_release(struct dma_channel *pChannel)
 }
 
 static void configure_channel(struct dma_channel *pChannel,
-				u16 wPacketSize, u8 bMode,
+				u16 wPacketSize, u8 mode,
 				dma_addr_t dma_addr, u32 dwLength)
 {
 	struct musb_dma_channel *pImplChannel =
@@ -182,9 +182,9 @@ static void configure_channel(struct dma_channel *pChannel,
 	u16 wCsr = 0;
 
 	DBG(4, "%p, pkt_sz %d, addr 0x%x, len %d, mode %d\n",
-	    pChannel, wPacketSize, dma_addr, dwLength, bMode);
+	    pChannel, wPacketSize, dma_addr, dwLength, mode);
 
-	if (bMode) {
+	if (mode) {
 		wCsr |= 1 << MGC_S_HSDMA_MODE1;
 		if (dwLength < wPacketSize) {
 			return FALSE;
@@ -221,7 +221,7 @@ static void configure_channel(struct dma_channel *pChannel,
 }
 
 static int dma_channel_program(struct dma_channel * pChannel,
-				u16 wPacketSize, u8 bMode,
+				u16 wPacketSize, u8 mode,
 				dma_addr_t dma_addr, u32 dwLength)
 {
 	struct musb_dma_channel *pImplChannel =
@@ -230,7 +230,7 @@ static int dma_channel_program(struct dma_channel * pChannel,
 	DBG(2, "ep%d-%s pkt_sz %d, dma_addr 0x%x length %d, mode %d\n",
 		pImplChannel->epnum,
 		pImplChannel->bTransmit ? "Tx" : "Rx",
-		wPacketSize, dma_addr, dwLength, bMode);
+		wPacketSize, dma_addr, dwLength, mode);
 
 	BUG_ON(pChannel->status == MGC_DMA_STATUS_UNKNOWN ||
 		pChannel->status == MGC_DMA_STATUS_BUSY);
@@ -241,7 +241,7 @@ static int dma_channel_program(struct dma_channel * pChannel,
 	pImplChannel->wMaxPacketSize = wPacketSize;
 	pChannel->status = MGC_DMA_STATUS_BUSY;
 
-	if ((bMode == 1) && (dwLength >= wPacketSize)) {
+	if ((mode == 1) && (dwLength >= wPacketSize)) {
 		configure_channel(pChannel, wPacketSize, 1, dma_addr,
 				  dwLength);
 	} else
