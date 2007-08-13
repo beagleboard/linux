@@ -455,7 +455,7 @@ struct musb {
 #endif
 
 #ifdef MUSB_CONFIG_PROC_FS
-	struct proc_dir_entry *pProcEntry;
+	struct proc_dir_entry *proc_entry;
 #endif
 };
 

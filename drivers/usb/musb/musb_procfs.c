@@ -821,7 +821,7 @@ static int musb_proc_read(char *page, char **start,
 
 void __devexit musb_debug_delete(char *name, struct musb *musb)
 {
-	if (musb->pProcEntry)
+	if (musb->proc_entry)
 		remove_proc_entry(name, NULL);
 }
 
@@ -835,7 +835,7 @@ musb_debug_create(char *name, struct musb *data)
 	if (!name)
 		return NULL;
 
-	data->pProcEntry = pde = create_proc_entry(name,
+	data->proc_entry = pde = create_proc_entry(name,
 					S_IFREG | S_IRUGO | S_IWUSR, NULL);
 	if (pde) {
 		pde->data = data;
