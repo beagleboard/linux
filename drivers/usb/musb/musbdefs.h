@@ -442,7 +442,7 @@ struct musb {
 	unsigned softconnect:1;
 
 	enum musb_g_ep0_state	ep0_state;
-	u8			bAddress;
+	u8			address;
 	u8			bTestModeValue;
 	u16			ackpend;		/* ep0 */
 	struct usb_gadget	g;			/* the gadget */

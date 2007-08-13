@@ -2010,7 +2010,7 @@ __acquires(musb->lock)
 	musb->is_active = 1;
 	musb->is_suspended = 0;
 	MUSB_DEV_MODE(musb);
-	musb->bAddress = 0;
+	musb->address = 0;
 	musb->ep0_state = MGC_END0_STAGE_SETUP;
 
 	musb->may_wakeup = 0;

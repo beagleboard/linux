@@ -240,7 +240,7 @@ __acquires(musb->lock)
 		case USB_REQ_SET_ADDRESS:
 			/* change it after the status stage */
 			musb->bSetAddress = TRUE;
-			musb->bAddress = (u8) (pControlRequest->wValue & 0x7f);
+			musb->address = (u8) (pControlRequest->wValue & 0x7f);
 			handled = 1;
 			break;
 
@@ -663,7 +663,7 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 		 */
 		if (musb->bSetAddress) {
 			musb->bSetAddress = FALSE;
-			musb_writeb(mbase, MGC_O_HDRC_FADDR, musb->bAddress);
+			musb_writeb(mbase, MGC_O_HDRC_FADDR, musb->address);
 		}
 
 		/* enter test mode if needed (exit by reset) */
