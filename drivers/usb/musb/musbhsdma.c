@@ -140,7 +140,7 @@ static struct dma_channel* dma_channel_allocate(struct dma_controller *c,
 			pImplChannel = &(pController->aChannel[bBit]);
 			pImplChannel->pController = pController;
 			pImplChannel->bIndex = bBit;
-			pImplChannel->bEnd = hw_ep->bLocalEnd;
+			pImplChannel->bEnd = hw_ep->epnum;
 			pImplChannel->bTransmit = bTransmit;
 			pChannel = &(pImplChannel->Channel);
 			pChannel->pPrivateData = pImplChannel;

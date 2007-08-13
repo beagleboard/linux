@@ -176,7 +176,7 @@ void musb_write_fifo(struct musb_hw_ep *hw_ep, u16 len, const u8 *src)
 	prefetch((u8 *)src);
 
 	DBG(4, "%cX ep%d fifo %p count %d buf %p\n",
-			'T', hw_ep->bLocalEnd, fifo, len, src);
+			'T', hw_ep->epnum, fifo, len, src);
 
 	/* we can't assume unaligned reads work */
 	if (likely((0x01 & (unsigned long) src) == 0)) {
@@ -214,7 +214,7 @@ void musb_read_fifo(struct musb_hw_ep *hw_ep, u16 len, u8 *dst)
 	void __iomem *fifo = hw_ep->fifo;
 
 	DBG(4, "%cX ep%d fifo %p count %d buf %p\n",
-			'R', hw_ep->bLocalEnd, fifo, len, dst);
+			'R', hw_ep->epnum, fifo, len, dst);
 
 	/* we can't assume unaligned writes work */
 	if (likely((0x01 & (unsigned long) dst) == 0)) {
@@ -1044,13 +1044,13 @@ fifo_setup(struct musb *musb, struct musb_hw_ep  *hw_ep,
 	}
 
 	/* configure the FIFO */
-	musb_writeb(mbase, MGC_O_HDRC_INDEX, hw_ep->bLocalEnd);
+	musb_writeb(mbase, MGC_O_HDRC_INDEX, hw_ep->epnum);
 
 #ifdef CONFIG_USB_MUSB_HDRC_HCD
 	/* EP0 reserved endpoint for control, bidirectional;
 	 * EP1 reserved for bulk, two unidirection halves.
 	 */
-	if (hw_ep->bLocalEnd == 1)
+	if (hw_ep->epnum == 1)
 		musb->bulk_ep = hw_ep;
 	/* REVISIT error check:  be sure ep0 can both rx and tx ... */
 #endif
@@ -1085,7 +1085,7 @@ fifo_setup(struct musb *musb, struct musb_hw_ep  *hw_ep,
 	/* NOTE rx and tx endpoint irqs aren't managed separately,
 	 * which happens to be ok
 	 */
-	musb->wEndMask |= (1 << hw_ep->bLocalEnd);
+	musb->wEndMask |= (1 << hw_ep->epnum);
 
 	return offset + (maxpacket << ((c_size & MGC_M_FIFOSZ_DPB) ? 1 : 0));
 }
@@ -1538,13 +1538,13 @@ static int __initdata use_dma = 1;
 module_param(use_dma, bool, 0);
 MODULE_PARM_DESC(use_dma, "enable/disable use of DMA");
 
-void musb_dma_completion(struct musb *musb, u8 bLocalEnd, u8 bTransmit)
+void musb_dma_completion(struct musb *musb, u8 epnum, u8 bTransmit)
 {
 	u8	devctl = musb_readb(musb->mregs, MGC_O_HDRC_DEVCTL);
 
 	/* called with controller lock already held */
 
-	if (!bLocalEnd) {
+	if (!epnum) {
 #ifndef CONFIG_USB_TUSB_OMAP_DMA
 		if (!is_cppi_enabled()) {
 			/* endpoint 0 */
@@ -1559,19 +1559,19 @@ void musb_dma_completion(struct musb *musb, u8 bLocalEnd, u8 bTransmit)
 		if (bTransmit) {
 			if (devctl & MGC_M_DEVCTL_HM) {
 				if (is_host_capable())
-					musb_host_tx(musb, bLocalEnd);
+					musb_host_tx(musb, epnum);
 			} else {
 				if (is_peripheral_capable())
-					musb_g_tx(musb, bLocalEnd);
+					musb_g_tx(musb, epnum);
 			}
 		} else {
 			/* receive */
 			if (devctl & MGC_M_DEVCTL_HM) {
 				if (is_host_capable())
-					musb_host_rx(musb, bLocalEnd);
+					musb_host_rx(musb, epnum);
 			} else {
 				if (is_peripheral_capable())
-					musb_g_rx(musb, bLocalEnd);
+					musb_g_rx(musb, epnum);
 			}
 		}
 	}
@@ -1776,7 +1776,7 @@ allocate_instance(struct device *dev, void __iomem *mbase)
 			epnum++, ep++) {
 
 		ep->musb = musb;
-		ep->bLocalEnd = epnum;
+		ep->epnum = epnum;
 	}
 
 	musb->controller = dev;

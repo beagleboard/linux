@@ -508,13 +508,13 @@ tusb_omap_dma_allocate(struct dma_controller *c,
 
 	reg = musb_readl(tusb_base, TUSB_DMA_INT_MASK);
 	if (tx)
-		reg &= ~(1 << hw_ep->bLocalEnd);
+		reg &= ~(1 << hw_ep->epnum);
 	else
-		reg &= ~(1 << (hw_ep->bLocalEnd + 15));
+		reg &= ~(1 << (hw_ep->epnum + 15));
 	musb_writel(tusb_base, TUSB_DMA_INT_MASK, reg);
 
 	/* REVISIT: Why does dmareq5 not work? */
-	if (hw_ep->bLocalEnd == 0) {
+	if (hw_ep->epnum == 0) {
 		DBG(3, "Not allowing DMA for ep0 %s\n", tx ? "tx" : "rx");
 		return NULL;
 	}
@@ -543,7 +543,7 @@ tusb_omap_dma_allocate(struct dma_controller *c,
 	chdat->musb = tusb_dma->musb;
 	chdat->tusb_base = tusb_dma->tusb_base;
 	chdat->hw_ep = hw_ep;
-	chdat->epnum = hw_ep->bLocalEnd;
+	chdat->epnum = hw_ep->epnum;
 	chdat->dmareq = -1;
 	chdat->completed_len = 0;
 	chdat->tusb_dma = tusb_dma;

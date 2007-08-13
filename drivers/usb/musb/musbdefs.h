@@ -283,7 +283,7 @@ struct musb_hw_ep {
 #endif
 
 	/* index in musb->aLocalEnd[]  */
-	u8			bLocalEnd;
+	u8			epnum;
 
 	/* hardware configuration, possibly dynamic */
 	u8			bIsSharedFifo;

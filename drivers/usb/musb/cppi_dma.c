@@ -289,7 +289,7 @@ cppi_channel_allocate(struct dma_controller *c,
 	u8			chNum;
 	struct cppi_channel	*otgCh;
 	void __iomem		*tibase;
-	int			local_end = ep->bLocalEnd;
+	int			local_end = ep->epnum;
 
 	pController = container_of(c, struct cppi, Controller);
 	tibase = pController->pCoreBase - DAVINCI_BASE_OFFSET;

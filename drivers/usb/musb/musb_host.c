@@ -139,7 +139,7 @@ static inline void musb_h_tx_start(struct musb_hw_ep *ep)
 	u16	txcsr;
 
 	/* NOTE: no locks here; caller should lock and select EP */
-	if (ep->bLocalEnd) {
+	if (ep->epnum) {
 		txcsr = musb_readw(ep->regs, MGC_O_HDRC_TXCSR);
 		txcsr |= MGC_M_TXCSR_TXPKTRDY | MGC_M_TXCSR_H_WZC_BITS;
 		musb_writew(ep->regs, MGC_O_HDRC_TXCSR, txcsr);
@@ -177,7 +177,7 @@ musb_start_urb(struct musb *musb, int is_in, struct musb_qh *qh)
 	struct musb_hw_ep	*hw_ep = qh->hw_ep;
 	unsigned		nPipe = urb->pipe;
 	u8			bAddress = usb_pipedevice(nPipe);
-	int			bEnd = hw_ep->bLocalEnd;
+	int			bEnd = hw_ep->epnum;
 
 	/* initialize software qh state */
 	qh->offset = 0;
@@ -396,7 +396,7 @@ musb_giveback(struct musb_qh *qh, struct urb *urb, int status)
 			 * de-allocated if it's tracked and allocated;
 			 * and where we'd update the schedule tree...
 			 */
-			musb->periodic[ep->bLocalEnd] = NULL;
+			musb->periodic[ep->epnum] = NULL;
 			kfree(qh);
 			qh = NULL;
 			break;
@@ -437,7 +437,7 @@ musb_advance_schedule(struct musb *musb, struct urb *urb,
 
 	if (qh && qh->is_ready && !list_empty(&qh->hep->urb_list)) {
 		DBG(4, "... next ep%d %cX urb %p\n",
-				hw_ep->bLocalEnd, is_in ? 'R' : 'T',
+				hw_ep->epnum, is_in ? 'R' : 'T',
 				next_urb(qh));
 		musb_start_urb(musb, is_in, qh);
 	}
@@ -592,7 +592,7 @@ musb_rx_reinit(struct musb *musb, struct musb_qh *qh, struct musb_hw_ep *ep)
 	} else {
 		csr = musb_readw(ep->regs, MGC_O_HDRC_RXCSR);
 		if (csr & MGC_M_RXCSR_RXPKTRDY)
-			WARN("rx%d, packet/%d ready?\n", ep->bLocalEnd,
+			WARN("rx%d, packet/%d ready?\n", ep->epnum,
 				musb_readw(ep->regs, MGC_O_HDRC_RXCOUNT));
 
 		musb_h_flush_rxfifo(ep, MGC_M_RXCSR_CLRDATATOG);
@@ -893,7 +893,7 @@ static void musb_ep_program(struct musb *musb, u8 bEnd,
 					| MGC_M_RXCSR_DMAENAB
 					| MGC_M_RXCSR_H_REQPKT))
 				ERR("broken !rx_reinit, ep%d csr %04x\n",
-						hw_ep->bLocalEnd, csr);
+						hw_ep->epnum, csr);
 
 			/* scrub any stale state, leaving toggle alone */
 			csr &= MGC_M_RXCSR_DISNYET;
@@ -1903,7 +1903,7 @@ static int musb_cleanup_urb(struct urb *urb, struct musb_qh *qh, int is_in)
 {
 	struct musb_hw_ep	*ep = qh->hw_ep;
 	void __iomem		*epio = ep->regs;
-	unsigned		hw_end = ep->bLocalEnd;
+	unsigned		hw_end = ep->epnum;
 	void __iomem		*regs = ep->musb->mregs;
 	u16			csr;
 	int			status = 0;
@@ -1918,7 +1918,7 @@ static int musb_cleanup_urb(struct urb *urb, struct musb_qh *qh, int is_in)
 			status = ep->musb->pDmaController->channel_abort(dma);
 			DBG(status ? 1 : 3,
 				"abort %cX%d DMA for urb %p --> %d\n",
-				is_in ? 'R' : 'T', ep->bLocalEnd,
+				is_in ? 'R' : 'T', ep->epnum,
 				urb, status);
 			urb->actual_length += dma->dwActualLength;
 		}
