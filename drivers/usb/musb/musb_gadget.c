@@ -411,7 +411,7 @@ void musb_g_tx(struct musb *musb, u8 epnum)
 	void __iomem		*epio = musb->endpoints[epnum].regs;
 	struct dma_channel	*dma;
 
-	MGC_SelectEnd(mbase, epnum);
+	musb_ep_select(mbase, epnum);
 	pRequest = next_request(musb_ep);
 
 	wCsrVal = musb_readw(epio, MGC_O_HDRC_TXCSR);
@@ -514,7 +514,7 @@ void musb_g_tx(struct musb *musb, u8 epnum)
 				 * REVISIT for double buffering...
 				 * FIXME revisit for stalls too...
 				 */
-				MGC_SelectEnd(mbase, epnum);
+				musb_ep_select(mbase, epnum);
 				wCsrVal = musb_readw(epio, MGC_O_HDRC_TXCSR);
 				if (wCsrVal & MGC_M_TXCSR_FIFONOTEMPTY)
 					break;
@@ -741,7 +741,7 @@ void musb_g_rx(struct musb *musb, u8 epnum)
 	void __iomem		*epio = musb->endpoints[epnum].regs;
 	struct dma_channel	*dma;
 
-	MGC_SelectEnd(mbase, epnum);
+	musb_ep_select(mbase, epnum);
 
 	pRequest = next_request(musb_ep);
 
@@ -826,7 +826,7 @@ void musb_g_rx(struct musb *musb, u8 epnum)
 			goto done;
 
 		/* don't start more i/o till the stall clears */
-		MGC_SelectEnd(mbase, epnum);
+		musb_ep_select(mbase, epnum);
 		wCsrVal = musb_readw(epio, MGC_O_HDRC_RXCSR);
 		if (wCsrVal & MGC_M_RXCSR_P_SENDSTALL)
 			goto done;
@@ -892,7 +892,7 @@ static int musb_gadget_enable(struct usb_ep *ep,
 	/* enable the interrupts for the endpoint, set the endpoint
 	 * packet size (or fail), set the mode, clear the fifo
 	 */
-	MGC_SelectEnd(mbase, epnum);
+	musb_ep_select(mbase, epnum);
 	if (desc->bEndpointAddress & USB_DIR_IN) {
 		u16 wIntrTxE = musb_readw(mbase, MGC_O_HDRC_INTRTXE);
 
@@ -1010,7 +1010,7 @@ static int musb_gadget_disable(struct usb_ep *ep)
 	epio = musb->endpoints[epnum].regs;
 
 	spin_lock_irqsave(&musb->lock, flags);
-	MGC_SelectEnd(musb->mregs, epnum);
+	musb_ep_select(musb->mregs, epnum);
 
 	/* zero the endpoint sizes */
 	if (musb_ep->is_in) {
@@ -1086,7 +1086,7 @@ static void musb_ep_restart(struct musb *musb, struct musb_request *req)
 		req->bTx ? "TX/IN" : "RX/OUT",
 		&req->request, req->request.length, req->epnum);
 
-	MGC_SelectEnd(musb->mregs, req->epnum);
+	musb_ep_select(musb->mregs, req->epnum);
 	if (req->bTx)
 		txstate(musb, req);
 	else
@@ -1201,7 +1201,7 @@ static int musb_gadget_dequeue(struct usb_ep *ep, struct usb_request *pRequest)
 	else if (is_dma_capable() && musb_ep->dma) {
 		struct dma_controller	*c = musb->pDmaController;
 
-		MGC_SelectEnd(musb->mregs, musb_ep->current_epnum);
+		musb_ep_select(musb->mregs, musb_ep->current_epnum);
 		if (c->channel_abort)
 			status = c->channel_abort(musb_ep->dma);
 		else
@@ -1249,7 +1249,7 @@ int musb_gadget_set_halt(struct usb_ep *ep, int value)
 		goto done;
 	}
 
-	MGC_SelectEnd(mbase, epnum);
+	musb_ep_select(mbase, epnum);
 
 	/* cannot portably stall with non-empty FIFO */
 	pRequest = to_musb_request(next_request(musb_ep));
@@ -1317,7 +1317,7 @@ static int musb_gadget_fifo_status(struct usb_ep *ep)
 
 		spin_lock_irqsave(&musb->lock, flags);
 
-		MGC_SelectEnd(mbase, epnum);
+		musb_ep_select(mbase, epnum);
 		/* FIXME return zero unless RXPKTRDY is set */
 		retval = musb_readw(epio, MGC_O_HDRC_RXCOUNT);
 
@@ -1339,7 +1339,7 @@ static void musb_gadget_fifo_flush(struct usb_ep *ep)
 	mbase = musb->mregs;
 
 	spin_lock_irqsave(&musb->lock, flags);
-	MGC_SelectEnd(mbase, (u8) nEnd);
+	musb_ep_select(mbase, (u8) nEnd);
 
 	/* disable interrupts */
 	wIntrTxE = musb_readw(mbase, MGC_O_HDRC_INTRTXE);
@@ -1799,7 +1799,7 @@ stop_activity(struct musb *musb, struct usb_gadget_driver *driver)
 		for (i = 0, hw_ep = musb->endpoints;
 				i < musb->nr_endpoints;
 				i++, hw_ep++) {
-			MGC_SelectEnd(musb->mregs, i);
+			musb_ep_select(musb->mregs, i);
 			if (hw_ep->bIsSharedFifo /* || !epnum */) {
 				nuke(&hw_ep->ep_in, -ESHUTDOWN);
 			} else {

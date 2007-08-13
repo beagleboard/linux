@@ -127,14 +127,14 @@ static int service_tx_status_request(
 			break;
 		}
 
-		MGC_SelectEnd(mbase, epnum);
+		musb_ep_select(mbase, epnum);
 		if (is_in)
 			tmp = musb_readw(regs, MGC_O_HDRC_TXCSR)
 						& MGC_M_TXCSR_P_SENDSTALL;
 		else
 			tmp = musb_readw(regs, MGC_O_HDRC_RXCSR)
 						& MGC_M_RXCSR_P_SENDSTALL;
-		MGC_SelectEnd(mbase, 0);
+		musb_ep_select(mbase, 0);
 
 		bResult[0] = tmp ? 1 : 0;
 		} break;
@@ -278,7 +278,7 @@ __acquires(musb->lock)
 				spin_lock(&musb->lock);
 
 				/* select ep0 again */
-				MGC_SelectEnd(mbase, 0);
+				musb_ep_select(mbase, 0);
 				handled = 1;
 				} break;
 			default:
@@ -388,7 +388,7 @@ stall:
 				if (!musb_ep->desc)
 					break;
 
-				MGC_SelectEnd(mbase, epnum);
+				musb_ep_select(mbase, epnum);
 				if (is_in) {
 					csr = musb_readw(regs,
 							MGC_O_HDRC_TXCSR);
@@ -411,7 +411,7 @@ stall:
 				}
 
 				/* select ep0 again */
-				MGC_SelectEnd(mbase, 0);
+				musb_ep_select(mbase, 0);
 				handled = 1;
 				} break;
 
@@ -604,7 +604,7 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 	void __iomem	*regs = musb->endpoints[0].regs;
 	irqreturn_t	retval = IRQ_NONE;
 
-	MGC_SelectEnd(mbase, 0);	/* select ep0 */
+	musb_ep_select(mbase, 0);	/* select ep0 */
 	wCsrVal = musb_readw(regs, MGC_O_HDRC_CSR0);
 	len = musb_readb(regs, MGC_O_HDRC_COUNT0);
 
@@ -769,7 +769,7 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 
 			handled = forward_to_driver(musb, &setup);
 			if (handled < 0) {
-				MGC_SelectEnd(mbase, 0);
+				musb_ep_select(mbase, 0);
 stall:
 				DBG(3, "stall (%d)\n", handled);
 				musb->ackpend |= MGC_M_CSR0_P_SENDSTALL;
@@ -864,7 +864,7 @@ musb_g_ep0_queue(struct usb_ep *e, struct usb_request *r, gfp_t gfp_flags)
 			ep->name, ep->is_in ? "IN/TX" : "OUT/RX",
 			req->request.length);
 
-	MGC_SelectEnd(musb->mregs, 0);
+	musb_ep_select(musb->mregs, 0);
 
 	/* sequence #1, IN ... start writing the data */
 	if (musb->ep0_state == MGC_END0_STAGE_TX)
@@ -933,7 +933,7 @@ static int musb_g_ep0_halt(struct usb_ep *e, int value)
 	case MGC_END0_STAGE_RX:		/* control-OUT data */
 		status = 0;
 
-		MGC_SelectEnd(base, 0);
+		musb_ep_select(base, 0);
 		csr = musb_readw(regs, MGC_O_HDRC_CSR0);
 		csr |= MGC_M_CSR0_P_SENDSTALL;
 		musb_writew(regs, MGC_O_HDRC_CSR0, csr);

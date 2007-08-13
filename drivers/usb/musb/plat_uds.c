@@ -273,7 +273,7 @@ void musb_load_testpacket(struct musb *musb)
 {
 	void __iomem	*regs = musb->endpoints[0].regs;
 
-	MGC_SelectEnd(musb->mregs, 0);
+	musb_ep_select(musb->mregs, 0);
 	musb_write_fifo(musb->control_ep,
 			sizeof(musb_test_packet), musb_test_packet);
 	musb_writew(regs, MGC_O_HDRC_CSR0, MGC_M_CSR0_TXPKTRDY);
@@ -1187,7 +1187,7 @@ static int __init ep_config_from_hw(struct musb *musb)
 	/* FIXME pick up ep0 maxpacket size */
 
 	for (epnum = 1; epnum < MUSB_C_NUM_EPS; epnum++) {
-		MGC_SelectEnd(mbase, epnum);
+		musb_ep_select(mbase, epnum);
 		hw_ep = musb->endpoints + epnum;
 
 		/* read from core using indexed model */
@@ -1257,7 +1257,7 @@ static int __init musb_core_init(u16 wType, struct musb *musb)
 	int		i;
 
 	/* log core options (read using indexed model) */
-	MGC_SelectEnd(mbase, 0);
+	musb_ep_select(mbase, 0);
 	reg = musb_readb(mbase, 0x10 + MGC_O_HDRC_CONFIGDATA);
 
 	strcpy(aInfo, (reg & MGC_M_CONFIGDATA_UTMIDW) ? "UTMI-16" : "UTMI-8");
@@ -1486,7 +1486,7 @@ irqreturn_t musb_interrupt(struct musb *musb)
 	ep_num = 1;
 	while (reg) {
 		if (reg & 1) {
-			// MGC_SelectEnd(musb->mregs, ep_num);
+			// musb_ep_select(musb->mregs, ep_num);
 			/* REVISIT just retval = ep->rx_irq(...) */
 			retval = IRQ_HANDLED;
 			if (devctl & MGC_M_DEVCTL_HM) {
@@ -1507,7 +1507,7 @@ irqreturn_t musb_interrupt(struct musb *musb)
 	ep_num = 1;
 	while (reg) {
 		if (reg & 1) {
-			// MGC_SelectEnd(musb->mregs, ep_num);
+			// musb_ep_select(musb->mregs, ep_num);
 			/* REVISIT just retval |= ep->tx_irq(...) */
 			retval = IRQ_HANDLED;
 			if (devctl & MGC_M_DEVCTL_HM) {

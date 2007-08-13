@@ -240,7 +240,7 @@ dump_end_info(struct musb *musb, u8 epnum, char *aBuffer, unsigned max)
 	struct musb_hw_ep	*hw_ep = &musb->endpoints[epnum];
 
 	do {
-		MGC_SelectEnd(musb->mregs, epnum);
+		musb_ep_select(musb->mregs, epnum);
 #ifdef CONFIG_USB_MUSB_HDRC_HCD
 		if (is_host_active(musb)) {
 			int		dump_rx, dump_tx;

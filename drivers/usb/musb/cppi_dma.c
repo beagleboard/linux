@@ -357,7 +357,7 @@ cppi_dump_rx(int level, struct cppi_channel *c, const char *tag)
 {
 	void	*__iomem base = c->pController->pCoreBase;
 
-	MGC_SelectEnd(base, c->chNo + 1);
+	musb_ep_select(base, c->chNo + 1);
 
 	DBG(level, "RX DMA%d%s: %d left, csr %04x, "
 			"%08x H%08x S%08x C%08x, "
@@ -386,7 +386,7 @@ cppi_dump_tx(int level, struct cppi_channel *c, const char *tag)
 {
 	void	*__iomem base = c->pController->pCoreBase;
 
-	MGC_SelectEnd(base, c->chNo + 1);
+	musb_ep_select(base, c->chNo + 1);
 
 	DBG(level, "TX DMA%d%s: csr %04x, "
 			"H%08x S%08x C%08x %08x, "
@@ -1094,7 +1094,7 @@ static int cppi_rx_scan(struct cppi *cppi, unsigned ch)
 			 */
 			WARN_ON(rx->activeQueueHead);
 		}
-		MGC_SelectEnd(cppi->pCoreBase, rx->chNo + 1);
+		musb_ep_select(cppi->pCoreBase, rx->chNo + 1);
 		csr = musb_readw(regs, MGC_O_HDRC_RXCSR);
 		if (csr & MGC_M_RXCSR_DMAENAB) {
 			DBG(4, "list%d %p/%p, last %08x%s, csr %04x\n",
@@ -1404,7 +1404,7 @@ static int cppi_channel_abort(struct dma_channel *channel)
 	 * and caller should rely on us not changing it.
 	 * peripheral code is safe ... check host too.
 	 */
-	MGC_SelectEnd(mbase, chNum + 1);
+	musb_ep_select(mbase, chNum + 1);
 
 	if (otgCh->bTransmit) {
 		struct cppi_tx_stateram	*__iomem txState;

@@ -353,7 +353,7 @@ static irqreturn_t dma_controller_irq(int irq, void *pPrivateData)
 					    (pImplChannel->wMaxPacketSize - 1)))
 				   ) {
 					/* Send out the packet */
-					MGC_SelectEnd(mbase,
+					musb_ep_select(mbase,
 						pImplChannel->epnum);
 					musb_writew(mbase,
 						MGC_END_OFFSET(pImplChannel->epnum,MGC_O_HDRC_TXCSR),
