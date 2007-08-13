@@ -411,11 +411,11 @@ struct musb {
 #endif
 
 #ifdef C_MP_RX
-	unsigned bBulkCombine:1;
+	unsigned bulk_combine:1;
 	/* REVISIT allegedly doesn't work reliably */
 #if 0
 #define	can_bulk_combine(musb,type) \
-		(((type) == USB_ENDPOINT_XFER_BULK) && (musb)->bBulkCombine)
+		(((type) == USB_ENDPOINT_XFER_BULK) && (musb)->bulk_combine)
 #else
 #define	can_bulk_combine(musb,type)	0
 #endif

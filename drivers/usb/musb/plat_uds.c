@@ -1267,7 +1267,7 @@ static int __init musb_core_init(u16 wType, struct musb *musb)
 	if (reg & MGC_M_CONFIGDATA_MPRXE) {
 		strcat(aInfo, ", bulk combine");
 #ifdef C_MP_RX
-		musb->bBulkCombine = TRUE;
+		musb->bulk_combine = TRUE;
 #else
 		strcat(aInfo, " (X)");		/* no driver support */
 #endif
