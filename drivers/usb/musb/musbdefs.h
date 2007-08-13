@@ -437,7 +437,7 @@ struct musb {
 	unsigned		is_self_powered:1;
 	unsigned		is_bus_powered:1;
 
-	unsigned bSetAddress:1;
+	unsigned set_address:1;
 	unsigned test_mode:1;
 	unsigned softconnect:1;
 

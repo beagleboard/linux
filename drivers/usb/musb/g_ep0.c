@@ -239,7 +239,7 @@ __acquires(musb->lock)
 		switch (ctrlrequest->bRequest) {
 		case USB_REQ_SET_ADDRESS:
 			/* change it after the status stage */
-			musb->bSetAddress = TRUE;
+			musb->set_address = TRUE;
 			musb->address = (u8) (ctrlrequest->wValue & 0x7f);
 			handled = 1;
 			break;
@@ -559,7 +559,7 @@ musb_read_setup(struct musb *musb, struct usb_ctrlrequest *req)
 	 * the TX FIFO right away, and give the controller a moment
 	 * to switch modes...
 	 */
-	musb->bSetAddress = FALSE;
+	musb->set_address = FALSE;
 	musb->ackpend = MGC_M_CSR0_P_SVDRXPKTRDY;
 	if (req->wLength == 0) {
 		if (req->bRequestType & USB_DIR_IN)
@@ -661,8 +661,8 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 		 * we get 10 msec to receive this irq... until this
 		 * is done we won't see the next packet.
 		 */
-		if (musb->bSetAddress) {
-			musb->bSetAddress = FALSE;
+		if (musb->set_address) {
+			musb->set_address = FALSE;
 			musb_writeb(mbase, MGC_O_HDRC_FADDR, musb->address);
 		}
 
