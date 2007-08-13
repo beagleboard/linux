@@ -145,7 +145,7 @@ static struct dma_channel* dma_channel_allocate(struct dma_controller *c,
 			pChannel = &(pImplChannel->Channel);
 			pChannel->private_data = pImplChannel;
 			pChannel->bStatus = MGC_DMA_STATUS_FREE;
-			pChannel->dwMaxLength = 0x10000;
+			pChannel->max_len = 0x10000;
 			/* Tx => mode 1; Rx => mode 0 */
 			pChannel->bDesiredMode = bTransmit;
 			pChannel->dwActualLength = 0;

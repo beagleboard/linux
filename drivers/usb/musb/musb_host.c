@@ -771,7 +771,7 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 			musb_writew(epio, MGC_O_HDRC_TXCSR,
 				wCsr | MGC_M_TXCSR_MODE);
 
-			qh->segsize = min(dwLength, pDmaChannel->dwMaxLength);
+			qh->segsize = min(dwLength, pDmaChannel->max_len);
 
 			if (qh->segsize <= wPacketSize)
 				pDmaChannel->bDesiredMode = 0;

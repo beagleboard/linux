@@ -113,7 +113,7 @@ struct dma_controller;
 struct dma_channel {
 	void			*private_data;
 	// FIXME not void* private_data, but a dma_controller *
-	size_t			dwMaxLength;
+	size_t			max_len;
 	size_t			dwActualLength;
 	enum dma_channel_status	bStatus;
 	u8			bDesiredMode;
@@ -129,7 +129,7 @@ struct dma_channel {
  * @bMode: TRUE if mode 1; FALSE if mode 0
  * @dma_addr: base address of data (in DMA space)
  * @length: the number of bytes to transfer; no larger than the channel's
- *	reported dwMaxLength
+ *	reported max_len
  *
  * Returns TRUE on success, else FALSE
  */

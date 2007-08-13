@@ -304,7 +304,7 @@ static void txstate(struct musb *musb, struct musb_request *req)
 
 			/* setup DMA, then program endpoint CSR */
 			request_size = min(pRequest->length,
-						musb_ep->dma->dwMaxLength);
+						musb_ep->dma->max_len);
 			if (request_size <= musb_ep->wPacketSize)
 				musb_ep->dma->bDesiredMode = 0;
 			else
@@ -661,7 +661,7 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 					int transfer_size = 0;
 #ifdef USE_MODE1
 					transfer_size = min(pRequest->length,
-							channel->dwMaxLength);
+							channel->max_len);
 #else
 					transfer_size = len;
 #endif
