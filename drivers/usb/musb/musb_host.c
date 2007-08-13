@@ -1021,7 +1021,7 @@ static int musb_h_ep0_continue(struct musb *musb,
 irqreturn_t musb_h_ep0_irq(struct musb *musb)
 {
 	struct urb		*pUrb;
-	u16			wCsrVal, len;
+	u16			csr, len;
 	int			status = 0;
 	void __iomem		*mbase = musb->mregs;
 	struct musb_hw_ep	*hw_ep = musb->control_ep;
@@ -1034,13 +1034,13 @@ irqreturn_t musb_h_ep0_irq(struct musb *musb)
 	pUrb = next_urb(qh);
 
 	musb_ep_select(mbase, 0);
-	wCsrVal = musb_readw(epio, MGC_O_HDRC_CSR0);
-	len = (wCsrVal & MGC_M_CSR0_RXPKTRDY)
+	csr = musb_readw(epio, MGC_O_HDRC_CSR0);
+	len = (csr & MGC_M_CSR0_RXPKTRDY)
 			? musb_readb(epio, MGC_O_HDRC_COUNT0)
 			: 0;
 
 	DBG(4, "<== csr0 %04x, qh %p, count %d, urb %p, stage %d\n",
-		wCsrVal, qh, len, pUrb, musb->ep0_stage);
+		csr, qh, len, pUrb, musb->ep0_stage);
 
 	/* if we just did status stage, we are done */
 	if (MGC_END0_STATUS == musb->ep0_stage) {
@@ -1049,15 +1049,15 @@ irqreturn_t musb_h_ep0_irq(struct musb *musb)
 	}
 
 	/* prepare status */
-	if (wCsrVal & MGC_M_CSR0_H_RXSTALL) {
+	if (csr & MGC_M_CSR0_H_RXSTALL) {
 		DBG(6, "STALLING ENDPOINT\n");
 		status = -EPIPE;
 
-	} else if (wCsrVal & MGC_M_CSR0_H_ERROR) {
-		DBG(2, "no response, csr0 %04x\n", wCsrVal);
+	} else if (csr & MGC_M_CSR0_H_ERROR) {
+		DBG(2, "no response, csr0 %04x\n", csr);
 		status = -EPROTO;
 
-	} else if (wCsrVal & MGC_M_CSR0_H_NAKTIMEOUT) {
+	} else if (csr & MGC_M_CSR0_H_NAKTIMEOUT) {
 		DBG(2, "control NAK timeout\n");
 
 		/* NOTE:  this code path would be a good place to PAUSE a
@@ -1079,17 +1079,17 @@ irqreturn_t musb_h_ep0_irq(struct musb *musb)
 		bComplete = TRUE;
 
 		/* use the proper sequence to abort the transfer */
-		if (wCsrVal & MGC_M_CSR0_H_REQPKT) {
-			wCsrVal &= ~MGC_M_CSR0_H_REQPKT;
-			musb_writew(epio, MGC_O_HDRC_CSR0, wCsrVal);
-			wCsrVal &= ~MGC_M_CSR0_H_NAKTIMEOUT;
-			musb_writew(epio, MGC_O_HDRC_CSR0, wCsrVal);
+		if (csr & MGC_M_CSR0_H_REQPKT) {
+			csr &= ~MGC_M_CSR0_H_REQPKT;
+			musb_writew(epio, MGC_O_HDRC_CSR0, csr);
+			csr &= ~MGC_M_CSR0_H_NAKTIMEOUT;
+			musb_writew(epio, MGC_O_HDRC_CSR0, csr);
 		} else {
-			wCsrVal |= MGC_M_CSR0_FLUSHFIFO;
-			musb_writew(epio, MGC_O_HDRC_CSR0, wCsrVal);
-			musb_writew(epio, MGC_O_HDRC_CSR0, wCsrVal);
-			wCsrVal &= ~MGC_M_CSR0_H_NAKTIMEOUT;
-			musb_writew(epio, MGC_O_HDRC_CSR0, wCsrVal);
+			csr |= MGC_M_CSR0_FLUSHFIFO;
+			musb_writew(epio, MGC_O_HDRC_CSR0, csr);
+			musb_writew(epio, MGC_O_HDRC_CSR0, csr);
+			csr &= ~MGC_M_CSR0_H_NAKTIMEOUT;
+			musb_writew(epio, MGC_O_HDRC_CSR0, csr);
 		}
 
 		musb_writeb(epio, MGC_O_HDRC_NAKLIMIT0, 0);
@@ -1114,25 +1114,25 @@ irqreturn_t musb_h_ep0_irq(struct musb *musb)
 		/* call common logic and prepare response */
 		if (musb_h_ep0_continue(musb, len, pUrb)) {
 			/* more packets required */
-			wCsrVal = (MGC_END0_IN == musb->ep0_stage)
+			csr = (MGC_END0_IN == musb->ep0_stage)
 				?  MGC_M_CSR0_H_REQPKT : MGC_M_CSR0_TXPKTRDY;
 		} else {
 			/* data transfer complete; perform status phase */
 			if (usb_pipeout(pUrb->pipe)
 					|| !pUrb->transfer_buffer_length)
-				wCsrVal = MGC_M_CSR0_H_STATUSPKT
+				csr = MGC_M_CSR0_H_STATUSPKT
 					| MGC_M_CSR0_H_REQPKT;
 			else
-				wCsrVal = MGC_M_CSR0_H_STATUSPKT
+				csr = MGC_M_CSR0_H_STATUSPKT
 					| MGC_M_CSR0_TXPKTRDY;
 
 			/* flag status stage */
 			musb->ep0_stage = MGC_END0_STATUS;
 
-			DBG(5, "ep0 STATUS, csr %04x\n", wCsrVal);
+			DBG(5, "ep0 STATUS, csr %04x\n", csr);
 
 		}
-		musb_writew(epio, MGC_O_HDRC_CSR0, wCsrVal);
+		musb_writew(epio, MGC_O_HDRC_CSR0, csr);
 		retval = IRQ_HANDLED;
 	} else
 		musb->ep0_stage = MGC_END0_IDLE;

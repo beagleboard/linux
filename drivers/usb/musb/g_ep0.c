@@ -485,7 +485,7 @@ static void ep0_txstate(struct musb *musb)
 {
 	void __iomem		*regs = musb->control_ep->regs;
 	struct usb_request	*request = next_ep0_request(musb);
-	u16			wCsrVal = MGC_M_CSR0_TXPKTRDY;
+	u16			csr = MGC_M_CSR0_TXPKTRDY;
 	u8			*pFifoSource;
 	u8			fifo_count;
 
@@ -506,12 +506,12 @@ static void ep0_txstate(struct musb *musb)
 	if (fifo_count < MUSB_MAX_END0_PACKET
 			|| request->actual == request->length) {
 		musb->ep0_state = MGC_END0_STAGE_STATUSOUT;
-		wCsrVal |= MGC_M_CSR0_P_DATAEND;
+		csr |= MGC_M_CSR0_P_DATAEND;
 	} else
 		request = NULL;
 
 	/* send it out, triggering a "txpktrdy cleared" irq */
-	musb_writew(regs, MGC_O_HDRC_CSR0, wCsrVal);
+	musb_writew(regs, MGC_O_HDRC_CSR0, csr);
 
 	/* report completions as soon as the fifo's loaded; there's no
 	 * win in waiting till this last packet gets acked.  (other than
@@ -598,36 +598,36 @@ __acquires(musb->lock)
  */
 irqreturn_t musb_g_ep0_irq(struct musb *musb)
 {
-	u16		wCsrVal;
+	u16		csr;
 	u16		len;
 	void __iomem	*mbase = musb->mregs;
 	void __iomem	*regs = musb->endpoints[0].regs;
 	irqreturn_t	retval = IRQ_NONE;
 
 	musb_ep_select(mbase, 0);	/* select ep0 */
-	wCsrVal = musb_readw(regs, MGC_O_HDRC_CSR0);
+	csr = musb_readw(regs, MGC_O_HDRC_CSR0);
 	len = musb_readb(regs, MGC_O_HDRC_COUNT0);
 
 	DBG(4, "csr %04x, count %d, myaddr %d, ep0stage %s\n",
-			wCsrVal, len,
+			csr, len,
 			musb_readb(mbase, MGC_O_HDRC_FADDR),
 			decode_ep0stage(musb->ep0_state));
 
 	/* I sent a stall.. need to acknowledge it now.. */
-	if (wCsrVal & MGC_M_CSR0_P_SENTSTALL) {
+	if (csr & MGC_M_CSR0_P_SENTSTALL) {
 		musb_writew(regs, MGC_O_HDRC_CSR0,
-				wCsrVal & ~MGC_M_CSR0_P_SENTSTALL);
+				csr & ~MGC_M_CSR0_P_SENTSTALL);
 		retval = IRQ_HANDLED;
 		musb->ep0_state = MGC_END0_STAGE_SETUP;
-		wCsrVal = musb_readw(regs, MGC_O_HDRC_CSR0);
+		csr = musb_readw(regs, MGC_O_HDRC_CSR0);
 	}
 
 	/* request ended "early" */
-	if (wCsrVal & MGC_M_CSR0_P_SETUPEND) {
+	if (csr & MGC_M_CSR0_P_SETUPEND) {
 		musb_writew(regs, MGC_O_HDRC_CSR0, MGC_M_CSR0_P_SVDSETUPEND);
 		retval = IRQ_HANDLED;
 		musb->ep0_state = MGC_END0_STAGE_SETUP;
-		wCsrVal = musb_readw(regs, MGC_O_HDRC_CSR0);
+		csr = musb_readw(regs, MGC_O_HDRC_CSR0);
 		/* NOTE:  request may need completion */
 	}
 
@@ -639,7 +639,7 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 
 	case MGC_END0_STAGE_TX:
 		/* irq on clearing txpktrdy */
-		if ((wCsrVal & MGC_M_CSR0_TXPKTRDY) == 0) {
+		if ((csr & MGC_M_CSR0_TXPKTRDY) == 0) {
 			ep0_txstate(musb);
 			retval = IRQ_HANDLED;
 		}
@@ -647,7 +647,7 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 
 	case MGC_END0_STAGE_RX:
 		/* irq on set rxpktrdy */
-		if (wCsrVal & MGC_M_CSR0_RXPKTRDY) {
+		if (csr & MGC_M_CSR0_RXPKTRDY) {
 			ep0_rxstate(musb);
 			retval = IRQ_HANDLED;
 		}
@@ -692,7 +692,7 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 		/* FALLTHROUGH */
 
 	case MGC_END0_STAGE_SETUP:
-		if (wCsrVal & MGC_M_CSR0_RXPKTRDY) {
+		if (csr & MGC_M_CSR0_RXPKTRDY) {
 			struct usb_ctrlrequest	setup;
 			int			handled = 0;
 
@@ -755,7 +755,7 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 			}
 
 			DBG(3, "handled %d, csr %04x, ep0stage %s\n",
-				handled, wCsrVal,
+				handled, csr,
 				decode_ep0stage(musb->ep0_state));
 
 			/* unless we need to delegate this to the gadget
