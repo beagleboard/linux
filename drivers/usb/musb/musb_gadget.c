@@ -406,12 +406,12 @@ void musb_g_tx(struct musb *musb, u8 bEnd)
 {
 	u16			wCsrVal;
 	struct usb_request	*pRequest;
-	u8 __iomem		*pBase = musb->mregs;
+	u8 __iomem		*mbase = musb->mregs;
 	struct musb_ep		*musb_ep = &musb->aLocalEnd[bEnd].ep_in;
 	void __iomem		*epio = musb->aLocalEnd[bEnd].regs;
 	struct dma_channel	*dma;
 
-	MGC_SelectEnd(pBase, bEnd);
+	MGC_SelectEnd(mbase, bEnd);
 	pRequest = next_request(musb_ep);
 
 	wCsrVal = musb_readw(epio, MGC_O_HDRC_TXCSR);
@@ -514,7 +514,7 @@ void musb_g_tx(struct musb *musb, u8 bEnd)
 				 * REVISIT for double buffering...
 				 * FIXME revisit for stalls too...
 				 */
-				MGC_SelectEnd(pBase, bEnd);
+				MGC_SelectEnd(mbase, bEnd);
 				wCsrVal = musb_readw(epio, MGC_O_HDRC_TXCSR);
 				if (wCsrVal & MGC_M_TXCSR_FIFONOTEMPTY)
 					break;
@@ -736,12 +736,12 @@ void musb_g_rx(struct musb *musb, u8 bEnd)
 {
 	u16			wCsrVal;
 	struct usb_request	*pRequest;
-	void __iomem		*pBase = musb->mregs;
+	void __iomem		*mbase = musb->mregs;
 	struct musb_ep		*musb_ep = &musb->aLocalEnd[bEnd].ep_out;
 	void __iomem		*epio = musb->aLocalEnd[bEnd].regs;
 	struct dma_channel	*dma;
 
-	MGC_SelectEnd(pBase, bEnd);
+	MGC_SelectEnd(mbase, bEnd);
 
 	pRequest = next_request(musb_ep);
 
@@ -826,7 +826,7 @@ void musb_g_rx(struct musb *musb, u8 bEnd)
 			goto done;
 
 		/* don't start more i/o till the stall clears */
-		MGC_SelectEnd(pBase, bEnd);
+		MGC_SelectEnd(mbase, bEnd);
 		wCsrVal = musb_readw(epio, MGC_O_HDRC_RXCSR);
 		if (wCsrVal & MGC_M_RXCSR_P_SENDSTALL)
 			goto done;
@@ -855,7 +855,7 @@ static int musb_gadget_enable(struct usb_ep *ep,
 	struct musb_hw_ep	*hw_ep;
 	void __iomem		*regs;
 	struct musb		*musb;
-	void __iomem	*pBase;
+	void __iomem	*mbase;
 	u8		bEnd;
 	u16		csr;
 	unsigned	tmp;
@@ -868,7 +868,7 @@ static int musb_gadget_enable(struct usb_ep *ep,
 	hw_ep = musb_ep->hw_ep;
 	regs = hw_ep->regs;
 	musb = musb_ep->musb;
-	pBase = musb->mregs;
+	mbase = musb->mregs;
 	bEnd = musb_ep->bEndNumber;
 
 	spin_lock_irqsave(&musb->Lock, flags);
@@ -892,9 +892,9 @@ static int musb_gadget_enable(struct usb_ep *ep,
 	/* enable the interrupts for the endpoint, set the endpoint
 	 * packet size (or fail), set the mode, clear the fifo
 	 */
-	MGC_SelectEnd(pBase, bEnd);
+	MGC_SelectEnd(mbase, bEnd);
 	if (desc->bEndpointAddress & USB_DIR_IN) {
-		u16 wIntrTxE = musb_readw(pBase, MGC_O_HDRC_INTRTXE);
+		u16 wIntrTxE = musb_readw(mbase, MGC_O_HDRC_INTRTXE);
 
 		if (hw_ep->bIsSharedFifo)
 			musb_ep->is_in = 1;
@@ -904,7 +904,7 @@ static int musb_gadget_enable(struct usb_ep *ep,
 			goto fail;
 
 		wIntrTxE |= (1 << bEnd);
-		musb_writew(pBase, MGC_O_HDRC_INTRTXE, wIntrTxE);
+		musb_writew(mbase, MGC_O_HDRC_INTRTXE, wIntrTxE);
 
 		/* REVISIT if can_bulk_split(), use by updating "tmp";
 		 * likewise high bandwidth periodic tx
@@ -924,7 +924,7 @@ static int musb_gadget_enable(struct usb_ep *ep,
 		musb_writew(regs, MGC_O_HDRC_TXCSR, csr);
 
 	} else {
-		u16 wIntrRxE = musb_readw(pBase, MGC_O_HDRC_INTRRXE);
+		u16 wIntrRxE = musb_readw(mbase, MGC_O_HDRC_INTRRXE);
 
 		if (hw_ep->bIsSharedFifo)
 			musb_ep->is_in = 0;
@@ -934,7 +934,7 @@ static int musb_gadget_enable(struct usb_ep *ep,
 			goto fail;
 
 		wIntrRxE |= (1 << bEnd);
-		musb_writew(pBase, MGC_O_HDRC_INTRRXE, wIntrRxE);
+		musb_writew(mbase, MGC_O_HDRC_INTRRXE, wIntrRxE);
 
 		/* REVISIT if can_bulk_combine() use by updating "tmp"
 		 * likewise high bandwidth periodic rx
@@ -1232,7 +1232,7 @@ int musb_gadget_set_halt(struct usb_ep *ep, int value)
 	u8			bEnd = musb_ep->bEndNumber;
 	struct musb		*musb = musb_ep->musb;
 	void __iomem		*epio = musb->aLocalEnd[bEnd].regs;
-	void __iomem		*pBase;
+	void __iomem		*mbase;
 	unsigned long		flags;
 	u16			wCsr;
 	struct musb_request	*pRequest = NULL;
@@ -1240,7 +1240,7 @@ int musb_gadget_set_halt(struct usb_ep *ep, int value)
 
 	if (!ep)
 		return -EINVAL;
-	pBase = musb->mregs;
+	mbase = musb->mregs;
 
 	spin_lock_irqsave(&musb->Lock, flags);
 
@@ -1249,7 +1249,7 @@ int musb_gadget_set_halt(struct usb_ep *ep, int value)
 		goto done;
 	}
 
-	MGC_SelectEnd(pBase, bEnd);
+	MGC_SelectEnd(mbase, bEnd);
 
 	/* cannot portably stall with non-empty FIFO */
 	pRequest = to_musb_request(next_request(musb_ep));
@@ -1979,14 +1979,14 @@ void musb_g_reset(struct musb *musb)
 __releases(musb->Lock)
 __acquires(musb->Lock)
 {
-	void __iomem	*pBase = musb->mregs;
-	u8		devctl = musb_readb(pBase, MGC_O_HDRC_DEVCTL);
+	void __iomem	*mbase = musb->mregs;
+	u8		devctl = musb_readb(mbase, MGC_O_HDRC_DEVCTL);
 	u8		power;
 
 	DBG(3, "<== %s addr=%x driver '%s'\n",
 			(devctl & MGC_M_DEVCTL_BDEVICE)
 				? "B-Device" : "A-Device",
-			musb_readb(pBase, MGC_O_HDRC_FADDR),
+			musb_readb(mbase, MGC_O_HDRC_FADDR),
 			musb->pGadgetDriver
 				? musb->pGadgetDriver->driver.name
 				: NULL
@@ -1998,11 +1998,11 @@ __acquires(musb->Lock)
 
 	/* clear HR */
 	else if (devctl & MGC_M_DEVCTL_HR)
-		musb_writeb(pBase, MGC_O_HDRC_DEVCTL, MGC_M_DEVCTL_SESSION);
+		musb_writeb(mbase, MGC_O_HDRC_DEVCTL, MGC_M_DEVCTL_SESSION);
 
 
 	/* what speed did we negotiate? */
-	power = musb_readb(pBase, MGC_O_HDRC_POWER);
+	power = musb_readb(mbase, MGC_O_HDRC_POWER);
 	musb->g.speed = (power & MGC_M_POWER_HSMODE)
 			? USB_SPEED_HIGH : USB_SPEED_FULL;
 

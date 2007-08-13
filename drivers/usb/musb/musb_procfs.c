@@ -485,14 +485,14 @@ dump_end_info(struct musb *musb, u8 bEnd, char *aBuffer, unsigned max)
 static int dump_header_stats(struct musb *musb, char *buffer)
 {
 	int code, count = 0;
-	const void __iomem *pBase = musb->mregs;
+	const void __iomem *mbase = musb->mregs;
 
 	*buffer = 0;
 	count = sprintf(buffer, "Status: %sHDRC, Mode=%s "
 				"(Power=%02x, DevCtl=%02x)\n",
 			(musb->bIsMultipoint ? "M" : ""), MUSB_MODE(musb),
-			musb_readb(pBase, MGC_O_HDRC_POWER),
-			musb_readb(pBase, MGC_O_HDRC_DEVCTL));
+			musb_readb(mbase, MGC_O_HDRC_POWER),
+			musb_readb(mbase, MGC_O_HDRC_DEVCTL));
 	if (count <= 0)
 		return 0;
 	buffer += count;
@@ -653,7 +653,7 @@ static int musb_proc_write(struct file *file, const char __user *buffer,
 	char cmd;
 	u8 bReg;
 	struct musb *musb = (struct musb *)data;
-	void __iomem *pBase = musb->mregs;
+	void __iomem *mbase = musb->mregs;
 
 	/* MOD_INC_USE_COUNT; */
 
@@ -662,65 +662,65 @@ static int musb_proc_write(struct file *file, const char __user *buffer,
 
 	switch (cmd) {
 	case 'C':
-		if (pBase) {
-			bReg = musb_readb(pBase, MGC_O_HDRC_POWER)
+		if (mbase) {
+			bReg = musb_readb(mbase, MGC_O_HDRC_POWER)
 					| MGC_M_POWER_SOFTCONN;
-			musb_writeb(pBase, MGC_O_HDRC_POWER, bReg);
+			musb_writeb(mbase, MGC_O_HDRC_POWER, bReg);
 		}
 		break;
 
 	case 'c':
-		if (pBase) {
-			bReg = musb_readb(pBase, MGC_O_HDRC_POWER)
+		if (mbase) {
+			bReg = musb_readb(mbase, MGC_O_HDRC_POWER)
 					& ~MGC_M_POWER_SOFTCONN;
-			musb_writeb(pBase, MGC_O_HDRC_POWER, bReg);
+			musb_writeb(mbase, MGC_O_HDRC_POWER, bReg);
 		}
 		break;
 
 	case 'I':
-		if (pBase) {
-			bReg = musb_readb(pBase, MGC_O_HDRC_POWER)
+		if (mbase) {
+			bReg = musb_readb(mbase, MGC_O_HDRC_POWER)
 					| MGC_M_POWER_HSENAB;
-			musb_writeb(pBase, MGC_O_HDRC_POWER, bReg);
+			musb_writeb(mbase, MGC_O_HDRC_POWER, bReg);
 		}
 		break;
 
 	case 'i':
-		if (pBase) {
-			bReg = musb_readb(pBase, MGC_O_HDRC_POWER)
+		if (mbase) {
+			bReg = musb_readb(mbase, MGC_O_HDRC_POWER)
 					& ~MGC_M_POWER_HSENAB;
-			musb_writeb(pBase, MGC_O_HDRC_POWER, bReg);
+			musb_writeb(mbase, MGC_O_HDRC_POWER, bReg);
 		}
 		break;
 
 	case 'F':
-		bReg = musb_readb(pBase, MGC_O_HDRC_DEVCTL);
+		bReg = musb_readb(mbase, MGC_O_HDRC_DEVCTL);
 		bReg |= MGC_M_DEVCTL_SESSION;
-		musb_writeb(pBase, MGC_O_HDRC_DEVCTL, bReg);
+		musb_writeb(mbase, MGC_O_HDRC_DEVCTL, bReg);
 		break;
 
 	case 'H':
-		if (pBase) {
-			bReg = musb_readb(pBase, MGC_O_HDRC_DEVCTL);
+		if (mbase) {
+			bReg = musb_readb(mbase, MGC_O_HDRC_DEVCTL);
 			bReg |= MGC_M_DEVCTL_HR;
-			musb_writeb(pBase, MGC_O_HDRC_DEVCTL, bReg);
+			musb_writeb(mbase, MGC_O_HDRC_DEVCTL, bReg);
 			//MUSB_HST_MODE( ((struct musb*)data) );
 			//WARN("Host Mode\n");
 		}
 		break;
 
 	case 'h':
-		if (pBase) {
-			bReg = musb_readb(pBase, MGC_O_HDRC_DEVCTL);
+		if (mbase) {
+			bReg = musb_readb(mbase, MGC_O_HDRC_DEVCTL);
 			bReg &= ~MGC_M_DEVCTL_HR;
-			musb_writeb(pBase, MGC_O_HDRC_DEVCTL, bReg);
+			musb_writeb(mbase, MGC_O_HDRC_DEVCTL, bReg);
 		}
 		break;
 
 	case 'T':
-		if (pBase) {
+		if (mbase) {
 			musb_load_testpacket(musb);
-			musb_writeb(pBase, MGC_O_HDRC_TESTMODE,
+			musb_writeb(mbase, MGC_O_HDRC_TESTMODE,
 					MGC_M_TEST_PACKET);
 		}
 		break;

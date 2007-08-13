@@ -172,7 +172,7 @@ musb_start_urb(struct musb *musb, int is_in, struct musb_qh *qh)
 	u16			wFrame;
 	u32			dwLength;
 	void			*pBuffer;
-	void __iomem		*pBase =  musb->mregs;
+	void __iomem		*mbase =  musb->mregs;
 	struct urb		*urb = next_urb(qh);
 	struct musb_hw_ep	*hw_ep = qh->hw_ep;
 	unsigned		nPipe = urb->pipe;
@@ -232,7 +232,7 @@ musb_start_urb(struct musb *musb, int is_in, struct musb_qh *qh)
 	case USB_ENDPOINT_XFER_INT:
 		DBG(3, "check whether there's still time for periodic Tx\n");
 		qh->iso_idx = 0;
-		wFrame = musb_readw(pBase, MGC_O_HDRC_FRAME);
+		wFrame = musb_readw(mbase, MGC_O_HDRC_FRAME);
 		/* FIXME this doesn't implement that scheduling policy ...
 		 * or handle framecounter wrapping
 		 */
@@ -248,7 +248,7 @@ musb_start_urb(struct musb *musb, int is_in, struct musb_qh *qh)
 			/* enable SOF interrupt so we can count down */
 DBG(1,"SOF for %d\n", bEnd);
 #if 1 // ifndef	CONFIG_ARCH_DAVINCI
-			musb_writeb(pBase, MGC_O_HDRC_INTRUSBE, 0xff);
+			musb_writeb(mbase, MGC_O_HDRC_INTRUSBE, 0xff);
 #endif
 		}
 		break;
@@ -481,7 +481,7 @@ static u8 musb_host_packet_rx(struct musb *musb, struct urb *pUrb,
 	int			nPipe = pUrb->pipe;
 	void			*buffer = pUrb->transfer_buffer;
 
-	// MGC_SelectEnd(pBase, bEnd);
+	// MGC_SelectEnd(mbase, bEnd);
 	wRxCount = musb_readw(epio, MGC_O_HDRC_RXCOUNT);
 	DBG(3, "RX%d count %d, buffer %p len %d/%d\n", bEnd, wRxCount,
 			pUrb->transfer_buffer, qh->offset,
@@ -630,7 +630,7 @@ static void musb_ep_program(struct musb *musb, u8 bEnd,
 	struct dma_controller	*pDmaController;
 	struct dma_channel	*pDmaChannel;
 	u8			bDmaOk;
-	void __iomem		*pBase = musb->mregs;
+	void __iomem		*mbase = musb->mregs;
 	struct musb_hw_ep	*hw_ep = musb->aLocalEnd + bEnd;
 	void __iomem		*epio = hw_ep->regs;
 	struct musb_qh		*qh;
@@ -651,7 +651,7 @@ static void musb_ep_program(struct musb *musb, u8 bEnd,
 			qh->h_addr_reg, qh->h_port_reg,
 			dwLength);
 
-	MGC_SelectEnd(pBase, bEnd);
+	MGC_SelectEnd(mbase, bEnd);
 
 	/* candidate for DMA? */
 	pDmaController = musb->pDmaController;
@@ -679,8 +679,8 @@ static void musb_ep_program(struct musb *musb, u8 bEnd,
 		wCsr = musb_readw(epio, MGC_O_HDRC_TXCSR);
 
 		/* disable interrupt in case we flush */
-		wIntrTxE = musb_readw(pBase, MGC_O_HDRC_INTRTXE);
-		musb_writew(pBase, MGC_O_HDRC_INTRTXE, wIntrTxE & ~(1 << bEnd));
+		wIntrTxE = musb_readw(mbase, MGC_O_HDRC_INTRTXE);
+		musb_writew(mbase, MGC_O_HDRC_INTRTXE, wIntrTxE & ~(1 << bEnd));
 
 		/* general endpoint setup */
 		if (bEnd) {
@@ -721,18 +721,18 @@ static void musb_ep_program(struct musb *musb, u8 bEnd,
 
 		/* target addr and (for multipoint) hub addr/port */
 		if (musb->bIsMultipoint) {
-			musb_writeb(pBase,
+			musb_writeb(mbase,
 				MGC_BUSCTL_OFFSET(bEnd, MGC_O_HDRC_TXFUNCADDR),
 				qh->addr_reg);
-			musb_writeb(pBase,
+			musb_writeb(mbase,
 				MGC_BUSCTL_OFFSET(bEnd, MGC_O_HDRC_TXHUBADDR),
 				qh->h_addr_reg);
-			musb_writeb(pBase,
+			musb_writeb(mbase,
 				MGC_BUSCTL_OFFSET(bEnd, MGC_O_HDRC_TXHUBPORT),
 				qh->h_port_reg);
 /* FIXME if !bEnd, do the same for RX ... */
 		} else
-			musb_writeb(pBase, MGC_O_HDRC_FADDR, qh->addr_reg);
+			musb_writeb(mbase, MGC_O_HDRC_FADDR, qh->addr_reg);
 
 		/* protocol/endpoint/interval/NAKlimit */
 		if (bEnd) {
@@ -868,7 +868,7 @@ static void musb_ep_program(struct musb *musb, u8 bEnd,
 		}
 
 		/* re-enable interrupt */
-		musb_writew(pBase, MGC_O_HDRC_INTRTXE, wIntrTxE);
+		musb_writew(mbase, MGC_O_HDRC_INTRTXE, wIntrTxE);
 
 	/* IN/receive */
 	} else {
@@ -1023,7 +1023,7 @@ irqreturn_t musb_h_ep0_irq(struct musb *musb)
 	struct urb		*pUrb;
 	u16			wCsrVal, wCount;
 	int			status = 0;
-	void __iomem		*pBase = musb->mregs;
+	void __iomem		*mbase = musb->mregs;
 	struct musb_hw_ep	*hw_ep = musb->control_ep;
 	void __iomem		*epio = hw_ep->regs;
 	struct musb_qh		*qh = hw_ep->in_qh;
@@ -1033,7 +1033,7 @@ irqreturn_t musb_h_ep0_irq(struct musb *musb)
 	/* ep0 only has one queue, "in" */
 	pUrb = next_urb(qh);
 
-	MGC_SelectEnd(pBase, 0);
+	MGC_SelectEnd(mbase, 0);
 	wCsrVal = musb_readw(epio, MGC_O_HDRC_CSR0);
 	wCount = (wCsrVal & MGC_M_CSR0_RXPKTRDY)
 			? musb_readb(epio, MGC_O_HDRC_COUNT0)
@@ -1174,12 +1174,12 @@ void musb_host_tx(struct musb *musb, u8 bEnd)
 	void __iomem		*epio = hw_ep->regs;
 	struct musb_qh		*qh = hw_ep->out_qh;
 	u32			status = 0;
-	void __iomem		*pBase = musb->mregs;
+	void __iomem		*mbase = musb->mregs;
 	struct dma_channel	*dma;
 
 	pUrb = next_urb(qh);
 
-	MGC_SelectEnd(pBase, bEnd);
+	MGC_SelectEnd(mbase, bEnd);
 	wTxCsrVal = musb_readw(epio, MGC_O_HDRC_TXCSR);
 
 	/* with CPPI, DMA sometimes triggers "extra" irqs */
@@ -1217,7 +1217,7 @@ void musb_host_tx(struct musb *musb, u8 bEnd)
 		 * if (bulk && qh->ring.next != &musb->out_bulk), then
 		 * we have a candidate... NAKing is *NOT* an error
 		 */
-		MGC_SelectEnd(pBase, bEnd);
+		MGC_SelectEnd(mbase, bEnd);
 		musb_writew(epio, MGC_O_HDRC_CSR0,
 				MGC_M_TXCSR_H_WZC_BITS
 				| MGC_M_TXCSR_TXPKTRDY);
@@ -1241,7 +1241,7 @@ void musb_host_tx(struct musb *musb, u8 bEnd)
 				| MGC_M_TXCSR_H_NAKTIMEOUT
 				);
 
-		MGC_SelectEnd(pBase, bEnd);
+		MGC_SelectEnd(mbase, bEnd);
 		musb_writew(epio, MGC_O_HDRC_TXCSR, wTxCsrVal);
 		/* REVISIT may need to clear FLUSHFIFO ... */
 		musb_writew(epio, MGC_O_HDRC_TXCSR, wTxCsrVal);
@@ -1323,7 +1323,7 @@ void musb_host_tx(struct musb *musb, u8 bEnd)
 		musb_write_fifo(hw_ep, wLength, pBuffer);
 		qh->segsize = wLength;
 
-		MGC_SelectEnd(pBase, bEnd);
+		MGC_SelectEnd(mbase, bEnd);
 		musb_writew(epio, MGC_O_HDRC_TXCSR,
 				MGC_M_TXCSR_H_WZC_BITS | MGC_M_TXCSR_TXPKTRDY);
 	} else
@@ -1384,7 +1384,7 @@ void musb_host_rx(struct musb *musb, u8 bEnd)
 	void __iomem		*epio = hw_ep->regs;
 	struct musb_qh		*qh = hw_ep->in_qh;
 	size_t			xfer_len;
-	void __iomem		*pBase = musb->mregs;
+	void __iomem		*mbase = musb->mregs;
 	int			nPipe;
 	u16			wRxCsrVal, wVal;
 	u8			bIsochError = FALSE;
@@ -1392,7 +1392,7 @@ void musb_host_rx(struct musb *musb, u8 bEnd)
 	u32			status;
 	struct dma_channel	*dma;
 
-	MGC_SelectEnd(pBase, bEnd);
+	MGC_SelectEnd(mbase, bEnd);
 
 	pUrb = next_urb(qh);
 	dma = is_dma_capable() ? hw_ep->rx_channel : NULL;
@@ -1443,7 +1443,7 @@ void musb_host_rx(struct musb *musb, u8 bEnd)
 			 * we have a candidate... NAKing is *NOT* an error
 			 */
 			DBG(6, "RX end %d NAK timeout\n", bEnd);
-			MGC_SelectEnd(pBase, bEnd);
+			MGC_SelectEnd(mbase, bEnd);
 			musb_writew(epio, MGC_O_HDRC_RXCSR,
 					MGC_M_RXCSR_H_WZC_BITS
 					| MGC_M_RXCSR_H_REQPKT);
@@ -1501,7 +1501,7 @@ void musb_host_rx(struct musb *musb, u8 bEnd)
 				xfer_len, dma ? ", dma" : "");
 		wRxCsrVal &= ~MGC_M_RXCSR_H_REQPKT;
 
-		MGC_SelectEnd(pBase, bEnd);
+		MGC_SelectEnd(mbase, bEnd);
 		musb_writew(epio, MGC_O_HDRC_RXCSR,
 				MGC_M_RXCSR_H_WZC_BITS | wRxCsrVal);
 	}
@@ -1545,7 +1545,7 @@ void musb_host_rx(struct musb *musb, u8 bEnd)
 
 // SCRUB (RX)
 			/* do the proper sequence to abort the transfer */
-			MGC_SelectEnd(pBase, bEnd);
+			MGC_SelectEnd(mbase, bEnd);
 			wVal &= ~MGC_M_RXCSR_H_REQPKT;
 			musb_writew(epio, MGC_O_HDRC_RXCSR, wVal);
 			goto finish;

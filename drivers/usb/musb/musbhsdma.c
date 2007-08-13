@@ -177,7 +177,7 @@ static void configure_channel(struct dma_channel *pChannel,
 	struct musb_dma_channel *pImplChannel =
 		(struct musb_dma_channel *) pChannel->pPrivateData;
 	struct musb_dma_controller *pController = pImplChannel->pController;
-	u8 *pBase = pController->pCoreBase;
+	u8 *mbase = pController->pCoreBase;
 	u8 bChannel = pImplChannel->bIndex;
 	u16 wCsr = 0;
 
@@ -207,15 +207,15 @@ static void configure_channel(struct dma_channel *pChannel,
 		| (pImplChannel->bTransmit ? (1 << MGC_S_HSDMA_TRANSMIT) : 0);
 
 	/* address/count */
-	musb_writel(pBase,
+	musb_writel(mbase,
 		    MGC_HSDMA_CHANNEL_OFFSET(bChannel, MGC_O_HSDMA_ADDRESS),
 		    dma_addr);
-	musb_writel(pBase,
+	musb_writel(mbase,
 		    MGC_HSDMA_CHANNEL_OFFSET(bChannel, MGC_O_HSDMA_COUNT),
 		    dwLength);
 
 	/* control (this should start things) */
-	musb_writew(pBase,
+	musb_writew(mbase,
 		    MGC_HSDMA_CHANNEL_OFFSET(bChannel, MGC_O_HSDMA_CONTROL),
 		    wCsr);
 }
@@ -256,37 +256,37 @@ static int dma_channel_abort(struct dma_channel *pChannel)
 	struct musb_dma_channel *pImplChannel =
 		(struct musb_dma_channel *) pChannel->pPrivateData;
 	u8 bChannel = pImplChannel->bIndex;
-	u8 *pBase = pImplChannel->pController->pCoreBase;
+	u8 *mbase = pImplChannel->pController->pCoreBase;
 	u16 csr;
 
 	if (pChannel->bStatus == MGC_DMA_STATUS_BUSY) {
 		if (pImplChannel->bTransmit) {
 
-			csr = musb_readw(pBase,
+			csr = musb_readw(mbase,
 				MGC_END_OFFSET(pImplChannel->bEnd,MGC_O_HDRC_TXCSR));
 			csr &= ~(MGC_M_TXCSR_AUTOSET |
 				 MGC_M_TXCSR_DMAENAB |
 				 MGC_M_TXCSR_DMAMODE);
-			musb_writew(pBase,
+			musb_writew(mbase,
 					MGC_END_OFFSET(pImplChannel->bEnd,MGC_O_HDRC_TXCSR),
 					csr);
 		}
 		else {
-			csr = musb_readw(pBase,
+			csr = musb_readw(mbase,
 				MGC_END_OFFSET(pImplChannel->bEnd,MGC_O_HDRC_RXCSR));
 			csr &= ~(MGC_M_RXCSR_AUTOCLEAR |
 				 MGC_M_RXCSR_DMAENAB |
 				 MGC_M_RXCSR_DMAMODE);
-			musb_writew(pBase,
+			musb_writew(mbase,
 					MGC_END_OFFSET(pImplChannel->bEnd,MGC_O_HDRC_RXCSR),
 					csr);
 		}
 
-		musb_writew(pBase,
+		musb_writew(mbase,
 		   MGC_HSDMA_CHANNEL_OFFSET(bChannel, MGC_O_HSDMA_CONTROL), 0);
-		musb_writel(pBase,
+		musb_writel(mbase,
 		   MGC_HSDMA_CHANNEL_OFFSET(bChannel, MGC_O_HSDMA_ADDRESS), 0);
-		musb_writel(pBase,
+		musb_writel(mbase,
 		   MGC_HSDMA_CHANNEL_OFFSET(bChannel, MGC_O_HSDMA_COUNT), 0);
 
 		pChannel->bStatus = MGC_DMA_STATUS_FREE;
@@ -299,7 +299,7 @@ static irqreturn_t dma_controller_irq(int irq, void *pPrivateData)
 	struct musb_dma_controller *pController =
 		(struct musb_dma_controller *)pPrivateData;
 	struct musb_dma_channel *pImplChannel;
-	u8 *pBase = pController->pCoreBase;
+	u8 *mbase = pController->pCoreBase;
 	struct dma_channel *pChannel;
 	u8 bChannel;
 	u16 wCsr;
@@ -307,7 +307,7 @@ static irqreturn_t dma_controller_irq(int irq, void *pPrivateData)
 	u8 bIntr;
 	irqreturn_t retval = IRQ_NONE;
 
-	bIntr = musb_readb(pBase, MGC_O_HSDMA_INTR);
+	bIntr = musb_readb(mbase, MGC_O_HSDMA_INTR);
 	if (!bIntr)
 		goto done;
 
@@ -317,7 +317,7 @@ static irqreturn_t dma_controller_irq(int irq, void *pPrivateData)
 					&(pController->aChannel[bChannel]);
 			pChannel = &pImplChannel->Channel;
 
-			wCsr = musb_readw(pBase,
+			wCsr = musb_readw(mbase,
 				       MGC_HSDMA_CHANNEL_OFFSET(bChannel,
 							MGC_O_HSDMA_CONTROL));
 
@@ -325,7 +325,7 @@ static irqreturn_t dma_controller_irq(int irq, void *pPrivateData)
 				pImplChannel->Channel.bStatus =
 				    MGC_DMA_STATUS_BUS_ABORT;
 			} else {
-				dwAddress = musb_readl(pBase,
+				dwAddress = musb_readl(mbase,
 						MGC_HSDMA_CHANNEL_OFFSET(
 							bChannel,
 							MGC_O_HSDMA_ADDRESS));
@@ -340,7 +340,7 @@ static irqreturn_t dma_controller_irq(int irq, void *pPrivateData)
 					pImplChannel->dwCount) ?
 					"=> reconfig 0": "=> complete");
 
-				u8 devctl = musb_readb(pBase,
+				u8 devctl = musb_readb(mbase,
 						MGC_O_HDRC_DEVCTL);
 
 				pChannel->bStatus = MGC_DMA_STATUS_FREE;
@@ -353,9 +353,9 @@ static irqreturn_t dma_controller_irq(int irq, void *pPrivateData)
 					    (pImplChannel->wMaxPacketSize - 1)))
 				   ) {
 					/* Send out the packet */
-					MGC_SelectEnd(pBase,
+					MGC_SelectEnd(mbase,
 						pImplChannel->bEnd);
-					musb_writew(pBase,
+					musb_writew(mbase,
 						MGC_END_OFFSET(pImplChannel->bEnd,MGC_O_HDRC_TXCSR),
 						MGC_M_TXCSR_TXPKTRDY);
 				} else

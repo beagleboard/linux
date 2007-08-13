@@ -74,7 +74,7 @@ static int service_tx_status_request(
 	struct musb *musb,
 	const struct usb_ctrlrequest *pControlRequest)
 {
-	void __iomem	*pBase = musb->mregs;
+	void __iomem	*mbase = musb->mregs;
 	int handled = 1;
 	u8 bResult[2], bEnd = 0;
 	const u8 bRecip = pControlRequest->bRequestType & USB_RECIP_MASK;
@@ -127,14 +127,14 @@ static int service_tx_status_request(
 			break;
 		}
 
-		MGC_SelectEnd(pBase, bEnd);
+		MGC_SelectEnd(mbase, bEnd);
 		if (is_in)
 			tmp = musb_readw(regs, MGC_O_HDRC_TXCSR)
 						& MGC_M_TXCSR_P_SENDSTALL;
 		else
 			tmp = musb_readw(regs, MGC_O_HDRC_RXCSR)
 						& MGC_M_RXCSR_P_SENDSTALL;
-		MGC_SelectEnd(pBase, 0);
+		MGC_SelectEnd(mbase, 0);
 
 		bResult[0] = tmp ? 1 : 0;
 		} break;
@@ -205,12 +205,12 @@ static void musb_g_ep0_giveback(struct musb *musb, struct usb_request *req)
  */
 static inline void musb_try_b_hnp_enable(struct musb *musb)
 {
-	void __iomem	*pBase = musb->mregs;
+	void __iomem	*mbase = musb->mregs;
 	u8		devctl;
 
 	DBG(1, "HNP: Setting HR\n");
-	devctl = musb_readb(pBase, MGC_O_HDRC_DEVCTL);
-	musb_writeb(pBase, MGC_O_HDRC_DEVCTL, devctl | MGC_M_DEVCTL_HR);
+	devctl = musb_readb(mbase, MGC_O_HDRC_DEVCTL);
+	musb_writeb(mbase, MGC_O_HDRC_DEVCTL, devctl | MGC_M_DEVCTL_HR);
 }
 
 /*
@@ -230,7 +230,7 @@ __releases(musb->Lock)
 __acquires(musb->Lock)
 {
 	int handled = -EINVAL;
-	void __iomem *pBase = musb->mregs;
+	void __iomem *mbase = musb->mregs;
 	const u8 bRecip = pControlRequest->bRequestType & USB_RECIP_MASK;
 
 	/* the gadget driver handles everything except what we MUST handle */
@@ -278,7 +278,7 @@ __acquires(musb->Lock)
 				spin_lock(&musb->Lock);
 
 				/* select ep0 again */
-				MGC_SelectEnd(pBase, 0);
+				MGC_SelectEnd(mbase, 0);
 				handled = 1;
 				} break;
 			default:
@@ -388,7 +388,7 @@ stall:
 				if (!musb_ep->desc)
 					break;
 
-				MGC_SelectEnd(pBase, bEnd);
+				MGC_SelectEnd(mbase, bEnd);
 				if (is_in) {
 					csr = musb_readw(regs,
 							MGC_O_HDRC_TXCSR);
@@ -411,7 +411,7 @@ stall:
 				}
 
 				/* select ep0 again */
-				MGC_SelectEnd(pBase, 0);
+				MGC_SelectEnd(mbase, 0);
 				handled = 1;
 				} break;
 
@@ -600,17 +600,17 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 {
 	u16		wCsrVal;
 	u16		wCount;
-	void __iomem	*pBase = musb->mregs;
+	void __iomem	*mbase = musb->mregs;
 	void __iomem	*regs = musb->aLocalEnd[0].regs;
 	irqreturn_t	retval = IRQ_NONE;
 
-	MGC_SelectEnd(pBase, 0);	/* select ep0 */
+	MGC_SelectEnd(mbase, 0);	/* select ep0 */
 	wCsrVal = musb_readw(regs, MGC_O_HDRC_CSR0);
 	wCount = musb_readb(regs, MGC_O_HDRC_COUNT0);
 
 	DBG(4, "csr %04x, count %d, myaddr %d, ep0stage %s\n",
 			wCsrVal, wCount,
-			musb_readb(pBase, MGC_O_HDRC_FADDR),
+			musb_readb(mbase, MGC_O_HDRC_FADDR),
 			decode_ep0stage(musb->ep0_state));
 
 	/* I sent a stall.. need to acknowledge it now.. */
@@ -663,7 +663,7 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 		 */
 		if (musb->bSetAddress) {
 			musb->bSetAddress = FALSE;
-			musb_writeb(pBase, MGC_O_HDRC_FADDR, musb->bAddress);
+			musb_writeb(mbase, MGC_O_HDRC_FADDR, musb->bAddress);
 		}
 
 		/* enter test mode if needed (exit by reset) */
@@ -673,7 +673,7 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 			if (MGC_M_TEST_PACKET == musb->bTestModeValue)
 				musb_load_testpacket(musb);
 
-			musb_writeb(pBase, MGC_O_HDRC_TESTMODE,
+			musb_writeb(mbase, MGC_O_HDRC_TESTMODE,
 					musb->bTestModeValue);
 		}
 		/* FALLTHROUGH */
@@ -710,7 +710,7 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 				printk(KERN_NOTICE "%s: peripheral reset "
 						"irq lost!\n",
 						musb_driver_name);
-				power = musb_readb(pBase, MGC_O_HDRC_POWER);
+				power = musb_readb(mbase, MGC_O_HDRC_POWER);
 				musb->g.speed = (power & MGC_M_POWER_HSMODE)
 					? USB_SPEED_HIGH : USB_SPEED_FULL;
 
@@ -769,7 +769,7 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 
 			handled = forward_to_driver(musb, &setup);
 			if (handled < 0) {
-				MGC_SelectEnd(pBase, 0);
+				MGC_SelectEnd(mbase, 0);
 stall:
 				DBG(3, "stall (%d)\n", handled);
 				musb->ackpend |= MGC_M_CSR0_P_SENDSTALL;
