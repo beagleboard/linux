@@ -100,7 +100,7 @@ struct dma_controller;
 
 /**
  * struct dma_channel - A DMA channel.
- * @pPrivateData: channel-private data
+ * @private_data: channel-private data
  * @wMaxLength: the maximum number of bytes the channel can move in one
  *	transaction (typically representing many USB maximum-sized packets)
  * @dwActualLength: how many bytes have been transferred
@@ -111,7 +111,7 @@ struct dma_controller;
  * one usb transfer.
  */
 struct dma_channel {
-	void			*pPrivateData;
+	void			*private_data;
 	// FIXME not void* private_data, but a dma_controller *
 	size_t			dwMaxLength;
 	size_t			dwActualLength;
@@ -156,7 +156,7 @@ dma_channel_status(struct dma_channel *c)
 
 /**
  * struct dma_controller - A DMA Controller.
- * @pPrivateData: controller-private data;
+ * @private_data: controller-private data;
  * @start: call this to start a DMA controller;
  *	return 0 on success, else negative errno
  * @stop: call this to stop a DMA controller
@@ -169,7 +169,7 @@ dma_channel_status(struct dma_channel *c)
  * Controllers manage dma channels.
  */
 struct dma_controller {
-	void			*pPrivateData;
+	void			*private_data;
 	int			(*start)(struct dma_controller *);
 	int			(*stop)(struct dma_controller *);
 	struct dma_channel	*(*channel_alloc)(struct dma_controller *,

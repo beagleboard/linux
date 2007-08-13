@@ -143,7 +143,7 @@ static struct dma_channel* dma_channel_allocate(struct dma_controller *c,
 			pImplChannel->epnum = hw_ep->epnum;
 			pImplChannel->bTransmit = bTransmit;
 			pChannel = &(pImplChannel->Channel);
-			pChannel->pPrivateData = pImplChannel;
+			pChannel->private_data = pImplChannel;
 			pChannel->bStatus = MGC_DMA_STATUS_FREE;
 			pChannel->dwMaxLength = 0x10000;
 			/* Tx => mode 1; Rx => mode 0 */
@@ -158,7 +158,7 @@ static struct dma_channel* dma_channel_allocate(struct dma_controller *c,
 static void dma_channel_release(struct dma_channel *pChannel)
 {
 	struct musb_dma_channel *pImplChannel =
-		(struct musb_dma_channel *) pChannel->pPrivateData;
+		(struct musb_dma_channel *) pChannel->private_data;
 
 	pChannel->dwActualLength = 0;
 	pImplChannel->dwStartAddress = 0;
@@ -175,7 +175,7 @@ static void configure_channel(struct dma_channel *pChannel,
 				dma_addr_t dma_addr, u32 dwLength)
 {
 	struct musb_dma_channel *pImplChannel =
-		(struct musb_dma_channel *) pChannel->pPrivateData;
+		(struct musb_dma_channel *) pChannel->private_data;
 	struct musb_dma_controller *pController = pImplChannel->pController;
 	u8 *mbase = pController->pCoreBase;
 	u8 bChannel = pImplChannel->bIndex;
@@ -225,7 +225,7 @@ static int dma_channel_program(struct dma_channel * pChannel,
 				dma_addr_t dma_addr, u32 dwLength)
 {
 	struct musb_dma_channel *pImplChannel =
-			(struct musb_dma_channel *) pChannel->pPrivateData;
+			(struct musb_dma_channel *) pChannel->private_data;
 
 	DBG(2, "ep%d-%s pkt_sz %d, dma_addr 0x%x length %d, mode %d\n",
 		pImplChannel->epnum,
@@ -254,7 +254,7 @@ static int dma_channel_program(struct dma_channel * pChannel,
 static int dma_channel_abort(struct dma_channel *pChannel)
 {
 	struct musb_dma_channel *pImplChannel =
-		(struct musb_dma_channel *) pChannel->pPrivateData;
+		(struct musb_dma_channel *) pChannel->private_data;
 	u8 bChannel = pImplChannel->bIndex;
 	u8 *mbase = pImplChannel->pController->pCoreBase;
 	u16 csr;
@@ -294,10 +294,10 @@ static int dma_channel_abort(struct dma_channel *pChannel)
 	return 0;
 }
 
-static irqreturn_t dma_controller_irq(int irq, void *pPrivateData)
+static irqreturn_t dma_controller_irq(int irq, void *private_data)
 {
 	struct musb_dma_controller *pController =
-		(struct musb_dma_controller *)pPrivateData;
+		(struct musb_dma_controller *)private_data;
 	struct musb_dma_channel *pImplChannel;
 	u8 *mbase = pController->pCoreBase;
 	struct dma_channel *pChannel;
@@ -374,7 +374,7 @@ done:
 void dma_controller_destroy(struct dma_controller *c)
 {
 	struct musb_dma_controller *pController =
-		(struct musb_dma_controller *) c->pPrivateData;
+		(struct musb_dma_controller *) c->private_data;
 
 	if (!pController)
 		return;
@@ -383,7 +383,7 @@ void dma_controller_destroy(struct dma_controller *c)
 		free_irq(pController->irq, c);
 
 	kfree(pController);
-	c->pPrivateData = NULL;
+	c->private_data = NULL;
 }
 
 struct dma_controller *__init
@@ -407,7 +407,7 @@ dma_controller_create(struct musb *musb, void __iomem *pCoreBase)
 	pController->pDmaPrivate = musb;
 	pController->pCoreBase = pCoreBase;
 
-	pController->Controller.pPrivateData = pController;
+	pController->Controller.private_data = pController;
 	pController->Controller.start = dma_controller_start;
 	pController->Controller.stop = dma_controller_stop;
 	pController->Controller.channel_alloc = dma_channel_allocate;

@@ -102,7 +102,7 @@ static void __init cppi_pool_init(struct cppi *cppi, struct cppi_channel *c)
 	c->Channel.bStatus = MGC_DMA_STATUS_UNKNOWN;
 	c->pController = cppi;
 	c->bLastModeRndis = 0;
-	c->Channel.pPrivateData = c;
+	c->Channel.private_data = c;
 	c->bdPoolHead = NULL;
 
 	/* build the BD Free list for the channel */
@@ -325,7 +325,7 @@ cppi_channel_allocate(struct dma_controller *c,
 	otgCh->Channel.bStatus = MGC_DMA_STATUS_FREE;
 
 	DBG(4, "Allocate CPPI%d %cX\n", chNum, bTransmit ? 'T' : 'R');
-	otgCh->Channel.pPrivateData = otgCh;
+	otgCh->Channel.private_data = otgCh;
 	return &otgCh->Channel;
 }
 
@@ -953,7 +953,7 @@ static int cppi_channel_program(struct dma_channel *pChannel,
 		u16 wPacketSz, u8 mode,
 		dma_addr_t dma_addr, u32 dwLength)
 {
-	struct cppi_channel	*otgChannel = pChannel->pPrivateData;
+	struct cppi_channel	*otgChannel = pChannel->private_data;
 	struct cppi		*pController = otgChannel->pController;
 	struct musb		*musb = pController->musb;
 
@@ -1316,7 +1316,7 @@ dma_controller_create(struct musb *musb, void __iomem *pCoreBase)
 	/* Initialize the Cppi DmaController  structure */
 	pController->pCoreBase = pCoreBase;
 	pController->musb = musb;
-	pController->Controller.pPrivateData = pController;
+	pController->Controller.private_data = pController;
 	pController->Controller.start = cppi_controller_start;
 	pController->Controller.stop = cppi_controller_stop;
 	pController->Controller.channel_alloc = cppi_channel_allocate;

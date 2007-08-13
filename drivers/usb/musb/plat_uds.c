@@ -1810,7 +1810,7 @@ static void musb_free(struct musb *musb)
 	if (is_dma_capable() && musb->dma_controller) {
 		struct dma_controller	*c = musb->dma_controller;
 
-		(void) c->stop(c->pPrivateData);
+		(void) c->stop(c->private_data);
 		dma_controller_destroy(c);
 	}
 
@@ -1923,7 +1923,7 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 		c = dma_controller_create(musb, musb->mregs);
 		musb->dma_controller = c;
 		if (c)
-			(void) c->start(c->pPrivateData);
+			(void) c->start(c->private_data);
 	}
 #endif
 	/* ideally this would be abstracted in platform setup */

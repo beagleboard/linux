@@ -32,7 +32,7 @@
 #define dmareq_works()		1
 #endif
 
-#define to_chdat(c)		(struct tusb_omap_dma_ch *)(c)->pPrivateData
+#define to_chdat(c)		(struct tusb_omap_dma_ch *)(c)->private_data
 
 #define MAX_DMAREQ		5	/* REVISIT: Really 6, but req5 not OK */
 
@@ -524,7 +524,7 @@ tusb_omap_dma_allocate(struct dma_controller *c,
 		if (ch->bStatus == MGC_DMA_STATUS_UNKNOWN) {
 			ch->bStatus = MGC_DMA_STATUS_FREE;
 			channel = ch;
-			chdat = ch->pPrivateData;
+			chdat = ch->private_data;
 			break;
 		}
 	}
@@ -640,8 +640,8 @@ void dma_controller_destroy(struct dma_controller *c)
 	for (i = 0; i < MAX_DMAREQ; i++) {
 		struct dma_channel *ch = dma_channel_pool[i];
 		if (ch) {
-			if (ch->pPrivateData)
-				kfree(ch->pPrivateData);
+			if (ch->private_data)
+				kfree(ch->private_data);
 			kfree(ch);
 		}
 	}
@@ -686,7 +686,7 @@ dma_controller_create(struct musb *musb, void __iomem *base)
 	tusb_dma->controller.channel_release = tusb_omap_dma_release;
 	tusb_dma->controller.channel_program = tusb_omap_dma_program;
 	tusb_dma->controller.channel_abort = tusb_omap_dma_abort;
-	tusb_dma->controller.pPrivateData = tusb_dma;
+	tusb_dma->controller.private_data = tusb_dma;
 
 	for (i = 0; i < MAX_DMAREQ; i++) {
 		struct dma_channel	*ch;
@@ -703,7 +703,7 @@ dma_controller_create(struct musb *musb, void __iomem *base)
 			goto cleanup;
 
 		ch->bStatus = MGC_DMA_STATUS_UNKNOWN;
-		ch->pPrivateData = chdat;
+		ch->private_data = chdat;
 	}
 
 	return &tusb_dma->controller;
