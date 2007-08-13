@@ -1134,7 +1134,7 @@ static int cppi_rx_scan(struct cppi *cppi, unsigned ch)
 	return completed;
 }
 
-void cppi_completion(struct musb *pThis, u32 rx, u32 tx)
+void cppi_completion(struct musb *musb, u32 rx, u32 tx)
 {
 	void			*__iomem regBase;
 	int			i, chanNum, numCompleted;
@@ -1143,9 +1143,9 @@ void cppi_completion(struct musb *pThis, u32 rx, u32 tx)
 	struct cppi_descriptor	*bdPtr;
 	struct musb_hw_ep	*pEnd = NULL;
 
-	cppi = container_of(pThis->pDmaController, struct cppi, Controller);
+	cppi = container_of(musb->pDmaController, struct cppi, Controller);
 
-	regBase = pThis->ctrl_base;
+	regBase = musb->ctrl_base;
 
 	chanNum = 0;
 	/* process TX channels */
@@ -1253,13 +1253,13 @@ void cppi_completion(struct musb *pThis, u32 rx, u32 tx)
 					}
 					if (bReqComplete)
 						musb_dma_completion(
-							pThis, chanNum + 1, 1);
+							musb, chanNum + 1, 1);
 
 				} else {
 					/* Bigger transfer than we could fit in
 					 * that first batch of descriptors...
 					 */
-					cppi_next_tx_segment(pThis, txChannel);
+					cppi_next_tx_segment(musb, txChannel);
 				}
 			} else
 				txChannel->activeQueueHead = bdPtr;
@@ -1283,7 +1283,7 @@ void cppi_completion(struct musb *pThis, u32 rx, u32 tx)
 			if (rxChannel->actualLen != rxChannel->transferSize
 					&& rxChannel->actualLen
 						== rxChannel->currOffset) {
-				cppi_next_rx_segment(pThis, rxChannel, 1);
+				cppi_next_rx_segment(musb, rxChannel, 1);
 				continue;
 			}
 
@@ -1295,7 +1295,7 @@ void cppi_completion(struct musb *pThis, u32 rx, u32 tx)
 			rxChannel->Channel.dwActualLength =
 					rxChannel->actualLen;
 			core_rxirq_disable(regBase, chanNum + 1);
-			musb_dma_completion(pThis, chanNum + 1, 0);
+			musb_dma_completion(musb, chanNum + 1, 0);
 		}
 	}
 

@@ -828,7 +828,7 @@ musb_g_ep0_queue(struct usb_ep *e, struct usb_request *r, gfp_t gfp_flags)
 		return -EINVAL;
 
 	ep = to_musb_ep(e);
-	musb = ep->pThis;
+	musb = ep->musb;
 	regs = musb->control_ep->regs;
 
 	req = to_musb_request(r);
@@ -879,7 +879,7 @@ musb_g_ep0_queue(struct usb_ep *e, struct usb_request *r, gfp_t gfp_flags)
 			musb_writew(regs, MGC_O_HDRC_CSR0,
 					musb->ackpend | MGC_M_CSR0_P_DATAEND);
 			musb->ackpend = 0;
-			musb_g_ep0_giveback(ep->pThis, r);
+			musb_g_ep0_giveback(ep->musb, r);
 		}
 
 	/* else for sequence #2 (OUT), caller provides a buffer
@@ -916,7 +916,7 @@ static int musb_g_ep0_halt(struct usb_ep *e, int value)
 		return -EINVAL;
 
 	ep = to_musb_ep(e);
-	musb = ep->pThis;
+	musb = ep->musb;
 	base = musb->pRegs;
 	regs = musb->control_ep->regs;
 

@@ -159,12 +159,12 @@ __acquires(ep->musb->Lock)
 static void nuke(struct musb_ep *ep, const int status)
 {
 	struct musb_request	*req = NULL;
-	void __iomem *epio = ep->pThis->aLocalEnd[ep->bEndNumber].regs;
+	void __iomem *epio = ep->musb->aLocalEnd[ep->bEndNumber].regs;
 
 	ep->busy = 1;
 
 	if (is_dma_capable() && ep->dma) {
-		struct dma_controller	*c = ep->pThis->pDmaController;
+		struct dma_controller	*c = ep->musb->pDmaController;
 		int value;
 		if (ep->is_in) {
 			musb_writew(epio, MGC_O_HDRC_TXCSR,
@@ -867,7 +867,7 @@ static int musb_gadget_enable(struct usb_ep *ep,
 	pEnd = to_musb_ep(ep);
 	hw_ep = pEnd->hw_ep;
 	regs = hw_ep->regs;
-	musb = pEnd->pThis;
+	musb = pEnd->musb;
 	pBase = musb->pRegs;
 	bEnd = pEnd->bEndNumber;
 
@@ -1005,7 +1005,7 @@ static int musb_gadget_disable(struct usb_ep *ep)
 	int		status = 0;
 
 	pEnd = to_musb_ep(ep);
-	musb = pEnd->pThis;
+	musb = pEnd->musb;
 	bEnd = pEnd->bEndNumber;
 	epio = musb->aLocalEnd[bEnd].regs;
 
@@ -1108,7 +1108,7 @@ static int musb_gadget_queue(struct usb_ep *ep, struct usb_request *req,
 		return -ENODATA;
 
 	pEnd = to_musb_ep(ep);
-	musb = pEnd->pThis;
+	musb = pEnd->musb;
 
 	pRequest = to_musb_request(req);
 	pRequest->musb = musb;
@@ -1176,7 +1176,7 @@ static int musb_gadget_dequeue(struct usb_ep *ep, struct usb_request *pRequest)
 	struct usb_request	*r;
 	unsigned long		flags;
 	int			status = 0;
-	struct musb		*musb = pEnd->pThis;
+	struct musb		*musb = pEnd->musb;
 
 	if (!ep || !pRequest || to_musb_request(pRequest)->ep != pEnd)
 		return -EINVAL;
@@ -1230,7 +1230,7 @@ int musb_gadget_set_halt(struct usb_ep *ep, int value)
 {
 	struct musb_ep		*pEnd = to_musb_ep(ep);
 	u8			bEnd = pEnd->bEndNumber;
-	struct musb		*musb = pEnd->pThis;
+	struct musb		*musb = pEnd->musb;
 	void __iomem		*epio = musb->aLocalEnd[bEnd].regs;
 	void __iomem		*pBase;
 	unsigned long		flags;
@@ -1310,7 +1310,7 @@ static int musb_gadget_fifo_status(struct usb_ep *ep)
 	int			retval = -EINVAL;
 
 	if (musb_ep->desc && !musb_ep->is_in) {
-		struct musb		*musb = musb_ep->pThis;
+		struct musb		*musb = musb_ep->musb;
 		int			bEnd = musb_ep->bEndNumber;
 		void __iomem		*mbase = musb->pRegs;
 		unsigned long		flags;
@@ -1329,7 +1329,7 @@ static int musb_gadget_fifo_status(struct usb_ep *ep)
 static void musb_gadget_fifo_flush(struct usb_ep *ep)
 {
 	struct musb_ep	*musb_ep = to_musb_ep(ep);
-	struct musb	*musb = musb_ep->pThis;
+	struct musb	*musb = musb_ep->musb;
 	u8		nEnd = musb_ep->bEndNumber;
 	void __iomem	*epio = musb->aLocalEnd[nEnd].regs;
 	void __iomem	*mbase;
@@ -1562,7 +1562,7 @@ init_peripheral_ep(struct musb *musb, struct musb_ep *ep, u8 bEnd, int is_in)
 	memset(ep, 0, sizeof *ep);
 
 	ep->bEndNumber = bEnd;
-	ep->pThis = musb;
+	ep->musb = musb;
 	ep->hw_ep = hw_ep;
 	ep->is_in = is_in;
 

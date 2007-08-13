@@ -61,7 +61,7 @@ struct musb_ep {
 	struct usb_ep			end_point;
 	char				name[12];
 	struct musb_hw_ep		*hw_ep;
-	struct musb			*pThis;
+	struct musb			*musb;
 	u8				bEndNumber;
 
 	/* ... when enabled/disabled ... */
@@ -92,8 +92,8 @@ static inline struct usb_request *next_request(struct musb_ep *ep)
 	return container_of(queue->next, struct usb_request, list);
 }
 
-extern void musb_g_tx(struct musb *pThis, u8 bEnd);
-extern void musb_g_rx(struct musb *pThis, u8 bEnd);
+extern void musb_g_tx(struct musb *musb, u8 bEnd);
+extern void musb_g_rx(struct musb *musb, u8 bEnd);
 
 extern const struct usb_ep_ops musb_g_ep0_ops;
 

@@ -104,12 +104,12 @@ static int dma_controller_stop(struct dma_controller *c)
 {
 	struct musb_dma_controller *pController =
 		container_of(c, struct musb_dma_controller, Controller);
-	struct musb *pThis = (struct musb *) pController->pDmaPrivate;
+	struct musb *musb = (struct musb *) pController->pDmaPrivate;
 	struct dma_channel *pChannel;
 	u8 bBit;
 
 	if (pController->bmUsedChannels != 0) {
-		dev_err(pThis->controller,
+		dev_err(musb->controller,
 			"Stopping DMA controller while channel active\n");
 
 		for (bBit = 0; bBit < MGC_HSDMA_CHANNELS; bBit++) {
@@ -387,10 +387,10 @@ void dma_controller_destroy(struct dma_controller *c)
 }
 
 struct dma_controller *__init
-dma_controller_create(struct musb *pThis, void __iomem *pCoreBase)
+dma_controller_create(struct musb *musb, void __iomem *pCoreBase)
 {
 	struct musb_dma_controller *pController;
-	struct device *dev = pThis->controller;
+	struct device *dev = musb->controller;
 	struct platform_device *pdev = to_platform_device(dev);
 	int irq = platform_get_irq(pdev, 1);
 
@@ -404,7 +404,7 @@ dma_controller_create(struct musb *pThis, void __iomem *pCoreBase)
 		return NULL;
 
 	pController->bChannelCount = MGC_HSDMA_CHANNELS;
-	pController->pDmaPrivate = pThis;
+	pController->pDmaPrivate = musb;
 	pController->pCoreBase = pCoreBase;
 
 	pController->Controller.pPrivateData = pController;
@@ -416,7 +416,7 @@ dma_controller_create(struct musb *pThis, void __iomem *pCoreBase)
 	pController->Controller.channel_abort = dma_channel_abort;
 
 	if (request_irq(irq, dma_controller_irq, IRQF_DISABLED,
-			pThis->controller->bus_id, &pController->Controller)) {
+			musb->controller->bus_id, &pController->Controller)) {
 		dev_err(dev, "request_irq %d failed!\n", irq);
 		dma_controller_destroy(&pController->Controller);
 		return NULL;
