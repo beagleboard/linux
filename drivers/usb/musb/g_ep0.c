@@ -76,7 +76,7 @@ static int service_tx_status_request(
 {
 	void __iomem	*mbase = musb->mregs;
 	int handled = 1;
-	u8 bResult[2], bEnd = 0;
+	u8 bResult[2], epnum = 0;
 	const u8 bRecip = pControlRequest->bRequestType & USB_RECIP_MASK;
 
 	bResult[1] = 0;
@@ -107,27 +107,27 @@ static int service_tx_status_request(
 		u16		tmp;
 		void __iomem	*regs;
 
-		bEnd = (u8) pControlRequest->wIndex;
-		if (!bEnd) {
+		epnum = (u8) pControlRequest->wIndex;
+		if (!epnum) {
 			bResult[0] = 0;
 			break;
 		}
 
-		is_in = bEnd & USB_DIR_IN;
+		is_in = epnum & USB_DIR_IN;
 		if (is_in) {
-			bEnd &= 0x0f;
-			ep = &musb->endpoints[bEnd].ep_in;
+			epnum &= 0x0f;
+			ep = &musb->endpoints[epnum].ep_in;
 		} else {
-			ep = &musb->endpoints[bEnd].ep_out;
+			ep = &musb->endpoints[epnum].ep_out;
 		}
-		regs = musb->endpoints[bEnd].regs;
+		regs = musb->endpoints[epnum].regs;
 
-		if (bEnd >= MUSB_C_NUM_EPS || !ep->desc) {
+		if (epnum >= MUSB_C_NUM_EPS || !ep->desc) {
 			handled = -EINVAL;
 			break;
 		}
 
-		MGC_SelectEnd(mbase, bEnd);
+		MGC_SelectEnd(mbase, epnum);
 		if (is_in)
 			tmp = musb_readw(regs, MGC_O_HDRC_TXCSR)
 						& MGC_M_TXCSR_P_SENDSTALL;
@@ -256,19 +256,19 @@ __acquires(musb->Lock)
 			case USB_RECIP_INTERFACE:
 				break;
 			case USB_RECIP_ENDPOINT:{
-				const u8 bEnd = pControlRequest->wIndex & 0x0f;
+				const u8 epnum = pControlRequest->wIndex & 0x0f;
 				struct musb_ep *musb_ep;
 
-				if (bEnd == 0
-						|| bEnd >= MUSB_C_NUM_EPS
+				if (epnum == 0
+						|| epnum >= MUSB_C_NUM_EPS
 						|| pControlRequest->wValue
 							!= USB_ENDPOINT_HALT)
 					break;
 
 				if (pControlRequest->wIndex & USB_DIR_IN)
-					musb_ep = &musb->endpoints[bEnd].ep_in;
+					musb_ep = &musb->endpoints[epnum].ep_in;
 				else
-					musb_ep = &musb->endpoints[bEnd].ep_out;
+					musb_ep = &musb->endpoints[epnum].ep_out;
 				if (!musb_ep->desc)
 					break;
 
@@ -364,7 +364,7 @@ stall:
 				break;
 
 			case USB_RECIP_ENDPOINT:{
-				const u8		bEnd =
+				const u8		epnum =
 					pControlRequest->wIndex & 0x0f;
 				struct musb_ep		*musb_ep;
 				struct musb_hw_ep	*ep;
@@ -372,13 +372,13 @@ stall:
 				int			is_in;
 				u16			csr;
 
-				if (bEnd == 0
-						|| bEnd >= MUSB_C_NUM_EPS
+				if (epnum == 0
+						|| epnum >= MUSB_C_NUM_EPS
 						|| pControlRequest->wValue
 							!= USB_ENDPOINT_HALT)
 					break;
 
-				ep = musb->endpoints + bEnd;
+				ep = musb->endpoints + epnum;
 				regs = ep->regs;
 				is_in = pControlRequest->wIndex & USB_DIR_IN;
 				if (is_in)
@@ -388,7 +388,7 @@ stall:
 				if (!musb_ep->desc)
 					break;
 
-				MGC_SelectEnd(mbase, bEnd);
+				MGC_SelectEnd(mbase, epnum);
 				if (is_in) {
 					csr = musb_readw(regs,
 							MGC_O_HDRC_TXCSR);

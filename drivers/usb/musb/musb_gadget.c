@@ -252,9 +252,9 @@ static inline int max_ep_writesize(struct musb *musb, struct musb_ep *ep)
  */
 static void txstate(struct musb *musb, struct musb_request *req)
 {
-	u8			bEnd = req->bEnd;
+	u8			epnum = req->epnum;
 	struct musb_ep		*musb_ep;
-	void __iomem		*epio = musb->endpoints[bEnd].regs;
+	void __iomem		*epio = musb->endpoints[epnum].regs;
 	struct usb_request	*pRequest;
 	u16			fifo_count = 0, wCsrVal;
 	int			use_dma = 0;
@@ -287,7 +287,7 @@ static void txstate(struct musb *musb, struct musb_request *req)
 	}
 
 	DBG(4, "hw_ep%d, maxpacket %d, fifo count %d, txcsr %03x\n",
-			bEnd, musb_ep->wPacketSize, fifo_count,
+			epnum, musb_ep->wPacketSize, fifo_count,
 			wCsrVal);
 
 #ifndef	CONFIG_USB_INVENTRA_FIFO
@@ -402,16 +402,16 @@ static void txstate(struct musb *musb, struct musb_request *req)
  * FIFO state update (e.g. data ready).
  * Called from IRQ,  with controller locked.
  */
-void musb_g_tx(struct musb *musb, u8 bEnd)
+void musb_g_tx(struct musb *musb, u8 epnum)
 {
 	u16			wCsrVal;
 	struct usb_request	*pRequest;
 	u8 __iomem		*mbase = musb->mregs;
-	struct musb_ep		*musb_ep = &musb->endpoints[bEnd].ep_in;
-	void __iomem		*epio = musb->endpoints[bEnd].regs;
+	struct musb_ep		*musb_ep = &musb->endpoints[epnum].ep_in;
+	void __iomem		*epio = musb->endpoints[epnum].regs;
 	struct dma_channel	*dma;
 
-	MGC_SelectEnd(mbase, bEnd);
+	MGC_SelectEnd(mbase, epnum);
 	pRequest = next_request(musb_ep);
 
 	wCsrVal = musb_readw(epio, MGC_O_HDRC_TXCSR);
@@ -443,7 +443,7 @@ void musb_g_tx(struct musb *musb, u8 bEnd)
 			wCsrVal &= ~(MGC_M_TXCSR_P_UNDERRUN
 					| MGC_M_TXCSR_TXPKTRDY);
 			musb_writew(epio, MGC_O_HDRC_TXCSR, wCsrVal);
-			DBG(20, "underrun on ep%d, req %p\n", bEnd, pRequest);
+			DBG(20, "underrun on ep%d, req %p\n", epnum, pRequest);
 		}
 
 		if (dma_channel_status(dma) == MGC_DMA_STATUS_BUSY) {
@@ -469,7 +469,7 @@ void musb_g_tx(struct musb *musb, u8 bEnd)
 				pRequest->actual += musb_ep->dma->dwActualLength;
 				DBG(4, "TXCSR%d %04x, dma off, "
 						"len %Zd, req %p\n",
-					bEnd, wCsrVal,
+					epnum, wCsrVal,
 					musb_ep->dma->dwActualLength,
 					pRequest);
 			}
@@ -514,7 +514,7 @@ void musb_g_tx(struct musb *musb, u8 bEnd)
 				 * REVISIT for double buffering...
 				 * FIXME revisit for stalls too...
 				 */
-				MGC_SelectEnd(mbase, bEnd);
+				MGC_SelectEnd(mbase, epnum);
 				wCsrVal = musb_readw(epio, MGC_O_HDRC_TXCSR);
 				if (wCsrVal & MGC_M_TXCSR_FIFONOTEMPTY)
 					break;
@@ -573,10 +573,10 @@ void musb_g_tx(struct musb *musb, u8 bEnd)
 static void rxstate(struct musb *musb, struct musb_request *req)
 {
 	u16			wCsrVal = 0;
-	const u8		bEnd = req->bEnd;
+	const u8		epnum = req->epnum;
 	struct usb_request	*pRequest = &req->request;
-	struct musb_ep		*musb_ep = &musb->endpoints[bEnd].ep_out;
-	void __iomem		*epio = musb->endpoints[bEnd].regs;
+	struct musb_ep		*musb_ep = &musb->endpoints[epnum].ep_out;
+	void __iomem		*epio = musb->endpoints[epnum].regs;
 	u16			fifo_count = 0;
 	u16			len = musb_ep->wPacketSize;
 
@@ -732,16 +732,16 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 /*
  * Data ready for a request; called from IRQ
  */
-void musb_g_rx(struct musb *musb, u8 bEnd)
+void musb_g_rx(struct musb *musb, u8 epnum)
 {
 	u16			wCsrVal;
 	struct usb_request	*pRequest;
 	void __iomem		*mbase = musb->mregs;
-	struct musb_ep		*musb_ep = &musb->endpoints[bEnd].ep_out;
-	void __iomem		*epio = musb->endpoints[bEnd].regs;
+	struct musb_ep		*musb_ep = &musb->endpoints[epnum].ep_out;
+	void __iomem		*epio = musb->endpoints[epnum].regs;
 	struct dma_channel	*dma;
 
-	MGC_SelectEnd(mbase, bEnd);
+	MGC_SelectEnd(mbase, epnum);
 
 	pRequest = next_request(musb_ep);
 
@@ -799,7 +799,7 @@ void musb_g_rx(struct musb *musb, u8 bEnd)
 		pRequest->actual += musb_ep->dma->dwActualLength;
 
 		DBG(4, "RXCSR%d %04x, dma off, %04x, len %Zd, req %p\n",
-			bEnd, wCsrVal,
+			epnum, wCsrVal,
 			musb_readw(epio, MGC_O_HDRC_RXCSR),
 			musb_ep->dma->dwActualLength, pRequest);
 
@@ -826,7 +826,7 @@ void musb_g_rx(struct musb *musb, u8 bEnd)
 			goto done;
 
 		/* don't start more i/o till the stall clears */
-		MGC_SelectEnd(mbase, bEnd);
+		MGC_SelectEnd(mbase, epnum);
 		wCsrVal = musb_readw(epio, MGC_O_HDRC_RXCSR);
 		if (wCsrVal & MGC_M_RXCSR_P_SENDSTALL)
 			goto done;
@@ -856,7 +856,7 @@ static int musb_gadget_enable(struct usb_ep *ep,
 	void __iomem		*regs;
 	struct musb		*musb;
 	void __iomem	*mbase;
-	u8		bEnd;
+	u8		epnum;
 	u16		csr;
 	unsigned	tmp;
 	int		status = -EINVAL;
@@ -869,7 +869,7 @@ static int musb_gadget_enable(struct usb_ep *ep,
 	regs = hw_ep->regs;
 	musb = musb_ep->musb;
 	mbase = musb->mregs;
-	bEnd = musb_ep->current_epnum;
+	epnum = musb_ep->current_epnum;
 
 	spin_lock_irqsave(&musb->Lock, flags);
 
@@ -880,7 +880,7 @@ static int musb_gadget_enable(struct usb_ep *ep,
 	musb_ep->type = desc->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK;
 
 	/* check direction and (later) maxpacket size against endpoint */
-	if ((desc->bEndpointAddress & USB_ENDPOINT_NUMBER_MASK) != bEnd)
+	if ((desc->bEndpointAddress & USB_ENDPOINT_NUMBER_MASK) != epnum)
 		goto fail;
 
 	/* REVISIT this rules out high bandwidth periodic transfers */
@@ -892,7 +892,7 @@ static int musb_gadget_enable(struct usb_ep *ep,
 	/* enable the interrupts for the endpoint, set the endpoint
 	 * packet size (or fail), set the mode, clear the fifo
 	 */
-	MGC_SelectEnd(mbase, bEnd);
+	MGC_SelectEnd(mbase, epnum);
 	if (desc->bEndpointAddress & USB_DIR_IN) {
 		u16 wIntrTxE = musb_readw(mbase, MGC_O_HDRC_INTRTXE);
 
@@ -903,7 +903,7 @@ static int musb_gadget_enable(struct usb_ep *ep,
 		if (tmp > hw_ep->wMaxPacketSizeTx)
 			goto fail;
 
-		wIntrTxE |= (1 << bEnd);
+		wIntrTxE |= (1 << epnum);
 		musb_writew(mbase, MGC_O_HDRC_INTRTXE, wIntrTxE);
 
 		/* REVISIT if can_bulk_split(), use by updating "tmp";
@@ -933,7 +933,7 @@ static int musb_gadget_enable(struct usb_ep *ep,
 		if (tmp > hw_ep->wMaxPacketSizeRx)
 			goto fail;
 
-		wIntrRxE |= (1 << bEnd);
+		wIntrRxE |= (1 << epnum);
 		musb_writew(mbase, MGC_O_HDRC_INTRRXE, wIntrRxE);
 
 		/* REVISIT if can_bulk_combine() use by updating "tmp"
@@ -999,28 +999,28 @@ static int musb_gadget_disable(struct usb_ep *ep)
 {
 	unsigned long	flags;
 	struct musb	*musb;
-	u8		bEnd;
+	u8		epnum;
 	struct musb_ep	*musb_ep;
 	void __iomem	*epio;
 	int		status = 0;
 
 	musb_ep = to_musb_ep(ep);
 	musb = musb_ep->musb;
-	bEnd = musb_ep->current_epnum;
-	epio = musb->endpoints[bEnd].regs;
+	epnum = musb_ep->current_epnum;
+	epio = musb->endpoints[epnum].regs;
 
 	spin_lock_irqsave(&musb->Lock, flags);
-	MGC_SelectEnd(musb->mregs, bEnd);
+	MGC_SelectEnd(musb->mregs, epnum);
 
 	/* zero the endpoint sizes */
 	if (musb_ep->is_in) {
 		u16 wIntrTxE = musb_readw(musb->mregs, MGC_O_HDRC_INTRTXE);
-		wIntrTxE &= ~(1 << bEnd);
+		wIntrTxE &= ~(1 << epnum);
 		musb_writew(musb->mregs, MGC_O_HDRC_INTRTXE, wIntrTxE);
 		musb_writew(epio, MGC_O_HDRC_TXMAXP, 0);
 	} else {
 		u16 wIntrRxE = musb_readw(musb->mregs, MGC_O_HDRC_INTRRXE);
-		wIntrRxE &= ~(1 << bEnd);
+		wIntrRxE &= ~(1 << epnum);
 		musb_writew(musb->mregs, MGC_O_HDRC_INTRRXE, wIntrRxE);
 		musb_writew(epio, MGC_O_HDRC_RXMAXP, 0);
 	}
@@ -1052,7 +1052,7 @@ struct usb_request *musb_alloc_request(struct usb_ep *ep, gfp_t gfp_flags)
 	if (pRequest) {
 		INIT_LIST_HEAD(&pRequest->request.list);
 		pRequest->request.dma = DMA_ADDR_INVALID;
-		pRequest->bEnd = musb_ep->current_epnum;
+		pRequest->epnum = musb_ep->current_epnum;
 		pRequest->ep = musb_ep;
 	}
 
@@ -1084,9 +1084,9 @@ static void musb_ep_restart(struct musb *musb, struct musb_request *req)
 {
 	DBG(3, "<== %s request %p len %u on hw_ep%d\n",
 		req->bTx ? "TX/IN" : "RX/OUT",
-		&req->request, req->request.length, req->bEnd);
+		&req->request, req->request.length, req->epnum);
 
-	MGC_SelectEnd(musb->mregs, req->bEnd);
+	MGC_SelectEnd(musb->mregs, req->epnum);
 	if (req->bTx)
 		txstate(musb, req);
 	else
@@ -1121,7 +1121,7 @@ static int musb_gadget_queue(struct usb_ep *ep, struct usb_request *req,
 	/* request is mine now... */
 	pRequest->request.actual = 0;
 	pRequest->request.status = -EINPROGRESS;
-	pRequest->bEnd = musb_ep->current_epnum;
+	pRequest->epnum = musb_ep->current_epnum;
 	pRequest->bTx = musb_ep->is_in;
 
 	if (is_dma_capable() && musb_ep->dma) {
@@ -1229,9 +1229,9 @@ done:
 int musb_gadget_set_halt(struct usb_ep *ep, int value)
 {
 	struct musb_ep		*musb_ep = to_musb_ep(ep);
-	u8			bEnd = musb_ep->current_epnum;
+	u8			epnum = musb_ep->current_epnum;
 	struct musb		*musb = musb_ep->musb;
-	void __iomem		*epio = musb->endpoints[bEnd].regs;
+	void __iomem		*epio = musb->endpoints[epnum].regs;
 	void __iomem		*mbase;
 	unsigned long		flags;
 	u16			wCsr;
@@ -1249,7 +1249,7 @@ int musb_gadget_set_halt(struct usb_ep *ep, int value)
 		goto done;
 	}
 
-	MGC_SelectEnd(mbase, bEnd);
+	MGC_SelectEnd(mbase, epnum);
 
 	/* cannot portably stall with non-empty FIFO */
 	pRequest = to_musb_request(next_request(musb_ep));
@@ -1311,13 +1311,13 @@ static int musb_gadget_fifo_status(struct usb_ep *ep)
 
 	if (musb_ep->desc && !musb_ep->is_in) {
 		struct musb		*musb = musb_ep->musb;
-		int			bEnd = musb_ep->current_epnum;
+		int			epnum = musb_ep->current_epnum;
 		void __iomem		*mbase = musb->mregs;
 		unsigned long		flags;
 
 		spin_lock_irqsave(&musb->Lock, flags);
 
-		MGC_SelectEnd(mbase, bEnd);
+		MGC_SelectEnd(mbase, epnum);
 		/* FIXME return zero unless RXPKTRDY is set */
 		retval = musb_readw(epio, MGC_O_HDRC_RXCOUNT);
 
@@ -1555,25 +1555,25 @@ static void musb_gadget_release(struct device *dev)
 
 
 static void __init
-init_peripheral_ep(struct musb *musb, struct musb_ep *ep, u8 bEnd, int is_in)
+init_peripheral_ep(struct musb *musb, struct musb_ep *ep, u8 epnum, int is_in)
 {
-	struct musb_hw_ep	*hw_ep = musb->endpoints + bEnd;
+	struct musb_hw_ep	*hw_ep = musb->endpoints + epnum;
 
 	memset(ep, 0, sizeof *ep);
 
-	ep->current_epnum = bEnd;
+	ep->current_epnum = epnum;
 	ep->musb = musb;
 	ep->hw_ep = hw_ep;
 	ep->is_in = is_in;
 
 	INIT_LIST_HEAD(&ep->req_list);
 
-	sprintf(ep->name, "ep%d%s", bEnd,
-			(!bEnd || hw_ep->bIsSharedFifo) ? "" : (
+	sprintf(ep->name, "ep%d%s", epnum,
+			(!epnum || hw_ep->bIsSharedFifo) ? "" : (
 				is_in ? "in" : "out"));
 	ep->end_point.name = ep->name;
 	INIT_LIST_HEAD(&ep->end_point.ep_list);
-	if (!bEnd) {
+	if (!epnum) {
 		ep->end_point.maxpacket = 64;
 		ep->end_point.ops = &musb_g_ep0_ops;
 		musb->g.ep0 = &ep->end_point;
@@ -1593,28 +1593,28 @@ init_peripheral_ep(struct musb *musb, struct musb_ep *ep, u8 bEnd, int is_in)
  */
 static inline void __init musb_g_init_endpoints(struct musb *musb)
 {
-	u8			bEnd;
+	u8			epnum;
 	struct musb_hw_ep	*hw_ep;
 	unsigned		count = 0;
 
 	/* intialize endpoint list just once */
 	INIT_LIST_HEAD(&(musb->g.ep_list));
 
-	for (bEnd = 0, hw_ep = musb->endpoints;
-			bEnd < musb->nr_endpoints;
-			bEnd++, hw_ep++) {
-		if (hw_ep->bIsSharedFifo /* || !bEnd */) {
-			init_peripheral_ep(musb, &hw_ep->ep_in, bEnd, 0);
+	for (epnum = 0, hw_ep = musb->endpoints;
+			epnum < musb->nr_endpoints;
+			epnum++, hw_ep++) {
+		if (hw_ep->bIsSharedFifo /* || !epnum */) {
+			init_peripheral_ep(musb, &hw_ep->ep_in, epnum, 0);
 			count++;
 		} else {
 			if (hw_ep->wMaxPacketSizeTx) {
 				init_peripheral_ep(musb, &hw_ep->ep_in,
-							bEnd, 1);
+							epnum, 1);
 				count++;
 			}
 			if (hw_ep->wMaxPacketSizeRx) {
 				init_peripheral_ep(musb, &hw_ep->ep_out,
-							bEnd, 0);
+							epnum, 0);
 				count++;
 			}
 		}
@@ -1800,7 +1800,7 @@ stop_activity(struct musb *musb, struct usb_gadget_driver *driver)
 				i < musb->nr_endpoints;
 				i++, hw_ep++) {
 			MGC_SelectEnd(musb->mregs, i);
-			if (hw_ep->bIsSharedFifo /* || !bEnd */) {
+			if (hw_ep->bIsSharedFifo /* || !epnum */) {
 				nuke(&hw_ep->ep_in, -ESHUTDOWN);
 			} else {
 				if (hw_ep->wMaxPacketSizeTx)

@@ -78,7 +78,7 @@ struct musb_dma_channel {
 	u32				len;
 	u16				wMaxPacketSize;
 	u8				bIndex;
-	u8				bEnd;
+	u8				epnum;
 	u8				bTransmit;
 };
 
@@ -140,7 +140,7 @@ static struct dma_channel* dma_channel_allocate(struct dma_controller *c,
 			pImplChannel = &(pController->aChannel[bBit]);
 			pImplChannel->pController = pController;
 			pImplChannel->bIndex = bBit;
-			pImplChannel->bEnd = hw_ep->epnum;
+			pImplChannel->epnum = hw_ep->epnum;
 			pImplChannel->bTransmit = bTransmit;
 			pChannel = &(pImplChannel->Channel);
 			pChannel->pPrivateData = pImplChannel;
@@ -201,7 +201,7 @@ static void configure_channel(struct dma_channel *pChannel,
 		}
 	}
 
-	wCsr |= (pImplChannel->bEnd << MGC_S_HSDMA_ENDPOINT)
+	wCsr |= (pImplChannel->epnum << MGC_S_HSDMA_ENDPOINT)
 		| (1 << MGC_S_HSDMA_ENABLE)
 		| (1 << MGC_S_HSDMA_IRQENABLE)
 		| (pImplChannel->bTransmit ? (1 << MGC_S_HSDMA_TRANSMIT) : 0);
@@ -228,7 +228,7 @@ static int dma_channel_program(struct dma_channel * pChannel,
 			(struct musb_dma_channel *) pChannel->pPrivateData;
 
 	DBG(2, "ep%d-%s pkt_sz %d, dma_addr 0x%x length %d, mode %d\n",
-		pImplChannel->bEnd,
+		pImplChannel->epnum,
 		pImplChannel->bTransmit ? "Tx" : "Rx",
 		wPacketSize, dma_addr, dwLength, bMode);
 
@@ -263,22 +263,22 @@ static int dma_channel_abort(struct dma_channel *pChannel)
 		if (pImplChannel->bTransmit) {
 
 			csr = musb_readw(mbase,
-				MGC_END_OFFSET(pImplChannel->bEnd,MGC_O_HDRC_TXCSR));
+				MGC_END_OFFSET(pImplChannel->epnum,MGC_O_HDRC_TXCSR));
 			csr &= ~(MGC_M_TXCSR_AUTOSET |
 				 MGC_M_TXCSR_DMAENAB |
 				 MGC_M_TXCSR_DMAMODE);
 			musb_writew(mbase,
-					MGC_END_OFFSET(pImplChannel->bEnd,MGC_O_HDRC_TXCSR),
+					MGC_END_OFFSET(pImplChannel->epnum,MGC_O_HDRC_TXCSR),
 					csr);
 		}
 		else {
 			csr = musb_readw(mbase,
-				MGC_END_OFFSET(pImplChannel->bEnd,MGC_O_HDRC_RXCSR));
+				MGC_END_OFFSET(pImplChannel->epnum,MGC_O_HDRC_RXCSR));
 			csr &= ~(MGC_M_RXCSR_AUTOCLEAR |
 				 MGC_M_RXCSR_DMAENAB |
 				 MGC_M_RXCSR_DMAMODE);
 			musb_writew(mbase,
-					MGC_END_OFFSET(pImplChannel->bEnd,MGC_O_HDRC_RXCSR),
+					MGC_END_OFFSET(pImplChannel->epnum,MGC_O_HDRC_RXCSR),
 					csr);
 		}
 
@@ -354,14 +354,14 @@ static irqreturn_t dma_controller_irq(int irq, void *pPrivateData)
 				   ) {
 					/* Send out the packet */
 					MGC_SelectEnd(mbase,
-						pImplChannel->bEnd);
+						pImplChannel->epnum);
 					musb_writew(mbase,
-						MGC_END_OFFSET(pImplChannel->bEnd,MGC_O_HDRC_TXCSR),
+						MGC_END_OFFSET(pImplChannel->epnum,MGC_O_HDRC_TXCSR),
 						MGC_M_TXCSR_TXPKTRDY);
 				} else
 					musb_dma_completion(
 						pController->pDmaPrivate,
-						pImplChannel->bEnd,
+						pImplChannel->epnum,
 						pImplChannel->bTransmit);
 			}
 		}

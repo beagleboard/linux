@@ -233,14 +233,14 @@ static int dump_ep(struct musb_ep *ep, char *buffer, unsigned max)
 #endif
 
 static int
-dump_end_info(struct musb *musb, u8 bEnd, char *aBuffer, unsigned max)
+dump_end_info(struct musb *musb, u8 epnum, char *aBuffer, unsigned max)
 {
 	int			code = 0;
 	char			*buf = aBuffer;
-	struct musb_hw_ep	*hw_ep = &musb->endpoints[bEnd];
+	struct musb_hw_ep	*hw_ep = &musb->endpoints[epnum];
 
 	do {
-		MGC_SelectEnd(musb->mregs, bEnd);
+		MGC_SelectEnd(musb->mregs, epnum);
 #ifdef CONFIG_USB_MUSB_HDRC_HCD
 		if (is_host_active(musb)) {
 			int		dump_rx, dump_tx;
@@ -249,7 +249,7 @@ dump_end_info(struct musb *musb, u8 bEnd, char *aBuffer, unsigned max)
 			/* TEMPORARY (!) until we have a real periodic
 			 * schedule tree ...
 			 */
-			if (!bEnd) {
+			if (!epnum) {
 				/* control is shared, uses RX queue
 				 * but (mostly) shadowed tx registers
 				 */
@@ -258,10 +258,10 @@ dump_end_info(struct musb *musb, u8 bEnd, char *aBuffer, unsigned max)
 			} else if (hw_ep == musb->bulk_ep) {
 				dump_tx = !list_empty(&musb->out_bulk);
 				dump_rx = !list_empty(&musb->in_bulk);
-			} else if (musb->periodic[bEnd]) {
+			} else if (musb->periodic[epnum]) {
 				struct usb_host_endpoint	*hep;
 
-				hep = musb->periodic[bEnd]->hep;
+				hep = musb->periodic[epnum]->hep;
 				dump_rx = hep->desc.bEndpointAddress
 						& USB_ENDPOINT_DIR_MASK;
 				dump_tx = !dump_rx;
@@ -276,7 +276,7 @@ dump_end_info(struct musb *musb, u8 bEnd, char *aBuffer, unsigned max)
 					"max %04x type %02x; "
 					"dev %d hub %d port %d"
 					"\n",
-					bEnd,
+					epnum,
 					hw_ep->rx_double_buffered
 						? "2buf" : "1buf",
 					musb_readw(regs, MGC_O_HDRC_RXCSR),
@@ -285,13 +285,13 @@ dump_end_info(struct musb *musb, u8 bEnd, char *aBuffer, unsigned max)
 					musb_readb(regs, MGC_O_HDRC_RXTYPE),
 					/* FIXME:  assumes multipoint */
 					musb_readb(musb->mregs,
-						MGC_BUSCTL_OFFSET(bEnd,
+						MGC_BUSCTL_OFFSET(epnum,
 						MGC_O_HDRC_RXFUNCADDR)),
 					musb_readb(musb->mregs,
-						MGC_BUSCTL_OFFSET(bEnd,
+						MGC_BUSCTL_OFFSET(epnum,
 						MGC_O_HDRC_RXHUBADDR)),
 					musb_readb(musb->mregs,
-						MGC_BUSCTL_OFFSET(bEnd,
+						MGC_BUSCTL_OFFSET(epnum,
 						MGC_O_HDRC_RXHUBPORT))
 					);
 				if (code <= 0)
@@ -301,9 +301,9 @@ dump_end_info(struct musb *musb, u8 bEnd, char *aBuffer, unsigned max)
 				max -= code;
 
 				if (is_cppi_enabled()
-						&& bEnd
+						&& epnum
 						&& hw_ep->rx_channel) {
-					unsigned	cppi = bEnd - 1;
+					unsigned	cppi = epnum - 1;
 					unsigned	off1 = cppi << 2;
 					void __iomem	*base;
 					void __iomem	*ram;
@@ -347,8 +347,8 @@ dump_end_info(struct musb *musb, u8 bEnd, char *aBuffer, unsigned max)
 					code = min(code, (int) max);
 					buf += code;
 					max -= code;
-				} else if (musb->periodic[bEnd]) {
-					code = dump_qh(musb->periodic[bEnd],
+				} else if (musb->periodic[epnum]) {
+					code = dump_qh(musb->periodic[epnum],
 							buf, max);
 					if (code <= 0)
 						break;
@@ -364,7 +364,7 @@ dump_end_info(struct musb *musb, u8 bEnd, char *aBuffer, unsigned max)
 					"max %04x type %02x; "
 					"dev %d hub %d port %d"
 					"\n",
-					bEnd,
+					epnum,
 					hw_ep->tx_double_buffered
 						? "2buf" : "1buf",
 					musb_readw(regs, MGC_O_HDRC_TXCSR),
@@ -373,13 +373,13 @@ dump_end_info(struct musb *musb, u8 bEnd, char *aBuffer, unsigned max)
 					musb_readb(regs, MGC_O_HDRC_TXTYPE),
 					/* FIXME:  assumes multipoint */
 					musb_readb(musb->mregs,
-						MGC_BUSCTL_OFFSET(bEnd,
+						MGC_BUSCTL_OFFSET(epnum,
 						MGC_O_HDRC_TXFUNCADDR)),
 					musb_readb(musb->mregs,
-						MGC_BUSCTL_OFFSET(bEnd,
+						MGC_BUSCTL_OFFSET(epnum,
 						MGC_O_HDRC_TXHUBADDR)),
 					musb_readb(musb->mregs,
-						MGC_BUSCTL_OFFSET(bEnd,
+						MGC_BUSCTL_OFFSET(epnum,
 						MGC_O_HDRC_TXHUBPORT))
 					);
 				if (code <= 0)
@@ -389,9 +389,9 @@ dump_end_info(struct musb *musb, u8 bEnd, char *aBuffer, unsigned max)
 				max -= code;
 
 				if (is_cppi_enabled()
-						&& bEnd
+						&& epnum
 						&& hw_ep->tx_channel) {
-					unsigned	cppi = bEnd - 1;
+					unsigned	cppi = epnum - 1;
 					void __iomem	*base;
 					void __iomem	*ram;
 
@@ -438,8 +438,8 @@ dump_end_info(struct musb *musb, u8 bEnd, char *aBuffer, unsigned max)
 					code = min(code, (int) max);
 					buf += code;
 					max -= code;
-				} else if (musb->periodic[bEnd]) {
-					code = dump_qh(musb->periodic[bEnd],
+				} else if (musb->periodic[epnum]) {
+					code = dump_qh(musb->periodic[epnum],
 							buf, max);
 					if (code <= 0)
 						break;
@@ -454,7 +454,7 @@ dump_end_info(struct musb *musb, u8 bEnd, char *aBuffer, unsigned max)
 		if (is_peripheral_active(musb)) {
 			code = 0;
 
-			if (hw_ep->ep_in.desc || !bEnd) {
+			if (hw_ep->ep_in.desc || !epnum) {
 				code = dump_ep(&hw_ep->ep_in, buf, max);
 				if (code <= 0)
 					break;
@@ -785,7 +785,7 @@ static int musb_proc_read(char *page, char **start,
 	int code = 0;
 	unsigned long	flags;
 	struct musb	*musb = data;
-	unsigned	bEnd;
+	unsigned	epnum;
 
 	count -= off;
 	count -= 1;		/* for NUL at end */
@@ -802,9 +802,9 @@ static int musb_proc_read(char *page, char **start,
 
 	/* generate the report for the end points */
 	// REVISIT ... not unless something's connected!
-	for (bEnd = 0; count >= 0 && bEnd < musb->nr_endpoints;
-			bEnd++) {
-		code = dump_end_info(musb, bEnd, buffer, count);
+	for (epnum = 0; count >= 0 && epnum < musb->nr_endpoints;
+			epnum++) {
+		code = dump_end_info(musb, epnum, buffer, count);
 		if (code > 0) {
 			buffer += code;
 			count -= code;

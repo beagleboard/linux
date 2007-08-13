@@ -662,7 +662,7 @@ static irqreturn_t musb_stage2_irq(struct musb * musb, u8 bIntrUSB,
 	if (bIntrUSB & MGC_M_INTR_SOF) {
 		void __iomem *mbase = musb->mregs;
 		struct musb_hw_ep	*ep;
-		u8 bEnd;
+		u8 epnum;
 		u16 wFrame;
 
 		DBG(6, "START_OF_FRAME\n");
@@ -671,20 +671,20 @@ static irqreturn_t musb_stage2_irq(struct musb * musb, u8 bIntrUSB,
 		/* start any periodic Tx transfers waiting for current frame */
 		wFrame = musb_readw(mbase, MGC_O_HDRC_FRAME);
 		ep = musb->endpoints;
-		for (bEnd = 1; (bEnd < musb->nr_endpoints)
-					&& (musb->wEndMask >= (1 << bEnd));
-				bEnd++, ep++) {
+		for (epnum = 1; (epnum < musb->nr_endpoints)
+					&& (musb->wEndMask >= (1 << epnum));
+				epnum++, ep++) {
 			// FIXME handle framecounter wraps (12 bits)
 			// eliminate duplicated StartUrb logic
 			if (ep->dwWaitFrame >= wFrame) {
 				ep->dwWaitFrame = 0;
 				printk("SOF --> periodic TX%s on %d\n",
 					ep->tx_channel ? " DMA" : "",
-					bEnd);
+					epnum);
 				if (!ep->tx_channel)
-					musb_h_tx_start(musb, bEnd);
+					musb_h_tx_start(musb, epnum);
 				else
-					cppi_hostdma_start(musb, bEnd);
+					cppi_hostdma_start(musb, epnum);
 			}
 		}		/* end of for loop */
 	}
@@ -1178,7 +1178,7 @@ static int __init ep_config_from_table(struct musb *musb)
  */
 static int __init ep_config_from_hw(struct musb *musb)
 {
-	u8 bEnd = 0, reg;
+	u8 epnum = 0, reg;
 	struct musb_hw_ep *hw_ep;
 	void *mbase = musb->mregs;
 
@@ -1186,9 +1186,9 @@ static int __init ep_config_from_hw(struct musb *musb)
 
 	/* FIXME pick up ep0 maxpacket size */
 
-	for (bEnd = 1; bEnd < MUSB_C_NUM_EPS; bEnd++) {
-		MGC_SelectEnd(mbase, bEnd);
-		hw_ep = musb->endpoints + bEnd;
+	for (epnum = 1; epnum < MUSB_C_NUM_EPS; epnum++) {
+		MGC_SelectEnd(mbase, epnum);
+		hw_ep = musb->endpoints + epnum;
 
 		/* read from core using indexed model */
 		reg = musb_readb(hw_ep->regs, 0x10 + MGC_O_HDRC_FIFOSIZE);
@@ -1197,7 +1197,7 @@ static int __init ep_config_from_hw(struct musb *musb)
 			break;
 		}
 		musb->nr_endpoints++;
-		musb->wEndMask |= (1 << bEnd);
+		musb->wEndMask |= (1 << epnum);
 
 		hw_ep->wMaxPacketSizeTx = 1 << (reg & 0x0f);
 
