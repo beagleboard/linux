@@ -257,7 +257,7 @@ __acquires(musb->Lock)
 				break;
 			case USB_RECIP_ENDPOINT:{
 				const u8 bEnd = pControlRequest->wIndex & 0x0f;
-				struct musb_ep *pEnd;
+				struct musb_ep *musb_ep;
 
 				if (bEnd == 0
 						|| bEnd >= MUSB_C_NUM_EPS
@@ -266,15 +266,15 @@ __acquires(musb->Lock)
 					break;
 
 				if (pControlRequest->wIndex & USB_DIR_IN)
-					pEnd = &musb->aLocalEnd[bEnd].ep_in;
+					musb_ep = &musb->aLocalEnd[bEnd].ep_in;
 				else
-					pEnd = &musb->aLocalEnd[bEnd].ep_out;
-				if (!pEnd->desc)
+					musb_ep = &musb->aLocalEnd[bEnd].ep_out;
+				if (!musb_ep->desc)
 					break;
 
 				/* REVISIT do it directly, no locking games */
 				spin_unlock(&musb->Lock);
-				musb_gadget_set_halt(&pEnd->end_point, 0);
+				musb_gadget_set_halt(&musb_ep->end_point, 0);
 				spin_lock(&musb->Lock);
 
 				/* select ep0 again */
@@ -366,7 +366,7 @@ stall:
 			case USB_RECIP_ENDPOINT:{
 				const u8		bEnd =
 					pControlRequest->wIndex & 0x0f;
-				struct musb_ep		*pEnd;
+				struct musb_ep		*musb_ep;
 				struct musb_hw_ep	*ep;
 				void __iomem		*regs;
 				int			is_in;
@@ -382,10 +382,10 @@ stall:
 				regs = ep->regs;
 				is_in = pControlRequest->wIndex & USB_DIR_IN;
 				if (is_in)
-					pEnd = &ep->ep_in;
+					musb_ep = &ep->ep_in;
 				else
-					pEnd = &ep->ep_out;
-				if (!pEnd->desc)
+					musb_ep = &ep->ep_out;
+				if (!musb_ep->desc)
 					break;
 
 				MGC_SelectEnd(pBase, bEnd);
