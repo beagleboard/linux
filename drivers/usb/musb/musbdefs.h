@@ -500,7 +500,7 @@ extern void musb_start(struct musb *musb);
 extern void musb_stop(struct musb *musb);
 
 extern void musb_write_fifo(struct musb_hw_ep *ep,
-			     u16 wCount, const u8 * pSource);
+			     u16 wCount, const u8 * src);
 extern void musb_read_fifo(struct musb_hw_ep *ep,
 			       u16 wCount, u8 * pDest);
 
