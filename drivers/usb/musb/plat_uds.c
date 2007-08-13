@@ -1310,10 +1310,10 @@ static int __init musb_core_init(u16 wType, struct musb *musb)
 	aDate[0] = 0;
 #endif
 	if (MUSB_CONTROLLER_MHDRC == wType) {
-		musb->bIsMultipoint = 1;
+		musb->is_multipoint = 1;
 		type = "M";
 	} else {
-		musb->bIsMultipoint = 0;
+		musb->is_multipoint = 0;
 		type = "";
 #ifdef CONFIG_USB_MUSB_HDRC_HCD
 #ifndef	CONFIG_USB_OTG_BLACKLIST_HUB

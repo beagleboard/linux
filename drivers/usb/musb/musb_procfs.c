@@ -490,7 +490,7 @@ static int dump_header_stats(struct musb *musb, char *buffer)
 	*buffer = 0;
 	count = sprintf(buffer, "Status: %sHDRC, Mode=%s "
 				"(Power=%02x, DevCtl=%02x)\n",
-			(musb->bIsMultipoint ? "M" : ""), MUSB_MODE(musb),
+			(musb->is_multipoint ? "M" : ""), MUSB_MODE(musb),
 			musb_readb(mbase, MGC_O_HDRC_POWER),
 			musb_readb(mbase, MGC_O_HDRC_DEVCTL));
 	if (count <= 0)

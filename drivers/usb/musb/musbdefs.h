@@ -395,7 +395,7 @@ struct musb {
 	/* active means connected and not suspended */
 	unsigned		is_active:1;
 
-	unsigned bIsMultipoint:1;
+	unsigned is_multipoint:1;
 	unsigned is_host:1;
 	unsigned bIgnoreDisconnect:1;	/* during bus resets */
 

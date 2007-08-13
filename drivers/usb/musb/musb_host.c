@@ -599,7 +599,7 @@ musb_rx_reinit(struct musb *musb, struct musb_qh *qh, struct musb_hw_ep *ep)
 	}
 
 	/* target addr and (for multipoint) hub addr/port */
-	if (musb->bIsMultipoint) {
+	if (musb->is_multipoint) {
 		musb_writeb(ep->target_regs, MGC_O_HDRC_RXFUNCADDR,
 			qh->addr_reg);
 		musb_writeb(ep->target_regs, MGC_O_HDRC_RXHUBADDR,
@@ -720,7 +720,7 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 		}
 
 		/* target addr and (for multipoint) hub addr/port */
-		if (musb->bIsMultipoint) {
+		if (musb->is_multipoint) {
 			musb_writeb(mbase,
 				MGC_BUSCTL_OFFSET(epnum, MGC_O_HDRC_TXFUNCADDR),
 				qh->addr_reg);
@@ -748,7 +748,7 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 			musb_writeb(epio, MGC_O_HDRC_TXINTERVAL, qh->intv_reg);
 		} else {
 			musb_writeb(epio, MGC_O_HDRC_NAKLIMIT0, qh->intv_reg);
-			if (musb->bIsMultipoint)
+			if (musb->is_multipoint)
 				musb_writeb(epio, MGC_O_HDRC_TYPE0,
 						qh->type_reg);
 		}
@@ -1850,7 +1850,7 @@ static int musb_urb_enqueue(
 	qh->intv_reg = interval;
 
 	/* precompute addressing for external hub/tt ports */
-	if (musb->bIsMultipoint) {
+	if (musb->is_multipoint) {
 		struct usb_device	*parent = urb->dev->parent;
 
 		if (parent != hcd->self.root_hub) {
