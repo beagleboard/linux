@@ -61,7 +61,7 @@
 #define MGC_O_HDRC_INDEX        0x0E	/* 8 bit */
 #define MGC_O_HDRC_TESTMODE     0x0F	/* 8 bit */
 
-/* Get offset for a given FIFO from musb->pRegs */
+/* Get offset for a given FIFO from musb->mregs */
 #ifdef	CONFIG_USB_TUSB6010
 #define MUSB_FIFO_OFFSET(epnum)	(0x200 + ((epnum) * 0x20))
 #else

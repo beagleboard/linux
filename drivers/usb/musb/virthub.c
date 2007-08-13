@@ -49,7 +49,7 @@
 static void musb_port_suspend(struct musb *musb, u8 bSuspend)
 {
 	u8		power;
-	void __iomem	*pBase = musb->pRegs;
+	void __iomem	*pBase = musb->mregs;
 
 	if (!is_host_active(musb))
 		return;
@@ -110,7 +110,7 @@ static void musb_port_suspend(struct musb *musb, u8 bSuspend)
 static void musb_port_reset(struct musb *musb, u8 bReset)
 {
 	u8		power;
-	void __iomem	*pBase = musb->pRegs;
+	void __iomem	*pBase = musb->mregs;
 
 #ifdef CONFIG_USB_MUSB_OTG
 	/* REVISIT this looks wrong for HNP */
@@ -308,11 +308,11 @@ int musb_hub_control(
 				&& time_after(jiffies, musb->rh_timer)) {
 			u8		power;
 
-			power = musb_readb(musb->pRegs, MGC_O_HDRC_POWER);
+			power = musb_readb(musb->mregs, MGC_O_HDRC_POWER);
 			power &= ~MGC_M_POWER_RESUME;
 			DBG(4, "root port resume stopped, power %02x\n",
 					power);
-			musb_writeb(musb->pRegs, MGC_O_HDRC_POWER, power);
+			musb_writeb(musb->mregs, MGC_O_HDRC_POWER, power);
 
 			/* ISSUE:  DaVinci (RTL 1.300) disconnects after
 			 * resume of high speed peripherals (but not full
@@ -388,7 +388,7 @@ int musb_hub_control(
 				temp = MGC_M_TEST_FORCE_HOST
 					| MGC_M_TEST_FORCE_HS;
 
-				musb_writeb(musb->pRegs, MGC_O_HDRC_DEVCTL, MGC_M_DEVCTL_SESSION);
+				musb_writeb(musb->mregs, MGC_O_HDRC_DEVCTL, MGC_M_DEVCTL_SESSION);
 				break;
 			case 6:
 				pr_debug("TEST_FIFO_ACCESS\n");
@@ -397,7 +397,7 @@ int musb_hub_control(
 			default:
 				goto error;
 			}
-			musb_writeb(musb->pRegs, MGC_O_HDRC_TESTMODE, temp);
+			musb_writeb(musb->mregs, MGC_O_HDRC_TESTMODE, temp);
 			break;
 		default:
 			goto error;

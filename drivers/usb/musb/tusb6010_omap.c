@@ -145,7 +145,7 @@ static void tusb_omap_dma_cb(int lch, u16 ch_status, void *data)
 	struct musb		*musb = chdat->musb;
 	struct musb_hw_ep	*hw_ep = chdat->hw_ep;
 	void __iomem		*ep_conf = hw_ep->conf;
-	void __iomem		*musb_base = musb->pRegs;
+	void __iomem		*musb_base = musb->mregs;
 	unsigned long		remaining, flags, pio;
 	int			ch;
 
@@ -240,7 +240,7 @@ static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,
 	struct tusb_omap_dma		*tusb_dma = chdat->tusb_dma;
 	struct musb			*musb = chdat->musb;
 	struct musb_hw_ep		*hw_ep = chdat->hw_ep;
-	void __iomem			*musb_base = musb->pRegs;
+	void __iomem			*musb_base = musb->mregs;
 	void __iomem			*ep_conf = hw_ep->conf;
 	dma_addr_t			fifo = hw_ep->fifo_sync;
 	struct omap_dma_channel_params	dma_params;

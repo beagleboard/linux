@@ -116,7 +116,7 @@ void musb_platform_disable(struct musb *musb)
 			  DAVINCI_USB_USBINT_MASK
 			| DAVINCI_USB_TXINT_MASK
 			| DAVINCI_USB_RXINT_MASK);
-	musb_writeb(musb->pRegs, MGC_O_HDRC_DEVCTL, 0);
+	musb_writeb(musb->mregs, MGC_O_HDRC_DEVCTL, 0);
 	musb_writel(musb->ctrl_base, DAVINCI_USB_EOI_REG, 0);
 
 	if (is_dma_capable() && !dma_off)
@@ -200,7 +200,7 @@ static struct timer_list otg_workaround;
 static void otg_timer(unsigned long _musb)
 {
 	struct musb		*musb = (void *)_musb;
-	void	*__iomem	mregs = musb->pRegs;
+	void	*__iomem	mregs = musb->mregs;
 	u8			devctl;
 	unsigned long		flags;
 
@@ -309,7 +309,7 @@ static irqreturn_t davinci_interrupt(int irq, void *__hci)
 	 */
 	if (tmp & (DAVINCI_INTR_DRVVBUS << DAVINCI_USB_USBINT_SHIFT)) {
 		int	drvvbus = musb_readl(tibase, DAVINCI_USB_STAT_REG);
-		void	*__iomem mregs = musb->pRegs;
+		void	*__iomem mregs = musb->mregs;
 		u8	devctl = musb_readb(mregs, MGC_O_HDRC_DEVCTL);
 		int	err = musb->int_usb & MGC_M_INTR_VBUSERROR;
 
@@ -381,7 +381,7 @@ int __init musb_platform_init(struct musb *musb)
 	void	*__iomem tibase = musb->ctrl_base;
 	u32	revision;
 
-	musb->pRegs += DAVINCI_BASE_OFFSET;
+	musb->mregs += DAVINCI_BASE_OFFSET;
 #if 0
 	/* REVISIT there's something odd about clocking, this
 	 * didn't appear do the job ...
@@ -440,7 +440,7 @@ int musb_platform_exit(struct musb *musb)
 		 * long time to fall, especially on EVM with huge C133.
 		 */
 		do {
-			devctl = musb_readb(musb->pRegs, MGC_O_HDRC_DEVCTL);
+			devctl = musb_readb(musb->mregs, MGC_O_HDRC_DEVCTL);
 			if (!(devctl & MGC_M_DEVCTL_VBUS))
 				break;
 			if ((devctl & MGC_M_DEVCTL_VBUS) != warn) {

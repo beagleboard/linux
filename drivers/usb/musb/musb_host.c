@@ -172,7 +172,7 @@ musb_start_urb(struct musb *musb, int is_in, struct musb_qh *qh)
 	u16			wFrame;
 	u32			dwLength;
 	void			*pBuffer;
-	void __iomem		*pBase =  musb->pRegs;
+	void __iomem		*pBase =  musb->mregs;
 	struct urb		*urb = next_urb(qh);
 	struct musb_hw_ep	*hw_ep = qh->hw_ep;
 	unsigned		nPipe = urb->pipe;
@@ -607,7 +607,7 @@ musb_rx_reinit(struct musb *musb, struct musb_qh *qh, struct musb_hw_ep *ep)
 		musb_writeb(ep->target_regs, MGC_O_HDRC_RXHUBPORT,
 			qh->h_port_reg);
 	} else
-		musb_writeb(musb->pRegs, MGC_O_HDRC_FADDR, qh->addr_reg);
+		musb_writeb(musb->mregs, MGC_O_HDRC_FADDR, qh->addr_reg);
 
 	/* protocol/endpoint, interval/NAKlimit, i/o size */
 	musb_writeb(ep->regs, MGC_O_HDRC_RXTYPE, qh->type_reg);
@@ -630,7 +630,7 @@ static void musb_ep_program(struct musb *musb, u8 bEnd,
 	struct dma_controller	*pDmaController;
 	struct dma_channel	*pDmaChannel;
 	u8			bDmaOk;
-	void __iomem		*pBase = musb->pRegs;
+	void __iomem		*pBase = musb->mregs;
 	struct musb_hw_ep	*hw_ep = musb->aLocalEnd + bEnd;
 	void __iomem		*epio = hw_ep->regs;
 	struct musb_qh		*qh;
@@ -1023,7 +1023,7 @@ irqreturn_t musb_h_ep0_irq(struct musb *musb)
 	struct urb		*pUrb;
 	u16			wCsrVal, wCount;
 	int			status = 0;
-	void __iomem		*pBase = musb->pRegs;
+	void __iomem		*pBase = musb->mregs;
 	struct musb_hw_ep	*hw_ep = musb->control_ep;
 	void __iomem		*epio = hw_ep->regs;
 	struct musb_qh		*qh = hw_ep->in_qh;
@@ -1174,7 +1174,7 @@ void musb_host_tx(struct musb *musb, u8 bEnd)
 	void __iomem		*epio = hw_ep->regs;
 	struct musb_qh		*qh = hw_ep->out_qh;
 	u32			status = 0;
-	void __iomem		*pBase = musb->pRegs;
+	void __iomem		*pBase = musb->mregs;
 	struct dma_channel	*dma;
 
 	pUrb = next_urb(qh);
@@ -1384,7 +1384,7 @@ void musb_host_rx(struct musb *musb, u8 bEnd)
 	void __iomem		*epio = hw_ep->regs;
 	struct musb_qh		*qh = hw_ep->in_qh;
 	size_t			xfer_len;
-	void __iomem		*pBase = musb->pRegs;
+	void __iomem		*pBase = musb->mregs;
 	int			nPipe;
 	u16			wRxCsrVal, wVal;
 	u8			bIsochError = FALSE;
@@ -1904,7 +1904,7 @@ static int musb_cleanup_urb(struct urb *urb, struct musb_qh *qh, int is_in)
 	struct musb_hw_ep	*ep = qh->hw_ep;
 	void __iomem		*epio = ep->regs;
 	unsigned		hw_end = ep->bLocalEnd;
-	void __iomem		*regs = ep->musb->pRegs;
+	void __iomem		*regs = ep->musb->mregs;
 	u16			csr;
 	int			status = 0;
 
@@ -2107,7 +2107,7 @@ static int musb_h_get_frame_number(struct usb_hcd *hcd)
 {
 	struct musb	*musb = hcd_to_musb(hcd);
 
-	return musb_readw(musb->pRegs, MGC_O_HDRC_FRAME);
+	return musb_readw(musb->mregs, MGC_O_HDRC_FRAME);
 }
 
 static int musb_h_start(struct usb_hcd *hcd)

@@ -406,7 +406,7 @@ void musb_g_tx(struct musb *musb, u8 bEnd)
 {
 	u16			wCsrVal;
 	struct usb_request	*pRequest;
-	u8 __iomem		*pBase = musb->pRegs;
+	u8 __iomem		*pBase = musb->mregs;
 	struct musb_ep		*musb_ep = &musb->aLocalEnd[bEnd].ep_in;
 	void __iomem		*epio = musb->aLocalEnd[bEnd].regs;
 	struct dma_channel	*dma;
@@ -736,7 +736,7 @@ void musb_g_rx(struct musb *musb, u8 bEnd)
 {
 	u16			wCsrVal;
 	struct usb_request	*pRequest;
-	void __iomem		*pBase = musb->pRegs;
+	void __iomem		*pBase = musb->mregs;
 	struct musb_ep		*musb_ep = &musb->aLocalEnd[bEnd].ep_out;
 	void __iomem		*epio = musb->aLocalEnd[bEnd].regs;
 	struct dma_channel	*dma;
@@ -868,7 +868,7 @@ static int musb_gadget_enable(struct usb_ep *ep,
 	hw_ep = musb_ep->hw_ep;
 	regs = hw_ep->regs;
 	musb = musb_ep->musb;
-	pBase = musb->pRegs;
+	pBase = musb->mregs;
 	bEnd = musb_ep->bEndNumber;
 
 	spin_lock_irqsave(&musb->Lock, flags);
@@ -1010,18 +1010,18 @@ static int musb_gadget_disable(struct usb_ep *ep)
 	epio = musb->aLocalEnd[bEnd].regs;
 
 	spin_lock_irqsave(&musb->Lock, flags);
-	MGC_SelectEnd(musb->pRegs, bEnd);
+	MGC_SelectEnd(musb->mregs, bEnd);
 
 	/* zero the endpoint sizes */
 	if (musb_ep->is_in) {
-		u16 wIntrTxE = musb_readw(musb->pRegs, MGC_O_HDRC_INTRTXE);
+		u16 wIntrTxE = musb_readw(musb->mregs, MGC_O_HDRC_INTRTXE);
 		wIntrTxE &= ~(1 << bEnd);
-		musb_writew(musb->pRegs, MGC_O_HDRC_INTRTXE, wIntrTxE);
+		musb_writew(musb->mregs, MGC_O_HDRC_INTRTXE, wIntrTxE);
 		musb_writew(epio, MGC_O_HDRC_TXMAXP, 0);
 	} else {
-		u16 wIntrRxE = musb_readw(musb->pRegs, MGC_O_HDRC_INTRRXE);
+		u16 wIntrRxE = musb_readw(musb->mregs, MGC_O_HDRC_INTRRXE);
 		wIntrRxE &= ~(1 << bEnd);
-		musb_writew(musb->pRegs, MGC_O_HDRC_INTRRXE, wIntrRxE);
+		musb_writew(musb->mregs, MGC_O_HDRC_INTRRXE, wIntrRxE);
 		musb_writew(epio, MGC_O_HDRC_RXMAXP, 0);
 	}
 
@@ -1086,7 +1086,7 @@ static void musb_ep_restart(struct musb *musb, struct musb_request *req)
 		req->bTx ? "TX/IN" : "RX/OUT",
 		&req->request, req->request.length, req->bEnd);
 
-	MGC_SelectEnd(musb->pRegs, req->bEnd);
+	MGC_SelectEnd(musb->mregs, req->bEnd);
 	if (req->bTx)
 		txstate(musb, req);
 	else
@@ -1201,7 +1201,7 @@ static int musb_gadget_dequeue(struct usb_ep *ep, struct usb_request *pRequest)
 	else if (is_dma_capable() && musb_ep->dma) {
 		struct dma_controller	*c = musb->pDmaController;
 
-		MGC_SelectEnd(musb->pRegs, musb_ep->bEndNumber);
+		MGC_SelectEnd(musb->mregs, musb_ep->bEndNumber);
 		if (c->channel_abort)
 			status = c->channel_abort(musb_ep->dma);
 		else
@@ -1240,7 +1240,7 @@ int musb_gadget_set_halt(struct usb_ep *ep, int value)
 
 	if (!ep)
 		return -EINVAL;
-	pBase = musb->pRegs;
+	pBase = musb->mregs;
 
 	spin_lock_irqsave(&musb->Lock, flags);
 
@@ -1312,7 +1312,7 @@ static int musb_gadget_fifo_status(struct usb_ep *ep)
 	if (musb_ep->desc && !musb_ep->is_in) {
 		struct musb		*musb = musb_ep->musb;
 		int			bEnd = musb_ep->bEndNumber;
-		void __iomem		*mbase = musb->pRegs;
+		void __iomem		*mbase = musb->mregs;
 		unsigned long		flags;
 
 		spin_lock_irqsave(&musb->Lock, flags);
@@ -1336,7 +1336,7 @@ static void musb_gadget_fifo_flush(struct usb_ep *ep)
 	unsigned long	flags;
 	u16		wCsr, wIntrTxE;
 
-	mbase = musb->pRegs;
+	mbase = musb->mregs;
 
 	spin_lock_irqsave(&musb->Lock, flags);
 	MGC_SelectEnd(mbase, (u8) nEnd);
@@ -1383,13 +1383,13 @@ static int musb_gadget_get_frame(struct usb_gadget *gadget)
 {
 	struct musb	*musb = gadget_to_musb(gadget);
 
-	return (int)musb_readw(musb->pRegs, MGC_O_HDRC_FRAME);
+	return (int)musb_readw(musb->mregs, MGC_O_HDRC_FRAME);
 }
 
 static int musb_gadget_wakeup(struct usb_gadget *gadget)
 {
 	struct musb	*musb = gadget_to_musb(gadget);
-	void __iomem	*mregs = musb->pRegs;
+	void __iomem	*mregs = musb->mregs;
 	unsigned long	flags;
 	int		status = -EINVAL;
 	u8		power, devctl;
@@ -1467,7 +1467,7 @@ static void musb_pullup(struct musb *musb, int is_on)
 {
 	u8 power;
 
-	power = musb_readb(musb->pRegs, MGC_O_HDRC_POWER);
+	power = musb_readb(musb->mregs, MGC_O_HDRC_POWER);
 	if (is_on)
 		power |= MGC_M_POWER_SOFTCONN;
 	else
@@ -1477,7 +1477,7 @@ static void musb_pullup(struct musb *musb, int is_on)
 
 	DBG(3, "gadget %s D+ pullup %s\n",
 		musb->pGadgetDriver->function, is_on ? "on" : "off");
-	musb_writeb(musb->pRegs, MGC_O_HDRC_POWER, power);
+	musb_writeb(musb->mregs, MGC_O_HDRC_POWER, power);
 }
 
 #if 0
@@ -1799,7 +1799,7 @@ stop_activity(struct musb *musb, struct usb_gadget_driver *driver)
 		for (i = 0, hw_ep = musb->aLocalEnd;
 				i < musb->bEndCount;
 				i++, hw_ep++) {
-			MGC_SelectEnd(musb->pRegs, i);
+			MGC_SelectEnd(musb->mregs, i);
 			if (hw_ep->bIsSharedFifo /* || !bEnd */) {
 				nuke(&hw_ep->ep_in, -ESHUTDOWN);
 			} else {
@@ -1902,7 +1902,7 @@ void musb_g_suspend(struct musb *musb)
 {
 	u8	devctl;
 
-	devctl = musb_readb(musb->pRegs, MGC_O_HDRC_DEVCTL);
+	devctl = musb_readb(musb->mregs, MGC_O_HDRC_DEVCTL);
 	DBG(3, "devctl %02x\n", devctl);
 
 	switch (musb->xceiv.state) {
@@ -1936,7 +1936,7 @@ void musb_g_wakeup(struct musb *musb)
 /* called when VBUS drops below session threshold, and in other cases */
 void musb_g_disconnect(struct musb *musb)
 {
-	void __iomem	*mregs = musb->pRegs;
+	void __iomem	*mregs = musb->mregs;
 	u8	devctl = musb_readb(mregs, MGC_O_HDRC_DEVCTL);
 
 	DBG(3, "devctl %02x\n", devctl);
@@ -1979,7 +1979,7 @@ void musb_g_reset(struct musb *musb)
 __releases(musb->Lock)
 __acquires(musb->Lock)
 {
-	void __iomem	*pBase = musb->pRegs;
+	void __iomem	*pBase = musb->mregs;
 	u8		devctl = musb_readb(pBase, MGC_O_HDRC_DEVCTL);
 	u8		power;
 

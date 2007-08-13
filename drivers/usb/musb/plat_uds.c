@@ -273,7 +273,7 @@ void musb_load_testpacket(struct musb *musb)
 {
 	void __iomem	*regs = musb->aLocalEnd[0].regs;
 
-	MGC_SelectEnd(musb->pRegs, 0);
+	MGC_SelectEnd(musb->mregs, 0);
 	musb_write_fifo(musb->control_ep,
 			sizeof(musb_test_packet), musb_test_packet);
 	musb_writew(regs, MGC_O_HDRC_CSR0, MGC_M_CSR0_TXPKTRDY);
@@ -315,7 +315,7 @@ static DEFINE_TIMER(musb_otg_timer, musb_otg_timer_func, 0, 0);
 void musb_hnp_stop(struct musb *musb)
 {
 	struct usb_hcd	*hcd = musb_to_hcd(musb);
-	void __iomem	*pBase = musb->pRegs;
+	void __iomem	*pBase = musb->mregs;
 	u8	reg;
 
 	switch (musb->xceiv.state) {
@@ -365,7 +365,7 @@ static irqreturn_t musb_stage0_irq(struct musb * musb, u8 bIntrUSB,
 {
 	irqreturn_t handled = IRQ_NONE;
 #ifdef CONFIG_USB_MUSB_HDRC_HCD
-	void __iomem *pBase = musb->pRegs;
+	void __iomem *pBase = musb->mregs;
 #endif
 
 	DBG(3, "<== Power=%02x, DevCtl=%02x, bIntrUSB=0x%x\n", power, devctl,
@@ -660,7 +660,7 @@ static irqreturn_t musb_stage2_irq(struct musb * musb, u8 bIntrUSB,
  * to support ISO transfers yet.
  */
 	if (bIntrUSB & MGC_M_INTR_SOF) {
-		void __iomem *pBase = musb->pRegs;
+		void __iomem *pBase = musb->mregs;
 		struct musb_hw_ep	*ep;
 		u8 bEnd;
 		u16 wFrame;
@@ -785,7 +785,7 @@ static irqreturn_t musb_stage2_irq(struct musb * musb, u8 bIntrUSB,
 */
 void musb_start(struct musb *musb)
 {
-	void __iomem	*regs = musb->pRegs;
+	void __iomem	*regs = musb->mregs;
 	u8		devctl = musb_readb(regs, MGC_O_HDRC_DEVCTL);
 
 	DBG(2, "<== devctl %02x\n", devctl);
@@ -835,7 +835,7 @@ void musb_start(struct musb *musb)
 
 static void musb_generic_disable(struct musb *musb)
 {
-	void __iomem	*pBase = musb->pRegs;
+	void __iomem	*pBase = musb->mregs;
 	u16	temp;
 
 	/* disable interrupts */
@@ -1022,7 +1022,7 @@ static int __init
 fifo_setup(struct musb *musb, struct musb_hw_ep  *hw_ep,
 		const struct fifo_cfg *cfg, u16 offset)
 {
-	void __iomem	*mbase = musb->pRegs;
+	void __iomem	*mbase = musb->mregs;
 	int	size = 0;
 	u16	maxpacket = cfg->maxpacket;
 	u16	c_off = offset >> 3;
@@ -1180,7 +1180,7 @@ static int __init ep_config_from_hw(struct musb *musb)
 {
 	u8 bEnd = 0, reg;
 	struct musb_hw_ep *hw_ep;
-	void *pBase = musb->pRegs;
+	void *pBase = musb->mregs;
 
 	DBG(2, "<== static silicon ep config\n");
 
@@ -1252,7 +1252,7 @@ static int __init musb_core_init(u16 wType, struct musb *musb)
 	char *type;
 	u16 wRelease, wRelMajor, wRelMinor;
 	char aInfo[78], aRevision[32], aDate[12];
-	void __iomem	*pBase = musb->pRegs;
+	void __iomem	*pBase = musb->mregs;
 	int		status = 0;
 	int		i;
 
@@ -1421,9 +1421,9 @@ static irqreturn_t generic_interrupt(int irq, void *__hci)
 
 	spin_lock_irqsave(&musb->Lock, flags);
 
-	musb->int_usb = musb_readb(musb->pRegs, MGC_O_HDRC_INTRUSB);
-	musb->int_tx = musb_readw(musb->pRegs, MGC_O_HDRC_INTRTX);
-	musb->int_rx = musb_readw(musb->pRegs, MGC_O_HDRC_INTRRX);
+	musb->int_usb = musb_readb(musb->mregs, MGC_O_HDRC_INTRUSB);
+	musb->int_tx = musb_readw(musb->mregs, MGC_O_HDRC_INTRTX);
+	musb->int_rx = musb_readw(musb->mregs, MGC_O_HDRC_INTRRX);
 
 	if (musb->int_usb || musb->int_tx || musb->int_rx)
 		retval = musb_interrupt(musb);
@@ -1457,8 +1457,8 @@ irqreturn_t musb_interrupt(struct musb *musb)
 	int		ep_num;
 	u32		reg;
 
-	devctl = musb_readb(musb->pRegs, MGC_O_HDRC_DEVCTL);
-	power = musb_readb(musb->pRegs, MGC_O_HDRC_POWER);
+	devctl = musb_readb(musb->mregs, MGC_O_HDRC_DEVCTL);
+	power = musb_readb(musb->mregs, MGC_O_HDRC_POWER);
 
 	DBG(4, "** IRQ %s usb%04x tx%04x rx%04x\n",
 		(devctl & MGC_M_DEVCTL_HM) ? "host" : "peripheral",
@@ -1486,7 +1486,7 @@ irqreturn_t musb_interrupt(struct musb *musb)
 	ep_num = 1;
 	while (reg) {
 		if (reg & 1) {
-			// MGC_SelectEnd(musb->pRegs, ep_num);
+			// MGC_SelectEnd(musb->mregs, ep_num);
 			/* REVISIT just retval = ep->rx_irq(...) */
 			retval = IRQ_HANDLED;
 			if (devctl & MGC_M_DEVCTL_HM) {
@@ -1507,7 +1507,7 @@ irqreturn_t musb_interrupt(struct musb *musb)
 	ep_num = 1;
 	while (reg) {
 		if (reg & 1) {
-			// MGC_SelectEnd(musb->pRegs, ep_num);
+			// MGC_SelectEnd(musb->mregs, ep_num);
 			/* REVISIT just retval |= ep->tx_irq(...) */
 			retval = IRQ_HANDLED;
 			if (devctl & MGC_M_DEVCTL_HM) {
@@ -1540,7 +1540,7 @@ MODULE_PARM_DESC(use_dma, "enable/disable use of DMA");
 
 void musb_dma_completion(struct musb *musb, u8 bLocalEnd, u8 bTransmit)
 {
-	u8	devctl = musb_readb(musb->pRegs, MGC_O_HDRC_DEVCTL);
+	u8	devctl = musb_readb(musb->mregs, MGC_O_HDRC_DEVCTL);
 
 	/* called with controller lock already held */
 
@@ -1640,7 +1640,7 @@ musb_cable_show(struct device *dev, struct device_attribute *attr, char *buf)
 	 * VBUS high for a long time after power has been removed, can
 	 * cause temporary false indications of a connection.
 	 */
-	vbus = musb_readb(musb->pRegs, MGC_O_HDRC_DEVCTL);
+	vbus = musb_readb(musb->mregs, MGC_O_HDRC_DEVCTL);
 	if (vbus & 0x10) {
 		/* REVISIT retest on real OTG hardware */
 		switch (musb->board_mode) {
@@ -1768,7 +1768,7 @@ allocate_instance(struct device *dev, void __iomem *mbase)
 
 #endif
 
-	musb->pRegs = mbase;
+	musb->mregs = mbase;
 	musb->ctrl_base = mbase;
 	musb->nIrq = -ENODEV;
 	for (epnum = 0, ep = musb->aLocalEnd;
@@ -1814,9 +1814,9 @@ static void musb_free(struct musb *musb)
 		dma_controller_destroy(c);
 	}
 
-	musb_writeb(musb->pRegs, MGC_O_HDRC_DEVCTL, 0);
+	musb_writeb(musb->mregs, MGC_O_HDRC_DEVCTL, 0);
 	musb_platform_exit(musb);
-	musb_writeb(musb->pRegs, MGC_O_HDRC_DEVCTL, 0);
+	musb_writeb(musb->mregs, MGC_O_HDRC_DEVCTL, 0);
 
 	if (musb->clock) {
 		clk_disable(musb->clock);
@@ -1835,7 +1835,7 @@ static void musb_free(struct musb *musb)
  *
  * @pDevice: the controller (already clocked, etc)
  * @nIrq: irq
- * @pRegs: virtual address of controller registers,
+ * @mregs: virtual address of controller registers,
  *	not yet corrected for platform-specific offsets
  */
 static int __init
@@ -1903,7 +1903,7 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 
 	/* assume vbus is off */
 
-	/* platform adjusts musb->pRegs and musb->isr if needed,
+	/* platform adjusts musb->mregs and musb->isr if needed,
 	 * and activates clocks
 	 */
 	musb->isr = generic_interrupt;
@@ -1920,7 +1920,7 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 	if (use_dma && dev->dma_mask) {
 		struct dma_controller	*c;
 
-		c = dma_controller_create(musb, musb->pRegs);
+		c = dma_controller_create(musb, musb->mregs);
 		musb->pDmaController = c;
 		if (c)
 			(void) c->start(c->pPrivateData);
@@ -1990,8 +1990,8 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 
 		DBG(1, "%s mode, status %d, devctl %02x %c\n",
 			"HOST", status,
-			musb_readb(musb->pRegs, MGC_O_HDRC_DEVCTL),
-			(musb_readb(musb->pRegs, MGC_O_HDRC_DEVCTL)
+			musb_readb(musb->mregs, MGC_O_HDRC_DEVCTL),
+			(musb_readb(musb->mregs, MGC_O_HDRC_DEVCTL)
 					& MGC_M_DEVCTL_BDEVICE
 				? 'B' : 'A'));
 
@@ -2005,7 +2005,7 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 		DBG(1, "%s mode, status %d, dev%02x\n",
 			is_otg_enabled(musb) ? "OTG" : "PERIPHERAL",
 			status,
-			musb_readb(musb->pRegs, MGC_O_HDRC_DEVCTL));
+			musb_readb(musb->mregs, MGC_O_HDRC_DEVCTL));
 
 	}
 

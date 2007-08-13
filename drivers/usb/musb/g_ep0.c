@@ -74,7 +74,7 @@ static int service_tx_status_request(
 	struct musb *musb,
 	const struct usb_ctrlrequest *pControlRequest)
 {
-	void __iomem	*pBase = musb->pRegs;
+	void __iomem	*pBase = musb->mregs;
 	int handled = 1;
 	u8 bResult[2], bEnd = 0;
 	const u8 bRecip = pControlRequest->bRequestType & USB_RECIP_MASK;
@@ -205,7 +205,7 @@ static void musb_g_ep0_giveback(struct musb *musb, struct usb_request *req)
  */
 static inline void musb_try_b_hnp_enable(struct musb *musb)
 {
-	void __iomem	*pBase = musb->pRegs;
+	void __iomem	*pBase = musb->mregs;
 	u8		devctl;
 
 	DBG(1, "HNP: Setting HR\n");
@@ -230,7 +230,7 @@ __releases(musb->Lock)
 __acquires(musb->Lock)
 {
 	int handled = -EINVAL;
-	void __iomem *pBase = musb->pRegs;
+	void __iomem *pBase = musb->mregs;
 	const u8 bRecip = pControlRequest->bRequestType & USB_RECIP_MASK;
 
 	/* the gadget driver handles everything except what we MUST handle */
@@ -600,7 +600,7 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 {
 	u16		wCsrVal;
 	u16		wCount;
-	void __iomem	*pBase = musb->pRegs;
+	void __iomem	*pBase = musb->mregs;
 	void __iomem	*regs = musb->aLocalEnd[0].regs;
 	irqreturn_t	retval = IRQ_NONE;
 
@@ -864,7 +864,7 @@ musb_g_ep0_queue(struct usb_ep *e, struct usb_request *r, gfp_t gfp_flags)
 			ep->name, ep->is_in ? "IN/TX" : "OUT/RX",
 			req->request.length);
 
-	MGC_SelectEnd(musb->pRegs, 0);
+	MGC_SelectEnd(musb->mregs, 0);
 
 	/* sequence #1, IN ... start writing the data */
 	if (musb->ep0_state == MGC_END0_STAGE_TX)
@@ -917,7 +917,7 @@ static int musb_g_ep0_halt(struct usb_ep *e, int value)
 
 	ep = to_musb_ep(e);
 	musb = ep->musb;
-	base = musb->pRegs;
+	base = musb->mregs;
 	regs = musb->control_ep->regs;
 
 	spin_lock_irqsave(&musb->Lock, flags);

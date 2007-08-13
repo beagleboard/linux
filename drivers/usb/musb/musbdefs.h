@@ -242,7 +242,7 @@ enum musb_g_ep0_state {
 	{ (_pthis)->bIsHost=FALSE; }
 
 #define test_devctl_hst_mode(_x) \
-	(musb_readb((_x)->pRegs, MGC_O_HDRC_DEVCTL)&MGC_M_DEVCTL_HM)
+	(musb_readb((_x)->mregs, MGC_O_HDRC_DEVCTL)&MGC_M_DEVCTL_HM)
 
 #define MUSB_MODE(musb) ((musb)->bIsHost ? "Host" : "Peripheral")
 
@@ -380,7 +380,7 @@ struct musb {
 
 	struct device		*controller;
 	void __iomem		*ctrl_base;
-	void __iomem		*pRegs;
+	void __iomem		*mregs;
 
 #ifdef CONFIG_USB_TUSB6010
 	dma_addr_t		async;

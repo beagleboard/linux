@@ -240,7 +240,7 @@ dump_end_info(struct musb *musb, u8 bEnd, char *aBuffer, unsigned max)
 	struct musb_hw_ep	*hw_ep = &musb->aLocalEnd[bEnd];
 
 	do {
-		MGC_SelectEnd(musb->pRegs, bEnd);
+		MGC_SelectEnd(musb->mregs, bEnd);
 #ifdef CONFIG_USB_MUSB_HDRC_HCD
 		if (is_host_active(musb)) {
 			int		dump_rx, dump_tx;
@@ -284,13 +284,13 @@ dump_end_info(struct musb *musb, u8 bEnd, char *aBuffer, unsigned max)
 					musb_readw(regs, MGC_O_HDRC_RXMAXP),
 					musb_readb(regs, MGC_O_HDRC_RXTYPE),
 					/* FIXME:  assumes multipoint */
-					musb_readb(musb->pRegs,
+					musb_readb(musb->mregs,
 						MGC_BUSCTL_OFFSET(bEnd,
 						MGC_O_HDRC_RXFUNCADDR)),
-					musb_readb(musb->pRegs,
+					musb_readb(musb->mregs,
 						MGC_BUSCTL_OFFSET(bEnd,
 						MGC_O_HDRC_RXHUBADDR)),
-					musb_readb(musb->pRegs,
+					musb_readb(musb->mregs,
 						MGC_BUSCTL_OFFSET(bEnd,
 						MGC_O_HDRC_RXHUBPORT))
 					);
@@ -372,13 +372,13 @@ dump_end_info(struct musb *musb, u8 bEnd, char *aBuffer, unsigned max)
 					musb_readw(regs, MGC_O_HDRC_TXMAXP),
 					musb_readb(regs, MGC_O_HDRC_TXTYPE),
 					/* FIXME:  assumes multipoint */
-					musb_readb(musb->pRegs,
+					musb_readb(musb->mregs,
 						MGC_BUSCTL_OFFSET(bEnd,
 						MGC_O_HDRC_TXFUNCADDR)),
-					musb_readb(musb->pRegs,
+					musb_readb(musb->mregs,
 						MGC_BUSCTL_OFFSET(bEnd,
 						MGC_O_HDRC_TXHUBADDR)),
-					musb_readb(musb->pRegs,
+					musb_readb(musb->mregs,
 						MGC_BUSCTL_OFFSET(bEnd,
 						MGC_O_HDRC_TXHUBPORT))
 					);
@@ -485,7 +485,7 @@ dump_end_info(struct musb *musb, u8 bEnd, char *aBuffer, unsigned max)
 static int dump_header_stats(struct musb *musb, char *buffer)
 {
 	int code, count = 0;
-	const void __iomem *pBase = musb->pRegs;
+	const void __iomem *pBase = musb->mregs;
 
 	*buffer = 0;
 	count = sprintf(buffer, "Status: %sHDRC, Mode=%s "
@@ -653,7 +653,7 @@ static int musb_proc_write(struct file *file, const char __user *buffer,
 	char cmd;
 	u8 bReg;
 	struct musb *musb = (struct musb *)data;
-	void __iomem *pBase = musb->pRegs;
+	void __iomem *pBase = musb->mregs;
 
 	/* MOD_INC_USE_COUNT; */
 
