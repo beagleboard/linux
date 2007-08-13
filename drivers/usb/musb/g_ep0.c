@@ -77,11 +77,11 @@ static int service_tx_status_request(
 	void __iomem	*mbase = musb->mregs;
 	int handled = 1;
 	u8 result[2], epnum = 0;
-	const u8 bRecip = ctrlrequest->bRequestType & USB_RECIP_MASK;
+	const u8 recip = ctrlrequest->bRequestType & USB_RECIP_MASK;
 
 	result[1] = 0;
 
-	switch (bRecip) {
+	switch (recip) {
 	case USB_RECIP_DEVICE:
 		result[0] = musb->is_self_powered << USB_DEVICE_SELF_POWERED;
 		result[0] |= musb->may_wakeup << USB_DEVICE_REMOTE_WAKEUP;
@@ -231,7 +231,7 @@ __acquires(musb->lock)
 {
 	int handled = -EINVAL;
 	void __iomem *mbase = musb->mregs;
-	const u8 bRecip = ctrlrequest->bRequestType & USB_RECIP_MASK;
+	const u8 recip = ctrlrequest->bRequestType & USB_RECIP_MASK;
 
 	/* the gadget driver handles everything except what we MUST handle */
 	if ((ctrlrequest->bRequestType & USB_TYPE_MASK)
@@ -245,7 +245,7 @@ __acquires(musb->lock)
 			break;
 
 		case USB_REQ_CLEAR_FEATURE:
-			switch (bRecip) {
+			switch (recip) {
 			case USB_RECIP_DEVICE:
 				if (ctrlrequest->wValue
 						!= USB_DEVICE_REMOTE_WAKEUP)
@@ -289,7 +289,7 @@ __acquires(musb->lock)
 			break;
 
 		case USB_REQ_SET_FEATURE:
-			switch (bRecip) {
+			switch (recip) {
 			case USB_RECIP_DEVICE:
 				handled = 1;
 				switch (ctrlrequest->wValue) {
