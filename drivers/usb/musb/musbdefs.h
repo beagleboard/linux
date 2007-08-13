@@ -266,7 +266,7 @@ struct musb_hw_ep {
 	u8			epnum;
 
 	/* hardware configuration, possibly dynamic */
-	u8			bIsSharedFifo;
+	u8			is_shared_fifo;
 	u8			tx_double_buffered;
 	u8			rx_double_buffered;
 	u16			wMaxPacketSizeTx;

@@ -896,7 +896,7 @@ static int musb_gadget_enable(struct usb_ep *ep,
 	if (desc->bEndpointAddress & USB_DIR_IN) {
 		u16 wIntrTxE = musb_readw(mbase, MGC_O_HDRC_INTRTXE);
 
-		if (hw_ep->bIsSharedFifo)
+		if (hw_ep->is_shared_fifo)
 			musb_ep->is_in = 1;
 		if (!musb_ep->is_in)
 			goto fail;
@@ -926,7 +926,7 @@ static int musb_gadget_enable(struct usb_ep *ep,
 	} else {
 		u16 wIntrRxE = musb_readw(mbase, MGC_O_HDRC_INTRRXE);
 
-		if (hw_ep->bIsSharedFifo)
+		if (hw_ep->is_shared_fifo)
 			musb_ep->is_in = 0;
 		if (musb_ep->is_in)
 			goto fail;
@@ -942,7 +942,7 @@ static int musb_gadget_enable(struct usb_ep *ep,
 		musb_writew(regs, MGC_O_HDRC_RXMAXP, tmp);
 
 		/* force shared fifo to OUT-only mode */
-		if (hw_ep->bIsSharedFifo) {
+		if (hw_ep->is_shared_fifo) {
 			csr = musb_readw(regs, MGC_O_HDRC_TXCSR);
 			csr &= ~(MGC_M_TXCSR_MODE | MGC_M_TXCSR_TXPKTRDY);
 			musb_writew(regs, MGC_O_HDRC_TXCSR, csr);
@@ -1569,7 +1569,7 @@ init_peripheral_ep(struct musb *musb, struct musb_ep *ep, u8 epnum, int is_in)
 	INIT_LIST_HEAD(&ep->req_list);
 
 	sprintf(ep->name, "ep%d%s", epnum,
-			(!epnum || hw_ep->bIsSharedFifo) ? "" : (
+			(!epnum || hw_ep->is_shared_fifo) ? "" : (
 				is_in ? "in" : "out"));
 	ep->end_point.name = ep->name;
 	INIT_LIST_HEAD(&ep->end_point.ep_list);
@@ -1603,7 +1603,7 @@ static inline void __init musb_g_init_endpoints(struct musb *musb)
 	for (epnum = 0, hw_ep = musb->endpoints;
 			epnum < musb->nr_endpoints;
 			epnum++, hw_ep++) {
-		if (hw_ep->bIsSharedFifo /* || !epnum */) {
+		if (hw_ep->is_shared_fifo /* || !epnum */) {
 			init_peripheral_ep(musb, &hw_ep->ep_in, epnum, 0);
 			count++;
 		} else {
@@ -1800,7 +1800,7 @@ stop_activity(struct musb *musb, struct usb_gadget_driver *driver)
 				i < musb->nr_endpoints;
 				i++, hw_ep++) {
 			musb_ep_select(musb->mregs, i);
-			if (hw_ep->bIsSharedFifo /* || !epnum */) {
+			if (hw_ep->is_shared_fifo /* || !epnum */) {
 				nuke(&hw_ep->ep_in, -ESHUTDOWN);
 			} else {
 				if (hw_ep->wMaxPacketSizeTx)

@@ -1078,7 +1078,7 @@ fifo_setup(struct musb *musb, struct musb_hw_ep  *hw_ep,
 		hw_ep->tx_double_buffered = hw_ep->rx_double_buffered;
 		hw_ep->wMaxPacketSizeTx = maxpacket;
 
-		hw_ep->bIsSharedFifo = TRUE;
+		hw_ep->is_shared_fifo = TRUE;
 		break;
 	}
 
@@ -1204,11 +1204,11 @@ static int __init ep_config_from_hw(struct musb *musb)
 		/* shared TX/RX FIFO? */
 		if ((reg & 0xf0) == 0xf0) {
 			hw_ep->wMaxPacketSizeRx = hw_ep->wMaxPacketSizeTx;
-			hw_ep->bIsSharedFifo = TRUE;
+			hw_ep->is_shared_fifo = TRUE;
 			continue;
 		} else {
 			hw_ep->wMaxPacketSizeRx = 1 << ((reg & 0xf0) >> 4);
-			hw_ep->bIsSharedFifo = FALSE;
+			hw_ep->is_shared_fifo = FALSE;
 		}
 
 		/* FIXME set up hw_ep->{rx,tx}_double_buffered */
@@ -1388,12 +1388,12 @@ static int __init musb_core_init(u16 wType, struct musb *musb)
 			printk(KERN_DEBUG
 				"%s: hw_ep %d%s, %smax %d\n",
 				musb_driver_name, i,
-				hw_ep->bIsSharedFifo ? "shared" : "tx",
+				hw_ep->is_shared_fifo ? "shared" : "tx",
 				hw_ep->tx_double_buffered
 					? "doublebuffer, " : "",
 				hw_ep->wMaxPacketSizeTx);
 		}
-		if (hw_ep->wMaxPacketSizeRx && !hw_ep->bIsSharedFifo) {
+		if (hw_ep->wMaxPacketSizeRx && !hw_ep->is_shared_fifo) {
 			printk(KERN_DEBUG
 				"%s: hw_ep %d%s, %smax %d\n",
 				musb_driver_name, i,

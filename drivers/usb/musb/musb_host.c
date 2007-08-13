@@ -216,7 +216,7 @@ musb_start_urb(struct musb *musb, int is_in, struct musb_qh *qh)
 			epnum, pBuffer, dwLength);
 
 	/* Configure endpoint */
-	if (is_in || hw_ep->bIsSharedFifo)
+	if (is_in || hw_ep->is_shared_fifo)
 		hw_ep->in_qh = qh;
 	else
 		hw_ep->out_qh = qh;
@@ -322,7 +322,7 @@ static inline void musb_save_toggle(struct musb_hw_ep *ep, int is_in, struct urb
 	 * problems getting toggle correct.
 	 */
 
-	if (is_in || ep->bIsSharedFifo)
+	if (is_in || ep->is_shared_fifo)
 		qh = ep->in_qh;
 	else
 		qh = ep->out_qh;
@@ -349,7 +349,7 @@ musb_giveback(struct musb_qh *qh, struct urb *urb, int status)
 	struct musb		*musb = ep->musb;
 	int			ready = qh->is_ready;
 
-	if (ep->bIsSharedFifo)
+	if (ep->is_shared_fifo)
 		is_in = 1;
 	else
 		is_in = usb_pipein(urb->pipe);
@@ -382,7 +382,7 @@ musb_giveback(struct musb_qh *qh, struct urb *urb, int status)
 			ep->tx_reinit = 1;
 
 		/* clobber old pointers to this qh */
-		if (is_in || ep->bIsSharedFifo)
+		if (is_in || ep->is_shared_fifo)
 			ep->in_qh = NULL;
 		else
 			ep->out_qh = NULL;
@@ -429,7 +429,7 @@ musb_advance_schedule(struct musb *musb, struct urb *urb,
 {
 	struct musb_qh	*qh;
 
-	if (is_in || hw_ep->bIsSharedFifo)
+	if (is_in || hw_ep->is_shared_fifo)
 		qh = hw_ep->in_qh;
 	else
 		qh = hw_ep->out_qh;
@@ -578,7 +578,7 @@ musb_rx_reinit(struct musb *musb, struct musb_qh *qh, struct musb_hw_ep *ep)
 	 */
 
 	/* if programmed for Tx, put it in RX mode */
-	if (ep->bIsSharedFifo) {
+	if (ep->is_shared_fifo) {
 		csr = musb_readw(ep->regs, MGC_O_HDRC_TXCSR);
 		if (csr & MGC_M_TXCSR_MODE) {
 			musb_h_tx_flush_fifo(ep);
@@ -636,7 +636,7 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 	struct musb_qh		*qh;
 	u16			wPacketSize;
 
-	if (!is_out || hw_ep->bIsSharedFifo)
+	if (!is_out || hw_ep->is_shared_fifo)
 		qh = hw_ep->in_qh;
 	else
 		qh = hw_ep->out_qh;
