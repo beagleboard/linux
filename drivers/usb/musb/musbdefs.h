@@ -443,7 +443,7 @@ struct musb {
 
 	enum musb_g_ep0_state	ep0_state;
 	u8			address;
-	u8			bTestModeValue;
+	u8			test_mode_nr;
 	u16			ackpend;		/* ep0 */
 	struct usb_gadget	g;			/* the gadget */
 	struct usb_gadget_driver *pGadgetDriver;	/* its driver */

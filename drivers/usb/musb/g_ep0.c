@@ -306,25 +306,25 @@ __acquires(musb->lock)
 					case 1:
 						pr_debug("TEST_J\n");
 						/* TEST_J */
-						musb->bTestModeValue =
+						musb->test_mode_nr =
 							MGC_M_TEST_J;
 						break;
 					case 2:
 						/* TEST_K */
 						pr_debug("TEST_K\n");
-						musb->bTestModeValue =
+						musb->test_mode_nr =
 							MGC_M_TEST_K;
 						break;
 					case 3:
 						/* TEST_SE0_NAK */
 						pr_debug("TEST_SE0_NAK\n");
-						musb->bTestModeValue =
+						musb->test_mode_nr =
 							MGC_M_TEST_SE0_NAK;
 						break;
 					case 4:
 						/* TEST_PACKET */
 						pr_debug("TEST_PACKET\n");
-						musb->bTestModeValue =
+						musb->test_mode_nr =
 							MGC_M_TEST_PACKET;
 						break;
 					default:
@@ -670,11 +670,11 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 		else if (musb->bTestMode) {
 			DBG(1, "entering TESTMODE\n");
 
-			if (MGC_M_TEST_PACKET == musb->bTestModeValue)
+			if (MGC_M_TEST_PACKET == musb->test_mode_nr)
 				musb_load_testpacket(musb);
 
 			musb_writeb(mbase, MGC_O_HDRC_TESTMODE,
-					musb->bTestModeValue);
+					musb->test_mode_nr);
 		}
 		/* FALLTHROUGH */
 
