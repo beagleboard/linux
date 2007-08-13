@@ -236,10 +236,10 @@ enum musb_g_ep0_state {
 
 /****************************** FUNCTIONS ********************************/
 
-#define MUSB_HST_MODE(_pthis)\
-	{ (_pthis)->bIsHost=TRUE; }
-#define MUSB_DEV_MODE(_pthis) \
-	{ (_pthis)->bIsHost=FALSE; }
+#define MUSB_HST_MODE(_musb)\
+	{ (_musb)->bIsHost=TRUE; }
+#define MUSB_DEV_MODE(_musb) \
+	{ (_musb)->bIsHost=FALSE; }
 
 #define test_devctl_hst_mode(_x) \
 	(musb_readb((_x)->mregs, MGC_O_HDRC_DEVCTL)&MGC_M_DEVCTL_HM)
