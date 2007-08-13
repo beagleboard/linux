@@ -62,7 +62,7 @@ struct musb_ep {
 	char				name[12];
 	struct musb_hw_ep		*hw_ep;
 	struct musb			*musb;
-	u8				bEndNumber;
+	u8				current_epnum;
 
 	/* ... when enabled/disabled ... */
 	u8				type;

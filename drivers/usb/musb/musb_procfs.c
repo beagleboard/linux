@@ -153,10 +153,10 @@ static int dump_ep(struct musb_ep *ep, char *buffer, unsigned max)
 
 		code = snprintf(buf, max,
 				"\n%s (hw%d): %s%s, csr %04x maxp %04x\n",
-				ep->name, ep->bEndNumber,
+				ep->name, ep->current_epnum,
 				mode, ep->dma ? " dma" : "",
 				musb_readw(regs,
-					(ep->is_in || !ep->bEndNumber)
+					(ep->is_in || !ep->current_epnum)
 						? MGC_O_HDRC_TXCSR
 						: MGC_O_HDRC_RXCSR),
 				musb_readw(regs, ep->is_in
@@ -169,8 +169,8 @@ static int dump_ep(struct musb_ep *ep, char *buffer, unsigned max)
 		buf += code;
 		max -= code;
 
-		if (is_cppi_enabled() && ep->bEndNumber) {
-			unsigned	cppi = ep->bEndNumber - 1;
+		if (is_cppi_enabled() && ep->current_epnum) {
+			unsigned	cppi = ep->current_epnum - 1;
 			void __iomem	*base = ep->musb->ctrl_base;
 			unsigned	off1 = cppi << 2;
 			void __iomem	*ram = base;
@@ -190,7 +190,7 @@ static int dump_ep(struct musb_ep *ep, char *buffer, unsigned max)
 					"%08x %08x, %08x %08x; "
 					"%08x %08x %08x .. %08x\n",
 				ep->is_in ? 'T' : 'R',
-				ep->bEndNumber - 1, tmp,
+				ep->current_epnum - 1, tmp,
 				musb_readl(ram, 0 * 4),
 				musb_readl(ram, 1 * 4),
 				musb_readl(ram, 2 * 4),
