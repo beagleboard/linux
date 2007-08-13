@@ -1229,7 +1229,7 @@ void cppi_completion(struct musb *musb, u32 rx, u32 tx)
 
 					hw_ep = txChannel->hw_ep;
 
-					txChannel->Channel.dwActualLength =
+					txChannel->Channel.actual_len =
 						txChannel->actualLen;
 
 					/* Peripheral role never repurposes the
@@ -1292,7 +1292,7 @@ void cppi_completion(struct musb *musb, u32 rx, u32 tx)
 
 			hw_ep = rxChannel->hw_ep;
 
-			rxChannel->Channel.dwActualLength =
+			rxChannel->Channel.actual_len =
 					rxChannel->actualLen;
 			core_rxirq_disable(regBase, chanNum + 1);
 			musb_dma_completion(musb, chanNum + 1, 0);

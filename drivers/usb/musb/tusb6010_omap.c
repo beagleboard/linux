@@ -176,8 +176,8 @@ static void tusb_omap_dma_cb(int lch, u16 ch_status, void *data)
 		remaining = 0;
 	}
 
-	channel->dwActualLength = chdat->transfer_len - remaining;
-	pio = chdat->len - channel->dwActualLength;
+	channel->actual_len = chdat->transfer_len - remaining;
+	pio = chdat->len - channel->actual_len;
 
 	DBG(2, "DMA remaining %lu/%u\n", remaining, chdat->transfer_len);
 
@@ -196,7 +196,7 @@ static void tusb_omap_dma_cb(int lch, u16 ch_status, void *data)
 			consistent_sync(phys_to_virt((u32)chdat->dma_addr),
 					chdat->transfer_len, DMA_FROM_DEVICE);
 		}
-		channel->dwActualLength += pio;
+		channel->actual_len += pio;
 	}
 
 	if (!dmareq_works())
@@ -294,7 +294,7 @@ static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,
 
 	chdat->packet_sz = packet_sz;
 	chdat->len = len;
-	channel->dwActualLength = 0;
+	channel->actual_len = 0;
 	chdat->dma_addr = (void __iomem *)dma_addr;
 	channel->bStatus = MGC_DMA_STATUS_BUSY;
 
@@ -550,7 +550,7 @@ tusb_omap_dma_allocate(struct dma_controller *c,
 
 	channel->max_len = 0x7fffffff;
 	channel->bDesiredMode = 0;
-	channel->dwActualLength = 0;
+	channel->actual_len = 0;
 
 	if (dmareq_works()) {
 		ret = tusb_omap_dma_allocate_dmareq(chdat);

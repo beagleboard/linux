@@ -103,7 +103,7 @@ struct dma_controller;
  * @private_data: channel-private data
  * @wMaxLength: the maximum number of bytes the channel can move in one
  *	transaction (typically representing many USB maximum-sized packets)
- * @dwActualLength: how many bytes have been transferred
+ * @actual_len: how many bytes have been transferred
  * @bStatus: current channel status (updated e.g. on interrupt)
  * @bDesiredMode: TRUE if mode 1 is desired; FALSE if mode 0 is desired
  *
@@ -114,7 +114,7 @@ struct dma_channel {
 	void			*private_data;
 	// FIXME not void* private_data, but a dma_controller *
 	size_t			max_len;
-	size_t			dwActualLength;
+	size_t			actual_len;
 	enum dma_channel_status	bStatus;
 	u8			bDesiredMode;
 };

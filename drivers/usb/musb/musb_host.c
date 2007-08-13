@@ -824,7 +824,7 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 			musb_writew(epio, MGC_O_HDRC_TXCSR,
 				wCsr | MGC_M_TXCSR_MODE);
 
-			pDmaChannel->dwActualLength = 0L;
+			pDmaChannel->actual_len = 0L;
 			qh->segsize = dwLength;
 
 			/* TX uses "rndis" mode automatically, but needs help
@@ -904,7 +904,7 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 		if ((is_cppi_enabled() || tusb_dma_omap()) && pDmaChannel) {
 			/* candidate for DMA */
 			if (pDmaChannel) {
-				pDmaChannel->dwActualLength = 0L;
+				pDmaChannel->actual_len = 0L;
 				qh->segsize = dwLength;
 
 				/* AUTOREQ is in a DMA register */
@@ -1260,7 +1260,7 @@ void musb_host_tx(struct musb *musb, u8 epnum)
 	/* REVISIT this looks wrong... */
 	if (!status || dma || usb_pipeisoc(nPipe)) {
 		if (dma)
-			wLength = dma->dwActualLength;
+			wLength = dma->actual_len;
 		else
 			wLength = qh->segsize;
 		qh->offset += wLength;
@@ -1416,7 +1416,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 
 	DBG(5, "<== hw %d rxcsr %04x, urb actual %d (+dma %zd)\n",
 		epnum, wRxCsrVal, pUrb->actual_length,
-		dma ? dma->dwActualLength : 0);
+		dma ? dma->actual_len : 0);
 
 	/* check for errors, concurrent stall & unlink is not really
 	 * handled yet! */
@@ -1462,7 +1462,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 		if (dma_channel_status(dma) == MGC_DMA_STATUS_BUSY) {
 			dma->bStatus = MGC_DMA_STATUS_CORE_ABORT;
 			(void) musb->dma_controller->channel_abort(dma);
-			xfer_len = dma->dwActualLength;
+			xfer_len = dma->actual_len;
 		}
 		musb_h_flush_rxfifo(hw_ep, 0);
 		musb_writeb(epio, MGC_O_HDRC_RXINTERVAL, 0);
@@ -1493,7 +1493,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 		if (dma_channel_status(dma) == MGC_DMA_STATUS_BUSY) {
 			dma->bStatus = MGC_DMA_STATUS_CORE_ABORT;
 			(void) musb->dma_controller->channel_abort(dma);
-			xfer_len = dma->dwActualLength;
+			xfer_len = dma->actual_len;
 			bDone = TRUE;
 		}
 
@@ -1507,7 +1507,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 	}
 #endif
 	if (dma && (wRxCsrVal & MGC_M_RXCSR_DMAENAB)) {
-		xfer_len = dma->dwActualLength;
+		xfer_len = dma->actual_len;
 
 		wVal &= ~(MGC_M_RXCSR_DMAENAB
 			| MGC_M_RXCSR_H_AUTOREQ
@@ -1519,7 +1519,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 		/* bDone if pUrb buffer is full or short packet is recd */
 		bDone = ((pUrb->actual_length + xfer_len) >=
 				pUrb->transfer_buffer_length)
-			|| (dma->dwActualLength & (qh->maxpacket - 1));
+			|| (dma->actual_len & (qh->maxpacket - 1));
 
 		/* send IN token for next packet, without AUTOREQ */
 		if (!bDone) {
@@ -1920,7 +1920,7 @@ static int musb_cleanup_urb(struct urb *urb, struct musb_qh *qh, int is_in)
 				"abort %cX%d DMA for urb %p --> %d\n",
 				is_in ? 'R' : 'T', ep->epnum,
 				urb, status);
-			urb->actual_length += dma->dwActualLength;
+			urb->actual_length += dma->actual_len;
 		}
 	}
 

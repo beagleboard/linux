@@ -466,11 +466,11 @@ void musb_g_tx(struct musb *musb, u8 epnum)
 				musb_writew(epio, MGC_O_HDRC_TXCSR, wCsrVal);
 				/* ensure writebuffer is empty */
 				wCsrVal = musb_readw(epio, MGC_O_HDRC_TXCSR);
-				pRequest->actual += musb_ep->dma->dwActualLength;
+				pRequest->actual += musb_ep->dma->actual_len;
 				DBG(4, "TXCSR%d %04x, dma off, "
 						"len %Zd, req %p\n",
 					epnum, wCsrVal,
-					musb_ep->dma->dwActualLength,
+					musb_ep->dma->actual_len,
 					pRequest);
 			}
 
@@ -755,7 +755,7 @@ void musb_g_rx(struct musb *musb, u8 epnum)
 		if (dma_channel_status(dma) == MGC_DMA_STATUS_BUSY) {
 			dma->bStatus = MGC_DMA_STATUS_CORE_ABORT;
 			(void) musb->dma_controller->channel_abort(dma);
-			pRequest->actual += musb_ep->dma->dwActualLength;
+			pRequest->actual += musb_ep->dma->actual_len;
 		}
 
 		wCsrVal |= MGC_M_RXCSR_P_WZC_BITS;
@@ -796,17 +796,17 @@ void musb_g_rx(struct musb *musb, u8 epnum)
 		musb_writew(epio, MGC_O_HDRC_RXCSR,
 			MGC_M_RXCSR_P_WZC_BITS | wCsrVal);
 
-		pRequest->actual += musb_ep->dma->dwActualLength;
+		pRequest->actual += musb_ep->dma->actual_len;
 
 		DBG(4, "RXCSR%d %04x, dma off, %04x, len %Zd, req %p\n",
 			epnum, wCsrVal,
 			musb_readw(epio, MGC_O_HDRC_RXCSR),
-			musb_ep->dma->dwActualLength, pRequest);
+			musb_ep->dma->actual_len, pRequest);
 
 #if defined(CONFIG_USB_INVENTRA_DMA) || defined(CONFIG_USB_TUSB_OMAP_DMA)
 		/* Autoclear doesn't clear RxPktRdy for short packets */
 		if ((dma->bDesiredMode == 0)
-				|| (dma->dwActualLength
+				|| (dma->actual_len
 					& (musb_ep->wPacketSize - 1))) {
 			/* ack the read! */
 			wCsrVal &= ~MGC_M_RXCSR_RXPKTRDY;
@@ -815,7 +815,7 @@ void musb_g_rx(struct musb *musb, u8 epnum)
 
 		/* incomplete, and not short? wait for next IN packet */
                 if ((pRequest->actual < pRequest->length)
-				&& (musb_ep->dma->dwActualLength
+				&& (musb_ep->dma->actual_len
 					== musb_ep->wPacketSize))
 			goto done;
 #endif

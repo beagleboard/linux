@@ -148,7 +148,7 @@ static struct dma_channel* dma_channel_allocate(struct dma_controller *c,
 			pChannel->max_len = 0x10000;
 			/* Tx => mode 1; Rx => mode 0 */
 			pChannel->bDesiredMode = bTransmit;
-			pChannel->dwActualLength = 0;
+			pChannel->actual_len = 0;
 			break;
 		}
 	}
@@ -160,7 +160,7 @@ static void dma_channel_release(struct dma_channel *pChannel)
 	struct musb_dma_channel *pImplChannel =
 		(struct musb_dma_channel *) pChannel->private_data;
 
-	pChannel->dwActualLength = 0;
+	pChannel->actual_len = 0;
 	pImplChannel->dwStartAddress = 0;
 	pImplChannel->len = 0;
 
@@ -235,7 +235,7 @@ static int dma_channel_program(struct dma_channel * pChannel,
 	BUG_ON(pChannel->bStatus == MGC_DMA_STATUS_UNKNOWN ||
 		pChannel->bStatus == MGC_DMA_STATUS_BUSY);
 
-	pChannel->dwActualLength = 0;
+	pChannel->actual_len = 0;
 	pImplChannel->dwStartAddress = dma_addr;
 	pImplChannel->len = dwLength;
 	pImplChannel->wMaxPacketSize = wPacketSize;
@@ -329,14 +329,14 @@ static irqreturn_t dma_controller_irq(int irq, void *private_data)
 						MGC_HSDMA_CHANNEL_OFFSET(
 							bChannel,
 							MGC_O_HSDMA_ADDRESS));
-				pChannel->dwActualLength =
+				pChannel->actual_len =
 				    dwAddress - pImplChannel->dwStartAddress;
 
 				DBG(2, "ch %p, 0x%x -> 0x%x (%d / %d) %s\n",
 				    pChannel, pImplChannel->dwStartAddress,
-				    dwAddress, pChannel->dwActualLength,
+				    dwAddress, pChannel->actual_len,
 				    pImplChannel->len,
-				    (pChannel->dwActualLength <
+				    (pChannel->actual_len <
 					pImplChannel->len) ?
 					"=> reconfig 0": "=> complete");
 
@@ -349,7 +349,7 @@ static irqreturn_t dma_controller_irq(int irq, void *private_data)
 				if ((devctl & MGC_M_DEVCTL_HM)
 				    && (pImplChannel->bTransmit)
 				    && ((pChannel->bDesiredMode == 0)
-					|| (pChannel->dwActualLength &
+					|| (pChannel->actual_len &
 					    (pImplChannel->wMaxPacketSize - 1)))
 				   ) {
 					/* Send out the packet */
