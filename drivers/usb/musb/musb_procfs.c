@@ -237,14 +237,14 @@ dump_end_info(struct musb *musb, u8 bEnd, char *aBuffer, unsigned max)
 {
 	int			code = 0;
 	char			*buf = aBuffer;
-	struct musb_hw_ep	*pEnd = &musb->aLocalEnd[bEnd];
+	struct musb_hw_ep	*hw_ep = &musb->aLocalEnd[bEnd];
 
 	do {
 		MGC_SelectEnd(musb->pRegs, bEnd);
 #ifdef CONFIG_USB_MUSB_HDRC_HCD
 		if (is_host_active(musb)) {
 			int		dump_rx, dump_tx;
-			void __iomem	*regs = pEnd->regs;
+			void __iomem	*regs = hw_ep->regs;
 
 			/* TEMPORARY (!) until we have a real periodic
 			 * schedule tree ...
@@ -255,7 +255,7 @@ dump_end_info(struct musb *musb, u8 bEnd, char *aBuffer, unsigned max)
 				 */
 				dump_tx = !list_empty(&musb->control);
 				dump_rx = 0;
-			} else if (pEnd == musb->bulk_ep) {
+			} else if (hw_ep == musb->bulk_ep) {
 				dump_tx = !list_empty(&musb->out_bulk);
 				dump_rx = !list_empty(&musb->in_bulk);
 			} else if (musb->periodic[bEnd]) {
@@ -277,7 +277,7 @@ dump_end_info(struct musb *musb, u8 bEnd, char *aBuffer, unsigned max)
 					"dev %d hub %d port %d"
 					"\n",
 					bEnd,
-					pEnd->rx_double_buffered
+					hw_ep->rx_double_buffered
 						? "2buf" : "1buf",
 					musb_readw(regs, MGC_O_HDRC_RXCSR),
 					musb_readb(regs, MGC_O_HDRC_RXINTERVAL),
@@ -302,7 +302,7 @@ dump_end_info(struct musb *musb, u8 bEnd, char *aBuffer, unsigned max)
 
 				if (is_cppi_enabled()
 						&& bEnd
-						&& pEnd->rx_channel) {
+						&& hw_ep->rx_channel) {
 					unsigned	cppi = bEnd - 1;
 					unsigned	off1 = cppi << 2;
 					void __iomem	*base;
@@ -337,7 +337,7 @@ dump_end_info(struct musb *musb, u8 bEnd, char *aBuffer, unsigned max)
 					max -= code;
 				}
 
-				if (pEnd == musb->bulk_ep
+				if (hw_ep == musb->bulk_ep
 						&& !list_empty(
 							&musb->in_bulk)) {
 					code = dump_queue(&musb->in_bulk,
@@ -365,7 +365,7 @@ dump_end_info(struct musb *musb, u8 bEnd, char *aBuffer, unsigned max)
 					"dev %d hub %d port %d"
 					"\n",
 					bEnd,
-					pEnd->tx_double_buffered
+					hw_ep->tx_double_buffered
 						? "2buf" : "1buf",
 					musb_readw(regs, MGC_O_HDRC_TXCSR),
 					musb_readb(regs, MGC_O_HDRC_TXINTERVAL),
@@ -390,7 +390,7 @@ dump_end_info(struct musb *musb, u8 bEnd, char *aBuffer, unsigned max)
 
 				if (is_cppi_enabled()
 						&& bEnd
-						&& pEnd->tx_channel) {
+						&& hw_ep->tx_channel) {
 					unsigned	cppi = bEnd - 1;
 					void __iomem	*base;
 					void __iomem	*ram;
@@ -418,7 +418,7 @@ dump_end_info(struct musb *musb, u8 bEnd, char *aBuffer, unsigned max)
 					max -= code;
 				}
 
-				if (pEnd == musb->control_ep
+				if (hw_ep == musb->control_ep
 						&& !list_empty(
 							&musb->control)) {
 					code = dump_queue(&musb->control,
@@ -428,7 +428,7 @@ dump_end_info(struct musb *musb, u8 bEnd, char *aBuffer, unsigned max)
 					code = min(code, (int) max);
 					buf += code;
 					max -= code;
-				} else if (pEnd == musb->bulk_ep
+				} else if (hw_ep == musb->bulk_ep
 						&& !list_empty(
 							&musb->out_bulk)) {
 					code = dump_queue(&musb->out_bulk,
@@ -454,16 +454,16 @@ dump_end_info(struct musb *musb, u8 bEnd, char *aBuffer, unsigned max)
 		if (is_peripheral_active(musb)) {
 			code = 0;
 
-			if (pEnd->ep_in.desc || !bEnd) {
-				code = dump_ep(&pEnd->ep_in, buf, max);
+			if (hw_ep->ep_in.desc || !bEnd) {
+				code = dump_ep(&hw_ep->ep_in, buf, max);
 				if (code <= 0)
 					break;
 				code = min(code, (int) max);
 				buf += code;
 				max -= code;
 			}
-			if (pEnd->ep_out.desc) {
-				code = dump_ep(&pEnd->ep_out, buf, max);
+			if (hw_ep->ep_out.desc) {
+				code = dump_ep(&hw_ep->ep_out, buf, max);
 				if (code <= 0)
 					break;
 				code = min(code, (int) max);

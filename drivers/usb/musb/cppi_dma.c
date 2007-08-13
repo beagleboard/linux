@@ -1141,7 +1141,7 @@ void cppi_completion(struct musb *musb, u32 rx, u32 tx)
 	u8			bReqComplete;
 	struct cppi		*cppi;
 	struct cppi_descriptor	*bdPtr;
-	struct musb_hw_ep	*pEnd = NULL;
+	struct musb_hw_ep	*hw_ep = NULL;
 
 	cppi = container_of(musb->pDmaController, struct cppi, Controller);
 
@@ -1227,7 +1227,7 @@ void cppi_completion(struct musb *musb, u32 rx, u32 tx)
 					txChannel->Channel.bStatus =
 							MGC_DMA_STATUS_FREE;
 
-					pEnd = txChannel->hw_ep;
+					hw_ep = txChannel->hw_ep;
 
 					txChannel->Channel.dwActualLength =
 						txChannel->actualLen;
@@ -1245,7 +1245,7 @@ void cppi_completion(struct musb *musb, u32 rx, u32 tx)
 						 */
 						int	csr;
 
-						csr = musb_readw(pEnd->regs,
+						csr = musb_readw(hw_ep->regs,
 							MGC_O_HDRC_TXCSR);
 						if (csr & MGC_M_TXCSR_TXPKTRDY)
 #endif
@@ -1290,7 +1290,7 @@ void cppi_completion(struct musb *musb, u32 rx, u32 tx)
 			/* all segments completed! */
 			rxChannel->Channel.bStatus = MGC_DMA_STATUS_FREE;
 
-			pEnd = rxChannel->hw_ep;
+			hw_ep = rxChannel->hw_ep;
 
 			rxChannel->Channel.dwActualLength =
 					rxChannel->actualLen;

@@ -1179,7 +1179,7 @@ static int __init ep_config_from_table(struct musb *musb)
 static int __init ep_config_from_hw(struct musb *musb)
 {
 	u8 bEnd = 0, reg;
-	struct musb_hw_ep *pEnd;
+	struct musb_hw_ep *hw_ep;
 	void *pBase = musb->pRegs;
 
 	DBG(2, "<== static silicon ep config\n");
@@ -1188,10 +1188,10 @@ static int __init ep_config_from_hw(struct musb *musb)
 
 	for (bEnd = 1; bEnd < MUSB_C_NUM_EPS; bEnd++) {
 		MGC_SelectEnd(pBase, bEnd);
-		pEnd = musb->aLocalEnd + bEnd;
+		hw_ep = musb->aLocalEnd + bEnd;
 
 		/* read from core using indexed model */
-		reg = musb_readb(pEnd->regs, 0x10 + MGC_O_HDRC_FIFOSIZE);
+		reg = musb_readb(hw_ep->regs, 0x10 + MGC_O_HDRC_FIFOSIZE);
 		if (!reg) {
 			/* 0's returned when no more endpoints */
 			break;
@@ -1199,24 +1199,24 @@ static int __init ep_config_from_hw(struct musb *musb)
 		musb->bEndCount++;
 		musb->wEndMask |= (1 << bEnd);
 
-		pEnd->wMaxPacketSizeTx = 1 << (reg & 0x0f);
+		hw_ep->wMaxPacketSizeTx = 1 << (reg & 0x0f);
 
 		/* shared TX/RX FIFO? */
 		if ((reg & 0xf0) == 0xf0) {
-			pEnd->wMaxPacketSizeRx = pEnd->wMaxPacketSizeTx;
-			pEnd->bIsSharedFifo = TRUE;
+			hw_ep->wMaxPacketSizeRx = hw_ep->wMaxPacketSizeTx;
+			hw_ep->bIsSharedFifo = TRUE;
 			continue;
 		} else {
-			pEnd->wMaxPacketSizeRx = 1 << ((reg & 0xf0) >> 4);
-			pEnd->bIsSharedFifo = FALSE;
+			hw_ep->wMaxPacketSizeRx = 1 << ((reg & 0xf0) >> 4);
+			hw_ep->bIsSharedFifo = FALSE;
 		}
 
-		/* FIXME set up pEnd->{rx,tx}_double_buffered */
+		/* FIXME set up hw_ep->{rx,tx}_double_buffered */
 
 #ifdef CONFIG_USB_MUSB_HDRC_HCD
 		/* pick an RX/TX endpoint for bulk */
-		if (pEnd->wMaxPacketSizeTx < 512
-				|| pEnd->wMaxPacketSizeRx < 512)
+		if (hw_ep->wMaxPacketSizeTx < 512
+				|| hw_ep->wMaxPacketSizeRx < 512)
 			continue;
 
 		/* REVISIT:  this algorithm is lazy, we should at least
@@ -1224,7 +1224,7 @@ static int __init ep_config_from_hw(struct musb *musb)
 		 */
 		if (musb->bulk_ep)
 			continue;
-		musb->bulk_ep = pEnd;
+		musb->bulk_ep = hw_ep;
 #endif
 	}
 
