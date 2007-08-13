@@ -209,38 +209,38 @@ void musb_write_fifo(struct musb_hw_ep *hw_ep, u16 wCount, const u8 *src)
 /*
  * Unload an endpoint's FIFO
  */
-void musb_read_fifo(struct musb_hw_ep *hw_ep, u16 wCount, u8 *pDest)
+void musb_read_fifo(struct musb_hw_ep *hw_ep, u16 wCount, u8 *dst)
 {
 	void __iomem *fifo = hw_ep->fifo;
 
 	DBG(4, "%cX ep%d fifo %p count %d buf %p\n",
-			'R', hw_ep->bLocalEnd, fifo, wCount, pDest);
+			'R', hw_ep->bLocalEnd, fifo, wCount, dst);
 
 	/* we can't assume unaligned writes work */
-	if (likely((0x01 & (unsigned long) pDest) == 0)) {
+	if (likely((0x01 & (unsigned long) dst) == 0)) {
 		u16	index = 0;
 
 		/* best case is 32bit-aligned destination address */
-		if ((0x02 & (unsigned long) pDest) == 0) {
+		if ((0x02 & (unsigned long) dst) == 0) {
 			if (wCount >= 4) {
-				readsl(fifo, pDest, wCount >> 2);
+				readsl(fifo, dst, wCount >> 2);
 				index = wCount & ~0x03;
 			}
 			if (wCount & 0x02) {
-				*(u16*)&pDest[index] = musb_readw(fifo, 0);
+				*(u16*)&dst[index] = musb_readw(fifo, 0);
 				index += 2;
 			}
 		} else {
 			if (wCount >= 2) {
-				readsw(fifo, pDest, wCount >> 1);
+				readsw(fifo, dst, wCount >> 1);
 				index = wCount & ~0x01;
 			}
 		}
 		if (wCount & 0x01)
-			pDest[index] = musb_readb(fifo, 0);
+			dst[index] = musb_readb(fifo, 0);
 	} else  {
 		/* byte aligned */
-		readsb(fifo, pDest, wCount);
+		readsb(fifo, dst, wCount);
 	}
 }
 
