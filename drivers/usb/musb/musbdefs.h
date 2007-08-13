@@ -446,7 +446,7 @@ struct musb {
 	u8			test_mode_nr;
 	u16			ackpend;		/* ep0 */
 	struct usb_gadget	g;			/* the gadget */
-	struct usb_gadget_driver *pGadgetDriver;	/* its driver */
+	struct usb_gadget_driver *gadget_driver;	/* its driver */
 #endif
 
 #ifdef CONFIG_USB_MUSB_OTG

@@ -422,7 +422,7 @@ static void musb_do_idle(unsigned long _musb)
 #endif
 
 #ifdef CONFIG_USB_GADGET_MUSB_HDRC
-		if (is_peripheral_enabled(musb) && !musb->pGadgetDriver)
+		if (is_peripheral_enabled(musb) && !musb->gadget_driver)
 			wakeups = 0;
 		else {
 			wakeups = TUSB_PRCM_WHOSTDISCON

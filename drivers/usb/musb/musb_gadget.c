@@ -1476,7 +1476,7 @@ static void musb_pullup(struct musb *musb, int is_on)
 	/* FIXME if on, HdrcStart; if off, HdrcStop */
 
 	DBG(3, "gadget %s D+ pullup %s\n",
-		musb->pGadgetDriver->function, is_on ? "on" : "off");
+		musb->gadget_driver->function, is_on ? "on" : "off");
 	musb_writeb(musb->mregs, MGC_O_HDRC_POWER, power);
 }
 
@@ -1703,13 +1703,13 @@ int usb_gadget_register_driver(struct usb_gadget_driver *driver)
 	DBG(3, "registering driver %s\n", driver->function);
 	spin_lock_irqsave(&musb->lock, flags);
 
-	if (musb->pGadgetDriver) {
+	if (musb->gadget_driver) {
 		DBG(1, "%s is already bound to %s\n",
 				musb_driver_name,
-				musb->pGadgetDriver->driver.name);
+				musb->gadget_driver->driver.name);
 		retval = -EBUSY;
 	} else {
-		musb->pGadgetDriver = driver;
+		musb->gadget_driver = driver;
 		musb->g.dev.driver = &driver->driver;
 		driver->driver.bus = NULL;
 		musb->softconnect = 1;
@@ -1723,7 +1723,7 @@ int usb_gadget_register_driver(struct usb_gadget_driver *driver)
 	if (retval != 0) {
 		DBG(3, "bind to driver %s failed --> %d\n",
 			driver->driver.name, retval);
-		musb->pGadgetDriver = NULL;
+		musb->gadget_driver = NULL;
 		musb->g.dev.driver = NULL;
 	}
 
@@ -1762,7 +1762,7 @@ int usb_gadget_register_driver(struct usb_gadget_driver *driver)
 				spin_lock_irqsave(&musb->lock, flags);
 				musb->xceiv.gadget = NULL;
 				musb->xceiv.state = OTG_STATE_UNDEFINED;
-				musb->pGadgetDriver = NULL;
+				musb->gadget_driver = NULL;
 				musb->g.dev.driver = NULL;
 				spin_unlock_irqrestore(&musb->lock, flags);
 			}
@@ -1841,7 +1841,7 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 	musb_hnp_stop(musb);
 #endif
 
-	if (musb->pGadgetDriver == driver) {
+	if (musb->gadget_driver == driver) {
 		musb->xceiv.state = OTG_STATE_UNDEFINED;
 		stop_activity(musb, driver);
 
@@ -1850,7 +1850,7 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 		driver->unbind(&musb->g);
 		spin_lock_irqsave(&musb->lock, flags);
 
-		musb->pGadgetDriver = NULL;
+		musb->gadget_driver = NULL;
 		musb->g.dev.driver = NULL;
 
 		musb->is_active = 0;
@@ -1885,9 +1885,9 @@ void musb_g_resume(struct musb *musb)
 	case OTG_STATE_B_WAIT_ACON:
 	case OTG_STATE_B_PERIPHERAL:
 		musb->is_active = 1;
-		if (musb->pGadgetDriver && musb->pGadgetDriver->resume) {
+		if (musb->gadget_driver && musb->gadget_driver->resume) {
 			spin_unlock(&musb->lock);
-			musb->pGadgetDriver->resume(&musb->g);
+			musb->gadget_driver->resume(&musb->g);
 			spin_lock(&musb->lock);
 		}
 		break;
@@ -1912,9 +1912,9 @@ void musb_g_suspend(struct musb *musb)
 		break;
 	case OTG_STATE_B_PERIPHERAL:
 		musb->is_suspended = 1;
-		if (musb->pGadgetDriver && musb->pGadgetDriver->suspend) {
+		if (musb->gadget_driver && musb->gadget_driver->suspend) {
 			spin_unlock(&musb->lock);
-			musb->pGadgetDriver->suspend(&musb->g);
+			musb->gadget_driver->suspend(&musb->g);
 			spin_lock(&musb->lock);
 		}
 		break;
@@ -1948,9 +1948,9 @@ void musb_g_disconnect(struct musb *musb)
 	(void) musb_gadget_vbus_draw(&musb->g, 0);
 
 	musb->g.speed = USB_SPEED_UNKNOWN;
-	if (musb->pGadgetDriver && musb->pGadgetDriver->disconnect) {
+	if (musb->gadget_driver && musb->gadget_driver->disconnect) {
 		spin_unlock(&musb->lock);
-		musb->pGadgetDriver->disconnect(&musb->g);
+		musb->gadget_driver->disconnect(&musb->g);
 		spin_lock(&musb->lock);
 	}
 
@@ -1987,8 +1987,8 @@ __acquires(musb->lock)
 			(devctl & MGC_M_DEVCTL_BDEVICE)
 				? "B-Device" : "A-Device",
 			musb_readb(mbase, MGC_O_HDRC_FADDR),
-			musb->pGadgetDriver
-				? musb->pGadgetDriver->driver.name
+			musb->gadget_driver
+				? musb->gadget_driver->driver.name
 				: NULL
 			);
 

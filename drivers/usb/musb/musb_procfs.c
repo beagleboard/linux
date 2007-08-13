@@ -619,8 +619,8 @@ static int dump_header_stats(struct musb *musb, char *buffer)
 #ifdef CONFIG_USB_GADGET_MUSB_HDRC
 	if (is_peripheral_enabled(musb)) {
 		code = sprintf(buffer, "Gadget driver: %s\n",
-				musb->pGadgetDriver
-					? musb->pGadgetDriver->driver.name
+				musb->gadget_driver
+					? musb->gadget_driver->driver.name
 					: "(none)");
 		if (code <= 0)
 			goto done;

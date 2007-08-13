@@ -583,10 +583,10 @@ __releases(musb->lock)
 __acquires(musb->lock)
 {
 	int retval;
-	if (!musb->pGadgetDriver)
+	if (!musb->gadget_driver)
 		return -EOPNOTSUPP;
 	spin_unlock(&musb->lock);
-	retval = musb->pGadgetDriver->setup(&musb->g, pControlRequest);
+	retval = musb->gadget_driver->setup(&musb->g, pControlRequest);
 	spin_lock(&musb->lock);
 	return retval;
 }
