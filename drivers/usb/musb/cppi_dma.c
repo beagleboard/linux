@@ -1143,7 +1143,7 @@ void cppi_completion(struct musb *musb, u32 rx, u32 tx)
 	struct cppi_descriptor	*bdPtr;
 	struct musb_hw_ep	*hw_ep = NULL;
 
-	cppi = container_of(musb->pDmaController, struct cppi, Controller);
+	cppi = container_of(musb->dma_controller, struct cppi, Controller);
 
 	regBase = musb->ctrl_base;
 

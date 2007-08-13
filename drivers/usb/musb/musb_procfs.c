@@ -593,7 +593,7 @@ static int dump_header_stats(struct musb *musb, char *buffer)
 	buffer += code;
 #endif	/* DAVINCI */
 
-	if (is_cppi_enabled() && musb->pDmaController) {
+	if (is_cppi_enabled() && musb->dma_controller) {
 		code = sprintf(buffer,
 				"CPPI: txcr=%d txsrc=%01x txena=%01x; "
 				"rxcr=%d rxsrc=%01x rxena=%01x "

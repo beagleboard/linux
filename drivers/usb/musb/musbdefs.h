@@ -356,7 +356,7 @@ struct musb {
 	 */
 	void			(*board_set_vbus)(struct musb *, int is_on);
 
-	struct dma_controller	*pDmaController;
+	struct dma_controller	*dma_controller;
 
 	struct device		*controller;
 	void __iomem		*ctrl_base;

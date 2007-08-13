@@ -164,7 +164,7 @@ static void nuke(struct musb_ep *ep, const int status)
 	ep->busy = 1;
 
 	if (is_dma_capable() && ep->dma) {
-		struct dma_controller	*c = ep->musb->pDmaController;
+		struct dma_controller	*c = ep->musb->dma_controller;
 		int value;
 		if (ep->is_in) {
 			musb_writew(epio, MGC_O_HDRC_TXCSR,
@@ -292,7 +292,7 @@ static void txstate(struct musb *musb, struct musb_request *req)
 
 #ifndef	CONFIG_USB_INVENTRA_FIFO
 	if (is_dma_capable() && musb_ep->dma) {
-		struct dma_controller	*c = musb->pDmaController;
+		struct dma_controller	*c = musb->dma_controller;
 
 		use_dma = (pRequest->dma != DMA_ADDR_INVALID);
 
@@ -428,7 +428,7 @@ void musb_g_tx(struct musb *musb, u8 epnum)
 			musb_writew(epio, MGC_O_HDRC_TXCSR, wCsrVal);
 			if (dma_channel_status(dma) == MGC_DMA_STATUS_BUSY) {
 				dma->bStatus = MGC_DMA_STATUS_CORE_ABORT;
-				musb->pDmaController->channel_abort(dma);
+				musb->dma_controller->channel_abort(dma);
 			}
 
 			if (pRequest)
@@ -583,7 +583,7 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 	wCsrVal = musb_readw(epio, MGC_O_HDRC_RXCSR);
 
 	if (is_cppi_enabled() && musb_ep->dma) {
-		struct dma_controller	*c = musb->pDmaController;
+		struct dma_controller	*c = musb->dma_controller;
 		struct dma_channel	*channel = musb_ep->dma;
 
 		/* NOTE:  CPPI won't actually stop advancing the DMA
@@ -618,7 +618,7 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 				struct dma_channel	*channel;
 				int			use_dma = 0;
 
-				c = musb->pDmaController;
+				c = musb->dma_controller;
 				channel = musb_ep->dma;
 
 	/* We use DMA Req mode 0 in RxCsr, and DMA controller operates in
@@ -694,7 +694,7 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 
 #ifdef	CONFIG_USB_TUSB_OMAP_DMA
 			if (tusb_dma_omap() && musb_ep->dma) {
-				struct dma_controller *c = musb->pDmaController;
+				struct dma_controller *c = musb->dma_controller;
 				struct dma_channel *channel = musb_ep->dma;
 				u32 dma_addr = pRequest->dma + pRequest->actual;
 				int ret;
@@ -754,7 +754,7 @@ void musb_g_rx(struct musb *musb, u8 epnum)
 	if (wCsrVal & MGC_M_RXCSR_P_SENTSTALL) {
 		if (dma_channel_status(dma) == MGC_DMA_STATUS_BUSY) {
 			dma->bStatus = MGC_DMA_STATUS_CORE_ABORT;
-			(void) musb->pDmaController->channel_abort(dma);
+			(void) musb->dma_controller->channel_abort(dma);
 			pRequest->actual += musb_ep->dma->dwActualLength;
 		}
 
@@ -962,8 +962,8 @@ static int musb_gadget_enable(struct usb_ep *ep,
 	/* NOTE:  all the I/O code _should_ work fine without DMA, in case
 	 * for some reason you run out of channels here.
 	 */
-	if (is_dma_capable() && musb->pDmaController) {
-		struct dma_controller	*c = musb->pDmaController;
+	if (is_dma_capable() && musb->dma_controller) {
+		struct dma_controller	*c = musb->dma_controller;
 
 		musb_ep->dma = c->channel_alloc(c, hw_ep,
 				(desc->bEndpointAddress & USB_DIR_IN));
@@ -1199,7 +1199,7 @@ static int musb_gadget_dequeue(struct usb_ep *ep, struct usb_request *pRequest)
 
 	/* ... else abort the dma transfer ... */
 	else if (is_dma_capable() && musb_ep->dma) {
-		struct dma_controller	*c = musb->pDmaController;
+		struct dma_controller	*c = musb->dma_controller;
 
 		musb_ep_select(musb->mregs, musb_ep->current_epnum);
 		if (c->channel_abort)

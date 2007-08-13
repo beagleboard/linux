@@ -627,7 +627,7 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 			struct urb *pUrb, unsigned int is_out,
 			u8 * pBuffer, u32 dwLength)
 {
-	struct dma_controller	*pDmaController;
+	struct dma_controller	*dma_controller;
 	struct dma_channel	*pDmaChannel;
 	u8			bDmaOk;
 	void __iomem		*mbase = musb->mregs;
@@ -654,12 +654,12 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 	musb_ep_select(mbase, epnum);
 
 	/* candidate for DMA? */
-	pDmaController = musb->pDmaController;
-	if (is_dma_capable() && epnum && pDmaController) {
+	dma_controller = musb->dma_controller;
+	if (is_dma_capable() && epnum && dma_controller) {
 		pDmaChannel = is_out ? hw_ep->tx_channel : hw_ep->rx_channel;
 		if (!pDmaChannel) {
-			pDmaChannel = pDmaController->channel_alloc(
-					pDmaController, hw_ep, is_out);
+			pDmaChannel = dma_controller->channel_alloc(
+					dma_controller, hw_ep, is_out);
 			if (is_out)
 				hw_ep->tx_channel = pDmaChannel;
 			else
@@ -791,7 +791,7 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 
 			musb_writew(epio, MGC_O_HDRC_TXCSR, wCsr);
 
-			bDmaOk = pDmaController->channel_program(
+			bDmaOk = dma_controller->channel_program(
 					pDmaChannel, wPacketSize,
 					pDmaChannel->bDesiredMode,
 					pUrb->transfer_dma,
@@ -799,7 +799,7 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 			if (bDmaOk) {
 				wLoadCount = 0;
 			} else {
-				pDmaController->channel_release(pDmaChannel);
+				dma_controller->channel_release(pDmaChannel);
 				if (is_out)
 					hw_ep->tx_channel = NULL;
 				else
@@ -830,7 +830,7 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 			/* TX uses "rndis" mode automatically, but needs help
 			 * to identify the zero-length-final-packet case.
 			 */
-			bDmaOk = pDmaController->channel_program(
+			bDmaOk = dma_controller->channel_program(
 					pDmaChannel, wPacketSize,
 					(pUrb->transfer_flags
 							& URB_ZERO_PACKET)
@@ -840,7 +840,7 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 			if (bDmaOk) {
 				wLoadCount = 0;
 			} else {
-				pDmaController->channel_release(pDmaChannel);
+				dma_controller->channel_release(pDmaChannel);
 				pDmaChannel = hw_ep->tx_channel = NULL;
 
 				/* REVISIT there's an error path here that
@@ -915,14 +915,14 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 				/* unless caller treats short rx transfers as
 				 * errors, we dare not queue multiple transfers.
 				 */
-				bDmaOk = pDmaController->channel_program(
+				bDmaOk = dma_controller->channel_program(
 						pDmaChannel, wPacketSize,
 						!(pUrb->transfer_flags
 							& URB_SHORT_NOT_OK),
 						pUrb->transfer_dma,
 						qh->segsize);
 				if (!bDmaOk) {
-					pDmaController->channel_release(
+					dma_controller->channel_release(
 							pDmaChannel);
 					pDmaChannel = hw_ep->rx_channel = NULL;
 				} else
@@ -1227,7 +1227,7 @@ void musb_host_tx(struct musb *musb, u8 epnum)
 	if (status) {
 		if (dma_channel_status(dma) == MGC_DMA_STATUS_BUSY) {
 			dma->bStatus = MGC_DMA_STATUS_CORE_ABORT;
-			(void) musb->pDmaController->channel_abort(dma);
+			(void) musb->dma_controller->channel_abort(dma);
 		}
 
 		/* do the proper sequence to abort the transfer in the
@@ -1461,7 +1461,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 		/* clean up dma and collect transfer count */
 		if (dma_channel_status(dma) == MGC_DMA_STATUS_BUSY) {
 			dma->bStatus = MGC_DMA_STATUS_CORE_ABORT;
-			(void) musb->pDmaController->channel_abort(dma);
+			(void) musb->dma_controller->channel_abort(dma);
 			xfer_len = dma->dwActualLength;
 		}
 		musb_h_flush_rxfifo(hw_ep, 0);
@@ -1492,7 +1492,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 		 */
 		if (dma_channel_status(dma) == MGC_DMA_STATUS_BUSY) {
 			dma->bStatus = MGC_DMA_STATUS_CORE_ABORT;
-			(void) musb->pDmaController->channel_abort(dma);
+			(void) musb->dma_controller->channel_abort(dma);
 			xfer_len = dma->dwActualLength;
 			bDone = TRUE;
 		}
@@ -1567,7 +1567,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 					qh->offset,
 					pUrb->transfer_buffer_length);
 
-			c = musb->pDmaController;
+			c = musb->dma_controller;
 
 			dma->bDesiredMode = 0;
 #ifdef USE_MODE1
@@ -1915,7 +1915,7 @@ static int musb_cleanup_urb(struct urb *urb, struct musb_qh *qh, int is_in)
 
 		dma = is_in ? ep->rx_channel : ep->tx_channel;
 		if (dma) {
-			status = ep->musb->pDmaController->channel_abort(dma);
+			status = ep->musb->dma_controller->channel_abort(dma);
 			DBG(status ? 1 : 3,
 				"abort %cX%d DMA for urb %p --> %d\n",
 				is_in ? 'R' : 'T', ep->epnum,

@@ -1807,8 +1807,8 @@ static void musb_free(struct musb *musb)
 		disable_irq_wake(musb->nIrq);
 		free_irq(musb->nIrq, musb);
 	}
-	if (is_dma_capable() && musb->pDmaController) {
-		struct dma_controller	*c = musb->pDmaController;
+	if (is_dma_capable() && musb->dma_controller) {
+		struct dma_controller	*c = musb->dma_controller;
 
 		(void) c->stop(c->pPrivateData);
 		dma_controller_destroy(c);
@@ -1921,13 +1921,13 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 		struct dma_controller	*c;
 
 		c = dma_controller_create(musb, musb->mregs);
-		musb->pDmaController = c;
+		musb->dma_controller = c;
 		if (c)
 			(void) c->start(c->pPrivateData);
 	}
 #endif
 	/* ideally this would be abstracted in platform setup */
-	if (!is_dma_capable() || !musb->pDmaController)
+	if (!is_dma_capable() || !musb->dma_controller)
 		dev->dma_mask = NULL;
 
 	/* be sure interrupts are disabled before connecting ISR */
@@ -1961,7 +1961,7 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 			default:		s = "OTG"; break;
 			}; s; }),
 			ctrl,
-			(is_dma_capable() && musb->pDmaController)
+			(is_dma_capable() && musb->dma_controller)
 				? "DMA" : "PIO",
 			musb->nIrq);
 
