@@ -484,31 +484,31 @@ static void ep0_rxstate(struct musb *this)
 static void ep0_txstate(struct musb *musb)
 {
 	void __iomem		*regs = musb->control_ep->regs;
-	struct usb_request	*pRequest = next_ep0_request(musb);
+	struct usb_request	*request = next_ep0_request(musb);
 	u16			wCsrVal = MGC_M_CSR0_TXPKTRDY;
 	u8			*pFifoSource;
 	u8			fifo_count;
 
-	if (!pRequest) {
+	if (!request) {
 		// WARN_ON(1);
 		DBG(2, "odd; csr0 %04x\n", musb_readw(regs, MGC_O_HDRC_CSR0));
 		return;
 	}
 
 	/* load the data */
-	pFifoSource = (u8 *) pRequest->buf + pRequest->actual;
+	pFifoSource = (u8 *) request->buf + request->actual;
 	fifo_count = min((unsigned) MGC_END0_FIFOSIZE,
-		pRequest->length - pRequest->actual);
+		request->length - request->actual);
 	musb_write_fifo(&musb->endpoints[0], fifo_count, pFifoSource);
-	pRequest->actual += fifo_count;
+	request->actual += fifo_count;
 
 	/* update the flags */
 	if (fifo_count < MUSB_MAX_END0_PACKET
-			|| pRequest->actual == pRequest->length) {
+			|| request->actual == request->length) {
 		musb->ep0_state = MGC_END0_STAGE_STATUSOUT;
 		wCsrVal |= MGC_M_CSR0_P_DATAEND;
 	} else
-		pRequest = NULL;
+		request = NULL;
 
 	/* send it out, triggering a "txpktrdy cleared" irq */
 	musb_writew(regs, MGC_O_HDRC_CSR0, wCsrVal);
@@ -518,8 +518,8 @@ static void ep0_txstate(struct musb *musb)
 	 * very precise fault reporting, needed by USB TMC; possible with
 	 * this hardware, but not usable from portable gadget drivers.)
 	 */
-	if (pRequest)
-		musb_g_ep0_giveback(musb, pRequest);
+	if (request)
+		musb_g_ep0_giveback(musb, request);
 }
 
 /*

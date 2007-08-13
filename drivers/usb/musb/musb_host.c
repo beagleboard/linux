@@ -950,7 +950,7 @@ static int musb_h_ep0_continue(struct musb *musb,
 	u16 fifo_count = 0;
 	struct musb_hw_ep	*hw_ep = musb->control_ep;
 	struct musb_qh		*qh = hw_ep->in_qh;
-	struct usb_ctrlrequest	*pRequest;
+	struct usb_ctrlrequest	*request;
 
 	switch (musb->ep0_stage) {
 	case MGC_END0_IN:
@@ -972,12 +972,12 @@ static int musb_h_ep0_continue(struct musb *musb,
 			bMore = TRUE;
 		break;
 	case MGC_END0_START:
-		pRequest = (struct usb_ctrlrequest *) pUrb->setup_packet;
+		request = (struct usb_ctrlrequest *) pUrb->setup_packet;
 
-		if (!pRequest->wLength) {
+		if (!request->wLength) {
 			DBG(4, "start no-DATA\n");
 			break;
-		} else if (pRequest->bRequestType & USB_DIR_IN) {
+		} else if (request->bRequestType & USB_DIR_IN) {
 			DBG(4, "start IN-DATA\n");
 			musb->ep0_stage = MGC_END0_IN;
 			bMore = TRUE;
