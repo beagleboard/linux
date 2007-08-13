@@ -38,7 +38,7 @@ struct musb_request {
 	struct usb_request	request;
 	struct musb_ep		*ep;
 	struct musb		*musb;
-	u8 bTx;			/* endpoint direction */
+	u8 tx;			/* endpoint direction */
 	u8 epnum;
 	u8 mapped;
 };

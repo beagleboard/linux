@@ -123,7 +123,7 @@ __acquires(ep->musb->lock)
 			dma_unmap_single(musb->controller,
 					req->request.dma,
 					req->request.length,
-					req->bTx
+					req->tx
 						? DMA_TO_DEVICE
 						: DMA_FROM_DEVICE);
 			req->request.dma = DMA_ADDR_INVALID;
@@ -132,7 +132,7 @@ __acquires(ep->musb->lock)
 			dma_sync_single_for_cpu(musb->controller,
 					req->request.dma,
 					req->request.length,
-					req->bTx
+					req->tx
 						? DMA_TO_DEVICE
 						: DMA_FROM_DEVICE);
 	}
@@ -1083,11 +1083,11 @@ struct free_record {
 static void musb_ep_restart(struct musb *musb, struct musb_request *req)
 {
 	DBG(3, "<== %s request %p len %u on hw_ep%d\n",
-		req->bTx ? "TX/IN" : "RX/OUT",
+		req->tx ? "TX/IN" : "RX/OUT",
 		&req->request, req->request.length, req->epnum);
 
 	musb_ep_select(musb->mregs, req->epnum);
-	if (req->bTx)
+	if (req->tx)
 		txstate(musb, req);
 	else
 		rxstate(musb, req);
@@ -1122,7 +1122,7 @@ static int musb_gadget_queue(struct usb_ep *ep, struct usb_request *req,
 	request->request.actual = 0;
 	request->request.status = -EINPROGRESS;
 	request->epnum = musb_ep->current_epnum;
-	request->bTx = musb_ep->is_in;
+	request->tx = musb_ep->is_in;
 
 	if (is_dma_capable() && musb_ep->dma) {
 		if (request->request.dma == DMA_ADDR_INVALID) {
@@ -1130,7 +1130,7 @@ static int musb_gadget_queue(struct usb_ep *ep, struct usb_request *req,
 					musb->controller,
 					request->request.buf,
 					request->request.length,
-					request->bTx
+					request->tx
 						? DMA_TO_DEVICE
 						: DMA_FROM_DEVICE);
 			request->mapped = 1;
@@ -1138,7 +1138,7 @@ static int musb_gadget_queue(struct usb_ep *ep, struct usb_request *req,
 			dma_sync_single_for_device(musb->controller,
 					request->request.dma,
 					request->request.length,
-					request->bTx
+					request->tx
 						? DMA_TO_DEVICE
 						: DMA_FROM_DEVICE);
 			request->mapped = 0;

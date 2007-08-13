@@ -835,7 +835,7 @@ musb_g_ep0_queue(struct usb_ep *e, struct usb_request *r, gfp_t gfp_flags)
 	req->musb = musb;
 	req->request.actual = 0;
 	req->request.status = -EINPROGRESS;
-	req->bTx = ep->is_in;
+	req->tx = ep->is_in;
 
 	spin_lock_irqsave(&musb->lock, lockflags);
 
