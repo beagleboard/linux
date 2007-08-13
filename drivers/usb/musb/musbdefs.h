@@ -85,8 +85,8 @@ struct musb_ep;
 /* NOTE:  otg and peripheral-only state machines start at B_IDLE.
  * OTG or host-only go to A_IDLE when ID is sensed.
  */
-#define is_peripheral_active(m)		(!(m)->bIsHost)
-#define is_host_active(m)		((m)->bIsHost)
+#define is_peripheral_active(m)		(!(m)->is_host)
+#define is_host_active(m)		((m)->is_host)
 
 #else
 #define	is_peripheral_enabled(musb)	is_peripheral_capable()
@@ -237,14 +237,14 @@ enum musb_g_ep0_state {
 /****************************** FUNCTIONS ********************************/
 
 #define MUSB_HST_MODE(_musb)\
-	{ (_musb)->bIsHost=TRUE; }
+	{ (_musb)->is_host=TRUE; }
 #define MUSB_DEV_MODE(_musb) \
-	{ (_musb)->bIsHost=FALSE; }
+	{ (_musb)->is_host=FALSE; }
 
 #define test_devctl_hst_mode(_x) \
 	(musb_readb((_x)->mregs, MGC_O_HDRC_DEVCTL)&MGC_M_DEVCTL_HM)
 
-#define MUSB_MODE(musb) ((musb)->bIsHost ? "Host" : "Peripheral")
+#define MUSB_MODE(musb) ((musb)->is_host ? "Host" : "Peripheral")
 
 /************************** Ep Configuration ********************************/
 
@@ -416,7 +416,7 @@ struct musb {
 	unsigned		is_active:1;
 
 	unsigned bIsMultipoint:1;
-	unsigned bIsHost:1;
+	unsigned is_host:1;
 	unsigned bIgnoreDisconnect:1;	/* during bus resets */
 
 	int			a_wait_bcon;	/* VBUS timeout in msecs */
