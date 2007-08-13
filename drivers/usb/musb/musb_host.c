@@ -475,7 +475,7 @@ static u8 musb_host_packet_rx(struct musb *musb, struct urb *pUrb,
 	u8 bDone = FALSE;
 	u32			length;
 	int			do_flush = 0;
-	struct musb_hw_ep	*hw_ep = musb->aLocalEnd + bEnd;
+	struct musb_hw_ep	*hw_ep = musb->endpoints + bEnd;
 	void __iomem		*epio = hw_ep->regs;
 	struct musb_qh		*qh = hw_ep->in_qh;
 	int			nPipe = pUrb->pipe;
@@ -631,7 +631,7 @@ static void musb_ep_program(struct musb *musb, u8 bEnd,
 	struct dma_channel	*pDmaChannel;
 	u8			bDmaOk;
 	void __iomem		*mbase = musb->mregs;
-	struct musb_hw_ep	*hw_ep = musb->aLocalEnd + bEnd;
+	struct musb_hw_ep	*hw_ep = musb->endpoints + bEnd;
 	void __iomem		*epio = hw_ep->regs;
 	struct musb_qh		*qh;
 	u16			wPacketSize;
@@ -1170,7 +1170,7 @@ void musb_host_tx(struct musb *musb, u8 bEnd)
 	size_t			wLength = 0;
 	u8			*pBuffer = NULL;
 	struct urb		*pUrb;
-	struct musb_hw_ep	*hw_ep = musb->aLocalEnd + bEnd;
+	struct musb_hw_ep	*hw_ep = musb->endpoints + bEnd;
 	void __iomem		*epio = hw_ep->regs;
 	struct musb_qh		*qh = hw_ep->out_qh;
 	u32			status = 0;
@@ -1380,7 +1380,7 @@ finish:
 void musb_host_rx(struct musb *musb, u8 bEnd)
 {
 	struct urb		*pUrb;
-	struct musb_hw_ep	*hw_ep = musb->aLocalEnd + bEnd;
+	struct musb_hw_ep	*hw_ep = musb->endpoints + bEnd;
 	void __iomem		*epio = hw_ep->regs;
 	struct musb_qh		*qh = hw_ep->in_qh;
 	size_t			xfer_len;
@@ -1711,7 +1711,7 @@ static int musb_schedule(
 
 		if (musb->periodic[nEnd])
 			continue;
-		hw_ep = &musb->aLocalEnd[nEnd];
+		hw_ep = &musb->endpoints[nEnd];
 		if (hw_ep == musb->bulk_ep)
 			continue;
 
@@ -1729,7 +1729,7 @@ static int musb_schedule(
 		return -ENOSPC;
 
 	idle = 1;
-	hw_ep = musb->aLocalEnd + nBestEnd;
+	hw_ep = musb->endpoints + nBestEnd;
 	musb->periodic[nBestEnd] = qh;
 	DBG(4, "qh %p periodic slot %d\n", qh, nBestEnd);
 success:

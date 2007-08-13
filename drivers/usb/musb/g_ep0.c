@@ -41,8 +41,8 @@
 
 #include "musbdefs.h"
 
-/* ep0 is always musb->aLocalEnd[0].ep_in */
-#define	next_ep0_request(musb)	next_in_request(&(musb)->aLocalEnd[0])
+/* ep0 is always musb->endpoints[0].ep_in */
+#define	next_ep0_request(musb)	next_in_request(&(musb)->endpoints[0])
 
 /*
  * Locking note:  we use only the controller lock, for simpler correctness.
@@ -116,11 +116,11 @@ static int service_tx_status_request(
 		is_in = bEnd & USB_DIR_IN;
 		if (is_in) {
 			bEnd &= 0x0f;
-			ep = &musb->aLocalEnd[bEnd].ep_in;
+			ep = &musb->endpoints[bEnd].ep_in;
 		} else {
-			ep = &musb->aLocalEnd[bEnd].ep_out;
+			ep = &musb->endpoints[bEnd].ep_out;
 		}
-		regs = musb->aLocalEnd[bEnd].regs;
+		regs = musb->endpoints[bEnd].regs;
 
 		if (bEnd >= MUSB_C_NUM_EPS || !ep->desc) {
 			handled = -EINVAL;
@@ -151,7 +151,7 @@ static int service_tx_status_request(
 
 		if (len > 2)
 			len = 2;
-		musb_write_fifo(&musb->aLocalEnd[0], len, bResult);
+		musb_write_fifo(&musb->endpoints[0], len, bResult);
 	}
 
 	return handled;
@@ -197,7 +197,7 @@ service_in_request(struct musb *musb,
 static void musb_g_ep0_giveback(struct musb *musb, struct usb_request *req)
 {
 	musb->ep0_state = MGC_END0_STAGE_SETUP;
-	musb_g_giveback(&musb->aLocalEnd[0].ep_in, req, 0);
+	musb_g_giveback(&musb->endpoints[0].ep_in, req, 0);
 }
 
 /*
@@ -266,9 +266,9 @@ __acquires(musb->Lock)
 					break;
 
 				if (pControlRequest->wIndex & USB_DIR_IN)
-					musb_ep = &musb->aLocalEnd[bEnd].ep_in;
+					musb_ep = &musb->endpoints[bEnd].ep_in;
 				else
-					musb_ep = &musb->aLocalEnd[bEnd].ep_out;
+					musb_ep = &musb->endpoints[bEnd].ep_out;
 				if (!musb_ep->desc)
 					break;
 
@@ -378,7 +378,7 @@ stall:
 							!= USB_ENDPOINT_HALT)
 					break;
 
-				ep = musb->aLocalEnd + bEnd;
+				ep = musb->endpoints + bEnd;
 				regs = ep->regs;
 				is_in = pControlRequest->wIndex & USB_DIR_IN;
 				if (is_in)
@@ -454,7 +454,7 @@ static void ep0_rxstate(struct musb *this)
 			req->status = -EOVERFLOW;
 			tmp = len;
 		}
-		musb_read_fifo(&this->aLocalEnd[0], tmp, buf);
+		musb_read_fifo(&this->endpoints[0], tmp, buf);
 		req->actual += tmp;
 		tmp = MGC_M_CSR0_P_SVDRXPKTRDY;
 		if (tmp < 64 || req->actual == req->length) {
@@ -499,7 +499,7 @@ static void ep0_txstate(struct musb *musb)
 	pFifoSource = (u8 *) pRequest->buf + pRequest->actual;
 	fifo_count = min((unsigned) MGC_END0_FIFOSIZE,
 		pRequest->length - pRequest->actual);
-	musb_write_fifo(&musb->aLocalEnd[0], fifo_count, pFifoSource);
+	musb_write_fifo(&musb->endpoints[0], fifo_count, pFifoSource);
 	pRequest->actual += fifo_count;
 
 	/* update the flags */
@@ -534,7 +534,7 @@ musb_read_setup(struct musb *musb, struct usb_ctrlrequest *req)
 	struct usb_request	*r;
 	void __iomem		*regs = musb->control_ep->regs;
 
-	musb_read_fifo(&musb->aLocalEnd[0], sizeof *req, (u8 *)req);
+	musb_read_fifo(&musb->endpoints[0], sizeof *req, (u8 *)req);
 
 	/* NOTE:  earlier 2.6 versions changed setup packets to host
 	 * order, but now USB packets always stay in USB byte order.
@@ -601,7 +601,7 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 	u16		wCsrVal;
 	u16		len;
 	void __iomem	*mbase = musb->mregs;
-	void __iomem	*regs = musb->aLocalEnd[0].regs;
+	void __iomem	*regs = musb->endpoints[0].regs;
 	irqreturn_t	retval = IRQ_NONE;
 
 	MGC_SelectEnd(mbase, 0);	/* select ep0 */

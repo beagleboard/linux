@@ -282,7 +282,7 @@ struct musb_hw_ep {
 	void __iomem		*conf;
 #endif
 
-	/* index in musb->aLocalEnd[]  */
+	/* index in musb->endpoints[]  */
 	u8			epnum;
 
 	/* hardware configuration, possibly dynamic */
@@ -397,8 +397,8 @@ struct musb {
 
 	int nIrq;
 
-	struct musb_hw_ep	 aLocalEnd[MUSB_C_NUM_EPS];
-#define control_ep		aLocalEnd
+	struct musb_hw_ep	 endpoints[MUSB_C_NUM_EPS];
+#define control_ep		endpoints
 
 #define VBUSERR_RETRY_COUNT	3
 	u16			vbuserr_retry;

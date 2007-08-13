@@ -271,7 +271,7 @@ static const u8 musb_test_packet[53] = {
 
 void musb_load_testpacket(struct musb *musb)
 {
-	void __iomem	*regs = musb->aLocalEnd[0].regs;
+	void __iomem	*regs = musb->endpoints[0].regs;
 
 	MGC_SelectEnd(musb->mregs, 0);
 	musb_write_fifo(musb->control_ep,
@@ -670,7 +670,7 @@ static irqreturn_t musb_stage2_irq(struct musb * musb, u8 bIntrUSB,
 
 		/* start any periodic Tx transfers waiting for current frame */
 		wFrame = musb_readw(mbase, MGC_O_HDRC_FRAME);
-		ep = musb->aLocalEnd;
+		ep = musb->endpoints;
 		for (bEnd = 1; (bEnd < musb->bEndCount)
 					&& (musb->wEndMask >= (1 << bEnd));
 				bEnd++, ep++) {
@@ -1099,7 +1099,7 @@ static int __init ep_config_from_table(struct musb *musb)
 	const struct fifo_cfg	*cfg;
 	unsigned		i, n;
 	int			offset;
-	struct musb_hw_ep	*hw_ep = musb->aLocalEnd;
+	struct musb_hw_ep	*hw_ep = musb->endpoints;
 
 	switch (fifo_mode) {
 	default:
@@ -1188,7 +1188,7 @@ static int __init ep_config_from_hw(struct musb *musb)
 
 	for (bEnd = 1; bEnd < MUSB_C_NUM_EPS; bEnd++) {
 		MGC_SelectEnd(mbase, bEnd);
-		hw_ep = musb->aLocalEnd + bEnd;
+		hw_ep = musb->endpoints + bEnd;
 
 		/* read from core using indexed model */
 		reg = musb_readb(hw_ep->regs, 0x10 + MGC_O_HDRC_FIFOSIZE);
@@ -1334,8 +1334,8 @@ static int __init musb_core_init(u16 wType, struct musb *musb)
 			musb_driver_name, type, aRevision, aDate);
 
 	/* configure ep0 */
-	musb->aLocalEnd[0].wMaxPacketSizeTx = MGC_END0_FIFOSIZE;
-	musb->aLocalEnd[0].wMaxPacketSizeRx = MGC_END0_FIFOSIZE;
+	musb->endpoints[0].wMaxPacketSizeTx = MGC_END0_FIFOSIZE;
+	musb->endpoints[0].wMaxPacketSizeRx = MGC_END0_FIFOSIZE;
 
 	/* discover endpoint configuration */
 	musb->bEndCount = 1;
@@ -1362,7 +1362,7 @@ static int __init musb_core_init(u16 wType, struct musb *musb)
 
 	/* finish init, and print endpoint config */
 	for (i = 0; i < musb->bEndCount; i++) {
-		struct musb_hw_ep	*hw_ep = musb->aLocalEnd + i;
+		struct musb_hw_ep	*hw_ep = musb->endpoints + i;
 
 		hw_ep->fifo = MUSB_FIFO_OFFSET(i) + mbase;
 #ifdef CONFIG_USB_TUSB6010
@@ -1771,7 +1771,7 @@ allocate_instance(struct device *dev, void __iomem *mbase)
 	musb->mregs = mbase;
 	musb->ctrl_base = mbase;
 	musb->nIrq = -ENODEV;
-	for (epnum = 0, ep = musb->aLocalEnd;
+	for (epnum = 0, ep = musb->endpoints;
 			epnum < MUSB_C_NUM_EPS;
 			epnum++, ep++) {
 

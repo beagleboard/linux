@@ -237,7 +237,7 @@ dump_end_info(struct musb *musb, u8 bEnd, char *aBuffer, unsigned max)
 {
 	int			code = 0;
 	char			*buf = aBuffer;
-	struct musb_hw_ep	*hw_ep = &musb->aLocalEnd[bEnd];
+	struct musb_hw_ep	*hw_ep = &musb->endpoints[bEnd];
 
 	do {
 		MGC_SelectEnd(musb->mregs, bEnd);

@@ -159,7 +159,7 @@ __acquires(ep->musb->Lock)
 static void nuke(struct musb_ep *ep, const int status)
 {
 	struct musb_request	*req = NULL;
-	void __iomem *epio = ep->musb->aLocalEnd[ep->bEndNumber].regs;
+	void __iomem *epio = ep->musb->endpoints[ep->bEndNumber].regs;
 
 	ep->busy = 1;
 
@@ -254,7 +254,7 @@ static void txstate(struct musb *musb, struct musb_request *req)
 {
 	u8			bEnd = req->bEnd;
 	struct musb_ep		*musb_ep;
-	void __iomem		*epio = musb->aLocalEnd[bEnd].regs;
+	void __iomem		*epio = musb->endpoints[bEnd].regs;
 	struct usb_request	*pRequest;
 	u16			fifo_count = 0, wCsrVal;
 	int			use_dma = 0;
@@ -407,8 +407,8 @@ void musb_g_tx(struct musb *musb, u8 bEnd)
 	u16			wCsrVal;
 	struct usb_request	*pRequest;
 	u8 __iomem		*mbase = musb->mregs;
-	struct musb_ep		*musb_ep = &musb->aLocalEnd[bEnd].ep_in;
-	void __iomem		*epio = musb->aLocalEnd[bEnd].regs;
+	struct musb_ep		*musb_ep = &musb->endpoints[bEnd].ep_in;
+	void __iomem		*epio = musb->endpoints[bEnd].regs;
 	struct dma_channel	*dma;
 
 	MGC_SelectEnd(mbase, bEnd);
@@ -575,8 +575,8 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 	u16			wCsrVal = 0;
 	const u8		bEnd = req->bEnd;
 	struct usb_request	*pRequest = &req->request;
-	struct musb_ep		*musb_ep = &musb->aLocalEnd[bEnd].ep_out;
-	void __iomem		*epio = musb->aLocalEnd[bEnd].regs;
+	struct musb_ep		*musb_ep = &musb->endpoints[bEnd].ep_out;
+	void __iomem		*epio = musb->endpoints[bEnd].regs;
 	u16			fifo_count = 0;
 	u16			len = musb_ep->wPacketSize;
 
@@ -737,8 +737,8 @@ void musb_g_rx(struct musb *musb, u8 bEnd)
 	u16			wCsrVal;
 	struct usb_request	*pRequest;
 	void __iomem		*mbase = musb->mregs;
-	struct musb_ep		*musb_ep = &musb->aLocalEnd[bEnd].ep_out;
-	void __iomem		*epio = musb->aLocalEnd[bEnd].regs;
+	struct musb_ep		*musb_ep = &musb->endpoints[bEnd].ep_out;
+	void __iomem		*epio = musb->endpoints[bEnd].regs;
 	struct dma_channel	*dma;
 
 	MGC_SelectEnd(mbase, bEnd);
@@ -1007,7 +1007,7 @@ static int musb_gadget_disable(struct usb_ep *ep)
 	musb_ep = to_musb_ep(ep);
 	musb = musb_ep->musb;
 	bEnd = musb_ep->bEndNumber;
-	epio = musb->aLocalEnd[bEnd].regs;
+	epio = musb->endpoints[bEnd].regs;
 
 	spin_lock_irqsave(&musb->Lock, flags);
 	MGC_SelectEnd(musb->mregs, bEnd);
@@ -1231,7 +1231,7 @@ int musb_gadget_set_halt(struct usb_ep *ep, int value)
 	struct musb_ep		*musb_ep = to_musb_ep(ep);
 	u8			bEnd = musb_ep->bEndNumber;
 	struct musb		*musb = musb_ep->musb;
-	void __iomem		*epio = musb->aLocalEnd[bEnd].regs;
+	void __iomem		*epio = musb->endpoints[bEnd].regs;
 	void __iomem		*mbase;
 	unsigned long		flags;
 	u16			wCsr;
@@ -1331,7 +1331,7 @@ static void musb_gadget_fifo_flush(struct usb_ep *ep)
 	struct musb_ep	*musb_ep = to_musb_ep(ep);
 	struct musb	*musb = musb_ep->musb;
 	u8		nEnd = musb_ep->bEndNumber;
-	void __iomem	*epio = musb->aLocalEnd[nEnd].regs;
+	void __iomem	*epio = musb->endpoints[nEnd].regs;
 	void __iomem	*mbase;
 	unsigned long	flags;
 	u16		wCsr, wIntrTxE;
@@ -1557,7 +1557,7 @@ static void musb_gadget_release(struct device *dev)
 static void __init
 init_peripheral_ep(struct musb *musb, struct musb_ep *ep, u8 bEnd, int is_in)
 {
-	struct musb_hw_ep	*hw_ep = musb->aLocalEnd + bEnd;
+	struct musb_hw_ep	*hw_ep = musb->endpoints + bEnd;
 
 	memset(ep, 0, sizeof *ep);
 
@@ -1600,7 +1600,7 @@ static inline void __init musb_g_init_endpoints(struct musb *musb)
 	/* intialize endpoint list just once */
 	INIT_LIST_HEAD(&(musb->g.ep_list));
 
-	for (bEnd = 0, hw_ep = musb->aLocalEnd;
+	for (bEnd = 0, hw_ep = musb->endpoints;
 			bEnd < musb->bEndCount;
 			bEnd++, hw_ep++) {
 		if (hw_ep->bIsSharedFifo /* || !bEnd */) {
@@ -1796,7 +1796,7 @@ stop_activity(struct musb *musb, struct usb_gadget_driver *driver)
 	 * then report disconnect
 	 */
 	if (driver) {
-		for (i = 0, hw_ep = musb->aLocalEnd;
+		for (i = 0, hw_ep = musb->endpoints;
 				i < musb->bEndCount;
 				i++, hw_ep++) {
 			MGC_SelectEnd(musb->mregs, i);
