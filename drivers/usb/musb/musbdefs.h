@@ -397,7 +397,7 @@ struct musb {
 
 	unsigned is_multipoint:1;
 	unsigned is_host:1;
-	unsigned bIgnoreDisconnect:1;	/* during bus resets */
+	unsigned ignore_disconnect:1;	/* during bus resets */
 
 	int			a_wait_bcon;	/* VBUS timeout in msecs */
 	unsigned long		idle_timeout;	/* Next timeout in jiffies */

@@ -145,7 +145,7 @@ static void musb_port_reset(struct musb *musb, u8 bReset)
 			msleep(1);
 		}
 
-		musb->bIgnoreDisconnect = TRUE;
+		musb->ignore_disconnect = TRUE;
 		power &= 0xf0;
 		musb_writeb(mbase, MGC_O_HDRC_POWER,
 				power | MGC_M_POWER_RESET);
@@ -158,7 +158,7 @@ static void musb_port_reset(struct musb *musb, u8 bReset)
 		musb_writeb(mbase, MGC_O_HDRC_POWER,
 				power & ~MGC_M_POWER_RESET);
 
-		musb->bIgnoreDisconnect = FALSE;
+		musb->ignore_disconnect = FALSE;
 
 		power = musb_readb(mbase, MGC_O_HDRC_POWER);
 		if (power & MGC_M_POWER_HSMODE) {

@@ -690,7 +690,7 @@ static irqreturn_t musb_stage2_irq(struct musb * musb, u8 bIntrUSB,
 	}
 #endif
 
-	if ((bIntrUSB & MGC_M_INTR_DISCONNECT) && !musb->bIgnoreDisconnect) {
+	if ((bIntrUSB & MGC_M_INTR_DISCONNECT) && !musb->ignore_disconnect) {
 		DBG(1, "DISCONNECT (%s) as %s, devctl %02x\n",
 				otg_state_string(musb),
 				MUSB_MODE(musb), devctl);
