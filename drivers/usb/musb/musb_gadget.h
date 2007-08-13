@@ -67,7 +67,7 @@ struct musb_ep {
 	/* ... when enabled/disabled ... */
 	u8				type;
 	u8				is_in;
-	u16				wPacketSize;
+	u16				packet_sz;
 	const struct usb_endpoint_descriptor	*desc;
 	struct dma_channel		*dma;
 

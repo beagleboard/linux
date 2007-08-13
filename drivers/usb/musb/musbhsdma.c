@@ -171,7 +171,7 @@ static void dma_channel_release(struct dma_channel *pChannel)
 }
 
 static void configure_channel(struct dma_channel *pChannel,
-				u16 wPacketSize, u8 mode,
+				u16 packet_sz, u8 mode,
 				dma_addr_t dma_addr, u32 dwLength)
 {
 	struct musb_dma_channel *pImplChannel =
@@ -182,20 +182,20 @@ static void configure_channel(struct dma_channel *pChannel,
 	u16 wCsr = 0;
 
 	DBG(4, "%p, pkt_sz %d, addr 0x%x, len %d, mode %d\n",
-	    pChannel, wPacketSize, dma_addr, dwLength, mode);
+	    pChannel, packet_sz, dma_addr, dwLength, mode);
 
 	if (mode) {
 		wCsr |= 1 << MGC_S_HSDMA_MODE1;
-		if (dwLength < wPacketSize) {
+		if (dwLength < packet_sz) {
 			return FALSE;
 		}
-		if (wPacketSize >= 64) {
+		if (packet_sz >= 64) {
 			wCsr |=
 			    MGC_HSDMA_BURSTMODE_INCR16 << MGC_S_HSDMA_BURSTMODE;
-		} else if (wPacketSize >= 32) {
+		} else if (packet_sz >= 32) {
 			wCsr |=
 			    MGC_HSDMA_BURSTMODE_INCR8 << MGC_S_HSDMA_BURSTMODE;
-		} else if (wPacketSize >= 16) {
+		} else if (packet_sz >= 16) {
 			wCsr |=
 			    MGC_HSDMA_BURSTMODE_INCR4 << MGC_S_HSDMA_BURSTMODE;
 		}
@@ -221,7 +221,7 @@ static void configure_channel(struct dma_channel *pChannel,
 }
 
 static int dma_channel_program(struct dma_channel * pChannel,
-				u16 wPacketSize, u8 mode,
+				u16 packet_sz, u8 mode,
 				dma_addr_t dma_addr, u32 dwLength)
 {
 	struct musb_dma_channel *pImplChannel =
@@ -230,7 +230,7 @@ static int dma_channel_program(struct dma_channel * pChannel,
 	DBG(2, "ep%d-%s pkt_sz %d, dma_addr 0x%x length %d, mode %d\n",
 		pImplChannel->epnum,
 		pImplChannel->bTransmit ? "Tx" : "Rx",
-		wPacketSize, dma_addr, dwLength, mode);
+		packet_sz, dma_addr, dwLength, mode);
 
 	BUG_ON(pChannel->status == MGC_DMA_STATUS_UNKNOWN ||
 		pChannel->status == MGC_DMA_STATUS_BUSY);
@@ -238,14 +238,14 @@ static int dma_channel_program(struct dma_channel * pChannel,
 	pChannel->actual_len = 0;
 	pImplChannel->dwStartAddress = dma_addr;
 	pImplChannel->len = dwLength;
-	pImplChannel->wMaxPacketSize = wPacketSize;
+	pImplChannel->wMaxPacketSize = packet_sz;
 	pChannel->status = MGC_DMA_STATUS_BUSY;
 
-	if ((mode == 1) && (dwLength >= wPacketSize)) {
-		configure_channel(pChannel, wPacketSize, 1, dma_addr,
+	if ((mode == 1) && (dwLength >= packet_sz)) {
+		configure_channel(pChannel, packet_sz, 1, dma_addr,
 				  dwLength);
 	} else
-		configure_channel(pChannel, wPacketSize, 0, dma_addr,
+		configure_channel(pChannel, packet_sz, 0, dma_addr,
 				  dwLength);
 
 	return TRUE;

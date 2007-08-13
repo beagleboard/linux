@@ -634,14 +634,14 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 	struct musb_hw_ep	*hw_ep = musb->endpoints + epnum;
 	void __iomem		*epio = hw_ep->regs;
 	struct musb_qh		*qh;
-	u16			wPacketSize;
+	u16			packet_sz;
 
 	if (!is_out || hw_ep->is_shared_fifo)
 		qh = hw_ep->in_qh;
 	else
 		qh = hw_ep->out_qh;
 
-	wPacketSize = qh->maxpacket;
+	packet_sz = qh->maxpacket;
 
 	DBG(3, "%s hw%d urb %p spd%d dev%d ep%d%s "
 				"h_addr%02x h_port%02x bytes %d\n",
@@ -739,12 +739,12 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 			musb_writeb(epio, MGC_O_HDRC_TXTYPE, qh->type_reg);
 			if (can_bulk_split(musb, qh->type))
 				musb_writew(epio, MGC_O_HDRC_TXMAXP,
-					wPacketSize
+					packet_sz
 					| ((hw_ep->max_packet_sz_tx /
-						wPacketSize) - 1) << 11);
+						packet_sz) - 1) << 11);
 			else
 				musb_writew(epio, MGC_O_HDRC_TXMAXP,
-					wPacketSize);
+					packet_sz);
 			musb_writeb(epio, MGC_O_HDRC_TXINTERVAL, qh->intv_reg);
 		} else {
 			musb_writeb(epio, MGC_O_HDRC_NAKLIMIT0, qh->intv_reg);
@@ -757,7 +757,7 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 			wLoadCount = min((u32) hw_ep->max_packet_sz_tx,
 						dwLength);
 		else
-			wLoadCount = min((u32) wPacketSize, dwLength);
+			wLoadCount = min((u32) packet_sz, dwLength);
 
 #ifdef CONFIG_USB_INVENTRA_DMA
 		if (pDmaChannel) {
@@ -773,7 +773,7 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 
 			qh->segsize = min(dwLength, pDmaChannel->max_len);
 
-			if (qh->segsize <= wPacketSize)
+			if (qh->segsize <= packet_sz)
 				pDmaChannel->desired_mode = 0;
 			else
 				pDmaChannel->desired_mode = 1;
@@ -792,7 +792,7 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 			musb_writew(epio, MGC_O_HDRC_TXCSR, wCsr);
 
 			bDmaOk = dma_controller->channel_program(
-					pDmaChannel, wPacketSize,
+					pDmaChannel, packet_sz,
 					pDmaChannel->desired_mode,
 					pUrb->transfer_dma,
 					qh->segsize);
@@ -831,7 +831,7 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 			 * to identify the zero-length-final-packet case.
 			 */
 			bDmaOk = dma_controller->channel_program(
-					pDmaChannel, wPacketSize,
+					pDmaChannel, packet_sz,
 					(pUrb->transfer_flags
 							& URB_ZERO_PACKET)
 						== URB_ZERO_PACKET,
@@ -916,7 +916,7 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 				 * errors, we dare not queue multiple transfers.
 				 */
 				bDmaOk = dma_controller->channel_program(
-						pDmaChannel, wPacketSize,
+						pDmaChannel, packet_sz,
 						!(pUrb->transfer_flags
 							& URB_SHORT_NOT_OK),
 						pUrb->transfer_dma,

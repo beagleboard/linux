@@ -205,7 +205,7 @@ static inline int max_ep_writesize(struct musb *musb, struct musb_ep *ep)
 	if (can_bulk_split(musb, ep->type))
 		return ep->hw_ep->max_packet_sz_tx;
 	else
-		return ep->wPacketSize;
+		return ep->packet_sz;
 }
 
 
@@ -287,7 +287,7 @@ static void txstate(struct musb *musb, struct musb_request *req)
 	}
 
 	DBG(4, "hw_ep%d, maxpacket %d, fifo count %d, txcsr %03x\n",
-			epnum, musb_ep->wPacketSize, fifo_count,
+			epnum, musb_ep->packet_sz, fifo_count,
 			csr);
 
 #ifndef	CONFIG_USB_INVENTRA_FIFO
@@ -305,13 +305,13 @@ static void txstate(struct musb *musb, struct musb_request *req)
 			/* setup DMA, then program endpoint CSR */
 			request_size = min(request->length,
 						musb_ep->dma->max_len);
-			if (request_size <= musb_ep->wPacketSize)
+			if (request_size <= musb_ep->packet_sz)
 				musb_ep->dma->desired_mode = 0;
 			else
 				musb_ep->dma->desired_mode = 1;
 
 			use_dma = use_dma && c->channel_program(
-					musb_ep->dma, musb_ep->wPacketSize,
+					musb_ep->dma, musb_ep->packet_sz,
 					musb_ep->dma->desired_mode,
 					request->dma, request_size);
 			if (use_dma) {
@@ -359,7 +359,7 @@ static void txstate(struct musb *musb, struct musb_request *req)
 		 * except for the last-packet-is-already-short case.
 		 */
 		use_dma = use_dma && c->channel_program(
-				musb_ep->dma, musb_ep->wPacketSize,
+				musb_ep->dma, musb_ep->packet_sz,
 				0,
 				request->dma,
 				request->length);
@@ -372,7 +372,7 @@ static void txstate(struct musb *musb, struct musb_request *req)
 		}
 #elif defined(CONFIG_USB_TUSB_OMAP_DMA)
 		use_dma = use_dma && c->channel_program(
-				musb_ep->dma, musb_ep->wPacketSize,
+				musb_ep->dma, musb_ep->packet_sz,
 				request->zero,
 				request->dma,
 				request->length);
@@ -483,13 +483,13 @@ void musb_g_tx(struct musb *musb, u8 epnum)
 				if ((request->zero
 						&& request->length
 						&& (request->length
-							% musb_ep->wPacketSize)
+							% musb_ep->packet_sz)
 							== 0)
 #ifdef CONFIG_USB_INVENTRA_DMA
 					|| (is_dma &&
 						((!dma->desired_mode) ||
 						    (request->actual &
-						    (musb_ep->wPacketSize - 1))))
+						    (musb_ep->packet_sz - 1))))
 #endif
 				) {
 					/* on dma completion, fifo may not
@@ -578,7 +578,7 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 	struct musb_ep		*musb_ep = &musb->endpoints[epnum].ep_out;
 	void __iomem		*epio = musb->endpoints[epnum].regs;
 	u16			fifo_count = 0;
-	u16			len = musb_ep->wPacketSize;
+	u16			len = musb_ep->packet_sz;
 
 	csr = musb_readw(epio, MGC_O_HDRC_RXCSR);
 
@@ -592,7 +592,7 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 		 * faults will be handled correctly.
 		 */
 		if (c->channel_program(channel,
-				musb_ep->wPacketSize,
+				musb_ep->packet_sz,
 				!request->short_not_ok,
 				request->dma + request->actual,
 				request->length - request->actual)) {
@@ -665,14 +665,14 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 #else
 					transfer_size = len;
 #endif
-					if (transfer_size <= musb_ep->wPacketSize)
+					if (transfer_size <= musb_ep->packet_sz)
 						musb_ep->dma->desired_mode = 0;
 					else
 						musb_ep->dma->desired_mode = 1;
 
 					use_dma = c->channel_program(
 							channel,
-							musb_ep->wPacketSize,
+							musb_ep->packet_sz,
 							channel->desired_mode,
 							request->dma
 							+ request->actual,
@@ -688,7 +688,7 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 			DBG(3, "%s OUT/RX pio fifo %d/%d, maxpacket %d\n",
 					musb_ep->end_point.name,
 					len, fifo_count,
-					musb_ep->wPacketSize);
+					musb_ep->packet_sz);
 
 			fifo_count = min(len, fifo_count);
 
@@ -700,7 +700,7 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 				int ret;
 
 				ret = c->channel_program(channel,
-						musb_ep->wPacketSize,
+						musb_ep->packet_sz,
 						channel->desired_mode,
 						dma_addr,
 						fifo_count);
@@ -725,7 +725,7 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 	}
 
 	/* reach the end or short packet detected */
-	if (request->actual == request->length || len < musb_ep->wPacketSize)
+	if (request->actual == request->length || len < musb_ep->packet_sz)
 		musb_g_giveback(musb_ep, request, 0);
 }
 
@@ -807,7 +807,7 @@ void musb_g_rx(struct musb *musb, u8 epnum)
 		/* Autoclear doesn't clear RxPktRdy for short packets */
 		if ((dma->desired_mode == 0)
 				|| (dma->actual_len
-					& (musb_ep->wPacketSize - 1))) {
+					& (musb_ep->packet_sz - 1))) {
 			/* ack the read! */
 			csr &= ~MGC_M_RXCSR_RXPKTRDY;
 			musb_writew(epio, MGC_O_HDRC_RXCSR, csr);
@@ -816,7 +816,7 @@ void musb_g_rx(struct musb *musb, u8 epnum)
 		/* incomplete, and not short? wait for next IN packet */
                 if ((request->actual < request->length)
 				&& (musb_ep->dma->actual_len
-					== musb_ep->wPacketSize))
+					== musb_ep->packet_sz))
 			goto done;
 #endif
 		musb_g_giveback(musb_ep, request, 0);
@@ -887,7 +887,7 @@ static int musb_gadget_enable(struct usb_ep *ep,
 	tmp = le16_to_cpu(desc->wMaxPacketSize);
 	if (tmp & ~0x07ff)
 		goto fail;
-	musb_ep->wPacketSize = tmp;
+	musb_ep->packet_sz = tmp;
 
 	/* enable the interrupts for the endpoint, set the endpoint
 	 * packet size (or fail), set the mode, clear the fifo
@@ -983,7 +983,7 @@ static int musb_gadget_enable(struct usb_ep *ep,
 			}; s; }),
 			musb_ep->is_in ? "IN" : "OUT",
 			musb_ep->dma ? "dma, " : "",
-			musb_ep->wPacketSize);
+			musb_ep->packet_sz);
 
 	schedule_work(&musb->irq_work);
 
