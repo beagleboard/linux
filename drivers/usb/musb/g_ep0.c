@@ -76,29 +76,29 @@ static int service_tx_status_request(
 {
 	void __iomem	*mbase = musb->mregs;
 	int handled = 1;
-	u8 bResult[2], epnum = 0;
+	u8 result[2], epnum = 0;
 	const u8 bRecip = ctrlrequest->bRequestType & USB_RECIP_MASK;
 
-	bResult[1] = 0;
+	result[1] = 0;
 
 	switch (bRecip) {
 	case USB_RECIP_DEVICE:
-		bResult[0] = musb->is_self_powered << USB_DEVICE_SELF_POWERED;
-		bResult[0] |= musb->may_wakeup << USB_DEVICE_REMOTE_WAKEUP;
+		result[0] = musb->is_self_powered << USB_DEVICE_SELF_POWERED;
+		result[0] |= musb->may_wakeup << USB_DEVICE_REMOTE_WAKEUP;
 #ifdef CONFIG_USB_MUSB_OTG
 		if (musb->g.is_otg) {
-			bResult[0] |= musb->g.b_hnp_enable
+			result[0] |= musb->g.b_hnp_enable
 				<< USB_DEVICE_B_HNP_ENABLE;
-			bResult[0] |= musb->g.a_alt_hnp_support
+			result[0] |= musb->g.a_alt_hnp_support
 				<< USB_DEVICE_A_ALT_HNP_SUPPORT;
-			bResult[0] |= musb->g.a_hnp_support
+			result[0] |= musb->g.a_hnp_support
 				<< USB_DEVICE_A_HNP_SUPPORT;
 		}
 #endif
 		break;
 
 	case USB_RECIP_INTERFACE:
-		bResult[0] = 0;
+		result[0] = 0;
 		break;
 
 	case USB_RECIP_ENDPOINT: {
@@ -109,7 +109,7 @@ static int service_tx_status_request(
 
 		epnum = (u8) ctrlrequest->wIndex;
 		if (!epnum) {
-			bResult[0] = 0;
+			result[0] = 0;
 			break;
 		}
 
@@ -136,7 +136,7 @@ static int service_tx_status_request(
 						& MGC_M_RXCSR_P_SENDSTALL;
 		musb_ep_select(mbase, 0);
 
-		bResult[0] = tmp ? 1 : 0;
+		result[0] = tmp ? 1 : 0;
 		} break;
 
 	default:
@@ -151,7 +151,7 @@ static int service_tx_status_request(
 
 		if (len > 2)
 			len = 2;
-		musb_write_fifo(&musb->endpoints[0], len, bResult);
+		musb_write_fifo(&musb->endpoints[0], len, result);
 	}
 
 	return handled;
