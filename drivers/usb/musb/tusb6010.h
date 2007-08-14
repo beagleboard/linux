@@ -216,9 +216,17 @@
 #define TUSB_PROD_TEST_RESET_VAL		0xa596
 #define TUSB_EP_FIFO(ep)			(TUSB_FIFO_BASE + (ep) * 0x20)
 
-#define TUSB_REV_1	0x10
-#define TUSB_REV_2	0x20
+#define TUSB_DIDR1_LO				0x1f8
+#define TUSB_DIDR1_HI				0x1fc
+#define		TUSB_DIDR1_HI_CHIP_REV(v)		(((v) >> 17) & 0x3)
+#define			TUSB_DIDR1_HI_REV_20		0
+#define			TUSB_DIDR1_HI_REV_30		1
+#define			TUSB_DIDR1_HI_REV_31		2
+
+#define TUSB_REV_10	0x10
+#define TUSB_REV_20	0x20
 #define TUSB_REV_30	0x30
+#define TUSB_REV_31	0x31
 
 /*----------------------------------------------------------------------------*/
 

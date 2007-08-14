@@ -27,6 +27,9 @@
 
 static void tusb_source_power(struct musb *musb, int is_on);
 
+#define TUSB_REV_MAJOR(reg_val)		((reg_val >> 4) & 0xf)
+#define TUSB_REV_MINOR(reg_val)		(reg_val & 0xf)
+
 /*
  * Checks the revision. We need to use the DMA register as 3.0 does not
  * have correct versions for TUSB_PRCM_REV or TUSB_INT_CTRL_REV.
@@ -34,18 +37,27 @@ static void tusb_source_power(struct musb *musb, int is_on);
 static u8 tusb_get_revision(struct musb *musb)
 {
 	void __iomem	*base = musb->ctrl_base;
+	u32		die_id;
+	u8		rev;
 
-	return musb_readl(base, TUSB_DMA_CTRL_REV) & 0xff;
+	rev = musb_readl(base, TUSB_DMA_CTRL_REV) & 0xff;
+	if (TUSB_REV_MAJOR(rev) == 3) {
+		die_id = TUSB_DIDR1_HI_CHIP_REV(musb_readl(base, TUSB_DIDR1_HI));
+		if (die_id == TUSB_DIDR1_HI_REV_31)
+			rev |= 1;
+	}
+
+	return rev;
 }
-
-#define TUSB_REV_MAJOR(reg_val)		((reg_val >> 4) & 0xf)
-#define TUSB_REV_MINOR(reg_val)		(reg_val & 0xf)
 
 static int __init tusb_print_revision(struct musb *musb)
 {
 	void __iomem	*base = musb->ctrl_base;
+	u8		rev;
 
-	pr_info("tusb: Revisions: %s%i.%i %s%i.%i %s%i.%i %s%i.%i\n",
+	rev = tusb_get_revision(musb);
+
+	pr_info("tusb: %s%i.%i %s%i.%i %s%i.%i %s%i.%i %s%i %s%i.%i\n",
 		"prcm",
 		TUSB_REV_MAJOR(musb_readl(base, TUSB_PRCM_REV)),
 		TUSB_REV_MINOR(musb_readl(base, TUSB_PRCM_REV)),
@@ -57,9 +69,13 @@ static int __init tusb_print_revision(struct musb *musb)
 		TUSB_REV_MINOR(musb_readl(base, TUSB_GPIO_REV)),
 		"dma",
 		TUSB_REV_MAJOR(musb_readl(base, TUSB_DMA_CTRL_REV)),
-		TUSB_REV_MINOR(musb_readl(base, TUSB_DMA_CTRL_REV)));
+		TUSB_REV_MINOR(musb_readl(base, TUSB_DMA_CTRL_REV)),
+		"dieid",
+		TUSB_DIDR1_HI_CHIP_REV(musb_readl(base, TUSB_DIDR1_HI)),
+		"rev",
+		TUSB_REV_MAJOR(rev), TUSB_REV_MINOR(rev));
 
-	return TUSB_REV_MAJOR(musb_readl(base, TUSB_INT_CTRL_REV));
+	return tusb_get_revision(musb);
 }
 
 #define WBUS_QUIRK_MASK	(TUSB_PHY_OTG_CTRL_TESTM2 | TUSB_PHY_OTG_CTRL_TESTM1	\
