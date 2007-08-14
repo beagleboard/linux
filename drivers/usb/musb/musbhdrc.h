@@ -61,7 +61,7 @@
 #define MGC_O_HDRC_INDEX        0x0E	/* 8 bit */
 #define MGC_O_HDRC_TESTMODE     0x0F	/* 8 bit */
 
-/* Get offset for a given FIFO from musb->pRegs */
+/* Get offset for a given FIFO from musb->mregs */
 #ifdef	CONFIG_USB_TUSB6010
 #define MUSB_FIFO_OFFSET(epnum)	(0x200 + ((epnum) * 0x20))
 #else
@@ -107,16 +107,16 @@
 #define MGC_O_HDRC_CONFIGDATA	MGC_O_HDRC_FIFOSIZE	/* re-used for EP0 */
 
 /* offsets to endpoint registers in indexed model (using INDEX register) */
-#define MGC_INDEXED_OFFSET(_bEnd, _bOffset)	\
+#define MGC_INDEXED_OFFSET(_epnum, _bOffset)	\
 	(0x10                   + (_bOffset))
 
 /* offsets to endpoint registers in flat models */
-#define MGC_FLAT_OFFSET(_bEnd, _bOffset)	\
-	(0x100 + (0x10*(_bEnd)) + (_bOffset))
+#define MGC_FLAT_OFFSET(_epnum, _bOffset)	\
+	(0x100 + (0x10*(_epnum)) + (_bOffset))
 
 #ifdef CONFIG_USB_TUSB6010
 /* TUSB6010 EP0 configuration register is special */
-#define MGC_TUSB_OFFSET(_bEnd, _bOffset)	\
+#define MGC_TUSB_OFFSET(_epnum, _bOffset)	\
 	(0x10 + _bOffset)
 #include "tusb6010.h"		/* needed "only" for TUSB_EP0_CONF */
 #endif
@@ -130,8 +130,8 @@
 #define MGC_O_HDRC_RXHUBADDR	0x06
 #define MGC_O_HDRC_RXHUBPORT	0x07
 
-#define MGC_BUSCTL_OFFSET(_bEnd, _bOffset) \
-	(0x80 + (8*(_bEnd)) + (_bOffset))
+#define MGC_BUSCTL_OFFSET(_epnum, _bOffset) \
+	(0x80 + (8*(_epnum)) + (_bOffset))
 
 /*
  *     MUSBHDRC Register bit masks

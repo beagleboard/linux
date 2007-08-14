@@ -100,23 +100,23 @@ struct dma_controller;
 
 /**
  * struct dma_channel - A DMA channel.
- * @pPrivateData: channel-private data
+ * @private_data: channel-private data
  * @wMaxLength: the maximum number of bytes the channel can move in one
  *	transaction (typically representing many USB maximum-sized packets)
- * @dwActualLength: how many bytes have been transferred
- * @bStatus: current channel status (updated e.g. on interrupt)
- * @bDesiredMode: TRUE if mode 1 is desired; FALSE if mode 0 is desired
+ * @actual_len: how many bytes have been transferred
+ * @status: current channel status (updated e.g. on interrupt)
+ * @desired_mode: TRUE if mode 1 is desired; FALSE if mode 0 is desired
  *
  * channels are associated with an endpoint for the duration of at least
  * one usb transfer.
  */
 struct dma_channel {
-	void			*pPrivateData;
+	void			*private_data;
 	// FIXME not void* private_data, but a dma_controller *
-	size_t			dwMaxLength;
-	size_t			dwActualLength;
-	enum dma_channel_status	bStatus;
-	u8			bDesiredMode;
+	size_t			max_len;
+	size_t			actual_len;
+	enum dma_channel_status	status;
+	u8			desired_mode;
 };
 
 /*
@@ -126,17 +126,17 @@ struct dma_channel {
  *
  * @channel: pointer to a channel obtained by channel_alloc
  * @maxpacket: the maximum packet size
- * @bMode: TRUE if mode 1; FALSE if mode 0
+ * @mode: TRUE if mode 1; FALSE if mode 0
  * @dma_addr: base address of data (in DMA space)
  * @length: the number of bytes to transfer; no larger than the channel's
- *	reported dwMaxLength
+ *	reported max_len
  *
  * Returns TRUE on success, else FALSE
  */
-typedef int (*MGC_pfDmaProgramChannel) (
+typedef int (*dma_program_channel) (
 		struct dma_channel	*channel,
 		u16			maxpacket,
-		u8			bMode,
+		u8			mode,
 		dma_addr_t		dma_addr,
 		u32			length);
 
@@ -151,12 +151,12 @@ typedef int (*MGC_pfDmaProgramChannel) (
 static inline enum dma_channel_status
 dma_channel_status(struct dma_channel *c)
 {
-	return (is_dma_capable() && c) ? c->bStatus : MGC_DMA_STATUS_UNKNOWN;
+	return (is_dma_capable() && c) ? c->status : MGC_DMA_STATUS_UNKNOWN;
 }
 
 /**
  * struct dma_controller - A DMA Controller.
- * @pPrivateData: controller-private data;
+ * @private_data: controller-private data;
  * @start: call this to start a DMA controller;
  *	return 0 on success, else negative errno
  * @stop: call this to stop a DMA controller
@@ -169,18 +169,18 @@ dma_channel_status(struct dma_channel *c)
  * Controllers manage dma channels.
  */
 struct dma_controller {
-	void			*pPrivateData;
+	void			*private_data;
 	int			(*start)(struct dma_controller *);
 	int			(*stop)(struct dma_controller *);
 	struct dma_channel	*(*channel_alloc)(struct dma_controller *,
 					struct musb_hw_ep *, u8 is_tx);
 	void			(*channel_release)(struct dma_channel *);
-	MGC_pfDmaProgramChannel	channel_program;
+	dma_program_channel	channel_program;
 	int			(*channel_abort)(struct dma_channel *);
 };
 
 /* called after channel_program(), may indicate a fault */
-extern void musb_dma_completion(struct musb *musb, u8 bLocalEnd, u8 bTransmit);
+extern void musb_dma_completion(struct musb *musb, u8 epnum, u8 bTransmit);
 
 
 extern struct dma_controller *__init

@@ -32,7 +32,7 @@
 #define dmareq_works()		1
 #endif
 
-#define to_chdat(c)		(struct tusb_omap_dma_ch *)(c)->pPrivateData
+#define to_chdat(c)		(struct tusb_omap_dma_ch *)(c)->private_data
 
 #define MAX_DMAREQ		5	/* REVISIT: Really 6, but req5 not OK */
 
@@ -145,11 +145,11 @@ static void tusb_omap_dma_cb(int lch, u16 ch_status, void *data)
 	struct musb		*musb = chdat->musb;
 	struct musb_hw_ep	*hw_ep = chdat->hw_ep;
 	void __iomem		*ep_conf = hw_ep->conf;
-	void __iomem		*musb_base = musb->pRegs;
+	void __iomem		*musb_base = musb->mregs;
 	unsigned long		remaining, flags, pio;
 	int			ch;
 
-	spin_lock_irqsave(&musb->Lock, flags);
+	spin_lock_irqsave(&musb->lock, flags);
 
 	if (dmareq_works())
 		ch = chdat->ch;
@@ -176,8 +176,8 @@ static void tusb_omap_dma_cb(int lch, u16 ch_status, void *data)
 		remaining = 0;
 	}
 
-	channel->dwActualLength = chdat->transfer_len - remaining;
-	pio = chdat->len - channel->dwActualLength;
+	channel->actual_len = chdat->transfer_len - remaining;
+	pio = chdat->len - channel->actual_len;
 
 	DBG(2, "DMA remaining %lu/%u\n", remaining, chdat->transfer_len);
 
@@ -196,13 +196,13 @@ static void tusb_omap_dma_cb(int lch, u16 ch_status, void *data)
 			consistent_sync(phys_to_virt((u32)chdat->dma_addr),
 					chdat->transfer_len, DMA_FROM_DEVICE);
 		}
-		channel->dwActualLength += pio;
+		channel->actual_len += pio;
 	}
 
 	if (!dmareq_works())
 		tusb_omap_free_shared_dmareq(chdat);
 
-	channel->bStatus = MGC_DMA_STATUS_FREE;
+	channel->status = MGC_DMA_STATUS_FREE;
 
 	/* Handle only RX callbacks here. TX callbacks musb be handled based
 	 * on the TUSB DMA status interrupt.
@@ -222,7 +222,7 @@ static void tusb_omap_dma_cb(int lch, u16 ch_status, void *data)
 
 		if (chdat->tx) {
 			DBG(2, "terminating short tx packet\n");
-			MGC_SelectEnd(musb_base, chdat->epnum);
+			musb_ep_select(musb_base, chdat->epnum);
 			csr = musb_readw(hw_ep->regs, MGC_O_HDRC_TXCSR);
 			csr |= MGC_M_TXCSR_MODE | MGC_M_TXCSR_TXPKTRDY
 				| MGC_M_TXCSR_P_WZC_BITS;
@@ -230,7 +230,7 @@ static void tusb_omap_dma_cb(int lch, u16 ch_status, void *data)
 		}
 	}
 
-	spin_unlock_irqrestore(&musb->Lock, flags);
+	spin_unlock_irqrestore(&musb->lock, flags);
 }
 
 static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,
@@ -240,7 +240,7 @@ static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,
 	struct tusb_omap_dma		*tusb_dma = chdat->tusb_dma;
 	struct musb			*musb = chdat->musb;
 	struct musb_hw_ep		*hw_ep = chdat->hw_ep;
-	void __iomem			*musb_base = musb->pRegs;
+	void __iomem			*musb_base = musb->mregs;
 	void __iomem			*ep_conf = hw_ep->conf;
 	dma_addr_t			fifo = hw_ep->fifo_sync;
 	struct omap_dma_channel_params	dma_params;
@@ -294,9 +294,9 @@ static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,
 
 	chdat->packet_sz = packet_sz;
 	chdat->len = len;
-	channel->dwActualLength = 0;
+	channel->actual_len = 0;
 	chdat->dma_addr = (void __iomem *)dma_addr;
-	channel->bStatus = MGC_DMA_STATUS_BUSY;
+	channel->status = MGC_DMA_STATUS_BUSY;
 
 	/* Since we're recycling dma areas, we need to clean or invalidate */
 	if (chdat->tx) {
@@ -375,14 +375,14 @@ static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,
 	 * Prepare MUSB for DMA transfer
 	 */
 	if (chdat->tx) {
-		MGC_SelectEnd(musb_base, chdat->epnum);
+		musb_ep_select(musb_base, chdat->epnum);
 		csr = musb_readw(hw_ep->regs, MGC_O_HDRC_TXCSR);
 		csr |= (MGC_M_TXCSR_AUTOSET | MGC_M_TXCSR_DMAENAB
 			| MGC_M_TXCSR_DMAMODE | MGC_M_TXCSR_MODE);
 		csr &= ~MGC_M_TXCSR_P_UNDERRUN;
 		musb_writew(hw_ep->regs, MGC_O_HDRC_TXCSR, csr);
 	} else {
-		MGC_SelectEnd(musb_base, chdat->epnum);
+		musb_ep_select(musb_base, chdat->epnum);
 		csr = musb_readw(hw_ep->regs, MGC_O_HDRC_RXCSR);
 		csr |= MGC_M_RXCSR_DMAENAB;
 		csr &= ~(MGC_M_RXCSR_AUTOCLEAR | MGC_M_RXCSR_DMAMODE);
@@ -430,7 +430,7 @@ static int tusb_omap_dma_abort(struct dma_channel *channel)
 		tusb_dma->sync_dev = -1;
 	}
 
-	channel->bStatus = MGC_DMA_STATUS_FREE;
+	channel->status = MGC_DMA_STATUS_FREE;
 
 	return 0;
 }
@@ -508,23 +508,23 @@ tusb_omap_dma_allocate(struct dma_controller *c,
 
 	reg = musb_readl(tusb_base, TUSB_DMA_INT_MASK);
 	if (tx)
-		reg &= ~(1 << hw_ep->bLocalEnd);
+		reg &= ~(1 << hw_ep->epnum);
 	else
-		reg &= ~(1 << (hw_ep->bLocalEnd + 15));
+		reg &= ~(1 << (hw_ep->epnum + 15));
 	musb_writel(tusb_base, TUSB_DMA_INT_MASK, reg);
 
 	/* REVISIT: Why does dmareq5 not work? */
-	if (hw_ep->bLocalEnd == 0) {
+	if (hw_ep->epnum == 0) {
 		DBG(3, "Not allowing DMA for ep0 %s\n", tx ? "tx" : "rx");
 		return NULL;
 	}
 
 	for (i = 0; i < MAX_DMAREQ; i++) {
 		struct dma_channel *ch = dma_channel_pool[i];
-		if (ch->bStatus == MGC_DMA_STATUS_UNKNOWN) {
-			ch->bStatus = MGC_DMA_STATUS_FREE;
+		if (ch->status == MGC_DMA_STATUS_UNKNOWN) {
+			ch->status = MGC_DMA_STATUS_FREE;
 			channel = ch;
-			chdat = ch->pPrivateData;
+			chdat = ch->private_data;
 			break;
 		}
 	}
@@ -543,14 +543,14 @@ tusb_omap_dma_allocate(struct dma_controller *c,
 	chdat->musb = tusb_dma->musb;
 	chdat->tusb_base = tusb_dma->tusb_base;
 	chdat->hw_ep = hw_ep;
-	chdat->epnum = hw_ep->bLocalEnd;
+	chdat->epnum = hw_ep->epnum;
 	chdat->dmareq = -1;
 	chdat->completed_len = 0;
 	chdat->tusb_dma = tusb_dma;
 
-	channel->dwMaxLength = 0x7fffffff;
-	channel->bDesiredMode = 0;
-	channel->dwActualLength = 0;
+	channel->max_len = 0x7fffffff;
+	channel->desired_mode = 0;
+	channel->actual_len = 0;
 
 	if (dmareq_works()) {
 		ret = tusb_omap_dma_allocate_dmareq(chdat);
@@ -589,7 +589,7 @@ free_dmareq:
 	tusb_omap_dma_free_dmareq(chdat);
 
 	DBG(3, "ep%i: Could not get a DMA channel\n", chdat->epnum);
-	channel->bStatus = MGC_DMA_STATUS_UNKNOWN;
+	channel->status = MGC_DMA_STATUS_UNKNOWN;
 
 	return NULL;
 }
@@ -617,7 +617,7 @@ static void tusb_omap_dma_release(struct dma_channel *channel)
 		reg |= (1 << (chdat->epnum + 15));
 	musb_writel(tusb_base, TUSB_DMA_INT_CLEAR, reg);
 
-	channel->bStatus = MGC_DMA_STATUS_UNKNOWN;
+	channel->status = MGC_DMA_STATUS_UNKNOWN;
 
 	if (chdat->ch >= 0) {
 		omap_stop_dma(chdat->ch);
@@ -640,8 +640,8 @@ void dma_controller_destroy(struct dma_controller *c)
 	for (i = 0; i < MAX_DMAREQ; i++) {
 		struct dma_channel *ch = dma_channel_pool[i];
 		if (ch) {
-			if (ch->pPrivateData)
-				kfree(ch->pPrivateData);
+			if (ch->private_data)
+				kfree(ch->private_data);
 			kfree(ch);
 		}
 	}
@@ -686,7 +686,7 @@ dma_controller_create(struct musb *musb, void __iomem *base)
 	tusb_dma->controller.channel_release = tusb_omap_dma_release;
 	tusb_dma->controller.channel_program = tusb_omap_dma_program;
 	tusb_dma->controller.channel_abort = tusb_omap_dma_abort;
-	tusb_dma->controller.pPrivateData = tusb_dma;
+	tusb_dma->controller.private_data = tusb_dma;
 
 	for (i = 0; i < MAX_DMAREQ; i++) {
 		struct dma_channel	*ch;
@@ -702,8 +702,8 @@ dma_controller_create(struct musb *musb, void __iomem *base)
 		if (!chdat)
 			goto cleanup;
 
-		ch->bStatus = MGC_DMA_STATUS_UNKNOWN;
-		ch->pPrivateData = chdat;
+		ch->status = MGC_DMA_STATUS_UNKNOWN;
+		ch->private_data = chdat;
 	}
 
 	return &tusb_dma->controller;

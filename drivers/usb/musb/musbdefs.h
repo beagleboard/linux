@@ -85,8 +85,8 @@ struct musb_ep;
 /* NOTE:  otg and peripheral-only state machines start at B_IDLE.
  * OTG or host-only go to A_IDLE when ID is sensed.
  */
-#define is_peripheral_active(m)		(!(m)->bIsHost)
-#define is_host_active(m)		((m)->bIsHost)
+#define is_peripheral_active(m)		(!(m)->is_host)
+#define is_host_active(m)		((m)->is_host)
 
 #else
 #define	is_peripheral_enabled(musb)	is_peripheral_capable()
@@ -218,53 +218,33 @@ enum musb_g_ep0_state {
 
 /* TUSB mapping: "flat" plus ep0 special cases */
 #if	defined(CONFIG_USB_TUSB6010)
-#define MGC_SelectEnd(_pBase, _bEnd) \
-	musb_writeb((_pBase), MGC_O_HDRC_INDEX, (_bEnd))
+#define musb_ep_select(_mbase, _epnum) \
+	musb_writeb((_mbase), MGC_O_HDRC_INDEX, (_epnum))
 #define	MGC_END_OFFSET			MGC_TUSB_OFFSET
 
 /* "flat" mapping: each endpoint has its own i/o address */
 #elif	defined(MUSB_FLAT_REG)
-#define MGC_SelectEnd(_pBase, _bEnd)	(((void)(_pBase)),((void)(_bEnd)))
+#define musb_ep_select(_mbase, _epnum)	(((void)(_mbase)),((void)(_epnum)))
 #define	MGC_END_OFFSET			MGC_FLAT_OFFSET
 
 /* "indexed" mapping: INDEX register controls register bank select */
 #else
-#define MGC_SelectEnd(_pBase, _bEnd) \
-	musb_writeb((_pBase), MGC_O_HDRC_INDEX, (_bEnd))
+#define musb_ep_select(_mbase, _epnum) \
+	musb_writeb((_mbase), MGC_O_HDRC_INDEX, (_epnum))
 #define	MGC_END_OFFSET			MGC_INDEXED_OFFSET
 #endif
 
 /****************************** FUNCTIONS ********************************/
 
-#define MUSB_HST_MODE(_pthis)\
-	{ (_pthis)->bIsHost=TRUE; }
-#define MUSB_DEV_MODE(_pthis) \
-	{ (_pthis)->bIsHost=FALSE; }
+#define MUSB_HST_MODE(_musb)\
+	{ (_musb)->is_host=TRUE; }
+#define MUSB_DEV_MODE(_musb) \
+	{ (_musb)->is_host=FALSE; }
 
 #define test_devctl_hst_mode(_x) \
-	(musb_readb((_x)->pRegs, MGC_O_HDRC_DEVCTL)&MGC_M_DEVCTL_HM)
+	(musb_readb((_x)->mregs, MGC_O_HDRC_DEVCTL)&MGC_M_DEVCTL_HM)
 
-#define MUSB_MODE(musb) ((musb)->bIsHost ? "Host" : "Peripheral")
-
-/************************** Ep Configuration ********************************/
-
-/** The End point descriptor */
-struct MUSB_EpFifoDescriptor {
-	u8 bType;		/* 0 for autoconfig, CNTR, ISOC, BULK, INTR */
-	u8 bDir;		/* 0 for autoconfig, INOUT, IN, OUT */
-	int wSize;		/* 0 for autoconfig, or the size */
-};
-
-#define MUSB_EPD_AUTOCONFIG	0
-
-#define MUSB_EPD_T_CNTRL	1
-#define MUSB_EPD_T_ISOC		2
-#define MUSB_EPD_T_BULK		3
-#define MUSB_EPD_T_INTR		4
-
-#define MUSB_EPD_D_INOUT	0
-#define MUSB_EPD_D_TX		1
-#define MUSB_EPD_D_RX		2
+#define MUSB_MODE(musb) ((musb)->is_host ? "Host" : "Peripheral")
 
 /******************************** TYPES *************************************/
 
@@ -282,15 +262,15 @@ struct musb_hw_ep {
 	void __iomem		*conf;
 #endif
 
-	/* index in musb->aLocalEnd[]  */
-	u8			bLocalEnd;
+	/* index in musb->endpoints[]  */
+	u8			epnum;
 
 	/* hardware configuration, possibly dynamic */
-	u8			bIsSharedFifo;
+	u8			is_shared_fifo;
 	u8			tx_double_buffered;
 	u8			rx_double_buffered;
-	u16			wMaxPacketSizeTx;
-	u16			wMaxPacketSizeRx;
+	u16			max_packet_sz_tx;
+	u16			max_packet_sz_rx;
 
 	struct dma_channel	*tx_channel;
 	struct dma_channel	*rx_channel;
@@ -342,7 +322,7 @@ static inline struct usb_request *next_out_request(struct musb_hw_ep *hw_ep)
  * struct musb - Driver instance data.
  */
 struct musb {
-	spinlock_t		Lock;
+	spinlock_t		lock;
 	struct clk		*clock;
 	irqreturn_t		(*isr)(int, void *);
 	struct work_struct	irq_work;
@@ -355,7 +335,7 @@ struct musb {
 	u32			port1_status;
 	unsigned long		rh_timer;
 
-	enum musb_h_ep0_state	bEnd0Stage;
+	enum musb_h_ep0_state	ep0_stage;
 
 	/* bulk traffic normally dedicates endpoint hardware, and each
 	 * direction has its own ring of host side endpoints.
@@ -376,11 +356,11 @@ struct musb {
 	 */
 	void			(*board_set_vbus)(struct musb *, int is_on);
 
-	struct dma_controller	*pDmaController;
+	struct dma_controller	*dma_controller;
 
 	struct device		*controller;
 	void __iomem		*ctrl_base;
-	void __iomem		*pRegs;
+	void __iomem		*mregs;
 
 #ifdef CONFIG_USB_TUSB6010
 	dma_addr_t		async;
@@ -397,13 +377,13 @@ struct musb {
 
 	int nIrq;
 
-	struct musb_hw_ep	 aLocalEnd[MUSB_C_NUM_EPS];
-#define control_ep		aLocalEnd
+	struct musb_hw_ep	 endpoints[MUSB_C_NUM_EPS];
+#define control_ep		endpoints
 
 #define VBUSERR_RETRY_COUNT	3
 	u16			vbuserr_retry;
 	u16 wEndMask;
-	u8 bEndCount;
+	u8 nr_endpoints;
 
 	u8 board_mode;		/* enum musb_mode */
 	int			(*board_set_power)(int state);
@@ -415,27 +395,27 @@ struct musb {
 	/* active means connected and not suspended */
 	unsigned		is_active:1;
 
-	unsigned bIsMultipoint:1;
-	unsigned bIsHost:1;
-	unsigned bIgnoreDisconnect:1;	/* during bus resets */
+	unsigned is_multipoint:1;
+	unsigned is_host:1;
+	unsigned ignore_disconnect:1;	/* during bus resets */
 
 	int			a_wait_bcon;	/* VBUS timeout in msecs */
 	unsigned long		idle_timeout;	/* Next timeout in jiffies */
 
 #ifdef C_MP_TX
-	unsigned bBulkSplit:1;
+	unsigned bulk_split:1;
 #define	can_bulk_split(musb,type) \
-		(((type) == USB_ENDPOINT_XFER_BULK) && (musb)->bBulkSplit)
+		(((type) == USB_ENDPOINT_XFER_BULK) && (musb)->bulk_split)
 #else
 #define	can_bulk_split(musb,type)	0
 #endif
 
 #ifdef C_MP_RX
-	unsigned bBulkCombine:1;
+	unsigned bulk_combine:1;
 	/* REVISIT allegedly doesn't work reliably */
 #if 0
 #define	can_bulk_combine(musb,type) \
-		(((type) == USB_ENDPOINT_XFER_BULK) && (musb)->bBulkCombine)
+		(((type) == USB_ENDPOINT_XFER_BULK) && (musb)->bulk_combine)
 #else
 #define	can_bulk_combine(musb,type)	0
 #endif
@@ -457,25 +437,25 @@ struct musb {
 	unsigned		is_self_powered:1;
 	unsigned		is_bus_powered:1;
 
-	unsigned bSetAddress:1;
-	unsigned bTestMode:1;
+	unsigned set_address:1;
+	unsigned test_mode:1;
 	unsigned softconnect:1;
 
 	enum musb_g_ep0_state	ep0_state;
-	u8			bAddress;
-	u8			bTestModeValue;
+	u8			address;
+	u8			test_mode_nr;
 	u16			ackpend;		/* ep0 */
 	struct usb_gadget	g;			/* the gadget */
-	struct usb_gadget_driver *pGadgetDriver;	/* its driver */
+	struct usb_gadget_driver *gadget_driver;	/* its driver */
 #endif
 
 #ifdef CONFIG_USB_MUSB_OTG
 	/* FIXME this can't be OTG-specific ... ? */
-	u8 bDelayPortPowerOff;
+	u8 delay_port_power_off;
 #endif
 
 #ifdef MUSB_CONFIG_PROC_FS
-	struct proc_dir_entry *pProcEntry;
+	struct proc_dir_entry *proc_entry;
 #endif
 };
 
@@ -496,13 +476,13 @@ static inline struct musb *gadget_to_musb(struct usb_gadget *g)
 
 extern const char musb_driver_name[];
 
-extern void musb_start(struct musb *pThis);
-extern void musb_stop(struct musb *pThis);
+extern void musb_start(struct musb *musb);
+extern void musb_stop(struct musb *musb);
 
 extern void musb_write_fifo(struct musb_hw_ep *ep,
-			     u16 wCount, const u8 * pSource);
+			     u16 len, const u8 * src);
 extern void musb_read_fifo(struct musb_hw_ep *ep,
-			       u16 wCount, u8 * pDest);
+			       u16 len, u8 * dst);
 
 extern void musb_load_testpacket(struct musb *);
 

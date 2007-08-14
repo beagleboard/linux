@@ -168,7 +168,7 @@ void musb_write_fifo(struct musb_hw_ep *hw_ep, u16 len, const u8 *buf)
 {
 	void __iomem	*ep_conf = hw_ep->conf;
 	void __iomem	*fifo = hw_ep->fifo;
-	u8		epnum = hw_ep->bLocalEnd;
+	u8		epnum = hw_ep->epnum;
 
 	prefetch(buf);
 
@@ -217,7 +217,7 @@ void musb_read_fifo(struct musb_hw_ep *hw_ep, u16 len, u8 *buf)
 {
 	void __iomem	*ep_conf = hw_ep->conf;
 	void __iomem	*fifo = hw_ep->fifo;
-	u8		epnum = hw_ep->bLocalEnd;
+	u8		epnum = hw_ep->epnum;
 
 	DBG(4, "%cX ep%d fifo %p count %d buf %p\n",
 			'R', epnum, fifo, len, buf);
@@ -410,7 +410,7 @@ static void musb_do_idle(unsigned long _musb)
 	struct musb	*musb = (void *)_musb;
 	unsigned long	flags;
 
-	spin_lock_irqsave(&musb->Lock, flags);
+	spin_lock_irqsave(&musb->lock, flags);
 
 	switch (musb->xceiv.state) {
 	case OTG_STATE_A_WAIT_BCON:
@@ -438,7 +438,7 @@ static void musb_do_idle(unsigned long _musb)
 #endif
 
 #ifdef CONFIG_USB_GADGET_MUSB_HDRC
-		if (is_peripheral_enabled(musb) && !musb->pGadgetDriver)
+		if (is_peripheral_enabled(musb) && !musb->gadget_driver)
 			wakeups = 0;
 		else {
 			wakeups = TUSB_PRCM_WHOSTDISCON
@@ -453,7 +453,7 @@ static void musb_do_idle(unsigned long _musb)
 		tusb_allow_idle(musb, wakeups);
 	}
 done:
-	spin_unlock_irqrestore(&musb->Lock, flags);
+	spin_unlock_irqrestore(&musb->lock, flags);
 }
 
 /*
@@ -520,7 +520,7 @@ static void tusb_source_power(struct musb *musb, int is_on)
 
 	prcm = musb_readl(base, TUSB_PRCM_MNGMT);
 	conf = musb_readl(base, TUSB_DEV_CONF);
-	devctl = musb_readb(musb->pRegs, MGC_O_HDRC_DEVCTL);
+	devctl = musb_readb(musb->mregs, MGC_O_HDRC_DEVCTL);
 
 	if (is_on) {
 		musb->is_active = 1;
@@ -551,11 +551,11 @@ static void tusb_source_power(struct musb *musb, int is_on)
 	musb_writel(base, TUSB_PRCM_MNGMT, prcm);
 	musb_writel(base, TUSB_DEV_OTG_TIMER, timer);
 	musb_writel(base, TUSB_DEV_CONF, conf);
-	musb_writeb(musb->pRegs, MGC_O_HDRC_DEVCTL, devctl);
+	musb_writeb(musb->mregs, MGC_O_HDRC_DEVCTL, devctl);
 
 	DBG(1, "VBUS %s, devctl %02x otg %3x conf %08x prcm %08x\n",
 		otg_state_string(musb),
-		musb_readb(musb->pRegs, MGC_O_HDRC_DEVCTL),
+		musb_readb(musb->mregs, MGC_O_HDRC_DEVCTL),
 		musb_readl(base, TUSB_DEV_OTG_STAT),
 		conf, prcm);
 }
@@ -695,10 +695,10 @@ tusb_otg_ints(struct musb *musb, u32 int_src, void __iomem *base)
 			switch (musb->xceiv.state) {
 			case OTG_STATE_A_IDLE:
 				DBG(2, "Got SRP, turning on VBUS\n");
-				devctl = musb_readb(musb->pRegs,
+				devctl = musb_readb(musb->mregs,
 							MGC_O_HDRC_DEVCTL);
 				devctl |= MGC_M_DEVCTL_SESSION;
-				musb_writeb(musb->pRegs, MGC_O_HDRC_DEVCTL,
+				musb_writeb(musb->mregs, MGC_O_HDRC_DEVCTL,
 							devctl);
 				musb->xceiv.state = OTG_STATE_A_WAIT_VRISE;
 
@@ -742,7 +742,7 @@ tusb_otg_ints(struct musb *musb, u32 int_src, void __iomem *base)
 			/* VBUS has probably been valid for a while now,
 			 * but may well have bounced out of range a bit
 			 */
-			devctl = musb_readb(musb->pRegs, MGC_O_HDRC_DEVCTL);
+			devctl = musb_readb(musb->mregs, MGC_O_HDRC_DEVCTL);
 			if (otg_stat & TUSB_DEV_OTG_STAT_VBUS_VALID) {
 				if ((devctl & MGC_M_DEVCTL_VBUS)
 						!= MGC_M_DEVCTL_VBUS) {
@@ -787,7 +787,7 @@ static irqreturn_t tusb_interrupt(int irq, void *__hci)
 	unsigned long	flags, idle_timeout = 0;
 	u32		int_mask, int_src;
 
-	spin_lock_irqsave(&musb->Lock, flags);
+	spin_lock_irqsave(&musb->lock, flags);
 
 	/* Mask all interrupts to allow using both edge and level GPIO irq */
 	int_mask = musb_readl(base, TUSB_INT_MASK);
@@ -885,7 +885,7 @@ static irqreturn_t tusb_interrupt(int irq, void *__hci)
 	musb_platform_try_idle(musb, idle_timeout);
 
 	musb_writel(base, TUSB_INT_MASK, int_mask);
-	spin_unlock_irqrestore(&musb->Lock, flags);
+	spin_unlock_irqrestore(&musb->lock, flags);
 
 	return IRQ_HANDLED;
 }
@@ -1007,7 +1007,7 @@ static int __init tusb_start(struct musb *musb)
 		return ret;
 	}
 
-	spin_lock_irqsave(&musb->Lock, flags);
+	spin_lock_irqsave(&musb->lock, flags);
 
 	if (musb_readl(base, TUSB_PROD_TEST_RESET) !=
 		TUSB_PROD_TEST_RESET_VAL) {
@@ -1049,12 +1049,12 @@ static int __init tusb_start(struct musb *musb)
 	reg |= TUSB_PHY_OTG_CTRL_WRPROTECT | TUSB_PHY_OTG_CTRL_OTG_ID_PULLUP;
 	musb_writel(base, TUSB_PHY_OTG_CTRL, reg);
 
-	spin_unlock_irqrestore(&musb->Lock, flags);
+	spin_unlock_irqrestore(&musb->lock, flags);
 
 	return 0;
 
 err:
-	spin_unlock_irqrestore(&musb->Lock, flags);
+	spin_unlock_irqrestore(&musb->lock, flags);
 
 	if (musb->board_set_power)
 		musb->board_set_power(0);
@@ -1093,7 +1093,7 @@ int __init musb_platform_init(struct musb *musb)
 	/* Offsets from base: VLYNQ at 0x000, MUSB regs at 0x400,
 	 * FIFOs at 0x600, TUSB at 0x800
 	 */
-	musb->pRegs += TUSB_BASE_OFFSET;
+	musb->mregs += TUSB_BASE_OFFSET;
 
 	ret = tusb_start(musb);
 	if (ret) {

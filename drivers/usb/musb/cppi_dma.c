@@ -99,10 +99,10 @@ static void __init cppi_pool_init(struct cppi *cppi, struct cppi_channel *c)
 	c->activeQueueHead = NULL;
 	c->activeQueueTail = NULL;
 	c->lastHwBDProcessed = NULL;
-	c->Channel.bStatus = MGC_DMA_STATUS_UNKNOWN;
+	c->Channel.status = MGC_DMA_STATUS_UNKNOWN;
 	c->pController = cppi;
 	c->bLastModeRndis = 0;
-	c->Channel.pPrivateData = c;
+	c->Channel.private_data = c;
 	c->bdPoolHead = NULL;
 
 	/* build the BD Free list for the channel */
@@ -124,7 +124,7 @@ static void cppi_pool_free(struct cppi_channel *c)
 	struct cppi_descriptor	*bd;
 
 	(void) cppi_channel_abort(&c->Channel);
-	c->Channel.bStatus = MGC_DMA_STATUS_UNKNOWN;
+	c->Channel.status = MGC_DMA_STATUS_UNKNOWN;
 	c->pController = NULL;
 
 	/* free all its bds */
@@ -289,7 +289,7 @@ cppi_channel_allocate(struct dma_controller *c,
 	u8			chNum;
 	struct cppi_channel	*otgCh;
 	void __iomem		*tibase;
-	int			local_end = ep->bLocalEnd;
+	int			local_end = ep->epnum;
 
 	pController = container_of(c, struct cppi, Controller);
 	tibase = pController->pCoreBase - DAVINCI_BASE_OFFSET;
@@ -318,14 +318,14 @@ cppi_channel_allocate(struct dma_controller *c,
 	/* REVISIT make this an error later once the same driver code works
 	 * with the Mentor DMA engine too
 	 */
-	if (otgCh->pEndPt)
+	if (otgCh->hw_ep)
 		DBG(1, "re-allocating DMA%d %cX channel %p\n",
 				chNum, bTransmit ? 'T' : 'R', otgCh);
-	otgCh->pEndPt = ep;
-	otgCh->Channel.bStatus = MGC_DMA_STATUS_FREE;
+	otgCh->hw_ep = ep;
+	otgCh->Channel.status = MGC_DMA_STATUS_FREE;
 
 	DBG(4, "Allocate CPPI%d %cX\n", chNum, bTransmit ? 'T' : 'R');
-	otgCh->Channel.pPrivateData = otgCh;
+	otgCh->Channel.private_data = otgCh;
 	return &otgCh->Channel;
 }
 
@@ -341,14 +341,14 @@ static void cppi_channel_release(struct dma_channel *channel)
 	c = container_of(channel, struct cppi_channel, Channel);
 	epnum = c->chNo + 1;
 	tibase = c->pController->pCoreBase - DAVINCI_BASE_OFFSET;
-	if (!c->pEndPt)
+	if (!c->hw_ep)
 		DBG(1, "releasing idle DMA channel %p\n", c);
 	else if (!c->bTransmit)
 		core_rxirq_enable(tibase, epnum);
 
 	/* for now, leave its cppi IRQ enabled (we won't trigger it) */
-	c->pEndPt = NULL;
-	channel->bStatus = MGC_DMA_STATUS_UNKNOWN;
+	c->hw_ep = NULL;
+	channel->status = MGC_DMA_STATUS_UNKNOWN;
 }
 
 /* Context: controller irqlocked */
@@ -357,7 +357,7 @@ cppi_dump_rx(int level, struct cppi_channel *c, const char *tag)
 {
 	void	*__iomem base = c->pController->pCoreBase;
 
-	MGC_SelectEnd(base, c->chNo + 1);
+	musb_ep_select(base, c->chNo + 1);
 
 	DBG(level, "RX DMA%d%s: %d left, csr %04x, "
 			"%08x H%08x S%08x C%08x, "
@@ -366,7 +366,7 @@ cppi_dump_rx(int level, struct cppi_channel *c, const char *tag)
 		c->chNo, tag,
 		musb_readl(base - DAVINCI_BASE_OFFSET,
 			DAVINCI_RXCPPI_BUFCNT0_REG + 4 *c->chNo),
-		musb_readw(c->pEndPt->regs, MGC_O_HDRC_RXCSR),
+		musb_readw(c->hw_ep->regs, MGC_O_HDRC_RXCSR),
 
 		musb_readl(c->stateRam, 0 * 4),	/* buf offset */
 		musb_readl(c->stateRam, 1 * 4),	/* head ptr */
@@ -386,14 +386,14 @@ cppi_dump_tx(int level, struct cppi_channel *c, const char *tag)
 {
 	void	*__iomem base = c->pController->pCoreBase;
 
-	MGC_SelectEnd(base, c->chNo + 1);
+	musb_ep_select(base, c->chNo + 1);
 
 	DBG(level, "TX DMA%d%s: csr %04x, "
 			"H%08x S%08x C%08x %08x, "
 			"F%08x L%08x .. %08x"
 			"\n",
 		c->chNo, tag,
-		musb_readw(c->pEndPt->regs, MGC_O_HDRC_TXCSR),
+		musb_readw(c->hw_ep->regs, MGC_O_HDRC_TXCSR),
 
 		musb_readl(c->stateRam, 0 * 4),	/* head ptr */
 		musb_readl(c->stateRam, 1 * 4),	/* sop bd */
@@ -498,7 +498,7 @@ static inline int cppi_autoreq_update(struct cppi_channel *rx,
 
 	/* REQPKT is turned off after each segment */
 	if (n_bds && rx->actualLen) {
-		void		*__iomem regs = rx->pEndPt->regs;
+		void		*__iomem regs = rx->hw_ep->regs;
 
 		val = musb_readw(regs, MGC_O_HDRC_RXCSR);
 		if (!(val & MGC_M_RXCSR_H_REQPKT)) {
@@ -953,11 +953,11 @@ static int cppi_channel_program(struct dma_channel *pChannel,
 		u16 wPacketSz, u8 mode,
 		dma_addr_t dma_addr, u32 dwLength)
 {
-	struct cppi_channel	*otgChannel = pChannel->pPrivateData;
+	struct cppi_channel	*otgChannel = pChannel->private_data;
 	struct cppi		*pController = otgChannel->pController;
 	struct musb		*musb = pController->musb;
 
-	switch (pChannel->bStatus) {
+	switch (pChannel->status) {
 	case MGC_DMA_STATUS_BUS_ABORT:
 	case MGC_DMA_STATUS_CORE_ABORT:
 		/* fault irq handler should have handled cleanup */
@@ -981,7 +981,7 @@ static int cppi_channel_program(struct dma_channel *pChannel,
 		break;
 	}
 
-	pChannel->bStatus = MGC_DMA_STATUS_BUSY;
+	pChannel->status = MGC_DMA_STATUS_BUSY;
 
 	/* set transfer parameters, then queue up its first segment */
 	otgChannel->startAddr = dma_addr;
@@ -1008,7 +1008,7 @@ static int cppi_rx_scan(struct cppi *cppi, unsigned ch)
 	int				completed = 0, acked = 0;
 	int				i;
 	dma_addr_t			safe2ack;
-	void				*__iomem regs = rx->pEndPt->regs;
+	void				*__iomem regs = rx->hw_ep->regs;
 
 	cppi_dump_rx(6, rx, "/K");
 
@@ -1094,7 +1094,7 @@ static int cppi_rx_scan(struct cppi *cppi, unsigned ch)
 			 */
 			WARN_ON(rx->activeQueueHead);
 		}
-		MGC_SelectEnd(cppi->pCoreBase, rx->chNo + 1);
+		musb_ep_select(cppi->pCoreBase, rx->chNo + 1);
 		csr = musb_readw(regs, MGC_O_HDRC_RXCSR);
 		if (csr & MGC_M_RXCSR_DMAENAB) {
 			DBG(4, "list%d %p/%p, last %08x%s, csr %04x\n",
@@ -1116,14 +1116,14 @@ static int cppi_rx_scan(struct cppi *cppi, unsigned ch)
 		/* REVISIT seems like "autoreq all but EOP" doesn't...
 		 * setting it here "should" be racey, but seems to work
 		 */
-		csr = musb_readw(rx->pEndPt->regs, MGC_O_HDRC_RXCSR);
+		csr = musb_readw(rx->hw_ep->regs, MGC_O_HDRC_RXCSR);
 		if (is_host_active(cppi->musb)
 				&& bd
 				&& !(csr & MGC_M_RXCSR_H_REQPKT)) {
 			csr |= MGC_M_RXCSR_H_REQPKT;
 			musb_writew(regs, MGC_O_HDRC_RXCSR,
 					MGC_M_RXCSR_H_WZC_BITS | csr);
-			csr = musb_readw(rx->pEndPt->regs, MGC_O_HDRC_RXCSR);
+			csr = musb_readw(rx->hw_ep->regs, MGC_O_HDRC_RXCSR);
 		}
 	} else {
 		rx->activeQueueHead = NULL;
@@ -1134,18 +1134,18 @@ static int cppi_rx_scan(struct cppi *cppi, unsigned ch)
 	return completed;
 }
 
-void cppi_completion(struct musb *pThis, u32 rx, u32 tx)
+void cppi_completion(struct musb *musb, u32 rx, u32 tx)
 {
 	void			*__iomem regBase;
 	int			i, chanNum, numCompleted;
 	u8			bReqComplete;
 	struct cppi		*cppi;
 	struct cppi_descriptor	*bdPtr;
-	struct musb_hw_ep	*pEnd = NULL;
+	struct musb_hw_ep	*hw_ep = NULL;
 
-	cppi = container_of(pThis->pDmaController, struct cppi, Controller);
+	cppi = container_of(musb->dma_controller, struct cppi, Controller);
 
-	regBase = pThis->ctrl_base;
+	regBase = musb->ctrl_base;
 
 	chanNum = 0;
 	/* process TX channels */
@@ -1224,12 +1224,12 @@ void cppi_completion(struct musb *pThis, u32 rx, u32 tx)
 						>= txChannel->transferSize) {
 					txChannel->activeQueueHead = NULL;
 					txChannel->activeQueueTail = NULL;
-					txChannel->Channel.bStatus =
+					txChannel->Channel.status =
 							MGC_DMA_STATUS_FREE;
 
-					pEnd = txChannel->pEndPt;
+					hw_ep = txChannel->hw_ep;
 
-					txChannel->Channel.dwActualLength =
+					txChannel->Channel.actual_len =
 						txChannel->actualLen;
 
 					/* Peripheral role never repurposes the
@@ -1245,7 +1245,7 @@ void cppi_completion(struct musb *pThis, u32 rx, u32 tx)
 						 */
 						int	csr;
 
-						csr = musb_readw(pEnd->regs,
+						csr = musb_readw(hw_ep->regs,
 							MGC_O_HDRC_TXCSR);
 						if (csr & MGC_M_TXCSR_TXPKTRDY)
 #endif
@@ -1253,13 +1253,13 @@ void cppi_completion(struct musb *pThis, u32 rx, u32 tx)
 					}
 					if (bReqComplete)
 						musb_dma_completion(
-							pThis, chanNum + 1, 1);
+							musb, chanNum + 1, 1);
 
 				} else {
 					/* Bigger transfer than we could fit in
 					 * that first batch of descriptors...
 					 */
-					cppi_next_tx_segment(pThis, txChannel);
+					cppi_next_tx_segment(musb, txChannel);
 				}
 			} else
 				txChannel->activeQueueHead = bdPtr;
@@ -1283,19 +1283,19 @@ void cppi_completion(struct musb *pThis, u32 rx, u32 tx)
 			if (rxChannel->actualLen != rxChannel->transferSize
 					&& rxChannel->actualLen
 						== rxChannel->currOffset) {
-				cppi_next_rx_segment(pThis, rxChannel, 1);
+				cppi_next_rx_segment(musb, rxChannel, 1);
 				continue;
 			}
 
 			/* all segments completed! */
-			rxChannel->Channel.bStatus = MGC_DMA_STATUS_FREE;
+			rxChannel->Channel.status = MGC_DMA_STATUS_FREE;
 
-			pEnd = rxChannel->pEndPt;
+			hw_ep = rxChannel->hw_ep;
 
-			rxChannel->Channel.dwActualLength =
+			rxChannel->Channel.actual_len =
 					rxChannel->actualLen;
 			core_rxirq_disable(regBase, chanNum + 1);
-			musb_dma_completion(pThis, chanNum + 1, 0);
+			musb_dma_completion(musb, chanNum + 1, 0);
 		}
 	}
 
@@ -1316,7 +1316,7 @@ dma_controller_create(struct musb *musb, void __iomem *pCoreBase)
 	/* Initialize the Cppi DmaController  structure */
 	pController->pCoreBase = pCoreBase;
 	pController->musb = musb;
-	pController->Controller.pPrivateData = pController;
+	pController->Controller.private_data = pController;
 	pController->Controller.start = cppi_controller_start;
 	pController->Controller.stop = cppi_controller_stop;
 	pController->Controller.channel_alloc = cppi_channel_allocate;
@@ -1375,13 +1375,13 @@ static int cppi_channel_abort(struct dma_channel *channel)
 	pController = otgCh->pController;
 	chNum = otgCh->chNo;
 
-	switch (channel->bStatus) {
+	switch (channel->status) {
 	case MGC_DMA_STATUS_BUS_ABORT:
 	case MGC_DMA_STATUS_CORE_ABORT:
 		/* from RX or TX fault irq handler */
 	case MGC_DMA_STATUS_BUSY:
 		/* the hardware needs shutting down */
-		regs = otgCh->pEndPt->regs;
+		regs = otgCh->hw_ep->regs;
 		break;
 	case MGC_DMA_STATUS_UNKNOWN:
 	case MGC_DMA_STATUS_FREE:
@@ -1404,7 +1404,7 @@ static int cppi_channel_abort(struct dma_channel *channel)
 	 * and caller should rely on us not changing it.
 	 * peripheral code is safe ... check host too.
 	 */
-	MGC_SelectEnd(mbase, chNum + 1);
+	musb_ep_select(mbase, chNum + 1);
 
 	if (otgCh->bTransmit) {
 		struct cppi_tx_stateram	*__iomem txState;
@@ -1515,7 +1515,7 @@ static int cppi_channel_abort(struct dma_channel *channel)
 		 * refers to an entire "DMA packet" not just emptying the
 		 * current fifo; most segments need multiple usb packets.
 		 */
-		if (channel->bStatus == MGC_DMA_STATUS_BUSY)
+		if (channel->status == MGC_DMA_STATUS_BUSY)
 			udelay(50);
 
 		/* scan the current list, reporting any data that was
@@ -1552,7 +1552,7 @@ static int cppi_channel_abort(struct dma_channel *channel)
 		}
 	}
 
-	channel->bStatus = MGC_DMA_STATUS_FREE;
+	channel->status = MGC_DMA_STATUS_FREE;
 	otgCh->startAddr = 0;
 	otgCh->currOffset = 0;
 	otgCh->transferSize = 0;
