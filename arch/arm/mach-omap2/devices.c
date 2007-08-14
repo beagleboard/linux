@@ -146,7 +146,7 @@ static inline void omap_init_sti(void)
 static inline void omap_init_sti(void) {}
 #endif
 
-#if defined(CONFIG_SPI_OMAP24XX)
+#if defined(CONFIG_SPI_OMAP24XX) || defined(CONFIG_SPI_OMAP24XX_MODULE)
 
 #include <asm/arch/mcspi.h>
 
