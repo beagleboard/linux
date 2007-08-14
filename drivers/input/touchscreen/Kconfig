@@ -193,12 +193,12 @@ config TOUCHSCREEN_TSC2102
 	  module will be called tsc2102_ts.
 
 config TOUCHSCREEN_TSC210X
-	tristate "TSC 2101/2102 based touchscreens"
+	tristate "TI TSC210x based touchscreens"
 	depends on SPI_MASTER
 	select SPI_TSC210X
 	help
 	  Say Y here if you have a touchscreen interface using a
-	  TI TSC 210x controller, and your board-specific initialisation
+	  TI TSC210x controller, and your board-specific initialisation
 	  code includes that in its table of SPI devices.
 
 	  If unsure, say N (but it's safe to say "Y").

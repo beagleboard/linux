@@ -24,15 +24,16 @@
 #define __LINUX_SPI_TSC210X_H
 
 struct apm_power_info;
+
 struct tsc210x_config {
 	int use_internal;	/* Use internal reference voltage */
-	uint32_t monitor;	/* What inputs are relevant */
+	u32 monitor;		/* What inputs are wired on this board */
 	int temp_at25c[2];	/* Thermometer calibration data */
 	void (*apm_report)(struct apm_power_info *info, int battery[]);
 				/* Report status to APM based on battery[] */
 	void *alsa_config;	/* .platform_data for the ALSA device */
-	const char *mclk;	/* Optional: bclk name */
-	const char *bclk;	/* Optional: mclk name */
+	const char *mclk;	/* Optional: mclk name */
+	const char *bclk;	/* Optional: bclk name */
 };
 
 #define TSC_BAT1	(1 << 0)
@@ -45,16 +46,25 @@ struct tsc210x_config {
 #define TSC_VBAT	TSC_BAT1
 
 struct tsc210x_dev;
-extern u16 tsc210x_read_sync(struct tsc210x_dev *dev, int page, u8 address);
-extern void tsc210x_reads_sync(struct tsc210x_dev *dev, int page,
+
+/* Drivers for tsc210x components like touchscreen, sensor, and audio
+ * are packaged as platform drivers which can issue synchronous register
+ * acceses, and may also register a callback to process their particular
+ * type of data when that data is automatically sampled.  The platform
+ * device is a child of the TSC spi device.
+ */
+
+extern int tsc210x_read_sync(struct tsc210x_dev *dev, int page, u8 address);
+extern int tsc210x_reads_sync(struct tsc210x_dev *dev, int page,
 		u8 startaddress, u16 *data, int numregs);
-extern void tsc210x_write_sync(struct tsc210x_dev *dev, int page,
+extern int tsc210x_write_sync(struct tsc210x_dev *dev, int page,
 		u8 address, u16 data);
 
 typedef void (*tsc210x_touch_t)(void *context, int touching);
 typedef void (*tsc210x_coords_t)(void *context, int x, int y, int z1, int z2);
 typedef void (*tsc210x_ports_t)(void *context, int bat[], int aux[]);
 typedef void (*tsc210x_temp_t)(void *context, int temp);
+
 extern int tsc210x_touch_cb(struct device *dev,
 		tsc210x_touch_t handler, void *context);
 extern int tsc210x_coords_cb(struct device *dev,
@@ -66,13 +76,10 @@ extern int tsc210x_temp1_cb(struct device *dev,
 extern int tsc210x_temp2_cb(struct device *dev,
 		tsc210x_temp_t handler, void *context);
 
-#ifdef CONFIG_SOUND
-extern void tsc210x_set_dac_volume(struct device *dev,
-		uint8_t left_ch, uint8_t right_ch);
-extern void tsc210x_set_dac_mute(struct device *dev,
-		int left_ch, int right_ch);
-extern void tsc210x_get_dac_mute(struct device *dev,
-		int *left_ch, int *right_ch);
+#if defined(CONFIG_SOUND) || defined(CONFIG_SOUND_MODULE)
+extern void tsc210x_set_dac_volume(struct device *dev, u8 left, u8 right);
+extern void tsc210x_set_dac_mute(struct device *dev, int left, int right);
+extern void tsc210x_get_dac_mute(struct device *dev, int *left, int *right);
 extern void tsc210x_dac_power(struct device *dev, int on);
 extern int tsc210x_set_rate(struct device *dev, int rate);
 extern void tsc210x_set_i2s_master(struct device *dev, int state);

@@ -685,11 +685,11 @@ config SENSORS_APPLESMC
 	  the awesome power of applesmc.
 
 config SENSORS_TSC210X
-	tristate "TI TSC2101/2102 battery & temperature sensors"
+	tristate "TI TSC210x battery & temperature sensors"
 	depends on HWMON && SPI_MASTER
 	select SPI_TSC210X
 	help
-	  Say Y if your board has a TSC210X chip and you want to
+	  Say Y if your board has a TSC210x chip and you want to
 	  have its battery state, auxiliary input and/or temperature
 	  sensors exported through hwmon.
 

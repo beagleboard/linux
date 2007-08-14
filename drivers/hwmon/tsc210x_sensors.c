@@ -1,7 +1,5 @@
 /*
- * drivers/hwmon/tsc210x_sensors.c
- *
- * hwmon interface for TSC210X sensors
+ * tsc210x_sensors.c - hwmon interface to TI TSC210x sensors
  *
  * Copyright (c) 2005-2007 Andrzej Zaborowski  <balrog@zabor.org>
  *
@@ -32,54 +30,92 @@
 
 #include <linux/spi/tsc210x.h>
 
+
+/*
+ * TI TSC210x chips include an ADC that's shared between various
+ * sensors (temperature, battery, vAUX, etc) and the touchscreen.
+ * This driver packages access to the non-touchscreen sensors
+ * available on a given board.
+ */
+
 struct tsc210x_hwmon {
 	int bat[2], aux[2], temp[2];
 
 	struct class_device *dev;
 	struct tsc210x_config *pdata;
 #ifdef CONFIG_APM
+	/* prevent APM from colliding with normal hwmon accessors */
 	spinlock_t apm_lock;
 #endif
 };
 
 #ifdef CONFIG_APM
-# define apm_lock()	spin_lock(&hwmon->apm_lock)
-# define apm_unlock()	spin_unlock(&hwmon->apm_lock)
+# define apm_lock(h)	spin_lock(&(h)->apm_lock)
+# define apm_unlock(h)	spin_unlock(&(h)->apm_lock)
 #else
-# define apm_lock()
-# define apm_unlock()
+# define apm_lock(h)	do { } while (0)
+# define apm_unlock(h)	do { } while (0)
 #endif
 
-static void tsc210x_ports(struct tsc210x_hwmon *hwmon, int bat[], int aux[])
+static void tsc210x_ports(void *context, int bat[], int aux[])
 {
-	apm_lock();
+	struct tsc210x_hwmon	*hwmon = context;
+
+	apm_lock(hwmon);
+
+	/* FIXME for tsc2101 and tsc2111, battery voltage is:
+	 *	VBAT = (5 * VREF * (bat[x])) / (2 ^ bits)
+	 * For tsc2100 and tsc2102, use "6" not "5"; that formula ignores
+	 * an external 100-300 Ohm resistor making the right value be just
+	 * a bit over 5 (or 6).
+	 *
+	 * FIXME the vAUX measurements need scaling too, but in that case
+	 * there's no *internal* voltage divider so just scale to VREF.
+	 *
+	 *  --> This code needs to know VREF, the VBAT multiplier, and
+	 *	the precision.  For now, assume VREF 1.25V and 12 bits.
+	 *	When an external reference is used, it normally won't
+	 *	match the 1.25V (or 2.5V) values supported internally...
+	 *
+	 *  --> Output units should become milliVolts; currently they are
+	 *	dimensionless...
+	 */
 	hwmon->bat[0] = bat[0];
 	hwmon->bat[1] = bat[1];
+
 	hwmon->aux[0] = aux[0];
 	hwmon->aux[1] = aux[1];
-	apm_unlock();
+
+	apm_unlock(hwmon);
 }
 
-static void tsc210x_temp1(struct tsc210x_hwmon *hwmon, int temp)
+/* FIXME temp sensors also need scaling so values are milliVolts...
+ * temperature (given calibration data) should be millidegrees C.
+ */
+
+static void tsc210x_temp1(void *context, int temp)
 {
-	apm_lock();
+	struct tsc210x_hwmon	*hwmon = context;
+
+	apm_lock(hwmon);
 	hwmon->temp[0] = temp;
-	apm_unlock();
+	apm_unlock(hwmon);
 }
 
-static void tsc210x_temp2(struct tsc210x_hwmon *hwmon, int temp)
+static void tsc210x_temp2(void *context, int temp)
 {
-	apm_lock();
+	struct tsc210x_hwmon	*hwmon = context;
+
+	apm_lock(hwmon);
 	hwmon->temp[1] = temp;
-	apm_unlock();
+	apm_unlock(hwmon);
 }
 
 #define TSC210X_INPUT(devname, field)	\
 static ssize_t tsc_show_ ## devname(struct device *dev,	\
 		struct device_attribute *devattr, char *buf)	\
 {	\
-	struct tsc210x_hwmon *hwmon = (struct tsc210x_hwmon *)	\
-		platform_get_drvdata(to_platform_device(dev));	\
+	struct tsc210x_hwmon *hwmon = dev_get_drvdata(dev);	\
 	return sprintf(buf, "%i\n", hwmon->field);	\
 }	\
 static DEVICE_ATTR(devname ## _input, S_IRUGO, tsc_show_ ## devname, NULL);
@@ -94,13 +130,11 @@ TSC210X_INPUT(in5, temp[1])
 static ssize_t tsc_show_temp1(struct device *dev,
 		struct device_attribute *devattr, char *buf)
 {
-	struct tsc210x_hwmon *hwmon = (struct tsc210x_hwmon *)
-		platform_get_drvdata(to_platform_device(dev));
-	int t1, t2;
-	int diff, value;
-
-	t1 = hwmon->temp[0];
-	t2 = hwmon->temp[1];
+	struct tsc210x_hwmon *hwmon = dev_get_drvdata(dev);
+	int t1 = hwmon->temp[0];
+	int t2 = hwmon->temp[1];
+	int diff;
+	int value;
 
 	/*
 	 * Use method #2 (differential) to calculate current temperature.
@@ -114,7 +148,6 @@ static ssize_t tsc_show_temp1(struct device *dev,
 	 * 273150 is zero degrees Celcius.
 	 */
 	diff = hwmon->pdata->temp_at25c[1] - hwmon->pdata->temp_at25c[0];
-	BUG_ON(diff == 0);
 	value = (t2 - t1) * 298150 / diff;	/* This is in Kelvins now */
 
 	value -= 273150;			/* Celcius millidegree */
@@ -128,9 +161,10 @@ static struct tsc210x_hwmon *apm_hwmon;
 static void tsc210x_get_power_status(struct apm_power_info *info)
 {
 	struct tsc210x_hwmon *hwmon = apm_hwmon;
-	apm_lock();
+
+	apm_lock(hwmon);
 	hwmon->pdata->apm_report(info, hwmon->bat);
-	apm_unlock();
+	apm_unlock(hwmon);
 }
 #endif
 
@@ -143,15 +177,14 @@ static int tsc210x_hwmon_probe(struct platform_device *pdev)
 	hwmon = (struct tsc210x_hwmon *)
 		kzalloc(sizeof(struct tsc210x_hwmon), GFP_KERNEL);
 	if (!hwmon) {
-		printk(KERN_ERR "%s: allocation failed\n", __FUNCTION__);
+		dev_dbg(&pdev->dev, "allocation failed\n");
 		return -ENOMEM;
 	}
 
 	hwmon->dev = hwmon_device_register(&pdev->dev);
 	if (IS_ERR(hwmon->dev)) {
 		kfree(hwmon);
-		printk(KERN_ERR "%s: Class registration failed\n",
-				__FUNCTION__);
+		dev_dbg(&pdev->dev, "registration failed\n");
 		return PTR_ERR(hwmon->dev);
 	}
 
@@ -170,19 +203,19 @@ static int tsc210x_hwmon_probe(struct platform_device *pdev)
 
 	if (pdata->monitor & (TSC_BAT1 | TSC_BAT2 | TSC_AUX1 | TSC_AUX2))
 		status |= tsc210x_ports_cb(pdev->dev.parent,
-				(tsc210x_ports_t) tsc210x_ports, hwmon);
+				tsc210x_ports, hwmon);
 	if (pdata->monitor & TSC_TEMP) {
 		status |= tsc210x_temp1_cb(pdev->dev.parent,
-				(tsc210x_temp_t) tsc210x_temp1, hwmon);
+				tsc210x_temp1, hwmon);
 		status |= tsc210x_temp2_cb(pdev->dev.parent,
-				(tsc210x_temp_t) tsc210x_temp2, hwmon);
+				tsc210x_temp2, hwmon);
 	}
 
 	if (status) {
-		tsc210x_ports_cb(pdev->dev.parent, 0, 0);
-		tsc210x_temp1_cb(pdev->dev.parent, 0, 0);
-		tsc210x_temp2_cb(pdev->dev.parent, 0, 0);
-		platform_set_drvdata(pdev, 0);
+		tsc210x_ports_cb(pdev->dev.parent, NULL, NULL);
+		tsc210x_temp1_cb(pdev->dev.parent, NULL, NULL);
+		tsc210x_temp2_cb(pdev->dev.parent, NULL, NULL);
+		platform_set_drvdata(pdev, NULL);
 #ifdef CONFIG_APM
 		if (pdata->apm_report)
 			apm_get_power_status = 0;
@@ -203,23 +236,28 @@ static int tsc210x_hwmon_probe(struct platform_device *pdev)
 	if (pdata->monitor & TSC_TEMP) {
 		status |= device_create_file(&pdev->dev, &dev_attr_in4_input);
 		status |= device_create_file(&pdev->dev, &dev_attr_in5_input);
-		status |= device_create_file(&pdev->dev, &dev_attr_temp1_input);
+
+		if ((pdata->temp_at25c[1] - pdata->temp_at25c[0]) == 0)
+			dev_warn(&pdev->dev, "No temp calibration data.\n");
+		else
+			status |= device_create_file(&pdev->dev,
+						&dev_attr_temp1_input);
 	}
 	if (status)	/* Not fatal */
-		printk(KERN_ERR "%s: Creating one or more "
-				"attribute files failed\n", __FUNCTION__);
+		dev_dbg(&pdev->dev, "Creating one or more "
+				"attribute files failed\n");
 
 	return 0;
 }
 
-static int tsc210x_hwmon_remove(struct platform_device *pdev)
+static int __exit tsc210x_hwmon_remove(struct platform_device *pdev)
 {
 	struct tsc210x_hwmon *dev = platform_get_drvdata(pdev);
 
-	tsc210x_ports_cb(pdev->dev.parent, 0, 0);
-	tsc210x_temp1_cb(pdev->dev.parent, 0, 0);
-	tsc210x_temp2_cb(pdev->dev.parent, 0, 0);
-	platform_set_drvdata(pdev, 0);
+	tsc210x_ports_cb(pdev->dev.parent, NULL, NULL);
+	tsc210x_temp1_cb(pdev->dev.parent, NULL, NULL);
+	tsc210x_temp2_cb(pdev->dev.parent, NULL, NULL);
+	platform_set_drvdata(pdev, NULL);
 #ifdef CONFIG_APM
 	if (dev->pdata->apm_report)
 		apm_get_power_status = 0;
@@ -230,8 +268,8 @@ static int tsc210x_hwmon_remove(struct platform_device *pdev)
 }
 
 static struct platform_driver tsc210x_hwmon_driver = {
-	.probe 		= tsc210x_hwmon_probe,
-	.remove 	= tsc210x_hwmon_remove,
+	.probe		= tsc210x_hwmon_probe,
+	.remove		= __exit_p(tsc210x_hwmon_remove),
 	/* Nothing to do on suspend/resume */
 	.driver		= {
 		.name	= "tsc210x-hwmon",
@@ -240,15 +278,17 @@ static struct platform_driver tsc210x_hwmon_driver = {
 
 static int __init tsc210x_hwmon_init(void)
 {
+	/* can't use driver_probe() here since the parent device
+	 * gets registered "late"
+	 */
 	return platform_driver_register(&tsc210x_hwmon_driver);
 }
+module_init(tsc210x_hwmon_init);
 
 static void __exit tsc210x_hwmon_exit(void)
 {
 	platform_driver_unregister(&tsc210x_hwmon_driver);
 }
-
-module_init(tsc210x_hwmon_init);
 module_exit(tsc210x_hwmon_exit);
 
 MODULE_AUTHOR("Andrzej Zaborowski");
