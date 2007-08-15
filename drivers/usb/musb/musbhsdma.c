@@ -50,8 +50,8 @@
 #define MGC_O_HSDMA_ADDRESS		0x8
 #define MGC_O_HSDMA_COUNT		0xc
 
-#define MGC_HSDMA_CHANNEL_OFFSET(_bChannel, _bOffset)		\
-		(MGC_O_HSDMA_BASE + (_bChannel << 4) + _bOffset)
+#define MGC_HSDMA_CHANNEL_OFFSET(_bChannel, _offset)		\
+		(MGC_O_HSDMA_BASE + (_bChannel << 4) + _offset)
 
 /* control register (16-bit): */
 #define MUSB_HSDMA_ENABLE_SHIFT		0
