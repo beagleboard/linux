@@ -218,9 +218,6 @@
 /* TxType/RxType */
 #define MUSB_TYPE_SPEED	0xc0
 #define MUSB_TYPE_SPEED_SHIFT	6
-#define MGC_TYPE_SPEED_HIGH	1
-#define MGC_TYPE_SPEED_FULL	2
-#define MGC_TYPE_SPEED_LOW	3
 #define MUSB_TYPE_PROTO	0x30	/* implicitly zero for ep0 */
 #define MUSB_TYPE_PROTO_SHIFT	4
 #define MUSB_TYPE_REMOTE_END	0xf	/* implicitly zero for ep0 */
