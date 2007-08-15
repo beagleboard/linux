@@ -86,7 +86,7 @@ void musb_platform_enable(struct musb *musb)
 	musb_writel(musb->ctrl_base, DAVINCI_USB_INT_MASK_SET_REG, tmp);
 	tmp |= old;
 
-	val = ~MGC_M_INTR_SOF;
+	val = ~MUSB_INTR_SOF;
 	tmp |= ((val & 0x01ff) << DAVINCI_USB_USBINT_SHIFT);
 	musb_writel(musb->ctrl_base, DAVINCI_USB_INT_MASK_SET_REG, tmp);
 
@@ -218,13 +218,13 @@ static void otg_timer(unsigned long _musb)
 		 * case "recover"), in routine "VBUS was valid by the time
 		 * VBUSERR got reported during enumeration" cases.
 		 */
-		if (devctl & MGC_M_DEVCTL_VBUS) {
+		if (devctl & MUSB_DEVCTL_VBUS) {
 			mod_timer(&otg_workaround, jiffies + POLL_SECONDS * HZ);
 			break;
 		}
 		musb->xceiv.state = OTG_STATE_A_WAIT_VRISE;
 		musb_writel(musb->ctrl_base, DAVINCI_USB_INT_SET_REG,
-			MGC_M_INTR_VBUSERROR << DAVINCI_USB_USBINT_SHIFT);
+			MUSB_INTR_VBUSERROR << DAVINCI_USB_USBINT_SHIFT);
 		break;
 	case OTG_STATE_B_IDLE:
 		if (!is_peripheral_enabled(musb))
@@ -242,9 +242,9 @@ static void otg_timer(unsigned long _musb)
 		 * SRP, but clearly it doesn't.
 		 */
 		musb_writeb(mregs, MUSB_DEVCTL,
-				devctl | MGC_M_DEVCTL_SESSION);
+				devctl | MUSB_DEVCTL_SESSION);
 		devctl = musb_readb(mregs, MUSB_DEVCTL);
-		if (devctl & MGC_M_DEVCTL_BDEVICE)
+		if (devctl & MUSB_DEVCTL_BDEVICE)
 			mod_timer(&otg_workaround, jiffies + POLL_SECONDS * HZ);
 		else
 			musb->xceiv.state = OTG_STATE_A_IDLE;
@@ -311,10 +311,10 @@ static irqreturn_t davinci_interrupt(int irq, void *__hci)
 		int	drvvbus = musb_readl(tibase, DAVINCI_USB_STAT_REG);
 		void	*__iomem mregs = musb->mregs;
 		u8	devctl = musb_readb(mregs, MUSB_DEVCTL);
-		int	err = musb->int_usb & MGC_M_INTR_VBUSERROR;
+		int	err = musb->int_usb & MUSB_INTR_VBUSERROR;
 
 		err = is_host_enabled(musb)
-				&& (musb->int_usb & MGC_M_INTR_VBUSERROR);
+				&& (musb->int_usb & MUSB_INTR_VBUSERROR);
 		if (err) {
 			/* The Mentor core doesn't debounce VBUS as needed
 			 * to cope with device connect current spikes. This
@@ -326,7 +326,7 @@ static irqreturn_t davinci_interrupt(int irq, void *__hci)
 			 * without waiting (on EVM, a **long** time) for VBUS
 			 * to stop registering in devctl.
 			 */
-			musb->int_usb &= ~MGC_M_INTR_VBUSERROR;
+			musb->int_usb &= ~MUSB_INTR_VBUSERROR;
 			musb->xceiv.state = OTG_STATE_A_WAIT_VFALL;
 			mod_timer(&otg_workaround, jiffies + POLL_SECONDS * HZ);
 			WARN("VBUS error workaround (delay coming)\n");
@@ -441,10 +441,10 @@ int musb_platform_exit(struct musb *musb)
 		 */
 		do {
 			devctl = musb_readb(musb->mregs, MUSB_DEVCTL);
-			if (!(devctl & MGC_M_DEVCTL_VBUS))
+			if (!(devctl & MUSB_DEVCTL_VBUS))
 				break;
-			if ((devctl & MGC_M_DEVCTL_VBUS) != warn) {
-				warn = devctl & MGC_M_DEVCTL_VBUS;
+			if ((devctl & MUSB_DEVCTL_VBUS) != warn) {
+				warn = devctl & MUSB_DEVCTL_VBUS;
 				DBG(1, "VBUS %d\n", warn >> MGC_S_DEVCTL_VBUS);
 			}
 			msleep(1000);
@@ -452,7 +452,7 @@ int musb_platform_exit(struct musb *musb)
 		} while (maxdelay > 0);
 
 		/* in OTG mode, another host might be connected */
-		if (devctl & MGC_M_DEVCTL_VBUS)
+		if (devctl & MUSB_DEVCTL_VBUS)
 			DBG(1, "VBUS off timeout (devctl %02x)\n", devctl);
 	}
 

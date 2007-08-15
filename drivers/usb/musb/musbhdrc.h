@@ -139,183 +139,183 @@
 
 /* POWER */
 
-#define MGC_M_POWER_ISOUPDATE   0x80
-#define MGC_M_POWER_SOFTCONN    0x40
-#define MGC_M_POWER_HSENAB	0x20
-#define MGC_M_POWER_HSMODE	0x10
-#define MGC_M_POWER_RESET       0x08
-#define MGC_M_POWER_RESUME      0x04
-#define MGC_M_POWER_SUSPENDM    0x02
-#define MGC_M_POWER_ENSUSPEND   0x01
+#define MUSB_POWER_ISOUPDATE   0x80
+#define MUSB_POWER_SOFTCONN    0x40
+#define MUSB_POWER_HSENAB	0x20
+#define MUSB_POWER_HSMODE	0x10
+#define MUSB_POWER_RESET       0x08
+#define MUSB_POWER_RESUME      0x04
+#define MUSB_POWER_SUSPENDM    0x02
+#define MUSB_POWER_ENSUSPEND   0x01
 
 /* INTRUSB */
-#define MGC_M_INTR_SUSPEND    0x01
-#define MGC_M_INTR_RESUME     0x02
-#define MGC_M_INTR_RESET      0x04
-#define MGC_M_INTR_BABBLE     0x04
-#define MGC_M_INTR_SOF        0x08
-#define MGC_M_INTR_CONNECT    0x10
-#define MGC_M_INTR_DISCONNECT 0x20
-#define MGC_M_INTR_SESSREQ    0x40
-#define MGC_M_INTR_VBUSERROR  0x80	/* FOR SESSION END */
+#define MUSB_INTR_SUSPEND    0x01
+#define MUSB_INTR_RESUME     0x02
+#define MUSB_INTR_RESET      0x04
+#define MUSB_INTR_BABBLE     0x04
+#define MUSB_INTR_SOF        0x08
+#define MUSB_INTR_CONNECT    0x10
+#define MUSB_INTR_DISCONNECT 0x20
+#define MUSB_INTR_SESSREQ    0x40
+#define MUSB_INTR_VBUSERROR  0x80	/* FOR SESSION END */
 
 /* DEVCTL */
-#define MGC_M_DEVCTL_BDEVICE    0x80
-#define MGC_M_DEVCTL_FSDEV      0x40
-#define MGC_M_DEVCTL_LSDEV      0x20
-#define MGC_M_DEVCTL_VBUS       0x18
+#define MUSB_DEVCTL_BDEVICE    0x80
+#define MUSB_DEVCTL_FSDEV      0x40
+#define MUSB_DEVCTL_LSDEV      0x20
+#define MUSB_DEVCTL_VBUS       0x18
 #define MGC_S_DEVCTL_VBUS       3
-#define MGC_M_DEVCTL_HM         0x04
-#define MGC_M_DEVCTL_HR         0x02
-#define MGC_M_DEVCTL_SESSION    0x01
+#define MUSB_DEVCTL_HM         0x04
+#define MUSB_DEVCTL_HR         0x02
+#define MUSB_DEVCTL_SESSION    0x01
 
 /* TESTMODE */
 
-#define MGC_M_TEST_FORCE_HOST   0x80
-#define MGC_M_TEST_FIFO_ACCESS  0x40
-#define MGC_M_TEST_FORCE_FS     0x20
-#define MGC_M_TEST_FORCE_HS     0x10
-#define MGC_M_TEST_PACKET       0x08
-#define MGC_M_TEST_K            0x04
-#define MGC_M_TEST_J            0x02
-#define MGC_M_TEST_SE0_NAK      0x01
+#define MUSB_TEST_FORCE_HOST   0x80
+#define MUSB_TEST_FIFO_ACCESS  0x40
+#define MUSB_TEST_FORCE_FS     0x20
+#define MUSB_TEST_FORCE_HS     0x10
+#define MUSB_TEST_PACKET       0x08
+#define MUSB_TEST_K            0x04
+#define MUSB_TEST_J            0x02
+#define MUSB_TEST_SE0_NAK      0x01
 
 /* allocate for double-packet buffering (effectively doubles assigned _SIZE) */
-#define MGC_M_FIFOSZ_DPB	0x10
+#define MUSB_FIFOSZ_DPB	0x10
 /* allocation size (8, 16, 32, ... 4096) */
-#define MGC_M_FIFOSZ_SIZE	0x0f
+#define MUSB_FIFOSZ_SIZE	0x0f
 
 /* CSR0 */
-#define MGC_M_CSR0_FLUSHFIFO      0x0100
-#define MGC_M_CSR0_TXPKTRDY       0x0002
-#define MGC_M_CSR0_RXPKTRDY       0x0001
+#define MUSB_CSR0_FLUSHFIFO      0x0100
+#define MUSB_CSR0_TXPKTRDY       0x0002
+#define MUSB_CSR0_RXPKTRDY       0x0001
 
 /* CSR0 in Peripheral mode */
-#define MGC_M_CSR0_P_SVDSETUPEND  0x0080
-#define MGC_M_CSR0_P_SVDRXPKTRDY  0x0040
-#define MGC_M_CSR0_P_SENDSTALL    0x0020
-#define MGC_M_CSR0_P_SETUPEND     0x0010
-#define MGC_M_CSR0_P_DATAEND      0x0008
-#define MGC_M_CSR0_P_SENTSTALL    0x0004
+#define MUSB_CSR0_P_SVDSETUPEND  0x0080
+#define MUSB_CSR0_P_SVDRXPKTRDY  0x0040
+#define MUSB_CSR0_P_SENDSTALL    0x0020
+#define MUSB_CSR0_P_SETUPEND     0x0010
+#define MUSB_CSR0_P_DATAEND      0x0008
+#define MUSB_CSR0_P_SENTSTALL    0x0004
 
 /* CSR0 in Host mode */
-#define MGC_M_CSR0_H_DIS_PING	0x0800
-#define MGC_M_CSR0_H_WR_DATATOGGLE   0x0400	/* set to allow setting: */
-#define MGC_M_CSR0_H_DATATOGGLE	    0x0200	/* data toggle control */
-#define MGC_M_CSR0_H_NAKTIMEOUT   0x0080
-#define MGC_M_CSR0_H_STATUSPKT    0x0040
-#define MGC_M_CSR0_H_REQPKT       0x0020
-#define MGC_M_CSR0_H_ERROR        0x0010
-#define MGC_M_CSR0_H_SETUPPKT     0x0008
-#define MGC_M_CSR0_H_RXSTALL      0x0004
+#define MUSB_CSR0_H_DIS_PING	0x0800
+#define MUSB_CSR0_H_WR_DATATOGGLE   0x0400	/* set to allow setting: */
+#define MUSB_CSR0_H_DATATOGGLE	    0x0200	/* data toggle control */
+#define MUSB_CSR0_H_NAKTIMEOUT   0x0080
+#define MUSB_CSR0_H_STATUSPKT    0x0040
+#define MUSB_CSR0_H_REQPKT       0x0020
+#define MUSB_CSR0_H_ERROR        0x0010
+#define MUSB_CSR0_H_SETUPPKT     0x0008
+#define MUSB_CSR0_H_RXSTALL      0x0004
 
 /* CSR0 bits to avoid zeroing (write zero clears, write 1 ignored) */
-#define MGC_M_CSR0_P_WZC_BITS	\
-	( MGC_M_CSR0_P_SENTSTALL )
-#define MGC_M_CSR0_H_WZC_BITS	\
-	( MGC_M_CSR0_H_NAKTIMEOUT | MGC_M_CSR0_H_RXSTALL \
-	| MGC_M_CSR0_RXPKTRDY )
+#define MUSB_CSR0_P_WZC_BITS	\
+	( MUSB_CSR0_P_SENTSTALL )
+#define MUSB_CSR0_H_WZC_BITS	\
+	( MUSB_CSR0_H_NAKTIMEOUT | MUSB_CSR0_H_RXSTALL \
+	| MUSB_CSR0_RXPKTRDY )
 
 
 /* TxType/RxType */
-#define MGC_M_TYPE_SPEED	0xc0
+#define MUSB_TYPE_SPEED	0xc0
 #define MGC_S_TYPE_SPEED	6
 #define MGC_TYPE_SPEED_HIGH	1
 #define MGC_TYPE_SPEED_FULL	2
 #define MGC_TYPE_SPEED_LOW	3
-#define MGC_M_TYPE_PROTO	0x30	/* implicitly zero for ep0 */
+#define MUSB_TYPE_PROTO	0x30	/* implicitly zero for ep0 */
 #define MGC_S_TYPE_PROTO	4
-#define MGC_M_TYPE_REMOTE_END	0xf	/* implicitly zero for ep0 */
+#define MUSB_TYPE_REMOTE_END	0xf	/* implicitly zero for ep0 */
 
 /* CONFIGDATA */
 
-#define MGC_M_CONFIGDATA_MPRXE      0x80	/* auto bulk pkt combining */
-#define MGC_M_CONFIGDATA_MPTXE      0x40	/* auto bulk pkt splitting */
-#define MGC_M_CONFIGDATA_BIGENDIAN  0x20
-#define MGC_M_CONFIGDATA_HBRXE      0x10	/* HB-ISO for RX */
-#define MGC_M_CONFIGDATA_HBTXE      0x08	/* HB-ISO for TX */
-#define MGC_M_CONFIGDATA_DYNFIFO    0x04	/* dynamic FIFO sizing */
-#define MGC_M_CONFIGDATA_SOFTCONE   0x02	/* SoftConnect */
-#define MGC_M_CONFIGDATA_UTMIDW     0x01	/* data width 0/1 => 8/16bits */
+#define MUSB_CONFIGDATA_MPRXE      0x80	/* auto bulk pkt combining */
+#define MUSB_CONFIGDATA_MPTXE      0x40	/* auto bulk pkt splitting */
+#define MUSB_CONFIGDATA_BIGENDIAN  0x20
+#define MUSB_CONFIGDATA_HBRXE      0x10	/* HB-ISO for RX */
+#define MUSB_CONFIGDATA_HBTXE      0x08	/* HB-ISO for TX */
+#define MUSB_CONFIGDATA_DYNFIFO    0x04	/* dynamic FIFO sizing */
+#define MUSB_CONFIGDATA_SOFTCONE   0x02	/* SoftConnect */
+#define MUSB_CONFIGDATA_UTMIDW     0x01	/* data width 0/1 => 8/16bits */
 
 /* TXCSR in Peripheral and Host mode */
 
-#define MGC_M_TXCSR_AUTOSET       0x8000
-#define MGC_M_TXCSR_MODE          0x2000
-#define MGC_M_TXCSR_DMAENAB       0x1000
-#define MGC_M_TXCSR_FRCDATATOG    0x0800
-#define MGC_M_TXCSR_DMAMODE       0x0400
-#define MGC_M_TXCSR_CLRDATATOG    0x0040
-#define MGC_M_TXCSR_FLUSHFIFO     0x0008
-#define MGC_M_TXCSR_FIFONOTEMPTY  0x0002
-#define MGC_M_TXCSR_TXPKTRDY      0x0001
+#define MUSB_TXCSR_AUTOSET       0x8000
+#define MUSB_TXCSR_MODE          0x2000
+#define MUSB_TXCSR_DMAENAB       0x1000
+#define MUSB_TXCSR_FRCDATATOG    0x0800
+#define MUSB_TXCSR_DMAMODE       0x0400
+#define MUSB_TXCSR_CLRDATATOG    0x0040
+#define MUSB_TXCSR_FLUSHFIFO     0x0008
+#define MUSB_TXCSR_FIFONOTEMPTY  0x0002
+#define MUSB_TXCSR_TXPKTRDY      0x0001
 
 /* TXCSR in Peripheral mode */
 
-#define MGC_M_TXCSR_P_ISO         0x4000
-#define MGC_M_TXCSR_P_INCOMPTX    0x0080
-#define MGC_M_TXCSR_P_SENTSTALL   0x0020
-#define MGC_M_TXCSR_P_SENDSTALL   0x0010
-#define MGC_M_TXCSR_P_UNDERRUN    0x0004
+#define MUSB_TXCSR_P_ISO         0x4000
+#define MUSB_TXCSR_P_INCOMPTX    0x0080
+#define MUSB_TXCSR_P_SENTSTALL   0x0020
+#define MUSB_TXCSR_P_SENDSTALL   0x0010
+#define MUSB_TXCSR_P_UNDERRUN    0x0004
 
 /* TXCSR in Host mode */
 
-#define MGC_M_TXCSR_H_WR_DATATOGGLE   0x0200
-#define MGC_M_TXCSR_H_DATATOGGLE      0x0100
-#define MGC_M_TXCSR_H_NAKTIMEOUT  0x0080
-#define MGC_M_TXCSR_H_RXSTALL     0x0020
-#define MGC_M_TXCSR_H_ERROR       0x0004
+#define MUSB_TXCSR_H_WR_DATATOGGLE   0x0200
+#define MUSB_TXCSR_H_DATATOGGLE      0x0100
+#define MUSB_TXCSR_H_NAKTIMEOUT  0x0080
+#define MUSB_TXCSR_H_RXSTALL     0x0020
+#define MUSB_TXCSR_H_ERROR       0x0004
 
 /* TXCSR bits to avoid zeroing (write zero clears, write 1 ignored) */
-#define MGC_M_TXCSR_P_WZC_BITS	\
-	( MGC_M_TXCSR_P_INCOMPTX | MGC_M_TXCSR_P_SENTSTALL \
-	| MGC_M_TXCSR_P_UNDERRUN | MGC_M_TXCSR_FIFONOTEMPTY )
-#define MGC_M_TXCSR_H_WZC_BITS	\
-	( MGC_M_TXCSR_H_NAKTIMEOUT | MGC_M_TXCSR_H_RXSTALL \
-	| MGC_M_TXCSR_H_ERROR | MGC_M_TXCSR_FIFONOTEMPTY )
+#define MUSB_TXCSR_P_WZC_BITS	\
+	( MUSB_TXCSR_P_INCOMPTX | MUSB_TXCSR_P_SENTSTALL \
+	| MUSB_TXCSR_P_UNDERRUN | MUSB_TXCSR_FIFONOTEMPTY )
+#define MUSB_TXCSR_H_WZC_BITS	\
+	( MUSB_TXCSR_H_NAKTIMEOUT | MUSB_TXCSR_H_RXSTALL \
+	| MUSB_TXCSR_H_ERROR | MUSB_TXCSR_FIFONOTEMPTY )
 
 
 /* RXCSR in Peripheral and Host mode */
 
-#define MGC_M_RXCSR_AUTOCLEAR     0x8000
-#define MGC_M_RXCSR_DMAENAB       0x2000
-#define MGC_M_RXCSR_DISNYET       0x1000
-#define MGC_M_RXCSR_PID_ERR       0x1000
-#define MGC_M_RXCSR_DMAMODE       0x0800
-#define MGC_M_RXCSR_INCOMPRX      0x0100
-#define MGC_M_RXCSR_CLRDATATOG    0x0080
-#define MGC_M_RXCSR_FLUSHFIFO     0x0010
-#define MGC_M_RXCSR_DATAERROR     0x0008
-#define MGC_M_RXCSR_FIFOFULL      0x0002
-#define MGC_M_RXCSR_RXPKTRDY      0x0001
+#define MUSB_RXCSR_AUTOCLEAR     0x8000
+#define MUSB_RXCSR_DMAENAB       0x2000
+#define MUSB_RXCSR_DISNYET       0x1000
+#define MUSB_RXCSR_PID_ERR       0x1000
+#define MUSB_RXCSR_DMAMODE       0x0800
+#define MUSB_RXCSR_INCOMPRX      0x0100
+#define MUSB_RXCSR_CLRDATATOG    0x0080
+#define MUSB_RXCSR_FLUSHFIFO     0x0010
+#define MUSB_RXCSR_DATAERROR     0x0008
+#define MUSB_RXCSR_FIFOFULL      0x0002
+#define MUSB_RXCSR_RXPKTRDY      0x0001
 
 /* RXCSR in Peripheral mode */
 
-#define MGC_M_RXCSR_P_ISO         0x4000
-#define MGC_M_RXCSR_P_SENTSTALL   0x0040
-#define MGC_M_RXCSR_P_SENDSTALL   0x0020
-#define MGC_M_RXCSR_P_OVERRUN     0x0004
+#define MUSB_RXCSR_P_ISO         0x4000
+#define MUSB_RXCSR_P_SENTSTALL   0x0040
+#define MUSB_RXCSR_P_SENDSTALL   0x0020
+#define MUSB_RXCSR_P_OVERRUN     0x0004
 
 /* RXCSR in Host mode */
 
-#define MGC_M_RXCSR_H_AUTOREQ     0x4000
-#define MGC_M_RXCSR_H_WR_DATATOGGLE   0x0400
-#define MGC_M_RXCSR_H_DATATOGGLE        0x0200
-#define MGC_M_RXCSR_H_RXSTALL     0x0040
-#define MGC_M_RXCSR_H_REQPKT      0x0020
-#define MGC_M_RXCSR_H_ERROR       0x0004
+#define MUSB_RXCSR_H_AUTOREQ     0x4000
+#define MUSB_RXCSR_H_WR_DATATOGGLE   0x0400
+#define MUSB_RXCSR_H_DATATOGGLE        0x0200
+#define MUSB_RXCSR_H_RXSTALL     0x0040
+#define MUSB_RXCSR_H_REQPKT      0x0020
+#define MUSB_RXCSR_H_ERROR       0x0004
 
 /* RXCSR bits to avoid zeroing (write zero clears, write 1 ignored) */
-#define MGC_M_RXCSR_P_WZC_BITS	\
-	( MGC_M_RXCSR_P_SENTSTALL | MGC_M_RXCSR_P_OVERRUN \
-	| MGC_M_RXCSR_RXPKTRDY )
-#define MGC_M_RXCSR_H_WZC_BITS	\
-	( MGC_M_RXCSR_H_RXSTALL | MGC_M_RXCSR_H_ERROR \
-	| MGC_M_RXCSR_DATAERROR | MGC_M_RXCSR_RXPKTRDY )
+#define MUSB_RXCSR_P_WZC_BITS	\
+	( MUSB_RXCSR_P_SENTSTALL | MUSB_RXCSR_P_OVERRUN \
+	| MUSB_RXCSR_RXPKTRDY )
+#define MUSB_RXCSR_H_WZC_BITS	\
+	( MUSB_RXCSR_H_RXSTALL | MUSB_RXCSR_H_ERROR \
+	| MUSB_RXCSR_DATAERROR | MUSB_RXCSR_RXPKTRDY )
 
 
 /* HUBADDR */
-#define MGC_M_HUBADDR_MULTI_TT		0x80
+#define MUSB_HUBADDR_MULTI_TT		0x80
 
 
 #endif	/* __MUSB_HDRC_DEFS_H__ */

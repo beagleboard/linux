@@ -224,8 +224,8 @@ static void tusb_omap_dma_cb(int lch, u16 ch_status, void *data)
 			DBG(2, "terminating short tx packet\n");
 			musb_ep_select(musb_base, chdat->epnum);
 			csr = musb_readw(hw_ep->regs, MUSB_TXCSR);
-			csr |= MGC_M_TXCSR_MODE | MGC_M_TXCSR_TXPKTRDY
-				| MGC_M_TXCSR_P_WZC_BITS;
+			csr |= MUSB_TXCSR_MODE | MUSB_TXCSR_TXPKTRDY
+				| MUSB_TXCSR_P_WZC_BITS;
 			musb_writew(hw_ep->regs, MUSB_TXCSR, csr);
 		}
 	}
@@ -377,17 +377,17 @@ static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,
 	if (chdat->tx) {
 		musb_ep_select(musb_base, chdat->epnum);
 		csr = musb_readw(hw_ep->regs, MUSB_TXCSR);
-		csr |= (MGC_M_TXCSR_AUTOSET | MGC_M_TXCSR_DMAENAB
-			| MGC_M_TXCSR_DMAMODE | MGC_M_TXCSR_MODE);
-		csr &= ~MGC_M_TXCSR_P_UNDERRUN;
+		csr |= (MUSB_TXCSR_AUTOSET | MUSB_TXCSR_DMAENAB
+			| MUSB_TXCSR_DMAMODE | MUSB_TXCSR_MODE);
+		csr &= ~MUSB_TXCSR_P_UNDERRUN;
 		musb_writew(hw_ep->regs, MUSB_TXCSR, csr);
 	} else {
 		musb_ep_select(musb_base, chdat->epnum);
 		csr = musb_readw(hw_ep->regs, MUSB_RXCSR);
-		csr |= MGC_M_RXCSR_DMAENAB;
-		csr &= ~(MGC_M_RXCSR_AUTOCLEAR | MGC_M_RXCSR_DMAMODE);
+		csr |= MUSB_RXCSR_DMAENAB;
+		csr &= ~(MUSB_RXCSR_AUTOCLEAR | MUSB_RXCSR_DMAMODE);
 		musb_writew(hw_ep->regs, MUSB_RXCSR,
-			csr | MGC_M_RXCSR_P_WZC_BITS);
+			csr | MUSB_RXCSR_P_WZC_BITS);
 	}
 
 	/*

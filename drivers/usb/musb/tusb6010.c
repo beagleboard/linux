@@ -536,7 +536,7 @@ static void tusb_source_power(struct musb *musb, int is_on)
 		timer = OTG_TIMER_MS(OTG_TIME_A_WAIT_VRISE);
 		musb->xceiv.default_a = 1;
 		musb->xceiv.state = OTG_STATE_A_WAIT_VRISE;
-		devctl |= MGC_M_DEVCTL_SESSION;
+		devctl |= MUSB_DEVCTL_SESSION;
 
 		conf |= TUSB_DEV_CONF_USB_HOST_MODE;
 		MUSB_HST_MODE(musb);
@@ -550,7 +550,7 @@ static void tusb_source_power(struct musb *musb, int is_on)
 
 		musb->xceiv.default_a = 0;
 		musb->xceiv.state = OTG_STATE_B_IDLE;
-		devctl &= ~MGC_M_DEVCTL_SESSION;
+		devctl &= ~MUSB_DEVCTL_SESSION;
 
 		conf &= ~TUSB_DEV_CONF_USB_HOST_MODE;
 		MUSB_DEV_MODE(musb);
@@ -688,7 +688,7 @@ tusb_otg_ints(struct musb *musb, u32 int_src, void __iomem *base)
 				if (musb->xceiv.state != OTG_STATE_B_IDLE) {
 					/* INTR_DISCONNECT can hide... */
 					musb->xceiv.state = OTG_STATE_B_IDLE;
-					musb->int_usb |= MGC_M_INTR_DISCONNECT;
+					musb->int_usb |= MUSB_INTR_DISCONNECT;
 				}
 				musb->is_active = 0;
 			}
@@ -708,7 +708,7 @@ tusb_otg_ints(struct musb *musb, u32 int_src, void __iomem *base)
 				DBG(2, "Got SRP, turning on VBUS\n");
 				devctl = musb_readb(musb->mregs,
 							MUSB_DEVCTL);
-				devctl |= MGC_M_DEVCTL_SESSION;
+				devctl |= MUSB_DEVCTL_SESSION;
 				musb_writeb(musb->mregs, MUSB_DEVCTL,
 							devctl);
 				musb->xceiv.state = OTG_STATE_A_WAIT_VRISE;
@@ -755,8 +755,8 @@ tusb_otg_ints(struct musb *musb, u32 int_src, void __iomem *base)
 			 */
 			devctl = musb_readb(musb->mregs, MUSB_DEVCTL);
 			if (otg_stat & TUSB_DEV_OTG_STAT_VBUS_VALID) {
-				if ((devctl & MGC_M_DEVCTL_VBUS)
-						!= MGC_M_DEVCTL_VBUS) {
+				if ((devctl & MUSB_DEVCTL_VBUS)
+						!= MUSB_DEVCTL_VBUS) {
 					DBG(2, "devctl %02x\n", devctl);
 					break;
 				}

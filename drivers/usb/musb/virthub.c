@@ -56,20 +56,20 @@ static void musb_port_suspend(struct musb *musb, u8 bSuspend)
 
 	/* NOTE:  this doesn't necessarily put PHY into low power mode,
 	 * turning off its clock; that's a function of PHY integration and
-	 * MGC_M_POWER_ENSUSPEND.  PHY may need a clock (sigh) to detect
+	 * MUSB_POWER_ENSUSPEND.  PHY may need a clock (sigh) to detect
 	 * SE0 changing to connect (J) or wakeup (K) states.
 	 */
 	power = musb_readb(mbase, MUSB_POWER);
 	if (bSuspend) {
 		int retries = 10000;
 
-		power &= ~MGC_M_POWER_RESUME;
-		power |= MGC_M_POWER_SUSPENDM;
+		power &= ~MUSB_POWER_RESUME;
+		power |= MUSB_POWER_SUSPENDM;
 		musb_writeb(mbase, MUSB_POWER, power);
 
 		/* Needed for OPT A tests */
 		power = musb_readb(mbase, MUSB_POWER);
-		while (power & MGC_M_POWER_SUSPENDM) {
+		while (power & MUSB_POWER_SUSPENDM) {
 			power = musb_readb(mbase, MUSB_POWER);
 			if (retries-- < 1)
 				break;
@@ -88,15 +88,15 @@ static void musb_port_suspend(struct musb *musb, u8 bSuspend)
 		case OTG_STATE_B_HOST:
 			musb->xceiv.state = OTG_STATE_B_PERIPHERAL;
 			MUSB_DEV_MODE(musb);
-			/* REVISIT restore setting of MGC_M_DEVCTL_HR */
+			/* REVISIT restore setting of MUSB_DEVCTL_HR */
 			break;
 		default:
 			DBG(1, "bogus rh suspend? %s\n",
 				otg_state_string(musb));
 		}
-	} else if (power & MGC_M_POWER_SUSPENDM) {
-		power &= ~MGC_M_POWER_SUSPENDM;
-		power |= MGC_M_POWER_RESUME;
+	} else if (power & MUSB_POWER_SUSPENDM) {
+		power &= ~MUSB_POWER_SUSPENDM;
+		power |= MUSB_POWER_RESUME;
 		musb_writeb(mbase, MUSB_POWER, power);
 
 		DBG(3, "Root port resuming, power %02x\n", power);
@@ -116,7 +116,7 @@ static void musb_port_reset(struct musb *musb, u8 bReset)
 	/* REVISIT this looks wrong for HNP */
 	u8 devctl = musb_readb(mbase, MUSB_DEVCTL);
 
-	if (musb->delay_port_power_off || !(devctl & MGC_M_DEVCTL_HM)) {
+	if (musb->delay_port_power_off || !(devctl & MUSB_DEVCTL_HM)) {
 		return;
 	}
 #endif
@@ -137,18 +137,18 @@ static void musb_port_reset(struct musb *musb, u8 bReset)
 		 * fail with "Error! Did not receive an SOF before suspend
 		 * detected".
 		 */
-		if (power &  MGC_M_POWER_RESUME) {
+		if (power &  MUSB_POWER_RESUME) {
 			while (time_before(jiffies, musb->rh_timer))
 				msleep(1);
 			musb_writeb(mbase, MUSB_POWER,
-				power & ~MGC_M_POWER_RESUME);
+				power & ~MUSB_POWER_RESUME);
 			msleep(1);
 		}
 
 		musb->ignore_disconnect = TRUE;
 		power &= 0xf0;
 		musb_writeb(mbase, MUSB_POWER,
-				power | MGC_M_POWER_RESET);
+				power | MUSB_POWER_RESET);
 
 		musb->port1_status |= USB_PORT_STAT_RESET;
 		musb->port1_status &= ~USB_PORT_STAT_ENABLE;
@@ -156,12 +156,12 @@ static void musb_port_reset(struct musb *musb, u8 bReset)
 	} else {
 		DBG(4, "root port reset stopped\n");
 		musb_writeb(mbase, MUSB_POWER,
-				power & ~MGC_M_POWER_RESET);
+				power & ~MUSB_POWER_RESET);
 
 		musb->ignore_disconnect = FALSE;
 
 		power = musb_readb(mbase, MUSB_POWER);
-		if (power & MGC_M_POWER_HSMODE) {
+		if (power & MUSB_POWER_HSMODE) {
 			DBG(4, "high-speed device connected\n");
 			musb->port1_status |= USB_PORT_STAT_HIGH_SPEED;
 		}
@@ -309,7 +309,7 @@ int musb_hub_control(
 			u8		power;
 
 			power = musb_readb(musb->mregs, MUSB_POWER);
-			power &= ~MGC_M_POWER_RESUME;
+			power &= ~MUSB_POWER_RESUME;
 			DBG(4, "root port resume stopped, power %02x\n",
 					power);
 			musb_writeb(musb->mregs, MUSB_POWER, power);
@@ -368,31 +368,31 @@ int musb_hub_control(
 			switch (wIndex) {
 			case 1:
 				pr_debug("TEST_J\n");
-				temp = MGC_M_TEST_J;
+				temp = MUSB_TEST_J;
 				break;
 			case 2:
 				pr_debug("TEST_K\n");
-				temp = MGC_M_TEST_K;
+				temp = MUSB_TEST_K;
 				break;
 			case 3:
 				pr_debug("TEST_SE0_NAK\n");
-				temp = MGC_M_TEST_SE0_NAK;
+				temp = MUSB_TEST_SE0_NAK;
 				break;
 			case 4:
 				pr_debug("TEST_PACKET\n");
-				temp = MGC_M_TEST_PACKET;
+				temp = MUSB_TEST_PACKET;
 				musb_load_testpacket(musb);
 				break;
 			case 5:
 				pr_debug("TEST_FORCE_ENABLE\n");
-				temp = MGC_M_TEST_FORCE_HOST
-					| MGC_M_TEST_FORCE_HS;
+				temp = MUSB_TEST_FORCE_HOST
+					| MUSB_TEST_FORCE_HS;
 
-				musb_writeb(musb->mregs, MUSB_DEVCTL, MGC_M_DEVCTL_SESSION);
+				musb_writeb(musb->mregs, MUSB_DEVCTL, MUSB_DEVCTL_SESSION);
 				break;
 			case 6:
 				pr_debug("TEST_FIFO_ACCESS\n");
-				temp = MGC_M_TEST_FIFO_ACCESS;
+				temp = MUSB_TEST_FIFO_ACCESS;
 				break;
 			default:
 				goto error;

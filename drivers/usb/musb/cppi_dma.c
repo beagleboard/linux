@@ -501,8 +501,8 @@ static inline int cppi_autoreq_update(struct cppi_channel *rx,
 		void		*__iomem regs = rx->hw_ep->regs;
 
 		val = musb_readw(regs, MUSB_RXCSR);
-		if (!(val & MGC_M_RXCSR_H_REQPKT)) {
-			val |= MGC_M_RXCSR_H_REQPKT | MGC_M_RXCSR_H_WZC_BITS;
+		if (!(val & MUSB_RXCSR_H_REQPKT)) {
+			val |= MUSB_RXCSR_H_REQPKT | MUSB_RXCSR_H_WZC_BITS;
 			musb_writew(regs, MUSB_RXCSR, val);
 			/* flush writebufer */
 			val = musb_readw(regs, MUSB_RXCSR);
@@ -1096,7 +1096,7 @@ static int cppi_rx_scan(struct cppi *cppi, unsigned ch)
 		}
 		musb_ep_select(cppi->pCoreBase, rx->chNo + 1);
 		csr = musb_readw(regs, MUSB_RXCSR);
-		if (csr & MGC_M_RXCSR_DMAENAB) {
+		if (csr & MUSB_RXCSR_DMAENAB) {
 			DBG(4, "list%d %p/%p, last %08x%s, csr %04x\n",
 				rx->chNo,
 				rx->activeQueueHead, rx->activeQueueTail,
@@ -1119,10 +1119,10 @@ static int cppi_rx_scan(struct cppi *cppi, unsigned ch)
 		csr = musb_readw(rx->hw_ep->regs, MUSB_RXCSR);
 		if (is_host_active(cppi->musb)
 				&& bd
-				&& !(csr & MGC_M_RXCSR_H_REQPKT)) {
-			csr |= MGC_M_RXCSR_H_REQPKT;
+				&& !(csr & MUSB_RXCSR_H_REQPKT)) {
+			csr |= MUSB_RXCSR_H_REQPKT;
 			musb_writew(regs, MUSB_RXCSR,
-					MGC_M_RXCSR_H_WZC_BITS | csr);
+					MUSB_RXCSR_H_WZC_BITS | csr);
 			csr = musb_readw(rx->hw_ep->regs, MUSB_RXCSR);
 		}
 	} else {
@@ -1247,7 +1247,7 @@ void cppi_completion(struct musb *musb, u32 rx, u32 tx)
 
 						csr = musb_readw(hw_ep->regs,
 							MUSB_TXCSR);
-						if (csr & MGC_M_TXCSR_TXPKTRDY)
+						if (csr & MUSB_TXCSR_TXPKTRDY)
 #endif
 							bReqComplete = 0;
 					}
@@ -1439,8 +1439,8 @@ static int cppi_channel_abort(struct dma_channel *channel)
 		 */
 
 		regVal = musb_readw(regs, MUSB_TXCSR);
-		regVal &= ~MGC_M_TXCSR_DMAENAB;
-		regVal |= MGC_M_TXCSR_FLUSHFIFO;
+		regVal &= ~MUSB_TXCSR_DMAENAB;
+		regVal |= MUSB_TXCSR_FLUSHFIFO;
 		musb_writew(regs, MUSB_TXCSR, regVal);
 		musb_writew(regs, MUSB_TXCSR, regVal);
 
@@ -1500,13 +1500,13 @@ static int cppi_channel_abort(struct dma_channel *channel)
 
 		/* for host, clear (just) ReqPkt at end of current packet(s) */
 		if (is_host_active(otgCh->pController->musb)) {
-			csr |= MGC_M_RXCSR_H_WZC_BITS;
-			csr &= ~MGC_M_RXCSR_H_REQPKT;
+			csr |= MUSB_RXCSR_H_WZC_BITS;
+			csr &= ~MUSB_RXCSR_H_REQPKT;
 		} else
-			csr |= MGC_M_RXCSR_P_WZC_BITS;
+			csr |= MUSB_RXCSR_P_WZC_BITS;
 
 		/* clear dma enable */
-		csr &= ~(MGC_M_RXCSR_DMAENAB);
+		csr &= ~(MUSB_RXCSR_DMAENAB);
 		musb_writew(regs, MUSB_RXCSR, csr);
 		csr = musb_readw(regs, MUSB_RXCSR);
 

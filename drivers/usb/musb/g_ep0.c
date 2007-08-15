@@ -130,10 +130,10 @@ static int service_tx_status_request(
 		musb_ep_select(mbase, epnum);
 		if (is_in)
 			tmp = musb_readw(regs, MUSB_TXCSR)
-						& MGC_M_TXCSR_P_SENDSTALL;
+						& MUSB_TXCSR_P_SENDSTALL;
 		else
 			tmp = musb_readw(regs, MUSB_RXCSR)
-						& MGC_M_RXCSR_P_SENDSTALL;
+						& MUSB_RXCSR_P_SENDSTALL;
 		musb_ep_select(mbase, 0);
 
 		result[0] = tmp ? 1 : 0;
@@ -210,7 +210,7 @@ static inline void musb_try_b_hnp_enable(struct musb *musb)
 
 	DBG(1, "HNP: Setting HR\n");
 	devctl = musb_readb(mbase, MUSB_DEVCTL);
-	musb_writeb(mbase, MUSB_DEVCTL, devctl | MGC_M_DEVCTL_HR);
+	musb_writeb(mbase, MUSB_DEVCTL, devctl | MUSB_DEVCTL_HR);
 }
 
 /*
@@ -307,25 +307,25 @@ __acquires(musb->lock)
 						pr_debug("TEST_J\n");
 						/* TEST_J */
 						musb->test_mode_nr =
-							MGC_M_TEST_J;
+							MUSB_TEST_J;
 						break;
 					case 2:
 						/* TEST_K */
 						pr_debug("TEST_K\n");
 						musb->test_mode_nr =
-							MGC_M_TEST_K;
+							MUSB_TEST_K;
 						break;
 					case 3:
 						/* TEST_SE0_NAK */
 						pr_debug("TEST_SE0_NAK\n");
 						musb->test_mode_nr =
-							MGC_M_TEST_SE0_NAK;
+							MUSB_TEST_SE0_NAK;
 						break;
 					case 4:
 						/* TEST_PACKET */
 						pr_debug("TEST_PACKET\n");
 						musb->test_mode_nr =
-							MGC_M_TEST_PACKET;
+							MUSB_TEST_PACKET;
 						break;
 					default:
 						goto stall;
@@ -392,20 +392,20 @@ stall:
 				if (is_in) {
 					csr = musb_readw(regs,
 							MUSB_TXCSR);
-					if (csr & MGC_M_TXCSR_FIFONOTEMPTY)
-						csr |= MGC_M_TXCSR_FLUSHFIFO;
-					csr |= MGC_M_TXCSR_P_SENDSTALL
-						| MGC_M_TXCSR_CLRDATATOG
-						| MGC_M_TXCSR_P_WZC_BITS;
+					if (csr & MUSB_TXCSR_FIFONOTEMPTY)
+						csr |= MUSB_TXCSR_FLUSHFIFO;
+					csr |= MUSB_TXCSR_P_SENDSTALL
+						| MUSB_TXCSR_CLRDATATOG
+						| MUSB_TXCSR_P_WZC_BITS;
 					musb_writew(regs, MUSB_TXCSR,
 							csr);
 				} else {
 					csr = musb_readw(regs,
 							MUSB_RXCSR);
-					csr |= MGC_M_RXCSR_P_SENDSTALL
-						| MGC_M_RXCSR_FLUSHFIFO
-						| MGC_M_RXCSR_CLRDATATOG
-						| MGC_M_TXCSR_P_WZC_BITS;
+					csr |= MUSB_RXCSR_P_SENDSTALL
+						| MUSB_RXCSR_FLUSHFIFO
+						| MUSB_RXCSR_CLRDATATOG
+						| MUSB_TXCSR_P_WZC_BITS;
 					musb_writew(regs, MUSB_RXCSR,
 							csr);
 				}
@@ -456,14 +456,14 @@ static void ep0_rxstate(struct musb *this)
 		}
 		musb_read_fifo(&this->endpoints[0], tmp, buf);
 		req->actual += tmp;
-		tmp = MGC_M_CSR0_P_SVDRXPKTRDY;
+		tmp = MUSB_CSR0_P_SVDRXPKTRDY;
 		if (tmp < 64 || req->actual == req->length) {
 			this->ep0_state = MGC_END0_STAGE_STATUSIN;
-			tmp |= MGC_M_CSR0_P_DATAEND;
+			tmp |= MUSB_CSR0_P_DATAEND;
 		} else
 			req = NULL;
 	} else
-		tmp = MGC_M_CSR0_P_SVDRXPKTRDY | MGC_M_CSR0_P_SENDSTALL;
+		tmp = MUSB_CSR0_P_SVDRXPKTRDY | MUSB_CSR0_P_SENDSTALL;
 	musb_writew(regs, MUSB_CSR0, tmp);
 
 
@@ -485,7 +485,7 @@ static void ep0_txstate(struct musb *musb)
 {
 	void __iomem		*regs = musb->control_ep->regs;
 	struct usb_request	*request = next_ep0_request(musb);
-	u16			csr = MGC_M_CSR0_TXPKTRDY;
+	u16			csr = MUSB_CSR0_TXPKTRDY;
 	u8			*pFifoSource;
 	u8			fifo_count;
 
@@ -506,7 +506,7 @@ static void ep0_txstate(struct musb *musb)
 	if (fifo_count < MUSB_MAX_END0_PACKET
 			|| request->actual == request->length) {
 		musb->ep0_state = MGC_END0_STAGE_STATUSOUT;
-		csr |= MGC_M_CSR0_P_DATAEND;
+		csr |= MUSB_CSR0_P_DATAEND;
 	} else
 		request = NULL;
 
@@ -560,16 +560,16 @@ musb_read_setup(struct musb *musb, struct usb_ctrlrequest *req)
 	 * to switch modes...
 	 */
 	musb->set_address = FALSE;
-	musb->ackpend = MGC_M_CSR0_P_SVDRXPKTRDY;
+	musb->ackpend = MUSB_CSR0_P_SVDRXPKTRDY;
 	if (req->wLength == 0) {
 		if (req->bRequestType & USB_DIR_IN)
-			musb->ackpend |= MGC_M_CSR0_TXPKTRDY;
+			musb->ackpend |= MUSB_CSR0_TXPKTRDY;
 		musb->ep0_state = MGC_END0_STAGE_ACKWAIT;
 	} else if (req->bRequestType & USB_DIR_IN) {
 		musb->ep0_state = MGC_END0_STAGE_TX;
-		musb_writew(regs, MUSB_CSR0, MGC_M_CSR0_P_SVDRXPKTRDY);
+		musb_writew(regs, MUSB_CSR0, MUSB_CSR0_P_SVDRXPKTRDY);
 		while ((musb_readw(regs, MUSB_CSR0)
-				& MGC_M_CSR0_RXPKTRDY) != 0)
+				& MUSB_CSR0_RXPKTRDY) != 0)
 			cpu_relax();
 		musb->ackpend = 0;
 	} else
@@ -614,17 +614,17 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 			decode_ep0stage(musb->ep0_state));
 
 	/* I sent a stall.. need to acknowledge it now.. */
-	if (csr & MGC_M_CSR0_P_SENTSTALL) {
+	if (csr & MUSB_CSR0_P_SENTSTALL) {
 		musb_writew(regs, MUSB_CSR0,
-				csr & ~MGC_M_CSR0_P_SENTSTALL);
+				csr & ~MUSB_CSR0_P_SENTSTALL);
 		retval = IRQ_HANDLED;
 		musb->ep0_state = MGC_END0_STAGE_SETUP;
 		csr = musb_readw(regs, MUSB_CSR0);
 	}
 
 	/* request ended "early" */
-	if (csr & MGC_M_CSR0_P_SETUPEND) {
-		musb_writew(regs, MUSB_CSR0, MGC_M_CSR0_P_SVDSETUPEND);
+	if (csr & MUSB_CSR0_P_SETUPEND) {
+		musb_writew(regs, MUSB_CSR0, MUSB_CSR0_P_SVDSETUPEND);
 		retval = IRQ_HANDLED;
 		musb->ep0_state = MGC_END0_STAGE_SETUP;
 		csr = musb_readw(regs, MUSB_CSR0);
@@ -639,7 +639,7 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 
 	case MGC_END0_STAGE_TX:
 		/* irq on clearing txpktrdy */
-		if ((csr & MGC_M_CSR0_TXPKTRDY) == 0) {
+		if ((csr & MUSB_CSR0_TXPKTRDY) == 0) {
 			ep0_txstate(musb);
 			retval = IRQ_HANDLED;
 		}
@@ -647,7 +647,7 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 
 	case MGC_END0_STAGE_RX:
 		/* irq on set rxpktrdy */
-		if (csr & MGC_M_CSR0_RXPKTRDY) {
+		if (csr & MUSB_CSR0_RXPKTRDY) {
 			ep0_rxstate(musb);
 			retval = IRQ_HANDLED;
 		}
@@ -670,7 +670,7 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 		else if (musb->test_mode) {
 			DBG(1, "entering TESTMODE\n");
 
-			if (MGC_M_TEST_PACKET == musb->test_mode_nr)
+			if (MUSB_TEST_PACKET == musb->test_mode_nr)
 				musb_load_testpacket(musb);
 
 			musb_writeb(mbase, MUSB_TESTMODE,
@@ -692,7 +692,7 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 		/* FALLTHROUGH */
 
 	case MGC_END0_STAGE_SETUP:
-		if (csr & MGC_M_CSR0_RXPKTRDY) {
+		if (csr & MUSB_CSR0_RXPKTRDY) {
 			struct usb_ctrlrequest	setup;
 			int			handled = 0;
 
@@ -711,7 +711,7 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 						"irq lost!\n",
 						musb_driver_name);
 				power = musb_readb(mbase, MUSB_POWER);
-				musb->g.speed = (power & MGC_M_POWER_HSMODE)
+				musb->g.speed = (power & MUSB_POWER_HSMODE)
 					? USB_SPEED_HIGH : USB_SPEED_FULL;
 
 			}
@@ -729,7 +729,7 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 
 				/* status stage might be immediate */
 				if (handled > 0) {
-					musb->ackpend |= MGC_M_CSR0_P_DATAEND;
+					musb->ackpend |= MUSB_CSR0_P_DATAEND;
 					musb->ep0_state =
 						MGC_END0_STAGE_STATUSIN;
 				}
@@ -742,8 +742,8 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 			case MGC_END0_STAGE_TX:
 				handled = service_in_request(musb, &setup);
 				if (handled > 0) {
-					musb->ackpend = MGC_M_CSR0_TXPKTRDY
-						| MGC_M_CSR0_P_DATAEND;
+					musb->ackpend = MUSB_CSR0_TXPKTRDY
+						| MUSB_CSR0_P_DATAEND;
 					musb->ep0_state =
 						MGC_END0_STAGE_STATUSOUT;
 				}
@@ -772,7 +772,7 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 				musb_ep_select(mbase, 0);
 stall:
 				DBG(3, "stall (%d)\n", handled);
-				musb->ackpend |= MGC_M_CSR0_P_SENDSTALL;
+				musb->ackpend |= MUSB_CSR0_P_SENDSTALL;
 				musb->ep0_state = MGC_END0_STAGE_SETUP;
 finish:
 				musb_writew(regs, MUSB_CSR0,
@@ -792,7 +792,7 @@ finish:
 	default:
 		/* "can't happen" */
 		WARN_ON(1);
-		musb_writew(regs, MUSB_CSR0, MGC_M_CSR0_P_SENDSTALL);
+		musb_writew(regs, MUSB_CSR0, MUSB_CSR0_P_SENDSTALL);
 		musb->ep0_state = MGC_END0_STAGE_SETUP;
 		break;
 	}
@@ -877,7 +877,7 @@ musb_g_ep0_queue(struct usb_ep *e, struct usb_request *r, gfp_t gfp_flags)
 		else {
 			musb->ep0_state = MGC_END0_STAGE_STATUSIN;
 			musb_writew(regs, MUSB_CSR0,
-					musb->ackpend | MGC_M_CSR0_P_DATAEND);
+					musb->ackpend | MUSB_CSR0_P_DATAEND);
 			musb->ackpend = 0;
 			musb_g_ep0_giveback(ep->musb, r);
 		}
@@ -935,7 +935,7 @@ static int musb_g_ep0_halt(struct usb_ep *e, int value)
 
 		musb_ep_select(base, 0);
 		csr = musb_readw(regs, MUSB_CSR0);
-		csr |= MGC_M_CSR0_P_SENDSTALL;
+		csr |= MUSB_CSR0_P_SENDSTALL;
 		musb_writew(regs, MUSB_CSR0, csr);
 		musb->ep0_state = MGC_END0_STAGE_SETUP;
 		break;

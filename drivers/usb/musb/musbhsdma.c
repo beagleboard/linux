@@ -61,7 +61,7 @@
 #define MGC_S_HSDMA_ENDPOINT		4
 #define MGC_S_HSDMA_BUSERROR		8
 #define MGC_S_HSDMA_BURSTMODE		9
-#define MGC_M_HSDMA_BURSTMODE		(3 << MGC_S_HSDMA_BURSTMODE)
+#define MUSB_HSDMA_BURSTMODE		(3 << MGC_S_HSDMA_BURSTMODE)
 #define MGC_HSDMA_BURSTMODE_UNSPEC	0
 #define MGC_HSDMA_BURSTMODE_INCR4	1
 #define MGC_HSDMA_BURSTMODE_INCR8	2
@@ -264,9 +264,9 @@ static int dma_channel_abort(struct dma_channel *pChannel)
 
 			csr = musb_readw(mbase,
 				MGC_END_OFFSET(pImplChannel->epnum,MUSB_TXCSR));
-			csr &= ~(MGC_M_TXCSR_AUTOSET |
-				 MGC_M_TXCSR_DMAENAB |
-				 MGC_M_TXCSR_DMAMODE);
+			csr &= ~(MUSB_TXCSR_AUTOSET |
+				 MUSB_TXCSR_DMAENAB |
+				 MUSB_TXCSR_DMAMODE);
 			musb_writew(mbase,
 					MGC_END_OFFSET(pImplChannel->epnum,MUSB_TXCSR),
 					csr);
@@ -274,9 +274,9 @@ static int dma_channel_abort(struct dma_channel *pChannel)
 		else {
 			csr = musb_readw(mbase,
 				MGC_END_OFFSET(pImplChannel->epnum,MUSB_RXCSR));
-			csr &= ~(MGC_M_RXCSR_AUTOCLEAR |
-				 MGC_M_RXCSR_DMAENAB |
-				 MGC_M_RXCSR_DMAMODE);
+			csr &= ~(MUSB_RXCSR_AUTOCLEAR |
+				 MUSB_RXCSR_DMAENAB |
+				 MUSB_RXCSR_DMAMODE);
 			musb_writew(mbase,
 					MGC_END_OFFSET(pImplChannel->epnum,MUSB_RXCSR),
 					csr);
@@ -346,7 +346,7 @@ static irqreturn_t dma_controller_irq(int irq, void *private_data)
 				pChannel->status = MGC_DMA_STATUS_FREE;
 
 				/* completed */
-				if ((devctl & MGC_M_DEVCTL_HM)
+				if ((devctl & MUSB_DEVCTL_HM)
 				    && (pImplChannel->bTransmit)
 				    && ((pChannel->desired_mode == 0)
 					|| (pChannel->actual_len &
@@ -357,7 +357,7 @@ static irqreturn_t dma_controller_irq(int irq, void *private_data)
 						pImplChannel->epnum);
 					musb_writew(mbase,
 						MGC_END_OFFSET(pImplChannel->epnum,MUSB_TXCSR),
-						MGC_M_TXCSR_TXPKTRDY);
+						MUSB_TXCSR_TXPKTRDY);
 				} else
 					musb_dma_completion(
 						pController->pDmaPrivate,

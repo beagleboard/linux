@@ -242,7 +242,7 @@ enum musb_g_ep0_state {
 	{ (_musb)->is_host=FALSE; }
 
 #define test_devctl_hst_mode(_x) \
-	(musb_readb((_x)->mregs, MUSB_DEVCTL)&MGC_M_DEVCTL_HM)
+	(musb_readb((_x)->mregs, MUSB_DEVCTL)&MUSB_DEVCTL_HM)
 
 #define MUSB_MODE(musb) ((musb)->is_host ? "Host" : "Peripheral")
 

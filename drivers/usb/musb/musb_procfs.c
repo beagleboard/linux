@@ -664,7 +664,7 @@ static int musb_proc_write(struct file *file, const char __user *buffer,
 	case 'C':
 		if (mbase) {
 			bReg = musb_readb(mbase, MUSB_POWER)
-					| MGC_M_POWER_SOFTCONN;
+					| MUSB_POWER_SOFTCONN;
 			musb_writeb(mbase, MUSB_POWER, bReg);
 		}
 		break;
@@ -672,7 +672,7 @@ static int musb_proc_write(struct file *file, const char __user *buffer,
 	case 'c':
 		if (mbase) {
 			bReg = musb_readb(mbase, MUSB_POWER)
-					& ~MGC_M_POWER_SOFTCONN;
+					& ~MUSB_POWER_SOFTCONN;
 			musb_writeb(mbase, MUSB_POWER, bReg);
 		}
 		break;
@@ -680,7 +680,7 @@ static int musb_proc_write(struct file *file, const char __user *buffer,
 	case 'I':
 		if (mbase) {
 			bReg = musb_readb(mbase, MUSB_POWER)
-					| MGC_M_POWER_HSENAB;
+					| MUSB_POWER_HSENAB;
 			musb_writeb(mbase, MUSB_POWER, bReg);
 		}
 		break;
@@ -688,21 +688,21 @@ static int musb_proc_write(struct file *file, const char __user *buffer,
 	case 'i':
 		if (mbase) {
 			bReg = musb_readb(mbase, MUSB_POWER)
-					& ~MGC_M_POWER_HSENAB;
+					& ~MUSB_POWER_HSENAB;
 			musb_writeb(mbase, MUSB_POWER, bReg);
 		}
 		break;
 
 	case 'F':
 		bReg = musb_readb(mbase, MUSB_DEVCTL);
-		bReg |= MGC_M_DEVCTL_SESSION;
+		bReg |= MUSB_DEVCTL_SESSION;
 		musb_writeb(mbase, MUSB_DEVCTL, bReg);
 		break;
 
 	case 'H':
 		if (mbase) {
 			bReg = musb_readb(mbase, MUSB_DEVCTL);
-			bReg |= MGC_M_DEVCTL_HR;
+			bReg |= MUSB_DEVCTL_HR;
 			musb_writeb(mbase, MUSB_DEVCTL, bReg);
 			//MUSB_HST_MODE( ((struct musb*)data) );
 			//WARN("Host Mode\n");
@@ -712,7 +712,7 @@ static int musb_proc_write(struct file *file, const char __user *buffer,
 	case 'h':
 		if (mbase) {
 			bReg = musb_readb(mbase, MUSB_DEVCTL);
-			bReg &= ~MGC_M_DEVCTL_HR;
+			bReg &= ~MUSB_DEVCTL_HR;
 			musb_writeb(mbase, MUSB_DEVCTL, bReg);
 		}
 		break;
@@ -721,7 +721,7 @@ static int musb_proc_write(struct file *file, const char __user *buffer,
 		if (mbase) {
 			musb_load_testpacket(musb);
 			musb_writeb(mbase, MUSB_TESTMODE,
-					MGC_M_TEST_PACKET);
+					MUSB_TEST_PACKET);
 		}
 		break;
 

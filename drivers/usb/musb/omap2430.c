@@ -65,7 +65,7 @@ static void omap_set_vbus(struct musb *musb, int is_on)
 		musb->is_active = 1;
 		musb->xceiv.default_a = 1;
 		musb->xceiv.state = OTG_STATE_A_WAIT_VRISE;
-		devctl |= MGC_M_DEVCTL_SESSION;
+		devctl |= MUSB_DEVCTL_SESSION;
 
 		MUSB_HST_MODE(musb);
 	} else {
@@ -77,7 +77,7 @@ static void omap_set_vbus(struct musb *musb, int is_on)
 
 		musb->xceiv.default_a = 0;
 		musb->xceiv.state = OTG_STATE_B_IDLE;
-		devctl &= ~MGC_M_DEVCTL_SESSION;
+		devctl &= ~MUSB_DEVCTL_SESSION;
 
 		MUSB_DEV_MODE(musb);
 	}
