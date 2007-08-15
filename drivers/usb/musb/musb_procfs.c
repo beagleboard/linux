@@ -157,11 +157,11 @@ static int dump_ep(struct musb_ep *ep, char *buffer, unsigned max)
 				mode, ep->dma ? " dma" : "",
 				musb_readw(regs,
 					(ep->is_in || !ep->current_epnum)
-						? MGC_O_HDRC_TXCSR
-						: MGC_O_HDRC_RXCSR),
+						? MUSB_TXCSR
+						: MUSB_RXCSR),
 				musb_readw(regs, ep->is_in
-						? MGC_O_HDRC_TXMAXP
-						: MGC_O_HDRC_RXMAXP)
+						? MUSB_TXMAXP
+						: MUSB_RXMAXP)
 				);
 		if (code <= 0)
 			break;
@@ -279,20 +279,20 @@ dump_end_info(struct musb *musb, u8 epnum, char *aBuffer, unsigned max)
 					epnum,
 					hw_ep->rx_double_buffered
 						? "2buf" : "1buf",
-					musb_readw(regs, MGC_O_HDRC_RXCSR),
-					musb_readb(regs, MGC_O_HDRC_RXINTERVAL),
-					musb_readw(regs, MGC_O_HDRC_RXMAXP),
-					musb_readb(regs, MGC_O_HDRC_RXTYPE),
+					musb_readw(regs, MUSB_RXCSR),
+					musb_readb(regs, MUSB_RXINTERVAL),
+					musb_readw(regs, MUSB_RXMAXP),
+					musb_readb(regs, MUSB_RXTYPE),
 					/* FIXME:  assumes multipoint */
 					musb_readb(musb->mregs,
 						MGC_BUSCTL_OFFSET(epnum,
-						MGC_O_HDRC_RXFUNCADDR)),
+						MUSB_RXFUNCADDR)),
 					musb_readb(musb->mregs,
 						MGC_BUSCTL_OFFSET(epnum,
-						MGC_O_HDRC_RXHUBADDR)),
+						MUSB_RXHUBADDR)),
 					musb_readb(musb->mregs,
 						MGC_BUSCTL_OFFSET(epnum,
-						MGC_O_HDRC_RXHUBPORT))
+						MUSB_RXHUBPORT))
 					);
 				if (code <= 0)
 					break;
@@ -367,20 +367,20 @@ dump_end_info(struct musb *musb, u8 epnum, char *aBuffer, unsigned max)
 					epnum,
 					hw_ep->tx_double_buffered
 						? "2buf" : "1buf",
-					musb_readw(regs, MGC_O_HDRC_TXCSR),
-					musb_readb(regs, MGC_O_HDRC_TXINTERVAL),
-					musb_readw(regs, MGC_O_HDRC_TXMAXP),
-					musb_readb(regs, MGC_O_HDRC_TXTYPE),
+					musb_readw(regs, MUSB_TXCSR),
+					musb_readb(regs, MUSB_TXINTERVAL),
+					musb_readw(regs, MUSB_TXMAXP),
+					musb_readb(regs, MUSB_TXTYPE),
 					/* FIXME:  assumes multipoint */
 					musb_readb(musb->mregs,
 						MGC_BUSCTL_OFFSET(epnum,
-						MGC_O_HDRC_TXFUNCADDR)),
+						MUSB_TXFUNCADDR)),
 					musb_readb(musb->mregs,
 						MGC_BUSCTL_OFFSET(epnum,
-						MGC_O_HDRC_TXHUBADDR)),
+						MUSB_TXHUBADDR)),
 					musb_readb(musb->mregs,
 						MGC_BUSCTL_OFFSET(epnum,
-						MGC_O_HDRC_TXHUBPORT))
+						MUSB_TXHUBPORT))
 					);
 				if (code <= 0)
 					break;
@@ -491,8 +491,8 @@ static int dump_header_stats(struct musb *musb, char *buffer)
 	count = sprintf(buffer, "Status: %sHDRC, Mode=%s "
 				"(Power=%02x, DevCtl=%02x)\n",
 			(musb->is_multipoint ? "M" : ""), MUSB_MODE(musb),
-			musb_readb(mbase, MGC_O_HDRC_POWER),
-			musb_readb(mbase, MGC_O_HDRC_DEVCTL));
+			musb_readb(mbase, MUSB_POWER),
+			musb_readb(mbase, MUSB_DEVCTL));
 	if (count <= 0)
 		return 0;
 	buffer += count;
@@ -536,7 +536,7 @@ static int dump_header_stats(struct musb *musb, char *buffer)
 
 #ifdef	CONFIG_USB_GADGET_MUSB_HDRC
 	code = sprintf(buffer, "Peripheral address: %02x\n",
-			musb_readb(musb, MGC_O_HDRC_FADDR));
+			musb_readb(musb, MUSB_FADDR));
 	if (code <= 0)
 		goto done;
 	buffer += code;
@@ -663,47 +663,47 @@ static int musb_proc_write(struct file *file, const char __user *buffer,
 	switch (cmd) {
 	case 'C':
 		if (mbase) {
-			bReg = musb_readb(mbase, MGC_O_HDRC_POWER)
+			bReg = musb_readb(mbase, MUSB_POWER)
 					| MGC_M_POWER_SOFTCONN;
-			musb_writeb(mbase, MGC_O_HDRC_POWER, bReg);
+			musb_writeb(mbase, MUSB_POWER, bReg);
 		}
 		break;
 
 	case 'c':
 		if (mbase) {
-			bReg = musb_readb(mbase, MGC_O_HDRC_POWER)
+			bReg = musb_readb(mbase, MUSB_POWER)
 					& ~MGC_M_POWER_SOFTCONN;
-			musb_writeb(mbase, MGC_O_HDRC_POWER, bReg);
+			musb_writeb(mbase, MUSB_POWER, bReg);
 		}
 		break;
 
 	case 'I':
 		if (mbase) {
-			bReg = musb_readb(mbase, MGC_O_HDRC_POWER)
+			bReg = musb_readb(mbase, MUSB_POWER)
 					| MGC_M_POWER_HSENAB;
-			musb_writeb(mbase, MGC_O_HDRC_POWER, bReg);
+			musb_writeb(mbase, MUSB_POWER, bReg);
 		}
 		break;
 
 	case 'i':
 		if (mbase) {
-			bReg = musb_readb(mbase, MGC_O_HDRC_POWER)
+			bReg = musb_readb(mbase, MUSB_POWER)
 					& ~MGC_M_POWER_HSENAB;
-			musb_writeb(mbase, MGC_O_HDRC_POWER, bReg);
+			musb_writeb(mbase, MUSB_POWER, bReg);
 		}
 		break;
 
 	case 'F':
-		bReg = musb_readb(mbase, MGC_O_HDRC_DEVCTL);
+		bReg = musb_readb(mbase, MUSB_DEVCTL);
 		bReg |= MGC_M_DEVCTL_SESSION;
-		musb_writeb(mbase, MGC_O_HDRC_DEVCTL, bReg);
+		musb_writeb(mbase, MUSB_DEVCTL, bReg);
 		break;
 
 	case 'H':
 		if (mbase) {
-			bReg = musb_readb(mbase, MGC_O_HDRC_DEVCTL);
+			bReg = musb_readb(mbase, MUSB_DEVCTL);
 			bReg |= MGC_M_DEVCTL_HR;
-			musb_writeb(mbase, MGC_O_HDRC_DEVCTL, bReg);
+			musb_writeb(mbase, MUSB_DEVCTL, bReg);
 			//MUSB_HST_MODE( ((struct musb*)data) );
 			//WARN("Host Mode\n");
 		}
@@ -711,16 +711,16 @@ static int musb_proc_write(struct file *file, const char __user *buffer,
 
 	case 'h':
 		if (mbase) {
-			bReg = musb_readb(mbase, MGC_O_HDRC_DEVCTL);
+			bReg = musb_readb(mbase, MUSB_DEVCTL);
 			bReg &= ~MGC_M_DEVCTL_HR;
-			musb_writeb(mbase, MGC_O_HDRC_DEVCTL, bReg);
+			musb_writeb(mbase, MUSB_DEVCTL, bReg);
 		}
 		break;
 
 	case 'T':
 		if (mbase) {
 			musb_load_testpacket(musb);
-			musb_writeb(mbase, MGC_O_HDRC_TESTMODE,
+			musb_writeb(mbase, MUSB_TESTMODE,
 					MGC_M_TEST_PACKET);
 		}
 		break;

@@ -59,18 +59,18 @@ static void musb_port_suspend(struct musb *musb, u8 bSuspend)
 	 * MGC_M_POWER_ENSUSPEND.  PHY may need a clock (sigh) to detect
 	 * SE0 changing to connect (J) or wakeup (K) states.
 	 */
-	power = musb_readb(mbase, MGC_O_HDRC_POWER);
+	power = musb_readb(mbase, MUSB_POWER);
 	if (bSuspend) {
 		int retries = 10000;
 
 		power &= ~MGC_M_POWER_RESUME;
 		power |= MGC_M_POWER_SUSPENDM;
-		musb_writeb(mbase, MGC_O_HDRC_POWER, power);
+		musb_writeb(mbase, MUSB_POWER, power);
 
 		/* Needed for OPT A tests */
-		power = musb_readb(mbase, MGC_O_HDRC_POWER);
+		power = musb_readb(mbase, MUSB_POWER);
 		while (power & MGC_M_POWER_SUSPENDM) {
-			power = musb_readb(mbase, MGC_O_HDRC_POWER);
+			power = musb_readb(mbase, MUSB_POWER);
 			if (retries-- < 1)
 				break;
 		}
@@ -97,7 +97,7 @@ static void musb_port_suspend(struct musb *musb, u8 bSuspend)
 	} else if (power & MGC_M_POWER_SUSPENDM) {
 		power &= ~MGC_M_POWER_SUSPENDM;
 		power |= MGC_M_POWER_RESUME;
-		musb_writeb(mbase, MGC_O_HDRC_POWER, power);
+		musb_writeb(mbase, MUSB_POWER, power);
 
 		DBG(3, "Root port resuming, power %02x\n", power);
 
@@ -114,7 +114,7 @@ static void musb_port_reset(struct musb *musb, u8 bReset)
 
 #ifdef CONFIG_USB_MUSB_OTG
 	/* REVISIT this looks wrong for HNP */
-	u8 devctl = musb_readb(mbase, MGC_O_HDRC_DEVCTL);
+	u8 devctl = musb_readb(mbase, MUSB_DEVCTL);
 
 	if (musb->delay_port_power_off || !(devctl & MGC_M_DEVCTL_HM)) {
 		return;
@@ -127,7 +127,7 @@ static void musb_port_reset(struct musb *musb, u8 bReset)
 	/* NOTE:  caller guarantees it will turn off the reset when
 	 * the appropriate amount of time has passed
 	 */
-	power = musb_readb(mbase, MGC_O_HDRC_POWER);
+	power = musb_readb(mbase, MUSB_POWER);
 	if (bReset) {
 
 		/*
@@ -140,14 +140,14 @@ static void musb_port_reset(struct musb *musb, u8 bReset)
 		if (power &  MGC_M_POWER_RESUME) {
 			while (time_before(jiffies, musb->rh_timer))
 				msleep(1);
-			musb_writeb(mbase, MGC_O_HDRC_POWER,
+			musb_writeb(mbase, MUSB_POWER,
 				power & ~MGC_M_POWER_RESUME);
 			msleep(1);
 		}
 
 		musb->ignore_disconnect = TRUE;
 		power &= 0xf0;
-		musb_writeb(mbase, MGC_O_HDRC_POWER,
+		musb_writeb(mbase, MUSB_POWER,
 				power | MGC_M_POWER_RESET);
 
 		musb->port1_status |= USB_PORT_STAT_RESET;
@@ -155,12 +155,12 @@ static void musb_port_reset(struct musb *musb, u8 bReset)
 		musb->rh_timer = jiffies + msecs_to_jiffies(50);
 	} else {
 		DBG(4, "root port reset stopped\n");
-		musb_writeb(mbase, MGC_O_HDRC_POWER,
+		musb_writeb(mbase, MUSB_POWER,
 				power & ~MGC_M_POWER_RESET);
 
 		musb->ignore_disconnect = FALSE;
 
-		power = musb_readb(mbase, MGC_O_HDRC_POWER);
+		power = musb_readb(mbase, MUSB_POWER);
 		if (power & MGC_M_POWER_HSMODE) {
 			DBG(4, "high-speed device connected\n");
 			musb->port1_status |= USB_PORT_STAT_HIGH_SPEED;
@@ -308,11 +308,11 @@ int musb_hub_control(
 				&& time_after(jiffies, musb->rh_timer)) {
 			u8		power;
 
-			power = musb_readb(musb->mregs, MGC_O_HDRC_POWER);
+			power = musb_readb(musb->mregs, MUSB_POWER);
 			power &= ~MGC_M_POWER_RESUME;
 			DBG(4, "root port resume stopped, power %02x\n",
 					power);
-			musb_writeb(musb->mregs, MGC_O_HDRC_POWER, power);
+			musb_writeb(musb->mregs, MUSB_POWER, power);
 
 			/* ISSUE:  DaVinci (RTL 1.300) disconnects after
 			 * resume of high speed peripherals (but not full
@@ -388,7 +388,7 @@ int musb_hub_control(
 				temp = MGC_M_TEST_FORCE_HOST
 					| MGC_M_TEST_FORCE_HS;
 
-				musb_writeb(musb->mregs, MGC_O_HDRC_DEVCTL, MGC_M_DEVCTL_SESSION);
+				musb_writeb(musb->mregs, MUSB_DEVCTL, MGC_M_DEVCTL_SESSION);
 				break;
 			case 6:
 				pr_debug("TEST_FIFO_ACCESS\n");
@@ -397,7 +397,7 @@ int musb_hub_control(
 			default:
 				goto error;
 			}
-			musb_writeb(musb->mregs, MGC_O_HDRC_TESTMODE, temp);
+			musb_writeb(musb->mregs, MUSB_TESTMODE, temp);
 			break;
 		default:
 			goto error;

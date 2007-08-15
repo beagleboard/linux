@@ -366,7 +366,7 @@ cppi_dump_rx(int level, struct cppi_channel *c, const char *tag)
 		c->chNo, tag,
 		musb_readl(base - DAVINCI_BASE_OFFSET,
 			DAVINCI_RXCPPI_BUFCNT0_REG + 4 *c->chNo),
-		musb_readw(c->hw_ep->regs, MGC_O_HDRC_RXCSR),
+		musb_readw(c->hw_ep->regs, MUSB_RXCSR),
 
 		musb_readl(c->stateRam, 0 * 4),	/* buf offset */
 		musb_readl(c->stateRam, 1 * 4),	/* head ptr */
@@ -393,7 +393,7 @@ cppi_dump_tx(int level, struct cppi_channel *c, const char *tag)
 			"F%08x L%08x .. %08x"
 			"\n",
 		c->chNo, tag,
-		musb_readw(c->hw_ep->regs, MGC_O_HDRC_TXCSR),
+		musb_readw(c->hw_ep->regs, MUSB_TXCSR),
 
 		musb_readl(c->stateRam, 0 * 4),	/* head ptr */
 		musb_readl(c->stateRam, 1 * 4),	/* sop bd */
@@ -500,12 +500,12 @@ static inline int cppi_autoreq_update(struct cppi_channel *rx,
 	if (n_bds && rx->actualLen) {
 		void		*__iomem regs = rx->hw_ep->regs;
 
-		val = musb_readw(regs, MGC_O_HDRC_RXCSR);
+		val = musb_readw(regs, MUSB_RXCSR);
 		if (!(val & MGC_M_RXCSR_H_REQPKT)) {
 			val |= MGC_M_RXCSR_H_REQPKT | MGC_M_RXCSR_H_WZC_BITS;
-			musb_writew(regs, MGC_O_HDRC_RXCSR, val);
+			musb_writew(regs, MUSB_RXCSR, val);
 			/* flush writebufer */
-			val = musb_readw(regs, MGC_O_HDRC_RXCSR);
+			val = musb_readw(regs, MUSB_RXCSR);
 		}
 	}
 	return n_bds;
@@ -1095,7 +1095,7 @@ static int cppi_rx_scan(struct cppi *cppi, unsigned ch)
 			WARN_ON(rx->activeQueueHead);
 		}
 		musb_ep_select(cppi->pCoreBase, rx->chNo + 1);
-		csr = musb_readw(regs, MGC_O_HDRC_RXCSR);
+		csr = musb_readw(regs, MUSB_RXCSR);
 		if (csr & MGC_M_RXCSR_DMAENAB) {
 			DBG(4, "list%d %p/%p, last %08x%s, csr %04x\n",
 				rx->chNo,
@@ -1116,14 +1116,14 @@ static int cppi_rx_scan(struct cppi *cppi, unsigned ch)
 		/* REVISIT seems like "autoreq all but EOP" doesn't...
 		 * setting it here "should" be racey, but seems to work
 		 */
-		csr = musb_readw(rx->hw_ep->regs, MGC_O_HDRC_RXCSR);
+		csr = musb_readw(rx->hw_ep->regs, MUSB_RXCSR);
 		if (is_host_active(cppi->musb)
 				&& bd
 				&& !(csr & MGC_M_RXCSR_H_REQPKT)) {
 			csr |= MGC_M_RXCSR_H_REQPKT;
-			musb_writew(regs, MGC_O_HDRC_RXCSR,
+			musb_writew(regs, MUSB_RXCSR,
 					MGC_M_RXCSR_H_WZC_BITS | csr);
-			csr = musb_readw(rx->hw_ep->regs, MGC_O_HDRC_RXCSR);
+			csr = musb_readw(rx->hw_ep->regs, MUSB_RXCSR);
 		}
 	} else {
 		rx->activeQueueHead = NULL;
@@ -1246,7 +1246,7 @@ void cppi_completion(struct musb *musb, u32 rx, u32 tx)
 						int	csr;
 
 						csr = musb_readw(hw_ep->regs,
-							MGC_O_HDRC_TXCSR);
+							MUSB_TXCSR);
 						if (csr & MGC_M_TXCSR_TXPKTRDY)
 #endif
 							bReqComplete = 0;
@@ -1438,11 +1438,11 @@ static int cppi_channel_abort(struct dma_channel *channel)
 		 * an appropriate status code.
 		 */
 
-		regVal = musb_readw(regs, MGC_O_HDRC_TXCSR);
+		regVal = musb_readw(regs, MUSB_TXCSR);
 		regVal &= ~MGC_M_TXCSR_DMAENAB;
 		regVal |= MGC_M_TXCSR_FLUSHFIFO;
-		musb_writew(regs, MGC_O_HDRC_TXCSR, regVal);
-		musb_writew(regs, MGC_O_HDRC_TXCSR, regVal);
+		musb_writew(regs, MUSB_TXCSR, regVal);
+		musb_writew(regs, MUSB_TXCSR, regVal);
 
 		/* re-enable interrupt */
 		if (enabled)
@@ -1496,7 +1496,7 @@ static int cppi_channel_abort(struct dma_channel *channel)
 			musb_writel(regBase, DAVINCI_AUTOREQ_REG, regVal);
 		}
 
-		csr = musb_readw(regs, MGC_O_HDRC_RXCSR);
+		csr = musb_readw(regs, MUSB_RXCSR);
 
 		/* for host, clear (just) ReqPkt at end of current packet(s) */
 		if (is_host_active(otgCh->pController->musb)) {
@@ -1507,8 +1507,8 @@ static int cppi_channel_abort(struct dma_channel *channel)
 
 		/* clear dma enable */
 		csr &= ~(MGC_M_RXCSR_DMAENAB);
-		musb_writew(regs, MGC_O_HDRC_RXCSR, csr);
-		csr = musb_readw(regs, MGC_O_HDRC_RXCSR);
+		musb_writew(regs, MUSB_RXCSR, csr);
+		csr = musb_readw(regs, MUSB_RXCSR);
 
 		/* quiesce: wait for current dma to finish (if not cleanup)
 		 * we can't use bit zero of stateram->sopDescPtr since that

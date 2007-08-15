@@ -527,7 +527,7 @@ static void tusb_source_power(struct musb *musb, int is_on)
 
 	prcm = musb_readl(base, TUSB_PRCM_MNGMT);
 	conf = musb_readl(base, TUSB_DEV_CONF);
-	devctl = musb_readb(musb->mregs, MGC_O_HDRC_DEVCTL);
+	devctl = musb_readb(musb->mregs, MUSB_DEVCTL);
 
 	if (is_on) {
 		if (musb->set_clock)
@@ -562,11 +562,11 @@ static void tusb_source_power(struct musb *musb, int is_on)
 	musb_writel(base, TUSB_PRCM_MNGMT, prcm);
 	musb_writel(base, TUSB_DEV_OTG_TIMER, timer);
 	musb_writel(base, TUSB_DEV_CONF, conf);
-	musb_writeb(musb->mregs, MGC_O_HDRC_DEVCTL, devctl);
+	musb_writeb(musb->mregs, MUSB_DEVCTL, devctl);
 
 	DBG(1, "VBUS %s, devctl %02x otg %3x conf %08x prcm %08x\n",
 		otg_state_string(musb),
-		musb_readb(musb->mregs, MGC_O_HDRC_DEVCTL),
+		musb_readb(musb->mregs, MUSB_DEVCTL),
 		musb_readl(base, TUSB_DEV_OTG_STAT),
 		conf, prcm);
 }
@@ -707,9 +707,9 @@ tusb_otg_ints(struct musb *musb, u32 int_src, void __iomem *base)
 			case OTG_STATE_A_IDLE:
 				DBG(2, "Got SRP, turning on VBUS\n");
 				devctl = musb_readb(musb->mregs,
-							MGC_O_HDRC_DEVCTL);
+							MUSB_DEVCTL);
 				devctl |= MGC_M_DEVCTL_SESSION;
-				musb_writeb(musb->mregs, MGC_O_HDRC_DEVCTL,
+				musb_writeb(musb->mregs, MUSB_DEVCTL,
 							devctl);
 				musb->xceiv.state = OTG_STATE_A_WAIT_VRISE;
 
@@ -753,7 +753,7 @@ tusb_otg_ints(struct musb *musb, u32 int_src, void __iomem *base)
 			/* VBUS has probably been valid for a while now,
 			 * but may well have bounced out of range a bit
 			 */
-			devctl = musb_readb(musb->mregs, MGC_O_HDRC_DEVCTL);
+			devctl = musb_readb(musb->mregs, MUSB_DEVCTL);
 			if (otg_stat & TUSB_DEV_OTG_STAT_VBUS_VALID) {
 				if ((devctl & MGC_M_DEVCTL_VBUS)
 						!= MGC_M_DEVCTL_VBUS) {

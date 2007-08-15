@@ -116,7 +116,7 @@ void musb_platform_disable(struct musb *musb)
 			  DAVINCI_USB_USBINT_MASK
 			| DAVINCI_USB_TXINT_MASK
 			| DAVINCI_USB_RXINT_MASK);
-	musb_writeb(musb->mregs, MGC_O_HDRC_DEVCTL, 0);
+	musb_writeb(musb->mregs, MUSB_DEVCTL, 0);
 	musb_writel(musb->ctrl_base, DAVINCI_USB_EOI_REG, 0);
 
 	if (is_dma_capable() && !dma_off)
@@ -207,7 +207,7 @@ static void otg_timer(unsigned long _musb)
 	/* We poll because DaVinci's won't expose several OTG-critical
 	* status change events (from the transceiver) otherwise.
 	 */
-	devctl = musb_readb(mregs, MGC_O_HDRC_DEVCTL);
+	devctl = musb_readb(mregs, MUSB_DEVCTL);
 	DBG(7, "poll devctl %02x (%s)\n", devctl, otg_state_string(musb));
 
 	spin_lock_irqsave(&musb->lock, flags);
@@ -241,9 +241,9 @@ static void otg_timer(unsigned long _musb)
 		 * NOTE setting the session flag is _supposed_ to trigger
 		 * SRP, but clearly it doesn't.
 		 */
-		musb_writeb(mregs, MGC_O_HDRC_DEVCTL,
+		musb_writeb(mregs, MUSB_DEVCTL,
 				devctl | MGC_M_DEVCTL_SESSION);
-		devctl = musb_readb(mregs, MGC_O_HDRC_DEVCTL);
+		devctl = musb_readb(mregs, MUSB_DEVCTL);
 		if (devctl & MGC_M_DEVCTL_BDEVICE)
 			mod_timer(&otg_workaround, jiffies + POLL_SECONDS * HZ);
 		else
@@ -310,7 +310,7 @@ static irqreturn_t davinci_interrupt(int irq, void *__hci)
 	if (tmp & (DAVINCI_INTR_DRVVBUS << DAVINCI_USB_USBINT_SHIFT)) {
 		int	drvvbus = musb_readl(tibase, DAVINCI_USB_STAT_REG);
 		void	*__iomem mregs = musb->mregs;
-		u8	devctl = musb_readb(mregs, MGC_O_HDRC_DEVCTL);
+		u8	devctl = musb_readb(mregs, MUSB_DEVCTL);
 		int	err = musb->int_usb & MGC_M_INTR_VBUSERROR;
 
 		err = is_host_enabled(musb)
@@ -440,7 +440,7 @@ int musb_platform_exit(struct musb *musb)
 		 * long time to fall, especially on EVM with huge C133.
 		 */
 		do {
-			devctl = musb_readb(musb->mregs, MGC_O_HDRC_DEVCTL);
+			devctl = musb_readb(musb->mregs, MUSB_DEVCTL);
 			if (!(devctl & MGC_M_DEVCTL_VBUS))
 				break;
 			if ((devctl & MGC_M_DEVCTL_VBUS) != warn) {

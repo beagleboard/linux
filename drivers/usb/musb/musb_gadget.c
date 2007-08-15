@@ -167,14 +167,14 @@ static void nuke(struct musb_ep *ep, const int status)
 		struct dma_controller	*c = ep->musb->dma_controller;
 		int value;
 		if (ep->is_in) {
-			musb_writew(epio, MGC_O_HDRC_TXCSR,
+			musb_writew(epio, MUSB_TXCSR,
 					0 | MGC_M_TXCSR_FLUSHFIFO);
-			musb_writew(epio, MGC_O_HDRC_TXCSR,
+			musb_writew(epio, MUSB_TXCSR,
 					0 | MGC_M_TXCSR_FLUSHFIFO);
 		} else {
-			musb_writew(epio, MGC_O_HDRC_RXCSR,
+			musb_writew(epio, MUSB_RXCSR,
 					0 | MGC_M_RXCSR_FLUSHFIFO);
-			musb_writew(epio, MGC_O_HDRC_RXCSR,
+			musb_writew(epio, MUSB_RXCSR,
 					0 | MGC_M_RXCSR_FLUSHFIFO);
 		}
 
@@ -268,7 +268,7 @@ static void txstate(struct musb *musb, struct musb_request *req)
 	}
 
 	/* read TXCSR before */
-	csr = musb_readw(epio, MGC_O_HDRC_TXCSR);
+	csr = musb_readw(epio, MUSB_TXCSR);
 
 	request = &req->request;
 	fifo_count = min(max_ep_writesize(musb, musb_ep),
@@ -330,7 +330,7 @@ static void txstate(struct musb *musb, struct musb_request *req)
 							| MGC_M_TXCSR_MODE);
 
 				csr &= ~MGC_M_TXCSR_P_UNDERRUN;
-				musb_writew(epio, MGC_O_HDRC_TXCSR, csr);
+				musb_writew(epio, MUSB_TXCSR, csr);
 			}
 		}
 
@@ -341,12 +341,12 @@ static void txstate(struct musb *musb, struct musb_request *req)
 				| MGC_M_TXCSR_P_UNDERRUN
 				| MGC_M_TXCSR_TXPKTRDY);
 		csr |= MGC_M_TXCSR_MODE | MGC_M_TXCSR_DMAENAB;
-		musb_writew(epio, MGC_O_HDRC_TXCSR,
+		musb_writew(epio, MUSB_TXCSR,
 			(MGC_M_TXCSR_P_WZC_BITS & ~MGC_M_TXCSR_P_UNDERRUN)
 				| csr);
 
 		/* ensure writebuffer is empty */
-		csr = musb_readw(epio, MGC_O_HDRC_TXCSR);
+		csr = musb_readw(epio, MUSB_TXCSR);
 
 		/* NOTE host side sets DMAENAB later than this; both are
 		 * OK since the transfer dma glue (between CPPI and Mentor
@@ -386,16 +386,16 @@ static void txstate(struct musb *musb, struct musb_request *req)
 		request->actual += fifo_count;
 		csr |= MGC_M_TXCSR_TXPKTRDY;
 		csr &= ~MGC_M_TXCSR_P_UNDERRUN;
-		musb_writew(epio, MGC_O_HDRC_TXCSR, csr);
+		musb_writew(epio, MUSB_TXCSR, csr);
 	}
 
 	/* host may already have the data when this message shows... */
 	DBG(3, "%s TX/IN %s len %d/%d, txcsr %04x, fifo %d/%d\n",
 			musb_ep->end_point.name, use_dma ? "dma" : "pio",
 			request->actual, request->length,
-			musb_readw(epio, MGC_O_HDRC_TXCSR),
+			musb_readw(epio, MUSB_TXCSR),
 			fifo_count,
-			musb_readw(epio, MGC_O_HDRC_TXMAXP));
+			musb_readw(epio, MUSB_TXMAXP));
 }
 
 /*
@@ -414,7 +414,7 @@ void musb_g_tx(struct musb *musb, u8 epnum)
 	musb_ep_select(mbase, epnum);
 	request = next_request(musb_ep);
 
-	csr = musb_readw(epio, MGC_O_HDRC_TXCSR);
+	csr = musb_readw(epio, MUSB_TXCSR);
 	DBG(4, "<== %s, txcsr %04x\n", musb_ep->end_point.name, csr);
 
 	dma = is_dma_capable() ? musb_ep->dma : NULL;
@@ -425,7 +425,7 @@ void musb_g_tx(struct musb *musb, u8 epnum)
 		if (csr & MGC_M_TXCSR_P_SENTSTALL) {
 			csr |= MGC_M_TXCSR_P_WZC_BITS;
 			csr &= ~MGC_M_TXCSR_P_SENTSTALL;
-			musb_writew(epio, MGC_O_HDRC_TXCSR, csr);
+			musb_writew(epio, MUSB_TXCSR, csr);
 			if (dma_channel_status(dma) == MGC_DMA_STATUS_BUSY) {
 				dma->status = MGC_DMA_STATUS_CORE_ABORT;
 				musb->dma_controller->channel_abort(dma);
@@ -442,7 +442,7 @@ void musb_g_tx(struct musb *musb, u8 epnum)
 			csr |= MGC_M_TXCSR_P_WZC_BITS;
 			csr &= ~(MGC_M_TXCSR_P_UNDERRUN
 					| MGC_M_TXCSR_TXPKTRDY);
-			musb_writew(epio, MGC_O_HDRC_TXCSR, csr);
+			musb_writew(epio, MUSB_TXCSR, csr);
 			DBG(20, "underrun on ep%d, req %p\n", epnum, request);
 		}
 
@@ -463,9 +463,9 @@ void musb_g_tx(struct musb *musb, u8 epnum)
 				csr &= ~(MGC_M_TXCSR_DMAENAB
 						| MGC_M_TXCSR_P_UNDERRUN
 						| MGC_M_TXCSR_TXPKTRDY);
-				musb_writew(epio, MGC_O_HDRC_TXCSR, csr);
+				musb_writew(epio, MUSB_TXCSR, csr);
 				/* ensure writebuffer is empty */
-				csr = musb_readw(epio, MGC_O_HDRC_TXCSR);
+				csr = musb_readw(epio, MUSB_TXCSR);
 				request->actual += musb_ep->dma->actual_len;
 				DBG(4, "TXCSR%d %04x, dma off, "
 						"len %Zd, req %p\n",
@@ -499,7 +499,7 @@ void musb_g_tx(struct musb *musb, u8 epnum)
 						break;
 
 					DBG(4, "sending zero pkt\n");
-					musb_writew(epio, MGC_O_HDRC_TXCSR,
+					musb_writew(epio, MUSB_TXCSR,
 							MGC_M_TXCSR_MODE
 							| MGC_M_TXCSR_TXPKTRDY);
 					request->zero = 0;
@@ -515,7 +515,7 @@ void musb_g_tx(struct musb *musb, u8 epnum)
 				 * FIXME revisit for stalls too...
 				 */
 				musb_ep_select(mbase, epnum);
-				csr = musb_readw(epio, MGC_O_HDRC_TXCSR);
+				csr = musb_readw(epio, MUSB_TXCSR);
 				if (csr & MGC_M_TXCSR_FIFONOTEMPTY)
 					break;
 				request = musb_ep->desc
@@ -580,7 +580,7 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 	u16			fifo_count = 0;
 	u16			len = musb_ep->packet_sz;
 
-	csr = musb_readw(epio, MGC_O_HDRC_RXCSR);
+	csr = musb_readw(epio, MUSB_RXCSR);
 
 	if (is_cppi_enabled() && musb_ep->dma) {
 		struct dma_controller	*c = musb->dma_controller;
@@ -604,13 +604,13 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 			csr &= ~(MGC_M_RXCSR_AUTOCLEAR
 					| MGC_M_RXCSR_DMAMODE);
 			csr |= MGC_M_RXCSR_DMAENAB | MGC_M_RXCSR_P_WZC_BITS;
-			musb_writew(epio, MGC_O_HDRC_RXCSR, csr);
+			musb_writew(epio, MUSB_RXCSR, csr);
 			return;
 		}
 	}
 
 	if (csr & MGC_M_RXCSR_RXPKTRDY) {
-		len = musb_readw(epio, MGC_O_HDRC_RXCOUNT);
+		len = musb_readw(epio, MUSB_RXCOUNT);
 		if (request->actual < request->length) {
 #ifdef CONFIG_USB_INVENTRA_DMA
 			if (is_dma_capable() && musb_ep->dma) {
@@ -651,10 +651,10 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 				   disabling MGC_M_RXCSR_DMAMODE) is required
 				   to get DMAReq to activate
 				 */
-				musb_writew(epio, MGC_O_HDRC_RXCSR,
+				musb_writew(epio, MUSB_RXCSR,
 					csr | MGC_M_RXCSR_DMAMODE);
 #endif
-				musb_writew(epio, MGC_O_HDRC_RXCSR,
+				musb_writew(epio, MUSB_RXCSR,
 						csr);
 
 				if (request->actual < request->length) {
@@ -720,7 +720,7 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 			/* ack the read! */
 			csr |= MGC_M_RXCSR_P_WZC_BITS;
 			csr &= ~MGC_M_RXCSR_RXPKTRDY;
-			musb_writew(epio, MGC_O_HDRC_RXCSR, csr);
+			musb_writew(epio, MUSB_RXCSR, csr);
 		}
 	}
 
@@ -745,7 +745,7 @@ void musb_g_rx(struct musb *musb, u8 epnum)
 
 	request = next_request(musb_ep);
 
-	csr = musb_readw(epio, MGC_O_HDRC_RXCSR);
+	csr = musb_readw(epio, MUSB_RXCSR);
 	dma = is_dma_capable() ? musb_ep->dma : NULL;
 
 	DBG(4, "<== %s, rxcsr %04x%s %p\n", musb_ep->end_point.name,
@@ -760,7 +760,7 @@ void musb_g_rx(struct musb *musb, u8 epnum)
 
 		csr |= MGC_M_RXCSR_P_WZC_BITS;
 		csr &= ~MGC_M_RXCSR_P_SENTSTALL;
-		musb_writew(epio, MGC_O_HDRC_RXCSR, csr);
+		musb_writew(epio, MUSB_RXCSR, csr);
 
 		if (request)
 			musb_g_giveback(musb_ep, request, -EPIPE);
@@ -770,7 +770,7 @@ void musb_g_rx(struct musb *musb, u8 epnum)
 	if (csr & MGC_M_RXCSR_P_OVERRUN) {
 		// csr |= MGC_M_RXCSR_P_WZC_BITS;
 		csr &= ~MGC_M_RXCSR_P_OVERRUN;
-		musb_writew(epio, MGC_O_HDRC_RXCSR, csr);
+		musb_writew(epio, MUSB_RXCSR, csr);
 
 		DBG(3, "%s iso overrun on %p\n", musb_ep->name, request);
 		if (request && request->status == -EINPROGRESS)
@@ -793,14 +793,14 @@ void musb_g_rx(struct musb *musb, u8 epnum)
 		csr &= ~(MGC_M_RXCSR_AUTOCLEAR
 				| MGC_M_RXCSR_DMAENAB
 				| MGC_M_RXCSR_DMAMODE);
-		musb_writew(epio, MGC_O_HDRC_RXCSR,
+		musb_writew(epio, MUSB_RXCSR,
 			MGC_M_RXCSR_P_WZC_BITS | csr);
 
 		request->actual += musb_ep->dma->actual_len;
 
 		DBG(4, "RXCSR%d %04x, dma off, %04x, len %Zd, req %p\n",
 			epnum, csr,
-			musb_readw(epio, MGC_O_HDRC_RXCSR),
+			musb_readw(epio, MUSB_RXCSR),
 			musb_ep->dma->actual_len, request);
 
 #if defined(CONFIG_USB_INVENTRA_DMA) || defined(CONFIG_USB_TUSB_OMAP_DMA)
@@ -810,7 +810,7 @@ void musb_g_rx(struct musb *musb, u8 epnum)
 					& (musb_ep->packet_sz - 1))) {
 			/* ack the read! */
 			csr &= ~MGC_M_RXCSR_RXPKTRDY;
-			musb_writew(epio, MGC_O_HDRC_RXCSR, csr);
+			musb_writew(epio, MUSB_RXCSR, csr);
 		}
 
 		/* incomplete, and not short? wait for next IN packet */
@@ -827,7 +827,7 @@ void musb_g_rx(struct musb *musb, u8 epnum)
 
 		/* don't start more i/o till the stall clears */
 		musb_ep_select(mbase, epnum);
-		csr = musb_readw(epio, MGC_O_HDRC_RXCSR);
+		csr = musb_readw(epio, MUSB_RXCSR);
 		if (csr & MGC_M_RXCSR_P_SENDSTALL)
 			goto done;
 	}
@@ -894,7 +894,7 @@ static int musb_gadget_enable(struct usb_ep *ep,
 	 */
 	musb_ep_select(mbase, epnum);
 	if (desc->bEndpointAddress & USB_DIR_IN) {
-		u16 wIntrTxE = musb_readw(mbase, MGC_O_HDRC_INTRTXE);
+		u16 wIntrTxE = musb_readw(mbase, MUSB_INTRTXE);
 
 		if (hw_ep->is_shared_fifo)
 			musb_ep->is_in = 1;
@@ -904,27 +904,27 @@ static int musb_gadget_enable(struct usb_ep *ep,
 			goto fail;
 
 		wIntrTxE |= (1 << epnum);
-		musb_writew(mbase, MGC_O_HDRC_INTRTXE, wIntrTxE);
+		musb_writew(mbase, MUSB_INTRTXE, wIntrTxE);
 
 		/* REVISIT if can_bulk_split(), use by updating "tmp";
 		 * likewise high bandwidth periodic tx
 		 */
-		musb_writew(regs, MGC_O_HDRC_TXMAXP, tmp);
+		musb_writew(regs, MUSB_TXMAXP, tmp);
 
 		csr = MGC_M_TXCSR_MODE | MGC_M_TXCSR_CLRDATATOG;
-		if (musb_readw(regs, MGC_O_HDRC_TXCSR)
+		if (musb_readw(regs, MUSB_TXCSR)
 				& MGC_M_TXCSR_FIFONOTEMPTY)
 			csr |= MGC_M_TXCSR_FLUSHFIFO;
 		if (musb_ep->type == USB_ENDPOINT_XFER_ISOC)
 			csr |= MGC_M_TXCSR_P_ISO;
 
 		/* set twice in case of double buffering */
-		musb_writew(regs, MGC_O_HDRC_TXCSR, csr);
+		musb_writew(regs, MUSB_TXCSR, csr);
 		/* REVISIT may be inappropriate w/o FIFONOTEMPTY ... */
-		musb_writew(regs, MGC_O_HDRC_TXCSR, csr);
+		musb_writew(regs, MUSB_TXCSR, csr);
 
 	} else {
-		u16 wIntrRxE = musb_readw(mbase, MGC_O_HDRC_INTRRXE);
+		u16 wIntrRxE = musb_readw(mbase, MUSB_INTRRXE);
 
 		if (hw_ep->is_shared_fifo)
 			musb_ep->is_in = 0;
@@ -934,18 +934,18 @@ static int musb_gadget_enable(struct usb_ep *ep,
 			goto fail;
 
 		wIntrRxE |= (1 << epnum);
-		musb_writew(mbase, MGC_O_HDRC_INTRRXE, wIntrRxE);
+		musb_writew(mbase, MUSB_INTRRXE, wIntrRxE);
 
 		/* REVISIT if can_bulk_combine() use by updating "tmp"
 		 * likewise high bandwidth periodic rx
 		 */
-		musb_writew(regs, MGC_O_HDRC_RXMAXP, tmp);
+		musb_writew(regs, MUSB_RXMAXP, tmp);
 
 		/* force shared fifo to OUT-only mode */
 		if (hw_ep->is_shared_fifo) {
-			csr = musb_readw(regs, MGC_O_HDRC_TXCSR);
+			csr = musb_readw(regs, MUSB_TXCSR);
 			csr &= ~(MGC_M_TXCSR_MODE | MGC_M_TXCSR_TXPKTRDY);
-			musb_writew(regs, MGC_O_HDRC_TXCSR, csr);
+			musb_writew(regs, MUSB_TXCSR, csr);
 		}
 
 		csr = MGC_M_RXCSR_FLUSHFIFO | MGC_M_RXCSR_CLRDATATOG;
@@ -955,8 +955,8 @@ static int musb_gadget_enable(struct usb_ep *ep,
 			csr |= MGC_M_RXCSR_DISNYET;
 
 		/* set twice in case of double buffering */
-		musb_writew(regs, MGC_O_HDRC_RXCSR, csr);
-		musb_writew(regs, MGC_O_HDRC_RXCSR, csr);
+		musb_writew(regs, MUSB_RXCSR, csr);
+		musb_writew(regs, MUSB_RXCSR, csr);
 	}
 
 	/* NOTE:  all the I/O code _should_ work fine without DMA, in case
@@ -1014,15 +1014,15 @@ static int musb_gadget_disable(struct usb_ep *ep)
 
 	/* zero the endpoint sizes */
 	if (musb_ep->is_in) {
-		u16 wIntrTxE = musb_readw(musb->mregs, MGC_O_HDRC_INTRTXE);
+		u16 wIntrTxE = musb_readw(musb->mregs, MUSB_INTRTXE);
 		wIntrTxE &= ~(1 << epnum);
-		musb_writew(musb->mregs, MGC_O_HDRC_INTRTXE, wIntrTxE);
-		musb_writew(epio, MGC_O_HDRC_TXMAXP, 0);
+		musb_writew(musb->mregs, MUSB_INTRTXE, wIntrTxE);
+		musb_writew(epio, MUSB_TXMAXP, 0);
 	} else {
-		u16 wIntrRxE = musb_readw(musb->mregs, MGC_O_HDRC_INTRRXE);
+		u16 wIntrRxE = musb_readw(musb->mregs, MUSB_INTRRXE);
 		wIntrRxE &= ~(1 << epnum);
-		musb_writew(musb->mregs, MGC_O_HDRC_INTRRXE, wIntrRxE);
-		musb_writew(epio, MGC_O_HDRC_RXMAXP, 0);
+		musb_writew(musb->mregs, MUSB_INTRRXE, wIntrRxE);
+		musb_writew(epio, MUSB_RXMAXP, 0);
 	}
 
 	musb_ep->desc = NULL;
@@ -1254,7 +1254,7 @@ int musb_gadget_set_halt(struct usb_ep *ep, int value)
 	/* cannot portably stall with non-empty FIFO */
 	request = to_musb_request(next_request(musb_ep));
 	if (value && musb_ep->is_in) {
-		wCsr = musb_readw(epio, MGC_O_HDRC_TXCSR);
+		wCsr = musb_readw(epio, MUSB_TXCSR);
 		if (wCsr & MGC_M_TXCSR_FIFONOTEMPTY) {
 			DBG(3, "%s fifo busy, cannot halt\n", ep->name);
 			spin_unlock_irqrestore(&musb->lock, flags);
@@ -1266,7 +1266,7 @@ int musb_gadget_set_halt(struct usb_ep *ep, int value)
 	/* set/clear the stall and toggle bits */
 	DBG(2, "%s: %s stall\n", ep->name, value ? "set" : "clear");
 	if (musb_ep->is_in) {
-		wCsr = musb_readw(epio, MGC_O_HDRC_TXCSR);
+		wCsr = musb_readw(epio, MUSB_TXCSR);
 		if (wCsr & MGC_M_TXCSR_FIFONOTEMPTY)
 			wCsr |= MGC_M_TXCSR_FLUSHFIFO;
 		wCsr |= MGC_M_TXCSR_P_WZC_BITS
@@ -1277,9 +1277,9 @@ int musb_gadget_set_halt(struct usb_ep *ep, int value)
 			wCsr &= ~(MGC_M_TXCSR_P_SENDSTALL
 				| MGC_M_TXCSR_P_SENTSTALL);
 		wCsr &= ~MGC_M_TXCSR_TXPKTRDY;
-		musb_writew(epio, MGC_O_HDRC_TXCSR, wCsr);
+		musb_writew(epio, MUSB_TXCSR, wCsr);
 	} else {
-		wCsr = musb_readw(epio, MGC_O_HDRC_RXCSR);
+		wCsr = musb_readw(epio, MUSB_RXCSR);
 		wCsr |= MGC_M_RXCSR_P_WZC_BITS
 			| MGC_M_RXCSR_FLUSHFIFO
 			| MGC_M_RXCSR_CLRDATATOG;
@@ -1288,7 +1288,7 @@ int musb_gadget_set_halt(struct usb_ep *ep, int value)
 		else
 			wCsr &= ~(MGC_M_RXCSR_P_SENDSTALL
 				| MGC_M_RXCSR_P_SENTSTALL);
-		musb_writew(epio, MGC_O_HDRC_RXCSR, wCsr);
+		musb_writew(epio, MUSB_RXCSR, wCsr);
 	}
 
 done:
@@ -1319,7 +1319,7 @@ static int musb_gadget_fifo_status(struct usb_ep *ep)
 
 		musb_ep_select(mbase, epnum);
 		/* FIXME return zero unless RXPKTRDY is set */
-		retval = musb_readw(epio, MGC_O_HDRC_RXCOUNT);
+		retval = musb_readw(epio, MUSB_RXCOUNT);
 
 		spin_unlock_irqrestore(&musb->lock, flags);
 	}
@@ -1342,26 +1342,26 @@ static void musb_gadget_fifo_flush(struct usb_ep *ep)
 	musb_ep_select(mbase, (u8) nEnd);
 
 	/* disable interrupts */
-	wIntrTxE = musb_readw(mbase, MGC_O_HDRC_INTRTXE);
-	musb_writew(mbase, MGC_O_HDRC_INTRTXE, wIntrTxE & ~(1 << nEnd));
+	wIntrTxE = musb_readw(mbase, MUSB_INTRTXE);
+	musb_writew(mbase, MUSB_INTRTXE, wIntrTxE & ~(1 << nEnd));
 
 	if (musb_ep->is_in) {
-		wCsr = musb_readw(epio, MGC_O_HDRC_TXCSR);
+		wCsr = musb_readw(epio, MUSB_TXCSR);
 		if (wCsr & MGC_M_TXCSR_FIFONOTEMPTY) {
 			wCsr |= MGC_M_TXCSR_FLUSHFIFO | MGC_M_TXCSR_P_WZC_BITS;
-			musb_writew(epio, MGC_O_HDRC_TXCSR, wCsr);
+			musb_writew(epio, MUSB_TXCSR, wCsr);
 			/* REVISIT may be inappropriate w/o FIFONOTEMPTY ... */
-			musb_writew(epio, MGC_O_HDRC_TXCSR, wCsr);
+			musb_writew(epio, MUSB_TXCSR, wCsr);
 		}
 	} else {
-		wCsr = musb_readw(epio, MGC_O_HDRC_RXCSR);
+		wCsr = musb_readw(epio, MUSB_RXCSR);
 		wCsr |= MGC_M_RXCSR_FLUSHFIFO | MGC_M_RXCSR_P_WZC_BITS;
-		musb_writew(epio, MGC_O_HDRC_RXCSR, wCsr);
-		musb_writew(epio, MGC_O_HDRC_RXCSR, wCsr);
+		musb_writew(epio, MUSB_RXCSR, wCsr);
+		musb_writew(epio, MUSB_RXCSR, wCsr);
 	}
 
 	/* re-enable interrupt */
-	musb_writew(mbase, MGC_O_HDRC_INTRTXE, wIntrTxE);
+	musb_writew(mbase, MUSB_INTRTXE, wIntrTxE);
 	spin_unlock_irqrestore(&musb->lock, flags);
 }
 
@@ -1383,7 +1383,7 @@ static int musb_gadget_get_frame(struct usb_gadget *gadget)
 {
 	struct musb	*musb = gadget_to_musb(gadget);
 
-	return (int)musb_readw(musb->mregs, MGC_O_HDRC_FRAME);
+	return (int)musb_readw(musb->mregs, MUSB_FRAME);
 }
 
 static int musb_gadget_wakeup(struct usb_gadget *gadget)
@@ -1408,20 +1408,20 @@ static int musb_gadget_wakeup(struct usb_gadget *gadget)
 		goto done;
 	case OTG_STATE_B_IDLE:
 		/* Start SRP ... OTG not required. */
-		devctl = musb_readb(mregs, MGC_O_HDRC_DEVCTL);
+		devctl = musb_readb(mregs, MUSB_DEVCTL);
 		DBG(2, "Sending SRP: devctl: %02x\n", devctl);
 		devctl |= MGC_M_DEVCTL_SESSION;
-		musb_writeb(mregs, MGC_O_HDRC_DEVCTL, devctl);
-		devctl = musb_readb(mregs, MGC_O_HDRC_DEVCTL);
+		musb_writeb(mregs, MUSB_DEVCTL, devctl);
+		devctl = musb_readb(mregs, MUSB_DEVCTL);
 		retries = 100;
 		while (!(devctl & MGC_M_DEVCTL_SESSION)) {
-			devctl = musb_readb(mregs, MGC_O_HDRC_DEVCTL);
+			devctl = musb_readb(mregs, MUSB_DEVCTL);
 			if (retries-- < 1)
 				break;
 		}
 		retries = 10000;
 		while (devctl & MGC_M_DEVCTL_SESSION) {
-			devctl = musb_readb(mregs, MGC_O_HDRC_DEVCTL);
+			devctl = musb_readb(mregs, MUSB_DEVCTL);
 			if (retries-- < 1)
 				break;
 		}
@@ -1438,17 +1438,17 @@ static int musb_gadget_wakeup(struct usb_gadget *gadget)
 
 	status = 0;
 
-	power = musb_readb(mregs, MGC_O_HDRC_POWER);
+	power = musb_readb(mregs, MUSB_POWER);
 	power |= MGC_M_POWER_RESUME;
-	musb_writeb(mregs, MGC_O_HDRC_POWER, power);
+	musb_writeb(mregs, MUSB_POWER, power);
 	DBG(2, "issue wakeup\n");
 
 	/* FIXME do this next chunk in a timer callback, no udelay */
 	mdelay(2);
 
-	power = musb_readb(mregs, MGC_O_HDRC_POWER);
+	power = musb_readb(mregs, MUSB_POWER);
 	power &= ~MGC_M_POWER_RESUME;
-	musb_writeb(mregs, MGC_O_HDRC_POWER, power);
+	musb_writeb(mregs, MUSB_POWER, power);
 done:
 	spin_unlock_irqrestore(&musb->lock, flags);
 	return status;
@@ -1467,7 +1467,7 @@ static void musb_pullup(struct musb *musb, int is_on)
 {
 	u8 power;
 
-	power = musb_readb(musb->mregs, MGC_O_HDRC_POWER);
+	power = musb_readb(musb->mregs, MUSB_POWER);
 	if (is_on)
 		power |= MGC_M_POWER_SOFTCONN;
 	else
@@ -1477,7 +1477,7 @@ static void musb_pullup(struct musb *musb, int is_on)
 
 	DBG(3, "gadget %s D+ pullup %s\n",
 		musb->gadget_driver->function, is_on ? "on" : "off");
-	musb_writeb(musb->mregs, MGC_O_HDRC_POWER, power);
+	musb_writeb(musb->mregs, MUSB_POWER, power);
 }
 
 #if 0
@@ -1905,7 +1905,7 @@ void musb_g_suspend(struct musb *musb)
 {
 	u8	devctl;
 
-	devctl = musb_readb(musb->mregs, MGC_O_HDRC_DEVCTL);
+	devctl = musb_readb(musb->mregs, MUSB_DEVCTL);
 	DBG(3, "devctl %02x\n", devctl);
 
 	switch (musb->xceiv.state) {
@@ -1940,12 +1940,12 @@ void musb_g_wakeup(struct musb *musb)
 void musb_g_disconnect(struct musb *musb)
 {
 	void __iomem	*mregs = musb->mregs;
-	u8	devctl = musb_readb(mregs, MGC_O_HDRC_DEVCTL);
+	u8	devctl = musb_readb(mregs, MUSB_DEVCTL);
 
 	DBG(3, "devctl %02x\n", devctl);
 
 	/* clear HR */
-	musb_writeb(mregs, MGC_O_HDRC_DEVCTL, devctl & MGC_M_DEVCTL_SESSION);
+	musb_writeb(mregs, MUSB_DEVCTL, devctl & MGC_M_DEVCTL_SESSION);
 
 	/* don't draw vbus until new b-default session */
 	(void) musb_gadget_vbus_draw(&musb->g, 0);
@@ -1983,13 +1983,13 @@ __releases(musb->lock)
 __acquires(musb->lock)
 {
 	void __iomem	*mbase = musb->mregs;
-	u8		devctl = musb_readb(mbase, MGC_O_HDRC_DEVCTL);
+	u8		devctl = musb_readb(mbase, MUSB_DEVCTL);
 	u8		power;
 
 	DBG(3, "<== %s addr=%x driver '%s'\n",
 			(devctl & MGC_M_DEVCTL_BDEVICE)
 				? "B-Device" : "A-Device",
-			musb_readb(mbase, MGC_O_HDRC_FADDR),
+			musb_readb(mbase, MUSB_FADDR),
 			musb->gadget_driver
 				? musb->gadget_driver->driver.name
 				: NULL
@@ -2001,11 +2001,11 @@ __acquires(musb->lock)
 
 	/* clear HR */
 	else if (devctl & MGC_M_DEVCTL_HR)
-		musb_writeb(mbase, MGC_O_HDRC_DEVCTL, MGC_M_DEVCTL_SESSION);
+		musb_writeb(mbase, MUSB_DEVCTL, MGC_M_DEVCTL_SESSION);
 
 
 	/* what speed did we negotiate? */
-	power = musb_readb(mbase, MGC_O_HDRC_POWER);
+	power = musb_readb(mbase, MUSB_POWER);
 	musb->g.speed = (power & MGC_M_POWER_HSMODE)
 			? USB_SPEED_HIGH : USB_SPEED_FULL;
 

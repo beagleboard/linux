@@ -48,18 +48,18 @@
 
 /* Common USB registers */
 
-#define MGC_O_HDRC_FADDR	0x00	/* 8-bit */
-#define MGC_O_HDRC_POWER	0x01	/* 8-bit */
+#define MUSB_FADDR	0x00	/* 8-bit */
+#define MUSB_POWER	0x01	/* 8-bit */
 
-#define MGC_O_HDRC_INTRTX	0x02	/* 16-bit */
-#define MGC_O_HDRC_INTRRX       0x04
-#define MGC_O_HDRC_INTRTXE      0x06
-#define MGC_O_HDRC_INTRRXE      0x08
-#define MGC_O_HDRC_INTRUSB      0x0A	/* 8 bit */
-#define MGC_O_HDRC_INTRUSBE     0x0B	/* 8 bit */
-#define MGC_O_HDRC_FRAME        0x0C
-#define MGC_O_HDRC_INDEX        0x0E	/* 8 bit */
-#define MGC_O_HDRC_TESTMODE     0x0F	/* 8 bit */
+#define MUSB_INTRTX	0x02	/* 16-bit */
+#define MUSB_INTRRX       0x04
+#define MUSB_INTRTXE      0x06
+#define MUSB_INTRRXE      0x08
+#define MUSB_INTRUSB      0x0A	/* 8 bit */
+#define MUSB_INTRUSBE     0x0B	/* 8 bit */
+#define MUSB_FRAME        0x0C
+#define MUSB_INDEX        0x0E	/* 8 bit */
+#define MUSB_TESTMODE     0x0F	/* 8 bit */
 
 /* Get offset for a given FIFO from musb->mregs */
 #ifdef	CONFIG_USB_TUSB6010
@@ -70,41 +70,41 @@
 
 /* Additional Control Registers */
 
-#define MGC_O_HDRC_DEVCTL	0x60	/* 8 bit */
+#define MUSB_DEVCTL	0x60	/* 8 bit */
 
 /* These are always controlled through the INDEX register */
-#define MGC_O_HDRC_TXFIFOSZ	0x62	/* 8-bit (see masks) */
-#define MGC_O_HDRC_RXFIFOSZ	0x63	/* 8-bit (see masks) */
-#define MGC_O_HDRC_TXFIFOADD	0x64	/* 16-bit offset shifted right 3 */
-#define MGC_O_HDRC_RXFIFOADD	0x66	/* 16-bit offset shifted right 3 */
+#define MUSB_TXFIFOSZ	0x62	/* 8-bit (see masks) */
+#define MUSB_RXFIFOSZ	0x63	/* 8-bit (see masks) */
+#define MUSB_TXFIFOADD	0x64	/* 16-bit offset shifted right 3 */
+#define MUSB_RXFIFOADD	0x66	/* 16-bit offset shifted right 3 */
 
 // vctrl/vstatus:  optional vendor utmi+phy register at 0x68
-#define MGC_O_HDRC_HWVERS	0x6C	/* 8 bit */
+#define MUSB_HWVERS	0x6C	/* 8 bit */
 
-#define MGC_O_HDRC_EPINFO	0x78	/* 8 bit */
-#define MGC_O_HDRC_RAMINFO	0x79	/* 8 bit */
-#define MGC_O_HDRC_LINKINFO	0x7a	/* 8 bit */
-#define MGC_O_HDRC_VPLEN	0x7b	/* 8 bit */
-#define MGC_O_HDRC_HS_EOF1	0x7c	/* 8 bit */
-#define MGC_O_HDRC_FS_EOF1	0x7d	/* 8 bit */
-#define MGC_O_HDRC_LS_EOF1	0x7e	/* 8 bit */
+#define MUSB_EPINFO	0x78	/* 8 bit */
+#define MUSB_RAMINFO	0x79	/* 8 bit */
+#define MUSB_LINKINFO	0x7a	/* 8 bit */
+#define MUSB_VPLEN	0x7b	/* 8 bit */
+#define MUSB_HS_EOF1	0x7c	/* 8 bit */
+#define MUSB_FS_EOF1	0x7d	/* 8 bit */
+#define MUSB_LS_EOF1	0x7e	/* 8 bit */
 
 /* offsets to endpoint registers */
-#define MGC_O_HDRC_TXMAXP	0x00
-#define MGC_O_HDRC_TXCSR	0x02
-#define MGC_O_HDRC_CSR0		MGC_O_HDRC_TXCSR	/* re-used for EP0 */
-#define MGC_O_HDRC_RXMAXP	0x04
-#define MGC_O_HDRC_RXCSR	0x06
-#define MGC_O_HDRC_RXCOUNT	0x08
-#define MGC_O_HDRC_COUNT0	MGC_O_HDRC_RXCOUNT	/* re-used for EP0 */
-#define MGC_O_HDRC_TXTYPE	0x0A
-#define MGC_O_HDRC_TYPE0	MGC_O_HDRC_TXTYPE	/* re-used for EP0 */
-#define MGC_O_HDRC_TXINTERVAL	0x0B
-#define MGC_O_HDRC_NAKLIMIT0	MGC_O_HDRC_TXINTERVAL	/* re-used for EP0 */
-#define MGC_O_HDRC_RXTYPE	0x0C
-#define MGC_O_HDRC_RXINTERVAL	0x0D
-#define MGC_O_HDRC_FIFOSIZE	0x0F
-#define MGC_O_HDRC_CONFIGDATA	MGC_O_HDRC_FIFOSIZE	/* re-used for EP0 */
+#define MUSB_TXMAXP	0x00
+#define MUSB_TXCSR	0x02
+#define MUSB_CSR0		MUSB_TXCSR	/* re-used for EP0 */
+#define MUSB_RXMAXP	0x04
+#define MUSB_RXCSR	0x06
+#define MUSB_RXCOUNT	0x08
+#define MUSB_COUNT0	MUSB_RXCOUNT	/* re-used for EP0 */
+#define MUSB_TXTYPE	0x0A
+#define MUSB_TYPE0	MUSB_TXTYPE	/* re-used for EP0 */
+#define MUSB_TXINTERVAL	0x0B
+#define MUSB_NAKLIMIT0	MUSB_TXINTERVAL	/* re-used for EP0 */
+#define MUSB_RXTYPE	0x0C
+#define MUSB_RXINTERVAL	0x0D
+#define MUSB_FIFOSIZE	0x0F
+#define MUSB_CONFIGDATA	MUSB_FIFOSIZE	/* re-used for EP0 */
 
 /* offsets to endpoint registers in indexed model (using INDEX register) */
 #define MGC_INDEXED_OFFSET(_epnum, _bOffset)	\
@@ -122,13 +122,13 @@
 #endif
 
 /* "bus control"/target registers, for host side multipoint (external hubs) */
-#define MGC_O_HDRC_TXFUNCADDR	0x00
-#define MGC_O_HDRC_TXHUBADDR	0x02
-#define MGC_O_HDRC_TXHUBPORT	0x03
+#define MUSB_TXFUNCADDR	0x00
+#define MUSB_TXHUBADDR	0x02
+#define MUSB_TXHUBPORT	0x03
 
-#define MGC_O_HDRC_RXFUNCADDR	0x04
-#define MGC_O_HDRC_RXHUBADDR	0x06
-#define MGC_O_HDRC_RXHUBPORT	0x07
+#define MUSB_RXFUNCADDR	0x04
+#define MUSB_RXHUBADDR	0x06
+#define MUSB_RXHUBPORT	0x07
 
 #define MGC_BUSCTL_OFFSET(_epnum, _bOffset) \
 	(0x80 + (8*(_epnum)) + (_bOffset))

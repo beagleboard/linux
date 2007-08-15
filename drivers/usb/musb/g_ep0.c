@@ -129,10 +129,10 @@ static int service_tx_status_request(
 
 		musb_ep_select(mbase, epnum);
 		if (is_in)
-			tmp = musb_readw(regs, MGC_O_HDRC_TXCSR)
+			tmp = musb_readw(regs, MUSB_TXCSR)
 						& MGC_M_TXCSR_P_SENDSTALL;
 		else
-			tmp = musb_readw(regs, MGC_O_HDRC_RXCSR)
+			tmp = musb_readw(regs, MUSB_RXCSR)
 						& MGC_M_RXCSR_P_SENDSTALL;
 		musb_ep_select(mbase, 0);
 
@@ -209,8 +209,8 @@ static inline void musb_try_b_hnp_enable(struct musb *musb)
 	u8		devctl;
 
 	DBG(1, "HNP: Setting HR\n");
-	devctl = musb_readb(mbase, MGC_O_HDRC_DEVCTL);
-	musb_writeb(mbase, MGC_O_HDRC_DEVCTL, devctl | MGC_M_DEVCTL_HR);
+	devctl = musb_readb(mbase, MUSB_DEVCTL);
+	musb_writeb(mbase, MUSB_DEVCTL, devctl | MGC_M_DEVCTL_HR);
 }
 
 /*
@@ -391,22 +391,22 @@ stall:
 				musb_ep_select(mbase, epnum);
 				if (is_in) {
 					csr = musb_readw(regs,
-							MGC_O_HDRC_TXCSR);
+							MUSB_TXCSR);
 					if (csr & MGC_M_TXCSR_FIFONOTEMPTY)
 						csr |= MGC_M_TXCSR_FLUSHFIFO;
 					csr |= MGC_M_TXCSR_P_SENDSTALL
 						| MGC_M_TXCSR_CLRDATATOG
 						| MGC_M_TXCSR_P_WZC_BITS;
-					musb_writew(regs, MGC_O_HDRC_TXCSR,
+					musb_writew(regs, MUSB_TXCSR,
 							csr);
 				} else {
 					csr = musb_readw(regs,
-							MGC_O_HDRC_RXCSR);
+							MUSB_RXCSR);
 					csr |= MGC_M_RXCSR_P_SENDSTALL
 						| MGC_M_RXCSR_FLUSHFIFO
 						| MGC_M_RXCSR_CLRDATATOG
 						| MGC_M_TXCSR_P_WZC_BITS;
-					musb_writew(regs, MGC_O_HDRC_RXCSR,
+					musb_writew(regs, MUSB_RXCSR,
 							csr);
 				}
 
@@ -449,7 +449,7 @@ static void ep0_rxstate(struct musb *this)
 		unsigned	len = req->length - req->actual;
 
 		/* read the buffer */
-		tmp = musb_readb(regs, MGC_O_HDRC_COUNT0);
+		tmp = musb_readb(regs, MUSB_COUNT0);
 		if (tmp > len) {
 			req->status = -EOVERFLOW;
 			tmp = len;
@@ -464,7 +464,7 @@ static void ep0_rxstate(struct musb *this)
 			req = NULL;
 	} else
 		tmp = MGC_M_CSR0_P_SVDRXPKTRDY | MGC_M_CSR0_P_SENDSTALL;
-	musb_writew(regs, MGC_O_HDRC_CSR0, tmp);
+	musb_writew(regs, MUSB_CSR0, tmp);
 
 
 	/* NOTE:  we "should" hold off reporting DATAEND and going to
@@ -491,7 +491,7 @@ static void ep0_txstate(struct musb *musb)
 
 	if (!request) {
 		// WARN_ON(1);
-		DBG(2, "odd; csr0 %04x\n", musb_readw(regs, MGC_O_HDRC_CSR0));
+		DBG(2, "odd; csr0 %04x\n", musb_readw(regs, MUSB_CSR0));
 		return;
 	}
 
@@ -511,7 +511,7 @@ static void ep0_txstate(struct musb *musb)
 		request = NULL;
 
 	/* send it out, triggering a "txpktrdy cleared" irq */
-	musb_writew(regs, MGC_O_HDRC_CSR0, csr);
+	musb_writew(regs, MUSB_CSR0, csr);
 
 	/* report completions as soon as the fifo's loaded; there's no
 	 * win in waiting till this last packet gets acked.  (other than
@@ -567,8 +567,8 @@ musb_read_setup(struct musb *musb, struct usb_ctrlrequest *req)
 		musb->ep0_state = MGC_END0_STAGE_ACKWAIT;
 	} else if (req->bRequestType & USB_DIR_IN) {
 		musb->ep0_state = MGC_END0_STAGE_TX;
-		musb_writew(regs, MGC_O_HDRC_CSR0, MGC_M_CSR0_P_SVDRXPKTRDY);
-		while ((musb_readw(regs, MGC_O_HDRC_CSR0)
+		musb_writew(regs, MUSB_CSR0, MGC_M_CSR0_P_SVDRXPKTRDY);
+		while ((musb_readw(regs, MUSB_CSR0)
 				& MGC_M_CSR0_RXPKTRDY) != 0)
 			cpu_relax();
 		musb->ackpend = 0;
@@ -605,29 +605,29 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 	irqreturn_t	retval = IRQ_NONE;
 
 	musb_ep_select(mbase, 0);	/* select ep0 */
-	csr = musb_readw(regs, MGC_O_HDRC_CSR0);
-	len = musb_readb(regs, MGC_O_HDRC_COUNT0);
+	csr = musb_readw(regs, MUSB_CSR0);
+	len = musb_readb(regs, MUSB_COUNT0);
 
 	DBG(4, "csr %04x, count %d, myaddr %d, ep0stage %s\n",
 			csr, len,
-			musb_readb(mbase, MGC_O_HDRC_FADDR),
+			musb_readb(mbase, MUSB_FADDR),
 			decode_ep0stage(musb->ep0_state));
 
 	/* I sent a stall.. need to acknowledge it now.. */
 	if (csr & MGC_M_CSR0_P_SENTSTALL) {
-		musb_writew(regs, MGC_O_HDRC_CSR0,
+		musb_writew(regs, MUSB_CSR0,
 				csr & ~MGC_M_CSR0_P_SENTSTALL);
 		retval = IRQ_HANDLED;
 		musb->ep0_state = MGC_END0_STAGE_SETUP;
-		csr = musb_readw(regs, MGC_O_HDRC_CSR0);
+		csr = musb_readw(regs, MUSB_CSR0);
 	}
 
 	/* request ended "early" */
 	if (csr & MGC_M_CSR0_P_SETUPEND) {
-		musb_writew(regs, MGC_O_HDRC_CSR0, MGC_M_CSR0_P_SVDSETUPEND);
+		musb_writew(regs, MUSB_CSR0, MGC_M_CSR0_P_SVDSETUPEND);
 		retval = IRQ_HANDLED;
 		musb->ep0_state = MGC_END0_STAGE_SETUP;
-		csr = musb_readw(regs, MGC_O_HDRC_CSR0);
+		csr = musb_readw(regs, MUSB_CSR0);
 		/* NOTE:  request may need completion */
 	}
 
@@ -663,7 +663,7 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 		 */
 		if (musb->set_address) {
 			musb->set_address = FALSE;
-			musb_writeb(mbase, MGC_O_HDRC_FADDR, musb->address);
+			musb_writeb(mbase, MUSB_FADDR, musb->address);
 		}
 
 		/* enter test mode if needed (exit by reset) */
@@ -673,7 +673,7 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 			if (MGC_M_TEST_PACKET == musb->test_mode_nr)
 				musb_load_testpacket(musb);
 
-			musb_writeb(mbase, MGC_O_HDRC_TESTMODE,
+			musb_writeb(mbase, MUSB_TESTMODE,
 					musb->test_mode_nr);
 		}
 		/* FALLTHROUGH */
@@ -710,7 +710,7 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 				printk(KERN_NOTICE "%s: peripheral reset "
 						"irq lost!\n",
 						musb_driver_name);
-				power = musb_readb(mbase, MGC_O_HDRC_POWER);
+				power = musb_readb(mbase, MUSB_POWER);
 				musb->g.speed = (power & MGC_M_POWER_HSMODE)
 					? USB_SPEED_HIGH : USB_SPEED_FULL;
 
@@ -775,7 +775,7 @@ stall:
 				musb->ackpend |= MGC_M_CSR0_P_SENDSTALL;
 				musb->ep0_state = MGC_END0_STAGE_SETUP;
 finish:
-				musb_writew(regs, MGC_O_HDRC_CSR0,
+				musb_writew(regs, MUSB_CSR0,
 						musb->ackpend);
 				musb->ackpend = 0;
 			}
@@ -792,7 +792,7 @@ finish:
 	default:
 		/* "can't happen" */
 		WARN_ON(1);
-		musb_writew(regs, MGC_O_HDRC_CSR0, MGC_M_CSR0_P_SENDSTALL);
+		musb_writew(regs, MUSB_CSR0, MGC_M_CSR0_P_SENDSTALL);
 		musb->ep0_state = MGC_END0_STAGE_SETUP;
 		break;
 	}
@@ -876,7 +876,7 @@ musb_g_ep0_queue(struct usb_ep *e, struct usb_request *r, gfp_t gfp_flags)
 			status = -EINVAL;
 		else {
 			musb->ep0_state = MGC_END0_STAGE_STATUSIN;
-			musb_writew(regs, MGC_O_HDRC_CSR0,
+			musb_writew(regs, MUSB_CSR0,
 					musb->ackpend | MGC_M_CSR0_P_DATAEND);
 			musb->ackpend = 0;
 			musb_g_ep0_giveback(ep->musb, r);
@@ -887,7 +887,7 @@ musb_g_ep0_queue(struct usb_ep *e, struct usb_request *r, gfp_t gfp_flags)
 	 * (after SETUP is acked) are racey.
 	 */
 	} else if (musb->ackpend) {
-		musb_writew(regs, MGC_O_HDRC_CSR0, musb->ackpend);
+		musb_writew(regs, MUSB_CSR0, musb->ackpend);
 		musb->ackpend = 0;
 	}
 
@@ -934,9 +934,9 @@ static int musb_g_ep0_halt(struct usb_ep *e, int value)
 		status = 0;
 
 		musb_ep_select(base, 0);
-		csr = musb_readw(regs, MGC_O_HDRC_CSR0);
+		csr = musb_readw(regs, MUSB_CSR0);
 		csr |= MGC_M_CSR0_P_SENDSTALL;
-		musb_writew(regs, MGC_O_HDRC_CSR0, csr);
+		musb_writew(regs, MUSB_CSR0, csr);
 		musb->ep0_state = MGC_END0_STAGE_SETUP;
 		break;
 	default:

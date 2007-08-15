@@ -263,22 +263,22 @@ static int dma_channel_abort(struct dma_channel *pChannel)
 		if (pImplChannel->bTransmit) {
 
 			csr = musb_readw(mbase,
-				MGC_END_OFFSET(pImplChannel->epnum,MGC_O_HDRC_TXCSR));
+				MGC_END_OFFSET(pImplChannel->epnum,MUSB_TXCSR));
 			csr &= ~(MGC_M_TXCSR_AUTOSET |
 				 MGC_M_TXCSR_DMAENAB |
 				 MGC_M_TXCSR_DMAMODE);
 			musb_writew(mbase,
-					MGC_END_OFFSET(pImplChannel->epnum,MGC_O_HDRC_TXCSR),
+					MGC_END_OFFSET(pImplChannel->epnum,MUSB_TXCSR),
 					csr);
 		}
 		else {
 			csr = musb_readw(mbase,
-				MGC_END_OFFSET(pImplChannel->epnum,MGC_O_HDRC_RXCSR));
+				MGC_END_OFFSET(pImplChannel->epnum,MUSB_RXCSR));
 			csr &= ~(MGC_M_RXCSR_AUTOCLEAR |
 				 MGC_M_RXCSR_DMAENAB |
 				 MGC_M_RXCSR_DMAMODE);
 			musb_writew(mbase,
-					MGC_END_OFFSET(pImplChannel->epnum,MGC_O_HDRC_RXCSR),
+					MGC_END_OFFSET(pImplChannel->epnum,MUSB_RXCSR),
 					csr);
 		}
 
@@ -341,7 +341,7 @@ static irqreturn_t dma_controller_irq(int irq, void *private_data)
 					"=> reconfig 0": "=> complete");
 
 				u8 devctl = musb_readb(mbase,
-						MGC_O_HDRC_DEVCTL);
+						MUSB_DEVCTL);
 
 				pChannel->status = MGC_DMA_STATUS_FREE;
 
@@ -356,7 +356,7 @@ static irqreturn_t dma_controller_irq(int irq, void *private_data)
 					musb_ep_select(mbase,
 						pImplChannel->epnum);
 					musb_writew(mbase,
-						MGC_END_OFFSET(pImplChannel->epnum,MGC_O_HDRC_TXCSR),
+						MGC_END_OFFSET(pImplChannel->epnum,MUSB_TXCSR),
 						MGC_M_TXCSR_TXPKTRDY);
 				} else
 					musb_dma_completion(

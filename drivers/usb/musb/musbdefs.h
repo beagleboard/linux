@@ -219,7 +219,7 @@ enum musb_g_ep0_state {
 /* TUSB mapping: "flat" plus ep0 special cases */
 #if	defined(CONFIG_USB_TUSB6010)
 #define musb_ep_select(_mbase, _epnum) \
-	musb_writeb((_mbase), MGC_O_HDRC_INDEX, (_epnum))
+	musb_writeb((_mbase), MUSB_INDEX, (_epnum))
 #define	MGC_END_OFFSET			MGC_TUSB_OFFSET
 
 /* "flat" mapping: each endpoint has its own i/o address */
@@ -230,7 +230,7 @@ enum musb_g_ep0_state {
 /* "indexed" mapping: INDEX register controls register bank select */
 #else
 #define musb_ep_select(_mbase, _epnum) \
-	musb_writeb((_mbase), MGC_O_HDRC_INDEX, (_epnum))
+	musb_writeb((_mbase), MUSB_INDEX, (_epnum))
 #define	MGC_END_OFFSET			MGC_INDEXED_OFFSET
 #endif
 
@@ -242,7 +242,7 @@ enum musb_g_ep0_state {
 	{ (_musb)->is_host=FALSE; }
 
 #define test_devctl_hst_mode(_x) \
-	(musb_readb((_x)->mregs, MGC_O_HDRC_DEVCTL)&MGC_M_DEVCTL_HM)
+	(musb_readb((_x)->mregs, MUSB_DEVCTL)&MGC_M_DEVCTL_HM)
 
 #define MUSB_MODE(musb) ((musb)->is_host ? "Host" : "Peripheral")
 
