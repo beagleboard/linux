@@ -328,7 +328,7 @@ DECLARE_WORK(retu_rtca_work, retu_rtca_expired);
 static void retu_rtcs_interrupt(unsigned long unused)
 {
 	retu_ack_irq(RETU_INT_RTCS);
-	complete(&retu_rtc_sync);
+	complete_all(&retu_rtc_sync);
 }
 
 static void retu_rtca_interrupt(unsigned long unused)
@@ -435,7 +435,7 @@ static struct platform_device retu_rtc_device = {
 /* This function provides syncronization with the RTCS interrupt handler */
 static void retu_rtc_barrier(void)
 {
-	init_completion(&retu_rtc_sync);
+	INIT_COMPLETION(retu_rtc_sync);
 	retu_ack_irq(RETU_INT_RTCS);
 	retu_enable_irq(RETU_INT_RTCS);
 	wait_for_completion(&retu_rtc_sync);
