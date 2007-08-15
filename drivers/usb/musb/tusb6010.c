@@ -277,11 +277,12 @@ static int tusb_draw_power(struct otg_transceiver *x, unsigned mA)
 	 * Keep clock active when enabled. Note that this is not tied to
 	 * drawing VBUS, as with OTG mA can be less than musb->min_power.
 	 */
-	if (musb->set_clock)
+	if (musb->set_clock) {
 		if (mA)
 			musb->set_clock(musb->clock, 1);
 		else
 			musb->set_clock(musb->clock, 0);
+	}
 
 	/* tps65030 seems to consume max 100mA, with maybe 60mA available
 	 * (measured on one board) for things other than tps and tusb.
