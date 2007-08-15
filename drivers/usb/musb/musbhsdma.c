@@ -54,14 +54,14 @@
 		(MGC_O_HSDMA_BASE + (_bChannel << 4) + _bOffset)
 
 /* control register (16-bit): */
-#define MGC_S_HSDMA_ENABLE		0
-#define MGC_S_HSDMA_TRANSMIT		1
-#define MGC_S_HSDMA_MODE1		2
-#define MGC_S_HSDMA_IRQENABLE		3
-#define MGC_S_HSDMA_ENDPOINT		4
-#define MGC_S_HSDMA_BUSERROR		8
-#define MGC_S_HSDMA_BURSTMODE		9
-#define MUSB_HSDMA_BURSTMODE		(3 << MGC_S_HSDMA_BURSTMODE)
+#define MUSB_HSDMA_ENABLE_SHIFT		0
+#define MUSB_HSDMA_TRANSMIT_SHIFT		1
+#define MUSB_HSDMA_MODE1_SHIFT		2
+#define MUSB_HSDMA_IRQENABLE_SHIFT		3
+#define MUSB_HSDMA_ENDPOINT_SHIFT		4
+#define MUSB_HSDMA_BUSERROR_SHIFT		8
+#define MUSB_HSDMA_BURSTMODE_SHIFT		9
+#define MUSB_HSDMA_BURSTMODE		(3 << MUSB_HSDMA_BURSTMODE_SHIFT)
 #define MGC_HSDMA_BURSTMODE_UNSPEC	0
 #define MGC_HSDMA_BURSTMODE_INCR4	1
 #define MGC_HSDMA_BURSTMODE_INCR8	2
@@ -185,26 +185,26 @@ static void configure_channel(struct dma_channel *pChannel,
 	    pChannel, packet_sz, dma_addr, dwLength, mode);
 
 	if (mode) {
-		wCsr |= 1 << MGC_S_HSDMA_MODE1;
+		wCsr |= 1 << MUSB_HSDMA_MODE1_SHIFT;
 		if (dwLength < packet_sz) {
 			return FALSE;
 		}
 		if (packet_sz >= 64) {
 			wCsr |=
-			    MGC_HSDMA_BURSTMODE_INCR16 << MGC_S_HSDMA_BURSTMODE;
+			    MGC_HSDMA_BURSTMODE_INCR16 << MUSB_HSDMA_BURSTMODE_SHIFT;
 		} else if (packet_sz >= 32) {
 			wCsr |=
-			    MGC_HSDMA_BURSTMODE_INCR8 << MGC_S_HSDMA_BURSTMODE;
+			    MGC_HSDMA_BURSTMODE_INCR8 << MUSB_HSDMA_BURSTMODE_SHIFT;
 		} else if (packet_sz >= 16) {
 			wCsr |=
-			    MGC_HSDMA_BURSTMODE_INCR4 << MGC_S_HSDMA_BURSTMODE;
+			    MGC_HSDMA_BURSTMODE_INCR4 << MUSB_HSDMA_BURSTMODE_SHIFT;
 		}
 	}
 
-	wCsr |= (pImplChannel->epnum << MGC_S_HSDMA_ENDPOINT)
-		| (1 << MGC_S_HSDMA_ENABLE)
-		| (1 << MGC_S_HSDMA_IRQENABLE)
-		| (pImplChannel->bTransmit ? (1 << MGC_S_HSDMA_TRANSMIT) : 0);
+	wCsr |= (pImplChannel->epnum << MUSB_HSDMA_ENDPOINT_SHIFT)
+		| (1 << MUSB_HSDMA_ENABLE_SHIFT)
+		| (1 << MUSB_HSDMA_IRQENABLE_SHIFT)
+		| (pImplChannel->bTransmit ? (1 << MUSB_HSDMA_TRANSMIT_SHIFT) : 0);
 
 	/* address/count */
 	musb_writel(mbase,
@@ -321,7 +321,7 @@ static irqreturn_t dma_controller_irq(int irq, void *private_data)
 				       MGC_HSDMA_CHANNEL_OFFSET(bChannel,
 							MGC_O_HSDMA_CONTROL));
 
-			if (wCsr & (1 << MGC_S_HSDMA_BUSERROR)) {
+			if (wCsr & (1 << MUSB_HSDMA_BUSERROR_SHIFT)) {
 				pImplChannel->Channel.status =
 				    MGC_DMA_STATUS_BUS_ABORT;
 			} else {

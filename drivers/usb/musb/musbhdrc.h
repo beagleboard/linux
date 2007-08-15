@@ -164,7 +164,7 @@
 #define MUSB_DEVCTL_FSDEV      0x40
 #define MUSB_DEVCTL_LSDEV      0x20
 #define MUSB_DEVCTL_VBUS       0x18
-#define MGC_S_DEVCTL_VBUS       3
+#define MUSB_DEVCTL_VBUS_SHIFT	3
 #define MUSB_DEVCTL_HM         0x04
 #define MUSB_DEVCTL_HR         0x02
 #define MUSB_DEVCTL_SESSION    0x01
@@ -219,12 +219,12 @@
 
 /* TxType/RxType */
 #define MUSB_TYPE_SPEED	0xc0
-#define MGC_S_TYPE_SPEED	6
+#define MUSB_TYPE_SPEED_SHIFT	6
 #define MGC_TYPE_SPEED_HIGH	1
 #define MGC_TYPE_SPEED_FULL	2
 #define MGC_TYPE_SPEED_LOW	3
 #define MUSB_TYPE_PROTO	0x30	/* implicitly zero for ep0 */
-#define MGC_S_TYPE_PROTO	4
+#define MUSB_TYPE_PROTO_SHIFT	4
 #define MUSB_TYPE_REMOTE_END	0xf	/* implicitly zero for ep0 */
 
 /* CONFIGDATA */

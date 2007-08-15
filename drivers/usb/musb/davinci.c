@@ -445,7 +445,7 @@ int musb_platform_exit(struct musb *musb)
 				break;
 			if ((devctl & MUSB_DEVCTL_VBUS) != warn) {
 				warn = devctl & MUSB_DEVCTL_VBUS;
-				DBG(1, "VBUS %d\n", warn >> MGC_S_DEVCTL_VBUS);
+				DBG(1, "VBUS %d\n", warn >> MUSB_DEVCTL_VBUS_SHIFT);
 			}
 			msleep(1000);
 			maxdelay--;

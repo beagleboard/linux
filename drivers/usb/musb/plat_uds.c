@@ -435,7 +435,7 @@ static irqreturn_t musb_stage0_irq(struct musb * musb, u8 bIntrUSB,
 				 * not get a disconnect irq...
 				 */
 				if ((devctl & MUSB_DEVCTL_VBUS)
-						!= (3 << MGC_S_DEVCTL_VBUS)) {
+						!= (3 << MUSB_DEVCTL_VBUS_SHIFT)) {
 					musb->int_usb |= MUSB_INTR_DISCONNECT;
 					musb->int_usb &= ~MUSB_INTR_SUSPEND;
 					break;
@@ -524,13 +524,13 @@ static irqreturn_t musb_stage0_irq(struct musb * musb, u8 bIntrUSB,
 				devctl,
 				({ char *s;
 				switch (devctl & MUSB_DEVCTL_VBUS) {
-				case 0 << MGC_S_DEVCTL_VBUS:
+				case 0 << MUSB_DEVCTL_VBUS_SHIFT:
 					s = "<SessEnd"; break;
-				case 1 << MGC_S_DEVCTL_VBUS:
+				case 1 << MUSB_DEVCTL_VBUS_SHIFT:
 					s = "<AValid"; break;
-				case 2 << MGC_S_DEVCTL_VBUS:
+				case 2 << MUSB_DEVCTL_VBUS_SHIFT:
 					s = "<VBusValid"; break;
-				//case 3 << MGC_S_DEVCTL_VBUS:
+				//case 3 << MUSB_DEVCTL_VBUS_SHIFT:
 				default:
 					s = "VALID"; break;
 				}; s; }),
@@ -589,7 +589,7 @@ static irqreturn_t musb_stage0_irq(struct musb * musb, u8 bIntrUSB,
 			break;
 		default:
 			if ((devctl & MUSB_DEVCTL_VBUS)
-					== (3 << MGC_S_DEVCTL_VBUS)) {
+					== (3 << MUSB_DEVCTL_VBUS_SHIFT)) {
 				musb->xceiv.state = OTG_STATE_A_HOST;
 				hcd->self.is_b_host = 0;
 			}
