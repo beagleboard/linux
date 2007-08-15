@@ -718,6 +718,7 @@ static irqreturn_t musb_stage2_irq(struct musb * musb, u8 bIntrUSB,
 #endif	/* OTG */
 #ifdef CONFIG_USB_GADGET_MUSB_HDRC
 		case OTG_STATE_B_PERIPHERAL:
+		case OTG_STATE_B_IDLE:
 			musb_g_disconnect(musb);
 			break;
 #endif	/* GADGET */

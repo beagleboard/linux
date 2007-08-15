@@ -1842,6 +1842,9 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 #endif
 
 	if (musb->gadget_driver == driver) {
+
+		(void) musb_gadget_vbus_draw(&musb->g, 0);
+
 		musb->xceiv.state = OTG_STATE_UNDEFINED;
 		stop_activity(musb, driver);
 
