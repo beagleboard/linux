@@ -285,13 +285,13 @@ dump_end_info(struct musb *musb, u8 epnum, char *aBuffer, unsigned max)
 					musb_readb(regs, MUSB_RXTYPE),
 					/* FIXME:  assumes multipoint */
 					musb_readb(musb->mregs,
-						MGC_BUSCTL_OFFSET(epnum,
+						MUSB_BUSCTL_OFFSET(epnum,
 						MUSB_RXFUNCADDR)),
 					musb_readb(musb->mregs,
-						MGC_BUSCTL_OFFSET(epnum,
+						MUSB_BUSCTL_OFFSET(epnum,
 						MUSB_RXHUBADDR)),
 					musb_readb(musb->mregs,
-						MGC_BUSCTL_OFFSET(epnum,
+						MUSB_BUSCTL_OFFSET(epnum,
 						MUSB_RXHUBPORT))
 					);
 				if (code <= 0)
@@ -373,13 +373,13 @@ dump_end_info(struct musb *musb, u8 epnum, char *aBuffer, unsigned max)
 					musb_readb(regs, MUSB_TXTYPE),
 					/* FIXME:  assumes multipoint */
 					musb_readb(musb->mregs,
-						MGC_BUSCTL_OFFSET(epnum,
+						MUSB_BUSCTL_OFFSET(epnum,
 						MUSB_TXFUNCADDR)),
 					musb_readb(musb->mregs,
-						MGC_BUSCTL_OFFSET(epnum,
+						MUSB_BUSCTL_OFFSET(epnum,
 						MUSB_TXHUBADDR)),
 					musb_readb(musb->mregs,
-						MGC_BUSCTL_OFFSET(epnum,
+						MUSB_BUSCTL_OFFSET(epnum,
 						MUSB_TXHUBPORT))
 					);
 				if (code <= 0)

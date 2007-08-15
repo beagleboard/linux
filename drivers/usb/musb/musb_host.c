@@ -722,13 +722,13 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 		/* target addr and (for multipoint) hub addr/port */
 		if (musb->is_multipoint) {
 			musb_writeb(mbase,
-				MGC_BUSCTL_OFFSET(epnum, MUSB_TXFUNCADDR),
+				MUSB_BUSCTL_OFFSET(epnum, MUSB_TXFUNCADDR),
 				qh->addr_reg);
 			musb_writeb(mbase,
-				MGC_BUSCTL_OFFSET(epnum, MUSB_TXHUBADDR),
+				MUSB_BUSCTL_OFFSET(epnum, MUSB_TXHUBADDR),
 				qh->h_addr_reg);
 			musb_writeb(mbase,
-				MGC_BUSCTL_OFFSET(epnum, MUSB_TXHUBPORT),
+				MUSB_BUSCTL_OFFSET(epnum, MUSB_TXHUBPORT),
 				qh->h_port_reg);
 /* FIXME if !epnum, do the same for RX ... */
 		} else

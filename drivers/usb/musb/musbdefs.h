@@ -220,18 +220,18 @@ enum musb_g_ep0_state {
 #if	defined(CONFIG_USB_TUSB6010)
 #define musb_ep_select(_mbase, _epnum) \
 	musb_writeb((_mbase), MUSB_INDEX, (_epnum))
-#define	MGC_END_OFFSET			MGC_TUSB_OFFSET
+#define	MGC_END_OFFSET			MUSB_TUSB_OFFSET
 
 /* "flat" mapping: each endpoint has its own i/o address */
 #elif	defined(MUSB_FLAT_REG)
 #define musb_ep_select(_mbase, _epnum)	(((void)(_mbase)),((void)(_epnum)))
-#define	MGC_END_OFFSET			MGC_FLAT_OFFSET
+#define	MGC_END_OFFSET			MUSB_FLAT_OFFSET
 
 /* "indexed" mapping: INDEX register controls register bank select */
 #else
 #define musb_ep_select(_mbase, _epnum) \
 	musb_writeb((_mbase), MUSB_INDEX, (_epnum))
-#define	MGC_END_OFFSET			MGC_INDEXED_OFFSET
+#define	MGC_END_OFFSET			MUSB_INDEXED_OFFSET
 #endif
 
 /****************************** FUNCTIONS ********************************/
