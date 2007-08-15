@@ -175,7 +175,7 @@ static inline void musb_host_rx(struct musb *m, u8 e) {}
 #endif
 
 #ifndef MUSB_MAX_END0_PACKET
-#define MUSB_MAX_END0_PACKET ((u16)MGC_END0_FIFOSIZE)
+#define MUSB_MAX_END0_PACKET ((u16)MUSB_EP0_FIFOSIZE)
 #endif
 
 /* host side ep0 states */

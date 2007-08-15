@@ -1335,8 +1335,8 @@ static int __init musb_core_init(u16 wType, struct musb *musb)
 			musb_driver_name, type, aRevision, aDate);
 
 	/* configure ep0 */
-	musb->endpoints[0].max_packet_sz_tx = MGC_END0_FIFOSIZE;
-	musb->endpoints[0].max_packet_sz_rx = MGC_END0_FIFOSIZE;
+	musb->endpoints[0].max_packet_sz_tx = MUSB_EP0_FIFOSIZE;
+	musb->endpoints[0].max_packet_sz_rx = MUSB_EP0_FIFOSIZE;
 
 	/* discover endpoint configuration */
 	musb->nr_endpoints = 1;

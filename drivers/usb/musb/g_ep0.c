@@ -497,7 +497,7 @@ static void ep0_txstate(struct musb *musb)
 
 	/* load the data */
 	pFifoSource = (u8 *) request->buf + request->actual;
-	fifo_count = min((unsigned) MGC_END0_FIFOSIZE,
+	fifo_count = min((unsigned) MUSB_EP0_FIFOSIZE,
 		request->length - request->actual);
 	musb_write_fifo(&musb->endpoints[0], fifo_count, pFifoSource);
 	request->actual += fifo_count;

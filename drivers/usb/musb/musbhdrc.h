@@ -38,9 +38,7 @@
  * HDRC-specific definitions
  */
 
-#define MGC_MAX_USB_ENDS       16
-
-#define MGC_END0_FIFOSIZE      64	/* this is non-configurable */
+#define MUSB_EP0_FIFOSIZE      64	/* this is non-configurable */
 
 /*
  *     MUSBMHDRC Register map
