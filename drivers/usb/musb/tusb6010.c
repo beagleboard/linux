@@ -530,6 +530,8 @@ static void tusb_source_power(struct musb *musb, int is_on)
 	devctl = musb_readb(musb->mregs, MGC_O_HDRC_DEVCTL);
 
 	if (is_on) {
+		if (musb->set_clock)
+			musb->set_clock(musb->clock, 1);
 		musb->is_active = 1;
 		timer = OTG_TIMER_MS(OTG_TIME_A_WAIT_VRISE);
 		musb->xceiv.default_a = 1;
@@ -552,6 +554,8 @@ static void tusb_source_power(struct musb *musb, int is_on)
 
 		conf &= ~TUSB_DEV_CONF_USB_HOST_MODE;
 		MUSB_DEV_MODE(musb);
+		if (musb->set_clock)
+			musb->set_clock(musb->clock, 0);
 	}
 	prcm &= ~(TUSB_PRCM_MNGMT_15_SW_EN | TUSB_PRCM_MNGMT_33_SW_EN);
 
