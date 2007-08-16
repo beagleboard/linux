@@ -945,7 +945,7 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 static int musb_h_ep0_continue(struct musb *musb,
 				u16 len, struct urb *urb)
 {
-	int			 bMore = FALSE;
+	int			 more = FALSE;
 	u8 *fifo_dest = NULL;
 	u16 fifo_count = 0;
 	struct musb_hw_ep	*hw_ep = musb->control_ep;
@@ -969,7 +969,7 @@ static int musb_h_ep0_continue(struct musb *musb,
 			 */
 		} else if (urb->actual_length <
 				urb->transfer_buffer_length)
-			bMore = TRUE;
+			more = TRUE;
 		break;
 	case MGC_END0_START:
 		request = (struct usb_ctrlrequest *) urb->setup_packet;
@@ -980,12 +980,12 @@ static int musb_h_ep0_continue(struct musb *musb,
 		} else if (request->bRequestType & USB_DIR_IN) {
 			DBG(4, "start IN-DATA\n");
 			musb->ep0_stage = MGC_END0_IN;
-			bMore = TRUE;
+			more = TRUE;
 			break;
 		} else {
 			DBG(4, "start OUT-DATA\n");
 			musb->ep0_stage = MGC_END0_OUT;
-			bMore = TRUE;
+			more = TRUE;
 		}
 		/* FALLTHROUGH */
 	case MGC_END0_OUT:
@@ -1001,7 +1001,7 @@ static int musb_h_ep0_continue(struct musb *musb,
 			musb_write_fifo(hw_ep, fifo_count, fifo_dest);
 
 			urb->actual_length += fifo_count;
-			bMore = TRUE;
+			more = TRUE;
 		}
 		break;
 	default:
@@ -1009,7 +1009,7 @@ static int musb_h_ep0_continue(struct musb *musb,
 		break;
 	}
 
-	return bMore;
+	return more;
 }
 
 /*
