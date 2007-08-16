@@ -1660,7 +1660,7 @@ static int musb_schedule(
 	int			is_in)
 {
 	int			idle;
-	int			wBestDiff;
+	int			best_diff;
 	int			nBestEnd, nEnd;
 	struct musb_hw_ep	*hw_ep = NULL;
 	struct list_head	*head = NULL;
@@ -1703,7 +1703,7 @@ static int musb_schedule(
 	 * that simplistic approach makes TT scheduling a lot simpler;
 	 * there is none, and thus none of its complexity...
 	 */
-	wBestDiff = 4096;
+	best_diff = 4096;
 	nBestEnd = -1;
 
 	for (nEnd = 1; nEnd < musb->nr_endpoints; nEnd++) {
@@ -1720,8 +1720,8 @@ static int musb_schedule(
 		else
 			diff = hw_ep->max_packet_sz_tx - qh->maxpacket;
 
-		if (diff > 0 && wBestDiff > diff) {
-			wBestDiff = diff;
+		if (diff > 0 && best_diff > diff) {
+			best_diff = diff;
 			nBestEnd = nEnd;
 		}
 	}
