@@ -175,8 +175,8 @@ musb_start_urb(struct musb *musb, int is_in, struct musb_qh *qh)
 	void __iomem		*mbase =  musb->mregs;
 	struct urb		*urb = next_urb(qh);
 	struct musb_hw_ep	*hw_ep = qh->hw_ep;
-	unsigned		nPipe = urb->pipe;
-	u8			address = usb_pipedevice(nPipe);
+	unsigned		pipe = urb->pipe;
+	u8			address = usb_pipedevice(pipe);
 	int			epnum = hw_ep->epnum;
 
 	/* initialize software qh state */
@@ -478,7 +478,7 @@ static u8 musb_host_packet_rx(struct musb *musb, struct urb *urb,
 	struct musb_hw_ep	*hw_ep = musb->endpoints + epnum;
 	void __iomem		*epio = hw_ep->regs;
 	struct musb_qh		*qh = hw_ep->in_qh;
-	int			nPipe = urb->pipe;
+	int			pipe = urb->pipe;
 	void			*buffer = urb->transfer_buffer;
 
 	// musb_ep_select(mbase, epnum);
@@ -488,7 +488,7 @@ static u8 musb_host_packet_rx(struct musb *musb, struct urb *urb,
 			urb->transfer_buffer_length);
 
 	/* unload FIFO */
-	if (usb_pipeisoc(nPipe)) {
+	if (usb_pipeisoc(pipe)) {
 		int					status = 0;
 		struct usb_iso_packet_descriptor	*d;
 
@@ -1164,7 +1164,7 @@ done:
 /* Service a Tx-Available or dma completion irq for the endpoint */
 void musb_host_tx(struct musb *musb, u8 epnum)
 {
-	int			nPipe;
+	int			pipe;
 	u8			done = FALSE;
 	u16			tx_csr;
 	size_t			wLength = 0;
@@ -1188,7 +1188,7 @@ void musb_host_tx(struct musb *musb, u8 epnum)
 		goto finish;
 	}
 
-	nPipe = urb->pipe;
+	pipe = urb->pipe;
 	dma = is_dma_capable() ? hw_ep->tx_channel : NULL;
 	DBG(4, "OUT/TX%d end, csr %04x%s\n", epnum, tx_csr,
 			dma ? ", dma" : "");
@@ -1258,14 +1258,14 @@ void musb_host_tx(struct musb *musb, u8 epnum)
 	}
 
 	/* REVISIT this looks wrong... */
-	if (!status || dma || usb_pipeisoc(nPipe)) {
+	if (!status || dma || usb_pipeisoc(pipe)) {
 		if (dma)
 			wLength = dma->actual_len;
 		else
 			wLength = qh->segsize;
 		qh->offset += wLength;
 
-		if (usb_pipeisoc(nPipe)) {
+		if (usb_pipeisoc(pipe)) {
 			struct usb_iso_packet_descriptor	*d;
 
 			d = urb->iso_frame_desc + qh->iso_idx;
@@ -1385,7 +1385,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 	struct musb_qh		*qh = hw_ep->in_qh;
 	size_t			xfer_len;
 	void __iomem		*mbase = musb->mregs;
-	int			nPipe;
+	int			pipe;
 	u16			rx_csr, wVal;
 	u8			bIsochError = FALSE;
 	u8			done = FALSE;
@@ -1412,7 +1412,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 		return;
 	}
 
-	nPipe = urb->pipe;
+	pipe = urb->pipe;
 
 	DBG(5, "<== hw %d rxcsr %04x, urb actual %d (+dma %zd)\n",
 		epnum, rx_csr, urb->actual_length,
