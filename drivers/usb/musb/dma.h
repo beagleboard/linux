@@ -102,7 +102,7 @@ struct dma_controller;
 /**
  * struct dma_channel - A DMA channel.
  * @private_data: channel-private data
- * @wMaxLength: the maximum number of bytes the channel can move in one
+ * @max_len: the maximum number of bytes the channel can move in one
  *	transaction (typically representing many USB maximum-sized packets)
  * @actual_len: how many bytes have been transferred
  * @status: current channel status (updated e.g. on interrupt)
@@ -119,27 +119,6 @@ struct dma_channel {
 	enum dma_channel_status	status;
 	u8			desired_mode;
 };
-
-/*
- * Program a DMA channel to move data at the core's request.
- * The local core endpoint and direction should already be known,
- * since they are specified in the channel_alloc call.
- *
- * @channel: pointer to a channel obtained by channel_alloc
- * @maxpacket: the maximum packet size
- * @mode: TRUE if mode 1; FALSE if mode 0
- * @dma_addr: base address of data (in DMA space)
- * @length: the number of bytes to transfer; no larger than the channel's
- *	reported max_len
- *
- * Returns TRUE on success, else FALSE
- */
-typedef int (*dma_program_channel) (
-		struct dma_channel	*channel,
-		u16			maxpacket,
-		u8			mode,
-		dma_addr_t		dma_addr,
-		u32			length);
 
 /*
  * dma_channel_status - return status of dma channel
@@ -176,7 +155,10 @@ struct dma_controller {
 	struct dma_channel	*(*channel_alloc)(struct dma_controller *,
 					struct musb_hw_ep *, u8 is_tx);
 	void			(*channel_release)(struct dma_channel *);
-	dma_program_channel	channel_program;
+	int			(*channel_program)(struct dma_channel *channel,
+							u16 maxpacket, u8 mode,
+							dma_addr_t dma_addr,
+							u32 length);
 	int			(*channel_abort)(struct dma_channel *);
 };
 
