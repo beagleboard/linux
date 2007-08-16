@@ -1027,7 +1027,7 @@ irqreturn_t musb_h_ep0_irq(struct musb *musb)
 	struct musb_hw_ep	*hw_ep = musb->control_ep;
 	void __iomem		*epio = hw_ep->regs;
 	struct musb_qh		*qh = hw_ep->in_qh;
-	u8			bComplete = FALSE;
+	u8			complete = FALSE;
 	irqreturn_t		retval = IRQ_NONE;
 
 	/* ep0 only has one queue, "in" */
@@ -1045,7 +1045,7 @@ irqreturn_t musb_h_ep0_irq(struct musb *musb)
 	/* if we just did status stage, we are done */
 	if (MGC_END0_STATUS == musb->ep0_stage) {
 		retval = IRQ_HANDLED;
-		bComplete = TRUE;
+		complete = TRUE;
 	}
 
 	/* prepare status */
@@ -1076,7 +1076,7 @@ irqreturn_t musb_h_ep0_irq(struct musb *musb)
 		retval = IRQ_HANDLED;
 		if (urb)
 			urb->status = status;
-		bComplete = TRUE;
+		complete = TRUE;
 
 		/* use the proper sequence to abort the transfer */
 		if (csr & MUSB_CSR0_H_REQPKT) {
@@ -1110,7 +1110,7 @@ irqreturn_t musb_h_ep0_irq(struct musb *musb)
 		goto done;
 	}
 
-	if (!bComplete) {
+	if (!complete) {
 		/* call common logic and prepare response */
 		if (musb_h_ep0_continue(musb, len, urb)) {
 			/* more packets required */
@@ -1138,7 +1138,7 @@ irqreturn_t musb_h_ep0_irq(struct musb *musb)
 		musb->ep0_stage = MGC_END0_IDLE;
 
 	/* call completion handler if done */
-	if (bComplete)
+	if (complete)
 		musb_advance_schedule(musb, urb, hw_ep, 1);
 done:
 	return retval;
