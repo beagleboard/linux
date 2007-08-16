@@ -1331,8 +1331,8 @@ static void musb_gadget_fifo_flush(struct usb_ep *ep)
 {
 	struct musb_ep	*musb_ep = to_musb_ep(ep);
 	struct musb	*musb = musb_ep->musb;
-	u8		nEnd = musb_ep->current_epnum;
-	void __iomem	*epio = musb->endpoints[nEnd].regs;
+	u8		epnum = musb_ep->current_epnum;
+	void __iomem	*epio = musb->endpoints[epnum].regs;
 	void __iomem	*mbase;
 	unsigned long	flags;
 	u16		csr, int_txe;
@@ -1340,11 +1340,11 @@ static void musb_gadget_fifo_flush(struct usb_ep *ep)
 	mbase = musb->mregs;
 
 	spin_lock_irqsave(&musb->lock, flags);
-	musb_ep_select(mbase, (u8) nEnd);
+	musb_ep_select(mbase, (u8) epnum);
 
 	/* disable interrupts */
 	int_txe = musb_readw(mbase, MUSB_INTRTXE);
-	musb_writew(mbase, MUSB_INTRTXE, int_txe & ~(1 << nEnd));
+	musb_writew(mbase, MUSB_INTRTXE, int_txe & ~(1 << epnum));
 
 	if (musb_ep->is_in) {
 		csr = musb_readw(epio, MUSB_TXCSR);

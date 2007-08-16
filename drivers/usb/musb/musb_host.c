@@ -1661,7 +1661,7 @@ static int musb_schedule(
 {
 	int			idle;
 	int			best_diff;
-	int			best_end, nEnd;
+	int			best_end, epnum;
 	struct musb_hw_ep	*hw_ep = NULL;
 	struct list_head	*head = NULL;
 
@@ -1706,12 +1706,12 @@ static int musb_schedule(
 	best_diff = 4096;
 	best_end = -1;
 
-	for (nEnd = 1; nEnd < musb->nr_endpoints; nEnd++) {
+	for (epnum = 1; epnum < musb->nr_endpoints; epnum++) {
 		int	diff;
 
-		if (musb->periodic[nEnd])
+		if (musb->periodic[epnum])
 			continue;
-		hw_ep = &musb->endpoints[nEnd];
+		hw_ep = &musb->endpoints[epnum];
 		if (hw_ep == musb->bulk_ep)
 			continue;
 
@@ -1722,7 +1722,7 @@ static int musb_schedule(
 
 		if (diff > 0 && best_diff > diff) {
 			best_diff = diff;
-			best_end = nEnd;
+			best_end = epnum;
 		}
 	}
 	if (best_end < 0)
