@@ -1225,8 +1225,8 @@ void musb_host_tx(struct musb *musb, u8 epnum)
 	}
 
 	if (status) {
-		if (dma_channel_status(dma) == MGC_DMA_STATUS_BUSY) {
-			dma->status = MGC_DMA_STATUS_CORE_ABORT;
+		if (dma_channel_status(dma) == MUSB_DMA_STATUS_BUSY) {
+			dma->status = MUSB_DMA_STATUS_CORE_ABORT;
 			(void) musb->dma_controller->channel_abort(dma);
 		}
 
@@ -1251,7 +1251,7 @@ void musb_host_tx(struct musb *musb, u8 epnum)
 	}
 
 	/* second cppi case */
-	if (dma_channel_status(dma) == MGC_DMA_STATUS_BUSY) {
+	if (dma_channel_status(dma) == MUSB_DMA_STATUS_BUSY) {
 		DBG(4, "extra TX%d ready, csr %04x\n", epnum, tx_csr);
 		goto finish;
 
@@ -1459,8 +1459,8 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 	/* faults abort the transfer */
 	if (status) {
 		/* clean up dma and collect transfer count */
-		if (dma_channel_status(dma) == MGC_DMA_STATUS_BUSY) {
-			dma->status = MGC_DMA_STATUS_CORE_ABORT;
+		if (dma_channel_status(dma) == MUSB_DMA_STATUS_BUSY) {
+			dma->status = MUSB_DMA_STATUS_CORE_ABORT;
 			(void) musb->dma_controller->channel_abort(dma);
 			xfer_len = dma->actual_len;
 		}
@@ -1470,7 +1470,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 		goto finish;
 	}
 
-	if (unlikely(dma_channel_status(dma) == MGC_DMA_STATUS_BUSY)) {
+	if (unlikely(dma_channel_status(dma) == MUSB_DMA_STATUS_BUSY)) {
 		/* SHOULD NEVER HAPPEN ... but at least DaVinci has done it */
 		ERR("RX%d dma busy, csr %04x\n", epnum, rx_csr);
 		goto finish;
@@ -1490,8 +1490,8 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 		 * and also duplicates dma cleanup code above ... plus,
 		 * shouldn't this be the "half full" double buffer case?
 		 */
-		if (dma_channel_status(dma) == MGC_DMA_STATUS_BUSY) {
-			dma->status = MGC_DMA_STATUS_CORE_ABORT;
+		if (dma_channel_status(dma) == MUSB_DMA_STATUS_BUSY) {
+			dma->status = MUSB_DMA_STATUS_CORE_ABORT;
 			(void) musb->dma_controller->channel_abort(dma);
 			xfer_len = dma->actual_len;
 			done = TRUE;

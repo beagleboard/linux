@@ -144,7 +144,7 @@ static struct dma_channel* dma_channel_allocate(struct dma_controller *c,
 			pImplChannel->transmit = transmit;
 			pChannel = &(pImplChannel->Channel);
 			pChannel->private_data = pImplChannel;
-			pChannel->status = MGC_DMA_STATUS_FREE;
+			pChannel->status = MUSB_DMA_STATUS_FREE;
 			pChannel->max_len = 0x10000;
 			/* Tx => mode 1; Rx => mode 0 */
 			pChannel->desired_mode = transmit;
@@ -167,7 +167,7 @@ static void dma_channel_release(struct dma_channel *pChannel)
 	pImplChannel->controller->bmUsedChannels &=
 		~(1 << pImplChannel->bIndex);
 
-	pChannel->status = MGC_DMA_STATUS_UNKNOWN;
+	pChannel->status = MUSB_DMA_STATUS_UNKNOWN;
 }
 
 static void configure_channel(struct dma_channel *pChannel,
@@ -232,14 +232,14 @@ static int dma_channel_program(struct dma_channel * pChannel,
 		pImplChannel->transmit ? "Tx" : "Rx",
 		packet_sz, dma_addr, len, mode);
 
-	BUG_ON(pChannel->status == MGC_DMA_STATUS_UNKNOWN ||
-		pChannel->status == MGC_DMA_STATUS_BUSY);
+	BUG_ON(pChannel->status == MUSB_DMA_STATUS_UNKNOWN ||
+		pChannel->status == MUSB_DMA_STATUS_BUSY);
 
 	pChannel->actual_len = 0;
 	pImplChannel->dwStartAddress = dma_addr;
 	pImplChannel->len = len;
 	pImplChannel->wMaxPacketSize = packet_sz;
-	pChannel->status = MGC_DMA_STATUS_BUSY;
+	pChannel->status = MUSB_DMA_STATUS_BUSY;
 
 	if ((mode == 1) && (len >= packet_sz)) {
 		configure_channel(pChannel, packet_sz, 1, dma_addr,
@@ -259,7 +259,7 @@ static int dma_channel_abort(struct dma_channel *pChannel)
 	u8 *mbase = pImplChannel->controller->pCoreBase;
 	u16 csr;
 
-	if (pChannel->status == MGC_DMA_STATUS_BUSY) {
+	if (pChannel->status == MUSB_DMA_STATUS_BUSY) {
 		if (pImplChannel->transmit) {
 
 			csr = musb_readw(mbase,
@@ -289,7 +289,7 @@ static int dma_channel_abort(struct dma_channel *pChannel)
 		musb_writel(mbase,
 		   MGC_HSDMA_CHANNEL_OFFSET(bChannel, MGC_O_HSDMA_COUNT), 0);
 
-		pChannel->status = MGC_DMA_STATUS_FREE;
+		pChannel->status = MUSB_DMA_STATUS_FREE;
 	}
 	return 0;
 }
@@ -323,7 +323,7 @@ static irqreturn_t dma_controller_irq(int irq, void *private_data)
 
 			if (csr & (1 << MUSB_HSDMA_BUSERROR_SHIFT)) {
 				pImplChannel->Channel.status =
-				    MGC_DMA_STATUS_BUS_ABORT;
+				    MUSB_DMA_STATUS_BUS_ABORT;
 			} else {
 				dwAddress = musb_readl(mbase,
 						MGC_HSDMA_CHANNEL_OFFSET(
@@ -343,7 +343,7 @@ static irqreturn_t dma_controller_irq(int irq, void *private_data)
 				u8 devctl = musb_readb(mbase,
 						MUSB_DEVCTL);
 
-				pChannel->status = MGC_DMA_STATUS_FREE;
+				pChannel->status = MUSB_DMA_STATUS_FREE;
 
 				/* completed */
 				if ((devctl & MUSB_DEVCTL_HM)

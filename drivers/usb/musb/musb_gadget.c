@@ -263,7 +263,7 @@ static void txstate(struct musb *musb, struct musb_request *req)
 	musb_ep = req->ep;
 
 	/* we shouldn't get here while DMA is active ... but we do ... */
-	if (dma_channel_status(musb_ep->dma) == MGC_DMA_STATUS_BUSY) {
+	if (dma_channel_status(musb_ep->dma) == MUSB_DMA_STATUS_BUSY) {
 		DBG(4, "dma pending...\n");
 		return;
 	}
@@ -427,8 +427,8 @@ void musb_g_tx(struct musb *musb, u8 epnum)
 			csr |= MUSB_TXCSR_P_WZC_BITS;
 			csr &= ~MUSB_TXCSR_P_SENTSTALL;
 			musb_writew(epio, MUSB_TXCSR, csr);
-			if (dma_channel_status(dma) == MGC_DMA_STATUS_BUSY) {
-				dma->status = MGC_DMA_STATUS_CORE_ABORT;
+			if (dma_channel_status(dma) == MUSB_DMA_STATUS_BUSY) {
+				dma->status = MUSB_DMA_STATUS_CORE_ABORT;
 				musb->dma_controller->channel_abort(dma);
 			}
 
@@ -447,7 +447,7 @@ void musb_g_tx(struct musb *musb, u8 epnum)
 			DBG(20, "underrun on ep%d, req %p\n", epnum, request);
 		}
 
-		if (dma_channel_status(dma) == MGC_DMA_STATUS_BUSY) {
+		if (dma_channel_status(dma) == MUSB_DMA_STATUS_BUSY) {
 			/* SHOULD NOT HAPPEN ... has with cppi though, after
 			 * changing SENDSTALL (and other cases); harmless?
 			 */
@@ -753,8 +753,8 @@ void musb_g_rx(struct musb *musb, u8 epnum)
 			csr, dma ? " (dma)" : "", request);
 
 	if (csr & MUSB_RXCSR_P_SENTSTALL) {
-		if (dma_channel_status(dma) == MGC_DMA_STATUS_BUSY) {
-			dma->status = MGC_DMA_STATUS_CORE_ABORT;
+		if (dma_channel_status(dma) == MUSB_DMA_STATUS_BUSY) {
+			dma->status = MUSB_DMA_STATUS_CORE_ABORT;
 			(void) musb->dma_controller->channel_abort(dma);
 			request->actual += musb_ep->dma->actual_len;
 		}
@@ -782,7 +782,7 @@ void musb_g_rx(struct musb *musb, u8 epnum)
 		DBG(4, "%s, incomprx\n", musb_ep->end_point.name);
 	}
 
-	if (dma_channel_status(dma) == MGC_DMA_STATUS_BUSY) {
+	if (dma_channel_status(dma) == MUSB_DMA_STATUS_BUSY) {
 		/* "should not happen"; likely RXPKTRDY pending for DMA */
 		DBG((csr & MUSB_RXCSR_DMAENAB) ? 4 : 1,
 			"%s busy, csr %04x\n",

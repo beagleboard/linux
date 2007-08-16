@@ -86,15 +86,15 @@ struct musb_hw_ep;
  */
 enum dma_channel_status {
 	/* unallocated */
-	MGC_DMA_STATUS_UNKNOWN,
+	MUSB_DMA_STATUS_UNKNOWN,
 	/* allocated ... but not busy, no errors */
-	MGC_DMA_STATUS_FREE,
+	MUSB_DMA_STATUS_FREE,
 	/* busy ... transactions are active */
-	MGC_DMA_STATUS_BUSY,
+	MUSB_DMA_STATUS_BUSY,
 	/* transaction(s) aborted due to ... dma or memory bus error */
-	MGC_DMA_STATUS_BUS_ABORT,
+	MUSB_DMA_STATUS_BUS_ABORT,
 	/* transaction(s) aborted due to ... core error or USB fault */
-	MGC_DMA_STATUS_CORE_ABORT
+	MUSB_DMA_STATUS_CORE_ABORT
 };
 
 struct dma_controller;
@@ -131,7 +131,7 @@ struct dma_channel {
 static inline enum dma_channel_status
 dma_channel_status(struct dma_channel *c)
 {
-	return (is_dma_capable() && c) ? c->status : MGC_DMA_STATUS_UNKNOWN;
+	return (is_dma_capable() && c) ? c->status : MUSB_DMA_STATUS_UNKNOWN;
 }
 
 /**

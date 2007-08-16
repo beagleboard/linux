@@ -99,7 +99,7 @@ static void __init cppi_pool_init(struct cppi *cppi, struct cppi_channel *c)
 	c->activeQueueHead = NULL;
 	c->activeQueueTail = NULL;
 	c->lastHwBDProcessed = NULL;
-	c->Channel.status = MGC_DMA_STATUS_UNKNOWN;
+	c->Channel.status = MUSB_DMA_STATUS_UNKNOWN;
 	c->controller = cppi;
 	c->bLastModeRndis = 0;
 	c->Channel.private_data = c;
@@ -124,7 +124,7 @@ static void cppi_pool_free(struct cppi_channel *c)
 	struct cppi_descriptor	*bd;
 
 	(void) cppi_channel_abort(&c->Channel);
-	c->Channel.status = MGC_DMA_STATUS_UNKNOWN;
+	c->Channel.status = MUSB_DMA_STATUS_UNKNOWN;
 	c->controller = NULL;
 
 	/* free all its bds */
@@ -322,7 +322,7 @@ cppi_channel_allocate(struct dma_controller *c,
 		DBG(1, "re-allocating DMA%d %cX channel %p\n",
 				chNum, transmit ? 'T' : 'R', otgCh);
 	otgCh->hw_ep = ep;
-	otgCh->Channel.status = MGC_DMA_STATUS_FREE;
+	otgCh->Channel.status = MUSB_DMA_STATUS_FREE;
 
 	DBG(4, "Allocate CPPI%d %cX\n", chNum, transmit ? 'T' : 'R');
 	otgCh->Channel.private_data = otgCh;
@@ -348,7 +348,7 @@ static void cppi_channel_release(struct dma_channel *channel)
 
 	/* for now, leave its cppi IRQ enabled (we won't trigger it) */
 	c->hw_ep = NULL;
-	channel->status = MGC_DMA_STATUS_UNKNOWN;
+	channel->status = MUSB_DMA_STATUS_UNKNOWN;
 }
 
 /* Context: controller irqlocked */
@@ -958,30 +958,30 @@ static int cppi_channel_program(struct dma_channel *pChannel,
 	struct musb		*musb = controller->musb;
 
 	switch (pChannel->status) {
-	case MGC_DMA_STATUS_BUS_ABORT:
-	case MGC_DMA_STATUS_CORE_ABORT:
+	case MUSB_DMA_STATUS_BUS_ABORT:
+	case MUSB_DMA_STATUS_CORE_ABORT:
 		/* fault irq handler should have handled cleanup */
 		WARN("%cX DMA%d not cleaned up after abort!\n",
 				otgChannel->transmit ? 'T' : 'R',
 				otgChannel->chNo);
 		//WARN_ON(1);
 		break;
-	case MGC_DMA_STATUS_BUSY:
+	case MUSB_DMA_STATUS_BUSY:
 		WARN("program active channel?  %cX DMA%d\n",
 				otgChannel->transmit ? 'T' : 'R',
 				otgChannel->chNo);
 		//WARN_ON(1);
 		break;
-	case MGC_DMA_STATUS_UNKNOWN:
+	case MUSB_DMA_STATUS_UNKNOWN:
 		DBG(1, "%cX DMA%d not allocated!\n",
 				otgChannel->transmit ? 'T' : 'R',
 				otgChannel->chNo);
 		/* FALLTHROUGH */
-	case MGC_DMA_STATUS_FREE:
+	case MUSB_DMA_STATUS_FREE:
 		break;
 	}
 
-	pChannel->status = MGC_DMA_STATUS_BUSY;
+	pChannel->status = MUSB_DMA_STATUS_BUSY;
 
 	/* set transfer parameters, then queue up its first segment */
 	otgChannel->startAddr = dma_addr;
@@ -1225,7 +1225,7 @@ void cppi_completion(struct musb *musb, u32 rx, u32 tx)
 					txChannel->activeQueueHead = NULL;
 					txChannel->activeQueueTail = NULL;
 					txChannel->Channel.status =
-							MGC_DMA_STATUS_FREE;
+							MUSB_DMA_STATUS_FREE;
 
 					hw_ep = txChannel->hw_ep;
 
@@ -1288,7 +1288,7 @@ void cppi_completion(struct musb *musb, u32 rx, u32 tx)
 			}
 
 			/* all segments completed! */
-			rxChannel->Channel.status = MGC_DMA_STATUS_FREE;
+			rxChannel->Channel.status = MUSB_DMA_STATUS_FREE;
 
 			hw_ep = rxChannel->hw_ep;
 
@@ -1376,15 +1376,15 @@ static int cppi_channel_abort(struct dma_channel *channel)
 	chNum = otgCh->chNo;
 
 	switch (channel->status) {
-	case MGC_DMA_STATUS_BUS_ABORT:
-	case MGC_DMA_STATUS_CORE_ABORT:
+	case MUSB_DMA_STATUS_BUS_ABORT:
+	case MUSB_DMA_STATUS_CORE_ABORT:
 		/* from RX or TX fault irq handler */
-	case MGC_DMA_STATUS_BUSY:
+	case MUSB_DMA_STATUS_BUSY:
 		/* the hardware needs shutting down */
 		regs = otgCh->hw_ep->regs;
 		break;
-	case MGC_DMA_STATUS_UNKNOWN:
-	case MGC_DMA_STATUS_FREE:
+	case MUSB_DMA_STATUS_UNKNOWN:
+	case MUSB_DMA_STATUS_FREE:
 		return 0;
 	default:
 		return -EINVAL;
@@ -1515,7 +1515,7 @@ static int cppi_channel_abort(struct dma_channel *channel)
 		 * refers to an entire "DMA packet" not just emptying the
 		 * current fifo; most segments need multiple usb packets.
 		 */
-		if (channel->status == MGC_DMA_STATUS_BUSY)
+		if (channel->status == MUSB_DMA_STATUS_BUSY)
 			udelay(50);
 
 		/* scan the current list, reporting any data that was
@@ -1552,7 +1552,7 @@ static int cppi_channel_abort(struct dma_channel *channel)
 		}
 	}
 
-	channel->status = MGC_DMA_STATUS_FREE;
+	channel->status = MUSB_DMA_STATUS_FREE;
 	otgCh->startAddr = 0;
 	otgCh->currOffset = 0;
 	otgCh->transferSize = 0;
