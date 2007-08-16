@@ -1247,7 +1247,7 @@ enum { MUSB_CONTROLLER_MHDRC, MUSB_CONTROLLER_HDRC, };
 static int __init musb_core_init(u16 wType, struct musb *musb)
 {
 #ifdef MUSB_AHB_ID
-	u32 dwData;
+	u32 data;
 #endif
 	u8 reg;
 	char *type;
@@ -1297,14 +1297,14 @@ static int __init musb_core_init(u16 wType, struct musb *musb)
 			musb_driver_name, reg, aInfo);
 
 #ifdef MUSB_AHB_ID
-	dwData = musb_readl(mbase, 0x404);
-	sprintf(aDate, "%04d-%02x-%02x", (dwData & 0xffff),
-		(dwData >> 16) & 0xff, (dwData >> 24) & 0xff);
+	data = musb_readl(mbase, 0x404);
+	sprintf(aDate, "%04d-%02x-%02x", (data & 0xffff),
+		(data >> 16) & 0xff, (data >> 24) & 0xff);
 	/* FIXME ID2 and ID3 are unused */
-	dwData = musb_readl(mbase, 0x408);
-	printk("ID2=%lx\n", (long unsigned)dwData);
-	dwData = musb_readl(mbase, 0x40c);
-	printk("ID3=%lx\n", (long unsigned)dwData);
+	data = musb_readl(mbase, 0x408);
+	printk("ID2=%lx\n", (long unsigned)data);
+	data = musb_readl(mbase, 0x40c);
+	printk("ID3=%lx\n", (long unsigned)data);
 	reg = musb_readb(mbase, 0x400);
 	wType = ('M' == reg) ? MUSB_CONTROLLER_MHDRC : MUSB_CONTROLLER_HDRC;
 #else
