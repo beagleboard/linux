@@ -467,7 +467,7 @@ static inline u16 musb_h_flush_rxfifo(struct musb_hw_ep *hw_ep, u16 csr)
  * PIO RX for a packet (or part of it).
  */
 static u8 musb_host_packet_rx(struct musb *musb, struct urb *urb,
-		u8 epnum, u8 bIsochError)
+		u8 epnum, u8 iso_err)
 {
 	u16 rx_count;
 	u8 *buf;
@@ -492,7 +492,7 @@ static u8 musb_host_packet_rx(struct musb *musb, struct urb *urb,
 		int					status = 0;
 		struct usb_iso_packet_descriptor	*d;
 
-		if (bIsochError) {
+		if (iso_err) {
 			status = -EILSEQ;
 			urb->error_count++;
 		}
@@ -1387,7 +1387,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 	void __iomem		*mbase = musb->mregs;
 	int			pipe;
 	u16			rx_csr, wVal;
-	u8			bIsochError = FALSE;
+	u8			iso_err = FALSE;
 	u8			done = FALSE;
 	u32			status;
 	struct dma_channel	*dma;
@@ -1452,7 +1452,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 		} else {
 			DBG(4, "RX end %d ISO data error\n", epnum);
 			/* packet error reported later */
-			bIsochError = TRUE;
+			iso_err = TRUE;
 		}
 	}
 
@@ -1634,7 +1634,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 
 		if (!dma) {
 			done = musb_host_packet_rx(musb, urb,
-					epnum, bIsochError);
+					epnum, iso_err);
 			DBG(6, "read %spacket\n", done ? "last " : "");
 		}
 	}
