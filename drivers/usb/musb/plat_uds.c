@@ -1710,7 +1710,6 @@ musb_srp_store(struct device *dev, struct device_attribute *attr,
 		const char *buf, size_t n)
 {
 	struct musb	*musb=dev_to_musb(dev);
-	unsigned long	flags;
 	unsigned short	srp;
 
 	if (sscanf(buf, "%hu", &srp) != 1
@@ -1719,10 +1718,8 @@ musb_srp_store(struct device *dev, struct device_attribute *attr,
 		return -EINVAL;
 	}
 
-	spin_lock_irqsave(&musb->lock, flags);
 	if (srp == 1)
 		musb_g_wakeup(musb);
-	spin_unlock_irqrestore(&musb->lock, flags);
 
 	return n;
 }

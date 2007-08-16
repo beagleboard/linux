@@ -1434,6 +1434,7 @@ static int musb_gadget_wakeup(struct usb_gadget *gadget)
 		status = 0;
 		goto done;
 	default:
+		DBG(2, "Unhandled wake: %s\n", otg_state_string(musb));
 		goto done;
 	}
 
@@ -1931,7 +1932,7 @@ void musb_g_suspend(struct musb *musb)
 	}
 }
 
-/* Called during SRP. Caller must hold lock */
+/* Called during SRP */
 void musb_g_wakeup(struct musb *musb)
 {
 	musb_gadget_wakeup(&musb->g);
