@@ -1251,7 +1251,7 @@ static int __init musb_core_init(u16 wType, struct musb *musb)
 #endif
 	u8 reg;
 	char *type;
-	u16 wRelease, wRelMajor, wRelMinor;
+	u16 hwvers, wRelMajor, wRelMinor;
 	char aInfo[78], aRevision[32], aDate[12];
 	void __iomem	*mbase = musb->mregs;
 	int		status = 0;
@@ -1326,11 +1326,11 @@ static int __init musb_core_init(u16 wType, struct musb *musb)
 	}
 
 	/* log release info */
-	wRelease = musb_readw(mbase, MUSB_HWVERS);
-	wRelMajor = (wRelease >> 10) & 0x1f;
-	wRelMinor = wRelease & 0x3ff;
+	hwvers = musb_readw(mbase, MUSB_HWVERS);
+	wRelMajor = (hwvers >> 10) & 0x1f;
+	wRelMinor = hwvers & 0x3ff;
 	snprintf(aRevision, 32, "%d.%d%s", wRelMajor,
-		wRelMinor, (wRelease & 0x8000) ? "RC" : "");
+		wRelMinor, (hwvers & 0x8000) ? "RC" : "");
 	printk(KERN_DEBUG "%s: %sHDRC RTL version %s %s\n",
 			musb_driver_name, type, aRevision, aDate);
 
