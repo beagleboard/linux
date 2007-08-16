@@ -304,15 +304,15 @@ static irqreturn_t dma_controller_irq(int irq, void *private_data)
 	u8 bChannel;
 	u16 csr;
 	u32 dwAddress;
-	u8 bIntr;
+	u8 int_hsdma;
 	irqreturn_t retval = IRQ_NONE;
 
-	bIntr = musb_readb(mbase, MGC_O_HSDMA_INTR);
-	if (!bIntr)
+	int_hsdma = musb_readb(mbase, MGC_O_HSDMA_INTR);
+	if (!int_hsdma)
 		goto done;
 
 	for (bChannel = 0; bChannel < MGC_HSDMA_CHANNELS; bChannel++) {
-		if (bIntr & (1 << bChannel)) {
+		if (int_hsdma & (1 << bChannel)) {
 			pImplChannel = (struct musb_dma_channel *)
 					&(pController->aChannel[bChannel]);
 			pChannel = &pImplChannel->Channel;
