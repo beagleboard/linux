@@ -558,8 +558,8 @@ static irqreturn_t musb_stage0_irq(struct musb * musb, u8 int_usb,
 			// REVISIT HNP; just force disconnect
 		}
 		musb->delay_port_power_off = FALSE;
-		musb_writew(mbase, MUSB_INTRTXE, musb->wEndMask);
-		musb_writew(mbase, MUSB_INTRRXE, musb->wEndMask & 0xfffe);
+		musb_writew(mbase, MUSB_INTRTXE, musb->epmask);
+		musb_writew(mbase, MUSB_INTRRXE, musb->epmask & 0xfffe);
 		musb_writeb(mbase, MUSB_INTRUSBE, 0xf7);
 #endif
 		musb->port1_status &= ~(USB_PORT_STAT_LOW_SPEED
@@ -672,7 +672,7 @@ static irqreturn_t musb_stage2_irq(struct musb * musb, u8 int_usb,
 		wFrame = musb_readw(mbase, MUSB_FRAME);
 		ep = musb->endpoints;
 		for (epnum = 1; (epnum < musb->nr_endpoints)
-					&& (musb->wEndMask >= (1 << epnum));
+					&& (musb->epmask >= (1 << epnum));
 				epnum++, ep++) {
 			// FIXME handle framecounter wraps (12 bits)
 			// eliminate duplicated StartUrb logic
@@ -792,8 +792,8 @@ void musb_start(struct musb *musb)
 	DBG(2, "<== devctl %02x\n", devctl);
 
 	/*  Set INT enable registers, enable interrupts */
-	musb_writew(regs, MUSB_INTRTXE, musb->wEndMask);
-	musb_writew(regs, MUSB_INTRRXE, musb->wEndMask & 0xfffe);
+	musb_writew(regs, MUSB_INTRTXE, musb->epmask);
+	musb_writew(regs, MUSB_INTRRXE, musb->epmask & 0xfffe);
 	musb_writeb(regs, MUSB_INTRUSBE, 0xf7);
 
 	musb_writeb(regs, MUSB_TESTMODE, 0);
@@ -1086,7 +1086,7 @@ fifo_setup(struct musb *musb, struct musb_hw_ep  *hw_ep,
 	/* NOTE rx and tx endpoint irqs aren't managed separately,
 	 * which happens to be ok
 	 */
-	musb->wEndMask |= (1 << hw_ep->epnum);
+	musb->epmask |= (1 << hw_ep->epnum);
 
 	return offset + (maxpacket << ((c_size & MUSB_FIFOSZ_DPB) ? 1 : 0));
 }
@@ -1198,7 +1198,7 @@ static int __init ep_config_from_hw(struct musb *musb)
 			break;
 		}
 		musb->nr_endpoints++;
-		musb->wEndMask |= (1 << epnum);
+		musb->epmask |= (1 << epnum);
 
 		hw_ep->max_packet_sz_tx = 1 << (reg & 0x0f);
 
@@ -1340,7 +1340,7 @@ static int __init musb_core_init(u16 wType, struct musb *musb)
 
 	/* discover endpoint configuration */
 	musb->nr_endpoints = 1;
-	musb->wEndMask = 1;
+	musb->epmask = 1;
 
 	if (reg & MUSB_CONFIGDATA_DYNFIFO) {
 		if (can_dynfifo())

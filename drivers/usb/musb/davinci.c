@@ -77,11 +77,11 @@ void musb_platform_enable(struct musb *musb)
 	u32	tmp, old, val;
 
 	/* workaround:  setup irqs through both register sets */
-	tmp = (musb->wEndMask & DAVINCI_USB_TX_ENDPTS_MASK)
+	tmp = (musb->epmask & DAVINCI_USB_TX_ENDPTS_MASK)
 			<< DAVINCI_USB_TXINT_SHIFT;
 	musb_writel(musb->ctrl_base, DAVINCI_USB_INT_MASK_SET_REG, tmp);
 	old = tmp;
-	tmp = (musb->wEndMask & (0xfffe & DAVINCI_USB_RX_ENDPTS_MASK))
+	tmp = (musb->epmask & (0xfffe & DAVINCI_USB_RX_ENDPTS_MASK))
 			<< DAVINCI_USB_RXINT_SHIFT;
 	musb_writel(musb->ctrl_base, DAVINCI_USB_INT_MASK_SET_REG, tmp);
 	tmp |= old;
