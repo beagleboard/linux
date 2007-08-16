@@ -1244,7 +1244,7 @@ enum { MUSB_CONTROLLER_MHDRC, MUSB_CONTROLLER_HDRC, };
 /* Initialize MUSB (M)HDRC part of the USB hardware subsystem;
  * configure endpoints, or take their config from silicon
  */
-static int __init musb_core_init(u16 wType, struct musb *musb)
+static int __init musb_core_init(u16 musb_type, struct musb *musb)
 {
 #ifdef MUSB_AHB_ID
 	u32 data;
@@ -1306,11 +1306,11 @@ static int __init musb_core_init(u16 wType, struct musb *musb)
 	data = musb_readl(mbase, 0x40c);
 	printk("ID3=%lx\n", (long unsigned)data);
 	reg = musb_readb(mbase, 0x400);
-	wType = ('M' == reg) ? MUSB_CONTROLLER_MHDRC : MUSB_CONTROLLER_HDRC;
+	musb_type = ('M' == reg) ? MUSB_CONTROLLER_MHDRC : MUSB_CONTROLLER_HDRC;
 #else
 	aDate[0] = 0;
 #endif
-	if (MUSB_CONTROLLER_MHDRC == wType) {
+	if (MUSB_CONTROLLER_MHDRC == musb_type) {
 		musb->is_multipoint = 1;
 		type = "M";
 	} else {
