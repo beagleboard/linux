@@ -66,7 +66,7 @@ struct cppi_channel {
 
 	/* which direction of which endpoint? */
 	struct musb_hw_ep	*hw_ep;
-	u8			bTransmit;
+	u8			transmit;
 	u8			chNo;
 
 	/* DMA modes:  RNDIS or "transparent" */

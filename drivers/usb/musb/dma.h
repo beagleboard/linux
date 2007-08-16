@@ -181,7 +181,7 @@ struct dma_controller {
 };
 
 /* called after channel_program(), may indicate a fault */
-extern void musb_dma_completion(struct musb *musb, u8 epnum, u8 bTransmit);
+extern void musb_dma_completion(struct musb *musb, u8 epnum, u8 transmit);
 
 
 extern struct dma_controller *__init

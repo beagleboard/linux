@@ -147,11 +147,11 @@ static int __init cppi_controller_start(struct dma_controller *c)
 
 	/* do whatever is necessary to start controller */
 	for (i = 0; i < ARRAY_SIZE(pController->txCppi); i++) {
-		pController->txCppi[i].bTransmit = TRUE;
+		pController->txCppi[i].transmit = TRUE;
 		pController->txCppi[i].chNo = i;
 	}
 	for (i = 0; i < ARRAY_SIZE(pController->rxCppi); i++) {
-		pController->rxCppi[i].bTransmit = FALSE;
+		pController->rxCppi[i].transmit = FALSE;
 		pController->rxCppi[i].chNo = i;
 	}
 
@@ -283,7 +283,7 @@ static inline void core_rxirq_enable(void __iomem *tibase, unsigned epnum)
 static struct dma_channel *
 cppi_channel_allocate(struct dma_controller *c,
 		struct musb_hw_ep *ep,
-		u8 bTransmit)
+		u8 transmit)
 {
 	struct cppi		*pController;
 	u8			chNum;
@@ -300,7 +300,7 @@ cppi_channel_allocate(struct dma_controller *c,
 	/* return the corresponding CPPI Channel Handle, and
 	 * probably disable the non-CPPI irq until we need it.
 	 */
-	if (bTransmit) {
+	if (transmit) {
 		if (local_end > ARRAY_SIZE(pController->txCppi)) {
 			DBG(1, "no %cX DMA channel for ep%d\n", 'T', local_end);
 			return NULL;
@@ -320,11 +320,11 @@ cppi_channel_allocate(struct dma_controller *c,
 	 */
 	if (otgCh->hw_ep)
 		DBG(1, "re-allocating DMA%d %cX channel %p\n",
-				chNum, bTransmit ? 'T' : 'R', otgCh);
+				chNum, transmit ? 'T' : 'R', otgCh);
 	otgCh->hw_ep = ep;
 	otgCh->Channel.status = MGC_DMA_STATUS_FREE;
 
-	DBG(4, "Allocate CPPI%d %cX\n", chNum, bTransmit ? 'T' : 'R');
+	DBG(4, "Allocate CPPI%d %cX\n", chNum, transmit ? 'T' : 'R');
 	otgCh->Channel.private_data = otgCh;
 	return &otgCh->Channel;
 }
@@ -343,7 +343,7 @@ static void cppi_channel_release(struct dma_channel *channel)
 	tibase = c->pController->pCoreBase - DAVINCI_BASE_OFFSET;
 	if (!c->hw_ep)
 		DBG(1, "releasing idle DMA channel %p\n", c);
-	else if (!c->bTransmit)
+	else if (!c->transmit)
 		core_rxirq_enable(tibase, epnum);
 
 	/* for now, leave its cppi IRQ enabled (we won't trigger it) */
@@ -962,19 +962,19 @@ static int cppi_channel_program(struct dma_channel *pChannel,
 	case MGC_DMA_STATUS_CORE_ABORT:
 		/* fault irq handler should have handled cleanup */
 		WARN("%cX DMA%d not cleaned up after abort!\n",
-				otgChannel->bTransmit ? 'T' : 'R',
+				otgChannel->transmit ? 'T' : 'R',
 				otgChannel->chNo);
 		//WARN_ON(1);
 		break;
 	case MGC_DMA_STATUS_BUSY:
 		WARN("program active channel?  %cX DMA%d\n",
-				otgChannel->bTransmit ? 'T' : 'R',
+				otgChannel->transmit ? 'T' : 'R',
 				otgChannel->chNo);
 		//WARN_ON(1);
 		break;
 	case MGC_DMA_STATUS_UNKNOWN:
 		DBG(1, "%cX DMA%d not allocated!\n",
-				otgChannel->bTransmit ? 'T' : 'R',
+				otgChannel->transmit ? 'T' : 'R',
 				otgChannel->chNo);
 		/* FALLTHROUGH */
 	case MGC_DMA_STATUS_FREE:
@@ -991,7 +991,7 @@ static int cppi_channel_program(struct dma_channel *pChannel,
 	otgChannel->transferSize = dwLength;
 
 	/* TX channel? or RX? */
-	if (otgChannel->bTransmit)
+	if (otgChannel->transmit)
 		cppi_next_tx_segment(musb, otgChannel);
 	else
 		cppi_next_rx_segment(musb, otgChannel, mode);
@@ -1390,7 +1390,7 @@ static int cppi_channel_abort(struct dma_channel *channel)
 		return -EINVAL;
 	}
 
-	if (!otgCh->bTransmit && otgCh->activeQueueHead)
+	if (!otgCh->transmit && otgCh->activeQueueHead)
 		cppi_dump_rxq(3, "/abort", otgCh);
 
 	mbase = pController->pCoreBase;
@@ -1406,7 +1406,7 @@ static int cppi_channel_abort(struct dma_channel *channel)
 	 */
 	musb_ep_select(mbase, chNum + 1);
 
-	if (otgCh->bTransmit) {
+	if (otgCh->transmit) {
 		struct cppi_tx_stateram	*__iomem txState;
 		int			enabled;
 

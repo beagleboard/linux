@@ -1539,7 +1539,7 @@ static int __initdata use_dma = 1;
 module_param(use_dma, bool, 0);
 MODULE_PARM_DESC(use_dma, "enable/disable use of DMA");
 
-void musb_dma_completion(struct musb *musb, u8 epnum, u8 bTransmit)
+void musb_dma_completion(struct musb *musb, u8 epnum, u8 transmit)
 {
 	u8	devctl = musb_readb(musb->mregs, MUSB_DEVCTL);
 
@@ -1557,7 +1557,7 @@ void musb_dma_completion(struct musb *musb, u8 epnum, u8 bTransmit)
 #endif
 	} else {
 		/* endpoints 1..15 */
-		if (bTransmit) {
+		if (transmit) {
 			if (devctl & MUSB_DEVCTL_HM) {
 				if (is_host_capable())
 					musb_host_tx(musb, epnum);

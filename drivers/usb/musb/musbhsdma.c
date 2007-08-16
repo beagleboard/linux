@@ -79,7 +79,7 @@ struct musb_dma_channel {
 	u16				wMaxPacketSize;
 	u8				bIndex;
 	u8				epnum;
-	u8				bTransmit;
+	u8				transmit;
 };
 
 struct musb_dma_controller {
@@ -126,7 +126,7 @@ static int dma_controller_stop(struct dma_controller *c)
 }
 
 static struct dma_channel* dma_channel_allocate(struct dma_controller *c,
-				struct musb_hw_ep *hw_ep, u8 bTransmit)
+				struct musb_hw_ep *hw_ep, u8 transmit)
 {
 	u8 bBit;
 	struct dma_channel *pChannel = NULL;
@@ -141,13 +141,13 @@ static struct dma_channel* dma_channel_allocate(struct dma_controller *c,
 			pImplChannel->pController = pController;
 			pImplChannel->bIndex = bBit;
 			pImplChannel->epnum = hw_ep->epnum;
-			pImplChannel->bTransmit = bTransmit;
+			pImplChannel->transmit = transmit;
 			pChannel = &(pImplChannel->Channel);
 			pChannel->private_data = pImplChannel;
 			pChannel->status = MGC_DMA_STATUS_FREE;
 			pChannel->max_len = 0x10000;
 			/* Tx => mode 1; Rx => mode 0 */
-			pChannel->desired_mode = bTransmit;
+			pChannel->desired_mode = transmit;
 			pChannel->actual_len = 0;
 			break;
 		}
@@ -204,7 +204,7 @@ static void configure_channel(struct dma_channel *pChannel,
 	csr |= (pImplChannel->epnum << MUSB_HSDMA_ENDPOINT_SHIFT)
 		| (1 << MUSB_HSDMA_ENABLE_SHIFT)
 		| (1 << MUSB_HSDMA_IRQENABLE_SHIFT)
-		| (pImplChannel->bTransmit ? (1 << MUSB_HSDMA_TRANSMIT_SHIFT) : 0);
+		| (pImplChannel->transmit ? (1 << MUSB_HSDMA_TRANSMIT_SHIFT) : 0);
 
 	/* address/count */
 	musb_writel(mbase,
@@ -229,7 +229,7 @@ static int dma_channel_program(struct dma_channel * pChannel,
 
 	DBG(2, "ep%d-%s pkt_sz %d, dma_addr 0x%x length %d, mode %d\n",
 		pImplChannel->epnum,
-		pImplChannel->bTransmit ? "Tx" : "Rx",
+		pImplChannel->transmit ? "Tx" : "Rx",
 		packet_sz, dma_addr, dwLength, mode);
 
 	BUG_ON(pChannel->status == MGC_DMA_STATUS_UNKNOWN ||
@@ -260,7 +260,7 @@ static int dma_channel_abort(struct dma_channel *pChannel)
 	u16 csr;
 
 	if (pChannel->status == MGC_DMA_STATUS_BUSY) {
-		if (pImplChannel->bTransmit) {
+		if (pImplChannel->transmit) {
 
 			csr = musb_readw(mbase,
 				MGC_END_OFFSET(pImplChannel->epnum,MUSB_TXCSR));
@@ -347,7 +347,7 @@ static irqreturn_t dma_controller_irq(int irq, void *private_data)
 
 				/* completed */
 				if ((devctl & MUSB_DEVCTL_HM)
-				    && (pImplChannel->bTransmit)
+				    && (pImplChannel->transmit)
 				    && ((pChannel->desired_mode == 0)
 					|| (pChannel->actual_len &
 					    (pImplChannel->wMaxPacketSize - 1)))
@@ -362,7 +362,7 @@ static irqreturn_t dma_controller_irq(int irq, void *private_data)
 					musb_dma_completion(
 						pController->pDmaPrivate,
 						pImplChannel->epnum,
-						pImplChannel->bTransmit);
+						pImplChannel->transmit);
 			}
 		}
 	}
