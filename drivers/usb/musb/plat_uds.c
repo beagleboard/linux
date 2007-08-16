@@ -663,20 +663,20 @@ static irqreturn_t musb_stage2_irq(struct musb * musb, u8 int_usb,
 		void __iomem *mbase = musb->mregs;
 		struct musb_hw_ep	*ep;
 		u8 epnum;
-		u16 wFrame;
+		u16 frame;
 
 		DBG(6, "START_OF_FRAME\n");
 		handled = IRQ_HANDLED;
 
 		/* start any periodic Tx transfers waiting for current frame */
-		wFrame = musb_readw(mbase, MUSB_FRAME);
+		frame = musb_readw(mbase, MUSB_FRAME);
 		ep = musb->endpoints;
 		for (epnum = 1; (epnum < musb->nr_endpoints)
 					&& (musb->epmask >= (1 << epnum));
 				epnum++, ep++) {
 			// FIXME handle framecounter wraps (12 bits)
 			// eliminate duplicated StartUrb logic
-			if (ep->dwWaitFrame >= wFrame) {
+			if (ep->dwWaitFrame >= frame) {
 				ep->dwWaitFrame = 0;
 				printk("SOF --> periodic TX%s on %d\n",
 					ep->tx_channel ? " DMA" : "",

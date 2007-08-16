@@ -169,7 +169,7 @@ static inline void cppi_host_txdma_start(struct musb_hw_ep *ep)
 static void
 musb_start_urb(struct musb *musb, int is_in, struct musb_qh *qh)
 {
-	u16			wFrame;
+	u16			frame;
 	u32			len;
 	void			*buf;
 	void __iomem		*mbase =  musb->mregs;
@@ -232,12 +232,12 @@ musb_start_urb(struct musb *musb, int is_in, struct musb_qh *qh)
 	case USB_ENDPOINT_XFER_INT:
 		DBG(3, "check whether there's still time for periodic Tx\n");
 		qh->iso_idx = 0;
-		wFrame = musb_readw(mbase, MUSB_FRAME);
+		frame = musb_readw(mbase, MUSB_FRAME);
 		/* FIXME this doesn't implement that scheduling policy ...
 		 * or handle framecounter wrapping
 		 */
 		if ((urb->transfer_flags & URB_ISO_ASAP)
-				|| (wFrame >= urb->start_frame)) {
+				|| (frame >= urb->start_frame)) {
 			/* REVISIT the SOF irq handler shouldn't duplicate
 			 * this code; and we don't init urb->start_frame...
 			 */
