@@ -629,7 +629,7 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 {
 	struct dma_controller	*dma_controller;
 	struct dma_channel	*dma_channel;
-	u8			bDmaOk;
+	u8			dma_ok;
 	void __iomem		*mbase = musb->mregs;
 	struct musb_hw_ep	*hw_ep = musb->endpoints + epnum;
 	void __iomem		*epio = hw_ep->regs;
@@ -791,12 +791,12 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 
 			musb_writew(epio, MUSB_TXCSR, csr);
 
-			bDmaOk = dma_controller->channel_program(
+			dma_ok = dma_controller->channel_program(
 					dma_channel, packet_sz,
 					dma_channel->desired_mode,
 					urb->transfer_dma,
 					qh->segsize);
-			if (bDmaOk) {
+			if (dma_ok) {
 				load_count = 0;
 			} else {
 				dma_controller->channel_release(dma_channel);
@@ -830,14 +830,14 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 			/* TX uses "rndis" mode automatically, but needs help
 			 * to identify the zero-length-final-packet case.
 			 */
-			bDmaOk = dma_controller->channel_program(
+			dma_ok = dma_controller->channel_program(
 					dma_channel, packet_sz,
 					(urb->transfer_flags
 							& URB_ZERO_PACKET)
 						== URB_ZERO_PACKET,
 					urb->transfer_dma,
 					qh->segsize);
-			if (bDmaOk) {
+			if (dma_ok) {
 				load_count = 0;
 			} else {
 				dma_controller->channel_release(dma_channel);
@@ -915,13 +915,13 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 				/* unless caller treats short rx transfers as
 				 * errors, we dare not queue multiple transfers.
 				 */
-				bDmaOk = dma_controller->channel_program(
+				dma_ok = dma_controller->channel_program(
 						dma_channel, packet_sz,
 						!(urb->transfer_flags
 							& URB_SHORT_NOT_OK),
 						urb->transfer_dma,
 						qh->segsize);
-				if (!bDmaOk) {
+				if (!dma_ok) {
 					dma_controller->channel_release(
 							dma_channel);
 					dma_channel = hw_ep->rx_channel = NULL;
