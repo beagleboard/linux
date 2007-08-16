@@ -895,7 +895,7 @@ static int musb_gadget_enable(struct usb_ep *ep,
 	 */
 	musb_ep_select(mbase, epnum);
 	if (desc->bEndpointAddress & USB_DIR_IN) {
-		u16 wIntrTxE = musb_readw(mbase, MUSB_INTRTXE);
+		u16 int_txe = musb_readw(mbase, MUSB_INTRTXE);
 
 		if (hw_ep->is_shared_fifo)
 			musb_ep->is_in = 1;
@@ -904,8 +904,8 @@ static int musb_gadget_enable(struct usb_ep *ep,
 		if (tmp > hw_ep->max_packet_sz_tx)
 			goto fail;
 
-		wIntrTxE |= (1 << epnum);
-		musb_writew(mbase, MUSB_INTRTXE, wIntrTxE);
+		int_txe |= (1 << epnum);
+		musb_writew(mbase, MUSB_INTRTXE, int_txe);
 
 		/* REVISIT if can_bulk_split(), use by updating "tmp";
 		 * likewise high bandwidth periodic tx
@@ -925,7 +925,7 @@ static int musb_gadget_enable(struct usb_ep *ep,
 		musb_writew(regs, MUSB_TXCSR, csr);
 
 	} else {
-		u16 wIntrRxE = musb_readw(mbase, MUSB_INTRRXE);
+		u16 int_rxe = musb_readw(mbase, MUSB_INTRRXE);
 
 		if (hw_ep->is_shared_fifo)
 			musb_ep->is_in = 0;
@@ -934,8 +934,8 @@ static int musb_gadget_enable(struct usb_ep *ep,
 		if (tmp > hw_ep->max_packet_sz_rx)
 			goto fail;
 
-		wIntrRxE |= (1 << epnum);
-		musb_writew(mbase, MUSB_INTRRXE, wIntrRxE);
+		int_rxe |= (1 << epnum);
+		musb_writew(mbase, MUSB_INTRRXE, int_rxe);
 
 		/* REVISIT if can_bulk_combine() use by updating "tmp"
 		 * likewise high bandwidth periodic rx
@@ -1015,14 +1015,14 @@ static int musb_gadget_disable(struct usb_ep *ep)
 
 	/* zero the endpoint sizes */
 	if (musb_ep->is_in) {
-		u16 wIntrTxE = musb_readw(musb->mregs, MUSB_INTRTXE);
-		wIntrTxE &= ~(1 << epnum);
-		musb_writew(musb->mregs, MUSB_INTRTXE, wIntrTxE);
+		u16 int_txe = musb_readw(musb->mregs, MUSB_INTRTXE);
+		int_txe &= ~(1 << epnum);
+		musb_writew(musb->mregs, MUSB_INTRTXE, int_txe);
 		musb_writew(epio, MUSB_TXMAXP, 0);
 	} else {
-		u16 wIntrRxE = musb_readw(musb->mregs, MUSB_INTRRXE);
-		wIntrRxE &= ~(1 << epnum);
-		musb_writew(musb->mregs, MUSB_INTRRXE, wIntrRxE);
+		u16 int_rxe = musb_readw(musb->mregs, MUSB_INTRRXE);
+		int_rxe &= ~(1 << epnum);
+		musb_writew(musb->mregs, MUSB_INTRRXE, int_rxe);
 		musb_writew(epio, MUSB_RXMAXP, 0);
 	}
 
@@ -1335,7 +1335,7 @@ static void musb_gadget_fifo_flush(struct usb_ep *ep)
 	void __iomem	*epio = musb->endpoints[nEnd].regs;
 	void __iomem	*mbase;
 	unsigned long	flags;
-	u16		csr, wIntrTxE;
+	u16		csr, int_txe;
 
 	mbase = musb->mregs;
 
@@ -1343,8 +1343,8 @@ static void musb_gadget_fifo_flush(struct usb_ep *ep)
 	musb_ep_select(mbase, (u8) nEnd);
 
 	/* disable interrupts */
-	wIntrTxE = musb_readw(mbase, MUSB_INTRTXE);
-	musb_writew(mbase, MUSB_INTRTXE, wIntrTxE & ~(1 << nEnd));
+	int_txe = musb_readw(mbase, MUSB_INTRTXE);
+	musb_writew(mbase, MUSB_INTRTXE, int_txe & ~(1 << nEnd));
 
 	if (musb_ep->is_in) {
 		csr = musb_readw(epio, MUSB_TXCSR);
@@ -1362,7 +1362,7 @@ static void musb_gadget_fifo_flush(struct usb_ep *ep)
 	}
 
 	/* re-enable interrupt */
-	musb_writew(mbase, MUSB_INTRTXE, wIntrTxE);
+	musb_writew(mbase, MUSB_INTRTXE, int_txe);
 	spin_unlock_irqrestore(&musb->lock, flags);
 }
 

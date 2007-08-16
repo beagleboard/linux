@@ -673,14 +673,14 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 	/* OUT/transmit/EP0 or IN/receive? */
 	if (is_out) {
 		u16	csr;
-		u16	wIntrTxE;
+		u16	int_txe;
 		u16	wLoadCount;
 
 		csr = musb_readw(epio, MUSB_TXCSR);
 
 		/* disable interrupt in case we flush */
-		wIntrTxE = musb_readw(mbase, MUSB_INTRTXE);
-		musb_writew(mbase, MUSB_INTRTXE, wIntrTxE & ~(1 << epnum));
+		int_txe = musb_readw(mbase, MUSB_INTRTXE);
+		musb_writew(mbase, MUSB_INTRTXE, int_txe & ~(1 << epnum));
 
 		/* general endpoint setup */
 		if (epnum) {
@@ -868,7 +868,7 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 		}
 
 		/* re-enable interrupt */
-		musb_writew(mbase, MUSB_INTRTXE, wIntrTxE);
+		musb_writew(mbase, MUSB_INTRTXE, int_txe);
 
 	/* IN/receive */
 	} else {
