@@ -100,7 +100,7 @@ static void __init cppi_pool_init(struct cppi *cppi, struct cppi_channel *c)
 	c->activeQueueTail = NULL;
 	c->lastHwBDProcessed = NULL;
 	c->Channel.status = MGC_DMA_STATUS_UNKNOWN;
-	c->pController = cppi;
+	c->controller = cppi;
 	c->bLastModeRndis = 0;
 	c->Channel.private_data = c;
 	c->bdPoolHead = NULL;
@@ -120,12 +120,12 @@ static int cppi_channel_abort(struct dma_channel *);
 
 static void cppi_pool_free(struct cppi_channel *c)
 {
-	struct cppi		*cppi = c->pController;
+	struct cppi		*cppi = c->controller;
 	struct cppi_descriptor	*bd;
 
 	(void) cppi_channel_abort(&c->Channel);
 	c->Channel.status = MGC_DMA_STATUS_UNKNOWN;
-	c->pController = NULL;
+	c->controller = NULL;
 
 	/* free all its bds */
 	bd = c->lastHwBDProcessed;
@@ -139,36 +139,36 @@ static void cppi_pool_free(struct cppi_channel *c)
 
 static int __init cppi_controller_start(struct dma_controller *c)
 {
-	struct cppi	*pController;
+	struct cppi	*controller;
 	void		*__iomem regBase;
 	int		i;
 
-	pController = container_of(c, struct cppi, Controller);
+	controller = container_of(c, struct cppi, Controller);
 
 	/* do whatever is necessary to start controller */
-	for (i = 0; i < ARRAY_SIZE(pController->txCppi); i++) {
-		pController->txCppi[i].transmit = TRUE;
-		pController->txCppi[i].chNo = i;
+	for (i = 0; i < ARRAY_SIZE(controller->txCppi); i++) {
+		controller->txCppi[i].transmit = TRUE;
+		controller->txCppi[i].chNo = i;
 	}
-	for (i = 0; i < ARRAY_SIZE(pController->rxCppi); i++) {
-		pController->rxCppi[i].transmit = FALSE;
-		pController->rxCppi[i].chNo = i;
+	for (i = 0; i < ARRAY_SIZE(controller->rxCppi); i++) {
+		controller->rxCppi[i].transmit = FALSE;
+		controller->rxCppi[i].chNo = i;
 	}
 
 	/* setup BD list on a per channel basis */
-	for (i = 0; i < ARRAY_SIZE(pController->txCppi); i++)
-		cppi_pool_init(pController, pController->txCppi + i);
-	for (i = 0; i < ARRAY_SIZE(pController->rxCppi); i++)
-		cppi_pool_init(pController, pController->rxCppi + i);
+	for (i = 0; i < ARRAY_SIZE(controller->txCppi); i++)
+		cppi_pool_init(controller, controller->txCppi + i);
+	for (i = 0; i < ARRAY_SIZE(controller->rxCppi); i++)
+		cppi_pool_init(controller, controller->rxCppi + i);
 
 	/* Do Necessary configuartion in H/w to get started */
-	regBase =  pController->pCoreBase - DAVINCI_BASE_OFFSET;
+	regBase =  controller->pCoreBase - DAVINCI_BASE_OFFSET;
 
-	INIT_LIST_HEAD(&pController->tx_complete);
+	INIT_LIST_HEAD(&controller->tx_complete);
 
 	/* initialise tx/rx channel head pointers to zero */
-	for (i = 0; i < ARRAY_SIZE(pController->txCppi); i++) {
-		struct cppi_channel	*txChannel = pController->txCppi + i;
+	for (i = 0; i < ARRAY_SIZE(controller->txCppi); i++) {
+		struct cppi_channel	*txChannel = controller->txCppi + i;
 		struct cppi_tx_stateram *__iomem txState;
 
 		INIT_LIST_HEAD(&txChannel->tx_complete);
@@ -186,8 +186,8 @@ static int __init cppi_controller_start(struct dma_controller *c)
 		txState->completionPtr = 0;
 
 	}
-	for (i = 0; i < ARRAY_SIZE(pController->rxCppi); i++) {
-		struct cppi_channel	*rxChannel = pController->rxCppi + i;
+	for (i = 0; i < ARRAY_SIZE(controller->rxCppi); i++) {
+		struct cppi_channel	*rxChannel = controller->rxCppi + i;
 		struct cppi_rx_stateram *__iomem rxState;
 
 		INIT_LIST_HEAD(&rxChannel->tx_complete);
@@ -222,13 +222,13 @@ static int __init cppi_controller_start(struct dma_controller *c)
 
 static int cppi_controller_stop(struct dma_controller *c)
 {
-	struct cppi		*pController;
+	struct cppi		*controller;
 	void __iomem		*regBase;
 	int			i;
 
-	pController = container_of(c, struct cppi, Controller);
+	controller = container_of(c, struct cppi, Controller);
 
-	regBase = pController->pCoreBase - DAVINCI_BASE_OFFSET;
+	regBase = controller->pCoreBase - DAVINCI_BASE_OFFSET;
 	/* DISABLE INDIVIDUAL CHANNEL Interrupts */
 	musb_writel(regBase, DAVINCI_TXCPPI_INTCLR_REG,
 			DAVINCI_DMA_ALL_CHANNELS_ENABLE);
@@ -236,13 +236,13 @@ static int cppi_controller_stop(struct dma_controller *c)
 			DAVINCI_DMA_ALL_CHANNELS_ENABLE);
 
 	DBG(1, "Tearing down RX and TX Channels\n");
-	for (i = 0; i < ARRAY_SIZE(pController->txCppi); i++) {
+	for (i = 0; i < ARRAY_SIZE(controller->txCppi); i++) {
 		/* FIXME restructure of txdma to use bds like rxdma */
-		pController->txCppi[i].lastHwBDProcessed = NULL;
-		cppi_pool_free(pController->txCppi + i);
+		controller->txCppi[i].lastHwBDProcessed = NULL;
+		cppi_pool_free(controller->txCppi + i);
 	}
-	for (i = 0; i < ARRAY_SIZE(pController->rxCppi); i++)
-		cppi_pool_free(pController->rxCppi + i);
+	for (i = 0; i < ARRAY_SIZE(controller->rxCppi); i++)
+		cppi_pool_free(controller->rxCppi + i);
 
 	/* in Tx Case proper teardown is supported. We resort to disabling
 	 * Tx/Rx CPPI after cleanup of Tx channels. Before TX teardown is
@@ -285,14 +285,14 @@ cppi_channel_allocate(struct dma_controller *c,
 		struct musb_hw_ep *ep,
 		u8 transmit)
 {
-	struct cppi		*pController;
+	struct cppi		*controller;
 	u8			chNum;
 	struct cppi_channel	*otgCh;
 	void __iomem		*tibase;
 	int			local_end = ep->epnum;
 
-	pController = container_of(c, struct cppi, Controller);
-	tibase = pController->pCoreBase - DAVINCI_BASE_OFFSET;
+	controller = container_of(c, struct cppi, Controller);
+	tibase = controller->pCoreBase - DAVINCI_BASE_OFFSET;
 
 	/* remember local_end: 1..Max_EndPt, and cppi ChNum:0..Max_EndPt-1 */
 	chNum = local_end - 1;
@@ -301,17 +301,17 @@ cppi_channel_allocate(struct dma_controller *c,
 	 * probably disable the non-CPPI irq until we need it.
 	 */
 	if (transmit) {
-		if (local_end > ARRAY_SIZE(pController->txCppi)) {
+		if (local_end > ARRAY_SIZE(controller->txCppi)) {
 			DBG(1, "no %cX DMA channel for ep%d\n", 'T', local_end);
 			return NULL;
 		}
-		otgCh = pController->txCppi + chNum;
+		otgCh = controller->txCppi + chNum;
 	} else {
-		if (local_end > ARRAY_SIZE(pController->rxCppi)) {
+		if (local_end > ARRAY_SIZE(controller->rxCppi)) {
 			DBG(1, "no %cX DMA channel for ep%d\n", 'R', local_end);
 			return NULL;
 		}
-		otgCh = pController->rxCppi + chNum;
+		otgCh = controller->rxCppi + chNum;
 		core_rxirq_disable(tibase, local_end);
 	}
 
@@ -340,7 +340,7 @@ static void cppi_channel_release(struct dma_channel *channel)
 
 	c = container_of(channel, struct cppi_channel, Channel);
 	epnum = c->chNo + 1;
-	tibase = c->pController->pCoreBase - DAVINCI_BASE_OFFSET;
+	tibase = c->controller->pCoreBase - DAVINCI_BASE_OFFSET;
 	if (!c->hw_ep)
 		DBG(1, "releasing idle DMA channel %p\n", c);
 	else if (!c->transmit)
@@ -355,7 +355,7 @@ static void cppi_channel_release(struct dma_channel *channel)
 static void
 cppi_dump_rx(int level, struct cppi_channel *c, const char *tag)
 {
-	void	*__iomem base = c->pController->pCoreBase;
+	void	*__iomem base = c->controller->pCoreBase;
 
 	musb_ep_select(base, c->chNo + 1);
 
@@ -384,7 +384,7 @@ cppi_dump_rx(int level, struct cppi_channel *c, const char *tag)
 static void
 cppi_dump_tx(int level, struct cppi_channel *c, const char *tag)
 {
-	void	*__iomem base = c->pController->pCoreBase;
+	void	*__iomem base = c->controller->pCoreBase;
 
 	musb_ep_select(base, c->chNo + 1);
 
@@ -954,8 +954,8 @@ static int cppi_channel_program(struct dma_channel *pChannel,
 		dma_addr_t dma_addr, u32 len)
 {
 	struct cppi_channel	*otgChannel = pChannel->private_data;
-	struct cppi		*pController = otgChannel->pController;
-	struct musb		*musb = pController->musb;
+	struct cppi		*controller = otgChannel->controller;
+	struct musb		*musb = controller->musb;
 
 	switch (pChannel->status) {
 	case MGC_DMA_STATUS_BUS_ABORT:
@@ -1307,38 +1307,38 @@ void cppi_completion(struct musb *musb, u32 rx, u32 tx)
 struct dma_controller *__init
 dma_controller_create(struct musb *musb, void __iomem *pCoreBase)
 {
-	struct cppi		*pController;
+	struct cppi		*controller;
 
-	pController = kzalloc(sizeof *pController, GFP_KERNEL);
-	if (!pController)
+	controller = kzalloc(sizeof *controller, GFP_KERNEL);
+	if (!controller)
 		return NULL;
 
 	/* Initialize the Cppi DmaController  structure */
-	pController->pCoreBase = pCoreBase;
-	pController->musb = musb;
-	pController->Controller.private_data = pController;
-	pController->Controller.start = cppi_controller_start;
-	pController->Controller.stop = cppi_controller_stop;
-	pController->Controller.channel_alloc = cppi_channel_allocate;
-	pController->Controller.channel_release = cppi_channel_release;
-	pController->Controller.channel_program = cppi_channel_program;
-	pController->Controller.channel_abort = cppi_channel_abort;
+	controller->pCoreBase = pCoreBase;
+	controller->musb = musb;
+	controller->Controller.private_data = controller;
+	controller->Controller.start = cppi_controller_start;
+	controller->Controller.stop = cppi_controller_stop;
+	controller->Controller.channel_alloc = cppi_channel_allocate;
+	controller->Controller.channel_release = cppi_channel_release;
+	controller->Controller.channel_program = cppi_channel_program;
+	controller->Controller.channel_abort = cppi_channel_abort;
 
 	/* NOTE: allocating from on-chip SRAM would give the least
 	 * contention for memory access, if that ever matters here.
 	 */
 
 	/* setup BufferPool */
-	pController->pool = dma_pool_create("cppi",
-			pController->musb->controller,
+	controller->pool = dma_pool_create("cppi",
+			controller->musb->controller,
 			sizeof(struct cppi_descriptor),
 			CPPI_DESCRIPTOR_ALIGN, 0);
-	if (!pController->pool) {
-		kfree(pController);
+	if (!controller->pool) {
+		kfree(controller);
 		return NULL;
 	}
 
-	return &pController->Controller;
+	return &controller->Controller;
 }
 
 /*
@@ -1362,7 +1362,7 @@ void dma_controller_destroy(struct dma_controller *c)
 static int cppi_channel_abort(struct dma_channel *channel)
 {
 	struct cppi_channel	*otgCh;
-	struct cppi		*pController;
+	struct cppi		*controller;
 	int			chNum;
 	void			*__iomem mbase;
 	void			*__iomem regBase;
@@ -1372,7 +1372,7 @@ static int cppi_channel_abort(struct dma_channel *channel)
 
 	otgCh = container_of(channel, struct cppi_channel, Channel);
 
-	pController = otgCh->pController;
+	controller = otgCh->controller;
 	chNum = otgCh->chNo;
 
 	switch (channel->status) {
@@ -1393,7 +1393,7 @@ static int cppi_channel_abort(struct dma_channel *channel)
 	if (!otgCh->transmit && otgCh->activeQueueHead)
 		cppi_dump_rxq(3, "/abort", otgCh);
 
-	mbase = pController->pCoreBase;
+	mbase = controller->pCoreBase;
 	regBase = mbase - DAVINCI_BASE_OFFSET;
 
 	queue = otgCh->activeQueueHead;
@@ -1490,7 +1490,7 @@ static int cppi_channel_abort(struct dma_channel *channel)
 		core_rxirq_disable(regBase, otgCh->chNo + 1);
 
 		/* for host, ensure ReqPkt is never set again */
-		if (is_host_active(otgCh->pController->musb)) {
+		if (is_host_active(otgCh->controller->musb)) {
 			regVal = musb_readl(regBase, DAVINCI_AUTOREQ_REG);
 			regVal &= ~((0x3) << (otgCh->chNo * 2));
 			musb_writel(regBase, DAVINCI_AUTOREQ_REG, regVal);
@@ -1499,7 +1499,7 @@ static int cppi_channel_abort(struct dma_channel *channel)
 		csr = musb_readw(regs, MUSB_RXCSR);
 
 		/* for host, clear (just) ReqPkt at end of current packet(s) */
-		if (is_host_active(otgCh->pController->musb)) {
+		if (is_host_active(otgCh->controller->musb)) {
 			csr |= MUSB_RXCSR_H_WZC_BITS;
 			csr &= ~MUSB_RXCSR_H_REQPKT;
 		} else
@@ -1521,7 +1521,7 @@ static int cppi_channel_abort(struct dma_channel *channel)
 		/* scan the current list, reporting any data that was
 		 * transferred and acking any IRQ
 		 */
-		cppi_rx_scan(pController, chNum);
+		cppi_rx_scan(controller, chNum);
 
 		/* clobber the existing state once it's idle
 		 *

@@ -73,7 +73,7 @@ struct musb_dma_controller;
 
 struct musb_dma_channel {
 	struct dma_channel		Channel;
-	struct musb_dma_controller	*pController;
+	struct musb_dma_controller	*controller;
 	u32				dwStartAddress;
 	u32				len;
 	u16				wMaxPacketSize;
@@ -102,22 +102,22 @@ static void dma_channel_release(struct dma_channel *pChannel);
 
 static int dma_controller_stop(struct dma_controller *c)
 {
-	struct musb_dma_controller *pController =
+	struct musb_dma_controller *controller =
 		container_of(c, struct musb_dma_controller, Controller);
-	struct musb *musb = (struct musb *) pController->pDmaPrivate;
+	struct musb *musb = (struct musb *) controller->pDmaPrivate;
 	struct dma_channel *pChannel;
 	u8 bBit;
 
-	if (pController->bmUsedChannels != 0) {
+	if (controller->bmUsedChannels != 0) {
 		dev_err(musb->controller,
 			"Stopping DMA controller while channel active\n");
 
 		for (bBit = 0; bBit < MGC_HSDMA_CHANNELS; bBit++) {
-			if (pController->bmUsedChannels & (1 << bBit)) {
-				pChannel = &(pController->aChannel[bBit].Channel);
+			if (controller->bmUsedChannels & (1 << bBit)) {
+				pChannel = &(controller->aChannel[bBit].Channel);
 				dma_channel_release(pChannel);
 
-				if (!pController->bmUsedChannels)
+				if (!controller->bmUsedChannels)
 					break;
 			}
 		}
@@ -131,14 +131,14 @@ static struct dma_channel* dma_channel_allocate(struct dma_controller *c,
 	u8 bBit;
 	struct dma_channel *pChannel = NULL;
 	struct musb_dma_channel *pImplChannel = NULL;
-	struct musb_dma_controller *pController =
+	struct musb_dma_controller *controller =
 			container_of(c, struct musb_dma_controller, Controller);
 
 	for (bBit = 0; bBit < MGC_HSDMA_CHANNELS; bBit++) {
-		if (!(pController->bmUsedChannels & (1 << bBit))) {
-			pController->bmUsedChannels |= (1 << bBit);
-			pImplChannel = &(pController->aChannel[bBit]);
-			pImplChannel->pController = pController;
+		if (!(controller->bmUsedChannels & (1 << bBit))) {
+			controller->bmUsedChannels |= (1 << bBit);
+			pImplChannel = &(controller->aChannel[bBit]);
+			pImplChannel->controller = controller;
 			pImplChannel->bIndex = bBit;
 			pImplChannel->epnum = hw_ep->epnum;
 			pImplChannel->transmit = transmit;
@@ -164,7 +164,7 @@ static void dma_channel_release(struct dma_channel *pChannel)
 	pImplChannel->dwStartAddress = 0;
 	pImplChannel->len = 0;
 
-	pImplChannel->pController->bmUsedChannels &=
+	pImplChannel->controller->bmUsedChannels &=
 		~(1 << pImplChannel->bIndex);
 
 	pChannel->status = MGC_DMA_STATUS_UNKNOWN;
@@ -176,8 +176,8 @@ static void configure_channel(struct dma_channel *pChannel,
 {
 	struct musb_dma_channel *pImplChannel =
 		(struct musb_dma_channel *) pChannel->private_data;
-	struct musb_dma_controller *pController = pImplChannel->pController;
-	u8 *mbase = pController->pCoreBase;
+	struct musb_dma_controller *controller = pImplChannel->controller;
+	u8 *mbase = controller->pCoreBase;
 	u8 bChannel = pImplChannel->bIndex;
 	u16 csr = 0;
 
@@ -256,7 +256,7 @@ static int dma_channel_abort(struct dma_channel *pChannel)
 	struct musb_dma_channel *pImplChannel =
 		(struct musb_dma_channel *) pChannel->private_data;
 	u8 bChannel = pImplChannel->bIndex;
-	u8 *mbase = pImplChannel->pController->pCoreBase;
+	u8 *mbase = pImplChannel->controller->pCoreBase;
 	u16 csr;
 
 	if (pChannel->status == MGC_DMA_STATUS_BUSY) {
@@ -296,10 +296,10 @@ static int dma_channel_abort(struct dma_channel *pChannel)
 
 static irqreturn_t dma_controller_irq(int irq, void *private_data)
 {
-	struct musb_dma_controller *pController =
+	struct musb_dma_controller *controller =
 		(struct musb_dma_controller *)private_data;
 	struct musb_dma_channel *pImplChannel;
-	u8 *mbase = pController->pCoreBase;
+	u8 *mbase = controller->pCoreBase;
 	struct dma_channel *pChannel;
 	u8 bChannel;
 	u16 csr;
@@ -314,7 +314,7 @@ static irqreturn_t dma_controller_irq(int irq, void *private_data)
 	for (bChannel = 0; bChannel < MGC_HSDMA_CHANNELS; bChannel++) {
 		if (int_hsdma & (1 << bChannel)) {
 			pImplChannel = (struct musb_dma_channel *)
-					&(pController->aChannel[bChannel]);
+					&(controller->aChannel[bChannel]);
 			pChannel = &pImplChannel->Channel;
 
 			csr = musb_readw(mbase,
@@ -360,7 +360,7 @@ static irqreturn_t dma_controller_irq(int irq, void *private_data)
 						MUSB_TXCSR_TXPKTRDY);
 				} else
 					musb_dma_completion(
-						pController->pDmaPrivate,
+						controller->pDmaPrivate,
 						pImplChannel->epnum,
 						pImplChannel->transmit);
 			}
@@ -373,23 +373,23 @@ done:
 
 void dma_controller_destroy(struct dma_controller *c)
 {
-	struct musb_dma_controller *pController =
+	struct musb_dma_controller *controller =
 		(struct musb_dma_controller *) c->private_data;
 
-	if (!pController)
+	if (!controller)
 		return;
 
-	if (pController->irq)
-		free_irq(pController->irq, c);
+	if (controller->irq)
+		free_irq(controller->irq, c);
 
-	kfree(pController);
+	kfree(controller);
 	c->private_data = NULL;
 }
 
 struct dma_controller *__init
 dma_controller_create(struct musb *musb, void __iomem *pCoreBase)
 {
-	struct musb_dma_controller *pController;
+	struct musb_dma_controller *controller;
 	struct device *dev = musb->controller;
 	struct platform_device *pdev = to_platform_device(dev);
 	int irq = platform_get_irq(pdev, 1);
@@ -399,30 +399,30 @@ dma_controller_create(struct musb *musb, void __iomem *pCoreBase)
 		return NULL;
 	}
 
-	if (!(pController = kzalloc(sizeof(struct musb_dma_controller),
+	if (!(controller = kzalloc(sizeof(struct musb_dma_controller),
 				GFP_KERNEL)))
 		return NULL;
 
-	pController->bChannelCount = MGC_HSDMA_CHANNELS;
-	pController->pDmaPrivate = musb;
-	pController->pCoreBase = pCoreBase;
+	controller->bChannelCount = MGC_HSDMA_CHANNELS;
+	controller->pDmaPrivate = musb;
+	controller->pCoreBase = pCoreBase;
 
-	pController->Controller.private_data = pController;
-	pController->Controller.start = dma_controller_start;
-	pController->Controller.stop = dma_controller_stop;
-	pController->Controller.channel_alloc = dma_channel_allocate;
-	pController->Controller.channel_release = dma_channel_release;
-	pController->Controller.channel_program = dma_channel_program;
-	pController->Controller.channel_abort = dma_channel_abort;
+	controller->Controller.private_data = controller;
+	controller->Controller.start = dma_controller_start;
+	controller->Controller.stop = dma_controller_stop;
+	controller->Controller.channel_alloc = dma_channel_allocate;
+	controller->Controller.channel_release = dma_channel_release;
+	controller->Controller.channel_program = dma_channel_program;
+	controller->Controller.channel_abort = dma_channel_abort;
 
 	if (request_irq(irq, dma_controller_irq, IRQF_DISABLED,
-			musb->controller->bus_id, &pController->Controller)) {
+			musb->controller->bus_id, &controller->Controller)) {
 		dev_err(dev, "request_irq %d failed!\n", irq);
-		dma_controller_destroy(&pController->Controller);
+		dma_controller_destroy(&controller->Controller);
 		return NULL;
 	}
 
-	pController->irq = irq;
+	controller->irq = irq;
 
-	return &pController->Controller;
+	return &controller->Controller;
 }

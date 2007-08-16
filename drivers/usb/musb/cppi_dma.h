@@ -62,7 +62,7 @@ struct cppi_channel {
 	struct dma_channel Channel;
 
 	/* back pointer to the Dma Controller structure */
-	struct cppi		*pController;
+	struct cppi		*controller;
 
 	/* which direction of which endpoint? */
 	struct musb_hw_ep	*hw_ep;
