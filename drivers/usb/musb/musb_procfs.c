@@ -652,7 +652,7 @@ static int musb_proc_write(struct file *file, const char __user *buffer,
 			unsigned long count, void *data)
 {
 	char cmd;
-	u8 bReg;
+	u8 reg;
 	struct musb *musb = (struct musb *)data;
 	void __iomem *mbase = musb->mregs;
 
@@ -664,47 +664,47 @@ static int musb_proc_write(struct file *file, const char __user *buffer,
 	switch (cmd) {
 	case 'C':
 		if (mbase) {
-			bReg = musb_readb(mbase, MUSB_POWER)
+			reg = musb_readb(mbase, MUSB_POWER)
 					| MUSB_POWER_SOFTCONN;
-			musb_writeb(mbase, MUSB_POWER, bReg);
+			musb_writeb(mbase, MUSB_POWER, reg);
 		}
 		break;
 
 	case 'c':
 		if (mbase) {
-			bReg = musb_readb(mbase, MUSB_POWER)
+			reg = musb_readb(mbase, MUSB_POWER)
 					& ~MUSB_POWER_SOFTCONN;
-			musb_writeb(mbase, MUSB_POWER, bReg);
+			musb_writeb(mbase, MUSB_POWER, reg);
 		}
 		break;
 
 	case 'I':
 		if (mbase) {
-			bReg = musb_readb(mbase, MUSB_POWER)
+			reg = musb_readb(mbase, MUSB_POWER)
 					| MUSB_POWER_HSENAB;
-			musb_writeb(mbase, MUSB_POWER, bReg);
+			musb_writeb(mbase, MUSB_POWER, reg);
 		}
 		break;
 
 	case 'i':
 		if (mbase) {
-			bReg = musb_readb(mbase, MUSB_POWER)
+			reg = musb_readb(mbase, MUSB_POWER)
 					& ~MUSB_POWER_HSENAB;
-			musb_writeb(mbase, MUSB_POWER, bReg);
+			musb_writeb(mbase, MUSB_POWER, reg);
 		}
 		break;
 
 	case 'F':
-		bReg = musb_readb(mbase, MUSB_DEVCTL);
-		bReg |= MUSB_DEVCTL_SESSION;
-		musb_writeb(mbase, MUSB_DEVCTL, bReg);
+		reg = musb_readb(mbase, MUSB_DEVCTL);
+		reg |= MUSB_DEVCTL_SESSION;
+		musb_writeb(mbase, MUSB_DEVCTL, reg);
 		break;
 
 	case 'H':
 		if (mbase) {
-			bReg = musb_readb(mbase, MUSB_DEVCTL);
-			bReg |= MUSB_DEVCTL_HR;
-			musb_writeb(mbase, MUSB_DEVCTL, bReg);
+			reg = musb_readb(mbase, MUSB_DEVCTL);
+			reg |= MUSB_DEVCTL_HR;
+			musb_writeb(mbase, MUSB_DEVCTL, reg);
 			//MUSB_HST_MODE( ((struct musb*)data) );
 			//WARN("Host Mode\n");
 		}
@@ -712,9 +712,9 @@ static int musb_proc_write(struct file *file, const char __user *buffer,
 
 	case 'h':
 		if (mbase) {
-			bReg = musb_readb(mbase, MUSB_DEVCTL);
-			bReg &= ~MUSB_DEVCTL_HR;
-			musb_writeb(mbase, MUSB_DEVCTL, bReg);
+			reg = musb_readb(mbase, MUSB_DEVCTL);
+			reg &= ~MUSB_DEVCTL_HR;
+			musb_writeb(mbase, MUSB_DEVCTL, reg);
 		}
 		break;
 
