@@ -674,7 +674,7 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 	if (is_out) {
 		u16	csr;
 		u16	int_txe;
-		u16	wLoadCount;
+		u16	load_count;
 
 		csr = musb_readw(epio, MUSB_TXCSR);
 
@@ -754,10 +754,10 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 		}
 
 		if (can_bulk_split(musb, qh->type))
-			wLoadCount = min((u32) hw_ep->max_packet_sz_tx,
+			load_count = min((u32) hw_ep->max_packet_sz_tx,
 						len);
 		else
-			wLoadCount = min((u32) packet_sz, len);
+			load_count = min((u32) packet_sz, len);
 
 #ifdef CONFIG_USB_INVENTRA_DMA
 		if (dma_channel) {
@@ -797,7 +797,7 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 					urb->transfer_dma,
 					qh->segsize);
 			if (bDmaOk) {
-				wLoadCount = 0;
+				load_count = 0;
 			} else {
 				dma_controller->channel_release(dma_channel);
 				if (is_out)
@@ -838,7 +838,7 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 					urb->transfer_dma,
 					qh->segsize);
 			if (bDmaOk) {
-				wLoadCount = 0;
+				load_count = 0;
 			} else {
 				dma_controller->channel_release(dma_channel);
 				dma_channel = hw_ep->tx_channel = NULL;
@@ -850,12 +850,12 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 			}
 		}
 
-		if (wLoadCount) {
+		if (load_count) {
 			/* ASSERT:  TXCSR_DMAENAB was already cleared */
 
 			/* PIO to load FIFO */
-			qh->segsize = wLoadCount;
-			musb_write_fifo(hw_ep, wLoadCount, buf);
+			qh->segsize = load_count;
+			musb_write_fifo(hw_ep, load_count, buf);
 			csr = musb_readw(epio, MUSB_TXCSR);
 			csr &= ~(MUSB_TXCSR_DMAENAB
 				| MUSB_TXCSR_DMAMODE
