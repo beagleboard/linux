@@ -1661,7 +1661,7 @@ static int musb_schedule(
 {
 	int			idle;
 	int			best_diff;
-	int			nBestEnd, nEnd;
+	int			best_end, nEnd;
 	struct musb_hw_ep	*hw_ep = NULL;
 	struct list_head	*head = NULL;
 
@@ -1704,7 +1704,7 @@ static int musb_schedule(
 	 * there is none, and thus none of its complexity...
 	 */
 	best_diff = 4096;
-	nBestEnd = -1;
+	best_end = -1;
 
 	for (nEnd = 1; nEnd < musb->nr_endpoints; nEnd++) {
 		int	diff;
@@ -1722,16 +1722,16 @@ static int musb_schedule(
 
 		if (diff > 0 && best_diff > diff) {
 			best_diff = diff;
-			nBestEnd = nEnd;
+			best_end = nEnd;
 		}
 	}
-	if (nBestEnd < 0)
+	if (best_end < 0)
 		return -ENOSPC;
 
 	idle = 1;
-	hw_ep = musb->endpoints + nBestEnd;
-	musb->periodic[nBestEnd] = qh;
-	DBG(4, "qh %p periodic slot %d\n", qh, nBestEnd);
+	hw_ep = musb->endpoints + best_end;
+	musb->periodic[best_end] = qh;
+	DBG(4, "qh %p periodic slot %d\n", qh, best_end);
 success:
 	qh->hw_ep = hw_ep;
 	qh->hep->hcpriv = qh;
