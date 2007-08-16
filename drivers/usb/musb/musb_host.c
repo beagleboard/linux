@@ -105,7 +105,7 @@
 
 static void musb_ep_program(struct musb *musb, u8 epnum,
 			struct urb *urb, unsigned int nOut,
-			u8 * buf, u32 dwLength);
+			u8 * buf, u32 len);
 
 /*
  * Clear TX fifo. Needed to avoid BABBLE errors.
@@ -170,7 +170,7 @@ static void
 musb_start_urb(struct musb *musb, int is_in, struct musb_qh *qh)
 {
 	u16			wFrame;
-	u32			dwLength;
+	u32			len;
 	void			*buf;
 	void __iomem		*mbase =  musb->mregs;
 	struct urb		*urb = next_urb(qh);
@@ -191,17 +191,17 @@ musb_start_urb(struct musb *musb, int is_in, struct musb_qh *qh)
 		hw_ep->out_qh = qh;
 		musb->ep0_stage = MGC_END0_START;
 		buf = urb->setup_packet;
-		dwLength = 8;
+		len = 8;
 		break;
 	case USB_ENDPOINT_XFER_ISOC:
 		qh->iso_idx = 0;
 		qh->frame = 0;
 		buf = urb->transfer_buffer + urb->iso_frame_desc[0].offset;
-		dwLength = urb->iso_frame_desc[0].length;
+		len = urb->iso_frame_desc[0].length;
 		break;
 	default:		/* bulk, interrupt */
 		buf = urb->transfer_buffer;
-		dwLength = urb->transfer_buffer_length;
+		len = urb->transfer_buffer_length;
 	}
 
 	DBG(4, "qh %p urb %p dev%d ep%d%s%s, hw_ep %d, %p/%d\n",
@@ -213,14 +213,14 @@ musb_start_urb(struct musb *musb, int is_in, struct musb_qh *qh)
 			case USB_ENDPOINT_XFER_ISOC:	s = "-iso"; break;
 			default:			s = "-intr"; break;
 			}; s;}),
-			epnum, buf, dwLength);
+			epnum, buf, len);
 
 	/* Configure endpoint */
 	if (is_in || hw_ep->is_shared_fifo)
 		hw_ep->in_qh = qh;
 	else
 		hw_ep->out_qh = qh;
-	musb_ep_program(musb, epnum, urb, !is_in, buf, dwLength);
+	musb_ep_program(musb, epnum, urb, !is_in, buf, len);
 
 	/* transmit may have more work: start it when it is time */
 	if (is_in)
@@ -625,7 +625,7 @@ musb_rx_reinit(struct musb *musb, struct musb_qh *qh, struct musb_hw_ep *ep)
  */
 static void musb_ep_program(struct musb *musb, u8 epnum,
 			struct urb *urb, unsigned int is_out,
-			u8 * buf, u32 dwLength)
+			u8 * buf, u32 len)
 {
 	struct dma_controller	*dma_controller;
 	struct dma_channel	*pDmaChannel;
@@ -649,7 +649,7 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 			epnum, urb, urb->dev->speed,
 			qh->addr_reg, qh->epnum, is_out ? "out" : "in",
 			qh->h_addr_reg, qh->h_port_reg,
-			dwLength);
+			len);
 
 	musb_ep_select(mbase, epnum);
 
@@ -755,9 +755,9 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 
 		if (can_bulk_split(musb, qh->type))
 			wLoadCount = min((u32) hw_ep->max_packet_sz_tx,
-						dwLength);
+						len);
 		else
-			wLoadCount = min((u32) packet_sz, dwLength);
+			wLoadCount = min((u32) packet_sz, len);
 
 #ifdef CONFIG_USB_INVENTRA_DMA
 		if (pDmaChannel) {
@@ -771,7 +771,7 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 			musb_writew(epio, MUSB_TXCSR,
 				csr | MUSB_TXCSR_MODE);
 
-			qh->segsize = min(dwLength, pDmaChannel->max_len);
+			qh->segsize = min(len, pDmaChannel->max_len);
 
 			if (qh->segsize <= packet_sz)
 				pDmaChannel->desired_mode = 0;
@@ -825,7 +825,7 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 				csr | MUSB_TXCSR_MODE);
 
 			pDmaChannel->actual_len = 0L;
-			qh->segsize = dwLength;
+			qh->segsize = len;
 
 			/* TX uses "rndis" mode automatically, but needs help
 			 * to identify the zero-length-final-packet case.
@@ -905,7 +905,7 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 			/* candidate for DMA */
 			if (pDmaChannel) {
 				pDmaChannel->actual_len = 0L;
-				qh->segsize = dwLength;
+				qh->segsize = len;
 
 				/* AUTOREQ is in a DMA register */
 				musb_writew(hw_ep->regs, MUSB_RXCSR, csr);

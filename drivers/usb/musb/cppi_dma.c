@@ -946,12 +946,12 @@ cppi_next_rx_segment(struct musb *musb, struct cppi_channel *rx, int onepacket)
  *	all short reads as errors and kick in high level fault recovery.
  *	For TX, ignored because of RNDIS mode races/glitches.
  * @dma_addr: dma address of buffer
- * @dwLength: length of buffer
+ * @len: length of buffer
  * Context: controller irqlocked
  */
 static int cppi_channel_program(struct dma_channel *pChannel,
 		u16 wPacketSz, u8 mode,
-		dma_addr_t dma_addr, u32 dwLength)
+		dma_addr_t dma_addr, u32 len)
 {
 	struct cppi_channel	*otgChannel = pChannel->private_data;
 	struct cppi		*pController = otgChannel->pController;
@@ -988,7 +988,7 @@ static int cppi_channel_program(struct dma_channel *pChannel,
 	otgChannel->currOffset = 0;
 	otgChannel->pktSize = wPacketSz;
 	otgChannel->actualLen = 0;
-	otgChannel->transferSize = dwLength;
+	otgChannel->transferSize = len;
 
 	/* TX channel? or RX? */
 	if (otgChannel->transmit)

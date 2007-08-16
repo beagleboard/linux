@@ -172,7 +172,7 @@ static void dma_channel_release(struct dma_channel *pChannel)
 
 static void configure_channel(struct dma_channel *pChannel,
 				u16 packet_sz, u8 mode,
-				dma_addr_t dma_addr, u32 dwLength)
+				dma_addr_t dma_addr, u32 len)
 {
 	struct musb_dma_channel *pImplChannel =
 		(struct musb_dma_channel *) pChannel->private_data;
@@ -182,11 +182,11 @@ static void configure_channel(struct dma_channel *pChannel,
 	u16 csr = 0;
 
 	DBG(4, "%p, pkt_sz %d, addr 0x%x, len %d, mode %d\n",
-	    pChannel, packet_sz, dma_addr, dwLength, mode);
+	    pChannel, packet_sz, dma_addr, len, mode);
 
 	if (mode) {
 		csr |= 1 << MUSB_HSDMA_MODE1_SHIFT;
-		if (dwLength < packet_sz) {
+		if (len < packet_sz) {
 			return FALSE;
 		}
 		if (packet_sz >= 64) {
@@ -212,7 +212,7 @@ static void configure_channel(struct dma_channel *pChannel,
 		    dma_addr);
 	musb_writel(mbase,
 		    MGC_HSDMA_CHANNEL_OFFSET(bChannel, MGC_O_HSDMA_COUNT),
-		    dwLength);
+		    len);
 
 	/* control (this should start things) */
 	musb_writew(mbase,
@@ -222,7 +222,7 @@ static void configure_channel(struct dma_channel *pChannel,
 
 static int dma_channel_program(struct dma_channel * pChannel,
 				u16 packet_sz, u8 mode,
-				dma_addr_t dma_addr, u32 dwLength)
+				dma_addr_t dma_addr, u32 len)
 {
 	struct musb_dma_channel *pImplChannel =
 			(struct musb_dma_channel *) pChannel->private_data;
@@ -230,23 +230,23 @@ static int dma_channel_program(struct dma_channel * pChannel,
 	DBG(2, "ep%d-%s pkt_sz %d, dma_addr 0x%x length %d, mode %d\n",
 		pImplChannel->epnum,
 		pImplChannel->transmit ? "Tx" : "Rx",
-		packet_sz, dma_addr, dwLength, mode);
+		packet_sz, dma_addr, len, mode);
 
 	BUG_ON(pChannel->status == MGC_DMA_STATUS_UNKNOWN ||
 		pChannel->status == MGC_DMA_STATUS_BUSY);
 
 	pChannel->actual_len = 0;
 	pImplChannel->dwStartAddress = dma_addr;
-	pImplChannel->len = dwLength;
+	pImplChannel->len = len;
 	pImplChannel->wMaxPacketSize = packet_sz;
 	pChannel->status = MGC_DMA_STATUS_BUSY;
 
-	if ((mode == 1) && (dwLength >= packet_sz)) {
+	if ((mode == 1) && (len >= packet_sz)) {
 		configure_channel(pChannel, packet_sz, 1, dma_addr,
-				  dwLength);
+				  len);
 	} else
 		configure_channel(pChannel, packet_sz, 0, dma_addr,
-				  dwLength);
+				  len);
 
 	return TRUE;
 }
