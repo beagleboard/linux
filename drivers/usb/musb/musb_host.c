@@ -946,7 +946,7 @@ static int musb_h_ep0_continue(struct musb *musb,
 				u16 len, struct urb *urb)
 {
 	int			 bMore = FALSE;
-	u8 *pFifoDest = NULL;
+	u8 *fifo_dest = NULL;
 	u16 fifo_count = 0;
 	struct musb_hw_ep	*hw_ep = musb->control_ep;
 	struct musb_qh		*qh = hw_ep->in_qh;
@@ -954,13 +954,13 @@ static int musb_h_ep0_continue(struct musb *musb,
 
 	switch (musb->ep0_stage) {
 	case MGC_END0_IN:
-		pFifoDest = urb->transfer_buffer + urb->actual_length;
+		fifo_dest = urb->transfer_buffer + urb->actual_length;
 		fifo_count = min(len, ((u16) (urb->transfer_buffer_length
 					- urb->actual_length)));
 		if (fifo_count < len)
 			urb->status = -EOVERFLOW;
 
-		musb_read_fifo(hw_ep, fifo_count, pFifoDest);
+		musb_read_fifo(hw_ep, fifo_count, fifo_dest);
 
 		urb->actual_length += fifo_count;
 		if (len < qh->maxpacket) {
@@ -994,11 +994,11 @@ static int musb_h_ep0_continue(struct musb *musb,
 				- urb->actual_length)));
 
 		if (fifo_count) {
-			pFifoDest = (u8 *) (urb->transfer_buffer
+			fifo_dest = (u8 *) (urb->transfer_buffer
 					+ urb->actual_length);
 			DBG(3, "Sending %d bytes to %p\n",
-					fifo_count, pFifoDest);
-			musb_write_fifo(hw_ep, fifo_count, pFifoDest);
+					fifo_count, fifo_dest);
+			musb_write_fifo(hw_ep, fifo_count, fifo_dest);
 
 			urb->actual_length += fifo_count;
 			bMore = TRUE;
