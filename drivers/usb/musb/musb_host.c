@@ -471,7 +471,7 @@ static u8 musb_host_packet_rx(struct musb *musb, struct urb *pUrb,
 {
 	u16 wRxCount;
 	u8 *pBuffer;
-	u16 wCsr;
+	u16 csr;
 	u8 bDone = FALSE;
 	u32			length;
 	int			do_flush = 0;
@@ -544,16 +544,16 @@ static u8 musb_host_packet_rx(struct musb *musb, struct urb *pUrb,
 
 	musb_read_fifo(hw_ep, length, pBuffer);
 
-	wCsr = musb_readw(epio, MUSB_RXCSR);
-	wCsr |= MUSB_RXCSR_H_WZC_BITS;
+	csr = musb_readw(epio, MUSB_RXCSR);
+	csr |= MUSB_RXCSR_H_WZC_BITS;
 	if (unlikely(do_flush))
-		musb_h_flush_rxfifo(hw_ep, wCsr);
+		musb_h_flush_rxfifo(hw_ep, csr);
 	else {
 		/* REVISIT this assumes AUTOCLEAR is never set */
-		wCsr &= ~(MUSB_RXCSR_RXPKTRDY | MUSB_RXCSR_H_REQPKT);
+		csr &= ~(MUSB_RXCSR_RXPKTRDY | MUSB_RXCSR_H_REQPKT);
 		if (!bDone)
-			wCsr |= MUSB_RXCSR_H_REQPKT;
-		musb_writew(epio, MUSB_RXCSR, wCsr);
+			csr |= MUSB_RXCSR_H_REQPKT;
+		musb_writew(epio, MUSB_RXCSR, csr);
 	}
 
 	return bDone;
@@ -672,11 +672,11 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 
 	/* OUT/transmit/EP0 or IN/receive? */
 	if (is_out) {
-		u16	wCsr;
+		u16	csr;
 		u16	wIntrTxE;
 		u16	wLoadCount;
 
-		wCsr = musb_readw(epio, MUSB_TXCSR);
+		csr = musb_readw(epio, MUSB_TXCSR);
 
 		/* disable interrupt in case we flush */
 		wIntrTxE = musb_readw(mbase, MUSB_INTRTXE);
@@ -684,7 +684,7 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 
 		/* general endpoint setup */
 		if (epnum) {
-			u16	csr = wCsr;
+			u16	csr = csr;
 
 			/* ASSERT:  TXCSR_DMAENAB was already cleared */
 
@@ -710,13 +710,13 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 			musb_writew(epio, MUSB_TXCSR, csr);
 			/* REVISIT may need to clear FLUSHFIFO ... */
 			musb_writew(epio, MUSB_TXCSR, csr);
-			wCsr = musb_readw(epio, MUSB_TXCSR);
+			csr = musb_readw(epio, MUSB_TXCSR);
 		} else {
 			/* endpoint 0: just flush */
 			musb_writew(epio, MUSB_CSR0,
-				wCsr | MUSB_CSR0_FLUSHFIFO);
+				csr | MUSB_CSR0_FLUSHFIFO);
 			musb_writew(epio, MUSB_CSR0,
-				wCsr | MUSB_CSR0_FLUSHFIFO);
+				csr | MUSB_CSR0_FLUSHFIFO);
 		}
 
 		/* target addr and (for multipoint) hub addr/port */
@@ -763,13 +763,13 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 		if (pDmaChannel) {
 
 			/* clear previous state */
-			wCsr = musb_readw(epio, MUSB_TXCSR);
-			wCsr &= ~(MUSB_TXCSR_AUTOSET
+			csr = musb_readw(epio, MUSB_TXCSR);
+			csr &= ~(MUSB_TXCSR_AUTOSET
 				| MUSB_TXCSR_DMAMODE
 				| MUSB_TXCSR_DMAENAB);
-                        wCsr |= MUSB_TXCSR_MODE;
+                        csr |= MUSB_TXCSR_MODE;
 			musb_writew(epio, MUSB_TXCSR,
-				wCsr | MUSB_TXCSR_MODE);
+				csr | MUSB_TXCSR_MODE);
 
 			qh->segsize = min(dwLength, pDmaChannel->max_len);
 
@@ -780,16 +780,16 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 
 
 			if (pDmaChannel->desired_mode == 0) {
-				wCsr &= ~(MUSB_TXCSR_AUTOSET
+				csr &= ~(MUSB_TXCSR_AUTOSET
 					| MUSB_TXCSR_DMAMODE);
-				wCsr |= (MUSB_TXCSR_DMAENAB);
+				csr |= (MUSB_TXCSR_DMAENAB);
 					// against programming guide
 			} else
-				wCsr |= (MUSB_TXCSR_AUTOSET
+				csr |= (MUSB_TXCSR_AUTOSET
 					| MUSB_TXCSR_DMAENAB
 					| MUSB_TXCSR_DMAMODE);
 
-			musb_writew(epio, MUSB_TXCSR, wCsr);
+			musb_writew(epio, MUSB_TXCSR, csr);
 
 			bDmaOk = dma_controller->channel_program(
 					pDmaChannel, packet_sz,
@@ -816,13 +816,13 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 			 * assume CPPI setup succeeds.
 			 * defer enabling dma.
 			 */
-			wCsr = musb_readw(epio, MUSB_TXCSR);
-			wCsr &= ~(MUSB_TXCSR_AUTOSET
+			csr = musb_readw(epio, MUSB_TXCSR);
+			csr &= ~(MUSB_TXCSR_AUTOSET
 					| MUSB_TXCSR_DMAMODE
 					| MUSB_TXCSR_DMAENAB);
-			wCsr |= MUSB_TXCSR_MODE;
+			csr |= MUSB_TXCSR_MODE;
 			musb_writew(epio, MUSB_TXCSR,
-				wCsr | MUSB_TXCSR_MODE);
+				csr | MUSB_TXCSR_MODE);
 
 			pDmaChannel->actual_len = 0L;
 			qh->segsize = dwLength;
@@ -856,15 +856,15 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 			/* PIO to load FIFO */
 			qh->segsize = wLoadCount;
 			musb_write_fifo(hw_ep, wLoadCount, pBuffer);
-			wCsr = musb_readw(epio, MUSB_TXCSR);
-			wCsr &= ~(MUSB_TXCSR_DMAENAB
+			csr = musb_readw(epio, MUSB_TXCSR);
+			csr &= ~(MUSB_TXCSR_DMAENAB
 				| MUSB_TXCSR_DMAMODE
 				| MUSB_TXCSR_AUTOSET);
 			/* write CSR */
-			wCsr |= MUSB_TXCSR_MODE;
+			csr |= MUSB_TXCSR_MODE;
 
 			if (epnum)
-				musb_writew(epio, MUSB_TXCSR, wCsr);
+				musb_writew(epio, MUSB_TXCSR, csr);
 		}
 
 		/* re-enable interrupt */
