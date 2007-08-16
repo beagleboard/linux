@@ -737,9 +737,11 @@ static irqreturn_t musb_stage2_irq(struct musb * musb, u8 int_usb,
 		handled = IRQ_HANDLED;
 
 		switch (musb->xceiv.state) {
+#ifdef	CONFIG_USB_MUSB_OTG
 		case OTG_STATE_A_PERIPHERAL:
 			musb_hnp_stop(musb);
 			break;
+#endif
 		case OTG_STATE_B_PERIPHERAL:
 			musb_g_suspend(musb);
 			musb->is_active = is_otg_enabled(musb)
