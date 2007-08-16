@@ -487,7 +487,7 @@ static void ep0_txstate(struct musb *musb)
 	void __iomem		*regs = musb->control_ep->regs;
 	struct usb_request	*request = next_ep0_request(musb);
 	u16			csr = MUSB_CSR0_TXPKTRDY;
-	u8			*pFifoSource;
+	u8			*fifo_src;
 	u8			fifo_count;
 
 	if (!request) {
@@ -497,10 +497,10 @@ static void ep0_txstate(struct musb *musb)
 	}
 
 	/* load the data */
-	pFifoSource = (u8 *) request->buf + request->actual;
+	fifo_src = (u8 *) request->buf + request->actual;
 	fifo_count = min((unsigned) MUSB_EP0_FIFOSIZE,
 		request->length - request->actual);
-	musb_write_fifo(&musb->endpoints[0], fifo_count, pFifoSource);
+	musb_write_fifo(&musb->endpoints[0], fifo_count, fifo_src);
 	request->actual += fifo_count;
 
 	/* update the flags */
