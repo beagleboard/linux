@@ -26,6 +26,8 @@
 #include <linux/leds.h>
 #include <linux/err.h>
 #include <linux/clk.h>
+#include <linux/spi/spi.h>
+#include <linux/spi/tsc210x.h>
 
 #include <asm/hardware.h>
 #include <asm/mach-types.h>
@@ -259,6 +261,24 @@ static void __init omap_apollon_init_irq(void)
 	apollon_init_smc91x();
 }
 
+static struct tsc210x_config tsc_platform_data = {
+	.use_internal		= 1,
+	.monitor		= TSC_TEMP,
+	.mclk			= "sys_clkout",
+};
+
+static struct spi_board_info apollon_spi_board_info[] = {
+	[0] = {
+		.modalias	= "tsc2101",
+		.irq		= OMAP_GPIO_IRQ(85),
+		.bus_num	= 1,
+		.chip_select	= 0,
+		.mode		= SPI_MODE_1,
+		.max_speed_hz	= 6000000,
+		.platform_data	= &tsc_platform_data,
+	},
+};
+
 static struct omap_uart_config apollon_uart_config __initdata = {
 	.enabled_uarts = (1 << 0) | (0 << 1) | (0 << 2),
 };
@@ -335,11 +355,22 @@ static void __init apollon_usb_init(void)
 	omap_set_gpio_dataout(12, 0);
 }
 
+static void __init apollon_tsc_init(void)
+{
+	/* TSC2101 */
+	omap_cfg_reg(N15_24XX_GPIO85);
+	omap_request_gpio(85);
+	omap_set_gpio_direction(85, 1);
+
+	omap_cfg_reg(W14_24XX_SYS_CLKOUT);	/* mclk */
+}
+
 static void __init omap_apollon_init(void)
 {
 	apollon_led_init();
 	apollon_flash_init();
 	apollon_usb_init();
+	apollon_tsc_init();
 
 	/*
  	 * Make sure the serial ports are muxed on at this point.
@@ -350,6 +381,9 @@ static void __init omap_apollon_init(void)
 	omap_board_config = apollon_config;
 	omap_board_config_size = ARRAY_SIZE(apollon_config);
 	omap_serial_init();
+
+	spi_register_board_info(apollon_spi_board_info,
+				ARRAY_SIZE(apollon_spi_board_info));
 }
 
 static void __init omap_apollon_map_io(void)
