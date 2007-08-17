@@ -1962,6 +1962,8 @@ void musb_g_disconnect(struct musb *musb)
 	switch (musb->xceiv.state) {
 	default:
 #ifdef	CONFIG_USB_MUSB_OTG
+		DBG(2, "Unhandled disconnect %s, setting a_idle\n",
+			otg_state_string(musb));
 		musb->xceiv.state = OTG_STATE_A_IDLE;
 		break;
 	case OTG_STATE_A_PERIPHERAL:
@@ -1971,6 +1973,7 @@ void musb_g_disconnect(struct musb *musb)
 	case OTG_STATE_B_HOST:
 #endif
 	case OTG_STATE_B_PERIPHERAL:
+	case OTG_STATE_B_IDLE:
 		musb->xceiv.state = OTG_STATE_B_IDLE;
 		break;
 	case OTG_STATE_B_SRP_INIT:
