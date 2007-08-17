@@ -263,22 +263,22 @@ static int dma_channel_abort(struct dma_channel *pChannel)
 		if (pImplChannel->transmit) {
 
 			csr = musb_readw(mbase,
-				MGC_END_OFFSET(pImplChannel->epnum,MUSB_TXCSR));
+				MUSB_EP_OFFSET(pImplChannel->epnum,MUSB_TXCSR));
 			csr &= ~(MUSB_TXCSR_AUTOSET |
 				 MUSB_TXCSR_DMAENAB |
 				 MUSB_TXCSR_DMAMODE);
 			musb_writew(mbase,
-					MGC_END_OFFSET(pImplChannel->epnum,MUSB_TXCSR),
+					MUSB_EP_OFFSET(pImplChannel->epnum,MUSB_TXCSR),
 					csr);
 		}
 		else {
 			csr = musb_readw(mbase,
-				MGC_END_OFFSET(pImplChannel->epnum,MUSB_RXCSR));
+				MUSB_EP_OFFSET(pImplChannel->epnum,MUSB_RXCSR));
 			csr &= ~(MUSB_RXCSR_AUTOCLEAR |
 				 MUSB_RXCSR_DMAENAB |
 				 MUSB_RXCSR_DMAMODE);
 			musb_writew(mbase,
-					MGC_END_OFFSET(pImplChannel->epnum,MUSB_RXCSR),
+					MUSB_EP_OFFSET(pImplChannel->epnum,MUSB_RXCSR),
 					csr);
 		}
 
@@ -356,7 +356,7 @@ static irqreturn_t dma_controller_irq(int irq, void *private_data)
 					musb_ep_select(mbase,
 						pImplChannel->epnum);
 					musb_writew(mbase,
-						MGC_END_OFFSET(pImplChannel->epnum,MUSB_TXCSR),
+						MUSB_EP_OFFSET(pImplChannel->epnum,MUSB_TXCSR),
 						MUSB_TXCSR_TXPKTRDY);
 				} else
 					musb_dma_completion(

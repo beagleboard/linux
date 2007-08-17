@@ -1380,7 +1380,7 @@ static int __init musb_core_init(u16 musb_type, struct musb *musb)
 			hw_ep->conf = mbase + 0x400 + (((i - 1) & 0xf) << 2);
 #endif
 
-		hw_ep->regs = MGC_END_OFFSET(i, 0) + mbase;
+		hw_ep->regs = MUSB_EP_OFFSET(i, 0) + mbase;
 #ifdef CONFIG_USB_MUSB_HDRC_HCD
 		hw_ep->target_regs = MUSB_BUSCTL_OFFSET(i, 0) + mbase;
 		hw_ep->rx_reinit = 1;
