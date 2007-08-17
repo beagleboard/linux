@@ -85,11 +85,14 @@ static void musb_port_suspend(struct musb *musb, u8 bSuspend)
 					&& musb->xceiv.host->b_hnp_enable;
 			musb_platform_try_idle(musb, 0);
 			break;
+#ifdef	CONFIG_USB_MUSB_OTG
 		case OTG_STATE_B_HOST:
-			musb->xceiv.state = OTG_STATE_B_PERIPHERAL;
-			MUSB_DEV_MODE(musb);
-			/* REVISIT restore setting of MUSB_DEVCTL_HR */
+			musb->xceiv.state = OTG_STATE_B_WAIT_ACON;
+			musb->is_active = is_otg_enabled(musb)
+					&& musb->xceiv.host->b_hnp_enable;
+			musb_platform_try_idle(musb, 0);
 			break;
+#endif
 		default:
 			DBG(1, "bogus rh suspend? %s\n",
 				otg_state_string(musb));
@@ -113,6 +116,12 @@ static void musb_port_reset(struct musb *musb, u8 bReset)
 	void __iomem	*mbase = musb->mregs;
 
 #ifdef CONFIG_USB_MUSB_OTG
+	if (musb->xceiv.state == OTG_STATE_B_IDLE) {
+		DBG(2, "HNP: Returning from HNP, not resetting hub as b_idle\n");
+		musb->port1_status &= ~USB_PORT_STAT_RESET;
+		return;
+	}
+
 	/* REVISIT this looks wrong for HNP */
 	u8 devctl = musb_readb(mbase, MUSB_DEVCTL);
 
