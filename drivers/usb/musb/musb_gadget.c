@@ -2015,7 +2015,7 @@ __acquires(musb->lock)
 	musb->is_suspended = 0;
 	MUSB_DEV_MODE(musb);
 	musb->address = 0;
-	musb->ep0_state = MGC_END0_STAGE_SETUP;
+	musb->ep0_state = MUSB_EP0_STAGE_SETUP;
 
 	musb->may_wakeup = 0;
 	musb->g.b_hnp_enable = 0;

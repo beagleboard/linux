@@ -181,21 +181,21 @@ static inline void musb_host_rx(struct musb *m, u8 e) {}
 
 /* host side ep0 states */
 enum musb_h_ep0_state {
-	MGC_END0_IDLE,
-	MGC_END0_START,			/* expect ack of setup */
-	MGC_END0_IN,			/* expect IN DATA */
-	MGC_END0_OUT,			/* expect ack of OUT DATA */
-	MGC_END0_STATUS,		/* expect ack of STATUS */
+	MUSB_EP0_IDLE,
+	MUSB_EP0_START,			/* expect ack of setup */
+	MUSB_EP0_IN,			/* expect IN DATA */
+	MUSB_EP0_OUT,			/* expect ack of OUT DATA */
+	MUSB_EP0_STATUS,		/* expect ack of STATUS */
 } __attribute__ ((packed));
 
 /* peripheral side ep0 states */
 enum musb_g_ep0_state {
-	MGC_END0_STAGE_SETUP,		/* idle, waiting for setup */
-	MGC_END0_STAGE_TX,		/* IN data */
-	MGC_END0_STAGE_RX,		/* OUT data */
-	MGC_END0_STAGE_STATUSIN,	/* (after OUT data) */
-	MGC_END0_STAGE_STATUSOUT,	/* (after IN data) */
-	MGC_END0_STAGE_ACKWAIT,		/* after zlp, before statusin */
+	MUSB_EP0_STAGE_SETUP,		/* idle, waiting for setup */
+	MUSB_EP0_STAGE_TX,		/* IN data */
+	MUSB_EP0_STAGE_RX,		/* OUT data */
+	MUSB_EP0_STAGE_STATUSIN,	/* (after OUT data) */
+	MUSB_EP0_STAGE_STATUSOUT,	/* (after IN data) */
+	MUSB_EP0_STAGE_ACKWAIT,		/* after zlp, before statusin */
 } __attribute__ ((packed));
 
 /* OTG protocol constants */

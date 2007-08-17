@@ -58,12 +58,12 @@
 static char *decode_ep0stage(u8 stage)
 {
 	switch(stage) {
-	case MGC_END0_STAGE_SETUP:	return "idle";
-	case MGC_END0_STAGE_TX:		return "in";
-	case MGC_END0_STAGE_RX:		return "out";
-	case MGC_END0_STAGE_ACKWAIT:	return "wait";
-	case MGC_END0_STAGE_STATUSIN:	return "in/status";
-	case MGC_END0_STAGE_STATUSOUT:	return "out/status";
+	case MUSB_EP0_STAGE_SETUP:	return "idle";
+	case MUSB_EP0_STAGE_TX:		return "in";
+	case MUSB_EP0_STAGE_RX:		return "out";
+	case MUSB_EP0_STAGE_ACKWAIT:	return "wait";
+	case MUSB_EP0_STAGE_STATUSIN:	return "in/status";
+	case MUSB_EP0_STAGE_STATUSOUT:	return "out/status";
 	default:			return "?";
 	}
 }
@@ -197,7 +197,7 @@ service_in_request(struct musb *musb,
  */
 static void musb_g_ep0_giveback(struct musb *musb, struct usb_request *req)
 {
-	musb->ep0_state = MGC_END0_STAGE_SETUP;
+	musb->ep0_state = MUSB_EP0_STAGE_SETUP;
 	musb_g_giveback(&musb->endpoints[0].ep_in, req, 0);
 }
 
@@ -459,7 +459,7 @@ static void ep0_rxstate(struct musb *this)
 		req->actual += tmp;
 		tmp = MUSB_CSR0_P_SVDRXPKTRDY;
 		if (tmp < 64 || req->actual == req->length) {
-			this->ep0_state = MGC_END0_STAGE_STATUSIN;
+			this->ep0_state = MUSB_EP0_STAGE_STATUSIN;
 			tmp |= MUSB_CSR0_P_DATAEND;
 		} else
 			req = NULL;
@@ -506,7 +506,7 @@ static void ep0_txstate(struct musb *musb)
 	/* update the flags */
 	if (fifo_count < MUSB_MAX_END0_PACKET
 			|| request->actual == request->length) {
-		musb->ep0_state = MGC_END0_STAGE_STATUSOUT;
+		musb->ep0_state = MUSB_EP0_STAGE_STATUSOUT;
 		csr |= MUSB_CSR0_P_DATAEND;
 	} else
 		request = NULL;
@@ -565,16 +565,16 @@ musb_read_setup(struct musb *musb, struct usb_ctrlrequest *req)
 	if (req->wLength == 0) {
 		if (req->bRequestType & USB_DIR_IN)
 			musb->ackpend |= MUSB_CSR0_TXPKTRDY;
-		musb->ep0_state = MGC_END0_STAGE_ACKWAIT;
+		musb->ep0_state = MUSB_EP0_STAGE_ACKWAIT;
 	} else if (req->bRequestType & USB_DIR_IN) {
-		musb->ep0_state = MGC_END0_STAGE_TX;
+		musb->ep0_state = MUSB_EP0_STAGE_TX;
 		musb_writew(regs, MUSB_CSR0, MUSB_CSR0_P_SVDRXPKTRDY);
 		while ((musb_readw(regs, MUSB_CSR0)
 				& MUSB_CSR0_RXPKTRDY) != 0)
 			cpu_relax();
 		musb->ackpend = 0;
 	} else
-		musb->ep0_state = MGC_END0_STAGE_RX;
+		musb->ep0_state = MUSB_EP0_STAGE_RX;
 }
 
 static int
@@ -619,7 +619,7 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 		musb_writew(regs, MUSB_CSR0,
 				csr & ~MUSB_CSR0_P_SENTSTALL);
 		retval = IRQ_HANDLED;
-		musb->ep0_state = MGC_END0_STAGE_SETUP;
+		musb->ep0_state = MUSB_EP0_STAGE_SETUP;
 		csr = musb_readw(regs, MUSB_CSR0);
 	}
 
@@ -627,7 +627,7 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 	if (csr & MUSB_CSR0_P_SETUPEND) {
 		musb_writew(regs, MUSB_CSR0, MUSB_CSR0_P_SVDSETUPEND);
 		retval = IRQ_HANDLED;
-		musb->ep0_state = MGC_END0_STAGE_SETUP;
+		musb->ep0_state = MUSB_EP0_STAGE_SETUP;
 		csr = musb_readw(regs, MUSB_CSR0);
 		/* NOTE:  request may need completion */
 	}
@@ -638,7 +638,7 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 	 */
 	switch (musb->ep0_state) {
 
-	case MGC_END0_STAGE_TX:
+	case MUSB_EP0_STAGE_TX:
 		/* irq on clearing txpktrdy */
 		if ((csr & MUSB_CSR0_TXPKTRDY) == 0) {
 			ep0_txstate(musb);
@@ -646,7 +646,7 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 		}
 		break;
 
-	case MGC_END0_STAGE_RX:
+	case MUSB_EP0_STAGE_RX:
 		/* irq on set rxpktrdy */
 		if (csr & MUSB_CSR0_RXPKTRDY) {
 			ep0_rxstate(musb);
@@ -654,7 +654,7 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 		}
 		break;
 
-	case MGC_END0_STAGE_STATUSIN:
+	case MUSB_EP0_STAGE_STATUSIN:
 		/* end of sequence #2 (OUT/RX state) or #3 (no data) */
 
 		/* update address (if needed) only @ the end of the
@@ -679,7 +679,7 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 		}
 		/* FALLTHROUGH */
 
-	case MGC_END0_STAGE_STATUSOUT:
+	case MUSB_EP0_STAGE_STATUSOUT:
 		/* end of sequence #1: write to host (TX state) */
 		{
 			struct usb_request	*req;
@@ -689,10 +689,10 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 				musb_g_ep0_giveback(musb, req);
 		}
 		retval = IRQ_HANDLED;
-		musb->ep0_state = MGC_END0_STAGE_SETUP;
+		musb->ep0_state = MUSB_EP0_STAGE_SETUP;
 		/* FALLTHROUGH */
 
-	case MGC_END0_STAGE_SETUP:
+	case MUSB_EP0_STAGE_SETUP:
 		if (csr & MUSB_CSR0_RXPKTRDY) {
 			struct usb_ctrlrequest	setup;
 			int			handled = 0;
@@ -724,7 +724,7 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 			 * device/endpoint feature set/clear operations)
 			 * plus SET_CONFIGURATION and others we must
 			 */
-			case MGC_END0_STAGE_ACKWAIT:
+			case MUSB_EP0_STAGE_ACKWAIT:
 				handled = service_zero_data_request(
 						musb, &setup);
 
@@ -732,7 +732,7 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 				if (handled > 0) {
 					musb->ackpend |= MUSB_CSR0_P_DATAEND;
 					musb->ep0_state =
-						MGC_END0_STAGE_STATUSIN;
+						MUSB_EP0_STAGE_STATUSIN;
 				}
 				break;
 
@@ -740,18 +740,18 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 			 * requests that we can't forward, GET_DESCRIPTOR
 			 * and others that we must
 			 */
-			case MGC_END0_STAGE_TX:
+			case MUSB_EP0_STAGE_TX:
 				handled = service_in_request(musb, &setup);
 				if (handled > 0) {
 					musb->ackpend = MUSB_CSR0_TXPKTRDY
 						| MUSB_CSR0_P_DATAEND;
 					musb->ep0_state =
-						MGC_END0_STAGE_STATUSOUT;
+						MUSB_EP0_STAGE_STATUSOUT;
 				}
 				break;
 
 			/* sequence #2 (OUT from host), always forward */
-			default:		/* MGC_END0_STAGE_RX */
+			default:		/* MUSB_EP0_STAGE_RX */
 				break;
 			}
 
@@ -774,7 +774,7 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 stall:
 				DBG(3, "stall (%d)\n", handled);
 				musb->ackpend |= MUSB_CSR0_P_SENDSTALL;
-				musb->ep0_state = MGC_END0_STAGE_SETUP;
+				musb->ep0_state = MUSB_EP0_STAGE_SETUP;
 finish:
 				musb_writew(regs, MUSB_CSR0,
 						musb->ackpend);
@@ -783,7 +783,7 @@ finish:
 		}
 		break;
 
-	case MGC_END0_STAGE_ACKWAIT:
+	case MUSB_EP0_STAGE_ACKWAIT:
 		/* This should not happen. But happens with tusb6010 with
 		 * g_file_storage and high speed. Do nothing.
 		 */
@@ -794,7 +794,7 @@ finish:
 		/* "can't happen" */
 		WARN_ON(1);
 		musb_writew(regs, MUSB_CSR0, MUSB_CSR0_P_SENDSTALL);
-		musb->ep0_state = MGC_END0_STAGE_SETUP;
+		musb->ep0_state = MUSB_EP0_STAGE_SETUP;
 		break;
 	}
 
@@ -846,9 +846,9 @@ musb_g_ep0_queue(struct usb_ep *e, struct usb_request *r, gfp_t gfp_flags)
 	}
 
 	switch (musb->ep0_state) {
-	case MGC_END0_STAGE_RX:		/* control-OUT data */
-	case MGC_END0_STAGE_TX:		/* control-IN data */
-	case MGC_END0_STAGE_ACKWAIT:	/* zero-length data */
+	case MUSB_EP0_STAGE_RX:		/* control-OUT data */
+	case MUSB_EP0_STAGE_TX:		/* control-IN data */
+	case MUSB_EP0_STAGE_ACKWAIT:	/* zero-length data */
 		status = 0;
 		break;
 	default:
@@ -868,15 +868,15 @@ musb_g_ep0_queue(struct usb_ep *e, struct usb_request *r, gfp_t gfp_flags)
 	musb_ep_select(musb->mregs, 0);
 
 	/* sequence #1, IN ... start writing the data */
-	if (musb->ep0_state == MGC_END0_STAGE_TX)
+	if (musb->ep0_state == MUSB_EP0_STAGE_TX)
 		ep0_txstate(musb);
 
 	/* sequence #3, no-data ... issue IN status */
-	else if (musb->ep0_state == MGC_END0_STAGE_ACKWAIT) {
+	else if (musb->ep0_state == MUSB_EP0_STAGE_ACKWAIT) {
 		if (req->request.length)
 			status = -EINVAL;
 		else {
-			musb->ep0_state = MGC_END0_STAGE_STATUSIN;
+			musb->ep0_state = MUSB_EP0_STAGE_STATUSIN;
 			musb_writew(regs, MUSB_CSR0,
 					musb->ackpend | MUSB_CSR0_P_DATAEND);
 			musb->ackpend = 0;
@@ -929,16 +929,16 @@ static int musb_g_ep0_halt(struct usb_ep *e, int value)
 	}
 
 	switch (musb->ep0_state) {
-	case MGC_END0_STAGE_TX:		/* control-IN data */
-	case MGC_END0_STAGE_ACKWAIT:	/* STALL for zero-length data */
-	case MGC_END0_STAGE_RX:		/* control-OUT data */
+	case MUSB_EP0_STAGE_TX:		/* control-IN data */
+	case MUSB_EP0_STAGE_ACKWAIT:	/* STALL for zero-length data */
+	case MUSB_EP0_STAGE_RX:		/* control-OUT data */
 		status = 0;
 
 		musb_ep_select(base, 0);
 		csr = musb_readw(regs, MUSB_CSR0);
 		csr |= MUSB_CSR0_P_SENDSTALL;
 		musb_writew(regs, MUSB_CSR0, csr);
-		musb->ep0_state = MGC_END0_STAGE_SETUP;
+		musb->ep0_state = MUSB_EP0_STAGE_SETUP;
 		break;
 	default:
 		DBG(1, "ep0 can't halt in state %d\n", musb->ep0_state);

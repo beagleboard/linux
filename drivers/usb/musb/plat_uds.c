@@ -467,7 +467,7 @@ static irqreturn_t musb_stage0_irq(struct musb * musb, u8 int_usb,
 		 * a_wait_vrise_tmout triggers VBUS_ERROR transitions
 		 */
 		musb_writeb(mbase, MUSB_DEVCTL, MUSB_DEVCTL_SESSION);
-		musb->ep0_stage = MGC_END0_START;
+		musb->ep0_stage = MUSB_EP0_START;
 		musb->xceiv.state = OTG_STATE_A_IDLE;
 		MUSB_HST_MODE(musb);
 		musb_set_vbus(musb, 1);
@@ -550,7 +550,7 @@ static irqreturn_t musb_stage0_irq(struct musb * musb, u8 int_usb,
 		musb->is_active = 1;
 		set_bit(HCD_FLAG_SAW_IRQ, &hcd->flags);
 
-		musb->ep0_stage = MGC_END0_START;
+		musb->ep0_stage = MUSB_EP0_START;
 
 #ifdef CONFIG_USB_MUSB_OTG
 		/* flush endpoints when transitioning from Device Mode */
