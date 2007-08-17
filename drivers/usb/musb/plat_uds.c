@@ -603,6 +603,7 @@ static irqreturn_t musb_stage0_irq(struct musb * musb, u8 int_usb,
 	 * only host sees babble; only peripheral sees bus reset.
 	 */
 	if (int_usb & MUSB_INTR_RESET) {
+#ifdef CONFIG_USB_MUSB_HDRC_HCD
 		if (devctl & MUSB_DEVCTL_HM) {
 			/*
 			 * Looks like non-HS BABBLE can be ignored, but
@@ -617,7 +618,9 @@ static irqreturn_t musb_stage0_irq(struct musb * musb, u8 int_usb,
 				ERR("Stopping host session because of babble\n");
 				musb_writeb(mbase, MUSB_DEVCTL, 0);
 			}
-		} else {
+		} else
+#endif	/* CONFIG_USB_MUSB_HDRC_HCD */
+		{
 			DBG(1, "BUS RESET\n");
 
 			musb_g_reset(musb);
