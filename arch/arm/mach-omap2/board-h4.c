@@ -25,6 +25,8 @@
 #include <linux/spi/spi.h>
 #include <linux/spi/tsc210x.h>
 
+#include <media/v4l2-int-device.h>
+
 #include <asm/hardware.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -44,6 +46,8 @@
 #include <asm/arch/gpmc.h>
 
 #include <asm/io.h>
+
+#include <../drivers/media/video/ov9640.h>
 
 #define H4_FLASH_CS	0
 #define H4_SMC91X_CS	1
@@ -521,6 +525,133 @@ static void __init tusb_evm_setup(void)
 
 #endif
 
+/*
+ * Common OV9640 register initialization for all image sizes, pixel formats,
+ * and frame rates
+ */
+const static struct ov9640_reg ov9640_common[] = {
+	{ 0x12, 0x80 }, { 0x11, 0x80 }, { 0x13, 0x8F },	/* COM7, CLKRC, COM8 */
+	{ 0x01, 0x80 }, { 0x02, 0x80 }, { 0x04, 0x00 },	/* BLUE, RED, COM1 */
+	{ 0x0E, 0x81 }, { 0x0F, 0x4F }, { 0x14, 0x4A },	/* COM5, COM6, COM9 */
+	{ 0x16, 0x02 }, { 0x1B, 0x01 }, { 0x24, 0x70 },	/* ?, PSHFT, AEW */
+	{ 0x25, 0x68 }, { 0x26, 0xD3 }, { 0x27, 0x90 },	/* AEB, VPT, BBIAS */
+	{ 0x2A, 0x00 }, { 0x2B, 0x00 }, { 0x32, 0x24 },	/* EXHCH, EXHCL, HREF */
+	{ 0x33, 0x02 }, { 0x37, 0x02 }, { 0x38, 0x13 },	/* CHLF, ADC, ACOM */
+	{ 0x39, 0xF0 }, { 0x3A, 0x00 }, { 0x3B, 0x01 },	/* OFON, TSLB, COM11 */
+	{ 0x3D, 0x90 }, { 0x3E, 0x02 }, { 0x3F, 0xF2 },	/* COM13, COM14, EDGE */
+	{ 0x41, 0x02 }, { 0x42, 0xC8 },		/* COM16, COM17 */
+	{ 0x43, 0xF0 }, { 0x44, 0x10 }, { 0x45, 0x6C },	/* ?, ?, ? */
+	{ 0x46, 0x6C }, { 0x47, 0x44 }, { 0x48, 0x44 },	/* ?, ?, ? */
+	{ 0x49, 0x03 }, { 0x59, 0x49 }, { 0x5A, 0x94 },	/* ?, ?, ? */
+	{ 0x5B, 0x46 }, { 0x5C, 0x84 }, { 0x5D, 0x5C },	/* ?, ?, ? */
+	{ 0x5E, 0x08 }, { 0x5F, 0x00 }, { 0x60, 0x14 },	/* ?, ?, ? */
+	{ 0x61, 0xCE },					/* ? */
+	{ 0x62, 0x70 }, { 0x63, 0x00 }, { 0x64, 0x04 },	/* LCC1, LCC2, LCC3 */
+	{ 0x65, 0x00 }, { 0x66, 0x00 },			/* LCC4, LCC5 */
+	{ 0x69, 0x00 }, { 0x6A, 0x3E }, { 0x6B, 0x3F },	/* HV, MBD, DBLV */
+	{ 0x6C, 0x40 }, { 0x6D, 0x30 }, { 0x6E, 0x4B },	/* GSP1, GSP2, GSP3 */
+	{ 0x6F, 0x60 }, { 0x70, 0x70 }, { 0x71, 0x70 },	/* GSP4, GSP5, GSP6 */
+	{ 0x72, 0x70 }, { 0x73, 0x70 }, { 0x74, 0x60 },	/* GSP7, GSP8, GSP9 */
+	{ 0x75, 0x60 }, { 0x76, 0x50 }, { 0x77, 0x48 },	/* GSP10,GSP11,GSP12 */
+	{ 0x78, 0x3A }, { 0x79, 0x2E }, { 0x7A, 0x28 },	/* GSP13,GSP14,GSP15 */
+	{ 0x7B, 0x22 }, { 0x7C, 0x04 }, { 0x7D, 0x07 },	/* GSP16,GST1, GST2 */
+	{ 0x7E, 0x10 }, { 0x7F, 0x28 }, { 0x80, 0x36 },	/* GST3, GST4, GST5 */
+	{ 0x81, 0x44 }, { 0x82, 0x52 }, { 0x83, 0x60 },	/* GST6, GST7, GST8 */
+	{ 0x84, 0x6C }, { 0x85, 0x78 }, { 0x86, 0x8C },	/* GST9, GST10,GST11 */
+	{ 0x87, 0x9E }, { 0x88, 0xBB }, { 0x89, 0xD2 },	/* GST12,GST13,GST14 */
+	{ 0x8A, 0xE6 }, { 0x13, 0x8F }, { 0x00, 0x7F },	/* GST15, COM8 */
+	{ OV9640_REG_TERM, OV9640_VAL_TERM }
+};
+
+#if defined(CONFIG_VIDEO_OV9640) || defined(CONFIG_VIDEO_OV9640_MODULE)
+static int ov9640_sensor_powerup(void)
+{
+	unsigned char expa;
+	int err;
+
+	/* read current state of GPIO EXPA outputs */
+	if ((err = read_gpio_expa(&expa, 0x20))) {
+		printk(KERN_ERR "Error reading GPIO EXPA\n");
+		return err;
+	}
+	/* Set GPIO EXPA P3 (CAMERA_MODULE_EN) to power-up sensor */
+	if ((err = write_gpio_expa(expa | 0x08, 0x20))) {
+		printk(KERN_ERR "Error writing to GPIO EXPA\n");
+		return err;
+	}
+
+	/* read current state of GPIO EXPA outputs */
+	if ((err = read_gpio_expa(&expa, 0x22))) {
+		printk(KERN_ERR "Error reading GPIO EXPA\n");
+		return err;
+	}
+	/* Clear GPIO EXPA P7 (CAM_RST) */
+	if ((err = write_gpio_expa(expa & ~0x80, 0x22))) {
+		printk(KERN_ERR "Error writing to GPIO EXPA\n");
+		return err;
+	}
+
+	return 0;
+}
+static int ov9640_sensor_powerdown(void)
+{
+	unsigned char expa;
+	int err;
+
+	/* read current state of GPIO EXPA outputs */
+	if ((err = read_gpio_expa(&expa, 0x20))) {
+		printk(KERN_ERR "Error reading GPIO EXPA\n");
+		return err;
+	}
+	/* Clear GPIO EXPA P3 (CAMERA_MODULE_EN) to power-down sensor */
+	if ((err = write_gpio_expa(expa & ~0x08, 0x20))) {
+		printk(KERN_ERR "Error writing to GPIO EXPA\n");
+		return err;
+	}
+
+	return 0;
+}
+
+static int ov9640_sensor_power_set(int power)
+{
+	int err = 0;
+
+	if (power)
+		err = ov9640_sensor_powerup();
+	else
+		err = ov9640_sensor_powerdown();
+
+	return err;
+}
+
+static struct v4l2_ifparm ifparm = {
+	.if_type = V4L2_IF_TYPE_PARALLEL,
+	.u = {
+		.parallel = {
+			 .frame_start_on_rising_vs = 1,
+			 .nobt_vs_inv = 1,
+			 .mode = V4L2_IF_TYPE_PARALLEL_MODE_NOBT_8BIT,
+		 },
+	},
+};
+
+static int ov9640_ifparm(struct v4l2_ifparm *p)
+{
+	*p = ifparm;
+
+	return 0;
+}
+#else
+static int ov9640_sensor_power_set(int power) { return 0; }
+static int ov9640_ifparm(struct v4l2_ifparm *p) { return 0; }
+#endif
+
+static struct ov9640_platform_data h4_ov9640_platform_data = {
+	.power_set	= ov9640_sensor_power_set,
+	.default_regs	= ov9640_common,
+	.ifparm		= ov9640_ifparm,
+};
+
 static struct i2c_board_info __initdata h4_i2c_board_info[] = {
 	{
 		I2C_BOARD_INFO("rtc-rs5c372", 0x32),
@@ -530,6 +661,10 @@ static struct i2c_board_info __initdata h4_i2c_board_info[] = {
 	{
 		I2C_BOARD_INFO("menelaus", 0x72),
 		.irq = INT_24XX_SYS_NIRQ,
+	},
+	{
+		I2C_BOARD_INFO("ov9640", 0x30),
+		.platform_data = &h4_ov9640_platform_data,
 	},
 };
 
