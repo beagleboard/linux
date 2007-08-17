@@ -26,7 +26,7 @@
 #include <linux/interrupt.h>
 #include <linux/clk.h>
 #include <linux/err.h>
-#include <linux/spinlock.h>
+#include <linux/mutex.h>
 #include <linux/workqueue.h>
 #include <linux/completion.h>
 #include <linux/autoconf.h>
@@ -107,7 +107,7 @@ struct tsc210x_dev {
 	struct workqueue_struct *queue;
 	struct delayed_work ts_worker;		/* Poll-wait for PEN UP */
 	struct delayed_work sensor_worker;	/* Scan the ADC inputs */
-	spinlock_t queue_lock;
+	struct mutex queue_lock;
 	struct completion data_avail;
 
 	tsc210x_touch_t touch_cb;
@@ -523,10 +523,10 @@ static void tsc210x_input_scan(struct work_struct *work)
 
 	tsc210x_touchscreen_mode(dev);
 
-	spin_lock(&dev->queue_lock);
+	mutex_lock(&dev->queue_lock);
 	if (!dev->flushing)
 		tsc210x_queue_scan(dev);
-	spin_unlock(&dev->queue_lock);
+	mutex_unlock(&dev->queue_lock);
 }
 
 /* ADC has finished a new conversion for us.  */
@@ -927,10 +927,10 @@ tsc210x_suspend(struct spi_device *spi, pm_message_t state)
 		return -ENODEV;
 
 	/* Stop the inputs scan loop */
-	spin_lock(&dev->queue_lock);
+	mutex_lock(&dev->queue_lock);
 	dev->flushing = 1;
 	cancel_delayed_work(&dev->sensor_worker);
-	spin_unlock(&dev->queue_lock);
+	mutex_unlock(&dev->queue_lock);
 	flush_workqueue(dev->queue);
 
 	/* Wait until pen-up happens */
@@ -955,11 +955,11 @@ static int tsc210x_resume(struct spi_device *spi)
 	if (!dev)
 		return 0;
 
-	spin_lock(&dev->queue_lock);
+	mutex_lock(&dev->queue_lock);
 	err = tsc210x_configure(dev);
 
 	dev->flushing = 0;
-	spin_unlock(&dev->queue_lock);
+	mutex_unlock(&dev->queue_lock);
 
 	return err;
 }
@@ -1020,7 +1020,7 @@ static int tsc210x_probe(struct spi_device *spi, enum tsc_type type)
 		goto err_queue;
 	}
 
-	spin_lock_init(&dev->queue_lock);
+	mutex_init(&dev->queue_lock);
 	init_completion(&dev->data_avail);
 
 	/* Allocate enough struct spi_transfer's for all requests */
@@ -1099,7 +1099,7 @@ static int tsc210x_probe(struct spi_device *spi, enum tsc_type type)
 		goto err_spi;
 
 	/* We want no interrupts before configuration succeeds.  */
-	spin_lock(&dev->queue_lock);
+	mutex_lock(&dev->queue_lock);
 	dev->flushing = 1;
 
 	if (request_irq(spi->irq, tsc210x_handler, IRQF_SAMPLE_RANDOM |
@@ -1130,7 +1130,7 @@ static int tsc210x_probe(struct spi_device *spi, enum tsc_type type)
 		goto err_alsa;
 
 	dev->flushing = 0;
-	spin_unlock(&dev->queue_lock);
+	mutex_unlock(&dev->queue_lock);
 	return 0;
 
 err_alsa:
@@ -1138,7 +1138,7 @@ err_alsa:
 err_hwmon:
 	platform_device_unregister(&tsc210x_ts_device);
 err_irq:
-	spin_unlock(&dev->queue_lock);
+	mutex_unlock(&dev->queue_lock);
 err_spi:
 	dev_set_drvdata(&spi->dev, NULL);
 	clk_disable(dev->bclk_ck);
@@ -1167,10 +1167,10 @@ static int tsc210x_remove(struct spi_device *spi)
 	struct tsc210x_dev *dev = dev_get_drvdata(&spi->dev);
 
 	/* Stop the inputs scan loop */
-	spin_lock(&dev->queue_lock);
+	mutex_lock(&dev->queue_lock);
 	dev->flushing = 1;
 	cancel_delayed_work(&dev->sensor_worker);
-	spin_unlock(&dev->queue_lock);
+	mutex_unlock(&dev->queue_lock);
 	flush_workqueue(dev->queue);
 
 	/* Wait for pen-up */
