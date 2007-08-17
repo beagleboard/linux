@@ -121,13 +121,6 @@ static void musb_port_reset(struct musb *musb, u8 bReset)
 		musb->port1_status &= ~USB_PORT_STAT_RESET;
 		return;
 	}
-
-	/* REVISIT this looks wrong for HNP */
-	u8 devctl = musb_readb(mbase, MUSB_DEVCTL);
-
-	if (musb->delay_port_power_off || !(devctl & MUSB_DEVCTL_HM)) {
-		return;
-	}
 #endif
 
 	if (!is_host_active(musb))

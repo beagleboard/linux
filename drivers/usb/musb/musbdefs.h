@@ -450,11 +450,6 @@ struct musb {
 	struct usb_gadget_driver *gadget_driver;	/* its driver */
 #endif
 
-#ifdef CONFIG_USB_MUSB_OTG
-	/* FIXME this can't be OTG-specific ... ? */
-	u8 delay_port_power_off;
-#endif
-
 #ifdef MUSB_CONFIG_PROC_FS
 	struct proc_dir_entry *proc_entry;
 #endif
