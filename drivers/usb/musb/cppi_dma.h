@@ -9,7 +9,7 @@
 #include <linux/errno.h>
 #include <linux/dmapool.h>
 
-#include "dma.h"
+#include "musb_dma.h"
 #include "musb_core.h"
 #include "davinci.h"
 

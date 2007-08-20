@@ -54,7 +54,7 @@ struct musb_ep;
 
 
 #include "debug.h"
-#include "dma.h"
+#include "musb_dma.h"
 
 #ifdef CONFIG_USB_MUSB_SOC
 /*
