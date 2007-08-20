@@ -53,7 +53,7 @@ struct musb_hw_ep;
 struct musb_ep;
 
 
-#include "debug.h"
+#include "musb_debug.h"
 #include "musb_dma.h"
 
 #ifdef CONFIG_USB_MUSB_SOC
