@@ -1531,7 +1531,7 @@ irqreturn_t musb_interrupt(struct musb *musb)
 }
 
 
-#ifndef CONFIG_USB_INVENTRA_FIFO
+#ifndef CONFIG_MUSB_PIO_ONLY
 static int __initdata use_dma = 1;
 
 /* "modprobe ... use_dma=0" etc */
@@ -1921,7 +1921,7 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 		goto fail2;
 	}
 
-#ifndef CONFIG_USB_INVENTRA_FIFO
+#ifndef CONFIG_MUSB_PIO_ONLY
 	if (use_dma && dev->dma_mask) {
 		struct dma_controller	*c;
 
@@ -2050,7 +2050,7 @@ fail2:
  * bridge to a platform device; this driver then suffices.
  */
 
-#ifndef CONFIG_USB_INVENTRA_FIFO
+#ifndef CONFIG_MUSB_PIO_ONLY
 static u64	*orig_dma_mask;
 #endif
 
@@ -2071,7 +2071,7 @@ static int __init musb_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-#ifndef CONFIG_USB_INVENTRA_FIFO
+#ifndef CONFIG_MUSB_PIO_ONLY
 	/* clobbered by use_dma=n */
 	orig_dma_mask = dev->dma_mask;
 #endif
@@ -2097,7 +2097,7 @@ static int __devexit musb_remove(struct platform_device *pdev)
 	musb_free(musb);
 	iounmap(ctrl_base);
 	device_init_wakeup(&pdev->dev, 0);
-#ifndef CONFIG_USB_INVENTRA_FIFO
+#ifndef CONFIG_MUSB_PIO_ONLY
 	pdev->dev.dma_mask = orig_dma_mask;
 #endif
 	return 0;
@@ -2183,7 +2183,7 @@ static int __init musb_init(void)
 #endif
 
 	pr_info("%s: version " MUSB_VERSION ", "
-#ifdef CONFIG_USB_INVENTRA_FIFO
+#ifdef CONFIG_MUSB_PIO_ONLY
 		"pio"
 #elif defined(CONFIG_USB_TI_CPPI_DMA)
 		"cppi-dma"

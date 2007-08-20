@@ -291,7 +291,7 @@ static void txstate(struct musb *musb, struct musb_request *req)
 			epnum, musb_ep->packet_sz, fifo_count,
 			csr);
 
-#ifndef	CONFIG_USB_INVENTRA_FIFO
+#ifndef	CONFIG_MUSB_PIO_ONLY
 	if (is_dma_capable() && musb_ep->dma) {
 		struct dma_controller	*c = musb->dma_controller;
 

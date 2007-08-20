@@ -28,10 +28,10 @@ endif
 
 # the kconfig must guarantee that only one of the
 # possible I/O schemes will be enabled at a time ...
-# PIO (INVENTRA_FIFO), or DMA (several potential schemes).
+# PIO only, or DMA (several potential schemes).
 # though PIO is always there to back up DMA, and for ep0
 
-ifneq ($(CONFIG_USB_INVENTRA_FIFO),y)
+ifneq ($(CONFIG_MUSB_PIO_ONLY),y)
 
   ifeq ($(CONFIG_USB_INVENTRA_DMA),y)
     musb_hdrc-objs		+= musbhsdma.o

@@ -508,7 +508,7 @@ static int dump_header_stats(struct musb *musb, char *buffer)
 
 	code = sprintf(buffer,
 			"Options: "
-#ifdef CONFIG_USB_INVENTRA_FIFO
+#ifdef CONFIG_MUSB_PIO_ONLY
 			"pio"
 #elif defined(CONFIG_USB_TI_CPPI_DMA)
 			"cppi-dma"
