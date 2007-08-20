@@ -32,8 +32,8 @@
  *
  */
 
-#ifndef __MUSB_HDRC_DEFS_H__
-#define __MUSB_HDRC_DEFS_H__
+#ifndef __MUSB_REGS_H__
+#define __MUSB_REGS_H__
 
 #define MUSB_EP0_FIFOSIZE	64	/* This is non-configurable */
 
@@ -297,4 +297,4 @@
 /* HUBADDR */
 #define MUSB_HUBADDR_MULTI_TT		0x80
 
-#endif	/* __MUSB_HDRC_DEFS_H__ */
+#endif	/* __MUSB_REGS_H__ */

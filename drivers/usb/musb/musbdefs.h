@@ -69,7 +69,7 @@ struct musb_ep;
 #endif
 
 #include "musb_io.h"
-#include "musbhdrc.h"
+#include "musb_regs.h"
 
 #include "musb_gadget.h"
 #include "../core/hcd.h"
