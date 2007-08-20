@@ -165,7 +165,7 @@ config USB_TUSB_OMAP_DMA
 	help
 	  Enable DMA transfers on TUSB 6010 when OMAP DMA is available.
 
-config	USB_INVENTRA_HCD_LOGGING
+config	USB_MUSB_LOGLEVEL
 	depends on USB_MUSB_HDRC
 	int  'Logging Level (0 - none / 3 - annoying / ... )'
 	default 0

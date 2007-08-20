@@ -60,7 +60,7 @@ endif
 
 # Debugging
 
-MUSB_DEBUG:=$(CONFIG_USB_INVENTRA_HCD_LOGGING)
+MUSB_DEBUG:=$(CONFIG_USB_MUSB_LOGLEVEL)
 
 ifeq ("$(strip $(MUSB_DEBUG))","")
     ifdef CONFIG_USB_DEBUG
