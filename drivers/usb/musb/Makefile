@@ -23,7 +23,7 @@ ifeq ($(CONFIG_USB_GADGET_MUSB_HDRC),y)
 endif
 
 ifeq ($(CONFIG_USB_MUSB_HDRC_HCD),y)
-	musb_hdrc-objs		+= virthub.o musb_host.o
+	musb_hdrc-objs		+= musb_virthub.o musb_host.o
 endif
 
 # the kconfig must guarantee that only one of the
