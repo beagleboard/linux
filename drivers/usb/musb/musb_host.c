@@ -41,7 +41,7 @@
 #include <linux/init.h>
 #include <linux/list.h>
 
-#include "musbdefs.h"
+#include "musb_core.h"
 #include "musb_host.h"
 
 

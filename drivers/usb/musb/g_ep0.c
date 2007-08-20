@@ -40,7 +40,7 @@
 #include <linux/device.h>
 #include <linux/interrupt.h>
 
-#include "musbdefs.h"
+#include "musb_core.h"
 
 /* ep0 is always musb->endpoints[0].ep_in */
 #define	next_ep0_request(musb)	next_in_request(&(musb)->endpoints[0])

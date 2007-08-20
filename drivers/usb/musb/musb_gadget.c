@@ -43,7 +43,7 @@
 #include <linux/stat.h>
 #include <linux/dma-mapping.h>
 
-#include "musbdefs.h"
+#include "musb_core.h"
 
 
 /* MUSB PERIPHERAL status 3-mar:

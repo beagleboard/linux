@@ -23,7 +23,7 @@
 #include <linux/irq.h>
 #include <linux/platform_device.h>
 
-#include "musbdefs.h"
+#include "musb_core.h"
 
 static void tusb_source_power(struct musb *musb, int is_on);
 

@@ -33,7 +33,7 @@
 #include <asm/arch/hardware.h>
 #include <asm/arch/mux.h>
 
-#include "musbdefs.h"
+#include "musb_core.h"
 #include "omap2430.h"
 
 #ifdef CONFIG_ARCH_OMAP3430

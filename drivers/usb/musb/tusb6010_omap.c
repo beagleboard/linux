@@ -18,7 +18,7 @@
 #include <asm/arch/dma.h>
 #include <asm/arch/mux.h>
 
-#include "musbdefs.h"
+#include "musb_core.h"
 
 /*
  * REVISIT: With TUSB2.0 only one dmareq line can be used at a time.

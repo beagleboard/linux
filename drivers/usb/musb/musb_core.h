@@ -32,8 +32,8 @@
  *
  */
 
-#ifndef __MUSB_MUSBDEFS_H__
-#define __MUSB_MUSBDEFS_H__
+#ifndef __MUSB_CORE_H__
+#define __MUSB_CORE_H__
 
 #include <linux/slab.h>
 #include <linux/list.h>
@@ -522,4 +522,4 @@ static inline void musb_debug_delete(char *name, struct musb *data)
 }
 #endif
 
-#endif	/* __MUSB_MUSBDEFS_H__ */
+#endif	/* __MUSB_CORE_H__ */

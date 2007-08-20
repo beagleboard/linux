@@ -106,7 +106,7 @@
 #include <asm/mach-types.h>
 #endif
 
-#include "musbdefs.h"
+#include "musb_core.h"
 
 
 #ifdef CONFIG_ARCH_DAVINCI

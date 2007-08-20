@@ -36,7 +36,7 @@
 #include <asm/arch/gpio.h>
 #include <asm/mach-types.h>
 
-#include "musbdefs.h"
+#include "musb_core.h"
 
 
 #ifdef CONFIG_MACH_DAVINCI_EVM

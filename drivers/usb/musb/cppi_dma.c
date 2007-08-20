@@ -8,7 +8,7 @@
 
 #include <linux/usb.h>
 
-#include "musbdefs.h"
+#include "musb_core.h"
 #include "cppi_dma.h"
 
 

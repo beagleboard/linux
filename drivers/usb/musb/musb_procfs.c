@@ -44,7 +44,7 @@
 #include <asm/uaccess.h>	/* FIXME remove procfs writes */
 #include <asm/arch/hardware.h>
 
-#include "musbdefs.h"
+#include "musb_core.h"
 
 #include "davinci.h"
 

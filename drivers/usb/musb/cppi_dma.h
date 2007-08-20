@@ -10,7 +10,7 @@
 #include <linux/dmapool.h>
 
 #include "dma.h"
-#include "musbdefs.h"
+#include "musb_core.h"
 #include "davinci.h"
 
 

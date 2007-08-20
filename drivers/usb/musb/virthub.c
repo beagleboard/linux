@@ -43,7 +43,7 @@
 
 #include <asm/unaligned.h>
 
-#include "musbdefs.h"
+#include "musb_core.h"
 
 
 static void musb_port_suspend(struct musb *musb, u8 bSuspend)
