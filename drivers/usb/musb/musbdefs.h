@@ -68,7 +68,7 @@ struct musb_ep;
 #include <asm/arch/hdrc_cnf.h>
 #endif
 
-#include "plat_arc.h"
+#include "musb_io.h"
 #include "musbhdrc.h"
 
 #include "musb_gadget.h"

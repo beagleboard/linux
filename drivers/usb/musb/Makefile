@@ -2,7 +2,7 @@
 # for USB OTG silicon based on Mentor Graphics INVENTRA designs
 #
 
-musb_hdrc-objs := plat_uds.o
+musb_hdrc-objs := musb_core.o
 
 obj-$(CONFIG_USB_MUSB_HDRC)	+= musb_hdrc.o
 
