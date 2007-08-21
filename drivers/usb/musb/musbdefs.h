@@ -328,12 +328,12 @@ struct musb {
 	irqreturn_t		(*isr)(int, void *);
 	struct work_struct	irq_work;
 
-#ifdef CONFIG_USB_MUSB_HDRC_HCD
-
 /* this hub status bit is reserved by USB 2.0 and not seen by usbcore */
 #define MUSB_PORT_STAT_RESUME	(1 << 31)
 
 	u32			port1_status;
+
+#ifdef CONFIG_USB_MUSB_HDRC_HCD
 	unsigned long		rh_timer;
 
 	enum musb_h_ep0_state	ep0_stage;

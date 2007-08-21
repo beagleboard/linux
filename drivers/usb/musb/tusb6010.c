@@ -438,11 +438,9 @@ static void musb_do_idle(unsigned long _musb)
 	if (!musb->is_active) {
 		u32	wakeups;
 
-#ifdef CONFIG_USB_MUSB_HDRC_HCD
 		/* wait until khubd handles port change status */
 		if (is_host_active(musb) && (musb->port1_status >> 16))
 			goto done;
-#endif
 
 #ifdef CONFIG_USB_GADGET_MUSB_HDRC
 		if (is_peripheral_enabled(musb) && !musb->gadget_driver)
@@ -586,7 +584,6 @@ void musb_platform_set_mode(struct musb *musb, u8 musb_mode)
 {
 	void __iomem	*base = musb->ctrl_base;
 	u32		otg_stat, phy_otg_ctrl, phy_otg_ena, dev_conf;
-	int		vbus = 0;
 
 	if (musb->board_mode != MUSB_OTG) {
 		ERR("Changing mode currently only supported in OTG mode\n");
@@ -606,7 +603,6 @@ void musb_platform_set_mode(struct musb *musb, u8 musb_mode)
 		phy_otg_ena |= TUSB_PHY_OTG_CTRL_OTG_ID_PULLUP;
 		dev_conf |= TUSB_DEV_CONF_ID_SEL;
 		dev_conf &= ~TUSB_DEV_CONF_SOFT_ID;
-		vbus = 1;
 		break;
 #endif
 

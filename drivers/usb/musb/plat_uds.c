@@ -364,9 +364,7 @@ static irqreturn_t musb_stage0_irq(struct musb * musb, u8 int_usb,
 				u8 devctl, u8 power)
 {
 	irqreturn_t handled = IRQ_NONE;
-#ifdef CONFIG_USB_MUSB_HDRC_HCD
 	void __iomem *mbase = musb->mregs;
-#endif
 
 	DBG(3, "<== Power=%02x, DevCtl=%02x, int_usb=0x%x\n", power, devctl,
 		int_usb);
@@ -603,8 +601,7 @@ static irqreturn_t musb_stage0_irq(struct musb * musb, u8 int_usb,
 	 * only host sees babble; only peripheral sees bus reset.
 	 */
 	if (int_usb & MUSB_INTR_RESET) {
-#ifdef CONFIG_USB_MUSB_HDRC_HCD
-		if (devctl & MUSB_DEVCTL_HM) {
+		if (is_host_capable() && (devctl & MUSB_DEVCTL_HM) != 0) {
 			/*
 			 * Looks like non-HS BABBLE can be ignored, but
 			 * HS BABBLE is an error condition. For HS the solution
@@ -618,9 +615,7 @@ static irqreturn_t musb_stage0_irq(struct musb * musb, u8 int_usb,
 				ERR("Stopping host session because of babble\n");
 				musb_writeb(mbase, MUSB_DEVCTL, 0);
 			}
-		} else
-#endif	/* CONFIG_USB_MUSB_HDRC_HCD */
-		{
+		} else if (is_peripheral_capable()) {
 			DBG(1, "BUS RESET\n");
 
 			musb_g_reset(musb);
@@ -1707,6 +1702,11 @@ musb_vbus_show(struct device *dev, struct device_attribute *attr, char *buf)
 }
 static DEVICE_ATTR(vbus, 0644, musb_vbus_show, musb_vbus_store);
 
+#ifdef CONFIG_USB_GADGET_MUSB_HDRC
+
+/* Gadget drivers can't know that a host is connected so they might want
+ * to start SRP, but users can.  This allows userspace to trigger SRP.
+ */
 static ssize_t
 musb_srp_store(struct device *dev, struct device_attribute *attr,
 		const char *buf, size_t n)
@@ -1726,7 +1726,10 @@ musb_srp_store(struct device *dev, struct device_attribute *attr,
 	return n;
 }
 static DEVICE_ATTR(srp, 0644, NULL, musb_srp_store);
-#endif
+
+#endif /* CONFIG_USB_GADGET_MUSB_HDRC */
+
+#endif	/* sysfs */
 
 /* Only used to provide cable state change events */
 static void musb_irq_work(struct work_struct *data)
@@ -2028,9 +2031,9 @@ fail:
 	status = device_create_file(dev, &dev_attr_mode);
 	status = device_create_file(dev, &dev_attr_cable);
 	status = device_create_file(dev, &dev_attr_vbus);
-#ifdef CONFIG_USB_MUSB_OTG
+#ifdef CONFIG_USB_GADGET_MUSB_HDRC
 	status = device_create_file(dev, &dev_attr_srp);
-#endif /* CONFIG_USB_MUSB_OTG */
+#endif /* CONFIG_USB_GADGET_MUSB_HDRC */
 	status = 0;
 #endif
 
