@@ -331,6 +331,7 @@ void musb_hnp_stop(struct musb *musb)
 		DBG(1, "HNP: Disabling HR\n");
 		hcd->self.is_b_host = 0;
 		musb->xceiv.state = OTG_STATE_B_PERIPHERAL;
+		MUSB_DEV_MODE(musb);
 		reg = musb_readb(mbase, MUSB_POWER);
 		reg |= MUSB_POWER_SUSPENDM;
 		musb_writeb(mbase, MUSB_POWER, reg);
@@ -579,6 +580,15 @@ static irqreturn_t musb_stage0_irq(struct musb * musb, u8 int_usb,
 
 		/* indicate new connection to OTG machine */
 		switch (musb->xceiv.state) {
+		case OTG_STATE_B_PERIPHERAL:
+			if (int_usb & MUSB_INTR_SUSPEND) {
+				DBG(1, "HNP: SUSPEND and CONNECT, now b_host\n");
+				musb->xceiv.state = OTG_STATE_B_HOST;
+				hcd->self.is_b_host = 1;
+				int_usb &= ~MUSB_INTR_SUSPEND;
+			} else
+				DBG(1, "CONNECT as b_peripheral???\n");
+			break;
 		case OTG_STATE_B_WAIT_ACON:
 			DBG(1, "HNP: Waiting to switch to b_host state\n");
 			musb->xceiv.state = OTG_STATE_B_HOST;
@@ -707,11 +717,11 @@ static irqreturn_t musb_stage2_irq(struct musb * musb, u8 int_usb,
 		case OTG_STATE_B_HOST:
 			musb_hnp_stop(musb);
 			break;
-			/* FALLTHROUGH */
 		case OTG_STATE_A_PERIPHERAL:
 			musb_root_disconnect(musb);
 			/* FALLTHROUGH */
 		case OTG_STATE_B_WAIT_ACON:
+			/* FALLTHROUGH */
 #endif	/* OTG */
 #ifdef CONFIG_USB_GADGET_MUSB_HDRC
 		case OTG_STATE_B_PERIPHERAL:
