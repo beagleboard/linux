@@ -345,9 +345,9 @@ static void __init omap_init_mmc(void)
 			 * Module Input Clock selection
 			 */
 			if (cpu_is_omap24xx()) {
-				u32 v = omap_readl(OMAP24XX_CONTROL_DEVCONF);
+				u32 v = omap_readl(OMAP2_CONTROL_DEVCONF);
 				v |= (1 << 24);
-				omap_writel(v, OMAP24XX_CONTROL_DEVCONF);
+				omap_writel(v, OMAP2_CONTROL_DEVCONF);
 			}
 		}
 		mmc1_conf = *mmc;
