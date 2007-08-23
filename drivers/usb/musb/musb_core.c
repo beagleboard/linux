@@ -299,7 +299,7 @@ void musb_otg_timer_func(unsigned long data)
 
 	spin_lock_irqsave(&musb->lock, flags);
 	if (musb->xceiv.state == OTG_STATE_B_WAIT_ACON) {
-		DBG(1, "HNP: B_WAIT_ACON timeout, going back to B_PERIPHERAL\n");
+		DBG(1, "HNP: B_WAIT_ACON timeout; back to B_PERIPHERAL\n");
 		musb_g_disconnect(musb);
 		musb->xceiv.state = OTG_STATE_B_PERIPHERAL;
 		musb->is_active = 0;
@@ -434,7 +434,8 @@ static irqreturn_t musb_stage0_irq(struct musb * musb, u8 int_usb,
 				 * not get a disconnect irq...
 				 */
 				if ((devctl & MUSB_DEVCTL_VBUS)
-						!= (3 << MUSB_DEVCTL_VBUS_SHIFT)) {
+						!= (3 << MUSB_DEVCTL_VBUS_SHIFT)
+						) {
 					musb->int_usb |= MUSB_INTR_DISCONNECT;
 					musb->int_usb &= ~MUSB_INTR_SUSPEND;
 					break;
@@ -582,7 +583,7 @@ static irqreturn_t musb_stage0_irq(struct musb * musb, u8 int_usb,
 		switch (musb->xceiv.state) {
 		case OTG_STATE_B_PERIPHERAL:
 			if (int_usb & MUSB_INTR_SUSPEND) {
-				DBG(1, "HNP: SUSPEND and CONNECT, now b_host\n");
+				DBG(1, "HNP: SUSPEND+CONNECT, now b_host\n");
 				musb->xceiv.state = OTG_STATE_B_HOST;
 				hcd->self.is_b_host = 1;
 				int_usb &= ~MUSB_INTR_SUSPEND;
@@ -615,14 +616,14 @@ static irqreturn_t musb_stage0_irq(struct musb * musb, u8 int_usb,
 			/*
 			 * Looks like non-HS BABBLE can be ignored, but
 			 * HS BABBLE is an error condition. For HS the solution
-			 * is to avoid babble in the first place and fix whatever
-			 * causes BABBLE. When HS BABBLE happens we can only stop
-			 * the session.
+			 * is to avoid babble in the first place and fix what
+			 * caused BABBLE. When HS BABBLE happens we can only
+			 * stop the session.
 			 */
 			if (devctl & (MUSB_DEVCTL_FSDEV | MUSB_DEVCTL_LSDEV))
 				DBG(1, "BABBLE devctl: %02x\n", devctl);
 			else {
-				ERR("Stopping host session because of babble\n");
+				ERR("Stopping host session -- babble\n");
 				musb_writeb(mbase, MUSB_DEVCTL, 0);
 			}
 		} else if (is_peripheral_capable()) {
@@ -1088,7 +1089,7 @@ fifo_setup(struct musb *musb, struct musb_hw_ep  *hw_ep,
 		hw_ep->tx_double_buffered = hw_ep->rx_double_buffered;
 		hw_ep->max_packet_sz_tx = maxpacket;
 
-		hw_ep->is_shared_fifo = TRUE;
+		hw_ep->is_shared_fifo = true;
 		break;
 	}
 
@@ -1214,11 +1215,11 @@ static int __init ep_config_from_hw(struct musb *musb)
 		/* shared TX/RX FIFO? */
 		if ((reg & 0xf0) == 0xf0) {
 			hw_ep->max_packet_sz_rx = hw_ep->max_packet_sz_tx;
-			hw_ep->is_shared_fifo = TRUE;
+			hw_ep->is_shared_fifo = true;
 			continue;
 		} else {
 			hw_ep->max_packet_sz_rx = 1 << ((reg & 0xf0) >> 4);
-			hw_ep->is_shared_fifo = FALSE;
+			hw_ep->is_shared_fifo = false;
 		}
 
 		/* FIXME set up hw_ep->{rx,tx}_double_buffered */
@@ -1277,7 +1278,7 @@ static int __init musb_core_init(u16 musb_type, struct musb *musb)
 	if (reg & MUSB_CONFIGDATA_MPRXE) {
 		strcat(aInfo, ", bulk combine");
 #ifdef C_MP_RX
-		musb->bulk_combine = TRUE;
+		musb->bulk_combine = true;
 #else
 		strcat(aInfo, " (X)");		/* no driver support */
 #endif
@@ -1285,7 +1286,7 @@ static int __init musb_core_init(u16 musb_type, struct musb *musb)
 	if (reg & MUSB_CONFIGDATA_MPTXE) {
 		strcat(aInfo, ", bulk split");
 #ifdef C_MP_TX
-		musb->bulk_split = TRUE;
+		musb->bulk_split = true;
 #else
 		strcat(aInfo, " (X)");		/* no driver support */
 #endif

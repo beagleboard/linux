@@ -85,10 +85,10 @@ struct musb_dma_channel {
 struct musb_dma_controller {
 	struct dma_controller		Controller;
 	struct musb_dma_channel		aChannel[MUSB_HSDMA_CHANNELS];
-	void 				*pDmaPrivate;
-	void __iomem 			*pCoreBase;
-	u8 				bChannelCount;
-	u8 				bmUsedChannels;
+	void				*pDmaPrivate;
+	void __iomem			*pCoreBase;
+	u8				bChannelCount;
+	u8				bmUsedChannels;
 	u8				irq;
 };
 
@@ -114,7 +114,7 @@ static int dma_controller_stop(struct dma_controller *c)
 
 		for (bBit = 0; bBit < MUSB_HSDMA_CHANNELS; bBit++) {
 			if (controller->bmUsedChannels & (1 << bBit)) {
-				pChannel = &(controller->aChannel[bBit].Channel);
+				pChannel = &controller->aChannel[bBit].Channel;
 				dma_channel_release(pChannel);
 
 				if (!controller->bmUsedChannels)
@@ -125,7 +125,7 @@ static int dma_controller_stop(struct dma_controller *c)
 	return 0;
 }
 
-static struct dma_channel* dma_channel_allocate(struct dma_controller *c,
+static struct dma_channel *dma_channel_allocate(struct dma_controller *c,
 				struct musb_hw_ep *hw_ep, u8 transmit)
 {
 	u8 bBit;
@@ -182,42 +182,43 @@ static void configure_channel(struct dma_channel *pChannel,
 	u16 csr = 0;
 
 	DBG(4, "%p, pkt_sz %d, addr 0x%x, len %d, mode %d\n",
-	    pChannel, packet_sz, dma_addr, len, mode);
+			pChannel, packet_sz, dma_addr, len, mode);
 
 	if (mode) {
 		csr |= 1 << MUSB_HSDMA_MODE1_SHIFT;
-		if (len < packet_sz) {
-			return FALSE;
-		}
+		BUG_ON(len < packet_sz);
+
 		if (packet_sz >= 64) {
-			csr |=
-			    MUSB_HSDMA_BURSTMODE_INCR16 << MUSB_HSDMA_BURSTMODE_SHIFT;
+			csr |= MUSB_HSDMA_BURSTMODE_INCR16
+					<< MUSB_HSDMA_BURSTMODE_SHIFT;
 		} else if (packet_sz >= 32) {
-			csr |=
-			    MUSB_HSDMA_BURSTMODE_INCR8 << MUSB_HSDMA_BURSTMODE_SHIFT;
+			csr |= MUSB_HSDMA_BURSTMODE_INCR8
+					<< MUSB_HSDMA_BURSTMODE_SHIFT;
 		} else if (packet_sz >= 16) {
-			csr |=
-			    MUSB_HSDMA_BURSTMODE_INCR4 << MUSB_HSDMA_BURSTMODE_SHIFT;
+			csr |= MUSB_HSDMA_BURSTMODE_INCR4
+					<< MUSB_HSDMA_BURSTMODE_SHIFT;
 		}
 	}
 
 	csr |= (pImplChannel->epnum << MUSB_HSDMA_ENDPOINT_SHIFT)
 		| (1 << MUSB_HSDMA_ENABLE_SHIFT)
 		| (1 << MUSB_HSDMA_IRQENABLE_SHIFT)
-		| (pImplChannel->transmit ? (1 << MUSB_HSDMA_TRANSMIT_SHIFT) : 0);
+		| (pImplChannel->transmit
+				? (1 << MUSB_HSDMA_TRANSMIT_SHIFT)
+				: 0);
 
 	/* address/count */
 	musb_writel(mbase,
-		    MUSB_HSDMA_CHANNEL_OFFSET(bChannel, MUSB_HSDMA_ADDRESS),
-		    dma_addr);
+		MUSB_HSDMA_CHANNEL_OFFSET(bChannel, MUSB_HSDMA_ADDRESS),
+		dma_addr);
 	musb_writel(mbase,
-		    MUSB_HSDMA_CHANNEL_OFFSET(bChannel, MUSB_HSDMA_COUNT),
-		    len);
+		MUSB_HSDMA_CHANNEL_OFFSET(bChannel, MUSB_HSDMA_COUNT),
+		len);
 
 	/* control (this should start things) */
 	musb_writew(mbase,
-		    MUSB_HSDMA_CHANNEL_OFFSET(bChannel, MUSB_HSDMA_CONTROL),
-		    csr);
+		MUSB_HSDMA_CHANNEL_OFFSET(bChannel, MUSB_HSDMA_CONTROL),
+		csr);
 }
 
 static int dma_channel_program(struct dma_channel * pChannel,
@@ -241,14 +242,12 @@ static int dma_channel_program(struct dma_channel * pChannel,
 	pImplChannel->wMaxPacketSize = packet_sz;
 	pChannel->status = MUSB_DMA_STATUS_BUSY;
 
-	if ((mode == 1) && (len >= packet_sz)) {
-		configure_channel(pChannel, packet_sz, 1, dma_addr,
-				  len);
-	} else
-		configure_channel(pChannel, packet_sz, 0, dma_addr,
-				  len);
+	if ((mode == 1) && (len >= packet_sz))
+		configure_channel(pChannel, packet_sz, 1, dma_addr, len);
+	else
+		configure_channel(pChannel, packet_sz, 0, dma_addr, len);
 
-	return TRUE;
+	return true;
 }
 
 static int dma_channel_abort(struct dma_channel *pChannel)
@@ -268,8 +267,8 @@ static int dma_channel_abort(struct dma_channel *pChannel)
 				 MUSB_TXCSR_DMAENAB |
 				 MUSB_TXCSR_DMAMODE);
 			musb_writew(mbase,
-					MUSB_EP_OFFSET(pImplChannel->epnum,MUSB_TXCSR),
-					csr);
+				MUSB_EP_OFFSET(pImplChannel->epnum,MUSB_TXCSR),
+				csr);
 		}
 		else {
 			csr = musb_readw(mbase,
@@ -278,16 +277,19 @@ static int dma_channel_abort(struct dma_channel *pChannel)
 				 MUSB_RXCSR_DMAENAB |
 				 MUSB_RXCSR_DMAMODE);
 			musb_writew(mbase,
-					MUSB_EP_OFFSET(pImplChannel->epnum,MUSB_RXCSR),
-					csr);
+				MUSB_EP_OFFSET(pImplChannel->epnum,MUSB_RXCSR),
+				csr);
 		}
 
 		musb_writew(mbase,
-		   MUSB_HSDMA_CHANNEL_OFFSET(bChannel, MUSB_HSDMA_CONTROL), 0);
+			MUSB_HSDMA_CHANNEL_OFFSET(bChannel, MUSB_HSDMA_CONTROL),
+			0);
 		musb_writel(mbase,
-		   MUSB_HSDMA_CHANNEL_OFFSET(bChannel, MUSB_HSDMA_ADDRESS), 0);
+			MUSB_HSDMA_CHANNEL_OFFSET(bChannel, MUSB_HSDMA_ADDRESS),
+			0);
 		musb_writel(mbase,
-		   MUSB_HSDMA_CHANNEL_OFFSET(bChannel, MUSB_HSDMA_COUNT), 0);
+			MUSB_HSDMA_CHANNEL_OFFSET(bChannel, MUSB_HSDMA_COUNT),
+			0);
 
 		pChannel->status = MUSB_DMA_STATUS_FREE;
 	}
@@ -318,26 +320,26 @@ static irqreturn_t dma_controller_irq(int irq, void *private_data)
 			pChannel = &pImplChannel->Channel;
 
 			csr = musb_readw(mbase,
-				       MUSB_HSDMA_CHANNEL_OFFSET(bChannel,
+					MUSB_HSDMA_CHANNEL_OFFSET(bChannel,
 							MUSB_HSDMA_CONTROL));
 
-			if (csr & (1 << MUSB_HSDMA_BUSERROR_SHIFT)) {
+			if (csr & (1 << MUSB_HSDMA_BUSERROR_SHIFT))
 				pImplChannel->Channel.status =
-				    MUSB_DMA_STATUS_BUS_ABORT;
-			} else {
+					MUSB_DMA_STATUS_BUS_ABORT;
+			else {
 				dwAddress = musb_readl(mbase,
 						MUSB_HSDMA_CHANNEL_OFFSET(
 							bChannel,
 							MUSB_HSDMA_ADDRESS));
-				pChannel->actual_len =
-				    dwAddress - pImplChannel->dwStartAddress;
+				pChannel->actual_len = dwAddress
+					- pImplChannel->dwStartAddress;
 
 				DBG(2, "ch %p, 0x%x -> 0x%x (%d / %d) %s\n",
-				    pChannel, pImplChannel->dwStartAddress,
-				    dwAddress, pChannel->actual_len,
-				    pImplChannel->len,
-				    (pChannel->actual_len <
-					pImplChannel->len) ?
+					pChannel, pImplChannel->dwStartAddress,
+					dwAddress, pChannel->actual_len,
+					pImplChannel->len,
+					(pChannel->actual_len
+						< pImplChannel->len) ?
 					"=> reconfig 0": "=> complete");
 
 				u8 devctl = musb_readb(mbase,
@@ -347,16 +349,17 @@ static irqreturn_t dma_controller_irq(int irq, void *private_data)
 
 				/* completed */
 				if ((devctl & MUSB_DEVCTL_HM)
-				    && (pImplChannel->transmit)
-				    && ((pChannel->desired_mode == 0)
-					|| (pChannel->actual_len &
+					&& (pImplChannel->transmit)
+					&& ((pChannel->desired_mode == 0)
+					    || (pChannel->actual_len &
 					    (pImplChannel->wMaxPacketSize - 1)))
-				   ) {
+					 ) {
 					/* Send out the packet */
 					musb_ep_select(mbase,
 						pImplChannel->epnum);
-					musb_writew(mbase,
-						MUSB_EP_OFFSET(pImplChannel->epnum,MUSB_TXCSR),
+					musb_writew(mbase, MUSB_EP_OFFSET(
+							pImplChannel->epnum,
+							MUSB_TXCSR),
 						MUSB_TXCSR_TXPKTRDY);
 				} else
 					musb_dma_completion(

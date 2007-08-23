@@ -311,7 +311,8 @@ __acquires(musb->lock)
 }
 
 /* for bulk/interrupt endpoints only */
-static inline void musb_save_toggle(struct musb_hw_ep *ep, int is_in, struct urb *urb)
+static inline void
+musb_save_toggle(struct musb_hw_ep *ep, int is_in, struct urb *urb)
 {
 	struct usb_device	*udev = urb->dev;
 	u16			csr;
@@ -466,13 +467,13 @@ static inline u16 musb_h_flush_rxfifo(struct musb_hw_ep *hw_ep, u16 csr)
 /*
  * PIO RX for a packet (or part of it).
  */
-static u8 musb_host_packet_rx(struct musb *musb, struct urb *urb,
-		u8 epnum, u8 iso_err)
+static bool
+musb_host_packet_rx(struct musb *musb, struct urb *urb, u8 epnum, u8 iso_err)
 {
-	u16 rx_count;
-	u8 *buf;
-	u16 csr;
-	u8 done = FALSE;
+	u16			rx_count;
+	u8			*buf;
+	u16			csr;
+	bool			done = false;
 	u32			length;
 	int			do_flush = 0;
 	struct musb_hw_ep	*hw_ep = musb->endpoints + epnum;
@@ -940,14 +941,13 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 
 /*
  * Service the default endpoint (ep0) as host.
- * Return TRUE until it's time to start the status stage.
+ * Return true until it's time to start the status stage.
  */
-static int musb_h_ep0_continue(struct musb *musb,
-				u16 len, struct urb *urb)
+static bool musb_h_ep0_continue(struct musb *musb, u16 len, struct urb *urb)
 {
-	int			 more = FALSE;
-	u8 *fifo_dest = NULL;
-	u16 fifo_count = 0;
+	bool			 more = false;
+	u8			*fifo_dest = NULL;
+	u16			fifo_count = 0;
 	struct musb_hw_ep	*hw_ep = musb->control_ep;
 	struct musb_qh		*qh = hw_ep->in_qh;
 	struct usb_ctrlrequest	*request;
@@ -969,7 +969,7 @@ static int musb_h_ep0_continue(struct musb *musb,
 			 */
 		} else if (urb->actual_length <
 				urb->transfer_buffer_length)
-			more = TRUE;
+			more = true;
 		break;
 	case MUSB_EP0_START:
 		request = (struct usb_ctrlrequest *) urb->setup_packet;
@@ -980,12 +980,12 @@ static int musb_h_ep0_continue(struct musb *musb,
 		} else if (request->bRequestType & USB_DIR_IN) {
 			DBG(4, "start IN-DATA\n");
 			musb->ep0_stage = MUSB_EP0_IN;
-			more = TRUE;
+			more = true;
 			break;
 		} else {
 			DBG(4, "start OUT-DATA\n");
 			musb->ep0_stage = MUSB_EP0_OUT;
-			more = TRUE;
+			more = true;
 		}
 		/* FALLTHROUGH */
 	case MUSB_EP0_OUT:
@@ -1001,7 +1001,7 @@ static int musb_h_ep0_continue(struct musb *musb,
 			musb_write_fifo(hw_ep, fifo_count, fifo_dest);
 
 			urb->actual_length += fifo_count;
-			more = TRUE;
+			more = true;
 		}
 		break;
 	default:
@@ -1027,7 +1027,7 @@ irqreturn_t musb_h_ep0_irq(struct musb *musb)
 	struct musb_hw_ep	*hw_ep = musb->control_ep;
 	void __iomem		*epio = hw_ep->regs;
 	struct musb_qh		*qh = hw_ep->in_qh;
-	u8			complete = FALSE;
+	bool			complete = false;
 	irqreturn_t		retval = IRQ_NONE;
 
 	/* ep0 only has one queue, "in" */
@@ -1045,7 +1045,7 @@ irqreturn_t musb_h_ep0_irq(struct musb *musb)
 	/* if we just did status stage, we are done */
 	if (MUSB_EP0_STATUS == musb->ep0_stage) {
 		retval = IRQ_HANDLED;
-		complete = TRUE;
+		complete = true;
 	}
 
 	/* prepare status */
@@ -1076,7 +1076,7 @@ irqreturn_t musb_h_ep0_irq(struct musb *musb)
 		retval = IRQ_HANDLED;
 		if (urb)
 			urb->status = status;
-		complete = TRUE;
+		complete = true;
 
 		/* use the proper sequence to abort the transfer */
 		if (csr & MUSB_CSR0_H_REQPKT) {
@@ -1165,7 +1165,7 @@ done:
 void musb_host_tx(struct musb *musb, u8 epnum)
 {
 	int			pipe;
-	u8			done = FALSE;
+	bool			done = false;
 	u16			tx_csr;
 	size_t			wLength = 0;
 	u8			*buf = NULL;
@@ -1247,7 +1247,7 @@ void musb_host_tx(struct musb *musb, u8 epnum)
 		musb_writew(epio, MUSB_TXCSR, tx_csr);
 		musb_writeb(epio, MUSB_TXINTERVAL, 0);
 
-		done = TRUE;
+		done = true;
 	}
 
 	/* second cppi case */
@@ -1271,22 +1271,22 @@ void musb_host_tx(struct musb *musb, u8 epnum)
 			d = urb->iso_frame_desc + qh->iso_idx;
 			d->actual_length = qh->segsize;
 			if (++qh->iso_idx >= urb->number_of_packets) {
-				done = TRUE;
+				done = true;
 			} else if (!dma) {
 				d++;
 				buf = urb->transfer_buffer + d->offset;
 				wLength = d->length;
 			}
 		} else if (dma) {
-			done = TRUE;
+			done = true;
 		} else {
 			/* see if we need to send more data, or ZLP */
 			if (qh->segsize < qh->maxpacket)
-				done = TRUE;
+				done = true;
 			else if (qh->offset == urb->transfer_buffer_length
 					&& !(urb-> transfer_flags
 							& URB_ZERO_PACKET))
-				done = TRUE;
+				done = true;
 			if (!done) {
 				buf = urb->transfer_buffer
 						+ qh->offset;
@@ -1300,7 +1300,7 @@ void musb_host_tx(struct musb *musb, u8 epnum)
 	 * so we must abort this transfer after cleanup
 	 */
 	if (urb->status != -EINPROGRESS) {
-		done = TRUE;
+		done = true;
 		if (status == 0)
 			status = urb->status;
 	}
@@ -1387,8 +1387,8 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 	void __iomem		*mbase = musb->mregs;
 	int			pipe;
 	u16			rx_csr, val;
-	u8			iso_err = FALSE;
-	u8			done = FALSE;
+	bool			iso_err = false;
+	bool			done = false;
 	u32			status;
 	struct dma_channel	*dma;
 
@@ -1452,7 +1452,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 		} else {
 			DBG(4, "RX end %d ISO data error\n", epnum);
 			/* packet error reported later */
-			iso_err = TRUE;
+			iso_err = true;
 		}
 	}
 
@@ -1466,7 +1466,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 		}
 		musb_h_flush_rxfifo(hw_ep, 0);
 		musb_writeb(epio, MUSB_RXINTERVAL, 0);
-		done = TRUE;
+		done = true;
 		goto finish;
 	}
 
@@ -1494,7 +1494,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 			dma->status = MUSB_DMA_STATUS_CORE_ABORT;
 			(void) musb->dma_controller->channel_abort(dma);
 			xfer_len = dma->actual_len;
-			done = TRUE;
+			done = true;
 		}
 
 		DBG(2, "RXCSR%d %04x, reqpkt, len %zd%s\n", epnum, rx_csr,
@@ -1533,7 +1533,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 			musb_readw(epio, MUSB_RXCSR),
 			musb_readw(epio, MUSB_RXCOUNT));
 #else
-		done = TRUE;
+		done = true;
 #endif
 	} else if (urb->status == -EINPROGRESS) {
 		/* if no errors, be sure a packet is ready for unloading */

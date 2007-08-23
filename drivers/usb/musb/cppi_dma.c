@@ -52,8 +52,7 @@ static inline void cpu_drain_writebuffer(void)
 #endif
 }
 
-static inline struct cppi_descriptor *
-cppi_bd_alloc(struct cppi_channel *c)
+static inline struct cppi_descriptor *cppi_bd_alloc(struct cppi_channel *c)
 {
 	struct cppi_descriptor	*bd = c->bdPoolHead;
 
@@ -147,11 +146,11 @@ static int __init cppi_controller_start(struct dma_controller *c)
 
 	/* do whatever is necessary to start controller */
 	for (i = 0; i < ARRAY_SIZE(controller->txCppi); i++) {
-		controller->txCppi[i].transmit = TRUE;
+		controller->txCppi[i].transmit = true;
 		controller->txCppi[i].chNo = i;
 	}
 	for (i = 0; i < ARRAY_SIZE(controller->rxCppi); i++) {
-		controller->rxCppi[i].transmit = FALSE;
+		controller->rxCppi[i].transmit = false;
 		controller->rxCppi[i].chNo = i;
 	}
 
@@ -996,7 +995,7 @@ static int cppi_channel_program(struct dma_channel *pChannel,
 	else
 		cppi_next_rx_segment(musb, otgChannel, mode);
 
-	return TRUE;
+	return true;
 }
 
 static int cppi_rx_scan(struct cppi *cppi, unsigned ch)

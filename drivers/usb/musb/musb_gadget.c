@@ -102,7 +102,7 @@ Handling completion
 void musb_g_giveback(
 	struct musb_ep		*ep,
 	struct usb_request	*request,
-	int status)
+	int			status)
 __releases(ep->musb->lock)
 __acquires(ep->musb->lock)
 {
@@ -524,7 +524,7 @@ void musb_g_tx(struct musb *musb, u8 epnum)
 						: NULL;
 				if (!request) {
 					DBG(4, "%s idle now\n",
-							musb_ep->end_point.name);
+						musb_ep->end_point.name);
 					break;
 				}
 			}
@@ -635,7 +635,7 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 	 * that last pckate should trigger an overflow fault.)  But in mode 1,
 	 * we don't get DMA completion interrrupt for short packets.
 	 *
-	 * Theoretically, we could enable DMAReq interrupt (MUSB_RXCSR_DMAMODE = 1),
+	 * Theoretically, we could enable DMAReq irq (MUSB_RXCSR_DMAMODE = 1),
 	 * to get endpoint interrupt on every DMA req, but that didn't seem
 	 * to work reliably.
 	 *
@@ -649,14 +649,13 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 //				csr |= MUSB_RXCSR_DMAMODE;
 
 				/* this special sequence (enabling and then
-				   disabling MUSB_RXCSR_DMAMODE) is required
-				   to get DMAReq to activate
+				 * disabling MUSB_RXCSR_DMAMODE) is required
+				 * to get DMAReq to activate
 				 */
 				musb_writew(epio, MUSB_RXCSR,
 					csr | MUSB_RXCSR_DMAMODE);
 #endif
-				musb_writew(epio, MUSB_RXCSR,
-						csr);
+				musb_writew(epio, MUSB_RXCSR, csr);
 
 				if (request->actual < request->length) {
 					int transfer_size = 0;
@@ -683,7 +682,7 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 				if (use_dma)
 					return;
 			}
-#endif	/* Mentor's USB */
+#endif	/* Mentor's DMA */
 
 			fifo_count = request->length - request->actual;
 			DBG(3, "%s OUT/RX pio fifo %d/%d, maxpacket %d\n",
@@ -705,7 +704,7 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 						channel->desired_mode,
 						dma_addr,
 						fifo_count);
-				if (ret == TRUE)
+				if (ret)
 					return;
 			}
 #endif
@@ -1492,14 +1491,6 @@ static int musb_gadget_vbus_session(struct usb_gadget *gadget, int is_active)
 
 	return -EINVAL;
 }
-
-static int musb_gadget_vbus_draw(struct usb_gadget *gadget, unsigned mA)
-{
-	/* FIXME -- delegate to otg_transciever logic */
-
-	DBG(2, "<= vbus_draw %u =>\n", mA);
-	return 0;
-}
 #endif
 
 static int musb_gadget_vbus_draw(struct usb_gadget *gadget, unsigned mA)
@@ -1775,8 +1766,7 @@ int usb_gadget_register_driver(struct usb_gadget_driver *driver)
 }
 EXPORT_SYMBOL(usb_gadget_register_driver);
 
-static void
-stop_activity(struct musb *musb, struct usb_gadget_driver *driver)
+static void stop_activity(struct musb *musb, struct usb_gadget_driver *driver)
 {
 	int			i;
 	struct musb_hw_ep	*hw_ep;

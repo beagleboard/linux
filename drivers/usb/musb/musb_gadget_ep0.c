@@ -170,8 +170,7 @@ static int service_tx_status_request(
  * Context:  caller holds controller lock
  */
 static int
-service_in_request(struct musb *musb,
-		const struct usb_ctrlrequest *ctrlrequest)
+service_in_request(struct musb *musb, const struct usb_ctrlrequest *ctrlrequest)
 {
 	int handled = 0;	/* not handled */
 
@@ -240,7 +239,7 @@ __acquires(musb->lock)
 		switch (ctrlrequest->bRequest) {
 		case USB_REQ_SET_ADDRESS:
 			/* change it after the status stage */
-			musb->set_address = TRUE;
+			musb->set_address = true;
 			musb->address = (u8) (ctrlrequest->wValue & 0x7f);
 			handled = 1;
 			break;
@@ -334,7 +333,7 @@ __acquires(musb->lock)
 
 					/* enter test mode after irq */
 					if (handled > 0)
-						musb->test_mode = TRUE;
+						musb->test_mode = true;
 					break;
 #ifdef CONFIG_USB_MUSB_OTG
 				case USB_DEVICE_B_HNP_ENABLE:
@@ -560,7 +559,7 @@ musb_read_setup(struct musb *musb, struct usb_ctrlrequest *req)
 	 * the TX FIFO right away, and give the controller a moment
 	 * to switch modes...
 	 */
-	musb->set_address = FALSE;
+	musb->set_address = false;
 	musb->ackpend = MUSB_CSR0_P_SVDRXPKTRDY;
 	if (req->wLength == 0) {
 		if (req->bRequestType & USB_DIR_IN)
@@ -578,8 +577,7 @@ musb_read_setup(struct musb *musb, struct usb_ctrlrequest *req)
 }
 
 static int
-forward_to_driver(struct musb *musb,
-		const struct usb_ctrlrequest *ctrlrequest)
+forward_to_driver(struct musb *musb, const struct usb_ctrlrequest *ctrlrequest)
 __releases(musb->lock)
 __acquires(musb->lock)
 {
@@ -663,7 +661,7 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 		 * is done we won't see the next packet.
 		 */
 		if (musb->set_address) {
-			musb->set_address = FALSE;
+			musb->set_address = false;
 			musb_writeb(mbase, MUSB_FADDR, musb->address);
 		}
 
@@ -897,8 +895,7 @@ cleanup:
 	return status;
 }
 
-static int
-musb_g_ep0_dequeue(struct usb_ep *ep, struct usb_request *req)
+static int musb_g_ep0_dequeue(struct usb_ep *ep, struct usb_request *req)
 {
 	/* we just won't support this */
 	return -EINVAL;

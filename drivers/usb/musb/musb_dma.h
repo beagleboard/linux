@@ -106,7 +106,7 @@ struct dma_controller;
  *	transaction (typically representing many USB maximum-sized packets)
  * @actual_len: how many bytes have been transferred
  * @status: current channel status (updated e.g. on interrupt)
- * @desired_mode: TRUE if mode 1 is desired; FALSE if mode 0 is desired
+ * @desired_mode: true if mode 1 is desired; false if mode 0 is desired
  *
  * channels are associated with an endpoint for the duration of at least
  * one usb transfer.
@@ -117,7 +117,7 @@ struct dma_channel {
 	size_t			max_len;
 	size_t			actual_len;
 	enum dma_channel_status	status;
-	u8			desired_mode;
+	bool			desired_mode;
 };
 
 /*

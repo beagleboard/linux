@@ -164,13 +164,6 @@ static inline void musb_host_rx(struct musb *m, u8 e) {}
 
 /****************************** CONSTANTS ********************************/
 
-#ifndef TRUE
-#define TRUE 1
-#endif
-#ifndef FALSE
-#define FALSE 0
-#endif
-
 #ifndef MUSB_C_NUM_EPS
 #define MUSB_C_NUM_EPS ((u8)16)
 #endif
@@ -209,8 +202,8 @@ enum musb_g_ep0_state {
  * directly with the "flat" model, or after setting up an index register.
  */
 
-#if defined(CONFIG_ARCH_DAVINCI) || defined(CONFIG_ARCH_OMAP2430) || \
-				     defined(CONFIG_ARCH_OMAP3430)
+#if defined(CONFIG_ARCH_DAVINCI) || defined(CONFIG_ARCH_OMAP2430) \
+		|| defined(CONFIG_ARCH_OMAP3430)
 /* REVISIT indexed access seemed to
  * misbehave (on DaVinci) for at least peripheral IN ...
  */
@@ -238,9 +231,9 @@ enum musb_g_ep0_state {
 /****************************** FUNCTIONS ********************************/
 
 #define MUSB_HST_MODE(_musb)\
-	{ (_musb)->is_host=TRUE; }
+	{ (_musb)->is_host = true; }
 #define MUSB_DEV_MODE(_musb) \
-	{ (_musb)->is_host=FALSE; }
+	{ (_musb)->is_host = false; }
 
 #define test_devctl_hst_mode(_x) \
 	(musb_readb((_x)->mregs, MUSB_DEVCTL)&MUSB_DEVCTL_HM)
@@ -267,9 +260,9 @@ struct musb_hw_ep {
 	u8			epnum;
 
 	/* hardware configuration, possibly dynamic */
-	u8			is_shared_fifo;
-	u8			tx_double_buffered;
-	u8			rx_double_buffered;
+	bool			is_shared_fifo;
+	bool			tx_double_buffered;
+	bool			rx_double_buffered;
 	u16			max_packet_sz_tx;
 	u16			max_packet_sz_rx;
 
@@ -393,11 +386,12 @@ struct musb {
 
 	u8			min_power;	/* vbus for periph, in mA/2 */
 
+	bool			is_host;
+
 	/* active means connected and not suspended */
 	unsigned		is_active:1;
 
 	unsigned is_multipoint:1;
-	unsigned is_host:1;
 	unsigned ignore_disconnect:1;	/* during bus resets */
 
 	int			a_wait_bcon;	/* VBUS timeout in msecs */
@@ -413,13 +407,8 @@ struct musb {
 
 #ifdef C_MP_RX
 	unsigned bulk_combine:1;
-	/* REVISIT allegedly doesn't work reliably */
-#if 0
 #define	can_bulk_combine(musb,type) \
 		(((type) == USB_ENDPOINT_XFER_BULK) && (musb)->bulk_combine)
-#else
-#define	can_bulk_combine(musb,type)	0
-#endif
 #else
 #define	can_bulk_combine(musb,type)	0
 #endif
@@ -438,9 +427,9 @@ struct musb {
 	unsigned		is_self_powered:1;
 	unsigned		is_bus_powered:1;
 
-	unsigned set_address:1;
-	unsigned test_mode:1;
-	unsigned softconnect:1;
+	unsigned		set_address:1;
+	unsigned		test_mode:1;
+	unsigned		softconnect:1;
 
 	enum musb_g_ep0_state	ep0_state;
 	u8			address;
@@ -475,10 +464,8 @@ extern const char musb_driver_name[];
 extern void musb_start(struct musb *musb);
 extern void musb_stop(struct musb *musb);
 
-extern void musb_write_fifo(struct musb_hw_ep *ep,
-			     u16 len, const u8 * src);
-extern void musb_read_fifo(struct musb_hw_ep *ep,
-			       u16 len, u8 * dst);
+extern void musb_write_fifo(struct musb_hw_ep *ep, u16 len, const u8 * src);
+extern void musb_read_fifo(struct musb_hw_ep *ep, u16 len, u8 * dst);
 
 extern void musb_load_testpacket(struct musb *);
 
@@ -507,13 +494,12 @@ extern int musb_platform_exit(struct musb *musb);
 struct proc_dir_entry;
 
 #if (MUSB_DEBUG > 0) && defined(MUSB_CONFIG_PROC_FS)
-extern struct proc_dir_entry *musb_debug_create(char *name,
-						    struct musb *data);
+extern struct proc_dir_entry *musb_debug_create(char *name, struct musb *data);
 extern void musb_debug_delete(char *name, struct musb *data);
 
 #else
-static inline struct proc_dir_entry *musb_debug_create(char *name,
-							   struct musb *data)
+static inline struct proc_dir_entry *
+musb_debug_create(char *name, struct musb *data)
 {
 	return NULL;
 }

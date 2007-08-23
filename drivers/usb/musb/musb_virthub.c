@@ -46,7 +46,7 @@
 #include "musb_core.h"
 
 
-static void musb_port_suspend(struct musb *musb, u8 bSuspend)
+static void musb_port_suspend(struct musb *musb, bool do_suspend)
 {
 	u8		power;
 	void __iomem	*mbase = musb->mregs;
@@ -60,7 +60,7 @@ static void musb_port_suspend(struct musb *musb, u8 bSuspend)
 	 * SE0 changing to connect (J) or wakeup (K) states.
 	 */
 	power = musb_readb(mbase, MUSB_POWER);
-	if (bSuspend) {
+	if (do_suspend) {
 		int retries = 10000;
 
 		power &= ~MUSB_POWER_RESUME;
@@ -110,14 +110,14 @@ static void musb_port_suspend(struct musb *musb, u8 bSuspend)
 	}
 }
 
-static void musb_port_reset(struct musb *musb, u8 bReset)
+static void musb_port_reset(struct musb *musb, bool do_reset)
 {
 	u8		power;
 	void __iomem	*mbase = musb->mregs;
 
 #ifdef CONFIG_USB_MUSB_OTG
 	if (musb->xceiv.state == OTG_STATE_B_IDLE) {
-		DBG(2, "HNP: Returning from HNP, not resetting hub as b_idle\n");
+		DBG(2, "HNP: Returning from HNP; no hub reset from b_idle\n");
 		musb->port1_status &= ~USB_PORT_STAT_RESET;
 		return;
 	}
@@ -130,7 +130,7 @@ static void musb_port_reset(struct musb *musb, u8 bReset)
 	 * the appropriate amount of time has passed
 	 */
 	power = musb_readb(mbase, MUSB_POWER);
-	if (bReset) {
+	if (do_reset) {
 
 		/*
 		 * If RESUME is set, we must make sure it stays minimum 20 ms.
@@ -147,7 +147,7 @@ static void musb_port_reset(struct musb *musb, u8 bReset)
 			msleep(1);
 		}
 
-		musb->ignore_disconnect = TRUE;
+		musb->ignore_disconnect = true;
 		power &= 0xf0;
 		musb_writeb(mbase, MUSB_POWER,
 				power | MUSB_POWER_RESET);
@@ -160,7 +160,7 @@ static void musb_port_reset(struct musb *musb, u8 bReset)
 		musb_writeb(mbase, MUSB_POWER,
 				power & ~MUSB_POWER_RESET);
 
-		musb->ignore_disconnect = FALSE;
+		musb->ignore_disconnect = false;
 
 		power = musb_readb(mbase, MUSB_POWER);
 		if (power & MUSB_POWER_HSMODE) {
@@ -255,7 +255,7 @@ int musb_hub_control(
 		case USB_PORT_FEAT_ENABLE:
 			break;
 		case USB_PORT_FEAT_SUSPEND:
-			musb_port_suspend(musb, FALSE);
+			musb_port_suspend(musb, false);
 			break;
 		case USB_PORT_FEAT_POWER:
 			if (!(is_otg_enabled(musb) && hcd->self.is_b_host))
@@ -303,7 +303,7 @@ int musb_hub_control(
 		/* finish RESET signaling? */
 		if ((musb->port1_status & USB_PORT_STAT_RESET)
 				&& time_after(jiffies, musb->rh_timer))
-			musb_port_reset(musb, FALSE);
+			musb_port_reset(musb, false);
 
 		/* finish RESUME signaling? */
 		if ((musb->port1_status & MUSB_PORT_STAT_RESUME)
@@ -330,7 +330,8 @@ int musb_hub_control(
 			musb->xceiv.state = OTG_STATE_A_HOST;
 		}
 
-		put_unaligned(cpu_to_le32(musb->port1_status & ~MUSB_PORT_STAT_RESUME),
+		put_unaligned(cpu_to_le32(musb->port1_status
+					& ~MUSB_PORT_STAT_RESUME),
 				(__le32 *) buf);
 
 		/* port change status is more interesting */
@@ -357,10 +358,10 @@ int musb_hub_control(
 				musb_start(musb);
 			break;
 		case USB_PORT_FEAT_RESET:
-			musb_port_reset(musb, TRUE);
+			musb_port_reset(musb, true);
 			break;
 		case USB_PORT_FEAT_SUSPEND:
-			musb_port_suspend(musb, TRUE);
+			musb_port_suspend(musb, true);
 			break;
 		case USB_PORT_FEAT_TEST:
 			if (unlikely(is_host_active(musb)))
@@ -390,7 +391,8 @@ int musb_hub_control(
 				temp = MUSB_TEST_FORCE_HOST
 					| MUSB_TEST_FORCE_HS;
 
-				musb_writeb(musb->mregs, MUSB_DEVCTL, MUSB_DEVCTL_SESSION);
+				musb_writeb(musb->mregs, MUSB_DEVCTL,
+						MUSB_DEVCTL_SESSION);
 				break;
 			case 6:
 				pr_debug("TEST_FIFO_ACCESS\n");

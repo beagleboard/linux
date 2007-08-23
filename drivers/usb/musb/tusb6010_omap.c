@@ -251,7 +251,7 @@ static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,
 	s8				sync_dev;
 
 	if (unlikely(dma_addr & 0x1) || (len < 32) || (len > packet_sz))
-		return FALSE;
+		return false;
 
 	/*
 	 * HW issue #10: Async dma will eventually corrupt the XFR_SIZE
@@ -260,7 +260,7 @@ static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,
 	 * register is corrupt, and we won't know if the DMA worked.
 	 */
 	if (dma_addr & 0x2)
-		return FALSE;
+		return false;
 
 	chdat->transfer_len = len & ~0x1f;
 
@@ -276,14 +276,14 @@ static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,
 	} else {
 		if (tusb_omap_use_shared_dmareq(chdat) != 0) {
 			DBG(3, "could not get dma for ep%i\n", chdat->epnum);
-			return FALSE;
+			return false;
 		}
 		if (tusb_dma->ch < 0) {
 			/* REVISIT: This should get blocked earlier, happens
 			 * with MSC ErrorRecoveryTest
 			 */
 			WARN_ON(1);
-			return FALSE;
+			return false;
 		}
 
 		ch = tusb_dma->ch;
@@ -411,7 +411,7 @@ static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,
 			TUSB_EP_CONFIG_XFR_SIZE(chdat->transfer_len));
 	}
 
-	return TRUE;
+	return true;
 }
 
 static int tusb_omap_dma_abort(struct dma_channel *channel)

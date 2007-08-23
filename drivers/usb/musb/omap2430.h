@@ -45,7 +45,7 @@
 #	define	UTMI_8BIT		(0 << PHYSEL)
 #	define	ULPI_12PIN		(1 << PHYSEL)
 #	define	ULPI_8PIN		(2 << PHYSEL)
-#define OTG_SIMENABLE_REG     	OMAP_HSOTG(0x10)
+#define OTG_SIMENABLE_REG	OMAP_HSOTG(0x10)
 #	define	TM1			(1 << 0)
 #define OTG_FORCESTDBY_REG	OMAP_HSOTG(0x14)
 #	define	ENABLEFORCE		(1 << 0)

@@ -33,10 +33,10 @@
 
 struct cppi_descriptor {
 	/* Hardware Overlay */
-	u32 hNext;     /**< Next(hardware) Buffer Descriptor Pointer */
-	u32 buffPtr;	   /**<Buffer Pointer (dma_addr_t) */
-	u32 bOffBLen;	    /**<Buffer_offset16,buffer_length16 */
-	u32 hOptions;	    /**<Option fields for SOP,EOP etc*/
+	u32 hNext;	/* Next(hardware) Buffer Descriptor Pointer */
+	u32 buffPtr;	/* Buffer Pointer (dma_addr_t) */
+	u32 bOffBLen;	/* Buffer_offset16,buffer_length16 */
+	u32 hOptions;	/* Option fields for SOP,EOP etc*/
 
 	struct cppi_descriptor *next;
 	dma_addr_t dma;		/* address of this descriptor */
@@ -46,7 +46,6 @@ struct cppi_descriptor {
 } __attribute__ ((aligned(CPPI_DESCRIPTOR_ALIGN)));
 
 
-/* forward declaration for CppiDmaController structure */
 struct cppi;
 
 /**
@@ -66,7 +65,7 @@ struct cppi_channel {
 
 	/* which direction of which endpoint? */
 	struct musb_hw_ep	*hw_ep;
-	u8			transmit;
+	bool			transmit;
 	u8			chNo;
 
 	/* DMA modes:  RNDIS or "transparent" */
