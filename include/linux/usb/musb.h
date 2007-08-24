@@ -55,7 +55,7 @@ struct musb_hdrc_platform_data {
 
 #define	TUSB6010_OSCCLK_60	16667	/* psec/clk @ 60.0 MHz */
 #define	TUSB6010_REFCLK_24	41667	/* psec/clk @ 24.0 MHz XI */
-#define	TUSB6010_REFCLK_19	52633	/* psec/clk @ 19.2 MHz CLKIN */
+#define	TUSB6010_REFCLK_19	52083	/* psec/clk @ 19.2 MHz CLKIN */
 
 #ifdef	CONFIG_ARCH_OMAP2
 
