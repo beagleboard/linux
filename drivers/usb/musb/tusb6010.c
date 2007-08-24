@@ -721,12 +721,7 @@ tusb_otg_ints(struct musb *musb, u32 int_src, void __iomem *base)
 			switch (musb->xceiv.state) {
 			case OTG_STATE_A_IDLE:
 				DBG(2, "Got SRP, turning on VBUS\n");
-				devctl = musb_readb(musb->mregs,
-							MUSB_DEVCTL);
-				devctl |= MUSB_DEVCTL_SESSION;
-				musb_writeb(musb->mregs, MUSB_DEVCTL,
-							devctl);
-				musb->xceiv.state = OTG_STATE_A_WAIT_VRISE;
+				musb_set_vbus(musb, 1);
 
 				/* CONNECT can wake if a_wait_bcon is set */
 				if (musb->a_wait_bcon != 0)
