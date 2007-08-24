@@ -323,8 +323,8 @@ void musb_hnp_stop(struct musb *musb)
 	case OTG_STATE_A_WAIT_VFALL:
 		DBG(1, "HNP: Switching back to A-host\n");
 		musb_g_disconnect(musb);
-		musb_root_disconnect(musb);
 		musb->xceiv.state = OTG_STATE_A_IDLE;
+		MUSB_HST_MODE(musb);
 		musb->is_active = 0;
 		break;
 	case OTG_STATE_B_HOST:

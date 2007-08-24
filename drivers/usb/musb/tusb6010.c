@@ -421,6 +421,8 @@ static void musb_do_idle(unsigned long _musb)
 
 	switch (musb->xceiv.state) {
 	case OTG_STATE_A_WAIT_BCON:
+	case OTG_STATE_A_WAIT_VRISE:
+	case OTG_STATE_A_IDLE:
 		if ((musb->a_wait_bcon != 0)
 			&& (musb->idle_timeout == 0
 				|| time_after(jiffies, musb->idle_timeout))) {
@@ -539,19 +541,36 @@ static void tusb_source_power(struct musb *musb, int is_on)
 		conf |= TUSB_DEV_CONF_USB_HOST_MODE;
 		MUSB_HST_MODE(musb);
 	} else {
-		musb->is_active = 0;
+		u32	otg_stat;
+
 		timer = 0;
 
-		/* NOTE:  we're skipping A_WAIT_VFALL -> A_IDLE and
-		 * jumping right to B_IDLE...
-		 */
+		/* If ID pin is grounded, we want to be a_idle */
+		otg_stat = musb_readl(base, TUSB_DEV_OTG_STAT);
+		if (!(otg_stat & TUSB_DEV_OTG_STAT_ID_STATUS)) {
+			switch (musb->xceiv.state) {
+			case OTG_STATE_A_WAIT_VFALL:
+				musb->is_active = 1;
+				break;
+			case OTG_STATE_A_WAIT_VRISE:
+				musb->is_active = 1;
+				musb->xceiv.state = OTG_STATE_A_WAIT_VFALL;
+				break;
+			default:
+				musb->is_active = 0;
+				musb->xceiv.state = OTG_STATE_A_IDLE;
+			}
+			musb->xceiv.default_a = 1;
+			MUSB_HST_MODE(musb);
+		} else {
+			musb->is_active = 0;
+			musb->xceiv.default_a = 0;
+			musb->xceiv.state = OTG_STATE_B_IDLE;
+			MUSB_DEV_MODE(musb);
+		}
 
-		musb->xceiv.default_a = 0;
-		musb->xceiv.state = OTG_STATE_B_IDLE;
 		devctl &= ~MUSB_DEVCTL_SESSION;
-
 		conf &= ~TUSB_DEV_CONF_USB_HOST_MODE;
-		MUSB_DEV_MODE(musb);
 		if (musb->set_clock)
 			musb->set_clock(musb->clock, 0);
 	}
@@ -715,8 +734,12 @@ tusb_otg_ints(struct musb *musb, u32 int_src, void __iomem *base)
 				else
 					musb->is_active = 1;
 
-				idle_timeout = jiffies
-					+ msecs_to_jiffies(musb->a_wait_bcon);
+				/*
+				 * OPT FS A TD.4.6 needs few seconds for
+				 * A_WAIT_VRISE
+				 */
+				idle_timeout = jiffies + (2 * HZ);
+
 				break;
 			case OTG_STATE_A_WAIT_VRISE:
 				/* ignore; A-session-valid < VBUS_VALID/2,
@@ -730,6 +753,10 @@ tusb_otg_ints(struct musb *musb, u32 int_src, void __iomem *base)
 				if (musb->vbuserr_retry) {
 					musb->vbuserr_retry--;
 					tusb_source_power(musb, 1);
+				} else {
+					musb->vbuserr_retry
+						= VBUSERR_RETRY_COUNT;
+					tusb_source_power(musb, 0);
 				}
 				break;
 			default:
