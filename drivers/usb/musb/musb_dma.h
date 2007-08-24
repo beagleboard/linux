@@ -113,7 +113,7 @@ struct dma_controller;
  */
 struct dma_channel {
 	void			*private_data;
-	// FIXME not void* private_data, but a dma_controller *
+	/* FIXME not void* private_data, but a dma_controller * */
 	size_t			max_len;
 	size_t			actual_len;
 	enum dma_channel_status	status;

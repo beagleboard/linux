@@ -401,7 +401,7 @@ cppi_dump_tx(int level, struct cppi_channel *c, const char *tag)
 
 		musb_readl(c->stateRam, 4 * 4),	/* flags */
 		musb_readl(c->stateRam, 5 * 4),	/* len */
-		// dummy/unused word 6
+		/* dummy/unused word 6 */
 		musb_readl(c->stateRam, 7 * 4)	/* completion */
 		);
 }
@@ -963,13 +963,13 @@ static int cppi_channel_program(struct dma_channel *pChannel,
 		WARN("%cX DMA%d not cleaned up after abort!\n",
 				otgChannel->transmit ? 'T' : 'R',
 				otgChannel->chNo);
-		//WARN_ON(1);
+		/* WARN_ON(1); */
 		break;
 	case MUSB_DMA_STATUS_BUSY:
 		WARN("program active channel?  %cX DMA%d\n",
 				otgChannel->transmit ? 'T' : 'R',
 				otgChannel->chNo);
-		//WARN_ON(1);
+		/* WARN_ON(1); */
 		break;
 	case MUSB_DMA_STATUS_UNKNOWN:
 		DBG(1, "%cX DMA%d not allocated!\n",
@@ -1206,7 +1206,7 @@ void cppi_completion(struct musb *musb, u32 rx, u32 tx)
 				 *
 				 * REVISIT have observed bit 18 set; huh??
 				 */
-//				if ((bdPtr->hOptions & CPPI_EOQ_MASK))
+				/* if ((bdPtr->hOptions & CPPI_EOQ_MASK)) */
 					txState->completionPtr = bdPtr->dma;
 
 				/* stop scanning on end-of-segment */
@@ -1216,7 +1216,7 @@ void cppi_completion(struct musb *musb, u32 rx, u32 tx)
 
 			/* on end of segment, maybe go to next one */
 			if (bReqComplete) {
-				//cppi_dump_tx(4, txChannel, "/complete");
+				/* cppi_dump_tx(4, txChannel, "/complete"); */
 
 				/* transfer more, or report completion */
 				if (txChannel->currOffset
@@ -1416,7 +1416,7 @@ static int cppi_channel_abort(struct dma_channel *channel)
 			musb_writel(regBase, DAVINCI_TXCPPI_INTCLR_REG,
 					(1 << otgCh->chNo));
 
-		// REVISIT put timeouts on these controller handshakes
+		/* REVISIT put timeouts on these controller handshakes */
 
 		cppi_dump_tx(6, otgCh, " (teardown)");
 

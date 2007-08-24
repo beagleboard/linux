@@ -63,4 +63,4 @@ static inline int _dbg_level(unsigned l)
 
 extern const char *otg_state_string(struct musb *);
 
-#endif				//  __MUSB_LINUX_DEBUG_H__
+#endif				/*  __MUSB_LINUX_DEBUG_H__ */

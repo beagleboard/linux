@@ -494,7 +494,7 @@ static void ep0_txstate(struct musb *musb)
 	u8			fifo_count;
 
 	if (!request) {
-		// WARN_ON(1);
+		/* WARN_ON(1); */
 		DBG(2, "odd; csr0 %04x\n", musb_readw(regs, MUSB_CSR0));
 		return;
 	}

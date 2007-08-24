@@ -322,7 +322,7 @@ static void txstate(struct musb *musb, struct musb_request *req)
 							MUSB_TXCSR_DMAMODE);
 					csr |= (MUSB_TXCSR_DMAENAB |
 							MUSB_TXCSR_MODE);
-					// against programming guide
+					/* against programming guide */
 				}
 				else
 					csr |= (MUSB_TXCSR_AUTOSET
@@ -646,7 +646,7 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 				csr |= MUSB_RXCSR_DMAENAB;
 #ifdef USE_MODE1
 				csr |= MUSB_RXCSR_AUTOCLEAR;
-//				csr |= MUSB_RXCSR_DMAMODE;
+				/* csr |= MUSB_RXCSR_DMAMODE; */
 
 				/* this special sequence (enabling and then
 				 * disabling MUSB_RXCSR_DMAMODE) is required
@@ -768,7 +768,7 @@ void musb_g_rx(struct musb *musb, u8 epnum)
 	}
 
 	if (csr & MUSB_RXCSR_P_OVERRUN) {
-		// csr |= MUSB_RXCSR_P_WZC_BITS;
+		/* csr |= MUSB_RXCSR_P_WZC_BITS; */
 		csr &= ~MUSB_RXCSR_P_OVERRUN;
 		musb_writew(epio, MUSB_RXCSR, csr);
 
@@ -1486,8 +1486,10 @@ static int musb_gadget_vbus_session(struct usb_gadget *gadget, int is_active)
 {
 	DBG(2, "<= %s =>\n", __FUNCTION__);
 
-	// FIXME iff driver's softconnect flag is set (as it is during probe,
-	// though that can clear it), just musb_pullup().
+	/*
+	 * FIXME iff driver's softconnect flag is set (as it is during probe,
+	 * though that can clear it), just musb_pullup().
+	 */
 
 	return -EINVAL;
 }
@@ -1525,7 +1527,7 @@ static const struct usb_gadget_ops musb_gadget_operations = {
 	.get_frame		= musb_gadget_get_frame,
 	.wakeup			= musb_gadget_wakeup,
 	.set_selfpowered	= musb_gadget_set_self_powered,
-	//.vbus_session		= musb_gadget_vbus_session,
+	/* .vbus_session		= musb_gadget_vbus_session, */
 	.vbus_draw		= musb_gadget_vbus_draw,
 	.pullup			= musb_gadget_pullup,
 };
@@ -1542,7 +1544,7 @@ static struct musb *the_gadget;
 
 static void musb_gadget_release(struct device *dev)
 {
-	// kref_put(WHAT)
+	/* kref_put(WHAT) */
 	dev_dbg(dev, "%s\n", __FUNCTION__);
 }
 

@@ -75,7 +75,7 @@ static int tusb_omap_dma_start(struct dma_controller *c)
 
 	tusb_dma = container_of(c, struct tusb_omap_dma, controller);
 
-	// DBG(3, "ep%i ch: %i\n", chdat->epnum, chdat->ch);
+	/* DBG(3, "ep%i ch: %i\n", chdat->epnum, chdat->ch); */
 
 	return 0;
 }
@@ -86,7 +86,7 @@ static int tusb_omap_dma_stop(struct dma_controller *c)
 
 	tusb_dma = container_of(c, struct tusb_omap_dma, controller);
 
-	// DBG(3, "ep%i ch: %i\n", chdat->epnum, chdat->ch);
+	/* DBG(3, "ep%i ch: %i\n", chdat->epnum, chdat->ch); */
 
 	return 0;
 }

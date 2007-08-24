@@ -705,8 +705,8 @@ static int musb_proc_write(struct file *file, const char __user *buffer,
 			reg = musb_readb(mbase, MUSB_DEVCTL);
 			reg |= MUSB_DEVCTL_HR;
 			musb_writeb(mbase, MUSB_DEVCTL, reg);
-			//MUSB_HST_MODE( ((struct musb*)data) );
-			//WARN("Host Mode\n");
+			/* MUSB_HST_MODE( ((struct musb*)data) ); */
+			/* WARN("Host Mode\n"); */
 		}
 		break;
 
@@ -802,7 +802,7 @@ static int musb_proc_read(char *page, char **start,
 	}
 
 	/* generate the report for the end points */
-	// REVISIT ... not unless something's connected!
+	/* REVISIT ... not unless something's connected! */
 	for (epnum = 0; count >= 0 && epnum < musb->nr_endpoints;
 			epnum++) {
 		code = dump_end_info(musb, epnum, buffer, count);
@@ -840,7 +840,7 @@ musb_debug_create(char *name, struct musb *data)
 					S_IFREG | S_IRUGO | S_IWUSR, NULL);
 	if (pde) {
 		pde->data = data;
-		// pde->owner = THIS_MODULE;
+		/* pde->owner = THIS_MODULE; */
 
 		pde->read_proc = musb_proc_read;
 		pde->write_proc = musb_proc_write;

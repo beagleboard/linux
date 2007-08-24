@@ -29,7 +29,7 @@
 
 /* CPPI data structure definitions */
 
-#define	CPPI_DESCRIPTOR_ALIGN	16	// bytes; 5-dec docs say 4-byte align
+#define	CPPI_DESCRIPTOR_ALIGN	16	/* bytes; 5-dec docs say 4-byte align */
 
 struct cppi_descriptor {
 	/* Hardware Overlay */

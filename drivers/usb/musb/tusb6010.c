@@ -337,7 +337,7 @@ static void tusb_set_clock_source(struct musb *musb, unsigned mode)
 
 	musb_writel(base, TUSB_PRCM_CONF, reg);
 
-	// FIXME tusb6010_platform_retime(mode == 0);
+	/* FIXME tusb6010_platform_retime(mode == 0); */
 }
 
 /*
@@ -688,7 +688,7 @@ tusb_otg_ints(struct musb *musb, u32 int_src, void __iomem *base)
 		if ((is_otg_enabled(musb) && !musb->xceiv.default_a)
 				|| !is_host_enabled(musb)) {
 #ifdef CONFIG_USB_MUSB_HDRC_HCD
-			// ? musb_root_disconnect(musb);
+			/* ? musb_root_disconnect(musb); */
 			musb->port1_status &=
 				~(USB_PORT_STAT_CONNECTION
 				| USB_PORT_STAT_ENABLE
@@ -864,7 +864,7 @@ static irqreturn_t tusb_interrupt(int irq, void *__hci)
 		DBG(3, "wake %sactive %02x\n",
 				musb->is_active ? "" : "in", reg);
 
-		// REVISIT host side TUSB_PRCM_WHOSTDISCON, TUSB_PRCM_WBUS
+		/* REVISIT host side TUSB_PRCM_WHOSTDISCON, TUSB_PRCM_WBUS */
 	}
 
 	if (int_src & TUSB_INT_SRC_USB_IP_CONN)

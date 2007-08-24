@@ -247,7 +247,7 @@ musb_start_urb(struct musb *musb, int is_in, struct musb_qh *qh)
 			qh->frame = urb->start_frame;
 			/* enable SOF interrupt so we can count down */
 DBG(1,"SOF for %d\n", epnum);
-#if 1 // ifndef	CONFIG_ARCH_DAVINCI
+#if 1 /* ifndef	CONFIG_ARCH_DAVINCI */
 			musb_writeb(mbase, MUSB_INTRUSBE, 0xff);
 #endif
 		}
@@ -482,7 +482,7 @@ musb_host_packet_rx(struct musb *musb, struct urb *urb, u8 epnum, u8 iso_err)
 	int			pipe = urb->pipe;
 	void			*buffer = urb->transfer_buffer;
 
-	// musb_ep_select(mbase, epnum);
+	/* musb_ep_select(mbase, epnum); */
 	rx_count = musb_readw(epio, MUSB_RXCOUNT);
 	DBG(3, "RX%d count %d, buffer %p len %d/%d\n", epnum, rx_count,
 			urb->transfer_buffer, qh->offset,
@@ -784,7 +784,7 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 				csr &= ~(MUSB_TXCSR_AUTOSET
 					| MUSB_TXCSR_DMAMODE);
 				csr |= (MUSB_TXCSR_DMAENAB);
-					// against programming guide
+					/* against programming guide */
 			} else
 				csr |= (MUSB_TXCSR_AUTOSET
 					| MUSB_TXCSR_DMAENAB
@@ -1312,7 +1312,7 @@ void musb_host_tx(struct musb *musb, u8 epnum)
 		musb_advance_schedule(musb, urb, hw_ep, USB_DIR_OUT);
 
 	} else if (!(tx_csr & MUSB_TXCSR_DMAENAB)) {
-		// WARN_ON(!buf);
+		/* WARN_ON(!buf); */
 
 		/* REVISIT:  some docs say that when hw_ep->tx_double_buffered,
 		 * (and presumably, fifo is not half-full) we should write TWO
@@ -1541,9 +1541,9 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 			status = -EPROTO;
 			ERR("Rx interrupt with no errors or packet!\n");
 
-			// FIXME this is another "SHOULD NEVER HAPPEN"
+			/* FIXME this is another "SHOULD NEVER HAPPEN" */
 
-// SCRUB (RX)
+/* SCRUB (RX) */
 			/* do the proper sequence to abort the transfer */
 			musb_ep_select(mbase, epnum);
 			val &= ~MUSB_RXCSR_H_REQPKT;
@@ -2167,6 +2167,6 @@ const struct hc_driver musb_hc_driver = {
 	.hub_control		= musb_hub_control,
 	.bus_suspend		= musb_bus_suspend,
 	.bus_resume		= musb_bus_resume,
-//	.start_port_reset	= NULL,
-//	.hub_irq_enable		= NULL,
+	/* .start_port_reset	= NULL, */
+	/* .hub_irq_enable	= NULL, */
 };

@@ -54,7 +54,7 @@ struct musb_qh {
 	struct musb_hw_ep	*hw_ep;		/* current binding */
 
 	struct list_head	ring;		/* of musb_qh */
-	//struct musb_qh		*next;		/* for periodic tree */
+	/* struct musb_qh		*next; */	/* for periodic tree */
 
 	unsigned		offset;		/* in urb->transfer_buffer */
 	unsigned		segsize;	/* current xfer fragment */
