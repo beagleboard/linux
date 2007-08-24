@@ -196,8 +196,8 @@ service_in_request(struct musb *musb, const struct usb_ctrlrequest *ctrlrequest)
  */
 static void musb_g_ep0_giveback(struct musb *musb, struct usb_request *req)
 {
-	musb->ep0_state = MUSB_EP0_STAGE_SETUP;
 	musb_g_giveback(&musb->endpoints[0].ep_in, req, 0);
+	musb->ep0_state = MUSB_EP0_STAGE_SETUP;
 }
 
 /*
@@ -433,13 +433,13 @@ stall:
 /* we have an ep0out data packet
  * Context:  caller holds controller lock
  */
-static void ep0_rxstate(struct musb *this)
+static void ep0_rxstate(struct musb *musb)
 {
-	void __iomem		*regs = this->control_ep->regs;
+	void __iomem		*regs = musb->control_ep->regs;
 	struct usb_request	*req;
 	u16			tmp;
 
-	req = next_ep0_request(this);
+	req = next_ep0_request(musb);
 
 	/* read packet and ack; or stall because of gadget driver bug:
 	 * should have provided the rx buffer before setup() returned.
@@ -454,25 +454,29 @@ static void ep0_rxstate(struct musb *this)
 			req->status = -EOVERFLOW;
 			tmp = len;
 		}
-		musb_read_fifo(&this->endpoints[0], tmp, buf);
+		musb_read_fifo(&musb->endpoints[0], tmp, buf);
 		req->actual += tmp;
 		tmp = MUSB_CSR0_P_SVDRXPKTRDY;
 		if (tmp < 64 || req->actual == req->length) {
-			this->ep0_state = MUSB_EP0_STAGE_STATUSIN;
+			musb->ep0_state = MUSB_EP0_STAGE_STATUSIN;
 			tmp |= MUSB_CSR0_P_DATAEND;
 		} else
 			req = NULL;
 	} else
 		tmp = MUSB_CSR0_P_SVDRXPKTRDY | MUSB_CSR0_P_SENDSTALL;
-	musb_writew(regs, MUSB_CSR0, tmp);
 
 
-	/* NOTE:  we "should" hold off reporting DATAEND and going to
-	 * STATUSIN until after the completion handler decides whether
-	 * to issue a stall instead, since this hardware can do that.
+	/* Completion handler may choose to stall, e.g. because the
+	 * message just received holds invalid data.
 	 */
-	if (req)
-		musb_g_ep0_giveback(this, req);
+	if (req) {
+		musb->ackpend = tmp;
+		musb_g_ep0_giveback(musb, req);
+		if (!musb->ackpend)
+			return;
+		musb->ackpend = 0;
+	}
+	musb_writew(regs, MUSB_CSR0, tmp);
 }
 
 /*
@@ -510,16 +514,21 @@ static void ep0_txstate(struct musb *musb)
 	} else
 		request = NULL;
 
-	/* send it out, triggering a "txpktrdy cleared" irq */
-	musb_writew(regs, MUSB_CSR0, csr);
-
 	/* report completions as soon as the fifo's loaded; there's no
 	 * win in waiting till this last packet gets acked.  (other than
 	 * very precise fault reporting, needed by USB TMC; possible with
 	 * this hardware, but not usable from portable gadget drivers.)
 	 */
-	if (request)
+	if (request) {
+		musb->ackpend = csr;
 		musb_g_ep0_giveback(musb, request);
+		if (!musb->ackpend)
+			return;
+		musb->ackpend = 0;
+	}
+
+	/* send it out, triggering a "txpktrdy cleared" irq */
+	musb_writew(regs, MUSB_CSR0, csr);
 }
 
 /*
@@ -917,6 +926,7 @@ static int musb_g_ep0_halt(struct usb_ep *e, int value)
 	musb = ep->musb;
 	base = musb->mregs;
 	regs = musb->control_ep->regs;
+	status = 0;
 
 	spin_lock_irqsave(&musb->lock, flags);
 
@@ -925,17 +935,30 @@ static int musb_g_ep0_halt(struct usb_ep *e, int value)
 		goto cleanup;
 	}
 
+	musb_ep_select(base, 0);
+	csr = musb->ackpend;
+
 	switch (musb->ep0_state) {
+
+	/* Stalls are usually issued after parsing SETUP packet, either
+	 * directly in irq context from setup() or else later.
+	 */
 	case MUSB_EP0_STAGE_TX:		/* control-IN data */
 	case MUSB_EP0_STAGE_ACKWAIT:	/* STALL for zero-length data */
 	case MUSB_EP0_STAGE_RX:		/* control-OUT data */
-		status = 0;
-
-		musb_ep_select(base, 0);
 		csr = musb_readw(regs, MUSB_CSR0);
+		/* FALLTHROUGH */
+
+	/* It's also OK to issue stalls during callbacks when a non-empty
+	 * DATA stage buffer has been read (or even written).
+	 */
+	case MUSB_EP0_STAGE_STATUSIN:	/* control-OUT status */
+	case MUSB_EP0_STAGE_STATUSOUT:	/* control-IN status */
+
 		csr |= MUSB_CSR0_P_SENDSTALL;
 		musb_writew(regs, MUSB_CSR0, csr);
 		musb->ep0_state = MUSB_EP0_STAGE_SETUP;
+		musb->ackpend = 0;
 		break;
 	default:
 		DBG(1, "ep0 can't halt in state %d\n", musb->ep0_state);

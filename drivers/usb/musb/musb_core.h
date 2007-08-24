@@ -388,14 +388,14 @@ struct musb {
 
 	bool			is_host;
 
+	int			a_wait_bcon;	/* VBUS timeout in msecs */
+	unsigned long		idle_timeout;	/* Next timeout in jiffies */
+
 	/* active means connected and not suspended */
 	unsigned		is_active:1;
 
 	unsigned is_multipoint:1;
 	unsigned ignore_disconnect:1;	/* during bus resets */
-
-	int			a_wait_bcon;	/* VBUS timeout in msecs */
-	unsigned long		idle_timeout;	/* Next timeout in jiffies */
 
 #ifdef C_MP_TX
 	unsigned bulk_split:1;
@@ -431,10 +431,10 @@ struct musb {
 	unsigned		test_mode:1;
 	unsigned		softconnect:1;
 
-	enum musb_g_ep0_state	ep0_state;
 	u8			address;
 	u8			test_mode_nr;
 	u16			ackpend;		/* ep0 */
+	enum musb_g_ep0_state	ep0_state;
 	struct usb_gadget	g;			/* the gadget */
 	struct usb_gadget_driver *gadget_driver;	/* its driver */
 #endif
