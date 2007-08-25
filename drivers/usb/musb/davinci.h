@@ -40,6 +40,8 @@
 #define DAVINCI_USB_EOI_REG		0x3c
 #define DAVINCI_USB_EOI_INTVEC		0x40
 
+/* BEGIN CPPI-generic (?) */
+
 /* CPPI related registers */
 #define DAVINCI_TXCPPI_CTRL_REG		0x80
 #define DAVINCI_TXCPPI_TEAR_REG		0x84
@@ -76,30 +78,7 @@
 #define DAVINCI_DMA_ALL_CHANNELS_ENABLE	0xF
 #define DAVINCI_DMA_ALL_CHANNELS_DISABLE 0xF
 
-/* FIXME relying on "volatile" here is wrong ... */
-
-/* define structures of Rx/Tx stateRam entries */
-struct cppi_tx_stateram {
-	volatile u32 headPtr;
-	volatile u32 sopDescPtr;
-	volatile u32 currDescPtr;
-	volatile u32 currBuffPtr;
-	volatile u32 flags;
-	volatile u32 remLength;
-	volatile u32 dummy;
-	volatile u32 completionPtr;
-};
-
-struct cppi_rx_stateram {
-	volatile u32 buffOffset;
-	volatile u32 headPtr;
-	volatile u32 sopDescPtr;
-	volatile u32 currDescPtr;
-	volatile u32 currBuffPtr;
-	volatile u32 pktLength;
-	volatile u32 byteCount;
-	volatile u32 completionPtr;
-};
+/* END CPPI-generic (?) */
 
 #define DAVINCI_USB_TX_ENDPTS_MASK	0x1f		/* ep0 + 4 tx */
 #define DAVINCI_USB_RX_ENDPTS_MASK	0x1e		/* 4 rx */

@@ -11,8 +11,38 @@
 
 #include "musb_dma.h"
 #include "musb_core.h"
+
+
+/* FIXME fully isolate CPPI from DaVinci ... the "CPPI generic" registers
+ * would seem to be shared with the TUSB6020 (over VLYNQ).
+ */
+
 #include "davinci.h"
 
+
+/* CPPI RX/TX state RAM */
+
+struct cppi_tx_stateram {
+	u32 tx_head;			/* "DMA packet" head descriptor */
+	u32 tx_buf;
+	u32 tx_current;			/* current descriptor */
+	u32 tx_buf_current;
+	u32 tx_info;			/* flags, remaining buflen */
+	u32 tx_rem_len;
+	u32 tx_dummy;			/* unused */
+	u32 tx_complete;
+};
+
+struct cppi_rx_stateram {
+	u32 rx_skipbytes;
+	u32 rx_head;
+	u32 rx_sop;			/* "DMA packet" head descriptor */
+	u32 rx_current;			/* current descriptor */
+	u32 rx_buf_current;
+	u32 rx_len_len;
+	u32 rx_cnt_cnt;
+	u32 rx_complete;
+};
 
 /* hOptions bit masks for CPPI BDs */
 #define CPPI_SOP_SET	((u32)(1 << 31))
@@ -73,7 +103,7 @@ struct cppi_channel {
 	u32			currOffset;	/* requested segments */
 	u32			actualLen;	/* completed (Channel.actual) */
 
-	void __iomem		*stateRam;	/* CPPI state */
+	void __iomem		*state_ram;	/* CPPI state */
 
 	/* BD management fields */
 	struct cppi_descriptor	*bdPoolHead;
