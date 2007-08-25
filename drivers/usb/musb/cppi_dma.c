@@ -3,7 +3,7 @@
  *
  * This file implements a DMA  interface using TI's CPPI DMA.
  * For now it's DaVinci-only, but CPPI isn't specific to DaVinci or USB.
- * TUSB 6010 over VLYNQ has CPPI that looks much like DaVinci.
+ * The TUSB6020, using VLYNQ, has CPPI that looks much like DaVinci.
  */
 
 #include <linux/usb.h>
@@ -12,14 +12,14 @@
 #include "cppi_dma.h"
 
 
-/* CPPI DMA status 7-mar:
+/* CPPI DMA status 7-mar-2006:
  *
  * - See musb_{host,gadget}.c for more info
  *
  * - Correct RX DMA generally forces the engine into irq-per-packet mode,
  *   which can easily saturate the CPU under non-mass-storage loads.
  *
- * NOTES 24-aug (2.6.18-rc4):
+ * NOTES 24-aug-2006 (2.6.18-rc4):
  *
  * - peripheral RXDMA wedged in a test with packets of length 512/512/1.
  *   evidently after the 1 byte packet was received and acked, the queue
@@ -539,7 +539,7 @@ static inline int cppi_autoreq_update(struct cppi_channel *rx,
  * ========
  * TX is a lot more reasonable than RX; it doesn't need to run in
  * irq-per-packet mode very often.  RNDIS mode seems to behave too
- * (other how it handles the exactly-N-packets case).  Building a
+ * (except how it handles the exactly-N-packets case).  Building a
  * txdma queue with multiple requests (urb or usb_request) looks
  * like it would work ... but fault handling would need much testing.
  *

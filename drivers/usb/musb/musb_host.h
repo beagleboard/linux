@@ -46,8 +46,7 @@ static inline struct musb *hcd_to_musb(struct usb_hcd *hcd)
 	return (void *) hcd->hcd_priv;
 }
 
-/* stored in "usb_host_endpoint.hcpriv" for scheduled endpoints
- */
+/* stored in "usb_host_endpoint.hcpriv" for scheduled endpoints */
 struct musb_qh {
 	struct usb_host_endpoint *hep;		/* usbcore info */
 	struct usb_device	*dev;

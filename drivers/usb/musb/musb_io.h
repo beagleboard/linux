@@ -1,5 +1,5 @@
 /*
- * MUSB OTG driver Linux-specific architecture defines
+ * MUSB OTG driver register I/O
  *
  * Copyright 2005 Mentor Graphics Corporation
  * Copyright (C) 2005-2006 by Texas Instruments

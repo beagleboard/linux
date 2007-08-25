@@ -1,5 +1,5 @@
 /*
- * MUSB OTG driver ep0 handling
+ * MUSB OTG peripheral driver ep0 handling
  *
  * Copyright 2005 Mentor Graphics Corporation
  * Copyright (C) 2005-2006 by Texas Instruments
@@ -978,6 +978,4 @@ const struct usb_ep_ops musb_g_ep0_ops = {
 	.queue		= musb_g_ep0_queue,
 	.dequeue	= musb_g_ep0_dequeue,
 	.set_halt	= musb_g_ep0_halt,
-	.fifo_status	= NULL,
-	.fifo_flush	= NULL,
 };

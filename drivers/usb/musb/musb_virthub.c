@@ -1,5 +1,5 @@
 /*
- * MUSB OTG driver virtual hub support
+ * MUSB OTG driver virtual root hub support
  *
  * Copyright 2005 Mentor Graphics Corporation
  * Copyright (C) 2005-2006 by Texas Instruments

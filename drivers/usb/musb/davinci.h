@@ -76,7 +76,7 @@
 #define DAVINCI_DMA_ALL_CHANNELS_ENABLE	0xF
 #define DAVINCI_DMA_ALL_CHANNELS_DISABLE 0xF
 
-/* REVISIT relying on "volatile" here is wrong ... */
+/* FIXME relying on "volatile" here is wrong ... */
 
 /* define structures of Rx/Tx stateRam entries */
 struct cppi_tx_stateram {

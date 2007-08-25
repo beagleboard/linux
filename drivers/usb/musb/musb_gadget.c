@@ -46,7 +46,7 @@
 #include "musb_core.h"
 
 
-/* MUSB PERIPHERAL status 3-mar:
+/* MUSB PERIPHERAL status 3-mar-2006:
  *
  * - EP0 seems solid.  It passes both USBCV and usbtest control cases.
  *   Minor glitches:
@@ -88,9 +88,7 @@
  *     + TUSB 6010, platform-specific dma in the works
  */
 
-/**************************************************************************
-Handling completion
-**************************************************************************/
+/* ----------------------------------------------------------------------- */
 
 /*
  * Immediately complete a request.
@@ -192,9 +190,9 @@ static void nuke(struct musb_ep *ep, const int status)
 	}
 }
 
-/**************************************************************************
- * TX/IN and RX/OUT Data transfers
- **************************************************************************/
+/* ----------------------------------------------------------------------- */
+
+/* Data transfers - pure PIO, pure DMA, or mixed mode */
 
 /*
  * This assumes the separate CPPI engine is responding to DMA requests
@@ -1377,7 +1375,7 @@ static const struct usb_ep_ops musb_ep_ops = {
 	.fifo_flush	= musb_gadget_fifo_flush
 };
 
-/***********************************************************************/
+/* ----------------------------------------------------------------------- */
 
 static int musb_gadget_get_frame(struct usb_gadget *gadget)
 {
@@ -1532,9 +1530,9 @@ static const struct usb_gadget_ops musb_gadget_operations = {
 	.pullup			= musb_gadget_pullup,
 };
 
-/****************************************************************
- * Registration operations
- ****************************************************************/
+/* ----------------------------------------------------------------------- */
+
+/* Registration */
 
 /* Only this registration code "knows" the rule (from USB standards)
  * about there being only one external upstream port.  It assumes
@@ -1869,7 +1867,7 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 EXPORT_SYMBOL(usb_gadget_unregister_driver);
 
 
-/***********************************************************************/
+/* ----------------------------------------------------------------------- */
 
 /* lifecycle operations called through plat_uds.c */
 

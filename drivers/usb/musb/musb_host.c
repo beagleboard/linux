@@ -72,7 +72,7 @@
  *
  * - Not tested with HNP, but some SRP paths seem to behave.
  *
- * NOTE 24-August:
+ * NOTE 24-August-2006:
  *
  * - Bulk traffic finally uses both sides of hardware ep1, freeing up an
  *   extra endpoint for periodic use enabling hub + keybd + mouse.  That
@@ -100,8 +100,6 @@
  * of transfers between endpoints, or anything clever.
  */
 
-
-/*************************** Forwards ***************************/
 
 static void musb_ep_program(struct musb *musb, u8 epnum,
 			struct urb *urb, unsigned int nOut,
@@ -685,8 +683,6 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 
 		/* general endpoint setup */
 		if (epnum) {
-			u16	csr = csr;
-
 			/* ASSERT:  TXCSR_DMAENAB was already cleared */
 
 			/* flush all old state, set default */

@@ -48,19 +48,14 @@ struct cppi_descriptor {
 
 struct cppi;
 
-/**
- *  Channel Control Structure
- *
- * CPPI  Channel Control structure. Using he same for Tx/Rx. If need be
- * derive out of this later.
- */
+/* CPPI  Channel Control structure */
 struct cppi_channel {
 	/* First field must be dma_channel for easy type casting
 	 * FIXME just use container_of() and be typesafe instead!
 	 */
 	struct dma_channel Channel;
 
-	/* back pointer to the Dma Controller structure */
+	/* back pointer to the DMA Controller structure */
 	struct cppi		*controller;
 
 	/* which direction of which endpoint? */
@@ -92,12 +87,7 @@ struct cppi_channel {
 	struct list_head	tx_complete;
 };
 
-/**
- *  CPPI Dma Controller Object
- *
- *  CPPI Dma controller object.Encapsulates all bookeeping and Data
- *  structures pertaining to the CPPI Dma Controller.
- */
+/* CPPI DMA controller object */
 struct cppi {
 	struct dma_controller		Controller;
 	struct musb			*musb;

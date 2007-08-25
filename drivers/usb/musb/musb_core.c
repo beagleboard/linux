@@ -135,7 +135,7 @@ const char *otg_state_string(struct musb *musb)
 #define DRIVER_AUTHOR "Mentor Graphics, Texas Instruments, Nokia"
 #define DRIVER_DESC "Inventra Dual-Role USB Controller Driver"
 
-#define MUSB_VERSION_BASE "2.2a/db-0.5.2"
+#define MUSB_VERSION_BASE "6.0"
 
 #ifndef MUSB_VERSION_SUFFIX
 #define MUSB_VERSION_SUFFIX	""

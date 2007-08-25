@@ -57,8 +57,9 @@ static inline void phy_on(void)
 {
 	/* start the on-chip PHY and its PLL */
 	__raw_writel(USBPHY_SESNDEN | USBPHY_VBDTCTEN | USBPHY_PHYPLLON,
-			IO_ADDRESS(USBPHY_CTL_PADDR));
-	while ((__raw_readl(IO_ADDRESS(USBPHY_CTL_PADDR))
+			(void __force __iomem *) IO_ADDRESS(USBPHY_CTL_PADDR));
+	while ((__raw_readl((void __force __iomem *)
+				IO_ADDRESS(USBPHY_CTL_PADDR))
 			& USBPHY_PHYCLKGD) == 0)
 		cpu_relax();
 }
@@ -66,7 +67,7 @@ static inline void phy_on(void)
 static inline void phy_off(void)
 {
 	/* powerdown the on-chip PHY and its oscillator */
-	__raw_writel(USBPHY_OSCPDWN | USBPHY_PHYPDWN,
+	__raw_writel(USBPHY_OSCPDWN | USBPHY_PHYPDWN, (void __force __iomem *)
 			IO_ADDRESS(USBPHY_CTL_PADDR));
 }
 
@@ -149,7 +150,7 @@ static void evm_deferred_drvvbus(struct work_struct *ignored)
 	davinci_i2c_expander_op(0x3a, USB_DRVVBUS, vbus_state);
 	vbus_state = !vbus_state;
 }
-DECLARE_WORK(evm_vbus_work, evm_deferred_drvvbus);
+static DECLARE_WORK(evm_vbus_work, evm_deferred_drvvbus);
 
 #endif	/* modified board */
 #endif	/* EVM */
@@ -189,7 +190,7 @@ static void davinci_source_power(struct musb *musb, int is_on, int immediate)
 static void davinci_set_vbus(struct musb *musb, int is_on)
 {
 	WARN_ON(is_on && is_peripheral_active(musb));
-	return davinci_source_power(musb, is_on, 0);
+	davinci_source_power(musb, is_on, 0);
 }
 
 
@@ -200,7 +201,7 @@ static struct timer_list otg_workaround;
 static void otg_timer(unsigned long _musb)
 {
 	struct musb		*musb = (void *)_musb;
-	void	*__iomem	mregs = musb->mregs;
+	void __iomem		*mregs = musb->mregs;
 	u8			devctl;
 	unsigned long		flags;
 
@@ -260,7 +261,7 @@ static irqreturn_t davinci_interrupt(int irq, void *__hci)
 	unsigned long	flags;
 	irqreturn_t	retval = IRQ_NONE;
 	struct musb	*musb = __hci;
-	void		*__iomem tibase = musb->ctrl_base;
+	void __iomem	*tibase = musb->ctrl_base;
 	u32		tmp;
 
 	spin_lock_irqsave(&musb->lock, flags);
@@ -309,7 +310,7 @@ static irqreturn_t davinci_interrupt(int irq, void *__hci)
 	 */
 	if (tmp & (DAVINCI_INTR_DRVVBUS << DAVINCI_USB_USBINT_SHIFT)) {
 		int	drvvbus = musb_readl(tibase, DAVINCI_USB_STAT_REG);
-		void	*__iomem mregs = musb->mregs;
+		void __iomem *mregs = musb->mregs;
 		u8	devctl = musb_readb(mregs, MUSB_DEVCTL);
 		int	err = musb->int_usb & MUSB_INTR_VBUSERROR;
 
@@ -322,7 +323,7 @@ static irqreturn_t davinci_interrupt(int irq, void *__hci)
 			 * to get VBUS errors during enumeration.
 			 *
 			 * This is a workaround, but newer RTL from Mentor
-			 * seems to lalow a better one: "re"starting sessions
+			 * seems to allow a better one: "re"starting sessions
 			 * without waiting (on EVM, a **long** time) for VBUS
 			 * to stop registering in devctl.
 			 */
@@ -378,8 +379,8 @@ static irqreturn_t davinci_interrupt(int irq, void *__hci)
 
 int __init musb_platform_init(struct musb *musb)
 {
-	void	*__iomem tibase = musb->ctrl_base;
-	u32	revision;
+	void __iomem	*tibase = musb->ctrl_base;
+	u32		revision;
 
 	musb->mregs += DAVINCI_BASE_OFFSET;
 #if 0
@@ -416,8 +417,8 @@ int __init musb_platform_init(struct musb *musb)
 
 	/* NOTE:  irqs are in mixed mode, not bypass to pure-musb */
 	pr_debug("DaVinci OTG revision %08x phy %03x control %02x\n",
-		revision,
-		__raw_readl((void *__iomem) IO_ADDRESS(USBPHY_CTL_PADDR)),
+		revision, __raw_readl((void __force __iomem *)
+				IO_ADDRESS(USBPHY_CTL_PADDR)),
 		musb_readb(tibase, DAVINCI_USB_CTRL_REG));
 
 	musb->isr = davinci_interrupt;

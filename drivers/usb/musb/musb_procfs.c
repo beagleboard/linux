@@ -32,12 +32,6 @@
  *
  */
 
-/*
- * Inventra Controller Driver (ICD) for Linux.
- *
- * The code managing debug files (currently in procfs).
- */
-
 #include <linux/kernel.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
@@ -478,7 +472,7 @@ dump_end_info(struct musb *musb, u8 epnum, char *aBuffer, unsigned max)
 	return buf - aBuffer;
 }
 
-/** Dump the current status and compile options.
+/* Dump the current status and compile options.
  * @param musb the device driver instance
  * @param buffer where to dump the status; it must be big enough hold the
  * result otherwise "BAD THINGS HAPPENS(TM)".
@@ -537,7 +531,7 @@ static int dump_header_stats(struct musb *musb, char *buffer)
 
 #ifdef	CONFIG_USB_GADGET_MUSB_HDRC
 	code = sprintf(buffer, "Peripheral address: %02x\n",
-			musb_readb(musb, MUSB_FADDR));
+			musb_readb(musb->ctrl_base, MUSB_FADDR));
 	if (code <= 0)
 		goto done;
 	buffer += code;
@@ -560,7 +554,8 @@ static int dump_header_stats(struct musb *musb, char *buffer)
 			"\n",
 			musb_readl(musb->ctrl_base, DAVINCI_USB_CTRL_REG),
 			musb_readl(musb->ctrl_base, DAVINCI_USB_STAT_REG),
-			__raw_readl(IO_ADDRESS(USBPHY_CTL_PADDR)),
+			__raw_readl((void __force __iomem *)
+					IO_ADDRESS(USBPHY_CTL_PADDR)),
 			musb_readl(musb->ctrl_base, DAVINCI_RNDIS_REG),
 			musb_readl(musb->ctrl_base, DAVINCI_AUTOREQ_REG),
 			musb_readl(musb->ctrl_base,

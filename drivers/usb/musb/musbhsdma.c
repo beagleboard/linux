@@ -1,5 +1,5 @@
 /*
- * MUSB OTG driver internal DMA controller support
+ * MUSB OTG driver - support for Mentor's DMA controller
  *
  * Copyright 2005 Mentor Graphics Corporation
  * Copyright (C) 2005-2007 by Texas Instruments
@@ -30,11 +30,6 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-
-/*
- * Implementation for the DMA controller within the MUSBMHDRC.
- */
-
 #include <linux/device.h>
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
