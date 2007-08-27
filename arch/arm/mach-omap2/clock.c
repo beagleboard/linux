@@ -891,7 +891,7 @@ static int omap2_clk_set_parent(struct clk *clk, struct clk *new_parent)
 	if (unlikely(clk->flags & CONFIG_PARTICIPANT))
 		return -EINVAL;
 
-	if (unlikely(!(clk->flags & SRC_SEL_MASK)))
+	if (!clk->clksel)
 		return -EINVAL;
 
 	field_val = omap2_clksel_get_src_field(&src_addr, new_parent,
@@ -919,7 +919,7 @@ static int omap2_clk_set_parent(struct clk *clk, struct clk *new_parent)
 
 	clk->parent = new_parent;
 
-	/* SRC_RATE_SEL_MASK clocks follow their parents rates.*/
+	/* CLKSEL clocks follow their parents' rates, divided by a divisor */
 	clk->rate = new_parent->rate;
 
 	if (parent_div > 0)

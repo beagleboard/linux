@@ -95,16 +95,7 @@ extern int clk_get_usecount(struct clk *clk);
 #define CLOCK_NO_IDLE_PARENT	(1 << 8)
 #define DELAYED_APP		(1 << 9)	/* Delay application of clock */
 #define CONFIG_PARTICIPANT	(1 << 10)	/* Fundamental clock */
-#define CM_MPU_SEL1		(1 << 11)	/* Domain divider/source */
-#define CM_DSP_SEL1		(1 << 12)
-#define CM_GFX_SEL1		(1 << 13)
-#define CM_MODEM_SEL1		(1 << 14)
-#define CM_CORE_SEL1		(1 << 15)	/* Sets divider for many */
-#define CM_CORE_SEL2		(1 << 16)	/* sets parent for GPT */
-#define CM_WKUP_SEL1		(1 << 17)
-#define CM_PLL_SEL1		(1 << 18)
-#define CM_PLL_SEL2		(1 << 19)
-#define CM_SYSCLKOUT_SEL1	(1 << 20)
+/* bits 11-20 are currently free */
 #define CLOCK_IN_OMAP310	(1 << 21)
 #define CLOCK_IN_OMAP730	(1 << 22)
 #define CLOCK_IN_OMAP1510	(1 << 23)
