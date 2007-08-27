@@ -1752,12 +1752,17 @@ static DEVICE_ATTR(srp, 0644, NULL, musb_srp_store);
 
 #endif	/* sysfs */
 
-/* Only used to provide cable state change events */
+/* Only used to provide driver mode change events */
 static void musb_irq_work(struct work_struct *data)
 {
 	struct musb *musb = container_of(data, struct musb, irq_work);
+	static int old_state;
 
-	sysfs_notify(&musb->controller->kobj, NULL, "cable");
+	if (musb->xceiv.state != old_state) {
+		old_state = musb->xceiv.state;
+		sysfs_notify(&musb->controller->kobj, NULL, "cable");
+		sysfs_notify(&musb->controller->kobj, NULL, "mode");
+	}
 }
 
 /* --------------------------------------------------------------------------
