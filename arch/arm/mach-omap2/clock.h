@@ -30,8 +30,9 @@ static long omap2_round_to_table_rate(struct clk * clk, unsigned long rate);
 static void omap2_clk_disable(struct clk *clk);
 static void omap2_sys_clk_recalc(struct clk * clk);
 static void omap2_init_clksel_parent(struct clk *clk);
-static u32 omap2_clksel_to_divisor(u32 div_sel, u32 field_val);
 static u32 omap2_clksel_get_divisor(struct clk *clk);
+static u32 omap2_clksel_to_divisor(struct clk *clk, u32 field_val);
+static u32 omap2_divisor_to_clksel(struct clk *clk, u32 div);
 static void omap2_dpll_recalc(struct clk *clk);
 static void omap2_fixed_divisor_recalc(struct clk *clk);
 
