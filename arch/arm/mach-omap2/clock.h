@@ -26,7 +26,6 @@
 #include "prm_regbits_24xx.h"
 #include "cm_regbits_24xx.h"
 
-static void omap2_sys_clk_recalc(struct clk * clk);
 static void omap2_clksel_recalc(struct clk * clk);
 static void omap2_table_mpu_recalc(struct clk *clk);
 static int omap2_select_table_rate(struct clk * clk, unsigned long rate);
@@ -42,6 +41,8 @@ static void omap2_fixed_divisor_recalc(struct clk *clk);
 static long omap2_clksel_round_rate(struct clk *clk, unsigned long target_rate);
 static int omap2_clksel_set_rate(struct clk *clk, unsigned long rate);
 static int omap2_reprogram_dpll(struct clk *clk, unsigned long rate);
+static int omap2_enable_osc_ck(struct clk *clk);
+static void omap2_disable_osc_ck(struct clk *clk);
 
 /* Key dividers which make up a PRCM set. Ratio's for a PRCM are mandated.
  * xtal_speed, dpll_speed, mpu_speed, CM_CLKSEL_MPU,CM_CLKSEL_DSP
@@ -598,6 +599,8 @@ static struct clk osc_ck = {		/* (*12, *13, 19.2, *26, 38.4)MHz */
 	.rate		= 26000000,		/* fixed up in clock init */
 	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X |
 				RATE_FIXED | RATE_PROPAGATES,
+	.enable		= &omap2_enable_osc_ck,
+	.disable	= &omap2_disable_osc_ck,
 	.recalc		= &propagate_rate,
 };
 

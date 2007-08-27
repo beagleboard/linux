@@ -163,18 +163,26 @@ static void omap2_fixed_divisor_recalc(struct clk *clk)
 		propagate_rate(clk);
 }
 
-static void omap2_set_osc_ck(int enable)
+static int omap2_enable_osc_ck(struct clk *clk)
 {
 	u32 pcc;
 
 	pcc = prm_read_reg(OMAP24XX_PRCM_CLKSRC_CTRL);
 
-	if (enable)
-		prm_write_reg(pcc & ~OMAP_AUTOEXTCLKMODE_MASK,
-			      OMAP24XX_PRCM_CLKSRC_CTRL);
-	else
-		prm_write_reg(pcc | OMAP_AUTOEXTCLKMODE_MASK,
-			      OMAP24XX_PRCM_CLKSRC_CTRL);
+	prm_write_reg(pcc & ~OMAP_AUTOEXTCLKMODE_MASK,
+		      OMAP24XX_PRCM_CLKSRC_CTRL);
+
+	return 0;
+}
+
+static void omap2_disable_osc_ck(struct clk *clk)
+{
+	u32 pcc;
+
+	pcc = prm_read_reg(OMAP24XX_PRCM_CLKSRC_CTRL);
+
+	prm_write_reg(pcc | OMAP_AUTOEXTCLKMODE_MASK,
+		      OMAP24XX_PRCM_CLKSRC_CTRL);
 }
 
 /*
@@ -272,11 +280,6 @@ static int _omap2_clk_enable(struct clk * clk)
 	if (clk->flags & (ALWAYS_ENABLED | PARENT_CONTROLS_CLOCK))
 		return 0;
 
-	if (unlikely(clk == &osc_ck)) {
-		omap2_set_osc_ck(1);
-		return 0;
-	}
-
 	if (clk->enable)
 		return clk->enable(clk);
 
@@ -321,11 +324,6 @@ static void _omap2_clk_disable(struct clk *clk)
 
 	if (clk->disable) {
 		clk->disable(clk);
-		return;
-	}
-
-	if (unlikely(clk == &osc_ck)) {
-		omap2_set_osc_ck(0);
 		return;
 	}
 
