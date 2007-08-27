@@ -820,7 +820,7 @@ static struct clk dsp_fck = {
 
 static struct clk dsp_ick = {
 	.name		= "dsp_ick",	 /* apparently ipi and isp */
-	.parent		= &dsp_fck,
+	.parent		= &core_ck,
 	.flags		= CLOCK_IN_OMAP242X | RATE_CKCTL | CM_DSP_SEL1 |
 				DELAYED_APP | CONFIG_PARTICIPANT,
 	.rate_offset	= OMAP24XX_CLKSEL_DSP_IF_SHIFT,
