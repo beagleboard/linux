@@ -277,6 +277,9 @@ static int _omap2_clk_enable(struct clk * clk)
 		return 0;
 	}
 
+	if (clk->enable)
+		return clk->enable(clk);
+
 	if (unlikely(clk->enable_reg == 0)) {
 		printk(KERN_ERR "clock.c: Enable for %s without enable code\n",
 		       clk->name);
@@ -315,6 +318,11 @@ static void _omap2_clk_disable(struct clk *clk)
 
 	if (clk->flags & (ALWAYS_ENABLED | PARENT_CONTROLS_CLOCK))
 		return;
+
+	if (clk->disable) {
+		clk->disable(clk);
+		return;
+	}
 
 	if (unlikely(clk == &osc_ck)) {
 		omap2_set_osc_ck(0);
