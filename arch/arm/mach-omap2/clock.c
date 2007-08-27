@@ -8,6 +8,10 @@
  *  Cleaned up and modified to use omap shared clock framework by
  *  Tony Lindgren <tony@atomide.com>
  *
+ *  Copyright (C) 2007 Texas Instruments, Inc.
+ *  Copyright (C) 2007 Nokia Corporation
+ *  Paul Walmsley
+ *
  *  Based on omap1 clock.c, Copyright (C) 2004 - 2005 Nokia corporation
  *  Written by Tuukka Tikkanen <tuukka.tikkanen@elektrobit.com>
  *
@@ -37,10 +41,6 @@
 #include "cm_regbits_24xx.h"
 
 #undef DEBUG
-
-/* CM_CLKSEL1_CORE.CLKSEL_VLYNQ options (2420) */
-#define CLKSEL_VLYNQ_96MHZ		0
-#define CLKSEL_VLYNQ_CORECLK_16		0x10
 
 /* CM_CLKEN_PLL.EN_{54,96}M_PLL options (24XX) */
 #define EN_APLL_STOPPED			0
@@ -421,19 +421,9 @@ static void omap2_dpll_recalc(struct clk *clk)
  */
 static void omap2_clksel_recalc(struct clk * clk)
 {
-	u32 clksel1_core, div = 0;
+	u32 div = 0;
 
-	clksel1_core = cm_read_mod_reg(CORE_MOD, CM_CLKSEL1);
-
-	if ((clk == &dss1_fck) &&
-	    (clksel1_core & OMAP24XX_CLKSEL_DSS1_MASK) == 0) {
-		div = 1;
-	}
-
-	if ((clk == &vlynq_fck) && cpu_is_omap2420() &&
-	    (clksel1_core & OMAP2420_CLKSEL_VLYNQ_MASK) == CLKSEL_VLYNQ_96MHZ) {
-		div = 1;
-	}
+	pr_debug("clock: recalc'ing clksel clk %s\n", clk->name);
 
 	div = omap2_clksel_get_divisor(clk);
 	if (div == 0)
@@ -442,6 +432,8 @@ static void omap2_clksel_recalc(struct clk * clk)
 	if (unlikely(clk->rate == clk->parent->rate / div))
 		return;
 	clk->rate = clk->parent->rate / div;
+
+	pr_debug("clock: new clock rate is %ld (div %d)\n", clk->rate, div);
 
 	if (unlikely(clk->flags & RATE_PROPAGATES))
 		propagate_rate(clk);
