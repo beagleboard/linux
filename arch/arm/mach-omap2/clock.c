@@ -472,7 +472,7 @@ const static struct clksel *omap2_get_clksel_by_parent(struct clk *clk,
 }
 
 /**
- * omap2_clksel_round_rate - find divisor for the given clock and target rate.
+ * omap2_clksel_round_rate_div - find divisor for the given clock and rate
  * @clk: OMAP struct clk to use
  * @target_rate: desired clock rate
  * @new_div: ptr to where we should store the divisor
@@ -484,15 +484,16 @@ const static struct clksel *omap2_get_clksel_by_parent(struct clk *clk,
  *
  * Returns the rounded clock rate or returns 0xffffffff on error.
  */
-static u32 omap2_clksel_round_rate(struct clk *clk, unsigned long target_rate,
-				   u32 *new_div)
+static u32 omap2_clksel_round_rate_div(struct clk *clk,
+				       unsigned long target_rate,
+				       u32 *new_div)
 {
 	unsigned long test_rate;
 	const struct clksel *clks;
 	const struct clksel_rate *clkr;
 	u32 last_div = 0;
 
-	printk(KERN_INFO "clock: clksel_round_rate for %s target_rate %ld\n",
+	printk(KERN_INFO "clock: clksel_round_rate_div: %s target_rate %ld\n",
 	       clk->name, target_rate);
 
 	*new_div = 1;
@@ -533,19 +534,36 @@ static u32 omap2_clksel_round_rate(struct clk *clk, unsigned long target_rate,
 	return (clk->parent->rate / clkr->div);
 }
 
+/**
+ * omap2_clksel_round_rate - find rounded rate for the given clock and rate
+ * @clk: OMAP struct clk to use
+ * @target_rate: desired clock rate
+ *
+ * Compatibility wrapper for OMAP clock framework
+ * Finds best target rate based on the source clock and possible dividers.
+ * rates. The divider array must be sorted with smallest divider first.
+ * Note that this will not work for clocks which are part of CONFIG_PARTICIPANT,
+ * they are only settable as part of virtual_prcm set.
+ *
+ * Returns the rounded clock rate or returns 0xffffffff on error.
+ */
+static long omap2_clksel_round_rate(struct clk *clk, unsigned long target_rate)
+{
+	u32 new_div;
+
+	return omap2_clksel_round_rate_div(clk, target_rate, &new_div);
+}
+
+
 /* Given a clock and a rate apply a clock specific rounding function */
 static long omap2_clk_round_rate(struct clk *clk, unsigned long rate)
 {
-	u32 new_div = 0;
-
-	if (clk->flags & RATE_FIXED)
-		return clk->rate;
-
-	if (clk->flags & RATE_CKCTL)
-		return omap2_clksel_round_rate(clk, rate, &new_div);
-
 	if (clk->round_rate != 0)
 		return clk->round_rate(clk, rate);
+
+	if (clk->flags & RATE_FIXED)
+		printk(KERN_ERR "clock: generic omap2_clk_round_rate called "
+		       "on fixed-rate clock %s\n", clk->name);
 
 	return clk->rate;
 }
@@ -781,7 +799,7 @@ static int omap2_clk_set_rate(struct clk *clk, unsigned long rate)
 		if (clk == &dpll_ck)
 			return omap2_reprogram_dpll(clk, rate);
 
-		validrate = omap2_clksel_round_rate(clk, rate, &new_div);
+		validrate = omap2_clksel_round_rate_div(clk, rate, &new_div);
 		if (validrate != rate)
 			return ret;
 

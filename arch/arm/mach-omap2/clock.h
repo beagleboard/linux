@@ -39,6 +39,8 @@ static u32 omap2_clksel_to_divisor(struct clk *clk, u32 field_val);
 static u32 omap2_divisor_to_clksel(struct clk *clk, u32 div);
 static void omap2_dpll_recalc(struct clk *clk);
 static void omap2_fixed_divisor_recalc(struct clk *clk);
+static long omap2_clksel_round_rate(struct clk *clk, unsigned long target_rate);
+
 
 /* Key dividers which make up a PRCM set. Ratio's for a PRCM are mandated.
  * xtal_speed, dpll_speed, mpu_speed, CM_CLKSEL_MPU,CM_CLKSEL_DSP
@@ -736,6 +738,7 @@ static struct clk func_96m_ck = {
 	.clksel_mask	= OMAP2430_96M_SOURCE,
 	.clksel		= func_96m_clksel,
 	.recalc		= &omap2_clksel_recalc,
+	.round_rate	= &omap2_clksel_round_rate
 };
 
 /* func_48m_ck */
@@ -767,6 +770,7 @@ static struct clk func_48m_ck = {
 	.clksel_mask	= OMAP24XX_48M_SOURCE,
 	.clksel		= func_48m_clksel,
 	.recalc		= &omap2_clksel_recalc,
+	.round_rate	= &omap2_clksel_round_rate
 };
 
 static struct clk func_12m_ck = {
@@ -861,6 +865,7 @@ static struct clk sys_clkout = {
 	.clksel_mask	= OMAP24XX_CLKOUT_DIV_MASK,
 	.clksel		= sys_clkout_clksel,
 	.recalc		= &omap2_clksel_recalc,
+	.round_rate	= &omap2_clksel_round_rate
 };
 
 /* In 2430, new in 2420 ES2 */
@@ -940,6 +945,7 @@ static struct clk mpu_ck = {	/* Control cpu */
 	.clksel_mask	= OMAP24XX_CLKSEL_MPU_MASK,
 	.clksel		= mpu_clksel,
 	.recalc		= &omap2_clksel_recalc,
+	.round_rate     = &omap2_clksel_round_rate
 };
 
 /*
@@ -981,6 +987,7 @@ static struct clk iva2_1_fck = {
 	.clksel_mask	= OMAP24XX_CLKSEL_DSP_MASK,
 	.clksel		= iva2_1_fck_clksel,
 	.recalc		= &omap2_clksel_recalc,
+	.round_rate	= &omap2_clksel_round_rate
 };
 
 /* iva2_1_ick */
@@ -1005,6 +1012,8 @@ static struct clk iva2_1_ick = {
 	.clksel_mask	= OMAP24XX_CLKSEL_DSP_IF_MASK,
 	.clksel		= iva2_1_ick_clksel,
 	.recalc		= &omap2_clksel_recalc,
+	.round_rate	= &omap2_clksel_round_rate
+
 };
 
 /*
@@ -1040,6 +1049,7 @@ static struct clk dsp_fck = {
 	.clksel_mask	= OMAP24XX_CLKSEL_DSP_MASK,
 	.clksel		= dsp_fck_clksel,
 	.recalc		= &omap2_clksel_recalc,
+	.round_rate	= &omap2_clksel_round_rate
 };
 
 static const struct clksel_rate dsp_ick_core_rates[] = {
@@ -1094,6 +1104,7 @@ static struct clk iva1_ifck = {
 	.clksel_mask	= OMAP2420_CLKSEL_IVA_MASK,
 	.clksel		= iva1_ifck_clksel,
 	.recalc		= &omap2_clksel_recalc,
+	.round_rate	= &omap2_clksel_round_rate
 };
 
 /* IVA1 mpu/int/i/f clocks are /2 of parent */
@@ -1153,6 +1164,7 @@ static struct clk core_l3_ck = {	/* Used for ick and fck, interconnect */
 	.clksel_mask	= OMAP24XX_CLKSEL_L3_MASK,
 	.clksel		= core_l3_clksel,
 	.recalc		= &omap2_clksel_recalc,
+	.round_rate	= &omap2_clksel_round_rate
 };
 
 /* usb_l4_ick */
@@ -1180,6 +1192,7 @@ static struct clk usb_l4_ick = {	/* FS-USB interface clock */
 	.clksel_mask	= OMAP24XX_CLKSEL_USB_MASK,
 	.clksel		= usb_l4_ick_clksel,
 	.recalc		= &omap2_clksel_recalc,
+	.round_rate	= &omap2_clksel_round_rate
 };
 
 /*
@@ -1217,6 +1230,7 @@ static struct clk ssi_ssr_sst_fck = {
 	.clksel_mask	= OMAP24XX_CLKSEL_SSI_MASK,
 	.clksel		= ssi_ssr_sst_fck_clksel,
 	.recalc		= &omap2_clksel_recalc,
+	.round_rate	= &omap2_clksel_round_rate
 };
 
 /*
@@ -1260,6 +1274,7 @@ static struct clk gfx_3d_fck = {
 	.clksel_mask	= OMAP_CLKSEL_GFX_MASK,
 	.clksel		= gfx_fck_clksel,
 	.recalc		= &omap2_clksel_recalc,
+	.round_rate	= &omap2_clksel_round_rate
 };
 
 static struct clk gfx_2d_fck = {
@@ -1273,6 +1288,7 @@ static struct clk gfx_2d_fck = {
 	.clksel_mask	= OMAP_CLKSEL_GFX_MASK,
 	.clksel		= gfx_fck_clksel,
 	.recalc		= &omap2_clksel_recalc,
+	.round_rate	= &omap2_clksel_round_rate
 };
 
 static struct clk gfx_ick = {
@@ -1315,6 +1331,7 @@ static struct clk mdm_ick = {		/* used both as a ick and fck */
 	.clksel_mask	= OMAP2430_CLKSEL_MDM_MASK,
 	.clksel		= mdm_ick_clksel,
 	.recalc		= &omap2_clksel_recalc,
+	.round_rate	= &omap2_clksel_round_rate
 };
 
 static struct clk mdm_osc_ck = {
@@ -1354,6 +1371,7 @@ static struct clk l4_ck = {		/* used both as an ick and fck */
 	.clksel_mask	= OMAP24XX_CLKSEL_L4_MASK,
 	.clksel		= l4_clksel,
 	.recalc		= &omap2_clksel_recalc,
+	.round_rate	= &omap2_clksel_round_rate
 };
 
 static struct clk ssi_l4_ick = {
@@ -1421,6 +1439,7 @@ static struct clk dss1_fck = {
 	.clksel_mask	= OMAP24XX_CLKSEL_DSS1_MASK,
 	.clksel		= dss1_fck_clksel,
 	.recalc		= &omap2_clksel_recalc,
+	.round_rate	= &omap2_clksel_round_rate
 };
 
 static const struct clksel_rate dss2_fck_sys_rates[] = {
@@ -1511,6 +1530,7 @@ static struct clk gpt1_fck = {
 	.clksel_mask	= OMAP24XX_CLKSEL_GPT1_MASK,
 	.clksel		= gpt_clksel,
 	.recalc		= &omap2_clksel_recalc,
+	.round_rate	= &omap2_clksel_round_rate
 };
 
 static struct clk gpt2_ick = {
@@ -2297,6 +2317,7 @@ static struct clk vlynq_fck = {
 	.clksel_mask	= OMAP2420_CLKSEL_VLYNQ_MASK,
 	.clksel		= vlynq_fck_clksel,
 	.recalc		= &omap2_clksel_recalc,
+	.round_rate	= &omap2_clksel_round_rate
 };
 
 static struct clk sdrc_ick = {
