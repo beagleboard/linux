@@ -713,8 +713,6 @@ tusb_otg_ints(struct musb *musb, u32 int_src, void __iomem *base)
 			schedule_work(&musb->irq_work);
 
 		} else /* A-dev state machine */ {
-			u8	devctl;
-
 			DBG(2, "vbus change, %s, otg %03x\n",
 				otg_state_string(musb), otg_stat);
 
