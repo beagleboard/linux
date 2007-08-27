@@ -39,6 +39,7 @@
 #include <asm/arch/irqs.h>
 #include <asm/arch/clock.h>
 #include <asm/arch/sram.h>
+#include <asm/arch/gpio.h>
 #include <asm/arch/pm.h>
 #include <asm/arch/mux.h>
 #include <asm/arch/dma.h>
