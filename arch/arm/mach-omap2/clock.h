@@ -592,7 +592,8 @@ static struct clk func_32k_ck = {
 	.name		= "func_32k_ck",
 	.rate		= 32000,
 	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X |
-				RATE_FIXED | ALWAYS_ENABLED,
+				RATE_FIXED | ALWAYS_ENABLED | RATE_PROPAGATES,
+	.recalc		= &propagate_rate,
 };
 
 /* Typical 12/13MHz in standalone mode, will be 26Mhz in chassis mode */
@@ -601,6 +602,7 @@ static struct clk osc_ck = {		/* (*12, *13, 19.2, *26, 38.4)MHz */
 	.rate		= 26000000,		/* fixed up in clock init */
 	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X |
 				RATE_FIXED | RATE_PROPAGATES,
+	.recalc		= &propagate_rate,
 };
 
 /* With out modem likely 12MHz, with modem likely 13MHz */

@@ -1179,8 +1179,7 @@ static int __init omap2_clk_arch_init(void)
 	if (omap2_select_table_rate(&virt_prcm_set, mpurate))
 		printk(KERN_ERR "Could not find matching MPU rate\n");
 
-	propagate_rate(&osc_ck);		/* update main root fast */
-	propagate_rate(&func_32k_ck);		/* update main root slow */
+	recalculate_root_clocks();
 
 	printk(KERN_INFO "Switched to new clocking rate (Crystal/DPLL/MPU): "
 	       "%ld.%01ld/%ld/%ld MHz\n",
@@ -1231,8 +1230,7 @@ int __init omap2_clk_init(void)
 	}
 	curr_prcm_set = prcm;
 
-	propagate_rate(&osc_ck);		/* update main root fast */
-	propagate_rate(&func_32k_ck);		/* update main root slow */
+	recalculate_root_clocks();
 
 	printk(KERN_INFO "Clocking rate (Crystal/DPLL/MPU): "
 	       "%ld.%01ld/%ld/%ld MHz\n",
