@@ -2277,6 +2277,27 @@ static struct clk i2chs1_fck = {
 	.recalc		= &followparent_recalc,
 };
 
+static struct clk gpmc_fck = {
+	.name		= "gpmc_fck",
+	.parent		= &core_l3_ck,
+	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X,
+	.recalc		= &followparent_recalc,
+};
+
+static struct clk sdma_fck = {
+	.name		= "sdma_fck",
+	.parent		= &core_l3_ck,
+	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X,
+	.recalc		= &followparent_recalc,
+};
+
+static struct clk sdma_ick = {
+	.name		= "sdma_ick",
+	.parent		= &l4_ck,
+	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X,
+	.recalc		= &followparent_recalc,
+};
+
 static struct clk vlynq_ick = {
 	.name		= "vlynq_ick",
 	.parent		= &core_l3_ck,
@@ -2633,6 +2654,9 @@ static struct clk *onchip_clks[] __initdata = {
 	&i2c2_ick,
 	&i2c2_fck,
 	&i2chs2_fck,
+	&gpmc_fck,
+	&sdma_fck,
+	&sdma_ick,
 	&vlynq_ick,
 	&vlynq_fck,
 	&sdrc_ick,
