@@ -341,6 +341,14 @@ void musb_hnp_stop(struct musb *musb)
 		DBG(1, "HNP: Stopping in unknown state %s\n",
 			otg_state_string(musb));
 	}
+
+	/*
+	 * When returning to A state after HNP, avoid hub_port_rebounce(),
+	 * which cause occasional OPT A "Did not receive reset after connect"
+	 * errors.
+	 */
+	musb->port1_status &=
+		~(1 << USB_PORT_FEAT_C_CONNECTION);
 }
 
 #endif
