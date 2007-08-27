@@ -113,21 +113,6 @@ static void omap2_init_clksel_parent(struct clk *clk)
 	return;
 }
 
-/* Recalculate SYST_CLK */
-static void omap2_sys_clk_recalc(struct clk * clk)
-{
-	u32 div;
-
-	if (!cpu_is_omap34xx()) {
-		div = prm_read_reg(OMAP24XX_PRCM_CLKSRC_CTRL);
-		/* Test if ext clk divided by 1 or 2 */
-		div &= OMAP_SYSCLKDIV_MASK;
-		div >>= OMAP_SYSCLKDIV_SHIFT;
-		clk->rate = (clk->parent->rate / div);
-	}
-	propagate_rate(clk);
-}
-
 static u32 omap2_get_dpll_rate(struct clk * tclk)
 {
 	long long dpll_clk;
@@ -1045,9 +1030,9 @@ static struct clk_functions omap2_clk_functions = {
 	.clk_disable_unused	= omap2_clk_disable_unused,
 };
 
-static void __init omap2_get_crystal_rate(struct clk *osc, struct clk *sys)
+static u32 omap2_get_apll_clkin(void)
 {
-	u32 div, aplls, sclk = 13000000;
+	u32 aplls, sclk = 0;
 
 	aplls = cm_read_mod_reg(PLL_MOD, CM_CLKSEL1);
 	aplls &= OMAP24XX_APLLS_CLKIN_MASK;
@@ -1060,12 +1045,30 @@ static void __init omap2_get_crystal_rate(struct clk *osc, struct clk *sys)
 	else if (aplls == APLLS_CLKIN_12MHZ)
 		sclk = 12000000;
 
+	return sclk;
+}
+
+static u32 omap2_get_sysclkdiv(void)
+{
+	u32 div;
+
 	div = prm_read_reg(OMAP24XX_PRCM_CLKSRC_CTRL);
 	div &= OMAP_SYSCLKDIV_MASK;
 	div >>= OMAP_SYSCLKDIV_SHIFT;
 
-	osc->rate = sclk * div;
-	sys->rate = sclk;
+	return div;
+}
+
+static void omap2_osc_clk_recalc(struct clk *clk)
+{
+	clk->rate = omap2_get_apll_clkin() * omap2_get_sysclkdiv();
+	propagate_rate(clk);
+}
+
+static void omap2_sys_clk_recalc(struct clk *clk)
+{
+	clk->rate = clk->parent->rate / omap2_get_sysclkdiv();
+	propagate_rate(clk);
 }
 
 /*
@@ -1117,7 +1120,8 @@ int __init omap2_clk_init(void)
 		cpu_mask = RATE_IN_243X;
 
 	clk_init(&omap2_clk_functions);
-	omap2_get_crystal_rate(&osc_ck, &sys_ck);
+
+	omap2_osc_clk_recalc(&osc_ck);
 
 	for (clkp = onchip_clks; clkp < onchip_clks + ARRAY_SIZE(onchip_clks);
 	     clkp++) {

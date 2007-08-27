@@ -36,6 +36,8 @@ static void omap2_init_clksel_parent(struct clk *clk);
 static u32 omap2_clksel_get_divisor(struct clk *clk);
 static u32 omap2_clksel_to_divisor(struct clk *clk, u32 field_val);
 static u32 omap2_divisor_to_clksel(struct clk *clk, u32 div);
+static void omap2_osc_clk_recalc(struct clk *clk);
+static void omap2_sys_clk_recalc(struct clk *clk);
 static void omap2_dpll_recalc(struct clk *clk);
 static void omap2_fixed_divisor_recalc(struct clk *clk);
 static int omap2_clk_fixed_enable(struct clk *clk);
@@ -598,21 +600,19 @@ static struct clk func_32k_ck = {
 /* Typical 12/13MHz in standalone mode, will be 26Mhz in chassis mode */
 static struct clk osc_ck = {		/* (*12, *13, 19.2, *26, 38.4)MHz */
 	.name		= "osc_ck",
-	.rate		= 26000000,		/* fixed up in clock init */
 	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X |
-				RATE_FIXED | RATE_PROPAGATES,
+				RATE_PROPAGATES,
 	.enable		= &omap2_enable_osc_ck,
 	.disable	= &omap2_disable_osc_ck,
-	.recalc		= &propagate_rate,
+	.recalc		= &omap2_osc_clk_recalc,
 };
 
 /* With out modem likely 12MHz, with modem likely 13MHz */
 static struct clk sys_ck = {		/* (*12, *13, 19.2, 26, 38.4)MHz */
 	.name		= "sys_ck",		/* ~ ref_clk also */
 	.parent		= &osc_ck,
-	.rate		= 13000000,
 	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X |
-				RATE_FIXED | ALWAYS_ENABLED | RATE_PROPAGATES,
+				ALWAYS_ENABLED | RATE_PROPAGATES,
 	.recalc		= &omap2_sys_clk_recalc,
 };
 
