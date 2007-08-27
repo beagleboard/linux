@@ -29,6 +29,14 @@ struct clksel {
 	const struct clksel_rate *rates;
 };
 
+struct dpll_data {
+	void __iomem		*mult_div1_reg;
+	u32			mult_mask;
+	u32			div1_mask;
+	u32			auto_idle_mask;
+	u8			auto_idle_val;
+};
+
 #endif
 
 struct clk {
@@ -53,6 +61,7 @@ struct clk {
 	void __iomem		*clksel_reg;
 	u32			clksel_mask;
 	const struct clksel	*clksel;
+	const struct dpll_data	*dpll_data;
 #else
 	__u8			rate_offset;
 	__u8			src_offset;

@@ -113,20 +113,38 @@ static void omap2_init_clksel_parent(struct clk *clk)
 	return;
 }
 
-static u32 omap2_get_dpll_rate(struct clk * tclk)
+/* Returns the DPLL rate */
+static u32 omap2_get_dpll_rate(struct clk *clk)
 {
 	long long dpll_clk;
-	int dpll_mult, dpll_div, amult;
-	u32 dpll;
+	u32 dpll_mult, dpll_div, dpll;
+	const struct dpll_data *dd;
 
-	dpll = cm_read_mod_reg(PLL_MOD, CM_CLKSEL1);
+	dd = clk->dpll_data;
+	/* REVISIT: What do we return on error? */
+	if (!dd)
+		return 0;
 
-	dpll_mult = dpll & OMAP24XX_DPLL_MULT_MASK;
-	dpll_mult >>= OMAP24XX_DPLL_MULT_SHIFT;		/* 10 bits */
-	dpll_div = dpll & OMAP24XX_DPLL_DIV_MASK;
-	dpll_div >>= OMAP24XX_DPLL_DIV_SHIFT;		/* 4 bits */
-	dpll_clk = (long long)tclk->parent->rate * dpll_mult;
+	dpll = cm_read_reg(dd->mult_div1_reg);
+	dpll_mult = dpll & dd->mult_mask;
+	dpll_mult >>= mask_to_shift(dd->mult_mask);
+	dpll_div = dpll & dd->div1_mask;
+	dpll_div >>= mask_to_shift(dd->div1_mask);
+
+	dpll_clk = (long long)clk->parent->rate * dpll_mult;
 	do_div(dpll_clk, dpll_div + 1);
+
+	return dpll_clk;
+}
+
+/* This actually returns the rate of core_ck, not dpll_ck. */
+static u32 omap2_get_dpll_rate_24xx(struct clk *tclk)
+{
+	long long dpll_clk;
+	u8 amult;
+
+	dpll_clk = omap2_get_dpll_rate(tclk);
+
 	amult = cm_read_mod_reg(PLL_MOD, CM_CLKSEL2);
 	amult &= OMAP24XX_CORE_CLK_SRC_MASK;
 	dpll_clk *= amult;
@@ -397,7 +415,7 @@ static u32 omap2_dpll_round_rate(unsigned long target_rate)
 
 static void omap2_dpll_recalc(struct clk *clk)
 {
-	clk->rate = omap2_get_dpll_rate(clk);
+	clk->rate = omap2_get_dpll_rate_24xx(clk);
 
 	propagate_rate(clk);
 }
@@ -560,10 +578,11 @@ static int omap2_reprogram_dpll(struct clk * clk, unsigned long rate)
 	u32 flags, cur_rate, low, mult, div, valid_rate, done_rate;
 	u32 bypass = 0;
 	struct prcm_config tmpset;
+	const struct dpll_data *dd;
 	int ret = -EINVAL;
 
 	local_irq_save(flags);
-	cur_rate = omap2_get_dpll_rate(&dpll_ck);
+	cur_rate = omap2_get_dpll_rate_24xx(&dpll_ck);
 	mult = cm_read_mod_reg(PLL_MOD, CM_CLKSEL2);
 	mult &= OMAP24XX_CORE_CLK_SRC_MASK;
 
@@ -581,9 +600,13 @@ static int omap2_reprogram_dpll(struct clk * clk, unsigned long rate)
 		else
 			low = curr_prcm_set->dpll_speed / 2;
 
-		tmpset.cm_clksel1_pll = cm_read_mod_reg(PLL_MOD, CM_CLKSEL1);
-		tmpset.cm_clksel1_pll &= ~(OMAP24XX_DPLL_MULT_MASK |
-					   OMAP24XX_DPLL_DIV_MASK);
+		dd = clk->dpll_data;
+		if (!dd)
+			goto dpll_exit;
+
+		tmpset.cm_clksel1_pll = cm_read_reg(dd->mult_div1_reg);
+		tmpset.cm_clksel1_pll &= ~(dd->mult_mask |
+					   dd->div1_mask);
 		div = ((curr_prcm_set->xtal_speed / 1000000) - 1);
 		tmpset.cm_clksel2_pll = cm_read_mod_reg(PLL_MOD, CM_CLKSEL2);
 		tmpset.cm_clksel2_pll &= ~OMAP24XX_CORE_CLK_SRC_MASK;
@@ -596,8 +619,8 @@ static int omap2_reprogram_dpll(struct clk * clk, unsigned long rate)
 			mult = (rate / 1000000);
 			done_rate = CORE_CLK_SRC_DPLL;
 		}
-		tmpset.cm_clksel1_pll |= (div << OMAP24XX_DPLL_DIV_SHIFT);
-		tmpset.cm_clksel1_pll |= (mult << OMAP24XX_DPLL_MULT_SHIFT);
+		tmpset.cm_clksel1_pll |= (div << mask_to_shift(dd->mult_mask));
+		tmpset.cm_clksel1_pll |= (mult << mask_to_shift(dd->div1_mask));
 
 		/* Worst case */
 		tmpset.base_sdrc_rfr = V24XX_SDRC_RFR_CTRL_BYPASS;
@@ -951,7 +974,7 @@ static int omap2_select_table_rate(struct clk * clk, unsigned long rate)
 	}
 
 	curr_prcm_set = prcm;
-	cur_rate = omap2_get_dpll_rate(&dpll_ck);
+	cur_rate = omap2_get_dpll_rate_24xx(&dpll_ck);
 
 	if (prcm->dpll_speed == cur_rate / 2) {
 		omap2_reprogram_sdrc(CORE_CLK_SRC_DPLL, 1);
@@ -1138,7 +1161,7 @@ int __init omap2_clk_init(void)
 	}
 
 	/* Check the MPU rate set by bootloader */
-	clkrate = omap2_get_dpll_rate(&dpll_ck);
+	clkrate = omap2_get_dpll_rate_24xx(&dpll_ck);
 	for (prcm = rate_table; prcm->mpu_speed; prcm++) {
 		if (!(prcm->flags & cpu_mask))
 			continue;

@@ -632,9 +632,19 @@ static struct clk alt_ck = {		/* Typical 54M or 48M, may not exist */
 /* REVISIT: Rate changes on dpll_ck trigger a full set change.	...
  * deal with this
  */
+
+static const struct dpll_data dpll_dd = {
+	.mult_div1_reg		= OMAP_CM_REGADDR(PLL_MOD, CM_CLKSEL1),
+	.mult_mask		= OMAP24XX_DPLL_MULT_MASK,
+	.div1_mask		= OMAP24XX_DPLL_DIV_MASK,
+	.auto_idle_mask		= OMAP24XX_AUTO_DPLL_MASK,
+	.auto_idle_val		= 0x3, /* stop DPLL upon idle */
+};
+
 static struct clk dpll_ck = {
 	.name		= "dpll_ck",
 	.parent		= &sys_ck,		/* Can be func_32k also */
+	.dpll_data	= &dpll_dd,
 	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X |
 				RATE_PROPAGATES | ALWAYS_ENABLED,
 	.recalc		= &omap2_dpll_recalc,
