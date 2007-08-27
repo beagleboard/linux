@@ -1988,7 +1988,7 @@ static struct clk virt_prcm_set = {
 	.round_rate	= &omap2_round_to_table_rate,
 };
 
-static struct clk *onchip_clks[] = {
+static struct clk *onchip_clks[] __initdata = {
 	/* external root sources */
 	&func_32k_ck,
 	&osc_ck,
