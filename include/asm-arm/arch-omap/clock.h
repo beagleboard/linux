@@ -91,6 +91,7 @@ extern void followparent_recalc(struct clk * clk);
 extern void clk_allow_idle(struct clk *clk);
 extern void clk_deny_idle(struct clk *clk);
 extern int clk_get_usecount(struct clk *clk);
+extern void clk_enable_init_clocks(void);
 
 /* Clock flags */
 #define RATE_CKCTL		(1 << 0)	/* Main fixed ratio clocks */
@@ -104,7 +105,8 @@ extern int clk_get_usecount(struct clk *clk);
 #define CLOCK_NO_IDLE_PARENT	(1 << 8)
 #define DELAYED_APP		(1 << 9)	/* Delay application of clock */
 #define CONFIG_PARTICIPANT	(1 << 10)	/* Fundamental clock */
-/* bits 11-20 are currently free */
+#define ENABLE_ON_INIT		(1 << 11)	/* Enable upon framework init */
+/* bits 12-20 are currently free */
 #define CLOCK_IN_OMAP310	(1 << 21)
 #define CLOCK_IN_OMAP730	(1 << 22)
 #define CLOCK_IN_OMAP1510	(1 << 23)

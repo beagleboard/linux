@@ -1183,16 +1183,7 @@ int __init omap2_clk_init(void)
 	 * Only enable those clocks we will need, let the drivers
 	 * enable other clocks as necessary
 	 */
-	clk_enable(&sync_32k_ick);
-	clk_enable(&omapctrl_ick);
-
-	/* Force the APLLs always active. The clocks are idled
-	 * automatically by hardware. */
-	clk_enable(&apll96_ck);
-	clk_enable(&apll54_ck);
-
-	if (cpu_is_omap2430())
-		clk_enable(&sdrc_ick);
+	clk_enable_init_clocks();
 
 	/* Avoid sleeping sleeping during omap2_clk_prepare_for_reboot() */
 	vclk = clk_get(NULL, "virt_prcm_set");

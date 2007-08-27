@@ -383,6 +383,17 @@ void clk_allow_idle(struct clk *clk)
 }
 EXPORT_SYMBOL(clk_allow_idle);
 
+void clk_enable_init_clocks(void)
+{
+	struct clk *clkp;
+
+	list_for_each_entry(clkp, &clocks, node) {
+		if (clkp->flags & ENABLE_ON_INIT)
+			clk_enable(clkp);
+	}
+}
+EXPORT_SYMBOL(clk_enable_init_clocks);
+
 /*-------------------------------------------------------------------------*/
 
 #ifdef CONFIG_OMAP_RESET_CLOCKS
