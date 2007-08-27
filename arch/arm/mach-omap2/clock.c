@@ -122,7 +122,7 @@ static void omap2_sys_clk_recalc(struct clk * clk)
 		div = prm_read_reg(OMAP24XX_PRCM_CLKSRC_CTRL);
 		/* Test if ext clk divided by 1 or 2 */
 		div &= OMAP_SYSCLKDIV_MASK;
-		div >>= clk->rate_offset;
+		div >>= OMAP_SYSCLKDIV_SHIFT;
 		clk->rate = (clk->parent->rate / div);
 	}
 	propagate_rate(clk);
@@ -1033,7 +1033,7 @@ static void __init omap2_get_crystal_rate(struct clk *osc, struct clk *sys)
 
 	div = prm_read_reg(OMAP24XX_PRCM_CLKSRC_CTRL);
 	div &= OMAP_SYSCLKDIV_MASK;
-	div >>= sys->rate_offset;
+	div >>= OMAP_SYSCLKDIV_SHIFT;
 
 	osc->rate = sclk * div;
 	sys->rate = sclk;

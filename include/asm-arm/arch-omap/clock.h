@@ -41,8 +41,6 @@ struct clk {
 	__u32			flags;
 	void __iomem		*enable_reg;
 	__u8			enable_bit;
-	__u8			rate_offset;
-	__u8			src_offset;
 	__s8			usecount;
 	void			(*recalc)(struct clk *);
 	int			(*set_rate)(struct clk *, unsigned long);
@@ -55,6 +53,9 @@ struct clk {
 	void __iomem		*clksel_reg;
 	u32			clksel_mask;
 	const struct clksel	*clksel;
+#else
+	__u8			rate_offset;
+	__u8			src_offset;
 #endif
 };
 
