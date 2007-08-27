@@ -213,7 +213,7 @@ static int omap2_wait_clock_ready(void __iomem *reg, u32 cval, const char *name)
 
 
 /* Enable an APLL if off */
-static void omap2_clk_fixed_enable(struct clk *clk)
+static int omap2_clk_fixed_enable(struct clk *clk)
 {
 	u32 cval, apll_mask;
 
@@ -222,7 +222,7 @@ static void omap2_clk_fixed_enable(struct clk *clk)
 	cval = cm_read_mod_reg(PLL_MOD, CM_CLKEN);
 
 	if ((cval & apll_mask) == apll_mask)
-		return;   /* apll already enabled */
+		return 0;   /* apll already enabled */
 
 	cval &= ~apll_mask;
 	cval |= apll_mask;
@@ -235,6 +235,12 @@ static void omap2_clk_fixed_enable(struct clk *clk)
 
 	omap2_wait_clock_ready(OMAP_CM_REGADDR(PLL_MOD, CM_IDLEST), cval,
 			    clk->name);
+
+	/*
+	 * REVISIT: Should we return an error code if omap2_wait_clock_ready()
+	 * fails?
+	 */
+	return 0;
 }
 
 static void omap2_clk_wait_ready(struct clk *clk)
@@ -289,11 +295,6 @@ static int _omap2_clk_enable(struct clk * clk)
 		return -EINVAL;
 	}
 
-	if (clk->enable_reg == OMAP_CM_REGADDR(PLL_MOD, CM_CLKEN)) {
-		omap2_clk_fixed_enable(clk);
-		return 0;
-	}
-
 	regval32 = cm_read_reg(clk->enable_reg);
 	regval32 |= (1 << clk->enable_bit);
 	cm_write_reg(regval32, clk->enable_reg);
@@ -334,11 +335,6 @@ static void _omap2_clk_disable(struct clk *clk)
 		 */
 		printk(KERN_ERR "clock: clk_disable called on independent "
 		       "clock %s which has no enable_reg\n", clk->name);
-		return;
-	}
-
-	if (clk->enable_reg == OMAP_CM_REGADDR(PLL_MOD, CM_CLKEN)) {
-		omap2_clk_fixed_disable(clk);
 		return;
 	}
 
