@@ -885,7 +885,7 @@ static int omap2_clk_set_parent(struct clk *clk, struct clk *new_parent)
 
 	/* Set new source value (previous dividers if any in effect) */
 	reg_val = __raw_readl(src_addr) & ~field_mask;
-	reg_val |= (field_val << clk->src_offset);
+	reg_val |= (field_val << mask_to_shift(field_mask));
 	__raw_writel(reg_val, src_addr);
 	wmb();
 
@@ -905,6 +905,9 @@ static int omap2_clk_set_parent(struct clk *clk, struct clk *new_parent)
 
 	if (parent_div > 0)
 		clk->rate /= parent_div;
+
+	pr_debug("clock: set parent of %s to %s (new rate %ld)\n",
+		 clk->name, clk->parent->name, clk->rate);
 
 	if (unlikely(clk->flags & RATE_PROPAGATES))
 		propagate_rate(clk);
