@@ -592,8 +592,13 @@ dpll_exit:
 	return(ret);
 }
 
-/* Just return the MPU speed */
-static void omap2_mpu_recalc(struct clk * clk)
+/**
+ * omap2_table_mpu_recalc - just return the MPU speed
+ * @clk: virt_prcm_set struct clk
+ *
+ * Set virt_prcm_set's rate to the mpu_speed field of the current PRCM set.
+ */
+static void omap2_table_mpu_recalc(struct clk *clk)
 {
 	clk->rate = curr_prcm_set->mpu_speed;
 }
