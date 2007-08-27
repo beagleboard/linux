@@ -93,6 +93,55 @@ static u32 sysclkout_div[] = {1, 2, 4, 8, 16};
  * Omap2 specific clock functions
  *-------------------------------------------------------------------------*/
 
+static inline u8 mask_to_shift(u32 mask)
+{
+	return ffs(mask) - 1;
+}
+
+/**
+ * omap2_init_clksel_parent - set a clksel clk's parent field from the hardware
+ * @clk: OMAP clock struct ptr to use
+ *
+ * Given a pointer to a source-selectable struct clk, read the hardware
+ * register and determine what its parent is currently set to.  Update the
+ * clk->parent field with the appropriate clk ptr.
+ */
+static void omap2_init_clksel_parent(struct clk *clk)
+{
+	const struct clksel *clks;
+	const struct clksel_rate *clkr;
+	u32 r, found = 0;
+
+	if (!clk->clksel)
+		return;
+
+	/* XXX Should be __raw_readl for non-CM 3430 clocks ? */
+	r = cm_read_reg(clk->clksel_reg) & clk->clksel_mask;
+	r >>= mask_to_shift(clk->clksel_mask);
+
+	for (clks = clk->clksel; clks->parent && !found; clks++) {
+		for (clkr = clks->rates; clkr->div && !found; clkr++) {
+			if ((clkr->flags & cpu_mask) && (clkr->val == r)) {
+				if (clk->parent != clks->parent) {
+					pr_debug("clock: inited %s parent "
+						 "to %s (was %s)\n",
+						 clk->name, clks->parent->name,
+						 ((clk->parent->name) ?
+						  clk->parent->name : "NULL"));
+					clk->parent = clks->parent;
+				};
+				found = 1;
+			}
+		}
+	}
+
+	if (!found)
+		printk(KERN_ERR "clock: init parent: could not find "
+		       "regval %0x for clock %s\n", r,  clk->name);
+
+	return;
+}
+
 /* Recalculate SYST_CLK */
 static void omap2_sys_clk_recalc(struct clk * clk)
 {
@@ -1193,6 +1242,11 @@ int __init omap2_clk_init(void)
 	struct clk ** clkp;
 	u32 clkrate;
 
+	if (cpu_is_omap242x())
+		cpu_mask = RATE_IN_242X;
+	else if (cpu_is_omap2430())
+		cpu_mask = RATE_IN_243X;
+
 	clk_init(&omap2_clk_functions);
 	omap2_get_crystal_rate(&osc_ck, &sys_ck);
 
@@ -1209,11 +1263,6 @@ int __init omap2_clk_init(void)
 			continue;
 		}
 	}
-
-	if (cpu_is_omap242x())
-		cpu_mask = RATE_IN_242X;
-	else if (cpu_is_omap2430())
-		cpu_mask = RATE_IN_243X;
 
 	/* Check the MPU rate set by bootloader */
 	clkrate = omap2_get_dpll_rate(&dpll_ck);
