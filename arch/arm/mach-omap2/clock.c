@@ -787,46 +787,55 @@ static u32 omap2_clksel_get_divisor(struct clk *clk)
 	return omap2_clksel_to_divisor(clk, field_val);
 }
 
+static int omap2_clksel_set_rate(struct clk *clk, unsigned long rate)
+{
+	u32 field_mask, field_val, reg_val, validrate, new_div = 0;
+	void __iomem *div_addr;
+
+	validrate = omap2_clksel_round_rate_div(clk, rate, &new_div);
+	if (validrate != rate)
+		return -EINVAL;
+
+	div_addr = omap2_get_clksel(clk, &field_mask);
+	if (div_addr == 0)
+		return -EINVAL;
+
+	field_val = omap2_divisor_to_clksel(clk, new_div);
+	if (field_val == ~0)
+		return -EINVAL;
+
+	reg_val = cm_read_reg(div_addr);
+	reg_val &= ~field_mask;
+	reg_val |= (field_val << mask_to_shift(field_mask));
+	cm_write_reg(reg_val, div_addr);
+	wmb();
+
+	clk->rate = clk->parent->rate / new_div;
+
+	if (clk->flags & DELAYED_APP) {
+		prm_write_reg(OMAP24XX_VALID_CONFIG, OMAP24XX_PRCM_CLKCFG_CTRL);
+		wmb();
+	}
+
+	return 0;
+}
+
+
 /* Set the clock rate for a clock source */
 static int omap2_clk_set_rate(struct clk *clk, unsigned long rate)
 {
 	int ret = -EINVAL;
-	u32 field_mask, field_val, reg_val, new_div = 0;
-	unsigned long validrate;
-	void __iomem *div_addr;
 
-	if (!(clk->flags & CONFIG_PARTICIPANT) && (clk->flags & RATE_CKCTL)) {
-		if (clk == &dpll_ck)
-			return omap2_reprogram_dpll(clk, rate);
+	pr_debug("clock: set_rate for clock %s to rate %ld\n", clk->name, rate);
 
-		validrate = omap2_clksel_round_rate_div(clk, rate, &new_div);
-		if (validrate != rate)
-			return ret;
+	/* CONFIG_PARTICIPANT clocks are changed only in sets via the
+	   rate table mechanism, driven by mpu_speed  */
+	if (clk->flags & CONFIG_PARTICIPANT)
+		return -EINVAL;
 
-		div_addr = omap2_get_clksel(clk, &field_mask);
-		if (div_addr == 0)
-			return ret;
-
-		field_val = omap2_divisor_to_clksel(clk, new_div);
-		if (field_val == ~0)
-			return ret;
-
-		reg_val = cm_read_reg(div_addr);
-		reg_val &= ~field_mask;
-		reg_val |= (field_val << mask_to_shift(field_mask));
-		cm_write_reg(reg_val, div_addr);
-		wmb();
-		clk->rate = clk->parent->rate / new_div;
-
-		if (clk->flags & DELAYED_APP) {
-			prm_write_reg(OMAP24XX_VALID_CONFIG,
-				      OMAP24XX_PRCM_CLKCFG_CTRL);
-			wmb();
-		}
-		ret = 0;
-	} else if (clk->set_rate != 0) {
+	/* dpll_ck, core_ck, virt_prcm_set; plus all clksel clocks */
+	if (clk->set_rate != 0)
 		ret = clk->set_rate(clk, rate);
-	}
 
 	if (unlikely(ret == 0 && (clk->flags & RATE_PROPAGATES)))
 		propagate_rate(clk);
