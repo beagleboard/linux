@@ -24,7 +24,6 @@
 
 static void omap2_sys_clk_recalc(struct clk * clk);
 static void omap2_clksel_recalc(struct clk * clk);
-static void omap2_propagate_rate(struct clk * clk);
 static void omap2_mpu_recalc(struct clk * clk);
 static int omap2_select_table_rate(struct clk * clk, unsigned long rate);
 static long omap2_round_to_table_rate(struct clk * clk, unsigned long rate);
@@ -621,7 +620,7 @@ static struct clk alt_ck = {		/* Typical 54M or 48M, may not exist */
 	.rate		= 54000000,
 	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X |
 				RATE_FIXED | ALWAYS_ENABLED | RATE_PROPAGATES,
-	.recalc		= &omap2_propagate_rate,
+	.recalc		= &propagate_rate,
 };
 
 /*
@@ -646,7 +645,7 @@ static struct clk apll96_ck = {
 				RATE_FIXED | RATE_PROPAGATES,
 	.enable_reg	= OMAP_CM_REGADDR(PLL_MOD, CM_CLKEN),
 	.enable_bit	= OMAP24XX_EN_96M_PLL_SHIFT,
-	.recalc		= &omap2_propagate_rate,
+	.recalc		= &propagate_rate,
 };
 
 static struct clk apll54_ck = {
@@ -657,7 +656,7 @@ static struct clk apll54_ck = {
 				RATE_FIXED | RATE_PROPAGATES,
 	.enable_reg	= OMAP_CM_REGADDR(PLL_MOD, CM_CLKEN),
 	.enable_bit	= OMAP24XX_EN_54M_PLL_SHIFT,
-	.recalc		= &omap2_propagate_rate,
+	.recalc		= &propagate_rate,
 };
 
 /*
@@ -671,7 +670,7 @@ static struct clk func_54m_ck = {
 				RATE_FIXED | CM_PLL_SEL1 | RATE_PROPAGATES |
 				PARENT_CONTROLS_CLOCK,
 	.src_offset	= OMAP24XX_54M_SOURCE_SHIFT,
-	.recalc		= &omap2_propagate_rate,
+	.recalc		= &propagate_rate,
 };
 
 static struct clk core_ck = {
@@ -679,7 +678,7 @@ static struct clk core_ck = {
 	.parent		= &dpll_ck,		/* can also be 32k */
 	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X |
 				ALWAYS_ENABLED | RATE_PROPAGATES,
-	.recalc		= &omap2_propagate_rate,
+	.recalc		= &followparent_recalc,
 };
 
 static struct clk func_96m_ck = {
@@ -689,7 +688,7 @@ static struct clk func_96m_ck = {
 	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X |
 				RATE_FIXED | RATE_PROPAGATES |
 				PARENT_CONTROLS_CLOCK,
-	.recalc		= &omap2_propagate_rate,
+	.recalc		= &propagate_rate,
 };
 
 static struct clk func_48m_ck = {
@@ -700,7 +699,7 @@ static struct clk func_48m_ck = {
 				RATE_FIXED | CM_PLL_SEL1 | RATE_PROPAGATES |
 				PARENT_CONTROLS_CLOCK,
 	.src_offset	= OMAP24XX_48M_SOURCE_SHIFT,
-	.recalc		= &omap2_propagate_rate,
+	.recalc		= &propagate_rate,
 };
 
 static struct clk func_12m_ck = {
@@ -752,7 +751,7 @@ static struct clk emul_ck = {
 	.flags		= CLOCK_IN_OMAP242X,
 	.enable_reg	= OMAP24XX_PRCM_CLKEMUL_CTRL,
 	.enable_bit	= OMAP24XX_EMULATION_EN_SHIFT,
-	.recalc		= &omap2_propagate_rate,
+	.recalc		= &followparent_recalc,
 
 };
 

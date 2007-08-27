@@ -143,14 +143,6 @@ static void omap2_fixed_divisor_recalc(struct clk *clk)
 		propagate_rate(clk);
 }
 
-static void omap2_propagate_rate(struct clk * clk)
-{
-	if (!(clk->flags & RATE_FIXED))
-		clk->rate = clk->parent->rate;
-
-	propagate_rate(clk);
-}
-
 static void omap2_set_osc_ck(int enable)
 {
 	u32 pcc;
