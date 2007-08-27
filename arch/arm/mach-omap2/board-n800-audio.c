@@ -35,6 +35,7 @@
 #define AUDIO_ENABLED
 
 static struct clk *sys_clkout2;
+static struct clk *sys_clkout2_src;
 static struct clk *func96m_clk;
 static struct device *eac_device;
 static struct device *tsc2301_device;
@@ -186,9 +187,15 @@ static void n800_eac_cleanup(struct device *dev)
 
 static int n800_codec_get_clocks(struct device *dev)
 {
+	sys_clkout2_src = clk_get(dev, "sys_clkout2_src");
+	if (IS_ERR(sys_clkout2_src)) {
+		dev_err(dev, "Could not get sys_clkout2_src clock\n");
+		return -ENODEV;
+	}
 	sys_clkout2 = clk_get(dev, "sys_clkout2");
 	if (IS_ERR(sys_clkout2)) {
-		dev_err(dev, "Could not get sys_clkout2\n");
+		dev_err(dev, "Could not get sys_clkout2 clock\n");
+		clk_put(sys_clkout2_src);
 		return -ENODEV;
 	}
 	/* configure 12 MHz output on SYS_CLKOUT2. Therefore we must use
@@ -197,10 +204,11 @@ static int n800_codec_get_clocks(struct device *dev)
 	if (IS_ERR(func96m_clk)) {
 		dev_err(dev, "Could not get func 96M clock\n");
 		clk_put(sys_clkout2);
+		clk_put(sys_clkout2_src);
 		return -ENODEV;
 	}
 
-	clk_set_parent(sys_clkout2, func96m_clk);
+	clk_set_parent(sys_clkout2_src, func96m_clk);
 	clk_set_rate(sys_clkout2, 12000000);
 
 	return 0;
@@ -210,6 +218,7 @@ static void n800_codec_put_clocks(struct device *dev)
 {
 	clk_put(func96m_clk);
 	clk_put(sys_clkout2);
+	clk_put(sys_clkout2_src);
 }
 
 static int n800_codec_enable_clock(struct device *dev)

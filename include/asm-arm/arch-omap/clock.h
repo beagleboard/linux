@@ -14,6 +14,22 @@
 #define __ARCH_ARM_OMAP_CLOCK_H
 
 struct module;
+struct clk;
+
+#if defined(CONFIG_ARCH_OMAP2)
+
+struct clksel_rate {
+	u8			div;
+	u32			val;
+	u8			flags;
+};
+
+struct clksel {
+	struct clk		 *parent;
+	const struct clksel_rate *rates;
+};
+
+#endif
 
 struct clk {
 	struct list_head	node;
@@ -36,6 +52,9 @@ struct clk {
 	void			(*disable)(struct clk *);
 #if defined(CONFIG_ARCH_OMAP2)
 	u8			fixed_div;
+	void __iomem		*clksel_reg;
+	u32			clksel_mask;
+	const struct clksel	*clksel;
 #endif
 };
 
@@ -94,6 +113,12 @@ extern int clk_get_usecount(struct clk *clk);
 #define CLOCK_IN_OMAP343X	(1 << 27)
 #define PARENT_CONTROLS_CLOCK	(1 << 28)
 
+/* Clksel_rate flags */
+#define DEFAULT_RATE            (1 << 0)
+#define RATE_IN_242X            (1 << 1)
+#define RATE_IN_243X            (1 << 2)
+#define RATE_IN_343X            (1 << 3)
+#define RATE_IN_24XX            (RATE_IN_242X | RATE_IN_243X)
 
 
 /* CM_CLKSEL2_PLL.CORE_CLK_SRC options (24XX) */
