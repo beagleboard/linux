@@ -78,10 +78,7 @@ struct cppi;
 
 /* CPPI  Channel Control structure */
 struct cppi_channel {
-	/* First field must be dma_channel for easy type casting
-	 * FIXME just use container_of() and be typesafe instead!
-	 */
-	struct dma_channel Channel;
+	struct dma_channel	channel;
 
 	/* back pointer to the DMA controller structure */
 	struct cppi		*controller;
@@ -89,25 +86,25 @@ struct cppi_channel {
 	/* which direction of which endpoint? */
 	struct musb_hw_ep	*hw_ep;
 	bool			transmit;
-	u8			chNo;
+	u8			index;
 
 	/* DMA modes:  RNDIS or "transparent" */
-	u8			bLastModeRndis;
+	u8			is_rndis;
 
 	/* book keeping for current transfer request */
-	dma_addr_t		startAddr;
-	u32			transferSize;
-	u32			pktSize;
-	u32			currOffset;	/* requested segments */
-	u32			actualLen;	/* completed (Channel.actual) */
+	dma_addr_t		buf_dma;
+	u32			buf_len;
+	u32			maxpacket;
+	u32			offset;		/* dma requested */
 
 	void __iomem		*state_ram;	/* CPPI state */
 
+	struct cppi_descriptor	*freelist;
+
 	/* BD management fields */
-	struct cppi_descriptor	*bdPoolHead;
-	struct cppi_descriptor	*activeQueueHead;
-	struct cppi_descriptor	*activeQueueTail;
-	struct cppi_descriptor	*lastHwBDProcessed;
+	struct cppi_descriptor	*head;
+	struct cppi_descriptor	*tail;
+	struct cppi_descriptor	*last_processed;
 
 	/* use tx_complete in host role to track endpoints waiting for
 	 * FIFONOTEMPTY to clear.
