@@ -110,11 +110,15 @@ static int omap2_onenand_wait(struct mtd_info *mtd, int state)
 		omap2_onenand_writew(syscfg, info->onenand.base + ONENAND_REG_SYS_CFG1);
 
 		INIT_COMPLETION(info->irq_done);
-		result = omap_get_gpio_datain(info->gpio_irq);
-		if (result == -1) {
-			ctrl = omap2_onenand_readw(info->onenand.base + ONENAND_REG_CTRL_STATUS);
-			printk(KERN_ERR "onenand_wait: gpio error, state = %d, ctrl = 0x%04x\n", state, ctrl);
-			return -EIO;
+		if (info->gpio_irq) {
+			result = omap_get_gpio_datain(info->gpio_irq);
+			if (result == -1) {
+				ctrl = omap2_onenand_readw(info->onenand.base + ONENAND_REG_CTRL_STATUS);
+				printk(KERN_ERR "onenand_wait: gpio error, state = %d, ctrl = 0x%04x\n", state, ctrl);
+				return -EIO;
+			}
+		} else {
+			result = 0;
 		}
 		if (result == 0) {
 			int retry_cnt = 0;
@@ -316,6 +320,11 @@ static int __devinit omap2_onenand_probe(struct platform_device *pdev)
 	init_completion(&info->dma_done);
 	info->gpmc_cs = pdata->cs;
 	info->gpio_irq = pdata->gpio_irq;
+	info->dma_channel = pdata->dma_channel;
+	if (info->dma_channel < 0) {
+		/* if -1, don't use DMA */
+		info->gpio_irq = 0;
+	}
 
 	r = gpmc_cs_request(info->gpmc_cs, ONENAND_IO_SIZE, &info->phys_base);
 	if (r < 0) {
@@ -344,10 +353,11 @@ static int __devinit omap2_onenand_probe(struct platform_device *pdev)
 		}
         }
 
-	if ((r = omap_request_gpio(info->gpio_irq)) < 0) {
-		dev_err(&pdev->dev,  "Failed to request GPIO%d for OneNAND\n",
-		        info->gpio_irq);
-		goto err_iounmap;
+	if (info->gpio_irq) {
+		if ((r = omap_request_gpio(info->gpio_irq)) < 0) {
+			dev_err(&pdev->dev,  "Failed to request GPIO%d for OneNAND\n",
+				info->gpio_irq);
+			goto err_iounmap;
 	}
 	omap_set_gpio_direction(info->gpio_irq, 1);
 
@@ -355,20 +365,23 @@ static int __devinit omap2_onenand_probe(struct platform_device *pdev)
 			     omap2_onenand_interrupt, IRQF_TRIGGER_RISING,
 			     pdev->dev.driver->name, info)) < 0)
 		goto err_release_gpio;
+	}
 
-	r = omap_request_dma(0, pdev->dev.driver->name,
-			     omap2_onenand_dma_cb, (void *) info,
-			     &info->dma_channel);
-	if (r == 0) {
-		omap_set_dma_write_mode(info->dma_channel, OMAP_DMA_WRITE_NON_POSTED);
-		omap_set_dma_src_data_pack(info->dma_channel, 1);
-		omap_set_dma_src_burst_mode(info->dma_channel, OMAP_DMA_DATA_BURST_8);
-		omap_set_dma_dest_data_pack(info->dma_channel, 1);
-		omap_set_dma_dest_burst_mode(info->dma_channel, OMAP_DMA_DATA_BURST_8);
-	} else {
-		dev_info(&pdev->dev,
-			 "failed to allocate DMA for OneNAND, using PIO instead\n");
-		info->dma_channel = -1;
+	if (info->dma_channel >= 0) {
+		r = omap_request_dma(0, pdev->dev.driver->name,
+				     omap2_onenand_dma_cb, (void *) info,
+				     &info->dma_channel);
+		if (r == 0) {
+			omap_set_dma_write_mode(info->dma_channel, OMAP_DMA_WRITE_NON_POSTED);
+			omap_set_dma_src_data_pack(info->dma_channel, 1);
+			omap_set_dma_src_burst_mode(info->dma_channel, OMAP_DMA_DATA_BURST_8);
+			omap_set_dma_dest_data_pack(info->dma_channel, 1);
+			omap_set_dma_dest_burst_mode(info->dma_channel, OMAP_DMA_DATA_BURST_8);
+		} else {
+			dev_info(&pdev->dev,
+				 "failed to allocate DMA for OneNAND, using PIO instead\n");
+			info->dma_channel = -1;
+		}
 	}
 
 	dev_info(&pdev->dev, "initializing on CS%d, phys base 0x%08lx, virtual base %p\n",
@@ -378,9 +391,12 @@ static int __devinit omap2_onenand_probe(struct platform_device *pdev)
 	info->mtd.name = pdev->dev.bus_id;
 	info->mtd.priv = &info->onenand;
 	info->mtd.owner = THIS_MODULE;
-	info->onenand.wait = omap2_onenand_wait;
-	info->onenand.read_bufferram = omap2_onenand_read_bufferram;
-	info->onenand.write_bufferram = omap2_onenand_write_bufferram;
+
+	if (info->dma_channel >= 0) {
+		info->onenand.wait = omap2_onenand_wait;
+		info->onenand.read_bufferram = omap2_onenand_read_bufferram;
+		info->onenand.write_bufferram = omap2_onenand_write_bufferram;
+	}
 
 	if ((r = onenand_scan(&info->mtd, 1)) < 0)
 		goto err_release_dma;
@@ -403,9 +419,11 @@ err_release_onenand:
 err_release_dma:
 	if (info->dma_channel != -1)
 		omap_free_dma(info->dma_channel);
-	free_irq(OMAP_GPIO_IRQ(info->gpio_irq), info);
+	if (info->gpio_irq)
+		free_irq(OMAP_GPIO_IRQ(info->gpio_irq), info);
 err_release_gpio:
-	omap_free_gpio(info->gpio_irq);
+	if (info->gpio_irq)
+		omap_free_gpio(info->gpio_irq);
 err_iounmap:
 	iounmap(info->onenand.base);
 err_release_mem_region:
@@ -438,8 +456,10 @@ static int __devexit omap2_onenand_remove(struct platform_device *pdev)
 		omap_free_dma(info->dma_channel);
 	omap2_onenand_shutdown(pdev);
 	platform_set_drvdata(pdev, NULL);
-	free_irq(OMAP_GPIO_IRQ(info->gpio_irq), info);
-	omap_free_gpio(info->gpio_irq);
+	if (info->gpio_irq) {
+		free_irq(OMAP_GPIO_IRQ(info->gpio_irq), info);
+		omap_free_gpio(info->gpio_irq);
+	}
 	iounmap(info->onenand.base);
 	release_mem_region(info->phys_base, ONENAND_IO_SIZE);
 	kfree(info);
