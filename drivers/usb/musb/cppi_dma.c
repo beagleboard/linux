@@ -280,8 +280,7 @@ static inline void core_rxirq_enable(void __iomem *tibase, unsigned epnum)
  */
 static struct dma_channel *
 cppi_channel_allocate(struct dma_controller *c,
-		struct musb_hw_ep *ep,
-		u8 transmit)
+		struct musb_hw_ep *ep, u8 transmit)
 {
 	struct cppi		*controller;
 	u8			index;
@@ -1001,13 +1000,14 @@ static int cppi_channel_program(struct dma_channel *ch,
 	return true;
 }
 
-static int cppi_rx_scan(struct cppi *cppi, unsigned ch)
+static bool cppi_rx_scan(struct cppi *cppi, unsigned ch)
 {
 	struct cppi_channel		*rx = &cppi->rx[ch];
 	struct cppi_rx_stateram __iomem	*state = rx->state_ram;
 	struct cppi_descriptor		*bd;
 	struct cppi_descriptor		*last = rx->last_processed;
-	int				completed = 0, acked = 0;
+	bool				completed = false;
+	bool				acked = false;
 	int				i;
 	dma_addr_t			safe2ack;
 	void __iomem			*regs = rx->hw_ep->regs;
@@ -1016,7 +1016,7 @@ static int cppi_rx_scan(struct cppi *cppi, unsigned ch)
 
 	bd = last ? last->next : rx->head;
 	if (!bd)
-		return 0;
+		return false;
 
 	/* run through all completed BDs */
 	for (i = 0, safe2ack = musb_readl(&state->rx_complete, 0);
@@ -1041,7 +1041,7 @@ static int cppi_rx_scan(struct cppi *cppi, unsigned ch)
 			len = 0;
 
 		if (bd->hw_options & CPPI_EOQ_MASK)
-			completed = 1;
+			completed = true;
 
 		if (!completed && len < bd->buflen) {
 			/* NOTE:  when we get a short packet, RXCSR_H_REQPKT
@@ -1049,7 +1049,7 @@ static int cppi_rx_scan(struct cppi *cppi, unsigned ch)
 			 * active be in the queue... TI docs didn't say, but
 			 * CPPI ignores those BDs even though OWN is still set.
 			 */
-			completed = 1;
+			completed = true;
 			DBG(3, "rx short %d/%d (%d)\n",
 					len, bd->buflen,
 					rx->channel.actual_len);
@@ -1066,7 +1066,7 @@ static int cppi_rx_scan(struct cppi *cppi, unsigned ch)
 		if (bd->dma == safe2ack) {
 			musb_writel(&state->rx_complete, 0, safe2ack);
 			safe2ack = musb_readl(&state->rx_complete, 0);
-			acked = 1;
+			acked = true;
 			if (bd->dma == safe2ack)
 				safe2ack = 0;
 		}
@@ -1078,7 +1078,7 @@ static int cppi_rx_scan(struct cppi *cppi, unsigned ch)
 
 		/* stop scanning on end-of-segment */
 		if (bd->hw_next == 0)
-			completed = 1;
+			completed = true;
 	}
 	rx->last_processed = last;
 
@@ -1140,143 +1140,128 @@ static int cppi_rx_scan(struct cppi *cppi, unsigned ch)
 void cppi_completion(struct musb *musb, u32 rx, u32 tx)
 {
 	void __iomem		*tibase;
-	int			i, chanNum, numCompleted;
-	u8			bReqComplete;
+	int			i, index;
 	struct cppi		*cppi;
-	struct cppi_descriptor	*bdPtr;
 	struct musb_hw_ep	*hw_ep = NULL;
 
 	cppi = container_of(musb->dma_controller, struct cppi, controller);
 
 	tibase = musb->ctrl_base;
 
-	chanNum = 0;
 	/* process TX channels */
-	for (chanNum = 0; tx; tx = tx >> 1, chanNum++) {
-		if (tx & 1) {
-			struct cppi_channel		*tx_ch;
-			struct cppi_tx_stateram __iomem	*txState;
+	for (index = 0; tx; tx = tx >> 1, index++) {
+		struct cppi_channel		*tx_ch;
+		struct cppi_tx_stateram __iomem	*tx_ram;
+		bool				completed = false;
+		struct cppi_descriptor		*bd;
 
-			tx_ch = cppi->tx + chanNum;
-			txState = tx_ch->state_ram;
+		if (!(tx & 1))
+			continue;
 
-			/* FIXME  need a cppi_tx_scan() routine, which
-			 * can also be called from abort code
-			 */
+		tx_ch = cppi->tx + index;
+		tx_ram = tx_ch->state_ram;
 
-			cppi_dump_tx(5, tx_ch, "/E");
+		/* FIXME  need a cppi_tx_scan() routine, which
+		 * can also be called from abort code
+		 */
 
-			bdPtr = tx_ch->head;
+		cppi_dump_tx(5, tx_ch, "/E");
 
-			if (NULL == bdPtr) {
-				DBG(1, "null BD\n");
-				continue;
-			}
+		bd = tx_ch->head;
 
-			i = 0;
-			bReqComplete = 0;
-
-			numCompleted = 0;
-
-			/* run through all completed BDs */
-			for (i = 0;
-					!bReqComplete
-						&& bdPtr
-						&& i < NUM_TXCHAN_BD;
-					i++, bdPtr = bdPtr->next) {
-				u16	len;
-
-				rmb();
-				if (bdPtr->hw_options & CPPI_OWN_SET)
-					break;
-
-				DBG(5, "C/TXBD %p n %x b %x off %x opt %x\n",
-						bdPtr, bdPtr->hw_next,
-						bdPtr->hw_bufp,
-						bdPtr->hw_off_len,
-						bdPtr->hw_options);
-
-				len = bdPtr->hw_off_len & CPPI_BUFFER_LEN_MASK;
-				tx_ch->channel.actual_len += len;
-
-				numCompleted++;
-				tx_ch->last_processed = bdPtr;
-
-				/* write completion register to acknowledge
-				 * processing of completed BDs, and possibly
-				 * release the IRQ; EOQ might not be set ...
-				 *
-				 * REVISIT use the same ack strategy as rx
-				 *
-				 * REVISIT have observed bit 18 set; huh??
-				 */
-				/* if ((bdPtr->hw_options & CPPI_EOQ_MASK)) */
-					musb_writel(&txState->tx_complete, 0,
-							bdPtr->dma);
-
-				/* stop scanning on end-of-segment */
-				if (bdPtr->hw_next == 0)
-					bReqComplete = 1;
-			}
-
-			/* on end of segment, maybe go to next one */
-			if (bReqComplete) {
-				/* cppi_dump_tx(4, tx_ch, "/complete"); */
-
-				/* transfer more, or report completion */
-				if (tx_ch->offset >= tx_ch->buf_len) {
-					tx_ch->head = NULL;
-					tx_ch->tail = NULL;
-					tx_ch->channel.status =
-							MUSB_DMA_STATUS_FREE;
-
-					hw_ep = tx_ch->hw_ep;
-
-					/* Peripheral role never repurposes the
-					 * endpoint, so immediate completion is
-					 * safe.  Host role waits for the fifo
-					 * to empty (TXPKTRDY irq) before going
-					 * to the next queued bulk transfer.
-					 */
-					if (is_host_active(cppi->musb)) {
-#if 0
-						/* WORKAROUND because we may
-						 * not always get TXKPTRDY ...
-						 */
-						int	csr;
-
-						csr = musb_readw(hw_ep->regs,
-							MUSB_TXCSR);
-						if (csr & MUSB_TXCSR_TXPKTRDY)
-#endif
-							bReqComplete = 0;
-					}
-					if (bReqComplete)
-						musb_dma_completion(
-							musb, chanNum + 1, 1);
-
-				} else {
-					/* Bigger transfer than we could fit in
-					 * that first batch of descriptors...
-					 */
-					cppi_next_tx_segment(musb, tx_ch);
-				}
-			} else
-				tx_ch->head = bdPtr;
+		if (NULL == bd) {
+			DBG(1, "null BD\n");
+			continue;
 		}
+
+		/* run through all completed BDs */
+		for (i = 0; !completed && bd && i < NUM_TXCHAN_BD;
+				i++, bd = bd->next) {
+			u16	len;
+
+			rmb();
+			if (bd->hw_options & CPPI_OWN_SET)
+				break;
+
+			DBG(5, "C/TXBD %p n %x b %x off %x opt %x\n",
+					bd, bd->hw_next, bd->hw_bufp,
+					bd->hw_off_len, bd->hw_options);
+
+			len = bd->hw_off_len & CPPI_BUFFER_LEN_MASK;
+			tx_ch->channel.actual_len += len;
+
+			tx_ch->last_processed = bd;
+
+			/* write completion register to acknowledge
+			 * processing of completed BDs, and possibly
+			 * release the IRQ; EOQ might not be set ...
+			 *
+			 * REVISIT use the same ack strategy as rx
+			 *
+			 * REVISIT have observed bit 18 set; huh??
+			 */
+			/* if ((bd->hw_options & CPPI_EOQ_MASK)) */
+				musb_writel(&tx_ram->tx_complete, 0, bd->dma);
+
+			/* stop scanning on end-of-segment */
+			if (bd->hw_next == 0)
+				completed = true;
+		}
+
+		/* on end of segment, maybe go to next one */
+		if (completed) {
+			/* cppi_dump_tx(4, tx_ch, "/complete"); */
+
+			/* transfer more, or report completion */
+			if (tx_ch->offset >= tx_ch->buf_len) {
+				tx_ch->head = NULL;
+				tx_ch->tail = NULL;
+				tx_ch->channel.status = MUSB_DMA_STATUS_FREE;
+
+				hw_ep = tx_ch->hw_ep;
+
+				/* Peripheral role never repurposes the
+				 * endpoint, so immediate completion is
+				 * safe.  Host role waits for the fifo
+				 * to empty (TXPKTRDY irq) before going
+				 * to the next queued bulk transfer.
+				 */
+				if (is_host_active(cppi->musb)) {
+#if 0
+					/* WORKAROUND because we may
+					 * not always get TXKPTRDY ...
+					 */
+					int	csr;
+
+					csr = musb_readw(hw_ep->regs,
+						MUSB_TXCSR);
+					if (csr & MUSB_TXCSR_TXPKTRDY)
+#endif
+						completed = false;
+				}
+				if (completed)
+					musb_dma_completion(musb, index + 1, 1);
+
+			} else {
+				/* Bigger transfer than we could fit in
+				 * that first batch of descriptors...
+				 */
+				cppi_next_tx_segment(musb, tx_ch);
+			}
+		} else
+			tx_ch->head = bd;
 	}
 
 	/* Start processing the RX block */
-	for (chanNum = 0; rx; rx = rx >> 1, chanNum++) {
+	for (index = 0; rx; rx = rx >> 1, index++) {
 
 		if (rx & 1) {
 			struct cppi_channel		*rx_ch;
 
-			rx_ch = cppi->rx + chanNum;
-			bReqComplete = cppi_rx_scan(cppi, chanNum);
+			rx_ch = cppi->rx + index;
 
 			/* let incomplete dma segments finish */
-			if (!bReqComplete)
+			if (!cppi_rx_scan(cppi, index))
 				continue;
 
 			/* start another dma segment if needed */
@@ -1292,8 +1277,8 @@ void cppi_completion(struct musb *musb, u32 rx, u32 tx)
 
 			hw_ep = rx_ch->hw_ep;
 
-			core_rxirq_disable(tibase, chanNum + 1);
-			musb_dma_completion(musb, chanNum + 1, 0);
+			core_rxirq_disable(tibase, index + 1);
+			musb_dma_completion(musb, index + 1, 0);
 		}
 	}
 
@@ -1403,7 +1388,7 @@ static int cppi_channel_abort(struct dma_channel *channel)
 	musb_ep_select(mbase, cppi_ch->index + 1);
 
 	if (cppi_ch->transmit) {
-		struct cppi_tx_stateram __iomem *txState;
+		struct cppi_tx_stateram __iomem *tx_ram;
 		int			enabled;
 
 		/* mask interrupts raised to signal teardown complete.  */
@@ -1423,11 +1408,11 @@ static int cppi_channel_abort(struct dma_channel *channel)
 		} while (!(value & CPPI_TEAR_READY));
 		musb_writel(tibase, DAVINCI_TXCPPI_TEAR_REG, cppi_ch->index);
 
-		txState = cppi_ch->state_ram;
+		tx_ram = cppi_ch->state_ram;
 		do {
-			value = musb_readl(&txState->tx_complete, 0);
+			value = musb_readl(&tx_ram->tx_complete, 0);
 		} while (0xFFFFFFFC != value);
-		musb_writel(&txState->tx_complete, 0, 0xFFFFFFFC);
+		musb_writel(&tx_ram->tx_complete, 0, 0xFFFFFFFC);
 
 		/* FIXME clean up the transfer state ... here?
 		 * the completion routine should get called with
@@ -1454,8 +1439,8 @@ static int cppi_channel_abort(struct dma_channel *channel)
 		 * Value written is compared(for bits 31:2) and when
 		 * equal, interrupt is deasserted.
 		 */
-		cppi_reset_tx(txState, 1);
-		musb_writel(&txState->tx_complete, 0, 0);
+		cppi_reset_tx(tx_ram, 1);
+		musb_writel(&tx_ram->tx_complete, 0, 0);
 
 		cppi_dump_tx(5, cppi_ch, " (done teardown)");
 
@@ -1532,6 +1517,7 @@ static int cppi_channel_abort(struct dma_channel *channel)
 
 		while (queue) {
 			struct cppi_descriptor	*tmp = queue->next;
+
 			cppi_bd_free(cppi_ch, queue);
 			queue = tmp;
 		}
