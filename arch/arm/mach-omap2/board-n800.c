@@ -40,10 +40,10 @@
 #include <asm/arch/blizzard.h>
 
 #include <../drivers/cbus/tahvo.h>
+#include <../drivers/media/video/tcm825x.h>
 
 #define N800_BLIZZARD_POWERDOWN_GPIO 15
 #define N800_STI_GPIO		62
-#define N800_CAM_SENSOR_RESET_GPIO	53
 #define N800_KEYB_IRQ_GPIO		109
 
 static void __init nokia_n800_init_irq(void)
@@ -191,106 +191,9 @@ static void __init blizzard_dev_init(void)
 	omapfb_set_ctrl_platform_data(&n800_blizzard_data);
 }
 
-#if defined(CONFIG_CBUS_RETU) && defined(CONFIG_VIDEO_CAMERA_SENSOR_TCM825X) && \
-	defined(CONFIG_MENELAUS)
-#define SUPPORT_SENSOR
-#endif
-
-#ifdef SUPPORT_SENSOR
-
-static int sensor_okay;
-
-/*
- * VSIM1	--> CAM_IOVDD	--> IOVDD (1.8 V)
- */
-static int tcm825x_sensor_power_on(void *data)
-{
-	int ret;
-
-	if (!sensor_okay)
-		return -ENODEV;
-
-	/* Set VMEM to 1.5V and VIO to 2.5V */
-	ret = menelaus_set_vmem(1500);
-	if (ret < 0) {
-		/* Try once more, it seems the sensor power up causes
-		 * some problems on the I2C bus. */
-		ret = menelaus_set_vmem(1500);
-		if (ret < 0)
-			return ret;
-	}
-	msleep(1);
-
-	ret = menelaus_set_vio(2500);
-	if (ret < 0)
-		return ret;
-
-	/* Set VSim1 on */
-	retu_write_reg(RETU_REG_CTRL_SET, 0x0080);
-	msleep(100);
-
-	omap_set_gpio_dataout(N800_CAM_SENSOR_RESET_GPIO, 1);
-	msleep(1);
-
-	return 0;
-}
-
-static int tcm825x_sensor_power_off(void * data)
-{
-	int ret;
-
-	omap_set_gpio_dataout(N800_CAM_SENSOR_RESET_GPIO, 0);
-	msleep(1);
-
-	/* Set VSim1 off */
-	retu_write_reg(RETU_REG_CTRL_CLR, 0x0080);
-	msleep(1);
-
-	/* Set VIO_MODE to off */
-	ret = menelaus_set_vio(0);
-	if (ret < 0)
-		return ret;
-	msleep(1);
-
-	/* Set VMEM_MODE to off */
-	ret = menelaus_set_vmem(0);
-	if (ret < 0)
-		return ret;
-	msleep(1);
-
-	return 0;
-}
-
-static struct omap_camera_sensor_config n800_sensor_config = {
-	.power_on   = tcm825x_sensor_power_on,
-	.power_off  = tcm825x_sensor_power_off,
-};
-
-static void __init n800_cam_init(void)
-{
-	int r;
-
-	r = omap_request_gpio(N800_CAM_SENSOR_RESET_GPIO);
-	if (r < 0)
-		return;
-
-	omap_set_gpio_dataout(N800_CAM_SENSOR_RESET_GPIO, 0);
-	omap_set_gpio_direction(N800_CAM_SENSOR_RESET_GPIO, 0);
-
-	sensor_okay = 1;
-}
-
-#else
-
-static inline void n800_cam_init(void) {}
-
-#endif
 
 static struct omap_board_config_kernel n800_config[] __initdata = {
 	{ OMAP_TAG_UART,	                &n800_uart_config },
-#ifdef SUPPORT_SENSOR
-	{ OMAP_TAG_CAMERA_SENSOR,		&n800_sensor_config },
-#endif
 	{ OMAP_TAG_FBMEM,			&n800_fbmem0_config },
 	{ OMAP_TAG_FBMEM,			&n800_fbmem1_config },
 	{ OMAP_TAG_FBMEM,			&n800_fbmem2_config },
@@ -526,7 +429,7 @@ static struct menelaus_platform_data n800_menelaus_platform_data = {
 };
 #endif
 
-static struct i2c_board_info __initdata n800_i2c_board_info[] = {
+static struct i2c_board_info __initdata n800_i2c_board_info_1[] = {
 	{
 		I2C_BOARD_INFO("menelaus", 0x72),
 		.irq = INT_24XX_SYS_NIRQ,
@@ -534,12 +437,26 @@ static struct i2c_board_info __initdata n800_i2c_board_info[] = {
 	},
 };
 
+extern struct tcm825x_platform_data n800_tcm825x_platform_data;
+
+static struct i2c_board_info __initdata n800_i2c_board_info_2[] = {
+#if defined (CONFIG_VIDEO_TCM825X) || defined (CONFIG_VIDEO_TCM825X_MODULE)
+	{
+		I2C_BOARD_INFO(TCM825X_NAME, TCM825X_I2C_ADDR),
+		.platform_data = &n800_tcm825x_platform_data,
+	},
+#endif
+};
+
 static void __init nokia_n800_init(void)
 {
 	platform_add_devices(n800_devices, ARRAY_SIZE(n800_devices));
 
-	i2c_register_board_info(1, n800_i2c_board_info,
-			ARRAY_SIZE(n800_i2c_board_info));
+	i2c_register_board_info(1, n800_i2c_board_info_1,
+				ARRAY_SIZE(n800_i2c_board_info_1));
+
+	i2c_register_board_info(2, n800_i2c_board_info_2,
+				ARRAY_SIZE(n800_i2c_board_info_2));
 
 	n800_flash_init();
 	n800_mmc_init();

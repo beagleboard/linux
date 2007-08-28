@@ -69,12 +69,6 @@ struct omap_sti_console_config {
 	u8 channel;
 };
 
-struct omap_camera_sensor_config {
-	u16 reset_gpio;
-	int (*power_on)(void * data);
-	int (*power_off)(void * data);
-};
-
 struct omap_usb_config {
 	/* Configure drivers according to the connectors on your board:
 	 *  - "A" connector (rectagular)

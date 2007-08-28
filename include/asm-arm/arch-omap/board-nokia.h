@@ -19,6 +19,7 @@ extern void n800_flash_init(void);
 extern void n800_mmc_init(void);
 extern void n800_pm_init(void);
 extern void n800_usb_init(void);
+extern void n800_cam_init(void);
 extern void n800_audio_init(struct tsc2301_platform_data *);
 extern int n800_audio_enable(struct dsp_kfunc_device *kdev, int stage);
 extern int n800_audio_disable(struct dsp_kfunc_device *kdev, int stage);
