@@ -700,6 +700,14 @@ config VIDEO_CAFE_CCIC
 	  CMOS camera controller.  This is the controller found on first-
 	  generation OLPC systems.
 
+config VIDEO_OMAP2
+	tristate "OMAP 2 Camera support (EXPERIMENTAL)"
+	select VIDEO_BUF
+	depends on VIDEO_V4L2 && ARCH_OMAP24XX
+	---help---
+	  Driver for an OMAP 2 camera controller.
+
+
 #
 # USB Multimedia device configuration
 #
