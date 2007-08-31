@@ -296,6 +296,7 @@ static irqreturn_t dma_controller_irq(int irq, void *private_data)
 	struct musb_dma_controller *controller =
 		(struct musb_dma_controller *)private_data;
 	struct musb_dma_channel *pImplChannel;
+	struct musb *musb = controller->pDmaPrivate;
 	u8 *mbase = controller->pCoreBase;
 	struct dma_channel *pChannel;
 	u8 bChannel;
@@ -303,6 +304,9 @@ static irqreturn_t dma_controller_irq(int irq, void *private_data)
 	u32 dwAddress;
 	u8 int_hsdma;
 	irqreturn_t retval = IRQ_NONE;
+	unsigned long flags;
+
+	spin_lock_irqsave(&musb->lock, flags);
 
 	int_hsdma = musb_readb(mbase, MUSB_HSDMA_INTR);
 	if (!int_hsdma)
@@ -358,7 +362,7 @@ static irqreturn_t dma_controller_irq(int irq, void *private_data)
 						MUSB_TXCSR_TXPKTRDY);
 				} else
 					musb_dma_completion(
-						controller->pDmaPrivate,
+						musb,
 						pImplChannel->epnum,
 						pImplChannel->transmit);
 			}
@@ -366,6 +370,7 @@ static irqreturn_t dma_controller_irq(int irq, void *private_data)
 	}
 	retval = IRQ_HANDLED;
 done:
+	spin_unlock_irqrestore(&musb->lock, flags);
 	return retval;
 }
 
