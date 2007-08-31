@@ -1712,11 +1712,12 @@ musb_vbus_store(struct device *dev, struct device_attribute *attr,
 	unsigned long	flags;
 	unsigned long	val;
 
-	spin_lock_irqsave(&musb->lock, flags);
 	if (sscanf(buf, "%lu", &val) < 1) {
 		printk(KERN_ERR "Invalid VBUS timeout ms value\n");
 		return -EINVAL;
 	}
+
+	spin_lock_irqsave(&musb->lock, flags);
 	musb->a_wait_bcon = val;
 	if (musb->xceiv.state == OTG_STATE_A_WAIT_BCON)
 		musb->is_active = 0;
