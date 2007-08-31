@@ -181,7 +181,7 @@ static void __init omap_3430sdp_map_io(void)
 	omap2_map_common_io();
 }
 
-MACHINE_START(OMAP_SDP3430, "OMAP3430 sdp3430 board")
+MACHINE_START(OMAP_3430SDP, "OMAP3430 3430SDP board")
 	/* Maintainer: Syed Khasim - Texas Instruments Inc */
 	.phys_io	= 0x48000000,
 	.io_pg_offst	= ((0xd8000000) >> 18) & 0xfffc,
