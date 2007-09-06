@@ -44,7 +44,7 @@ static u8 tusb_get_revision(struct musb *musb)
 	if (TUSB_REV_MAJOR(rev) == 3) {
 		die_id = TUSB_DIDR1_HI_CHIP_REV(musb_readl(tbase,
 				TUSB_DIDR1_HI));
-		if (die_id == TUSB_DIDR1_HI_REV_31)
+		if (die_id >= TUSB_DIDR1_HI_REV_31)
 			rev |= 1;
 	}
 
