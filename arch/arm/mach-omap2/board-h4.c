@@ -625,12 +625,14 @@ static int ov9640_sensor_power_set(int power)
 }
 
 static struct v4l2_ifparm ifparm = {
-	.if_type = V4L2_IF_TYPE_PARALLEL,
+	.if_type = V4L2_IF_TYPE_BT656,
 	.u = {
-		.parallel = {
+		.bt656 = {
 			 .frame_start_on_rising_vs = 1,
 			 .nobt_vs_inv = 1,
-			 .mode = V4L2_IF_TYPE_PARALLEL_MODE_NOBT_8BIT,
+			 .mode = V4L2_IF_TYPE_BT656_MODE_NOBT_8BIT,
+			 .clock_min = OV9640_XCLK_MIN,
+			 .clock_max = OV9640_XCLK_MAX,
 		 },
 	},
 };
