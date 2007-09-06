@@ -159,7 +159,7 @@ static void tusb_omap_dma_cb(int lch, u16 ch_status, void *data)
 	if (ch_status != OMAP_DMA_BLOCK_IRQ)
 		printk(KERN_ERR "TUSB DMA error status: %i\n", ch_status);
 
-	DBG(2, "ep%i %s dma callback ch: %i status: %x\n",
+	DBG(3, "ep%i %s dma callback ch: %i status: %x\n",
 		chdat->epnum, chdat->tx ? "tx" : "rx",
 		ch, ch_status);
 
@@ -223,7 +223,7 @@ static void tusb_omap_dma_cb(int lch, u16 ch_status, void *data)
 		u16	csr;
 
 		if (chdat->tx) {
-			DBG(2, "terminating short tx packet\n");
+			DBG(3, "terminating short tx packet\n");
 			musb_ep_select(mbase, chdat->epnum);
 			csr = musb_readw(hw_ep->regs, MUSB_TXCSR);
 			csr |= MUSB_TXCSR_MODE | MUSB_TXCSR_TXPKTRDY
@@ -338,7 +338,7 @@ static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,
 
 	dma_params.frame_count	= chdat->transfer_len / 32; /* Burst sz frame */
 
-	DBG(2, "ep%i %s dma ch%i dma: %08x len: %u(%u) packet_sz: %i(%i)\n",
+	DBG(3, "ep%i %s dma ch%i dma: %08x len: %u(%u) packet_sz: %i(%i)\n",
 		chdat->epnum, chdat->tx ? "tx" : "rx",
 		ch, dma_addr, chdat->transfer_len, len,
 		chdat->transfer_packet_sz, packet_sz);
@@ -382,7 +382,7 @@ static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,
 		dst_burst = OMAP_DMA_DATA_BURST_16;	/* 16x32 write */
 	}
 
-	DBG(2, "ep%i %s using %i-bit %s dma from 0x%08lx to 0x%08lx\n",
+	DBG(3, "ep%i %s using %i-bit %s dma from 0x%08lx to 0x%08lx\n",
 		chdat->epnum, chdat->tx ? "tx" : "rx",
 		(dma_params.data_type == OMAP_DMA_DATA_TYPE_S32) ? 32 : 16,
 		((dma_addr & 0x3) == 0) ? "sync" : "async",
