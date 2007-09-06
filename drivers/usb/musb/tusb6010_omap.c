@@ -170,22 +170,24 @@ static void tusb_omap_dma_cb(int lch, u16 ch_status, void *data)
 
 	remaining = TUSB_EP_CONFIG_XFR_SIZE(remaining);
 
-	/* HW issue #10: XFR_SIZE may get corrupt on async DMA */
+	/* HW issue #10: XFR_SIZE may get corrupt on DMA (both async & sync) */
 	if (unlikely(remaining > chdat->transfer_len)) {
-		WARN("Corrupt XFR_SIZE with DMA: %lu\n", remaining);
+		DBG(2, "Corrupt %s dma ch%i XFR_SIZE: 0x%08lx\n",
+			chdat->tx ? "tx" : "rx", chdat->ch,
+			remaining);
 		remaining = 0;
 	}
 
 	channel->actual_len = chdat->transfer_len - remaining;
 	pio = chdat->len - channel->actual_len;
 
-	DBG(2, "DMA remaining %lu/%u\n", remaining, chdat->transfer_len);
+	DBG(3, "DMA remaining %lu/%u\n", remaining, chdat->transfer_len);
 
 	/* Transfer remaining 1 - 31 bytes */
 	if (pio > 0 && pio < 32) {
 		u8	*buf;
 
-		DBG(2, "Using PIO for remaining %lu bytes\n", pio);
+		DBG(3, "Using PIO for remaining %lu bytes\n", pio);
 		buf = phys_to_virt((u32)chdat->dma_addr) + chdat->transfer_len;
 		if (chdat->tx) {
 			consistent_sync(phys_to_virt((u32)chdat->dma_addr),
@@ -244,6 +246,7 @@ static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,
 	void __iomem			*ep_conf = hw_ep->conf;
 	dma_addr_t			fifo = hw_ep->fifo_sync;
 	struct omap_dma_channel_params	dma_params;
+	u32				dma_remaining;
 	int				src_burst, dst_burst;
 	u16				csr;
 	int				ch;
@@ -261,6 +264,25 @@ static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,
 	 */
 	if (dma_addr & 0x2)
 		return false;
+
+	/*
+	 * Because of HW issue #10, it seems like mixing sync DMA and async
+	 * PIO access can confuse the DMA. Make sure XFR_SIZE is reset before
+	 * using the channel for DMA.
+	 */
+	if (chdat->tx)
+		dma_remaining = musb_readl(ep_conf, TUSB_EP_TX_OFFSET);
+	else
+		dma_remaining = musb_readl(ep_conf, TUSB_EP_RX_OFFSET);
+
+	dma_remaining = TUSB_EP_CONFIG_XFR_SIZE(dma_remaining);
+	if (dma_remaining) {
+		DBG(2, "Busy %s dma ch%i, not using: %08x\n",
+			chdat->tx ? "tx" : "rx", chdat->ch,
+			dma_remaining);
+		return false;
+	}
+
 
 	chdat->transfer_len = len & ~0x1f;
 
