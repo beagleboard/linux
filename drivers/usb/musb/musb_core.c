@@ -1825,6 +1825,9 @@ allocate_instance(struct device *dev, void __iomem *mbase)
 		ep->epnum = epnum;
 	}
 
+#ifdef CONFIG_USB_MUSB_OTG
+	otg_set_transceiver(&musb->xceiv);
+#endif
 	musb->controller = dev;
 	return musb;
 }
@@ -1868,6 +1871,10 @@ static void musb_free(struct musb *musb)
 		clk_disable(musb->clock);
 		clk_put(musb->clock);
 	}
+
+#ifdef CONFIG_USB_MUSB_OTG
+	put_device(musb->xceiv.dev);
+#endif
 
 #ifdef CONFIG_USB_MUSB_HDRC_HCD
 	usb_put_hcd(musb_to_hcd(musb));
