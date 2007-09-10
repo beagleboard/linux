@@ -321,7 +321,6 @@ void musb_hnp_stop(struct musb *musb)
 	switch (musb->xceiv.state) {
 	case OTG_STATE_A_PERIPHERAL:
 	case OTG_STATE_A_WAIT_VFALL:
-	case OTG_STATE_A_WAIT_BCON:
 		DBG(1, "HNP: Switching back to A-host\n");
 		musb_g_disconnect(musb);
 		musb->xceiv.state = OTG_STATE_A_IDLE;
@@ -636,19 +635,9 @@ static irqreturn_t musb_stage0_irq(struct musb * musb, u8 int_usb,
 				musb_writeb(mbase, MUSB_DEVCTL, 0);
 			}
 		} else if (is_peripheral_capable()) {
-			DBG(1, "BUS RESET as %s\n", otg_state_string(musb));
-			switch (musb->xceiv.state) {
-			case OTG_STATE_A_PERIPHERAL:
-			case OTG_STATE_A_WAIT_BCON:	/* OPT TD.4.7-900ms */
-				musb_hnp_stop(musb);
-				break;
-			case OTG_STATE_B_PERIPHERAL:
-				musb_g_reset(musb);
-				break;
-			default:
-				DBG(1, "Unhandled BUS RESET as %s\n",
-					otg_state_string(musb));
-			}
+			DBG(1, "BUS RESET\n");
+
+			musb_g_reset(musb);
 			schedule_work(&musb->irq_work);
 		}
 
@@ -740,7 +729,6 @@ static irqreturn_t musb_stage2_irq(struct musb * musb, u8 int_usb,
 			musb_hnp_stop(musb);
 			break;
 		case OTG_STATE_A_PERIPHERAL:
-			musb_hnp_stop(musb);
 			musb_root_disconnect(musb);
 			/* FALLTHROUGH */
 		case OTG_STATE_B_WAIT_ACON:
@@ -769,10 +757,7 @@ static irqreturn_t musb_stage2_irq(struct musb * musb, u8 int_usb,
 		switch (musb->xceiv.state) {
 #ifdef	CONFIG_USB_MUSB_OTG
 		case OTG_STATE_A_PERIPHERAL:
-			/*
-			 * We cannot stop HNP here, devctl BDEVICE might be
-			 * still set.
-			 */
+			musb_hnp_stop(musb);
 			break;
 #endif
 		case OTG_STATE_B_PERIPHERAL:
