@@ -29,6 +29,19 @@
 #include "cm_regbits_24xx.h"
 #include "sdrc.h"
 
+static void omap2_table_mpu_recalc(struct clk *clk);
+static int omap2_select_table_rate(struct clk *clk, unsigned long rate);
+static long omap2_round_to_table_rate(struct clk *clk, unsigned long rate);
+static void omap2_sys_clk_recalc(struct clk *clk);
+static void omap2_osc_clk_recalc(struct clk *clk);
+static void omap2_sys_clk_recalc(struct clk *clk);
+static void omap2_dpll_recalc(struct clk *clk);
+static int omap2_clk_fixed_enable(struct clk *clk);
+static void omap2_clk_fixed_disable(struct clk *clk);
+static int omap2_enable_osc_ck(struct clk *clk);
+static void omap2_disable_osc_ck(struct clk *clk);
+static int omap2_reprogram_dpll(struct clk *clk, unsigned long rate);
+
 /* Key dividers which make up a PRCM set. Ratio's for a PRCM are mandated.
  * xtal_speed, dpll_speed, mpu_speed, CM_CLKSEL_MPU,CM_CLKSEL_DSP
  * CM_CLKSEL_GFX, CM_CLKSEL1_CORE, CM_CLKSEL1_PLL CM_CLKSEL2_PLL, CM_CLKSEL_MDM
