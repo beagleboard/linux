@@ -46,4 +46,35 @@ static u32 __attribute__((unused)) sdrc_read_reg(u16 reg)
 	return __raw_readl(OMAP_SDRC_REGADDR(reg));
 }
 
+/*
+ * These values represent the number of memory clock cycles between
+ * autorefresh initiation.  They assume 1 refresh per 64 ms (JEDEC), 8192
+ * rows per device, and include a subtraction of a 50 cycle window in the
+ * event that the autorefresh command is delayed due to other SDRC activity.
+ * The '| 1' sets the ARE field to send one autorefresh when the autorefresh
+ * counter reaches 0.
+ *
+ * These represent optimal values for common parts, it won't work for all.
+ * As long as you scale down, most parameters are still work, they just
+ * become sub-optimal. The RFR value goes in the opposite direction. If you
+ * don't adjust it down as your clock period increases the refresh interval
+ * will not be met. Setting all parameters for complete worst case may work,
+ * but may cut memory performance by 2x. Due to errata the DLLs need to be
+ * unlocked and their value needs run time calibration.	A dynamic call is
+ * need for that as no single right value exists acorss production samples.
+ *
+ * Only the FULL speed values are given. Current code is such that rate
+ * changes must be made at DPLLoutx2. The actual value adjustment for low
+ * frequency operation will be handled by omap_set_performance()
+ *
+ * By having the boot loader boot up in the fastest L4 speed available likely
+ * will result in something which you can switch between.
+ */
+#define SDRC_RFR_CTRL_165MHz	(0x00044c00 | 1)
+#define SDRC_RFR_CTRL_133MHz	(0x0003de00 | 1)
+#define SDRC_RFR_CTRL_100MHz	(0x0002da01 | 1)
+#define SDRC_RFR_CTRL_110MHz	(0x0002da01 | 1) /* Need to calc */
+#define SDRC_RFR_CTRL_BYPASS	(0x00005000 | 1) /* Need to calc */
+
+
 #endif

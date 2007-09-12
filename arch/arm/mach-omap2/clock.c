@@ -623,7 +623,7 @@ static int omap2_reprogram_dpll(struct clk * clk, unsigned long rate)
 		tmpset.cm_clksel1_pll |= (mult << mask_to_shift(dd->div1_mask));
 
 		/* Worst case */
-		tmpset.base_sdrc_rfr = V24XX_SDRC_RFR_CTRL_BYPASS;
+		tmpset.base_sdrc_rfr = SDRC_RFR_CTRL_BYPASS;
 
 		if (rate == curr_prcm_set->xtal_speed)	/* If asking for 1-1 */
 			bypass = 1;
