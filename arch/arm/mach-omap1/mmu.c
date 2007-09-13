@@ -201,8 +201,8 @@ static int omap1_mmu_startup(struct omap_mmu *mmu)
 {
 	dspvect_page = (void *)__get_dma_pages(GFP_KERNEL, 0);
 	if (dspvect_page == NULL) {
-		printk(KERN_ERR "MMU: failed to allocate memory "
-				"for dsp vector table\n");
+		dev_err(&mmu->dev, "MMU: failed to allocate memory "
+			"for dsp vector table\n");
 		return -ENOMEM;
 	}
 
@@ -238,13 +238,13 @@ static inline unsigned long omap1_mmu_cam_va(struct cam_ram_regset *cr)
 }
 
 static struct cam_ram_regset *
-omap1_mmu_cam_ram_alloc(struct omap_mmu_tlb_entry *entry)
+omap1_mmu_cam_ram_alloc(struct omap_mmu *mmu, struct omap_mmu_tlb_entry *entry)
 {
 	struct cam_ram_regset *cr;
 
 	if (entry->va & ~(get_cam_va_mask(entry->pgsz))) {
-		printk(KERN_ERR "MMU: mapping vadr (0x%06lx) is not on an "
-		       "aligned boundary\n", entry->va);
+		dev_err(&mmu->dev, "MMU: mapping vadr (0x%06lx) is not on an "
+			"aligned boundary\n", entry->va);
 		return ERR_PTR(-EINVAL);
 	}
 

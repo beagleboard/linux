@@ -64,7 +64,7 @@ static void exmap_setup_iomap_page(struct omap_mmu *mmu, unsigned long phys,
 
 	dspadr = (IOMAP_VAL << 18) + (dsp_io_adr << 1);
 	virt = omap_mmu_to_virt(mmu, dspadr);
-	exmap_set_armmmu((unsigned long)virt, phys, PAGE_SIZE);
+	exmap_set_armmmu(mmu, (unsigned long)virt, phys, PAGE_SIZE);
 	INIT_EXMAP_TBL_ENTRY_4KB_PRESERVED(mmu->exmap_tbl + index, NULL, virt);
 	INIT_TLB_ENTRY_4KB_ES32_PRESERVED(&tlb_ent, dspadr, phys);
 	omap_mmu_load_pte_entry(mmu, &tlb_ent);
@@ -78,7 +78,7 @@ static void exmap_clear_iomap_page(struct omap_mmu *mmu,
 
 	dspadr = (IOMAP_VAL << 18) + (dsp_io_adr << 1);
 	virt = omap_mmu_to_virt(mmu, dspadr);
-	exmap_clear_armmmu((unsigned long)virt, PAGE_SIZE);
+	exmap_clear_armmmu(mmu, (unsigned long)virt, PAGE_SIZE);
 	/* DSP MMU is shutting down. not handled here. */
 }
 
@@ -153,8 +153,8 @@ static int omap2_mmu_startup(struct omap_mmu *mmu)
 
 	dspvect_page = (void *)__get_dma_pages(GFP_KERNEL, 0);
 	if (dspvect_page == NULL) {
-		printk(KERN_ERR "MMU: failed to allocate memory "
-				"for dsp vector table\n");
+		dev_err(&mmu->dev, "MMU: failed to allocate memory "
+			"for dsp vector table\n");
 		return -ENOMEM;
 	}
 
@@ -261,13 +261,13 @@ static inline unsigned long omap2_mmu_cam_va(struct cam_ram_regset *cr)
 }
 
 static struct cam_ram_regset *
-omap2_mmu_cam_ram_alloc(struct omap_mmu_tlb_entry *entry)
+omap2_mmu_cam_ram_alloc(struct omap_mmu *mmu, struct omap_mmu_tlb_entry *entry)
 {
 	struct cam_ram_regset *cr;
 
 	if (entry->va & ~(get_cam_va_mask(entry->pgsz))) {
-		printk(KERN_ERR "MMU: mapping vadr (0x%06lx) is not on an "
-		       "aligned boundary\n", entry->va);
+		dev_err(&mmu->dev, "MMU: mapping vadr (0x%06lx) is not on an "
+			"aligned boundary\n", entry->va);
 		return ERR_PTR(-EINVAL);
 	}
 
@@ -292,11 +292,16 @@ static void omap2_mmu_interrupt(struct omap_mmu *mmu)
 	status = MMU_IRQ_MASK & omap_mmu_read_reg(mmu, OMAP_MMU_IRQSTATUS);
 	va = omap_mmu_read_reg(mmu, OMAP_MMU_FAULT_AD);
 
-	pr_info("%s\n", (status & OMAP_MMU_IRQ_MULTIHITFAULT)		? "multi hit":"");
-	pr_info("%s\n", (status & OMAP_MMU_IRQ_TABLEWALKFAULT)		? "table walk fault":"");
-	pr_info("%s\n", (status & OMAP_MMU_IRQ_EMUMISS)			? "EMU miss":"");
-	pr_info("%s\n", (status & OMAP_MMU_IRQ_TRANSLATIONFAULT)	? "translation fault":"");
-	pr_info("%s\n", (status & OMAP_MMU_IRQ_TLBMISS)			? "TLB miss":"");
+	pr_info("%s\n", (status & OMAP_MMU_IRQ_MULTIHITFAULT)?
+		"multi hit":"");
+	pr_info("%s\n", (status & OMAP_MMU_IRQ_TABLEWALKFAULT)?
+		"table walk fault":"");
+	pr_info("%s\n", (status & OMAP_MMU_IRQ_EMUMISS)?
+		"EMU miss":"");
+	pr_info("%s\n", (status & OMAP_MMU_IRQ_TRANSLATIONFAULT)?
+		"translation fault":"");
+	pr_info("%s\n", (status & OMAP_MMU_IRQ_TLBMISS)?
+		"TLB miss":"");
 	pr_info("fault address = %#08lx\n", va);
 
 	omap_mmu_disable(mmu);

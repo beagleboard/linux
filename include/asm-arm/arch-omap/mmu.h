@@ -69,7 +69,8 @@ struct omap_mmu_ops {
 	ssize_t (*show)(struct omap_mmu *, char *, struct omap_mmu_tlb_lock *);
 
 	/* CAM / RAM operations */
-	struct cam_ram_regset *(*cam_ram_alloc)(struct omap_mmu_tlb_entry *);
+	struct cam_ram_regset *(*cam_ram_alloc)(struct omap_mmu *,
+						struct omap_mmu_tlb_entry *);
 	int (*cam_ram_valid)(struct cam_ram_regset *);
 	unsigned long (*cam_va)(struct cam_ram_regset *);
 
@@ -182,15 +183,19 @@ void omap_mmu_exmap_flush(struct omap_mmu *mmu);
 void omap_mmu_exmap_use(struct omap_mmu *mmu, void *vadr, size_t len);
 void omap_mmu_exmap_unuse(struct omap_mmu *mmu, void *vadr, size_t len);
 
-int exmap_set_armmmu(unsigned long virt, unsigned long phys, unsigned long size);
-void exmap_clear_armmmu(unsigned long virt, unsigned long size);
+int exmap_set_armmmu(struct omap_mmu *mmu, unsigned long virt,
+		     unsigned long phys, unsigned long size);
+void exmap_clear_armmmu(struct omap_mmu *mmu, unsigned long virt,
+			unsigned long size);
 void exmap_setup_preserved_mem_page(struct omap_mmu *mmu, void *buf,
 				    unsigned long dspadr, int index);
 void exmap_clear_mem_page(struct omap_mmu *mmu, unsigned long dspadr);
 int exmap_valid(struct omap_mmu *mmu, void *vadr, size_t len);
 
 /* To be obsolete for backward compatibility */
-ssize_t __omap_mmu_mem_read(struct omap_mmu *mmu, struct bin_attribute *, char *buf, loff_t offset, size_t count);
-ssize_t __omap_mmu_mem_write(struct omap_mmu *mmu, struct bin_attribute *, char *buf, loff_t offset, size_t count);
+ssize_t __omap_mmu_mem_read(struct omap_mmu *mmu, struct bin_attribute *,
+			    char *buf, loff_t offset, size_t count);
+ssize_t __omap_mmu_mem_write(struct omap_mmu *mmu, struct bin_attribute *,
+			    char *buf, loff_t offset, size_t count);
 
 #endif /* __ARCH_OMAP_MMU_H */
