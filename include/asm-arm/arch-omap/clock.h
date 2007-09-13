@@ -16,7 +16,7 @@
 struct module;
 struct clk;
 
-#if defined(CONFIG_ARCH_OMAP2)
+#if defined(CONFIG_ARCH_OMAP2) || defined(CONFIG_ARCH_OMAP3)
 
 struct clksel_rate {
 	u8			div;
