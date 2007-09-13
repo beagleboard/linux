@@ -597,7 +597,5 @@ void omap24xxcam_sgdma_init(struct omap24xxcam_sgdma *sgdma,
 	}
 
 	omap24xxcam_dma_init(&sgdma->dma, base);
-	init_timer(&sgdma->reset_timer);
-	sgdma->reset_timer.function = reset_callback;
-	sgdma->reset_timer.data = reset_callback_data;
+	setup_timer(&sgdma->reset_timer, reset_callback, reset_callback_data);
 }
