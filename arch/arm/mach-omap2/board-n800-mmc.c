@@ -64,7 +64,7 @@ static int n800_mmc_set_power(struct device *dev, int slot, int power_on,
 		case MMC_VDD_28_29:
 			mV = 2800;
 			break;
-		case MMC_VDD_18_19:
+		case MMC_VDD_165_195:
 			mV = 1850;
 			break;
 		default:
@@ -96,16 +96,10 @@ static int n800_mmc_set_power(struct device *dev, int slot, int power_on,
 			mV = 2200;
 			break;
 		case MMC_VDD_20_21:
-		case MMC_VDD_19_20:
 			mV = 2000;
 			break;
-		case MMC_VDD_18_19:
-		case MMC_VDD_17_18:
+		case MMC_VDD_165_195:
 			mV = 1800;
-			break;
-		case MMC_VDD_150_155:
-		case MMC_VDD_145_150:
-			mV = 1500;
 			break;
 		default:
 			BUG();
@@ -235,7 +229,8 @@ static struct omap_mmc_platform_data n800_mmc_data = {
 		.set_bus_mode	= n800_mmc_set_bus_mode,
 		.get_ro		= NULL,
 		.get_cover_state= n800_mmc_get_cover_state,
-		.ocr_mask	= MMC_VDD_18_19 | MMC_VDD_28_29 | MMC_VDD_30_31 |
+		.ocr_mask	= MMC_VDD_165_195 |
+				  MMC_VDD_28_29 | MMC_VDD_30_31 |
 				  MMC_VDD_32_33 | MMC_VDD_33_34,
 		.name		= "internal",
 	},
@@ -244,8 +239,7 @@ static struct omap_mmc_platform_data n800_mmc_data = {
 		.set_bus_mode	= n800_mmc_set_bus_mode,
 		.get_ro		= NULL,
 		.get_cover_state= n800_mmc_get_cover_state,
-		.ocr_mask	= MMC_VDD_150_155 | MMC_VDD_145_150 | MMC_VDD_17_18 |
-				  MMC_VDD_18_19 | MMC_VDD_19_20 | MMC_VDD_20_21 |
+		.ocr_mask	= MMC_VDD_165_195 | MMC_VDD_20_21 |
 				  MMC_VDD_21_22 | MMC_VDD_22_23 | MMC_VDD_23_24 |
 				  MMC_VDD_24_25 | MMC_VDD_27_28 | MMC_VDD_28_29 |
 				  MMC_VDD_29_30 | MMC_VDD_30_31 | MMC_VDD_32_33 |
