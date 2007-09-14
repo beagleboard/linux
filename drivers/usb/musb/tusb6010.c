@@ -34,7 +34,7 @@ static void tusb_source_power(struct musb *musb, int is_on);
  * Checks the revision. We need to use the DMA register as 3.0 does not
  * have correct versions for TUSB_PRCM_REV or TUSB_INT_CTRL_REV.
  */
-static u8 tusb_get_revision(struct musb *musb)
+u8 tusb_get_revision(struct musb *musb)
 {
 	void __iomem	*tbase = musb->ctrl_base;
 	u32		die_id;
