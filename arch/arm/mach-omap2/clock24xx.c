@@ -178,10 +178,11 @@ static void omap2_dpll_recalc(struct clk *clk)
 
 static int omap2_reprogram_dpll(struct clk *clk, unsigned long rate)
 {
-	u32 flags, cur_rate, low, mult, div, valid_rate, done_rate;
+	u32 cur_rate, low, mult, div, valid_rate, done_rate;
 	u32 bypass = 0;
 	struct prcm_config tmpset;
 	const struct dpll_data *dd;
+	unsigned long flags;
 	int ret = -EINVAL;
 
 	local_irq_save(flags);
@@ -295,9 +296,10 @@ static long omap2_round_to_table_rate(struct clk *clk, unsigned long rate)
 /* Sets basic clocks based on the specified rate */
 static int omap2_select_table_rate(struct clk *clk, unsigned long rate)
 {
-	u32 flags, cur_rate, done_rate, bypass = 0, tmp;
+	u32 cur_rate, done_rate, bypass = 0, tmp;
 	struct prcm_config *prcm;
 	unsigned long found_speed = 0;
+	unsigned long flags;
 
 	if (clk != &virt_prcm_set)
 		return -EINVAL;

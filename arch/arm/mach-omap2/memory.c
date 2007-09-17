@@ -75,7 +75,8 @@ u32 omap2_dll_force_needed(void)
 u32 omap2_reprogram_sdrc(u32 level, u32 force)
 {
 	u32 dll_ctrl, m_type;
-	u32 prev = curr_perf_level, flags;
+	u32 prev = curr_perf_level;
+	unsigned long flags;
 
 	if ((curr_perf_level == level) && !force)
 		return prev;
