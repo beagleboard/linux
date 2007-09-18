@@ -38,7 +38,7 @@ static struct plat_serial8250_port serial_platform_data[] = {
 		.flags		= UPF_BOOT_AUTOCONF,
 		.iotype		= UPIO_MEM,
 		.regshift	= 2,
-		.uartclk	= OMAP16XX_BASE_BAUD * 16,
+		.uartclk	= OMAP24XX_BASE_BAUD * 16,
 	}, {
 		.membase	= (char *)IO_ADDRESS(OMAP_UART2_BASE),
 		.mapbase	= (unsigned long)OMAP_UART2_BASE,
@@ -46,7 +46,7 @@ static struct plat_serial8250_port serial_platform_data[] = {
 		.flags		= UPF_BOOT_AUTOCONF,
 		.iotype		= UPIO_MEM,
 		.regshift	= 2,
-		.uartclk	= OMAP16XX_BASE_BAUD * 16,
+		.uartclk	= OMAP24XX_BASE_BAUD * 16,
 	}, {
 		.membase	= (char *)IO_ADDRESS(OMAP_UART3_BASE),
 		.mapbase	= (unsigned long)OMAP_UART3_BASE,
@@ -54,7 +54,7 @@ static struct plat_serial8250_port serial_platform_data[] = {
 		.flags		= UPF_BOOT_AUTOCONF,
 		.iotype		= UPIO_MEM,
 		.regshift	= 2,
-		.uartclk	= OMAP16XX_BASE_BAUD * 16,
+		.uartclk	= OMAP24XX_BASE_BAUD * 16,
 	}, {
 		.flags		= 0
 	}
@@ -87,7 +87,7 @@ static inline void __init omap_serial_reset(struct plat_serial8250_port *p)
 	serial_write_reg(p, UART_OMAP_SYSC, (0x02 << 3) | (1 << 2) | (1 << 0));
 }
 
-void __init omap_serial_init()
+void __init omap_serial_init(void)
 {
 	int i;
 	const struct omap_uart_config *info;
@@ -98,8 +98,7 @@ void __init omap_serial_init()
 	 * if not needed.
 	 */
 
-	info = omap_get_config(OMAP_TAG_UART,
-			       struct omap_uart_config);
+	info = omap_get_config(OMAP_TAG_UART, struct omap_uart_config);
 
 	if (info == NULL)
 		return;
@@ -118,46 +117,40 @@ void __init omap_serial_init()
 			uart1_ick = clk_get(NULL, "uart1_ick");
 			if (IS_ERR(uart1_ick))
 				printk("Could not get uart1_ick\n");
-			else {
+			else
 				clk_enable(uart1_ick);
-			}
 
 			uart1_fck = clk_get(NULL, "uart1_fck");
 			if (IS_ERR(uart1_fck))
 				printk("Could not get uart1_fck\n");
-			else {
+			else
 				clk_enable(uart1_fck);
-			}
 			break;
 		case 1:
 			uart2_ick = clk_get(NULL, "uart2_ick");
 			if (IS_ERR(uart2_ick))
 				printk("Could not get uart2_ick\n");
-			else {
+			else
 				clk_enable(uart2_ick);
-			}
 
 			uart2_fck = clk_get(NULL, "uart2_fck");
 			if (IS_ERR(uart2_fck))
 				printk("Could not get uart2_fck\n");
-			else {
+			else
 				clk_enable(uart2_fck);
-			}
 			break;
 		case 2:
 			uart3_ick = clk_get(NULL, "uart3_ick");
 			if (IS_ERR(uart3_ick))
 				printk("Could not get uart3_ick\n");
-			else {
+			else
 				clk_enable(uart3_ick);
-			}
 
 			uart3_fck = clk_get(NULL, "uart3_fck");
 			if (IS_ERR(uart3_fck))
 				printk("Could not get uart3_fck\n");
-			else {
+			else
 				clk_enable(uart3_fck);
-			}
 			break;
 		}
 
