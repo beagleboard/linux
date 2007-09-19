@@ -652,11 +652,11 @@ static irqreturn_t musb_stage0_irq(struct musb * musb, u8 int_usb,
 				DBG(1, "Unhandled BUS RESET as %s\n",
 					otg_state_string(musb));
 			}
-			schedule_work(&musb->irq_work);
 		}
 
 		handled = IRQ_HANDLED;
 	}
+	schedule_work(&musb->irq_work);
 
 	return handled;
 }
@@ -811,6 +811,7 @@ static irqreturn_t musb_stage2_irq(struct musb * musb, u8 int_usb,
 			musb->is_active = 0;
 			break;
 		}
+		schedule_work(&musb->irq_work);
 	}
 
 
