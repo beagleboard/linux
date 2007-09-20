@@ -190,6 +190,7 @@ void musb_root_disconnect(struct musb *musb)
 	case OTG_STATE_A_HOST:
 	case OTG_STATE_A_SUSPEND:
 		musb->xceiv.state = OTG_STATE_A_WAIT_BCON;
+		musb->is_active = 0;
 		break;
 	case OTG_STATE_A_WAIT_VFALL:
 		musb->xceiv.state = OTG_STATE_B_IDLE;

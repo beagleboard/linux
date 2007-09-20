@@ -2128,9 +2128,11 @@ static int musb_bus_suspend(struct usb_hcd *hcd)
 {
 	struct musb	*musb = hcd_to_musb(hcd);
 
-	if (is_host_active(musb) && musb->is_active)
+	if (is_host_active(musb) && musb->is_active) {
+		WARN("trying to suspend as %s is_active=%i\n",
+			otg_state_string(musb), musb->is_active);
 		return -EBUSY;
-	else
+	} else
 		return 0;
 }
 
