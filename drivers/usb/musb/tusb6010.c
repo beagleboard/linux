@@ -422,18 +422,15 @@ static void musb_do_idle(unsigned long _musb)
 
 	switch (musb->xceiv.state) {
 	case OTG_STATE_A_WAIT_BCON:
-	case OTG_STATE_A_WAIT_VRISE:
-	case OTG_STATE_A_IDLE:
 		if ((musb->a_wait_bcon != 0)
 			&& (musb->idle_timeout == 0
 				|| time_after(jiffies, musb->idle_timeout))) {
 			DBG(4, "Nothing connected %s, turning off VBUS\n",
 					otg_state_string(musb));
-			tusb_source_power(musb, 0);
-			musb->xceiv.state = OTG_STATE_A_WAIT_VFALL;
-			musb->is_active = 0;
 		}
-		break;
+		/* FALLTHROUGH */
+	case OTG_STATE_A_IDLE:
+		tusb_source_power(musb, 0);
 	default:
 		break;
 	}
@@ -533,7 +530,6 @@ static void tusb_source_power(struct musb *musb, int is_on)
 	if (is_on) {
 		if (musb->set_clock)
 			musb->set_clock(musb->clock, 1);
-		musb->is_active = 1;
 		timer = OTG_TIMER_MS(OTG_TIME_A_WAIT_VRISE);
 		musb->xceiv.default_a = 1;
 		musb->xceiv.state = OTG_STATE_A_WAIT_VRISE;
@@ -550,10 +546,12 @@ static void tusb_source_power(struct musb *musb, int is_on)
 		otg_stat = musb_readl(tbase, TUSB_DEV_OTG_STAT);
 		if (!(otg_stat & TUSB_DEV_OTG_STAT_ID_STATUS)) {
 			switch (musb->xceiv.state) {
-			case OTG_STATE_A_WAIT_VFALL:
-				break;
 			case OTG_STATE_A_WAIT_VRISE:
+			case OTG_STATE_A_WAIT_BCON:
 				musb->xceiv.state = OTG_STATE_A_WAIT_VFALL;
+				break;
+			case OTG_STATE_A_WAIT_VFALL:
+				musb->xceiv.state = OTG_STATE_A_IDLE;
 				break;
 			default:
 				musb->xceiv.state = OTG_STATE_A_IDLE;
@@ -798,6 +796,7 @@ tusb_otg_ints(struct musb *musb, u32 int_src, void __iomem *tbase)
 			break;
 		}
 	}
+	schedule_work(&musb->irq_work);
 
 	return idle_timeout;
 }
