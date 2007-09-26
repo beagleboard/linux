@@ -482,7 +482,9 @@ void musb_platform_try_idle(struct musb *musb, unsigned long timeout)
 	if (timeout == 0)
 		timeout = default_timeout;
 
-	if (musb->is_active) {
+	/* Never idle if active, or when VBUS timeout is not set as host */
+	if (musb->is_active || ((musb->a_wait_bcon == 0)
+			&& (musb->xceiv.state == OTG_STATE_A_WAIT_BCON))) {
 		DBG(4, "%s active, deleting timer\n", otg_state_string(musb));
 		del_timer(&musb_idle_timer);
 		last_timer = jiffies;
