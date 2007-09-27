@@ -55,6 +55,12 @@
 
 #if defined(CONFIG_ARCH_OMAP3430)
 
+/*
+ * REVISIT: OMAP3430 has two CONTROL_DEVCONF registers, CONTROL_DEVCONF0
+ * and CONTROL_DEVCONF1.  We should probably split those defines, along
+ * with any other System Control Module registers and read/write fns,
+ * out to a separate scm.h file, and do this for 24xx also.
+ */
 #define OMAP2_32KSYNCT_BASE		OMAP3430_32KSYNCT_BASE
 #define OMAP2_CM_BASE			OMAP3430_CM_BASE
 #define OMAP2_PRM_BASE			OMAP3430_PRM_BASE
@@ -63,7 +69,8 @@
 #define OMAP2_L4_BASE			L4_34XX_BASE
 #define OMAP2_VA_IC_BASE		IO_ADDRESS(OMAP34XX_IC_BASE)
 #define OMAP2_CTRL_BASE			OMAP3430_CTRL_BASE
-#define OMAP34XX_CONTROL_DEVCONF	(L4_34XX_BASE + 0x274)
+#define OMAP34XX_CONTROL_DEVCONF0	(L4_34XX_BASE + 0x2274)
+#define OMAP34XX_CONTROL_DEVCONF1	(L4_34XX_BASE + 0x22D8)
 
 #endif
 
