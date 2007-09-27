@@ -395,7 +395,11 @@ void __init gpmc_init(void)
 {
 	u32 l;
 
-	gpmc_l3_clk = clk_get(NULL, "core_l3_ck");
+	if (cpu_is_omap24xx())
+		gpmc_l3_clk = clk_get(NULL, "core_l3_ck");
+	else if (cpu_is_omap34xx())
+		gpmc_l3_clk = clk_get(NULL, "gpmc_fck");
+
 	BUG_ON(IS_ERR(gpmc_l3_clk));
 
 	l = gpmc_read_reg(GPMC_REVISION);
