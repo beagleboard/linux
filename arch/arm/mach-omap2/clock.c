@@ -19,6 +19,8 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
+#undef DEBUG
+
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/device.h>
@@ -31,6 +33,7 @@
 
 #include <asm/arch/clock.h>
 #include <asm/arch/sram.h>
+#include <asm/arch/cpu.h>
 #include <asm/div64.h>
 
 #include "memory.h"
@@ -41,9 +44,7 @@
 #include "cm.h"
 #include "cm_regbits_24xx.h"
 
-#undef DEBUG
-
-#define MAX_PLL_LOCK_WAIT		100000
+#define MAX_CLOCK_ENABLE_WAIT		100000
 
 u8 cpu_mask;
 
@@ -84,7 +85,7 @@ void omap2_init_clksel_parent(struct clk *clk)
 					pr_debug("clock: inited %s parent "
 						 "to %s (was %s)\n",
 						 clk->name, clks->parent->name,
-						 ((clk->parent->name) ?
+						 ((clk->parent) ?
 						  clk->parent->name : "NULL"));
 					clk->parent = clks->parent;
 				};
@@ -138,10 +139,14 @@ void omap2_fixed_divisor_recalc(struct clk *clk)
 		propagate_rate(clk);
 }
 
-/*
- * omap2_wait_clock_ready - wait for PLL to lock
+/**
+ * omap2_wait_clock_ready - wait for clock to enable
+ * @reg: physical address of clock IDLEST register
+ * @cval: value to test against to determine if the clock is active
+ * @name: name of the clock (for printk)
  *
- * Returns 1 if the PLL locked, 0 if it failed to lock.
+ * Returns 1 if the clock enabled in time, or 0 if it failed to enable
+ * in roughly MAX_CLOCK_ENABLE_WAIT microseconds.
  */
 int omap2_wait_clock_ready(void __iomem *reg, u32 cval, const char *name)
 {
@@ -151,17 +156,17 @@ int omap2_wait_clock_ready(void __iomem *reg, u32 cval, const char *name)
 	while (!(cm_read_reg(reg) & cval)) {
 		++i;
 		udelay(1);
-		if (i == MAX_PLL_LOCK_WAIT) {
-			printk(KERN_ERR "Clock %s didn't lock in %d tries\n",
-			       name, MAX_PLL_LOCK_WAIT);
+		if (i == MAX_CLOCK_ENABLE_WAIT) {
+			printk(KERN_ERR "Clock %s didn't enable in %d tries\n",
+			       name, MAX_CLOCK_ENABLE_WAIT);
 			break;
 		}
 	}
 
-	if (i)
+	if (i < MAX_CLOCK_ENABLE_WAIT)
 		pr_debug("Clock %s stable after %d loops\n", name, i);
 
-	return (i < MAX_PLL_LOCK_WAIT) ? 1 : 0;
+	return (i < MAX_CLOCK_ENABLE_WAIT) ? 1 : 0;
 };
 
 
@@ -180,8 +185,9 @@ static void omap2_clk_wait_ready(struct clk *clk)
 	else
 		return;
 
+	/* REVISIT: What are the appropriate exclusions for 34XX? */
 	/* No check for DSS or cam clocks */
-	if (((u32)reg & 0x0f) == 0) { /* CM_{F,I}CLKEN1 */
+	if (cpu_is_omap24xx() && ((u32)reg & 0x0f) == 0) { /* CM_{F,I}CLKEN1 */
 		if (clk->enable_bit == OMAP24XX_EN_DSS2_SHIFT ||
 		    clk->enable_bit == OMAP24XX_EN_DSS1_SHIFT ||
 		    clk->enable_bit == OMAP24XX_EN_CAM_SHIFT)
@@ -574,7 +580,7 @@ int omap2_clksel_set_rate(struct clk *clk, unsigned long rate)
 
 	clk->rate = clk->parent->rate / new_div;
 
-	if (clk->flags & DELAYED_APP) {
+	if (clk->flags & DELAYED_APP && cpu_is_omap24xx()) {
 		prm_write_reg(OMAP24XX_VALID_CONFIG, OMAP24XX_PRCM_CLKCFG_CTRL);
 		wmb();
 	}
@@ -670,7 +676,7 @@ int omap2_clk_set_parent(struct clk *clk, struct clk *new_parent)
 	__raw_writel(reg_val, src_addr);
 	wmb();
 
-	if (clk->flags & DELAYED_APP) {
+	if (clk->flags & DELAYED_APP && cpu_is_omap24xx()) {
 		prm_write_reg(OMAP24XX_VALID_CONFIG,
 			      OMAP24XX_PRCM_CLKCFG_CTRL);
 		wmb();

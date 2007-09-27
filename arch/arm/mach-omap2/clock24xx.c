@@ -15,6 +15,8 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
+#undef DEBUG
+
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/device.h>
@@ -36,8 +38,6 @@
 #include "prm_regbits_24xx.h"
 #include "cm.h"
 #include "cm_regbits_24xx.h"
-
-#undef DEBUG
 
 /* CM_CLKEN_PLL.EN_{54,96}M_PLL options (24XX) */
 #define EN_APLL_STOPPED			0
@@ -476,7 +476,8 @@ int __init omap2_clk_init(void)
 
 	omap2_osc_clk_recalc(&osc_ck);
 
-	for (clkp = onchip_clks; clkp < onchip_clks + ARRAY_SIZE(onchip_clks);
+	for (clkp = onchip_24xx_clks;
+	     clkp < onchip_24xx_clks + ARRAY_SIZE(onchip_24xx_clks);
 	     clkp++) {
 
 		if ((*clkp)->flags & CLOCK_IN_OMAP242X && cpu_is_omap2420()) {

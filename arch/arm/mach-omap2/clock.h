@@ -21,6 +21,8 @@
 #ifndef __ARCH_ARM_MACH_OMAP2_CLOCK_H
 #define __ARCH_ARM_MACH_OMAP2_CLOCK_H
 
+#include <asm/arch/clock.h>
+
 int omap2_clk_enable(struct clk *clk);
 void omap2_clk_disable(struct clk *clk);
 long omap2_clk_round_rate(struct clk *clk, unsigned long rate);
@@ -48,5 +50,25 @@ int omap2_wait_clock_ready(void __iomem *reg, u32 cval, const char *name);
 u8 mask_to_shift(u32 mask);
 
 extern u8 cpu_mask;
+
+/* clksel_rate data common to 24xx/343x */
+static const struct clksel_rate gpt_32k_rates[] = {
+	 { .div = 1, .val = 0, .flags = RATE_IN_24XX | RATE_IN_343X | DEFAULT_RATE },
+	 { .div = 0 }
+};
+
+static const struct clksel_rate gpt_sys_rates[] = {
+	 { .div = 1, .val = 1, .flags = RATE_IN_24XX | RATE_IN_343X | DEFAULT_RATE },
+	 { .div = 0 }
+};
+
+static const struct clksel_rate gfx_l3_rates[] = {
+	{ .div = 1, .val = 1, .flags = RATE_IN_24XX | RATE_IN_343X },
+	{ .div = 2, .val = 2, .flags = RATE_IN_24XX | RATE_IN_343X | DEFAULT_RATE },
+	{ .div = 3, .val = 3, .flags = RATE_IN_243X | RATE_IN_343X },
+	{ .div = 4, .val = 4, .flags = RATE_IN_243X | RATE_IN_343X },
+	{ .div = 0 }
+};
+
 
 #endif
