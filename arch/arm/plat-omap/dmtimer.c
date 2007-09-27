@@ -162,12 +162,11 @@ static struct omap_dm_timer omap3_dm_timers[] = {
 
 static const char *omap3_dm_source_names[] __initdata = {
 	"sys_ck",
-	"func_32k_ck",
-	"alt_ck",
+	"omap_32k_fck",
 	NULL
 };
 
-static struct clk **omap3_dm_source_clocks[3];
+static struct clk **omap3_dm_source_clocks[2];
 static const int dm_timer_count = ARRAY_SIZE(omap3_dm_timers);
 
 #else
