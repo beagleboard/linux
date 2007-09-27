@@ -159,25 +159,43 @@
 
 /* CM_FCLKEN1_CORE, CM_ICLKEN1_CORE, PM_WKEN1_CORE shared bits */
 #define OMAP3430_EN_MMC2				(1 << 25)
+#define OMAP3430_EN_MMC2_SHIFT				25
 #define OMAP3430_EN_MMC1				(1 << 24)
+#define OMAP3430_EN_MMC1_SHIFT				24
 #define OMAP3430_EN_MCSPI4				(1 << 21)
+#define OMAP3430_EN_MCSPI4_SHIFT			21
 #define OMAP3430_EN_MCSPI3				(1 << 20)
+#define OMAP3430_EN_MCSPI3_SHIFT			20
 #define OMAP3430_EN_MCSPI2				(1 << 19)
+#define OMAP3430_EN_MCSPI2_SHIFT			19
 #define OMAP3430_EN_MCSPI1				(1 << 18)
+#define OMAP3430_EN_MCSPI1_SHIFT			18
 #define OMAP3430_EN_I2C3				(1 << 17)
+#define OMAP3430_EN_I2C3_SHIFT				17
 #define OMAP3430_EN_I2C2				(1 << 16)
+#define OMAP3430_EN_I2C2_SHIFT				16
 #define OMAP3430_EN_I2C1				(1 << 15)
+#define OMAP3430_EN_I2C1_SHIFT				15
 #define OMAP3430_EN_UART2				(1 << 14)
+#define OMAP3430_EN_UART2_SHIFT				14
 #define OMAP3430_EN_UART1				(1 << 13)
+#define OMAP3430_EN_UART1_SHIFT				13
 #define OMAP3430_EN_GPT11				(1 << 12)
+#define OMAP3430_EN_GPT11_SHIFT				12
 #define OMAP3430_EN_GPT10				(1 << 11)
+#define OMAP3430_EN_GPT10_SHIFT				11
 #define OMAP3430_EN_MCBSP5				(1 << 10)
+#define OMAP3430_EN_MCBSP5_SHIFT			10
 #define OMAP3430_EN_MCBSP1				(1 << 9)
+#define OMAP3430_EN_MCBSP1_SHIFT			9
 #define OMAP3430_EN_FSHOSTUSB				(1 << 5)
+#define OMAP3430_EN_FSHOSTUSB_SHIFT			5
 #define OMAP3430_EN_D2D					(1 << 3)
+#define OMAP3430_EN_D2D_SHIFT				3
 
 /* CM_ICLKEN1_CORE, PM_WKEN1_CORE shared bits */
 #define OMAP3430_EN_HSOTGUSB				(1 << 4)
+#define OMAP3430_EN_HSOTGUSB_SHIFT				4
 
 /* PM_WKST1_CORE, CM_IDLEST1_CORE shared bits */
 #define OMAP3430_ST_MMC2				(1 << 25)
@@ -201,14 +219,19 @@
 
 /* CM_FCLKEN_WKUP, CM_ICLKEN_WKUP, PM_WKEN_WKUP shared bits */
 #define OMAP3430_EN_GPIO1				(1 << 3)
+#define OMAP3430_EN_GPIO1_SHIFT				3
 #define OMAP3430_EN_GPT1				(1 << 0)
+#define OMAP3430_EN_GPT1_SHIFT				0
 
 /* CM_FCLKEN_WKUP, PM_WKEN_WKUP shared bits */
 #define OMAP3430_EN_SR2					(1 << 7)
+#define OMAP3430_EN_SR2_SHIFT				7
 #define OMAP3430_EN_SR1					(1 << 6)
+#define OMAP3430_EN_SR1_SHIFT				6
 
 /* CM_ICLKEN_WKUP, PM_WKEN_WKUP shared bits */
 #define OMAP3430_EN_GPT12				(1 << 1)
+#define OMAP3430_EN_GPT12_SHIFT				1
 
 /* CM_IDLEST_WKUP, PM_WKST_WKUP shared bits */
 #define OMAP3430_ST_SR2					(1 << 7)
@@ -223,29 +246,47 @@
  * PM_WKDEP_DSS, PM_WKDEP_CAM, PM_WKDEP_PER, PM_WKDEP_NEON shared bits
  */
 #define OMAP3430_EN_MPU					(1 << 1)
+#define OMAP3430_EN_MPU_SHIFT				1
 
 /* CM_FCLKEN_PER, CM_ICLKEN_PER, PM_WKEN_PER shared bits */
 #define OMAP3430_EN_GPIO6				(1 << 17)
+#define OMAP3430_EN_GPIO6_SHIFT				17
 #define OMAP3430_EN_GPIO5				(1 << 16)
+#define OMAP3430_EN_GPIO5_SHIFT				16
 #define OMAP3430_EN_GPIO4				(1 << 15)
+#define OMAP3430_EN_GPIO4_SHIFT				15
 #define OMAP3430_EN_GPIO3				(1 << 14)
+#define OMAP3430_EN_GPIO3_SHIFT				14
 #define OMAP3430_EN_GPIO2				(1 << 13)
+#define OMAP3430_EN_GPIO2_SHIFT				13
 #define OMAP3430_EN_UART3				(1 << 11)
+#define OMAP3430_EN_UART3_SHIFT				11
 #define OMAP3430_EN_GPT9				(1 << 10)
+#define OMAP3430_EN_GPT9_SHIFT				10
 #define OMAP3430_EN_GPT8				(1 << 9)
+#define OMAP3430_EN_GPT8_SHIFT				9
 #define OMAP3430_EN_GPT7				(1 << 8)
+#define OMAP3430_EN_GPT7_SHIFT				8
 #define OMAP3430_EN_GPT6				(1 << 7)
+#define OMAP3430_EN_GPT6_SHIFT				7
 #define OMAP3430_EN_GPT5				(1 << 6)
+#define OMAP3430_EN_GPT5_SHIFT				6
 #define OMAP3430_EN_GPT4				(1 << 5)
+#define OMAP3430_EN_GPT4_SHIFT				5
 #define OMAP3430_EN_GPT3				(1 << 4)
+#define OMAP3430_EN_GPT3_SHIFT				4
 #define OMAP3430_EN_GPT2				(1 << 3)
+#define OMAP3430_EN_GPT2_SHIFT				3
 
 /* CM_FCLKEN_PER, CM_ICLKEN_PER, PM_WKEN_PER, PM_WKST_PER shared bits */
 /* XXX Possible TI documentation bug: should the PM_WKST_PER EN_* bits
  * be ST_* bits instead? */
 #define OMAP3430_EN_MCBSP4				(1 << 2)
+#define OMAP3430_EN_MCBSP4_SHIFT			2
 #define OMAP3430_EN_MCBSP3				(1 << 1)
+#define OMAP3430_EN_MCBSP3_SHIFT			1
 #define OMAP3430_EN_MCBSP2				(1 << 0)
+#define OMAP3430_EN_MCBSP2_SHIFT			0
 
 /* CM_IDLEST_PER, PM_WKST_PER shared bits */
 #define OMAP3430_ST_GPIO6				(1 << 17)

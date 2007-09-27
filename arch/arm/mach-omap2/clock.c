@@ -74,8 +74,7 @@ void omap2_init_clksel_parent(struct clk *clk)
 	if (!clk->clksel)
 		return;
 
-	/* XXX Should be __raw_readl for non-CM 3430 clocks ? */
-	r = cm_read_reg(clk->clksel_reg) & clk->clksel_mask;
+	r = __raw_readl(clk->clksel_reg) & clk->clksel_mask;
 	r >>= mask_to_shift(clk->clksel_mask);
 
 	for (clks = clk->clksel; clks->parent && !found; clks++) {
@@ -122,6 +121,14 @@ u32 omap2_get_dpll_rate(struct clk *clk)
 	dpll_clk = (long long)clk->parent->rate * dpll_mult;
 	do_div(dpll_clk, dpll_div + 1);
 
+	/* 34XX only */
+	if (dd->div2_reg) {
+		dpll = cm_read_reg(dd->div2_reg);
+		dpll_div = dpll & dd->div2_mask;
+		dpll_div >>= mask_to_shift(dd->div2_mask);
+		do_div(dpll_clk, dpll_div + 1);
+	}
+
 	return dpll_clk;
 }
 
@@ -142,29 +149,39 @@ void omap2_fixed_divisor_recalc(struct clk *clk)
 /**
  * omap2_wait_clock_ready - wait for clock to enable
  * @reg: physical address of clock IDLEST register
- * @cval: value to test against to determine if the clock is active
+ * @mask: value to mask against to determine if the clock is active
  * @name: name of the clock (for printk)
  *
  * Returns 1 if the clock enabled in time, or 0 if it failed to enable
  * in roughly MAX_CLOCK_ENABLE_WAIT microseconds.
  */
-int omap2_wait_clock_ready(void __iomem *reg, u32 cval, const char *name)
+int omap2_wait_clock_ready(void __iomem *reg, u32 mask, const char *name)
 {
 	int i = 0;
+	int ena = 0;
+
+	/*
+	 * 24xx uses 0 to indicate not ready, and 1 to indicate ready.
+	 * 34xx reverses this, just to keep us on our toes
+	 */
+	if (cpu_mask & (RATE_IN_242X | RATE_IN_243X)) {
+		ena = mask;
+	} else if (cpu_mask & RATE_IN_343X) {
+		ena = 0;
+	}
 
 	/* Wait for lock */
-	while (!(cm_read_reg(reg) & cval)) {
-		++i;
+	while (((cm_read_reg(reg) & mask) != ena) &&
+	       (i++ < MAX_CLOCK_ENABLE_WAIT)) {
 		udelay(1);
-		if (i == MAX_CLOCK_ENABLE_WAIT) {
-			printk(KERN_ERR "Clock %s didn't enable in %d tries\n",
-			       name, MAX_CLOCK_ENABLE_WAIT);
-			break;
-		}
 	}
 
 	if (i < MAX_CLOCK_ENABLE_WAIT)
 		pr_debug("Clock %s stable after %d loops\n", name, i);
+	else
+		printk(KERN_ERR "Clock %s didn't enable in %d tries\n",
+		       name, MAX_CLOCK_ENABLE_WAIT);
+
 
 	return (i < MAX_CLOCK_ENABLE_WAIT) ? 1 : 0;
 };
@@ -180,6 +197,10 @@ static void omap2_clk_wait_ready(struct clk *clk)
 	void __iomem *reg, *other_reg, *st_reg;
 	u32 bit;
 
+	/*
+	 * REVISIT: This code is pretty ugly.  It would be nice to generalize
+	 * it and pull it into struct clk itself somehow.
+	 */
 	reg = clk->enable_reg;
 	if (reg == OMAP_CM_REGADDR(CORE_MOD, CM_FCLKEN1) ||
 	    reg == OMAP_CM_REGADDR(CORE_MOD, OMAP24XX_CM_FCLKEN2))
@@ -225,7 +246,7 @@ int _omap2_clk_enable(struct clk *clk)
 	if (unlikely(clk->enable_reg == 0)) {
 		printk(KERN_ERR "clock.c: Enable for %s without enable code\n",
 		       clk->name);
-		return -EINVAL;
+		return 0; /* REVISIT: -EINVAL */
 	}
 
 	regval32 = cm_read_reg(clk->enable_reg);
