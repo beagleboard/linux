@@ -170,6 +170,11 @@ int omap2_wait_clock_ready(void __iomem *reg, u32 cval, const char *name)
 };
 
 
+/*
+ * Note: We don't need special code here for INVERT_ENABLE
+ * for the time being since INVERT_ENABLE only applies to clocks enabled by
+ * CM_CLKEN_PLL
+ */
 static void omap2_clk_wait_ready(struct clk *clk)
 {
 	void __iomem *reg, *other_reg, *st_reg;
@@ -224,7 +229,10 @@ int _omap2_clk_enable(struct clk *clk)
 	}
 
 	regval32 = cm_read_reg(clk->enable_reg);
-	regval32 |= (1 << clk->enable_bit);
+	if (clk->flags & INVERT_ENABLE)
+		regval32 &= ~(1 << clk->enable_bit);
+	else
+		regval32 |= (1 << clk->enable_bit);
 	cm_write_reg(regval32, clk->enable_reg);
 	wmb();
 
@@ -257,7 +265,10 @@ void _omap2_clk_disable(struct clk *clk)
 	}
 
 	regval32 = cm_read_reg(clk->enable_reg);
-	regval32 &= ~(1 << clk->enable_bit);
+	if (clk->flags & INVERT_ENABLE)
+		regval32 |= (1 << clk->enable_bit);
+	else
+		regval32 &= ~(1 << clk->enable_bit);
 	cm_write_reg(regval32, clk->enable_reg);
 	wmb();
 }
@@ -709,10 +720,12 @@ int omap2_clk_set_parent(struct clk *clk, struct clk *new_parent)
 #ifdef CONFIG_OMAP_RESET_CLOCKS
 void __init omap2_clk_disable_unused(struct clk *clk)
 {
-	u32 regval32;
+	u32 regval32, v;
+
+	v = (clk->flags & INVERT_ENABLE) ? (1 << clk->enable_bit) : 0;
 
 	regval32 = cm_read_reg(clk->enable_reg);
-	if ((regval32 & (1 << clk->enable_bit)) == 0)
+	if ((regval32 & (1 << clk->enable_bit)) == v)
 		return;
 
 	printk(KERN_INFO "Disabling unused clock \"%s\"\n", clk->name);
