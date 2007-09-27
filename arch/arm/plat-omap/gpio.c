@@ -1277,21 +1277,30 @@ static inline void mpuio_init(void) {}
 /*---------------------------------------------------------------------*/
 
 static int initialized;
+#if !defined(CONFIG_ARCH_OMAP34XX)
 static struct clk * gpio_ick;
 static struct clk * gpio_fck;
+#endif
 
-#if defined(CONFIG_ARCH_OMAP2430) || defined(CONFIG_ARCH_OMAP34XX)
+#if defined(CONFIG_ARCH_OMAP2430)
 static struct clk * gpio5_ick;
 static struct clk * gpio5_fck;
+#endif
+
+#if defined(CONFIG_ARCH_OMAP3)
+static struct clk *gpio_fclks[OMAP34XX_NR_GPIOS];
+static struct clk *gpio_iclks[OMAP34XX_NR_GPIOS];
 #endif
 
 static int __init _omap_gpio_init(void)
 {
 	int i;
 	struct gpio_bank *bank;
+	char clk_name[11];
 
 	initialized = 1;
 
+#if defined(CONFIG_ARCH_OMAP1)
 	if (cpu_is_omap15xx()) {
 		gpio_ick = clk_get(NULL, "arm_gpio_ck");
 		if (IS_ERR(gpio_ick))
@@ -1299,6 +1308,8 @@ static int __init _omap_gpio_init(void)
 		else
 			clk_enable(gpio_ick);
 	}
+#endif
+#if defined(CONFIG_ARCH_OMAP2)
 	if (cpu_class_is_omap2()) {
 		gpio_ick = clk_get(NULL, "gpios_ick");
 		if (IS_ERR(gpio_ick))
@@ -1314,8 +1325,8 @@ static int __init _omap_gpio_init(void)
 		/*
 		 * On 2430 & 3430 GPIO 5 uses CORE L4 ICLK
 		 */
-#if defined(CONFIG_ARCH_OMAP2430) || defined(CONFIG_ARCH_OMAP3430)
-		if (cpu_is_omap2430() || cpu_is_omap3430()) {
+#if defined(CONFIG_ARCH_OMAP2430)
+		if (cpu_is_omap2430()) {
 			gpio5_ick = clk_get(NULL, "gpio5_ick");
 			if (IS_ERR(gpio5_ick))
 				printk("Could not get gpio5_ick\n");
@@ -1329,6 +1340,27 @@ static int __init _omap_gpio_init(void)
 		}
 #endif
 	}
+#endif
+
+#if defined(CONFIG_ARCH_OMAP3)
+	if (cpu_is_omap34xx()) {
+		for (i = 0; i < OMAP34XX_NR_GPIOS; i++) {
+			sprintf(clk_name, "gpio%d_ick", i + 1);
+			gpio_iclks[i] = clk_get(NULL, clk_name);
+			if (IS_ERR(gpio_iclks[i]))
+				printk(KERN_ERR "Could not get %s\n", clk_name);
+			else
+				clk_enable(gpio_iclks[i]);
+			sprintf(clk_name, "gpio%d_fck", i + 1);
+			gpio_fclks[i] = clk_get(NULL, clk_name);
+			if (IS_ERR(gpio_fclks[i]))
+				printk(KERN_ERR "Could not get %s\n", clk_name);
+			else
+				clk_enable(gpio_fclks[i]);
+		}
+	}
+#endif
+
 
 #ifdef CONFIG_ARCH_OMAP15XX
 	if (cpu_is_omap15xx()) {
@@ -1380,7 +1412,7 @@ static int __init _omap_gpio_init(void)
 	if (cpu_is_omap34xx()) {
 		int rev;
 
-		gpio_bank_count = 6;
+		gpio_bank_count = OMAP34XX_NR_GPIOS;
 		gpio_bank = gpio_bank_34xx;
 		rev = omap_readl(gpio_bank[0].base + OMAP24XX_GPIO_REVISION);
 		printk(KERN_INFO "OMAP34xx GPIO hardware version %d.%d\n",
