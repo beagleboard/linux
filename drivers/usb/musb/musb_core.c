@@ -321,6 +321,7 @@ void musb_otg_timer_func(unsigned long data)
 		musb_hnp_stop(musb);
 		break;
 	}
+	musb->ignore_disconnect = 0;
 	spin_unlock_irqrestore(&musb->lock, flags);
 }
 
@@ -656,8 +657,13 @@ static irqreturn_t musb_stage0_irq(struct musb * musb, u8 int_usb,
 			DBG(1, "BUS RESET as %s\n", otg_state_string(musb));
 			switch (musb->xceiv.state) {
 #ifdef CONFIG_USB_OTG
+			case OTG_STATE_A_SUSPEND:
+				musb->ignore_disconnect = 1;
+				musb_g_reset(musb);
+				/* FALLTHROUGH */
 			case OTG_STATE_A_WAIT_BCON:	/* OPT TD.4.7-900ms */
-				DBG(1, "HNP: Setting timer as a_wait_bcon\n");
+				DBG(1, "HNP: Setting timer as %s\n",
+						otg_state_string(musb));
 				musb_otg_timer.data = (unsigned long)musb;
 				mod_timer(&musb_otg_timer, jiffies
 					+ msecs_to_jiffies(100));
