@@ -776,7 +776,7 @@ dma_addr_t omap_get_dma_dst_pos(int lch)
 				       (OMAP1_DMA_CDSA_U_REG(lch) << 16));
 
 	if (cpu_is_omap24xx())
-		offset = OMAP2_DMA_CDSA_REG(lch);
+		offset = OMAP_DMA_CDAC_REG(lch);
 
 	return offset;
 }
