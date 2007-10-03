@@ -76,7 +76,7 @@ static void omapbl_blank(struct omap_backlight *bl, int mode)
 static int omapbl_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	struct backlight_device *dev = platform_get_drvdata(pdev);
-	struct omap_backlight *bl = class_get_devdata(&dev->class_dev);
+	struct omap_backlight *bl = dev_get_drvdata(&dev->dev);
 
 	omapbl_blank(bl, FB_BLANK_POWERDOWN);
 	return 0;
@@ -85,7 +85,7 @@ static int omapbl_suspend(struct platform_device *pdev, pm_message_t state)
 static int omapbl_resume(struct platform_device *pdev)
 {
 	struct backlight_device *dev = platform_get_drvdata(pdev);
-	struct omap_backlight *bl = class_get_devdata(&dev->class_dev);
+	struct omap_backlight *bl = dev_get_drvdata(&dev->dev);
 
 	omapbl_blank(bl, bl->powermode);
 	return 0;
@@ -97,7 +97,7 @@ static int omapbl_resume(struct platform_device *pdev)
 
 static int omapbl_set_power(struct backlight_device *dev, int state)
 {
-	struct omap_backlight *bl = class_get_devdata(&dev->class_dev);
+	struct omap_backlight *bl = dev_get_drvdata(&dev->dev);
 
 	omapbl_blank(bl, state);
 	bl->powermode = state;
@@ -107,7 +107,7 @@ static int omapbl_set_power(struct backlight_device *dev, int state)
 
 static int omapbl_update_status(struct backlight_device *dev)
 {
-	struct omap_backlight *bl = class_get_devdata(&dev->class_dev);
+	struct omap_backlight *bl = dev_get_drvdata(&dev->dev);
 
 	if (bl->current_intensity != dev->props.brightness) {
 		if (dev->props.brightness < 0)
@@ -127,7 +127,7 @@ static int omapbl_update_status(struct backlight_device *dev)
 
 static int omapbl_get_intensity(struct backlight_device *dev)
 {
-	struct omap_backlight *bl = class_get_devdata(&dev->class_dev);
+	struct omap_backlight *bl = dev_get_drvdata(&dev->dev);
 	return bl->current_intensity;
 }
 
@@ -182,7 +182,7 @@ static int omapbl_probe(struct platform_device *pdev)
 static int omapbl_remove(struct platform_device *pdev)
 {
 	struct backlight_device *dev = platform_get_drvdata(pdev);
-	struct omap_backlight *bl = class_get_devdata(&dev->class_dev);
+	struct omap_backlight *bl = dev_get_drvdata(&dev->dev);
 
 	backlight_device_unregister(dev);
 	kfree(bl);
