@@ -1277,8 +1277,11 @@ static inline void mpuio_init(void) {}
 /*---------------------------------------------------------------------*/
 
 static int initialized;
-#if !defined(CONFIG_ARCH_OMAP34XX)
+#if !defined(CONFIG_ARCH_OMAP3)
 static struct clk * gpio_ick;
+#endif
+
+#if defined(CONFIG_ARCH_OMAP2)
 static struct clk * gpio_fck;
 #endif
 
@@ -1296,7 +1299,9 @@ static int __init _omap_gpio_init(void)
 {
 	int i;
 	struct gpio_bank *bank;
+#if defined(CONFIG_ARCH_OMAP3)
 	char clk_name[11];
+#endif
 
 	initialized = 1;
 
