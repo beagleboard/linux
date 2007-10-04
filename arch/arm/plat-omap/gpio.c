@@ -709,7 +709,7 @@ static void _clear_gpio_irqbank(struct gpio_bank *bank, int gpio_mask)
 
 	/* Workaround for clearing DSP GPIO interrupts to allow retention */
 #if defined(CONFIG_ARCH_OMAP24XX) || defined(CONFIG_ARCH_OMAP34XX)
-	if (cpu_is_omap2420() || cpu_is_omap34xx())
+	if (cpu_is_omap24xx() || cpu_is_omap34xx())
 		__raw_writel(gpio_mask, bank->base + OMAP24XX_GPIO_IRQSTATUS2);
 #endif
 }
