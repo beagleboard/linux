@@ -1980,7 +1980,7 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 		c = dma_controller_create(musb, musb->mregs);
 		musb->dma_controller = c;
 		if (c)
-			(void) c->start(c->private_data);
+			(void) c->start(c);
 	}
 #endif
 	/* ideally this would be abstracted in platform setup */
