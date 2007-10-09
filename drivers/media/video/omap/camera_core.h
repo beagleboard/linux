@@ -19,6 +19,7 @@ struct camera_fh;
 
 #include <media/video-buf.h>
 #include <asm/scatterlist.h>
+#include <media/v4l2-int-device.h>
 
 struct camera_device;
 typedef void (*dma_callback_t)(void *arg1, void *arg2);
@@ -39,7 +40,7 @@ struct sgdma_state {
 
 /* per-device data structure */
 struct camera_device {
-	struct device dev;
+	struct device *dev;
 	struct video_device *vfd;
 
 	spinlock_t overlay_lock;        /* spinlock for overlay DMA counter */
@@ -80,18 +81,18 @@ struct camera_device {
 	 */
 	struct camera_fh *previewing;
 
-	/* capture parameters (frame rate, number of buffers) */
-	struct v4l2_captureparm cparm;
-
-	/* This is the frame period actually requested by the user. */
-	struct v4l2_fract nominal_timeperframe;
-
-	/* frequency (in Hz) of camera interface xclk output */
-	unsigned long xclk;
-
+	/*
+	 * Sensor interface parameters: interface type, CC_CTRL
+	 * register value and interface specific data.
+	 */
+	int if_type;
+	union {
+		struct parallel {
+			u32 xclk;
+		} bt656;
+	} if_u;
 	/* Pointer to the sensor interface ops */
-	struct omap_camera_sensor *cam_sensor;
-	void *sensor_data;
+	struct v4l2_int_device *sdev;
 
 	/* Pointer to the camera interface hardware ops */
 	struct camera_hardware *cam_hardware;
@@ -104,7 +105,6 @@ struct camera_device {
 	 * VIDIOC_S_FMT/VIDIOC_G_FMT ioctls with a CAPTURE buffer type.
 	 */
 	struct v4l2_pix_format pix;
-	struct v4l2_pix_format pix2;
 
 	/* crop defines the size and offset of the video overlay source window
 	 * within the framebuffer.  These parameters are set/queried by the
