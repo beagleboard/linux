@@ -26,7 +26,7 @@ int write_gpio_expa(u8 val, int addr)
 	struct i2c_msg msg[1];
 	unsigned char data[1];
 
-	adap = i2c_get_adapter(0);
+	adap = i2c_get_adapter(1);
 	if (!adap)
 		return -ENODEV;
 	msg->addr = addr;	/* I2C address of GPIO EXPA */
@@ -51,7 +51,7 @@ int read_gpio_expa(u8 * val, int addr)
 	struct i2c_msg msg[1];
 	unsigned char data[1];
 
-	adap = i2c_get_adapter(0);
+	adap = i2c_get_adapter(1);
 	if (!adap)
 		return -ENODEV;
 	msg->addr = addr;	/* I2C address of GPIO EXPA */
