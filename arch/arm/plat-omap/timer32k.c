@@ -146,6 +146,14 @@ static inline void omap_32k_timer_ack_irq(void)
 
 #endif
 
+static int omap_32k_timer_set_next_event(unsigned long delta,
+					 struct clock_event_device *dev)
+{
+	omap_32k_timer_start(delta);
+
+	return 0;
+}
+
 static void omap_32k_timer_set_mode(enum clock_event_mode mode,
 				    struct clock_event_device *evt)
 {
@@ -153,9 +161,9 @@ static void omap_32k_timer_set_mode(enum clock_event_mode mode,
 
 	switch (mode) {
 	case CLOCK_EVT_MODE_PERIODIC:
+	case CLOCK_EVT_MODE_ONESHOT:
 		omap_32k_timer_start(OMAP_32K_TIMER_TICK_PERIOD);
 		break;
-	case CLOCK_EVT_MODE_ONESHOT:
 	case CLOCK_EVT_MODE_UNUSED:
 	case CLOCK_EVT_MODE_SHUTDOWN:
 		break;
@@ -166,8 +174,9 @@ static void omap_32k_timer_set_mode(enum clock_event_mode mode,
 
 static struct clock_event_device clockevent_32k_timer = {
 	.name		= "32k-timer",
-	.features       = CLOCK_EVT_FEAT_PERIODIC,
+	.features       = CLOCK_EVT_FEAT_PERIODIC | CLOCK_EVT_FEAT_ONESHOT,
 	.shift		= 32,
+	.set_next_event	= omap_32k_timer_set_next_event,
 	.set_mode	= omap_32k_timer_set_mode,
 };
 
