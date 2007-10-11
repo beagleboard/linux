@@ -76,7 +76,7 @@
 
 /*-------------------------------------------------------------------------*/
 
-#ifdef	CONFIG_ARCH_OMAP_OTG
+#if	defined(CONFIG_ARCH_OMAP_OTG) || defined(CONFIG_USB_MUSB_OTG)
 
 static struct otg_transceiver *xceiv;
 
