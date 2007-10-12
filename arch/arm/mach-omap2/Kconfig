@@ -5,10 +5,6 @@ config ARCH_OMAP24XX
 	bool "OMAP24xx Based System"
 	depends on ARCH_OMAP2
 
-config ARCH_OMAP34XX
-	bool "OMAP34xx Based System"
-	depends on ARCH_OMAP3
-
 config ARCH_OMAP2420
 	bool "OMAP2420 support"
 	depends on ARCH_OMAP24XX
@@ -18,6 +14,10 @@ config ARCH_OMAP2420
 config ARCH_OMAP2430
 	bool "OMAP2430 support"
 	depends on ARCH_OMAP24XX
+
+config ARCH_OMAP34XX
+	bool "OMAP34xx Based System"
+	depends on ARCH_OMAP3
 
 config ARCH_OMAP3430
 	bool "OMAP3430 support"
@@ -32,7 +32,7 @@ config MACH_OMAP_GENERIC
 
 config MACH_NOKIA_N800
 	bool "Nokia N800"
-	depends on ARCH_OMAP24XX
+	depends on ARCH_OMAP2420
 	select VIDEO_TCM825X if VIDEO_OMAP2
 	select CBUS if VIDEO_TCM825X
 	select CBUS_RETU if VIDEO_TCM825X
@@ -45,14 +45,10 @@ config MACH_OMAP2_TUSB6010
 
 config MACH_OMAP_H4
 	bool "OMAP 2420 H4 board"
-	depends on ARCH_OMAP2 && ARCH_OMAP24XX
+	depends on ARCH_OMAP2 && ARCH_OMAP2420
 	select OMAP_DEBUG_DEVICES
 	select GPIOEXPANDER_OMAP
 
-
-config MACH_OMAP_3430SDP
-	bool "OMAP 3430 SDP board"
-	depends on ARCH_OMAP3 && ARCH_OMAP34XX
 config MACH_OMAP_H4_TUSB
 	bool "TUSB 6010 EVM board"
 	depends on MACH_OMAP_H4
@@ -89,10 +85,11 @@ config MACH_OMAP2_H4_USB1
 
 config MACH_OMAP_APOLLON
 	bool "OMAP 2420 Apollon board"
-	depends on ARCH_OMAP2 && ARCH_OMAP24XX
+	depends on ARCH_OMAP2 && ARCH_OMAP2420
 
 config MACH_OMAP_APOLLON_PLUS
 	bool "OMAP 2420 Apollon Plus board"
+	depends on ARCH_OMAP2 && ARCH_OMAP2420
 	select MACH_OMAP_APOLLON
 	help
 	  It contains more LEDs, SWs, and so on
@@ -102,5 +99,9 @@ config MACH_OMAP_APOLLON_PLUS
 
 config MACH_OMAP_2430SDP
 	bool "OMAP 2430 SDP board"
-	depends on ARCH_OMAP2 && ARCH_OMAP24XX
+	depends on ARCH_OMAP2 && ARCH_OMAP2430
+
+config MACH_OMAP_3430SDP
+	bool "OMAP 3430 SDP board"
+	depends on ARCH_OMAP3 && ARCH_OMAP34XX
 
