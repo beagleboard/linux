@@ -1849,7 +1849,7 @@ static void musb_free(struct musb *musb)
 	if (is_dma_capable() && musb->dma_controller) {
 		struct dma_controller	*c = musb->dma_controller;
 
-		(void) c->stop(c->private_data);
+		(void) c->stop(c);
 		dma_controller_destroy(c);
 	}
 

@@ -136,7 +136,6 @@ dma_channel_status(struct dma_channel *c)
 
 /**
  * struct dma_controller - A DMA Controller.
- * @private_data: controller-private data;
  * @start: call this to start a DMA controller;
  *	return 0 on success, else negative errno
  * @stop: call this to stop a DMA controller
@@ -149,7 +148,6 @@ dma_channel_status(struct dma_channel *c)
  * Controllers manage dma channels.
  */
 struct dma_controller {
-	void			*private_data;
 	int			(*start)(struct dma_controller *);
 	int			(*stop)(struct dma_controller *);
 	struct dma_channel	*(*channel_alloc)(struct dma_controller *,
