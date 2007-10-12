@@ -37,13 +37,12 @@
 
 static inline struct usb_hcd *musb_to_hcd(struct musb *musb)
 {
-	return (struct usb_hcd *) (((void *)musb)
-			- offsetof(struct usb_hcd, hcd_priv));
+	return container_of((void *) musb, struct usb_hcd, hcd_priv);
 }
 
 static inline struct musb *hcd_to_musb(struct usb_hcd *hcd)
 {
-	return (void *) hcd->hcd_priv;
+	return (struct musb *) (hcd->hcd_priv);
 }
 
 /* stored in "usb_host_endpoint.hcpriv" for scheduled endpoints */
@@ -77,7 +76,7 @@ static inline struct musb_qh *first_qh(struct list_head *q)
 {
 	if (list_empty(q))
 		return NULL;
-	return container_of(q->next, struct musb_qh, ring);
+	return list_entry(q->next, struct musb_qh, ring);
 }
 
 
@@ -102,7 +101,7 @@ static inline struct urb *next_urb(struct musb_qh *qh)
 	queue = &qh->hep->urb_list;
 	if (list_empty(queue))
 		return NULL;
-	return container_of(queue->next, struct urb, urb_list);
+	return list_entry(queue->next, struct urb, urb_list);
 #else
 	return NULL;
 #endif

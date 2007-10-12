@@ -203,6 +203,7 @@ void musb_root_disconnect(struct musb *musb)
 
 /*---------------------------------------------------------------------*/
 
+/* Caller may or may not hold musb->lock */
 int musb_hub_status_data(struct usb_hcd *hcd, char *buf)
 {
 	struct musb	*musb = hcd_to_musb(hcd);
@@ -229,14 +230,17 @@ int musb_hub_control(
 	int		retval = 0;
 	unsigned long	flags;
 
-	if (unlikely(!test_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags)))
+	spin_lock_irqsave(&musb->lock, flags);
+
+	if (unlikely(!test_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags))) {
+		spin_unlock_irqrestore(&musb->lock, flags);
 		return -ESHUTDOWN;
+	}
 
 	/* hub features:  always zero, setting is a NOP
 	 * port features: reported, sometimes updated when host is active
 	 * no indicators
 	 */
-	spin_lock_irqsave(&musb->lock, flags);
 	switch (typeReq) {
 	case ClearHubFeature:
 	case SetHubFeature:
@@ -249,7 +253,7 @@ int musb_hub_control(
 		}
 		break;
 	case ClearPortFeature:
-		if (wIndex != 1)
+		if ((wIndex & 0xff) != 1)
 			goto error;
 
 		switch (wValue) {
@@ -303,12 +307,12 @@ int musb_hub_control(
 
 		/* finish RESET signaling? */
 		if ((musb->port1_status & USB_PORT_STAT_RESET)
-				&& time_after(jiffies, musb->rh_timer))
+				&& time_after_eq(jiffies, musb->rh_timer))
 			musb_port_reset(musb, false);
 
 		/* finish RESUME signaling? */
 		if ((musb->port1_status & MUSB_PORT_STAT_RESUME)
-				&& time_after(jiffies, musb->rh_timer)) {
+				&& time_after_eq(jiffies, musb->rh_timer)) {
 			u8		power;
 
 			power = musb_readb(musb->mregs, MUSB_POWER);
