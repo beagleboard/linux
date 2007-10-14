@@ -320,6 +320,8 @@ void musb_otg_timer_func(unsigned long data)
 		DBG(1, "HNP: a_wait_bcon timeout; back to a_host\n");
 		musb_hnp_stop(musb);
 		break;
+	default:
+		DBG(1, "HNP: Unhandled mode %s\n", otg_state_string(musb));
 	}
 	musb->ignore_disconnect = 0;
 	spin_unlock_irqrestore(&musb->lock, flags);
@@ -671,6 +673,12 @@ static irqreturn_t musb_stage0_irq(struct musb * musb, u8 int_usb,
 			case OTG_STATE_A_PERIPHERAL:
 				musb_hnp_stop(musb);
 				break;
+			case OTG_STATE_B_WAIT_ACON:
+				DBG(1, "HNP: RESET (%s), back to b_peripheral\n",
+					otg_state_string(musb));
+				musb->xceiv.state = OTG_STATE_B_PERIPHERAL;
+				musb_g_reset(musb);
+				break;
 #endif
 			case OTG_STATE_B_IDLE:
 				musb->xceiv.state = OTG_STATE_B_PERIPHERAL;
@@ -813,8 +821,8 @@ static irqreturn_t musb_stage2_irq(struct musb * musb, u8 int_usb,
 			musb->is_active = is_otg_enabled(musb)
 					&& musb->xceiv.gadget->b_hnp_enable;
 			if (musb->is_active) {
-				musb->xceiv.state = OTG_STATE_B_WAIT_ACON;
 #ifdef	CONFIG_USB_MUSB_OTG
+				musb->xceiv.state = OTG_STATE_B_WAIT_ACON;
 				DBG(1, "HNP: Setting timer for b_ase0_brst\n");
 				musb_otg_timer.data = (unsigned long)musb;
 				mod_timer(&musb_otg_timer, jiffies
