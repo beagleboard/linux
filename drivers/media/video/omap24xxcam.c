@@ -46,7 +46,7 @@
 
 static void omap24xxcam_reset(struct omap24xxcam_device *cam);
 static int omap24xxcam_sensor_if_enable(struct omap24xxcam_device *cam);
-static void omap24xxcam_device_unregister(struct v4l2_int_device *ctl);
+static void omap24xxcam_device_unregister(struct v4l2_int_device *s);
 static int omap24xxcam_remove(struct platform_device *pdev);
 
 /* module parameters */
@@ -1603,10 +1603,9 @@ static int omap24xxcam_resume(struct platform_device *pdev)
  *
  */
 
-static int omap24xxcam_device_register(struct v4l2_int_device *ctl,
-				       struct v4l2_int_device *s)
+static int omap24xxcam_device_register(struct v4l2_int_device *s)
 {
-	struct omap24xxcam_device *cam = ctl->priv;
+	struct omap24xxcam_device *cam = s->u.slave->master->priv;
 	struct video_device *vfd;
 	int rval;
 
@@ -1681,14 +1680,14 @@ static int omap24xxcam_device_register(struct v4l2_int_device *ctl,
 	return 0;
 
 err:
-	omap24xxcam_device_unregister(ctl);
+	omap24xxcam_device_unregister(s);
 
 	return rval;
 }
 
-static void omap24xxcam_device_unregister(struct v4l2_int_device *ctl)
+static void omap24xxcam_device_unregister(struct v4l2_int_device *s)
 {
-	struct omap24xxcam_device *cam = ctl->priv;
+	struct omap24xxcam_device *cam = s->u.slave->master->priv;
 
 	omap24xxcam_sensor_exit(cam);
 
