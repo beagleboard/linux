@@ -302,6 +302,10 @@
 #define OMAP_DMA_SYNC_ELEMENT		0x00
 #define OMAP_DMA_SYNC_FRAME		0x01
 #define OMAP_DMA_SYNC_BLOCK		0x02
+#define OMAP_DMA_SYNC_PACKET		0x03
+
+#define OMAP_DMA_SRC_SYNC		0x01
+#define OMAP_DMA_DST_SYNC		0x00
 
 #define OMAP_DMA_PORT_EMIFF		0x00
 #define OMAP_DMA_PORT_EMIFS		0x01
@@ -326,6 +330,14 @@
 #define DMA_THREAD_FIFO_75		(0x01 << 14)
 #define DMA_THREAD_FIFO_25		(0x02 << 14)
 #define DMA_THREAD_FIFO_50		(0x03 << 14)
+
+/* Chaining modes*/
+#ifndef CONFIG_ARCH_OMAP1
+#define OMAP_DMA_STATIC_CHAIN		0x1
+#define OMAP_DMA_DYNAMIC_CHAIN		0x2
+#define OMAP_DMA_CHAIN_ACTIVE		0x1
+#define OMAP_DMA_CHAIN_INACTIVE		0x0
+#endif
 
 #define DMA_CH_PRIO_HIGH		0x1
 #define DMA_CH_PRIO_LOW			0x0 /* Def */
@@ -382,6 +394,10 @@ struct omap_dma_channel_params {
 
 	unsigned char read_prio;/* read priority */
 	unsigned char write_prio;/* write priority */
+
+#ifndef CONFIG_ARCH_OMAP1
+	enum omap_dma_burst_mode burst_mode; /* Burst mode 4/8/16 words */
+#endif
 };
 
 
@@ -436,6 +452,29 @@ extern void omap_dma_set_global_params(int arb_rate, int max_fifo_depth,
 				       int tparams);
 extern int omap_dma_set_prio_lch(int lch, unsigned char read_prio,
 				 unsigned char write_prio);
+
+/* Chaining APIs */
+#ifndef CONFIG_ARCH_OMAP1
+extern int omap_request_dma_chain(int dev_id, const char *dev_name,
+				  void (*callback) (int chain_id, u16 ch_status,
+						    void *data),
+				  int *chain_id, int no_of_chans,
+				  int chain_mode,
+				  struct omap_dma_channel_params params);
+extern int omap_free_dma_chain(int chain_id);
+extern int omap_dma_chain_a_transfer(int chain_id, int src_start,
+				     int dest_start, int elem_count,
+				     int frame_count, void *callbk_data);
+extern int omap_start_dma_chain_transfers(int chain_id);
+extern int omap_stop_dma_chain_transfers(int chain_id);
+extern int omap_get_dma_chain_index(int chain_id, int *ei, int *fi);
+extern int omap_get_dma_chain_dst_pos(int chain_id);
+extern int omap_get_dma_chain_src_pos(int chain_id);
+
+extern int omap_modify_dma_chain_params(int chain_id,
+					struct omap_dma_channel_params params);
+extern int omap_dma_chain_status(int chain_id);
+#endif
 
 /* LCD DMA functions */
 extern int omap_request_lcd_dma(void (* callback)(u16 status, void *data),
