@@ -289,6 +289,9 @@ void omap_set_dma_params(int lch, struct omap_dma_channel_params * params)
 	omap_set_dma_dest_params(lch, params->dst_port,
 				 params->dst_amode, params->dst_start,
 				 params->dst_ei, params->dst_fi);
+	if (params->read_prio || params->write_prio)
+		omap_dma_set_prio_lch(lch, params->read_prio,
+				      params->write_prio);
 }
 
 void omap_set_dma_src_index(int lch, int eidx, int fidx)
@@ -607,6 +610,67 @@ void omap_free_dma(int lch)
 		omap_clear_dma(lch);
 	}
 }
+
+/**
+ * @brief omap_dma_set_global_params : Set global priority settings for dma
+ *
+ * @param arb_rate
+ * @param max_fifo_depth
+ * @param tparams - Number of thereads to reserve : DMA_THREAD_RESERVE_NORM
+ * 						    DMA_THREAD_RESERVE_ONET
+ * 						    DMA_THREAD_RESERVE_TWOT
+ * 						    DMA_THREAD_RESERVE_THREET
+ */
+void
+omap_dma_set_global_params(int arb_rate, int max_fifo_depth, int tparams)
+{
+	u32 reg;
+
+	if (!cpu_class_is_omap2()) {
+		printk(KERN_ERR "FIXME: no %s on 15xx/16xx\n", __FUNCTION__);
+		return;
+	}
+
+	if (arb_rate == 0)
+		arb_rate = 1;
+
+	reg = (arb_rate & 0xff) << 16;
+	reg |= (0xff & max_fifo_depth);
+
+	omap_writel(reg, OMAP_DMA4_GCR_REG);
+}
+EXPORT_SYMBOL(omap_dma_set_global_params);
+
+/**
+ * @brief omap_dma_set_prio_lch : Set channel wise priority settings
+ *
+ * @param lch
+ * @param read_prio - Read priority
+ * @param write_prio - Write priority
+ * Both of the above can be set with one of the following values :
+ * 	DMA_CH_PRIO_HIGH/DMA_CH_PRIO_LOW
+ */
+int
+omap_dma_set_prio_lch(int lch, unsigned char read_prio,
+		      unsigned char write_prio)
+{
+	u32 w;
+
+	if (unlikely((lch < 0 || lch >= OMAP_LOGICAL_DMA_CH_COUNT))) {
+		printk(KERN_ERR "Invalid channel id\n");
+		return -EINVAL;
+	}
+	w = OMAP_DMA_CCR_REG(lch);
+	w &= ~((1 << 6) | (1 << 26));
+	if (cpu_is_omap2430() || cpu_is_omap34xx())
+		w |= ((read_prio & 0x1) << 6) | ((write_prio & 0x1) << 26);
+	else
+		w |= ((read_prio & 0x1) << 6);
+
+	OMAP_DMA_CCR_REG(lch) = w;
+	return 0;
+}
+EXPORT_SYMBOL(omap_dma_set_prio_lch);
 
 /*
  * Clears any DMA state so the DMA engine is ready to restart with new buffers
@@ -1427,6 +1491,10 @@ static int __init omap_init_dma(void)
 			}
 		}
 	}
+
+	if (cpu_is_omap2430() || cpu_is_omap34xx())
+		omap_dma_set_global_params(DMA_DEFAULT_ARB_RATE,
+				DMA_DEFAULT_FIFO_DEPTH, 0);
 
 	if (cpu_class_is_omap2())
 		setup_irq(INT_24XX_SDMA_IRQ0, &omap24xx_dma_irq);
