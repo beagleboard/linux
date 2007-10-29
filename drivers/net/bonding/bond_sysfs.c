@@ -31,10 +31,10 @@
 #include <linux/inetdevice.h>
 #include <linux/in.h>
 #include <linux/sysfs.h>
-#include <linux/string.h>
 #include <linux/ctype.h>
 #include <linux/inet.h>
 #include <linux/rtnetlink.h>
+#include <net/net_namespace.h>
 
 /* #define BONDING_DEBUG 1 */
 #include "bonding.h"
@@ -55,7 +55,7 @@ static int expected_refcount = -1;
 static struct class *netdev_class;
 /*--------------------------- Data Structures -----------------------------*/
 
-/* Bonding sysfs lock.  Why can't we just use the subsytem lock?
+/* Bonding sysfs lock.  Why can't we just use the subsystem lock?
  * Because kobject_register tries to acquire the subsystem lock.  If
  * we already hold the lock (which we would if the user was creating
  * a new bond through the sysfs interface), we deadlock.
@@ -164,9 +164,7 @@ static ssize_t bonding_store_bonds(struct class *cls, const char *buffer, size_t
 				printk(KERN_INFO DRV_NAME
 					": %s is being deleted...\n",
 					bond->dev->name);
-				bond_deinit(bond->dev);
-		        	bond_destroy_sysfs_entry(bond);
-				unregister_netdevice(bond->dev);
+				bond_destroy(bond);
 				rtnl_unlock();
 				goto out;
 			}
@@ -260,17 +258,16 @@ static ssize_t bonding_store_slaves(struct device *d,
 	char command[IFNAMSIZ + 1] = { 0, };
 	char *ifname;
 	int i, res, found, ret = count;
+	u32 original_mtu;
 	struct slave *slave;
 	struct net_device *dev = NULL;
 	struct bonding *bond = to_bond(d);
 
 	/* Quick sanity check -- is the bond interface up? */
 	if (!(bond->dev->flags & IFF_UP)) {
-		printk(KERN_ERR DRV_NAME
-		       ": %s: Unable to update slaves because interface is down.\n",
+		printk(KERN_WARNING DRV_NAME
+		       ": %s: doing slave updates when interface is down.\n",
 		       bond->dev->name);
-		ret = -EPERM;
-		goto out;
 	}
 
 	/* Note:  We can't hold bond->lock here, as bond_create grabs it. */
@@ -299,7 +296,7 @@ static ssize_t bonding_store_slaves(struct device *d,
 		read_unlock_bh(&bond->lock);
 		printk(KERN_INFO DRV_NAME ": %s: Adding slave %s.\n",
 		       bond->dev->name, ifname);
-		dev = dev_get_by_name(ifname);
+		dev = dev_get_by_name(&init_net, ifname);
 		if (!dev) {
 			printk(KERN_INFO DRV_NAME
 			       ": %s: Interface %s does not exist!\n",
@@ -327,6 +324,7 @@ static ssize_t bonding_store_slaves(struct device *d,
 		}
 
 		/* Set the slave's MTU to match the bond */
+		original_mtu = dev->mtu;
 		if (dev->mtu != bond->dev->mtu) {
 			if (dev->change_mtu) {
 				res = dev->change_mtu(dev,
@@ -341,6 +339,9 @@ static ssize_t bonding_store_slaves(struct device *d,
 		}
 		rtnl_lock();
 		res = bond_enslave(bond->dev, dev);
+		bond_for_each_slave(bond, slave, i)
+			if (strnicmp(slave->dev->name, ifname, IFNAMSIZ) == 0)
+				slave->original_mtu = original_mtu;
 		rtnl_unlock();
 		if (res) {
 			ret = res;
@@ -353,13 +354,17 @@ static ssize_t bonding_store_slaves(struct device *d,
 		bond_for_each_slave(bond, slave, i)
 			if (strnicmp(slave->dev->name, ifname, IFNAMSIZ) == 0) {
 				dev = slave->dev;
+				original_mtu = slave->original_mtu;
 				break;
 			}
 		if (dev) {
 			printk(KERN_INFO DRV_NAME ": %s: Removing slave %s\n",
 				bond->dev->name, dev->name);
 			rtnl_lock();
-			res = bond_release(bond->dev, dev);
+			if (bond->setup_by_slave)
+				res = bond_release_and_destroy(bond->dev, dev);
+			else
+				res = bond_release(bond->dev, dev);
 			rtnl_unlock();
 			if (res) {
 				ret = res;
@@ -367,9 +372,9 @@ static ssize_t bonding_store_slaves(struct device *d,
 			}
 			/* set the slave MTU to the default */
 			if (dev->change_mtu) {
-				dev->change_mtu(dev, 1500);
+				dev->change_mtu(dev, original_mtu);
 			} else {
-				dev->mtu = 1500;
+				dev->mtu = original_mtu;
 			}
 		}
 		else {
@@ -563,6 +568,54 @@ static ssize_t bonding_store_arp_validate(struct device *d,
 static DEVICE_ATTR(arp_validate, S_IRUGO | S_IWUSR, bonding_show_arp_validate, bonding_store_arp_validate);
 
 /*
+ * Show and store fail_over_mac.  User only allowed to change the
+ * value when there are no slaves.
+ */
+static ssize_t bonding_show_fail_over_mac(struct device *d, struct device_attribute *attr, char *buf)
+{
+	struct bonding *bond = to_bond(d);
+
+	return sprintf(buf, "%d\n", bond->params.fail_over_mac) + 1;
+}
+
+static ssize_t bonding_store_fail_over_mac(struct device *d, struct device_attribute *attr, const char *buf, size_t count)
+{
+	int new_value;
+	int ret = count;
+	struct bonding *bond = to_bond(d);
+
+	if (bond->slave_cnt != 0) {
+		printk(KERN_ERR DRV_NAME
+		       ": %s: Can't alter fail_over_mac with slaves in bond.\n",
+		       bond->dev->name);
+		ret = -EPERM;
+		goto out;
+	}
+
+	if (sscanf(buf, "%d", &new_value) != 1) {
+		printk(KERN_ERR DRV_NAME
+		       ": %s: no fail_over_mac value specified.\n",
+		       bond->dev->name);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	if ((new_value == 0) || (new_value == 1)) {
+		bond->params.fail_over_mac = new_value;
+		printk(KERN_INFO DRV_NAME ": %s: Setting fail_over_mac to %d.\n",
+		       bond->dev->name, new_value);
+	} else {
+		printk(KERN_INFO DRV_NAME
+		       ": %s: Ignoring invalid fail_over_mac value %d.\n",
+		       bond->dev->name, new_value);
+	}
+out:
+	return ret;
+}
+
+static DEVICE_ATTR(fail_over_mac, S_IRUGO | S_IWUSR, bonding_show_fail_over_mac, bonding_store_fail_over_mac);
+
+/*
  * Show and set the arp timer interval.  There are two tricky bits
  * here.  First, if ARP monitoring is activated, then we must disable
  * MII monitoring.  Second, if the ARP timer isn't running, we must
@@ -682,16 +735,16 @@ static ssize_t bonding_store_arp_targets(struct device *d,
 					 struct device_attribute *attr,
 					 const char *buf, size_t count)
 {
-	u32 newtarget;
+	__be32 newtarget;
 	int i = 0, done = 0, ret = count;
 	struct bonding *bond = to_bond(d);
-	u32 *targets;
+	__be32 *targets;
 
 	targets = bond->params.arp_targets;
 	newtarget = in_aton(buf + 1);
 	/* look for adds */
 	if (buf[0] == '+') {
-		if ((newtarget == 0) || (newtarget == INADDR_BROADCAST)) {
+		if ((newtarget == 0) || (newtarget == htonl(INADDR_BROADCAST))) {
 			printk(KERN_ERR DRV_NAME
 			       ": %s: invalid ARP target %u.%u.%u.%u specified for addition\n",
  			       bond->dev->name, NIPQUAD(newtarget));
@@ -727,7 +780,7 @@ static ssize_t bonding_store_arp_targets(struct device *d,
 
 	}
 	else if (buf[0] == '-')	{
-		if ((newtarget == 0) || (newtarget == INADDR_BROADCAST)) {
+		if ((newtarget == 0) || (newtarget == htonl(INADDR_BROADCAST))) {
 			printk(KERN_ERR DRV_NAME
 			       ": %s: invalid ARP target %d.%d.%d.%d specified for removal\n",
 			       bond->dev->name, NIPQUAD(newtarget));
@@ -1361,17 +1414,14 @@ static ssize_t bonding_show_ad_partner_mac(struct device *d,
 {
 	int count = 0;
 	struct bonding *bond = to_bond(d);
+	DECLARE_MAC_BUF(mac);
 
 	if (bond->params.mode == BOND_MODE_8023AD) {
 		struct ad_info ad_info;
 		if (!bond_3ad_get_active_agg_info(bond, &ad_info)) {
-			count = sprintf(buf,"%02x:%02x:%02x:%02x:%02x:%02x\n",
-				       ad_info.partner_system[0],
-				       ad_info.partner_system[1],
-				       ad_info.partner_system[2],
-				       ad_info.partner_system[3],
-				       ad_info.partner_system[4],
-				       ad_info.partner_system[5]) + 1;
+			count = sprintf(buf,"%s\n",
+					print_mac(mac, ad_info.partner_system))
+				+ 1;
 		}
 	}
 	else
@@ -1386,6 +1436,7 @@ static DEVICE_ATTR(ad_partner_mac, S_IRUGO, bonding_show_ad_partner_mac, NULL);
 static struct attribute *per_bond_attrs[] = {
 	&dev_attr_slaves.attr,
 	&dev_attr_mode.attr,
+	&dev_attr_fail_over_mac.attr,
 	&dev_attr_arp_validate.attr,
 	&dev_attr_arp_interval.attr,
 	&dev_attr_arp_ip_target.attr,

@@ -1,7 +1,7 @@
 /*
  * resource.c - Contains functions for registering and analyzing resource information
  *
- * based on isapnp.c resource management (c) Jaroslav Kysela <perex@suse.cz>
+ * based on isapnp.c resource management (c) Jaroslav Kysela <perex@perex.cz>
  * Copyright 2003 Adam Belay <ambx1@neo.rr.com>
  */
 
@@ -51,7 +51,7 @@ struct pnp_option *pnp_register_independent_option(struct pnp_dev *dev)
 
 	/* this should never happen but if it does we'll try to continue */
 	if (dev->independent)
-		pnp_err("independent resource already registered");
+		dev_err(&dev->dev, "independent resource already registered\n");
 	dev->independent = option;
 	return option;
 }

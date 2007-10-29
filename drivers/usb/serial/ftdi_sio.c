@@ -83,7 +83,7 @@
  *
  * (18/Jun/2003) Ian Abbott
  *      Added Device ID of the USB relais from Rudolf Gugler (backported from
- *      Philipp Gühring's patch for 2.5.x kernel).
+ *      Philipp GÃ¼hring's patch for 2.5.x kernel).
  *      Moved read transfer buffer reallocation into startup function.
  *      Free existing write urb and transfer buffer in startup function.
  *      Only use urbs in write urb pool that were successfully allocated.
@@ -1071,7 +1071,7 @@ static ssize_t show_latency_timer(struct device *dev, struct device_attribute *a
 			     (char*) &latency, 1, WDR_TIMEOUT);
 
 	if (rv < 0) {
-		dev_err(dev, "Unable to read latency timer: %i", rv);
+		dev_err(dev, "Unable to read latency timer: %i\n", rv);
 		return -EIO;
 	}
 	return sprintf(buf, "%i\n", latency);
@@ -1098,7 +1098,7 @@ static ssize_t store_latency_timer(struct device *dev, struct device_attribute *
 			     buf, 0, WDR_TIMEOUT);
 
 	if (rv < 0) {
-		dev_err(dev, "Unable to write latency timer: %i", rv);
+		dev_err(dev, "Unable to write latency timer: %i\n", rv);
 		return -EIO;
 	}
 
@@ -1169,7 +1169,9 @@ static void remove_sysfs_attrs(struct usb_serial_port *port)
 	/* XXX see create_sysfs_attrs */
 	if (priv->chip_type != SIO) {
 		device_remove_file(&port->dev, &dev_attr_event_char);
-		if (priv->chip_type == FT232BM || priv->chip_type == FT2232C) {
+		if (priv->chip_type == FT232BM ||
+		    priv->chip_type == FT2232C ||
+		    priv->chip_type == FT232RL) {
 			device_remove_file(&port->dev, &dev_attr_latency_timer);
 		}
 	}
@@ -2102,6 +2104,7 @@ static int ftdi_tiocmget (struct usb_serial_port *port, struct file *file)
 	case FT8U232AM:
 	case FT232BM:
 	case FT2232C:
+	case FT232RL:
 		/* the 8U232AM returns a two byte value (the sio is a 1 byte value) - in the same
 		   format as the data returned from the in point */
 		if ((ret = usb_control_msg(port->serial->dev,

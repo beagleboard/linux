@@ -52,13 +52,13 @@
 #define SYSCR				0xFFC00104	/* System Configuration Register			*/
 #define SIC_RVECT			0xFFC00108	/* Interrupt Reset Vector Address Register	*/
 
-#define SIC_IMASK			0xFFC0010C	/* Interrupt Mask Register					*/
+#define SIC_IMASK0			0xFFC0010C	/* Interrupt Mask Register					*/
 #define SIC_IAR0			0xFFC00110	/* Interrupt Assignment Register 0			*/
 #define SIC_IAR1			0xFFC00114	/* Interrupt Assignment Register 1			*/
 #define SIC_IAR2			0xFFC00118	/* Interrupt Assignment Register 2			*/
 #define SIC_IAR3			0xFFC0011C	/* Interrupt Assignment Register 3			*/
-#define SIC_ISR				0xFFC00120	/* Interrupt Status Register				*/
-#define SIC_IWR				0xFFC00124	/* Interrupt Wakeup Register				*/
+#define SIC_ISR0				0xFFC00120	/* Interrupt Status Register				*/
+#define SIC_IWR0				0xFFC00124	/* Interrupt Wakeup Register				*/
 
 /* SIC Additions to ADSP-BF52x (0xFFC0014C - 0xFFC00162) */
 #define SIC_IMASK1                      0xFFC0014C     /* Interrupt Mask register of SIC2 */
@@ -102,6 +102,7 @@
 
 
 /* SPI Controller			(0xFFC00500 - 0xFFC005FF)								*/
+#define SPI0_REGBASE			0xFFC00500
 #define SPI_CTL				0xFFC00500	/* SPI Control Register						*/
 #define SPI_FLG				0xFFC00504	/* SPI Flag register						*/
 #define SPI_STAT			0xFFC00508	/* SPI Status register						*/
@@ -480,6 +481,7 @@
 
 
 /* Two-Wire Interface		(0xFFC01400 - 0xFFC014FF)								*/
+#define TWI0_REGBASE			0xFFC01400
 #define TWI_CLKDIV			0xFFC01400	/* Serial Clock Divider Register			*/
 #define TWI_CONTROL			0xFFC01404	/* TWI Control Register						*/
 #define TWI_SLAVE_CTL		0xFFC01408	/* Slave Mode Control Register				*/
@@ -689,6 +691,8 @@
 
 /* *************  SYSTEM INTERRUPT CONTROLLER MASKS *************************************/
 /* Peripheral Masks For SIC_ISR, SIC_IWR, SIC_IMASK										*/
+
+#if 0
 #define IRQ_PLL_WAKEUP	0x00000001	/* PLL Wakeup Interrupt			 					*/
 
 #define IRQ_ERROR1      0x00000002  /* Error Interrupt (DMA, DMARx Block, DMARx Overflow) */
@@ -730,6 +734,7 @@
 #define IRQ_DMA15		0x40000000	/* DMA Channels 15 (MDMA0 Destination) TX Interrupt */
 #define IRQ_WDOG		0x80000000	/* Software Watchdog Timer Interrupt 				*/
 #define IRQ_PFB_PORTG	0x10000000	/* PF Port G (PF31:16) Interrupt B 					*/
+#endif
 
 /* SIC_IAR0 Macros															*/
 #define P0_IVG(x)		(((x)&0xF)-7)			/* Peripheral #0 assigned IVG #x 	*/

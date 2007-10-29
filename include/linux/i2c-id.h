@@ -119,6 +119,8 @@
 #define I2C_DRIVERID_WM8750	90	/* Wolfson WM8750 audio codec */
 #define I2C_DRIVERID_WM8753	91	/* Wolfson WM8753 audio codec */
 #define I2C_DRIVERID_LM4857 	92 	/* LM4857 Audio Amplifier */
+#define I2C_DRIVERID_VP27SMPX	93	/* Panasonic VP27s tuner internal MPX */
+#define I2C_DRIVERID_CS4270	94	/* Cirrus Logic 4270 audio codec */
 
 #define I2C_DRIVERID_MISC	99	/* Whatever until sorted out	*/
 
@@ -198,6 +200,7 @@
 #define I2C_HW_B_EM28XX		0x01001f /* em28xx video capture cards */
 #define I2C_HW_B_CX2341X	0x010020 /* Conexant CX2341X MPEG encoder cards */
 #define I2C_HW_B_INTELFB	0x010021 /* intel framebuffer driver */
+#define I2C_HW_B_CX23885	0x010022 /* conexant 23885 based tv cards (bus1) */
 
 /* --- PCF 8584 based algorithms					*/
 #define I2C_HW_P_LP		0x020000 /* Parallel port interface */

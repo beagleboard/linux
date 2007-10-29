@@ -226,8 +226,10 @@ static int i2cdev_ioctl(struct inode *inode, struct file *file,
 
 		res = 0;
 		for( i=0; i<rdwr_arg.nmsgs; i++ ) {
-			/* Limit the size of the message to a sane amount */
-			if (rdwr_pa[i].len > 8192) {
+			/* Limit the size of the message to a sane amount;
+			 * and don't let length change either. */
+			if ((rdwr_pa[i].len > 8192) ||
+			    (rdwr_pa[i].flags & I2C_M_RECV_LEN)) {
 				res = -EINVAL;
 				break;
 			}
@@ -352,9 +354,19 @@ static int i2cdev_ioctl(struct inode *inode, struct file *file,
 				return -EFAULT;
 		}
 		return res;
-
+	case I2C_RETRIES:
+		client->adapter->retries = arg;
+		break;
+	case I2C_TIMEOUT:
+		client->adapter->timeout = arg;
+		break;
 	default:
-		return i2c_control(client,cmd,arg);
+		/* NOTE:  returning a fault code here could cause trouble
+		 * in buggy userspace code.  Some old kernel bugs returned
+		 * zero in this case, and userspace code might accidentally
+		 * have depended on that bug.
+		 */
+		return -ENOTTY;
 	}
 	return 0;
 }

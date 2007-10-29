@@ -36,8 +36,8 @@
 #include <linux/slab.h>
 #include <linux/random.h>
 #include <linux/delay.h>
+#include <linux/bitops.h>
 
-#include <asm/bitops.h>
 #include <asm/bootinfo.h>
 #include <asm/io.h>
 #include <asm/mipsregs.h>
@@ -54,7 +54,7 @@
 #define PB1200_INT_END DB1200_INT_END
 #endif
 
-au1xxx_irq_map_t __initdata au1xxx_irq_map[] = {
+struct au1xxx_irqmap __initdata au1xxx_irq_map[] = {
 	{ AU1000_GPIO_7, INTC_INT_LOW_LEVEL, 0 }, // This is exteranl interrupt cascade
 };
 
@@ -74,7 +74,7 @@ irqreturn_t pb1200_cascade_handler( int irq, void *dev_id)
 	bcsr->int_status = bisr;
 	for( ; bisr; bisr &= (bisr-1) )
 	{
-		extirq_nr = (PB1200_INT_BEGIN-1) + au_ffs(bisr);
+		extirq_nr = PB1200_INT_BEGIN + ffs(bisr);
 		/* Ack and dispatch IRQ */
 		do_IRQ(extirq_nr);
 	}
@@ -132,7 +132,7 @@ static void pb1200_shutdown_irq( unsigned int irq_nr )
 	pb1200_disable_irq(irq_nr);
 	if (--pb1200_cascade_en == 0)
 	{
-		free_irq(AU1000_GPIO_7,&pb1200_cascade_handler );
+		free_irq(AU1000_GPIO_7, &pb1200_cascade_handler );
 	}
 	return;
 }

@@ -22,8 +22,8 @@
 #include "bond_3ad.h"
 #include "bond_alb.h"
 
-#define DRV_VERSION	"3.1.3"
-#define DRV_RELDATE	"June 13, 2007"
+#define DRV_VERSION	"3.2.1"
+#define DRV_RELDATE	"October 15, 2007"
 #define DRV_NAME	"bonding"
 #define DRV_DESCRIPTION	"Ethernet Channel Bonding Driver"
 
@@ -128,11 +128,12 @@ struct bond_params {
 	int arp_interval;
 	int arp_validate;
 	int use_carrier;
+	int fail_over_mac;
 	int updelay;
 	int downdelay;
 	int lacp_fast;
 	char primary[IFNAMSIZ];
-	u32 arp_targets[BOND_MAX_ARP_TARGETS];
+	__be32 arp_targets[BOND_MAX_ARP_TARGETS];
 };
 
 struct bond_parm_tbl {
@@ -142,7 +143,7 @@ struct bond_parm_tbl {
 
 struct vlan_entry {
 	struct list_head vlan_list;
-	u32 vlan_ip;
+	__be32 vlan_ip;
 	unsigned short vlan_id;
 };
 
@@ -156,6 +157,7 @@ struct slave {
 	s8     link;    /* one of BOND_LINK_XXXX */
 	s8     state;   /* one of BOND_STATE_XXXX */
 	u32    original_flags;
+	u32    original_mtu;
 	u32    link_failure_count;
 	u16    speed;
 	u8     duplex;
@@ -185,6 +187,8 @@ struct bonding {
 	struct   timer_list mii_timer;
 	struct   timer_list arp_timer;
 	s8       kill_timers;
+	s8	 send_grat_arp;
+	s8	 setup_by_slave;
 	struct   net_device_stats stats;
 #ifdef CONFIG_PROC_FS
 	struct   proc_dir_entry *proc_entry;
@@ -193,7 +197,7 @@ struct bonding {
 	struct   list_head bond_list;
 	struct   dev_mc_list *mc_list;
 	int      (*xmit_hash_policy)(struct sk_buff *, struct net_device *, int);
-	u32      master_ip;
+	__be32   master_ip;
 	u16      flags;
 	struct   ad_bond_info ad_info;
 	struct   alb_bond_info alb_info;
@@ -292,6 +296,8 @@ static inline void bond_unset_master_alb_flags(struct bonding *bond)
 struct vlan_entry *bond_next_vlan(struct bonding *bond, struct vlan_entry *curr);
 int bond_dev_queue_xmit(struct bonding *bond, struct sk_buff *skb, struct net_device *slave_dev);
 int bond_create(char *name, struct bond_params *params, struct bonding **newbond);
+void bond_destroy(struct bonding *bond);
+int  bond_release_and_destroy(struct net_device *bond_dev, struct net_device *slave_dev);
 void bond_deinit(struct net_device *bond_dev);
 int bond_create_sysfs(void);
 void bond_destroy_sysfs(void);

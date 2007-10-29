@@ -44,6 +44,7 @@
 #include <linux/seq_file.h>
 #include <linux/dmi.h>
 #include <linux/moduleparam.h>
+#include <linux/cpuidle.h>
 
 #include <asm/io.h>
 #include <asm/system.h>
@@ -421,12 +422,6 @@ static int map_lsapic_id(struct acpi_subtable_header *entry,
 	return 0;
 }
 
-#ifdef CONFIG_IA64
-#define arch_cpu_to_apicid 	ia64_cpu_to_sapicid
-#else
-#define arch_cpu_to_apicid 	x86_cpu_to_apicid
-#endif
-
 static int map_madt_entry(u32 acpi_id)
 {
 	unsigned long madt_end, entry;
@@ -500,7 +495,7 @@ static int get_cpu_id(acpi_handle handle, u32 acpi_id)
 		return apic_id;
 
 	for (i = 0; i < NR_CPUS; ++i) {
-		if (arch_cpu_to_apicid[i] == apic_id)
+		if (cpu_physical_id(i) == apic_id)
 			return i;
 	}
 	return -1;
@@ -1049,11 +1044,13 @@ static int __init acpi_processor_init(void)
 		return -ENOMEM;
 	acpi_processor_dir->owner = THIS_MODULE;
 
+	result = cpuidle_register_driver(&acpi_idle_driver);
+	if (result < 0)
+		goto out_proc;
+
 	result = acpi_bus_register_driver(&acpi_processor_driver);
-	if (result < 0) {
-		remove_proc_entry(ACPI_PROCESSOR_CLASS, acpi_root_dir);
-		return result;
-	}
+	if (result < 0)
+		goto out_cpuidle;
 
 	acpi_processor_install_hotplug_notify();
 
@@ -1062,11 +1059,18 @@ static int __init acpi_processor_init(void)
 	acpi_processor_ppc_init();
 
 	return 0;
+
+out_cpuidle:
+	cpuidle_unregister_driver(&acpi_idle_driver);
+
+out_proc:
+	remove_proc_entry(ACPI_PROCESSOR_CLASS, acpi_root_dir);
+
+	return result;
 }
 
 static void __exit acpi_processor_exit(void)
 {
-
 	acpi_processor_ppc_exit();
 
 	acpi_thermal_cpufreq_exit();
@@ -1074,6 +1078,8 @@ static void __exit acpi_processor_exit(void)
 	acpi_processor_uninstall_hotplug_notify();
 
 	acpi_bus_unregister_driver(&acpi_processor_driver);
+
+	cpuidle_unregister_driver(&acpi_idle_driver);
 
 	remove_proc_entry(ACPI_PROCESSOR_CLASS, acpi_root_dir);
 

@@ -15,7 +15,11 @@ obj-$(CONFIG_BT_HCIBTUART)	+= btuart_cs.o
 obj-$(CONFIG_BT_HCIBRF6150)	+= brf6150.o
 obj-$(CONFIG_BT_HCIH4P)		+= hci_h4p/
 
+obj-$(CONFIG_BT_HCIBTUSB)	+= btusb.o
+obj-$(CONFIG_BT_HCIBTSDIO)	+= btsdio.o
+
 hci_uart-y				:= hci_ldisc.o
 hci_uart-$(CONFIG_BT_HCIUART_H4)	+= hci_h4.o
 hci_uart-$(CONFIG_BT_HCIUART_BCSP)	+= hci_bcsp.o
+hci_uart-$(CONFIG_BT_HCIUART_LL)	+= hci_ll.o
 hci_uart-objs				:= $(hci_uart-y)

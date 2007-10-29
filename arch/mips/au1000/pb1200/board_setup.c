@@ -41,8 +41,10 @@
 #include <asm/mipsregs.h>
 #include <asm/reboot.h>
 #include <asm/pgtable.h>
-#include <asm/mach-au1x00/au1000.h>
-#include <asm/mach-au1x00/au1xxx_dbdma.h>
+
+#include <au1000.h>
+#include <au1xxx_dbdma.h>
+#include <prom.h>
 
 #ifdef CONFIG_MIPS_PB1200
 #include <asm/mach-pb1x00/pb1200.h>
@@ -57,7 +59,7 @@
 extern void _board_init_irq(void);
 extern void (*board_init_irq)(void);
 
-void board_reset (void)
+void board_reset(void)
 {
 	bcsr->resets = 0;
 	bcsr->system = 0;
@@ -148,7 +150,7 @@ void __init board_setup(void)
 }
 
 int
-board_au1200fb_panel (void)
+board_au1200fb_panel(void)
 {
 	BCSR *bcsr = (BCSR *)BCSR_KSEG1_ADDR;
 	int p;
@@ -160,7 +162,7 @@ board_au1200fb_panel (void)
 }
 
 int
-board_au1200fb_panel_init (void)
+board_au1200fb_panel_init(void)
 {
 	/* Apply power */
     BCSR *bcsr = (BCSR *)BCSR_KSEG1_ADDR;
@@ -170,7 +172,7 @@ board_au1200fb_panel_init (void)
 }
 
 int
-board_au1200fb_panel_shutdown (void)
+board_au1200fb_panel_shutdown(void)
 {
 	/* Remove power */
     BCSR *bcsr = (BCSR *)BCSR_KSEG1_ADDR;

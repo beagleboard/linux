@@ -502,22 +502,24 @@ static void atp_complete(struct urb* urb)
 
 		/* reset the accumulator on release */
 		memset(dev->xy_acc, 0, sizeof(dev->xy_acc));
-
-		/* Geyser 3 will continue to send packets continually after
-		   the first touch unless reinitialised. Do so if it's been
-		   idle for a while in order to avoid waking the kernel up
-		   several hundred times a second */
-		if (!key && atp_is_geyser_3(dev)) {
-			dev->idlecount++;
-			if (dev->idlecount == 10) {
-				dev->valid = 0;
-				schedule_work(&dev->work);
-			}
-		}
 	}
 
 	input_report_key(dev->input, BTN_LEFT, key);
 	input_sync(dev->input);
+
+	/* Many Geysers will continue to send packets continually after
+	   the first touch unless reinitialised. Do so if it's been
+	   idle for a while in order to avoid waking the kernel up
+	   several hundred times a second */
+
+	if (!x && !y && !key) {
+		dev->idlecount++;
+		if (dev->idlecount == 10) {
+			dev->valid = 0;
+			schedule_work(&dev->work);
+		}
+	} else
+		dev->idlecount = 0;
 
 exit:
 	retval = usb_submit_urb(dev->urb, GFP_ATOMIC);

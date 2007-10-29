@@ -28,25 +28,37 @@
 #include <linux/cache.h>
 #include <linux/pci_ids.h>
 
+#define IOAT_DMA_VERSION "1.26"
+
+enum ioat_interrupt {
+	none = 0,
+	msix_multi_vector = 1,
+	msix_single_vector = 2,
+	msi = 3,
+	intx = 4,
+};
+
 #define IOAT_LOW_COMPLETION_MASK	0xffffffc0
 
 /**
- * struct ioat_device - internal representation of a IOAT device
+ * struct ioatdma_device - internal representation of a IOAT device
  * @pdev: PCI-Express device
  * @reg_base: MMIO register space base address
  * @dma_pool: for allocating DMA descriptors
  * @common: embedded struct dma_device
- * @msi: Message Signaled Interrupt number
+ * @version: version of ioatdma device
  */
 
-struct ioat_device {
+struct ioatdma_device {
 	struct pci_dev *pdev;
 	void __iomem *reg_base;
 	struct pci_pool *dma_pool;
 	struct pci_pool *completion_pool;
-
 	struct dma_device common;
-	u8 msi;
+	u8 version;
+	enum ioat_interrupt irq_mode;
+	struct msix_entry msix_entries[4];
+	struct ioat_dma_chan *idx[4];
 };
 
 /**
@@ -84,7 +96,7 @@ struct ioat_dma_chan {
 
 	int pending;
 
-	struct ioat_device *device;
+	struct ioatdma_device *device;
 	struct dma_chan common;
 
 	dma_addr_t completion_addr;
@@ -95,6 +107,7 @@ struct ioat_dma_chan {
 			u32 high;
 		};
 	} *completion_virt;
+	struct tasklet_struct cleanup_task;
 };
 
 /* wrapper around hardware descriptor format + additional software fields */
@@ -111,10 +124,22 @@ struct ioat_desc_sw {
 	struct ioat_dma_descriptor *hw;
 	struct list_head node;
 	int tx_cnt;
-	DECLARE_PCI_UNMAP_LEN(len)
-	DECLARE_PCI_UNMAP_ADDR(src)
-	DECLARE_PCI_UNMAP_ADDR(dst)
+	size_t len;
+	dma_addr_t src;
+	dma_addr_t dst;
 	struct dma_async_tx_descriptor async_tx;
 };
+
+#if defined(CONFIG_INTEL_IOATDMA) || defined(CONFIG_INTEL_IOATDMA_MODULE)
+struct ioatdma_device *ioat_dma_probe(struct pci_dev *pdev,
+				      void __iomem *iobase);
+void ioat_dma_remove(struct ioatdma_device *device);
+struct dca_provider *ioat_dca_init(struct pci_dev *pdev,
+				   void __iomem *iobase);
+#else
+#define ioat_dma_probe(pdev, iobase)    NULL
+#define ioat_dma_remove(device)         do { } while (0)
+#define ioat_dca_init(pdev, iobase)	NULL
+#endif
 
 #endif /* IOATDMA_H */

@@ -141,6 +141,7 @@ int main(void)
 	DEFINE(PACALPPACAPTR, offsetof(struct paca_struct, lppaca_ptr));
 	DEFINE(PACAHWCPUID, offsetof(struct paca_struct, hw_cpu_id));
 	DEFINE(PACA_STARTPURR, offsetof(struct paca_struct, startpurr));
+	DEFINE(PACA_STARTSPURR, offsetof(struct paca_struct, startspurr));
 	DEFINE(PACA_USER_TIME, offsetof(struct paca_struct, user_time));
 	DEFINE(PACA_SYSTEM_TIME, offsetof(struct paca_struct, system_time));
 	DEFINE(PACA_SLBSHADOWPTR, offsetof(struct paca_struct, slb_shadow_ptr));
@@ -311,6 +312,18 @@ int main(void)
 
 #ifdef CONFIG_BUG
 	DEFINE(BUG_ENTRY_SIZE, sizeof(struct bug_entry));
+#endif
+
+#ifdef CONFIG_PPC_ISERIES
+	/* the assembler miscalculates the VSID values */
+	DEFINE(PAGE_OFFSET_ESID, GET_ESID(PAGE_OFFSET));
+	DEFINE(PAGE_OFFSET_VSID, KERNEL_VSID(PAGE_OFFSET));
+	DEFINE(VMALLOC_START_ESID, GET_ESID(VMALLOC_START));
+	DEFINE(VMALLOC_START_VSID, KERNEL_VSID(VMALLOC_START));
+#endif
+
+#ifdef CONFIG_PPC64
+	DEFINE(PGD_TABLE_SIZE, PGD_TABLE_SIZE);
 #endif
 	return 0;
 }

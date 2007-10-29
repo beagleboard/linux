@@ -1043,14 +1043,6 @@ static int __init acpi_wake_gpes_always_on_setup(char *str)
 __setup("acpi_wake_gpes_always_on", acpi_wake_gpes_always_on_setup);
 
 /*
- * max_cstate is defined in the base kernel so modules can
- * change it w/o depending on the state of the processor module.
- */
-unsigned int max_cstate = ACPI_PROCESSOR_MAX_POWER;
-
-EXPORT_SYMBOL(max_cstate);
-
-/*
  * Acquire a spinlock.
  *
  * handle is a pointer to the spinlock_t.
@@ -1214,7 +1206,7 @@ acpi_os_validate_address (
 }
 
 #ifdef CONFIG_DMI
-static int dmi_osi_linux(struct dmi_system_id *d)
+static int dmi_osi_linux(const struct dmi_system_id *d)
 {
 	printk(KERN_NOTICE "%s detected: enabling _OSI(Linux)\n", d->ident);
 	enable_osi_linux(1);

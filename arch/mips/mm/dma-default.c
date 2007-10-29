@@ -13,6 +13,7 @@
 #include <linux/mm.h>
 #include <linux/module.h>
 #include <linux/string.h>
+#include <linux/scatterlist.h>
 
 #include <asm/cache.h>
 #include <asm/io.h>
@@ -35,8 +36,8 @@ static inline unsigned long dma_addr_to_virt(dma_addr_t dma_addr)
 static inline int cpu_is_noncoherent_r10000(struct device *dev)
 {
 	return !plat_device_is_coherent(dev) &&
-	       (current_cpu_data.cputype == CPU_R10000 ||
-	       current_cpu_data.cputype == CPU_R12000);
+	       (current_cpu_type() == CPU_R10000 ||
+	       current_cpu_type() == CPU_R12000);
 }
 
 void *dma_alloc_noncoherent(struct device *dev, size_t size,
@@ -165,12 +166,11 @@ int dma_map_sg(struct device *dev, struct scatterlist *sg, int nents,
 	for (i = 0; i < nents; i++, sg++) {
 		unsigned long addr;
 
-		addr = (unsigned long) page_address(sg->page);
+		addr = (unsigned long) sg_virt(sg);
 		if (!plat_device_is_coherent(dev) && addr)
-			__dma_sync(addr + sg->offset, sg->length, direction);
+			__dma_sync(addr, sg->length, direction);
 		sg->dma_address = plat_map_dma_mem(dev,
-				                   (void *)(addr + sg->offset),
-						   sg->length);
+				                   (void *)addr, sg->length);
 	}
 
 	return nents;
@@ -223,10 +223,9 @@ void dma_unmap_sg(struct device *dev, struct scatterlist *sg, int nhwentries,
 	for (i = 0; i < nhwentries; i++, sg++) {
 		if (!plat_device_is_coherent(dev) &&
 		    direction != DMA_TO_DEVICE) {
-			addr = (unsigned long) page_address(sg->page);
+			addr = (unsigned long) sg_virt(sg);
 			if (addr)
-				__dma_sync(addr + sg->offset, sg->length,
-				           direction);
+				__dma_sync(addr, sg->length, direction);
 		}
 		plat_unmap_dma_mem(sg->dma_address);
 	}
@@ -304,7 +303,7 @@ void dma_sync_sg_for_cpu(struct device *dev, struct scatterlist *sg, int nelems,
 	/* Make sure that gcc doesn't leave the empty loop body.  */
 	for (i = 0; i < nelems; i++, sg++) {
 		if (cpu_is_noncoherent_r10000(dev))
-			__dma_sync((unsigned long)page_address(sg->page),
+			__dma_sync((unsigned long)page_address(sg_page(sg)),
 			           sg->length, direction);
 		plat_unmap_dma_mem(sg->dma_address);
 	}
@@ -322,7 +321,7 @@ void dma_sync_sg_for_device(struct device *dev, struct scatterlist *sg, int nele
 	/* Make sure that gcc doesn't leave the empty loop body.  */
 	for (i = 0; i < nelems; i++, sg++) {
 		if (!plat_device_is_coherent(dev))
-			__dma_sync((unsigned long)page_address(sg->page),
+			__dma_sync((unsigned long)page_address(sg_page(sg)),
 			           sg->length, direction);
 		plat_unmap_dma_mem(sg->dma_address);
 	}

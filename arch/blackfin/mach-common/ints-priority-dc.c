@@ -52,7 +52,13 @@
  * -
  */
 
-unsigned long irq_flags = 0;
+/* Initialize this to an actual value to force it into the .data
+ * section so that we know it is properly initialized at entry into
+ * the kernel but before bss is initialized to zero (which is where
+ * it would live otherwise).  The 0x1f magic represents the IRQs we
+ * cannot actually mask out in hardware.
+ */
+unsigned long irq_flags = 0x1f;
 
 /* The number of spurious interrupts */
 atomic_t num_spurious;
@@ -221,7 +227,7 @@ static unsigned int bf561_gpio_irq_startup(unsigned int irq)
 
 	if (!(gpio_enabled[gpio_bank(gpionr)] & gpio_bit(gpionr))) {
 
-		ret = gpio_request(gpionr, NULL);
+		ret = gpio_request(gpionr, "IRQ");
 		if (ret)
 			return ret;
 
@@ -261,7 +267,7 @@ static int bf561_gpio_irq_type(unsigned int irq, unsigned int type)
 
 		if (!(gpio_enabled[gpio_bank(gpionr)] & gpio_bit(gpionr))) {
 
-			ret = gpio_request(gpionr, NULL);
+			ret = gpio_request(gpionr, "IRQ");
 			if (ret)
 				return ret;
 
@@ -362,10 +368,11 @@ void __init init_exception_vectors(void)
 {
 	SSYNC();
 
-#ifndef CONFIG_KGDB
-	bfin_write_EVT0(evt_emulation);
-#endif
-	bfin_write_EVT2(evt_evt2);
+	/* cannot program in software:
+	 * evt0 - emulation (jtag)
+	 * evt1 - reset
+	 */
+	bfin_write_EVT2(evt_nmi);
 	bfin_write_EVT3(trap);
 	bfin_write_EVT5(evt_ivhw);
 	bfin_write_EVT6(evt_timer);

@@ -31,7 +31,6 @@
  *   2. Emulating a reasonable SO_PEERSEC across machines
  *   3. Testing addition of sk_policy's with security context via setsockopt
  */
-#include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/security.h>
@@ -449,7 +448,7 @@ int selinux_xfrm_postroute_last(u32 isec_sid, struct sk_buff *skb,
 	if (dst) {
 		struct dst_entry *dst_test;
 
-		for (dst_test = dst; dst_test != 0;
+		for (dst_test = dst; dst_test != NULL;
 		     dst_test = dst_test->child) {
 			struct xfrm_state *x = dst_test->xfrm;
 

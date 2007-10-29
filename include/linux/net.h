@@ -23,6 +23,7 @@
 
 struct poll_table_struct;
 struct inode;
+struct net;
 
 #define NPROTO		34		/* should be enough for now..	*/
 
@@ -169,7 +170,7 @@ struct proto_ops {
 
 struct net_proto_family {
 	int		family;
-	int		(*create)(struct socket *sock, int protocol);
+	int		(*create)(struct net *net, struct socket *sock, int protocol);
 	struct module	*owner;
 };
 
@@ -311,6 +312,10 @@ static const struct proto_ops name##_ops = {			\
 
 #define MODULE_ALIAS_NET_PF_PROTO(pf, proto) \
 	MODULE_ALIAS("net-pf-" __stringify(pf) "-proto-" __stringify(proto))
+
+#define MODULE_ALIAS_NET_PF_PROTO_TYPE(pf, proto, type) \
+	MODULE_ALIAS("net-pf-" __stringify(pf) "-proto-" __stringify(proto) \
+		     "-type-" __stringify(type))
 
 #ifdef CONFIG_SYSCTL
 #include <linux/sysctl.h>

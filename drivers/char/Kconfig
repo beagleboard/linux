@@ -568,8 +568,8 @@ config TIPAR
 config HVC_DRIVER
 	bool
 	help
-	  Users of pSeries machines that want to utilize the hvc console front-end
-	  module for their backend console driver should select this option.
+	  Generic "hypervisor virtual console" infrastructure for various
+	  hypervisors (pSeries, iSeries, Xen, lguest).
 	  It will automatically be selected if one of the back-end console drivers
 	  is selected.
 
@@ -613,6 +613,10 @@ config HVC_XEN
 	help
 	  Xen virtual console device driver
 
+config VIRTIO_CONSOLE
+	bool
+	select HVC_DRIVER
+
 config HVCS
 	tristate "IBM Hypervisor Virtual Console Server support"
 	depends on PPC_PSERIES
@@ -631,8 +635,6 @@ config HVCS
 	  module.
 
 source "drivers/char/ipmi/Kconfig"
-
-source "drivers/char/watchdog/Kconfig"
 
 config DS1620
 	tristate "NetWinder thermometer support"
@@ -895,10 +897,6 @@ config GPIO_TB0219
 	tristate "TANBAC TB0219 GPIO support"
 	depends on TANBAC_TB022X
 	select GPIO_VR41XX
-
-source "drivers/char/agp/Kconfig"
-
-source "drivers/char/drm/Kconfig"
 
 source "drivers/char/pcmcia/Kconfig"
 

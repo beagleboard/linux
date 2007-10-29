@@ -234,6 +234,10 @@ config AUDITSYSCALL
 	  such as SELinux.  To use audit's filesystem watch feature, please
 	  ensure that INOTIFY is configured.
 
+config AUDIT_TREE
+	def_bool y
+	depends on AUDITSYSCALL && INOTIFY
+
 config IKCONFIG
 	tristate "Kernel .config support"
 	---help---
@@ -270,9 +274,43 @@ config LOG_BUF_SHIFT
 		     13 =>  8 KB
 		     12 =>  4 KB
 
+config CGROUPS
+	bool "Control Group support"
+	help
+	  This option will let you use process cgroup subsystems
+	  such as Cpusets
+
+	  Say N if unsure.
+
+config CGROUP_DEBUG
+	bool "Example debug cgroup subsystem"
+	depends on CGROUPS
+	help
+	  This option enables a simple cgroup subsystem that
+	  exports useful debugging information about the cgroups
+	  framework
+
+	  Say N if unsure
+
+config CGROUP_NS
+        bool "Namespace cgroup subsystem"
+        depends on CGROUPS
+        help
+          Provides a simple namespace cgroup subsystem to
+          provide hierarchical naming of sets of namespaces,
+          for instance virtual servers and checkpoint/restart
+          jobs.
+
+config CGROUP_CPUACCT
+	bool "Simple CPU accounting cgroup subsystem"
+	depends on CGROUPS
+	help
+	  Provides a simple Resource Controller for monitoring the
+	  total CPU consumed by the tasks in a cgroup
+
 config CPUSETS
 	bool "Cpuset support"
-	depends on SMP
+	depends on SMP && CGROUPS
 	help
 	  This option will let you create and manage CPUSETs which
 	  allow dynamically partitioning a system into sets of CPUs and
@@ -280,6 +318,37 @@ config CPUSETS
 	  This is primarily useful on large SMP or NUMA systems.
 
 	  Say N if unsure.
+
+config FAIR_GROUP_SCHED
+	bool "Fair group CPU scheduler"
+	default y
+	depends on EXPERIMENTAL
+	help
+	  This feature lets CPU scheduler recognize task groups and control CPU
+	  bandwidth allocation to such task groups.
+
+choice
+	depends on FAIR_GROUP_SCHED
+	prompt "Basis for grouping tasks"
+	default FAIR_USER_SCHED
+
+config FAIR_USER_SCHED
+	bool "user id"
+	help
+	  This option will choose userid as the basis for grouping
+	  tasks, thus providing equal CPU bandwidth to each user.
+
+config FAIR_CGROUP_SCHED
+	bool "Control groups"
+ 	depends on CGROUPS
+ 	help
+	  This option allows you to create arbitrary task groups
+	  using the "cgroup" pseudo filesystem and control
+	  the cpu bandwidth allocated to each such task group.
+	  Refer to Documentation/cgroups.txt for more information
+	  on "cgroup" pseudo filesystem.
+
+endchoice
 
 config SYSFS_DEPRECATED
 	bool "Create deprecated sysfs files"
@@ -300,6 +369,11 @@ config SYSFS_DEPRECATED
 
 	  If you are using a distro that was released in 2006 or later,
 	  it should be safe to say N here.
+
+config PROC_PID_CPUSET
+	bool "Include legacy /proc/<pid>/cpuset file"
+	depends on CPUSETS
+	default y
 
 config RELAY
 	bool "Kernel->user space relay support (formerly relayfs)"
@@ -668,3 +742,6 @@ config STOP_MACHINE
 	  Need stop_machine() primitive.
 
 source "block/Kconfig"
+
+config PREEMPT_NOTIFIERS
+	bool

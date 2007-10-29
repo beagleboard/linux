@@ -19,7 +19,7 @@
  *     published by the Free Software Foundation; either version 2 of
  *     the License, or (at your option) any later version.
  *
- *     Neither Dag Brattli nor University of Tromsø admit liability nor
+ *     Neither Dag Brattli nor University of TromsÃ¸ admit liability nor
  *     provide warranty for any of this software. This material is
  *     provided "AS-IS" and at no charge.
  *
@@ -59,8 +59,6 @@ static void irlan_eth_setup(struct net_device *dev)
 	dev->get_stats	        = irlan_eth_get_stats;
 	dev->set_multicast_list = irlan_eth_set_multicast_list;
 	dev->destructor		= free_netdev;
-
-	SET_MODULE_OWNER(dev);
 
 	ether_setup(dev);
 

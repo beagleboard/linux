@@ -8,6 +8,7 @@
 
 #include <linux/linkage.h>
 #include <linux/compat.h>
+#include <linux/nsproxy.h>
 #include <linux/futex.h>
 
 #include <asm/uaccess.h>
@@ -124,7 +125,7 @@ compat_sys_get_robust_list(int pid, compat_uptr_t __user *head_ptr,
 
 		ret = -ESRCH;
 		read_lock(&tasklist_lock);
-		p = find_task_by_pid(pid);
+		p = find_task_by_vpid(pid);
 		if (!p)
 			goto err_unlock;
 		ret = -EPERM;

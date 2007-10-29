@@ -36,6 +36,18 @@ config GENERIC_CMOS_UPDATE
 	bool
 	default y
 
+config CLOCKSOURCE_WATCHDOG
+	bool
+	default y
+
+config GENERIC_CLOCKEVENTS
+	bool
+	default y
+
+config GENERIC_CLOCKEVENTS_BROADCAST
+	bool
+	default y
+
 config ZONE_DMA32
 	bool
 	default y
@@ -130,6 +142,8 @@ source "init/Kconfig"
 
 menu "Processor type and features"
 
+source "kernel/time/Kconfig"
+
 choice
 	prompt "Subarchitecture Type"
 	default X86_PC
@@ -161,14 +175,12 @@ config MK8
 config MPSC
        bool "Intel P4 / older Netburst based Xeon"
        help
-	  Optimize for Intel Pentium 4 and older Nocona/Dempsey Xeon CPUs
-	  with Intel Extended Memory 64 Technology(EM64T). For details see
-	  <http://www.intel.com/technology/64bitextensions/>.
+	  Optimize for Intel Pentium 4, Pentium D and older Nocona/Dempsey
+	  Xeon CPUs with Intel 64bit which is compatible with x86-64.
 	  Note that the latest Xeons (Xeon 51xx and 53xx) are not based on the
           Netburst core and shouldn't use this option. You can distinguish them
 	  using the cpu family field
-	  in /proc/cpuinfo. Family 15 is an older Xeon, Family 6 a newer one
-	  (this rule only applies to systems that support EM64T)
+	  in /proc/cpuinfo. Family 15 is an older Xeon, Family 6 a newer one.
 
 config MCORE2
 	bool "Intel Core2 / newer Xeon"
@@ -176,8 +188,7 @@ config MCORE2
 	  Optimize for Intel Core2 and newer Xeons (51xx)
 	  You can distinguish the newer Xeons from the older ones using
 	  the cpu family field in /proc/cpuinfo. 15 is an older Xeon
-	  (use CONFIG_MPSC then), 6 is a newer one. This rule only
-	  applies to CPUs that support EM64T.
+	  (use CONFIG_MPSC then), 6 is a newer one.
 
 config GENERIC_CPU
 	bool "Generic-x86-64"
@@ -395,6 +406,7 @@ config ARCH_DISCONTIGMEM_DEFAULT
 config ARCH_SPARSEMEM_ENABLE
 	def_bool y
 	depends on (NUMA || EXPERIMENTAL)
+	select SPARSEMEM_VMEMMAP_ENABLE
 
 config ARCH_MEMORY_PROBE
 	def_bool y
@@ -461,8 +473,9 @@ config HPET_TIMER
 	  <http://www.intel.com/hardwaredesign/hpetspec.htm>.
 
 config HPET_EMULATE_RTC
-	bool "Provide RTC interrupt"
+	bool
 	depends on HPET_TIMER && RTC=y
+	default y
 
 # Mark as embedded because too many people got it wrong.
 # The code disables itself when not needed.
@@ -567,17 +580,18 @@ config CRASH_DUMP
 	bool "kernel crash dumps (EXPERIMENTAL)"
 	depends on EXPERIMENTAL
 	help
-          Generate crash dump after being started by kexec.
-          This should be normally only set in special crash dump kernels
-          which are loaded in the main kernel with kexec-tools into
-          a specially reserved region and then later executed after
-          a crash by kdump/kexec. The crash dump kernel must be compiled
+	  Generate crash dump after being started by kexec.
+	  This should be normally only set in special crash dump kernels
+	  which are loaded in the main kernel with kexec-tools into
+	  a specially reserved region and then later executed after
+	  a crash by kdump/kexec. The crash dump kernel must be compiled
 	  to a memory address not used by the main kernel or BIOS using
-	  PHYSICAL_START.
-          For more details see Documentation/kdump/kdump.txt
+	  PHYSICAL_START, or it must be built as a relocatable image
+	  (CONFIG_RELOCATABLE=y).
+	  For more details see Documentation/kdump/kdump.txt
 
 config RELOCATABLE
-	bool "Build a relocatable kernel(EXPERIMENTAL)"
+	bool "Build a relocatable kernel (EXPERIMENTAL)"
 	depends on EXPERIMENTAL
 	help
 	  Builds a relocatable kernel. This enables loading and running
@@ -588,8 +602,8 @@ config RELOCATABLE
 	  must live at a different physical address than the primary
 	  kernel.
 
-	  Note: If CONFIG_RELOCATABLE=y, then kernel run from the address
-	  it has been loaded at and compile time physical address
+	  Note: If CONFIG_RELOCATABLE=y, then the kernel runs from the address
+	  it has been loaded at and the compile time physical address
 	  (CONFIG_PHYSICAL_START) is ignored.
 
 config PHYSICAL_START
@@ -702,9 +716,16 @@ menu "Power management options"
 
 source kernel/power/Kconfig
 
+config ARCH_HIBERNATION_HEADER
+	bool
+	depends on HIBERNATION
+	default y
+
 source "drivers/acpi/Kconfig"
 
-source "arch/x86_64/kernel/cpufreq/Kconfig"
+source "arch/x86/kernel/cpu/cpufreq/Kconfig_64"
+
+source "drivers/cpuidle/Kconfig"
 
 endmenu
 
@@ -724,6 +745,43 @@ config PCI_MMCONFIG
 	bool "Support mmconfig PCI config space access"
 	depends on PCI && ACPI
 
+config PCI_DOMAINS
+	bool
+	depends on PCI
+	default y
+
+config DMAR
+	bool "Support for DMA Remapping Devices (EXPERIMENTAL)"
+	depends on PCI_MSI && ACPI && EXPERIMENTAL
+	default y
+	help
+	  DMA remapping (DMAR) devices support enables independent address
+	  translations for Direct Memory Access (DMA) from devices.
+	  These DMA remapping devices are reported via ACPI tables
+	  and include PCI device scope covered by these DMA
+	  remapping devices.
+
+config DMAR_GFX_WA
+	bool "Support for Graphics workaround"
+	depends on DMAR
+	default y
+	help
+	 Current Graphics drivers tend to use physical address
+	 for DMA and avoid using DMA APIs. Setting this config
+	 option permits the IOMMU driver to set a unity map for
+	 all the OS-visible memory. Hence the driver can continue
+	 to use physical addresses for DMA.
+
+config DMAR_FLOPPY_WA
+	bool
+	depends on DMAR
+	default y
+	help
+	 Floppy disk drivers are know to bypass DMA API calls
+	 thereby failing to work when IOMMU is enabled. This
+	 workaround will setup a 1:1 mapping for the first
+	 16M to make floppy (an ISA device) work.
+
 source "drivers/pci/pcie/Kconfig"
 
 source "drivers/pci/Kconfig"
@@ -742,9 +800,9 @@ source "fs/Kconfig.binfmt"
 config IA32_EMULATION
 	bool "IA32 Emulation"
 	help
-	  Include code to run 32-bit programs under a 64-bit kernel. You should likely
-	  turn this on, unless you're 100% sure that you don't have any 32-bit programs
-	  left.
+	  Include code to run 32-bit programs under a 64-bit kernel. You should
+	  likely turn this on, unless you're 100% sure that you don't have any
+	  32-bit programs left.
 
 config IA32_AOUT
        tristate "IA32 a.out support"
@@ -774,22 +832,6 @@ source drivers/Kconfig
 source "drivers/firmware/Kconfig"
 
 source fs/Kconfig
-
-menu "Instrumentation Support"
-        depends on EXPERIMENTAL
-
-source "arch/x86_64/oprofile/Kconfig"
-
-config KPROBES
-	bool "Kprobes"
-	depends on KALLSYMS && MODULES
-	help
-	  Kprobes allows you to trap at almost any kernel address and
-	  execute a callback function.  register_kprobe() establishes
-	  a probepoint and specifies the callback.  Kprobes is useful
-	  for kernel debugging, non-intrusive instrumentation and testing.
-	  If in doubt, say "N".
-endmenu
 
 source "arch/x86_64/Kconfig.debug"
 
