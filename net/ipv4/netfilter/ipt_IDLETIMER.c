@@ -74,7 +74,7 @@ static void utimer_work(struct work_struct *work)
 	struct utimer_t *timer = container_of(work, struct utimer_t, work);
 	struct net_device *netdev;
 
-	netdev = dev_get_by_name(timer->name);
+	netdev = dev_get_by_name(&init_net, timer->name);
 
 	if (netdev != NULL) {
 		sysfs_notify(&netdev->dev.kobj, NULL,
@@ -182,11 +182,12 @@ static int utimer_notifier_call(struct notifier_block *this,
 				unsigned long event, void *ptr)
 {
 	struct net_device *dev = ptr;
+	int ret = NOTIFY_DONE;
 
 	switch (event) {
 	case NETDEV_UP:
 		DEBUGP("NETDEV_UP: %s\n", dev->name);
-		device_create_file(&dev->dev,
+		ret = device_create_file(&dev->dev,
 					 &dev_attr_idletimer);
 		break;
 	case NETDEV_DOWN:
@@ -196,7 +197,7 @@ static int utimer_notifier_call(struct notifier_block *this,
 		break;
 	}
 
-	return NOTIFY_DONE;
+	return ret;
 }
 
 static struct notifier_block utimer_notifier_block = {
@@ -219,7 +220,7 @@ static void utimer_fini(void)
 
 	rtnl_lock();
 	unregister_netdevice_notifier(&utimer_notifier_block);
-	for_each_netdev(dev)
+	for_each_netdev(&init_net, dev)
 		utimer_notifier_call(&utimer_notifier_block,
 				     NETDEV_DOWN, dev);
 	rtnl_unlock();
@@ -228,7 +229,7 @@ static void utimer_fini(void)
 /*
  * The actual iptables plugin.
  */
-static unsigned int ipt_idletimer_target(struct sk_buff **pskb,
+static unsigned int ipt_idletimer_target(struct sk_buff *pskb,
 					 const struct net_device *in,
 					 const struct net_device *out,
 					 unsigned int hooknum,
@@ -249,7 +250,7 @@ static unsigned int ipt_idletimer_target(struct sk_buff **pskb,
 	return XT_CONTINUE;
 }
 
-static int ipt_idletimer_checkentry(const char *tablename,
+static bool ipt_idletimer_checkentry(const char *tablename,
 				    const void *e,
 				    const struct xt_target *target,
 				    void *targinfo,
@@ -263,7 +264,7 @@ static int ipt_idletimer_checkentry(const char *tablename,
 		return 0;
 	}
 
-	return 1;
+	return true;
 }
 
 static struct xt_target ipt_idletimer = {

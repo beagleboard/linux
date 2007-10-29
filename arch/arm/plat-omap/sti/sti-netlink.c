@@ -123,25 +123,18 @@ static int sti_netlink_receive_skb(struct sk_buff *skb)
 	return 0;
 }
 
-static void sti_netlink_receive(struct sock *sk, int len)
+static void sti_netlink_receive(struct sk_buff *skb)
 {
-	struct sk_buff *skb;
-
 	if (!mutex_trylock(&sti_netlink_mutex))
 		return;
 
-	while ((skb = skb_dequeue(&sk->sk_receive_queue)))
-		if (sti_netlink_receive_skb(skb) && skb->len)
-			skb_queue_head(&sk->sk_receive_queue, skb);
-		else
-			kfree_skb(skb);
-
+	sti_netlink_receive_skb(skb);
 	mutex_unlock(&sti_netlink_mutex);
 }
 
 static int __init sti_netlink_init(void)
 {
-	sti_sock = netlink_kernel_create(NETLINK_USERSOCK, 0,
+	sti_sock = netlink_kernel_create(&init_net, NETLINK_USERSOCK, 0,
 					 sti_netlink_receive, NULL,
 					 THIS_MODULE);
 	if (!sti_sock) {

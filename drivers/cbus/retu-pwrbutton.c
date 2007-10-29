@@ -30,6 +30,7 @@
 #include <linux/input.h>
 #include <linux/timer.h>
 #include <linux/jiffies.h>
+#include <linux/bitops.h>
 
 #include "retu.h"
 
@@ -92,8 +93,8 @@ static int __init retubutton_init(void)
 	if (!pwrbtn_dev)
 		return -ENOMEM;
 
-	pwrbtn_dev->evbit[0] = BIT(EV_KEY);
-	pwrbtn_dev->keybit[LONG(KEY_POWER)] = BIT(KEY_POWER);
+	pwrbtn_dev->evbit[0] = BIT_MASK(EV_KEY);
+	pwrbtn_dev->keybit[BIT_WORD(KEY_POWER)] = BIT_MASK(KEY_POWER);
 	pwrbtn_dev->name = "retu-pwrbutton";
 
 	input_register_device(pwrbtn_dev);

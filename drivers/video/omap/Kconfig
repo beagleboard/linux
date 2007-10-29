@@ -1,6 +1,9 @@
 config FB_OMAP
 	tristate "OMAP frame buffer support (EXPERIMENTAL)"
         depends on FB
+	select FB_CFB_FILLRECT
+	select FB_CFB_COPYAREA
+	select FB_CFB_IMAGEBLIT
         help
           Frame buffer driver for OMAP based boards.
 
