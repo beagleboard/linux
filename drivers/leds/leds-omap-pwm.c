@@ -16,17 +16,20 @@
 #include <linux/platform_device.h>
 #include <linux/leds.h>
 #include <linux/ctype.h>
+#include <linux/sched.h>
 #include <asm/delay.h>
 #include <asm/arch/board.h>
 #include <asm/arch/dmtimer.h>
 
 struct omap_pwm_led {
 	struct led_classdev cdev;
+	struct work_struct work;
 	struct omap_pwm_led_platform_data *pdata;
 	struct omap_dm_timer *intensity_timer;
 	struct omap_dm_timer *blink_timer;
 	int powered;
 	unsigned int on_period, off_period;
+	enum led_brightness brightness;
 };
 
 static inline struct omap_pwm_led *pdev_to_omap_pwm_led(struct platform_device *pdev)
@@ -37,6 +40,11 @@ static inline struct omap_pwm_led *pdev_to_omap_pwm_led(struct platform_device *
 static inline struct omap_pwm_led *cdev_to_omap_pwm_led(struct led_classdev *led_cdev)
 {
 	return container_of(led_cdev, struct omap_pwm_led, cdev);
+}
+
+static inline struct omap_pwm_led *work_to_omap_pwm_led(struct work_struct *work)
+{
+	return container_of(work, struct omap_pwm_led, work);
 }
 
 static void omap_pwm_led_set_blink(struct omap_pwm_led *led)
@@ -134,9 +142,17 @@ static void omap_pwm_led_set(struct led_classdev *led_cdev,
 {
 	struct omap_pwm_led *led = cdev_to_omap_pwm_led(led_cdev);
 
-	if (value != LED_OFF) {
+	led->brightness = value;
+	schedule_work(&led->work);
+}
+
+static void omap_pwm_led_work(struct work_struct *work)
+{
+	struct omap_pwm_led *led = work_to_omap_pwm_led(work);
+
+	if (led->brightness != LED_OFF) {
 		omap_pwm_led_power_on(led);
-		omap_pwm_led_set_pwm_cycle(led, value);
+		omap_pwm_led_set_pwm_cycle(led, led->brightness);
 	} else {
 		omap_pwm_led_power_off(led);
 	}
@@ -232,6 +248,8 @@ static int omap_pwm_led_probe(struct platform_device *pdev)
 	led->cdev.default_trigger = NULL;
 	led->cdev.name = pdata->name;
 	led->pdata = pdata;
+	led->brightness = LED_OFF;
+	INIT_WORK(&led->work, omap_pwm_led_work);
 
 	dev_info(&pdev->dev, "OMAP PWM LED (%s) at GP timer %d/%d\n",
 		 pdata->name, pdata->intensity_timer, pdata->blink_timer);
