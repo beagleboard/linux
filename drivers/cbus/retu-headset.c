@@ -288,11 +288,21 @@ static int retu_headset_remove(struct platform_device *pdev)
 static int retu_headset_suspend(struct platform_device *pdev,
 				pm_message_t mesg)
 {
+	struct retu_headset *hs = platform_get_drvdata(pdev);
+
+	if (hs->bias_enabled)
+		retu_headset_set_bias(0);
+
 	return 0;
 }
 
 static int retu_headset_resume(struct platform_device *pdev)
 {
+	struct retu_headset *hs = platform_get_drvdata(pdev);
+
+	if (hs->bias_enabled)
+		retu_headset_set_bias(1);
+
 	return 0;
 }
 
