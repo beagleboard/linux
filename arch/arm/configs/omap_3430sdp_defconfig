@@ -595,6 +595,7 @@ CONFIG_WATCHDOG_NOWAYOUT=y
 # Watchdog Device Drivers
 #
 # CONFIG_SOFT_WATCHDOG is not set
+CONFIG_OMAP_WATCHDOG=y
 CONFIG_HW_RANDOM=y
 # CONFIG_NVRAM is not set
 # CONFIG_R3964 is not set
