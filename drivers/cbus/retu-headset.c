@@ -32,18 +32,15 @@
 
 #define RETU_HEADSET_KEY		KEY_PHONE
 
-#define STATE_DISABLE_DET		1
-#define STATE_ENABLE_DET		2
-
 struct retu_headset {
-	struct platform_device *pdev;
-	struct input_dev *idev;
-	unsigned bias_enabled:1;
-
-	unsigned detection_enabled:1, pressed:1;
-	int detection_state;
-	struct timer_list enable_timer, detect_timer;
-	spinlock_t lock;
+	spinlock_t			lock;
+	struct platform_device		*pdev;
+	struct input_dev		*idev;
+	unsigned			bias_enabled:1;
+	unsigned			detection_enabled:1;
+	unsigned			pressed:1;
+	struct timer_list		enable_timer;
+	struct timer_list		detect_timer;
 };
 
 static void retu_headset_set_bias(int enable)
@@ -55,7 +52,7 @@ static void retu_headset_set_bias(int enable)
 		retu_set_clear_reg_bits(RETU_REG_AUDTXR, 1 << 3, 0);
 	} else {
 		retu_set_clear_reg_bits(RETU_REG_AUDTXR, 0,
-				    (1 << 0) | (1 << 1) | (1 << 3));
+					(1 << 0) | (1 << 1) | (1 << 3));
 	}
 }
 
@@ -288,7 +285,8 @@ static int retu_headset_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static int retu_headset_suspend(struct platform_device *pdev, pm_message_t mesg)
+static int retu_headset_suspend(struct platform_device *pdev,
+				pm_message_t mesg)
 {
 	return 0;
 }
@@ -297,7 +295,6 @@ static int retu_headset_resume(struct platform_device *pdev)
 {
 	return 0;
 }
-
 
 static struct platform_driver retu_headset_driver = {
 	.probe		= retu_headset_probe,
