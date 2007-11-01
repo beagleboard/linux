@@ -349,9 +349,16 @@ static struct omap_uart_config sdp2430_uart_config __initdata = {
 	.enabled_uarts = ((1 << 0) | (1 << 1) | (1 << 2)),
 };
 
+static
+struct omap_serial_console_config sdp2430_serial_console_config __initdata = {
+	.console_uart = 1,
+	.console_speed = 115200,
+};
+
 static struct omap_board_config_kernel sdp2430_config[] __initdata = {
 	{OMAP_TAG_UART, &sdp2430_uart_config},
 	{OMAP_TAG_LCD, &sdp2430_lcd_config},
+	{OMAP_TAG_SERIAL_CONSOLE, &sdp2430_serial_console_config},
 };
 
 #if	defined(CONFIG_I2C_OMAP) || defined(CONFIG_I2C_OMAP_MODULE)
