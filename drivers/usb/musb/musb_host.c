@@ -1268,7 +1268,7 @@ void musb_host_tx(struct musb *musb, u8 epnum)
 			d->actual_length = qh->segsize;
 			if (++qh->iso_idx >= urb->number_of_packets) {
 				done = true;
-			} else if (!dma) {
+			} else {
 				d++;
 				buf = urb->transfer_buffer + d->offset;
 				wLength = d->length;
