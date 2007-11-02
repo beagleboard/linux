@@ -30,7 +30,7 @@ int omap2_clk_set_rate(struct clk *clk, unsigned long rate);
 int omap2_clk_set_parent(struct clk *clk, struct clk *new_parent);
 
 #ifdef CONFIG_OMAP_RESET_CLOCKS
-void __init omap2_clk_disable_unused(struct clk *clk);
+void omap2_clk_disable_unused(struct clk *clk);
 #else
 #define omap2_clk_disable_unused	NULL
 #endif
