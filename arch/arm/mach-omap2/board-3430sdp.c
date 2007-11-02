@@ -21,6 +21,8 @@
 #include <linux/workqueue.h>
 #include <linux/err.h>
 #include <linux/clk.h>
+#include <linux/spi/spi.h>
+#include <linux/spi/ads7846.h>
 
 #include <asm/hardware.h>
 #include <asm/mach-types.h>
@@ -28,6 +30,8 @@
 #include <asm/mach/map.h>
 #include <asm/mach/flash.h>
 
+#include <asm/arch/twl4030.h>
+#include <asm/arch/mcspi.h>
 #include <asm/arch/gpio.h>
 #include <asm/arch/mux.h>
 #include <asm/arch/board.h>
@@ -40,6 +44,9 @@
 
 #define	SDP3430_FLASH_CS	0
 #define	SDP3430_SMC91X_CS	3
+
+#define ENABLE_VAUX3_DEDICATED	0x03
+#define ENABLE_VAUX3_DEV_GRP	0x20
 
 static struct mtd_partition sdp3430_partitions[] = {
 	/* bootloader (U-Boot, etc) in first sector */
@@ -115,6 +122,86 @@ static struct platform_device sdp3430_smc91x_device = {
 	.resource	= sdp3430_smc91x_resources,
 };
 
+/**
+ * @brief ads7846_dev_init : Requests & sets GPIO line for pen-irq
+ *
+ * @return - void. If request gpio fails then Flag KERN_ERR.
+ */
+static void ads7846_dev_init(void)
+{
+	if (omap_request_gpio(TS_GPIO) < 0) {
+		printk(KERN_ERR "can't get ads746 pen down GPIO\n");
+		return;
+	}
+
+	omap_set_gpio_direction(TS_GPIO, 1);
+
+	omap_set_gpio_debounce(TS_GPIO, 1);
+	omap_set_gpio_debounce_time(TS_GPIO, 0xa);
+}
+
+static int ads7846_get_pendown_state(void)
+{
+	return !omap_get_gpio_datain(TS_GPIO);
+}
+
+/*
+ * This enable(1)/disable(0) the voltage for TS: uses twl4030 calls
+ */
+static int ads7846_vaux_control(int vaux_cntrl)
+{
+	int ret = 0;
+
+#ifdef CONFIG_TWL4030_CORE
+	/* check for return value of ldo_use: if success it returns 0 */
+	if (vaux_cntrl == VAUX_ENABLE) {
+		if (ret != twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
+			ENABLE_VAUX3_DEDICATED, TWL4030_VAUX3_DEDICATED))
+			return -EIO;
+		if (ret != twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
+			ENABLE_VAUX3_DEV_GRP, TWL4030_VAUX3_DEV_GRP))
+			return -EIO;
+	} else if (vaux_cntrl == VAUX_DISABLE) {
+		if (ret != twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
+			0x00, TWL4030_VAUX3_DEDICATED))
+			return -EIO;
+		if (ret != twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
+			0x00, TWL4030_VAUX3_DEV_GRP))
+			return -EIO;
+	}
+#else
+	ret = -EIO;
+#endif
+	return ret;
+}
+
+static struct ads7846_platform_data tsc2046_config __initdata = {
+	.get_pendown_state	= ads7846_get_pendown_state,
+	.keep_vref_on		= 1,
+	.vaux_control		= ads7846_vaux_control,
+};
+
+
+static struct omap2_mcspi_device_config tsc2046_mcspi_config = {
+	.turbo_mode	= 0,
+	.single_channel	= 1,  /* 0: slave, 1: master */
+};
+
+static struct spi_board_info sdp3430_spi_board_info[] __initdata = {
+	[0] = {
+		/*
+		 * TSC2046 operates at a max freqency of 2MHz, so
+		 * operate slightly below at 1.5MHz
+		 */
+		.modalias		= "ads7846",
+		.bus_num		= 1,
+		.chip_select		= 0,
+		.max_speed_hz		= 1500000,
+		.controller_data	= &tsc2046_mcspi_config,
+		.irq			= OMAP_GPIO_IRQ(TS_GPIO),
+		.platform_data		= &tsc2046_config,
+	},
+};
 static struct platform_device *sdp3430_devices[] __initdata = {
 	&sdp3430_smc91x_device,
 	&sdp3430_flash_device,
@@ -180,6 +267,9 @@ static void __init omap_3430sdp_init(void)
 	platform_add_devices(sdp3430_devices, ARRAY_SIZE(sdp3430_devices));
 	omap_board_config = sdp3430_config;
 	omap_board_config_size = ARRAY_SIZE(sdp3430_config);
+	spi_register_board_info(sdp3430_spi_board_info,
+				ARRAY_SIZE(sdp3430_spi_board_info));
+	ads7846_dev_init();
 	omap_serial_init();
 }
 

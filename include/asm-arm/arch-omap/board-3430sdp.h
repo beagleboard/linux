@@ -36,6 +36,15 @@
 #define OMAP34XX_ETHR_START		DEBUG_BASE
 #define OMAP34XX_ETHR_GPIO_IRQ		29
 
+/*
+ * GPIO used for TSC2046, TI's Touchscreen controller
+ */
+#ifdef CONFIG_OMAP3430_ES2
+#define TS_GPIO                2
+#else
+#define TS_GPIO                3
+#endif
+
 /* NAND */
 /* IMPORTANT NOTE ON MAPPING
  * 3430SDP - 343X
