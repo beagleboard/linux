@@ -101,7 +101,7 @@
 #define OMAP2_VA_IC_BASE	IO_ADDRESS(OMAP24XX_IC_BASE)
 #define OMAP2_CTRL_BASE		OMAP243X_CTRL_BASE
 
-#else
+#elif !defined(CONFIG_ARCH_OMAP34XX)
 /* FIXME: These will go away soon */
 #define OMAP2_CTRL_BASE		L4_24XX_BASE
 #endif
