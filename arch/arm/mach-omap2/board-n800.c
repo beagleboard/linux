@@ -452,12 +452,6 @@ static void __init nokia_n800_init(void)
 {
 	platform_add_devices(n800_devices, ARRAY_SIZE(n800_devices));
 
-	i2c_register_board_info(1, n800_i2c_board_info_1,
-				ARRAY_SIZE(n800_i2c_board_info_1));
-
-	i2c_register_board_info(2, n800_i2c_board_info_2,
-				ARRAY_SIZE(n800_i2c_board_info_2));
-
 	n800_flash_init();
 	n800_mmc_init();
 	n800_bt_init();
@@ -469,6 +463,10 @@ static void __init nokia_n800_init(void)
 	spi_register_board_info(n800_spi_board_info,
 				ARRAY_SIZE(n800_spi_board_info));
 	omap_serial_init();
+	omap_register_i2c_bus(1, 400, n800_i2c_board_info_1,
+			      ARRAY_SIZE(n800_i2c_board_info_1));
+	omap_register_i2c_bus(2, 400, n800_i2c_board_info_2,
+			      ARRAY_SIZE(n800_i2c_board_info_2));
 	mipid_dev_init();
 	blizzard_dev_init();
 	tsc2301_dev_init();
