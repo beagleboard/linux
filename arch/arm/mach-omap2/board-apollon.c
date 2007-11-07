@@ -381,6 +381,8 @@ static void __init omap_apollon_init(void)
 	omap_board_config = apollon_config;
 	omap_board_config_size = ARRAY_SIZE(apollon_config);
 	omap_serial_init();
+	omap_register_i2c_bus(1, 100, NULL, 0);
+	omap_register_i2c_bus(2, 100, NULL, 0);
 
 	spi_register_board_info(apollon_spi_board_info,
 				ARRAY_SIZE(apollon_spi_board_info));

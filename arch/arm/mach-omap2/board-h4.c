@@ -701,13 +701,12 @@ static void __init omap_h4_init(void)
 	/* Menelaus interrupt */
 	omap_cfg_reg(W19_24XX_SYS_NIRQ);
 
-	i2c_register_board_info(1, h4_i2c_board_info,
-			ARRAY_SIZE(h4_i2c_board_info));
-
 	platform_add_devices(h4_devices, ARRAY_SIZE(h4_devices));
 	omap_board_config = h4_config;
 	omap_board_config_size = ARRAY_SIZE(h4_config);
 	omap_serial_init();
+	omap_register_i2c_bus(1, 100, h4_i2c_board_info,
+			      ARRAY_SIZE(h4_i2c_board_info));
 
 	/* smc91x, debug leds, ps/2, extra uarts */
 	h4_init_debug();

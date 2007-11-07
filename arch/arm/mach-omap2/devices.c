@@ -56,55 +56,6 @@ static inline void omap_init_camera(void)
 }
 #endif
 
-#if	!defined(CONFIG_ARCH_OMAP243X)
-#if	defined(CONFIG_I2C_OMAP) || defined(CONFIG_I2C_OMAP_MODULE)
-
-#define OMAP2_I2C_BASE2		0x48072000
-#define OMAP2_I2C_INT2		57
-
-static u32 omap2_i2c2_clkrate	= 100;
-static struct resource i2c_resources2[] = {
-	{
-		.start		= OMAP2_I2C_BASE2,
-		.end		= OMAP2_I2C_BASE2 + 0x3f,
-		.flags		= IORESOURCE_MEM,
-	},
-	{
-		.start		= OMAP2_I2C_INT2,
-		.flags		= IORESOURCE_IRQ,
-	},
-};
-
-static struct platform_device omap_i2c_device2 = {
-	.name           = "i2c_omap",
-	.id             = 2,
-	.num_resources	= ARRAY_SIZE(i2c_resources2),
-	.resource	= i2c_resources2,
-	.dev		= {
-		.platform_data	= &omap2_i2c2_clkrate,
-	},
-};
-
-/* See also arch/arm/plat-omap/devices.c for first I2C on 24xx */
-static void omap_init_i2c(void)
-{
-	/* REVISIT: Second I2C not in use on H4? */
-	if (machine_is_omap_h4())
-		return;
-
-	omap_cfg_reg(J15_24XX_I2C2_SCL);
-	omap_cfg_reg(H19_24XX_I2C2_SDA);
-
-	(void) platform_device_register(&omap_i2c_device2);
-}
-
-#else
-
-static void omap_init_i2c(void) {}
-
-#endif
-#endif
-
 #if defined(CONFIG_OMAP_DSP) || defined(CONFIG_OMAP_DSP_MODULE)
 #define OMAP2_MBOX_BASE		IO_ADDRESS(OMAP24XX_MAILBOX_BASE)
 
@@ -278,9 +229,6 @@ static int __init omap2_init_devices(void)
 	 * in alphabetical order so they're easier to sort through.
 	 */
 	omap_init_camera();
-	if (!cpu_is_omap2430()) {
-		omap_init_i2c();
-	}
 	omap_init_mbox();
 	omap_init_mcspi();
 	omap_init_sti();

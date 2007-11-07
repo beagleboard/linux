@@ -361,75 +361,10 @@ static struct omap_board_config_kernel sdp2430_config[] __initdata = {
 	{OMAP_TAG_SERIAL_CONSOLE, &sdp2430_serial_console_config},
 };
 
-#if	defined(CONFIG_I2C_OMAP) || defined(CONFIG_I2C_OMAP_MODULE)
-
-#define OMAP2_I2C_BASE1		0x48070000
-#define OMAP2_I2C_BASE2		0x48072000
-#define OMAP2_I2C_INT1		56
-#define OMAP2_I2C_INT2		57
-
-static u32 omap2_i2c1_clkrate	= 400;
-static u32 omap2_i2c2_clkrate	= 2600;
-
-static struct resource i2c_resources1[] = {
-	{
-		.start	= OMAP2_I2C_BASE1,
-		.end	= OMAP2_I2C_BASE1 + 0x3f,
-		.flags	= IORESOURCE_MEM,
-	},
-	{
-		.start	= OMAP2_I2C_INT1,
-		.flags	= IORESOURCE_IRQ,
-	},
-};
-
-static struct resource i2c_resources2[] = {
-	{
-		.start	= OMAP2_I2C_BASE2,
-		.end	= OMAP2_I2C_BASE2 + 0x3f,
-		.flags	= IORESOURCE_MEM,
-	},
-	{
-		.start	= OMAP2_I2C_INT2,
-		.flags	= IORESOURCE_IRQ,
-	},
-};
-
-static struct platform_device omap_i2c_device1 = {
-	.name		= "i2c_omap",
-	.id		= 1,
-	.num_resources	= ARRAY_SIZE(i2c_resources1),
-	.resource	= i2c_resources1,
-	.dev		= {
-		.platform_data	= &omap2_i2c1_clkrate,
-	},
-};
-
-static struct platform_device omap_i2c_device2 = {
-	.name		= "i2c_omap",
-	.id		= 2,
-	.num_resources	= ARRAY_SIZE(i2c_resources2),
-	.resource	= i2c_resources2,
-	.dev		= {
-		.platform_data	= &omap2_i2c2_clkrate,
-	},
-};
-
-static void omap_init_i2c(void)
-{
-	(void) platform_device_register(&omap_i2c_device2);
-	(void) platform_device_register(&omap_i2c_device1);
-}
-
-#else
-
-static void omap_init_i2c(void) {}
-
-#endif
-
 static int __init omap2430_i2c_init(void)
 {
-	omap_init_i2c();
+	omap_register_i2c_bus(1, 400, NULL, 0);
+	omap_register_i2c_bus(2, 2600, NULL, 0);
 	return 0;
 }
 
