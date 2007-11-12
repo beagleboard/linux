@@ -104,7 +104,11 @@ static void __init omap2_gp_clockevent_init(void)
 	gptimer = omap_dm_timer_request_specific(1);
 	BUG_ON(gptimer == NULL);
 
+#if defined(CONFIG_OMAP_32K_TIMER)
+	omap_dm_timer_set_source(gptimer, OMAP_TIMER_SRC_32_KHZ);
+#else
 	omap_dm_timer_set_source(gptimer, OMAP_TIMER_SRC_SYS_CLK);
+#endif
 	tick_rate = clk_get_rate(omap_dm_timer_get_fclk(gptimer));
 
 	omap2_gp_timer_irq.dev_id = (void *)gptimer;
@@ -122,6 +126,15 @@ static void __init omap2_gp_clockevent_init(void)
 	clockevents_register_device(&clockevent_gpt);
 }
 
+#ifdef CONFIG_OMAP_32K_TIMER
+/* 
+ * When 32k-timer is enabled, don't use GPTimer for clocksource
+ * instead, just leave default clocksource which uses the 32k
+ * sync counter.  See clocksource setup in see plat-omap/common.c. 
+ */
+
+static inline void __init omap2_gp_clocksource_init(void) {}
+#else
 /*
  * clocksource
  */
@@ -167,6 +180,7 @@ static void __init omap2_gp_clocksource_init(void)
 	if (clocksource_register(&clocksource_gpt))
 		printk(err2, clocksource_gpt.name);
 }
+#endif
 
 static void __init omap2_gp_timer_init(void)
 {

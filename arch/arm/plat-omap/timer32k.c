@@ -70,10 +70,6 @@ struct sys_timer omap_timer;
 
 #if defined(CONFIG_ARCH_OMAP16XX)
 #define TIMER_32K_SYNCHRONIZED		0xfffbc410
-#elif defined(CONFIG_ARCH_OMAP24XX)
-#define TIMER_32K_SYNCHRONIZED		(OMAP2_32KSYNCT_BASE + 0x10)
-#elif defined(CONFIG_ARCH_OMAP34XX)
-#define TIMER_32K_SYNCHRONIZED		0x48320010
 #else
 #error OMAP 32KHz timer does not currently work on 15XX!
 #endif
@@ -94,8 +90,6 @@ struct sys_timer omap_timer;
 
 #define JIFFIES_TO_HW_TICKS(nr_jiffies, clock_rate)			\
 				(((nr_jiffies) * (clock_rate)) / HZ)
-
-#if defined(CONFIG_ARCH_OMAP1)
 
 static inline void omap_32k_timer_write(int val, int reg)
 {
@@ -121,30 +115,6 @@ static inline void omap_32k_timer_stop(void)
 }
 
 #define omap_32k_timer_ack_irq()
-
-#elif defined(CONFIG_ARCH_OMAP2) || defined(CONFIG_ARCH_OMAP3)
-
-static struct omap_dm_timer *gptimer;
-
-static inline void omap_32k_timer_start(unsigned long load_val)
-{
-	omap_dm_timer_set_load(gptimer, 1, 0xffffffff - load_val);
-	omap_dm_timer_set_int_enable(gptimer, OMAP_TIMER_INT_OVERFLOW);
-	omap_dm_timer_start(gptimer);
-}
-
-static inline void omap_32k_timer_stop(void)
-{
-	omap_dm_timer_stop(gptimer);
-}
-
-static inline void omap_32k_timer_ack_irq(void)
-{
-	u32 status = omap_dm_timer_read_status(gptimer);
-	omap_dm_timer_write_status(gptimer, status);
-}
-
-#endif
 
 static int omap_32k_timer_set_next_event(unsigned long delta,
 					 struct clock_event_device *dev)
@@ -233,22 +203,7 @@ static struct irqaction omap_32k_timer_irq = {
 
 static __init void omap_init_32k_timer(void)
 {
-	if (cpu_class_is_omap1())
-		setup_irq(INT_OS_TIMER, &omap_32k_timer_irq);
-
-#if defined(CONFIG_ARCH_OMAP2) || defined(CONFIG_ARCH_OMAP3)
-	/* REVISIT: Check 24xx TIOCP_CFG settings after idle works */
-	if (cpu_class_is_omap2()) {
-		gptimer = omap_dm_timer_request_specific(1);
-		BUG_ON(gptimer == NULL);
-
-		omap_dm_timer_set_source(gptimer, OMAP_TIMER_SRC_32_KHZ);
-		setup_irq(omap_dm_timer_get_irq(gptimer), &omap_32k_timer_irq);
-		omap_dm_timer_set_int_enable(gptimer,
-			OMAP_TIMER_INT_CAPTURE | OMAP_TIMER_INT_OVERFLOW |
-			OMAP_TIMER_INT_MATCH);
-	}
-#endif
+	setup_irq(INT_OS_TIMER, &omap_32k_timer_irq);
 
 	clockevent_32k_timer.mult = div_sc(OMAP_32K_TICKS_PER_SEC,
 					   NSEC_PER_SEC,
