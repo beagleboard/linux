@@ -2012,11 +2012,23 @@ static struct clk mcbsp4_fck = {
 
 /* SR clocks */
 
-/* REVISIT: dependent on en_sr1 && en_sr2 - use custom enable/disable? */
-static struct clk sr_alwon_fck = {
-	.name		= "sr_alwon_fck",
+/* SmartReflex fclk (VDD1) */
+static struct clk sr1_fck = {
+	.name		= "sr1_fck",
 	.parent		= &sys_ck,
-	.flags		= CLOCK_IN_OMAP343X,
+	.enable_reg	= OMAP_CM_REGADDR(WKUP_MOD, CM_FCLKEN),
+	.enable_bit	= OMAP3430_EN_SR1_SHIFT,
+	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES,
+	.recalc		= &followparent_recalc,
+};
+
+/* SmartReflex fclk (VDD2) */
+static struct clk sr2_fck = {
+	.name		= "sr2_fck",
+	.parent		= &sys_ck,
+	.enable_reg	= OMAP_CM_REGADDR(WKUP_MOD, CM_FCLKEN),
+	.enable_bit	= OMAP3430_EN_SR2_SHIFT,
+	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES,
 	.recalc		= &followparent_recalc,
 };
 
@@ -2213,7 +2225,8 @@ static struct clk *onchip_34xx_clks[] __initdata = {
 	&mcbsp2_fck,
 	&mcbsp3_fck,
 	&mcbsp4_fck,
-	&sr_alwon_fck,
+	&sr1_fck,
+	&sr2_fck,
 	&sr_l4_ick,
 	&secure_32k_fck,
 	&gpt12_fck,
