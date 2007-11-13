@@ -180,7 +180,6 @@ static void retu_headset_hook_interrupt(unsigned long arg)
 {
 	struct retu_headset *hs = (struct retu_headset *) arg;
 	unsigned long flags;
-	int was_pressed = 0;
 
 	retu_ack_irq(RETU_INT_HOOK);
 	spin_lock_irqsave(&hs->lock, flags);
@@ -188,11 +187,8 @@ static void retu_headset_hook_interrupt(unsigned long arg)
 		/* Headset button was just pressed down. */
 		hs->pressed = 1;
 		input_report_key(hs->idev, RETU_HEADSET_KEY, 1);
-		was_pressed = 1;
 	}
 	spin_unlock_irqrestore(&hs->lock, flags);
-	if (was_pressed)
-		dev_info(&hs->pdev->dev, "button pressed\n");
 	retu_set_clear_reg_bits(RETU_REG_CC1, 0, (1 << 10) | (1 << 8));
 	mod_timer(&hs->enable_timer, jiffies + msecs_to_jiffies(50));
 }
@@ -211,11 +207,11 @@ static void retu_headset_detect_timer(unsigned long arg)
 	unsigned long flags;
 
 	spin_lock_irqsave(&hs->lock, flags);
-	BUG_ON(!hs->pressed);
-	input_report_key(hs->idev, RETU_HEADSET_KEY, 0);
-	hs->pressed = 0;
+	if (hs->pressed) {
+		hs->pressed = 0;
+		input_report_key(hs->idev, RETU_HEADSET_KEY, 0);
+	}
 	spin_unlock_irqrestore(&hs->lock, flags);
-	dev_info(&hs->pdev->dev, "button released\n");
 }
 
 static int __init retu_headset_probe(struct platform_device *pdev)
