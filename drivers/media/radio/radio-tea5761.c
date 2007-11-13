@@ -139,9 +139,7 @@ static void tea5761_write_regs(struct tea5761_device *tea)
 	struct tea5761_write_regs wr;
 	struct tea5761_regs *r = &tea->regs;
 	struct i2c_client *client = tea->i2c_dev;
-#ifdef DEBUG
 	u8 *p = (u8 *) r;
-#endif
 
 	wr.intreg = r->intreg & 0xff;
 	wr.frqset = __cpu_to_be16(r->frqset);
@@ -421,7 +419,6 @@ static struct video_device tea5761_video_device = {
 	.owner         = THIS_MODULE,
 	.name          = "TEA5761 FM-Radio",
 	.type          = VID_TYPE_TUNER,
-	.hardware      = 40 /* VID_HARDWARE_TEA5761UK */,
 	.fops          = &tea5761_fops,
 	.release       = video_device_release
 };
@@ -618,10 +615,7 @@ static int __init tea5761_init(void)
 
 static void __exit tea5761_exit(void)
 {
-	int res;
-
-	if ((res = i2c_del_driver(&tea5761_driver)))
-		printk(KERN_ERR DRIVER_NAME ": i2c driver removal failed\n");
+	i2c_del_driver(&tea5761_driver);
 	tea5761_dev_exit();
 }
 
