@@ -29,7 +29,7 @@
 #define SDRC_DLLB_STATUS	0x06C
 #define SDRC_POWER		0x070
 #define SDRC_MR_0		0x084
-
+#define SDRC_RFR_CTRL_0		0x0a4
 
 /* SDRC global register get/set */
 

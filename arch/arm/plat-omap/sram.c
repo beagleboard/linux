@@ -69,6 +69,11 @@ extern void *omap2_sdi_cm_clksel2_pll;
 extern void *omap2_sdi_sdrc_dlla_ctrl;
 extern void *omap2_sdi_prcm_voltctrl;
 extern void *omap2_sdi_timer_32ksynct_cr;
+extern void *omap2_srs_cm_clksel2_pll;
+extern void *omap2_srs_sdrc_dlla_ctrl;
+extern void *omap2_srs_sdrc_rfr_ctrl;
+extern void *omap2_srs_prcm_voltctrl;
+extern void *omap2_srs_timer_32ksynct;
 
 
 /*
@@ -353,6 +358,23 @@ int __init omap2_sram_init(void)
 
 	_omap2_sram_reprogram_sdrc = omap_sram_push(sram_reprogram_sdrc,
 						    sram_reprogram_sdrc_sz);
+
+	omap_sram_patch_va(sram_reprogram_sdrc, &omap2_srs_cm_clksel2_pll,
+			   _omap2_sram_reprogram_sdrc,
+			   OMAP_CM_REGADDR(PLL_MOD, CM_CLKSEL2));
+	omap_sram_patch_va(sram_reprogram_sdrc, &omap2_srs_sdrc_dlla_ctrl,
+			   _omap2_sram_reprogram_sdrc,
+			   OMAP_SDRC_REGADDR(SDRC_DLLA_CTRL));
+	omap_sram_patch_va(sram_reprogram_sdrc, &omap2_srs_sdrc_rfr_ctrl,
+			   _omap2_sram_reprogram_sdrc,
+			   OMAP_SDRC_REGADDR(SDRC_RFR_CTRL_0));
+	omap_sram_patch_va(sram_reprogram_sdrc, &omap2_srs_prcm_voltctrl,
+			   _omap2_sram_reprogram_sdrc,
+			   OMAP24XX_PRCM_VOLTCTRL);
+	omap_sram_patch_va(sram_reprogram_sdrc, &omap2_srs_timer_32ksynct,
+			   _omap2_sram_reprogram_sdrc,
+			   (void __iomem *)IO_ADDRESS(OMAP2_32KSYNCT_BASE + 0x010));
+
 	_omap2_set_prcm = omap_sram_push(sram_set_prcm, sram_set_prcm_sz);
 
 	return 0;

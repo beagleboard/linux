@@ -28,10 +28,6 @@
 #include <asm/hardware.h>
 #include <linux/poison.h>
 
-#define TIMER_32KSYNCT_CR_V	IO_ADDRESS(OMAP2_32KSYNCT_BASE + 0x010)
-
-#define CM_CLKSEL2_PLL_V	IO_ADDRESS(OMAP2_CM_BASE + 0x544)
-#define PRCM_VOLTCTRL_V		IO_ADDRESS(OMAP2_PRM_BASE + 0x050)
 #define PRCM_CLKCFG_CTRL_V	IO_ADDRESS(OMAP2_PRM_BASE + 0x080)
 #define CM_CLKEN_PLL_V		IO_ADDRESS(OMAP2_CM_BASE + 0x500)
 #define CM_IDLEST_CKGEN_V	IO_ADDRESS(OMAP2_CM_BASE + 0x520)
@@ -158,7 +154,7 @@ ENTRY(sram_reprogram_sdrc)
 	mcr	p15, 0, r3, c7, c10, 4	@ memory barrier, finish ARM SDR/DDR
 	nop
 	nop
-	ldr	r6, ddr_sdrc_rfr_ctrl	@ get addr of refresh reg
+	ldr	r6, omap2_srs_sdrc_rfr_ctrl	@ get addr of refresh reg
 	ldr	r5, [r6]		@ get value
 	mov	r5, r5, lsr #8		@ isolate rfr field and drop burst
 
@@ -172,7 +168,7 @@ ENTRY(sram_reprogram_sdrc)
 	movne	r5, r5, lsl #1		@ mult by 2 if to full
 	mov	r5, r5, lsl #8		@ put rfr field back into place
 	add	r5, r5, #0x1		@ turn on burst of 1
-	ldr	r4, ddr_cm_clksel2_pll	@ get address of out reg
+	ldr	r4, omap2_srs_cm_clksel2_pll	@ get address of out reg
 	ldr	r3, [r4]		@ get curr value
 	orr	r3, r3, #0x3
 	bic	r3, r3, #0x3		@ clear lower bits
@@ -193,7 +189,7 @@ ENTRY(sram_reprogram_sdrc)
 	bne	freq_out		@ leave if SDR, no DLL function
 
 	/* With DDR, we need to take care of the DLL for the frequency change */
-	ldr	r2, ddr_sdrc_dlla_ctrl	@ addr of dlla ctrl
+	ldr	r2, omap2_srs_sdrc_dlla_ctrl	@ addr of dlla ctrl
 	str	r1, [r2]		@ write out new SDRC_DLLA_CTRL
 	add	r2, r2, #0x8		@ addr to SDRC_DLLB_CTRL
 	str	r1, [r2]		@ commit to SDRC_DLLB_CTRL
@@ -209,7 +205,7 @@ freq_out:
      *	wait for it to finish, use 32k sync counter, 1tick=31uS.
      */
 voltage_shift_c:
-	ldr	r10, ddr_prcm_voltctrl	@ get addr of volt ctrl
+	ldr	r10, omap2_srs_prcm_voltctrl	@ get addr of volt ctrl
 	ldr	r8, [r10]		@ get value
 	ldr	r7, ddr_prcm_mask_val	@ get value of mask
 	and	r8, r8, r7		@ apply mask to clear bits
@@ -219,7 +215,7 @@ voltage_shift_c:
 	orr	r8, r8, r7		@ build value for force
 	str	r8, [r10]		@ Force transition to L1
 
-	ldr	r10, ddr_timer_32ksynct	@ get addr of counter
+	ldr	r10, omap2_srs_timer_32ksynct	@ get addr of counter
 	ldr	r8, [r10]		@ get value
 	add	r8, r8, #0x2		@ give it at most 62uS (min 31+)
 volt_delay_c:
@@ -228,18 +224,24 @@ volt_delay_c:
 	bhi	volt_delay_c		@ not yet->branch
 	mov	pc, lr			@ back to caller
 
-ddr_cm_clksel2_pll:
-	.word CM_CLKSEL2_PLL_V
-ddr_sdrc_dlla_ctrl:
-	.word SDRC_DLLA_CTRL_V
-ddr_sdrc_rfr_ctrl:
-	.word SDRC_RFR_CTRL_V
-ddr_prcm_voltctrl:
-	.word PRCM_VOLTCTRL_V
+	.globl omap2_srs_cm_clksel2_pll
+	.globl omap2_srs_sdrc_dlla_ctrl
+	.globl omap2_srs_sdrc_rfr_ctrl
+	.globl omap2_srs_prcm_voltctrl
+	.globl omap2_srs_timer_32ksynct
+
+omap2_srs_cm_clksel2_pll:
+	.word SRAM_VA_MAGIC
+omap2_srs_sdrc_dlla_ctrl:
+	.word SRAM_VA_MAGIC
+omap2_srs_sdrc_rfr_ctrl:
+	.word SRAM_VA_MAGIC
+omap2_srs_prcm_voltctrl:
+	.word SRAM_VA_MAGIC
 ddr_prcm_mask_val:
 	.word 0xFFFF3FFC
-ddr_timer_32ksynct:
-	.word TIMER_32KSYNCT_CR_V
+omap2_srs_timer_32ksynct:
+	.word SRAM_VA_MAGIC
 
 ENTRY(sram_reprogram_sdrc_sz)
 	.word	. - sram_reprogram_sdrc
