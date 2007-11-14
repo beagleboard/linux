@@ -28,14 +28,6 @@
 #include <asm/hardware.h>
 #include <linux/poison.h>
 
-#define PRCM_CLKCFG_CTRL_V	IO_ADDRESS(OMAP2_PRM_BASE + 0x080)
-#define CM_CLKEN_PLL_V		IO_ADDRESS(OMAP2_CM_BASE + 0x500)
-#define CM_IDLEST_CKGEN_V	IO_ADDRESS(OMAP2_CM_BASE + 0x520)
-#define CM_CLKSEL1_PLL_V	IO_ADDRESS(OMAP2_CM_BASE + 0x540)
-
-#define SDRC_DLLA_CTRL_V	IO_ADDRESS(OMAP2_SDRC_BASE + 0x060)
-#define SDRC_RFR_CTRL_V		IO_ADDRESS(OMAP2_SDRC_BASE + 0x0a4)
-
 	.text
 
 ENTRY(sram_ddr_init)
@@ -256,13 +248,13 @@ ENTRY(sram_set_prcm)
 	mcrr	p15, 1, r8, r4, c12	@ preload into icache
 pbegin:
 	/* move into fast relock bypass */
-	ldr	r8, pll_ctl		@ get addr
+	ldr	r8, omap2_ssp_pll_ctl	@ get addr
 	ldr	r5, [r8]		@ get val
 	mvn	r6, #0x3		@ clear mask
 	and	r5, r5, r6		@ clear field
 	orr	r7, r5, #0x2		@ fast relock val
 	str	r7, [r8]		@ go to fast relock
-	ldr	r4, pll_stat		@ addr of stat
+	ldr	r4, omap2_ssp_pll_stat	@ addr of stat
 block:
 	/* wait for bypass */
 	ldr	r8, [r4]		@ stat value
@@ -271,10 +263,10 @@ block:
 	bne	block			@ loop if not
 
 	/* set new dpll dividers _after_ in bypass */
-	ldr	r4, pll_div		@ get addr
+	ldr	r4, omap2_ssp_pll_div	@ get addr
 	str	r0, [r4]		@ set dpll ctrl val
 
-	ldr	r4, set_config		@ get addr
+	ldr	r4, omap2_ssp_set_config	@ get addr
 	mov	r8, #1			@ valid cfg msk
 	str	r8, [r4]		@ make dividers take
 
@@ -288,8 +280,8 @@ wait_a_bit:
 	beq	pend			@ jump over dpll relock
 
 	/* relock DPLL with new vals */
-	ldr	r5, pll_stat		@ get addr
-	ldr	r4, pll_ctl		@ get addr
+	ldr	r5, omap2_ssp_pll_stat	@ get addr
+	ldr	r4, omap2_ssp_pll_ctl	@ get addr
 	orr	r8, r7, #0x3		@ val for lock dpll
 	str	r8, [r4]		@ set val
 	mov	r0, #1000		@ dead spin a bit
@@ -303,9 +295,9 @@ wait_lock:
 	bne	wait_lock		@ wait if not
 pend:
 	/* update memory timings & briefly lock dll */
-	ldr	r4, sdrc_rfr		@ get addr
+	ldr	r4, omap2_ssp_sdrc_rfr	@ get addr
 	str	r1, [r4]		@ update refresh timing
-	ldr	r11, dlla_ctrl		@ get addr of DLLA ctrl
+	ldr	r11, omap2_ssp_dlla_ctrl	@ get addr of DLLA ctrl
 	ldr	r10, [r11]		@ get current val
 	mvn	r9, #0x4		@ mask to get clear bit2
 	and	r10, r10, r9		@ clear bit2 for lock mode
@@ -321,18 +313,25 @@ wait_dll_lock:
 	nop
 	ldmfd	sp!, {r0-r12, pc}	@ restore regs and return
 
-set_config:
-	.word PRCM_CLKCFG_CTRL_V
-pll_ctl:
-	.word CM_CLKEN_PLL_V
-pll_stat:
-	.word CM_IDLEST_CKGEN_V
-pll_div:
-	.word CM_CLKSEL1_PLL_V
-sdrc_rfr:
-	.word SDRC_RFR_CTRL_V
-dlla_ctrl:
-	.word SDRC_DLLA_CTRL_V
+	.globl omap2_ssp_set_config
+	.globl omap2_ssp_pll_ctl
+	.globl omap2_ssp_pll_stat
+	.globl omap2_ssp_pll_div
+	.globl omap2_ssp_sdrc_rfr
+	.globl omap2_ssp_dlla_ctrl
+
+omap2_ssp_set_config:
+	.word SRAM_VA_MAGIC
+omap2_ssp_pll_ctl:
+	.word SRAM_VA_MAGIC
+omap2_ssp_pll_stat:
+	.word SRAM_VA_MAGIC
+omap2_ssp_pll_div:
+	.word SRAM_VA_MAGIC
+omap2_ssp_sdrc_rfr:
+	.word SRAM_VA_MAGIC
+omap2_ssp_dlla_ctrl:
+	.word SRAM_VA_MAGIC
 
 ENTRY(sram_set_prcm_sz)
 	.word	. - sram_set_prcm
