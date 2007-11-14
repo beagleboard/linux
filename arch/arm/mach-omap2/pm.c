@@ -52,6 +52,10 @@
 #include "cm_regbits_24xx.h"
 #include "sdrc.h"
 
+/* These addrs are in assembly language code to be patched at runtime */
+extern void *omap2_ocs_sdrc_power;
+extern void *omap2_ocs_sdrc_dlla_ctrl;
+
 static void (*omap2_sram_idle)(void);
 static void (*omap2_sram_suspend)(void __iomem *dllctrl);
 static void (*saved_idle)(void);
@@ -803,8 +807,17 @@ int __init omap2_pm_init(void)
 	 */
 	omap2_sram_idle = omap_sram_push(omap24xx_idle_loop_suspend,
 					 omap24xx_idle_loop_suspend_sz);
+
 	omap2_sram_suspend = omap_sram_push(omap24xx_cpu_suspend,
 					    omap24xx_cpu_suspend_sz);
+
+	/* Patch in the correct register addresses for multiboot */
+	omap_sram_patch_va(omap24xx_cpu_suspend, &omap2_ocs_sdrc_power,
+			   omap2_sram_suspend,
+			   OMAP_SDRC_REGADDR(SDRC_POWER));
+	omap_sram_patch_va(omap24xx_cpu_suspend, &omap2_ocs_sdrc_dlla_ctrl,
+			   omap2_sram_suspend,
+			   OMAP_SDRC_REGADDR(SDRC_DLLA_CTRL));
 
 	suspend_set_ops(&omap_pm_ops);
 	pm_idle = omap2_pm_idle;

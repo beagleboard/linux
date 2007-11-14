@@ -26,17 +26,15 @@
  */
 
 #include <linux/linkage.h>
+#include <linux/poison.h>	/* for SRAM_VA_MAGIC */
 #include <asm/assembler.h>
 #include <asm/arch/io.h>
 #include <asm/arch/pm.h>
 
 #include <asm/arch/omap24xx.h>
 
-#define A_SDRC_DLLA_CTRL_V	IO_ADDRESS(OMAP2_SDRC_BASE + 0x60)
-#define	A_SDRC_POWER_V		IO_ADDRESS(OMAP2_SDRC_BASE + 0x70)
-#define A_SDRC_RFR_CTRL_V	IO_ADDRESS(OMAP2_SDRC_BASE + 0xA4)
+/* First address of reserved address space?  apparently valid for OMAP2 & 3 */
 #define A_SDRC0_V		(0xC0000000)
-#define A_SDRC_MANUAL_V		IO_ADDRESS(OMAP2_SDRC_BASE + 0xA8)
 
 	.text
 
@@ -88,7 +86,7 @@ ENTRY(omap24xx_cpu_suspend)
 	mcr	p15, 0, r3, c7, c10, 4	@ memory barrier, hope SDR/DDR finished
 	nop
 	nop
-	ldr	r3, A_SDRC_POWER	@ addr of sdrc power
+	ldr	r3, omap2_ocs_sdrc_power	@ addr of sdrc power
 	ldr	r4, [r3]		@ value of sdrc power
 	orr	r4, r4, #0x40		@ enable self refresh on idle req
 	mov	r5, #0x2000		@ set delay (DPLL relock + DLL relock)
@@ -108,7 +106,7 @@ loop:
 	ldr	r4, [r4]
 	nop				@ start auto refresh only after clk ok
 	movs	r0, r0			@ see if DDR or SDR
-	ldrne	r1, A_SDRC_DLLA_CTRL_S	@ get addr of DLL ctrl
+	ldrne	r1, omap2_ocs_sdrc_dlla_ctrl	@ get addr of DLL ctrl
 	strne	r0, [r1]		@ rewrite DLLA to force DLL reload
 	addne	r1, r1, #0x8		@ move to DLLB
 	strne	r0, [r1]		@ rewrite DLLB to force DLL reload
@@ -120,12 +118,15 @@ loop2:
 	/* resume*/
 	ldmfd	sp!, {r0 - r12, pc}	@ restore regs and return
 
-A_SDRC_POWER:
-	.word A_SDRC_POWER_V
+	.globl	omap2_ocs_sdrc_power
+	.globl	omap2_ocs_sdrc_dlla_ctrl
+
+omap2_ocs_sdrc_power:
+	.word SRAM_VA_MAGIC
 A_SDRC0:
 	.word A_SDRC0_V
-A_SDRC_DLLA_CTRL_S:
-	.word A_SDRC_DLLA_CTRL_V
+omap2_ocs_sdrc_dlla_ctrl:
+	.word SRAM_VA_MAGIC
 
 ENTRY(omap24xx_cpu_suspend_sz)
 	.word	. - omap24xx_cpu_suspend
