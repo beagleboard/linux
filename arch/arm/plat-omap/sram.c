@@ -25,6 +25,12 @@
 #include <asm/arch/sram.h>
 #include <asm/arch/board.h>
 
+#if defined(CONFIG_ARCH_OMAP2) || defined(CONFIG_ARCH_OMAP3)
+# include "../mach-omap2/prm.h"
+# include "../mach-omap2/cm.h"
+# include "../mach-omap2/sdrc.h"
+#endif
+
 #define OMAP1_SRAM_PA		0x20000000
 #define OMAP1_SRAM_VA		0xd0000000
 #define OMAP2_SRAM_PA		0x40200000
@@ -57,6 +63,13 @@ extern unsigned long omapfb_reserve_sram(unsigned long sram_pstart,
 					 unsigned long sram_size,
 					 unsigned long pstart_avail,
 					 unsigned long size_avail);
+
+/* Global symbols in sram-fn.S to be patched with omap_sram_patch_va() */
+extern void *omap2_sdi_cm_clksel2_pll;
+extern void *omap2_sdi_sdrc_dlla_ctrl;
+extern void *omap2_sdi_prcm_voltctrl;
+extern void *omap2_sdi_timer_32ksynct_cr;
+
 
 /*
  * Depending on the target RAMFS firewall setup, the public usable amount of
@@ -324,6 +337,19 @@ u32 omap2_set_prcm(u32 dpll_ctrl_val, u32 sdrc_rfr_val, int bypass)
 int __init omap2_sram_init(void)
 {
 	_omap2_sram_ddr_init = omap_sram_push(sram_ddr_init, sram_ddr_init_sz);
+
+	/* Patch in the correct register addresses for multiboot */
+	omap_sram_patch_va(sram_ddr_init, &omap2_sdi_cm_clksel2_pll,
+			   _omap2_sram_ddr_init,
+			   OMAP_CM_REGADDR(PLL_MOD, CM_CLKSEL2));
+	omap_sram_patch_va(sram_ddr_init, &omap2_sdi_sdrc_dlla_ctrl,
+			   _omap2_sram_ddr_init,
+			   OMAP_SDRC_REGADDR(SDRC_DLLA_CTRL));
+	omap_sram_patch_va(sram_ddr_init, &omap2_sdi_prcm_voltctrl,
+			   _omap2_sram_ddr_init, OMAP24XX_PRCM_VOLTCTRL);
+	omap_sram_patch_va(sram_ddr_init, &omap2_sdi_timer_32ksynct_cr,
+			   _omap2_sram_ddr_init,
+			   (void __iomem *)IO_ADDRESS(OMAP2_32KSYNCT_BASE + 0x010));
 
 	_omap2_sram_reprogram_sdrc = omap_sram_push(sram_reprogram_sdrc,
 						    sram_reprogram_sdrc_sz);

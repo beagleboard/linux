@@ -26,6 +26,7 @@
 #include <asm/assembler.h>
 #include <asm/arch/io.h>
 #include <asm/hardware.h>
+#include <linux/poison.h>
 
 #define TIMER_32KSYNCT_CR_V	IO_ADDRESS(OMAP2_32KSYNCT_BASE + 0x010)
 
@@ -48,7 +49,7 @@ ENTRY(sram_ddr_init)
 	mov	r8, r3			@ capture force parameter
 
 	/* frequency shift down */
-	ldr	r2, cm_clksel2_pll	@ get address of dpllout reg
+	ldr	r2, omap2_sdi_cm_clksel2_pll	@ get address of dpllout reg
 	mov	r3, #0x1		@ value for 1x operation
 	str	r3, [r2]		@ go to L1-freq operation
 
@@ -57,7 +58,7 @@ ENTRY(sram_ddr_init)
 	bl voltage_shift		@ go drop voltage
 
 	/* dll lock mode */
-	ldr	r11, sdrc_dlla_ctrl	@ addr of dlla ctrl
+	ldr	r11, omap2_sdi_sdrc_dlla_ctrl	@ addr of dlla ctrl
 	ldr	r10, [r11]		@ get current val
 	cmp	r12, #0x1		@ cs1 base (2422 es2.05/1)
 	addeq	r11, r11, #0x8		@ if cs1 base, move to DLLB
@@ -108,7 +109,7 @@ i_dll_delay:
 	 * wait for it to finish, use 32k sync counter, 1tick=31uS.
 	 */
 voltage_shift:
-	ldr	r4, prcm_voltctrl	@ get addr of volt ctrl.
+	ldr	r4, omap2_sdi_prcm_voltctrl	@ get addr of volt ctrl.
 	ldr	r5, [r4]		@ get value.
 	ldr	r6, prcm_mask_val	@ get value of mask
 	and	r5, r5, r6		@ apply mask to clear bits
@@ -118,7 +119,7 @@ voltage_shift:
 	orr	r5, r5, r3		@ build value for force
 	str	r5, [r4]		@ Force transition to L1
 
-	ldr	r3, timer_32ksynct_cr	@ get addr of counter
+	ldr	r3, omap2_sdi_timer_32ksynct_cr	@ get addr of counter
 	ldr	r5, [r3]		@ get value
 	add	r5, r5, #0x3		@ give it at most 93uS
 volt_delay:
@@ -128,16 +129,21 @@ volt_delay:
 	mov	pc, lr			@ back to caller.
 
 /* relative load constants */
-cm_clksel2_pll:
-	.word CM_CLKSEL2_PLL_V
-sdrc_dlla_ctrl:
-	.word SDRC_DLLA_CTRL_V
-prcm_voltctrl:
-	.word PRCM_VOLTCTRL_V
+	.globl omap2_sdi_cm_clksel2_pll
+	.globl omap2_sdi_sdrc_dlla_ctrl
+	.globl omap2_sdi_prcm_voltctrl
+	.globl omap2_sdi_timer_32ksynct_cr
+
+omap2_sdi_cm_clksel2_pll:
+	.word SRAM_VA_MAGIC
+omap2_sdi_sdrc_dlla_ctrl:
+	.word SRAM_VA_MAGIC
+omap2_sdi_prcm_voltctrl:
+	.word SRAM_VA_MAGIC
 prcm_mask_val:
 	.word 0xFFFF3FFC
-timer_32ksynct_cr:
-	.word TIMER_32KSYNCT_CR_V
+omap2_sdi_timer_32ksynct_cr:
+	.word SRAM_VA_MAGIC
 ENTRY(sram_ddr_init_sz)
 	.word	. - sram_ddr_init
 
