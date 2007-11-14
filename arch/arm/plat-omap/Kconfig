@@ -32,6 +32,16 @@ config OMAP_DEBUG_LEDS
 	depends on OMAP_DEBUG_DEVICES
 	default y if LEDS || LEDS_OMAP_DEBUG
 
+config OMAP_DEBUG_SRAM_PATCH
+	bool "Extra sanity checking for SRAM patch code"
+	depends on ARCH_OMAP
+	default y
+	help
+	  Say Y here if you want the kernel to use extra caution
+	  in patching SRAM virtual addresses.  If you are
+	  confident in your SRAM code, disabling this will save
+	  about 600 bytes.
+
 config OMAP_RESET_CLOCKS
 	bool "Reset unused clocks during boot"
 	depends on ARCH_OMAP
