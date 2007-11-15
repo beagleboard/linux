@@ -33,6 +33,13 @@ void omap_prcm_arch_reset(char mode)
 {
 	u32 wkup;
 	omap2_clk_prepare_for_reboot();
-	wkup = prm_read_mod_reg(WKUP_MOD, RM_RSTCTRL) | OMAP_RST_DPLL3;
-	prm_write_mod_reg(wkup, WKUP_MOD, RM_RSTCTRL);
+
+	if (cpu_is_omap24xx()) {
+		wkup = prm_read_mod_reg(WKUP_MOD, RM_RSTCTRL) | OMAP_RST_DPLL3;
+		prm_write_mod_reg(wkup, WKUP_MOD, RM_RSTCTRL);
+	} else if (cpu_is_omap34xx()) {
+		wkup = prm_read_mod_reg(OMAP3430_GR_MOD, RM_RSTCTRL)
+							| OMAP_RST_DPLL3;
+		prm_write_mod_reg(wkup, OMAP3430_GR_MOD, RM_RSTCTRL);
+	}
 }
