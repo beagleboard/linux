@@ -1022,6 +1022,8 @@ EXPORT_SYMBOL(omap_mcbsp_set_io_type);
 EXPORT_SYMBOL(omap_mcbsp_free);
 EXPORT_SYMBOL(omap_mcbsp_start);
 EXPORT_SYMBOL(omap_mcbsp_stop);
+EXPORT_SYMBOL(omap_mcbsp_pollread);
+EXPORT_SYMBOL(omap_mcbsp_pollwrite);
 EXPORT_SYMBOL(omap_mcbsp_xmit_word);
 EXPORT_SYMBOL(omap_mcbsp_recv_word);
 EXPORT_SYMBOL(omap_mcbsp_xmit_buffer);
