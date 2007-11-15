@@ -739,7 +739,7 @@ int omap2_clk_set_parent(struct clk *clk, struct clk *new_parent)
  *-------------------------------------------------------------------------*/
 
 #ifdef CONFIG_OMAP_RESET_CLOCKS
-void omap2_clk_disable_unused(struct clk *clk)
+void __init omap2_clk_disable_unused(struct clk *clk)
 {
 	u32 regval32, v;
 
