@@ -132,7 +132,7 @@ config GPIOEXPANDER_OMAP
 
 config TWL4030_CORE
 	bool "TI's TWL4030 companion chip Core Driver Support"
-	depends on I2C=y && ARCH_OMAP24XX
+	depends on I2C=y && (ARCH_OMAP24XX || ARCH_OMAP34XX)
 	help
 	  Say yes here if you have TWL4030 chip on your board
 
