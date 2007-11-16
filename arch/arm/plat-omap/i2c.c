@@ -88,7 +88,7 @@ static void omap_i2c_mux_pins(int bus_id)
 		if (cpu_class_is_omap1()) {
 			omap_cfg_reg(I2C_SCL);
 			omap_cfg_reg(I2C_SDA);
-		} else if (cpu_class_is_omap2()) {
+		} else if (cpu_is_omap24xx()) {
 			omap_cfg_reg(M19_24XX_I2C1_SCL);
 			omap_cfg_reg(L15_24XX_I2C1_SDA);
 		}

@@ -167,6 +167,13 @@ static struct omap_uart_config sdp3430_uart_config __initdata = {
 static struct omap_board_config_kernel sdp3430_config[] = {
 	{ OMAP_TAG_UART,	&sdp3430_uart_config },
 };
+static int __init omap3430_i2c_init(void)
+{
+	omap_register_i2c_bus(1, 2600, NULL, 0);
+	omap_register_i2c_bus(2, 400, NULL, 0);
+	omap_register_i2c_bus(3, 400, NULL, 0);
+	return 0;
+}
 
 static void __init omap_3430sdp_init(void)
 {
@@ -180,6 +187,7 @@ static void __init omap_3430sdp_map_io(void)
 {
 	omap2_map_common_io();
 }
+arch_initcall(omap3430_i2c_init);
 
 MACHINE_START(OMAP_3430SDP, "OMAP3430 3430SDP board")
 	/* Maintainer: Syed Khasim - Texas Instruments Inc */
