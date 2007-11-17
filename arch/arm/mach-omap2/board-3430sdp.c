@@ -264,16 +264,8 @@ static inline void __init sdp3430_init_smc91x(void)
 {
 	int eth_cs;
 	unsigned long cs_mem_base;
-	unsigned int rate;
-	struct clk *l3ck;
 
-	eth_cs	= SDP3430_SMC91X_CS;
-
-	l3ck = clk_get(NULL, "core_l3_ck");
-	if (IS_ERR(l3ck))
-		rate = 100000000;
-	else
-		rate = clk_get_rate(l3ck);
+	eth_cs  = SDP3430_SMC91X_CS;
 
 	if (gpmc_cs_request(eth_cs, SZ_16M, &cs_mem_base) < 0) {
 		printk(KERN_ERR "Failed to request GPMC mem for smc91x\n");
