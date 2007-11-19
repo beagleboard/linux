@@ -51,8 +51,6 @@
 
 #define DRIVER_NAME			"twl4030"
 
-#define pr_err(fmt, arg...)	printk(KERN_ERR DRIVER_NAME ": " fmt, ##arg);
-
 /**** Macro Definitions */
 #define TWL_CLIENT_STRING		"TWL4030-ID"
 #define TWL_CLIENT_USED			1
