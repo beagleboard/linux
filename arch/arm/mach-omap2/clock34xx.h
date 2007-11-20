@@ -1101,7 +1101,7 @@ static struct clk sdrc_ick = {
 	.parent		= &core_l3_ick,
 	.enable_reg	= OMAP_CM_REGADDR(CORE_MOD, CM_ICLKEN1),
 	.enable_bit	= OMAP3430_EN_SDRC_SHIFT,
-	.flags		= CLOCK_IN_OMAP343X,
+	.flags		= CLOCK_IN_OMAP343X | ENABLE_ON_INIT,
 	.recalc		= &followparent_recalc,
 };
 
