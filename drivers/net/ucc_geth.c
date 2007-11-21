@@ -2214,9 +2214,7 @@ static void ucc_geth_set_multi(struct net_device *dev)
 	struct dev_mc_list *dmi;
 	struct ucc_fast *uf_regs;
 	struct ucc_geth_82xx_address_filtering_pram *p_82xx_addr_filt;
-	u8 tempaddr[6];
-	u8 *mcptr, *tdptr;
-	int i, j;
+	int i;
 
 	ugeth = netdev_priv(dev);
 
@@ -2255,19 +2253,10 @@ static void ucc_geth_set_multi(struct net_device *dev)
 				if (!(dmi->dmi_addr[0] & 1))
 					continue;
 
-				/* The address in dmi_addr is LSB first,
-				 * and taddr is MSB first.  We have to
-				 * copy bytes MSB first from dmi_addr.
-				 */
-				mcptr = (u8 *) dmi->dmi_addr + 5;
-				tdptr = (u8 *) tempaddr;
-				for (j = 0; j < 6; j++)
-					*tdptr++ = *mcptr--;
-
 				/* Ask CPM to run CRC and set bit in
 				 * filter mask.
 				 */
-				hw_add_addr_in_hash(ugeth, tempaddr);
+				hw_add_addr_in_hash(ugeth, dmi->dmi_addr);
 			}
 		}
 	}
@@ -3607,7 +3596,7 @@ static int ucc_geth_poll(struct napi_struct *napi, int budget)
 
 static irqreturn_t ucc_geth_irq_handler(int irq, void *info)
 {
-	struct net_device *dev = (struct net_device *)info;
+	struct net_device *dev = info;
 	struct ucc_geth_private *ugeth = netdev_priv(dev);
 	struct ucc_fast_private *uccf;
 	struct ucc_geth_info *ug_info;

@@ -704,10 +704,11 @@ static int ieee80211_privacy_mismatch(struct net_device *dev,
 {
 	struct ieee80211_local *local = wdev_priv(dev->ieee80211_ptr);
 	struct ieee80211_sta_bss *bss;
-	int res = 0;
+	int bss_privacy;
+	int wep_privacy;
+	int privacy_invoked;
 
-	if (!ifsta || (ifsta->flags & IEEE80211_STA_MIXED_CELL) ||
-	    ifsta->key_management_enabled)
+	if (!ifsta || (ifsta->flags & IEEE80211_STA_MIXED_CELL))
 		return 0;
 
 	bss = ieee80211_rx_bss_get(dev, ifsta->bssid, local->hw.conf.channel,
@@ -715,13 +716,16 @@ static int ieee80211_privacy_mismatch(struct net_device *dev,
 	if (!bss)
 		return 0;
 
-	if (ieee80211_sta_wep_configured(dev) !=
-	    !!(bss->capability & WLAN_CAPABILITY_PRIVACY))
-		res = 1;
+	bss_privacy = !!(bss->capability & WLAN_CAPABILITY_PRIVACY);
+	wep_privacy = !!ieee80211_sta_wep_configured(dev);
+	privacy_invoked = !!(ifsta->flags & IEEE80211_STA_PRIVACY_INVOKED);
 
 	ieee80211_rx_bss_put(dev, bss);
 
-	return res;
+	if ((bss_privacy == wep_privacy) || (bss_privacy == privacy_invoked))
+		return 0;
+
+	return 1;
 }
 
 
@@ -1184,7 +1188,7 @@ static void ieee80211_rx_mgmt_assoc_resp(struct net_device *dev,
 	printk(KERN_DEBUG "%s: RX %sssocResp from %s (capab=0x%x "
 	       "status=%d aid=%d)\n",
 	       dev->name, reassoc ? "Rea" : "A", print_mac(mac, mgmt->sa),
-	       capab_info, status_code, aid & ~(BIT(15) | BIT(14)));
+	       capab_info, status_code, (u16)(aid & ~(BIT(15) | BIT(14))));
 
 	if (status_code != WLAN_STATUS_SUCCESS) {
 		printk(KERN_DEBUG "%s: AP denied association (code=%d)\n",
@@ -1998,7 +2002,10 @@ void ieee80211_sta_work(struct work_struct *work)
 	if (ifsta->state != IEEE80211_AUTHENTICATE &&
 	    ifsta->state != IEEE80211_ASSOCIATE &&
 	    test_and_clear_bit(IEEE80211_STA_REQ_SCAN, &ifsta->request)) {
-		ieee80211_sta_start_scan(dev, NULL, 0);
+		if (ifsta->scan_ssid_len)
+			ieee80211_sta_start_scan(dev, ifsta->scan_ssid, ifsta->scan_ssid_len);
+		else
+			ieee80211_sta_start_scan(dev, NULL, 0);
 		return;
 	}
 
@@ -2096,7 +2103,8 @@ static int ieee80211_sta_match_ssid(struct ieee80211_if_sta *ifsta,
 {
 	int tmp, hidden_ssid;
 
-	if (!memcmp(ifsta->ssid, ssid, ssid_len))
+	if (ssid_len == ifsta->ssid_len &&
+	    !memcmp(ifsta->ssid, ssid, ssid_len))
 		return 1;
 
 	if (ifsta->flags & IEEE80211_STA_AUTO_BSSID_SEL)
@@ -2867,6 +2875,9 @@ int ieee80211_sta_req_scan(struct net_device *dev, u8 *ssid, size_t ssid_len)
 		return -EBUSY;
 	}
 
+	ifsta->scan_ssid_len = ssid_len;
+	if (ssid_len)
+		memcpy(ifsta->scan_ssid, ssid, ssid_len);
 	set_bit(IEEE80211_STA_REQ_SCAN, &ifsta->request);
 	queue_work(local->hw.workqueue, &ifsta->work);
 	return 0;

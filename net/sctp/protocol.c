@@ -552,7 +552,8 @@ static struct sock *sctp_v4_create_accept_sk(struct sock *sk,
 {
 	struct inet_sock *inet = inet_sk(sk);
 	struct inet_sock *newinet;
-	struct sock *newsk = sk_alloc(sk->sk_net, PF_INET, GFP_KERNEL, sk->sk_prot, 1);
+	struct sock *newsk = sk_alloc(sk->sk_net, PF_INET, GFP_KERNEL,
+			sk->sk_prot);
 
 	if (!newsk)
 		goto out;
@@ -1136,7 +1137,7 @@ SCTP_STATIC __init int sctp_init(void)
 	}
 	for (i = 0; i < sctp_assoc_hashsize; i++) {
 		rwlock_init(&sctp_assoc_hashtable[i].lock);
-		sctp_assoc_hashtable[i].chain = NULL;
+		INIT_HLIST_HEAD(&sctp_assoc_hashtable[i].chain);
 	}
 
 	/* Allocate and initialize the endpoint hash table.  */
@@ -1150,7 +1151,7 @@ SCTP_STATIC __init int sctp_init(void)
 	}
 	for (i = 0; i < sctp_ep_hashsize; i++) {
 		rwlock_init(&sctp_ep_hashtable[i].lock);
-		sctp_ep_hashtable[i].chain = NULL;
+		INIT_HLIST_HEAD(&sctp_ep_hashtable[i].chain);
 	}
 
 	/* Allocate and initialize the SCTP port hash table.  */
@@ -1169,7 +1170,7 @@ SCTP_STATIC __init int sctp_init(void)
 	}
 	for (i = 0; i < sctp_port_hashsize; i++) {
 		spin_lock_init(&sctp_port_hashtable[i].lock);
-		sctp_port_hashtable[i].chain = NULL;
+		INIT_HLIST_HEAD(&sctp_port_hashtable[i].chain);
 	}
 
 	printk(KERN_INFO "SCTP: Hash tables configured "
@@ -1178,6 +1179,7 @@ SCTP_STATIC __init int sctp_init(void)
 
 	/* Disable ADDIP by default. */
 	sctp_addip_enable = 0;
+	sctp_addip_noauth = 0;
 
 	/* Enable PR-SCTP by default. */
 	sctp_prsctp_enable = 1;

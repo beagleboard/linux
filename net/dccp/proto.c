@@ -26,6 +26,7 @@
 #include <net/sock.h>
 #include <net/xfrm.h>
 
+#include <asm/ioctls.h>
 #include <asm/semaphore.h>
 #include <linux/spinlock.h>
 #include <linux/timer.h>
@@ -378,8 +379,36 @@ EXPORT_SYMBOL_GPL(dccp_poll);
 
 int dccp_ioctl(struct sock *sk, int cmd, unsigned long arg)
 {
-	dccp_pr_debug("entry\n");
-	return -ENOIOCTLCMD;
+	int rc = -ENOTCONN;
+
+	lock_sock(sk);
+
+	if (sk->sk_state == DCCP_LISTEN)
+		goto out;
+
+	switch (cmd) {
+	case SIOCINQ: {
+		struct sk_buff *skb;
+		unsigned long amount = 0;
+
+		skb = skb_peek(&sk->sk_receive_queue);
+		if (skb != NULL) {
+			/*
+			 * We will only return the amount of this packet since
+			 * that is all that will be read.
+			 */
+			amount = skb->len;
+		}
+		rc = put_user(amount, (int __user *)arg);
+	}
+		break;
+	default:
+		rc = -ENOIOCTLCMD;
+		break;
+	}
+out:
+	release_sock(sk);
+	return rc;
 }
 
 EXPORT_SYMBOL_GPL(dccp_ioctl);
@@ -1043,10 +1072,12 @@ static int __init dccp_init(void)
 	}
 
 	for (i = 0; i < dccp_hashinfo.ehash_size; i++) {
-		rwlock_init(&dccp_hashinfo.ehash[i].lock);
 		INIT_HLIST_HEAD(&dccp_hashinfo.ehash[i].chain);
 		INIT_HLIST_HEAD(&dccp_hashinfo.ehash[i].twchain);
 	}
+
+	if (inet_ehash_locks_alloc(&dccp_hashinfo))
+			goto out_free_dccp_ehash;
 
 	bhash_order = ehash_order;
 
@@ -1062,7 +1093,7 @@ static int __init dccp_init(void)
 
 	if (!dccp_hashinfo.bhash) {
 		DCCP_CRIT("Failed to allocate DCCP bind hash table");
-		goto out_free_dccp_ehash;
+		goto out_free_dccp_locks;
 	}
 
 	for (i = 0; i < dccp_hashinfo.bhash_size; i++) {
@@ -1092,6 +1123,8 @@ out_free_dccp_mib:
 out_free_dccp_bhash:
 	free_pages((unsigned long)dccp_hashinfo.bhash, bhash_order);
 	dccp_hashinfo.bhash = NULL;
+out_free_dccp_locks:
+	inet_ehash_locks_free(&dccp_hashinfo);
 out_free_dccp_ehash:
 	free_pages((unsigned long)dccp_hashinfo.ehash, ehash_order);
 	dccp_hashinfo.ehash = NULL;
@@ -1110,6 +1143,7 @@ static void __exit dccp_fini(void)
 	free_pages((unsigned long)dccp_hashinfo.ehash,
 		   get_order(dccp_hashinfo.ehash_size *
 			     sizeof(struct inet_ehash_bucket)));
+	inet_ehash_locks_free(&dccp_hashinfo);
 	kmem_cache_destroy(dccp_hashinfo.bind_bucket_cachep);
 	dccp_ackvec_exit();
 	dccp_sysctl_exit();

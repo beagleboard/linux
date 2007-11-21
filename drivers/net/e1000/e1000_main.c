@@ -37,8 +37,8 @@ static char e1000_driver_string[] = "Intel(R) PRO/1000 Network Driver";
 #define DRIVERNAPI "-NAPI"
 #endif
 #define DRV_VERSION "7.3.20-k2"DRIVERNAPI
-char e1000_driver_version[] = DRV_VERSION;
-static char e1000_copyright[] = "Copyright (c) 1999-2006 Intel Corporation.";
+const char e1000_driver_version[] = DRV_VERSION;
+static const char e1000_copyright[] = "Copyright (c) 1999-2006 Intel Corporation.";
 
 /* e1000_pci_tbl - PCI Device ID Table
  *
@@ -188,7 +188,6 @@ static void e1000_alloc_rx_buffers_ps(struct e1000_adapter *adapter,
 static int e1000_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd);
 static int e1000_mii_ioctl(struct net_device *netdev, struct ifreq *ifr,
 			   int cmd);
-void e1000_set_ethtool_ops(struct net_device *netdev);
 static void e1000_enter_82542_rst(struct e1000_adapter *adapter);
 static void e1000_leave_82542_rst(struct e1000_adapter *adapter);
 static void e1000_tx_timeout(struct net_device *dev);
@@ -212,8 +211,6 @@ static void e1000_shutdown(struct pci_dev *pdev);
 /* for netdump / net console */
 static void e1000_netpoll (struct net_device *netdev);
 #endif
-
-extern void e1000_check_options(struct e1000_adapter *adapter);
 
 #define COPYBREAK_DEFAULT 256
 static unsigned int copybreak __read_mostly = COPYBREAK_DEFAULT;
@@ -4807,6 +4804,7 @@ e1000_mii_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
 			spin_unlock_irqrestore(&adapter->stats_lock, flags);
 			return -EIO;
 		}
+		spin_unlock_irqrestore(&adapter->stats_lock, flags);
 		if (adapter->hw.media_type == e1000_media_type_copper) {
 			switch (data->reg_num) {
 			case PHY_CTRL:
@@ -4827,12 +4825,8 @@ e1000_mii_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
 						   DUPLEX_HALF;
 					retval = e1000_set_spd_dplx(adapter,
 								    spddplx);
-					if (retval) {
-						spin_unlock_irqrestore(
-							&adapter->stats_lock,
-							flags);
+					if (retval)
 						return retval;
-					}
 				}
 				if (netif_running(adapter->netdev))
 					e1000_reinit_locked(adapter);
@@ -4841,11 +4835,8 @@ e1000_mii_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
 				break;
 			case M88E1000_PHY_SPEC_CTRL:
 			case M88E1000_EXT_PHY_SPEC_CTRL:
-				if (e1000_phy_reset(&adapter->hw)) {
-					spin_unlock_irqrestore(
-						&adapter->stats_lock, flags);
+				if (e1000_phy_reset(&adapter->hw))
 					return -EIO;
-				}
 				break;
 			}
 		} else {
@@ -4860,7 +4851,6 @@ e1000_mii_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
 				break;
 			}
 		}
-		spin_unlock_irqrestore(&adapter->stats_lock, flags);
 		break;
 	default:
 		return -EOPNOTSUPP;

@@ -43,11 +43,8 @@ EXPORT_SYMBOL(memory_end);
 char __initdata command_line[COMMAND_LINE_SIZE];
 
 /* machine dependent timer functions */
-void (*mach_sched_init)(irq_handler_t handler);
-void (*mach_tick)(void);
 void (*mach_gettod)(int*, int*, int*, int*, int*, int*);
 int (*mach_set_clock_mmss)(unsigned long);
-unsigned long (*mach_gettimeoffset)(void);
 
 /* machine dependent reboot functions */
 void (*mach_reset)(void);
@@ -116,7 +113,7 @@ void (*mach_power_off)(void);
 extern int _stext, _etext, _sdata, _edata, _sbss, _ebss, _end;
 extern int _ramstart, _ramend;
 
-void setup_arch(char **cmdline_p)
+void __init setup_arch(char **cmdline_p)
 {
 	int bootmap_size;
 

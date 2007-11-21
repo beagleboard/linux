@@ -70,12 +70,12 @@ zfcp_sg_to_address(struct scatterlist *list)
  * zfcp_address_to_sg - set up struct scatterlist from kernel address
  * @address: kernel address
  * @list: struct scatterlist
+ * @size: buffer size
  */
 static inline void
-zfcp_address_to_sg(void *address, struct scatterlist *list)
+zfcp_address_to_sg(void *address, struct scatterlist *list, unsigned int size)
 {
-	sg_set_page(list, virt_to_page(address));
-	list->offset = ((unsigned long) address) & (PAGE_SIZE - 1);
+	sg_set_buf(list, address, size);
 }
 
 #define REQUEST_LIST_SIZE 128

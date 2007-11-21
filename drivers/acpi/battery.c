@@ -125,10 +125,14 @@ static int acpi_battery_technology(struct acpi_battery *battery)
 		return POWER_SUPPLY_TECHNOLOGY_NiMH;
 	if (!strcasecmp("LION", battery->type))
 		return POWER_SUPPLY_TECHNOLOGY_LION;
+	if (!strcasecmp("LI-ION", battery->type))
+		return POWER_SUPPLY_TECHNOLOGY_LION;
 	if (!strcasecmp("LiP", battery->type))
 		return POWER_SUPPLY_TECHNOLOGY_LIPO;
 	return POWER_SUPPLY_TECHNOLOGY_UNKNOWN;
 }
+
+static int acpi_battery_get_state(struct acpi_battery *battery);
 
 static int acpi_battery_get_property(struct power_supply *psy,
 				     enum power_supply_property psp,
@@ -136,8 +140,10 @@ static int acpi_battery_get_property(struct power_supply *psy,
 {
 	struct acpi_battery *battery = to_acpi_battery(psy);
 
-	if ((!acpi_battery_present(battery)) &&
-	     psp != POWER_SUPPLY_PROP_PRESENT)
+	if (acpi_battery_present(battery)) {
+		/* run battery update only if it is present */
+		acpi_battery_get_state(battery);
+	} else if (psp != POWER_SUPPLY_PROP_PRESENT)
 		return -ENODEV;
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
@@ -257,7 +263,7 @@ static int extract_package(struct acpi_battery *battery,
 			   union acpi_object *package,
 			   struct acpi_offsets *offsets, int num)
 {
-	int i, *x;
+	int i;
 	union acpi_object *element;
 	if (package->type != ACPI_TYPE_PACKAGE)
 		return -EFAULT;
@@ -266,16 +272,21 @@ static int extract_package(struct acpi_battery *battery,
 			return -EFAULT;
 		element = &package->package.elements[i];
 		if (offsets[i].mode) {
-			if (element->type != ACPI_TYPE_STRING &&
-			    element->type != ACPI_TYPE_BUFFER)
-				return -EFAULT;
-			strncpy((u8 *)battery + offsets[i].offset,
-				element->string.pointer, 32);
+			u8 *ptr = (u8 *)battery + offsets[i].offset;
+			if (element->type == ACPI_TYPE_STRING ||
+			    element->type == ACPI_TYPE_BUFFER)
+				strncpy(ptr, element->string.pointer, 32);
+			else if (element->type == ACPI_TYPE_INTEGER) {
+				strncpy(ptr, (u8 *)&element->integer.value,
+					sizeof(acpi_integer));
+				ptr[sizeof(acpi_integer)] = 0;
+			} else return -EFAULT;
 		} else {
-			if (element->type != ACPI_TYPE_INTEGER)
-				return -EFAULT;
-			x = (int *)((u8 *)battery + offsets[i].offset);
-			*x = element->integer.value;
+			if (element->type == ACPI_TYPE_INTEGER) {
+				int *x = (int *)((u8 *)battery +
+						offsets[i].offset);
+				*x = element->integer.value;
+			} else return -EFAULT;
 		}
 	}
 	return 0;
@@ -385,29 +396,82 @@ static int acpi_battery_init_alarm(struct acpi_battery *battery)
 	return acpi_battery_set_alarm(battery);
 }
 
+static ssize_t acpi_battery_alarm_show(struct device *dev,
+					struct device_attribute *attr,
+					char *buf)
+{
+	struct acpi_battery *battery = to_acpi_battery(dev_get_drvdata(dev));
+	return sprintf(buf, "%d\n", battery->alarm * 1000);
+}
+
+static ssize_t acpi_battery_alarm_store(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t count)
+{
+	unsigned long x;
+	struct acpi_battery *battery = to_acpi_battery(dev_get_drvdata(dev));
+	if (sscanf(buf, "%ld\n", &x) == 1)
+		battery->alarm = x/1000;
+	if (acpi_battery_present(battery))
+		acpi_battery_set_alarm(battery);
+	return count;
+}
+
+static struct device_attribute alarm_attr = {
+	.attr = {.name = "alarm", .mode = 0644, .owner = THIS_MODULE},
+	.show = acpi_battery_alarm_show,
+	.store = acpi_battery_alarm_store,
+};
+
+static int sysfs_add_battery(struct acpi_battery *battery)
+{
+	int result;
+
+	battery->update_time = 0;
+	result = acpi_battery_get_info(battery);
+	acpi_battery_init_alarm(battery);
+	if (result)
+		return result;
+	if (battery->power_unit) {
+		battery->bat.properties = charge_battery_props;
+		battery->bat.num_properties =
+			ARRAY_SIZE(charge_battery_props);
+	} else {
+		battery->bat.properties = energy_battery_props;
+		battery->bat.num_properties =
+			ARRAY_SIZE(energy_battery_props);
+	}
+
+	battery->bat.name = acpi_device_bid(battery->device);
+	battery->bat.type = POWER_SUPPLY_TYPE_BATTERY;
+	battery->bat.get_property = acpi_battery_get_property;
+
+	result = power_supply_register(&battery->device->dev, &battery->bat);
+	if (result)
+		return result;
+	return device_create_file(battery->bat.dev, &alarm_attr);
+}
+
+static void sysfs_remove_battery(struct acpi_battery *battery)
+{
+	if (!battery->bat.dev)
+		return;
+	device_remove_file(battery->bat.dev, &alarm_attr);
+	power_supply_unregister(&battery->bat);
+	battery->bat.dev = NULL;
+}
+
 static int acpi_battery_update(struct acpi_battery *battery)
 {
-	int saved_present = acpi_battery_present(battery);
 	int result = acpi_battery_get_status(battery);
-	if (result || !acpi_battery_present(battery))
+	if (result)
 		return result;
-	if (saved_present != acpi_battery_present(battery) ||
-	    !battery->update_time) {
-		battery->update_time = 0;
-		result = acpi_battery_get_info(battery);
-		if (result)
-			return result;
-		if (battery->power_unit) {
-			battery->bat.properties = charge_battery_props;
-			battery->bat.num_properties =
-				ARRAY_SIZE(charge_battery_props);
-		} else {
-			battery->bat.properties = energy_battery_props;
-			battery->bat.num_properties =
-				ARRAY_SIZE(energy_battery_props);
-		}
-		acpi_battery_init_alarm(battery);
+	if (!acpi_battery_present(battery)) {
+		sysfs_remove_battery(battery);
+		return 0;
 	}
+	if (!battery->bat.dev)
+		sysfs_add_battery(battery);
 	return acpi_battery_get_state(battery);
 }
 
@@ -554,10 +618,6 @@ static ssize_t acpi_battery_write_alarm(struct file *file,
 
 	if (!battery || (count > sizeof(alarm_string) - 1))
 		return -EINVAL;
-	if (result) {
-		result = -ENODEV;
-		goto end;
-	}
 	if (!acpi_battery_present(battery)) {
 		result = -ENODEV;
 		goto end;
@@ -688,33 +748,6 @@ static void acpi_battery_remove_fs(struct acpi_device *device)
 
 #endif
 
-static ssize_t acpi_battery_alarm_show(struct device *dev,
-					struct device_attribute *attr,
-					char *buf)
-{
-	struct acpi_battery *battery = to_acpi_battery(dev_get_drvdata(dev));
-	return sprintf(buf, "%d\n", battery->alarm * 1000);
-}
-
-static ssize_t acpi_battery_alarm_store(struct device *dev,
-					struct device_attribute *attr,
-					const char *buf, size_t count)
-{
-	unsigned long x;
-	struct acpi_battery *battery = to_acpi_battery(dev_get_drvdata(dev));
-	if (sscanf(buf, "%ld\n", &x) == 1)
-		battery->alarm = x/1000;
-	if (acpi_battery_present(battery))
-		acpi_battery_set_alarm(battery);
-	return count;
-}
-
-static struct device_attribute alarm_attr = {
-	.attr = {.name = "alarm", .mode = 0644, .owner = THIS_MODULE},
-	.show = acpi_battery_alarm_show,
-	.store = acpi_battery_alarm_store,
-};
-
 /* --------------------------------------------------------------------------
                                  Driver Interface
    -------------------------------------------------------------------------- */
@@ -732,7 +765,9 @@ static void acpi_battery_notify(acpi_handle handle, u32 event, void *data)
 	acpi_bus_generate_netlink_event(device->pnp.device_class,
 					device->dev.bus_id, event,
 					acpi_battery_present(battery));
-	kobject_uevent(&battery->bat.dev->kobj, KOBJ_CHANGE);
+	/* acpi_batter_update could remove power_supply object */
+	if (battery->bat.dev)
+		kobject_uevent(&battery->bat.dev->kobj, KOBJ_CHANGE);
 }
 
 static int acpi_battery_add(struct acpi_device *device)
@@ -756,11 +791,6 @@ static int acpi_battery_add(struct acpi_device *device)
 	if (result)
 		goto end;
 #endif
-	battery->bat.name = acpi_device_bid(device);
-	battery->bat.type = POWER_SUPPLY_TYPE_BATTERY;
-	battery->bat.get_property = acpi_battery_get_property;
-	result = power_supply_register(&battery->device->dev, &battery->bat);
-	result = device_create_file(battery->bat.dev, &alarm_attr);
 	status = acpi_install_notify_handler(device->handle,
 					     ACPI_ALL_NOTIFY,
 					     acpi_battery_notify, battery);
@@ -796,10 +826,7 @@ static int acpi_battery_remove(struct acpi_device *device, int type)
 #ifdef CONFIG_ACPI_PROCFS
 	acpi_battery_remove_fs(device);
 #endif
-	if (battery->bat.dev) {
-		device_remove_file(battery->bat.dev, &alarm_attr);
-		power_supply_unregister(&battery->bat);
-	}
+	sysfs_remove_battery(battery);
 	mutex_destroy(&battery->lock);
 	kfree(battery);
 	return 0;
@@ -813,6 +840,7 @@ static int acpi_battery_resume(struct acpi_device *device)
 		return -EINVAL;
 	battery = acpi_driver_data(device);
 	battery->update_time = 0;
+	acpi_battery_update(battery);
 	return 0;
 }
 

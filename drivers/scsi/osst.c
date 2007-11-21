@@ -593,10 +593,11 @@ static int osst_verify_frame(struct osst_tape * STp, int frame_seq_number, int q
 	if (aux->frame_type != OS_FRAME_TYPE_DATA &&
 	    aux->frame_type != OS_FRAME_TYPE_EOD &&
 	    aux->frame_type != OS_FRAME_TYPE_MARKER) {
-		if (!quiet)
+		if (!quiet) {
 #if DEBUG
 			printk(OSST_DEB_MSG "%s:D: Skipping frame, frame type %x\n", name, aux->frame_type);
 #endif
+		}
 		goto err_out;
 	}
 	if (aux->frame_type == OS_FRAME_TYPE_EOD &&
@@ -606,11 +607,12 @@ static int osst_verify_frame(struct osst_tape * STp, int frame_seq_number, int q
 		goto err_out;
 	}
         if (frame_seq_number != -1 && ntohl(aux->frame_seq_num) != frame_seq_number) {
-		if (!quiet)
+		if (!quiet) {
 #if DEBUG
 			printk(OSST_DEB_MSG "%s:D: Skipping frame, sequence number %u (expected %d)\n", 
 					    name, ntohl(aux->frame_seq_num), frame_seq_number);
 #endif
+		}
 		goto err_out;
 	}
 	if (aux->frame_type == OS_FRAME_TYPE_MARKER) {
@@ -5256,8 +5258,7 @@ static int enlarge_buffer(struct osst_buffer *STbuffer, int need_dma)
 
 		STbuffer->sg[0].offset = 0;
 		if (page != NULL) {
-		    sg_set_page(&STbuffer->sg[0], page);
-		    STbuffer->sg[0].length = b_size;
+		    sg_set_page(&STbuffer->sg[0], page, b_size, 0);
 		    STbuffer->b_data = page_address(page);
 		    break;
 		}
@@ -5285,8 +5286,7 @@ static int enlarge_buffer(struct osst_buffer *STbuffer, int need_dma)
 			normalize_buffer(STbuffer);
 			return 0;
 		}
-		sg_set_page(&STbuffer->sg[segs], page);
-		STbuffer->sg[segs].length = (OS_FRAME_SIZE - got <= PAGE_SIZE / 2) ? (OS_FRAME_SIZE - got) : b_size;
+		sg_set_page(&STbuffer->sg[segs], page, (OS_FRAME_SIZE - got <= PAGE_SIZE / 2) ? (OS_FRAME_SIZE - got) : b_size, 0);
 		got += STbuffer->sg[segs].length;
 		STbuffer->buffer_size = got;
 		STbuffer->sg_segs = ++segs;

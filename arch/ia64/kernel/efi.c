@@ -218,9 +218,10 @@ efi_gettimeofday (struct timespec *ts)
 {
 	efi_time_t tm;
 
-	memset(ts, 0, sizeof(ts));
-	if ((*efi.get_time)(&tm, NULL) != EFI_SUCCESS)
+	if ((*efi.get_time)(&tm, NULL) != EFI_SUCCESS) {
+		memset(ts, 0, sizeof(*ts));
 		return;
+	}
 
 	ts->tv_sec = mktime(tm.year, tm.month, tm.day, tm.hour, tm.minute, tm.second);
 	ts->tv_nsec = tm.nanosecond;
@@ -1112,7 +1113,7 @@ efi_initialize_iomem_resources(struct resource *code_resource,
 		if (md->num_pages == 0) /* should not happen */
 			continue;
 
-		flags = IORESOURCE_MEM;
+		flags = IORESOURCE_MEM | IORESOURCE_BUSY;
 		switch (md->type) {
 
 			case EFI_MEMORY_MAPPED_IO:
@@ -1134,12 +1135,11 @@ efi_initialize_iomem_resources(struct resource *code_resource,
 
 			case EFI_ACPI_MEMORY_NVS:
 				name = "ACPI Non-volatile Storage";
-				flags |= IORESOURCE_BUSY;
 				break;
 
 			case EFI_UNUSABLE_MEMORY:
 				name = "reserved";
-				flags |= IORESOURCE_BUSY | IORESOURCE_DISABLED;
+				flags |= IORESOURCE_DISABLED;
 				break;
 
 			case EFI_RESERVED_TYPE:
@@ -1148,7 +1148,6 @@ efi_initialize_iomem_resources(struct resource *code_resource,
 			case EFI_ACPI_RECLAIM_MEMORY:
 			default:
 				name = "reserved";
-				flags |= IORESOURCE_BUSY;
 				break;
 		}
 
@@ -1231,7 +1230,7 @@ kdump_find_rsvd_region (unsigned long size,
 
 #ifdef CONFIG_PROC_VMCORE
 /* locate the size find a the descriptor at a certain address */
-unsigned long
+unsigned long __init
 vmcore_find_descriptor_size (unsigned long address)
 {
 	void *efi_map_start, *efi_map_end, *p;

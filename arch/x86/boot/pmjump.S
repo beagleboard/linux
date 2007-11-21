@@ -28,17 +28,19 @@
  * void protected_mode_jump(u32 entrypoint, u32 bootparams);
  */
 protected_mode_jump:
-	xorl	%ebx, %ebx		# Flag to indicate this is a boot
 	movl	%edx, %esi		# Pointer to boot_params table
 	movl	%eax, 2f		# Patch ljmpl instruction
-	jmp	1f			# Short jump to flush instruction q.
 
-1:
 	movw	$__BOOT_DS, %cx
+	xorl	%ebx, %ebx		# Per the 32-bit boot protocol
+	xorl	%ebp, %ebp		# Per the 32-bit boot protocol
+	xorl	%edi, %edi		# Per the 32-bit boot protocol
 
 	movl	%cr0, %edx
 	orb	$1, %dl			# Protected mode (PE) bit
 	movl	%edx, %cr0
+	jmp	1f			# Short jump to serialize on 386/486
+1:
 
 	movw	%cx, %ds
 	movw	%cx, %es

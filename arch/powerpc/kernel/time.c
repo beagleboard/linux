@@ -259,7 +259,7 @@ void account_system_vtime(struct task_struct *tsk)
  * user and system time records.
  * Must be called with interrupts disabled.
  */
-void account_process_vtime(struct task_struct *tsk)
+void account_process_tick(struct task_struct *tsk, int user_tick)
 {
 	cputime_t utime, utimescaled;
 
@@ -272,18 +272,6 @@ void account_process_vtime(struct task_struct *tsk)
 	utimescaled = utime * get_paca()->spurrdelta / get_paca()->purrdelta;
 	get_paca()->spurrdelta = get_paca()->purrdelta = 0;
 	account_user_time_scaled(tsk, utimescaled);
-}
-
-static void account_process_time(struct pt_regs *regs)
-{
-	int cpu = smp_processor_id();
-
-	account_process_vtime(current);
-	run_local_timers();
-	if (rcu_pending(cpu))
-		rcu_check_callbacks(cpu, user_mode(regs));
-	scheduler_tick();
- 	run_posix_cpu_timers(current);
 }
 
 /*
@@ -375,7 +363,6 @@ static void snapshot_purr(void)
 
 #else /* ! CONFIG_VIRT_CPU_ACCOUNTING */
 #define calc_cputime_factors()
-#define account_process_time(regs)	update_process_times(user_mode(regs))
 #define calculate_steal_time()		do { } while (0)
 #endif
 
@@ -586,7 +573,7 @@ void timer_interrupt(struct pt_regs * regs)
 		/* not time for this event yet */
 		now = per_cpu(decrementer_next_tb, cpu) - now;
 		if (now <= DECREMENTER_MAX)
-			set_dec((unsigned int)now - 1);
+			set_dec((int)now);
 		return;
 	}
 	old_regs = set_irq_regs(regs);
@@ -599,20 +586,8 @@ void timer_interrupt(struct pt_regs * regs)
 		get_lppaca()->int_dword.fields.decr_int = 0;
 #endif
 
-	/*
-	 * We cannot disable the decrementer, so in the period
-	 * between this cpu's being marked offline in cpu_online_map
-	 * and calling stop-self, it is taking timer interrupts.
-	 * Avoid calling into the scheduler rebalancing code if this
-	 * is the case.
-	 */
-	if (!cpu_is_offline(cpu))
-		account_process_time(regs);
-
 	if (evt->event_handler)
 		evt->event_handler(evt);
-	else
-		evt->set_next_event(DECREMENTER_MAX, evt);
 
 #ifdef CONFIG_PPC_ISERIES
 	if (firmware_has_feature(FW_FEATURE_ISERIES) && hvlpevent_is_pending())
@@ -836,9 +811,6 @@ static int decrementer_set_next_event(unsigned long evt,
 				      struct clock_event_device *dev)
 {
 	__get_cpu_var(decrementer_next_tb) = get_tb_or_rtc() + evt;
-	/* The decrementer interrupts on the 0 -> -1 transition */
-	if (evt)
-		--evt;
 	set_dec(evt);
 	return 0;
 }
@@ -857,7 +829,7 @@ static void register_decrementer_clockevent(int cpu)
 	*dec = decrementer_clockevent;
 	dec->cpumask = cpumask_of_cpu(cpu);
 
-	printk(KERN_INFO "clockevent: %s mult[%lx] shift[%d] cpu[%d]\n",
+	printk(KERN_DEBUG "clockevent: %s mult[%lx] shift[%d] cpu[%d]\n",
 	       dec->name, dec->mult, dec->shift, cpu);
 
 	clockevents_register_device(dec);
@@ -871,7 +843,8 @@ void init_decrementer_clockevent(void)
 					     decrementer_clockevent.shift);
 	decrementer_clockevent.max_delta_ns =
 		clockevent_delta2ns(DECREMENTER_MAX, &decrementer_clockevent);
-	decrementer_clockevent.min_delta_ns = 1000;
+	decrementer_clockevent.min_delta_ns =
+		clockevent_delta2ns(2, &decrementer_clockevent);
 
 	register_decrementer_clockevent(cpu);
 }

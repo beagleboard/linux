@@ -387,7 +387,9 @@ extern void	      skb_truesize_bug(struct sk_buff *skb);
 
 static inline void skb_truesize_check(struct sk_buff *skb)
 {
-	if (unlikely((int)skb->truesize < sizeof(struct sk_buff) + skb->len))
+	int len = sizeof(struct sk_buff) + skb->len;
+
+	if (unlikely((int)skb->truesize < len))
 		skb_truesize_bug(skb);
 }
 
@@ -994,7 +996,7 @@ static inline int pskb_may_pull(struct sk_buff *skb, unsigned int len)
  *
  *	Return the number of bytes of free space at the head of an &sk_buff.
  */
-static inline int skb_headroom(const struct sk_buff *skb)
+static inline unsigned int skb_headroom(const struct sk_buff *skb)
 {
 	return skb->data - skb->head;
 }
@@ -1347,7 +1349,7 @@ static inline struct sk_buff *netdev_alloc_skb(struct net_device *dev,
  *	Returns true if modifying the header part of the cloned buffer
  *	does not requires the data to be copied.
  */
-static inline int skb_clone_writable(struct sk_buff *skb, int len)
+static inline int skb_clone_writable(struct sk_buff *skb, unsigned int len)
 {
 	return !skb_header_cloned(skb) &&
 	       skb_headroom(skb) + len <= skb->hdr_len;

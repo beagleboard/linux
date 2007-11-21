@@ -14,6 +14,7 @@
 #include <linux/init.h>
 #include <linux/slab.h>
 #include <linux/random.h>
+#include <linux/scatterlist.h>
 #include <linux/skbuff.h>
 #include <linux/mm.h>
 #include <asm/string.h>
@@ -21,7 +22,6 @@
 #include <net/ieee80211.h>
 
 #include <linux/crypto.h>
-#include <asm/scatterlist.h>
 #include <linux/crc32.h>
 
 MODULE_AUTHOR("Jouni Malinen");

@@ -173,7 +173,7 @@ static void dccp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
 
 	icmpv6_err_convert(type, code, &err);
 
-	seq = DCCP_SKB_CB(skb)->dccpd_seq;
+	seq = dccp_hdr_seq(dh);
 	/* Might be for an request_sock */
 	switch (sk->sk_state) {
 		struct request_sock *req, **prev;
@@ -787,7 +787,7 @@ static int dccp_v6_rcv(struct sk_buff *skb)
 
 	dh = dccp_hdr(skb);
 
-	DCCP_SKB_CB(skb)->dccpd_seq  = dccp_hdr_seq(skb);
+	DCCP_SKB_CB(skb)->dccpd_seq  = dccp_hdr_seq(dh);
 	DCCP_SKB_CB(skb)->dccpd_type = dh->dccph_type;
 
 	if (dccp_packet_without_ack(skb))
@@ -1107,6 +1107,8 @@ static struct timewait_sock_ops dccp6_timewait_sock_ops = {
 	.twsk_obj_size	= sizeof(struct dccp6_timewait_sock),
 };
 
+DEFINE_PROTO_INUSE(dccp_v6)
+
 static struct proto dccp_v6_prot = {
 	.name		   = "DCCPv6",
 	.owner		   = THIS_MODULE,
@@ -1135,6 +1137,7 @@ static struct proto dccp_v6_prot = {
 	.compat_setsockopt = compat_dccp_setsockopt,
 	.compat_getsockopt = compat_dccp_getsockopt,
 #endif
+	REF_PROTO_INUSE(dccp_v6)
 };
 
 static struct inet6_protocol dccp_v6_protocol = {

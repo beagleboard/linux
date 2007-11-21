@@ -49,7 +49,7 @@ enum cpu_type {
 
 	/* SH-4 types */
 	CPU_SH7750, CPU_SH7750S, CPU_SH7750R, CPU_SH7751, CPU_SH7751R,
-	CPU_SH7760, CPU_ST40RA, CPU_ST40GX1, CPU_SH4_202, CPU_SH4_501,
+	CPU_SH7760, CPU_SH4_202, CPU_SH4_501,
 
 	/* SH-4A types */
 	CPU_SH7770, CPU_SH7780, CPU_SH7781, CPU_SH7785, CPU_SHX3,
@@ -71,7 +71,7 @@ struct sh_cpuinfo {
 	struct cache_info scache;	/* Secondary cache */
 
 	unsigned long flags;
-} __attribute__ ((aligned(SMP_CACHE_BYTES)));
+} __attribute__ ((aligned(L1_CACHE_BYTES)));
 
 extern struct sh_cpuinfo cpu_data[];
 #define boot_cpu_data cpu_data[0]

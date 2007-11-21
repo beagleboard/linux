@@ -78,14 +78,6 @@ static char version[] __devinitdata = "rrunner.c: v0.50 11/11/2002  Jes Sorensen
  * stack will need to know about I/O vectors or something similar.
  */
 
-/*
- * These are checked at init time to see if they are at least 256KB
- * and increased to 256KB if they are not. This is done to avoid ending
- * up with socket buffers smaller than the MTU size,
- */
-extern __u32 sysctl_wmem_max;
-extern __u32 sysctl_rmem_max;
-
 static int __devinit rr_init_one(struct pci_dev *pdev,
 	const struct pci_device_id *ent)
 {
@@ -562,18 +554,6 @@ static int __devinit rr_init(struct net_device *dev)
 
 	sram_size = rr_read_eeprom_word(rrpriv, (void *)8);
 	printk("  SRAM size 0x%06x\n", sram_size);
-
-	if (sysctl_rmem_max < 262144){
-		printk("  Receive socket buffer limit too low (%i), "
-		       "setting to 262144\n", sysctl_rmem_max);
-		sysctl_rmem_max = 262144;
-	}
-
-	if (sysctl_wmem_max < 262144){
-		printk("  Transmit socket buffer limit too low (%i), "
-		       "setting to 262144\n", sysctl_wmem_max);
-		sysctl_wmem_max = 262144;
-	}
 
 	return 0;
 }

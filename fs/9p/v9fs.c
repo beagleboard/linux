@@ -82,7 +82,7 @@ static match_table_t tokens = {
 
 static void v9fs_parse_options(struct v9fs_session_info *v9ses)
 {
-	char *options = v9ses->options;
+	char *options;
 	substring_t args[MAX_OPT_ARGS];
 	char *p;
 	int option;
@@ -96,9 +96,10 @@ static void v9fs_parse_options(struct v9fs_session_info *v9ses)
 	v9ses->cache = 0;
 	v9ses->trans = v9fs_default_trans();
 
-	if (!options)
+	if (!v9ses->options)
 		return;
 
+	options = kstrdup(v9ses->options, GFP_KERNEL);
 	while ((p = strsep(&options, ",")) != NULL) {
 		int token;
 		if (!*p)
@@ -162,12 +163,14 @@ static void v9fs_parse_options(struct v9fs_session_info *v9ses)
 				if (*e != '\0')
 					v9ses->uid = ~0;
 			}
+			kfree(s);
 			break;
 
 		default:
 			continue;
 		}
 	}
+	kfree(options);
 }
 
 /**

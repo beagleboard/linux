@@ -560,6 +560,14 @@ struct proto {
 	void			(*unhash)(struct sock *sk);
 	int			(*get_port)(struct sock *sk, unsigned short snum);
 
+#ifdef CONFIG_SMP
+	/* Keeping track of sockets in use */
+	void			(*inuse_add)(struct proto *prot, int inc);
+	int			(*inuse_getval)(const struct proto *prot);
+	int			*inuse_ptr;
+#else
+	int			inuse;
+#endif
 	/* Memory pressure */
 	void			(*enter_memory_pressure)(void);
 	atomic_t		*memory_allocated;	/* Current allocated memory. */
@@ -592,11 +600,37 @@ struct proto {
 #ifdef SOCK_REFCNT_DEBUG
 	atomic_t		socks;
 #endif
-	struct {
-		int inuse;
-		u8  __pad[SMP_CACHE_BYTES - sizeof(int)];
-	} stats[NR_CPUS];
 };
+
+/*
+ * Special macros to let protos use a fast version of inuse{get|add}
+ * using a static percpu variable per proto instead of an allocated one,
+ * saving one dereference.
+ * This might be changed if/when dynamic percpu vars become fast.
+ */
+#ifdef CONFIG_SMP
+# define DEFINE_PROTO_INUSE(NAME)			\
+static DEFINE_PER_CPU(int, NAME##_inuse);		\
+static void NAME##_inuse_add(struct proto *prot, int inc)	\
+{							\
+	__get_cpu_var(NAME##_inuse) += inc;		\
+}							\
+							\
+static int NAME##_inuse_getval(const struct proto *prot)\
+{							\
+	int res = 0, cpu;				\
+							\
+	for_each_possible_cpu(cpu)			\
+		res += per_cpu(NAME##_inuse, cpu);	\
+	return res;					\
+}
+# define REF_PROTO_INUSE(NAME)				\
+	.inuse_add = NAME##_inuse_add,			\
+	.inuse_getval = NAME##_inuse_getval,
+#else
+# define DEFINE_PROTO_INUSE(NAME)
+# define REF_PROTO_INUSE(NAME)
+#endif
 
 extern int proto_register(struct proto *prot, int alloc_slab);
 extern void proto_unregister(struct proto *prot);
@@ -629,12 +663,29 @@ static inline void sk_refcnt_debug_release(const struct sock *sk)
 /* Called with local bh disabled */
 static __inline__ void sock_prot_inc_use(struct proto *prot)
 {
-	prot->stats[smp_processor_id()].inuse++;
+#ifdef CONFIG_SMP
+	prot->inuse_add(prot, 1);
+#else
+	prot->inuse++;
+#endif
 }
 
 static __inline__ void sock_prot_dec_use(struct proto *prot)
 {
-	prot->stats[smp_processor_id()].inuse--;
+#ifdef CONFIG_SMP
+	prot->inuse_add(prot, -1);
+#else
+	prot->inuse--;
+#endif
+}
+
+static __inline__ int sock_prot_inuse(struct proto *proto)
+{
+#ifdef CONFIG_SMP
+	return proto->inuse_getval(proto);
+#else
+	return proto->inuse;
+#endif
 }
 
 /* With per-bucket locks this operation is not-atomic, so that
@@ -779,7 +830,7 @@ extern void FASTCALL(release_sock(struct sock *sk));
 
 extern struct sock		*sk_alloc(struct net *net, int family,
 					  gfp_t priority,
-					  struct proto *prot, int zero_it);
+					  struct proto *prot);
 extern void			sk_free(struct sock *sk);
 extern struct sock		*sk_clone(const struct sock *sk,
 					  const gfp_t priority);
@@ -993,20 +1044,6 @@ static inline void sock_graft(struct sock *sk, struct socket *parent)
 	write_unlock_bh(&sk->sk_callback_lock);
 }
 
-static inline void sock_copy(struct sock *nsk, const struct sock *osk)
-{
-#ifdef CONFIG_SECURITY_NETWORK
-	void *sptr = nsk->sk_security;
-#endif
-
-	memcpy(nsk, osk, osk->sk_prot->obj_size);
-	get_net(nsk->sk_net);
-#ifdef CONFIG_SECURITY_NETWORK
-	nsk->sk_security = sptr;
-	security_sk_clone(osk, nsk);
-#endif
-}
-
 extern int sock_i_uid(struct sock *sk);
 extern unsigned long sock_i_ino(struct sock *sk);
 
@@ -1198,14 +1235,16 @@ static inline struct sk_buff *sk_stream_alloc_pskb(struct sock *sk,
 						   gfp_t gfp)
 {
 	struct sk_buff *skb;
-	int hdr_len;
 
-	hdr_len = SKB_DATA_ALIGN(sk->sk_prot->max_header);
-	skb = alloc_skb_fclone(size + hdr_len, gfp);
+	skb = alloc_skb_fclone(size + sk->sk_prot->max_header, gfp);
 	if (skb) {
 		skb->truesize += mem;
 		if (sk_stream_wmem_schedule(sk, skb->truesize)) {
-			skb_reserve(skb, hdr_len);
+			/*
+			 * Make sure that we have exactly size bytes
+			 * available to the caller, no more, no less.
+			 */
+			skb_reserve(skb, skb_tailroom(skb) - size);
 			return skb;
 		}
 		__kfree_skb(skb);

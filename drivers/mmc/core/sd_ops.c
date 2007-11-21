@@ -10,7 +10,6 @@
  */
 
 #include <linux/types.h>
-#include <asm/scatterlist.h>
 #include <linux/scatterlist.h>
 
 #include <linux/mmc/host.h>
@@ -294,8 +293,8 @@ int mmc_app_send_scr(struct mmc_card *card, u32 *scr)
 	if (data.error)
 		return data.error;
 
-	scr[0] = ntohl(scr[0]);
-	scr[1] = ntohl(scr[1]);
+	scr[0] = be32_to_cpu(scr[0]);
+	scr[1] = be32_to_cpu(scr[1]);
 
 	return 0;
 }

@@ -1,6 +1,7 @@
 /*
  *	xt_time
- *	Copyright © Jan Engelhardt <jengelh@computergmbh.de>, 2007
+ *	Copyright © CC Computer Consultants GmbH, 2007
+ *	Contact: <jengelh@computergmbh.de>
  *
  *	based on ipt_time by Fabrice MARIE <fabrice@netfilter.org>
  *	This is a module which is used for time matching
@@ -169,7 +170,7 @@ static bool xt_time_match(const struct sk_buff *skb,
 	if (skb->tstamp.tv64 == 0)
 		__net_timestamp((struct sk_buff *)skb);
 
-	stamp = skb->tstamp.tv64;
+	stamp = ktime_to_ns(skb->tstamp);
 	do_div(stamp, NSEC_PER_SEC);
 
 	if (info->flags & XT_TIME_LOCAL_TZ)

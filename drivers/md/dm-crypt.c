@@ -168,7 +168,7 @@ static int crypt_iv_essiv_ctr(struct crypt_config *cc, struct dm_target *ti,
 		return -ENOMEM;
 	}
 
-	sg_set_buf(&sg, cc->key, cc->key_size);
+	sg_init_one(&sg, cc->key, cc->key_size);
 	desc.tfm = hash_tfm;
 	desc.flags = CRYPTO_TFM_REQ_MAY_SLEEP;
 	err = crypto_hash_digest(&desc, &sg, cc->key_size, salt);
@@ -351,14 +351,10 @@ static int crypt_convert(struct crypt_config *cc,
 		struct scatterlist sg_in, sg_out;
 
 		sg_init_table(&sg_in, 1);
-		sg_set_page(&sg_in, bv_in->bv_page);
-		sg_in.offset = bv_in->bv_offset + ctx->offset_in;
-		sg_in.length = 1 << SECTOR_SHIFT;
+		sg_set_page(&sg_in, bv_in->bv_page, 1 << SECTOR_SHIFT, bv_in->bv_offset + ctx->offset_in);
 
 		sg_init_table(&sg_out, 1);
-		sg_set_page(&sg_out, bv_out->bv_page);
-		sg_out.offset = bv_out->bv_offset + ctx->offset_out;
-		sg_out.length = 1 << SECTOR_SHIFT;
+		sg_set_page(&sg_out, bv_out->bv_page, 1 << SECTOR_SHIFT, bv_out->bv_offset + ctx->offset_out);
 
 		ctx->offset_in += sg_in.length;
 		if (ctx->offset_in >= bv_in->bv_len) {

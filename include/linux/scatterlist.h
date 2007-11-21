@@ -1,6 +1,7 @@
 #ifndef _LINUX_SCATTERLIST_H
 #define _LINUX_SCATTERLIST_H
 
+#include <asm/types.h>
 #include <asm/scatterlist.h>
 #include <linux/mm.h>
 #include <linux/string.h>
@@ -26,9 +27,36 @@
 #define SG_MAGIC	0x87654321
 
 /**
+ * sg_assign_page - Assign a given page to an SG entry
+ * @sg:		    SG entry
+ * @page:	    The page
+ *
+ * Description:
+ *   Assign page to sg entry. Also see sg_set_page(), the most commonly used
+ *   variant.
+ *
+ **/
+static inline void sg_assign_page(struct scatterlist *sg, struct page *page)
+{
+	unsigned long page_link = sg->page_link & 0x3;
+
+	/*
+	 * In order for the low bit stealing approach to work, pages
+	 * must be aligned at a 32-bit boundary as a minimum.
+	 */
+	BUG_ON((unsigned long) page & 0x03);
+#ifdef CONFIG_DEBUG_SG
+	BUG_ON(sg->sg_magic != SG_MAGIC);
+#endif
+	sg->page_link = page_link | (unsigned long) page;
+}
+
+/**
  * sg_set_page - Set sg entry to point at given page
  * @sg:		 SG entry
  * @page:	 The page
+ * @len:	 Length of data
+ * @offset:	 Offset into page
  *
  * Description:
  *   Use this function to set an sg entry pointing at a page, never assign
@@ -37,14 +65,12 @@
  *   to an sg entry.
  *
  **/
-static inline void sg_set_page(struct scatterlist *sg, struct page *page)
+static inline void sg_set_page(struct scatterlist *sg, struct page *page,
+			       unsigned int len, unsigned int offset)
 {
-	unsigned long page_link = sg->page_link & 0x3;
-
-#ifdef CONFIG_DEBUG_SG
-	BUG_ON(sg->sg_magic != SG_MAGIC);
-#endif
-	sg->page_link = page_link | (unsigned long) page;
+	sg_assign_page(sg, page);
+	sg->offset = offset;
+	sg->length = len;
 }
 
 #define sg_page(sg)	((struct page *) ((sg)->page_link & ~0x3))
@@ -59,9 +85,7 @@ static inline void sg_set_page(struct scatterlist *sg, struct page *page)
 static inline void sg_set_buf(struct scatterlist *sg, const void *buf,
 			      unsigned int buflen)
 {
-	sg_set_page(sg, virt_to_page(buf));
-	sg->offset = offset_in_page(buf);
-	sg->length = buflen;
+	sg_set_page(sg, virt_to_page(buf), buflen, offset_in_page(buf));
 }
 
 /*
@@ -126,7 +150,7 @@ static inline struct scatterlist *sg_last(struct scatterlist *sgl,
 	struct scatterlist *ret = &sgl[nents - 1];
 #else
 	struct scatterlist *sg, *ret = NULL;
-	int i;
+	unsigned int i;
 
 	for_each_sg(sgl, sg, nents, i)
 		ret = sg;
@@ -155,26 +179,55 @@ static inline void sg_chain(struct scatterlist *prv, unsigned int prv_nents,
 #ifndef ARCH_HAS_SG_CHAIN
 	BUG();
 #endif
-	prv[prv_nents - 1].page_link = (unsigned long) sgl | 0x01;
+	/*
+	 * Set lowest bit to indicate a link pointer, and make sure to clear
+	 * the termination bit if it happens to be set.
+	 */
+	prv[prv_nents - 1].page_link = ((unsigned long) sgl | 0x01) & ~0x02;
 }
 
 /**
  * sg_mark_end - Mark the end of the scatterlist
- * @sgl:	Scatterlist
- * @nents:	Number of entries in sgl
+ * @sg:		 SG entryScatterlist
  *
  * Description:
- *   Marks the last entry as the termination point for sg_next()
+ *   Marks the passed in sg entry as the termination point for the sg
+ *   table. A call to sg_next() on this entry will return NULL.
  *
  **/
-static inline void sg_mark_end(struct scatterlist *sgl, unsigned int nents)
+static inline void sg_mark_end(struct scatterlist *sg)
 {
-	sgl[nents - 1].page_link = 0x02;
+#ifdef CONFIG_DEBUG_SG
+	BUG_ON(sg->sg_magic != SG_MAGIC);
+#endif
+	/*
+	 * Set termination bit, clear potential chain bit
+	 */
+	sg->page_link |= 0x02;
+	sg->page_link &= ~0x01;
 }
 
-static inline void __sg_mark_end(struct scatterlist *sg)
+/**
+ * sg_init_table - Initialize SG table
+ * @sgl:	   The SG table
+ * @nents:	   Number of entries in table
+ *
+ * Notes:
+ *   If this is part of a chained sg table, sg_mark_end() should be
+ *   used only on the last table part.
+ *
+ **/
+static inline void sg_init_table(struct scatterlist *sgl, unsigned int nents)
 {
-	sg->page_link |= 0x02;
+	memset(sgl, 0, sizeof(*sgl) * nents);
+#ifdef CONFIG_DEBUG_SG
+	{
+		unsigned int i;
+		for (i = 0; i < nents; i++)
+			sgl[i].sg_magic = SG_MAGIC;
+	}
+#endif
+	sg_mark_end(&sgl[nents - 1]);
 }
 
 /**
@@ -191,35 +244,8 @@ static inline void __sg_mark_end(struct scatterlist *sg)
 static inline void sg_init_one(struct scatterlist *sg, const void *buf,
 			       unsigned int buflen)
 {
-	memset(sg, 0, sizeof(*sg));
-#ifdef CONFIG_DEBUG_SG
-	sg->sg_magic = SG_MAGIC;
-#endif
-	sg_mark_end(sg, 1);
+	sg_init_table(sg, 1);
 	sg_set_buf(sg, buf, buflen);
-}
-
-/**
- * sg_init_table - Initialize SG table
- * @sgl:	   The SG table
- * @nents:	   Number of entries in table
- *
- * Notes:
- *   If this is part of a chained sg table, sg_mark_end() should be
- *   used only on the last table part.
- *
- **/
-static inline void sg_init_table(struct scatterlist *sgl, unsigned int nents)
-{
-	memset(sgl, 0, sizeof(*sgl) * nents);
-	sg_mark_end(sgl, nents);
-#ifdef CONFIG_DEBUG_SG
-	{
-		int i;
-		for (i = 0; i < nents; i++)
-			sgl[i].sg_magic = SG_MAGIC;
-	}
-#endif
 }
 
 /**
@@ -232,7 +258,7 @@ static inline void sg_init_table(struct scatterlist *sgl, unsigned int nents)
  *   on the sg page.
  *
  **/
-static inline unsigned long sg_phys(struct scatterlist *sg)
+static inline dma_addr_t sg_phys(struct scatterlist *sg)
 {
 	return page_to_phys(sg_page(sg)) + sg->offset;
 }

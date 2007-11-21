@@ -26,7 +26,7 @@
 #include <acpi/actypes.h>
 
 #define NO_PORT_MULT		0xffff
-#define SATA_ADR(root,pmp)	(((root) << 16) | (pmp))
+#define SATA_ADR(root, pmp)	(((root) << 16) | (pmp))
 
 #define REGS_PER_GTF		7
 struct ata_acpi_gtf {
@@ -96,8 +96,8 @@ static void ata_acpi_associate_ide_port(struct ata_port *ap)
 	}
 }
 
-static void ata_acpi_handle_hotplug (struct ata_port *ap, struct kobject *kobj,
-				     u32 event)
+static void ata_acpi_handle_hotplug(struct ata_port *ap, struct kobject *kobj,
+				    u32 event)
 {
 	char event_string[12];
 	char *envp[] = { event_string, NULL };
@@ -114,7 +114,7 @@ static void ata_acpi_handle_hotplug (struct ata_port *ap, struct kobject *kobj,
 	}
 
 	if (kobj) {
-	        sprintf(event_string, "BAY_EVENT=%d", event);
+		sprintf(event_string, "BAY_EVENT=%d", event);
 		kobject_uevent_env(kobj, KOBJ_CHANGE, envp);
 	}
 }
@@ -127,14 +127,14 @@ static void ata_acpi_dev_notify(acpi_handle handle, u32 event, void *data)
 	if (dev->sdev)
 		kobj = &dev->sdev->sdev_gendev.kobj;
 
-	ata_acpi_handle_hotplug (dev->link->ap, kobj, event);
+	ata_acpi_handle_hotplug(dev->link->ap, kobj, event);
 }
 
 static void ata_acpi_ap_notify(acpi_handle handle, u32 event, void *data)
 {
 	struct ata_port *ap = data;
 
-	ata_acpi_handle_hotplug (ap, &ap->dev->kobj, event);
+	ata_acpi_handle_hotplug(ap, &ap->dev->kobj, event);
 }
 
 /**
@@ -312,7 +312,7 @@ EXPORT_SYMBOL_GPL(ata_acpi_stm);
  *
  * RETURNS:
  * Number of taskfiles on success, 0 if _GTF doesn't exist or doesn't
- * contain valid data.  -errno on other errors.
+ * contain valid data.
  */
 static int ata_dev_get_GTF(struct ata_device *dev, struct ata_acpi_gtf **gtf,
 			   void **ptr_to_free)
@@ -339,7 +339,6 @@ static int ata_dev_get_GTF(struct ata_device *dev, struct ata_acpi_gtf **gtf,
 			ata_dev_printk(dev, KERN_WARNING,
 				       "_GTF evaluation failed (AE 0x%x)\n",
 				       status);
-			rc = -EIO;
 		}
 		goto out_free;
 	}
@@ -359,7 +358,6 @@ static int ata_dev_get_GTF(struct ata_device *dev, struct ata_acpi_gtf **gtf,
 		ata_dev_printk(dev, KERN_WARNING,
 			       "_GTF unexpected object type 0x%x\n",
 			       out_obj->type);
-		rc = -EINVAL;
 		goto out_free;
 	}
 
@@ -367,7 +365,6 @@ static int ata_dev_get_GTF(struct ata_device *dev, struct ata_acpi_gtf **gtf,
 		ata_dev_printk(dev, KERN_WARNING,
 			       "unexpected _GTF length (%d)\n",
 			       out_obj->buffer.length);
-		rc = -EINVAL;
 		goto out_free;
 	}
 
@@ -398,11 +395,11 @@ int ata_acpi_cbl_80wire(struct ata_port *ap)
 {
 	struct ata_acpi_gtm gtm;
 	int valid = 0;
-	
+
 	/* No _GTM data, no information */
 	if (ata_acpi_gtm(ap, &gtm) < 0)
 		return 0;
-		
+
 	/* Split timing, DMA enabled */
 	if ((gtm.flags & 0x11) == 0x11 && gtm.drive[0].dma < 55)
 		valid |= 1;
@@ -511,10 +508,7 @@ static int ata_acpi_exec_tfs(struct ata_device *dev)
 	int gtf_count, i, rc;
 
 	/* get taskfiles */
-	rc = ata_dev_get_GTF(dev, &gtf, &ptr_to_free);
-	if (rc < 0)
-		return rc;
-	gtf_count = rc;
+	gtf_count = ata_dev_get_GTF(dev, &gtf, &ptr_to_free);
 
 	/* execute them */
 	for (i = 0, rc = 0; i < gtf_count; i++) {

@@ -120,6 +120,8 @@
 #include <linux/ctype.h>
 #include <linux/if_arp.h>
 
+#include "net-sysfs.h"
+
 /*
  *	The list of packet types we will receive (as opposed to discard)
  *	and the routines to invoke.
@@ -248,10 +250,6 @@ static RAW_NOTIFIER_HEAD(netdev_chain);
  */
 
 DEFINE_PER_CPU(struct softnet_data, softnet_data);
-
-extern int netdev_kobject_init(void);
-extern int netdev_register_kobject(struct net_device *);
-extern void netdev_unregister_kobject(struct net_device *);
 
 #ifdef CONFIG_DEBUG_LOCK_ALLOC
 /*
@@ -885,6 +883,9 @@ int dev_change_name(struct net_device *dev, char *newname)
 	if (!dev_valid_name(newname))
 		return -EINVAL;
 
+	if (strncmp(newname, dev->name, IFNAMSIZ) == 0)
+		return 0;
+
 	memcpy(oldname, dev->name, IFNAMSIZ);
 
 	if (strchr(newname, '%')) {
@@ -1007,17 +1008,20 @@ int dev_open(struct net_device *dev)
 	 *	Call device private open method
 	 */
 	set_bit(__LINK_STATE_START, &dev->state);
-	if (dev->open) {
+
+	if (dev->validate_addr)
+		ret = dev->validate_addr(dev);
+
+	if (!ret && dev->open)
 		ret = dev->open(dev);
-		if (ret)
-			clear_bit(__LINK_STATE_START, &dev->state);
-	}
 
 	/*
 	 *	If it went open OK then:
 	 */
 
-	if (!ret) {
+	if (ret)
+		clear_bit(__LINK_STATE_START, &dev->state);
+	else {
 		/*
 		 *	Set the flags.
 		 */
@@ -1038,6 +1042,7 @@ int dev_open(struct net_device *dev)
 		 */
 		call_netdevice_notifiers(NETDEV_UP, dev);
 	}
+
 	return ret;
 }
 
@@ -1166,6 +1171,8 @@ rollback:
 			nb->notifier_call(nb, NETDEV_UNREGISTER, dev);
 		}
 	}
+
+	raw_notifier_chain_unregister(&netdev_chain, nb);
 	goto unlock;
 }
 
@@ -1746,9 +1753,6 @@ DEFINE_PER_CPU(struct netif_rx_stats, netdev_rx_stat) = { 0, };
  *
  *	return values:
  *	NET_RX_SUCCESS	(no congestion)
- *	NET_RX_CN_LOW   (low congestion)
- *	NET_RX_CN_MOD   (moderate congestion)
- *	NET_RX_CN_HIGH  (high congestion)
  *	NET_RX_DROP     (packet was dropped)
  *
  */
@@ -1996,6 +2000,21 @@ out:
 }
 #endif
 
+/**
+ *	netif_receive_skb - process receive buffer from network
+ *	@skb: buffer to process
+ *
+ *	netif_receive_skb() is the main receive data processing function.
+ *	It always succeeds. The buffer may be dropped during processing
+ *	for congestion control or by the protocol layers.
+ *
+ *	This function may only be called from softirq context and interrupts
+ *	should be enabled.
+ *
+ *	Return values (usually ignored):
+ *	NET_RX_SUCCESS: no congestion
+ *	NET_RX_DROP: packet was dropped
+ */
 int netif_receive_skb(struct sk_buff *skb)
 {
 	struct packet_type *ptype, *pt_prev;
@@ -2167,7 +2186,15 @@ static void net_rx_action(struct softirq_action *h)
 
 		weight = n->weight;
 
-		work = n->poll(n, weight);
+		/* This NAPI_STATE_SCHED test is for avoiding a race
+		 * with netpoll's poll_napi().  Only the entity which
+		 * obtains the lock and sees NAPI_STATE_SCHED set will
+		 * actually make the ->poll() call.  Therefore we avoid
+		 * accidently calling ->poll() when NAPI is not scheduled.
+		 */
+		work = 0;
+		if (test_bit(NAPI_STATE_SCHED, &n->state))
+			work = n->poll(n, weight);
 
 		WARN_ON_ONCE(work > weight);
 
@@ -3483,6 +3510,60 @@ static void net_set_todo(struct net_device *dev)
 	spin_unlock(&net_todo_list_lock);
 }
 
+static void rollback_registered(struct net_device *dev)
+{
+	BUG_ON(dev_boot_phase);
+	ASSERT_RTNL();
+
+	/* Some devices call without registering for initialization unwind. */
+	if (dev->reg_state == NETREG_UNINITIALIZED) {
+		printk(KERN_DEBUG "unregister_netdevice: device %s/%p never "
+				  "was registered\n", dev->name, dev);
+
+		WARN_ON(1);
+		return;
+	}
+
+	BUG_ON(dev->reg_state != NETREG_REGISTERED);
+
+	/* If device is running, close it first. */
+	dev_close(dev);
+
+	/* And unlink it from device chain. */
+	unlist_netdevice(dev);
+
+	dev->reg_state = NETREG_UNREGISTERING;
+
+	synchronize_net();
+
+	/* Shutdown queueing discipline. */
+	dev_shutdown(dev);
+
+
+	/* Notify protocols, that we are about to destroy
+	   this device. They should clean all the things.
+	*/
+	call_netdevice_notifiers(NETDEV_UNREGISTER, dev);
+
+	/*
+	 *	Flush the unicast and multicast chains
+	 */
+	dev_addr_discard(dev);
+
+	if (dev->uninit)
+		dev->uninit(dev);
+
+	/* Notifier chain MUST detach us from master device. */
+	BUG_TRAP(!dev->master);
+
+	/* Remove entries from kobject tree */
+	netdev_unregister_kobject(dev);
+
+	synchronize_net();
+
+	dev_put(dev);
+}
+
 /**
  *	register_netdevice	- register a network device
  *	@dev: device to register
@@ -3620,8 +3701,10 @@ int register_netdevice(struct net_device *dev)
 	/* Notify protocols, that a new device appeared. */
 	ret = call_netdevice_notifiers(NETDEV_REGISTER, dev);
 	ret = notifier_to_errno(ret);
-	if (ret)
-		unregister_netdevice(dev);
+	if (ret) {
+		rollback_registered(dev);
+		dev->reg_state = NETREG_UNREGISTERED;
+	}
 
 out:
 	return ret;
@@ -3898,59 +3981,9 @@ void synchronize_net(void)
 
 void unregister_netdevice(struct net_device *dev)
 {
-	BUG_ON(dev_boot_phase);
-	ASSERT_RTNL();
-
-	/* Some devices call without registering for initialization unwind. */
-	if (dev->reg_state == NETREG_UNINITIALIZED) {
-		printk(KERN_DEBUG "unregister_netdevice: device %s/%p never "
-				  "was registered\n", dev->name, dev);
-
-		WARN_ON(1);
-		return;
-	}
-
-	BUG_ON(dev->reg_state != NETREG_REGISTERED);
-
-	/* If device is running, close it first. */
-	dev_close(dev);
-
-	/* And unlink it from device chain. */
-	unlist_netdevice(dev);
-
-	dev->reg_state = NETREG_UNREGISTERING;
-
-	synchronize_net();
-
-	/* Shutdown queueing discipline. */
-	dev_shutdown(dev);
-
-
-	/* Notify protocols, that we are about to destroy
-	   this device. They should clean all the things.
-	*/
-	call_netdevice_notifiers(NETDEV_UNREGISTER, dev);
-
-	/*
-	 *	Flush the unicast and multicast chains
-	 */
-	dev_addr_discard(dev);
-
-	if (dev->uninit)
-		dev->uninit(dev);
-
-	/* Notifier chain MUST detach us from master device. */
-	BUG_TRAP(!dev->master);
-
-	/* Remove entries from kobject tree */
-	netdev_unregister_kobject(dev);
-
+	rollback_registered(dev);
 	/* Finish processing unregister after unlock */
 	net_set_todo(dev);
-
-	synchronize_net();
-
-	dev_put(dev);
 }
 
 /**
@@ -4299,7 +4332,6 @@ static struct hlist_head *netdev_create_hash(void)
 static int __net_init netdev_init(struct net *net)
 {
 	INIT_LIST_HEAD(&net->dev_base_head);
-	rwlock_init(&dev_base_lock);
 
 	net->dev_name_head = netdev_create_hash();
 	if (net->dev_name_head == NULL)

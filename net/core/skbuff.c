@@ -415,13 +415,6 @@ static struct sk_buff *__skb_clone(struct sk_buff *n, struct sk_buff *skb)
 	n->hdr_len = skb->nohdr ? skb_headroom(skb) : skb->hdr_len;
 	n->nohdr = 0;
 	n->destructor = NULL;
-#ifdef CONFIG_NET_CLS_ACT
-	/* FIXME What is this and why don't we do it in copy_skb_header? */
-	n->tc_verd = SET_TC_VERD(n->tc_verd,0);
-	n->tc_verd = CLR_TC_OK2MUNGE(n->tc_verd);
-	n->tc_verd = CLR_TC_MUNGED(n->tc_verd);
-	C(iif);
-#endif
 	C(truesize);
 	atomic_set(&n->users, 1);
 	C(head);
@@ -2035,8 +2028,8 @@ void __init skb_init(void)
  *	Fill the specified scatter-gather list with mappings/pointers into a
  *	region of the buffer space attached to a socket buffer.
  */
-int
-skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
+static int
+__skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
 {
 	int start = skb_headlen(skb);
 	int i, copy = start - offset;
@@ -2045,9 +2038,7 @@ skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
 	if (copy > 0) {
 		if (copy > len)
 			copy = len;
-		sg_set_page(&sg[elt], virt_to_page(skb->data + offset));
-		sg[elt].offset = (unsigned long)(skb->data + offset) % PAGE_SIZE;
-		sg[elt].length = copy;
+		sg_set_buf(sg, skb->data + offset, copy);
 		elt++;
 		if ((len -= copy) == 0)
 			return elt;
@@ -2065,9 +2056,8 @@ skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
 
 			if (copy > len)
 				copy = len;
-			sg_set_page(&sg[elt], frag->page);
-			sg[elt].offset = frag->page_offset+offset-start;
-			sg[elt].length = copy;
+			sg_set_page(&sg[elt], frag->page, copy,
+					frag->page_offset+offset-start);
 			elt++;
 			if (!(len -= copy))
 				return elt;
@@ -2088,7 +2078,8 @@ skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
 			if ((copy = end - offset) > 0) {
 				if (copy > len)
 					copy = len;
-				elt += skb_to_sgvec(list, sg+elt, offset - start, copy);
+				elt += __skb_to_sgvec(list, sg+elt, offset - start,
+						      copy);
 				if ((len -= copy) == 0)
 					return elt;
 				offset += copy;
@@ -2098,6 +2089,15 @@ skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
 	}
 	BUG_ON(len);
 	return elt;
+}
+
+int skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
+{
+	int nsg = __skb_to_sgvec(skb, sg, offset, len);
+
+	sg_mark_end(&sg[nsg - 1]);
+
+	return nsg;
 }
 
 /**

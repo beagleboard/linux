@@ -1080,7 +1080,6 @@ static struct page *new_slab(struct kmem_cache *s, gfp_t flags, int node)
 	struct page *page;
 	struct kmem_cache_node *n;
 	void *start;
-	void *end;
 	void *last;
 	void *p;
 
@@ -1101,7 +1100,6 @@ static struct page *new_slab(struct kmem_cache *s, gfp_t flags, int node)
 		SetSlabDebug(page);
 
 	start = page_address(page);
-	end = start + s->objects * s->size;
 
 	if (unlikely(s->flags & SLAB_POISON))
 		memset(start, POISON_INUSE, PAGE_SIZE << s->order);
@@ -1511,26 +1509,8 @@ new_slab:
 
 	if (new) {
 		c = get_cpu_slab(s, smp_processor_id());
-		if (c->page) {
-			/*
-			 * Someone else populated the cpu_slab while we
-			 * enabled interrupts, or we have gotten scheduled
-			 * on another cpu. The page may not be on the
-			 * requested node even if __GFP_THISNODE was
-			 * specified. So we need to recheck.
-			 */
-			if (node_match(c, node)) {
-				/*
-				 * Current cpuslab is acceptable and we
-				 * want the current one since its cache hot
-				 */
-				discard_slab(s, new);
-				slab_lock(c->page);
-				goto load_freelist;
-			}
-			/* New slab does not fit our expectations */
+		if (c->page)
 			flush_slab(s, c);
-		}
 		slab_lock(new);
 		SetSlabFrozen(new);
 		c->page = new;
@@ -2734,7 +2714,7 @@ static void slab_mem_offline_callback(void *arg)
 			 * and offline_pages() function shoudn't call this
 			 * callback. So, we must fail.
 			 */
-			BUG_ON(atomic_read(&n->nr_slabs));
+			BUG_ON(atomic_long_read(&n->nr_slabs));
 
 			s->node[offline_node] = NULL;
 			kmem_cache_free(kmalloc_caches, n);

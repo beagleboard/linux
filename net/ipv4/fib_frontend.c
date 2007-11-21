@@ -59,6 +59,13 @@ struct fib_table *ip_fib_main_table;
 #define FIB_TABLE_HASHSZ 1
 static struct hlist_head fib_table_hash[FIB_TABLE_HASHSZ];
 
+static void __init fib4_rules_init(void)
+{
+	ip_fib_local_table = fib_hash_init(RT_TABLE_LOCAL);
+	hlist_add_head_rcu(&ip_fib_local_table->tb_hlist, &fib_table_hash[0]);
+	ip_fib_main_table  = fib_hash_init(RT_TABLE_MAIN);
+	hlist_add_head_rcu(&ip_fib_main_table->tb_hlist, &fib_table_hash[0]);
+}
 #else
 
 #define FIB_TABLE_HASHSZ 256
@@ -128,13 +135,14 @@ struct net_device * ip_dev_find(__be32 addr)
 	struct flowi fl = { .nl_u = { .ip4_u = { .daddr = addr } } };
 	struct fib_result res;
 	struct net_device *dev = NULL;
+	struct fib_table *local_table;
 
 #ifdef CONFIG_IP_MULTIPLE_TABLES
 	res.r = NULL;
 #endif
 
-	if (!ip_fib_local_table ||
-	    ip_fib_local_table->tb_lookup(ip_fib_local_table, &fl, &res))
+	local_table = fib_get_table(RT_TABLE_LOCAL);
+	if (!local_table || local_table->tb_lookup(local_table, &fl, &res))
 		return NULL;
 	if (res.type != RTN_LOCAL)
 		goto out;
@@ -152,6 +160,7 @@ unsigned inet_addr_type(__be32 addr)
 	struct flowi		fl = { .nl_u = { .ip4_u = { .daddr = addr } } };
 	struct fib_result	res;
 	unsigned ret = RTN_BROADCAST;
+	struct fib_table *local_table;
 
 	if (ZERONET(addr) || BADCLASS(addr))
 		return RTN_BROADCAST;
@@ -162,10 +171,10 @@ unsigned inet_addr_type(__be32 addr)
 	res.r = NULL;
 #endif
 
-	if (ip_fib_local_table) {
+	local_table = fib_get_table(RT_TABLE_LOCAL);
+	if (local_table) {
 		ret = RTN_UNICAST;
-		if (!ip_fib_local_table->tb_lookup(ip_fib_local_table,
-						   &fl, &res)) {
+		if (!local_table->tb_lookup(local_table, &fl, &res)) {
 			ret = res.type;
 			fib_res_put(&res);
 		}
@@ -903,14 +912,8 @@ void __init ip_fib_init(void)
 
 	for (i = 0; i < FIB_TABLE_HASHSZ; i++)
 		INIT_HLIST_HEAD(&fib_table_hash[i]);
-#ifndef CONFIG_IP_MULTIPLE_TABLES
-	ip_fib_local_table = fib_hash_init(RT_TABLE_LOCAL);
-	hlist_add_head_rcu(&ip_fib_local_table->tb_hlist, &fib_table_hash[0]);
-	ip_fib_main_table  = fib_hash_init(RT_TABLE_MAIN);
-	hlist_add_head_rcu(&ip_fib_main_table->tb_hlist, &fib_table_hash[0]);
-#else
+
 	fib4_rules_init();
-#endif
 
 	register_netdevice_notifier(&fib_netdev_notifier);
 	register_inetaddr_notifier(&fib_inetaddr_notifier);

@@ -4850,7 +4850,7 @@ static irqreturn_t iwl_isr(int irq, void *data)
 	if ((inta == 0xFFFFFFFF) || ((inta & 0xFFFFFFF0) == 0xa5a5a5a0)) {
 		/* Hardware disappeared */
 		IWL_WARNING("HARDWARE GONE?? INTA == 0x%080x\n", inta);
-		goto none;
+		goto unplugged;
 	}
 
 	IWL_DEBUG_ISR("ISR inta 0x%08x, enabled 0x%08x, fh 0x%08x\n",
@@ -4858,6 +4858,7 @@ static irqreturn_t iwl_isr(int irq, void *data)
 
 	/* iwl_irq_tasklet() will service interrupts and re-enable them */
 	tasklet_schedule(&priv->irq_tasklet);
+unplugged:
 	spin_unlock(&priv->lock);
 
 	return IRQ_HANDLED;
@@ -5331,13 +5332,13 @@ static int iwl_init_geos(struct iwl_priv *priv)
 	/* 5.2GHz channels start after the 2.4GHz channels */
 	modes[A].mode = MODE_IEEE80211A;
 	modes[A].channels = &channels[ARRAY_SIZE(iwl_eeprom_band_1)];
-	modes[A].rates = rates;
+	modes[A].rates = &rates[4];
 	modes[A].num_rates = 8;	/* just OFDM */
 	modes[A].num_channels = 0;
 
 	modes[B].mode = MODE_IEEE80211B;
 	modes[B].channels = channels;
-	modes[B].rates = &rates[8];
+	modes[B].rates = rates;
 	modes[B].num_rates = 4;	/* just CCK */
 	modes[B].num_channels = 0;
 
@@ -6478,8 +6479,9 @@ static void iwl_bg_scan_check(struct work_struct *data)
 		IWL_DEBUG(IWL_DL_INFO | IWL_DL_SCAN,
 			  "Scan completion watchdog resetting adapter (%dms)\n",
 			  jiffies_to_msecs(IWL_SCAN_CHECK_WATCHDOG));
+
 		if (!test_bit(STATUS_EXIT_PENDING, &priv->status))
-			queue_work(priv->workqueue, &priv->restart);
+			iwl_send_scan_abort(priv);
 	}
 	mutex_unlock(&priv->mutex);
 }
@@ -6575,7 +6577,7 @@ static void iwl_bg_request_scan(struct work_struct *data)
 		spin_unlock_irqrestore(&priv->lock, flags);
 
 		scan->suspend_time = 0;
-		scan->max_out_time = cpu_to_le32(600 * 1024);
+		scan->max_out_time = cpu_to_le32(200 * 1024);
 		if (!interval)
 			interval = suspend_time;
 		/*
@@ -6605,7 +6607,7 @@ static void iwl_bg_request_scan(struct work_struct *data)
 		memcpy(scan->direct_scan[0].ssid,
 		       priv->direct_ssid, priv->direct_ssid_len);
 		direct_mask = 1;
-	} else if (!iwl_is_associated(priv)) {
+	} else if (!iwl_is_associated(priv) && priv->essid_len) {
 		scan->direct_scan[0].id = WLAN_EID_SSID;
 		scan->direct_scan[0].len = priv->essid_len;
 		memcpy(scan->direct_scan[0].ssid, priv->essid, priv->essid_len);
@@ -6743,6 +6745,12 @@ static void iwl_bg_post_associate(struct work_struct *data)
 		return;
 
 	mutex_lock(&priv->mutex);
+
+	if (!priv->interface_id || !priv->is_open) {
+		mutex_unlock(&priv->mutex);
+		return;
+	}
+	iwl_scan_cancel_timeout(priv, 200);
 
 	conf = ieee80211_get_hw_conf(priv->hw);
 
@@ -6882,9 +6890,19 @@ static void iwl_mac_stop(struct ieee80211_hw *hw)
 	struct iwl_priv *priv = hw->priv;
 
 	IWL_DEBUG_MAC80211("enter\n");
+
+
+	mutex_lock(&priv->mutex);
+	/* stop mac, cancel any scan request and clear
+	 * RXON_FILTER_ASSOC_MSK BIT
+	 */
 	priv->is_open = 0;
-	/*netif_stop_queue(dev); */
-	flush_workqueue(priv->workqueue);
+	iwl_scan_cancel_timeout(priv, 100);
+	cancel_delayed_work(&priv->post_associate);
+	priv->staging_rxon.filter_flags &= ~RXON_FILTER_ASSOC_MSK;
+	iwl_commit_rxon(priv);
+	mutex_unlock(&priv->mutex);
+
 	IWL_DEBUG_MAC80211("leave\n");
 }
 
@@ -7169,8 +7187,6 @@ static int iwl_mac_config_interface(struct ieee80211_hw *hw, int if_id,
 		if (priv->iw_mode == IEEE80211_IF_TYPE_AP)
 			iwl_config_ap(priv);
 		else {
-			priv->staging_rxon.filter_flags |=
-						RXON_FILTER_ASSOC_MSK;
 			rc = iwl_commit_rxon(priv);
 			if ((priv->iw_mode == IEEE80211_IF_TYPE_STA) && rc)
 				iwl_add_station(priv,
@@ -7178,6 +7194,7 @@ static int iwl_mac_config_interface(struct ieee80211_hw *hw, int if_id,
 		}
 
 	} else {
+		iwl_scan_cancel_timeout(priv, 100);
 		priv->staging_rxon.filter_flags &= ~RXON_FILTER_ASSOC_MSK;
 		iwl_commit_rxon(priv);
 	}
@@ -7217,6 +7234,12 @@ static void iwl_mac_remove_interface(struct ieee80211_hw *hw,
 	IWL_DEBUG_MAC80211("enter\n");
 
 	mutex_lock(&priv->mutex);
+
+	iwl_scan_cancel_timeout(priv, 100);
+	cancel_delayed_work(&priv->post_associate);
+	priv->staging_rxon.filter_flags &= ~RXON_FILTER_ASSOC_MSK;
+	iwl_commit_rxon(priv);
+
 	if (priv->interface_id == conf->if_id) {
 		priv->interface_id = 0;
 		memset(priv->bssid, 0, ETH_ALEN);
@@ -7238,6 +7261,7 @@ static int iwl_mac_hw_scan(struct ieee80211_hw *hw, u8 *ssid, size_t len)
 
 	IWL_DEBUG_MAC80211("enter\n");
 
+	mutex_lock(&priv->mutex);
 	spin_lock_irqsave(&priv->lock, flags);
 
 	if (!iwl_is_ready_rf(priv)) {
@@ -7268,7 +7292,8 @@ static int iwl_mac_hw_scan(struct ieee80211_hw *hw, u8 *ssid, size_t len)
 		priv->direct_ssid_len = (u8)
 		    min((u8) len, (u8) IW_ESSID_MAX_SIZE);
 		memcpy(priv->direct_ssid, ssid, priv->direct_ssid_len);
-	}
+	} else
+		priv->one_direct_scan = 0;
 
 	rc = iwl_scan_initiate(priv);
 
@@ -7276,6 +7301,7 @@ static int iwl_mac_hw_scan(struct ieee80211_hw *hw, u8 *ssid, size_t len)
 
 out_unlock:
 	spin_unlock_irqrestore(&priv->lock, flags);
+	mutex_unlock(&priv->mutex);
 
 	return rc;
 }
@@ -7309,6 +7335,8 @@ static int iwl_mac_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 	}
 
 	mutex_lock(&priv->mutex);
+
+	iwl_scan_cancel_timeout(priv, 100);
 
 	switch (cmd) {
 	case  SET_KEY:
@@ -7479,8 +7507,18 @@ static void iwl_mac_reset_tsf(struct ieee80211_hw *hw)
 
 	spin_unlock_irqrestore(&priv->lock, flags);
 
+	/* we are restarting association process
+	 * clear RXON_FILTER_ASSOC_MSK bit
+	*/
+	if (priv->iw_mode != IEEE80211_IF_TYPE_AP) {
+		iwl_scan_cancel_timeout(priv, 100);
+		priv->staging_rxon.filter_flags &= ~RXON_FILTER_ASSOC_MSK;
+		iwl_commit_rxon(priv);
+	}
+
 	/* Per mac80211.h: This is only used in IBSS mode... */
 	if (priv->iw_mode != IEEE80211_IF_TYPE_IBSS) {
+
 		IWL_DEBUG_MAC80211("leave - not in IBSS\n");
 		mutex_unlock(&priv->mutex);
 		return;
@@ -8317,6 +8355,8 @@ static int iwl_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	}
 	SET_IEEE80211_DEV(hw, &pdev->dev);
 
+	hw->rate_control_algorithm = "iwl-3945-rs";
+
 	IWL_DEBUG_INFO("*** LOAD DRIVER ***\n");
 	priv = hw->priv;
 	priv->hw = hw;
@@ -8557,6 +8597,9 @@ static void iwl_pci_remove(struct pci_dev *pdev)
 		ieee80211_unregister_hw(priv->hw);
 		iwl_rate_control_unregister(priv->hw);
 	}
+
+	/*netif_stop_queue(dev); */
+	flush_workqueue(priv->workqueue);
 
 	/* ieee80211_unregister_hw calls iwl_mac_stop, which flushes
 	 * priv->workqueue... so we can't take down the workqueue

@@ -3,41 +3,30 @@
  * Author: Jun Sun, jsun@mvista.com or jsun@junsun.net
  * Copyright (c) 2003, 2004  Maciej W. Rozycki
  *
- * Common time service routines for MIPS machines. See
- * Documentation/mips/time.README.
+ * Common time service routines for MIPS machines.
  *
  * This program is free software; you can redistribute  it and/or modify it
  * under  the terms of  the GNU General  Public License as published by the
  * Free Software Foundation;  either version 2 of the  License, or (at your
  * option) any later version.
  */
+#include <linux/bug.h>
 #include <linux/clockchips.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/sched.h>
 #include <linux/param.h>
-#include <linux/profile.h>
 #include <linux/time.h>
 #include <linux/timex.h>
 #include <linux/smp.h>
-#include <linux/kernel_stat.h>
 #include <linux/spinlock.h>
-#include <linux/interrupt.h>
 #include <linux/module.h>
-#include <linux/kallsyms.h>
 
-#include <asm/bootinfo.h>
-#include <asm/cache.h>
-#include <asm/compiler.h>
-#include <asm/cpu.h>
 #include <asm/cpu-features.h>
 #include <asm/div64.h>
-#include <asm/sections.h>
 #include <asm/smtc_ipi.h>
 #include <asm/time.h>
-
-#include <irq.h>
 
 /*
  * forward reference
@@ -62,14 +51,6 @@ int update_persistent_clock(struct timespec now)
 }
 
 /*
- * Null high precision timer functions for systems lacking one.
- */
-static cycle_t null_hpt_read(void)
-{
-	return 0;
-}
-
-/*
  * High precision timer functions for a R4k-compatible timer.
  */
 static cycle_t c0_hpt_read(void)
@@ -78,22 +59,6 @@ static cycle_t c0_hpt_read(void)
 }
 
 int (*mips_timer_state)(void);
-
-/*
- * local_timer_interrupt() does profiling and process accounting
- * on a per-CPU basis.
- *
- * In UP mode, it is invoked from the (global) timer_interrupt.
- *
- * In SMP mode, it might invoked by per-CPU timer interrupt, or
- * a broadcasted inter-processor interrupt which itself is triggered
- * by the global timer interrupt.
- */
-void local_timer_interrupt(int irq, void *dev_id)
-{
-	profile_tick(CPU_PROFILING);
-	update_process_times(user_mode(get_irq_regs()));
-}
 
 int null_perf_irq(void)
 {
@@ -115,13 +80,16 @@ EXPORT_SYMBOL(perf_irq);
  *	    (only needed if you intended to use cpu counter as timer interrupt
  *	     source)
  * 2) calculate a couple of cached variables for later usage
- * 3) plat_timer_setup() -
- *	a) (optional) over-write any choices made above by time_init().
- *	b) machine specific code should setup the timer irqaction.
- *	c) enable the timer interrupt
  */
 
 unsigned int mips_hpt_frequency;
+
+static struct clocksource clocksource_mips = {
+	.name		= "MIPS",
+	.read		= c0_hpt_read,
+	.mask		= CLOCKSOURCE_MASK(32),
+	.flags		= CLOCK_SOURCE_IS_CONTINUOUS,
+};
 
 static unsigned int __init calibrate_hpt(void)
 {
@@ -165,12 +133,6 @@ static unsigned int __init calibrate_hpt(void)
 	return frequency >> log_2_loops;
 }
 
-struct clocksource clocksource_mips = {
-	.name		= "MIPS",
-	.mask		= CLOCKSOURCE_MASK(32),
-	.flags		= CLOCK_SOURCE_IS_CONTINUOUS,
-};
-
 void __init clocksource_set_clock(struct clocksource *cs, unsigned int clock)
 {
 	u64 temp;
@@ -206,9 +168,6 @@ void __cpuinit clockevent_set_clock(struct clock_event_device *cd,
 
 static void __init init_mips_clocksource(void)
 {
-	if (!mips_hpt_frequency || clocksource_mips.read == null_hpt_read)
-		return;
-
 	/* Calclate a somewhat reasonable rating value */
 	clocksource_mips.rating = 200 + mips_hpt_frequency / 10000000;
 
@@ -221,29 +180,26 @@ void __init __weak plat_time_init(void)
 {
 }
 
-void __init __weak plat_timer_setup(struct irqaction *irq)
+/*
+ * This function exists in order to cause an error due to a duplicate
+ * definition if platform code should have its own implementation.  The hook
+ * to use instead is plat_time_init.  plat_time_init does not receive the
+ * irqaction pointer argument anymore.  This is because any function which
+ * initializes an interrupt timer now takes care of its own request_irq rsp.
+ * setup_irq calls and each clock_event_device should use its own
+ * struct irqrequest.
+ */
+void __init plat_timer_setup(void)
 {
+	BUG();
 }
 
 void __init time_init(void)
 {
 	plat_time_init();
 
-	/* Choose appropriate high precision timer routines.  */
-	if (!cpu_has_counter && !clocksource_mips.read)
-		/* No high precision timer -- sorry.  */
-		clocksource_mips.read = null_hpt_read;
-	else if (!mips_hpt_frequency && !mips_timer_state) {
-		/* A high precision timer of unknown frequency.  */
-		if (!clocksource_mips.read)
-			/* No external high precision timer -- use R4k.  */
-			clocksource_mips.read = c0_hpt_read;
-	} else {
+	if (cpu_has_counter && (mips_hpt_frequency || mips_timer_state)) {
 		/* We know counter frequency.  Or we can get it.  */
-		if (!clocksource_mips.read) {
-			/* No external high precision timer -- use R4k.  */
-			clocksource_mips.read = c0_hpt_read;
-		}
 		if (!mips_hpt_frequency)
 			mips_hpt_frequency = calibrate_hpt();
 
@@ -251,8 +207,8 @@ void __init time_init(void)
 		printk("Using %u.%03u MHz high precision timer.\n",
 		       ((mips_hpt_frequency + 500) / 1000) / 1000,
 		       ((mips_hpt_frequency + 500) / 1000) % 1000);
+		init_mips_clocksource();
 	}
 
-	init_mips_clocksource();
 	mips_clockevent_init();
 }

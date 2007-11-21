@@ -376,6 +376,7 @@ void vlan_setup(struct net_device *new_dev)
 	new_dev->init = vlan_dev_init;
 	new_dev->open = vlan_dev_open;
 	new_dev->stop = vlan_dev_stop;
+	new_dev->set_mac_address = vlan_set_mac_address;
 	new_dev->set_multicast_list = vlan_dev_set_multicast_list;
 	new_dev->change_rx_flags = vlan_change_rx_flags;
 	new_dev->destructor = free_netdev;
@@ -636,6 +637,10 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
 			if (!vlandev)
 				continue;
 
+			flgs = vlandev->flags;
+			if (!(flgs & IFF_UP))
+				continue;
+
 			vlan_sync_address(dev, vlandev);
 		}
 		break;
@@ -747,6 +752,7 @@ static int vlan_ioctl_handler(struct net *net, void __user *arg)
 		vlan_dev_set_ingress_priority(dev,
 					      args.u.skb_priority,
 					      args.vlan_qos);
+		err = 0;
 		break;
 
 	case SET_VLAN_EGRESS_PRIORITY_CMD:

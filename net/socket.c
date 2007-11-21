@@ -1250,11 +1250,14 @@ asmlinkage long sys_socketpair(int family, int type, int protocol,
 		goto out_release_both;
 
 	fd1 = sock_alloc_fd(&newfile1);
-	if (unlikely(fd1 < 0))
+	if (unlikely(fd1 < 0)) {
+		err = fd1;
 		goto out_release_both;
+	}
 
 	fd2 = sock_alloc_fd(&newfile2);
 	if (unlikely(fd2 < 0)) {
+		err = fd2;
 		put_filp(newfile1);
 		put_unused_fd(fd1);
 		goto out_release_both;
@@ -2316,6 +2319,11 @@ int kernel_sock_ioctl(struct socket *sock, int cmd, unsigned long arg)
 	return err;
 }
 
+int kernel_sock_shutdown(struct socket *sock, enum sock_shutdown_cmd how)
+{
+	return sock->ops->shutdown(sock, how);
+}
+
 /* ABI emulation layers need these two */
 EXPORT_SYMBOL(move_addr_to_kernel);
 EXPORT_SYMBOL(move_addr_to_user);
@@ -2342,3 +2350,4 @@ EXPORT_SYMBOL(kernel_getsockopt);
 EXPORT_SYMBOL(kernel_setsockopt);
 EXPORT_SYMBOL(kernel_sendpage);
 EXPORT_SYMBOL(kernel_sock_ioctl);
+EXPORT_SYMBOL(kernel_sock_shutdown);

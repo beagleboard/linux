@@ -1152,7 +1152,7 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct hlist_head udptable[],
 		return __udp4_lib_mcast_deliver(skb, uh, saddr, daddr, udptable);
 
 	sk = __udp4_lib_lookup(saddr, uh->source, daddr, uh->dest,
-			       skb->dev->ifindex, udptable        );
+			       inet_iif(skb), udptable);
 
 	if (sk != NULL) {
 		int ret = udp_queue_rcv_skb(sk, skb);
@@ -1430,6 +1430,8 @@ unsigned int udp_poll(struct file *file, struct socket *sock, poll_table *wait)
 
 }
 
+DEFINE_PROTO_INUSE(udp)
+
 struct proto udp_prot = {
 	.name		   = "UDP",
 	.owner		   = THIS_MODULE,
@@ -1452,6 +1454,7 @@ struct proto udp_prot = {
 	.compat_setsockopt = compat_udp_setsockopt,
 	.compat_getsockopt = compat_udp_getsockopt,
 #endif
+	REF_PROTO_INUSE(udp)
 };
 
 /* ------------------------------------------------------------------------ */

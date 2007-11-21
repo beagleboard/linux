@@ -403,8 +403,12 @@ void ide_fix_driveid (struct hd_driveid *id)
 #endif
 }
 
-/* FIXME: exported for use by the USB storage (isd200.c) code only */
-EXPORT_SYMBOL(ide_fix_driveid);
+/*
+ * ide_fixstring() cleans up and (optionally) byte-swaps a text string,
+ * removing leading/trailing blanks and compressing internal blanks.
+ * It is primarily used to tidy up the model name/number fields as
+ * returned by the WIN_[P]IDENTIFY commands.
+ */
 
 void ide_fixstring (u8 *s, const int bytecount, const int byteswap)
 {
@@ -582,9 +586,12 @@ EXPORT_SYMBOL_GPL(ide_in_drive_list);
 /*
  * Early UDMA66 devices don't set bit14 to 1, only bit13 is valid.
  * We list them here and depend on the device side cable detection for them.
+ *
+ * Some optical devices with the buggy firmwares have the same problem.
  */
 static const struct drive_list_entry ivb_list[] = {
 	{ "QUANTUM FIREBALLlct10 05"	, "A03.0900"	},
+	{ "TSSTcorp CDDVDW SH-S202J"	, "SB00"	},
 	{ NULL				, NULL		}
 };
 

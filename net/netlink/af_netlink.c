@@ -396,7 +396,7 @@ static int __netlink_create(struct net *net, struct socket *sock,
 
 	sock->ops = &netlink_ops;
 
-	sk = sk_alloc(net, PF_NETLINK, GFP_KERNEL, &netlink_proto, 1);
+	sk = sk_alloc(net, PF_NETLINK, GFP_KERNEL, &netlink_proto);
 	if (!sk)
 		return -ENOMEM;
 
@@ -752,7 +752,7 @@ struct sock *netlink_getsockbyfilp(struct file *filp)
  * 1: repeat lookup - reference dropped while waiting for socket memory.
  */
 int netlink_attachskb(struct sock *sk, struct sk_buff *skb, int nonblock,
-		long timeo, struct sock *ssk)
+		      long *timeo, struct sock *ssk)
 {
 	struct netlink_sock *nlk;
 
@@ -761,7 +761,7 @@ int netlink_attachskb(struct sock *sk, struct sk_buff *skb, int nonblock,
 	if (atomic_read(&sk->sk_rmem_alloc) > sk->sk_rcvbuf ||
 	    test_bit(0, &nlk->state)) {
 		DECLARE_WAITQUEUE(wait, current);
-		if (!timeo) {
+		if (!*timeo) {
 			if (!ssk || netlink_is_kernel(ssk))
 				netlink_overrun(sk);
 			sock_put(sk);
@@ -775,7 +775,7 @@ int netlink_attachskb(struct sock *sk, struct sk_buff *skb, int nonblock,
 		if ((atomic_read(&sk->sk_rmem_alloc) > sk->sk_rcvbuf ||
 		     test_bit(0, &nlk->state)) &&
 		    !sock_flag(sk, SOCK_DEAD))
-			timeo = schedule_timeout(timeo);
+			*timeo = schedule_timeout(*timeo);
 
 		__set_current_state(TASK_RUNNING);
 		remove_wait_queue(&nlk->wait, &wait);
@@ -783,7 +783,7 @@ int netlink_attachskb(struct sock *sk, struct sk_buff *skb, int nonblock,
 
 		if (signal_pending(current)) {
 			kfree_skb(skb);
-			return sock_intr_errno(timeo);
+			return sock_intr_errno(*timeo);
 		}
 		return 1;
 	}
@@ -877,7 +877,7 @@ retry:
 	if (netlink_is_kernel(sk))
 		return netlink_unicast_kernel(sk, skb);
 
-	err = netlink_attachskb(sk, skb, nonblock, timeo, ssk);
+	err = netlink_attachskb(sk, skb, nonblock, &timeo, ssk);
 	if (err == 1)
 		goto retry;
 	if (err)
@@ -1565,7 +1565,11 @@ int netlink_dump_start(struct sock *ssk, struct sk_buff *skb,
 
 	netlink_dump(sk);
 	sock_put(sk);
-	return 0;
+
+	/* We successfully started a dump, by returning -EINTR we
+	 * signal not to send ACK even if it was requested.
+	 */
+	return -EINTR;
 }
 
 void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err)
@@ -1619,17 +1623,21 @@ int netlink_rcv_skb(struct sk_buff *skb, int (*cb)(struct sk_buff *,
 
 		/* Only requests are handled by the kernel */
 		if (!(nlh->nlmsg_flags & NLM_F_REQUEST))
-			goto skip;
+			goto ack;
 
 		/* Skip control messages */
 		if (nlh->nlmsg_type < NLMSG_MIN_TYPE)
-			goto skip;
+			goto ack;
 
 		err = cb(skb, nlh);
-skip:
+		if (err == -EINTR)
+			goto skip;
+
+ack:
 		if (nlh->nlmsg_flags & NLM_F_ACK || err)
 			netlink_ack(skb, nlh, err);
 
+skip:
 	        msglen = NLMSG_ALIGN(nlh->nlmsg_len);
 		if (msglen > skb->len)
 			msglen = skb->len;

@@ -107,7 +107,7 @@ struct sctp_shared_key *sctp_auth_shkey_create(__u16 key_id, gfp_t gfp)
 }
 
 /* Free the shared key stucture */
-void sctp_auth_shkey_free(struct sctp_shared_key *sh_key)
+static void sctp_auth_shkey_free(struct sctp_shared_key *sh_key)
 {
 	BUG_ON(!list_empty(&sh_key->key_list));
 	sctp_auth_key_put(sh_key->key);
@@ -220,7 +220,7 @@ static struct sctp_auth_bytes *sctp_auth_make_key_vector(
 
 
 /* Make a key vector based on our local parameters */
-struct sctp_auth_bytes *sctp_auth_make_local_vector(
+static struct sctp_auth_bytes *sctp_auth_make_local_vector(
 				    const struct sctp_association *asoc,
 				    gfp_t gfp)
 {
@@ -232,7 +232,7 @@ struct sctp_auth_bytes *sctp_auth_make_local_vector(
 }
 
 /* Make a key vector based on peer's parameters */
-struct sctp_auth_bytes *sctp_auth_make_peer_vector(
+static struct sctp_auth_bytes *sctp_auth_make_peer_vector(
 				    const struct sctp_association *asoc,
 				    gfp_t gfp)
 {
@@ -556,7 +556,7 @@ struct sctp_hmac *sctp_auth_asoc_get_hmac(const struct sctp_association *asoc)
 	return &sctp_hmac_list[id];
 }
 
-static int __sctp_auth_find_hmacid(__u16 *hmacs, int n_elts, __u16 hmac_id)
+static int __sctp_auth_find_hmacid(__be16 *hmacs, int n_elts, __be16 hmac_id)
 {
 	int  found = 0;
 	int  i;
@@ -573,7 +573,7 @@ static int __sctp_auth_find_hmacid(__u16 *hmacs, int n_elts, __u16 hmac_id)
 
 /* See if the HMAC_ID is one that we claim as supported */
 int sctp_auth_asoc_verify_hmac_id(const struct sctp_association *asoc,
-				    __u16 hmac_id)
+				    __be16 hmac_id)
 {
 	struct sctp_hmac_algo_param *hmacs;
 	__u16 n_elt;
@@ -726,10 +726,7 @@ void sctp_auth_calculate_hmac(const struct sctp_association *asoc,
 
 	/* set up scatter list */
 	end = skb_tail_pointer(skb);
-	sg_init_table(&sg, 1);
-	sg_set_page(&sg, virt_to_page(auth));
-	sg.offset = (unsigned long)(auth) % PAGE_SIZE;
-	sg.length = end - (unsigned char *)auth;
+	sg_init_one(&sg, auth, end - (unsigned char *)auth);
 
 	desc.tfm = asoc->ep->auth_hmacs[hmac_id];
 	desc.flags = 0;

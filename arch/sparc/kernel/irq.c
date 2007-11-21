@@ -18,7 +18,6 @@
 #include <linux/linkage.h>
 #include <linux/kernel_stat.h>
 #include <linux/signal.h>
-#include <linux/sched.h>
 #include <linux/interrupt.h>
 #include <linux/slab.h>
 #include <linux/random.h>
@@ -479,7 +478,7 @@ EXPORT_SYMBOL(pdma_areasize);
 
 extern void floppy_hardint(void);
 
-static irqreturn_t (*floppy_irq_handler)(int irq, void *dev_id);
+static irq_handler_t floppy_irq_handler;
 
 void sparc_floppy_irq(int irq, void *dev_id, struct pt_regs *regs)
 {
@@ -500,7 +499,7 @@ void sparc_floppy_irq(int irq, void *dev_id, struct pt_regs *regs)
 }
 
 int sparc_floppy_request_irq(int irq, unsigned long flags,
-			     irqreturn_t (*irq_handler)(int irq, void *))
+			     irq_handler_t irq_handler)
 {
 	floppy_irq_handler = irq_handler;
 	return request_fast_irq(irq, floppy_hardint, flags, "floppy");

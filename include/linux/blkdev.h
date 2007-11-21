@@ -341,7 +341,6 @@ enum blk_queue_state {
 struct blk_queue_tag {
 	struct request **tag_index;	/* map of busy tags */
 	unsigned long *tag_map;		/* bit map of free/busy tags */
-	struct list_head busy_list;	/* fifo list of busy tags */
 	int busy;			/* current depth */
 	int max_depth;			/* what we will send to device */
 	int real_max_depth;		/* what the array can hold */
@@ -435,6 +434,7 @@ struct request_queue
 	unsigned int		dma_alignment;
 
 	struct blk_queue_tag	*queue_tags;
+	struct list_head	tag_busy_list;
 
 	unsigned int		nr_sorted;
 	unsigned int		in_flight;
@@ -697,6 +697,7 @@ extern int blk_execute_rq(struct request_queue *, struct gendisk *,
 extern void blk_execute_rq_nowait(struct request_queue *, struct gendisk *,
 				  struct request *, int, rq_end_io_fn *);
 extern int blk_verify_command(unsigned char *, int);
+extern void blk_unplug(struct request_queue *q);
 
 static inline struct request_queue *bdev_get_queue(struct block_device *bdev)
 {

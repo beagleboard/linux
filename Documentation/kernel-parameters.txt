@@ -422,7 +422,8 @@ and is between 256 and 4096 characters. It is defined in the file
 	hpet=		[X86-32,HPET] option to control HPET usage
 			Format: { enable (default) | disable | force }
 			disable: disable HPET and use PIT instead
-			force: allow force enabled of undocumented chips (ICH4, VIA)
+			force: allow force enabled of undocumented chips (ICH4,
+			VIA, nVidia)
 
 	com20020=	[HW,NET] ARCnet - COM20020 chipset
 			Format:
@@ -584,11 +585,6 @@ and is between 256 and 4096 characters. It is defined in the file
 			console.
 
 	eata=		[HW,SCSI]
-
-	ec_intr=	[HW,ACPI] ACPI Embedded Controller interrupt mode
-			Format: <int>
-			0: polling mode
-			non-0: interrupt mode (default)
 
 	edd=		[EDD]
 			Format: {"of[f]" | "sk[ipmbr]"}
@@ -1443,7 +1439,8 @@ and is between 256 and 4096 characters. It is defined in the file
 			Param: "schedule" - profile schedule points.
 			Param: <number> - step/bucket size as a power of 2 for
 				statistical time based profiling.
-			Param: "sleep" - profile D-state sleeping (millisecs)
+			Param: "sleep" - profile D-state sleeping (millisecs).
+				Requires CONFIG_SCHEDSTATS
 			Param: "kvm" - profile VM exits.
 
 	processor.max_cstate=	[HW,ACPI]

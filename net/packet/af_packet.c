@@ -139,9 +139,6 @@ dev->hard_header == NULL (ll header is added by device, we cannot control it)
 static HLIST_HEAD(packet_sklist);
 static DEFINE_RWLOCK(packet_sklist_lock);
 
-static atomic_t packet_socks_nr;
-
-
 /* Private packet socket structures. */
 
 struct packet_mclist
@@ -236,10 +233,7 @@ static void packet_sock_destruct(struct sock *sk)
 		return;
 	}
 
-	atomic_dec(&packet_socks_nr);
-#ifdef PACKET_REFCNT_DEBUG
-	printk(KERN_DEBUG "PACKET socket %p is free, %d are alive\n", sk, atomic_read(&packet_socks_nr));
-#endif
+	sk_refcnt_debug_dec(sk);
 }
 
 
@@ -515,7 +509,7 @@ static int packet_rcv(struct sk_buff *skb, struct net_device *dev, struct packet
 	sll->sll_hatype = dev->type;
 	sll->sll_protocol = skb->protocol;
 	sll->sll_pkttype = skb->pkt_type;
-	if (unlikely(po->origdev) && skb->pkt_type == PACKET_HOST)
+	if (unlikely(po->origdev))
 		sll->sll_ifindex = orig_dev->ifindex;
 	else
 		sll->sll_ifindex = dev->ifindex;
@@ -661,7 +655,7 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev, struct packe
 	sll->sll_hatype = dev->type;
 	sll->sll_protocol = skb->protocol;
 	sll->sll_pkttype = skb->pkt_type;
-	if (unlikely(po->origdev) && skb->pkt_type == PACKET_HOST)
+	if (unlikely(po->origdev))
 		sll->sll_ifindex = orig_dev->ifindex;
 	else
 		sll->sll_ifindex = dev->ifindex;
@@ -849,6 +843,7 @@ static int packet_release(struct socket *sock)
 	/* Purge queues */
 
 	skb_queue_purge(&sk->sk_receive_queue);
+	sk_refcnt_debug_release(sk);
 
 	sock_put(sk);
 	return 0;
@@ -886,20 +881,14 @@ static int packet_do_bind(struct sock *sk, struct net_device *dev, __be16 protoc
 	if (protocol == 0)
 		goto out_unlock;
 
-	if (dev) {
-		if (dev->flags&IFF_UP) {
-			dev_add_pack(&po->prot_hook);
-			sock_hold(sk);
-			po->running = 1;
-		} else {
-			sk->sk_err = ENETDOWN;
-			if (!sock_flag(sk, SOCK_DEAD))
-				sk->sk_error_report(sk);
-		}
-	} else {
+	if (!dev || (dev->flags & IFF_UP)) {
 		dev_add_pack(&po->prot_hook);
 		sock_hold(sk);
 		po->running = 1;
+	} else {
+		sk->sk_err = ENETDOWN;
+		if (!sock_flag(sk, SOCK_DEAD))
+			sk->sk_error_report(sk);
 	}
 
 out_unlock:
@@ -995,7 +984,7 @@ static int packet_create(struct net *net, struct socket *sock, int protocol)
 	sock->state = SS_UNCONNECTED;
 
 	err = -ENOBUFS;
-	sk = sk_alloc(net, PF_PACKET, GFP_KERNEL, &packet_proto, 1);
+	sk = sk_alloc(net, PF_PACKET, GFP_KERNEL, &packet_proto);
 	if (sk == NULL)
 		goto out;
 
@@ -1010,7 +999,7 @@ static int packet_create(struct net *net, struct socket *sock, int protocol)
 	po->num = proto;
 
 	sk->sk_destruct = packet_sock_destruct;
-	atomic_inc(&packet_socks_nr);
+	sk_refcnt_debug_inc(sk);
 
 	/*
 	 *	Attach a protocol block

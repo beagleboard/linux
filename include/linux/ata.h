@@ -43,6 +43,7 @@ enum {
 	ATA_MAX_SECTORS_128	= 128,
 	ATA_MAX_SECTORS		= 256,
 	ATA_MAX_SECTORS_LBA48	= 65535,/* TODO: 65536? */
+	ATA_MAX_SECTORS_TAPE	= 65535,
 
 	ATA_ID_WORDS		= 256,
 	ATA_ID_SERNO		= 10,
@@ -178,8 +179,9 @@ enum {
 	ATA_CMD_PACKET		= 0xA0,
 	ATA_CMD_VERIFY		= 0x40,
 	ATA_CMD_VERIFY_EXT	= 0x42,
- 	ATA_CMD_STANDBYNOW1	= 0xE0,
- 	ATA_CMD_IDLEIMMEDIATE	= 0xE1,
+	ATA_CMD_STANDBYNOW1	= 0xE0,
+	ATA_CMD_IDLEIMMEDIATE	= 0xE1,
+	ATA_CMD_SLEEP		= 0xE6,
 	ATA_CMD_INIT_DEV_PARAMS	= 0x91,
 	ATA_CMD_READ_NATIVE_MAX	= 0xF8,
 	ATA_CMD_READ_NATIVE_MAX_EXT = 0x27,
@@ -235,6 +237,7 @@ enum {
 
 	/* SETFEATURE Sector counts for SATA features */
 	SATA_AN			= 0x05,  /* Asynchronous Notification */
+	SATA_DIPM		= 0x03,  /* Device Initiated Power Management */
 
 	/* ATAPI stuff */
 	ATAPI_PKT_DMA		= (1 << 0),
@@ -377,6 +380,26 @@ struct ata_taskfile {
 
 #define ata_id_cdb_intr(id)	(((id)[0] & 0x60) == 0x20)
 
+static inline bool ata_id_has_hipm(const u16 *id)
+{
+	u16 val = id[76];
+
+	if (val == 0 || val == 0xffff)
+		return false;
+
+	return val & (1 << 9);
+}
+
+static inline bool ata_id_has_dipm(const u16 *id)
+{
+	u16 val = id[78];
+
+	if (val == 0 || val == 0xffff)
+		return false;
+
+	return val & (1 << 3);
+}
+
 static inline int ata_id_has_fua(const u16 *id)
 {
 	if ((id[84] & 0xC000) != 0x4000)
@@ -401,6 +424,8 @@ static inline int ata_id_has_flush_ext(const u16 *id)
 static inline int ata_id_has_lba48(const u16 *id)
 {
 	if ((id[83] & 0xC000) != 0x4000)
+		return 0;
+	if (!ata_id_u64(id, 100))
 		return 0;
 	return id[83] & (1 << 10);
 }
@@ -458,7 +483,7 @@ static inline int ata_id_wcache_enabled(const u16 *id)
  *		ATA-3 introduces word 80 and accurate reporting
  *
  *	The practical impact of this is that ata_id_major_version cannot
- *	reliably report on drives below ATA3. 
+ *	reliably report on drives below ATA3.
  */
 
 static inline unsigned int ata_id_major_version(const u16 *id)
@@ -512,6 +537,15 @@ static inline int ata_drive_40wire(const u16 *dev_id)
 	return 1;
 }
 
+static inline int ata_drive_40wire_relaxed(const u16 *dev_id)
+{
+	if (ata_id_is_sata(dev_id))
+		return 0;	/* SATA */
+	if ((dev_id[93] & 0x2000) == 0x2000)
+		return 0;	/* 80 wire */
+	return 1;
+}
+
 static inline int atapi_cdb_len(const u16 *dev_id)
 {
 	u16 tmp = dev_id[0] & 0x3;
@@ -520,6 +554,11 @@ static inline int atapi_cdb_len(const u16 *dev_id)
 	case 1:		return 16;
 	default:	return -1;
 	}
+}
+
+static inline int atapi_command_packet_set(const u16 *dev_id)
+{
+	return (dev_id[0] >> 8) & 0x1f;
 }
 
 static inline int is_atapi_taskfile(const struct ata_taskfile *tf)

@@ -1036,7 +1036,7 @@ int get_user_pages(struct task_struct *tsk, struct mm_struct *mm,
 
 		if (is_vm_hugetlb_page(vma)) {
 			i = follow_hugetlb_page(mm, vma, pages, vmas,
-						&start, &len, i);
+						&start, &len, i, write);
 			continue;
 		}
 
@@ -2084,9 +2084,9 @@ static int do_swap_page(struct mm_struct *mm, struct vm_area_struct *vma,
 		count_vm_event(PGMAJFAULT);
 	}
 
-	delayacct_clear_flag(DELAYACCT_PF_SWAPIN);
 	mark_page_accessed(page);
 	lock_page(page);
+	delayacct_clear_flag(DELAYACCT_PF_SWAPIN);
 
 	/*
 	 * Back out if somebody else already faulted in this pte.
@@ -2748,4 +2748,3 @@ int access_process_vm(struct task_struct *tsk, unsigned long addr, void *buf, in
 
 	return buf - old_buf;
 }
-EXPORT_SYMBOL_GPL(access_process_vm);

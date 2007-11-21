@@ -303,6 +303,11 @@ fastcall void __kprobes do_page_fault(struct pt_regs *regs,
 	int write, si_code;
 	int fault;
 
+	/*
+	 * We can fault from pretty much anywhere, with unknown IRQ state.
+	 */
+	trace_hardirqs_fixup();
+
 	/* get the address */
         address = read_cr2();
 
@@ -550,7 +555,7 @@ no_context:
 			page &= PAGE_MASK;
 			page = ((__typeof__(page) *) __va(page))[(address >> PMD_SHIFT)
 			                                         & (PTRS_PER_PMD - 1)];
-			printk(KERN_ALERT "*pde = %016Lx ", page);
+			printk(KERN_CONT "*pde = %016Lx ", page);
 			page &= ~_PAGE_NX;
 		}
 #else
