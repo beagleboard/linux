@@ -393,9 +393,10 @@ static void camera_core_vbq_complete(void *arg1, void *arg)
 static void camera_core_vbq_release(struct videobuf_queue *q,
 				    struct videobuf_buffer *vb)
 {
+	struct videobuf_dmabuf *dma = videobuf_to_dma(vb);
 	videobuf_waiton(vb, 0, 0);
-	videobuf_dma_unmap(q, &vb->dma);
-	videobuf_dma_free(&vb->dma);
+	videobuf_dma_unmap(q, dma);
+	videobuf_dma_free(dma);
 
 	vb->state = STATE_NEEDS_INIT;
 }
@@ -459,13 +460,14 @@ static int camera_core_vbq_prepare(struct videobuf_queue *q,
 static void camera_core_vbq_queue(struct videobuf_queue *q,
 				  struct videobuf_buffer *vb)
 {
+	struct videobuf_dmabuf *dma = videobuf_to_dma(vb);
 	struct camera_fh *fh = q->priv_data;
 	struct camera_device *cam = fh->cam;
 	enum videobuf_state state = vb->state;
 	int err;
 
 	vb->state = STATE_QUEUED;
-	err = camera_core_sgdma_queue(cam, vb->dma.sglist, vb->dma.sglen,
+	err = camera_core_sgdma_queue(cam, dma->sglist, dma->sglen,
 				      camera_core_vbq_complete, vb);
 	if (err) {
 		/* Oops.  We're not supposed to get any errors here.  The only
@@ -915,7 +917,7 @@ static int camera_core_open(struct inode *inode, struct file *file)
 	vidioc_int_g_fmt_cap(cam->sdev, &format);
 	spin_unlock(&cam->img_lock);
 
-	videobuf_queue_init(&fh->vbq, &cam->vbq_ops, NULL, &cam->vbq_lock,
+	videobuf_queue_pci_init(&fh->vbq, &cam->vbq_ops, NULL, &cam->vbq_lock,
 			    fh->type, V4L2_FIELD_NONE,
 			    sizeof(struct videobuf_buffer), fh);
 
@@ -1045,7 +1047,6 @@ static int camera_device_register(struct v4l2_int_device *ctl,
 	vfd->type = VID_TYPE_CAPTURE | VID_TYPE_OVERLAY | VID_TYPE_CHROMAKEY;
 
 	/* Need to register for a VID_HARDWARE_* ID in videodev.h */
-	vfd->hardware = 0;
 	vfd->fops = &camera_core_fops;
 	video_set_drvdata(vfd, cam);
 	vfd->minor = -1;

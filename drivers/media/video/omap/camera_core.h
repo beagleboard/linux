@@ -17,8 +17,8 @@
 
 struct camera_fh;
 
-#include <media/video-buf.h>
 #include <asm/scatterlist.h>
+#include <media/videobuf-dma-sg.h>
 #include <media/v4l2-int-device.h>
 
 struct camera_device;
