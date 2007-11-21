@@ -479,6 +479,7 @@ static void __init nokia_n800_map_io(void)
 	omap_board_config = n800_config;
 	omap_board_config_size = ARRAY_SIZE(n800_config);
 
+	omap2_set_globals_242x();
 	omap2_map_common_io();
 }
 

@@ -44,4 +44,8 @@ extern int omap_register_i2c_bus(int bus_id, u32 clkrate,
 #define omap_register_i2c_bus(...)	do { } while (0)
 #endif
 
+void omap2_set_globals_242x(void);
+void omap2_set_globals_243x(void);
+void omap2_set_globals_343x(void);
+
 #endif /* __ARCH_ARM_MACH_OMAP_COMMON_H */

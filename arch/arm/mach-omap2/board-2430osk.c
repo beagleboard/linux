@@ -125,6 +125,7 @@ static void __init omap_2430osk_init(void)
 
 static void __init omap_2430osk_map_io(void)
 {
+	omap2_set_globals_243x();
 	omap2_map_common_io();
 }
 

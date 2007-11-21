@@ -253,3 +253,24 @@ static int __init omap_init_clocksource_32k(void)
 arch_initcall(omap_init_clocksource_32k);
 
 #endif	/* TIMER_32K_SYNCHRONIZED */
+
+/* Global address base setup code */
+
+#if defined(CONFIG_ARCH_OMAP2420)
+void __init omap2_set_globals_242x(void)
+{
+}
+#endif
+
+#if defined(CONFIG_ARCH_OMAP2430)
+void __init omap2_set_globals_243x(void)
+{
+}
+#endif
+
+#if defined(CONFIG_ARCH_OMAP3430)
+void __init omap2_set_globals_343x(void)
+{
+}
+#endif
+
