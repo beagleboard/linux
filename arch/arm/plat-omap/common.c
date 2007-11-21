@@ -38,6 +38,8 @@
 
 #define NO_LENGTH_CHECK 0xffffffff
 
+u32 omap2_ctrl_base; /* until we have a better place to put it */
+
 unsigned char omap_bootloader_tag[512];
 int omap_bootloader_tag_len;
 
@@ -265,6 +267,7 @@ void __init omap2_set_globals_242x(void)
 {
 	omap2_sdrc_base = OMAP2420_SDRC_BASE;
 	omap2_sms_base = OMAP2420_SMS_BASE;
+	omap2_ctrl_base = OMAP2420_CTRL_BASE;
 }
 #endif
 
@@ -273,6 +276,7 @@ void __init omap2_set_globals_243x(void)
 {
 	omap2_sdrc_base = OMAP243X_SDRC_BASE;
 	omap2_sms_base = OMAP243X_SMS_BASE;
+	omap2_ctrl_base = OMAP243X_CTRL_BASE;
 }
 #endif
 
@@ -281,6 +285,7 @@ void __init omap2_set_globals_343x(void)
 {
 	omap2_sdrc_base = OMAP343X_SDRC_BASE;
 	omap2_sms_base = OMAP343X_SMS_BASE;
+	omap2_ctrl_base = OMAP343X_CTRL_BASE;
 }
 #endif
 

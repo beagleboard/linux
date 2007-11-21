@@ -47,6 +47,7 @@
 
 #include <asm/io.h>
 
+#include "control.h"
 #include <../drivers/media/video/ov9640.h>
 
 #define H4_FLASH_CS	0
@@ -271,7 +272,7 @@ static struct platform_device *h4_devices[] __initdata = {
 /* 2420 Sysboot setup (2430 is different) */
 static u32 get_sysboot_value(void)
 {
-	return (omap_readl(OMAP2_CONTROL_STATUS) & 0xFFF);
+	return (ctrl_read_reg(CONTROL_STATUS) & 0xFFF);
 }
 
 /* FIXME: This function should be moved to some other file, gpmc.c? */

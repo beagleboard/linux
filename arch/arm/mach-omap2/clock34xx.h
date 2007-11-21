@@ -15,18 +15,10 @@
 #include "cm_regbits_34xx.h"
 #include "prm.h"
 #include "prm_regbits_34xx.h"
+#include "control.h"
 
 static void omap3_dpll_recalc(struct clk *clk);
 static void omap3_clkoutx2_recalc(struct clk *clk);
-
-/* REVISIT: this stuff should be moved to a scm.h file */
-/* CONTROL_DEVCONF0 bits */
-#define OMAP3430_MCBSP2_CLKS_MASK		    (1 << 6)
-#define OMAP3430_MCBSP1_CLKS_MASK		    (1 << 2)
-/* OMAP34XX_CONTROL_DEVCONF1 bits */
-#define OMAP3430_MCBSP5_CLKS_MASK		    (1 << 4)
-#define OMAP3430_MCBSP4_CLKS_MASK		    (1 << 2)
-#define OMAP3430_MCBSP3_CLKS_MASK		    (1 << 0)
 
 /*
  * DPLL1 supplies clock to the MPU.
@@ -930,8 +922,8 @@ static struct clk mcbsp5_fck = {
 	.init		= &omap2_init_clksel_parent,
 	.enable_reg	= OMAP_CM_REGADDR(CORE_MOD, CM_FCLKEN1),
 	.enable_bit	= OMAP3430_EN_MCBSP5_SHIFT,
-	.clksel_reg	= (void __iomem *)IO_ADDRESS(OMAP34XX_CONTROL_DEVCONF1),
-	.clksel_mask	= OMAP3430_MCBSP5_CLKS_MASK,
+	.clksel_reg	= OMAP343X_CTRL_REGADDR(CONTROL_DEVCONF1),
+	.clksel_mask	= OMAP2_MCBSP5_CLKS_MASK,
 	.clksel		= mcbsp_15_clksel,
 	.flags		= CLOCK_IN_OMAP343X,
 	.recalc		= &omap2_clksel_recalc,
@@ -942,8 +934,8 @@ static struct clk mcbsp1_fck = {
 	.init		= &omap2_init_clksel_parent,
 	.enable_reg	= OMAP_CM_REGADDR(CORE_MOD, CM_FCLKEN1),
 	.enable_bit	= OMAP3430_EN_MCBSP1_SHIFT,
-	.clksel_reg	= (void __iomem *)IO_ADDRESS(OMAP34XX_CONTROL_DEVCONF0),
-	.clksel_mask	= OMAP3430_MCBSP1_CLKS_MASK,
+	.clksel_reg	= OMAP343X_CTRL_REGADDR(CONTROL_DEVCONF0),
+	.clksel_mask	= OMAP2_MCBSP1_CLKS_MASK,
 	.clksel		= mcbsp_15_clksel,
 	.flags		= CLOCK_IN_OMAP343X,
 	.recalc		= &omap2_clksel_recalc,
@@ -1990,8 +1982,8 @@ static struct clk mcbsp2_fck = {
 	.init		= &omap2_init_clksel_parent,
 	.enable_reg	= OMAP_CM_REGADDR(CORE_MOD, CM_FCLKEN1),
 	.enable_bit	= OMAP3430_EN_MCBSP2_SHIFT,
-	.clksel_reg	= (void __iomem *)IO_ADDRESS(OMAP34XX_CONTROL_DEVCONF0),
-	.clksel_mask	= OMAP3430_MCBSP2_CLKS_MASK,
+	.clksel_reg	= OMAP343X_CTRL_REGADDR(CONTROL_DEVCONF0),
+	.clksel_mask	= OMAP2_MCBSP2_CLKS_MASK,
 	.clksel		= mcbsp_234_clksel,
 	.flags		= CLOCK_IN_OMAP343X,
 	.recalc		= &omap2_clksel_recalc,
@@ -2002,8 +1994,8 @@ static struct clk mcbsp3_fck = {
 	.init		= &omap2_init_clksel_parent,
 	.enable_reg	= OMAP_CM_REGADDR(CORE_MOD, CM_FCLKEN1),
 	.enable_bit	= OMAP3430_EN_MCBSP3_SHIFT,
-	.clksel_reg	= (void __iomem *)IO_ADDRESS(OMAP34XX_CONTROL_DEVCONF1),
-	.clksel_mask	= OMAP3430_MCBSP3_CLKS_MASK,
+	.clksel_reg	= OMAP343X_CTRL_REGADDR(CONTROL_DEVCONF1),
+	.clksel_mask	= OMAP2_MCBSP3_CLKS_MASK,
 	.clksel		= mcbsp_234_clksel,
 	.flags		= CLOCK_IN_OMAP343X,
 	.recalc		= &omap2_clksel_recalc,
@@ -2014,8 +2006,8 @@ static struct clk mcbsp4_fck = {
 	.init		= &omap2_init_clksel_parent,
 	.enable_reg	= OMAP_CM_REGADDR(CORE_MOD, CM_FCLKEN1),
 	.enable_bit	= OMAP3430_EN_MCBSP4_SHIFT,
-	.clksel_reg	= (void __iomem *)IO_ADDRESS(OMAP34XX_CONTROL_DEVCONF1),
-	.clksel_mask	= OMAP3430_MCBSP4_CLKS_MASK,
+	.clksel_reg	= OMAP343X_CTRL_REGADDR(CONTROL_DEVCONF1),
+	.clksel_mask	= OMAP2_MCBSP4_CLKS_MASK,
 	.clksel		= mcbsp_234_clksel,
 	.flags		= CLOCK_IN_OMAP343X,
 	.recalc		= &omap2_clksel_recalc,

@@ -30,6 +30,10 @@
 #include <linux/spinlock.h>
 #include <asm/arch/mux.h>
 
+#if defined(CONFIG_ARCH_OMAP24XX) || defined(CONFIG_ARCH_OMAP34XX)
+# include "../mach-omap2/control.h"
+#endif
+
 #ifdef CONFIG_OMAP_MUX
 
 #define OMAP24XX_PULL_ENA	(1 << 3)
@@ -75,6 +79,7 @@ int __init_or_module omap_cfg_reg(const unsigned long index)
 
 	cfg = (struct pin_config *)&pin_table[index];
 #ifdef CONFIG_ARCH_OMAP24XX
+	/* REVISIT: Convert this code to use ctrl_{read,write}_reg */
 	if (cpu_is_omap24xx()) {
 		u8 reg = 0;
 
@@ -85,7 +90,7 @@ int __init_or_module omap_cfg_reg(const unsigned long index)
 			reg |= OMAP24XX_PULL_UP;
 #if defined(CONFIG_OMAP_MUX_DEBUG) || defined(CONFIG_OMAP_MUX_WARNINGS)
 		{
-			u8 orig = omap_readb(OMAP2_CTRL_BASE + cfg->mux_reg);
+			u8 orig = omap_readb(omap2_ctrl_base + cfg->mux_reg);
 			u8 debug = 0;
 
 #ifdef	CONFIG_OMAP_MUX_DEBUG
@@ -93,13 +98,13 @@ int __init_or_module omap_cfg_reg(const unsigned long index)
 #endif
 			warn = (orig != reg);
 			if (debug || warn)
-				printk("MUX: setup %s (0x%08x): 0x%02x -> 0x%02x\n",
+				printk("MUX: setup %s (0x%08lx): 0x%02x -> 0x%02x\n",
 						cfg->name,
-						OMAP2_CTRL_BASE + cfg->mux_reg,
+						omap2_ctrl_base + cfg->mux_reg,
 						orig, reg);
 		}
 #endif
-		omap_writeb(reg, OMAP2_CTRL_BASE + cfg->mux_reg);
+		omap_writeb(reg, omap2_ctrl_base + cfg->mux_reg);
 
 		return 0;
 	}

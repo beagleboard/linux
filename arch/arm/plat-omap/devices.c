@@ -25,6 +25,10 @@
 #include <asm/arch/gpio.h>
 #include <asm/arch/menelaus.h>
 
+#if defined(CONFIG_ARCH_OMAP24XX) || defined(CONFIG_ARCH_OMAP34XX)
+# include "../mach-omap2/control.h"
+#endif
+
 #if	defined(CONFIG_OMAP_DSP) || defined(CONFIG_OMAP_DSP_MODULE)
 
 #include "../plat-omap/dsp/dsp_common.h"
@@ -269,17 +273,19 @@ static void __init omap_init_mmc(void)
 				omap_cfg_reg(MMC_DAT3);
 			}
 		}
+#if defined(CONFIG_ARCH_OMAP2420)
 		if (mmc->internal_clock) {
 			/*
 			 * Use internal loop-back in MMC/SDIO
 			 * Module Input Clock selection
 			 */
 			if (cpu_is_omap24xx()) {
-				u32 v = omap_readl(OMAP2_CONTROL_DEVCONF);
-				v |= (1 << 24);
-				omap_writel(v, OMAP2_CONTROL_DEVCONF);
+				u32 v = ctrl_read_reg(CONTROL_DEVCONF0);
+				v |= (1 << 24); /* not used in 243x */
+				ctrl_write_reg(v, CONTROL_DEVCONF0);
 			}
 		}
+#endif
 		mmc1_conf = *mmc;
 		(void) platform_device_register(&mmc_omap_device1);
 	}

@@ -17,6 +17,8 @@
 
 #include <asm/io.h>
 
+#include "control.h"
+
 #if defined(CONFIG_ARCH_OMAP2420)
 #define TAP_BASE	io_p2v(0x48014000)
 #elif defined(CONFIG_ARCH_OMAP2430)
@@ -160,7 +162,7 @@ void __init omap2_check_revision(void)
 	/* Embedding the ES revision info in type field */
 	system_rev = omap_ids[j].type;
 
-	ctrl_status = omap_readl(OMAP2_CONTROL_STATUS);
+	ctrl_status = ctrl_read_reg(CONTROL_STATUS);
 	system_rev |= (ctrl_status & 0x3f);
 	system_rev |= (ctrl_status & 0x700);
 

@@ -29,6 +29,7 @@
 # include "../mach-omap2/prm.h"
 # include "../mach-omap2/cm.h"
 # include "../mach-omap2/sdrc.h"
+# include "../mach-omap2/control.h"
 #endif
 
 #define OMAP1_SRAM_PA		0x20000000
@@ -47,7 +48,6 @@
 #define VA_REQINFOPERM0		IO_ADDRESS(0x68005048)
 #define VA_READPERM0		IO_ADDRESS(0x68005050)
 #define VA_WRITEPERM0		IO_ADDRESS(0x68005058)
-#define VA_CONTROL_STAT		IO_ADDRESS(0x480002F8)
 #define GP_DEVICE		0x300
 #define TYPE_MASK		0x700
 
@@ -92,8 +92,10 @@ static int is_sram_locked(void)
 {
 	int type = 0;
 
+#if defined(CONFIG_ARCH_OMAP242X)
 	if (cpu_is_omap242x())
-		type = __raw_readl(VA_CONTROL_STAT) & TYPE_MASK;
+		type = ctrl_read_reg(CONTROL_STATUS) & TYPE_MASK;
+#endif
 
 	if (type == GP_DEVICE) {
 		/* RAMFW: R/W access to all initiators for all qualifier sets */

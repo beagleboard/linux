@@ -51,6 +51,7 @@
 #include "cm.h"
 #include "cm_regbits_24xx.h"
 #include "sdrc.h"
+#include "control.h"
 
 /* These addrs are in assembly language code to be patched at runtime */
 extern void *omap2_ocs_sdrc_power;
@@ -351,8 +352,6 @@ static struct subsys_attribute sleep_while_idle_attr = {
 
 static struct clk *osc_ck, *emul_ck;
 
-#define CONTROL_DEVCONF		__REG32(OMAP2_CTRL_BASE + 0x274)
-
 static int omap2_fclks_active(void)
 {
 	u32 f1, f2;
@@ -415,7 +414,8 @@ static void omap2_enter_full_retention(void)
 			  MPU_MOD, PM_PWSTCTRL);
 
 	/* Workaround to kill USB */
-	CONTROL_DEVCONF |= 0x00008000;
+	l = ctrl_read_reg(CONTROL_DEVCONF0) | 0x00008000;
+	ctrl_write_reg(l, CONTROL_DEVCONF0);
 
 	omap2_gpio_prepare_for_retention();
 
