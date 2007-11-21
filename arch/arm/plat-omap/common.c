@@ -264,6 +264,7 @@ arch_initcall(omap_init_clocksource_32k);
 void __init omap2_set_globals_242x(void)
 {
 	omap2_sdrc_base = OMAP2420_SDRC_BASE;
+	omap2_sms_base = OMAP2420_SMS_BASE;
 }
 #endif
 
@@ -271,6 +272,7 @@ void __init omap2_set_globals_242x(void)
 void __init omap2_set_globals_243x(void)
 {
 	omap2_sdrc_base = OMAP243X_SDRC_BASE;
+	omap2_sms_base = OMAP243X_SMS_BASE;
 }
 #endif
 
@@ -278,6 +280,7 @@ void __init omap2_set_globals_243x(void)
 void __init omap2_set_globals_343x(void)
 {
 	omap2_sdrc_base = OMAP343X_SDRC_BASE;
+	omap2_sms_base = OMAP343X_SMS_BASE;
 }
 #endif
 

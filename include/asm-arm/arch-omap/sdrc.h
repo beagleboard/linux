@@ -2,7 +2,7 @@
 #define ____ASM_ARCH_SDRC_H
 
 /*
- * OMAP2 SDRC register definitions
+ * OMAP2/3 SDRC/SMS register definitions
  *
  * Copyright (C) 2007 Texas Instruments, Inc.
  * Copyright (C) 2007 Nokia Corporation
@@ -61,5 +61,19 @@
 #define SDRC_RFR_CTRL_110MHz	(0x0002da01 | 1) /* Need to calc */
 #define SDRC_RFR_CTRL_BYPASS	(0x00005000 | 1) /* Need to calc */
 
+
+/*
+ * SMS register access
+ */
+
+
+#define OMAP242X_SMS_REGADDR(reg)	(void __iomem *)IO_ADDRESS(OMAP2420_SMS_BASE + reg)
+#define OMAP243X_SMS_REGADDR(reg)	(void __iomem *)IO_ADDRESS(OMAP243X_SMS_BASE + reg)
+#define OMAP343X_SMS_REGADDR(reg)	(void __iomem *)IO_ADDRESS(OMAP343X_SMS_BASE + reg)
+
+/* SMS register offsets - read/write with sms_{read,write}_reg() */
+
+#define SMS_SYSCONFIG		0x010
+/* REVISIT: fill in other SMS registers here */
 
 #endif
