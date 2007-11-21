@@ -31,7 +31,6 @@
 
 #include <asm/io.h>
 
-#include "sensor_if.h"
 #include "camera_hw_if.h"
 #include "camera_core.h"
 
