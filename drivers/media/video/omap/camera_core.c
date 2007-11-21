@@ -1007,17 +1007,16 @@ static ssize_t camera_streaming_show(struct device *dev,
 
 static DEVICE_ATTR(streaming, S_IRUGO, camera_streaming_show, NULL);
 
-static void camera_device_unregister(struct v4l2_int_device *ctl)
+static void camera_device_unregister(struct v4l2_int_device *s)
 {
-	struct camera_device *cam = ctl->priv;
+	struct camera_device *cam = s->u.slave->master->priv;
 
 	camera_sensor_exit(cam);
 }
 
-static int camera_device_register(struct v4l2_int_device *ctl,
-				  struct v4l2_int_device *s)
+static int camera_device_register(struct v4l2_int_device *s)
 {
-	struct camera_device *cam = ctl->priv;
+	struct camera_device *cam = s->u.slave->master->priv;
 	struct video_device *vfd;
 	int rval;
 
@@ -1092,7 +1091,7 @@ static int camera_device_register(struct v4l2_int_device *ctl,
 	return 0;
 
 err:
-	camera_device_unregister(ctl);
+	camera_device_unregister(s);
 
 	return rval;
 }
