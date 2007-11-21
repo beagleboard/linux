@@ -34,6 +34,8 @@
 
 #define SMS_SYSCONFIG			(OMAP2_SMS_BASE + 0x010)
 
+unsigned long omap2_sdrc_base;
+
 static struct memory_timings mem_timings;
 static u32 curr_perf_level = CORE_CLK_SRC_DPLL_X2;
 

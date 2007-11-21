@@ -32,6 +32,10 @@
 
 #include <asm/arch/clock.h>
 
+#if defined(CONFIG_ARCH_OMAP2) || defined(CONFIG_ARCH_OMAP3)
+# include "../mach-omap2/sdrc.h"
+#endif
+
 #define NO_LENGTH_CHECK 0xffffffff
 
 unsigned char omap_bootloader_tag[512];
@@ -259,18 +263,21 @@ arch_initcall(omap_init_clocksource_32k);
 #if defined(CONFIG_ARCH_OMAP2420)
 void __init omap2_set_globals_242x(void)
 {
+	omap2_sdrc_base = OMAP2420_SDRC_BASE;
 }
 #endif
 
 #if defined(CONFIG_ARCH_OMAP2430)
 void __init omap2_set_globals_243x(void)
 {
+	omap2_sdrc_base = OMAP243X_SDRC_BASE;
 }
 #endif
 
 #if defined(CONFIG_ARCH_OMAP3430)
 void __init omap2_set_globals_343x(void)
 {
+	omap2_sdrc_base = OMAP343X_SDRC_BASE;
 }
 #endif
 
