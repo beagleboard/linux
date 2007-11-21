@@ -525,6 +525,7 @@ static void __init tusb_evm_setup(void)
 
 #endif
 
+#if defined(CONFIG_VIDEO_OV9640) || defined(CONFIG_VIDEO_OV9640_MODULE)
 /*
  * Common OV9640 register initialization for all image sizes, pixel formats,
  * and frame rates
@@ -563,63 +564,37 @@ const static struct ov9640_reg ov9640_common[] = {
 	{ OV9640_REG_TERM, OV9640_VAL_TERM }
 };
 
-#if defined(CONFIG_VIDEO_OV9640) || defined(CONFIG_VIDEO_OV9640_MODULE)
-static int ov9640_sensor_powerup(void)
-{
-	unsigned char expa;
-	int err;
-
-	/* read current state of GPIO EXPA outputs */
-	if ((err = read_gpio_expa(&expa, 0x20))) {
-		printk(KERN_ERR "Error reading GPIO EXPA\n");
-		return err;
-	}
-	/* Set GPIO EXPA P3 (CAMERA_MODULE_EN) to power-up sensor */
-	if ((err = write_gpio_expa(expa | 0x08, 0x20))) {
-		printk(KERN_ERR "Error writing to GPIO EXPA\n");
-		return err;
-	}
-
-	/* read current state of GPIO EXPA outputs */
-	if ((err = read_gpio_expa(&expa, 0x22))) {
-		printk(KERN_ERR "Error reading GPIO EXPA\n");
-		return err;
-	}
-	/* Clear GPIO EXPA P7 (CAM_RST) */
-	if ((err = write_gpio_expa(expa & ~0x80, 0x22))) {
-		printk(KERN_ERR "Error writing to GPIO EXPA\n");
-		return err;
-	}
-
-	return 0;
-}
-static int ov9640_sensor_powerdown(void)
-{
-	unsigned char expa;
-	int err;
-
-	/* read current state of GPIO EXPA outputs */
-	if ((err = read_gpio_expa(&expa, 0x20))) {
-		printk(KERN_ERR "Error reading GPIO EXPA\n");
-		return err;
-	}
-	/* Clear GPIO EXPA P3 (CAMERA_MODULE_EN) to power-down sensor */
-	if ((err = write_gpio_expa(expa & ~0x08, 0x20))) {
-		printk(KERN_ERR "Error writing to GPIO EXPA\n");
-		return err;
-	}
-
-	return 0;
-}
-
 static int ov9640_sensor_power_set(int power)
 {
-	int err = 0;
+	unsigned char expa;
+	int err;
 
-	if (power)
-		err = ov9640_sensor_powerup();
-	else
-		err = ov9640_sensor_powerdown();
+	/* read current state of GPIO EXPA outputs */
+	if ((err = read_gpio_expa(&expa, 0x20))) {
+		printk(KERN_ERR "Error reading GPIO EXPA 0x20\n");
+		return err;
+	}
+
+	expa = power ? expa | 0x80 : expa & ~0x08;
+
+	/* Set GPIO EXPA P3 (CAMERA_MODULE_EN) to power-up sensor */
+	if ((err = write_gpio_expa(expa, 0x20))) {
+		printk(KERN_ERR "Error writing to GPIO EXPA 0x20\n");
+		return err;
+	}
+
+	if (power) {
+		/* read current state of GPIO EXPA outputs */
+		if ((err = read_gpio_expa(&expa, 0x22))) {
+			printk(KERN_ERR "Error reading GPIO EXPA\n");
+			return err;
+		}
+		/* Clear GPIO EXPA P7 (CAM_RST) */
+		if ((err = write_gpio_expa(expa & ~0x80, 0x22))) {
+			printk(KERN_ERR "Error writing to GPIO EXPA\n");
+			return err;
+		}
+	}
 
 	return err;
 }
@@ -643,16 +618,13 @@ static int ov9640_ifparm(struct v4l2_ifparm *p)
 
 	return 0;
 }
-#else
-static int ov9640_sensor_power_set(int power) { return 0; }
-static int ov9640_ifparm(struct v4l2_ifparm *p) { return 0; }
-#endif
 
 static struct ov9640_platform_data h4_ov9640_platform_data = {
 	.power_set	= ov9640_sensor_power_set,
 	.default_regs	= ov9640_common,
 	.ifparm		= ov9640_ifparm,
 };
+#endif
 
 static struct i2c_board_info __initdata h4_i2c_board_info[] = {
 	{
@@ -664,10 +636,12 @@ static struct i2c_board_info __initdata h4_i2c_board_info[] = {
 		I2C_BOARD_INFO("menelaus", 0x72),
 		.irq = INT_24XX_SYS_NIRQ,
 	},
+#if defined(CONFIG_VIDEO_OV9640) || defined(CONFIG_VIDEO_OV9640_MODULE)
 	{
 		I2C_BOARD_INFO("ov9640", 0x30),
 		.platform_data = &h4_ov9640_platform_data,
 	},
+#endif
 };
 
 static void __init omap_h4_init(void)
