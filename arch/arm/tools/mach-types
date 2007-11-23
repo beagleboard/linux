@@ -16,6 +16,7 @@
 #
 # machine_is_xxx	CONFIG_xxxx		MACH_TYPE_xxx		number
 #
+nokia_n810		MACH_NOKIA_N810		NOKIA_N810		5555
 ebsa110			ARCH_EBSA110		EBSA110			0
 riscpc			ARCH_RPC		RISCPC			1
 nexuspci		ARCH_NEXUSPCI		NEXUSPCI		3
