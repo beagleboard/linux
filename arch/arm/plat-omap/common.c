@@ -40,7 +40,7 @@
 
 u32 omap2_ctrl_base; /* until we have a better place to put it */
 
-unsigned char omap_bootloader_tag[512];
+unsigned char omap_bootloader_tag[1024];
 int omap_bootloader_tag_len;
 
 struct omap_board_config_kernel *omap_board_config;

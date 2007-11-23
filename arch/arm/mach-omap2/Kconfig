@@ -39,6 +39,10 @@ config MACH_NOKIA_N800
 	select MENELAUS if VIDEO_TCM825X
 	select OMAP_GPIO_SWITCH
 
+config MACH_NOKIA_N810
+	bool "Nokia N810"
+	depends on MACH_NOKIA_N800
+
 config MACH_OMAP2_TUSB6010
 	bool
 	depends on ARCH_OMAP2 && ARCH_OMAP2420

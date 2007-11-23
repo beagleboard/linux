@@ -1,7 +1,7 @@
 /*
  * linux/arch/arm/mach-omap2/board-n800.c
  *
- * Copyright (C) 2005 Nokia Corporation
+ * Copyright (C) 2005-2007 Nokia Corporation
  * Author: Juha Yrjola <juha.yrjola@nokia.com>
  *
  * Modified from mach-omap2/board-generic.c
@@ -42,11 +42,11 @@
 #include <../drivers/cbus/tahvo.h>
 #include <../drivers/media/video/tcm825x.h>
 
-#define N800_BLIZZARD_POWERDOWN_GPIO 15
-#define N800_STI_GPIO		62
+#define N800_BLIZZARD_POWERDOWN_GPIO	15
+#define N800_STI_GPIO			62
 #define N800_KEYB_IRQ_GPIO		109
 
-static void __init nokia_n800_init_irq(void)
+void __init nokia_n800_init_irq(void)
 {
 	omap2_init_common_hw();
 	omap_init_irq();
@@ -459,18 +459,16 @@ static struct i2c_board_info __initdata n800_i2c_board_info_2[] = {
 
 extern void __init n800_mmc_init(void);
 
-static void __init nokia_n800_init(void)
+void __init nokia_n800_common_init(void)
 {
 	platform_add_devices(n800_devices, ARRAY_SIZE(n800_devices));
 
 	n800_flash_init();
 	n800_mmc_init();
 	n800_bt_init();
-	n800_audio_init(&tsc2301_config);
 	n800_dsp_init();
 	n800_usb_init();
 	n800_cam_init();
-	n800_ts_set_config();
 	spi_register_board_info(n800_spi_board_info,
 				ARRAY_SIZE(n800_spi_board_info));
 	omap_serial_init();
@@ -480,12 +478,20 @@ static void __init nokia_n800_init(void)
 			      ARRAY_SIZE(n800_i2c_board_info_2));
 	mipid_dev_init();
 	blizzard_dev_init();
+}
+
+static void __init nokia_n800_init(void)
+{
+	nokia_n800_common_init();
+
+	n800_audio_init(&tsc2301_config);
+	n800_ts_set_config();
 	tsc2301_dev_init();
 	omap_register_gpio_switches(n800_gpio_switches,
 				    ARRAY_SIZE(n800_gpio_switches));
 }
 
-static void __init nokia_n800_map_io(void)
+void __init nokia_n800_map_io(void)
 {
 	omap_board_config = n800_config;
 	omap_board_config_size = ARRAY_SIZE(n800_config);
