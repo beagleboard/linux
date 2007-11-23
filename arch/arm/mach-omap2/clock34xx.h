@@ -1088,7 +1088,7 @@ static struct clk core_l3_ick = {
 };
 
 static struct clk hsotgusb_ick = {
-	.name		= "hsotgusb_fck",
+	.name		= "hsotgusb_ick",
 	.parent		= &core_l3_ick,
 	.enable_reg	= OMAP_CM_REGADDR(CORE_MOD, CM_ICLKEN1),
 	.enable_bit	= OMAP3430_EN_HSOTGUSB_SHIFT,
