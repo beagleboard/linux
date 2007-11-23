@@ -712,7 +712,8 @@ config VIDEO_CAFE_CCIC
 
 config VIDEO_OMAP2
 	tristate "OMAP 2 Camera support (EXPERIMENTAL)"
-	select VIDEO_BUF
+	select VIDEOBUF_GEN
+	select VIDEOBUF_DMA_SG
 	depends on VIDEO_V4L2 && ARCH_OMAP24XX
 	---help---
 	  Driver for an OMAP 2 camera controller.

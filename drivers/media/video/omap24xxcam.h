@@ -27,7 +27,7 @@
 #ifndef OMAP24XXCAM_H
 #define OMAP24XXCAM_H
 
-#include <media/video-buf.h>
+#include <media/videobuf-dma-sg.h>
 #include <media/v4l2-int-device.h>
 
 /*
