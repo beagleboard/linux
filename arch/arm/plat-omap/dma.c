@@ -1709,9 +1709,9 @@ static int omap2_dma_handle_ch(int ch)
 
 		if (!OMAP_DMA_CHAIN_QEMPTY(chain_id))
 			OMAP_DMA_CHAIN_INCQHEAD(chain_id);
-	}
 
-	status = OMAP_DMA_CSR_REG(ch);
+		status = OMAP_DMA_CSR_REG(ch);
+	}
 
 	if (likely(dma_chan[ch].callback != NULL)) {
 		if (dma_chan[ch].chain_id != -1)
