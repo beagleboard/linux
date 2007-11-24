@@ -41,7 +41,7 @@
 struct tsc210x_hwmon {
 	int bat[2], aux[2], temp[2];
 
-	struct class_device *dev;
+	struct device *dev;
 	struct tsc210x_config *pdata;
 #ifdef CONFIG_APM
 	/* prevent APM from colliding with normal hwmon accessors */

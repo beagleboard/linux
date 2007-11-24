@@ -96,7 +96,7 @@ static int tsc210x_ts_probe(struct platform_device *pdev)
 	dev->name = "TSC210x Touchscreen";
 	dev->cdev.dev = &pdev->dev;
 	dev->evbit[0] = BIT(EV_KEY) | BIT(EV_ABS);
-	dev->keybit[LONG(BTN_TOUCH)] |= BIT(BTN_TOUCH);
+	dev->keybit[BIT_WORD(BTN_TOUCH)] |= BIT_MASK(BTN_TOUCH);
 	dev->absbit[0] = BIT(ABS_X) | BIT(ABS_Y) | BIT(ABS_PRESSURE);
 	dev->phys = "tsc210x/input0";
 	dev->id.bustype = BUS_HOST;
