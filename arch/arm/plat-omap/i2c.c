@@ -80,7 +80,7 @@ static struct platform_device omap_i2c_devices[] = {
 #endif
 };
 
-static void omap_i2c_mux_pins(int bus_id)
+static void __init omap_i2c_mux_pins(int bus_id)
 {
 	/* TODO: Muxing for OMAP3 */
 	switch (bus_id) {
@@ -102,7 +102,7 @@ static void omap_i2c_mux_pins(int bus_id)
 	}
 }
 
-int omap_register_i2c_bus(int bus_id, u32 clkrate,
+int __init omap_register_i2c_bus(int bus_id, u32 clkrate,
 			  struct i2c_board_info const *info,
 			  unsigned len)
 {
