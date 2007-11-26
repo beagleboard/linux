@@ -21,6 +21,7 @@
 
 #include <asm/arch/tc.h>
 #include <asm/arch/board.h>
+#include <asm/arch/mmc.h>
 #include <asm/arch/mux.h>
 #include <asm/arch/gpio.h>
 #include <asm/arch/menelaus.h>
@@ -165,7 +166,7 @@ static inline void omap_init_kp(void) {}
 #endif
 #define	OMAP_MMC2_BASE		0xfffb7c00	/* omap16xx only */
 
-static struct omap_mmc_conf mmc1_conf;
+static struct omap_mmc_platform_data mmc1_data;
 
 static u64 mmc1_dmamask = 0xffffffff;
 
@@ -186,7 +187,7 @@ static struct platform_device mmc_omap_device1 = {
 	.id		= 1,
 	.dev = {
 		.dma_mask	= &mmc1_dmamask,
-		.platform_data	= &mmc1_conf,
+		.platform_data	= &mmc1_data,
 	},
 	.num_resources	= ARRAY_SIZE(mmc1_resources),
 	.resource	= mmc1_resources,
@@ -194,7 +195,7 @@ static struct platform_device mmc_omap_device1 = {
 
 #ifdef	CONFIG_ARCH_OMAP16XX
 
-static struct omap_mmc_conf mmc2_conf;
+static struct omap_mmc_platform_data mmc2_data;
 
 static u64 mmc2_dmamask = 0xffffffff;
 
@@ -216,7 +217,7 @@ static struct platform_device mmc_omap_device2 = {
 	.id		= 2,
 	.dev = {
 		.dma_mask	= &mmc2_dmamask,
-		.platform_data	= &mmc2_conf,
+		.platform_data	= &mmc2_data,
 	},
 	.num_resources	= ARRAY_SIZE(mmc2_resources),
 	.resource	= mmc2_resources,
@@ -286,7 +287,7 @@ static void __init omap_init_mmc(void)
 			}
 		}
 #endif
-		mmc1_conf = *mmc;
+		mmc1_data.conf = *mmc;
 		(void) platform_device_register(&mmc_omap_device1);
 	}
 
@@ -315,12 +316,29 @@ static void __init omap_init_mmc(void)
 		if (cpu_is_omap1710())
 			omap_writel(omap_readl(MOD_CONF_CTRL_1) | (1 << 24),
 				     MOD_CONF_CTRL_1);
-		mmc2_conf = *mmc;
+		mmc2_data.conf = *mmc;
 		(void) platform_device_register(&mmc_omap_device2);
 	}
 #endif
 	return;
 }
+
+void omap_set_mmc_info(int host, const struct omap_mmc_platform_data *info)
+{
+	switch (host) {
+	case 1:
+		mmc1_data = *info;
+		break;
+#ifdef CONFIG_ARCH_OMAP16XX
+	case 2:
+		mmc2_data = *info;
+		break;
+#endif
+	default:
+		BUG();
+	}
+}
+
 #else
 static inline void omap_init_mmc(void) {}
 #endif

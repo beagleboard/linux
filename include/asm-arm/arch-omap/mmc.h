@@ -15,21 +15,16 @@
 #include <linux/device.h>
 #include <linux/mmc/host.h>
 
+#include <asm/arch/board.h>
+
 #define OMAP_MMC_MAX_SLOTS	2
 
 struct omap_mmc_platform_data {
 	struct omap_mmc_conf    conf;
 
-	unsigned enabled:1;
 	/* number of slots on board */
 	unsigned nr_slots:2;
-	/* nomux means "standard" muxing is wrong on this board, and that
-	 * board-specific code handled it before common init logic.
-	 */
-	unsigned nomux:1;
-	/* 4 wire signaling is optional, and is only used for SD/SDIO and
-	 * MMCv4 */
-	unsigned wire4:1;
+
 	/* set if your board has components or wiring that limits the
 	 * maximum frequency on the MMC bus */
 	unsigned int max_freq;
