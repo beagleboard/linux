@@ -489,6 +489,8 @@ static int h2_nand_dev_ready(struct nand_platform_data *data)
 	return omap_get_gpio_datain(H2_NAND_RB_GPIO_PIN);
 }
 
+extern void __init h2_mmc_init(void);
+
 static void __init h2_init(void)
 {
 	/* Here we assume the NOR boot config:  NOR on CS3 (possibly swapped
