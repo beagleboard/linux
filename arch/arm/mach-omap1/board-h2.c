@@ -39,6 +39,7 @@
 #include <asm/mach/map.h>
 
 #include <asm/arch/gpio.h>
+#include <asm/arch/gpio-switch.h>
 #include <asm/arch/mux.h>
 #include <asm/arch/tc.h>
 #include <asm/arch/irda.h>
@@ -458,14 +459,13 @@ static struct omap_usb_config h2_usb_config __initdata = {
 };
 
 static struct omap_mmc_config h2_mmc_config __initdata = {
-	.mmc [0] = {
-		.enabled 	= 1,
+	.mmc[0] = {
+		.enabled	= 1,
 		.wire4		= 1,
-		.wp_pin		= OMAP_MPUIO(3),
-		.power_pin	= -1,	/* tps65010 gpio3 */
-		.switch_pin	= OMAP_MPUIO(1),
 	},
 };
+
+extern struct omap_mmc_platform_data h2_mmc_data;
 
 static struct omap_uart_config h2_uart_config __initdata = {
 	.enabled_uarts = ((1 << 0) | (1 << 1) | (1 << 2)),
@@ -476,10 +476,22 @@ static struct omap_lcd_config h2_lcd_config __initdata = {
 };
 
 static struct omap_board_config_kernel h2_config[] __initdata = {
-	{ OMAP_TAG_USB,           &h2_usb_config },
-	{ OMAP_TAG_MMC,           &h2_mmc_config },
+	{ OMAP_TAG_USB,		&h2_usb_config },
+	{ OMAP_TAG_MMC,		&h2_mmc_config },
 	{ OMAP_TAG_UART,	&h2_uart_config },
 	{ OMAP_TAG_LCD,		&h2_lcd_config },
+};
+
+static struct omap_gpio_switch h2_gpio_switches[] __initdata = {
+	{
+		.name                   = "mmc_slot",
+		.gpio                   = OMAP_MPUIO(1),
+		.type                   = OMAP_GPIO_SWITCH_TYPE_COVER,
+		.debounce_rising        = 100,
+		.debounce_falling       = 0,
+		.notify                 = h2_mmc_slot_cover_handler,
+		.notify_data            = NULL,
+	},
 };
 
 #define H2_NAND_RB_GPIO_PIN	62
@@ -533,6 +545,9 @@ static void __init h2_init(void)
 	omap_board_config_size = ARRAY_SIZE(h2_config);
 	omap_serial_init();
 	omap_register_i2c_bus(1, 100, NULL, 0);
+	h2_mmc_init();
+	omap_register_gpio_switches(h2_gpio_switches,
+				    ARRAY_SIZE(h2_gpio_switches));
 }
 
 static void __init h2_map_io(void)
