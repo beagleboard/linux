@@ -655,6 +655,7 @@ static struct i2c_board_info __initdata h3_i2c_board_info[] = {
 #endif
 };
 
+extern void __init h3_mmc_init(void);
 
 static void __init h3_init(void)
 {
