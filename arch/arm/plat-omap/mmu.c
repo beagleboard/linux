@@ -588,9 +588,12 @@ int omap_mmu_load_tlb_entry(struct omap_mmu *mmu,
 {
 	struct omap_mmu_tlb_lock lock;
 	struct cam_ram_regset *cr;
+	int ret;
 
 	clk_enable(mmu->clk);
-	omap_dsp_request_mem();
+	ret = omap_dsp_request_mem();
+	if (ret < 0)
+		goto out;
 
 	omap_mmu_get_tlb_lock(mmu, &lock);
 	for (lock.victim = 0; lock.victim < lock.base; lock.victim++) {
@@ -624,6 +627,7 @@ found_victim:
 	omap_mmu_set_tlb_lock(mmu, &lock);
 
 	omap_dsp_release_mem();
+out:
 	clk_disable(mmu->clk);
 	return 0;
 }
@@ -638,11 +642,13 @@ omap_mmu_cam_va(struct omap_mmu *mmu, struct cam_ram_regset *cr)
 int omap_mmu_clear_tlb_entry(struct omap_mmu *mmu, unsigned long vadr)
 {
 	struct omap_mmu_tlb_lock lock;
-	int i;
+	int i, ret = 0;
 	int max_valid = 0;
 
 	clk_enable(mmu->clk);
-	omap_dsp_request_mem();
+	ret = omap_dsp_request_mem();
+	if (ret < 0)
+		goto out;
 
 	omap_mmu_get_tlb_lock(mmu, &lock);
 	for (i = 0; i < lock.base; i++) {
@@ -666,23 +672,28 @@ int omap_mmu_clear_tlb_entry(struct omap_mmu *mmu, unsigned long vadr)
 	omap_mmu_set_tlb_lock(mmu, &lock);
 
 	omap_dsp_release_mem();
+out:
 	clk_disable(mmu->clk);
-	return 0;
+	return ret;
 }
 EXPORT_SYMBOL_GPL(omap_mmu_clear_tlb_entry);
 
 static void omap_mmu_gflush(struct omap_mmu *mmu)
 {
 	struct omap_mmu_tlb_lock lock;
+	int ret;
 
 	clk_enable(mmu->clk);
-	omap_dsp_request_mem();
+	ret = omap_dsp_request_mem();
+	if (ret < 0)
+		goto out;
 
 	omap_mmu_write_reg(mmu, 0x1, OMAP_MMU_GFLUSH);
 	lock.base = lock.victim = mmu->nr_exmap_preserved;
 	omap_mmu_set_tlb_lock(mmu, &lock);
 
 	omap_dsp_release_mem();
+out:
 	clk_disable(mmu->clk);
 }
 
@@ -1073,7 +1084,10 @@ static int omap_mmu_init(struct omap_mmu *mmu)
 	int ret = 0;
 
 	clk_enable(mmu->clk);
-	omap_dsp_request_mem();
+	ret = omap_dsp_request_mem();
+	if (ret < 0)
+		goto out;
+
 	down_write(&mmu->exmap_sem);
 
 	ret = request_irq(mmu->irq, omap_mmu_interrupt, IRQF_DISABLED,
@@ -1093,9 +1107,10 @@ static int omap_mmu_init(struct omap_mmu *mmu)
 
 	if (unlikely(mmu->ops->startup))
 		ret = mmu->ops->startup(mmu);
- fail:
+fail:
 	up_write(&mmu->exmap_sem);
 	omap_dsp_release_mem();
+out:
 	clk_disable(mmu->clk);
 
 	return ret;
@@ -1309,15 +1324,18 @@ static ssize_t omap_mmu_show(struct device *dev, struct device_attribute *attr,
 {
 	struct omap_mmu *mmu = dev_get_drvdata(dev);
 	struct omap_mmu_tlb_lock tlb_lock;
-	int ret = -EIO;
+	int ret;
 
 	clk_enable(mmu->clk);
-	omap_dsp_request_mem();
+	ret = omap_dsp_request_mem();
+	if (ret < 0)
+		goto out;
 
 	down_read(&mmu->exmap_sem);
 
 	omap_mmu_get_tlb_lock(mmu, &tlb_lock);
 
+	ret = -EIO;
 	if (likely(mmu->ops->show))
 		ret = mmu->ops->show(mmu, buf, &tlb_lock);
 
@@ -1326,6 +1344,7 @@ static ssize_t omap_mmu_show(struct device *dev, struct device_attribute *attr,
 
 	up_read(&mmu->exmap_sem);
 	omap_dsp_release_mem();
+out:
 	clk_disable(mmu->clk);
 
 	return ret;

@@ -66,8 +66,11 @@ extern void omap_dsp_release_mpui(void);
 extern int omap_dsp_request_mem(void);
 extern int omap_dsp_release_mem(void);
 #elif defined(CONFIG_ARCH_OMAP2)
-#define omap_dsp_request_mem()	do { } while (0)
-#define omap_dsp_release_mem()	do { } while (0)
+static inline int omap_dsp_request_mem(void)
+{
+	return 0;
+}
+#define omap_dsp_release_mem()	do {} while (0)
 #endif
 
 #endif /* ASM_ARCH_DSP_COMMON_H */

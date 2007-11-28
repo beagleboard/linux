@@ -28,8 +28,8 @@
 #include <asm/arch/dma.h>
 #include <asm/arch/mux.h>
 #include <asm/arch/irqs.h>
-#include <asm/arch/mcbsp.h>
 #include <asm/arch/dsp_common.h>
+#include <asm/arch/mcbsp.h>
 
 #ifdef CONFIG_MCBSP_DEBUG
 #define DBG(x...)	printk(x)
@@ -197,7 +197,14 @@ static int omap_mcbsp_check(unsigned int id)
 static void omap_mcbsp_dsp_request(void)
 {
 	if (cpu_is_omap15xx() || cpu_is_omap16xx()) {
-		omap_dsp_request_mem();
+		int ret;
+
+		ret = omap_dsp_request_mem();
+		if (ret < 0) {
+			printk(KERN_ERR "Could not get dsp memory: %i\n", ret);
+			return;
+		}
+
 		clk_enable(mcbsp_dsp_ck);
 		clk_enable(mcbsp_api_ck);
 

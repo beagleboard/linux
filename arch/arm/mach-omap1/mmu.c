@@ -32,7 +32,6 @@
 #include <linux/err.h>
 #include "mmu.h"
 #include <asm/tlbflush.h>
-#include <asm/arch/dsp.h>
 #include <asm/arch/dsp_common.h>
 
 static void *dspvect_page;
