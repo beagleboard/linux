@@ -1081,6 +1081,7 @@ source "drivers/dma/Kconfig"
 
 if ARCH_OMAP
 source "drivers/cbus/Kconfig"
+source "drivers/dsp/dspgateway/Kconfig"
 endif
 
 endmenu

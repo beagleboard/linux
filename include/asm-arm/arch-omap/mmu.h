@@ -59,6 +59,16 @@ struct omap_mmu_tlb_lock {
 struct omap_mmu;
 struct omap_mmu_tlb_entry;
 
+#ifdef CONFIG_ARCH_OMAP1
+extern struct omap_mmu_ops omap1_mmu_ops;
+extern void omap_mmu_itack(struct omap_mmu *mmu);
+#elif defined(CONFIG_ARCH_OMAP2)
+extern struct omap_mmu_ops omap2_mmu_ops;
+static inline void omap_mmu_itack(struct omap_mmu *mmu)
+{
+}
+#endif
+
 struct omap_mmu_ops {
 	int (*startup)(struct omap_mmu *mmu);
 	void (*shutdown)(struct omap_mmu *mmu);

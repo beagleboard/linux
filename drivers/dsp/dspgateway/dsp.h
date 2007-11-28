@@ -30,10 +30,10 @@
 
 
 #ifdef CONFIG_ARCH_OMAP2
-#include "../../mach-omap2/prm.h"
-#include "../../mach-omap2/prm_regbits_24xx.h"
-#include "../../mach-omap2/cm.h"
-#include "../../mach-omap2/cm_regbits_24xx.h"
+#include "../../../arch/arm/mach-omap2/prm.h"
+#include "../../../arch/arm/mach-omap2/prm_regbits_24xx.h"
+#include "../../../arch/arm/mach-omap2/cm.h"
+#include "../../../arch/arm/mach-omap2/cm_regbits_24xx.h"
 #endif
 
 /*

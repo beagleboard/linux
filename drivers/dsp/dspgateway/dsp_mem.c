@@ -46,10 +46,12 @@
 #include "dsp.h"
 #include "ipbuf.h"
 
+#if 0
 #if defined(CONFIG_ARCH_OMAP1)
 #include "../../mach-omap1/mmu.h"
 #elif defined(CONFIG_ARCH_OMAP2)
 #include "../../mach-omap2/mmu.h"
+#endif
 #endif
 
 #include "mmu.h"

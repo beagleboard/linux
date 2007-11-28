@@ -95,8 +95,6 @@ do {							\
 	(ent)->ap	= OMAP_MMU_RAM_L_AP_FA;		\
 } while (0)
 
-extern struct omap_mmu_ops omap1_mmu_ops;
-
 struct omap_mmu_tlb_entry {
 	unsigned long va;
 	unsigned long pa;
@@ -116,11 +114,6 @@ static inline void omap_mmu_write_reg(struct omap_mmu *mmu,
 			       unsigned short val, unsigned long reg)
 {
 	__raw_writew(val, mmu->base + reg);
-}
-
-static inline void omap_mmu_itack(struct omap_mmu *mmu)
-{
-	omap_mmu_write_reg(mmu, OMAP_MMU_IT_ACK_IT_ACK, OMAP_MMU_IT_ACK);
 }
 
 #endif /* __MACH_OMAP1_MMU_H */

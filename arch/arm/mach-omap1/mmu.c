@@ -81,6 +81,12 @@ void dsp_mem_usecount_clear(void)
 }
 EXPORT_SYMBOL_GPL(dsp_mem_usecount_clear);
 
+void omap_mmu_itack(struct omap_mmu *mmu)
+{
+	omap_mmu_write_reg(mmu, OMAP_MMU_IT_ACK_IT_ACK, OMAP_MMU_IT_ACK);
+}
+EXPORT_SYMBOL(omap_mmu_itack);
+
 static int omap1_mmu_mem_enable(struct omap_mmu *mmu, void *addr)
 {
 	int ret = 0;

@@ -32,6 +32,3 @@ obj-$(CONFIG_OMAP_MMU_FWK) += mmu.o
 # OMAP mailbox framework
 obj-$(CONFIG_OMAP_MBOX_FWK) += mailbox.o
 
-# DSP subsystem
-obj-y += dsp/
-obj-$(CONFIG_OMAP_DSP) += mailbox.o

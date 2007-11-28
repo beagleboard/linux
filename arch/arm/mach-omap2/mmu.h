@@ -93,8 +93,6 @@ do {								\
 	(ent)->mixed	= 0;					\
 } while (0)
 
-extern struct omap_mmu_ops omap2_mmu_ops;
-
 struct omap_mmu_tlb_entry {
 	unsigned long va;
 	unsigned long pa;
@@ -115,7 +113,5 @@ static inline void omap_mmu_write_reg(struct omap_mmu *mmu,
 {
 	__raw_writel(val, mmu->base + reg);
 }
-static inline void omap_mmu_itack(struct omap_mmu *mmu)
-{
-}
+
 #endif /* __MACH_OMAP2_MMU_H */
