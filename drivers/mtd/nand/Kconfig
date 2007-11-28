@@ -69,6 +69,12 @@ config MTD_NAND_AMS_DELTA
 	help
 	  Support for NAND flash on Amstrad E3 (Delta).
 
+config MTD_NAND_OMAP2
+	tristate "NAND Flash device on OMAP 2420H4/2430SDP boards"
+	depends on (ARM && ARCH_OMAP2 && MTD_NAND)
+	help
+          Support for NAND flash on Texas Instruments 2430SDP/2420H4 platforms.
+
 config MTD_NAND_OMAP
 	tristate "NAND Flash device on OMAP H3/H2/P2 boards"
 	depends on ARM && ARCH_OMAP1 && MTD_NAND && (MACH_OMAP_H2 || MACH_OMAP_H3 || MACH_OMAP_PERSEUS2)
