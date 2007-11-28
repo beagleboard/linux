@@ -30,8 +30,7 @@
 #include <asm/io.h>
 #include <asm/arch/clock.h>
 #include <asm/arch/board.h>
-
-#include "../plat-omap/dsp/dsp_common.h"
+#include <asm/arch/dsp_common.h>
 
 #if	defined(CONFIG_OMAP_DSP)
 

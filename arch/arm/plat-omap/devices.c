@@ -25,14 +25,13 @@
 #include <asm/arch/mux.h>
 #include <asm/arch/gpio.h>
 #include <asm/arch/menelaus.h>
+#include <asm/arch/dsp_common.h>
 
 #if defined(CONFIG_ARCH_OMAP24XX) || defined(CONFIG_ARCH_OMAP34XX)
 # include "../mach-omap2/control.h"
 #endif
 
 #if	defined(CONFIG_OMAP_DSP) || defined(CONFIG_OMAP_DSP_MODULE)
-
-#include "../plat-omap/dsp/dsp_common.h"
 
 static struct dsp_platform_data dsp_pdata = {
 	.kdev_list = LIST_HEAD_INIT(dsp_pdata.kdev_list),

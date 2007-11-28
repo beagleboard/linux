@@ -59,9 +59,6 @@
 
 #define IOMAP_VAL	0x3f
 
-#define omap_dsp_request_mem()	do { } while (0)
-#define omap_dsp_release_mem()	do { } while (0)
-
 #define INIT_TLB_ENTRY(ent,v,p,ps)				\
 do {								\
 	(ent)->va	= (v);					\

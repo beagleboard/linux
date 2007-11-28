@@ -36,8 +36,7 @@
 #include <asm/arch/omapfb.h>
 #include <asm/arch/hwa742.h>
 #include <asm/arch/lcd_mipid.h>
-
-#include "../plat-omap/dsp/dsp_common.h"
+#include <asm/arch/dsp_common.h>
 
 #define ADS7846_PENDOWN_GPIO	15
 

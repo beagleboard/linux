@@ -118,9 +118,6 @@ static inline void omap_mmu_write_reg(struct omap_mmu *mmu,
 	__raw_writew(val, mmu->base + reg);
 }
 
-int omap_dsp_request_mem(void);
-void omap_dsp_release_mem(void);
-
 static inline void omap_mmu_itack(struct omap_mmu *mmu)
 {
 	omap_mmu_write_reg(mmu, OMAP_MMU_IT_ACK_IT_ACK, OMAP_MMU_IT_ACK);

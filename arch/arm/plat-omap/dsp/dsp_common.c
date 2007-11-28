@@ -33,10 +33,12 @@
 #include <asm/io.h>
 #include <asm/tlbflush.h>
 #include <asm/irq.h>
+#include <asm/arch/dsp_common.h>
+#include "dsp.h"
+
 #ifdef CONFIG_ARCH_OMAP1
 #include <asm/arch/tc.h>
 #endif
-#include "dsp_common.h"
 
 #if defined(CONFIG_ARCH_OMAP1)
 #define dsp_boot_config(mode)	omap_writew((mode), MPUI_DSP_BOOT_CONFIG)

@@ -30,11 +30,11 @@
 #include <linux/clk.h>
 #include <asm/delay.h>
 #include <asm/arch/mailbox.h>
+#include <asm/arch/dsp.h>
 #include <asm/arch/dsp_common.h>
 #include "dsp_mbcmd.h"
 #include "dsp.h"
 #include "ipbuf.h"
-#include "dsp_common.h"
 
 MODULE_AUTHOR("Toshihiro Kobayashi <toshihiro.kobayashi@nokia.com>");
 MODULE_DESCRIPTION("OMAP DSP driver module");
@@ -453,6 +453,41 @@ static void mbox_kfunc(struct mbcmd *mb)
 		       "mbox: Unknown KFUNC from DSP: 0x%02x\n", mb->cmd_l);
 	}
 }
+
+#if defined(CONFIG_ARCH_OMAP1)
+static inline void dsp_clk_enable(void) {}
+static inline void dsp_clk_disable(void) {}
+#elif defined(CONFIG_ARCH_OMAP2)
+static inline void dsp_clk_enable(void)
+{
+	u32 r;
+
+	/*XXX should be handled in mach-omap[1,2] XXX*/
+	prm_write_mod_reg(OMAP24XX_FORCESTATE | (1 << OMAP_POWERSTATE_SHIFT),
+			  OMAP24XX_DSP_MOD, PM_PWSTCTRL);
+
+	r = cm_read_mod_reg(OMAP24XX_DSP_MOD, CM_AUTOIDLE);
+	r |= OMAP2420_AUTO_DSP_IPI;
+	cm_write_mod_reg(r, OMAP24XX_DSP_MOD, CM_AUTOIDLE);
+
+	r = cm_read_mod_reg(OMAP24XX_DSP_MOD, CM_CLKSTCTRL);
+	r |= OMAP24XX_AUTOSTATE_DSP;
+	cm_write_mod_reg(r, OMAP24XX_DSP_MOD, CM_CLKSTCTRL);
+
+	clk_enable(dsp_fck_handle);
+	clk_enable(dsp_ick_handle);
+	__dsp_per_enable();
+}
+static inline void dsp_clk_disable(void)
+{
+	__dsp_per_disable();
+	clk_disable(dsp_ick_handle);
+	clk_disable(dsp_fck_handle);
+
+	prm_write_mod_reg(OMAP24XX_FORCESTATE | (3 << OMAP_POWERSTATE_SHIFT),
+			  OMAP24XX_DSP_MOD, PM_PWSTCTRL);
+}
+#endif
 
 int dsp_late_init(void)
 {

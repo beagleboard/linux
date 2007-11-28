@@ -28,8 +28,8 @@
 #include <asm/arch/dma.h>
 #include <asm/arch/mux.h>
 #include <asm/arch/irqs.h>
-#include <asm/arch/dsp_common.h>
 #include <asm/arch/mcbsp.h>
+#include <asm/arch/dsp_common.h>
 
 #ifdef CONFIG_MCBSP_DEBUG
 #define DBG(x...)	printk(x)
