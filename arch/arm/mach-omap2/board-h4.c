@@ -272,7 +272,10 @@ static struct platform_device *h4_devices[] __initdata = {
 /* 2420 Sysboot setup (2430 is different) */
 static u32 get_sysboot_value(void)
 {
-	return (ctrl_read_reg(CONTROL_STATUS) & 0xFFF);
+	return (ctrl_read_reg(OMAP24XX_CONTROL_STATUS) &
+		(OMAP2_SYSBOOT_5_MASK | OMAP2_SYSBOOT_4_MASK |
+		 OMAP2_SYSBOOT_3_MASK | OMAP2_SYSBOOT_2_MASK |
+		 OMAP2_SYSBOOT_1_MASK | OMAP2_SYSBOOT_0_MASK));
 }
 
 /* FIXME: This function should be moved to some other file, gpmc.c? */

@@ -52,6 +52,7 @@
 
 #include <asm/arch/dma.h>
 #include <asm/arch/usb.h>
+#include <asm/arch/control.h>
 
 #include "omap_udc.h"
 
@@ -2263,8 +2264,15 @@ static int proc_otg_show(struct seq_file *s)
 
 	tmp = OTG_REV_REG;
 	if (cpu_is_omap24xx()) {
+		/*
+		 * REVISIT: Not clear how this works on OMAP2.  trans
+		 * is ANDed to produce bits 7 and 8, which might make
+		 * sense for USB_TRANSCEIVER_CTRL_REG on OMAP1,
+		 * but with CONTROL_DEVCONF, these bits have something to
+		 * do with the frame adjustment counter and McBSP2.
+		 */
 		ctrl_name = "control_devconf";
-		trans = CONTROL_DEVCONF_REG;
+		trans = ctrl_read_reg(CONTROL_DEVCONF0);
 	} else {
 		ctrl_name = "tranceiver_ctrl";
 		trans = USB_TRANSCEIVER_CTRL_REG;

@@ -414,8 +414,8 @@ static void omap2_enter_full_retention(void)
 			  MPU_MOD, PM_PWSTCTRL);
 
 	/* Workaround to kill USB */
-	l = ctrl_read_reg(CONTROL_DEVCONF0) | 0x00008000;
-	ctrl_write_reg(l, CONTROL_DEVCONF0);
+	l = ctrl_read_reg(OMAP2_CONTROL_DEVCONF0) | OMAP24XX_USBSTANDBYCTRL;
+	ctrl_write_reg(l, OMAP2_CONTROL_DEVCONF0);
 
 	omap2_gpio_prepare_for_retention();
 

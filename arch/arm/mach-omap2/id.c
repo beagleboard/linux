@@ -162,9 +162,23 @@ void __init omap2_check_revision(void)
 	/* Embedding the ES revision info in type field */
 	system_rev = omap_ids[j].type;
 
-	ctrl_status = ctrl_read_reg(CONTROL_STATUS);
-	system_rev |= (ctrl_status & 0x3f);
-	system_rev |= (ctrl_status & 0x700);
+	/* Add in the device type and sys_boot fields (see above) */
+	if (cpu_is_omap24xx()) {
+		i = OMAP24XX_CONTROL_STATUS;
+	} else if (cpu_is_omap343x()) {
+		i = OMAP343X_CONTROL_STATUS;
+	} else {
+		printk(KERN_ERR "id: unknown CPU type\n");
+		BUG();
+	}
+	ctrl_status = ctrl_read_reg(i);
+	system_rev |= (ctrl_status & (OMAP2_SYSBOOT_5_MASK |
+				      OMAP2_SYSBOOT_4_MASK |
+				      OMAP2_SYSBOOT_3_MASK |
+				      OMAP2_SYSBOOT_2_MASK |
+				      OMAP2_SYSBOOT_1_MASK |
+				      OMAP2_SYSBOOT_0_MASK));
+	system_rev |= (ctrl_status & OMAP2_DEVICETYPE_MASK);
 
 	pr_info("OMAP%04x", system_rev >> 16);
 	if ((system_rev >> 8) & 0x0f)

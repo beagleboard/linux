@@ -280,9 +280,9 @@ static void __init omap_init_mmc(void)
 			 * Module Input Clock selection
 			 */
 			if (cpu_is_omap24xx()) {
-				u32 v = ctrl_read_reg(CONTROL_DEVCONF0);
+				u32 v = ctrl_read_reg(OMAP2_CONTROL_DEVCONF0);
 				v |= (1 << 24); /* not used in 243x */
-				ctrl_write_reg(v, CONTROL_DEVCONF0);
+				ctrl_write_reg(v, OMAP2_CONTROL_DEVCONF0);
 			}
 		}
 #endif

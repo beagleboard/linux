@@ -49,7 +49,6 @@
 #define VA_READPERM0		IO_ADDRESS(0x68005050)
 #define VA_WRITEPERM0		IO_ADDRESS(0x68005058)
 #define GP_DEVICE		0x300
-#define TYPE_MASK		0x700
 
 #define ROUND_DOWN(value,boundary)	((value) & (~((boundary)-1)))
 
@@ -94,7 +93,8 @@ static int is_sram_locked(void)
 
 #if defined(CONFIG_ARCH_OMAP242X)
 	if (cpu_is_omap242x())
-		type = ctrl_read_reg(CONTROL_STATUS) & TYPE_MASK;
+		type = (ctrl_read_reg(OMAP24XX_CONTROL_STATUS) &
+			OMAP2_DEVICETYPE_MASK);
 #endif
 
 	if (type == GP_DEVICE) {

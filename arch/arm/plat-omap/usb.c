@@ -116,36 +116,36 @@ static void omap2_usb_devconf_clear(u8 port, u32 mask)
 {
 	u32 r;
 
-	r = ctrl_read_reg(CONTROL_DEVCONF0);
+	r = ctrl_read_reg(OMAP2_CONTROL_DEVCONF0);
 	r &= ~USBTXWRMODEI(port, mask);
-	ctrl_write_reg(r, CONTROL_DEVCONF0);
+	ctrl_write_reg(r, OMAP2_CONTROL_DEVCONF0);
 }
 
 static void omap2_usb_devconf_set(u8 port, u32 mask)
 {
 	u32 r;
 
-	r = ctrl_read_reg(CONTROL_DEVCONF0);
+	r = ctrl_read_reg(OMAP2_CONTROL_DEVCONF0);
 	r |= USBTXWRMODEI(port, mask);
-	ctrl_write_reg(r, CONTROL_DEVCONF0);
+	ctrl_write_reg(r, OMAP2_CONTROL_DEVCONF0);
 }
 
 static void omap2_usb2_disable_5pinbitll(void)
 {
 	u32 r;
 
-	r = ctrl_read_reg(CONTROL_DEVCONF0);
+	r = ctrl_read_reg(OMAP2_CONTROL_DEVCONF0);
 	r &= ~(USBTXWRMODEI(2, USB_BIDIR_TLL) | USBT2TLL5PI);
-	ctrl_write_reg(r, CONTROL_DEVCONF0);
+	ctrl_write_reg(r, OMAP2_CONTROL_DEVCONF0);
 }
 
 static void omap2_usb2_enable_5pinunitll(void)
 {
 	u32 r;
 
-	r = ctrl_read_reg(CONTROL_DEVCONF0);
+	r = ctrl_read_reg(OMAP2_CONTROL_DEVCONF0);
 	r |= USBTXWRMODEI(2, USB_UNIDIR_TLL) | USBT2TLL5PI;
-	ctrl_write_reg(r, CONTROL_DEVCONF0);
+	ctrl_write_reg(r, OMAP2_CONTROL_DEVCONF0);
 }
 
 static u32 __init omap_usb0_init(unsigned nwires, unsigned is_device)
