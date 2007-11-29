@@ -134,20 +134,7 @@ int sx1_setmmipower(u8 onoff)
 		dat &= ~SOFIA_MMILIGHT_POWER;
 	return i2c_write_byte(SOFIA_I2C_ADDR, SOFIA_POWER1_REG, dat);
 }
-/* set MMC power on/off */
-int sx1_setmmcpower(u8 onoff)
-{
-	int err;
-	u8 dat = 0;
-	err = i2c_read_byte(SOFIA_I2C_ADDR, SOFIA_POWER1_REG, &dat);
-	if (err < 0)
-		return err;
-	if (onoff)
-		dat |= SOFIA_MMC_POWER;
-	else
-		dat &= ~SOFIA_MMC_POWER;
-	return i2c_write_byte(SOFIA_I2C_ADDR, SOFIA_POWER1_REG, dat);
-}
+
 /* set USB power on/off */
 int sx1_setusbpower(u8 onoff)
 {
@@ -168,7 +155,6 @@ EXPORT_SYMBOL(sx1_getkeylight);
 EXPORT_SYMBOL(sx1_setbacklight);
 EXPORT_SYMBOL(sx1_getbacklight);
 EXPORT_SYMBOL(sx1_setmmipower);
-EXPORT_SYMBOL(sx1_setmmcpower);
 EXPORT_SYMBOL(sx1_setusbpower);
 
 /*----------- Keypad -------------------------*/
@@ -432,6 +418,9 @@ static struct omap_board_config_kernel sx1_config[] __initdata = {
 	{ OMAP_TAG_UART,	&sx1_uart_config },
 };
 /*-----------------------------------------*/
+
+extern void __init sx1_mmc_init(void);
+
 static void __init omap_sx1_init(void)
 {
 	platform_add_devices(sx1_devices, ARRAY_SIZE(sx1_devices));
