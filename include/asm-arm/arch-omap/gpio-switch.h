@@ -48,7 +48,11 @@ struct omap_gpio_switch {
 };
 
 /* Call at init time only */
+#ifdef CONFIG_OMAP_GPIO_SWITCH
 extern void omap_register_gpio_switches(const struct omap_gpio_switch *tbl,
 					int count);
+#else
+#define omap_register_gpio_switches(tbl, count)	do { } while (0)
+#endif
 
 #endif
