@@ -58,7 +58,7 @@
 #define CAMERA_MMU_LOCK_BASE_MASK	(0x7 << MMU_LOCK_BASE_SHIFT)
 #define CAMERA_MMU_LOCK_VICTIM_MASK	(0x7 << MMU_LOCK_VICTIM_SHIFT)
 
-#define is_aligned(adr,align)	(!((adr)&((align)-1)))
+#define is_aligned(adr, align)	(!((adr)&((align)-1)))
 #define ORDER_1MB	(20 - PAGE_SHIFT)
 #define ORDER_64KB	(16 - PAGE_SHIFT)
 #define ORDER_4KB	(12 - PAGE_SHIFT)
@@ -1199,7 +1199,7 @@ static ssize_t exmem_read(struct omap_mmu *mmu, char *buf, size_t count,
 }
 
 static ssize_t omap_mmu_mem_read(struct kobject *kobj,
-				 struct bin_attribute * attr,
+				 struct bin_attribute *attr,
 				 char *buf, loff_t offset, size_t count)
 {
 	struct device *dev = to_dev(kobj);
@@ -1266,7 +1266,7 @@ static ssize_t exmem_write(struct omap_mmu *mmu, char *buf, size_t count,
 }
 
 static ssize_t omap_mmu_mem_write(struct kobject *kobj,
-				  struct bin_attribute * attr,
+				  struct bin_attribute *attr,
 				  char *buf, loff_t offset, size_t count)
 {
 	struct device *dev = to_dev(kobj);
@@ -1301,7 +1301,7 @@ static struct bin_attribute dev_attr_mem = {
 
 /* To be obsolete for backward compatibility */
 ssize_t __omap_mmu_mem_read(struct omap_mmu *mmu,
-			    struct bin_attribute * attr,
+			    struct bin_attribute *attr,
 			    char *buf, loff_t offset, size_t count)
 {
 	return omap_mmu_mem_read(&mmu->dev.kobj, attr, buf, offset, count);
@@ -1309,7 +1309,7 @@ ssize_t __omap_mmu_mem_read(struct omap_mmu *mmu,
 EXPORT_SYMBOL_GPL(__omap_mmu_mem_read);
 
 ssize_t __omap_mmu_mem_write(struct omap_mmu *mmu,
-			     struct bin_attribute * attr,
+			     struct bin_attribute *attr,
 			     char *buf, loff_t offset, size_t count)
 {
 	return omap_mmu_mem_write(&mmu->dev.kobj, attr, buf, offset, count);

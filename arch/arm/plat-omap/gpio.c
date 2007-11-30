@@ -14,7 +14,6 @@
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/interrupt.h>
-#include <linux/ptrace.h>
 #include <linux/sysdev.h>
 #include <linux/err.h>
 #include <linux/clk.h>
@@ -138,7 +137,7 @@ struct gpio_bank {
 	u16 virtual_irq_start;
 	int method;
 	u32 reserved_map;
-#if defined (CONFIG_ARCH_OMAP16XX) || defined (CONFIG_ARCH_OMAP24XX) || defined(CONFIG_ARCH_OMAP34XX)
+#if defined(CONFIG_ARCH_OMAP16XX) || defined(CONFIG_ARCH_OMAP24XX) || defined(CONFIG_ARCH_OMAP34XX)
 	u32 suspend_wakeup;
 	u32 saved_wakeup;
 #endif
@@ -1501,7 +1500,7 @@ static int __init _omap_gpio_init(void)
 	return 0;
 }
 
-#if defined (CONFIG_ARCH_OMAP16XX) || defined (CONFIG_ARCH_OMAP24XX) || defined (CONFIG_ARCH_OMAP34XX)
+#if defined(CONFIG_ARCH_OMAP16XX) || defined(CONFIG_ARCH_OMAP24XX) || defined(CONFIG_ARCH_OMAP34XX)
 static int omap_gpio_suspend(struct sys_device *dev, pm_message_t mesg)
 {
 	int i;
