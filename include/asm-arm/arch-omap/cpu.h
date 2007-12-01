@@ -35,7 +35,6 @@ extern unsigned int system_rev;
  */
 #undef MULTI_OMAP1
 #undef MULTI_OMAP2
-#undef MULTI_OMAP3
 #undef OMAP_NAME
 
 #ifdef CONFIG_ARCH_OMAP730
@@ -62,20 +61,33 @@ extern unsigned int system_rev;
 #  define OMAP_NAME omap16xx
 # endif
 #endif
-#ifdef CONFIG_ARCH_OMAP24XX
+#if (defined(CONFIG_ARCH_OMAP24XX) || defined(CONFIG_ARCH_OMAP34XX))
 # if (defined(OMAP_NAME) || defined(MULTI_OMAP1))
 #  error "OMAP1 and OMAP2 can't be selected at the same time"
-# else
-#  undef  MULTI_OMAP2
-#  define OMAP_NAME omap24xx
 # endif
 #endif
-#ifdef CONFIG_ARCH_OMAP34XX
-# if (defined(OMAP_NAME) || defined(MULTI_OMAP1) || defined(MULTI_OMAP2))
-#  error "OMAP1 / OMAP2 / OMAP3 can't be selected at the same time"
+#ifdef CONFIG_ARCH_OMAP2420
+# ifdef OMAP_NAME
+#  undef  MULTI_OMAP2
+#  define MULTI_OMAP2
 # else
-#  undef MULTI_OMAP3
-#  define OMAP_NAME omap34xx
+#  define OMAP_NAME omap2420
+# endif
+#endif
+#ifdef CONFIG_ARCH_OMAP2430
+# ifdef OMAP_NAME
+#  undef  MULTI_OMAP2
+#  define MULTI_OMAP2
+# else
+#  define OMAP_NAME omap2430
+# endif
+#endif
+#ifdef CONFIG_ARCH_OMAP3430
+# ifdef OMAP_NAME
+#  undef  MULTI_OMAP2
+#  define MULTI_OMAP2
+# else
+#  define OMAP_NAME omap3430
 # endif
 #endif
 
@@ -122,6 +134,7 @@ IS_OMAP_SUBCLASS(343x, 0x343)
 #define cpu_is_omap24xx()		0
 #define cpu_is_omap242x()		0
 #define cpu_is_omap243x()		0
+#define cpu_is_omap34xx()		0
 #define cpu_is_omap343x()		0
 
 #if defined(MULTI_OMAP1)
@@ -150,19 +163,43 @@ IS_OMAP_SUBCLASS(343x, 0x343)
 #  undef  cpu_is_omap16xx
 #  define cpu_is_omap16xx()		1
 # endif
+#endif
+
+#if defined(MULTI_OMAP2)
 # if defined(CONFIG_ARCH_OMAP24XX)
 #  undef  cpu_is_omap24xx
 #  undef  cpu_is_omap242x
 #  undef  cpu_is_omap243x
-#  define cpu_is_omap24xx()		1
+#  define cpu_is_omap24xx()		is_omap24xx()
 #  define cpu_is_omap242x()		is_omap242x()
 #  define cpu_is_omap243x()		is_omap243x()
 # endif
 # if defined(CONFIG_ARCH_OMAP34XX)
 #  undef  cpu_is_omap34xx
+#  undef  cpu_is_omap343x
+#  define cpu_is_omap34xx()		is_omap34xx()
+#  define cpu_is_omap343x()		is_omap343x()
+# endif
+#else
+# if defined(CONFIG_ARCH_OMAP24XX)
+#  undef  cpu_is_omap24xx
+#  define cpu_is_omap24xx()		1
+# endif
+# if defined(CONFIG_ARCH_OMAP2420)
+#  undef  cpu_is_omap242x
+#  define cpu_is_omap242x()		1
+# endif
+# if defined(CONFIG_ARCH_OMAP2430)
+#  undef  cpu_is_omap243x
+#  define cpu_is_omap243x()		1
+# endif
+# if defined(CONFIG_ARCH_OMAP34XX)
+#  undef  cpu_is_omap34xx
 #  define cpu_is_omap34xx()		1
-# else
-#  define cpu_is_omap34xx()		0
+# endif
+# if defined(CONFIG_ARCH_OMAP3430)
+#  undef  cpu_is_omap343x
+#  define cpu_is_omap343x()		1
 # endif
 #endif
 
@@ -285,7 +322,7 @@ IS_OMAP_TYPE(3430, 0x3430)
  * get_sil_rev:			return the silicon rev value.
  */
 #define get_sil_omap_type(rev)	((rev & 0xffff0000) >> 16)
-#define get_sil_revision(rev)	((rev & 0x00000f000) >> 12)
+#define get_sil_revision(rev)	((rev & 0x0000f000) >> 12)
 
 #define is_sil_rev_greater_than(rev) \
 		((get_sil_omap_type(system_rev) == get_sil_omap_type(rev)) && \
@@ -313,23 +350,17 @@ IS_OMAP_TYPE(3430, 0x3430)
  * Macro to detect device type i.e. EMU/HS/TST/GP/BAD
  */
 #define DEVICE_TYPE_TEST	0
-#define DEVICE_TYPE_EMU 	1
-#define DEVICE_TYPE_SEC 	2
-#define DEVICE_TYPE_GP  	3
-#define DEVICE_TYPE_BAD 	4
+#define DEVICE_TYPE_EMU		1
+#define DEVICE_TYPE_SEC		2
+#define DEVICE_TYPE_GP		3
+#define DEVICE_TYPE_BAD		4
 
-#define get_device_type()	\
-		((system_rev & 0x700) >> 8)
-#define is_device_type_test()	\
-		(get_device_type() == DEVICE_TYPE_TEST)
-#define is_device_type_emu()	\
-		(get_device_type() == DEVICE_TYPE_EMU)
-#define is_device_type_sec()	\
-		(get_device_type() == DEVICE_TYPE_SEC)
-#define is_device_type_gp()	\
-		(get_device_type() == DEVICE_TYPE_GP)
-#define is_device_type_bad()	\
-		(get_device_type() == DEVICE_TYPE_BAD)
+#define get_device_type()	((system_rev & 0x700) >> 8)
+#define is_device_type_test()	(get_device_type() == DEVICE_TYPE_TEST)
+#define is_device_type_emu()	(get_device_type() == DEVICE_TYPE_EMU)
+#define is_device_type_sec()	(get_device_type() == DEVICE_TYPE_SEC)
+#define is_device_type_gp()	(get_device_type() == DEVICE_TYPE_GP)
+#define is_device_type_bad()	(get_device_type() == DEVICE_TYPE_BAD)
 
 #endif
 
