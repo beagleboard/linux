@@ -28,6 +28,7 @@ obj-$(CONFIG_MACH_OMAP_2430SDP)		+= board-2430sdp.o \
 obj-$(CONFIG_MACH_OMAP_2430OSK)		+= board-2430osk.o
 obj-$(CONFIG_MACH_OMAP_3430SDP)		+= board-3430sdp.o
 obj-$(CONFIG_MACH_OMAP_APOLLON)		+= board-apollon.o \
+					   board-apollon-mmc.o	\
 					   board-apollon-keys.o
 obj-$(CONFIG_MACH_NOKIA_N800)		+= board-n800.o board-n800-flash.o \
 					   board-n800-mmc.o board-n800-bt.o \
