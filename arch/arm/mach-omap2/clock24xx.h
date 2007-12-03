@@ -1039,70 +1039,52 @@ static struct clk dsp_fck = {
 	.set_rate	= &omap2_clksel_set_rate
 };
 
-static const struct clksel_rate dsp_ick_core_rates[] = {
+/* DSP interface clock */
+static const struct clksel_rate dsp_irate_ick_rates[] = {
 	{ .div = 1, .val = 1, .flags = RATE_IN_24XX | DEFAULT_RATE },
 	{ .div = 2, .val = 2, .flags = RATE_IN_24XX },
 	{ .div = 3, .val = 3, .flags = RATE_IN_243X },
 	{ .div = 0 },
 };
 
-static const struct clksel dsp_ick_clksel[] = {
-	{ .parent = &core_ck, .rates = dsp_ick_core_rates },
+static const struct clksel dsp_irate_ick_clksel[] = {
+	{ .parent = &dsp_fck, .rates = dsp_irate_ick_rates },
 	{ .parent = NULL }
 };
 
-static struct clk dsp_ick = {
-	.name		= "dsp_ick",	 /* apparently ipi and isp */
-	.parent		= &core_ck,
-	.flags		= CLOCK_IN_OMAP242X | DELAYED_APP | CONFIG_PARTICIPANT,
-	.enable_reg	= OMAP_CM_REGADDR(OMAP24XX_DSP_MOD, CM_ICLKEN),
-	.enable_bit	= OMAP2420_EN_DSP_IPI_SHIFT,		/* for ipi */
-	.clksel_reg	= OMAP_CM_REGADDR(OMAP24XX_DSP_MOD, CM_CLKSEL),
-	.clksel_mask	= OMAP24XX_CLKSEL_DSP_IF_MASK,
-	.clksel		= dsp_ick_clksel,
-	.recalc		= &omap2_clksel_recalc,
-};
-
-/* iva2_1_ick */
-static const struct clksel_rate iva2_1_ick_core_rates[] = {
-	{ .div = 1, .val = 1, .flags = RATE_IN_24XX | DEFAULT_RATE },
-	{ .div = 2, .val = 2, .flags = RATE_IN_24XX },
-	{ .div = 3, .val = 3, .flags = RATE_IN_243X },
-	{ .div = 0 },
-};
-
-static const struct clksel iva2_1_ick_clksel[] = {
-	{ .parent = &dsp_fck, .rates = iva2_1_ick_core_rates },
-	{ .parent = NULL }
-};
-
-/* 2430 only - dsp_ick is also controlled by EN_DSP on 2430 */
-static struct clk iva2_1_ick = {
-	.name		= "iva2_1_ick",
+/*
+ * This clock does not exist as such in the TRM, but is added to
+ * separate source selection from  XXX
+ */
+static struct clk dsp_irate_ick = {
+	.name		= "dsp_irate_ick",
 	.parent		= &dsp_fck,
-	.flags		= CLOCK_IN_OMAP243X | DELAYED_APP | CONFIG_PARTICIPANT,
+	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X | DELAYED_APP |
+				CONFIG_PARTICIPANT | PARENT_CONTROLS_CLOCK,
 	.clksel_reg	= OMAP_CM_REGADDR(OMAP24XX_DSP_MOD, CM_CLKSEL),
 	.clksel_mask	= OMAP24XX_CLKSEL_DSP_IF_MASK,
-	.clksel		= iva2_1_ick_clksel,
+	.clksel		= dsp_irate_ick_clksel,
 	.recalc		= &omap2_clksel_recalc,
 	.round_rate	= &omap2_clksel_round_rate,
-	.set_rate	= &omap2_clksel_set_rate
+	.set_rate	      = &omap2_clksel_set_rate
 };
 
-static const struct clksel_rate iva1_ifck_core_rates[] = {
-	{ .div = 1, .val = 1, .flags = RATE_IN_242X | DEFAULT_RATE },
-	{ .div = 2, .val = 2, .flags = RATE_IN_242X },
-	{ .div = 3, .val = 3, .flags = RATE_IN_242X },
-	{ .div = 4, .val = 4, .flags = RATE_IN_242X },
-	{ .div = 6, .val = 6, .flags = RATE_IN_242X },
-	{ .div = 8, .val = 8, .flags = RATE_IN_242X },
-	{ .div = 12, .val = 12, .flags = RATE_IN_242X },
-	{ .div = 0 },
+/* 2420 only */
+static struct clk dsp_ick = {
+	.name		= "dsp_ick",	 /* apparently ipi and isp */
+	.parent		= &dsp_irate_ick,
+	.flags		= CLOCK_IN_OMAP242X | DELAYED_APP | CONFIG_PARTICIPANT,
+	.enable_reg	= OMAP_CM_REGADDR(OMAP24XX_DSP_MOD, CM_ICLKEN),
+	.enable_bit	= OMAP2420_EN_DSP_IPI_SHIFT,	      /* for ipi */
 };
 
-static const struct clksel iva1_ifck_clksel[] = {
-	{ .parent = &core_ck, .rates = iva1_ifck_core_rates },
-	{ .parent = NULL }
+/* 2430 only - EN_DSP controls both dsp fclk and iclk on 2430 */
+static struct clk iva2_1_ick = {
+	.name		= "iva2_1_ick",
+	.parent		= &dsp_irate_ick,
+	.flags		= CLOCK_IN_OMAP243X | DELAYED_APP | CONFIG_PARTICIPANT,
+	.enable_reg	= OMAP_CM_REGADDR(OMAP24XX_DSP_MOD, CM_FCLKEN),
+	.enable_bit	= OMAP24XX_CM_FCLKEN_DSP_EN_DSP_SHIFT,
 };
 
 static struct clk iva1_ifck = {
@@ -1114,7 +1096,7 @@ static struct clk iva1_ifck = {
 	.enable_bit	= OMAP2420_EN_IVA_COP_SHIFT,
 	.clksel_reg	= OMAP_CM_REGADDR(OMAP24XX_DSP_MOD, CM_CLKSEL),
 	.clksel_mask	= OMAP2420_CLKSEL_IVA_MASK,
-	.clksel		= iva1_ifck_clksel,
+	.clksel		= dsp_fck_clksel,
 	.recalc		= &omap2_clksel_recalc,
 	.round_rate	= &omap2_clksel_round_rate,
 	.set_rate	= &omap2_clksel_set_rate
@@ -2527,8 +2509,9 @@ static struct clk *onchip_24xx_clks[] __initdata = {
 	/* mpu domain clocks */
 	&mpu_ck,
 	/* dsp domain clocks */
-	&dsp_ick,
 	&dsp_fck,
+	&dsp_irate_ick,
+	&dsp_ick,		/* 242x */
 	&iva2_1_ick,		/* 243x */
 	&iva1_ifck,		/* 242x */
 	&iva1_mpu_int_ifck,	/* 242x */

@@ -347,7 +347,15 @@ static int omap_dsp_init(void)
 		return PTR_ERR(dsp_fck_handle);
 	}
 
+# if defined(CONFIG_ARCH_OMAP2420)
 	dsp_ick_handle = clk_get(NULL, "dsp_ick");
+# elif defined(CONFIG_ARCH_OMAP2430)
+	/*
+	 * 2430 has no separate switch for DSP ICLK, but this at least
+	 * involves the minimal change to the rest of the code.
+	 */
+	dsp_ick_handle = clk_get(NULL, "iva2_1_ick");
+# endif
 	if (IS_ERR(dsp_ick_handle)) {
 		printk(KERN_ERR "omapdsp: could not acquire dsp_ick handle.\n");
 		if (dsp_fck_handle != NULL)
