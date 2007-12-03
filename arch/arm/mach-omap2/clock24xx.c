@@ -115,7 +115,7 @@ static int omap2_clk_fixed_enable(struct clk *clk)
 	if (clk == &apll96_ck)
 		cval = OMAP24XX_ST_96M_APLL;
 	else if (clk == &apll54_ck)
-		cval = OMAP24XX_ST_54M_CLK;
+		cval = OMAP24XX_ST_54M_APLL;
 
 	omap2_wait_clock_ready(OMAP_CM_REGADDR(PLL_MOD, CM_IDLEST), cval,
 			    clk->name);
