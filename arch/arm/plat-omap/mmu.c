@@ -11,18 +11,8 @@
  * TWL support: Hiroshi DOYU <Hiroshi.DOYU@nokia.com>
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  */
 #include <linux/module.h>
 #include <linux/mempool.h>
@@ -1466,13 +1456,8 @@ static ssize_t mempool_show(struct class *class, char *buf)
 
 static CLASS_ATTR(mempool, S_IRUGO, mempool_show, NULL);
 
-static void omap_mmu_class_dev_release(struct device *dev)
-{
-}
-
 static struct class omap_mmu_class = {
 	.name		= "mmu",
-	.dev_release	= omap_mmu_class_dev_release,
 };
 
 int omap_mmu_register(struct omap_mmu *mmu)

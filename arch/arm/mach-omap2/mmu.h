@@ -59,7 +59,7 @@
 
 #define IOMAP_VAL	0x3f
 
-#define INIT_TLB_ENTRY(ent,v,p,ps)				\
+#define INIT_TLB_ENTRY(ent, v, p, ps)				\
 do {								\
 	(ent)->va	= (v);					\
 	(ent)->pa	= (p);					\
@@ -71,7 +71,7 @@ do {								\
 	(ent)->tlb	= 1;					\
 } while (0)
 
-#define INIT_TLB_ENTRY_4KB_PRESERVED(ent,v,p) \
+#define INIT_TLB_ENTRY_4KB_PRESERVED(ent, v, p)		\
 do {								\
 	(ent)->va	= (v);					\
 	(ent)->pa	= (p);					\
@@ -82,7 +82,7 @@ do {								\
 	(ent)->mixed	= 0;					\
 } while (0)
 
-#define INIT_TLB_ENTRY_4KB_ES32_PRESERVED(ent,v,p)		\
+#define INIT_TLB_ENTRY_4KB_ES32_PRESERVED(ent, v, p)		\
 do {								\
 	(ent)->va	= (v);					\
 	(ent)->pa	= (p);					\
