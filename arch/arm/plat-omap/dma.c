@@ -1075,7 +1075,7 @@ int omap_request_dma_chain(int dev_id, const char *dev_name,
 
 	/* Allocate a queue to maintain the status of the channels
 	 * in the chain */
-	channels = (int *)kmalloc(sizeof(*channels) * no_of_chans, GFP_KERNEL);
+	channels = kmalloc(sizeof(*channels) * no_of_chans, GFP_KERNEL);
 	if (channels == NULL) {
 		printk(KERN_ERR "omap_dma: No memory for channel queue\n");
 		return -ENOMEM;
