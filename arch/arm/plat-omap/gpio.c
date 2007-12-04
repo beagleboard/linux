@@ -493,41 +493,14 @@ do {	\
 	__raw_writel(l, base + reg); \
 } while(0)
 
-#if defined(CONFIG_ARCH_OMAP24XX) || defined(CONFIG_ARCH_OMAP34XX)
-static inline void set_24xx_gpio_triggering(struct gpio_bank *bank, int gpio, int trigger)
-{
-	void __iomem *base = bank->base;
-	u32 gpio_bit = 1 << gpio;
-
-	MOD_REG_BIT(OMAP24XX_GPIO_LEVELDETECT0, gpio_bit,
-		trigger & __IRQT_LOWLVL);
-	MOD_REG_BIT(OMAP24XX_GPIO_LEVELDETECT1, gpio_bit,
-		trigger & __IRQT_HIGHLVL);
-	MOD_REG_BIT(OMAP24XX_GPIO_RISINGDETECT, gpio_bit,
-		trigger & __IRQT_RISEDGE);
-	MOD_REG_BIT(OMAP24XX_GPIO_FALLINGDETECT, gpio_bit,
-		trigger & __IRQT_FALEDGE);
-	if (likely(!(bank->non_wakeup_gpios & gpio_bit))) {
-		if (trigger != 0)
-			__raw_writel(1 << gpio, bank->base + OMAP24XX_GPIO_SETWKUENA);
-		else
-			__raw_writel(1 << gpio, bank->base + OMAP24XX_GPIO_CLEARWKUENA);
-	} else {
-		if (trigger != 0)
-			bank->enabled_non_wakeup_gpios |= gpio_bit;
-		else
-			bank->enabled_non_wakeup_gpios &= ~gpio_bit;
-	}
-	/* FIXME: Possibly do 'set_irq_handler(j, handle_level_irq)' if only level
-	 * triggering requested. */
-}
-
-void
-omap_set_gpio_debounce(int gpio, int enable)
+void omap_set_gpio_debounce(int gpio, int enable)
 {
 	struct gpio_bank *bank;
 	void __iomem *reg;
 	u32 val, l = 1 << get_gpio_index(gpio);
+
+	if (cpu_class_is_omap1())
+		return;
 
 	bank = get_gpio_bank(gpio);
 	reg = bank->base;
@@ -544,11 +517,13 @@ omap_set_gpio_debounce(int gpio, int enable)
 }
 EXPORT_SYMBOL(omap_set_gpio_debounce);
 
-void
-omap_set_gpio_debounce_time(int gpio, int enc_time)
+void omap_set_gpio_debounce_time(int gpio, int enc_time)
 {
 	struct gpio_bank *bank;
 	void __iomem *reg;
+
+	if (cpu_class_is_omap1())
+		return;
 
 	bank = get_gpio_bank(gpio);
 	reg = bank->base;
@@ -558,6 +533,42 @@ omap_set_gpio_debounce_time(int gpio, int enc_time)
 	__raw_writel(enc_time, reg);
 }
 EXPORT_SYMBOL(omap_set_gpio_debounce_time);
+
+#if defined(CONFIG_ARCH_OMAP24XX) || defined(CONFIG_ARCH_OMAP34XX)
+static inline void set_24xx_gpio_triggering(struct gpio_bank *bank, int gpio,
+						int trigger)
+{
+	void __iomem *base = bank->base;
+	u32 gpio_bit = 1 << gpio;
+
+	MOD_REG_BIT(OMAP24XX_GPIO_LEVELDETECT0, gpio_bit,
+					trigger & __IRQT_LOWLVL);
+	MOD_REG_BIT(OMAP24XX_GPIO_LEVELDETECT1, gpio_bit,
+					trigger & __IRQT_HIGHLVL);
+	MOD_REG_BIT(OMAP24XX_GPIO_RISINGDETECT, gpio_bit,
+					trigger & __IRQT_RISEDGE);
+	MOD_REG_BIT(OMAP24XX_GPIO_FALLINGDETECT, gpio_bit,
+					trigger & __IRQT_FALEDGE);
+
+	if (likely(!(bank->non_wakeup_gpios & gpio_bit))) {
+		if (trigger != 0)
+			__raw_writel(1 << gpio, bank->base
+					+ OMAP24XX_GPIO_SETWKUENA);
+		else
+			__raw_writel(1 << gpio, bank->base
+					+ OMAP24XX_GPIO_CLEARWKUENA);
+	} else {
+		if (trigger != 0)
+			bank->enabled_non_wakeup_gpios |= gpio_bit;
+		else
+			bank->enabled_non_wakeup_gpios &= ~gpio_bit;
+	}
+
+	/*
+	 * FIXME: Possibly do 'set_irq_handler(j, handle_level_irq)' if only
+	 *level triggering requested.
+	 */
+}
 #endif
 
 static int _set_gpio_triggering(struct gpio_bank *bank, int gpio, int trigger)
