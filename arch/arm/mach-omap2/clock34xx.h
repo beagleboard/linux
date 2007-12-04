@@ -151,14 +151,14 @@ static struct clk osc_sys_ck = {
 	.recalc		= &omap2_clksel_recalc,
 };
 
-static const struct clksel_rate sys_osc_rates[] = {
+static const struct clksel_rate div2_rates[] = {
 	{ .div = 1, .val = 1, .flags = RATE_IN_343X | DEFAULT_RATE },
 	{ .div = 2, .val = 2, .flags = RATE_IN_343X },
 	{ .div = 0 }
 };
 
 static const struct clksel sys_clksel[] = {
-	{ .parent = &osc_sys_ck, .rates = sys_osc_rates },
+	{ .parent = &osc_sys_ck, .rates = div2_rates },
 	{ .parent = NULL }
 };
 
@@ -305,12 +305,6 @@ static const struct clksel_rate div16_dpll_rates[] = {
 	{ .div = 15, .val = 15, .flags = RATE_IN_343X },
 	{ .div = 16, .val = 16, .flags = RATE_IN_343X },
 	{ .div = 0 }
-};
-
-static const struct clksel_rate div2_rates[] = {
-	{ .div = 1, .val = 1, .flags = RATE_IN_343X | DEFAULT_RATE },
-	{ .div = 2, .val = 2, .flags = RATE_IN_343X },
-	{ .div = 0 },
 };
 
 static const struct clksel div2_dpll3m2_clksel[] = {
@@ -1362,14 +1356,8 @@ static struct clk ssi_ick = {
 /* REVISIT: Technically the TRM claims that this is CORE_CLK based,
  * but l4_ick makes more sense to me */
 
-static const struct clksel_rate usb_l4_l4_rates[] = {
-	{ .div = 1, .val = 1, .flags = RATE_IN_343X | DEFAULT_RATE },
-	{ .div = 2, .val = 2, .flags = RATE_IN_343X },
-	{ .div = 0 }
-};
-
 static const struct clksel usb_l4_clksel[] = {
-	{ .parent = &l4_ick, .rates = usb_l4_l4_rates },
+	{ .parent = &l4_ick, .rates = div2_rates },
 	{ .parent = NULL },
 };
 
