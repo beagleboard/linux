@@ -1125,6 +1125,16 @@ static struct clk core_l4_ick = {
 	.recalc		= &followparent_recalc,
 };
 
+/* Intersystem Communication Registers - chassis mode only */
+static struct clk icr_ick = {
+	.name		= "icr_ick",
+	.parent		= &core_l4_ick,
+	.enable_reg	= OMAP_CM_REGADDR(CORE_MOD, CM_ICLKEN1),
+	.enable_bit	= OMAP3430_EN_ICR_SHIFT,
+	.flags		= CLOCK_IN_OMAP343X,
+	.recalc		= &followparent_recalc,
+};
+
 static struct clk aes2_ick = {
 	.name		= "aes2_ick",
 	.parent		= &core_l4_ick,
@@ -2265,6 +2275,7 @@ static struct clk *onchip_34xx_clks[] __initdata = {
 	&security_l3_ick,
 	&pka_ick,
 	&core_l4_ick,
+	&icr_ick,
 	&aes2_ick,
 	&sha12_ick,
 	&des2_ick,
