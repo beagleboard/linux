@@ -1510,12 +1510,13 @@ static int omap24xxcam_release(struct inode *inode, struct file *file)
 
 	flush_scheduled_work();
 
-	mutex_lock(&cam->mutex);
 	/* stop streaming capture */
+	videobuf_streamoff(&fh->vbq);
+
+	mutex_lock(&cam->mutex);
 	if (cam->streaming == file) {
 		cam->streaming = NULL;
 		mutex_unlock(&cam->mutex);
-		videobuf_streamoff(&fh->vbq);
 		sysfs_notify(&cam->dev->kobj, NULL, "streaming");
 	} else {
 		mutex_unlock(&cam->mutex);
