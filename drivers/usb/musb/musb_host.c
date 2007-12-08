@@ -1625,6 +1625,19 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 		}
 	}
 
+	if (dma && usb_pipeisoc(pipe)) {
+		struct usb_iso_packet_descriptor	*d;
+		int					iso_stat = status;
+
+		d = urb->iso_frame_desc + qh->iso_idx;
+		d->actual_length += xfer_len;
+		if (iso_err) {
+			iso_stat = -EILSEQ;
+			urb->error_count++;
+		}
+		d->status = iso_stat;
+	}
+
 finish:
 	urb->actual_length += xfer_len;
 	qh->offset += xfer_len;
