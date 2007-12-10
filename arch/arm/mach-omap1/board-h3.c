@@ -46,6 +46,7 @@
 #include <asm/arch/irqs.h>
 #include <asm/arch/mux.h>
 #include <asm/arch/tc.h>
+#include <asm/arch/nand.h>
 #include <asm/arch/irda.h>
 #include <asm/arch/usb.h>
 #include <asm/arch/keypad.h>
@@ -185,7 +186,7 @@ static struct mtd_partition nand_partitions[] = {
 };
 
 /* dip switches control NAND chip access:  8 bit, 16 bit, or neither */
-static struct nand_platform_data nand_data = {
+static struct omap_nand_platform_data nand_data = {
 	.options	= NAND_SAMSUNG_LP_OPTIONS,
 	.parts		= nand_partitions,
 	.nr_parts	= ARRAY_SIZE(nand_partitions),
@@ -561,7 +562,7 @@ static struct omap_gpio_switch h3_gpio_switches[] __initdata = {
 
 #define H3_NAND_RB_GPIO_PIN	10
 
-static int nand_dev_ready(struct nand_platform_data *data)
+static int nand_dev_ready(struct omap_nand_platform_data *data)
 {
 	return omap_get_gpio_datain(H3_NAND_RB_GPIO_PIN);
 }
