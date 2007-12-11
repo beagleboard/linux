@@ -1491,17 +1491,9 @@ static struct clk dss2_alwon_fck = {
 	.recalc		= &followparent_recalc,
 };
 
-static struct clk dss_l3_ick = {
-	.name		= "dss_l3_ick",
-	.parent		= &l3_ick,
-	.enable_reg	= OMAP_CM_REGADDR(OMAP3430_DSS_MOD, CM_ICLKEN),
-	.enable_bit	= OMAP3430_CM_ICLKEN_DSS_EN_DSS_SHIFT,
-	.flags		= CLOCK_IN_OMAP343X,
-	.recalc		= &followparent_recalc,
-};
-
-static struct clk dss_l4_ick = {
-	.name		= "dss_l4_ick",
+static struct clk dss_ick = {
+	/* Handles both L3 and L4 clocks */
+	.name		= "dss_ick",
 	.parent		= &l4_ick,
 	.enable_reg	= OMAP_CM_REGADDR(OMAP3430_DSS_MOD, CM_ICLKEN),
 	.enable_bit	= OMAP3430_CM_ICLKEN_DSS_EN_DSS_SHIFT,
@@ -2336,8 +2328,7 @@ static struct clk *onchip_34xx_clks[] __initdata = {
 	&dss_tv_fck,
 	&dss_96m_fck,
 	&dss2_alwon_fck,
-	&dss_l3_ick,
-	&dss_l4_ick,
+	&dss_ick,
 	&cam_mclk,
 	&cam_l3_ick,
 	&cam_l4_ick,
