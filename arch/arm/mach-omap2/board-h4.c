@@ -640,6 +640,11 @@ static struct i2c_board_info __initdata h4_i2c_board_info[] = {
 		I2C_BOARD_INFO("menelaus", 0x72),
 		.irq = INT_24XX_SYS_NIRQ,
 	},
+	{
+		I2C_BOARD_INFO("isp1301_omap", 0x2d),
+		.type		= "isp1301_omap",
+		.irq		= OMAP_GPIOIRQ(125),
+	},
 #if defined(CONFIG_VIDEO_OV9640) || defined(CONFIG_VIDEO_OV9640_MODULE)
 	{
 		I2C_BOARD_INFO("ov9640", 0x30),

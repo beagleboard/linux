@@ -436,11 +436,21 @@ static void __init h2_init_smc91x(void)
 	}
 }
 
+static struct i2c_board_info __initdata h2_i2c_board_info[] = {
+	{
+		I2C_BOARD_INFO("isp1301_omap", 0x2d),
+		.type		= "isp1301_omap",
+		.irq		= OMAP_GPIOIRQ(2),
+	},
+};
+
 static void __init h2_init_irq(void)
 {
 	omap1_init_common_hw();
 	omap_init_irq();
 	omap_gpio_init();
+	i2c_register_board_info(1, h2_i2c_board_info,
+				ARRAY_SIZE(h2_i2c_board_info));
 	h2_init_smc91x();
 }
 

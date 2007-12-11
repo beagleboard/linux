@@ -668,6 +668,11 @@ static struct i2c_board_info __initdata h3_i2c_board_info[] = {
 		.platform_data = &h3_ov9640_platform_data,
 	},
 #endif
+	{
+		I2C_BOARD_INFO("isp1301_omap", 0x2d),
+		.type		= "isp1301_omap",
+		.irq		= OMAP_GPIO_IRQ(14),
+	},
 };
 
 extern void __init h3_mmc_init(void);
