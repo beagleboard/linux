@@ -28,13 +28,22 @@
 #include <asm/arch/mux.h>
 #include <asm/arch/omapfb.h>
 #include <asm/arch/twl4030.h>
+#include <asm/mach-types.h>
 
-#define LCD_PANEL_BACKLIGHT_GPIO	91
-#define LCD_PANEL_ENABLE_GPIO		154
+#define SDP2430_LCD_PANEL_BACKLIGHT_GPIO	91
+#define SDP2430_LCD_PANEL_ENABLE_GPIO		154
+#define SDP3430_LCD_PANEL_BACKLIGHT_GPIO 	24
+#define SDP3430_LCD_PANEL_ENABLE_GPIO 		28
+
+static unsigned backlight_gpio;
+static unsigned enable_gpio;
+
 #define LCD_PIXCLOCK_MAX		5400 /* freq 5.4 MHz */
 #define PM_RECEIVER             TWL4030_MODULE_PM_RECEIVER
 #define ENABLE_VAUX2_DEDICATED  0x09
 #define ENABLE_VAUX2_DEV_GRP    0x20
+#define ENABLE_VAUX3_DEDICATED	0x03
+#define ENABLE_VAUX3_DEV_GRP	0x20
 
 
 #define t2_out(c, r, v) twl4030_i2c_write_u8(c, r, v)
@@ -43,10 +52,18 @@
 static int sdp2430_panel_init(struct lcd_panel *panel,
 				struct omapfb_device *fbdev)
 {
-	omap_request_gpio(LCD_PANEL_ENABLE_GPIO);	/* LCD panel */
-	omap_request_gpio(LCD_PANEL_BACKLIGHT_GPIO);	/* LCD backlight */
-	omap_set_gpio_direction(LCD_PANEL_ENABLE_GPIO, 0);	/* output */
-	omap_set_gpio_direction(LCD_PANEL_BACKLIGHT_GPIO, 0);	/* output */
+	if (machine_is_omap_3430sdp()) {
+		enable_gpio    = SDP3430_LCD_PANEL_ENABLE_GPIO;
+		backlight_gpio = SDP3430_LCD_PANEL_BACKLIGHT_GPIO;
+	} else {
+		enable_gpio    = SDP2430_LCD_PANEL_ENABLE_GPIO;
+		backlight_gpio = SDP2430_LCD_PANEL_BACKLIGHT_GPIO;
+	}
+
+	omap_request_gpio(enable_gpio);			/* LCD panel */
+	omap_request_gpio(backlight_gpio);		/* LCD backlight */
+	omap_set_gpio_direction(enable_gpio, 0);	/* output */
+	omap_set_gpio_direction(backlight_gpio, 0);	/* output */
 
 	return 0;
 }
@@ -57,21 +74,36 @@ static void sdp2430_panel_cleanup(struct lcd_panel *panel)
 
 static int sdp2430_panel_enable(struct lcd_panel *panel)
 {
-	omap_set_gpio_dataout(LCD_PANEL_ENABLE_GPIO, 1);
-	omap_set_gpio_dataout(LCD_PANEL_BACKLIGHT_GPIO, 1);
+	u8 ded_val, ded_reg;
+	u8 grp_val, grp_reg;
 
-	if(0!= t2_out(PM_RECEIVER, ENABLE_VAUX2_DEDICATED,
-                      TWL4030_VAUX2_DEDICATED)) return -EIO;
-	if(0!= t2_out(PM_RECEIVER, ENABLE_VAUX2_DEV_GRP,
-                      TWL4030_VAUX2_DEV_GRP)) return -EIO;
+	if (machine_is_omap_3430sdp()) {
+		ded_reg = TWL4030_VAUX3_DEDICATED;
+		ded_val = ENABLE_VAUX3_DEDICATED;
+		grp_reg = TWL4030_VAUX3_DEV_GRP;
+		grp_val = ENABLE_VAUX3_DEV_GRP;
+	} else {
+		ded_reg = TWL4030_VAUX2_DEDICATED;
+		ded_val = ENABLE_VAUX2_DEDICATED;
+		grp_reg = TWL4030_VAUX2_DEV_GRP;
+		grp_val = ENABLE_VAUX2_DEV_GRP;
+	}
+		
+	omap_set_gpio_dataout(enable_gpio, 1);
+	omap_set_gpio_dataout(backlight_gpio, 1);
+
+	if (0 != t2_out(PM_RECEIVER, ded_val, ded_reg))
+		return -EIO;
+	if (0 != t2_out(PM_RECEIVER, grp_val, grp_reg))
+		return -EIO;
 
 	return 0;
 }
 
 static void sdp2430_panel_disable(struct lcd_panel *panel)
 {
-	omap_set_gpio_dataout(LCD_PANEL_ENABLE_GPIO, 0);
-        omap_set_gpio_dataout(LCD_PANEL_BACKLIGHT_GPIO, 0);
+	omap_set_gpio_dataout(enable_gpio, 0);
+	omap_set_gpio_dataout(backlight_gpio, 0);
 }
 
 static unsigned long sdp2430_panel_get_caps(struct lcd_panel *panel)
@@ -99,7 +131,7 @@ struct lcd_panel sdp2430_panel = {
 
 	.init		= sdp2430_panel_init,
 	.cleanup	= sdp2430_panel_cleanup,
-	.enable	= sdp2430_panel_enable,
+	.enable		= sdp2430_panel_enable,
 	.disable	= sdp2430_panel_disable,
 	.get_caps	= sdp2430_panel_get_caps,
 };
@@ -128,7 +160,7 @@ static int sdp2430_panel_resume(struct platform_device *pdev)
 struct platform_driver sdp2430_panel_driver = {
 	.probe		= sdp2430_panel_probe,
 	.remove		= sdp2430_panel_remove,
-	.suspend		= sdp2430_panel_suspend,
+	.suspend	= sdp2430_panel_suspend,
 	.resume		= sdp2430_panel_resume,
 	.driver		= {
 		.name	= "sdp2430_lcd",

@@ -254,10 +254,17 @@ static struct spi_board_info sdp3430_spi_board_info[] __initdata = {
 		.platform_data		= &tsc2046_config,
 	},
 };
+
+static struct platform_device sdp3430_lcd_device = {
+	.name		= "sdp2430_lcd",
+	.id		= -1,
+};
+
 static struct platform_device *sdp3430_devices[] __initdata = {
 	&sdp3430_smc91x_device,
 	&sdp3430_flash_device,
 	&sdp3430_kp_device,
+	&sdp3430_lcd_device,
 };
 
 static inline void __init sdp3430_init_smc91x(void)
@@ -296,9 +303,15 @@ static struct omap_uart_config sdp3430_uart_config __initdata = {
 	.enabled_uarts	= ((1 << 0) | (1 << 1) | (1 << 2)),
 };
 
+static struct omap_lcd_config sdp3430_lcd_config __initdata = {
+	.ctrl_name	= "internal",
+};
+
 static struct omap_board_config_kernel sdp3430_config[] = {
 	{ OMAP_TAG_UART,	&sdp3430_uart_config },
+	{OMAP_TAG_LCD,		&sdp3430_lcd_config},
 };
+
 static int __init omap3430_i2c_init(void)
 {
 	omap_register_i2c_bus(1, 2600, NULL, 0);
