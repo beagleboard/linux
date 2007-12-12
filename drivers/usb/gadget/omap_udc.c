@@ -55,6 +55,7 @@
 #include <asm/arch/control.h>
 
 #include "omap_udc.h"
+#include "../../../arch/arm/mach-omap2/control.h"
 
 #undef	USB_TRACE
 
@@ -2272,7 +2273,7 @@ static int proc_otg_show(struct seq_file *s)
 		 * do with the frame adjustment counter and McBSP2.
 		 */
 		ctrl_name = "control_devconf";
-		trans = ctrl_read_reg(CONTROL_DEVCONF0);
+		trans = ctrl_read_reg(OMAP2_CONTROL_DEVCONF0);
 	} else {
 		ctrl_name = "tranceiver_ctrl";
 		trans = USB_TRANSCEIVER_CTRL_REG;
