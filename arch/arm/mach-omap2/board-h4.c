@@ -423,8 +423,8 @@ static struct omap_usb_config h4_usb_config __initdata = {
 	 */
 	.register_dev	= 1,
 	.pins[0]	= 3,
-//	.hmc_mode	= 0x14,	/* 0:dev 1:host 2:disable */
-	.hmc_mode	= 0x00,	/* 0:dev|otg 1:disable 2:disable */
+/*	.hmc_mode	= 0x14,*/	/* 0:dev 1:host 2:disable */
+	.hmc_mode	= 0x00,		/* 0:dev|otg 1:disable 2:disable */
 #endif
 };
 
@@ -505,7 +505,7 @@ static void __init tusb_evm_setup(void)
 		 */
 		omap_cfg_reg(AA10_242X_GPIO13);
 		irq = 13;
-		// omap_cfg_reg(J15_24XX_DMAREQ0);
+		/* omap_cfg_reg(J15_24XX_DMAREQ0); */
 		break;
 	default:
 		/* Later Menelaus boards can support all 6 DMA request
