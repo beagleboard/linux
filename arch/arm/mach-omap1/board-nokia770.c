@@ -32,11 +32,9 @@
 #include <asm/arch/common.h>
 #include <asm/arch/dsp_common.h>
 #include <asm/arch/aic23.h>
-#include <asm/arch/gpio.h>
 #include <asm/arch/omapfb.h>
 #include <asm/arch/hwa742.h>
 #include <asm/arch/lcd_mipid.h>
-#include <asm/arch/dsp_common.h>
 
 #define ADS7846_PENDOWN_GPIO	15
 

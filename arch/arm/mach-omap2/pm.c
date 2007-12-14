@@ -44,7 +44,6 @@
 #include <asm/arch/mux.h>
 #include <asm/arch/dma.h>
 #include <asm/arch/board.h>
-#include <asm/arch/gpio.h>
 
 #include "prm.h"
 #include "prm_regbits_24xx.h"
