@@ -36,7 +36,7 @@ static const char *part_probes[] = { "cmdlinepart", NULL };
 #endif
 
 struct omap_nand_info {
-	struct nand_platform_data *pdata;
+	struct omap_nand_platform_data *pdata;
 	struct mtd_partition	*parts;
 	struct mtd_info		mtd;
 	struct nand_chip	nand;
@@ -76,7 +76,7 @@ static int omap_nand_dev_ready(struct mtd_info *mtd)
 static int __devinit omap_nand_probe(struct platform_device *pdev)
 {
 	struct omap_nand_info		*info;
-	struct nand_platform_data	*pdata = pdev->dev.platform_data;
+	struct omap_nand_platform_data	*pdata = pdev->dev.platform_data;
 	struct resource			*res = pdev->resource;
 	unsigned long			size = res->end - res->start + 1;
 	int				err;

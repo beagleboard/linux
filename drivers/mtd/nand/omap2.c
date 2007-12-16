@@ -122,7 +122,7 @@ static struct nand_ecclayout omap_hw_eccoob = {
 
 struct omap_nand_info {
 	struct nand_hw_control		controller;
-	struct nand_platform_data	*pdata;
+	struct omap_nand_platform_data	*pdata;
 	struct mtd_info			mtd;
 	struct mtd_partition		*parts;
 	struct nand_chip		nand;
