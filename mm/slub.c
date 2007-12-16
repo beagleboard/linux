@@ -1468,6 +1468,9 @@ static void *__slab_alloc(struct kmem_cache *s,
 	void **object;
 	struct page *new;
 
+	/* We handle __GFP_ZERO in the caller */
+	gfpflags &= ~__GFP_ZERO;
+
 	if (!c->page)
 		goto new_slab;
 
@@ -2558,8 +2561,12 @@ size_t ksize(const void *object)
 	if (unlikely(object == ZERO_SIZE_PTR))
 		return 0;
 
-	page = get_object_page(object);
+	page = virt_to_head_page(object);
 	BUG_ON(!page);
+
+	if (unlikely(!PageSlab(page)))
+		return PAGE_SIZE << compound_order(page);
+
 	s = page->slab;
 	BUG_ON(!s);
 

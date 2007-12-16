@@ -1318,8 +1318,9 @@ restart:
 
 	if (sk && sk->sk_policy[XFRM_POLICY_OUT]) {
 		policy = xfrm_sk_policy_lookup(sk, XFRM_POLICY_OUT, fl);
+		err = PTR_ERR(policy);
 		if (IS_ERR(policy))
-			return PTR_ERR(policy);
+			goto dropdst;
 	}
 
 	if (!policy) {
@@ -1330,8 +1331,9 @@ restart:
 
 		policy = flow_cache_lookup(fl, dst_orig->ops->family,
 					   dir, xfrm_policy_lookup);
+		err = PTR_ERR(policy);
 		if (IS_ERR(policy))
-			return PTR_ERR(policy);
+			goto dropdst;
 	}
 
 	if (!policy)
@@ -1344,6 +1346,7 @@ restart:
 	xfrm_nr += pols[0]->xfrm_nr;
 
 	switch (policy->action) {
+	default:
 	case XFRM_POLICY_BLOCK:
 		/* Prohibit the flow */
 		err = -EPERM;
@@ -1500,8 +1503,9 @@ restart:
 	return 0;
 
 error:
-	dst_release(dst_orig);
 	xfrm_pols_put(pols, npols);
+dropdst:
+	dst_release(dst_orig);
 	*dst_p = NULL;
 	return err;
 }

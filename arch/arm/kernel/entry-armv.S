@@ -280,6 +280,7 @@ __pabt_svc:
 	mrs	r9, cpsr
 	tst	r3, #PSR_I_BIT
 	biceq	r9, r9, #PSR_I_BIT
+	msr	cpsr_c, r9
 
 	@
 	@ set args, then call main handler
@@ -287,15 +288,7 @@ __pabt_svc:
 	@  r0 - address of faulting instruction
 	@  r1 - pointer to registers on stack
 	@
-#ifdef MULTI_PABORT
-	mov	r0, r2			@ pass address of aborted instruction.
-	ldr	r4, .LCprocfns
-	mov	lr, pc
-	ldr	pc, [r4, #]
-#else
-	CPU_PABORT_HANDLER(r0, r2)
-#endif
-	msr	cpsr_c, r9			@ Maybe enable interrupts
+	mov	r0, r2				@ address (pc)
 	mov	r1, sp				@ regs
 	bl	do_PrefetchAbort		@ call abort handler
 
@@ -346,16 +339,6 @@ __pabt_svc:
 	str	r1, [sp]		@ save the "real" r0 copied
 					@ from the exception stack
 
-#if __LINUX_ARM_ARCH__ < 6 && !defined(CONFIG_NEEDS_SYSCALL_FOR_CMPXCHG)
-#ifndef CONFIG_MMU
-#warning "NPTL on non MMU needs fixing"
-#else
-	@ make sure our user space atomic helper is aborted
-	cmp	r2, #TASK_SIZE
-	bichs	r3, r3, #PSR_Z_BIT
-#endif
-#endif
-
 	@
 	@ We are now ready to fill in the remaining blanks on the stack:
 	@
@@ -379,9 +362,25 @@ __pabt_svc:
 	zero_fp
 	.endm
 
+	.macro	kuser_cmpxchg_check
+#if __LINUX_ARM_ARCH__ < 6 && !defined(CONFIG_NEEDS_SYSCALL_FOR_CMPXCHG)
+#ifndef CONFIG_MMU
+#warning "NPTL on non MMU needs fixing"
+#else
+	@ Make sure our user space atomic helper is restarted
+	@ if it was interrupted in a critical region.  Here we
+	@ perform a quick test inline since it should be false
+	@ 99.9999% of the time.  The rest is done out of line.
+	cmp	r2, #TASK_SIZE
+	blhs	kuser_cmpxchg_fixup
+#endif
+#endif
+	.endm
+
 	.align	5
 __dabt_usr:
 	usr_entry
+	kuser_cmpxchg_check
 
 	@
 	@ Call the processor-specific abort handler:
@@ -411,6 +410,7 @@ __dabt_usr:
 	.align	5
 __irq_usr:
 	usr_entry
+	kuser_cmpxchg_check
 
 #ifdef CONFIG_TRACE_IRQFLAGS
 	bl	trace_hardirqs_off
@@ -442,6 +442,8 @@ __irq_usr:
 __und_usr:
 	usr_entry
 
+	tst	r3, #PSR_T_BIT			@ Thumb mode?
+	bne	__und_usr_unknown		@ ignore FP
 	sub	r4, r2, #4
 
 	@
@@ -453,22 +455,7 @@ __und_usr:
 	@
 	adr	r9, ret_from_exception
 	adr	lr, __und_usr_unknown
-
-	tst	r3, #PSR_T_BIT			@ Thumb mode?
-1:	ldreqt	r0, [r4]
-	beq	call_fpe
-	@ Thumb instruction
-#if __LINUX_ARM_ARCH__ >= 7
-2:	ldrht	r5, [r4], #2
-	and	r0, r5, #0xee
-	cmp	r0, #0xee
-	bne	__und_usr_unknown
-3:	ldrht	r0, [r4]
-	orr	r0, r0, r5, lsl #16
-#else
-	b	__und_usr_unknown
-#endif
-
+1:	ldrt	r0, [r4]
 	@
 	@ fallthrough to call_fpe
 	@
@@ -477,14 +464,10 @@ __und_usr:
  * The out of line fixup for the ldrt above.
  */
 	.section .fixup, "ax"
-4:	mov	pc, r9
+2:	mov	pc, r9
 	.previous
 	.section __ex_table,"a"
-	.long	1b, 4b
-#if __LINUX_ARM_ARCH__ >= 7
-	.long	2b, 4b
-	.long	3b, 4b
-#endif
+	.long	1b, 2b
 	.previous
 
 /*
@@ -497,13 +480,6 @@ __und_usr:
  * co-processor instructions.  However, we have to watch out
  * for the ARM6/ARM7 SWI bug.
  *
- * Neon is a special case that has to be handled here. Not all
- * Neon instructions are co-processor instructions, so we have
- * to make a special case of checking for them. Plus, there's
- * five groups of them, so we have a table of mask/opcode pairs
- * to check against, and if any match then we branch off into the
- * Neon handler code.
- *
  * Emulators may wish to make use of the following registers:
  *  r0  = instruction opcode.
  *  r2  = PC+4
@@ -512,21 +488,6 @@ __und_usr:
  *  lr  = unrecognised instruction return address
  */
 call_fpe:
-#ifdef CONFIG_NEON
-	adr	r6, .LCneon_opcodes
-2:
-	ldr	r7, [r6],#4			@ mask value
-	cmp	r7, #0
-	beq	1f				@ if mask is 0 then we've done
-	and	r8, r0, r7
-	ldr	r7, [r6],#4			@ opcode bits matching in mask
-	cmp	r8, r7
-	bne	2b
-	get_thread_info r10
-	enable_irq
-	b	do_vfp				@ Let VFP handler handle this
-1:
-#endif
 	tst	r0, #0x08000000			@ only CDP/CPRT/LDC/STC have bit 27
 #if defined(CONFIG_CPU_ARM610) || defined(CONFIG_CPU_ARM710)
 	and	r8, r0, #0x0f000000		@ mask out op-code bits
@@ -576,29 +537,6 @@ call_fpe:
 	mov	pc, lr				@ CP#14 (Debug)
 	mov	pc, lr				@ CP#15 (Control)
 
-#ifdef CONFIG_NEON
-	.align	6
-
-.LCneon_opcodes:
-	.word	0xfe000000			@ mask
-	.word	0xf2000000			@ opcode
-
-	.word	0x0e000f00			@ mask
-	.word	0x0c000b00			@ opcode
-
-	.word	0xff100000			@ mask
-	.word	0xf4000000			@ opcode
-
-	.word	0x0f000f10			@ mask
-	.word	0x0e000b10			@ opcode
-
-	.word	0x0fe00fd0			@ mask
-	.word	0x0c400b10			@ opcode
-
-	.word	0x00000000			@ mask
-	.word	0x00000000			@ opcode
-#endif
-
 do_fpe:
 	enable_irq
 	ldr	r4, .LCfp
@@ -630,15 +568,8 @@ __und_usr_unknown:
 __pabt_usr:
 	usr_entry
 
-#ifdef MULTI_PABORT
-	mov	r0, r2			@ pass address of aborted instruction.
-	ldr	r4, .LCprocfns
-	mov	lr, pc
-	ldr	pc, [r4, #]
-#else
-	CPU_PABORT_HANDLER(r0, r2)
-#endif
 	enable_irq				@ Enable interrupts
+	mov	r0, r2				@ address (pc)
 	mov	r1, sp				@ regs
 	bl	do_PrefetchAbort		@ call abort handler
 	/* fall through */
@@ -659,12 +590,6 @@ ENTRY(__switch_to)
 	add	ip, r1, #TI_CPU_SAVE
 	ldr	r3, [r2, #TI_TP_VALUE]
 	stmia	ip!, {r4 - sl, fp, sp, lr}	@ Store most regs on stack
-#ifdef CONFIG_ARM_XENON
-	mrc	p14, 6, r4, c1, c0, 0		@ current xenon state
-	ldr	r5, [r2, #TI_XENONSTATE]	@ value to restore
-	str	r4, [r1, #TI_XENONSTATE]	@ save current
-	mcr	p14, 6, r5, c1, c0, 0		@ restore new value
-#endif
 #ifdef CONFIG_MMU
 	ldr	r6, [r2, #TI_CPU_DOMAIN]
 #endif
@@ -751,7 +676,7 @@ __kuser_helper_start:
  *
  * Clobbered:
  *
- *	the Z flag might be lost
+ *	none
  *
  * Definition and user space usage example:
  *
@@ -812,9 +737,6 @@ __kuser_memory_barrier:				@ 0xffff0fa0
  *
  *    - This routine already includes memory barriers as needed.
  *
- *    - A failure might be transient, i.e. it is possible, although unlikely,
- *      that "failure" be returned even if *ptr == oldval.
- *
  * For example, a user space atomic_add implementation could look like this:
  *
  * #define atomic_add(ptr, val) \
@@ -851,46 +773,62 @@ __kuser_cmpxchg:				@ 0xffff0fc0
 
 #elif __LINUX_ARM_ARCH__ < 6
 
-	/*
-	 * Theory of operation:
-	 *
-	 * We set the Z flag before loading oldval. If ever an exception
-	 * occurs we can not be sure the loaded value will still be the same
-	 * when the exception returns, therefore the user exception handler
-	 * will clear the Z flag whenever the interrupted user code was
-	 * actually from the kernel address space (see the usr_entry macro).
-	 *
-	 * The post-increment on the str is used to prevent a race with an
-	 * exception happening just after the str instruction which would
-	 * clear the Z flag although the exchange was done.
-	 */
 #ifdef CONFIG_MMU
-	teq	ip, ip			@ set Z flag
-	ldr	ip, [r2]		@ load current val
-	add	r3, r2, #1		@ prepare store ptr
-	teqeq	ip, r0			@ compare with oldval if still allowed
-	streq	r1, [r3, #-1]!		@ store newval if still allowed
-	subs	r0, r2, r3		@ if r2 == r3 the str occured
+
+	/*
+	 * The only thing that can break atomicity in this cmpxchg
+	 * implementation is either an IRQ or a data abort exception
+	 * causing another process/thread to be scheduled in the middle
+	 * of the critical sequence.  To prevent this, code is added to
+	 * the IRQ and data abort exception handlers to set the pc back
+	 * to the beginning of the critical section if it is found to be
+	 * within that critical section (see kuser_cmpxchg_fixup).
+	 */
+1:	ldr	r3, [r2]			@ load current val
+	subs	r3, r3, r0			@ compare with oldval
+2:	streq	r1, [r2]			@ store newval if eq
+	rsbs	r0, r3, #0			@ set return val and C flag
+	usr_ret	lr
+
+	.text
+kuser_cmpxchg_fixup:
+	@ Called from kuser_cmpxchg_check macro.
+	@ r2 = address of interrupted insn (must be preserved).
+	@ sp = saved regs. r7 and r8 are clobbered.
+	@ 1b = first critical insn, 2b = last critical insn.
+	@ If r2 >= 1b and r2 <= 2b then saved pc_usr is set to 1b.
+	mov	r7, #0xffff0fff
+	sub	r7, r7, #(0xffff0fff - (0xffff0fc0 + (1b - __kuser_cmpxchg)))
+	subs	r8, r2, r7
+	rsbcss	r8, r8, #(2b - 1b)
+	strcs	r7, [sp, #S_PC]
+	mov	pc, lr
+	.previous
+
 #else
 #warning "NPTL on non MMU needs fixing"
 	mov	r0, #-1
 	adds	r0, r0, #0
-#endif
 	usr_ret	lr
+#endif
 
 #else
 
 #ifdef CONFIG_SMP
 	mcr	p15, 0, r0, c7, c10, 5	@ dmb
 #endif
-	ldrex	r3, [r2]
+1:	ldrex	r3, [r2]
 	subs	r3, r3, r0
 	strexeq	r3, r1, [r2]
+	teqeq	r3, #1
+	beq	1b
 	rsbs	r0, r3, #0
+	/* beware -- each __kuser slot must be 8 instructions max */
 #ifdef CONFIG_SMP
-	mcr	p15, 0, r0, c7, c10, 5	@ dmb
-#endif
+	b	__kuser_memory_barrier
+#else
 	usr_ret	lr
+#endif
 
 #endif
 
@@ -911,7 +849,7 @@ __kuser_cmpxchg:				@ 0xffff0fc0
  *
  * Clobbered:
  *
- *	the Z flag might be lost
+ *	none
  *
  * Definition and user space usage example:
  *
