@@ -329,6 +329,7 @@ static void __init omap_3430sdp_init(void)
 				ARRAY_SIZE(sdp3430_spi_board_info));
 	ads7846_dev_init();
 	omap_serial_init();
+	sdp3430_usb_init();
 }
 
 static void __init omap_3430sdp_map_io(void)

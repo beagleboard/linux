@@ -29,6 +29,8 @@
 #ifndef __ASM_ARCH_OMAP_3430SDP_H
 #define __ASM_ARCH_OMAP_3430SDP_H
 
+extern void sdp3430_usb_init(void);
+
 #define DEBUG_BASE			0x08000000  /* debug board */
 
 /* Placeholder for 3430SDP specific defines */
