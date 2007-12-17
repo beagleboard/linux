@@ -457,8 +457,6 @@ static struct i2c_board_info __initdata n800_i2c_board_info_2[] = {
 #endif
 };
 
-extern void __init n800_mmc_init(void);
-
 void __init nokia_n800_common_init(void)
 {
 	platform_add_devices(n800_devices, ARRAY_SIZE(n800_devices));

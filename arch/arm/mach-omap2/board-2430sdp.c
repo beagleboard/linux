@@ -368,9 +368,6 @@ static int __init omap2430_i2c_init(void)
 	return 0;
 }
 
-extern void __init sdp2430_flash_init(void);
-extern void __init sdp2430_usb_init(void);
-
 static void __init omap_2430sdp_init(void)
 {
 	platform_add_devices(sdp2430_devices, ARRAY_SIZE(sdp2430_devices));
