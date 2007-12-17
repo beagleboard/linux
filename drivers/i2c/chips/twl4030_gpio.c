@@ -214,8 +214,6 @@ static int gpio_read_isr(unsigned int *isr)
 
 static int gpio_write_isr(unsigned int isr)
 {
-	int ret;
-
 	isr &= GPIO_32_MASK;
 	/*
 	 * The buffer passed to the twl4030_i2c_write() routine must have an
@@ -223,15 +221,12 @@ static int gpio_write_isr(unsigned int isr)
 	 */
 	isr <<= 8;
 	isr = cpu_to_le32(isr);
-	ret = twl4030_i2c_write(TWL4030_MODULE_GPIO, (u8 *) &isr,
+	return twl4030_i2c_write(TWL4030_MODULE_GPIO, (u8 *) &isr,
 				REG_GPIO_ISR1A, 3);
-	return ret;
 }
 
 static int gpio_write_imr(unsigned int imr)
 {
-	int ret;
-
 	imr &= GPIO_32_MASK;
 	/*
 	 * The buffer passed to the twl4030_i2c_write() routine must have an
@@ -239,9 +234,8 @@ static int gpio_write_imr(unsigned int imr)
 	 */
 	imr <<= 8;
 	imr = cpu_to_le32(imr);
-	ret = twl4030_i2c_write(TWL4030_MODULE_GPIO, (u8 *) &imr,
+	return twl4030_i2c_write(TWL4030_MODULE_GPIO, (u8 *) &imr,
 				REG_GPIO_IMR1A, 3);
-	return ret;
 }
 
 /*

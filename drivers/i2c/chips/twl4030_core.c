@@ -356,14 +356,12 @@ int twl4030_i2c_read(u8 mod_no, u8 * value, u8 reg, u8 num_bytes)
  */
 int twl4030_i2c_write_u8(u8 mod_no, u8 value, u8 reg)
 {
-	int ret;
 
 	/* 2 bytes offset 1 contains the data offset 0 is used by i2c_write */
 	u8 temp_buffer[2] = { 0 };
 	/* offset 1 contains the data */
 	temp_buffer[1] = value;
-	ret = twl4030_i2c_write(mod_no, temp_buffer, reg, 1);
-	return ret;
+	return twl4030_i2c_write(mod_no, temp_buffer, reg, 1);
 }
 
 /**
@@ -377,10 +375,7 @@ int twl4030_i2c_write_u8(u8 mod_no, u8 value, u8 reg)
  */
 int twl4030_i2c_read_u8(u8 mod_no, u8 * value, u8 reg)
 {
-	int ret = 0;
-
-	ret = twl4030_i2c_read(mod_no, value, reg, 1);
-	return ret;
+	return twl4030_i2c_read(mod_no, value, reg, 1);
 }
 
 /* Helper Functions */
