@@ -221,6 +221,34 @@ void omap_init_eac(struct eac_platform_data *pdata)
 void omap_init_eac(struct eac_platform_data *pdata) {}
 #endif
 
+#ifdef CONFIG_OMAP_SHA1_MD5
+static struct resource sha1_md5_resources[] = {
+	{
+		.start	= OMAP2420_SEC_SHA1MD5_BASE,
+		.end	= OMAP2420_SEC_SHA1MD5_BASE + 0x64,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= INT_24XX_SHA1MD5,
+		.flags	= IORESOURCE_IRQ,
+	}
+};
+
+static struct platform_device sha1_md5_device = {
+	.name		= "OMAP SHA1/MD5",
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(sha1_md5_resources),
+	.resource	= sha1_md5_resources,
+};
+
+static void omap_init_sha1_md5(void)
+{
+	platform_device_register(&sha1_md5_device);
+}
+#else
+static inline void omap_init_sha1_md5(void) { }
+#endif
+
 /*-------------------------------------------------------------------------*/
 
 static int __init omap2_init_devices(void)
@@ -232,6 +260,7 @@ static int __init omap2_init_devices(void)
 	omap_init_mbox();
 	omap_init_mcspi();
 	omap_init_sti();
+	omap_init_sha1_md5();
 
 	return 0;
 }
