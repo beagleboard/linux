@@ -5,10 +5,10 @@
  * Copyright (C) 2006 MontaVista Software, Inc.
  *
  * Code re-arranged and cleaned up by:
- * 	Syed Mohammed Khasim <x0khasim@ti.com>
+ *	Syed Mohammed Khasim <x0khasim@ti.com>
  *
  * Initial Code:
- * 	Andy Lowe / Nishanth Menon
+ *	Andy Lowe / Nishanth Menon
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -47,98 +47,98 @@
 
 #include <linux/device.h>
 
-/****************************************
-* GPIO Block Register definitions
-****************************************/
+/*
+ * GPIO Block Register definitions
+ */
 
-#define REG_GPIODATAIN1			(0x0)
-#define REG_GPIODATAIN2			(0x1)
-#define REG_GPIODATAIN3			(0x2)
-#define REG_GPIODATADIR1		(0x3)
-#define REG_GPIODATADIR2		(0x4)
-#define REG_GPIODATADIR3		(0x5)
-#define REG_GPIODATAOUT1		(0x6)
-#define REG_GPIODATAOUT2		(0x7)
-#define REG_GPIODATAOUT3		(0x8)
-#define REG_CLEARGPIODATAOUT1		(0x9)
-#define REG_CLEARGPIODATAOUT2		(0xA)
-#define REG_CLEARGPIODATAOUT3		(0xB)
-#define REG_SETGPIODATAOUT1		(0xC)
-#define REG_SETGPIODATAOUT2		(0xD)
-#define REG_SETGPIODATAOUT3		(0xE)
-#define REG_GPIO_DEBEN1			(0xF)
-#define REG_GPIO_DEBEN2			(0x10)
-#define REG_GPIO_DEBEN3			(0x11)
-#define REG_GPIO_CTRL			(0x12)
-#define REG_GPIOPUPDCTR1		(0x13)
-#define REG_GPIOPUPDCTR2		(0x14)
-#define REG_GPIOPUPDCTR3		(0x15)
-#define REG_GPIOPUPDCTR4		(0x16)
-#define REG_GPIOPUPDCTR5		(0x17)
-#define REG_GPIO_ISR1A			(0x19)
-#define REG_GPIO_ISR2A			(0x1A)
-#define REG_GPIO_ISR3A			(0x1B)
-#define REG_GPIO_IMR1A			(0x1C)
-#define REG_GPIO_IMR2A			(0x1D)
-#define REG_GPIO_IMR3A			(0x1E)
-#define REG_GPIO_ISR1B			(0x1F)
-#define REG_GPIO_ISR2B			(0x20)
-#define REG_GPIO_ISR3B			(0x21)
-#define REG_GPIO_IMR1B			(0x22)
-#define REG_GPIO_IMR2B			(0x23)
-#define REG_GPIO_IMR3B			(0x24)
-#define REG_GPIO_EDR1			(0x28)
-#define REG_GPIO_EDR2			(0x29)
-#define REG_GPIO_EDR3			(0x2A)
-#define REG_GPIO_EDR4			(0x2B)
-#define REG_GPIO_EDR5			(0x2C)
-#define REG_GPIO_SIH_CTRL		(0x2D)
+#define REG_GPIODATAIN1			0x0
+#define REG_GPIODATAIN2			0x1
+#define REG_GPIODATAIN3			0x2
+#define REG_GPIODATADIR1		0x3
+#define REG_GPIODATADIR2		0x4
+#define REG_GPIODATADIR3		0x5
+#define REG_GPIODATAOUT1		0x6
+#define REG_GPIODATAOUT2		0x7
+#define REG_GPIODATAOUT3		0x8
+#define REG_CLEARGPIODATAOUT1		0x9
+#define REG_CLEARGPIODATAOUT2		0xA
+#define REG_CLEARGPIODATAOUT3		0xB
+#define REG_SETGPIODATAOUT1		0xC
+#define REG_SETGPIODATAOUT2		0xD
+#define REG_SETGPIODATAOUT3		0xE
+#define REG_GPIO_DEBEN1			0xF
+#define REG_GPIO_DEBEN2			0x10
+#define REG_GPIO_DEBEN3			0x11
+#define REG_GPIO_CTRL			0x12
+#define REG_GPIOPUPDCTR1		0x13
+#define REG_GPIOPUPDCTR2		0x14
+#define REG_GPIOPUPDCTR3		0x15
+#define REG_GPIOPUPDCTR4		0x16
+#define REG_GPIOPUPDCTR5		0x17
+#define REG_GPIO_ISR1A			0x19
+#define REG_GPIO_ISR2A			0x1A
+#define REG_GPIO_ISR3A			0x1B
+#define REG_GPIO_IMR1A			0x1C
+#define REG_GPIO_IMR2A			0x1D
+#define REG_GPIO_IMR3A			0x1E
+#define REG_GPIO_ISR1B			0x1F
+#define REG_GPIO_ISR2B			0x20
+#define REG_GPIO_ISR3B			0x21
+#define REG_GPIO_IMR1B			0x22
+#define REG_GPIO_IMR2B			0x23
+#define REG_GPIO_IMR3B			0x24
+#define REG_GPIO_EDR1			0x28
+#define REG_GPIO_EDR2			0x29
+#define REG_GPIO_EDR3			0x2A
+#define REG_GPIO_EDR4			0x2B
+#define REG_GPIO_EDR5			0x2C
+#define REG_GPIO_SIH_CTRL		0x2D
 
-/**** BitField Definitions */
+/* BitField Definitions */
 
-/***** Data banks : 3 banks for 8 gpios each */
+/* Data banks : 3 banks for 8 gpios each */
 #define DATA_BANK_MAX				8
 #define GET_GPIO_DATA_BANK(x)			((x)/DATA_BANK_MAX)
 #define GET_GPIO_DATA_OFF(x)			((x)%DATA_BANK_MAX)
 
 /* GPIODATADIR Fields each block 0-7 */
 #define BIT_GPIODATADIR_GPIOxDIR(x)		(x)
-#define MASK_GPIODATADIR_GPIOxDIR(x)		(0x01<<(x))
+#define MASK_GPIODATADIR_GPIOxDIR(x)		(0x01 << (x))
 
 /* GPIODATAIN Fields each block 0-7 */
 #define BIT_GPIODATAIN_GPIOxIN(x)		(x)
-#define MASK_GPIODATAIN_GPIOxIN(x)		(0x01<<(x))
+#define MASK_GPIODATAIN_GPIOxIN(x)		(0x01 << (x))
 
 /* GPIODATAOUT Fields each block 0-7 */
 #define BIT_GPIODATAOUT_GPIOxOUT(x)		(x)
-#define MASK_GPIODATAOUT_GPIOxOUT(x)		(0x01<<(x))
+#define MASK_GPIODATAOUT_GPIOxOUT(x)		(0x01 << (x))
 
 /* CLEARGPIODATAOUT Fields */
 #define BIT_CLEARGPIODATAOUT_GPIOxOUT(x)	(x)
-#define MASK_CLEARGPIODATAOUT_GPIOxOUT(x)	(0x01<<(x))
+#define MASK_CLEARGPIODATAOUT_GPIOxOUT(x)	(0x01 << (x))
 
 /* SETGPIODATAOUT Fields */
 #define BIT_SETGPIODATAOUT_GPIOxOUT(x)		(x)
-#define MASK_SETGPIODATAOUT_GPIOxOUT(x)		(0x01<<(x))
+#define MASK_SETGPIODATAOUT_GPIOxOUT(x)		(0x01 << (x))
 
 /* GPIO_DEBEN Fields */
 #define BIT_GPIO_DEBEN_GPIOxDEB(x)		(x)
-#define MASK_GPIO_DEBEN_GPIOxDEB(x)		(0x01<<(x))
+#define MASK_GPIO_DEBEN_GPIOxDEB(x)		(0x01 << (x))
 
 /* GPIO_ISR1A Fields */
 #define BIT_GPIO_ISR_GPIOxISR(x)		(x)
-#define MASK_GPIO_ISR_GPIOxISR(x)		(0x01<<(x))
+#define MASK_GPIO_ISR_GPIOxISR(x)		(0x01 << (x))
 
 /* GPIO_IMR1A Fields */
 #define BIT_GPIO_IMR1A_GPIOxIMR(x)		(x)
-#define MASK_GPIO_IMR1A_GPIOxIMR(x)		(0x01<<(x))
+#define MASK_GPIO_IMR1A_GPIOxIMR(x)		(0x01 << (x))
 
 /* GPIO_SIR1 Fields */
 #define BIT_GPIO_SIR1_GPIOxSIR(x)		(x)
-#define MASK_GPIO_SIR1_GPIO0SIR			(0x01<<(x))
+#define MASK_GPIO_SIR1_GPIO0SIR			(0x01 << (x))
 
 
-/**** Control banks : 5 banks for 4 gpios each */
+/* Control banks : 5 banks for 4 gpios each */
 #define DATA_CTL_MAX			4
 #define GET_GPIO_CTL_BANK(x)		((x)/DATA_CTL_MAX)
 #define GET_GPIO_CTL_OFF(x)		((x)%DATA_CTL_MAX)
@@ -146,15 +146,15 @@
 
 /* GPIOPUPDCTRx Fields 5 banks of 4 gpios each */
 #define BIT_GPIOPUPDCTR1_GPIOxPD(x)	(2 *(x))
-#define MASK_GPIOPUPDCTR1_GPIOxPD(x)	(0x01<<(2*(x)))
+#define MASK_GPIOPUPDCTR1_GPIOxPD(x)	(0x01 << (2*(x)))
 #define BIT_GPIOPUPDCTR1_GPIOxPU(x)	((x) + 1)
-#define MASK_GPIOPUPDCTR1_GPIOxPU(x)	(0x01<<(((2*(x)) + 1)))
+#define MASK_GPIOPUPDCTR1_GPIOxPU(x)	(0x01 << (((2*(x)) + 1)))
 
 /* GPIO_EDR1 Fields */
 #define BIT_GPIO_EDR1_GPIOxFALLING(x)	(2 *(x))
-#define MASK_GPIO_EDR1_GPIOxFALLING(x)	(0x01<<(2*(x)))
+#define MASK_GPIO_EDR1_GPIOxFALLING(x)	(0x01 << (2*(x)))
 #define BIT_GPIO_EDR1_GPIOxRISING(x)	((x) + 1)
-#define MASK_GPIO_EDR1_GPIOxRISING(x)	(0x01<<(((2*(x)) + 1)))
+#define MASK_GPIO_EDR1_GPIOxRISING(x)	(0x01 << (((2*(x)) + 1)))
 
 /* GPIO_SIH_CTRL Fields */
 #define BIT_GPIO_SIH_CTRL_EXCLEN	(0x000)
@@ -590,7 +590,7 @@ int twl4030_set_gpio_card_detect(int gpio, int enable)
 	return (ret);
 }
 
-/**** MODULE FUNCTIONS ***/
+/* MODULE FUNCTIONS */
 
 /*
  * To configure TWL4030 GPIO module registers
@@ -764,9 +764,9 @@ static int __init gpio_twl4030_init(void)
 	ret = gpio_write_imr(gpio_imr_shadow);
 	if (!ret) {
 		/*
-		* Create a kernel thread to handle deferred unmasking of gpio
-		* interrupts.
-		*/
+		 * Create a kernel thread to handle deferred unmasking of gpio
+		 * interrupts.
+		 */
 		gpio_unmask_thread = kthread_create(twl4030_gpio_unmask_thread,
 			NULL, "twl4030 gpio");
 		if (!gpio_unmask_thread) {
