@@ -13,6 +13,15 @@
 #if defined(CONFIG_ARCH_OMAP2430) || defined(CONFIG_ARCH_OMAP3430)
 #include <asm/arch/hardware.h>
 #include <asm/arch/usb.h>
+
+#if defined(CONFIG_TWL4030_USB_HS_ULPI)
+extern void twl4030_phy_suspend(int controller_off);
+extern void twl4030_phy_resume(void);
+#else
+#define twl4030_phy_suspend(x)		do {} while (0)
+#define twl4030_phy_resume()		do {} while (0)
+#endif
+
 /*
  * OMAP2430-specific definitions
  */
@@ -21,7 +30,7 @@
 #if	defined(CONFIG_ARCH_OMAP2430)
 #define	OMAP_HSOTG_BASE		(OMAP243X_HS_BASE)
 #elif	defined(CONFIG_ARCH_OMAP3430)
-#define	OMAP_HSOTG_BASE		(HS_BASE)
+#define	OMAP_HSOTG_BASE		(OMAP34XX_HSUSB_OTG_BASE)
 #endif
 #define OMAP_HSOTG(offset)	__REG32(OMAP_HSOTG_BASE + 0x400 + (offset))
 #define OTG_REVISION_REG	OMAP_HSOTG(0x0)

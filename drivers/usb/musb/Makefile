@@ -18,6 +18,10 @@ ifeq ($(CONFIG_ARCH_OMAP2430),y)
 	musb_hdrc-objs	+= omap2430.o
 endif
 
+ifeq ($(CONFIG_ARCH_OMAP3430),y)
+	musb_hdrc-objs	+= omap2430.o
+endif
+
 ifeq ($(CONFIG_USB_GADGET_MUSB_HDRC),y)
 	musb_hdrc-objs		+= musb_gadget_ep0.o musb_gadget.o
 endif

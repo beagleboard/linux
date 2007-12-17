@@ -1,5 +1,10 @@
 /*
- * Copyright (C) 2005-2006 by Texas Instruments
+ * Copyright (C) 2005-2007 by Texas Instruments
+ * Some code has been taken from tusb6010.c
+ * Copyrights for that are attributable to:
+ * Copyright (C) 2006 Nokia Corporation
+ * Jarkko Nikula <jarkko.nikula@nokia.com>
+ * Tony Lindgren <tony@atomide.com>
  *
  * This file is part of the Inventra Controller Driver for Linux.
  *
@@ -40,6 +45,100 @@
 #define	get_cpu_rev()	2
 #endif
 
+#define MUSB_TIMEOUT_A_WAIT_BCON	1100
+
+static struct timer_list musb_idle_timer;
+
+static void musb_do_idle(unsigned long _musb)
+{
+	struct musb	*musb = (void *)_musb;
+	unsigned long	flags;
+	u8	power;
+	u8	devctl;
+
+	devctl = musb_readb(musb->mregs, MUSB_DEVCTL);
+
+	spin_lock_irqsave(&musb->lock, flags);
+
+	switch (musb->xceiv.state) {
+	case OTG_STATE_A_WAIT_BCON:
+		devctl &= ~MUSB_DEVCTL_SESSION;
+		musb_writeb(musb->mregs, MUSB_DEVCTL, devctl);
+
+		devctl = musb_readb(musb->mregs, MUSB_DEVCTL);
+		if (devctl & MUSB_DEVCTL_BDEVICE) {
+			musb->xceiv.state = OTG_STATE_B_IDLE;
+			MUSB_DEV_MODE(musb);
+		} else {
+			musb->xceiv.state = OTG_STATE_A_IDLE;
+			MUSB_HST_MODE(musb);
+		}
+		break;
+#ifdef CONFIG_USB_MUSB_HDRC_HCD
+	case OTG_STATE_A_SUSPEND:
+		/* finish RESUME signaling? */
+		if (musb->port1_status & MUSB_PORT_STAT_RESUME) {
+			power = musb_readb(musb->mregs, MUSB_POWER);
+			power &= ~MUSB_POWER_RESUME;
+			DBG(1, "root port resume stopped, power %02x\n", power);
+			musb_writeb(musb->mregs, MUSB_POWER, power);
+			musb->is_active = 1;
+			musb->port1_status &= ~(USB_PORT_STAT_SUSPEND
+						| MUSB_PORT_STAT_RESUME);
+			musb->port1_status |= USB_PORT_STAT_C_SUSPEND << 16;
+			usb_hcd_poll_rh_status(musb_to_hcd(musb));
+			/* NOTE: it might really be A_WAIT_BCON ... */
+			musb->xceiv.state = OTG_STATE_A_HOST;
+		}
+		break;
+#endif
+#ifdef CONFIG_USB_MUSB_HDRC_HCD
+	case OTG_STATE_A_HOST:
+		devctl = musb_readb(musb->mregs, MUSB_DEVCTL);
+		if (devctl &  MUSB_DEVCTL_BDEVICE)
+			musb->xceiv.state = OTG_STATE_B_IDLE;
+		else
+			musb->xceiv.state = OTG_STATE_A_WAIT_BCON;
+#endif
+	default:
+		break;
+	}
+	spin_unlock_irqrestore(&musb->lock, flags);
+}
+
+
+void musb_platform_try_idle(struct musb *musb, unsigned long timeout)
+{
+	unsigned long		default_timeout = jiffies + msecs_to_jiffies(3);
+	static unsigned long	last_timer;
+
+	if (timeout == 0)
+		timeout = default_timeout;
+
+	/* Never idle if active, or when VBUS timeout is not set as host */
+	if (musb->is_active || ((musb->a_wait_bcon == 0)
+			&& (musb->xceiv.state == OTG_STATE_A_WAIT_BCON))) {
+		DBG(4, "%s active, deleting timer\n", otg_state_string(musb));
+		del_timer(&musb_idle_timer);
+		last_timer = jiffies;
+		return;
+	}
+
+	if (time_after(last_timer, timeout)) {
+		if (!timer_pending(&musb_idle_timer))
+			last_timer = timeout;
+		else {
+			DBG(4, "Longer idle timer already pending, ignoring\n");
+			return;
+		}
+	}
+	last_timer = timeout;
+
+	DBG(4, "%s inactive, for idle timer for %lu ms\n",
+		otg_state_string(musb),
+		(unsigned long)jiffies_to_msecs(timeout - jiffies));
+	mod_timer(&musb_idle_timer, timeout);
+}
 
 void musb_platform_enable(struct musb *musb)
 {
@@ -93,6 +192,15 @@ static int omap_set_power(struct otg_transceiver *x, unsigned mA)
 	return 0;
 }
 
+static int omap_set_suspend(struct otg_transceiver *x, int suspend)
+{
+	if (suspend)
+		twl4030_phy_suspend(1);
+	else
+		twl4030_phy_resume();
+	return 0;
+}
+
 int musb_platform_resume(struct musb *musb);
 
 int __init musb_platform_init(struct musb *musb)
@@ -102,11 +210,12 @@ int __init musb_platform_init(struct musb *musb)
 	/* get the clock */
 	musb->clock = clk_get((struct device *)musb->controller, "usbhs_ick");
 #else
-	musb->clock = clk_get((struct device *)musb->controller, "hsusb_ick");
+	musb->clock = clk_get((struct device *)musb->controller, "hsotgusb_ick");
 #endif
 	if(IS_ERR(musb->clock))
 		return PTR_ERR(musb->clock);
 
+	musb->xceiv.set_suspend = omap_set_suspend;
 	musb_platform_resume(musb);
 
 	OTG_INTERFSEL_REG |= ULPI_12PIN;
@@ -123,6 +232,9 @@ int __init musb_platform_init(struct musb *musb)
 		musb->board_set_vbus = omap_set_vbus;
 	if (is_peripheral_enabled(musb))
 		musb->xceiv.set_power = omap_set_power;
+	musb->a_wait_bcon = MUSB_TIMEOUT_A_WAIT_BCON;
+
+	setup_timer(&musb_idle_timer, musb_do_idle, (unsigned long) musb);
 
 	return 0;
 }
@@ -137,6 +249,7 @@ int musb_platform_suspend(struct musb *musb)
 	OTG_FORCESTDBY_REG |= ENABLEFORCE; /* enable MSTANDBY */
 	OTG_SYSCONFIG_REG |= AUTOIDLE;		/* enable auto idle */
 
+	musb->xceiv.set_suspend(&musb->xceiv, 1);
 	clk_disable(musb->clock);
 	return 0;
 }
@@ -144,6 +257,7 @@ int musb_platform_suspend(struct musb *musb)
 int musb_platform_resume(struct musb *musb)
 {
 	clk_enable(musb->clock);
+	musb->xceiv.set_suspend(&musb->xceiv, 0);
 
 	OTG_FORCESTDBY_REG &= ~ENABLEFORCE; /* disable MSTANDBY */
 	OTG_SYSCONFIG_REG |= SMARTSTDBY;	/* enable smart standby */
