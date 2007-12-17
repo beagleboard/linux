@@ -44,6 +44,11 @@
 #define OMAP16XX_DSPREG_SIZE	SZ_128K
 #define OMAP16XX_DSPREG_START	0xE1000000
 
+#define OMAP16XX_SEC_BASE	0xFFFE4000
+#define OMAP16XX_SEC_DES	(OMAP16XX_SEC_BASE + 0x0000)
+#define OMAP16XX_SEC_SHA1MD5	(OMAP16XX_SEC_BASE + 0x0800)
+#define OMAP16XX_SEC_RNG	(OMAP16XX_SEC_BASE + 0x1000)
+
 /*
  * ---------------------------------------------------------------------------
  * Interrupts

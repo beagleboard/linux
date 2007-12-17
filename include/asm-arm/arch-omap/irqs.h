@@ -177,6 +177,7 @@
 #define INT_1610_DMA_CH14	(61 + IH2_BASE)
 #define INT_1610_DMA_CH15	(62 + IH2_BASE)
 #define INT_1610_NAND		(63 + IH2_BASE)
+#define INT_1610_SHA1MD5	(91 + IH2_BASE)
 
 /*
  * OMAP-730 specific IRQ numbers for interrupt handler 2
@@ -264,6 +265,7 @@
 #define INT_24XX_GPTIMER10	46
 #define INT_24XX_GPTIMER11	47
 #define INT_24XX_GPTIMER12	48
+#define INT_24XX_SHA1MD5	51
 #define INT_24XX_I2C1_IRQ	56
 #define INT_24XX_I2C2_IRQ	57
 #define INT_24XX_HDQ_IRQ	58
