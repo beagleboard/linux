@@ -430,8 +430,6 @@ static struct omap_gpio_switch sx1_gpio_switches[] __initdata = {
 
 /*-----------------------------------------*/
 
-extern void __init sx1_mmc_init(void);
-
 static void __init omap_sx1_init(void)
 {
 	platform_add_devices(sx1_devices, ARRAY_SIZE(sx1_devices));

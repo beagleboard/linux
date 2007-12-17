@@ -50,8 +50,6 @@
 #include <asm/arch/mcbsp.h>
 #include <asm/arch/omap-alsa.h>
 
-extern int omap_gpio_init(void);
-
 static int h2_keymap[] = {
 	KEY(0, 0, KEY_LEFT),
 	KEY(0, 1, KEY_RIGHT),
@@ -511,8 +509,6 @@ static int h2_nand_dev_ready(struct omap_nand_platform_data *data)
 {
 	return omap_get_gpio_datain(H2_NAND_RB_GPIO_PIN);
 }
-
-extern void __init h2_mmc_init(void);
 
 static void __init h2_init(void)
 {

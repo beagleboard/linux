@@ -57,8 +57,6 @@
 
 #include <../drivers/media/video/ov9640.h>
 
-extern int omap_gpio_init(void);
-
 static int h3_keymap[] = {
 	KEY(0, 0, KEY_LEFT),
 	KEY(0, 1, KEY_RIGHT),
@@ -674,8 +672,6 @@ static struct i2c_board_info __initdata h3_i2c_board_info[] = {
 		.irq		= OMAP_GPIO_IRQ(14),
 	},
 };
-
-extern void __init h3_mmc_init(void);
 
 static void __init h3_init(void)
 {

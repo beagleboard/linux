@@ -47,6 +47,7 @@ int i2c_read_byte(u8 devaddr, u8 regoffset, u8 * value);
 
 /* MMC prototypes */
 
+extern void __init sx1_mmc_init(void);
 extern void sx1_mmc_slot_cover_handler(void *arg, int state);
 
 #endif /* __ASM_ARCH_SX1_I2C_CHIPS_H */
