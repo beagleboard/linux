@@ -440,7 +440,7 @@ static struct i2c_board_info __initdata h2_i2c_board_info[] = {
 	{
 		I2C_BOARD_INFO("isp1301_omap", 0x2d),
 		.type		= "isp1301_omap",
-		.irq		= OMAP_GPIOIRQ(2),
+		.irq		= OMAP_GPIO_IRQ(2),
 	},
 };
 
