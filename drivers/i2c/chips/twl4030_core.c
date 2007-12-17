@@ -51,7 +51,7 @@
 
 #define DRIVER_NAME			"twl4030"
 
-/**** Macro Definitions */
+/* Macro Definitions */
 #define TWL_CLIENT_STRING		"TWL4030-ID"
 #define TWL_CLIENT_USED			1
 #define TWL_CLIENT_FREE			0
@@ -60,9 +60,9 @@
 #define FREE				0
 #define USED				1
 
-/** Primary Interrupt Handler on TWL4030 Registers */
+/* Primary Interrupt Handler on TWL4030 Registers */
 
-/**** Register Definitions */
+/* Register Definitions */
 
 #define REG_PIH_ISR_P1			(0x1)
 #define REG_PIH_ISR_P2			(0x2)
@@ -132,7 +132,7 @@
 /* on I2C-1 for 2430SDP */
 #define CONFIG_I2C_TWL4030_ID		1
 
-/**** Helper functions */
+/* Helper functions */
 static int
 twl4030_detect_client(struct i2c_adapter *adapter, unsigned char sid);
 static int twl4030_attach_adapter(struct i2c_adapter *adapter);
@@ -141,7 +141,7 @@ static void do_twl4030_irq(unsigned int irq, irq_desc_t *desc);
 
 static void twl_init_irq(void);
 
-/**** Data Structures */
+/* Data Structures */
 /* To have info on T2 IRQ substem activated or not */
 static unsigned char twl_irq_used = FREE;
 static struct completion irq_event;
@@ -268,7 +268,7 @@ int twl4030_i2c_write(u8 mod_no, u8 * value, u8 reg, u8 num_bytes)
 
 	if (unlikely(client->inuse != TWL_CLIENT_USED)) {
 		pr_err("I2C Client[%d] is not initialized[%d]\n",
-		       sid,__LINE__);
+		       sid, __LINE__);
 		return -EPERM;
 	}
 	down(&(client->xfer_lock));
@@ -383,7 +383,7 @@ int twl4030_i2c_read_u8(u8 mod_no, u8 * value, u8 reg)
 	return ret;
 }
 
-/**** Helper Functions */
+/* Helper Functions */
 
 /*
  * do_twl4030_module_irq() is the desc->handle method for each of the twl4030
@@ -638,7 +638,7 @@ struct task_struct *start_twl4030_irq_thread(int irq)
 			     "twl4030 irq %d", irq);
 	if (!thread)
 		pr_err("%s: could not create twl4030 irq %d thread!\n",
-		       __FUNCTION__,irq);
+		       __FUNCTION__, irq);
 
 	return thread;
 }
@@ -694,9 +694,9 @@ static int power_companion_init(void)
 
 static void twl_init_irq(void)
 {
-	int i = 0;
-	int res = 0;
-	int line = 0;
+	int	i = 0;
+	int	res = 0;
+	char	*msg = "Unable to register interrupt subsystem";
 
 	/*
 	 * We end up with interrupts from other modules before
@@ -705,44 +705,44 @@ static void twl_init_irq(void)
 	/* PWR_ISR1 */
 	res = twl4030_i2c_write_u8(TWL4030_MODULE_INT, 0xFF, 0x00);
 	if (res < 0) {
-		line = __LINE__;
-		goto irq_exit_path;
+		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
+		return;
 	}
 
 	/* PWR_ISR2 */
 	res = twl4030_i2c_write_u8(TWL4030_MODULE_INT, 0xFF, 0x02);
 	if (res < 0) {
-		line = __LINE__;
-		goto irq_exit_path;
+		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
+		return;
 	}
 
 	/* PWR_IMR1 */
 	res = twl4030_i2c_write_u8(TWL4030_MODULE_INT, 0xFF, 0x1);
 	if (res < 0) {
-		line = __LINE__;
-		goto irq_exit_path;
+		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
+		return;
 	}
 
 	/* PWR_IMR2 */
 	res = twl4030_i2c_write_u8(TWL4030_MODULE_INT, 0xFF, 0x3);
 	if (res < 0) {
-		line = __LINE__;
-		goto irq_exit_path;
+		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
+		return;
 	}
 
 	/* Clear off any other pending interrupts on power */
 	/* PWR_ISR1 */
 	res = twl4030_i2c_write_u8(TWL4030_MODULE_INT, 0xFF, 0x00);
 	if (res < 0) {
-		line = __LINE__;
-		goto irq_exit_path;
+		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
+		return;
 	}
 
 	/* PWR_ISR2 */
 	res = twl4030_i2c_write_u8(TWL4030_MODULE_INT, 0xFF, 0x02);
 	if (res < 0) {
-		line = __LINE__;
-		goto irq_exit_path;
+		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
+		return;
 	}
 	/* POWER HACK (END) */
 	/* Slave address 0x4A */
@@ -750,52 +750,52 @@ static void twl_init_irq(void)
 	/* BCIIMR1_1 */
 	res = twl4030_i2c_write_u8(TWL4030_MODULE_INTERRUPTS, 0xFF, 0x3);
 	if (res < 0) {
-		line = __LINE__;
-		goto irq_exit_path;
+		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
+		return;
 	}
 
 	/* BCIIMR1_2 */
 	res = twl4030_i2c_write_u8(TWL4030_MODULE_INTERRUPTS, 0xFF, 0x4);
 	if (res < 0) {
-		line = __LINE__;
-		goto irq_exit_path;
+		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
+		return;
 	}
 
 	/* BCIIMR2_1 */
 	res = twl4030_i2c_write_u8(TWL4030_MODULE_INTERRUPTS, 0xFF, 0x7);
 	if (res < 0) {
-		line = __LINE__;
-		goto irq_exit_path;
+		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
+		return;
 	}
 
 	/* BCIIMR2_2 */
 	res = twl4030_i2c_write_u8(TWL4030_MODULE_INTERRUPTS, 0xFF, 0x8);
 	if (res < 0) {
-		line = __LINE__;
-		goto irq_exit_path;
+		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
+		return;
 	}
 
 	/* MAD C */
 	/* MADC_IMR1 */
 	res = twl4030_i2c_write_u8(TWL4030_MODULE_MADC, 0xFF, 0x62);
 	if (res < 0) {
-		line = __LINE__;
-		goto irq_exit_path;
+		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
+		return;
 	}
 
 	/* MADC_IMR2 */
 	res = twl4030_i2c_write_u8(TWL4030_MODULE_MADC, 0xFF, 0x64);
 	if (res < 0) {
-		line = __LINE__;
-		goto irq_exit_path;
+		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
+		return;
 	}
 
 	/* key Pad */
 	/* KEYPAD - IMR1 */
 	res = twl4030_i2c_write_u8(TWL4030_MODULE_KEYPAD, 0xFF, (0x12));
 	if (res < 0) {
-		line = __LINE__;
-		goto irq_exit_path;
+		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
+		return;
 	}
 	{
 		u8 clear;
@@ -807,51 +807,51 @@ static void twl_init_irq(void)
 	/* KEYPAD - IMR2 */
 	res = twl4030_i2c_write_u8(TWL4030_MODULE_KEYPAD, 0xFF, (0x14));
 	if (res < 0) {
-		line = __LINE__;
-		goto irq_exit_path;
+		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
+		return;
 	}
 
 	/* Slave address 0x49 */
 	/* GPIO_IMR1A */
 	res = twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0xFF, (0x1C));
 	if (res < 0) {
-		line = __LINE__;
-		goto irq_exit_path;
+		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
+		return;
 	}
 
 	/* GPIO_IMR2A */
 	res = twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0xFF, (0x1D));
 	if (res < 0) {
-		line = __LINE__;
-		goto irq_exit_path;
+		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
+		return;
 	}
 
 	/* GPIO_IMR3A */
 	res = twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0xFF, (0x1E));
 	if (res < 0) {
-		line = __LINE__;
-		goto irq_exit_path;
+		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
+		return;
 	}
 
 	/* GPIO_IMR1B */
 	res = twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0xFF, (0x22));
 	if (res < 0) {
-		line = __LINE__;
-		goto irq_exit_path;
+		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
+		return;
 	}
 
 	/* GPIO_IMR2B */
 	res = twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0xFF, (0x23));
 	if (res < 0) {
-		line = __LINE__;
-		goto irq_exit_path;
+		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
+		return;
 	}
 
 	/* GPIO_IMR3B */
 	res = twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0xFF, (0x24));
 	if (res < 0) {
-		line = __LINE__;
-		goto irq_exit_path;
+		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
+		return;
 	}
 
 	/* install an irq handler for each of the PIH modules */
@@ -868,14 +868,8 @@ static void twl_init_irq(void)
 
 	res = power_companion_init();
 	if (res < 0) {
-		line = __LINE__;
-		goto irq_exit_path;
+		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
 	}
-
-irq_exit_path:
-	if (res)
-		pr_err("Unable to register interrupt subsystem[%d][%d]\n",
-		       res,line);
 }
 
 static int __init twl4030_init(void)
