@@ -307,7 +307,7 @@ static struct omap_lcd_config sdp3430_lcd_config __initdata = {
 	.ctrl_name	= "internal",
 };
 
-static struct omap_board_config_kernel sdp3430_config[] = {
+static struct omap_board_config_kernel sdp3430_config[] __initdata = {
 	{ OMAP_TAG_UART,	&sdp3430_uart_config },
 	{OMAP_TAG_LCD,		&sdp3430_lcd_config},
 };
