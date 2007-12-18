@@ -249,6 +249,38 @@ static void omap_init_sha1_md5(void)
 static inline void omap_init_sha1_md5(void) { }
 #endif
 
+#if defined(CONFIG_HDQ_MASTER_OMAP) || defined(CONFIG_HDQ_MASTER_OMAP_MODULE)
+#if defined(CONFIG_ARCH_OMAP2430) || defined(CONFIG_ARCH_OMAP3430)
+#define OMAP_HDQ_BASE	0x480B2000
+#endif
+static struct resource omap_hdq_resources[] = {
+	{
+		.start		= OMAP_HDQ_BASE,
+		.end		= OMAP_HDQ_BASE + 0x1C,
+		.flags		= IORESOURCE_MEM,
+	},
+	{
+		.start		= INT_24XX_HDQ_IRQ,
+		.flags		= IORESOURCE_IRQ,
+	},
+};
+static struct platform_device omap_hdq_dev = {
+	.name = "omap_hdq",
+	.id = 0,
+	.dev = {
+		.platform_data = NULL,
+	},
+	.num_resources	= ARRAY_SIZE(omap_hdq_resources),
+	.resource	= omap_hdq_resources,
+};
+static inline void omap_hdq_init(void)
+{
+	(void) platform_device_register(&omap_hdq_dev);
+}
+#else
+static inline void omap_hdq_init(void) {}
+#endif
+
 /*-------------------------------------------------------------------------*/
 
 static int __init omap2_init_devices(void)
@@ -259,6 +291,7 @@ static int __init omap2_init_devices(void)
 	omap_init_camera();
 	omap_init_mbox();
 	omap_init_mcspi();
+	omap_hdq_init();
 	omap_init_sti();
 	omap_init_sha1_md5();
 
