@@ -353,6 +353,26 @@ out:
 	return ret;
 }
 
+/*
+ * We will just handle setting the frequency and make use the framework for
+ * reading the periodic interupts.
+ * @freq: Current periodic IRQ freq
+ */
+static int twl4030_rtc_irq_set_freq(struct device *dev, int freq)
+{
+	struct rtc_device *rtc = dev_get_drvdata(dev);
+
+	if (freq < 0 || freq > 3)
+		return -EINVAL;
+
+	rtc->irq_freq = freq;
+
+	/* set rtc irq freq to user defined value */
+	set_rtc_irq_bit(freq);
+
+	return 0;
+}
+
 #ifdef	CONFIG_RTC_INTF_DEV
 
 static int twl4030_rtc_ioctl(struct device *dev, unsigned int cmd,
@@ -364,12 +384,18 @@ static int twl4030_rtc_ioctl(struct device *dev, unsigned int cmd,
 		return twl4030_rtc_alarm_irq_set_state(dev, 0);
 	case RTC_AIE_ON:
 		return twl4030_rtc_alarm_irq_set_state(dev, 1);
+
 	case RTC_UIE_OFF:
-		/* Mask ints from RTC updates.  */
+		/* Fall Through */
+	case RTC_PIE_OFF:
+		/* Mask ints from RTC updates.	*/
 		return twl4030_rtc_irq_set_state(dev, 0);
 	case RTC_UIE_ON:
-		/* Allow ints for RTC updates.  */
+		/* Fall Through */
+	case RTC_PIE_ON:
+		/* Allow ints for RTC updates.	*/
 		return twl4030_rtc_irq_set_state(dev, 1);
+
 	case RTC_EPOCH_READ:
 		return put_user(epoch, (unsigned long *)arg);
 	case RTC_EPOCH_SET:	
@@ -450,11 +476,12 @@ out:
 }
 
 static struct rtc_class_ops twl4030_rtc_ops = {
-	.ioctl = twl4030_rtc_ioctl,
-	.read_time = twl4030_rtc_read_time,
-	.set_time = twl4030_rtc_set_time,
-	.read_alarm = twl4030_rtc_read_alarm,
-	.set_alarm = twl4030_rtc_set_alarm,
+	.ioctl		= twl4030_rtc_ioctl,
+	.read_time	= twl4030_rtc_read_time,
+	.set_time	= twl4030_rtc_set_time,
+	.read_alarm	= twl4030_rtc_read_alarm,
+	.set_alarm	= twl4030_rtc_set_alarm,
+	.irq_set_freq	= twl4030_rtc_irq_set_freq,
 };
 
 static int __devinit twl4030_rtc_probe(struct platform_device *pdev)
@@ -479,6 +506,9 @@ static int __devinit twl4030_rtc_probe(struct platform_device *pdev)
 		goto out0;
 
 	}
+
+	/* Set the irq freq to every second */
+	rtc->irq_freq = 0;
 
 	platform_set_drvdata(pdev, rtc);
 
@@ -571,6 +601,7 @@ static int __devexit twl4030_rtc_remove(struct platform_device *pdev)
 		pdata->exit();
 
 	rtc_device_unregister(rtc);
+	platform_set_drvdata(pdev, NULL);
 	return 0;
 }
 
