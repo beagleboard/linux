@@ -169,9 +169,6 @@ struct omap_version_config {
 	char version[12];
 };
 
-
-#include <asm-arm/arch-omap/board-nokia.h>
-
 struct omap_board_config_entry {
 	u16 tag;
 	u16 len;

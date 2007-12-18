@@ -319,6 +319,10 @@
 #include "board-h4.h"
 #endif
 
+#if defined(CONFIG_MACH_NOKIA_N800) || defined(CONFIG_MACH_NOKIA770)
+#include "board-nokia.h"
+#endif
+
 #ifdef CONFIG_MACH_OMAP_2430SDP
 #include "board-2430sdp.h"
 #endif

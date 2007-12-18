@@ -6,8 +6,8 @@
  *  Copyright (C) 2005	Nokia Corporation
  */
 
-#ifndef _OMAP_BOARD_NOKIA_H
-#define _OMAP_BOARD_NOKIA_H
+#ifndef __ASM_ARCH_OMAP_NOKIA_H
+#define __ASM_ARCH_OMAP_NOKIA_H
 
 #include <linux/types.h>
 
