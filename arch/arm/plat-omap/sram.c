@@ -91,11 +91,9 @@ static int is_sram_locked(void)
 {
 	int type = 0;
 
-#if defined(CONFIG_ARCH_OMAP242X)
 	if (cpu_is_omap242x())
 		type = (ctrl_read_reg(OMAP24XX_CONTROL_STATUS) &
 			OMAP2_DEVICETYPE_MASK);
-#endif
 
 	if (type == GP_DEVICE) {
 		/* RAMFW: R/W access to all initiators for all qualifier sets */
