@@ -2751,8 +2751,10 @@ S:	Maintained
 
 NFS CLIENT
 P:	Trond Myklebust
-M:	trond.myklebust@fys.uio.no
-L:	linux-kernel@vger.kernel.org
+M:	Trond.Myklebust@netapp.com
+L:	linux-nfs@vger.kernel.org
+W:	http://client.linux-nfs.org
+T:	git git://git.linux-nfs.org/pub/linux/nfs-2.6.git
 S:	Maintained
 
 NI5010 NETWORK DRIVER
@@ -3697,11 +3699,6 @@ TASKSTATS STATISTICS INTERFACE
 P:	Shailabh Nagar
 M:	nagar@watson.ibm.com
 L:	linux-kernel@vger.kernel.org
-S:	Maintained
-
-TI PARALLEL LINK CABLE DRIVER
-P:	Romain Lievin
-M:	roms@lpg.ticalc.org
 S:	Maintained
 
 TIPC NETWORK LAYER
