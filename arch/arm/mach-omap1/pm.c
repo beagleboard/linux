@@ -100,7 +100,7 @@ static struct subsys_attribute sleep_while_idle_attr = {
 
 #endif
 
-static void (*omap_sram_idle)(void) = NULL;
+extern struct kset power_subsys;
 static void (*omap_sram_suspend)(unsigned long r0, unsigned long r1) = NULL;
 
 /*
