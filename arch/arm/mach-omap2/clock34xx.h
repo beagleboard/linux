@@ -850,8 +850,9 @@ static struct clk core_96m_fck = {
 	.recalc		= &followparent_recalc,
 };
 
-static struct clk mmc2_fck = {
-	.name		= "mmc2_fck",
+static struct clk mmchs2_fck = {
+	.name		= "mmchs_fck",
+	.id		= 2,
 	.parent		= &core_96m_fck,
 	.enable_reg	= OMAP_CM_REGADDR(CORE_MOD, CM_FCLKEN1),
 	.enable_bit	= OMAP3430_EN_MMC2_SHIFT,
@@ -868,8 +869,9 @@ static struct clk mspro_fck = {
 	.recalc		= &followparent_recalc,
 };
 
-static struct clk mmc1_fck = {
-	.name		= "mmc1_fck",
+static struct clk mmchs1_fck = {
+	.name		= "mmchs_fck",
+	.id		= 1,
 	.parent		= &core_96m_fck,
 	.enable_reg	= OMAP_CM_REGADDR(CORE_MOD, CM_FCLKEN1),
 	.enable_bit	= OMAP3430_EN_MMC1_SHIFT,
@@ -1183,8 +1185,9 @@ static struct clk des2_ick = {
 	.recalc		= &followparent_recalc,
 };
 
-static struct clk mmc2_ick = {
-	.name		= "mmc2_ick",
+static struct clk mmchs2_ick = {
+	.name		= "mmchs_ick",
+	.id		= 2,
 	.parent		= &core_l4_ick,
 	.enable_reg	= OMAP_CM_REGADDR(CORE_MOD, CM_ICLKEN1),
 	.enable_bit	= OMAP3430_EN_MMC2_SHIFT,
@@ -1192,8 +1195,9 @@ static struct clk mmc2_ick = {
 	.recalc		= &followparent_recalc,
 };
 
-static struct clk mmc1_ick = {
-	.name		= "mmc1_ick",
+static struct clk mmchs1_ick = {
+	.name		= "mmchs_ick",
+	.id		= 1,
 	.parent		= &core_l4_ick,
 	.enable_reg	= OMAP_CM_REGADDR(CORE_MOD, CM_ICLKEN1),
 	.enable_bit	= OMAP3430_EN_MMC1_SHIFT,
@@ -2265,9 +2269,9 @@ static struct clk *onchip_34xx_clks[] __initdata = {
 	&gpt10_fck,
 	&gpt11_fck,
 	&core_96m_fck,
-	&mmc2_fck,
+	&mmchs2_fck,
 	&mspro_fck,
-	&mmc1_fck,
+	&mmchs1_fck,
 	&i2c3_fck,
 	&i2c2_fck,
 	&i2c1_fck,
@@ -2296,8 +2300,8 @@ static struct clk *onchip_34xx_clks[] __initdata = {
 	&aes2_ick,
 	&sha12_ick,
 	&des2_ick,
-	&mmc2_ick,
-	&mmc1_ick,
+	&mmchs2_ick,
+	&mmchs1_ick,
 	&mspro_ick,
 	&hdq_ick,
 	&mcspi4_ick,

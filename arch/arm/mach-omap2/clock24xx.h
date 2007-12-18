@@ -2380,7 +2380,8 @@ static struct clk usbhs_ick = {
 };
 
 static struct clk mmchs1_ick = {
-	.name		= "mmchs1_ick",
+	.name		= "mmchs_ick",
+	.id		= 1,
 	.parent		= &l4_ck,
 	.flags		= CLOCK_IN_OMAP243X,
 	.enable_reg	= OMAP_CM_REGADDR(CORE_MOD, CM_ICLKEN2),
@@ -2389,7 +2390,8 @@ static struct clk mmchs1_ick = {
 };
 
 static struct clk mmchs1_fck = {
-	.name		= "mmchs1_fck",
+	.name		= "mmchs_fck",
+	.id		= 1,
 	.parent		= &func_96m_ck,
 	.flags		= CLOCK_IN_OMAP243X,
 	.enable_reg	= OMAP_CM_REGADDR(CORE_MOD, OMAP24XX_CM_FCLKEN2),
@@ -2398,7 +2400,8 @@ static struct clk mmchs1_fck = {
 };
 
 static struct clk mmchs2_ick = {
-	.name		= "mmchs2_ick",
+	.name		= "mmchs_ick",
+	.id		= 2,
 	.parent		= &l4_ck,
 	.flags		= CLOCK_IN_OMAP243X,
 	.enable_reg	= OMAP_CM_REGADDR(CORE_MOD, CM_ICLKEN2),
@@ -2407,7 +2410,8 @@ static struct clk mmchs2_ick = {
 };
 
 static struct clk mmchs2_fck = {
-	.name		= "mmchs2_fck",
+	.name		= "mmchs_fck",
+	.id		= 2,
 	.parent		= &func_96m_ck,
 	.flags		= CLOCK_IN_OMAP243X,
 	.enable_reg	= OMAP_CM_REGADDR(CORE_MOD, OMAP24XX_CM_FCLKEN2),
@@ -2443,7 +2447,8 @@ static struct clk mdm_intc_ick = {
 };
 
 static struct clk mmchsdb1_fck = {
-	.name		= "mmchsdb1_fck",
+	.name		= "mmchsdb_fck",
+	.id		= 1,
 	.parent		= &func_32k_ck,
 	.flags		= CLOCK_IN_OMAP243X,
 	.enable_reg	= OMAP_CM_REGADDR(CORE_MOD, OMAP24XX_CM_FCLKEN2),
@@ -2452,7 +2457,8 @@ static struct clk mmchsdb1_fck = {
 };
 
 static struct clk mmchsdb2_fck = {
-	.name		= "mmchsdb2_fck",
+	.name		= "mmchsdb_fck",
+	.id		= 2,
 	.parent		= &func_32k_ck,
 	.flags		= CLOCK_IN_OMAP243X,
 	.enable_reg	= OMAP_CM_REGADDR(CORE_MOD, OMAP24XX_CM_FCLKEN2),
