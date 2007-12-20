@@ -257,9 +257,17 @@ static struct omap_lcd_config sdp3430_lcd_config __initdata = {
 	.ctrl_name	= "internal",
 };
 
+static struct omap_mmc_config sdp3430_mmc_config __initdata = {
+	.mmc [0] = {
+		.enabled	= 1,
+		.wire4		= 1,
+	},
+};
+
 static struct omap_board_config_kernel sdp3430_config[] __initdata = {
 	{ OMAP_TAG_UART,	&sdp3430_uart_config },
 	{OMAP_TAG_LCD,		&sdp3430_lcd_config},
+	{OMAP_TAG_MMC,		&sdp3430_mmc_config },
 };
 
 static int __init omap3430_i2c_init(void)
@@ -283,6 +291,7 @@ static void __init omap_3430sdp_init(void)
 	sdp3430_flash_init();
 	omap_serial_init();
 	sdp3430_usb_init();
+	sdp_mmc_init();
 }
 
 static void __init omap_3430sdp_map_io(void)

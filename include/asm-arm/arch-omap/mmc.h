@@ -36,6 +36,10 @@ struct omap_mmc_platform_data {
 	int (* init)(struct device *dev);
 	void (* cleanup)(struct device *dev);
 
+	/* To handle board related suspend/resume functionality for MMC */
+	int (*suspend)(struct device *dev, int slot);
+	int (*resume)(struct device *dev, int slot);
+
 	struct omap_mmc_slot_data {
 		int (* set_bus_mode)(struct device *dev, int slot, int bus_mode);
 		int (* set_power)(struct device *dev, int slot, int power_on, int vdd);
