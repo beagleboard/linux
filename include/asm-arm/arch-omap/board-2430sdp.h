@@ -46,7 +46,7 @@
 #define NR_IRQS				(IH_TWL4030_GPIO_END)
 
 /* Function prototypes */
-extern void __init sdp2430_flash_init(void);
-extern void __init sdp2430_usb_init(void);
+extern void sdp2430_flash_init(void);
+extern void sdp2430_usb_init(void);
 
 #endif /* __ASM_ARCH_OMAP_2430SDP_H */
