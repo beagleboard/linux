@@ -54,12 +54,23 @@ config MMC_RICOH_MMC
 
 config MMC_OMAP
 	tristate "TI OMAP Multimedia Card Interface support"
-	depends on ARCH_OMAP
+	depends on ARCH_OMAP1 || (ARCH_OMAP2 && ARCH_OMAP2420)
 	select TPS65010 if MACH_OMAP_H2
 	select OMAP_GPIO_SWITCH if MACH_NOKIA_N800
 	help
 	  This selects the TI OMAP Multimedia card Interface.
 	  If you have an OMAP board with a Multimedia Card slot,
+	  say Y or M here.
+
+	  If unsure, say N.
+
+config MMC_OMAP_HS
+	tristate "TI OMAP High Speed Multimedia Card Interface support"
+	depends on (ARCH_OMAP2 && ARCH_OMAP2430) || ARCH_OMAP3
+	select TWL4030_CORE if MACH_OMAP_2430SDP || MACH_OMAP_3430SDP
+	help
+	  This selects the TI OMAP High Speed Multimedia card Interface.
+	  If you have an OMAP2(2430) or OMAP3 board with a Multimedia Card slot,
 	  say Y or M here.
 
 	  If unsure, say N.
