@@ -36,7 +36,7 @@ static int sx1_mmc_set_power(struct device *dev, int slot, int power_on,
 		return -ENODEV;
 	}
 
-	err = i2c_read_byte(SOFIA_I2C_ADDR, SOFIA_POWER1_REG, &dat);
+	err = sx1_i2c_read_byte(SOFIA_I2C_ADDR, SOFIA_POWER1_REG, &dat);
 	if (err < 0)
 		return err;
 
@@ -45,7 +45,7 @@ static int sx1_mmc_set_power(struct device *dev, int slot, int power_on,
 	else
 		dat &= ~SOFIA_MMC_POWER;
 
-	return i2c_write_byte(SOFIA_I2C_ADDR, SOFIA_POWER1_REG, dat);
+	return sx1_i2c_write_byte(SOFIA_I2C_ADDR, SOFIA_POWER1_REG, dat);
 }
 
 static int sx1_mmc_set_bus_mode(struct device *dev, int slot, int bus_mode)
