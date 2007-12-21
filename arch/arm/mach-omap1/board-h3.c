@@ -28,7 +28,7 @@
 #include <linux/clk.h>
 #include <linux/i2c.h>
 #include <linux/spi/spi.h>
-#include <linux/spi/tsc2101.h>
+#include <linux/spi/tsc210x.h>
 
 #include <asm/setup.h>
 #include <asm/page.h>
@@ -56,6 +56,8 @@
 #include <asm/arch/omap-alsa.h>
 
 #include <../drivers/media/video/ov9640.h>
+
+#define H3_TS_GPIO	48
 
 static int h3_keymap[] = {
 	KEY(0, 0, KEY_LEFT),
@@ -379,77 +381,10 @@ static struct platform_device h3_lcd_device = {
 	.id		= -1,
 };
 
-struct {
-	struct clk	*mclk;
-	int		initialized;
-} h3_tsc2101;
-
-#define TSC2101_MUX_MCLK_ON	V5_1710_MCLK_ON
-#define TSC2101_MUX_MCLK_OFF	V5_1710_MCLK_OFF
-
-static int h3_tsc2101_init(struct spi_device *spi)
-{
-	u8 io_exp_val;
-	int r;
-
-	if (h3_tsc2101.initialized) {
-		printk(KERN_ERR "tsc2101: already initialized\n");
-		return -ENODEV;
-	}
-
-	/* Get the MCLK */
-	h3_tsc2101.mclk = clk_get(&spi->dev, "mclk");
-	if (IS_ERR(h3_tsc2101.mclk)) {
-		dev_err(&spi->dev, "unable to get the clock MCLK\n");
-		return PTR_ERR(h3_tsc2101.mclk);
-	}
-	if ((r = clk_set_rate(h3_tsc2101.mclk, 12000000)) < 0) {
-		dev_err(&spi->dev, "unable to set rate to the MCLK\n");
-		goto err;
-	}
-
-	if ((r = read_gpio_expa(&io_exp_val, 0x24))) {
-		dev_err(&spi->dev, "error reading from I/O EXPANDER\n");
-		goto err;
-	}
-	io_exp_val |= 0x8;
-	if ((r = write_gpio_expa(io_exp_val, 0x24))) {
-		dev_err(&spi->dev, "error writing to I/O EXPANDER\n");
-		goto err;
-	}
-
-	omap_cfg_reg(N14_1610_UWIRE_CS0);
-	omap_cfg_reg(TSC2101_MUX_MCLK_OFF);
-
-	return 0;
-err:
-	clk_put(h3_tsc2101.mclk);
-	return r;
-}
-
-static void h3_tsc2101_cleanup(struct spi_device *spi)
-{
-	clk_put(h3_tsc2101.mclk);
-	omap_cfg_reg(TSC2101_MUX_MCLK_OFF);
-}
-
-static void h3_tsc2101_enable_mclk(struct spi_device *spi)
-{
-	omap_cfg_reg(TSC2101_MUX_MCLK_ON);
-	clk_enable(h3_tsc2101.mclk);
-}
-
-static void h3_tsc2101_disable_mclk(struct spi_device *spi)
-{
-	clk_disable(h3_tsc2101.mclk);
-	omap_cfg_reg(R10_1610_MCLK_OFF);
-}
-
-static struct tsc2101_platform_data h3_tsc2101_platform_data = {
-	.init		= h3_tsc2101_init,
-	.cleanup	= h3_tsc2101_cleanup,
-	.enable_mclk	= h3_tsc2101_enable_mclk,
-	.disable_mclk	= h3_tsc2101_disable_mclk,
+static struct tsc210x_config tsc_platform_data = {
+	.use_internal		= 1,
+	.monitor		= TSC_VBAT | TSC_TEMP,
+	.mclk			= "mclk",
 };
 
 static struct spi_board_info h3_spi_board_info[] __initdata = {
@@ -457,8 +392,9 @@ static struct spi_board_info h3_spi_board_info[] __initdata = {
 		.modalias	= "tsc2101",
 		.bus_num	= 2,
 		.chip_select	= 0,
+		.irq		= OMAP_GPIO_IRQ(H3_TS_GPIO),
 		.max_speed_hz	= 16000000,
-		.platform_data	= &h3_tsc2101_platform_data,
+		.platform_data	= &tsc_platform_data,
 	},
 };
 
@@ -694,6 +630,12 @@ static void __init h3_init(void)
 	/* GPIO10 Func_MUX_CTRL reg bit 29:27, Configure V2 to mode1 as GPIO */
 	/* GPIO10 pullup/down register, Enable pullup on GPIO10 */
 	omap_cfg_reg(V2_1710_GPIO10);
+
+	/* TSC2101 */
+	omap_cfg_reg(W19_1610_GPIO48);
+	gpio_request(H3_TS_GPIO, "tsc_irq");
+	gpio_direction_input(H3_TS_GPIO);
+	omap_cfg_reg(N14_1610_UWIRE_CS0);
 
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	spi_register_board_info(h3_spi_board_info,
