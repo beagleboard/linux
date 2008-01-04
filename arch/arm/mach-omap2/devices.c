@@ -224,8 +224,8 @@ void omap_init_eac(struct eac_platform_data *pdata) {}
 #ifdef CONFIG_OMAP_SHA1_MD5
 static struct resource sha1_md5_resources[] = {
 	{
-		.start	= OMAP2420_SEC_SHA1MD5_BASE,
-		.end	= OMAP2420_SEC_SHA1MD5_BASE + 0x64,
+		.start	= OMAP24XX_SEC_SHA1MD5_BASE,
+		.end	= OMAP24XX_SEC_SHA1MD5_BASE + 0x64,
 		.flags	= IORESOURCE_MEM,
 	},
 	{
