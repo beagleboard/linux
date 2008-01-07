@@ -695,16 +695,14 @@ static void __init h3_init(void)
 	/* GPIO10 pullup/down register, Enable pullup on GPIO10 */
 	omap_cfg_reg(V2_1710_GPIO10);
 
-	i2c_register_board_info(1, h3_i2c_board_info,
-				ARRAY_SIZE(h3_i2c_board_info));
-
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	spi_register_board_info(h3_spi_board_info,
 				ARRAY_SIZE(h3_spi_board_info));
 	omap_board_config = h3_config;
 	omap_board_config_size = ARRAY_SIZE(h3_config);
 	omap_serial_init();
-	omap_register_i2c_bus(1, 100, NULL, 0);
+	omap_register_i2c_bus(1, 100, h3_i2c_board_info,
+			      ARRAY_SIZE(h3_i2c_board_info));
 	h3_mmc_init();
 	omap_register_gpio_switches(h3_gpio_switches,
 				    ARRAY_SIZE(h3_gpio_switches));
