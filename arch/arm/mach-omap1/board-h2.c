@@ -447,8 +447,6 @@ static void __init h2_init_irq(void)
 	omap1_init_common_hw();
 	omap_init_irq();
 	omap_gpio_init();
-	i2c_register_board_info(1, h2_i2c_board_info,
-				ARRAY_SIZE(h2_i2c_board_info));
 	h2_init_smc91x();
 }
 
@@ -551,7 +549,8 @@ static void __init h2_init(void)
 	omap_board_config = h2_config;
 	omap_board_config_size = ARRAY_SIZE(h2_config);
 	omap_serial_init();
-	omap_register_i2c_bus(1, 100, NULL, 0);
+	omap_register_i2c_bus(1, 100, h2_i2c_board_info,
+			      ARRAY_SIZE(h2_i2c_board_info));
 	h2_mmc_init();
 	omap_register_gpio_switches(h2_gpio_switches,
 				    ARRAY_SIZE(h2_gpio_switches));
