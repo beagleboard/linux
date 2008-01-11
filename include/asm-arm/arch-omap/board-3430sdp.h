@@ -36,31 +36,38 @@ extern void sdp3430_usb_init(void);
 /* Placeholder for 3430SDP specific defines */
 
 #define OMAP34XX_ETHR_START		DEBUG_BASE
-#define OMAP34XX_ETHR_GPIO_IRQ		29
+#define OMAP34XX_ETHR_GPIO_IRQ_SDPV1	29
+#define OMAP34XX_ETHR_GPIO_IRQ_SDPV2	6
 
 /*
  * GPIO used for TSC2046, TI's Touchscreen controller
  */
 #ifdef CONFIG_OMAP3430_ES2
-#define TS_GPIO                2
+#define TS_GPIO		2
 #else
-#define TS_GPIO                3
+#define TS_GPIO		3
 #endif
 
 /* NAND */
 /* IMPORTANT NOTE ON MAPPING
- * 3430SDP - 343X
+ * 3430SDP - 34XX
  * ----------
- * NOR always on  0x04000000
+ * NOR always on 0x04000000 for SDPV1
+ * NOR always on 0x10000000 for SDPV2
  * MPDB always on 0x08000000
  * NAND always on 0x0C000000
  * OneNand Mapped to 0x20000000
  * Boot Mode(NAND/NOR). The other on CS1
  */
-#define FLASH_BASE	0x04000000  /* NOR flash (64 Meg aligned) */
-#define DEBUG_BASE	0x08000000  /* debug board */
-#define NAND_BASE	0x0C000000  /* NAND flash */
-#define ONENAND_MAP	0x20000000  /* OneNand flash */
+#define FLASH_BASE_SDPV1	0x04000000 /* NOR flash (64 Meg aligned) */
+#define FLASH_BASE_SDPV2	0x10000000 /* NOR flash (256 Meg aligned) */
+#define DEBUG_BASE		0x08000000 /* debug board */
+#define NAND_BASE		0x0C000000 /* NAND flash */
+#define ONENAND_MAP		0x20000000 /* OneNand flash */
+
+/* various memory sizes */
+#define FLASH_SIZE_SDPV1	SZ_64M
+#define FLASH_SIZE_SDPV2	SZ_128M
 
 #ifdef CONFIG_TWL4030_CORE
 

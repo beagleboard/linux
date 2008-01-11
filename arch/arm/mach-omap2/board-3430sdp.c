@@ -15,8 +15,6 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/platform_device.h>
-#include <linux/mtd/mtd.h>
-#include <linux/mtd/partitions.h>
 #include <linux/delay.h>
 #include <linux/input.h>
 #include <linux/workqueue.h>
@@ -29,7 +27,6 @@
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
-#include <asm/mach/flash.h>
 
 #include <asm/arch/twl4030.h>
 #include <asm/arch/mcspi.h>
@@ -44,76 +41,22 @@
 #include <asm/io.h>
 #include <asm/delay.h>
 
-#define	SDP3430_FLASH_CS	0
 #define	SDP3430_SMC91X_CS	3
 
 #define ENABLE_VAUX3_DEDICATED	0x03
 #define ENABLE_VAUX3_DEV_GRP	0x20
 
-static struct mtd_partition sdp3430_partitions[] = {
-	/* bootloader (U-Boot, etc) in first sector */
-	{
-		  .name		= "bootloader",
-		  .offset		= 0,
-		  .size		= SZ_256K,
-		  .mask_flags	= MTD_WRITEABLE, /* force read-only */
-	},
-	/* bootloader params in the next sector */
-	{
-		  .name		= "params",
-		  .offset		= MTDPART_OFS_APPEND,
-		  .size		= SZ_128K,
-		  .mask_flags	= 0,
-	},
-	/* kernel */
-	{
-		  .name		= "kernel",
-		  .offset		= MTDPART_OFS_APPEND,
-		  .size		= SZ_2M,
-		  .mask_flags	= 0
-	},
-	/* file system */
-	{
-		  .name		= "filesystem",
-		  .offset		= MTDPART_OFS_APPEND,
-		  .size		= MTDPART_SIZ_FULL,
-		  .mask_flags	= 0
-	}
-};
-
-static struct flash_platform_data sdp3430_flash_data = {
-	.map_name	= "cfi_probe",
-	.width		= 2,
-	.parts		= sdp3430_partitions,
-	.nr_parts	= ARRAY_SIZE(sdp3430_partitions),
-};
-
-static struct resource sdp3430_flash_resource = {
-	.start		= FLASH_BASE,
-	.end		= FLASH_BASE + SZ_64M - 1,
-	.flags		= IORESOURCE_MEM,
-};
-
-static struct platform_device sdp3430_flash_device = {
-	.name		= "omapflash",
-	.id		= 0,
-	.dev		= {
-		.platform_data	= &sdp3430_flash_data,
-	},
-	.num_resources	= 1,
-	.resource	= &sdp3430_flash_resource,
-};
 
 static struct resource sdp3430_smc91x_resources[] = {
 	[0] = {
 		.start	= OMAP34XX_ETHR_START,
 		.end	= OMAP34XX_ETHR_START + SZ_4K,
-		.flags		= IORESOURCE_MEM,
+		.flags	= IORESOURCE_MEM,
 	},
 	[1] = {
-		.start		= OMAP_GPIO_IRQ(OMAP34XX_ETHR_GPIO_IRQ),
+		.start	= 0,
 		.end	= 0,
-		.flags		= IORESOURCE_IRQ,
+		.flags	= IORESOURCE_IRQ,
 	},
 };
 
@@ -262,7 +205,6 @@ static struct platform_device sdp3430_lcd_device = {
 
 static struct platform_device *sdp3430_devices[] __initdata = {
 	&sdp3430_smc91x_device,
-	&sdp3430_flash_device,
 	&sdp3430_kp_device,
 	&sdp3430_lcd_device,
 };
@@ -271,8 +213,9 @@ static inline void __init sdp3430_init_smc91x(void)
 {
 	int eth_cs;
 	unsigned long cs_mem_base;
+	int eth_gpio = 0;
 
-	eth_cs  = SDP3430_SMC91X_CS;
+	eth_cs = SDP3430_SMC91X_CS;
 
 	if (gpmc_cs_request(eth_cs, SZ_16M, &cs_mem_base) < 0) {
 		printk(KERN_ERR "Failed to request GPMC mem for smc91x\n");
@@ -283,12 +226,19 @@ static inline void __init sdp3430_init_smc91x(void)
 	sdp3430_smc91x_resources[0].end   = cs_mem_base + 0xf;
 	udelay(100);
 
-	if (omap_request_gpio(OMAP34XX_ETHR_GPIO_IRQ) < 0) {
+	if (is_sil_rev_greater_than(OMAP3430_REV_ES1_0))
+		eth_gpio = OMAP34XX_ETHR_GPIO_IRQ_SDPV2;
+	else
+		eth_gpio = OMAP34XX_ETHR_GPIO_IRQ_SDPV1;
+
+	sdp3430_smc91x_resources[1].start = OMAP_GPIO_IRQ(eth_gpio);
+
+	if (omap_request_gpio(eth_gpio) < 0) {
 		printk(KERN_ERR "Failed to request GPIO%d for smc91x IRQ\n",
-			OMAP34XX_ETHR_GPIO_IRQ);
+			eth_gpio);
 		return;
 	}
-	omap_set_gpio_direction(OMAP34XX_ETHR_GPIO_IRQ, 1);
+	omap_set_gpio_direction(eth_gpio, 1);
 }
 
 static void __init omap_3430sdp_init_irq(void)
@@ -320,6 +270,8 @@ static int __init omap3430_i2c_init(void)
 	return 0;
 }
 
+extern void __init sdp3430_flash_init(void);
+
 static void __init omap_3430sdp_init(void)
 {
 	platform_add_devices(sdp3430_devices, ARRAY_SIZE(sdp3430_devices));
@@ -328,6 +280,7 @@ static void __init omap_3430sdp_init(void)
 	spi_register_board_info(sdp3430_spi_board_info,
 				ARRAY_SIZE(sdp3430_spi_board_info));
 	ads7846_dev_init();
+	sdp3430_flash_init();
 	omap_serial_init();
 	sdp3430_usb_init();
 }

@@ -24,7 +24,7 @@
 
 #if defined(CONFIG_ARCH_OMAP2420)
 #define GPMC_BASE		0x6800a000
-#elif defined(CONFIG_ARCH_OMAP2430) || defined(CONFIG_ARCH_OMAP3430)
+#elif defined(CONFIG_ARCH_OMAP2430) || defined(CONFIG_ARCH_OMAP34XX)
 #define GPMC_BASE		0x6e000000
 #endif
 
