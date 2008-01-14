@@ -446,10 +446,10 @@ static inline int tusb_omap_dma_allocate_dmareq(struct tusb_omap_dma_ch *chdat)
 	const int sync_dev[6] = {
 		OMAP24XX_DMA_EXT_DMAREQ0,
 		OMAP24XX_DMA_EXT_DMAREQ1,
-		OMAP24XX_DMA_EXT_DMAREQ2,
-		OMAP24XX_DMA_EXT_DMAREQ3,
-		OMAP24XX_DMA_EXT_DMAREQ4,
-		OMAP24XX_DMA_EXT_DMAREQ5,
+		OMAP242X_DMA_EXT_DMAREQ2,
+		OMAP242X_DMA_EXT_DMAREQ3,
+		OMAP242X_DMA_EXT_DMAREQ4,
+		OMAP242X_DMA_EXT_DMAREQ5,
 	};
 
 	for (i = 0; i < MAX_DMAREQ; i++) {
