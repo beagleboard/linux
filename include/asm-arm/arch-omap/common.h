@@ -41,7 +41,7 @@ extern int omap_register_i2c_bus(int bus_id, u32 clkrate,
 				 struct i2c_board_info const *info,
 				 unsigned len);
 #else
-#define omap_register_i2c_bus(...)	do { } while (0)
+#define omap_register_i2c_bus(a, b, c, d)	0
 #endif
 
 void omap2_set_globals_242x(void);

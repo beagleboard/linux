@@ -221,7 +221,7 @@ static void omap_dm_timer_reset(struct omap_dm_timer *timer)
 	l = omap_dm_timer_read_reg(timer, OMAP_TIMER_OCP_CFG_REG);
 	l |= 0x02 << 3;
 
-	if (cpu_class_is_omap2() && (timer == &dm_timers[0])) {
+	if (cpu_class_is_omap2() && timer == &dm_timers[0]) {
 		/* Enable wake-up only for GPT1 on OMAP2 CPUs*/
 		l |= 1 << 2;
 		/* Non-posted mode */
