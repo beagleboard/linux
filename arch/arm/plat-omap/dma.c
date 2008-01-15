@@ -33,13 +33,7 @@
 
 #include <asm/arch/tc.h>
 
-#define DEBUG_PRINTS
-#undef DEBUG_PRINTS
-#ifdef DEBUG_PRINTS
-#define debug_printk(x) printk x
-#else
-#define	debug_printk(x)
-#endif
+#undef DEBUG
 
 #ifndef CONFIG_ARCH_OMAP1
 enum { DMA_CH_ALLOC_DONE, DMA_CH_PARAMS_SET_DONE, DMA_CH_STARTED,
@@ -1027,7 +1021,7 @@ static void create_dma_lch_chain(int lch_head, int lch_queue)
 
 	w = OMAP_DMA_CLNK_CTRL_REG(lch_head);
 	w &= ~(0x0f);
-	w |= lch_queue ;
+	w |= lch_queue;
 	OMAP_DMA_CLNK_CTRL_REG(lch_head) = w;
 
 	w = OMAP_DMA_CLNK_CTRL_REG(lch_queue);
@@ -1063,7 +1057,7 @@ int omap_request_dma_chain(int dev_id, const char *dev_name,
 	/* Is the chain mode valid ? */
 	if (chain_mode != OMAP_DMA_STATIC_CHAIN
 			&& chain_mode != OMAP_DMA_DYNAMIC_CHAIN) {
-		printk(KERN_ERR "Invalid chain mode requested \n");
+		printk(KERN_ERR "Invalid chain mode requested\n");
 		return -EINVAL;
 	}
 
@@ -1234,8 +1228,8 @@ int omap_dma_chain_status(int chain_id)
 		printk(KERN_ERR "Chain doesn't exists\n");
 		return -EINVAL;
 	}
-	debug_printk((KERN_INFO "CHAINID=%d, qcnt=%d\n", chain_id,
-		      dma_linked_lch[chain_id].q_count));
+	pr_debug("CHAINID=%d, qcnt=%d\n", chain_id,
+			dma_linked_lch[chain_id].q_count);
 
 	if (OMAP_DMA_CHAIN_QEMPTY(chain_id))
 		return OMAP_DMA_CHAIN_INACTIVE;
@@ -1254,7 +1248,7 @@ EXPORT_SYMBOL(omap_dma_chain_status);
  * @param frame_count
  * @param callbk_data - channel callback parameter data.
  *
- * @return  - Success : 0
+ * @return  - Success : start_dma status
  * 	      Failure: -EINVAL/-EBUSY
  */
 int omap_dma_chain_a_transfer(int chain_id, int src_start, int dest_start,
@@ -1339,8 +1333,7 @@ int omap_dma_chain_a_transfer(int chain_id, int src_start, int dest_start,
 					(dma_chan[lch].prev_linked_ch)))) {
 					disable_lnk(dma_chan[lch].
 						    prev_linked_ch);
-					debug_printk((KERN_INFO
-						"\n prev ch is stopped\n"));
+					pr_debug("\n prev ch is stopped\n");
 					start_dma = 1;
 				}
 			}
@@ -1363,8 +1356,7 @@ int omap_dma_chain_a_transfer(int chain_id, int src_start, int dest_start,
 				if (0 == (w & (1 << 7))) {
 					w |= (1 << 7);
 					dma_chan[lch].state = DMA_CH_STARTED;
-					debug_printk((KERN_INFO
-						"starting %d\n", lch));
+					pr_debug("starting %d\n", lch);
 					OMAP_DMA_CCR_REG(lch) = w;
 				} else
 					start_dma = 0;
@@ -1375,7 +1367,7 @@ int omap_dma_chain_a_transfer(int chain_id, int src_start, int dest_start,
 			dma_chan[lch].flags |= OMAP_DMA_ACTIVE;
 		}
 	}
-	return 0;
+	return start_dma;
 }
 EXPORT_SYMBOL(omap_dma_chain_a_transfer);
 
@@ -1400,7 +1392,7 @@ int omap_start_dma_chain_transfers(int chain_id)
 	channels = dma_linked_lch[chain_id].linked_dmach_q;
 
 	if (dma_linked_lch[channels[0]].chain_state == DMA_CHAIN_STARTED) {
-		printk(KERN_ERR "Chain is already started \n");
+		printk(KERN_ERR "Chain is already started\n");
 		return -EBUSY;
 	}
 
