@@ -1673,6 +1673,7 @@ static int __init omap_gpio_sysinit(void)
 
 	mpuio_init();
 
+#if defined(CONFIG_ARCH_OMAP16XX) || defined(CONFIG_ARCH_OMAP24XX) || defined(CONFIG_ARCH_OMAP34XX)
 	if (cpu_is_omap16xx() || cpu_class_is_omap2()) {
 		if (ret == 0) {
 			ret = sysdev_class_register(&omap_gpio_sysclass);
@@ -1680,6 +1681,7 @@ static int __init omap_gpio_sysinit(void)
 				ret = sysdev_register(&omap_gpio_device);
 		}
 	}
+#endif
 
 	return ret;
 }
