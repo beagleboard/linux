@@ -659,7 +659,7 @@ static struct irqaction omap_wakeup_irq = {
 
 
 
-static struct platform_suspend_ops omap_pm_ops ={
+static struct platform_suspend_ops omap_pm_ops = {
 	.prepare	= omap_pm_prepare,
 	.enter		= omap_pm_enter,
 	.finish		= omap_pm_finish,
@@ -668,6 +668,11 @@ static struct platform_suspend_ops omap_pm_ops ={
 
 static int __init omap_pm_init(void)
 {
+
+#ifdef CONFIG_OMAP_32K_TIMER
+	int error;
+#endif
+
 	printk("Power Management for TI OMAP.\n");
 
 	/*
@@ -719,8 +724,9 @@ static int __init omap_pm_init(void)
 #endif
 
 #ifdef CONFIG_OMAP_32K_TIMER
-	if (subsys_create_file(&power_subsys, &sleep_while_idle_attr))
-		printk(KERN_ERR "%s :subsys_create_file failed", __FUNCTION__);
+	error = subsys_create_file(&power_subsys, &sleep_while_idle_attr);
+	if (error)
+		printk(KERN_ERR "subsys_create_file failed: %d\n", error);
 #endif
 
 	if (cpu_is_omap16xx()) {

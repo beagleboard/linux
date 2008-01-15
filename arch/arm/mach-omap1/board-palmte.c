@@ -342,7 +342,8 @@ static struct spi_board_info palmte_spi_info[] __initdata = {
 	},
 };
 
-static void palmte_headphones_detect(void *data, int state) {
+static void palmte_headphones_detect(void *data, int state)
+{
 	if (state) {
 		/* Headphones connected, disable speaker */
 		omap_set_gpio_dataout(PALMTE_SPEAKER_GPIO, 0);
