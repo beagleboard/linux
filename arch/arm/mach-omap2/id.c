@@ -62,6 +62,7 @@ static struct omap_id omap_ids[] __initdata = {
 	{ .hawkeye = 0xb68a, .dev = 0x0, .type = 0x24300000 },
 	{ .hawkeye = 0xb7ae, .dev = 0xf, .type = 0x34300000 },
 	{ .hawkeye = 0xb7ae, .dev = 0x0, .type = 0x34301000 },
+	{ .hawkeye = 0xb7ae, .dev = 0xe, .type = 0x34302000 },
 };
 
 static u32 __init read_tap_reg(int reg)
@@ -87,6 +88,16 @@ static u32 __init read_tap_reg(int reg)
 		case OMAP_TAP_DIE_ID_1: regval = 0x1012d687; break;
 		case OMAP_TAP_DIE_ID_2:	regval = 0x00000000; break;
 		case OMAP_TAP_DIE_ID_3:	regval = 0x2d2c0000; break;
+		}
+	} else if ((((cpuid >> 4) & 0xFFF) == 0xC08) && ((cpuid & 0xF) == 0x1)) {
+		switch (reg) {
+		case OMAP_TAP_IDCODE  : regval = 0x1b7ae02f; break;
+		/* Making DevType as 0xE in ES2 to differ from other ESx */
+		case OMAP_TAP_PROD_ID : regval = 0x000E00F0; break;
+		case OMAP_TAP_DIE_ID_0: regval = 0x0400800f; break;
+		case OMAP_TAP_DIE_ID_1: regval = 0x04013d1d; break;
+		case OMAP_TAP_DIE_ID_2: regval = 0x00000000; break;
+		case OMAP_TAP_DIE_ID_3: regval = 0x1fe80001; break;
 		}
 	} else
 		regval = __raw_readl(TAP_BASE + reg);
