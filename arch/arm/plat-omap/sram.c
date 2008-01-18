@@ -25,6 +25,8 @@
 #include <asm/arch/sram.h>
 #include <asm/arch/board.h>
 
+#include <asm/arch/control.h>
+
 #if defined(CONFIG_ARCH_OMAP2) || defined(CONFIG_ARCH_OMAP3)
 # include "../mach-omap2/prm.h"
 # include "../mach-omap2/cm.h"
@@ -92,8 +94,7 @@ static int is_sram_locked(void)
 	int type = 0;
 
 	if (cpu_is_omap242x())
-		type = (ctrl_read_reg(OMAP24XX_CONTROL_STATUS) &
-			OMAP2_DEVICETYPE_MASK);
+		type = system_rev & OMAP2_DEVICETYPE_MASK;
 
 	if (type == GP_DEVICE) {
 		/* RAMFW: R/W access to all initiators for all qualifier sets */
