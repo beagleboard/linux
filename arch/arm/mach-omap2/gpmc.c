@@ -94,8 +94,17 @@ u32 gpmc_cs_read_reg(int cs, int idx)
 /* TODO: Add support for gpmc_fck to clock framework and use it */
 unsigned long gpmc_get_fclk_period(void)
 {
-	/* In picoseconds */
-	return 1000000000 / ((clk_get_rate(gpmc_l3_clk)) / 1000);
+	unsigned long rate = clk_get_rate(gpmc_l3_clk);
+
+	if (rate == 0) {
+		printk(KERN_WARNING "gpmc_l3_clk no enabled\n");
+		return 0;
+	}
+
+	rate /= 1000;
+	rate = 1000000000 / rate;	/* In picoseconds */
+
+	return rate;
 }
 
 unsigned int gpmc_ns_to_ticks(unsigned int time_ns)
