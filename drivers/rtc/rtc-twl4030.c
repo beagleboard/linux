@@ -409,8 +409,7 @@ static irqreturn_t twl4030_rtc_interrupt(int irq, void *rtc)
 	if (!(rd_reg & PWR_RTC_INT_CLR))
 		goto out;
 
-	rd_reg |= PWR_RTC_INT_CLR;
-	res = twl4030_i2c_write_u8(TWL4030_MODULE_INT, rd_reg, REG_PWR_ISR1);
+	res = twl4030_i2c_write_u8(TWL4030_MODULE_INT, PWR_RTC_INT_CLR, REG_PWR_ISR1);
 	if (res)
 		goto out;
 
@@ -438,12 +437,7 @@ static irqreturn_t twl4030_rtc_interrupt(int irq, void *rtc)
 	 * RTC event generates 2 interrupts in a row.
 	 * (no errata document available)
 	 */
-	res = twl4030_i2c_read_u8(TWL4030_MODULE_INT, &rd_reg, REG_PWR_ISR1);
-	if (res)
-		goto out;
-
-	rd_reg |= PWR_RTC_INT_CLR;
-	res = twl4030_i2c_write_u8(TWL4030_MODULE_INT, rd_reg, REG_PWR_ISR1);
+	res = twl4030_i2c_write_u8(TWL4030_MODULE_INT, PWR_RTC_INT_CLR, REG_PWR_ISR1);
 	if (res)
 		goto out;
 
