@@ -357,6 +357,8 @@ static __init int omap_dsp_init(void)
  out:
 	return ret;
 }
+#else
+#define omap_dsp_init()		do {} while (0)
 #endif	/* CONFIG_OMAP_DSP */
 
 static void __init omap_nokia770_init(void)
