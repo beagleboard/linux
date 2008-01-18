@@ -480,12 +480,6 @@ static irqreturn_t twl4030_usb_irq(int irq, void *_twl)
 {
 	int ret = IRQ_NONE;
 	u8 val;
-	u8 sih_ctrl;
-
-	/* save previous value of SIH_CTRL and disable clear_on_read */
-	twl4030_i2c_read_u8(TWL4030_MODULE_INT, &sih_ctrl, REG_PWR_SIH_CTRL);
-	twl4030_i2c_write_u8(TWL4030_MODULE_INT, (sih_ctrl & ~COR),
-			     REG_PWR_SIH_CTRL);
 
 	if (twl4030_i2c_read_u8(TWL4030_MODULE_INT, &val, REG_PWR_ISR1) < 0) {
 		printk(KERN_ERR "twl4030_usb: i2c read failed,"
@@ -515,8 +509,6 @@ static irqreturn_t twl4030_usb_irq(int irq, void *_twl)
 	ret = IRQ_HANDLED;
 
 done:
-	/* restore previous value of SIH_CTRL */
-	twl4030_i2c_write_u8(TWL4030_MODULE_INT, sih_ctrl, REG_PWR_SIH_CTRL);
 	return ret;
 }
 
