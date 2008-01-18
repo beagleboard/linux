@@ -256,7 +256,7 @@ static void omap_nand_dma_transfer(struct mtd_info *mtd, void *addr,
 	init_completion(&omap_nand_dma_comp);
 
 	len = u32_count << 2;
-	consistent_sync(addr, len, DMA_TO_DEVICE);
+	dma_cache_maint(addr, len, DMA_TO_DEVICE);
 	omap_start_dma(dma_ch);
 	jiffies_before = jiffies;
 	timeout = wait_for_completion_timeout(&omap_nand_dma_comp,
@@ -279,7 +279,7 @@ static void omap_nand_dma_transfer(struct mtd_info *mtd, void *addr,
 		}
 	}
 	if (!is_write)
-		consistent_sync(addr, len, DMA_FROM_DEVICE);
+		dma_cache_maint(addr, len, DMA_FROM_DEVICE);
 
 	nand_write_reg(NND_CTRL, nand_read_reg(NND_CTRL) & ~((1 << 16) | (1 << 17)));
 }
