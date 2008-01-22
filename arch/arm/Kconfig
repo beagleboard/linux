@@ -1085,6 +1085,8 @@ source "drivers/rtc/Kconfig"
 
 source "drivers/dma/Kconfig"
 
+source "drivers/dca/Kconfig"
+
 if ARCH_OMAP
 source "drivers/cbus/Kconfig"
 source "drivers/dsp/dspgateway/Kconfig"
