@@ -44,6 +44,7 @@
 #define BLIZZARD_CLK_SRC			0x0e
 #define BLIZZARD_MEM_BANK0_ACTIVATE		0x10
 #define BLIZZARD_MEM_BANK0_STATUS		0x14
+#define BLIZZARD_PANEL_CONFIGURATION		0x28
 #define BLIZZARD_HDISP				0x2a
 #define BLIZZARD_HNDP				0x2c
 #define BLIZZARD_VDISP0				0x2e
@@ -908,6 +909,35 @@ static int blizzard_set_scale(int plane, int orig_w, int orig_h,
 	return 0;
 }
 
+static int blizzard_set_rotate(int angle)
+{
+	u32 l;
+
+	l = blizzard_read_reg(BLIZZARD_PANEL_CONFIGURATION);
+	l &= ~0x03;
+
+	switch (angle) {
+	case 0:
+		l = l | 0x00;
+		break;
+	case 90:
+		l = l | 0x03;
+		break;
+	case 180:
+		l = l | 0x02;
+		break;
+	case 270:
+		l = l | 0x01;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	blizzard_write_reg(BLIZZARD_PANEL_CONFIGURATION, l);
+
+	return 0;
+}
+
 static int blizzard_enable_plane(int plane, int enable)
 {
 	if (enable)
@@ -1285,7 +1315,8 @@ static void blizzard_get_caps(int plane, struct omapfb_caps *caps)
 	caps->ctrl |= OMAPFB_CAPS_MANUAL_UPDATE |
 		OMAPFB_CAPS_WINDOW_PIXEL_DOUBLE |
 		OMAPFB_CAPS_WINDOW_SCALE |
-		OMAPFB_CAPS_WINDOW_OVERLAY;
+		OMAPFB_CAPS_WINDOW_OVERLAY |
+		OMAPFB_CAPS_WINDOW_ROTATE;
 	if (blizzard.te_connected)
 		caps->ctrl |= OMAPFB_CAPS_TEARSYNC;
 	caps->wnd_color |= (1 << OMAPFB_COLOR_RGB565) |
@@ -1560,6 +1591,7 @@ struct lcd_ctrl blizzard_ctrl = {
 	.setup_plane		= blizzard_setup_plane,
 	.set_scale		= blizzard_set_scale,
 	.enable_plane		= blizzard_enable_plane,
+	.set_rotate		= blizzard_set_rotate,
 	.update_window		= blizzard_update_window_async,
 	.sync			= blizzard_sync,
 	.suspend		= blizzard_suspend,
