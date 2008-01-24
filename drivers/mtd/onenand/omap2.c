@@ -61,6 +61,8 @@ struct omap2_onenand {
 	struct completion irq_done;
 	struct completion dma_done;
 	int dma_channel;
+	int freq;
+	int (*setup)(void __iomem *base, int freq);
 };
 
 static unsigned short omap2_onenand_readw(void __iomem *addr)
@@ -98,7 +100,23 @@ static int omap2_onenand_wait(struct mtd_info *mtd, int state)
 	u32 syscfg;
 
 	if (state == FL_RESETING) {
-		udelay(1);
+		int i;
+
+		for (i = 0; i < 20; i++) {
+			udelay(1);
+			interrupt = omap2_onenand_readw(info->onenand.base + ONENAND_REG_INTERRUPT);
+			if (interrupt & ONENAND_INT_MASTER)
+				break;
+		}
+		ctrl = omap2_onenand_readw(info->onenand.base + ONENAND_REG_CTRL_STATUS);
+		if (ctrl & ONENAND_CTRL_ERROR) {
+			printk(KERN_ERR "onenand_wait: reset error! ctrl 0x%04x intr 0x%04x\n", ctrl, interrupt);
+			return -EIO;
+		}
+		if (!(interrupt & ONENAND_INT_RESET)) {
+			printk(KERN_ERR "onenand_wait: reset timeout! ctrl 0x%04x intr 0x%04x\n", ctrl, interrupt);
+			return -EIO;
+		}
 		return 0;
 	}
 
@@ -164,7 +182,7 @@ retry:
 		printk(KERN_ERR "onenand_wait: controller error = 0x%04x\n", ctrl);
 		if (ctrl & ONENAND_CTRL_LOCK)
 			printk(KERN_ERR "onenand_erase: Device is write protected!!!\n");
-		return ctrl;
+		return -EIO;
 	}
 
 	if (ctrl & 0xFE9F)
@@ -173,11 +191,12 @@ retry:
 	if (interrupt & ONENAND_INT_READ) {
 		int ecc = omap2_onenand_readw(info->onenand.base + ONENAND_REG_ECC_STATUS);
 		if (ecc) {
-			printk(KERN_ERR "onenand_wait: ECC error = 0x%04x\n", ecc);
 			if (ecc & ONENAND_ECC_2BIT_ALL) {
+				printk(KERN_ERR "onenand_wait: ECC error = 0x%04x\n", ecc);
 				mtd->ecc_stats.failed++;
-				return ecc;
+				return -EBADMSG;
 			} else if (ecc & ONENAND_ECC_1BIT_ALL)
+				printk(KERN_NOTICE "onenand_wait: correctable ECC error = 0x%04x\n", ecc);
 				mtd->ecc_stats.corrected++;
 		}
 	} else if (state == FL_READING) {
@@ -289,6 +308,29 @@ static int omap2_onenand_write_bufferram(struct mtd_info *mtd, int area,
 	return 0;
 }
 
+static struct platform_driver omap2_onenand_driver;
+
+static int __adjust_timing(struct device *dev, void *data)
+{
+	int ret = 0;
+	struct omap2_onenand *info;
+
+	info = dev_get_drvdata(dev);
+
+	BUG_ON(info->setup == NULL);
+
+	/* DMA is not in use so this is all that is needed */
+	ret = info->setup(info->onenand.base, info->freq);
+
+	return ret;
+}
+
+int omap2_onenand_rephase(void)
+{
+	return driver_for_each_device(&omap2_onenand_driver.driver, NULL,
+				      NULL, __adjust_timing);
+}
+
 static void __devexit omap2_onenand_shutdown(struct platform_device *pdev)
 {
 	struct omap2_onenand *info = dev_get_drvdata(&pdev->dev);
@@ -346,12 +388,13 @@ static int __devinit omap2_onenand_probe(struct platform_device *pdev)
 	}
 
 	if (pdata->onenand_setup != NULL) {
-		r = pdata->onenand_setup(info->onenand.base);
+		r = pdata->onenand_setup(info->onenand.base, info->freq);
 		if (r < 0) {
 			dev_err(&pdev->dev, "Onenand platform setup failed: %d\n", r);
 			goto err_iounmap;
 		}
-        }
+		info->setup = pdata->onenand_setup;
+	}
 
 	if (info->gpio_irq) {
 		if ((r = omap_request_gpio(info->gpio_irq)) < 0) {
@@ -400,6 +443,21 @@ static int __devinit omap2_onenand_probe(struct platform_device *pdev)
 
 	if ((r = onenand_scan(&info->mtd, 1)) < 0)
 		goto err_release_dma;
+
+	switch ((info->onenand.version_id >> 4) & 0xf) {
+	case 0:
+		info->freq = 40;
+		break;
+	case 1:
+		info->freq = 54;
+		break;
+	case 2:
+		info->freq = 66;
+		break;
+	case 3:
+		info->freq = 83;
+		break;
+	}
 
 #ifdef CONFIG_MTD_PARTITIONS
 	if (pdata->parts != NULL)

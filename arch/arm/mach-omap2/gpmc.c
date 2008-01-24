@@ -117,6 +117,11 @@ unsigned int gpmc_ns_to_ticks(unsigned int time_ns)
 	return (time_ns * 1000 + tick_ps - 1) / tick_ps;
 }
 
+unsigned int gpmc_ticks_to_ns(unsigned int ticks)
+{
+	return ticks * gpmc_get_fclk_period() / 1000;
+}
+
 unsigned int gpmc_round_ns_to_ticks(unsigned int time_ns)
 {
 	unsigned long ticks = gpmc_ns_to_ticks(time_ns);
