@@ -39,6 +39,7 @@
 #include <asm/arch/irqs.h>
 #include <asm/arch/clock.h>
 #include <asm/arch/sram.h>
+#include <asm/arch/control.h>
 #include <asm/arch/gpio.h>
 #include <asm/arch/pm.h>
 #include <asm/arch/mux.h>
@@ -50,7 +51,6 @@
 #include "cm.h"
 #include "cm_regbits_24xx.h"
 #include "sdrc.h"
-#include "control.h"
 
 /* These addrs are in assembly language code to be patched at runtime */
 extern void *omap2_ocs_sdrc_power;
@@ -413,8 +413,8 @@ static void omap2_enter_full_retention(void)
 			  MPU_MOD, PM_PWSTCTRL);
 
 	/* Workaround to kill USB */
-	l = ctrl_read_reg(OMAP2_CONTROL_DEVCONF0) | OMAP24XX_USBSTANDBYCTRL;
-	ctrl_write_reg(l, OMAP2_CONTROL_DEVCONF0);
+	l = omap_ctrl_readl(OMAP2_CONTROL_DEVCONF0) | OMAP24XX_USBSTANDBYCTRL;
+	omap_ctrl_writel(l, OMAP2_CONTROL_DEVCONF0);
 
 	omap2_gpio_prepare_for_retention();
 

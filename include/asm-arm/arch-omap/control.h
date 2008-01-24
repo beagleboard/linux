@@ -36,7 +36,7 @@
 #define OMAP343X_CONTROL_PADCONFS_WKUP	0xa00
 #define OMAP343X_CONTROL_GENERAL_WKUP	0xa60
 
-/* Control register offsets - read/write with ctrl_{read,write}_reg() */
+/* Control register offsets - read/write with omap_ctrl_{read,write}{bwl}() */
 
 #define OMAP2_CONTROL_SYSCONFIG		(OMAP2_CONTROL_INTERFACE + 0x10)
 
@@ -161,6 +161,28 @@
 #define OMAP2_SYSBOOT_2_MASK		(1 << 2)
 #define OMAP2_SYSBOOT_1_MASK		(1 << 1)
 #define OMAP2_SYSBOOT_0_MASK		(1 << 0)
+
+#ifndef __ASSEMBLY__
+#if defined(CONFIG_ARCH_OMAP2) || defined(CONFIG_ARCH_OMAP3)
+extern void omap_ctrl_base_set(u32 base);
+extern u32 omap_ctrl_base_get(void);
+extern u8 omap_ctrl_readb(u16 offset);
+extern u16 omap_ctrl_readw(u16 offset);
+extern u32 omap_ctrl_readl(u16 offset);
+extern void omap_ctrl_writeb(u8 val, u16 offset);
+extern void omap_ctrl_writew(u16 val, u16 offset);
+extern void omap_ctrl_writel(u32 val, u16 offset);
+#else
+#define omap_ctrl_base_set(x)		WARN_ON(1)
+#define omap_ctrl_base_get()		0
+#define omap_ctrl_readb(x)		0
+#define omap_ctrl_readw(x)		0
+#define omap_ctrl_readl(x)		0
+#define omap_ctrl_writeb(x, y)		WARN_ON(1)
+#define omap_ctrl_writew(x, y)		WARN_ON(1)
+#define omap_ctrl_writel(x, y)		WARN_ON(1)
+#endif
+#endif	/* __ASSEMBLY__ */
 
 #endif /* __ASM_ARCH_CONTROL_H */
 

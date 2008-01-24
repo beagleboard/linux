@@ -20,16 +20,13 @@
 #include <asm/mach/map.h>
 
 #include <asm/arch/tc.h>
+#include <asm/arch/control.h>
 #include <asm/arch/board.h>
 #include <asm/arch/mmc.h>
 #include <asm/arch/mux.h>
 #include <asm/arch/gpio.h>
 #include <asm/arch/menelaus.h>
 #include <asm/arch/dsp_common.h>
-
-#if defined(CONFIG_ARCH_OMAP24XX) || defined(CONFIG_ARCH_OMAP34XX)
-# include "../mach-omap2/control.h"
-#endif
 
 #if	defined(CONFIG_OMAP_DSP) || defined(CONFIG_OMAP_DSP_MODULE)
 
@@ -284,9 +281,9 @@ static void __init omap_init_mmc(void)
 			 * Module Input Clock selection
 			 */
 			if (cpu_is_omap24xx()) {
-				u32 v = ctrl_read_reg(OMAP2_CONTROL_DEVCONF0);
+				u32 v = omap_ctrl_readl(OMAP2_CONTROL_DEVCONF0);
 				v |= (1 << 24); /* not used in 243x */
-				ctrl_write_reg(v, OMAP2_CONTROL_DEVCONF0);
+				omap_ctrl_writel(v, OMAP2_CONTROL_DEVCONF0);
 			}
 		}
 #endif

@@ -31,7 +31,6 @@
 # include "../mach-omap2/prm.h"
 # include "../mach-omap2/cm.h"
 # include "../mach-omap2/sdrc.h"
-# include "../mach-omap2/control.h"
 #endif
 
 #define OMAP1_SRAM_PA		0x20000000

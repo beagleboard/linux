@@ -17,7 +17,7 @@
 
 #include <asm/io.h>
 
-#include "control.h"
+#include <asm/arch/control.h>
 
 #if defined(CONFIG_ARCH_OMAP2420)
 #define TAP_BASE	io_p2v(0x48014000)
@@ -182,7 +182,7 @@ void __init omap2_check_revision(void)
 		printk(KERN_ERR "id: unknown CPU type\n");
 		BUG();
 	}
-	ctrl_status = ctrl_read_reg(i);
+	ctrl_status = omap_ctrl_readl(i);
 	system_rev |= (ctrl_status & (OMAP2_SYSBOOT_5_MASK |
 				      OMAP2_SYSBOOT_4_MASK |
 				      OMAP2_SYSBOOT_3_MASK |

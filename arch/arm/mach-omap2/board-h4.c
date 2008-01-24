@@ -33,6 +33,7 @@
 #include <asm/mach/map.h>
 #include <asm/mach/flash.h>
 
+#include <asm/arch/control.h>
 #include <asm/arch/gpio.h>
 #include <asm/arch/gpioexpander.h>
 #include <asm/arch/mux.h>
@@ -47,7 +48,6 @@
 
 #include <asm/io.h>
 
-#include "control.h"
 #include <../drivers/media/video/ov9640.h>
 
 #define H4_FLASH_CS	0
@@ -272,7 +272,7 @@ static struct platform_device *h4_devices[] __initdata = {
 /* 2420 Sysboot setup (2430 is different) */
 static u32 get_sysboot_value(void)
 {
-	return (ctrl_read_reg(OMAP24XX_CONTROL_STATUS) &
+	return (omap_ctrl_readl(OMAP24XX_CONTROL_STATUS) &
 		(OMAP2_SYSBOOT_5_MASK | OMAP2_SYSBOOT_4_MASK |
 		 OMAP2_SYSBOOT_3_MASK | OMAP2_SYSBOOT_2_MASK |
 		 OMAP2_SYSBOOT_1_MASK | OMAP2_SYSBOOT_0_MASK));

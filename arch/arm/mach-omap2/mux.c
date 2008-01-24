@@ -29,9 +29,8 @@
 #include <asm/io.h>
 #include <linux/spinlock.h>
 
+#include <asm/arch/control.h>
 #include <asm/arch/mux.h>
-
-#include "control.h"
 
 #ifdef CONFIG_OMAP_MUX
 
@@ -226,13 +225,13 @@ MUX_CFG_24XX("AD13_2430_MCBSP2_DR_OFF",	0x0131,	0,	0,	0,	1)
 #if defined(CONFIG_OMAP_MUX_DEBUG) || defined(CONFIG_OMAP_MUX_WARNINGS)
 void __init_or_module omap2_cfg_debug(const struct pin_config *cfg, u8 reg)
 {
-	u8 orig;
+	u16 orig;
 	u8 warn = 0, debug = 0;
 
 	if (cpu_is_omap24xx())
-		orig = omap_readb(omap2_ctrl_base + cfg->mux_reg);
+		orig = omap_ctrl_readb(cfg->mux_reg);
 	else
-		orig = omap_readw(omap2_ctrl_base + cfg->mux_reg);
+		orig = omap_ctrl_readw(cfg->mux_reg);
 
 #ifdef	CONFIG_OMAP_MUX_DEBUG
 	debug = cfg->debug;
@@ -240,15 +239,15 @@ void __init_or_module omap2_cfg_debug(const struct pin_config *cfg, u8 reg)
 	warn = (orig != reg);
 	if (debug || warn)
 		printk(KERN_WARNING
-			"MUX: setup %s (0x%08lx): 0x%02x -> 0x%02x\n",
-			cfg->name, omap2_ctrl_base + cfg->mux_reg, orig, reg);
+			"MUX: setup %s (0x%08x): 0x%02x -> 0x%02x\n",
+			cfg->name, omap_ctrl_base_get() + cfg->mux_reg,
+			orig, reg);
 }
 #else
 #define omap2_cfg_debug(x, y)	do {} while (0)
 #endif
 
 #ifdef CONFIG_ARCH_OMAP24XX
-/* REVISIT: Convert this code to use ctrl_{read,write}_reg */
 int __init_or_module omap24xx_cfg_reg(const struct pin_config *cfg)
 {
 	static DEFINE_SPINLOCK(mux_spin_lock);
@@ -262,7 +261,7 @@ int __init_or_module omap24xx_cfg_reg(const struct pin_config *cfg)
 	if (cfg->pu_pd_val)
 		reg |= OMAP24XX_PULL_UP;
 	omap2_cfg_debug(cfg, reg);
-       	omap_writeb(reg, omap2_ctrl_base + cfg->mux_reg);
+	omap_ctrl_writeb(reg, cfg->mux_reg);
 	spin_unlock_irqrestore(&mux_spin_lock, flags);
 
 	return 0;

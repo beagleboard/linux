@@ -10,12 +10,13 @@
 #ifndef __ARCH_ARM_MACH_OMAP2_CLOCK34XX_H
 #define __ARCH_ARM_MACH_OMAP2_CLOCK34XX_H
 
+#include <asm/arch/control.h>
+
 #include "clock.h"
 #include "cm.h"
 #include "cm_regbits_34xx.h"
 #include "prm.h"
 #include "prm_regbits_34xx.h"
-#include "control.h"
 
 static void omap3_dpll_recalc(struct clk *clk);
 static void omap3_clkoutx2_recalc(struct clk *clk);
