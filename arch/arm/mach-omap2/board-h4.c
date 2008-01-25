@@ -385,11 +385,14 @@ static struct omap_mmc_config h4_mmc_config __initdata = {
 	.mmc [0] = {
 		.enabled	= 1,
 		.wire4		= 1,
-		.wp_pin		= -1,
-		.power_pin	= -1,
-		.switch_pin	= -1,
+	},
+	.mmc [1] = {
+		.enabled	= 1,
+		.wire4		= 1,
 	},
 };
+
+extern struct omap_mmc_platform_data h4_mmc_data;
 
 static struct omap_lcd_config h4_lcd_config __initdata = {
 	.ctrl_name	= "internal",
@@ -688,6 +691,7 @@ static void __init omap_h4_init(void)
 	omap_board_config = h4_config;
 	omap_board_config_size = ARRAY_SIZE(h4_config);
 	omap_serial_init();
+	h4_mmc_init();
 	omap_register_i2c_bus(1, 100, h4_i2c_board_info,
 			      ARRAY_SIZE(h4_i2c_board_info));
 
