@@ -106,9 +106,8 @@ static const struct clksel_rate osc_sys_13m_rates[] = {
 	{ .div = 0 }
 };
 
-/* 3430ES2 only */
 static const struct clksel_rate osc_sys_16_8m_rates[] = {
-	{ .div = 1, .val = 5, .flags = RATE_IN_343X | DEFAULT_RATE },
+	{ .div = 1, .val = 5, .flags = RATE_IN_3430ES2 | DEFAULT_RATE },
 	{ .div = 0 }
 };
 
@@ -308,8 +307,43 @@ static const struct clksel_rate div16_dpll_rates[] = {
 	{ .div = 0 }
 };
 
-static const struct clksel div2_dpll3m2_clksel[] = {
-	{ .parent = &dpll3_ck, .rates = div2_rates },
+static const struct clksel_rate div31_dpll3_rates[] = {
+	{ .div = 1, .val = 1, .flags = RATE_IN_343X | DEFAULT_RATE },
+	{ .div = 2, .val = 2, .flags = RATE_IN_343X },
+	{ .div = 3, .val = 3, .flags = RATE_IN_3430ES2 },
+	{ .div = 4, .val = 4, .flags = RATE_IN_3430ES2 },
+	{ .div = 5, .val = 5, .flags = RATE_IN_3430ES2 },
+	{ .div = 6, .val = 6, .flags = RATE_IN_3430ES2 },
+	{ .div = 7, .val = 7, .flags = RATE_IN_3430ES2 },
+	{ .div = 8, .val = 8, .flags = RATE_IN_3430ES2 },
+	{ .div = 9, .val = 9, .flags = RATE_IN_3430ES2 },
+	{ .div = 10, .val = 10, .flags = RATE_IN_3430ES2 },
+	{ .div = 11, .val = 11, .flags = RATE_IN_3430ES2 },
+	{ .div = 12, .val = 12, .flags = RATE_IN_3430ES2 },
+	{ .div = 13, .val = 13, .flags = RATE_IN_3430ES2 },
+	{ .div = 14, .val = 14, .flags = RATE_IN_3430ES2 },
+	{ .div = 15, .val = 15, .flags = RATE_IN_3430ES2 },
+	{ .div = 16, .val = 16, .flags = RATE_IN_3430ES2 },
+	{ .div = 17, .val = 17, .flags = RATE_IN_3430ES2 },
+	{ .div = 18, .val = 18, .flags = RATE_IN_3430ES2 },
+	{ .div = 19, .val = 19, .flags = RATE_IN_3430ES2 },
+	{ .div = 20, .val = 20, .flags = RATE_IN_3430ES2 },
+	{ .div = 21, .val = 21, .flags = RATE_IN_3430ES2 },
+	{ .div = 22, .val = 22, .flags = RATE_IN_3430ES2 },
+	{ .div = 23, .val = 23, .flags = RATE_IN_3430ES2 },
+	{ .div = 24, .val = 24, .flags = RATE_IN_3430ES2 },
+	{ .div = 25, .val = 25, .flags = RATE_IN_3430ES2 },
+	{ .div = 26, .val = 26, .flags = RATE_IN_3430ES2 },
+	{ .div = 27, .val = 27, .flags = RATE_IN_3430ES2 },
+	{ .div = 28, .val = 28, .flags = RATE_IN_3430ES2 },
+	{ .div = 29, .val = 29, .flags = RATE_IN_3430ES2 },
+	{ .div = 30, .val = 30, .flags = RATE_IN_3430ES2 },
+	{ .div = 31, .val = 31, .flags = RATE_IN_3430ES2 },
+	{ .div = 0 },
+};
+
+static const struct clksel div31_dpll3m2_clksel[] = {
+	{ .parent = &dpll3_ck, .rates = div31_dpll3_rates },
 	{ .parent = NULL }
 };
 
@@ -324,7 +358,7 @@ static struct clk dpll3_m2_ck = {
 	.init		= &omap2_init_clksel_parent,
 	.clksel_reg	= OMAP_CM_REGADDR(PLL_MOD, CM_CLKSEL1),
 	.clksel_mask	= OMAP3430_CORE_DPLL_CLKOUT_DIV_MASK,
-	.clksel		= div2_dpll3m2_clksel,
+	.clksel		= div31_dpll3m2_clksel,
 	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES |
 				PARENT_CONTROLS_CLOCK,
 	.recalc		= &omap2_clksel_recalc,

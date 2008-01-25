@@ -135,11 +135,13 @@ extern void clk_init_cpufreq_table(struct cpufreq_frequency_table **table);
 #define CLOCK_IN_OMAP3430ES2	(1 << 30)	/* 3430ES2 clocks only */
 
 /* Clksel_rate flags */
-#define DEFAULT_RATE            (1 << 0)
-#define RATE_IN_242X            (1 << 1)
-#define RATE_IN_243X            (1 << 2)
-#define RATE_IN_343X            (1 << 3)
-#define RATE_IN_24XX            (RATE_IN_242X | RATE_IN_243X)
+#define DEFAULT_RATE		(1 << 0)
+#define RATE_IN_242X		(1 << 1)
+#define RATE_IN_243X		(1 << 2)
+#define RATE_IN_343X		(1 << 3)	/* rates common to all 343X */
+#define RATE_IN_3430ES2		(1 << 4)	/* 3430ES2 rates only */
+
+#define RATE_IN_24XX		(RATE_IN_242X | RATE_IN_243X)
 
 
 /* CM_CLKSEL2_PLL.CORE_CLK_SRC options (24XX) */
