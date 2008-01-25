@@ -343,8 +343,7 @@ void omap_set_mmc_info(int host, const struct omap_mmc_platform_data *info)
 }
 
 #else
-static void omap_set_mmc_info(int host,
-	const struct omap_mmc_platform_data *info) {}
+void omap_set_mmc_info(int host, const struct omap_mmc_platform_data *info) {}
 static inline void omap_init_mmc(void) {}
 #endif
 
