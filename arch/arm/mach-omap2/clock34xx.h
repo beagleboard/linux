@@ -64,11 +64,10 @@ static struct clk virt_13m_ck = {
 	.recalc		= &propagate_rate,
 };
 
-/* 3430ES2 only */
 static struct clk virt_16_8m_ck = {
 	.name		= "virt_16_8m_ck",
 	.rate		= 16800000,
-	.flags		= CLOCK_IN_OMAP343X | RATE_FIXED | RATE_PROPAGATES |
+	.flags		= CLOCK_IN_OMAP3430ES2 | RATE_FIXED | RATE_PROPAGATES |
 				ALWAYS_ENABLED,
 	.recalc		= &propagate_rate,
 };
@@ -751,7 +750,7 @@ static struct clk rm_ick = {
 
 /* GFX power domain */
 
-/* REVISIT: These clocks have disappeared in the 3430 ES2 TRM ?? */
+/* GFX clocks are in 3430ES1 only.  3430ES2 and later uses the SGX instead */
 
 static const struct clksel gfx_l3_clksel[] = {
 	{ .parent = &l3_ick, .rates = gfx_l3_rates },
@@ -767,7 +766,7 @@ static struct clk gfx_l3_fck = {
 	.clksel_reg	= OMAP_CM_REGADDR(GFX_MOD, CM_CLKSEL),
 	.clksel_mask	= OMAP_CLKSEL_GFX_MASK,
 	.clksel		= gfx_l3_clksel,
-	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES,
+	.flags		= CLOCK_IN_OMAP3430ES1 | RATE_PROPAGATES,
 	.recalc		= &omap2_clksel_recalc,
 };
 
@@ -776,7 +775,7 @@ static struct clk gfx_l3_ick = {
 	.parent		= &l3_ick,
 	.enable_reg	= OMAP_CM_REGADDR(GFX_MOD, CM_ICLKEN),
 	.enable_bit	= OMAP_EN_GFX_SHIFT,
-	.flags		= CLOCK_IN_OMAP343X,
+	.flags		= CLOCK_IN_OMAP3430ES1,
 	.recalc		= &followparent_recalc,
 };
 
@@ -784,8 +783,8 @@ static struct clk gfx_cg1_ck = {
 	.name		= "gfx_cg1_ck",
 	.parent		= &gfx_l3_fck, /* REVISIT: correct? */
 	.enable_reg	= OMAP_CM_REGADDR(GFX_MOD, CM_FCLKEN),
-	.enable_bit	= OMAP3430_EN_2D_SHIFT,
-	.flags		= CLOCK_IN_OMAP343X,
+	.enable_bit	= OMAP3430ES1_EN_2D_SHIFT,
+	.flags		= CLOCK_IN_OMAP3430ES1,
 	.recalc		= &followparent_recalc,
 };
 
@@ -793,8 +792,8 @@ static struct clk gfx_cg2_ck = {
 	.name		= "gfx_cg2_ck",
 	.parent		= &gfx_l3_fck, /* REVISIT: correct? */
 	.enable_reg	= OMAP_CM_REGADDR(GFX_MOD, CM_FCLKEN),
-	.enable_bit	= OMAP3430_EN_3D_SHIFT,
-	.flags		= CLOCK_IN_OMAP343X,
+	.enable_bit	= OMAP3430ES1_EN_3D_SHIFT,
+	.flags		= CLOCK_IN_OMAP3430ES1,
 	.recalc		= &followparent_recalc,
 };
 
@@ -804,8 +803,8 @@ static struct clk d2d_26m_fck = {
 	.name		= "d2d_26m_fck",
 	.parent		= &sys_ck,
 	.enable_reg	= OMAP_CM_REGADDR(CORE_MOD, CM_FCLKEN1),
-	.enable_bit	= OMAP3430_EN_D2D_SHIFT,
-	.flags		= CLOCK_IN_OMAP343X,
+	.enable_bit	= OMAP3430ES1_EN_D2D_SHIFT,
+	.flags		= CLOCK_IN_OMAP3430ES1,
 	.recalc		= &followparent_recalc,
 };
 
@@ -1022,8 +1021,8 @@ static struct clk fshostusb_fck = {
 	.name		= "fshostusb_fck",
 	.parent		= &core_48m_fck,
 	.enable_reg	= OMAP_CM_REGADDR(CORE_MOD, CM_FCLKEN1),
-	.enable_bit	= OMAP3430_EN_FSHOSTUSB_SHIFT,
-	.flags		= CLOCK_IN_OMAP343X,
+	.enable_bit	= OMAP3430ES1_EN_FSHOSTUSB_SHIFT,
+	.flags		= CLOCK_IN_OMAP3430ES1,
 	.recalc		= &followparent_recalc,
 };
 
@@ -1348,8 +1347,8 @@ static struct clk fac_ick = {
 	.name		= "fac_ick",
 	.parent		= &core_l4_ick,
 	.enable_reg	= OMAP_CM_REGADDR(CORE_MOD, CM_ICLKEN1),
-	.enable_bit	= OMAP3430_EN_FAC_SHIFT,
-	.flags		= CLOCK_IN_OMAP343X,
+	.enable_bit	= OMAP3430ES1_EN_FAC_SHIFT,
+	.flags		= CLOCK_IN_OMAP3430ES1,
 	.recalc		= &followparent_recalc,
 };
 
@@ -1402,11 +1401,11 @@ static struct clk usb_l4_ick = {
 	.parent		= &l4_ick,
 	.init		= &omap2_init_clksel_parent,
 	.enable_reg	= OMAP_CM_REGADDR(CORE_MOD, CM_ICLKEN1),
-	.enable_bit	= OMAP3430_EN_FSHOSTUSB_SHIFT,
+	.enable_bit	= OMAP3430ES1_EN_FSHOSTUSB_SHIFT,
 	.clksel_reg	= OMAP_CM_REGADDR(CORE_MOD, CM_CLKSEL),
-	.clksel_mask	= OMAP3430_CLKSEL_FSHOSTUSB_MASK,
+	.clksel_mask	= OMAP3430ES1_CLKSEL_FSHOSTUSB_MASK,
 	.clksel		= usb_l4_clksel,
-	.flags		= CLOCK_IN_OMAP343X,
+	.flags		= CLOCK_IN_OMAP3430ES1,
 	.recalc		= &omap2_clksel_recalc,
 };
 

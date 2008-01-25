@@ -172,6 +172,15 @@ int __init omap2_clk_init(void)
 		cpu_mask = RATE_IN_343X;
 		cpu_clkflg = CLOCK_IN_OMAP343X;
 		clkp = onchip_34xx_clks;
+
+		/*
+		 * Update this if there are further clock changes between ES2
+		 * and production parts
+		 */
+		if (is_sil_rev_equal_to(OMAP3430_REV_ES1_0))
+			cpu_clkflg |= CLOCK_IN_OMAP3430ES1;
+		else
+			cpu_clkflg |= CLOCK_IN_OMAP3430ES2;
 	}
 
 	clk_init(&omap2_clk_functions);
