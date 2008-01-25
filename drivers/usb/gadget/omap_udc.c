@@ -55,7 +55,6 @@
 #include <asm/arch/control.h>
 
 #include "omap_udc.h"
-#include "../../../arch/arm/mach-omap2/control.h"
 
 #undef	USB_TRACE
 
