@@ -18,6 +18,7 @@ extern int menelaus_register_mmc_callback(void (*callback)(void *data, u8 card_m
 extern void menelaus_unregister_mmc_callback(void);
 extern int menelaus_set_mmc_opendrain(int slot, int enable);
 extern int menelaus_set_mmc_slot(int slot, int enable, int power, int cd_on);
+extern int menelaus_enable_slot(int slot, int enable);
 
 extern int menelaus_set_vmem(unsigned int mV);
 extern int menelaus_set_vio(unsigned int mV);

@@ -314,6 +314,34 @@ out:
 }
 EXPORT_SYMBOL(menelaus_set_slot_sel);
 
+int menelaus_enable_slot(int slot, int enable)
+{
+	int ret, val;
+
+	mutex_lock(&the_menelaus->lock);
+	ret = menelaus_read_reg(MENELAUS_MCT_CTRL3);
+	if (ret < 0)
+		goto out;
+	val = ret;
+	if (slot == 1) {
+		if (enable)
+			val |= 1 << 0;
+		else
+			val &= ~(1 << 0);
+	} else {
+		if (enable)
+			val |= 1 << 1;
+		else
+			val &= ~(1 << 1);
+	}
+	ret = menelaus_write_reg(MENELAUS_MCT_CTRL3, val);
+
+out:
+	mutex_unlock(&the_menelaus->lock);
+	return ret;
+}
+EXPORT_SYMBOL(menelaus_enable_slot);
+
 int menelaus_set_mmc_slot(int slot, int enable, int power, int cd_en)
 {
 	int ret, val;
