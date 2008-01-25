@@ -599,11 +599,17 @@ enum omap24xx_index {
 	AD13_2430_MCBSP2_DR_OFF,
 };
 
+struct omap_mux_cfg {
+	struct pin_config	*pins;
+	unsigned long		size;
+	int			(*cfg_reg)(const struct pin_config *cfg);
+};
+
 #ifdef	CONFIG_OMAP_MUX
 /* setup pin muxing in Linux */
 extern int omap1_mux_init(void);
 extern int omap2_mux_init(void);
-extern int omap_mux_register(struct pin_config * pins, unsigned long size);
+extern int omap_mux_register(struct omap_mux_cfg *);
 extern int omap_cfg_reg(unsigned long reg_cfg);
 #else
 /* boot loader does it all (no warnings from CONFIG_OMAP_MUX_WARNINGS) */

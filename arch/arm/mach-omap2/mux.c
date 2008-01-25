@@ -32,6 +32,8 @@
 
 #ifdef CONFIG_OMAP_MUX
 
+static struct omap_mux_cfg arch_mux_cfg;
+
 /* NOTE: See mux.h for the enumeration */
 
 struct pin_config __initdata_or_module omap24xx_pins[] = {
@@ -207,10 +209,25 @@ MUX_CFG_24XX("AE13_2430_MCBSP2_DX_OFF",	0x0130,	0,	0,	0,	1)
 MUX_CFG_24XX("AD13_2430_MCBSP2_DR_OFF",	0x0131,	0,	0,	0,	1)
 };
 
+#ifdef CONFIG_ARCH_OMAP24XX
+int __init_or_module omap24xx_cfg_reg(const struct pin_config *cfg)
+{
+	return 0;
+}
+#endif
+
 int __init omap2_mux_init(void)
 {
-	omap_mux_register(omap24xx_pins, ARRAY_SIZE(omap24xx_pins));
-	return 0;
+
+#ifdef CONFIG_ARCH_OMAP24XX
+	if (cpu_is_omap24xx()) {
+		arch_mux_cfg.pins	= omap24xx_pins;
+		arch_mux_cfg.size	= ARRAY_SIZE(omap24xx_pins);
+		arch_mux_cfg.cfg_reg	= omap24xx_cfg_reg;
+	}
+#endif
+
+	return omap_mux_register(&arch_mux_cfg);
 }
 
 #endif
