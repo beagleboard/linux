@@ -4,8 +4,8 @@
 /*
  * OMAP2/3 PRCM base and module definitions
  *
- * Copyright (C) 2007 Texas Instruments, Inc.
- * Copyright (C) 2007 Nokia Corporation
+ * Copyright (C) 2007-2008 Texas Instruments, Inc.
+ * Copyright (C) 2007-2008 Nokia Corporation
  *
  * Written by Paul Walmsley
  *
@@ -17,8 +17,12 @@
 
 /* Module offsets from both CM_BASE & PRM_BASE */
 
-/* Offsets that are the same on 24xx and 34xx */
-/* Technically OCP_MOD is 34xx only, and PLL_MOD is CCR_MOD on 3430 */
+/*
+ * Offsets that are the same on 24xx and 34xx
+ *
+ * Technically, in terms of the TRM, OCP_MOD is 34xx only; PLL_MOD is
+ * CCR_MOD on 3430; and GFX_MOD only exists < 3430ES2.
+ */
 #define OCP_MOD						0x000
 #define MPU_MOD						0x100
 #define CORE_MOD					0x200
@@ -34,6 +38,7 @@
 
 /* IVA2 module is < base on 3430 */
 #define OMAP3430_IVA2_MOD				-0x800
+#define OMAP3430ES2_SGX_MOD				GFX_MOD
 #define OMAP3430_CCR_MOD				PLL_MOD
 #define OMAP3430_DSS_MOD				0x600
 #define OMAP3430_CAM_MOD				0x700
@@ -41,6 +46,7 @@
 #define OMAP3430_EMU_MOD				0x900
 #define OMAP3430_GR_MOD					0xa00
 #define OMAP3430_NEON_MOD				0xb00
+#define OMAP3430ES2_USBHOST_MOD				0xc00
 
 
 /* 24XX register bits shared between CM & PRM registers */

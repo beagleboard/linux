@@ -4,8 +4,8 @@
 /*
  * OMAP3430 Power/Reset Management register bits
  *
- * Copyright (C) 2007 Texas Instruments, Inc.
- * Copyright (C) 2007 Nokia Corporation
+ * Copyright (C) 2007-2008 Texas Instruments, Inc.
+ * Copyright (C) 2007-2008 Nokia Corporation
  *
  * Written by Paul Walmsley
  *
@@ -211,6 +211,8 @@
 /* PRM_SYSCONFIG specific bits */
 
 /* PRM_IRQSTATUS_MPU specific bits */
+#define OMAP3430ES2_SND_PERIPH_DPLL_ST_SHIFT		25
+#define OMAP3430ES2_SND_PERIPH_DPLL_ST			(1 << 25)
 #define OMAP3430_VC_TIMEOUTERR_ST			(1 << 24)
 #define OMAP3430_VC_RAERR_ST				(1 << 23)
 #define OMAP3430_VC_SAERR_ST				(1 << 22)
@@ -241,6 +243,8 @@
 #define OMAP3430_FS_USB_WKUP_ST				(1 << 1)
 
 /* PRM_IRQENABLE_MPU specific bits */
+#define OMAP3430ES2_SND_PERIPH_DPLL_RECAL_EN_SHIFT		25
+#define OMAP3430ES2_SND_PERIPH_DPLL_RECAL_EN			(1 << 25)
 #define OMAP3430_VC_TIMEOUTERR_EN				(1 << 24)
 #define OMAP3430_VC_RAERR_EN					(1 << 23)
 #define OMAP3430_VC_SAERR_EN					(1 << 22)
@@ -399,6 +403,9 @@
 /* PM_PWSTST_CAM specific bits */
 
 /* PM_PREPWSTST_CAM specific bits */
+
+/* PM_PWSTCTRL_USBHOST specific bits */
+#define OMAP3430ES2_SAVEANDRESTORE_SHIFT		(1 << 4)
 
 /* RM_RSTST_PER specific bits */
 

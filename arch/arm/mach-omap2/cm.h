@@ -4,8 +4,8 @@
 /*
  * OMAP2/3 Clock Management (CM) register definitions
  *
- * Copyright (C) 2007 Texas Instruments, Inc.
- * Copyright (C) 2007 Nokia Corporation
+ * Copyright (C) 2007-2008 Texas Instruments, Inc.
+ * Copyright (C) 2007-2008 Nokia Corporation
  *
  * Written by Paul Walmsley
  *
@@ -61,6 +61,7 @@ static u32 __attribute__((unused)) cm_read_reg(void __iomem *addr)
 #define CM_ICLKEN1					0x0010
 #define CM_ICLKEN					CM_ICLKEN1
 #define CM_ICLKEN2					0x0014
+#define CM_ICLKEN3					0x0018
 #define CM_IDLEST1					0x0020
 #define CM_IDLEST                                       CM_IDLEST1
 #define CM_IDLEST2					0x0024
@@ -80,7 +81,6 @@ static u32 __attribute__((unused)) cm_read_reg(void __iomem *addr)
 #define OMAP24XX_CM_AUTOIDLE3				0x0038
 #define OMAP24XX_CM_AUTOIDLE4				0x003c
 
-#define OMAP2430_CM_ICLKEN3				0x0018
 #define OMAP2430_CM_IDLEST3				0x0028
 
 
@@ -110,6 +110,8 @@ static u32 __attribute__((unused)) cm_read_mod_reg(s16 module, s16 idx)
 #define OMAP_ST_GFX					(1 << 0)
 
 #define OMAP3430_CM_CLKEN_PLL				0x0004
+#define OMAP3430ES2_CM_CLKEN2				0x0004
+#define OMAP3430ES2_CM_FCLKEN3				0x0008
 #define OMAP3430_CM_IDLEST_PLL				CM_IDLEST2
 #define OMAP3430_CM_AUTOIDLE_PLL			CM_AUTOIDLE2
 #define OMAP3430_CM_CLKSEL1				CM_CLKSEL
@@ -118,6 +120,8 @@ static u32 __attribute__((unused)) cm_read_mod_reg(s16 module, s16 idx)
 #define OMAP3430_CM_SLEEPDEP				CM_CLKSEL2
 #define OMAP3430_CM_CLKSEL3				CM_CLKSTCTRL
 #define OMAP3430_CM_CLKSTST				0x004c
+#define OMAP3430ES2_CM_CLKSEL4				0x004c
+#define OMAP3430ES2_CM_CLKSEL5				0x0050
 #define OMAP3430_CM_CLKSEL2_EMU				0x0050
 #define OMAP3430_CM_CLKSEL3_EMU				0x0054
 

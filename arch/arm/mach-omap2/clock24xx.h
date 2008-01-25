@@ -9,8 +9,8 @@
  *  Written by Tuukka Tikkanen <tuukka.tikkanen@elektrobit.com>
  *  Based on clocks.h by Tony Lindgren, Gordon McNutt and RidgeRun, Inc
  *
- *  Copyright (C) 2007 Texas Instruments, Inc.
- *  Copyright (C) 2007 Nokia Corporation
+ *  Copyright (C) 2007-2008 Texas Instruments, Inc.
+ *  Copyright (C) 2007-2008 Nokia Corporation
  *  Paul Walmsley
  *
  * This program is free software; you can redistribute it and/or modify
@@ -2311,7 +2311,7 @@ static struct clk sdrc_ick = {
 	.name		= "sdrc_ick",
 	.parent		= &l4_ck,
 	.flags		= CLOCK_IN_OMAP243X | ENABLE_ON_INIT,
-	.enable_reg	= OMAP_CM_REGADDR(CORE_MOD, OMAP2430_CM_ICLKEN3),
+	.enable_reg	= OMAP_CM_REGADDR(CORE_MOD, CM_ICLKEN3),
 	.enable_bit	= OMAP2430_EN_SDRC_SHIFT,
 	.recalc		= &followparent_recalc,
 };

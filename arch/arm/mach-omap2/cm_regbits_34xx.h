@@ -4,8 +4,8 @@
 /*
  * OMAP3430 Clock Management register bits
  *
- * Copyright (C) 2007 Texas Instruments, Inc.
- * Copyright (C) 2007 Nokia Corporation
+ * Copyright (C) 2007-2008 Texas Instruments, Inc.
+ * Copyright (C) 2007-2008 Nokia Corporation
  *
  * Written by Paul Walmsley
  *
@@ -19,6 +19,8 @@
 /* Bits shared between registers */
 
 /* CM_FCLKEN1_CORE and CM_ICLKEN1_CORE shared bits */
+#define OMAP3430ES2_EN_MMC3_MASK			(1 << 30)
+#define OMAP3430ES2_EN_MMC3_SHIFT			30
 #define OMAP3430_EN_MSPRO				(1 << 23)
 #define OMAP3430_EN_MSPRO_SHIFT				23
 #define OMAP3430_EN_HDQ					(1 << 22)
@@ -29,6 +31,10 @@
 #define OMAP3430ES1_EN_D2D_SHIFT			3
 #define OMAP3430_EN_SSI					(1 << 0)
 #define OMAP3430_EN_SSI_SHIFT				0
+
+/* CM_FCLKEN3_CORE and CM_ICLKEN3_CORE shared bits */
+#define OMAP3430ES2_EN_USBTLL_SHIFT			2
+#define OMAP3430ES2_EN_USBTLL_MASK			(1 << 2)
 
 /* CM_FCLKEN_WKUP and CM_ICLKEN_WKUP shared bits */
 #define OMAP3430_EN_WDT2				(1 << 5)
@@ -165,6 +171,12 @@
 #define OMAP3430_EN_DES1				(1 << 0)
 #define OMAP3430_EN_DES1_SHIFT				0
 
+/* CM_FCLKEN3_CORE specific bits */
+#define OMAP3430ES2_EN_TS_SHIFT				1
+#define OMAP3430ES2_EN_TS_MASK				(1 << 1)
+#define OMAP3430ES2_EN_CPEFUSE_SHIFT			0
+#define OMAP3430ES2_EN_CPEFUSE_MASK			(1 << 0)
+
 /* CM_IDLEST1_CORE specific bits */
 #define OMAP3430_ST_ICR					(1 << 29)
 #define OMAP3430_ST_AES2				(1 << 28)
@@ -296,19 +308,28 @@
 /* CM_SLEEPDEP_GFX specific bits */
 
 /* CM_CLKSTCTRL_GFX */
-#define OMAP3430_CLKTRCTRL_GFX_SHIFT			0
-#define OMAP3430_CLKTRCTRL_GFX_MASK			(0x3 << 0)
+#define OMAP3430ES1_CLKTRCTRL_GFX_SHIFT			0
+#define OMAP3430ES1_CLKTRCTRL_GFX_MASK			(0x3 << 0)
 
 /* CM_CLKSTST_GFX */
-#define OMAP3430_CLKACTIVITY_GFX			(1 << 0)
+#define OMAP3430ES1_CLKACTIVITY_GFX			(1 << 0)
+
+/* CM_FCLKEN_SGX */
+#define OMAP3430ES2_EN_SGX_SHIFT			1
+#define OMAP3430ES2_EN_SGX_MASK				(1 << 1)
+
+/* CM_CLKSEL_SGX */
+#define OMAP3430ES2_CLKSEL_SGX_SHIFT			0
+#define OMAP3430ES2_CLKSEL_SGX_MASK			(0x7 << 0)
 
 /* CM_FCLKEN_WKUP specific bits */
+#define OMAP3430ES2_EN_USIMOCP_SHIFT			9
 
 /* CM_ICLKEN_WKUP specific bits */
 #define OMAP3430_EN_WDT1				(1 << 4)
 #define OMAP3430_EN_WDT1_SHIFT				4
 #define OMAP3430_EN_32KSYNC				(1 << 2)
-#define OMAP3430_EN_32KSYNC_SHIFT			       2
+#define OMAP3430_EN_32KSYNC_SHIFT			2
 
 /* CM_IDLEST_WKUP specific bits */
 #define OMAP3430_ST_WDT2				(1 << 5)
@@ -330,10 +351,11 @@
 #define OMAP3430_AUTO_GPT1_SHIFT			0
 
 /* CM_CLKSEL_WKUP */
+#define OMAP3430ES2_CLKSEL_USIMOCP_MASK			(0xf << 3)
 #define OMAP3430_CLKSEL_RM_SHIFT			1
 #define OMAP3430_CLKSEL_RM_MASK				(0x3 << 1)
-#define OMAP3430_CLKSEL_GPT1_MASK			(1 << 0)
 #define OMAP3430_CLKSEL_GPT1_SHIFT			0
+#define OMAP3430_CLKSEL_GPT1_MASK			(1 << 0)
 
 /* CM_CLKEN_PLL */
 #define OMAP3430_PWRDN_EMU_PERIPH_SHIFT			31
@@ -358,6 +380,13 @@
 #define OMAP3430_EN_CORE_DPLL_DRIFTGUARD_MASK		(1 << 3)
 #define OMAP3430_EN_CORE_DPLL_SHIFT			0
 #define OMAP3430_EN_CORE_DPLL_MASK			(0x7 << 0)
+
+/* CM_CLKEN2_PLL */
+#define OMAP3430ES2_EN_PERIPH2_DPLL_LPMODE_SHIFT		10
+#define OMAP3430ES2_PERIPH2_DPLL_RAMPTIME_MASK		(0x3 << 8)
+#define OMAP3430ES2_PERIPH2_DPLL_FREQSEL_MASK		(0xf << 4)
+#define OMAP3430ES2_EN_PERIPH2_DPLL_DRIFTGUARD_SHIFT	3
+#define OMAP3430ES2_EN_PERIPH2_DPLL_MASK		        (0x7 << 0)
 
 /* CM_IDLEST_CKGEN */
 #define OMAP3430_ST_54M_CLK				(1 << 5)
@@ -393,6 +422,13 @@
 /* CM_CLKSEL3_PLL */
 #define OMAP3430_DIV_96M_SHIFT				0
 #define OMAP3430_DIV_96M_MASK				(0x1f << 0)
+
+/* CM_CLKSEL4_PLL */
+#define OMAP3430ES2_PERIPH2_DPLL_MULT_MASK		(0x7ff << 8)
+#define OMAP3430ES2_PERIPH2_DPLL_DIV_MASK		(0x7f << 0)
+
+/* CM_CLKSEL5_PLL */
+#define OMAP3430ES2_DIV_120M_MASK			(0x1f << 0)
 
 /* CM_CLKOUT_CTRL */
 #define OMAP3430_CLKOUT2_EN_SHIFT			7
@@ -582,5 +618,15 @@
 /* CM_CLKSTCTRL_NEON */
 #define OMAP3430_CLKTRCTRL_NEON_SHIFT			0
 #define OMAP3430_CLKTRCTRL_NEON_MASK			(0x3 << 0)
+
+/* CM_FCLKEN_USBHOST */
+#define OMAP3430ES2_EN_USBHOST2_SHIFT			1
+#define OMAP3430ES2_EN_USBHOST2_MASK			(1 << 1)
+#define OMAP3430ES2_EN_USBHOST1_SHIFT			0
+#define OMAP3430ES2_EN_USBHOST1_MASK			(1 << 0)
+
+/* CM_ICLKEN_USBHOST */
+#define OMAP3430ES2_EN_USBHOST_SHIFT			0
+#define OMAP3430ES2_EN_USBHOST_MASK			(1 << 0)
 
 #endif
