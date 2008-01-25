@@ -30,6 +30,8 @@
 
 #include <asm/arch/mux.h>
 
+#include "../mach-omap2/control.h"
+
 #ifdef CONFIG_OMAP_MUX
 
 static struct omap_mux_cfg arch_mux_cfg;
@@ -210,8 +212,38 @@ MUX_CFG_24XX("AD13_2430_MCBSP2_DR_OFF",	0x0131,	0,	0,	0,	1)
 };
 
 #ifdef CONFIG_ARCH_OMAP24XX
+
+#define OMAP24XX_PULL_ENA	(1 << 3)
+#define OMAP24XX_PULL_UP	(1 << 4)
+
+/* REVISIT: Convert this code to use ctrl_{read,write}_reg */
 int __init_or_module omap24xx_cfg_reg(const struct pin_config *cfg)
 {
+	u8 reg = 0;
+	unsigned int mask, warn = 0;
+
+	reg |= cfg->mask & 0x7;
+	if (cfg->pull_val)
+		reg |= OMAP24XX_PULL_ENA;
+	if(cfg->pu_pd_val)
+		reg |= OMAP24XX_PULL_UP;
+#if defined(CONFIG_OMAP_MUX_DEBUG) || defined(CONFIG_OMAP_MUX_WARNINGS)
+	{
+		u8 orig = omap_readb(omap2_ctrl_base + cfg->mux_reg);
+		u8 debug = 0;
+
+#ifdef	CONFIG_OMAP_MUX_DEBUG
+		debug = cfg->debug;
+#endif
+		warn = (orig != reg);
+		if (debug || warn)
+			printk("MUX: setup %s (0x%08lx): 0x%02x -> 0x%02x\n",
+				cfg->name, omap2_ctrl_base + cfg->mux_reg,
+				orig, reg);
+	}
+#endif
+	omap_writeb(reg, omap2_ctrl_base + cfg->mux_reg);
+
 	return 0;
 }
 #endif
