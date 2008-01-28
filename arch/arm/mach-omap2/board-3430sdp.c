@@ -117,6 +117,8 @@ static struct platform_device sdp3430_kp_device = {
 	},
 };
 
+static int ts_gpio;
+
 /**
  * @brief ads7846_dev_init : Requests & sets GPIO line for pen-irq
  *
@@ -124,20 +126,20 @@ static struct platform_device sdp3430_kp_device = {
  */
 static void ads7846_dev_init(void)
 {
-	if (omap_request_gpio(TS_GPIO) < 0) {
+	if (omap_request_gpio(ts_gpio) < 0) {
 		printk(KERN_ERR "can't get ads746 pen down GPIO\n");
 		return;
 	}
 
-	omap_set_gpio_direction(TS_GPIO, 1);
+	omap_set_gpio_direction(ts_gpio, 1);
 
-	omap_set_gpio_debounce(TS_GPIO, 1);
-	omap_set_gpio_debounce_time(TS_GPIO, 0xa);
+	omap_set_gpio_debounce(ts_gpio, 1);
+	omap_set_gpio_debounce_time(ts_gpio, 0xa);
 }
 
 static int ads7846_get_pendown_state(void)
 {
-	return !omap_get_gpio_datain(TS_GPIO);
+	return !omap_get_gpio_datain(ts_gpio);
 }
 
 /*
@@ -193,7 +195,7 @@ static struct spi_board_info sdp3430_spi_board_info[] __initdata = {
 		.chip_select		= 0,
 		.max_speed_hz		= 1500000,
 		.controller_data	= &tsc2046_mcspi_config,
-		.irq			= OMAP_GPIO_IRQ(TS_GPIO),
+		.irq			= 0,
 		.platform_data		= &tsc2046_config,
 	},
 };
@@ -285,6 +287,11 @@ static void __init omap_3430sdp_init(void)
 	platform_add_devices(sdp3430_devices, ARRAY_SIZE(sdp3430_devices));
 	omap_board_config = sdp3430_config;
 	omap_board_config_size = ARRAY_SIZE(sdp3430_config);
+	if (is_sil_rev_greater_than(OMAP3430_REV_ES1_0))
+		ts_gpio = OMAP34XX_TS_GPIO_IRQ_SDPV2;
+	else
+		ts_gpio = OMAP34XX_TS_GPIO_IRQ_SDPV1;
+	sdp3430_spi_board_info[0].irq = OMAP_GPIO_IRQ(ts_gpio);
 	spi_register_board_info(sdp3430_spi_board_info,
 				ARRAY_SIZE(sdp3430_spi_board_info));
 	ads7846_dev_init();

@@ -43,11 +43,8 @@ extern void sdp_mmc_init(void);
 /*
  * GPIO used for TSC2046, TI's Touchscreen controller
  */
-#ifdef CONFIG_OMAP3430_ES2
-#define TS_GPIO		2
-#else
-#define TS_GPIO		3
-#endif
+#define OMAP34XX_TS_GPIO_IRQ_SDPV1     3
+#define OMAP34XX_TS_GPIO_IRQ_SDPV2     2
 
 /* NAND */
 /* IMPORTANT NOTE ON MAPPING
