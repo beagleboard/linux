@@ -157,7 +157,12 @@ config TWL4030_USB_HS_ULPI
 	help
 	  Say Y here if the TWL4030 is connected to high-speed USB
 	  controller through a ULPI interface.
+
 endchoice
+
+config TWL4030_POWEROFF
+	bool "TWL4030 device poweroff"
+	depends on TWL4030_CORE
 
 config SENSORS_M41T00
 	tristate "ST M41T00 RTC chip (DEPRECATED)"
