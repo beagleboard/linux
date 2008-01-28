@@ -176,7 +176,7 @@ static int sdp_mmc_set_power(struct device *dev, int slot, int power_on,
 		case MMC_VDD_32_33:
 			vdd_sel = VSEL_3V;
 			if (cpu_is_omap24xx())
-				devconf = (reg | (1 << 31));
+				devconf = (devconf | (1 << 31));
 			break;
 		case MMC_VDD_165_195:
 			vdd_sel = VSEL_18V;
