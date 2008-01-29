@@ -134,6 +134,8 @@ static inline void omap_init_sti(void) {}
 
 #define OMAP2_MCSPI1_BASE		0x48098000
 #define OMAP2_MCSPI2_BASE		0x4809a000
+#define OMAP2_MCSPI3_BASE		0x480b8000
+#define OMAP2_MCSPI4_BASE		0x480ba000
 
 static struct omap2_mcspi_platform_config omap2_mcspi1_config = {
 	.num_cs		= 4,
@@ -179,10 +181,64 @@ struct platform_device omap2_mcspi2 = {
 	},
 };
 
+#if defined(CONFIG_ARCH_OMAP2430) || defined(CONFIG_ARCH_OMAP3)
+static struct omap2_mcspi_platform_config omap2_mcspi3_config = {
+	.num_cs		= 2,
+};
+
+static struct resource omap2_mcspi3_resources[] = {
+	{
+	.start		= OMAP2_MCSPI3_BASE,
+	.end		= OMAP2_MCSPI3_BASE + 0xff,
+	.flags		= IORESOURCE_MEM,
+	},
+};
+
+struct platform_device omap2_mcspi3 = {
+	.name		= "omap2_mcspi",
+	.id		= 3,
+	.num_resources	= ARRAY_SIZE(omap2_mcspi3_resources),
+	.resource	= omap2_mcspi3_resources,
+	.dev		= {
+		.platform_data = &omap2_mcspi3_config,
+	},
+};
+#endif
+
+#ifdef CONFIG_ARCH_OMAP3
+static struct omap2_mcspi_platform_config omap2_mcspi4_config = {
+	.num_cs		= 1,
+};
+
+static struct resource omap2_mcspi4_resources[] = {
+	{
+		.start		= OMAP2_MCSPI4_BASE,
+		.end		= OMAP2_MCSPI4_BASE + 0xff,
+		.flags		= IORESOURCE_MEM,
+	},
+};
+
+struct platform_device omap2_mcspi4 = {
+	.name		= "omap2_mcspi",
+	.id		= 4,
+	.num_resources	= ARRAY_SIZE(omap2_mcspi4_resources),
+	.resource	= omap2_mcspi4_resources,
+	.dev		= {
+		.platform_data = &omap2_mcspi4_config,
+	},
+};
+#endif
+
 static void omap_init_mcspi(void)
 {
 	platform_device_register(&omap2_mcspi1);
 	platform_device_register(&omap2_mcspi2);
+#if defined(CONFIG_ARCH_OMAP2430) || defined(CONFIG_ARCH_OMAP3)
+	platform_device_register(&omap2_mcspi3);
+#endif
+#ifdef CONFIG_ARCH_OMAP3
+	platform_device_register(&omap2_mcspi4);
+#endif
 }
 
 #else
