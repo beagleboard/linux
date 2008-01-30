@@ -2508,6 +2508,7 @@ static struct clk *onchip_34xx_clks[] __initdata = {
 	&osc_sys_ck,
 	&sys_ck,
 	&sys_altclk,
+	&mcbsp_clks,
 	&sys_clkout1,
 	&dpll1_ck,
 	&emu_mpu_alwon_ck,
