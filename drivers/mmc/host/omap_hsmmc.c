@@ -723,7 +723,7 @@ static int __init omap_mmc_probe(struct platform_device *pdev)
 	host->dma_ch	= -1;
 	host->irq	= irq;
 	host->id	= pdev->id;
-	host->slot_id	= pdev->id - 1;
+	host->slot_id	= 0;
 	host->mapbase	= res->start;
 	host->base	= ioremap(host->mapbase, SZ_4K);
 	mmc->ops	= &mmc_omap_ops;
