@@ -15,6 +15,7 @@
 #include <linux/clk.h>
 #include <linux/ioport.h>
 #include <linux/spinlock.h>
+#include <linux/module.h>
 
 #include <asm/io.h>
 #include <asm/mach-types.h>
@@ -362,6 +363,7 @@ out:
 	spin_unlock(&gpmc_mem_lock);
 	return r;
 }
+EXPORT_SYMBOL(gpmc_cs_request);
 
 void gpmc_cs_free(int cs)
 {
@@ -377,6 +379,7 @@ void gpmc_cs_free(int cs)
 	gpmc_cs_set_reserved(cs, 0);
 	spin_unlock(&gpmc_mem_lock);
 }
+EXPORT_SYMBOL(gpmc_cs_free);
 
 void __init gpmc_mem_init(void)
 {

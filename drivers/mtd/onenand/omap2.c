@@ -47,6 +47,8 @@
 
 #include <asm/arch/board.h>
 
+#define DRIVER_NAME "omap2-onenand"
+
 #define ONENAND_IO_SIZE		SZ_128K
 #define ONENAND_BUFRAM_SIZE	(1024 * 5)
 
@@ -530,12 +532,10 @@ static struct platform_driver omap2_onenand_driver = {
 	.remove		= omap2_onenand_remove,
 	.shutdown	= omap2_onenand_shutdown,
 	.driver		= {
-		.name	= "omap2-onenand",
+		.name	= DRIVER_NAME,
 		.owner  = THIS_MODULE,
 	},
 };
-
-MODULE_ALIAS(DRIVER_NAME);
 
 static int __init omap2_onenand_init(void)
 {
@@ -551,6 +551,7 @@ static void __exit omap2_onenand_exit(void)
 module_init(omap2_onenand_init);
 module_exit(omap2_onenand_exit);
 
+MODULE_ALIAS(DRIVER_NAME);
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Jarkko Lavinen <jarkko.lavinen@nokia.com>");
 MODULE_DESCRIPTION("Glue layer for OneNAND flash on OMAP2");
