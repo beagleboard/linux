@@ -124,6 +124,8 @@ static u32 __attribute__((unused)) cm_read_mod_reg(s16 module, s16 idx)
 #define OMAP3430ES2_CM_CLKSEL5				0x0050
 #define OMAP3430_CM_CLKSEL2_EMU				0x0050
 #define OMAP3430_CM_CLKSEL3_EMU				0x0054
+#define OMAP3430_CM_IDLEST3_CORE			0x0028
+#define OMAP3430_CM_AUTOIDLE3_CORE			0x0038
 
 
 
