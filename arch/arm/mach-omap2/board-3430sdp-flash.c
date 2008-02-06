@@ -79,7 +79,7 @@ static struct platform_device sdp_nor_device = {
 	.resource	= &sdp_nor_resource,
 };
 
-static int sdp_onenand_setup(void __iomem *);
+static int sdp_onenand_setup(void __iomem *, int freq);
 
 static struct mtd_partition sdp_onenand_partitions[] = {
 	{
@@ -132,7 +132,7 @@ static struct platform_device sdp_onenand_device = {
  *
  * @return int:	Currently always returning zero.
  */
-static int sdp_onenand_setup(void __iomem *onenand_base)
+static int sdp_onenand_setup(void __iomem *onenand_base, int freq)
 {
 	/* Onenand setup does nothing at present */
 	return 0;
