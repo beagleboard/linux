@@ -176,6 +176,7 @@
 struct pin_config {
 	char 			*name;
 	const unsigned int 	mux_reg;
+	unsigned char		debug;
 
 #if	defined(CONFIG_ARCH_OMAP34XX)
 	u16			mux_val; /* Wake-up, off mode, pull, mux mode */
@@ -196,7 +197,6 @@ struct pin_config {
 #endif
 
 #if	defined(CONFIG_OMAP_MUX_DEBUG) || defined(CONFIG_OMAP_MUX_WARNINGS)
-	unsigned char debug;
 	const char *mux_reg_name;
 #endif
 
