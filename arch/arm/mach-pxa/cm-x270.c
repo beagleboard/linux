@@ -29,6 +29,7 @@
 #include <asm/mach/map.h>
 
 #include <asm/arch/pxa-regs.h>
+#include <asm/arch/pxa2xx-regs.h>
 #include <asm/arch/pxafb.h>
 #include <asm/arch/ohci.h>
 #include <asm/arch/mmc.h>
@@ -487,18 +488,15 @@ static int cmx270_mci_init(struct device *dev,
 
 	/* card detect IRQ on GPIO 83 */
 	pxa_gpio_mode(IRQ_TO_GPIO(CMX270_MMC_IRQ));
-	set_irq_type(CMX270_MMC_IRQ, IRQT_FALLING);
 
 	err = request_irq(CMX270_MMC_IRQ, cmx270_detect_int,
 			  IRQF_DISABLED | IRQF_TRIGGER_FALLING,
 			  "MMC card detect", data);
-	if (err) {
+	if (err)
 		printk(KERN_ERR "cmx270_mci_init: MMC/SD: can't"
 		       " request MMC card detect IRQ\n");
-		return -1;
-	}
 
-	return 0;
+	return err;
 }
 
 static void cmx270_mci_setpower(struct device *dev, unsigned int vdd)
@@ -566,7 +564,7 @@ static int cmx270_resume(struct sys_device *dev)
 }
 
 static struct sysdev_class cmx270_pm_sysclass = {
-	set_kset_name("pm"),
+	.name = "pm",
 	.resume = cmx270_resume,
 	.suspend = cmx270_suspend,
 };

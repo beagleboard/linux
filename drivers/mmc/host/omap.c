@@ -2,7 +2,7 @@
  *  linux/drivers/mmc/host/omap.c
  *
  *  Copyright (C) 2004 Nokia Corporation
- *  Written by Tuukka Tikkanen and Juha Yrjölä<juha.yrjola@nokia.com>
+ *  Written by Tuukka Tikkanen and Juha Yrjï¿½lï¿½<juha.yrjola@nokia.com>
  *  Misc hacks here and there by Tony Lindgren <tony@atomide.com>
  *  Other hacks (DMA, SD, etc) by David Brownell
  *
@@ -26,6 +26,7 @@
 #include <linux/mmc/card.h>
 #include <linux/clk.h>
 #include <linux/scatterlist.h>
+#include <linux/i2c/tps65010.h>
 
 #include <asm/io.h>
 #include <asm/irq.h>
@@ -37,7 +38,6 @@
 #include <asm/arch/dma.h>
 #include <asm/arch/mux.h>
 #include <asm/arch/fpga.h>
-#include <asm/arch/tps65010.h>
 #include <asm/arch/board-sx1.h>
 
 #define	OMAP_MMC_REG_CMD	0x00
@@ -1661,4 +1661,4 @@ module_exit(mmc_omap_exit);
 MODULE_DESCRIPTION("OMAP Multimedia Card driver");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS(DRIVER_NAME);
-MODULE_AUTHOR("Juha Yrjölä");
+MODULE_AUTHOR("Juha Yrjï¿½lï¿½");

@@ -71,7 +71,7 @@
 #define LOCK_SECTION_END                        \
         ".previous\n\t"
 
-#define __lockfunc fastcall __attribute__((section(".spinlock.text")))
+#define __lockfunc __attribute__((section(".spinlock.text")))
 
 /*
  * Pull the raw_spinlock_t and raw_rwlock_t definitions:
@@ -119,6 +119,12 @@ do {								\
 #endif
 
 #define spin_is_locked(lock)	__raw_spin_is_locked(&(lock)->raw_lock)
+
+#ifdef CONFIG_GENERIC_LOCKBREAK
+#define spin_is_contended(lock) ((lock)->break_lock)
+#else
+#define spin_is_contended(lock)	__raw_spin_is_contended(&(lock)->raw_lock)
+#endif
 
 /**
  * spin_unlock_wait - wait until the spinlock gets unlocked

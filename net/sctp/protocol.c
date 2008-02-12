@@ -1,4 +1,4 @@
-/* SCTP kernel reference Implementation
+/* SCTP kernel implementation
  * (C) Copyright IBM Corp. 2001, 2004
  * Copyright (c) 1999-2000 Cisco, Inc.
  * Copyright (c) 1999-2001 Motorola, Inc.
@@ -6,17 +6,17 @@
  * Copyright (c) 2001 Nokia, Inc.
  * Copyright (c) 2001 La Monte H.P. Yarroll
  *
- * This file is part of the SCTP kernel reference Implementation
+ * This file is part of the SCTP kernel implementation
  *
  * Initialization/cleanup for SCTP protocol support.
  *
- * The SCTP reference implementation is free software;
+ * This SCTP implementation is free software;
  * you can redistribute it and/or modify it under the terms of
  * the GNU General Public License as published by
  * the Free Software Foundation; either version 2, or (at your option)
  * any later version.
  *
- * The SCTP reference implementation is distributed in the hope that it
+ * This SCTP implementation is distributed in the hope that it
  * will be useful, but WITHOUT ANY WARRANTY; without even the implied
  *                 ************************
  * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
@@ -229,8 +229,8 @@ int sctp_copy_local_addr_list(struct sctp_bind_addr *bp, sctp_scope_t scope,
 			    (((AF_INET6 == addr->a.sa.sa_family) &&
 			      (copy_flags & SCTP_ADDR6_ALLOWED) &&
 			      (copy_flags & SCTP_ADDR6_PEERSUPP)))) {
-				error = sctp_add_bind_addr(bp, &addr->a, 1,
-						    GFP_ATOMIC);
+				error = sctp_add_bind_addr(bp, &addr->a,
+						    SCTP_ADDR_SRC, GFP_ATOMIC);
 				if (error)
 					goto end_copy;
 			}
@@ -359,7 +359,7 @@ static int sctp_v4_addr_valid(union sctp_addr *addr,
 			      const struct sk_buff *skb)
 {
 	/* Is this a non-unicast address or a unusable SCTP address? */
-	if (IS_IPV4_UNUSABLE_ADDRESS(&addr->v4.sin_addr.s_addr))
+	if (IS_IPV4_UNUSABLE_ADDRESS(addr->v4.sin_addr.s_addr))
 		return 0;
 
 	/* Is this a broadcast address? */
@@ -372,7 +372,7 @@ static int sctp_v4_addr_valid(union sctp_addr *addr,
 /* Should this be available for binding?   */
 static int sctp_v4_available(union sctp_addr *addr, struct sctp_sock *sp)
 {
-	int ret = inet_addr_type(addr->v4.sin_addr.s_addr);
+	int ret = inet_addr_type(&init_net, addr->v4.sin_addr.s_addr);
 
 
 	if (addr->v4.sin_addr.s_addr != INADDR_ANY &&
@@ -408,13 +408,15 @@ static sctp_scope_t sctp_v4_scope(union sctp_addr *addr)
 	 */
 
 	/* Check for unusable SCTP addresses. */
-	if (IS_IPV4_UNUSABLE_ADDRESS(&addr->v4.sin_addr.s_addr)) {
+	if (IS_IPV4_UNUSABLE_ADDRESS(addr->v4.sin_addr.s_addr)) {
 		retval =  SCTP_SCOPE_UNUSABLE;
-	} else if (LOOPBACK(addr->v4.sin_addr.s_addr)) {
+	} else if (ipv4_is_loopback(addr->v4.sin_addr.s_addr)) {
 		retval = SCTP_SCOPE_LOOPBACK;
-	} else if (IS_IPV4_LINK_ADDRESS(&addr->v4.sin_addr.s_addr)) {
+	} else if (ipv4_is_linklocal_169(addr->v4.sin_addr.s_addr)) {
 		retval = SCTP_SCOPE_LINK;
-	} else if (IS_IPV4_PRIVATE_ADDRESS(&addr->v4.sin_addr.s_addr)) {
+	} else if (ipv4_is_private_10(addr->v4.sin_addr.s_addr) ||
+		   ipv4_is_private_172(addr->v4.sin_addr.s_addr) ||
+		   ipv4_is_private_192(addr->v4.sin_addr.s_addr)) {
 		retval = SCTP_SCOPE_PRIVATE;
 	} else {
 		retval = SCTP_SCOPE_GLOBAL;
@@ -452,7 +454,7 @@ static struct dst_entry *sctp_v4_get_dst(struct sctp_association *asoc,
 			  __FUNCTION__, NIPQUAD(fl.fl4_dst),
 			  NIPQUAD(fl.fl4_src));
 
-	if (!ip_route_output_key(&rt, &fl)) {
+	if (!ip_route_output_key(&init_net, &rt, &fl)) {
 		dst = &rt->u.dst;
 	}
 
@@ -470,7 +472,7 @@ static struct dst_entry *sctp_v4_get_dst(struct sctp_association *asoc,
 		 */
 		rcu_read_lock();
 		list_for_each_entry_rcu(laddr, &bp->address_list, list) {
-			if (!laddr->valid || !laddr->use_as_src)
+			if (!laddr->valid || (laddr->state != SCTP_ADDR_SRC))
 				continue;
 			sctp_v4_dst_saddr(&dst_saddr, dst, htons(bp->port));
 			if (sctp_v4_cmp_addr(&dst_saddr, &laddr->a))
@@ -492,10 +494,10 @@ static struct dst_entry *sctp_v4_get_dst(struct sctp_association *asoc,
 	list_for_each_entry_rcu(laddr, &bp->address_list, list) {
 		if (!laddr->valid)
 			continue;
-		if ((laddr->use_as_src) &&
+		if ((laddr->state == SCTP_ADDR_SRC) &&
 		    (AF_INET == laddr->a.sa.sa_family)) {
 			fl.fl4_src = laddr->a.v4.sin_addr.s_addr;
-			if (!ip_route_output_key(&rt, &fl)) {
+			if (!ip_route_output_key(&init_net, &rt, &fl)) {
 				dst = &rt->u.dst;
 				goto out_unlock;
 			}
@@ -1107,7 +1109,7 @@ SCTP_STATIC __init int sctp_init(void)
 	sysctl_sctp_rmem[1] = (1500 *(sizeof(struct sk_buff) + 1));
 	sysctl_sctp_rmem[2] = max(sysctl_sctp_rmem[1], max_share);
 
-	sysctl_sctp_wmem[0] = SK_STREAM_MEM_QUANTUM;
+	sysctl_sctp_wmem[0] = SK_MEM_QUANTUM;
 	sysctl_sctp_wmem[1] = 16*1024;
 	sysctl_sctp_wmem[2] = max(64*1024, max_share);
 

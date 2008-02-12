@@ -12,7 +12,7 @@
  * each process that owns it. Non-shared memory is counted
  * accurately.
  */
-char *task_mem(struct mm_struct *mm, char *buffer)
+void task_mem(struct seq_file *m, struct mm_struct *mm)
 {
 	struct vm_list_struct *vml;
 	unsigned long bytes = 0, sbytes = 0, slack = 0;
@@ -58,14 +58,13 @@ char *task_mem(struct mm_struct *mm, char *buffer)
 
 	bytes += kobjsize(current); /* includes kernel stack */
 
-	buffer += sprintf(buffer,
+	seq_printf(m,
 		"Mem:\t%8lu bytes\n"
 		"Slack:\t%8lu bytes\n"
 		"Shared:\t%8lu bytes\n",
 		bytes, slack, sbytes);
 
 	up_read(&mm->mmap_sem);
-	return buffer;
 }
 
 unsigned long task_vsize(struct mm_struct *mm)
@@ -199,7 +198,7 @@ static void *m_next(struct seq_file *m, void *_vml, loff_t *pos)
 	return vml ? vml->next : NULL;
 }
 
-static struct seq_operations proc_pid_maps_ops = {
+static const struct seq_operations proc_pid_maps_ops = {
 	.start	= m_start,
 	.next	= m_next,
 	.stop	= m_stop,

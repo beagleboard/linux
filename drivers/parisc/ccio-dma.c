@@ -363,7 +363,7 @@ ccio_alloc_range(struct ioc *ioc, size_t size)
 	if (pages_needed <= 8) {
 		/*
 		 * LAN traffic will not thrash the TLB IFF the same NIC
-		 * uses 8 adjacent pages to map seperate payload data.
+		 * uses 8 adjacent pages to map separate payload data.
 		 * ie the same byte in the resource bit map.
 		 */
 #if 0
@@ -941,7 +941,7 @@ ccio_map_sg(struct device *dev, struct scatterlist *sglist, int nents,
 	** w/o this association, we wouldn't have coherent DMA!
 	** Access to the virtual address is what forces a two pass algorithm.
 	*/
-	coalesced = iommu_coalesce_chunks(ioc, sglist, nents, ccio_alloc_range);
+	coalesced = iommu_coalesce_chunks(ioc, dev, sglist, nents, ccio_alloc_range);
 
 	/*
 	** Program the I/O Pdir
@@ -1589,7 +1589,7 @@ static int __init ccio_probe(struct parisc_device *dev)
 }
 
 /**
- * ccio_init - ccio initalization procedure.
+ * ccio_init - ccio initialization procedure.
  *
  * Register this driver.
  */

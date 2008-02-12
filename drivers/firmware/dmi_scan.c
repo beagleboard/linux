@@ -8,6 +8,8 @@
 #include <linux/slab.h>
 #include <asm/dmi.h>
 
+static char dmi_empty_string[] = "        ";
+
 static char * __init dmi_string(const struct dmi_header *dm, u8 s)
 {
 	const u8 *bp = ((u8 *) dm) + dm->length;
@@ -21,11 +23,16 @@ static char * __init dmi_string(const struct dmi_header *dm, u8 s)
 		}
 
 		if (*bp != 0) {
-			str = dmi_alloc(strlen(bp) + 1);
+			size_t len = strlen(bp)+1;
+			size_t cmp_len = len > 8 ? 8 : len;
+
+			if (!memcmp(bp, dmi_empty_string, cmp_len))
+				return dmi_empty_string;
+			str = dmi_alloc(len);
 			if (str != NULL)
 				strcpy(str, bp);
 			else
-				printk(KERN_ERR "dmi_string: out of memory.\n");
+				printk(KERN_ERR "dmi_string: cannot allocate %Zu bytes.\n", len);
 		}
 	}
 
@@ -36,17 +43,11 @@ static char * __init dmi_string(const struct dmi_header *dm, u8 s)
  *	We have to be cautious here. We have seen BIOSes with DMI pointers
  *	pointing to completely the wrong place for example
  */
-static int __init dmi_table(u32 base, int len, int num,
-			    void (*decode)(const struct dmi_header *))
+static void dmi_table(u8 *buf, int len, int num,
+		      void (*decode)(const struct dmi_header *))
 {
-	u8 *buf, *data;
+	u8 *data = buf;
 	int i = 0;
-
-	buf = dmi_ioremap(base, len);
-	if (buf == NULL)
-		return -1;
-
-	data = buf;
 
 	/*
 	 *	Stop when we see all the items the table claimed to have
@@ -68,7 +69,23 @@ static int __init dmi_table(u32 base, int len, int num,
 		data += 2;
 		i++;
 	}
-	dmi_iounmap(buf, len);
+}
+
+static u32 dmi_base;
+static u16 dmi_len;
+static u16 dmi_num;
+
+static int __init dmi_walk_early(void (*decode)(const struct dmi_header *))
+{
+	u8 *buf;
+
+	buf = dmi_ioremap(dmi_base, dmi_len);
+	if (buf == NULL)
+		return -1;
+
+	dmi_table(buf, dmi_len, dmi_num, decode);
+
+	dmi_iounmap(buf, dmi_len);
 	return 0;
 }
 
@@ -175,12 +192,23 @@ static void __init dmi_save_devices(const struct dmi_header *dm)
 	}
 }
 
+static struct dmi_device empty_oem_string_dev = {
+	.name = dmi_empty_string,
+};
+
 static void __init dmi_save_oem_strings_devices(const struct dmi_header *dm)
 {
 	int i, count = *(u8 *)(dm + 1);
 	struct dmi_device *dev;
 
 	for (i = 1; i <= count; i++) {
+		char *devname = dmi_string(dm, i);
+
+		if (!strcmp(devname, dmi_empty_string)) {
+			list_add(&empty_oem_string_dev.list, &dmi_devices);
+			continue;
+		}
+
 		dev = dmi_alloc(sizeof(*dev));
 		if (!dev) {
 			printk(KERN_ERR
@@ -189,7 +217,7 @@ static void __init dmi_save_oem_strings_devices(const struct dmi_header *dm)
 		}
 
 		dev->type = DMI_DEV_TYPE_OEM_STRING;
-		dev->name = dmi_string(dm, i);
+		dev->name = devname;
 		dev->device_data = NULL;
 
 		list_add(&dev->list, &dmi_devices);
@@ -218,6 +246,28 @@ static void __init dmi_save_ipmi_device(const struct dmi_header *dm)
 	dev->type = DMI_DEV_TYPE_IPMI;
 	dev->name = "IPMI controller";
 	dev->device_data = data;
+
+	list_add(&dev->list, &dmi_devices);
+}
+
+static void __init dmi_save_extended_devices(const struct dmi_header *dm)
+{
+	const u8 *d = (u8*) dm + 5;
+	struct dmi_device *dev;
+
+	/* Skip disabled device */
+	if ((*d & 0x80) == 0)
+		return;
+
+	dev = dmi_alloc(sizeof(*dev));
+	if (!dev) {
+		printk(KERN_ERR "dmi_save_extended_devices: out of memory.\n");
+		return;
+	}
+
+	dev->type = *d-- & 0x7f;
+	dev->name = dmi_string(dm, *d);
+	dev->device_data = NULL;
 
 	list_add(&dev->list, &dmi_devices);
 }
@@ -264,6 +314,9 @@ static void __init dmi_decode(const struct dmi_header *dm)
 		break;
 	case 38:	/* IPMI Device Information */
 		dmi_save_ipmi_device(dm);
+		break;
+	case 41:	/* Onboard Devices Extended Information */
+		dmi_save_extended_devices(dm);
 	}
 }
 
@@ -273,9 +326,9 @@ static int __init dmi_present(const char __iomem *p)
 
 	memcpy_fromio(buf, p, 15);
 	if ((memcmp(buf, "_DMI_", 5) == 0) && dmi_checksum(buf)) {
-		u16 num = (buf[13] << 8) | buf[12];
-		u16 len = (buf[7] << 8) | buf[6];
-		u32 base = (buf[11] << 24) | (buf[10] << 16) |
+		dmi_num = (buf[13] << 8) | buf[12];
+		dmi_len = (buf[7] << 8) | buf[6];
+		dmi_base = (buf[11] << 24) | (buf[10] << 16) |
 			(buf[9] << 8) | buf[8];
 
 		/*
@@ -287,7 +340,7 @@ static int __init dmi_present(const char __iomem *p)
 			       buf[14] >> 4, buf[14] & 0xF);
 		else
 			printk(KERN_INFO "DMI present.\n");
-		if (dmi_table(base,len, num, dmi_decode) == 0)
+		if (dmi_walk_early(dmi_decode) == 0)
 			return 0;
 	}
 	return 1;
@@ -331,9 +384,11 @@ void __init dmi_scan_machine(void)
 			rc = dmi_present(q);
 			if (!rc) {
 				dmi_available = 1;
+				dmi_iounmap(p, 0x10000);
 				return;
 			}
 		}
+		dmi_iounmap(p, 0x10000);
 	}
  out:	printk(KERN_INFO "DMI not present or invalid.\n");
 }
@@ -471,10 +526,25 @@ int dmi_get_year(int field)
 }
 
 /**
- *	dmi_get_slot - return dmi_ident[slot]
- *	@slot:	index into dmi_ident[]
+ *	dmi_walk - Walk the DMI table and get called back for every record
+ *	@decode: Callback function
+ *
+ *	Returns -1 when the DMI table can't be reached, 0 on success.
  */
-char *dmi_get_slot(int slot)
+int dmi_walk(void (*decode)(const struct dmi_header *))
 {
-	return(dmi_ident[slot]);
+	u8 *buf;
+
+	if (!dmi_available)
+		return -1;
+
+	buf = ioremap(dmi_base, dmi_len);
+	if (buf == NULL)
+		return -1;
+
+	dmi_table(buf, dmi_len, dmi_num, decode);
+
+	iounmap(buf);
+	return 0;
 }
+EXPORT_SYMBOL_GPL(dmi_walk);

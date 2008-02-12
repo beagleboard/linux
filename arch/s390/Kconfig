@@ -16,6 +16,9 @@ config LOCKDEP_SUPPORT
 config STACKTRACE_SUPPORT
 	def_bool y
 
+config HAVE_LATENCYTOP_SUPPORT
+	def_bool y
+
 config RWSEM_GENERIC_SPINLOCK
 	bool
 
@@ -47,10 +50,17 @@ config NO_IOMEM
 config NO_DMA
 	def_bool y
 
+config GENERIC_LOCKBREAK
+	bool
+	default y
+	depends on SMP && PREEMPT
+
 mainmenu "Linux Kernel Configuration"
 
 config S390
 	def_bool y
+	select HAVE_OPROFILE
+	select HAVE_KPROBES
 
 source "init/Kconfig"
 
@@ -81,8 +91,8 @@ config SMP
 	  singleprocessor machines. On a singleprocessor machine, the kernel
 	  will run faster if you say N here.
 
-	  See also the <file:Documentation/smp.txt> and the SMP-HOWTO
-	  available at <http://www.tldp.org/docs.html#howto>.
+	  See also the SMP-HOWTO available at
+	  <http://www.tldp.org/docs.html#howto>.
 
 	  Even if you don't know what to do here, say Y.
 
@@ -275,9 +285,6 @@ comment "Kernel preemption"
 source "kernel/Kconfig.preempt"
 
 source "mm/Kconfig"
-
-config HOLES_IN_ZONE
-	def_bool y
 
 comment "I/O subsystem configuration"
 
@@ -528,8 +535,6 @@ config CCW
 source "drivers/Kconfig"
 
 source "fs/Kconfig"
-
-source "kernel/Kconfig.instrumentation"
 
 source "arch/s390/Kconfig.debug"
 

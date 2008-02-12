@@ -36,6 +36,8 @@ static int h3_mmc_set_power(struct device *dev, int slot, int power_on,
 
 static int h3_mmc_set_bus_mode(struct device *dev, int slot, int bus_mode)
 {
+	int ret = 0;
+
 #ifdef CONFIG_MMC_DEBUG
 	dev_dbg(dev, "Set slot %d bus_mode %s\n", slot + 1,
 		bus_mode == MMC_BUSMODE_OPENDRAIN ? "open-drain" : "push-pull");
@@ -44,6 +46,8 @@ static int h3_mmc_set_bus_mode(struct device *dev, int slot, int bus_mode)
 		dev_err(dev, "No such slot %d\n", slot + 1);
 		return -ENODEV;
 	}
+
+	/* Treated on upper level */
 
 	return bus_mode;
 }

@@ -180,7 +180,7 @@ static __inline__ struct page *drm_do_vm_shm_nopage(struct vm_area_struct *vma,
 		return NOPAGE_SIGBUS;
 	get_page(page);
 
-	DRM_DEBUG("shm_nopage 0x%lx\n", address);
+	DRM_DEBUG("0x%lx\n", address);
 	return page;
 }
 
@@ -294,7 +294,7 @@ static __inline__ struct page *drm_do_vm_dma_nopage(struct vm_area_struct *vma,
 
 	get_page(page);
 
-	DRM_DEBUG("dma_nopage 0x%lx (page %lu)\n", address, page_nr);
+	DRM_DEBUG("0x%lx (page %lu)\n", address, page_nr);
 	return page;
 }
 
@@ -506,6 +506,7 @@ static int drm_mmap_dma(struct file *filp, struct vm_area_struct *vma)
 	vma->vm_ops = &drm_vm_dma_ops;
 
 	vma->vm_flags |= VM_RESERVED;	/* Don't swap */
+	vma->vm_flags |= VM_DONTEXPAND;
 
 	vma->vm_file = filp;	/* Needed for drm_vm_open() */
 	drm_vm_open_locked(vma);
@@ -655,6 +656,7 @@ static int drm_mmap_locked(struct file *filp, struct vm_area_struct *vma)
 		return -EINVAL;	/* This should never happen. */
 	}
 	vma->vm_flags |= VM_RESERVED;	/* Don't swap */
+	vma->vm_flags |= VM_DONTEXPAND;
 
 	vma->vm_file = filp;	/* Needed for drm_vm_open() */
 	drm_vm_open_locked(vma);

@@ -22,5 +22,6 @@ obj-$(CONFIG_RADIO_TRUST) += radio-trust.o
 obj-$(CONFIG_RADIO_MAESTRO) += radio-maestro.o
 obj-$(CONFIG_RADIO_TEA5761) += radio-tea5761.o
 obj-$(CONFIG_USB_DSBR) += dsbr100.o
+obj-$(CONFIG_USB_SI470X) += radio-si470x.o
 
 EXTRA_CFLAGS += -Isound

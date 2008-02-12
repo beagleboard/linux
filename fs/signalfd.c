@@ -27,6 +27,7 @@
 #include <linux/list.h>
 #include <linux/anon_inodes.h>
 #include <linux/signalfd.h>
+#include <linux/syscalls.h>
 
 struct signalfd_ctx {
 	sigset_t sigmask;
@@ -66,7 +67,7 @@ static int signalfd_copyinfo(struct signalfd_siginfo __user *uinfo,
 	BUILD_BUG_ON(sizeof(struct signalfd_siginfo) != 128);
 
 	/*
-	 * Unused memebers should be zero ...
+	 * Unused members should be zero ...
 	 */
 	err = __clear_user(uinfo, sizeof(*uinfo));
 

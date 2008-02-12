@@ -63,6 +63,7 @@
 #define E1000_WUFC_EX   0x00000004 /* Directed Exact Wakeup Enable */
 #define E1000_WUFC_MC   0x00000008 /* Directed Multicast Wakeup Enable */
 #define E1000_WUFC_BC   0x00000010 /* Broadcast Wakeup Enable */
+#define E1000_WUFC_ARP  0x00000020 /* ARP Request Packet Wakeup Enable */
 
 /* Extended Device Control */
 #define E1000_CTRL_EXT_SDP7_DATA 0x00000080 /* Value of SW Defineable Pin 7 */
@@ -557,6 +558,7 @@
 #define NVM_INIT_3GIO_3            0x001A
 #define NVM_INIT_CONTROL3_PORT_A   0x0024
 #define NVM_CFG                    0x0012
+#define NVM_ALT_MAC_ADDR_PTR       0x0037
 #define NVM_CHECKSUM_REG           0x003F
 
 #define E1000_NVM_CFG_DONE_PORT_0  0x40000 /* MNG config cycle done */

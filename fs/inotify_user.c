@@ -79,6 +79,7 @@ struct inotify_device {
 	atomic_t		count;		/* reference count */
 	struct user_struct	*user;		/* user who opened this dev */
 	struct inotify_handle	*ih;		/* inotify handle */
+	struct fasync_struct    *fa;            /* async notification */
 	unsigned int		queue_size;	/* size of the queue (bytes) */
 	unsigned int		event_count;	/* number of pending events */
 	unsigned int		max_events;	/* maximum number of events */
@@ -248,6 +249,19 @@ inotify_dev_get_event(struct inotify_device *dev)
 }
 
 /*
+ * inotify_dev_get_last_event - return the last event in the given dev's queue
+ *
+ * Caller must hold dev->ev_mutex.
+ */
+static inline struct inotify_kernel_event *
+inotify_dev_get_last_event(struct inotify_device *dev)
+{
+	if (list_empty(&dev->events))
+		return NULL;
+	return list_entry(dev->events.prev, struct inotify_kernel_event, list);
+}
+
+/*
  * inotify_dev_queue_event - event handler registered with core inotify, adds
  * a new event to the given device
  *
@@ -269,11 +283,11 @@ static void inotify_dev_queue_event(struct inotify_watch *w, u32 wd, u32 mask,
 	/* we can safely put the watch as we don't reference it while
 	 * generating the event
 	 */
-	if (mask & IN_IGNORED || mask & IN_ONESHOT)
+	if (mask & IN_IGNORED || w->mask & IN_ONESHOT)
 		put_inotify_watch(w); /* final put */
 
 	/* coalescing: drop this event if it is a dupe of the previous */
-	last = inotify_dev_get_event(dev);
+	last = inotify_dev_get_last_event(dev);
 	if (last && last->event.mask == mask && last->event.wd == wd &&
 			last->event.cookie == cookie) {
 		const char *lastname = last->name;
@@ -302,6 +316,7 @@ static void inotify_dev_queue_event(struct inotify_watch *w, u32 wd, u32 mask,
 	dev->queue_size += sizeof(struct inotify_event) + kevent->event.len;
 	list_add_tail(&kevent->list, &dev->events);
 	wake_up_interruptible(&dev->wq);
+	kill_fasync(&dev->fa, SIGIO, POLL_IN);
 
 out:
 	mutex_unlock(&dev->ev_mutex);
@@ -490,6 +505,13 @@ static ssize_t inotify_read(struct file *file, char __user *buf,
 	return ret;
 }
 
+static int inotify_fasync(int fd, struct file *file, int on)
+{
+	struct inotify_device *dev = file->private_data;
+
+	return fasync_helper(fd, file, on, &dev->fa) >= 0 ? 0 : -EIO;
+}
+
 static int inotify_release(struct inode *ignored, struct file *file)
 {
 	struct inotify_device *dev = file->private_data;
@@ -501,6 +523,9 @@ static int inotify_release(struct inode *ignored, struct file *file)
 	while (!list_empty(&dev->events))
 		inotify_dev_event_dequeue(dev);
 	mutex_unlock(&dev->ev_mutex);
+
+	if (file->f_flags & FASYNC)
+		inotify_fasync(-1, file, 0);
 
 	/* free this device: the put matching the get in inotify_init() */
 	put_inotify_dev(dev);
@@ -530,6 +555,7 @@ static long inotify_ioctl(struct file *file, unsigned int cmd,
 static const struct file_operations inotify_fops = {
 	.poll           = inotify_poll,
 	.read           = inotify_read,
+	.fasync         = inotify_fasync,
 	.release        = inotify_release,
 	.unlocked_ioctl = inotify_ioctl,
 	.compat_ioctl	= inotify_ioctl,
@@ -577,6 +603,7 @@ asmlinkage long sys_inotify_init(void)
 		goto out_free_dev;
 	}
 	dev->ih = ih;
+	dev->fa = NULL;
 
 	filp->f_op = &inotify_fops;
 	filp->f_path.mnt = mntget(inotify_mnt);

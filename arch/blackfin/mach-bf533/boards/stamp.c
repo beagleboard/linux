@@ -32,12 +32,13 @@
 #include <linux/platform_device.h>
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
+#include <linux/mtd/physmap.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/flash.h>
 #if defined(CONFIG_USB_ISP1362_HCD) || defined(CONFIG_USB_ISP1362_HCD_MODULE)
 #include <linux/usb/isp1362.h>
 #endif
-#include <linux/pata_platform.h>
+#include <linux/ata_platform.h>
 #include <linux/irq.h>
 #include <asm/dma.h>
 #include <asm/bfin5xx_spi.h>
@@ -108,6 +109,50 @@ static struct platform_device net2272_bfin_device = {
 };
 #endif
 
+static struct mtd_partition stamp_partitions[] = {
+	{
+		.name   = "Bootloader",
+		.size   = 0x20000,
+		.offset = 0,
+	}, {
+		.name   = "Kernel",
+		.size   = 0xE0000,
+		.offset = MTDPART_OFS_APPEND,
+	}, {
+		.name   = "RootFS",
+		.size   = MTDPART_SIZ_FULL,
+		.offset = MTDPART_OFS_APPEND,
+	}
+};
+
+static struct physmap_flash_data stamp_flash_data = {
+	.width    = 2,
+	.parts    = stamp_partitions,
+	.nr_parts = ARRAY_SIZE(stamp_partitions),
+};
+
+static struct resource stamp_flash_resource[] = {
+	{
+		.name  = "cfi_probe",
+		.start = 0x20000000,
+		.end   = 0x203fffff,
+		.flags = IORESOURCE_MEM,
+	}, {
+		.start = CONFIG_ENET_FLASH_PIN,
+		.flags = IORESOURCE_IRQ,
+	}
+};
+
+static struct platform_device stamp_flash_device = {
+	.name          = "BF5xx-Flash",
+	.id            = 0,
+	.dev = {
+		.platform_data = &stamp_flash_data,
+	},
+	.num_resources = ARRAY_SIZE(stamp_flash_resource),
+	.resource      = stamp_flash_resource,
+};
+
 #if defined(CONFIG_SPI_BFIN) || defined(CONFIG_SPI_BFIN_MODULE)
 /* all SPI peripherals info goes here */
 
@@ -177,6 +222,13 @@ static struct bfin5xx_spi_chip ad5304_chip_info = {
 #if defined(CONFIG_SPI_MMC) || defined(CONFIG_SPI_MMC_MODULE)
 static struct bfin5xx_spi_chip spi_mmc_chip_info = {
 	.enable_dma = 1,
+	.bits_per_word = 8,
+};
+#endif
+
+#if defined(CONFIG_SPI_SPIDEV) || defined(CONFIG_SPI_SPIDEV_MODULE)
+static struct bfin5xx_spi_chip spidev_chip_info = {
+	.enable_dma = 0,
 	.bits_per_word = 8,
 };
 #endif
@@ -265,6 +317,15 @@ static struct spi_board_info bfin_spi_board_info[] __initdata = {
 		.platform_data = NULL,
 		.controller_data = &ad5304_chip_info,
 		.mode = SPI_MODE_2,
+	},
+#endif
+#if defined(CONFIG_SPI_SPIDEV) || defined(CONFIG_SPI_SPIDEV_MODULE)
+	{
+		.modalias = "spidev",
+		.max_speed_hz = 3125000,     /* max spi clock (SCK) speed in HZ */
+		.bus_num = 0,
+		.chip_select = 1,
+		.controller_data = &spidev_chip_info,
 	},
 #endif
 };
@@ -373,6 +434,49 @@ static struct platform_device bfin_pata_device = {
 };
 #endif
 
+#if defined(CONFIG_KEYBOARD_GPIO) || defined(CONFIG_KEYBOARD_GPIO_MODULE)
+#include <linux/input.h>
+#include <linux/gpio_keys.h>
+
+static struct gpio_keys_button bfin_gpio_keys_table[] = {
+	{BTN_0, GPIO_PF5, 0, "gpio-keys: BTN0"},
+	{BTN_1, GPIO_PF6, 0, "gpio-keys: BTN1"},
+	{BTN_2, GPIO_PF8, 0, "gpio-keys: BTN2"},
+};
+
+static struct gpio_keys_platform_data bfin_gpio_keys_data = {
+	.buttons        = bfin_gpio_keys_table,
+	.nbuttons       = ARRAY_SIZE(bfin_gpio_keys_table),
+};
+
+static struct platform_device bfin_device_gpiokeys = {
+	.name      = "gpio-keys",
+	.dev = {
+		.platform_data = &bfin_gpio_keys_data,
+	},
+};
+#endif
+
+#if defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C_GPIO_MODULE)
+#include <linux/i2c-gpio.h>
+
+static struct i2c_gpio_platform_data i2c_gpio_data = {
+	.sda_pin		= 2,
+	.scl_pin		= 3,
+	.sda_is_open_drain	= 0,
+	.scl_is_open_drain	= 0,
+	.udelay			= 40,
+};
+
+static struct platform_device i2c_gpio_device = {
+	.name		= "i2c-gpio",
+	.id		= 0,
+	.dev		= {
+		.platform_data	= &i2c_gpio_data,
+	},
+};
+#endif
+
 static struct platform_device *stamp_devices[] __initdata = {
 #if defined(CONFIG_RTC_DRV_BFIN) || defined(CONFIG_RTC_DRV_BFIN_MODULE)
 	&rtc_device,
@@ -406,6 +510,15 @@ static struct platform_device *stamp_devices[] __initdata = {
 #if defined(CONFIG_PATA_PLATFORM) || defined(CONFIG_PATA_PLATFORM_MODULE)
 	&bfin_pata_device,
 #endif
+
+#if defined(CONFIG_KEYBOARD_GPIO) || defined(CONFIG_KEYBOARD_GPIO_MODULE)
+	&bfin_device_gpiokeys,
+#endif
+
+#if defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C_GPIO_MODULE)
+	&i2c_gpio_device,
+#endif
+	&stamp_flash_device,
 };
 
 static int __init stamp_init(void)
@@ -418,12 +531,10 @@ static int __init stamp_init(void)
 		return ret;
 
 #if defined(CONFIG_SMC91X) || defined(CONFIG_SMC91X_MODULE)
-# if defined(CONFIG_BFIN_SHARED_FLASH_ENET)
 	/* setup BF533_STAMP CPLD to route AMS3 to Ethernet MAC */
 	bfin_write_FIO_DIR(bfin_read_FIO_DIR() | (1 << CONFIG_ENET_FLASH_PIN));
 	bfin_write_FIO_FLAG_S(1 << CONFIG_ENET_FLASH_PIN);
 	SSYNC();
-# endif
 #endif
 
 #if defined(CONFIG_SPI_BFIN) || defined(CONFIG_SPI_BFIN_MODULE)
@@ -440,10 +551,8 @@ arch_initcall(stamp_init);
 
 void native_machine_restart(char *cmd)
 {
-#if defined(CONFIG_BFIN_SHARED_FLASH_ENET)
-# define BIT_TO_SET (1 << CONFIG_ENET_FLASH_PIN)
+#define BIT_TO_SET (1 << CONFIG_ENET_FLASH_PIN)
 	bfin_write_FIO_INEN(~BIT_TO_SET);
 	bfin_write_FIO_DIR(BIT_TO_SET);
 	bfin_write_FIO_FLAG_C(BIT_TO_SET);
-#endif
 }

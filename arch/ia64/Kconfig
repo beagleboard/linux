@@ -15,6 +15,9 @@ config IA64
 	select ACPI if (!IA64_HP_SIM)
 	select PM if (!IA64_HP_SIM)
 	select ARCH_SUPPORTS_MSI
+	select HAVE_IDE
+	select HAVE_OPROFILE
+	select HAVE_KPROBES
 	default y
 	help
 	  The Itanium Processor Family is Intel's 64-bit successor to
@@ -41,6 +44,11 @@ config MMU
 
 config SWIOTLB
        bool
+
+config GENERIC_LOCKBREAK
+	bool
+	default y
+	depends on SMP && PREEMPT
 
 config RWSEM_XCHGADD_ALGORITHM
 	bool
@@ -74,6 +82,9 @@ config GENERIC_TIME
 config GENERIC_TIME_VSYSCALL
 	bool
 	default y
+
+config HAVE_SETUP_PER_CPU_AREA
+	def_bool y
 
 config DMI
 	bool
@@ -275,8 +286,8 @@ config SMP
 	  single processor systems.  On a single processor system, the kernel
 	  will run faster if you say N here.
 
-	  See also the <file:Documentation/smp.txt> and the SMP-HOWTO
-	  available at <http://www.tldp.org/docs.html#howto>.
+	  See also the SMP-HOWTO available at
+	  <http://www.tldp.org/docs.html#howto>.
 
 	  If you don't know what to do here, say N.
 
@@ -591,8 +602,6 @@ config IRQ_PER_CPU
 	default y
 
 source "arch/ia64/hp/sim/Kconfig"
-
-source "kernel/Kconfig.instrumentation"
 
 source "arch/ia64/Kconfig.debug"
 

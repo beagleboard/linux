@@ -93,7 +93,7 @@ extern unsigned long empty_zero_page;
 
 /*
  * we use 2-level page tables, folding the PMD (mid-level table) into the PGE (top-level entry)
- * [see Documentation/fujitsu/frv/mmu-layout.txt]
+ * [see Documentation/frv/mmu-layout.txt]
  *
  * Page Directory:
  *  - Size: 16KB
@@ -226,7 +226,7 @@ static inline pud_t *pud_offset(pgd_t *pgd, unsigned long address)
  * inside the pgd, so has no extra memory associated with it.
  */
 #define pud_alloc_one(mm, address)		NULL
-#define pud_free(x)				do { } while (0)
+#define pud_free(mm, x)				do { } while (0)
 #define __pud_free_tlb(tlb, x)			do { } while (0)
 
 /*

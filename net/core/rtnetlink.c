@@ -60,7 +60,6 @@ struct rtnl_link
 };
 
 static DEFINE_MUTEX(rtnl_mutex);
-static struct sock *rtnl;
 
 void rtnl_lock(void)
 {
@@ -81,32 +80,6 @@ void rtnl_unlock(void)
 int rtnl_trylock(void)
 {
 	return mutex_trylock(&rtnl_mutex);
-}
-
-int rtattr_parse(struct rtattr *tb[], int maxattr, struct rtattr *rta, int len)
-{
-	memset(tb, 0, sizeof(struct rtattr*)*maxattr);
-
-	while (RTA_OK(rta, len)) {
-		unsigned flavor = rta->rta_type;
-		if (flavor && flavor <= maxattr)
-			tb[flavor-1] = rta;
-		rta = RTA_NEXT(rta, len);
-	}
-	return 0;
-}
-
-int __rtattr_parse_nested_compat(struct rtattr *tb[], int maxattr,
-				 struct rtattr *rta, int len)
-{
-	if (RTA_PAYLOAD(rta) < len)
-		return -1;
-	if (RTA_PAYLOAD(rta) >= RTA_ALIGN(len) + sizeof(struct rtattr)) {
-		rta = RTA_DATA(rta) + RTA_ALIGN(len);
-		return rtattr_parse_nested(tb, maxattr, rta);
-	}
-	memset(tb, 0, sizeof(struct rtattr *) * maxattr);
-	return 0;
 }
 
 static struct rtnl_link *rtnl_msg_handlers[NPROTO];
@@ -443,23 +416,9 @@ void __rta_fill(struct sk_buff *skb, int attrtype, int attrlen, const void *data
 	memset(RTA_DATA(rta) + attrlen, 0, RTA_ALIGN(size) - size);
 }
 
-size_t rtattr_strlcpy(char *dest, const struct rtattr *rta, size_t size)
+int rtnetlink_send(struct sk_buff *skb, struct net *net, u32 pid, unsigned group, int echo)
 {
-	size_t ret = RTA_PAYLOAD(rta);
-	char *src = RTA_DATA(rta);
-
-	if (ret > 0 && src[ret - 1] == '\0')
-		ret--;
-	if (size > 0) {
-		size_t len = (ret >= size) ? size - 1 : ret;
-		memset(dest, 0, size);
-		memcpy(dest, src, len);
-	}
-	return ret;
-}
-
-int rtnetlink_send(struct sk_buff *skb, u32 pid, unsigned group, int echo)
-{
+	struct sock *rtnl = net->rtnl;
 	int err = 0;
 
 	NETLINK_CB(skb).dst_group = group;
@@ -471,14 +430,17 @@ int rtnetlink_send(struct sk_buff *skb, u32 pid, unsigned group, int echo)
 	return err;
 }
 
-int rtnl_unicast(struct sk_buff *skb, u32 pid)
+int rtnl_unicast(struct sk_buff *skb, struct net *net, u32 pid)
 {
+	struct sock *rtnl = net->rtnl;
+
 	return nlmsg_unicast(rtnl, skb, pid);
 }
 
-int rtnl_notify(struct sk_buff *skb, u32 pid, u32 group,
+int rtnl_notify(struct sk_buff *skb, struct net *net, u32 pid, u32 group,
 		struct nlmsghdr *nlh, gfp_t flags)
 {
+	struct sock *rtnl = net->rtnl;
 	int report = 0;
 
 	if (nlh)
@@ -487,8 +449,10 @@ int rtnl_notify(struct sk_buff *skb, u32 pid, u32 group,
 	return nlmsg_notify(rtnl, skb, pid, group, report, flags);
 }
 
-void rtnl_set_sk_err(u32 group, int error)
+void rtnl_set_sk_err(struct net *net, u32 group, int error)
 {
+	struct sock *rtnl = net->rtnl;
+
 	netlink_set_err(rtnl, 0, group, error);
 }
 
@@ -1186,7 +1150,7 @@ static int rtnl_getlink(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
 		kfree_skb(nskb);
 		goto errout;
 	}
-	err = rtnl_unicast(nskb, NETLINK_CB(skb).pid);
+	err = rtnl_unicast(nskb, net, NETLINK_CB(skb).pid);
 errout:
 	dev_put(dev);
 
@@ -1219,6 +1183,7 @@ static int rtnl_dump_all(struct sk_buff *skb, struct netlink_callback *cb)
 
 void rtmsg_ifinfo(int type, struct net_device *dev, unsigned change)
 {
+	struct net *net = dev->nd_net;
 	struct sk_buff *skb;
 	int err = -ENOBUFS;
 
@@ -1233,10 +1198,10 @@ void rtmsg_ifinfo(int type, struct net_device *dev, unsigned change)
 		kfree_skb(skb);
 		goto errout;
 	}
-	err = rtnl_notify(skb, 0, RTNLGRP_LINK, NULL, GFP_KERNEL);
+	err = rtnl_notify(skb, net, 0, RTNLGRP_LINK, NULL, GFP_KERNEL);
 errout:
 	if (err < 0)
-		rtnl_set_sk_err(RTNLGRP_LINK, err);
+		rtnl_set_sk_err(net, RTNLGRP_LINK, err);
 }
 
 /* Protected by RTNL sempahore.  */
@@ -1247,6 +1212,7 @@ static int rtattr_max;
 
 static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
 {
+	struct net *net = skb->sk->sk_net;
 	rtnl_doit_func doit;
 	int sz_idx, kind;
 	int min_len;
@@ -1275,6 +1241,7 @@ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
 		return -EPERM;
 
 	if (kind == 2 && nlh->nlmsg_flags&NLM_F_DUMP) {
+		struct sock *rtnl;
 		rtnl_dumpit_func dumpit;
 
 		dumpit = rtnl_get_dumpit(family, type);
@@ -1282,6 +1249,7 @@ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
 			return -EOPNOTSUPP;
 
 		__rtnl_unlock();
+		rtnl = net->rtnl;
 		err = netlink_dump_start(rtnl, skb, nlh, dumpit, NULL);
 		rtnl_lock();
 		return err;
@@ -1326,9 +1294,6 @@ static int rtnetlink_event(struct notifier_block *this, unsigned long event, voi
 {
 	struct net_device *dev = ptr;
 
-	if (dev->nd_net != &init_net)
-		return NOTIFY_DONE;
-
 	switch (event) {
 	case NETDEV_UNREGISTER:
 		rtmsg_ifinfo(RTM_DELLINK, dev, ~0U);
@@ -1354,6 +1319,29 @@ static struct notifier_block rtnetlink_dev_notifier = {
 	.notifier_call	= rtnetlink_event,
 };
 
+
+static int rtnetlink_net_init(struct net *net)
+{
+	struct sock *sk;
+	sk = netlink_kernel_create(net, NETLINK_ROUTE, RTNLGRP_MAX,
+				   rtnetlink_rcv, &rtnl_mutex, THIS_MODULE);
+	if (!sk)
+		return -ENOMEM;
+	net->rtnl = sk;
+	return 0;
+}
+
+static void rtnetlink_net_exit(struct net *net)
+{
+	netlink_kernel_release(net->rtnl);
+	net->rtnl = NULL;
+}
+
+static struct pernet_operations rtnetlink_net_ops = {
+	.init = rtnetlink_net_init,
+	.exit = rtnetlink_net_exit,
+};
+
 void __init rtnetlink_init(void)
 {
 	int i;
@@ -1366,10 +1354,9 @@ void __init rtnetlink_init(void)
 	if (!rta_buf)
 		panic("rtnetlink_init: cannot allocate rta_buf\n");
 
-	rtnl = netlink_kernel_create(&init_net, NETLINK_ROUTE, RTNLGRP_MAX,
-				     rtnetlink_rcv, &rtnl_mutex, THIS_MODULE);
-	if (rtnl == NULL)
+	if (register_pernet_subsys(&rtnetlink_net_ops))
 		panic("rtnetlink_init: cannot initialize rtnetlink\n");
+
 	netlink_set_nonroot(NETLINK_ROUTE, NL_NONROOT_RECV);
 	register_netdevice_notifier(&rtnetlink_dev_notifier);
 
@@ -1383,9 +1370,6 @@ void __init rtnetlink_init(void)
 }
 
 EXPORT_SYMBOL(__rta_fill);
-EXPORT_SYMBOL(rtattr_strlcpy);
-EXPORT_SYMBOL(rtattr_parse);
-EXPORT_SYMBOL(__rtattr_parse_nested_compat);
 EXPORT_SYMBOL(rtnetlink_put_metrics);
 EXPORT_SYMBOL(rtnl_lock);
 EXPORT_SYMBOL(rtnl_trylock);

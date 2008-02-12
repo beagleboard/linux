@@ -118,18 +118,17 @@ extern struct pid *find_pid(int nr);
  */
 extern struct pid *find_get_pid(int nr);
 extern struct pid *find_ge_pid(int nr, struct pid_namespace *);
+int next_pidmap(struct pid_namespace *pid_ns, int last);
 
 extern struct pid *alloc_pid(struct pid_namespace *ns);
 extern void FASTCALL(free_pid(struct pid *pid));
-extern void zap_pid_ns_processes(struct pid_namespace *pid_ns);
 
 /*
  * the helpers to get the pid's id seen from different namespaces
  *
  * pid_nr()    : global id, i.e. the id seen from the init namespace;
- * pid_vnr()   : virtual id, i.e. the id seen from the namespace this pid
- *               belongs to. this only makes sence when called in the
- *               context of the task that belongs to the same namespace;
+ * pid_vnr()   : virtual id, i.e. the id seen from the pid namespace of
+ *               current.
  * pid_nr_ns() : id seen from the ns specified.
  *
  * see also task_xid_nr() etc in include/linux/sched.h
@@ -144,14 +143,7 @@ static inline pid_t pid_nr(struct pid *pid)
 }
 
 pid_t pid_nr_ns(struct pid *pid, struct pid_namespace *ns);
-
-static inline pid_t pid_vnr(struct pid *pid)
-{
-	pid_t nr = 0;
-	if (pid)
-		nr = pid->numbers[pid->level].nr;
-	return nr;
-}
+pid_t pid_vnr(struct pid *pid);
 
 #define do_each_pid_task(pid, type, task)				\
 	do {								\
@@ -160,7 +152,13 @@ static inline pid_t pid_vnr(struct pid *pid)
 			hlist_for_each_entry_rcu((task), pos___,	\
 				&pid->tasks[type], pids[type].node) {
 
+			/*
+			 * Both old and new leaders may be attached to
+			 * the same pid in the middle of de_thread().
+			 */
 #define while_each_pid_task(pid, type, task)				\
+				if (type == PIDTYPE_PID)		\
+					break;				\
 			}						\
 	} while (0)
 

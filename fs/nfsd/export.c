@@ -1218,13 +1218,13 @@ static struct svc_export *exp_find(struct auth_domain *clp, int fsid_type,
 	struct svc_export *exp;
 	struct svc_expkey *ek = exp_find_key(clp, fsid_type, fsidv, reqp);
 	if (IS_ERR(ek))
-		return ERR_PTR(PTR_ERR(ek));
+		return ERR_CAST(ek);
 
 	exp = exp_get_by_name(clp, ek->ek_mnt, ek->ek_dentry, reqp);
 	cache_put(&ek->h, &svc_expkey_cache);
 
 	if (IS_ERR(exp))
-		return ERR_PTR(PTR_ERR(exp));
+		return ERR_CAST(exp);
 	return exp;
 }
 
@@ -1357,8 +1357,6 @@ exp_pseudoroot(struct svc_rqst *rqstp, struct svc_fh *fhp)
 	mk_fsid(FSID_NUM, fsidv, 0, 0, 0, NULL);
 
 	exp = rqst_exp_find(rqstp, FSID_NUM, fsidv);
-	if (PTR_ERR(exp) == -ENOENT)
-		return nfserr_perm;
 	if (IS_ERR(exp))
 		return nfserrno(PTR_ERR(exp));
 	rv = fh_compose(fhp, exp, exp->ex_dentry, NULL);
@@ -1637,13 +1635,19 @@ exp_verify_string(char *cp, int max)
 /*
  * Initialize the exports module.
  */
-void
+int
 nfsd_export_init(void)
 {
+	int rv;
 	dprintk("nfsd: initializing export module.\n");
 
-	cache_register(&svc_export_cache);
-	cache_register(&svc_expkey_cache);
+	rv = cache_register(&svc_export_cache);
+	if (rv)
+		return rv;
+	rv = cache_register(&svc_expkey_cache);
+	if (rv)
+		cache_unregister(&svc_export_cache);
+	return rv;
 
 }
 
@@ -1670,10 +1674,8 @@ nfsd_export_shutdown(void)
 
 	exp_writelock();
 
-	if (cache_unregister(&svc_expkey_cache))
-		printk(KERN_ERR "nfsd: failed to unregister expkey cache\n");
-	if (cache_unregister(&svc_export_cache))
-		printk(KERN_ERR "nfsd: failed to unregister export cache\n");
+	cache_unregister(&svc_expkey_cache);
+	cache_unregister(&svc_export_cache);
 	svcauth_unix_purge();
 
 	exp_writeunlock();

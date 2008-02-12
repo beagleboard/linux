@@ -18,6 +18,10 @@
 #include <asm/reg_booke.h>
 #endif /* CONFIG_BOOKE || CONFIG_40x */
 
+#ifdef CONFIG_FSL_EMB_PERFMON
+#include <asm/reg_fsl_emb.h>
+#endif
+
 #ifdef CONFIG_8xx
 #include <asm/reg_8xx.h>
 #endif /* CONFIG_8xx */
@@ -553,6 +557,7 @@
 #define SPRN_PA6T_BTCR	978	/* Breakpoint and Tagging Control Register */
 #define SPRN_PA6T_IMAAT	979	/* Instruction Match Array Action Table */
 #define SPRN_PA6T_PCCR	1019	/* Power Counter Control Register */
+#define SPRN_BKMK	1020	/* Cell Bookmark Register */
 #define SPRN_PA6T_RPCCR	1021	/* Retire PC Trace Control Register */
 
 
@@ -690,12 +695,6 @@
 #define PV_970GX	0x0045
 #define PV_BE		0x0070
 #define PV_PA6T		0x0090
-
-/*
- * Number of entries in the SLB. If this ever changes we should handle
- * it with a use a cpu feature fixup.
- */
-#define SLB_NUM_ENTRIES 64
 
 /* Macros for setting and retrieving special purpose registers */
 #ifndef __ASSEMBLY__
