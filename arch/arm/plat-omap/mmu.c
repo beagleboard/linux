@@ -492,7 +492,7 @@ static void omap_mmu_clear_pte(struct omap_mmu *mmu, unsigned long virt)
 			goto out;
 		ptep++;
 	}
-	pte_free_kernel(pmd_page_vaddr(*pmdp));
+	pte_free_kernel(mm, pmd_page_vaddr(*pmdp));
 
  invalidate_pmd:
 	pmd_clear(pmdp);

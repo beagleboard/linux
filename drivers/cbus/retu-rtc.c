@@ -303,7 +303,7 @@ static ssize_t retu_rtc_cal_store(struct device *dev, struct device_attribute *a
 static DEVICE_ATTR(cal, S_IRUGO | S_IWUSR, retu_rtc_cal_show,
 		   retu_rtc_cal_store);
 
-static struct device_driver retu_rtc_driver;
+static struct platform_device retu_rtc_device;
 
 static void retu_rtca_disable(void)
 {
@@ -316,7 +316,7 @@ static void retu_rtca_disable(void)
 static void retu_rtca_expired(struct work_struct *unused)
 {
 	retu_rtca_disable();
-	sysfs_notify(&retu_rtc_driver.kobj, NULL, "alarm_expired");
+	sysfs_notify(&retu_rtc_device.dev.kobj, NULL, "alarm_expired");
 }
 
 DECLARE_WORK(retu_rtca_work, retu_rtca_expired);

@@ -56,7 +56,7 @@ static struct resource sdp3430_smc91x_resources[] = {
 	[1] = {
 		.start	= 0,
 		.end	= 0,
-		.flags	= IORESOURCE_IRQ,
+		.flags	= IORESOURCE_IRQ | IORESOURCE_IRQ_LOWLEVEL,
 	},
 };
 

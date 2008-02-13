@@ -321,14 +321,14 @@ static inline void serial_console_fclk_mask(u32 *f1, u32 *f2) {}
 
 static unsigned short enable_dyn_sleep = 0; /* disabled till drivers are fixed */
 
-static ssize_t omap_pm_sleep_while_idle_show(struct kset * subsys, char *buf)
+static ssize_t idle_show(struct kobject *kobj, struct kobj_attribute *attr,
+			 char *buf)
 {
 	return sprintf(buf, "%hu\n", enable_dyn_sleep);
 }
 
-static ssize_t omap_pm_sleep_while_idle_store(struct kset * subsys,
-					      const char * buf,
-					      size_t n)
+static ssize_t idle_store(struct kobject *kobj, struct kobj_attribute *attr,
+			  const char * buf, size_t n)
 {
 	unsigned short value;
 	if (sscanf(buf, "%hu", &value) != 1 ||
@@ -340,14 +340,8 @@ static ssize_t omap_pm_sleep_while_idle_store(struct kset * subsys,
 	return n;
 }
 
-static struct subsys_attribute sleep_while_idle_attr = {
-	.attr   = {
-		.name = __stringify(sleep_while_idle),
-		.mode = 0644,
-	},
-	.show   = omap_pm_sleep_while_idle_show,
-	.store  = omap_pm_sleep_while_idle_store,
-};
+static struct kobj_attribute sleep_while_idle_attr =
+	__ATTR(sleep_while_idle, 0644, idle_show, idle_store);
 
 static struct clk *osc_ck, *emul_ck;
 
@@ -786,6 +780,7 @@ static void __init prcm_setup_regs(void)
 int __init omap2_pm_init(void)
 {
 	u32 l;
+	int error;
 
 	printk(KERN_INFO "Power Management for OMAP2 initializing\n");
 	l = prm_read_reg(OMAP24XX_PRCM_REVISION);
@@ -842,9 +837,9 @@ int __init omap2_pm_init(void)
 	suspend_set_ops(&omap_pm_ops);
 	pm_idle = omap2_pm_idle;
 
-	l = subsys_create_file(&power_subsys, &sleep_while_idle_attr);
-	if (l)
-		printk(KERN_ERR "subsys_create_file failed: %d\n", l);
+	error = sysfs_create_file(power_kobj, &sleep_while_idle_attr);
+	if (error)
+		printk(KERN_ERR "sysfs_create_file failed: %d\n", error);
 
 	return 0;
 }
