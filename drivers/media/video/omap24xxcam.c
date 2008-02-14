@@ -1121,6 +1121,7 @@ static int vidioc_dqbuf(struct file *file, void *fh, struct v4l2_buffer *b)
 	struct videobuf_buffer *vb;
 	int rval;
 
+videobuf_dqbuf_again:
 	rval = videobuf_dqbuf(&ofh->vbq, b, file->f_flags & O_NONBLOCK);
 	if (rval)
 		goto out;
@@ -1138,12 +1139,20 @@ static int vidioc_dqbuf(struct file *file, void *fh, struct v4l2_buffer *b)
 
 out:
 	/*
-	 * This is a hack. User space won't get the index of this
-	 * buffer and does not want to requeue it so we requeue it
-	 * here.
+	 * This is a hack. We don't want to show -EIO to the user
+	 * space. Requeue the buffer and try again if we're not doing
+	 * this in non-blocking mode.
 	 */
-	if (rval == -EIO)
+	if (rval == -EIO) {
 		videobuf_qbuf(&ofh->vbq, b);
+		if (!(file->f_flags & O_NONBLOCK))
+			goto videobuf_dqbuf_again;
+		/*
+		 * We don't have a videobuf_buffer now --- maybe next
+		 * time...
+		 */
+		rval = -EAGAIN;
+	}
 
 	return rval;
 }
