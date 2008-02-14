@@ -402,13 +402,13 @@ static void omap24xxcam_vbq_complete(struct omap24xxcam_sgdma *sgdma,
 	do_gettimeofday(&vb->ts);
 	vb->field_count = atomic_add_return(2, &fh->field_count);
 	if (csr & csr_error) {
-		vb->state = STATE_ERROR;
+		vb->state = VIDEOBUF_ERROR;
 		if (!atomic_read(&fh->cam->in_reset)) {
 			dev_dbg(cam->dev, "resetting camera, csr 0x%x\n", csr);
 			omap24xxcam_reset(cam);
 		}
 	} else
-		vb->state = STATE_DONE;
+		vb->state = VIDEOBUF_DONE;
 	wake_up(&vb->done);
 }
 
@@ -428,7 +428,7 @@ static void omap24xxcam_vbq_release(struct videobuf_queue *vbq,
 		videobuf_dma_free(videobuf_to_dma(vb));
 	}
 
-	vb->state = STATE_NEEDS_INIT;
+	vb->state = VIDEOBUF_NEEDS_INIT;
 }
 
 /*
@@ -491,7 +491,7 @@ static int omap24xxcam_vbq_prepare(struct videobuf_queue *vbq,
 		} else
 			vb->size = fh->pix.sizeimage;
 	} else {
-		if (vb->state != STATE_NEEDS_INIT) {
+		if (vb->state != VIDEOBUF_NEEDS_INIT) {
 			/*
 			 * We have a kernel bounce buffer that has
 			 * already been allocated.
@@ -519,7 +519,7 @@ static int omap24xxcam_vbq_prepare(struct videobuf_queue *vbq,
 	vb->height = fh->pix.height;
 	vb->field = field;
 
-	if (vb->state == STATE_NEEDS_INIT) {
+	if (vb->state == VIDEOBUF_NEEDS_INIT) {
 		if (vb->memory == V4L2_MEMORY_MMAP)
 			/*
 			 * we have built the scatter-gather list by ourself so
@@ -531,7 +531,7 @@ static int omap24xxcam_vbq_prepare(struct videobuf_queue *vbq,
 	}
 
 	if (!err)
-		vb->state = STATE_PREPARED;
+		vb->state = VIDEOBUF_PREPARED;
 	else
 		omap24xxcam_vbq_release(vbq, vb);
 
@@ -552,7 +552,7 @@ static void omap24xxcam_vbq_queue(struct videobuf_queue *vbq,
 	 * pretty way of marking it active exactly when the
 	 * scatter-gather transfer starts.
 	 */
-	vb->state = STATE_ACTIVE;
+	vb->state = VIDEOBUF_ACTIVE;
 
 	err = omap24xxcam_sgdma_queue(&fh->cam->sgdma,
 				      videobuf_to_dma(vb)->sglist,
@@ -1364,7 +1364,7 @@ static unsigned int omap24xxcam_poll(struct file *file,
 
 	poll_wait(file, &vb->done, wait);
 
-	if (vb->state == STATE_DONE || vb->state == STATE_ERROR)
+	if (vb->state == VIDEOBUF_DONE || vb->state == VIDEOBUF_ERROR)
 		return POLLIN | POLLRDNORM;
 
 	return 0;
