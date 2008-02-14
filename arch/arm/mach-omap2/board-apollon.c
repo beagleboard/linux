@@ -1,7 +1,7 @@
 /*
  * linux/arch/arm/mach-omap2/board-apollon.c
  *
- * Copyright (C) 2005,2006 Samsung Electronics
+ * Copyright (C) 2005-2008 Samsung Electronics
  * Author: Kyungmin Park <kyungmin.park@samsung.com>
  *
  * Modified from mach-omap2/board-h4.c
@@ -31,6 +31,7 @@
 #include <linux/spi/spi.h>
 #include <linux/spi/tsc210x.h>
 
+#include <asm/io.h>
 #include <asm/hardware.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -53,6 +54,10 @@
 
 #define APOLLON_FLASH_CS	0
 #define APOLLON_ETH_CS		1
+#define APOLLON_NOR_CS		3
+
+#define APOLLON_ONENAND_CS2_ADDRESS	(0x00000e40 | (0x10000000 >> 24))
+#define APOLLON_EXT_CS3_ADDRESS		(0x00000c40 | (0x18000000 >> 24))
 
 static struct mtd_partition apollon_partitions[] = {
 	{
@@ -109,6 +114,63 @@ static struct platform_device apollon_onenand_device = {
 	.resource	= apollon_flash_resource,
 };
 
+static struct mtd_partition apollon_nor_partitions[] = {
+	{
+		.name		= "U-Boot",
+		.offset		= 0,
+		.size		= SZ_128K,
+		.mask_flags	= MTD_WRITEABLE,
+	},
+	{
+		.name		= "params",
+		.offset		= MTDPART_OFS_APPEND,
+		.size		= SZ_128K,
+	},
+	{
+		.name		= "kernel",
+		.offset		= MTDPART_OFS_APPEND,
+		.size		= SZ_2M,
+	},
+	{
+		.name		= "rootfs",
+		.offset		= MTDPART_OFS_APPEND,
+		.size		= SZ_4M - SZ_256K,
+	},
+	{
+		.name		= "application",
+		.offset		= MTDPART_OFS_APPEND,
+		.size		= SZ_8M + SZ_2M,
+	},
+	{
+		.name		= "reserved",
+		.offset		= MTDPART_OFS_APPEND,
+		.size		= MTDPART_SIZ_FULL,
+	},
+};
+
+static struct flash_platform_data apollon_nor_data = {
+	.map_name		= "cfi_probe",
+	.width		= 2,
+	.parts		= apollon_nor_partitions,
+	.nr_parts	= ARRAY_SIZE(apollon_nor_partitions),
+};
+
+static struct resource apollon_nor_resource[] = {
+	[0] = {
+		.flags	= IORESOURCE_MEM,
+	}
+};
+
+static struct platform_device apollon_nor_device = {
+	.name		= "omapflash",
+	.id		= -1,
+	.dev		= {
+		.platform_data	= &apollon_nor_data,
+	},
+	.num_resources	= ARRAY_SIZE(apollon_nor_resource),
+	.resource	= apollon_nor_resource,
+};
+
 static void __init apollon_flash_init(void)
 {
 	unsigned long base;
@@ -119,6 +181,13 @@ static void __init apollon_flash_init(void)
 	}
 	apollon_flash_resource[0].start = base;
 	apollon_flash_resource[0].end   = base + SZ_128K - 1;
+
+	if (gpmc_cs_request(APOLLON_NOR_CS, SZ_32M, &base) < 0) {
+		printk(KERN_ERR "Cannot request NOR GPMC CS\n");
+		return;
+	}
+	apollon_nor_resource[0].start = base;
+	apollon_nor_resource[0].end   = base + SZ_32M - 1;
 }
 
 static struct resource apollon_smc91x_resources[] = {
@@ -194,6 +263,7 @@ static struct platform_device apollon_led_device = {
 
 static struct platform_device *apollon_devices[] __initdata = {
 	&apollon_onenand_device,
+	&apollon_nor_device,
 	&apollon_smc91x_device,
 	&apollon_lcd_device,
 	&apollon_led_device,
@@ -366,8 +436,87 @@ static void __init apollon_tsc_init(void)
 	omap_cfg_reg(W14_24XX_SYS_CLKOUT);	/* mclk */
 }
 
+static void __init apollon_cs_init(void)
+{
+	unsigned long base;
+	unsigned int rate;
+	struct clk *l3ck;
+	u32 value;
+	int cs, sync = 0;
+
+	l3ck = clk_get(NULL, "core_l3_ck");
+	if (IS_ERR(l3ck))
+		rate = 100000000;
+	else
+		rate = clk_get_rate(l3ck);
+
+	/* CS2: OneNAND */
+	cs = 2;
+	value = gpmc_cs_read_reg(0, GPMC_CS_CONFIG1);
+	gpmc_cs_write_reg(cs, GPMC_CS_CONFIG1, value);
+	value = gpmc_cs_read_reg(0, GPMC_CS_CONFIG2);
+	gpmc_cs_write_reg(cs, GPMC_CS_CONFIG2, value);
+	value = gpmc_cs_read_reg(0, GPMC_CS_CONFIG3);
+	gpmc_cs_write_reg(cs, GPMC_CS_CONFIG3, value);
+	value = gpmc_cs_read_reg(0, GPMC_CS_CONFIG4);
+	gpmc_cs_write_reg(cs, GPMC_CS_CONFIG4, value);
+	value = gpmc_cs_read_reg(0, GPMC_CS_CONFIG5);
+	gpmc_cs_write_reg(cs, GPMC_CS_CONFIG5, value);
+	value = gpmc_cs_read_reg(0, GPMC_CS_CONFIG6);
+	gpmc_cs_write_reg(cs, GPMC_CS_CONFIG6, value);
+
+	gpmc_cs_write_reg(cs, GPMC_CS_CONFIG7, APOLLON_ONENAND_CS2_ADDRESS);
+
+	/* CS3: External NOR */
+	cs = APOLLON_NOR_CS;
+	if (rate >= 160000000) {
+		sync = 1;
+		gpmc_cs_write_reg(cs, GPMC_CS_CONFIG1, 0xe5011211);
+		gpmc_cs_write_reg(cs, GPMC_CS_CONFIG2, 0x00090b01);
+		gpmc_cs_write_reg(cs, GPMC_CS_CONFIG3, 0x00020201);
+		gpmc_cs_write_reg(cs, GPMC_CS_CONFIG4, 0x09030b03);
+		gpmc_cs_write_reg(cs, GPMC_CS_CONFIG5, 0x010a0a0c);
+		gpmc_cs_write_reg(cs, GPMC_CS_CONFIG6, 0x00000000);
+	} else if (rate >= 130000000) {
+		/* Not yet know ... Use the async values */
+		gpmc_cs_write_reg(cs, GPMC_CS_CONFIG1, 0x00021201);
+		gpmc_cs_write_reg(cs, GPMC_CS_CONFIG2, 0x00121601);
+		gpmc_cs_write_reg(cs, GPMC_CS_CONFIG3, 0x00040401);
+		gpmc_cs_write_reg(cs, GPMC_CS_CONFIG4, 0x12061605);
+		gpmc_cs_write_reg(cs, GPMC_CS_CONFIG5, 0x01151317);
+		gpmc_cs_write_reg(cs, GPMC_CS_CONFIG6, 0x00000000);
+	} else {/* rate = 100000000 */
+		sync = 1;
+		gpmc_cs_write_reg(cs, GPMC_CS_CONFIG1, 0xe1001202);
+		gpmc_cs_write_reg(cs, GPMC_CS_CONFIG2, 0x00151501);
+		gpmc_cs_write_reg(cs, GPMC_CS_CONFIG3, 0x00050501);
+		gpmc_cs_write_reg(cs, GPMC_CS_CONFIG4, 0x0e070e07);
+		gpmc_cs_write_reg(cs, GPMC_CS_CONFIG5, 0x01131F1F);
+		gpmc_cs_write_reg(cs, GPMC_CS_CONFIG6, 0x00000000);
+	}
+
+	gpmc_cs_write_reg(cs, GPMC_CS_CONFIG7, APOLLON_EXT_CS3_ADDRESS);
+
+	if (gpmc_cs_request(cs, SZ_32M, &base) < 0) {
+		printk(KERN_ERR "Failed to request GPMC CS for external\n");
+		return;
+	}
+
+	/* Synchronous mode */
+	if (sync) {
+		void __iomem *addr = ioremap(base, SZ_32M);
+		writew(0xaa, addr + 0xaaa);
+		writew(0x55, addr + 0x554);
+		writew(0xc0, addr + 0x24aaa);
+		iounmap(addr);
+	}
+
+	gpmc_cs_free(cs);
+}
+
 static void __init omap_apollon_init(void)
 {
+	apollon_cs_init();
 	apollon_led_init();
 	apollon_flash_init();
 	apollon_usb_init();
