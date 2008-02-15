@@ -453,7 +453,7 @@ static int panel_enabled(struct mipid_device *md)
 	disp_status = __be32_to_cpu(disp_status);
 	enabled = (disp_status & (1 << 17)) && (disp_status & (1 << 10));
 	dev_dbg(&md->spi->dev,
-		"LCD panel %s enabled by bootloader (status 0x%04x)\n",
+		"LCD panel %senabled by bootloader (status 0x%04x)\n",
 		enabled ? "" : "not ", disp_status);
 	return enabled;
 }
