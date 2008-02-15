@@ -28,10 +28,6 @@
 #include <linux/delay.h>
 #include <linux/spi/spi.h>
 
-#ifdef CONFIG_ARCH_OMAP
-#include <asm/arch/gpio.h>
-#endif
-
 #include <linux/spi/tsc2301.h>
 
 /**
@@ -143,8 +139,6 @@ struct tsc2301_ts {
 	u8			disable_depth;
 
 	int			hw_flags;
-
-	s16			dav_gpio;
 	int			irq;
 };
 
@@ -550,31 +544,22 @@ int __devinit tsc2301_ts_init(struct tsc2301 *tsc,
 {
 	struct tsc2301_ts *ts;
 	struct input_dev *idev;
-	int dav_gpio, r;
+	int r;
 	int x_max, y_max;
 	int x_fudge, y_fudge, p_fudge;
 
-	if (pdata->dav_gpio < 0) {
-		dev_err(&tsc->spi->dev, "need DAV GPIO");
+	if (pdata->dav_int <= 0) {
+		dev_err(&tsc->spi->dev, "need DAV IRQ");
 		return -EINVAL;
 	}
-	dav_gpio = pdata->dav_gpio;
 
 	ts = kzalloc(sizeof(*ts), GFP_KERNEL);
 	if (ts == NULL)
 		return -ENOMEM;
 	tsc->ts = ts;
 
-	ts->dav_gpio = dav_gpio;
-#ifdef CONFIG_ARCH_OMAP
-	r = omap_request_gpio(dav_gpio);
-	if (r < 0) {
-		dev_err(&tsc->spi->dev, "unable to get DAV GPIO");
-		goto err1;
-	}
-	omap_set_gpio_direction(dav_gpio, 1);
-	ts->irq = OMAP_GPIO_IRQ(dav_gpio);
-#endif
+	ts->irq = pdata->dav_int;
+
 	init_timer(&ts->penup_timer);
 	setup_timer(&ts->penup_timer, tsc2301_ts_timer_handler,
 			(unsigned long)tsc);
@@ -654,10 +639,6 @@ err3:
 	tsc2301_ts_stop_scan(tsc);
 	input_free_device(idev);
 err2:
-#ifdef CONFIG_ARCH_OMAP
-	omap_free_gpio(dav_gpio);
-#endif
-err1:
 	kfree(ts);
 	return r;
 }
@@ -674,9 +655,6 @@ void __devexit tsc2301_ts_exit(struct tsc2301 *tsc)
 	free_irq(ts->irq, tsc);
 	input_unregister_device(ts->idev);
 
-#ifdef CONFIG_ARCH_OMAP
-	omap_free_gpio(ts->dav_gpio);
-#endif
 	kfree(ts);
 }
 MODULE_AUTHOR("Jarkko Oikarinen <jarkko.oikarinen@nokia.com>");

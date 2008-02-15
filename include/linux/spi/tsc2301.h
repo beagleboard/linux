@@ -16,7 +16,7 @@ struct tsc2301_platform_data {
 	/*
 	 * Touchscreen
 	 */
-	s16	dav_gpio;
+	s16	dav_int;
 	u16	ts_x_plate_ohm;
 	u32	ts_stab_time;	/* voltage settling time */
 	u8	ts_hw_avg;	/* HW assiseted averaging. Can be

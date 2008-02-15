@@ -45,6 +45,8 @@
 #define N800_BLIZZARD_POWERDOWN_GPIO	15
 #define N800_STI_GPIO			62
 #define N800_KEYB_IRQ_GPIO		109
+#define N800_DAV_IRQ_GPIO		103
+#define N800_TSC2301_RESET_GPIO		118
 
 void __init nokia_n800_init_irq(void)
 {
@@ -210,8 +212,7 @@ static struct omap_board_config_kernel n800_config[] __initdata = {
 };
 
 static struct tsc2301_platform_data tsc2301_config = {
-	.reset_gpio	= 118,
-	.dav_gpio	= 103,
+	.reset_gpio	= N800_TSC2301_RESET_GPIO,
 	.keymap = {
 		-1,		/* Event for bit 0 */
 		KEY_UP,		/* Event for bit 1 (up) */
@@ -235,14 +236,25 @@ static struct tsc2301_platform_data tsc2301_config = {
 
 static void tsc2301_dev_init(void)
 {
+	int r;
 	int gpio = N800_KEYB_IRQ_GPIO;
 
-	if (omap_request_gpio(gpio) < 0) {
-		printk(KERN_ERR "can't get KBIRQ GPIO\n");
-		return;
+	r = gpio_request(gpio, "tsc2301 KBD IRQ");
+	if (r >= 0) {
+		gpio_direction_input(gpio);
+		tsc2301_config.keyb_int = OMAP_GPIO_IRQ(gpio);
+	} else {
+		printk(KERN_ERR "unable to get KBD GPIO");
 	}
-	omap_set_gpio_direction(gpio, 1);
-	tsc2301_config.keyb_int = OMAP_GPIO_IRQ(gpio);
+
+	gpio = N800_DAV_IRQ_GPIO;
+	r = gpio_request(gpio, "tsc2301 DAV IRQ");
+	if (r >= 0) {
+		gpio_direction_input(gpio);
+		tsc2301_config.dav_int = OMAP_GPIO_IRQ(gpio);
+	} else {
+		printk(KERN_ERR "unable to get DAV GPIO");
+	}
 }
 
 static struct omap2_mcspi_device_config tsc2301_mcspi_config = {

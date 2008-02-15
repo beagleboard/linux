@@ -30,10 +30,6 @@
 #include <linux/delay.h>
 #include <linux/spi/spi.h>
 
-#ifdef CONFIG_ARCH_OMAP
-#include <asm/arch/gpio.h>
-#endif
-
 #include <linux/spi/tsc2301.h>
 
 #define TSC2301_KEYBOARD_PRODUCT_ID      0x0051
