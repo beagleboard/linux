@@ -49,7 +49,7 @@
 
 #define TSC2301_DEBOUNCE_TIME		TSC2301_DEBOUNCE_TIME_20MS
 
-#define TSC2301_POLL_TIME		30
+#define TSC2301_RELEASE_TIMEOUT		50
 
 struct tsc2301_kp {
 	struct input_dev	*idev;
@@ -64,37 +64,17 @@ struct tsc2301_kp {
 
 	struct spi_transfer	read_xfer[4];
 	struct spi_message	read_msg;
-	u16			state;
+
 	u16			data;
 	u16			mask;
 
 	int			irq;
 	s16			keymap[16];
-
-	int			(*get_keyb_irq_state)(struct device *dev);
 };
 
 static inline int tsc2301_kp_disabled(struct tsc2301 *tsc)
 {
 	return tsc->kp->disable_depth != 0;
-}
-
-static inline void tsc2301_kp_set_keypressed_state(struct tsc2301 *tsc)
-{
-	struct tsc2301_kp *kp = tsc->kp;
-
-	/* kp->state is updated only if we don't have the callback */
-	if (kp->get_keyb_irq_state != NULL) {
-		if (kp->get_keyb_irq_state(&tsc->spi->dev))
-			kp->state = 1 << 15;
-		else
-			kp->state = 0;
-	}
-}
-
-static inline int tsc2301_kp_key_is_pressed(struct tsc2301 *tsc)
-{
-	return tsc->kp->state & (1 << 15);
 }
 
 static void tsc2301_kp_send_key_events(struct tsc2301 *tsc,
@@ -123,20 +103,6 @@ static void tsc2301_kp_send_key_events(struct tsc2301 *tsc,
 		pressed >>= 1;
 	}
 	input_sync(kp->idev);
-}
-
-static inline void tsc2301_kp_release_all_keys(struct tsc2301 *tsc)
-{
-	struct tsc2301_kp *kp = tsc->kp;
-	unsigned long flags;
-	int keys_pressed;
-
-	spin_lock_irqsave(&kp->lock, flags);
-	keys_pressed = kp->keys_pressed;
-	kp->keys_pressed = 0;
-	spin_unlock_irqrestore(&kp->lock, flags);
-	if (keys_pressed)
-		tsc2301_kp_send_key_events(tsc, keys_pressed, 0);
 }
 
 static inline void _filter_out(struct tsc2301 *tsc, u16 prev_state,
@@ -183,16 +149,13 @@ static void tsc2301_filter_ghost_keys(struct tsc2301 *tsc, u16 prev_state,
 static void tsc2301_kp_timer(unsigned long arg)
 {
 	struct tsc2301 *tsc = (void *) arg;
-	int r;
+	struct tsc2301_kp *kp = tsc->kp;
+	unsigned long flags;
 
-	/* This needs to be done early enough, since reading the key data
-	 * register clears the IRQ line, which may be used to determine
-	 * the key pressed state.
-	 */
-	tsc2301_kp_set_keypressed_state(tsc);
-	r = spi_async(tsc->spi, &tsc->kp->read_msg);
-	if (unlikely(r < 0 && printk_ratelimit()))
-		dev_err(&tsc->spi->dev, "kp: spi_async() failed");
+	tsc2301_kp_send_key_events(tsc, kp->keys_pressed, 0);
+	spin_lock_irqsave(&kp->lock, flags);
+	kp->keys_pressed = 0;
+	spin_unlock_irqrestore(&kp->lock, flags);
 }
 
 static void tsc2301_kp_rx(void *arg)
@@ -200,30 +163,16 @@ static void tsc2301_kp_rx(void *arg)
 	struct tsc2301 *tsc = arg;
 	struct tsc2301_kp *kp = tsc->kp;
 	unsigned long flags;
-	int key_pressed;
 	u16 kp_data;
 
 	kp_data = kp->data;
-	key_pressed = tsc2301_kp_key_is_pressed(tsc);
-	dev_dbg(&tsc->spi->dev, "KP data %04x (%s)\n",
-		kp_data, key_pressed ? "pressed" : "not pressed");
-	if (!key_pressed)
-		kp_data = 0;
-	else
-		tsc2301_filter_ghost_keys(tsc, kp->keys_pressed, &kp_data);
+	dev_dbg(&tsc->spi->dev, "KP data %04x\n", kp_data);
+
+	tsc2301_filter_ghost_keys(tsc, kp->keys_pressed, &kp_data);
 	tsc2301_kp_send_key_events(tsc, kp->keys_pressed, kp_data);
-	kp->keys_pressed = kp_data;
 	spin_lock_irqsave(&kp->lock, flags);
-	if (likely(!tsc2301_kp_disabled(tsc))) {
-		if (likely(key_pressed))
-			mod_timer(&kp->timer,
-				 jiffies + msecs_to_jiffies(TSC2301_POLL_TIME));
-		else {
-			kp->pending = 0;
-			enable_irq(kp->irq);
-		}
-	} else
-		kp->pending = 0;
+	kp->keys_pressed = kp_data;
+	kp->pending = 0;
 	spin_unlock_irqrestore(&kp->lock, flags);
 }
 
@@ -232,17 +181,20 @@ static irqreturn_t tsc2301_kp_irq_handler(int irq, void *dev_id)
 	struct tsc2301 *tsc = dev_id;
 	struct tsc2301_kp *kp = tsc->kp;
 	unsigned long flags;
+	int r;
 
 	spin_lock_irqsave(&kp->lock, flags);
-	BUG_ON(kp->pending);
 	if (tsc2301_kp_disabled(tsc)) {
 		spin_unlock_irqrestore(&kp->lock, flags);
 		return IRQ_HANDLED;
 	}
 	kp->pending = 1;
-	disable_irq_nosync(irq);
 	spin_unlock_irqrestore(&kp->lock, flags);
-	tsc2301_kp_timer((unsigned long) tsc);
+	mod_timer(&kp->timer,
+		 jiffies + msecs_to_jiffies(TSC2301_RELEASE_TIMEOUT));
+	r = spi_async(tsc->spi, &tsc->kp->read_msg);
+	if (r)
+		dev_err(&tsc->spi->dev, "kp: spi_async() failed");
 	return IRQ_HANDLED;
 }
 
@@ -255,7 +207,6 @@ static void tsc2301_kp_start_scan(struct tsc2301 *tsc)
 static void tsc2301_kp_stop_scan(struct tsc2301 *tsc)
 {
 	tsc2301_write_reg(tsc, TSC2301_REG_KEY, 1 << 14);
-	tsc2301_write_reg(tsc, TSC2301_REG_KPMASK, 0xffff);
 }
 
 /* Must be called with the mutex held */
@@ -270,18 +221,11 @@ static void tsc2301_kp_enable(struct tsc2301 *tsc)
 		spin_unlock_irqrestore(&kp->lock, flags);
 		return;
 	}
-	if (kp->keys_pressed)
-		kp->pending = 1;
 	spin_unlock_irqrestore(&kp->lock, flags);
 
 	set_irq_type(kp->irq, IRQT_FALLING);
 	tsc2301_kp_start_scan(tsc);
-	if (kp->pending)
-		/* continue an interrupted polling */
-		mod_timer(&kp->timer,
-			  jiffies + msecs_to_jiffies(TSC2301_POLL_TIME));
-	else
-		enable_irq(kp->irq);
+	enable_irq(kp->irq);
 }
 
 /* Must be called with the mutex held */
@@ -295,21 +239,18 @@ static int tsc2301_kp_disable(struct tsc2301 *tsc, int release_keys)
 		spin_unlock_irqrestore(&kp->lock, flags);
 		goto out;
 	}
-	if (!kp->pending)
-		disable_irq_nosync(kp->irq);
-
-	while (kp->pending) {
-		spin_unlock_irqrestore(&kp->lock, flags);
-		msleep(1);
-		spin_lock_irqsave(&kp->lock, flags);
-	}
+	disable_irq_nosync(kp->irq);
+	set_irq_type(kp->irq, IRQT_NOEDGE);
 	spin_unlock_irqrestore(&kp->lock, flags);
 
+	while (kp->pending) {
+		msleep(1);
+	}
+
 	tsc2301_kp_stop_scan(tsc);
-	set_irq_type(kp->irq, IRQT_NOEDGE);
 out:
-	if (release_keys)
-		tsc2301_kp_release_all_keys(tsc);
+	if (!release_keys)
+		del_timer(&kp->timer); /* let timeout release keys */
 
 	return 0;
 }
@@ -379,7 +320,6 @@ static DEVICE_ATTR(disable_kp, 0664, tsc2301_kp_disable_show,
 		   tsc2301_kp_disable_store);
 
 static const u16 tsc2301_kp_read_data = 0x8000 | TSC2301_REG_KPDATA;
-static const u16 tsc2301_kp_read_state = 0x8000 | TSC2301_REG_KEY;
 
 static void tsc2301_kp_setup_spi_xfer(struct tsc2301 *tsc)
 {
@@ -388,22 +328,6 @@ static void tsc2301_kp_setup_spi_xfer(struct tsc2301 *tsc)
 	struct spi_transfer *x = &kp->read_xfer[0];
 
 	spi_message_init(&kp->read_msg);
-
-	if (kp->get_keyb_irq_state == NULL) {
-		/* No platform specific way for determining the keypress
-		 * state, so we'll need an extra status register read.
-		 */
-		x->tx_buf = &tsc2301_kp_read_state;
-		x->len = 2;
-		spi_message_add_tail(x, m);
-		x++;
-
-		x->rx_buf = &kp->state;
-		x->len = 2;
-		x->cs_change = 1;
-		spi_message_add_tail(x, m);
-		x++;
-	}
 
 	x->tx_buf = &tsc2301_kp_read_data;
 	x->len = 2;
@@ -464,8 +388,6 @@ int __devinit tsc2301_kp_init(struct tsc2301 *tsc,
 	init_timer(&kp->timer);
 	kp->timer.data = (unsigned long) tsc;
 	kp->timer.function = tsc2301_kp_timer;
-
-	kp->get_keyb_irq_state = pdata->get_keyb_irq_state;
 
 	idev = input_allocate_device();
 	if (idev == NULL) {

@@ -209,12 +209,6 @@ static struct omap_board_config_kernel n800_config[] __initdata = {
 	{ OMAP_TAG_MMC,				&n800_mmc_config },
 };
 
-
-static int n800_get_keyb_irq_state(struct device *dev)
-{
-	return !omap_get_gpio_datain(N800_KEYB_IRQ_GPIO);
-}
-
 static struct tsc2301_platform_data tsc2301_config = {
 	.reset_gpio	= 118,
 	.dav_gpio	= 103,
@@ -237,7 +231,6 @@ static struct tsc2301_platform_data tsc2301_config = {
 		-1,		/* Event for bit 15 */
 	},
 	.kp_rep 	= 0,
-	.get_keyb_irq_state = n800_get_keyb_irq_state,
 };
 
 static void tsc2301_dev_init(void)

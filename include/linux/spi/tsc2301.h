@@ -53,7 +53,6 @@ struct tsc2301_platform_data {
 	void (* codec_cleanup)(struct device *tsc2301_dev);
 	int	(*enable_clock)(struct device *dev);
 	void	(*disable_clock)(struct device *dev);
-	int	(*get_keyb_irq_state)(struct device *dev);
 
 	const struct tsc2301_mixer_gpio {
 		const char	*name;
