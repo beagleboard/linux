@@ -611,6 +611,7 @@ int __devinit tsc2301_ts_init(struct tsc2301 *tsc,
 	snprintf(ts->phys, sizeof(ts->phys),
 		 "%s/input-ts", tsc->spi->dev.bus_id);
 	idev->phys = ts->phys;
+	idev->dev.parent = &tsc->spi->dev;
 
 	idev->evbit[0] = BIT(EV_ABS) | BIT(EV_KEY);
 	idev->absbit[0] = BIT(ABS_X) | BIT(ABS_Y) | BIT(ABS_PRESSURE);
