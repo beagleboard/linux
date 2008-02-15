@@ -151,7 +151,6 @@ static int __devinit tsc2301_probe(struct spi_device *spi)
 
 	dev_set_drvdata(&spi->dev, tsc);
 	tsc->spi = spi;
-	spi->dev.power.power_state = PMSG_ON;
 
 	tsc->enable_clock = pdata->enable_clock;
 	tsc->disable_clock = pdata->disable_clock;
