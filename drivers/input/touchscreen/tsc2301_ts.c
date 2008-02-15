@@ -111,6 +111,13 @@ struct ts_filter {
 	int 			avg_z2;
 };
 
+struct ts_coords {
+	u16 			x;
+	u16 			y;
+	u16 			z1;
+	u16 			z2;
+};
+
 struct tsc2301_ts {
 	struct input_dev	*idev;
 	char			phys[32];
@@ -119,7 +126,7 @@ struct tsc2301_ts {
 
 	struct spi_transfer	read_xfer[2];
 	struct spi_message	read_msg;
-	u16                     data[4];
+	struct ts_coords	*coords;
 
 	struct ts_filter	filter;
 
@@ -371,10 +378,10 @@ static void tsc2301_ts_rx(void *arg)
 	int send_event;
 	int x, y, z1, z2;
 
-	x  = ts->data[0];
-	y  = ts->data[1];
-	z1 = ts->data[2];
-	z2 = ts->data[3];
+	x  = ts->coords->x;
+	y  = ts->coords->y;
+	z1 = ts->coords->z1;
+	z2 = ts->coords->z2;
 
 	send_event = filter(ts, x, y, z1, z2);
 	if (send_event) {
@@ -484,7 +491,7 @@ static void tsc2301_ts_setup_spi_xfer(struct tsc2301 *tsc)
 	spi_message_add_tail(x, m);
 
 	x++;
-	x->rx_buf = &ts->data;
+	x->rx_buf = ts->coords;
 	x->len = 8;
 	spi_message_add_tail(x, m);
 
@@ -557,6 +564,12 @@ int __devinit tsc2301_ts_init(struct tsc2301 *tsc,
 	if (ts == NULL)
 		return -ENOMEM;
 	tsc->ts = ts;
+
+	ts->coords = kzalloc(sizeof(*ts->coords), GFP_KERNEL);
+	if (ts->coords == NULL) {
+		kfree(ts);
+		return -ENOMEM;
+	}
 
 	ts->irq = pdata->dav_int;
 
@@ -639,6 +652,7 @@ err3:
 	tsc2301_ts_stop_scan(tsc);
 	input_free_device(idev);
 err2:
+	kfree(ts->coords);
 	kfree(ts);
 	return r;
 }
@@ -655,6 +669,7 @@ void __devexit tsc2301_ts_exit(struct tsc2301 *tsc)
 	free_irq(ts->irq, tsc);
 	input_unregister_device(ts->idev);
 
+	kfree(ts->coords);
 	kfree(ts);
 }
 MODULE_AUTHOR("Jarkko Oikarinen <jarkko.oikarinen@nokia.com>");
