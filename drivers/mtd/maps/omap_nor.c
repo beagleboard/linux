@@ -108,10 +108,6 @@ static int __devinit omapflash_probe(struct platform_device *pdev)
 	}
 	info->mtd->owner = THIS_MODULE;
 
-	/* Unlock the flash device. */
-	if (info->mtd->unlock)
-		info->mtd->unlock(info->mtd, 0, info->mtd->size);
-
 #ifdef CONFIG_MTD_PARTITIONS
 	err = parse_mtd_partitions(info->mtd, part_probes, &info->parts, 0);
 	if (err > 0)
