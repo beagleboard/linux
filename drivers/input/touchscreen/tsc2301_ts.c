@@ -275,11 +275,13 @@ static int tsc2301_ts_configure(struct tsc2301 *tsc, int flags)
 static void tsc2301_ts_start_scan(struct tsc2301 *tsc)
 {
 	tsc2301_ts_configure(tsc, tsc->ts->hw_flags);
+	tsc2301_kp_restart(tsc);
 }
 
 static void tsc2301_ts_stop_scan(struct tsc2301 *tsc)
 {
 	tsc2301_write_reg(tsc, TSC2301_REG_ADC, TSC2301_ADCREG_STOP_CONVERSION);
+	tsc2301_kp_restart(tsc);
 }
 
 static void update_pen_state(struct tsc2301_ts *ts, int x, int y, int pressure)
@@ -439,10 +441,6 @@ static void tsc2301_ts_disable(struct tsc2301 *tsc)
 	} while (ts->event_sent);
 
 	tsc2301_ts_stop_scan(tsc);
-	/* Workaround a bug where turning on / off touchscreen scanner
-	 * can get the keypad scanner stuck.
-	 */
-	tsc2301_kp_restart(tsc);
 }
 
 static void tsc2301_ts_enable(struct tsc2301 *tsc)
@@ -455,8 +453,6 @@ static void tsc2301_ts_enable(struct tsc2301 *tsc)
 	enable_irq(ts->irq);
 
 	tsc2301_ts_start_scan(tsc);
-	/* Same workaround as above. */
-	tsc2301_kp_restart(tsc);
 }
 
 #ifdef CONFIG_PM

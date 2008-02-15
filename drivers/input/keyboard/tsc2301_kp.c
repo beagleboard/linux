@@ -270,14 +270,9 @@ out:
  */
 void tsc2301_kp_restart(struct tsc2301 *tsc)
 {
-	struct tsc2301_kp *kp = tsc->kp;
-
-	mutex_lock(&kp->mutex);
-	if (!kp->user_disabled) {
-		tsc2301_kp_disable(tsc, 0);
-		tsc2301_kp_enable(tsc);
+	if (!tsc2301_kp_disabled(tsc)) {
+		tsc2301_kp_start_scan(tsc);
 	}
-	mutex_unlock(&kp->mutex);
 }
 
 static ssize_t tsc2301_kp_disable_show(struct device *dev,
