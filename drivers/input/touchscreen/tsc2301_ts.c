@@ -201,12 +201,12 @@ static int tsc2301_ts_check_config(struct tsc2301_ts *ts, int *hw_flags)
  */
 static int tsc2301_ts_configure(struct tsc2301 *tsc, int flags)
 {
-	struct spi_transfer xfer[3];
+	struct spi_transfer xfer[5];
 	struct spi_transfer *x;
 	struct spi_message m;
-	int reg = TSC2301_REG_ADC;
+	int i;
 	u16 val1, val2, val3;
-	u16 data[6];
+	u16 data[10];
 
 	val1 = TSC2301_ADCREG_CONVERSION_CTRL_BY_HOST |
 		TSC2301_ADCREG_STOP_CONVERSION |
@@ -227,16 +227,20 @@ static int tsc2301_ts_configure(struct tsc2301 *tsc, int flags)
 	val3 = TSC2301_ADCREG_CONVERSION_CTRL_BY_TSC2301 |
 		TSC2301_ADCREG_FUNCTION_XYZ |
 		TSC2301_ADCREG_RESOLUTION_12BIT |
-		TSC2301_ADCREG_CLOCK_1MHZ |
+		TSC2301_ADCREG_CLOCK_2MHZ |
 		flags;
 
 	/* Now we prepare the command for transferring */
-	data[0] = reg;
+	data[0] = TSC2301_REG_ADC;
 	data[1] = val1;
-	data[2] = reg;
+	data[2] = TSC2301_REG_ADC;
 	data[3] = val2;
-	data[4] = reg;
+	data[4] = TSC2301_REG_ADC;
 	data[5] = val3;
+	data[6] = TSC2301_REG_REF;
+	data[7] = 1 << 4 | 1 << 2 | 1; /* intref, 100uS settl, 2.5V ref */
+	data[8] = TSC2301_REG_CONFIG;
+	data[9] = 3 << 3 | 2 << 0; /* 340uS pre-chrg, 544us delay */
 
 	spi_message_init(&m);
 	m.spi = tsc->spi;
@@ -244,22 +248,14 @@ static int tsc2301_ts_configure(struct tsc2301 *tsc, int flags)
 	memset(xfer, 0, sizeof(xfer));
 	x = &xfer[0];
 
-	x->tx_buf = &data[0];
-	x->len = 4;
-	x->cs_change = 1;
-	spi_message_add_tail(x, &m);
-
-	x++;
-	x->tx_buf = &data[2];
-	x->len = 4;
-	x->cs_change = 1;
-	spi_message_add_tail(x, &m);
-
-	x++;
-	x->tx_buf = &data[4];
-	x->len = 4;
-	spi_message_add_tail(x, &m);
-
+	for (i = 0; i < 10; i += 2) {
+		x->tx_buf = &data[i];
+		x->len = 4;
+		if (i != 8)
+			x->cs_change = 1;
+		spi_message_add_tail(x, &m);
+		x++;
+	}
 	spi_sync(m.spi, &m);
 
 	return 0;
@@ -272,7 +268,7 @@ static void tsc2301_ts_start_scan(struct tsc2301 *tsc)
 
 static void tsc2301_ts_stop_scan(struct tsc2301 *tsc)
 {
-	tsc2301_ts_configure(tsc, TSC2301_ADCREG_STOP_CONVERSION);
+	tsc2301_write_reg(tsc, TSC2301_REG_ADC, TSC2301_ADCREG_STOP_CONVERSION);
 }
 
 static int device_suspended(struct device *dev)
