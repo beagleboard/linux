@@ -331,7 +331,6 @@ static void __init n800_ts_set_config(void)
 		if (strcmp(conf->panel_name, "lph8923") == 0) {
 			tsc2301_config.ts_x_plate_ohm	= 180;
 			tsc2301_config.ts_hw_avg	= 4;
-			tsc2301_config.ts_ignore_last	= 1;
 			tsc2301_config.ts_max_pressure	= 2048;
 			tsc2301_config.ts_touch_pressure = 400;
 			tsc2301_config.ts_stab_time	= 100;
@@ -345,7 +344,6 @@ static void __init n800_ts_set_config(void)
 			tsc2301_config.ts_hw_avg	= 16;
 			tsc2301_config.ts_touch_pressure = 400;
 			tsc2301_config.ts_max_pressure	= 2048;
-			tsc2301_config.ts_ignore_last	= 1;
 			tsc2301_config.ts_stab_time	= 1000;
 			tsc2301_config.ts_pressure_fudge = 2;
 			tsc2301_config.ts_x_max		= 4096;

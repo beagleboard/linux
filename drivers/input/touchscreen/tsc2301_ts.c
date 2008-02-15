@@ -1,7 +1,7 @@
 /*
  * TSC2301 touchscreen driver
  *
- * Copyright (C) 2005-2006 Nokia Corporation
+ * Copyright (C) 2005-2008 Nokia Corporation
  *
  * Written by Jarkko Oikarinen, Imre Deak and Juha Yrjola
  *
@@ -45,21 +45,18 @@
  *  2) TSC2301 performs AD conversion
  *  3) After the conversion is done TSC2301 drives DAV line down
  *  4) GPIO IRQ is received and tsc2301_ts_irq_handler is called
- *  5) tsc2301_ts_irq_handler sets up tsc2301_ts_timer in TSC2301_TS_SCAN_TIME
- *  6) tsc2301_ts_timer disables the irq and requests spi driver
- *     to read X, Y, Z1 and Z2
- *  7) SPI framework calls tsc2301_ts_rx after the coordinates are read
- *  8) tsc2301_ts_rx reports coordinates to input layer and
- *     sets up tsc2301_ts_timer to be called after TSC2301_TS_SCAN_TIME
- *  9) if tsc2301_tx_timer notices that the pen has been lifted, the lift event
- *     is sent, and irq is again enabled.
+ *  5) tsc2301_ts_irq_handler queues up an spi transfer to fetch
+ *     the x, y, z1, z2 values
+ *  6) SPI framework calls tsc2301_ts_rx after the coordinates are read
+ *  7) When the penup_timer expires, there have not been DAV interrupts
+ *     during the last 20ms which means the pen has been lifted.
  */
 
 
 #define TSC2301_TOUCHSCREEN_PRODUCT_ID      		0x0052
 #define TSC2301_TOUCHSCREEN_PRODUCT_VERSION 		0x0001
 
-#define TSC2301_TS_SCAN_TIME		     		1
+#define TSC2301_TS_PENUP_TIME		     		20
 
 #define TSC2301_ADCREG_CONVERSION_CTRL_BY_TSC2301	0x8000
 #define TSC2301_ADCREG_CONVERSION_CTRL_BY_HOST		0x0000
@@ -106,8 +103,8 @@
 struct tsc2301_ts {
 	struct input_dev	*idev;
 	char			phys[32];
-	struct timer_list	timer;
-	spinlock_t		lock;
+	struct timer_list	penup_timer;
+	struct mutex		mutex;
 
 	struct spi_transfer	read_xfer[2];
 	struct spi_message	read_msg;
@@ -119,17 +116,15 @@ struct tsc2301_ts {
 	u16			p;
 	int			sample_cnt;
 
-	int			ignore_last : 1;
 	u16			x_plate_ohm;
 	int			stab_time;
 	int			max_pressure;
 	int			touch_pressure;
-	int			pressure_limit;
 
-	u16			irq_enabled:1;
-	u16			pen_down:1;
-	u16			disabled:1;
-	u16			pending:1;
+	u8			event_sent;
+	u8			pen_down;
+	u8			disabled;
+	u8			disable_depth;
 
 	int			hw_flags;
 
@@ -271,52 +266,32 @@ static void tsc2301_ts_stop_scan(struct tsc2301 *tsc)
 	tsc2301_write_reg(tsc, TSC2301_REG_ADC, TSC2301_ADCREG_STOP_CONVERSION);
 }
 
-static int device_suspended(struct device *dev)
-{
-	struct tsc2301 *tsc = dev_get_drvdata(dev);
-	return dev->power.power_state.event != PM_EVENT_ON || tsc->ts->disabled;
-}
-
 static void update_pen_state(struct tsc2301_ts *ts, int x, int y, int pressure)
 {
-	int sync = 0;
-
 	if (pressure) {
 		input_report_abs(ts->idev, ABS_X, x);
 		input_report_abs(ts->idev, ABS_Y, y);
 		input_report_abs(ts->idev, ABS_PRESSURE, pressure);
 		if (!ts->pen_down)
 			input_report_key(ts->idev, BTN_TOUCH, 1);
-		sync = 1;
-	} else if (ts->pen_down) {
+		ts->pen_down = 1;
+	} else {
 		input_report_abs(ts->idev, ABS_PRESSURE, 0);
-		input_report_key(ts->idev, BTN_TOUCH, 0);
-		sync = 1;
+		if (ts->pen_down)
+			input_report_key(ts->idev, BTN_TOUCH, 0);
+		ts->pen_down = 0;
 	}
 
-	if (sync)
-		input_sync(ts->idev);
+	input_sync(ts->idev);
 
-	ts->pen_down = pressure ? 1 : 0;
 #ifdef VERBOSE
 	dev_dbg(&tsc->spi->dev, "x %4d y %4d p %4d\n", x, y, pressure);
 #endif
 }
 
-/*
- * This procedure is called by the SPI framework after the coordinates
- * have been read from TSC2301
- */
-static void tsc2301_ts_rx(void *arg)
+static int filter(struct tsc2301_ts *ts, int x, int y, int z1, int z2)
 {
-	struct tsc2301 *tsc = arg;
-	struct tsc2301_ts *ts = tsc->ts;
-	unsigned int x, y, z1, z2, pressure;
-
-	x  = ts->data[0];
-	y  = ts->data[1];
-	z1 = ts->data[2];
-	z2 = ts->data[3];
+	int pressure, pressure_limit;
 
 	if (z1) {
 		pressure = ts->x_plate_ohm * x;
@@ -329,133 +304,110 @@ static void tsc2301_ts_rx(void *arg)
 	/* If pressure value is above a preset limit (pen is barely
 	 * touching the screen) we can't trust the coordinate values.
 	 */
-	if (pressure < ts->pressure_limit && x < MAX_12BIT && y < MAX_12BIT) {
-		ts->pressure_limit = ts->max_pressure;
-		if (ts->ignore_last) {
-			if (ts->sample_cnt)
-				update_pen_state(ts, ts->x, ts->y, ts->p);
-			ts->x = x;
-			ts->y = y;
-			ts->p = pressure;
-		} else
-			update_pen_state(ts, x, y, pressure);
-		ts->sample_cnt++;
+	pressure_limit = ts->event_sent? ts->max_pressure: ts->touch_pressure;
+
+	if (pressure < pressure_limit && x < MAX_12BIT && y < MAX_12BIT) {
+		ts->x = x;
+		ts->y = y;
+		ts->p = pressure;
+		return 1;
 	}
-
-	mod_timer(&ts->timer,
-		  jiffies + msecs_to_jiffies(TSC2301_TS_SCAN_TIME));
-}
-
-static int is_pen_down(struct tsc2301_ts *ts)
-{
-	return ts->pen_down;
+	return 0;
 }
 
 /*
- * Timer is called every TSC2301_TS_SCAN_TIME when the pen is down
+ * This procedure is called by the SPI framework after the coordinates
+ * have been read from TSC2301
  */
-static void tsc2301_ts_timer(unsigned long arg)
+static void tsc2301_ts_rx(void *arg)
 {
-	struct tsc2301 *tsc = (void *) arg;
+	struct tsc2301 *tsc = arg;
 	struct tsc2301_ts *ts = tsc->ts;
-	unsigned long flags;
-	int ndav;
-	int r;
+	int send_event;
+	int x, y, z1, z2;
 
-	spin_lock_irqsave(&ts->lock, flags);
-	ndav = omap_get_gpio_datain(ts->dav_gpio);
-	if (ndav || device_suspended(&tsc->spi->dev)) {
-		/* Pen has been lifted */
-		if (!device_suspended(&tsc->spi->dev)) {
-			ts->irq_enabled = 1;
-			enable_irq(ts->irq);
-		}
+	x  = ts->data[0];
+	y  = ts->data[1];
+	z1 = ts->data[2];
+	z2 = ts->data[3];
+
+	send_event = filter(ts, x, y, z1, z2);
+	if (send_event) {
+		update_pen_state(ts, ts->x, ts->y, ts->p);
+		ts->event_sent = 1;
+	}
+
+	mod_timer(&ts->penup_timer,
+		  jiffies + msecs_to_jiffies(TSC2301_TS_PENUP_TIME));
+}
+
+/*
+ * Timer is called TSC2301_TS_PENUP_TIME after pen is up
+ */
+static void tsc2301_ts_timer_handler(unsigned long data)
+{
+	struct tsc2301 *tsc = (struct tsc2301 *)data;
+	struct tsc2301_ts *ts = tsc->ts;
+
+	if (ts->event_sent) {
+		ts->event_sent = 0;
 		update_pen_state(ts, 0, 0, 0);
-		ts->pending = 0;
-		spin_unlock_irqrestore(&ts->lock, flags);
-
-	} else {
-		ts->pen_down = 1;
-		spin_unlock_irqrestore(&ts->lock, flags);
-
-		r = spi_async(tsc->spi, &ts->read_msg);
-		if (r)
-			dev_err(&tsc->spi->dev, "ts: spi_async() failed");
 	}
 }
 
 /*
- * This interrupt is called when pen is down and first coordinates are
- * available. That is indicated by a falling edge on DEV line.  IRQ is
- * disabled here because while the pen is down the coordinates are
- * read by a timer.
+ * This interrupt is called when pen is down and coordinates are
+ * available. That is indicated by a falling edge on DEV line.
  */
 static irqreturn_t tsc2301_ts_irq_handler(int irq, void *dev_id)
 {
 	struct tsc2301 *tsc = dev_id;
 	struct tsc2301_ts *ts = tsc->ts;
-	unsigned long flags;
+	int r;
 
-	spin_lock_irqsave(&ts->lock, flags);
-	if (ts->irq_enabled) {
-		ts->irq_enabled = 0;
-		disable_irq(ts->irq);
-		ts->pending = 1;
-		ts->pressure_limit = ts->touch_pressure;
-		ts->sample_cnt = 0;
-		mod_timer(&ts->timer,
-			  jiffies + msecs_to_jiffies(TSC2301_TS_SCAN_TIME));
-	}
-	spin_unlock_irqrestore(&ts->lock, flags);
+	r = spi_async(tsc->spi, &ts->read_msg);
+	if (r)
+		dev_err(&tsc->spi->dev, "ts: spi_async() failed");
+
+	mod_timer(&ts->penup_timer,
+		  jiffies + msecs_to_jiffies(TSC2301_TS_PENUP_TIME));
 
 	return IRQ_HANDLED;
 }
 
-/* Must be called with ts->lock held */
 static void tsc2301_ts_disable(struct tsc2301 *tsc)
 {
 	struct tsc2301_ts *ts = tsc->ts;
 
-	if (ts->disabled)
+	if (ts->disable_depth++ != 0)
 		return;
 
-	ts->disabled = 1;
-	if (!ts->pending) {
-		ts->irq_enabled = 0;
-		disable_irq(ts->irq);
-	} else {
-		while (ts->pending) {
-			spin_unlock_irq(&ts->lock);
-			msleep(1);
-			spin_lock_irq(&ts->lock);
-		}
-	}
+	disable_irq(ts->irq);
 
-	spin_unlock_irq(&ts->lock);
+	/* wait until penup timer expire normally */
+	do {
+		msleep(1);
+	} while (ts->event_sent);
+
 	tsc2301_ts_stop_scan(tsc);
 	/* Workaround a bug where turning on / off touchscreen scanner
 	 * can get the keypad scanner stuck.
 	 */
 	tsc2301_kp_restart(tsc);
-	spin_lock_irq(&ts->lock);
 }
 
 static void tsc2301_ts_enable(struct tsc2301 *tsc)
 {
 	struct tsc2301_ts *ts = tsc->ts;
 
-	if (!ts->disabled)
+	if (--ts->disable_depth != 0)
 		return;
 
-	ts->disabled = 0;
-	ts->irq_enabled = 1;
 	enable_irq(ts->irq);
 
-	spin_unlock_irq(&ts->lock);
 	tsc2301_ts_start_scan(tsc);
 	/* Same workaround as above. */
 	tsc2301_kp_restart(tsc);
-	spin_lock_irq(&ts->lock);
 }
 
 #ifdef CONFIG_PM
@@ -463,9 +415,9 @@ int tsc2301_ts_suspend(struct tsc2301 *tsc)
 {
 	struct tsc2301_ts *ts = tsc->ts;
 
-	spin_lock_irq(&ts->lock);
+	mutex_lock(&ts->mutex);
 	tsc2301_ts_disable(tsc);
-	spin_unlock_irq(&ts->lock);
+	mutex_unlock(&ts->mutex);
 
 	return 0;
 }
@@ -474,9 +426,9 @@ void tsc2301_ts_resume(struct tsc2301 *tsc)
 {
 	struct tsc2301_ts *ts = tsc->ts;
 
-	spin_lock_irq(&ts->lock);
+	mutex_lock(&ts->mutex);
 	tsc2301_ts_enable(tsc);
-	spin_unlock_irq(&ts->lock);
+	mutex_unlock(&ts->mutex);
 }
 #endif
 
@@ -507,7 +459,7 @@ static ssize_t tsc2301_ts_pen_down_show(struct device *dev,
 {
 	struct tsc2301 *tsc = dev_get_drvdata(dev);
 
-	return sprintf(buf, "%u\n", is_pen_down(tsc->ts));
+	return sprintf(buf, "%u\n", tsc->ts->pen_down);
 }
 
 static DEVICE_ATTR(pen_down, S_IRUGO, tsc2301_ts_pen_down_show, NULL);
@@ -531,15 +483,17 @@ static ssize_t tsc2301_ts_disable_store(struct device *dev,
 	int i;
 
 	i = simple_strtoul(buf, &endp, 10);
-	spin_lock_irq(&ts->lock);
+	i = i ? 1 : 0;
+	mutex_lock(&ts->mutex);
+	if (i == ts->disabled) goto out;
+	ts->disabled = i;
 
 	if (i)
 		tsc2301_ts_disable(tsc);
 	else
 		tsc2301_ts_enable(tsc);
-
-	spin_unlock_irq(&ts->lock);
-
+out:
+	mutex_unlock(&ts->mutex);
 	return count;
 }
 
@@ -576,17 +530,16 @@ int __devinit tsc2301_ts_init(struct tsc2301 *tsc,
 	omap_set_gpio_direction(dav_gpio, 1);
 	ts->irq = OMAP_GPIO_IRQ(dav_gpio);
 #endif
-	init_timer(&ts->timer);
-	ts->timer.data = (unsigned long) tsc;
-	ts->timer.function = tsc2301_ts_timer;
+	init_timer(&ts->penup_timer);
+	setup_timer(&ts->penup_timer, tsc2301_ts_timer_handler,
+			(unsigned long)tsc);
 
-	spin_lock_init(&ts->lock);
+	mutex_init(&ts->mutex);
 
 	ts->x_plate_ohm	= pdata->ts_x_plate_ohm ? : 280;
 	ts->hw_avg_max	= pdata->ts_hw_avg;
 	ts->max_pressure = pdata->ts_max_pressure ? : MAX_12BIT;
 	ts->touch_pressure = pdata->ts_touch_pressure ? : ts->max_pressure;
-	ts->ignore_last	= pdata->ts_ignore_last;
 	ts->stab_time	= pdata->ts_stab_time;
 
 	x_max		= pdata->ts_x_max ? : 4096;
@@ -624,7 +577,6 @@ int __devinit tsc2301_ts_init(struct tsc2301 *tsc,
 
 	tsc2301_ts_start_scan(tsc);
 
-	ts->irq_enabled = 1;
 	r = request_irq(ts->irq, tsc2301_ts_irq_handler,
 			IRQF_SAMPLE_RANDOM | IRQF_TRIGGER_FALLING,
 			"tsc2301-ts", tsc);
@@ -667,11 +619,8 @@ err1:
 void __devexit tsc2301_ts_exit(struct tsc2301 *tsc)
 {
 	struct tsc2301_ts *ts = tsc->ts;
-	unsigned long flags;
 
-	spin_lock_irqsave(&ts->lock, flags);
 	tsc2301_ts_disable(tsc);
-	spin_unlock_irqrestore(&ts->lock, flags);
 
 	device_remove_file(&tsc->spi->dev, &dev_attr_disable_ts);
 	device_remove_file(&tsc->spi->dev, &dev_attr_pen_down);

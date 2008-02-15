@@ -27,7 +27,6 @@ struct tsc2301_platform_data {
 	u32	ts_touch_pressure;	/* Pressure limit until we report a
 					   touch event. After that we switch
 					   to ts_max_pressure. */
-	unsigned ts_ignore_last : 1;
 	u32	ts_pressure_fudge;
 	u32	ts_x_max;
 	u32	ts_x_fudge;
