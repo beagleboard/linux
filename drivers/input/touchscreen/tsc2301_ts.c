@@ -39,13 +39,13 @@
  *
  * Initialize:
  *    Request access to GPIO103 (DAV)
- *    tsc2301_dav_irq_handler will trigger when DAV line goes down
+ *    tsc2301_ts_irq_handler will trigger when DAV line goes down
  *
  *  1) Pen is pressed against touchscreeen
  *  2) TSC2301 performs AD conversion
  *  3) After the conversion is done TSC2301 drives DAV line down
- *  4) GPIO IRQ is received and tsc2301_dav_irq_handler is called
- *  5) tsc2301_dav_irq_handler sets up tsc2301_ts_timer in TSC2301_TS_SCAN_TIME
+ *  4) GPIO IRQ is received and tsc2301_ts_irq_handler is called
+ *  5) tsc2301_ts_irq_handler sets up tsc2301_ts_timer in TSC2301_TS_SCAN_TIME
  *  6) tsc2301_ts_timer disables the irq and requests spi driver
  *     to read X, Y, Z1 and Z2
  *  7) SPI framework calls tsc2301_ts_rx after the coordinates are read
@@ -556,6 +556,8 @@ int __devinit tsc2301_ts_init(struct tsc2301 *tsc,
 	struct tsc2301_ts *ts;
 	struct input_dev *idev;
 	int dav_gpio, r;
+	int x_max, y_max;
+	int x_fudge, y_fudge, p_fudge;
 
 	if (pdata->dav_gpio < 0) {
 		dev_err(&tsc->spi->dev, "need DAV GPIO");
@@ -586,10 +588,16 @@ int __devinit tsc2301_ts_init(struct tsc2301 *tsc,
 
 	ts->x_plate_ohm	= pdata->ts_x_plate_ohm ? : 280;
 	ts->hw_avg_max	= pdata->ts_hw_avg;
-	ts->max_pressure= pdata->ts_max_pressure ? : MAX_12BIT;
+	ts->max_pressure = pdata->ts_max_pressure ? : MAX_12BIT;
 	ts->touch_pressure = pdata->ts_touch_pressure ? : ts->max_pressure;
 	ts->ignore_last	= pdata->ts_ignore_last;
 	ts->stab_time	= pdata->ts_stab_time;
+
+	x_max		= pdata->ts_x_max ? : 4096;
+	y_max		= pdata->ts_y_max ? : 4096;
+	x_fudge		= pdata->ts_x_fudge ? : 4;
+	y_fudge		= pdata->ts_y_fudge ? : 8;
+	p_fudge		= pdata->ts_pressure_fudge ? : 2;
 
 	if ((r = tsc2301_ts_check_config(ts, &ts->hw_flags))) {
 		dev_err(&tsc->spi->dev, "invalid configuration\n");
@@ -613,9 +621,10 @@ int __devinit tsc2301_ts_init(struct tsc2301 *tsc,
 	tsc2301_ts_setup_spi_xfer(tsc);
 
 	/* These parameters should perhaps be configurable? */
-	input_set_abs_params(idev, ABS_X, 0, 4096, 0, 0);
-	input_set_abs_params(idev, ABS_Y, 0, 4096, 0, 0);
-	input_set_abs_params(idev, ABS_PRESSURE, 0, 1024, 0, 0);
+	input_set_abs_params(idev, ABS_X, 0, x_max, x_fudge, 0);
+	input_set_abs_params(idev, ABS_Y, 0, y_max, y_fudge, 0);
+	input_set_abs_params(idev, ABS_PRESSURE, 0, ts->max_pressure,
+			     p_fudge, 0);
 
 	tsc2301_ts_start_scan(tsc);
 

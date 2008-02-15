@@ -218,7 +218,6 @@ static int n800_get_keyb_irq_state(struct device *dev)
 static struct tsc2301_platform_data tsc2301_config = {
 	.reset_gpio	= 118,
 	.dav_gpio	= 103,
-	.pen_int_gpio	= 106,
 	.keymap = {
 		-1,		/* Event for bit 0 */
 		KEY_UP,		/* Event for bit 1 (up) */
@@ -333,14 +332,26 @@ static void __init n800_ts_set_config(void)
 			tsc2301_config.ts_x_plate_ohm	= 180;
 			tsc2301_config.ts_hw_avg	= 4;
 			tsc2301_config.ts_ignore_last	= 1;
-			tsc2301_config.ts_max_pressure	= 255;
+			tsc2301_config.ts_max_pressure	= 2048;
+			tsc2301_config.ts_touch_pressure = 400;
 			tsc2301_config.ts_stab_time	= 100;
+			tsc2301_config.ts_pressure_fudge = 2;
+			tsc2301_config.ts_x_max		= 4096;
+			tsc2301_config.ts_x_fudge	= 4;
+			tsc2301_config.ts_y_max		= 4096;
+			tsc2301_config.ts_y_fudge	= 7;
 		} else if (strcmp(conf->panel_name, "ls041y3") == 0) {
 			tsc2301_config.ts_x_plate_ohm	= 280;
 			tsc2301_config.ts_hw_avg	= 16;
-			tsc2301_config.ts_touch_pressure= 215;
-			tsc2301_config.ts_max_pressure	= 255;
+			tsc2301_config.ts_touch_pressure = 400;
+			tsc2301_config.ts_max_pressure	= 2048;
 			tsc2301_config.ts_ignore_last	= 1;
+			tsc2301_config.ts_stab_time	= 1000;
+			tsc2301_config.ts_pressure_fudge = 2;
+			tsc2301_config.ts_x_max		= 4096;
+			tsc2301_config.ts_x_fudge	= 4;
+			tsc2301_config.ts_y_max		= 4096;
+			tsc2301_config.ts_y_fudge	= 7;
 		} else {
 			printk(KERN_ERR "Unknown panel type, set default "
 			       "touchscreen configuration\n");
