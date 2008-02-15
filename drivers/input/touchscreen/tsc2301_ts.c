@@ -100,6 +100,21 @@
 
 #define MAX_12BIT					((1 << 12) - 1)
 
+#define TS_RECT_SIZE					8
+#define TSF_MIN_Z1					100
+#define TSF_MAX_Z2					4000
+
+#define TSF_SAMPLES					4
+
+struct ts_filter {
+	int			sample_cnt;
+
+	int 			avg_x;
+	int 			avg_y;
+	int 			avg_z1;
+	int 			avg_z2;
+};
+
 struct tsc2301_ts {
 	struct input_dev	*idev;
 	char			phys[32];
@@ -110,11 +125,12 @@ struct tsc2301_ts {
 	struct spi_message	read_msg;
 	u16                     data[4];
 
+	struct ts_filter	filter;
+
 	int			hw_avg_max;
 	u16			x;
 	u16			y;
 	u16			p;
-	int			sample_cnt;
 
 	u16			x_plate_ohm;
 	int			stab_time;
@@ -291,25 +307,58 @@ static void update_pen_state(struct tsc2301_ts *ts, int x, int y, int pressure)
 
 static int filter(struct tsc2301_ts *ts, int x, int y, int z1, int z2)
 {
-	int pressure, pressure_limit;
+	int inside_rect, pressure_limit, Rt;
+	struct ts_filter *tsf = &ts->filter;
 
-	if (z1) {
-		pressure = ts->x_plate_ohm * x;
-		pressure /= 4096;
-		pressure *= z2 - z1;
-		pressure /= z1;
-	} else
-		pressure = 0;
+	/* validate pressure and position */
+	if (x > MAX_12BIT || y > MAX_12BIT)
+		return 0;
 
-	/* If pressure value is above a preset limit (pen is barely
-	 * touching the screen) we can't trust the coordinate values.
-	 */
+	/* skip coords if the pressure-components are out of range */
+	if (z1 < TSF_MIN_Z1 || z2 > TSF_MAX_Z2)
+		return 0;
+
+	/* Use the x,y,z1,z2 directly on the first "pen down" event */
+	if (ts->event_sent) {
+		tsf->avg_x  += x;
+		tsf->avg_y  += y;
+		tsf->avg_z1 += z1;
+		tsf->avg_z2 += z2;
+
+		if (++tsf->sample_cnt < TSF_SAMPLES)
+			return 0;
+		x = tsf->avg_x / TSF_SAMPLES;
+		y = tsf->avg_y / TSF_SAMPLES;
+		z1 = tsf->avg_z1 / TSF_SAMPLES;
+		z2 = tsf->avg_z2 / TSF_SAMPLES;
+	}
+	tsf->sample_cnt = 0;
+	tsf->avg_x  = 0;
+	tsf->avg_y  = 0;
+	tsf->avg_z1 = 0;
+	tsf->avg_z2 = 0;
+
 	pressure_limit = ts->event_sent? ts->max_pressure: ts->touch_pressure;
 
-	if (pressure < pressure_limit && x < MAX_12BIT && y < MAX_12BIT) {
+	/* z1 is always at least 100: */
+	Rt = x * (z2 - z1) / z1;
+	Rt = Rt * ts->x_plate_ohm / 4096;
+	if (Rt > pressure_limit)
+		return 0;
+
+	/* discard the event if it still is within the previous rect - unless
+	 * if the pressure is harder, but then use previous x,y position */
+	inside_rect = (
+	    x > (int)ts->x - TS_RECT_SIZE && x < (int)ts->x + TS_RECT_SIZE &&
+	    y > (int)ts->y - TS_RECT_SIZE && y < (int)ts->y + TS_RECT_SIZE);
+
+	if (!ts->event_sent || !inside_rect) {
 		ts->x = x;
 		ts->y = y;
-		ts->p = pressure;
+		ts->p = Rt;
+		return 1;
+	} else if (Rt < ts->p) {
+		ts->p = Rt;
 		return 1;
 	}
 	return 0;
