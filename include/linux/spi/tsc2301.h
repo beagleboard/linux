@@ -12,6 +12,7 @@ struct tsc2301_platform_data {
 	s16	keyb_int;
 	s16	keymap[16];	/* Set a key to a negative value if not used */
 	unsigned kp_rep:1;	/* Enable keypad repeating */
+	char    *keyb_name;     /* Keyboard device name */
 
 	/*
 	 * Touchscreen

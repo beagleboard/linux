@@ -232,6 +232,7 @@ static struct tsc2301_platform_data tsc2301_config = {
 		-1,		/* Event for bit 15 */
 	},
 	.kp_rep 	= 0,
+	.keyb_name	= "Internal keypad",
 };
 
 static void tsc2301_dev_init(void)

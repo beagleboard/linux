@@ -385,7 +385,10 @@ int __devinit tsc2301_kp_init(struct tsc2301 *tsc,
 		r = -ENOMEM;
 		goto err1;
 	}
-	idev->name = "TSC2301 keypad";
+	if (pdata->keyb_name)
+		idev->name = pdata->keyb_name;
+	else
+		idev->name = "TSC2301 keypad";
 	snprintf(kp->phys, sizeof(kp->phys), "%s/input-kp", tsc->spi->dev.bus_id);
 	idev->phys = kp->phys;
 
