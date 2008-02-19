@@ -17,7 +17,6 @@
 #include <linux/io.h>
 #include <asm/irq.h>
 #include <asm/hardware.h>
-#include <asm/arch/hdq.h>
 
 #include "../w1.h"
 #include "../w1_int.h"
@@ -64,6 +63,10 @@ struct hdq_data {
 };
 
 static struct hdq_data *hdq_data;
+
+static int omap_hdq_get(void);
+static int omap_hdq_put(void);
+static int omap_hdq_break(void);
 
 static int __init omap_hdq_probe(struct platform_device *pdev);
 static int omap_hdq_remove(struct platform_device *pdev);
@@ -294,30 +297,9 @@ _omap_hdq_reset(void)
 }
 
 /*
- * Soft reset the HDQ controller.
- */
-int
-omap_hdq_reset(void)
-{
-	int ret;
-
-	ret = down_interruptible(&hdq_data->hdq_semlock);
-	if (ret < 0)
-		return -EINTR;
-
-	if (!hdq_data->hdq_usecount) {
-		up(&hdq_data->hdq_semlock);
-		return -EINVAL;
-	}
-	ret = _omap_hdq_reset();
-	up(&hdq_data->hdq_semlock);
-	return ret;
-}
-
-/*
  * Issue break pulse to the device.
  */
-int
+static int
 omap_hdq_break()
 {
 	int ret;
@@ -379,9 +361,8 @@ omap_hdq_break()
 	up(&hdq_data->hdq_semlock);
 	return ret;
 }
-EXPORT_SYMBOL(omap_hdq_break);
 
-int hdq_read_byte(u8 *val)
+static int hdq_read_byte(u8 *val)
 {
 	int ret;
 	u8 status;
@@ -437,7 +418,7 @@ int hdq_read_byte(u8 *val)
 /*
  * Enable clocks and set the controller to HDQ mode.
  */
-int
+static int
 omap_hdq_get()
 {
 	int ret = 0;
@@ -490,12 +471,11 @@ omap_hdq_get()
 	up(&hdq_data->hdq_semlock);
 	return ret;
 }
-EXPORT_SYMBOL(omap_hdq_get);
 
 /*
  * Disable clocks to the module.
  */
-int
+static int
 omap_hdq_put()
 {
 	int ret = 0;
@@ -518,7 +498,13 @@ omap_hdq_put()
 	up(&hdq_data->hdq_semlock);
 	return ret;
 }
-EXPORT_SYMBOL(omap_hdq_put);
+
+/*
+ * Used to control the call to omap_hdq_get and omap_hdq_put.
+ * HDQ Protocol: Write the CMD|REG_address first, followed by
+ * the data wrire or read.
+ */
+static int init_trans;
 
 /*
  * Read a byte of data from the device.
@@ -531,6 +517,13 @@ static u8 omap_w1_read_byte(void *data)
 	ret = hdq_read_byte(&val);
 	if (ret)
 		return -1;
+
+	/* Write followed by a read, release the module */
+	if (init_trans) {
+		init_trans = 0;
+		omap_hdq_put();
+	}
+
 	return val;
 }
 
@@ -541,8 +534,21 @@ static void omap_w1_write_byte(void *data, u8 byte)
 {
 	u8 status;
 
+	/* First write to initialize the transfer */
+	if (init_trans == 0)
+		omap_hdq_get();
+
+	init_trans++;
+
 	hdq_write_byte(byte, &status);
 	pr_debug("Ctrl status %x\n", status);
+
+	/* Second write, data transfered. Release the module */
+	if (init_trans > 1) {
+		omap_hdq_put();
+		init_trans = 0;
+	}
+
 	return;
 }
 
@@ -602,9 +608,22 @@ static int __init omap_hdq_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
+	if (clk_enable(hdq_data->hdq_fck)) {
+		pr_debug("Can not enable fck\n");
+		clk_disable(hdq_data->hdq_ick);
+		clk_put(hdq_data->hdq_ick);
+		clk_put(hdq_data->hdq_fck);
+		platform_set_drvdata(pdev, NULL);
+		kfree(hdq_data);
+		return -ENODEV;
+	}
+
 	rev = hdq_reg_in(OMAP_HDQ_REVISION);
 	pr_info("OMAP HDQ Hardware Revision %c.%c. Driver in %s mode.\n",
 		(rev >> 4) + '0', (rev & 0x0f) + '0', "Interrupt");
+
+	spin_lock_init(&hdq_data->hdq_spinlock);
+	omap_hdq_break();
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq	< 0) {
@@ -623,9 +642,10 @@ static int __init omap_hdq_probe(struct platform_device *pdev)
 		kfree(hdq_data);
 		return -ENODEV;
 	}
-	spin_lock_init(&hdq_data->hdq_spinlock);
+
 	/* don't clock the HDQ until it is needed */
 	clk_disable(hdq_data->hdq_ick);
+	clk_disable(hdq_data->hdq_fck);
 
 	ret = w1_add_master_device(&omap_w1_master);
 	if (ret) {
