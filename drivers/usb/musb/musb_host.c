@@ -1757,7 +1757,9 @@ static int musb_urb_enqueue(
 	if (!is_host_active(musb) || !musb->is_active)
 		return -ENODEV;
 
+	spin_lock_irqsave(&musb->lock, flags);
 	ret = usb_hcd_link_urb_to_ep(hcd, urb);
+	spin_unlock_irqrestore(&musb->lock, flags);
 	if (ret)
 		return ret;
 
