@@ -255,7 +255,7 @@ static void omap24xxcam_vbq_free_mmap_buffers(struct videobuf_queue *vbq)
 {
 	int i;
 
-	mutex_lock(&vbq->lock);
+	mutex_lock(&vbq->vb_lock);
 
 	for (i = 0; i < VIDEO_MAX_FRAME; i++) {
 		if (NULL == vbq->bufs[i])
@@ -268,7 +268,7 @@ static void omap24xxcam_vbq_free_mmap_buffers(struct videobuf_queue *vbq)
 		vbq->bufs[i] = NULL;
 	}
 
-	mutex_unlock(&vbq->lock);
+	mutex_unlock(&vbq->vb_lock);
 
 	videobuf_mmap_free(vbq);
 }
@@ -354,7 +354,7 @@ static int omap24xxcam_vbq_alloc_mmap_buffers(struct videobuf_queue *vbq,
 	struct omap24xxcam_fh *fh =
 		container_of(vbq, struct omap24xxcam_fh, vbq);
 
-	mutex_lock(&vbq->lock);
+	mutex_lock(&vbq->vb_lock);
 
 	for (i = 0; i < count; i++) {
 		err = omap24xxcam_vbq_alloc_mmap_buffer(vbq->bufs[i]);
@@ -364,7 +364,7 @@ static int omap24xxcam_vbq_alloc_mmap_buffers(struct videobuf_queue *vbq,
 			videobuf_to_dma(vbq->bufs[i])->sglen, i);
 	}
 
-	mutex_unlock(&vbq->lock);
+	mutex_unlock(&vbq->vb_lock);
 
 	return 0;
 out:
@@ -373,7 +373,7 @@ out:
 		omap24xxcam_vbq_free_mmap_buffer(vbq->bufs[i]);
 	}
 
-	mutex_unlock(&vbq->lock);
+	mutex_unlock(&vbq->vb_lock);
 
 	return err;
 }
@@ -1041,9 +1041,9 @@ out:
 	mutex_unlock(&cam->mutex);
 
 	if (!rval) {
-		mutex_lock(&ofh->vbq.lock);
+		mutex_lock(&ofh->vbq.vb_lock);
 		ofh->pix = f->fmt.pix;
-		mutex_unlock(&ofh->vbq.lock);
+		mutex_unlock(&ofh->vbq.vb_lock);
 	}
 
 	memset(f, 0, sizeof(*f));
@@ -1354,13 +1354,13 @@ static unsigned int omap24xxcam_poll(struct file *file,
 	}
 	mutex_unlock(&cam->mutex);
 
-	mutex_lock(&fh->vbq.lock);
+	mutex_lock(&fh->vbq.vb_lock);
 	if (list_empty(&fh->vbq.stream)) {
-		mutex_unlock(&fh->vbq.lock);
+		mutex_unlock(&fh->vbq.vb_lock);
 		return POLLERR;
 	}
 	vb = list_entry(fh->vbq.stream.next, struct videobuf_buffer, stream);
-	mutex_unlock(&fh->vbq.lock);
+	mutex_unlock(&fh->vbq.vb_lock);
 
 	poll_wait(file, &vb->done, wait);
 
@@ -1385,7 +1385,7 @@ static int omap24xxcam_mmap_buffers(struct file *file,
 		return -EBUSY;
 	}
 	mutex_unlock(&cam->mutex);
-	mutex_lock(&vbq->lock);
+	mutex_lock(&vbq->vb_lock);
 
 	/* look for first buffer to map */
 	for (first = 0; first < VIDEO_MAX_FRAME; first++) {
@@ -1424,7 +1424,7 @@ static int omap24xxcam_mmap_buffers(struct file *file,
 	}
 
 out:
-	mutex_unlock(&vbq->lock);
+	mutex_unlock(&vbq->vb_lock);
 
 	return err;
 }
