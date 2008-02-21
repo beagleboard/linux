@@ -1158,16 +1158,12 @@ static int mv_port_start(struct ata_port *ap)
 	struct mv_port_priv *pp;
 	void __iomem *port_mmio = mv_ap_base(ap);
 	unsigned long flags;
-	int tag, rc;
+	int tag;
 
 	pp = devm_kzalloc(dev, sizeof(*pp), GFP_KERNEL);
 	if (!pp)
 		return -ENOMEM;
 	ap->private_data = pp;
-
-	rc = ata_pad_alloc(ap, dev);
-	if (rc)
-		return rc;
 
 	pp->crqb = dma_pool_alloc(hpriv->crqb_pool, GFP_KERNEL, &pp->crqb_dma);
 	if (!pp->crqb)
@@ -1542,7 +1538,7 @@ static void mv_err_intr(struct ata_port *ap, struct ata_queued_cmd *qc)
 		eh_freeze_mask = EDMA_EH_FREEZE_5;
 
 		if (edma_err_cause & EDMA_ERR_SELF_DIS_5) {
-			struct mv_port_priv *pp	= ap->private_data;
+			pp = ap->private_data;
 			pp->pp_flags &= ~MV_PP_FLAG_EDMA_EN;
 			ata_ehi_push_desc(ehi, "EDMA self-disable");
 		}
@@ -1550,7 +1546,7 @@ static void mv_err_intr(struct ata_port *ap, struct ata_queued_cmd *qc)
 		eh_freeze_mask = EDMA_EH_FREEZE;
 
 		if (edma_err_cause & EDMA_ERR_SELF_DIS) {
-			struct mv_port_priv *pp	= ap->private_data;
+			pp = ap->private_data;
 			pp->pp_flags &= ~MV_PP_FLAG_EDMA_EN;
 			ata_ehi_push_desc(ehi, "EDMA self-disable");
 		}
