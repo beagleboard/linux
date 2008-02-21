@@ -37,6 +37,8 @@
  *				Initial version with aic23 codec for osk5912
  */
 
+#include <linux/kernel.h>
+
 #include <sound/driver.h>
 #include <asm/arch/aic23.h>
 
