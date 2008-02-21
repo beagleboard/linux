@@ -80,6 +80,71 @@ struct ehci_omap_clock_defs {
 #define USBHOST_TLL_FCLK	"usbtll_fck"
 /*-------------------------------------------------------------------------*/
 
+
+#ifndef CONFIG_OMAP_EHCI_PHY_MODE
+
+static void omap_usb_utmi_init(struct usb_hcd *hcd, u8 tll_channel_mask)
+{
+	int i;
+
+	/* Use UTMI Ports of TLL */
+	omap_writel((1 << OMAP_UHH_HOSTCONFIG_ULPI_BYPASS_SHIFT),
+						OMAP_UHH_HOSTCONFIG);
+	/* Enusre bit is set */
+	while (!(omap_readl(OMAP_UHH_HOSTCONFIG) &
+		(1 << OMAP_UHH_HOSTCONFIG_ULPI_BYPASS_SHIFT)));
+
+	dev_dbg(hcd->self.controller, "\nEntered UTMI MODE: success\n");
+
+	/* Program the 3 TLL channels upfront */
+
+	for (i = 0; i < OMAP_TLL_CHANNEL_COUNT; i++) {
+
+		/* Disable AutoIdle */
+		omap_writel(omap_readl(OMAP_TLL_CHANNEL_CONF(i)) &
+			    ~(1<<OMAP_TLL_CHANNEL_CONF_UTMIAUTOIDLE_SHIFT),
+			    OMAP_TLL_CHANNEL_CONF(i));
+		/* Disable BitStuffing */
+		omap_writel(omap_readl(OMAP_TLL_CHANNEL_CONF(i)) &
+			    ~(1<<OMAP_TLL_CHANNEL_CONF_ULPINOBITSTUFF_SHIFT),
+			    OMAP_TLL_CHANNEL_CONF(i));
+		/* SDR Mode */
+		omap_writel(omap_readl(OMAP_TLL_CHANNEL_CONF(i)) &
+			    ~(1<<OMAP_TLL_CHANNEL_CONF_ULPIDDRMODE_SHIFT),
+			    OMAP_TLL_CHANNEL_CONF(i));
+
+	}
+
+	/* Program Common TLL register */
+	omap_writel((1 << OMAP_TLL_SHARED_CONF_FCLK_IS_ON_SHIFT) |
+			(1 << OMAP_TLL_SHARED_CONF_USB_DIVRATION_SHIFT) |
+			(0 << OMAP_TLL_SHARED_CONF_USB_180D_SDR_EN_SHIFT) |
+			(0 << OMAP_TLL_SHARED_CONF_USB_90D_DDR_EN_SHFT),
+				OMAP_TLL_SHARED_CONF);
+
+	/* Enable channels now */
+	for (i = 0; i < OMAP_TLL_CHANNEL_COUNT; i++) {
+
+		/* Enable only the channel that is needed */
+		if (!(tll_channel_mask & 1<<i))
+			continue;
+
+		omap_writel(omap_readl(OMAP_TLL_CHANNEL_CONF(i)) |
+			    (1<<OMAP_TLL_CHANNEL_CONF_CHANEN_SHIFT),
+			    OMAP_TLL_CHANNEL_CONF(i));
+
+		omap_writeb(0xBE, OMAP_TLL_ULPI_SCRATCH_REGISTER(i));
+		dev_dbg(hcd->self.controller, "\nULPI_SCRATCH_REG[ch=%d]"
+			"= 0x%02x\n",
+			i+1, omap_readb(OMAP_TLL_ULPI_SCRATCH_REGISTER(i)));
+	}
+}
+
+#else
+# define omap_usb_utmi_init(x, y)	0
+#endif
+
+
 /* omap_start_ehc
  * 	- Start the TI USBHOST controller
  */
@@ -185,17 +250,20 @@ static int omap_start_ehc(struct platform_device *dev, struct usb_hcd *hcd)
 		(1 << OMAP3430_ST_USBTLL_SHIFT)));
 
 	/* perform TLL soft reset, and wait until reset is complete */
-	/* (1<<3) = no idle mode only for initial debugging */
-	omap_writel((1 << OMAP_USBTLL_SYSCONFIG_SOFTRESET_SHIFT) |
-			(1 << OMAP_USBTLL_SYSCONFIG_ENAWAKEUP_SHIFT) |
-			(1 << OMAP_USBTLL_SYSCONFIG_SIDLEMODE_SHIFT) |
-			(1 << OMAP_USBTLL_SYSCONFIG_CACTIVITY_SHIFT),
+	omap_writel(1 << OMAP_USBTLL_SYSCONFIG_SOFTRESET_SHIFT,
 			OMAP_USBTLL_SYSCONFIG);
 	/* Wait for TLL reset to complete */
 	while (!(omap_readl(OMAP_USBTLL_SYSSTATUS) &
 		(1 << OMAP_USBTLL_SYSSTATUS_RESETDONE_SHIFT)));
 
-	dev_dbg(hcd->self.controller, "\n TLL RESET DONE");
+	dev_dbg(hcd->self.controller, "\n TLL RESET DONE\n");
+
+	/* (1<<3) = no idle mode only for initial debugging */
+	omap_writel((1 << OMAP_USBTLL_SYSCONFIG_ENAWAKEUP_SHIFT) |
+			(1 << OMAP_USBTLL_SYSCONFIG_SIDLEMODE_SHIFT) |
+			(1 << OMAP_USBTLL_SYSCONFIG_CACTIVITY_SHIFT),
+			OMAP_USBTLL_SYSCONFIG);
+
 
 	/* Put UHH in NoIdle/NoStandby mode */
 	omap_writel((0 << OMAP_UHH_SYSCONFIG_AUTOIDLE_SHIFT) |
@@ -216,84 +284,12 @@ static int omap_start_ehc(struct platform_device *dev, struct usb_hcd *hcd)
 	dev_dbg(hcd->self.controller, "Entered ULPI PHY MODE: success");
 
 #else
-	/* Use UTMI Ports of TLL */
-	omap_writel((1 << OMAP_UHH_HOSTCONFIG_ULPI_BYPASS_SHIFT),
-						OMAP_UHH_HOSTCONFIG);
-	/* Enusre bit is set */
-	while (!(omap_readl(OMAP_UHH_HOSTCONFIG) &
-		(1 << OMAP_UHH_HOSTCONFIG_ULPI_BYPASS_SHIFT)));
-
-	dev_dbg(hcd->self.controller, "Entered UTMI MODE: success");
-
-	/* Program the 3 TLL channels upfront */
-
-	/* CHANNEL-1 */
-	/* Disable AutoIdle */
-	omap_writel(omap_readl(OMAP_TLL_CHANNEL_CONF(0)) &
-			~(1<<OMAP_TLL_CHANNEL_CONF_UTMIAUTOIDLE_SHIFT),
-			OMAP_TLL_CHANNEL_CONF(0));
-	/* Disable BitStuffing */
-	omap_writel(omap_readl(OMAP_TLL_CHANNEL_CONF(0)) &
-			~(1<<OMAP_TLL_CHANNEL_CONF_ULPINOBITSTUFF_SHIFT),
-			OMAP_TLL_CHANNEL_CONF(0));
-	/* SDR Mode */
-	omap_writel(omap_readl(OMAP_TLL_CHANNEL_CONF(0)) &
-			~(1<<OMAP_TLL_CHANNEL_CONF_ULPIDDRMODE_SHIFT),
-			OMAP_TLL_CHANNEL_CONF(0));
-
-	/* CHANNEL-2 */
-	/* Disable AutoIdle */
-	omap_writel(omap_readl(OMAP_TLL_CHANNEL_CONF(1)) &
-			~(1<<OMAP_TLL_CHANNEL_CONF_UTMIAUTOIDLE_SHIFT),
-			OMAP_TLL_CHANNEL_CONF(1));
-	/* Disable BitStuffing */
-	omap_writel(omap_readl(OMAP_TLL_CHANNEL_CONF(1)) &
-			~(1<<OMAP_TLL_CHANNEL_CONF_ULPINOBITSTUFF_SHIFT),
-			OMAP_TLL_CHANNEL_CONF(1));
-	/* SDR Mode */
-	omap_writel(omap_readl(OMAP_TLL_CHANNEL_CONF(1)) &
-			~(1<<OMAP_TLL_CHANNEL_CONF_ULPIDDRMODE_SHIFT),
-			OMAP_TLL_CHANNEL_CONF(1));
-
-	/* CHANNEL-3 */
-	/* Disable AutoIdle */
-	omap_writel(omap_readl(OMAP_TLL_CHANNEL_CONF(2)) &
-			~(1<<OMAP_TLL_CHANNEL_CONF_UTMIAUTOIDLE_SHIFT),
-			OMAP_TLL_CHANNEL_CONF(2));
-	/* Disable BitStuffing */
-	omap_writel(omap_readl(OMAP_TLL_CHANNEL_CONF(2)) &
-			~(1<<OMAP_TLL_CHANNEL_CONF_ULPINOBITSTUFF_SHIFT),
-			OMAP_TLL_CHANNEL_CONF(2));
-	/* SDR Mode */
-	omap_writel(omap_readl(OMAP_TLL_CHANNEL_CONF(2)) &
-			~(1<<OMAP_TLL_CHANNEL_CONF_ULPIDDRMODE_SHIFT),
-			OMAP_TLL_CHANNEL_CONF(2));
-
-	/* Program Common TLL register */
-	omap_writel((1 << OMAP_TLL_SHARED_CONF_FCLK_IS_ON_SHIFT) |
-			(1 << OMAP_TLL_SHARED_CONF_USB_DIVRATION_SHIFT) |
-			(1 << OMAP_TLL_SHARED_CONF_USB_180D_SDR_EN_SHIFT) |
-			(1 << OMAP_TLL_SHARED_CONF_USB_90D_DDR_EN_SHFT),
-				OMAP_TLL_SHARED_CONF);
-
-	/* Enable All 3 channels now */
-	omap_writel(omap_readl(OMAP_TLL_CHANNEL_CONF(0)) |
-			(1<<OMAP_TLL_CHANNEL_CONF_CHANEN_SHIFT),
-			OMAP_TLL_CHANNEL_CONF(0));
-
-	omap_writel(omap_readl(OMAP_TLL_CHANNEL_CONF(1)) |
-			(1<<OMAP_TLL_CHANNEL_CONF_CHANEN_SHIFT),
-			OMAP_TLL_CHANNEL_CONF(1));
-
-	omap_writel(omap_readl(OMAP_TLL_CHANNEL_CONF(2)) |
-			(1<<OMAP_TLL_CHANNEL_CONF_CHANEN_SHIFT),
-			OMAP_TLL_CHANNEL_CONF(2));
-
-	/* test writing to ulpi scratch register */
-	omap_writeb(0xBE, OMAP_TLL_ULPI_SCRATCH_REGISTER);
-	dev_dbg(hcd->self.controller, "\nULPI_SCRATCH_REG 0x%02x\n",
-			omap_readb(OMAP_TLL_ULPI_SCRATCH_REGISTER));
-
+	/* Enable UTMI mode for all 3 TLL channels */
+	omap_usb_utmi_init(hcd,
+		OMAP_TLL_CHANNEL_1_EN_MASK |
+		OMAP_TLL_CHANNEL_2_EN_MASK |
+		OMAP_TLL_CHANNEL_3_EN_MASK
+		);
 #endif
 
 #ifdef EXTERNAL_PHY_RESET
