@@ -138,6 +138,7 @@ enum {
 	ATA_DFLAG_AN		= (1 << 7), /* AN configured */
 	ATA_DFLAG_HIPM		= (1 << 8), /* device supports HIPM */
 	ATA_DFLAG_DIPM		= (1 << 9), /* device supports DIPM */
+	ATA_DFLAG_DMADIR	= (1 << 10), /* device requires DMADIR */
 	ATA_DFLAG_CFG_MASK	= (1 << 12) - 1,
 
 	ATA_DFLAG_PIO		= (1 << 12), /* device limited to PIO mode */
@@ -1197,7 +1198,7 @@ static inline struct ata_link *ata_port_next_link(struct ata_link *link)
 		return ap->pmp_link;
 	}
 
-	if (++link - ap->pmp_link < ap->nr_pmp_links)
+	if (++link < ap->nr_pmp_links + ap->pmp_link)
 		return link;
 	return NULL;
 }

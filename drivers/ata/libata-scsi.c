@@ -828,7 +828,7 @@ static void ata_scsi_sdev_config(struct scsi_device *sdev)
 
 /**
  *	atapi_drain_needed - Check whether data transfer may overflow
- *	@request: request to be checked
+ *	@rq: request to be checked
  *
  *	ATAPI commands which transfer variable length data to host
  *	might overflow due to application error or hardare bug.  This
@@ -2582,7 +2582,8 @@ static unsigned int atapi_xlat(struct ata_queued_cmd *qc)
 		qc->tf.protocol = ATAPI_PROT_DMA;
 		qc->tf.feature |= ATAPI_PKT_DMA;
 
-		if (atapi_dmadir && (scmd->sc_data_direction != DMA_TO_DEVICE))
+		if ((dev->flags & ATA_DFLAG_DMADIR) &&
+		    (scmd->sc_data_direction != DMA_TO_DEVICE))
 			/* some SATA bridges need us to indicate data xfer direction */
 			qc->tf.feature |= ATAPI_DMADIR;
 	}
