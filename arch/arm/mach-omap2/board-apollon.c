@@ -213,48 +213,39 @@ static struct platform_device apollon_lcd_device = {
 	.id		= -1,
 };
 
-static struct omap_led_config apollon_led_config[] = {
+static struct gpio_led apollon_led_config[] = {
 	{
-		.cdev	= {
-			.name	= "apollon:led0",
-		},
-		.gpio	= LED0_GPIO13,
+		.name			= "d2",
+		.gpio			= LED0_GPIO13,
+		.default_trigger	= "heartbeat",
 	},
 	{
-		.cdev	= {
-			.name	= "apollon:led1",
-		},
-		.gpio	= LED1_GPIO14,
+		.name			= "d3",
+		.gpio			= LED1_GPIO14,
 	},
 	{
-		.cdev	= {
-			.name	= "apollon:led2",
-		},
-		.gpio	= LED2_GPIO15,
+		.name			= "d4",
+		.gpio			= LED2_GPIO15,
 	},
 #ifdef CONFIG_MACH_OMAP_APOLLON_PLUS
 	{
-		.cdev	= {
-			.name	= "apollon:led3",
-		},
-		.gpio	= LED3_GPIO92,
+		.name			= "d5",
+		.gpio			= LED3_GPIO92,
 	},
 	{
-		.cdev	= {
-			.name	= "apollon:led4",
-		},
-		.gpio	= LED4_GPIO93,
+		.name			= "d6",
+		.gpio			= LED4_GPIO93,
 	},
 #endif
 };
 
-static struct omap_led_platform_data apollon_led_data = {
-	.nr_leds	= ARRAY_SIZE(apollon_led_config),
+static struct gpio_led_platform_data apollon_led_data = {
+	.num_leds	= ARRAY_SIZE(apollon_led_config),
 	.leds		= apollon_led_config,
 };
 
 static struct platform_device apollon_led_device = {
-	.name		= "omap-led",
+	.name		= "leds-gpio",
 	.id		= -1,
 	.dev		= {
 		.platform_data	= &apollon_led_data,
@@ -389,30 +380,15 @@ static void __init apollon_led_init(void)
 {
 	/* LED0 - AA10 */
 	omap_cfg_reg(AA10_242X_GPIO13);
-	omap_request_gpio(LED0_GPIO13);
-	omap_set_gpio_direction(LED0_GPIO13, 0);
-	omap_set_gpio_dataout(LED0_GPIO13, 0);
 	/* LED1  - AA6 */
 	omap_cfg_reg(AA6_242X_GPIO14);
-	omap_request_gpio(LED1_GPIO14);
-	omap_set_gpio_direction(LED1_GPIO14, 0);
-	omap_set_gpio_dataout(LED1_GPIO14, 0);
 	/* LED2  - AA4 */
 	omap_cfg_reg(AA4_242X_GPIO15);
-	omap_request_gpio(LED2_GPIO15);
-	omap_set_gpio_direction(LED2_GPIO15, 0);
-	omap_set_gpio_dataout(LED2_GPIO15, 0);
 #ifdef CONFIG_MACH_OMAP_APOLLON_PLUS
 	/* LED3 - M15 */
 	omap_cfg_reg(M15_24XX_GPIO92);
-	omap_request_gpio(LED3_GPIO92);
-	omap_set_gpio_direction(LED3_GPIO92, 0);
-	omap_set_gpio_dataout(LED3_GPIO92, 0);
 	/* LED4 - P20 */
 	omap_cfg_reg(P20_24XX_GPIO93);
-	omap_request_gpio(LED4_GPIO93);
-	omap_set_gpio_direction(LED4_GPIO93, 0);
-	omap_set_gpio_dataout(LED4_GPIO93, 0);
 #endif
 }
 
