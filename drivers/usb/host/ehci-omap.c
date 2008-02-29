@@ -5,9 +5,9 @@
  * Tested on OMAP3430 ES2.0 SDP
  *
  * Copyright (C) 2007-2008 Texas Instruments, Inc.
- * Copyright (C) 2007-2008 Vikram Pandita <vikram.pandita@ti.com>
- * Based on "ehci-fsl.c" by David Brownell and
- * 	    "ehci-au1xxx.c" by K.Boge <karsten.boge@amd.com>
+ * 	Author: Vikram Pandita <vikram.pandita@ti.com>
+ *
+ * Based on "ehci-fsl.c" and "ehci-au1xxx.c" ehci glue layers
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -88,7 +88,11 @@ static void omap_usb_utmi_init(struct usb_hcd *hcd, u8 tll_channel_mask)
 	int i;
 
 	/* Use UTMI Ports of TLL */
-	omap_writel((1 << OMAP_UHH_HOSTCONFIG_ULPI_BYPASS_SHIFT),
+	omap_writel((1 << OMAP_UHH_HOSTCONFIG_ULPI_BYPASS_SHIFT)|
+			(1<<OMAP_UHH_HOSTCONFIG_INCR4_BURST_EN_SHIFT)|
+			(1<<OMAP_UHH_HOSTCONFIG_INCR8_BURST_EN_SHIFT)|
+			(1<<OMAP_UHH_HOSTCONFIG_INCR16_BURST_EN_SHIFT)|
+			(0<<OMAP_UHH_HOSTCONFIG_INCRX_ALIGN_EN_SHIFT),
 						OMAP_UHH_HOSTCONFIG);
 	/* Enusre bit is set */
 	while (!(omap_readl(OMAP_UHH_HOSTCONFIG) &
@@ -275,7 +279,11 @@ static int omap_start_ehc(struct platform_device *dev, struct usb_hcd *hcd)
 
 #ifdef CONFIG_OMAP_EHCI_PHY_MODE
 	/* Bypass the TLL module for PHY mode operation */
-	omap_writel((0 << OMAP_UHH_HOSTCONFIG_ULPI_BYPASS_SHIFT),
+	omap_writel((0 << OMAP_UHH_HOSTCONFIG_ULPI_BYPASS_SHIFT)|
+			(1<<OMAP_UHH_HOSTCONFIG_INCR4_BURST_EN_SHIFT)|
+			(1<<OMAP_UHH_HOSTCONFIG_INCR8_BURST_EN_SHIFT)|
+			(1<<OMAP_UHH_HOSTCONFIG_INCR16_BURST_EN_SHIFT)|
+			(0<<OMAP_UHH_HOSTCONFIG_INCRX_ALIGN_EN_SHIFT),
 						OMAP_UHH_HOSTCONFIG);
 	/* Ensure that BYPASS is set */
 	while (omap_readl(OMAP_UHH_HOSTCONFIG) &

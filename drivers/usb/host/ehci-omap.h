@@ -2,7 +2,7 @@
  * ehci-omap.h - register definitions for USBHOST in OMAP 34xx
  *
  * Copyright (C) 2007-2008 Texas Instruments, Inc.
- * Copyright (C) 2007-2008 Vikram Pandita <vikram.pandita@ti.com>
+ * 	Author: Vikram Pandita <vikram.pandita@ti.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -102,6 +102,10 @@
 #define	OMAP_UHH_SYSSTATUS	(OMAP_USBHOST_UHH_BASE + 0x14)
 #define	OMAP_UHH_HOSTCONFIG	(OMAP_USBHOST_UHH_BASE + 0x40)
 	#define	OMAP_UHH_HOSTCONFIG_ULPI_BYPASS_SHIFT	0
+	#define OMAP_UHH_HOSTCONFIG_INCR4_BURST_EN_SHIFT	2
+	#define OMAP_UHH_HOSTCONFIG_INCR8_BURST_EN_SHIFT	3
+	#define OMAP_UHH_HOSTCONFIG_INCR16_BURST_EN_SHIFT	4
+	#define OMAP_UHH_HOSTCONFIG_INCRX_ALIGN_EN_SHIFT	5
 
 #define	OMAP_UHH_DEBUG_CSR	(OMAP_USBHOST_UHH_BASE + 0x44)
 
