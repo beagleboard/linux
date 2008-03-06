@@ -1214,7 +1214,7 @@ innovator_kbd_init(void)
 	memset(hid, 0, sizeof(struct innovator_hid_dev));
 	hid->mouse = input_allocate_device();
 	hid->mouse->evbit[0] = BIT(EV_KEY) | BIT(EV_REL);
-	hid->mouse->keybit[LONG(BTN_MOUSE)] =
+	hid->mouse->keybit[BIT_WORD(BTN_MOUSE)] =
 	    BIT(BTN_LEFT) | BIT(BTN_RIGHT) |
 	    BIT(BTN_MIDDLE) | BIT(BTN_TOUCH);
 	hid->mouse->relbit[0] = BIT(REL_X) | BIT(REL_Y);

@@ -177,7 +177,7 @@ static int __init omap_ts_probe(struct platform_device *pdev)
 	ts_omap.inputdevice->name = OMAP_TS_NAME;
 	ts_omap.inputdevice->dev = &pdev->dev;
 	ts_omap.inputdevice->evbit[0] = BIT(EV_KEY) | BIT(EV_ABS);
-	ts_omap.inputdevice->keybit[LONG(BTN_TOUCH)] |= BIT(BTN_TOUCH);
+	ts_omap.inputdevice->keybit[BIT_WORD(BTN_TOUCH)] |= BIT(BTN_TOUCH);
 	ts_omap.inputdevice->absbit[0] =
 	    BIT(ABS_X) | BIT(ABS_Y) | BIT(ABS_PRESSURE);
 	input_register_device(ts_omap.inputdevice);
