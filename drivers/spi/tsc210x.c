@@ -1092,6 +1092,11 @@ static int tsc210x_probe(struct spi_device *spi, enum tsc_type type)
 		dev_dbg(&dev->spi->dev, "revision, err %d\n", err);
 		goto err_spi;
 	}
+	if (reg == 0xffff) {
+		err = -ENODEV;
+		dev_dbg(&dev->spi->dev, "no device, err %d\n", err);
+		goto err_spi;
+	}
 	dev_info(&spi->dev, "rev %d, irq %d\n", reg & 0x0007, spi->irq);
 
 	err = tsc210x_configure(dev);
