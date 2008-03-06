@@ -166,10 +166,13 @@ void __init omap2_check_revision(void)
 	 * system_rev & 0xffff0000 -> Omap type (2420/2422/2423/2430/3430)
 	 * system_rev & 0x0000f000 -> Silicon revision (ES1, ES2 )
 	 * system_rev & 0x00000700 -> Device Type ( EMU/HS/GP/BAD )
+	 * system_rev & 0x000000c0 -> IDCODE revision[6:7]
 	 * system_rev & 0x0000003f -> sys_boot[0:5]
 	 */
 	/* Embedding the ES revision info in type field */
 	system_rev = omap_ids[j].type;
+	/* Also add IDCODE revision info only two lower bits */
+	system_rev |= ((rev & 0x3) << 6);
 
 	/* Add in the device type and sys_boot fields (see above) */
 	if (cpu_is_omap24xx()) {
