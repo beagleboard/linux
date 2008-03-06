@@ -41,7 +41,6 @@ static struct gpio_keys_button apollon_gpio_keys_buttons[] = {
 		.gpio		= SW_DOWN_GPIO58,
 		.desc		= "down sw",
 	},
-#ifdef CONFIG_MACH_OMAP_APOLLON_PLUS
 	[3] = {
 		.code		= KEY_LEFT,
 		.gpio		= SW_LEFT_GPIO95,
@@ -57,7 +56,6 @@ static struct gpio_keys_button apollon_gpio_keys_buttons[] = {
 		.gpio		= SW_ESC_GPIO97,
 		.desc		= "esc sw",
 	},
-#endif
 };
 
 static struct gpio_keys_platform_data apollon_gpio_keys = {
@@ -81,14 +79,16 @@ static void __init apollon_sw_init(void)
 	omap_cfg_reg(AA12_242X_GPIO17);
 	/* Down SW - AA8 */
 	omap_cfg_reg(AA8_242X_GPIO58);
-#ifdef CONFIG_MACH_OMAP_APOLLON_PLUS
-	/* Left SW - P18 */
-	omap_cfg_reg(P18_24XX_GPIO95);
-	/* Right SW - M18 */
-	omap_cfg_reg(M18_24XX_GPIO96);
-	/* Esc SW - L14 */
-	omap_cfg_reg(L14_24XX_GPIO97);
-#endif
+
+	if (apollon_plus()) {
+		/* Left SW - P18 */
+		omap_cfg_reg(P18_24XX_GPIO95);
+		/* Right SW - M18 */
+		omap_cfg_reg(M18_24XX_GPIO96);
+		/* Esc SW - L14 */
+		omap_cfg_reg(L14_24XX_GPIO97);
+	} else
+		apollon_gpio_keys.nbuttons = 3;
 }
 
 static int __init omap_apollon_keys_init(void)

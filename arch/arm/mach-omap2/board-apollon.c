@@ -227,7 +227,6 @@ static struct gpio_led apollon_led_config[] = {
 		.name			= "d4",
 		.gpio			= LED2_GPIO15,
 	},
-#ifdef CONFIG_MACH_OMAP_APOLLON_PLUS
 	{
 		.name			= "d5",
 		.gpio			= LED3_GPIO92,
@@ -236,7 +235,6 @@ static struct gpio_led apollon_led_config[] = {
 		.name			= "d6",
 		.gpio			= LED4_GPIO93,
 	},
-#endif
 };
 
 static struct gpio_led_platform_data apollon_led_data = {
@@ -384,12 +382,14 @@ static void __init apollon_led_init(void)
 	omap_cfg_reg(AA6_242X_GPIO14);
 	/* LED2  - AA4 */
 	omap_cfg_reg(AA4_242X_GPIO15);
-#ifdef CONFIG_MACH_OMAP_APOLLON_PLUS
-	/* LED3 - M15 */
-	omap_cfg_reg(M15_24XX_GPIO92);
-	/* LED4 - P20 */
-	omap_cfg_reg(P20_24XX_GPIO93);
-#endif
+
+	if (apollon_plus()) {
+		/* LED3 - M15 */
+		omap_cfg_reg(M15_24XX_GPIO92);
+		/* LED4 - P20 */
+		omap_cfg_reg(P20_24XX_GPIO93);
+	} else
+		apollon_led_data.num_leds = 3;
 }
 
 static void __init apollon_usb_init(void)

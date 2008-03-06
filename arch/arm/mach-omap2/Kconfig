@@ -94,16 +94,6 @@ config MACH_OMAP_APOLLON
 	bool "OMAP 2420 Apollon board"
 	depends on ARCH_OMAP2 && ARCH_OMAP2420
 
-config MACH_OMAP_APOLLON_PLUS
-	bool "OMAP 2420 Apollon Plus board"
-	depends on ARCH_OMAP2 && ARCH_OMAP2420
-	select MACH_OMAP_APOLLON
-	help
-	  It contains more LEDs, SWs, and so on
-
-	  Note that it is only tested with version 1.1 and more
-	  We have to test the version 1.0
-
 config MACH_OMAP_2430SDP
 	bool "OMAP 2430 SDP board"
 	depends on ARCH_OMAP2 && ARCH_OMAP2430
