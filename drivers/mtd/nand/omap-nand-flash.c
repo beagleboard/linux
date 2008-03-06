@@ -28,6 +28,7 @@
 
 #include <asm/io.h>
 #include <asm/arch/hardware.h>
+#include <asm/arch/nand.h>
 
 #define	DRIVER_NAME	"omapnand"
 
