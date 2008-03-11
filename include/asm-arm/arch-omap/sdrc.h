@@ -16,10 +16,6 @@
 
 #include <asm/arch/io.h>
 
-#define OMAP242X_SDRC_REGADDR(reg)	(void __iomem *)IO_ADDRESS(OMAP242X_SDRC_BASE + reg)
-#define OMAP243X_SDRC_REGADDR(reg)	(void __iomem *)IO_ADDRESS(OMAP243X_SDRC_BASE + reg)
-#define OMAP343X_SDRC_REGADDR(reg)	(void __iomem *)IO_ADDRESS(OMAP343X_SDRC_BASE + reg)
-
 /* SDRC register offsets - read/write with sdrc_{read,write}_reg() */
 
 #define SDRC_SYSCONFIG		0x010

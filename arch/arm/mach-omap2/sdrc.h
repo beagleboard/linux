@@ -15,15 +15,16 @@
  */
 #undef DEBUG
 
-#include <linux/kernel.h>
 #include <asm/arch/sdrc.h>
 
+#ifndef __ASSEMBLER__
 extern unsigned long omap2_sdrc_base;
 extern unsigned long omap2_sms_base;
 
-#define OMAP_SDRC_REGADDR(reg)	(void __iomem *)IO_ADDRESS(omap2_sdrc_base + reg)
-#define OMAP_SMS_REGADDR(reg)	(void __iomem *)IO_ADDRESS(omap2_sms_base + reg)
-
+#define OMAP_SDRC_REGADDR(reg)						\
+		(void __iomem *)IO_ADDRESS(omap2_sdrc_base + (reg))
+#define OMAP_SMS_REGADDR(reg)						\
+		(void __iomem *)IO_ADDRESS(omap2_sms_base + (reg))
 
 /* SDRC global register get/set */
 
@@ -54,7 +55,10 @@ static u32 __attribute__((unused)) sms_read_reg(u16 reg)
 {
 	return __raw_readl(OMAP_SMS_REGADDR(reg));
 }
-
-
+#else
+#define OMAP242X_SDRC_REGADDR(reg)	IO_ADDRESS(OMAP242X_SDRC_BASE + (reg))
+#define OMAP243X_SDRC_REGADDR(reg)	IO_ADDRESS(OMAP243X_SDRC_BASE + (reg))
+#define OMAP34XX_SDRC_REGADDR(reg)	IO_ADDRESS(OMAP343X_SDRC_BASE + (reg))
+#endif	/* __ASSEMBLER__ */
 
 #endif

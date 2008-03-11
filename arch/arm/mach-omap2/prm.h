@@ -19,7 +19,8 @@
 #include "prcm_common.h"
 
 
-#define OMAP_PRM_REGADDR(module, reg)	(void __iomem *)IO_ADDRESS(OMAP2_PRM_BASE + module + reg)
+#define OMAP_PRM_REGADDR(module, reg)					\
+	(void __iomem *)IO_ADDRESS(OMAP2_PRM_BASE + (module) + (reg))
 
 /*
  * Architecture-specific global PRM registers

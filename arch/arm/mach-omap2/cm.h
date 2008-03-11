@@ -14,12 +14,19 @@
  * published by the Free Software Foundation.
  */
 
-#include <linux/kernel.h>
-#include <asm/io.h>
 #include "prcm_common.h"
 
-
-#define OMAP_CM_REGADDR(module, reg)	 (void __iomem *)IO_ADDRESS(OMAP2_CM_BASE + module + reg)
+#ifndef __ASSEMBLER__
+#define OMAP_CM_REGADDR(module, reg)					\
+	(void __iomem *)IO_ADDRESS(OMAP2_CM_BASE + (module) + (reg))
+#else
+#define OMAP2420_CM_REGADDR(module, reg)				\
+			IO_ADDRESS(OMAP2420_CM_BASE + (module) + (reg))
+#define OMAP2430_CM_REGADDR(module, reg)				\
+			IO_ADDRESS(OMAP2430_CM_BASE + (module) + (reg))
+#define OMAP34XX_CM_REGADDR(module, reg)				\
+			IO_ADDRESS(OMAP3430_CM_BASE + (module) + (reg))
+#endif
 
 /*
  * Architecture-specific global CM registers
@@ -32,7 +39,7 @@
 
 #define OMAP3430_CM_CLKOUT_CTRL		OMAP_CM_REGADDR(OMAP3430_CCR_MOD, 0x0070)
 
-
+#ifndef __ASSEMBLER__
 /* Clock management global register get/set */
 
 static void __attribute__((unused)) cm_write_reg(u32 val, void __iomem *addr)
@@ -46,7 +53,7 @@ static u32 __attribute__((unused)) cm_read_reg(void __iomem *addr)
 {
 	return __raw_readl(addr);
 }
-
+#endif
 
 /*
  * Module specific CM registers from CM_BASE + domain offset
@@ -86,6 +93,7 @@ static u32 __attribute__((unused)) cm_read_reg(void __iomem *addr)
 
 /* Clock management domain register get/set */
 
+#ifndef __ASSEMBLER__
 static void __attribute__((unused)) cm_write_mod_reg(u32 val, s16 module, s16 idx)
 {
 	cm_write_reg(val, OMAP_CM_REGADDR(module, idx));
@@ -95,6 +103,7 @@ static u32 __attribute__((unused)) cm_read_mod_reg(s16 module, s16 idx)
 {
 	return cm_read_reg(OMAP_CM_REGADDR(module, idx));
 }
+#endif
 
 /* CM register bits shared between 24XX and 3430 */
 
