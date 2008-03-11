@@ -30,14 +30,14 @@
 
 	.text
 
-ENTRY(sram_ddr_init)
+ENTRY(omap24xx_sram_ddr_init)
 	stmfd	sp!, {r0 - r12, lr}	@ save registers on stack
 
 	mov	r12, r2			@ capture CS1 vs CS0
 	mov	r8, r3			@ capture force parameter
 
 	/* frequency shift down */
-	ldr	r2, omap2_sdi_cm_clksel2_pll	@ get address of dpllout reg
+	ldr	r2, omap24xx_sdi_cm_clksel2_pll	@ get address of dpllout reg
 	mov	r3, #0x1		@ value for 1x operation
 	str	r3, [r2]		@ go to L1-freq operation
 
@@ -46,7 +46,7 @@ ENTRY(sram_ddr_init)
 	bl voltage_shift		@ go drop voltage
 
 	/* dll lock mode */
-	ldr	r11, omap2_sdi_sdrc_dlla_ctrl	@ addr of dlla ctrl
+	ldr	r11, omap24xx_sdi_sdrc_dlla_ctrl	@ addr of dlla ctrl
 	ldr	r10, [r11]		@ get current val
 	cmp	r12, #0x1		@ cs1 base (2422 es2.05/1)
 	addeq	r11, r11, #0x8		@ if cs1 base, move to DLLB
@@ -97,7 +97,7 @@ i_dll_delay:
 	 * wait for it to finish, use 32k sync counter, 1tick=31uS.
 	 */
 voltage_shift:
-	ldr	r4, omap2_sdi_prcm_voltctrl	@ get addr of volt ctrl.
+	ldr	r4, omap24xx_sdi_prcm_voltctrl	@ get addr of volt ctrl.
 	ldr	r5, [r4]		@ get value.
 	ldr	r6, prcm_mask_val	@ get value of mask
 	and	r5, r5, r6		@ apply mask to clear bits
@@ -107,7 +107,7 @@ voltage_shift:
 	orr	r5, r5, r3		@ build value for force
 	str	r5, [r4]		@ Force transition to L1
 
-	ldr	r3, omap2_sdi_timer_32ksynct_cr	@ get addr of counter
+	ldr	r3, omap24xx_sdi_timer_32ksynct_cr	@ get addr of counter
 	ldr	r5, [r3]		@ get value
 	add	r5, r5, #0x3		@ give it at most 93uS
 volt_delay:
@@ -117,36 +117,36 @@ volt_delay:
 	mov	pc, lr			@ back to caller.
 
 /* relative load constants */
-	.globl omap2_sdi_cm_clksel2_pll
-	.globl omap2_sdi_sdrc_dlla_ctrl
-	.globl omap2_sdi_prcm_voltctrl
-	.globl omap2_sdi_timer_32ksynct_cr
+	.globl omap24xx_sdi_cm_clksel2_pll
+	.globl omap24xx_sdi_sdrc_dlla_ctrl
+	.globl omap24xx_sdi_prcm_voltctrl
+	.globl omap24xx_sdi_timer_32ksynct_cr
 
-omap2_sdi_cm_clksel2_pll:
+omap24xx_sdi_cm_clksel2_pll:
 	.word SRAM_VA_MAGIC
-omap2_sdi_sdrc_dlla_ctrl:
+omap24xx_sdi_sdrc_dlla_ctrl:
 	.word SRAM_VA_MAGIC
-omap2_sdi_prcm_voltctrl:
+omap24xx_sdi_prcm_voltctrl:
 	.word SRAM_VA_MAGIC
 prcm_mask_val:
 	.word 0xFFFF3FFC
-omap2_sdi_timer_32ksynct_cr:
+omap24xx_sdi_timer_32ksynct_cr:
 	.word SRAM_VA_MAGIC
-ENTRY(sram_ddr_init_sz)
-	.word	. - sram_ddr_init
+ENTRY(omap24xx_sram_ddr_init_sz)
+	.word	. - omap24xx_sram_ddr_init
 
 /*
  * Reprograms memory timings.
  * r0 = [PRCM_FULL | PRCM_HALF] r1 = SDRC_DLLA_CTRL value r2 = [DDR | SDR]
  * PRCM_FULL = 2, PRCM_HALF = 1, DDR = 1, SDR = 0
  */
-ENTRY(sram_reprogram_sdrc)
+ENTRY(omap24xx_sram_reprogram_sdrc)
 	stmfd	sp!, {r0 - r10, lr}	@ save registers on stack
 	mov	r3, #0x0		@ clear for mrc call
 	mcr	p15, 0, r3, c7, c10, 4	@ memory barrier, finish ARM SDR/DDR
 	nop
 	nop
-	ldr	r6, omap2_srs_sdrc_rfr_ctrl	@ get addr of refresh reg
+	ldr	r6, omap24xx_srs_sdrc_rfr_ctrl	@ get addr of refresh reg
 	ldr	r5, [r6]		@ get value
 	mov	r5, r5, lsr #8		@ isolate rfr field and drop burst
 
@@ -160,7 +160,7 @@ ENTRY(sram_reprogram_sdrc)
 	movne	r5, r5, lsl #1		@ mult by 2 if to full
 	mov	r5, r5, lsl #8		@ put rfr field back into place
 	add	r5, r5, #0x1		@ turn on burst of 1
-	ldr	r4, omap2_srs_cm_clksel2_pll	@ get address of out reg
+	ldr	r4, omap24xx_srs_cm_clksel2_pll	@ get address of out reg
 	ldr	r3, [r4]		@ get curr value
 	orr	r3, r3, #0x3
 	bic	r3, r3, #0x3		@ clear lower bits
@@ -181,7 +181,7 @@ ENTRY(sram_reprogram_sdrc)
 	bne	freq_out		@ leave if SDR, no DLL function
 
 	/* With DDR, we need to take care of the DLL for the frequency change */
-	ldr	r2, omap2_srs_sdrc_dlla_ctrl	@ addr of dlla ctrl
+	ldr	r2, omap24xx_srs_sdrc_dlla_ctrl	@ addr of dlla ctrl
 	str	r1, [r2]		@ write out new SDRC_DLLA_CTRL
 	add	r2, r2, #0x8		@ addr to SDRC_DLLB_CTRL
 	str	r1, [r2]		@ commit to SDRC_DLLB_CTRL
@@ -197,7 +197,7 @@ freq_out:
      *	wait for it to finish, use 32k sync counter, 1tick=31uS.
      */
 voltage_shift_c:
-	ldr	r10, omap2_srs_prcm_voltctrl	@ get addr of volt ctrl
+	ldr	r10, omap24xx_srs_prcm_voltctrl	@ get addr of volt ctrl
 	ldr	r8, [r10]		@ get value
 	ldr	r7, ddr_prcm_mask_val	@ get value of mask
 	and	r8, r8, r7		@ apply mask to clear bits
@@ -207,7 +207,7 @@ voltage_shift_c:
 	orr	r8, r8, r7		@ build value for force
 	str	r8, [r10]		@ Force transition to L1
 
-	ldr	r10, omap2_srs_timer_32ksynct	@ get addr of counter
+	ldr	r10, omap24xx_srs_timer_32ksynct	@ get addr of counter
 	ldr	r8, [r10]		@ get value
 	add	r8, r8, #0x2		@ give it at most 62uS (min 31+)
 volt_delay_c:
@@ -216,45 +216,45 @@ volt_delay_c:
 	bhi	volt_delay_c		@ not yet->branch
 	mov	pc, lr			@ back to caller
 
-	.globl omap2_srs_cm_clksel2_pll
-	.globl omap2_srs_sdrc_dlla_ctrl
-	.globl omap2_srs_sdrc_rfr_ctrl
-	.globl omap2_srs_prcm_voltctrl
-	.globl omap2_srs_timer_32ksynct
+	.globl omap24xx_srs_cm_clksel2_pll
+	.globl omap24xx_srs_sdrc_dlla_ctrl
+	.globl omap24xx_srs_sdrc_rfr_ctrl
+	.globl omap24xx_srs_prcm_voltctrl
+	.globl omap24xx_srs_timer_32ksynct
 
-omap2_srs_cm_clksel2_pll:
+omap24xx_srs_cm_clksel2_pll:
 	.word SRAM_VA_MAGIC
-omap2_srs_sdrc_dlla_ctrl:
+omap24xx_srs_sdrc_dlla_ctrl:
 	.word SRAM_VA_MAGIC
-omap2_srs_sdrc_rfr_ctrl:
+omap24xx_srs_sdrc_rfr_ctrl:
 	.word SRAM_VA_MAGIC
-omap2_srs_prcm_voltctrl:
+omap24xx_srs_prcm_voltctrl:
 	.word SRAM_VA_MAGIC
 ddr_prcm_mask_val:
 	.word 0xFFFF3FFC
-omap2_srs_timer_32ksynct:
+omap24xx_srs_timer_32ksynct:
 	.word SRAM_VA_MAGIC
 
-ENTRY(sram_reprogram_sdrc_sz)
-	.word	. - sram_reprogram_sdrc
+ENTRY(omap24xx_sram_reprogram_sdrc_sz)
+	.word	. - omap24xx_sram_reprogram_sdrc
 
 /*
  * Set dividers and pll. Also recalculate DLL value for DDR and unlock mode.
  */
-ENTRY(sram_set_prcm)
+ENTRY(omap24xx_sram_set_prcm)
 	stmfd	sp!, {r0-r12, lr}	@ regs to stack
 	adr	r4, pbegin		@ addr of preload start
 	adr	r8, pend		@ addr of preload end
 	mcrr	p15, 1, r8, r4, c12	@ preload into icache
 pbegin:
 	/* move into fast relock bypass */
-	ldr	r8, omap2_ssp_pll_ctl	@ get addr
+	ldr	r8, omap24xx_ssp_pll_ctl	@ get addr
 	ldr	r5, [r8]		@ get val
 	mvn	r6, #0x3		@ clear mask
 	and	r5, r5, r6		@ clear field
 	orr	r7, r5, #0x2		@ fast relock val
 	str	r7, [r8]		@ go to fast relock
-	ldr	r4, omap2_ssp_pll_stat	@ addr of stat
+	ldr	r4, omap24xx_ssp_pll_stat	@ addr of stat
 block:
 	/* wait for bypass */
 	ldr	r8, [r4]		@ stat value
@@ -263,10 +263,10 @@ block:
 	bne	block			@ loop if not
 
 	/* set new dpll dividers _after_ in bypass */
-	ldr	r4, omap2_ssp_pll_div	@ get addr
+	ldr	r4, omap24xx_ssp_pll_div	@ get addr
 	str	r0, [r4]		@ set dpll ctrl val
 
-	ldr	r4, omap2_ssp_set_config	@ get addr
+	ldr	r4, omap24xx_ssp_set_config	@ get addr
 	mov	r8, #1			@ valid cfg msk
 	str	r8, [r4]		@ make dividers take
 
@@ -280,8 +280,8 @@ wait_a_bit:
 	beq	pend			@ jump over dpll relock
 
 	/* relock DPLL with new vals */
-	ldr	r5, omap2_ssp_pll_stat	@ get addr
-	ldr	r4, omap2_ssp_pll_ctl	@ get addr
+	ldr	r5, omap24xx_ssp_pll_stat	@ get addr
+	ldr	r4, omap24xx_ssp_pll_ctl	@ get addr
 	orr	r8, r7, #0x3		@ val for lock dpll
 	str	r8, [r4]		@ set val
 	mov	r0, #1000		@ dead spin a bit
@@ -295,9 +295,9 @@ wait_lock:
 	bne	wait_lock		@ wait if not
 pend:
 	/* update memory timings & briefly lock dll */
-	ldr	r4, omap2_ssp_sdrc_rfr	@ get addr
+	ldr	r4, omap24xx_ssp_sdrc_rfr	@ get addr
 	str	r1, [r4]		@ update refresh timing
-	ldr	r11, omap2_ssp_dlla_ctrl	@ get addr of DLLA ctrl
+	ldr	r11, omap24xx_ssp_dlla_ctrl	@ get addr of DLLA ctrl
 	ldr	r10, [r11]		@ get current val
 	mvn	r9, #0x4		@ mask to get clear bit2
 	and	r10, r10, r9		@ clear bit2 for lock mode
@@ -313,25 +313,25 @@ wait_dll_lock:
 	nop
 	ldmfd	sp!, {r0-r12, pc}	@ restore regs and return
 
-	.globl omap2_ssp_set_config
-	.globl omap2_ssp_pll_ctl
-	.globl omap2_ssp_pll_stat
-	.globl omap2_ssp_pll_div
-	.globl omap2_ssp_sdrc_rfr
-	.globl omap2_ssp_dlla_ctrl
+	.globl omap24xx_ssp_set_config
+	.globl omap24xx_ssp_pll_ctl
+	.globl omap24xx_ssp_pll_stat
+	.globl omap24xx_ssp_pll_div
+	.globl omap24xx_ssp_sdrc_rfr
+	.globl omap24xx_ssp_dlla_ctrl
 
-omap2_ssp_set_config:
+omap24xx_ssp_set_config:
 	.word SRAM_VA_MAGIC
-omap2_ssp_pll_ctl:
+omap24xx_ssp_pll_ctl:
 	.word SRAM_VA_MAGIC
-omap2_ssp_pll_stat:
+omap24xx_ssp_pll_stat:
 	.word SRAM_VA_MAGIC
-omap2_ssp_pll_div:
+omap24xx_ssp_pll_div:
 	.word SRAM_VA_MAGIC
-omap2_ssp_sdrc_rfr:
+omap24xx_ssp_sdrc_rfr:
 	.word SRAM_VA_MAGIC
-omap2_ssp_dlla_ctrl:
+omap24xx_ssp_dlla_ctrl:
 	.word SRAM_VA_MAGIC
 
-ENTRY(sram_set_prcm_sz)
-	.word	. - sram_set_prcm
+ENTRY(omap24xx_sram_set_prcm_sz)
+	.word	. - omap24xx_sram_set_prcm

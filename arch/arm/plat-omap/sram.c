@@ -46,9 +46,9 @@
 #define SRAM_BOOTLOADER_SZ	0x80
 #endif
 
-#define VA_REQINFOPERM0		IO_ADDRESS(0x68005048)
-#define VA_READPERM0		IO_ADDRESS(0x68005050)
-#define VA_WRITEPERM0		IO_ADDRESS(0x68005058)
+#define OMAP24XX_VA_REQINFOPERM0	IO_ADDRESS(0x68005048)
+#define OMAP24XX_VA_READPERM0		IO_ADDRESS(0x68005050)
+#define OMAP24XX_VA_WRITEPERM0		IO_ADDRESS(0x68005058)
 #define GP_DEVICE		0x300
 
 #define ROUND_DOWN(value,boundary)	((value) & (~((boundary)-1)))
@@ -65,21 +65,21 @@ extern unsigned long omapfb_reserve_sram(unsigned long sram_pstart,
 					 unsigned long size_avail);
 
 /* Global symbols in sram-fn.S to be patched with omap_sram_patch_va() */
-extern void *omap2_sdi_cm_clksel2_pll;
-extern void *omap2_sdi_sdrc_dlla_ctrl;
-extern void *omap2_sdi_prcm_voltctrl;
-extern void *omap2_sdi_timer_32ksynct_cr;
-extern void *omap2_srs_cm_clksel2_pll;
-extern void *omap2_srs_sdrc_dlla_ctrl;
-extern void *omap2_srs_sdrc_rfr_ctrl;
-extern void *omap2_srs_prcm_voltctrl;
-extern void *omap2_srs_timer_32ksynct;
-extern void *omap2_ssp_set_config;
-extern void *omap2_ssp_pll_ctl;
-extern void *omap2_ssp_pll_stat;
-extern void *omap2_ssp_pll_div;
-extern void *omap2_ssp_sdrc_rfr;
-extern void *omap2_ssp_dlla_ctrl;
+extern void *omap24xx_sdi_cm_clksel2_pll;
+extern void *omap24xx_sdi_sdrc_dlla_ctrl;
+extern void *omap24xx_sdi_prcm_voltctrl;
+extern void *omap24xx_sdi_timer_32ksynct_cr;
+extern void *omap24xx_srs_cm_clksel2_pll;
+extern void *omap24xx_srs_sdrc_dlla_ctrl;
+extern void *omap24xx_srs_sdrc_rfr_ctrl;
+extern void *omap24xx_srs_prcm_voltctrl;
+extern void *omap24xx_srs_timer_32ksynct;
+extern void *omap24xx_ssp_set_config;
+extern void *omap24xx_ssp_pll_ctl;
+extern void *omap24xx_ssp_pll_stat;
+extern void *omap24xx_ssp_pll_div;
+extern void *omap24xx_ssp_sdrc_rfr;
+extern void *omap24xx_ssp_dlla_ctrl;
 
 
 /*
@@ -98,9 +98,9 @@ static int is_sram_locked(void)
 	if (type == GP_DEVICE) {
 		/* RAMFW: R/W access to all initiators for all qualifier sets */
 		if (cpu_is_omap242x()) {
-			__raw_writel(0xFF, VA_REQINFOPERM0); /* all q-vects */
-			__raw_writel(0xCFDE, VA_READPERM0);  /* all i-read */
-			__raw_writel(0xCFDE, VA_WRITEPERM0); /* all i-write */
+			__raw_writel(0xFF, OMAP24XX_VA_REQINFOPERM0); /* all q-vects */
+			__raw_writel(0xCFDE, OMAP24XX_VA_READPERM0);  /* all i-read */
+			__raw_writel(0xCFDE, OMAP24XX_VA_WRITEPERM0); /* all i-write */
 		}
 		return 0;
 	} else
@@ -345,69 +345,81 @@ u32 omap2_set_prcm(u32 dpll_ctrl_val, u32 sdrc_rfr_val, int bypass)
 
 	return _omap2_set_prcm(dpll_ctrl_val, sdrc_rfr_val, bypass);
 }
+#endif
 
-int __init omap2_sram_init(void)
+#ifdef CONFIG_ARCH_OMAP2
+int __init omap24xx_sram_init(void)
 {
-	_omap2_sram_ddr_init = omap_sram_push(sram_ddr_init, sram_ddr_init_sz);
+	_omap2_sram_ddr_init = omap_sram_push(omap24xx_sram_ddr_init,
+					omap24xx_sram_ddr_init_sz);
 
 	/* Patch in the correct register addresses for multiboot */
-	omap_sram_patch_va(sram_ddr_init, &omap2_sdi_cm_clksel2_pll,
+	omap_sram_patch_va(omap24xx_sram_ddr_init, &omap24xx_sdi_cm_clksel2_pll,
 			   _omap2_sram_ddr_init,
 			   OMAP_CM_REGADDR(PLL_MOD, CM_CLKSEL2));
-	omap_sram_patch_va(sram_ddr_init, &omap2_sdi_sdrc_dlla_ctrl,
+	omap_sram_patch_va(omap24xx_sram_ddr_init, &omap24xx_sdi_sdrc_dlla_ctrl,
 			   _omap2_sram_ddr_init,
 			   OMAP_SDRC_REGADDR(SDRC_DLLA_CTRL));
-	omap_sram_patch_va(sram_ddr_init, &omap2_sdi_prcm_voltctrl,
+	omap_sram_patch_va(omap24xx_sram_ddr_init, &omap24xx_sdi_prcm_voltctrl,
 			   _omap2_sram_ddr_init, OMAP24XX_PRCM_VOLTCTRL);
-	omap_sram_patch_va(sram_ddr_init, &omap2_sdi_timer_32ksynct_cr,
+	omap_sram_patch_va(omap24xx_sram_ddr_init,
+			   &omap24xx_sdi_timer_32ksynct_cr,
 			   _omap2_sram_ddr_init,
 			   (void __iomem *)IO_ADDRESS(OMAP2_32KSYNCT_BASE + 0x010));
 
-	_omap2_sram_reprogram_sdrc = omap_sram_push(sram_reprogram_sdrc,
-						    sram_reprogram_sdrc_sz);
+	_omap2_sram_reprogram_sdrc = omap_sram_push(omap24xx_sram_reprogram_sdrc,
+						    omap24xx_sram_reprogram_sdrc_sz);
 
-	omap_sram_patch_va(sram_reprogram_sdrc, &omap2_srs_cm_clksel2_pll,
+	omap_sram_patch_va(omap24xx_sram_reprogram_sdrc,
+			   &omap24xx_srs_cm_clksel2_pll,
 			   _omap2_sram_reprogram_sdrc,
 			   OMAP_CM_REGADDR(PLL_MOD, CM_CLKSEL2));
-	omap_sram_patch_va(sram_reprogram_sdrc, &omap2_srs_sdrc_dlla_ctrl,
+	omap_sram_patch_va(omap24xx_sram_reprogram_sdrc,
+			   &omap24xx_srs_sdrc_dlla_ctrl,
 			   _omap2_sram_reprogram_sdrc,
 			   OMAP_SDRC_REGADDR(SDRC_DLLA_CTRL));
-	omap_sram_patch_va(sram_reprogram_sdrc, &omap2_srs_sdrc_rfr_ctrl,
+	omap_sram_patch_va(omap24xx_sram_reprogram_sdrc,
+			   &omap24xx_srs_sdrc_rfr_ctrl,
 			   _omap2_sram_reprogram_sdrc,
 			   OMAP_SDRC_REGADDR(SDRC_RFR_CTRL_0));
-	omap_sram_patch_va(sram_reprogram_sdrc, &omap2_srs_prcm_voltctrl,
+	omap_sram_patch_va(omap24xx_sram_reprogram_sdrc,
+			   &omap24xx_srs_prcm_voltctrl,
 			   _omap2_sram_reprogram_sdrc,
 			   OMAP24XX_PRCM_VOLTCTRL);
-	omap_sram_patch_va(sram_reprogram_sdrc, &omap2_srs_timer_32ksynct,
+	omap_sram_patch_va(omap24xx_sram_reprogram_sdrc,
+			   &omap24xx_srs_timer_32ksynct,
 			   _omap2_sram_reprogram_sdrc,
 			   (void __iomem *)IO_ADDRESS(OMAP2_32KSYNCT_BASE + 0x010));
 
-	_omap2_set_prcm = omap_sram_push(sram_set_prcm, sram_set_prcm_sz);
+	_omap2_set_prcm = omap_sram_push(omap24xx_sram_set_prcm,
+					 omap24xx_sram_set_prcm_sz);
 
-	/* REVISIT: prefix all these symbols with omap2_sram_ */
-	omap_sram_patch_va(sram_set_prcm, &omap2_ssp_set_config,
+	omap_sram_patch_va(omap24xx_sram_set_prcm, &omap24xx_ssp_set_config,
 			   _omap2_set_prcm,
 			   OMAP24XX_PRCM_CLKCFG_CTRL);
-	omap_sram_patch_va(sram_set_prcm, &omap2_ssp_pll_ctl,
+	omap_sram_patch_va(omap24xx_sram_set_prcm, &omap24xx_ssp_pll_ctl,
 			   _omap2_set_prcm,
 			   OMAP_CM_REGADDR(PLL_MOD, CM_CLKEN));
-	omap_sram_patch_va(sram_set_prcm, &omap2_ssp_pll_stat,
+	omap_sram_patch_va(omap24xx_sram_set_prcm, &omap24xx_ssp_pll_stat,
 			   _omap2_set_prcm,
 			   OMAP_CM_REGADDR(PLL_MOD, CM_IDLEST));
-	omap_sram_patch_va(sram_set_prcm, &omap2_ssp_pll_div,
+	omap_sram_patch_va(omap24xx_sram_set_prcm, &omap24xx_ssp_pll_div,
 			   _omap2_set_prcm,
 			   OMAP_CM_REGADDR(PLL_MOD, CM_CLKSEL1));
-	omap_sram_patch_va(sram_set_prcm, &omap2_ssp_sdrc_rfr,
+	omap_sram_patch_va(omap24xx_sram_set_prcm, &omap24xx_ssp_sdrc_rfr,
 			   _omap2_set_prcm,
 			   OMAP_SDRC_REGADDR(SDRC_RFR_CTRL_0));
-	omap_sram_patch_va(sram_set_prcm, &omap2_ssp_dlla_ctrl,
+	omap_sram_patch_va(omap24xx_sram_set_prcm, &omap24xx_ssp_dlla_ctrl,
 			   _omap2_set_prcm,
 			   OMAP_SDRC_REGADDR(SDRC_DLLA_CTRL));
 
 	return 0;
 }
 #else
-#define omap2_sram_init()	do {} while (0)
+static inline int omap24xx_sram_init(void)
+{
+	return 0;
+}
 #endif
 
 int __init omap_sram_init(void)
@@ -417,8 +429,8 @@ int __init omap_sram_init(void)
 
 	if (!(cpu_class_is_omap2()))
 		omap1_sram_init();
-	else
-		omap2_sram_init();
+	else if (cpu_is_omap24xx())
+		omap24xx_sram_init();
 
 	return 0;
 }
