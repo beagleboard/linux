@@ -1,5 +1,5 @@
 /*
- * linux/arch/arm/plat-omap/timer32k.c
+ * linux/arch/arm/mach-omap1/timer32k.c
  *
  * OMAP 32K Timer
  *
