@@ -539,7 +539,7 @@ static inline void set_24xx_gpio_triggering(struct gpio_bank *bank, int gpio,
 			bank->enabled_non_wakeup_gpios &= ~gpio_bit;
 	}
 
-	bank->level_mask = 
+	bank->level_mask =
 		__raw_readl(bank->base + OMAP24XX_GPIO_LEVELDETECT0) |
 		__raw_readl(bank->base + OMAP24XX_GPIO_LEVELDETECT1);
 }
@@ -657,7 +657,7 @@ static int gpio_irq_type(unsigned irq, unsigned type)
 		__set_irq_handler_unlocked(irq, handle_level_irq);
 	else if (type & (IRQ_TYPE_EDGE_FALLING | IRQ_TYPE_EDGE_RISING))
 		__set_irq_handler_unlocked(irq, handle_edge_irq);
-			
+
 	return retval;
 }
 
@@ -1105,7 +1105,7 @@ static void gpio_unmask_irq(unsigned int irq)
 		_set_gpio_irqenable(bank, gpio, 0);
 		_clear_gpio_irqstatus(bank, gpio);
 	}
-		
+
 	_set_gpio_irqenable(bank, gpio, 1);
 }
 
