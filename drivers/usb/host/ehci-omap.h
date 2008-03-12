@@ -25,7 +25,7 @@
 
 #include <asm/hardware.h>
 #include "../../../arch/arm/mach-omap2/cm.h"
-#include "../../../arch/arm/mach-omap2/cm_regbits_34xx.h"
+#include "../../../arch/arm/mach-omap2/cm-regbits-34xx.h"
 
 /*
  * OMAP USBHOST Register addresses: PHYSICAL ADDRESSES

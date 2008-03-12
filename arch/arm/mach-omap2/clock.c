@@ -43,7 +43,7 @@
 #include "prm_regbits_24xx.h"
 #include "cm.h"
 #include "cm-regbits-24xx.h"
-#include "cm_regbits_34xx.h"
+#include "cm-regbits-34xx.h"
 
 #define MAX_CLOCK_ENABLE_WAIT		100000
 

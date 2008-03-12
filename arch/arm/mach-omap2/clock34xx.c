@@ -35,7 +35,7 @@
 #include "prm.h"
 #include "prm_regbits_34xx.h"
 #include "cm.h"
-#include "cm_regbits_34xx.h"
+#include "cm-regbits-34xx.h"
 
 /* CM_CLKEN_PLL*.EN* bit values */
 #define DPLL_LOCKED		0x7

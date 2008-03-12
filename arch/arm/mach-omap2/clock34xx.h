@@ -14,7 +14,7 @@
 
 #include "clock.h"
 #include "cm.h"
-#include "cm_regbits_34xx.h"
+#include "cm-regbits-34xx.h"
 #include "prm.h"
 #include "prm_regbits_34xx.h"
 
