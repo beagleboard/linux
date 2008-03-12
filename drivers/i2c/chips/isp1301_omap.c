@@ -35,6 +35,7 @@
 #include <linux/workqueue.h>
 #include <asm/arch/usb.h>
 
+#include <asm/mach-types.h> /* FIXME: Move machine_is_* to board-*.c files */
 
 #ifndef	DEBUG
 #undef	VERBOSE
