@@ -38,7 +38,7 @@
 #include "prm.h"
 #include "prm_regbits_24xx.h"
 #include "cm.h"
-#include "cm_regbits_24xx.h"
+#include "cm-regbits-24xx.h"
 
 /* CM_CLKEN_PLL.EN_{54,96}M_PLL options (24XX) */
 #define EN_APLL_STOPPED			0

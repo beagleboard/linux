@@ -49,7 +49,7 @@
 #include "prm.h"
 #include "prm_regbits_24xx.h"
 #include "cm.h"
-#include "cm_regbits_24xx.h"
+#include "cm-regbits-24xx.h"
 #include "sdrc.h"
 
 /* These addrs are in assembly language code to be patched at runtime */

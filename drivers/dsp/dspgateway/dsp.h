@@ -33,7 +33,7 @@
 #include "../../../arch/arm/mach-omap2/prm.h"
 #include "../../../arch/arm/mach-omap2/prm_regbits_24xx.h"
 #include "../../../arch/arm/mach-omap2/cm.h"
-#include "../../../arch/arm/mach-omap2/cm_regbits_24xx.h"
+#include "../../../arch/arm/mach-omap2/cm-regbits-24xx.h"
 #endif
 
 /*

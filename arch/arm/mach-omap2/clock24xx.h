@@ -26,7 +26,7 @@
 #include "prm.h"
 #include "cm.h"
 #include "prm_regbits_24xx.h"
-#include "cm_regbits_24xx.h"
+#include "cm-regbits-24xx.h"
 #include "sdrc.h"
 
 static void omap2_table_mpu_recalc(struct clk *clk);
