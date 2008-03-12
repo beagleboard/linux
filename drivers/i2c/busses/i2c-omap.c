@@ -590,7 +590,7 @@ omap_i2c_isr(int this_irq, void *dev_id)
 	struct omap_i2c_dev *dev = dev_id;
 	u16 bits;
 	u16 stat, w;
-	int count = 0;
+	int err, count = 0;
 
 	if (dev->idle)
 		return IRQ_NONE;
@@ -605,10 +605,19 @@ omap_i2c_isr(int this_irq, void *dev_id)
 
 		omap_i2c_write_reg(dev, OMAP_I2C_STAT_REG, stat);
 
-		if (stat & OMAP_I2C_STAT_ARDY) {
-			omap_i2c_complete_cmd(dev, 0);
-			continue;
+		err = 0;
+		if (stat & OMAP_I2C_STAT_NACK) {
+			err |= OMAP_I2C_STAT_NACK;
+			omap_i2c_write_reg(dev, OMAP_I2C_CON_REG,
+					   OMAP_I2C_CON_STP);
 		}
+		if (stat & OMAP_I2C_STAT_AL) {
+			dev_err(dev->dev, "Arbitration lost\n");
+			err |= OMAP_I2C_STAT_AL;
+		}
+		if (stat & (OMAP_I2C_STAT_ARDY | OMAP_I2C_STAT_NACK |
+					OMAP_I2C_STAT_AL))
+			omap_i2c_complete_cmd(dev, err);
 		if (stat & (OMAP_I2C_STAT_RRDY | OMAP_I2C_STAT_RDR)) {
 			u8 num_bytes = 1;
 			if (dev->fifo_size) {
@@ -640,7 +649,6 @@ omap_i2c_isr(int this_irq, void *dev_id)
 				}
 			}
 			omap_i2c_ack_stat(dev, stat & (OMAP_I2C_STAT_RRDY | OMAP_I2C_STAT_RDR));
-			continue;
 		}
 		if (stat & (OMAP_I2C_STAT_XRDY | OMAP_I2C_STAT_XDR)) {
 			u8 num_bytes = 1;
@@ -674,7 +682,6 @@ omap_i2c_isr(int this_irq, void *dev_id)
 				omap_i2c_write_reg(dev, OMAP_I2C_DATA_REG, w);
 			}
 			omap_i2c_ack_stat(dev, stat & (OMAP_I2C_STAT_XRDY | OMAP_I2C_STAT_XDR));
-			continue;
 		}
 		if (stat & OMAP_I2C_STAT_ROVR) {
 			dev_err(dev->dev, "Receive overrun\n");
@@ -683,15 +690,6 @@ omap_i2c_isr(int this_irq, void *dev_id)
 		if (stat & OMAP_I2C_STAT_XUDF) {
 			dev_err(dev->dev, "Transmit overflow\n");
 			dev->cmd_err |= OMAP_I2C_STAT_XUDF;
-		}
-		if (stat & OMAP_I2C_STAT_NACK) {
-			omap_i2c_complete_cmd(dev, OMAP_I2C_STAT_NACK);
-			omap_i2c_write_reg(dev, OMAP_I2C_CON_REG,
-					   OMAP_I2C_CON_STP);
-		}
-		if (stat & OMAP_I2C_STAT_AL) {
-			dev_err(dev->dev, "Arbitration lost\n");
-			omap_i2c_complete_cmd(dev, OMAP_I2C_STAT_AL);
 		}
 	}
 
