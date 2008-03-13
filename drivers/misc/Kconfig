@@ -317,6 +317,17 @@ config INTEL_MENLOW
 
 	  If unsure, say N.
 
+config OMAP_STI
+	bool "STI/XTI support"
+	depends on ARCH_OMAP16XX || ARCH_OMAP24XX
+	default n
+
+config OMAP_STI_CONSOLE
+	bool "STI console support"
+	depends on OMAP_STI
+	help
+	  This enables a console driver by way of STI/XTI.
+
 config ENCLOSURE_SERVICES
 	tristate "Enclosure Services"
 	default n
