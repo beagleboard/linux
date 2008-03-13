@@ -496,7 +496,7 @@ static struct file_operations proc_omap_ck_operations = {
 
 int __init omap_ck_init(void)
 {
-    struct proc_dir_entry *entry;
+	struct proc_dir_entry *entry;
 
 	entry = create_proc_entry("omap_clocks", 0, NULL);
 	if (entry)
@@ -506,4 +506,3 @@ int __init omap_ck_init(void)
 }
 __initcall(omap_ck_init);
 #endif
-

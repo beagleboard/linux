@@ -115,14 +115,6 @@ u32 omap2_get_dpll_rate(struct clk *clk)
 	dpll_clk = (long long)clk->parent->rate * dpll_mult;
 	do_div(dpll_clk, dpll_div + 1);
 
-	/* 34XX only */
-	if (dd->div2_reg) {
-		dpll = cm_read_reg(dd->div2_reg);
-		dpll_div = dpll & dd->div2_mask;
-		dpll_div >>= mask_to_shift(dd->div2_mask);
-		do_div(dpll_clk, dpll_div + 1);
-	}
-
 	return dpll_clk;
 }
 
