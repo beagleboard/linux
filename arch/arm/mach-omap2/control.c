@@ -20,7 +20,8 @@
 
 static u32 omap2_ctrl_base;
 
-#define OMAP_CTRL_REGADDR(reg)	(void __iomem *)IO_ADDRESS(omap2_ctrl_base + reg)
+#define OMAP_CTRL_REGADDR(reg)	(void __iomem *)IO_ADDRESS(omap2_ctrl_base \
+								+ (reg))
 
 void omap_ctrl_base_set(u32 base)
 {

@@ -457,7 +457,7 @@
 
 /* CM_FCLKEN_DSS */
 #define OMAP3430_EN_TV					(1 << 2)
-#define OMAP3430_EN_TV_SHIFT				       2
+#define OMAP3430_EN_TV_SHIFT				2
 #define OMAP3430_EN_DSS2				(1 << 1)
 #define OMAP3430_EN_DSS2_SHIFT				1
 #define OMAP3430_EN_DSS1				(1 << 0)

@@ -70,7 +70,7 @@ static u32 __attribute__((unused)) cm_read_reg(void __iomem *addr)
 #define CM_ICLKEN2					0x0014
 #define CM_ICLKEN3					0x0018
 #define CM_IDLEST1					0x0020
-#define CM_IDLEST                                       CM_IDLEST1
+#define CM_IDLEST					CM_IDLEST1
 #define CM_IDLEST2					0x0024
 #define CM_AUTOIDLE					0x0030
 #define CM_AUTOIDLE1					0x0030
@@ -94,7 +94,8 @@ static u32 __attribute__((unused)) cm_read_reg(void __iomem *addr)
 /* Clock management domain register get/set */
 
 #ifndef __ASSEMBLER__
-static void __attribute__((unused)) cm_write_mod_reg(u32 val, s16 module, s16 idx)
+static void __attribute__((unused)) cm_write_mod_reg(u32 val, s16 module,
+							s16 idx)
 {
 	cm_write_reg(val, OMAP_CM_REGADDR(module, idx));
 }
