@@ -33,7 +33,7 @@
 #include "clock.h"
 #include "clock34xx.h"
 #include "prm.h"
-#include "prm_regbits_34xx.h"
+#include "prm-regbits-34xx.h"
 #include "cm.h"
 #include "cm-regbits-34xx.h"
 

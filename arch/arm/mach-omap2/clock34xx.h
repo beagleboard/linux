@@ -16,7 +16,7 @@
 #include "cm.h"
 #include "cm-regbits-34xx.h"
 #include "prm.h"
-#include "prm_regbits_34xx.h"
+#include "prm-regbits-34xx.h"
 
 static void omap3_dpll_recalc(struct clk *clk);
 static void omap3_clkoutx2_recalc(struct clk *clk);
