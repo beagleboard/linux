@@ -36,7 +36,7 @@
 #include "clock.h"
 #include "clock24xx.h"
 #include "prm.h"
-#include "prm_regbits_24xx.h"
+#include "prm-regbits-24xx.h"
 #include "cm.h"
 #include "cm-regbits-24xx.h"
 
