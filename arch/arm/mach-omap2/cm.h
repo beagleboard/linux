@@ -14,7 +14,7 @@
  * published by the Free Software Foundation.
  */
 
-#include "prcm_common.h"
+#include "prcm-common.h"
 
 #ifndef __ASSEMBLER__
 #define OMAP_CM_REGADDR(module, reg)					\

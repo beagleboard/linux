@@ -16,7 +16,7 @@
 
 #include <linux/kernel.h>
 #include <asm/io.h>
-#include "prcm_common.h"
+#include "prcm-common.h"
 
 
 #define OMAP_PRM_REGADDR(module, reg)					\
