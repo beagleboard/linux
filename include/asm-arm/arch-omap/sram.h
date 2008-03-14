@@ -24,6 +24,9 @@ extern void omap2_sram_reprogram_sdrc(u32 perf_level, u32 dll_val,
 extern u32 omap2_set_prcm(u32 dpll_ctrl_val, u32 sdrc_rfr_val, int bypass);
 
 /* Do not use these */
+extern void omap1_sram_reprogram_clock(u32 ckctl, u32 dpllctl);
+extern unsigned long omap1_sram_reprogram_clock_sz;
+
 extern void omap24xx_sram_reprogram_clock(u32 ckctl, u32 dpllctl);
 extern unsigned long omap24xx_sram_reprogram_clock_sz;
 

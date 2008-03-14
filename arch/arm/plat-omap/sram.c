@@ -338,8 +338,9 @@ void omap_sram_reprogram_clock(u32 dpllctl, u32 ckctl)
 
 int __init omap1_sram_init(void)
 {
-	_omap_sram_reprogram_clock = omap_sram_push(sram_reprogram_clock,
-						    sram_reprogram_clock_sz);
+	_omap_sram_reprogram_clock =
+			omap_sram_push(omap1_sram_reprogram_clock,
+					omap1_sram_reprogram_clock_sz);
 
 	return 0;
 }
