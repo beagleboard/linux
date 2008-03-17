@@ -529,7 +529,7 @@ int __init omap2_clk_init(void)
 			continue;
 		}
 
-		if ((*clkp)->flags & CLOCK_IN_OMAP243X && (cpu_is_omap2430() || cpu_is_omap34xx())) {
+		if ((*clkp)->flags & CLOCK_IN_OMAP243X && cpu_is_omap2430()) {
 			clk_register(*clkp);
 			continue;
 		}
