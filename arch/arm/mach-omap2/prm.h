@@ -14,13 +14,19 @@
  * published by the Free Software Foundation.
  */
 
-#include <linux/kernel.h>
-#include <asm/io.h>
 #include "prcm-common.h"
 
-
+#ifndef __ASSEMBLER__
 #define OMAP_PRM_REGADDR(module, reg)					\
 	(void __iomem *)IO_ADDRESS(OMAP2_PRM_BASE + (module) + (reg))
+#else
+#define OMAP2420_PRM_REGADDR(module, reg)				\
+			IO_ADDRESS(OMAP2420_PRM_BASE + (module) + (reg))
+#define OMAP2430_PRM_REGADDR(module, reg)				\
+			IO_ADDRESS(OMAP2430_PRM_BASE + (module) + (reg))
+#define OMAP34XX_PRM_REGADDR(module, reg)				\
+			IO_ADDRESS(OMAP3430_PRM_BASE + (module) + (reg))
+#endif
 
 /*
  * Architecture-specific global PRM registers
@@ -91,6 +97,8 @@
 #define OMAP3430_PRM_CLKSEL		OMAP_PRM_REGADDR(OMAP3430_CCR_MOD, 0x0040)
 #define OMAP3430_PRM_CLKOUT_CTRL	OMAP_PRM_REGADDR(OMAP3430_CCR_MOD, 0x0070)
 
+#ifndef __ASSEMBLER__
+
 /* Power/reset management global register get/set */
 
 static void __attribute__((unused)) prm_write_reg(u32 val, void __iomem *addr)
@@ -105,6 +113,7 @@ static u32 __attribute__((unused)) prm_read_reg(void __iomem *addr)
 	return __raw_readl(addr);
 }
 
+#endif
 
 /*
  * Module specific PRM registers from PRM_BASE + domain offset
@@ -156,6 +165,7 @@ static u32 __attribute__((unused)) prm_read_reg(void __iomem *addr)
 #define OMAP24XX_PRCM_IRQSTATUS_IVA			0x00f8
 #define OMAP24XX_PRCM_IRQENABLE_IVA			0x00fc
 
+#ifndef __ASSEMBLER__
 
 /* Power/reset management domain register get/set */
 
@@ -169,6 +179,7 @@ static u32 __attribute__((unused)) prm_read_mod_reg(s16 module, s16 idx)
 	return prm_read_reg(OMAP_PRM_REGADDR(module, idx));
 }
 
+#endif
 
 /*
  * Bits common to specific registers

@@ -16,6 +16,7 @@
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/clk.h>
+#include <linux/io.h>
 
 #include "prm.h"
 #include "prm-regbits-24xx.h"

@@ -56,7 +56,7 @@ static u32 __attribute__((unused)) sms_read_reg(u16 reg)
 	return __raw_readl(OMAP_SMS_REGADDR(reg));
 }
 #else
-#define OMAP242X_SDRC_REGADDR(reg)	IO_ADDRESS(OMAP242X_SDRC_BASE + (reg))
+#define OMAP242X_SDRC_REGADDR(reg)	IO_ADDRESS(OMAP2420_SDRC_BASE + (reg))
 #define OMAP243X_SDRC_REGADDR(reg)	IO_ADDRESS(OMAP243X_SDRC_BASE + (reg))
 #define OMAP34XX_SDRC_REGADDR(reg)	IO_ADDRESS(OMAP343X_SDRC_BASE + (reg))
 #endif	/* __ASSEMBLER__ */
