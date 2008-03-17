@@ -2299,7 +2299,7 @@ static int proc_otg_show(struct seq_file *s)
 		 * do with the frame adjustment counter and McBSP2.
 		 */
 		ctrl_name = "control_devconf";
-		trans = ctrl_read_reg(OMAP2_CONTROL_DEVCONF0);
+		trans = omap_ctrl_readb(OMAP2_CONTROL_DEVCONF0);
 	} else {
 		ctrl_name = "tranceiver_ctrl";
 		trans = USB_TRANSCEIVER_CTRL_REG;
