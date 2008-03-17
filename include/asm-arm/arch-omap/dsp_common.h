@@ -49,7 +49,7 @@ struct omap_dsp {
 	int			initialized;
 };
 
-if defined(CONFIG_ARCH_OMAP1) && defined(CONFIG_OMAP_MMU_FWK)
+#if defined(CONFIG_ARCH_OMAP1) && defined(CONFIG_OMAP_MMU_FWK)
 extern void omap_dsp_request_mpui(void);
 extern void omap_dsp_release_mpui(void);
 extern int omap_dsp_request_mem(void);
