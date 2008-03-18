@@ -104,7 +104,7 @@ struct omap_mmu {
 
 	enum omap_mmu_type type;
 
-	struct device dev;
+	struct device *dev;
 
 	struct rw_semaphore exmap_sem;
 	struct exmap_tbl *exmap_tbl;
