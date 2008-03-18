@@ -25,6 +25,7 @@
 #include <linux/fs.h>
 #include <linux/device.h>
 #include <linux/init.h>
+#include <asm/io.h>
 #include "dsp.h"
 
 #define CTL_MINOR	0
