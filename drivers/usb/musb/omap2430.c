@@ -219,13 +219,7 @@ int __init musb_platform_init(struct musb *musb)
 
 #if defined(CONFIG_ARCH_OMAP2430)
 	omap_cfg_reg(AE5_2430_USB0HS_STP);
-	/* get the clock */
-	musb->clock = clk_get((struct device *)musb->controller, "usbhs_ick");
-#else
-	musb->clock = clk_get((struct device *)musb->controller, "hsotgusb_ick");
 #endif
-	if(IS_ERR(musb->clock))
-		return PTR_ERR(musb->clock);
 
 	musb->xceiv = *xceiv;
 	musb_platform_resume(musb);
@@ -261,13 +255,11 @@ int musb_platform_suspend(struct musb *musb)
 	OTG_SYSCONFIG_REG |= AUTOIDLE;		/* enable auto idle */
 
 	musb->xceiv.set_suspend(&musb->xceiv, 1);
-	clk_disable(musb->clock);
 	return 0;
 }
 
 int musb_platform_resume(struct musb *musb)
 {
-	clk_enable(musb->clock);
 	musb->xceiv.set_suspend(&musb->xceiv, 0);
 
 	OTG_FORCESTDBY_REG &= ~ENABLEFORCE; /* disable MSTANDBY */

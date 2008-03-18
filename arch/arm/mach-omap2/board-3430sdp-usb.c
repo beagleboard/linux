@@ -16,11 +16,13 @@
 #include <linux/errno.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
+#include <linux/clk.h>
 #include <asm/io.h>
 #include <asm/arch/mux.h>
 #include <linux/usb/musb.h>
 
 #include <asm/arch/hardware.h>
+#include <asm/arch/pm.h>
 #include <asm/arch/usb.h>
 
 #ifdef CONFIG_USB_MUSB_SOC
@@ -40,6 +42,29 @@ static struct resource musb_resources[] = {
 	},
 };
 
+static int hsotgusb_ick_on;
+
+static int musb_set_clock(struct clk *clk, int state)
+{
+	if (state) {
+		if (hsotgusb_ick_on > 0)
+			return -ENODEV;
+
+		omap2_block_sleep();
+		clk_enable(clk);
+		hsotgusb_ick_on = 1;
+	} else {
+		if (hsotgusb_ick_on == 0)
+			return -ENODEV;
+
+		clk_disable(clk);
+		hsotgusb_ick_on = 0;
+		omap2_allow_sleep();
+	}
+
+	return 0;
+}
+
 static struct musb_hdrc_platform_data musb_plat = {
 #ifdef CONFIG_USB_MUSB_OTG
 	.mode		= MUSB_OTG,
@@ -49,8 +74,8 @@ static struct musb_hdrc_platform_data musb_plat = {
 	.mode		= MUSB_PERIPHERAL,
 #endif
 	.multipoint	= 1,
-	.clock		= NULL,
-	.set_clock	= NULL,
+	.clock		= "hsotgusb_ick",
+	.set_clock	= musb_set_clock,
 };
 
 static u64 musb_dmamask = ~(u32)0;
