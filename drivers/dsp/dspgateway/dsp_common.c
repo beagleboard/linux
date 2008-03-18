@@ -502,6 +502,7 @@ void omap_dsp_release_mpui(void)
 	mutex_unlock(&cpustat.lock);
 }
 
+#if defined(CONFIG_ARCH_OMAP1) && defined(CONFIG_OMAP_MMU_FWK)
 int omap_dsp_request_mem(void)
 {
 	int ret = 0;
@@ -564,6 +565,7 @@ int omap_dsp_release_mem(void)
 
 	return 0;
 }
+#endif
 
 void dsp_register_mem_cb(int (*req_cb)(void), void (*rel_cb)(void))
 {
@@ -597,8 +599,10 @@ arch_initcall(omap_dsp_init);
 #ifdef CONFIG_ARCH_OMAP1
 EXPORT_SYMBOL(omap_dsp_request_mpui);
 EXPORT_SYMBOL(omap_dsp_release_mpui);
+#if defined(CONFIG_ARCH_OMAP1) && defined(CONFIG_OMAP_MMU_FWK)
 EXPORT_SYMBOL(omap_dsp_request_mem);
 EXPORT_SYMBOL(omap_dsp_release_mem);
+#endif
 #endif /* CONFIG_ARCH_OMAP1 */
 
 #ifdef CONFIG_OMAP_DSP_MODULE
