@@ -55,13 +55,16 @@ struct omap_mmc_platform_data {
 
 		const char *name;
 		u32 ocr_mask;
+
+		/* Card detection IRQs */
+		int card_detect_irq;
+		int (* card_detect)(int irq);
 	} slots[OMAP_MMC_MAX_SLOTS];
 };
 
 extern void omap_set_mmc_info(int host, const struct omap_mmc_platform_data *info);
 
 /* called from board-specific card detection service routine */
-extern void omap_mmc_notify_card_detect(struct device *dev, int slot, int detected);
 extern void omap_mmc_notify_cover_event(struct device *dev, int slot, int is_closed);
 
 #endif

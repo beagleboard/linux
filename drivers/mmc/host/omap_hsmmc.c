@@ -432,11 +432,14 @@ static void mmc_omap_detect(struct work_struct *work)
 /*
  * ISR for handling card insertion and removal
  */
-void omap_mmc_notify_card_detect(struct device *dev, int slot, int detected)
+static irqreturn_t omap_mmc_cd_handler(int irq, void *dev_id)
 {
-	struct mmc_omap_host *host = dev_get_drvdata(dev);
-	host->carddetect = detected;
+	struct mmc_omap_host *host = (struct mmc_omap_host *)dev_id;
+
+	host->carddetect = mmc_slot(host).card_detect(irq);
 	schedule_work(&host->mmc_carddetect_work);
+
+	return IRQ_HANDLED;
 }
 
 /*
@@ -797,9 +800,23 @@ static int __init omap_mmc_probe(struct platform_device *pdev)
 		goto irq_err;
 	}
 
+	/* Request IRQ for card detect */
+	if ((mmc_slot(host).card_detect_irq) && (mmc_slot(host).card_detect)) {
+		ret = request_irq(mmc_slot(host).card_detect_irq,
+				  omap_mmc_cd_handler, IRQF_DISABLED, "MMC CD",
+				  host);
+		if (ret) {
+			dev_dbg(mmc_dev(host->mmc),
+				"Unable to grab MMC CD IRQ");
+			free_irq(host->irq, host);
+			goto irq_err;
+		}
+	}
+
 	INIT_WORK(&host->mmc_carddetect_work, mmc_omap_detect);
 	if (pdata->init != NULL) {
 		if (pdata->init(&pdev->dev) != 0) {
+			free_irq(mmc_slot(host).card_detect_irq, host);
 			free_irq(host->irq, host);
 			goto irq_err;
 		}
@@ -843,6 +860,8 @@ static int omap_mmc_remove(struct platform_device *pdev)
 	if (host) {
 		host->pdata->cleanup(&pdev->dev);
 		free_irq(host->irq, host);
+		if (mmc_slot(host).card_detect_irq)
+			free_irq(mmc_slot(host).card_detect_irq, host);
 		flush_scheduled_work();
 
 		clk_disable(host->fclk);

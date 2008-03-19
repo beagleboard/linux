@@ -19,7 +19,7 @@
 #include <asm/arch/board.h>
 #include <asm/io.h>
 
-#ifdef CONFIG_MMC_OMAP_HS
+#if defined(CONFIG_MMC_OMAP_HS) || defined(CONFIG_MMC_OMAP_HS_MODULE)
 
 #define VMMC1_DEV_GRP		0x27
 #define P1_DEV_GRP		0x20
@@ -35,13 +35,9 @@
 #define MMC1_CD_IRQ		0
 #define MMC2_CD_IRQ		1
 
-static irqreturn_t mmc_omap_cd_handler(int irq, void *dev_id)
+static int sdp_mmc_card_detect(int irq)
 {
-	int detect;
-
-	detect = twl4030_get_gpio_datain(MMC1_CD_IRQ);
-	omap_mmc_notify_card_detect(dev_id, 0, detect);
-	return IRQ_HANDLED;
+	return twl4030_get_gpio_datain(irq - IH_TWL4030_GPIO_BASE);
 }
 
 /*
@@ -72,11 +68,6 @@ static int sdp_mmc_late_init(struct device *dev)
 	if (ret != 0)
 		goto err;
 
-	ret = request_irq(TWL4030_GPIO_IRQ_NO(MMC1_CD_IRQ),
-		mmc_omap_cd_handler, IRQF_DISABLED, "MMC1_CD_IRQ", dev);
-	if (ret < 0)
-		goto err;
-
 	return ret;
 err:
 	dev_err(dev, "Failed to configure TWL4030 GPIO IRQ\n");
@@ -89,7 +80,6 @@ static void sdp_mmc_cleanup(struct device *dev)
 	int ret = 0;
 
 	ret = twl4030_free_gpio(MMC1_CD_IRQ);
-	free_irq(TWL4030_GPIO_IRQ_NO(MMC1_CD_IRQ), dev);
 	if (ret != 0)
 		dev_err(dev, "Failed to configure TWL4030 GPIO IRQ\n");
 }
@@ -259,6 +249,9 @@ static struct omap_mmc_platform_data sdp_mmc_data = {
 		.ocr_mask		= MMC_VDD_32_33 | MMC_VDD_33_34 |
 						MMC_VDD_165_195,
 		.name			= "first slot",
+
+		.card_detect_irq        = TWL4030_GPIO_IRQ_NO(MMC1_CD_IRQ),
+		.card_detect            = sdp_mmc_card_detect,
 	},
 };
 
