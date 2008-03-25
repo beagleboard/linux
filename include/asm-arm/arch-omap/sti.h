@@ -4,7 +4,7 @@
 #include <asm/io.h>
 
 /*
- * STI/XTI
+ * STI/SDTI
  */
 #define STI_REVISION		0x00
 #define STI_SYSCONFIG		0x10
@@ -38,7 +38,6 @@
 #define STI_NR_IRQS	10
 
 #define STI_IRQSTATUS_MASK	0x2ff
-#define STI_PERCHANNEL_SIZE	4
 
 #define STI_RXFIFO_EMPTY	(1 << 0)
 
@@ -64,6 +63,12 @@ enum {
 	MemDumpEn	= (1 << 14), /* System memory dump */
 	STIEn		= (1 << 15), /* Global trace enable */
 };
+
+#define STI_PERCHANNEL_SIZE	4
+
+#define to_channel_address(channel) \
+	(sti_channel_base + STI_PERCHANNEL_SIZE * (channel))
+
 #elif defined(CONFIG_ARCH_OMAP2)
 
 /* XTI interrupt bits */
@@ -110,6 +115,15 @@ enum {
 
 #define STI_RXFIFO_EMPTY	(1 << 8)
 
+#define to_channel_address(channel) \
+	(sti_channel_base + STI_PERCHANNEL_SIZE * (channel))
+
+#elif defined(CONFIG_ARCH_OMAP3)
+
+#define STI_PERCHANNEL_SIZE	0x1000
+#define to_channel_address(channel) \
+	(sti_channel_base + STI_PERCHANNEL_SIZE * (channel) + 0x800)
+
 #endif
 
 /* arch/arm/plat-omap/sti/sti.c */
@@ -138,9 +152,6 @@ static inline void sti_writel(unsigned long data, unsigned long reg)
 {
 	__raw_writel(data, sti_base + reg);
 }
-
-#define to_channel_address(channel) \
-	(sti_channel_base + STI_PERCHANNEL_SIZE * (channel))
 
 static inline void sti_channel_writeb(unsigned char data, unsigned int channel)
 {

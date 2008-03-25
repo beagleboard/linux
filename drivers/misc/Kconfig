@@ -319,9 +319,12 @@ config INTEL_MENLOW
 	  If unsure, say N.
 
 config OMAP_STI
-	bool "STI/XTI support"
-	depends on ARCH_OMAP16XX || ARCH_OMAP24XX
-	default n
+        bool "Serial Trace Interface support"
+        depends on ARCH_OMAP16XX || ARCH_OMAP24XX || ARCH_OMAP34XX
+        default n
+        help
+          Serial Trace Interface. The protocols suported for OMAP1/2/3 are
+          STI/CSTI/XTIv2 correspondingly.
 
 config OMAP_STI_CONSOLE
 	bool "STI console support"
