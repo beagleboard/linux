@@ -122,7 +122,7 @@ config OMAP_MCBSP
 	  Buffered Serial Port.
 
 config OMAP_MMU_FWK
-	tristate "MMU framework support"
+	bool "MMU framework support"
 	depends on ARCH_OMAP
 	default n
 	help
