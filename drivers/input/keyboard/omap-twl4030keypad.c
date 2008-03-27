@@ -33,9 +33,9 @@
 #include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <linux/i2c.h>
+#include <linux/i2c/twl4030.h>
 #include <asm/irq.h>
 #include <asm/arch/keypad.h>
-#include <asm/arch/twl4030.h>
 #include "twl4030-keypad.h"
 
 #define OMAP_TWL4030KP_LOG_LEVEL	0

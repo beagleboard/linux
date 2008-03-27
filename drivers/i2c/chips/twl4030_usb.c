@@ -29,7 +29,7 @@
 #include <linux/interrupt.h>
 #include <linux/usb.h>
 
-#include <asm/arch/twl4030.h>
+#include <linux/i2c/twl4030.h>
 
 /* Register defines */
 

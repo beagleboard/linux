@@ -13,8 +13,8 @@
 #include <linux/platform_device.h>
 #include <linux/interrupt.h>
 #include <linux/delay.h>
+#include <linux/i2c/twl4030.h>
 #include <asm/hardware.h>
-#include <asm/arch/twl4030.h>
 #include <asm/arch/mmc.h>
 #include <asm/arch/board.h>
 #include <asm/io.h>

@@ -23,7 +23,7 @@
 
 #include <linux/module.h>
 #include <linux/pm.h>
-#include <asm/arch/twl4030.h>
+#include <linux/i2c/twl4030.h>
 
 #define PWR_P1_SW_EVENTS	0x10
 #define PWR_DEVOFF	(1<<0)

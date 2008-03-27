@@ -38,6 +38,7 @@
 #include <linux/kthread.h>
 
 #include <linux/i2c.h>
+#include <linux/i2c/twl4030.h>
 #include <linux/slab.h>
 #include <linux/clk.h>
 #include <linux/device.h>
@@ -45,7 +46,6 @@
 #include <asm/irq.h>
 #include <asm/mach/irq.h>
 
-#include <asm/arch/twl4030.h>
 #include <asm/arch/gpio.h>
 #include <asm/arch/mux.h>
 

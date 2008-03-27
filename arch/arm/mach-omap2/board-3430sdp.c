@@ -20,6 +20,7 @@
 #include <linux/workqueue.h>
 #include <linux/err.h>
 #include <linux/clk.h>
+#include <linux/i2c/twl4030.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/ads7846.h>
 
@@ -28,7 +29,6 @@
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
 
-#include <asm/arch/twl4030.h>
 #include <asm/arch/mcspi.h>
 #include <asm/arch/gpio.h>
 #include <asm/arch/mux.h>

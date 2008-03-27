@@ -34,14 +34,14 @@
 #include <linux/spinlock.h>
 #include <linux/interrupt.h>
 #include <linux/device.h>
+#include <linux/i2c/twl4030.h>
+#include <linux/i2c/twl4030-rtc.h>
 
 #include <asm/io.h>
 #include <asm/mach/time.h>
 #include <asm/system.h>
 #include <asm/hardware.h>
 #include <asm/irq.h>
-#include <asm/arch/twl4030.h>
-#include <asm/arch/twl4030-rtc.h>
 
 #define ALL_TIME_REGS		6
 

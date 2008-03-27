@@ -36,9 +36,9 @@
 #include <linux/kthread.h>
 
 #include <linux/i2c.h>
+#include <linux/i2c/twl4030.h>
 #include <linux/slab.h>
 
-#include <asm/arch/twl4030.h>
 #include <asm/arch/irqs.h>
 #include <asm/irq.h>
 #include <asm/mach/irq.h>
