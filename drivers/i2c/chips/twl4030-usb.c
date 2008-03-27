@@ -28,7 +28,6 @@
 #include <linux/time.h>
 #include <linux/interrupt.h>
 #include <linux/usb.h>
-
 #include <linux/i2c/twl4030.h>
 
 /* Register defines */
@@ -248,6 +247,18 @@
 
 /*-------------------------------------------------------------------------*/
 
+struct twl4030_usb {
+	int			irq;
+	u8			usb_mode;	/* pin configuration */
+#define T2_USB_MODE_ULPI		1
+/* #define T2_USB_MODE_CEA2011_3PIN	2 */
+	u8			asleep;
+};
+
+static struct twl4030_usb *the_transceiver;
+
+/*-------------------------------------------------------------------------*/
+
 static int twl4030_i2c_write_u8_verify(u8 module, u8 data, u8 address)
 {
 	u8 check;
@@ -304,18 +315,6 @@ static inline int twl4030_usb_read(u8 address)
 	}
 	return ret;
 }
-
-/*-------------------------------------------------------------------------*/
-
-struct twl4030_usb {
-	int			irq;
-	u8			usb_mode;	/* pin configuration */
-#define T2_USB_MODE_ULPI		1
-/* #define T2_USB_MODE_CEA2011_3PIN	2 */
-	u8			asleep;
-};
-
-static struct twl4030_usb *the_transceiver;
 
 /*-------------------------------------------------------------------------*/
 
@@ -616,7 +615,7 @@ static int __init twl4030_usb_init(void)
 	if (the_transceiver)
 		return 0;
 
-	twl = kcalloc(1, sizeof *twl, GFP_KERNEL);
+	twl = kzalloc(sizeof *twl, GFP_KERNEL);
 	if (!twl)
 		return 0;
 

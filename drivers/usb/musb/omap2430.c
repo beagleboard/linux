@@ -227,7 +227,6 @@ int __init musb_platform_init(struct musb *musb)
 
 	omap_vbus_power(musb, musb->board_mode == MUSB_HOST, 1);
 
-
 	if (is_host_enabled(musb))
 		musb->board_set_vbus = omap_set_vbus;
 	if (is_peripheral_enabled(musb))
