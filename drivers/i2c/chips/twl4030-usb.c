@@ -496,45 +496,6 @@ static void usb_irq_disable(void)
 	return;
 }
 
-static void twl4030_phy_suspend(int controller_off);
-static void twl4030_phy_resume(void);
-
-static irqreturn_t twl4030_usb_irq(int irq, void *_twl)
-{
-	int ret = IRQ_NONE;
-	u8 val;
-
-	if (twl4030_i2c_read_u8(TWL4030_MODULE_INT, &val, REG_PWR_ISR1) < 0) {
-		printk(KERN_ERR "twl4030_usb: i2c read failed,"
-				" line %d\n", __LINE__);
-		goto done;
-	}
-
-	/* this interrupt line may be shared */
-	if (!(val & USB_PRES))
-		goto done;
-
-	/* clear the interrupt */
-	twl4030_i2c_write_u8(TWL4030_MODULE_INT, USB_PRES, REG_PWR_ISR1);
-
-	/* action based on cable attach or detach */
-	if (twl4030_i2c_read_u8(TWL4030_MODULE_INT, &val, REG_PWR_EDR1) < 0) {
-		printk(KERN_ERR "twl4030_usb: i2c read failed,"
-				" line %d\n", __LINE__);
-		goto done;
-	}
-
-	if (val & USB_PRES_RISING)
-		twl4030_phy_resume();
-	else
-		twl4030_phy_suspend(0);
-
-	ret = IRQ_HANDLED;
-
-done:
-	return ret;
-}
-
 static void twl4030_phy_power(struct twl4030_usb *twl, int on)
 {
 	u8 pwr;
@@ -559,34 +520,6 @@ static void twl4030_phy_power(struct twl4030_usb *twl, int on)
 		}
 	}
 	return;
-}
-
-static void twl4030_usb_ldo_init(struct twl4030_usb *twl)
-{
-	/* Enable writing to power configuration registers */
-	twl4030_i2c_write_u8(TWL4030_MODULE_PM_MASTER, 0xC0, PROTECT_KEY);
-	twl4030_i2c_write_u8(TWL4030_MODULE_PM_MASTER, 0x0C, PROTECT_KEY);
-
-	/* put VUSB3V1 LDO in active state */
-	twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0, VUSB_DEDICATED2);
-
-	/* input to VUSB3V1 LDO is from VBAT, not VBUS */
-	twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0x14, VUSB_DEDICATED1);
-
-	/* turn on 3.1V regulator */
-	twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0x20, VUSB3V1_DEV_GRP);
-	twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0, VUSB3V1_TYPE);
-
-	/* turn on 1.5V regulator */
-	twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0x20, VUSB1V5_DEV_GRP);
-	twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0, VUSB1V5_TYPE);
-
-	/* turn on 1.8V regulator */
-	twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0x20, VUSB1V8_DEV_GRP);
-	twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0, VUSB1V8_TYPE);
-
-	/* disable access to power configuration registers */
-	twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0, PROTECT_KEY);
 }
 
 static void twl4030_phy_suspend(int controller_off)
@@ -625,6 +558,70 @@ static void twl4030_phy_resume(void)
 		twl4030_i2c_access(0);
 	twl->asleep = 0;
 	return;
+}
+
+static void twl4030_usb_ldo_init(struct twl4030_usb *twl)
+{
+	/* Enable writing to power configuration registers */
+	twl4030_i2c_write_u8(TWL4030_MODULE_PM_MASTER, 0xC0, PROTECT_KEY);
+	twl4030_i2c_write_u8(TWL4030_MODULE_PM_MASTER, 0x0C, PROTECT_KEY);
+
+	/* put VUSB3V1 LDO in active state */
+	twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0, VUSB_DEDICATED2);
+
+	/* input to VUSB3V1 LDO is from VBAT, not VBUS */
+	twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0x14, VUSB_DEDICATED1);
+
+	/* turn on 3.1V regulator */
+	twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0x20, VUSB3V1_DEV_GRP);
+	twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0, VUSB3V1_TYPE);
+
+	/* turn on 1.5V regulator */
+	twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0x20, VUSB1V5_DEV_GRP);
+	twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0, VUSB1V5_TYPE);
+
+	/* turn on 1.8V regulator */
+	twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0x20, VUSB1V8_DEV_GRP);
+	twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0, VUSB1V8_TYPE);
+
+	/* disable access to power configuration registers */
+	twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0, PROTECT_KEY);
+}
+
+static irqreturn_t twl4030_usb_irq(int irq, void *_twl)
+{
+	int ret = IRQ_NONE;
+	u8 val;
+
+	if (twl4030_i2c_read_u8(TWL4030_MODULE_INT, &val, REG_PWR_ISR1) < 0) {
+		printk(KERN_ERR "twl4030_usb: i2c read failed,"
+				" line %d\n", __LINE__);
+		goto done;
+	}
+
+	/* this interrupt line may be shared */
+	if (!(val & USB_PRES))
+		goto done;
+
+	/* clear the interrupt */
+	twl4030_i2c_write_u8(TWL4030_MODULE_INT, USB_PRES, REG_PWR_ISR1);
+
+	/* action based on cable attach or detach */
+	if (twl4030_i2c_read_u8(TWL4030_MODULE_INT, &val, REG_PWR_EDR1) < 0) {
+		printk(KERN_ERR "twl4030_usb: i2c read failed,"
+				" line %d\n", __LINE__);
+		goto done;
+	}
+
+	if (val & USB_PRES_RISING)
+		twl4030_phy_resume();
+	else
+		twl4030_phy_suspend(0);
+
+	ret = IRQ_HANDLED;
+
+done:
+	return ret;
 }
 
 static int twl4030_set_suspend(struct otg_transceiver *x, int suspend)
