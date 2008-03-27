@@ -192,19 +192,31 @@ static int omap_set_power(struct otg_transceiver *x, unsigned mA)
 	return 0;
 }
 
-static int omap_set_suspend(struct otg_transceiver *x, int suspend)
-{
-	if (suspend)
-		twl4030_phy_suspend(1);
-	else
-		twl4030_phy_resume();
-	return 0;
-}
-
 int musb_platform_resume(struct musb *musb);
+
+void musb_platform_set_mode(struct musb *musb, u8 musb_mode)
+{
+	u8	devctl = musb_readb(musb->mregs, MUSB_DEVCTL);
+
+	devctl |= MUSB_DEVCTL_SESSION;
+	musb_writeb(musb->mregs, MUSB_DEVCTL, devctl);
+
+	switch (musb_mode) {
+	case MUSB_HOST:
+		otg_set_host(&musb->xceiv, musb->xceiv.host);
+		break;
+	case MUSB_PERIPHERAL:
+		otg_set_peripheral(&musb->xceiv, musb->xceiv.gadget);
+		break;
+	case MUSB_OTG:
+		break;
+	}
+}
 
 int __init musb_platform_init(struct musb *musb)
 {
+	struct otg_transceiver *xceiv = otg_get_transceiver();
+
 #if defined(CONFIG_ARCH_OMAP2430)
 	omap_cfg_reg(AE5_2430_USB0HS_STP);
 	/* get the clock */
@@ -215,7 +227,7 @@ int __init musb_platform_init(struct musb *musb)
 	if(IS_ERR(musb->clock))
 		return PTR_ERR(musb->clock);
 
-	musb->xceiv.set_suspend = omap_set_suspend;
+	musb->xceiv = *xceiv;
 	musb_platform_resume(musb);
 
 	OTG_INTERFSEL_REG |= ULPI_12PIN;

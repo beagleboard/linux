@@ -28,7 +28,11 @@
 #include <linux/time.h>
 #include <linux/interrupt.h>
 #include <linux/usb.h>
+#include <linux/usb/ch9.h>
+#include <linux/usb/gadget.h>
+#include <linux/usb/otg.h>
 #include <linux/i2c/twl4030.h>
+#include <asm/arch/usb.h>
 
 /* Register defines */
 
@@ -245,9 +249,28 @@
 #define REG_PWR_SIH_CTRL		0x07
 #define COR				(1 << 2)
 
+/* internal define on top of container_of */
+#define xceiv_to_twl(x)		container_of((x), struct twl4030_usb, otg);
+
+/* bits in OTG_CTRL_REG */
+
+#define	OTG_XCEIV_OUTPUTS \
+	(OTG_ASESSVLD|OTG_BSESSEND|OTG_BSESSVLD|OTG_VBUSVLD|OTG_ID)
+#define	OTG_XCEIV_INPUTS \
+	(OTG_PULLDOWN|OTG_PULLUP|OTG_DRV_VBUS|OTG_PD_VBUS|OTG_PU_VBUS|OTG_PU_ID)
+#define	OTG_CTRL_BITS \
+	(OTG_A_BUSREQ|OTG_A_SETB_HNPEN|OTG_B_BUSREQ|OTG_B_HNPEN|OTG_BUSDROP)
+	/* and OTG_PULLUP is sometimes written */
+
+#define	OTG_CTRL_MASK	(OTG_DRIVER_SEL| \
+	OTG_XCEIV_OUTPUTS|OTG_XCEIV_INPUTS| \
+	OTG_CTRL_BITS)
+
+
 /*-------------------------------------------------------------------------*/
 
 struct twl4030_usb {
+	struct otg_transceiver	otg;
 	int			irq;
 	u8			usb_mode;	/* pin configuration */
 #define T2_USB_MODE_ULPI		1
@@ -328,6 +351,7 @@ static inline int
 twl4030_usb_clear_bits(struct twl4030_usb *twl, u8 reg, u8 bits)
 {
 	return twl4030_usb_write(reg + 2, bits);
+
 }
 
 /*-------------------------------------------------------------------------*/
@@ -472,8 +496,8 @@ static void usb_irq_disable(void)
 	return;
 }
 
-void twl4030_phy_suspend(int controller_off);
-void twl4030_phy_resume(void);
+static void twl4030_phy_suspend(int controller_off);
+static void twl4030_phy_resume(void);
 
 static irqreturn_t twl4030_usb_irq(int irq, void *_twl)
 {
@@ -565,7 +589,7 @@ static void twl4030_usb_ldo_init(struct twl4030_usb *twl)
 	twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0, PROTECT_KEY);
 }
 
-void twl4030_phy_suspend(int controller_off)
+static void twl4030_phy_suspend(int controller_off)
 {
 	struct twl4030_usb *twl = the_transceiver;
 
@@ -583,10 +607,8 @@ void twl4030_phy_suspend(int controller_off)
 	twl->asleep = 1;
 	return;
 }
-EXPORT_SYMBOL(twl4030_phy_suspend);
 
-
-void twl4030_phy_resume(void)
+static void twl4030_phy_resume(void)
 {
 	struct twl4030_usb *twl = the_transceiver;
 
@@ -604,8 +626,76 @@ void twl4030_phy_resume(void)
 	twl->asleep = 0;
 	return;
 }
-EXPORT_SYMBOL(twl4030_phy_resume);
 
+static int twl4030_set_suspend(struct otg_transceiver *x, int suspend)
+{
+	if (suspend)
+		twl4030_phy_suspend(1);
+	else
+		twl4030_phy_resume();
+
+	return 0;
+}
+
+static int twl4030_set_peripheral(struct otg_transceiver *xceiv, struct usb_gadget *gadget)
+{
+	struct twl4030_usb *twl = xceiv_to_twl(xceiv);
+
+	if (!xceiv)
+		return -ENODEV;
+
+	if (!gadget) {
+		OTG_IRQ_EN_REG = 0;
+		twl4030_phy_suspend(1);
+		twl->otg.gadget = NULL;
+
+		return -ENODEV;
+	}
+
+	twl->otg.gadget = gadget;
+	twl4030_phy_resume();
+
+	OTG_CTRL_REG = (OTG_CTRL_REG & OTG_CTRL_MASK
+			& ~(OTG_XCEIV_OUTPUTS|OTG_CTRL_BITS))
+			| OTG_ID;
+
+	twl->otg.state = OTG_STATE_B_IDLE;
+
+	twl4030_usb_set_bits(twl, USB_INT_EN_RISE,
+			USB_INT_SESSVALID | USB_INT_VBUSVALID);
+	twl4030_usb_set_bits(twl, USB_INT_EN_FALL,
+			USB_INT_SESSVALID | USB_INT_VBUSVALID);
+
+	return 0;
+}
+
+static int twl4030_set_host(struct otg_transceiver *xceiv, struct usb_bus *host)
+{
+	struct twl4030_usb *twl = xceiv_to_twl(xceiv);
+
+	if (!xceiv)
+		return -ENODEV;
+
+	if (!host) {
+		OTG_IRQ_EN_REG = 0;
+		twl4030_phy_suspend(1);
+		twl->otg.host = NULL;
+
+		return -ENODEV;
+	}
+
+	twl->otg.host = host;
+	twl4030_phy_resume();
+
+	twl4030_usb_set_bits(twl, OTG_CTRL,
+			OTG_CTRL_DMPULLDOWN | OTG_CTRL_DPPULLDOWN);
+	twl4030_usb_set_bits(twl, USB_INT_EN_RISE, USB_INT_IDGND);
+	twl4030_usb_set_bits(twl, USB_INT_EN_FALL, USB_INT_IDGND);
+	twl4030_usb_set_bits(twl, FUNC_CTRL, FUNC_CTRL_SUSPENDM);
+	twl4030_usb_set_bits(twl, OTG_CTRL, OTG_CTRL_DRVVBUS);
+
+	return 0;
+}
 
 static int __init twl4030_usb_init(void)
 {
@@ -621,7 +711,10 @@ static int __init twl4030_usb_init(void)
 
 	the_transceiver = twl;
 
-	twl->irq = TWL4030_MODIRQ_PWR;
+	twl->irq		= TWL4030_MODIRQ_PWR;
+	twl->otg.set_host	= twl4030_set_host;
+	twl->otg.set_peripheral	= twl4030_set_peripheral;
+	twl->otg.set_suspend	= twl4030_set_suspend;
 
 	usb_irq_disable();
 	status = request_irq(twl->irq, twl4030_usb_irq,
@@ -647,6 +740,8 @@ static int __init twl4030_usb_init(void)
 
 	if (twl->usb_mode == T2_USB_MODE_ULPI)
 		twl4030_phy_suspend(1);
+
+	otg_set_transceiver(&twl->otg);
 
 	printk(KERN_INFO "Initialized TWL4030 USB module");
 

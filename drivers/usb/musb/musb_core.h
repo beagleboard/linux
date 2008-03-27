@@ -476,6 +476,8 @@ extern void musb_platform_disable(struct musb *musb);
 
 extern void musb_hnp_stop(struct musb *musb);
 
+extern void musb_platform_set_mode(struct musb *musb, u8 musb_mode);
+
 #if defined(CONFIG_USB_TUSB6010) || \
 	defined(CONFIG_ARCH_OMAP2430) || defined(CONFIG_ARCH_OMAP34XX)
 extern void musb_platform_try_idle(struct musb *musb, unsigned long timeout);
@@ -485,10 +487,8 @@ extern void musb_platform_try_idle(struct musb *musb, unsigned long timeout);
 
 #ifdef CONFIG_USB_TUSB6010
 extern int musb_platform_get_vbus_status(struct musb *musb);
-extern void musb_platform_set_mode(struct musb *musb, u8 musb_mode);
 #else
 #define musb_platform_get_vbus_status(x)	0
-#define musb_platform_set_mode(x, y)		do {} while (0)
 #endif
 
 extern int __init musb_platform_init(struct musb *musb);

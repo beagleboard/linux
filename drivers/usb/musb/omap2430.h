@@ -14,14 +14,6 @@
 #include <asm/arch/hardware.h>
 #include <asm/arch/usb.h>
 
-#if defined(CONFIG_TWL4030_USB_HS_ULPI)
-extern void twl4030_phy_suspend(int controller_off);
-extern void twl4030_phy_resume(void);
-#else
-#define twl4030_phy_suspend(x)		do {} while (0)
-#define twl4030_phy_resume()		do {} while (0)
-#endif
-
 /*
  * OMAP2430-specific definitions
  */
