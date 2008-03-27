@@ -327,6 +327,7 @@ int twl4030_i2c_read(u8 mod_no, u8 * value, u8 reg, u8 num_bytes)
 		return -EPERM;
 	}
 	mutex_lock(&twl->xfer_lock);
+
 	/* [MSG1] fill the register address data */
 	msg = &twl->xfer_msg[0];
 	msg->addr = twl->address;
@@ -334,18 +335,31 @@ int twl4030_i2c_read(u8 mod_no, u8 * value, u8 reg, u8 num_bytes)
 	msg->flags = 0;	/* Read the register value */
 	val = twl4030_map[mod_no].base + reg;
 	msg->buf = &val;
+
+	/*
+	 * REVISIT: If we combine I2C write-read transfer, twl4030 can hang.
+	 * The only difference is that I2C clocks are now cut inbetween write
+	 * and read transfers.
+	 */
+	ret = i2c_transfer(twl->client.adapter, twl->xfer_msg, 1);
+	if (ret < 0)
+		goto out;
+
 	/* [MSG2] fill the data rx buffer */
 	msg = &twl->xfer_msg[1];
 	msg->addr = twl->address;
 	msg->flags = I2C_M_RD;	/* Read the register value */
 	msg->len = num_bytes;	/* only n bytes */
 	msg->buf = value;
-	ret = i2c_transfer(twl->client.adapter, twl->xfer_msg, 2);
+	ret = i2c_transfer(twl->client.adapter, twl->xfer_msg, 1);
+
+out:
 	mutex_unlock(&twl->xfer_lock);
 
 	/* i2cTransfer returns num messages.translate it pls.. */
 	if (ret >= 0)
 		ret = 0;
+
 	return ret;
 }
 
