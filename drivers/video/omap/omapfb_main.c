@@ -1839,8 +1839,8 @@ static int omapfb_suspend(struct platform_device *pdev, pm_message_t mesg)
 {
 	struct omapfb_device *fbdev = platform_get_drvdata(pdev);
 
-	omapfb_blank(VESA_POWERDOWN, fbdev->fb_info[0]);
-
+	if (fbdev != NULL)
+		omapfb_blank(VESA_POWERDOWN, fbdev->fb_info[0]);
 	return 0;
 }
 
@@ -1849,7 +1849,8 @@ static int omapfb_resume(struct platform_device *pdev)
 {
 	struct omapfb_device *fbdev = platform_get_drvdata(pdev);
 
-	omapfb_blank(VESA_NO_BLANKING, fbdev->fb_info[0]);
+	if (fbdev != NULL)
+		omapfb_blank(VESA_NO_BLANKING, fbdev->fb_info[0]);
 	return 0;
 }
 
