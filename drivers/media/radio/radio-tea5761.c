@@ -23,8 +23,6 @@
 #include <linux/i2c.h>
 #include <linux/delay.h>
 #include <media/v4l2-common.h>
-#include <asm/arch/gpio.h>
-#include <asm/arch/board.h>
 
 #define DRIVER_NAME "tea5761"
 
@@ -73,14 +71,6 @@
 
 #define TEA5761_FREQ_LOW	87500
 #define TEA5761_FREQ_HIGH	108000
-
-/* Probe for TEA5761 twice since the version N4B seems to be
- * broken and needs two probes to be found */
-static unsigned short normal_i2c[] = {
-	TEA5761_I2C_ADDR, TEA5761_I2C_ADDR, I2C_CLIENT_END
-};
-
-I2C_CLIENT_INSMOD;
 
 struct tea5761_regs {
 	u16 intreg;
@@ -423,67 +413,22 @@ static struct video_device tea5761_video_device = {
 	.release       = video_device_release
 };
 
-static int tea5761_probe(struct i2c_adapter *adapter, int address,
-			  int kind)
+static int tea5761_i2c_driver_probe(struct i2c_client *client)
 {
-	struct i2c_client *client;
 	struct video_device *video_dev;
 	int err = 0;
-	static const char *client_name = "TEA5761 FM-Radio";
 	struct tea5761_device *tea = &tea5761;
-	struct tea5761_regs   *r = &tea->regs;
 
 	mutex_init(&tea->mutex);
-        /* I2C detection and initialization */
-	client = kzalloc(sizeof(struct i2c_client), GFP_KERNEL);
-	if (client == NULL) {
-		dev_err(&adapter->dev, DRIVER_NAME
-			": couldn't allocate memory\n");
-		return -ENOMEM;
-	}
+
 	tea->i2c_dev = client;
-
-	client->addr = address;
-	client->adapter = adapter;
-	client->driver = &tea5761_driver;
-	client->dev.driver = &tea5761_driver.driver;
-	client->flags = 0;
-	strlcpy(client->name, client_name, I2C_NAME_SIZE);
-
-	if (kind < 0) {
-		if (tea5761_read_regs(tea) < 0) {
-			dev_info(&client->dev,
-				 "chip read failed for %d-%04x\n",
-				 adapter->nr, address);
-			goto err_tea_dev;
-		}
-		if (r->chipid != TEA5761_CHIPID) {
-			dev_info(&client->dev,
-				 "bad chipid (0x%04x) at %d-%04x\n",
-				 r->chipid, adapter->nr, address);
-			goto err_tea_dev;
-		}
-		if ((r->manid & 0x0fff) != TEA5761_MANID) {
-			dev_info(&client->dev,
-				 "bad manid (0x%04x) at %d-%04x\n",
-				 r->manid, adapter->nr, address);
-			goto err_tea_dev;
-		}
-	}
-
-	err = i2c_attach_client(client);
-	if (err) {
-		dev_err(&client->dev, "couldn't attach to address %d-%04x\n",
-		        adapter->nr, address);
-		goto err_tea_dev;
-	}
 
 	/* V4L initialization */
 	video_dev = video_device_alloc();
 	if (video_dev == NULL) {
 		dev_err(&client->dev, "couldn't allocate memory\n");
 		err = -ENOMEM;
-		goto err_i2c_attach;
+		goto exit;
 	}
 	tea->video_dev = video_dev;
 
@@ -506,104 +451,38 @@ static int tea5761_probe(struct i2c_adapter *adapter, int address,
 		goto err_video_alloc;
 	}
 
-	dev_info(&client->dev, "tea5761 (version %d) detected at %d-%04x\n",
-		(tea->regs.manid >> 12) & 0xf, adapter->nr, address);
+	dev_info(&client->dev, "tea5761 (version %d) detected\n",
+		(tea->regs.manid >> 12) & 0xf);
 
 	return 0;
 
 err_video_alloc:
 	video_device_release(video_dev);
-err_i2c_attach:
-	i2c_detach_client(client);
-err_tea_dev:
+exit:
 	kfree(client);
 	return err;
 }
 
-static int tea5761_attach_adapter(struct i2c_adapter *adapter)
-{
-	if (!i2c_check_functionality(adapter, I2C_FUNC_I2C))
-		return -EINVAL;
-
-	return i2c_probe(adapter, &addr_data, tea5761_probe);
-}
-
-static int tea5761_detach_client(struct i2c_client *client)
+static int tea5761_i2c_driver_remove(struct i2c_client *client)
 {
 	struct video_device *vd = i2c_get_clientdata(client);
 
-	i2c_detach_client(client);
 	video_unregister_device(vd);
-	kfree(client);
 
 	return 0;
 }
 
 static struct i2c_driver tea5761_driver = {
-	.id		= I2C_DRIVERID_TUNER,
 	.driver = {
 		.name	= DRIVER_NAME,
 	},
-	.attach_adapter	= tea5761_attach_adapter,
-	.detach_client	= tea5761_detach_client,
+	.probe	= tea5761_i2c_driver_probe,
+	.remove = tea5761_i2c_driver_remove,
 };
-
-#if CONFIG_ARCH_OMAP
-/* No way to pass platform device data. Enable here all the TEA5761
- * devices, since I2C address scanning will need them to respond.
- */
-static int enable_gpio;
-
-static int __init tea5761_dev_init(void)
-{
-	const struct omap_tea5761_config *info;
-
-	info = omap_get_config(OMAP_TAG_TEA5761, struct omap_tea5761_config);
-	if (info) {
-		enable_gpio = info->enable_gpio;
-	}
-
-	if (enable_gpio) {
-		pr_debug(DRIVER_NAME ": enabling tea5761 at GPIO %d\n",
-			 enable_gpio);
-
-		if (omap_request_gpio(enable_gpio) < 0) {
-			printk(KERN_ERR DRIVER_NAME ": can't request GPIO %d\n",
-			       enable_gpio);
-			return -ENODEV;
-		}
-
-		omap_set_gpio_direction(enable_gpio, 0);
-		udelay(50);
-		omap_set_gpio_dataout(enable_gpio, 1);
-	}
-
-	return 0;
-}
-
-static void __exit tea5761_dev_exit(void)
-{
-	if (enable_gpio) {
-		omap_set_gpio_dataout(enable_gpio, 0);
-		omap_free_gpio(enable_gpio);
-	}
-}
-#else
-static int __init tea5761_dev_init(void)
-{
-}
-
-static void __exit tea5761_dev_exit(void)
-{
-}
-#endif
 
 static int __init tea5761_init(void)
 {
 	int res;
-
-	if ((res = tea5761_dev_init()) < 0)
-		return res;
 
 	if ((res = i2c_add_driver(&tea5761_driver))) {
 		printk(KERN_ERR DRIVER_NAME ": driver registration failed\n");
@@ -616,7 +495,6 @@ static int __init tea5761_init(void)
 static void __exit tea5761_exit(void)
 {
 	i2c_del_driver(&tea5761_driver);
-	tea5761_dev_exit();
 }
 
 MODULE_AUTHOR("Timo Teräs");

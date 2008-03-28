@@ -258,6 +258,33 @@ static void tsc2301_dev_init(void)
 	}
 }
 
+static int __init tea5761_dev_init(void)
+{
+	const struct omap_tea5761_config *info;
+	int enable_gpio = 0;
+
+	info = omap_get_config(OMAP_TAG_TEA5761, struct omap_tea5761_config);
+	if (info)
+		enable_gpio = info->enable_gpio;
+
+	if (enable_gpio) {
+		pr_debug("Enabling tea5761 at GPIO %d\n",
+			 enable_gpio);
+
+		if (omap_request_gpio(enable_gpio) < 0) {
+			printk(KERN_ERR "Can't request GPIO %d\n",
+			       enable_gpio);
+			return -ENODEV;
+		}
+
+		omap_set_gpio_direction(enable_gpio, 0);
+		udelay(50);
+		omap_set_gpio_dataout(enable_gpio, 1);
+	}
+
+	return 0;
+}
+
 static struct omap2_mcspi_device_config tsc2301_mcspi_config = {
 	.turbo_mode	= 0,
 	.single_channel = 1,
@@ -470,6 +497,11 @@ static struct i2c_board_info __initdata n800_i2c_board_info_2[] = {
 		.platform_data = &n800_tcm825x_platform_data,
 	},
 #endif
+#if defined(CONFIG_RADIO_TEA5761) || defined(CONFIG_RADIO_TEA5761_MODULE)
+	{
+		I2C_BOARD_INFO("tea5761", 0x10),
+	},
+#endif
 };
 
 void __init nokia_n800_common_init(void)
@@ -500,6 +532,7 @@ static void __init nokia_n800_init(void)
 	n800_audio_init(&tsc2301_config);
 	n800_ts_set_config();
 	tsc2301_dev_init();
+	tea5761_dev_init();
 	omap_register_gpio_switches(n800_gpio_switches,
 				    ARRAY_SIZE(n800_gpio_switches));
 }
