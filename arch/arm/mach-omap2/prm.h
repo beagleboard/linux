@@ -132,8 +132,8 @@ static u32 __attribute__((unused)) prm_read_reg(void __iomem *addr)
 #define RM_RSTTIME					0x0054
 #define RM_RSTST					0x0058
 
-#define PM_WKEN1					0x00a0
-#define PM_WKEN						PM_WKEN1
+#define PM_WKEN						0x00a0
+#define PM_WKEN1					PM_WKEN
 #define PM_WKST						0x00b0
 #define PM_WKST1					PM_WKST
 #define PM_WKDEP					0x00c8

@@ -851,7 +851,7 @@ static struct clk omap_120m_fck = {
 	.parent		= &dpll5_m2_ck,
 	.init           = &omap2_init_clksel_parent,
 	.clksel_reg     = OMAP_CM_REGADDR(PLL_MOD, CM_IDLEST2),
-	.clksel_mask    = OMAP3430_ST_PERIPH2_CLK,
+	.clksel_mask    = OMAP3430ES2_ST_PERIPH2_CLK_MASK,
 	.clksel         = omap_120m_fck_clksel,
 	.flags		= CLOCK_IN_OMAP3430ES2 | RATE_PROPAGATES |
 				PARENT_CONTROLS_CLOCK,

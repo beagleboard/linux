@@ -179,7 +179,7 @@ static int omap_start_ehc(struct platform_device *dev, struct usb_hcd *hcd)
 			PLL_MOD, OMAP3430ES2_CM_CLKEN2);
 
 	while (!(cm_read_mod_reg(PLL_MOD, CM_IDLEST2) &
-				OMAP3430_ST_PERIPH2_CLK))
+				OMAP3430ES2_ST_PERIPH2_CLK_MASK))
 		dev_dbg(hcd->self.controller,
 			"idlest2 = 0x%x\n",
 			cm_read_mod_reg(PLL_MOD, CM_IDLEST2));
@@ -246,12 +246,12 @@ static int omap_start_ehc(struct platform_device *dev, struct usb_hcd *hcd)
 	clk_enable(ehci_clocks->usbtll_ick_clk);
 
 	/* Disable Auto Idle of USBTLL */
-	cm_write_mod_reg((0 << OMAP3430_AUTO_USBTLL_SHIFT),
-				CORE_MOD, OMAP3430_CM_AUTOIDLE3_CORE);
+	cm_write_mod_reg((0 << OMAP3430ES2_AUTO_USBTLL_SHIFT),
+				CORE_MOD, CM_AUTOIDLE3);
 
 	/* Wait for TLL to be Active */
-	while ((cm_read_mod_reg(CORE_MOD, OMAP3430_CM_IDLEST3_CORE) &
-		(1 << OMAP3430_ST_USBTLL_SHIFT)));
+	while ((cm_read_mod_reg(CORE_MOD, OMAP2430_CM_IDLEST3) &
+		(1 << OMAP3430ES2_ST_USBTLL_SHIFT)));
 
 	/* perform TLL soft reset, and wait until reset is complete */
 	omap_writel(1 << OMAP_USBTLL_SYSCONFIG_SOFTRESET_SHIFT,

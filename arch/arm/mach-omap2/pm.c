@@ -735,7 +735,7 @@ static void __init prcm_setup_regs(void)
 	cm_write_mod_reg(OMAP24XX_AUTO_SDRC |
 			 OMAP24XX_AUTO_GPMC |
 			 OMAP24XX_AUTO_SDMA,
-			 CORE_MOD, OMAP24XX_CM_AUTOIDLE3);
+			 CORE_MOD, CM_AUTOIDLE3);
 	cm_write_mod_reg(OMAP24XX_AUTO_PKA |
 			 OMAP24XX_AUTO_AES |
 			 OMAP24XX_AUTO_RNG |
