@@ -31,6 +31,7 @@
 #include <asm/arch/clock.h>
 #include <asm/arch/sram.h>
 #include <asm/div64.h>
+#include <asm/bitops.h>
 
 #include "memory.h"
 #include "clock.h"
@@ -224,8 +225,8 @@ static int omap2_reprogram_dpll(struct clk *clk, unsigned long rate)
 			mult = (rate / 1000000);
 			done_rate = CORE_CLK_SRC_DPLL;
 		}
-		tmpset.cm_clksel1_pll |= (div << mask_to_shift(dd->mult_mask));
-		tmpset.cm_clksel1_pll |= (mult << mask_to_shift(dd->div1_mask));
+		tmpset.cm_clksel1_pll |= (div << __ffs(dd->mult_mask));
+		tmpset.cm_clksel1_pll |= (mult << __ffs(dd->div1_mask));
 
 		/* Worst case */
 		tmpset.base_sdrc_rfr = SDRC_RFR_CTRL_BYPASS;

@@ -22,12 +22,12 @@
 #include <linux/errno.h>
 #include <linux/delay.h>
 #include <linux/clk.h>
-
 #include <linux/io.h>
 
 #include <asm/arch/clock.h>
 #include <asm/arch/sram.h>
 #include <asm/div64.h>
+#include <asm/bitops.h>
 
 #include "memory.h"
 #include "clock.h"
@@ -79,7 +79,7 @@ static void omap3_clkoutx2_recalc(struct clk *clk)
 	WARN_ON(!dd->control_reg || !dd->enable_mask);
 
 	v = cm_read_reg(dd->control_reg) & dd->enable_mask;
-	v >>= mask_to_shift(dd->enable_mask);
+	v >>= __ffs(dd->enable_mask);
 	if (v != DPLL_LOCKED)
 		clk->rate = clk->parent->rate;
 	else

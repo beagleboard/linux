@@ -21,6 +21,7 @@
 #include <linux/errno.h>
 #include <linux/delay.h>
 #include <linux/clk.h>
+#include <asm/bitops.h>
 
 #include <asm/io.h>
 
@@ -46,11 +47,6 @@ u8 cpu_mask;
  * Omap2 specific clock functions
  *-------------------------------------------------------------------------*/
 
-u8 mask_to_shift(u32 mask)
-{
-	return ffs(mask) - 1;
-}
-
 /**
  * omap2_init_clksel_parent - set a clksel clk's parent field from the hardware
  * @clk: OMAP clock struct ptr to use
@@ -69,7 +65,7 @@ void omap2_init_clksel_parent(struct clk *clk)
 		return;
 
 	r = __raw_readl(clk->clksel_reg) & clk->clksel_mask;
-	r >>= mask_to_shift(clk->clksel_mask);
+	r >>= __ffs(clk->clksel_mask);
 
 	for (clks = clk->clksel; clks->parent && !found; clks++) {
 		for (clkr = clks->rates; clkr->div && !found; clkr++) {
@@ -108,9 +104,9 @@ u32 omap2_get_dpll_rate(struct clk *clk)
 
 	dpll = cm_read_reg(dd->mult_div1_reg);
 	dpll_mult = dpll & dd->mult_mask;
-	dpll_mult >>= mask_to_shift(dd->mult_mask);
+	dpll_mult >>= __ffs(dd->mult_mask);
 	dpll_div = dpll & dd->div1_mask;
-	dpll_div >>= mask_to_shift(dd->div1_mask);
+	dpll_div >>= __ffs(dd->div1_mask);
 
 	dpll_clk = (long long)clk->parent->rate * dpll_mult;
 	do_div(dpll_clk, dpll_div + 1);
@@ -574,7 +570,7 @@ u32 omap2_clksel_get_divisor(struct clk *clk)
 		return 0;
 
 	field_val = cm_read_reg(div_addr) & field_mask;
-	field_val >>= mask_to_shift(field_mask);
+	field_val >>= __ffs(field_mask);
 
 	return omap2_clksel_to_divisor(clk, field_val);
 }
@@ -598,7 +594,7 @@ int omap2_clksel_set_rate(struct clk *clk, unsigned long rate)
 
 	reg_val = cm_read_reg(div_addr);
 	reg_val &= ~field_mask;
-	reg_val |= (field_val << mask_to_shift(field_mask));
+	reg_val |= (field_val << __ffs(field_mask));
 	cm_write_reg(reg_val, div_addr);
 	wmb();
 
@@ -696,7 +692,7 @@ int omap2_clk_set_parent(struct clk *clk, struct clk *new_parent)
 
 	/* Set new source value (previous dividers if any in effect) */
 	reg_val = __raw_readl(src_addr) & ~field_mask;
-	reg_val |= (field_val << mask_to_shift(field_mask));
+	reg_val |= (field_val << __ffs(field_mask));
 	__raw_writel(reg_val, src_addr);
 	wmb();
 
