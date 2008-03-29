@@ -218,8 +218,8 @@ extern u8 tusb_get_revision(struct musb *musb);
 #define TUSB_PROD_TEST_RESET_VAL		0xa596
 #define TUSB_EP_FIFO(ep)			(TUSB_FIFO_BASE + (ep) * 0x20)
 
-#define TUSB_DIDR1_LO				0x1f8
-#define TUSB_DIDR1_HI				0x1fc
+#define TUSB_DIDR1_LO				(TUSB_SYS_REG_BASE + 0x1f8)
+#define TUSB_DIDR1_HI				(TUSB_SYS_REG_BASE + 0x1fc)
 #define		TUSB_DIDR1_HI_CHIP_REV(v)		(((v) >> 17) & 0xf)
 #define			TUSB_DIDR1_HI_REV_20		0
 #define			TUSB_DIDR1_HI_REV_30		1
