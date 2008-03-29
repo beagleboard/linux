@@ -24,6 +24,7 @@
 #include <linux/clk.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/ads7846.h>
+#include <linux/i2c/twl4030-rtc.h>
 
 #include <asm/hardware.h>
 #include <asm/mach-types.h>
@@ -38,7 +39,6 @@
 #include <asm/arch/keypad.h>
 #include <asm/arch/gpmc.h>
 #include <asm/arch/mcspi.h>
-#include <asm/arch/twl4030-rtc.h>
 
 #include <asm/io.h>
 
