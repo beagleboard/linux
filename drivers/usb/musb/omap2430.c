@@ -254,13 +254,16 @@ int musb_platform_suspend(struct musb *musb)
 	OTG_FORCESTDBY_REG |= ENABLEFORCE; /* enable MSTANDBY */
 	OTG_SYSCONFIG_REG |= AUTOIDLE;		/* enable auto idle */
 
-	musb->xceiv.set_suspend(&musb->xceiv, 1);
+	if (musb->xceiv.set_suspend)
+		musb->xceiv.set_suspend(&musb->xceiv, 1);
+
 	return 0;
 }
 
 int musb_platform_resume(struct musb *musb)
 {
-	musb->xceiv.set_suspend(&musb->xceiv, 0);
+	if (musb->xceiv.set_suspend)
+		musb->xceiv.set_suspend(&musb->xceiv, 0);
 
 	OTG_FORCESTDBY_REG &= ~ENABLEFORCE; /* disable MSTANDBY */
 	OTG_SYSCONFIG_REG |= SMARTSTDBY;	/* enable smart standby */
