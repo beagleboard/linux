@@ -672,11 +672,20 @@ static int power_companion_init(void)
 	u32 rate, ctrl = HFCLK_FREQ_26_MHZ;
 	int e = 0;
 
-	osc = clk_get(NULL,"osc_ck");
+	if (cpu_is_omap2430())
+		osc = clk_get(NULL, "osc_ck");
+	else
+		osc = clk_get(NULL, "osc_sys_ck");
+	if (IS_ERR(osc)) {
+		printk(KERN_ERR "Skipping twl3040 internal clock init and "
+				"using bootloader value (unknown osc rate)\n");
+		return 0;
+	}
+
 	rate = clk_get_rate(osc);
 	clk_put(osc);
 
-	switch(rate) {
+	switch (rate) {
 		case 19200000 : ctrl = HFCLK_FREQ_19p2_MHZ; break;
 		case 26000000 : ctrl = HFCLK_FREQ_26_MHZ; break;
 		case 38400000 : ctrl = HFCLK_FREQ_38p4_MHZ; break;
@@ -684,7 +693,7 @@ static int power_companion_init(void)
 
 	ctrl |= HIGH_PERF_SQ;
 	e |= unprotect_pm_master();
-			/* effect->MADC+USB ck en */
+	/* effect->MADC+USB ck en */
 	e |= twl4030_i2c_write_u8(TWL4030_MODULE_PM_MASTER, ctrl, R_CFG_BOOT);
 	e |= protect_pm_master();
 
