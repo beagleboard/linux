@@ -120,7 +120,7 @@ static int __init omap_sdti_init(void)
 	i = sti_readl(SDTI_REVISION);
 	snprintf(buf, sizeof(buf), "OMAP SDTI support loaded (HW v%u.%u)\n",
 		(i >> 4) & 0x0f, i & 0x0f);
-	printk(KERN_INFO, "%s", buf);
+	printk(KERN_INFO "%s", buf);
 	omap_sti_channel_write_trace(strlen(buf), 0xc3, buf, 239);
 
 	return 0;
