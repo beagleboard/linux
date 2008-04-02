@@ -46,13 +46,13 @@
 #define KEYP_CTRL_KBD_ON			0x40
 
 
-#define KEYP_CTRL_NOAUTORPT			(KEYP_CTRL_SOFT_NRST | \
-						 KEYP_CTRL_SOFTMODEN | \
-						 KEYP_CTRL_TOE_EN    | \
+#define KEYP_CTRL_NOAUTORPT			(KEYP_CTRL_SOFT_NRST |	\
+						 KEYP_CTRL_SOFTMODEN |	\
+						 KEYP_CTRL_TOE_EN |	\
 						 KEYP_CTRL_KBD_ON)
 
-/* KEYP_DEB,  KEYP_LONG_KEY,  KEYP_TIMEOUT_x*/
-#define KEYP_PERIOD_US(T, prescale)	      (T / (31 << (prescale + 1)) - 1)
+/* KEYP_DEB, KEYP_LONG_KEY, KEYP_TIMEOUT_x*/
+#define KEYP_PERIOD_US(T, prescale)		(T / (31 << (prescale + 1)) - 1)
 
 /* KEYP_LK_PTV_REG Fields */
 #define KEYP_LK_PTV_PTV_SHIFT			5

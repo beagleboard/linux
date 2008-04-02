@@ -36,7 +36,7 @@
 #include <linux/platform_device.h>
 #include <linux/i2c.h>
 #include <linux/i2c/twl4030.h>
-#include <asm/irq.h>
+#include <linux/irq.h>
 #include <asm/arch/keypad.h>
 #include "twl4030-keypad.h"
 
@@ -51,16 +51,16 @@ static int *keymap;
 static u16 kp_state[MAX_ROWS];
 static int n_rows, n_cols;
 
-static struct device * dbg_dev;
+static struct device *dbg_dev;
 static struct input_dev *omap_twl4030kp;
 
-static int twl4030_kpread(u32 module, u8 * data, u32 reg, u8 num_bytes)
+static int twl4030_kpread(u32 module, u8 *data, u32 reg, u8 num_bytes)
 {
 	int ret;
 
 	ret = twl4030_i2c_read(module, data, reg, num_bytes);
 	if (ret < 0) {
-		dev_warn(dbg_dev, "Couldn't read TWL4030 register %X - ret %d[%x]\n",
+		dev_warn(dbg_dev, "Couldn't read TWL4030: %X - ret %d[%x]\n",
 			 reg, ret, ret);
 		return ret;
 	}
@@ -73,7 +73,7 @@ static int twl4030_kpwrite_u8(u32 module, u8 data, u32 reg)
 
 	ret = twl4030_i2c_write_u8(module, data, reg);
 	if (ret < 0) {
-		dev_warn(dbg_dev, "Could not write TWL4030 register %X - ret %d[%x]\n",
+		dev_warn(dbg_dev, "Could not write TWL4030: %X - ret %d[%x]\n",
 			 reg, ret, ret);
 		return ret;
 	}
@@ -121,7 +121,7 @@ static int omap_kp_read_kp_matrix_state(u16 *state)
 static int omap_kp_is_in_ghost_state(u16 *key_state)
 {
 	int i;
-	u16  check = 0;
+	u16 check = 0;
 
 	for (i = 0; i < n_rows; i++) {
 		u16 col = key_state[i];
@@ -144,7 +144,7 @@ static void twl4030_kp_scan(int release_all)
 	else {
 		/* check for any changes */
 		int ret = omap_kp_read_kp_matrix_state(new_state);
-		if (ret < 0)  /* panic ... */
+		if (ret < 0)	/* panic ... */
 			return;
 
 		if (omap_kp_is_in_ghost_state(new_state))
@@ -210,7 +210,7 @@ static int __init omap_kp_probe(struct platform_device *pdev)
 	u8 reg;
 	int i;
 	int ret = 0;
-	struct omap_kp_platform_data *pdata =  pdev->dev.platform_data;
+	struct omap_kp_platform_data *pdata = pdev->dev.platform_data;
 
 	/* Get the debug Device */
 	dbg_dev = &(pdev->dev);
