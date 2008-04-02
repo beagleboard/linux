@@ -2,6 +2,7 @@
  * drivers/input/keyboard/omap-twl4030keypad.c
  *
  * Copyright (C) 2007 Texas Instruments, Inc.
+ * Copyright (C) 2008 Nokia Corporation
  *
  * Code re-written for 2430SDP by:
  * Syed Mohammed Khasim <x0khasim@ti.com>
@@ -31,6 +32,7 @@
 #include <linux/input.h>
 #include <linux/kernel.h>
 #include <linux/delay.h>
+#include <linux/bitops.h>
 #include <linux/platform_device.h>
 #include <linux/i2c.h>
 #include <linux/i2c/twl4030.h>
@@ -38,44 +40,25 @@
 #include <asm/arch/keypad.h>
 #include "twl4030-keypad.h"
 
-#define OMAP_TWL4030KP_LOG_LEVEL	0
+#define PTV_PRESCALER		4
 
-#define KEY(col, row, val)	(((col) << 28) | ((row) << 24) | (val))
-#define NUM_ROWS		5
-#define NUM_COLS		6
-
-#define ROW_MASK		((1<<NUM_ROWS)-1)
-
-#define SCAN_RATE		HZ/20
-#define KEYNUM_MASK		0xFF000000
-#define ROWCOL_MASK		0x00FFFFFF
-
-static char *switch_name[NUM_ROWS][NUM_COLS] = {
-	{"S2_L", "S2_D", "S2_S", "S3", "S4", "S23"},
-	{"S2_R", "S2_U", "S5", "S6", "S7", "S24"},
-	{"S8", "S9", "S10", "S11", "S12", "S25"},
-	{"S13", "S14", "S15", "S16", "S17", "S26"},
-	{"S18", "S19", "S20", "S21", "S22", "S27"},
-};
+#define MAX_ROWS		8 /* TWL4030 hardlimit */
+#define ROWCOL_MASK		0xFF000000
+#define KEYNUM_MASK		0x00FFFFFF
 
 /* Global variables */
 static int *keymap;
-static unsigned char kp_state[NUM_ROWS];
+static u16 kp_state[MAX_ROWS];
+static int n_rows, n_cols;
+
 static struct device * dbg_dev;
-
-/* Function Templates */
 static struct input_dev *omap_twl4030kp;
-struct timer_list kptimer;
-static void omap_kp_timer(unsigned long);
-static void twl4030_kp_scan(void);
-struct work_struct timer_work;
-static void twl4030_timer_work(struct work_struct *unused);
 
-static int twl4030_kpread_u8(u32 module, u8 * data, u32 reg)
+static int twl4030_kpread(u32 module, u8 * data, u32 reg, u8 num_bytes)
 {
 	int ret;
 
-	ret = twl4030_i2c_read_u8(module, data, reg);
+	ret = twl4030_i2c_read(module, data, reg, num_bytes);
 	if (ret < 0) {
 		dev_warn(dbg_dev, "Couldn't read TWL4030 register %X - ret %d[%x]\n",
 			 reg, ret, ret);
@@ -97,84 +80,104 @@ static int twl4030_kpwrite_u8(u32 module, u8 data, u32 reg)
 	return ret;
 }
 
-static inline int omap_kp_find_key(int col, int row)
+static int omap_kp_find_key(int col, int row)
 {
-	int i, key;
+	int i, rc;
 
-	key = KEY(col, row, 0);
+	rc = KEY(col, row, 0);
 	for (i = 0; keymap[i] != 0; i++)
-		if ((keymap[i] & KEYNUM_MASK) == key)
-			return keymap[i] & ROWCOL_MASK;
+		if ((keymap[i] & ROWCOL_MASK) == rc)
+			return keymap[i] & KEYNUM_MASK;
 
 	return -EINVAL;
 }
 
-static void twl4030_kp_scan(void)
+static inline u16 omap_kp_col_xlate(u8 col)
 {
-	unsigned char new_state[NUM_ROWS], changed, key_down = 0;
-	u8 col, row, spurious = 0;
-	u8 code_reg = REG_FULL_CODE_7_0;
-	int ret;
+	/* If all bits in a row are active for all coloumns then
+	 * we have that row line connected to gnd. Mark this
+	 * key on as if it was on matrix position n_cols (ie
+	 * one higher than the size of the matrix).
+	 */
+	if (col == 0xFF)
+		return (1 << n_cols);
+	else
+		return col & ((1 << n_cols) - 1);
+}
 
-	/* check for any changes */
-	ret =
-		twl4030_i2c_read(TWL4030_MODULE_KEYPAD, new_state, code_reg,
-				 NUM_ROWS);
-	if (ret < 0)
-		dev_warn(dbg_dev, "Could not read TWL4030 register %X - ret %d[%x]\n",
-			 code_reg, ret, ret);
+static int omap_kp_read_kp_matrix_state(u16 *state)
+{
+	u8 new_state[MAX_ROWS];
+	int row;
+	int ret = twl4030_kpread(TWL4030_MODULE_KEYPAD,
+				 new_state, KEYP_FULL_CODE_7_0, n_rows);
+	if (ret >= 0) {
+		for (row = 0; row < n_rows; row++)
+			state[row] = omap_kp_col_xlate(new_state[row]);
+	}
+	return ret;
+}
+
+static int omap_kp_is_in_ghost_state(u16 *key_state)
+{
+	int i;
+	u16  check = 0;
+
+	for (i = 0; i < n_rows; i++) {
+		u16 col = key_state[i];
+
+		if ((col & check) && hweight16(col) > 1)
+			return 1;
+		check |= col;
+	}
+
+	return 0;
+}
+
+static void twl4030_kp_scan(int release_all)
+{
+	u16 new_state[MAX_ROWS];
+	int col, row;
+
+	if (release_all)
+		memset(new_state, 0, sizeof(new_state));
+	else {
+		/* check for any changes */
+		int ret = omap_kp_read_kp_matrix_state(new_state);
+		if (ret < 0)  /* panic ... */
+			return;
+
+		if (omap_kp_is_in_ghost_state(new_state))
+			return;
+	}
 
 	/* check for changes and print those */
-	for (row = 0; row < NUM_ROWS; row++) {
-		changed = new_state[row] ^ kp_state[row];
-		key_down |= new_state[row];
+	for (row = 0; row < n_rows; row++) {
+		int changed = new_state[row] ^ kp_state[row];
 
-		if (changed == 0)
+		if (!changed)
 			continue;
 
-		for (col = 0; col < NUM_COLS; col++) {
+		for (col = 0; col < n_cols + 1; col++) {
 			int key;
 
 			if (!(changed & (1 << col)))
 				continue;
 
-			dev_dbg(dbg_dev, "key %s %s\n", switch_name[row][col],
+			dev_dbg(dbg_dev, "key [%d:%d] %s\n", row, col,
 				(new_state[row] & (1 << col)) ?
 				"press" : "release");
 
 			key = omap_kp_find_key(col, row);
-			if (key < 0) {
-				dev_warn(dbg_dev, "omap-kp: Spurious key event %d-%d\n",
+			if (key < 0)
+				dev_warn(dbg_dev, "Spurious key event %d-%d\n",
 					 col, row);
-				/* We scan again after a couple of seconds */
-				spurious = 1;
-				continue;
-			}
-			input_report_key(omap_twl4030kp, key,
-					 new_state[row] & (1 << col));
+			else
+				input_report_key(omap_twl4030kp, key,
+						 new_state[row] & (1 << col));
 		}
+		kp_state[row] = new_state[row];
 	}
-	if (key_down) {
-		/*
-		 * some key is pressed - keep irq disabled and use timer
-		 * to poll for key release
-		 */
-		if (spurious)
-			mod_timer(&kptimer, jiffies + SCAN_RATE * 2);
-		else
-			mod_timer(&kptimer, jiffies + SCAN_RATE);
-	}
-	memcpy(kp_state, new_state, sizeof(kp_state));
-}
-
-static void twl4030_timer_work(struct work_struct *unused)
-{
-	twl4030_kp_scan();
-}
-
-void omap_kp_timer(unsigned long data)
-{
-	schedule_work(&timer_work);
 }
 
 /*
@@ -185,22 +188,15 @@ static irqreturn_t do_kp_irq(int irq, void *dev_id)
 	u8 reg;
 	int ret;
 
-	/* Mask keypad interrupts */
-	reg = KEYP_IMR1_MASK;
-	ret = twl4030_kpwrite_u8(TWL4030_MODULE_KEYPAD, reg, REG_KEYP_IMR1);
+	/* Read & Clear TWL4030 pending interrupt */
+	ret = twl4030_kpread(TWL4030_MODULE_KEYPAD, &reg, KEYP_ISR1, 1);
 
-	/*
-	 * Scan keypad for any changes
-	 * in keypad matrix.
-	 */
-	twl4030_kp_scan();
-
-	/* Clear TWL4030 PIH interrupt */
-	ret = twl4030_kpread_u8(TWL4030_MODULE_KEYPAD, &reg, REG_KEYP_ISR1);
-
-	/* Enable interrupts */
-	reg = KEYP_IMR1_UNMASK;
-	ret = twl4030_kpwrite_u8(TWL4030_MODULE_KEYPAD, reg, REG_KEYP_IMR1);
+	/* Release all keys if I2C has gone bad or
+	 * the KEYP has gone to idle state */
+	if ((ret >= 0) && (reg & KEYP_IMR1_KP))
+		twl4030_kp_scan(0);
+	else
+		twl4030_kp_scan(1);
 
 	return IRQ_HANDLED;
 }
@@ -208,12 +204,11 @@ static irqreturn_t do_kp_irq(int irq, void *dev_id)
 /*
  * Registers keypad device with input sub system
  * and configures TWL4030 keypad registers
- *
  */
 static int __init omap_kp_probe(struct platform_device *pdev)
 {
-	u8 reg, i;
-	u8 code_reg = REG_FULL_CODE_7_0;
+	u8 reg;
+	int i;
 	int ret = 0;
 	struct omap_kp_platform_data *pdata =  pdev->dev.platform_data;
 
@@ -230,15 +225,18 @@ static int __init omap_kp_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	keymap = pdata->keymap;
+	n_rows = pdata->rows;
+	n_cols = pdata->cols;
 
 	/* setup input device */
 	set_bit(EV_KEY, omap_twl4030kp->evbit);
 
 	/* Enable auto repeat feature of Linux input subsystem */
-	set_bit(EV_REP, omap_twl4030kp->evbit);
+	if (pdata->rep)
+		set_bit(EV_REP, omap_twl4030kp->evbit);
 
 	for (i = 0; keymap[i] != 0; i++)
-		set_bit(keymap[i] & 0x00ffffff, omap_twl4030kp->keybit);
+		set_bit(keymap[i] & KEYNUM_MASK, omap_twl4030kp->keybit);
 
 	omap_twl4030kp->name		= "omap_twl4030keypad";
 	omap_twl4030kp->phys		= "omap_twl4030keypad/input0";
@@ -259,49 +257,46 @@ static int __init omap_kp_probe(struct platform_device *pdev)
 		goto err2;
 	}
 
-	setup_timer(&kptimer,omap_kp_timer,(unsigned long) omap_twl4030kp);
-
-	/*
-	 * Since keypad driver uses I2C for reading
-	 * twl4030 keypad registers, tasklets cannot
-	 * be used.
-	 */
-	INIT_WORK(&timer_work, twl4030_timer_work);
-
-	reg = KEYP_CTRL_REG_MASK_NOAUTORPT;
-	ret = twl4030_kpwrite_u8(TWL4030_MODULE_KEYPAD, reg,
-						REG_KEYP_CTRL_REG);
+	/* Disable auto-repeat */
+	reg = KEYP_CTRL_NOAUTORPT;
+	ret = twl4030_kpwrite_u8(TWL4030_MODULE_KEYPAD, reg, KEYP_CTRL);
 	if (ret < 0)
 		goto err3;
 
-	/* Set all events to Falling Edge detection */
-	reg = KEYP_EDR_MASK;
-	ret = twl4030_kpwrite_u8(TWL4030_MODULE_KEYPAD, reg, REG_KEYP_EDR);
+	/* Enable TO rising and KP rising and falling edge detection */
+	reg = KEYP_EDR_KP_BOTH | KEYP_EDR_TO_RISING;
+	ret = twl4030_kpwrite_u8(TWL4030_MODULE_KEYPAD, reg, KEYP_EDR);
 	if (ret < 0)
 		goto err3;
 
-	/* Set Pre Scalar Field PTV to 4 */
-	reg = BIT_LK_PTV_REG_PTV_MASK & (BIT_PTV_REG_PTV4 << BIT_LK_PTV_REG_PTV);
-
-	ret = twl4030_kpwrite_u8(TWL4030_MODULE_KEYPAD, reg, REG_LK_PTV_REG);
+	/* Set PTV prescaler Field */
+	reg = (PTV_PRESCALER << KEYP_LK_PTV_PTV_SHIFT);
+	ret = twl4030_kpwrite_u8(TWL4030_MODULE_KEYPAD, reg, KEYP_LK_PTV);
 	if (ret < 0)
 		goto err3;
 
-	/*
-	 * Set key debounce time to 10 ms using equation
-	 * Tint = Tclk * (LOAD_TIM+1) * 2^(PTV+1)
-	 * Where Tclk = 31.25 us ( since kbd_if_clk is 32KHz)
-	 * PTV = 4 for all the operations.
-	 */
-	ret = twl4030_kpwrite_u8(TWL4030_MODULE_KEYPAD, 0x3f,
-						REG_KEY_DEB_REG);
+	/* Set key debounce time to 20 ms */
+	i = KEYP_PERIOD_US(20000, PTV_PRESCALER);
+	ret = twl4030_kpwrite_u8(TWL4030_MODULE_KEYPAD, i, KEYP_DEB);
 	if (ret < 0)
 		goto err3;
 
-	/* Set SIH Ctrl register */
-	reg = KEYP_SIH_CTRL_MASK;
-	ret = twl4030_kpwrite_u8(TWL4030_MODULE_KEYPAD, reg,
-						REG_KEYP_SIH_CTRL);
+	/* Set timeout period to 100 ms */
+	i = KEYP_PERIOD_US(200000, PTV_PRESCALER);
+	ret = twl4030_kpwrite_u8(TWL4030_MODULE_KEYPAD,
+				 (i & 0xFF), KEYP_TIMEOUT_L);
+	if (ret < 0)
+		goto err3;
+
+	ret = twl4030_kpwrite_u8(TWL4030_MODULE_KEYPAD,
+				 (i >> 8), KEYP_TIMEOUT_H);
+	if (ret < 0)
+		goto err3;
+
+	/* Enable Clear-on-Read */
+	reg = KEYP_SIH_CTRL_COR | KEYP_SIH_CTRL_PEND_DIS;
+	ret = twl4030_kpwrite_u8(TWL4030_MODULE_KEYPAD,
+				 reg, KEYP_SIH_CTRL);
 	if (ret < 0)
 		goto err3;
 
@@ -316,27 +311,22 @@ static int __init omap_kp_probe(struct platform_device *pdev)
 			TWL4030_MODIRQ_KEYPAD);
 		goto err3;
 	} else {
-		/* Enable keypad module interrupts now. */
-		reg = KEYP_IMR1_UNMASK;
-		ret = twl4030_kpwrite_u8(TWL4030_MODULE_KEYPAD, reg,
-						REG_KEYP_IMR1);
-		if (ret < 0) {
-			/* mask all events - dont care abt result */
-			(void)twl4030_kpwrite_u8(TWL4030_MODULE_KEYPAD, 0xff,
-						 REG_KEYP_IMR1);
-			goto err4;
-		}
+		/* Enable KP and TO interrupts now. */
+		reg = ~(KEYP_IMR1_KP | KEYP_IMR1_TO);
+		ret = twl4030_kpwrite_u8(TWL4030_MODULE_KEYPAD,
+					 reg, KEYP_IMR1);
+		if (ret < 0)
+			goto err5;
 	}
 
-	/* Read initial state of keypad matrix. */
-	ret = twl4030_i2c_read(TWL4030_MODULE_KEYPAD, kp_state, code_reg,
-		NUM_ROWS);
-	if (ret < 0) {
-		dev_warn(dbg_dev, "Could not read TWL4030 register %X - ret %d[%x]\n",
-			 reg, ret, ret);
+	ret = omap_kp_read_kp_matrix_state(kp_state);
+	if (ret < 0)
 		goto err4;
-	}
-	return (ret);
+
+	return ret;
+err5:
+	/* mask all events - we don't care about the result */
+	(void) twl4030_kpwrite_u8(TWL4030_MODULE_KEYPAD, 0xff, KEYP_IMR1);
 err4:
 	free_irq(TWL4030_MODIRQ_KEYPAD, NULL);
 err3:
@@ -349,7 +339,6 @@ err2:
 static int omap_kp_remove(struct platform_device *pdev)
 {
 	free_irq(TWL4030_MODIRQ_KEYPAD, NULL);
-	del_timer_sync(&kptimer);
 
 	input_unregister_device(omap_twl4030kp);
 	return 0;
