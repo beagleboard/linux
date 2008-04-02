@@ -677,7 +677,7 @@ static int power_companion_init(void)
 	else
 		osc = clk_get(NULL, "osc_sys_ck");
 	if (IS_ERR(osc)) {
-		printk(KERN_ERR "Skipping twl3040 internal clock init and "
+		printk(KERN_WARNING "Skipping twl3040 internal clock init and "
 				"using bootloader value (unknown osc rate)\n");
 		return 0;
 	}
