@@ -246,6 +246,9 @@ int __init musb_platform_init(struct musb *musb)
 
 int musb_platform_suspend(struct musb *musb)
 {
+	if (!musb->clock)
+		return 0;
+
 	/* in any role */
 	OTG_FORCESTDBY_REG &= ~ENABLEFORCE; /* disable MSTANDBY */
 	OTG_SYSCONFIG_REG &= FORCESTDBY;	/* enable force standby */
@@ -257,13 +260,26 @@ int musb_platform_suspend(struct musb *musb)
 	if (musb->xceiv.set_suspend)
 		musb->xceiv.set_suspend(&musb->xceiv, 1);
 
+	if (musb->set_clock)
+		musb->set_clock(musb->clock, 0);
+	else
+		clk_disable(musb->clock);
+
 	return 0;
 }
 
 int musb_platform_resume(struct musb *musb)
 {
+	if (!musb->clock)
+		return 0;
+
 	if (musb->xceiv.set_suspend)
 		musb->xceiv.set_suspend(&musb->xceiv, 0);
+
+	if (musb->set_clock)
+		musb->set_clock(musb->clock, 1);
+	else
+		clk_enable(musb->clock);
 
 	OTG_FORCESTDBY_REG &= ~ENABLEFORCE; /* disable MSTANDBY */
 	OTG_SYSCONFIG_REG |= SMARTSTDBY;	/* enable smart standby */
