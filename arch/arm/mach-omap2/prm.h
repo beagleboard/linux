@@ -4,8 +4,8 @@
 /*
  * OMAP2/3 Power/Reset Management (PRM) register definitions
  *
- * Copyright (C) 2007 Texas Instruments, Inc.
- * Copyright (C) 2007 Nokia Corporation
+ * Copyright (C) 2007-2008 Texas Instruments, Inc.
+ * Copyright (C) 2007-2008 Nokia Corporation
  *
  * Written by Paul Walmsley
  *
@@ -13,6 +13,9 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
+
+#include <asm/io.h>
+#include <asm/bitops.h>
 
 #include "prcm-common.h"
 
@@ -60,7 +63,6 @@
 
 #define OMAP3430_PRM_IRQSTATUS_MPU	OMAP_PRM_REGADDR(OCP_MOD, 0x0018)
 #define OMAP3430_PRM_IRQENABLE_MPU	OMAP_PRM_REGADDR(OCP_MOD, 0x001c)
-
 
 #define OMAP3430_PRM_VC_SMPS_SA		OMAP_PRM_REGADDR(OMAP3430_GR_MOD, 0x0020)
 #define OMAP3430_PRM_VC_SMPS_VOL_RA	OMAP_PRM_REGADDR(OMAP3430_GR_MOD, 0x0024)
@@ -113,6 +115,19 @@ static u32 __attribute__((unused)) prm_read_reg(void __iomem *addr)
 	return __raw_readl(addr);
 }
 
+/* Read-modify-write bits in a PRM register */
+static u32 __attribute__((unused)) prm_rmw_reg_bits(u32 mask, u32 bits, void __iomem *va)
+{
+	u32 v;
+
+	v = prm_read_reg(va);
+	v &= ~mask;
+	v |= bits;
+	prm_write_reg(v, va);
+
+	return v;
+}
+
 #endif
 
 /*
@@ -154,6 +169,22 @@ static u32 __attribute__((unused)) prm_read_reg(void __iomem *addr)
 #define OMAP3430_PRM_IRQSTATUS_IVA2			0x00f8
 #define OMAP3430_PRM_IRQENABLE_IVA2			0x00fc
 
+/* Read-modify-write bits in a PRM register (by domain) */
+static u32 __attribute__((unused)) prm_rmw_mod_reg_bits(u32 mask, u32 bits,
+							s16 module, s16 idx)
+{
+	return prm_rmw_reg_bits(mask, bits, OMAP_PRM_REGADDR(module, idx));
+}
+
+static u32 __attribute__((unused)) prm_set_mod_reg_bits(u32 bits, s16 module, s16 idx)
+{
+	return prm_rmw_mod_reg_bits(bits, bits, module, idx);
+}
+
+static u32 __attribute__((unused)) prm_clear_mod_reg_bits(u32 bits, s16 module, s16 idx)
+{
+	return prm_rmw_mod_reg_bits(bits, 0x0, module, idx);
+}
 
 /* Architecture-specific registers */
 

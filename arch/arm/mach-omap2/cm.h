@@ -14,6 +14,8 @@
  * published by the Free Software Foundation.
  */
 
+#include <asm/io.h>
+
 #include "prcm-common.h"
 
 #ifndef __ASSEMBLER__
@@ -54,6 +56,20 @@ static u32 __attribute__((unused)) cm_read_reg(void __iomem *addr)
 {
 	return __raw_readl(addr);
 }
+
+/* Read-modify-write bits in a CM register */
+static u32 __attribute__((unused)) cm_rmw_reg_bits(u32 mask, u32 bits, void __iomem *va)
+{
+	u32 v;
+
+	v = cm_read_reg(va);
+	v &= ~mask;
+	v |= bits;
+	cm_write_reg(v, va);
+
+	return v;
+}
+
 #endif
 
 /*
@@ -82,7 +98,6 @@ static u32 __attribute__((unused)) cm_read_reg(void __iomem *addr)
 #define CM_CLKSEL1					CM_CLKSEL
 #define CM_CLKSEL2					0x0044
 #define CM_CLKSTCTRL					0x0048
-
 
 /* Architecture-specific registers */
 
@@ -122,6 +137,23 @@ static u32 __attribute__((unused)) cm_read_mod_reg(s16 module, s16 idx)
 {
 	return cm_read_reg(OMAP_CM_REGADDR(module, idx));
 }
+
+/* Read-modify-write bits in a CM register (by domain) */
+static inline u32 __attribute__((unused)) cm_rmw_mod_reg_bits(u32 mask, u32 bits, s16 module, s16 idx)
+{
+	return cm_rmw_reg_bits(mask, bits, OMAP_CM_REGADDR(module, idx));
+}
+
+static inline u32 __attribute__((unused)) cm_set_mod_reg_bits(u32 bits, s16 module, s16 idx)
+{
+	return cm_rmw_mod_reg_bits(bits, bits, module, idx);
+}
+
+static inline u32 __attribute__((unused)) cm_clear_mod_reg_bits(u32 bits, s16 module, s16 idx)
+{
+	return cm_rmw_mod_reg_bits(bits, 0x0, module, idx);
+}
+
 #endif
 
 /* CM register bits shared between 24XX and 3430 */
