@@ -593,19 +593,6 @@ static irqreturn_t twl4030_usb_irq(int irq, void *_twl)
 	int ret = IRQ_NONE;
 	u8 val;
 
-	if (twl4030_i2c_read_u8(TWL4030_MODULE_INT, &val, REG_PWR_ISR1) < 0) {
-		printk(KERN_ERR "twl4030_usb: i2c read failed,"
-				" line %d\n", __LINE__);
-		goto done;
-	}
-
-	/* this interrupt line may be shared */
-	if (!(val & USB_PRES))
-		goto done;
-
-	/* clear the interrupt */
-	twl4030_i2c_write_u8(TWL4030_MODULE_INT, USB_PRES, REG_PWR_ISR1);
-
 	/* action based on cable attach or detach */
 	if (twl4030_i2c_read_u8(TWL4030_MODULE_INT, &val, REG_PWR_EDR1) < 0) {
 		printk(KERN_ERR "twl4030_usb: i2c read failed,"
@@ -708,14 +695,13 @@ static int __init twl4030_usb_init(void)
 
 	the_transceiver = twl;
 
-	twl->irq		= TWL4030_MODIRQ_PWR;
+	twl->irq		= TWL4030_PWRIRQ_USB_PRES;
 	twl->otg.set_host	= twl4030_set_host;
 	twl->otg.set_peripheral	= twl4030_set_peripheral;
 	twl->otg.set_suspend	= twl4030_set_suspend;
 
 	usb_irq_disable();
-	status = request_irq(twl->irq, twl4030_usb_irq,
-		IRQF_DISABLED | IRQF_SHARED, "twl4030_usb", twl);
+	status = request_irq(twl->irq, twl4030_usb_irq, 0, "twl4030_usb", twl);
 	if (status < 0) {
 		printk(KERN_DEBUG "can't get IRQ %d, err %d\n",
 			twl->irq, status);

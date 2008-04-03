@@ -426,19 +426,6 @@ static irqreturn_t twl4030_rtc_interrupt(int irq, void *rtc)
 	int res;
 	u8 rd_reg;
 	
-	/* clear the RTC interrupt in TWL4030 power module */
-	res = twl4030_i2c_read_u8(TWL4030_MODULE_INT, &rd_reg, REG_PWR_ISR1);
-	if (res)
-		goto out;
-
-	/* Check if interrupt is sourced by RTC */
-	if (!(rd_reg & PWR_RTC_INT_CLR))
-		goto out;
-
-	res = twl4030_i2c_write_u8(TWL4030_MODULE_INT, PWR_RTC_INT_CLR, REG_PWR_ISR1);
-	if (res)
-		goto out;
-
 	res = twl4030_rtc_read_u8(&rd_reg, REG_RTC_STATUS_REG);
 	if (res)
 		goto out;
@@ -528,8 +515,8 @@ static int __devinit twl4030_rtc_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto out1;
 
-	ret = request_irq(TWL4030_MODIRQ_PWR, twl4030_rtc_interrupt,
-			  IRQF_DISABLED | IRQF_SHARED, rtc->dev.bus_id, rtc);
+	ret = request_irq(TWL4030_PWRIRQ_RTC, twl4030_rtc_interrupt,
+				0, rtc->dev.bus_id, rtc);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "IRQ is not free.\n");
 		goto out1;
