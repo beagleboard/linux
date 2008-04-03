@@ -577,7 +577,7 @@ u32 omap2_clksel_get_divisor(struct clk *clk)
 
 int omap2_clksel_set_rate(struct clk *clk, unsigned long rate)
 {
-	u32 field_mask, field_val, reg_val, validrate, new_div = 0;
+	u32 field_mask, field_val, validrate, new_div = 0;
 	void __iomem *div_addr;
 
 	validrate = omap2_clksel_round_rate_div(clk, rate, &new_div);
@@ -592,10 +592,8 @@ int omap2_clksel_set_rate(struct clk *clk, unsigned long rate)
 	if (field_val == ~0)
 		return -EINVAL;
 
-	reg_val = cm_read_reg(div_addr);
-	reg_val &= ~field_mask;
-	reg_val |= (field_val << __ffs(field_mask));
-	cm_write_reg(reg_val, div_addr);
+	cm_rmw_reg_bits(field_mask, field_val << __ffs(field_mask), div_addr);
+
 	wmb();
 
 	clk->rate = clk->parent->rate / new_div;

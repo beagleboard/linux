@@ -77,24 +77,17 @@ static u32 omap2_get_dpll_rate_24xx(struct clk *tclk)
 
 static int omap2_enable_osc_ck(struct clk *clk)
 {
-	u32 pcc;
 
-	pcc = prm_read_reg(OMAP24XX_PRCM_CLKSRC_CTRL);
-
-	prm_write_reg(pcc & ~OMAP_AUTOEXTCLKMODE_MASK,
-		      OMAP24XX_PRCM_CLKSRC_CTRL);
+	prm_rmw_reg_bits(OMAP_AUTOEXTCLKMODE_MASK, ~OMAP_AUTOEXTCLKMODE_MASK,
+			 OMAP24XX_PRCM_CLKSRC_CTRL);
 
 	return 0;
 }
 
 static void omap2_disable_osc_ck(struct clk *clk)
 {
-	u32 pcc;
-
-	pcc = prm_read_reg(OMAP24XX_PRCM_CLKSRC_CTRL);
-
-	prm_write_reg(pcc | OMAP_AUTOEXTCLKMODE_MASK,
-		      OMAP24XX_PRCM_CLKSRC_CTRL);
+	prm_rmw_reg_bits(OMAP_AUTOEXTCLKMODE_MASK, OMAP_AUTOEXTCLKMODE_MASK,
+			 OMAP24XX_PRCM_CLKSRC_CTRL);
 }
 
 /* Enable an APLL if off */

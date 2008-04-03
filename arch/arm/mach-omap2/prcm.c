@@ -25,6 +25,7 @@ extern void omap2_clk_prepare_for_reboot(void);
 
 u32 omap_prcm_get_reset_sources(void)
 {
+	/* XXX This presumably needs modification for 34XX */
 	return prm_read_mod_reg(WKUP_MOD, RM_RSTST) & 0x7f;
 }
 EXPORT_SYMBOL(omap_prcm_get_reset_sources);
@@ -32,15 +33,16 @@ EXPORT_SYMBOL(omap_prcm_get_reset_sources);
 /* Resets clock rates and reboots the system. Only called from system.h */
 void omap_prcm_arch_reset(char mode)
 {
-	u32 wkup;
+	s16 prcm_offs;
 	omap2_clk_prepare_for_reboot();
 
 	if (cpu_is_omap24xx()) {
-		wkup = prm_read_mod_reg(WKUP_MOD, RM_RSTCTRL) | OMAP_RST_DPLL3;
-		prm_write_mod_reg(wkup, WKUP_MOD, RM_RSTCTRL);
+		prcm_offs = WKUP_MOD;
 	} else if (cpu_is_omap34xx()) {
-		wkup = prm_read_mod_reg(OMAP3430_GR_MOD, RM_RSTCTRL)
-							| OMAP_RST_DPLL3;
-		prm_write_mod_reg(wkup, OMAP3430_GR_MOD, RM_RSTCTRL);
+		prcm_offs = OMAP3430_GR_MOD;
+	} else {
+		WARN_ON(1);
 	}
+
+	prm_set_mod_reg_bits(OMAP_RST_DPLL3, prcm_offs, RM_RSTCTRL);
 }

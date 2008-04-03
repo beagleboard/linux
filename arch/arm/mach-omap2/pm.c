@@ -162,7 +162,6 @@ static void pm_init_serial_console(void)
 {
 	const struct omap_serial_console_config *conf;
 	char name[16];
-	u32 l;
 
 	conf = omap_get_config(OMAP_TAG_SERIAL_CONSOLE,
 			       struct omap_serial_console_config);
@@ -185,19 +184,13 @@ static void pm_init_serial_console(void)
 	}
 	switch (serial_console_uart) {
 	case 1:
-		l = prm_read_mod_reg(CORE_MOD, PM_WKEN1);
-		l |= OMAP24XX_ST_UART1;
-		prm_write_mod_reg(l, CORE_MOD, PM_WKEN1);
+		prm_set_mod_reg_bits(OMAP24XX_ST_UART1, CORE_MOD, PM_WKEN1)
 		break;
 	case 2:
-		l = prm_read_mod_reg(CORE_MOD, PM_WKEN1);
-		l |= OMAP24XX_ST_UART2;
-		prm_write_mod_reg(l, CORE_MOD, PM_WKEN1);
+		prm_set_mod_reg_bits(OMAP24XX_ST_UART2, CORE_MOD, PM_WKEN1)
 		break;
 	case 3:
-		l = prm_read_mod_reg(CORE_MOD, OMAP24XX_PM_WKEN2);
-		l |= OMAP24XX_ST_UART3;
-		prm_write_mod_reg(l, CORE_MOD, OMAP24XX_PM_WKEN2);
+		prm_set_mod_reg_bits(OMAP24XX_ST_UART3, CORE_MOD, PM_WKEN2)
 		break;
 	}
 }
@@ -445,10 +438,8 @@ no_sleep:
 	prm_write_mod_reg(0xffffffff, CORE_MOD, PM_WKST1);
 	prm_write_mod_reg(0xffffffff, CORE_MOD, OMAP24XX_PM_WKST2);
 
-	/* wakeup domain events */
-	l = prm_read_mod_reg(WKUP_MOD, PM_WKST);
-	l &= 0x5;  /* bit 1: GPT1, bit5 GPIO */
-	prm_write_mod_reg(l, WKUP_MOD, PM_WKST);
+	/* wakeup domain events - bit 1: GPT1, bit5 GPIO */
+	prm_clear_mod_reg_bits(0x4 | 0x1, WKUP_MOD, PM_WKST);
 
 	/* MPU domain wake events */
 	l = prm_read_reg(OMAP24XX_PRCM_IRQSTATUS_MPU);
