@@ -29,6 +29,9 @@
 
 static void omap3_dpll_recalc(struct clk *clk);
 static void omap3_clkoutx2_recalc(struct clk *clk);
+static void omap3_dpll_allow_idle(struct clk *clk);
+static void omap3_dpll_deny_idle(struct clk *clk);
+static u32 omap3_dpll_autoidle_read(struct clk *clk);
 
 /*
  * DPLL1 supplies clock to the MPU.
@@ -254,6 +257,8 @@ static const struct dpll_data dpll1_dd = {
 	.auto_recal_bit	= OMAP3430_EN_MPU_DPLL_DRIFTGUARD_SHIFT,
 	.recal_en_bit	= OMAP3430_MPU_DPLL_RECAL_EN_SHIFT,
 	.recal_st_bit	= OMAP3430_MPU_DPLL_ST_SHIFT,
+	.autoidle_reg	= OMAP_CM_REGADDR(MPU_MOD, OMAP3430_CM_AUTOIDLE_PLL),
+	.autoidle_mask	= OMAP3430_AUTO_MPU_DPLL_MASK,
 };
 
 static struct clk dpll1_ck = {
@@ -311,6 +316,9 @@ static const struct dpll_data dpll2_dd = {
 	.auto_recal_bit	= OMAP3430_EN_IVA2_DPLL_DRIFTGUARD_SHIFT,
 	.recal_en_bit	= OMAP3430_PRM_IRQENABLE_MPU_IVA2_DPLL_RECAL_EN_SHIFT,
 	.recal_st_bit	= OMAP3430_PRM_IRQSTATUS_MPU_IVA2_DPLL_ST_SHIFT,
+	.autoidle_reg	= OMAP_CM_REGADDR(OMAP3430_IVA2_MOD, OMAP3430_CM_AUTOIDLE_PLL),
+	.autoidle_mask	= OMAP3430_AUTO_IVA2_DPLL_MASK,
+
 };
 
 static struct clk dpll2_ck = {
@@ -355,6 +363,8 @@ static const struct dpll_data dpll3_dd = {
 	.auto_recal_bit	= OMAP3430_EN_CORE_DPLL_DRIFTGUARD_SHIFT,
 	.recal_en_bit	= OMAP3430_CORE_DPLL_RECAL_EN_SHIFT,
 	.recal_st_bit	= OMAP3430_CORE_DPLL_ST_SHIFT,
+	.autoidle_reg	= OMAP_CM_REGADDR(PLL_MOD, CM_AUTOIDLE),
+	.autoidle_mask	= OMAP3430_AUTO_CORE_DPLL_MASK,
 };
 
 static struct clk dpll3_ck = {
@@ -527,6 +537,8 @@ static const struct dpll_data dpll4_dd = {
 	.auto_recal_bit	= OMAP3430_EN_PERIPH_DPLL_DRIFTGUARD_SHIFT,
 	.recal_en_bit	= OMAP3430_PERIPH_DPLL_RECAL_EN_SHIFT,
 	.recal_st_bit	= OMAP3430_PERIPH_DPLL_ST_SHIFT,
+	.autoidle_reg	= OMAP_CM_REGADDR(PLL_MOD, CM_AUTOIDLE),
+	.autoidle_mask	= OMAP3430_AUTO_PERIPH_DPLL_MASK,
 };
 
 static struct clk dpll4_ck = {
@@ -818,6 +830,8 @@ static const struct dpll_data dpll5_dd = {
 	.auto_recal_bit	= OMAP3430ES2_EN_PERIPH2_DPLL_DRIFTGUARD_SHIFT,
 	.recal_en_bit	= OMAP3430ES2_SND_PERIPH_DPLL_RECAL_EN_SHIFT,
 	.recal_st_bit	= OMAP3430ES2_SND_PERIPH_DPLL_ST_SHIFT,
+	.autoidle_reg	= OMAP_CM_REGADDR(PLL_MOD, OMAP3430ES2_CM_AUTOIDLE2_PLL),
+	.autoidle_mask	= OMAP3430ES2_AUTO_PERIPH2_DPLL_MASK,
 };
 
 static struct clk dpll5_ck = {

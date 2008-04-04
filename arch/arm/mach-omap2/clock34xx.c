@@ -37,6 +37,10 @@
 #include "cm.h"
 #include "cm-regbits-34xx.h"
 
+/* CM_AUTOIDLE_PLL*.AUTO_* bit values */
+#define DPLL_AUTOIDLE_DISABLE			0x0
+#define DPLL_AUTOIDLE_LOW_POWER_STOP		0x1
+
 /* CM_CLKEN_PLL*.EN* bit values */
 #define DPLL_LOCKED		0x7
 
@@ -52,6 +56,81 @@ static void omap3_dpll_recalc(struct clk *clk)
 
 	propagate_rate(clk);
 }
+
+/**
+ * omap3_dpll_autoidle_read - read a DPLL's autoidle bits
+ * @clk: struct clk * of the DPLL to read
+ *
+ * Return the DPLL's autoidle bits, shifted down to bit 0.  Returns
+ * -EINVAL if passed a null pointer or if the struct clk does not
+ * appear to refer to a DPLL.
+ */
+static u32 omap3_dpll_autoidle_read(struct clk *clk)
+{
+	const struct dpll_data *dd;
+	u32 v;
+
+	if (!clk || !clk->dpll_data)
+		return -EINVAL;
+
+	dd = clk->dpll_data;
+
+	v = cm_read_reg(dd->autoidle_reg);
+	v &= dd->autoidle_mask;
+	v >>= __ffs(dd->autoidle_mask);
+
+	return v;
+}
+
+/**
+ * omap3_dpll_allow_idle - enable DPLL autoidle bits
+ * @clk: struct clk * of the DPLL to operate on
+ *
+ * Enable DPLL automatic idle control.  This automatic idle mode
+ * switching takes effect only when the DPLL is locked, at least on
+ * OMAP3430.  The DPLL will enter low-power stop when its downstream
+ * clocks are gated.  No return value.
+ */
+static void omap3_dpll_allow_idle(struct clk *clk)
+{
+	const struct dpll_data *dd;
+
+	if (!clk || !clk->dpll_data)
+		return;
+
+	dd = clk->dpll_data;
+
+	/*
+	 * REVISIT: CORE DPLL can optionally enter low-power bypass
+	 * by writing 0x5 instead of 0x1.  Add some mechanism to
+	 * optionally enter this mode.
+	 */
+	cm_rmw_reg_bits(dd->autoidle_mask,
+			DPLL_AUTOIDLE_LOW_POWER_STOP << __ffs(dd->autoidle_mask),
+			dd->autoidle_reg);
+}
+
+/**
+ * omap3_dpll_deny_idle - prevent DPLL from automatically idling
+ * @clk: struct clk * of the DPLL to operate on
+ *
+ * Disable DPLL automatic idle control.  No return value.
+ */
+static void omap3_dpll_deny_idle(struct clk *clk)
+{
+	const struct dpll_data *dd;
+
+	if (!clk || !clk->dpll_data)
+		return;
+
+	dd = clk->dpll_data;
+
+	cm_rmw_reg_bits(dd->autoidle_mask,
+ 			DPLL_AUTOIDLE_DISABLE << __ffs(dd->autoidle_mask),
+			dd->autoidle_reg);
+}
+
+
 
 /**
  * omap3_clkoutx2_recalc - recalculate DPLL X2 output virtual clock rate

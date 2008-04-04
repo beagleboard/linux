@@ -41,6 +41,8 @@ struct dpll_data {
 	u8			auto_recal_bit;
 	u8			recal_en_bit;
 	u8			recal_st_bit;
+	void __iomem		*autoidle_reg;
+	u32			autoidle_mask;
 #  endif
 };
 
