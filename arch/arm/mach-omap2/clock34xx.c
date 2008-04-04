@@ -1,10 +1,11 @@
 /*
  * OMAP3-specific clock framework functions
  *
- * Copyright (C) 2007 Texas Instruments, Inc.
- * Copyright (C) 2007 Nokia Corporation
+ * Copyright (C) 2007-2008 Texas Instruments, Inc.
+ * Copyright (C) 2007-2008 Nokia Corporation
  *
  * Written by Paul Walmsley
+ * Testing and integration fixes by Jouni Högander
  *
  * Parts of this code are based on code written by
  * Richard Woodruff, Tony Lindgren, Tuukka Tikkanen, Karthik Dasu
@@ -23,6 +24,7 @@
 #include <linux/delay.h>
 #include <linux/clk.h>
 #include <linux/io.h>
+#include <linux/limits.h>
 
 #include <asm/arch/clock.h>
 #include <asm/arch/sram.h>
@@ -41,8 +43,7 @@
 #define DPLL_AUTOIDLE_DISABLE			0x0
 #define DPLL_AUTOIDLE_LOW_POWER_STOP		0x1
 
-/* CM_CLKEN_PLL*.EN* bit values */
-#define DPLL_LOCKED		0x7
+#define MAX_DPLL_WAIT_TRIES		1000000
 
 /**
  * omap3_dpll_recalc - recalculate DPLL rate
@@ -55,6 +56,215 @@ static void omap3_dpll_recalc(struct clk *clk)
 	clk->rate = omap2_get_dpll_rate(clk);
 
 	propagate_rate(clk);
+}
+
+/* _omap3_dpll_write_clken - write clken_bits arg to a DPLL's enable bits */
+static void _omap3_dpll_write_clken(struct clk *clk, u8 clken_bits)
+{
+	const struct dpll_data *dd;
+
+	dd = clk->dpll_data;
+
+	cm_rmw_reg_bits(dd->enable_mask, clken_bits << __ffs(dd->enable_mask),
+			dd->control_reg);
+}
+
+/* _omap3_wait_dpll_status: wait for a DPLL to enter a specific state */
+static int _omap3_wait_dpll_status(struct clk *clk, u8 state)
+{
+	const struct dpll_data *dd;
+	int i = 0;
+	int ret = -EINVAL;
+	u32 idlest_mask;
+
+	dd = clk->dpll_data;
+
+	state <<= dd->idlest_bit;
+	idlest_mask = 1 << dd->idlest_bit;
+
+	while (((cm_read_reg(dd->idlest_reg) & idlest_mask) != state) &&
+	       i < MAX_DPLL_WAIT_TRIES) {
+		i++;
+		udelay(1);
+	}
+
+	if (i == MAX_DPLL_WAIT_TRIES) {
+		printk(KERN_ERR "clock: %s failed transition to '%s'\n",
+		       clk->name, (state) ? "locked" : "bypassed");
+	} else {
+		pr_debug("clock: %s transition to '%s' in %d loops\n",
+			 clk->name, (state) ? "locked" : "bypassed", i);
+
+		ret = 0;
+	}
+
+	return ret;
+}
+
+/* Non-CORE DPLL (e.g., DPLLs that do not control SDRC) clock functions */
+
+/*
+ * _omap3_noncore_dpll_lock - instruct a DPLL to lock and wait for readiness
+ * @clk: pointer to a DPLL struct clk
+ *
+ * Instructs a non-CORE DPLL to lock.  Waits for the DPLL to report
+ * readiness before returning.  Will save and restore the DPLL's
+ * autoidle state across the enable, per the CDP code.  If the DPLL
+ * locked successfully, return 0; if the DPLL did not lock in the time
+ * allotted, or DPLL3 was passed in, return -EINVAL.
+ */
+static int _omap3_noncore_dpll_lock(struct clk *clk)
+{
+	u8 ai;
+	int r;
+
+	if (clk == &dpll3_ck)
+		return -EINVAL;
+
+	pr_debug("clock: locking DPLL %s\n", clk->name);
+
+	ai = omap3_dpll_autoidle_read(clk);
+
+	_omap3_dpll_write_clken(clk, DPLL_LOCKED);
+
+	if (ai) {
+		/*
+		 * If no downstream clocks are enabled, CM_IDLEST bit
+		 * may never become active, so don't wait for DPLL to lock.
+		 */
+		r = 0;
+		omap3_dpll_allow_idle(clk);
+	} else {
+		r = _omap3_wait_dpll_status(clk, 1);
+		omap3_dpll_deny_idle(clk);
+	};
+
+	return r;
+}
+
+/*
+ * omap3_noncore_dpll_bypass - instruct a DPLL to bypass and wait for readiness
+ * @clk: pointer to a DPLL struct clk
+ *
+ * Instructs a non-CORE DPLL to enter low-power bypass mode.  In
+ * bypass mode, the DPLL's rate is set equal to its parent clock's
+ * rate.  Waits for the DPLL to report readiness before returning.
+ * Will save and restore the DPLL's autoidle state across the enable,
+ * per the CDP code.  If the DPLL entered bypass mode successfully,
+ * return 0; if the DPLL did not enter bypass in the time allotted, or
+ * DPLL3 was passed in, or the DPLL does not support low-power bypass,
+ * return -EINVAL.
+ */
+static int _omap3_noncore_dpll_bypass(struct clk *clk)
+{
+	int r;
+	u8 ai;
+
+	if (clk == &dpll3_ck)
+		return -EINVAL;
+
+	if (!(clk->dpll_data->modes & (1 << DPLL_LOW_POWER_BYPASS)))
+		return -EINVAL;
+
+	pr_debug("clock: configuring DPLL %s for low-power bypass\n",
+		 clk->name);
+
+	ai = omap3_dpll_autoidle_read(clk);
+
+	_omap3_dpll_write_clken(clk, DPLL_LOW_POWER_BYPASS);
+
+	r = _omap3_wait_dpll_status(clk, 0);
+
+	if (ai)
+		omap3_dpll_allow_idle(clk);
+	else
+		omap3_dpll_deny_idle(clk);
+
+	return r;
+}
+
+/*
+ * _omap3_noncore_dpll_stop - instruct a DPLL to stop
+ * @clk: pointer to a DPLL struct clk
+ *
+ * Instructs a non-CORE DPLL to enter low-power stop. Will save and
+ * restore the DPLL's autoidle state across the stop, per the CDP
+ * code.  If DPLL3 was passed in, or the DPLL does not support
+ * low-power stop, return -EINVAL; otherwise, return 0.
+ */
+static int _omap3_noncore_dpll_stop(struct clk *clk)
+{
+	u8 ai;
+
+	if (clk == &dpll3_ck)
+		return -EINVAL;
+
+	if (!(clk->dpll_data->modes & (1 << DPLL_LOW_POWER_STOP)))
+		return -EINVAL;
+
+	pr_debug("clock: stopping DPLL %s\n", clk->name);
+
+	ai = omap3_dpll_autoidle_read(clk);
+
+	_omap3_dpll_write_clken(clk, DPLL_LOW_POWER_STOP);
+
+	if (ai)
+		omap3_dpll_allow_idle(clk);
+	else
+		omap3_dpll_deny_idle(clk);
+
+	return 0;
+}
+
+/**
+ * omap3_noncore_dpll_enable - instruct a DPLL to enter bypass or lock mode
+ * @clk: pointer to a DPLL struct clk
+ *
+ * Instructs a non-CORE DPLL to enable, e.g., to enter bypass or lock.
+ * The choice of modes depends on the DPLL's programmed rate: if it is
+ * the same as the DPLL's parent clock, it will enter bypass;
+ * otherwise, it will enter lock.  This code will wait for the DPLL to
+ * indicate readiness before returning, unless the DPLL takes too long
+ * to enter the target state.  Intended to be used as the struct clk's
+ * enable function.  If DPLL3 was passed in, or the DPLL does not
+ * support low-power stop, or if the DPLL took too long to enter
+ * bypass or lock, return -EINVAL; otherwise, return 0.
+ */
+static int omap3_noncore_dpll_enable(struct clk *clk)
+{
+	int r;
+
+	if (clk == &dpll3_ck)
+		return -EINVAL;
+
+	if (clk->parent->rate == clk_get_rate(clk))
+		r = _omap3_noncore_dpll_bypass(clk);
+	else
+		r = _omap3_noncore_dpll_lock(clk);
+
+	return r;
+}
+
+/**
+ * omap3_noncore_dpll_enable - instruct a DPLL to enter bypass or lock mode
+ * @clk: pointer to a DPLL struct clk
+ *
+ * Instructs a non-CORE DPLL to enable, e.g., to enter bypass or lock.
+ * The choice of modes depends on the DPLL's programmed rate: if it is
+ * the same as the DPLL's parent clock, it will enter bypass;
+ * otherwise, it will enter lock.  This code will wait for the DPLL to
+ * indicate readiness before returning, unless the DPLL takes too long
+ * to enter the target state.  Intended to be used as the struct clk's
+ * enable function.  If DPLL3 was passed in, or the DPLL does not
+ * support low-power stop, or if the DPLL took too long to enter
+ * bypass or lock, return -EINVAL; otherwise, return 0.
+ */
+static void omap3_noncore_dpll_disable(struct clk *clk)
+{
+	if (clk == &dpll3_ck)
+		return;
+
+	_omap3_noncore_dpll_stop(clk);
 }
 
 /**
@@ -130,7 +340,7 @@ static void omap3_dpll_deny_idle(struct clk *clk)
 			dd->autoidle_reg);
 }
 
-
+/* Clock control for DPLL outputs */
 
 /**
  * omap3_clkoutx2_recalc - recalculate DPLL X2 output virtual clock rate
@@ -167,6 +377,8 @@ static void omap3_clkoutx2_recalc(struct clk *clk)
 	if (clk->flags & RATE_PROPAGATES)
 		propagate_rate(clk);
 }
+
+/* Common clock code */
 
 /*
  * As it is structured now, this will prevent an OMAP2/3 multiboot

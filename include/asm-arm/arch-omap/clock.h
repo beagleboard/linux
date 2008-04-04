@@ -36,6 +36,7 @@ struct dpll_data {
 	u32			mult_mask;
 	u32			div1_mask;
 #  if defined(CONFIG_ARCH_OMAP3)
+	u8			modes;
 	void __iomem		*control_reg;
 	u32			enable_mask;
 	u8			auto_recal_bit;
@@ -43,6 +44,8 @@ struct dpll_data {
 	u8			recal_st_bit;
 	void __iomem		*autoidle_reg;
 	u32			autoidle_mask;
+	void __iomem		*idlest_reg;
+	u8			idlest_bit;
 #  endif
 };
 
