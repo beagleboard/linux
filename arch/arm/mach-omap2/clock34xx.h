@@ -1,14 +1,19 @@
 /*
  * OMAP3 clock framework
  *
- * Virtual clocks are introduced as a convenient tools.
- * They are sources for other clocks and not supposed
- * to be requested from drivers directly.
- *
  * Copyright (C) 2007-2008 Texas Instruments, Inc.
  * Copyright (C) 2007-2008 Nokia Corporation
  *
  * Written by Paul Walmsley
+ * With many device clock fixes by Kevin Hilman and Jouni Högander
+ * DPLL bypass clock support added by Roman Tereshonkov
+ *
+ */
+
+/*
+ * Virtual clocks are introduced as convenient tools.
+ * They are sources for other clocks and not supposed
+ * to be requested from drivers directly.
  */
 
 #ifndef __ARCH_ARM_MACH_OMAP2_CLOCK34XX_H
