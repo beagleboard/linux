@@ -54,6 +54,7 @@ I2C_CLIENT_INSMOD;
 static struct i2c_driver aic23_driver;
 static struct i2c_client *new_client;
 static int selftest;
+static struct platform_device audio_i2c_device;
 
 static struct aic23_info {
 	u16 volume_reg_left;
@@ -95,73 +96,6 @@ int aic23_write_value(u8 reg, u16 value)
 	return 0;
 }
 
-static int aic23_detect_client(struct i2c_adapter *adapter, int address,
-				     int kind)
-{
-	int err = 0;
-	const char *client_name = "TLV320AIC23 Audio Codec";
-
-	if (!i2c_check_functionality(adapter, I2C_FUNC_SMBUS_WORD_DATA |
-				     I2C_FUNC_SMBUS_WRITE_BYTE)) {
-		printk(KERN_WARNING "%s functinality check failed\n",
-		       client_name);
-		return err;
-	}
-
-	if (!(new_client = kmalloc(sizeof(struct i2c_client),
-				   GFP_KERNEL))) {
-		err = -ENOMEM;
-		printk(KERN_WARNING "Couldn't allocate memory for %s\n",
-		       client_name);
-		return err;
-	}
-
-	memset(new_client, 0x00, sizeof(struct i2c_client));
-	new_client->addr = address;
-	new_client->adapter = adapter;
-	new_client->driver = &aic23_driver;
-	new_client->flags = 0;
-	strlcpy(new_client->name, client_name, I2C_NAME_SIZE);
-
-	if ((err = i2c_attach_client(new_client))) {
-		printk(KERN_WARNING "Couldn't attach %s\n", client_name);
-		kfree(new_client);
-		return err;
-	}
-	return 0;
-}
-
-static int aic23_detach_client(struct i2c_client *client)
-{
-	int err;
-
-	if ((err = i2c_detach_client(client))) {
-		printk("aic23.o: Client deregistration failed, \
-		       client not detached.\n");
-		return err;
-	}
-	kfree(client);
-	return 0;
-}
-
-static int aic23_attach_adapter(struct i2c_adapter *adapter)
-{
-	int res;
-
-	res = i2c_probe(adapter, &addr_data, &aic23_detect_client);
-	return res;
-}
-
-static struct i2c_driver aic23_driver = {
-	.driver = {
-		.name	= "OMAP+TLV320AIC23 codec",
-		/*.flags	= I2C_DF_NOTIFY,*/
-	},
-	.id		= I2C_DRIVERID_MISC, /* Experimental ID */
-	.attach_adapter	= aic23_attach_adapter,
-	.detach_client	= aic23_detach_client,
-};
-
 /*
  * Configures the McBSP3 which is used to send clock to the AIC23 codec.
  * The input clock rate from DSP is 12MHz.
@@ -193,6 +127,88 @@ static int omap_mcbsp3_aic23_clock_init(void)
 
 	return 0;
 }
+
+static int aic23_detect_client(struct i2c_adapter *adapter, int address,
+				     int kind)
+{
+	int err = 0;
+	const char *client_name = "TLV320AIC23 Audio Codec";
+
+	if (!i2c_check_functionality(adapter, I2C_FUNC_SMBUS_WORD_DATA |
+				     I2C_FUNC_SMBUS_WRITE_BYTE)) {
+		printk(KERN_WARNING "%s functionality check failed\n",
+		       client_name);
+		return err;
+	}
+
+	if (!(new_client = kmalloc(sizeof(struct i2c_client),
+				   GFP_KERNEL))) {
+		err = -ENOMEM;
+		printk(KERN_WARNING "Couldn't allocate memory for %s\n",
+		       client_name);
+		return err;
+	}
+
+	memset(new_client, 0x00, sizeof(struct i2c_client));
+	new_client->addr = address;
+	new_client->adapter = adapter;
+	new_client->driver = &aic23_driver;
+	new_client->flags = 0;
+	strlcpy(new_client->name, client_name, I2C_NAME_SIZE);
+
+	if ((err = i2c_attach_client(new_client))) {
+		printk(KERN_WARNING "Couldn't attach %s\n", client_name);
+		kfree(new_client);
+		return err;
+	}
+
+	if (platform_device_register(&audio_i2c_device)) {
+		printk(KERN_WARNING "Failed to register audio i2c device\n");
+		selftest = -ENODEV;
+		return selftest;
+	}
+	/* FIXME: Do in board-specific file */
+	omap_mcbsp3_aic23_clock_init();
+
+	if (!aic23_info_l.power_down)
+		aic23_power_up();
+	aic23_info_l.initialized = 1;
+
+	return 0;
+}
+
+static int aic23_detach_client(struct i2c_client *client)
+{
+	int err;
+
+	platform_device_unregister(&audio_i2c_device);
+
+	if ((err = i2c_detach_client(client))) {
+		printk("aic23.o: Client deregistration failed, \
+		       client not detached.\n");
+		return err;
+	}
+	kfree(client);
+	return 0;
+}
+
+static int aic23_attach_adapter(struct i2c_adapter *adapter)
+{
+	int res;
+
+	res = i2c_probe(adapter, &addr_data, &aic23_detect_client);
+	return res;
+}
+
+static struct i2c_driver aic23_driver = {
+	.driver = {
+		.name	= "OMAP+TLV320AIC23 codec",
+		/*.flags	= I2C_DF_NOTIFY,*/
+	},
+	.id		= I2C_DRIVERID_MISC, /* Experimental ID */
+	.attach_adapter	= aic23_attach_adapter,
+	.detach_client	= aic23_detach_client,
+};
 
 static void update_volume_left(int volume)
 {
@@ -633,17 +649,6 @@ static int __init aic23_init(void)
 		return selftest;
 	}
 
-	if (platform_device_register(&audio_i2c_device)) {
-		printk(KERN_WARNING "Failed to register audio i2c device\n");
-		platform_driver_unregister(&audio_i2c_driver);
-		selftest = -ENODEV;
-		return selftest;
-	}
-	/* FIXME: Do in board-specific file */
-	omap_mcbsp3_aic23_clock_init();
-	if (!aic23_info_l.power_down)
-		aic23_power_up();
-	aic23_info_l.initialized = 1;
 	printk("TLV320AIC23 I2C version %s (%s)\n",
 	       TLV320AIC23_VERSION, TLV320AIC23_DATE);
 
@@ -655,7 +660,6 @@ static void __exit aic23_exit(void)
 	aic23_power_down();
 	i2c_del_driver(&aic23_driver);
 
-	platform_device_unregister(&audio_i2c_device);
 	platform_driver_unregister(&audio_i2c_driver);
 }
 
