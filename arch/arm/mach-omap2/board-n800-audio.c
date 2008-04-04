@@ -316,7 +316,7 @@ void __init n800_audio_init(struct tsc2301_platform_data *tc)
 
 #else
 
-void __init n800_audio_init(void)
+void __init n800_audio_init(struct tsc2301_platform_data *tc)
 {
 }
 
