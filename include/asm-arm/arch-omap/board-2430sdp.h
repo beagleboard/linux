@@ -34,16 +34,27 @@
 #define OMAP24XX_ETHR_GPIO_IRQ		149
 #define SDP2430_CS0_BASE		0x04000000
 
+#ifdef CONFIG_TWL4030_CORE
+
 #define TWL4030_IRQNUM			INT_24XX_SYS_NIRQ
 
 /* TWL4030 Primary Interrupt Handler (PIH) interrupts */
 #define IH_TWL4030_BASE			IH_BOARD_BASE
 #define IH_TWL4030_END			(IH_TWL4030_BASE+8)
 
+#define IH_TWL4030_PWRBASE		(IH_TWL4030_END)
+#define IH_TWL4030_PWRBASE_END		(IH_TWL4030_PWRBASE+8)
+
+#ifdef CONFIG_TWL4030_GPIO
+
 /* TWL4030 GPIO Interrupts */
-#define IH_TWL4030_GPIO_BASE		(IH_TWL4030_END)
-#define IH_TWL4030_GPIO_END		(IH_TWL4030_BASE+18)
+#define IH_TWL4030_GPIO_BASE		(IH_TWL4030_PWRBASE_END)
+#define IH_TWL4030_GPIO_END		(IH_TWL4030_GPIO_BASE+18)
 #define NR_IRQS				(IH_TWL4030_GPIO_END)
+#else
+#define NR_IRQS				(IH_TWL4030_PWRBASE_END)
+#endif /* CONFIG_I2C_TWL4030_GPIO */
+#endif /* End of support for TWL4030 */
 
 /* Function prototypes */
 extern void sdp2430_flash_init(void);
