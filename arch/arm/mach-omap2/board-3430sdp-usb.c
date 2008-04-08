@@ -29,7 +29,7 @@
 static struct resource musb_resources[] = {
 	[0] = {
 		.start	= OMAP34XX_HSUSB_OTG_BASE,
-		.end	= OMAP34XX_HSUSB_OTG_BASE + SZ_8K,
+		.end	= OMAP34XX_HSUSB_OTG_BASE + SZ_8K - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	[1] = {	/* general IRQ */
@@ -100,7 +100,7 @@ static struct platform_device musb_device = {
 static struct resource ehci_resources[] = {
 	[0] = {
 		.start   = OMAP34XX_HSUSB_HOST_BASE + 0x800,
-		.end     = OMAP34XX_HSUSB_HOST_BASE + 0x800 + SZ_1K,
+		.end     = OMAP34XX_HSUSB_HOST_BASE + 0x800 + SZ_1K - 1,
 		.flags   = IORESOURCE_MEM,
 	},
 	[1] = {         /* general IRQ */

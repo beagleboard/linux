@@ -23,7 +23,7 @@
 static struct resource musb_resources[] = {
 	[0] = {
 		.start	= OMAP243X_HS_BASE,
-		.end	= OMAP243X_HS_BASE + SZ_8K,
+		.end	= OMAP243X_HS_BASE + SZ_8K - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	[1] = {	/* general IRQ */
