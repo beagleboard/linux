@@ -579,6 +579,10 @@ static struct i2c_board_info __initdata n800_i2c_board_info_2[] = {
 		.irq		= OMAP_GPIO_IRQ(109),
 		.platform_data	= &lm8323_pdata,
 	},
+	{
+		I2C_BOARD_INFO("tsl2563", 0x29),
+		.type		= "tsl2563",
+	},
 };
 
 void __init nokia_n800_common_init(void)
