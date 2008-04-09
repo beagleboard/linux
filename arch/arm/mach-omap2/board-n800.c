@@ -18,6 +18,7 @@
 #include <linux/platform_device.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/tsc2301.h>
+#include <linux/spi/tsc2005.h>
 #include <linux/input.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
@@ -371,21 +372,34 @@ static struct omap2_mcspi_device_config cx3110x_mcspi_config = {
 	.single_channel = 1,
 };
 
+#ifdef CONFIG_TOUCHSCREEN_TSC2005
+static struct tsc2005_platform_data tsc2005_config = {
+	.reset_gpio = 94,
+	.dav_gpio = 106
+};
+
+static struct omap2_mcspi_device_config tsc2005_mcspi_config = {
+	.turbo_mode	= 0,
+	.single_channel = 1,
+};
+#endif
+
 static struct spi_board_info n800_spi_board_info[] __initdata = {
-	[0] = {
+	{
 		.modalias	= "lcd_mipid",
 		.bus_num	= 1,
 		.chip_select	= 1,
 		.max_speed_hz	= 4000000,
 		.controller_data= &mipid_mcspi_config,
 		.platform_data	= &n800_mipid_platform_data,
-	}, [1] = {
+	}, {
 		.modalias	= "cx3110x",
 		.bus_num	= 2,
 		.chip_select	= 0,
 		.max_speed_hz   = 48000000,
 		.controller_data= &cx3110x_mcspi_config,
-	}, [2] = {
+	},
+	{
 		.modalias	= "tsc2301",
 		.bus_num	= 1,
 		.chip_select	= 0,
@@ -394,6 +408,73 @@ static struct spi_board_info n800_spi_board_info[] __initdata = {
 		.platform_data  = &tsc2301_config,
 	},
 };
+
+static struct spi_board_info n810_spi_board_info[] __initdata = {
+	{
+		.modalias	 = "lcd_mipid",
+		.bus_num	 = 1,
+		.chip_select	 = 1,
+		.max_speed_hz	 = 4000000,
+		.controller_data = &mipid_mcspi_config,
+		.platform_data	 = &n800_mipid_platform_data,
+	},
+	{
+		.modalias	 = "cx3110x",
+		.bus_num	 = 2,
+		.chip_select	 = 0,
+		.max_speed_hz    = 48000000,
+		.controller_data = &cx3110x_mcspi_config,
+	},
+	{
+		.modalias	 = "tsc2005",
+		.bus_num	 = 1,
+		.chip_select	 = 0,
+		.max_speed_hz    = 6000000,
+		.controller_data = &tsc2005_mcspi_config,
+		.platform_data   = &tsc2005_config,
+	},
+};
+
+static void __init tsc2005_set_config(void)
+{
+	const struct omap_lcd_config *conf;
+
+	conf = omap_get_config(OMAP_TAG_LCD, struct omap_lcd_config);
+	if (conf != NULL) {
+#ifdef CONFIG_TOUCHSCREEN_TSC2005
+		if (strcmp(conf->panel_name, "lph8923") == 0) {
+			tsc2005_config.ts_x_plate_ohm = 180;
+			tsc2005_config.ts_hw_avg = 0;
+			tsc2005_config.ts_ignore_last = 0;
+			tsc2005_config.ts_touch_pressure = 1500;
+			tsc2005_config.ts_stab_time = 100;
+			tsc2005_config.ts_pressure_max = 2048;
+			tsc2005_config.ts_pressure_fudge = 2;
+			tsc2005_config.ts_x_max = 4096;
+			tsc2005_config.ts_x_fudge = 4;
+			tsc2005_config.ts_y_max = 4096;
+			tsc2005_config.ts_y_fudge = 7;
+		} else if (strcmp(conf->panel_name, "ls041y3") == 0) {
+			tsc2005_config.ts_x_plate_ohm = 280;
+			tsc2005_config.ts_hw_avg = 0;
+			tsc2005_config.ts_ignore_last = 0;
+			tsc2005_config.ts_touch_pressure = 1500;
+			tsc2005_config.ts_stab_time = 1000;
+			tsc2005_config.ts_pressure_max = 2048;
+			tsc2005_config.ts_pressure_fudge = 2;
+			tsc2005_config.ts_x_max = 4096;
+			tsc2005_config.ts_x_fudge = 4;
+			tsc2005_config.ts_y_max = 4096;
+			tsc2005_config.ts_y_fudge = 7;
+		} else {
+			printk(KERN_ERR "Unknown panel type, set default "
+			       "touchscreen configuration\n");
+			tsc2005_config.ts_x_plate_ohm = 200;
+			tsc2005_config.ts_stab_time = 100;
+		}
+#endif
+	}
+}
 
 #if defined(CONFIG_CBUS_RETU) && defined(CONFIG_LEDS_OMAP_PWM)
 
@@ -595,8 +676,14 @@ void __init nokia_n800_common_init(void)
 	n800_dsp_init();
 	n800_usb_init();
 	n800_cam_init();
-	spi_register_board_info(n800_spi_board_info,
+	if (machine_is_nokia_n800())
+		spi_register_board_info(n800_spi_board_info,
 				ARRAY_SIZE(n800_spi_board_info));
+	if (machine_is_nokia_n810()) {
+		tsc2005_set_config();
+		spi_register_board_info(n810_spi_board_info,
+				ARRAY_SIZE(n810_spi_board_info));
+	}
 	omap_serial_init();
 	omap_register_i2c_bus(1, 400, n800_i2c_board_info_1,
 			      ARRAY_SIZE(n800_i2c_board_info_1));

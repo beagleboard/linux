@@ -185,6 +185,11 @@ config TOUCHSCREEN_UCB1400
 	  To compile this driver as a module, choose M here: the
 	  module will be called ucb1400_ts.
 
+config TOUCHSCREEN_TSC2005
+	tristate "TSC2005 touchscreen support"
+	help
+	  Say Y here for if you are using the touchscreen features of TSC2301.
+
 config TOUCHSCREEN_TSC2102
 	tristate "TSC 2102 based touchscreens"
 	depends on SPI_MASTER
