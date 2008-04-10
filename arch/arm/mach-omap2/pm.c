@@ -203,10 +203,10 @@ static void pm_init_serial_console(void)
 	regs[reg_count++].val = cm_read_mod_reg(mod, reg)
 #define DUMP_PRM_REG(reg) \
 	regs[reg_count].name = #reg; \
-	regs[reg_count++].val = prm_read_reg(reg)
+	regs[reg_count++].val = __raw_readl(reg)
 #define DUMP_CM_REG(reg) \
 	regs[reg_count].name = #reg; \
-	regs[reg_count++].val = cm_read_reg(reg)
+	regs[reg_count++].val = __raw_readl(reg)
 #define DUMP_INTC_REG(reg, off) \
 	regs[reg_count].name = #reg; \
 	regs[reg_count++].val = __raw_readl(IO_ADDRESS(0x480fe000 + (off)))
@@ -442,14 +442,14 @@ no_sleep:
 	prm_clear_mod_reg_bits(0x4 | 0x1, WKUP_MOD, PM_WKST);
 
 	/* MPU domain wake events */
-	l = prm_read_reg(OMAP24XX_PRCM_IRQSTATUS_MPU);
+	l = __raw_readl(OMAP24XX_PRCM_IRQSTATUS_MPU);
 	if (l & 0x01)
-		prm_write_reg(0x01, OMAP24XX_PRCM_IRQSTATUS_MPU);
+		__raw_writel(0x01, OMAP24XX_PRCM_IRQSTATUS_MPU);
 	if (l & 0x20)
-		prm_write_reg(0x20, OMAP24XX_PRCM_IRQSTATUS_MPU);
+		__raw_writel(0x20, OMAP24XX_PRCM_IRQSTATUS_MPU);
 
 	/* Mask future PRCM-to-MPU interrupts */
-	prm_write_reg(0x0, OMAP24XX_PRCM_IRQSTATUS_MPU);
+	__raw_writel(0x0, OMAP24XX_PRCM_IRQSTATUS_MPU);
 }
 
 static int omap2_i2c_active(void)
@@ -648,7 +648,7 @@ static void __init prcm_setup_regs(void)
 	u32 l;
 
 	/* Enable autoidle */
-	prm_write_reg(OMAP24XX_AUTOIDLE, OMAP24XX_PRCM_SYSCONFIG);
+	__raw_writel(OMAP24XX_AUTOIDLE, OMAP24XX_PRCM_SYSCONFIG);
 
 	/* Set all domain wakeup dependencies */
 	prm_write_mod_reg(OMAP_EN_WKUP, MPU_MOD, PM_WKDEP);
@@ -752,11 +752,11 @@ static void __init prcm_setup_regs(void)
 
 	/* REVISIT: Configure number of 32 kHz clock cycles for sys_clk
 	 * stabilisation */
-	prm_write_reg(15 << OMAP_SETUP_TIME_SHIFT, OMAP24XX_PRCM_CLKSSETUP);
+	__raw_writel(15 << OMAP_SETUP_TIME_SHIFT, OMAP24XX_PRCM_CLKSSETUP);
 
 	/* Configure automatic voltage transition */
-	prm_write_reg(2 << OMAP_SETUP_TIME_SHIFT, OMAP24XX_PRCM_VOLTSETUP);
-	prm_write_reg(OMAP24XX_AUTO_EXTVOLT |
+	__raw_writel(2 << OMAP_SETUP_TIME_SHIFT, OMAP24XX_PRCM_VOLTSETUP);
+	__raw_writel(OMAP24XX_AUTO_EXTVOLT |
 		      (0x1 << OMAP24XX_SETOFF_LEVEL_SHIFT) |
 		      OMAP24XX_MEMRETCTRL |
 		      (0x1 << OMAP24XX_SETRET_LEVEL_SHIFT) |
@@ -774,7 +774,7 @@ int __init omap2_pm_init(void)
 	int error;
 
 	printk(KERN_INFO "Power Management for OMAP2 initializing\n");
-	l = prm_read_reg(OMAP24XX_PRCM_REVISION);
+	l = __raw_readl(OMAP24XX_PRCM_REVISION);
 	printk(KERN_INFO "PRCM revision %d.%d\n", (l >> 4) & 0x0f, l & 0x0f);
 
 	osc_ck = clk_get(NULL, "osc_ck");

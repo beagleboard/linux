@@ -82,7 +82,7 @@ static int _omap3_wait_dpll_status(struct clk *clk, u8 state)
 	state <<= dd->idlest_bit;
 	idlest_mask = 1 << dd->idlest_bit;
 
-	while (((cm_read_reg(dd->idlest_reg) & idlest_mask) != state) &&
+	while (((__raw_readl(dd->idlest_reg) & idlest_mask) != state) &&
 	       i < MAX_DPLL_WAIT_TRIES) {
 		i++;
 		udelay(1);
@@ -285,7 +285,7 @@ static u32 omap3_dpll_autoidle_read(struct clk *clk)
 
 	dd = clk->dpll_data;
 
-	v = cm_read_reg(dd->autoidle_reg);
+	v = __raw_readl(dd->autoidle_reg);
 	v &= dd->autoidle_mask;
 	v >>= __ffs(dd->autoidle_mask);
 
@@ -367,7 +367,7 @@ static void omap3_clkoutx2_recalc(struct clk *clk)
 
 	WARN_ON(!dd->control_reg || !dd->enable_mask);
 
-	v = cm_read_reg(dd->control_reg) & dd->enable_mask;
+	v = __raw_readl(dd->control_reg) & dd->enable_mask;
 	v >>= __ffs(dd->enable_mask);
 	if (v != DPLL_LOCKED)
 		clk->rate = clk->parent->rate;

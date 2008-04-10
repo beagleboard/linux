@@ -203,7 +203,7 @@ static int omap2_reprogram_dpll(struct clk *clk, unsigned long rate)
 		if (!dd)
 			goto dpll_exit;
 
-		tmpset.cm_clksel1_pll = cm_read_reg(dd->mult_div1_reg);
+		tmpset.cm_clksel1_pll = __raw_readl(dd->mult_div1_reg);
 		tmpset.cm_clksel1_pll &= ~(dd->mult_mask |
 					   dd->div1_mask);
 		div = ((curr_prcm_set->xtal_speed / 1000000) - 1);
@@ -442,7 +442,7 @@ static u32 omap2_get_sysclkdiv(void)
 {
 	u32 div;
 
-	div = prm_read_reg(OMAP24XX_PRCM_CLKSRC_CTRL);
+	div = __raw_readl(OMAP24XX_PRCM_CLKSRC_CTRL);
 	div &= OMAP_SYSCLKDIV_MASK;
 	div >>= OMAP_SYSCLKDIV_SHIFT;
 

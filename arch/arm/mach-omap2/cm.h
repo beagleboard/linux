@@ -43,29 +43,17 @@
 #define OMAP3430_CM_CLKOUT_CTRL		OMAP_CM_REGADDR(OMAP3430_CCR_MOD, 0x0070)
 
 #ifndef __ASSEMBLER__
-/* Clock management global register get/set */
-
-static void __attribute__((unused)) cm_write_reg(u32 val, void __iomem *addr)
-{
-	pr_debug("cm_write_reg: writing 0x%0x to 0x%0x\n", val, (u32)addr);
-
-	__raw_writel(val, addr);
-}
-
-static u32 __attribute__((unused)) cm_read_reg(void __iomem *addr)
-{
-	return __raw_readl(addr);
-}
 
 /* Read-modify-write bits in a CM register */
-static u32 __attribute__((unused)) cm_rmw_reg_bits(u32 mask, u32 bits, void __iomem *va)
+static __inline__ u32 __attribute__((unused)) cm_rmw_reg_bits(u32 mask,
+						u32 bits, void __iomem *va)
 {
 	u32 v;
 
-	v = cm_read_reg(va);
+	v = __raw_readl(va);
 	v &= ~mask;
 	v |= bits;
-	cm_write_reg(v, va);
+	__raw_writel(v, va);
 
 	return v;
 }
@@ -128,29 +116,33 @@ static u32 __attribute__((unused)) cm_rmw_reg_bits(u32 mask, u32 bits, void __io
 /* Clock management domain register get/set */
 
 #ifndef __ASSEMBLER__
-static void __attribute__((unused)) cm_write_mod_reg(u32 val, s16 module,
-							s16 idx)
+static __inline__ void __attribute__((unused)) cm_write_mod_reg(u32 val,
+							s16 module, s16 idx)
 {
-	cm_write_reg(val, OMAP_CM_REGADDR(module, idx));
+	__raw_writel(val, OMAP_CM_REGADDR(module, idx));
 }
 
-static u32 __attribute__((unused)) cm_read_mod_reg(s16 module, s16 idx)
+static __inline__ u32 __attribute__((unused)) cm_read_mod_reg(s16 module,
+							s16 idx)
 {
-	return cm_read_reg(OMAP_CM_REGADDR(module, idx));
+	return __raw_readl(OMAP_CM_REGADDR(module, idx));
 }
 
 /* Read-modify-write bits in a CM register (by domain) */
-static inline u32 __attribute__((unused)) cm_rmw_mod_reg_bits(u32 mask, u32 bits, s16 module, s16 idx)
+static __inline__ u32 __attribute__((unused)) cm_rmw_mod_reg_bits(u32 mask,
+						u32 bits, s16 module, s16 idx)
 {
 	return cm_rmw_reg_bits(mask, bits, OMAP_CM_REGADDR(module, idx));
 }
 
-static inline u32 __attribute__((unused)) cm_set_mod_reg_bits(u32 bits, s16 module, s16 idx)
+static __inline__ u32 __attribute__((unused)) cm_set_mod_reg_bits(u32 bits,
+							s16 module, s16 idx)
 {
 	return cm_rmw_mod_reg_bits(bits, bits, module, idx);
 }
 
-static inline u32 __attribute__((unused)) cm_clear_mod_reg_bits(u32 bits, s16 module, s16 idx)
+static __inline__ u32 __attribute__((unused)) cm_clear_mod_reg_bits(u32 bits,
+							s16 module, s16 idx)
 {
 	return cm_rmw_mod_reg_bits(bits, 0x0, module, idx);
 }

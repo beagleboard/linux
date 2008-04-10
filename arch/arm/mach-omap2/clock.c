@@ -102,7 +102,7 @@ u32 omap2_get_dpll_rate(struct clk *clk)
 	if (!dd)
 		return 0;
 
-	dpll = cm_read_reg(dd->mult_div1_reg);
+	dpll = __raw_readl(dd->mult_div1_reg);
 	dpll_mult = dpll & dd->mult_mask;
 	dpll_mult >>= __ffs(dd->mult_mask);
 	dpll_div = dpll & dd->div1_mask;
@@ -153,7 +153,7 @@ int omap2_wait_clock_ready(void __iomem *reg, u32 mask, const char *name)
 	}
 
 	/* Wait for lock */
-	while (((cm_read_reg(reg) & mask) != ena) &&
+	while (((__raw_readl(reg) & mask) != ena) &&
 	       (i++ < MAX_CLOCK_ENABLE_WAIT)) {
 		udelay(1);
 	}
@@ -211,7 +211,7 @@ static void omap2_clk_wait_ready(struct clk *clk)
 	/* Check if both functional and interface clocks
 	 * are running. */
 	bit = 1 << clk->enable_bit;
-	if (!(cm_read_reg(other_reg) & bit))
+	if (!(__raw_readl(other_reg) & bit))
 		return;
 	st_reg = (void __iomem *)(((u32)other_reg & ~0xf0) | 0x20); /* CM_IDLEST* */
 
@@ -237,12 +237,12 @@ int _omap2_clk_enable(struct clk *clk)
 		return 0; /* REVISIT: -EINVAL */
 	}
 
-	regval32 = cm_read_reg(clk->enable_reg);
+	regval32 = __raw_readl(clk->enable_reg);
 	if (clk->flags & INVERT_ENABLE)
 		regval32 &= ~(1 << clk->enable_bit);
 	else
 		regval32 |= (1 << clk->enable_bit);
-	cm_write_reg(regval32, clk->enable_reg);
+	__raw_writel(regval32, clk->enable_reg);
 	wmb();
 
 	omap2_clk_wait_ready(clk);
@@ -273,12 +273,12 @@ void _omap2_clk_disable(struct clk *clk)
 		return;
 	}
 
-	regval32 = cm_read_reg(clk->enable_reg);
+	regval32 = __raw_readl(clk->enable_reg);
 	if (clk->flags & INVERT_ENABLE)
 		regval32 |= (1 << clk->enable_bit);
 	else
 		regval32 &= ~(1 << clk->enable_bit);
-	cm_write_reg(regval32, clk->enable_reg);
+	__raw_writel(regval32, clk->enable_reg);
 	wmb();
 }
 
@@ -569,7 +569,7 @@ u32 omap2_clksel_get_divisor(struct clk *clk)
 	if (div_addr == 0)
 		return 0;
 
-	field_val = cm_read_reg(div_addr) & field_mask;
+	field_val = __raw_readl(div_addr) & field_mask;
 	field_val >>= __ffs(field_mask);
 
 	return omap2_clksel_to_divisor(clk, field_val);
@@ -599,7 +599,7 @@ int omap2_clksel_set_rate(struct clk *clk, unsigned long rate)
 	clk->rate = clk->parent->rate / new_div;
 
 	if (clk->flags & DELAYED_APP && cpu_is_omap24xx()) {
-		prm_write_reg(OMAP24XX_VALID_CONFIG, OMAP24XX_PRCM_CLKCFG_CTRL);
+		__raw_writel(OMAP24XX_VALID_CONFIG, OMAP24XX_PRCM_CLKCFG_CTRL);
 		wmb();
 	}
 
@@ -695,7 +695,7 @@ int omap2_clk_set_parent(struct clk *clk, struct clk *new_parent)
 	wmb();
 
 	if (clk->flags & DELAYED_APP && cpu_is_omap24xx()) {
-		prm_write_reg(OMAP24XX_VALID_CONFIG,
+		__raw_writel(OMAP24XX_VALID_CONFIG,
 			      OMAP24XX_PRCM_CLKCFG_CTRL);
 		wmb();
 	}
@@ -731,7 +731,7 @@ void omap2_clk_disable_unused(struct clk *clk)
 
 	v = (clk->flags & INVERT_ENABLE) ? (1 << clk->enable_bit) : 0;
 
-	regval32 = cm_read_reg(clk->enable_reg);
+	regval32 = __raw_readl(clk->enable_reg);
 	if ((regval32 & (1 << clk->enable_bit)) == v)
 		return;
 

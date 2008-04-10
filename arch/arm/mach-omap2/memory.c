@@ -93,7 +93,7 @@ u32 omap2_reprogram_sdrc(u32 level, u32 force)
 	m_type = omap2_memory_get_type();
 
 	local_irq_save(flags);
-	prm_write_reg(0xffff, OMAP24XX_PRCM_VOLTSETUP);
+	__raw_writel(0xffff, OMAP24XX_PRCM_VOLTSETUP);
 	omap2_sram_reprogram_sdrc(level, dll_ctrl, m_type);
 	curr_perf_level = level;
 	local_irq_restore(flags);

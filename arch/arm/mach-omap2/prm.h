@@ -101,29 +101,16 @@
 
 #ifndef __ASSEMBLER__
 
-/* Power/reset management global register get/set */
-
-static void __attribute__((unused)) prm_write_reg(u32 val, void __iomem *addr)
-{
-	pr_debug("prm_write_reg: writing 0x%0x to 0x%0x\n", val, (u32)addr);
-
-	__raw_writel(val, addr);
-}
-
-static u32 __attribute__((unused)) prm_read_reg(void __iomem *addr)
-{
-	return __raw_readl(addr);
-}
-
 /* Read-modify-write bits in a PRM register */
-static u32 __attribute__((unused)) prm_rmw_reg_bits(u32 mask, u32 bits, void __iomem *va)
+static __inline__ u32 __attribute__((unused)) prm_rmw_reg_bits(u32 mask,
+						u32 bits, void __iomem *va)
 {
 	u32 v;
 
-	v = prm_read_reg(va);
+	v = __raw_readl(va);
 	v &= ~mask;
 	v |= bits;
-	prm_write_reg(v, va);
+	__raw_writel(v, va);
 
 	return v;
 }
@@ -200,14 +187,16 @@ static u32 __attribute__((unused)) prm_clear_mod_reg_bits(u32 bits, s16 module, 
 
 /* Power/reset management domain register get/set */
 
-static void __attribute__((unused)) prm_write_mod_reg(u32 val, s16 module, s16 idx)
+static __inline__ void __attribute__((unused)) prm_write_mod_reg(u32 val,
+							s16 module, s16 idx)
 {
-	prm_write_reg(val, OMAP_PRM_REGADDR(module, idx));
+	__raw_writel(val, OMAP_PRM_REGADDR(module, idx));
 }
 
-static u32 __attribute__((unused)) prm_read_mod_reg(s16 module, s16 idx)
+static __inline__ u32 __attribute__((unused)) prm_read_mod_reg(s16 module,
+							s16 idx)
 {
-	return prm_read_reg(OMAP_PRM_REGADDR(module, idx));
+	return __raw_readl(OMAP_PRM_REGADDR(module, idx));
 }
 
 #endif
