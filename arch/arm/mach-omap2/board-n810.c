@@ -10,6 +10,8 @@
  */
 
 #include <linux/init.h>
+#include <linux/i2c.h>
+#include <linux/i2c/lm8323.h>
 
 #include <asm/hardware.h>
 #include <asm/mach-types.h>

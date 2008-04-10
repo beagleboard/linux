@@ -23,6 +23,7 @@
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/i2c.h>
+#include <linux/i2c/lm8323.h>
 #include <asm/hardware.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -47,6 +48,76 @@
 #define N800_KEYB_IRQ_GPIO		109
 #define N800_DAV_IRQ_GPIO		103
 #define N800_TSC2301_RESET_GPIO		118
+
+#ifdef CONFIG_MACH_NOKIA_N810
+static s16 rx44_keymap[LM8323_KEYMAP_SIZE] = {
+	[0x01] = KEY_Q,
+	[0x02] = KEY_K,
+	[0x03] = KEY_O,
+	[0x04] = KEY_P,
+	[0x05] = KEY_BACKSPACE,
+	[0x06] = KEY_A,
+	[0x07] = KEY_S,
+	[0x08] = KEY_D,
+	[0x09] = KEY_F,
+	[0x0a] = KEY_G,
+	[0x0b] = KEY_H,
+	[0x0c] = KEY_J,
+
+	[0x11] = KEY_W,
+	[0x12] = KEY_F4,
+	[0x13] = KEY_L,
+	[0x14] = KEY_APOSTROPHE,
+	[0x16] = KEY_Z,
+	[0x17] = KEY_X,
+	[0x18] = KEY_C,
+	[0x19] = KEY_V,
+	[0x1a] = KEY_B,
+	[0x1b] = KEY_N,
+	[0x1c] = KEY_LEFTSHIFT, /* Actually, this is both shift keys */
+	[0x1f] = KEY_F7,
+
+	[0x21] = KEY_E,
+	[0x22] = KEY_SEMICOLON,
+	[0x23] = KEY_MINUS,
+	[0x24] = KEY_EQUAL,
+	[0x2b] = KEY_FN,
+	[0x2c] = KEY_M,
+	[0x2f] = KEY_F8,
+
+	[0x31] = KEY_R,
+	[0x32] = KEY_RIGHTCTRL,
+	[0x34] = KEY_SPACE,
+	[0x35] = KEY_COMMA,
+	[0x37] = KEY_UP,
+	[0x3c] = KEY_COMPOSE,
+	[0x3f] = KEY_F6,
+
+	[0x41] = KEY_T,
+	[0x44] = KEY_DOT,
+	[0x46] = KEY_RIGHT,
+	[0x4f] = KEY_F5,
+	[0x51] = KEY_Y,
+	[0x53] = KEY_DOWN,
+	[0x55] = KEY_ENTER,
+	[0x5f] = KEY_ESC,
+
+	[0x61] = KEY_U,
+	[0x64] = KEY_LEFT,
+
+	[0x71] = KEY_I,
+	[0x75] = KEY_KPENTER,
+};
+
+static struct lm8323_platform_data lm8323_pdata = {
+	.repeat = 0, /* Repeat is handled in userspace for now. */
+	.keymap = rx44_keymap,
+
+	.name = "Internal keyboard",
+	.pwm1_name = "keyboard",
+	.pwm2_name = "cover",
+};
+#endif
 
 void __init nokia_n800_init_irq(void)
 {
@@ -502,6 +573,12 @@ static struct i2c_board_info __initdata n800_i2c_board_info_2[] = {
 		I2C_BOARD_INFO("tea5761", 0x10),
 	},
 #endif
+	{
+		I2C_BOARD_INFO("lm8323", 0x45),
+		.type		= "lm8323",
+		.irq		= OMAP_GPIO_IRQ(109),
+		.platform_data	= &lm8323_pdata,
+	},
 };
 
 void __init nokia_n800_common_init(void)

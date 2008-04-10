@@ -285,6 +285,13 @@ config KEYBOARD_TSC2301
 	help
 	  Say Y here for if you are using the keypad features of TSC2301.
 
+config KEYBOARD_LM8323
+	tristate "LM8323 keypad chip"
+	depends on I2C
+	help
+	  If you say yes here you get support for the National Semiconductor
+	  LM8323 keypad controller.
+
 config KEYBOARD_PXA27x
 	tristate "PXA27x/PXA3xx keypad support"
 	depends on PXA27x || PXA3xx
