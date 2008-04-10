@@ -64,7 +64,7 @@ static irqreturn_t powerbutton_irq(int irq, void *dev_id)
 				 value & PWR_PWRON_IRQ);
 	} else {
 		printk(KERN_WARNING "I2C error %d while reading TWL4030"
-			"PM_MASTER STS_HW_CONDITIONS register\n", err);
+			" PM_MASTER STS_HW_CONDITIONS register\n", err);
 	}
 
 	return IRQ_HANDLED;
@@ -101,7 +101,7 @@ static int __init twl4030_pwrbutton_init(void)
 	err = twl4030_i2c_read_u8(TWL4030_MODULE_INT, &value, PWR_IMR1);
 	if (err) {
 		printk(KERN_WARNING "I2C error %d while reading TWL4030"
-					"INT PWR_IMR1 register\n", err);
+					" INT PWR_IMR1 register\n", err);
 
 		goto free_input_dev;
 	}
@@ -110,14 +110,14 @@ static int __init twl4030_pwrbutton_init(void)
 				   value & (~PWR_PWRON_IRQ), PWR_IMR1);
 	if (err) {
 		printk(KERN_WARNING "I2C error %d while writing TWL4030"
-				    "INT PWR_IMR1 register\n", err);
+				    " INT PWR_IMR1 register\n", err);
 		goto free_input_dev;
 	}
 
 	err = twl4030_i2c_read_u8(TWL4030_MODULE_INT, &value, PWR_EDR1);
 	if (err) {
 		printk(KERN_WARNING "I2C error %d while reading TWL4030"
-					"INT PWR_EDR1 register\n", err);
+					" INT PWR_EDR1 register\n", err);
 		goto free_input_dev;
 	}
 
@@ -126,7 +126,7 @@ static int __init twl4030_pwrbutton_init(void)
 
 	if (err) {
 		printk(KERN_WARNING "I2C error %d while writing TWL4030"
-					"INT PWR_EDR1 register\n", err);
+					" INT PWR_EDR1 register\n", err);
 		goto free_input_dev;
 	}
 

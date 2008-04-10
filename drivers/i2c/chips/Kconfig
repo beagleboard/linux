@@ -132,16 +132,16 @@ config TWL4030_USB
 	bool "TWL4030 USB Transceiver Driver"
 	depends on TWL4030_CORE
 
-config TWL4030_PWRBUTTON
-        bool "TWL4030 Power button Driver"
-	depends on TWL4030_CORE
-
 choice
 	prompt "Transceiver mode"
 	depends on TWL4030_USB
 	help
 	  TWL4030 USB transceiver can operate in various
 	  mutually-exclusive modes. Select one of them.
+
+config TWL4030_PWRBUTTON
+        bool "TWL4030 Power button Driver"
+	depends on TWL4030_CORE
 
 config TWL4030_USB_HS_ULPI
 	depends on TWL4030_USB

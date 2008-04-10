@@ -727,7 +727,7 @@ static int __init twl4030_usb_init(void)
 
 	otg_set_transceiver(&twl->otg);
 
-	printk(KERN_INFO "Initialized TWL4030 USB module");
+	printk(KERN_INFO "Initialized TWL4030 USB module\n");
 
 	return 0;
 }
