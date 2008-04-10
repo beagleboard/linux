@@ -302,15 +302,20 @@ static inline void __init h4_init_debug(void)
 	int eth_cs;
 	unsigned long cs_mem_base;
 	unsigned int muxed, rate;
-	struct clk *l3ck;
+	struct clk *gpmc_fck;
 
 	eth_cs	= H4_SMC91X_CS;
 
-	l3ck = clk_get(NULL, "core_l3_ck");
-	if (IS_ERR(l3ck))
-		rate = 100000000;
-	else
-		rate = clk_get_rate(l3ck);
+	gpmc_fck = clk_get(NULL, "gpmc_fck");	/* Always on ENABLE_ON_INIT */
+	if (IS_ERR(gpmc_fck)) {
+		WARN_ON(1);
+		return;
+	}
+
+	clk_enable(gpmc_fck);
+	rate = clk_get_rate(gpmc_fck);
+	clk_disable(gpmc_fck);
+	clk_put(gpmc_fck);
 
 	if (is_gpmc_muxed())
 		muxed = 0x200;
@@ -343,7 +348,7 @@ static inline void __init h4_init_debug(void)
 
 	if (gpmc_cs_request(eth_cs, SZ_16M, &cs_mem_base) < 0) {
 		printk(KERN_ERR "Failed to request GPMC mem for smc91x\n");
-		return;
+		goto out;
 	}
 
 	udelay(100);
@@ -351,6 +356,10 @@ static inline void __init h4_init_debug(void)
 	omap_cfg_reg(M15_24XX_GPIO92);
 	if (debug_card_init(cs_mem_base, OMAP24XX_ETHR_GPIO_IRQ) < 0)
 		gpmc_cs_free(eth_cs);
+
+out:
+	clk_disable(gpmc_fck);
+	clk_put(gpmc_fck);
 }
 
 static void __init h4_init_flash(void)

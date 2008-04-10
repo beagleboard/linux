@@ -1598,7 +1598,8 @@ static struct clk sdrc_ick = {
 static struct clk gpmc_fck = {
 	.name		= "gpmc_fck",
 	.parent		= &core_l3_ick,
-	.flags		= CLOCK_IN_OMAP343X | PARENT_CONTROLS_CLOCK,
+	.flags		= CLOCK_IN_OMAP343X | PARENT_CONTROLS_CLOCK |
+				ENABLE_ON_INIT,
 	.recalc		= &followparent_recalc,
 };
 
