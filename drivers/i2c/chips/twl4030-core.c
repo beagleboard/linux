@@ -638,7 +638,7 @@ static int twl4030_detach_client(struct i2c_client *client)
 	return 0;
 }
 
-struct task_struct *start_twl4030_irq_thread(int irq)
+static struct task_struct *start_twl4030_irq_thread(int irq)
 {
 	struct task_struct *thread;
 

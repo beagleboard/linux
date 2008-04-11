@@ -190,9 +190,6 @@ static unsigned int gpio_pending_unmask;
 /* pointer to gpio unmask thread struct */
 static struct task_struct *gpio_unmask_thread;
 
-static inline int gpio_twl4030_read(u8 address);
-static inline int gpio_twl4030_write(u8 address, u8 data);
-
 /*
  * Helper functions to read and write the GPIO ISR and IMR registers as
  * 32-bit integers. Functions return 0 on success, non-zero otherwise.
@@ -310,6 +307,31 @@ static struct irq_chip twl4030_gpio_module_irq_chip = {
 	.mask	= twl4030_gpio_module_mask,
 	.unmask	= twl4030_gpio_module_unmask,
 };
+
+/*
+ * To configure TWL4030 GPIO module registers
+ */
+static inline int gpio_twl4030_write(u8 address, u8 data)
+{
+	int ret = 0;
+
+	ret = twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, data, address);
+	return ret;
+}
+
+/*
+ * To read a TWL4030 GPIO module register
+ */
+static inline int gpio_twl4030_read(u8 address)
+{
+	u8 data;
+	int ret = 0;
+
+	ret = twl4030_i2c_read_u8(TWL4030_MODULE_GPIO, &data, address);
+	if (ret >= 0)
+		ret = data;
+	return ret;
+}
 
 /*
  * twl4030 GPIO request function
@@ -594,31 +616,6 @@ int twl4030_set_gpio_card_detect(int gpio, int enable)
 EXPORT_SYMBOL(twl4030_set_gpio_card_detect);
 
 /* MODULE FUNCTIONS */
-
-/*
- * To configure TWL4030 GPIO module registers
- */
-static inline int gpio_twl4030_write(u8 address, u8 data)
-{
-	int ret = 0;
-
-	ret = twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, data, address);
-	return ret;
-}
-
-/*
- * To read a TWL4030 GPIO module register
- */
-static inline int gpio_twl4030_read(u8 address)
-{
-	u8 data;
-	int ret = 0;
-
-	ret = twl4030_i2c_read_u8(TWL4030_MODULE_GPIO, &data, address);
-	if (ret >= 0)
-		ret = data;
-	return ret;
-}
 
 /*
  * gpio_unmask_thread() runs as a kernel thread.  It is awakened by the unmask

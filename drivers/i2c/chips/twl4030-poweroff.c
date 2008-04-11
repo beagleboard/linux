@@ -28,7 +28,7 @@
 #define PWR_P1_SW_EVENTS	0x10
 #define PWR_DEVOFF	(1<<0)
 
-void twl4030_poweroff(void)
+static void twl4030_poweroff(void)
 {
 	u8 val;
 	int err;
