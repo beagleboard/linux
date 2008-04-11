@@ -37,15 +37,15 @@
 
 #define yprintk(facility, format, args...) \
 	do { printk(facility "%s %d: " format , \
-	__FUNCTION__, __LINE__ , ## args); } while (0)
-#define WARN(fmt, args...) yprintk(KERN_WARNING,fmt, ## args)
-#define INFO(fmt,args...) yprintk(KERN_INFO,fmt, ## args)
-#define ERR(fmt,args...) yprintk(KERN_ERR,fmt, ## args)
+	__func__, __LINE__ , ## args); } while (0)
+#define WARN(fmt, args...) yprintk(KERN_WARNING, fmt, ## args)
+#define INFO(fmt, args...) yprintk(KERN_INFO, fmt, ## args)
+#define ERR(fmt, args...) yprintk(KERN_ERR, fmt, ## args)
 
 #define xprintk(level, facility, format, args...) do { \
-	if ( _dbg_level(level) ) { \
+	if (_dbg_level(level)) { \
 		printk(facility "%s %d: " format , \
-				__FUNCTION__, __LINE__ , ## args); \
+				__func__, __LINE__ , ## args); \
 	} } while (0)
 
 #if MUSB_DEBUG > 0
@@ -59,7 +59,7 @@ static inline int _dbg_level(unsigned l)
 	return debug >= l;
 }
 
-#define DBG(level,fmt,args...) xprintk(level,KERN_DEBUG,fmt, ## args)
+#define DBG(level, fmt, args...) xprintk(level, KERN_DEBUG, fmt, ## args)
 
 extern const char *otg_state_string(struct musb *);
 
