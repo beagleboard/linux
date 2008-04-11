@@ -359,7 +359,7 @@ cppi_dump_rx(int level, struct cppi_channel *c, const char *tag)
 			"\n",
 		c->index, tag,
 		musb_readl(c->controller->tibase,
-			DAVINCI_RXCPPI_BUFCNT0_REG + 4 *c->index),
+			DAVINCI_RXCPPI_BUFCNT0_REG + 4 * c->index),
 		musb_readw(c->hw_ep->regs, MUSB_RXCSR),
 
 		musb_readl(&rx->rx_skipbytes, 0),
