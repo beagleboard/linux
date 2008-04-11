@@ -57,7 +57,7 @@
 
 static char *decode_ep0stage(u8 stage)
 {
-	switch(stage) {
+	switch (stage) {
 	case MUSB_EP0_STAGE_SETUP:	return "idle";
 	case MUSB_EP0_STAGE_TX:		return "in";
 	case MUSB_EP0_STAGE_RX:		return "out";
