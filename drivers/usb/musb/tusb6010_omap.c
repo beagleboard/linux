@@ -302,9 +302,9 @@ static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,
 	channel->status = MUSB_DMA_STATUS_BUSY;
 
 	/* Since we're recycling dma areas, we need to clean or invalidate */
-	if (chdat->tx) {
+	if (chdat->tx)
 		dma_cache_maint(phys_to_virt(dma_addr), len, DMA_TO_DEVICE);
-	} else
+	else
 		dma_cache_maint(phys_to_virt(dma_addr), len, DMA_FROM_DEVICE);
 
 	/* Use 16-bit transfer if dma_addr is not 32-bit aligned */
@@ -336,7 +336,7 @@ static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,
 		dma_params.dst_amode	= OMAP_DMA_AMODE_DOUBLE_IDX;
 		dma_params.dst_start	= (unsigned long)fifo;
 		dma_params.dst_ei	= 1;
-		dma_params.dst_fi	= -31;		/* Loop 32 byte window */
+		dma_params.dst_fi	= -31;	/* Loop 32 byte window */
 
 		dma_params.trigger	= sync_dev;
 		dma_params.sync_mode	= OMAP_DMA_SYNC_FRAME;
@@ -348,7 +348,7 @@ static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,
 		dma_params.src_amode	= OMAP_DMA_AMODE_DOUBLE_IDX;
 		dma_params.src_start	= (unsigned long)fifo;
 		dma_params.src_ei	= 1;
-		dma_params.src_fi	= -31;		/* Loop 32 byte window */
+		dma_params.src_fi	= -31;	/* Loop 32 byte window */
 
 		dma_params.dst_amode	= OMAP_DMA_AMODE_POST_INC;
 		dma_params.dst_start	= (unsigned long)dma_addr;
@@ -581,7 +581,7 @@ tusb_omap_dma_allocate(struct dma_controller *c,
 	DBG(3, "ep%i %s dma: %s dma%i dmareq%i sync%i\n",
 		chdat->epnum,
 		chdat->tx ? "tx" : "rx",
-		chdat->ch >=0 ? "dedicated" : "shared",
+		chdat->ch >= 0 ? "dedicated" : "shared",
 		chdat->ch >= 0 ? chdat->ch : tusb_dma->ch,
 		chdat->dmareq >= 0 ? chdat->dmareq : tusb_dma->dmareq,
 		chdat->sync_dev >= 0 ? chdat->sync_dev : tusb_dma->sync_dev);
@@ -643,8 +643,7 @@ void dma_controller_destroy(struct dma_controller *c)
 	for (i = 0; i < MAX_DMAREQ; i++) {
 		struct dma_channel *ch = dma_channel_pool[i];
 		if (ch) {
-			if (ch->private_data)
-				kfree(ch->private_data);
+			kfree(ch->private_data);
 			kfree(ch);
 		}
 	}
