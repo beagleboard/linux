@@ -32,8 +32,8 @@
 #include <linux/init.h>
 #include <linux/list.h>
 #include <linux/clk.h>
+#include <linux/io.h>
 
-#include <asm/io.h>
 #include <asm/mach-types.h>
 #include <asm/arch/hardware.h>
 #include <asm/arch/mux.h>
