@@ -679,7 +679,8 @@ static int unprotect_pm_master(void)
 static int power_companion_init(void)
 {
 	struct clk *osc;
-	u32 rate, ctrl = HFCLK_FREQ_26_MHZ;
+	u32 rate;
+	u8 ctrl = HFCLK_FREQ_26_MHZ;
 	int e = 0;
 
 	if (cpu_is_omap2430())
