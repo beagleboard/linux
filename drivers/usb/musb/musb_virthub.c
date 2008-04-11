@@ -299,7 +299,7 @@ int musb_hub_control(
 		break;
 	case GetHubStatus:
 		temp = 0;
-		*(__le32 *) buf = cpu_to_le32 (temp);
+		*(__le32 *) buf = cpu_to_le32(temp);
 		break;
 	case GetPortStatus:
 		if (wIndex != 1)
@@ -340,7 +340,7 @@ int musb_hub_control(
 				(__le32 *) buf);
 
 		/* port change status is more interesting */
-		DBG(get_unaligned((u16*)(buf+2)) ? 2 : 5, "port status %08x\n",
+		DBG(get_unaligned((u16 *)(buf+2)) ? 2 : 5, "port status %08x\n",
 				musb->port1_status);
 		break;
 	case SetPortFeature:
