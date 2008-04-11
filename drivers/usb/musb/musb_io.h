@@ -35,7 +35,7 @@
 #ifndef __MUSB_LINUX_PLATFORM_ARCH_H__
 #define __MUSB_LINUX_PLATFORM_ARCH_H__
 
-#include <asm/io.h>
+#include <linux/io.h>
 
 #ifndef	CONFIG_ARM
 static inline void readsl(const void __iomem *addr, void *buf, int len)
