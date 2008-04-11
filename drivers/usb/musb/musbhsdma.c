@@ -172,7 +172,7 @@ static void configure_channel(struct dma_channel *pChannel,
 	struct musb_dma_channel *pImplChannel =
 		(struct musb_dma_channel *) pChannel->private_data;
 	struct musb_dma_controller *controller = pImplChannel->controller;
-	u8 *mbase = controller->pCoreBase;
+	void __iomem *mbase = controller->pCoreBase;
 	u8 bChannel = pImplChannel->bIndex;
 	u16 csr = 0;
 
@@ -250,7 +250,7 @@ static int dma_channel_abort(struct dma_channel *pChannel)
 	struct musb_dma_channel *pImplChannel =
 		(struct musb_dma_channel *) pChannel->private_data;
 	u8 bChannel = pImplChannel->bIndex;
-	u8 *mbase = pImplChannel->controller->pCoreBase;
+	void __iomem *mbase = pImplChannel->controller->pCoreBase;
 	u16 csr;
 
 	if (pChannel->status == MUSB_DMA_STATUS_BUSY) {
@@ -296,7 +296,7 @@ static irqreturn_t dma_controller_irq(int irq, void *private_data)
 		(struct musb_dma_controller *)private_data;
 	struct musb_dma_channel *pImplChannel;
 	struct musb *musb = controller->pDmaPrivate;
-	u8 *mbase = controller->pCoreBase;
+	void __iomem *mbase = controller->pCoreBase;
 	struct dma_channel *pChannel;
 	u8 bChannel;
 	u16 csr;

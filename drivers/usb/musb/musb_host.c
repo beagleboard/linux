@@ -1541,7 +1541,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 		if (dma) {
 			struct dma_controller	*c;
 			u16			rx_count;
-			int			status;
+			int			ret;
 
 			rx_count = musb_readw(epio, MUSB_RXCOUNT);
 
@@ -1600,7 +1600,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 			 * transfer_buffer_length needs to be
 			 * adjusted first...
 			 */
-			status = c->channel_program(
+			ret = c->channel_program(
 				dma, qh->maxpacket,
 				dma->desired_mode,
 				urb->transfer_dma
@@ -1609,7 +1609,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 					? rx_count
 					: urb->transfer_buffer_length);
 
-			if (!status) {
+			if (!ret) {
 				c->channel_release(dma);
 				dma = hw_ep->rx_channel = NULL;
 				/* REVISIT reset CSR */
