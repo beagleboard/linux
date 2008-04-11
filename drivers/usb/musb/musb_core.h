@@ -218,7 +218,7 @@ enum musb_g_ep0_state {
 
 /* "flat" mapping: each endpoint has its own i/o address */
 #elif	defined(MUSB_FLAT_REG)
-#define musb_ep_select(_mbase, _epnum)	(((void)(_mbase)),((void)(_epnum)))
+#define musb_ep_select(_mbase, _epnum)	(((void)(_mbase)), ((void)(_epnum)))
 #define	MUSB_EP_OFFSET			MUSB_FLAT_OFFSET
 
 /* "indexed" mapping: INDEX register controls register bank select */
@@ -402,7 +402,7 @@ struct musb {
 #define	can_bulk_split(musb,type) \
 		(((type) == USB_ENDPOINT_XFER_BULK) && (musb)->bulk_split)
 #else
-#define	can_bulk_split(musb,type)	0
+#define	can_bulk_split(musb, type)	0
 #endif
 
 #ifdef C_MP_RX
@@ -410,7 +410,7 @@ struct musb {
 #define	can_bulk_combine(musb,type) \
 		(((type) == USB_ENDPOINT_XFER_BULK) && (musb)->bulk_combine)
 #else
-#define	can_bulk_combine(musb,type)	0
+#define	can_bulk_combine(musb, type)	0
 #endif
 
 #ifdef CONFIG_USB_GADGET_MUSB_HDRC
@@ -464,8 +464,8 @@ extern const char musb_driver_name[];
 extern void musb_start(struct musb *musb);
 extern void musb_stop(struct musb *musb);
 
-extern void musb_write_fifo(struct musb_hw_ep *ep, u16 len, const u8 * src);
-extern void musb_read_fifo(struct musb_hw_ep *ep, u16 len, u8 * dst);
+extern void musb_write_fifo(struct musb_hw_ep *ep, u16 len, const u8 *src);
+extern void musb_read_fifo(struct musb_hw_ep *ep, u16 len, u8 *dst);
 
 extern void musb_load_testpacket(struct musb *);
 
