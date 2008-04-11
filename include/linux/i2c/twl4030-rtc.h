@@ -223,8 +223,8 @@
 
 
 struct twl4030rtc_platform_data {
-        int (*init)(void);
-        void (*exit)(void);
+	int (*init)(void);
+	void (*exit)(void);
 };
 
 #endif				/* End of __TWL4030_RTC_H__ */
