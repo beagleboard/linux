@@ -35,7 +35,7 @@
 #include <linux/kernel.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
-#include <asm/uaccess.h>	/* FIXME remove procfs writes */
+#include <linux/uaccess.h>	/* FIXME remove procfs writes */
 #include <asm/arch/hardware.h>
 
 #include "musb_core.h"
@@ -189,7 +189,7 @@ static int dump_ep(struct musb_ep *ep, char *buffer, unsigned max)
 			max -= code;
 			break;
 		}
-		list_for_each_entry (req, &ep->req_list, list) {
+		list_for_each_entry(req, &ep->req_list, list) {
 			code = snprintf(buf, max, "\treq %p, %s%s%d/%d\n",
 					req,
 					req->zero ? "zero, " : "",
@@ -201,7 +201,7 @@ static int dump_ep(struct musb_ep *ep, char *buffer, unsigned max)
 			buf += code;
 			max -= code;
 		}
-	} while(0);
+	} while (0);
 	return buf - buffer;
 }
 #endif
@@ -700,7 +700,7 @@ static int musb_proc_write(struct file *file, const char __user *buffer,
 		}
 		break;
 
-#if (MUSB_DEBUG>0)
+#if (MUSB_DEBUG > 0)
 		/* set/read debug level */
 	case 'D':{
 			if (count > 1) {
