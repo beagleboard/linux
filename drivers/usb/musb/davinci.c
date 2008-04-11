@@ -29,15 +29,14 @@
 #include <linux/list.h>
 #include <linux/delay.h>
 #include <linux/clk.h>
+#include <linux/io.h>
 
-#include <asm/io.h>
 #include <asm/arch/hardware.h>
 #include <asm/arch/memory.h>
 #include <asm/arch/gpio.h>
 #include <asm/mach-types.h>
 
 #include "musb_core.h"
-
 
 #ifdef CONFIG_MACH_DAVINCI_EVM
 #include <asm/arch/i2c-client.h>
@@ -93,7 +92,7 @@ void musb_platform_enable(struct musb *musb)
 
 	if (is_dma_capable() && !dma_off)
 		printk(KERN_WARNING "%s %s: dma not reactivated\n",
-				__FILE__, __FUNCTION__);
+				__FILE__, __func__);
 	else
 		dma_off = 0;
 
@@ -446,7 +445,8 @@ int musb_platform_exit(struct musb *musb)
 				break;
 			if ((devctl & MUSB_DEVCTL_VBUS) != warn) {
 				warn = devctl & MUSB_DEVCTL_VBUS;
-				DBG(1, "VBUS %d\n", warn >> MUSB_DEVCTL_VBUS_SHIFT);
+				DBG(1, "VBUS %d\n",
+					warn >> MUSB_DEVCTL_VBUS_SHIFT);
 			}
 			msleep(1000);
 			maxdelay--;
