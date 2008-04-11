@@ -97,8 +97,7 @@
 #include <linux/list.h>
 #include <linux/kobject.h>
 #include <linux/platform_device.h>
-
-#include <asm/io.h>
+#include <linux/io.h>
 
 #ifdef	CONFIG_ARM
 #include <asm/arch/hardware.h>
@@ -180,7 +179,7 @@ void musb_write_fifo(struct musb_hw_ep *hw_ep, u16 len, const u8 *src)
 				index += len & ~0x03;
 			}
 			if (len & 0x02) {
-				musb_writew(fifo, 0, *(u16*)&src[index]);
+				musb_writew(fifo, 0, *(u16 *)&src[index]);
 				index += 2;
 			}
 		} else {
@@ -218,7 +217,7 @@ void musb_read_fifo(struct musb_hw_ep *hw_ep, u16 len, u8 *dst)
 				index = len & ~0x03;
 			}
 			if (len & 0x02) {
-				*(u16*)&dst[index] = musb_readw(fifo, 0);
+				*(u16 *)&dst[index] = musb_readw(fifo, 0);
 				index += 2;
 			}
 		} else {
@@ -388,9 +387,9 @@ void musb_hnp_stop(struct musb *musb)
 
 #define STAGE0_MASK (MUSB_INTR_RESUME | MUSB_INTR_SESSREQ \
 		| MUSB_INTR_VBUSERROR | MUSB_INTR_CONNECT \
-		| MUSB_INTR_RESET )
+		| MUSB_INTR_RESET)
 
-static irqreturn_t musb_stage0_irq(struct musb * musb, u8 int_usb,
+static irqreturn_t musb_stage0_irq(struct musb *musb, u8 int_usb,
 				u8 devctl, u8 power)
 {
 	irqreturn_t handled = IRQ_NONE;
@@ -710,7 +709,7 @@ static irqreturn_t musb_stage0_irq(struct musb * musb, u8 int_usb,
  * @param devctl
  * @param power
  */
-static irqreturn_t musb_stage2_irq(struct musb * musb, u8 int_usb,
+static irqreturn_t musb_stage2_irq(struct musb *musb, u8 int_usb,
 				u8 devctl, u8 power)
 {
 	irqreturn_t handled = IRQ_NONE;
@@ -1221,13 +1220,13 @@ static int __init ep_config_from_table(struct musb *musb)
 		u8	epn = cfg->hw_ep_num;
 
 		if (epn >= MUSB_C_NUM_EPS) {
-			pr_debug( "%s: invalid ep %d\n",
+			pr_debug("%s: invalid ep %d\n",
 					musb_driver_name, epn);
 			continue;
 		}
 		offset = fifo_setup(musb, hw_ep + epn, cfg++, offset);
 		if (offset < 0) {
-			pr_debug( "%s: mem overrun, ep %d\n",
+			pr_debug("%s: mem overrun, ep %d\n",
 					musb_driver_name, epn);
 			return -EINVAL;
 		}
@@ -1242,7 +1241,7 @@ static int __init ep_config_from_table(struct musb *musb)
 
 #ifdef CONFIG_USB_MUSB_HDRC_HCD
 	if (!musb->bulk_ep) {
-		pr_debug( "%s: missing bulk\n", musb_driver_name);
+		pr_debug("%s: missing bulk\n", musb_driver_name);
 		return -EINVAL;
 	}
 #endif
@@ -1309,7 +1308,7 @@ static int __init ep_config_from_hw(struct musb *musb)
 
 #ifdef CONFIG_USB_MUSB_HDRC_HCD
 	if (!musb->bulk_ep) {
-		pr_debug( "%s: missing bulk\n", musb_driver_name);
+		pr_debug("%s: missing bulk\n", musb_driver_name);
 		return -EINVAL;
 	}
 #endif
@@ -1340,9 +1339,8 @@ static int __init musb_core_init(u16 musb_type, struct musb *musb)
 	reg = musb_readb(mbase, 0x10 + MUSB_CONFIGDATA);
 
 	strcpy(aInfo, (reg & MUSB_CONFIGDATA_UTMIDW) ? "UTMI-16" : "UTMI-8");
-	if (reg & MUSB_CONFIGDATA_DYNFIFO) {
+	if (reg & MUSB_CONFIGDATA_DYNFIFO)
 		strcat(aInfo, ", dyn FIFOs");
-	}
 	if (reg & MUSB_CONFIGDATA_MPRXE) {
 		strcat(aInfo, ", bulk combine");
 #ifdef C_MP_RX
@@ -1367,9 +1365,8 @@ static int __init musb_core_init(u16 musb_type, struct musb *musb)
 		strcat(aInfo, ", HB-ISO Tx");
 		strcat(aInfo, " (X)");		/* no driver support */
 	}
-	if (reg & MUSB_CONFIGDATA_SOFTCONE) {
+	if (reg & MUSB_CONFIGDATA_SOFTCONE)
 		strcat(aInfo, ", SoftConn");
-	}
 
 	printk(KERN_DEBUG "%s: ConfigData=0x%02x (%s)\n",
 			musb_driver_name, reg, aInfo);
@@ -1748,12 +1745,12 @@ static ssize_t
 musb_srp_store(struct device *dev, struct device_attribute *attr,
 		const char *buf, size_t n)
 {
-	struct musb	*musb=dev_to_musb(dev);
+	struct musb	*musb = dev_to_musb(dev);
 	unsigned short	srp;
 
 	if (sscanf(buf, "%hu", &srp) != 1
 			|| (srp != 1)) {
-		printk (KERN_ERR "SRP: Value must be 1\n");
+		printk(KERN_ERR "SRP: Value must be 1\n");
 		return -EINVAL;
 	}
 
@@ -1921,7 +1918,7 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 #ifdef CONFIG_USB_MUSB_OTG
 		break;
 #else
-	bad_config:
+bad_config:
 #endif
 	default:
 		dev_err(dev, "incompatible Kconfig role setting\n");
@@ -1997,7 +1994,7 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 	INIT_WORK(&musb->irq_work, musb_irq_work);
 
 	/* attach to the IRQ */
-	if (request_irq (nIrq, musb->isr, 0, dev->bus_id, musb)) {
+	if (request_irq(nIrq, musb->isr, 0, dev->bus_id, musb)) {
 		dev_err(dev, "request_irq %d failed!\n", nIrq);
 		status = -ENODEV;
 		goto fail2;
