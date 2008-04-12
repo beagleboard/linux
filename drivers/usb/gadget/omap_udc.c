@@ -3119,4 +3119,4 @@ module_exit(udc_exit);
 
 MODULE_DESCRIPTION(DRIVER_DESC);
 MODULE_LICENSE("GPL");
-
+MODULE_ALIAS("platform:omap_udc");
