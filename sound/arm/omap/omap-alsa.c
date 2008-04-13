@@ -46,7 +46,6 @@
 #ifdef CONFIG_PM
 #include <linux/pm.h>
 #endif
-#include <sound/driver.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
 

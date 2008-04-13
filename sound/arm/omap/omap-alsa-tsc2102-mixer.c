@@ -32,7 +32,6 @@
 
 #include <asm/arch/omap-alsa.h>
 
-#include <sound/driver.h>
 #include <sound/initval.h>
 #include <sound/control.h>
 

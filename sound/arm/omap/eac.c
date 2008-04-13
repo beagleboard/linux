@@ -42,7 +42,6 @@
 #include <asm/io.h>
 #include <asm/arch/eac.h>
 
-#include <sound/driver.h>
 #include <sound/core.h>
 #include <sound/initval.h>
 

@@ -39,7 +39,6 @@
 
 #include <linux/kernel.h>
 
-#include <sound/driver.h>
 #include <asm/arch/aic23.h>
 
 #include <asm/arch/omap-alsa.h>
