@@ -4,7 +4,7 @@
  * OMAP2 Power Management Routines
  *
  * Copyright (C) 2005 Texas Instruments, Inc.
- * Copyright (C) 2006 Nokia Corporation
+ * Copyright (C) 2006-2008 Nokia Corporation
  *
  * Written by:
  * Richard Woodruff <r-woodruff2@ti.com>
@@ -184,13 +184,13 @@ static void pm_init_serial_console(void)
 	}
 	switch (serial_console_uart) {
 	case 1:
-		prm_set_mod_reg_bits(OMAP24XX_ST_UART1, CORE_MOD, PM_WKEN1)
+		prm_set_mod_reg_bits(OMAP24XX_ST_UART1, CORE_MOD, PM_WKEN1);
 		break;
 	case 2:
-		prm_set_mod_reg_bits(OMAP24XX_ST_UART2, CORE_MOD, PM_WKEN1)
+		prm_set_mod_reg_bits(OMAP24XX_ST_UART2, CORE_MOD, PM_WKEN1);
 		break;
 	case 3:
-		prm_set_mod_reg_bits(OMAP24XX_ST_UART3, CORE_MOD, PM_WKEN2)
+		prm_set_mod_reg_bits(OMAP24XX_ST_UART3, CORE_MOD, OMAP24XX_PM_WKEN2);
 		break;
 	}
 }
