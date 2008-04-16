@@ -98,10 +98,11 @@ config MACH_OMAP_2430SDP
 	bool "OMAP 2430 SDP board"
 	depends on ARCH_OMAP2 && ARCH_OMAP2430
 
+config MACH_OMAP_2430OSK
+	bool "OMAP 2430 OSK board"
+	depends on ARCH_OMAP2 && ARCH_OMAP24XX
+
 config MACH_OMAP_3430SDP
 	bool "OMAP 3430 SDP board"
 	depends on ARCH_OMAP3 && ARCH_OMAP34XX
 
-config MACH_OMAP_2430OSK
-	bool "OMAP 2430 OSK board"
-	depends on ARCH_OMAP2 && ARCH_OMAP24XX
