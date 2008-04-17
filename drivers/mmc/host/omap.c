@@ -1642,6 +1642,7 @@ static struct platform_driver mmc_omap_driver = {
 	.resume		= mmc_omap_resume,
 	.driver		= {
 		.name	= DRIVER_NAME,
+		.owner	= THIS_MODULE,
 	},
 };
 
@@ -1660,5 +1661,5 @@ module_exit(mmc_omap_exit);
 
 MODULE_DESCRIPTION("OMAP Multimedia Card driver");
 MODULE_LICENSE("GPL");
-MODULE_ALIAS(DRIVER_NAME);
+MODULE_ALIAS("platform:" DRIVER_NAME);
 MODULE_AUTHOR("Juha Yrj�l�");
