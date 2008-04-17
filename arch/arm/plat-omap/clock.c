@@ -34,41 +34,6 @@ static DEFINE_SPINLOCK(clockfw_lock);
 
 static struct clk_functions *arch_clock;
 
-#ifdef CONFIG_PM_DEBUG
-
-static void print_parents(struct clk *clk)
-{
-	struct clk *p;
-	int printed = 0;
-
-	list_for_each_entry(p, &clocks, node) {
-		if (p->parent == clk && p->usecount) {
-			if (!clk->usecount && !printed) {
-				printk("MISMATCH: %s\n", clk->name);
-				printed = 1;
-			}
-			printk("\t%-15s\n", p->name);
-		}
-	}
-}
-
-void clk_print_usecounts(void)
-{
-	unsigned long flags;
-	struct clk *p;
-
-	spin_lock_irqsave(&clockfw_lock, flags);
-	list_for_each_entry(p, &clocks, node) {
-		if (p->usecount)
-			printk("%-15s: %d\n", p->name, p->usecount);
-		print_parents(p);
-
-	}
-	spin_unlock_irqrestore(&clockfw_lock, flags);
-}
-
-#endif
-
 /*-------------------------------------------------------------------------
  * Standard clock functions defined in include/linux/clk.h
  *-------------------------------------------------------------------------*/
@@ -446,67 +411,6 @@ int __init clk_init(struct clk_functions * custom_clocks)
 
 	return 0;
 }
-
-#if defined(CONFIG_PM_DEBUG) && defined(CONFIG_PROC_FS)
-#include <linux/proc_fs.h>
-#include <linux/seq_file.h>
-
-static void *omap_ck_start(struct seq_file *m, loff_t *pos)
-{
-	return *pos < 1 ? (void *)1 : NULL;
-}
-
-static void *omap_ck_next(struct seq_file *m, void *v, loff_t *pos)
-{
-	++*pos;
-	return NULL;
-}
-
-static void omap_ck_stop(struct seq_file *m, void *v)
-{
-}
-
-int omap_ck_show(struct seq_file *m, void *v)
-{
-	struct clk *cp;
-
-	list_for_each_entry(cp, &clocks, node)
-		seq_printf(m,"%s %ld %d\n", cp->name, cp->rate, cp->usecount);
-
-	return 0;
-}
-
-static struct seq_operations omap_ck_op = {
-	.start =	omap_ck_start,
-	.next =		omap_ck_next,
-	.stop =		omap_ck_stop,
-	.show =		omap_ck_show
-};
-
-static int omap_ck_open(struct inode *inode, struct file *file)
-{
-	return seq_open(file, &omap_ck_op);
-}
-
-static struct file_operations proc_omap_ck_operations = {
-	.open		= omap_ck_open,
-	.read		= seq_read,
-	.llseek		= seq_lseek,
-	.release	= seq_release,
-};
-
-int __init omap_ck_init(void)
-{
-	struct proc_dir_entry *entry;
-
-	entry = create_proc_entry("omap_clocks", 0, NULL);
-	if (entry)
-		entry->proc_fops = &proc_omap_ck_operations;
-	return 0;
-
-}
-__initcall(omap_ck_init);
-#endif
 
 #if defined(CONFIG_PM_DEBUG) && defined(CONFIG_DEBUG_FS)
 /*
