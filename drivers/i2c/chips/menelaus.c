@@ -1281,15 +1281,7 @@ static struct i2c_driver menelaus_i2c_driver = {
 
 static int __init menelaus_init(void)
 {
-	int res;
-
-	res = i2c_add_driver(&menelaus_i2c_driver);
-	if (res < 0) {
-		dev_err(&the_menelaus->client->dev, "driver registration failed\n");
-		return res;
-	}
-
-	return 0;
+	return i2c_add_driver(&menelaus_i2c_driver);
 }
 
 static void __exit menelaus_exit(void)

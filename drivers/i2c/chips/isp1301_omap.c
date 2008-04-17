@@ -1606,15 +1606,7 @@ static struct i2c_driver isp1301_driver = {
 
 static int __init isp_init(void)
 {
-	int	status = -ENODEV;
-
-	printk(KERN_INFO "%s: version %s\n", DRIVER_NAME, DRIVER_VERSION);
-
-	status = i2c_add_driver(&isp1301_driver);
-	if (status)
-		printk(KERN_ERR "%s failed to probe\n", DRIVER_NAME);
-
-	return status;
+	return i2c_add_driver(&isp1301_driver);
 }
 module_init(isp_init);
 
