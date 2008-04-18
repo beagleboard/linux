@@ -35,6 +35,16 @@
 #define MMC1_CD_IRQ		0
 #define MMC2_CD_IRQ		1
 
+#define OMAP2_CONTROL_DEVCONF0	0x48002274
+#define OMAP2_CONTROL_DEVCONF1	0x490022E8
+
+#define OMAP2_CONTROL_DEVCONF0_LBCLK	(1 << 24)
+#define OMAP2_CONTROL_DEVCONF1_ACTOV	(1 << 31)
+
+#define OMAP2_CONTROL_PBIAS_VMODE	(1 << 0)
+#define OMAP2_CONTROL_PBIAS_PWRDNZ	(1 << 1)
+#define OMAP2_CONTROL_PBIAS_SCTRL	(1 << 2)
+
 static int sdp_mmc_card_detect(int irq)
 {
 	return twl4030_get_gpio_datain(irq - IH_TWL4030_GPIO_BASE);
@@ -158,32 +168,36 @@ static int sdp_mmc_set_power(struct device *dev, int slot, int power_on,
 
 	if (power_on) {
 		if (cpu_is_omap24xx())
-			devconf = omap_readl(0x490022E8);
+			devconf = omap_readl(OMAP2_CONTROL_DEVCONF1);
 		else
-			devconf = omap_readl(0x48002274);
+			devconf = omap_readl(OMAP2_CONTROL_DEVCONF0);
 
 		switch (1 << vdd) {
 		case MMC_VDD_33_34:
 		case MMC_VDD_32_33:
 			vdd_sel = VSEL_3V;
 			if (cpu_is_omap24xx())
-				devconf = (devconf | (1 << 31));
+				devconf |= OMAP2_CONTROL_DEVCONF1_ACTOV;
 			break;
 		case MMC_VDD_165_195:
 			vdd_sel = VSEL_18V;
 			if (cpu_is_omap24xx())
-				devconf = (devconf & ~(1 << 31));
+				devconf &= ~OMAP2_CONTROL_DEVCONF1_ACTOV;
 		}
 
 		if (cpu_is_omap24xx())
-			omap_writel(devconf, 0x490022E8);
+			omap_writel(devconf, OMAP2_CONTROL_DEVCONF1);
 		else
-			omap_writel(devconf | 1 << 24, 0x48002274);
+			omap_writel(devconf | OMAP2_CONTROL_DEVCONF0_LBCLK,
+				    OMAP2_CONTROL_DEVCONF0);
 
-		omap_writel(omap_readl(OMAP2_CONTROL_PBIAS) | 1 << 2,
-			OMAP2_CONTROL_PBIAS);
-		omap_writel(omap_readl(OMAP2_CONTROL_PBIAS) & ~(1 << 1),
-			OMAP2_CONTROL_PBIAS);
+		reg = omap_readl(OMAP2_CONTROL_PBIAS);
+		reg |= OMAP2_CONTROL_PBIAS_SCTRL;
+		omap_writel(reg, OMAP2_CONTROL_PBIAS);
+
+		reg = omap_readl(OMAP2_CONTROL_PBIAS);
+		reg &= ~OMAP2_CONTROL_PBIAS_PWRDNZ;
+		omap_writel(reg, OMAP2_CONTROL_PBIAS);
 
 		ret = twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
 						P1_DEV_GRP, VMMC1_DEV_GRP);
@@ -197,8 +211,12 @@ static int sdp_mmc_set_power(struct device *dev, int slot, int power_on,
 
 		msleep(100);
 		reg = omap_readl(OMAP2_CONTROL_PBIAS);
-		reg = (vdd_sel == VSEL_18V) ? ((reg | 0x6) & ~0x1)
-						: (reg | 0x7);
+		reg |= (OMAP2_CONTROL_PBIAS_SCTRL |
+			OMAP2_CONTROL_PBIAS_PWRDNZ);
+		if (vdd_sel == VSEL_18V)
+			reg &= ~OMAP2_CONTROL_PBIAS_VMODE;
+		else
+			reg |= OMAP2_CONTROL_PBIAS_VMODE;
 		omap_writel(reg, OMAP2_CONTROL_PBIAS);
 
 		return ret;
@@ -207,8 +225,10 @@ static int sdp_mmc_set_power(struct device *dev, int slot, int power_on,
 		/* Power OFF */
 
 		/* For MMC1, Toggle PBIAS before every power up sequence */
-		omap_writel(omap_readl(OMAP2_CONTROL_PBIAS) & ~(1 << 1),
-					OMAP2_CONTROL_PBIAS);
+		reg = omap_readl(OMAP2_CONTROL_PBIAS);
+		reg &= ~OMAP2_CONTROL_PBIAS_PWRDNZ;
+		omap_writel(reg, OMAP2_CONTROL_PBIAS);
+
 		ret = twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
 						LDO_CLR, VMMC1_DEV_GRP);
 		if (ret)
@@ -221,8 +241,11 @@ static int sdp_mmc_set_power(struct device *dev, int slot, int power_on,
 
 		/* 100ms delay required for PBIAS configuration */
 		msleep(100);
-		omap_writel(omap_readl(OMAP2_CONTROL_PBIAS) | 0x7,
-			OMAP2_CONTROL_PBIAS);
+		reg = omap_readl(OMAP2_CONTROL_PBIAS);
+		reg |= (OMAP2_CONTROL_PBIAS_VMODE |
+			OMAP2_CONTROL_PBIAS_PWRDNZ |
+			OMAP2_CONTROL_PBIAS_SCTRL);
+		omap_writel(reg, OMAP2_CONTROL_PBIAS);
 	}
 
 	return 0;
