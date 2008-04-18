@@ -1,6 +1,6 @@
 /*
  * sound/arm/omap/omap-alsa-tsc2102.h
- * 
+ *
  * Alsa codec driver for TSC2102 chip for OMAP platforms.
  *
  * Copyright (c) 2006 Andrzej Zaborowski  <balrog@zabor.org>
