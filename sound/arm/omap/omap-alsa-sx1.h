@@ -35,7 +35,8 @@
 #define OSC_EN				2
 
 /* Send IPC message to sound server */
-extern int cn_sx1snd_send(unsigned int cmd, unsigned int arg1, unsigned int arg2);
+extern int cn_sx1snd_send(unsigned int cmd, unsigned int arg1,
+				unsigned int arg2);
 /* cmd for IPC_GROUP_DAC */
 #define DAC_VOLUME_UPDATE		0
 #define DAC_SETAUDIODEVICE		1
