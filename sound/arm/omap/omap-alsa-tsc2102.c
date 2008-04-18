@@ -1,6 +1,6 @@
 /*
  * sound/arm/omap/omap-alsa-tsc2102.c
- * 
+ *
  * Alsa codec driver for TSC2102 chip for OMAP platforms.
  *
  * Copyright (c) 2006 Andrzej Zaborowski  <balrog@zabor.org>
@@ -17,9 +17,8 @@
 #include <linux/platform_device.h>
 #include <linux/clk.h>
 #include <linux/module.h>
+#include <linux/io.h>
 #include <linux/spi/tsc2102.h>
-
-#include <asm/io.h>
 
 #include <asm/arch/dma.h>
 #include <asm/arch/clock.h>
@@ -27,7 +26,7 @@
 
 #include "omap-alsa-tsc2102.h"
 
-static struct clk *tsc2102_bclk = 0;
+static struct clk *tsc2102_bclk;
 
 /*
  * Hardware capabilities
@@ -67,62 +66,63 @@ static struct snd_pcm_hardware tsc2102_snd_omap_alsa_playback = {
 };
 
 #ifdef DUMP_TSC2102_AUDIO_REGISTERS
-static void dump_tsc2102_audio_regs(void) {
-	printk("TSC2102_AUDIO1_CTRL = 0x%04x\n",
+static void dump_tsc2102_audio_regs(void)
+{
+	printk(KERN_INFO "TSC2102_AUDIO1_CTRL = 0x%04x\n",
 			tsc2102_read_sync(TSC2102_AUDIO1_CTRL));
-	printk("TSC2102_DAC_GAIN_CTRL = 0x%04x\n",
+	printk(KERN_INFO "TSC2102_DAC_GAIN_CTRL = 0x%04x\n",
 			tsc2102_read_sync(TSC2102_DAC_GAIN_CTRL));
-	printk("TSC2102_AUDIO2_CTRL = 0x%04x\n",
+	printk(KERN_INFO "TSC2102_AUDIO2_CTRL = 0x%04x\n",
 			tsc2102_read_sync(TSC2102_AUDIO2_CTRL));
-	printk("TSC2102_DAC_POWER_CTRL = 0x%04x\n",
+	printk(KERN_INFO "TSC2102_DAC_POWER_CTRL = 0x%04x\n",
 			tsc2102_read_sync(TSC2102_DAC_POWER_CTRL));
-	printk("TSC2102_AUDIO3_CTRL = 0x%04x\n",
+	printk(KERN_INFO "TSC2102_AUDIO3_CTRL = 0x%04x\n",
 			tsc2102_read_sync(TSC2102_AUDIO_CTRL_3));
-	printk("TSC2102_LCH_BASS_BOOST_N0 = 0x%04x\n",
+	printk(KERN_INFO "TSC2102_LCH_BASS_BOOST_N0 = 0x%04x\n",
 			tsc2102_read_sync(TSC2102_LCH_BASS_BOOST_N0));
-	printk("TSC2102_LCH_BASS_BOOST_N1 = 0x%04x\n",
+	printk(KERN_INFO "TSC2102_LCH_BASS_BOOST_N1 = 0x%04x\n",
 			tsc2102_read_sync(TSC2102_LCH_BASS_BOOST_N1));
-	printk("TSC2102_LCH_BASS_BOOST_N2 = 0x%04x\n",
+	printk(KERN_INFO "TSC2102_LCH_BASS_BOOST_N2 = 0x%04x\n",
 			tsc2102_read_sync(TSC2102_LCH_BASS_BOOST_N2));
-	printk("TSC2102_LCH_BASS_BOOST_N3 = 0x%04x\n",
+	printk(KERN_INFO "TSC2102_LCH_BASS_BOOST_N3 = 0x%04x\n",
 			tsc2102_read_sync(TSC2102_LCH_BASS_BOOST_N3));
-	printk("TSC2102_LCH_BASS_BOOST_N4 = 0x%04x\n",
+	printk(KERN_INFO "TSC2102_LCH_BASS_BOOST_N4 = 0x%04x\n",
 			tsc2102_read_sync(TSC2102_LCH_BASS_BOOST_N4));
-	printk("TSC2102_LCH_BASS_BOOST_N5 = 0x%04x\n",
+	printk(KERN_INFO "TSC2102_LCH_BASS_BOOST_N5 = 0x%04x\n",
 			tsc2102_read_sync(TSC2102_LCH_BASS_BOOST_N5));
-	printk("TSC2102_LCH_BASS_BOOST_D1 = 0x%04x\n",
+	printk(KERN_INFO "TSC2102_LCH_BASS_BOOST_D1 = 0x%04x\n",
 			tsc2102_read_sync(TSC2102_LCH_BASS_BOOST_D1));
-	printk("TSC2102_LCH_BASS_BOOST_D2 = 0x%04x\n",
+	printk(KERN_INFO "TSC2102_LCH_BASS_BOOST_D2 = 0x%04x\n",
 			tsc2102_read_sync(TSC2102_LCH_BASS_BOOST_D2));
-	printk("TSC2102_LCH_BASS_BOOST_D4 = 0x%04x\n",
+	printk(KERN_INFO "TSC2102_LCH_BASS_BOOST_D4 = 0x%04x\n",
 			tsc2102_read_sync(TSC2102_LCH_BASS_BOOST_D4));
-	printk("TSC2102_LCH_BASS_BOOST_D5 = 0x%04x\n",
+	printk(KERN_INFO "TSC2102_LCH_BASS_BOOST_D5 = 0x%04x\n",
 			tsc2102_read_sync(TSC2102_LCH_BASS_BOOST_D5));
-	printk("TSC2102_RCH_BASS_BOOST_N0 = 0x%04x\n",
+	printk(KERN_INFO "TSC2102_RCH_BASS_BOOST_N0 = 0x%04x\n",
 			tsc2102_read_sync(TSC2102_RCH_BASS_BOOST_N0));
-	printk("TSC2102_RCH_BASS_BOOST_N1 = 0x%04x\n",
+	printk(KERN_INFO "TSC2102_RCH_BASS_BOOST_N1 = 0x%04x\n",
 			tsc2102_read_sync(TSC2102_RCH_BASS_BOOST_N1));
-	printk("TSC2102_RCH_BASS_BOOST_N2 = 0x%04x\n",
+	printk(KERN_INFO "TSC2102_RCH_BASS_BOOST_N2 = 0x%04x\n",
 			tsc2102_read_sync(TSC2102_RCH_BASS_BOOST_N2));
-	printk("TSC2102_RCH_BASS_BOOST_N3 = 0x%04x\n",
+	printk(KERN_INFO "TSC2102_RCH_BASS_BOOST_N3 = 0x%04x\n",
 			tsc2102_read_sync(TSC2102_RCH_BASS_BOOST_N3));
-	printk("TSC2102_RCH_BASS_BOOST_N4 = 0x%04x\n",
+	printk(KERN_INFO "TSC2102_RCH_BASS_BOOST_N4 = 0x%04x\n",
 			tsc2102_read_sync(TSC2102_RCH_BASS_BOOST_N4));
-	printk("TSC2102_RCH_BASS_BOOST_N5 = 0x%04x\n",
+	printk(KERN_INFO "TSC2102_RCH_BASS_BOOST_N5 = 0x%04x\n",
 			tsc2102_read_sync(TSC2102_RCH_BASS_BOOST_N5));
-	printk("TSC2102_RCH_BASS_BOOST_D1 = 0x%04x\n",
+	printk(KERN_INFO "TSC2102_RCH_BASS_BOOST_D1 = 0x%04x\n",
 			tsc2102_read_sync(TSC2102_RCH_BASS_BOOST_D1));
-	printk("TSC2102_RCH_BASS_BOOST_D2 = 0x%04x\n",
+	printk(KERN_INFO "TSC2102_RCH_BASS_BOOST_D2 = 0x%04x\n",
 			tsc2102_read_sync(TSC2102_RCH_BASS_BOOST_D2));
-	printk("TSC2102_RCH_BASS_BOOST_D4 = 0x%04x\n",
+	printk(KERN_INFO "TSC2102_RCH_BASS_BOOST_D4 = 0x%04x\n",
 			tsc2102_read_sync(TSC2102_RCH_BASS_BOOST_D4));
-	printk("TSC2102_RCH_BASS_BOOST_D5 = 0x%04x\n",
+	printk(KERN_INFO "TSC2102_RCH_BASS_BOOST_D5 = 0x%04x\n",
 			tsc2102_read_sync(TSC2102_RCH_BASS_BOOST_D5));
-	printk("TSC2102_PLL1_CTRL = 0x%04x\n",
+	printk(KERN_INFO "TSC2102_PLL1_CTRL = 0x%04x\n",
 			tsc2102_read_sync(TSC2102_PLL1_CTRL));
-	printk("TSC2102_PLL2_CTRL = 0x%04x\n",
+	printk(KERN_INFO "TSC2102_PLL2_CTRL = 0x%04x\n",
 			tsc2102_read_sync(TSC2102_PLL2_CTRL));
-	printk("TSC2102_AUDIO4_CTRL = 0x%04x\n",
+	printk(KERN_INFO "TSC2102_AUDIO4_CTRL = 0x%04x\n",
 			tsc2102_read_sync(TSC2102_AUDIO4_CTRL));
 }
 #endif
@@ -131,7 +131,7 @@ static void dump_tsc2102_audio_regs(void) {
  * ALSA operations according to board file
  */
 
-static long current_rate = 0;
+static long current_rate;
 
 /*
  * Sample rate changing
@@ -180,7 +180,7 @@ static void tsc2102_configure(void)
 
 /*
  * Omap McBSP clock and Power Management configuration
- *  
+ *
  * Here we have some functions that allow clock to be enabled and
  * disabled only when needed.  Besides doing clock configuration
  * they allow turn audio on and off when necessary.
