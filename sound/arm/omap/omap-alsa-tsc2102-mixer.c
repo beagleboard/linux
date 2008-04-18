@@ -82,8 +82,10 @@ void init_playback_targets(void)
 	/* Unmute */
 	tsc2102_set_mute(0, 0);
 
-	mute[0] = mute[1] = 0;
-	filter[0] = filter[1] = 0;
+	mute[0] = 0;
+	mute[1] = 0;
+	filter[0] = 0;
+	filter[1] = 0;
 }
 
 /*
@@ -146,7 +148,7 @@ static int __pcm_playback_switch_get(struct snd_kcontrol *kcontrol,
 }
 
 static int __pcm_playback_switch_put(struct snd_kcontrol *kcontrol,
-		struct snd_ctl_elem_value *ucontrol) 
+		struct snd_ctl_elem_value *ucontrol)
 {
 	mute[0] = (ucontrol->value.integer.value[0] == 0);	/* L */
 	mute[1] = (ucontrol->value.integer.value[1] == 0);	/* R */
@@ -173,7 +175,7 @@ static int __pcm_playback_deemphasis_get(struct snd_kcontrol *kcontrol,
 }
 
 static int __pcm_playback_deemphasis_put(struct snd_kcontrol *kcontrol,
-		struct snd_ctl_elem_value *ucontrol) 
+		struct snd_ctl_elem_value *ucontrol)
 {
 	filter[0] = (ucontrol->value.integer.value[0] > 0);
 
@@ -199,7 +201,7 @@ static int __pcm_playback_bassboost_get(struct snd_kcontrol *kcontrol,
 }
 
 static int __pcm_playback_bassboost_put(struct snd_kcontrol *kcontrol,
-		struct snd_ctl_elem_value *ucontrol) 
+		struct snd_ctl_elem_value *ucontrol)
 {
 	filter[1] = (ucontrol->value.integer.value[0] > 0);
 
@@ -270,7 +272,7 @@ int snd_omap_mixer(struct snd_card_omap_codec *tsc2102)
 	if (!tsc2102)
 		return -EINVAL;
 
-	for (i = 0; i < ARRAY_SIZE(tsc2102_controls); i ++) {
+	for (i = 0; i < ARRAY_SIZE(tsc2102_controls); i++) {
 		err = snd_ctl_add(tsc2102->card,
 				snd_ctl_new1(&tsc2102_controls[i],
 				tsc2102->card));
