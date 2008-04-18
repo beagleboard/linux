@@ -67,6 +67,8 @@ struct aic23_samplerate_reg_info {
 	u8 divider;		/* if 0 CLKIN = MCLK, if 1 CLKIN = MCLK/2 */
 };
 
+extern int aic23_write_value(u8 reg, u16 value);
+
 /*
  * Defines codec specific functions pointers that can be used from the 
  * common omap-alse base driver for all omap codecs. (tsc2101 and aic23)
