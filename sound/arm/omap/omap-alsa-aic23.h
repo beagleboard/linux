@@ -74,6 +74,7 @@ extern int aic23_write_value(u8 reg, u16 value);
  * Defines codec specific function pointers that can be used from the
  * common omap-alsa base driver for all omap codecs. (tsc2101 and aic23)
  */
+void audio_aic23_write(u8 address, u16 data);
 void define_codec_functions(struct omap_alsa_codec_config *codec_config);
 inline void aic23_configure(void);
 void aic23_set_samplerate(long rate);
