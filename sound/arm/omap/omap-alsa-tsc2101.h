@@ -42,6 +42,11 @@
 
 #define PAGE2_AUDIO_CODEC_REGISTERS	(2)
 
+struct mcbsp_dev_info {
+	struct platform_device *mcbsp_dev;
+	struct spi_device *tsc2101_dev;
+};
+
 struct tsc2101_samplerate_reg_info {
 	u16 sample_rate;
 	u8 divisor;

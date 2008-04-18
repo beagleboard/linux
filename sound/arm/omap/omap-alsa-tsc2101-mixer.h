@@ -76,4 +76,6 @@
 
 #define TSC2101_AUDIO_CODEC_REGISTERS_PAGE2     (2)
 
+extern struct mcbsp_dev_info mcbsp_dev;
+
 #endif /*OMAPALSATSC2101MIXER_H_*/

@@ -43,6 +43,7 @@
 #include "omap-alsa-tsc2101.h"
 #include "omap-alsa-tsc2101-mixer.h"
 
+#include <linux/spi/tsc2101.h>
 #include <linux/types.h>
 #include <sound/initval.h>
 #include <sound/control.h>
@@ -68,7 +69,8 @@ static int current_rec_src 		= REC_SRC_SINGLE_ENDED_MICIN_HED;
  */
 inline void omap_tsc2101_audio_write(u8 address, u16 data)
 {
-	omap_tsc2101_write(PAGE2_AUDIO_CODEC_REGISTERS, address, data);
+	tsc2101_write_sync(mcbsp_dev.tsc2101_dev, PAGE2_AUDIO_CODEC_REGISTERS,
+				address, data);
 }
 
 /* 
@@ -76,7 +78,8 @@ inline void omap_tsc2101_audio_write(u8 address, u16 data)
  */
 inline u16 omap_tsc2101_audio_read(u8 address)
 {
-	return (omap_tsc2101_read(PAGE2_AUDIO_CODEC_REGISTERS, address));
+	return (tsc2101_read_sync(mcbsp_dev.tsc2101_dev,
+					PAGE2_AUDIO_CODEC_REGISTERS, address));
 }
 
 /*

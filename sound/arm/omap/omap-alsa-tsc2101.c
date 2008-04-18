@@ -22,6 +22,7 @@
 #include <linux/soundcard.h>
 #include <linux/platform_device.h>
 #include <linux/clk.h>
+#include <linux/spi/tsc2101.h>
 #include <asm/io.h>
 #include <asm/arch/mcbsp.h>
 
@@ -37,6 +38,8 @@
 
 #include <asm/arch/omap-alsa.h>
 #include "omap-alsa-tsc2101.h"
+
+struct mcbsp_dev_info mcbsp_dev;
 
 static struct clk *tsc2101_mclk = 0;
 
@@ -143,7 +146,8 @@ static struct snd_pcm_hardware tsc2101_snd_omap_alsa_capture = {
  */
 inline void tsc2101_audio_write(u8 address, u16 data)
 {
-	omap_tsc2101_write(PAGE2_AUDIO_CODEC_REGISTERS, address, data);
+	tsc2101_write_sync(mcbsp_dev.tsc2101_dev, PAGE2_AUDIO_CODEC_REGISTERS,
+				address, data);
 }
 
 /* 
@@ -151,7 +155,8 @@ inline void tsc2101_audio_write(u8 address, u16 data)
  */
 inline u16 tsc2101_audio_read(u8 address)
 {
-	return (omap_tsc2101_read(PAGE2_AUDIO_CODEC_REGISTERS, address));
+	return (tsc2101_read_sync(mcbsp_dev.tsc2101_dev,
+					PAGE2_AUDIO_CODEC_REGISTERS, address));
 }
 
 #ifdef DUMP_TSC2101_AUDIO_REGISTERS
@@ -341,9 +346,9 @@ int tsc2101_clock_on(void)
 	       err);
 
 	// Now turn the audio on
-	omap_tsc2101_write(PAGE2_AUDIO_CODEC_REGISTERS,
-			TSC2101_CODEC_POWER_CTRL,
-			0x0000);	
+	tsc2101_write_sync(mcbsp_dev.tsc2101_dev, PAGE2_AUDIO_CODEC_REGISTERS,
+				TSC2101_CODEC_POWER_CTRL,
+				0x0000);
 	return 0;	
 }
 
@@ -382,9 +387,22 @@ int tsc2101_get_default_samplerate(void)
 
 static int __devinit snd_omap_alsa_tsc2101_probe(struct platform_device *pdev)
 {
+	struct spi_device *tsc2101;
 	int	ret;
 	struct	omap_alsa_codec_config *codec_cfg;
 	
+	tsc2101 = dev_get_drvdata(&pdev->dev);
+	if (tsc2101 == NULL) {
+		dev_err(&pdev->dev, "no platform data\n");
+		return -ENODEV;
+	}
+	if (strncmp(tsc2101->modalias, "tsc2101", 8) != 0) {
+		dev_err(&pdev->dev, "tsc2101 not found\n");
+		return -EINVAL;
+	}
+	mcbsp_dev.mcbsp_dev = pdev;
+	mcbsp_dev.tsc2101_dev = tsc2101;
+
 	codec_cfg = pdev->dev.platform_data;
 	if (codec_cfg != NULL) {
 		codec_cfg->hw_constraints_rates	= &tsc2101_hw_constraints_rates;
