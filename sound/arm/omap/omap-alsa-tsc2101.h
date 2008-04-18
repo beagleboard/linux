@@ -1,6 +1,6 @@
 /*
  * sound/arm/omap/omap-alsa-tsc2101.h
- * 
+ *
  * Alsa Driver for TSC2101 codec for OMAP platform boards.
  *
  * Based on former omap-aic23.h and tsc2101 OSS drivers.
@@ -9,7 +9,7 @@
  *
  * Copyright (C) 2006 Instituto Nokia de Tecnologia - INdT - Manaus Brazil
  *          Alsa modularization by Daniel Petrini (d.pensator@gmail.com)
- * 
+ *
  * Copyright (C) 2006 Mika Laitio <lamikr@cc.jyu.fi>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -54,7 +54,7 @@ struct tsc2101_samplerate_reg_info {
 };
 
 /*
- * Defines codec specific functions pointers that can be used from the 
+ * Defines codec specific function pointers that can be used from the
  * common omap-alse base driver for all omap codecs. (tsc2101 and aic23)
  */
 inline void tsc2101_configure(void);
