@@ -111,9 +111,9 @@ static int pcm_playback_target_info(struct snd_kcontrol *kcontrol,
 	uinfo->type = SNDRV_CTL_ELEM_TYPE_ENUMERATED;
 	uinfo->count = 1;
 	uinfo->value.enumerated.items = PLAYBACK_TARGET_COUNT;
-	if (uinfo->value.enumerated.item > PLAYBACK_TARGET_COUNT - 1) {
+	if (uinfo->value.enumerated.item > PLAYBACK_TARGET_COUNT - 1)
 		uinfo->value.enumerated.item = PLAYBACK_TARGET_COUNT - 1;
-	}
+
 	strcpy(uinfo->value.enumerated.name,
 			texts[uinfo->value.enumerated.item]);
 	return 0;
@@ -210,14 +210,14 @@ static int headset_playback_volume_info(struct snd_kcontrol *kcontrol,
 }
 
 static int headset_playback_volume_get(struct snd_kcontrol *kcontrol,
-						struct snd_ctl_elem_value *ucontrol)
+					struct snd_ctl_elem_value *ucontrol)
 {
 	ucontrol->value.integer.value[0]	= current_volume;
 	return 0;
 }
 
 static int headset_playback_volume_put(struct snd_kcontrol *kcontrol,
-						struct snd_ctl_elem_value *ucontrol)
+					struct snd_ctl_elem_value *ucontrol)
 {
 	return set_mixer_volume(ucontrol->value.integer.value[0]);
 }
@@ -233,14 +233,14 @@ static int headset_playback_switch_info(struct snd_kcontrol *kcontrol,
 }
 
 static int headset_playback_switch_get(struct snd_kcontrol *kcontrol,
-						struct snd_ctl_elem_value *ucontrol)
+					struct snd_ctl_elem_value *ucontrol)
 {
 	ucontrol->value.integer.value[0] = 1;
 	return 0;
 }
 
 static int headset_playback_switch_put(struct snd_kcontrol *kcontrol,
-						struct snd_ctl_elem_value *ucontrol)
+					struct snd_ctl_elem_value *ucontrol)
 {
 	/* mute/unmute headset */
 #if 0
@@ -262,14 +262,14 @@ static int fmradio_playback_volume_info(struct snd_kcontrol *kcontrol,
 }
 
 static int fmradio_playback_volume_get(struct snd_kcontrol *kcontrol,
-						struct snd_ctl_elem_value *ucontrol)
+					struct snd_ctl_elem_value *ucontrol)
 {
 	ucontrol->value.integer.value[0] = current_fm_volume;
 	return 0;
 }
 
 static int fmradio_playback_volume_put(struct snd_kcontrol *kcontrol,
-						struct snd_ctl_elem_value *ucontrol)
+					struct snd_ctl_elem_value *ucontrol)
 {
 	int ret = current_fm_volume != ucontrol->value.integer.value[0];
 	int i;
@@ -291,14 +291,14 @@ static int fmradio_playback_switch_info(struct snd_kcontrol *kcontrol,
 }
 
 static int fmradio_playback_switch_get(struct snd_kcontrol *kcontrol,
-						struct snd_ctl_elem_value *ucontrol)
+					struct snd_ctl_elem_value *ucontrol)
 {
 	ucontrol->value.integer.value[0] = 1;
 	return 0;
 }
 
 static int fmradio_playback_switch_put(struct snd_kcontrol *kcontrol,
-						struct snd_ctl_elem_value *ucontrol)
+					struct snd_ctl_elem_value *ucontrol)
 {
 	/* mute/unmute FM radio */
 	if (ucontrol->value.integer.value[0])
@@ -460,7 +460,7 @@ int snd_omap_mixer(struct snd_card_omap_codec *egold)
 	if (!egold)
 		return -EINVAL;
 
-	for (i=0; i < ARRAY_SIZE(egold_control); i++) {
+	for (i = 0; i < ARRAY_SIZE(egold_control); i++) {
 		err = snd_ctl_add(egold->card,
 				snd_ctl_new1(&egold_control[i], egold->card));
 		if (err < 0)
