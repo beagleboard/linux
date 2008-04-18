@@ -31,8 +31,10 @@
 /* following are used for register 03h Mixer PGA control bits
    D7-D5 for selecting record source */
 #define REC_SRC_TARGET_COUNT		0x08
-#define REC_SRC_SINGLE_ENDED_MICIN_HED	0x00 /* oss code referred to MIXER_LINE */
-#define REC_SRC_SINGLE_ENDED_MICIN_HND	0x01 /* oss code referred to MIXER_MIC */
+/* OSS code referred to MIXER_LINE */
+#define REC_SRC_SINGLE_ENDED_MICIN_HED	0x00
+/* OSS code referred to MIXER_MIC */
+#define REC_SRC_SINGLE_ENDED_MICIN_HND	0x01
 #define REC_SRC_SINGLE_ENDED_AUX1	0x02
 #define REC_SRC_SINGLE_ENDED_AUX2	0x03
 #define REC_SRC_MICIN_HED_AND_AUX1	0x04
