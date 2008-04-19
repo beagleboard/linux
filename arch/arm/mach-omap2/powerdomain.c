@@ -32,6 +32,7 @@
 
 #include <asm/arch/cpu.h>
 #include <asm/arch/powerdomain.h>
+#include <asm/arch/clockdomain.h>
 
 /* pwrdm_list contains all registered struct powerdomains */
 static LIST_HEAD(pwrdm_list);
@@ -225,6 +226,137 @@ int pwrdm_for_each(int (*fn)(struct powerdomain *pwrdm))
 
 	return ret;
 }
+
+/**
+ * pwrdm_add_clkdm - add a clockdomain to a powerdomain
+ * @pwrdm: struct powerdomain * to add the clockdomain to
+ * @clkdm: struct clockdomain * to associate with a powerdomain
+ *
+ * Associate the clockdomain 'clkdm' with a powerdomain 'pwrdm'.  This
+ * enables the use of pwrdm_for_each_clkdm().  Returns -EINVAL if
+ * presented with invalid pointers; -ENOMEM if memory could not be allocated;
+ * or 0 upon success.
+ */
+int pwrdm_add_clkdm(struct powerdomain *pwrdm, struct clockdomain *clkdm)
+{
+	int i;
+	int ret = -EINVAL;
+
+	if (!pwrdm || !clkdm)
+		return -EINVAL;
+
+	pr_debug("powerdomain: associating clockdomain %s with powerdomain "
+		 "%s\n", clkdm->name, pwrdm->name);
+	mutex_lock(&pwrdm_mutex);
+
+	for (i = 0; i < PWRDM_MAX_CLKDMS; i++) {
+		if (!pwrdm->pwrdm_clkdms[i])
+			break;
+#ifdef DEBUG
+		if (pwrdm->pwrdm_clkdms[i] == clkdm) {
+			ret = -EINVAL;
+			goto pac_exit;
+		}
+#endif
+	}
+
+	if (i == PWRDM_MAX_CLKDMS) {
+		pr_debug("powerdomain: increase PWRDM_MAX_CLKDMS for "
+			 "pwrdm %s clkdm %s\n", pwrdm->name, clkdm->name);
+		WARN_ON(1);
+		ret = -ENOMEM;
+		goto pac_exit;
+	}
+
+	pwrdm->pwrdm_clkdms[i] = clkdm;
+
+	ret = 0;
+
+pac_exit:
+	mutex_unlock(&pwrdm_mutex);
+
+	return ret;
+}
+
+/**
+ * pwrdm_del_clkdm - remove a clockdomain to a powerdomain
+ * @pwrdm: struct powerdomain * to add the clockdomain to
+ * @clkdm: struct clockdomain * to associate with a powerdomain
+ *
+ * Dissociate the clockdomain 'clkdm' from the powerdomain
+ * 'pwrdm'. Returns -EINVAL if presented with invalid pointers;
+ * -ENOENT if the clkdm was not associated with the powerdomain, or 0
+ * upon success.
+ */
+int pwrdm_del_clkdm(struct powerdomain *pwrdm, struct clockdomain *clkdm)
+{
+	int ret = -EINVAL;
+	int i;
+
+	if (!pwrdm || !clkdm)
+		return -EINVAL;
+
+	pr_debug("powerdomain: dissociating clockdomain %s from powerdomain "
+		 "%s\n", clkdm->name, pwrdm->name);
+
+	mutex_lock(&pwrdm_mutex);
+
+	for (i = 0; i < PWRDM_MAX_CLKDMS; i++)
+		if (pwrdm->pwrdm_clkdms[i] == clkdm)
+			break;
+
+	if (i == PWRDM_MAX_CLKDMS) {
+		pr_debug("powerdomain: clkdm %s not associated with pwrdm "
+			 "%s ?!\n", clkdm->name, pwrdm->name);
+		ret = -ENOENT;
+		goto pdc_exit;
+	}
+
+	pwrdm->pwrdm_clkdms[i] = NULL;
+
+	ret = 0;
+
+pdc_exit:
+	mutex_unlock(&pwrdm_mutex);
+
+	return ret;
+}
+
+/**
+ * pwrdm_for_each_clkdm - call function on each clkdm in a pwrdm
+ * @pwrdm: struct powerdomain * to iterate over
+ * @fn: callback function *
+ *
+ * Call the supplied function for each clockdomain in the powerdomain
+ * 'pwrdm'.  The callback function can return anything but 0 to bail
+ * out early from the iterator.  The callback function is called with
+ * the pwrdm_mutex held, so no powerdomain structure manipulation
+ * functions should be called from the callback, although hardware
+ * powerdomain control functions are fine.  Returns -EINVAL if
+ * presented with invalid pointers; or passes along the last return
+ * value of the callback function, which should be 0 for success or
+ * anything else to indicate failure.
+ */
+int pwrdm_for_each_clkdm(struct powerdomain *pwrdm,
+			 int (*fn)(struct powerdomain *pwrdm,
+				   struct clockdomain *clkdm))
+{
+	int ret = 0;
+	int i;
+
+	if (!fn)
+		return -EINVAL;
+
+	mutex_lock(&pwrdm_mutex);
+
+	for (i = 0; i < PWRDM_MAX_CLKDMS && !ret; i++)
+		ret = (*fn)(pwrdm, pwrdm->pwrdm_clkdms[i]);
+
+	mutex_unlock(&pwrdm_mutex);
+
+	return ret;
+}
+
 
 /**
  * pwrdm_add_wkdep - add a wakeup dependency from pwrdm2 to pwrdm1

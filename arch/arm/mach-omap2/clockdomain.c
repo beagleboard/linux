@@ -218,6 +218,8 @@ int clkdm_register(struct clockdomain *clkdm)
 
 	list_add(&clkdm->node, &clkdm_list);
 
+	pwrdm_add_clkdm(pwrdm, clkdm);
+
 	pr_debug("clockdomain: registered %s\n", clkdm->name);
 	ret = 0;
 
@@ -238,6 +240,8 @@ int clkdm_unregister(struct clockdomain *clkdm)
 {
 	if (!clkdm)
 		return -EINVAL;
+
+	pwrdm_del_clkdm(clkdm->pwrdm, clkdm);
 
 	mutex_lock(&clkdm_mutex);
 	list_del(&clkdm->node);
