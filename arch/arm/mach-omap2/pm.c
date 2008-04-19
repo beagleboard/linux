@@ -679,12 +679,14 @@ static void __init prcm_setup_regs(void)
 			  GFX_MOD, PM_PWSTCTRL);
 
 	/* Enable clock auto control for all domains */
-	cm_write_mod_reg(OMAP24XX_AUTOSTATE_MPU, MPU_MOD, CM_CLKSTCTRL);
-	cm_write_mod_reg(OMAP24XX_AUTOSTATE_DSS | OMAP24XX_AUTOSTATE_L4 |
-			 OMAP24XX_AUTOSTATE_L3,
+	cm_write_mod_reg(OMAP24XX_AUTOSTATE_MPU_MASK, MPU_MOD, CM_CLKSTCTRL);
+	cm_write_mod_reg(OMAP24XX_AUTOSTATE_DSS_MASK |
+			 OMAP24XX_AUTOSTATE_L4_MASK |
+			 OMAP24XX_AUTOSTATE_L3_MASK,
 			 CORE_MOD, CM_CLKSTCTRL);
-	cm_write_mod_reg(OMAP24XX_AUTOSTATE_GFX, GFX_MOD, CM_CLKSTCTRL);
-	cm_write_mod_reg(OMAP2420_AUTOSTATE_IVA | OMAP24XX_AUTOSTATE_DSP,
+	cm_write_mod_reg(OMAP24XX_AUTOSTATE_GFX_MASK, GFX_MOD, CM_CLKSTCTRL);
+	cm_write_mod_reg(OMAP2420_AUTOSTATE_IVA_MASK |
+			 OMAP24XX_AUTOSTATE_DSP_MASK,
 			 OMAP24XX_DSP_MOD, CM_CLKSTCTRL);
 
 	/* Enable clock autoidle for all domains */

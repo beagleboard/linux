@@ -467,7 +467,7 @@ static inline void dsp_clk_enable(void)
 	cm_set_mod_reg_bits(OMAP2420_AUTO_DSP_IPI, OMAP24XX_DSP_MOD,
 			    CM_AUTOIDLE);
 
-	cm_set_mod_reg_bits(OMAP24XX_AUTOSTATE_DSP, OMAP24XX_DSP_MOD,
+	cm_set_mod_reg_bits(OMAP24XX_AUTOSTATE_DSP_MASK, OMAP24XX_DSP_MOD,
 			    CM_CLKSTCTRL);
 
 	clk_enable(dsp_fck_handle);
