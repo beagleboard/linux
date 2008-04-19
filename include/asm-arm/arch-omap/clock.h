@@ -15,6 +15,8 @@
 #ifndef __ARCH_ARM_OMAP_CLOCK_H
 #define __ARCH_ARM_OMAP_CLOCK_H
 
+#include <asm/arch/clockdomain.h>
+
 struct module;
 struct clk;
 
@@ -82,6 +84,8 @@ struct clk {
 	u32			clksel_mask;
 	const struct clksel	*clksel;
 	struct dpll_data	*dpll_data;
+	const char              *clkdm_name;
+	struct clockdomain      *clkdm;
 #else
 	__u8			rate_offset;
 	__u8			src_offset;
