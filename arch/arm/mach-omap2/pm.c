@@ -651,7 +651,7 @@ static void __init prcm_setup_regs(void)
 	__raw_writel(OMAP24XX_AUTOIDLE, OMAP24XX_PRCM_SYSCONFIG);
 
 	/* Set all domain wakeup dependencies */
-	prm_write_mod_reg(OMAP_EN_WKUP, MPU_MOD, PM_WKDEP);
+	prm_write_mod_reg(OMAP_EN_WKUP_MASK, MPU_MOD, PM_WKDEP);
 	prm_write_mod_reg(0, OMAP24XX_DSP_MOD, PM_WKDEP);
 	prm_write_mod_reg(0, GFX_MOD, PM_WKDEP);
 	prm_write_mod_reg(0, CORE_MOD, PM_WKDEP);
