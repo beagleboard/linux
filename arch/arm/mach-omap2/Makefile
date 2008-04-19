@@ -4,7 +4,8 @@
 
 # Common support
 obj-y := irq.o id.o io.o memory.o control.o prcm.o clock.o mux.o \
-		devices.o serial.o gpmc.o timer-gp.o powerdomain.o
+		devices.o serial.o gpmc.o timer-gp.o powerdomain.o \
+		clockdomain.o
 
 # Functions loaded to SRAM
 obj-$(CONFIG_ARCH_OMAP2)		+= sram24xx.o
