@@ -35,6 +35,7 @@ struct omap_mmc_platform_data {
 	 * not supported */
 	int (* init)(struct device *dev);
 	void (* cleanup)(struct device *dev);
+	void (* shutdown)(struct device *dev);
 
 	/* To handle board related suspend/resume functionality for MMC */
 	int (*suspend)(struct device *dev, int slot);
@@ -59,6 +60,9 @@ struct omap_mmc_platform_data {
 		/* Card detection IRQs */
 		int card_detect_irq;
 		int (* card_detect)(int irq);
+
+		unsigned int ban_openended:1;
+
 	} slots[OMAP_MMC_MAX_SLOTS];
 };
 

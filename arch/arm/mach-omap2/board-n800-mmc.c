@@ -19,14 +19,20 @@
 #ifdef CONFIG_MMC_OMAP
 
 static const int slot_switch_gpio = 96;
+
+static const int n810_slot2_pw_vddf = 23;
+static const int n810_slot2_pw_vdd = 9;
+
 static int slot1_cover_open;
 static int slot2_cover_open;
 static struct device *mmc_device;
 
 /*
- * VMMC --> slot 1
- * VDCDC3_APE, VMCS2_APE --> slot 2
+ * VMMC   --> slot 1 (N800 & N810)
+ * VDCDC3_APE, VMCS2_APE --> slot 2 on N800
  * GPIO96 --> Menelaus GPIO2
+ * GPIO23 --> controls slot2 VSD    (N810 only)
+ * GPIO9  --> controls slot2 VIO_SD (N810 only)
  */
 
 static int n800_mmc_switch_slot(struct device *dev, int slot)
@@ -41,8 +47,8 @@ static int n800_mmc_switch_slot(struct device *dev, int slot)
 	return 0;
 }
 
-static int n800_mmc_set_power(struct device *dev, int slot, int power_on,
-				int vdd)
+static int n800_mmc_set_power_menelaus(struct device *dev, int slot,
+					int power_on, int vdd)
 {
 	int mV;
 
@@ -110,14 +116,42 @@ static int n800_mmc_set_power(struct device *dev, int slot, int power_on,
 	return 0;
 }
 
+static void nokia_mmc_set_power_internal(struct device *dev,
+					 int power_on)
+{
+	dev_dbg(dev, "Set internal slot power %s\n",
+		power_on ? "on" : "off");
+
+	if (power_on) {
+		omap_set_gpio_dataout(n810_slot2_pw_vddf, 1);
+		udelay(30);
+		omap_set_gpio_dataout(n810_slot2_pw_vdd, 1);
+		udelay(100);
+	} else {
+		omap_set_gpio_dataout(n810_slot2_pw_vdd, 0);
+		msleep(50);
+		omap_set_gpio_dataout(n810_slot2_pw_vddf, 0);
+		msleep(50);
+	}
+}
+
+static int n800_mmc_set_power(struct device *dev, int slot, int power_on,
+			      int vdd)
+{
+	if (machine_is_nokia_n800() || slot == 0)
+		return n800_mmc_set_power_menelaus(dev, slot, power_on, vdd);
+
+	nokia_mmc_set_power_internal(dev, power_on);
+
+	return 0;
+}
+
 static int n800_mmc_set_bus_mode(struct device *dev, int slot, int bus_mode)
 {
 	int r;
 
-#ifdef CONFIG_MMC_DEBUG
 	dev_dbg(dev, "Set slot %d bus mode %s\n", slot + 1,
 		bus_mode == MMC_BUSMODE_OPENDRAIN ? "open-drain" : "push-pull");
-#endif
 	BUG_ON(slot != 0 && slot != 1);
 	slot++;
 	switch (bus_mode) {
@@ -135,24 +169,6 @@ static int n800_mmc_set_bus_mode(struct device *dev, int slot, int bus_mode)
 			slot);
 	return r;
 }
-
-#if 0
-static int n800_mmc_get_ro(struct device *dev, int slot)
-{
-	int ro;
-
-	slot++;
-	if (slot == 1)
-		ro = omap_get_gpio_datain(slot1_wp_gpio);
-	else
-		ro = omap_get_gpio_datain(slot2_wp_gpio);
-#ifdef CONFIG_MMC_DEBUG
-	dev_dbg(dev, "Get RO slot %d: %s\n",
-		slot, ro ? "read-only" : "read-write");
-#endif
-	return ro;
-}
-#endif
 
 static int n800_mmc_get_cover_state(struct device *dev, int slot)
 {
@@ -172,6 +188,10 @@ static void n800_mmc_callback(void *data, u8 card_mask)
 		bit = 1 << 1;
 		openp = &slot2_cover_open;
 		index = 1;
+	} else {
+		bit = 1;
+		openp = &slot1_cover_open;
+		index = 0;
 	}
 
 	if (card_mask & bit)
@@ -182,18 +202,19 @@ static void n800_mmc_callback(void *data, u8 card_mask)
 	omap_mmc_notify_cover_event(mmc_device, index, *openp);
 }
 
-void n800_mmc_slot1_cover_handler(void *arg, int state)
+void n800_mmc_slot1_cover_handler(void *arg, int closed_state)
 {
 	if (mmc_device == NULL)
 		return;
 
-	slot1_cover_open = !state;
-	omap_mmc_notify_cover_event(mmc_device, 0, state);
+	slot1_cover_open = !closed_state;
+	omap_mmc_notify_cover_event(mmc_device, 0, closed_state);
 }
 
 static int n800_mmc_late_init(struct device *dev)
 {
 	int r, bit, *openp;
+	int vs2sel;
 
 	mmc_device = dev;
 
@@ -201,10 +222,22 @@ static int n800_mmc_late_init(struct device *dev)
 	if (r < 0)
 		return r;
 
+	if (machine_is_nokia_n800())
+		vs2sel = 0;
+	else
+		vs2sel = 2;
+
+	r = menelaus_set_mmc_slot(2, 0, vs2sel, 1);
+	if (r < 0)
+		return r;
+
+	n800_mmc_set_power(dev, 0, MMC_POWER_ON, 16); /* MMC_VDD_28_29 */
+	n800_mmc_set_power(dev, 1, MMC_POWER_ON, 16);
+
 	r = menelaus_set_mmc_slot(1, 1, 0, 1);
 	if (r < 0)
 		return r;
-	r = menelaus_set_mmc_slot(2, 1, 0, 1);
+	r = menelaus_set_mmc_slot(2, 1, vs2sel, 1);
 	if (r < 0)
 		return r;
 
@@ -215,6 +248,10 @@ static int n800_mmc_late_init(struct device *dev)
 	if (machine_is_nokia_n800()) {
 		bit = 1 << 1;
 		openp = &slot2_cover_open;
+	} else {
+		bit = 1;
+		openp = &slot1_cover_open;
+		slot2_cover_open = 0;
 	}
 
 	/* All slot pin bits seem to be inversed until first swith change */
@@ -231,9 +268,29 @@ static int n800_mmc_late_init(struct device *dev)
 	return r;
 }
 
+static void n800_mmc_shutdown(struct device *dev)
+{
+	int vs2sel;
+
+	if (machine_is_nokia_n800())
+		vs2sel = 0;
+	else
+		vs2sel = 2;
+
+	menelaus_set_mmc_slot(1, 0, 0, 0);
+	menelaus_set_mmc_slot(2, 0, vs2sel, 0);
+}
+
 static void n800_mmc_cleanup(struct device *dev)
 {
 	menelaus_unregister_mmc_callback();
+
+	omap_free_gpio(slot_switch_gpio);
+
+	if (machine_is_nokia_n810()) {
+		omap_free_gpio(n810_slot2_pw_vddf);
+		omap_free_gpio(n810_slot2_pw_vdd);
+	}
 }
 
 static struct omap_mmc_platform_data n800_mmc_data = {
@@ -241,14 +298,15 @@ static struct omap_mmc_platform_data n800_mmc_data = {
 	.switch_slot		= n800_mmc_switch_slot,
 	.init			= n800_mmc_late_init,
 	.cleanup		= n800_mmc_cleanup,
+	.shutdown		= n800_mmc_shutdown,
+	.max_freq               = 24000000,
 	.slots[0] = {
 		.set_power	= n800_mmc_set_power,
 		.set_bus_mode	= n800_mmc_set_bus_mode,
 		.get_ro		= NULL,
 		.get_cover_state= n800_mmc_get_cover_state,
-		.ocr_mask	= MMC_VDD_165_195 |
-				  MMC_VDD_28_29 | MMC_VDD_30_31 |
-				  MMC_VDD_32_33 | MMC_VDD_33_34,
+		.ocr_mask	= MMC_VDD_165_195 | MMC_VDD_30_31 |
+				  MMC_VDD_32_33   | MMC_VDD_33_34,
 		.name		= "internal",
 	},
 	.slots[1] = {
@@ -266,14 +324,39 @@ static struct omap_mmc_platform_data n800_mmc_data = {
 };
 
 void __init n800_mmc_init(void)
+
 {
+	if (machine_is_nokia_n810()) {
+		n800_mmc_data.slots[0].name = "external";
+
+		/*
+		 * Some Samsung Movinand chips do not like open-ended
+		 * multi-block reads and fall to braind-dead state
+		 * while doing so. Reducing the number of blocks in
+		 * the transfer or delays in clock disable do not help
+		 */
+		n800_mmc_data.slots[1].name = "internal";
+		n800_mmc_data.slots[1].ban_openended = 1;
+	}
+
 	omap_set_mmc_info(1, &n800_mmc_data);
 	if (omap_request_gpio(slot_switch_gpio) < 0)
 		BUG();
 	omap_set_gpio_dataout(slot_switch_gpio, 0);
 	omap_set_gpio_direction(slot_switch_gpio, 0);
-}
 
+	if (machine_is_nokia_n810()) {
+		if (omap_request_gpio(n810_slot2_pw_vddf) < 0)
+			BUG();
+		omap_set_gpio_dataout(n810_slot2_pw_vddf, 0);
+		omap_set_gpio_direction(n810_slot2_pw_vddf, 0);
+
+		if (omap_request_gpio(n810_slot2_pw_vdd) < 0)
+			BUG();
+		omap_set_gpio_dataout(n810_slot2_pw_vdd, 0);
+		omap_set_gpio_direction(n810_slot2_pw_vdd, 0);
+	}
+}
 #else
 
 void __init n800_mmc_init(void)
