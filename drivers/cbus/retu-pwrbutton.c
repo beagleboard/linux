@@ -97,9 +97,7 @@ static int __init retubutton_init(void)
 	pwrbtn_dev->keybit[BIT_WORD(KEY_POWER)] = BIT_MASK(KEY_POWER);
 	pwrbtn_dev->name = "retu-pwrbutton";
 
-	input_register_device(pwrbtn_dev);
-
-	return 0;
+	return input_register_device(pwrbtn_dev);
 }
 
 /**
