@@ -587,7 +587,7 @@ static ssize_t lm8323_pwm_store_time(struct device *dev,
 	int ret;
 	int time;
 
-	ret = strict_strtoul(buf, 10, &time);
+	ret = sscanf(buf, "%d", &time);
 	/* Numbers only, please. */
 	if (ret)
 		return -EINVAL;
@@ -661,7 +661,7 @@ static ssize_t lm8323_set_disable(struct device *dev,
 	int ret;
 	int i;
 
-	i = strict_strtoul(buf, 10, &ret);
+	i = sscanf(buf, "%d", &ret);
 
 	mutex_lock(&lm->lock);
 	lm->kp_enabled = !i;
