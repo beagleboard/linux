@@ -62,8 +62,8 @@ struct thread_info {
 	struct crunch_state	crunchstate;
 	union fp_state		fpstate __attribute__((aligned(8)));
 	union vfp_state		vfpstate;
-#ifdef CONFIG_ARM_XENON
-	unsigned long		xenonstate;	/* Jazelle-X handler base register */
+#ifdef CONFIG_ARM_THUMBEE
+	unsigned long		thumbee_state;	/* ThumbEE Handler Base register */
 #endif
 	struct restart_block	restart_block;
 };

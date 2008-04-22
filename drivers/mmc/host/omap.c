@@ -2,7 +2,7 @@
  *  linux/drivers/mmc/host/omap.c
  *
  *  Copyright (C) 2004 Nokia Corporation
- *  Written by Tuukka Tikkanen and Juha Yrjï¿½lï¿½<juha.yrjola@nokia.com>
+ *  Written by Tuukka Tikkanen and Juha Yrjölä<juha.yrjola@nokia.com>
  *  Misc hacks here and there by Tony Lindgren <tony@atomide.com>
  *  Other hacks (DMA, SD, etc) by David Brownell
  *
@@ -21,7 +21,6 @@
 #include <linux/delay.h>
 #include <linux/spinlock.h>
 #include <linux/timer.h>
-#include <linux/mmc/mmc.h>
 #include <linux/mmc/host.h>
 #include <linux/mmc/card.h>
 #include <linux/clk.h>
@@ -38,7 +37,6 @@
 #include <asm/arch/dma.h>
 #include <asm/arch/mux.h>
 #include <asm/arch/fpga.h>
-#include <asm/arch/board-sx1.h>
 
 #define	OMAP_MMC_REG_CMD	0x00
 #define	OMAP_MMC_REG_ARGL	0x04
@@ -304,7 +302,8 @@ static inline
 int mmc_omap_cover_is_open(struct mmc_omap_slot *slot)
 {
 	if (slot->pdata->get_cover_state)
-		return slot->pdata->get_cover_state(mmc_dev(slot->mmc), slot->id);
+		return slot->pdata->get_cover_state(mmc_dev(slot->mmc),
+						    slot->id);
 	return 0;
 }
 
@@ -320,20 +319,6 @@ mmc_omap_show_cover_switch(struct device *dev, struct device_attribute *attr,
 }
 
 static DEVICE_ATTR(cover_switch, S_IRUGO, mmc_omap_show_cover_switch, NULL);
-
-/* Access to the R/O switch is required for production testing
- * purposes. */
-static ssize_t
-mmc_omap_show_ro(struct device *dev, struct device_attribute *attr, char *buf)
-{
-	struct mmc_host *mmc = container_of(dev, struct mmc_host, class_dev);
-	struct mmc_omap_slot *slot = mmc_priv(mmc);
-
-	return sprintf(buf, "%d\n", slot->pdata->get_ro(mmc_dev(mmc),
-							slot->id));
-}
-
-static DEVICE_ATTR(ro, S_IRUGO, mmc_omap_show_ro, NULL);
 
 static ssize_t
 mmc_omap_show_slot_name(struct device *dev, struct device_attribute *attr,
@@ -795,11 +780,8 @@ static irqreturn_t mmc_omap_irq(int irq, void *dev_id)
 			if (host->cmd) {
 				struct mmc_omap_slot *slot =
 					host->current_slot;
-				if (host->cmd->opcode != MMC_ALL_SEND_CID &&
-				    host->cmd->opcode != MMC_SEND_OP_COND &&
-				    host->cmd->opcode != MMC_APP_CMD &&
-				    (slot == NULL ||
-				     !mmc_omap_cover_is_open(slot)))
+				if (slot == NULL ||
+				    !mmc_omap_cover_is_open(slot))
 					dev_err(mmc_dev(host->mmc),
 						"command timeout (CMD%d)\n",
 						cmd);
@@ -1312,19 +1294,9 @@ exit:
 	mmc_omap_release_slot(slot, clk_enabled);
 }
 
-static int mmc_omap_get_ro(struct mmc_host *mmc)
-{
-	struct mmc_omap_slot *slot = mmc_priv(mmc);
-
-	if (slot->pdata->get_ro != NULL)
-		return slot->pdata->get_ro(mmc_dev(mmc), slot->id);
-	return 0;
-}
-
 static const struct mmc_host_ops mmc_omap_ops = {
 	.request	= mmc_omap_request,
 	.set_ios	= mmc_omap_set_ios,
-	.get_ro		= mmc_omap_get_ro,
 };
 
 static int __init mmc_omap_new_slot(struct mmc_omap_host *host, int id)
@@ -1345,8 +1317,7 @@ static int __init mmc_omap_new_slot(struct mmc_omap_host *host, int id)
 
 	host->slots[id] = slot;
 
-	mmc->caps = MMC_CAP_MULTIWRITE | MMC_CAP_MMC_HIGHSPEED |
-		    MMC_CAP_SD_HIGHSPEED;
+	mmc->caps = MMC_CAP_MULTIWRITE;
 	if (host->pdata->conf.wire4)
 		mmc->caps |= MMC_CAP_4_BIT_DATA;
 
@@ -1374,7 +1345,7 @@ static int __init mmc_omap_new_slot(struct mmc_omap_host *host, int id)
 
 	r = mmc_add_host(mmc);
 	if (r < 0)
-		return r;
+		goto err_remove_host;
 
 	if (slot->pdata->name != NULL) {
 		r = device_create_file(&mmc->class_dev,
@@ -1396,23 +1367,14 @@ static int __init mmc_omap_new_slot(struct mmc_omap_host *host, int id)
 		tasklet_schedule(&slot->cover_tasklet);
 	}
 
-	if (slot->pdata->get_ro != NULL) {
-		r = device_create_file(&mmc->class_dev,
-					&dev_attr_ro);
-		if (r < 0)
-			goto err_remove_cover_attr;
-	}
-
 	return 0;
 
-err_remove_cover_attr:
-	if (slot->pdata->get_cover_state != NULL)
-		device_remove_file(&mmc->class_dev, &dev_attr_cover_switch);
 err_remove_slot_name:
 	if (slot->pdata->name != NULL)
-		device_remove_file(&mmc->class_dev, &dev_attr_ro);
+		device_remove_file(&mmc->class_dev, &dev_attr_slot_name);
 err_remove_host:
 	mmc_remove_host(mmc);
+	mmc_free_host(mmc);
 	return r;
 }
 
@@ -1424,8 +1386,6 @@ static void mmc_omap_remove_slot(struct mmc_omap_slot *slot)
 		device_remove_file(&mmc->class_dev, &dev_attr_slot_name);
 	if (slot->pdata->get_cover_state != NULL)
 		device_remove_file(&mmc->class_dev, &dev_attr_cover_switch);
-	if (slot->pdata->get_ro != NULL)
-		device_remove_file(&mmc->class_dev, &dev_attr_ro);
 
 	tasklet_kill(&slot->cover_tasklet);
 	del_timer_sync(&slot->cover_timer);
@@ -1662,4 +1622,4 @@ module_exit(mmc_omap_exit);
 MODULE_DESCRIPTION("OMAP Multimedia Card driver");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("platform:" DRIVER_NAME);
-MODULE_AUTHOR("Juha Yrjï¿½lï¿½");
+MODULE_AUTHOR("Juha Yrjölä");
