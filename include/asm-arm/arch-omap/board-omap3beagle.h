@@ -29,6 +29,8 @@
 #ifndef __ASM_ARCH_OMAP3_BEAGLE_H
 #define __ASM_ARCH_OMAP3_BEAGLE_H
 
+extern void sdp_mmc_init(void);
+
 #define TWL4030_IRQNUM		INT_34XX_SYS_NIRQ
 
 #endif /* __ASM_ARCH_OMAP3_BEAGLE_H */

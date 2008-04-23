@@ -48,8 +48,16 @@ static void __init omap3_beagle_init_irq(void)
 	omap_gpio_init();
 }
 
+static struct omap_mmc_config omap3beagle_mmc_config __initdata = {
+	.mmc [0] = {
+		.enabled	= 1,
+		.wire4		= 1,
+	},
+};
+
 static struct omap_board_config_kernel omap3_beagle_config[] __initdata = {
 	{ OMAP_TAG_UART,	&omap3_beagle_uart_config },
+	{ OMAP_TAG_MMC,		&omap3beagle_mmc_config },
 };
 
 static void __init omap3_beagle_init(void)
@@ -57,6 +65,7 @@ static void __init omap3_beagle_init(void)
 	omap_board_config = omap3_beagle_config;
 	omap_board_config_size = ARRAY_SIZE(omap3_beagle_config);
 	omap_serial_init();
+	sdp_mmc_init();
 }
 
 arch_initcall(omap3_beagle_i2c_init);
