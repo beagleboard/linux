@@ -15,6 +15,7 @@
 #include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <linux/interrupt.h>
+#include <linux/irq.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/notifier.h>
