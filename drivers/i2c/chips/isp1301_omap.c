@@ -662,7 +662,7 @@ pulldown:
 		OTG_CTRL_REG |= OTG_PULLUP;
 	}
 
-	check_state(isp, __FUNCTION__);
+	check_state(isp, __func__);
 	dump_regs(isp, "otg->isp1301");
 }
 
@@ -786,7 +786,7 @@ static irqreturn_t omap_otg_irq(int irq, void *_isp)
 		if (otg_ctrl & OTG_DRIVER_SEL) {
 			switch (isp->otg.state) {
 			case OTG_STATE_A_IDLE:
-				b_idle(isp, __FUNCTION__);
+				b_idle(isp, __func__);
 				break;
 			default:
 				break;
@@ -830,7 +830,7 @@ static irqreturn_t omap_otg_irq(int irq, void *_isp)
 						isp->otg.host->otg_port);
 	}
 
-	check_state(isp, __FUNCTION__);
+	check_state(isp, __func__);
 	return ret;
 }
 
@@ -841,7 +841,7 @@ static int otg_init(struct isp1301 *isp)
 	if (!otg_dev)
 		return -ENODEV;
 
-	dump_regs(isp, __FUNCTION__);
+	dump_regs(isp, __func__);
 	/* some of these values are board-specific... */
 	OTG_SYSCON_2_REG |= OTG_EN
 		/* for B-device: */
@@ -857,9 +857,9 @@ static int otg_init(struct isp1301 *isp)
 	update_otg1(isp, isp1301_get_u8(isp, ISP1301_INTERRUPT_SOURCE));
 	update_otg2(isp, isp1301_get_u8(isp, ISP1301_OTG_STATUS));
 
-	check_state(isp, __FUNCTION__);
+	check_state(isp, __func__);
 	pr_debug("otg: %s, %s %06x\n",
-			state_name(isp), __FUNCTION__, OTG_CTRL_REG);
+			state_name(isp), __func__, OTG_CTRL_REG);
 
 	OTG_IRQ_EN_REG = DRIVER_SWITCH | OPRT_CHG
 			| B_SRP_TMROUT | B_HNP_FAIL
@@ -1045,11 +1045,11 @@ static void isp_update_otg(struct isp1301 *isp, u8 stat)
 						OTG1_DP_PULLDOWN);
 			isp1301_clear_bits(isp, ISP1301_OTG_CONTROL_1,
 						OTG1_DP_PULLUP);
-			dump_regs(isp, __FUNCTION__);
+			dump_regs(isp, __func__);
 #endif
 			/* FALLTHROUGH */
 		case OTG_STATE_B_SRP_INIT:
-			b_idle(isp, __FUNCTION__);
+			b_idle(isp, __func__);
 			OTG_CTRL_REG &= OTG_CTRL_REG & OTG_XCEIV_OUTPUTS;
 			/* FALLTHROUGH */
 		case OTG_STATE_B_IDLE:
@@ -1081,7 +1081,7 @@ static void isp_update_otg(struct isp1301 *isp, u8 stat)
 	 */
 	update_otg1(isp, stat); // pass the actual interrupt latch status
 	update_otg2(isp, isp_bstat);
-	check_state(isp, __FUNCTION__);
+	check_state(isp, __func__);
 #endif
 
 	dump_regs(isp, "isp1301->otg");
@@ -1310,7 +1310,7 @@ isp1301_set_host(struct otg_transceiver *otg, struct usb_bus *host)
 	 */
 	isp1301_set_bits(isp, ISP1301_OTG_CONTROL_1, OTG1_VBUS_DRV);
 
-	dump_regs(isp, __FUNCTION__);
+	dump_regs(isp, __func__);
 
 	return 0;
 
@@ -1366,7 +1366,7 @@ isp1301_set_peripheral(struct otg_transceiver *otg, struct usb_gadget *gadget)
 	isp1301_set_bits(isp, ISP1301_INTERRUPT_FALLING,
 		INTR_VBUS_VLD | INTR_SESS_VLD);
 	dev_info(&isp->client->dev, "B-Peripheral sessions ok\n");
-	dump_regs(isp, __FUNCTION__);
+	dump_regs(isp, __func__);
 
 	/* If this has a Mini-AB connector, this mode is highly
 	 * nonstandard ... but can be handy for testing, so long
@@ -1417,7 +1417,7 @@ isp1301_start_srp(struct otg_transceiver *dev)
 
 	pr_debug("otg: SRP, %s ... %06x\n", state_name(isp), OTG_CTRL_REG);
 #ifdef	CONFIG_USB_OTG
-	check_state(isp, __FUNCTION__);
+	check_state(isp, __func__);
 #endif
 	return 0;
 }
@@ -1468,7 +1468,7 @@ isp1301_start_hnp(struct otg_transceiver *dev)
 	}
 	pr_debug("otg: HNP %s, %06x ...\n",
 		state_name(isp), OTG_CTRL_REG);
-	check_state(isp, __FUNCTION__);
+	check_state(isp, __func__);
 	return 0;
 #else
 	/* srp-only */
@@ -1579,7 +1579,7 @@ fail2:
 	update_otg1(isp, isp1301_get_u8(isp, ISP1301_INTERRUPT_SOURCE));
 	update_otg2(isp, isp1301_get_u8(isp, ISP1301_OTG_STATUS));
 #endif
-	dump_regs(isp, __FUNCTION__);
+	dump_regs(isp, __func__);
 
 #ifdef	VERBOSE
 	mod_timer(&isp->timer, jiffies + TIMER_JIFFIES);

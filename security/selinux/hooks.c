@@ -755,9 +755,18 @@ static void selinux_sb_clone_mnt_opts(const struct super_block *oldsb,
 	int set_context =	(oldsbsec->flags & CONTEXT_MNT);
 	int set_rootcontext =	(oldsbsec->flags & ROOTCONTEXT_MNT);
 
-	/* we can't error, we can't save the info, this shouldn't get called
-	 * this early in the boot process. */
-	BUG_ON(!ss_initialized);
+	/*
+	 * if the parent was able to be mounted it clearly had no special lsm
+	 * mount options.  thus we can safely put this sb on the list and deal
+	 * with it later
+	 */
+	if (!ss_initialized) {
+		spin_lock(&sb_security_lock);
+		if (list_empty(&newsbsec->list))
+			list_add(&newsbsec->list, &superblock_security_head);
+		spin_unlock(&sb_security_lock);
+		return;
+	}
 
 	/* how can we clone if the old one wasn't set up?? */
 	BUG_ON(!oldsbsec->initialized);
@@ -2392,22 +2401,22 @@ static int selinux_sb_statfs(struct dentry *dentry)
 }
 
 static int selinux_mount(char *dev_name,
-			 struct nameidata *nd,
+			 struct path *path,
 			 char *type,
 			 unsigned long flags,
 			 void *data)
 {
 	int rc;
 
-	rc = secondary_ops->sb_mount(dev_name, nd, type, flags, data);
+	rc = secondary_ops->sb_mount(dev_name, path, type, flags, data);
 	if (rc)
 		return rc;
 
 	if (flags & MS_REMOUNT)
-		return superblock_has_perm(current, nd->path.mnt->mnt_sb,
+		return superblock_has_perm(current, path->mnt->mnt_sb,
 					   FILESYSTEM__REMOUNT, NULL);
 	else
-		return dentry_has_perm(current, nd->path.mnt, nd->path.dentry,
+		return dentry_has_perm(current, path->mnt, path->dentry,
 				       FILE__MOUNTON);
 }
 
