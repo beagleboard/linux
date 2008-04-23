@@ -75,7 +75,7 @@ int hci_h4p_wait_for_cts(struct hci_h4p_info *info, int active,
 	}
 }
 
-void hci_h4p_set_auto_ctsrts(struct hci_h4p_info *info, int on, u8 which)
+void __hci_h4p_set_auto_ctsrts(struct hci_h4p_info *info, int on, u8 which)
 {
 	u8 lcr, b;
 
@@ -88,6 +88,15 @@ void hci_h4p_set_auto_ctsrts(struct hci_h4p_info *info, int on, u8 which)
 		b &= ~which;
 	hci_h4p_outb(info, UART_EFR, b);
 	hci_h4p_outb(info, UART_LCR, lcr);
+}
+
+void hci_h4p_set_auto_ctsrts(struct hci_h4p_info *info, int on, u8 which)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&info->lock, flags);
+	__hci_h4p_set_auto_ctsrts(info, on, which);
+	spin_unlock_irqrestore(&info->lock, flags);
 }
 
 void hci_h4p_change_speed(struct hci_h4p_info *info, unsigned long speed)

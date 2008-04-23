@@ -174,6 +174,7 @@ void hci_h4p_outb(struct hci_h4p_info *info, unsigned int offset, u8 val);
 u8 hci_h4p_inb(struct hci_h4p_info *info, unsigned int offset);
 void hci_h4p_set_rts(struct hci_h4p_info *info, int active);
 int hci_h4p_wait_for_cts(struct hci_h4p_info *info, int active, int timeout_ms);
+void __hci_h4p_set_auto_ctsrts(struct hci_h4p_info *info, int on, u8 which);
 void hci_h4p_set_auto_ctsrts(struct hci_h4p_info *info, int on, u8 which);
 void hci_h4p_change_speed(struct hci_h4p_info *info, unsigned long speed);
 int hci_h4p_reset_uart(struct hci_h4p_info *info);

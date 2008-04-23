@@ -144,7 +144,7 @@ static void hci_h4p_enable_rx(struct hci_h4p_info *info)
 	if (info->rx_pm_enabled) {
 		hci_h4p_set_clk(info, &info->rx_clocks_en, 1);
 		hci_h4p_outb(info, UART_IER, hci_h4p_inb(info, UART_IER) | UART_IER_RDI);
-		hci_h4p_set_auto_ctsrts(info, 1, UART_EFR_RTS);
+		__hci_h4p_set_auto_ctsrts(info, 1, UART_EFR_RTS);
 		info->rx_pm_enabled = 0;
 	}
 	spin_unlock_irqrestore(&info->lock, flags);
@@ -157,7 +157,7 @@ static void hci_h4p_rx_pm_timer(unsigned long data)
 
 	spin_lock_irqsave(&info->lock, flags);
 	if (!(hci_h4p_inb(info, UART_LSR) & UART_LSR_DR)) {
-		hci_h4p_set_auto_ctsrts(info, 0, UART_EFR_RTS);
+		__hci_h4p_set_auto_ctsrts(info, 0, UART_EFR_RTS);
 		hci_h4p_set_rts(info, 0);
 		hci_h4p_outb(info, UART_IER, hci_h4p_inb(info, UART_IER) & ~UART_IER_RDI);
 		hci_h4p_set_clk(info, &info->rx_clocks_en, 0);
@@ -231,7 +231,6 @@ static void hci_h4p_negotiation_packet(struct hci_h4p_info *info,
 			goto neg_ret;
 
 		hci_h4p_change_speed(info, MAX_BAUD_RATE);
-		hci_h4p_set_rts(info, 1);
 
 		err = hci_h4p_wait_for_cts(info, 1, 100);
 		if (err < 0)
@@ -252,8 +251,8 @@ static void hci_h4p_negotiation_packet(struct hci_h4p_info *info,
 	return;
 
 neg_ret:
-	complete(&info->init_completion);
 	info->init_error = err;
+	complete(&info->init_completion);
 	kfree_skb(skb);
 }
 
@@ -511,7 +510,6 @@ static irqreturn_t hci_h4p_interrupt(int irq, void *data)
 		ret = IRQ_HANDLED;
 	}
 
-
 	return ret;
 }
 
@@ -545,7 +543,6 @@ static int hci_h4p_reset(struct hci_h4p_info *info)
 	int err;
 
 	hci_h4p_init_uart(info);
-	hci_h4p_set_auto_ctsrts(info, 0, UART_EFR_CTS | UART_EFR_RTS);
 	hci_h4p_set_rts(info, 0);
 
 	omap_set_gpio_dataout(info->reset_gpio, 0);
@@ -626,8 +623,6 @@ static int hci_h4p_hci_open(struct hci_dev *hdev)
 	if (err < 0)
 		goto err_clean;
 
-	hci_h4p_set_auto_ctsrts(info, 1, UART_EFR_CTS | UART_EFR_RTS);
-
 	err = hci_h4p_send_fw(info, &fw_queue);
 	if (err < 0) {
 		dev_err(info->dev, "Sending firmware failed.\n");
@@ -675,6 +670,8 @@ static int hci_h4p_hci_close(struct hci_dev *hdev)
 	del_timer_sync(&info->rx_pm_timer);
 	tasklet_disable(&info->tx_task);
 	tasklet_disable(&info->rx_task);
+	hci_h4p_set_clk(info, &info->tx_clocks_en, 1);
+	hci_h4p_set_clk(info, &info->rx_clocks_en, 1);
 	hci_h4p_reset_uart(info);
 	hci_h4p_set_clk(info, &info->tx_clocks_en, 0);
 	hci_h4p_set_clk(info, &info->rx_clocks_en, 0);
@@ -906,7 +903,8 @@ static int hci_h4p_probe(struct platform_device *pdev)
 	}
 
 	err = request_irq(OMAP_GPIO_IRQ(info->host_wakeup_gpio),
-			  hci_h4p_wakeup_interrupt, SA_TRIGGER_FALLING | SA_TRIGGER_RISING,
+			  hci_h4p_wakeup_interrupt,
+				IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING,
 			  "hci_h4p_wkup", (void *)info);
 	if (err < 0) {
 		dev_err(info->dev, "hci_h4p: unable to get wakeup IRQ %d\n",
@@ -916,11 +914,10 @@ static int hci_h4p_probe(struct platform_device *pdev)
 	}
 
 	hci_h4p_set_clk(info, &info->tx_clocks_en, 1);
+	hci_h4p_set_auto_ctsrts(info, 0, UART_EFR_CTS | UART_EFR_RTS);
 	err = hci_h4p_init_uart(info);
 	if (err < 0)
 		goto cleanup_irq;
-	hci_h4p_set_auto_ctsrts(info, 0, UART_EFR_CTS | UART_EFR_RTS);
-	hci_h4p_set_rts(info, 0);
 	err = hci_h4p_reset(info);
 	if (err < 0)
 		goto cleanup_irq;
