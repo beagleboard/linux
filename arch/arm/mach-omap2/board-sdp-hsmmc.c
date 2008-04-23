@@ -47,7 +47,7 @@
 
 static int sdp_mmc_card_detect(int irq)
 {
-	return twl4030_get_gpio_datain(irq - IH_TWL4030_GPIO_BASE);
+	return twl4030_get_gpio_datain(irq - TWL4030_GPIO_IRQ_BASE);
 }
 
 /*

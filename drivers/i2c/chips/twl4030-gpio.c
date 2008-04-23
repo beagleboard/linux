@@ -243,7 +243,7 @@ static int gpio_write_imr(unsigned int imr)
  */
 static void twl4030_gpio_mask_and_ack(unsigned int irq)
 {
-	int gpio = irq - IH_TWL4030_GPIO_BASE;
+	int gpio = irq - TWL4030_GPIO_IRQ_BASE;
 
 	down(&gpio_sem);
 	/* mask */
@@ -256,7 +256,7 @@ static void twl4030_gpio_mask_and_ack(unsigned int irq)
 
 static void twl4030_gpio_unmask(unsigned int irq)
 {
-	int gpio = irq - IH_TWL4030_GPIO_BASE;
+	int gpio = irq - TWL4030_GPIO_IRQ_BASE;
 
 	down(&gpio_sem);
 	gpio_imr_shadow &= ~(1 << gpio);
@@ -280,7 +280,7 @@ static void twl4030_gpio_mask_irqchip(unsigned int irq) {}
 
 static void twl4030_gpio_unmask_irqchip(unsigned int irq)
 {
-	int gpio = irq - IH_TWL4030_GPIO_BASE;
+	int gpio = irq - TWL4030_GPIO_IRQ_BASE;
 
 	gpio_pending_unmask |= (1 << gpio);
 	if (gpio_unmask_thread && gpio_unmask_thread->state != TASK_RUNNING)
@@ -641,7 +641,7 @@ static int twl4030_gpio_unmask_thread(void *data)
 		gpio_pending_unmask = 0;
 		local_irq_enable();
 
-		for (irq = IH_TWL4030_GPIO_BASE; 0 != gpio_unmask;
+		for (irq = TWL4030_GPIO_IRQ_BASE; 0 != gpio_unmask;
 				gpio_unmask >>= 1, irq++) {
 			if (gpio_unmask & 0x1)
 				twl4030_gpio_unmask(irq);
@@ -733,7 +733,7 @@ static void do_twl4030_gpio_module_irq(unsigned int irq, irq_desc_t *desc)
 			gpio_isr = 0;
 		up(&gpio_sem);
 
-		for (gpio_irq = IH_TWL4030_GPIO_BASE; 0 != gpio_isr;
+		for (gpio_irq = TWL4030_GPIO_IRQ_BASE; 0 != gpio_isr;
 			gpio_isr >>= 1, gpio_irq++) {
 			if (gpio_isr & 0x1) {
 				irq_desc_t *d = irq_desc + gpio_irq;
@@ -779,7 +779,7 @@ static int __init gpio_twl4030_init(void)
 
 	if (!ret) {
 		/* install an irq handler for each of the gpio interrupts */
-		for (irq = IH_TWL4030_GPIO_BASE; irq < IH_TWL4030_GPIO_END;
+		for (irq = TWL4030_GPIO_IRQ_BASE; irq < TWL4030_GPIO_IRQ_END;
 			irq++) {
 			set_irq_chip(irq, &twl4030_gpio_irq_chip);
 			set_irq_handler(irq, do_twl4030_gpio_irq);
@@ -797,8 +797,8 @@ static int __init gpio_twl4030_init(void)
 	}
 
 	printk(KERN_INFO "TWL4030 GPIO Demux: IRQ Range %d to %d,"
-		" Initialization %s\n", IH_TWL4030_GPIO_BASE,
-		IH_TWL4030_GPIO_END, (ret) ? "Failed" : "Success");
+		" Initialization %s\n", TWL4030_GPIO_IRQ_BASE,
+		TWL4030_GPIO_IRQ_END, (ret) ? "Failed" : "Success");
 	return ret;
 }
 
@@ -812,7 +812,7 @@ static void __exit gpio_twl4030_exit(void)
 	set_irq_flags(TWL4030_MODIRQ_GPIO, 0);
 
 	/* uninstall the irq handler for each of the gpio interrupts */
-	for (irq = IH_TWL4030_GPIO_BASE; irq < IH_TWL4030_GPIO_END; irq++) {
+	for (irq = TWL4030_GPIO_IRQ_BASE; irq < TWL4030_GPIO_IRQ_END; irq++) {
 		set_irq_handler(irq, NULL);
 		set_irq_flags(irq, 0);
 	}

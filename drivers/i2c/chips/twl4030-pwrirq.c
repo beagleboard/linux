@@ -44,7 +44,7 @@ static void twl4030_pwrirq_disableint(unsigned int irq) {}
 
 static void twl4030_pwrirq_enableint(unsigned int irq)
 {
-	twl4030_pwrirq_pending_unmask |= 1 << (irq - IH_TWL4030_PWRBASE);
+	twl4030_pwrirq_pending_unmask |= 1 << (irq - TWL4030_PWR_IRQ_BASE);
 	if (twl4030_pwrirq_unmask_thread &&
 		twl4030_pwrirq_unmask_thread->state != TASK_RUNNING)
 		wake_up_process(twl4030_pwrirq_unmask_thread);
@@ -90,7 +90,7 @@ static void do_twl4030_pwrmodule_irq(unsigned int irq, irq_desc_t *desc)
 					irq);
 		} else {
 			local_irq_disable();
-			twl4030_pwrirq_mask |= 1 << (irq - IH_TWL4030_PWRBASE);
+			twl4030_pwrirq_mask |= 1 << (irq - TWL4030_PWR_IRQ_BASE);
 			local_irq_enable();
 			twl4030_i2c_write_u8(TWL4030_MODULE_INT,
 						twl4030_pwrirq_mask, PWR_IMR1);
@@ -123,7 +123,7 @@ static void do_twl4030_pwrirq(unsigned int irq, irq_desc_t *desc)
 			return;
 		}
 
-		for (module_irq = IH_TWL4030_PWRBASE; pwr_isr != 0;
+		for (module_irq = TWL4030_PWR_IRQ_BASE; pwr_isr != 0;
 			module_irq++, pwr_isr >>= 1) {
 			if (pwr_isr & 1) {
 				irq_desc_t *d = irq_desc + module_irq;
@@ -192,7 +192,7 @@ static int __init twl4030_pwrirq_init(void)
 		return -ENOMEM;
 	}
 
-	for (i = IH_TWL4030_PWRBASE; i < IH_TWL4030_PWRBASE_END; i++) {
+	for (i = TWL4030_PWR_IRQ_BASE; i < TWL4030_PWR_IRQ_END; i++) {
 		set_irq_chip(i, &twl4030_pwrirq_chip);
 		set_irq_handler(i, do_twl4030_pwrmodule_irq);
 		set_irq_flags(i, IRQF_VALID);
@@ -211,7 +211,7 @@ static void __exit twl4030_pwrirq_exit(void)
 	set_irq_handler(TWL4030_MODIRQ_PWR, NULL);
 	set_irq_flags(TWL4030_MODIRQ_PWR, 0);
 
-	for (i = IH_TWL4030_PWRBASE; i < IH_TWL4030_PWRBASE_END; i++) {
+	for (i = TWL4030_PWR_IRQ_BASE; i < TWL4030_PWR_IRQ_END; i++) {
 		set_irq_handler(i, NULL);
 		set_irq_flags(i, 0);
 	}

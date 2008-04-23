@@ -486,7 +486,7 @@ static int twl4030_irq_thread(void *data)
 			continue;
 		}
 
-		for (module_irq = IH_TWL4030_BASE; 0 != pih_isr;
+		for (module_irq = TWL4030_IRQ_BASE; 0 != pih_isr;
 			 pih_isr >>= 1, module_irq++) {
 			if (pih_isr & 0x1) {
 				irq_desc_t *d = irq_desc + module_irq;
@@ -874,7 +874,7 @@ static void twl_init_irq(void)
 	}
 
 	/* install an irq handler for each of the PIH modules */
-	for (i = IH_TWL4030_BASE; i < IH_TWL4030_END; i++) {
+	for (i = TWL4030_IRQ_BASE; i < TWL4030_IRQ_END; i++) {
 		set_irq_chip(i, &twl4030_irq_chip);
 		set_irq_handler(i, do_twl4030_module_irq);
 		set_irq_flags(i, IRQF_VALID);
