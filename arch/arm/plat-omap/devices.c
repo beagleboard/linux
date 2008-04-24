@@ -202,7 +202,7 @@ static struct platform_device mmc_omap_device1 = {
 	.resource	= mmc1_resources,
 };
 
-#if defined(CONFIG_ARCH_OMAP16XX) || defined(CONFIG_ARCH_OMAP243X) || \
+#if defined(CONFIG_ARCH_OMAP16XX) || defined(CONFIG_ARCH_OMAP2430) || \
 	defined(CONFIG_ARCH_OMAP34XX)
 
 static struct omap_mmc_platform_data mmc2_data;
@@ -251,7 +251,7 @@ static void __init omap_init_mmc(void)
 		if (mmc->enabled)
 			(void) platform_device_register(&mmc_omap_device1);
 
-#if defined(CONFIG_ARCH_OMAP243X) || defined(CONFIG_ARCH_OMAP34XX)
+#if defined(CONFIG_ARCH_OMAP2430) || defined(CONFIG_ARCH_OMAP34XX)
 		mmc = &mmc_conf->mmc[1];
 		if (mmc->enabled)
 			(void) platform_device_register(&mmc_omap_device2);
@@ -349,7 +349,7 @@ void omap_set_mmc_info(int host, const struct omap_mmc_platform_data *info)
 	case 1:
 		mmc1_data = *info;
 		break;
-#if defined(CONFIG_ARCH_OMAP16XX) || defined(CONFIG_ARCH_OMAP243X) || \
+#if defined(CONFIG_ARCH_OMAP16XX) || defined(CONFIG_ARCH_OMAP2430) || \
 	defined(CONFIG_ARCH_OMAP34XX)
 	case 2:
 		mmc2_data = *info;
