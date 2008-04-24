@@ -35,6 +35,8 @@
 #include <asm/arch/gpio.h>
 #include <asm/arch/mux.h>
 #include <asm/arch/board.h>
+#include <asm/arch/usb-musb.h>
+#include <asm/arch/usb-ehci.h>
 #include <asm/arch/common.h>
 #include <asm/arch/keypad.h>
 #include <asm/arch/gpmc.h>
@@ -390,7 +392,8 @@ static void __init omap_2430sdp_init(void)
 	omap_serial_init();
 
 	sdp2430_flash_init();
-	sdp2430_usb_init();
+	usb_musb_init();
+	usb_ehci_init();
 
 	spi_register_board_info(sdp2430_spi_board_info,
 				ARRAY_SIZE(sdp2430_spi_board_info));

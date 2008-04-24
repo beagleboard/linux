@@ -29,11 +29,13 @@ obj-$(CONFIG_MACH_OMAP_H4)		+= board-h4.o board-h4-mmc.o
 obj-$(CONFIG_MACH_OMAP_2430SDP)		+= board-2430sdp.o \
 					   board-2430sdp-flash.o \
 					   board-sdp-hsmmc.o \
-					   board-2430sdp-usb.o
+					   usb-musb.o \
+					   usb-ehci.o
 obj-$(CONFIG_MACH_OMAP_2430OSK)		+= board-2430osk.o
 obj-$(CONFIG_MACH_OMAP_3430SDP)		+= board-3430sdp.o \
 					   board-sdp-hsmmc.o \
-					   board-3430sdp-usb.o \
+					   usb-musb.o \
+					   usb-ehci.o \
 					   board-3430sdp-flash.o
 obj-$(CONFIG_MACH_OMAP3EVM)		+= board-omap3evm.o
 obj-$(CONFIG_MACH_OMAP3_BEAGLE)		+= board-omap3beagle.o \

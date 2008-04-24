@@ -1,8 +1,15 @@
 /*
- * linux/arch/arm/mach-omap2/board-2430sdp-usb.c
+ * linux/arch/arm/mach-omap2/usb-musb.c
  *
- * Copyright (C) 2007 MontaVista Software, Inc. <source@mvista.com>
- * Author: Kevin Hilman
+ * This file will contain the board specific details for the
+ * MENTOR USB OTG controller on OMAP3430
+ *
+ * Copyright (C) 2007-2008 Texas Instruments
+ * Copyright (C) 2008 Nokia Corporation
+ * Author: Vikram Pandita
+ *
+ * Generalization by:
+ * Felipe Balbi <felipe.balbi@nokia.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -14,16 +21,23 @@
 #include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <linux/clk.h>
+#include <asm/io.h>
+#include <asm/arch/mux.h>
 #include <linux/usb/musb.h>
 
 #include <asm/arch/hardware.h>
 #include <asm/arch/pm.h>
 #include <asm/arch/usb.h>
 
+#ifdef CONFIG_USB_MUSB_SOC
 static struct resource musb_resources[] = {
 	[0] = {
-		.start	= OMAP243X_HS_BASE,
-		.end	= OMAP243X_HS_BASE + SZ_8K - 1,
+		.start	= cpu_is_omap34xx()
+			? OMAP34XX_HSUSB_OTG_BASE
+			: OMAP243X_HS_BASE,
+		.end	= cpu_is_omap34xx()
+			? OMAP34XX_HSUSB_OTG_BASE + SZ_8K - 1
+			: OMAP243X_HS_BASE + SZ_8K -1,
 		.flags	= IORESOURCE_MEM,
 	},
 	[1] = {	/* general IRQ */
@@ -36,27 +50,27 @@ static struct resource musb_resources[] = {
 	},
 };
 
-static int usbhs_ick_on;
+static int clk_on;
 
 static int musb_set_clock(struct clk *clk, int state)
 {
-       if (state) {
-               if (usbhs_ick_on > 0)
-                       return -ENODEV;
+	if (state) {
+		if (clk_on > 0)
+			return -ENODEV;
 
-               omap2_block_sleep();
-               clk_enable(clk);
-               usbhs_ick_on = 1;
-       } else {
-               if (usbhs_ick_on == 0)
-                       return -ENODEV;
+		omap2_block_sleep();
+		clk_enable(clk);
+		clk_on = 1;
+	} else {
+		if (clk_on == 0)
+			return -ENODEV;
 
-               clk_disable(clk);
-               usbhs_ick_on = 0;
-               omap2_allow_sleep();
-       }
+		clk_disable(clk);
+		clk_on = 0;
+		omap2_allow_sleep();
+	}
 
-       return 0;
+	return 0;
 }
 
 static struct musb_hdrc_platform_data musb_plat = {
@@ -68,7 +82,9 @@ static struct musb_hdrc_platform_data musb_plat = {
 	.mode		= MUSB_PERIPHERAL,
 #endif
 	.multipoint	= 1,
-	.clock		= "usbhs_ick",
+	.clock		= cpu_is_omap34xx()
+			? "hsotgusb_ick"
+			: "usbhs_ick",
 	.set_clock	= musb_set_clock,
 };
 
@@ -85,12 +101,16 @@ static struct platform_device musb_device = {
 	.num_resources	= ARRAY_SIZE(musb_resources),
 	.resource	= musb_resources,
 };
+#endif
 
-void __init sdp2430_usb_init(void)
+
+void __init usb_musb_init(void)
 {
+#ifdef CONFIG_USB_MUSB_SOC
 	if (platform_device_register(&musb_device) < 0) {
 		printk(KERN_ERR "Unable to register HS-USB (MUSB) device\n");
 		return;
 	}
+#endif
 }
 
