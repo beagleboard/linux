@@ -1,7 +1,8 @@
 /*
  * linux/arch/arm/mach-omap2/board-sdp-hsmmc.c
  *
- * Copyright (C) 2007 Texas Instruments
+ * Copyright (C) 2007-2008 Texas Instruments
+ * Copyright (C) 2008 Nokia Corporation
  * Author: Texas Instruments
  *
  * This program is free software; you can redistribute it and/or modify
@@ -45,7 +46,7 @@
 #define OMAP2_CONTROL_PBIAS_PWRDNZ	(1 << 1)
 #define OMAP2_CONTROL_PBIAS_SCTRL	(1 << 2)
 
-static int sdp_mmc_card_detect(int irq)
+static int hsmmc_card_detect(int irq)
 {
 	return twl4030_get_gpio_datain(irq - TWL4030_GPIO_IRQ_BASE);
 }
@@ -53,7 +54,7 @@ static int sdp_mmc_card_detect(int irq)
 /*
  * MMC Slot Initialization.
  */
-static int sdp_mmc_late_init(struct device *dev)
+static int hsmmc_late_init(struct device *dev)
 {
 	int ret = 0;
 
@@ -85,7 +86,7 @@ err:
 	return ret;
 }
 
-static void sdp_mmc_cleanup(struct device *dev)
+static void hsmmc_cleanup(struct device *dev)
 {
 	int ret = 0;
 
@@ -129,7 +130,7 @@ err:
 	return ret;
 }
 
-static int sdp_mmc_suspend(struct device *dev, int slot)
+static int hsmmc_suspend(struct device *dev, int slot)
 {
 	int ret = 0;
 
@@ -139,7 +140,7 @@ static int sdp_mmc_suspend(struct device *dev, int slot)
 	return ret;
 }
 
-static int sdp_mmc_resume(struct device *dev, int slot)
+static int hsmmc_resume(struct device *dev, int slot)
 {
 	int ret = 0;
 
@@ -151,7 +152,7 @@ static int sdp_mmc_resume(struct device *dev, int slot)
 
 #endif
 
-static int sdp_mmc_set_power(struct device *dev, int slot, int power_on,
+static int hsmmc_set_power(struct device *dev, int slot, int power_on,
 				int vdd)
 {
 	u32 vdd_sel = 0, devconf = 0, reg = 0;
@@ -254,17 +255,17 @@ err:
 	return 1;
 }
 
-static struct omap_mmc_platform_data sdp_mmc_data = {
+static struct omap_mmc_platform_data hsmmc_data = {
 	.nr_slots			= 1,
 	.switch_slot			= NULL,
-	.init				= sdp_mmc_late_init,
-	.cleanup			= sdp_mmc_cleanup,
+	.init				= hsmmc_late_init,
+	.cleanup			= hsmmc_cleanup,
 #ifdef CONFIG_PM
-	.suspend			= sdp_mmc_suspend,
-	.resume				= sdp_mmc_resume,
+	.suspend			= hsmmc_suspend,
+	.resume				= hsmmc_resume,
 #endif
 	.slots[0] = {
-		.set_power		= sdp_mmc_set_power,
+		.set_power		= hsmmc_set_power,
 		.set_bus_mode		= NULL,
 		.get_ro			= NULL,
 		.get_cover_state	= NULL,
@@ -273,18 +274,18 @@ static struct omap_mmc_platform_data sdp_mmc_data = {
 		.name			= "first slot",
 
 		.card_detect_irq        = TWL4030_GPIO_IRQ_NO(MMC1_CD_IRQ),
-		.card_detect            = sdp_mmc_card_detect,
+		.card_detect            = hsmmc_card_detect,
 	},
 };
 
-void __init sdp_mmc_init(void)
+void __init hsmmc_init(void)
 {
-	omap_set_mmc_info(1, &sdp_mmc_data);
+	omap_set_mmc_info(1, &hsmmc_data);
 }
 
 #else
 
-void __init sdp_mmc_init(void)
+void __init hsmmc_init(void)
 {
 
 }

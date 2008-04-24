@@ -37,6 +37,7 @@
 #include <asm/arch/board.h>
 #include <asm/arch/usb-musb.h>
 #include <asm/arch/usb-ehci.h>
+#include <asm/arch/hsmmc.h>
 #include <asm/arch/common.h>
 #include <asm/arch/keypad.h>
 #include <asm/arch/gpmc.h>
@@ -398,7 +399,7 @@ static void __init omap_2430sdp_init(void)
 	spi_register_board_info(sdp2430_spi_board_info,
 				ARRAY_SIZE(sdp2430_spi_board_info));
 	ads7846_dev_init();
-	sdp_mmc_init();
+	hsmmc_init();
 
 	/* turn off secondary LCD backlight */
 	omap_set_gpio_direction(SECONDARY_LCD_GPIO, 0);

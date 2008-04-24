@@ -35,6 +35,7 @@
 #include <asm/arch/board.h>
 #include <asm/arch/usb-musb.h>
 #include <asm/arch/usb-ehci.h>
+#include <asm/arch/hsmmc.h>
 #include <asm/arch/common.h>
 #include <asm/arch/keypad.h>
 #include <asm/arch/dma.h>
@@ -301,7 +302,7 @@ static void __init omap_3430sdp_init(void)
 	omap_serial_init();
 	usb_musb_init();
 	usb_ehci_init();
-	sdp_mmc_init();
+	hsmmc_init();
 }
 
 static void __init omap_3430sdp_map_io(void)
