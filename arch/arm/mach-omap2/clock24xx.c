@@ -78,7 +78,7 @@ static u32 omap2_get_dpll_rate_24xx(struct clk *tclk)
 static int omap2_enable_osc_ck(struct clk *clk)
 {
 
-	prm_rmw_reg_bits(OMAP_AUTOEXTCLKMODE_MASK, ~OMAP_AUTOEXTCLKMODE_MASK,
+	prm_rmw_reg_bits(OMAP_AUTOEXTCLKMODE_MASK, 0,
 			 OMAP24XX_PRCM_CLKSRC_CTRL);
 
 	return 0;
