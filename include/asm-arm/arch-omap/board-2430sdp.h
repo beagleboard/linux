@@ -39,6 +39,5 @@
 /* Function prototypes */
 extern void sdp2430_flash_init(void);
 extern void sdp2430_usb_init(void);
-extern void sdp_mmc_init(void);
 
 #endif /* __ASM_ARCH_OMAP_2430SDP_H */
