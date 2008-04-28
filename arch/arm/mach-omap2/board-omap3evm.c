@@ -28,6 +28,8 @@
 #include <asm/arch/gpio.h>
 #include <asm/arch/board.h>
 #include <asm/arch/hsmmc.h>
+#include <asm/arch/usb-musb.h>
+#include <asm/arch/usb-ehci.h>
 #include <asm/arch/common.h>
 
 static struct omap_uart_config omap3_evm_uart_config __initdata = {
@@ -67,6 +69,8 @@ static void __init omap3_evm_init(void)
 	omap_board_config_size = ARRAY_SIZE(omap3_evm_config);
 	omap_serial_init();
 	hsmmc_init();
+	usb_musb_init();
+	usb_ehci_init();
 }
 
 arch_initcall(omap3_evm_i2c_init);
