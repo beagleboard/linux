@@ -27,6 +27,7 @@
 
 #include <asm/arch/gpio.h>
 #include <asm/arch/board.h>
+#include <asm/arch/hsmmc.h>
 #include <asm/arch/common.h>
 
 static struct omap_uart_config omap3_evm_uart_config __initdata = {
@@ -41,6 +42,13 @@ static int __init omap3_evm_i2c_init(void)
 	return 0;
 }
 
+static struct omap_mmc_config omap3_evm_mmc_config __initdata = {
+	.mmc [0] = {
+		.enabled        = 1,
+		.wire4          = 1,
+	},
+};
+
 static void __init omap3_evm_init_irq(void)
 {
 	omap2_init_common_hw();
@@ -50,6 +58,7 @@ static void __init omap3_evm_init_irq(void)
 
 static struct omap_board_config_kernel omap3_evm_config[] __initdata = {
 	{ OMAP_TAG_UART,	&omap3_evm_uart_config },
+	{ OMAP_TAG_MMC,		&omap3_evm_mmc_config },
 };
 
 static void __init omap3_evm_init(void)
@@ -57,6 +66,7 @@ static void __init omap3_evm_init(void)
 	omap_board_config = omap3_evm_config;
 	omap_board_config_size = ARRAY_SIZE(omap3_evm_config);
 	omap_serial_init();
+	hsmmc_init();
 }
 
 arch_initcall(omap3_evm_i2c_init);
