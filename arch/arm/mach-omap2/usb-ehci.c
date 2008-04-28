@@ -4,8 +4,11 @@
  * This file will contain the board specific details for the
  * Synopsys EHCI host controller on OMAP3430
  *
- * Copyright (C) 2008 Nokia Corporation
- * Author: Felipe Balbi <felipe.balbi@nokia.com>
+ * Copyright (C) 2007 Texas Instruments
+ * Author: Vikram Pandita <vikram.pandita@ti.com>
+ *
+ * Generalization by:
+ * Felipe Balbi <felipe.balbi@nokia.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
