@@ -29,7 +29,11 @@
 #ifndef __ASM_ARCH_OMAP3_EVM_H
 #define __ASM_ARCH_OMAP3_EVM_H
 
+extern void omap3evm_flash_init(void);
+
 #define TWL4030_IRQNUM		INT_34XX_SYS_NIRQ
+
+#define ONENAND_MAP		0x20000000
 
 #endif /* __ASM_ARCH_OMAP3_EVM_H */
 

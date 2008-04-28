@@ -71,6 +71,7 @@ static void __init omap3_evm_init(void)
 	hsmmc_init();
 	usb_musb_init();
 	usb_ehci_init();
+	omap3evm_flash_init();
 }
 
 arch_initcall(omap3_evm_i2c_init);
