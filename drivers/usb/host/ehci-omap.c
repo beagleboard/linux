@@ -73,7 +73,7 @@ struct ehci_omap_clock_defs {
 };
 
 /* Clock names as per clock framework: May change so keep as #defs */
-#define USBHOST_ICKL	"usbhost_l4_ick"
+#define USBHOST_ICKL		"usbhost_ick"
 #define USBHOST_120M_FCLK	"usbhost_120m_fck"
 #define USBHOST_48M_FCLK	"usbhost_48m_fck"
 #define USBHOST_TLL_ICKL	"usbtll_ick"
