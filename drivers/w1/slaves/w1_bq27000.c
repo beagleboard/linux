@@ -59,7 +59,7 @@ static int w1_bq27000_add_slave(struct w1_slave *sl)
 	int id = 1;
 	struct platform_device *pdev;
 
-	pdev = platform_device_alloc("omap-bq2700-battery", id);
+	pdev = platform_device_alloc("bq27000-battery", id);
 	if (!pdev) {
 		ret = -ENOMEM;
 		return ret;
