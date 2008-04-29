@@ -224,6 +224,14 @@ int __init musb_platform_init(struct musb *musb)
 	musb->xceiv = *xceiv;
 	musb_platform_resume(musb);
 
+	OTG_SYSCONFIG_REG &= ~ENABLEWAKEUP;	/* disable wakeup */
+	OTG_SYSCONFIG_REG &= ~NOSTDBY;		/* remove possible nostdby */
+	OTG_SYSCONFIG_REG |= SMARTSTDBY;	/* enable smart standby */
+	OTG_SYSCONFIG_REG &= ~AUTOIDLE;		/* disable auto idle */
+	OTG_SYSCONFIG_REG &= ~NOIDLE;		/* remove possible noidle */
+	OTG_SYSCONFIG_REG |= SMARTIDLE;		/* enable smart idle */
+	OTG_SYSCONFIG_REG |= AUTOIDLE;		/* enable auto idle */
+
 	OTG_INTERFSEL_REG |= ULPI_12PIN;
 
 	pr_debug("HS USB OTG: revision 0x%x, sysconfig 0x%02x, "
@@ -250,12 +258,8 @@ int musb_platform_suspend(struct musb *musb)
 		return 0;
 
 	/* in any role */
-	OTG_FORCESTDBY_REG &= ~ENABLEFORCE; /* disable MSTANDBY */
-	OTG_SYSCONFIG_REG &= FORCESTDBY;	/* enable force standby */
-	OTG_SYSCONFIG_REG &= ~AUTOIDLE;		/* disable auto idle */
-	OTG_SYSCONFIG_REG |= SMARTIDLE;		/* enable smart idle */
-	OTG_FORCESTDBY_REG |= ENABLEFORCE; /* enable MSTANDBY */
-	OTG_SYSCONFIG_REG |= AUTOIDLE;		/* enable auto idle */
+	OTG_FORCESTDBY_REG |= ENABLEFORCE;	/* enable MSTANDBY */
+	OTG_SYSCONFIG_REG |= ENABLEWAKEUP;	/* enable wakeup */
 
 	if (musb->xceiv.set_suspend)
 		musb->xceiv.set_suspend(&musb->xceiv, 1);
@@ -281,11 +285,8 @@ int musb_platform_resume(struct musb *musb)
 	else
 		clk_enable(musb->clock);
 
-	OTG_FORCESTDBY_REG &= ~ENABLEFORCE; /* disable MSTANDBY */
-	OTG_SYSCONFIG_REG |= SMARTSTDBY;	/* enable smart standby */
-	OTG_SYSCONFIG_REG &= ~AUTOIDLE;		/* disable auto idle */
-	OTG_SYSCONFIG_REG |= SMARTIDLE;		/* enable smart idle */
-	OTG_SYSCONFIG_REG |= AUTOIDLE;		/* enable auto idle */
+	OTG_SYSCONFIG_REG &= ~ENABLEWAKEUP;	/* disable wakeup */
+	OTG_FORCESTDBY_REG &= ~ENABLEFORCE;	/* disable MSTANDBY */
 
 	return 0;
 }
