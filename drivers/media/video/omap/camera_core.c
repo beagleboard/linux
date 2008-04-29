@@ -916,7 +916,7 @@ static int camera_core_open(struct inode *inode, struct file *file)
 	vidioc_int_g_fmt_cap(cam->sdev, &format);
 	spin_unlock(&cam->img_lock);
 
-	videobuf_queue_pci_init(&fh->vbq, &cam->vbq_ops, NULL, &cam->vbq_lock,
+	videobuf_queue_sg_init(&fh->vbq, &cam->vbq_ops, NULL, &cam->vbq_lock,
 			    fh->type, V4L2_FIELD_NONE,
 			    sizeof(struct videobuf_buffer), fh);
 
