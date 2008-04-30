@@ -51,6 +51,15 @@ static struct omap_mmc_config omap3_evm_mmc_config __initdata = {
 	},
 };
 
+static struct platform_device omap3_evm_lcd_device = {
+	.name		= "omap3evm_lcd",
+	.id		= -1,
+};
+
+static struct omap_lcd_config omap3_evm_lcd_config __initdata = {
+	.ctrl_name	= "internal",
+};
+
 static void __init omap3_evm_init_irq(void)
 {
 	omap2_init_common_hw();
@@ -61,10 +70,16 @@ static void __init omap3_evm_init_irq(void)
 static struct omap_board_config_kernel omap3_evm_config[] __initdata = {
 	{ OMAP_TAG_UART,	&omap3_evm_uart_config },
 	{ OMAP_TAG_MMC,		&omap3_evm_mmc_config },
+	{ OMAP_TAG_LCD,		&omap3_evm_lcd_config },
+};
+
+static struct platform_device *omap3_evm_devices[] __initdata = {
+	&omap3_evm_lcd_device,
 };
 
 static void __init omap3_evm_init(void)
 {
+	platform_add_devices(omap3_evm_devices, ARRAY_SIZE(omap3_evm_devices));
 	omap_board_config = omap3_evm_config;
 	omap_board_config_size = ARRAY_SIZE(omap3_evm_config);
 	omap_serial_init();
