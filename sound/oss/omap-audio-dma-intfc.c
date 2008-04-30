@@ -108,7 +108,6 @@
 
 #define DCCR_FS              (1 << 5)
 #define DCCR_PRIO            (1 << 6)
-#define DCCR_EN              (1 << 7)
 #define DCCR_AI              (1 << 8)
 #define DCCR_REPEAT          (1 << 9)
 /* if 0 the channel works in 3.1 compatible mode*/
@@ -872,7 +871,7 @@ static void sound_dma_irq_handler(int sound_curr_lch, u16 ch_status, void *data)
 
 	if (dma_status & (DCSR_ERROR)) {
 		if (cpu_is_omap15xx() || cpu_is_omap16xx())
-			OMAP_DMA_CCR_REG(sound_curr_lch) &= ~DCCR_EN;
+			omap_stop_dma(sound_curr_lch);
 		ERR("DCSR_ERROR!\n");
 		FN_OUT(-1);
 		return;
