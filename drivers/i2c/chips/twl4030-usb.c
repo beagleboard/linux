@@ -67,15 +67,15 @@
 #define IFC_CTRL_CARKITMODE		(1 << 2)
 #define IFC_CTRL_FSLSSERIALMODE_3PIN	(1 << 1)
 
-#define OTG_CTRL			0x0A
-#define OTG_CTRL_SET			0x0B
-#define OTG_CTRL_CLR			0x0C
-#define OTG_CTRL_DRVVBUS		(1 << 5)
-#define OTG_CTRL_CHRGVBUS		(1 << 4)
-#define OTG_CTRL_DISCHRGVBUS		(1 << 3)
-#define OTG_CTRL_DMPULLDOWN		(1 << 2)
-#define OTG_CTRL_DPPULLDOWN		(1 << 1)
-#define OTG_CTRL_IDPULLUP		(1 << 0)
+#define TWL4030_OTG_CTRL		0x0A
+#define TWL4030_OTG_CTRL_SET		0x0B
+#define TWL4030_OTG_CTRL_CLR		0x0C
+#define TWL4030_OTG_CTRL_DRVVBUS	(1 << 5)
+#define TWL4030_OTG_CTRL_CHRGVBUS	(1 << 4)
+#define TWL4030_OTG_CTRL_DISCHRGVBUS	(1 << 3)
+#define TWL4030_OTG_CTRL_DMPULLDOWN	(1 << 2)
+#define TWL4030_OTG_CTRL_DPPULLDOWN	(1 << 1)
+#define TWL4030_OTG_CTRL_IDPULLUP	(1 << 0)
 
 #define USB_INT_EN_RISE			0x0D
 #define USB_INT_EN_RISE_SET		0x0E
@@ -253,7 +253,7 @@
 /* internal define on top of container_of */
 #define xceiv_to_twl(x)		container_of((x), struct twl4030_usb, otg);
 
-/* bits in OTG_CTRL_REG */
+/* bits in OTG_CTRL */
 
 #define	OTG_XCEIV_OUTPUTS \
 	(OTG_ASESSVLD|OTG_BSESSEND|OTG_BSESSVLD|OTG_VBUSVLD|OTG_ID)
@@ -626,12 +626,13 @@ static int twl4030_set_peripheral(struct otg_transceiver *xceiv,
 		struct usb_gadget *gadget)
 {
 	struct twl4030_usb *twl = xceiv_to_twl(xceiv);
+	u32 l;
 
 	if (!xceiv)
 		return -ENODEV;
 
 	if (!gadget) {
-		OTG_IRQ_EN_REG = 0;
+		omap_writew(0, OTG_IRQ_EN);
 		twl4030_phy_suspend(1);
 		twl->otg.gadget = NULL;
 
@@ -641,9 +642,10 @@ static int twl4030_set_peripheral(struct otg_transceiver *xceiv,
 	twl->otg.gadget = gadget;
 	twl4030_phy_resume();
 
-	OTG_CTRL_REG = (OTG_CTRL_REG & OTG_CTRL_MASK
-			& ~(OTG_XCEIV_OUTPUTS|OTG_CTRL_BITS))
-			| OTG_ID;
+	l = omap_readl(OTG_CTRL) & OTG_CTRL_MASK;
+	l &= ~(OTG_XCEIV_OUTPUTS|OTG_CTRL_BITS);
+	l |= OTG_ID;
+	omap_writel(l, OTG_CTRL);
 
 	twl->otg.state = OTG_STATE_B_IDLE;
 
@@ -663,7 +665,7 @@ static int twl4030_set_host(struct otg_transceiver *xceiv, struct usb_bus *host)
 		return -ENODEV;
 
 	if (!host) {
-		OTG_IRQ_EN_REG = 0;
+		omap_writew(0, OTG_IRQ_EN);
 		twl4030_phy_suspend(1);
 		twl->otg.host = NULL;
 
@@ -673,12 +675,13 @@ static int twl4030_set_host(struct otg_transceiver *xceiv, struct usb_bus *host)
 	twl->otg.host = host;
 	twl4030_phy_resume();
 
-	twl4030_usb_set_bits(twl, OTG_CTRL,
-			OTG_CTRL_DMPULLDOWN | OTG_CTRL_DPPULLDOWN);
+	twl4030_usb_set_bits(twl, TWL4030_OTG_CTRL,
+			TWL4030_OTG_CTRL_DMPULLDOWN
+				| TWL4030_OTG_CTRL_DPPULLDOWN);
 	twl4030_usb_set_bits(twl, USB_INT_EN_RISE, USB_INT_IDGND);
 	twl4030_usb_set_bits(twl, USB_INT_EN_FALL, USB_INT_IDGND);
 	twl4030_usb_set_bits(twl, FUNC_CTRL, FUNC_CTRL_SUSPENDM);
-	twl4030_usb_set_bits(twl, OTG_CTRL, OTG_CTRL_DRVVBUS);
+	twl4030_usb_set_bits(twl, TWL4030_OTG_CTRL, TWL4030_OTG_CTRL_DRVVBUS);
 
 	return 0;
 }

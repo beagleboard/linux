@@ -62,7 +62,7 @@
 #define USBR_NSUSPEND		(1 << 1)
 #define USBR_SEMODE		(1 << 0)
 
-/* bits in OTG_CTRL_REG */
+/* bits in OTG_CTRL */
 
 /* Bits that are controlled by OMAP OTG and are read-only */
 #define OTG_CTRL_OMAP_MASK	(OTG_PULLDOWN|OTG_PULLUP|OTG_DRV_VBUS|\
@@ -118,27 +118,27 @@ static irqreturn_t omap_otg_irq(int irq, void *arg)
 	struct tahvo_usb *tu = (struct tahvo_usb *) otg_dev->dev.driver_data;
 	u16 otg_irq;
 
-	otg_irq = OTG_IRQ_SRC_REG;
+	otg_irq = omap_readw(OTG_IRQ_SRC);
 	if (otg_irq & OPRT_CHG) {
-		OTG_IRQ_SRC_REG = OPRT_CHG;
+		omap_writew(OPRT_CHG, OTG_IRQ_SRC);
 	} else if (otg_irq & B_SRP_TMROUT) {
-		OTG_IRQ_SRC_REG = B_SRP_TMROUT;
+		omap_writew(B_SRP_TMROUT, OTG_IRQ_SRC);
 	} else if (otg_irq & B_HNP_FAIL) {
-		OTG_IRQ_SRC_REG = B_HNP_FAIL;
+		omap_writew(B_HNP_FAIL, OTG_IRQ_SRC);
 	} else if (otg_irq & A_SRP_DETECT) {
-		OTG_IRQ_SRC_REG = A_SRP_DETECT;
+		omap_writew(A_SRP_DETECT, OTG_IRQ_SRC);
 	} else if (otg_irq & A_REQ_TMROUT) {
-		OTG_IRQ_SRC_REG = A_REQ_TMROUT;
+		omap_writew(A_REQ_TMROUT, OTG_IRQ_SRC);
 	} else if (otg_irq & A_VBUS_ERR) {
-		OTG_IRQ_SRC_REG = A_VBUS_ERR;
+		omap_writew(A_VBUS_ERR, OTG_IRQ_SRC);
 	} else if (otg_irq & DRIVER_SWITCH) {
-		if ((!(OTG_CTRL_REG & OTG_DRIVER_SEL)) &&
+		if ((!(omap_readl(OTG_CTRL) & OTG_DRIVER_SEL)) &&
 		   tu->otg.host && tu->otg.state == OTG_STATE_A_HOST) {
 			/* role is host */
 			usb_bus_start_enum(tu->otg.host,
 					   tu->otg.host->otg_port);
 		}
-		OTG_IRQ_SRC_REG = DRIVER_SWITCH;
+		omap_writew(DRIVER_SWITCH, OTG_IRQ_SRC);
 	} else
 		return IRQ_NONE;
 
@@ -148,6 +148,7 @@ static irqreturn_t omap_otg_irq(int irq, void *arg)
 
 static int omap_otg_init(void)
 {
+	u32 l;
 
 #ifdef CONFIG_USB_OTG
 	if (!tahvo_otg_dev) {
@@ -155,11 +156,15 @@ static int omap_otg_init(void)
 		return -ENODEV;
 	}
 #endif
-	OTG_SYSCON_1_REG &= ~OTG_IDLE_EN;
+
+	l = omap_readl(OTG_SYSCON_1);
+	l &= ~OTG_IDLE_EN;
+	omap_writel(l, OTG_SYSCON_1);
 	udelay(100);
 
 	/* some of these values are board-specific... */
-	OTG_SYSCON_2_REG |= OTG_EN
+	l = omap_readl(OTG_SYSCON_2);
+	l |= OTG_EN
 		/* for B-device: */
 		| SRP_GPDATA		/* 9msec Bdev D+ pulse */
 		| SRP_GPDVBUS		/* discharge after VBUS pulse */
@@ -168,11 +173,15 @@ static int omap_otg_init(void)
 		| (0 << 20)		/* 200ms nominal A_WAIT_VRISE timer */
 		| SRP_DPW		/* detect 167+ns SRP pulses */
 		| SRP_DATA | SRP_VBUS;	/* accept both kinds of SRP pulse */
+	omap_writel(l, OTG_SYSCON_2);
 
-	OTG_IRQ_EN_REG = DRIVER_SWITCH | OPRT_CHG
+	omap_writew(DRIVER_SWITCH | OPRT_CHG
 			| B_SRP_TMROUT | B_HNP_FAIL
-			| A_VBUS_ERR | A_SRP_DETECT | A_REQ_TMROUT;
-	OTG_SYSCON_2_REG |= OTG_EN;
+				  | A_VBUS_ERR | A_SRP_DETECT | A_REQ_TMROUT,
+					OTG_IRQ_EN);
+	l = omap_readl(OTG_SYSCON_2);
+	l |= OTG_EN;
+	omap_writel(l, OTG_SYSCON_2);
 
 	return 0;
 }
@@ -272,6 +281,8 @@ static void check_vbus_state(struct tahvo_usb *tu)
 
 	reg = tahvo_read_reg(TAHVO_REG_IDSR);
 	if (reg & 0x01) {
+		u32 l;
+
 		vbus_active = 1;
 		switch (tu->otg.state) {
 		case OTG_STATE_B_IDLE:
@@ -280,7 +291,10 @@ static void check_vbus_state(struct tahvo_usb *tu)
 				usb_gadget_vbus_connect(tu->otg.gadget);
 			/* Set B-session valid and not B-sessio ended to indicate
 			 * Vbus to be ok. */
-			OTG_CTRL_REG = (OTG_CTRL_REG & ~OTG_BSESSEND) | OTG_BSESSVLD;
+			l = omap_readl(OTG_CTRL);
+			l &= ~OTG_BSESSEND;
+			l |= OTG_BSESSVLD;
+			omap_writel(l, OTG_CTRL);
 
 			tu->otg.state = OTG_STATE_B_PERIPHERAL;
 			break;
@@ -324,10 +338,10 @@ static void tahvo_usb_become_host(struct tahvo_usb *tu)
 	 * also mark the A-session is always valid */
 	omap_otg_init();
 
-	l = OTG_CTRL_REG;
-	l &= ~(OTG_CTRL_XCVR_MASK|OTG_CTRL_SYS_MASK);
+	l = omap_readl(OTG_CTRL);
+	l &= ~(OTG_CTRL_XCVR_MASK | OTG_CTRL_SYS_MASK);
 	l |= OTG_ASESSVLD;
-	OTG_CTRL_REG = l;
+	omap_writel(l, OTG_CTRL);
 
 	/* Power up the transceiver in USB host mode */
 	tahvo_write_reg(TAHVO_REG_USBR, USBR_REGOUT | USBR_NSUSPEND |
@@ -345,12 +359,16 @@ static void tahvo_usb_stop_host(struct tahvo_usb *tu)
 
 static void tahvo_usb_become_peripheral(struct tahvo_usb *tu)
 {
+	u32 l;
+
 	/* Clear system and transceiver controlled bits
 	 * and enable ID to mark peripheral mode and
 	 * BSESSEND to mark no Vbus */
 	omap_otg_init();
-	OTG_CTRL_REG = (OTG_CTRL_REG & ~(OTG_CTRL_XCVR_MASK|OTG_CTRL_SYS_MASK|OTG_BSESSVLD))
-		| OTG_ID | OTG_BSESSEND;
+	l = omap_readl(OTG_CTRL);
+	l &= ~(OTG_CTRL_XCVR_MASK | OTG_CTRL_SYS_MASK | OTG_BSESSVLD);
+	l |= OTG_ID | OTG_BSESSEND;
+	omap_writel(l, OTG_CTRL);
 
 	/* Power up transceiver and set it in USB perhiperal mode */
 	tahvo_write_reg(TAHVO_REG_USBR, USBR_SLAVE_CONTROL | USBR_REGOUT | USBR_NSUSPEND | USBR_SLAVE_SW);
@@ -361,7 +379,13 @@ static void tahvo_usb_become_peripheral(struct tahvo_usb *tu)
 
 static void tahvo_usb_stop_peripheral(struct tahvo_usb *tu)
 {
-	OTG_CTRL_REG = (OTG_CTRL_REG & ~OTG_BSESSVLD) | OTG_BSESSEND;
+	u32 l;
+
+	l = omap_readl(OTG_CTRL);
+	l &= ~OTG_BSESSVLD;
+	l |= OTG_BSESSEND;
+	omap_writel(l, OTG_CTRL);
+
 	if (tu->otg.gadget)
 		usb_gadget_vbus_disconnect(tu->otg.gadget);
 	tu->otg.state = OTG_STATE_B_IDLE;
@@ -384,15 +408,19 @@ static void tahvo_usb_power_off(struct tahvo_usb *tu)
 		id = OTG_ID;
 	else
 		id = 0;
-	l = OTG_CTRL_REG;
+	l = omap_readl(OTG_CTRL);
 	l &= ~(OTG_CTRL_XCVR_MASK | OTG_CTRL_SYS_MASK | OTG_BSESSVLD);
 	l |= id | OTG_BSESSEND;
-	OTG_CTRL_REG = l;
-	OTG_IRQ_EN_REG = 0;
+	omap_writel(l, OTG_CTRL);
+	omap_writew(0, OTG_IRQ_EN);
 
-	OTG_SYSCON_2_REG &= ~OTG_EN;
+	l = omap_readl(OTG_SYSCON_2);
+	l &= ~OTG_EN;
+	omap_writel(l, OTG_SYSCON_2);
 
-	OTG_SYSCON_1_REG |= OTG_IDLE_EN;
+	l = omap_readl(OTG_SYSCON_1);
+	l |= OTG_IDLE_EN;
+	omap_writel(l, OTG_SYSCON_1);
 
 	/* Power off transceiver */
 	tahvo_write_reg(TAHVO_REG_USBR, 0);
@@ -439,13 +467,13 @@ static int tahvo_usb_start_srp(struct otg_transceiver *dev)
 	if (!dev || tu->otg.state != OTG_STATE_B_IDLE)
 		return -ENODEV;
 
-	otg_ctrl = OTG_CTRL_REG;
+	otg_ctrl = omap_readl(OTG_CTRL);
 	if (!(otg_ctrl & OTG_BSESSEND))
 		return -EINVAL;
 
 	otg_ctrl |= OTG_B_BUSREQ;
 	otg_ctrl &= ~OTG_A_BUSREQ & OTG_CTRL_SYS_MASK;
-	OTG_CTRL_REG = otg_ctrl;
+	omap_writel(otg_ctrl, OTG_CTRL);
 	tu->otg.state = OTG_STATE_B_SRP_INIT;
 
 	return 0;
@@ -465,6 +493,7 @@ static int tahvo_usb_start_hnp(struct otg_transceiver *otg)
 static int tahvo_usb_set_host(struct otg_transceiver *otg, struct usb_bus *host)
 {
 	struct tahvo_usb *tu = container_of(otg, struct tahvo_usb, otg);
+	u32 l;
 
 	dev_dbg(&tu->pt_dev->dev, "set_host %p\n", host);
 
@@ -483,7 +512,9 @@ static int tahvo_usb_set_host(struct otg_transceiver *otg, struct usb_bus *host)
 		return 0;
 	}
 
-	OTG_SYSCON_1_REG &= ~(OTG_IDLE_EN | HST_IDLE_EN | DEV_IDLE_EN);
+	l = omap_readl(OTG_SYSCON_1);
+	l &= ~(OTG_IDLE_EN | HST_IDLE_EN | DEV_IDLE_EN);
+	omap_writel(l, OTG_SYSCON_1);
 
 	if (TAHVO_MODE(tu) == TAHVO_MODE_HOST) {
 		tu->otg.host = NULL;

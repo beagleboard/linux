@@ -526,6 +526,8 @@ static void __init osk_mistral_init(void) { }
 
 static void __init osk_init(void)
 {
+	u32 l;
+
 	/* Workaround for wrong CS3 (NOR flash) timing
 	 * There are some U-Boot versions out there which configure
 	 * wrong CS3 memory timings. This mainly leads to CRC
@@ -539,7 +541,10 @@ static void __init osk_init(void)
 	platform_add_devices(osk5912_devices, ARRAY_SIZE(osk5912_devices));
 	omap_board_config = osk_config;
 	omap_board_config_size = ARRAY_SIZE(osk_config);
-	USB_TRANSCEIVER_CTRL_REG |= (3 << 1);
+
+	l = omap_readl(USB_TRANSCEIVER_CTRL);
+	l |= (3 << 1);
+	omap_writel(l, USB_TRANSCEIVER_CTRL);
 
 	/* irq for tps65010 chip */
 	/* bootloader effectively does:  omap_cfg_reg(U19_1610_MPUIO1); */
