@@ -453,7 +453,7 @@ dump_end_info(struct musb *musb, u8 epnum, char *aBuffer, unsigned max)
 
 /* Dump the current status and compile options.
  * @param musb the device driver instance
- * @param buffer where to dump the status; it must be big enough hold the
+ * @param buffer where to dump the status; it must be big enough to hold the
  * result otherwise "BAD THINGS HAPPENS(TM)".
  */
 static int dump_header_stats(struct musb *musb, char *buffer)

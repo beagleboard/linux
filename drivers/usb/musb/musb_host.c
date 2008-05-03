@@ -1203,7 +1203,7 @@ void musb_host_tx(struct musb *musb, u8 epnum)
 		 * we have a candidate... NAKing is *NOT* an error
 		 */
 		musb_ep_select(mbase, epnum);
-		musb_writew(epio, MUSB_CSR0,
+		musb_writew(epio, MUSB_TXCSR,
 				MUSB_TXCSR_H_WZC_BITS
 				| MUSB_TXCSR_TXPKTRDY);
 		goto finish;

@@ -188,7 +188,7 @@ static void tusb_omap_dma_cb(int lch, u16 ch_status, void *data)
 
 	channel->status = MUSB_DMA_STATUS_FREE;
 
-	/* Handle only RX callbacks here. TX callbacks musb be handled based
+	/* Handle only RX callbacks here. TX callbacks must be handled based
 	 * on the TUSB DMA status interrupt.
 	 * REVISIT: Use both TUSB DMA status interrupt and OMAP DMA callback
 	 * interrupt for RX and TX.

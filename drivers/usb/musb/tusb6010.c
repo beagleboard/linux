@@ -740,7 +740,7 @@ tusb_otg_ints(struct musb *musb, u32 int_src, void __iomem *tbase)
 				break;
 			case OTG_STATE_A_WAIT_VFALL:
 				/* REVISIT this irq triggers during short
-				 * spikes causet by enumeration ...
+				 * spikes caused by enumeration ...
 				 */
 				if (musb->vbuserr_retry) {
 					musb->vbuserr_retry--;
@@ -888,7 +888,7 @@ static irqreturn_t tusb_interrupt(int irq, void *__hci)
 		musb_writel(tbase, TUSB_DMA_INT_CLEAR, dma_src);
 	}
 
-	/* EP interrupts. In OCP mode tusb6010 mirrors the MUSB * interrupts */
+	/* EP interrupts. In OCP mode tusb6010 mirrors the MUSB interrupts */
 	if (int_src & (TUSB_INT_SRC_USB_IP_TX | TUSB_INT_SRC_USB_IP_RX)) {
 		u32	musb_src = musb_readl(tbase, TUSB_USBIP_INT_SRC);
 
@@ -972,7 +972,7 @@ void musb_platform_disable(struct musb *musb)
 
 	/* disable all IRQs */
 	musb_writel(tbase, TUSB_INT_MASK, ~TUSB_INT_MASK_RESERVED_BITS);
-	musb_writel(tbase, TUSB_USBIP_INT_MASK, 0);
+	musb_writel(tbase, TUSB_USBIP_INT_MASK, 0x7fffffff);
 	musb_writel(tbase, TUSB_DMA_INT_MASK, 0x7fffffff);
 	musb_writel(tbase, TUSB_GPIO_INT_MASK, 0x1ff);
 
