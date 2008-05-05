@@ -119,7 +119,7 @@ static int start_urb_transfer(struct au0828_dev *dev)
 		purb->transfer_buffer = kzalloc(URB_BUFSIZE, GFP_KERNEL);
 		if (!purb->transfer_buffer) {
 			usb_free_urb(purb);
-			dev->urbs[i] = 0;
+			dev->urbs[i] = NULL;
 			goto err;
 		}
 
@@ -204,7 +204,7 @@ static int au0828_dvb_stop_feed(struct dvb_demux_feed *feed)
 	return ret;
 }
 
-int dvb_register(struct au0828_dev *dev)
+static int dvb_register(struct au0828_dev *dev)
 {
 	struct au0828_dvb *dvb = &dev->dvb;
 	int result;

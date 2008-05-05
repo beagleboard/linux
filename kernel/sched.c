@@ -1657,42 +1657,6 @@ void aggregate_group_weight(struct task_group *tg, struct sched_domain *sd)
 }
 
 /*
- * Redistribute tg->shares amongst all tg->cfs_rq[]s.
- */
-static void __aggregate_redistribute_shares(struct task_group *tg)
-{
-	int i, max_cpu = smp_processor_id();
-	unsigned long rq_weight = 0;
-	unsigned long shares, max_shares = 0, shares_rem = tg->shares;
-
-	for_each_possible_cpu(i)
-		rq_weight += tg->cfs_rq[i]->load.weight;
-
-	for_each_possible_cpu(i) {
-		/*
-		 * divide shares proportional to the rq_weights.
-		 */
-		shares = tg->shares * tg->cfs_rq[i]->load.weight;
-		shares /= rq_weight + 1;
-
-		tg->cfs_rq[i]->shares = shares;
-
-		if (shares > max_shares) {
-			max_shares = shares;
-			max_cpu = i;
-		}
-		shares_rem -= shares;
-	}
-
-	/*
-	 * Ensure it all adds up to tg->shares; we can loose a few
-	 * due to rounding down when computing the per-cpu shares.
-	 */
-	if (shares_rem)
-		tg->cfs_rq[max_cpu]->shares += shares_rem;
-}
-
-/*
  * Compute the weight of this group on the given cpus.
  */
 static
@@ -1701,18 +1665,11 @@ void aggregate_group_shares(struct task_group *tg, struct sched_domain *sd)
 	unsigned long shares = 0;
 	int i;
 
-again:
 	for_each_cpu_mask(i, sd->span)
 		shares += tg->cfs_rq[i]->shares;
 
-	/*
-	 * When the span doesn't have any shares assigned, but does have
-	 * tasks to run do a machine wide rebalance (should be rare).
-	 */
-	if (unlikely(!shares && aggregate(tg, sd)->rq_weight)) {
-		__aggregate_redistribute_shares(tg);
-		goto again;
-	}
+	if ((!shares && aggregate(tg, sd)->rq_weight) || shares > tg->shares)
+		shares = tg->shares;
 
 	aggregate(tg, sd)->shares = shares;
 }
@@ -7991,11 +7948,6 @@ void __init sched_init_smp(void)
 #else
 void __init sched_init_smp(void)
 {
-#if defined(CONFIG_NUMA)
-	sched_group_nodes_bycpu = kzalloc(nr_cpu_ids * sizeof(void **),
-								GFP_KERNEL);
-	BUG_ON(sched_group_nodes_bycpu == NULL);
-#endif
 	sched_init_granularity();
 }
 #endif /* CONFIG_SMP */
@@ -8073,7 +8025,7 @@ static void init_tg_cfs_entry(struct task_group *tg, struct cfs_rq *cfs_rq,
 
 	se->my_q = cfs_rq;
 	se->load.weight = tg->shares;
-	se->load.inv_weight = div64_64(1ULL<<32, se->load.weight);
+	se->load.inv_weight = div64_u64(1ULL<<32, se->load.weight);
 	se->parent = parent;
 }
 #endif
@@ -8128,7 +8080,7 @@ void __init sched_init(void)
 	 * we use alloc_bootmem().
 	 */
 	if (alloc_size) {
-		ptr = (unsigned long)alloc_bootmem_low(alloc_size);
+		ptr = (unsigned long)alloc_bootmem(alloc_size);
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
 		init_task_group.se = (struct sched_entity **)ptr;
@@ -8740,7 +8692,7 @@ static void __set_se_shares(struct sched_entity *se, unsigned long shares)
 		dequeue_entity(cfs_rq, se, 0);
 
 	se->load.weight = shares;
-	se->load.inv_weight = div64_64((1ULL<<32), shares);
+	se->load.inv_weight = div64_u64((1ULL<<32), shares);
 
 	if (on_rq)
 		enqueue_entity(cfs_rq, se, 0);
@@ -8835,7 +8787,7 @@ static unsigned long to_ratio(u64 period, u64 runtime)
 	if (runtime == RUNTIME_INF)
 		return 1ULL << 16;
 
-	return div64_64(runtime << 16, period);
+	return div64_u64(runtime << 16, period);
 }
 
 #ifdef CONFIG_CGROUP_SCHED
@@ -9105,13 +9057,13 @@ cpu_cgroup_attach(struct cgroup_subsys *ss, struct cgroup *cgrp,
 }
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
-static int cpu_shares_write_uint(struct cgroup *cgrp, struct cftype *cftype,
+static int cpu_shares_write_u64(struct cgroup *cgrp, struct cftype *cftype,
 				u64 shareval)
 {
 	return sched_group_set_shares(cgroup_tg(cgrp), shareval);
 }
 
-static u64 cpu_shares_read_uint(struct cgroup *cgrp, struct cftype *cft)
+static u64 cpu_shares_read_u64(struct cgroup *cgrp, struct cftype *cft)
 {
 	struct task_group *tg = cgroup_tg(cgrp);
 
@@ -9121,48 +9073,14 @@ static u64 cpu_shares_read_uint(struct cgroup *cgrp, struct cftype *cft)
 
 #ifdef CONFIG_RT_GROUP_SCHED
 static ssize_t cpu_rt_runtime_write(struct cgroup *cgrp, struct cftype *cft,
-				struct file *file,
-				const char __user *userbuf,
-				size_t nbytes, loff_t *unused_ppos)
+				s64 val)
 {
-	char buffer[64];
-	int retval = 0;
-	s64 val;
-	char *end;
-
-	if (!nbytes)
-		return -EINVAL;
-	if (nbytes >= sizeof(buffer))
-		return -E2BIG;
-	if (copy_from_user(buffer, userbuf, nbytes))
-		return -EFAULT;
-
-	buffer[nbytes] = 0;     /* nul-terminate */
-
-	/* strip newline if necessary */
-	if (nbytes && (buffer[nbytes-1] == '\n'))
-		buffer[nbytes-1] = 0;
-	val = simple_strtoll(buffer, &end, 0);
-	if (*end)
-		return -EINVAL;
-
-	/* Pass to subsystem */
-	retval = sched_group_set_rt_runtime(cgroup_tg(cgrp), val);
-	if (!retval)
-		retval = nbytes;
-	return retval;
+	return sched_group_set_rt_runtime(cgroup_tg(cgrp), val);
 }
 
-static ssize_t cpu_rt_runtime_read(struct cgroup *cgrp, struct cftype *cft,
-				   struct file *file,
-				   char __user *buf, size_t nbytes,
-				   loff_t *ppos)
+static s64 cpu_rt_runtime_read(struct cgroup *cgrp, struct cftype *cft)
 {
-	char tmp[64];
-	long val = sched_group_rt_runtime(cgroup_tg(cgrp));
-	int len = sprintf(tmp, "%ld\n", val);
-
-	return simple_read_from_buffer(buf, nbytes, ppos, tmp, len);
+	return sched_group_rt_runtime(cgroup_tg(cgrp));
 }
 
 static int cpu_rt_period_write_uint(struct cgroup *cgrp, struct cftype *cftype,
@@ -9181,20 +9099,20 @@ static struct cftype cpu_files[] = {
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	{
 		.name = "shares",
-		.read_uint = cpu_shares_read_uint,
-		.write_uint = cpu_shares_write_uint,
+		.read_u64 = cpu_shares_read_u64,
+		.write_u64 = cpu_shares_write_u64,
 	},
 #endif
 #ifdef CONFIG_RT_GROUP_SCHED
 	{
 		.name = "rt_runtime_us",
-		.read = cpu_rt_runtime_read,
-		.write = cpu_rt_runtime_write,
+		.read_s64 = cpu_rt_runtime_read,
+		.write_s64 = cpu_rt_runtime_write,
 	},
 	{
 		.name = "rt_period_us",
-		.read_uint = cpu_rt_period_read_uint,
-		.write_uint = cpu_rt_period_write_uint,
+		.read_u64 = cpu_rt_period_read_uint,
+		.write_u64 = cpu_rt_period_write_uint,
 	},
 #endif
 };
@@ -9325,8 +9243,8 @@ out:
 static struct cftype files[] = {
 	{
 		.name = "usage",
-		.read_uint = cpuusage_read,
-		.write_uint = cpuusage_write,
+		.read_u64 = cpuusage_read,
+		.write_u64 = cpuusage_write,
 	},
 };
 

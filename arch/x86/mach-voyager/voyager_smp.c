@@ -113,7 +113,7 @@ static inline void send_QIC_CPI(__u32 cpuset, __u8 cpi)
 	for_each_online_cpu(cpu) {
 		if (cpuset & (1 << cpu)) {
 #ifdef VOYAGER_DEBUG
-			if (!cpu_isset(cpu, cpu_online_map))
+			if (!cpu_online(cpu))
 				VDEBUG(("CPU%d sending cpi %d to CPU%d not in "
 					"cpu_online_map\n",
 					hard_smp_processor_id(), cpi, cpu));
@@ -543,8 +543,8 @@ static void __init do_boot_cpu(__u8 cpu)
 		hijack_source.idt.Offset, stack_start.sp));
 
 	/* init lowmem identity mapping */
-	clone_pgd_range(swapper_pg_dir, swapper_pg_dir + USER_PGD_PTRS,
-			min_t(unsigned long, KERNEL_PGD_PTRS, USER_PGD_PTRS));
+	clone_pgd_range(swapper_pg_dir, swapper_pg_dir + KERNEL_PGD_BOUNDARY,
+			min_t(unsigned long, KERNEL_PGD_PTRS, KERNEL_PGD_BOUNDARY));
 	flush_tlb_all();
 
 	if (quad_boot) {
@@ -683,9 +683,9 @@ void __init smp_boot_cpus(void)
 	 * Code added from smpboot.c */
 	{
 		unsigned long bogosum = 0;
-		for (i = 0; i < NR_CPUS; i++)
-			if (cpu_isset(i, cpu_online_map))
-				bogosum += cpu_data(i).loops_per_jiffy;
+
+		for_each_online_cpu(i)
+			bogosum += cpu_data(i).loops_per_jiffy;
 		printk(KERN_INFO "Total of %d processors activated "
 		       "(%lu.%02lu BogoMIPS).\n",
 		       cpucount + 1, bogosum / (500000 / HZ),
@@ -1838,7 +1838,7 @@ static int __cpuinit voyager_cpu_up(unsigned int cpu)
 		return -EIO;
 	/* Unleash the CPU! */
 	cpu_set(cpu, smp_commenced_mask);
-	while (!cpu_isset(cpu, cpu_online_map))
+	while (!cpu_online(cpu))
 		mb();
 	return 0;
 }

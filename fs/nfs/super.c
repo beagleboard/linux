@@ -198,7 +198,7 @@ static match_table_t nfs_secflavor_tokens = {
 };
 
 
-static void nfs_umount_begin(struct vfsmount *, int);
+static void nfs_umount_begin(struct super_block *);
 static int  nfs_statfs(struct dentry *, struct kstatfs *);
 static int  nfs_show_options(struct seq_file *, struct vfsmount *);
 static int  nfs_show_stats(struct seq_file *, struct vfsmount *);
@@ -647,13 +647,11 @@ static int nfs_show_stats(struct seq_file *m, struct vfsmount *mnt)
  * Begin unmount by attempting to remove all automounted mountpoints we added
  * in response to xdev traversals and referrals
  */
-static void nfs_umount_begin(struct vfsmount *vfsmnt, int flags)
+static void nfs_umount_begin(struct super_block *sb)
 {
-	struct nfs_server *server = NFS_SB(vfsmnt->mnt_sb);
+	struct nfs_server *server = NFS_SB(sb);
 	struct rpc_clnt *rpc;
 
-	if (!(flags & MNT_FORCE))
-		return;
 	/* -EIO all pending I/O */
 	rpc = server->client_acl;
 	if (!IS_ERR(rpc))
@@ -1577,6 +1575,11 @@ static int nfs_compare_super(struct super_block *sb, void *data)
 	return nfs_compare_mount_options(sb, server, mntflags);
 }
 
+static int nfs_bdi_register(struct nfs_server *server)
+{
+	return bdi_register_dev(&server->backing_dev_info, server->s_dev);
+}
+
 static int nfs_get_sb(struct file_system_type *fs_type,
 	int flags, const char *dev_name, void *raw_data, struct vfsmount *mnt)
 {
@@ -1619,6 +1622,10 @@ static int nfs_get_sb(struct file_system_type *fs_type,
 	if (s->s_fs_info != server) {
 		nfs_free_server(server);
 		server = NULL;
+	} else {
+		error = nfs_bdi_register(server);
+		if (error)
+			goto error_splat_super;
 	}
 
 	if (!s->s_root) {
@@ -1666,6 +1673,7 @@ static void nfs_kill_super(struct super_block *s)
 {
 	struct nfs_server *server = NFS_SB(s);
 
+	bdi_unregister(&server->backing_dev_info);
 	kill_anon_super(s);
 	nfs_free_server(server);
 }
@@ -1710,6 +1718,10 @@ static int nfs_xdev_get_sb(struct file_system_type *fs_type, int flags,
 	if (s->s_fs_info != server) {
 		nfs_free_server(server);
 		server = NULL;
+	} else {
+		error = nfs_bdi_register(server);
+		if (error)
+			goto error_splat_super;
 	}
 
 	if (!s->s_root) {
@@ -1986,6 +1998,10 @@ static int nfs4_get_sb(struct file_system_type *fs_type,
 	if (s->s_fs_info != server) {
 		nfs_free_server(server);
 		server = NULL;
+	} else {
+		error = nfs_bdi_register(server);
+		if (error)
+			goto error_splat_super;
 	}
 
 	if (!s->s_root) {
@@ -2072,6 +2088,10 @@ static int nfs4_xdev_get_sb(struct file_system_type *fs_type, int flags,
 	if (s->s_fs_info != server) {
 		nfs_free_server(server);
 		server = NULL;
+	} else {
+		error = nfs_bdi_register(server);
+		if (error)
+			goto error_splat_super;
 	}
 
 	if (!s->s_root) {
@@ -2151,6 +2171,10 @@ static int nfs4_referral_get_sb(struct file_system_type *fs_type, int flags,
 	if (s->s_fs_info != server) {
 		nfs_free_server(server);
 		server = NULL;
+	} else {
+		error = nfs_bdi_register(server);
+		if (error)
+			goto error_splat_super;
 	}
 
 	if (!s->s_root) {

@@ -600,6 +600,10 @@ static struct ov9640_platform_data h3_ov9640_platform_data = {
 #endif
 
 static struct i2c_board_info __initdata h3_i2c_board_info[] = {
+       {
+		I2C_BOARD_INFO("tps65013", 0x48),
+               /* .irq         = OMAP_GPIO_IRQ(??), */
+       },
 #if defined(CONFIG_VIDEO_OV9640) || defined(CONFIG_VIDEO_OV9640_MODULE)
 	{
 		I2C_BOARD_INFO("ov9640", 0x30),

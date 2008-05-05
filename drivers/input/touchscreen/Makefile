@@ -4,6 +4,8 @@
 
 # Each configuration option enables a list of files.
 
+wm97xx-ts-y := wm97xx-core.o
+
 obj-$(CONFIG_TOUCHSCREEN_ADS7846)	+= ads7846.o
 obj-$(CONFIG_TOUCHSCREEN_BITSY)		+= h3600_ts_input.o
 obj-$(CONFIG_TOUCHSCREEN_CORGI)		+= corgi_ts.o
@@ -24,3 +26,8 @@ obj-$(CONFIG_TOUCHSCREEN_TSC2102)	+= tsc2102_ts.o
 obj-$(CONFIG_TOUCHSCREEN_OMAP)	+= omap/
 obj-$(CONFIG_TOUCHSCREEN_TSC210X)	+= tsc210x_ts.o
 obj-$(CONFIG_TOUCHSCREEN_TSC2301)	+= tsc2301_ts.o
+obj-$(CONFIG_TOUCHSCREEN_WM97XX)	+= wm97xx-ts.o
+wm97xx-ts-$(CONFIG_TOUCHSCREEN_WM9705)	+= wm9705.o
+wm97xx-ts-$(CONFIG_TOUCHSCREEN_WM9712)	+= wm9712.o
+wm97xx-ts-$(CONFIG_TOUCHSCREEN_WM9713)	+= wm9713.o
+obj-$(CONFIG_TOUCHSCREEN_WM97XX_MAINSTONE)	+= mainstone-wm97xx.o

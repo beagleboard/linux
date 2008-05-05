@@ -632,7 +632,7 @@ nlmsvc_update_deferred_block(struct nlm_block *block, struct file_lock *conf,
 		block->b_flags |= B_TIMED_OUT;
 	if (conf) {
 		if (block->b_fl)
-			locks_copy_lock(block->b_fl, conf);
+			__locks_copy_lock(block->b_fl, conf);
 	}
 }
 
@@ -752,7 +752,7 @@ nlmsvc_grant_blocked(struct nlm_block *block)
 		return;
 	default:
 		printk(KERN_WARNING "lockd: unexpected error %d in %s!\n",
-				-error, __FUNCTION__);
+				-error, __func__);
 		nlmsvc_insert_block(block, 10 * HZ);
 		nlmsvc_release_block(block);
 		return;

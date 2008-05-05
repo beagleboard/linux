@@ -56,10 +56,10 @@
 /* constants */
 
 enum {
-	IPOIB_PACKET_SIZE	  = 2048,
-	IPOIB_BUF_SIZE		  = IPOIB_PACKET_SIZE + IB_GRH_BYTES,
-
 	IPOIB_ENCAP_LEN		  = 4,
+
+	IPOIB_UD_HEAD_SIZE	  = IB_GRH_BYTES + IPOIB_ENCAP_LEN,
+	IPOIB_UD_RX_SG		  = 2, /* max buffer needed for 4K mtu */
 
 	IPOIB_CM_MTU		  = 0x10000 - 0x10, /* padding to align header to 16 */
 	IPOIB_CM_BUF_SIZE	  = IPOIB_CM_MTU  + IPOIB_ENCAP_LEN,
@@ -95,6 +95,8 @@ enum {
 	IPOIB_MCAST_FLAG_SENDONLY = 1,
 	IPOIB_MCAST_FLAG_BUSY	  = 2,	/* joining or already joined */
 	IPOIB_MCAST_FLAG_ATTACHED = 3,
+
+	MAX_SEND_CQE		  = 16,
 };
 
 #define	IPOIB_OP_RECV   (1ul << 31)
@@ -139,7 +141,7 @@ struct ipoib_mcast {
 
 struct ipoib_rx_buf {
 	struct sk_buff *skb;
-	u64		mapping;
+	u64		mapping[IPOIB_UD_RX_SG];
 };
 
 struct ipoib_tx_buf {
@@ -285,7 +287,8 @@ struct ipoib_dev_priv {
 	u16		  pkey_index;
 	struct ib_pd	 *pd;
 	struct ib_mr	 *mr;
-	struct ib_cq	 *cq;
+	struct ib_cq	 *recv_cq;
+	struct ib_cq	 *send_cq;
 	struct ib_qp	 *qp;
 	u32		  qkey;
 
@@ -294,6 +297,7 @@ struct ipoib_dev_priv {
 
 	unsigned int admin_mtu;
 	unsigned int mcast_mtu;
+	unsigned int max_ib_mtu;
 
 	struct ipoib_rx_buf *rx_ring;
 
@@ -304,6 +308,10 @@ struct ipoib_dev_priv {
 	struct ib_sge	     tx_sge[MAX_SKB_FRAGS + 1];
 	struct ib_send_wr    tx_wr;
 	unsigned	     tx_outstanding;
+	struct ib_wc	     send_wc[MAX_SEND_CQE];
+
+	struct ib_recv_wr    rx_wr;
+	struct ib_sge	     rx_sge[IPOIB_UD_RX_SG];
 
 	struct ib_wc ibwc[IPOIB_NUM_WC];
 
@@ -365,6 +373,14 @@ struct ipoib_neigh {
 
 	struct list_head    list;
 };
+
+#define IPOIB_UD_MTU(ib_mtu)		(ib_mtu - IPOIB_ENCAP_LEN)
+#define IPOIB_UD_BUF_SIZE(ib_mtu)	(ib_mtu + IB_GRH_BYTES)
+
+static inline int ipoib_ud_need_sg(unsigned int ib_mtu)
+{
+	return IPOIB_UD_BUF_SIZE(ib_mtu) > PAGE_SIZE;
+}
 
 /*
  * We stash a pointer to our private neighbour information after our
@@ -649,7 +665,6 @@ static inline void ipoib_delete_debug_files(struct net_device *dev) { }
 static inline int ipoib_register_debugfs(void) { return 0; }
 static inline void ipoib_unregister_debugfs(void) { }
 #endif
-
 
 #define ipoib_printk(level, priv, format, arg...)	\
 	printk(level "%s: " format, ((struct ipoib_dev_priv *) priv)->dev->name , ## arg)

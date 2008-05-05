@@ -140,6 +140,7 @@ config ACER_WMI
 	depends on EXPERIMENTAL
 	depends on ACPI
 	depends on LEDS_CLASS
+	depends on NEW_LEDS
 	depends on BACKLIGHT_CLASS_DEVICE
 	depends on SERIO_I8042
 	select ACPI_WMI
@@ -160,6 +161,7 @@ config ASUS_LAPTOP
         depends on ACPI
 	depends on EXPERIMENTAL && !ACPI_ASUS
 	depends on LEDS_CLASS
+	depends on NEW_LEDS
 	depends on BACKLIGHT_CLASS_DEVICE
         ---help---
 	  This is the new Linux driver for Asus laptops. It may also support some
@@ -241,10 +243,13 @@ config SONYPI_COMPAT
 config THINKPAD_ACPI
 	tristate "ThinkPad ACPI Laptop Extras"
 	depends on X86 && ACPI
+	select BACKLIGHT_LCD_SUPPORT
 	select BACKLIGHT_CLASS_DEVICE
 	select HWMON
 	select NVRAM
-	depends on INPUT
+	select INPUT
+	select NEW_LEDS
+	select LEDS_CLASS
 	---help---
 	  This is a driver for the IBM and Lenovo ThinkPad laptops. It adds
 	  support for Fn-Fx key combinations, Bluetooth control, video
@@ -344,6 +349,7 @@ config ATMEL_SSC
 config INTEL_MENLOW
 	tristate "Thermal Management driver for Intel menlow platform"
 	depends on ACPI_THERMAL
+	select THERMAL
 	depends on X86
 	---help---
 	  ACPI thermal management enhancement driver on
@@ -351,13 +357,25 @@ config INTEL_MENLOW
 
 	  If unsure, say N.
 
+config EEEPC_LAPTOP
+	tristate "Eee PC Hotkey Driver (EXPERIMENTAL)"
+	depends on X86
+	depends on ACPI
+	depends on BACKLIGHT_CLASS_DEVICE
+	depends on HWMON
+	depends on EXPERIMENTAL
+
+	---help---
+	  This driver supports the Fn-Fx keys on Eee PC laptops.
+	  It also adds the ability to switch camera/wlan on/off.
+
 config OMAP_STI
-        bool "Serial Trace Interface support"
-        depends on ARCH_OMAP16XX || ARCH_OMAP24XX || ARCH_OMAP34XX
-        default n
-        help
-          Serial Trace Interface. The protocols suported for OMAP1/2/3 are
-          STI/CSTI/XTIv2 correspondingly.
+	bool "Serial Trace Interface support"
+	depends on ARCH_OMAP16XX || ARCH_OMAP24XX || ARCH_OMAP34XX
+	default n
+	help
+	  Serial Trace Interface. The protocols suported for OMAP1/2/3 are
+	  STI/CSTI/XTIv2 correspondingly.
 
 config OMAP_STI_CONSOLE
 	bool "STI console support"

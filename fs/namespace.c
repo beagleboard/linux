@@ -14,7 +14,6 @@
 #include <linux/smp_lock.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
-#include <linux/quotaops.h>
 #include <linux/acct.h>
 #include <linux/capability.h>
 #include <linux/cpumask.h>
@@ -1061,10 +1060,11 @@ static int do_umount(struct vfsmount *mnt, int flags)
 	 * about for the moment.
 	 */
 
-	lock_kernel();
-	if (sb->s_op->umount_begin)
-		sb->s_op->umount_begin(mnt, flags);
-	unlock_kernel();
+	if (flags & MNT_FORCE && sb->s_op->umount_begin) {
+		lock_kernel();
+		sb->s_op->umount_begin(sb);
+		unlock_kernel();
+	}
 
 	/*
 	 * No sense to grab the lock for this test, but test itself looks
@@ -1083,7 +1083,6 @@ static int do_umount(struct vfsmount *mnt, int flags)
 		down_write(&sb->s_umount);
 		if (!(sb->s_flags & MS_RDONLY)) {
 			lock_kernel();
-			DQUOT_OFF(sb);
 			retval = do_remount_sb(sb, MS_RDONLY, NULL, 0);
 			unlock_kernel();
 		}
@@ -1177,17 +1176,6 @@ static int mount_is_safe(struct nameidata *nd)
 #endif
 }
 
-static int lives_below_in_same_fs(struct dentry *d, struct dentry *dentry)
-{
-	while (1) {
-		if (d == dentry)
-			return 1;
-		if (d == NULL || d == d->d_parent)
-			return 0;
-		d = d->d_parent;
-	}
-}
-
 struct vfsmount *copy_tree(struct vfsmount *mnt, struct dentry *dentry,
 					int flag)
 {
@@ -1204,7 +1192,7 @@ struct vfsmount *copy_tree(struct vfsmount *mnt, struct dentry *dentry,
 
 	p = mnt;
 	list_for_each_entry(r, &mnt->mnt_mounts, mnt_child) {
-		if (!lives_below_in_same_fs(r->mnt_mountpoint, dentry))
+		if (!is_subdir(r->mnt_mountpoint, dentry))
 			continue;
 
 		for (s = r; s; s = next_mnt(s, r)) {
@@ -2341,10 +2329,10 @@ void __init mnt_init(void)
 	err = sysfs_init();
 	if (err)
 		printk(KERN_WARNING "%s: sysfs_init error: %d\n",
-			__FUNCTION__, err);
+			__func__, err);
 	fs_kobj = kobject_create_and_add("fs", NULL);
 	if (!fs_kobj)
-		printk(KERN_WARNING "%s: kobj create error\n", __FUNCTION__);
+		printk(KERN_WARNING "%s: kobj create error\n", __func__);
 	init_rootfs();
 	init_mount_tree();
 }

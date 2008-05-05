@@ -208,7 +208,7 @@ pdev_save_srm_config(struct pci_dev *dev)
 
 	tmp = kmalloc(sizeof(*tmp), GFP_KERNEL);
 	if (!tmp) {
-		printk(KERN_ERR "%s: kmalloc() failed!\n", __FUNCTION__);
+		printk(KERN_ERR "%s: kmalloc() failed!\n", __func__);
 		return;
 	}
 	tmp->next = srm_saved_configs;
@@ -514,8 +514,8 @@ sys_pciconfig_iobase(long which, unsigned long bus, unsigned long dfn)
 
 void __iomem *pci_iomap(struct pci_dev *dev, int bar, unsigned long maxlen)
 {
-	unsigned long start = pci_resource_start(dev, bar);
-	unsigned long len = pci_resource_len(dev, bar);
+	resource_size_t start = pci_resource_start(dev, bar);
+	resource_size_t len = pci_resource_len(dev, bar);
 	unsigned long flags = pci_resource_flags(dev, bar);
 
 	if (!len || !start)

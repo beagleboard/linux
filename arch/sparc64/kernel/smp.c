@@ -38,7 +38,6 @@
 #include <asm/pgtable.h>
 #include <asm/oplib.h>
 #include <asm/uaccess.h>
-#include <asm/timer.h>
 #include <asm/starfire.h>
 #include <asm/tlb.h>
 #include <asm/sections.h>
@@ -866,14 +865,21 @@ void smp_call_function_client(int irq, struct pt_regs *regs)
 	void *info = call_data->info;
 
 	clear_softint(1 << irq);
-	if (call_data->wait) {
-		/* let initiator proceed only after completion */
-		func(info);
-		atomic_inc(&call_data->finished);
-	} else {
+
+	irq_enter();
+
+	if (!call_data->wait) {
 		/* let initiator proceed after getting data */
 		atomic_inc(&call_data->finished);
-		func(info);
+	}
+
+	func(info);
+
+	irq_exit();
+
+	if (call_data->wait) {
+		/* let initiator proceed only after completion */
+		atomic_inc(&call_data->finished);
 	}
 }
 
@@ -903,6 +909,9 @@ extern unsigned long xcall_flush_tlb_kernel_range;
 extern unsigned long xcall_report_regs;
 extern unsigned long xcall_receive_signal;
 extern unsigned long xcall_new_mmu_context_version;
+#ifdef CONFIG_KGDB
+extern unsigned long xcall_kgdb_capture;
+#endif
 
 #ifdef DCACHE_ALIASING_POSSIBLE
 extern unsigned long xcall_flush_dcache_page_cheetah;
@@ -1032,13 +1041,17 @@ void smp_receive_signal(int cpu)
 
 void smp_receive_signal_client(int irq, struct pt_regs *regs)
 {
+	irq_enter();
 	clear_softint(1 << irq);
+	irq_exit();
 }
 
 void smp_new_mmu_context_version_client(int irq, struct pt_regs *regs)
 {
 	struct mm_struct *mm;
 	unsigned long flags;
+
+	irq_enter();
 
 	clear_softint(1 << irq);
 
@@ -1059,12 +1072,21 @@ void smp_new_mmu_context_version_client(int irq, struct pt_regs *regs)
 	load_secondary_context(mm);
 	__flush_tlb_mm(CTX_HWBITS(mm->context),
 		       SECONDARY_CONTEXT);
+
+	irq_exit();
 }
 
 void smp_new_mmu_context_version(void)
 {
 	smp_cross_call(&xcall_new_mmu_context_version, 0, 0, 0);
 }
+
+#ifdef CONFIG_KGDB
+void kgdb_roundup_cpus(unsigned long flags)
+{
+	smp_cross_call(&xcall_kgdb_capture, 0, 0, 0);
+}
+#endif
 
 void smp_report_regs(void)
 {
@@ -1217,6 +1239,8 @@ void smp_penguin_jailcell(int irq, struct pt_regs *regs)
 {
 	clear_softint(1 << irq);
 
+	irq_enter();
+
 	preempt_disable();
 
 	__asm__ __volatile__("flushw");
@@ -1229,6 +1253,8 @@ void smp_penguin_jailcell(int irq, struct pt_regs *regs)
 	prom_world(0);
 
 	preempt_enable();
+
+	irq_exit();
 }
 
 /* /proc/profile writes can call this, don't __init it please. */
