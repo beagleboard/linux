@@ -716,6 +716,7 @@ static void twl_init_irq(void)
 	int	i = 0;
 	int	res = 0;
 	char	*msg = "Unable to register interrupt subsystem";
+	unsigned int irq_num;
 
 	/*
 	 * We end up with interrupts from other modules before
@@ -880,10 +881,12 @@ static void twl_init_irq(void)
 		set_irq_flags(i, IRQF_VALID);
 	}
 
+	irq_num = (cpu_is_omap2430()) ? INT_24XX_SYS_NIRQ : INT_34XX_SYS_NIRQ;
+
 	/* install an irq handler to demultiplex the TWL4030 interrupt */
-	set_irq_data(TWL4030_IRQNUM, start_twl4030_irq_thread(TWL4030_IRQNUM));
-	set_irq_type(TWL4030_IRQNUM, IRQT_FALLING);
-	set_irq_chained_handler(TWL4030_IRQNUM, do_twl4030_irq);
+	set_irq_data(irq_num, start_twl4030_irq_thread(irq_num));
+	set_irq_type(irq_num, IRQT_FALLING);
+	set_irq_chained_handler(irq_num, do_twl4030_irq);
 
 	res = power_companion_init();
 	if (res < 0)
