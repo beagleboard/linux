@@ -232,7 +232,6 @@ static int __init retu_headset_probe(struct platform_device *pdev)
 	}
 	hs->idev->name = "retu-headset";
 	hs->idev->dev.parent = &pdev->dev;
-	hs->idev->private = hs;
 	set_bit(EV_KEY, hs->idev->evbit);
 	set_bit(RETU_HEADSET_KEY, hs->idev->keybit);
 	r = input_register_device(hs->idev);
