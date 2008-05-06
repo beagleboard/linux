@@ -1311,16 +1311,15 @@ static void dsp_task_mmap_close(struct vm_area_struct *vma)
  * On demand page allocation is not allowed. The mapping area is defined by
  * corresponding DSP tasks.
  */
-static struct page *dsp_task_mmap_nopage(struct vm_area_struct *vma,
-					 unsigned long address, int *type)
+static int dsp_task_mmap_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 {
-	return NOPAGE_SIGBUS;
+	return VM_FAULT_NOPAGE;
 }
 
 static struct vm_operations_struct dsp_task_vm_ops = {
 	.open = dsp_task_mmap_open,
 	.close = dsp_task_mmap_close,
-	.nopage = dsp_task_mmap_nopage,
+	.fault = dsp_task_mmap_fault,
 };
 
 static int dsp_task_mmap(struct file *filp, struct vm_area_struct *vma)
