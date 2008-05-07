@@ -28,9 +28,9 @@
 #include <linux/module.h>
 #include <linux/delay.h>
 #include <linux/clk.h>
+#include <linux/io.h>
+#include <linux/irq.h>
 
-#include <asm/io.h>
-#include <asm/irq.h>
 #include <asm/atomic.h>
 #include <asm/mach/time.h>
 #include <asm/mach/irq.h>
@@ -62,7 +62,7 @@ static void (*saved_idle)(void);
 
 static u32 omap2_read_32k_sync_counter(void)
 {
-        return omap_readl(OMAP2_32KSYNCT_BASE + 0x0010);
+	return omap_readl(OMAP2_32KSYNCT_BASE + 0x0010);
 }
 
 #ifdef CONFIG_PM_DEBUG
@@ -121,7 +121,8 @@ static void serial_console_sleep(int enable)
 		BUG_ON(serial_console_clock_disabled);
 		if (clk_get_usecount(console_fclk) == 0)
 			return;
-		if ((int) serial_console_next_disable - (int) omap2_read_32k_sync_counter() >= 0)
+		if ((int) serial_console_next_disable -
+		    (int) omap2_read_32k_sync_counter() >= 0)
 			return;
 		serial_wait_tx();
 		clk_disable(console_iclk);
@@ -190,7 +191,8 @@ static void pm_init_serial_console(void)
 		prm_set_mod_reg_bits(OMAP24XX_ST_UART2, CORE_MOD, PM_WKEN1);
 		break;
 	case 3:
-		prm_set_mod_reg_bits(OMAP24XX_ST_UART3, CORE_MOD, OMAP24XX_PM_WKEN2);
+		prm_set_mod_reg_bits(OMAP24XX_ST_UART3, CORE_MOD,
+				     OMAP24XX_PM_WKEN2);
 		break;
 	}
 }
@@ -290,16 +292,19 @@ static void omap2_pm_dump(int mode, int resume, unsigned int us)
 
 	if (!resume)
 #if defined(CONFIG_NO_IDLE_HZ) || defined(CONFIG_NO_HZ)
-		printk("--- Going to %s %s (next timer after %u ms)\n", s1, s2,
-		       jiffies_to_msecs(get_next_timer_interrupt(jiffies) - 
-					jiffies));
+		pr_debug("--- Going to %s %s (next timer after %u ms)\n", s1,
+			 s2,
+			 jiffies_to_msecs(get_next_timer_interrupt(jiffies) -
+					  jiffies));
 #else
-		printk("--- Going to %s %s\n", s1, s2);
+		pr_debug("--- Going to %s %s\n", s1, s2);
 #endif
 	else
-		printk("--- Woke up (slept for %u.%03u ms)\n", us / 1000, us % 1000);
+		pr_debug("--- Woke up (slept for %u.%03u ms)\n", us / 1000,
+			 us % 1000);
+
 	for (i = 0; i < reg_count; i++)
-		printk("%-20s: 0x%08x\n", regs[i].name, regs[i].val);
+		pr_debug("%-20s: 0x%08x\n", regs[i].name, regs[i].val);
 }
 
 #else
@@ -321,7 +326,7 @@ static ssize_t idle_show(struct kobject *kobj, struct kobj_attribute *attr,
 }
 
 static ssize_t idle_store(struct kobject *kobj, struct kobj_attribute *attr,
-			  const char * buf, size_t n)
+			  const char *buf, size_t n)
 {
 	unsigned short value;
 	if (sscanf(buf, "%hu", &value) != 1 ||
@@ -352,11 +357,11 @@ static int omap2_fclks_active(void)
 
 static int omap2_irq_pending(void)
 {
-	u32 pending_reg = IO_ADDRESS(0x480fe098);
+	u32 pending_reg = 0x480fe098;
 	int i;
 
 	for (i = 0; i < 4; i++) {
-		if (__raw_readl(pending_reg))
+		if (omap_readl(pending_reg))
 			return 1;
 		pending_reg += 0x20;
 	}
@@ -498,7 +503,7 @@ static void omap2_enter_mpu_retention(void)
 	/* The peripherals seem not to be able to wake up the MPU when
 	 * it is in retention mode. */
 	if (omap2_allow_mpu_retention()) {
-	        /* REVISIT: These write to reserved bits? */
+		/* REVISIT: These write to reserved bits? */
 		prm_write_mod_reg(0xffffffff, CORE_MOD, PM_WKST1);
 		prm_write_mod_reg(0xffffffff, CORE_MOD, OMAP24XX_PM_WKST2);
 		prm_write_mod_reg(0xffffffff, WKUP_MOD, PM_WKST);
@@ -770,7 +775,7 @@ static void __init prcm_setup_regs(void)
 			  WKUP_MOD, PM_WKEN);
 }
 
-int __init omap2_pm_init(void)
+static int __init omap2_pm_init(void)
 {
 	u32 l;
 	int error;

@@ -53,7 +53,7 @@ static u32 prm_read_mod_bits_shift(s16 domain, s16 idx, u32 mask)
 	return v;
 }
 
-struct powerdomain *_pwrdm_lookup(const char *name)
+static struct powerdomain *_pwrdm_lookup(const char *name)
 {
 	struct powerdomain *pwrdm, *temp_pwrdm;
 

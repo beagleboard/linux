@@ -18,10 +18,11 @@
 #include <linux/clk.h>
 #include <linux/io.h>
 
+#include <asm/arch/prcm.h>
+
+#include "clock.h"
 #include "prm.h"
 #include "prm-regbits-24xx.h"
-
-extern void omap2_clk_prepare_for_reboot(void);
 
 u32 omap_prcm_get_reset_sources(void)
 {
@@ -36,13 +37,12 @@ void omap_prcm_arch_reset(char mode)
 	s16 prcm_offs;
 	omap2_clk_prepare_for_reboot();
 
-	if (cpu_is_omap24xx()) {
+	if (cpu_is_omap24xx())
 		prcm_offs = WKUP_MOD;
-	} else if (cpu_is_omap34xx()) {
+	else if (cpu_is_omap34xx())
 		prcm_offs = OMAP3430_GR_MOD;
-	} else {
+	else
 		WARN_ON(1);
-	}
 
 	prm_set_mod_reg_bits(OMAP_RST_DPLL3, prcm_offs, RM_RSTCTRL);
 }

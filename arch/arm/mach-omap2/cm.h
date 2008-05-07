@@ -14,13 +14,13 @@
  * published by the Free Software Foundation.
  */
 
-#include <asm/io.h>
+#include <linux/io.h>
 
 #include "prcm-common.h"
 
 #ifndef __ASSEMBLER__
 #define OMAP_CM_REGADDR(module, reg)					\
-	(void __iomem *)IO_ADDRESS(OMAP2_CM_BASE + (module) + (reg))
+	(__force void __iomem *)IO_ADDRESS(OMAP2_CM_BASE + (module) + (reg))
 #else
 #define OMAP2420_CM_REGADDR(module, reg)				\
 			IO_ADDRESS(OMAP2420_CM_BASE + (module) + (reg))
