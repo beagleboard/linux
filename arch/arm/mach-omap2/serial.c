@@ -18,7 +18,7 @@
 #include <linux/serial_reg.h>
 #include <linux/clk.h>
 
-#include <asm/io.h>
+#include <linux/io.h>
 
 #include <asm/arch/common.h>
 #include <asm/arch/board.h>
@@ -127,16 +127,15 @@ void __init omap_serial_init(void)
 		if (IS_ERR(uart_ick[i])) {
 			printk(KERN_ERR "Could not get uart%d_ick\n", i+1);
 			uart_ick[i] = NULL;
-		}
-		else
+		} else
 			clk_enable(uart_ick[i]);
+
 		sprintf(name, "uart%d_fck", i+1);
 		uart_fck[i] = clk_get(NULL, name);
 		if (IS_ERR(uart_fck[i])) {
 			printk(KERN_ERR "Could not get uart%d_fck\n", i+1);
-			uart_ick[i] = NULL;
-		}
-		else
+			uart_fck[i] = NULL;
+		} else
 			clk_enable(uart_fck[i]);
 
 		omap_serial_reset(p);
