@@ -48,7 +48,7 @@ static struct platform_device ehci_device = {
 	.dev = {
 		.dma_mask               = &ehci_dmamask,
 		.coherent_dma_mask      = 0xffffffff,
-		.platform_data          = 0x0,
+		.platform_data          = NULL,
 	},
 	.num_resources  = ARRAY_SIZE(ehci_resources),
 	.resource       = ehci_resources,

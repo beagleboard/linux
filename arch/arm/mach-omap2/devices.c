@@ -13,9 +13,9 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/platform_device.h>
+#include <linux/io.h>
 
 #include <asm/hardware.h>
-#include <asm/io.h>
 #include <asm/mach-types.h>
 #include <asm/mach/map.h>
 
@@ -149,7 +149,7 @@ static struct resource omap2_mcspi1_resources[] = {
 	},
 };
 
-struct platform_device omap2_mcspi1 = {
+static struct platform_device omap2_mcspi1 = {
 	.name		= "omap2_mcspi",
 	.id		= 1,
 	.num_resources	= ARRAY_SIZE(omap2_mcspi1_resources),
@@ -171,7 +171,7 @@ static struct resource omap2_mcspi2_resources[] = {
 	},
 };
 
-struct platform_device omap2_mcspi2 = {
+static struct platform_device omap2_mcspi2 = {
 	.name		= "omap2_mcspi",
 	.id		= 2,
 	.num_resources	= ARRAY_SIZE(omap2_mcspi2_resources),
@@ -194,7 +194,7 @@ static struct resource omap2_mcspi3_resources[] = {
 	},
 };
 
-struct platform_device omap2_mcspi3 = {
+static struct platform_device omap2_mcspi3 = {
 	.name		= "omap2_mcspi",
 	.id		= 3,
 	.num_resources	= ARRAY_SIZE(omap2_mcspi3_resources),
@@ -218,7 +218,7 @@ static struct resource omap2_mcspi4_resources[] = {
 	},
 };
 
-struct platform_device omap2_mcspi4 = {
+static struct platform_device omap2_mcspi4 = {
 	.name		= "omap2_mcspi",
 	.id		= 4,
 	.num_resources	= ARRAY_SIZE(omap2_mcspi4_resources),

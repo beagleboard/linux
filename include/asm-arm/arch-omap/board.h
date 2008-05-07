@@ -128,9 +128,9 @@ struct omap_pwm_led_platform_data {
 struct omap_gpio_switch_config {
 	char name[12];
 	u16 gpio;
-	int flags:4;
-	int type:4;
-	int key_code:24; /* Linux key code */
+	u8 flags:4;
+	u8 type:4;
+	unsigned int key_code:24; /* Linux key code */
 };
 
 struct omap_uart_config {

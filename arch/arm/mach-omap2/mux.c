@@ -26,7 +26,7 @@
 #include <linux/module.h>
 #include <linux/init.h>
 #include <asm/system.h>
-#include <asm/io.h>
+#include <linux/io.h>
 #include <linux/spinlock.h>
 
 #include <asm/arch/control.h>
@@ -365,7 +365,7 @@ MUX_CFG_34XX("AA12_3430_USB3HS_TLL_D7", 0x172,
 #endif	/* CONFIG_ARCH_OMAP34XX */
 
 #if defined(CONFIG_OMAP_MUX_DEBUG) || defined(CONFIG_OMAP_MUX_WARNINGS)
-void __init_or_module omap2_cfg_debug(const struct pin_config *cfg, u16 reg)
+static void __init_or_module omap2_cfg_debug(const struct pin_config *cfg, u16 reg)
 {
 	u16 orig;
 	u8 warn = 0, debug = 0;
@@ -409,11 +409,11 @@ int __init_or_module omap24xx_cfg_reg(const struct pin_config *cfg)
 	return 0;
 }
 #else
-#define omap24xx_cfg_reg	0
+#define omap24xx_cfg_reg	NULL
 #endif
 
 #ifdef CONFIG_ARCH_OMAP34XX
-int __init_or_module omap34xx_cfg_reg(const struct pin_config *cfg)
+static int __init_or_module omap34xx_cfg_reg(const struct pin_config *cfg)
 {
 	static DEFINE_SPINLOCK(mux_spin_lock);
 	unsigned long flags;
@@ -428,7 +428,7 @@ int __init_or_module omap34xx_cfg_reg(const struct pin_config *cfg)
 	return 0;
 }
 #else
-#define omap34xx_cfg_reg	0
+#define omap34xx_cfg_reg	NULL
 #endif
 
 int __init omap2_mux_init(void)
@@ -437,9 +437,7 @@ int __init omap2_mux_init(void)
 		arch_mux_cfg.pins	= omap24xx_pins;
 		arch_mux_cfg.size	= OMAP24XX_PINS_SZ;
 		arch_mux_cfg.cfg_reg	= omap24xx_cfg_reg;
-	}
-
-	if (cpu_is_omap34xx()) {
+	} else if (cpu_is_omap34xx()) {
 		arch_mux_cfg.pins	= omap34xx_pins;
 		arch_mux_cfg.size	= OMAP34XX_PINS_SZ;
 		arch_mux_cfg.cfg_reg	= omap34xx_cfg_reg;

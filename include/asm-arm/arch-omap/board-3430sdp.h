@@ -30,6 +30,7 @@
 #define __ASM_ARCH_OMAP_3430SDP_H
 
 extern void sdp3430_usb_init(void);
+extern void sdp3430_flash_init(void);
 
 #define DEBUG_BASE			0x08000000  /* debug board */
 

@@ -26,6 +26,8 @@
 #ifndef __ASM_ARCH_OMAP_CPU_H
 #define __ASM_ARCH_OMAP_CPU_H
 
+#include <linux/init.h>
+
 struct omap_chip_id {
 	u8 oc;
 };
@@ -395,6 +397,8 @@ int omap_chip_is(struct omap_chip_id oci);
 #define is_device_type_gp()	(get_device_type() == DEVICE_TYPE_GP)
 #define is_device_type_bad()	(get_device_type() == DEVICE_TYPE_BAD)
 
-#endif
+void __init omap2_check_revision(void);
+
+#endif    /* defined(CONFIG_ARCH_OMAP2) || defined(CONFIG_ARCH_OMAP3) */
 
 #endif

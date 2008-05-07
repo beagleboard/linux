@@ -38,4 +38,6 @@
 #define CLOCK_TICK_RATE		(HZ * 100000UL)
 #endif
 
+extern struct sys_timer omap_timer;
+
 #endif /* __ASM_ARCH_OMAP_TIMEX_H */

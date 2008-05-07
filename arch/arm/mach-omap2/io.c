@@ -38,9 +38,6 @@
 #include <asm/arch/clockdomain.h>
 #include "clockdomains.h"
 
-extern void omap2_check_revision(void);
-extern void omapfb_reserve_sdram(void);
-
 /*
  * The machine specific code may provide the extra mapping besides the
  * default mapping provided here.
