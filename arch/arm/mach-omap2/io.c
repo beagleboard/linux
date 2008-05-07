@@ -18,14 +18,18 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
+#include <linux/io.h>
 
 #include <asm/tlb.h>
-#include <asm/io.h>
 
 #include <asm/mach/map.h>
-
 #include <asm/arch/mux.h>
 #include <asm/arch/omapfb.h>
+#include <asm/arch/sram.h>
+
+#include "memory.h"
+
+#include "clock.h"
 
 #include <asm/arch/powerdomain.h>
 
@@ -34,11 +38,7 @@
 #include <asm/arch/clockdomain.h>
 #include "clockdomains.h"
 
-extern void omap_sram_init(void);
-extern int omap2_clk_init(void);
 extern void omap2_check_revision(void);
-extern void omap2_init_memory(void);
-extern void gpmc_init(void);
 extern void omapfb_reserve_sdram(void);
 
 /*

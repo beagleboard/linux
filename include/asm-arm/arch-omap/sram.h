@@ -13,6 +13,7 @@
 
 #include <linux/poison.h>    /* for SRAM_VA_MAGIC */
 
+extern int __init omap_sram_init(void);
 extern void * omap_sram_push(void * start, unsigned long size);
 extern int omap_sram_patch_va(void *srcfn, void *srcd, void *sramfn, void __iomem *d);
 extern void omap_sram_reprogram_clock(u32 dpllctl, u32 ckctl);
