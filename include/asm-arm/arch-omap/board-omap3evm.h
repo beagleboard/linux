@@ -31,6 +31,7 @@
 
 extern void omap3evm_flash_init(void);
 
+#define OMAP3_EVM_TS_GPIO	175
 #define ONENAND_MAP		0x20000000
 
 #endif /* __ASM_ARCH_OMAP3_EVM_H */
