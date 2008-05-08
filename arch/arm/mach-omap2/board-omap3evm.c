@@ -35,6 +35,49 @@
 #include <asm/arch/common.h>
 #include <asm/arch/mcspi.h>
 
+static struct resource omap3evm_smc911x_resources[] = {
+	[0] =	{
+		.start  = OMAP3EVM_ETHR_START,
+		.end    = (OMAP3EVM_ETHR_START + OMAP3EVM_ETHR_SIZE - 1),
+		.flags  = IORESOURCE_MEM,
+	},
+	[1] =	{
+		.start  = OMAP_GPIO_IRQ(OMAP3EVM_ETHR_GPIO_IRQ),
+		.end    = OMAP_GPIO_IRQ(OMAP3EVM_ETHR_GPIO_IRQ),
+		.flags  = IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device omap3evm_smc911x_device = {
+	.name		= "smc911x",
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(omap3evm_smc911x_resources),
+	.resource	= &omap3evm_smc911x_resources [0],
+};
+
+static inline void __init omap3evm_init_smc911x(void)
+{
+	int eth_cs;
+	struct clk *l3ck;
+	unsigned int rate;
+
+	eth_cs = OMAP3EVM_SMC911X_CS;
+
+	l3ck = clk_get(NULL, "l3_ck");
+	if (IS_ERR(l3ck))
+		rate = 100000000;
+	else
+		rate = clk_get_rate(l3ck);
+
+	if (omap_request_gpio(OMAP3EVM_ETHR_GPIO_IRQ) < 0) {
+		printk(KERN_ERR "Failed to request GPIO%d for smc911x IRQ\n",
+			OMAP3EVM_ETHR_GPIO_IRQ);
+		return;
+	}
+
+	omap_set_gpio_direction(OMAP3EVM_ETHR_GPIO_IRQ, 1);
+}
+
 static struct omap_uart_config omap3_evm_uart_config __initdata = {
 	.enabled_uarts	= ((1 << 0) | (1 << 1) | (1 << 2)),
 };
@@ -111,6 +154,7 @@ static void __init omap3_evm_init_irq(void)
 	omap2_init_common_hw();
 	omap_init_irq();
 	omap_gpio_init();
+	omap3evm_init_smc911x();
 }
 
 static struct omap_board_config_kernel omap3_evm_config[] __initdata = {
@@ -124,6 +168,7 @@ static struct platform_device *omap3_evm_devices[] __initdata = {
 #ifdef CONFIG_RTC_DRV_TWL4030
 	&omap3_evm_twl4030rtc_device,
 #endif
+	&omap3evm_smc911x_device,
 };
 
 static void __init omap3_evm_init(void)
