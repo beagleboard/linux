@@ -20,7 +20,7 @@
 #define OMAP_MMC_MAX_SLOTS	2
 
 struct omap_mmc_platform_data {
-	struct omap_mmc_conf    conf;
+	struct omap_mmc_conf	conf;
 
 	/* number of slots on board */
 	unsigned nr_slots:2;
