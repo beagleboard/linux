@@ -267,3 +267,25 @@ void __init omap2_check_revision(void)
 
 }
 
+#ifdef CONFIG_ARCH_OMAP3
+/*
+ * OMAP3 has L2 cache which has to be enabled by bootloader.
+ */
+static int __init omap3_check_l2cache(void)
+{
+	u32 val;
+
+	/* Get CP15 AUX register, bit 1 enabled indicates L2 cache is on */
+	asm volatile("mrc p15, 0, %0, c1, c0, 1":"=r" (val));
+
+	if ((val & 0x2) == 0)
+		printk(KERN_WARNING "Warning: L2 cache not enabled. Check "
+		       "your bootloader. L2 off results in performance loss\n");
+	else
+		pr_info("OMAP3 L2 cache enabled\n");
+
+	return 0;
+}
+
+arch_initcall(omap3_check_l2cache);
+#endif /* CONFIG_ARCH_OMAP3 */
