@@ -40,7 +40,7 @@
 #define RETU_WDT_MAX_TIMER 63
 
 static struct completion retu_wdt_completion;
-static DECLARE_MUTEX(retu_wdt_mutex);	/* Avoid simultaneous writes to watchdog register */
+static DEFINE_MUTEX(retu_wdt_mutex);
 
 static unsigned int period_val = RETU_WDT_DEFAULT_TIMER;	/* Current period of watchdog */
 static int counter_param = RETU_WDT_MAX_TIMER;
@@ -52,12 +52,12 @@ static int retu_modify_counter(unsigned int new)
 	if (new < RETU_WDT_MIN_TIMER || new > RETU_WDT_MAX_TIMER)
 		return -EINVAL;
 
-	down_interruptible(&retu_wdt_mutex);
+	mutex_lock(&retu_wdt_mutex);
 
 	period_val = new;
 	retu_write_reg(RETU_REG_WATCHDOG, (u16)period_val);
 
-	up(&retu_wdt_mutex);
+	mutex_unlock(&retu_wdt_mutex);
 	return ret;
 }
 
