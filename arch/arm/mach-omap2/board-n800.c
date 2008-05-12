@@ -657,18 +657,15 @@ static struct i2c_board_info __initdata n800_i2c_board_info_2[] = {
 #ifdef CONFIG_MACH_NOKIA_N810
 	{
 		I2C_BOARD_INFO("lm8323", 0x45),
-		.type		= "lm8323",
 		.irq		= OMAP_GPIO_IRQ(109),
 		.platform_data	= &lm8323_pdata,
 	},
 #endif
 	{
 		I2C_BOARD_INFO("tsl2563", 0x29),
-		.type		= "tsl2563",
 	},
 	{
 		I2C_BOARD_INFO("lp5521", 0x32),
-		.type		= "lp5521",
 	},
 };
 
