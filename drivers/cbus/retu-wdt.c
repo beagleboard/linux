@@ -42,7 +42,8 @@
 static struct completion retu_wdt_completion;
 static DEFINE_MUTEX(retu_wdt_mutex);
 
-static unsigned int period_val = RETU_WDT_DEFAULT_TIMER;	/* Current period of watchdog */
+/* Current period of watchdog */
+static unsigned int period_val = RETU_WDT_DEFAULT_TIMER;
 static int counter_param = RETU_WDT_MAX_TIMER;
 
 static int retu_modify_counter(unsigned int new)
@@ -61,15 +62,16 @@ static int retu_modify_counter(unsigned int new)
 	return ret;
 }
 
-static ssize_t retu_wdt_period_show(struct device *dev, struct device_attribute *attr,
-				    char *buf)
+static ssize_t retu_wdt_period_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
 {
 	/* Show current max counter */
 	return sprintf(buf, "%u\n", (u16)period_val);
 }
 
-static ssize_t retu_wdt_period_store(struct device *dev, struct device_attribute *attr,
-				     const char *buf, size_t count)
+static ssize_t retu_wdt_period_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
 {
 	unsigned int new_period;
 	int ret;
@@ -86,8 +88,8 @@ static ssize_t retu_wdt_period_store(struct device *dev, struct device_attribute
 	return strnlen(buf, count);
 }
 
-static ssize_t retu_wdt_counter_show(struct device *dev, struct device_attribute *attr,
-				     char *buf)
+static ssize_t retu_wdt_counter_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
 {
 	u16 counter;
 
@@ -99,7 +101,7 @@ static ssize_t retu_wdt_counter_show(struct device *dev, struct device_attribute
 }
 
 static DEVICE_ATTR(period, S_IRUGO | S_IWUSR, retu_wdt_period_show, \
-                   retu_wdt_period_store);
+			retu_wdt_period_store);
 static DEVICE_ATTR(counter, S_IRUGO, retu_wdt_counter_show, NULL);
 
 static int __devinit retu_wdt_probe(struct device *dev)
@@ -108,14 +110,16 @@ static int __devinit retu_wdt_probe(struct device *dev)
 
 	ret = device_create_file(dev, &dev_attr_period);
 	if (ret) {
-		printk(KERN_ERR "retu_wdt_probe: Error creating sys device file: period\n");
+		printk(KERN_ERR "retu_wdt_probe: Error creating "
+					"sys device file: period\n");
 		return ret;
 	}
 
 	ret = device_create_file(dev, &dev_attr_counter);
 	if (ret) {
 		device_remove_file(dev, &dev_attr_period);
-		printk(KERN_ERR "retu_wdt_probe: Error creating sys device file: counter\n");
+		printk(KERN_ERR "retu_wdt_probe: Error creating "
+					"sys device file: counter\n");
 	}
 
 	return ret;
