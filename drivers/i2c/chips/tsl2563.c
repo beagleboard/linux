@@ -717,7 +717,7 @@ static struct i2c_driver tsl2563_i2c_driver = {
 	.suspend	= tsl2563_suspend,
 	.resume		= tsl2563_resume,
 	.probe		= tsl2563_probe,
-	.remove		= __exit_p(tsl2563_remove),
+	.remove		= __devexit_p(tsl2563_remove),
 };
 
 static int __init tsl2563_init(void)

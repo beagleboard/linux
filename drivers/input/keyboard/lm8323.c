@@ -894,7 +894,7 @@ static struct i2c_driver lm8323_i2c_driver = {
 		.name	 = DRIVER_NAME,
 	},
 	.probe		= lm8323_probe,
-	.remove		= __exit_p(lm8323_remove),
+	.remove		= __devexit_p(lm8323_remove),
 	.suspend	= lm8323_suspend,
 	.resume		= lm8323_resume,
 	.id_table	= lm8323_id,

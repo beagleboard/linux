@@ -563,7 +563,7 @@ static struct i2c_driver lp5521_driver = {
 		.name	= LP5521_DRIVER_NAME,
 	},
 	.probe		= lp5521_probe,
-	.remove		= __exit_p(lp5521_remove),
+	.remove		= __devexit_p(lp5521_remove),
 };
 
 static int __init lp5521_init(void)
