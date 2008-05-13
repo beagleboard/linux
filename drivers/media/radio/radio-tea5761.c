@@ -413,7 +413,8 @@ static struct video_device tea5761_video_device = {
 	.release       = video_device_release
 };
 
-static int tea5761_i2c_driver_probe(struct i2c_client *client)
+static int tea5761_i2c_driver_probe(struct i2c_client *client,
+		const struct i2c_device_id *id)
 {
 	struct video_device *video_dev;
 	int err = 0;
@@ -471,6 +472,12 @@ static int tea5761_i2c_driver_remove(struct i2c_client *client)
 
 	return 0;
 }
+
+static const struct i2c_device_id tea5761_id[] = {
+	{ DRIVER_NAME, 0 },
+	{ },
+};
+MODULE_DEVICE_TABLE(i2c, tea5761_id);
 
 static struct i2c_driver tea5761_driver = {
 	.driver = {
