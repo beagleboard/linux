@@ -58,9 +58,20 @@ static struct omap_mmc_config omap3beagle_mmc_config __initdata = {
 	},
 };
 
+static struct platform_device omap3_beagle_twl4030rtc_device = {
+	.name           = "twl4030_rtc",
+	.id             = -1,
+};
+
 static struct omap_board_config_kernel omap3_beagle_config[] __initdata = {
 	{ OMAP_TAG_UART,	&omap3_beagle_uart_config },
 	{ OMAP_TAG_MMC,		&omap3beagle_mmc_config },
+};
+
+static struct platform_device *omap3_beagle_devices[] __initdata = {
+#ifdef CONFIG_RTC_DRV_TWL4030
+	&omap3_beagle_twl4030rtc_device,
+#endif
 };
 
 static void __init omap3_beagle_init(void)
@@ -77,6 +88,8 @@ arch_initcall(omap3_beagle_i2c_init);
 
 static void __init omap3_beagle_map_io(void)
 {
+	platform_add_devices(omap3_beagle_devices,
+				ARRAY_SIZE(omap3_beagle_devices));
 	omap2_set_globals_343x();
 	omap2_map_common_io();
 }
