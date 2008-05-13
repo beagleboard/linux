@@ -38,8 +38,7 @@
 
 #define LCD_XRES	 	480
 #define LCD_YRES 		640
-#define LCD_PIXCLOCK_MAX	41700 /* in pico seconds  */
-#define LCD_PIXCLOCK_MIN	38000 /* in pico seconds */
+#define LCD_PIXCLOCK		26000 /* in kHz  */
 
 #define ENABLE_VDAC_DEDICATED	0x03
 #define ENABLE_VDAC_DEV_GRP	0x20
@@ -111,7 +110,7 @@ struct lcd_panel omap3evm_panel = {
 	.vfp		= 2,		/* lower_margin */
 	.vbp		= 7,		/* upper_margin (8) - 1 */
 
-	.pixel_clock	= LCD_PIXCLOCK_MAX,
+	.pixel_clock	= LCD_PIXCLOCK,
 
 	.init		= omap3evm_panel_init,
 	.cleanup	= omap3evm_panel_cleanup,
