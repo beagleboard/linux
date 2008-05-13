@@ -238,6 +238,7 @@ static void twl4030_i2c_enableint(unsigned int irq) {}
 
 /* information for processing in the Work Item */
 static struct irq_chip twl4030_irq_chip = {
+	.name	= "twl4030",
 	.ack	= twl4030_i2c_ackirq,
 	.mask	= twl4030_i2c_disableint,
 	.unmask	= twl4030_i2c_enableint,
