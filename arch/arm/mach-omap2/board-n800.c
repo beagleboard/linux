@@ -642,7 +642,7 @@ static struct i2c_board_info __initdata n800_i2c_board_info_1[] = {
 
 extern struct tcm825x_platform_data n800_tcm825x_platform_data;
 
-static struct i2c_board_info __initdata n800_i2c_board_info_2[] = {
+static struct i2c_board_info __initdata_or_module n800_i2c_board_info_2[] = {
 #if defined (CONFIG_VIDEO_TCM825X) || defined (CONFIG_VIDEO_TCM825X_MODULE)
 	{
 		I2C_BOARD_INFO(TCM825X_NAME, TCM825X_I2C_ADDR),

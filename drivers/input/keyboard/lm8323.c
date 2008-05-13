@@ -150,7 +150,6 @@ struct lm8323_chip {
 	struct i2c_client	*client;
 	struct work_struct	work;
 	struct input_dev	*idev;
-	int			irq;
 	unsigned		kp_enabled : 1;
 	unsigned		pm_suspend : 1;
 	unsigned		keys_down;
@@ -755,9 +754,6 @@ static int lm8323_probe(struct i2c_client *client,
 	if (init_pwm(lm, 3, &client->dev, lm8323_pdata->pwm3_name) < 0)
 		goto fail5;
 
-	lm->irq = lm8323_pdata->irq_gpio;
-	debug(&c->dev, "IRQ: %d\n", lm->irq);
-
 	mutex_init(&lm->lock);
 	INIT_WORK(&lm->work, lm8323_work);
 
@@ -765,11 +761,11 @@ static int lm8323_probe(struct i2c_client *client,
 			  IRQF_TRIGGER_FALLING | IRQF_DISABLED |
 			  IRQF_SAMPLE_RANDOM, DRIVER_NAME, lm);
 	if (err) {
-		dev_err(&client->dev, "could not get IRQ %d\n", lm->irq);
+		dev_err(&client->dev, "could not get IRQ %d\n", client->irq);
 		goto fail6;
 	}
 
-	set_irq_wake(lm->irq, 1);
+	set_irq_wake(client->irq, 1);
 
 	lm->kp_enabled = 1;
 	err = device_create_file(&client->dev, &dev_attr_disable_kp);
@@ -802,7 +798,8 @@ static int lm8323_probe(struct i2c_client *client,
 		set_bit(EV_REP, idev->evbit);
 
 	lm->idev = idev;
-	if (input_register_device(idev)) {
+	err = input_register_device(idev);
+	if (err) {
 		dev_dbg(&client->dev, "error registering input device\n");
 		goto fail8;
 	}
@@ -812,7 +809,7 @@ static int lm8323_probe(struct i2c_client *client,
 fail8:
 	device_remove_file(&client->dev, &dev_attr_disable_kp);
 fail7:
-	free_irq(lm->irq, lm);
+	free_irq(client->irq, lm);
 fail6:
 	if (lm->pwm3.enabled)
 		led_classdev_unregister(&lm->pwm3.cdev);
@@ -832,8 +829,17 @@ static int lm8323_remove(struct i2c_client *client)
 {
 	struct lm8323_chip *lm = i2c_get_clientdata(client);
 
-	free_irq(lm->irq, lm);
+	free_irq(client->irq, lm);
+	cancel_work_sync(&lm->work);
+	input_unregister_device(lm->idev);
 	device_remove_file(&lm->client->dev, &dev_attr_disable_kp);
+	if (lm->pwm3.enabled)
+		led_classdev_unregister(&lm->pwm3.cdev);
+	if (lm->pwm2.enabled)
+		led_classdev_unregister(&lm->pwm2.cdev);
+	if (lm->pwm1.enabled)
+		led_classdev_unregister(&lm->pwm1.cdev);
+	kfree(lm);
 
 	return 0;
 }
@@ -846,8 +852,8 @@ static int lm8323_suspend(struct i2c_client *client, pm_message_t mesg)
 {
 	struct lm8323_chip *lm = i2c_get_clientdata(client);
 
-	set_irq_wake(lm->irq, 0);
-	disable_irq(lm->irq);
+	set_irq_wake(client->irq, 0);
+	disable_irq(client->irq);
 
 	mutex_lock(&lm->lock);
 	lm->pm_suspend = 1;
@@ -878,8 +884,8 @@ static int lm8323_resume(struct i2c_client *client)
 	if (lm->pwm3.enabled)
 		led_classdev_resume(&lm->pwm3.cdev);
 
-	enable_irq(lm->irq);
-	set_irq_wake(lm->irq, 1);
+	enable_irq(client->irq);
+	set_irq_wake(client->irq, 1);
 
 	return 0;
 }

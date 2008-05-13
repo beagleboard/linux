@@ -17,8 +17,6 @@
 #define LM8323_KEYMAP_SIZE (0x7f + 1)
 
 struct lm8323_platform_data {
-	u16 irq_gpio;
-
 	int debounce_time; /* Time to watch for key bouncing, in ms. */
 	int active_time; /* Idle time until sleep, in ms. */
 
