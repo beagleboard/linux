@@ -503,7 +503,8 @@ static int lp5521_set_mode(struct lp5521_chip *chip, char *mode)
 /*--------------------------------------------------------------*/
 static struct i2c_driver lp5521_driver;
 
-static int lp5521_probe(struct i2c_client *client)
+static int lp5521_probe(struct i2c_client *client,
+		const struct i2c_device_id *id)
 {
 	struct lp5521_chip *chip;
 	int ret = 0;
@@ -550,6 +551,12 @@ static int lp5521_remove(struct i2c_client *client)
 
 	return 0;
 }
+
+static const struct i2c_device_id lp5521_id[] = {
+	{ LP5521_DRIVER_NAME, 0},
+	{ },
+};
+MODULE_DEVICE_TABLE(i2c, lp5521_id);
 
 static struct i2c_driver lp5521_driver = {
 	.driver = {
