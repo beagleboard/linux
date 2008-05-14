@@ -18,7 +18,7 @@
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/delay.h>
-#include <linux/rwsem.h>
+#include <linux/spinlock.h>
 #include <linux/list.h>
 #include <linux/errno.h>
 #include <linux/err.h>
@@ -38,10 +38,10 @@
 static LIST_HEAD(pwrdm_list);
 
 /*
- * pwrdm_rwsem protects pwrdm_list add and del ops - also reused to
+ * pwrdm_rwlock protects pwrdm_list add and del ops - also reused to
  * protect pwrdm_clkdms[] during clkdm add/del ops
  */
-static DECLARE_RWSEM(pwrdm_rwsem);
+static DEFINE_RWLOCK(pwrdm_rwlock);
 
 
 /* Private functions */
@@ -131,6 +131,7 @@ void pwrdm_init(struct powerdomain **pwrdm_list)
  */
 int pwrdm_register(struct powerdomain *pwrdm)
 {
+	unsigned long flags;
 	int ret = -EINVAL;
 
 	if (!pwrdm)
@@ -139,7 +140,7 @@ int pwrdm_register(struct powerdomain *pwrdm)
 	if (!omap_chip_is(pwrdm->omap_chip))
 		return -EINVAL;
 
-	down_write(&pwrdm_rwsem);
+	write_lock_irqsave(&pwrdm_rwlock, flags);
 	if (_pwrdm_lookup(pwrdm->name)) {
 		ret = -EEXIST;
 		goto pr_unlock;
@@ -151,7 +152,7 @@ int pwrdm_register(struct powerdomain *pwrdm)
 	ret = 0;
 
 pr_unlock:
-	up_write(&pwrdm_rwsem);
+	write_unlock_irqrestore(&pwrdm_rwlock, flags);
 
 	return ret;
 }
@@ -165,12 +166,14 @@ pr_unlock:
  */
 int pwrdm_unregister(struct powerdomain *pwrdm)
 {
+	unsigned long flags;
+
 	if (!pwrdm)
 		return -EINVAL;
 
-	down_write(&pwrdm_rwsem);
+	write_lock_irqsave(&pwrdm_rwlock, flags);
 	list_del(&pwrdm->node);
-	up_write(&pwrdm_rwsem);
+	write_unlock_irqrestore(&pwrdm_rwlock, flags);
 
 	pr_debug("powerdomain: unregistered %s\n", pwrdm->name);
 
@@ -187,13 +190,14 @@ int pwrdm_unregister(struct powerdomain *pwrdm)
 struct powerdomain *pwrdm_lookup(const char *name)
 {
 	struct powerdomain *pwrdm;
+	unsigned long flags;
 
 	if (!name)
 		return NULL;
 
-	down_read(&pwrdm_rwsem);
+	read_lock_irqsave(&pwrdm_rwlock, flags);
 	pwrdm = _pwrdm_lookup(name);
-	up_read(&pwrdm_rwsem);
+	read_unlock_irqrestore(&pwrdm_rwlock, flags);
 
 	return pwrdm;
 }
@@ -204,7 +208,7 @@ struct powerdomain *pwrdm_lookup(const char *name)
  *
  * Call the supplied function for each registered powerdomain.  The
  * callback function can return anything but 0 to bail out early from
- * the iterator.  The callback function is called with the pwrdm_rwsem
+ * the iterator.  The callback function is called with the pwrdm_rwlock
  * held for reading, so no powerdomain structure manipulation
  * functions should be called from the callback, although hardware
  * powerdomain control functions are fine.  Returns the last return
@@ -215,18 +219,19 @@ struct powerdomain *pwrdm_lookup(const char *name)
 int pwrdm_for_each(int (*fn)(struct powerdomain *pwrdm))
 {
 	struct powerdomain *temp_pwrdm;
+	unsigned long flags;
 	int ret = 0;
 
 	if (!fn)
 		return -EINVAL;
 
-	down_read(&pwrdm_rwsem);
+	read_lock_irqsave(&pwrdm_rwlock, flags);
 	list_for_each_entry(temp_pwrdm, &pwrdm_list, node) {
 		ret = (*fn)(temp_pwrdm);
 		if (ret)
 			break;
 	}
-	up_read(&pwrdm_rwsem);
+	read_unlock_irqrestore(&pwrdm_rwlock, flags);
 
 	return ret;
 }
@@ -243,6 +248,7 @@ int pwrdm_for_each(int (*fn)(struct powerdomain *pwrdm))
  */
 int pwrdm_add_clkdm(struct powerdomain *pwrdm, struct clockdomain *clkdm)
 {
+	unsigned long flags;
 	int i;
 	int ret = -EINVAL;
 
@@ -252,7 +258,7 @@ int pwrdm_add_clkdm(struct powerdomain *pwrdm, struct clockdomain *clkdm)
 	pr_debug("powerdomain: associating clockdomain %s with powerdomain "
 		 "%s\n", clkdm->name, pwrdm->name);
 
-	down_write(&pwrdm_rwsem);
+	write_lock_irqsave(&pwrdm_rwlock, flags);
 
 	for (i = 0; i < PWRDM_MAX_CLKDMS; i++) {
 		if (!pwrdm->pwrdm_clkdms[i])
@@ -278,7 +284,7 @@ int pwrdm_add_clkdm(struct powerdomain *pwrdm, struct clockdomain *clkdm)
 	ret = 0;
 
 pac_exit:
-	up_write(&pwrdm_rwsem);
+	write_unlock_irqrestore(&pwrdm_rwlock, flags);
 
 	return ret;
 }
@@ -295,6 +301,7 @@ pac_exit:
  */
 int pwrdm_del_clkdm(struct powerdomain *pwrdm, struct clockdomain *clkdm)
 {
+	unsigned long flags;
 	int ret = -EINVAL;
 	int i;
 
@@ -304,7 +311,7 @@ int pwrdm_del_clkdm(struct powerdomain *pwrdm, struct clockdomain *clkdm)
 	pr_debug("powerdomain: dissociating clockdomain %s from powerdomain "
 		 "%s\n", clkdm->name, pwrdm->name);
 
-	down_write(&pwrdm_rwsem);
+	write_lock_irqsave(&pwrdm_rwlock, flags);
 
 	for (i = 0; i < PWRDM_MAX_CLKDMS; i++)
 		if (pwrdm->pwrdm_clkdms[i] == clkdm)
@@ -322,7 +329,7 @@ int pwrdm_del_clkdm(struct powerdomain *pwrdm, struct clockdomain *clkdm)
 	ret = 0;
 
 pdc_exit:
-	up_write(&pwrdm_rwsem);
+	write_unlock_irqrestore(&pwrdm_rwlock, flags);
 
 	return ret;
 }
@@ -335,7 +342,7 @@ pdc_exit:
  * Call the supplied function for each clockdomain in the powerdomain
  * 'pwrdm'.  The callback function can return anything but 0 to bail
  * out early from the iterator.  The callback function is called with
- * the pwrdm_rwsem held for reading, so no powerdomain structure
+ * the pwrdm_rwlock held for reading, so no powerdomain structure
  * manipulation functions should be called from the callback, although
  * hardware powerdomain control functions are fine.  Returns -EINVAL
  * if presented with invalid pointers; or passes along the last return
@@ -346,18 +353,19 @@ int pwrdm_for_each_clkdm(struct powerdomain *pwrdm,
 			 int (*fn)(struct powerdomain *pwrdm,
 				   struct clockdomain *clkdm))
 {
+	unsigned long flags;
 	int ret = 0;
 	int i;
 
 	if (!fn)
 		return -EINVAL;
 
-	down_read(&pwrdm_rwsem);
+	read_lock_irqsave(&pwrdm_rwlock, flags);
 
 	for (i = 0; i < PWRDM_MAX_CLKDMS && !ret; i++)
 		ret = (*fn)(pwrdm, pwrdm->pwrdm_clkdms[i]);
 
-	up_read(&pwrdm_rwsem);
+	read_unlock_irqrestore(&pwrdm_rwlock, flags);
 
 	return ret;
 }
