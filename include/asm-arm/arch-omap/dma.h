@@ -435,18 +435,21 @@ struct omap_dma_channel_params {
 	int frame_count;	/* number of frames in a element */
 
 	int src_port;		/* Only on OMAP1 REVISIT: Is this needed? */
-	int src_amode;		/* constant , post increment, indexed , double indexed */
+	int src_amode;		/* constant, post increment, indexed,
+					double indexed */
 	unsigned long src_start;	/* source address : physical */
 	int src_ei;		/* source element index */
 	int src_fi;		/* source frame index */
 
 	int dst_port;		/* Only on OMAP1 REVISIT: Is this needed? */
-	int dst_amode;		/* constant , post increment, indexed , double indexed */
+	int dst_amode;		/* constant, post increment, indexed,
+					double indexed */
 	unsigned long dst_start;	/* source address : physical */
 	int dst_ei;		/* source element index */
 	int dst_fi;		/* source frame index */
 
-	int trigger;		/* trigger attached if the channel is synchronized */
+	int trigger;		/* trigger attached if the channel is
+					synchronized */
 	int sync_mode;		/* sycn on element, frame , block or packet */
 	int src_or_dst_synch;	/* source synch(1) or destination synch(0) */
 
@@ -463,8 +466,8 @@ struct omap_dma_channel_params {
 
 extern void omap_set_dma_priority(int lch, int dst_port, int priority);
 extern int omap_request_dma(int dev_id, const char *dev_name,
-			    void (* callback)(int lch, u16 ch_status, void *data),
-			    void *data, int *dma_ch);
+				void (*callback)(int lch, u16 ch_status,
+				void *data), void *data, int *dma_ch);
 extern void omap_enable_dma_irq(int ch, u16 irq_bits);
 extern void omap_disable_dma_irq(int ch, u16 irq_bits);
 extern void omap_free_dma(int ch);
@@ -495,13 +498,13 @@ extern void omap_set_dma_dest_burst_mode(int lch,
 					 enum omap_dma_burst_mode burst_mode);
 
 extern void omap_set_dma_params(int lch,
-				struct omap_dma_channel_params * params);
+				struct omap_dma_channel_params *params);
 
-extern void omap_dma_link_lch (int lch_head, int lch_queue);
-extern void omap_dma_unlink_lch (int lch_head, int lch_queue);
+extern void omap_dma_link_lch(int lch_head, int lch_queue);
+extern void omap_dma_unlink_lch(int lch_head, int lch_queue);
 
 extern int omap_set_dma_callback(int lch,
-			void (* callback)(int lch, u16 ch_status, void *data),
+			void (*callback)(int lch, u16 ch_status, void *data),
 			void *data);
 extern dma_addr_t omap_get_dma_src_pos(int lch);
 extern dma_addr_t omap_get_dma_dst_pos(int lch);
@@ -541,7 +544,7 @@ extern int omap_dma_chain_status(int chain_id);
 #endif
 
 /* LCD DMA functions */
-extern int omap_request_lcd_dma(void (* callback)(u16 status, void *data),
+extern int omap_request_lcd_dma(void (*callback)(u16 status, void *data),
 				void *data);
 extern void omap_free_lcd_dma(void);
 extern void omap_setup_lcd_dma(void);
