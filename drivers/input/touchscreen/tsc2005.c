@@ -54,7 +54,13 @@
  *     during the last 20ms which means the pen has been lifted.
  */
 
-#define TSC2005_HZ	(14000000)
+#define TSC2005_VDD_LOWER_27
+
+#ifdef TSC2005_VDD_LOWER_27
+#define TSC2005_HZ     (10000000)
+#else
+#define TSC2005_HZ     (25000000)
+#endif
 
 #define TSC2005_CMD	(0x80)
 #define TSC2005_REG	(0x00)
@@ -226,13 +232,12 @@ static void tsc2005_cmd(struct tsc2005 *ts, u8 cmd)
 	struct spi_message msg;
 	struct spi_transfer xfer = { 0 };
 
-	spi_message_init(&msg);
-	msg.spi = ts->spi;
 	xfer.tx_buf = &data;
 	xfer.rx_buf = NULL;
-	xfer.len = 2;
+	xfer.len = 1;
 	xfer.bits_per_word = 8;
 
+	spi_message_init(&msg);
 	spi_message_add_tail(&xfer, &msg);
 	spi_sync(ts->spi, &msg);
 }
@@ -244,16 +249,15 @@ static void tsc2005_write(struct tsc2005 *ts, u8 reg, u16 value)
 	struct spi_transfer xfer = { 0 };
 
 	tx = (TSC2005_REG | reg | TSC2005_REG_PND0 |
-	       TSC2005_REG_WRITE) << (2 * 8);
+	       TSC2005_REG_WRITE) << 16;
 	tx |= value;
 
-	spi_message_init(&msg);
-	msg.spi = ts->spi;
 	xfer.tx_buf = &tx;
 	xfer.rx_buf = NULL;
 	xfer.len = 4;
-	xfer.bits_per_word = 3 * 8;
+	xfer.bits_per_word = 24;
 
+	spi_message_init(&msg);
 	spi_message_add_tail(&xfer, &msg);
 	spi_sync(ts->spi, &msg);
 }
@@ -271,10 +275,10 @@ static void tsc2005_ts_update_pen_state(struct tsc2005 *ts,
 		}
 	} else {
 		input_report_abs(ts->idev, ABS_PRESSURE, 0);
-		if (ts->pen_down)
+		if (ts->pen_down) {
 			input_report_key(ts->idev, BTN_TOUCH, 0);
-
-		ts->pen_down = 0;
+			ts->pen_down = 0;
+		}
 	}
 
 	input_sync(ts->idev);
@@ -377,7 +381,7 @@ static void tsc2005_ts_penup_timer_handler(unsigned long data)
 
 /*
  * This interrupt is called when pen is down and coordinates are
- * available. That is indicated by a falling edge on DEV line.
+ * available. That is indicated by a falling edge on DAV line.
  */
 static irqreturn_t tsc2005_ts_irq_handler(int irq, void *dev_id)
 {
@@ -406,7 +410,6 @@ static void tsc2005_ts_setup_spi_xfer(struct tsc2005 *ts)
 	int i;
 
 	spi_message_init(m);
-	m->spi = ts->spi;
 
 	for (i = 0; i < NUM_READ_REGS; i++, x++) {
 		x->tx_buf = &tsc2005_read_reg[i];
@@ -565,11 +568,7 @@ static int __devinit tsc2005_ts_init(struct tsc2005 *ts,
 		goto err2;
 	}
 
-	/*
-	 * TODO: should be "TSC2005 touchscreen", but X has hardcoded these
-	 * strings and doesn't accept TSC2005 yet...
-	 */
-	idev->name = "TSC2301 touchscreen";
+	idev->name = "TSC2005 touchscreen";
 	snprintf(ts->phys, sizeof(ts->phys), "%s/input-ts",
 		 ts->spi->dev.bus_id);
 	idev->phys = ts->phys;
@@ -709,7 +708,6 @@ static int tsc2005_resume(struct spi_device *spi)
 static struct spi_driver tsc2005_driver = {
 	.driver = {
 		.name = "tsc2005",
-		.bus = &spi_bus_type,
 		.owner = THIS_MODULE,
 	},
 #ifdef CONFIG_PM
