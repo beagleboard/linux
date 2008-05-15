@@ -273,7 +273,7 @@ static int omap3_noncore_dpll_enable(struct clk *clk)
 	if (clk == &dpll3_ck)
 		return -EINVAL;
 
-	if (clk->parent->rate == clk_get_rate(clk))
+	if (clk->parent->rate == omap2_get_dpll_rate(clk))
 		r = _omap3_noncore_dpll_bypass(clk);
 	else
 		r = _omap3_noncore_dpll_lock(clk);
