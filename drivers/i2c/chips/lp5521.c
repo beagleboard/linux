@@ -564,6 +564,7 @@ static struct i2c_driver lp5521_driver = {
 	},
 	.probe		= lp5521_probe,
 	.remove		= __devexit_p(lp5521_remove),
+	.id_table	= lp5521_id,
 };
 
 static int __init lp5521_init(void)

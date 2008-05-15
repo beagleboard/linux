@@ -485,6 +485,7 @@ static struct i2c_driver tea5761_driver = {
 	},
 	.probe	= tea5761_i2c_driver_probe,
 	.remove = __devexit_p(tea5761_i2c_driver_remove),
+	.id_table = tea5761_id,
 };
 
 static int __init tea5761_init(void)
