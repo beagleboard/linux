@@ -22,6 +22,7 @@
 #include <linux/list.h>
 #include <linux/errno.h>
 #include <linux/err.h>
+#include <linux/io.h>
 
 #include <asm/atomic.h>
 

@@ -14,8 +14,6 @@
  * published by the Free Software Foundation.
  */
 
-#include <linux/io.h>
-
 #include "prcm-common.h"
 
 #ifndef __ASSEMBLER__
