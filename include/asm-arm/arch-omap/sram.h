@@ -43,4 +43,23 @@ extern void omap24xx_sram_reprogram_sdrc(u32 perf_level, u32 dll_val,
 						u32 mem_type);
 extern unsigned long omap24xx_sram_reprogram_sdrc_sz;
 
+
+extern void omap34xx_sram_ddr_init(u32 *slow_dll_ctrl, u32 fast_dll_ctrl,
+						u32 base_cs, u32 force_unlock);
+extern unsigned long omap34xx_sram_ddr_init_sz;
+
+extern void omap34xx_sram_reprogram_sdrc(u32 perf_level, u32 dll_val,
+						u32 mem_type);
+extern unsigned long omap34xx_sram_reprogram_sdrc_sz;
+
+extern u32 omap34xx_sram_set_prcm(u32 dpll_ctrl_val, u32 sdrc_rfr_val,
+						int bypass);
+extern unsigned long omap34xx_sram_set_prcm_sz;
+
+extern u32 omap34xx_sram_reprogram_gpmc(u32 perf_level);
+extern unsigned long omap34xx_sram_reprogram_gpmc_sz;
+
+extern u32 omap34xx_sram_configure_core_dpll(u32 m, u32 n, u32 freqsel, u32 m2);
+extern unsigned long omap34xx_sram_configure_core_dpll_sz;
+
 #endif

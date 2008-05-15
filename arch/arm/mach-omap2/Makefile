@@ -9,6 +9,7 @@ obj-y := irq.o id.o io.o memory.o control.o prcm.o clock.o mux.o \
 
 # Functions loaded to SRAM
 obj-$(CONFIG_ARCH_OMAP2)		+= sram24xx.o
+obj-$(CONFIG_ARCH_OMAP3)		+= sram34xx.o
 
 # Power Management
 obj-$(CONFIG_PM) += pm.o sleep.o

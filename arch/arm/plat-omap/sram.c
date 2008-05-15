@@ -461,6 +461,67 @@ static inline int omap24xx_sram_init(void)
 }
 #endif
 
+#ifdef CONFIG_ARCH_OMAP3
+
+static u32 (*_omap2_sram_reprogram_gpmc)(u32 perf_level);
+u32 omap2_sram_reprogram_gpmc(u32 perf_level)
+{
+	if (!_omap2_sram_reprogram_gpmc)
+		omap_sram_error();
+
+	return _omap2_sram_reprogram_gpmc(perf_level);
+}
+
+static u32 (*_omap2_sram_configure_core_dpll)(u32 m, u32 n,
+						u32 freqsel, u32 m2);
+u32 omap2_sram_configure_core_dpll(u32 m, u32 n, u32 freqsel, u32 m2)
+{
+	if (!_omap2_sram_configure_core_dpll)
+		omap_sram_error();
+
+	return _omap2_sram_configure_core_dpll(m, n, freqsel, m2);
+}
+
+/* REVISIT: Should this be same as omap34xx_sram_init() after off-idle? */
+void restore_sram_functions(void)
+{
+	omap_sram_ceil = omap_sram_base + omap_sram_size;
+
+	_omap2_sram_reprogram_gpmc = omap_sram_push(omap34xx_sram_reprogram_gpmc,
+		omap34xx_sram_reprogram_gpmc_sz);
+
+	_omap2_sram_configure_core_dpll =
+			omap_sram_push(omap34xx_sram_configure_core_dpll,
+					omap34xx_sram_configure_core_dpll_sz);
+}
+
+int __init omap34xx_sram_init(void)
+{
+	_omap2_sram_ddr_init = omap_sram_push(omap34xx_sram_ddr_init,
+					omap34xx_sram_ddr_init_sz);
+
+	_omap2_sram_reprogram_sdrc = omap_sram_push(omap34xx_sram_reprogram_sdrc,
+					omap34xx_sram_reprogram_sdrc_sz);
+
+	_omap2_set_prcm = omap_sram_push(omap34xx_sram_set_prcm,
+					omap34xx_sram_set_prcm_sz);
+
+	_omap2_sram_reprogram_gpmc = omap_sram_push(omap34xx_sram_reprogram_gpmc,
+					omap34xx_sram_reprogram_gpmc_sz);
+
+	_omap2_sram_configure_core_dpll =
+				omap_sram_push(omap34xx_sram_configure_core_dpll,
+					omap34xx_sram_configure_core_dpll_sz);
+
+	return 0;
+}
+#else
+static inline int omap34xx_sram_init(void)
+{
+	return 0;
+}
+#endif
+
 int __init omap_sram_init(void)
 {
 	omap_detect_sram();
@@ -470,6 +531,8 @@ int __init omap_sram_init(void)
 		omap1_sram_init();
 	else if (cpu_is_omap24xx())
 		omap24xx_sram_init();
+	else if (cpu_is_omap34xx())
+		omap34xx_sram_init();
 
 	return 0;
 }
