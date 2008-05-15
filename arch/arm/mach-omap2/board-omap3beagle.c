@@ -76,6 +76,7 @@ static struct platform_device *omap3_beagle_devices[] __initdata = {
 
 static void __init omap3_beagle_init(void)
 {
+	platform_add_devices(omap3_beagle_devices, ARRAY_SIZE(omap3_beagle_devices));
 	omap_board_config = omap3_beagle_config;
 	omap_board_config_size = ARRAY_SIZE(omap3_beagle_config);
 	omap_serial_init();
@@ -88,8 +89,6 @@ arch_initcall(omap3_beagle_i2c_init);
 
 static void __init omap3_beagle_map_io(void)
 {
-	platform_add_devices(omap3_beagle_devices,
-				ARRAY_SIZE(omap3_beagle_devices));
 	omap2_set_globals_343x();
 	omap2_map_common_io();
 }
