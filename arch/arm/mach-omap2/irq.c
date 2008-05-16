@@ -20,12 +20,13 @@
 
 /* selected INTC register offsets */
 
-#define INTC_REVISION	0x0000
-#define INTC_SYSCONFIG	0x0010
-#define INTC_SYSSTATUS	0x0014
-#define INTC_CONTROL	0x0048
-#define INTC_MIR_CLEAR0	0x0088
-#define INTC_MIR_SET0	0x008c
+#define INTC_REVISION		0x0000
+#define INTC_SYSCONFIG		0x0010
+#define INTC_SYSSTATUS		0x0014
+#define INTC_CONTROL		0x0048
+#define INTC_MIR_CLEAR0		0x0088
+#define INTC_MIR_SET0		0x008c
+#define INTC_PENDING_IRQ0	0x0098
 
 /*
  * OMAP2 has a number of different interrupt controllers, each interrupt
@@ -120,6 +121,22 @@ static void __init omap_irq_bank_init_one(struct omap_irq_bank *bank)
 
 	/* Enable autoidle */
 	intc_bank_write_reg(1 << 0, bank, INTC_SYSCONFIG);
+}
+
+int omap_irq_pending(void)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(irq_banks); i++) {
+		struct omap_irq_bank *bank = irq_banks + i;
+		int irq;
+
+		for (irq = 0; irq < bank->nr_irqs; irq += 32)
+			if (intc_bank_read_reg(bank, INTC_PENDING_IRQ0 +
+					       ((irq >> 5) << 5)))
+				return 1;
+	}
+	return 0;
 }
 
 void __init omap_init_irq(void)
