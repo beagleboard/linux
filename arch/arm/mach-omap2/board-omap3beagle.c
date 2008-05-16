@@ -63,12 +63,23 @@ static struct platform_device omap3_beagle_twl4030rtc_device = {
 	.id             = -1,
 };
 
+static struct platform_device omap3_beagle_lcd_device = {
+	.name		= "omap3beagle_lcd",
+	.id		= -1,
+};
+
+static struct omap_lcd_config omap3_beagle_lcd_config __initdata = {
+	.ctrl_name	= "internal",
+};
+
 static struct omap_board_config_kernel omap3_beagle_config[] __initdata = {
 	{ OMAP_TAG_UART,	&omap3_beagle_uart_config },
 	{ OMAP_TAG_MMC,		&omap3beagle_mmc_config },
+	{ OMAP_TAG_LCD,		&omap3_beagle_lcd_config },
 };
 
 static struct platform_device *omap3_beagle_devices[] __initdata = {
+	&omap3_beagle_lcd_device,
 #ifdef CONFIG_RTC_DRV_TWL4030
 	&omap3_beagle_twl4030rtc_device,
 #endif
