@@ -18,6 +18,9 @@ ifeq ($(CONFIG_ARCH_OMAP2),y)
 obj-$(CONFIG_PM) += pm24xx.o sleep24xx.o
 endif
 
+ifeq ($(CONFIG_ARCH_OMAP3),y)
+obj-$(CONFIG_PM) += pm34xx.o sleep34xx.o
+endif
 obj-$(CONFIG_PM_DEBUG) += pm-debug.o
 
 # Clock framework

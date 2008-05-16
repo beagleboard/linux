@@ -14,6 +14,8 @@
  */
 
 extern int omap2_pm_init(void);
+extern int omap3_pm_init(void);
+
 extern unsigned short enable_dyn_sleep;
 extern atomic_t sleep_block;
 

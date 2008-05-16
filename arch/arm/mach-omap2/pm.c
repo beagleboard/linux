@@ -74,8 +74,10 @@ int __init omap_pm_init(void)
 
 	if (cpu_is_omap24xx())
 		error = omap2_pm_init();
+	if (cpu_is_omap34xx())
+		error = omap3_pm_init();
 	if (error) {
-		printk(KERN_ERR "omap2_pm_init failed: %d\n", error);
+		printk(KERN_ERR "omap2|3_pm_init failed: %d\n", error);
 		return error;
 	}
 
