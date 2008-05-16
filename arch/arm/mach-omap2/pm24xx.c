@@ -31,7 +31,6 @@
 #include <linux/io.h>
 #include <linux/irq.h>
 
-#include <asm/atomic.h>
 #include <asm/mach/time.h>
 #include <asm/mach/irq.h>
 #include <asm/mach-types.h>
@@ -61,30 +60,6 @@ static void (*omap2_sram_idle)(void);
 static void (*omap2_sram_suspend)(void __iomem *dllctrl);
 static void (*saved_idle)(void);
 
-static unsigned short enable_dyn_sleep = 0; /* disabled till drivers are fixed */
-
-static ssize_t idle_show(struct kobject *kobj, struct kobj_attribute *attr,
-			 char *buf)
-{
-	return sprintf(buf, "%hu\n", enable_dyn_sleep);
-}
-
-static ssize_t idle_store(struct kobject *kobj, struct kobj_attribute *attr,
-			  const char *buf, size_t n)
-{
-	unsigned short value;
-	if (sscanf(buf, "%hu", &value) != 1 ||
-	    (value != 0 && value != 1)) {
-		printk(KERN_ERR "idle_sleep_store: Invalid value\n");
-		return -EINVAL;
-	}
-	enable_dyn_sleep = value;
-	return n;
-}
-
-static struct kobj_attribute sleep_while_idle_attr =
-	__ATTR(sleep_while_idle, 0644, idle_show, idle_store);
-
 static struct clk *osc_ck, *emul_ck;
 
 static int omap2_fclks_active(void)
@@ -110,21 +85,6 @@ static int omap2_irq_pending(void)
 		pending_reg += 0x20;
 	}
 	return 0;
-}
-
-static atomic_t sleep_block = ATOMIC_INIT(0);
-
-void omap2_block_sleep(void)
-{
-	atomic_inc(&sleep_block);
-}
-
-void omap2_allow_sleep(void)
-{
-	int i;
-
-	i = atomic_dec_return(&sleep_block);
-	BUG_ON(i < 0);
 }
 
 static void omap2_enter_full_retention(void)
@@ -519,10 +479,9 @@ static void __init prcm_setup_regs(void)
 			  WKUP_MOD, PM_WKEN);
 }
 
-static int __init omap2_pm_init(void)
+int __init omap2_pm_init(void)
 {
 	u32 l;
-	int error;
 
 	printk(KERN_INFO "Power Management for OMAP2 initializing\n");
 	l = __raw_readl(OMAP24XX_PRCM_REVISION);
@@ -579,11 +538,5 @@ static int __init omap2_pm_init(void)
 	suspend_set_ops(&omap_pm_ops);
 	pm_idle = omap2_pm_idle;
 
-	error = sysfs_create_file(power_kobj, &sleep_while_idle_attr.attr);
-	if (error)
-		printk(KERN_ERR "sysfs_create_file failed: %d\n", error);
-
 	return 0;
 }
-
-late_initcall(omap2_pm_init);

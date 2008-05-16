@@ -12,6 +12,8 @@ obj-$(CONFIG_ARCH_OMAP2)		+= sram24xx.o
 obj-$(CONFIG_ARCH_OMAP3)		+= sram34xx.o
 
 # Power Management
+obj-$(CONFIG_PM) += pm.o
+
 ifeq ($(CONFIG_ARCH_OMAP2),y)
 obj-$(CONFIG_PM) += pm24xx.o sleep24xx.o
 endif
