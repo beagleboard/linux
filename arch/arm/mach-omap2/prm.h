@@ -14,9 +14,6 @@
  * published by the Free Software Foundation.
  */
 
-#include <linux/io.h>
-#include <linux/bitops.h>
-
 #include "prcm-common.h"
 
 #ifndef __ASSEMBLER__
@@ -156,6 +153,8 @@ static __inline__ u32 __attribute__((unused)) prm_rmw_reg_bits(u32 mask,
 #define OMAP3430_PRM_IRQSTATUS_IVA2			0x00f8
 #define OMAP3430_PRM_IRQENABLE_IVA2			0x00fc
 
+#ifndef __ASSEMBLER__
+
 /* Read-modify-write bits in a PRM register (by domain) */
 static u32 __attribute__((unused)) prm_rmw_mod_reg_bits(u32 mask, u32 bits,
 							s16 module, s16 idx)
@@ -182,8 +181,6 @@ static u32 __attribute__((unused)) prm_clear_mod_reg_bits(u32 bits, s16 module, 
 #define OMAP24XX_PRCM_IRQENABLE_DSP			0x00f4	/* IVA mod */
 #define OMAP24XX_PRCM_IRQSTATUS_IVA			0x00f8
 #define OMAP24XX_PRCM_IRQENABLE_IVA			0x00fc
-
-#ifndef __ASSEMBLER__
 
 /* Power/reset management domain register get/set */
 

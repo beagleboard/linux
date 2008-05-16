@@ -28,12 +28,22 @@
 #include <asm/assembler.h>
 #include <asm/arch/io.h>
 #include <asm/arch/pm.h>
+#include <asm/arch/control.h>
 
-#define PM_PREPWSTST_CORE_V	IO_ADDRESS(PRM_BASE + 0xAE8)
-#define PM_PREPWSTST_MPU_V	IO_ADDRESS(PRM_BASE + 0x9E8)
-#define PM_PWSTCTRL_MPU_P	(PRM_BASE + 0x9E0)
-#define SCRATCHPAD_BASE_P	0x48002910
-#define SDRC_POWER_V		IO_ADDRESS(SDRC_BASE + 0x070)
+#include "prm.h"
+#include "sdrc.h"
+
+#define PM_PREPWSTST_CORE_V	OMAP34XX_PRM_REGADDR(CORE_MOD, \
+				OMAP3430_PM_PREPWSTST)
+#define PM_PREPWSTST_MPU_V	OMAP34XX_PRM_REGADDR(MPU_MOD, \
+				OMAP3430_PM_PREPWSTST)
+#define PM_PWSTCTRL_MPU_P	OMAP34XX_PRM_REGADDR(MPU_MOD, PM_PWSTCTRL)
+#define SCRATCHPAD_MEM_OFFS	0x310 /* Move this as correct place is
+				       * available */
+#define SCRATCHPAD_BASE_P	OMAP343X_CTRL_REGADDR(\
+				OMAP343X_CONTROL_MEM_WKUP +\
+				SCRATCHPAD_MEM_OFFS)
+#define SDRC_POWER_V		OMAP34XX_SDRC_REGADDR(SDRC_POWER)
 
 	.text
 /* Function call to get the restore pointer for resume from OFF */
@@ -52,7 +62,7 @@ ENTRY(get_restore_pointer_sz)
  * Note: This code get's copied to internal SRAM at boot. When the OMAP
  *	 wakes up it continues execution at the point it went to sleep.
  */
-ENTRY(omap34xx_suspend)
+ENTRY(omap34xx_cpu_suspend)
 	stmfd	sp!, {r0-r12, lr}		@ save registers on stack
 loop:
 	/*b	loop*/	@Enable to debug by stepping through code
@@ -530,5 +540,5 @@ table_entry:
 	.word	0x00000C02
 cache_pred_disable_mask:
 	.word	0xFFFFE7FB
-ENTRY(omap34xx_suspend_sz)
-	.word	. - omap34xx_suspend
+ENTRY(omap34xx_cpu_suspend_sz)
+	.word	. - omap34xx_cpu_suspend
