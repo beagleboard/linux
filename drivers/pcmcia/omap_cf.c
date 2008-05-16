@@ -279,9 +279,9 @@ static int __init omap_cf_probe(struct platform_device *pdev)
 	 * CF/PCMCIA variants...
 	 */
 	pr_debug("%s: cs%d, previous ccs %08x acs %08x\n", driver_name,
-			seg, EMIFS_CCS(seg), EMIFS_ACS(seg));
-	EMIFS_CCS(seg) = 0x0004a1b3;	/* synch mode 4 etc */
-	EMIFS_ACS(seg) = 0x00000000;	/* OE hold/setup */
+		seg, omap_readl(EMIFS_CCS(seg)), omap_readl(EMIFS_ACS(seg)));
+	omap_writel(0x0004a1b3, EMIFS_CCS(seg));	/* synch mode 4 etc */
+	omap_writel(0x00000000, EMIFS_ACS(seg));	/* OE hold/setup */
 
 	/* CF uses armxor_ck, which is "always" available */
 
