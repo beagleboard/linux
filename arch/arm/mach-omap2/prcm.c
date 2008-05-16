@@ -106,6 +106,20 @@ void cm_write_mod_reg(u32 val, s16 module, u16 idx)
 }
 EXPORT_SYMBOL(cm_write_mod_reg);
 
+/* Read-modify-write a register in a CM module. Caller must lock */
+u32 cm_rmw_mod_reg_bits(u32 mask, u32 bits, s16 module, s16 idx)
+{
+	u32 v;
+
+	v = cm_read_mod_reg(module, idx);
+	v &= ~mask;
+	v |= bits;
+	cm_write_mod_reg(v, module, idx);
+
+	return v;
+}
+EXPORT_SYMBOL(cm_rmw_mod_reg_bits);
+
 void __init omap2_set_globals_prcm(struct omap_globals *omap2_globals)
 {
 	prm_base = omap2_globals->prm;

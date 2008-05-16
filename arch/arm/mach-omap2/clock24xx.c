@@ -94,6 +94,7 @@ static void omap2_disable_osc_ck(struct clk *clk)
 static int omap2_clk_fixed_enable(struct clk *clk)
 {
 	u32 cval, apll_mask;
+	void __iomem *idlest;
 
 	apll_mask = EN_APLL_LOCKED << clk->enable_bit;
 
@@ -111,8 +112,14 @@ static int omap2_clk_fixed_enable(struct clk *clk)
 	else if (clk == &apll54_ck)
 		cval = OMAP24XX_ST_54M_APLL;
 
-	omap2_wait_clock_ready(OMAP_CM_REGADDR(PLL_MOD, CM_IDLEST), cval,
-			    clk->name);
+	if (cpu_is_omap242x())
+		idlest = (__force void __iomem *)OMAP2420_CM_REGADDR(PLL_MOD,
+								CM_IDLEST);
+	else
+		idlest = (__force void __iomem *)OMAP2430_CM_REGADDR(PLL_MOD,
+								CM_IDLEST);
+
+	omap2_wait_clock_ready(idlest, cval, clk->name);
 
 	/*
 	 * REVISIT: Should we return an error code if omap2_wait_clock_ready()
