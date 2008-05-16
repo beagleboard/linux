@@ -142,6 +142,19 @@ static __inline__ u32 __attribute__((unused)) prm_rmw_reg_bits(u32 mask,
 #define PM_PWSTCTRL					0x00e0
 #define PM_PWSTST					0x00e4
 
+/* Omap2 specific registers */
+#define OMAP24XX_PM_WKEN2				0x00a4
+#define OMAP24XX_PM_WKST2				0x00b4
+
+#define OMAP24XX_PRCM_IRQSTATUS_DSP			0x00f0	/* IVA mod */
+#define OMAP24XX_PRCM_IRQENABLE_DSP			0x00f4	/* IVA mod */
+#define OMAP24XX_PRCM_IRQSTATUS_IVA			0x00f8
+#define OMAP24XX_PRCM_IRQENABLE_IVA			0x00fc
+
+/* Omap3 specific registers */
+#define OMAP3430ES2_PM_WKEN3				0x00f0
+#define OMAP3430ES2_PM_WKST3				0x00b8
+
 #define OMAP3430_PM_MPUGRPSEL				0x00a4
 #define OMAP3430_PM_MPUGRPSEL1				OMAP3430_PM_MPUGRPSEL
 
@@ -171,16 +184,6 @@ static u32 __attribute__((unused)) prm_clear_mod_reg_bits(u32 bits, s16 module, 
 {
 	return prm_rmw_mod_reg_bits(bits, 0x0, module, idx);
 }
-
-/* Architecture-specific registers */
-
-#define OMAP24XX_PM_WKEN2				0x00a4
-#define OMAP24XX_PM_WKST2				0x00b4
-
-#define OMAP24XX_PRCM_IRQSTATUS_DSP			0x00f0	/* IVA mod */
-#define OMAP24XX_PRCM_IRQENABLE_DSP			0x00f4	/* IVA mod */
-#define OMAP24XX_PRCM_IRQSTATUS_IVA			0x00f8
-#define OMAP24XX_PRCM_IRQENABLE_IVA			0x00fc
 
 /* Power/reset management domain register get/set */
 
@@ -242,7 +245,6 @@ static __inline__ u32 __attribute__((unused)) prm_read_mod_reg(s16 module,
 #define OMAP_RSTTIME2_MASK				(0x1f << 8)
 #define OMAP_RSTTIME1_SHIFT				0
 #define OMAP_RSTTIME1_MASK				(0xff << 0)
-
 
 /* PRM_RSTCTRL */
 /* Named RM_RSTCTRL_WKUP on the 24xx */
