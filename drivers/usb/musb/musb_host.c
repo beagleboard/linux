@@ -1453,7 +1453,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 			(void) musb->dma_controller->channel_abort(dma);
 			xfer_len = dma->actual_len;
 		}
-		musb_h_flush_rxfifo(hw_ep, 0);
+		musb_h_flush_rxfifo(hw_ep, MUSB_RXCSR_CLRDATATOG);
 		musb_writeb(epio, MUSB_RXINTERVAL, 0);
 		done = true;
 		goto finish;
