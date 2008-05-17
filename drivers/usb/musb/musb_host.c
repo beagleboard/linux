@@ -422,7 +422,11 @@ musb_advance_schedule(struct musb *musb, struct urb *urb,
 		qh = hw_ep->in_qh;
 	else
 		qh = hw_ep->out_qh;
-	qh = musb_giveback(qh, urb, 0);
+
+	if (urb->status == -EINPROGRESS)
+		qh = musb_giveback(qh, urb, 0);
+	else
+		qh = musb_giveback(qh, urb, urb->status);
 
 	if (qh && qh->is_ready && !list_empty(&qh->hep->urb_list)) {
 		DBG(4, "... next ep%d %cX urb %p\n",
