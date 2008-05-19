@@ -28,7 +28,7 @@
 #ifdef CONFIG_X86_PAT
 int __read_mostly pat_wc_enabled = 1;
 
-void __init pat_disable(char *reason)
+void __cpuinit pat_disable(char *reason)
 {
 	pat_wc_enabled = 0;
 	printk(KERN_INFO "%s\n", reason);
@@ -555,7 +555,7 @@ int phys_mem_access_prot_allowed(struct file *file, unsigned long pfn,
 		"%s:%d /dev/mem ioremap_change_attr failed %s for %Lx-%Lx\n",
 			current->comm, current->pid,
 			cattr_name(flags),
-			offset, offset + size);
+			offset, (unsigned long long)(offset + size));
 		return 0;
 	}
 
@@ -576,7 +576,7 @@ void map_devmem(unsigned long pfn, unsigned long size, pgprot_t vma_prot)
 		"%s:%d /dev/mem expected mapping type %s for %Lx-%Lx, got %s\n",
 			current->comm, current->pid,
 			cattr_name(want_flags),
-			addr, addr + size,
+			addr, (unsigned long long)(addr + size),
 			cattr_name(flags));
 	}
 }
