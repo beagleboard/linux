@@ -244,34 +244,21 @@ static int omap2_can_sleep(void)
 	return 1;
 }
 
+/*
+ * Note that you can use clock_event_device->min_delta_ns if you want to
+ * avoid reprogramming timer too often when using CONFIG_NO_HZ.
+ */
 static void omap2_pm_idle(void)
 {
 	local_irq_disable();
 	local_fiq_disable();
 
 	if (!omap2_can_sleep()) {
-		/* timer_dyn_reprogram() takes about 100-200 us to complete.
-		 * In some contexts (e.g. when waiting for a GPMC-SDRAM DMA
-		 * transfer to complete), the increased latency is too much.
-		 *
-		 * omap2_block_sleep() and omap2_allow_sleep() can be used
-		 * to indicate this.
-		 */
-		if (atomic_read(&sleep_block) == 0) {
-			timer_dyn_reprogram();
-			if (omap_irq_pending())
-				goto out;
-		}
+		if (!atomic_read(&sleep_block) && omap_irq_pending())
+			goto out;
 		omap2_enter_mpu_retention();
 		goto out;
 	}
-
-	/*
-	 * Since an interrupt may set up a timer, we don't want to
-	 * reprogram the hardware timer with interrupts enabled.
-	 * Re-enable interrupts only after returning from idle.
-	 */
-	timer_dyn_reprogram();
 
 	if (omap_irq_pending())
 		goto out;
