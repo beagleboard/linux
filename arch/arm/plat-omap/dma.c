@@ -143,7 +143,7 @@ static inline void omap_enable_channel_irq(int lch);
 #define REVISIT_24XX()		printk(KERN_ERR "FIXME: no %s on 24xx\n", \
 						__func__);
 
-#define dma_read(reg)						\
+#define dma_read(reg)							\
 ({									\
 	u32 __val;							\
 	if (cpu_class_is_omap1())					\
@@ -156,7 +156,7 @@ static inline void omap_enable_channel_irq(int lch);
 #define dma_write(val, reg)						\
 ({									\
 	if (cpu_class_is_omap1())					\
-		__raw_writew((u16)val, omap_dma_base + OMAP1_DMA_##reg);\
+		__raw_writew((u16)(val), omap_dma_base + OMAP1_DMA_##reg); \
 	else								\
 		__raw_writel((val), omap_dma_base + OMAP_DMA4_##reg);	\
 })
@@ -1010,20 +1010,17 @@ dma_addr_t omap_get_dma_src_pos(int lch)
 {
 	dma_addr_t offset = 0;
 
-	if (cpu_class_is_omap1())
-		offset = (dma_addr_t)(dma_read(CSSA_L(lch)) |
-					(dma_read(CSSA_U(lch)) << 16));
+	offset = dma_read(CSAC(lch));
 
-	if (cpu_class_is_omap2()) {
+	/*
+	 * omap 3.2/3.3 erratum: sometimes 0 is returned if CSAC/CDAC is
+	 * read before the DMA controller finished disabling the channel.
+	 */
+	if (offset == 0)
 		offset = dma_read(CSAC(lch));
 
-		/*
-		 * omap 3.2/3.3 erratum: sometimes 0 is returned if CSAC/CDAC is
-		 * read before the DMA controller finished disabling the channel.
-		 */
-		if (offset == 0)
-			offset = dma_read(CSAC(lch));
-	}
+	if (cpu_class_is_omap1())
+		offset |= (dma_read(CSSA_U(lch)) << 16);
 
 	return offset;
 }
@@ -1041,20 +1038,17 @@ dma_addr_t omap_get_dma_dst_pos(int lch)
 {
 	dma_addr_t offset = 0;
 
-	if (cpu_class_is_omap1())
-		offset = (dma_addr_t)(dma_read(CDSA_L(lch)) |
-					(dma_read(CDSA_U(lch)) << 16));
+	offset = dma_read(CDAC(lch));
 
-	if (cpu_class_is_omap2()) {
+	/*
+	 * omap 3.2/3.3 erratum: sometimes 0 is returned if CSAC/CDAC is
+	 * read before the DMA controller finished disabling the channel.
+	 */
+	if (offset == 0)
 		offset = dma_read(CDAC(lch));
 
-		/*
-		 * omap 3.2/3.3 erratum: sometimes 0 is returned if CSAC/CDAC is
-		 * read before the DMA controller finished disabling the channel.
-		 */
-		if (offset == 0)
-			offset = dma_read(CDAC(lch));
-	}
+	if (cpu_class_is_omap1())
+		offset |= (dma_read(CDSA_U(lch)) << 16);
 
 	return offset;
 }
