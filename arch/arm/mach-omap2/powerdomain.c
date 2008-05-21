@@ -588,6 +588,20 @@ int pwrdm_read_sleepdep(struct powerdomain *pwrdm1, struct powerdomain *pwrdm2)
 					(1 << pwrdm2->dep_bit));
 }
 
+/**
+ * pwrdm_get_mem_bank_count - get number of memory banks in this powerdomain
+ * @pwrdm: struct powerdomain *
+ *
+ * Return the number of controllable memory banks in powerdomain pwrdm,
+ * starting with 1.  Returns -EINVAL if the powerdomain pointer is null.
+ */
+int pwrdm_get_mem_bank_count(struct powerdomain *pwrdm)
+{
+	if (!pwrdm)
+		return -EINVAL;
+
+	return pwrdm->banks;
+}
 
 /**
  * pwrdm_set_next_pwrst - set next powerdomain power state
