@@ -460,16 +460,6 @@ static inline void dsp_clk_disable(void) {}
 #elif defined(CONFIG_ARCH_OMAP2)
 static inline void dsp_clk_enable(void)
 {
-	/*XXX should be handled in mach-omap[1,2] XXX*/
-	prm_write_mod_reg(OMAP24XX_FORCESTATE | (1 << OMAP_POWERSTATE_SHIFT),
-			  OMAP24XX_DSP_MOD, PM_PWSTCTRL);
-
-	cm_set_mod_reg_bits(OMAP2420_AUTO_DSP_IPI, OMAP24XX_DSP_MOD,
-			    CM_AUTOIDLE);
-
-	cm_set_mod_reg_bits(OMAP24XX_AUTOSTATE_DSP_MASK, OMAP24XX_DSP_MOD,
-			    CM_CLKSTCTRL);
-
 	clk_enable(dsp_fck_handle);
 	clk_enable(dsp_ick_handle);
 	__dsp_per_enable();
@@ -479,9 +469,6 @@ static inline void dsp_clk_disable(void)
 	__dsp_per_disable();
 	clk_disable(dsp_ick_handle);
 	clk_disable(dsp_fck_handle);
-
-	prm_write_mod_reg(OMAP24XX_FORCESTATE | (3 << OMAP_POWERSTATE_SHIFT),
-			  OMAP24XX_DSP_MOD, PM_PWSTCTRL);
 }
 #endif
 
