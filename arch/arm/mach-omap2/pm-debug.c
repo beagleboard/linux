@@ -23,6 +23,7 @@
 
 #include <linux/clk.h>
 #include <linux/err.h>
+#include <linux/io.h>
 
 #include <asm/arch/clock.h>
 #include <asm/arch/board.h>
