@@ -179,6 +179,22 @@ static int omap3_can_sleep(void)
 	return 1;
 }
 
+/* _clkdm_deny_idle - private callback function used by set_pwrdm_state() */
+static int _clkdm_deny_idle(struct powerdomain *pwrdm,
+			    struct clockdomain *clkdm)
+{
+	omap2_clkdm_deny_idle(clkdm);
+	return 0;
+}
+
+/* _clkdm_allow_idle - private callback function used by set_pwrdm_state() */
+static int _clkdm_allow_idle(struct powerdomain *pwrdm,
+			     struct clockdomain *clkdm)
+{
+	omap2_clkdm_allow_idle(clkdm);
+	return 0;
+}
+
 /* This sets pwrdm state (other than mpu & core. Currently only ON &
  * RET are supported. Function is assuming that clkdm doesn't have
  * hw_sup mode enabled. */
@@ -186,7 +202,6 @@ static int set_pwrdm_state(struct powerdomain *pwrdm, u32 state)
 {
 	u32 cur_state;
 	int ret = 0;
-	int i = 0;
 
 	if (pwrdm == NULL || IS_ERR(pwrdm))
 		return -EINVAL;
@@ -196,8 +211,7 @@ static int set_pwrdm_state(struct powerdomain *pwrdm, u32 state)
 	if (cur_state == state)
 		return ret;
 
-	for (i = 0; pwrdm->pwrdm_clkdms[i]; i++)
-		omap2_clkdm_deny_idle(pwrdm->pwrdm_clkdms[i]);
+	pwrdm_for_each_clkdm(pwrdm, _clkdm_deny_idle);
 
 	ret = pwrdm_set_next_pwrst(pwrdm, state);
 	if (ret) {
@@ -206,8 +220,7 @@ static int set_pwrdm_state(struct powerdomain *pwrdm, u32 state)
 		goto err;
 	}
 
-	for (i = 0; pwrdm->pwrdm_clkdms[i]; i++)
-		omap2_clkdm_allow_idle(pwrdm->pwrdm_clkdms[i]);
+	pwrdm_for_each_clkdm(pwrdm, _clkdm_allow_idle);
 
 err:
 	return ret;
