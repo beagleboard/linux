@@ -508,7 +508,6 @@ extern int omap_set_dma_callback(int lch,
 			void *data);
 extern dma_addr_t omap_get_dma_src_pos(int lch);
 extern dma_addr_t omap_get_dma_dst_pos(int lch);
-extern int omap_get_dma_src_addr_counter(int lch);
 extern void omap_clear_dma(int lch);
 extern int omap_get_dma_active_status(int lch);
 extern int omap_dma_running(void);

@@ -1054,17 +1054,6 @@ dma_addr_t omap_get_dma_dst_pos(int lch)
 }
 EXPORT_SYMBOL(omap_get_dma_dst_pos);
 
-/*
- * Returns current source transfer counting for the given DMA channel.
- * Can be used to monitor the progress of a transfer inside a block.
- * It must be called with disabled interrupts.
- */
-int omap_get_dma_src_addr_counter(int lch)
-{
-	return (dma_addr_t)dma_read(CSAC(lch));
-}
-EXPORT_SYMBOL(omap_get_dma_src_addr_counter);
-
 int omap_get_dma_active_status(int lch)
 {
 	return (dma_read(CCR(lch)) & OMAP_DMA_CCR_EN) != 0;

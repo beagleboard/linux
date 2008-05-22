@@ -65,6 +65,9 @@ static char *id;
 static struct snd_card_omap_codec 	*alsa_codec;
 static struct omap_alsa_codec_config	*alsa_codec_config;
 
+/* FIXME: Please change to use omap asoc framework instead, this can be racy */
+static dma_addr_t dma_start_pos;
+
 /*
  * HW interface start and stop helper functions
  */
@@ -149,7 +152,7 @@ static u_int audio_get_dma_pos(struct audio_stream *s)
 	spin_lock_irqsave(&s->dma_lock, flags);
 
 	/* For the current period let's see where we are */
-	count = omap_get_dma_src_addr_counter(s->lch[s->dma_q_head]);
+	count = omap_get_dma_src_pos(s->lch[s->dma_q_head]) - dma_start_pos;
 
 	spin_unlock_irqrestore(&s->dma_lock, flags);
 
@@ -210,9 +213,8 @@ static void audio_process_dma(struct audio_stream *s)
 		if (cpu_is_omap1510())
 			omap_stop_alsa_sound_dma(s);
 
-		ret = omap_start_alsa_sound_dma(s,
-				(dma_addr_t)runtime->dma_area + offset,
-				dma_size);
+		dma_start_pos = (dma_addr_t)runtime->dma_area + offset;
+		ret = omap_start_alsa_sound_dma(s, dma_start_pos, dma_size);
 		if (ret) {
 			printk(KERN_ERR "audio_process_dma: cannot"
 					" queue DMA buffer (%i)\n", ret);
