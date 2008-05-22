@@ -28,6 +28,9 @@
 #define INTC_MIR_SET0		0x008c
 #define INTC_PENDING_IRQ0	0x0098
 
+/* Number of IRQ state bits in each MIR register */
+#define IRQ_BITS_PER_REG	32
+
 /*
  * OMAP2 has a number of different interrupt controllers, each interrupt
  * controller is identified as its own "bank". Register definitions are
@@ -68,24 +71,18 @@ static void omap_ack_irq(unsigned int irq)
 
 static void omap_mask_irq(unsigned int irq)
 {
-	int offset = (irq >> 5) << 5;
+	int offset = irq & (~(IRQ_BITS_PER_REG - 1));
 
-	if (irq >= 64)
-		irq %= 64;
-	else if (irq >= 32)
-		irq %= 32;
+	irq &= (IRQ_BITS_PER_REG - 1);
 
 	intc_bank_write_reg(1 << irq, &irq_banks[0], INTC_MIR_SET0 + offset);
 }
 
 static void omap_unmask_irq(unsigned int irq)
 {
-	int offset = (irq >> 5) << 5;
+	int offset = irq & (~(IRQ_BITS_PER_REG - 1));
 
-	if (irq >= 64)
-		irq %= 64;
-	else if (irq >= 32)
-		irq %= 32;
+	irq &= (IRQ_BITS_PER_REG - 1);
 
 	intc_bank_write_reg(1 << irq, &irq_banks[0], INTC_MIR_CLEAR0 + offset);
 }
@@ -131,11 +128,15 @@ int omap_irq_pending(void)
 		struct omap_irq_bank *bank = irq_banks + i;
 		int irq;
 
-		for (irq = 0; irq < bank->nr_irqs; irq += 32)
-			if (intc_bank_read_reg(bank, INTC_PENDING_IRQ0 +
-					       ((irq >> 5) << 5)))
+		for (irq = 0; irq < bank->nr_irqs; irq += IRQ_BITS_PER_REG) {
+			int offset = irq & (~(IRQ_BITS_PER_REG - 1));
+
+			if (intc_bank_read_reg(bank, (INTC_PENDING_IRQ0 +
+						      offset)))
 				return 1;
+		}
 	}
+
 	return 0;
 }
 
