@@ -378,12 +378,8 @@ omap_irda_irq(int irq, void *dev_id)
 
 		skb_reserve(skb, 1);
 
-		w = OMAP_DMA_CDAC_REG(omap_ir->rx_dma_channel);
-
-		if (cpu_is_omap16xx())
-			w -= OMAP1_DMA_CDSA_L_REG(omap_ir->rx_dma_channel);
-		if (cpu_is_omap24xx())
-			w -= OMAP2_DMA_CDSA_REG(omap_ir->rx_dma_channel);
+		w = omap_get_dma_dst_pos(omap_ir->rx_dma_channel) -
+						omap_ir->rx_buf_dma_phys;
 
 		if (!IS_FIR(omap_ir))
 			/* Copy DMA buffer to skb */
