@@ -73,7 +73,6 @@ static int frames_after_reset;
 static int saturated_count;
 #endif
 
-#ifdef CONFIG_MACH_NOKIA_N800
 const static struct tcm825x_reg tcm825x_regs_n800[] = {
 	/* initial settings for 2.5 V */
 	{0x00, 0x03}, {0x03, 0x29}, {0xaa, 0x2a}, {0xc0, 0x2b},
@@ -106,9 +105,7 @@ const static struct tcm825x_reg tcm825x_regs_n800[] = {
 	{0x08, 0x5c}, {0x08, 0x5d}, {0x08, 0x5e}, {0x08, 0x5f},
 	{TCM825X_VAL_TERM, TCM825X_REG_TERM}
 };
-#endif
 
-#ifdef CONFIG_MACH_NOKIA_N810
 const static struct tcm825x_reg tcm825x_regs_n810[] = {
 	/* initial settings for 2.5 V */
 	{0x00, 0x03}, {0x03, 0x29}, {0xaa, 0x2a}, {0xc0, 0x2b},
@@ -141,7 +138,6 @@ const static struct tcm825x_reg tcm825x_regs_n810[] = {
 	{0x08, 0x5c}, {0x08, 0x5d}, {0x08, 0x5e}, {0x08, 0x5f},
 	{TCM825X_VAL_TERM, TCM825X_REG_TERM}
 };
-#endif
 
 static int tcm825x_is_okay(void)
 {
