@@ -27,6 +27,7 @@
 #include <linux/init.h>
 #include <linux/time.h>
 #include <linux/interrupt.h>
+#include <linux/io.h>
 #include <linux/usb.h>
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
