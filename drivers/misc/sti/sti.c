@@ -356,7 +356,7 @@ static int __devinit sti_probe(struct platform_device *pdev)
 	if (unlikely(ret != 0))
 		goto err;
 
-	sti_base = res->start;
+	sti_base = io_p2v(res->start);
 
 	/*
 	 * OMAP 16xx keeps channels in a relatively sane location,
@@ -364,7 +364,7 @@ static int __devinit sti_probe(struct platform_device *pdev)
 	 * remapped.
 	 */
 	if (cpu_is_omap16xx())
-		sti_channel_base = cres->start;
+		sti_channel_base = io_p2v(cres->start);
 	else if (cpu_is_omap24xx()) {
 		unsigned int size = cres->end - cres->start;
 
