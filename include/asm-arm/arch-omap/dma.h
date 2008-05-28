@@ -79,6 +79,7 @@
 #define OMAP1_DMA_CFN(n)		(0x40 * (n) + 0x12)
 #define OMAP1_DMA_CSFI(n)		(0x40 * (n) + 0x14)
 #define OMAP1_DMA_CSEI(n)		(0x40 * (n) + 0x16)
+#define OMAP1_DMA_CPC(n)		(0x40 * (n) + 0x18)	/* 15xx only */
 #define OMAP1_DMA_CSAC(n)		(0x40 * (n) + 0x18)
 #define OMAP1_DMA_CDAC(n)		(0x40 * (n) + 0x1a)
 #define OMAP1_DMA_CDEI(n)		(0x40 * (n) + 0x1c)
@@ -107,9 +108,9 @@
 #define OMAP1_DMA_CDSA_L(n)		(0x40 * (n) + 0x0c)
 #define OMAP1_DMA_CDSA_U(n)		(0x40 * (n) + 0x0e)
 #define OMAP1_DMA_COLOR_L(n)		(0x40 * (n) + 0x20)
-#define OMAP1_DMA_CCR2(n)		(0x40 * (n) + 0x24)
 #define OMAP1_DMA_COLOR_U(n)		(0x40 * (n) + 0x22)
-#define OMAP1_DMA_LCH_CTRL(n)		(0x40 * (n) + 0x2a)
+#define OMAP1_DMA_CCR2(n)		(0x40 * (n) + 0x24)
+#define OMAP1_DMA_LCH_CTRL(n)		(0x40 * (n) + 0x2a)	/* not on 15xx */
 #define OMAP1_DMA_CCEN(n)		0
 #define OMAP1_DMA_CCFN(n)		0
 
@@ -131,6 +132,7 @@
 #define OMAP_DMA4_CAPS_1_L		0
 #define OMAP_DMA4_CAPS_1_U		0
 #define OMAP_DMA4_GSCR			0
+#define OMAP_DMA4_CPC(n)		0
 
 #define OMAP_DMA4_LCH_CTRL(n)		0
 #define OMAP_DMA4_COLOR_L(n)		0
@@ -429,6 +431,13 @@ enum omap_dma_write_mode {
 	OMAP_DMA_WRITE_LAST_NON_POSTED
 };
 
+enum omap_dma_channel_mode {
+	OMAP_DMA_LCH_2D = 0,
+	OMAP_DMA_LCH_G,
+	OMAP_DMA_LCH_P,
+	OMAP_DMA_LCH_PD
+};
+
 struct omap_dma_channel_params {
 	int data_type;		/* data type 8,16,32 */
 	int elem_count;		/* number of elements in a frame */
@@ -480,6 +489,7 @@ extern void omap_set_dma_transfer_params(int lch, int data_type,
 extern void omap_set_dma_color_mode(int lch, enum omap_dma_color_mode mode,
 				    u32 color);
 extern void omap_set_dma_write_mode(int lch, enum omap_dma_write_mode mode);
+extern void omap_set_dma_channel_mode(int lch, enum omap_dma_channel_mode mode);
 
 extern void omap_set_dma_src_params(int lch, int src_port, int src_amode,
 				    unsigned long src_start,

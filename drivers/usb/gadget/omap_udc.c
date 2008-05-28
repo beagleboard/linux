@@ -805,8 +805,7 @@ static void dma_channel_claim(struct omap_ep *ep, unsigned channel)
 
 		/* channel type P: hw synch (fifo) */
 		if (cpu_class_is_omap1() && !cpu_is_omap15xx())
-			omap_set_dma_color_mode(ep->lch,
-					OMAP_DMA_TRANSPARENT_COPY, 0);
+			omap_set_dma_channel_mode(ep->lch, OMAP_DMA_LCH_P);
 	}
 
 just_restart:

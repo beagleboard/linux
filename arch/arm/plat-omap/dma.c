@@ -363,6 +363,19 @@ void omap_set_dma_write_mode(int lch, enum omap_dma_write_mode mode)
 }
 EXPORT_SYMBOL(omap_set_dma_write_mode);
 
+void omap_set_dma_channel_mode(int lch, enum omap_dma_channel_mode mode)
+{
+	if (cpu_class_is_omap1() && !cpu_is_omap15xx()) {
+		u32 l;
+
+		l = dma_read(LCH_CTRL(lch));
+		l &= ~0x7;
+		l |= mode;
+		dma_write(l, LCH_CTRL(lch));
+	}
+}
+EXPORT_SYMBOL(omap_set_dma_channel_mode);
+
 /* Note that src_port is only for omap1 */
 void omap_set_dma_src_params(int lch, int src_port, int src_amode,
 			     unsigned long src_start,
@@ -1010,13 +1023,16 @@ dma_addr_t omap_get_dma_src_pos(int lch)
 {
 	dma_addr_t offset = 0;
 
-	offset = dma_read(CSAC(lch));
+	if (cpu_is_omap15xx())
+		offset = dma_read(CPC(lch));
+	else
+		offset = dma_read(CSAC(lch));
 
 	/*
 	 * omap 3.2/3.3 erratum: sometimes 0 is returned if CSAC/CDAC is
 	 * read before the DMA controller finished disabling the channel.
 	 */
-	if (offset == 0)
+	if (!cpu_is_omap15xx() && offset == 0)
 		offset = dma_read(CSAC(lch));
 
 	if (cpu_class_is_omap1())
@@ -1038,13 +1054,16 @@ dma_addr_t omap_get_dma_dst_pos(int lch)
 {
 	dma_addr_t offset = 0;
 
-	offset = dma_read(CDAC(lch));
+	if (cpu_is_omap15xx())
+		offset = dma_read(CPC(lch));
+	else
+		offset = dma_read(CDAC(lch));
 
 	/*
 	 * omap 3.2/3.3 erratum: sometimes 0 is returned if CSAC/CDAC is
 	 * read before the DMA controller finished disabling the channel.
 	 */
-	if (offset == 0)
+	if (!cpu_is_omap15xx() && offset == 0)
 		offset = dma_read(CDAC(lch));
 
 	if (cpu_class_is_omap1())
