@@ -68,10 +68,4 @@
 /********** sound/oss/ **********/
 #define OSS_POISON_FREE		0xAB
 
-/*
- * Used in arch/arm/plat-omap/sram.h to mark SRAM addresses that
- * will be patched at runtime
- */
-#define SRAM_VA_MAGIC		0xbadfeed1
-
 #endif

@@ -241,66 +241,6 @@ void * omap_sram_push(void * start, unsigned long size)
 	return (void *)omap_sram_ceil;
 }
 
-/**
- * omap_sram_patch_va - patch a virtual address into SRAM code
- * @srcfn: original start address (in DRAM) of function to patch
- * @srcd: original address (in DRAM) of location to patch
- * @sramfn: start address (in SRAM) of function to patch
- * @d: virtual address to insert
- *
- * Replace a location in SRAM containing a magic number
- * (SRAM_VA_MAGIC) with a caller-specified virtual address.  Used to
- * dynamically patch SRAM code at runtime for multiboot, since some
- * register addresses change depending on the OMAP chip in use.
- * Returns 1 upon success, 0 upon failure.
- */
-int omap_sram_patch_va(void *srcfn, void *srcd, void *sramfn, void __iomem *d)
-{
-	unsigned long sram_addr;
-	long offs;
-
-	offs = (unsigned long)srcd - (unsigned long)srcfn;
-	sram_addr = (unsigned long)sramfn + offs;
-
-#ifdef CONFIG_OMAP_DEBUG_SRAM_PATCH
-	if (offs < 0) {
-		printk(KERN_ERR "sram: patch address 0x%0lx < function start "
-		       "address 0x%0lx\n", (unsigned long)srcd,
-		       (unsigned long)srcfn);
-		WARN_ON(1);
-		return 0;
-	}
-
-	/*
-	 * REVISIT: We should probably pass in the function's size also,
-	 * so we can verify that the address to patch exists within
-	 * the function
-	 */
-	if (sram_addr > omap_sram_base + omap_sram_size ||
-	    sram_addr < omap_sram_base + SRAM_BOOTLOADER_SZ) {
-		printk(KERN_ERR "sram: invalid patch address 0x%0lx\n",
-		       sram_addr);
-		WARN_ON(1);
-		return 0;
-	}
-
-	if (*(typeof(SRAM_VA_MAGIC) *)sram_addr != SRAM_VA_MAGIC) {
-		printk(KERN_ERR "sram: will not patch address 0x%0lx: "
-		       "no magic\n", sram_addr);
-		WARN_ON(1);
-		return 0;
-	}
-#endif /* CONFIG_OMAP_DEBUG_SRAM_PATCH */
-
-	pr_debug("sram: patching 0x%0lx with 0x%0lx\n", sram_addr,
-		 (unsigned long)d);
-
-	*(unsigned long *)sram_addr = (unsigned long)d;
-
-	return 1;
-}
-
-
 static void omap_sram_error(void)
 {
 	panic("Uninitialized SRAM function\n");
