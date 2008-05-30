@@ -14,14 +14,13 @@ obj-$(CONFIG_ARCH_OMAP3)		+= sram34xx.o
 # Power Management
 obj-$(CONFIG_PM) += pm.o
 
-ifeq ($(CONFIG_ARCH_OMAP2),y)
-obj-$(CONFIG_PM) += pm24xx.o sleep24xx.o
+ifeq ($(CONFIG_PM),y)
+obj-$(CONFIG_ARCH_OMAP2)		+= pm24xx.o
+obj-$(CONFIG_ARCH_OMAP2420)		+= sleep242x.o
+obj-$(CONFIG_ARCH_OMAP2430)		+= sleep243x.o
+obj-$(CONFIG_ARCH_OMAP3)		+= pm34xx.o sleep34xx.o
+obj-$(CONFIG_PM_DEBUG)			+= pm-debug.o
 endif
-
-ifeq ($(CONFIG_ARCH_OMAP3),y)
-obj-$(CONFIG_PM) += pm34xx.o sleep34xx.o
-endif
-obj-$(CONFIG_PM_DEBUG) += pm-debug.o
 
 # Clock framework
 obj-$(CONFIG_ARCH_OMAP2)		+= clock24xx.o
