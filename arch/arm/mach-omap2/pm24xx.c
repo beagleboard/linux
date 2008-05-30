@@ -146,14 +146,16 @@ no_sleep:
 	prm_clear_mod_reg_bits(0x4 | 0x1, WKUP_MOD, PM_WKST);
 
 	/* MPU domain wake events */
-	l = __raw_readl(OMAP24XX_PRCM_IRQSTATUS_MPU);
+	l = prm_read_mod_reg(OCP_MOD, OMAP24XX_PRCM_IRQSTATUS_MPU_OFFSET);
 	if (l & 0x01)
-		__raw_writel(0x01, OMAP24XX_PRCM_IRQSTATUS_MPU);
+		prm_write_mod_reg(0x01, OCP_MOD,
+				OMAP24XX_PRCM_IRQSTATUS_MPU_OFFSET);
 	if (l & 0x20)
-		__raw_writel(0x20, OMAP24XX_PRCM_IRQSTATUS_MPU);
+		prm_write_mod_reg(0x20, OCP_MOD,
+				OMAP24XX_PRCM_IRQSTATUS_MPU_OFFSET);
 
 	/* Mask future PRCM-to-MPU interrupts */
-	__raw_writel(0x0, OMAP24XX_PRCM_IRQSTATUS_MPU);
+	prm_write_mod_reg(0x0, OCP_MOD, OMAP24XX_PRCM_IRQSTATUS_MPU_OFFSET);
 }
 
 static int omap2_i2c_active(void)
@@ -346,7 +348,8 @@ static void __init prcm_setup_regs(void)
 	struct powerdomain *pwrdm;
 
 	/* Enable autoidle */
-	__raw_writel(OMAP24XX_AUTOIDLE, OMAP24XX_PRCM_SYSCONFIG);
+	prm_write_mod_reg(OMAP24XX_AUTOIDLE, OCP_MOD,
+				OMAP24XX_PRCM_SYSCONFIG_OFFSET);
 
 	/* Set all domain wakeup dependencies */
 	prm_write_mod_reg(OMAP_EN_WKUP_MASK, MPU_MOD, PM_WKDEP);
@@ -452,10 +455,12 @@ static void __init prcm_setup_regs(void)
 
 	/* REVISIT: Configure number of 32 kHz clock cycles for sys_clk
 	 * stabilisation */
-	__raw_writel(15 << OMAP_SETUP_TIME_SHIFT, OMAP24XX_PRCM_CLKSSETUP);
+	prm_write_mod_reg(15 << OMAP_SETUP_TIME_SHIFT, OMAP24XX_GR_MOD,
+					OMAP24XX_PRCM_CLKSSETUP_OFFSET);
 
 	/* Configure automatic voltage transition */
-	__raw_writel(2 << OMAP_SETUP_TIME_SHIFT, OMAP24XX_PRCM_VOLTSETUP);
+	prm_write_mod_reg(2 << OMAP_SETUP_TIME_SHIFT, OMAP24XX_GR_MOD,
+					OMAP24XX_PRCM_VOLTSETUP_OFFSET);
 	prm_write_mod_reg(OMAP24XX_AUTO_EXTVOLT |
 		      (0x1 << OMAP24XX_SETOFF_LEVEL_SHIFT) |
 		      OMAP24XX_MEMRETCTRL |
@@ -473,7 +478,7 @@ int __init omap2_pm_init(void)
 	u32 l;
 
 	printk(KERN_INFO "Power Management for OMAP2 initializing\n");
-	l = __raw_readl(OMAP24XX_PRCM_REVISION);
+	l = prm_read_mod_reg(OCP_MOD, OMAP24XX_PRCM_REVISION_OFFSET);
 	printk(KERN_INFO "PRCM revision %d.%d\n", (l >> 4) & 0x0f, l & 0x0f);
 
 	/* Look up important powerdomains, clockdomains */

@@ -66,5 +66,10 @@ void omap2_set_globals_343x(void);
 void omap2_set_globals_memory(struct omap_globals *);
 void omap2_set_globals_control(struct omap_globals *);
 void omap2_set_globals_prcm(struct omap_globals *);
+#ifdef CONFIG_ARCH_OMAP24XX
+void omap2_set_globals_clock24xx(struct omap_globals *);
+#else
+#define omap2_set_globals_clock24xx(x)	do { } while (0)
+#endif
 
 #endif /* __ARCH_ARM_MACH_OMAP_COMMON_H */
