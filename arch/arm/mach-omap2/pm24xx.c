@@ -456,12 +456,12 @@ static void __init prcm_setup_regs(void)
 
 	/* Configure automatic voltage transition */
 	__raw_writel(2 << OMAP_SETUP_TIME_SHIFT, OMAP24XX_PRCM_VOLTSETUP);
-	__raw_writel(OMAP24XX_AUTO_EXTVOLT |
+	prm_write_mod_reg(OMAP24XX_AUTO_EXTVOLT |
 		      (0x1 << OMAP24XX_SETOFF_LEVEL_SHIFT) |
 		      OMAP24XX_MEMRETCTRL |
 		      (0x1 << OMAP24XX_SETRET_LEVEL_SHIFT) |
 		      (0x0 << OMAP24XX_VOLT_LEVEL_SHIFT),
-		      OMAP24XX_PRCM_VOLTCTRL);
+		      OMAP24XX_GR_MOD, OMAP24XX_PRCM_VOLTCTRL_OFFSET);
 
 	/* Enable wake-up events */
 	prm_write_mod_reg(OMAP24XX_EN_GPIOS | OMAP24XX_EN_GPT1,
