@@ -201,18 +201,8 @@ static u32 __attribute__((unused)) prm_clear_mod_reg_bits(u32 bits, s16 module, 
 }
 
 /* Power/reset management domain register get/set */
-
-static __inline__ void __attribute__((unused)) prm_write_mod_reg(u32 val,
-							s16 module, s16 idx)
-{
-	__raw_writel(val, OMAP_PRM_REGADDR(module, idx));
-}
-
-static __inline__ u32 __attribute__((unused)) prm_read_mod_reg(s16 module,
-							s16 idx)
-{
-	return __raw_readl(OMAP_PRM_REGADDR(module, idx));
-}
+extern u32 prm_read_mod_reg(s16 module, u16 idx);
+extern void prm_write_mod_reg(u32 val, s16 module, u16 idx);
 
 #endif
 

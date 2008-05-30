@@ -15,19 +15,19 @@
 #include <linux/kernel.h>
 #include <linux/io.h>
 
+#include <asm/arch/common.h>
 #include <asm/arch/control.h>
 
-static u32 omap2_ctrl_base;
+static void __iomem *omap2_ctrl_base;
 
-#define OMAP_CTRL_REGADDR(reg)					\
-	(__force void __iomem *)IO_ADDRESS(omap2_ctrl_base + (reg))
+#define OMAP_CTRL_REGADDR(reg)		(omap2_ctrl_base + (reg))
 
-void omap_ctrl_base_set(u32 base)
+void __init omap2_set_globals_control(struct omap_globals *omap2_globals)
 {
-	omap2_ctrl_base = base;
+	omap2_ctrl_base = omap2_globals->ctrl;
 }
 
-u32 omap_ctrl_base_get(void)
+void __iomem *omap_ctrl_base_get(void)
 {
 	return omap2_ctrl_base;
 }

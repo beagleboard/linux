@@ -114,17 +114,9 @@ static __inline__ u32 __attribute__((unused)) cm_rmw_reg_bits(u32 mask,
 /* Clock management domain register get/set */
 
 #ifndef __ASSEMBLER__
-static __inline__ void __attribute__((unused)) cm_write_mod_reg(u32 val,
-							s16 module, s16 idx)
-{
-	__raw_writel(val, OMAP_CM_REGADDR(module, idx));
-}
 
-static __inline__ u32 __attribute__((unused)) cm_read_mod_reg(s16 module,
-							s16 idx)
-{
-	return __raw_readl(OMAP_CM_REGADDR(module, idx));
-}
+extern u32 cm_read_mod_reg(s16 module, u16 idx);
+extern void cm_write_mod_reg(u32 val, s16 module, u16 idx);
 
 /* Read-modify-write bits in a CM register (by domain) */
 static __inline__ u32 __attribute__((unused)) cm_rmw_mod_reg_bits(u32 mask,
