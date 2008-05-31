@@ -19,6 +19,7 @@
 #include <linux/err.h>
 #include <linux/clk.h>
 #include <linux/io.h>
+#include <linux/leds.h>
 
 #include <asm/hardware.h>
 #include <asm/mach-types.h>
@@ -72,6 +73,32 @@ static struct omap_lcd_config omap3_beagle_lcd_config __initdata = {
 	.ctrl_name	= "internal",
 };
 
+struct gpio_led gpio_leds[] = {
+	{
+		.name			= "beagleboard::led0",
+		.default_trigger	= "none",
+		.gpio			= 149,
+	},
+	{
+		.name			= "beagleboard::led1",
+		.default_trigger	= "none",
+		.gpio			= 150,
+	},
+};
+
+static struct gpio_led_platform_data gpio_led_info = {
+	.leds		= gpio_leds,
+	.num_leds	= ARRAY_SIZE(gpio_leds),
+};
+
+static struct platform_device leds_gpio = {
+	.name	= "leds-gpio",
+	.id	= -1,
+	.dev	= {
+		.platform_data	= &gpio_led_info,
+	},
+};
+
 static struct omap_board_config_kernel omap3_beagle_config[] __initdata = {
 	{ OMAP_TAG_UART,	&omap3_beagle_uart_config },
 	{ OMAP_TAG_MMC,		&omap3beagle_mmc_config },
@@ -83,6 +110,7 @@ static struct platform_device *omap3_beagle_devices[] __initdata = {
 #ifdef CONFIG_RTC_DRV_TWL4030
 	&omap3_beagle_twl4030rtc_device,
 #endif
+	&leds_gpio,
 };
 
 static void __init omap3_beagle_init(void)
