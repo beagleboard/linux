@@ -25,7 +25,6 @@
 #include <linux/debugfs.h>
 
 #include <asm/io.h>
-#include <asm/semaphore.h>
 
 #include <asm/arch/clock.h>
 
