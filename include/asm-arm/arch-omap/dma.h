@@ -210,7 +210,6 @@
 
 /* DMA channels for 24xx */
 #define OMAP24XX_DMA_NO_DEVICE		0
-
 #define OMAP24XX_DMA_XTI_DMA		1	/* S_DMA_0 */
 #define OMAP24XX_DMA_EXT_DMAREQ0	2	/* S_DMA_1 */
 #define OMAP24XX_DMA_EXT_DMAREQ1	3	/* S_DMA_2 */
@@ -415,8 +414,8 @@ enum omap_dma_burst_mode {
 };
 
 enum end_type {
-	LITTLE_ENDIAN = 0,
-	BIG_ENDIAN
+	OMAP_DMA_LITTLE_ENDIAN = 0,
+	OMAP_DMA_BIG_ENDIAN
 };
 
 enum omap_dma_color_mode {
