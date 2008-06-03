@@ -475,7 +475,7 @@ static void omap3_dpll_deny_idle(struct clk *clk)
 	dd = clk->dpll_data;
 
 	cm_rmw_reg_bits(dd->autoidle_mask,
- 			DPLL_AUTOIDLE_DISABLE << __ffs(dd->autoidle_mask),
+			DPLL_AUTOIDLE_DISABLE << __ffs(dd->autoidle_mask),
 			dd->autoidle_reg);
 }
 
