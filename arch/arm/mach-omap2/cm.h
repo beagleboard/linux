@@ -36,23 +36,6 @@
 #define OMAP3430_CM_CLKOUT_CTRL						\
 				OMAP34XX_CM_REGADDR(OMAP3430_CCR_MOD, 0x0070)
 
-#ifndef __ASSEMBLER__
-
-/* Read-modify-write bits in a CM register */
-static inline u32 cm_rmw_reg_bits(u32 mask, u32 bits, void __iomem *va)
-{
-	u32 v;
-
-	v = __raw_readl(va);
-	v &= ~mask;
-	v |= bits;
-	__raw_writel(v, va);
-
-	return v;
-}
-
-#endif
-
 /*
  * Module specific CM registers from CM_BASE + domain offset
  * Use cm_{read,write}_mod_reg() with these registers.

@@ -62,11 +62,14 @@ static void omap3_dpll_recalc(struct clk *clk)
 static void _omap3_dpll_write_clken(struct clk *clk, u8 clken_bits)
 {
 	const struct dpll_data *dd;
+	u32 v;
 
 	dd = clk->dpll_data;
 
-	cm_rmw_reg_bits(dd->enable_mask, clken_bits << __ffs(dd->enable_mask),
-			dd->control_reg);
+	v = __raw_readl(dd->control_reg);
+	v &= ~dd->enable_mask;
+	v |= clken_bits << __ffs(dd->enable_mask);
+	__raw_writel(v, dd->control_reg);
 }
 
 /* _omap3_wait_dpll_status: wait for a DPLL to enter a specific state */
@@ -443,6 +446,7 @@ static u32 omap3_dpll_autoidle_read(struct clk *clk)
 static void omap3_dpll_allow_idle(struct clk *clk)
 {
 	const struct dpll_data *dd;
+	u32 v;
 
 	if (!clk || !clk->dpll_data)
 		return;
@@ -454,9 +458,10 @@ static void omap3_dpll_allow_idle(struct clk *clk)
 	 * by writing 0x5 instead of 0x1.  Add some mechanism to
 	 * optionally enter this mode.
 	 */
-	cm_rmw_reg_bits(dd->autoidle_mask,
-			DPLL_AUTOIDLE_LOW_POWER_STOP << __ffs(dd->autoidle_mask),
-			dd->autoidle_reg);
+	v = __raw_readl(dd->autoidle_reg);
+	v &= ~dd->autoidle_mask;
+	v |= DPLL_AUTOIDLE_LOW_POWER_STOP << __ffs(dd->autoidle_mask);
+	__raw_writel(v, dd->autoidle_reg);
 }
 
 /**
@@ -468,15 +473,17 @@ static void omap3_dpll_allow_idle(struct clk *clk)
 static void omap3_dpll_deny_idle(struct clk *clk)
 {
 	const struct dpll_data *dd;
+	u32 v;
 
 	if (!clk || !clk->dpll_data)
 		return;
 
 	dd = clk->dpll_data;
 
-	cm_rmw_reg_bits(dd->autoidle_mask,
-			DPLL_AUTOIDLE_DISABLE << __ffs(dd->autoidle_mask),
-			dd->autoidle_reg);
+	v = __raw_readl(dd->autoidle_reg);
+	v &= ~dd->autoidle_mask;
+	v |= DPLL_AUTOIDLE_DISABLE << __ffs(dd->autoidle_mask);
+	__raw_writel(v, dd->autoidle_reg);
 }
 
 /* Clock control for DPLL outputs */

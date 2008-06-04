@@ -633,6 +633,7 @@ int omap2_clksel_set_rate(struct clk *clk, unsigned long rate)
 {
 	u32 field_mask, field_val, validrate, new_div = 0;
 	void __iomem *div_addr;
+	u32 v;
 
 	validrate = omap2_clksel_round_rate_div(clk, rate, &new_div);
 	if (validrate != rate)
@@ -646,7 +647,10 @@ int omap2_clksel_set_rate(struct clk *clk, unsigned long rate)
 	if (field_val == ~0)
 		return -EINVAL;
 
-	cm_rmw_reg_bits(field_mask, field_val << __ffs(field_mask), div_addr);
+	v = __raw_readl(div_addr);
+	v &= ~field_mask;
+	v |= field_val << __ffs(field_mask);
+	__raw_writel(v, div_addr);
 
 	wmb();
 
