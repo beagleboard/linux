@@ -85,7 +85,7 @@ static u32 __init read_tap_reg(int reg)
 	if ((((cpuid >> 4) & 0xFFF) == 0xC08) && ((cpuid & 0xF) == 0x0)) {
 
 		if (reg == tap_prod_id) {
-			regval = 0x000F00F0; 
+			regval = 0x000F00F0;
 			goto out;
 		}
 
