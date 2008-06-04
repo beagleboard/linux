@@ -53,6 +53,15 @@ static int omap3_noncore_dpll_set_rate(struct clk *clk, unsigned long rate);
 #define DPLL_LOW_POWER_BYPASS		0x5
 #define DPLL_LOCKED			0x7
 
+#define OMAP3430_PRM_CLKSRC_CTRL					\
+	OMAP34XX_PRM_REGADDR(OMAP3430_GR_MOD, 0x0070)
+
+#define OMAP3430_PRM_CLKSEL						\
+	OMAP34XX_PRM_REGADDR(OMAP3430_CCR_MOD, OMAP3_PRM_CLKSEL_OFFSET)
+
+#define OMAP3430_PRM_CLKOUT_CTRL					\
+	OMAP34XX_PRM_REGADDR(OMAP3430_CCR_MOD, OMAP3_PRM_CLKOUT_CTRL_OFFSET)
+
 /* PRM CLOCKS */
 
 /* According to timer32k.c, this is a 32768Hz clock, not a 32000Hz clock. */
