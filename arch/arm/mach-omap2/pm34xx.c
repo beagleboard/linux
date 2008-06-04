@@ -131,9 +131,12 @@ static irqreturn_t prcm_interrupt_handler (int irq, void *dev_id)
 		}
 	}
 
-	irqstatus_mpu = __raw_readl(OMAP3430_PRM_IRQSTATUS_MPU);
-	__raw_writel(irqstatus_mpu, OMAP3430_PRM_IRQSTATUS_MPU);
-	while (__raw_readl(OMAP3430_PRM_IRQSTATUS_MPU));
+	irqstatus_mpu = prm_read_mod_reg(OCP_MOD,
+					OMAP3430_PRM_IRQSTATUS_MPU_OFFSET);
+	prm_write_mod_reg(irqstatus_mpu, OCP_MOD,
+					OMAP3430_PRM_IRQSTATUS_MPU_OFFSET);
+
+	while (prm_read_mod_reg(OCP_MOD, OMAP3430_PRM_IRQSTATUS_MPU_OFFSET));
 
 	return IRQ_HANDLED;
 }
@@ -320,8 +323,6 @@ static struct platform_suspend_ops omap_pm_ops = {
 
 static void __init prcm_setup_regs(void)
 {
-	u32 v;
-
 	/* setup wakup source */
 	prm_write_mod_reg(OMAP3430_EN_IO | OMAP3430_EN_GPIO1 | OMAP3430_EN_GPT1,
 			  WKUP_MOD, PM_WKEN);
@@ -330,8 +331,8 @@ static void __init prcm_setup_regs(void)
 			  WKUP_MOD, OMAP3430_PM_MPUGRPSEL);
 	/* For some reason IO doesn't generate wakeup event even if
 	 * it is selected to mpu wakeup goup */
-	__raw_writel(OMAP3430_IO_EN | OMAP3430_WKUP_EN,
-		     OMAP3430_PRM_IRQENABLE_MPU);
+	prm_write_mod_reg(OMAP3430_IO_EN | OMAP3430_WKUP_EN,
+			OCP_MOD, OMAP3430_PRM_IRQENABLE_MPU_OFFSET);
 }
 
 static int __init pwrdms_setup(struct powerdomain *pwrdm)

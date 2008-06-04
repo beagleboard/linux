@@ -94,11 +94,6 @@
 #define OMAP3_PRM_CLKSEL_OFFSET			0x0040
 #define OMAP3_PRM_CLKOUT_CTRL_OFFSET		0x0070
 
-/* These will disappear */
-
-#define OMAP3430_PRM_IRQSTATUS_MPU	OMAP34XX_PRM_REGADDR(OCP_MOD, 0x0018)
-#define OMAP3430_PRM_IRQENABLE_MPU	OMAP34XX_PRM_REGADDR(OCP_MOD, 0x001c)
-
 /*
  * Module specific PRM registers from PRM_BASE + domain offset
  *
