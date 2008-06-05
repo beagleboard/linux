@@ -15,9 +15,8 @@ obj-$(CONFIG_ARCH_OMAP2430)		+= sram243x.o
 obj-$(CONFIG_ARCH_OMAP3)		+= sram34xx.o
 
 # Power Management
-obj-$(CONFIG_PM) += pm.o
-
 ifeq ($(CONFIG_PM),y)
+obj-y					+= pm.o
 obj-$(CONFIG_ARCH_OMAP2)		+= pm24xx.o
 obj-$(CONFIG_ARCH_OMAP2420)		+= sleep242x.o
 obj-$(CONFIG_ARCH_OMAP2430)		+= sleep243x.o
