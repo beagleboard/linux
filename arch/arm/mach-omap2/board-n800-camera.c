@@ -357,7 +357,7 @@ void __init n800_cam_init(void)
 	r = omap_request_gpio(N800_CAM_SENSOR_RESET_GPIO);
 	if (r < 0) {
 		printk(KERN_WARNING "%s: failed to request gpio\n",
-			__FUNCTION__);
+			__func__);
 		return;
 	}
 

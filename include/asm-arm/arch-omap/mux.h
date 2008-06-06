@@ -166,7 +166,7 @@
 #define OMAP34XX_PIN_OFF_INPUT_PULLDOWN	(OMAP3_OFF_EN | OMAP3_OFF_PULL_EN)
 #define OMAP34XX_PIN_OFF_WAKEUPENABLE	OMAP3_WAKEUP_EN
 
-#define MUX_CFG_34XX(desc, reg_offset, mux_value){		\
+#define MUX_CFG_34XX(desc, reg_offset, mux_value) {		\
 	.name		= desc,					\
 	.debug		= 0,					\
 	.mux_reg	= reg_offset,				\

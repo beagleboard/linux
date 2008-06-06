@@ -21,10 +21,10 @@
 #include <linux/mm.h>
 #include <linux/interrupt.h>
 #include <linux/err.h>
+#include <linux/io.h>
 #include "mmu.h"
 #include <asm/arch/mmu.h>
 #include <asm/tlbflush.h>
-#include <asm/io.h>
 #include <asm/sizes.h>
 
 static void *dspvect_page;

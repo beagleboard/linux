@@ -605,7 +605,7 @@ static struct prcm_config rate_table[] = {
  * Clock code will rewrite the register address as needed.
  */
 #define _CM_REG_OFFSET(module, reg)	((void __iomem *)(module) + (reg))
-#define _GR_MOD_OFFSET(reg)	((void __iomem*)(OMAP24XX_GR_MOD + (reg)))
+#define _GR_MOD_OFFSET(reg)	((void __iomem *)(OMAP24XX_GR_MOD + (reg)))
 
 /*-------------------------------------------------------------------------
  * 24xx clock tree.

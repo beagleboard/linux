@@ -1,4 +1,4 @@
-/*
+ /*
  * arch/arm/plat-omap/usb.c -- platform level USB initialization
  *
  * Copyright (C) 2004 Texas Instruments, Inc.
@@ -193,9 +193,8 @@ static u32 __init omap_usb0_init(unsigned nwires, unsigned is_device)
 
 		l = omap_readl(USB_TRANSCEIVER_CTRL);
 		l &= ~(7 << 4);
-		if (!is_device) {
+		if (!is_device)
 			l |= (3 << 1);
-		}
 		omap_writel(l, USB_TRANSCEIVER_CTRL);
 
 		return 3 << 16;

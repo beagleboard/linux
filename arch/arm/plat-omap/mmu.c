@@ -22,8 +22,8 @@
 #include <linux/clk.h>
 #include <linux/device.h>
 #include <linux/interrupt.h>
-#include <asm/uaccess.h>
-#include <asm/io.h>
+#include <linux/uaccess.h>
+#include <linux/io.h>
 #include <asm/pgalloc.h>
 #include <asm/pgtable.h>
 #include <asm/arch/mmu.h>
@@ -767,7 +767,7 @@ int omap_mmu_exmap(struct omap_mmu *mmu, unsigned long devadr,
 	    (devadr >= (1 << mmu->addrspace))) {
 		dev_err(mmu->dev,
 			"MMU %s: illegal address/size for %s().\n",
-			mmu->name, __FUNCTION__);
+			mmu->name, __func__);
 		return -EINVAL;
 	}
 

@@ -129,7 +129,7 @@ struct omap_mmu {
 	(likely(mmu->membase) && (((unsigned long)(addr) >= mmu->membase) &&	\
 		 ((unsigned long)(addr) < mmu->membase + mmu->memsize)))
 
-#define INIT_EXMAP_TBL_ENTRY(ent,b,v,typ,od)	\
+#define INIT_EXMAP_TBL_ENTRY(ent, b, v, typ, od)	\
 do {						\
 	(ent)->buf		= (b);		\
 	(ent)->vadr		= (v);		\
@@ -142,7 +142,7 @@ do {						\
 	(ent)->link.prev	= -1;		\
 } while (0)
 
-#define INIT_EXMAP_TBL_ENTRY_4KB_PRESERVED(ent,b,v)	\
+#define INIT_EXMAP_TBL_ENTRY_4KB_PRESERVED(ent, b, v)	\
 do {							\
 	(ent)->buf		= (b);			\
 	(ent)->vadr		= (v);			\
