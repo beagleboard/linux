@@ -65,12 +65,12 @@ static struct clk *gpmc_l3_clk;
 
 static void gpmc_write_reg(int idx, u32 val)
 {
-	omap_writel(val, gpmc_base + idx);
+	__raw_writel(val, gpmc_base + idx);
 }
 
 static u32 gpmc_read_reg(int idx)
 {
-	return omap_readl(gpmc_base + idx);
+	return __raw_readl(gpmc_base + idx);
 }
 
 void gpmc_cs_write_reg(int cs, int idx, u32 val)
@@ -78,12 +78,12 @@ void gpmc_cs_write_reg(int cs, int idx, u32 val)
 	u32 reg_addr;
 
 	reg_addr = gpmc_base + GPMC_CS0 + (cs * GPMC_CS_SIZE) + idx;
-	omap_writel(val, reg_addr);
+	__raw_writel(val, reg_addr);
 }
 
 u32 gpmc_cs_read_reg(int cs, int idx)
 {
-	return omap_readl(gpmc_base + GPMC_CS0 + (cs * GPMC_CS_SIZE) + idx);
+	return __raw_readl(gpmc_base + GPMC_CS0 + (cs * GPMC_CS_SIZE) + idx);
 }
 
 /* TODO: Add support for gpmc_fck to clock framework and use it */
@@ -409,12 +409,12 @@ void __init gpmc_init(void)
 	if (cpu_is_omap24xx()) {
 		gpmc_l3_clk = clk_get(NULL, "core_l3_ck");
 		if (cpu_is_omap2420())
-			gpmc_base = OMAP2420_GPMC_BASE;
+			gpmc_base = io_p2v(OMAP2420_GPMC_BASE);
 		else if (cpu_is_omap2430())
-			gpmc_base = OMAP243X_GPMC_BASE;
+			gpmc_base = io_p2v(OMAP243X_GPMC_BASE);
 	} else if (cpu_is_omap34xx()) {
 		gpmc_l3_clk = clk_get(NULL, "gpmc_fck");
-		gpmc_base = OMAP34XX_GPMC_BASE;
+		gpmc_base = io_p2v(OMAP34XX_GPMC_BASE);
 	}
 
 	BUG_ON(IS_ERR(gpmc_l3_clk));
