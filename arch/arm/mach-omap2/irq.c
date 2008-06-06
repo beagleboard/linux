@@ -52,15 +52,12 @@ static struct omap_irq_bank {
 
 static void intc_bank_write_reg(u32 val, struct omap_irq_bank *bank, u16 reg)
 {
-	pr_debug("intc_write_reg: writing 0x%0x to 0x%0x\n", val,
-		 (__force u32)(bank->base_reg + reg));
-
-	omap_writel(val, bank->base_reg + reg);
+	__raw_writel(val, bank->base_reg + reg);
 }
 
 static u32 intc_bank_read_reg(struct omap_irq_bank *bank, u16 reg)
 {
-	return omap_readl(bank->base_reg + reg);
+	return __raw_readl(bank->base_reg + reg);
 }
 
 /* XXX: FIQ and additional INTC support (only MPU at the moment) */
@@ -150,9 +147,9 @@ void __init omap_init_irq(void)
 		struct omap_irq_bank *bank = irq_banks + i;
 
 		if (cpu_is_omap24xx())
-			bank->base_reg = OMAP24XX_IC_BASE;
+			bank->base_reg = io_p2v(OMAP24XX_IC_BASE);
 		else if (cpu_is_omap34xx())
-			bank->base_reg = OMAP34XX_IC_BASE;
+			bank->base_reg = io_p2v(OMAP34XX_IC_BASE);
 
 		omap_irq_bank_init_one(bank);
 
