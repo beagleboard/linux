@@ -171,12 +171,17 @@ void __init omap2_map_common_io(void)
 #if defined(CONFIG_ARCH_OMAP2420)
 	iotable_init(omap24xx_io_desc, ARRAY_SIZE(omap24xx_io_desc));
 	iotable_init(omap242x_io_desc, ARRAY_SIZE(omap242x_io_desc));
-#elif defined(CONFIG_ARCH_OMAP2430)
+#endif
+
+#if defined(CONFIG_ARCH_OMAP2430)
 	iotable_init(omap24xx_io_desc, ARRAY_SIZE(omap24xx_io_desc));
 	iotable_init(omap243x_io_desc, ARRAY_SIZE(omap243x_io_desc));
-#elif defined(CONFIG_ARCH_OMAP34XX)
+#endif
+
+#if defined(CONFIG_ARCH_OMAP34XX)
 	iotable_init(omap34xx_io_desc, ARRAY_SIZE(omap34xx_io_desc));
 #endif
+
 	/* Normally devicemaps_init() would flush caches and tlb after
 	 * mdesc->map_io(), but we must also do it here because of the CPU
 	 * revision check below.
