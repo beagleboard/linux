@@ -379,8 +379,12 @@ static struct omap_board_config_kernel sdp2430_config[] __initdata = {
 
 static int __init omap2430_i2c_init(void)
 {
-	omap_register_i2c_bus(1, 400, NULL, 0);
+	/*
+	 * Registering bus 2 first to avoid twl4030 misbehaving as 2430SDP
+	 * has twl4030 on bus 2
+	 */
 	omap_register_i2c_bus(2, 2600, NULL, 0);
+	omap_register_i2c_bus(1, 400, NULL, 0);
 	return 0;
 }
 
