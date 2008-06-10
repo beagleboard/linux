@@ -175,6 +175,48 @@ static int set_radio_freq(struct dvb_frontend *fe,
 	return 0;
 }
 
+static int tea5761_init(struct dvb_frontend *fe)
+{
+	struct tea5761_priv *priv = fe->tuner_priv;
+	unsigned char buffer[] = {0, 0, 0, 0, 0, 0, 0 };
+	int rc;
+
+	tuner_dbg("Power up radio\n");
+
+	buffer[3] = TEA5761_TNCTRL_PUPD_0;
+
+	if (debug)
+		tea5761_status_dump(buffer);
+
+	rc = tuner_i2c_xfer_send(&priv->i2c_props, buffer, ARRAY_SIZE(buffer));
+	if (rc != ARRAY_SIZE(buffer))
+		tuner_warn("i2c i/o error: rc == %d (should be %d)\n", rc,
+				ARRAY_SIZE(buffer));
+
+	return 0;
+}
+
+static int tea5761_sleep(struct dvb_frontend *fe)
+{
+	struct tea5761_priv *priv = fe->tuner_priv;
+	unsigned char buffer[] = {0, 0, 0, 0, 0, 0, 0 };
+	int rc;
+
+	tuner_dbg("Power down radio\n");
+
+	buffer[3] &= ~TEA5761_TNCTRL_PUPD_0;
+
+	if (debug)
+		tea5761_status_dump(buffer);
+
+	rc = tuner_i2c_xfer_send(&priv->i2c_props, buffer, ARRAY_SIZE(buffer));
+	if (rc != ARRAY_SIZE(buffer))
+		tuner_warn("i2c i/o error: rc == %d (should be %d)\n", rc,
+				ARRAY_SIZE(buffer));
+
+	return 0;
+}
+
 static int tea5761_read_status(struct dvb_frontend *fe, char *buffer)
 {
 	struct tea5761_priv *priv = fe->tuner_priv;
@@ -287,6 +329,8 @@ static struct dvb_tuner_ops tea5761_tuner_ops = {
 	.get_frequency     = tea5761_get_frequency,
 	.get_status        = tea5761_get_status,
 	.get_rf_strength   = tea5761_get_rf_strength,
+	.init              = tea5761_init,
+	.sleep             = tea5761_sleep,
 };
 
 struct dvb_frontend *tea5761_attach(struct dvb_frontend *fe,
