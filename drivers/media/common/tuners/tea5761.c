@@ -101,6 +101,8 @@ struct tea5761_priv {
 
 	/* All zero = no test mode */
 
+#define TEA5761_TESTREG_TRIGFR		0x08
+
 /* MANID - Read: bytes 12 and 13 */
 
 	/* First byte - should be 0x10 */
@@ -147,20 +149,21 @@ static int set_radio_freq(struct dvb_frontend *fe,
 
 	if (params->mode == T_STANDBY) {
 		tuner_dbg("TEA5761 set to standby mode\n");
-		buffer[5] |= TEA5761_TNCTRL_MU;
+		buffer[4] |= TEA5761_TNCTRL_MU;
 	} else {
-		buffer[4] |= TEA5761_TNCTRL_PUPD_0;
+		buffer[3] |= TEA5761_TNCTRL_PUPD_0;
 	}
 
+	buffer[5] = TEA5761_TESTREG_TRIGFR;
 
 	if (params->audmode == V4L2_TUNER_MODE_MONO) {
 		tuner_dbg("TEA5761 set to mono\n");
-		buffer[5] |= TEA5761_TNCTRL_MST;
+		buffer[4] |= TEA5761_TNCTRL_MST;
 	} else {
 		tuner_dbg("TEA5761 set to stereo\n");
 	}
 
-	div = (1000 * (frq * 4 / 16 + 700 + 225) ) >> 15;
+	div = (frq * 125 / 2 - 225000) >> 13;
 	buffer[1] = (div >> 8) & 0x3f;
 	buffer[2] = div & 0xff;
 
