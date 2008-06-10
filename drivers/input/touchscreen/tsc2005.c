@@ -661,11 +661,10 @@ err1:
 static int __devexit tsc2005_remove(struct spi_device *spi)
 {
 	struct tsc2005 *ts = dev_get_drvdata(&spi->dev);
-	unsigned long flags;
 
-	spin_lock_irqsave(&ts->lock, flags);
+	mutex_lock(&ts->mutex);
 	tsc2005_disable(ts);
-	spin_unlock_irqrestore(&ts->lock, flags);
+	mutex_unlock(&ts->mutex);
 
 	device_remove_file(&ts->spi->dev, &dev_attr_disable_ts);
 	device_remove_file(&ts->spi->dev, &dev_attr_pen_down);
