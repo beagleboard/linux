@@ -625,8 +625,8 @@ static int twl4030_set_suspend(struct otg_transceiver *x, int suspend)
 static int twl4030_set_peripheral(struct otg_transceiver *xceiv,
 		struct usb_gadget *gadget)
 {
-	struct twl4030_usb *twl = xceiv_to_twl(xceiv);
 	u32 l;
+	struct twl4030_usb *twl = xceiv_to_twl(xceiv);
 
 	if (!xceiv)
 		return -ENODEV;
