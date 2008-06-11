@@ -661,7 +661,11 @@ static irqreturn_t musb_stage0_irq(struct musb *musb, u8 int_usb,
 			switch (musb->xceiv.state) {
 #ifdef CONFIG_USB_OTG
 			case OTG_STATE_A_SUSPEND:
-				musb->ignore_disconnect = 0;
+				/* We need to ignore disconnect on suspend
+				 * otherwise tusb 2.0 won't reconnect after a
+				 * power cycle, which breaks otg compliance.
+				 */
+				musb->ignore_disconnect = 1;
 				musb_g_reset(musb);
 				/* FALLTHROUGH */
 			case OTG_STATE_A_WAIT_BCON:	/* OPT TD.4.7-900ms */
