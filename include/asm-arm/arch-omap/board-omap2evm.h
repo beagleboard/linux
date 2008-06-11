@@ -1,9 +1,9 @@
 /*
- * linux/include/asm-arm/arch-omap/board-2430osk.h
+ * linux/include/asm-arm/arch-omap/board-omap2evm.h
  *
- * Hardware definitions for TI OMAP2430 OSK board.
+ * Hardware definitions for Mistral's OMAP2EVM board.
  *
- * Based on board-2330sdp.h
+ * Based on board-2430sdp.h
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -26,11 +26,11 @@
  * 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef __ASM_ARCH_OMAP_2430OSK_H
-#define __ASM_ARCH_OMAP_2430OSK_H
+#ifndef __ASM_ARCH_OMAP2_EVM_H
+#define __ASM_ARCH_OMAP2_EVM_H
 
-/* Placeholder for 2430OSK specific defines */
+/* Placeholder for OMAP2EVM specific defines */
 #define OMAP24XX_ETHR_START		0x08000300
 #define OMAP24XX_ETHR_GPIO_IRQ		149
 
-#endif /* __ASM_ARCH_OMAP_2430OSK_H */
+#endif /* __ASM_ARCH_OMAP2_EVM_H */
