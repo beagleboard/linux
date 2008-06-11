@@ -132,11 +132,11 @@ static irqreturn_t prcm_interrupt_handler (int irq, void *dev_id)
 	}
 
 	irqstatus_mpu = prm_read_mod_reg(OCP_MOD,
-					OMAP3430_PRM_IRQSTATUS_MPU_OFFSET);
+					OMAP2_PRM_IRQSTATUS_MPU_OFFSET);
 	prm_write_mod_reg(irqstatus_mpu, OCP_MOD,
-					OMAP3430_PRM_IRQSTATUS_MPU_OFFSET);
+					OMAP2_PRM_IRQSTATUS_MPU_OFFSET);
 
-	while (prm_read_mod_reg(OCP_MOD, OMAP3430_PRM_IRQSTATUS_MPU_OFFSET));
+	while (prm_read_mod_reg(OCP_MOD, OMAP2_PRM_IRQSTATUS_MPU_OFFSET));
 
 	return IRQ_HANDLED;
 }
@@ -332,7 +332,7 @@ static void __init prcm_setup_regs(void)
 	/* For some reason IO doesn't generate wakeup event even if
 	 * it is selected to mpu wakeup goup */
 	prm_write_mod_reg(OMAP3430_IO_EN | OMAP3430_WKUP_EN,
-			OCP_MOD, OMAP3430_PRM_IRQENABLE_MPU_OFFSET);
+			OCP_MOD, OMAP2_PRM_IRQENABLE_MPU_OFFSET);
 }
 
 static int __init pwrdms_setup(struct powerdomain *pwrdm)
