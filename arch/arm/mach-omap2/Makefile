@@ -45,7 +45,7 @@ obj-$(CONFIG_MACH_OMAP_2430SDP)		+= board-2430sdp.o \
 					   hsmmc.o \
 					   usb-musb.o \
 					   usb-ehci.o
-obj-$(CONFIG_MACH_OMAP_2430OSK)		+= board-2430osk.o
+obj-$(CONFIG_MACH_OMAP2EVM)		+= board-omap2evm.o
 obj-$(CONFIG_MACH_OMAP_3430SDP)		+= board-3430sdp.o \
 					   hsmmc.o \
 					   usb-musb.o \

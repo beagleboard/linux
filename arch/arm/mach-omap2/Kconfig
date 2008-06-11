@@ -102,8 +102,8 @@ config MACH_OMAP_LDP
 	bool "OMAP 3 LDP board"
 	depends on ARCH_OMAP3 && ARCH_OMAP34XX
 
-config MACH_OMAP_2430OSK
-	bool "OMAP 2430 OSK board"
+config MACH_OMAP2EVM 
+	bool "OMAP 2530 EVM board"
 	depends on ARCH_OMAP2 && ARCH_OMAP24XX
 
 config MACH_OMAP_3430SDP
