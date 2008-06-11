@@ -146,16 +146,16 @@ no_sleep:
 	prm_clear_mod_reg_bits(0x4 | 0x1, WKUP_MOD, PM_WKST);
 
 	/* MPU domain wake events */
-	l = prm_read_mod_reg(OCP_MOD, OMAP24XX_PRCM_IRQSTATUS_MPU_OFFSET);
+	l = prm_read_mod_reg(OCP_MOD, OMAP2_PRM_IRQSTATUS_MPU_OFFSET);
 	if (l & 0x01)
 		prm_write_mod_reg(0x01, OCP_MOD,
-				OMAP24XX_PRCM_IRQSTATUS_MPU_OFFSET);
+				OMAP2_PRM_IRQSTATUS_MPU_OFFSET);
 	if (l & 0x20)
 		prm_write_mod_reg(0x20, OCP_MOD,
-				OMAP24XX_PRCM_IRQSTATUS_MPU_OFFSET);
+				OMAP2_PRM_IRQSTATUS_MPU_OFFSET);
 
 	/* Mask future PRCM-to-MPU interrupts */
-	prm_write_mod_reg(0x0, OCP_MOD, OMAP24XX_PRCM_IRQSTATUS_MPU_OFFSET);
+	prm_write_mod_reg(0x0, OCP_MOD, OMAP2_PRM_IRQSTATUS_MPU_OFFSET);
 }
 
 static int omap2_i2c_active(void)
@@ -349,7 +349,7 @@ static void __init prcm_setup_regs(void)
 
 	/* Enable autoidle */
 	prm_write_mod_reg(OMAP24XX_AUTOIDLE, OCP_MOD,
-				OMAP24XX_PRCM_SYSCONFIG_OFFSET);
+				OMAP24XX_PRM_SYSCONFIG_OFFSET);
 
 	/* Set all domain wakeup dependencies */
 	prm_write_mod_reg(OMAP_EN_WKUP_MASK, MPU_MOD, PM_WKDEP);
@@ -478,7 +478,7 @@ int __init omap2_pm_init(void)
 	u32 l;
 
 	printk(KERN_INFO "Power Management for OMAP2 initializing\n");
-	l = prm_read_mod_reg(OCP_MOD, OMAP24XX_PRCM_REVISION_OFFSET);
+	l = prm_read_mod_reg(OCP_MOD, OMAP24XX_PRM_REVISION_OFFSET);
 	printk(KERN_INFO "PRCM revision %d.%d\n", (l >> 4) & 0x0f, l & 0x0f);
 
 	/* Look up important powerdomains, clockdomains */
