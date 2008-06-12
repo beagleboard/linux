@@ -350,6 +350,7 @@ static struct platform_driver omap_kp_driver = {
 	.remove		= omap_kp_remove,
 	.driver		= {
 		.name	= "omap_twl4030keypad",
+		.owner	= THIS_MODULE,
 	},
 };
 
@@ -371,3 +372,4 @@ module_exit(omap_kp_exit);
 MODULE_AUTHOR("Texas Instruments");
 MODULE_DESCRIPTION("OMAP TWL4030 Keypad Driver");
 MODULE_LICENSE("GPL");
+MODULE_ALIAS("platform:omap_twl4030keypad");

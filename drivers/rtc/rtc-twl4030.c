@@ -624,7 +624,7 @@ static int twl4030_rtc_resume(struct platform_device *pdev)
 #define twl4030_rtc_resume  NULL
 #endif
 
-MODULE_ALIAS("twl4030_rtc");
+MODULE_ALIAS("platform:twl4030_rtc");
 static struct platform_driver twl4030rtc_driver = {
 	.probe 		= twl4030_rtc_probe,
 	.remove 	= __devexit_p(twl4030_rtc_remove),

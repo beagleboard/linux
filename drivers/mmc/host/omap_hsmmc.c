@@ -1009,6 +1009,7 @@ static struct platform_driver omap_mmc_driver = {
 	.resume		= omap_mmc_resume,
 	.driver		= {
 		.name = DRIVER_NAME,
+		.owner = THIS_MODULE,
 	},
 };
 
@@ -1029,5 +1030,5 @@ module_exit(omap_mmc_cleanup);
 
 MODULE_DESCRIPTION("OMAP High Speed Multimedia Card driver");
 MODULE_LICENSE("GPL");
-MODULE_ALIAS(DRIVER_NAME);
+MODULE_ALIAS("platform:" DRIVER_NAME);
 MODULE_AUTHOR("Texas Instruments Inc");
