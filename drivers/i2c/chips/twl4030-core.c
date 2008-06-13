@@ -908,6 +908,7 @@ static void __exit twl4030_exit(void)
 subsys_initcall(twl4030_init);
 module_exit(twl4030_exit);
 
+MODULE_ALIAS("i2c:" DRIVER_NAME);
 MODULE_AUTHOR("Texas Instruments, Inc.");
 MODULE_DESCRIPTION("I2C Core interface for TWL4030");
 MODULE_LICENSE("GPL");

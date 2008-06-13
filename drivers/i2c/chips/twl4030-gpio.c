@@ -827,6 +827,7 @@ static void __exit gpio_twl4030_exit(void)
 module_init(gpio_twl4030_init);
 module_exit(gpio_twl4030_exit);
 
+MODULE_ALIAS("i2c:twl4030-gpio");
 MODULE_AUTHOR("Texas Instruments, Inc.");
 MODULE_DESCRIPTION("GPIO interface for TWL4030");
 MODULE_LICENSE("GPL");

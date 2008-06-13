@@ -369,6 +369,7 @@ static void __exit omap_kp_exit(void)
 
 module_init(omap_kp_init);
 module_exit(omap_kp_exit);
+MODULE_ALIAS("platform:omap_twl4030keypad");
 MODULE_AUTHOR("Texas Instruments");
 MODULE_DESCRIPTION("OMAP TWL4030 Keypad Driver");
 MODULE_LICENSE("GPL");

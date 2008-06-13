@@ -70,6 +70,7 @@ static void __exit twl4030_poweroff_exit(void)
 module_init(twl4030_poweroff_init);
 module_exit(twl4030_poweroff_exit);
 
+MODULE_ALIAS("i2c:twl4030-poweroff");
 MODULE_DESCRIPTION("Triton2 device power off");
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Peter De Schrijver");

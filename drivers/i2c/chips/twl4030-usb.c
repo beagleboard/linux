@@ -770,6 +770,7 @@ static void __exit twl4030_usb_exit(void)
 subsys_initcall(twl4030_usb_init);
 module_exit(twl4030_usb_exit);
 
+MODULE_ALIAS("i2c:twl4030-usb");
 MODULE_AUTHOR("Texas Instruments, Inc.");
 MODULE_DESCRIPTION("TWL4030 USB transceiver driver");
 MODULE_LICENSE("GPL");

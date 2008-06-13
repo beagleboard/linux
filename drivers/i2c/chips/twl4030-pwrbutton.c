@@ -156,6 +156,7 @@ static void __exit twl4030_pwrbutton_exit(void)
 module_init(twl4030_pwrbutton_init);
 module_exit(twl4030_pwrbutton_exit);
 
+MODULE_ALIAS("i2c:twl4030-pwrbutton");
 MODULE_DESCRIPTION("Triton2 Power Button");
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Peter De Schrijver");

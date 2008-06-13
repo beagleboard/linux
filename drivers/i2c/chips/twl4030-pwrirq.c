@@ -222,5 +222,6 @@ static void __exit twl4030_pwrirq_exit(void)
 	}
 }
 
+MODULE_ALIAS("i2c:twl4030-pwrirq");
 subsys_initcall(twl4030_pwrirq_init);
 module_exit(twl4030_pwrirq_exit);

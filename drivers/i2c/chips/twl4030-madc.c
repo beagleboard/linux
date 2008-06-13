@@ -448,6 +448,7 @@ static void __exit twl4030_madc_exit(void)
 module_init(twl4030_madc_init);
 module_exit(twl4030_madc_exit);
 
+MODULE_ALIAS("i2c:twl4030-adc");
 MODULE_AUTHOR("Nokia Corporation");
 MODULE_DESCRIPTION("twl4030 ADC driver");
 MODULE_LICENSE("GPL");

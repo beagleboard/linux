@@ -647,6 +647,7 @@ static void __exit twl4030_rtc_exit(void)
 	platform_driver_unregister(&twl4030rtc_driver);
 }
 
+MODULE_ALIAS("platform:twl4030_rtc");
 MODULE_AUTHOR("Texas Instruments, MontaVista Software");
 MODULE_LICENSE("GPL");;
 
