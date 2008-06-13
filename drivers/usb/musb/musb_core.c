@@ -134,11 +134,13 @@ MODULE_PARM_DESC(debug, "initial debug message level");
 
 #define DRIVER_INFO DRIVER_DESC ", v" MUSB_VERSION
 
-const char musb_driver_name[] = "musb_hdrc";
+#define MUSB_DRIVER_NAME "musb_hdrc"
+const char musb_driver_name[] = MUSB_DRIVER_NAME;
 
 MODULE_DESCRIPTION(DRIVER_INFO);
 MODULE_AUTHOR(DRIVER_AUTHOR);
 MODULE_LICENSE("GPL");
+MODULE_ALIAS("platform:" MUSB_DRIVER_NAME);
 
 
 /*-------------------------------------------------------------------------*/
