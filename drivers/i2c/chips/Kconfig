@@ -150,7 +150,7 @@ config TWL4030_MADC
 	  called twl4030-madc.ko
 
 config TWL4030_USB
-	bool "TWL4030 USB Transceiver Driver"
+	tristate "TWL4030 USB Transceiver Driver"
 	depends on TWL4030_CORE
 
 choice
@@ -170,11 +170,11 @@ config TWL4030_USB_HS_ULPI
 endchoice
 
 config TWL4030_PWRBUTTON
-	bool "TWL4030 Power button Driver"
+	tristate "TWL4030 Power button Driver"
 	depends on TWL4030_CORE
 
 config TWL4030_POWEROFF
-	bool "TWL4030 device poweroff"
+	tristate "TWL4030 device poweroff"
 	depends on TWL4030_CORE
 
 config SENSORS_MAX6875
