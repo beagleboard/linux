@@ -95,8 +95,10 @@ static int __init twl4030_pwrbutton_init(void)
 	powerbutton_dev->name = "triton2-pwrbutton";
 
 	err = input_register_device(powerbutton_dev);
-	if (err)
-		goto free_input_dev;
+	if (err) {
+		input_free_device(powerbutton_dev);
+		goto free_irq_and_out;
+	}
 
 	err = twl4030_i2c_read_u8(TWL4030_MODULE_INT, &value, PWR_IMR1);
 	if (err) {
@@ -122,7 +124,7 @@ static int __init twl4030_pwrbutton_init(void)
 	}
 
 	err = twl4030_i2c_write_u8(TWL4030_MODULE_INT,
-				   value | PWR_PWRON_BOTH , PWR_EDR1);
+				   value | PWR_PWRON_BOTH, PWR_EDR1);
 
 	if (err) {
 		printk(KERN_WARNING "I2C error %d while writing TWL4030"
@@ -136,7 +138,7 @@ static int __init twl4030_pwrbutton_init(void)
 
 
 free_input_dev:
-	input_free_device(powerbutton_dev);
+	input_unregister_device(powerbutton_dev);
 free_irq_and_out:
 	free_irq(TWL4030_PWRIRQ_PWRBTN, NULL);
 out:
