@@ -230,6 +230,27 @@
 #define PRCM_NO_VDD2_OPPS	3
 /* XXX: end remove/move */
 
+/* XXX: find more appropriate place for these once DVFS is in place */
+extern u32 current_vdd1_opp;
+extern u32 current_vdd2_opp;
+
+#ifdef CONFIG_OMAP_SMARTREFLEX_TESTING
+#define SR_TESTING_NVALUES 	1
+#else
+#define SR_TESTING_NVALUES 	0
 #endif
 
+/*
+ * Smartreflex module enable/disable interface.
+ * NOTE: if smartreflex is not enabled from sysfs, these functions will not
+ * do anything.
+ */
+#ifdef CONFIG_OMAP_SMARTREFLEX
+void enable_smartreflex(int srid);
+void disable_smartreflex(int srid);
+#else
+static inline void enable_smartreflex(int srid) {}
+static inline void disable_smartreflex(int srid) {}
+#endif
 
+#endif

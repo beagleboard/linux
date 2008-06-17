@@ -36,6 +36,7 @@
 
 #include "prm.h"
 #include "pm.h"
+#include "smartreflex.h"
 
 struct power_state {
 	struct powerdomain *pwrdm;
@@ -259,6 +260,10 @@ static int omap3_pm_suspend(void)
 	struct power_state *pwrst;
 	int state, ret = 0;
 
+	/* XXX Disable smartreflex before entering suspend */
+	disable_smartreflex(SR1);
+	disable_smartreflex(SR2);
+
 	/* Read current next_pwrsts */
 	list_for_each_entry(pwrst, &pwrst_list, node)
 		pwrst->saved_state = pwrdm_read_next_pwrst(pwrst->pwrdm);
@@ -289,6 +294,10 @@ restore:
 	else
 		printk(KERN_INFO "Successfully put all powerdomains "
 		       "to target state\n");
+
+	/* XXX Enable smartreflex after suspend */
+	enable_smartreflex(SR1);
+	enable_smartreflex(SR2);
 
 	return ret;
 }

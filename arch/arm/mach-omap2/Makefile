@@ -24,6 +24,9 @@ obj-$(CONFIG_ARCH_OMAP3)		+= pm34xx.o sleep34xx.o
 obj-$(CONFIG_PM_DEBUG)			+= pm-debug.o
 endif
 
+# SmartReflex driver
+obj-$(CONFIG_OMAP_SMARTREFLEX)		+= smartreflex.o
+
 # Clock framework
 obj-$(CONFIG_ARCH_OMAP2)		+= clock24xx.o
 obj-$(CONFIG_ARCH_OMAP3)		+= clock34xx.o
