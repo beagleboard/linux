@@ -49,25 +49,16 @@ u32 omap_ctrl_readl(u16 offset)
 
 void omap_ctrl_writeb(u8 val, u16 offset)
 {
-	pr_debug("omap_ctrl_writeb: writing 0x%0x to 0x%0x\n", val,
-		 (__force u32)OMAP_CTRL_REGADDR(offset));
-
 	__raw_writeb(val, OMAP_CTRL_REGADDR(offset));
 }
 
 void omap_ctrl_writew(u16 val, u16 offset)
 {
-	pr_debug("omap_ctrl_writew: writing 0x%0x to 0x%0x\n", val,
-		 (__force u32)OMAP_CTRL_REGADDR(offset));
-
 	__raw_writew(val, OMAP_CTRL_REGADDR(offset));
 }
 
 void omap_ctrl_writel(u32 val, u16 offset)
 {
-	pr_debug("omap_ctrl_writel: writing 0x%0x to 0x%0x\n", val,
-		 (__force u32)OMAP_CTRL_REGADDR(offset));
-
 	__raw_writel(val, OMAP_CTRL_REGADDR(offset));
 }
 

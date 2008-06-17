@@ -126,7 +126,7 @@ static int dma_chan_count;
 
 static spinlock_t dma_chan_lock;
 static struct omap_dma_lch *dma_chan;
-void __iomem *omap_dma_base;
+static void __iomem *omap_dma_base;
 
 static const u8 omap1_dma_irq[OMAP1_LOGICAL_DMA_CH_COUNT] = {
 	INT_DMA_CH0_6, INT_DMA_CH1_7, INT_DMA_CH2_8, INT_DMA_CH3,

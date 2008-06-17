@@ -474,8 +474,8 @@ struct omap_dma_channel_params {
 
 extern void omap_set_dma_priority(int lch, int dst_port, int priority);
 extern int omap_request_dma(int dev_id, const char *dev_name,
-				void (*callback)(int lch, u16 ch_status,
-				void *data), void *data, int *dma_ch);
+			void (*callback)(int lch, u16 ch_status, void *data),
+			void *data, int *dma_ch);
 extern void omap_enable_dma_irq(int ch, u16 irq_bits);
 extern void omap_disable_dma_irq(int ch, u16 irq_bits);
 extern void omap_free_dma(int ch);
