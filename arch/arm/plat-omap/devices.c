@@ -153,8 +153,7 @@ static inline void omap_init_kp(void) {}
 /*-------------------------------------------------------------------------*/
 #if defined(CONFIG_OMAP_MCBSP) || defined(CONFIG_OMAP_MCBSP_MODULE)
 
-static struct platform_device omap_mcbsp_devices[OMAP_MAX_MCBSP_COUNT];
-static int mcbsps_configured;
+static struct platform_device **omap_mcbsp_devices;
 
 void omap_mcbsp_register_board_cfg(struct omap_mcbsp_platform_data *config,
 					int size)
@@ -168,28 +167,33 @@ void omap_mcbsp_register_board_cfg(struct omap_mcbsp_platform_data *config,
 		size = OMAP_MAX_MCBSP_COUNT;
 	}
 
-	for (i = 0; i < size; i++) {
-		struct platform_device *new_mcbsp = &omap_mcbsp_devices[i];
-		new_mcbsp->name = "omap-mcbsp";
-		new_mcbsp->id = i + 1;
-		new_mcbsp->dev.platform_data = &config[i];
+	omap_mcbsp_devices = kzalloc(size * sizeof(struct platform_device *),
+				     GFP_KERNEL);
+	if (!omap_mcbsp_devices) {
+		printk(KERN_ERR "Could not register McBSP devices\n");
+		return;
 	}
-	mcbsps_configured = size;
+
+	for (i = 0; i < size; i++) {
+		struct platform_device *new_mcbsp;
+		int ret;
+
+		new_mcbsp = platform_device_alloc("omap-mcbsp", i + 1);
+		if (!new_mcbsp)
+			continue;
+		new_mcbsp->dev.platform_data = &config[i];
+		ret = platform_device_add(new_mcbsp);
+		if (ret) {
+			platform_device_put(new_mcbsp);
+			continue;
+		}
+		omap_mcbsp_devices[i] = new_mcbsp;
+	}
 }
 
-static void __init omap_init_mcbsp(void)
-{
-	int i;
-
-	for (i = 0; i < mcbsps_configured; i++)
-		platform_device_register(&omap_mcbsp_devices[i]);
-}
 #else
 void omap_mcbsp_register_board_cfg(struct omap_mcbsp_platform_data *config,
 					int size)
-{  }
-
-static inline void __init omap_init_mcbsp(void)
 {  }
 #endif
 
@@ -555,7 +559,6 @@ static int __init omap_init_devices(void)
 	 */
 	omap_init_dsp();
 	omap_init_kp();
-	omap_init_mcbsp();
 	omap_init_mmc();
 	omap_init_uwire();
 	omap_init_wdt();

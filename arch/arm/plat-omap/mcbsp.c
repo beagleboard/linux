@@ -23,7 +23,6 @@
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/io.h>
-#include <linux/irq.h>
 
 #include <asm/arch/dma.h>
 #include <asm/arch/mcbsp.h>
