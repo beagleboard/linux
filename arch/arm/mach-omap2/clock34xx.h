@@ -819,7 +819,7 @@ static struct clk dpll4_m4x2_ck = {
 	.name		= "dpll4_m4x2_ck",
 	.parent		= &dpll4_m4_ck,
 	.enable_reg	= _OMAP34XX_CM_REGADDR(PLL_MOD, CM_CLKEN),
-	.enable_bit	= OMAP3430_PWRDN_CAM_SHIFT,
+	.enable_bit	= OMAP3430_PWRDN_DSS1_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES | INVERT_ENABLE,
 	.recalc		= &omap3_clkoutx2_recalc,
 };
