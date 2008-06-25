@@ -341,7 +341,6 @@ config RADIO_ZOLTRIX_PORT
 
 config RADIO_TEA5761
 	tristate "Philips Semiconductors TEA5761 I2C FM Radio"
-	depends on MEDIA_TUNER_TEA5761
 	help
 	  Choose Y here if you have one of these AM/FM radio cards.
 
