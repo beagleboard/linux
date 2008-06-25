@@ -19,6 +19,7 @@
 #include <linux/err.h>
 #include <linux/clk.h>
 #include <linux/io.h>
+#include <linux/input.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/ads7846.h>
 
@@ -28,6 +29,7 @@
 #include <asm/mach/map.h>
 
 #include <asm/arch/gpio.h>
+#include <asm/arch/keypad.h>
 #include <asm/arch/board.h>
 #include <asm/arch/hsmmc.h>
 #include <asm/arch/usb-musb.h>
@@ -149,6 +151,41 @@ struct spi_board_info omap3evm_spi_board_info[] = {
 	},
 };
 
+static int omap3evm_keymap[] = {
+	KEY(0, 0, KEY_LEFT),
+	KEY(0, 1, KEY_RIGHT),
+	KEY(0, 2, KEY_A),
+	KEY(0, 3, KEY_B),
+	KEY(1, 0, KEY_DOWN),
+	KEY(1, 1, KEY_UP),
+	KEY(1, 2, KEY_E),
+	KEY(1, 3, KEY_F),
+	KEY(2, 0, KEY_ENTER),
+	KEY(2, 1, KEY_I),
+	KEY(2, 2, KEY_J),
+	KEY(2, 3, KEY_K),
+	KEY(3, 0, KEY_M),
+	KEY(3, 1, KEY_N),
+	KEY(3, 2, KEY_O),
+	KEY(3, 3, KEY_P)
+};
+
+static struct omap_kp_platform_data omap3evm_kp_data = {
+	.rows		= 4,
+	.cols		= 4,
+	.keymap 	= omap3evm_keymap,
+	.keymapsize	= ARRAY_SIZE(omap3evm_keymap),
+	.rep		= 1,
+};
+
+static struct platform_device omap3evm_kp_device = {
+	.name		= "omap_twl4030keypad",
+	.id		= -1,
+	.dev		= {
+				.platform_data = &omap3evm_kp_data,
+			},
+};
+
 static void __init omap3_evm_init_irq(void)
 {
 	omap2_init_common_hw();
@@ -165,6 +202,7 @@ static struct omap_board_config_kernel omap3_evm_config[] __initdata = {
 
 static struct platform_device *omap3_evm_devices[] __initdata = {
 	&omap3_evm_lcd_device,
+	&omap3evm_kp_device,
 #ifdef CONFIG_RTC_DRV_TWL4030
 	&omap3_evm_twl4030rtc_device,
 #endif
