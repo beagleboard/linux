@@ -236,13 +236,17 @@ static void omap2_clk_wait_ready(struct clk *clk)
 	else
 		return;
 
-	/* No check for DSS or CAM clocks on 24xx */
-	/* REVISIT: This should check prcm_mod against CORE_MOD */
-	if (cpu_is_omap24xx() && (reg & 0x0f) == 0) { /* CM_{F,I}CLKEN1 */
+	/* 24xx: DSS and CAM have no idlest bits for their target agents */
+	if (cpu_is_omap24xx() &&
+	    (prcm_mod == OMAP2420_CM_REGADDR(CORE_MOD, 0) ||
+	     prcm_mod == OMAP2430_CM_REGADDR(CORE_MOD, 0)) &&
+	    (reg & 0x0f) == 0) { /* CM_{F,I}CLKEN1 */
+
 		if (clk->enable_bit == OMAP24XX_EN_DSS2_SHIFT ||
 		    clk->enable_bit == OMAP24XX_EN_DSS1_SHIFT ||
 		    clk->enable_bit == OMAP24XX_EN_CAM_SHIFT)
 			return;
+
 	}
 
 	/* REVISIT: What are the appropriate exclusions for 34XX? */
