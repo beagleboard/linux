@@ -222,20 +222,22 @@ int omap2_wait_clock_ready(void __iomem *reg, u32 mask, const char *name)
  */
 static void omap2_clk_wait_ready(struct clk *clk)
 {
-	u32 bit, reg, other_reg, st_reg;
+	u32 bit;
+	unsigned long reg, other_reg, st_reg, prcm_mod, prcm_regid;
 
-	reg = (__force u32)clk->enable_reg;
-	if (((reg & 0xff) >= CM_FCLKEN1) &&
-	    ((reg & 0xff) <= OMAP24XX_CM_FCLKEN2))
+	reg = (unsigned long)clk->enable_reg;
+	prcm_mod = reg & ~0xff;
+	prcm_regid = reg & 0xff;
+
+	if (prcm_regid >= CM_FCLKEN1 && prcm_regid <= OMAP24XX_CM_FCLKEN2)
 		other_reg = ((reg & ~0xf0) | 0x10); /* CM_ICLKEN* */
-	else if (((reg & 0xff) >= CM_ICLKEN1) &&
-		 ((reg & 0xff) <= OMAP24XX_CM_ICLKEN4))
+	else if (prcm_regid >= CM_ICLKEN1 && prcm_regid <= OMAP24XX_CM_ICLKEN4)
 		other_reg = ((reg & ~0xf0) | 0x00); /* CM_FCLKEN* */
 	else
 		return;
 
-	/* REVISIT: What are the appropriate exclusions for 34XX? */
-	/* No check for DSS or cam clocks */
+	/* No check for DSS or CAM clocks on 24xx */
+	/* REVISIT: This should check prcm_mod against CORE_MOD */
 	if (cpu_is_omap24xx() && (reg & 0x0f) == 0) { /* CM_{F,I}CLKEN1 */
 		if (clk->enable_bit == OMAP24XX_EN_DSS2_SHIFT ||
 		    clk->enable_bit == OMAP24XX_EN_DSS1_SHIFT ||
@@ -246,19 +248,19 @@ static void omap2_clk_wait_ready(struct clk *clk)
 	/* REVISIT: What are the appropriate exclusions for 34XX? */
 	/* OMAP3: ignore DSS-mod clocks */
 	if (cpu_is_omap34xx() &&
-	    ((reg & ~0xff) == (__force u32)OMAP34XX_CM_REGADDR(OMAP3430_DSS_MOD, 0) ||
-	     (((reg & ~0xff) == (__force u32)OMAP34XX_CM_REGADDR(CORE_MOD, 0)) &&
+	    (prcm_mod == OMAP34XX_CM_REGADDR(OMAP3430_DSS_MOD, 0) ||
+	     (prcm_mod == OMAP34XX_CM_REGADDR(CORE_MOD, 0) &&
 	      clk->enable_bit == OMAP3430_EN_SSI_SHIFT)))
 		return;
 
 	/* Check if both functional and interface clocks
 	 * are running. */
 	bit = 1 << clk->enable_bit;
-	if (!(__raw_readl((__force void __iomem *)other_reg) & bit))
+	if (!(__raw_readl((void __iomem *)other_reg) & bit))
 		return;
 	st_reg = ((other_reg & ~0xf0) | 0x20); /* CM_IDLEST* */
 
-	omap2_wait_clock_ready((__force void __iomem *)st_reg, bit, clk->name);
+	omap2_wait_clock_ready((void __iomem *)st_reg, bit, clk->name);
 }
 
 /* Enables clock without considering parent dependencies or use count
