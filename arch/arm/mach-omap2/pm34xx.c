@@ -357,6 +357,10 @@ static int __init pwrdms_setup(struct powerdomain *pwrdm)
 	pwrst->pwrdm = pwrdm;
 	pwrst->next_state = PWRDM_POWER_RET;
 	list_add(&pwrst->node, &pwrst_list);
+
+	if (pwrdm_has_hdwr_sar(pwrdm))
+		pwrdm_enable_hdwr_sar(pwrdm);
+
 	return set_pwrdm_state(pwrst->pwrdm, pwrst->next_state);
 }
 
