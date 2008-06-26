@@ -2231,17 +2231,6 @@ static struct clk usbhost_ick = {
 	.recalc		= &followparent_recalc,
 };
 
-static struct clk usbhost_sar_fck = {
-	.name		= "usbhost_sar_fck",
-	.parent		= &osc_sys_ck,
-	.init		= &omap2_init_clk_clkdm,
-	.enable_reg	= OMAP34XX_PRM_REGADDR(OMAP3430ES2_USBHOST_MOD, PM_PWSTCTRL),
-	.enable_bit	= OMAP3430ES2_SAVEANDRESTORE_SHIFT,
-	.flags		= CLOCK_IN_OMAP3430ES2,
-	.clkdm_name	= "usbhost_clkdm",
-	.recalc		= &followparent_recalc,
-};
-
 /* WKUP */
 
 static const struct clksel_rate usim_96m_rates[] = {
@@ -3189,7 +3178,6 @@ static struct clk *onchip_34xx_clks[] __initdata = {
 	&usbhost_120m_fck,
 	&usbhost_48m_fck,
 	&usbhost_ick,
-	&usbhost_sar_fck,
 	&usim_fck,
 	&gpt1_fck,
 	&wkup_32k_fck,
