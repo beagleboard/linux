@@ -500,7 +500,9 @@
 #define OMAP3430_CM_ICLKEN_DSS_EN_DSS_SHIFT		0
 
 /* CM_IDLEST_DSS */
-#define OMAP3430_ST_DSS					(1 << 0)
+#define OMAP3430ES2_ST_DSS_IDLE				(1 << 1)
+#define OMAP3430ES2_ST_DSS_STDBY			(1 << 0)
+#define OMAP3430ES1_ST_DSS				(1 << 0)
 
 /* CM_AUTOIDLE_DSS */
 #define OMAP3430_AUTO_DSS				(1 << 0)

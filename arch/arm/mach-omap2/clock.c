@@ -246,11 +246,27 @@ static void omap2_clk_wait_ready(struct clk *clk)
 	}
 
 	/* REVISIT: What are the appropriate exclusions for 34XX? */
-	/* OMAP3: ignore DSS-mod clocks */
 	if (cpu_is_omap34xx() &&
-	    (prcm_mod == OMAP34XX_CM_REGADDR(OMAP3430_DSS_MOD, 0) ||
-	     (prcm_mod == OMAP34XX_CM_REGADDR(CORE_MOD, 0) &&
-	      clk->enable_bit == OMAP3430_EN_SSI_SHIFT)))
+	    prcm_mod == OMAP34XX_CM_REGADDR(OMAP3430_DSS_MOD, 0)) {
+
+		/* 3430ES1 DSS has no target idlest bits */
+		if (is_sil_rev_equal_to(OMAP3430_REV_ES1_0))
+			return;
+
+		/*
+		 * For 3430ES2+ DSS, only wait once (dss1_alwon_fclk,
+		 * dss_l3_iclk, dss_l4_iclk) are enabled
+		 */
+		if (clk->enable_bit != OMAP3430_EN_DSS1_SHIFT)
+			return;
+
+	}
+
+	/* REVISIT: SSI has a target idlest bit on OMAP3 */
+	/* REVISIT: This could accidentally exclude other clocks also */
+	if (cpu_is_omap34xx() &&
+	    prcm_mod == OMAP34XX_CM_REGADDR(CORE_MOD, 0) &&
+	    clk->enable_bit == OMAP3430_EN_SSI_SHIFT)
 		return;
 
 	/* Check if both functional and interface clocks
@@ -258,6 +274,16 @@ static void omap2_clk_wait_ready(struct clk *clk)
 	bit = 1 << clk->enable_bit;
 	if (!(__raw_readl((void __iomem *)other_reg) & bit))
 		return;
+
+	/*
+	 * OMAP3430ES2 DSS target idlest bit is at a different shift than
+	 * the corresponding {I,F}CLKEN bits
+	 */
+	if (cpu_is_omap34xx() &&
+	    prcm_mod == OMAP34XX_CM_REGADDR(OMAP3430_DSS_MOD, 0) &&
+	    clk->enable_bit == OMAP3430_EN_DSS1_SHIFT)
+		bit = OMAP3430ES2_ST_DSS_IDLE;
+
 	st_reg = ((other_reg & ~0xf0) | 0x20); /* CM_IDLEST* */
 
 	omap2_wait_clock_ready((void __iomem *)st_reg, bit, clk->name);
