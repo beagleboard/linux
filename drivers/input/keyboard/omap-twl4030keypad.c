@@ -158,7 +158,7 @@ static void twl4030_kp_scan(int release_all)
 		if (!changed)
 			continue;
 
-		for (col = 0; col < n_cols + 1; col++) {
+		for (col = 0; col < n_cols; col++) {
 			int key;
 
 			if (!(changed & (1 << col)))
@@ -373,4 +373,3 @@ MODULE_ALIAS("platform:omap_twl4030keypad");
 MODULE_AUTHOR("Texas Instruments");
 MODULE_DESCRIPTION("OMAP TWL4030 Keypad Driver");
 MODULE_LICENSE("GPL");
-MODULE_ALIAS("platform:omap_twl4030keypad");
