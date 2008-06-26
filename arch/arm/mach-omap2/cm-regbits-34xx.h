@@ -190,11 +190,12 @@
 #define OMAP3430_ST_MSPRO				(1 << 23)
 #define OMAP3430_ST_HDQ					(1 << 22)
 #define OMAP3430ES1_ST_FAC				(1 << 8)
+#define OMAP3430ES2_ST_SSI_IDLE				(1 << 8)
 #define OMAP3430ES1_ST_MAILBOXES			(1 << 7)
 #define OMAP3430_ST_OMAPCTRL				(1 << 6)
 #define OMAP3430_ST_SDMA				(1 << 2)
 #define OMAP3430_ST_SDRC				(1 << 1)
-#define OMAP3430_ST_SSI					(1 << 0)
+#define OMAP3430_ST_SSI_STDBY				(1 << 0)
 
 /* CM_IDLEST2_CORE */
 #define OMAP3430_ST_PKA					(1 << 4)

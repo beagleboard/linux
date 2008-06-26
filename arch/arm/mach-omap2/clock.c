@@ -246,28 +246,31 @@ static void omap2_clk_wait_ready(struct clk *clk)
 	}
 
 	/* REVISIT: What are the appropriate exclusions for 34XX? */
-	if (cpu_is_omap34xx() &&
-	    prcm_mod == OMAP34XX_CM_REGADDR(OMAP3430_DSS_MOD, 0)) {
+	if (cpu_is_omap34xx()) {
 
-		/* 3430ES1 DSS has no target idlest bits */
-		if (is_sil_rev_equal_to(OMAP3430_REV_ES1_0))
+		/* SSI */
+		if (is_sil_rev_equal_to(OMAP3430_REV_ES1_0) &&
+		    prcm_mod == OMAP34XX_CM_REGADDR(CORE_MOD, 0) &&
+		    (reg & 0x0f) == 0 &&
+		    clk->enable_bit == OMAP3430_EN_SSI_SHIFT)
 			return;
 
-		/*
-		 * For 3430ES2+ DSS, only wait once (dss1_alwon_fclk,
-		 * dss_l3_iclk, dss_l4_iclk) are enabled
-		 */
-		if (clk->enable_bit != OMAP3430_EN_DSS1_SHIFT)
-			return;
+		/* DSS */
+		if (prcm_mod == OMAP34XX_CM_REGADDR(OMAP3430_DSS_MOD, 0)) {
+
+			/* 3430ES1 DSS has no target idlest bits */
+			if (is_sil_rev_equal_to(OMAP3430_REV_ES1_0))
+				return;
+
+			/*
+			 * For 3430ES2+ DSS, only wait once (dss1_alwon_fclk,
+			 * dss_l3_iclk, dss_l4_iclk) are enabled
+			 */
+			if (clk->enable_bit != OMAP3430_EN_DSS1_SHIFT)
+				return;
+		}
 
 	}
-
-	/* REVISIT: SSI has a target idlest bit on OMAP3 */
-	/* REVISIT: This could accidentally exclude other clocks also */
-	if (cpu_is_omap34xx() &&
-	    prcm_mod == OMAP34XX_CM_REGADDR(CORE_MOD, 0) &&
-	    clk->enable_bit == OMAP3430_EN_SSI_SHIFT)
-		return;
 
 	/* Check if both functional and interface clocks
 	 * are running. */
@@ -276,13 +279,23 @@ static void omap2_clk_wait_ready(struct clk *clk)
 		return;
 
 	/*
-	 * OMAP3430ES2 DSS target idlest bit is at a different shift than
-	 * the corresponding {I,F}CLKEN bits
+	 * OMAP3430ES2+ has target idlest bits at unusual offsets for
+	 * modules with both initiator and target agents
 	 */
-	if (cpu_is_omap34xx() &&
-	    prcm_mod == OMAP34XX_CM_REGADDR(OMAP3430_DSS_MOD, 0) &&
-	    clk->enable_bit == OMAP3430_EN_DSS1_SHIFT)
-		bit = OMAP3430ES2_ST_DSS_IDLE;
+	if (cpu_is_omap34xx()) {
+
+		/* SSI */
+		if (prcm_mod == OMAP34XX_CM_REGADDR(CORE_MOD, 0) &&
+		    (reg & 0x0f) == 0 &&
+		    clk->enable_bit == OMAP3430_EN_SSI_SHIFT)
+			bit = OMAP3430ES2_ST_SSI_IDLE;
+
+		/* DSS */
+		if (prcm_mod == OMAP34XX_CM_REGADDR(OMAP3430_DSS_MOD, 0) &&
+		    clk->enable_bit == OMAP3430_EN_DSS1_SHIFT)
+			bit = OMAP3430ES2_ST_DSS_IDLE;
+
+	}
 
 	st_reg = ((other_reg & ~0xf0) | 0x20); /* CM_IDLEST* */
 
