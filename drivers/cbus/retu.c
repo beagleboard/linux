@@ -114,9 +114,21 @@ int retu_read_adc(int channel)
 		return -EINVAL;
 
 	spin_lock_irqsave(&retu_lock, flags);
+
+	if ((channel == 8) && retu_is_vilma) {
+		int scr = retu_read_reg(RETU_REG_ADCSCR);
+		int ch = (retu_read_reg(RETU_REG_ADCR) >> 10) & 0xf;
+		if (((scr & 0xff) != 0) && (ch != 8))
+			retu_write_reg (RETU_REG_ADCSCR, (scr & ~0xff));
+	}
+
 	/* Select the channel and read result */
 	retu_write_reg(RETU_REG_ADCR, channel << 10);
 	res = retu_read_reg(RETU_REG_ADCR) & 0x3ff;
+
+	if (retu_is_vilma)
+		retu_write_reg(RETU_REG_ADCR, (1 << 13));
+
 	/* Unlock retu */
 	spin_unlock_irqrestore(&retu_lock, flags);
 

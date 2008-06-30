@@ -34,6 +34,7 @@
 #define RETU_REG_RTCHMAR	0x05	/* RTC hours and minutes alarm and time set register */
 #define RETU_REG_RTCCALR	0x06	/* RTC calibration register */
 #define RETU_REG_ADCR		0x08	/* ADC result */
+#define RETU_REG_ADCSCR		0x09	/* ADC sample ctrl */
 #define RETU_REG_CC1		0x0d	/* Common control register 1 */
 #define RETU_REG_CC2		0x0e	/* Common control register 2 */
 #define RETU_REG_CTRL_CLR	0x0f	/* Regulator clear register */
