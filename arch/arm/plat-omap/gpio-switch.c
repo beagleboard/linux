@@ -131,11 +131,12 @@ static ssize_t gpio_sw_state_store(struct device *dev,
 
 	str = get_sw_str(sw);
 	if (strcmp(state, str[0]) == 0)
-		enable = 0;
+		sw->state = enable = 0;
 	else if (strcmp(state, str[1]) == 0)
-		enable = 1;
+		sw->state = enable = 1;
 	else
 		return -EINVAL;
+
 	if (sw->flags & OMAP_GPIO_SWITCH_FLAG_INVERTED)
 		enable = !enable;
 	omap_set_gpio_dataout(sw->gpio, enable);
