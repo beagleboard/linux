@@ -30,7 +30,8 @@
 #define __ASM_ARCH_OMAP2_EVM_H
 
 /* Placeholder for OMAP2EVM specific defines */
-#define OMAP24XX_ETHR_START		0x08000300
-#define OMAP24XX_ETHR_GPIO_IRQ		149
+#define OMAP2EVM_ETHR_START			0x2c000000
+#define OMAP2EVM_ETHR_SIZE			1024
+#define OMAP2EVM_ETHR_GPIO_IRQ		149
 
 #endif /* __ASM_ARCH_OMAP2_EVM_H */
