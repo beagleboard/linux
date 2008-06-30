@@ -887,7 +887,8 @@ static int omap_mmc_remove(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, NULL);
 	if (host) {
-		host->pdata->cleanup(&pdev->dev);
+		if (host->pdata->cleanup)
+			host->pdata->cleanup(&pdev->dev);
 		free_irq(host->irq, host);
 		if (mmc_slot(host).card_detect_irq)
 			free_irq(mmc_slot(host).card_detect_irq, host);
