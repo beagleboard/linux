@@ -35,3 +35,13 @@ MACHINE_START(NOKIA_N810, "Nokia N810")
 	.init_machine	= nokia_n810_init,
 	.timer		= &omap_timer,
 MACHINE_END
+
+MACHINE_START(NOKIA_N810_WIMAX, "Nokia N810 WiMAX")
+	.phys_io	= 0x48000000,
+	.io_pg_offst	= ((0xd8000000) >> 18) & 0xfffc,
+	.boot_params	= 0x80000100,
+	.map_io		= nokia_n800_map_io,
+	.init_irq	= nokia_n800_init_irq,
+	.init_machine	= nokia_n810_init,
+	.timer		= &omap_timer,
+MACHINE_END

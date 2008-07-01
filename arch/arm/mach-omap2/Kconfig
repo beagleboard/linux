@@ -45,6 +45,11 @@ config MACH_NOKIA_N810
 	bool "Nokia N810"
 	depends on MACH_NOKIA_N800
 
+config MACH_NOKIA_N810_WIMAX
+	bool "Nokia N810 WiMAX"
+	depends on MACH_NOKIA_N800
+	select MACH_NOKIA_N810
+
 config MACH_OMAP2_TUSB6010
 	bool
 	depends on ARCH_OMAP2 && ARCH_OMAP2420
