@@ -45,6 +45,12 @@
 #define ENABLE_VPLL2_DEDICATED	0x05
 #define ENABLE_VPLL2_DEV_GRP	0xE0
 
+#define TWL_LED_LEDEN		0x00
+#define TWL_PWMA_PWMAON		0x00
+#define TWL_PWMA_PWMAOFF	0x01
+
+static unsigned int bklight_level;
+
 static int omap3evm_panel_init(struct lcd_panel *panel,
 				struct omapfb_device *fbdev)
 {
@@ -60,10 +66,10 @@ static int omap3evm_panel_init(struct lcd_panel *panel,
 	omap_set_gpio_direction(LCD_PANEL_RESB, 0);
 	omap_set_gpio_direction(LCD_PANEL_QVGA, 0);
 
-	twl4030_i2c_write_u8(TWL4030_MODULE_PWMA, 0x7F, 0);
-	twl4030_i2c_write_u8(TWL4030_MODULE_PWMA, 0x7F, 1);
-	twl4030_i2c_write_u8(TWL4030_MODULE_PWMB, 0x7F, 0);
-	twl4030_i2c_write_u8(TWL4030_MODULE_PWMB, 0x7F, 1);
+	twl4030_i2c_write_u8(TWL4030_MODULE_LED, 0x11, TWL_LED_LEDEN);
+	twl4030_i2c_write_u8(TWL4030_MODULE_PWMA, 0x01, TWL_PWMA_PWMAON);
+	twl4030_i2c_write_u8(TWL4030_MODULE_PWMA, 0x02, TWL_PWMA_PWMAOFF);
+	bklight_level = 100;
 
 	omap_set_gpio_dataout(LCD_PANEL_RESB, 1);
 	omap_set_gpio_dataout(LCD_PANEL_INI, 1);
@@ -94,6 +100,28 @@ static unsigned long omap3evm_panel_get_caps(struct lcd_panel *panel)
 	return 0;
 }
 
+static int omap3evm_bklight_setlevel(struct lcd_panel *panel,
+						unsigned int level)
+{
+	u8 c;
+	if ((level >= 0) && (level <= 100)) {
+		c = (125 * (100 - level)) / 100 + 2;
+		twl4030_i2c_write_u8(TWL4030_MODULE_PWMA, c, TWL_PWMA_PWMAOFF);
+		bklight_level = level;
+	}
+	return 0;
+}
+
+static unsigned int omap3evm_bklight_getlevel(struct lcd_panel *panel)
+{
+	return bklight_level;
+}
+
+static unsigned int omap3evm_bklight_getmaxlevel(struct lcd_panel *panel)
+{
+	return 100;
+}
+
 struct lcd_panel omap3evm_panel = {
 	.name		= "omap3evm",
 	.config		= OMAP_LCDC_PANEL_TFT | OMAP_LCDC_INV_VSYNC |
@@ -117,6 +145,9 @@ struct lcd_panel omap3evm_panel = {
 	.enable		= omap3evm_panel_enable,
 	.disable	= omap3evm_panel_disable,
 	.get_caps	= omap3evm_panel_get_caps,
+	.set_bklight_level      = omap3evm_bklight_setlevel,
+	.get_bklight_level      = omap3evm_bklight_getlevel,
+	.get_bklight_max        = omap3evm_bklight_getmaxlevel,
 };
 
 static int omap3evm_panel_probe(struct platform_device *pdev)
