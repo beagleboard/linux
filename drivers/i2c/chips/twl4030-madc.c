@@ -367,6 +367,7 @@ static int twl4030_madc_ioctl(struct inode *inode, struct file *filp,
 		req.channels = (1<<par.channel);
 		req.do_avg	= par.average;
 		req.method	= TWL4030_MADC_SW1;
+		req.func_cb	= NULL;
 
 		val = twl4030_madc_conversion(&req);
 		if (val <= 0) {
