@@ -914,13 +914,18 @@ static void put_dss_clocks(void)
 
 static void enable_lcd_clocks(int enable)
 {
-	if (enable) {
-		clk_enable(dispc.dss_ick);
+	if (enable)
 		clk_enable(dispc.dss1_fck);
-	} else {
+	else
 		clk_disable(dispc.dss1_fck);
+}
+
+static void enable_interface_clocks(int enable)
+{
+	if (enable)
+		clk_enable(dispc.dss_ick);
+	else
 		clk_disable(dispc.dss_ick);
-	}
 }
 
 static void enable_digit_clocks(int enable)
@@ -1356,6 +1361,7 @@ static int omap_dispc_init(struct omapfb_device *fbdev, int ext_mode,
 	if ((r = get_dss_clocks()) < 0)
 		return r;
 
+	enable_interface_clocks(1);
 	enable_lcd_clocks(1);
 
 #ifdef CONFIG_FB_OMAP_BOOTLOADER_INIT
@@ -1459,6 +1465,7 @@ fail2:
 	free_irq(INT_24XX_DSS_IRQ, fbdev);
 fail1:
 	enable_lcd_clocks(0);
+	enable_interface_clocks(0);
 	put_dss_clocks();
 
 	return r;
@@ -1475,6 +1482,7 @@ static void omap_dispc_cleanup(void)
 	cleanup_fbmem();
 	free_palette_ram();
 	free_irq(INT_24XX_DSS_IRQ, dispc.fbdev);
+	enable_interface_clocks(0);
 	put_dss_clocks();
 }
 
