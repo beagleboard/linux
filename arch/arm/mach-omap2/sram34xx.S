@@ -37,31 +37,11 @@
 
 	.text
 
-ENTRY(omap34xx_sram_ddr_init)
-	stmfd	sp!, {r0 - r12, lr}	@ save registers on stack
-	ldmfd	sp!, {r0 - r12, pc}	@ restore regs and return
-ENTRY(omap34xx_sram_ddr_init_sz)
-	.word	. - omap34xx_sram_ddr_init
-
-ENTRY(omap34xx_sram_reprogram_sdrc)
-	stmfd	sp!, {r0 - r10, lr}	@ save registers on stack
-	ldmfd	sp!, {r0 - r10, pc}	@ restore regs and return
-ENTRY(omap34xx_sram_reprogram_sdrc_sz)
-	.word	. - omap34xx_sram_reprogram_sdrc
-
-/*
- * Set dividers and pll. Also recalculate DLL value for DDR and unlock mode.
- */
-ENTRY(omap34xx_sram_set_prcm)
-	stmfd	sp!, {r0-r12, lr}	@ regs to stack
-ENTRY(omap34xx_sram_set_prcm_sz)
-	.word	. - omap34xx_sram_set_prcm
-
 /*
  * Change frequency of core dpll
  * r0 = sdrc_rfr_ctrl r1 = sdrc_actim_ctrla r2 = sdrc_actim_ctrlb r3 = M2
  */
-ENTRY(omap34xx_sram_configure_core_dpll)
+ENTRY(omap3_sram_configure_core_dpll)
 	stmfd	sp!, {r1-r12, lr}	@ store regs to stack
 	cmp	r3, #0x2
 	blne	configure_sdrc
@@ -81,13 +61,13 @@ ENTRY(omap34xx_sram_configure_core_dpll)
 	mov 	r0, #0 			@ return value
 	ldmfd	sp!, {r1-r12, pc}	@ restore regs and return
 unlock_dll:
-	ldr	r4, omap34xx_sdrc_dlla_ctrl
+	ldr	r4, omap3_sdrc_dlla_ctrl
 	ldr	r5, [r4]
 	orr	r5, r5, #0x4
 	str	r5, [r4]
 	bx	lr
 lock_dll:
-	ldr	r4, omap34xx_sdrc_dlla_ctrl
+	ldr	r4, omap3_sdrc_dlla_ctrl
 	ldr	r5, [r4]
 	bic	r5, r5, #0x4
 	str	r5, [r4]
@@ -95,23 +75,23 @@ lock_dll:
 sdram_in_selfrefresh:
 	mov	r5, #0x0		@ Move 0 to R5
 	mcr	p15, 0, r5, c7, c10, 5	@ memory barrier
-	ldr	r4, omap34xx_sdrc_power	@ read the SDRC_POWER register
+	ldr	r4, omap3_sdrc_power	@ read the SDRC_POWER register
 	ldr	r5, [r4]		@ read the contents of SDRC_POWER
 	orr 	r5, r5, #0x40		@ enable self refresh on idle req
 	str 	r5, [r4]		@ write back to SDRC_POWER register
-	ldr	r4, omap34xx_cm_iclken1_core	@ read the CM_ICLKEN1_CORE reg
+	ldr	r4, omap3_cm_iclken1_core	@ read the CM_ICLKEN1_CORE reg
 	ldr	r5, [r4]
 	bic	r5, r5, #0x2		@ disable iclk bit for SRDC
 	str 	r5, [r4]
 wait_sdrc_idle:
-	ldr 	r4, omap34xx_cm_idlest1_core
+	ldr 	r4, omap3_cm_idlest1_core
 	ldr 	r5, [r4]
 	and 	r5, r5, #0x2		@ check for SDRC idle
 	cmp 	r5, #2
 	bne 	wait_sdrc_idle
 	bx 	lr
 configure_core_dpll:
-	ldr 	r4, omap34xx_cm_clksel1_pll
+	ldr 	r4, omap3_cm_clksel1_pll
 	ldr	r5, [r4]
 	ldr	r6, core_m2_mask_val	@ modify m2 for core dpll
 	and	r5, r5, r6
@@ -136,74 +116,64 @@ wait_clk_stable:
 	nop
 	bx	lr
 enable_sdrc:
-	ldr 	r4, omap34xx_cm_iclken1_core
+	ldr 	r4, omap3_cm_iclken1_core
 	ldr	r5, [r4]
 	orr 	r5, r5, #0x2		@ enable iclk bit for SDRC
 	str 	r5, [r4]
 wait_sdrc_idle1:
-	ldr 	r4, omap34xx_cm_idlest1_core
+	ldr 	r4, omap3_cm_idlest1_core
 	ldr	r5, [r4]
 	and 	r5, r5, #0x2
 	cmp	r5, #0
 	bne	wait_sdrc_idle1
-	ldr	r4, omap34xx_sdrc_power
+	ldr	r4, omap3_sdrc_power
 	ldr	r5, [r4]
 	bic 	r5, r5, #0x40
 	str 	r5, [r4]
 	bx	lr
 wait_dll_lock:
-	ldr	r4, omap34xx_sdrc_dlla_status
+	ldr	r4, omap3_sdrc_dlla_status
 	ldr	r5, [r4]
 	and 	r5, r5, #0x4
 	cmp	r5, #0x4
 	bne	wait_dll_lock
 	bx	lr
 wait_dll_unlock:
-	ldr	r4, omap34xx_sdrc_dlla_status
+	ldr	r4, omap3_sdrc_dlla_status
 	ldr	r5, [r4]
 	and	r5, r5, #0x4
 	cmp	r5, #0x0
 	bne	wait_dll_unlock
 	bx	lr
 configure_sdrc:
-	ldr	r4, omap34xx_sdrc_rfr_ctrl
+	ldr	r4, omap3_sdrc_rfr_ctrl
 	str	r0, [r4]
-	ldr	r4, omap34xx_sdrc_actim_ctrla
+	ldr	r4, omap3_sdrc_actim_ctrla
 	str	r1, [r4]
-	ldr	r4, omap34xx_sdrc_actim_ctrlb
+	ldr	r4, omap3_sdrc_actim_ctrlb
 	str	r2, [r4]
 	bx	lr
 
-omap34xx_sdrc_power:
+omap3_sdrc_power:
 	.word OMAP34XX_SDRC_REGADDR(SDRC_POWER)
-omap34xx_cm_clksel1_pll:
+omap3_cm_clksel1_pll:
 	.word OMAP34XX_CM_REGADDR(PLL_MOD, CM_CLKSEL1)
-omap34xx_cm_idlest1_core:
+omap3_cm_idlest1_core:
 	.word OMAP34XX_CM_REGADDR(CORE_MOD, CM_IDLEST)
-omap34xx_cm_iclken1_core:
+omap3_cm_iclken1_core:
 	.word OMAP34XX_CM_REGADDR(CORE_MOD, CM_ICLKEN1)
-omap34xx_sdrc_rfr_ctrl:
+omap3_sdrc_rfr_ctrl:
 	.word OMAP34XX_SDRC_REGADDR(SDRC_RFR_CTRL_0)
-omap34xx_sdrc_actim_ctrla:
+omap3_sdrc_actim_ctrla:
 	.word OMAP34XX_SDRC_REGADDR(SDRC_ACTIM_CTRL_A)
-omap34xx_sdrc_actim_ctrlb:
+omap3_sdrc_actim_ctrlb:
 	.word OMAP34XX_SDRC_REGADDR(SDRC_ACTIM_CTRL_B)
-omap34xx_sdrc_dlla_status:
+omap3_sdrc_dlla_status:
 	.word OMAP34XX_SDRC_REGADDR(SDRC_DLLA_STATUS)
-omap34xx_sdrc_dlla_ctrl:
+omap3_sdrc_dlla_ctrl:
 	.word OMAP34XX_SDRC_REGADDR(SDRC_DLLA_CTRL)
 core_m2_mask_val:
 	.word 0xE7FFFFFF
 
-ENTRY(omap34xx_sram_configure_core_dpll_sz)
-	.word	. - omap34xx_sram_configure_core_dpll
-
-/*
- * Reprogram GPMC
- */
-ENTRY(omap34xx_sram_reprogram_gpmc)
-	stmfd	sp!, {r0-r12, lr}	@ regs to stack
-	ldmfd	sp!, {r0-r12, pc}	@ restore regs and return
-
-ENTRY(omap34xx_sram_reprogram_gpmc_sz)
-	.word	. - omap34xx_sram_reprogram_gpmc
+ENTRY(omap3_sram_configure_core_dpll_sz)
+	.word	. - omap3_sram_configure_core_dpll
