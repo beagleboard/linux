@@ -173,7 +173,7 @@ omap3_sdrc_dlla_status:
 omap3_sdrc_dlla_ctrl:
 	.word OMAP34XX_SDRC_REGADDR(SDRC_DLLA_CTRL)
 core_m2_mask_val:
-	.word 0xE7FFFFFF
+	.word 0x07FFFFFF
 
 ENTRY(omap3_sram_configure_core_dpll_sz)
 	.word	. - omap3_sram_configure_core_dpll
