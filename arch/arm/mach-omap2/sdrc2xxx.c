@@ -21,8 +21,7 @@
 #include <linux/errno.h>
 #include <linux/delay.h>
 #include <linux/clk.h>
-
-#include <asm/io.h>
+#include <linux/io.h>
 
 #include <asm/arch/common.h>
 #include <asm/arch/clock.h>
@@ -90,19 +89,18 @@ u32 omap2_reprogram_sdrc(u32 level, u32 force)
 	if ((curr_perf_level == level) && !force)
 		return prev;
 
-	if (level == CORE_CLK_SRC_DPLL) {
+	if (level == CORE_CLK_SRC_DPLL)
 		dll_ctrl = omap2_memory_get_slow_dll_ctrl();
-	} else if (level == CORE_CLK_SRC_DPLL_X2) {
+	else if (level == CORE_CLK_SRC_DPLL_X2) {
 		dll_ctrl = omap2_memory_get_fast_dll_ctrl();
-	} else {
+	else
 		return prev;
-	}
 
 	m_type = omap2_memory_get_type();
 
 	local_irq_save(flags);
 	prm_write_mod_reg(0xffff, OMAP24XX_GR_MOD,
-					OMAP24XX_PRCM_VOLTSETUP_OFFSET);
+			  OMAP24XX_PRCM_VOLTSETUP_OFFSET);
 	omap2_sram_reprogram_sdrc(level, dll_ctrl, m_type);
 	curr_perf_level = level;
 	local_irq_restore(flags);
@@ -115,7 +113,8 @@ void omap2_init_memory_params(u32 force_lock_to_unlock_mode)
 	unsigned long dll_cnt;
 	u32 fast_dll = 0;
 
-	mem_timings.m_type = !((sdrc_read_reg(SDRC_MR_0) & 0x3) == 0x1); /* DDR = 1, SDR = 0 */
+	/* DDR = 1, SDR = 0 */
+	mem_timings.m_type = !((sdrc_read_reg(SDRC_MR_0) & 0x3) == 0x1);
 
 	/* 2422 es2.05 and beyond has a single SIP DDR instead of 2 like others.
 	 * In the case of 2422, its ok to use CS1 instead of CS0.
