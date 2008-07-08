@@ -81,6 +81,10 @@
 
 #ifndef __ASSEMBLER__
 
+void __init omap2_sdrc_init(void);
+
+#ifdef CONFIG_ARCH_OMAP2
+
 struct memory_timings {
 	u32 m_type;		/* ddr = 1, sdr = 0 */
 	u32 dll_mode;		/* use lock mode = 1, unlock mode = 0 */
@@ -89,14 +93,13 @@ struct memory_timings {
 	u32 base_cs;		/* base chip select to use for calculations */
 };
 
-extern void omap2_init_memory_params(u32 force_lock_to_unlock_mode);
-extern u32 omap2_memory_get_slow_dll_ctrl(void);
-extern u32 omap2_memory_get_fast_dll_ctrl(void);
-extern u32 omap2_memory_get_type(void);
-u32 omap2_dll_force_needed(void);
-u32 omap2_reprogram_sdrc(u32 level, u32 force);
-void __init omap2_init_memory(void);
+extern void omap2xxx_sdrc_init_params(u32 force_lock_to_unlock_mode);
 
-#endif
+u32 omap2xxx_sdrc_dll_is_unlocked(void);
+u32 omap2xxx_sdrc_reprogram(u32 level, u32 force);
+
+#endif  /* CONFIG_ARCH_OMAP2 */
+
+#endif  /* __ASSEMBLER__ */
 
 #endif
