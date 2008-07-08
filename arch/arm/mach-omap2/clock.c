@@ -31,7 +31,7 @@
 #include <asm/arch/prcm.h>
 #include <asm/div64.h>
 
-#include "memory.h"
+#include <asm/arch/sdrc.h>
 #include "sdrc.h"
 #include "clock.h"
 #include "prm.h"

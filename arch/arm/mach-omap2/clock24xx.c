@@ -33,7 +33,7 @@
 #include <asm/arch/sram.h>
 #include <asm/div64.h>
 
-#include "memory.h"
+#include <asm/arch/sdrc.h>
 #include "clock.h"
 #include "clock24xx.h"
 #include "prm.h"

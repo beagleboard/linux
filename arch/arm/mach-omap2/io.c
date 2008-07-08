@@ -26,8 +26,8 @@
 #include <asm/arch/mux.h>
 #include <asm/arch/omapfb.h>
 #include <asm/arch/sram.h>
-
-#include "memory.h"
+#include <asm/arch/sdrc.h>
+#include <asm/arch/gpmc.h>
 
 #include "clock.h"
 
