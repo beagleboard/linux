@@ -191,7 +191,7 @@ static struct platform_device *ldp_devices[] __initdata = {
 
 static void __init omap_ldp_init_irq(void)
 {
-	omap2_init_common_hw();
+	omap2_init_common_hw(NULL);
 	omap_init_irq();
 	omap_gpio_init();
 }

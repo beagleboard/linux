@@ -186,11 +186,13 @@
 #define omap_writew(v,a)	(*(volatile unsigned short *)IO_ADDRESS(a) = (v))
 #define omap_writel(v,a)	(*(volatile unsigned int   *)IO_ADDRESS(a) = (v))
 
+struct omap_sdrc_params;
+
 extern void omap1_map_common_io(void);
 extern void omap1_init_common_hw(void);
 
 extern void omap2_map_common_io(void);
-extern void omap2_init_common_hw(void);
+extern void omap2_init_common_hw(struct omap_sdrc_params *sp);
 
 #endif
 

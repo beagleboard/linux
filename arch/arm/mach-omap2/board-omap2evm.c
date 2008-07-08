@@ -64,7 +64,7 @@ static inline void __init omap2evm_init_smc911x(void)
 
 static void __init omap2_evm_init_irq(void)
 {
-	omap2_init_common_hw();
+	omap2_init_common_hw(NULL);
 	omap_init_irq();
 	omap_gpio_init();
 	omap2evm_init_smc911x();

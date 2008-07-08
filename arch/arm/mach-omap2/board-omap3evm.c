@@ -188,7 +188,7 @@ static struct platform_device omap3evm_kp_device = {
 
 static void __init omap3_evm_init_irq(void)
 {
-	omap2_init_common_hw();
+	omap2_init_common_hw(NULL);
 	omap_init_irq();
 	omap_gpio_init();
 	omap3evm_init_smc911x();
