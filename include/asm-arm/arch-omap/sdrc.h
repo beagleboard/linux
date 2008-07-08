@@ -102,7 +102,7 @@ struct omap_sdrc_params {
 	u32 mr;
 };
 
-void __init omap2_sdrc_init(void);
+void __init omap2_sdrc_init(struct omap_sdrc_params *);
 struct omap_sdrc_params *omap2_sdrc_get_params(unsigned long r);
 
 #ifdef CONFIG_ARCH_OMAP2

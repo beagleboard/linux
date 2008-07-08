@@ -37,6 +37,8 @@
 #include <asm/arch/common.h>
 #include <asm/arch/mcspi.h>
 
+#include "sdram-micron-mt46h32m32lf-6.h"
+
 static struct resource omap3evm_smc911x_resources[] = {
 	[0] =	{
 		.start  = OMAP3EVM_ETHR_START,
@@ -188,7 +190,7 @@ static struct platform_device omap3evm_kp_device = {
 
 static void __init omap3_evm_init_irq(void)
 {
-	omap2_init_common_hw(NULL);
+	omap2_init_common_hw(mt46h32m32lf6_sdrc_params);
 	omap_init_irq();
 	omap_gpio_init();
 	omap3evm_init_smc911x();
