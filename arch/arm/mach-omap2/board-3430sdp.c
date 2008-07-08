@@ -204,7 +204,7 @@ static struct spi_board_info sdp3430_spi_board_info[] __initdata = {
 };
 
 static struct platform_device sdp3430_lcd_device = {
-	.name		= "sdp3430_lcd",
+	.name		= "sdp2430_lcd",
 	.id		= -1,
 };
 
