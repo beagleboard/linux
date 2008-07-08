@@ -44,6 +44,8 @@
 #include <asm/io.h>
 #include <asm/delay.h>
 
+#include "sdram-qimonda-hyb18m512160af-6.h"
+
 #define	SDP3430_SMC91X_CS	3
 
 #define ENABLE_VAUX3_DEDICATED	0x03
@@ -248,7 +250,7 @@ static inline void __init sdp3430_init_smc91x(void)
 
 static void __init omap_3430sdp_init_irq(void)
 {
-	omap2_init_common_hw(NULL);
+	omap2_init_common_hw(hyb18m512160af6_sdrc_params);
 	omap_init_irq();
 	omap_gpio_init();
 	sdp3430_init_smc91x();
