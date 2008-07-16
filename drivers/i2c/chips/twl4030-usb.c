@@ -586,7 +586,7 @@ static void twl4030_usb_ldo_init(struct twl4030_usb *twl)
 	twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0, VUSB1V8_TYPE);
 
 	/* disable access to power configuration registers */
-	twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0, PROTECT_KEY);
+	twl4030_i2c_write_u8(TWL4030_MODULE_PM_MASTER, 0, PROTECT_KEY);
 }
 
 static irqreturn_t twl4030_usb_irq(int irq, void *_twl)
