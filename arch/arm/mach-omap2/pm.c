@@ -89,7 +89,7 @@ void omap2_allow_sleep(void)
 	BUG_ON(i < 0);
 }
 
-int __init omap_pm_init(void)
+static int __init omap_pm_init(void)
 {
 	int error = -1;
 

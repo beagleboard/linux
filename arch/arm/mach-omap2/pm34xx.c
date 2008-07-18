@@ -47,7 +47,7 @@ struct power_state {
 
 static LIST_HEAD(pwrst_list);
 
-void (*_omap_sram_idle)(u32 *addr, int save_state);
+static void (*_omap_sram_idle)(u32 *addr, int save_state);
 
 static void (*saved_idle)(void);
 

@@ -20,6 +20,10 @@ extern unsigned short enable_dyn_sleep;
 extern unsigned short clocks_off_while_idle;
 extern atomic_t sleep_block;
 
+extern void omap2_block_sleep(void);
+extern void omap2_allow_sleep(void);
+
+
 #ifdef CONFIG_PM_DEBUG
 extern u32 omap2_read_32k_sync_counter(void);
 extern void omap2_pm_dump(int mode, int resume, unsigned int us);
