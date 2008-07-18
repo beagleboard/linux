@@ -65,12 +65,12 @@ static struct clk *gpmc_l3_clk;
 
 static void gpmc_write_reg(int idx, u32 val)
 {
-	__raw_writel(val, gpmc_base + idx);
+	__raw_writel(val, (__force void __iomem *)(gpmc_base + idx));
 }
 
 static u32 gpmc_read_reg(int idx)
 {
-	return __raw_readl(gpmc_base + idx);
+	return __raw_readl((__force void __iomem *)(gpmc_base + idx));
 }
 
 void gpmc_cs_write_reg(int cs, int idx, u32 val)
@@ -78,12 +78,15 @@ void gpmc_cs_write_reg(int cs, int idx, u32 val)
 	u32 reg_addr;
 
 	reg_addr = gpmc_base + GPMC_CS0 + (cs * GPMC_CS_SIZE) + idx;
-	__raw_writel(val, reg_addr);
+	__raw_writel(val, (__force void __iomem *)reg_addr);
 }
 
 u32 gpmc_cs_read_reg(int cs, int idx)
 {
-	return __raw_readl(gpmc_base + GPMC_CS0 + (cs * GPMC_CS_SIZE) + idx);
+	u32 reg_addr;
+
+	reg_addr = gpmc_base + GPMC_CS0 + (cs * GPMC_CS_SIZE) + idx;
+	return __raw_readl((__force void __iomem *)reg_addr);
 }
 
 /* TODO: Add support for gpmc_fck to clock framework and use it */

@@ -178,7 +178,7 @@ static const struct clksel osc_sys_clksel[] = {
 static struct clk osc_sys_ck = {
 	.name		= "osc_sys_ck",
 	.init		= &omap2_init_clksel_parent,
-	.clksel_reg	= OMAP3430_PRM_CLKSEL,
+	.clksel_reg	= (__force void __iomem *)OMAP3430_PRM_CLKSEL,
 	.clksel_mask	= OMAP3430_SYS_CLKIN_SEL_MASK,
 	.clksel		= osc_sys_clksel,
 	/* REVISIT: deal with autoextclkmode? */
@@ -204,7 +204,7 @@ static struct clk sys_ck = {
 	.name		= "sys_ck",
 	.parent		= &osc_sys_ck,
 	.init		= &omap2_init_clksel_parent,
-	.clksel_reg	= OMAP3430_PRM_CLKSRC_CTRL,
+	.clksel_reg	= (__force void __iomem *)OMAP3430_PRM_CLKSRC_CTRL,
 	.clksel_mask	= OMAP_SYSCLKDIV_MASK,
 	.clksel		= sys_clksel,
 	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES | ALWAYS_ENABLED,
@@ -229,7 +229,7 @@ static struct clk mcbsp_clks = {
 static struct clk sys_clkout1 = {
 	.name		= "sys_clkout1",
 	.parent		= &osc_sys_ck,
-	.enable_reg	= OMAP3430_PRM_CLKOUT_CTRL,
+	.enable_reg	= (__force void __iomem *)OMAP3430_PRM_CLKOUT_CTRL,
 	.enable_bit	= OMAP3430_CLKOUT_EN_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
 	.recalc		= &followparent_recalc,
@@ -271,6 +271,9 @@ static const struct clksel_rate div16_dpll_rates[] = {
 
 #define _OMAP34XX_CM_REGADDR(module, reg)				\
 	((__force void __iomem *)(OMAP34XX_CM_REGADDR((module), (reg))))
+
+#define _OMAP34XX_PRM_REGADDR(module, reg)				\
+	((__force void __iomem *)(OMAP34XX_PRM_REGADDR((module), (reg))))
 
 /* DPLL1 */
 /* MPU clock source */
