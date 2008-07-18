@@ -75,12 +75,12 @@ static void omap2_mbox_enable_irq(struct omap_mbox *mbox,
 
 static inline unsigned int mbox_read_reg(unsigned int reg)
 {
-	return __raw_readl(mbox_base + reg);
+	return __raw_readl((void __iomem *)(mbox_base + reg));
 }
 
 static inline void mbox_write_reg(unsigned int val, unsigned int reg)
 {
-	__raw_writel(val, mbox_base + reg);
+	__raw_writel(val, (void __iomem *)(mbox_base + reg));
 }
 
 /* Mailbox H/W preparations */

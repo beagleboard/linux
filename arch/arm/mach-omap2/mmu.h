@@ -105,13 +105,13 @@ struct omap_mmu_tlb_entry {
 static inline unsigned long
 omap_mmu_read_reg(struct omap_mmu *mmu, unsigned long reg)
 {
-	return __raw_readl(mmu->base + reg);
+	return __raw_readl((void __iomem *)(mmu->base + reg));
 }
 
 static inline void omap_mmu_write_reg(struct omap_mmu *mmu,
 			       unsigned long val, unsigned long reg)
 {
-	__raw_writel(val, mmu->base + reg);
+	__raw_writel(val, (void __iomem *)(mmu->base + reg));
 }
 
 #endif /* __MACH_OMAP2_MMU_H */

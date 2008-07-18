@@ -185,7 +185,7 @@ static struct omap_mcbsp_platform_data omap34xx_mcbsp_pdata[] = {
 #define OMAP34XX_MCBSP_PDATA_SZ		0
 #endif
 
-int __init omap2_mcbsp_init(void)
+static int __init omap2_mcbsp_init(void)
 {
 	int i;
 

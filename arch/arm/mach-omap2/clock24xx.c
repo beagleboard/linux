@@ -530,7 +530,7 @@ static inline void omap2_clk_check_reg(u32 flags, void __iomem **reg)
 	*reg = (__force void __iomem *)tmp;
 }
 
-void __init omap2_clk_rewrite_base(struct clk *clk)
+static void __init omap2_clk_rewrite_base(struct clk *clk)
 {
 	omap2_clk_check_reg(clk->flags, &clk->clksel_reg);
 	omap2_clk_check_reg(clk->flags, &clk->enable_reg);

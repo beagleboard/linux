@@ -32,11 +32,11 @@ extern void pm_init_serial_console(void);
 extern void serial_console_sleep(int enable);
 extern int omap2_pm_debug;
 #else
-#define omap2_read_32k_sync_counter() 0;
-#define serial_console_sleep(enable) do; while(0)
-#define pm_init_serial_console() do; while(0)
-#define omap2_pm_dump(mode,resume,us) do; while(0)
-#define serial_console_fclk_mask(f1,f2)  do; while(0)
-#define omap2_pm_debug 0
+#define omap2_read_32k_sync_counter()		0
+#define serial_console_sleep(enable)		do {} while (0);
+#define pm_init_serial_console()		do {} while (0);
+#define omap2_pm_dump(mode, resume, us)		do {} while (0);
+#define serial_console_fclk_mask(f1, f2)		do {} while (0);
+#define omap2_pm_debug				0
 #endif /* CONFIG_PM_DEBUG */
 #endif

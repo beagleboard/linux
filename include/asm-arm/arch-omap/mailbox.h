@@ -61,6 +61,8 @@ struct omap_mbox {
 	void			(*err_notify)(void);
 };
 
+extern struct omap_mbox mbox_dsp_info;
+
 int omap_mbox_msg_send(struct omap_mbox *, mbox_msg_t msg, void *);
 void omap_mbox_init_seq(struct omap_mbox *);
 

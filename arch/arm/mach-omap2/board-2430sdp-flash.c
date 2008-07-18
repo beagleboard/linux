@@ -125,16 +125,16 @@ static struct platform_device sdp_onenand_device = {
 
 void __init sdp2430_flash_init(void)
 {
-	unsigned long gpmc_base_add, gpmc_cs_base_add;
+	void __iomem *gpmc_base_add, *gpmc_cs_base_add;
 	unsigned char cs = 0;
 
-	gpmc_base_add = OMAP243X_GPMC_VIRT;
+	gpmc_base_add = (__force void __iomem *)OMAP243X_GPMC_VIRT;
 	while (cs < GPMC_CS_NUM) {
 		int ret = 0;
 
 		/* Each GPMC set for a single CS is at offset 0x30 */
-		gpmc_cs_base_add =
-			(gpmc_base_add + GPMC_OFF_CONFIG1_0 + (cs*0x30));
+		gpmc_cs_base_add = (gpmc_base_add + GPMC_OFF_CONFIG1_0 +
+				    (cs*0x30));
 
 		/* xloader/Uboot would have programmed the NAND/oneNAND
 		 * base address for us This is a ugly hack. The proper
@@ -164,22 +164,22 @@ void __init sdp2430_flash_init(void)
 	}
 
 	if (flash_type == NAND) {
-		sdp_nand_data.cs               = cs;
-		sdp_nand_data.gpmc_cs_baseaddr = (void *) gpmc_cs_base_add;
-		sdp_nand_data.gpmc_baseaddr    = (void *) gpmc_base_add;
+		sdp_nand_data.cs	       = cs;
+		sdp_nand_data.gpmc_cs_baseaddr = gpmc_cs_base_add;
+		sdp_nand_data.gpmc_baseaddr    = gpmc_base_add;
 
 		if (platform_device_register(&sdp_nand_device) < 0) {
 			printk(KERN_ERR "Unable to register NAND device\n");
-		return;
-	}
+			return;
+		}
 	}
 
 	if (flash_type == ONENAND) {
-	sdp_onenand_data.cs = cs;
+		sdp_onenand_data.cs = cs;
 
-	if (platform_device_register(&sdp_onenand_device) < 0) {
-		printk(KERN_ERR "Unable to register OneNAND device\n");
-		return;
-	}
+		if (platform_device_register(&sdp_onenand_device) < 0) {
+			printk(KERN_ERR "Unable to register OneNAND device\n");
+			return;
+		}
 	}
 }

@@ -28,6 +28,7 @@
 #include <asm/mach/time.h>
 #include <asm/atomic.h>
 
+#include <asm/arch/pm.h>
 #include "pm.h"
 
 unsigned short enable_dyn_sleep;

@@ -18,4 +18,6 @@ void __init nokia_n800_common_init(void);
 void __init nokia_n800_map_io(void);
 void __init nokia_n800_init_irq(void);
 
+extern const struct tcm825x_platform_data n800_tcm825x_platform_data;
+
 #endif

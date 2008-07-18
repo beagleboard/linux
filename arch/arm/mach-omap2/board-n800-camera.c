@@ -37,6 +37,8 @@
 #include <../drivers/cbus/retu.h>
 #include <../drivers/media/video/tcm825x.h>
 
+#include "board-n800.h"
+
 #if defined (CONFIG_VIDEO_TCM825X) || defined (CONFIG_VIDEO_TCM825X_MODULE)
 
 #define OMAP24XX_CAMERA_JAM_HACK
