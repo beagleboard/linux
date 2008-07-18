@@ -535,6 +535,9 @@ omap_i2c_ack_stat(struct omap_i2c_dev *dev, u16 stat)
 	omap_i2c_write_reg(dev, OMAP_I2C_STAT_REG, stat);
 }
 
+/* rev1 devices are apparently only on some 15xx */
+#ifdef CONFIG_ARCH_OMAP15XX
+
 static irqreturn_t
 omap_i2c_rev1_isr(int this_irq, void *dev_id)
 {
@@ -589,6 +592,9 @@ omap_i2c_rev1_isr(int this_irq, void *dev_id)
 
 	return IRQ_HANDLED;
 }
+#else
+#define omap_i2c_rev1_isr		0
+#endif
 
 static irqreturn_t
 omap_i2c_isr(int this_irq, void *dev_id)
@@ -850,14 +856,14 @@ static struct platform_driver omap_i2c_driver = {
 };
 
 /* I2C may be needed to bring up other drivers */
-static int __init
+static int __devinit
 omap_i2c_init_driver(void)
 {
 	return platform_driver_register(&omap_i2c_driver);
 }
 subsys_initcall(omap_i2c_init_driver);
 
-static void __exit omap_i2c_exit_driver(void)
+static void __devexit omap_i2c_exit_driver(void)
 {
 	platform_driver_unregister(&omap_i2c_driver);
 }
