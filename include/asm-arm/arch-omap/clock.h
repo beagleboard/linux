@@ -81,8 +81,10 @@ struct clk {
 	u32			clksel_mask;
 	const struct clksel	*clksel;
 	struct dpll_data	*dpll_data;
-	const char              *clkdm_name;
-	struct clockdomain      *clkdm;
+	union {
+		const char		*name;
+		struct clockdomain	*ptr;
+	} clkdm;
 #else
 	__u8			rate_offset;
 	__u8			src_offset;

@@ -1010,7 +1010,7 @@ static struct clk clkout2_src_ck = {
 	.clksel_mask	= OMAP3430_CLKOUT2SOURCE_MASK,
 	.clksel		= clkout2_src_clksel,
 	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES,
-	.clkdm_name	= "core_clkdm",
+	.clkdm		= { .name = "core_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 };
 
@@ -1099,7 +1099,7 @@ static struct clk mpu_ck = {
 	.clksel		= mpu_clksel,
 	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES |
 				PARENT_CONTROLS_CLOCK,
-	.clkdm_name	= "mpu_clkdm",
+	.clkdm		= { .name = "mpu_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 };
 
@@ -1177,7 +1177,7 @@ static struct clk iva2_ck = {
 	.clksel_mask	= OMAP3430_ST_IVA2_CLK_MASK,
 	.clksel		= iva2_clksel,
 	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES,
-	.clkdm_name	= "iva2_clkdm",
+	.clkdm		= { .name = "iva2_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 };
 
@@ -1197,7 +1197,7 @@ static struct clk l3_ick = {
 	.clksel		= div2_core_clksel,
 	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES |
 				PARENT_CONTROLS_CLOCK,
-	.clkdm_name	= "core_l3_clkdm",
+	.clkdm		= { .name = "core_l3_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 };
 
@@ -1215,7 +1215,7 @@ static struct clk l4_ick = {
 	.clksel		= div2_l3_clksel,
 	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES |
 				PARENT_CONTROLS_CLOCK,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 
 };
@@ -1265,7 +1265,7 @@ static struct clk gfx_l3_fck = {
 	.clksel		= gfx_l3_clksel,
 	.flags		= CLOCK_IN_OMAP3430ES1 | RATE_PROPAGATES |
 				PARENT_CONTROLS_CLOCK,
-	.clkdm_name	= "gfx_3430es1_clkdm",
+	.clkdm		= { .name = "gfx_3430es1_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 };
 
@@ -1273,7 +1273,7 @@ static struct clk gfx_l3_ick = {
 	.name		= "gfx_l3_ick",
 	.parent		= &gfx_l3_ck,
 	.flags		= CLOCK_IN_OMAP3430ES1 | PARENT_CONTROLS_CLOCK,
-	.clkdm_name	= "gfx_3430es1_clkdm",
+	.clkdm		= { .name = "gfx_3430es1_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -1284,7 +1284,7 @@ static struct clk gfx_cg1_ck = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(GFX_MOD, CM_FCLKEN),
 	.enable_bit	= OMAP3430ES1_EN_2D_SHIFT,
 	.flags		= CLOCK_IN_OMAP3430ES1,
-	.clkdm_name	= "gfx_3430es1_clkdm",
+	.clkdm		= { .name = "gfx_3430es1_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -1295,7 +1295,7 @@ static struct clk gfx_cg2_ck = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(GFX_MOD, CM_FCLKEN),
 	.enable_bit	= OMAP3430ES1_EN_3D_SHIFT,
 	.flags		= CLOCK_IN_OMAP3430ES1,
-	.clkdm_name	= "gfx_3430es1_clkdm",
+	.clkdm		= { .name = "gfx_3430es1_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -1328,7 +1328,7 @@ static struct clk sgx_fck = {
 	.clksel_mask	= OMAP3430ES2_CLKSEL_SGX_MASK,
 	.clksel		= sgx_clksel,
 	.flags		= CLOCK_IN_OMAP3430ES2,
-	.clkdm_name	= "sgx_clkdm",
+	.clkdm		= { .name = "sgx_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 };
 
@@ -1339,7 +1339,7 @@ static struct clk sgx_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(OMAP3430ES2_SGX_MOD, CM_ICLKEN),
 	.enable_bit	= OMAP3430ES2_EN_SGX_SHIFT,
 	.flags		= CLOCK_IN_OMAP3430ES2,
-	.clkdm_name	= "sgx_clkdm",
+	.clkdm		= { .name = "sgx_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -1352,7 +1352,7 @@ static struct clk d2d_26m_fck = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(CORE_MOD, CM_FCLKEN1),
 	.enable_bit	= OMAP3430ES1_EN_D2D_SHIFT,
 	.flags		= CLOCK_IN_OMAP3430ES1,
-	.clkdm_name	= "d2d_clkdm",
+	.clkdm		= { .name = "d2d_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -1372,7 +1372,7 @@ static struct clk gpt10_fck = {
 	.clksel_mask	= OMAP3430_CLKSEL_GPT10_MASK,
 	.clksel		= omap343x_gpt_clksel,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 };
 
@@ -1386,7 +1386,7 @@ static struct clk gpt11_fck = {
 	.clksel_mask	= OMAP3430_CLKSEL_GPT11_MASK,
 	.clksel		= omap343x_gpt_clksel,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 };
 
@@ -1424,7 +1424,7 @@ static struct clk core_96m_fck = {
 	.parent		= &omap_96m_fck,
 	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES |
 				PARENT_CONTROLS_CLOCK,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -1435,7 +1435,7 @@ static struct clk mmchs3_fck = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(CORE_MOD, CM_FCLKEN1),
 	.enable_bit	= OMAP3430ES2_EN_MMC3_SHIFT,
 	.flags		= CLOCK_IN_OMAP3430ES2,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -1446,7 +1446,7 @@ static struct clk mmchs2_fck = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(CORE_MOD, CM_FCLKEN1),
 	.enable_bit	= OMAP3430_EN_MMC2_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -1456,7 +1456,7 @@ static struct clk mspro_fck = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(CORE_MOD, CM_FCLKEN1),
 	.enable_bit	= OMAP3430_EN_MSPRO_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -1467,7 +1467,7 @@ static struct clk mmchs1_fck = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(CORE_MOD, CM_FCLKEN1),
 	.enable_bit	= OMAP3430_EN_MMC1_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -1478,7 +1478,7 @@ static struct clk i2c3_fck = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(CORE_MOD, CM_FCLKEN1),
 	.enable_bit	= OMAP3430_EN_I2C3_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -1489,7 +1489,7 @@ static struct clk i2c2_fck = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(CORE_MOD, CM_FCLKEN1),
 	.enable_bit	= OMAP3430_EN_I2C2_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -1500,7 +1500,7 @@ static struct clk i2c1_fck = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(CORE_MOD, CM_FCLKEN1),
 	.enable_bit	= OMAP3430_EN_I2C1_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -1534,7 +1534,7 @@ static struct clk mcbsp5_fck = {
 	.clksel_mask	= OMAP2_MCBSP5_CLKS_MASK,
 	.clksel		= mcbsp_15_clksel,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 };
 
@@ -1548,7 +1548,7 @@ static struct clk mcbsp1_fck = {
 	.clksel_mask	= OMAP2_MCBSP1_CLKS_MASK,
 	.clksel		= mcbsp_15_clksel,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 };
 
@@ -1559,7 +1559,7 @@ static struct clk core_48m_fck = {
 	.parent		= &omap_48m_fck,
 	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES |
 				PARENT_CONTROLS_CLOCK,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -1637,7 +1637,7 @@ static struct clk core_12m_fck = {
 	.parent		= &omap_12m_fck,
 	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES |
 				PARENT_CONTROLS_CLOCK,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -1676,7 +1676,7 @@ static struct clk ssi_ssr_fck = {
 	.clksel_mask	= OMAP3430_CLKSEL_SSI_MASK,
 	.clksel		= ssi_ssr_clksel,
 	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 };
 
@@ -1702,7 +1702,7 @@ static struct clk core_l3_ick = {
 	.init		= &omap2_init_clk_clkdm,
 	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES |
 				PARENT_CONTROLS_CLOCK,
-	.clkdm_name	= "core_l3_clkdm",
+	.clkdm		= { .name = "core_l3_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -1712,7 +1712,7 @@ static struct clk hsotgusb_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(CORE_MOD, CM_ICLKEN1),
 	.enable_bit	= OMAP3430_EN_HSOTGUSB_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "core_l3_clkdm",
+	.clkdm		= { .name = "core_l3_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -1722,7 +1722,7 @@ static struct clk sdrc_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(CORE_MOD, CM_ICLKEN1),
 	.enable_bit	= OMAP3430_EN_SDRC_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X | ENABLE_ON_INIT,
-	.clkdm_name	= "core_l3_clkdm",
+	.clkdm		= { .name = "core_l3_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -1731,7 +1731,7 @@ static struct clk gpmc_fck = {
 	.parent		= &core_l3_ick,
 	.flags		= CLOCK_IN_OMAP343X | PARENT_CONTROLS_CLOCK |
 				ENABLE_ON_INIT,
-	.clkdm_name	= "core_l3_clkdm",
+	.clkdm		= { .name = "core_l3_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -1762,7 +1762,7 @@ static struct clk core_l4_ick = {
 	.init		= &omap2_init_clk_clkdm,
 	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES |
 				PARENT_CONTROLS_CLOCK,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -1772,7 +1772,7 @@ static struct clk usbtll_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(CORE_MOD, CM_ICLKEN3),
 	.enable_bit	= OMAP3430ES2_EN_USBTLL_SHIFT,
 	.flags		= CLOCK_IN_OMAP3430ES2,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -1783,7 +1783,7 @@ static struct clk mmchs3_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(CORE_MOD, CM_ICLKEN1),
 	.enable_bit	= OMAP3430ES2_EN_MMC3_SHIFT,
 	.flags		= CLOCK_IN_OMAP3430ES2,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -1794,7 +1794,7 @@ static struct clk icr_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(CORE_MOD, CM_ICLKEN1),
 	.enable_bit	= OMAP3430_EN_ICR_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -1804,7 +1804,7 @@ static struct clk aes2_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(CORE_MOD, CM_ICLKEN1),
 	.enable_bit	= OMAP3430_EN_AES2_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -1814,7 +1814,7 @@ static struct clk sha12_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(CORE_MOD, CM_ICLKEN1),
 	.enable_bit	= OMAP3430_EN_SHA12_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -1824,7 +1824,7 @@ static struct clk des2_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(CORE_MOD, CM_ICLKEN1),
 	.enable_bit	= OMAP3430_EN_DES2_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -1835,7 +1835,7 @@ static struct clk mmchs2_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(CORE_MOD, CM_ICLKEN1),
 	.enable_bit	= OMAP3430_EN_MMC2_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -1846,7 +1846,7 @@ static struct clk mmchs1_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(CORE_MOD, CM_ICLKEN1),
 	.enable_bit	= OMAP3430_EN_MMC1_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -1856,7 +1856,7 @@ static struct clk mspro_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(CORE_MOD, CM_ICLKEN1),
 	.enable_bit	= OMAP3430_EN_MSPRO_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -1866,7 +1866,7 @@ static struct clk hdq_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(CORE_MOD, CM_ICLKEN1),
 	.enable_bit	= OMAP3430_EN_HDQ_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -1877,7 +1877,7 @@ static struct clk mcspi4_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(CORE_MOD, CM_ICLKEN1),
 	.enable_bit	= OMAP3430_EN_MCSPI4_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -1888,7 +1888,7 @@ static struct clk mcspi3_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(CORE_MOD, CM_ICLKEN1),
 	.enable_bit	= OMAP3430_EN_MCSPI3_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -1899,7 +1899,7 @@ static struct clk mcspi2_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(CORE_MOD, CM_ICLKEN1),
 	.enable_bit	= OMAP3430_EN_MCSPI2_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -1910,7 +1910,7 @@ static struct clk mcspi1_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(CORE_MOD, CM_ICLKEN1),
 	.enable_bit	= OMAP3430_EN_MCSPI1_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -1921,7 +1921,7 @@ static struct clk i2c3_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(CORE_MOD, CM_ICLKEN1),
 	.enable_bit	= OMAP3430_EN_I2C3_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -1932,7 +1932,7 @@ static struct clk i2c2_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(CORE_MOD, CM_ICLKEN1),
 	.enable_bit	= OMAP3430_EN_I2C2_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -1943,7 +1943,7 @@ static struct clk i2c1_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(CORE_MOD, CM_ICLKEN1),
 	.enable_bit	= OMAP3430_EN_I2C1_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -1953,7 +1953,7 @@ static struct clk uart2_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(CORE_MOD, CM_ICLKEN1),
 	.enable_bit	= OMAP3430_EN_UART2_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -1963,7 +1963,7 @@ static struct clk uart1_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(CORE_MOD, CM_ICLKEN1),
 	.enable_bit	= OMAP3430_EN_UART1_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -1973,7 +1973,7 @@ static struct clk gpt11_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(CORE_MOD, CM_ICLKEN1),
 	.enable_bit	= OMAP3430_EN_GPT11_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -1983,7 +1983,7 @@ static struct clk gpt10_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(CORE_MOD, CM_ICLKEN1),
 	.enable_bit	= OMAP3430_EN_GPT10_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -1994,7 +1994,7 @@ static struct clk mcbsp5_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(CORE_MOD, CM_ICLKEN1),
 	.enable_bit	= OMAP3430_EN_MCBSP5_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2005,7 +2005,7 @@ static struct clk mcbsp1_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(CORE_MOD, CM_ICLKEN1),
 	.enable_bit	= OMAP3430_EN_MCBSP1_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2015,7 +2015,7 @@ static struct clk fac_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(CORE_MOD, CM_ICLKEN1),
 	.enable_bit	= OMAP3430ES1_EN_FAC_SHIFT,
 	.flags		= CLOCK_IN_OMAP3430ES1,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2025,7 +2025,7 @@ static struct clk mailboxes_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(CORE_MOD, CM_ICLKEN1),
 	.enable_bit	= OMAP3430_EN_MAILBOXES_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2045,7 +2045,7 @@ static struct clk ssi_l4_ick = {
 	.parent		= &l4_ick,
 	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES |
 				PARENT_CONTROLS_CLOCK,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2055,7 +2055,7 @@ static struct clk ssi_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(CORE_MOD, CM_ICLKEN1),
 	.enable_bit	= OMAP3430_EN_SSI_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2145,7 +2145,7 @@ static struct clk dss1_alwon_fck = {
 	.clksel_mask	= OMAP3430_ST_PERIPH_CLK_MASK,
 	.clksel		= dss1_alwon_fck_clksel,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "dss_clkdm",
+	.clkdm		= { .name = "dss_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 };
 
@@ -2156,7 +2156,7 @@ static struct clk dss_tv_fck = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(OMAP3430_DSS_MOD, CM_FCLKEN),
 	.enable_bit	= OMAP3430_EN_TV_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "dss_clkdm",
+	.clkdm		= { .name = "dss_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2167,7 +2167,7 @@ static struct clk dss_96m_fck = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(OMAP3430_DSS_MOD, CM_FCLKEN),
 	.enable_bit	= OMAP3430_EN_TV_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "dss_clkdm",
+	.clkdm		= { .name = "dss_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2178,7 +2178,7 @@ static struct clk dss2_alwon_fck = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(OMAP3430_DSS_MOD, CM_FCLKEN),
 	.enable_bit	= OMAP3430_EN_DSS2_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "dss_clkdm",
+	.clkdm		= { .name = "dss_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2190,7 +2190,7 @@ static struct clk dss_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(OMAP3430_DSS_MOD, CM_ICLKEN),
 	.enable_bit	= OMAP3430_CM_ICLKEN_DSS_EN_DSS_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "dss_clkdm",
+	.clkdm		= { .name = "dss_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2212,7 +2212,7 @@ static struct clk cam_mclk = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(OMAP3430_CAM_MOD, CM_FCLKEN),
 	.enable_bit	= OMAP3430_EN_CAM_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "cam_clkdm",
+	.clkdm		= { .name = "cam_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 };
 
@@ -2224,7 +2224,7 @@ static struct clk cam_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(OMAP3430_CAM_MOD, CM_ICLKEN),
 	.enable_bit	= OMAP3430_EN_CAM_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "cam_clkdm",
+	.clkdm		= { .name = "cam_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2237,7 +2237,7 @@ static struct clk usbhost_120m_fck = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(OMAP3430ES2_USBHOST_MOD, CM_FCLKEN),
 	.enable_bit	= OMAP3430ES2_EN_USBHOST2_SHIFT,
 	.flags		= CLOCK_IN_OMAP3430ES2,
-	.clkdm_name	= "usbhost_clkdm",
+	.clkdm		= { .name = "usbhost_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2248,7 +2248,7 @@ static struct clk usbhost_48m_fck = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(OMAP3430ES2_USBHOST_MOD, CM_FCLKEN),
 	.enable_bit	= OMAP3430ES2_EN_USBHOST1_SHIFT,
 	.flags		= CLOCK_IN_OMAP3430ES2,
-	.clkdm_name	= "usbhost_clkdm",
+	.clkdm		= { .name = "usbhost_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2260,7 +2260,7 @@ static struct clk usbhost_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(OMAP3430ES2_USBHOST_MOD, CM_ICLKEN),
 	.enable_bit	= OMAP3430ES2_EN_USBHOST_SHIFT,
 	.flags		= CLOCK_IN_OMAP3430ES2,
-	.clkdm_name	= "usbhost_clkdm",
+	.clkdm		= { .name = "usbhost_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2312,7 +2312,7 @@ static struct clk gpt1_fck = {
 	.clksel_mask	= OMAP3430_CLKSEL_GPT1_MASK,
 	.clksel		= omap343x_gpt_clksel,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "wkup_clkdm",
+	.clkdm		= { .name = "wkup_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 };
 
@@ -2321,7 +2321,7 @@ static struct clk wkup_32k_fck = {
 	.init		= &omap2_init_clk_clkdm,
 	.parent		= &omap_32k_fck,
 	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES | ALWAYS_ENABLED,
-	.clkdm_name	= "wkup_clkdm",
+	.clkdm		= { .name = "wkup_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2331,7 +2331,7 @@ static struct clk gpio1_fck = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(WKUP_MOD, CM_FCLKEN),
 	.enable_bit	= OMAP3430_EN_GPIO1_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "wkup_clkdm",
+	.clkdm		= { .name = "wkup_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2341,7 +2341,7 @@ static struct clk wdt2_fck = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(WKUP_MOD, CM_FCLKEN),
 	.enable_bit	= OMAP3430_EN_WDT2_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "wkup_clkdm",
+	.clkdm		= { .name = "wkup_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2349,7 +2349,7 @@ static struct clk wkup_l4_ick = {
 	.name		= "wkup_l4_ick",
 	.parent		= &sys_ck,
 	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES | ALWAYS_ENABLED,
-	.clkdm_name	= "wkup_clkdm",
+	.clkdm		= { .name = "wkup_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2361,7 +2361,7 @@ static struct clk usim_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(WKUP_MOD, CM_ICLKEN),
 	.enable_bit	= OMAP3430ES2_EN_USIMOCP_SHIFT,
 	.flags		= CLOCK_IN_OMAP3430ES2,
-	.clkdm_name	= "wkup_clkdm",
+	.clkdm		= { .name = "wkup_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2371,7 +2371,7 @@ static struct clk wdt2_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(WKUP_MOD, CM_ICLKEN),
 	.enable_bit	= OMAP3430_EN_WDT2_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "wkup_clkdm",
+	.clkdm		= { .name = "wkup_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2381,7 +2381,7 @@ static struct clk wdt1_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(WKUP_MOD, CM_ICLKEN),
 	.enable_bit	= OMAP3430_EN_WDT1_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "wkup_clkdm",
+	.clkdm		= { .name = "wkup_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2391,7 +2391,7 @@ static struct clk gpio1_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(WKUP_MOD, CM_ICLKEN),
 	.enable_bit	= OMAP3430_EN_GPIO1_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "wkup_clkdm",
+	.clkdm		= { .name = "wkup_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2401,7 +2401,7 @@ static struct clk omap_32ksync_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(WKUP_MOD, CM_ICLKEN),
 	.enable_bit	= OMAP3430_EN_32KSYNC_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "wkup_clkdm",
+	.clkdm		= { .name = "wkup_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2412,7 +2412,7 @@ static struct clk gpt12_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(WKUP_MOD, CM_ICLKEN),
 	.enable_bit	= OMAP3430_EN_GPT12_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "wkup_clkdm",
+	.clkdm		= { .name = "wkup_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2422,7 +2422,7 @@ static struct clk gpt1_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(WKUP_MOD, CM_ICLKEN),
 	.enable_bit	= OMAP3430_EN_GPT1_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "wkup_clkdm",
+	.clkdm		= { .name = "wkup_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2436,7 +2436,7 @@ static struct clk per_96m_fck = {
 	.init		= &omap2_init_clk_clkdm,
 	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES |
 				PARENT_CONTROLS_CLOCK,
-	.clkdm_name	= "per_clkdm",
+	.clkdm		= { .name = "per_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2446,7 +2446,7 @@ static struct clk per_48m_fck = {
 	.init		= &omap2_init_clk_clkdm,
 	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES |
 				PARENT_CONTROLS_CLOCK,
-	.clkdm_name	= "per_clkdm",
+	.clkdm		= { .name = "per_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2456,7 +2456,7 @@ static struct clk uart3_fck = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(OMAP3430_PER_MOD, CM_FCLKEN),
 	.enable_bit	= OMAP3430_EN_UART3_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "per_clkdm",
+	.clkdm		= { .name = "per_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2469,7 +2469,7 @@ static struct clk gpt2_fck = {
 	.clksel_mask	= OMAP3430_CLKSEL_GPT2_MASK,
 	.clksel		= omap343x_gpt_clksel,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "per_clkdm",
+	.clkdm		= { .name = "per_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 };
 
@@ -2482,7 +2482,7 @@ static struct clk gpt3_fck = {
 	.clksel_mask	= OMAP3430_CLKSEL_GPT3_MASK,
 	.clksel		= omap343x_gpt_clksel,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "per_clkdm",
+	.clkdm		= { .name = "per_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 };
 
@@ -2495,7 +2495,7 @@ static struct clk gpt4_fck = {
 	.clksel_mask	= OMAP3430_CLKSEL_GPT4_MASK,
 	.clksel		= omap343x_gpt_clksel,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "per_clkdm",
+	.clkdm		= { .name = "per_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 };
 
@@ -2508,7 +2508,7 @@ static struct clk gpt5_fck = {
 	.clksel_mask	= OMAP3430_CLKSEL_GPT5_MASK,
 	.clksel		= omap343x_gpt_clksel,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "per_clkdm",
+	.clkdm		= { .name = "per_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 };
 
@@ -2521,7 +2521,7 @@ static struct clk gpt6_fck = {
 	.clksel_mask	= OMAP3430_CLKSEL_GPT6_MASK,
 	.clksel		= omap343x_gpt_clksel,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "per_clkdm",
+	.clkdm		= { .name = "per_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 };
 
@@ -2534,7 +2534,7 @@ static struct clk gpt7_fck = {
 	.clksel_mask	= OMAP3430_CLKSEL_GPT7_MASK,
 	.clksel		= omap343x_gpt_clksel,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "per_clkdm",
+	.clkdm		= { .name = "per_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 };
 
@@ -2547,7 +2547,7 @@ static struct clk gpt8_fck = {
 	.clksel_mask	= OMAP3430_CLKSEL_GPT8_MASK,
 	.clksel		= omap343x_gpt_clksel,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "per_clkdm",
+	.clkdm		= { .name = "per_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 };
 
@@ -2560,14 +2560,14 @@ static struct clk gpt9_fck = {
 	.clksel_mask	= OMAP3430_CLKSEL_GPT9_MASK,
 	.clksel		= omap343x_gpt_clksel,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "per_clkdm",
+	.clkdm		= { .name = "per_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 };
 
 static struct clk per_32k_alwon_fck = {
 	.name		= "per_32k_alwon_fck",
 	.parent		= &omap_32k_fck,
-	.clkdm_name	= "per_clkdm",
+	.clkdm		= { .name = "per_clkdm" },
 	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES | ALWAYS_ENABLED,
 	.recalc		= &followparent_recalc,
 };
@@ -2578,7 +2578,7 @@ static struct clk gpio6_fck = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(OMAP3430_PER_MOD, CM_FCLKEN),
 	.enable_bit	= OMAP3430_EN_GPIO6_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "per_clkdm",
+	.clkdm		= { .name = "per_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2588,7 +2588,7 @@ static struct clk gpio5_fck = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(OMAP3430_PER_MOD, CM_FCLKEN),
 	.enable_bit	= OMAP3430_EN_GPIO5_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "per_clkdm",
+	.clkdm		= { .name = "per_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2598,7 +2598,7 @@ static struct clk gpio4_fck = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(OMAP3430_PER_MOD, CM_FCLKEN),
 	.enable_bit	= OMAP3430_EN_GPIO4_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "per_clkdm",
+	.clkdm		= { .name = "per_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2608,7 +2608,7 @@ static struct clk gpio3_fck = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(OMAP3430_PER_MOD, CM_FCLKEN),
 	.enable_bit	= OMAP3430_EN_GPIO3_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "per_clkdm",
+	.clkdm		= { .name = "per_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2618,7 +2618,7 @@ static struct clk gpio2_fck = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(OMAP3430_PER_MOD, CM_FCLKEN),
 	.enable_bit	= OMAP3430_EN_GPIO2_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "per_clkdm",
+	.clkdm		= { .name = "per_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2628,7 +2628,7 @@ static struct clk wdt3_fck = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(OMAP3430_PER_MOD, CM_FCLKEN),
 	.enable_bit	= OMAP3430_EN_WDT3_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "per_clkdm",
+	.clkdm		= { .name = "per_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2637,7 +2637,7 @@ static struct clk per_l4_ick = {
 	.parent		= &l4_ick,
 	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES |
 				PARENT_CONTROLS_CLOCK,
-	.clkdm_name	= "per_clkdm",
+	.clkdm		= { .name = "per_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2647,7 +2647,7 @@ static struct clk gpio6_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(OMAP3430_PER_MOD, CM_ICLKEN),
 	.enable_bit	= OMAP3430_EN_GPIO6_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "per_clkdm",
+	.clkdm		= { .name = "per_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2657,7 +2657,7 @@ static struct clk gpio5_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(OMAP3430_PER_MOD, CM_ICLKEN),
 	.enable_bit	= OMAP3430_EN_GPIO5_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "per_clkdm",
+	.clkdm		= { .name = "per_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2667,7 +2667,7 @@ static struct clk gpio4_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(OMAP3430_PER_MOD, CM_ICLKEN),
 	.enable_bit	= OMAP3430_EN_GPIO4_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "per_clkdm",
+	.clkdm		= { .name = "per_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2677,7 +2677,7 @@ static struct clk gpio3_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(OMAP3430_PER_MOD, CM_ICLKEN),
 	.enable_bit	= OMAP3430_EN_GPIO3_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "per_clkdm",
+	.clkdm		= { .name = "per_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2687,7 +2687,7 @@ static struct clk gpio2_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(OMAP3430_PER_MOD, CM_ICLKEN),
 	.enable_bit	= OMAP3430_EN_GPIO2_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "per_clkdm",
+	.clkdm		= { .name = "per_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2697,7 +2697,7 @@ static struct clk wdt3_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(OMAP3430_PER_MOD, CM_ICLKEN),
 	.enable_bit	= OMAP3430_EN_WDT3_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "per_clkdm",
+	.clkdm		= { .name = "per_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2707,7 +2707,7 @@ static struct clk uart3_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(OMAP3430_PER_MOD, CM_ICLKEN),
 	.enable_bit	= OMAP3430_EN_UART3_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "per_clkdm",
+	.clkdm		= { .name = "per_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2717,7 +2717,7 @@ static struct clk gpt9_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(OMAP3430_PER_MOD, CM_ICLKEN),
 	.enable_bit	= OMAP3430_EN_GPT9_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "per_clkdm",
+	.clkdm		= { .name = "per_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2727,7 +2727,7 @@ static struct clk gpt8_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(OMAP3430_PER_MOD, CM_ICLKEN),
 	.enable_bit	= OMAP3430_EN_GPT8_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "per_clkdm",
+	.clkdm		= { .name = "per_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2737,7 +2737,7 @@ static struct clk gpt7_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(OMAP3430_PER_MOD, CM_ICLKEN),
 	.enable_bit	= OMAP3430_EN_GPT7_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "per_clkdm",
+	.clkdm		= { .name = "per_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2747,7 +2747,7 @@ static struct clk gpt6_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(OMAP3430_PER_MOD, CM_ICLKEN),
 	.enable_bit	= OMAP3430_EN_GPT6_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "per_clkdm",
+	.clkdm		= { .name = "per_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2757,7 +2757,7 @@ static struct clk gpt5_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(OMAP3430_PER_MOD, CM_ICLKEN),
 	.enable_bit	= OMAP3430_EN_GPT5_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "per_clkdm",
+	.clkdm		= { .name = "per_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2767,7 +2767,7 @@ static struct clk gpt4_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(OMAP3430_PER_MOD, CM_ICLKEN),
 	.enable_bit	= OMAP3430_EN_GPT4_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "per_clkdm",
+	.clkdm		= { .name = "per_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2777,7 +2777,7 @@ static struct clk gpt3_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(OMAP3430_PER_MOD, CM_ICLKEN),
 	.enable_bit	= OMAP3430_EN_GPT3_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "per_clkdm",
+	.clkdm		= { .name = "per_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2787,7 +2787,7 @@ static struct clk gpt2_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(OMAP3430_PER_MOD, CM_ICLKEN),
 	.enable_bit	= OMAP3430_EN_GPT2_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "per_clkdm",
+	.clkdm		= { .name = "per_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2798,7 +2798,7 @@ static struct clk mcbsp2_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(OMAP3430_PER_MOD, CM_ICLKEN),
 	.enable_bit	= OMAP3430_EN_MCBSP2_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "per_clkdm",
+	.clkdm		= { .name = "per_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2809,7 +2809,7 @@ static struct clk mcbsp3_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(OMAP3430_PER_MOD, CM_ICLKEN),
 	.enable_bit	= OMAP3430_EN_MCBSP3_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "per_clkdm",
+	.clkdm		= { .name = "per_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2820,7 +2820,7 @@ static struct clk mcbsp4_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(OMAP3430_PER_MOD, CM_ICLKEN),
 	.enable_bit	= OMAP3430_EN_MCBSP4_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "per_clkdm",
+	.clkdm		= { .name = "per_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2840,7 +2840,7 @@ static struct clk mcbsp2_fck = {
 	.clksel_mask	= OMAP2_MCBSP2_CLKS_MASK,
 	.clksel		= mcbsp_234_clksel,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "per_clkdm",
+	.clkdm		= { .name = "per_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 };
 
@@ -2854,7 +2854,7 @@ static struct clk mcbsp3_fck = {
 	.clksel_mask	= OMAP2_MCBSP3_CLKS_MASK,
 	.clksel		= mcbsp_234_clksel,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "per_clkdm",
+	.clkdm		= { .name = "per_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 };
 
@@ -2868,7 +2868,7 @@ static struct clk mcbsp4_fck = {
 	.clksel_mask	= OMAP2_MCBSP4_CLKS_MASK,
 	.clksel		= mcbsp_234_clksel,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "per_clkdm",
+	.clkdm		= { .name = "per_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 };
 
@@ -2916,7 +2916,7 @@ static struct clk emu_src_ck = {
 	.clksel_mask	= OMAP3430_MUX_CTRL_MASK,
 	.clksel		= emu_src_clksel,
 	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES | ALWAYS_ENABLED,
-	.clkdm_name	= "emu_clkdm",
+	.clkdm		= { .name = "emu_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 };
 
@@ -2940,7 +2940,7 @@ static struct clk pclk_fck = {
 	.clksel_mask	= OMAP3430_CLKSEL_PCLK_MASK,
 	.clksel		= pclk_emu_clksel,
 	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES | ALWAYS_ENABLED,
-	.clkdm_name	= "emu_clkdm",
+	.clkdm		= { .name = "emu_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 };
 
@@ -2963,7 +2963,7 @@ static struct clk pclkx2_fck = {
 	.clksel_mask	= OMAP3430_CLKSEL_PCLKX2_MASK,
 	.clksel		= pclkx2_emu_clksel,
 	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES | ALWAYS_ENABLED,
-	.clkdm_name	= "emu_clkdm",
+	.clkdm		= { .name = "emu_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 };
 
@@ -2979,7 +2979,7 @@ static struct clk atclk_fck = {
 	.clksel_mask	= OMAP3430_CLKSEL_ATCLK_MASK,
 	.clksel		= atclk_emu_clksel,
 	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES | ALWAYS_ENABLED,
-	.clkdm_name	= "emu_clkdm",
+	.clkdm		= { .name = "emu_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 };
 
@@ -2990,7 +2990,7 @@ static struct clk traceclk_src_fck = {
 	.clksel_mask	= OMAP3430_TRACE_MUX_CTRL_MASK,
 	.clksel		= emu_src_clksel,
 	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES | ALWAYS_ENABLED,
-	.clkdm_name	= "emu_clkdm",
+	.clkdm		= { .name = "emu_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 };
 
@@ -3013,7 +3013,7 @@ static struct clk traceclk_fck = {
 	.clksel_mask	= OMAP3430_CLKSEL_TRACECLK_MASK,
 	.clksel		= traceclk_clksel,
 	.flags		= CLOCK_IN_OMAP343X | ALWAYS_ENABLED,
-	.clkdm_name	= "emu_clkdm",
+	.clkdm		= { .name = "emu_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 };
 
@@ -3043,7 +3043,7 @@ static struct clk sr_l4_ick = {
 	.name		= "sr_l4_ick",
 	.parent		= &l4_ick,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm_name	= "core_l4_clkdm",
+	.clkdm		= { .name = "core_l4_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 

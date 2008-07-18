@@ -78,17 +78,17 @@ void omap2_init_clk_clkdm(struct clk *clk)
 {
 	struct clockdomain *clkdm;
 
-	if (!clk->clkdm_name)
+	if (!clk->clkdm.name)
 		return;
 
-	clkdm = clkdm_lookup(clk->clkdm_name);
+	clkdm = clkdm_lookup(clk->clkdm.name);
 	if (clkdm) {
 		pr_debug("clock: associated clk %s to clkdm %s\n",
-			 clk->name, clk->clkdm_name);
-		clk->clkdm = clkdm;
+			 clk->name, clk->clkdm.name);
+		clk->clkdm.ptr = clkdm;
 	} else {
 		pr_debug("clock: could not associate clk %s to "
-			 "clkdm %s\n", clk->name, clk->clkdm_name);
+			 "clkdm %s\n", clk->name, clk->clkdm.name);
 	}
 }
 
@@ -381,8 +381,8 @@ void omap2_clk_disable(struct clk *clk)
 		_omap2_clk_disable(clk);
 		if (clk->parent)
 			omap2_clk_disable(clk->parent);
-		if (clk->clkdm)
-			omap2_clkdm_clk_disable(clk->clkdm, clk);
+		if (clk->clkdm.ptr)
+			omap2_clkdm_clk_disable(clk->clkdm.ptr, clk);
 
 	}
 }
@@ -400,14 +400,14 @@ int omap2_clk_enable(struct clk *clk)
 			return ret;
 		}
 
-		if (clk->clkdm)
-			omap2_clkdm_clk_enable(clk->clkdm, clk);
+		if (clk->clkdm.ptr)
+			omap2_clkdm_clk_enable(clk->clkdm.ptr, clk);
 
 		ret = _omap2_clk_enable(clk);
 
 		if (ret != 0) {
-			if (clk->clkdm)
-				omap2_clkdm_clk_disable(clk->clkdm, clk);
+			if (clk->clkdm.ptr)
+				omap2_clkdm_clk_disable(clk->clkdm.ptr, clk);
 
 			if (clk->parent) {
 				omap2_clk_disable(clk->parent);
