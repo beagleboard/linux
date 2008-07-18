@@ -60,9 +60,11 @@ struct sr_custom_clk {
 	struct omap_sr 	*sr;
 };
 
+#define SR_REGADDR(offs)     (__force void __iomem *)(sr->srbase_addr + offset)
+
 static inline void sr_write_reg(struct omap_sr *sr, int offset, u32 value)
 {
-	__raw_writel(value, sr->srbase_addr + offset);
+	__raw_writel(value, SR_REGADDR(offset));
 }
 
 static inline void sr_modify_reg(struct omap_sr *sr, int offset, u32 mask,
@@ -70,16 +72,16 @@ static inline void sr_modify_reg(struct omap_sr *sr, int offset, u32 mask,
 {
 	u32 reg_val;
 
-	reg_val = __raw_readl(sr->srbase_addr + offset);
+	reg_val = __raw_readl(SR_REGADDR(offset));
 	reg_val &= ~mask;
 	reg_val |= value;
 
-	__raw_writel(reg_val, sr->srbase_addr + offset);
+	__raw_writel(reg_val, SR_REGADDR(offset));
 }
 
 static inline u32 sr_read_reg(struct omap_sr *sr, int offset)
 {
-	return __raw_readl(sr->srbase_addr + offset);
+	return __raw_readl(SR_REGADDR(offset));
 }
 
 /* Custom clock handling functions */

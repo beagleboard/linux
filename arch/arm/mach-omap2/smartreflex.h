@@ -248,6 +248,9 @@ extern u32 current_vdd2_opp;
 #ifdef CONFIG_OMAP_SMARTREFLEX
 void enable_smartreflex(int srid);
 void disable_smartreflex(int srid);
+int sr_voltagescale_vcbypass(u32 target_opp, u8 vsel);
+void sr_start_vddautocomap(int srid, u32 target_opp_no);
+int sr_stop_vddautocomap(int srid);
 #else
 static inline void enable_smartreflex(int srid) {}
 static inline void disable_smartreflex(int srid) {}
