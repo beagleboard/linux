@@ -27,10 +27,8 @@
 #include <linux/random.h>
 #include <linux/kthread.h>
 #include <linux/i2c/twl4030.h>
+#include <linux/i2c/twl4030-pwrirq.h>
 
-#define PWR_ISR1 0
-#define PWR_IMR1 1
-#define PWR_SIH_CTRL 7
 #define PWR_SIH_CTRL_COR (1<<2)
 
 static u8 twl4030_pwrirq_mask;
@@ -93,7 +91,8 @@ static void do_twl4030_pwrmodule_irq(unsigned int irq, irq_desc_t *desc)
 			twl4030_pwrirq_mask |= 1 << (irq - TWL4030_PWR_IRQ_BASE);
 			local_irq_enable();
 			twl4030_i2c_write_u8(TWL4030_MODULE_INT,
-						twl4030_pwrirq_mask, PWR_IMR1);
+					     twl4030_pwrirq_mask,
+					     TWL4030_INT_PWR_IMR1);
 		}
 	}
 }
@@ -115,7 +114,7 @@ static void do_twl4030_pwrirq(unsigned int irq, irq_desc_t *desc)
 
 		local_irq_enable();
 		ret = twl4030_i2c_read_u8(TWL4030_MODULE_INT, &pwr_isr,
-						PWR_ISR1);
+					  TWL4030_INT_PWR_ISR1);
 		if (ret) {
 			printk(KERN_WARNING
 				"I2C error %d while reading TWL4030"
@@ -151,7 +150,7 @@ static int twl4030_pwrirq_thread(void *data)
 		twl4030_pwrirq_mask &= ~local_unmask;
 
 		twl4030_i2c_write_u8(TWL4030_MODULE_INT, twl4030_pwrirq_mask,
-					PWR_IMR1);
+				     TWL4030_INT_PWR_IMR1);
 
 		local_irq_disable();
 		if (!twl4030_pwrirq_pending_unmask)
@@ -172,14 +171,14 @@ static int __init twl4030_pwrirq_init(void)
 	twl4030_pwrirq_pending_unmask = 0;
 
 	err = twl4030_i2c_write_u8(TWL4030_MODULE_INT, twl4030_pwrirq_mask,
-					PWR_IMR1);
+					TWL4030_INT_PWR_IMR1);
 	if (err)
 		return err;
 
 	/* Enable clear on read */
 
 	err = twl4030_i2c_write_u8(TWL4030_MODULE_INT, PWR_SIH_CTRL_COR,
-					PWR_SIH_CTRL);
+				   TWL4030_INT_PWR_SIH_CTRL);
 	if (err)
 		return err;
 
