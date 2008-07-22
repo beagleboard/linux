@@ -821,6 +821,20 @@ static void twl_init_irq(void)
 		return;
 	}
 
+	/* MADC_ISR1 */
+	res = twl4030_i2c_write_u8(TWL4030_MODULE_MADC, 0xFF, 0x61);
+	if (res < 0) {
+		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
+		return;
+	}
+
+	/* MADC_ISR2 */
+	res = twl4030_i2c_write_u8(TWL4030_MODULE_MADC, 0xFF, 0x63);
+	if (res < 0) {
+		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
+		return;
+	}
+
 	/* key Pad */
 	/* KEYPAD - IMR1 */
 	res = twl4030_i2c_write_u8(TWL4030_MODULE_KEYPAD, 0xFF, (0x12));
