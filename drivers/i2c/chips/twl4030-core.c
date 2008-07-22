@@ -40,6 +40,9 @@
 
 #include <linux/i2c.h>
 #include <linux/i2c/twl4030.h>
+#include <linux/i2c/twl4030-gpio.h>
+#include <linux/i2c/twl4030-madc.h>
+#include <linux/i2c/twl4030-pwrirq.h>
 #include <linux/slab.h>
 #include <linux/clk.h>
 #include <linux/device.h>
@@ -114,6 +117,23 @@
 #define TWL4030_BASEADD_RTC		0x001C
 #define TWL4030_BASEADD_SECURED_REG	0x0000
 
+/* TWL4030 BCI registers */
+#define TWL4030_INTERRUPTS_BCIIMR1A	0x2
+#define TWL4030_INTERRUPTS_BCIIMR2A	0x3
+#define TWL4030_INTERRUPTS_BCIIMR1B	0x6
+#define TWL4030_INTERRUPTS_BCIIMR2B	0x7
+#define TWL4030_INTERRUPTS_BCIISR1A	0x0
+#define TWL4030_INTERRUPTS_BCIISR2A	0x1
+#define TWL4030_INTERRUPTS_BCIISR1B	0x4
+#define TWL4030_INTERRUPTS_BCIISR2B	0x5
+
+/* TWL4030 keypad registers */
+#define TWL4030_KEYPAD_KEYP_IMR1	0x12
+#define TWL4030_KEYPAD_KEYP_IMR2	0x14
+#define TWL4030_KEYPAD_KEYP_ISR1	0x11
+#define TWL4030_KEYPAD_KEYP_ISR2	0x13
+
+
 /* Triton Core internal information (END) */
 
 /* Few power values */
@@ -133,12 +153,10 @@
 /* on I2C-1 for 2430SDP */
 #define CONFIG_I2C_TWL4030_ID		1
 
-/* SIH_CTRL registers */
-#define TWL4030_INT_PWR_SIH_CTRL	0x07
+/* SIH_CTRL registers that aren't defined elsewhere */
 #define TWL4030_INTERRUPTS_BCISIHCTRL	0x0d
 #define TWL4030_MADC_MADC_SIH_CTRL	0x67
 #define TWL4030_KEYPAD_KEYP_SIH_CTRL	0x17
-#define TWL4030_GPIO_GPIO_SIH_CTRL	0x2d
 
 #define TWL4030_SIH_CTRL_COR_MASK	(1 << 2)
 
@@ -776,135 +794,121 @@ static void twl_init_irq(void)
 	 * handlers present.
 	 */
 
-
-	/* PWR_IMR1 */
-	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_INT, 0xff, 0x1) < 0);
-
-	/* PWR_IMR2 */
-	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_INT, 0xff, 0x3) < 0);
-
-	/* Clear off any other pending interrupts on power */
+	/* Mask INT (PWR) interrupts at TWL4030 */
+	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_INT, 0xff,
+				     TWL4030_INT_PWR_IMR1) < 0);
+	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_INT, 0xff,
+				     TWL4030_INT_PWR_IMR2) < 0);
 
 	/* Are PWR interrupt status bits cleared by reads or writes? */
 	cor = twl4030_read_cor_bit(TWL4030_MODULE_INT,
 				   TWL4030_INT_PWR_SIH_CTRL);
 	WARN_ON(cor < 0);
 
-	/* PWR_ISR1 */
-	WARN_ON(twl4030_i2c_clear_isr(TWL4030_MODULE_INT, 0x00, cor) < 0);
-
-	/* PWR_ISR2 */
-	WARN_ON(twl4030_i2c_clear_isr(TWL4030_MODULE_INT, 0x02, cor) < 0);
+	/* Clear TWL4030 INT (PWR) ISRs */
+	WARN_ON(twl4030_i2c_clear_isr(TWL4030_MODULE_INT,
+				      TWL4030_INT_PWR_ISR1, cor) < 0);
+	WARN_ON(twl4030_i2c_clear_isr(TWL4030_MODULE_INT,
+				      TWL4030_INT_PWR_ISR2, cor) < 0);
 
 	/* Slave address 0x4A */
 
-	/* BCIIMR1A */
-	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_INTERRUPTS, 0xff, 0x2) < 0);
-
-	/* BCIIMR2A  */
-	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_INTERRUPTS, 0xff, 0x3) < 0);
-
-	/* BCIIMR2A */
-	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_INTERRUPTS, 0xff, 0x6) < 0);
-
-	/* BCIIMR2B */
-	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_INTERRUPTS, 0xff, 0x7) < 0);
+	/* Mask BCI interrupts at TWL4030 */
+	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_INTERRUPTS, 0xff,
+				     TWL4030_INTERRUPTS_BCIIMR1A) < 0);
+	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_INTERRUPTS, 0xff,
+				     TWL4030_INTERRUPTS_BCIIMR2A) < 0);
+	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_INTERRUPTS, 0xff,
+				     TWL4030_INTERRUPTS_BCIIMR1B) < 0);
+	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_INTERRUPTS, 0xff,
+				     TWL4030_INTERRUPTS_BCIIMR2B) < 0);
 
 	/* Are BCI interrupt status bits cleared by reads or writes? */
 	cor = twl4030_read_cor_bit(TWL4030_MODULE_INTERRUPTS,
 				   TWL4030_INTERRUPTS_BCISIHCTRL);
 	WARN_ON(cor < 0);
 
-	/* BCIISR1A */
-	WARN_ON(twl4030_i2c_clear_isr(TWL4030_MODULE_INTERRUPTS, 0x0, cor) < 0);
-
-	/* BCIISR2A */
-	WARN_ON(twl4030_i2c_clear_isr(TWL4030_MODULE_INTERRUPTS, 0x1, cor) < 0);
-
-	/* BCIISR1B */
-	WARN_ON(twl4030_i2c_clear_isr(TWL4030_MODULE_INTERRUPTS, 0x4, cor) < 0);
-
-	/* BCIISR2B */
-	WARN_ON(twl4030_i2c_clear_isr(TWL4030_MODULE_INTERRUPTS, 0x5, cor) < 0);
+	/* Clear TWL4030 BCI ISRs */
+	WARN_ON(twl4030_i2c_clear_isr(TWL4030_MODULE_INTERRUPTS,
+				      TWL4030_INTERRUPTS_BCIISR1A, cor) < 0);
+	WARN_ON(twl4030_i2c_clear_isr(TWL4030_MODULE_INTERRUPTS,
+				      TWL4030_INTERRUPTS_BCIISR2A, cor) < 0);
+	WARN_ON(twl4030_i2c_clear_isr(TWL4030_MODULE_INTERRUPTS,
+				      TWL4030_INTERRUPTS_BCIISR1B, cor) < 0);
+	WARN_ON(twl4030_i2c_clear_isr(TWL4030_MODULE_INTERRUPTS,
+				      TWL4030_INTERRUPTS_BCIISR2B, cor) < 0);
 
 	/* MAD C */
-	/* MADC_IMR1 */
-	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_MADC, 0xff, 0x62) < 0);
-
-	/* MADC_IMR2 */
-	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_MADC, 0xff, 0x64) < 0);
+	/* Mask MADC interrupts at TWL4030 */
+	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_MADC, 0xff,
+				     TWL4030_MADC_IMR1) < 0);
+	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_MADC, 0xff,
+				     TWL4030_MADC_IMR2) < 0);
 
 	/* Are MADC interrupt status bits cleared by reads or writes? */
 	cor = twl4030_read_cor_bit(TWL4030_MODULE_MADC,
 				   TWL4030_MADC_MADC_SIH_CTRL);
 	WARN_ON(cor < 0);
 
-	/* MADC_ISR1 */
-	WARN_ON(twl4030_i2c_clear_isr(TWL4030_MODULE_MADC, 0x61, cor) < 0);
-
-	/* MADC_ISR2 */
-	WARN_ON(twl4030_i2c_clear_isr(TWL4030_MODULE_MADC, 0x63, cor) < 0);
+	/* Clear TWL4030 MADC ISRs */
+	WARN_ON(twl4030_i2c_clear_isr(TWL4030_MODULE_MADC,
+				      TWL4030_MADC_ISR1, cor) < 0);
+	WARN_ON(twl4030_i2c_clear_isr(TWL4030_MODULE_MADC,
+				      TWL4030_MADC_ISR2, cor) < 0);
 
 	/* key Pad */
-	/* KEYPAD - IMR1 */
-	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_KEYPAD, 0xff, 0x12) < 0);
+	/* Mask keypad interrupts at TWL4030 */
+	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_KEYPAD, 0xff,
+				     TWL4030_KEYPAD_KEYP_IMR1) < 0);
+	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_KEYPAD, 0xff,
+				     TWL4030_KEYPAD_KEYP_IMR2) < 0);
 
 	/* Are keypad interrupt status bits cleared by reads or writes? */
 	cor = twl4030_read_cor_bit(TWL4030_MODULE_KEYPAD,
 				   TWL4030_KEYPAD_KEYP_SIH_CTRL);
 	WARN_ON(cor < 0);
 
-	/* KEYPAD - ISR1 */
+	/* Clear TWL4030 keypad ISRs */
 	/* XXX does this still need to be done twice for some reason? */
-	WARN_ON(twl4030_i2c_clear_isr(TWL4030_MODULE_KEYPAD, 0x11, cor) < 0);
-
-	/* KEYPAD - IMR2 */
-	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_KEYPAD, 0xff, 0x14) < 0);
-
-	/* KEYPAD - ISR2 */
-	WARN_ON(twl4030_i2c_clear_isr(TWL4030_MODULE_KEYPAD, 0x13, cor) < 0);
+	WARN_ON(twl4030_i2c_clear_isr(TWL4030_MODULE_KEYPAD,
+				      TWL4030_KEYPAD_KEYP_ISR1, cor) < 0);
+	WARN_ON(twl4030_i2c_clear_isr(TWL4030_MODULE_KEYPAD,
+				      TWL4030_KEYPAD_KEYP_ISR2, cor) < 0);
 
 	/* Slave address 0x49 */
-	/* GPIO_IMR1A */
-	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0xff, 0x1c) < 0);
 
-	/* GPIO_IMR2A */
-	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0xff, 0x1d) < 0);
-
-	/* GPIO_IMR3A */
-	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0xff, 0x1e) < 0);
-
-	/* GPIO_IMR1B */
-	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0xff, 0x22) < 0);
-
-	/* GPIO_IMR2B */
-	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0xff, 0x23) < 0);
-
-	/* GPIO_IMR3B */
-	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0xff, 0x24) < 0);
+	/* Mask GPIO interrupts at TWL4030 */
+	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0xff,
+				     REG_GPIO_IMR1A) < 0);
+	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0xff,
+				     REG_GPIO_IMR2A) < 0);
+	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0xff,
+				     REG_GPIO_IMR3A) < 0);
+	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0xff,
+				     REG_GPIO_IMR1B) < 0);
+	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0xff,
+				     REG_GPIO_IMR2B) < 0);
+	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0xff,
+				     REG_GPIO_IMR3B) < 0);
 
 	/* Are GPIO interrupt status bits cleared by reads or writes? */
 	cor = twl4030_read_cor_bit(TWL4030_MODULE_GPIO,
-				   TWL4030_GPIO_GPIO_SIH_CTRL);
+				   REG_GPIO_SIH_CTRL);
 	WARN_ON(cor < 0);
 
-	/* GPIO_ISR1A */
-	WARN_ON(twl4030_i2c_clear_isr(TWL4030_MODULE_GPIO, 0x19, cor) < 0);
-
-	/* GPIO_ISR2A */
-	WARN_ON(twl4030_i2c_clear_isr(TWL4030_MODULE_GPIO, 0x1a, cor) < 0);
-
-	/* GPIO_ISR3A */
-	WARN_ON(twl4030_i2c_clear_isr(TWL4030_MODULE_GPIO, 0x1b, cor) < 0);
-
-	/* GPIO_ISR1B */
-	WARN_ON(twl4030_i2c_clear_isr(TWL4030_MODULE_GPIO, 0x1f, cor) < 0);
-
-	/* GPIO_ISR2B */
-	WARN_ON(twl4030_i2c_clear_isr(TWL4030_MODULE_GPIO, 0x20, cor) < 0);
-
-	/* GPIO_ISR3B */
-	WARN_ON(twl4030_i2c_clear_isr(TWL4030_MODULE_GPIO, 0x21, cor) < 0);
+	/* Clear TWL4030 GPIO ISRs */
+	WARN_ON(twl4030_i2c_clear_isr(TWL4030_MODULE_GPIO, REG_GPIO_ISR1A,
+				      cor) < 0);
+	WARN_ON(twl4030_i2c_clear_isr(TWL4030_MODULE_GPIO, REG_GPIO_ISR2A,
+				      cor) < 0);
+	WARN_ON(twl4030_i2c_clear_isr(TWL4030_MODULE_GPIO, REG_GPIO_ISR3A,
+				      cor) < 0);
+	WARN_ON(twl4030_i2c_clear_isr(TWL4030_MODULE_GPIO, REG_GPIO_ISR1B,
+				      cor) < 0);
+	WARN_ON(twl4030_i2c_clear_isr(TWL4030_MODULE_GPIO, REG_GPIO_ISR2B,
+				      cor) < 0);
+	WARN_ON(twl4030_i2c_clear_isr(TWL4030_MODULE_GPIO, REG_GPIO_ISR3B,
+				      cor) < 0);
 
 	/* install an irq handler for each of the PIH modules */
 	for (i = TWL4030_IRQ_BASE; i < TWL4030_IRQ_END; i++) {
