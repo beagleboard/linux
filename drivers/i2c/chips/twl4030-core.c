@@ -750,29 +750,57 @@ static void twl_init_irq(void)
 	/* POWER HACK (END) */
 	/* Slave address 0x4A */
 
-	/* BCIIMR1_1 */
+	/* BCIIMR1A */
+	res = twl4030_i2c_write_u8(TWL4030_MODULE_INTERRUPTS, 0xFF, 0x2);
+	if (res < 0) {
+		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
+		return;
+	}
+
+	/* BCIIMR2A */
 	res = twl4030_i2c_write_u8(TWL4030_MODULE_INTERRUPTS, 0xFF, 0x3);
 	if (res < 0) {
 		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
 		return;
 	}
 
-	/* BCIIMR1_2 */
-	res = twl4030_i2c_write_u8(TWL4030_MODULE_INTERRUPTS, 0xFF, 0x4);
+	/* BCIIMR1B */
+	res = twl4030_i2c_write_u8(TWL4030_MODULE_INTERRUPTS, 0xFF, 0x6);
 	if (res < 0) {
 		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
 		return;
 	}
 
-	/* BCIIMR2_1 */
+	/* BCIIMR2B */
 	res = twl4030_i2c_write_u8(TWL4030_MODULE_INTERRUPTS, 0xFF, 0x7);
 	if (res < 0) {
 		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
 		return;
 	}
 
-	/* BCIIMR2_2 */
-	res = twl4030_i2c_write_u8(TWL4030_MODULE_INTERRUPTS, 0xFF, 0x8);
+	/* BCIISR1A */
+	res = twl4030_i2c_write_u8(TWL4030_MODULE_INTERRUPTS, 0xFF, 0x0);
+	if (res < 0) {
+		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
+		return;
+	}
+
+	/* BCIISR2A */
+	res = twl4030_i2c_write_u8(TWL4030_MODULE_INTERRUPTS, 0xFF, 0x1);
+	if (res < 0) {
+		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
+		return;
+	}
+
+	/* BCIISR1B */
+	res = twl4030_i2c_write_u8(TWL4030_MODULE_INTERRUPTS, 0xFF, 0x4);
+	if (res < 0) {
+		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
+		return;
+	}
+
+	/* BCIISR2B */
+	res = twl4030_i2c_write_u8(TWL4030_MODULE_INTERRUPTS, 0xFF, 0x5);
 	if (res < 0) {
 		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
 		return;
