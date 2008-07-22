@@ -778,18 +778,10 @@ static void twl_init_irq(void)
 
 
 	/* PWR_IMR1 */
-	res = twl4030_i2c_write_u8(TWL4030_MODULE_INT, 0xFF, 0x1);
-	if (res < 0) {
-		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
-		return;
-	}
+	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_INT, 0xff, 0x1) < 0);
 
 	/* PWR_IMR2 */
-	res = twl4030_i2c_write_u8(TWL4030_MODULE_INT, 0xFF, 0x3);
-	if (res < 0) {
-		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
-		return;
-	}
+	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_INT, 0xff, 0x3) < 0);
 
 	/* Clear off any other pending interrupts on power */
 
@@ -807,32 +799,16 @@ static void twl_init_irq(void)
 	/* Slave address 0x4A */
 
 	/* BCIIMR1A */
-	res = twl4030_i2c_write_u8(TWL4030_MODULE_INTERRUPTS, 0xFF, 0x2);
-	if (res < 0) {
-		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
-		return;
-	}
+	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_INTERRUPTS, 0xff, 0x2) < 0);
+
+	/* BCIIMR2A  */
+	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_INTERRUPTS, 0xff, 0x3) < 0);
 
 	/* BCIIMR2A */
-	res = twl4030_i2c_write_u8(TWL4030_MODULE_INTERRUPTS, 0xFF, 0x3);
-	if (res < 0) {
-		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
-		return;
-	}
-
-	/* BCIIMR1B */
-	res = twl4030_i2c_write_u8(TWL4030_MODULE_INTERRUPTS, 0xFF, 0x6);
-	if (res < 0) {
-		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
-		return;
-	}
+	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_INTERRUPTS, 0xff, 0x6) < 0);
 
 	/* BCIIMR2B */
-	res = twl4030_i2c_write_u8(TWL4030_MODULE_INTERRUPTS, 0xFF, 0x7);
-	if (res < 0) {
-		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
-		return;
-	}
+	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_INTERRUPTS, 0xff, 0x7) < 0);
 
 	/* Are BCI interrupt status bits cleared by reads or writes? */
 	cor = twl4030_read_cor_bit(TWL4030_MODULE_INTERRUPTS,
@@ -853,18 +829,10 @@ static void twl_init_irq(void)
 
 	/* MAD C */
 	/* MADC_IMR1 */
-	res = twl4030_i2c_write_u8(TWL4030_MODULE_MADC, 0xFF, 0x62);
-	if (res < 0) {
-		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
-		return;
-	}
+	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_MADC, 0xff, 0x62) < 0);
 
 	/* MADC_IMR2 */
-	res = twl4030_i2c_write_u8(TWL4030_MODULE_MADC, 0xFF, 0x64);
-	if (res < 0) {
-		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
-		return;
-	}
+	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_MADC, 0xff, 0x64) < 0);
 
 	/* Are MADC interrupt status bits cleared by reads or writes? */
 	cor = twl4030_read_cor_bit(TWL4030_MODULE_MADC,
@@ -879,11 +847,7 @@ static void twl_init_irq(void)
 
 	/* key Pad */
 	/* KEYPAD - IMR1 */
-	res = twl4030_i2c_write_u8(TWL4030_MODULE_KEYPAD, 0xFF, (0x12));
-	if (res < 0) {
-		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
-		return;
-	}
+	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_KEYPAD, 0xff, 0x12) < 0);
 
 	/* Are keypad interrupt status bits cleared by reads or writes? */
 	cor = twl4030_read_cor_bit(TWL4030_MODULE_KEYPAD,
@@ -895,57 +859,29 @@ static void twl_init_irq(void)
 	WARN_ON(twl4030_i2c_clear_isr(TWL4030_MODULE_KEYPAD, 0x11, cor) < 0);
 
 	/* KEYPAD - IMR2 */
-	res = twl4030_i2c_write_u8(TWL4030_MODULE_KEYPAD, 0xFF, (0x14));
-	if (res < 0) {
-		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
-		return;
-	}
+	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_KEYPAD, 0xff, 0x14) < 0);
 
 	/* KEYPAD - ISR2 */
 	WARN_ON(twl4030_i2c_clear_isr(TWL4030_MODULE_KEYPAD, 0x13, cor) < 0);
 
 	/* Slave address 0x49 */
 	/* GPIO_IMR1A */
-	res = twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0xFF, (0x1C));
-	if (res < 0) {
-		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
-		return;
-	}
+	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0xff, 0x1c) < 0);
 
 	/* GPIO_IMR2A */
-	res = twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0xFF, (0x1D));
-	if (res < 0) {
-		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
-		return;
-	}
+	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0xff, 0x1d) < 0);
 
 	/* GPIO_IMR3A */
-	res = twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0xFF, (0x1E));
-	if (res < 0) {
-		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
-		return;
-	}
+	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0xff, 0x1e) < 0);
 
 	/* GPIO_IMR1B */
-	res = twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0xFF, (0x22));
-	if (res < 0) {
-		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
-		return;
-	}
+	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0xff, 0x22) < 0);
 
 	/* GPIO_IMR2B */
-	res = twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0xFF, (0x23));
-	if (res < 0) {
-		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
-		return;
-	}
+	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0xff, 0x23) < 0);
 
 	/* GPIO_IMR3B */
-	res = twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0xFF, (0x24));
-	if (res < 0) {
-		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
-		return;
-	}
+	WARN_ON(twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0xff, 0x24) < 0);
 
 	/* Are GPIO interrupt status bits cleared by reads or writes? */
 	cor = twl4030_read_cor_bit(TWL4030_MODULE_GPIO,
