@@ -70,4 +70,12 @@ config BATTERY_BQ27200
 	help
 	  Say Y here to enable support for batteries with BQ27200(I2C) chip.
 
+config TWL4030_BCI_BATTERY
+	tristate "OMAP TWL4030 BCI Battery driver"
+	depends on (MACH_OMAP_2430SDP || MACH_OMAP_3430SDP) && TWL4030_MADC
+	default y
+	help
+	  Support for OMAP TWL4030 BCI Battery driver.
+	  This driver can give support for TWL4030 Battery Charge Interface.
+
 endif # POWER_SUPPLY
