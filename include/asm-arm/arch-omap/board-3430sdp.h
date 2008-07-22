@@ -31,6 +31,7 @@
 
 extern void sdp3430_usb_init(void);
 extern void sdp3430_flash_init(void);
+extern void twl4030_bci_battery_init(void);
 
 #define DEBUG_BASE			0x08000000  /* debug board */
 

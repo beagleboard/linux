@@ -365,6 +365,7 @@ static void __init omap_3430sdp_init(void)
 				ARRAY_SIZE(sdp3430_spi_board_info));
 	ads7846_dev_init();
 	sdp3430_flash_init();
+	twl4030_bci_battery_init();
 	omap_serial_init();
 	usb_musb_init();
 	usb_ehci_init();
