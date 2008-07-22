@@ -857,6 +857,48 @@ static void twl_init_irq(void)
 		return;
 	}
 
+	/* GPIO_ISR1A */
+	res = twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0xff, 0x19);
+	if (res < 0) {
+		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
+		return;
+	}
+
+	/* GPIO_ISR2A */
+	res = twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0xff, 0x1a);
+	if (res < 0) {
+		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
+		return;
+	}
+
+	/* GPIO_ISR3A */
+	res = twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0xff, 0x1b);
+	if (res < 0) {
+		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
+		return;
+	}
+
+	/* GPIO_ISR1B */
+	res = twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0xff, 0x1f);
+	if (res < 0) {
+		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
+		return;
+	}
+
+	/* GPIO_ISR2B */
+	res = twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0xff, 0x20);
+	if (res < 0) {
+		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
+		return;
+	}
+
+	/* GPIO_ISR3B */
+	res = twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0xff, 0x21);
+	if (res < 0) {
+		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
+		return;
+	}
+
 	/* install an irq handler for each of the PIH modules */
 	for (i = TWL4030_IRQ_BASE; i < TWL4030_IRQ_END; i++) {
 		set_irq_chip(i, &twl4030_irq_chip);
