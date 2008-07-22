@@ -601,10 +601,13 @@ static irqreturn_t twl4030_usb_irq(int irq, void *_twl)
 		goto done;
 	}
 
-	if (val & USB_PRES_RISING)
+	if (val & USB_PRES_RISING) {
 		twl4030_phy_resume();
-	else
+		twl4030charger_usb_en(1);
+	} else {
+		twl4030charger_usb_en(0);
 		twl4030_phy_suspend(0);
+	}
 
 	ret = IRQ_HANDLED;
 
