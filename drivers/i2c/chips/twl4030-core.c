@@ -719,24 +719,6 @@ static void twl_init_irq(void)
 	char	*msg = "Unable to register interrupt subsystem";
 	unsigned int irq_num;
 
-	/*
-	 * We end up with interrupts from other modules before
-	 * they get a chance to handle them...
-	 */
-	/* PWR_ISR1 */
-	res = twl4030_i2c_write_u8(TWL4030_MODULE_INT, 0xFF, 0x00);
-	if (res < 0) {
-		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
-		return;
-	}
-
-	/* PWR_ISR2 */
-	res = twl4030_i2c_write_u8(TWL4030_MODULE_INT, 0xFF, 0x02);
-	if (res < 0) {
-		pr_err("%s[%d][%d]\n", msg, res, __LINE__);
-		return;
-	}
-
 	/* PWR_IMR1 */
 	res = twl4030_i2c_write_u8(TWL4030_MODULE_INT, 0xFF, 0x1);
 	if (res < 0) {
