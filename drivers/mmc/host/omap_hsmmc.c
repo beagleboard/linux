@@ -84,6 +84,7 @@
 #define STAT_CLEAR		0xFFFFFFFF
 #define INIT_STREAM_CMD		0x00000000
 #define DUAL_VOLT_OCR_BIT	7
+#define SRC			(1 << 25)
 
 #define OMAP_MMC1_DEVID		1
 #define OMAP_MMC2_DEVID		2
@@ -315,10 +316,16 @@ static irqreturn_t mmc_omap_irq(int irq, void *dev_id)
 		if ((status & CMD_TIMEOUT) ||
 			(status & CMD_CRC)) {
 			if (host->cmd) {
-				if (status & CMD_TIMEOUT)
+				if (status & CMD_TIMEOUT) {
+					OMAP_HSMMC_WRITE(host->base, SYSCTL,
+						OMAP_HSMMC_READ(host->base,
+								SYSCTL) | SRC);
+					while (OMAP_HSMMC_READ(host->base,
+								SYSCTL) & SRC) ;
 					host->cmd->error = -ETIMEDOUT;
-				else
+				} else {
 					host->cmd->error = -EILSEQ;
+				}
 				end_cmd = 1;
 			}
 			if (host->data)
