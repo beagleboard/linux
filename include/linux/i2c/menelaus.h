@@ -1,5 +1,5 @@
 /*
- * linux/include/asm-arm/arch-omap/menelaus.h
+ * include/linux/i2c/menelaus.h
  *
  * Functions to access Menelaus power management chip
  */
@@ -122,10 +122,11 @@
 struct device;
 
 struct menelaus_platform_data {
-	int (* late_init)(struct device *dev);
+	int (*late_init)(struct device *dev);
 };
 
-extern int menelaus_register_mmc_callback(void (*callback)(void *data, u8 card_mask),
+extern int menelaus_register_mmc_callback(void (*callback)(void *data,
+					  u8 card_mask),
 					  void *data);
 extern void menelaus_unregister_mmc_callback(void);
 extern int menelaus_set_mmc_opendrain(int slot, int enable);
