@@ -35,9 +35,9 @@
 #include <linux/mutex.h>
 #include <linux/spinlock.h>
 #include <linux/errno.h>
+#include <linux/i2c/menelaus.h>
 #include <asm/arch/gpio.h>
 #include <asm/arch/keypad.h>
-#include <asm/arch/menelaus.h>
 #include <asm/irq.h>
 #include <asm/hardware.h>
 #include <asm/io.h>

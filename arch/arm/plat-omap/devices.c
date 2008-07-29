@@ -13,6 +13,7 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/platform_device.h>
+#include <linux/i2c/menelaus.h>
 
 #include <asm/hardware.h>
 #include <asm/io.h>
@@ -25,7 +26,6 @@
 #include <asm/arch/mmc.h>
 #include <asm/arch/mux.h>
 #include <asm/arch/gpio.h>
-#include <asm/arch/menelaus.h>
 #include <asm/arch/dsp_common.h>
 #include <asm/arch/mcbsp.h>
 

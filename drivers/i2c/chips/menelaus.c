@@ -41,12 +41,12 @@
 #include <linux/delay.h>
 #include <linux/rtc.h>
 #include <linux/bcd.h>
+#include <linux/i2c/menelaus.h>
 
 #include <asm/mach-types.h>
 #include <asm/mach/irq.h>
 
 #include <asm/arch/gpio.h>
-#include <asm/arch/menelaus.h>
 
 #define DRIVER_NAME			"menelaus"
 

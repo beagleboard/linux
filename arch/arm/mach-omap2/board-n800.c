@@ -25,6 +25,7 @@
 #include <linux/irq.h>
 #include <linux/i2c.h>
 #include <linux/i2c/lm8323.h>
+#include <linux/i2c/menelaus.h>
 #include <asm/hardware.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -34,7 +35,6 @@
 #include <asm/arch/board.h>
 #include <asm/arch/common.h>
 #include <asm/arch/mcspi.h>
-#include <asm/arch/menelaus.h>
 #include <asm/arch/lcd_mipid.h>
 #include <asm/arch/clock.h>
 #include <asm/arch/gpio-switch.h>

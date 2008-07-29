@@ -22,6 +22,7 @@
 #include <linux/err.h>
 #include <linux/clk.h>
 #include <linux/i2c.h>
+#include <linux/i2c/menelaus.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/tsc210x.h>
 
@@ -42,7 +43,6 @@
 #include <asm/arch/board.h>
 #include <asm/arch/common.h>
 #include <asm/arch/keypad.h>
-#include <asm/arch/menelaus.h>
 #include <asm/arch/dma.h>
 #include <asm/arch/gpmc.h>
 
