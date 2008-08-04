@@ -222,8 +222,8 @@ int omap2_wait_clock_ready(void __iomem *reg, u32 mask, const char *name)
  */
 static void omap2_clk_wait_ready(struct clk *clk)
 {
-	u32 bit;
-	unsigned long reg, other_reg, st_reg, prcm_mod, prcm_regid;
+	u32 other_bit, idlest_bit;
+	unsigned long reg, other_reg, idlest_reg, prcm_mod, prcm_regid;
 
 	reg = (unsigned long)clk->enable_reg;
 	prcm_mod = reg & ~0xff;
@@ -235,6 +235,10 @@ static void omap2_clk_wait_ready(struct clk *clk)
 		other_reg = ((reg & ~0xf0) | 0x00); /* CM_FCLKEN* */
 	else
 		return;
+
+	/* Covers most of the cases - a few exceptions are below */
+	other_bit = 1 << clk->enable_bit;
+	idlest_bit = other_bit;
 
 	/* 24xx: DSS and CAM have no idlest bits for their target agents */
 	if (cpu_is_omap24xx() &&
@@ -253,11 +257,15 @@ static void omap2_clk_wait_ready(struct clk *clk)
 	if (cpu_is_omap34xx()) {
 
 		/* SSI */
-		if (is_sil_rev_equal_to(OMAP3430_REV_ES1_0) &&
-		    prcm_mod == OMAP34XX_CM_REGADDR(CORE_MOD, 0) &&
+		if (prcm_mod == OMAP34XX_CM_REGADDR(CORE_MOD, 0) &&
 		    (reg & 0x0f) == 0 &&
-		    clk->enable_bit == OMAP3430_EN_SSI_SHIFT)
-			return;
+		    clk->enable_bit == OMAP3430_EN_SSI_SHIFT) {
+
+			if (is_sil_rev_equal_to(OMAP3430_REV_ES1_0))
+				return;
+
+			idlest_bit = OMAP3430ES2_ST_SSI_IDLE;
+		}
 
 		/* DSS */
 		if (prcm_mod == OMAP34XX_CM_REGADDR(OMAP3430_DSS_MOD, 0)) {
@@ -272,38 +280,35 @@ static void omap2_clk_wait_ready(struct clk *clk)
 			 */
 			if (clk->enable_bit != OMAP3430_EN_DSS1_SHIFT)
 				return;
+
+			idlest_bit = OMAP3430ES2_ST_DSS_IDLE;
 		}
 
+		/* USBHOST */
+		if (is_sil_rev_greater_than(OMAP3430_REV_ES1_0) &&
+		    prcm_mod == OMAP34XX_CM_REGADDR(OMAP3430ES2_USBHOST_MOD, 0)) {
+
+			/*
+			 * The 120MHz clock apparently has nothing to do with
+			 * USBHOST module accessibility
+			 */
+			if (clk->enable_bit == OMAP3430ES2_EN_USBHOST2_SHIFT)
+				return;
+
+			idlest_bit = OMAP3430ES2_ST_USBHOST_IDLE;
+
+		}
 	}
 
 	/* Check if both functional and interface clocks
 	 * are running. */
-	bit = 1 << clk->enable_bit;
-	if (!(__raw_readl((void __iomem *)other_reg) & bit))
+	if (!(__raw_readl((void __iomem *)other_reg) & other_bit))
 		return;
 
-	/*
-	 * OMAP3430ES2+ has target idlest bits at unusual offsets for
-	 * modules with both initiator and target agents
-	 */
-	if (cpu_is_omap34xx()) {
+	idlest_reg = ((other_reg & ~0xf0) | 0x20); /* CM_IDLEST* */
 
-		/* SSI */
-		if (prcm_mod == OMAP34XX_CM_REGADDR(CORE_MOD, 0) &&
-		    (reg & 0x0f) == 0 &&
-		    clk->enable_bit == OMAP3430_EN_SSI_SHIFT)
-			bit = OMAP3430ES2_ST_SSI_IDLE;
-
-		/* DSS */
-		if (prcm_mod == OMAP34XX_CM_REGADDR(OMAP3430_DSS_MOD, 0) &&
-		    clk->enable_bit == OMAP3430_EN_DSS1_SHIFT)
-			bit = OMAP3430ES2_ST_DSS_IDLE;
-
-	}
-
-	st_reg = ((other_reg & ~0xf0) | 0x20); /* CM_IDLEST* */
-
-	omap2_wait_clock_ready((void __iomem *)st_reg, bit, clk->name);
+	omap2_wait_clock_ready((void __iomem *)idlest_reg, idlest_bit,
+			       clk->name);
 }
 
 /* Enables clock without considering parent dependencies or use count
