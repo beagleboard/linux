@@ -584,7 +584,7 @@ musb_rx_reinit(struct musb *musb, struct musb_qh *qh, struct musb_hw_ep *ep)
 	} else {
 		csr = musb_readw(ep->regs, MUSB_RXCSR);
 		if (csr & MUSB_RXCSR_RXPKTRDY)
-			WARN("rx%d, packet/%d ready?\n", ep->epnum,
+			WARNING("rx%d, packet/%d ready?\n", ep->epnum,
 				musb_readw(ep->regs, MUSB_RXCOUNT));
 
 		musb_h_flush_rxfifo(ep, MUSB_RXCSR_CLRDATATOG);
@@ -1403,7 +1403,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 
 	pipe = urb->pipe;
 
-	DBG(5, "<== hw %d rxcsr %04x, urb actual %d (+dma %zd)\n",
+	DBG(5, "<== hw %d rxcsr %04x, urb actual %d (+dma %zu)\n",
 		epnum, rx_csr, urb->actual_length,
 		dma ? dma->actual_len : 0);
 
@@ -1486,7 +1486,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 			done = true;
 		}
 
-		DBG(2, "RXCSR%d %04x, reqpkt, len %zd%s\n", epnum, rx_csr,
+		DBG(2, "RXCSR%d %04x, reqpkt, len %zu%s\n", epnum, rx_csr,
 				xfer_len, dma ? ", dma" : "");
 		rx_csr &= ~MUSB_RXCSR_H_REQPKT;
 
@@ -2125,7 +2125,7 @@ static int musb_bus_suspend(struct usb_hcd *hcd)
 		return 0;
 
 	if (is_host_active(musb) && musb->is_active) {
-		WARN("trying to suspend as %s is_active=%i\n",
+		WARNING("trying to suspend as %s is_active=%i\n",
 			otg_state_string(musb), musb->is_active);
 		return -EBUSY;
 	} else

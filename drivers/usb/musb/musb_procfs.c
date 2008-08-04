@@ -680,7 +680,7 @@ static int musb_proc_write(struct file *file, const char __user *buffer,
 			reg |= MUSB_DEVCTL_HR;
 			musb_writeb(mbase, MUSB_DEVCTL, reg);
 			/* MUSB_HST_MODE( ((struct musb*)data) ); */
-			/* WARN("Host Mode\n"); */
+			/* WARNING("Host Mode\n"); */
 		}
 		break;
 

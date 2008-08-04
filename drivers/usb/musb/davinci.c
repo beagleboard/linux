@@ -120,7 +120,7 @@ void musb_platform_disable(struct musb *musb)
 	musb_writel(musb->ctrl_base, DAVINCI_USB_EOI_REG, 0);
 
 	if (is_dma_capable() && !dma_off)
-		WARN("dma still active\n");
+		WARNING("dma still active\n");
 }
 
 
@@ -329,7 +329,7 @@ static irqreturn_t davinci_interrupt(int irq, void *__hci)
 			musb->int_usb &= ~MUSB_INTR_VBUSERROR;
 			musb->xceiv.state = OTG_STATE_A_WAIT_VFALL;
 			mod_timer(&otg_workaround, jiffies + POLL_SECONDS * HZ);
-			WARN("VBUS error workaround (delay coming)\n");
+			WARNING("VBUS error workaround (delay coming)\n");
 		} else if (is_host_enabled(musb) && drvvbus) {
 			musb->is_active = 1;
 			MUSB_HST_MODE(musb);

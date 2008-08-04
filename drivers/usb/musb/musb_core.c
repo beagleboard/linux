@@ -443,7 +443,7 @@ static irqreturn_t musb_stage0_irq(struct musb *musb, u8 int_usb,
 				MUSB_DEV_MODE(musb);
 				break;
 			default:
-				WARN("bogus %s RESUME (%s)\n",
+				WARNING("bogus %s RESUME (%s)\n",
 					"host",
 					otg_state_string(musb));
 			}
@@ -477,7 +477,7 @@ static irqreturn_t musb_stage0_irq(struct musb *musb, u8 int_usb,
 				break;
 #endif
 			default:
-				WARN("bogus %s RESUME (%s)\n",
+				WARNING("bogus %s RESUME (%s)\n",
 					"peripheral",
 					otg_state_string(musb));
 			}
@@ -799,7 +799,7 @@ static irqreturn_t musb_stage2_irq(struct musb *musb, u8 int_usb,
 			break;
 #endif	/* GADGET */
 		default:
-			WARN("unhandled DISCONNECT transition (%s)\n",
+			WARNING("unhandled DISCONNECT transition (%s)\n",
 				otg_state_string(musb));
 			break;
 		}

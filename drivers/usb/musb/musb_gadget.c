@@ -466,7 +466,7 @@ void musb_g_tx(struct musb *musb, u8 epnum)
 				csr = musb_readw(epio, MUSB_TXCSR);
 				request->actual += musb_ep->dma->actual_len;
 				DBG(4, "TXCSR%d %04x, dma off, "
-						"len %Zd, req %p\n",
+						"len %zu, req %p\n",
 					epnum, csr,
 					musb_ep->dma->actual_len,
 					request);
@@ -795,7 +795,7 @@ void musb_g_rx(struct musb *musb, u8 epnum)
 
 		request->actual += musb_ep->dma->actual_len;
 
-		DBG(4, "RXCSR%d %04x, dma off, %04x, len %Zd, req %p\n",
+		DBG(4, "RXCSR%d %04x, dma off, %04x, len %zu, req %p\n",
 			epnum, csr,
 			musb_readw(epio, MUSB_RXCSR),
 			musb_ep->dma->actual_len, request);
@@ -1886,7 +1886,7 @@ void musb_g_resume(struct musb *musb)
 		}
 		break;
 	default:
-		WARN("unhandled RESUME transition (%s)\n",
+		WARNING("unhandled RESUME transition (%s)\n",
 				otg_state_string(musb));
 	}
 }
@@ -1916,7 +1916,7 @@ void musb_g_suspend(struct musb *musb)
 		/* REVISIT if B_HOST, clear DEVCTL.HOSTREQ;
 		 * A_PERIPHERAL may need care too
 		 */
-		WARN("unhandled SUSPEND transition (%s)\n",
+		WARNING("unhandled SUSPEND transition (%s)\n",
 				otg_state_string(musb));
 	}
 }
