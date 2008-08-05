@@ -31,13 +31,8 @@
 #define CPU1_TRACE_EN		0x01
 #define CPU2_TRACE_EN		0x02
 
-#define EPM_BASE		0x5401D000
-#define EPM_CONTROL_0		0x50
-#define EPM_CONTROL_1		0x54
-#define EPM_CONTROL_2		0x58
-
 static struct clk *sdti_ck;
-unsigned long sti_base, sti_channel_base, epm_base;
+unsigned long sti_base, sti_channel_base;
 static DEFINE_SPINLOCK(sdti_lock);
 
 void omap_sti_channel_write_trace(int len, int id, void *data,
@@ -69,20 +64,6 @@ static void omap_sdti_reset(void)
 		printk(KERN_WARNING "XTI: no real reset\n");
 }
 
-void init_epm(void)
-{
-	epm_base = (unsigned long)ioremap(EPM_BASE, 256);
-	if (unlikely(!epm_base)) {
-		printk(KERN_ERR "EPM cannot be ioremapped\n");
-		return;
-	}
-
-	__raw_writel(1<<30, epm_base + EPM_CONTROL_2);
-	__raw_writel(0x78, epm_base + EPM_CONTROL_0);
-	__raw_writel(0x80000000, epm_base + EPM_CONTROL_1);
-	__raw_writel(1<<31 | 0x00007770, epm_base + EPM_CONTROL_2);
-}
-
 static int __init omap_sdti_init(void)
 {
 	char buf[64];
@@ -94,9 +75,6 @@ static int __init omap_sdti_init(void)
 		return PTR_ERR(sdti_ck);
 	}
 	clk_enable(sdti_ck);
-
-	/* Init emulation pin manager */
-	init_epm();
 
 	omap_sdti_reset();
 	sti_writel(0xC5ACCE55, SDTI_LOCK_ACCESS);
@@ -110,7 +88,7 @@ static int __init omap_sdti_init(void)
 	/* 4 bits dual, fclk/3 */
 	sti_writel(0x43, SDTI_SCONFIG);
 
-	/* CPU1 trace enable */
+	/* CPU2 trace enable */
 	sti_writel(i | CPU2_TRACE_EN, SDTI_WINCTRL);
 	i = sti_readl(SDTI_WINCTRL);
 
@@ -177,7 +155,6 @@ static int __devexit omap_sdti_remove(struct platform_device *pdev)
 {
 	iounmap((void *)sti_channel_base);
 	iounmap((void *)sti_base);
-	iounmap((void *)epm_base);
 	omap_sdti_exit();
 
 	return 0;
