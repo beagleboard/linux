@@ -764,23 +764,27 @@ static int __init omap_mmc_probe(struct platform_device *pdev)
 	if (IS_ERR(host->iclk)) {
 		ret = PTR_ERR(host->iclk);
 		host->iclk = NULL;
-		goto err;
+		goto err1;
 	}
 	host->fclk = clk_get(&pdev->dev, "mmchs_fck");
 	if (IS_ERR(host->fclk)) {
 		ret = PTR_ERR(host->fclk);
 		host->fclk = NULL;
 		clk_put(host->iclk);
-		goto err;
+		goto err1;
 	}
 
-	if (clk_enable(host->fclk) != 0)
-		goto err;
+	if (clk_enable(host->fclk) != 0) {
+		clk_put(host->iclk);
+		clk_put(host->fclk);
+		goto err1;
+	}
 
 	if (clk_enable(host->iclk) != 0) {
 		clk_disable(host->fclk);
+		clk_put(host->iclk);
 		clk_put(host->fclk);
-		goto err;
+		goto err1;
 	}
 
 	host->dbclk = clk_get(&pdev->dev, "mmchsdb_fck");
@@ -873,12 +877,6 @@ static int __init omap_mmc_probe(struct platform_device *pdev)
 
 	return 0;
 
-err:
-	dev_dbg(mmc_dev(host->mmc), "Probe Failed\n");
-	if (host)
-		mmc_free_host(mmc);
-	return ret;
-
 irq_err:
 	dev_dbg(mmc_dev(host->mmc), "Unable to configure MMC IRQs\n");
 	clk_disable(host->fclk);
@@ -890,6 +888,11 @@ irq_err:
 		clk_put(host->dbclk);
 	}
 
+err1:
+	iounmap(host->base);
+err:
+	dev_dbg(mmc_dev(host->mmc), "Probe Failed\n");
+	release_mem_region(res->start, res->end - res->start + 1);
 	if (host)
 		mmc_free_host(mmc);
 	return ret;
@@ -918,6 +921,7 @@ static int omap_mmc_remove(struct platform_device *pdev)
 		}
 
 		mmc_free_host(host->mmc);
+		iounmap(host->base);
 	}
 
 	return 0;
