@@ -102,7 +102,9 @@ static struct omap_uart_config omap3_beagle_uart_config __initdata = {
 static int __init omap3_beagle_i2c_init(void)
 {
 	omap_register_i2c_bus(1, 2600, NULL, 0);
+#ifdef CONFIG_I2C2_OMAP_BEAGLE
 	omap_register_i2c_bus(2, 400, NULL, 0);
+#endif
 	omap_register_i2c_bus(3, 400, NULL, 0);
 	return 0;
 }

@@ -332,9 +332,26 @@ config I2C_OMAP
 	default y if MACH_OMAP_H3 || MACH_OMAP_OSK
 	help
 	  If you say yes to this option, support will be included for the
-	  I2C interface on the Texas Instruments OMAP1/2 family of processors.
-	  Like OMAP1510/1610/1710/5912 and OMAP242x.
+	  I2C interface on the Texas Instruments OMAP1/2/3 family of
+	  processors.
+	  Like OMAP1510/1610/1710/5912, OMAP242x, OMAP34x and OMAP35x.
 	  For details see http://www.ti.com/omap.
+
+config I2C2_OMAP_BEAGLE
+	bool "Enable I2C2 for OMAP3 BeagleBoard"
+	depends on ARCH_OMAP && MACH_OMAP3_BEAGLE
+	select OMAP_MUX
+	default n
+	help
+	  Say Y here if you want to enable I2C bus 2 at OMAP3 based
+	  BeagleBoard.
+	  I2C2 at BeagleBoard is connected to expansion connector, i.e. unused
+	  if nothing is connected to this connector. As internal OMAP3 pull up
+	  resistors are not strong enough, enabled but unused I2C2 bus results
+	  in error messages (e.g. I2C timeouts). Enable this only if you have
+	  something connected to I2C2 at board's expansion connector and this
+	  extension has additional pull up resistors for I2C2 bus.
+
 
 config I2C_PARPORT
 	tristate "Parallel port adapter"
