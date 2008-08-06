@@ -62,6 +62,15 @@ static inline void __init omap2evm_init_smc911x(void)
 
 }
 
+static struct platform_device omap2_evm_lcd_device = {
+	.name		= "omap2evm_lcd",
+	.id		= -1,
+};
+
+static struct omap_lcd_config omap2_evm_lcd_config __initdata = {
+	.ctrl_name	= "internal",
+};
+
 static void __init omap2_evm_init_irq(void)
 {
 	omap2_init_common_hw(NULL);
@@ -75,7 +84,8 @@ static struct omap_uart_config omap2_evm_uart_config __initdata = {
 };
 
 static struct omap_board_config_kernel omap2_evm_config[] __initdata = {
-	{OMAP_TAG_UART, &omap2_evm_uart_config},
+	{ OMAP_TAG_UART,	&omap2_evm_uart_config },
+	{ OMAP_TAG_LCD,		&omap2_evm_lcd_config },
 };
 
 static int __init omap2_evm_i2c_init(void)
@@ -90,7 +100,8 @@ static int __init omap2_evm_i2c_init(void)
 }
 
 static struct platform_device *omap2_evm_devices[] __initdata = {
-    &omap2evm_smc911x_device,
+	&omap2_evm_lcd_device,
+	&omap2evm_smc911x_device,
 };
 
 static void __init omap2_evm_init(void)
