@@ -484,3 +484,15 @@ static void __init configure_vc(void)
 #endif
 
 }
+
+static int __init omap3_pm_early_init(void)
+{
+	prm_clear_mod_reg_bits(OMAP3430_OFFMODE_POL, OMAP3430_GR_MOD,
+				OMAP3_PRM_POLCTRL_OFFSET);
+
+	configure_vc();
+
+	return 0;
+}
+
+arch_initcall(omap3_pm_early_init);
