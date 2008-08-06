@@ -693,7 +693,8 @@ static void do_twl4030_irq(unsigned int irq, irq_desc_t *desc)
 }
 
 /* attach a client to the adapter */
-static int twl4030_detect_client(struct i2c_adapter *adapter, unsigned char sid)
+static int __init twl4030_detect_client(struct i2c_adapter *adapter,
+					unsigned char sid)
 {
 	int err = 0;
 	struct twl4030_client *twl;
@@ -742,7 +743,7 @@ static int twl4030_detect_client(struct i2c_adapter *adapter, unsigned char sid)
 }
 
 /* adapter callback */
-static int twl4030_attach_adapter(struct i2c_adapter *adapter)
+static int __init twl4030_attach_adapter(struct i2c_adapter *adapter)
 {
 	int i;
 	int ret = 0;
@@ -795,7 +796,7 @@ static int twl4030_detach_client(struct i2c_client *client)
 	return 0;
 }
 
-static struct task_struct *start_twl4030_irq_thread(int irq)
+static struct task_struct * __init start_twl4030_irq_thread(int irq)
 {
 	struct task_struct *thread;
 
@@ -813,7 +814,7 @@ static struct task_struct *start_twl4030_irq_thread(int irq)
  * These three functions should be part of Voltage frame work
  * added here to complete the functionality for now.
  */
-static int protect_pm_master(void)
+static int __init protect_pm_master(void)
 {
 	int e = 0;
 
@@ -822,7 +823,7 @@ static int protect_pm_master(void)
 	return e;
 }
 
-static int unprotect_pm_master(void)
+static int __init unprotect_pm_master(void)
 {
 	int e = 0;
 
@@ -833,7 +834,7 @@ static int unprotect_pm_master(void)
 	return e;
 }
 
-static int power_companion_init(void)
+static int __init power_companion_init(void)
 {
 	struct clk *osc;
 	u32 rate;
@@ -878,7 +879,7 @@ static int power_companion_init(void)
  * status register to ensure that any prior interrupts are cleared.
  * Returns the status from the I2C read operation.
  */
-static int twl4030_i2c_clear_isr(u8 mod_no, u8 reg, u8 cor)
+static int __init twl4030_i2c_clear_isr(u8 mod_no, u8 reg)
 {
 	u8 tmp;
 
