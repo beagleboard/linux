@@ -879,7 +879,7 @@ static int __init power_companion_init(void)
  * status register to ensure that any prior interrupts are cleared.
  * Returns the status from the I2C read operation.
  */
-static int __init twl4030_i2c_clear_isr(u8 mod_no, u8 reg)
+static int __init twl4030_i2c_clear_isr(u8 mod_no, u8 reg, u8 cor)
 {
 	u8 tmp;
 
