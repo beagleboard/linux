@@ -26,6 +26,7 @@
 #include <asm/arch/gpio.h>
 #include <asm/arch/board.h>
 #include <asm/arch/common.h>
+#include <asm/arch/hsmmc.h>
 
 static struct resource omap2evm_smc911x_resources[] = {
 	[0] =   {
@@ -83,9 +84,17 @@ static struct omap_uart_config omap2_evm_uart_config __initdata = {
 	.enabled_uarts	= ((1 << 0) | (1 << 1) | (1 << 2)),
 };
 
+static struct omap_mmc_config omap2_evm_mmc_config __initdata = {
+	.mmc [0] = {
+		.enabled        = 1,
+		.wire4          = 1,
+	},
+};
+
 static struct omap_board_config_kernel omap2_evm_config[] __initdata = {
 	{ OMAP_TAG_UART,	&omap2_evm_uart_config },
 	{ OMAP_TAG_LCD,		&omap2_evm_lcd_config },
+	{ OMAP_TAG_MMC,		&omap2_evm_mmc_config },
 };
 
 static int __init omap2_evm_i2c_init(void)
@@ -110,6 +119,7 @@ static void __init omap2_evm_init(void)
 	omap_board_config = omap2_evm_config;
 	omap_board_config_size = ARRAY_SIZE(omap2_evm_config);
 	omap_serial_init();
+	hsmmc_init();
 }
 
 static void __init omap2_evm_map_io(void)
