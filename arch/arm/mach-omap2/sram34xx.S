@@ -165,9 +165,9 @@ omap3_cm_iclken1_core:
 omap3_sdrc_rfr_ctrl:
 	.word OMAP34XX_SDRC_REGADDR(SDRC_RFR_CTRL_0)
 omap3_sdrc_actim_ctrla:
-	.word OMAP34XX_SDRC_REGADDR(SDRC_ACTIM_CTRL_A)
+	.word OMAP34XX_SDRC_REGADDR(SDRC_ACTIM_CTRL_A_0)
 omap3_sdrc_actim_ctrlb:
-	.word OMAP34XX_SDRC_REGADDR(SDRC_ACTIM_CTRL_B)
+	.word OMAP34XX_SDRC_REGADDR(SDRC_ACTIM_CTRL_B_0)
 omap3_sdrc_dlla_status:
 	.word OMAP34XX_SDRC_REGADDR(SDRC_DLLA_STATUS)
 omap3_sdrc_dlla_ctrl:
