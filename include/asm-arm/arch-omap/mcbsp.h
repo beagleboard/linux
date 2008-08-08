@@ -46,6 +46,9 @@
 
 #define OMAP34XX_MCBSP1_BASE	0x48074000
 #define OMAP34XX_MCBSP2_BASE	0x49022000
+#define OMAP34XX_MCBSP3_BASE	0x49024000
+#define OMAP34XX_MCBSP4_BASE	0x49026000
+#define OMAP34XX_MCBSP5_BASE	0x48096000
 
 #if defined(CONFIG_ARCH_OMAP15XX) || defined(CONFIG_ARCH_OMAP16XX) || defined(CONFIG_ARCH_OMAP730)
 
@@ -94,6 +97,8 @@
 #define OMAP_MCBSP_REG_DRR1	0x04
 #define OMAP_MCBSP_REG_DXR2	0x08
 #define OMAP_MCBSP_REG_DXR1	0x0C
+#define OMAP_MCBSP_REG_DRR	0x00
+#define OMAP_MCBSP_REG_DXR	0x08
 #define OMAP_MCBSP_REG_SPCR2	0x10
 #define OMAP_MCBSP_REG_SPCR1	0x14
 #define OMAP_MCBSP_REG_RCR2	0x18
@@ -121,6 +126,9 @@
 #define OMAP_MCBSP_REG_RCERH	0x70
 #define OMAP_MCBSP_REG_XCERG	0x74
 #define OMAP_MCBSP_REG_XCERH	0x78
+#define OMAP_MCBSP_REG_SYSCON	0x8C
+#define OMAP_MCBSP_REG_XCCR	0xAC
+#define OMAP_MCBSP_REG_RCCR	0xB0
 
 #define AUDIO_MCBSP_DATAWRITE	(OMAP24XX_MCBSP2_BASE + OMAP_MCBSP_REG_DXR1)
 #define AUDIO_MCBSP_DATAREAD	(OMAP24XX_MCBSP2_BASE + OMAP_MCBSP_REG_DRR1)
@@ -145,6 +153,7 @@
 #define DXENA			0x0080
 #define CLKSTP(value)		((value)<<11)	/* bits 11:12 */
 #define RJUST(value)		((value)<<13)	/* bits 13:14 */
+#define ALB			0x8000
 #define DLB			0x8000
 
 /************************** McBSP SPCR2 bit definitions ***********************/
@@ -222,6 +231,17 @@
 #define XPABLK(value)		((value)<<5)	/* Bits 5:6 */
 #define XPBBLK(value)		((value)<<7)	/* Bits 7:8 */
 
+/*********************** McBSP XCCR bit definitions *************************/
+#define DILB			0x0020
+#define XDMAEN			0x0008
+#define XDISABLE		0x0001
+
+/********************** McBSP RCCR bit definitions *************************/
+#define RDMAEN			0x0008
+#define RDISABLE		0x0001
+
+/********************** McBSP SYSCONFIG bit definitions ********************/
+#define SOFTRST			0x0002
 
 /* we don't do multichannel for now */
 struct omap_mcbsp_reg_cfg {
@@ -254,6 +274,8 @@ typedef enum {
 	OMAP_MCBSP1 = 0,
 	OMAP_MCBSP2,
 	OMAP_MCBSP3,
+	OMAP_MCBSP4,
+	OMAP_MCBSP5
 } omap_mcbsp_id;
 
 typedef int __bitwise omap_mcbsp_io_type_t;
