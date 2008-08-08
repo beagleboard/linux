@@ -901,9 +901,26 @@ err:
 static int omap_mmc_remove(struct platform_device *pdev)
 {
 	struct mmc_omap_host *host = platform_get_drvdata(pdev);
+	struct resource *res;
+	u16 vdd = 0;
+
+	if (!(OMAP_HSMMC_READ(host->base, HCTL) & SDVSDET)) {
+	/*
+	 * Set the vdd back to 3V,
+	 * applicable for dual volt support.
+	 */
+		vdd = fls(host->mmc->ocr_avail) - 1;
+		if (omap_mmc_switch_opcond(host, vdd) != 0)
+			host->mmc->ios.vdd = vdd;
+	}
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (res)
+		release_mem_region(res->start, res->end - res->start + 1);
 
 	platform_set_drvdata(pdev, NULL);
 	if (host) {
+		mmc_remove_host(host->mmc);
 		if (host->pdata->cleanup)
 			host->pdata->cleanup(&pdev->dev);
 		free_irq(host->irq, host);
