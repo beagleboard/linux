@@ -99,7 +99,7 @@ static void __init omap2_gp_clockevent_init(void)
 {
 	u32 tick_rate;
 
-	gptimer = omap_dm_timer_request_specific(1);
+	gptimer = omap_dm_timer_request_specific(CONFIG_OMAP_TICK_GPTIMER);
 	BUG_ON(gptimer == NULL);
 
 #if defined(CONFIG_OMAP_32K_TIMER)
@@ -108,6 +108,9 @@ static void __init omap2_gp_clockevent_init(void)
 	omap_dm_timer_set_source(gptimer, OMAP_TIMER_SRC_SYS_CLK);
 #endif
 	tick_rate = clk_get_rate(omap_dm_timer_get_fclk(gptimer));
+
+	pr_info("OMAP clockevent source: GPTIMER%d at %u Hz\n",
+		CONFIG_OMAP_TICK_GPTIMER, tick_rate);
 
 	omap2_gp_timer_irq.dev_id = (void *)gptimer;
 	setup_irq(omap_dm_timer_get_irq(gptimer), &omap2_gp_timer_irq);

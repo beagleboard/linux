@@ -122,3 +122,19 @@ config MACH_OMAP3EVM
 config MACH_OMAP3_BEAGLE
 	bool "OMAP3 BEAGLE board"
 	depends on ARCH_OMAP3 && ARCH_OMAP34XX
+
+config OMAP_TICK_GPTIMER
+	int "GPTIMER used for system tick timer"
+	depends on ARCH_OMAP2 || ARCH_OMAP3
+	range 1 12
+	default 1
+	help
+	  Linux uses one of the twelve on-board OMAP GPTIMER blocks to generate
+	  system tick interrupts.  The twelve GPTIMERs have slightly
+	  different powerdomain, source clock, and security properties
+	  (mostly documented in the OMAP3 TRMs) that can affect the selection
+	  of which GPTIMER to use.  The historical default is GPTIMER1.
+	  If CONFIG_OMAP_32K_TIMER is selected, Beagle may require GPTIMER12
+	  due to hardware sensitivity to glitches on the OMAP 32kHz clock
+	  input.
+
