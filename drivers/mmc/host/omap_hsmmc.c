@@ -26,7 +26,7 @@
 #include <linux/clk.h>
 #include <linux/mmc/host.h>
 #include <linux/io.h>
-#include <asm/semaphore.h>
+#include <linux/semaphore.h>
 #include <asm/dma.h>
 #include <asm/hardware.h>
 #include <asm/arch/board.h>
@@ -810,8 +810,7 @@ static int __init omap_mmc_probe(struct platform_device *pdev)
 	mmc->max_seg_size = mmc->max_req_size;
 
 	mmc->ocr_avail = mmc_slot(host).ocr_mask;
-	mmc->caps |= MMC_CAP_MULTIWRITE | MMC_CAP_MMC_HIGHSPEED |
-				MMC_CAP_SD_HIGHSPEED;
+	mmc->caps |= MMC_CAP_MMC_HIGHSPEED | MMC_CAP_SD_HIGHSPEED;
 
 	if (pdata->conf.wire4)
 		mmc->caps |= MMC_CAP_4_BIT_DATA;
