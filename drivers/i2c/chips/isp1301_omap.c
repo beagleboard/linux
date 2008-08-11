@@ -1210,7 +1210,7 @@ static void isp1301_release(struct device *dev)
 {
 	struct isp1301	*isp;
 
-	isp = device_get_drvdata(dev);
+	isp = dev_get_drvdata(dev);
 
 	/* ugly -- i2c hijacks our memory hook to wait_for_completion() */
 	if (isp->i2c_release)
@@ -1564,7 +1564,7 @@ static int __init isp1301_probe(struct i2c_client *i2c)
 	if (machine_is_omap_h2()) {
 		/* full speed signaling by default */
 		isp1301_set_bits(isp, ISP1301_MODE_CONTROL_1,
-			MC1_SPEED_REG);
+			MC1_SPEED);
 		isp1301_set_bits(isp, ISP1301_MODE_CONTROL_2,
 			MC2_SPD_SUSP_CTRL);
 
