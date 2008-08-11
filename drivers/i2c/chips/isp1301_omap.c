@@ -18,14 +18,11 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-#undef	DEBUG
-#undef	VERBOSE
 
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/slab.h>
-#include <linux/io.h>
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
 #include <linux/usb/ch9.h>
@@ -34,13 +31,15 @@
 #include <linux/usb/otg.h>
 #include <linux/i2c.h>
 #include <linux/workqueue.h>
+
+#include <asm/irq.h>
 #include <asm/arch/usb.h>
 
-#include <asm/mach-types.h> /* FIXME: Move machine_is_* to board-*.c files */
 
 #ifndef	DEBUG
 #undef	VERBOSE
 #endif
+
 
 #define	DRIVER_VERSION	"24 August 2004"
 #define	DRIVER_NAME	(isp1301_driver.driver.name)
@@ -50,8 +49,11 @@ MODULE_LICENSE("GPL");
 
 struct isp1301 {
 	struct otg_transceiver	otg;
-	struct i2c_client	*client;
+	struct i2c_client	client;
 	void			(*i2c_release)(struct device *dev);
+
+	int			irq;
+	int			irq_type;
 
 	u32			last_otg_ctrl;
 	unsigned		working:1;
@@ -87,10 +89,13 @@ struct isp1301 {
 
 /*-------------------------------------------------------------------------*/
 
-#if	defined(CONFIG_MACH_OMAP_H2) || \
-	defined(CONFIG_MACH_OMAP_H3)
+#ifdef	CONFIG_MACH_OMAP_H2
 
 /* board-specific PM hooks */
+
+#include <asm/gpio.h>
+#include <asm/arch/mux.h>
+#include <asm/mach-types.h>
 
 
 #if	defined(CONFIG_TPS65010) || defined(CONFIG_TPS65010_MODULE)
@@ -122,31 +127,25 @@ static void enable_vbus_source(struct isp1301 *isp)
 }
 
 
-#else
-
-static void enable_vbus_draw(struct isp1301 *isp, unsigned mA)
-{
-	pr_debug("%s UNIMPL\n", __FUNCTION__);
-}
-
-static void enable_vbus_source(struct isp1301 *isp)
-{
-	pr_debug("%s UNIMPL\n", __FUNCTION__);
-}
-
-#endif
-
-/*-------------------------------------------------------------------------*/
-
 /* products will deliver OTG messages with LEDs, GUI, etc */
 static inline void notresponding(struct isp1301 *isp)
 {
 	printk(KERN_NOTICE "OTG device not responding.\n");
 }
 
+
+#endif
+
 /*-------------------------------------------------------------------------*/
 
 /* only two addresses possible */
+#define	ISP_BASE		0x2c
+static unsigned short normal_i2c[] = {
+	ISP_BASE, ISP_BASE + 1,
+	I2C_CLIENT_END };
+
+I2C_CLIENT_INSMOD;
+
 static struct i2c_driver isp1301_driver;
 
 /* smbus apis are used for portability */
@@ -154,25 +153,25 @@ static struct i2c_driver isp1301_driver;
 static inline u8
 isp1301_get_u8(struct isp1301 *isp, u8 reg)
 {
-	return i2c_smbus_read_byte_data(isp->client, reg + 0);
+	return i2c_smbus_read_byte_data(&isp->client, reg + 0);
 }
 
 static inline int
 isp1301_get_u16(struct isp1301 *isp, u8 reg)
 {
-	return i2c_smbus_read_word_data(isp->client, reg);
+	return i2c_smbus_read_word_data(&isp->client, reg);
 }
 
 static inline int
 isp1301_set_bits(struct isp1301 *isp, u8 reg, u8 bits)
 {
-	return i2c_smbus_write_byte_data(isp->client, reg + 0, bits);
+	return i2c_smbus_write_byte_data(&isp->client, reg + 0, bits);
 }
 
 static inline int
 isp1301_clear_bits(struct isp1301 *isp, u8 reg, u8 bits)
 {
-	return i2c_smbus_write_byte_data(isp->client, reg + 1, bits);
+	return i2c_smbus_write_byte_data(&isp->client, reg + 1, bits);
 }
 
 /*-------------------------------------------------------------------------*/
@@ -350,10 +349,10 @@ isp1301_defer_work(struct isp1301 *isp, int work)
 	int status;
 
 	if (isp && !test_and_set_bit(work, &isp->todo)) {
-		(void) get_device(&isp->client->dev);
+		(void) get_device(&isp->client.dev);
 		status = schedule_work(&isp->work);
 		if (!status && !isp->working)
-			dev_vdbg(&isp->client->dev,
+			dev_vdbg(&isp->client.dev,
 				"work item %d may be lost\n", work);
 	}
 }
@@ -517,7 +516,6 @@ static inline void check_state(struct isp1301 *isp, const char *tag) { }
 static void update_otg1(struct isp1301 *isp, u8 int_src)
 {
 	u32	otg_ctrl;
-	u8      int_id;
 
 	otg_ctrl = omap_readl(OTG_CTRL) & OTG_CTRL_MASK;
 	otg_ctrl &= ~OTG_XCEIV_INPUTS;
@@ -532,10 +530,7 @@ static void update_otg1(struct isp1301 *isp, u8 int_src)
 	}
 	if (int_src & INTR_VBUS_VLD)
 		otg_ctrl |= OTG_VBUSVLD;
-
-	int_id = isp1301_get_u8(isp, ISP1301_INTERRUPT_SOURCE);
-
-	if (int_id & INTR_ID_GND) {		/* default-A */
+	if (int_src & INTR_ID_GND) {		/* default-A */
 		if (isp->otg.state == OTG_STATE_B_IDLE
 				|| isp->otg.state == OTG_STATE_UNDEFINED) {
 			a_idle(isp, "init");
@@ -1108,7 +1103,7 @@ static void isp_update_otg(struct isp1301 *isp, u8 stat)
 	/* update the OTG controller state to match the isp1301; may
 	 * trigger OPRT_CHG irqs for changes going to the isp1301.
 	 */
-	update_otg1(isp, stat); // pass the actual interrupt latch status
+	update_otg1(isp, isp_stat);
 	update_otg2(isp, isp_bstat);
 	check_state(isp, __func__);
 #endif
@@ -1140,7 +1135,7 @@ isp1301_work(struct work_struct *work)
 		/* transfer state from otg engine to isp1301 */
 		if (test_and_clear_bit(WORK_UPDATE_ISP, &isp->todo)) {
 			otg_update_isp(isp);
-			put_device(&isp->client->dev);
+			put_device(&isp->client.dev);
 		}
 #endif
 		/* transfer state from isp1301 to otg engine */
@@ -1148,7 +1143,7 @@ isp1301_work(struct work_struct *work)
 			u8		stat = isp1301_clear_latch(isp);
 
 			isp_update_otg(isp, stat);
-			put_device(&isp->client->dev);
+			put_device(&isp->client.dev);
 		}
 
 		if (test_and_clear_bit(WORK_HOST_RESUME, &isp->todo)) {
@@ -1183,7 +1178,7 @@ isp1301_work(struct work_struct *work)
 			}
 			host_resume(isp);
 			// mdelay(10);
-			put_device(&isp->client->dev);
+			put_device(&isp->client.dev);
 		}
 
 		if (test_and_clear_bit(WORK_TIMER, &isp->todo)) {
@@ -1192,15 +1187,15 @@ isp1301_work(struct work_struct *work)
 			if (!stop)
 				mod_timer(&isp->timer, jiffies + TIMER_JIFFIES);
 #endif
-			put_device(&isp->client->dev);
+			put_device(&isp->client.dev);
 		}
 
 		if (isp->todo)
-			dev_vdbg(&isp->client->dev,
+			dev_vdbg(&isp->client.dev,
 				"work done, todo = 0x%lx\n",
 				isp->todo);
 		if (stop) {
-			dev_dbg(&isp->client->dev, "stop\n");
+			dev_dbg(&isp->client.dev, "stop\n");
 			break;
 		}
 	} while (isp->todo);
@@ -1222,11 +1217,9 @@ static void isp1301_timer(unsigned long _isp)
 
 static void isp1301_release(struct device *dev)
 {
-	struct i2c_client	*client;
-	struct isp1301		*isp;
+	struct isp1301	*isp;
 
-	client = container_of(dev, struct i2c_client, dev);
-	isp = i2c_get_clientdata(client);
+	isp = container_of(dev, struct isp1301, client.dev);
 
 	/* ugly -- i2c hijacks our memory hook to wait_for_completion() */
 	if (isp->i2c_release)
@@ -1236,27 +1229,30 @@ static void isp1301_release(struct device *dev)
 
 static struct isp1301 *the_transceiver;
 
-static int __exit isp1301_remove(struct i2c_client *client)
+static int isp1301_detach_client(struct i2c_client *i2c)
 {
-	struct isp1301	*isp = i2c_get_clientdata(client);
+	struct isp1301	*isp;
+
+	isp = container_of(i2c, struct isp1301, client);
 
 	isp1301_clear_bits(isp, ISP1301_INTERRUPT_FALLING, ~0);
 	isp1301_clear_bits(isp, ISP1301_INTERRUPT_RISING, ~0);
-
-	if (client->irq > 0)
-		free_irq(client->irq, isp);
+	free_irq(isp->irq, isp);
 #ifdef	CONFIG_USB_OTG
 	otg_unbind(isp);
 #endif
+	if (machine_is_omap_h2())
+		omap_free_gpio(2);
+
 	isp->timer.data = 0;
 	set_bit(WORK_STOP, &isp->todo);
 	del_timer_sync(&isp->timer);
 	flush_scheduled_work();
 
-	put_device(&client->dev);
+	put_device(&i2c->dev);
 	the_transceiver = 0;
 
-	return 0;
+	return i2c_detach_client(i2c);
 }
 
 /*-------------------------------------------------------------------------*/
@@ -1289,7 +1285,7 @@ static int isp1301_otg_enable(struct isp1301 *isp)
 	isp1301_set_bits(isp, ISP1301_INTERRUPT_FALLING,
 		INTR_VBUS_VLD | INTR_SESS_VLD | INTR_ID_GND);
 
-	dev_info(&isp->client->dev, "ready for dual-role USB ...\n");
+	dev_info(&isp->client.dev, "ready for dual-role USB ...\n");
 
 	return 0;
 }
@@ -1314,7 +1310,7 @@ isp1301_set_host(struct otg_transceiver *otg, struct usb_bus *host)
 
 #ifdef	CONFIG_USB_OTG
 	isp->otg.host = host;
-	dev_dbg(&isp->client->dev, "registered host\n");
+	dev_dbg(&isp->client.dev, "registered host\n");
 	host_suspend(isp);
 	if (isp->otg.gadget)
 		return isp1301_otg_enable(isp);
@@ -1326,7 +1322,10 @@ isp1301_set_host(struct otg_transceiver *otg, struct usb_bus *host)
 
 	power_up(isp);
 
-	dev_info(&isp->client->dev, "A-Host sessions ok\n");
+	if (machine_is_omap_h2())
+		isp1301_set_bits(isp, ISP1301_MODE_CONTROL_1, MC1_DAT_SE0);
+
+	dev_info(&isp->client.dev, "A-Host sessions ok\n");
 	isp1301_set_bits(isp, ISP1301_INTERRUPT_RISING,
 		INTR_ID_GND);
 	isp1301_set_bits(isp, ISP1301_INTERRUPT_FALLING,
@@ -1344,7 +1343,7 @@ isp1301_set_host(struct otg_transceiver *otg, struct usb_bus *host)
 	return 0;
 
 #else
-	dev_dbg(&isp->client->dev, "host sessions not allowed\n");
+	dev_dbg(&isp->client.dev, "host sessions not allowed\n");
 	return -EINVAL;
 #endif
 
@@ -1371,7 +1370,7 @@ isp1301_set_peripheral(struct otg_transceiver *otg, struct usb_gadget *gadget)
 
 #ifdef	CONFIG_USB_OTG
 	isp->otg.gadget = gadget;
-	dev_dbg(&isp->client->dev, "registered gadget\n");
+	dev_dbg(&isp->client.dev, "registered gadget\n");
 	/* gadget driver may be suspended until vbus_connect () */
 	if (isp->otg.host)
 		return isp1301_otg_enable(isp);
@@ -1389,15 +1388,14 @@ isp1301_set_peripheral(struct otg_transceiver *otg, struct usb_gadget *gadget)
 	power_up(isp);
 	isp->otg.state = OTG_STATE_B_IDLE;
 
-// XXX h4 too?
-	if (machine_is_omap_h2() || machine_is_omap_h3())
+	if (machine_is_omap_h2())
 		isp1301_set_bits(isp, ISP1301_MODE_CONTROL_1, MC1_DAT_SE0);
 
 	isp1301_set_bits(isp, ISP1301_INTERRUPT_RISING,
-		INTR_SESS_VLD | INTR_VBUS_VLD);
+		INTR_SESS_VLD);
 	isp1301_set_bits(isp, ISP1301_INTERRUPT_FALLING,
-		INTR_VBUS_VLD | INTR_SESS_VLD);
-	dev_info(&isp->client->dev, "B-Peripheral sessions ok\n");
+		INTR_VBUS_VLD);
+	dev_info(&isp->client.dev, "B-Peripheral sessions ok\n");
 	dump_regs(isp, __func__);
 
 	/* If this has a Mini-AB connector, this mode is highly
@@ -1410,7 +1408,7 @@ isp1301_set_peripheral(struct otg_transceiver *otg, struct usb_gadget *gadget)
 	return 0;
 
 #else
-	dev_dbg(&isp->client->dev, "peripheral sessions not allowed\n");
+	dev_dbg(&isp->client.dev, "peripheral sessions not allowed\n");
 	return -EINVAL;
 #endif
 }
@@ -1475,10 +1473,6 @@ isp1301_start_hnp(struct otg_transceiver *dev)
 	 * So do this part as early as possible...
 	 */
 	switch (isp->otg.state) {
-	case OTG_STATE_B_PERIPHERAL:
-		isp->otg.state = OTG_STATE_B_WAIT_ACON;
-		isp1301_defer_work(isp, WORK_UPDATE_ISP);
-		break;
 	case OTG_STATE_B_HOST:
 		isp->otg.state = OTG_STATE_B_PERIPHERAL;
 		/* caller will suspend next */
@@ -1515,10 +1509,11 @@ isp1301_start_hnp(struct otg_transceiver *dev)
 /*-------------------------------------------------------------------------*/
 
 /* no error returns, they'd just make bus scanning stop */
-static int __init isp1301_probe(struct i2c_client *client)
+static int isp1301_probe(struct i2c_adapter *bus, int address, int kind)
 {
 	int			status;
 	struct isp1301		*isp;
+	struct i2c_client	*i2c;
 
 	if (the_transceiver)
 		return 0;
@@ -1531,35 +1526,45 @@ static int __init isp1301_probe(struct i2c_client *client)
 	init_timer(&isp->timer);
 	isp->timer.function = isp1301_timer;
 	isp->timer.data = (unsigned long) isp;
-	isp->client = client;
+
+	isp->irq = -1;
+	isp->client.addr = address;
+	i2c_set_clientdata(&isp->client, isp);
+	isp->client.adapter = bus;
+	isp->client.driver = &isp1301_driver;
+	strlcpy(isp->client.name, DRIVER_NAME, I2C_NAME_SIZE);
+	i2c = &isp->client;
 
 	/* if this is a true probe, verify the chip ... */
-	status = isp1301_get_u16(isp, ISP1301_VENDOR_ID);
-	if (status != I2C_VENDOR_ID_PHILIPS) {
-		dev_dbg(&client->dev, "not philips id: %d\n",
-				status);
-		goto fail1;
-	}
-	status = isp1301_get_u16(isp, ISP1301_PRODUCT_ID);
-	if (status != I2C_PRODUCT_ID_PHILIPS_1301) {
-		dev_dbg(&client->dev, "not isp1301, %d\n",
-				status);
-		goto fail1;
+	if (kind < 0) {
+		status = isp1301_get_u16(isp, ISP1301_VENDOR_ID);
+		if (status != I2C_VENDOR_ID_PHILIPS) {
+			dev_dbg(&bus->dev, "addr %d not philips id: %d\n",
+				address, status);
+			goto fail1;
+		}
+		status = isp1301_get_u16(isp, ISP1301_PRODUCT_ID);
+		if (status != I2C_PRODUCT_ID_PHILIPS_1301) {
+			dev_dbg(&bus->dev, "%d not isp1301, %d\n",
+				address, status);
+			goto fail1;
+		}
 	}
 
+	status = i2c_attach_client(i2c);
 	if (status < 0) {
-		dev_dbg(&client->dev, "can't attach %s to device, err %d\n",
-				DRIVER_NAME, status);
+		dev_dbg(&bus->dev, "can't attach %s to device %d, err %d\n",
+				DRIVER_NAME, address, status);
 fail1:
 		kfree(isp);
 		return 0;
 	}
-	isp->i2c_release = client->dev.release;
-	client->dev.release = isp1301_release;
+	isp->i2c_release = i2c->dev.release;
+	i2c->dev.release = isp1301_release;
 
 	/* initial development used chiprev 2.00 */
-	status = i2c_smbus_read_word_data(client, ISP1301_BCD_DEVICE);
-	dev_info(&client->dev, "chiprev %x.%02x, driver " DRIVER_VERSION "\n",
+	status = i2c_smbus_read_word_data(i2c, ISP1301_BCD_DEVICE);
+	dev_info(&i2c->dev, "chiprev %x.%02x, driver " DRIVER_VERSION "\n",
 		status >> 8, status & 0xff);
 
 	/* make like power-on reset */
@@ -1580,25 +1585,40 @@ fail1:
 #ifdef	CONFIG_USB_OTG
 	status = otg_bind(isp);
 	if (status < 0) {
-		dev_dbg(&client->dev, "can't bind OTG\n");
+		dev_dbg(&i2c->dev, "can't bind OTG\n");
 		goto fail2;
 	}
 #endif
 
-	status = request_irq(client->irq, isp1301_irq,
-			IRQF_SAMPLE_RANDOM | IRQF_TRIGGER_FALLING,
-			DRIVER_NAME, isp);
+	if (machine_is_omap_h2()) {
+		/* full speed signaling by default */
+		isp1301_set_bits(isp, ISP1301_MODE_CONTROL_1,
+			MC1_SPEED_REG);
+		isp1301_set_bits(isp, ISP1301_MODE_CONTROL_2,
+			MC2_SPD_SUSP_CTRL);
+
+		/* IRQ wired at M14 */
+		omap_cfg_reg(M14_1510_GPIO2);
+		isp->irq = OMAP_GPIO_IRQ(2);
+		if (gpio_request(2, "isp1301") == 0)
+			gpio_direction_input(2);
+		isp->irq_type = IRQF_TRIGGER_FALLING;
+	}
+
+	isp->irq_type |= IRQF_SAMPLE_RANDOM;
+	status = request_irq(isp->irq, isp1301_irq,
+			isp->irq_type, DRIVER_NAME, isp);
 	if (status < 0) {
-		dev_dbg(&client->dev, "can't get IRQ %d, err %d\n",
-				client->irq, status);
+		dev_dbg(&i2c->dev, "can't get IRQ %d, err %d\n",
+				isp->irq, status);
 #ifdef	CONFIG_USB_OTG
 fail2:
 #endif
-		i2c_detach_client(client);
+		i2c_detach_client(i2c);
 		goto fail1;
 	}
 
-	isp->otg.dev = &client->dev;
+	isp->otg.dev = &isp->client.dev;
 	isp->otg.label = DRIVER_NAME;
 
 	isp->otg.set_host = isp1301_set_host,
@@ -1615,27 +1635,36 @@ fail2:
 	update_otg1(isp, isp1301_get_u8(isp, ISP1301_INTERRUPT_SOURCE));
 	update_otg2(isp, isp1301_get_u8(isp, ISP1301_OTG_STATUS));
 #endif
+
 	dump_regs(isp, __func__);
 
 #ifdef	VERBOSE
 	mod_timer(&isp->timer, jiffies + TIMER_JIFFIES);
-	dev_dbg(&client->dev, "scheduled timer, %d min\n", TIMER_MINUTES);
+	dev_dbg(&i2c->dev, "scheduled timer, %d min\n", TIMER_MINUTES);
 #endif
 
 	status = otg_set_transceiver(&isp->otg);
 	if (status < 0)
-		dev_err(&client->dev, "can't register transceiver, %d\n",
+		dev_err(&i2c->dev, "can't register transceiver, %d\n",
 			status);
 
 	return 0;
+}
+
+static int isp1301_scan_bus(struct i2c_adapter *bus)
+{
+	if (!i2c_check_functionality(bus, I2C_FUNC_SMBUS_BYTE_DATA
+			| I2C_FUNC_SMBUS_READ_WORD_DATA))
+		return -EINVAL;
+	return i2c_probe(bus, &addr_data, isp1301_probe);
 }
 
 static struct i2c_driver isp1301_driver = {
 	.driver = {
 		.name	= "isp1301_omap",
 	},
-	.probe	= isp1301_probe,
-	.remove	= __exit_p(isp1301_remove),
+	.attach_adapter	= isp1301_scan_bus,
+	.detach_client	= isp1301_detach_client,
 };
 
 /*-------------------------------------------------------------------------*/
