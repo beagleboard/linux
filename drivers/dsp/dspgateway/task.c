@@ -2830,7 +2830,7 @@ static ssize_t proc_list_show(struct device *d, struct device_attribute *attr,
 	list_for_each_entry(pl, &dev->proc_list, list_head) {
 		/* need to lock tasklist_lock before calling
 		 * find_task_by_pid_type. */
-		if (find_task_by_pid(pl->pid) != NULL)
+		if (find_task_by_pid_type_ns(PIDTYPE_PID, pl->pid, &init_pid_ns) != NULL)
 			len += sprintf(buf + len, "%d\n", pl->pid);
 		read_unlock(&tasklist_lock);
 	}

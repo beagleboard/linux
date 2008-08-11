@@ -978,7 +978,7 @@ static void twl_init_irq(void)
 
 	/* install an irq handler to demultiplex the TWL4030 interrupt */
 	set_irq_data(irq_num, start_twl4030_irq_thread(irq_num));
-	set_irq_type(irq_num, IRQT_FALLING);
+	set_irq_type(irq_num, IRQ_TYPE_EDGE_FALLING);
 	set_irq_chained_handler(irq_num, do_twl4030_irq);
 
 	res = power_companion_init();

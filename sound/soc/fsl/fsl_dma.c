@@ -132,12 +132,17 @@ struct fsl_dma_private {
  * Since each link descriptor has a 32-bit byte count field, we set
  * period_bytes_max to the largest 32-bit number.  We also have no maximum
  * number of periods.
+ *
+ * Note that we specify SNDRV_PCM_INFO_JOINT_DUPLEX here, but only because a
+ * limitation in the SSI driver requires the sample rates for playback and
+ * capture to be the same.
  */
 static const struct snd_pcm_hardware fsl_dma_hardware = {
 
 	.info   		= SNDRV_PCM_INFO_INTERLEAVED |
 				  SNDRV_PCM_INFO_MMAP |
-				  SNDRV_PCM_INFO_MMAP_VALID,
+				  SNDRV_PCM_INFO_MMAP_VALID |
+				  SNDRV_PCM_INFO_JOINT_DUPLEX,
 	.formats		= FSLDMA_PCM_FORMATS,
 	.rates  		= FSLDMA_PCM_RATES,
 	.rate_min       	= 5512,
@@ -282,7 +287,7 @@ static irqreturn_t fsl_dma_isr(int irq, void *dev_id)
  * once for each .dai_link in the machine driver's snd_soc_machine
  * structure.
  */
-static int fsl_dma_new(struct snd_card *card, struct snd_soc_codec_dai *dai,
+static int fsl_dma_new(struct snd_card *card, struct snd_soc_dai *dai,
 	struct snd_pcm *pcm)
 {
 	static u64 fsl_dma_dmamask = DMA_BIT_MASK(32);

@@ -219,7 +219,7 @@ static void tsc2301_kp_enable(struct tsc2301 *tsc)
 	}
 	spin_unlock_irqrestore(&kp->lock, flags);
 
-	set_irq_type(kp->irq, IRQT_FALLING);
+	set_irq_type(kp->irq, IRQ_TYPE_EDGE_FALLING);
 	tsc2301_kp_start_scan(tsc);
 	enable_irq(kp->irq);
 }
@@ -236,7 +236,7 @@ static int tsc2301_kp_disable(struct tsc2301 *tsc, int release_keys)
 		goto out;
 	}
 	disable_irq_nosync(kp->irq);
-	set_irq_type(kp->irq, IRQT_NOEDGE);
+	set_irq_type(kp->irq, IRQ_TYPE_NONE);
 	spin_unlock_irqrestore(&kp->lock, flags);
 
 	while (kp->pending) {
@@ -429,7 +429,7 @@ int __devinit tsc2301_kp_init(struct tsc2301 *tsc,
 	tsc2301_write_reg(tsc, TSC2301_REG_KPMASK, mask);
 	kp->mask = mask;
 
-	set_irq_type(kp->irq, IRQT_FALLING);
+	set_irq_type(kp->irq, IRQ_TYPE_EDGE_FALLING);
 
 	r = request_irq(kp->irq, tsc2301_kp_irq_handler, IRQF_SAMPLE_RANDOM,
 			"tsc2301-kp", tsc);

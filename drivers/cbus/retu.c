@@ -344,7 +344,7 @@ static int __devinit retu_probe(struct device *dev)
 	omap_set_gpio_direction(retu_irq_pin, 1);
 
 	/* Rising edge triggers the IRQ */
-	set_irq_type(OMAP_GPIO_IRQ(retu_irq_pin), IRQT_RISING);
+	set_irq_type(OMAP_GPIO_IRQ(retu_irq_pin), IRQ_TYPE_EDGE_RISING);
 
 	retu_initialized = 1;
 

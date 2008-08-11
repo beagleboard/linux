@@ -1,8 +1,6 @@
 #
 # Makefile for the kernel serial device drivers.
 #
-#  $Id: Makefile,v 1.8 2002/07/21 21:32:30 rmk Exp $
-#
 
 obj-$(CONFIG_SERIAL_CORE) += serial_core.o
 obj-$(CONFIG_SERIAL_21285) += 21285.o
@@ -28,7 +26,11 @@ obj-$(CONFIG_SERIAL_PNX8XXX) += pnx8xxx_uart.o
 obj-$(CONFIG_SERIAL_SA1100) += sa1100.o
 obj-$(CONFIG_SERIAL_BFIN) += bfin_5xx.o
 obj-$(CONFIG_SERIAL_BFIN_SPORT) += bfin_sport_uart.o
+obj-$(CONFIG_SERIAL_SAMSUNG) += samsung.o
+obj-$(CONFIG_SERIAL_S3C2400) += s3c2400.o
 obj-$(CONFIG_SERIAL_S3C2410) += s3c2410.o
+obj-$(CONFIG_SERIAL_S3C2412) += s3c2412.o
+obj-$(CONFIG_SERIAL_S3C2440) += s3c2440.o
 obj-$(CONFIG_SERIAL_SUNCORE) += suncore.o
 obj-$(CONFIG_SERIAL_SUNHV) += sunhv.o
 obj-$(CONFIG_SERIAL_SUNZILOG) += sunzilog.o
@@ -40,7 +42,6 @@ obj-$(CONFIG_SERIAL_68328) += 68328serial.o
 obj-$(CONFIG_SERIAL_68360) += 68360serial.o
 obj-$(CONFIG_SERIAL_COLDFIRE) += mcfserial.o
 obj-$(CONFIG_SERIAL_MCF) += mcf.o
-obj-$(CONFIG_V850E_UART) += v850e_uart.o
 obj-$(CONFIG_SERIAL_PMACZILOG) += pmac_zilog.o
 obj-$(CONFIG_SERIAL_LH7A40X) += serial_lh7a40x.o
 obj-$(CONFIG_SERIAL_DZ) += dz.o

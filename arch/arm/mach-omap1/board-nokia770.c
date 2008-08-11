@@ -10,6 +10,7 @@
 
 #include <linux/kernel.h>
 #include <linux/init.h>
+#include <linux/mutex.h>
 #include <linux/platform_device.h>
 #include <linux/input.h>
 #include <linux/clk.h>
@@ -18,7 +19,6 @@
 #include <linux/spi/ads7846.h>
 #include <linux/workqueue.h>
 #include <linux/delay.h>
-#include <linux/mutex.h>
 
 #include <asm/hardware.h>
 #include <asm/mach-types.h>
@@ -245,7 +245,7 @@ static struct omap_board_config_kernel nokia770_config[] __initdata = {
 #define	AMPLIFIER_CTRL_GPIO	58
 
 static struct clk *dspxor_ck;
-static DEFINE_MUTEX(audio_pwr_mutex);
+static DEFINE_MUTEX(audio_pwr_lock);
 /*
  * audio_pwr_state
  * +--+-------------------------+---------------------------------------+
@@ -261,7 +261,7 @@ static DEFINE_MUTEX(audio_pwr_mutex);
 static int audio_pwr_state = -1;
 
 /*
- * audio_pwr_up / down should be called under audio_pwr_mutex
+ * audio_pwr_up / down should be called under audio_pwr_lock
  */
 static void nokia770_audio_pwr_up(void)
 {
@@ -280,11 +280,11 @@ static void nokia770_audio_pwr_up(void)
 
 static void codec_delayed_power_down(struct work_struct *work)
 {
-	mutex_lock(&audio_pwr_mutex);
+	mutex_lock(&audio_pwr_lock);
 	if (audio_pwr_state == -1)
 		aic23_power_down();
 	clk_disable(dspxor_ck);
-	mutex_unlock(&audio_pwr_mutex);
+	mutex_unlock(&audio_pwr_lock);
 }
 
 static DECLARE_DELAYED_WORK(codec_power_down_work, codec_delayed_power_down);
@@ -301,19 +301,19 @@ static void nokia770_audio_pwr_down(void)
 static int
 nokia770_audio_pwr_up_request(struct dsp_kfunc_device *kdev, int stage)
 {
-	mutex_lock(&audio_pwr_mutex);
+	mutex_lock(&audio_pwr_lock);
 	if (audio_pwr_state == -1)
 		nokia770_audio_pwr_up();
 	/* force audio_pwr_state = 0, even if it was 1. */
 	audio_pwr_state = 0;
-	mutex_unlock(&audio_pwr_mutex);
+	mutex_unlock(&audio_pwr_lock);
 	return 0;
 }
 
 static int
 nokia770_audio_pwr_down_request(struct dsp_kfunc_device *kdev, int stage)
 {
-	mutex_lock(&audio_pwr_mutex);
+	mutex_lock(&audio_pwr_lock);
 	switch (stage) {
 	case 1:
 		if (audio_pwr_state == 0)
@@ -326,7 +326,7 @@ nokia770_audio_pwr_down_request(struct dsp_kfunc_device *kdev, int stage)
 		}
 		break;
 	}
-	mutex_unlock(&audio_pwr_mutex);
+	mutex_unlock(&audio_pwr_lock);
 	return 0;
 }
 

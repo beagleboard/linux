@@ -528,7 +528,7 @@ static const struct ipath_cregs ipath_7220_cregs = {
 
 static char int_type[16] = "auto";
 module_param_string(interrupt_type, int_type, sizeof(int_type), 0444);
-MODULE_PARM_DESC(int_type, " interrupt_type=auto|force_msi|force_intx\n");
+MODULE_PARM_DESC(int_type, " interrupt_type=auto|force_msi|force_intx");
 
 /* packet rate matching delay; chip has support */
 static u8 rate_to_delay[2][2] = {
@@ -2228,8 +2228,8 @@ static void ipath_autoneg_send(struct ipath_devdata *dd, int which)
 		0xffffffff, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
 		0x40000001, 0x1388, 0x15e, /* rest 0's */
 		};
-	dcnt = sizeof(madpayload_start)/sizeof(madpayload_start[0]);
-	hcnt = sizeof(hdr)/sizeof(hdr[0]);
+	dcnt = ARRAY_SIZE(madpayload_start);
+	hcnt = ARRAY_SIZE(hdr);
 	if (!swapped) {
 		/* for maintainability, do it at runtime */
 		for (i = 0; i < hcnt; i++) {

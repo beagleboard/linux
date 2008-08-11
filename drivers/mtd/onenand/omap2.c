@@ -291,7 +291,7 @@ static int omap3_onenand_read_bufferram(struct mtd_info *mtd, int area,
 
 	dma_src = c->phys_base + bram_offset;
 	dma_dst = dma_map_single(&c->pdev->dev, buf, count, DMA_FROM_DEVICE);
-	if (dma_mapping_error(dma_dst)) {
+	if (dma_mapping_error(&c->pdev->dev, dma_dst)) {
 		dev_err(&c->pdev->dev,
 			"Couldn't DMA map a %d byte buffer\n",
 			count);
@@ -362,7 +362,7 @@ static int omap3_onenand_write_bufferram(struct mtd_info *mtd, int area,
 
 	dma_src = dma_map_single(&c->pdev->dev, buf, count, DMA_TO_DEVICE);
 	dma_dst = c->phys_base + bram_offset;
-	if (dma_mapping_error(dma_dst)) {
+	if (dma_mapping_error(&c->pdev->dev, dma_dst)) {
 		dev_err(&c->pdev->dev,
 			"Couldn't DMA map a %d byte buffer\n",
 			count);
@@ -435,7 +435,7 @@ static int omap2_onenand_read_bufferram(struct mtd_info *mtd, int area,
 	dma_src = c->phys_base + bram_offset;
 	dma_dst = dma_map_single(&c->pdev->dev, buffer, count,
 				 DMA_FROM_DEVICE);
-	if (dma_mapping_error(dma_dst)) {
+	if (dma_mapping_error(&c->pdev->dev, dma_dst)) {
 		dev_err(&c->pdev->dev,
 			"Couldn't DMA map a %d byte buffer\n",
 			count);
@@ -480,7 +480,7 @@ static int omap2_onenand_write_bufferram(struct mtd_info *mtd, int area,
 	dma_src = dma_map_single(&c->pdev->dev, (void *) buffer, count,
 				 DMA_TO_DEVICE);
 	dma_dst = c->phys_base + bram_offset;
-	if (dma_mapping_error(dma_dst)) {
+	if (dma_mapping_error(&c->pdev->dev, dma_dst)) {
 		dev_err(&c->pdev->dev,
 			"Couldn't DMA map a %d byte buffer\n",
 			count);

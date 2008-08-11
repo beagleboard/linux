@@ -37,6 +37,7 @@
 #include <linux/io.h>
 
 #include <media/v4l2-common.h>
+#include <media/v4l2-ioctl.h>
 
 #include "omap24xxcam.h"
 
@@ -1559,7 +1560,6 @@ static int omap24xxcam_release(struct inode *inode, struct file *file)
 }
 
 static struct file_operations omap24xxcam_fops = {
-	.owner	 = THIS_MODULE,
 	.llseek	 = no_llseek,
 	.ioctl	 = video_ioctl2,
 	.poll	 = omap24xxcam_poll,

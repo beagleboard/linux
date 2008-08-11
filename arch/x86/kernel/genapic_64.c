@@ -51,7 +51,7 @@ void __init setup_apic_routing(void)
 	else
 #endif
 
-	if (num_possible_cpus() <= 8)
+	if (max_physical_apicid < 8)
 		genapic = &apic_flat;
 	else
 		genapic = &apic_physflat;
@@ -99,3 +99,4 @@ int is_uv_system(void)
 {
 	return uv_system_type != UV_NONE;
 }
+EXPORT_SYMBOL_GPL(is_uv_system);

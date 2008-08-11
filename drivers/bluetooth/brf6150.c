@@ -742,7 +742,7 @@ static int brf6150_hci_open(struct hci_dev *hdev)
 	info->garbage_bytes = 0;
 	info->rx_skb = NULL;
 	info->pm_enabled = 0;
-	set_irq_type(OMAP_GPIO_IRQ(info->btinfo->host_wakeup_gpio), IRQT_NOEDGE);
+	set_irq_type(OMAP_GPIO_IRQ(info->btinfo->host_wakeup_gpio), IRQ_TYPE_NONE);
 	init_completion(&info->fw_completion);
 
 	clk_enable(info->uart_ck);
@@ -771,7 +771,7 @@ static int brf6150_hci_open(struct hci_dev *hdev)
 	if (err < 0)
 		printk(KERN_ERR "brf6150: Sending firmware failed. Bluetooth won't work properly\n");
 
-	set_irq_type(OMAP_GPIO_IRQ(info->btinfo->host_wakeup_gpio), IRQT_BOTHEDGE);
+	set_irq_type(OMAP_GPIO_IRQ(info->btinfo->host_wakeup_gpio), IRQ_TYPE_EDGE_BOTH);
 	info->pm_enabled = 1;
 	set_bit(HCI_RUNNING, &hdev->flags);
 	return 0;
@@ -787,7 +787,7 @@ static int brf6150_hci_close(struct hci_dev *hdev)
 	clk_disable(info->uart_ck);
 	del_timer_sync(&info->pm_timer);
 	omap_set_gpio_dataout(info->btinfo->bt_wakeup_gpio, 0);
-	set_irq_type(OMAP_GPIO_IRQ(info->btinfo->host_wakeup_gpio), IRQT_NOEDGE);
+	set_irq_type(OMAP_GPIO_IRQ(info->btinfo->host_wakeup_gpio), IRQ_TYPE_NONE);
 
 	return 0;
 }
@@ -946,7 +946,7 @@ static int __init brf6150_init(void)
 	omap_set_gpio_direction(info->btinfo->reset_gpio, 0);
 	omap_set_gpio_direction(info->btinfo->bt_wakeup_gpio, 0);
 	omap_set_gpio_direction(info->btinfo->host_wakeup_gpio, 1);
-	set_irq_type(OMAP_GPIO_IRQ(info->btinfo->host_wakeup_gpio), IRQT_NOEDGE);
+	set_irq_type(OMAP_GPIO_IRQ(info->btinfo->host_wakeup_gpio), IRQ_TYPE_NONE);
 
 	switch (info->btinfo->bt_uart) {
 	case 1:

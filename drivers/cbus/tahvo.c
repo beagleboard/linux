@@ -331,7 +331,7 @@ static int __devinit tahvo_probe(struct device *dev)
 	omap_set_gpio_direction(tahvo_irq_pin, 1);
 
 	/* Rising edge triggers the IRQ */
-	set_irq_type(OMAP_GPIO_IRQ(tahvo_irq_pin), IRQT_RISING);
+	set_irq_type(OMAP_GPIO_IRQ(tahvo_irq_pin), IRQ_TYPE_EDGE_RISING);
 
 	/* Mask all TAHVO interrupts */
 	tahvo_write_reg(TAHVO_REG_IMR, 0xffff);

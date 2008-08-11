@@ -191,9 +191,9 @@ static irqreturn_t gpio_sw_irq_handler(int irq, void *arg)
 
 	if (!sw->both_edges) {
 		if (omap_get_gpio_datain(sw->gpio))
-			set_irq_type(OMAP_GPIO_IRQ(sw->gpio), IRQT_FALLING);
+			set_irq_type(OMAP_GPIO_IRQ(sw->gpio), IRQ_TYPE_EDGE_FALLING);
 		else
-			set_irq_type(OMAP_GPIO_IRQ(sw->gpio), IRQT_RISING);
+			set_irq_type(OMAP_GPIO_IRQ(sw->gpio), IRQ_TYPE_EDGE_RISING);
 	}
 
 	state = gpio_sw_get_state(sw);

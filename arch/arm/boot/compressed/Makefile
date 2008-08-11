@@ -73,6 +73,12 @@ SEDFLAGS	= s/TEXT_START/$(ZTEXTADDR)/;s/BSS_START/$(ZBSSADDR)/
 
 targets       := vmlinux vmlinux.lds piggy.gz piggy.o font.o font.c \
 		 head.o misc.o $(OBJS)
+
+ifeq ($(CONFIG_FTRACE),y)
+ORIG_CFLAGS := $(KBUILD_CFLAGS)
+KBUILD_CFLAGS = $(subst -pg, , $(ORIG_CFLAGS))
+endif
+
 EXTRA_CFLAGS  := -fpic -fno-builtin
 EXTRA_AFLAGS  :=
 
@@ -110,6 +116,3 @@ $(obj)/font.c: $(FONTC)
 
 $(obj)/vmlinux.lds: $(obj)/vmlinux.lds.in arch/arm/boot/Makefile .config
 	@sed "$(SEDFLAGS)" < $< > $@
-
-$(obj)/misc.o: $(obj)/misc.c include/asm/arch/uncompress.h lib/inflate.c
-

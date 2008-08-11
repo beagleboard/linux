@@ -810,7 +810,7 @@ inserted:
 			/* We need to allocate a new block */
 			ext4_fsblk_t goal = ext4_group_first_block_no(sb,
 						EXT4_I(inode)->i_block_group);
-			ext4_fsblk_t block = ext4_new_block(handle, inode,
+			ext4_fsblk_t block = ext4_new_meta_block(handle, inode,
 							goal, &error);
 			if (error)
 				goto cleanup;
@@ -1512,7 +1512,7 @@ static inline void ext4_xattr_hash_entry(struct ext4_xattr_header *header,
 	char *name = entry->e_name;
 	int n;
 
-	for (n=0; n < entry->e_name_len; n++) {
+	for (n = 0; n < entry->e_name_len; n++) {
 		hash = (hash << NAME_HASH_SHIFT) ^
 		       (hash >> (8*sizeof(hash) - NAME_HASH_SHIFT)) ^
 		       *name++;
