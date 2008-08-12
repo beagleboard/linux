@@ -110,9 +110,8 @@ int __init dsp_ctl_core_init(void)
 	dsp_ctl_class = class_create(THIS_MODULE, "dspctl");
 	for (i = 0; i < ARRAY_SIZE(dev_list); i++) {
 		device_create(dsp_ctl_class, NULL,
-				    MKDEV(OMAP_DSP_CTL_MAJOR,
-					  dev_list[i].minor),
-				    dev_list[i].devname);
+			      MKDEV(OMAP_DSP_CTL_MAJOR, dev_list[i].minor),
+			      NULL, dev_list[i].devname);
 	}
 
 	return 0;

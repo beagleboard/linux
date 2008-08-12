@@ -1762,7 +1762,7 @@ static int taskdev_init(struct taskdev *dev, char *name, unsigned char minor)
 		goto fail_create_proclist;
 
 	task_dev = device_create(dsp_task_class, NULL,
-				 MKDEV(OMAP_DSP_TASK_MAJOR, minor),
+				 MKDEV(OMAP_DSP_TASK_MAJOR, minor), NULL,
 				 "dsptask%d", (int)minor);
 
 	if (unlikely(IS_ERR(task_dev))) {
