@@ -96,6 +96,9 @@ static void _clkdm_add_autodeps(struct clockdomain *clkdm)
 	struct clkdm_pwrdm_autodep *autodep;
 
 	for (autodep = autodeps; autodep->pwrdm.ptr; autodep++) {
+		if (!omap_chip_is(autodep->omap_chip))
+			continue;
+
 		pr_debug("clockdomain: adding %s sleepdep/wkdep for "
 			 "pwrdm %s\n", autodep->pwrdm.ptr->name,
 			 clkdm->pwrdm.ptr->name);
@@ -118,6 +121,9 @@ static void _clkdm_del_autodeps(struct clockdomain *clkdm)
 	struct clkdm_pwrdm_autodep *autodep;
 
 	for (autodep = autodeps; autodep->pwrdm.ptr; autodep++) {
+		if (!omap_chip_is(autodep->omap_chip))
+			continue;
+
 		pr_debug("clockdomain: removing %s sleepdep/wkdep for "
 			 "pwrdm %s\n", autodep->pwrdm.ptr->name,
 			 clkdm->pwrdm.ptr->name);
