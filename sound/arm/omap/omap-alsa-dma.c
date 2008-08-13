@@ -64,9 +64,9 @@
 #include <linux/dma-mapping.h>
 #include <linux/io.h>
 #include <linux/uaccess.h>
+#include <linux/semaphore.h>
 
 #include <asm/hardware.h>
-#include <asm/semaphore.h>
 #include <asm/arch/dma.h>
 #include <asm/arch/mcbsp.h>
 #include <asm/arch/omap-alsa.h>
