@@ -289,13 +289,17 @@ static void __init omap_init_mmc(void)
 	mmc = &mmc_conf->mmc[0];
 
 	if (cpu_is_omap2430() || cpu_is_omap34xx()) {
-		if (mmc->enabled)
+		if (mmc->enabled) {
+			mmc1_data.conf = *mmc;
 			(void) platform_device_register(&mmc_omap_device1);
+		}
 
 #if defined(CONFIG_ARCH_OMAP2430) || defined(CONFIG_ARCH_OMAP34XX)
 		mmc = &mmc_conf->mmc[1];
-		if (mmc->enabled)
+		if (mmc->enabled) {
+			mmc2_data.conf = *mmc;
 			(void) platform_device_register(&mmc_omap_device2);
+		}
 #endif
 
 		return;
