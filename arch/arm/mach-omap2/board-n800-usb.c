@@ -35,14 +35,58 @@ static int tusb_set_clock(struct clk *osc_ck, int state);
 #	define BOARD_MODE	MUSB_HOST
 #endif
 
+static struct musb_hdrc_eps_bits musb_eps[] = {
+	{	"ep1_tx", 5,	},
+	{	"ep1_rx", 5,	},
+	{	"ep2_tx", 5,	},
+	{	"ep2_rx", 5,	},
+	{	"ep3_tx", 3,	},
+	{	"ep3_rx", 3,	},
+	{	"ep4_tx", 3,	},
+	{	"ep4_rx", 3,	},
+	{	"ep5_tx", 2,	},
+	{	"ep5_rx", 2,	},
+	{	"ep6_tx", 2,	},
+	{	"ep6_rx", 2,	},
+	{	"ep7_tx", 2,	},
+	{	"ep7_rx", 2,	},
+	{	"ep8_tx", 2,	},
+	{	"ep8_rx", 2,	},
+	{	"ep9_tx", 2,	},
+	{	"ep9_rx", 2,	},
+	{	"ep10_tx", 2,	},
+	{	"ep10_rx", 2,	},
+	{	"ep11_tx", 2,	},
+	{	"ep11_rx", 2,	},
+	{	"ep12_tx", 2,	},
+	{	"ep12_rx", 2,	},
+	{	"ep13_tx", 2,	},
+	{	"ep13_rx", 2,	},
+	{	"ep14_tx", 2,	},
+	{	"ep14_rx", 2,	},
+	{	"ep15_tx", 2,	},
+	{	"ep15_rx", 2,	},
+};
+
+static struct musb_hdrc_config musb_config = {
+	.multipoint	= 1,
+	.dyn_fifo	= 1,
+	.soft_con	= 1,
+	.dma		= 1,
+	.num_eps	= 32,
+	.dma_channels	= 7,
+	.ram_bits	= 12,
+	.eps_bits	= musb_eps,
+};
+
 static struct musb_hdrc_platform_data tusb_data = {
 	.mode		= BOARD_MODE,
-	.multipoint	= 1,
 	.set_power	= tusb_set_power,
 	.set_clock	= tusb_set_clock,
 	.min_power	= 25,	/* x2 = 50 mA drawn from VBUS as peripheral */
 	.power		= 100,	/* Max 100 mA VBUS for host mode */
 	.clock		= "osc_ck",
+	.config		= &musb_config,
 };
 
 /*
