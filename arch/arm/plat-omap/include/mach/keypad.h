@@ -14,6 +14,7 @@ struct omap_kp_platform_data {
 	int rows;
 	int cols;
 	int *keymap;
+	int irq;
 	unsigned int keymapsize;
 	unsigned int rep:1;
 	unsigned long delay;

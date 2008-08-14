@@ -176,9 +176,10 @@ static int sdp2430_keymap[] = {
 static struct omap_kp_platform_data sdp2430_kp_data = {
 	.rows		= 5,
 	.cols		= 6,
-	.keymap 	= sdp2430_keymap,
-	.keymapsize 	= ARRAY_SIZE(sdp2430_keymap),
+	.keymap		= sdp2430_keymap,
+	.keymapsize	= ARRAY_SIZE(sdp2430_keymap),
 	.rep		= 1,
+	.irq		= TWL4030_MODIRQ_KEYPAD,
 };
 
 static struct platform_device sdp2430_kp_device = {
