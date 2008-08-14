@@ -21,7 +21,7 @@
  *
  */
 
-#include <asm/arch/board.h>
+#include <mach/board.h>
 
 #include <net/bluetooth/bluetooth.h>
 #include <net/bluetooth/hci_core.h>
