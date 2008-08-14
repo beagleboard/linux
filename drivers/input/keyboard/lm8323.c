@@ -348,10 +348,10 @@ static void lm8323_process_error(struct lm8323_chip *lm)
 	}
 }
 
-static int lm8323_reset(struct lm8323_chip *lm)
+static void lm8323_reset(struct lm8323_chip *lm)
 {
 	/* The docs say we must pass 0xAA as the data byte. */
-	return lm8323_write(lm, 2, LM8323_CMD_RESET, 0xAA);
+	lm8323_write(lm, 2, LM8323_CMD_RESET, 0xAA);
 }
 
 static int lm8323_configure(struct lm8323_chip *lm)
@@ -360,7 +360,6 @@ static int lm8323_configure(struct lm8323_chip *lm)
 	int clock = (CLK_SLOWCLKEN | CLK_RCPWM_EXTERNAL);
 	int debounce = lm->debounce_time >> 2;
 	int active = lm->active_time >> 2;
-	int ret;
 
 	/*
 	 * Active time must be greater than the debounce time: if it's
@@ -369,25 +368,13 @@ static int lm8323_configure(struct lm8323_chip *lm)
 	if (debounce >= active)
 		active = debounce + 3;
 
-	ret = lm8323_write(lm, 2, LM8323_CMD_WRITE_CFG, 0);
-	if (ret)
-		goto err;
-	ret = lm8323_write(lm, 2, LM8323_CMD_WRITE_CLOCK, clock);
-	if (ret)
-		goto err;
-	ret = lm8323_write(lm, 2, LM8323_CMD_SET_KEY_SIZE, keysize);
-	if (ret)
-		goto err;
+	lm8323_write(lm, 2, LM8323_CMD_WRITE_CFG, 0);
+	lm8323_write(lm, 2, LM8323_CMD_WRITE_CLOCK, clock);
+	lm8323_write(lm, 2, LM8323_CMD_SET_KEY_SIZE, keysize);
 	lm8323_set_active_time(lm, lm->active_time);
-	ret = lm8323_write(lm, 2, LM8323_CMD_SET_DEBOUNCE, debounce);
-	if (ret)
-		goto err;
-	ret = lm8323_write(lm, 3, LM8323_CMD_WRITE_PORT_STATE, 0xff, 0xff);
-	if (ret)
-		goto err;
-	ret = lm8323_write(lm, 3, LM8323_CMD_WRITE_PORT_SEL, 0, 0);
-	if (ret)
-		goto err;
+	lm8323_write(lm, 2, LM8323_CMD_SET_DEBOUNCE, debounce);
+	lm8323_write(lm, 3, LM8323_CMD_WRITE_PORT_STATE, 0xff, 0xff);
+	lm8323_write(lm, 3, LM8323_CMD_WRITE_PORT_SEL, 0, 0);
 
 	/*
 	 * Not much we can do about errors at this point, so just hope
@@ -395,11 +382,6 @@ static int lm8323_configure(struct lm8323_chip *lm)
 	 */
 
 	return 0;
-
-err:
-	dev_err(&lm->client->dev, "failed to configure lm8323\n");
-
-	return ret;
 }
 
 /*
@@ -739,9 +721,7 @@ static int lm8323_probe(struct i2c_client *client,
 	else if (lm->active_time == -1) /* Disable sleep. */
 		lm->active_time = 0;
 
-	err = lm8323_reset(lm);
-	if (err)
-		goto fail2;
+	lm8323_reset(lm);
 
 	/* Nothing's set up to service the IRQ yet, so just spin for max.
 	 * 100ms until we can configure. */
@@ -758,9 +738,7 @@ static int lm8323_probe(struct i2c_client *client,
 
 		msleep(1);
 	}
-	err = lm8323_configure(lm);
-	if (err)
-		goto fail2;
+	lm8323_configure(lm);
 
 	/* If a true probe check the device */
 	if (lm8323_read_id(lm, data) != 0) {
