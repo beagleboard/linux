@@ -16,7 +16,7 @@
 #include <linux/clk.h>
 #include <linux/io.h>
 #include <asm/irq.h>
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 
 #include "../w1.h"
 #include "../w1_int.h"

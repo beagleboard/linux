@@ -31,7 +31,7 @@
 #include <linux/pm.h>
 #include <linux/hwmon.h>
 #include <linux/err.h>
-#include <asm/arch/board.h>
+#include <mach/board.h>
 
 #define DRIVER_NAME  "tsl2563"
 

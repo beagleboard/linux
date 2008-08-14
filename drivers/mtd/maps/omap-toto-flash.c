@@ -17,7 +17,7 @@
 #include <linux/mtd/map.h>
 #include <linux/mtd/partitions.h>
 
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/io.h>
 
 

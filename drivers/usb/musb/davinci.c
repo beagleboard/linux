@@ -31,15 +31,15 @@
 #include <linux/clk.h>
 #include <linux/io.h>
 
-#include <asm/arch/hardware.h>
-#include <asm/arch/memory.h>
-#include <asm/arch/gpio.h>
+#include <mach/hardware.h>
+#include <mach/memory.h>
+#include <mach/gpio.h>
 #include <asm/mach-types.h>
 
 #include "musb_core.h"
 
 #ifdef CONFIG_MACH_DAVINCI_EVM
-#include <asm/arch/i2c-client.h>
+#include <mach/i2c-client.h>
 #endif
 
 #include "davinci.h"

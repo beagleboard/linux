@@ -2,7 +2,7 @@
 #define __MACH_OMAP2_MMU_H
 
 #include <linux/io.h>
-#include <asm/arch/mmu.h>
+#include <mach/mmu.h>
 
 #define MMU_LOCK_BASE_MASK		(0x1f << 10)
 #define MMU_LOCK_VICTIM_MASK		(0x1f << 4)

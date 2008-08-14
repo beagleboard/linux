@@ -24,22 +24,22 @@
 #include <linux/i2c/twl4030.h>
 #include <linux/i2c/twl4030-rtc.h>
 
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
 
-#include <asm/arch/mcspi.h>
-#include <asm/arch/gpio.h>
-#include <asm/arch/board.h>
-#include <asm/arch/common.h>
-#include <asm/arch/gpmc.h>
-#include <asm/arch/hsmmc.h>
-#include <asm/arch/usb-musb.h>
+#include <mach/mcspi.h>
+#include <mach/gpio.h>
+#include <mach/board.h>
+#include <mach/common.h>
+#include <mach/gpmc.h>
+#include <mach/hsmmc.h>
+#include <mach/usb-musb.h>
 
 #include <asm/io.h>
 #include <asm/delay.h>
-#include <asm/arch/control.h>
+#include <mach/control.h>
 
 #define ENABLE_VAUX1_DEDICATED	0x03
 #define ENABLE_VAUX1_DEV_GRP	0x20

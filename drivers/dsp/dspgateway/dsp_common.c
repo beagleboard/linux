@@ -33,11 +33,11 @@
 #include <asm/io.h>
 #include <asm/tlbflush.h>
 #include <asm/irq.h>
-#include <asm/arch/dsp_common.h>
+#include <mach/dsp_common.h>
 #include "dsp.h"
 
 #ifdef CONFIG_ARCH_OMAP1
-#include <asm/arch/tc.h>
+#include <mach/tc.h>
 #endif
 
 #if defined(CONFIG_ARCH_OMAP1)

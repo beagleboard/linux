@@ -37,7 +37,7 @@
 #include <linux/i2c.h>
 #include <linux/i2c/twl4030.h>
 #include <linux/irq.h>
-#include <asm/arch/keypad.h>
+#include <mach/keypad.h>
 #include "twl4030-keypad.h"
 
 #define PTV_PRESCALER		4

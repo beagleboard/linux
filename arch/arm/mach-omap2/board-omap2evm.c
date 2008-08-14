@@ -19,16 +19,16 @@
 #include <linux/io.h>
 #include <linux/input.h>
 
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
 
-#include <asm/arch/gpio.h>
-#include <asm/arch/board.h>
-#include <asm/arch/common.h>
-#include <asm/arch/hsmmc.h>
-#include <asm/arch/keypad.h>
+#include <mach/gpio.h>
+#include <mach/board.h>
+#include <mach/common.h>
+#include <mach/hsmmc.h>
+#include <mach/keypad.h>
 
 static struct resource omap2evm_smc911x_resources[] = {
 	[0] =   {

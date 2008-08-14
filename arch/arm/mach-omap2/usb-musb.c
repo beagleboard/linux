@@ -22,12 +22,12 @@
 #include <linux/platform_device.h>
 #include <linux/clk.h>
 #include <asm/io.h>
-#include <asm/arch/mux.h>
+#include <mach/mux.h>
 #include <linux/usb/musb.h>
 
-#include <asm/arch/hardware.h>
-#include <asm/arch/pm.h>
-#include <asm/arch/usb.h>
+#include <mach/hardware.h>
+#include <mach/pm.h>
+#include <mach/usb.h>
 
 #ifdef CONFIG_USB_MUSB_SOC
 static struct resource musb_resources[] = {

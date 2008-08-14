@@ -15,7 +15,7 @@
 #include <linux/skbuff.h>
 #include <linux/mutex.h>
 #include <net/sock.h>
-#include <asm/arch/sti.h>
+#include <mach/sti.h>
 
 static struct sock *sti_sock;
 static DEFINE_MUTEX(sti_netlink_mutex);

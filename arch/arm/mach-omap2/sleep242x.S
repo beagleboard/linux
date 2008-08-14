@@ -27,10 +27,10 @@
 
 #include <linux/linkage.h>
 #include <asm/assembler.h>
-#include <asm/arch/io.h>
-#include <asm/arch/pm.h>
+#include <mach/io.h>
+#include <mach/pm.h>
 
-#include <asm/arch/omap24xx.h>
+#include <mach/omap24xx.h>
 
 #include "sdrc.h"
 

@@ -20,8 +20,8 @@
 
 #include <linux/io.h>
 
-#include <asm/arch/common.h>
-#include <asm/arch/board.h>
+#include <mach/common.h>
+#include <mach/board.h>
 
 static struct clk *uart_ick[OMAP_MAX_NR_PORTS];
 static struct clk *uart_fck[OMAP_MAX_NR_PORTS];

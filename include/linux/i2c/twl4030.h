@@ -53,7 +53,7 @@
 #define TWL4030_MODULE_SECURED_REG	0x15
 
 /* IRQ information-need base */
-#include <asm/arch/irqs.h>
+#include <mach/irqs.h>
 /* TWL4030 interrupts */
 
 #define TWL4030_MODIRQ_GPIO		(TWL4030_IRQ_BASE + 0)

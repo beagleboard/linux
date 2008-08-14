@@ -36,13 +36,13 @@
 #include <linux/spinlock.h>
 #include <linux/errno.h>
 #include <linux/i2c/menelaus.h>
-#include <asm/arch/gpio.h>
-#include <asm/arch/keypad.h>
+#include <mach/gpio.h>
+#include <mach/keypad.h>
 #include <asm/irq.h>
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/io.h>
 #include <asm/mach-types.h>
-#include <asm/arch/mux.h>
+#include <mach/mux.h>
 
 #undef NEW_BOARD_LEARNING_MODE
 

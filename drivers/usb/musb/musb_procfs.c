@@ -36,7 +36,7 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/uaccess.h>	/* FIXME remove procfs writes */
-#include <asm/arch/hardware.h>
+#include <mach/hardware.h>
 
 #include "musb_core.h"
 

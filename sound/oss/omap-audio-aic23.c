@@ -41,14 +41,14 @@
 #include <linux/mutex.h>
 
 #include <asm/uaccess.h>
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/io.h>
 #include <asm/mach-types.h>
 
-#include <asm/arch/mcbsp.h>
-#include <asm/arch/fpga.h>
-#include <asm/arch/aic23.h>
-#include <asm/arch/clock.h>
+#include <mach/mcbsp.h>
+#include <mach/fpga.h>
+#include <mach/aic23.h>
+#include <mach/clock.h>
 
 #include "omap-audio.h"
 #include "omap-audio-dma-intfc.h"

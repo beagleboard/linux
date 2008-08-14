@@ -39,9 +39,9 @@
 
 #include <linux/kernel.h>
 
-#include <asm/arch/aic23.h>
+#include <mach/aic23.h>
 
-#include <asm/arch/omap-alsa.h>
+#include <mach/omap-alsa.h>
 #include "omap-alsa-aic23.h"
 #include <sound/initval.h>
 #include <sound/control.h>

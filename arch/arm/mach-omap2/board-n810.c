@@ -13,11 +13,11 @@
 #include <linux/i2c.h>
 #include <linux/i2c/lm8323.h>
 
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
-#include <asm/arch/board.h>
-#include <asm/arch/common.h>
+#include <mach/board.h>
+#include <mach/common.h>
 
 #include "board-n800.h"
 

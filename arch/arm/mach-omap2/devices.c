@@ -15,15 +15,15 @@
 #include <linux/platform_device.h>
 #include <linux/io.h>
 
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/mach-types.h>
 #include <asm/mach/map.h>
 
-#include <asm/arch/tc.h>
-#include <asm/arch/board.h>
-#include <asm/arch/mux.h>
-#include <asm/arch/gpio.h>
-#include <asm/arch/eac.h>
+#include <mach/tc.h>
+#include <mach/board.h>
+#include <mach/mux.h>
+#include <mach/gpio.h>
+#include <mach/eac.h>
 
 #if defined(CONFIG_VIDEO_OMAP2) || defined(CONFIG_VIDEO_OMAP2_MODULE)
 
@@ -151,7 +151,7 @@ static inline void omap_init_sti(void) {}
 
 #if defined(CONFIG_SPI_OMAP24XX) || defined(CONFIG_SPI_OMAP24XX_MODULE)
 
-#include <asm/arch/mcspi.h>
+#include <mach/mcspi.h>
 
 #define OMAP2_MCSPI1_BASE		0x48098000
 #define OMAP2_MCSPI2_BASE		0x4809a000

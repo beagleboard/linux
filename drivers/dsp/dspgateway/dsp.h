@@ -25,8 +25,8 @@
 #define __PLAT_OMAP_DSP_DSP_H
 
 #include "hardware_dsp.h"
-#include <asm/arch/dsp_common.h>
-#include <asm/arch/mmu.h>
+#include <mach/dsp_common.h>
+#include <mach/mmu.h>
 
 
 #ifdef CONFIG_ARCH_OMAP2

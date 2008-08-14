@@ -15,9 +15,9 @@
 #include <linux/clk.h>
 #include <linux/err.h>
 #include <linux/usb/musb.h>
-#include <asm/arch/gpmc.h>
-#include <asm/arch/gpio.h>
-#include <asm/arch/pm.h>
+#include <mach/gpmc.h>
+#include <mach/gpio.h>
+#include <mach/pm.h>
 
 #define TUSB_ASYNC_CS		1
 #define TUSB_SYNC_CS		4

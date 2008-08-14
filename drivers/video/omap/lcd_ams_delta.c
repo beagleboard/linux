@@ -28,9 +28,9 @@
 #include <asm/delay.h>
 #include <asm/io.h>
 
-#include <asm/arch/board-ams-delta.h>
-#include <asm/arch/hardware.h>
-#include <asm/arch/omapfb.h>
+#include <mach/board-ams-delta.h>
+#include <mach/hardware.h>
+#include <mach/omapfb.h>
 
 #define AMS_DELTA_DEFAULT_CONTRAST	112
 

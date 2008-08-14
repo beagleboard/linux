@@ -30,7 +30,7 @@
 #include <linux/spi/spi.h>
 
 #ifdef CONFIG_ARCH_OMAP
-#include <asm/arch/gpio.h>
+#include <mach/gpio.h>
 #endif
 
 #include <linux/spi/tsc2005.h>

@@ -14,7 +14,7 @@
 #ifndef ARCH_ARM_MACH_OMAP2_SDRAM_QIMONDA_HYB18M512160AF6
 #define ARCH_ARM_MACH_OMAP2_SDRAM_QIMONDA_HYB18M512160AF6
 
-#include <asm/arch/sdrc.h>
+#include <mach/sdrc.h>
 
 /* Qimonda HYB18M512160AF-6 */
 /* XXX Using ARE = 0x1 (no autorefresh burst) -- can this be changed? */

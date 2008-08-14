@@ -15,8 +15,8 @@
 #include <linux/input.h>
 #include <linux/gpio_keys.h>
 
-#include <asm/arch/gpio.h>
-#include <asm/arch/mux.h>
+#include <mach/gpio.h>
+#include <mach/mux.h>
 
 #define SW_ENTER_GPIO16		16
 #define SW_UP_GPIO17		17

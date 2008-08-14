@@ -24,11 +24,11 @@
 #include <linux/suspend.h>
 #include <linux/time.h>
 
-#include <asm/arch/cpu.h>
+#include <mach/cpu.h>
 #include <asm/mach/time.h>
 #include <asm/atomic.h>
 
-#include <asm/arch/pm.h>
+#include <mach/pm.h>
 #include "pm.h"
 
 unsigned short enable_dyn_sleep;

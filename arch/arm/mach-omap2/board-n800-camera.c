@@ -31,8 +31,8 @@
 
 #include <asm/mach-types.h>
 
-#include <asm/arch/gpio.h>
-#include <asm/arch/board.h>
+#include <mach/gpio.h>
+#include <mach/board.h>
 
 #include <../drivers/cbus/retu.h>
 #include <../drivers/media/video/tcm825x.h>

@@ -38,9 +38,9 @@
 
 #include <asm/uaccess.h>
 
-#include <asm/arch/mux.h>
-#include <asm/arch/gpio.h>
-#include <asm/arch/board.h>
+#include <mach/mux.h>
+#include <mach/gpio.h>
+#include <mach/board.h>
 
 #include "cbus.h"
 #include "tahvo.h"

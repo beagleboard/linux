@@ -24,7 +24,7 @@
 #include <linux/init.h>
 #include <linux/i2c.h>
 #include <linux/mutex.h>
-#include <asm/arch/gpio.h>
+#include <mach/gpio.h>
 
 #define LP5521_DRIVER_NAME		"lp5521"
 

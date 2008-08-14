@@ -19,7 +19,7 @@
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#include <asm/arch/board.h>
+#include <mach/board.h>
 
 #ifndef __DRIVERS_BLUETOOTH_BRF6150_H
 #define __DRIVERS_BLUETOOTH_BRF6150_H

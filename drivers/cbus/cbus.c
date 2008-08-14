@@ -29,8 +29,8 @@
 #include <linux/delay.h>
 #include <linux/spinlock.h>
 
-#include <asm/arch/gpio.h>
-#include <asm/arch/board.h>
+#include <mach/gpio.h>
+#include <mach/board.h>
 
 #include <asm/io.h>
 

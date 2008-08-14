@@ -14,7 +14,7 @@
  * published by the Free Software Foundation.
  */
 
-#include <asm/arch/mmc.h>
+#include <mach/mmc.h>
 
 #include <asm/mach-types.h>
 #include <linux/delay.h>

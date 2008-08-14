@@ -16,9 +16,9 @@
 #include <linux/init.h>
 #include <linux/io.h>
 
-#include <asm/arch/common.h>
-#include <asm/arch/control.h>
-#include <asm/arch/cpu.h>
+#include <mach/common.h>
+#include <mach/control.h>
+#include <mach/cpu.h>
 
 static u32 class;
 static void __iomem *tap_base;

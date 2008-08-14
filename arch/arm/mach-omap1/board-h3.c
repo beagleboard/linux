@@ -34,7 +34,7 @@
 
 #include <asm/setup.h>
 #include <asm/page.h>
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/gpio.h>
 
 #include <asm/mach-types.h>
@@ -44,20 +44,20 @@
 
 #include <media/v4l2-int-device.h>
 
-#include <asm/arch/gpio.h>
-#include <asm/arch/gpio-switch.h>
-#include <asm/arch/gpioexpander.h>
-#include <asm/arch/irqs.h>
-#include <asm/arch/mux.h>
-#include <asm/arch/tc.h>
-#include <asm/arch/nand.h>
-#include <asm/arch/irda.h>
-#include <asm/arch/usb.h>
-#include <asm/arch/keypad.h>
-#include <asm/arch/dma.h>
-#include <asm/arch/common.h>
-#include <asm/arch/mcbsp.h>
-#include <asm/arch/omap-alsa.h>
+#include <mach/gpio.h>
+#include <mach/gpio-switch.h>
+#include <mach/gpioexpander.h>
+#include <mach/irqs.h>
+#include <mach/mux.h>
+#include <mach/tc.h>
+#include <mach/nand.h>
+#include <mach/irda.h>
+#include <mach/usb.h>
+#include <mach/keypad.h>
+#include <mach/dma.h>
+#include <mach/common.h>
+#include <mach/mcbsp.h>
+#include <mach/omap-alsa.h>
 
 #include <../drivers/media/video/ov9640.h>
 

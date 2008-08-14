@@ -24,14 +24,14 @@
 #include <linux/bitops.h>
 #include <linux/io.h>
 
-#include <asm/arch/clock.h>
-#include <asm/arch/clockdomain.h>
-#include <asm/arch/sram.h>
-#include <asm/arch/cpu.h>
-#include <asm/arch/prcm.h>
+#include <mach/clock.h>
+#include <mach/clockdomain.h>
+#include <mach/sram.h>
+#include <mach/cpu.h>
+#include <mach/prcm.h>
 #include <asm/div64.h>
 
-#include <asm/arch/sdrc.h>
+#include <mach/sdrc.h>
 #include "sdrc.h"
 #include "clock.h"
 #include "prm.h"

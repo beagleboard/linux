@@ -31,7 +31,7 @@
 #ifndef __OMAP_AUDIO_ALSA_DMA_H
 #define __OMAP_AUDIO_ALSA_DMA_H
 
-#include <asm/arch/omap-alsa.h>
+#include <mach/omap-alsa.h>
 
 /* Global data structures */
 

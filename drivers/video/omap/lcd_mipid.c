@@ -23,8 +23,8 @@
 #include <linux/workqueue.h>
 #include <linux/spi/spi.h>
 
-#include <asm/arch/omapfb.h>
-#include <asm/arch/lcd_mipid.h>
+#include <mach/omapfb.h>
+#include <mach/lcd_mipid.h>
 
 #include "../../cbus/tahvo.h"
 

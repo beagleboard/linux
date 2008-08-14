@@ -37,11 +37,11 @@
 #include <asm/irq.h>
 #include <asm/pgalloc.h>
 #include <asm/pgtable.h>
-#include <asm/arch/tc.h>
-#include <asm/arch/omapfb.h>
-#include <asm/arch/dsp.h>
-#include <asm/arch/mailbox.h>
-#include <asm/arch/mmu.h>
+#include <mach/tc.h>
+#include <mach/omapfb.h>
+#include <mach/dsp.h>
+#include <mach/mailbox.h>
+#include <mach/mmu.h>
 #include "dsp_mbcmd.h"
 #include "dsp.h"
 #include "ipbuf.h"

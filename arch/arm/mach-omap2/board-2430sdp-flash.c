@@ -17,10 +17,10 @@
 #include <linux/mtd/onenand_regs.h>
 
 #include <asm/io.h>
-#include <asm/arch/onenand.h>
-#include <asm/arch/board.h>
-#include <asm/arch/gpmc.h>
-#include <asm/arch/nand.h>
+#include <mach/onenand.h>
+#include <mach/board.h>
+#include <mach/gpmc.h>
+#include <mach/nand.h>
 
 #define ONENAND_MAP 0x20000000
 #define GPMC_OFF_CONFIG1_0 0x60

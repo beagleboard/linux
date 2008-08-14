@@ -23,7 +23,7 @@
 #include <linux/err.h>
 #include <linux/io.h>
 #include "mmu.h"
-#include <asm/arch/mmu.h>
+#include <mach/mmu.h>
 #include <asm/tlbflush.h>
 #include <asm/sizes.h>
 

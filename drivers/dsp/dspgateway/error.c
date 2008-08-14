@@ -26,7 +26,7 @@
 #include <linux/poll.h>
 #include <linux/sched.h>
 #include <linux/interrupt.h>
-#include <asm/arch/mailbox.h>
+#include <mach/mailbox.h>
 #include <asm/uaccess.h>
 #include "dsp_mbcmd.h"
 #include "dsp.h"

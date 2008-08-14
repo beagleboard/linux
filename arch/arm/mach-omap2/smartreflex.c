@@ -27,9 +27,9 @@
 #include <linux/i2c/twl4030.h>
 #include <linux/io.h>
 
-#include <asm/arch/omap34xx.h>
-#include <asm/arch/control.h>
-#include <asm/arch/clock.h>
+#include <mach/omap34xx.h>
+#include <mach/control.h>
+#include <mach/clock.h>
 
 #include "prm.h"
 #include "smartreflex.h"

@@ -26,7 +26,7 @@
 #include <linux/poll.h>
 #include <linux/sched.h>
 #include <asm/uaccess.h>
-#include <asm/arch/dsp.h>
+#include <mach/dsp.h>
 #include <asm/io.h>
 #include "dsp_mbcmd.h"
 #include "dsp.h"

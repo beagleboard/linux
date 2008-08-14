@@ -41,7 +41,7 @@
 
 #include <asm/mach/time.h>
 #include <asm/system.h>
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 
 #define ALL_TIME_REGS		6
 

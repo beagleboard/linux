@@ -24,7 +24,7 @@
 #include <linux/platform_device.h>
 #include <linux/init.h>
 #include <linux/jiffies.h>
-#include <asm/arch/mailbox.h>
+#include <mach/mailbox.h>
 #include "dsp_mbcmd.h"
 #include "dsp.h"
 

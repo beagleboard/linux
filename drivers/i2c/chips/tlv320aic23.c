@@ -27,8 +27,8 @@
 #include <linux/device.h>
 #include <linux/platform_device.h>
 #include <asm/io.h>
-#include <asm/arch/aic23.h>
-#include <asm/arch/mcbsp.h>
+#include <mach/aic23.h>
+#include <mach/mcbsp.h>
 
 #define TLV320AIC23_VERSION	"1.8"
 #define TLV320AIC23_DATE	"10-Feb-2006"

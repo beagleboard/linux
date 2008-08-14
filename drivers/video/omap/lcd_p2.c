@@ -25,9 +25,9 @@
 #include <linux/delay.h>
 #include <linux/platform_device.h>
 
-#include <asm/arch/mux.h>
-#include <asm/arch/gpio.h>
-#include <asm/arch/omapfb.h>
+#include <mach/mux.h>
+#include <mach/gpio.h>
+#include <mach/omapfb.h>
 
 /*
  * File: epson-md-tft.h

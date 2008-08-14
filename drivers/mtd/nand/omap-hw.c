@@ -43,8 +43,8 @@
 
 #include <asm/io.h>
 
-#include <asm/arch/board.h>
-#include <asm/arch/dma.h>
+#include <mach/board.h>
+#include <mach/dma.h>
 
 #define NAND_BASE		0xfffbcc00
 #define NND_REVISION		0x00

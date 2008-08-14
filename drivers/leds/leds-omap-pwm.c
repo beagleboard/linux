@@ -18,8 +18,8 @@
 #include <linux/ctype.h>
 #include <linux/sched.h>
 #include <asm/delay.h>
-#include <asm/arch/board.h>
-#include <asm/arch/dmtimer.h>
+#include <mach/board.h>
+#include <mach/dmtimer.h>
 
 struct omap_pwm_led {
 	struct led_classdev cdev;

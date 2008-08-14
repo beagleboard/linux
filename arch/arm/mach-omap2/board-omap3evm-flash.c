@@ -18,10 +18,10 @@
 #include <linux/io.h>
 
 #include <asm/mach/flash.h>
-#include <asm/arch/onenand.h>
-#include <asm/arch/board.h>
-#include <asm/arch/gpmc.h>
-#include <asm/arch/nand.h>
+#include <mach/onenand.h>
+#include <mach/board.h>
+#include <mach/gpmc.h>
+#include <mach/nand.h>
 
 static int omap3evm_onenand_setup(void __iomem *);
 

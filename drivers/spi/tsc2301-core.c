@@ -26,7 +26,7 @@
 #include <linux/spi/tsc2301.h>
 
 #ifdef CONFIG_ARCH_OMAP
-#include <asm/arch/gpio.h>
+#include <mach/gpio.h>
 #endif
 
 u16 tsc2301_read_reg(struct tsc2301 *tsc, int reg)

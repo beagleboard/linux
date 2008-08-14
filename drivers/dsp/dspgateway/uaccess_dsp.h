@@ -25,7 +25,7 @@
 #define _OMAP_DSP_UACCESS_DSP_H
 
 #include <asm/uaccess.h>
-#include <asm/arch/dsp_common.h>
+#include <mach/dsp_common.h>
 #include "dsp.h"
 
 #define HAVE_ASM_COPY_FROM_USER_DSP_2B

@@ -18,10 +18,10 @@
 #ifndef __OMAP_ALSA_AIC23_H
 #define __OMAP_ALSA_AIC23_H
 
-#include <asm/arch/dma.h>
+#include <mach/dma.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
-#include <asm/arch/mcbsp.h>
+#include <mach/mcbsp.h>
 
 /* Define to set the AIC23 as the master w.r.t McBSP */
 #define AIC23_MASTER

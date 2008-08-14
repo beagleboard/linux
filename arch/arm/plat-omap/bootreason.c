@@ -29,7 +29,7 @@
  */
 #include <linux/proc_fs.h>
 #include <linux/errno.h>
-#include <asm/arch/board.h>
+#include <mach/board.h>
 
 static char boot_reason[16];
 

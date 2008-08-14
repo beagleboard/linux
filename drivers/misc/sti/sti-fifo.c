@@ -13,7 +13,7 @@
 #include <linux/interrupt.h>
 #include <linux/err.h>
 #include <linux/module.h>
-#include <asm/arch/sti.h>
+#include <mach/sti.h>
 
 #define STI_READ_BUFFER_SIZE	1024
 #define sti_buf_pos(pos)	((sti_crb->bufpos + (pos)) % \

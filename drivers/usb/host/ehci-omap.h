@@ -23,7 +23,7 @@
 #ifndef __EHCI_OMAP_H
 #define __EHCI_OMAP_H
 
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include "../../../arch/arm/mach-omap2/cm.h"
 #include "../../../arch/arm/mach-omap2/cm-regbits-34xx.h"
 

@@ -14,8 +14,8 @@
 #include <linux/module.h>
 #include <linux/tty.h>
 #include <linux/tty_driver.h>
-#include <asm/arch/sti.h>
-#include <asm/arch/board.h>
+#include <mach/sti.h>
+#include <mach/board.h>
 
 #define DRV_NAME "sticon"
 

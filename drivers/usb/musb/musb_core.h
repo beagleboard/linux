@@ -65,7 +65,7 @@ struct musb_ep;
  * arch-specific files.  Discrete chips will need a build tweak.
  * So will using AHB IDs from silicon that provides them.
  */
-#include <asm/arch/hdrc_cnf.h>
+#include <mach/hdrc_cnf.h>
 #endif
 
 #include "musb_io.h"

@@ -16,7 +16,7 @@
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
 #include <linux/clk.h>
-#include <asm/arch/sti.h>
+#include <mach/sti.h>
 #include <asm/byteorder.h>
 #include <asm/io.h>
 

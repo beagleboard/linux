@@ -24,8 +24,8 @@
 #include <linux/delay.h>
 #include <linux/io.h>
 
-#include <asm/arch/dma.h>
-#include <asm/arch/mcbsp.h>
+#include <mach/dma.h>
+#include <mach/mcbsp.h>
 
 struct omap_mcbsp **mcbsp_ptr;
 int omap_mcbsp_count;

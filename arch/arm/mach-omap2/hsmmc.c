@@ -16,9 +16,9 @@
 #include <linux/interrupt.h>
 #include <linux/delay.h>
 #include <linux/i2c/twl4030.h>
-#include <asm/hardware.h>
-#include <asm/arch/mmc.h>
-#include <asm/arch/board.h>
+#include <mach/hardware.h>
+#include <mach/mmc.h>
+#include <mach/board.h>
 
 #if defined(CONFIG_MMC_OMAP_HS) || defined(CONFIG_MMC_OMAP_HS_MODULE)
 

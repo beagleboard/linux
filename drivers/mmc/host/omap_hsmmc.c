@@ -28,10 +28,10 @@
 #include <linux/io.h>
 #include <linux/semaphore.h>
 #include <asm/dma.h>
-#include <asm/hardware.h>
-#include <asm/arch/board.h>
-#include <asm/arch/mmc.h>
-#include <asm/arch/cpu.h>
+#include <mach/hardware.h>
+#include <mach/board.h>
+#include <mach/mmc.h>
+#include <mach/cpu.h>
 
 /* OMAP HSMMC Host Controller Registers */
 #define OMAP_HSMMC_SYSCONFIG	0x0010

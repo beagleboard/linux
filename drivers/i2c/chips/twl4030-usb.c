@@ -33,7 +33,7 @@
 #include <linux/usb/gadget.h>
 #include <linux/usb/otg.h>
 #include <linux/i2c/twl4030.h>
-#include <asm/arch/usb.h>
+#include <mach/usb.h>
 
 /* Register defines */
 

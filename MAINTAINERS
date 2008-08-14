@@ -594,6 +594,11 @@ M:	kernel@wantstofly.org
 L:	linux-arm-kernel@lists.arm.linux.org.uk (subscribers-only)
 S:	Maintained
 
+ARM/MAGICIAN MACHINE SUPPORT
+P:	Philipp Zabel
+M:	philipp.zabel@gmail.com
+S:	Maintained
+
 ARM/TOSA MACHINE SUPPORT
 P:	Dmitry Baryshkov
 M:	dbaryshkov@gmail.com
@@ -719,6 +724,15 @@ M:	mcgrof@gmail.com
 L:	linux-wireless@vger.kernel.org
 L:	ath5k-devel@lists.ath5k.org
 S:	Maintained
+
+ATHEROS ATH9K WIRELESS DRIVER
+P:	Luis R. Rodriguez
+M:	lrodriguez@atheros.com
+P:	Jouni Malinen
+M:	jmalinen@atheros.com
+L:	linux-wireless@vger.kernel.org
+L:	ath9k-devel@lists.ath9k.org
+S:	Supported
 
 ATI_REMOTE2 DRIVER
 P:	Ville Syrjala
@@ -1235,7 +1249,7 @@ S:	Maintained
 CPU FREQUENCY DRIVERS
 P:	Dave Jones
 M:	davej@codemonkey.org.uk
-L:	cpufreq@lists.linux.org.uk
+L:	cpufreq@vger.kernel.org
 W:	http://www.codemonkey.org.uk/projects/cpufreq/
 T:	git kernel.org/pub/scm/linux/kernel/git/davej/cpufreq.git
 S:	Maintained
@@ -2448,7 +2462,7 @@ L:	kernel-janitors@vger.kernel.org
 W:	http://www.kerneljanitors.org/
 S:	Maintained
 
-KERNEL NFSD
+KERNEL NFSD, SUNRPC, AND LOCKD SERVERS
 P:	J. Bruce Fields
 M:	bfields@fieldses.org
 P:	Neil Brown
@@ -3064,7 +3078,7 @@ M:	ja@ssi.bg
 L:	netdev@vger.kernel.org
 S:	Maintained
 
-NFS CLIENT
+NFS, SUNRPC, AND LOCKD CLIENTS
 P:	Trond Myklebust
 M:	Trond.Myklebust@netapp.com
 L:	linux-nfs@vger.kernel.org
@@ -4667,12 +4681,6 @@ M:	kune@deine-taler.de
 W:	http://zd1211.ath.cx/wiki/DriverRewrite
 L:	linux-wireless@vger.kernel.org
 L:	zd1211-devs@lists.sourceforge.net (subscribers-only)
-S:	Maintained
-
-ZF MACHZ WATCHDOG
-P:	Fernando Fuganti
-M:	fuganti@netbank.com.br
-W:	http://cvs.conectiva.com.br/drivers/ZFL-watchdog/
 S:	Maintained
 
 ZR36067 VIDEO FOR LINUX DRIVER

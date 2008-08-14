@@ -30,7 +30,7 @@
 #include <linux/types.h>
 #include <linux/spi/tsc2102.h>
 
-#include <asm/arch/omap-alsa.h>
+#include <mach/omap-alsa.h>
 
 #include <sound/initval.h>
 #include <sound/control.h>

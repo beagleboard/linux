@@ -21,9 +21,9 @@
 #include <linux/io.h>
 
 #include <asm/mach-types.h>
-#include <asm/arch/gpmc.h>
+#include <mach/gpmc.h>
 
-#include <asm/arch/sdrc.h>
+#include <mach/sdrc.h>
 
 /* GPMC register offsets */
 #define GPMC_REVISION		0x00

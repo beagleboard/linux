@@ -35,15 +35,15 @@
 #include <asm/mach/irq.h>
 #include <asm/mach-types.h>
 
-#include <asm/arch/irqs.h>
-#include <asm/arch/clock.h>
-#include <asm/arch/sram.h>
-#include <asm/arch/control.h>
-#include <asm/arch/gpio.h>
-#include <asm/arch/pm.h>
-#include <asm/arch/mux.h>
-#include <asm/arch/dma.h>
-#include <asm/arch/board.h>
+#include <mach/irqs.h>
+#include <mach/clock.h>
+#include <mach/sram.h>
+#include <mach/control.h>
+#include <mach/gpio.h>
+#include <mach/pm.h>
+#include <mach/mux.h>
+#include <mach/dma.h>
+#include <mach/board.h>
 
 #include "prm.h"
 #include "prm-regbits-24xx.h"
@@ -52,8 +52,8 @@
 #include "sdrc.h"
 #include "pm.h"
 
-#include <asm/arch/powerdomain.h>
-#include <asm/arch/clockdomain.h>
+#include <mach/powerdomain.h>
+#include <mach/clockdomain.h>
 
 static void (*omap2_sram_idle)(void);
 static void (*omap2_sram_suspend)(void __iomem *dllctrl);

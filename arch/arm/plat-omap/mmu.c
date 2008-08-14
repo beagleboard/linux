@@ -26,9 +26,9 @@
 #include <linux/io.h>
 #include <asm/pgalloc.h>
 #include <asm/pgtable.h>
-#include <asm/arch/mmu.h>
+#include <mach/mmu.h>
 #include <asm/sizes.h>
-#include <asm/arch/dsp_common.h>
+#include <mach/dsp_common.h>
 
 #if defined(CONFIG_ARCH_OMAP1)
 #include "../mach-omap1/mmu.h"

@@ -27,8 +27,8 @@
 #include <linux/err.h>
 #include <linux/io.h>
 
-#include <asm/arch/clock.h>
-#include <asm/arch/board.h>
+#include <mach/clock.h>
+#include <mach/board.h>
 
 #include "prm.h"
 #include "cm.h"

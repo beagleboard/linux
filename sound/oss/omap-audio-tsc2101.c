@@ -36,21 +36,21 @@
 #include <linux/mutex.h>
 
 #include <asm/uaccess.h>
-#include <asm/hardware.h>
-#include <asm/arch/dma.h>
+#include <mach/hardware.h>
+#include <mach/dma.h>
 #include <asm/io.h>
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 
-#include <asm/arch/mux.h>
-#include <asm/arch/io.h>
+#include <mach/mux.h>
+#include <mach/io.h>
 #include <asm/mach-types.h>
 
 #include "omap-audio.h"
 #include "omap-audio-dma-intfc.h"
-#include <asm/arch/mcbsp.h>
+#include <mach/mcbsp.h>
 #ifdef CONFIG_ARCH_OMAP16XX
 #include <../drivers/ssi/omap-uwire.h>
-#include <asm/arch/dsp_common.h>
+#include <mach/dsp_common.h>
 #elif defined(CONFIG_ARCH_OMAP24XX)
 #else
 #error "Unsupported configuration"

@@ -13,8 +13,8 @@
 #include <linux/module.h>
 #include <linux/err.h>
 #include <linux/proc_fs.h>
-#include <asm/arch/board.h>
-#include <asm/arch/board-nokia.h>
+#include <mach/board.h>
+#include <mach/board-nokia.h>
 
 static int component_version_read_proc(char *page, char **start, off_t off,
 				       int count, int *eof, void *data)

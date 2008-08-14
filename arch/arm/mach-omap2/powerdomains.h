@@ -63,7 +63,7 @@
  * XXX encode hardware fixed wakeup dependencies -- esp. for 3430 CORE
  */
 
-#include <asm/arch/powerdomain.h>
+#include <mach/powerdomain.h>
 
 #include "prcm-common.h"
 #include "prm.h"

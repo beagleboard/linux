@@ -21,7 +21,7 @@
 
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
-#include <asm/arch/board.h>
+#include <mach/board.h>
 
 static struct platform_device n800_bt_device = {
 	.name           = "hci_h4p",

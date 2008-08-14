@@ -31,9 +31,9 @@
 #include "prm.h"
 #include "prm-regbits-34xx.h"
 
-#include <asm/arch/cpu.h>
-#include <asm/arch/powerdomain.h>
-#include <asm/arch/clockdomain.h>
+#include <mach/cpu.h>
+#include <mach/powerdomain.h>
+#include <mach/clockdomain.h>
 
 /* pwrdm_list contains all registered struct powerdomains */
 static LIST_HEAD(pwrdm_list);

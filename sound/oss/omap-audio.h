@@ -28,7 +28,7 @@
 #define __OMAP_AUDIO_H
 
 /* Requires dma.h */
-#include <asm/arch/dma.h>
+#include <mach/dma.h>
 
 /*
  * Buffer Management

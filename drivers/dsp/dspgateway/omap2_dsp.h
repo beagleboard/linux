@@ -31,7 +31,7 @@
 #define OMAP24XX_SARAM_SIZE	0x18000
 #endif
 
-#include <asm/arch/hardware.h>
+#include <mach/hardware.h>
 
 /*
  * DSP IPI registers: mapped to 0xe1000000 -- use readX(), writeX()

@@ -19,11 +19,11 @@
 #include <linux/slab.h>
 #include <linux/pm.h>
 
-#include <asm/arch/dma.h>
-#include <asm/arch/clock.h>
-#include <asm/arch/gpio.h>
-#include <asm/arch/mcbsp.h>
-#include <asm/arch/omap-alsa.h>
+#include <mach/dma.h>
+#include <mach/clock.h>
+#include <mach/gpio.h>
+#include <mach/mcbsp.h>
+#include <mach/omap-alsa.h>
 
 #include "omap-alsa-sx1.h"
 

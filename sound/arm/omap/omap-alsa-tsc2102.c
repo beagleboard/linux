@@ -20,9 +20,9 @@
 #include <linux/io.h>
 #include <linux/spi/tsc2102.h>
 
-#include <asm/arch/dma.h>
-#include <asm/arch/clock.h>
-#include <asm/arch/omap-alsa.h>
+#include <mach/dma.h>
+#include <mach/clock.h>
+#include <mach/omap-alsa.h>
 
 #include "omap-alsa-tsc2102.h"
 

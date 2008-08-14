@@ -27,7 +27,7 @@
 
 #include <linux/platform_device.h>
 #include <linux/clk.h>
-#include <asm/arch/gpio.h>
+#include <mach/gpio.h>
 
 #include "ehci-omap.h"
 

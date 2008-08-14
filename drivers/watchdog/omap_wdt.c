@@ -42,10 +42,10 @@
 
 #include <asm/io.h>
 #include <asm/uaccess.h>
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/bitops.h>
 
-#include <asm/arch/prcm.h>
+#include <mach/prcm.h>
 
 #include "omap_wdt.h"
 

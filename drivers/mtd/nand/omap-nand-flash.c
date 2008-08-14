@@ -21,14 +21,14 @@
 #include <linux/mtd/partitions.h>
 
 #include <asm/io.h>
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/mach-types.h>
 #include <asm/mach/flash.h>
-#include <asm/arch/tc.h>
+#include <mach/tc.h>
 
 #include <asm/io.h>
-#include <asm/arch/hardware.h>
-#include <asm/arch/nand.h>
+#include <mach/hardware.h>
+#include <mach/nand.h>
 
 #define	DRIVER_NAME	"omapnand"
 

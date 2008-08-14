@@ -24,11 +24,11 @@
 #include <linux/list.h>
 #include <linux/err.h>
 
-#include <asm/arch/gpio.h>
-#include <asm/arch/sram.h>
-#include <asm/arch/pm.h>
-#include <asm/arch/clockdomain.h>
-#include <asm/arch/powerdomain.h>
+#include <mach/gpio.h>
+#include <mach/sram.h>
+#include <mach/pm.h>
+#include <mach/clockdomain.h>
+#include <mach/powerdomain.h>
 
 #include "cm.h"
 #include "cm-regbits-34xx.h"

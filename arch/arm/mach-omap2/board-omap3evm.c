@@ -23,19 +23,19 @@
 #include <linux/spi/spi.h>
 #include <linux/spi/ads7846.h>
 
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
 
-#include <asm/arch/gpio.h>
-#include <asm/arch/keypad.h>
-#include <asm/arch/board.h>
-#include <asm/arch/hsmmc.h>
-#include <asm/arch/usb-musb.h>
-#include <asm/arch/usb-ehci.h>
-#include <asm/arch/common.h>
-#include <asm/arch/mcspi.h>
+#include <mach/gpio.h>
+#include <mach/keypad.h>
+#include <mach/board.h>
+#include <mach/hsmmc.h>
+#include <mach/usb-musb.h>
+#include <mach/usb-ehci.h>
+#include <mach/common.h>
+#include <mach/mcspi.h>
 
 #include "sdram-micron-mt46h32m32lf-6.h"
 

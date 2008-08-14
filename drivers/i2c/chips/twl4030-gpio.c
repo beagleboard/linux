@@ -41,10 +41,10 @@
 #include <linux/i2c/twl4030-gpio.h>
 #include <linux/slab.h>
 
-#include <asm/arch/irqs.h>
+#include <mach/irqs.h>
 #include <asm/mach/irq.h>
-#include <asm/arch/gpio.h>
-#include <asm/arch/mux.h>
+#include <mach/gpio.h>
+#include <mach/mux.h>
 
 #include <linux/device.h>
 

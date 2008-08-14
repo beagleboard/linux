@@ -82,7 +82,7 @@
 /*
  * This gets many kinds of configuration information:
  *	- Kconfig for everything user-configurable
- *	- <asm/arch/hdrc_cnf.h> for SOC or family details
+ *	- <mach/hdrc_cnf.h> for SOC or family details
  *	- platform_device for addressing, irq, and platform_data
  *	- platform_data is mostly for board-specific informarion
  *
@@ -100,8 +100,8 @@
 #include <linux/io.h>
 
 #ifdef	CONFIG_ARM
-#include <asm/arch/hardware.h>
-#include <asm/arch/memory.h>
+#include <mach/hardware.h>
+#include <mach/memory.h>
 #include <asm/mach-types.h>
 #endif
 

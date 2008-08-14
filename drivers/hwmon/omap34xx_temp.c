@@ -29,8 +29,8 @@
 #include <linux/err.h>
 #include <linux/platform_device.h>
 #include <linux/io.h>
-#include <asm/arch/omap34xx.h>
-#include <asm/arch/control.h>
+#include <mach/omap34xx.h>
+#include <mach/control.h>
 
 #define TEMP_SENSOR_SOC BIT(8)
 #define TEMP_SENSOR_EOCZ BIT(7)

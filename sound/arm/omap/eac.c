@@ -40,7 +40,7 @@
 #include <linux/clk.h>
 
 #include <asm/io.h>
-#include <asm/arch/eac.h>
+#include <mach/eac.h>
 
 #include <sound/core.h>
 #include <sound/initval.h>

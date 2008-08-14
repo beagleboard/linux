@@ -34,10 +34,10 @@
 #include <linux/clk.h>
 #include <linux/platform_device.h>
 
-#include <asm/arch/hardware.h>
-#include <asm/arch/gpio.h>
-#include <asm/arch/board.h>
-#include <asm/arch/irqs.h>
+#include <mach/hardware.h>
+#include <mach/gpio.h>
+#include <mach/board.h>
+#include <mach/irqs.h>
 
 #include <net/bluetooth/bluetooth.h>
 #include <net/bluetooth/hci_core.h>

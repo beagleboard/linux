@@ -11,8 +11,8 @@
 
 #include <linux/kernel.h>
 
-#include <asm/arch/gpio.h>
-#include <asm/arch/mmc.h>
+#include <mach/gpio.h>
+#include <mach/mmc.h>
 
 #ifdef CONFIG_MMC_OMAP
 

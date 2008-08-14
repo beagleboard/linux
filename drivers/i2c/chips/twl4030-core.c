@@ -50,8 +50,8 @@
 
 #include <asm/mach/irq.h>
 
-#include <asm/arch/gpio.h>
-#include <asm/arch/mux.h>
+#include <mach/gpio.h>
+#include <mach/mux.h>
 
 #define DRIVER_NAME			"twl4030"
 

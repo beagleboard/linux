@@ -20,7 +20,7 @@
  * the array in mach-omap2/powerdomains.h.
  */
 
-#include <asm/arch/powerdomain.h>
+#include <mach/powerdomain.h>
 
 #include "prcm-common.h"
 #include "prm.h"

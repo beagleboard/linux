@@ -28,9 +28,9 @@
 #include <linux/interrupt.h>
 #include <linux/clk.h>
 
-#include <asm/arch/irqs.h>
-#include <asm/arch/dma.h>
-#include <asm/arch/hardware.h>
+#include <mach/irqs.h>
+#include <mach/dma.h>
+#include <mach/hardware.h>
 #include <asm/io.h>
 #include <asm/scatterlist.h>
 #include <asm/mach-types.h>

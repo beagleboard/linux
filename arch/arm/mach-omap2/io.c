@@ -23,19 +23,19 @@
 #include <asm/tlb.h>
 
 #include <asm/mach/map.h>
-#include <asm/arch/mux.h>
-#include <asm/arch/omapfb.h>
-#include <asm/arch/sram.h>
-#include <asm/arch/sdrc.h>
-#include <asm/arch/gpmc.h>
+#include <mach/mux.h>
+#include <mach/omapfb.h>
+#include <mach/sram.h>
+#include <mach/sdrc.h>
+#include <mach/gpmc.h>
 
 #include "clock.h"
 
-#include <asm/arch/powerdomain.h>
+#include <mach/powerdomain.h>
 
 #include "powerdomains.h"
 
-#include <asm/arch/clockdomain.h>
+#include <mach/clockdomain.h>
 #include "clockdomains.h"
 
 /*

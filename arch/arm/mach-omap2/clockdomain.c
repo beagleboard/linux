@@ -27,14 +27,14 @@
 
 #include <linux/bitops.h>
 
-#include <asm/arch/clock.h>
+#include <mach/clock.h>
 
 #include "prm.h"
 #include "prm-regbits-24xx.h"
 #include "cm.h"
 
-#include <asm/arch/powerdomain.h>
-#include <asm/arch/clockdomain.h>
+#include <mach/powerdomain.h>
+#include <mach/clockdomain.h>
 
 /* clkdm_list contains all registered struct clockdomains */
 static LIST_HEAD(clkdm_list);

@@ -27,9 +27,9 @@
 #include <linux/spi/tsc2301.h>
 
 #include <asm/io.h>
-#include <asm/arch/eac.h>
+#include <mach/eac.h>
 
-#include <asm/arch/dsp_common.h>
+#include <mach/dsp_common.h>
 
 #if defined(CONFIG_SPI_TSC2301_AUDIO) && defined(CONFIG_SND_OMAP24XX_EAC)
 #define AUDIO_ENABLED

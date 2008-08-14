@@ -28,9 +28,9 @@
 #include <linux/clk.h>
 
 #include <asm/io.h>
-#include <asm/arch/clock.h>
-#include <asm/arch/board.h>
-#include <asm/arch/dsp_common.h>
+#include <mach/clock.h>
+#include <mach/board.h>
+#include <mach/dsp_common.h>
 
 #if	defined(CONFIG_OMAP_DSP)
 

@@ -51,13 +51,13 @@
 
 #include <asm/uaccess.h>
 #include <asm/io.h>
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/semaphore.h>
 
-#include <asm/arch/dma.h>
+#include <mach/dma.h>
 #include "omap-audio-dma-intfc.h"
 
-#include <asm/arch/mcbsp.h>
+#include <mach/mcbsp.h>
 
 #include "omap-audio.h"
 

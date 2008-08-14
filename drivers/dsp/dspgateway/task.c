@@ -36,8 +36,8 @@
 #include <linux/kfifo.h>
 #include <asm/uaccess.h>
 #include <asm/io.h>
-#include <asm/arch/mailbox.h>
-#include <asm/arch/dsp.h>
+#include <mach/mailbox.h>
+#include <mach/dsp.h>
 #include "uaccess_dsp.h"
 #include "dsp_mbcmd.h"
 #include "dsp.h"

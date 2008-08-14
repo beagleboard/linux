@@ -28,12 +28,12 @@
 #include <linux/io.h>
 #include <linux/cpufreq.h>
 
-#include <asm/arch/common.h>
-#include <asm/arch/clock.h>
-#include <asm/arch/sram.h>
+#include <mach/common.h>
+#include <mach/clock.h>
+#include <mach/sram.h>
 #include <asm/div64.h>
 
-#include <asm/arch/sdrc.h>
+#include <mach/sdrc.h>
 #include "clock.h"
 #include "clock24xx.h"
 #include "prm.h"

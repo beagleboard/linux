@@ -26,9 +26,9 @@
  */
 #include <linux/linkage.h>
 #include <asm/assembler.h>
-#include <asm/arch/io.h>
-#include <asm/arch/pm.h>
-#include <asm/arch/control.h>
+#include <mach/io.h>
+#include <mach/pm.h>
+#include <mach/control.h>
 
 #include "prm.h"
 #include "sdrc.h"

@@ -19,12 +19,12 @@
 #include <linux/platform_device.h>
 #include <linux/timer.h>
 #include <linux/err.h>
-#include <asm/arch/hardware.h>
-#include <asm/arch/gpio.h>
-#include <asm/arch/irqs.h>
-#include <asm/arch/mux.h>
-#include <asm/arch/board.h>
-#include <asm/arch/gpio-switch.h>
+#include <mach/hardware.h>
+#include <mach/gpio.h>
+#include <mach/irqs.h>
+#include <mach/mux.h>
+#include <mach/board.h>
+#include <mach/gpio-switch.h>
 
 struct gpio_switch {
 	char		name[14];

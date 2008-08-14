@@ -28,9 +28,9 @@
  */
 #include <linux/linkage.h>
 #include <asm/assembler.h>
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 
-#include <asm/arch/io.h>
+#include <mach/io.h>
 
 #include "sdrc.h"
 #include "cm.h"

@@ -23,8 +23,8 @@
 #include <linux/platform_device.h>
 #include <linux/spi/tsc2101.h>
 
-#include <asm/arch/mux.h>
-#include <asm/arch/omapfb.h>
+#include <mach/mux.h>
+#include <mach/omapfb.h>
 
 static struct {
 	struct platform_device	*lcd_dev;

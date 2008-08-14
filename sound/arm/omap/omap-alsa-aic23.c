@@ -22,10 +22,10 @@
 #include <sound/initval.h>
 #include <sound/control.h>
 #include <linux/clk.h>
-#include <asm/arch/clock.h>
-#include <asm/arch/aic23.h>
+#include <mach/clock.h>
+#include <mach/aic23.h>
 
-#include <asm/arch/omap-alsa.h>
+#include <mach/omap-alsa.h>
 #include "omap-alsa-aic23.h"
 
 static struct clk *aic23_mclk;

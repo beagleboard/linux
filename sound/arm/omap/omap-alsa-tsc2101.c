@@ -30,11 +30,11 @@
 #endif
 
 #include <asm/mach-types.h>
-#include <asm/arch/dma.h>
-#include <asm/arch/clock.h>
-#include <asm/arch/mcbsp.h>
+#include <mach/dma.h>
+#include <mach/clock.h>
+#include <mach/mcbsp.h>
 #include <asm/hardware/tsc2101.h>
-#include <asm/arch/omap-alsa.h>
+#include <mach/omap-alsa.h>
 
 #include "omap-alsa-tsc2101.h"
 

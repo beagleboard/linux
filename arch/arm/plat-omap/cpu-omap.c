@@ -21,10 +21,10 @@
 #include <linux/err.h>
 #include <linux/clk.h>
 
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/io.h>
 #include <asm/system.h>
-#include <asm/arch/clock.h>
+#include <mach/clock.h>
 
 #define VERY_HI_RATE	900000000
 
