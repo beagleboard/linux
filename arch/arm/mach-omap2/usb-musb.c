@@ -58,7 +58,6 @@ static int musb_set_clock(struct clk *clk, int state)
 		if (clk_on > 0)
 			return -ENODEV;
 
-		omap2_block_sleep();
 		clk_enable(clk);
 		clk_on = 1;
 	} else {
@@ -67,7 +66,6 @@ static int musb_set_clock(struct clk *clk, int state)
 
 		clk_disable(clk);
 		clk_on = 0;
-		omap2_allow_sleep();
 	}
 
 	return 0;
