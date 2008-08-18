@@ -877,7 +877,7 @@ static int __init omap_mmc_probe(struct platform_device *pdev)
 			 host);
 	if (ret) {
 		dev_dbg(mmc_dev(host->mmc), "Unable to grab HSMMC IRQ\n");
-		goto irq_err;
+		goto err_irq;
 	}
 
 	/* Request IRQ for card detect */
@@ -887,18 +887,17 @@ static int __init omap_mmc_probe(struct platform_device *pdev)
 				  host);
 		if (ret) {
 			dev_dbg(mmc_dev(host->mmc),
-				"Unable to grab MMC CD IRQ");
-			free_irq(host->irq, host);
-			goto irq_err;
+				"Unable to grab MMC CD IRQ\n");
+			goto err_irq_cd;
 		}
 	}
 
 	INIT_WORK(&host->mmc_carddetect_work, mmc_omap_detect);
 	if (pdata->init != NULL) {
 		if (pdata->init(&pdev->dev) != 0) {
-			free_irq(mmc_slot(host).card_detect_irq, host);
-			free_irq(host->irq, host);
-			goto irq_err;
+			dev_dbg(mmc_dev(host->mmc),
+				"Unable to configure MMC IRQs\n");
+			goto err_irq_cd_init;
 		}
 	}
 
@@ -910,8 +909,11 @@ static int __init omap_mmc_probe(struct platform_device *pdev)
 
 	return 0;
 
-irq_err:
-	dev_dbg(mmc_dev(host->mmc), "Unable to configure MMC IRQs\n");
+err_irq_cd_init:
+	free_irq(mmc_slot(host).card_detect_irq, host);
+err_irq_cd:
+	free_irq(host->irq, host);
+err_irq:
 	clk_disable(host->fclk);
 	clk_disable(host->iclk);
 	clk_put(host->fclk);
