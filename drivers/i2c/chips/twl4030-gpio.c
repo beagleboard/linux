@@ -748,6 +748,7 @@ static int __init gpio_twl4030_init(void)
 			&twl4030_gpio_module_irq_chip);
 		set_irq_chained_handler(TWL4030_MODIRQ_GPIO,
 			do_twl4030_gpio_module_irq);
+		wake_up_process(gpio_unmask_thread);
 	}
 
 	printk(KERN_INFO "TWL4030 GPIO Demux: IRQ Range %d to %d,"
