@@ -297,6 +297,37 @@ static void mmc_dma_cleanup(struct mmc_omap_host *host)
 }
 
 /*
+ * Readable error output
+ */
+#ifdef CONFIG_MMC_DEBUG
+static void mmc_omap_report_irq(struct mmc_omap_host *host, u32 status)
+{
+	/* --- means reserved bit without definition at documentation */
+	static const char *mmc_omap_status_bits[] = {
+		"CC", "TC", "BGE", "---", "BWR", "BRR", "---", "---", "CIRQ",
+		"OBI", "---", "---", "---", "---", "---", "ERRI", "CTO", "CCRC",
+		"CEB", "CIE", "DTO", "DCRC", "DEB", "---", "ACE", "---",
+		"---", "---", "---", "CERR", "CERR", "BADA", "---", "---", "---"
+	};
+	int i;
+
+	dev_dbg(mmc_dev(host->mmc), "MMC IRQ 0x%x :", status);
+
+	for (i = 0; i < ARRAY_SIZE(mmc_omap_status_bits); i++)
+		if (status & (1 << i))
+			/*
+			 * KERN_* facility is not used here because this should
+			 * print a single line.
+			 */
+			printk(" %s", mmc_omap_status_bits[i]);
+
+	printk("\n");
+
+}
+#endif  /* CONFIG_MMC_DEBUG */
+
+
+/*
  * MMC controller IRQ handler
  */
 static irqreturn_t mmc_omap_irq(int irq, void *dev_id)
@@ -316,6 +347,9 @@ static irqreturn_t mmc_omap_irq(int irq, void *dev_id)
 	dev_dbg(mmc_dev(host->mmc), "IRQ Status is %x\n", status);
 
 	if (status & ERR) {
+#ifdef CONFIG_MMC_DEBUG
+		mmc_omap_report_irq(host, status);
+#endif
 		if ((status & CMD_TIMEOUT) ||
 			(status & CMD_CRC)) {
 			if (host->cmd) {
