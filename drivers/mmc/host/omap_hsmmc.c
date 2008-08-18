@@ -174,6 +174,27 @@ static void send_init_stream(struct mmc_omap_host *host)
 	enable_irq(host->irq);
 }
 
+static inline
+int mmc_omap_cover_is_closed(struct mmc_omap_host *host)
+{
+	if (host->pdata->slots[host->slot_id].get_cover_state)
+		return host->pdata->slots[host->slot_id].get_cover_state(host->dev, host->slot_id);
+	return 1;
+}
+
+static ssize_t
+mmc_omap_show_cover_switch(struct device *dev, struct device_attribute *attr,
+			   char *buf)
+{
+	struct mmc_host *mmc = container_of(dev, struct mmc_host, class_dev);
+	struct mmc_omap_host *host = mmc_priv(mmc);
+
+	return sprintf(buf, "%s\n", mmc_omap_cover_is_closed(host) ? "closed" :
+		       "open");
+}
+
+static DEVICE_ATTR(cover_switch, S_IRUGO, mmc_omap_show_cover_switch, NULL);
+
 static ssize_t
 mmc_omap_show_slot_name(struct device *dev, struct device_attribute *attr,
 			char *buf)
@@ -475,6 +496,7 @@ static void mmc_omap_detect(struct work_struct *work)
 	struct mmc_omap_host *host = container_of(work, struct mmc_omap_host,
 						mmc_carddetect_work);
 
+	sysfs_notify(&host->mmc->class_dev.kobj, NULL, "cover_switch");
 	if (host->carddetect) {
 		if (!(OMAP_HSMMC_READ(host->base, HCTL) & SDVSDET)) {
 			/*
@@ -925,9 +947,17 @@ static int __init omap_mmc_probe(struct platform_device *pdev)
 		if (ret < 0)
 			goto err_slot_name;
 	}
+	if (mmc_slot(host).card_detect_irq && mmc_slot(host).card_detect &&
+			host->pdata->slots[host->slot_id].get_cover_state) {
+		ret = device_create_file(&mmc->class_dev, &dev_attr_cover_switch);
+		if (ret < 0)
+			goto err_cover_switch;
+	}
 
 	return 0;
 
+err_cover_switch:
+	device_remove_file(&mmc->class_dev, &dev_attr_cover_switch);
 err_slot_name:
 	mmc_remove_host(mmc);
 err_irq_cd_init:
