@@ -174,6 +174,19 @@ static void send_init_stream(struct mmc_omap_host *host)
 	enable_irq(host->irq);
 }
 
+static ssize_t
+mmc_omap_show_slot_name(struct device *dev, struct device_attribute *attr,
+			char *buf)
+{
+	struct mmc_host *mmc = container_of(dev, struct mmc_host, class_dev);
+	struct mmc_omap_host *host = mmc_priv(mmc);
+	struct omap_mmc_slot_data slot = host->pdata->slots[host->slot_id];
+
+	return sprintf(buf, "slot:%s\n", slot.name);
+}
+
+static DEVICE_ATTR(slot_name, S_IRUGO, mmc_omap_show_slot_name, NULL);
+
 /*
  * Configure the response type and send the cmd.
  */
@@ -907,8 +920,16 @@ static int __init omap_mmc_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, host);
 	mmc_add_host(mmc);
 
+	if (host->pdata->slots[host->slot_id].name != NULL) {
+		ret = device_create_file(&mmc->class_dev, &dev_attr_slot_name);
+		if (ret < 0)
+			goto err_slot_name;
+	}
+
 	return 0;
 
+err_slot_name:
+	mmc_remove_host(mmc);
 err_irq_cd_init:
 	free_irq(mmc_slot(host).card_detect_irq, host);
 err_irq_cd:
