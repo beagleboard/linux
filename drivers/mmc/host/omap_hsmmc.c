@@ -960,11 +960,13 @@ static int omap_mmc_suspend(struct platform_device *pdev, pm_message_t state)
 			OMAP_HSMMC_WRITE(host->base, ISE, 0);
 			OMAP_HSMMC_WRITE(host->base, IE, 0);
 
-			ret = host->pdata->suspend(&pdev->dev, host->slot_id);
-			if (ret)
-				dev_dbg(mmc_dev(host->mmc),
-					"Unable to handle MMC board"
-					" level suspend\n");
+			if (host->pdata->suspend) {
+				ret = host->pdata->suspend(&pdev->dev, host->slot_id);
+				if (ret)
+					dev_dbg(mmc_dev(host->mmc),
+						"Unable to handle MMC board"
+						" level suspend\n");
+			}
 
 			if (!(OMAP_HSMMC_READ(host->base, HCTL) & SDVSDET)) {
 				OMAP_HSMMC_WRITE(host->base, HCTL,
@@ -1013,10 +1015,12 @@ static int omap_mmc_resume(struct platform_device *pdev)
 			dev_dbg(mmc_dev(host->mmc),
 					"Enabling debounce clk failed\n");
 
-		ret = host->pdata->resume(&pdev->dev, host->slot_id);
-		if (ret)
-			dev_dbg(mmc_dev(host->mmc),
+		if (host->pdata->resume) {
+			ret = host->pdata->resume(&pdev->dev, host->slot_id);
+			if (ret)
+				dev_dbg(mmc_dev(host->mmc),
 					"Unmask interrupt failed\n");
+		}
 
 		/* Notify the core to resume the host */
 		ret = mmc_resume_host(host->mmc);
