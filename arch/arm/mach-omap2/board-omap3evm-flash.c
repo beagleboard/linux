@@ -23,7 +23,7 @@
 #include <mach/gpmc.h>
 #include <mach/nand.h>
 
-static int omap3evm_onenand_setup(void __iomem *);
+static int omap3evm_onenand_setup(void __iomem *, int freq);
 
 static struct mtd_partition omap3evm_onenand_partitions[] = {
 	{
@@ -76,8 +76,8 @@ static struct platform_device omap3evm_onenand_device = {
  *
  */
 
-static int omap3evm_onenand_setup(void __iomem *onenand_base)
-	{
+static int omap3evm_onenand_setup(void __iomem *onenand_base, int freq)
+{
 	/* nothing is required to be setup for onenand as of now */
 	return 0;
 }
