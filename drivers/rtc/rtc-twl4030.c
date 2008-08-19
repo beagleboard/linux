@@ -446,12 +446,6 @@ static irqreturn_t twl4030_rtc_interrupt(int irq, void *rtc)
 				   REG_RTC_STATUS_REG);
 	if (res)
 		goto out;
-	/*
-	 * Workaround for strange behaviour with T2. Need to write into ISR
-	 * register one more time to clear the interrupt. Otherwise, the same
-	 * RTC event generates 2 interrupts in a row.
-	 * (no errata document available)
-	 */
 	res = twl4030_i2c_write_u8(TWL4030_MODULE_INT,
 			PWR_RTC_INT_CLR, REG_PWR_ISR1);
 	if (res)
