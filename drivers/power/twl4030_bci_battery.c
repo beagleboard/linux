@@ -23,7 +23,7 @@
 #include <linux/platform_device.h>
 #include <linux/i2c/twl4030.h>
 #include <linux/power_supply.h>
-#include <asm/arch/bci.h>
+#include <mach/bci.h>
 #include <linux/i2c/twl4030-madc.h>
 
 #define T2_BATTERY_VOLT		0x04
