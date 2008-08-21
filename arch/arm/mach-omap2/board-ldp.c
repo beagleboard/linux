@@ -29,6 +29,7 @@
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
 
+#include <mach/board-ldp.h>
 #include <mach/mcspi.h>
 #include <mach/gpio.h>
 #include <mach/board.h>
@@ -230,6 +231,7 @@ static void __init omap_ldp_init(void)
 	spi_register_board_info(ldp_spi_board_info,
 				ARRAY_SIZE(ldp_spi_board_info));
 	ads7846_dev_init();
+	twl4030_bci_battery_init();
 	omap_serial_init();
 	usb_musb_init();
 	hsmmc_init();

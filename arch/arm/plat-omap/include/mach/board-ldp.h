@@ -29,6 +29,8 @@
 #ifndef __ASM_ARCH_OMAP_LDP_H
 #define __ASM_ARCH_OMAP_LDP_H
 
+extern void twl4030_bci_battery_init(void);
+
 #define TWL4030_IRQNUM		INT_34XX_SYS_NIRQ
 
 #endif /* __ASM_ARCH_OMAP_LDP_H */

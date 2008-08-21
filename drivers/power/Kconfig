@@ -72,7 +72,7 @@ config BATTERY_BQ27200
 
 config TWL4030_BCI_BATTERY
 	tristate "OMAP TWL4030 BCI Battery driver"
-	depends on (MACH_OMAP_2430SDP || MACH_OMAP_3430SDP) && TWL4030_MADC
+	depends on (MACH_OMAP_2430SDP || MACH_OMAP_3430SDP || MACH_OMAP_LDP) && TWL4030_MADC
 	default y
 	help
 	  Support for OMAP TWL4030 BCI Battery driver.
