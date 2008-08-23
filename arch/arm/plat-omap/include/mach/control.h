@@ -20,11 +20,11 @@
 
 #ifndef __ASSEMBLY__
 #define OMAP242X_CTRL_REGADDR(reg)					\
-	(__force void __iomem *)IO_ADDRESS(OMAP242X_CTRL_BASE + (reg))
+	(void __iomem *)IO_ADDRESS(OMAP242X_CTRL_BASE + (reg))
 #define OMAP243X_CTRL_REGADDR(reg)					\
-	(__force void __iomem *)IO_ADDRESS(OMAP243X_CTRL_BASE + (reg))
+	(void __iomem *)IO_ADDRESS(OMAP243X_CTRL_BASE + (reg))
 #define OMAP343X_CTRL_REGADDR(reg)					\
-	(__force void __iomem *)IO_ADDRESS(OMAP343X_CTRL_BASE + (reg))
+	(void __iomem *)IO_ADDRESS(OMAP343X_CTRL_BASE + (reg))
 #else
 #define OMAP242X_CTRL_REGADDR(reg)	IO_ADDRESS(OMAP242X_CTRL_BASE + (reg))
 #define OMAP243X_CTRL_REGADDR(reg)	IO_ADDRESS(OMAP243X_CTRL_BASE + (reg))
