@@ -56,7 +56,8 @@
 #include <mach/clockdomain.h>
 
 static void (*omap2_sram_idle)(void);
-static void (*omap2_sram_suspend)(void __iomem *dllctrl);
+static void (*omap2_sram_suspend)(u32 dllctrl, void __iomem *sdrc_dlla_ctrl,
+					void __iomem *sdrc_power);
 static void (*saved_idle)(void);
 
 static struct powerdomain *mpu_pwrdm;
@@ -121,7 +122,9 @@ static void omap2_enter_full_retention(void)
 
 	serial_console_sleep(1);
 	/* Jump to SRAM suspend code */
-	omap2_sram_suspend(OMAP_SDRC_REGADDR(SDRC_DLLA_CTRL));
+	omap2_sram_suspend(sdrc_read_reg(SDRC_DLLA_CTRL),
+				OMAP_SDRC_REGADDR(SDRC_DLLA_CTRL),
+				OMAP_SDRC_REGADDR(SDRC_POWER));
 no_sleep:
 	serial_console_sleep(0);
 
@@ -534,18 +537,12 @@ int __init omap2_pm_init(void)
 	 * These routines need to be in SRAM as that's the only
 	 * memory the MPU can see when it wakes up.
 	 */
-	if (cpu_is_omap242x()) {
-		omap2_sram_idle = omap_sram_push(omap242x_idle_loop_suspend,
-						 omap242x_idle_loop_suspend_sz);
+	if (cpu_is_omap24xx()) {
+		omap2_sram_idle = omap_sram_push(omap24xx_idle_loop_suspend,
+						 omap24xx_idle_loop_suspend_sz);
 
-		omap2_sram_suspend = omap_sram_push(omap242x_cpu_suspend,
-						    omap242x_cpu_suspend_sz);
-	} else {
-		omap2_sram_idle = omap_sram_push(omap243x_idle_loop_suspend,
-						 omap243x_idle_loop_suspend_sz);
-
-		omap2_sram_suspend = omap_sram_push(omap243x_cpu_suspend,
-						    omap243x_cpu_suspend_sz);
+		omap2_sram_suspend = omap_sram_push(omap24xx_cpu_suspend,
+						    omap24xx_cpu_suspend_sz);
 	}
 
 	suspend_set_ops(&omap_pm_ops);
