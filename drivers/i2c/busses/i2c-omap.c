@@ -440,9 +440,16 @@ static int omap_i2c_xfer_msg(struct i2c_adapter *adap,
 	omap_i2c_write_reg(dev, OMAP_I2C_CON_REG, w);
 
 	if (dev->b_hw && stop) {
+		unsigned long delay = jiffies + OMAP_I2C_TIMEOUT;
+
 		/* H/w behavior: dont write stt and stp together.. */
 		while (omap_i2c_read_reg(dev, OMAP_I2C_CON_REG) & OMAP_I2C_CON_STT) {
-			/* Dont do anything - this will come in a couple of loops at max*/
+			/* Let the user know if i2c is in a bad state */
+			if (time_after (jiffies, delay)) {
+				dev_err(dev->dev, "controller timed out "
+				"waiting for start condition to finish\n");
+				return -ETIMEDOUT;
+			}
 		}
 		w |= OMAP_I2C_CON_STP;
 		w &= ~OMAP_I2C_CON_STT;
