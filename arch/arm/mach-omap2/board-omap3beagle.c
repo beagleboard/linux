@@ -139,15 +139,15 @@ static struct omap_lcd_config omap3_beagle_lcd_config __initdata = {
 	.ctrl_name	= "internal",
 };
 
-struct gpio_led gpio_leds[] = {
+static struct gpio_led gpio_leds[] = {
 	{
 		.name			= "beagleboard::usr0",
-		.default_trigger	= "none",
+		.default_trigger	= "heartbeat",
 		.gpio			= 150,
 	},
 	{
 		.name			= "beagleboard::usr1",
-		.default_trigger	= "none",
+		.default_trigger	= "mmc0",
 		.gpio			= 149,
 	},
 };
