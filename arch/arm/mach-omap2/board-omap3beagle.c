@@ -20,6 +20,10 @@
 #include <linux/clk.h>
 #include <linux/io.h>
 #include <linux/leds.h>
+#include <linux/gpio.h>
+#include <linux/input.h>
+#include <linux/gpio_keys.h>
+
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
 #include <linux/mtd/nand.h>
@@ -30,7 +34,6 @@
 #include <asm/mach/map.h>
 #include <asm/mach/flash.h>
 
-#include <mach/gpio.h>
 #include <mach/board.h>
 #include <mach/usb-musb.h>
 #include <mach/usb-ehci.h>
@@ -165,6 +168,28 @@ static struct platform_device leds_gpio = {
 	},
 };
 
+static struct gpio_keys_button gpio_buttons[] = {
+	{
+		.code			= BTN_EXTRA,
+		.gpio			= 7,
+		.desc			= "user",
+		.wakeup			= 1,
+	},
+};
+
+static struct gpio_keys_platform_data gpio_key_info = {
+	.buttons	= gpio_buttons,
+	.nbuttons	= ARRAY_SIZE(gpio_buttons),
+};
+
+static struct platform_device keys_gpio = {
+	.name	= "gpio-keys",
+	.id	= -1,
+	.dev	= {
+		.platform_data	= &gpio_key_info,
+	},
+};
+
 static struct omap_board_config_kernel omap3_beagle_config[] __initdata = {
 	{ OMAP_TAG_UART,	&omap3_beagle_uart_config },
 	{ OMAP_TAG_MMC,		&omap3beagle_mmc_config },
@@ -177,6 +202,7 @@ static struct platform_device *omap3_beagle_devices[] __initdata = {
 	&omap3_beagle_twl4030rtc_device,
 #endif
 	&leds_gpio,
+	&keys_gpio,
 };
 
 void __init omap3beagle_flash_init(void)
