@@ -20,6 +20,7 @@
 #include <linux/mtd/partitions.h>
 #include <linux/delay.h>
 #include <linux/input.h>
+#include <linux/i2c/twl4030.h>
 #include <linux/err.h>
 #include <linux/clk.h>
 #include <linux/spi/spi.h>
