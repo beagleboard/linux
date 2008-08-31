@@ -133,15 +133,6 @@ config BACKLIGHT_HP680
 	  If you have a HP Jornada 680, say y to enable the
 	  backlight driver.
 
-config BACKLIGHT_OMAP
-	tristate "OMAP LCD Backlight"
-	depends on BACKLIGHT_CLASS_DEVICE && (ARCH_OMAP1 || ARCH_OMAP2)
-	default y
-	help
-	  This driver controls the LCD backlight level and power
-	  for the PWL module of OMAP processors.  Say Y if you plan
-	  to use power saving.
-
 config BACKLIGHT_PROGEAR
 	tristate "Frontpath ProGear Backlight Driver"
 	depends on BACKLIGHT_CLASS_DEVICE && PCI && X86
