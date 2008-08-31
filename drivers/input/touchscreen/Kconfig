@@ -220,7 +220,7 @@ config TOUCHSCREEN_ATMEL_TSADCC
 config TOUCHSCREEN_TSC2005
 	tristate "TSC2005 touchscreen support"
 	help
-	  Say Y here for if you are using the touchscreen features of TSC2301.
+	  Say Y here for if you are using the touchscreen features of TSC2005.
 
 config TOUCHSCREEN_TSC2102
 	tristate "TSC 2102 based touchscreens"
