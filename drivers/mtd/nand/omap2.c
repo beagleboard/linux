@@ -187,39 +187,35 @@ static void omap_hwcontrol(struct mtd_info *mtd, int cmd, unsigned int ctrl)
 }
 
 /*
- * omap_read_buf - read data from NAND controller into buffer
+ * omap_read_buf16 - read data from NAND controller into buffer
  * @mtd: MTD device structure
  * @buf: buffer to store date
  * @len: number of bytes to read
  */
-static void omap_read_buf(struct mtd_info *mtd, u_char *buf, int len)
+static void omap_read_buf16(struct mtd_info *mtd, u_char *buf, int len)
 {
-	struct omap_nand_info *info = container_of(mtd,
-					struct omap_nand_info, mtd);
-	u16 *p = (u16 *) buf;
+	struct nand_chip *nand = mtd->priv;
 
-	len >>= 1;
-
-	while (len--)
-		*p++ = cpu_to_le16(readw(info->nand.IO_ADDR_R));
+	__raw_readsl(nand->IO_ADDR_R, buf, len / 2);
 }
 
 /*
- * omap_write_buf - write buffer to NAND controller
+ * omap_write_buf16 - write buffer to NAND controller
  * @mtd: MTD device structure
  * @buf: data buffer
  * @len: number of bytes to write
  */
-static void omap_write_buf(struct mtd_info *mtd, const u_char * buf, int len)
+static void omap_write_buf16(struct mtd_info *mtd, const u_char * buf, int len)
 {
 	struct omap_nand_info *info = container_of(mtd,
 						struct omap_nand_info, mtd);
 	u16 *p = (u16 *) buf;
 
+	/* FIXME try bursts of writesw() or DMA ... */
 	len >>= 1;
 
 	while (len--) {
-		writew(cpu_to_le16(*p++), info->nand.IO_ADDR_W);
+		writew(*p++, info->nand.IO_ADDR_W);
 
 		while (GPMC_BUF_EMPTY == (readl(info->gpmc_baseaddr +
 						GPMC_STATUS) & GPMC_BUF_FULL));
@@ -643,8 +639,10 @@ static int __devinit omap_nand_probe(struct platform_device *pdev)
 	info->nand.IO_ADDR_W = info->nand.IO_ADDR_R;
 	info->nand.cmd_ctrl  = omap_hwcontrol;
 
-	info->nand.read_buf   = omap_read_buf;
-	info->nand.write_buf  = omap_write_buf;
+	/* REVISIT:  only supports 16-bit NAND flash */
+
+	info->nand.read_buf   = omap_read_buf16;
+	info->nand.write_buf  = omap_write_buf16;
 	info->nand.verify_buf = omap_verify_buf;
 
 	/*
