@@ -38,7 +38,7 @@
  * for each bank.. when in doubt, consult the TRM.
  */
 static struct omap_irq_bank {
-	unsigned long base_reg;
+	void __iomem *base_reg;
 	unsigned int nr_irqs;
 } __attribute__ ((aligned(4))) irq_banks[] = {
 	{
@@ -102,7 +102,7 @@ static void __init omap_irq_bank_init_one(struct omap_irq_bank *bank)
 	unsigned long tmp;
 
 	tmp = intc_bank_read_reg(bank, INTC_REVISION) & 0xff;
-	printk(KERN_INFO "IRQ: Found an INTC at 0x%08lx "
+	printk(KERN_INFO "IRQ: Found an INTC at 0x%p "
 			 "(revision %ld.%ld) with %d interrupts\n",
 			 bank->base_reg, tmp >> 4, tmp & 0xf, bank->nr_irqs);
 
@@ -147,9 +147,9 @@ void __init omap_init_irq(void)
 		struct omap_irq_bank *bank = irq_banks + i;
 
 		if (cpu_is_omap24xx())
-			bank->base_reg = io_p2v(OMAP24XX_IC_BASE);
+			bank->base_reg = OMAP2_IO_ADDRESS(OMAP24XX_IC_BASE);
 		else if (cpu_is_omap34xx())
-			bank->base_reg = io_p2v(OMAP34XX_IC_BASE);
+			bank->base_reg = OMAP2_IO_ADDRESS(OMAP34XX_IC_BASE);
 
 		omap_irq_bank_init_one(bank);
 
