@@ -649,12 +649,6 @@ static struct i2c_board_info __initdata_or_module n8x0_i2c_board_info_2[] = {
 		.platform_data = &n800_tcm825x_platform_data,
 #endif
 	},
-	{
-		I2C_BOARD_INFO("tsl2563", 0x29),
-	},
-	{
-		I2C_BOARD_INFO("lp5521", 0x32),
-	},
 };
 
 
@@ -669,6 +663,12 @@ static struct i2c_board_info __initdata_or_module n810_i2c_board_info_2[] = {
 		I2C_BOARD_INFO("lm8323", 0x45),
 		.irq		= OMAP_GPIO_IRQ(109),
 		.platform_data	= &lm8323_pdata,
+	},
+	{
+		I2C_BOARD_INFO("tsl2563", 0x29),
+	},
+	{
+		I2C_BOARD_INFO("lp5521", 0x32),
 	},
 };
 
@@ -694,7 +694,7 @@ void __init nokia_n800_common_init(void)
 	omap_register_i2c_bus(1, 400, n800_i2c_board_info_1,
 			      ARRAY_SIZE(n800_i2c_board_info_1));
 	omap_register_i2c_bus(2, 400, n8x0_i2c_board_info_2,
-			      ARRAY_SIZE(n800_i2c_board_info_2));
+			      ARRAY_SIZE(n8x0_i2c_board_info_2));
 	if (machine_is_nokia_n800())
 		i2c_register_board_info(2, n800_i2c_board_info_2,
 			ARRAY_SIZE(n800_i2c_board_info_2));
