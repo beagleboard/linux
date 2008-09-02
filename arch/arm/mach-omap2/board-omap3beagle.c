@@ -42,32 +42,35 @@
 #include <mach/gpmc.h>
 #include <mach/nand.h>
 
+
 #define GPMC_CS0_BASE  0x60
 #define GPMC_CS_SIZE   0x30
+
+#define NAND_BLOCK_SIZE		SZ_128K
 
 static struct mtd_partition omap3beagle_nand_partitions[] = {
 	/* All the partition sizes are listed in terms of NAND block size */
 	{
 		.name		= "X-Loader",
 		.offset		= 0,
-		.size		= 4*(64 * 2048),
+		.size		= 4 * NAND_BLOCK_SIZE,
 		.mask_flags	= MTD_WRITEABLE,	/* force read-only */
 	},
 	{
 		.name		= "U-Boot",
 		.offset		= MTDPART_OFS_APPEND,	/* Offset = 0x80000 */
-		.size		= 15*(64 * 2048),
+		.size		= 15 * NAND_BLOCK_SIZE,
 		.mask_flags	= MTD_WRITEABLE,	/* force read-only */
 	},
 	{
 		.name		= "U-Boot Env",
 		.offset		= MTDPART_OFS_APPEND,	/* Offset = 0x260000 */
-		.size		= 1*(64 * 2048),
+		.size		= 1 * NAND_BLOCK_SIZE,
 	},
 	{
 		.name		= "Kernel",
 		.offset		= MTDPART_OFS_APPEND,	/* Offset = 0x280000 */
-		.size		= 32*(64 * 2048),
+		.size		= 32 * NAND_BLOCK_SIZE,
 	},
 	{
 		.name		= "File System",
@@ -77,6 +80,7 @@ static struct mtd_partition omap3beagle_nand_partitions[] = {
 };
 
 static struct omap_nand_platform_data omap3beagle_nand_data = {
+	.options	= NAND_BUSWIDTH_16,
 	.parts		= omap3beagle_nand_partitions,
 	.nr_parts	= ARRAY_SIZE(omap3beagle_nand_partitions),
 	.dma_channel	= -1,		/* disable DMA in OMAP NAND driver */
@@ -205,7 +209,7 @@ static struct platform_device *omap3_beagle_devices[] __initdata = {
 	&keys_gpio,
 };
 
-void __init omap3beagle_flash_init(void)
+static void __init omap3beagle_flash_init(void)
 {
 	u8 cs = 0;
 	u8 nandcs = GPMC_CS_NUM + 1;
@@ -245,6 +249,7 @@ void __init omap3beagle_flash_init(void)
 
 static void __init omap3_beagle_init(void)
 {
+	omap3_beagle_i2c_init();
 	platform_add_devices(omap3_beagle_devices, ARRAY_SIZE(omap3_beagle_devices));
 	omap_board_config = omap3_beagle_config;
 	omap_board_config_size = ARRAY_SIZE(omap3_beagle_config);
@@ -254,8 +259,6 @@ static void __init omap3_beagle_init(void)
 	usb_ehci_init();
 	omap3beagle_flash_init();
 }
-
-arch_initcall(omap3_beagle_i2c_init);
 
 static void __init omap3_beagle_map_io(void)
 {
