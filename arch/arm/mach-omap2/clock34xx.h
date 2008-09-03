@@ -2228,6 +2228,17 @@ static struct clk cam_ick = {
 	.recalc		= &followparent_recalc,
 };
 
+static struct clk csi2_96m_fck = {
+	.name		= "csi2_96m_fck",
+	.parent		= &core_96m_fck,
+	.init		= &omap2_init_clk_clkdm,
+	.enable_reg	= _OMAP34XX_CM_REGADDR(OMAP3430_CAM_MOD, CM_FCLKEN),
+	.enable_bit	= OMAP3430_EN_CSI2_SHIFT,
+	.flags		= CLOCK_IN_OMAP343X,
+	.clkdm		= { .name = "cam_clkdm" },
+	.recalc		= &followparent_recalc,
+};
+
 /* USBHOST - 3430ES2 only */
 
 static struct clk usbhost_120m_fck = {
@@ -3208,6 +3219,7 @@ static struct clk *onchip_34xx_clks[] __initdata = {
 	&dss_ick,
 	&cam_mclk,
 	&cam_ick,
+	&csi2_96m_fck,
 	&usbhost_120m_fck,
 	&usbhost_48m_fck,
 	&usbhost_ick,
