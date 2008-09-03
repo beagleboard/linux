@@ -1024,6 +1024,7 @@ static bool cppi_rx_scan(struct cppi *cppi, unsigned ch)
 			i++, bd = bd->next) {
 		u16	len;
 
+		/* catch latest BD writes from CPPI */
 		rmb();
 		if (!completed && (bd->hw_options & CPPI_OWN_SET))
 			break;
@@ -1179,6 +1180,7 @@ void cppi_completion(struct musb *musb, u32 rx, u32 tx)
 				i++, bd = bd->next) {
 			u16	len;
 
+			/* catch latest BD writes from CPPI */
 			rmb();
 			if (bd->hw_options & CPPI_OWN_SET)
 				break;

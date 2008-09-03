@@ -54,6 +54,7 @@
 
 #include <mach/dma.h>
 #include <mach/usb.h>
+#include <mach/control.h>
 
 #include "omap_udc.h"
 
@@ -2310,7 +2311,7 @@ static int proc_otg_show(struct seq_file *s)
 	u32		trans;
 	char		*ctrl_name;
 
-	tmp = omap_readw(OTG_REV);
+	tmp = omap_readl(OTG_REV);
 	if (cpu_is_omap24xx()) {
 		/*
 		 * REVISIT: Not clear how this works on OMAP2.  trans
@@ -2320,7 +2321,7 @@ static int proc_otg_show(struct seq_file *s)
 		 * do with the frame adjustment counter and McBSP2.
 		 */
 		ctrl_name = "control_devconf";
-		trans = omap_ctrl_readb(OMAP2_CONTROL_DEVCONF0);
+		trans = omap_ctrl_readl(OMAP2_CONTROL_DEVCONF0);
 	} else {
 		ctrl_name = "tranceiver_ctrl";
 		trans = omap_readw(USB_TRANSCEIVER_CTRL);

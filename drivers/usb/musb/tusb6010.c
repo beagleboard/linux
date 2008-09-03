@@ -895,8 +895,10 @@ static irqreturn_t tusb_interrupt(int irq, void *__hci)
 		musb_writel(tbase, TUSB_USBIP_INT_CLEAR, musb_src);
 		musb->int_rx = (((musb_src >> 16) & 0xffff) << 1);
 		musb->int_tx = (musb_src & 0xffff);
-	} else
-		musb->int_rx = musb->int_tx = 0;
+	} else {
+		musb->int_rx = 0;
+		musb->int_tx = 0;
+	}
 
 	if (int_src & (TUSB_INT_SRC_USB_IP_TX | TUSB_INT_SRC_USB_IP_RX | 0xff))
 		musb_interrupt(musb);

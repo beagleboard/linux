@@ -15,12 +15,12 @@
 #include <linux/usb.h>
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
-#include <mach/dma.h>
-#include <mach/mux.h>
+#include <asm/arch/dma.h>
+#include <asm/arch/mux.h>
 
 #include "musb_core.h"
 
-#define to_chdat(c)		(struct tusb_omap_dma_ch *)(c)->private_data
+#define to_chdat(c)		((struct tusb_omap_dma_ch *)(c)->private_data)
 
 #define MAX_DMAREQ		5	/* REVISIT: Really 6, but req5 not OK */
 

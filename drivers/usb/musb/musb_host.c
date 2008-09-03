@@ -831,7 +831,8 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 				load_count = 0;
 			} else {
 				dma_controller->channel_release(dma_channel);
-				dma_channel = hw_ep->tx_channel = NULL;
+				hw_ep->tx_channel = NULL;
+				dma_channel = NULL;
 
 				/* REVISIT there's an error path here that
 				 * needs handling:  can't do dma, but
@@ -914,7 +915,8 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 				if (!dma_ok) {
 					dma_controller->channel_release(
 							dma_channel);
-					dma_channel = hw_ep->rx_channel = NULL;
+					hw_ep->rx_channel = NULL;
+					dma_channel = NULL;
 				} else
 					csr |= MUSB_RXCSR_DMAENAB;
 			}
@@ -1388,7 +1390,8 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 	status = 0;
 	xfer_len = 0;
 
-	val = rx_csr = musb_readw(epio, MUSB_RXCSR);
+	rx_csr = musb_readw(epio, MUSB_RXCSR);
+	val = rx_csr;
 
 	if (unlikely(!urb)) {
 		/* REVISIT -- THIS SHOULD NEVER HAPPEN ... but, at least
@@ -1615,7 +1618,8 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 
 			if (!ret) {
 				c->channel_release(dma);
-				dma = hw_ep->rx_channel = NULL;
+				hw_ep->rx_channel = NULL;
+				dma = NULL;
 				/* REVISIT reset CSR */
 			}
 		}
