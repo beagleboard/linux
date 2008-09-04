@@ -164,64 +164,6 @@
 #define BIT_RTC_COMP_MSB_REG_RTC_COMP_MSB        (0x000)
 #define BIT_RTC_COMP_MSB_REG_RTC_COMP_MSB_M      (0x000000FF)
 
-/* ALARM_DAYS_REG Fields */
-#define BIT_ALARM_DAYS_REG_ALARM_DAY1            (0x004)
-#define BIT_ALARM_DAYS_REG_ALARM_DAY1_M          (0x00000030)
-/* ALARM_MONTHS_REG Fields */
-#define BIT_ALARM_MONTHS_REG_ALARM_MONTH0        (0x000)
-#define BIT_ALARM_MONTHS_REG_ALARM_MONTH0_M      (0x0000000F)
-#define BIT_ALARM_MONTHS_REG_ALARM_MONTH1        (0x004)
-#define BIT_ALARM_MONTHS_REG_ALARM_MONTH1_M      (0x00000010)
-/* ALARM_YEARS_REG Fields */
-#define BIT_ALARM_YEARS_REG_ALARM_YEAR0          (0x000)
-#define BIT_ALARM_YEARS_REG_ALARM_YEAR0_M        (0x0000000F)
-#define BIT_ALARM_YEARS_REG_ALARM_YEAR1          (0x004)
-#define BIT_ALARM_YEARS_REG_ALARM_YEAR1_M        (0x000000F0)
-/* RTC_CTRL_REG Fields */
-#define BIT_RTC_CTRL_REG_STOP_RTC                (0x000)
-#define BIT_RTC_CTRL_REG_STOP_RTC_M              (0x00000001)
-#define BIT_RTC_CTRL_REG_ROUND_30S               (0x001)
-#define BIT_RTC_CTRL_REG_ROUND_30S_M             (0x00000002)
-#define BIT_RTC_CTRL_REG_AUTO_COMP               (0x002)
-#define BIT_RTC_CTRL_REG_AUTO_COMP_M             (0x00000004)
-#define BIT_RTC_CTRL_REG_MODE_12_24              (0x003)
-#define BIT_RTC_CTRL_REG_MODE_12_24_M            (0x00000008)
-#define BIT_RTC_CTRL_REG_TEST_MODE               (0x004)
-#define BIT_RTC_CTRL_REG_TEST_MODE_M             (0x00000010)
-#define BIT_RTC_CTRL_REG_SET_32_COUNTER          (0x005)
-#define BIT_RTC_CTRL_REG_SET_32_COUNTER_M        (0x00000020)
-#define BIT_RTC_CTRL_REG_GET_TIME                (0x006)
-#define BIT_RTC_CTRL_REG_GET_TIME_M              (0x00000040)
-/* RTC_STATUS_REG Fields */
-#define BIT_RTC_STATUS_REG_RUN                   (0x001)
-#define BIT_RTC_STATUS_REG_RUN_M                 (0x00000002)
-#define BIT_RTC_STATUS_REG_1S_EVENT              (0x002)
-#define BIT_RTC_STATUS_REG_1S_EVENT_M            (0x00000004)
-#define BIT_RTC_STATUS_REG_1M_EVENT              (0x003)
-#define BIT_RTC_STATUS_REG_1M_EVENT_M            (0x00000008)
-#define BIT_RTC_STATUS_REG_1H_EVENT              (0x004)
-#define BIT_RTC_STATUS_REG_1H_EVENT_M            (0x00000010)
-#define BIT_RTC_STATUS_REG_1D_EVENT              (0x005)
-#define BIT_RTC_STATUS_REG_1D_EVENT_M            (0x00000020)
-#define BIT_RTC_STATUS_REG_ALARM                 (0x006)
-#define BIT_RTC_STATUS_REG_ALARM_M               (0x00000040)
-#define BIT_RTC_STATUS_REG_POWER_UP              (0x007)
-#define BIT_RTC_STATUS_REG_POWER_UP_M            (0x00000080)
-/* RTC_INTERRUPTS_REG Fields */
-#define BIT_RTC_INTERRUPTS_REG_EVERY             (0x000)
-#define BIT_RTC_INTERRUPTS_REG_EVERY_M           (0x00000003)
-#define BIT_RTC_INTERRUPTS_REG_IT_TIMER          (0x002)
-#define BIT_RTC_INTERRUPTS_REG_IT_TIMER_M        (0x00000004)
-#define BIT_RTC_INTERRUPTS_REG_IT_ALARM          (0x003)
-#define BIT_RTC_INTERRUPTS_REG_IT_ALARM_M        (0x00000008)
-/* RTC_COMP_LSB_REG Fields */
-#define BIT_RTC_COMP_LSB_REG_RTC_COMP_LSB        (0x000)
-#define BIT_RTC_COMP_LSB_REG_RTC_COMP_LSB_M      (0x000000FF)
-/* RTC_COMP_MSB_REG Fields */
-#define BIT_RTC_COMP_MSB_REG_RTC_COMP_MSB        (0x000)
-#define BIT_RTC_COMP_MSB_REG_RTC_COMP_MSB_M      (0x000000FF)
-
-
 struct twl4030rtc_platform_data {
 	int (*init)(void);
 	void (*exit)(void);
