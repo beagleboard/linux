@@ -30,7 +30,7 @@
 struct omap_mcbsp **mcbsp_ptr;
 int omap_mcbsp_count;
 
-void omap_mcbsp_write(u32 io_base, u16 reg, u32 val)
+void omap_mcbsp_write(void __iomem *io_base, u16 reg, u32 val)
 {
 	if (cpu_class_is_omap1() || cpu_is_omap2420())
 		__raw_writew((u16)val, io_base + reg);
@@ -38,7 +38,7 @@ void omap_mcbsp_write(u32 io_base, u16 reg, u32 val)
 		__raw_writel(val, io_base + reg);
 }
 
-int omap_mcbsp_read(u32 io_base, u16 reg)
+int omap_mcbsp_read(void __iomem *io_base, u16 reg)
 {
 	if (cpu_class_is_omap1() || cpu_is_omap2420())
 		return __raw_readw(io_base + reg);
@@ -149,7 +149,7 @@ static void omap_mcbsp_rx_dma_callback(int lch, u16 ch_status, void *data)
 void omap_mcbsp_config(unsigned int id, const struct omap_mcbsp_reg_cfg *config)
 {
 	struct omap_mcbsp *mcbsp;
-	u32 io_base;
+	void __iomem *io_base;
 
 	if (!omap_mcbsp_check_valid_id(id)) {
 		printk(KERN_ERR "%s: Invalid id (%d)\n", __func__, id + 1);
@@ -158,8 +158,8 @@ void omap_mcbsp_config(unsigned int id, const struct omap_mcbsp_reg_cfg *config)
 	mcbsp = id_to_mcbsp_ptr(id);
 
 	io_base = mcbsp->io_base;
-	dev_dbg(mcbsp->dev, "Configuring McBSP%d  io_base: 0x%8x\n",
-			mcbsp->id, io_base);
+	dev_dbg(mcbsp->dev, "Configuring McBSP%d  phys_base: 0x%08lx\n",
+			mcbsp->id, mcbsp->phys_base);
 
 	/* We write the given config */
 	OMAP_MCBSP_WRITE(io_base, SPCR2, config->spcr2);
@@ -306,7 +306,7 @@ EXPORT_SYMBOL(omap_mcbsp_free);
 void omap_mcbsp_start(unsigned int id)
 {
 	struct omap_mcbsp *mcbsp;
-	u32 io_base;
+	void __iomem *io_base;
 	u16 w;
 
 	if (!omap_mcbsp_check_valid_id(id)) {
@@ -344,7 +344,7 @@ EXPORT_SYMBOL(omap_mcbsp_start);
 void omap_mcbsp_stop(unsigned int id)
 {
 	struct omap_mcbsp *mcbsp;
-	u32 io_base;
+	void __iomem *io_base;
 	u16 w;
 
 	if (!omap_mcbsp_check_valid_id(id)) {
@@ -373,7 +373,7 @@ EXPORT_SYMBOL(omap_mcbsp_stop);
 int omap_mcbsp_pollwrite(unsigned int id, u16 buf)
 {
 	struct omap_mcbsp *mcbsp;
-	u32 base;
+	void __iomem *base;
 
 	if (!omap_mcbsp_check_valid_id(id)) {
 		printk(KERN_ERR "%s: Invalid id (%d)\n", __func__, id + 1);
@@ -418,7 +418,7 @@ EXPORT_SYMBOL(omap_mcbsp_pollwrite);
 int omap_mcbsp_pollread(unsigned int id, u16 *buf)
 {
 	struct omap_mcbsp *mcbsp;
-	u32 base;
+	void __iomem *base;
 
 	if (!omap_mcbsp_check_valid_id(id)) {
 		printk(KERN_ERR "%s: Invalid id (%d)\n", __func__, id + 1);
@@ -465,7 +465,7 @@ EXPORT_SYMBOL(omap_mcbsp_pollread);
 void omap_mcbsp_xmit_word(unsigned int id, u32 word)
 {
 	struct omap_mcbsp *mcbsp;
-	u32 io_base;
+	void __iomem *io_base;
 	omap_mcbsp_word_length word_length;
 
 	if (!omap_mcbsp_check_valid_id(id)) {
@@ -488,7 +488,7 @@ EXPORT_SYMBOL(omap_mcbsp_xmit_word);
 u32 omap_mcbsp_recv_word(unsigned int id)
 {
 	struct omap_mcbsp *mcbsp;
-	u32 io_base;
+	void __iomem *io_base;
 	u16 word_lsb, word_msb = 0;
 	omap_mcbsp_word_length word_length;
 
@@ -514,7 +514,7 @@ EXPORT_SYMBOL(omap_mcbsp_recv_word);
 int omap_mcbsp_spi_master_xmit_word_poll(unsigned int id, u32 word)
 {
 	struct omap_mcbsp *mcbsp;
-	u32 io_base;
+	void __iomem *io_base;
 	omap_mcbsp_word_length tx_word_length;
 	omap_mcbsp_word_length rx_word_length;
 	u16 spcr2, spcr1, attempts = 0, word_lsb, word_msb = 0;
@@ -580,7 +580,8 @@ EXPORT_SYMBOL(omap_mcbsp_spi_master_xmit_word_poll);
 int omap_mcbsp_spi_master_recv_word_poll(unsigned int id, u32 *word)
 {
 	struct omap_mcbsp *mcbsp;
-	u32 io_base, clock_word = 0;
+	u32 clock_word = 0;
+	void __iomem *io_base;
 	omap_mcbsp_word_length tx_word_length;
 	omap_mcbsp_word_length rx_word_length;
 	u16 spcr2, spcr1, attempts = 0, word_lsb, word_msb = 0;
@@ -893,7 +894,12 @@ static int __init omap_mcbsp_probe(struct platform_device *pdev)
 	mcbsp->dma_rx_lch = -1;
 
 	mcbsp->phys_base = pdata->phys_base;
-	mcbsp->io_base = pdata->virt_base;
+	mcbsp->io_base = ioremap(pdata->phys_base, SZ_4K);
+	if (!mcbsp->io_base) {
+		ret = -ENOMEM;
+		goto err_ioremap;
+	}
+
 	/* Default I/O is IRQ based */
 	mcbsp->io_type = OMAP_MCBSP_IRQ_IO;
 	mcbsp->tx_irq = pdata->tx_irq;
@@ -904,18 +910,22 @@ static int __init omap_mcbsp_probe(struct platform_device *pdev)
 	if (pdata->clk_name)
 		mcbsp->clk = clk_get(&pdev->dev, pdata->clk_name);
 	if (IS_ERR(mcbsp->clk)) {
-		mcbsp->free = 0;
 		dev_err(&pdev->dev,
 			"Invalid clock configuration for McBSP%d.\n",
 			mcbsp->id);
-		ret = -EINVAL;
-		goto exit;
+		ret = PTR_ERR(mcbsp->clk);
+		goto err_clk;
 	}
 
 	mcbsp->pdata = pdata;
 	mcbsp->dev = &pdev->dev;
 	platform_set_drvdata(pdev, mcbsp);
+	return 0;
 
+err_clk:
+	iounmap(mcbsp->io_base);
+err_ioremap:
+	mcbsp->free = 0;
 exit:
 	return ret;
 }
@@ -933,6 +943,8 @@ static int omap_mcbsp_remove(struct platform_device *pdev)
 
 		clk_disable(mcbsp->clk);
 		clk_put(mcbsp->clk);
+
+		iounmap(mcbsp->io_base);
 
 		mcbsp->clk = NULL;
 		mcbsp->free = 0;
