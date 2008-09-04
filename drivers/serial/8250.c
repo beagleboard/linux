@@ -2283,11 +2283,6 @@ static int serial8250_request_std_resource(struct uart_8250_port *up)
 	unsigned int size = 8 << up->port.regshift;
 	int ret = 0;
 
-#ifdef CONFIG_ARCH_OMAP
-	if (is_omap_port((unsigned int)up->port.membase))
-		size = 0x16 << up->port.regshift;
-#endif
-
 	switch (up->port.iotype) {
 	case UPIO_AU:
 		size = 0x100000;
