@@ -26,7 +26,7 @@
 #include <asm/byteorder.h>
 
 static struct clk *sti_ck;
-unsigned long sti_base, sti_channel_base;
+void __iomem *sti_base, *sti_channel_base;
 static unsigned long sti_kern_mask = STIEn;
 static unsigned long sti_irq_mask = STI_IRQSTATUS_MASK;
 static DEFINE_SPINLOCK(sti_lock);
@@ -326,6 +326,7 @@ static DEVICE_ATTR(imask, S_IRUGO | S_IWUSR, sti_imask_show, sti_imask_store);
 static int __devinit sti_probe(struct platform_device *pdev)
 {
 	struct resource *res, *cres;
+	unsigned int size;
 	int ret;
 
 	if (pdev->num_resources != 3) {
@@ -356,23 +357,19 @@ static int __devinit sti_probe(struct platform_device *pdev)
 	if (unlikely(ret != 0))
 		goto err;
 
-	sti_base = io_p2v(res->start);
+	size = res->end - res->start + 1;
+	sti_base = ioremap(res->start, size);
+	if (!sti_base) {
+		ret = -ENOMEM;
+		goto err_badremap;
+	}
 
-	/*
-	 * OMAP 16xx keeps channels in a relatively sane location,
-	 * whereas 24xx maps them much further out, and so they must be
-	 * remapped.
-	 */
-	if (cpu_is_omap16xx())
-		sti_channel_base = io_p2v(cres->start);
-	else if (cpu_is_omap24xx()) {
-		unsigned int size = cres->end - cres->start;
-
-		sti_channel_base = (unsigned long)ioremap(cres->start, size);
-		if (unlikely(!sti_channel_base)) {
-			ret = -ENODEV;
-			goto err_badremap;
-		}
+	size = cres->end - cres->start + 1;
+	sti_channel_base = ioremap(cres->start, size);
+	if (!sti_channel_base) {
+		iounmap(sti_base);
+		ret = -ENOMEM;
+		goto err_badremap;
 	}
 
 	ret = request_irq(platform_get_irq(pdev, 0), sti_interrupt,
@@ -383,7 +380,8 @@ static int __devinit sti_probe(struct platform_device *pdev)
 	return sti_init();
 
 err_badirq:
-	iounmap((void *)sti_channel_base);
+	iounmap(sti_channel_base);
+	iounmap(sti_base);
 err_badremap:
 	device_remove_file(&pdev->dev, &dev_attr_imask);
 err:
@@ -396,8 +394,8 @@ static int __devexit sti_remove(struct platform_device *pdev)
 {
 	unsigned int irq = platform_get_irq(pdev, 0);
 
-	if (cpu_is_omap24xx())
-		iounmap((void *)sti_channel_base);
+	iounmap(sti_channel_base);
+	iounmap(sti_base);
 
 	device_remove_file(&pdev->dev, &dev_attr_trace);
 	device_remove_file(&pdev->dev, &dev_attr_imask);

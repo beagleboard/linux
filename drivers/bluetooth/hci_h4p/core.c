@@ -866,7 +866,10 @@ static int hci_h4p_probe(struct platform_device *pdev)
 			info->uart_iclk = clk_get(NULL, "uart1_ick");
 			info->uart_fclk = clk_get(NULL, "uart1_fck");
 		}
-		info->uart_base = (void *)io_p2v(OMAP_UART1_BASE);
+		/* FIXME: Use platform_get_resource for the port */
+		info->uart_base = ioremap(OMAP_UART1_BASE, 0x16);
+		if (!info->uart_base)
+			goto cleanup;
 		break;
 	case 2:
 		if (cpu_is_omap16xx()) {
@@ -877,7 +880,10 @@ static int hci_h4p_probe(struct platform_device *pdev)
 			info->uart_iclk = clk_get(NULL, "uart2_ick");
 			info->uart_fclk = clk_get(NULL, "uart2_fck");
 		}
-		info->uart_base = (void *)io_p2v(OMAP_UART2_BASE);
+		/* FIXME: Use platform_get_resource for the port */
+		info->uart_base = ioremap(OMAP_UART2_BASE, 0x16);
+		if (!info->uart_base)
+			goto cleanup;
 		break;
 	case 3:
 		if (cpu_is_omap16xx()) {
@@ -888,7 +894,10 @@ static int hci_h4p_probe(struct platform_device *pdev)
 			info->uart_iclk = clk_get(NULL, "uart3_ick");
 			info->uart_fclk = clk_get(NULL, "uart3_fck");
 		}
-		info->uart_base = (void *)io_p2v(OMAP_UART3_BASE);
+		/* FIXME: Use platform_get_resource for the port */
+		info->uart_base = ioremap(OMAP_UART3_BASE, 0x16);
+		if (!info->uart_base)
+			goto cleanup;
 		break;
 	default:
 		dev_err(info->dev, "No uart defined\n");

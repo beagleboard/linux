@@ -952,17 +952,26 @@ static int __init brf6150_init(void)
 	case 1:
 		irq = INT_UART1;
 		info->uart_ck = clk_get(NULL, "uart1_ck");
-		info->uart_base = io_p2v((unsigned long)OMAP_UART1_BASE);
+		/* FIXME: Use platform_get_resource for the port */
+		info->uart_base = ioremap(OMAP_UART1_BASE, 0x16);
+		if (!info->uart_base)
+			goto cleanup;
 		break;
 	case 2:
 		irq = INT_UART2;
 		info->uart_ck = clk_get(NULL, "uart2_ck");
-		info->uart_base = io_p2v((unsigned long)OMAP_UART2_BASE);
+		/* FIXME: Use platform_get_resource for the port */
+		info->uart_base = ioremap(OMAP_UART2_BASE, 0x16);
+		if (!info->uart_base)
+			goto cleanup;
 		break;
 	case 3:
 		irq = INT_UART3;
 		info->uart_ck = clk_get(NULL, "uart3_ck");
-		info->uart_base = io_p2v((unsigned long)OMAP_UART3_BASE);
+		/* FIXME: Use platform_get_resource for the port */
+		info->uart_base = ioremap(OMAP_UART3_BASE, 0x16);
+		if (!info->uart_base)
+			goto cleanup;
 		break;
 	default:
 		printk(KERN_ERR "No uart defined\n");

@@ -165,7 +165,7 @@ static struct mtd_info *omap_mtd;
 static struct clk *omap_nand_clk;
 static int omap_nand_dma_ch;
 static struct completion omap_nand_dma_comp;
-static unsigned long omap_nand_base = io_p2v(NAND_BASE);
+static unsigned long omap_nand_base = OMAP1_IO_ADDRESS(NAND_BASE);
 
 static inline u32 nand_read_reg(int idx)
 {

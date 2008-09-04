@@ -127,7 +127,7 @@ enum {
 #endif
 
 /* arch/arm/plat-omap/sti/sti.c */
-extern unsigned long sti_base, sti_channel_base;
+extern void __iomem *sti_base, *sti_channel_base;
 
 int sti_request_irq(unsigned int irq, void *handler, unsigned long arg);
 void sti_free_irq(unsigned int irq);

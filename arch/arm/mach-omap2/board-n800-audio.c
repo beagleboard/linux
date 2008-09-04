@@ -54,13 +54,11 @@ static int eac_mux_disabled = 0;
 static int clkout2_mux_disabled = 0;
 static u32 saved_mux[2];
 
-#define MUX_EAC_IOP2V(x)		(__force void __iomem *)io_p2v(x)
-
 static void n800_enable_eac_mux(void)
 {
 	if (!eac_mux_disabled)
 		return;
-	__raw_writel(saved_mux[1], MUX_EAC_IOP2V(0x48000124));
+	__raw_writel(saved_mux[1], OMAP2_IO_ADDRESS(0x48000124));
 	eac_mux_disabled = 0;
 }
 
@@ -70,8 +68,8 @@ static void n800_disable_eac_mux(void)
 		WARN_ON(eac_mux_disabled);
 		return;
 	}
-	saved_mux[1] = __raw_readl(MUX_EAC_IOP2V(0x48000124));
-	__raw_writel(0x1f1f1f1f, MUX_EAC_IOP2V(0x48000124));
+	saved_mux[1] = __raw_readl(OMAP2_IO_ADDRESS(0x48000124));
+	__raw_writel(0x1f1f1f1f, OMAP2_IO_ADDRESS(0x48000124));
 	eac_mux_disabled = 1;
 }
 
@@ -79,7 +77,7 @@ static void n800_enable_clkout2_mux(void)
 {
 	if (!clkout2_mux_disabled)
 		return;
-	__raw_writel(saved_mux[0], MUX_EAC_IOP2V(0x480000e8));
+	__raw_writel(saved_mux[0], OMAP2_IO_ADDRESS(0x480000e8));
 	clkout2_mux_disabled = 0;
 }
 
@@ -91,10 +89,10 @@ static void n800_disable_clkout2_mux(void)
 		WARN_ON(clkout2_mux_disabled);
 		return;
 	}
-	saved_mux[0] = __raw_readl(MUX_EAC_IOP2V(0x480000e8));
+	saved_mux[0] = __raw_readl(OMAP2_IO_ADDRESS(0x480000e8));
 	l = saved_mux[0] & ~0xff;
 	l |= 0x1f;
-	__raw_writel(l, MUX_EAC_IOP2V(0x480000e8));
+	__raw_writel(l, OMAP2_IO_ADDRESS(0x480000e8));
 	clkout2_mux_disabled = 1;
 }
 

@@ -538,7 +538,7 @@ static void *omap16xxcam_init(void)
 			return NULL;
 		}
 	} else
-		cam_iobase = io_p2v(CAMERA_BASE);
+		cam_iobase = OMAP1_IO_ADDRESS(CAMERA_BASE);
 
 	/* Set the base address of the camera registers */
 	hardware_data.camera_regs = (camera_regs_t *) cam_iobase;
