@@ -701,7 +701,7 @@ int omap_mcbsp_xmit_buffer(unsigned int id, dma_addr_t buffer,
 	omap_set_dma_dest_params(mcbsp->dma_tx_lch,
 				 src_port,
 				 OMAP_DMA_AMODE_CONSTANT,
-				 io_v2p(mcbsp->io_base + OMAP_MCBSP_REG_DXR1),
+				 mcbsp->io_base + OMAP_MCBSP_REG_DXR1,
 				 0, 0);
 
 	omap_set_dma_src_params(mcbsp->dma_tx_lch,
@@ -764,7 +764,7 @@ int omap_mcbsp_recv_buffer(unsigned int id, dma_addr_t buffer,
 	omap_set_dma_src_params(mcbsp->dma_rx_lch,
 				src_port,
 				OMAP_DMA_AMODE_CONSTANT,
-				io_v2p(mcbsp->io_base + OMAP_MCBSP_REG_DRR1),
+				mcbsp->io_base + OMAP_MCBSP_REG_DRR1,
 				0, 0);
 
 	omap_set_dma_dest_params(mcbsp->dma_rx_lch,
