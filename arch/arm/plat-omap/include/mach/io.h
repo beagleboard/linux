@@ -194,6 +194,12 @@ extern void omap1_init_common_hw(void);
 extern void omap2_map_common_io(void);
 extern void omap2_init_common_hw(struct omap_sdrc_params *sp);
 
+#define __arch_ioremap(p,s,t)	omap_ioremap(p,s,t)
+#define __arch_iounmap(v)	omap_iounmap(v)
+
+void __iomem *omap_ioremap(unsigned long phys, size_t size, unsigned int type);
+void omap_iounmap(volatile void __iomem *addr);
+
 #endif
 
 #endif
