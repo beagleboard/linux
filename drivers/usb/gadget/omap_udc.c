@@ -2604,9 +2604,7 @@ omap_ep_setup(char *name, u8 addr, u8 type,
 		 * and ignored for PIO-IN on newer chips
 		 * (for more reliable behavior)
 		 */
-		if ((!use_dma && (addr & USB_DIR_IN))
-				|| machine_is_omap_apollon()
-				|| cpu_is_omap15xx())
+		if (!use_dma || cpu_is_omap15xx() || cpu_is_omap24xx())
 			dbuf = 0;
 
 		switch (maxp) {
