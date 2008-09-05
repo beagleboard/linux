@@ -66,7 +66,7 @@ struct omap_kp {
 	spinlock_t suspend_lock;
 };
 
-DECLARE_TASKLET_DISABLED(kp_tasklet, omap_kp_tasklet, 0);
+static DECLARE_TASKLET_DISABLED(kp_tasklet, omap_kp_tasklet, 0);
 
 static int *keymap;
 static unsigned int *row_gpios;
