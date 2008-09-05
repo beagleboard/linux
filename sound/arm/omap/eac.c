@@ -787,12 +787,12 @@ static struct platform_driver eac_driver = {
 	.remove		= eac_remove,
 };
 
-int __init eac_init(void)
+static int __init eac_init(void)
 {
 	return platform_driver_register(&eac_driver);
 }
 
-void __exit eac_exit(void)
+static void __exit eac_exit(void)
 {
 	platform_driver_unregister(&eac_driver);
 }
