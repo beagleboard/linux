@@ -322,8 +322,13 @@ static irqreturn_t twl4030_rtc_interrupt(int irq, void *rtc)
 				   REG_RTC_STATUS_REG);
 	if (res)
 		goto out;
-	res = twl4030_i2c_write_u8(TWL4030_MODULE_INT,
-			PWR_RTC_INT_CLR, REG_PWR_ISR1);
+
+	/* Clear on Read enabled. RTC_IT bit of REG_PWR_ISR1 needs
+	 * 2 reads to clear the interrupt. One read is done in
+	 * do_twl4030_pwrirq(). Doing the second read, to clear
+	 * the bit.
+	 */
+	res = twl4030_i2c_read_u8(TWL4030_MODULE_INT, &rd_reg, REG_PWR_ISR1);
 	if (res)
 		goto out;
 
