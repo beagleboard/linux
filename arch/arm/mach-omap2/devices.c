@@ -270,12 +270,12 @@ static inline void omap_init_mcspi(void) {}
 
 #ifdef CONFIG_SND_OMAP24XX_EAC
 
-#define OMAP2_EAC_BASE			0x48090000
+#define OMAP2_EAC_BASE			(L4_24XX_BASE + 0x90000)
 
 static struct resource omap2_eac_resources[] = {
 	{
 		.start		= OMAP2_EAC_BASE,
-		.end		= OMAP2_EAC_BASE + 0x109,
+		.end		= OMAP2_EAC_BASE + 0xfff,
 		.flags		= IORESOURCE_MEM,
 	},
 };
