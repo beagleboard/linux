@@ -174,12 +174,23 @@ static struct platform_device overo_twl4030rtc_device = {
 	.id             = -1,
 };
 
+static struct platform_device overo_lcd_device = {
+	.name		= "overo_lcd",
+	.id		= -1,
+};
+
+static struct omap_lcd_config overo_lcd_config __initdata = {
+	.ctrl_name	= "internal",
+};
+
 static struct omap_board_config_kernel overo_config[] __initdata = {
 	{ OMAP_TAG_UART,	&overo_uart_config },
 	{ OMAP_TAG_MMC,		&overo_mmc_config },
+	{ OMAP_TAG_LCD,		&overo_lcd_config },
 };
 
 static struct platform_device *overo_devices[] __initdata = {
+	&overo_lcd_device,
 #ifdef CONFIG_RTC_DRV_TWL4030
 	&overo_twl4030rtc_device,
 #endif
