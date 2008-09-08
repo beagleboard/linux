@@ -27,6 +27,8 @@
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
+#include <linux/io.h>
+#include <linux/delay.h>
 
 #include <mach/gpio.h>
 #include <mach/keypad.h>
@@ -132,8 +134,16 @@ static int ads7846_get_pendown_state(void)
 }
 
 struct ads7846_platform_data ads7846_config = {
+	.x_max                  = 0x0fff,
+	.y_max                  = 0x0fff,
+	.x_plate_ohms           = 180,
+	.pressure_max           = 255,
+	.debounce_max           = 10,
+	.debounce_tol           = 3,
+	.debounce_rep           = 1,
 	.get_pendown_state	= ads7846_get_pendown_state,
 	.keep_vref_on		= 1,
+	.settle_delay_usecs     = 150,
 };
 
 static struct omap2_mcspi_device_config ads7846_mcspi_config = {
