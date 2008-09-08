@@ -23,6 +23,7 @@
 
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/delay.h>
 #include <linux/i2c/twl4030.h>
 
 #include <mach/gpio.h>
@@ -45,6 +46,10 @@ static unsigned enable_gpio;
 #define ENABLE_VAUX3_DEDICATED	0x03
 #define ENABLE_VAUX3_DEV_GRP	0x20
 
+#define ENABLE_VPLL2_DEDICATED          0x05
+#define ENABLE_VPLL2_DEV_GRP            0xE0
+#define TWL4030_VPLL2_DEV_GRP           0x33
+#define TWL4030_VPLL2_DEDICATED         0x36
 
 #define t2_out(c, r, v) twl4030_i2c_write_u8(c, r, v)
 
@@ -82,6 +87,13 @@ static int sdp2430_panel_enable(struct lcd_panel *panel)
 		ded_val = ENABLE_VAUX3_DEDICATED;
 		grp_reg = TWL4030_VAUX3_DEV_GRP;
 		grp_val = ENABLE_VAUX3_DEV_GRP;
+
+		if (is_sil_rev_greater_than(OMAP3430_REV_ES1_0)) {
+			t2_out(PM_RECEIVER, ENABLE_VPLL2_DEDICATED,
+					TWL4030_VPLL2_DEDICATED);
+			t2_out(PM_RECEIVER, ENABLE_VPLL2_DEV_GRP,
+					TWL4030_VPLL2_DEV_GRP);
+		}
 	} else {
 		ded_reg = TWL4030_VAUX2_DEDICATED;
 		ded_val = ENABLE_VAUX2_DEDICATED;
@@ -104,6 +116,11 @@ static void sdp2430_panel_disable(struct lcd_panel *panel)
 {
 	omap_set_gpio_dataout(enable_gpio, 0);
 	omap_set_gpio_dataout(backlight_gpio, 0);
+	if (is_sil_rev_greater_than(OMAP3430_REV_ES1_0)) {
+		t2_out(PM_RECEIVER, 0x0, TWL4030_VPLL2_DEDICATED);
+		t2_out(PM_RECEIVER, 0x0, TWL4030_VPLL2_DEV_GRP);
+		mdelay(4);
+	}
 }
 
 static unsigned long sdp2430_panel_get_caps(struct lcd_panel *panel)
