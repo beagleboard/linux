@@ -50,3 +50,8 @@ config SND_SOC_CS4270_VD33_ERRATA
 config SND_SOC_TLV320AIC3X
 	tristate
 	depends on I2C
+
+config SND_SOC_TWL4030
+	tristate
+	depends on SND_SOC && TWL4030_CORE
+
