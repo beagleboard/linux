@@ -26,8 +26,8 @@
 #ifndef __ASM_ARCH_OMAP_GPIO_H
 #define __ASM_ARCH_OMAP_GPIO_H
 
+#include <linux/io.h>
 #include <mach/irqs.h>
-#include <asm/io.h>
 
 #define OMAP_MPUIO_BASE			0xfffb5000
 
