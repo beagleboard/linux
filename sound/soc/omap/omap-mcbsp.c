@@ -96,7 +96,7 @@ static const int omap24xx_dma_reqs[][2] = {
 #endif
 };
 #else
-static const int omap2420_dma_reqs[][2] = {};
+static const int omap24xx_dma_reqs[][2] = {};
 #endif
 
 #if defined(CONFIG_ARCH_OMAP2420)
