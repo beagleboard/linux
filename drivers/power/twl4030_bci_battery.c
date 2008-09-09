@@ -605,6 +605,7 @@ static int twl4030backupbatt_voltage(void)
 
 	req.channels = (1 << 9);
 	req.method = TWL4030_MADC_SW1;
+	req.func_cb = NULL;
 	twl4030_madc_conversion(&req);
 	temp = (u16)req.rbuf[9];
 
