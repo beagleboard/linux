@@ -519,8 +519,7 @@ static int omap_dispc_set_scale(int plane,
 	if ((unsigned)plane > OMAPFB_PLANE_NUM)
 		return -ENODEV;
 
-	if (plane == OMAPFB_PLANE_GFX &&
-	    (out_width != orig_width || out_height != orig_height))
+	if (out_width != orig_width || out_height != orig_height)
 		return -EINVAL;
 
 	enable_lcd_clocks(1);

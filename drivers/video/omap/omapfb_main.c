@@ -223,13 +223,15 @@ static int ctrl_change_mode(struct fb_info *fbi)
 		if((r = fbdev->ctrl->set_rotate(var->rotate)) < 0)
 			return r;
 
-	if (fbdev->ctrl->set_scale != NULL)
+	if ((fbdev->ctrl->set_scale != NULL) && (plane->idx > 0))
 		r = fbdev->ctrl->set_scale(plane->idx,
 				   var->xres, var->yres,
 				   plane->info.out_width,
 				   plane->info.out_height);
+	if (r < 0)
+		return r;
 
-	return r;
+	return 0;
 }
 
 /*
