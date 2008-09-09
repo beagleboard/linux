@@ -3,7 +3,7 @@
  *
  * IO definitions for TI OMAP processors and boards
  *
- * Copied from linux/include/asm-arm/arch-sa1100/io.h
+ * Copied from arch/arm/mach-sa1100/include/mach/io.h
  * Copyright (C) 1997-1999 Russell King
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -161,17 +161,14 @@
 
 #endif
 
+#define IO_ADDRESS(pa)		IOMEM(__IO_ADDRESS(pa))
+#define OMAP1_IO_ADDRESS(pa)	IOMEM(__OMAP1_IO_ADDRESS(pa))
+#define OMAP2_IO_ADDRESS(pa)	IOMEM(__OMAP2_IO_ADDRESS(pa))
+
 #ifdef __ASSEMBLER__
-
-#define IO_ADDRESS(pa)		__IO_ADDRESS(pa)
-#define OMAP1_IO_ADDRESS(pa)	__OMAP1_IO_ADDRESS(pa)
-#define OMAP2_IO_ADDRESS(pa)	__OMAP2_IO_ADDRESS(pa)
-
+#define IOMEM(x)		x
 #else
-
-#define IO_ADDRESS(pa)		((void __iomem *)__IO_ADDRESS(pa))
-#define OMAP1_IO_ADDRESS(pa)	((void __iomem *)__OMAP1_IO_ADDRESS(pa))
-#define OMAP2_IO_ADDRESS(pa)	((void __iomem *)__OMAP2_IO_ADDRESS(pa))
+#define IOMEM(x)		((void __force __iomem *)(x))
 
 /*
  * Functions to access the OMAP IO region
