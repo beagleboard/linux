@@ -2231,7 +2231,6 @@ static struct clk cam_ick = {
 static struct clk csi2_96m_fck = {
 	.name		= "csi2_96m_fck",
 	.parent		= &core_96m_fck,
-	.init		= &omap2_init_clk_clkdm,
 	.enable_reg	= _OMAP34XX_CM_REGADDR(OMAP3430_CAM_MOD, CM_FCLKEN),
 	.enable_bit	= OMAP3430_EN_CSI2_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
