@@ -55,7 +55,7 @@
 #elif defined(CONFIG_ARCH_S3C2410)
 		.macro loadsp, rb
 		mov	\rb, #0x50000000
-		add	\rb, \rb, #0x4000 * CONFIG_S3C2410_LOWLEVEL_UART_PORT
+		add	\rb, \rb, #0x4000 * CONFIG_S3C_LOWLEVEL_UART_PORT
 		.endm
 #else
 		.macro	loadsp,	rb
@@ -782,7 +782,6 @@ __armv7_mmu_cache_flush:
 		mcr	p15, 0, r10, c7, c14, 0	@ clean+invalidate D
 		b	iflush
 hierarchical:
-		adr	sp, no_cache_id		@ non-v7 code is temp stack
 		stmfd	sp!, {r0-r5, r7, r9-r11}
 		mrc	p15, 1, r0, c0, c0, 1	@ read clidr
 		ands	r3, r0, #0x7000000	@ extract loc from clidr
