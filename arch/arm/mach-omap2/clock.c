@@ -78,8 +78,10 @@ void omap2_init_clk_clkdm(struct clk *clk)
 {
 	struct clockdomain *clkdm;
 
-	if (!clk->clkdm.name)
+	if (!clk->clkdm.name) {
+		pr_err("clock: %s: missing clockdomain", clk->name);
 		return;
+	}
 
 	clkdm = clkdm_lookup(clk->clkdm.name);
 	if (clkdm) {
@@ -87,8 +89,8 @@ void omap2_init_clk_clkdm(struct clk *clk)
 			 clk->name, clk->clkdm.name);
 		clk->clkdm.ptr = clkdm;
 	} else {
-		pr_debug("clock: could not associate clk %s to "
-			 "clkdm %s\n", clk->name, clk->clkdm.name);
+		pr_err("clock: %s: could not associate to clkdm %s\n",
+		       clk->name, clk->clkdm.name);
 	}
 }
 
