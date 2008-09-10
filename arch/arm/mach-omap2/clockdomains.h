@@ -34,6 +34,16 @@ static struct clockdomain cm_clkdm = {
 };
 
 /*
+ * virt_opp_clkdm is intended solely for use with virtual OPP clocks,
+ * e.g., virt_prcm_set, until OPP handling is rationalized.
+ */
+static struct clockdomain virt_opp_clkdm = {
+	.name		= "virt_opp_clkdm",
+	.pwrdm		= { .name = "wkup_pwrdm" },
+	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP24XX),
+};
+
+/*
  * 2420-only clockdomains
  */
 
@@ -307,6 +317,7 @@ static struct clockdomain *clockdomains_omap[] = {
 
 	&cm_clkdm,
 	&prm_clkdm,
+	&virt_opp_clkdm,
 
 #ifdef CONFIG_ARCH_OMAP2420
 	&mpu_2420_clkdm,
