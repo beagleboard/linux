@@ -21,13 +21,6 @@
  * sys_clkout/sys_clkout2.
  */
 
-/* This is an implicit clockdomain - it is never defined as such in TRM */
-static struct clockdomain wkup_clkdm = {
-	.name		= "wkup_clkdm",
-	.pwrdm		= { .name = "wkup_pwrdm" },
-	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP24XX | CHIP_IS_OMAP3430),
-};
-
 static struct clockdomain prm_clkdm = {
 	.name		= "prm_clkdm",
 	.pwrdm		= { .name = "wkup_pwrdm" },
@@ -282,7 +275,6 @@ static struct clkdm_pwrdm_autodep clkdm_pwrdm_autodeps[] = {
 
 static struct clockdomain *clockdomains_omap[] = {
 
-	&wkup_clkdm,
 	&cm_clkdm,
 	&prm_clkdm,
 
