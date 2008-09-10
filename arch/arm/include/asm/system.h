@@ -74,6 +74,24 @@
 		    : "cc");						\
 		__val;							\
 	})
+#define read_extended_cpuid(op1,op2,op3,op4)		\
+	({								\
+		unsigned int __val;					\
+		asm("mrc p15," __stringify(op1) ",%0,c" __stringify(op2)",c" __stringify(op3)"," __stringify(op4)	\
+		    : "=r" (__val)					\
+		    :							\
+		    : "cc");						\
+		__val;							\
+	})
+
+#define write_extended_cpuid(op1,op2,op3,op4,v)		\
+	({								\
+		unsigned int __val = v;					\
+		asm("mcr p15," __stringify(op1) ",%0,c" __stringify(op2)",c" __stringify(op3)"," __stringify(op4)	\
+		    :							\
+		    : "r" (__val)					\
+		    : "cc");						\
+	})
 #else
 extern unsigned int processor_id;
 #define read_cpuid(reg) (processor_id)

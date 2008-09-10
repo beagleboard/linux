@@ -255,6 +255,24 @@ static const char *proc_arch[] = {
 	"?(17)",
 };
 
+static const char *v7_cache_policy[4] = {
+	"reserved",
+	"AVIVT",
+	"VIPT",
+	"PIPT",
+};
+
+static const char *v7_cache_type[8] = {
+	"none",
+	"instruction only",
+	"data only",
+	"separate instruction and data",
+	"unified",
+	"unknown type",
+	"unknown type",
+	"unknown type",
+};
+
 #define CACHE_TYPE(x)	(((x) >> 25) & 15)
 #define CACHE_S(x)	((x) & (1 << 24))
 #define CACHE_DSIZE(x)	(((x) >> 12) & 4095)	/* only if S=1 */
@@ -264,6 +282,22 @@ static const char *proc_arch[] = {
 #define CACHE_ASSOC(y)	(((y) >> 3) & 7)
 #define CACHE_M(y)	((y) & (1 << 2))
 #define CACHE_LINE(y)	((y) & 3)
+
+#define CACHE_TYPE_V7(x)	(((x) >> 14) & 3)
+#define CACHE_UNIFIED(x)	((((x) >> 27) & 7)+1)
+#define CACHE_COHERENT(x)	((((x) >> 24) & 7)+1)
+
+#define CACHE_ID_LEVEL_MASK	7
+#define CACHE_ID_LEVEL_BITS	3
+
+#define CACHE_LINE_V7(v)	((1 << (((v) & 7)+4)))
+#define CACHE_ASSOC_V7(v)	((((v) >> 3) & ((1<<10)-1))+1)
+#define CACHE_SETS_V7(v)	((((v) >> 13) & ((1<<15)-1))+1)
+#define CACHE_SIZE_V7(v)	(CACHE_LINE_V7(v)*CACHE_ASSOC_V7(v)*CACHE_SETS_V7(v))
+#define CACHE_WA_V7(v)		(((v) & (1<<28)) != 0)
+#define CACHE_RA_V7(v)		(((v) & (1<<29)) != 0)
+#define CACHE_WB_V7(v)		(((v) & (1<<30)) != 0)
+#define CACHE_WT_V7(v)		(((v) & (1<<31)) != 0)
 
 static inline void dump_cache(const char *prefix, int cpu, unsigned int cache)
 {
@@ -278,11 +312,57 @@ static inline void dump_cache(const char *prefix, int cpu, unsigned int cache)
 			CACHE_LINE(cache)));
 }
 
+static void dump_v7_cache(const char *type, int cpu, unsigned int level)
+{
+	unsigned int cachesize;
+                    
+	write_extended_cpuid(2,0,0,0,level);  /* Set the cache size selection register */
+	write_extended_cpuid(0,7,5,4,0);      /* Prefetch flush to wait for above */
+	cachesize = read_extended_cpuid(1,0,0,0);
+
+	printk("CPU%u: %s cache: %d bytes, associativity %d, %d byte lines, %d sets,\n      supports%s%s%s%s\n",
+	       cpu, type,
+	       CACHE_SIZE_V7(cachesize),CACHE_ASSOC_V7(cachesize),
+	       CACHE_LINE_V7(cachesize),CACHE_SETS_V7(cachesize),
+	       CACHE_WA_V7(cachesize) ? " WA" : "",
+	       CACHE_RA_V7(cachesize) ? " RA" : "",
+	       CACHE_WB_V7(cachesize) ? " WB" : "",
+	       CACHE_WT_V7(cachesize) ? " WT" : "");
+}
+
 static void __init dump_cpu_info(int cpu)
 {
 	unsigned int info = read_cpuid(CPUID_CACHETYPE);
 
-	if (info != processor_id) {
+	if (info != processor_id && (info & (1 << 31))) {
+		/* ARMv7 style of cache info register */
+		unsigned int id = read_extended_cpuid(1,0,0,1);
+		unsigned int level = 0;
+		printk("CPU%u: L1 I %s cache. Caches unified at level %u, coherent at level %u\n",
+		       cpu,
+		       v7_cache_policy[CACHE_TYPE_V7(info)],
+		       CACHE_UNIFIED(id),
+		       CACHE_COHERENT(id));
+
+		while (id & CACHE_ID_LEVEL_MASK) {
+			printk("CPU%u: Level %u cache is %s\n",
+			       cpu, (level >> 1)+1, v7_cache_type[id & CACHE_ID_LEVEL_MASK]);
+
+			if (id & 1) {
+				/* Dump I at this level */
+				dump_v7_cache("I", cpu, level | 1);
+			}
+
+			if (id & (4 | 2)) {
+				/* Dump D or unified at this level */
+				dump_v7_cache((id & 4) ? "unified" : "D", cpu, level);
+			}
+
+			/* Next level out */
+			level += 2;
+			id >>= CACHE_ID_LEVEL_BITS;
+		}
+	} else if (info != processor_id) {
 		printk("CPU%u: D %s %s cache\n", cpu, cache_is_vivt() ? "VIVT" : "VIPT",
 		       cache_types[CACHE_TYPE(info)]);
 		if (CACHE_S(info)) {
@@ -917,6 +997,30 @@ c_show_cache(struct seq_file *m, const char *type, unsigned int cache)
 			    CACHE_LINE(cache)));
 }
 
+static void c_show_v7_cache(struct seq_file *m, const char *type, unsigned int levelselect)
+{
+	unsigned int cachesize;
+	unsigned int level = (levelselect >> 1) + 1;
+                    
+	write_extended_cpuid(2,0,0,0,levelselect);  /* Set the cache size selection register */
+	write_extended_cpuid(0,7,5,4,0);      /* Prefetch flush to wait for above */
+	cachesize = read_extended_cpuid(1,0,0,0);
+
+	seq_printf(m, "L%u %s size\t\t: %d bytes\n"
+		   "L%u %s assoc\t\t: %d\n"
+		   "L%u %s line length\t: %d\n"
+		   "L%u %s sets\t\t: %d\n"
+		   "L%u %s supports\t\t:%s%s%s%s\n",
+		   level, type, CACHE_SIZE_V7(cachesize),
+		   level, type, CACHE_ASSOC_V7(cachesize),
+		   level, type, CACHE_LINE_V7(cachesize),
+		   level, type, CACHE_SETS_V7(cachesize),
+		   level, type, CACHE_WA_V7(cachesize) ? " WA" : "",
+		   CACHE_RA_V7(cachesize) ? " RA" : "",
+		   CACHE_WB_V7(cachesize) ? " WB" : "",
+		   CACHE_WT_V7(cachesize) ? " WT" : "");
+}
+
 static int c_show(struct seq_file *m, void *v)
 {
 	int i;
@@ -972,7 +1076,36 @@ static int c_show(struct seq_file *m, void *v)
 
 	{
 		unsigned int cache_info = read_cpuid(CPUID_CACHETYPE);
-		if (cache_info != processor_id) {
+		if (cache_info != processor_id && (cache_info & (1<<31))) {
+			/* V7 style of cache info register */
+			unsigned int id = read_extended_cpuid(1,0,0,1);
+			unsigned int levelselect = 0;
+			seq_printf(m, "L1 I cache\t:%s\n"
+				   "Cache unification level\t: %u\n"
+				   "Cache coherency level\t: %u\n",
+				   v7_cache_policy[CACHE_TYPE_V7(cache_info)],
+				   CACHE_UNIFIED(id),
+				   CACHE_COHERENT(id));
+
+			while (id & CACHE_ID_LEVEL_MASK) {
+				seq_printf(m, "Level %u cache\t\t: %s\n",
+					   (levelselect >> 1)+1, v7_cache_type[id & CACHE_ID_LEVEL_MASK]);
+
+				if (id & 1) {
+					/* Dump I at this level */
+					c_show_v7_cache(m, "I", levelselect | 1);
+				}
+
+				if (id & (4 | 2)) {
+					/* Dump D or unified at this level */
+					c_show_v7_cache(m, (id & 4) ? "cache" : "D", levelselect);
+				}
+
+				/* Next level out */
+				levelselect += 2;
+				id >>= CACHE_ID_LEVEL_BITS;
+			}
+		} else if (cache_info != processor_id) {
 			seq_printf(m, "Cache type\t: %s\n"
 				      "Cache clean\t: %s\n"
 				      "Cache lockdown\t: %s\n"
