@@ -74,6 +74,7 @@ static struct clk omap_32k_fck = {
 	.rate		= 32768,
 	.flags		= CLOCK_IN_OMAP343X | RATE_FIXED | RATE_PROPAGATES |
 				ALWAYS_ENABLED,
+	.clkdm		= { .name = "prm_clkdm" },
 	.recalc		= &propagate_rate,
 };
 
@@ -82,6 +83,7 @@ static struct clk secure_32k_fck = {
 	.rate		= 32768,
 	.flags		= CLOCK_IN_OMAP343X | RATE_FIXED | RATE_PROPAGATES |
 				ALWAYS_ENABLED,
+	.clkdm		= { .name = "prm_clkdm" },
 	.recalc		= &propagate_rate,
 };
 
@@ -91,6 +93,7 @@ static struct clk virt_12m_ck = {
 	.rate		= 12000000,
 	.flags		= CLOCK_IN_OMAP343X | RATE_FIXED | RATE_PROPAGATES |
 				ALWAYS_ENABLED,
+	.clkdm		= { .name = "prm_clkdm" },
 	.recalc		= &propagate_rate,
 };
 
@@ -99,6 +102,7 @@ static struct clk virt_13m_ck = {
 	.rate		= 13000000,
 	.flags		= CLOCK_IN_OMAP343X | RATE_FIXED | RATE_PROPAGATES |
 				ALWAYS_ENABLED,
+	.clkdm		= { .name = "prm_clkdm" },
 	.recalc		= &propagate_rate,
 };
 
@@ -107,6 +111,7 @@ static struct clk virt_16_8m_ck = {
 	.rate		= 16800000,
 	.flags		= CLOCK_IN_OMAP3430ES2 | RATE_FIXED | RATE_PROPAGATES |
 				ALWAYS_ENABLED,
+	.clkdm		= { .name = "prm_clkdm" },
 	.recalc		= &propagate_rate,
 };
 
@@ -115,6 +120,7 @@ static struct clk virt_19_2m_ck = {
 	.rate		= 19200000,
 	.flags		= CLOCK_IN_OMAP343X | RATE_FIXED | RATE_PROPAGATES |
 				ALWAYS_ENABLED,
+	.clkdm		= { .name = "prm_clkdm" },
 	.recalc		= &propagate_rate,
 };
 
@@ -123,6 +129,7 @@ static struct clk virt_26m_ck = {
 	.rate		= 26000000,
 	.flags		= CLOCK_IN_OMAP343X | RATE_FIXED | RATE_PROPAGATES |
 				ALWAYS_ENABLED,
+	.clkdm		= { .name = "prm_clkdm" },
 	.recalc		= &propagate_rate,
 };
 
@@ -131,6 +138,7 @@ static struct clk virt_38_4m_ck = {
 	.rate		= 38400000,
 	.flags		= CLOCK_IN_OMAP343X | RATE_FIXED | RATE_PROPAGATES |
 				ALWAYS_ENABLED,
+	.clkdm		= { .name = "prm_clkdm" },
 	.recalc		= &propagate_rate,
 };
 
@@ -185,6 +193,7 @@ static struct clk osc_sys_ck = {
 	/* REVISIT: deal with autoextclkmode? */
 	.flags		= CLOCK_IN_OMAP343X | RATE_FIXED | RATE_PROPAGATES |
 				ALWAYS_ENABLED,
+	.clkdm		= { .name = "prm_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 };
 
@@ -209,6 +218,7 @@ static struct clk sys_ck = {
 	.clksel_mask	= OMAP_SYSCLKDIV_MASK,
 	.clksel		= sys_clksel,
 	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES | ALWAYS_ENABLED,
+	.clkdm		= { .name = "prm_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 };
 
@@ -222,6 +232,7 @@ static struct clk sys_altclk = {
 static struct clk mcbsp_clks = {
 	.name		= "mcbsp_clks",
 	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES | ALWAYS_ENABLED,
+	.clkdm		= { .name = "prm_clkdm" },
 	.recalc		= &propagate_rate,
 };
 
@@ -233,6 +244,7 @@ static struct clk sys_clkout1 = {
 	.enable_reg	= (__force void __iomem *)OMAP3430_PRM_CLKOUT_CTRL,
 	.enable_bit	= OMAP3430_CLKOUT_EN_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
+	.clkdm		= { .name = "prm_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -678,6 +690,7 @@ static struct clk omap_96m_alwon_fck = {
 	.clksel		= omap_96m_alwon_fck_clksel,
 	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES |
 				PARENT_CONTROLS_CLOCK,
+	.clkdm		= { .name = "prm_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 };
 
@@ -2309,6 +2322,7 @@ static struct clk usim_fck = {
 	.clksel_mask	= OMAP3430ES2_CLKSEL_USIMOCP_MASK,
 	.clksel		= usim_clksel,
 	.flags		= CLOCK_IN_OMAP3430ES2,
+	.clkdm		= { .name = "prm_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 };
 
@@ -3035,6 +3049,7 @@ static struct clk sr1_fck = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(WKUP_MOD, CM_FCLKEN),
 	.enable_bit	= OMAP3430_EN_SR1_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES,
+	.clkdm		= { .name = "prm_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -3045,6 +3060,7 @@ static struct clk sr2_fck = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(WKUP_MOD, CM_FCLKEN),
 	.enable_bit	= OMAP3430_EN_SR2_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES,
+	.clkdm		= { .name = "prm_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -3063,6 +3079,7 @@ static struct clk gpt12_fck = {
 	.name		= "gpt12_fck",
 	.parent		= &secure_32k_fck,
 	.flags		= CLOCK_IN_OMAP343X | ALWAYS_ENABLED,
+	.clkdm		= { .name = "prm_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -3070,6 +3087,7 @@ static struct clk wdt1_fck = {
 	.name		= "wdt1_fck",
 	.parent		= &secure_32k_fck,
 	.flags		= CLOCK_IN_OMAP343X | ALWAYS_ENABLED,
+	.clkdm		= { .name = "prm_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 

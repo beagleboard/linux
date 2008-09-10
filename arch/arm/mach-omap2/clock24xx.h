@@ -852,9 +852,10 @@ static struct clk func_12m_ck = {
 
 /* Secure timer, only available in secure mode */
 static struct clk wdt1_osc_ck = {
-	.name		= "ck_wdt1_osc",
+	.name		= "wdt1_osc_ck",
 	.parent		= &osc_ck,
 	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X,
+	.clkdm		= { .name = "prm_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
