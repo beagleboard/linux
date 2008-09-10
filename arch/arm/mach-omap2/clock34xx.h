@@ -2322,7 +2322,7 @@ static struct clk gpt1_fck = {
 	.clksel_mask	= OMAP3430_CLKSEL_GPT1_MASK,
 	.clksel		= omap343x_gpt_clksel,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm		= { .name = "wkup_clkdm" },
+	.clkdm		= { .name = "prm_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 };
 
@@ -2331,7 +2331,7 @@ static struct clk wkup_32k_fck = {
 	.init		= &omap2_init_clk_clkdm,
 	.parent		= &omap_32k_fck,
 	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES | ALWAYS_ENABLED,
-	.clkdm		= { .name = "wkup_clkdm" },
+	.clkdm		= { .name = "prm_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2341,7 +2341,7 @@ static struct clk gpio1_fck = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(WKUP_MOD, CM_FCLKEN),
 	.enable_bit	= OMAP3430_EN_GPIO1_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm		= { .name = "wkup_clkdm" },
+	.clkdm		= { .name = "prm_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2351,7 +2351,7 @@ static struct clk wdt2_fck = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(WKUP_MOD, CM_FCLKEN),
 	.enable_bit	= OMAP3430_EN_WDT2_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm		= { .name = "wkup_clkdm" },
+	.clkdm		= { .name = "prm_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2359,7 +2359,7 @@ static struct clk wkup_l4_ick = {
 	.name		= "wkup_l4_ick",
 	.parent		= &sys_ck,
 	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES | ALWAYS_ENABLED,
-	.clkdm		= { .name = "wkup_clkdm" },
+	.clkdm		= { .name = "prm_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2371,7 +2371,7 @@ static struct clk usim_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(WKUP_MOD, CM_ICLKEN),
 	.enable_bit	= OMAP3430ES2_EN_USIMOCP_SHIFT,
 	.flags		= CLOCK_IN_OMAP3430ES2,
-	.clkdm		= { .name = "wkup_clkdm" },
+	.clkdm		= { .name = "prm_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2381,7 +2381,7 @@ static struct clk wdt2_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(WKUP_MOD, CM_ICLKEN),
 	.enable_bit	= OMAP3430_EN_WDT2_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm		= { .name = "wkup_clkdm" },
+	.clkdm		= { .name = "prm_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2391,7 +2391,7 @@ static struct clk wdt1_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(WKUP_MOD, CM_ICLKEN),
 	.enable_bit	= OMAP3430_EN_WDT1_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm		= { .name = "wkup_clkdm" },
+	.clkdm		= { .name = "prm_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2401,7 +2401,7 @@ static struct clk gpio1_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(WKUP_MOD, CM_ICLKEN),
 	.enable_bit	= OMAP3430_EN_GPIO1_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm		= { .name = "wkup_clkdm" },
+	.clkdm		= { .name = "prm_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2411,18 +2411,17 @@ static struct clk omap_32ksync_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(WKUP_MOD, CM_ICLKEN),
 	.enable_bit	= OMAP3430_EN_32KSYNC_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm		= { .name = "wkup_clkdm" },
+	.clkdm		= { .name = "prm_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
-/* XXX This clock no longer exists in 3430 TRM rev F */
 static struct clk gpt12_ick = {
 	.name		= "gpt12_ick",
 	.parent		= &wkup_l4_ick,
 	.enable_reg	= _OMAP34XX_CM_REGADDR(WKUP_MOD, CM_ICLKEN),
 	.enable_bit	= OMAP3430_EN_GPT12_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm		= { .name = "wkup_clkdm" },
+	.clkdm		= { .name = "prm_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
@@ -2432,7 +2431,7 @@ static struct clk gpt1_ick = {
 	.enable_reg	= _OMAP34XX_CM_REGADDR(WKUP_MOD, CM_ICLKEN),
 	.enable_bit	= OMAP3430_EN_GPT1_SHIFT,
 	.flags		= CLOCK_IN_OMAP343X,
-	.clkdm		= { .name = "wkup_clkdm" },
+	.clkdm		= { .name = "prm_clkdm" },
 	.recalc		= &followparent_recalc,
 };
 
