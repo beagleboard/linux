@@ -69,7 +69,7 @@ static ctl_table lowmem_table[] = {
 		.maxlen = sizeof(unsigned int),
 		.mode = 0644,
 		.child = NULL,
-		.proc_handler = &proc_dointvec_minmax,
+		.proc_handler = &proc_dointvec,
 		.strategy = &sysctl_intvec,
 	}, {
 		.ctl_name = VM_LOWMEM_ALLOWED_UIDS,
@@ -89,7 +89,7 @@ static ctl_table lowmem_table[] = {
 		.maxlen = sizeof(unsigned long),
 		.mode = 0444,
 		.child = NULL,
-		.proc_handler = &proc_dointvec_minmax,
+		.proc_handler = &proc_dointvec,
 		.strategy = &sysctl_intvec,
 	}, {
 		.ctl_name = VM_LOWMEM_USED_PAGES,
@@ -98,7 +98,7 @@ static ctl_table lowmem_table[] = {
 		.maxlen = sizeof(long),
 		.mode = 0444,
 		.child = NULL,
-		.proc_handler = &proc_dointvec_minmax,
+		.proc_handler = &proc_dointvec,
 		.strategy = &sysctl_intvec,
 	}, {
 		.ctl_name = 0
