@@ -23,6 +23,10 @@ enum {
 	VM_LOWMEM_ALLOWED_UIDS,
 	VM_LOWMEM_ALLOWED_PAGES,
 	VM_LOWMEM_FREE_PAGES,
+	VM_LOWMEM_DENY,
+	VM_LOWMEM_LEVEL1_NOTIFY,
+	VM_LOWMEM_LEVEL2_NOTIFY,
+	VM_LOWMEM_USED_PAGES
 };
 
 static long deny_pages;
@@ -33,6 +37,22 @@ static unsigned long lowmem_free_pages;
 static unsigned int allowed_uids[LOWMEM_MAX_UIDS];
 static unsigned int minuid = 1;
 static unsigned int maxuid = 65535;
+static unsigned int deny_percentage;
+static unsigned int l1_notify, l2_notify;
+static long used_pages;
+
+static int
+proc_dointvec_used(ctl_table *table, int write, struct file *filp,
+			void __user *buffer, size_t *lenp, loff_t *ppos);
+static int
+proc_dointvec_l1_notify(ctl_table *table, int write, struct file *filp,
+			void __user *buffer, size_t *lenp, loff_t *ppos);
+static int
+proc_dointvec_l2_notify(ctl_table *table, int write, struct file *filp,
+			void __user *buffer, size_t *lenp, loff_t *ppos);
+static int
+proc_dointvec_deny(ctl_table *table, int write, struct file *filp,
+			void __user *buffer, size_t *lenp, loff_t *ppos);
 
 static ctl_table lowmem_table[] = {
 	{
@@ -43,6 +63,42 @@ static ctl_table lowmem_table[] = {
 		.mode = 0644,
 		.child = NULL,
 		.proc_handler = &proc_dointvec,
+		.strategy = &sysctl_intvec,
+	}, {
+		.ctl_name = VM_LOWMEM_DENY,
+		.procname = "lowmem_deny_watermark",
+		.data = &deny_percentage,
+		.maxlen = sizeof(unsigned int),
+		.mode = 0444,
+		.child = NULL,
+		.proc_handler = &proc_dointvec_deny,
+		.strategy = &sysctl_intvec,
+	}, {
+		.ctl_name = VM_LOWMEM_LEVEL1_NOTIFY,
+		.procname = "lowmem_notify_low",
+		.data = &l1_notify,
+		.maxlen = sizeof(unsigned int),
+		.mode = 0444,
+		.child = NULL,
+		.proc_handler = &proc_dointvec_l1_notify,
+		.strategy = &sysctl_intvec,
+	}, {
+		.ctl_name = VM_LOWMEM_LEVEL2_NOTIFY,
+		.procname = "lowmem_notify_high",
+		.data = &l2_notify,
+		.maxlen = sizeof(unsigned int),
+		.mode = 0444,
+		.child = NULL,
+		.proc_handler = &proc_dointvec_l2_notify,
+		.strategy = &sysctl_intvec,
+	}, {
+		.ctl_name = VM_LOWMEM_USED_PAGES,
+		.procname = "lowmem_used_pages",
+		.data = &used_pages,
+		.maxlen = sizeof(long),
+		.mode = 0444,
+		.child = NULL,
+		.proc_handler = &proc_dointvec_used,
 		.strategy = &sysctl_intvec,
 	}, {
 		.ctl_name = VM_LOWMEM_NOTIFY_LOW_PAGES,
@@ -120,6 +176,44 @@ static ctl_table lowmem_root_table[] = {
 static struct kobj_attribute _name##_attr = __ATTR_RO(_name)
 
 static int low_watermark_reached, high_watermark_reached;
+
+static int
+proc_dointvec_l1_notify(ctl_table *table, int write, struct file *filp,
+			void __user *buffer, size_t *lenp, loff_t *ppos)
+{
+	l1_notify =
+	100 - (100 * notify_low_pages + allowed_pages / 2) / allowed_pages;
+	return proc_dointvec(table, write, filp, buffer, lenp, ppos);
+}
+
+static int
+proc_dointvec_l2_notify(ctl_table *table, int write, struct file *filp,
+			void __user *buffer, size_t *lenp, loff_t *ppos)
+{
+	l2_notify =
+	100 - (100 * notify_high_pages + allowed_pages / 2) / allowed_pages;
+	return proc_dointvec(table, write, filp, buffer, lenp, ppos);
+}
+
+static int
+proc_dointvec_deny(ctl_table *table, int write, struct file *filp,
+			void __user *buffer, size_t *lenp, loff_t *ppos)
+{
+	deny_percentage =
+	100 - (100 * deny_pages + allowed_pages / 2) / allowed_pages;
+	return proc_dointvec(table, write, filp, buffer, lenp, ppos);
+}
+
+static int
+proc_dointvec_used(ctl_table *table, int write, struct file *filp,
+			void __user *buffer, size_t *lenp, loff_t *ppos)
+{
+	if (lowmem_free_pages > 0 && allowed_pages > lowmem_free_pages)
+		used_pages = allowed_pages - lowmem_free_pages;
+	else
+		used_pages = 0;
+	return proc_dointvec(table, write, filp, buffer, lenp, ppos);
+}
 
 static ssize_t low_watermark_show(struct kobject *kobj,
 				  struct kobj_attribute *attr, char *page)
