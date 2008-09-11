@@ -9,6 +9,7 @@
 #include <linux/pagemap.h>
 #include <linux/hugetlb.h>
 #include <linux/sysfs.h>
+#include <linux/oom.h>
 
 #define MY_NAME "lowmem"
 
@@ -205,6 +206,10 @@ static int low_vm_enough_memory(long pages)
 		high_watermark_state(1);
 		/* Memory allocations by root are always allowed */
 		if (cap_sys_admin)
+			return 0;
+
+		/* OOM unkillable process is allowed to consume memory */
+		if (current->oomkilladj == OOM_DISABLE)
 			return 0;
 
 		/* uids from allowed_uids vector are also allowed no matter what */
