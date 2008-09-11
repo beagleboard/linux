@@ -152,7 +152,7 @@ static void high_watermark_state(int new_state)
 	}
 }
 
-static int low_vm_enough_memory(long pages)
+static int low_vm_enough_memory(struct mm_struct *mm, long pages)
 {
 	unsigned long free, allowed;
 	int cap_sys_admin = 0, notify;
@@ -166,7 +166,7 @@ static int low_vm_enough_memory(long pages)
 	/* We activate ourselves only after both parameters have been
 	 * configured. */
 	if (deny_pages == 0 || notify_low_pages == 0 || notify_high_pages == 0)
-		return  __vm_enough_memory(pages, cap_sys_admin);
+		return  __vm_enough_memory(mm, pages, cap_sys_admin);
 
 	vm_acct_memory(pages);
 
