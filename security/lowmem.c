@@ -291,29 +291,7 @@ static int __init lowmem_init(void)
 	return 0;
 }
 
-static void __exit lowmem_exit(void)
-{
-	/* remove ourselves from the security framework */
-	if (secondary) {
-		if (mod_unreg_security(MY_NAME, &lowmem_security_ops))
-			printk(KERN_ERR MY_NAME ": Failure unregistering "
-			       "with the primary security module.\n");
-	} else {
-		if (unregister_security(&lowmem_security_ops)) {
-			printk(KERN_ERR MY_NAME ": Failure unregistering "
-			       "with the kernel.\n");
-		}
-	}
-
-	unregister_sysctl_table(lowmem_table_header);
-
-	sysfs_remove_group(kernel_kobj, &lowmem_attr_group);
-
-	printk(KERN_INFO MY_NAME ": Module removed.\n");
-}
-
 module_init(lowmem_init);
-module_exit(lowmem_exit);
 
 MODULE_DESCRIPTION("Low watermark LSM module");
 MODULE_LICENSE("GPL");
