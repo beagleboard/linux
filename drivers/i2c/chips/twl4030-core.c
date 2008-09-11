@@ -37,6 +37,7 @@
 #include <linux/random.h>
 #include <linux/syscalls.h>
 #include <linux/kthread.h>
+#include <linux/platform_device.h>
 
 #include <linux/i2c.h>
 #include <linux/i2c/twl4030.h>
@@ -742,6 +743,55 @@ static int __init twl4030_detect_client(struct i2c_adapter *adapter,
 	return err;
 }
 
+static int add_children(void)
+{
+	static bool		children;
+
+	struct platform_device	*pdev = NULL;
+	struct twl4030_client	*twl = NULL;
+	int			status = 0;
+
+	/* FIXME this doesn't yet set up platform_data for anything;
+	 * it can't be available until this becomes a "new style"
+	 * I2C driver.  Similarly, a new style driver will know it
+	 * didn't already initialize its children.
+	 */
+
+	if (children)
+		return 0;
+
+#ifdef CONFIG_RTC_DRV_TWL4030
+	pdev = platform_device_alloc("twl4030_rtc", -1);
+	if (pdev) {
+		twl = &twl4030_modules[TWL4030_SLAVENUM_NUM3];
+		pdev->dev.parent = &twl->client.dev;
+		device_init_wakeup(&pdev->dev, 1);
+
+		/*
+		 * FIXME add the relevant IRQ resource, and make the
+		 * rtc driver use it instead of hard-wiring ...
+		 *
+		 * REVISIT platform_data here currently only supports
+		 * setting up the "msecure" line ... which actually
+		 * violates the "princple of least privilege", since
+		 * it's effectively always in "high trust" mode.
+		 *
+		 * For now, expect equivalent treatment at board init:
+		 * setting msecure high.  Eventually, Linux might
+		 * become more aware of those HW security concerns.
+		 */
+
+		status = platform_device_add(pdev);
+		if (status < 0)
+			platform_device_put(pdev);
+	} else
+		status = -ENOMEM;
+#endif
+
+	children = true;
+	return status;
+}
+
 /* adapter callback */
 static int __init twl4030_attach_adapter(struct i2c_adapter *adapter)
 {
@@ -758,6 +808,8 @@ static int __init twl4030_attach_adapter(struct i2c_adapter *adapter)
 		}
 	}
 	twl_i2c_adapter++;
+
+	add_children();
 
 	/*
 	 * Check if the PIH module is initialized, if yes, then init

@@ -105,11 +105,6 @@ static struct omap_lcd_config omap3_evm_lcd_config __initdata = {
 	.ctrl_name	= "internal",
 };
 
-static struct platform_device omap3_evm_twl4030rtc_device = {
-	.name		= "twl4030_rtc",
-	.id		= -1,
-};
-
 static void ads7846_dev_init(void)
 {
 	if (omap_request_gpio(OMAP3_EVM_TS_GPIO) < 0)
@@ -207,9 +202,6 @@ static struct omap_board_config_kernel omap3_evm_config[] __initdata = {
 static struct platform_device *omap3_evm_devices[] __initdata = {
 	&omap3_evm_lcd_device,
 	&omap3evm_kp_device,
-#ifdef CONFIG_RTC_DRV_TWL4030
-	&omap3_evm_twl4030rtc_device,
-#endif
 	&omap3evm_smc911x_device,
 };
 

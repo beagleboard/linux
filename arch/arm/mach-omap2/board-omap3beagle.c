@@ -125,11 +125,6 @@ static void __init omap3_beagle_init_irq(void)
 	omap_gpio_init();
 }
 
-static struct platform_device omap3_beagle_twl4030rtc_device = {
-	.name           = "twl4030_rtc",
-	.id             = -1,
-};
-
 static struct platform_device omap3_beagle_lcd_device = {
 	.name		= "omap3beagle_lcd",
 	.id		= -1,
@@ -194,9 +189,6 @@ static struct omap_board_config_kernel omap3_beagle_config[] __initdata = {
 
 static struct platform_device *omap3_beagle_devices[] __initdata = {
 	&omap3_beagle_lcd_device,
-#ifdef CONFIG_RTC_DRV_TWL4030
-	&omap3_beagle_twl4030rtc_device,
-#endif
 	&leds_gpio,
 	&keys_gpio,
 };
