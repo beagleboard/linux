@@ -117,16 +117,18 @@ static ctl_table lowmem_root_table[] = {
 };
 
 #define KERNEL_ATTR_RO(_name) \
-static struct subsys_attribute _name##_attr = __ATTR_RO(_name)
+static struct kobj_attribute _name##_attr = __ATTR_RO(_name)
 
 static int low_watermark_reached, high_watermark_reached;
 
-static ssize_t low_watermark_show(struct subsystem *subsys, char *page)
+static ssize_t low_watermark_show(struct kobject *kobj,
+				  struct kobj_attribute *attr, char *page)
 {
 	return sprintf(page, "%u\n", low_watermark_reached);
 }
 
-static ssize_t high_watermark_show(struct subsystem *subsys, char *page)
+static ssize_t high_watermark_show(struct kobject *kobj,
+				   struct kobj_attribute *attr, char *page)
 {
 	return sprintf(page, "%u\n", high_watermark_reached);
 }
@@ -138,7 +140,7 @@ static void low_watermark_state(int new_state)
 {
 	if (low_watermark_reached != new_state) {
 		low_watermark_reached = new_state;
-		sysfs_notify(&kernel_subsys.kset.kobj, NULL, "low_watermark");
+		sysfs_notify(kernel_kobj, NULL, "low_watermark");
 	}
 }
 
@@ -146,7 +148,7 @@ static void high_watermark_state(int new_state)
 {
 	if (high_watermark_reached != new_state) {
 		high_watermark_reached = new_state;
-		sysfs_notify(&kernel_subsys.kset.kobj, NULL, "high_watermark");
+		sysfs_notify(kernel_kobj, NULL, "high_watermark");
 	}
 }
 
@@ -279,9 +281,7 @@ static int __init lowmem_init(void)
 	if (unlikely(!lowmem_table_header))
 		return -EPERM;
 
-	kernel_subsys.kset.kobj.kset = &kernel_subsys.kset;
-
-	r = sysfs_create_group(&kernel_subsys.kset.kobj,
+	r = sysfs_create_group(kernel_kobj,
 			       &lowmem_attr_group);
 	if (unlikely(r))
 		return r;
@@ -307,7 +307,7 @@ static void __exit lowmem_exit(void)
 
 	unregister_sysctl_table(lowmem_table_header);
 
-	sysfs_remove_group(&kernel_subsys.kset.kobj, &lowmem_attr_group);
+	sysfs_remove_group(kernel_kobj, &lowmem_attr_group);
 
 	printk(KERN_INFO MY_NAME ": Module removed.\n");
 }
