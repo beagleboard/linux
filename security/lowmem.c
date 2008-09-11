@@ -340,8 +340,6 @@ static struct security_operations lowmem_security_ops = {
 };
 
 static struct ctl_table_header *lowmem_table_header;
-/* flag to keep track of how we were registered */
-static int secondary;
 
 static struct attribute *lowmem_attrs[] = {
 	&low_watermark_attr.attr,
@@ -360,13 +358,7 @@ static int __init lowmem_init(void)
 	/* register ourselves with the security framework */
 	if (register_security(&lowmem_security_ops)) {
 		printk(KERN_ERR MY_NAME ": Failure registering with the kernel\n");
-		/* try registering with primary module */
-		if (mod_reg_security(MY_NAME, &lowmem_security_ops)) {
-			printk(KERN_ERR ": Failure registering with the primary"
-			       "security module.\n");
-			return -EINVAL;
-		}
-		secondary = 1;
+		return -EINVAL;
 	}
 
 	/* initialize the uids vector */
