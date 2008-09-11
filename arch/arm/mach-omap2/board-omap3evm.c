@@ -215,6 +215,8 @@ static struct platform_device *omap3_evm_devices[] __initdata = {
 
 static void __init omap3_evm_init(void)
 {
+	omap3_evm_i2c_init();
+
 	platform_add_devices(omap3_evm_devices, ARRAY_SIZE(omap3_evm_devices));
 	omap_board_config = omap3_evm_config;
 	omap_board_config_size = ARRAY_SIZE(omap3_evm_config);
@@ -229,8 +231,6 @@ static void __init omap3_evm_init(void)
 	omap3evm_flash_init();
 	ads7846_dev_init();
 }
-
-arch_initcall(omap3_evm_i2c_init);
 
 static void __init omap3_evm_map_io(void)
 {

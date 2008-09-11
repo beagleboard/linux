@@ -253,6 +253,8 @@ static struct platform_device *omap2_evm_devices[] __initdata = {
 
 static void __init omap2_evm_init(void)
 {
+	omap2_evm_i2c_init();
+
 	platform_add_devices(omap2_evm_devices, ARRAY_SIZE(omap2_evm_devices));
 	omap_board_config = omap2_evm_config;
 	omap_board_config_size = ARRAY_SIZE(omap2_evm_config);
@@ -266,8 +268,6 @@ static void __init omap2_evm_map_io(void)
 	omap2_set_globals_243x();
 	omap2_map_common_io();
 }
-
-arch_initcall(omap2_evm_i2c_init);
 
 MACHINE_START(OMAP2EVM, "OMAP2EVM Board")
 	/* Maintainer:  Arun KS <arunks@mistralsolutions.com> */

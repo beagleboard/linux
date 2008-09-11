@@ -346,6 +346,7 @@ extern void __init sdp3430_flash_init(void);
 
 static void __init omap_3430sdp_init(void)
 {
+	omap3430_i2c_init();
 	platform_add_devices(sdp3430_devices, ARRAY_SIZE(sdp3430_devices));
 	omap_board_config = sdp3430_config;
 	omap_board_config_size = ARRAY_SIZE(sdp3430_config);
@@ -370,7 +371,6 @@ static void __init omap_3430sdp_map_io(void)
 	omap2_set_globals_343x();
 	omap2_map_common_io();
 }
-arch_initcall(omap3430_i2c_init);
 
 MACHINE_START(OMAP_3430SDP, "OMAP3430 3430SDP board")
 	/* Maintainer: Syed Khasim - Texas Instruments Inc */

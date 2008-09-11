@@ -215,6 +215,7 @@ static int __init omap_i2c_init(void)
 
 static void __init omap_ldp_init(void)
 {
+	omap_i2c_init();
 	platform_add_devices(ldp_devices, ARRAY_SIZE(ldp_devices));
 	omap_board_config = ldp_config;
 	omap_board_config_size = ARRAY_SIZE(ldp_config);
@@ -234,7 +235,6 @@ static void __init omap_ldp_map_io(void)
 	omap2_set_globals_343x();
 	omap2_map_common_io();
 }
-arch_initcall(omap_i2c_init);
 
 MACHINE_START(OMAP_LDP, "OMAP LDP board")
 	.phys_io	= 0x48000000,

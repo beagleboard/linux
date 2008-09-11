@@ -384,6 +384,8 @@ static int __init omap2430_i2c_init(void)
 
 static void __init omap_2430sdp_init(void)
 {
+	omap2430_i2c_init();
+
 	platform_add_devices(sdp2430_devices, ARRAY_SIZE(sdp2430_devices));
 	omap_board_config = sdp2430_config;
 	omap_board_config_size = ARRAY_SIZE(sdp2430_config);
@@ -407,8 +409,6 @@ static void __init omap_2430sdp_map_io(void)
 	omap2_set_globals_243x();
 	omap2_map_common_io();
 }
-
-arch_initcall(omap2430_i2c_init);
 
 MACHINE_START(OMAP_2430SDP, "OMAP2430 sdp2430 board")
 	/* Maintainer: Syed Khasim - Texas Instruments Inc */
