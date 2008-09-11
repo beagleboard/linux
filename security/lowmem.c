@@ -136,28 +136,18 @@ KERNEL_ATTR_RO(high_watermark);
 
 static void low_watermark_state(int new_state)
 {
-	int changed = 0;
-
 	if (low_watermark_reached != new_state) {
 		low_watermark_reached = new_state;
-		changed = 1;
-	}
-
-	if (changed)
 		sysfs_notify(&kernel_subsys.kset.kobj, NULL, "low_watermark");
+	}
 }
 
 static void high_watermark_state(int new_state)
 {
-	int changed = 0;
-
 	if (high_watermark_reached != new_state) {
 		high_watermark_reached = new_state;
-		changed = 1;
-	}
-
-	if (changed)
 		sysfs_notify(&kernel_subsys.kset.kobj, NULL, "high_watermark");
+	}
 }
 
 static int low_vm_enough_memory(long pages)
