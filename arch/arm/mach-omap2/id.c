@@ -20,7 +20,6 @@
 #include <mach/control.h>
 #include <mach/cpu.h>
 
-static u32 class;
 static void __iomem *tap_base;
 static u16 tap_prod_id;
 
@@ -67,6 +66,27 @@ int omap_chip_is(struct omap_chip_id oci)
 	return (oci.oc & omap_chip.oc) ? 1 : 0;
 }
 EXPORT_SYMBOL(omap_chip_is);
+
+int omap_type(void)
+{
+	u32 val = 0;
+
+	if (cpu_is_omap24xx()) {
+		val = omap_ctrl_readl(OMAP24XX_CONTROL_STATUS);
+	} else if (cpu_is_omap34xx()) {
+		val = omap_ctrl_readl(OMAP343X_CONTROL_STATUS);
+	} else {
+		pr_err("Cannot detect omap type!\n");
+		goto out;
+	}
+
+	val &= OMAP2_DEVICETYPE_MASK;
+	val >>= 8;
+
+out:
+	return val;
+}
+EXPORT_SYMBOL(omap_type);
 
 static u32 __init read_tap_reg(int reg)
 {
@@ -189,7 +209,7 @@ static void __init _set_omap_chip(void)
 
 }
 
-void __init omap2_check_revision(void)
+void __init omap24xx_check_revision(void)
 {
 	int i, j;
 	u32 idcode;
@@ -217,18 +237,6 @@ void __init omap2_check_revision(void)
 		 read_tap_reg(OMAP_TAP_DIE_ID_3));
 	pr_debug("OMAP_TAP_PROD_ID_0: 0x%08x DEV_TYPE: %i\n",
 		 prod_id, dev_type);
-
-	/*
-	 * Detection for 34xx ES2.0 and above can be done with just
-	 * hawkeye and rev. See TRM 1.5.2 Device Identification.
-	 * Note that rev cannot be used directly as ES1.0 uses value 0.
-	 */
-	if (hawkeye == 0xb7ae) {
-		system_rev = 0x34300000 | ((1 + rev) << 12);
-		pr_info("OMAP%04x ES2.%i\n", system_rev >> 16, rev);
-		_set_omap_chip();
-		return;
-	}
 
 	/* Check hawkeye ids */
 	for (i = 0; i < ARRAY_SIZE(omap_ids); i++) {
@@ -264,12 +272,58 @@ void __init omap2_check_revision(void)
 
 }
 
+void __init omap34xx_check_revision(void)
+{
+	u32 idcode;
+	u32 prod_id;
+	u16 hawkeye;
+	u8  rev;
+
+	idcode = read_tap_reg(OMAP_TAP_IDCODE);
+	prod_id = read_tap_reg(tap_prod_id);
+	hawkeye = (idcode >> 12) & 0xffff;
+	rev = (idcode >> 28) & 0x0f;
+
+	/*
+	 * Detection for 34xx ES2.0 and above can be done with just
+	 * hawkeye and rev. See TRM 1.5.2 Device Identification.
+	 * Note that rev cannot be used directly as ES1.0 uses value 0.
+	 */
+	if (hawkeye == 0xb7ae) {
+		system_rev = 0x34300000 | ((1 + rev) << 12);
+		pr_info("OMAP%04x ES2.%i\n", system_rev >> 16, rev);
+		_set_omap_chip();
+		return;
+	}
+}
+
+void __init omap2_check_revision(void)
+{
+	/*
+	 * At this point we have an idea about the processor revision set
+	 * earlier with omap2_set_globals_tap().
+	 */
+	if (cpu_is_omap24xx())
+		omap24xx_check_revision();
+	else if (cpu_is_omap34xx())
+		omap34xx_check_revision();
+	else
+		pr_err("OMAP revision unknown, please fix!\n");
+}
+
+/*
+ * Set up things for map_io and processor detection later on. Gets called
+ * pretty much first thing from board init. For multi-omap, this gets
+ * cpu_is_omapxxxx() working accurately enough for map_io. Then we'll try to
+ * detect the exact revision later on in omap2_detect_revision() once map_io
+ * is done.
+ */
 void __init omap2_set_globals_tap(struct omap_globals *omap2_globals)
 {
-	class = omap2_globals->class;
+	system_rev = omap2_globals->class;
 	tap_base = omap2_globals->tap;
 
-	if (class == 0x3430)
+	if (cpu_is_omap34xx())
 		tap_prod_id = 0x0210;
 	else
 		tap_prod_id = 0x0208;
