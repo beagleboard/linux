@@ -149,7 +149,7 @@ struct triton_ins t2_wrst_seq[] __initdata = {
 struct triton_ins sleep_on_seq[] __initdata = {
 	{MSG_BROADCAST(DEV_GRP_NULL, RES_GRP_RC, RES_TYPE_ALL, RES_TYPE2_R0,
 			RES_STATE_SLEEP), 4},
-	{MSG_BROADCAST(DEV_GRP_NULL, RES_GRP_ALL, RES_TYPE_ALL, RES_TYPE_R7,
+	{MSG_BROADCAST(DEV_GRP_NULL, RES_GRP_ALL, RES_TYPE_ALL, RES_TYPE2_R0,
 			RES_STATE_SLEEP), 4},
 };
 
@@ -160,6 +160,9 @@ struct triton_ins sleep_off_seq[] __initdata = {
 	{MSG_BROADCAST(DEV_GRP_NULL, RES_GRP_ALL, RES_TYPE_ALL, RES_TYPE2_R0,
 			RES_STATE_ACTIVE), 0x2},
 };
+
+struct triton_ins t2_wrst_seq[] __initdata = { };
+
 #endif
 
 static int __init twl4030_write_script_byte(u8 address, u8 byte)
@@ -212,7 +215,6 @@ static int __init twl4030_write_script(u8 address, struct triton_ins *script,
 static int __init config_sleep_wake_sequence(void)
 {
 	int err = 0;
-	u8 data;
 
 	/*
 	 * CLKREQ is pulled high on the 2430SDP, therefore, we need to take
