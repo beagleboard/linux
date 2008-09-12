@@ -66,7 +66,7 @@ struct lcd_panel omap3beagle_panel = {
 	.name		= "omap3beagle",
 	.config		= OMAP_LCDC_PANEL_TFT,
 
-	.bpp		= 24,
+	.bpp		= 16,
 	.data_lines	= 24,
 	.x_res		= LCD_XRES,
 	.y_res		= LCD_YRES,
