@@ -438,7 +438,11 @@ static int ehci_hcd_omap_drv_probe(struct platform_device *dev)
 	hcd->rsrc_start = dev->resource[0].start;
 	hcd->rsrc_len = dev->resource[0].end - dev->resource[0].start + 1;
 
-	hcd->regs = (void __iomem *) (int) IO_ADDRESS(hcd->rsrc_start);
+	hcd->regs = ioremap(hcd->rsrc_start, hcd->rsrc_len);
+	if (!hcd->regs) {
+		dev_err(&dev->dev, "ioremap failed\n");
+		return -ENOMEM;
+	}
 
 	ehci = hcd_to_ehci(hcd);
 	ehci->caps = hcd->regs;
@@ -457,8 +461,9 @@ static int ehci_hcd_omap_drv_probe(struct platform_device *dev)
 
 	dev_dbg(hcd->self.controller, "ERR: add_hcd");
 	omap_stop_ehc(dev, hcd);
-
+	iounmap(hcd->regs);
 	usb_put_hcd(hcd);
+
 	return retval;
 }
 
@@ -483,6 +488,7 @@ static int ehci_hcd_omap_drv_remove(struct platform_device *dev)
 
 	dev_dbg(&dev->dev, "ehci_hcd_omap_drv_remove()");
 
+	iounmap(hcd->regs);
 	usb_remove_hcd(hcd);
 	usb_put_hcd(hcd);
 	omap_stop_ehc(dev, hcd);
