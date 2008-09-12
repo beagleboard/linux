@@ -263,7 +263,7 @@ static void omap2_clk_wait_ready(struct clk *clk)
 		    (reg & 0x0f) == 0 &&
 		    clk->enable_bit == OMAP3430_EN_SSI_SHIFT) {
 
-			if (is_sil_rev_equal_to(OMAP3430_REV_ES1_0))
+			if (system_rev == OMAP3430_REV_ES1_0)
 				return;
 
 			idlest_bit = OMAP3430ES2_ST_SSI_IDLE;
@@ -273,7 +273,7 @@ static void omap2_clk_wait_ready(struct clk *clk)
 		if (prcm_mod == OMAP34XX_CM_REGADDR(OMAP3430_DSS_MOD, 0)) {
 
 			/* 3430ES1 DSS has no target idlest bits */
-			if (is_sil_rev_equal_to(OMAP3430_REV_ES1_0))
+			if (system_rev == OMAP3430_REV_ES1_0)
 				return;
 
 			/*
@@ -287,7 +287,7 @@ static void omap2_clk_wait_ready(struct clk *clk)
 		}
 
 		/* USBHOST */
-		if (is_sil_rev_greater_than(OMAP3430_REV_ES1_0) &&
+		if (system_rev > OMAP3430_REV_ES1_0 &&
 		    prcm_mod == OMAP34XX_CM_REGADDR(OMAP3430ES2_USBHOST_MOD, 0)) {
 
 			/*

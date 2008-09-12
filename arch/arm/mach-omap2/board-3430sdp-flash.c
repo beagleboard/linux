@@ -148,7 +148,7 @@ void __init sdp3430_flash_init(void)
 	u8		onenandcs = GPMC_CS_NUM + 1;
 
 	/* Configure start address and size of NOR device */
-	if (is_sil_rev_greater_than(OMAP3430_REV_ES1_0)) {
+	if (system_rev > OMAP3430_REV_ES1_0) {
 		sdp_nor_resource.start	= FLASH_BASE_SDPV2;
 		sdp_nor_resource.end	= FLASH_BASE_SDPV2
 						+ FLASH_SIZE_SDPV2 - 1;
