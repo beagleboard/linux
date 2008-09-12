@@ -36,6 +36,7 @@
 #include <mach/omapfb.h>
 #include <mach/hwa742.h>
 #include <mach/lcd_mipid.h>
+#include <mach/mmc.h>
 
 #define ADS7846_PENDOWN_GPIO	15
 
@@ -215,26 +216,29 @@ static struct omap_usb_config nokia770_usb_config __initdata = {
 	.pins[0]	= 6,
 };
 
-static struct omap_mmc_config nokia770_mmc_config __initdata = {
-	.mmc[0] = {
-		.enabled	= 0,
-		.wire4		= 0,
-		.wp_pin		= -1,
-		.power_pin	= -1,
-		.switch_pin	= -1,
+static struct omap_mmc_platform_data nokia770_mmc_data = {
+	.nr_slots                       = 2,
+	.slots[0]       = {
+		.enabled		= 0,
+		.wire4			= 0,
+		.wp_pin			= -1,
+		.power_pin		= -1,
+		.switch_pin		= -1,
+		.name                   = "mmcblk",
 	},
-	.mmc[1] = {
-		.enabled	= 0,
-		.wire4		= 0,
-		.wp_pin		= -1,
-		.power_pin	= -1,
-		.switch_pin	= -1,
+	.slots[1]       = {
+		.enabled		= 0,
+		.wire4			= 0,
+		.wp_pin			= -1,
+		.power_pin		= -1,
+		.switch_pin		= -1,
+		.name                   = "mmcblk",
 	},
+
 };
 
 static struct omap_board_config_kernel nokia770_config[] __initdata = {
 	{ OMAP_TAG_USB,		NULL },
-	{ OMAP_TAG_MMC,		&nokia770_mmc_config },
 };
 
 #if	defined(CONFIG_OMAP_DSP)
@@ -378,6 +382,7 @@ static void __init omap_nokia770_init(void)
 	hwa742_dev_init();
 	ads7846_dev_init();
 	mipid_dev_init();
+	omap1_init_mmc(&nokia770_mmc_data);
 }
 
 static void __init omap_nokia770_map_io(void)

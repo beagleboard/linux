@@ -14,6 +14,7 @@
 
 #include <mach/mmc.h>
 #include <mach/gpio.h>
+#include <mach/mmc.h>
 
 #ifdef CONFIG_MMC_OMAP
 static int slot_cover_open;
@@ -87,6 +88,8 @@ static struct omap_mmc_platform_data h3_mmc_data = {
 	.init                           = h3_mmc_late_init,
 	.cleanup                        = h3_mmc_cleanup,
 	.slots[0]       = {
+		.enabled		= 1,
+		.wire4			= 1,
 		.set_power              = h3_mmc_set_power,
 		.set_bus_mode           = h3_mmc_set_bus_mode,
 		.get_ro                 = NULL,
@@ -99,7 +102,7 @@ static struct omap_mmc_platform_data h3_mmc_data = {
 
 void __init h3_mmc_init(void)
 {
-	omap_set_mmc_info(1, &h3_mmc_data);
+	omap1_init_mmc(&h3_mmc_data);
 }
 
 #else

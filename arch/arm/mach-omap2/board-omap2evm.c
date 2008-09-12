@@ -229,17 +229,9 @@ static struct omap_uart_config omap2_evm_uart_config __initdata = {
 	.enabled_uarts	= ((1 << 0) | (1 << 1) | (1 << 2)),
 };
 
-static struct omap_mmc_config omap2_evm_mmc_config __initdata = {
-	.mmc [0] = {
-		.enabled        = 1,
-		.wire4          = 1,
-	},
-};
-
 static struct omap_board_config_kernel omap2_evm_config[] __initdata = {
 	{ OMAP_TAG_UART,	&omap2_evm_uart_config },
 	{ OMAP_TAG_LCD,		&omap2_evm_lcd_config },
-	{ OMAP_TAG_MMC,		&omap2_evm_mmc_config },
 };
 
 static int __init omap2_evm_i2c_init(void)

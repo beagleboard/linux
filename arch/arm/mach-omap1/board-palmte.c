@@ -45,6 +45,7 @@
 #include <mach/mcbsp.h>
 #include <mach/omap-alsa.h>
 #include <mach/gpio-switch.h>
+#include <mach/mmc.h>
 
 static void __init omap_palmte_init_irq(void)
 {
@@ -196,12 +197,14 @@ static struct omap_usb_config palmte_usb_config __initdata = {
 	.pins[0]	= 2,
 };
 
-static struct omap_mmc_config palmte_mmc_config __initdata = {
-	.mmc[0]		= {
-		.enabled 	= 1,
-		.wp_pin		= PALMTE_MMC_WP_GPIO,
-		.power_pin	= PALMTE_MMC_POWER_GPIO,
-		.switch_pin	= PALMTE_MMC_SWITCH_GPIO,
+static struct omap_mmc_platform_data palmzte_mmc_data = {
+	.nr_slots                       = 1,
+	.slots[0]       = {
+		.enabled		= 1,
+		.wp_pin			= PALMTE_MMC_WP_GPIO,
+		.power_pin		= PALMTE_MMC_POWER_GPIO,
+		.switch_pin		= PALMTE_MMC_SWITCH_GPIO,
+		.name                   = "mmcblk",
 	},
 };
 
@@ -317,7 +320,6 @@ static void palmte_get_power_status(struct apm_power_info *info, int *battery)
 
 static struct omap_board_config_kernel palmte_config[] __initdata = {
 	{ OMAP_TAG_USB,		&palmte_usb_config },
-	{ OMAP_TAG_MMC,		&palmte_mmc_config },
 	{ OMAP_TAG_LCD,		&palmte_lcd_config },
 	{ OMAP_TAG_UART,	&palmte_uart_config },
 };
@@ -408,6 +410,7 @@ static void __init omap_palmte_init(void)
 	palmte_misc_gpio_setup();
 	omap_serial_init();
 	omap_register_i2c_bus(1, 100, NULL, 0);
+	omap1_init_mmc(&palmte_mmc_data);
 }
 
 static void __init omap_palmte_map_io(void)

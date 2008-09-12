@@ -19,11 +19,13 @@
 #include <asm/mach-types.h>
 #include <asm/mach/map.h>
 
+#include <mach/control.h>
 #include <mach/tc.h>
 #include <mach/board.h>
 #include <mach/mux.h>
 #include <mach/gpio.h>
 #include <mach/eac.h>
+#include <mach/mmc.h>
 
 #if defined(CONFIG_VIDEO_OMAP2) || defined(CONFIG_VIDEO_OMAP2_MODULE)
 
@@ -353,6 +355,115 @@ static void omap_init_sha1_md5(void)
 #else
 static inline void omap_init_sha1_md5(void) { }
 #endif
+
+/*-------------------------------------------------------------------------*/
+
+#if	defined(CONFIG_MMC_OMAP) || defined(CONFIG_MMC_OMAP_MODULE) || \
+	defined(CONFIG_MMC_OMAP_HS) || defined(CONFIG_MMC_OMAP_HS_MODULE)
+
+#define	OMAP2_MMC1_BASE		0x4809c000
+#define	OMAP2_MMC1_END		(OMAP2_MMC1_BASE + 0x1fc)
+#define	OMAP2_MMC1_INT		INT_24XX_MMC_IRQ
+
+#define	OMAP2_MMC2_BASE		0x480b4000
+#define	OMAP2_MMC2_END		(OMAP2_MMC2_BASE + 0x1fc)
+#define	OMAP2_MMC2_INT		INT_24XX_MMC2_IRQ
+
+static u64 omap2_mmc1_dmamask = 0xffffffff;
+
+static struct resource omap2_mmc1_resources[] = {
+	{
+		.start		= OMAP2_MMC1_BASE,
+		.end		= OMAP2_MMC1_END,
+		.flags		= IORESOURCE_MEM,
+	},
+	{
+		.start		= OMAP2_MMC1_INT,
+		.flags		= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device omap2_mmc1_device = {
+	.name		= "mmci-omap",
+	.id		= 1,
+	.dev = {
+		.dma_mask	= &omap2_mmc1_dmamask,
+	},
+	.num_resources	= ARRAY_SIZE(omap2_mmc1_resources),
+	.resource	= omap2_mmc1_resources,
+};
+
+static u64 omap2_mmc2_dmamask = 0xffffffff;
+
+static struct resource omap2_mmc2_resources[] = {
+	{
+		.start		= OMAP2_MMC2_BASE,
+		.end		= OMAP2_MMC2_END,
+		.flags		= IORESOURCE_MEM,
+	},
+	{
+		.start		= OMAP2_MMC2_INT,
+		.flags		= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device omap2_mmc2_device = {
+	.name		= "mmci-omap",
+	.id		= 2,
+	.dev = {
+		.dma_mask	= &omap2_mmc2_dmamask,
+	},
+	.num_resources	= ARRAY_SIZE(omap2_mmc2_resources),
+	.resource	= omap2_mmc2_resources,
+};
+
+static inline void omap2_mmc_mux(struct omap_mmc_platform_data *info)
+{
+	if (!cpu_is_omap2420())
+		return;
+
+	if (info->slots[0].enabled) {
+		omap_cfg_reg(H18_24XX_MMC_CMD);
+		omap_cfg_reg(H15_24XX_MMC_CLKI);
+		omap_cfg_reg(G19_24XX_MMC_CLKO);
+		omap_cfg_reg(F20_24XX_MMC_DAT0);
+		omap_cfg_reg(F19_24XX_MMC_DAT_DIR0);
+		omap_cfg_reg(G18_24XX_MMC_CMD_DIR);
+		if (info->slots[0].wire4) {
+			omap_cfg_reg(H14_24XX_MMC_DAT1);
+			omap_cfg_reg(E19_24XX_MMC_DAT2);
+			omap_cfg_reg(D19_24XX_MMC_DAT3);
+			omap_cfg_reg(E20_24XX_MMC_DAT_DIR1);
+			omap_cfg_reg(F18_24XX_MMC_DAT_DIR2);
+			omap_cfg_reg(E18_24XX_MMC_DAT_DIR3);
+		}
+
+		/*
+		 * Use internal loop-back in MMC/SDIO Module Input Clock
+		 * selection
+		 */
+		if (info->slots[0].internal_clock) {
+			u32 v = omap_ctrl_readl(OMAP2_CONTROL_DEVCONF0);
+			v |= (1 << 24);
+			omap_ctrl_writel(v, OMAP2_CONTROL_DEVCONF0);
+		}
+	}
+}
+
+void omap2_init_mmc(struct omap_mmc_platform_data *info)
+{
+	if (!info)
+		return;
+
+	omap2_mmc_mux(info);
+	omap2_mmc1_device.dev.platform_data = info;
+	omap2_mmc2_device.dev.platform_data = info;
+	omap_init_mmc(info, &omap2_mmc1_device, &omap2_mmc2_device);
+}
+
+#endif
+
+/*-------------------------------------------------------------------------*/
 
 #if defined(CONFIG_HDQ_MASTER_OMAP) || defined(CONFIG_HDQ_MASTER_OMAP_MODULE)
 #if defined(CONFIG_ARCH_OMAP2430) || defined(CONFIG_ARCH_OMAP3430)

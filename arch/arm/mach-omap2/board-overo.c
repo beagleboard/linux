@@ -158,17 +158,6 @@ static void __init overo_init_irq(void)
 	omap_gpio_init();
 }
 
-static struct omap_mmc_config overo_mmc_config __initdata = {
-	.mmc[0] = {
-		.enabled	= 1,
-		.wire4		= 1,
-	},
-	.mmc[1] = {
-		.enabled	= 1,
-		.wire4		= 1,
-	},
-};
-
 static struct platform_device overo_twl4030rtc_device = {
 	.name           = "twl4030_rtc",
 	.id             = -1,
@@ -185,7 +174,6 @@ static struct omap_lcd_config overo_lcd_config __initdata = {
 
 static struct omap_board_config_kernel overo_config[] __initdata = {
 	{ OMAP_TAG_UART,	&overo_uart_config },
-	{ OMAP_TAG_MMC,		&overo_mmc_config },
 	{ OMAP_TAG_LCD,		&overo_lcd_config },
 };
 

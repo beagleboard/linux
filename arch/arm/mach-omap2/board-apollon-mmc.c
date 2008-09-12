@@ -10,6 +10,7 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/platform_device.h>
 
 #include <mach/gpio.h>
 #include <mach/mmc.h>
@@ -58,12 +59,24 @@ static void apollon_mmc_cleanup(struct device *dev)
 {
 }
 
+/*
+ * Note: If you want to detect card feature, please assign GPIO 37
+ */
 static struct omap_mmc_platform_data apollon_mmc_data = {
 	.nr_slots			= 1,
 	.switch_slot			= NULL,
 	.init				= apollon_mmc_late_init,
 	.cleanup			= apollon_mmc_cleanup,
 	.slots[0]	= {
+		.enabled		= 1,
+		.wire4			= 1,
+
+		/*
+		 * Use internal loop-back in MMC/SDIO Module Input Clock
+		 * selection
+		 */
+		.internal_clock		= 1,
+
 		.set_power		= apollon_mmc_set_power,
 		.set_bus_mode		= apollon_mmc_set_bus_mode,
 		.get_ro			= NULL,
@@ -76,7 +89,7 @@ static struct omap_mmc_platform_data apollon_mmc_data = {
 
 void __init apollon_mmc_init(void)
 {
-	omap_set_mmc_info(1, &apollon_mmc_data);
+	omap2_init_mmc(&apollon_mmc_data);
 }
 
 #else	/* !CONFIG_MMC_OMAP */

@@ -265,22 +265,12 @@ static void __init blizzard_dev_init(void)
 	omapfb_set_ctrl_platform_data(&n800_blizzard_data);
 }
 
-static struct omap_mmc_config n800_mmc_config __initdata = {
-	.mmc [0] = {
-		.enabled		= 1,
-		.wire4			= 1,
-	},
-};
-
-extern struct omap_mmc_platform_data n800_mmc_data;
-
 static struct omap_board_config_kernel n800_config[] __initdata = {
 	{ OMAP_TAG_UART,	                &n800_uart_config },
 	{ OMAP_TAG_FBMEM,			&n800_fbmem0_config },
 	{ OMAP_TAG_FBMEM,			&n800_fbmem1_config },
 	{ OMAP_TAG_FBMEM,			&n800_fbmem2_config },
 	{ OMAP_TAG_TMP105,			&n800_tmp105_config },
-	{ OMAP_TAG_MMC,				&n800_mmc_config },
 };
 
 static struct tsc2301_platform_data tsc2301_config = {

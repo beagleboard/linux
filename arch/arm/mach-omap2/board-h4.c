@@ -391,19 +391,6 @@ static struct omap_uart_config h4_uart_config __initdata = {
 #endif
 };
 
-static struct omap_mmc_config h4_mmc_config __initdata = {
-	.mmc [0] = {
-		.enabled	= 1,
-		.wire4		= 1,
-	},
-	.mmc [1] = {
-		.enabled	= 1,
-		.wire4		= 1,
-	},
-};
-
-extern struct omap_mmc_platform_data h4_mmc_data;
-
 static struct omap_lcd_config h4_lcd_config __initdata = {
 	.ctrl_name	= "internal",
 };
@@ -470,7 +457,6 @@ static struct spi_board_info h4_spi_board_info[] __initdata = {
 
 static struct omap_board_config_kernel h4_config[] __initdata = {
 	{ OMAP_TAG_UART,	&h4_uart_config },
-	{ OMAP_TAG_MMC,		&h4_mmc_config },
 	{ OMAP_TAG_LCD,		&h4_lcd_config },
 	{ OMAP_TAG_USB,		&h4_usb_config },
 };
@@ -662,13 +648,6 @@ static struct i2c_board_info __initdata h4_i2c_board_info[] = {
 		.platform_data = &h4_ov9640_platform_data,
 	},
 #endif
-};
-
-static struct i2c_board_info __initdata h4_i2c_board_info[] = {
-	{
-		I2C_BOARD_INFO("isp1301_omap", 0x2d),
-		.irq		= OMAP_GPIO_IRQ(125),
-	},
 };
 
 static void __init omap_h4_init(void)

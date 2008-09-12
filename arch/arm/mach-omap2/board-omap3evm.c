@@ -96,13 +96,6 @@ static int __init omap3_evm_i2c_init(void)
 	return 0;
 }
 
-static struct omap_mmc_config omap3_evm_mmc_config __initdata = {
-	.mmc [0] = {
-		.enabled        = 1,
-		.wire4          = 1,
-	},
-};
-
 static struct platform_device omap3_evm_lcd_device = {
 	.name		= "omap3evm_lcd",
 	.id		= -1,
@@ -208,7 +201,6 @@ static void __init omap3_evm_init_irq(void)
 
 static struct omap_board_config_kernel omap3_evm_config[] __initdata = {
 	{ OMAP_TAG_UART,	&omap3_evm_uart_config },
-	{ OMAP_TAG_MMC,		&omap3_evm_mmc_config },
 	{ OMAP_TAG_LCD,		&omap3_evm_lcd_config },
 };
 

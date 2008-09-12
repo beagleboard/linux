@@ -9,12 +9,15 @@
  * published by the Free Software Foundation.
  */
 
-#include <mach/mmc.h>
-#include <mach/gpio.h>
+#include <linux/delay.h>
+#include <linux/platform_device.h>
+#include <linux/i2c/menelaus.h>
 
 #include <asm/mach-types.h>
-#include <linux/delay.h>
-#include <linux/i2c/menelaus.h>
+
+#include <mach/mmc.h>
+#include <mach/gpio.h>
+#include <mach/mmc.h>
 
 #ifdef CONFIG_MMC_OMAP
 
@@ -301,6 +304,8 @@ static struct omap_mmc_platform_data n800_mmc_data = {
 	.shutdown		= n800_mmc_shutdown,
 	.max_freq               = 24000000,
 	.slots[0] = {
+		.enabled	= 1,
+		.wire4		= 1,
 		.set_power	= n800_mmc_set_power,
 		.set_bus_mode	= n800_mmc_set_bus_mode,
 		.get_ro		= NULL,
@@ -339,7 +344,6 @@ void __init n800_mmc_init(void)
 		n800_mmc_data.slots[1].ban_openended = 1;
 	}
 
-	omap_set_mmc_info(1, &n800_mmc_data);
 	if (omap_request_gpio(slot_switch_gpio) < 0)
 		BUG();
 	omap_set_gpio_dataout(slot_switch_gpio, 0);
@@ -356,6 +360,8 @@ void __init n800_mmc_init(void)
 		omap_set_gpio_dataout(n810_slot2_pw_vdd, 0);
 		omap_set_gpio_direction(n810_slot2_pw_vdd, 0);
 	}
+
+	omap2_init_mmc(&n800_mmc_data);
 }
 #else
 

@@ -12,6 +12,8 @@
  * published by the Free Software Foundation.
  */
 
+#include <linux/platform_device.h>
+
 #include <mach/hardware.h>
 #include <mach/mmc.h>
 #include <mach/gpio.h>
@@ -97,6 +99,8 @@ static struct omap_mmc_platform_data sx1_mmc_data = {
 	.init                           = sx1_mmc_late_init,
 	.cleanup                        = sx1_mmc_cleanup,
 	.slots[0]       = {
+		.enabled		= 1,
+		.wire4			= 0,
 		.set_power              = sx1_mmc_set_power,
 		.set_bus_mode           = sx1_mmc_set_bus_mode,
 		.get_ro                 = NULL,
@@ -109,7 +113,7 @@ static struct omap_mmc_platform_data sx1_mmc_data = {
 
 void __init sx1_mmc_init(void)
 {
-	omap_set_mmc_info(1, &sx1_mmc_data);
+	omap1_init_mmc(&sx1_mmc_data);
 }
 
 #else

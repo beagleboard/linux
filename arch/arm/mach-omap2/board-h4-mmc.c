@@ -14,11 +14,13 @@
  * published by the Free Software Foundation.
  */
 
-#include <mach/mmc.h>
+#include <linux/delay.h>
+#include <linux/platform_device.h>
+#include <linux/i2c/menelaus.h>
 
 #include <asm/mach-types.h>
-#include <linux/delay.h>
-#include <linux/i2c/menelaus.h>
+
+#include <mach/mmc.h>
 
 #ifdef CONFIG_MMC_OMAP
 
@@ -228,6 +230,8 @@ static struct omap_mmc_platform_data h4_mmc_data = {
 	.init			= h4_mmc_late_init,
 	.cleanup		= h4_mmc_cleanup,
 	.slots[0] = {
+		.enabled	= 1,
+		.wire4		= 1,
 		.set_power	= h4_mmc_set_power,
 		.set_bus_mode	= h4_mmc_set_bus_mode,
 		.get_ro		= NULL,
@@ -238,6 +242,8 @@ static struct omap_mmc_platform_data h4_mmc_data = {
 		.name		= "slot1",
 	},
 	.slots[1] = {
+		.enabled	= 1,
+		.wire4		= 1,
 		.set_power	= h4_mmc_set_power,
 		.set_bus_mode	= h4_mmc_set_bus_mode,
 		.get_ro		= NULL,
@@ -253,7 +259,7 @@ static struct omap_mmc_platform_data h4_mmc_data = {
 
 void __init h4_mmc_init(void)
 {
-	omap_set_mmc_info(1, &h4_mmc_data);
+	omap2_init_mmc(&h4_mmc_data);
 }
 
 #else

@@ -201,16 +201,8 @@ static struct omap_uart_config ldp_uart_config __initdata = {
 	.enabled_uarts	= ((1 << 0) | (1 << 1) | (1 << 2)),
 };
 
-static struct omap_mmc_config ldp_mmc_config __initdata = {
-	.mmc [0] = {
-		.enabled	= 1,
-		.wire4		= 1,
-	},
-};
-
 static struct omap_board_config_kernel ldp_config[] __initdata = {
 	{ OMAP_TAG_UART,	&ldp_uart_config },
-	{ OMAP_TAG_MMC,		&ldp_mmc_config },
 };
 
 static int __init omap_i2c_init(void)

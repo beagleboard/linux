@@ -265,6 +265,8 @@ static struct omap_mmc_platform_data hsmmc_data = {
 	.resume				= hsmmc_resume,
 #endif
 	.slots[0] = {
+		.enabled		= 1,
+		.wire4			= 1,
 		.set_power		= hsmmc_set_power,
 		.set_bus_mode		= NULL,
 		.get_ro			= NULL,
@@ -280,7 +282,7 @@ static struct omap_mmc_platform_data hsmmc_data = {
 
 void __init hsmmc_init(void)
 {
-	omap_set_mmc_info(1, &hsmmc_data);
+	omap2_init_mmc(&hsmmc_data);
 }
 
 #else

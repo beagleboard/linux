@@ -22,6 +22,7 @@
 #include <mach/board.h>
 #include <mach/mux.h>
 #include <mach/gpio.h>
+#include <mach/mmc.h>
 
 /*-------------------------------------------------------------------------*/
 
@@ -98,6 +99,136 @@ static inline void omap_init_mbox(void)
 #else
 static inline void omap_init_mbox(void) { }
 #endif
+
+/*-------------------------------------------------------------------------*/
+
+#if	defined(CONFIG_MMC_OMAP) || defined(CONFIG_MMC_OMAP_MODULE)
+
+#define	OMAP1_MMC1_BASE		0xfffb7800
+#define	OMAP1_MMC1_END		(OMAP1_MMC1_BASE + 0x7f)
+#define OMAP1_MMC1_INT		INT_MMC
+
+#define	OMAP1_MMC2_BASE		0xfffb7c00	/* omap16xx only */
+#define	OMAP1_MMC2_END		(OMAP1_MMC2_BASE + 0x7f)
+#define	OMAP1_MMC2_INT		INT_1610_MMC2
+
+static u64 omap1_mmc1_dmamask = 0xffffffff;
+
+static struct resource omap1_mmc1_resources[] = {
+	{
+		.start		= OMAP1_MMC1_BASE,
+		.end		= OMAP1_MMC1_END,
+		.flags		= IORESOURCE_MEM,
+	},
+	{
+		.start		= OMAP1_MMC1_INT,
+		.flags		= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device omap1_mmc1_device = {
+	.name		= "mmci-omap",
+	.id		= 1,
+	.dev = {
+		.dma_mask	= &omap1_mmc1_dmamask,
+	},
+	.num_resources	= ARRAY_SIZE(omap1_mmc1_resources),
+	.resource	= omap1_mmc1_resources,
+};
+
+#if defined(CONFIG_ARCH_OMAP16XX)
+
+static u64 omap1_mmc2_dmamask = 0xffffffff;
+
+static struct resource omap1_mmc2_resources[] = {
+	{
+		.start		= OMAP1_MMC2_BASE,
+		.end		= OMAP1_MMC2_END,
+		.flags		= IORESOURCE_MEM,
+	},
+	{
+		.start		= OMAP1_MMC2_INT,
+		.flags		= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device omap1_mmc2_device = {
+	.name		= "mmci-omap",
+	.id		= 2,
+	.dev = {
+		.dma_mask	= &omap1_mmc2_dmamask,
+	},
+	.num_resources	= ARRAY_SIZE(omap1_mmc2_resources),
+	.resource	= omap1_mmc2_resources,
+};
+#define OMAP1_MMC2_DEVICE	&omap1_mmc2_device
+#else
+#define OMAP1_MMC2_DEVICE	&omap1_mmc1_device	/* Dummy */
+#endif
+
+static inline void omap1_mmc_mux(struct omap_mmc_platform_data *info)
+{
+	if (info->slots[0].enabled) {
+		omap_cfg_reg(MMC_CMD);
+		omap_cfg_reg(MMC_CLK);
+		omap_cfg_reg(MMC_DAT0);
+		if (cpu_is_omap1710()) {
+			omap_cfg_reg(M15_1710_MMC_CLKI);
+			omap_cfg_reg(P19_1710_MMC_CMDDIR);
+			omap_cfg_reg(P20_1710_MMC_DATDIR0);
+		}
+		if (info->slots[0].wire4) {
+			omap_cfg_reg(MMC_DAT1);
+			/* NOTE: DAT2 can be on W10 (here) or M15 */
+			if (!info->slots[0].nomux)
+				omap_cfg_reg(MMC_DAT2);
+			omap_cfg_reg(MMC_DAT3);
+		}
+	}
+
+	/* Block 2 is on newer chips, and has many pinout options */
+	if (cpu_is_omap16xx() && info->slots[1].enabled) {
+		if (!info->slots[1].nomux) {
+			omap_cfg_reg(Y8_1610_MMC2_CMD);
+			omap_cfg_reg(Y10_1610_MMC2_CLK);
+			omap_cfg_reg(R18_1610_MMC2_CLKIN);
+			omap_cfg_reg(W8_1610_MMC2_DAT0);
+			if (info->slots[1].wire4) {
+				omap_cfg_reg(V8_1610_MMC2_DAT1);
+				omap_cfg_reg(W15_1610_MMC2_DAT2);
+				omap_cfg_reg(R10_1610_MMC2_DAT3);
+			}
+
+			/* These are needed for the level shifter */
+			omap_cfg_reg(V9_1610_MMC2_CMDDIR);
+			omap_cfg_reg(V5_1610_MMC2_DATDIR0);
+			omap_cfg_reg(W19_1610_MMC2_DATDIR1);
+		}
+
+		/* Feedback clock must be set on OMAP-1710 MMC2 */
+		if (cpu_is_omap1710())
+			omap_writel(omap_readl(MOD_CONF_CTRL_1) | (1 << 24),
+					MOD_CONF_CTRL_1);
+	}
+}
+
+void omap1_init_mmc(struct omap_mmc_platform_data *info)
+{
+	if (!info)
+		return;
+
+	omap1_mmc_mux(info);
+	platform_set_drvdata(&omap1_mmc1_device, info);
+
+	if (cpu_is_omap16xx())
+		platform_set_drvdata(OMAP1_MMC2_DEVICE, info);
+
+	omap_init_mmc(info, &omap1_mmc1_device, OMAP1_MMC2_DEVICE);
+}
+
+#endif
+
+/*-------------------------------------------------------------------------*/
 
 #if defined(CONFIG_OMAP_STI)
 
