@@ -215,6 +215,7 @@ static int __init twl4030_write_script(u8 address, struct triton_ins *script,
 static int __init config_sleep_wake_sequence(void)
 {
 	int err = 0;
+	u8 data;
 
 	/*
 	 * CLKREQ is pulled high on the 2430SDP, therefore, we need to take
