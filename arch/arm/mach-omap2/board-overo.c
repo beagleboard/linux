@@ -229,6 +229,12 @@ static void __init overo_init(void)
 					"OVERO_GPIO_W2W_NRESET\n");
 	}
 
+	if ((gpio_request(OVERO_GPIO_BT_XGATE, "OVERO_GPIO_BT_XGATE") == 0) &&
+	    (gpio_direction_output(OVERO_GPIO_BT_XGATE, 0) == 0))
+		gpio_export(OVERO_GPIO_BT_XGATE, 0);
+	else
+		printk(KERN_ERR "could not obtain gpio for OVERO_GPIO_BT_XGATE\n");
+
 	if ((gpio_request(OVERO_GPIO_BT_NRESET, "OVERO_GPIO_BT_NRESET") == 0) &&
 	    (gpio_direction_output(OVERO_GPIO_BT_NRESET, 1) == 0)) {
 		gpio_export(OVERO_GPIO_BT_NRESET, 0);
