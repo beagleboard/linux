@@ -176,11 +176,6 @@ static void __init overo_init_irq(void)
 	omap_gpio_init();
 }
 
-static struct platform_device overo_twl4030rtc_device = {
-	.name           = "twl4030_rtc",
-	.id             = -1,
-};
-
 static struct platform_device overo_lcd_device = {
 	.name		= "overo_lcd",
 	.id		= -1,
@@ -197,9 +192,6 @@ static struct omap_board_config_kernel overo_config[] __initdata = {
 
 static struct platform_device *overo_devices[] __initdata = {
 	&overo_lcd_device,
-#ifdef CONFIG_RTC_DRV_TWL4030
-	&overo_twl4030rtc_device,
-#endif
 };
 
 static void __init overo_init(void)
