@@ -18,7 +18,6 @@
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/clk.h>
-#include <linux/io.h>
 #include <linux/input.h>
 
 #include <linux/i2c/twl4030.h>

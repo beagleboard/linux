@@ -26,8 +26,6 @@
 #include <asm/mach/flash.h>
 #include <mach/tc.h>
 
-#include <asm/io.h>
-#include <mach/hardware.h>
 #include <mach/nand.h>
 
 #define	DRIVER_NAME	"omapnand"

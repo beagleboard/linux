@@ -28,7 +28,6 @@
 #include <linux/input.h>
 #include <linux/i2c/tps65010.h>
 #include <linux/clk.h>
-#include <linux/i2c.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/tsc210x.h>
 

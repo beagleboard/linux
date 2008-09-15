@@ -39,7 +39,6 @@
 #include <mach/hardware.h>
 #include <mach/dma.h>
 #include <asm/io.h>
-#include <mach/hardware.h>
 
 #include <mach/mux.h>
 #include <mach/io.h>

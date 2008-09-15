@@ -38,7 +38,6 @@
 #include <mach/gpmc.h>
 #include <mach/onenand.h>
 #include <mach/gpio.h>
-#include <mach/gpmc.h>
 #include <mach/pm.h>
 
 #include <linux/dma-mapping.h>
