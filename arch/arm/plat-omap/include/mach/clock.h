@@ -70,6 +70,7 @@ struct clk {
 	u16			enable_reg;
 	__u8			enable_bit;
 	__s8			usecount;
+	u8			idlest_bit;
 	void			(*recalc)(struct clk *);
 	int			(*set_rate)(struct clk *, unsigned long);
 	long			(*round_rate)(struct clk *, unsigned long);
@@ -143,7 +144,8 @@ extern void clk_init_cpufreq_table(struct cpufreq_frequency_table **table);
 #define CONFIG_PARTICIPANT	(1 << 10)	/* Fundamental clock */
 #define ENABLE_ON_INIT		(1 << 11)	/* Enable upon framework init */
 #define INVERT_ENABLE		(1 << 12)	/* 0 enables, 1 disables */
-/* bits 13-20 are currently free */
+#define WAIT_READY		(1 << 13)	/* wait for dev to leave idle */
+/* bits 14-20 are currently free */
 #define CLOCK_IN_OMAP310	(1 << 21)
 #define CLOCK_IN_OMAP730	(1 << 22)
 #define CLOCK_IN_OMAP1510	(1 << 23)
@@ -153,14 +155,14 @@ extern void clk_init_cpufreq_table(struct cpufreq_frequency_table **table);
 #define CLOCK_IN_OMAP343X	(1 << 27)	/* clocks common to all 343X */
 #define PARENT_CONTROLS_CLOCK	(1 << 28)
 #define CLOCK_IN_OMAP3430ES1	(1 << 29)	/* 3430ES1 clocks only */
-#define CLOCK_IN_OMAP3430ES2	(1 << 30)	/* 3430ES2 clocks only */
+#define CLOCK_IN_OMAP3430ES2	(1 << 30)	/* 3430ES2+ clocks only */
 
 /* Clksel_rate flags */
 #define DEFAULT_RATE		(1 << 0)
 #define RATE_IN_242X		(1 << 1)
 #define RATE_IN_243X		(1 << 2)
 #define RATE_IN_343X		(1 << 3)	/* rates common to all 343X */
-#define RATE_IN_3430ES2		(1 << 4)	/* 3430ES2 rates only */
+#define RATE_IN_3430ES2		(1 << 4)	/* 3430ES2+ rates only */
 
 #define RATE_IN_24XX		(RATE_IN_242X | RATE_IN_243X)
 
