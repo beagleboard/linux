@@ -2488,10 +2488,11 @@ static struct clk usim_fck = {
 	.init		= &omap2_init_clksel_parent,
 	.enable_reg	= CM_FCLKEN,
 	.enable_bit	= OMAP3430ES2_EN_USIMOCP_SHIFT,
+	.idlest_bit	= OMAP3430ES2_ST_USIMOCP_SHIFT,
 	.clksel_reg	= CM_CLKSEL,
 	.clksel_mask	= OMAP3430ES2_CLKSEL_USIMOCP_MASK,
 	.clksel		= usim_clksel,
-	.flags		= CLOCK_IN_OMAP3430ES2,
+	.flags		= CLOCK_IN_OMAP3430ES2 | WAIT_READY,
 	.clkdm		= { .name = "prm_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 };
@@ -2552,15 +2553,14 @@ static struct clk wkup_l4_ick = {
 	.recalc		= &followparent_recalc,
 };
 
-/* 3430ES2 only */
-/* Never specifically named in the TRM, so we have to infer a likely name */
 static struct clk usim_ick = {
 	.name		= "usim_ick",
 	.parent		= &wkup_l4_ick,
 	.prcm_mod	= WKUP_MOD,
 	.enable_reg	= CM_ICLKEN,
 	.enable_bit	= OMAP3430ES2_EN_USIMOCP_SHIFT,
-	.flags		= CLOCK_IN_OMAP3430ES2,
+	.idlest_bit	= OMAP3430ES2_ST_USIMOCP_SHIFT,
+	.flags		= CLOCK_IN_OMAP3430ES2 | WAIT_READY,
 	.clkdm		= { .name = "prm_clkdm" },
 	.recalc		= &followparent_recalc,
 };
