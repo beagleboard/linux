@@ -108,17 +108,17 @@ void serial_console_sleep(int enable)
 		switch (serial_console_uart)  {
 		case 1:
 			l = prm_read_mod_reg(CORE_MOD, PM_WKST1);
-			if (l & OMAP24XX_ST_UART1)
+			if (l & OMAP24XX_ST_UART1_MASK)
 				serial_wakeup = 1;
 			break;
 		case 2:
 			l = prm_read_mod_reg(CORE_MOD, PM_WKST1);
-			if (l & OMAP24XX_ST_UART2)
+			if (l & OMAP24XX_ST_UART2_MASK)
 				serial_wakeup = 1;
 			break;
 		case 3:
 			l = prm_read_mod_reg(CORE_MOD, OMAP24XX_PM_WKST2);
-			if (l & OMAP24XX_ST_UART3)
+			if (l & OMAP24XX_ST_UART3_MASK)
 				serial_wakeup = 1;
 			break;
 		}
@@ -158,13 +158,16 @@ void pm_init_serial_console(void)
 	}
 	switch (serial_console_uart) {
 	case 1:
-		prm_set_mod_reg_bits(OMAP24XX_ST_UART1, CORE_MOD, PM_WKEN1);
+		prm_set_mod_reg_bits(OMAP24XX_ST_UART1_MASK, CORE_MOD,
+				     PM_WKEN1);
 		break;
 	case 2:
-		prm_set_mod_reg_bits(OMAP24XX_ST_UART2, CORE_MOD, PM_WKEN1);
+		prm_set_mod_reg_bits(OMAP24XX_ST_UART2_MASK, CORE_MOD,
+				     PM_WKEN1);
 		break;
 	case 3:
-		prm_set_mod_reg_bits(OMAP24XX_ST_UART3, CORE_MOD, OMAP24XX_PM_WKEN2);
+		prm_set_mod_reg_bits(OMAP24XX_ST_UART3_MASK, CORE_MOD,
+				     OMAP24XX_PM_WKEN2);
 		break;
 	}
 }

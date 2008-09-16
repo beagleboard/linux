@@ -346,7 +346,7 @@ static void omap2_clk_wait_ready(struct clk *clk)
 			if (system_rev == OMAP3430_REV_ES1_0)
 				return;
 
-			idlest_bit = OMAP3430ES2_ST_SSI_IDLE;
+			idlest_bit = OMAP3430ES2_ST_SSI_IDLE_SHIFT;
 		}
 
 		/* DSS */
@@ -363,7 +363,7 @@ static void omap2_clk_wait_ready(struct clk *clk)
 			if (clk->enable_bit != OMAP3430_EN_DSS1_SHIFT)
 				return;
 
-			idlest_bit = OMAP3430ES2_ST_DSS_IDLE;
+			idlest_bit = OMAP3430ES2_ST_DSS_IDLE_SHIFT;
 		}
 
 		/* USBHOST */
@@ -377,7 +377,7 @@ static void omap2_clk_wait_ready(struct clk *clk)
 			if (clk->enable_bit == OMAP3430ES2_EN_USBHOST2_SHIFT)
 				return;
 
-			idlest_bit = OMAP3430ES2_ST_USBHOST_IDLE;
+			idlest_bit = OMAP3430ES2_ST_USBHOST_IDLE_SHIFT;
 
 		}
 	}
