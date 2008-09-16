@@ -215,7 +215,6 @@ static int __init twl4030_write_script(u8 address, struct triton_ins *script,
 static int __init config_sleep_wake_sequence(void)
 {
 	int err = 0;
-	u8 data;
 
 	/*
 	 * CLKREQ is pulled high on the 2430SDP, therefore, we need to take
@@ -245,14 +244,16 @@ static int __init config_sleep_wake_sequence(void)
 	err |= twl4030_write_script(0x2F, sleep_off_seq,
 					ARRAY_SIZE(sleep_off_seq));
 
-#if defined(CONFIG_MACH_OMAP_3430SDP) || defined(CONFIG_MACH_OMAP_3430LABRADOR)
-	/* Disabling AC charger effect on sleep-active transitions */
-	err |= twl4030_i2c_read_u8(TWL4030_MODULE_PM_MASTER, &data,
-					R_CFG_P1_TRANSITION);
-	data &= 0x0;
-	err |= twl4030_i2c_write_u8(TWL4030_MODULE_PM_MASTER, data ,
-					R_CFG_P1_TRANSITION);
-#endif
+	if (machine_is_omap_3430sdp() || machine_is_omap_ldp()) {
+		u8 data;
+		/* Disabling AC charger effect on sleep-active transitions */
+		err |= twl4030_i2c_read_u8(TWL4030_MODULE_PM_MASTER, &data,
+						R_CFG_P1_TRANSITION);
+		data &= ~(1<<1);
+		err |= twl4030_i2c_write_u8(TWL4030_MODULE_PM_MASTER, data ,
+						R_CFG_P1_TRANSITION);
+	}
+
 	/* P1/P2/P3 LVL_WAKEUP should be on LEVEL */
 	err |= twl4030_i2c_write_u8(TWL4030_MODULE_PM_MASTER, LVL_WAKEUP,
 					R_P1_SW_EVENTS);
