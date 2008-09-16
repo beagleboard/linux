@@ -296,100 +296,50 @@ int omap2_wait_clock_ready(s16 prcm_mod, u16 reg_index, u32 mask,
 
 
 /*
- * Note: We don't need special code here for INVERT_ENABLE
- * for the time being since INVERT_ENABLE only applies to clocks enabled by
- * CM_CLKEN_PLL
+ * omap2_clk_wait_ready - wait for a OMAP module to come out of target idle
+ * @clk: struct clk * recently enabled to indicate the module to test
  *
- * REVISIT: This code is ugly and does not belong here.
+ * Wait for an OMAP module with a target idle state bit to come out of
+ * idle once both its interface clock and primary functional clock are
+ * both enabled.  Any register read or write to the device before it
+ * returns from idle will cause an abort.  Not all modules have target
+ * idle state bits (for example, DSS and CAM on OMAP24xx); so we don't
+ * wait for those.  No return value.
+ *
+ * We don't need special code here for INVERT_ENABLE for the time
+ * being since INVERT_ENABLE only applies to clocks enabled by
+ * CM_CLKEN_PLL.
+ *
+ * REVISIT: This function is misnamed: it should be something like
+ * "omap2_module_wait_ready", and in the long-term, it does not belong
+ * in the clock framework. It also shouldn't be doing register
+ * arithmetic to determine the companion clock.
  */
 static void omap2_clk_wait_ready(struct clk *clk)
 {
 	u16 other_reg, idlest_reg;
-	u32 other_bit, idlest_bit;
+	u32 other_bit;
 
-	/* Only CM-controlled clocks affect module IDLEST */
-	if (clk->prcm_mod & ~PRCM_MOD_ADDR_MASK)
+	if (!(clk->flags & WAIT_READY))
 		return;
 
+	/* If we are enabling an iclk, also test the fclk; and vice versa */
+	other_bit = 1 << clk->enable_bit;
 	other_reg = clk->enable_reg & ~PRCM_REGTYPE_MASK;
 
-	/* If we are enabling an iclk, also test the fclk; and vice versa */
 	if (clk->enable_reg & CM_ICLKEN_REGTYPE)
 		other_reg |= CM_FCLKEN_REGTYPE;
 	else
 		other_reg |= CM_ICLKEN_REGTYPE;
 
-	/* Covers most of the cases - a few exceptions are below */
-	other_bit = 1 << clk->enable_bit;
-	idlest_bit = other_bit;
-
-	/* 24xx: DSS and CAM have no idlest bits for their target agents */
-	if (cpu_is_omap24xx() && clk->prcm_mod == CORE_MOD &&
-	    (clk->enable_reg == CM_FCLKEN1 || clk->enable_reg == CM_ICLKEN1)) {
-
-		if (clk->enable_bit == OMAP24XX_EN_DSS2_SHIFT ||
-		    clk->enable_bit == OMAP24XX_EN_DSS1_SHIFT ||
-		    clk->enable_bit == OMAP24XX_EN_CAM_SHIFT)
-			return;
-
-	}
-
-	/* REVISIT: What are the appropriate exclusions for 34XX? */
-	if (cpu_is_omap34xx()) {
-
-		/* SSI */
-		if (clk->prcm_mod == CORE_MOD &&
-		    (clk->enable_reg == CM_FCLKEN1 ||
-		     clk->enable_reg == CM_ICLKEN1) &&
-		    clk->enable_bit == OMAP3430_EN_SSI_SHIFT) {
-
-			if (system_rev == OMAP3430_REV_ES1_0)
-				return;
-
-			idlest_bit = OMAP3430ES2_ST_SSI_IDLE_SHIFT;
-		}
-
-		/* DSS */
-		if (clk->prcm_mod == OMAP3430_DSS_MOD) {
-
-			/* 3430ES1 DSS has no target idlest bits */
-			if (system_rev == OMAP3430_REV_ES1_0)
-				return;
-
-			/*
-			 * For 3430ES2+ DSS, only wait once (dss1_alwon_fclk,
-			 * dss_l3_iclk, dss_l4_iclk) are enabled
-			 */
-			if (clk->enable_bit != OMAP3430_EN_DSS1_SHIFT)
-				return;
-
-			idlest_bit = OMAP3430ES2_ST_DSS_IDLE_SHIFT;
-		}
-
-		/* USBHOST */
-		if (system_rev > OMAP3430_REV_ES1_0 &&
-		    clk->prcm_mod == OMAP3430ES2_USBHOST_MOD) {
-
-			/*
-			 * The 120MHz clock apparently has nothing to do with
-			 * USBHOST module accessibility
-			 */
-			if (clk->enable_bit == OMAP3430ES2_EN_USBHOST2_SHIFT)
-				return;
-
-			idlest_bit = OMAP3430ES2_ST_USBHOST_IDLE_SHIFT;
-
-		}
-	}
-
-	/* Check if both functional and interface clocks are running. */
+	/* Ensure functional and interface clocks are running. */
 	if (!(cm_read_mod_reg(clk->prcm_mod, other_reg) & other_bit))
 		return;
 
 	idlest_reg = other_reg & ~PRCM_REGTYPE_MASK;
 	idlest_reg |= CM_IDLEST_REGTYPE;
 
-	omap2_wait_clock_ready(clk->prcm_mod, idlest_reg, idlest_bit,
+	omap2_wait_clock_ready(clk->prcm_mod, idlest_reg, 1 << clk->idlest_bit,
 			       clk->name);
 }
 
