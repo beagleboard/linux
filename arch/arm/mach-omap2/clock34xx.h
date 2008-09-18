@@ -1472,14 +1472,35 @@ static const struct clksel mcbsp_15_clksel[] = {
 	{ .parent = NULL }
 };
 
+static struct clk mcbsp5_src_fck = {
+	.name		= "mcbsp_src_fck",
+	.id		= 5,
+	.init		= &omap2_init_clksel_parent,
+	.clksel_reg	= OMAP343X_CTRL_REGADDR(OMAP343X_CONTROL_DEVCONF1),
+	.clksel_mask	= OMAP2_MCBSP5_CLKS_MASK,
+	.clksel		= mcbsp_15_clksel,
+	.flags		= CLOCK_IN_OMAP343X,
+	.clkdm		= { .name = "core_l4_clkdm" },
+	.recalc		= &omap2_clksel_recalc,
+};
+
 static struct clk mcbsp5_fck = {
 	.name		= "mcbsp_fck",
 	.id		= 5,
-	.init		= &omap2_init_clksel_parent,
+	.parent		= &mcbsp5_src_fck,
 	.enable_reg	= _OMAP34XX_CM_REGADDR(CORE_MOD, CM_FCLKEN1),
 	.enable_bit	= OMAP3430_EN_MCBSP5_SHIFT,
-	.clksel_reg	= OMAP343X_CTRL_REGADDR(OMAP343X_CONTROL_DEVCONF1),
-	.clksel_mask	= OMAP2_MCBSP5_CLKS_MASK,
+	.flags		= CLOCK_IN_OMAP343X,
+	.clkdm		= { .name = "core_l4_clkdm" },
+	.recalc		= &followparent_recalc,
+};
+
+static struct clk mcbsp1_src_fck = {
+	.name		= "mcbsp_src_fck",
+	.id		= 1,
+	.init		= &omap2_init_clksel_parent,
+	.clksel_reg	= OMAP343X_CTRL_REGADDR(OMAP2_CONTROL_DEVCONF0),
+	.clksel_mask	= OMAP2_MCBSP1_CLKS_MASK,
 	.clksel		= mcbsp_15_clksel,
 	.flags		= CLOCK_IN_OMAP343X,
 	.clkdm		= { .name = "core_l4_clkdm" },
@@ -1489,15 +1510,12 @@ static struct clk mcbsp5_fck = {
 static struct clk mcbsp1_fck = {
 	.name		= "mcbsp_fck",
 	.id		= 1,
-	.init		= &omap2_init_clksel_parent,
+	.parent		= &mcbsp1_src_fck,
 	.enable_reg	= _OMAP34XX_CM_REGADDR(CORE_MOD, CM_FCLKEN1),
 	.enable_bit	= OMAP3430_EN_MCBSP1_SHIFT,
-	.clksel_reg	= OMAP343X_CTRL_REGADDR(OMAP2_CONTROL_DEVCONF0),
-	.clksel_mask	= OMAP2_MCBSP1_CLKS_MASK,
-	.clksel		= mcbsp_15_clksel,
 	.flags		= CLOCK_IN_OMAP343X,
 	.clkdm		= { .name = "core_l4_clkdm" },
-	.recalc		= &omap2_clksel_recalc,
+	.recalc		= &followparent_recalc,
 };
 
 /* CORE_48M_FCK-derived clocks */
@@ -2773,14 +2791,35 @@ static const struct clksel mcbsp_234_clksel[] = {
 	{ .parent = NULL }
 };
 
+static struct clk mcbsp2_src_fck = {
+	.name		= "mcbsp_src_fck",
+	.id		= 2,
+	.init		= &omap2_init_clksel_parent,
+	.clksel_reg	= OMAP343X_CTRL_REGADDR(OMAP2_CONTROL_DEVCONF0),
+	.clksel_mask	= OMAP2_MCBSP2_CLKS_MASK,
+	.clksel		= mcbsp_234_clksel,
+	.flags		= CLOCK_IN_OMAP343X,
+	.clkdm		= { .name = "per_clkdm" },
+	.recalc		= &omap2_clksel_recalc,
+};
+
 static struct clk mcbsp2_fck = {
 	.name		= "mcbsp_fck",
 	.id		= 2,
-	.init		= &omap2_init_clksel_parent,
+	.parent		= &mcbsp2_src_fck,
 	.enable_reg	= _OMAP34XX_CM_REGADDR(OMAP3430_PER_MOD, CM_FCLKEN),
 	.enable_bit	= OMAP3430_EN_MCBSP2_SHIFT,
-	.clksel_reg	= OMAP343X_CTRL_REGADDR(OMAP2_CONTROL_DEVCONF0),
-	.clksel_mask	= OMAP2_MCBSP2_CLKS_MASK,
+	.flags		= CLOCK_IN_OMAP343X,
+	.clkdm		= { .name = "per_clkdm" },
+	.recalc		= &omap2_clksel_recalc,
+};
+
+static struct clk mcbsp3_src_fck = {
+	.name		= "mcbsp_src_fck",
+	.id		= 3,
+	.init		= &omap2_init_clksel_parent,
+	.clksel_reg	= OMAP343X_CTRL_REGADDR(OMAP343X_CONTROL_DEVCONF1),
+	.clksel_mask	= OMAP2_MCBSP3_CLKS_MASK,
 	.clksel		= mcbsp_234_clksel,
 	.flags		= CLOCK_IN_OMAP343X,
 	.clkdm		= { .name = "per_clkdm" },
@@ -2790,11 +2829,20 @@ static struct clk mcbsp2_fck = {
 static struct clk mcbsp3_fck = {
 	.name		= "mcbsp_fck",
 	.id		= 3,
-	.init		= &omap2_init_clksel_parent,
+	.parent		= &mcbsp3_src_fck,
 	.enable_reg	= _OMAP34XX_CM_REGADDR(OMAP3430_PER_MOD, CM_FCLKEN),
 	.enable_bit	= OMAP3430_EN_MCBSP3_SHIFT,
+	.flags		= CLOCK_IN_OMAP343X,
+	.clkdm		= { .name = "per_clkdm" },
+	.recalc		= &omap2_clksel_recalc,
+};
+
+static struct clk mcbsp4_src_fck = {
+	.name		= "mcbsp_src_fck",
+	.id		= 4,
+	.init		= &omap2_init_clksel_parent,
 	.clksel_reg	= OMAP343X_CTRL_REGADDR(OMAP343X_CONTROL_DEVCONF1),
-	.clksel_mask	= OMAP2_MCBSP3_CLKS_MASK,
+	.clksel_mask	= OMAP2_MCBSP4_CLKS_MASK,
 	.clksel		= mcbsp_234_clksel,
 	.flags		= CLOCK_IN_OMAP343X,
 	.clkdm		= { .name = "per_clkdm" },
@@ -2804,12 +2852,9 @@ static struct clk mcbsp3_fck = {
 static struct clk mcbsp4_fck = {
 	.name		= "mcbsp_fck",
 	.id		= 4,
-	.init		= &omap2_init_clksel_parent,
+	.parent		= &mcbsp4_src_fck,
 	.enable_reg	= _OMAP34XX_CM_REGADDR(OMAP3430_PER_MOD, CM_FCLKEN),
 	.enable_bit	= OMAP3430_EN_MCBSP4_SHIFT,
-	.clksel_reg	= OMAP343X_CTRL_REGADDR(OMAP343X_CONTROL_DEVCONF1),
-	.clksel_mask	= OMAP2_MCBSP4_CLKS_MASK,
-	.clksel		= mcbsp_234_clksel,
 	.flags		= CLOCK_IN_OMAP343X,
 	.clkdm		= { .name = "per_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
@@ -3091,7 +3136,9 @@ static struct clk *onchip_34xx_clks[] __initdata = {
 	&i2c3_fck,
 	&i2c2_fck,
 	&i2c1_fck,
+	&mcbsp5_src_fck,
 	&mcbsp5_fck,
+	&mcbsp1_src_fck,
 	&mcbsp1_fck,
 	&core_48m_fck,
 	&mcspi4_fck,
@@ -3207,8 +3254,11 @@ static struct clk *onchip_34xx_clks[] __initdata = {
 	&mcbsp2_ick,
 	&mcbsp3_ick,
 	&mcbsp4_ick,
+	&mcbsp2_src_fck,
 	&mcbsp2_fck,
+	&mcbsp3_src_fck,
 	&mcbsp3_fck,
+	&mcbsp4_src_fck,
 	&mcbsp4_fck,
 	&emu_src_ck,
 	&pclk_fck,
