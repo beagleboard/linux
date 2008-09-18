@@ -402,7 +402,7 @@ static void set_fb_fix(struct fb_info *fbi)
 	int bpp;
 
 	rg = &plane->fbdev->mem_desc.region[plane->idx];
-	fbi->screen_base	= (char __iomem *)rg->vaddr;
+	fbi->screen_base	= rg->vaddr;
 	fix->smem_start		= rg->paddr;
 	fix->smem_len		= rg->size;
 
@@ -1718,8 +1718,8 @@ static int omapfb_do_probe(struct platform_device *pdev,
 
 	pr_info("omapfb: configured for panel %s\n", fbdev->panel->name);
 
-	def_vxres = def_vxres ? : fbdev->panel->x_res;
-	def_vyres = def_vyres ? : fbdev->panel->y_res;
+	def_vxres = def_vxres ? def_vxres : fbdev->panel->x_res;
+	def_vyres = def_vyres ? def_vyres : fbdev->panel->y_res;
 
 	init_state++;
 
