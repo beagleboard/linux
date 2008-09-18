@@ -535,8 +535,10 @@ static void __init omap2_clk_rewrite_base(struct clk *clk)
 {
 	omap2_clk_check_reg(clk->flags, &clk->clksel_reg);
 	omap2_clk_check_reg(clk->flags, &clk->enable_reg);
-	if (clk->dpll_data)
+	if (clk->dpll_data) {
 		omap2_clk_check_reg(0, &clk->dpll_data->mult_div1_reg);
+		omap2_clk_check_reg(0, &clk->dpll_data->idlest_reg);
+	}
 }
 
 int __init omap2_clk_init(void)
