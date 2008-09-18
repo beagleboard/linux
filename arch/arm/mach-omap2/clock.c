@@ -29,6 +29,7 @@
 #include <mach/sram.h>
 #include <mach/cpu.h>
 #include <mach/prcm.h>
+#include <mach/control.h>
 #include <asm/div64.h>
 
 #include <mach/sdrc.h>
@@ -69,6 +70,43 @@ u8 cpu_mask;
 /*-------------------------------------------------------------------------
  * OMAP2/3 specific clock functions
  *-------------------------------------------------------------------------*/
+
+/*
+ * _omap2_clk_read_reg - read a clock register
+ * @clk: struct clk *
+ *
+ * Given a struct clk *, returns the value of the clock's register.
+ */
+static u32 _omap2_clk_read_reg(u16 reg_offset, struct clk *clk)
+{
+	if (clk->prcm_mod & CLK_REG_IN_SCM)
+		return omap_ctrl_readl(reg_offset);
+	else if (clk->prcm_mod & CLK_REG_IN_PRM)
+		return prm_read_mod_reg(clk->prcm_mod & PRCM_MOD_ADDR_MASK,
+					reg_offset);
+	else
+		return cm_read_mod_reg(clk->prcm_mod, reg_offset);
+}
+
+/*
+ * _omap2_clk_write_reg - write a clock's register
+ * @v: value to write to the clock's enable_reg
+ * @clk: struct clk *
+ *
+ * Given a register value @v and struct clk * @clk, writes the value of @v to
+ * the clock's enable register.  No return value.
+ */
+static void _omap2_clk_write_reg(u32 v, u16 reg_offset, struct clk *clk)
+{
+	if (clk->prcm_mod & CLK_REG_IN_SCM)
+		omap_ctrl_writel(v, reg_offset);
+	else if (clk->prcm_mod & CLK_REG_IN_PRM)
+		prm_write_mod_reg(v, clk->prcm_mod & PRCM_MOD_ADDR_MASK,
+				  reg_offset);
+	else
+		cm_write_mod_reg(v, clk->prcm_mod, reg_offset);
+}
+
 
 /**
  * omap2_init_clk_clkdm - look up a clockdomain name, store pointer in clk
