@@ -86,6 +86,7 @@ struct clk {
 		const char		*name;
 		struct clockdomain	*ptr;
 	} clkdm;
+	s16			prcm_mod;
 #else
 	__u8			rate_offset;
 	__u8			src_offset;
@@ -164,6 +165,13 @@ extern void clk_init_cpufreq_table(struct cpufreq_frequency_table **table);
 
 #define RATE_IN_24XX		(RATE_IN_242X | RATE_IN_243X)
 
+/*
+ * clk.prcm_mod flags (possible since only the top byte in clk.prcm_mod
+ * is significant)
+ */
+#define PRCM_MOD_ADDR_MASK	0xff00
+#define CLK_REG_IN_PRM		(1 << 0)
+#define CLK_REG_IN_SCM		(1 << 1)
 
 /* CM_CLKSEL2_PLL.CORE_CLK_SRC options (24XX) */
 #define CORE_CLK_SRC_32K		0
