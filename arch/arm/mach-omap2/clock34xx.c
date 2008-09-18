@@ -577,11 +577,10 @@ static void omap3_clkoutx2_recalc(struct clk *clk)
 
 	dd = pclk->dpll_data;
 
-	WARN_ON(!dd->control_reg || !dd->enable_mask);
+	WARN_ON(!dd->idlest_reg || !dd->idlest_mask);
 
-	v = __raw_readl(dd->control_reg) & dd->enable_mask;
-	v >>= __ffs(dd->enable_mask);
-	if (v != DPLL_LOCKED)
+	v = __raw_readl(dd->idlest_reg) & dd->idlest_mask;
+	if (!v)
 		clk->rate = clk->parent->rate;
 	else
 		clk->rate = clk->parent->rate * 2;
