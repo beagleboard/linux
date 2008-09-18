@@ -255,14 +255,16 @@ void omap2_fixed_divisor_recalc(struct clk *clk)
 
 /**
  * omap2_wait_clock_ready - wait for clock to enable
- * @reg: physical address of clock IDLEST register
+ * @prcm_mod: CM submodule offset from CM_BASE (e.g., "MPU_MOD")
+ * @reg_index: offset of CM register address from prcm_mod
  * @mask: value to mask against to determine if the clock is active
  * @name: name of the clock (for printk)
  *
  * Returns 1 if the clock enabled in time, or 0 if it failed to enable
  * in roughly MAX_CLOCK_ENABLE_WAIT microseconds.
  */
-int omap2_wait_clock_ready(void __iomem *reg, u32 mask, const char *name)
+int omap2_wait_clock_ready(s16 prcm_mod, u16 reg_index, u32 mask,
+			   const char *name)
 {
 	int i = 0, ena = 0;
 
@@ -276,7 +278,7 @@ int omap2_wait_clock_ready(void __iomem *reg, u32 mask, const char *name)
 		ena = 0;
 
 	/* Wait for lock */
-	while (((__raw_readl(reg) & mask) != ena) &&
+	while (((cm_read_mod_reg(prcm_mod, reg_index) & mask) != ena) &&
 	       (i++ < MAX_CLOCK_ENABLE_WAIT)) {
 		udelay(1);
 	}
@@ -286,7 +288,6 @@ int omap2_wait_clock_ready(void __iomem *reg, u32 mask, const char *name)
 	else
 		printk(KERN_ERR "Clock %s didn't enable in %d tries\n",
 		       name, MAX_CLOCK_ENABLE_WAIT);
-
 
 	return (i < MAX_CLOCK_ENABLE_WAIT) ? 1 : 0;
 };
@@ -389,7 +390,9 @@ static void omap2_clk_wait_ready(struct clk *clk)
 	idlest_reg = other_reg & ~PRCM_REGTYPE_MASK;
 	idlest_reg |= CM_IDLEST_REGTYPE;
 
-	omap2_wait_clock_ready((void __iomem *)idlest_reg, idlest_bit,
+	idlest_reg &= 0xff; /* convert to PRCM register index */
+
+	omap2_wait_clock_ready(clk->prcm_mod, idlest_reg, idlest_bit,
 			       clk->name);
 }
 
