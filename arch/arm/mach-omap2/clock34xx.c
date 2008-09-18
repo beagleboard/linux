@@ -371,13 +371,17 @@ static int omap3_noncore_dpll_program(struct clk *clk, u16 m, u8 n, u16 freqsel)
  * @clk: struct clk * of DPLL to set
  * @rate: rounded target rate
  *
- * Program the DPLL with the rounded target rate.  Returns -EINVAL upon
- * error, or 0 upon success.
+ * Set the DPLL CLKOUT to the target rate.  If the DPLL can enter
+ * low-power bypass, and the target rate is the bypass source clock
+ * rate, then configure the DPLL for bypass.  Otherwise, round the
+ * target rate if it hasn't been done already, then program and lock
+ * the DPLL.  Returns -EINVAL upon error, or 0 upon success.
  */
 static int omap3_noncore_dpll_set_rate(struct clk *clk, unsigned long rate)
 {
 	u16 freqsel;
 	struct dpll_data *dd;
+	int ret;
 
 	if (!clk || !rate)
 		return -EINVAL;
@@ -389,18 +393,32 @@ static int omap3_noncore_dpll_set_rate(struct clk *clk, unsigned long rate)
 	if (rate == omap2_get_dpll_rate(clk))
 		return 0;
 
-	if (dd->last_rounded_rate != rate)
-		omap2_dpll_round_rate(clk, rate);
+	if (dd->bypass_clk->rate == rate &&
+	    (clk->dpll_data->modes & (1 << DPLL_LOW_POWER_BYPASS))) {
 
-	if (dd->last_rounded_rate == 0)
-		return -EINVAL;
+		pr_debug("clock: %s: set rate: entering bypass.\n", clk->name);
 
-	freqsel = _omap3_dpll_compute_freqsel(clk, dd->last_rounded_n);
-	if (!freqsel)
-		WARN_ON(1);
+		ret = _omap3_noncore_dpll_bypass(clk);
 
-	omap3_noncore_dpll_program(clk, dd->last_rounded_m, dd->last_rounded_n,
-				   freqsel);
+	} else {
+
+		if (dd->last_rounded_rate != rate)
+			omap2_dpll_round_rate(clk, rate);
+
+		if (dd->last_rounded_rate == 0)
+			return -EINVAL;
+
+		freqsel = _omap3_dpll_compute_freqsel(clk, dd->last_rounded_n);
+		if (!freqsel)
+			WARN_ON(1);
+
+		pr_debug("clock: %s: set rate: locking rate to %lu.\n",
+			 clk->name, rate);
+
+		ret = omap3_noncore_dpll_program(clk, dd->last_rounded_m,
+						 dd->last_rounded_n, freqsel);
+
+	}
 
 	omap3_dpll_recalc(clk);
 
