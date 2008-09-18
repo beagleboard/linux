@@ -43,6 +43,7 @@ struct dpll_data {
 	u32			max_tolerance;
 	void __iomem		*idlest_reg;
 	u32			idlest_mask;
+	struct clk		*bypass_clk;
 #  if defined(CONFIG_ARCH_OMAP3)
 	u32			freqsel_mask;
 	u8			modes;
