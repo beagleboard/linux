@@ -25,6 +25,7 @@
 
 #include <linux/spi/spi.h>
 #include <linux/spi/ads7846.h>
+#include <linux/i2c/twl4030.h>
 
 #include <mach/hardware.h>
 #include <asm/mach-types.h>
@@ -192,6 +193,7 @@ static struct omap_kp_platform_data omap3evm_kp_data = {
 	.keymap 	= omap3evm_keymap,
 	.keymapsize	= ARRAY_SIZE(omap3evm_keymap),
 	.rep		= 1,
+	.irq		= TWL4030_MODIRQ_KEYPAD,
 };
 
 static struct platform_device omap3evm_kp_device = {
