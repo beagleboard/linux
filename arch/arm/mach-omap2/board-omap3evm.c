@@ -20,6 +20,9 @@
 #include <linux/clk.h>
 #include <linux/io.h>
 #include <linux/input.h>
+
+#include <linux/i2c/twl4030.h>
+
 #include <linux/spi/spi.h>
 #include <linux/spi/ads7846.h>
 
@@ -27,8 +30,6 @@
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
-#include <linux/io.h>
-#include <linux/delay.h>
 
 #include <mach/gpio.h>
 #include <mach/keypad.h>
@@ -88,9 +89,24 @@ static struct omap_uart_config omap3_evm_uart_config __initdata = {
 	.enabled_uarts	= ((1 << 0) | (1 << 1) | (1 << 2)),
 };
 
+static struct twl4030_platform_data omap3evm_twldata = {
+	.irq_base	= TWL4030_IRQ_BASE,
+	.irq_end	= TWL4030_IRQ_END,
+};
+
+static struct i2c_board_info __initdata omap3evm_i2c_boardinfo[] = {
+	{
+		I2C_BOARD_INFO("twl4030", 0x48),
+		.flags = I2C_CLIENT_WAKE,
+		.irq = INT_34XX_SYS_NIRQ,
+		.platform_data = &omap3evm_twldata,
+	},
+};
+
 static int __init omap3_evm_i2c_init(void)
 {
-	omap_register_i2c_bus(1, 2600, NULL, 0);
+	omap_register_i2c_bus(1, 2600, omap3evm_i2c_boardinfo,
+			ARRAY_SIZE(omap3evm_i2c_boardinfo));
 	omap_register_i2c_bus(2, 400, NULL, 0);
 	omap_register_i2c_bus(3, 400, NULL, 0);
 	return 0;

@@ -234,14 +234,25 @@ static struct omap_board_config_kernel omap2_evm_config[] __initdata = {
 	{ OMAP_TAG_LCD,		&omap2_evm_lcd_config },
 };
 
+static struct twl4030_platform_data omap2evm_twldata = {
+	.irq_base	= TWL4030_IRQ_BASE,
+	.irq_end	= TWL4030_IRQ_END,
+};
+
+static struct i2c_board_info __initdata omap2evm_i2c_boardinfo[] = {
+	{
+		I2C_BOARD_INFO("twl4030", 0x48),
+		.flags = I2C_CLIENT_WAKE,
+		.irq = INT_24XX_SYS_NIRQ,
+		.platform_data = &omap2evm_twldata,
+	},
+};
+
 static int __init omap2_evm_i2c_init(void)
 {
-	/*
-	 * Registering bus 2 first to avoid twl4030 misbehaving as OMAP2EVM
-	 * has twl4030 on bus 2
-	 */
-	omap_register_i2c_bus(2, 2600, NULL, 0);
 	omap_register_i2c_bus(1, 400, NULL, 0);
+	omap_register_i2c_bus(2, 2600, omap2evm_i2c_boardinfo,
+			ARRAY_SIZE(omap2evm_i2c_boardinfo));
 	return 0;
 }
 
