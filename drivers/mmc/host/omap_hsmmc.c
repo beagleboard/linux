@@ -910,8 +910,8 @@ static int __init omap_mmc_probe(struct platform_device *pdev)
 			OMAP_HSMMC_READ(host->base, HCTL) | SDBP);
 
 	/* Request IRQ for MMC operations */
-	ret = request_irq(host->irq, mmc_omap_irq, IRQF_DISABLED, pdev->name,
-			 host);
+	ret = request_irq(host->irq, mmc_omap_irq, IRQF_DISABLED,
+			mmc_hostname(mmc), host);
 	if (ret) {
 		dev_dbg(mmc_dev(host->mmc), "Unable to grab HSMMC IRQ\n");
 		goto err_irq;
@@ -920,8 +920,8 @@ static int __init omap_mmc_probe(struct platform_device *pdev)
 	/* Request IRQ for card detect */
 	if ((mmc_slot(host).card_detect_irq) && (mmc_slot(host).card_detect)) {
 		ret = request_irq(mmc_slot(host).card_detect_irq,
-				  omap_mmc_cd_handler, IRQF_DISABLED, "MMC CD",
-				  host);
+				  omap_mmc_cd_handler, IRQF_DISABLED,
+				  mmc_hostname(mmc), host);
 		if (ret) {
 			dev_dbg(mmc_dev(host->mmc),
 				"Unable to grab MMC CD IRQ\n");
