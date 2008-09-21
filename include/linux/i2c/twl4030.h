@@ -52,6 +52,17 @@
 #define TWL4030_MODULE_RTC		0x14
 #define TWL4030_MODULE_SECURED_REG	0x15
 
+struct twl4030_platform_data {
+	unsigned	irq_base, irq_end;
+
+	/* REVISIT more to come ... _nothing_ should be hard-wired */
+};
+
+/*
+ * FIXME completely stop using TWL4030_IRQ_BASE ... instead, pass the
+ * IRQ data to subsidiary devices using platform device resources.
+ */
+
 /* IRQ information-need base */
 #include <mach/irqs.h>
 /* TWL4030 interrupts */
