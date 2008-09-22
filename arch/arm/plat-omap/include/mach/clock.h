@@ -31,7 +31,7 @@ struct clksel {
 };
 
 struct dpll_data {
-	void __iomem		*mult_div1_reg;
+	u16			mult_div1_reg;
 	u32			mult_mask;
 	u32			div1_mask;
 	u16			last_rounded_m;
@@ -41,18 +41,18 @@ struct dpll_data {
 	u16			max_multiplier;
 	u8			max_divider;
 	u32			max_tolerance;
-	void __iomem		*idlest_reg;
+	u16			idlest_reg;
 	u32			idlest_mask;
 	struct clk		*bypass_clk;
 #  if defined(CONFIG_ARCH_OMAP3)
 	u32			freqsel_mask;
 	u8			modes;
-	void __iomem		*control_reg;
+	u16			control_reg;
 	u32			enable_mask;
 	u8			auto_recal_bit;
 	u8			recal_en_bit;
 	u8			recal_st_bit;
-	void __iomem		*autoidle_reg;
+	u16			autoidle_reg;
 	u32			autoidle_mask;
 #  endif
 };
@@ -67,7 +67,7 @@ struct clk {
 	struct clk		*parent;
 	unsigned long		rate;
 	__u32			flags;
-	void __iomem		*enable_reg;
+	u16			enable_reg;
 	__u8			enable_bit;
 	__s8			usecount;
 	void			(*recalc)(struct clk *);
@@ -78,7 +78,7 @@ struct clk {
 	void			(*disable)(struct clk *);
 #if defined(CONFIG_ARCH_OMAP2) || defined(CONFIG_ARCH_OMAP3)
 	u8			fixed_div;
-	void __iomem		*clksel_reg;
+	u16			clksel_reg;
 	u32			clksel_mask;
 	const struct clksel	*clksel;
 	struct dpll_data	*dpll_data;
@@ -142,9 +142,8 @@ extern void clk_init_cpufreq_table(struct cpufreq_frequency_table **table);
 #define DELAYED_APP		(1 << 9)	/* Delay application of clock */
 #define CONFIG_PARTICIPANT	(1 << 10)	/* Fundamental clock */
 #define ENABLE_ON_INIT		(1 << 11)	/* Enable upon framework init */
-#define INVERT_ENABLE           (1 << 12)       /* 0 enables, 1 disables */
-#define OFFSET_GR_MOD		(1 << 13)	/* 24xx GR_MOD reg as offset */
-/* bits 14-20 are currently free */
+#define INVERT_ENABLE		(1 << 12)	/* 0 enables, 1 disables */
+/* bits 13-20 are currently free */
 #define CLOCK_IN_OMAP310	(1 << 21)
 #define CLOCK_IN_OMAP730	(1 << 22)
 #define CLOCK_IN_OMAP1510	(1 << 23)

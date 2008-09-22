@@ -160,7 +160,8 @@ void omap2_init_clksel_parent(struct clk *clk)
 	if (!clk->clksel)
 		return;
 
-	r = __raw_readl(clk->clksel_reg) & clk->clksel_mask;
+	r = _omap2_clk_read_reg(clk->clksel_reg, clk);
+	r &= clk->clksel_mask;
 	r >>= __ffs(clk->clksel_mask);
 
 	for (clks = clk->clksel; clks->parent && !found; clks++) {
@@ -211,7 +212,8 @@ u32 omap2_get_dpll_rate(struct clk *clk)
 		return 0;
 
 	/* Return bypass rate if DPLL is bypassed */
-	v = __raw_readl(dd->idlest_reg) & dd->idlest_mask;
+	v = cm_read_mod_reg(clk->prcm_mod, dd->idlest_reg);
+	v &= dd->idlest_mask;
 	v >>= __ffs(dd->idlest_mask);
 	if (cpu_is_omap24xx()) {
 
@@ -227,7 +229,7 @@ u32 omap2_get_dpll_rate(struct clk *clk)
 
 	}
 
-	v = __raw_readl(dd->mult_div1_reg);
+	v = cm_read_mod_reg(clk->prcm_mod, dd->mult_div1_reg);
 	dpll_mult = v & dd->mult_mask;
 	dpll_mult >>= __ffs(dd->mult_mask);
 	dpll_div = v & dd->div1_mask;
@@ -302,23 +304,20 @@ int omap2_wait_clock_ready(s16 prcm_mod, u16 reg_index, u32 mask,
  */
 static void omap2_clk_wait_ready(struct clk *clk)
 {
+	u16 other_reg, idlest_reg;
 	u32 other_bit, idlest_bit;
-	unsigned long reg, other_reg, idlest_reg, prcm_regid;
 
 	/* Only CM-controlled clocks affect module IDLEST */
 	if (clk->prcm_mod & ~PRCM_MOD_ADDR_MASK)
 		return;
 
-	reg = (unsigned long)clk->enable_reg;
-	prcm_regid = reg & 0xff;
+	other_reg = clk->enable_reg & ~PRCM_REGTYPE_MASK;
 
-	other_reg = reg & ~PRCM_REGTYPE_MASK;
-
-	/* If we are enabling an fclk, also test the iclk; and vice versa */
-	if (prcm_regid >= CM_FCLKEN1 && prcm_regid <= OMAP24XX_CM_FCLKEN2)
-		other_reg |= CM_ICLKEN_REGTYPE;
-	else
+	/* If we are enabling an iclk, also test the fclk; and vice versa */
+	if (clk->enable_reg & CM_ICLKEN_REGTYPE)
 		other_reg |= CM_FCLKEN_REGTYPE;
+	else
+		other_reg |= CM_ICLKEN_REGTYPE;
 
 	/* Covers most of the cases - a few exceptions are below */
 	other_bit = 1 << clk->enable_bit;
@@ -326,7 +325,7 @@ static void omap2_clk_wait_ready(struct clk *clk)
 
 	/* 24xx: DSS and CAM have no idlest bits for their target agents */
 	if (cpu_is_omap24xx() && clk->prcm_mod == CORE_MOD &&
-	    (reg & 0x0f) == 0) { /* CM_{F,I}CLKEN1 */
+	    (clk->enable_reg == CM_FCLKEN1 || clk->enable_reg == CM_ICLKEN1)) {
 
 		if (clk->enable_bit == OMAP24XX_EN_DSS2_SHIFT ||
 		    clk->enable_bit == OMAP24XX_EN_DSS1_SHIFT ||
@@ -340,7 +339,8 @@ static void omap2_clk_wait_ready(struct clk *clk)
 
 		/* SSI */
 		if (clk->prcm_mod == CORE_MOD &&
-		    (reg & 0x0f) == 0 &&
+		    (clk->enable_reg == CM_FCLKEN1 ||
+		     clk->enable_reg == CM_ICLKEN1) &&
 		    clk->enable_bit == OMAP3430_EN_SSI_SHIFT) {
 
 			if (system_rev == OMAP3430_REV_ES1_0)
@@ -382,15 +382,12 @@ static void omap2_clk_wait_ready(struct clk *clk)
 		}
 	}
 
-	/* Check if both functional and interface clocks
-	 * are running. */
-	if (!(__raw_readl((void __iomem *)other_reg) & other_bit))
+	/* Check if both functional and interface clocks are running. */
+	if (!(cm_read_mod_reg(clk->prcm_mod, other_reg) & other_bit))
 		return;
 
 	idlest_reg = other_reg & ~PRCM_REGTYPE_MASK;
 	idlest_reg |= CM_IDLEST_REGTYPE;
-
-	idlest_reg &= 0xff; /* convert to PRCM register index */
 
 	omap2_wait_clock_ready(clk->prcm_mod, idlest_reg, idlest_bit,
 			       clk->name);
@@ -409,18 +406,12 @@ static int _omap2_clk_enable(struct clk *clk)
 	if (clk->enable)
 		return clk->enable(clk);
 
-	if (unlikely(clk->enable_reg == NULL)) {
-		printk(KERN_ERR "clock.c: Enable for %s without enable code\n",
-		       clk->name);
-		return 0; /* REVISIT: -EINVAL */
-	}
-
-	v = __raw_readl(clk->enable_reg);
+	v = _omap2_clk_read_reg(clk->enable_reg, clk);
 	if (clk->flags & INVERT_ENABLE)
 		v &= ~(1 << clk->enable_bit);
 	else
 		v |= (1 << clk->enable_bit);
-	__raw_writel(v, clk->enable_reg);
+	_omap2_clk_write_reg(v, clk->enable_reg, clk);
 	wmb();
 
 	omap2_clk_wait_ready(clk);
@@ -441,22 +432,12 @@ static void _omap2_clk_disable(struct clk *clk)
 		return;
 	}
 
-	if (clk->enable_reg == NULL) {
-		/*
-		 * 'Independent' here refers to a clock which is not
-		 * controlled by its parent.
-		 */
-		printk(KERN_ERR "clock: clk_disable called on independent "
-		       "clock %s which has no enable_reg\n", clk->name);
-		return;
-	}
-
-	v = __raw_readl(clk->enable_reg);
+	v = _omap2_clk_read_reg(clk->enable_reg, clk);
 	if (clk->flags & INVERT_ENABLE)
 		v |= (1 << clk->enable_bit);
 	else
 		v &= ~(1 << clk->enable_bit);
-	__raw_writel(v, clk->enable_reg);
+	_omap2_clk_write_reg(v, clk->enable_reg, clk);
 	wmb();
 }
 
@@ -739,7 +720,8 @@ u32 omap2_clksel_get_divisor(struct clk *clk)
 	if (!clk->clksel_mask)
 		return 0;
 
-	v = __raw_readl(clk->clksel_reg) & clk->clksel_mask;
+	v = _omap2_clk_read_reg(clk->clksel_reg, clk);
+	v &= clk->clksel_mask;
 	v >>= __ffs(clk->clksel_mask);
 
 	return omap2_clksel_to_divisor(clk, v);
@@ -754,16 +736,16 @@ int omap2_clksel_set_rate(struct clk *clk, unsigned long rate)
 
 	validrate = omap2_clksel_round_rate_div(clk, rate, &new_div);
 	if (validrate != rate)
-		return -EINVAL;
+	       return -EINVAL;
 
 	field_val = omap2_divisor_to_clksel(clk, new_div);
 	if (field_val == ~0)
 		return -EINVAL;
 
-	v = __raw_readl(clk->clksel_reg);
+	v = _omap2_clk_read_reg(clk->clksel_reg, clk);
 	v &= ~clk->clksel_mask;
 	v |= field_val << __ffs(clk->clksel_mask);
-	__raw_writel(v, clk->clksel_reg);
+	_omap2_clk_write_reg(v, clk->clksel_reg, clk);
 
 	wmb();
 
@@ -853,10 +835,10 @@ int omap2_clk_set_parent(struct clk *clk, struct clk *new_parent)
 		_omap2_clk_disable(clk);
 
 	/* Set new source value (previous dividers if any in effect) */
-	v = __raw_readl(clk->clksel_reg);
+	v = _omap2_clk_read_reg(clk->clksel_reg, clk);
 	v &= ~clk->clksel_mask;
 	v |= field_val << __ffs(clk->clksel_mask);
-	__raw_writel(v, clk->clksel_reg);
+	_omap2_clk_write_reg(v, clk->clksel_reg, clk);
 	wmb();
 
 	if (clk->flags & DELAYED_APP && cpu_is_omap24xx()) {
@@ -1075,7 +1057,7 @@ void omap2_clk_disable_unused(struct clk *clk)
 
 	v = (clk->flags & INVERT_ENABLE) ? (1 << clk->enable_bit) : 0;
 
-	regval32 = __raw_readl(clk->enable_reg);
+	regval32 = _omap2_clk_read_reg(clk->enable_reg, clk);
 	if ((regval32 & (1 << clk->enable_bit)) == v)
 		return;
 
