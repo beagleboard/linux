@@ -255,22 +255,18 @@ err:
 	return 1;
 }
 
-static struct omap_mmc_platform_data hsmmc_data = {
+static struct omap_mmc_platform_data mmc1_data = {
 	.nr_slots			= 1,
-	.switch_slot			= NULL,
 	.init				= hsmmc_late_init,
 	.cleanup			= hsmmc_cleanup,
 #ifdef CONFIG_PM
 	.suspend			= hsmmc_suspend,
 	.resume				= hsmmc_resume,
 #endif
+	.dma_mask			= 0xffffffff,
 	.slots[0] = {
-		.enabled		= 1,
 		.wire4			= 1,
 		.set_power		= hsmmc_set_power,
-		.set_bus_mode		= NULL,
-		.get_ro			= NULL,
-		.get_cover_state	= NULL,
 		.ocr_mask		= MMC_VDD_32_33 | MMC_VDD_33_34 |
 						MMC_VDD_165_195,
 		.name			= "first slot",
@@ -280,9 +276,12 @@ static struct omap_mmc_platform_data hsmmc_data = {
 	},
 };
 
+static struct omap_mmc_platform_data *hsmmc_data[OMAP34XX_NR_MMC];
+
 void __init hsmmc_init(void)
 {
-	omap2_init_mmc(&hsmmc_data);
+	hsmmc_data[0] = &mmc1_data;
+	omap2_init_mmc(hsmmc_data, OMAP34XX_NR_MMC);
 }
 
 #else

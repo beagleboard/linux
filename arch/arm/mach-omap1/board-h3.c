@@ -476,18 +476,6 @@ static struct omap_board_config_kernel h3_config[] __initdata = {
 	{ OMAP_TAG_LCD,		&h3_lcd_config },
 };
 
-static struct omap_gpio_switch h3_gpio_switches[] __initdata = {
-	{
-		.name			= "mmc_slot",
-		.gpio                   = OMAP_MPUIO(1),
-		.type                   = OMAP_GPIO_SWITCH_TYPE_COVER,
-		.debounce_rising        = 100,
-		.debounce_falling       = 0,
-		.notify                 = h3_mmc_slot_cover_handler,
-		.notify_data            = NULL,
-	},
-};
-
 #define H3_NAND_RB_GPIO_PIN	10
 
 static int nand_dev_ready(struct omap_nand_platform_data *data)
@@ -643,8 +631,6 @@ static void __init h3_init(void)
 	omap_register_i2c_bus(1, 100, h3_i2c_board_info,
 			      ARRAY_SIZE(h3_i2c_board_info));
 	h3_mmc_init();
-	omap_register_gpio_switches(h3_gpio_switches,
-				    ARRAY_SIZE(h3_gpio_switches));
 }
 
 static void __init h3_init_smc91x(void)

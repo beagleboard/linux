@@ -194,20 +194,43 @@ void omap_mcbsp_register_board_cfg(struct omap_mcbsp_platform_data *config,
 #if	defined(CONFIG_MMC_OMAP) || defined(CONFIG_MMC_OMAP_MODULE) || \
 	defined(CONFIG_MMC_OMAP_HS) || defined(CONFIG_MMC_OMAP_HS_MODULE)
 
+#define OMAP_MMC_NR_RES		2
+
 /*
  * Register MMC devices. Called from mach-omap1 and mach-omap2 device init.
  */
-void omap_init_mmc(struct omap_mmc_platform_data *info,
-		struct platform_device *pdev1, struct platform_device *pdev2)
+int __init omap_mmc_add(int id, unsigned long base, unsigned long size,
+		unsigned int irq, struct omap_mmc_platform_data *data)
 {
-	if (!info)
-		return;
+	struct platform_device *pdev;
+	struct resource res[OMAP_MMC_NR_RES];
+	int ret;
 
-	if (info->slots[0].enabled && pdev1)
-		(void) platform_device_register(pdev1);
+	pdev = platform_device_alloc("mmci-omap", id);
+	if (!pdev)
+		return -ENOMEM;
 
-	if (info->slots[1].enabled && pdev2)
-		(void) platform_device_register(pdev2);
+	memset(res, 0, OMAP_MMC_NR_RES * sizeof(struct resource));
+	res[0].start = base;
+	res[0].end = base + size - 1;
+	res[0].flags = IORESOURCE_MEM;
+	res[1].start = res[1].end = irq;
+	res[1].flags = IORESOURCE_IRQ;
+
+	ret = platform_device_add_resources(pdev, res, ARRAY_SIZE(res));
+	if (ret == 0)
+		ret = platform_device_add_data(pdev, data, sizeof(*data));
+	if (ret)
+		goto fail;
+
+	ret = platform_device_add(pdev);
+	if (ret)
+		goto fail;
+	return 0;
+
+fail:
+	platform_device_put(pdev);
+	return ret;
 }
 
 #endif

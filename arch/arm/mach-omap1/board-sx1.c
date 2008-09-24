@@ -410,18 +410,6 @@ static struct omap_board_config_kernel sx1_config[] __initdata = {
 	{ OMAP_TAG_UART,	&sx1_uart_config },
 };
 
-static struct omap_gpio_switch sx1_gpio_switches[] __initdata = {
-	{
-		.name                   = "mmc_slot",
-		.gpio                   = OMAP_MPUIO(3),
-		.type                   = OMAP_GPIO_SWITCH_TYPE_COVER,
-		.debounce_rising        = 100,
-		.debounce_falling       = 0,
-		.notify                 = sx1_mmc_slot_cover_handler,
-		.notify_data            = NULL,
-	},
-};
-
 /*-----------------------------------------*/
 
 static void __init omap_sx1_init(void)
@@ -433,8 +421,6 @@ static void __init omap_sx1_init(void)
 	omap_serial_init();
 	omap_register_i2c_bus(1, 100, NULL, 0);
 	sx1_mmc_init();
-	omap_register_gpio_switches(sx1_gpio_switches,
-				    ARRAY_SIZE(sx1_gpio_switches));
 
 	/* turn on USB power */
 	/* sx1_setusbpower(1); cant do it here because i2c is not ready */

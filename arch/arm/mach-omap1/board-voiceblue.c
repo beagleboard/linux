@@ -34,7 +34,6 @@
 #include <mach/mux.h>
 #include <mach/tc.h>
 #include <mach/usb.h>
-#include <mach/mmc.h>
 
 static struct plat_serial8250_port voiceblue_ports[] = {
 	{
@@ -141,16 +140,6 @@ static struct omap_usb_config voiceblue_usb_config __initdata = {
 	.pins[2]	= 6,
 };
 
-static struct omap_mmc_platform_data voiceblue_mmc_data = {
-	.nr_slots                       = 1,
-	.slots[0]       = {
-		.enabled		= 1,
-		.power_pin		= 2,
-		.switch_pin		= -1,
-		.name                   = "mmcblk",
-	},
-};
-
 static struct omap_uart_config voiceblue_uart_config __initdata = {
 	.enabled_uarts = ((1 << 0) | (1 << 1) | (1 << 2)),
 };
@@ -204,8 +193,6 @@ static void __init voiceblue_init(void)
 	 * (it is connected through invertor) */
 	omap_writeb(0x00, OMAP_LPG1_LCR);
 	omap_writeb(0x00, OMAP_LPG1_PMR);	/* Disable clock */
-
-	omap1_init_mmc(&voiceblue_mmc_data);
 }
 
 static void __init voiceblue_map_io(void)

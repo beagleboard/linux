@@ -224,17 +224,16 @@ static void h4_mmc_cleanup(struct device *dev)
 	menelaus_unregister_mmc_callback();
 }
 
-static struct omap_mmc_platform_data h4_mmc_data = {
+static struct omap_mmc_platform_data mmc1_data = {
 	.nr_slots		= 2,
 	.switch_slot		= h4_mmc_switch_slot,
 	.init			= h4_mmc_late_init,
 	.cleanup		= h4_mmc_cleanup,
+	.dma_mask		= 0xffffffff,
 	.slots[0] = {
-		.enabled	= 1,
 		.wire4		= 1,
 		.set_power	= h4_mmc_set_power,
 		.set_bus_mode	= h4_mmc_set_bus_mode,
-		.get_ro		= NULL,
 		.get_cover_state= h4_mmc_slot1_cover_state,
 		.ocr_mask	= MMC_VDD_165_195 |
 				  MMC_VDD_28_29 | MMC_VDD_30_31 |
@@ -242,11 +241,9 @@ static struct omap_mmc_platform_data h4_mmc_data = {
 		.name		= "slot1",
 	},
 	.slots[1] = {
-		.enabled	= 1,
 		.wire4		= 1,
 		.set_power	= h4_mmc_set_power,
 		.set_bus_mode	= h4_mmc_set_bus_mode,
-		.get_ro		= NULL,
 		.get_cover_state= h4_mmc_slot2_cover_state,
 		.ocr_mask	= MMC_VDD_165_195 | MMC_VDD_20_21 |
 				  MMC_VDD_21_22 | MMC_VDD_22_23 | MMC_VDD_23_24 |
@@ -257,9 +254,12 @@ static struct omap_mmc_platform_data h4_mmc_data = {
 	},
 };
 
+static struct omap_mmc_platform_data *mmc_data[OMAP24XX_NR_MMC];
+
 void __init h4_mmc_init(void)
 {
-	omap2_init_mmc(&h4_mmc_data);
+	mmc_data[0] = &mmc1_data;
+	omap2_init_mmc(mmc_data, OMAP24XX_NR_MMC);
 }
 
 #else

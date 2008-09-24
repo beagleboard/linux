@@ -437,10 +437,25 @@ static void __init h2_init_smc91x(void)
 	}
 }
 
+static int tps_setup(struct i2c_client *client, void *context)
+{
+	tps65010_config_vregs1(TPS_LDO2_ENABLE | TPS_VLDO2_3_0V |
+				TPS_LDO1_ENABLE | TPS_VLDO1_3_0V);
+
+	return 0;
+}
+
+static struct tps65010_board tps_board = {
+	.base		= H2_TPS_GPIO_BASE,
+	.outmask	= 0x0f,
+	.setup		= tps_setup,
+};
+
 static struct i2c_board_info __initdata h2_i2c_board_info[] = {
 	{
 		I2C_BOARD_INFO("tps65010", 0x48),
 		.irq            = OMAP_GPIO_IRQ(58),
+		.platform_data	= &tps_board,
 	}, {
 		I2C_BOARD_INFO("isp1301_omap", 0x2d),
 		.irq		= OMAP_GPIO_IRQ(2),
@@ -482,18 +497,6 @@ static struct omap_board_config_kernel h2_config[] __initdata = {
 	{ OMAP_TAG_USB,		&h2_usb_config },
 	{ OMAP_TAG_UART,	&h2_uart_config },
 	{ OMAP_TAG_LCD,		&h2_lcd_config },
-};
-
-static struct omap_gpio_switch h2_gpio_switches[] __initdata = {
-	{
-		.name                   = "mmc_slot",
-		.gpio                   = OMAP_MPUIO(1),
-		.type                   = OMAP_GPIO_SWITCH_TYPE_COVER,
-		.debounce_rising        = 100,
-		.debounce_falling       = 0,
-		.notify                 = h2_mmc_slot_cover_handler,
-		.notify_data            = NULL,
-	},
 };
 
 #define H2_NAND_RB_GPIO_PIN	62
@@ -547,8 +550,6 @@ static void __init h2_init(void)
 	omap_register_i2c_bus(1, 100, h2_i2c_board_info,
 			      ARRAY_SIZE(h2_i2c_board_info));
 	h2_mmc_init();
-	omap_register_gpio_switches(h2_gpio_switches,
-				    ARRAY_SIZE(h2_gpio_switches));
 }
 
 static void __init h2_map_io(void)

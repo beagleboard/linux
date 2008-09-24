@@ -361,17 +361,48 @@ static struct omap_lcd_config innovator1610_lcd_config __initdata = {
 };
 #endif
 
-static struct omap_mmc_platform_data innovator_mmc_data = {
+#if defined(CONFIG_MMC_OMAP) || defined(CONFIG_MMC_OMAP_MODULE)
+
+static int mmc_set_power(struct device *dev, int slot, int power_on,
+				int vdd)
+{
+	if (power_on)
+		fpga_write(fpga_read(OMAP1510_FPGA_POWER) | (1 << 3),
+				OMAP1510_FPGA_POWER);
+	else
+		fpga_write(fpga_read(OMAP1510_FPGA_POWER) & ~(1 << 3),
+				OMAP1510_FPGA_POWER);
+
+	return 0;
+}
+
+/*
+ * Innovator could use the following functions tested:
+ * - mmc_get_wp that uses OMAP_MPUIO(3)
+ * - mmc_get_cover_state that uses FPGA F4 UIO43
+ */
+static struct omap_mmc_platform_data mmc1_data = {
 	.nr_slots                       = 1,
 	.slots[0]       = {
-		.enabled		= 1,
+		.set_power		= mmc_set_power,
 		.wire4			= 1,
-		.wp_pin			= OMAP_MPUIO(3),
-		.power_pin		= -1,	/* FPGA F3 UIO42 */
-		.switch_pin		= -1,	/* FPGA F4 UIO43 */
 		.name                   = "mmcblk",
 	},
 };
+
+static struct omap_mmc_platform_data *mmc_data[OMAP16XX_NR_MMC];
+
+void __init innovator_mmc_init(void)
+{
+	mmc_data[0] = &mmc1_data;
+	omap1_init_mmc(mmc_data, OMAP15XX_NR_MMC);
+}
+
+#else
+static inline void innovator_mmc_init(void)
+{
+}
+#endif
 
 static struct omap_uart_config innovator_uart_config __initdata = {
 	.enabled_uarts = ((1 << 0) | (1 << 1) | (1 << 2)),
@@ -414,7 +445,7 @@ static void __init innovator_init(void)
 	omap_board_config_size = ARRAY_SIZE(innovator_config);
 	omap_serial_init();
 	omap_register_i2c_bus(1, 100, NULL, 0);
-	omap1_init_mmc(&innovator_mmc_data);
+	innovator_mmc_init();
 }
 
 static void __init innovator_map_io(void)

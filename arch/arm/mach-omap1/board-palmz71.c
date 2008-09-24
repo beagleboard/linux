@@ -43,7 +43,6 @@
 #include <mach/keypad.h>
 #include <mach/common.h>
 #include <mach/omap-alsa.h>
-#include <mach/mmc.h>
 
 #include <linux/spi/spi.h>
 #include <linux/spi/ads7846.h>
@@ -268,18 +267,6 @@ static struct omap_usb_config palmz71_usb_config __initdata = {
 	.pins[0]	= 2,
 };
 
-static struct omap_mmc_platform_data palmz71_mmc_data = {
-	.nr_slots                       = 1,
-	.slots[0]       = {
-		.enabled		= 1,
-		.wire4			= 0,
-		.wp_pin			= PALMZ71_MMC_WP_GPIO,
-		.power_pin		= -1,
-		.switch_pin		= PALMZ71_MMC_IN_GPIO,
-		.name                   = "mmcblk",
-	},
-};
-
 static struct omap_lcd_config palmz71_lcd_config __initdata = {
 	.ctrl_name = "internal",
 };
@@ -367,7 +354,6 @@ omap_palmz71_init(void)
 	omap_serial_init();
 	omap_register_i2c_bus(1, 100, NULL, 0);
 	palmz71_gpio_setup(0);
-	omap1_init_mmc(&palmz71_mmc_data);
 }
 
 static void __init
