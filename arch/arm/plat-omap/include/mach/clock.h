@@ -67,7 +67,7 @@ struct clk {
 	struct clk		*parent;
 	unsigned long		rate;
 	__u32			flags;
-	u16			enable_reg;
+	u32			enable_reg;
 	__u8			enable_bit;
 	__s8			usecount;
 	u8			idlest_bit;
@@ -137,7 +137,7 @@ extern void clk_init_cpufreq_table(struct cpufreq_frequency_table **table);
 #define VIRTUAL_CLOCK		(1 << 3)	/* Composite clock from table */
 #define ALWAYS_ENABLED		(1 << 4)	/* Clock cannot be disabled */
 #define ENABLE_REG_32BIT	(1 << 5)	/* Use 32-bit access */
-#define VIRTUAL_IO_ADDRESS	(1 << 6)	/* Clock in virtual address */
+
 #define CLOCK_IDLE_CONTROL	(1 << 7)
 #define CLOCK_NO_IDLE_PARENT	(1 << 8)
 #define DELAYED_APP		(1 << 9)	/* Delay application of clock */
