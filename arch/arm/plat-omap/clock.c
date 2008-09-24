@@ -384,8 +384,11 @@ static int __init clk_disable_unused(void)
 	unsigned long flags;
 
 	list_for_each_entry(ck, &clocks, node) {
-		if (ck->usecount > 0 || (ck->flags & ALWAYS_ENABLED) ||
-			ck->enable_reg == 0)
+		if (ck->usecount > 0 ||
+		    (ck->flags & (ALWAYS_ENABLED | PARENT_CONTROLS_CLOCK)))
+			continue;
+
+		if (cpu_class_is_omap1() && ck->enable_reg == 0)
 			continue;
 
 		spin_lock_irqsave(&clockfw_lock, flags);
