@@ -138,7 +138,7 @@ static int hdq_wait_for_flag(struct hdq_data *hdq_data, u32 offset,
 			set_current_state(TASK_UNINTERRUPTIBLE);
 			schedule_timeout(1);
 		}
-		if (unlikely(*status & flag))
+		if (*status & flag)
 			ret = -ETIMEDOUT;
 	} else if (flag_set == OMAP_HDQ_FLAG_SET) {
 		/* wait for the flag set */
@@ -147,7 +147,7 @@ static int hdq_wait_for_flag(struct hdq_data *hdq_data, u32 offset,
 			set_current_state(TASK_UNINTERRUPTIBLE);
 			schedule_timeout(1);
 		}
-		if (unlikely(!(*status & flag)))
+		if (!(*status & flag))
 			ret = -ETIMEDOUT;
 	} else
 		return -EINVAL;
@@ -182,7 +182,7 @@ hdq_write_byte(struct hdq_data *hdq_data, u8 val, u8 *status)
 	/* wait for the TXCOMPLETE bit */
 	ret = wait_event_interruptible_timeout(hdq_wait_queue,
 		hdq_data->hdq_irqstatus, OMAP_HDQ_TIMEOUT);
-	if (unlikely(ret < 0)) {
+	if (ret < 0) {
 		dev_dbg(hdq_data->dev, "wait interrupted");
 		return -EINTR;
 	}
@@ -333,7 +333,7 @@ omap_hdq_break(struct hdq_data *hdq_data)
 	/* wait for the TIMEOUT bit */
 	ret = wait_event_interruptible_timeout(hdq_wait_queue,
 		hdq_data->hdq_irqstatus, OMAP_HDQ_TIMEOUT);
-	if (unlikely(ret < 0)) {
+	if (ret < 0) {
 		dev_dbg(hdq_data->dev, "wait interrupted");
 		up(&hdq_data->hdq_semlock);
 		return -EINTR;
