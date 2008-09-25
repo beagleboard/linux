@@ -38,10 +38,6 @@
 #include <linux/clk.h>
 #include <linux/io.h>
 
-/* Hack to enable zero length transfers and smbus quick until clean fix
-   is available */
-#define OMAP_HACK
-
 /* timeout waiting for the controller to respond */
 #define OMAP_I2C_TIMEOUT (msecs_to_jiffies(1000))
 
@@ -373,16 +369,12 @@ static int omap_i2c_xfer_msg(struct i2c_adapter *adap,
 			     struct i2c_msg *msg, int stop)
 {
 	struct omap_i2c_dev *dev = i2c_get_adapdata(adap);
-#ifdef OMAP_HACK
-	u8 zero_byte = 0;
-#endif
 	int r;
 	u16 w;
 
 	dev_dbg(dev->dev, "addr: 0x%04x, len: %d, flags: 0x%x, stop: %d\n",
 		msg->addr, msg->len, msg->flags, stop);
 
-#ifndef OMAP_HACK
 	if (msg->len == 0)
 		return -EINVAL;
 
@@ -391,27 +383,6 @@ static int omap_i2c_xfer_msg(struct i2c_adapter *adap,
 	/* REVISIT: Could the STB bit of I2C_CON be used with probing? */
 	dev->buf = msg->buf;
 	dev->buf_len = msg->len;
-
-#else
-
-	omap_i2c_write_reg(dev, OMAP_I2C_SA_REG, msg->addr);
-	/* REVISIT: Remove this hack when we can get I2C chips from board-*.c
-	 *	    files
-	 * Sigh, seems we can't do zero length transactions. Thus, we
-	 * can't probe for devices w/o actually sending/receiving at least
-	 * a single byte. So we'll set count to 1 for the zero length
-	 * transaction case and hope we don't cause grief for some
-	 * arbitrary device due to random byte write/read during
-	 * probes.
-	 */
-	if (msg->len == 0) {
-		dev->buf = &zero_byte;
-		dev->buf_len = 1;
-	} else {
-		dev->buf = msg->buf;
-		dev->buf_len = msg->len;
-	}
-#endif
 
 	omap_i2c_write_reg(dev, OMAP_I2C_CNT_REG, dev->buf_len);
 
@@ -529,11 +500,7 @@ out:
 static u32
 omap_i2c_func(struct i2c_adapter *adap)
 {
-#ifndef OMAP_HACK
 	return I2C_FUNC_I2C | (I2C_FUNC_SMBUS_EMUL & ~I2C_FUNC_SMBUS_QUICK);
-#else
-	return I2C_FUNC_I2C | I2C_FUNC_SMBUS_EMUL;
-#endif
 }
 
 static inline void
