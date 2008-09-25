@@ -55,11 +55,13 @@ static int w1_id;
 struct hdq_data {
 	struct device		*dev;
 	void __iomem		*hdq_base;
+	/* lock status update */
 	struct  mutex		hdq_mutex;
 	int			hdq_usecount;
 	struct	clk		*hdq_ick;
 	struct	clk		*hdq_fck;
 	u8			hdq_irqstatus;
+	/* device lock */
 	spinlock_t		hdq_spinlock;
 	/*
 	 * Used to control the call to omap_hdq_get and omap_hdq_put.
@@ -79,8 +81,6 @@ static int omap_hdq_remove(struct platform_device *pdev);
 static struct platform_driver omap_hdq_driver = {
 	.probe =	omap_hdq_probe,
 	.remove =	omap_hdq_remove,
-	.suspend =	NULL,
-	.resume =	NULL,
 	.driver =	{
 		.name =	"omap_hdq",
 	},
@@ -106,11 +106,9 @@ static inline u8 hdq_reg_in(struct hdq_data *hdq_data, u32 offset)
 	return __raw_readb(hdq_data->hdq_base + offset);
 }
 
-static inline u8 hdq_reg_out(struct hdq_data *hdq_data, u32 offset, u8 val)
+static inline void hdq_reg_out(struct hdq_data *hdq_data, u32 offset, u8 val)
 {
 	__raw_writeb(val, hdq_data->hdq_base + offset);
-
-	return val;
 }
 
 static inline u8 hdq_reg_merge(struct hdq_data *hdq_data, u32 offset,
@@ -715,17 +713,17 @@ omap_hdq_init(void)
 {
 	return platform_driver_register(&omap_hdq_driver);
 }
+module_init(omap_hdq_init);
 
 static void __exit
 omap_hdq_exit(void)
 {
 	platform_driver_unregister(&omap_hdq_driver);
 }
-
-module_init(omap_hdq_init);
 module_exit(omap_hdq_exit);
 
 module_param(w1_id, int, S_IRUSR);
+MODULE_PARM_DESC(w1_id, "1-wire id for the slave detection");
 
 MODULE_AUTHOR("Texas Instruments");
 MODULE_DESCRIPTION("HDQ driver Library");
