@@ -9,8 +9,9 @@
  * Additional contributions by:
  *	Tony Lindgren <tony@atomide.com>
  *	Imre Deak <imre.deak@nokia.com>
- *	Juha Yrjölä <juha.yrjola@nokia.com>
+ *	Juha YrjÃ¶lÃ¤ <juha.yrjola@solidboot.com>
  *	Syed Khasim <x0khasim@ti.com>
+ *	Nishant Menon <nm@ti.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -35,8 +36,7 @@
 #include <linux/completion.h>
 #include <linux/platform_device.h>
 #include <linux/clk.h>
-
-#include <asm/io.h>
+#include <linux/io.h>
 
 /* Hack to enable zero length transfers and smbus quick until clean fix
    is available */
@@ -64,8 +64,8 @@
 #define OMAP_I2C_BUFSTAT_REG		0x40
 
 /* I2C Interrupt Enable Register (OMAP_I2C_IE): */
-#define OMAP_I2C_IE_XDR		(1 << 14)	/* TX Buffer draining int enable */
-#define OMAP_I2C_IE_RDR		(1 << 13)	/* RX Buffer draining int enable */
+#define OMAP_I2C_IE_XDR		(1 << 14)	/* TX Buffer drain int enable */
+#define OMAP_I2C_IE_RDR		(1 << 13)	/* RX Buffer drain int enable */
 #define OMAP_I2C_IE_XRDY	(1 << 4)	/* TX data ready int enable */
 #define OMAP_I2C_IE_RRDY	(1 << 3)	/* RX data ready int enable */
 #define OMAP_I2C_IE_ARDY	(1 << 2)	/* Access ready int enable */
@@ -221,7 +221,7 @@ static void omap_i2c_idle(struct omap_i2c_dev *dev)
 	dev->iestate = omap_i2c_read_reg(dev, OMAP_I2C_IE_REG);
 	omap_i2c_write_reg(dev, OMAP_I2C_IE_REG, 0);
 	if (dev->rev1)
-		iv = omap_i2c_read_reg(dev, OMAP_I2C_IV_REG);
+		iv = omap_i2c_read_reg(dev, OMAP_I2C_IV_REG); /* Read clears */
 	else
 		omap_i2c_write_reg(dev, OMAP_I2C_STAT_REG, dev->iestate);
 	/*
@@ -439,18 +439,24 @@ static int omap_i2c_xfer_msg(struct i2c_adapter *adap,
 
 	omap_i2c_write_reg(dev, OMAP_I2C_CON_REG, w);
 
+	/*
+	 * Don't write stt and stp together on some hardware
+	 */
 	if (dev->b_hw && stop) {
 		unsigned long delay = jiffies + OMAP_I2C_TIMEOUT;
+		u16 con = omap_i2c_read_reg(dev, OMAP_I2C_CON_REG);
+		while (con & OMAP_I2C_CON_STT) {
+			con = omap_i2c_read_reg(dev, OMAP_I2C_CON_REG);
 
-		/* H/w behavior: dont write stt and stp together.. */
-		while (omap_i2c_read_reg(dev, OMAP_I2C_CON_REG) & OMAP_I2C_CON_STT) {
 			/* Let the user know if i2c is in a bad state */
-			if (time_after (jiffies, delay)) {
+			if (time_after(jiffies, delay)) {
 				dev_err(dev->dev, "controller timed out "
 				"waiting for start condition to finish\n");
 				return -ETIMEDOUT;
 			}
+			cpu_relax();
 		}
+
 		w |= OMAP_I2C_CON_STP;
 		w &= ~OMAP_I2C_CON_STT;
 		omap_i2c_write_reg(dev, OMAP_I2C_CON_REG, w);
@@ -503,7 +509,8 @@ omap_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 
 	omap_i2c_unidle(dev);
 
-	if ((r = omap_i2c_wait_for_bb(dev)) < 0)
+	r = omap_i2c_wait_for_bb(dev);
+	if (r < 0)
 		goto out;
 
 	for (i = 0; i < num; i++) {
@@ -640,8 +647,11 @@ omap_i2c_isr(int this_irq, void *dev_id)
 		if (stat & (OMAP_I2C_STAT_RRDY | OMAP_I2C_STAT_RDR)) {
 			u8 num_bytes = 1;
 			if (dev->fifo_size) {
-				num_bytes = (stat & OMAP_I2C_STAT_RRDY) ? dev->fifo_size :
-						omap_i2c_read_reg(dev, OMAP_I2C_BUFSTAT_REG);
+				if (stat & OMAP_I2C_STAT_RRDY)
+					num_bytes = dev->fifo_size;
+				else
+					num_bytes = omap_i2c_read_reg(dev,
+							OMAP_I2C_BUFSTAT_REG);
 			}
 			while (num_bytes) {
 				num_bytes--;
@@ -659,22 +669,28 @@ omap_i2c_isr(int this_irq, void *dev_id)
 					}
 				} else {
 					if (stat & OMAP_I2C_STAT_RRDY)
-						dev_err(dev->dev, "RRDY IRQ while no data "
-								"requested\n");
+						dev_err(dev->dev,
+							"RRDY IRQ while no data"
+								" requested\n");
 					if (stat & OMAP_I2C_STAT_RDR)
-						dev_err(dev->dev, "RDR IRQ while no data "
-								"requested\n");
+						dev_err(dev->dev,
+							"RDR IRQ while no data"
+								" requested\n");
 					break;
 				}
 			}
-			omap_i2c_ack_stat(dev, stat & (OMAP_I2C_STAT_RRDY | OMAP_I2C_STAT_RDR));
+			omap_i2c_ack_stat(dev,
+				stat & (OMAP_I2C_STAT_RRDY | OMAP_I2C_STAT_RDR));
 			continue;
 		}
 		if (stat & (OMAP_I2C_STAT_XRDY | OMAP_I2C_STAT_XDR)) {
 			u8 num_bytes = 1;
 			if (dev->fifo_size) {
-				num_bytes = (stat & OMAP_I2C_STAT_XRDY) ? dev->fifo_size :
-						omap_i2c_read_reg(dev, OMAP_I2C_BUFSTAT_REG);
+				if (stat & OMAP_I2C_STAT_XRDY)
+					num_bytes = dev->fifo_size;
+				else
+					num_bytes = omap_i2c_read_reg(dev,
+							OMAP_I2C_BUFSTAT_REG);
 			}
 			while (num_bytes) {
 				num_bytes--;
@@ -692,16 +708,19 @@ omap_i2c_isr(int this_irq, void *dev_id)
 					}
 				} else {
 					if (stat & OMAP_I2C_STAT_XRDY)
-						dev_err(dev->dev, "XRDY IRQ while no "
-								"data to send\n");
+						dev_err(dev->dev,
+							"XRDY IRQ while no "
+							"data to send\n");
 					if (stat & OMAP_I2C_STAT_XDR)
-						dev_err(dev->dev, "XDR IRQ while no "
-								"data to send\n");
+						dev_err(dev->dev,
+							"XDR IRQ while no "
+							"data to send\n");
 					break;
 				}
 				omap_i2c_write_reg(dev, OMAP_I2C_DATA_REG, w);
 			}
-			omap_i2c_ack_stat(dev, stat & (OMAP_I2C_STAT_XRDY | OMAP_I2C_STAT_XDR));
+			omap_i2c_ack_stat(dev,
+				stat & (OMAP_I2C_STAT_XRDY | OMAP_I2C_STAT_XDR));
 			continue;
 		}
 		if (stat & OMAP_I2C_STAT_ROVR) {
@@ -772,7 +791,8 @@ omap_i2c_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, dev);
 
-	if ((r = omap_i2c_get_clocks(dev)) != 0)
+	r = omap_i2c_get_clocks(dev);
+	if (r != 0)
 		goto err_iounmap;
 
 	omap_i2c_unidle(dev);
@@ -781,13 +801,16 @@ omap_i2c_probe(struct platform_device *pdev)
 		dev->rev1 = omap_i2c_read_reg(dev, OMAP_I2C_REV_REG) < 0x20;
 
 	if (cpu_is_omap2430() || cpu_is_omap34xx()) {
+		u16 s;
+
 		/* Set up the fifo size - Get total size */
-		dev->fifo_size = 0x8 <<
-			((omap_i2c_read_reg(dev, OMAP_I2C_BUFSTAT_REG) >> 14) & 0x3);
+		s = (omap_i2c_read_reg(dev, OMAP_I2C_BUFSTAT_REG) >> 14) & 0x3;
+		dev->fifo_size = 0x8 << s;
+
 		/*
-		 * Set up notification threshold as half the total available size
-		 * This is to ensure that we can handle the status on int call back
-		 * latencies
+		 * Set up notification threshold as half the total available
+		 * size. This is to ensure that we can handle the status on int
+		 * call back latencies.
 		 */
 		dev->fifo_size = (dev->fifo_size / 2);
 		dev->b_hw = 1; /* Enable hardware fixes */
