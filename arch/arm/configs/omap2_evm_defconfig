@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
-# Linux kernel version: 2.6.27-rc3-omap1
-# Wed Aug 20 21:20:25 2008
+# Linux kernel version: 2.6.27-rc7-omap1
+# Wed Sep 24 18:43:59 2008
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -264,6 +264,7 @@ CONFIG_GENERIC_CLOCKEVENTS_BUILD=y
 CONFIG_PREEMPT=y
 CONFIG_HZ=100
 # CONFIG_AEABI is not set
+CONFIG_ARCH_FLATMEM_HAS_HOLES=y
 # CONFIG_ARCH_DISCONTIGMEM_ENABLE is not set
 CONFIG_SELECT_MEMORY_MODEL=y
 CONFIG_FLATMEM_MANUAL=y
@@ -773,7 +774,7 @@ CONFIG_SPI_MASTER=y
 # SPI Master Controller Drivers
 #
 # CONFIG_SPI_BITBANG is not set
-# CONFIG_SPI_OMAP24XX is not set
+CONFIG_SPI_OMAP24XX=y
 
 #
 # SPI Protocol Masters
