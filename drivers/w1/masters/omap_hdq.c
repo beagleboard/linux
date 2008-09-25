@@ -49,8 +49,8 @@
 
 #define OMAP_HDQ_MAX_USER			4
 
-DECLARE_WAIT_QUEUE_HEAD(hdq_wait_queue);
-int W1_ID;
+static DECLARE_WAIT_QUEUE_HEAD(hdq_wait_queue);
+static int w1_id;
 
 struct hdq_data {
 	struct device		*dev;
@@ -249,8 +249,8 @@ static void omap_w1_search_bus(void *_hdq, u8 search_type,
 {
 	u64 module_id, rn_le, cs, id;
 
-	if (W1_ID)
-		module_id = W1_ID;
+	if (w1_id)
+		module_id = w1_id;
 	else
 		module_id = 0x1;
 
@@ -715,7 +715,7 @@ omap_hdq_exit(void)
 module_init(omap_hdq_init);
 module_exit(omap_hdq_exit);
 
-module_param(W1_ID, int, S_IRUSR);
+module_param(w1_id, int, S_IRUSR);
 
 MODULE_AUTHOR("Texas Instruments");
 MODULE_DESCRIPTION("HDQ driver Library");
