@@ -150,45 +150,49 @@ void __init omap34xx_check_revision(void)
 	char *rev_name;
 
 	/*
+	 * We cannot access revision registers on ES1.0.
 	 * If the processor type is Cortex-A8 and the revision is 0x0
-	 * it means its Cortex r0p0 which is 3430 ES1
+	 * it means its Cortex r0p0 which is 3430 ES1.0.
 	 */
 	cpuid = read_cpuid(CPUID_ID);
 	if ((((cpuid >> 4) & 0xfff) == 0xc08) && ((cpuid & 0xf) == 0x0)) {
 		system_rev = OMAP3430_REV_ES1_0;
+		rev_name = "ES1.0";
 		goto out;
 	}
 
 	/*
 	 * Detection for 34xx ES2.0 and above can be done with just
 	 * hawkeye and rev. See TRM 1.5.2 Device Identification.
-	 * Note that rev cannot be used directly as ES1.0 uses value 0.
+	 * Note that rev does not map directly to our defined processor
+	 * revision numbers as ES1.0 uses value 0.
 	 */
 	idcode = read_tap_reg(OMAP_TAP_IDCODE);
 	hawkeye = (idcode >> 12) & 0xffff;
 	rev = (idcode >> 28) & 0xff;
 
-	if (hawkeye == 0xb7ae)
-		system_rev = 0x34300034 | ((1 + rev) << 12);
-
-out:
-	switch (system_rev) {
-	case OMAP3430_REV_ES1_0:
-		rev_name = "ES1.0";
-		break;
-	case OMAP3430_REV_ES2_0:
-		rev_name = "ES2.0";
-		break;
-	case OMAP3430_REV_ES2_1:
-		rev_name = "ES2.1";
-		break;
-	case OMAP3430_REV_ES3_0:
-		rev_name = "ES3.0";
-		break;
-	default:
-		rev_name = "Unknown revision\n";
+	if (hawkeye == 0xb7ae) {
+		switch (rev) {
+		case 0:
+			system_rev = OMAP3430_REV_ES2_0;
+			rev_name = "ES2.0";
+			break;
+		case 2:
+			system_rev = OMAP3430_REV_ES2_1;
+			rev_name = "ES2.1";
+			break;
+		case 3:
+			system_rev = OMAP3430_REV_ES3_0;
+			rev_name = "ES3.0";
+			break;
+		default:
+			/* Use the latest known revision as default */
+			system_rev = OMAP3430_REV_ES3_0;
+			rev_name = "Unknown revision\n";
+		}
 	}
 
+out:
 	pr_info("OMAP%04x %s\n", system_rev >> 16, rev_name);
 }
 
