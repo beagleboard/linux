@@ -227,28 +227,13 @@ static int omap3_can_sleep(void)
 	return 1;
 }
 
-/* _clkdm_deny_idle - private callback function used by set_pwrdm_state() */
-static int _clkdm_deny_idle(struct powerdomain *pwrdm,
-			    struct clockdomain *clkdm)
-{
-	omap2_clkdm_deny_idle(clkdm);
-	return 0;
-}
-
-/* _clkdm_allow_idle - private callback function used by set_pwrdm_state() */
-static int _clkdm_allow_idle(struct powerdomain *pwrdm,
-			     struct clockdomain *clkdm)
-{
-	omap2_clkdm_allow_idle(clkdm);
-	return 0;
-}
-
 /* This sets pwrdm state (other than mpu & core. Currently only ON &
  * RET are supported. Function is assuming that clkdm doesn't have
  * hw_sup mode enabled. */
 static int set_pwrdm_state(struct powerdomain *pwrdm, u32 state)
 {
 	u32 cur_state;
+	int sleep_switch = 0;
 	int ret = 0;
 
 	if (pwrdm == NULL || IS_ERR(pwrdm))
@@ -259,7 +244,11 @@ static int set_pwrdm_state(struct powerdomain *pwrdm, u32 state)
 	if (cur_state == state)
 		return ret;
 
-	pwrdm_for_each_clkdm(pwrdm, _clkdm_deny_idle);
+	if (pwrdm_read_pwrst(pwrdm) < PWRDM_POWER_ON) {
+		omap2_clkdm_wakeup(pwrdm->pwrdm_clkdms[0]);
+		sleep_switch = 1;
+		pwrdm_wait_transition(pwrdm);
+	}
 
 	ret = pwrdm_set_next_pwrst(pwrdm, state);
 	if (ret) {
@@ -268,7 +257,10 @@ static int set_pwrdm_state(struct powerdomain *pwrdm, u32 state)
 		goto err;
 	}
 
-	pwrdm_for_each_clkdm(pwrdm, _clkdm_allow_idle);
+	if (sleep_switch) {
+		omap2_clkdm_allow_idle(pwrdm->pwrdm_clkdms[0]);
+		pwrdm_wait_transition(pwrdm);
+	}
 
 err:
 	return ret;
@@ -540,6 +532,12 @@ static int __init pwrdms_setup(struct powerdomain *pwrdm)
 	return set_pwrdm_state(pwrst->pwrdm, pwrst->next_state);
 }
 
+static int __init clkdms_setup(struct clockdomain *clkdm)
+{
+	omap2_clkdm_allow_idle(clkdm);
+	return 0;
+}
+
 int __init omap3_pm_init(void)
 {
 	struct power_state *pwrst;
@@ -565,6 +563,8 @@ int __init omap3_pm_init(void)
 		printk(KERN_ERR "Failed to setup powerdomains\n");
 		goto err2;
 	}
+
+	(void) clkdm_for_each(clkdms_setup);
 
 	mpu_pwrdm = pwrdm_lookup("mpu_pwrdm");
 	if (mpu_pwrdm == NULL) {
