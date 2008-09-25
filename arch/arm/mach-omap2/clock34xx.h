@@ -2304,7 +2304,7 @@ static struct clk dss1_alwon_fck_3430es1 = {
 	.prcm_mod	= OMAP3430_DSS_MOD,
 	.enable_reg	= CM_FCLKEN,
 	.enable_bit	= OMAP3430_EN_DSS1_SHIFT,
-	.flags		= CLOCK_IN_OMAP343X,
+	.flags		= CLOCK_IN_OMAP3430ES1,
 	.clkdm		= { .name = "dss_clkdm" },
 	.recalc		= &followparent_recalc,
 };
@@ -2317,7 +2317,7 @@ static struct clk dss1_alwon_fck_3430es2 = {
 	.enable_reg	= CM_FCLKEN,
 	.enable_bit	= OMAP3430_EN_DSS1_SHIFT,
 	.idlest_bit	= OMAP3430ES2_ST_DSS_IDLE_SHIFT,
-	.flags		= CLOCK_IN_OMAP343X | WAIT_READY,
+	.flags		= CLOCK_IN_OMAP3430ES2 | WAIT_READY,
 	.clkdm		= { .name = "dss_clkdm" },
 	.recalc		= &followparent_recalc,
 };
