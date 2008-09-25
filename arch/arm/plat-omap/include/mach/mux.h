@@ -641,6 +641,15 @@ enum omap24xx_index {
 	AE13_2430_MCBSP2_DX_OFF,
 	AD13_2430_MCBSP2_DR_OFF,
 
+	/* 2430 McSPI*/
+	Y18_2430_MCSPI1_CLK,
+	AD15_2430_MCSPI1_SIMO,
+	AE17_2430_MCSPI1_SOMI,
+	U1_2430_MCSPI1_CS0,
+
+	/* Touchscreen GPIO */
+	AF19_2430_GPIO_85,
+
 };
 
 enum omap34xx_index {
