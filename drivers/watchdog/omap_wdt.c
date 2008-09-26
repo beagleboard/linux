@@ -283,7 +283,7 @@ static int __init omap_wdt_probe(struct platform_device *pdev)
 	}
 
 	if (omap_wdt_dev) {
-		ret - EBUSY;
+		ret = -EBUSY;
 		goto err_busy;
 	}
 
