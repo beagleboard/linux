@@ -17,25 +17,11 @@
 
 #include <mach/board.h>
 
-#define OMAP15XX_NR_MMC		1
-#define OMAP16XX_NR_MMC		2
-#define OMAP1_MMC_SIZE		0x080
-#define OMAP1_MMC1_BASE		0xfffb7800
-#define OMAP1_MMC2_BASE		0xfffb7c00	/* omap16xx only */
-
-#define OMAP24XX_NR_MMC		2
-#define OMAP34XX_NR_MMC		3
-#define OMAP2420_MMC_SIZE	OMAP1_MMC_SIZE
-#define HSMMC_SIZE		0x200
-#define OMAP2_MMC1_BASE		0x4809c000
-#define OMAP2_MMC2_BASE		0x480b4000
-#define OMAP3_MMC3_BASE		0x480ad000
-
 #define OMAP_MMC_MAX_SLOTS	2
 
 struct omap_mmc_platform_data {
 
-	/* number of slots per controller */
+	/* number of slots on board */
 	unsigned nr_slots:2;
 
 	/* set if your board has components or wiring that limits the
@@ -54,9 +40,9 @@ struct omap_mmc_platform_data {
 	int (*suspend)(struct device *dev, int slot);
 	int (*resume)(struct device *dev, int slot);
 
-	u64 dma_mask;
-
 	struct omap_mmc_slot_data {
+
+		unsigned enabled:1;
 
 		/*
 		 * nomux means "standard" muxing is wrong on this board, and
@@ -74,6 +60,7 @@ struct omap_mmc_platform_data {
 		unsigned internal_clock:1;
 		s16 power_pin;
 		s16 switch_pin;
+		s16 wp_pin;
 
 		int (* set_bus_mode)(struct device *dev, int slot, int bus_mode);
 		int (* set_power)(struct device *dev, int slot, int power_on, int vdd);
@@ -82,8 +69,8 @@ struct omap_mmc_platform_data {
 		/* return MMC cover switch state, can be NULL if not supported.
 		 *
 		 * possible return values:
-		 *   0 - closed
-		 *   1 - open
+		 *   0 - open
+		 *   1 - closed
 		 */
 		int (* get_cover_state)(struct device *dev, int slot);
 
@@ -104,25 +91,20 @@ extern void omap_mmc_notify_cover_event(struct device *dev, int slot, int is_clo
 
 #if	defined(CONFIG_MMC_OMAP) || defined(CONFIG_MMC_OMAP_MODULE) || \
 	defined(CONFIG_MMC_OMAP_HS) || defined(CONFIG_MMC_OMAP_HS_MODULE)
-void omap1_init_mmc(struct omap_mmc_platform_data **mmc_data,
-				int nr_controllers);
-void omap2_init_mmc(struct omap_mmc_platform_data **mmc_data,
-				int nr_controllers);
-int omap_mmc_add(int id, unsigned long base, unsigned long size,
-			unsigned int irq, struct omap_mmc_platform_data *data);
+void omap1_init_mmc(struct omap_mmc_platform_data *info);
+void omap2_init_mmc(struct omap_mmc_platform_data *info);
+void omap_init_mmc(struct omap_mmc_platform_data *info,
+		struct platform_device *pdev1, struct platform_device *pdev2);
 #else
-static inline void omap1_init_mmc(struct omap_mmc_platform_data **mmc_data,
-				int nr_controllers)
+static inline void omap1_init_mmc(struct omap_mmc_platform_data *info)
 {
 }
-static inline void omap2_init_mmc(struct omap_mmc_platform_data **mmc_data,
-				int nr_controllers)
+static inline void omap2_init_mmc(struct omap_mmc_platform_data *info)
 {
 }
-static inline int omap_mmc_add(int id, unsigned long base, unsigned long size,
-		unsigned int irq, struct omap_mmc_platform_data *data)
+static inline void omap_init_mmc(struct omap_mmc_platform_data *info,
+		struct platform_device *pdev1, struct platform_device *pdev2)
 {
-	return 0;
 }
 #endif
 

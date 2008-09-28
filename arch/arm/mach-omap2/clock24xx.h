@@ -2812,6 +2812,7 @@ static struct clk mdm_intc_ick = {
 
 static struct clk mmchsdb1_fck = {
 	.name		= "mmchsdb_fck",
+	.id		= 1,
 	.parent		= &func_32k_ck,
 	.prcm_mod	= CORE_MOD,
 	.flags		= CLOCK_IN_OMAP243X,
@@ -2823,7 +2824,7 @@ static struct clk mmchsdb1_fck = {
 
 static struct clk mmchsdb2_fck = {
 	.name		= "mmchsdb_fck",
-	.id		= 1,
+	.id		= 2,
 	.parent		= &func_32k_ck,
 	.prcm_mod	= CORE_MOD,
 	.flags		= CLOCK_IN_OMAP243X,

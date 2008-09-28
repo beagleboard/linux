@@ -816,9 +816,7 @@ static int __init omap_mmc_probe(struct platform_device *pdev)
 	host		= mmc_priv(mmc);
 	host->mmc	= mmc;
 	host->pdata	= pdata;
-	host->dev	= &pdev->dev;
 	host->use_dma	= 1;
-	host->dev->dma_mask = &pdata->dma_mask;
 	host->dma_ch	= -1;
 	host->irq	= irq;
 	host->id	= pdev->id;

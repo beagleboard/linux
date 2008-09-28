@@ -1411,7 +1411,7 @@ static struct clk core_96m_fck = {
 
 static struct clk mmchs3_fck = {
 	.name		= "mmchs_fck",
-	.id		= 2,
+	.id		= 3,
 	.parent		= &core_96m_fck,
 	.prcm_mod	= CORE_MOD,
 	.enable_reg	= CM_FCLKEN1,
@@ -1424,7 +1424,7 @@ static struct clk mmchs3_fck = {
 
 static struct clk mmchs2_fck = {
 	.name		= "mmchs_fck",
-	.id		= 1,
+	.id		= 2,
 	.parent		= &core_96m_fck,
 	.prcm_mod	= CORE_MOD,
 	.enable_reg	= CM_FCLKEN1,
@@ -1449,6 +1449,7 @@ static struct clk mspro_fck = {
 
 static struct clk mmchs1_fck = {
 	.name		= "mmchs_fck",
+	.id		= 1,
 	.parent		= &core_96m_fck,
 	.prcm_mod	= CORE_MOD,
 	.enable_reg	= CM_FCLKEN1,
@@ -1867,7 +1868,7 @@ static struct clk usbtll_ick = {
 
 static struct clk mmchs3_ick = {
 	.name		= "mmchs_ick",
-	.id		= 2,
+	.id		= 3,
 	.parent		= &core_l4_ick,
 	.prcm_mod	= CORE_MOD,
 	.enable_reg	= CM_ICLKEN1,
@@ -1929,7 +1930,7 @@ static struct clk des2_ick = {
 
 static struct clk mmchs2_ick = {
 	.name		= "mmchs_ick",
-	.id		= 1,
+	.id		= 2,
 	.parent		= &core_l4_ick,
 	.prcm_mod	= CORE_MOD,
 	.enable_reg	= CM_ICLKEN1,
@@ -1942,6 +1943,7 @@ static struct clk mmchs2_ick = {
 
 static struct clk mmchs1_ick = {
 	.name		= "mmchs_ick",
+	.id		= 1,
 	.parent		= &core_l4_ick,
 	.prcm_mod	= CORE_MOD,
 	.enable_reg	= CM_ICLKEN1,
