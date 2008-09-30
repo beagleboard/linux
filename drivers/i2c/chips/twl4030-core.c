@@ -45,6 +45,11 @@
 
 #define DRIVER_NAME			"twl4030"
 
+#if defined(CONFIG_RTC_DRV_TWL4030) || defined(CONFIG_RTC_DRV_TWL4030_MODULE)
+#define twl_has_rtc()	true
+#else
+#define twl_has_rtc()	false
+#endif
 
 /* Primary Interrupt Handler on TWL4030 Registers */
 
@@ -639,34 +644,38 @@ static int add_children(struct twl4030_platform_data *pdata)
 	struct twl4030_client	*twl = NULL;
 	int			status = 0;
 
-#ifdef CONFIG_RTC_DRV_TWL4030
-	pdev = platform_device_alloc("twl4030_rtc", -1);
-	if (pdev) {
-		twl = &twl4030_modules[TWL4030_SLAVENUM_NUM3];
-		pdev->dev.parent = &twl->client->dev;
-		device_init_wakeup(&pdev->dev, 1);
+	if (twl_has_rtc()) {
+		pdev = platform_device_alloc("twl4030_rtc", -1);
+		if (pdev) {
+			twl = &twl4030_modules[TWL4030_SLAVENUM_NUM3];
+			pdev->dev.parent = &twl->client->dev;
+			device_init_wakeup(&pdev->dev, 1);
 
-		/*
-		 * FIXME add the relevant IRQ resource, and make the
-		 * rtc driver use it instead of hard-wiring ...
-		 *
-		 * REVISIT platform_data here currently only supports
-		 * setting up the "msecure" line ... which actually
-		 * violates the "princple of least privilege", since
-		 * it's effectively always in "high trust" mode.
-		 *
-		 * For now, expect equivalent treatment at board init:
-		 * setting msecure high.  Eventually, Linux might
-		 * become more aware of those HW security concerns.
-		 */
+			/*
+			 * FIXME add the relevant IRQ resource, and make the
+			 * rtc driver use it instead of hard-wiring ...
+			 *
+			 * REVISIT platform_data here currently only supports
+			 * setting up the "msecure" line ... which actually
+			 * violates the "princple of least privilege", since
+			 * it's effectively always in "high trust" mode.
+			 *
+			 * For now, expect equivalent treatment at board init:
+			 * setting msecure high.  Eventually, Linux might
+			 * become more aware of those HW security concerns.
+			 */
 
-		status = platform_device_add(pdev);
-		if (status < 0)
-			platform_device_put(pdev);
-	} else
-		status = -ENOMEM;
-#endif
+			status = platform_device_add(pdev);
+			if (status < 0)
+				platform_device_put(pdev);
+		} else {
+			status = -ENOMEM;
+			goto err;
+		}
+	}
 
+err:
+	pr_err("failed to add twl4030's children\n");
 	return status;
 }
 
