@@ -45,22 +45,10 @@
 
 #define DRIVER_NAME			"twl4030"
 
-#if defined(CONFIG_RTC_DRV_TWL4030) || defined(CONFIG_RTC_DRV_TWL4030_MODULE)
-#define twl_has_rtc()	true
-#else
-#define twl_has_rtc()	false
-#endif
-
 #if defined(CONFIG_KEYBOARD_TWL4030) || defined(CONFIG_KEYBOARD_TWL4030_MODULE)
 #define twl_has_keypad()	true
 #else
 #define twl_has_keypad()	false
-#endif
-
-#if defined(CONFIG_TWL4030_USB) || defined(CONFIG_TWL4030_USB_MODULE)
-#define twl_has_usb()	true
-#else
-#define twl_has_usb()	false
 #endif
 
 #ifdef CONFIG_TWL4030_GPIO
@@ -73,6 +61,18 @@
 #define twl_has_madc()	true
 #else
 #define twl_has_madc()	false
+#endif
+
+#if defined(CONFIG_RTC_DRV_TWL4030) || defined(CONFIG_RTC_DRV_TWL4030_MODULE)
+#define twl_has_rtc()	true
+#else
+#define twl_has_rtc()	false
+#endif
+
+#if defined(CONFIG_TWL4030_USB) || defined(CONFIG_TWL4030_USB_MODULE)
+#define twl_has_usb()	true
+#else
+#define twl_has_usb()	false
 #endif
 
 /* Primary Interrupt Handler on TWL4030 Registers */
@@ -706,6 +706,48 @@ static int add_children(struct twl4030_platform_data *pdata)
 		}
 	}
 
+	if (twl_has_keypad() && pdata->keypad) {
+		pdev = platform_device_alloc("twl4030_keypad", -1);
+		if (pdev) {
+			twl = &twl4030_modules[TWL4030_SLAVENUM_NUM2];
+			pdev->dev.parent = &twl->client->dev;
+			device_init_wakeup(&pdev->dev, 1);
+			status = platform_device_add_data(pdev, pdata->keypad,
+					sizeof(*pdata->keypad));
+			if (status < 0) {
+				platform_device_put(pdev);
+				goto err;
+			}
+			status = platform_device_add(pdev);
+			if (status < 0)
+				platform_device_put(pdev);
+		} else {
+			status = -ENOMEM;
+			goto err;
+		}
+	}
+
+	if (twl_has_madc() && pdata->madc) {
+		pdev = platform_device_alloc("twl4030_madc", -1);
+		if (pdev) {
+			twl = &twl4030_modules[TWL4030_SLAVENUM_NUM2];
+			pdev->dev.parent = &twl->client->dev;
+			device_init_wakeup(&pdev->dev, 1);
+			status = platform_device_add_data(pdev, pdata->madc,
+					sizeof(*pdata->madc));
+			if (status < 0) {
+				platform_device_put(pdev);
+				goto err;
+			}
+			status = platform_device_add(pdev);
+			if (status < 0)
+				platform_device_put(pdev);
+		} else {
+			status = -ENOMEM;
+			goto err;
+		}
+	}
+
 	if (twl_has_rtc()) {
 		pdev = platform_device_alloc("twl4030_rtc", -1);
 		if (pdev) {
@@ -736,27 +778,6 @@ static int add_children(struct twl4030_platform_data *pdata)
 		}
 	}
 
-	if (twl_has_keypad() && pdata->keypad) {
-		pdev = platform_device_alloc("twl4030_keypad", -1);
-		if (pdev) {
-			twl = &twl4030_modules[TWL4030_SLAVENUM_NUM2];
-			pdev->dev.parent = &twl->client->dev;
-			device_init_wakeup(&pdev->dev, 1);
-			status = platform_device_add_data(pdev, pdata->keypad,
-					sizeof(*pdata->keypad));
-			if (status < 0) {
-				platform_device_put(pdev);
-				goto err;
-			}
-			status = platform_device_add(pdev);
-			if (status < 0)
-				platform_device_put(pdev);
-		} else {
-			status = -ENOMEM;
-			goto err;
-		}
-	}
-
 	if (twl_has_usb() && pdata->usb) {
 		pdev = platform_device_alloc("twl4030_usb", -1);
 		if (pdev) {
@@ -765,27 +786,6 @@ static int add_children(struct twl4030_platform_data *pdata)
 			device_init_wakeup(&pdev->dev, 1);
 			status = platform_device_add_data(pdev, pdata->usb,
 					sizeof(*pdata->usb));
-			if (status < 0) {
-				platform_device_put(pdev);
-				goto err;
-			}
-			status = platform_device_add(pdev);
-			if (status < 0)
-				platform_device_put(pdev);
-		} else {
-			status = -ENOMEM;
-			goto err;
-		}
-	}
-
-	if (twl_has_madc() && pdata->madc) {
-		pdev = platform_device_alloc("twl4030_madc", -1);
-		if (pdev) {
-			twl = &twl4030_modules[TWL4030_SLAVENUM_NUM2];
-			pdev->dev.parent = &twl->client->dev;
-			device_init_wakeup(&pdev->dev, 1);
-			status = platform_device_add_data(pdev, pdata->madc,
-					sizeof(*pdata->madc));
 			if (status < 0) {
 				platform_device_put(pdev);
 				goto err;
@@ -844,17 +844,19 @@ static int __init unprotect_pm_master(void)
 
 static int __init power_companion_init(void)
 {
+	int e = 0;
+
+#if defined(CONFIG_ARCH_OMAP2) || defined(CONFIG_ARCH_OMAP3)
 	struct clk *osc;
 	u32 rate;
 	u8 ctrl = HFCLK_FREQ_26_MHZ;
-	int e = 0;
 
 	if (cpu_is_omap2430())
 		osc = clk_get(NULL, "osc_ck");
 	else
 		osc = clk_get(NULL, "osc_sys_ck");
 	if (IS_ERR(osc)) {
-		printk(KERN_WARNING "Skipping twl3040 internal clock init and "
+		printk(KERN_WARNING "Skipping twl4030 internal clock init and "
 				"using bootloader value (unknown osc rate)\n");
 		return 0;
 	}
@@ -879,6 +881,7 @@ static int __init power_companion_init(void)
 	/* effect->MADC+USB ck en */
 	e |= twl4030_i2c_write_u8(TWL4030_MODULE_PM_MASTER, ctrl, R_CFG_BOOT);
 	e |= protect_pm_master();
+#endif	/* OMAP */
 
 	return e;
 }
