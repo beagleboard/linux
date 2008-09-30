@@ -19,7 +19,7 @@
 #include <mach/gpio.h>
 #include <mach/mmc.h>
 
-#ifdef CONFIG_MMC_OMAP
+#if defined(CONFIG_MMC_OMAP) || defined(CONFIG_MMC_OMAP_MODULE)
 
 static const int slot_switch_gpio = 96;
 
@@ -296,19 +296,22 @@ static void n800_mmc_cleanup(struct device *dev)
 	}
 }
 
-static struct omap_mmc_platform_data n800_mmc_data = {
+/*
+ * MMC controller1 has two slots that are multiplexed via I2C.
+ * MMC controller2 is not in use.
+ */
+static struct omap_mmc_platform_data mmc1_data = {
 	.nr_slots		= 2,
 	.switch_slot		= n800_mmc_switch_slot,
 	.init			= n800_mmc_late_init,
 	.cleanup		= n800_mmc_cleanup,
 	.shutdown		= n800_mmc_shutdown,
 	.max_freq               = 24000000,
+	.dma_mask		= 0xffffffff,
 	.slots[0] = {
-		.enabled	= 1,
 		.wire4		= 1,
 		.set_power	= n800_mmc_set_power,
 		.set_bus_mode	= n800_mmc_set_bus_mode,
-		.get_ro		= NULL,
 		.get_cover_state= n800_mmc_get_cover_state,
 		.ocr_mask	= MMC_VDD_165_195 | MMC_VDD_30_31 |
 				  MMC_VDD_32_33   | MMC_VDD_33_34,
@@ -317,7 +320,6 @@ static struct omap_mmc_platform_data n800_mmc_data = {
 	.slots[1] = {
 		.set_power	= n800_mmc_set_power,
 		.set_bus_mode	= n800_mmc_set_bus_mode,
-		.get_ro		= NULL,
 		.get_cover_state= n800_mmc_get_cover_state,
 		.ocr_mask	= MMC_VDD_165_195 | MMC_VDD_20_21 |
 				  MMC_VDD_21_22 | MMC_VDD_22_23 | MMC_VDD_23_24 |
@@ -328,11 +330,13 @@ static struct omap_mmc_platform_data n800_mmc_data = {
 	},
 };
 
+static struct omap_mmc_platform_data *mmc_data[OMAP24XX_NR_MMC];
+
 void __init n800_mmc_init(void)
 
 {
 	if (machine_is_nokia_n810()) {
-		n800_mmc_data.slots[0].name = "external";
+		n800_mmc1_data.slots[0].name = "external";
 
 		/*
 		 * Some Samsung Movinand chips do not like open-ended
@@ -340,8 +344,8 @@ void __init n800_mmc_init(void)
 		 * while doing so. Reducing the number of blocks in
 		 * the transfer or delays in clock disable do not help
 		 */
-		n800_mmc_data.slots[1].name = "internal";
-		n800_mmc_data.slots[1].ban_openended = 1;
+		n800_mmc1_data.slots[1].name = "internal";
+		n800_mmc1_data.slots[1].ban_openended = 1;
 	}
 
 	if (omap_request_gpio(slot_switch_gpio) < 0)
@@ -361,7 +365,8 @@ void __init n800_mmc_init(void)
 		omap_set_gpio_direction(n810_slot2_pw_vdd, 0);
 	}
 
-	omap2_init_mmc(&n800_mmc_data);
+	mmc_data[0] = &mmc1_data;
+	omap2_init_mmc(mmc_data, OMAP24XX_NR_MMC);
 }
 #else
 

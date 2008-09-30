@@ -62,13 +62,12 @@ static void apollon_mmc_cleanup(struct device *dev)
 /*
  * Note: If you want to detect card feature, please assign GPIO 37
  */
-static struct omap_mmc_platform_data apollon_mmc_data = {
+static struct omap_mmc_platform_data mmc1_data = {
 	.nr_slots			= 1,
-	.switch_slot			= NULL,
 	.init				= apollon_mmc_late_init,
 	.cleanup			= apollon_mmc_cleanup,
+	.dma_mask			= 0xffffffff,
 	.slots[0]	= {
-		.enabled		= 1,
 		.wire4			= 1,
 
 		/*
@@ -79,17 +78,18 @@ static struct omap_mmc_platform_data apollon_mmc_data = {
 
 		.set_power		= apollon_mmc_set_power,
 		.set_bus_mode		= apollon_mmc_set_bus_mode,
-		.get_ro			= NULL,
-		.get_cover_state	= NULL,
 		.ocr_mask		= MMC_VDD_30_31 | MMC_VDD_31_32 |
 					  MMC_VDD_32_33 | MMC_VDD_33_34,
 		.name			= "mmcblk",
 	},
 };
 
+static struct omap_mmc_platform_data *mmc_data[OMAP24XX_NR_MMC];
+
 void __init apollon_mmc_init(void)
 {
-	omap2_init_mmc(&apollon_mmc_data);
+	mmc_data[0] = &mmc1_data;
+	omap2_init_mmc(mmc_data, OMAP24XX_NR_MMC);
 }
 
 #else	/* !CONFIG_MMC_OMAP */

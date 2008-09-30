@@ -87,17 +87,25 @@
 #define SRC			(1 << 25)
 #define SRD			(1 << 26)
 
-#define OMAP_MMC1_DEVID		1
-#define OMAP_MMC2_DEVID		2
+/*
+ * FIXME: Most likely all the data using these _DEVID defines should come
+ * from the platform_data, or implemented in controller and slot specific
+ * functions.
+ */
+#define OMAP_MMC1_DEVID		0
+#define OMAP_MMC2_DEVID		1
+
 #define OMAP_MMC_DATADIR_NONE	0
 #define OMAP_MMC_DATADIR_READ	1
 #define OMAP_MMC_DATADIR_WRITE	2
 #define MMC_TIMEOUT_MS		20
 #define OMAP_MMC_MASTER_CLOCK	96000000
 #define DRIVER_NAME		"mmci-omap"
+
 /*
- * slot_id is device id - 1, device id is a static value
- * of 1 to represent device 1 etc..
+ * One controller can have multiple slots, like on some omap boards using
+ * omap.c controller driver. Luckily this is not currently done on any known
+ * omap_hsmmc.c device.
  */
 #define mmc_slot(host)		(host->pdata->slots[host->slot_id])
 
@@ -816,7 +824,9 @@ static int __init omap_mmc_probe(struct platform_device *pdev)
 	host		= mmc_priv(mmc);
 	host->mmc	= mmc;
 	host->pdata	= pdata;
+	host->dev	= &pdev->dev;
 	host->use_dma	= 1;
+	host->dev->dma_mask = &pdata->dma_mask;
 	host->dma_ch	= -1;
 	host->irq	= irq;
 	host->id	= pdev->id;
