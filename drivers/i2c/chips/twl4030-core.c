@@ -75,6 +75,19 @@
 #define twl_has_usb()	false
 #endif
 
+static inline void activate_irq(int irq)
+{
+#ifdef CONFIG_ARM
+	/* ARM requires an extra step to clear IRQ_NOREQUEST, which it
+	 * sets on behalf of every irq_chip.  Also sets IRQ_NOPROBE.
+	 */
+	set_irq_flags(irq, IRQF_VALID);
+#else
+	/* same effect on other architectures */
+	set_irq_noprobe(irq);
+#endif
+}
+
 /* Primary Interrupt Handler on TWL4030 Registers */
 
 /* Register Definitions */
@@ -584,7 +597,7 @@ static unsigned twl4030_irq_base;
  */
 static int twl4030_irq_thread(void *data)
 {
-	int irq = (int)data;
+	long irq = (long)data;
 	irq_desc_t *desc = irq_desc + irq;
 	static unsigned i2c_errors;
 	const static unsigned max_i2c_errors = 100;
@@ -868,15 +881,15 @@ err:
 	return status;
 }
 
-static struct task_struct * __init start_twl4030_irq_thread(int irq)
+static struct task_struct * __init start_twl4030_irq_thread(long irq)
 {
 	struct task_struct *thread;
 
 	init_completion(&irq_event);
 	thread = kthread_run(twl4030_irq_thread, (void *)irq,
-			     "twl4030 irq %d", irq);
+			     "twl4030 irq %ld", irq);
 	if (!thread)
-		pr_err("%s: could not create twl4030 irq %d thread!\n",
+		pr_err("%s: could not create twl4030 irq %ld thread!\n",
 		       DRIVER_NAME, irq);
 
 	return thread;
@@ -909,16 +922,18 @@ static int __init unprotect_pm_master(void)
 static int __init power_companion_init(void)
 {
 	int e = 0;
-
-#if defined(CONFIG_ARCH_OMAP2) || defined(CONFIG_ARCH_OMAP3)
 	struct clk *osc;
 	u32 rate;
 	u8 ctrl = HFCLK_FREQ_26_MHZ;
 
+#if defined(CONFIG_ARCH_OMAP2) || defined(CONFIG_ARCH_OMAP3)
 	if (cpu_is_omap2430())
 		osc = clk_get(NULL, "osc_ck");
 	else
 		osc = clk_get(NULL, "osc_sys_ck");
+#else
+	osc = ERR_PTR(-EIO);
+#endif
 	if (IS_ERR(osc)) {
 		printk(KERN_WARNING "Skipping twl4030 internal clock init and "
 				"using bootloader value (unknown osc rate)\n");
@@ -945,7 +960,6 @@ static int __init power_companion_init(void)
 	/* effect->MADC+USB ck en */
 	e |= twl4030_i2c_write_u8(TWL4030_MODULE_PM_MASTER, ctrl, R_CFG_BOOT);
 	e |= protect_pm_master();
-#endif	/* OMAP */
 
 	return e;
 }
@@ -1051,9 +1065,9 @@ static void twl_init_irq(int irq_num, unsigned irq_base, unsigned irq_end)
 
 	/* install an irq handler for each of the PIH modules */
 	for (i = irq_base; i < irq_end; i++) {
-		set_irq_chip(i, &twl4030_irq_chip);
-		set_irq_handler(i, do_twl4030_module_irq);
-		set_irq_flags(i, IRQF_VALID);
+		set_irq_chip_and_handler(i, &twl4030_irq_chip,
+				do_twl4030_module_irq);
+		activate_irq(i);
 	}
 
 	/* install an irq handler to demultiplex the TWL4030 interrupt */
