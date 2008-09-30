@@ -509,10 +509,7 @@ int twl4030_set_gpio_pull(int gpio, int pull_dircn)
 }
 #endif
 
-/*
- * Configure Edge control for a GPIO pin on TWL4030
- */
-int twl4030_set_gpio_edge_ctrl(int gpio, int edge)
+static int twl4030_set_gpio_edge_ctrl(int gpio, int edge)
 {
 	u8 c_bnk = GET_GPIO_CTL_BANK(gpio);
 	u8 c_off = GET_GPIO_CTL_OFF(gpio);
@@ -521,33 +518,26 @@ int twl4030_set_gpio_edge_ctrl(int gpio, int edge)
 	u8 base = 0;
 	int ret = 0;
 
-	if (unlikely((gpio >= TWL4030_GPIO_MAX)
-		|| !(gpio_usage_count & (0x1 << gpio))))
-		return -EPERM;
-
 	base = REG_GPIO_EDR1 + c_bnk;
 
-	if (edge & TWL4030_GPIO_EDGE_RISING)
+	if (edge & IRQ_TYPE_EDGE_RISING)
 		c_msk |= MASK_GPIO_EDR1_GPIOxRISING(c_off);
-
-	if (edge & TWL4030_GPIO_EDGE_FALLING)
+	if (edge & IRQ_TYPE_EDGE_FALLING)
 		c_msk |= MASK_GPIO_EDR1_GPIOxFALLING(c_off);
 
 	mutex_lock(&gpio_lock);
 	ret = gpio_twl4030_read(base);
 	if (ret >= 0) {
 		/* clear the previous rising/falling values */
-		reg =
-		(u8) (ret &
-			~(MASK_GPIO_EDR1_GPIOxFALLING(c_off) |
-			MASK_GPIO_EDR1_GPIOxRISING(c_off)));
+		reg = (u8) ret;
+		reg &= ~( MASK_GPIO_EDR1_GPIOxFALLING(c_off)
+			| MASK_GPIO_EDR1_GPIOxRISING(c_off));
 		reg |= c_msk;
 		ret = gpio_twl4030_write(base, reg);
 	}
 	mutex_unlock(&gpio_lock);
 	return ret;
 }
-EXPORT_SYMBOL(twl4030_set_gpio_edge_ctrl);
 
 /*
  * Configure debounce timing value for a GPIO pin on TWL4030
@@ -652,7 +642,7 @@ static int twl4030_gpio_unmask_thread(void *data)
 				gpio_trigger;
 				gpio_trigger >>= 1, irq++) {
 			struct irq_desc *desc;
-			unsigned type, edge;
+			unsigned type;
 
 			if (!(gpio_trigger & 0x1))
 				continue;
@@ -662,19 +652,8 @@ static int twl4030_gpio_unmask_thread(void *data)
 			type = desc->status & IRQ_TYPE_SENSE_MASK;
 			spin_unlock_irq(&desc->lock);
 
-			switch (type) {
-			case IRQ_TYPE_EDGE_RISING:
-				edge = TWL4030_GPIO_EDGE_RISING;
-				break;
-			case IRQ_TYPE_EDGE_FALLING:
-				edge = TWL4030_GPIO_EDGE_FALLING;
-				break;
-			default:
-				edge = TWL4030_GPIO_EDGE_RISING
-					| TWL4030_GPIO_EDGE_FALLING;
-				break;
-			}
-			twl4030_set_gpio_edge_ctrl(irq, edge);
+			twl4030_set_gpio_edge_ctrl(irq - twl4030_gpio_irq_base,
+					type);
 		}
 
 		local_irq_disable();

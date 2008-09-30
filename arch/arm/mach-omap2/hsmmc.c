@@ -65,11 +65,6 @@ static int hsmmc_late_init(struct device *dev)
 	if (ret)
 		goto err;
 
-	ret = twl4030_set_gpio_edge_ctrl(MMC1_CD_IRQ,
-			TWL4030_GPIO_EDGE_RISING | TWL4030_GPIO_EDGE_FALLING);
-	if (ret)
-		goto err;
-
 	ret = twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0x02,
 						TWL_GPIO_PUPDCTR1);
 	if (ret)

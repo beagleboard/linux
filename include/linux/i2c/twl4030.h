@@ -149,9 +149,6 @@ struct twl4030_platform_data {
 #define TWL4030_GPIO_PULL_UP		0
 #define TWL4030_GPIO_PULL_DOWN		1
 #define TWL4030_GPIO_PULL_NONE		2
-#define TWL4030_GPIO_EDGE_NONE		0
-#define TWL4030_GPIO_EDGE_RISING	1
-#define TWL4030_GPIO_EDGE_FALLING	2
 
 /* Functions to read and write from TWL4030 */
 
@@ -177,7 +174,6 @@ int twl4030_i2c_read(u8 mod_no, u8 *value, u8 reg, u8 num_bytes);
  */
 int twl4030_get_gpio_datain(int gpio);
 int twl4030_request_gpio(int gpio);
-int twl4030_set_gpio_edge_ctrl(int gpio, int edge);
 int twl4030_set_gpio_debounce(int gpio, int enable);
 int twl4030_free_gpio(int gpio);
 

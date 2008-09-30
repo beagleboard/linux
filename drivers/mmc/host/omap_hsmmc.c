@@ -928,7 +928,9 @@ static int __init omap_mmc_probe(struct platform_device *pdev)
 	/* Request IRQ for card detect */
 	if ((mmc_slot(host).card_detect_irq) && (mmc_slot(host).card_detect)) {
 		ret = request_irq(mmc_slot(host).card_detect_irq,
-				  omap_mmc_cd_handler, IRQF_DISABLED,
+				  omap_mmc_cd_handler,
+				  IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING
+					  | IRQF_DISABLED,
 				  mmc_hostname(mmc), host);
 		if (ret) {
 			dev_dbg(mmc_dev(host->mmc),
