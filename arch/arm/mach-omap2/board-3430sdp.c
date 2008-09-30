@@ -128,7 +128,8 @@ static int __init msecure_init(void)
 	/* 3430ES2.0 doesn't have msecure/gpio-22 line connected to T2 */
 	if (omap_type() == OMAP2_DEVICE_TYPE_GP &&
 			system_rev < OMAP3430_REV_ES2_0) {
-		u32 msecure_pad_config_reg = omap_ctrl_base_get() + 0xA3C;
+		void __iomem *msecure_pad_config_reg = omap_ctrl_base_get() +
+			0xA3C;
 		int mux_mask = 0x04;
 		u16 tmp;
 
@@ -143,10 +144,10 @@ static int __init msecure_init(void)
 		 * is low. Make msecure line high in order to change the
 		 * TWL4030 RTC time and calender registers.
 		 */
-		tmp = omap_readw(msecure_pad_config_reg);
+		tmp = __raw_readw(msecure_pad_config_reg);
 		tmp &= 0xF8; /* To enable mux mode 03/04 = GPIO_RTC */
 		tmp |= mux_mask;/* To enable mux mode 03/04 = GPIO_RTC */
-		omap_writew(tmp, msecure_pad_config_reg);
+		__raw_writew(tmp, msecure_pad_config_reg);
 
 		gpio_direction_output(TWL4030_MSECURE_GPIO, 1);
 	}
