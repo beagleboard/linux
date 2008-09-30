@@ -238,7 +238,7 @@ static int __init omap_kp_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	if (!pdata->rows || !pdata->cols || !pdata->keymap) {
-		dev_err(kp->dbg_dev, "No rows, cols or keymap from pdata\n");
+		dev_err(&pdev->dev, "No rows, cols or keymap from pdata\n");
 		kfree(kp);
 		return -EINVAL;
 	}
