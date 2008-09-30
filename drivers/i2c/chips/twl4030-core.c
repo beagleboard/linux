@@ -675,6 +675,7 @@ static int add_children(struct twl4030_platform_data *pdata)
 		if (!pdev) {
 			pr_debug("%s: can't alloc gpio dev\n", DRIVER_NAME);
 			status = -ENOMEM;
+			goto err;
 		}
 
 		/* more driver model init */
@@ -735,6 +736,7 @@ static int add_children(struct twl4030_platform_data *pdata)
 				dev_dbg(&twl->client->dev,
 						"can't create keypad dev, %d\n",
 						status);
+				goto err;
 			}
 		} else {
 			pr_debug("%s: can't alloc keypad dev\n", DRIVER_NAME);
@@ -764,6 +766,7 @@ static int add_children(struct twl4030_platform_data *pdata)
 				dev_dbg(&twl->client->dev,
 						"can't create madc dev, %d\n",
 						status);
+				goto err;
 			}
 		} else {
 			pr_debug("%s: can't alloc madc dev\n", DRIVER_NAME);
@@ -799,6 +802,7 @@ static int add_children(struct twl4030_platform_data *pdata)
 				dev_dbg(&twl->client->dev,
 						"can't create rtc dev, %d\n",
 						status);
+				goto err;
 			}
 		} else {
 			pr_debug("%s: can't alloc rtc dev\n", DRIVER_NAME);
@@ -832,7 +836,6 @@ static int add_children(struct twl4030_platform_data *pdata)
 		} else {
 			pr_debug("%s: can't alloc usb dev\n", DRIVER_NAME);
 			status = -ENOMEM;
-			goto err;
 		}
 	}
 
