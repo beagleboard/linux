@@ -52,8 +52,18 @@
 #define TWL4030_MODULE_RTC		0x14
 #define TWL4030_MODULE_SECURED_REG	0x15
 
+struct twl4030_keypad_data {
+	int rows;
+	int cols;
+	int *keymap;
+	int irq;
+	unsigned int keymapsize;
+	unsigned int rep:1;
+};
+
 struct twl4030_platform_data {
 	unsigned	irq_base, irq_end;
+	struct twl4030_keypad_data *keypad;
 
 	/* REVISIT more to come ... _nothing_ should be hard-wired */
 };

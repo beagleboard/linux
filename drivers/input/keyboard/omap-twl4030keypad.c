@@ -38,7 +38,6 @@
 #include <linux/i2c.h>
 #include <linux/i2c/twl4030.h>
 #include <linux/irq.h>
-#include <mach/keypad.h>
 #include "twl4030-keypad.h"
 
 #define PTV_PRESCALER		4
@@ -46,6 +45,7 @@
 #define MAX_ROWS		8 /* TWL4030 hardlimit */
 #define ROWCOL_MASK		0xFF000000
 #define KEYNUM_MASK		0x00FFFFFF
+#define KEY(col, row, val) (((col) << 28) | ((row) << 24) | (val))
 
 /* Global variables */
 
@@ -231,7 +231,7 @@ static int __init omap_kp_probe(struct platform_device *pdev)
 	int i;
 	int ret = 0;
 	struct omap_keypad *kp;
-	struct omap_kp_platform_data *pdata = pdev->dev.platform_data;
+	struct twl4030_keypad_data *pdata = pdev->dev.platform_data;
 
 	kp = kzalloc(sizeof(*kp), GFP_KERNEL);
 	if (!kp)
@@ -389,7 +389,7 @@ static struct platform_driver omap_kp_driver = {
 	.probe		= omap_kp_probe,
 	.remove		= __devexit_p(omap_kp_remove),
 	.driver		= {
-		.name	= "omap_twl4030keypad",
+		.name	= "twl4030_keypad",
 		.owner	= THIS_MODULE,
 	},
 };
@@ -409,7 +409,7 @@ static void __exit omap_kp_exit(void)
 
 module_init(omap_kp_init);
 module_exit(omap_kp_exit);
-MODULE_ALIAS("platform:omap_twl4030keypad");
+MODULE_ALIAS("platform:twl4030_keypad");
 MODULE_AUTHOR("Texas Instruments");
 MODULE_DESCRIPTION("OMAP TWL4030 Keypad Driver");
 MODULE_LICENSE("GPL");

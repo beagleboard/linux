@@ -173,21 +173,13 @@ static int sdp2430_keymap[] = {
 	0
 };
 
-static struct omap_kp_platform_data sdp2430_kp_data = {
+static struct twl4030_keypad_data sdp2430_kp_data = {
 	.rows		= 5,
 	.cols		= 6,
 	.keymap		= sdp2430_keymap,
 	.keymapsize	= ARRAY_SIZE(sdp2430_keymap),
 	.rep		= 1,
 	.irq		= TWL4030_MODIRQ_KEYPAD,
-};
-
-static struct platform_device sdp2430_kp_device = {
-	.name		= "omap_twl4030keypad",
-	.id		= -1,
-	.dev		= {
-		.platform_data	= &sdp2430_kp_data,
-	},
 };
 
 static int __init msecure_init(void)
@@ -216,7 +208,6 @@ out:
 static struct platform_device *sdp2430_devices[] __initdata = {
 	&sdp2430_smc91x_device,
 	&sdp2430_flash_device,
-	&sdp2430_kp_device,
 	&sdp2430_lcd_device,
 };
 
@@ -356,6 +347,9 @@ static struct omap_board_config_kernel sdp2430_config[] __initdata = {
 static struct twl4030_platform_data sdp2430_twldata = {
 	.irq_base	= TWL4030_IRQ_BASE,
 	.irq_end	= TWL4030_IRQ_END,
+
+	/* platform_data for children goes here */
+	.keypad		= &sdp2430_kp_data,
 };
 
 static struct i2c_board_info __initdata sdp2430_i2c_boardinfo[] = {

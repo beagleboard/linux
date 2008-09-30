@@ -200,21 +200,13 @@ static int omap2evm_keymap[] = {
 	KEY(3, 3, KEY_P)
 };
 
-static struct omap_kp_platform_data omap2evm_kp_data = {
+static struct twl4030_keypad_data omap2evm_kp_data = {
 	.rows		= 4,
 	.cols		= 4,
-	.keymap 	= omap2evm_keymap,
+	.keymap		= omap2evm_keymap,
 	.keymapsize	= ARRAY_SIZE(omap2evm_keymap),
 	.rep		= 1,
 	.irq		= TWL4030_MODIRQ_KEYPAD,
-};
-
-static struct platform_device omap2evm_kp_device = {
-	.name		= "omap_twl4030keypad",
-	.id		= -1,
-	.dev		= {
-				.platform_data = &omap2evm_kp_data,
-			},
 };
 
 static void __init omap2_evm_init_irq(void)
@@ -237,6 +229,9 @@ static struct omap_board_config_kernel omap2_evm_config[] __initdata = {
 static struct twl4030_platform_data omap2evm_twldata = {
 	.irq_base	= TWL4030_IRQ_BASE,
 	.irq_end	= TWL4030_IRQ_END,
+
+	/* platform_data for children goes here */
+	.keypad		= &omap2evm_kp_data,
 };
 
 static struct i2c_board_info __initdata omap2evm_i2c_boardinfo[] = {
@@ -259,7 +254,6 @@ static int __init omap2_evm_i2c_init(void)
 static struct platform_device *omap2_evm_devices[] __initdata = {
 	&omap2_evm_lcd_device,
 	&omap2evm_smc911x_device,
-	&omap2evm_kp_device,
 };
 
 static void __init omap2_evm_init(void)
