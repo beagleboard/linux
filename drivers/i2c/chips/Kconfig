@@ -159,7 +159,7 @@ config TWL4030_CORE
 
 config TWL4030_GPIO
 	bool "TWL4030 GPIO Driver"
-	depends on TWL4030_CORE
+	depends on TWL4030_CORE && GPIOLIB
 
 config TWL4030_MADC
 	tristate "TWL4030 MADC Driver"

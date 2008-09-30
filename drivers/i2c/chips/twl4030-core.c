@@ -63,6 +63,12 @@
 #define twl_has_usb()	false
 #endif
 
+#ifdef CONFIG_TWL4030_GPIO
+#define twl_has_gpio()	true
+#else
+#define twl_has_gpio()	false
+#endif
+
 /* Primary Interrupt Handler on TWL4030 Registers */
 
 /* Register Definitions */
@@ -655,6 +661,44 @@ static int add_children(struct twl4030_platform_data *pdata)
 	struct platform_device	*pdev = NULL;
 	struct twl4030_client	*twl = NULL;
 	int			status = 0;
+
+	if (twl_has_gpio() && pdata->gpio) {
+		twl = &twl4030_modules[TWL4030_SLAVENUM_NUM1];
+
+		pdev = platform_device_alloc("twl4030_gpio", -1);
+		if (!pdev)
+			status = -ENOMEM;
+
+		/* more driver model init */
+		if (status == 0) {
+			pdev->dev.parent = &twl->client->dev;
+			/* device_init_wakeup(&pdev->dev, 1); */
+
+			status = platform_device_add_data(pdev, pdata->gpio,
+					sizeof(*pdata->gpio));
+		}
+
+		/* GPIO module IRQ */
+		if (status == 0) {
+			struct resource	r = {
+				.start = pdata->irq_base + 0,
+				.flags = IORESOURCE_IRQ,
+			};
+
+			status = platform_device_add_resources(pdev, &r, 1);
+		}
+
+		if (status == 0)
+			status = platform_device_add(pdev);
+
+		if (status < 0) {
+			platform_device_put(pdev);
+			dev_dbg(&twl->client->dev,
+					"can't create gpio dev, %d\n",
+					status);
+			goto err;
+		}
+	}
 
 	if (twl_has_rtc()) {
 		pdev = platform_device_alloc("twl4030_rtc", -1);
