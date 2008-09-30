@@ -226,12 +226,17 @@ static struct omap_board_config_kernel omap2_evm_config[] __initdata = {
 	{ OMAP_TAG_LCD,		&omap2_evm_lcd_config },
 };
 
+static struct twl4030_usb_data omap2evm_usb_data = {
+	.usb_mode	= T2_USB_MODE_ULPI,
+};
+
 static struct twl4030_platform_data omap2evm_twldata = {
 	.irq_base	= TWL4030_IRQ_BASE,
 	.irq_end	= TWL4030_IRQ_END,
 
 	/* platform_data for children goes here */
 	.keypad		= &omap2evm_kp_data,
+	.usb		= &omap2evm_usb_data,
 };
 
 static struct i2c_board_info __initdata omap2evm_i2c_boardinfo[] = {

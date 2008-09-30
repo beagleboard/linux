@@ -57,6 +57,12 @@
 #define twl_has_keypad()	false
 #endif
 
+#if defined(CONFIG_TWL4030_USB) || defined(CONFIG_TWL4030_USB_MODULE)
+#define twl_has_usb()	true
+#else
+#define twl_has_usb()	false
+#endif
+
 /* Primary Interrupt Handler on TWL4030 Registers */
 
 /* Register Definitions */
@@ -688,6 +694,27 @@ static int add_children(struct twl4030_platform_data *pdata)
 			device_init_wakeup(&pdev->dev, 1);
 			status = platform_device_add_data(pdev, pdata->keypad,
 					sizeof(*pdata->keypad));
+			if (status < 0) {
+				platform_device_put(pdev);
+				goto err;
+			}
+			status = platform_device_add(pdev);
+			if (status < 0)
+				platform_device_put(pdev);
+		} else {
+			status = -ENOMEM;
+			goto err;
+		}
+	}
+
+	if (twl_has_usb() && pdata->usb) {
+		pdev = platform_device_alloc("twl4030_usb", -1);
+		if (pdev) {
+			twl = &twl4030_modules[TWL4030_SLAVENUM_NUM0];
+			pdev->dev.parent = &twl->client->dev;
+			device_init_wakeup(&pdev->dev, 1);
+			status = platform_device_add_data(pdev, pdata->usb,
+					sizeof(*pdata->usb));
 			if (status < 0) {
 				platform_device_put(pdev);
 				goto err;

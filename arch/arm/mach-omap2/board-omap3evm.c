@@ -90,6 +90,10 @@ static struct omap_uart_config omap3_evm_uart_config __initdata = {
 	.enabled_uarts	= ((1 << 0) | (1 << 1) | (1 << 2)),
 };
 
+static struct twl4030_usb_data omap3evm_usb_data = {
+	.usb_mode	= T2_USB_MODE_ULPI,
+};
+
 static int omap3evm_keymap[] = {
 	KEY(0, 0, KEY_LEFT),
 	KEY(0, 1, KEY_RIGHT),
@@ -118,13 +122,13 @@ static struct twl4030_keypad_data omap3evm_kp_data = {
 	.irq		= TWL4030_MODIRQ_KEYPAD,
 };
 
-
 static struct twl4030_platform_data omap3evm_twldata = {
 	.irq_base	= TWL4030_IRQ_BASE,
 	.irq_end	= TWL4030_IRQ_END,
 
 	/* platform_data for children goes here */
 	.keypad		= &omap3evm_kp_data,
+	.usb		= &omap3evm_usb_data,
 };
 
 static struct i2c_board_info __initdata omap3evm_i2c_boardinfo[] = {

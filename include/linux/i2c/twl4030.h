@@ -61,9 +61,19 @@ struct twl4030_keypad_data {
 	unsigned int rep:1;
 };
 
+enum twl4030_usb_mode {
+	T2_USB_MODE_ULPI = 1,
+	T2_USB_MODE_CEA2011_3PIN = 2,
+};
+
+struct twl4030_usb_data {
+	enum twl4030_usb_mode	usb_mode;
+};
+
 struct twl4030_platform_data {
 	unsigned	irq_base, irq_end;
 	struct twl4030_keypad_data *keypad;
+	struct twl4030_usb_data *usb;
 
 	/* REVISIT more to come ... _nothing_ should be hard-wired */
 };

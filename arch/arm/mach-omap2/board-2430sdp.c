@@ -344,12 +344,18 @@ static struct omap_board_config_kernel sdp2430_config[] __initdata = {
 	{OMAP_TAG_SERIAL_CONSOLE, &sdp2430_serial_console_config},
 };
 
+
+static struct twl4030_usb_data sdp2430_usb_data = {
+	.usb_mode	= T2_USB_MODE_ULPI,
+};
+
 static struct twl4030_platform_data sdp2430_twldata = {
 	.irq_base	= TWL4030_IRQ_BASE,
 	.irq_end	= TWL4030_IRQ_END,
 
 	/* platform_data for children goes here */
 	.keypad		= &sdp2430_kp_data,
+	.usb		= &sdp2430_usb_data,
 };
 
 static struct i2c_board_info __initdata sdp2430_i2c_boardinfo[] = {

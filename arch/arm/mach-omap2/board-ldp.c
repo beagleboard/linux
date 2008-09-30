@@ -183,9 +183,16 @@ static struct omap_board_config_kernel ldp_config[] __initdata = {
 	{ OMAP_TAG_UART,	&ldp_uart_config },
 };
 
+static struct twl4030_usb_data ldp_usb_data = {
+	.usb_mode	= T2_USB_MODE_ULPI,
+};
+
 static struct twl4030_platform_data ldp_twldata = {
 	.irq_base	= TWL4030_IRQ_BASE,
 	.irq_end	= TWL4030_IRQ_END,
+
+	/* platform_data for children goes here */
+	.usb		= &ldp_usb_data,
 };
 
 static struct i2c_board_info __initdata ldp_i2c_boardinfo[] = {
