@@ -45,6 +45,13 @@
 
 #define DRIVER_NAME			"twl4030"
 
+#if defined(CONFIG_TWL4030_BCI_BATTERY) || \
+	defined(CONFIG_TWL4030_BCI_BATTERY_MODUEL)
+#define twl_has_bci()		true
+#else
+#define twl_has_bci()		false
+#endif
+
 #if defined(CONFIG_KEYBOARD_TWL4030) || defined(CONFIG_KEYBOARD_TWL4030_MODULE)
 #define twl_has_keypad()	true
 #else
@@ -680,6 +687,49 @@ static int add_children(struct twl4030_platform_data *pdata)
 	struct platform_device	*pdev = NULL;
 	struct twl4030_client	*twl = NULL;
 	int			status = 0;
+
+	if (twl_has_bci() && pdata->bci) {
+		twl = &twl4030_modules[TWL4030_SLAVENUM_NUM3];
+
+		pdev = platform_device_alloc("twl4030_bci", -1);
+		if (!pdev) {
+			pr_debug("%s: can't alloc bci dev\n", DRIVER_NAME);
+			status = -ENOMEM;
+			goto err;
+		}
+
+		if (status == 0) {
+			pdev->dev.parent = &twl->client->dev;
+			status = platform_device_add_data(pdev, pdata->bci,
+					sizeof(*pdata->bci));
+			if (status < 0) {
+				dev_dbg(&twl->client->dev,
+					"can't add bci data, %d\n",
+					status);
+				goto err;
+			}
+		}
+
+		if (status == 0) {
+			struct resource r = {
+				.start = TWL4030_PWRIRQ_CHG_PRES,
+				.flags = IORESOURCE_IRQ,
+			};
+
+			status = platform_device_add_resources(pdev, &r, 1);
+		}
+
+		if (status == 0)
+			status = platform_device_add(pdev);
+
+		if (status < 0) {
+			platform_device_put(pdev);
+			dev_dbg(&twl->client->dev,
+					"can't create bci dev, %d\n",
+					status);
+			goto err;
+		}
+	}
 
 	if (twl_has_gpio() && pdata->gpio) {
 		twl = &twl4030_modules[TWL4030_SLAVENUM_NUM1];

@@ -183,6 +183,22 @@ static struct omap_board_config_kernel ldp_config[] __initdata = {
 	{ OMAP_TAG_UART,	&ldp_uart_config },
 };
 
+static int ldp_batt_table[] = {
+/* 0 C*/
+30800, 29500, 28300, 27100,
+26000, 24900, 23900, 22900, 22000, 21100, 20300, 19400, 18700, 17900,
+17200, 16500, 15900, 15300, 14700, 14100, 13600, 13100, 12600, 12100,
+11600, 11200, 10800, 10400, 10000, 9630,   9280,   8950,   8620,   8310,
+8020,   7730,   7460,   7200,   6950,   6710,   6470,   6250,   6040,   5830,
+5640,   5450,   5260,   5090,   4920,   4760,   4600,   4450,   4310,   4170,
+4040,   3910,   3790,   3670,   3550
+};
+
+static struct twl4030_bci_platform_data ldp_bci_data = {
+      .battery_tmp_tbl	= ldp_batt_table,
+      .tblsize		= ARRAY_SIZE(ldp_batt_table),
+};
+
 static struct twl4030_usb_data ldp_usb_data = {
 	.usb_mode	= T2_USB_MODE_ULPI,
 };
@@ -202,6 +218,7 @@ static struct twl4030_platform_data ldp_twldata = {
 	.irq_end	= TWL4030_IRQ_END,
 
 	/* platform_data for children goes here */
+	.bci		= &ldp_bci_data,
 	.madc		= &ldp_madc_data,
 	.usb		= &ldp_usb_data,
 	.gpio		= &ldp_gpio_data,
@@ -237,7 +254,6 @@ static void __init omap_ldp_init(void)
 				ARRAY_SIZE(ldp_spi_board_info));
 	msecure_init();
 	ads7846_dev_init();
-	twl4030_bci_battery_init();
 	omap_serial_init();
 	usb_musb_init();
 	hsmmc_init();

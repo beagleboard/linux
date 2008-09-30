@@ -52,6 +52,10 @@
 #define TWL4030_MODULE_RTC		0x14
 #define TWL4030_MODULE_SECURED_REG	0x15
 
+struct twl4030_bci_platform_data {
+	int *battery_tmp_tbl;
+	unsigned int tblsize;
+};
 
 /* TWL4030_GPIO_MAX (18) GPIOs, with interrupts */
 struct twl4030_gpio_platform_data {
@@ -91,6 +95,7 @@ struct twl4030_usb_data {
 
 struct twl4030_platform_data {
 	unsigned				irq_base, irq_end;
+	struct twl4030_bci_platform_data	*bci;
 	struct twl4030_gpio_platform_data	*gpio;
 	struct twl4030_madc_platform_data	*madc;
 	struct twl4030_keypad_data		*keypad;

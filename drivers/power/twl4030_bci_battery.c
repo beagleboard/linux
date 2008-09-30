@@ -23,7 +23,6 @@
 #include <linux/platform_device.h>
 #include <linux/i2c/twl4030.h>
 #include <linux/power_supply.h>
-#include <mach/bci.h>
 #include <linux/i2c/twl4030-madc.h>
 
 #define T2_BATTERY_VOLT		0x04
@@ -583,9 +582,8 @@ static int twl4030battery_current(void)
  */
 static int twl4030backupbatt_voltage(void)
 {
-	int ret, temp;
-	u8 volt;
 	struct twl4030_madc_request req;
+	int temp;
 
 	req.channels = (1 << 9);
 	req.do_avg = 0;
@@ -826,8 +824,10 @@ static int twl4030_bci_battery_get_property(struct power_supply *psy,
 					enum power_supply_property psp,
 					union power_supply_propval *val)
 {
-	struct twl4030_bci_device_info *di = to_twl4030_bci_device_info(psy);
+	struct twl4030_bci_device_info *di;
 	int status = 0;
+
+	di = to_twl4030_bci_device_info(psy);
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
@@ -893,6 +893,7 @@ static int __init twl4030_bci_battery_probe(struct platform_device *pdev)
 {
 	struct twl4030_bci_platform_data *pdata = pdev->dev.platform_data;
 	struct twl4030_bci_device_info *di;
+	int irq;
 	int ret;
 
 	therm_tbl = pdata->battery_tmp_tbl;
@@ -938,6 +939,8 @@ static int __init twl4030_bci_battery_probe(struct platform_device *pdev)
 	if (ret)
 		goto voltage_setup_fail;
 
+	/* REVISIT do we need to request both IRQs ?? */
+
 	/* request BCI interruption */
 	ret = request_irq(TWL4030_MODIRQ_BCI, twl4030battery_interrupt,
 		IRQF_DISABLED, pdev->name, NULL);
@@ -947,17 +950,19 @@ static int __init twl4030_bci_battery_probe(struct platform_device *pdev)
 		goto batt_irq_fail;
 	}
 
+	irq = platform_get_irq(pdev, 0);
+
 	/* request Power interruption */
-	ret = request_irq(TWL4030_PWRIRQ_CHG_PRES, twl4030charger_interrupt,
+	ret = request_irq(irq, twl4030charger_interrupt,
 		0, pdev->name, di);
 
 	if (ret) {
 		dev_dbg(&pdev->dev, "could not request irq %d, status %d\n",
-			TWL4030_PWRIRQ_CHG_PRES, ret);
+			irq, ret);
 		goto chg_irq_fail;
 	}
 
-	ret = power_supply_register(&dev->dev, &di->bat);
+	ret = power_supply_register(&pdev->dev, &di->bat);
 	if (ret) {
 		dev_dbg(&pdev->dev, "failed to register main battery\n");
 		goto batt_failed;
@@ -982,9 +987,8 @@ static int __init twl4030_bci_battery_probe(struct platform_device *pdev)
 bk_batt_failed:
 	power_supply_unregister(&di->bat);
 batt_failed:
-	free_irq(TWL4030_MODIRQ_PWR, di);
+	free_irq(irq, di);
 chg_irq_fail:
-prev_setup_err:
 	free_irq(TWL4030_MODIRQ_BCI, NULL);
 batt_irq_fail:
 voltage_setup_fail:
@@ -1001,6 +1005,7 @@ temp_setup_fail:
 static int __exit twl4030_bci_battery_remove(struct platform_device *pdev)
 {
 	struct twl4030_bci_device_info *di = platform_get_drvdata(pdev);
+	int irq = platform_get_irq(pdev, 0);
 
 	twl4030charger_ac_en(DISABLE);
 	twl4030charger_usb_en(DISABLE);
@@ -1008,7 +1013,7 @@ static int __exit twl4030_bci_battery_remove(struct platform_device *pdev)
 	twl4030battery_hw_presence_en(DISABLE);
 
 	free_irq(TWL4030_MODIRQ_BCI, NULL);
-	free_irq(TWL4030_MODIRQ_PWR, di);
+	free_irq(irq, di);
 
 	flush_scheduled_work();
 	power_supply_unregister(&di->bat);
