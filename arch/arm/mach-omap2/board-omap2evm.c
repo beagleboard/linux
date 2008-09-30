@@ -236,12 +236,17 @@ static struct twl4030_usb_data omap2evm_usb_data = {
 	.usb_mode	= T2_USB_MODE_ULPI,
 };
 
+static struct twl4030_madc_platform_data omap2evm_madc_data = {
+	.irq_line	= 1,
+};
+
 static struct twl4030_platform_data omap2evm_twldata = {
 	.irq_base	= TWL4030_IRQ_BASE,
 	.irq_end	= TWL4030_IRQ_END,
 
 	/* platform_data for children goes here */
 	.keypad		= &omap2evm_kp_data,
+	.madc		= &omap2evm_madc_data,
 	.usb		= &omap2evm_usb_data,
 	.gpio		= &omap2evm_gpio_data,
 };

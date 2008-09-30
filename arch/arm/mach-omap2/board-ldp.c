@@ -193,11 +193,16 @@ static struct twl4030_gpio_platform_data ldp_gpio_data = {
 	.irq_end	= TWL4030_GPIO_IRQ_END,
 };
 
+static struct twl4030_madc_platform_data ldp_madc_data = {
+	.irq_line	= 1,
+};
+
 static struct twl4030_platform_data ldp_twldata = {
 	.irq_base	= TWL4030_IRQ_BASE,
 	.irq_end	= TWL4030_IRQ_END,
 
 	/* platform_data for children goes here */
+	.madc		= &ldp_madc_data,
 	.usb		= &ldp_usb_data,
 	.gpio		= &ldp_gpio_data,
 };

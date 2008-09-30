@@ -128,12 +128,17 @@ static struct twl4030_keypad_data omap3evm_kp_data = {
 	.irq		= TWL4030_MODIRQ_KEYPAD,
 };
 
+static struct twl4030_madc_platform_data omap3evm_madc_data = {
+	.irq_line	= 1,
+};
+
 static struct twl4030_platform_data omap3evm_twldata = {
 	.irq_base	= TWL4030_IRQ_BASE,
 	.irq_end	= TWL4030_IRQ_END,
 
 	/* platform_data for children goes here */
 	.keypad		= &omap3evm_kp_data,
+	.madc		= &omap3evm_madc_data,
 	.usb		= &omap3evm_usb_data,
 	.gpio		= &omap3evm_gpio_data,
 };
