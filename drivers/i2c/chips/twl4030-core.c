@@ -819,9 +819,16 @@ static int add_children(struct twl4030_platform_data *pdata)
 	}
 
 	if (twl_has_usb() && pdata->usb) {
+		twl = &twl4030_modules[TWL4030_SLAVENUM_NUM0];
+
 		pdev = platform_device_alloc("twl4030_usb", -1);
-		if (pdev) {
-			twl = &twl4030_modules[TWL4030_SLAVENUM_NUM0];
+		if (!pdev) {
+			pr_debug("%s: can't alloc usb dev\n", DRIVER_NAME);
+			status = -ENOMEM;
+			goto err;
+		}
+
+		if (status == 0) {
 			pdev->dev.parent = &twl->client->dev;
 			device_init_wakeup(&pdev->dev, 1);
 			status = platform_device_add_data(pdev, pdata->usb,
@@ -833,16 +840,25 @@ static int add_children(struct twl4030_platform_data *pdata)
 					status);
 				goto err;
 			}
+		}
+
+		if (status == 0) {
+			struct resource r = {
+				.start = TWL4030_PWRIRQ_USB_PRES,
+				.flags = IORESOURCE_IRQ,
+			};
+
+			status = platform_device_add_resources(pdev, &r, 1);
+		}
+
+		if (status == 0)
 			status = platform_device_add(pdev);
-			if (status < 0) {
-				platform_device_put(pdev);
-				dev_dbg(&twl->client->dev,
-						"can't create usb dev, %d\n",
-						status);
-			}
-		} else {
-			pr_debug("%s: can't alloc usb dev\n", DRIVER_NAME);
-			status = -ENOMEM;
+
+		if (status < 0) {
+			platform_device_put(pdev);
+			dev_dbg(&twl->client->dev,
+					"can't create usb dev, %d\n",
+					status);
 		}
 	}
 

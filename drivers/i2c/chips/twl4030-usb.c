@@ -684,7 +684,7 @@ static int __init twl4030_usb_probe(struct platform_device *pdev)
 	vbus &= USB_PRES_RISING;
 
 	twl->dev		= &pdev->dev;
-	twl->irq		= TWL4030_PWRIRQ_USB_PRES;
+	twl->irq		= platform_get_irq(pdev, 0);
 	twl->otg.set_host	= twl4030_set_host;
 	twl->otg.set_peripheral	= twl4030_set_peripheral;
 	twl->otg.set_suspend	= twl4030_set_suspend;
