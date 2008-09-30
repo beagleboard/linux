@@ -108,7 +108,7 @@ struct twl4030_platform_data {
 #include <mach/irqs.h>
 /* TWL4030 interrupts */
 
-#define TWL4030_MODIRQ_GPIO		(TWL4030_IRQ_BASE + 0)
+/* #define TWL4030_MODIRQ_GPIO		(TWL4030_IRQ_BASE + 0) */
 #define TWL4030_MODIRQ_KEYPAD		(TWL4030_IRQ_BASE + 1)
 #define TWL4030_MODIRQ_BCI		(TWL4030_IRQ_BASE + 2)
 #define TWL4030_MODIRQ_MADC		(TWL4030_IRQ_BASE + 3)

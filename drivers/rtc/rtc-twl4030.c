@@ -353,7 +353,11 @@ static int __devinit twl4030_rtc_probe(struct platform_device *pdev)
 	struct twl4030rtc_platform_data *pdata = pdev->dev.platform_data;
 	struct rtc_device *rtc;
 	int ret = 0;
+	int irq = platform_get_irq(pdev, 0);
 	u8 rd_reg;
+
+	if (irq < 0)
+		return irq;
 
 	if (pdata != NULL && pdata->init != NULL) {
 		ret = pdata->init();
@@ -389,7 +393,7 @@ static int __devinit twl4030_rtc_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto out1;
 
-	ret = request_irq(TWL4030_PWRIRQ_RTC, twl4030_rtc_interrupt,
+	ret = request_irq(irq, twl4030_rtc_interrupt,
 				0, rtc->dev.bus_id, rtc);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "IRQ is not free.\n");
@@ -438,7 +442,7 @@ static int __devinit twl4030_rtc_probe(struct platform_device *pdev)
 
 
 out2:
-	free_irq(TWL4030_MODIRQ_PWR, rtc);
+	free_irq(irq, rtc);
 out1:
 	rtc_device_unregister(rtc);
 out0:
@@ -457,11 +461,12 @@ static int __devexit twl4030_rtc_remove(struct platform_device *pdev)
 	/* leave rtc running, but disable irqs */
 	struct twl4030rtc_platform_data *pdata = pdev->dev.platform_data;
 	struct rtc_device *rtc = platform_get_drvdata(pdev);
+	int irq = platform_get_irq(pdev, 0);
 
 	mask_rtc_irq_bit(BIT_RTC_INTERRUPTS_REG_IT_ALARM_M);
 	mask_rtc_irq_bit(BIT_RTC_INTERRUPTS_REG_IT_TIMER_M);
 
-	free_irq(TWL4030_MODIRQ_PWR, rtc);
+	free_irq(irq, rtc);
 
 	if (pdata != NULL && pdata->exit != NULL)
 		pdata->exit();

@@ -776,37 +776,44 @@ static int add_children(struct twl4030_platform_data *pdata)
 	}
 
 	if (twl_has_rtc()) {
+		twl = &twl4030_modules[TWL4030_SLAVENUM_NUM3];
+
 		pdev = platform_device_alloc("twl4030_rtc", -1);
-		if (pdev) {
-			twl = &twl4030_modules[TWL4030_SLAVENUM_NUM3];
-			pdev->dev.parent = &twl->client->dev;
-			device_init_wakeup(&pdev->dev, 1);
-
-			/*
-			 * FIXME add the relevant IRQ resource, and make the
-			 * rtc driver use it instead of hard-wiring ...
-			 *
-			 * REVISIT platform_data here currently only supports
-			 * setting up the "msecure" line ... which actually
-			 * violates the "princple of least privilege", since
-			 * it's effectively always in "high trust" mode.
-			 *
-			 * For now, expect equivalent treatment at board init:
-			 * setting msecure high.  Eventually, Linux might
-			 * become more aware of those HW security concerns.
-			 */
-
-			status = platform_device_add(pdev);
-			if (status < 0) {
-				platform_device_put(pdev);
-				dev_dbg(&twl->client->dev,
-						"can't create rtc dev, %d\n",
-						status);
-				goto err;
-			}
-		} else {
+		if (!pdev) {
 			pr_debug("%s: can't alloc rtc dev\n", DRIVER_NAME);
 			status = -ENOMEM;
+		} else {
+			pdev->dev.parent = &twl->client->dev;
+			device_init_wakeup(&pdev->dev, 1);
+		}
+
+		/*
+		 * REVISIT platform_data here currently might use of
+		 * "msecure" line ... but for now we just expect board
+		 * setup to tell the chip "we are secure" at all times.
+		 * Eventually, Linux might become more aware of such
+		 * HW security concerns, and "least privilege".
+		 */
+
+		/* RTC module IRQ */
+		if (status == 0) {
+			struct resource	r = {
+				/* REVISIT don't hard-wire this stuff */
+				.start = TWL4030_PWRIRQ_RTC,
+				.flags = IORESOURCE_IRQ,
+			};
+
+			status = platform_device_add_resources(pdev, &r, 1);
+		}
+
+		if (status == 0)
+			status = platform_device_add(pdev);
+
+		if (status < 0) {
+			platform_device_put(pdev);
+			dev_dbg(&twl->client->dev,
+					"can't create rtc dev, %d\n",
+					status);
 			goto err;
 		}
 	}

@@ -49,7 +49,6 @@
 /* REVISIT when these symbols vanish elsewhere, remove them here too */
 /* #undef TWL4030_GPIO_IRQ_BASE */
 /* #undef TWL4030_GPIO_IRQ_END */
-#undef TWL4030_MODIRQ_GPIO
 
 static struct gpio_chip twl_gpiochip;
 static int twl4030_gpio_irq_base;
