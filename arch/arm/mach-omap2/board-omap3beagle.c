@@ -114,15 +114,31 @@ static struct twl4030_usb_data beagle_usb_data = {
 	.usb_mode	= T2_USB_MODE_ULPI,
 };
 
+static int beagle_twl_gpio_setup(struct device *dev,
+		unsigned gpio, unsigned ngpio)
+{
+	/* request_gpio(gpio + 0, "mmc0_cd");
+	 * gpio_direction_input(gpio + 0);
+	 */
+
+	gpio_request(gpio + 1, "EHCI_nOC");
+	gpio_direction_input(gpio + 1);
+
+	/* gpio + 18 + 0 == ledA, nEN_USB_PWR (out)
+	 * gpio + 18 + 1 == ledB, PMU_STAT (out, a LED)
+	 */
+
+	return 0;
+}
+
 static struct twl4030_gpio_platform_data beagle_gpio_data = {
 	.gpio_base	= OMAP_MAX_GPIO_LINES,
 	.irq_base	= TWL4030_GPIO_IRQ_BASE,
 	.irq_end	= TWL4030_GPIO_IRQ_END,
-
-	/* REVISIT:  setup() should use twl gpio index
-	 *  - 0 as MMC card detect,
-	 *  - 1 as EHCI port overcurrent (active low)
-	 */
+	.pullups	= BIT(1),
+	.pulldowns	= BIT(2) | BIT(6) | BIT(7) | BIT(8) | BIT(13)
+				| BIT(15) | BIT(16) | BIT(17),
+	.setup		= beagle_twl_gpio_setup,
 };
 
 static struct twl4030_platform_data beagle_twldata = {
