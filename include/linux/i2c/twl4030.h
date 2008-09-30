@@ -52,6 +52,21 @@
 #define TWL4030_MODULE_RTC		0x14
 #define TWL4030_MODULE_SECURED_REG	0x15
 
+
+/* TWL4030_GPIO_MAX (18) GPIOs, with interrupts */
+struct twl4030_gpio_platform_data {
+	int		gpio_base;
+	unsigned	irq_base, irq_end;
+
+	/* for gpio-N, bit (1 << N) is set if pullup should be used */
+	u32		pullups;
+
+	int		(*setup)(struct device *dev,
+				unsigned gpio, unsigned ngpio);
+	int		(*teardown)(struct device *dev,
+				unsigned gpio, unsigned ngpio);
+};
+
 struct twl4030_keypad_data {
 	int rows;
 	int cols;
@@ -71,9 +86,10 @@ struct twl4030_usb_data {
 };
 
 struct twl4030_platform_data {
-	unsigned	irq_base, irq_end;
-	struct twl4030_keypad_data *keypad;
-	struct twl4030_usb_data *usb;
+	unsigned				irq_base, irq_end;
+	struct twl4030_gpio_platform_data	*gpio;
+	struct twl4030_keypad_data		*keypad;
+	struct twl4030_usb_data			*usb;
 
 	/* REVISIT more to come ... _nothing_ should be hard-wired */
 };
@@ -151,6 +167,8 @@ int twl4030_i2c_read(u8 mod_no, u8 *value, u8 reg, u8 num_bytes);
 
 /*
  * Exported TWL4030 GPIO APIs
+ *
+ * WARNING -- use standard GPIO and IRQ calls instead; these will vanish.
  */
 int twl4030_get_gpio_datain(int gpio);
 int twl4030_request_gpio(int gpio);

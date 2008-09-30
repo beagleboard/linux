@@ -145,6 +145,11 @@ static void __init overo_flash_init(void)
 static struct omap_uart_config overo_uart_config __initdata = {
 	.enabled_uarts	= ((1 << 0) | (1 << 1) | (1 << 2)),
 };
+static struct twl4030_gpio_platform_data overo_gpio_data = {
+	.gpio_base	= OMAP_MAX_GPIO_LINES,
+	.irq_base	= TWL4030_GPIO_IRQ_BASE,
+	.irq_end	= TWL4030_GPIO_IRQ_END,
+};
 
 static struct twl4030_usb_data overo_usb_data = {
 	.usb_mode	= T2_USB_MODE_ULPI,
@@ -153,6 +158,7 @@ static struct twl4030_usb_data overo_usb_data = {
 static struct twl4030_platform_data overo_twldata = {
 	.irq_base	= TWL4030_IRQ_BASE,
 	.irq_end	= TWL4030_IRQ_END,
+	.gpio		= &overo_gpio_data,
 	.usb		= &overo_usb_data,
 };
 
