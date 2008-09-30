@@ -138,17 +138,11 @@ struct twl4030_platform_data {
 
 /* TWL4030 GPIO interrupt definitions */
 
-#define TWL4030_GPIO_MIN		0
 #define TWL4030_GPIO_MAX		18
-#define TWL4030_GPIO_MAX_CD		2
 #define TWL4030_GPIO_IRQ_NO(n)		(TWL4030_GPIO_IRQ_BASE + (n))
-#define TWL4030_GPIO_IS_INPUT		1
-#define TWL4030_GPIO_IS_OUTPUT		0
 #define TWL4030_GPIO_IS_ENABLE		1
-#define TWL4030_GPIO_IS_DISABLE		0
 #define TWL4030_GPIO_PULL_UP		0
 #define TWL4030_GPIO_PULL_DOWN		1
-#define TWL4030_GPIO_PULL_NONE		2
 
 /* Functions to read and write from TWL4030 */
 

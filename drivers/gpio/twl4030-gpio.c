@@ -40,20 +40,25 @@
 #include <linux/i2c/twl4030.h>
 #include <linux/i2c/twl4030-gpio.h>
 
-#include <mach/irqs.h>
-#include <asm/mach/irq.h>
-#include <mach/gpio.h>
-#include <mach/mux.h>
 
-
-/* REVISIT when these symbols vanish elsewhere, remove them here too */
-/* #undef TWL4030_GPIO_IRQ_BASE */
-/* #undef TWL4030_GPIO_IRQ_END */
+static inline void activate_irq(int irq)
+{
+#ifdef CONFIG_ARM
+	/* ARM requires an extra step to clear IRQ_NOREQUEST, which it
+	 * sets on behalf of every irq_chip.  Also sets IRQ_NOPROBE.
+	 */
+	set_irq_flags(irq, IRQF_VALID);
+#else
+	/* same effect on other architectures */
+	set_irq_noprobe(irq);
+#endif
+}
 
 static struct gpio_chip twl_gpiochip;
 static int twl4030_gpio_irq_base;
 static int twl4030_gpio_irq_end;
 
+/* genirq interfaces are not available to modules */
 #ifdef MODULE
 #define is_module()	true
 #else
@@ -530,7 +535,7 @@ static int twl4030_set_gpio_edge_ctrl(int gpio, int edge)
 	if (ret >= 0) {
 		/* clear the previous rising/falling values */
 		reg = (u8) ret;
-		reg &= ~( MASK_GPIO_EDR1_GPIOxFALLING(c_off)
+		reg &= ~(MASK_GPIO_EDR1_GPIOxFALLING(c_off)
 			| MASK_GPIO_EDR1_GPIOxRISING(c_off));
 		reg |= c_msk;
 		ret = gpio_twl4030_write(base, reg);
@@ -598,7 +603,7 @@ int twl4030_set_gpio_card_detect(int gpio, int enable)
 		ret = gpio_twl4030_write(REG_GPIO_CTRL, reg);
 	}
 	mutex_unlock(&gpio_lock);
-	return (ret);
+	return ret;
 }
 #endif
 
@@ -848,9 +853,9 @@ static int __devinit gpio_twl4030_probe(struct platform_device *pdev)
 		/* install an irq handler for each of the gpio interrupts */
 		for (irq = twl4030_gpio_irq_base; irq < twl4030_gpio_irq_end;
 				irq++) {
-			set_irq_chip(irq, &twl4030_gpio_irq_chip);
-			set_irq_handler(irq, do_twl4030_gpio_irq);
-			set_irq_flags(irq, IRQF_VALID);
+			set_irq_chip_and_handler(irq, &twl4030_gpio_irq_chip,
+					do_twl4030_gpio_irq);
+			activate_irq(irq);
 		}
 
 		/* gpio module IRQ */
@@ -919,13 +924,10 @@ static int __devexit gpio_twl4030_remove(struct platform_device *pdev)
 	/* uninstall the gpio demultiplexing interrupt handler */
 	irq = platform_get_irq(pdev, 0);
 	set_irq_handler(irq, NULL);
-	set_irq_flags(irq, 0);
 
 	/* uninstall the irq handler for each of the gpio interrupts */
-	for (irq = twl4030_gpio_irq_base; irq < twl4030_gpio_irq_end; irq++) {
+	for (irq = twl4030_gpio_irq_base; irq < twl4030_gpio_irq_end; irq++)
 		set_irq_handler(irq, NULL);
-		set_irq_flags(irq, 0);
-	}
 
 	/* stop the gpio unmask kernel thread */
 	if (gpio_unmask_thread) {
