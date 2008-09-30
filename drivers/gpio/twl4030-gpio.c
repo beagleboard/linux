@@ -476,44 +476,6 @@ int twl4030_get_gpio_datain(int gpio)
 }
 EXPORT_SYMBOL(twl4030_get_gpio_datain);
 
-#if 0
-/*
- * Configure PULL type for a GPIO pin on TWL4030
- */
-int twl4030_set_gpio_pull(int gpio, int pull_dircn)
-{
-	u8 c_bnk = GET_GPIO_CTL_BANK(gpio);
-	u8 c_off = GET_GPIO_CTL_OFF(gpio);
-	u8 c_msk = 0;
-	u8 reg = 0;
-	u8 base = 0;
-	int ret = 0;
-
-	if (unlikely((gpio >= TWL4030_GPIO_MAX)	||
-		!(gpio_usage_count & (0x1 << gpio))))
-		return -EPERM;
-
-	base = REG_GPIOPUPDCTR1 + c_bnk;
-	if (pull_dircn == TWL4030_GPIO_PULL_DOWN)
-		c_msk = MASK_GPIOPUPDCTR1_GPIOxPD(c_off);
-	else if (pull_dircn == TWL4030_GPIO_PULL_UP)
-		c_msk = MASK_GPIOPUPDCTR1_GPIOxPU(c_off);
-
-	mutex_lock(&gpio_lock);
-	ret = gpio_twl4030_read(base);
-	if (ret >= 0) {
-		/* clear the previous up/down values */
-		reg = (u8) (ret);
-		reg &= ~(MASK_GPIOPUPDCTR1_GPIOxPU(c_off) |
-			MASK_GPIOPUPDCTR1_GPIOxPD(c_off));
-		reg |= c_msk;
-		ret = gpio_twl4030_write(base, reg);
-	}
-	mutex_unlock(&gpio_lock);
-	return ret;
-}
-#endif
-
 static int twl4030_set_gpio_edge_ctrl(int gpio, int edge)
 {
 	u8 c_bnk = GET_GPIO_CTL_BANK(gpio);
@@ -578,6 +540,9 @@ EXPORT_SYMBOL(twl4030_set_gpio_debounce);
 #if 0
 /*
  * Configure Card detect for GPIO pin on TWL4030
+ *
+ * This means:  VMMC1 or VMMC2 is enabled or disabled based
+ * on the status of GPIO-0 or GPIO-1 pins (respectively).
  */
 int twl4030_set_gpio_card_detect(int gpio, int enable)
 {
@@ -800,6 +765,31 @@ static struct gpio_chip twl_gpiochip = {
 
 /*----------------------------------------------------------------------*/
 
+static int __devinit gpio_twl4030_pulls(u32 ups, u32 downs)
+{
+	u8		message[6];
+	unsigned	i, gpio_bit;
+
+	/* For most pins, a pulldown was enabled by default.
+	 * We should have data that's specific to this board.
+	 */
+	for (gpio_bit = 1, i = 1; i < 6; i++) {
+		u8		bit_mask;
+		unsigned	j;
+
+		for (bit_mask = 0, j = 0; j < 8; j += 2, gpio_bit <<= 1) {
+			if (ups & gpio_bit)
+				bit_mask |= 1 << (j + 1);
+			else if (downs & gpio_bit)
+				bit_mask |= 1 << (j + 0);
+		}
+		message[i] = bit_mask;
+	}
+
+	return twl4030_i2c_write(TWL4030_MODULE_GPIO, message,
+				REG_GPIOPUPDCTR1, 5);
+}
+
 static int gpio_twl4030_remove(struct platform_device *pdev);
 
 static int __devinit gpio_twl4030_probe(struct platform_device *pdev)
@@ -875,6 +865,18 @@ static int __devinit gpio_twl4030_probe(struct platform_device *pdev)
 
 no_irqs:
 	if (!ret) {
+		/*
+		 * NOTE:  boards may waste power if they don't set pullups
+		 * and pulldowns correctly ... default for non-ULPI pins is
+		 * pulldown, and some other pins may have external pullups
+		 * or pulldowns.  Careful!
+		 */
+		ret = gpio_twl4030_pulls(pdata->pullups, pdata->pulldowns);
+		if (ret)
+			dev_dbg(&pdev->dev, "pullups %.05x %.05x --> %d\n",
+					pdata->pullups, pdata->pulldowns,
+					ret);
+
 		twl_gpiochip.base = pdata->gpio_base;
 		twl_gpiochip.ngpio = TWL4030_GPIO_MAX;
 		twl_gpiochip.dev = &pdev->dev;

@@ -62,8 +62,13 @@ struct twl4030_gpio_platform_data {
 	int		gpio_base;
 	unsigned	irq_base, irq_end;
 
-	/* for gpio-N, bit (1 << N) is set if pullup should be used */
+	/* For gpio-N, bit (1 << N) in "pullups" is set if that pullup
+	 * should be enabled.  Else, if that bit is set in "pulldowns",
+	 * that pulldown is enabled.  Don't waste power by letting any
+	 * digital inputs float...
+	 */
 	u32		pullups;
+	u32		pulldowns;
 
 	int		(*setup)(struct device *dev,
 				unsigned gpio, unsigned ngpio);

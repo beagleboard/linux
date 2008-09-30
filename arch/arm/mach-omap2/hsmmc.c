@@ -27,7 +27,6 @@
 #define VMMC1_DEDICATED		0x2A
 #define VSEL_3V			0x02
 #define VSEL_18V		0x00
-#define TWL_GPIO_PUPDCTR1	0x13
 #define TWL_GPIO_IMR1A		0x1C
 #define TWL_GPIO_ISR1A		0x19
 #define LDO_CLR			0x00
@@ -62,11 +61,6 @@ static int hsmmc_late_init(struct device *dev)
 	 * Configure TWL4030 GPIO parameters for MMC hotplug irq
 	 */
 	ret = twl4030_request_gpio(MMC1_CD_IRQ);
-	if (ret)
-		goto err;
-
-	ret = twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0x02,
-						TWL_GPIO_PUPDCTR1);
 	if (ret)
 		goto err;
 
