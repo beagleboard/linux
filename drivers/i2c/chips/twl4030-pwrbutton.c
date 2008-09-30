@@ -26,9 +26,6 @@
 #include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/input.h>
-#include <linux/timer.h>
-#include <linux/jiffies.h>
-#include <linux/kthread.h>
 #include <linux/interrupt.h>
 #include <linux/i2c/twl4030.h>
 
@@ -47,11 +44,6 @@
 
 static struct input_dev *powerbutton_dev;
 
-/*
- * Note : the following function runs in kernel thread context
- * with IRQs enabled
- */
-
 static irqreturn_t powerbutton_irq(int irq, void *dev_id)
 {
 	int err;
@@ -63,7 +55,7 @@ static irqreturn_t powerbutton_irq(int irq, void *dev_id)
 		input_report_key(powerbutton_dev, KEY_POWER,
 				 value & PWR_PWRON_IRQ);
 	} else {
-		printk(KERN_WARNING "I2C error %d while reading TWL4030"
+		pr_err("twl4030: i2c error %d while reading TWL4030"
 			" PM_MASTER STS_HW_CONDITIONS register\n", err);
 	}
 
