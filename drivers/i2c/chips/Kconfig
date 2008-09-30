@@ -157,10 +157,6 @@ config TWL4030_CORE
 	help
 	  Say yes here if you have TWL4030 chip on your board
 
-config TWL4030_GPIO
-	bool "TWL4030 GPIO Driver"
-	depends on TWL4030_CORE && GPIOLIB
-
 config TWL4030_MADC
 	tristate "TWL4030 MADC Driver"
 	depends on TWL4030_CORE

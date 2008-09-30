@@ -1,5 +1,5 @@
 /*
- * linux/drivers/i2c/chips/twl4030_gpio.c
+ * twl4030_gpio.c -- access to GPIOs on TWL4030/TPS659x0 chips
  *
  * Copyright (C) 2006-2007 Texas Instruments, Inc.
  * Copyright (C) 2006 MontaVista Software, Inc.
@@ -23,7 +23,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
- *
  */
 
 #include <linux/module.h>
@@ -48,14 +47,19 @@
 
 
 /* REVISIT when these symbols vanish elsewhere, remove them here too */
-#undef TWL4030_GPIO_IRQ_BASE
-#undef TWL4030_GPIO_IRQ_END
+/* #undef TWL4030_GPIO_IRQ_BASE */
+/* #undef TWL4030_GPIO_IRQ_END */
 #undef TWL4030_MODIRQ_GPIO
 
 static struct gpio_chip twl_gpiochip;
 static int twl4030_gpio_irq_base;
 static int twl4030_gpio_irq_end;
 
+#ifdef MODULE
+#define is_module()	true
+#else
+#define is_module()	false
+#endif
 
 /* BitField Definitions */
 
@@ -765,7 +769,24 @@ static int __devinit gpio_twl4030_probe(struct platform_device *pdev)
 	twl4030_gpio_irq_base = pdata->irq_base;
 	twl4030_gpio_irq_end = pdata->irq_end;
 
-	/* REVISIT skip most of this if the irq range is empty... */
+	if ((twl4030_gpio_irq_end - twl4030_gpio_irq_base) > 0) {
+		if (is_module()) {
+			dev_err(&pdev->dev,
+				"can't dispatch IRQs from modules\n");
+			goto no_irqs;
+		}
+		if (twl4030_gpio_irq_end > NR_IRQS) {
+			dev_err(&pdev->dev,
+				"last IRQ is too large: %d\n",
+				twl4030_gpio_irq_end);
+			return -EINVAL;
+		}
+	} else {
+		dev_notice(&pdev->dev,
+			"no IRQs being dispatched\n");
+		goto no_irqs;
+	}
+
 	if (!ret) {
 		/*
 		 * Create a kernel thread to handle deferred unmasking of gpio
@@ -805,6 +826,7 @@ static int __devinit gpio_twl4030_probe(struct platform_device *pdev)
 			twl4030_gpio_irq_base, twl4030_gpio_irq_end - 1);
 	}
 
+no_irqs:
 	if (!ret) {
 		twl_gpiochip.base = pdata->gpio_base;
 		twl_gpiochip.ngpio = TWL4030_GPIO_MAX;
@@ -849,6 +871,9 @@ static int __devexit gpio_twl4030_remove(struct platform_device *pdev)
 	if (status < 0)
 		return status;
 
+	if (is_module() || (twl4030_gpio_irq_end - twl4030_gpio_irq_base) <= 0)
+		return 0;
+
 	/* uninstall the gpio demultiplexing interrupt handler */
 	irq = platform_get_irq(pdev, 0);
 	set_irq_handler(irq, NULL);
@@ -883,7 +908,7 @@ static int __init gpio_twl4030_init(void)
 {
 	return platform_driver_register(&gpio_twl4030_driver);
 }
-module_init(gpio_twl4030_init);
+subsys_initcall(gpio_twl4030_init);
 
 static void __exit gpio_twl4030_exit(void)
 {

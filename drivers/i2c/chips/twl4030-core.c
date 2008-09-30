@@ -51,7 +51,7 @@
 #define twl_has_keypad()	false
 #endif
 
-#ifdef CONFIG_TWL4030_GPIO
+#if defined(CONFIG_GPIO_TWL4030) || defined(CONFIG_GPIO_TWL4030_MODULE)
 #define twl_has_gpio()	true
 #else
 #define twl_has_gpio()	false
@@ -1110,10 +1110,6 @@ twl4030_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		mutex_init(&twl->xfer_lock);
 	}
 
-	status = add_children(pdata);
-	if (status < 0)
-		goto fail;
-
 	/*
 	 * Check if the PIH module is initialized, if yes, then init
 	 * the T2 Interrupt subsystem
@@ -1128,10 +1124,10 @@ twl4030_probe(struct i2c_client *client, const struct i2c_device_id *id)
 				client->irq, pdata->irq_base, pdata->irq_end - 1);
 	}
 
-	return 0;
-
+	status = add_children(pdata);
 fail:
-	twl4030_remove(client);
+	if (status < 0)
+		twl4030_remove(client);
 	return status;
 }
 
