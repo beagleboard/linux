@@ -39,7 +39,6 @@
 
 #include <linux/i2c.h>
 #include <linux/i2c/twl4030.h>
-#include <linux/i2c/twl4030-gpio.h>
 #include <linux/i2c/twl4030-madc.h>
 #include <linux/i2c/twl4030-pwrirq.h>
 
@@ -183,7 +182,6 @@ static inline void activate_irq(int irq)
 #define TWL4030_MADC_MADC_SIH_CTRL	0x67
 #define TWL4030_KEYPAD_KEYP_SIH_CTRL	0x17
 
-#define TWL4030_SIH_CTRL_COR_MASK	(1 << 2)
 
 /**
  * struct twl4030_mod_iregs - TWL module IMR/ISR regs to mask/clear at init
@@ -341,12 +339,20 @@ struct twl4030mapping {
 
 /* mapping the module id to slave id and base address */
 static struct twl4030mapping twl4030_map[TWL4030_MODULE_LAST + 1] = {
+	/*
+	 * NOTE:  don't change this table without updating the
+	 * <linux/i2c/twl4030.h> defines for TWL4030_MODULE_*
+	 * so they continue to match the order in this table.
+	 */
+
 	{ TWL4030_SLAVENUM_NUM0, TWL4030_BASEADD_USB },
+
 	{ TWL4030_SLAVENUM_NUM1, TWL4030_BASEADD_AUDIO_VOICE },
 	{ TWL4030_SLAVENUM_NUM1, TWL4030_BASEADD_GPIO },
 	{ TWL4030_SLAVENUM_NUM1, TWL4030_BASEADD_INTBR },
 	{ TWL4030_SLAVENUM_NUM1, TWL4030_BASEADD_PIH },
 	{ TWL4030_SLAVENUM_NUM1, TWL4030_BASEADD_TEST },
+
 	{ TWL4030_SLAVENUM_NUM2, TWL4030_BASEADD_KEYPAD },
 	{ TWL4030_SLAVENUM_NUM2, TWL4030_BASEADD_MADC },
 	{ TWL4030_SLAVENUM_NUM2, TWL4030_BASEADD_INTERRUPTS },
@@ -357,6 +363,7 @@ static struct twl4030mapping twl4030_map[TWL4030_MODULE_LAST + 1] = {
 	{ TWL4030_SLAVENUM_NUM2, TWL4030_BASEADD_PWM1 },
 	{ TWL4030_SLAVENUM_NUM2, TWL4030_BASEADD_PWMA },
 	{ TWL4030_SLAVENUM_NUM2, TWL4030_BASEADD_PWMB },
+
 	{ TWL4030_SLAVENUM_NUM3, TWL4030_BASEADD_BACKUP },
 	{ TWL4030_SLAVENUM_NUM3, TWL4030_BASEADD_INT },
 	{ TWL4030_SLAVENUM_NUM3, TWL4030_BASEADD_PM_MASTER },
@@ -1080,7 +1087,6 @@ static void __init twl4030_mask_clear_intrs(const struct twl4030_mod_iregs *t,
 
 		/* Are ISRs cleared by reads or writes? */
 		cor = twl4030_read_cor_bit(tmr.mod_no, tmr.sih_ctrl);
-		WARN_ON(cor < 0);
 
 		for (j = 0; j < tmr.reg_cnt; j++) {
 

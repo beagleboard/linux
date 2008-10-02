@@ -38,7 +38,6 @@
 #include <linux/slab.h>
 
 #include <linux/i2c/twl4030.h>
-#include <linux/i2c/twl4030-gpio.h>
 
 
 /*
@@ -78,11 +77,6 @@ static int twl4030_gpio_irq_end;
 #else
 #define is_module()	false
 #endif
-
-/* GPIO_SIH_CTRL Fields */
-#define MASK_GPIO_SIH_CTRL_EXCLEN	BIT(0)
-#define MASK_GPIO_SIH_CTRL_PENDDIS	BIT(1)
-#define MASK_GPIO_SIH_CTRL_COR		BIT(2)
 
 /* GPIO_CTRL Fields */
 #define MASK_GPIO_CTRL_GPIO0CD1		BIT(0)
