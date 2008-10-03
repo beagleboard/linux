@@ -27,9 +27,7 @@
 #include <linux/random.h>
 #include <linux/kthread.h>
 #include <linux/i2c/twl4030.h>
-#include <linux/i2c/twl4030-pwrirq.h>
 
-#define PWR_SIH_CTRL_COR (1<<2)
 
 static u8 twl4030_pwrirq_mask;
 static u8 twl4030_pwrirq_pending_unmask;
@@ -177,8 +175,9 @@ static int __init twl4030_pwrirq_init(void)
 
 	/* Enable clear on read */
 
-	err = twl4030_i2c_write_u8(TWL4030_MODULE_INT, PWR_SIH_CTRL_COR,
-				   TWL4030_INT_PWR_SIH_CTRL);
+	err = twl4030_i2c_write_u8(TWL4030_MODULE_INT,
+				TWL4030_SIH_CTRL_COR_MASK,
+				TWL4030_INT_PWR_SIH_CTRL);
 	if (err)
 		return err;
 
@@ -201,11 +200,14 @@ static int __init twl4030_pwrirq_init(void)
 
 	return 0;
 }
+subsys_initcall(twl4030_pwrirq_init);
 
 static void __exit twl4030_pwrirq_exit(void)
 {
 
 	int i;
+
+	/* FIXME the irqs are left enabled; trouble when they arrive... */
 
 	set_irq_handler(TWL4030_MODIRQ_PWR, NULL);
 	set_irq_flags(TWL4030_MODIRQ_PWR, 0);
@@ -220,7 +222,4 @@ static void __exit twl4030_pwrirq_exit(void)
 		twl4030_pwrirq_unmask_thread = NULL;
 	}
 }
-
-MODULE_ALIAS("i2c:twl4030-pwrirq");
-subsys_initcall(twl4030_pwrirq_init);
 module_exit(twl4030_pwrirq_exit);

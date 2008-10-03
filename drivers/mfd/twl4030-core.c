@@ -40,7 +40,6 @@
 #include <linux/i2c.h>
 #include <linux/i2c/twl4030.h>
 #include <linux/i2c/twl4030-madc.h>
-#include <linux/i2c/twl4030-pwrirq.h>
 
 #define DRIVER_NAME			"twl4030"
 

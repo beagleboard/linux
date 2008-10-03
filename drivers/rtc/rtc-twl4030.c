@@ -28,7 +28,6 @@
 #include <linux/interrupt.h>
 
 #include <linux/i2c/twl4030.h>
-#include <linux/i2c/twl4030-pwrirq.h>
 
 
 /*

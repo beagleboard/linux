@@ -152,6 +152,21 @@ int twl4030_i2c_read(u8 mod_no, u8 *value, u8 reg, u8 num_bytes);
 
 /*----------------------------------------------------------------------*/
 
+/*
+ * Power Interrupt block register offsets (use TWL4030_MODULE_INT)
+ */
+
+#define TWL4030_INT_PWR_ISR1		0x0
+#define TWL4030_INT_PWR_IMR1		0x1
+#define TWL4030_INT_PWR_ISR2		0x2
+#define TWL4030_INT_PWR_IMR2		0x3
+#define TWL4030_INT_PWR_SIR		0x4	/* test register */
+#define TWL4030_INT_PWR_EDR1		0x5
+#define TWL4030_INT_PWR_EDR2		0x6
+#define TWL4030_INT_PWR_SIH_CTRL	0x7
+
+/*----------------------------------------------------------------------*/
+
 struct twl4030_bci_platform_data {
 	int *battery_tmp_tbl;
 	unsigned int tblsize;
