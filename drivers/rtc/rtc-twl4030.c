@@ -21,23 +21,15 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/module.h>
-#include <linux/ioport.h>
-#include <linux/delay.h>
 #include <linux/types.h>
 #include <linux/rtc.h>
 #include <linux/bcd.h>
 #include <linux/platform_device.h>
-#include <linux/spinlock.h>
 #include <linux/interrupt.h>
-#include <linux/device.h>
+
 #include <linux/i2c/twl4030.h>
 #include <linux/i2c/twl4030-rtc.h>
-#include <linux/io.h>
-#include <linux/irq.h>
 
-#include <asm/mach/time.h>
-#include <asm/system.h>
-#include <mach/hardware.h>
 
 #define ALL_TIME_REGS		6
 
