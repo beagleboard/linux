@@ -94,7 +94,7 @@ static inline void omap_init_dsp(void) { }
 
 static void omap_init_kp(void)
 {
-	/* REVISIT: 2430 keypad is on TWL4030 */
+	/* 2430 and 34xx keypad is on TWL4030 */
 	if (cpu_is_omap2430() || cpu_is_omap34xx())
 		return;
 

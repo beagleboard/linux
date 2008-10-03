@@ -15,7 +15,6 @@
 #include <linux/interrupt.h>
 #include <mach/hardware.h>
 #include <asm/mach/irq.h>
-#include <linux/irq.h>
 #include <linux/io.h>
 
 /* selected INTC register offsets */

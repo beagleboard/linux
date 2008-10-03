@@ -225,7 +225,8 @@ static void __init overo_init(void)
 		udelay(10);
 		gpio_set_value(OVERO_GPIO_W2W_NRESET, 1);
 	} else {
-		printk(KERN_ERR "could not obtain gpio for OVERO_GPIO_W2W_NRESET\n");
+		printk(KERN_ERR "could not obtain gpio for "
+					"OVERO_GPIO_W2W_NRESET\n");
 	}
 
 	if ((gpio_request(OVERO_GPIO_BT_NRESET, "OVERO_GPIO_BT_NRESET") == 0) &&
@@ -235,21 +236,24 @@ static void __init overo_init(void)
 		mdelay(6);
 		gpio_set_value(OVERO_GPIO_BT_NRESET, 1);
 	} else {
-		printk(KERN_ERR "could not obtain gpio for OVERO_GPIO_BT_NRESET\n");
+		printk(KERN_ERR "could not obtain gpio for "
+					"OVERO_GPIO_BT_NRESET\n");
 	}
 
 	if ((gpio_request(OVERO_GPIO_USBH_CPEN, "OVERO_GPIO_USBH_CPEN") == 0) &&
 	    (gpio_direction_output(OVERO_GPIO_USBH_CPEN, 1) == 0))
 		gpio_export(OVERO_GPIO_USBH_CPEN, 0);
 	else
-		printk(KERN_ERR "could not obtain gpio for OVERO_GPIO_USBH_CPEN\n");
+		printk(KERN_ERR "could not obtain gpio for "
+					"OVERO_GPIO_USBH_CPEN\n");
 
 	if ((gpio_request(OVERO_GPIO_USBH_NRESET,
 			  "OVERO_GPIO_USBH_NRESET") == 0) &&
 	    (gpio_direction_output(OVERO_GPIO_USBH_NRESET, 1) == 0))
 		gpio_export(OVERO_GPIO_USBH_NRESET, 0);
 	else
-		printk(KERN_ERR "could not obtain gpio for OVERO_GPIO_USBH_NRESET\n");
+		printk(KERN_ERR "could not obtain gpio for "
+					"OVERO_GPIO_USBH_NRESET\n");
 }
 
 static void __init overo_map_io(void)

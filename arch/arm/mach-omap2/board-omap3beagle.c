@@ -286,7 +286,8 @@ static void __init omap3beagle_flash_init(void)
 static void __init omap3_beagle_init(void)
 {
 	omap3_beagle_i2c_init();
-	platform_add_devices(omap3_beagle_devices, ARRAY_SIZE(omap3_beagle_devices));
+	platform_add_devices(omap3_beagle_devices,
+			ARRAY_SIZE(omap3_beagle_devices));
 	omap_board_config = omap3_beagle_config;
 	omap_board_config_size = ARRAY_SIZE(omap3_beagle_config);
 	omap_serial_init();
