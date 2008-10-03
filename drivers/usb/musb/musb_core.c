@@ -101,7 +101,7 @@
 
 #ifdef	CONFIG_ARM
 #include <mach/hardware.h>
-#include <asm/memory.h>
+#include <mach/memory.h>
 #include <asm/mach-types.h>
 #endif
 
