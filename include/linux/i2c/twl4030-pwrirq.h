@@ -1,5 +1,5 @@
 /*
- * twl4030-gpio.h - header for TWL4030 GPIO module
+ * twl4030-pwrirq.h - header for TWL4030 power interrupts
  *
  * Copyright (C) 2008 Texas Instruments, Inc.
  * Copyright (C) 2008 Nokia Corporation
@@ -24,14 +24,16 @@
 #define __TWL4030_PWRIRQ_H_
 
 /*
- * INT Module Register definitions
- * (not all registers are defined below)
+ * Power Interrupt block register offsets (use TWL4030_MODULE_INT)
  */
 
 #define TWL4030_INT_PWR_ISR1		0x0
 #define TWL4030_INT_PWR_IMR1		0x1
 #define TWL4030_INT_PWR_ISR2		0x2
 #define TWL4030_INT_PWR_IMR2		0x3
+#define TWL4030_INT_PWR_SIR		0x4	/* test register */
+#define TWL4030_INT_PWR_EDR1		0x5
+#define TWL4030_INT_PWR_EDR2		0x6
 #define TWL4030_INT_PWR_SIH_CTRL	0x7
 
 #endif /* End of __TWL4030_PWRIRQ_H */
