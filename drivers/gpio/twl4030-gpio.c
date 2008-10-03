@@ -653,6 +653,12 @@ static void twl_set(struct gpio_chip *chip, unsigned offset, int value)
 	twl4030_set_gpio_dataout(offset, value);
 }
 
+static int twl_to_irq(struct gpio_chip *chip, unsigned offset)
+{
+	/* NOTE: assumes IRQs are set up ... */
+	return twl4030_gpio_irq_base + offset;
+}
+
 static struct gpio_chip twl_gpiochip = {
 	.label			= "twl4030",
 	.owner			= THIS_MODULE,
@@ -660,6 +666,7 @@ static struct gpio_chip twl_gpiochip = {
 	.get			= twl_get,
 	.direction_output	= twl_direction_out,
 	.set			= twl_set,
+	.to_irq			= twl_to_irq,
 	.can_sleep		= 1,
 };
 
