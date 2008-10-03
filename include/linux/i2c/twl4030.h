@@ -153,6 +153,57 @@ int twl4030_i2c_read(u8 mod_no, u8 *value, u8 reg, u8 num_bytes);
 /*----------------------------------------------------------------------*/
 
 /*
+ * Keypad register offsets (use TWL4030_MODULE_KEYPAD)
+ * ... SIH/interrupt only
+ */
+
+#define TWL4030_KEYPAD_KEYP_ISR1	0x11
+#define TWL4030_KEYPAD_KEYP_IMR1	0x12
+#define TWL4030_KEYPAD_KEYP_ISR2	0x13
+#define TWL4030_KEYPAD_KEYP_IMR2	0x14
+#define TWL4030_KEYPAD_KEYP_SIR		0x15	/* test register */
+#define TWL4030_KEYPAD_KEYP_EDR		0x16
+#define TWL4030_KEYPAD_KEYP_SIH_CTRL	0x17
+
+/*----------------------------------------------------------------------*/
+
+/*
+ * Multichannel ADC register offsets (use TWL4030_MODULE_MADC)
+ * ... SIH/interrupt only
+ */
+
+#define TWL4030_MADC_ISR1		0x61
+#define TWL4030_MADC_IMR1		0x62
+#define TWL4030_MADC_ISR2		0x63
+#define TWL4030_MADC_IMR2		0x64
+#define TWL4030_MADC_SIR		0x65	/* test register */
+#define TWL4030_MADC_EDR		0x66
+#define TWL4030_MADC_SIH_CTRL		0x67
+
+/*----------------------------------------------------------------------*/
+
+/*
+ * Battery charger register offsets (use TWL4030_MODULE_INTERRUPTS)
+ */
+
+#define TWL4030_INTERRUPTS_BCIISR1A	0x0
+#define TWL4030_INTERRUPTS_BCIISR2A	0x1
+#define TWL4030_INTERRUPTS_BCIIMR1A	0x2
+#define TWL4030_INTERRUPTS_BCIIMR2A	0x3
+#define TWL4030_INTERRUPTS_BCIISR1B	0x4
+#define TWL4030_INTERRUPTS_BCIISR2B	0x5
+#define TWL4030_INTERRUPTS_BCIIMR1B	0x6
+#define TWL4030_INTERRUPTS_BCIIMR2B	0x7
+#define TWL4030_INTERRUPTS_BCISIR1	0x8	/* test register */
+#define TWL4030_INTERRUPTS_BCISIR2	0x9	/* test register */
+#define TWL4030_INTERRUPTS_BCIEDR1	0xa
+#define TWL4030_INTERRUPTS_BCIEDR2	0xb
+#define TWL4030_INTERRUPTS_BCIEDR3	0xc
+#define TWL4030_INTERRUPTS_BCISIHCTRL	0xd
+
+/*----------------------------------------------------------------------*/
+
+/*
  * Power Interrupt block register offsets (use TWL4030_MODULE_INT)
  */
 

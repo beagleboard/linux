@@ -75,14 +75,6 @@ enum sample_type {
 #define TWL4030_MADC_RTCH0_LSB		0x17
 #define TWL4030_MADC_GPCH0_LSB		0x37
 
-#define TWL4030_MADC_ISR1		0x61
-#define TWL4030_MADC_IMR1		0x62
-#define TWL4030_MADC_ISR2		0x63
-#define TWL4030_MADC_IMR2		0x64
-#define TWL4030_MADC_SIR		0x65
-#define TWL4030_MADC_EDR		0x66
-#define TWL4030_MADC_SIH_CTRL		0x67
-
 #define TWL4030_MADC_MADCON		(1<<0)	/* MADC power on */
 #define TWL4030_MADC_BUSY		(1<<0)	/* MADC busy */
 #define TWL4030_MADC_EOC_SW		(1<<1)	/* MADC conversion completion */
