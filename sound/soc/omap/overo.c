@@ -107,11 +107,11 @@ static int __init overo_soc_init(void)
 {
 	int ret;
 
-	printk(KERN_INFO "overo SoC init\n");
 	if (!machine_is_overo()) {
-		printk(KERN_ERR "Not Overo!\n");
+		pr_debug("Not Overo!\n");
 		return -ENODEV;
 	}
+	printk(KERN_INFO "overo SoC init\n");
 
 	overo_snd_device = platform_device_alloc("soc-audio", -1);
 	if (!overo_snd_device) {
@@ -135,13 +135,12 @@ err1:
 
 	return ret;
 }
+module_init(overo_soc_init);
 
 static void __exit overo_soc_exit(void)
 {
 	platform_device_unregister(overo_snd_device);
 }
-
-module_init(overo_soc_init);
 module_exit(overo_soc_exit);
 
 MODULE_AUTHOR("Steve Sakoman <steve@sakoman.com>");
