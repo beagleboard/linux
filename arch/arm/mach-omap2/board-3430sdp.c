@@ -40,7 +40,6 @@
 #include <mach/keypad.h>
 #include <mach/dma.h>
 #include <mach/gpmc.h>
-#include <linux/i2c/twl4030-rtc.h>
 
 #include <asm/io.h>
 #include <asm/delay.h>
