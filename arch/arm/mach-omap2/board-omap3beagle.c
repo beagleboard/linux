@@ -43,6 +43,7 @@
 #include <mach/common.h>
 #include <mach/gpmc.h>
 #include <mach/nand.h>
+#include <mach/mux.h>
 
 
 #define GPMC_CS0_BASE  0x60
@@ -291,7 +292,17 @@ static void __init omap3_beagle_init(void)
 	omap_board_config = omap3_beagle_config;
 	omap_board_config_size = ARRAY_SIZE(omap3_beagle_config);
 	omap_serial_init();
+
+	omap_cfg_reg(AH8_34XX_GPIO29);
+	gpio_request(29, "mmc0_wp");
+	gpio_direction_input(29);
 	hsmmc_init();
+
+	omap_cfg_reg(J25_34XX_GPIO170);
+	gpio_request(170, "DVI_nPD");
+	/* REVISIT leave DVI powered down until it's needed ... */
+	gpio_direction_output(170, true);
+
 	usb_musb_init();
 	usb_ehci_init();
 	omap3beagle_flash_init();

@@ -749,6 +749,14 @@ enum omap34xx_index {
 	AD2_3430_USB3FS_PHY_MM3_TXDAT,
 	AC1_3430_USB3FS_PHY_MM3_TXEN_N,
 
+	/* 34xx GPIO
+	 *  - normally these are bidirectional, no internal pullup/pulldown
+	 *  - "_UP" suffix (GPIO3_UP) if internal pullup is configured
+	 *  - "_DOWN" suffix (GPIO3_DOWN) with internal pulldown
+	 *  - "_OUT" suffix (GPIO3_OUT) for output-only pins (unlike 24xx)
+	 */
+	AH8_34XX_GPIO29,
+	J25_34XX_GPIO170,
 };
 
 struct omap_mux_cfg {
