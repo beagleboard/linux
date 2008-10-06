@@ -335,7 +335,7 @@ void __init n800_mmc_init(void)
 
 {
 	if (machine_is_nokia_n810()) {
-		n800_mmc1_data.slots[0].name = "external";
+		mmc1_data.slots[0].name = "external";
 
 		/*
 		 * Some Samsung Movinand chips do not like open-ended
@@ -343,8 +343,8 @@ void __init n800_mmc_init(void)
 		 * while doing so. Reducing the number of blocks in
 		 * the transfer or delays in clock disable do not help
 		 */
-		n800_mmc1_data.slots[1].name = "internal";
-		n800_mmc1_data.slots[1].ban_openended = 1;
+		mmc1_data.slots[1].name = "internal";
+		mmc1_data.slots[1].ban_openended = 1;
 	}
 
 	if (omap_request_gpio(slot_switch_gpio) < 0)
