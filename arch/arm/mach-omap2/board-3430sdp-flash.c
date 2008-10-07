@@ -26,6 +26,8 @@
 #include <mach/gpmc.h>
 #include <mach/nand.h>
 
+#define NAND_BLOCK_SIZE		SZ_128K
+
 static struct mtd_partition sdp_nor_partitions[] = {
 	/* bootloader (U-Boot, etc) in first sector */
 	{
