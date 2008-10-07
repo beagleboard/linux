@@ -208,6 +208,14 @@ static irqreturn_t do_kp_irq(int irq, void *_kp)
 	u8 reg;
 	int ret;
 
+#ifdef CONFIG_LOCKDEP
+	/* WORKAROUND for lockdep forcing IRQF_DISABLED on us, which
+	 * we don't want and can't tolerate.  Although it might be
+	 * friendlier not to borrow this thread context...
+	 */
+	local_irq_enable();
+#endif
+
 	/* Read & Clear TWL4030 pending interrupt */
 	ret = twl4030_kpread(kp, TWL4030_MODULE_KEYPAD, &reg, KEYP_ISR1, 1);
 
@@ -340,8 +348,7 @@ static int __init omap_kp_probe(struct platform_device *pdev)
 	 * This ISR will always execute in kernel thread context because of
 	 * the need to access the TWL4030 over the I2C bus.
 	 */
-	ret = request_irq(kp->irq, do_kp_irq, IRQF_DISABLED,
-			"TWL4030 Keypad", kp);
+	ret = request_irq(kp->irq, do_kp_irq, 0, pdev->name, kp);
 	if (ret < 0) {
 		dev_info(kp->dbg_dev, "request_irq failed for irq no=%d\n",
 			kp->irq);

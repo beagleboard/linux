@@ -210,6 +210,14 @@ static irqreturn_t twl4030charger_interrupt(int irq, void *_di)
 {
 	struct twl4030_bci_device_info *di = _di;
 
+#ifdef CONFIG_LOCKDEP
+	/* WORKAROUND for lockdep forcing IRQF_DISABLED on us, which
+	 * we don't want and can't tolerate.  Although it might be
+	 * friendlier not to borrow this thread context...
+	 */
+	local_irq_enable();
+#endif
+
 	twl4030charger_presence_evt();
 	power_supply_changed(&di->bat);
 
@@ -309,6 +317,14 @@ static irqreturn_t twl4030battery_interrupt(int irq, void *_di)
 {
 	u8 isr1a_val, isr2a_val, clear_2a, clear_1a;
 	int ret;
+
+#ifdef CONFIG_LOCKDEP
+	/* WORKAROUND for lockdep forcing IRQF_DISABLED on us, which
+	 * we don't want and can't tolerate.  Although it might be
+	 * friendlier not to borrow this thread context...
+	 */
+	local_irq_enable();
+#endif
 
 	ret = twl4030_i2c_read_u8(TWL4030_MODULE_INTERRUPTS, &isr1a_val,
 				REG_BCIISR1A);
@@ -943,7 +959,7 @@ static int __init twl4030_bci_battery_probe(struct platform_device *pdev)
 
 	/* request BCI interruption */
 	ret = request_irq(TWL4030_MODIRQ_BCI, twl4030battery_interrupt,
-		IRQF_DISABLED, pdev->name, NULL);
+		0, pdev->name, NULL);
 	if (ret) {
 		dev_dbg(&pdev->dev, "could not request irq %d, status %d\n",
 			TWL4030_MODIRQ_BCI, ret);

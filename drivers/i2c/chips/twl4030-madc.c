@@ -148,6 +148,14 @@ static irqreturn_t twl4030_madc_irq_handler(int irq, void *_madc)
 	u8 isr_val, imr_val;
 	int i;
 
+#ifdef CONFIG_LOCKDEP
+	/* WORKAROUND for lockdep forcing IRQF_DISABLED on us, which
+	 * we don't want and can't tolerate.  Although it might be
+	 * friendlier not to borrow this thread context...
+	 */
+	local_irq_enable();
+#endif
+
 	/* Use COR to ack interrupts since we have no shared IRQs in ISRx */
 	isr_val = twl4030_madc_read(madc, madc->isr);
 	imr_val = twl4030_madc_read(madc, madc->imr);
@@ -451,7 +459,7 @@ static int __init twl4030_madc_probe(struct platform_device *pdev)
 				   regval, TWL4030_BCI_BCICTL1);
 
 	ret = request_irq(TWL4030_MODIRQ_MADC, twl4030_madc_irq_handler,
-			  IRQF_DISABLED, "twl4030_madc", madc);
+			  0, "twl4030_madc", madc);
 	if (ret) {
 		dev_dbg(&pdev->dev, "could not request irq\n");
 		goto err_irq;
