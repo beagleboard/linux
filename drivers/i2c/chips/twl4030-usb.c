@@ -237,14 +237,9 @@
 #define GPIO_USB_4PIN_ULPI_2430C	(3 << 0)
 
 /* In module TWL4030_MODULE_INT */
-#define REG_PWR_ISR1			0x00
-#define REG_PWR_IMR1			0x01
-#define USB_PRES			(1 << 2)
 #define REG_PWR_EDR1			0x05
 #define USB_PRES_FALLING		(1 << 4)
 #define USB_PRES_RISING			(1 << 5)
-#define REG_PWR_SIH_CTRL		0x07
-#define COR				(1 << 2)
 
 /* bits in OTG_CTRL */
 #define	OTG_XCEIV_OUTPUTS \
@@ -274,6 +269,7 @@ struct twl4030_usb {
 	unsigned		vbus:1;
 	int			irq;
 	u8			asleep;
+	bool			irq_enabled;
 };
 
 /* internal define on top of container_of */
@@ -417,6 +413,8 @@ static void usb_irq_enable(struct twl4030_usb *twl, int rising, int falling)
 {
 	u8 val;
 
+	/* FIXME use set_irq_type(...) when that (soon) works */
+
 	/* edge setup */
 	WARN_ON(twl4030_i2c_read_u8(TWL4030_MODULE_INT,
 				&val, REG_PWR_EDR1) < 0);
@@ -429,34 +427,18 @@ static void usb_irq_enable(struct twl4030_usb *twl, int rising, int falling)
 	WARN_ON(twl4030_i2c_write_u8_verify(twl, TWL4030_MODULE_INT,
 				val, REG_PWR_EDR1) < 0);
 
-	/* un-mask interrupt */
-	WARN_ON(twl4030_i2c_read_u8(TWL4030_MODULE_INT,
-				&val, REG_PWR_IMR1) < 0);
-
-	val &= ~USB_PRES;
-
-	WARN_ON(twl4030_i2c_write_u8_verify(twl, TWL4030_MODULE_INT,
-				val, REG_PWR_IMR1) < 0);
+	if (!twl->irq_enabled) {
+		enable_irq(twl->irq);
+		twl->irq_enabled = true;
+	}
 }
 
 static void usb_irq_disable(struct twl4030_usb *twl)
 {
-	u8 val;
-
-	/* undo edge setup */
-	WARN_ON(twl4030_i2c_read_u8(TWL4030_MODULE_INT,
-				&val, REG_PWR_EDR1) < 0);
-	val &= ~(USB_PRES_RISING | USB_PRES_FALLING);
-	WARN_ON(twl4030_i2c_write_u8_verify(twl, TWL4030_MODULE_INT,
-				val, REG_PWR_EDR1) < 0);
-
-	/* mask interrupt */
-	WARN_ON(twl4030_i2c_read_u8(TWL4030_MODULE_INT,
-				&val, REG_PWR_IMR1) < 0);
-	val |= USB_PRES;
-
-	WARN_ON(twl4030_i2c_write_u8_verify(twl, TWL4030_MODULE_INT,
-				val, REG_PWR_IMR1) < 0);
+	if (twl->irq_enabled) {
+		disable_irq(twl->irq);
+		twl->irq_enabled = false;
+	}
 }
 
 static void twl4030_phy_power(struct twl4030_usb *twl, int on)
@@ -564,6 +546,21 @@ static irqreturn_t twl4030_usb_irq(int irq, void *_twl)
 {
 	struct twl4030_usb *twl = _twl;
 	u8 val;
+
+#ifdef CONFIG_LOCKDEP
+	/* WORKAROUND for lockdep forcing IRQF_DISABLED on us, which
+	 * we don't want and can't tolerate.  Although it might be
+	 * friendlier not to borrow this thread context...
+	 */
+	local_irq_enable();
+#endif
+
+	/* FIXME stop accessing PWR_EDR1 ... if nothing else, we
+	 * know which edges we told the IRQ to trigger on.  And
+	 * there seem to be OTG_specific registers and irqs that
+	 * provide the right info without guessing like this:
+	 * USB_INT_STS, ID_STATUS, STS_HW_CONDITIONS, etc.
+	 */
 
 	/* action based on cable attach or detach */
 	WARN_ON(twl4030_i2c_read_u8(TWL4030_MODULE_INT,
@@ -697,7 +694,7 @@ static int __init twl4030_usb_probe(struct platform_device *pdev)
 	/* init irq workqueue before request_irq */
 	INIT_WORK(&twl->irq_work, twl4030_usb_irq_work);
 
-	usb_irq_disable(twl);
+	twl->irq_enabled = true;
 	status = request_irq(twl->irq, twl4030_usb_irq, 0, "twl4030_usb", twl);
 	if (status < 0) {
 		dev_dbg(&pdev->dev, "can't get IRQ %d, err %d\n",
