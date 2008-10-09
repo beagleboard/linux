@@ -57,7 +57,7 @@
 #define DRIVER_NAME			"twl4030"
 
 #if defined(CONFIG_TWL4030_BCI_BATTERY) || \
-	defined(CONFIG_TWL4030_BCI_BATTERY_MODUEL)
+	defined(CONFIG_TWL4030_BCI_BATTERY_MODULE)
 #define twl_has_bci()		true
 #else
 #define twl_has_bci()		false
