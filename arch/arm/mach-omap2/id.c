@@ -147,7 +147,7 @@ void __init omap34xx_check_revision(void)
 	u32 cpuid, idcode;
 	u16 hawkeye;
 	u8 rev;
-	char *rev_name;
+	char *rev_name = "ES1.0";
 
 	/*
 	 * We cannot access revision registers on ES1.0.
@@ -157,7 +157,6 @@ void __init omap34xx_check_revision(void)
 	cpuid = read_cpuid(CPUID_ID);
 	if ((((cpuid >> 4) & 0xfff) == 0xc08) && ((cpuid & 0xf) == 0x0)) {
 		system_rev = OMAP3430_REV_ES1_0;
-		rev_name = "ES1.0";
 		goto out;
 	}
 
