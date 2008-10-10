@@ -352,6 +352,12 @@ EXPORT_SYMBOL(twl4030_i2c_read_u8);
 
 /*----------------------------------------------------------------------*/
 
+/*
+ * NOTE:  We know the first 8 IRQs after pdata->base_irq are
+ * for the PIH, and the next are for the PWR_INT SIH, since
+ * that's how twl_init_irq() sets things up.
+ */
+
 static int add_children(struct twl4030_platform_data *pdata)
 {
 	struct platform_device	*pdev = NULL;
@@ -382,7 +388,7 @@ static int add_children(struct twl4030_platform_data *pdata)
 
 		if (status == 0) {
 			struct resource r = {
-				.start = TWL4030_PWRIRQ_CHG_PRES,
+				.start = pdata->irq_base + 8 + 1,
 				.flags = IORESOURCE_IRQ,
 			};
 
@@ -531,8 +537,7 @@ static int add_children(struct twl4030_platform_data *pdata)
 		/* RTC module IRQ */
 		if (status == 0) {
 			struct resource	r = {
-				/* REVISIT don't hard-wire this stuff */
-				.start = TWL4030_PWRIRQ_RTC,
+				.start = pdata->irq_base + 8 + 3,
 				.flags = IORESOURCE_IRQ,
 			};
 
@@ -577,7 +582,7 @@ static int add_children(struct twl4030_platform_data *pdata)
 
 		if (status == 0) {
 			struct resource r = {
-				.start = TWL4030_PWRIRQ_USB_PRES,
+				.start = pdata->irq_base + 8 + 2,
 				.flags = IORESOURCE_IRQ,
 			};
 
