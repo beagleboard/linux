@@ -49,8 +49,8 @@ struct omap_sr {
 	u32 		opp1_nvalue, opp2_nvalue, opp3_nvalue, opp4_nvalue;
 	u32		opp5_nvalue;
 	u32		senp_mod, senn_mod;
-	u32		srbase_addr;
-	u32		vpbase_addr;
+	void __iomem	*srbase_addr;
+	void __iomem	*vpbase_addr;
 };
 
 /* Custom clocks to enable SR specific enable/disable functions. */
@@ -60,15 +60,15 @@ struct sr_custom_clk {
 	struct omap_sr 	*sr;
 };
 
-#define SR_REGADDR(offs)     (__force void __iomem *)(sr->srbase_addr + offset)
+#define SR_REGADDR(offs)	(sr->srbase_addr + offset)
 
-static inline void sr_write_reg(struct omap_sr *sr, int offset, u32 value)
+static inline void sr_write_reg(struct omap_sr *sr, unsigned offset, u32 value)
 {
 	__raw_writel(value, SR_REGADDR(offset));
 }
 
-static inline void sr_modify_reg(struct omap_sr *sr, int offset, u32 mask,
-								u32 value)
+static inline void sr_modify_reg(struct omap_sr *sr, unsigned offset, u32 mask,
+					u32 value)
 {
 	u32 reg_val;
 
@@ -79,7 +79,7 @@ static inline void sr_modify_reg(struct omap_sr *sr, int offset, u32 mask,
 	__raw_writel(reg_val, SR_REGADDR(offset));
 }
 
-static inline u32 sr_read_reg(struct omap_sr *sr, int offset)
+static inline u32 sr_read_reg(struct omap_sr *sr, unsigned offset)
 {
 	return __raw_readl(SR_REGADDR(offset));
 }
