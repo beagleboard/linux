@@ -757,8 +757,6 @@ twl4030_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		status = twl_init_irq(client->irq, pdata->irq_base, pdata->irq_end);
 		if (status < 0)
 			goto fail;
-		dev_info(&client->dev, "IRQ %d chains IRQs %d..%d\n",
-				client->irq, pdata->irq_base, pdata->irq_end - 1);
 	}
 
 	status = add_children(pdata);

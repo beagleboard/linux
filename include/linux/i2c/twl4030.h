@@ -277,6 +277,8 @@ struct twl4030_platform_data {
 
 /*----------------------------------------------------------------------*/
 
+int twl4030_sih_setup(int module);
+
 /*
  * FIXME completely stop using TWL4030_IRQ_BASE ... instead, pass the
  * IRQ data to subsidiary devices using platform device resources.
