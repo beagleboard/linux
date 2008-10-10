@@ -43,10 +43,10 @@ struct omap_sr {
 	int		srid;
 	int		is_sr_reset;
 	int		is_autocomp_active;
-	struct clk 	*clk;
-	u32 		clk_length;
-	u32 		req_opp_no;
-	u32 		opp1_nvalue, opp2_nvalue, opp3_nvalue, opp4_nvalue;
+	struct clk	*clk;
+	u32		clk_length;
+	u32		req_opp_no;
+	u32		opp1_nvalue, opp2_nvalue, opp3_nvalue, opp4_nvalue;
 	u32		opp5_nvalue;
 	u32		senp_mod, senn_mod;
 	void __iomem	*srbase_addr;
@@ -55,9 +55,9 @@ struct omap_sr {
 
 /* Custom clocks to enable SR specific enable/disable functions. */
 struct sr_custom_clk {
-	struct clk 	clk;  /* meta-clock with custom enable/disable calls */
-	struct clk 	*fck; /* actual functional clock */
-	struct omap_sr 	*sr;
+	struct clk	clk;  /* meta-clock with custom enable/disable calls */
+	struct clk	*fck; /* actual functional clock */
+	struct omap_sr	*sr;
 };
 
 #define SR_REGADDR(offs)	(sr->srbase_addr + offset)
@@ -136,7 +136,7 @@ static struct omap_sr sr2 = {
 
 static struct sr_custom_clk sr1_custom_clk = {
 	.clk = {
-			.name 		= "sr1_custom_clk",
+			.name		= "sr1_custom_clk",
 			.enable		= sr_clk_enable,
 			.disable	= sr_clk_disable,
 	},
@@ -145,7 +145,7 @@ static struct sr_custom_clk sr1_custom_clk = {
 
 static struct sr_custom_clk sr2_custom_clk = {
 	.clk = {
-			.name 		= "sr2_custom_clk",
+			.name		= "sr2_custom_clk",
 			.enable		= sr_clk_enable,
 			.disable	= sr_clk_disable,
 	},
