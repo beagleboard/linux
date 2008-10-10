@@ -704,6 +704,13 @@ int twl_init_irq(int irq_num, unsigned irq_base, unsigned irq_end)
 	pr_info("twl4030: %s (irq %d) chaining IRQs %d..%d\n", "PIH",
 			irq_num, irq_base, twl4030_irq_next - 1);
 
+	/* ... and the PWR_INT module ... */
+	status = twl4030_sih_setup(TWL4030_MODULE_INT);
+	if (status < 0) {
+		pr_err("twl4030: sih_setup PWR INT --> %d\n", status);
+		goto fail;
+	}
+
 	/* install an irq handler to demultiplex the TWL4030 interrupt */
 	task = start_twl4030_irq_thread(irq_num);
 	if (!task) {

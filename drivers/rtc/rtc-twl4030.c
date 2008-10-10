@@ -447,7 +447,8 @@ static int __devinit twl4030_rtc_probe(struct platform_device *pdev)
 		goto out1;
 
 	ret = request_irq(irq, twl4030_rtc_interrupt,
-				0, rtc->dev.bus_id, rtc);
+				IRQF_TRIGGER_RISING,
+				rtc->dev.bus_id, rtc);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "IRQ is not free.\n");
 		goto out1;
@@ -465,22 +466,6 @@ static int __devinit twl4030_rtc_probe(struct platform_device *pdev)
 		if (ret < 0)
 			goto out2;
 	}
-
-	/* FIXME stop touching MODULE_INT registers; there's already
-	 * driver code responsible for them.
-	 */
-
-	/* use rising edge detection for RTC alarm */
-	ret = twl4030_i2c_read_u8(TWL4030_MODULE_INT,
-			&rd_reg, TWL4030_INT_PWR_EDR1);
-	if (ret < 0)
-		goto out2;
-
-	rd_reg |= BIT(3);
-	ret = twl4030_i2c_write_u8(TWL4030_MODULE_INT,
-			rd_reg, TWL4030_INT_PWR_EDR1);
-	if (ret < 0)
-		goto out2;
 
 	/* init cached IRQ enable bits */
 	ret = twl4030_rtc_read_u8(&rtc_irq_bits, REG_RTC_INTERRUPTS_REG);

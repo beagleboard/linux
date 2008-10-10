@@ -28,6 +28,7 @@
 #include <linux/init.h>
 #include <linux/time.h>
 #include <linux/interrupt.h>
+#include <linux/irq.h>
 #include <linux/platform_device.h>
 #include <linux/spinlock.h>
 #include <linux/workqueue.h>
@@ -409,23 +410,9 @@ static void twl4030_i2c_access(struct twl4030_usb *twl, int on)
 	}
 }
 
-static void usb_irq_enable(struct twl4030_usb *twl, int rising, int falling)
+static void usb_irq_enable(struct twl4030_usb *twl, int trigger)
 {
-	u8 val;
-
-	/* FIXME use set_irq_type(...) when that (soon) works */
-
-	/* edge setup */
-	WARN_ON(twl4030_i2c_read_u8(TWL4030_MODULE_INT,
-				&val, REG_PWR_EDR1) < 0);
-
-	val &= ~(USB_PRES_RISING | USB_PRES_FALLING);
-	if (rising)
-		val = val | USB_PRES_RISING;
-	if (falling)
-		val = val | USB_PRES_FALLING;
-	WARN_ON(twl4030_i2c_write_u8_verify(twl, TWL4030_MODULE_INT,
-				val, REG_PWR_EDR1) < 0);
+	set_irq_type(twl->irq, trigger);
 
 	if (!twl->irq_enabled) {
 		enable_irq(twl->irq);
@@ -469,7 +456,7 @@ static void twl4030_phy_suspend(struct twl4030_usb *twl, int controller_off)
 
 	if (!controller_off)
 		/* enable rising edge interrupt to detect cable attach */
-		usb_irq_enable(twl, 1, 0);
+		usb_irq_enable(twl, IRQ_TYPE_EDGE_RISING);
 
 	twl4030_phy_power(twl, 0);
 	twl->asleep = 1;
@@ -481,7 +468,7 @@ static void twl4030_phy_resume(struct twl4030_usb *twl)
 		return;
 
 	/* enable falling edge interrupt to detect cable detach */
-	usb_irq_enable(twl, 0, 1);
+	usb_irq_enable(twl, IRQ_TYPE_EDGE_FALLING);
 
 	twl4030_phy_power(twl, 1);
 	twl4030_i2c_access(twl, 1);
