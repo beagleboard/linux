@@ -147,7 +147,7 @@ static struct ads7846_platform_data tsc2046_config __initdata = {
 
 static struct omap2_mcspi_device_config tsc2046_mcspi_config = {
 	.turbo_mode	= 0,
-	.single_channel	= 1,  /* 0: slave, 1: master */
+	.single_channel	= 1,	/* 0: slave, 1: master */
 };
 
 static struct spi_board_info ldp_spi_board_info[] __initdata = {
@@ -196,8 +196,8 @@ static int ldp_batt_table[] = {
 };
 
 static struct twl4030_bci_platform_data ldp_bci_data = {
-      .battery_tmp_tbl	= ldp_batt_table,
-      .tblsize		= ARRAY_SIZE(ldp_batt_table),
+	.battery_tmp_tbl	= ldp_batt_table,
+	.tblsize		= ARRAY_SIZE(ldp_batt_table),
 };
 
 static struct twl4030_usb_data ldp_usb_data = {
