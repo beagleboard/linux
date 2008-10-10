@@ -32,7 +32,7 @@
 #define CPU2_TRACE_EN		0x02
 
 static struct clk *sdti_ck;
-unsigned long sti_base, sti_channel_base;
+void __iomem *sti_base, *sti_channel_base;
 static DEFINE_SPINLOCK(sdti_lock);
 
 void omap_sti_channel_write_trace(int len, int id, void *data,
@@ -137,14 +137,14 @@ static int __devinit omap_sdti_probe(struct platform_device *pdev)
 	}
 
 	size = res->end - res->start;
-	sti_base = (unsigned long)ioremap(res->start, size);
+	sti_base = ioremap(res->start, size);
 	if (unlikely(!sti_base))
 		return -ENODEV;
 
 	size = cres->end - cres->start;
-	sti_channel_base = (unsigned long)ioremap(cres->start, size);
+	sti_channel_base = ioremap(cres->start, size);
 	if (unlikely(!sti_channel_base)) {
-		iounmap((void *)sti_base);
+		iounmap(sti_base);
 		return -ENODEV;
 	}
 
@@ -153,8 +153,8 @@ static int __devinit omap_sdti_probe(struct platform_device *pdev)
 
 static int __devexit omap_sdti_remove(struct platform_device *pdev)
 {
-	iounmap((void *)sti_channel_base);
-	iounmap((void *)sti_base);
+	iounmap(sti_channel_base);
+	iounmap(sti_base);
 	omap_sdti_exit();
 
 	return 0;
