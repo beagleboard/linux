@@ -102,32 +102,10 @@ static inline int gpio_twl4030_read(u8 address)
  */
 int twl4030_request_gpio(int gpio)
 {
-	int ret = 0;
-
 	if (unlikely(gpio >= TWL4030_GPIO_MAX))
 		return -EPERM;
 
-	ret = gpio_request(twl_gpiochip.base + gpio, NULL);
-	if (ret < 0)
-		return ret;
-
-	mutex_lock(&gpio_lock);
-	if (gpio_usage_count & BIT(gpio)) {
-		ret = -EBUSY;
-	} else {
-		/* First time usage? - switch on GPIO module */
-		if (!gpio_usage_count) {
-			ret = gpio_twl4030_write(REG_GPIO_CTRL,
-					MASK_GPIO_CTRL_GPIO_ON);
-
-		}
-		if (!ret)
-			gpio_usage_count |= BIT(gpio);
-		else
-			gpio_free(twl_gpiochip.base + gpio);
-	}
-	mutex_unlock(&gpio_lock);
-	return ret;
+	return gpio_request(twl_gpiochip.base + gpio, NULL);
 }
 EXPORT_SYMBOL(twl4030_request_gpio);
 
@@ -136,26 +114,11 @@ EXPORT_SYMBOL(twl4030_request_gpio);
  */
 int twl4030_free_gpio(int gpio)
 {
-	int ret = 0;
-
 	if (unlikely(gpio >= TWL4030_GPIO_MAX))
 		return -EPERM;
 
-	mutex_lock(&gpio_lock);
-
-	if ((gpio_usage_count & BIT(gpio)) == 0) {
-		ret = -EPERM;
-	} else {
-		gpio_usage_count &= ~BIT(gpio);
-		gpio_free(twl_gpiochip.base + gpio);
-	}
-
-	/* Last time usage? - switch off GPIO module */
-	if (ret == 0 && !gpio_usage_count)
-		ret = gpio_twl4030_write(REG_GPIO_CTRL, 0x0);
-
-	mutex_unlock(&gpio_lock);
-	return ret;
+	gpio_free(twl_gpiochip.base + gpio);
+	return 0;
 }
 EXPORT_SYMBOL(twl4030_free_gpio);
 
@@ -283,6 +246,38 @@ int twl4030_set_gpio_card_detect(int gpio, int enable)
 
 /*----------------------------------------------------------------------*/
 
+static int twl_request(struct gpio_chip *chip, unsigned offset)
+{
+	int status = 0;
+
+	mutex_lock(&gpio_lock);
+
+	/* on first use, turn GPIO module "on" */
+	if (!gpio_usage_count)
+		status = gpio_twl4030_write(REG_GPIO_CTRL,
+				MASK_GPIO_CTRL_GPIO_ON);
+
+	if (!status)
+		gpio_usage_count |= (0x1 << offset);
+
+done:
+	mutex_unlock(&gpio_lock);
+	return status;
+}
+
+static void twl_free(struct gpio_chip *chip, unsigned offset)
+{
+	mutex_lock(&gpio_lock);
+
+	gpio_usage_count &= ~BIT(offset);
+
+	/* on last use, switch off GPIO module */
+	if (!gpio_usage_count)
+		gpio_twl4030_write(REG_GPIO_CTRL, 0x0);
+
+	mutex_unlock(&gpio_lock);
+}
+
 static int twl_direction_in(struct gpio_chip *chip, unsigned offset)
 {
 	return twl4030_set_gpio_direction(offset, 1);
@@ -316,6 +311,8 @@ static int twl_to_irq(struct gpio_chip *chip, unsigned offset)
 static struct gpio_chip twl_gpiochip = {
 	.label			= "twl4030",
 	.owner			= THIS_MODULE,
+	.request		= twl_request,
+	.free			= twl_free,
 	.direction_input	= twl_direction_in,
 	.get			= twl_get,
 	.direction_output	= twl_direction_out,
