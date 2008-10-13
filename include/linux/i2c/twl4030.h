@@ -228,6 +228,9 @@ struct twl4030_gpio_platform_data {
 	int		gpio_base;
 	unsigned	irq_base, irq_end;
 
+	/* package the two LED signals as output-only GPIOs? */
+	bool		use_leds;
+
 	/* For gpio-N, bit (1 << N) in "pullups" is set if that pullup
 	 * should be enabled.  Else, if that bit is set in "pulldowns",
 	 * that pulldown is enabled.  Don't waste power by letting any
