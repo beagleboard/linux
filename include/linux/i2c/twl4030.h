@@ -319,17 +319,13 @@ int twl4030_sih_setup(int module);
 /* TWL4030 GPIO interrupt definitions */
 
 #define TWL4030_GPIO_IRQ_NO(n)		(TWL4030_GPIO_IRQ_BASE + (n))
-#define TWL4030_GPIO_IS_ENABLE		1
 
 /*
  * Exported TWL4030 GPIO APIs
  *
  * WARNING -- use standard GPIO and IRQ calls instead; these will vanish.
  */
-int twl4030_get_gpio_datain(int gpio);
-int twl4030_request_gpio(int gpio);
 int twl4030_set_gpio_debounce(int gpio, int enable);
-int twl4030_free_gpio(int gpio);
 
 #if defined(CONFIG_TWL4030_BCI_BATTERY) || \
 	defined(CONFIG_TWL4030_BCI_BATTERY_MODULE)

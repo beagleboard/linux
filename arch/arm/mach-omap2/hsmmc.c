@@ -15,7 +15,9 @@
 #include <linux/platform_device.h>
 #include <linux/interrupt.h>
 #include <linux/delay.h>
+#include <linux/gpio.h>
 #include <linux/i2c/twl4030.h>
+
 #include <mach/hardware.h>
 #include <mach/mmc.h>
 #include <mach/board.h>
@@ -32,8 +34,6 @@
 #define LDO_CLR			0x00
 #define VSEL_S2_CLR		0x40
 #define GPIO_0_BIT_POS		(1 << 0)
-#define MMC1_CD_IRQ		0
-#define MMC2_CD_IRQ		1
 
 #define OMAP2_CONTROL_DEVCONF0	0x48002274
 #define OMAP2_CONTROL_DEVCONF1	0x490022E8
@@ -45,9 +45,12 @@
 #define OMAP2_CONTROL_PBIAS_PWRDNZ	(1 << 1)
 #define OMAP2_CONTROL_PBIAS_SCTRL	(1 << 2)
 
+
+static const int mmc1_cd_gpio = OMAP_MAX_GPIO_LINES;		/* HACK!! */
+
 static int hsmmc_card_detect(int irq)
 {
-	return twl4030_get_gpio_datain(irq - TWL4030_GPIO_IRQ_BASE);
+	return gpio_get_value_cansleep(mmc1_cd_gpio);
 }
 
 /*
@@ -60,11 +63,11 @@ static int hsmmc_late_init(struct device *dev)
 	/*
 	 * Configure TWL4030 GPIO parameters for MMC hotplug irq
 	 */
-	ret = twl4030_request_gpio(MMC1_CD_IRQ);
+	ret = gpio_request(mmc1_cd_gpio, "mmc0_cd");
 	if (ret)
 		goto err;
 
-	ret = twl4030_set_gpio_debounce(MMC1_CD_IRQ, TWL4030_GPIO_IS_ENABLE);
+	ret = twl4030_set_gpio_debounce(0, true);
 	if (ret)
 		goto err;
 
@@ -77,11 +80,7 @@ err:
 
 static void hsmmc_cleanup(struct device *dev)
 {
-	int ret = 0;
-
-	ret = twl4030_free_gpio(MMC1_CD_IRQ);
-	if (ret)
-		dev_err(dev, "Failed to configure TWL4030 GPIO IRQ\n");
+	gpio_free(mmc1_cd_gpio);
 }
 
 #ifdef CONFIG_PM
@@ -123,7 +122,7 @@ static int hsmmc_suspend(struct device *dev, int slot)
 {
 	int ret = 0;
 
-	disable_irq(TWL4030_GPIO_IRQ_NO(MMC1_CD_IRQ));
+	disable_irq(TWL4030_GPIO_IRQ_NO(0));
 	ret = mask_cd_interrupt(1);
 
 	return ret;
@@ -133,7 +132,7 @@ static int hsmmc_resume(struct device *dev, int slot)
 {
 	int ret = 0;
 
-	enable_irq(TWL4030_GPIO_IRQ_NO(MMC1_CD_IRQ));
+	enable_irq(TWL4030_GPIO_IRQ_NO(0));
 	ret = mask_cd_interrupt(0);
 
 	return ret;
@@ -260,7 +259,7 @@ static struct omap_mmc_platform_data mmc1_data = {
 						MMC_VDD_165_195,
 		.name			= "first slot",
 
-		.card_detect_irq        = TWL4030_GPIO_IRQ_NO(MMC1_CD_IRQ),
+		.card_detect_irq        = TWL4030_GPIO_IRQ_NO(0),
 		.card_detect            = hsmmc_card_detect,
 	},
 };

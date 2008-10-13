@@ -97,31 +97,6 @@ static inline int gpio_twl4030_read(u8 address)
 	return (ret < 0) ? ret : data;
 }
 
-/*
- * twl4030 GPIO request function
- */
-int twl4030_request_gpio(int gpio)
-{
-	if (unlikely(gpio >= TWL4030_GPIO_MAX))
-		return -EPERM;
-
-	return gpio_request(twl_gpiochip.base + gpio, NULL);
-}
-EXPORT_SYMBOL(twl4030_request_gpio);
-
-/*
- * TWL4030 GPIO free module
- */
-int twl4030_free_gpio(int gpio)
-{
-	if (unlikely(gpio >= TWL4030_GPIO_MAX))
-		return -EPERM;
-
-	gpio_free(twl_gpiochip.base + gpio);
-	return 0;
-}
-EXPORT_SYMBOL(twl4030_free_gpio);
-
 static int twl4030_set_gpio_direction(int gpio, int is_input)
 {
 	u8 d_bnk = gpio >> 3;
@@ -158,7 +133,7 @@ static int twl4030_set_gpio_dataout(int gpio, int enable)
 	return gpio_twl4030_write(base, d_msk);
 }
 
-int twl4030_get_gpio_datain(int gpio)
+static int twl4030_get_gpio_datain(int gpio)
 {
 	u8 d_bnk = gpio >> 3;
 	u8 d_off = gpio & 0x7;
@@ -176,7 +151,6 @@ int twl4030_get_gpio_datain(int gpio)
 
 	return ret;
 }
-EXPORT_SYMBOL(twl4030_get_gpio_datain);
 
 /*
  * Configure debounce timing value for a GPIO pin on TWL4030
