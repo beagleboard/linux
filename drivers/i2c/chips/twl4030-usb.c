@@ -744,7 +744,7 @@ static int __exit twl4030_usb_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static struct platform_driver twl4030_driver = {
+static struct platform_driver twl4030_usb_driver = {
 	.probe		= twl4030_usb_probe,
 	.remove		= __exit_p(twl4030_remove),
 	.driver		= {
@@ -755,13 +755,13 @@ static struct platform_driver twl4030_driver = {
 
 static int __init twl4030_usb_init(void)
 {
-	return platform_driver_register(&twl4030_driver);
+	return platform_driver_register(&twl4030_usb_driver);
 }
 subsys_initcall(twl4030_usb_init);
 
 static void __exit twl4030_usb_exit(void)
 {
-	platform_driver_unregister(&twl4030_driver);
+	platform_driver_unregister(&twl4030_usb_driver);
 }
 module_exit(twl4030_usb_exit);
 
