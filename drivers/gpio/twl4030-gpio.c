@@ -46,8 +46,6 @@
  * intended to support multiple hosts.
  *
  * There are also two LED pins used sometimes as output-only GPIOs.
- *
- * FIXME code currently only handles the first IRQ line.
  */
 
 
@@ -235,41 +233,6 @@ int twl4030_set_gpio_debounce(int gpio, int enable)
 }
 EXPORT_SYMBOL(twl4030_set_gpio_debounce);
 
-#if 0
-/*
- * Configure Card detect for GPIO pin on TWL4030
- *
- * This means:  VMMC1 or VMMC2 is enabled or disabled based
- * on the status of GPIO-0 or GPIO-1 pins (respectively).
- */
-int twl4030_set_gpio_card_detect(int gpio, int enable)
-{
-	u8 reg = 0;
-	u8 msk = (1 << gpio);
-	int ret = 0;
-
-	/* Only GPIO 0 or 1 can be used for CD feature.. */
-	if (unlikely((gpio >= TWL4030_GPIO_MAX)
-		|| !(gpio_usage_count & BIT(gpio))
-		|| (gpio >= TWL4030_GPIO_MAX_CD))) {
-		return -EPERM;
-	}
-
-	mutex_lock(&gpio_lock);
-	ret = gpio_twl4030_read(REG_GPIO_CTRL);
-	if (ret >= 0) {
-		if (enable)
-			reg = (u8) (ret | msk);
-		else
-			reg = (u8) (ret & ~msk);
-
-		ret = gpio_twl4030_write(REG_GPIO_CTRL, reg);
-	}
-	mutex_unlock(&gpio_lock);
-	return ret;
-}
-#endif
-
 /*----------------------------------------------------------------------*/
 
 static int twl_request(struct gpio_chip *chip, unsigned offset)
@@ -317,9 +280,18 @@ static int twl_request(struct gpio_chip *chip, unsigned offset)
 	}
 
 	/* on first use, turn GPIO module "on" */
-	if (!gpio_usage_count)
-		status = gpio_twl4030_write(REG_GPIO_CTRL,
-				MASK_GPIO_CTRL_GPIO_ON);
+	if (!gpio_usage_count) {
+		struct twl4030_gpio_platform_data *pdata;
+		u8 value = MASK_GPIO_CTRL_GPIO_ON;
+
+		/* optionally have the first two GPIOs switch vMMC1
+		 * and vMMC2 power supplies based on card presence.
+		 */
+		pdata = chip->dev->platform_data;
+		value |= pdata->mmc_cd & 0x03;
+
+		status = gpio_twl4030_write(REG_GPIO_CTRL, value);
+	}
 
 	if (!status)
 		gpio_usage_count |= (0x1 << offset);

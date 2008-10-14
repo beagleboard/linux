@@ -231,6 +231,9 @@ struct twl4030_gpio_platform_data {
 	/* package the two LED signals as output-only GPIOs? */
 	bool		use_leds;
 
+	/* gpio-n should control VMMC(n+1) if BIT(n) in mmc_cd is set */
+	u8		mmc_cd;
+
 	/* For gpio-N, bit (1 << N) in "pullups" is set if that pullup
 	 * should be enabled.  Else, if that bit is set in "pulldowns",
 	 * that pulldown is enabled.  Don't waste power by letting any
