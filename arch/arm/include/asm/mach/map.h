@@ -25,6 +25,7 @@ struct map_desc {
 #define MT_HIGH_VECTORS		8
 #define MT_MEMORY		9
 #define MT_ROM			10
+#define MT_MEMORY_SO		11
 
 #define MT_NONSHARED_DEVICE	MT_DEVICE_NONSHARED
 #define MT_IXP2000_DEVICE	MT_DEVICE_IXP2000
