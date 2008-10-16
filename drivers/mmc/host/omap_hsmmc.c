@@ -64,6 +64,9 @@
 #define ICS			0x2
 #define CEN			(1<<2)
 #define CLKD_MASK		0x0000FFC0
+#define CLKD_SHIFT		6
+#define DTO_MASK		0x000F0000
+#define DTO_SHIFT		16
 #define INT_EN_MASK		0x307F0033
 #define INIT_STREAM		(1<<1)
 #define DP_SELECT		(1<<21)
@@ -661,6 +664,42 @@ mmc_omap_start_dma_transfer(struct mmc_omap_host *host, struct mmc_request *req)
 	return 0;
 }
 
+static void set_data_timeout(struct mmc_omap_host *host,
+			     struct mmc_request *req)
+{
+	unsigned int timeout, cycle_ns;
+	uint32_t reg, clkd, dto = 0;
+
+	reg = OMAP_HSMMC_READ(host->base, SYSCTL);
+	clkd = (reg & CLKD_MASK) >> CLKD_SHIFT;
+	if (clkd == 0)
+		clkd = 1;
+
+	cycle_ns = 1000000000 / (clk_get_rate(host->fclk) / clkd);
+	timeout = req->data->timeout_ns / cycle_ns;
+	timeout += req->data->timeout_clks;
+	if (timeout) {
+		while ((timeout & 0x80000000) == 0) {
+			dto += 1;
+			timeout <<= 1;
+		}
+		dto = 31 - dto;
+		timeout <<= 1;
+		if (timeout && dto)
+			dto += 1;
+		if (dto >= 13)
+			dto -= 13;
+		else
+			dto = 0;
+		if (dto > 14)
+			dto = 14;
+	}
+
+	reg &= ~DTO_MASK;
+	reg |= dto << DTO_SHIFT;
+	OMAP_HSMMC_WRITE(host->base, SYSCTL, reg);
+}
+
 /*
  * Configure block length for MMC/SD cards and initiate the transfer.
  */
@@ -678,6 +717,7 @@ mmc_omap_prepare_data(struct mmc_omap_host *host, struct mmc_request *req)
 
 	OMAP_HSMMC_WRITE(host->base, BLK, (req->data->blksz)
 					| (req->data->blocks << 16));
+	set_data_timeout(host, req);
 
 	host->datadir = (req->data->flags & MMC_DATA_WRITE) ?
 			OMAP_MMC_DATADIR_WRITE : OMAP_MMC_DATADIR_READ;
