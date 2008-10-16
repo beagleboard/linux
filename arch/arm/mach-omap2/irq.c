@@ -13,9 +13,10 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
+#include <linux/io.h>
 #include <mach/hardware.h>
 #include <asm/mach/irq.h>
-#include <linux/io.h>
+
 
 /* selected INTC register offsets */
 
@@ -51,12 +52,12 @@ static struct omap_irq_bank {
 
 static void intc_bank_write_reg(u32 val, struct omap_irq_bank *bank, u16 reg)
 {
-	__raw_writel(val, (__force void __iomem *)(bank->base_reg + reg));
+	__raw_writel(val, bank->base_reg + reg);
 }
 
 static u32 intc_bank_read_reg(struct omap_irq_bank *bank, u16 reg)
 {
-	return __raw_readl((__force void __iomem *)(bank->base_reg + reg));
+	return __raw_readl(bank->base_reg + reg);
 }
 
 /* XXX: FIQ and additional INTC support (only MPU at the moment) */
