@@ -417,6 +417,11 @@ static irqreturn_t mmc_omap_irq(int irq, void *dev_id)
 					mmc_dma_cleanup(host);
 				else
 					host->data->error = -EILSEQ;
+				OMAP_HSMMC_WRITE(host->base, SYSCTL,
+					OMAP_HSMMC_READ(host->base,
+							SYSCTL) | SRD);
+				while (OMAP_HSMMC_READ(host->base,
+							SYSCTL) & SRD) ;
 				end_trans = 1;
 			}
 		}
