@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.27-omap1
-# Fri Oct 17 14:00:54 2008
+# Fri Oct 17 17:56:45 2008
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -534,7 +534,7 @@ CONFIG_I2C_OMAP=y
 # CONFIG_TPS65010 is not set
 # CONFIG_SENSORS_TLV320AIC23 is not set
 CONFIG_TWL4030_MADC=y
-# CONFIG_TWL4030_USB is not set
+CONFIG_TWL4030_USB=y
 # CONFIG_TWL4030_PWRBUTTON is not set
 # CONFIG_TWL4030_POWEROFF is not set
 # CONFIG_SENSORS_MAX6875 is not set
