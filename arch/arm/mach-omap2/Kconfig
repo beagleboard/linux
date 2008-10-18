@@ -127,6 +127,10 @@ config MACH_OVERO
 	bool "Gumstix Overo board"
 	depends on ARCH_OMAP3 && ARCH_OMAP34XX
 
+config MACH_OMAP3_PANDORA
+	bool "OMAP3 Pandora"
+	depends on ARCH_OMAP3 && ARCH_OMAP34XX
+
 config OMAP_TICK_GPTIMER
 	int "GPTIMER used for system tick timer"
 	depends on ARCH_OMAP2 || ARCH_OMAP3
