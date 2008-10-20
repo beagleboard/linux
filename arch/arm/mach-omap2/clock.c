@@ -872,6 +872,11 @@ int omap2_clk_set_parent(struct clk *clk, struct clk *new_parent)
 	return 0;
 }
 
+struct clk *omap2_clk_get_parent(struct clk *clk)
+{
+	return clk->parent;
+}
+
 /* DPLL rate rounding code */
 
 /**
