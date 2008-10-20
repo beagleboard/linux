@@ -77,6 +77,12 @@
 #define twl_has_madc()	false
 #endif
 
+#ifdef CONFIG_TWL4030_POWER
+#define twl_has_power()        true
+#else
+#define twl_has_power()        false
+#endif
+
 #if defined(CONFIG_RTC_DRV_TWL4030) || defined(CONFIG_RTC_DRV_TWL4030_MODULE)
 #define twl_has_rtc()	true
 #else
@@ -208,6 +214,8 @@ static struct twl4030mapping twl4030_map[TWL4030_MODULE_LAST + 1] = {
 	{ 3, TWL4030_BASEADD_RTC },
 	{ 3, TWL4030_BASEADD_SECURED_REG },
 };
+
+extern void twl4030_power_init(struct twl4030_power_data *triton2_scripts);
 
 /*----------------------------------------------------------------------*/
 
@@ -513,6 +521,9 @@ static int add_children(struct twl4030_platform_data *pdata)
 			goto err;
 		}
 	}
+
+	if (twl_has_power() && pdata->power)
+		twl4030_power_init(pdata->power);
 
 	if (twl_has_rtc()) {
 		twl = &twl4030_modules[3];

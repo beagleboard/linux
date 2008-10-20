@@ -64,6 +64,15 @@ config TWL4030_CORE
 	  high speed USB OTG transceiver, an audio codec (on most
 	  versions) and many other features.
 
+config TWL4030_POWER
+	bool "Support power sequencing scripts on TWL4030/TPS659x0"
+	depends on TWL4030_CORE
+	help
+	  Say yes here if you want to use the power sequencing scripts on
+	  the TWL4030/TPS659x0. These scripts control which regulators or
+	  oscillators are switched off or on or reset when a sleep, wakeup
+	  or warm reset event occurs.
+
 config MFD_TMIO
 	bool
 	default n
