@@ -24,8 +24,6 @@
 #include <linux/input.h>
 #include <linux/gpio_keys.h>
 
-#include <linux/i2c/twl4030.h>
-
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
 #include <linux/mtd/nand.h>
@@ -45,6 +43,7 @@
 #include <mach/nand.h>
 #include <mach/mux.h>
 
+#include "twl4030-generic-scripts.h"
 
 #define GPMC_CS0_BASE  0x60
 #define GPMC_CS_SIZE   0x30
@@ -157,6 +156,7 @@ static struct twl4030_platform_data beagle_twldata = {
 	/* platform_data for children goes here */
 	.usb		= &beagle_usb_data,
 	.gpio		= &beagle_gpio_data,
+	.power		= &generic3430_t2scripts_data,
 };
 
 static struct i2c_board_info __initdata beagle_i2c_boardinfo[] = {

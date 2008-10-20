@@ -20,8 +20,6 @@
 #include <linux/clk.h>
 #include <linux/input.h>
 
-#include <linux/i2c/twl4030.h>
-
 #include <linux/spi/spi.h>
 #include <linux/spi/ads7846.h>
 #include <linux/i2c/twl4030.h>
@@ -41,6 +39,7 @@
 #include <mach/mcspi.h>
 
 #include "sdram-micron-mt46h32m32lf-6.h"
+#include "twl4030-generic-scripts.h"
 
 static struct resource omap3evm_smc911x_resources[] = {
 	[0] =	{
@@ -139,6 +138,7 @@ static struct twl4030_platform_data omap3evm_twldata = {
 	.keypad		= &omap3evm_kp_data,
 	.madc		= &omap3evm_madc_data,
 	.usb		= &omap3evm_usb_data,
+	.power		= &generic3430_t2scripts_data,
 	.gpio		= &omap3evm_gpio_data,
 };
 
