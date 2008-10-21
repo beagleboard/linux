@@ -87,26 +87,7 @@
 		ldr	\irqnr, [\base, #0xd8] /* IRQ pending reg 3 */
 		cmp	\irqnr, #0x0
 2222:
-#if defined(CONFIG_ARCH_OMAP34XX)
-		mov	\tmp, \irqnr
-#endif
- 		ldrne	\irqnr, [\base, #INTCPS_SIR_IRQ_OFFSET]
-#if defined(CONFIG_ARCH_OMAP34XX)
-		mov	\irqstat, \irqnr
-		bic	\irqstat, \irqstat, #0x7f /* check for spurious flag */
-		cmp	\irqstat, #0x0
-		beq	2223f
-		mov	\irqstat, #0x1 /* Ack the spurious irq, this lets it
-					* generate a bad irq error message,
-					* but prevents infinitely repeating
-					* irq.
-					*/
-		str	\irqstat, [\base, #0x48] /* INTC_CONTROL register */
-2223:
-		cmp	\tmp, #0x0 /* set conditional back to what it was
-				    * before spurious test
-				    */
-#endif
+		ldrne	\irqnr, [\base, #INTCPS_SIR_IRQ_OFFSET]
 
 		.endm
 
