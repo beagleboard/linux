@@ -24,6 +24,7 @@ obj-$(CONFIG_MTD_NAND_NANDSIM)		+= nandsim.o
 obj-$(CONFIG_MTD_NAND_CS553X)		+= cs553x_nand.o
 obj-$(CONFIG_MTD_NAND_NDFC)		+= ndfc.o
 obj-$(CONFIG_MTD_NAND_ATMEL)		+= atmel_nand.o
+obj-$(CONFIG_MTD_NAND_GPIO)		+= gpio.o
 obj-$(CONFIG_MTD_NAND_OMAP) 		+= omap-nand-flash.o
 obj-$(CONFIG_MTD_NAND_OMAP2) 		+= omap2.o
 obj-$(CONFIG_MTD_NAND_OMAP_HW)		+= omap-hw.o
@@ -37,5 +38,7 @@ obj-$(CONFIG_MTD_NAND_PASEMI)		+= pasemi_nand.o
 obj-$(CONFIG_MTD_NAND_ORION)		+= orion_nand.o
 obj-$(CONFIG_MTD_NAND_FSL_ELBC)		+= fsl_elbc_nand.o
 obj-$(CONFIG_MTD_NAND_FSL_UPM)		+= fsl_upm.o
+obj-$(CONFIG_MTD_NAND_SH_FLCTL)		+= sh_flctl.o
+obj-$(CONFIG_MTD_NAND_MXC)		+= mxc_nand.o
 
 nand-objs := nand_base.o nand_bbt.o

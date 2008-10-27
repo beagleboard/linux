@@ -43,4 +43,5 @@ extern void omap_dispc_free_irq(unsigned long irq_mask,
                                 void (*callback)(void *data), void *data);
 
 extern const struct lcd_ctrl omap2_int_ctrl;
+
 #endif

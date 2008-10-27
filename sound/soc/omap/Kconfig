@@ -14,19 +14,10 @@ config SND_OMAP_SOC_N810
 	help
 	  Say Y if you want to add support for SoC audio on Nokia N810.
 
-config SND_OMAP_SOC_OVERO
-	tristate "SoC Audio support for Gumstix Overo"
-	depends on SND_OMAP_SOC && MACH_OVERO
+config SND_OMAP_SOC_OSK5912
+	tristate "SoC Audio support for omap osk5912"
+	depends on SND_OMAP_SOC && MACH_OMAP_OSK
 	select SND_OMAP_SOC_MCBSP
-	select SND_SOC_TWL4030
+	select SND_SOC_TLV320AIC23
 	help
-	  Say Y if you want to add support for SoC audio on the Gumstix Overo.
-
-config SND_OMAP_SOC_OMAP3_BEAGLE
-	tristate "SoC Audio support for OMAP3 Beagle"
-	depends on SND_OMAP_SOC && MACH_OMAP3_BEAGLE
-	select SND_OMAP_SOC_MCBSP
-	select SND_SOC_TWL4030
-	help
-	  Say Y if you want to add support for SoC audio on the Beagleboard.
-
+	  Say Y if you want to add support for SoC audio on osk5912.

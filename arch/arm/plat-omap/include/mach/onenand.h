@@ -1,5 +1,5 @@
 /*
- * include/asm-arm/arch-omap/onenand.h
+ * arch/arm/plat-omap/include/mach/onenand.h
  *
  * Copyright (C) 2006 Nokia Corporation
  * Author: Juha Yrjola
@@ -23,4 +23,3 @@ struct omap_onenand_platform_data {
 int omap2_onenand_rephase(void);
 
 #define ONENAND_MAX_PARTITIONS 8
-

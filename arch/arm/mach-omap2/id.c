@@ -16,6 +16,8 @@
 #include <linux/init.h>
 #include <linux/io.h>
 
+#include <asm/cputype.h>
+
 #include <mach/common.h>
 #include <mach/control.h>
 #include <mach/cpu.h>

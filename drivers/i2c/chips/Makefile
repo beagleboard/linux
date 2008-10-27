@@ -1,7 +1,8 @@
 #
 # Makefile for miscellaneous I2C chip drivers.
 #
-# Think twice before you add a new driver to this directory.
+# Do not add new drivers to this directory! It is DEPRECATED.
+#
 # Device drivers are better grouped according to the functionality they
 # implement rather than to the bus they are connected to. In particular:
 # * Hardware monitoring chip drivers go to drivers/hwmon
@@ -23,7 +24,7 @@ obj-$(CONFIG_SENSORS_TLV320AIC23) += tlv320aic23.o
 obj-$(CONFIG_GPIOEXPANDER_OMAP)	+= gpio_expander_omap.o
 obj-$(CONFIG_MENELAUS)		+= menelaus.o
 obj-$(CONFIG_SENSORS_TSL2550)	+= tsl2550.o
-obj-$(CONFIG_SENSORS_TSL2563)	+= tsl2563.o
+obj-$(CONFIG_MCU_MPC8349EMITX)	+= mcu_mpc8349emitx.o
 obj-$(CONFIG_TWL4030_USB)	+= twl4030-usb.o
 obj-$(CONFIG_TWL4030_POWEROFF)	+= twl4030-poweroff.o
 obj-$(CONFIG_TWL4030_PWRBUTTON)	+= twl4030-pwrbutton.o

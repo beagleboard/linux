@@ -67,7 +67,7 @@ struct module;
  * is calculated by subtracting @base from the gpio number.
  */
 struct gpio_chip {
-	char			*label;
+	const char		*label;
 	struct device		*dev;
 	struct module		*owner;
 
