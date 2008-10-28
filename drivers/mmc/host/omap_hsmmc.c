@@ -1197,15 +1197,16 @@ static int omap_mmc_suspend(struct platform_device *pdev, pm_message_t state)
 			}
 
 			if (!(OMAP_HSMMC_READ(host->base, HCTL) & SDVSDET)) {
-				OMAP_HSMMC_WRITE(host->base, HCTL,
-					OMAP_HSMMC_READ(host->base, HCTL)
-					& SDVSCLR);
-				OMAP_HSMMC_WRITE(host->base, HCTL,
-					OMAP_HSMMC_READ(host->base, HCTL)
-					| SDVS30);
-				OMAP_HSMMC_WRITE(host->base, HCTL,
-					OMAP_HSMMC_READ(host->base, HCTL)
-					| SDBP);
+				u32 hctl = OMAP_HSMMC_READ(host->base, HCTL) &
+					SDVSCLR;
+
+				if (host->id == OMAP_MMC1_DEVID)
+					hctl |= SDVS30;
+				else
+					hctl |= SDVS18;
+
+				OMAP_HSMMC_WRITE(host->base, HCTL, hctl);
+				OMAP_HSMMC_WRITE(host->base, HCTL, hctl | SDBP);
 			}
 
 			mmc_omap_fclk_state(host, OFF);
