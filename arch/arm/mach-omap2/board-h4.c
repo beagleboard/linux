@@ -48,7 +48,6 @@
 
 #include <asm/io.h>
 
-#include <../drivers/media/video/ov9640.h>
 
 #define H4_FLASH_CS	0
 #define H4_SMC91X_CS	1
