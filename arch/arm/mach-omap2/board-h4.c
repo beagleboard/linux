@@ -23,8 +23,13 @@
 #include <linux/clk.h>
 #include <linux/io.h>
 #include <linux/i2c.h>
+#include <linux/gpio.h>
+#include <linux/leds.h>
+
 #include <linux/i2c/at24.h>
 #include <linux/i2c/menelaus.h>
+#include <linux/i2c/pcf857x.h>
+
 #include <linux/spi/spi.h>
 #include <linux/spi/tsc210x.h>
 
@@ -37,8 +42,6 @@
 #include <asm/mach/flash.h>
 
 #include <mach/control.h>
-#include <mach/gpio.h>
-#include <mach/gpioexpander.h>
 #include <mach/mux.h>
 #include <mach/usb.h>
 #include <mach/irda.h>
@@ -140,32 +143,16 @@ static struct platform_device h4_flash_device = {
 	.resource	= &h4_flash_resource,
 };
 
-/* Select between the IrDA and aGPS module
- */
 #if defined(CONFIG_OMAP_IR) || defined(CONFIG_OMAP_IR_MODULE)
+
+/* Select between the IrDA and aGPS module */
 static int h4_select_irda(struct device *dev, int state)
 {
-	unsigned char expa;
-	int err = 0;
+	/* U192.P0 = high for IRDA; else AGPS */
+	gpio_set_value_cansleep(H4_GPIO_IRDA_AGPSn, state & IR_SEL);
 
-	if ((err = read_gpio_expa(&expa, 0x21))) {
-		printk(KERN_ERR "Error reading from I/O expander\n");
-		return err;
-	}
-
-	/* 'P6' enable/disable IRDA_TX and IRDA_RX */
-	if (state & IR_SEL) {	/* IrDa */
-		if ((err = write_gpio_expa(expa | 0x01, 0x21))) {
-			printk(KERN_ERR "Error writing to I/O expander\n");
-			return err;
-		}
-	} else {
-		if ((err = write_gpio_expa(expa & ~0x01, 0x21))) {
-			printk(KERN_ERR "Error writing to I/O expander\n");
-			return err;
-		}
-	}
-	return err;
+	/* NOTE:  UART3 can also hook up to a DB9 or to GSM ... */
+	return 0;
 }
 
 static void set_trans_mode(struct work_struct *work)
@@ -173,22 +160,9 @@ static void set_trans_mode(struct work_struct *work)
 	struct omap_irda_config *irda_config =
 		container_of(work, struct omap_irda_config, gpio_expa.work);
 	int mode = irda_config->mode;
-	unsigned char expa;
-	int err = 0;
 
-	if ((err = read_gpio_expa(&expa, 0x20)) != 0) {
-		printk(KERN_ERR "Error reading from I/O expander\n");
-	}
-
-	expa &= ~0x01;
-
-	if (!(mode & IR_SIRMODE)) { /* MIR/FIR */
-		expa |= 0x01;
-	}
-
-	if ((err = write_gpio_expa(expa, 0x20)) != 0) {
-		printk(KERN_ERR "Error writing to I/O expander\n");
-	}
+	/* U191.P0 = low for SIR; else MIR/FIR */
+	gpio_set_value_cansleep(H4_GPIO_IRDA_FIRSEL, !(mode & IR_SIRMODE));
 }
 
 static int h4_transceiver_mode(struct device *dev, int mode)
@@ -566,37 +540,13 @@ const static struct ov9640_reg ov9640_common[] = {
 
 static int ov9640_sensor_power_set(int power)
 {
-	unsigned char expa;
-	int err;
+	/* power up the sensor? */
+	gpio_set_value_cansleep(H4_GPIO_CAM_MODULE_EN, power);
 
-	/* read current state of GPIO EXPA outputs */
-	if ((err = read_gpio_expa(&expa, 0x20))) {
-		printk(KERN_ERR "Error reading GPIO EXPA 0x20\n");
-		return err;
-	}
+	/* take it out of reset if it's not powered */
+	gpio_direction_output(H4_GPIO_CAM_RST, !power);
 
-	expa = power ? expa | 0x80 : expa & ~0x08;
-
-	/* Set GPIO EXPA P3 (CAMERA_MODULE_EN) to power-up sensor */
-	if ((err = write_gpio_expa(expa, 0x20))) {
-		printk(KERN_ERR "Error writing to GPIO EXPA 0x20\n");
-		return err;
-	}
-
-	if (power) {
-		/* read current state of GPIO EXPA outputs */
-		if ((err = read_gpio_expa(&expa, 0x22))) {
-			printk(KERN_ERR "Error reading GPIO EXPA\n");
-			return err;
-		}
-		/* Clear GPIO EXPA P7 (CAM_RST) */
-		if ((err = write_gpio_expa(expa & ~0x80, 0x22))) {
-			printk(KERN_ERR "Error writing to GPIO EXPA\n");
-			return err;
-		}
-	}
-
-	return err;
+	return 0;
 }
 
 static struct v4l2_ifparm ifparm = {
@@ -624,7 +574,98 @@ static struct ov9640_platform_data h4_ov9640_platform_data = {
 	.default_regs	= ov9640_common,
 	.ifparm		= ov9640_ifparm,
 };
+
 #endif
+
+/* leave LCD powered off unless it will be used */
+#if defined(CONFIG_FB_OMAP) || defined(CONFIG_FB_OMAP_MODULE)
+#define LCD_ENABLED		true
+#else
+#define LCD_ENABLED		false
+#endif
+
+static struct gpio_led backlight_leds[] = {
+	{
+		.name			= "lcd_h4",
+		.default_trigger	= "backlight",
+		.gpio			= H4_GPIO_LCD_ENBKL,
+	},
+	{ },
+};
+
+static struct gpio_led_platform_data backlight_led_data = {
+	.num_leds		= 1,
+	.leds			= backlight_leds,
+};
+
+static struct platform_device h4_backlight_device = {
+	.name			= "leds-gpio",
+	.id			= 0,
+	.dev.platform_data	= &backlight_led_data,
+};
+
+static int
+u191_setup(struct i2c_client *client, int gpio, unsigned ngpio, void *context)
+{
+	/* P0 = IRDA control, FIR/MIR vs SIR */
+	gpio_request(H4_GPIO_IRDA_FIRSEL, "irda_firsel");
+	gpio_direction_output(H4_GPIO_IRDA_FIRSEL, false);
+
+	/* P3 = camera sensor module PWDN */
+	gpio_request(H4_GPIO_CAM_MODULE_EN, "camera_en");
+	gpio_direction_output(H4_GPIO_CAM_MODULE_EN, false);
+
+	/* P7 = LCD_ENVDD ... controls power to LCD (including backlight)
+	 * P5 = LCD_ENBKL ... switches backlight
+	 */
+	gpio_request(H4_GPIO_LCD_ENVDD, "lcd_power");
+	gpio_direction_output(H4_GPIO_LCD_ENVDD, LCD_ENABLED);
+	if (LCD_ENABLED) {
+		h4_backlight_device.dev.parent = &client->dev;
+		platform_device_register(&h4_backlight_device);
+	}
+
+	/* P6 = AUDIO_ENVDD ... switch power to microphone */
+	gpio_request(H4_GPIO_AUDIO_ENVDD, "audio_power");
+	gpio_direction_output(H4_GPIO_AUDIO_ENVDD, true);
+
+	return 0;
+}
+
+
+static struct pcf857x_platform_data u191_platform_data = {
+	.gpio_base	= H4_U191_GPIO_BASE,
+	.setup		= u191_setup,
+};
+
+static int
+u192_setup(struct i2c_client *client, int gpio, unsigned ngpio, void *context)
+{
+	gpio_request(H4_GPIO_IRDA_AGPSn, "irda/agps");
+	gpio_direction_output(H4_GPIO_IRDA_AGPSn, false);
+
+	return 0;
+}
+
+static struct pcf857x_platform_data u192_platform_data = {
+	.gpio_base	= H4_U192_GPIO_BASE,
+	.setup		= u192_setup,
+};
+
+static int
+u193_setup(struct i2c_client *client, int gpio, unsigned ngpio, void *context)
+{
+	/* reset sensor */
+	gpio_request(H4_GPIO_CAM_RST, "camera_rst");
+	gpio_direction_output(H4_GPIO_CAM_RST, true);
+
+	return 0;
+}
+
+static struct pcf857x_platform_data u193_platform_data = {
+	.gpio_base	= H4_U193_GPIO_BASE,
+	.setup		= u193_setup,
+};
 
 static struct at24_platform_data m24c01 = {
 	.byte_len	= SZ_1K / 8,
@@ -632,6 +673,18 @@ static struct at24_platform_data m24c01 = {
 };
 
 static struct i2c_board_info __initdata h4_i2c_board_info[] = {
+	{	/* U191 gpios */
+		I2C_BOARD_INFO("pcf8574", 0x20),
+		.platform_data	= &u191_platform_data,
+	},
+	{	/* U192 gpios */
+		I2C_BOARD_INFO("pcf8574", 0x21),
+		.platform_data	= &u192_platform_data,
+	},
+	{	/* U193 gpios */
+		I2C_BOARD_INFO("pcf8574", 0x22),
+		.platform_data	= &u193_platform_data,
+	},
 	{
 		I2C_BOARD_INFO("rv5c387a", 0x32),
 		/* no IRQ wired to OMAP; nINTB goes to AGPS */
