@@ -22,6 +22,7 @@
 #include <linux/err.h>
 #include <linux/clk.h>
 #include <linux/i2c.h>
+#include <linux/i2c/at24.h>
 #include <linux/i2c/menelaus.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/tsc210x.h>
@@ -627,6 +628,11 @@ static struct ov9640_platform_data h4_ov9640_platform_data = {
 };
 #endif
 
+static struct at24_platform_data m24c01 = {
+	.byte_len	= SZ_1K / 8,
+	.page_size	= 16,
+};
+
 static struct i2c_board_info __initdata h4_i2c_board_info[] = {
 	{
 		I2C_BOARD_INFO("rv5c387a", 0x32),
@@ -646,6 +652,14 @@ static struct i2c_board_info __initdata h4_i2c_board_info[] = {
 		.platform_data = &h4_ov9640_platform_data,
 	},
 #endif
+	{	/* EEPROM on mainboard */
+		I2C_BOARD_INFO("24c01", 0x52),
+		.platform_data	= &m24c01,
+	},
+	{	/* EEPROM on cpu card */
+		I2C_BOARD_INFO("24c01", 0x57),
+		.platform_data	= &m24c01,
+	},
 };
 
 static void __init omap_h4_init(void)
