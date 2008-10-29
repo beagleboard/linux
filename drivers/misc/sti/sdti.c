@@ -31,11 +31,14 @@
 #define CPU1_TRACE_EN		0x01
 #define CPU2_TRACE_EN		0x02
 
+#define SDTI_SYSCONFIG_SOFTRESET	(1 << 1)
+#define SDTI_SYSCONFIG_AUTOIDLE		(1 << 0)
+
 static struct clk *sdti_ck;
 void __iomem *sti_base, *sti_channel_base;
 static DEFINE_SPINLOCK(sdti_lock);
 
-void omap_sti_channel_write_trace(int len, int id, void *data,
+void sti_channel_write_trace(int len, int id, void *data,
 				unsigned int channel)
 {
 	const u8 *tpntr = data;
@@ -49,13 +52,13 @@ void omap_sti_channel_write_trace(int len, int id, void *data,
 
 	spin_unlock_irq(&sdti_lock);
 }
-EXPORT_SYMBOL(omap_sti_channel_write_trace);
+EXPORT_SYMBOL(sti_channel_write_trace);
 
 static void omap_sdti_reset(void)
 {
 	int i;
 
-	sti_writel(0x02, SDTI_SYSCONFIG);
+	sti_writel(SDTI_SYSCONFIG_SOFTRESET, SDTI_SYSCONFIG);
 
 	for (i = 0; i < 10000; i++)
 		if (sti_readl(SDTI_SYSSTATUS) & 1)
@@ -79,6 +82,9 @@ static int __init omap_sdti_init(void)
 	omap_sdti_reset();
 	sti_writel(0xC5ACCE55, SDTI_LOCK_ACCESS);
 
+	/* Autoidle */
+	sti_writel(SDTI_SYSCONFIG_AUTOIDLE, SDTI_SYSCONFIG);
+
 	/* Claim SDTI */
 	sti_writel(1 << 30, SDTI_WINCTRL);
 	i = sti_readl(SDTI_WINCTRL);
@@ -99,7 +105,7 @@ static int __init omap_sdti_init(void)
 	snprintf(buf, sizeof(buf), "OMAP SDTI support loaded (HW v%u.%u)\n",
 		(i >> 4) & 0x0f, i & 0x0f);
 	printk(KERN_INFO "%s", buf);
-	omap_sti_channel_write_trace(strlen(buf), 0xc3, buf, 239);
+	sti_channel_write_trace(strlen(buf), 0xc3, buf, 239);
 
 	return 0;
 }
