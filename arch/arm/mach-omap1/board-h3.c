@@ -479,7 +479,7 @@ static struct omap_board_config_kernel h3_config[] __initdata = {
 
 static int nand_dev_ready(struct omap_nand_platform_data *data)
 {
-	return omap_get_gpio_datain(H3_NAND_RB_GPIO_PIN);
+	return gpio_get_value(H3_NAND_RB_GPIO_PIN);
 }
 
 #if defined(CONFIG_VIDEO_OV9640) || defined(CONFIG_VIDEO_OV9640_MODULE)

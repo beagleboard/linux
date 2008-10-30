@@ -104,7 +104,7 @@ static void mipid_shutdown(struct mipid_platform_data *pdata)
 {
 	if (pdata->nreset_gpio != -1) {
 		printk(KERN_INFO "shutdown LCD\n");
-		omap_set_gpio_dataout(pdata->nreset_gpio, 0);
+		gpio_set_value(pdata->nreset_gpio, 0);
 		msleep(120);
 	}
 }
@@ -132,7 +132,7 @@ static void ads7846_dev_init(void)
 
 static int ads7846_get_pendown_state(void)
 {
-	return !omap_get_gpio_datain(ADS7846_PENDOWN_GPIO);
+	return !gpio_get_value(ADS7846_PENDOWN_GPIO);
 }
 
 static struct ads7846_platform_data nokia770_ads7846_platform_data __initdata = {
@@ -313,9 +313,9 @@ static void nokia770_audio_pwr_up(void)
 	/* Turn on codec */
 	aic23_power_up();
 
-	if (omap_get_gpio_datain(HEADPHONE_GPIO))
+	if (gpio_get_value(HEADPHONE_GPIO))
 		/* HP not connected, turn on amplifier */
-		omap_set_gpio_dataout(AMPLIFIER_CTRL_GPIO, 1);
+		gpio_set_value(AMPLIFIER_CTRL_GPIO, 1);
 	else
 		/* HP connected, do not turn on amplifier */
 		printk("HP connected\n");
@@ -335,7 +335,7 @@ static DECLARE_DELAYED_WORK(codec_power_down_work, codec_delayed_power_down);
 static void nokia770_audio_pwr_down(void)
 {
 	/* Turn off amplifier */
-	omap_set_gpio_dataout(AMPLIFIER_CTRL_GPIO, 0);
+	gpio_set_value(AMPLIFIER_CTRL_GPIO, 0);
 
 	/* Turn off codec: schedule delayed work */
 	schedule_delayed_work(&codec_power_down_work, HZ / 20);	/* 50ms */

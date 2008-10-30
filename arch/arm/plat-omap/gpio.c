@@ -406,20 +406,7 @@ static void _set_gpio_dataout(struct gpio_bank *bank, int gpio, int enable)
 	__raw_writel(l, reg);
 }
 
-void omap_set_gpio_dataout(int gpio, int enable)
-{
-	struct gpio_bank *bank;
-	unsigned long flags;
-
-	if (check_gpio(gpio) < 0)
-		return;
-	bank = get_gpio_bank(gpio);
-	spin_lock_irqsave(&bank->lock, flags);
-	_set_gpio_dataout(bank, get_gpio_index(gpio), enable);
-	spin_unlock_irqrestore(&bank->lock, flags);
-}
-
-int omap_get_gpio_datain(int gpio)
+static int __omap_get_gpio_datain(int gpio)
 {
 	struct gpio_bank *bank;
 	void __iomem *reg;
@@ -1257,7 +1244,7 @@ static int gpio_input(struct gpio_chip *chip, unsigned offset)
 
 static int gpio_get(struct gpio_chip *chip, unsigned offset)
 {
-	return omap_get_gpio_datain(chip->base + offset);
+	return __omap_get_gpio_datain(chip->base + offset);
 }
 
 static int gpio_output(struct gpio_chip *chip, unsigned offset, int value)
@@ -1754,8 +1741,6 @@ static int __init omap_gpio_sysinit(void)
 EXPORT_SYMBOL(omap_request_gpio);
 EXPORT_SYMBOL(omap_free_gpio);
 EXPORT_SYMBOL(omap_set_gpio_direction);
-EXPORT_SYMBOL(omap_set_gpio_dataout);
-EXPORT_SYMBOL(omap_get_gpio_datain);
 
 arch_initcall(omap_gpio_sysinit);
 
@@ -1813,7 +1798,7 @@ static int dbg_gpio_show(struct seq_file *s, void *unused)
 				continue;
 
 			irq = bank->virtual_irq_start + j;
-			value = omap_get_gpio_datain(gpio);
+			value = gpio_get_value(gpio);
 			is_in = gpio_is_input(bank, mask);
 
 			if (bank_is_mpuio(bank))
