@@ -314,7 +314,7 @@ static inline void __init apollon_init_smc91x(void)
 		gpmc_cs_free(eth_cs);
 		goto out;
 	}
-	omap_set_gpio_direction(APOLLON_ETHR_GPIO_IRQ, 1);
+	gpio_direction_input(APOLLON_ETHR_GPIO_IRQ);
 
 out:
 	clk_disable(gpmc_fck);

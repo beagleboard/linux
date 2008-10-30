@@ -171,7 +171,7 @@ static void ads7846_dev_init(void)
 		return;
 	}
 
-	omap_set_gpio_direction(ts_gpio, 1);
+	gpio_direction_input(ts_gpio);
 
 	omap_set_gpio_debounce(ts_gpio, 1);
 	omap_set_gpio_debounce_time(ts_gpio, 0xa);
@@ -279,7 +279,7 @@ static inline void __init sdp3430_init_smc91x(void)
 			eth_gpio);
 		return;
 	}
-	omap_set_gpio_direction(eth_gpio, 1);
+	gpio_direction_input(eth_gpio);
 }
 
 static void __init omap_3430sdp_init_irq(void)

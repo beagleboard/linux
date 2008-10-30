@@ -97,7 +97,7 @@ static int __init hx_ts_probe(struct omap_ts_t *ts)
 		return -EINVAL;
 	};
 
-	omap_set_gpio_direction(gpio, 1);
+	gpio_direction_input(gpio);
 	ts->irq_type = IRQF_TRIGGER_FALLING;
 	return 0;
 }

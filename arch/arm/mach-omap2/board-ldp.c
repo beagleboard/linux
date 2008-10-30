@@ -102,7 +102,7 @@ static void ads7846_dev_init(void)
 		return;
 	}
 
-	omap_set_gpio_direction(ts_gpio, 1);
+	gpio_direction_input(ts_gpio);
 
 	omap_set_gpio_debounce(ts_gpio, 1);
 	omap_set_gpio_debounce_time(ts_gpio, 0xa);

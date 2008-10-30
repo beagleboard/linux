@@ -540,7 +540,7 @@ static int __devinit tsc2005_ts_init(struct tsc2005 *ts,
 		dev_err(&ts->spi->dev, "unable to get DAV GPIO");
 		goto err1;
 	}
-	omap_set_gpio_direction(dav_gpio, 1);
+	gpio_direction_input(dav_gpio);
 	ts->irq = OMAP_GPIO_IRQ(dav_gpio);
 	dev_dbg(&ts->spi->dev, "TSC2005: DAV IRQ = %d\n", ts->irq);
 #endif

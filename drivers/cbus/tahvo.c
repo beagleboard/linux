@@ -328,7 +328,7 @@ static int __devinit tahvo_probe(struct device *dev)
 	}
 
 	/* Set the pin as input */
-	omap_set_gpio_direction(tahvo_irq_pin, 1);
+	gpio_direction_input(tahvo_irq_pin);
 
 	/* Rising edge triggers the IRQ */
 	set_irq_type(OMAP_GPIO_IRQ(tahvo_irq_pin), IRQ_TYPE_EDGE_RISING);

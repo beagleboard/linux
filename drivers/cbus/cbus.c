@@ -112,7 +112,7 @@ static void _cbus_send_bit(struct cbus_host *host, int bit, int set_to_input)
 
 	/* The data bit is read on the rising edge of CLK */
 	if (set_to_input)
-		omap_set_gpio_direction(host->dat_gpio, 1);
+		gpio_direction_input(host->dat_gpio);
 
 	gpio_set_value(host->clk_gpio, 0);
 }
@@ -264,7 +264,7 @@ int __init cbus_bus_init(void)
 	gpio_set_value(chost->sel_gpio, 1);
 
 	omap_set_gpio_direction(chost->clk_gpio, 0);
-	omap_set_gpio_direction(chost->dat_gpio, 1);
+	gpio_direction_input(chost->dat_gpio);
 	omap_set_gpio_direction(chost->sel_gpio, 0);
 
 	gpio_set_value(chost->clk_gpio, 1);

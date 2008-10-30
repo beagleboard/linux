@@ -286,7 +286,10 @@ static int __init new_switch(struct gpio_switch *sw)
 
 	/* input: 1, output: 0 */
 	direction = !(sw->flags & OMAP_GPIO_SWITCH_FLAG_OUTPUT);
-	omap_set_gpio_direction(sw->gpio, direction);
+	if (direction)
+		gpio_direction_input(sw->gpio);
+	else
+		gpio_direction_output(sw->gpio, true);
 
 	sw->state = gpio_sw_get_state(sw);
 

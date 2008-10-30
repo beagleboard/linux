@@ -219,7 +219,7 @@ static void ads7846_dev_init(void)
 	if (omap_request_gpio(TS_GPIO) < 0)
 		printk(KERN_ERR "can't get ads746 pen down GPIO\n");
 
-	omap_set_gpio_direction(TS_GPIO, 1);
+	gpio_direction_input(TS_GPIO);
 
 	omap_set_gpio_debounce(TS_GPIO, 1);
 	omap_set_gpio_debounce_time(TS_GPIO, 0xa);
