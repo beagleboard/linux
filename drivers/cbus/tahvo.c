@@ -331,12 +331,12 @@ static int __devinit tahvo_probe(struct device *dev)
 	gpio_direction_input(tahvo_irq_pin);
 
 	/* Rising edge triggers the IRQ */
-	set_irq_type(OMAP_GPIO_IRQ(tahvo_irq_pin), IRQ_TYPE_EDGE_RISING);
+	set_irq_type(gpio_to_irq(tahvo_irq_pin), IRQ_TYPE_EDGE_RISING);
 
 	/* Mask all TAHVO interrupts */
 	tahvo_write_reg(TAHVO_REG_IMR, 0xffff);
 
-	ret = request_irq(OMAP_GPIO_IRQ(tahvo_irq_pin), tahvo_irq_handler, 0,
+	ret = request_irq(gpio_to_irq(tahvo_irq_pin), tahvo_irq_handler, 0,
 			  "tahvo", 0);
 	if (ret < 0) {
 		printk(KERN_ERR PFX "Unable to register IRQ handler\n");
@@ -347,7 +347,7 @@ static int __devinit tahvo_probe(struct device *dev)
 	/* Initialize user-space interface */
 	if (tahvo_user_init() < 0) {
 		printk(KERN_ERR "Unable to initialize driver\n");
-		free_irq(OMAP_GPIO_IRQ(tahvo_irq_pin), 0);
+		free_irq(gpio_to_irq(tahvo_irq_pin), 0);
 		omap_free_gpio(tahvo_irq_pin);
 		return ret;
 	}
@@ -362,7 +362,7 @@ static int tahvo_remove(struct device *dev)
 #endif
 	/* Mask all TAHVO interrupts */
 	tahvo_write_reg(TAHVO_REG_IMR, 0xffff);
-	free_irq(OMAP_GPIO_IRQ(tahvo_irq_pin), 0);
+	free_irq(gpio_to_irq(tahvo_irq_pin), 0);
 	omap_free_gpio(tahvo_irq_pin);
 	tasklet_kill(&tahvo_tasklet);
 

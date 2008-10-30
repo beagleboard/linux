@@ -272,7 +272,7 @@ static inline void __init sdp3430_init_smc91x(void)
 	else
 		eth_gpio = OMAP34XX_ETHR_GPIO_IRQ_SDPV1;
 
-	sdp3430_smc91x_resources[1].start = OMAP_GPIO_IRQ(eth_gpio);
+	sdp3430_smc91x_resources[1].start = gpio_to_irq(eth_gpio);
 
 	if (omap_request_gpio(eth_gpio) < 0) {
 		printk(KERN_ERR "Failed to request GPIO%d for smc91x IRQ\n",
@@ -473,7 +473,7 @@ static void __init omap_3430sdp_init(void)
 		ts_gpio = OMAP34XX_TS_GPIO_IRQ_SDPV2;
 	else
 		ts_gpio = OMAP34XX_TS_GPIO_IRQ_SDPV1;
-	sdp3430_spi_board_info[0].irq = OMAP_GPIO_IRQ(ts_gpio);
+	sdp3430_spi_board_info[0].irq = gpio_to_irq(ts_gpio);
 	spi_register_board_info(sdp3430_spi_board_info,
 				ARRAY_SIZE(sdp3430_spi_board_info));
 	ads7846_dev_init();

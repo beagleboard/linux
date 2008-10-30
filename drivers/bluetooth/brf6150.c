@@ -742,7 +742,7 @@ static int brf6150_hci_open(struct hci_dev *hdev)
 	info->garbage_bytes = 0;
 	info->rx_skb = NULL;
 	info->pm_enabled = 0;
-	set_irq_type(OMAP_GPIO_IRQ(info->btinfo->host_wakeup_gpio), IRQ_TYPE_NONE);
+	set_irq_type(gpio_to_irq(info->btinfo->host_wakeup_gpio), IRQ_TYPE_NONE);
 	init_completion(&info->fw_completion);
 
 	clk_enable(info->uart_ck);
@@ -771,7 +771,7 @@ static int brf6150_hci_open(struct hci_dev *hdev)
 	if (err < 0)
 		printk(KERN_ERR "brf6150: Sending firmware failed. Bluetooth won't work properly\n");
 
-	set_irq_type(OMAP_GPIO_IRQ(info->btinfo->host_wakeup_gpio), IRQ_TYPE_EDGE_BOTH);
+	set_irq_type(gpio_to_irq(info->btinfo->host_wakeup_gpio), IRQ_TYPE_EDGE_BOTH);
 	info->pm_enabled = 1;
 	set_bit(HCI_RUNNING, &hdev->flags);
 	return 0;
@@ -787,7 +787,7 @@ static int brf6150_hci_close(struct hci_dev *hdev)
 	clk_disable(info->uart_ck);
 	del_timer_sync(&info->pm_timer);
 	gpio_set_value(info->btinfo->bt_wakeup_gpio, 0);
-	set_irq_type(OMAP_GPIO_IRQ(info->btinfo->host_wakeup_gpio), IRQ_TYPE_NONE);
+	set_irq_type(gpio_to_irq(info->btinfo->host_wakeup_gpio), IRQ_TYPE_NONE);
 
 	return 0;
 }
@@ -946,7 +946,7 @@ static int __init brf6150_init(void)
 	gpio_direction_output(info->btinfo->reset_gpio, 0);
 	gpio_direction_output(info->btinfo->bt_wakeup_gpio, 0);
 	gpio_direction_input(info->btinfo->host_wakeup_gpio);
-	set_irq_type(OMAP_GPIO_IRQ(info->btinfo->host_wakeup_gpio), IRQ_TYPE_NONE);
+	set_irq_type(gpio_to_irq(info->btinfo->host_wakeup_gpio), IRQ_TYPE_NONE);
 
 	switch (info->btinfo->bt_uart) {
 	case 1:
@@ -985,11 +985,11 @@ static int __init brf6150_init(void)
 		goto cleanup;
 	}
 
-	err = request_irq(OMAP_GPIO_IRQ(info->btinfo->host_wakeup_gpio),
+	err = request_irq(gpio_to_irq(info->btinfo->host_wakeup_gpio),
 			brf6150_wakeup_interrupt, 0, "brf6150_wkup", (void *)info);
 	if (err < 0) {
 		printk(KERN_ERR "brf6150: unable to get wakeup IRQ %d\n",
-				OMAP_GPIO_IRQ(info->btinfo->host_wakeup_gpio));
+				gpio_to_irq(info->btinfo->host_wakeup_gpio));
 		free_irq(irq, (void *)info);
 		goto cleanup;
 	}
@@ -1020,7 +1020,7 @@ static int __init brf6150_init(void)
 
 cleanup_irq:
 	free_irq(irq, (void *)info);
-	free_irq(OMAP_GPIO_IRQ(info->btinfo->host_wakeup_gpio), (void *)info);
+	free_irq(gpio_to_irq(info->btinfo->host_wakeup_gpio), (void *)info);
 cleanup:
 	omap_free_gpio(info->btinfo->reset_gpio);
 	omap_free_gpio(info->btinfo->bt_wakeup_gpio);
@@ -1038,7 +1038,7 @@ static void __exit brf6150_exit(void)
 	omap_free_gpio(exit_info->btinfo->bt_wakeup_gpio);
 	omap_free_gpio(exit_info->btinfo->host_wakeup_gpio);
 	free_irq(exit_info->irq, (void *)exit_info);
-	free_irq(OMAP_GPIO_IRQ(exit_info->btinfo->host_wakeup_gpio), (void *)exit_info);
+	free_irq(gpio_to_irq(exit_info->btinfo->host_wakeup_gpio), (void *)exit_info);
 	kfree(exit_info);
 }
 

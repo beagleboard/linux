@@ -358,7 +358,7 @@ static void __init omap_ldp_init(void)
 	omap_board_config = ldp_config;
 	omap_board_config_size = ARRAY_SIZE(ldp_config);
 	ts_gpio = 54;
-	ldp_spi_board_info[0].irq = OMAP_GPIO_IRQ(ts_gpio);
+	ldp_spi_board_info[0].irq = gpio_to_irq(ts_gpio);
 	spi_register_board_info(ldp_spi_board_info,
 				ARRAY_SIZE(ldp_spi_board_info));
 	msecure_init();

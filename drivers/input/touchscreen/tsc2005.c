@@ -541,7 +541,7 @@ static int __devinit tsc2005_ts_init(struct tsc2005 *ts,
 		goto err1;
 	}
 	gpio_direction_input(dav_gpio);
-	ts->irq = OMAP_GPIO_IRQ(dav_gpio);
+	ts->irq = gpio_to_irq(dav_gpio);
 	dev_dbg(&ts->spi->dev, "TSC2005: DAV IRQ = %d\n", ts->irq);
 #endif
 	init_timer(&ts->penup_timer);

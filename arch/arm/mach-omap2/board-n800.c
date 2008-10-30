@@ -303,7 +303,7 @@ static void tsc2301_dev_init(void)
 	r = gpio_request(gpio, "tsc2301 KBD IRQ");
 	if (r >= 0) {
 		gpio_direction_input(gpio);
-		tsc2301_config.keyb_int = OMAP_GPIO_IRQ(gpio);
+		tsc2301_config.keyb_int = gpio_to_irq(gpio);
 	} else {
 		printk(KERN_ERR "unable to get KBD GPIO");
 	}
@@ -312,7 +312,7 @@ static void tsc2301_dev_init(void)
 	r = gpio_request(gpio, "tsc2301 DAV IRQ");
 	if (r >= 0) {
 		gpio_direction_input(gpio);
-		tsc2301_config.dav_int = OMAP_GPIO_IRQ(gpio);
+		tsc2301_config.dav_int = gpio_to_irq(gpio);
 	} else {
 		printk(KERN_ERR "unable to get DAV GPIO");
 	}

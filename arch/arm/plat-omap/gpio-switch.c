@@ -191,9 +191,9 @@ static irqreturn_t gpio_sw_irq_handler(int irq, void *arg)
 
 	if (!sw->both_edges) {
 		if (gpio_get_value(sw->gpio))
-			set_irq_type(OMAP_GPIO_IRQ(sw->gpio), IRQ_TYPE_EDGE_FALLING);
+			set_irq_type(gpio_to_irq(sw->gpio), IRQ_TYPE_EDGE_FALLING);
 		else
-			set_irq_type(OMAP_GPIO_IRQ(sw->gpio), IRQ_TYPE_EDGE_RISING);
+			set_irq_type(gpio_to_irq(sw->gpio), IRQ_TYPE_EDGE_RISING);
 	}
 
 	state = gpio_sw_get_state(sw);
@@ -313,7 +313,7 @@ static int __init new_switch(struct gpio_switch *sw)
 		else
 			trigger = IRQF_TRIGGER_RISING;
 	}
-	r = request_irq(OMAP_GPIO_IRQ(sw->gpio), gpio_sw_irq_handler,
+	r = request_irq(gpio_to_irq(sw->gpio), gpio_sw_irq_handler,
 			IRQF_SHARED | trigger, sw->name, sw);
 	if (r < 0) {
 		printk(KERN_ERR "gpio-switch: request_irq() failed "
@@ -448,7 +448,7 @@ static void gpio_sw_cleanup(void)
 		flush_scheduled_work();
 		del_timer_sync(&sw->timer);
 
-		free_irq(OMAP_GPIO_IRQ(sw->gpio), sw);
+		free_irq(gpio_to_irq(sw->gpio), sw);
 
 		device_remove_file(&sw->pdev.dev, &dev_attr_state);
 		device_remove_file(&sw->pdev.dev, &dev_attr_type);

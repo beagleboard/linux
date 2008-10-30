@@ -911,13 +911,13 @@ static int hci_h4p_probe(struct platform_device *pdev)
 		goto cleanup;
 	}
 
-	err = request_irq(OMAP_GPIO_IRQ(info->host_wakeup_gpio),
+	err = request_irq(gpio_to_irq(info->host_wakeup_gpio),
 			  hci_h4p_wakeup_interrupt,
 				IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING,
 			  "hci_h4p_wkup", (void *)info);
 	if (err < 0) {
 		dev_err(info->dev, "hci_h4p: unable to get wakeup IRQ %d\n",
-			  OMAP_GPIO_IRQ(info->host_wakeup_gpio));
+			  gpio_to_irq(info->host_wakeup_gpio));
 		free_irq(irq, (void *)info);
 		goto cleanup;
 	}
@@ -950,7 +950,7 @@ static int hci_h4p_probe(struct platform_device *pdev)
 
 cleanup_irq:
 	free_irq(irq, (void *)info);
-	free_irq(OMAP_GPIO_IRQ(info->host_wakeup_gpio), (void *)info);
+	free_irq(gpio_to_irq(info->host_wakeup_gpio), (void *)info);
 cleanup:
 	gpio_set_value(info->reset_gpio, 0);
 	omap_free_gpio(info->reset_gpio);
@@ -969,7 +969,7 @@ static int hci_h4p_remove(struct platform_device *dev)
 	info = platform_get_drvdata(dev);
 
 	hci_h4p_hci_close(info->hdev);
-	free_irq(OMAP_GPIO_IRQ(info->host_wakeup_gpio), (void *) info);
+	free_irq(gpio_to_irq(info->host_wakeup_gpio), (void *) info);
 	hci_free_dev(info->hdev);
 	omap_free_gpio(info->reset_gpio);
 	omap_free_gpio(info->bt_wakeup_gpio);
