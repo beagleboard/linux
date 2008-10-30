@@ -401,7 +401,7 @@ static void __init apollon_tsc_init(void)
 	/* TSC2101 */
 	omap_cfg_reg(N15_24XX_GPIO85);
 	omap_request_gpio(85);
-	omap_set_gpio_direction(85, 1);
+	gpio_direction_input(85);
 
 	omap_cfg_reg(W14_24XX_SYS_CLKOUT);	/* mclk */
 }
