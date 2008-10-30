@@ -27,11 +27,7 @@ static void omap_set_led_gpio(struct led_classdev *led_cdev,
 	struct omap_led_config *led_dev;
 
 	led_dev = container_of(led_cdev, struct omap_led_config, cdev);
-
-	if (value)
-		omap_set_gpio_dataout(led_dev->gpio, 1);
-	else
-		omap_set_gpio_dataout(led_dev->gpio, 0);
+	gpio_set_value(led_dev->gpio, value);
 }
 
 static void omap_configure_led_gpio(int gpio)

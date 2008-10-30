@@ -172,7 +172,7 @@ static int tcm825x_power_on(void)
 	retu_write_reg(RETU_REG_CTRL_SET, 0x0080);
 	msleep(1);
 
-	omap_set_gpio_dataout(N800_CAM_SENSOR_RESET_GPIO, 1);
+	gpio_set_value(N800_CAM_SENSOR_RESET_GPIO, 1);
 	msleep(1);
 
 	saturated_count = 0;
@@ -185,7 +185,7 @@ static int tcm825x_power_off(void)
 {
 	int ret;
 
-	omap_set_gpio_dataout(N800_CAM_SENSOR_RESET_GPIO, 0);
+	gpio_set_value(N800_CAM_SENSOR_RESET_GPIO, 0);
 	msleep(1);
 
 	/* Set VSim1 off */
@@ -363,7 +363,7 @@ void __init n800_cam_init(void)
 		return;
 	}
 
-	omap_set_gpio_dataout(N800_CAM_SENSOR_RESET_GPIO, 0);
+	gpio_set_value(N800_CAM_SENSOR_RESET_GPIO, 0);
 	omap_set_gpio_direction(N800_CAM_SENSOR_RESET_GPIO, 0);
 
 	sensor_okay = 1;

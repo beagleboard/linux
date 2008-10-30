@@ -181,9 +181,9 @@ static void brf6150_disable_pm_tx(struct brf6150_info *info)
 {
 	if (info->pm_enabled) {
 		info->tx_pm_enabled = 0;
-		omap_set_gpio_dataout(info->btinfo->bt_wakeup_gpio, 1);
+		gpio_set_value(info->btinfo->bt_wakeup_gpio, 1);
 	}
-	if (omap_get_gpio_datain(info->btinfo->host_wakeup_gpio))
+	if (gpio_get_value(info->btinfo->host_wakeup_gpio))
 		tasklet_schedule(&info->tx_task);
 }
 
@@ -193,7 +193,7 @@ static void brf6150_pm_timer(unsigned long data)
 
 	info = (struct brf6150_info *)data;
 	if (info->tx_pm_enabled && info->rx_pm_enabled && !test_bit(HCI_INQUIRY, &info->hdev->flags))
-		omap_set_gpio_dataout(info->btinfo->bt_wakeup_gpio, 0);
+		gpio_set_value(info->btinfo->bt_wakeup_gpio, 0);
 	else
 		mod_timer(&info->pm_timer, jiffies + msecs_to_jiffies(PM_TIMEOUT));
 }
@@ -624,7 +624,7 @@ static irqreturn_t brf6150_wakeup_interrupt(int irq, void *dev_inst)
 	unsigned long flags;
 
 	spin_lock_irqsave(&info->lock, flags);
-	should_wakeup = omap_get_gpio_datain(info->btinfo->host_wakeup_gpio);
+	should_wakeup = gpio_get_value(info->btinfo->host_wakeup_gpio);
 	NBT_DBG_POWER("gpio interrupt %d\n", should_wakeup);
 	if (should_wakeup) {
 		clk_enable(info->uart_ck);
@@ -671,14 +671,14 @@ static int brf6150_init_uart(struct brf6150_info *info)
 
 static int brf6150_reset(struct brf6150_info *info)
 {
-	omap_set_gpio_dataout(info->btinfo->bt_wakeup_gpio, 0);
-	omap_set_gpio_dataout(info->btinfo->reset_gpio, 0);
+	gpio_set_value(info->btinfo->bt_wakeup_gpio, 0);
+	gpio_set_value(info->btinfo->reset_gpio, 0);
 	current->state = TASK_UNINTERRUPTIBLE;
 	schedule_timeout(msecs_to_jiffies(10));
-	omap_set_gpio_dataout(info->btinfo->bt_wakeup_gpio, 1);
+	gpio_set_value(info->btinfo->bt_wakeup_gpio, 1);
 	current->state = TASK_UNINTERRUPTIBLE;
 	schedule_timeout(msecs_to_jiffies(100));
-	omap_set_gpio_dataout(info->btinfo->reset_gpio, 1);
+	gpio_set_value(info->btinfo->reset_gpio, 1);
 	current->state = TASK_UNINTERRUPTIBLE;
 	schedule_timeout(msecs_to_jiffies(100));
 
@@ -786,7 +786,7 @@ static int brf6150_hci_close(struct hci_dev *hdev)
 	brf6150_hci_flush(hdev);
 	clk_disable(info->uart_ck);
 	del_timer_sync(&info->pm_timer);
-	omap_set_gpio_dataout(info->btinfo->bt_wakeup_gpio, 0);
+	gpio_set_value(info->btinfo->bt_wakeup_gpio, 0);
 	set_irq_type(OMAP_GPIO_IRQ(info->btinfo->host_wakeup_gpio), IRQ_TYPE_NONE);
 
 	return 0;

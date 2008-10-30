@@ -227,7 +227,7 @@ static void ads7846_dev_init(void)
 
 static int ads7846_get_pendown_state(void)
 {
-	return !omap_get_gpio_datain(TS_GPIO);
+	return !gpio_get_value(TS_GPIO);
 }
 
 static struct ads7846_platform_data tsc2046_config __initdata = {
@@ -421,7 +421,7 @@ static void __init omap_2430sdp_init(void)
 
 	/* turn off secondary LCD backlight */
 	omap_set_gpio_direction(SECONDARY_LCD_GPIO, 0);
-	omap_set_gpio_dataout(SECONDARY_LCD_GPIO, 0);
+	gpio_set_value(SECONDARY_LCD_GPIO, 0);
 }
 
 static void __init omap_2430sdp_map_io(void)

@@ -229,8 +229,8 @@ static int omap_start_ehc(struct platform_device *dev, struct usb_hcd *hcd)
 	omap_set_gpio_direction(EXT_PHY_RESET_GPIO_PORT1, 0);
 	omap_request_gpio(EXT_PHY_RESET_GPIO_PORT2);
 	omap_set_gpio_direction(EXT_PHY_RESET_GPIO_PORT2, 0);
-	omap_set_gpio_dataout(EXT_PHY_RESET_GPIO_PORT1, 0);
-	omap_set_gpio_dataout(EXT_PHY_RESET_GPIO_PORT2, 0);
+	gpio_set_value(EXT_PHY_RESET_GPIO_PORT1, 0);
+	gpio_set_value(EXT_PHY_RESET_GPIO_PORT2, 0);
 	/* Hold the PHY in RESET for enough time till DIR is high */
 	udelay(EXT_PHY_RESET_DELAY);
 #endif
@@ -309,8 +309,8 @@ static int omap_start_ehc(struct platform_device *dev, struct usb_hcd *hcd)
 	 * Hold the PHY in RESET for enough time till PHY is settled and ready
 	 */
 	udelay(EXT_PHY_RESET_DELAY);
-	omap_set_gpio_dataout(EXT_PHY_RESET_GPIO_PORT1, 1);
-	omap_set_gpio_dataout(EXT_PHY_RESET_GPIO_PORT2, 1);
+	gpio_set_value(EXT_PHY_RESET_GPIO_PORT1, 1);
+	gpio_set_value(EXT_PHY_RESET_GPIO_PORT2, 1);
 #endif
 
 #ifdef VBUS_INTERNAL_CHARGEPUMP_HACK

@@ -99,12 +99,12 @@ static int tusb_set_power(int state)
 	int i, retval = 0;
 
 	if (state) {
-		omap_set_gpio_dataout(GPIO_TUSB_ENABLE, 1);
+		gpio_set_value(GPIO_TUSB_ENABLE, 1);
 		msleep(1);
 
 		/* Wait until TUSB6010 pulls INT pin down */
 		i = 100;
-		while (i && omap_get_gpio_datain(GPIO_TUSB_INT)) {
+		while (i && gpio_get_value(GPIO_TUSB_INT)) {
 			msleep(1);
 			i--;
 		}
@@ -114,7 +114,7 @@ static int tusb_set_power(int state)
 			retval = -ENODEV;
 		}
 	} else {
-		omap_set_gpio_dataout(GPIO_TUSB_ENABLE, 0);
+		gpio_set_value(GPIO_TUSB_ENABLE, 0);
 		msleep(10);
 	}
 

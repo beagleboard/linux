@@ -179,7 +179,7 @@ static void ads7846_dev_init(void)
 
 static int ads7846_get_pendown_state(void)
 {
-	return !omap_get_gpio_datain(ts_gpio);
+	return !gpio_get_value(ts_gpio);
 }
 
 /*

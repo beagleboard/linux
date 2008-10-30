@@ -106,7 +106,7 @@ static int gpio_sw_get_state(struct gpio_switch *sw)
 {
 	int state;
 
-	state = omap_get_gpio_datain(sw->gpio);
+	state = gpio_get_value(sw->gpio);
 	if (sw->flags & OMAP_GPIO_SWITCH_FLAG_INVERTED)
 		state = !state;
 
@@ -139,7 +139,7 @@ static ssize_t gpio_sw_state_store(struct device *dev,
 
 	if (sw->flags & OMAP_GPIO_SWITCH_FLAG_INVERTED)
 		enable = !enable;
-	omap_set_gpio_dataout(sw->gpio, enable);
+	gpio_set_value(sw->gpio, enable);
 
 	return count;
 }
@@ -190,7 +190,7 @@ static irqreturn_t gpio_sw_irq_handler(int irq, void *arg)
 	int state;
 
 	if (!sw->both_edges) {
-		if (omap_get_gpio_datain(sw->gpio))
+		if (gpio_get_value(sw->gpio))
 			set_irq_type(OMAP_GPIO_IRQ(sw->gpio), IRQ_TYPE_EDGE_FALLING);
 		else
 			set_irq_type(OMAP_GPIO_IRQ(sw->gpio), IRQ_TYPE_EDGE_RISING);
@@ -305,7 +305,7 @@ static int __init new_switch(struct gpio_switch *sw)
 		trigger = IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING;
 		sw->both_edges = 1;
 	} else {
-		if (omap_get_gpio_datain(sw->gpio))
+		if (gpio_get_value(sw->gpio))
 			trigger = IRQF_TRIGGER_FALLING;
 		else
 			trigger = IRQF_TRIGGER_RISING;
@@ -465,7 +465,7 @@ static void __init report_initial_state(void)
 	list_for_each_entry(sw, &gpio_switches, node) {
 		int state;
 
-		state = omap_get_gpio_datain(sw->gpio);
+		state = gpio_get_value(sw->gpio);
 		if (sw->flags & OMAP_GPIO_SWITCH_FLAG_INVERTED)
 			state = !state;
 		if (sw->notify != NULL)

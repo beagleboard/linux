@@ -42,10 +42,7 @@ static int n800_mmc_switch_slot(struct device *dev, int slot)
 #ifdef CONFIG_MMC_DEBUG
 	dev_dbg(dev, "Choose slot %d\n", slot + 1);
 #endif
-	if (slot == 0)
-		omap_set_gpio_dataout(slot_switch_gpio, 0);
-	else
-		omap_set_gpio_dataout(slot_switch_gpio, 1);
+	gpio_set_value(slot_switch_gpio, slot);
 	return 0;
 }
 
@@ -125,14 +122,14 @@ static void nokia_mmc_set_power_internal(struct device *dev,
 		power_on ? "on" : "off");
 
 	if (power_on) {
-		omap_set_gpio_dataout(n810_slot2_pw_vddf, 1);
+		gpio_set_value(n810_slot2_pw_vddf, 1);
 		udelay(30);
-		omap_set_gpio_dataout(n810_slot2_pw_vdd, 1);
+		gpio_set_value(n810_slot2_pw_vdd, 1);
 		udelay(100);
 	} else {
-		omap_set_gpio_dataout(n810_slot2_pw_vdd, 0);
+		gpio_set_value(n810_slot2_pw_vdd, 0);
 		msleep(50);
-		omap_set_gpio_dataout(n810_slot2_pw_vddf, 0);
+		gpio_set_value(n810_slot2_pw_vddf, 0);
 		msleep(50);
 	}
 }
@@ -349,18 +346,18 @@ void __init n800_mmc_init(void)
 
 	if (omap_request_gpio(slot_switch_gpio) < 0)
 		BUG();
-	omap_set_gpio_dataout(slot_switch_gpio, 0);
+	gpio_set_value(slot_switch_gpio, 0);
 	omap_set_gpio_direction(slot_switch_gpio, 0);
 
 	if (machine_is_nokia_n810()) {
 		if (omap_request_gpio(n810_slot2_pw_vddf) < 0)
 			BUG();
-		omap_set_gpio_dataout(n810_slot2_pw_vddf, 0);
+		gpio_set_value(n810_slot2_pw_vddf, 0);
 		omap_set_gpio_direction(n810_slot2_pw_vddf, 0);
 
 		if (omap_request_gpio(n810_slot2_pw_vdd) < 0)
 			BUG();
-		omap_set_gpio_dataout(n810_slot2_pw_vdd, 0);
+		gpio_set_value(n810_slot2_pw_vdd, 0);
 		omap_set_gpio_direction(n810_slot2_pw_vdd, 0);
 	}
 

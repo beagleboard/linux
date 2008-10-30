@@ -9,6 +9,21 @@ or less GPIOs) to other OMAP processors as well.
 If anything is missing, is wrong, needs extension or update, please send
 update to Linux-omap-open-source@linux.omap.com.
 
+	*************************************************************
+
+	NOTICE:  these OMAP-specific interfaces are deprecated/obsolete.
+
+	See Documentation/gpio.txt for information on the standard
+	cross-platform GPIO interface.  All new code should use those
+	calls instead of the ones described here.
+
+	The only exception to that policy is the omap_cfg_reg() call,
+	which isn't a GPIO-specific interface; it configures how chip
+	functions are multiplexed to pins, with GPIO being only one
+	of those functions.
+
+	*************************************************************
+
 I. GPIO Modules/Banks
 ---------------------
 

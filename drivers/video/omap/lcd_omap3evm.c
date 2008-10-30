@@ -71,11 +71,11 @@ static int omap3evm_panel_init(struct lcd_panel *panel,
 	twl4030_i2c_write_u8(TWL4030_MODULE_PWMA, 0x02, TWL_PWMA_PWMAOFF);
 	bklight_level = 100;
 
-	omap_set_gpio_dataout(LCD_PANEL_RESB, 1);
-	omap_set_gpio_dataout(LCD_PANEL_INI, 1);
-	omap_set_gpio_dataout(LCD_PANEL_QVGA, 0);
-	omap_set_gpio_dataout(LCD_PANEL_LR, 1);
-	omap_set_gpio_dataout(LCD_PANEL_UD, 1);
+	gpio_set_value(LCD_PANEL_RESB, 1);
+	gpio_set_value(LCD_PANEL_INI, 1);
+	gpio_set_value(LCD_PANEL_QVGA, 0);
+	gpio_set_value(LCD_PANEL_LR, 1);
+	gpio_set_value(LCD_PANEL_UD, 1);
 
 	return 0;
 }
@@ -86,13 +86,13 @@ static void omap3evm_panel_cleanup(struct lcd_panel *panel)
 
 static int omap3evm_panel_enable(struct lcd_panel *panel)
 {
-	omap_set_gpio_dataout(LCD_PANEL_ENABLE_GPIO, 0);
+	gpio_set_value(LCD_PANEL_ENABLE_GPIO, 0);
 	return 0;
 }
 
 static void omap3evm_panel_disable(struct lcd_panel *panel)
 {
-	omap_set_gpio_dataout(LCD_PANEL_ENABLE_GPIO, 1);
+	gpio_set_value(LCD_PANEL_ENABLE_GPIO, 1);
 }
 
 static unsigned long omap3evm_panel_get_caps(struct lcd_panel *panel)

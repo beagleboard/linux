@@ -102,7 +102,7 @@ static void hci_h4p_enable_tx(struct hci_h4p_info *info)
 	if (info->tx_pm_enabled) {
 		info->tx_pm_enabled = 0;
 		hci_h4p_set_clk(info, &info->tx_clocks_en, 1);
-		omap_set_gpio_dataout(info->bt_wakeup_gpio, 1);
+		gpio_set_value(info->bt_wakeup_gpio, 1);
 	}
 }
 
@@ -115,7 +115,7 @@ static void hci_h4p_tx_pm_timer(unsigned long data)
 	info = (struct hci_h4p_info *)data;
 
 	if (hci_h4p_inb(info, UART_LSR) & UART_LSR_TEMT) {
-		omap_set_gpio_dataout(info->bt_wakeup_gpio, 0);
+		gpio_set_value(info->bt_wakeup_gpio, 0);
 		hci_h4p_set_clk(info, &info->tx_clocks_en, 0);
 		info->tx_pm_enabled = 1;
 	}
@@ -527,7 +527,7 @@ static irqreturn_t hci_h4p_wakeup_interrupt(int irq, void *dev_inst)
 	if (!test_bit(HCI_RUNNING, &hdev->flags))
 		return IRQ_HANDLED;
 
-	should_wakeup = omap_get_gpio_datain(info->host_wakeup_gpio);
+	should_wakeup = gpio_get_value(info->host_wakeup_gpio);
 	NBT_DBG_POWER("gpio interrupt %d\n", should_wakeup);
 	if (should_wakeup) {
 		hci_h4p_enable_rx(info);
@@ -545,10 +545,10 @@ static int hci_h4p_reset(struct hci_h4p_info *info)
 	hci_h4p_init_uart(info);
 	hci_h4p_set_rts(info, 0);
 
-	omap_set_gpio_dataout(info->reset_gpio, 0);
+	gpio_set_value(info->reset_gpio, 0);
 	msleep(100);
-	omap_set_gpio_dataout(info->bt_wakeup_gpio, 1);
-	omap_set_gpio_dataout(info->reset_gpio, 1);
+	gpio_set_value(info->bt_wakeup_gpio, 1);
+	gpio_set_value(info->reset_gpio, 1);
 	msleep(100);
 
 	err = hci_h4p_wait_for_cts(info, 1, 10);
@@ -646,8 +646,8 @@ err_clean:
 	hci_h4p_reset_uart(info);
 	hci_h4p_set_clk(info, &info->tx_clocks_en, 0);
 	hci_h4p_set_clk(info, &info->rx_clocks_en, 0);
-	omap_set_gpio_dataout(info->reset_gpio, 0);
-	omap_set_gpio_dataout(info->bt_wakeup_gpio, 0);
+	gpio_set_value(info->reset_gpio, 0);
+	gpio_set_value(info->bt_wakeup_gpio, 0);
 	skb_queue_purge(&fw_queue);
 	kfree_skb(neg_cmd_skb);
 	neg_cmd_skb = NULL;
@@ -675,8 +675,8 @@ static int hci_h4p_hci_close(struct hci_dev *hdev)
 	hci_h4p_reset_uart(info);
 	hci_h4p_set_clk(info, &info->tx_clocks_en, 0);
 	hci_h4p_set_clk(info, &info->rx_clocks_en, 0);
-	omap_set_gpio_dataout(info->reset_gpio, 0);
-	omap_set_gpio_dataout(info->bt_wakeup_gpio, 0);
+	gpio_set_value(info->reset_gpio, 0);
+	gpio_set_value(info->bt_wakeup_gpio, 0);
 	kfree_skb(info->rx_skb);
 
 	return 0;
@@ -944,7 +944,7 @@ static int hci_h4p_probe(struct platform_device *pdev)
 		dev_err(info->dev, "failed to register hci_h4p hci device\n");
 		goto cleanup_irq;
 	}
-	omap_set_gpio_dataout(info->reset_gpio, 0);
+	gpio_set_value(info->reset_gpio, 0);
 
 	return 0;
 
@@ -952,7 +952,7 @@ cleanup_irq:
 	free_irq(irq, (void *)info);
 	free_irq(OMAP_GPIO_IRQ(info->host_wakeup_gpio), (void *)info);
 cleanup:
-	omap_set_gpio_dataout(info->reset_gpio, 0);
+	gpio_set_value(info->reset_gpio, 0);
 	omap_free_gpio(info->reset_gpio);
 	omap_free_gpio(info->bt_wakeup_gpio);
 	omap_free_gpio(info->host_wakeup_gpio);

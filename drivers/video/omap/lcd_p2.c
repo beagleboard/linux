@@ -166,9 +166,9 @@ static int p2_panel_enable(struct lcd_panel *panel)
 
 		/* thwack the reset line */
 	omap_set_gpio_direction(19, 0);
-	omap_set_gpio_dataout(19, 0);
+	gpio_set_value(19, 0);
 	mdelay(2);
-	omap_set_gpio_dataout(19, 1);
+	gpio_set_value(19, 1);
 
 		/* bits 31:28 -> 0  LCD_PXL_15 .. 12 */
 	value = omap_readl(OMAP730_IO_CONF_3) & 0x0FFFFFFF;
@@ -258,7 +258,7 @@ static int p2_panel_enable(struct lcd_panel *panel)
 
 	/* enable backlight */
 	omap_set_gpio_direction(134, 0);
-	omap_set_gpio_dataout(134, 1);
+	gpio_set_value(134, 1);
 
 	return 0;
 }

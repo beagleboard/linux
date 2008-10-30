@@ -48,13 +48,13 @@ static void omap3beagle_panel_cleanup(struct lcd_panel *panel)
 
 static int omap3beagle_panel_enable(struct lcd_panel *panel)
 {
-	omap_set_gpio_dataout(LCD_PANEL_ENABLE_GPIO, 1);
+	gpio_set_value(LCD_PANEL_ENABLE_GPIO, 1);
 	return 0;
 }
 
 static void omap3beagle_panel_disable(struct lcd_panel *panel)
 {
-	omap_set_gpio_dataout(LCD_PANEL_ENABLE_GPIO, 0);
+	gpio_set_value(LCD_PANEL_ENABLE_GPIO, 0);
 }
 
 static unsigned long omap3beagle_panel_get_caps(struct lcd_panel *panel)

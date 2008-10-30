@@ -184,7 +184,7 @@ static void ads7846_dev_init(void)
 
 static int ads7846_get_pendown_state(void)
 {
-	return !omap_get_gpio_datain(OMAP3_EVM_TS_GPIO);
+	return !gpio_get_value(OMAP3_EVM_TS_GPIO);
 }
 
 struct ads7846_platform_data ads7846_config = {

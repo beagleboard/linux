@@ -102,28 +102,28 @@ static u8 cbus_receive_bit(struct cbus_host *host, u32 base)
 #else
 
 #define cbus_set_gpio_direction(base, gpio, is_input) omap_set_gpio_direction(gpio, is_input)
-#define cbus_set_gpio_dataout(base, gpio, enable) omap_set_gpio_dataout(gpio, enable)
-#define cbus_get_gpio_datain(base, int, gpio) omap_get_gpio_datain(gpio)
+#define cbus_set_gpio_dataout(base, gpio, enable) gpio_set_value(gpio, enable)
+#define cbus_get_gpio_datain(base, int, gpio) gpio_get_value(gpio)
 
 static void _cbus_send_bit(struct cbus_host *host, int bit, int set_to_input)
 {
-	omap_set_gpio_dataout(host->dat_gpio, bit ? 1 : 0);
-	omap_set_gpio_dataout(host->clk_gpio, 1);
+	gpio_set_value(host->dat_gpio, bit ? 1 : 0);
+	gpio_set_value(host->clk_gpio, 1);
 
 	/* The data bit is read on the rising edge of CLK */
 	if (set_to_input)
 		omap_set_gpio_direction(host->dat_gpio, 1);
 
-	omap_set_gpio_dataout(host->clk_gpio, 0);
+	gpio_set_value(host->clk_gpio, 0);
 }
 
 static u8 _cbus_receive_bit(struct cbus_host *host)
 {
 	u8 ret;
 
-	omap_set_gpio_dataout(host->clk_gpio, 1);
-	ret = omap_get_gpio_datain(host->dat_gpio);
-	omap_set_gpio_dataout(host->clk_gpio, 0);
+	gpio_set_value(host->clk_gpio, 1);
+	ret = gpio_get_value(host->dat_gpio);
+	gpio_set_value(host->clk_gpio, 0);
 
 	return ret;
 }
@@ -260,15 +260,15 @@ int __init cbus_bus_init(void)
 	if ((ret = omap_request_gpio(chost->sel_gpio)) < 0)
 		goto exit3;
 
-	omap_set_gpio_dataout(chost->clk_gpio, 0);
-	omap_set_gpio_dataout(chost->sel_gpio, 1);
+	gpio_set_value(chost->clk_gpio, 0);
+	gpio_set_value(chost->sel_gpio, 1);
 
 	omap_set_gpio_direction(chost->clk_gpio, 0);
 	omap_set_gpio_direction(chost->dat_gpio, 1);
 	omap_set_gpio_direction(chost->sel_gpio, 0);
 
-	omap_set_gpio_dataout(chost->clk_gpio, 1);
-	omap_set_gpio_dataout(chost->clk_gpio, 0);
+	gpio_set_value(chost->clk_gpio, 1);
+	gpio_set_value(chost->clk_gpio, 0);
 
 	cbus_host = chost;
 
