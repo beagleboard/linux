@@ -943,8 +943,8 @@ static int __init brf6150_init(void)
 		return err;
 	}
 
-	omap_set_gpio_direction(info->btinfo->reset_gpio, 0);
-	omap_set_gpio_direction(info->btinfo->bt_wakeup_gpio, 0);
+	gpio_direction_output(info->btinfo->reset_gpio, 0);
+	gpio_direction_output(info->btinfo->bt_wakeup_gpio, 0);
 	gpio_direction_input(info->btinfo->host_wakeup_gpio);
 	set_irq_type(OMAP_GPIO_IRQ(info->btinfo->host_wakeup_gpio), IRQ_TYPE_NONE);
 

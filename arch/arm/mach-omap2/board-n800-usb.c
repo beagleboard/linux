@@ -156,7 +156,7 @@ void __init n800_usb_init(void)
 		       GPIO_TUSB_ENABLE);
 		return;
 	}
-	omap_set_gpio_direction(GPIO_TUSB_ENABLE, 0);
+	gpio_direction_output(GPIO_TUSB_ENABLE, 0);
 
 	tusb_set_power(0);
 

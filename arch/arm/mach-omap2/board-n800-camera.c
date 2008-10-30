@@ -363,8 +363,7 @@ void __init n800_cam_init(void)
 		return;
 	}
 
-	gpio_set_value(N800_CAM_SENSOR_RESET_GPIO, 0);
-	omap_set_gpio_direction(N800_CAM_SENSOR_RESET_GPIO, 0);
+	gpio_direction_output(N800_CAM_SENSOR_RESET_GPIO, 0);
 
 	sensor_okay = 1;
 }

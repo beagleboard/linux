@@ -346,19 +346,16 @@ void __init n800_mmc_init(void)
 
 	if (omap_request_gpio(slot_switch_gpio) < 0)
 		BUG();
-	gpio_set_value(slot_switch_gpio, 0);
-	omap_set_gpio_direction(slot_switch_gpio, 0);
+	gpio_direction_output(slot_switch_gpio, 0);
 
 	if (machine_is_nokia_n810()) {
 		if (omap_request_gpio(n810_slot2_pw_vddf) < 0)
 			BUG();
-		gpio_set_value(n810_slot2_pw_vddf, 0);
-		omap_set_gpio_direction(n810_slot2_pw_vddf, 0);
+		gpio_direction_output(n810_slot2_pw_vddf, 0);
 
 		if (omap_request_gpio(n810_slot2_pw_vdd) < 0)
 			BUG();
-		gpio_set_value(n810_slot2_pw_vdd, 0);
-		omap_set_gpio_direction(n810_slot2_pw_vdd, 0);
+		gpio_direction_output(n810_slot2_pw_vdd, 0);
 	}
 
 	mmc_data[0] = &mmc1_data;

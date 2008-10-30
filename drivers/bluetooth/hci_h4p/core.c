@@ -852,8 +852,8 @@ static int hci_h4p_probe(struct platform_device *pdev)
 		goto cleanup;
 	}
 
-	omap_set_gpio_direction(info->reset_gpio, 0);
-	omap_set_gpio_direction(info->bt_wakeup_gpio, 0);
+	gpio_direction_output(info->reset_gpio, 0);
+	gpio_direction_output(info->bt_wakeup_gpio, 0);
 	gpio_direction_input(info->host_wakeup_gpio);
 
 	switch (bt_config->bt_uart) {

@@ -161,8 +161,7 @@ static int __devinit tsc2301_probe(struct spi_device *spi)
 		r = omap_request_gpio(tsc->reset_gpio);
 		if (r < 0)
 			goto err1;
-		gpio_set_value(tsc->reset_gpio, 1);
-		omap_set_gpio_direction(tsc->reset_gpio, 0);
+		gpio_direction_output(tsc->reset_gpio, 1);
 		mdelay(1);
 		gpio_set_value(tsc->reset_gpio, 0);
 #endif

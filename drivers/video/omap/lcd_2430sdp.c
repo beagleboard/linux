@@ -67,8 +67,8 @@ static int sdp2430_panel_init(struct lcd_panel *panel,
 
 	omap_request_gpio(enable_gpio);			/* LCD panel */
 	omap_request_gpio(backlight_gpio);		/* LCD backlight */
-	omap_set_gpio_direction(enable_gpio, 0);	/* output */
-	omap_set_gpio_direction(backlight_gpio, 0);	/* output */
+	gpio_direction_output(enable_gpio, 0);
+	gpio_direction_output(backlight_gpio, 0);
 
 	return 0;
 }

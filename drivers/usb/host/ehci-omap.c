@@ -226,11 +226,9 @@ static int omap_start_ehc(struct platform_device *dev, struct usb_hcd *hcd)
 #ifdef EXTERNAL_PHY_RESET
 	/* Refer: ISSUE1 */
 	omap_request_gpio(EXT_PHY_RESET_GPIO_PORT1);
-	omap_set_gpio_direction(EXT_PHY_RESET_GPIO_PORT1, 0);
+	gpio_direction_output(EXT_PHY_RESET_GPIO_PORT1, 0);
 	omap_request_gpio(EXT_PHY_RESET_GPIO_PORT2);
-	omap_set_gpio_direction(EXT_PHY_RESET_GPIO_PORT2, 0);
-	gpio_set_value(EXT_PHY_RESET_GPIO_PORT1, 0);
-	gpio_set_value(EXT_PHY_RESET_GPIO_PORT2, 0);
+	gpio_direction_output(EXT_PHY_RESET_GPIO_PORT2, 0);
 	/* Hold the PHY in RESET for enough time till DIR is high */
 	udelay(EXT_PHY_RESET_DELAY);
 #endif

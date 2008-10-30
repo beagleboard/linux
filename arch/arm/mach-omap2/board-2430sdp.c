@@ -420,8 +420,7 @@ static void __init omap_2430sdp_init(void)
 	hsmmc_init(mmc);
 
 	/* turn off secondary LCD backlight */
-	omap_set_gpio_direction(SECONDARY_LCD_GPIO, 0);
-	gpio_set_value(SECONDARY_LCD_GPIO, 0);
+	gpio_direction_output(SECONDARY_LCD_GPIO, 0);
 }
 
 static void __init omap_2430sdp_map_io(void)

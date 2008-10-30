@@ -133,8 +133,7 @@ void __init nokia_n800_init_irq(void)
 		return;
 	}
 
-	omap_set_gpio_direction(N800_STI_GPIO, 0);
-	gpio_set_value(N800_STI_GPIO, 0);
+	gpio_direction_output(N800_STI_GPIO, 0);
 #endif
 }
 
@@ -258,8 +257,7 @@ static void __init blizzard_dev_init(void)
 	r = omap_request_gpio(N800_BLIZZARD_POWERDOWN_GPIO);
 	if (r < 0)
 		return;
-	omap_set_gpio_direction(N800_BLIZZARD_POWERDOWN_GPIO, 0);
-	gpio_set_value(N800_BLIZZARD_POWERDOWN_GPIO, 1);
+	gpio_direction_output(N800_BLIZZARD_POWERDOWN_GPIO, 1);
 
 	blizzard_get_clocks();
 	omapfb_set_ctrl_platform_data(&n800_blizzard_data);
@@ -339,7 +337,7 @@ static int __init tea5761_dev_init(void)
 			return -ENODEV;
 		}
 
-		omap_set_gpio_direction(enable_gpio, 0);
+		gpio_direction_output(enable_gpio, 0);
 		udelay(50);
 		gpio_set_value(enable_gpio, 1);
 	}

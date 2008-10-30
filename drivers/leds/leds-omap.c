@@ -36,7 +36,7 @@ static void omap_configure_led_gpio(int gpio)
 		printk(KERN_ERR "Failed to request GPIO%d for LEDs\n", gpio);
 		return;
 	}
-	omap_set_gpio_direction(gpio, 0);	/* OUT */
+	gpio_direction_output(gpio, 0);
 }
 
 static int omap_led_probe(struct platform_device *dev)

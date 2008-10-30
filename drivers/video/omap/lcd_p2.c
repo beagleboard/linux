@@ -165,8 +165,7 @@ static int p2_panel_enable(struct lcd_panel *panel)
 	unsigned long value;
 
 		/* thwack the reset line */
-	omap_set_gpio_direction(19, 0);
-	gpio_set_value(19, 0);
+	gpio_direction_output(19, 0);
 	mdelay(2);
 	gpio_set_value(19, 1);
 
@@ -257,8 +256,7 @@ static int p2_panel_enable(struct lcd_panel *panel)
 	omap_uwire_data_transfer(LCD_UWIRE_CS, LCD_DISON, 9, 0,NULL,1);
 
 	/* enable backlight */
-	omap_set_gpio_direction(134, 0);
-	gpio_set_value(134, 1);
+	gpio_direction_output(134, 1);
 
 	return 0;
 }
