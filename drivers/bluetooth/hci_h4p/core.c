@@ -34,9 +34,9 @@
 #include <linux/device.h>
 #include <linux/platform_device.h>
 #include <linux/clk.h>
+#include <linux/gpio.h>
 
 #include <mach/hardware.h>
-#include <mach/gpio.h>
 #include <mach/board.h>
 #include <mach/irqs.h>
 #include <mach/pm.h>
@@ -823,7 +823,7 @@ static int hci_h4p_probe(struct platform_device *pdev)
 	NBT_DBG("Uart: %d\n", bt_config->bt_uart);
 	NBT_DBG("sysclk: %d\n", info->bt_sysclk);
 
-	err = omap_request_gpio(info->reset_gpio);
+	err = gpio_request(info->reset_gpio, "BT reset");
 	if (err < 0) {
 		dev_err(&pdev->dev, "Cannot get GPIO line %d\n",
 			info->reset_gpio);
@@ -831,23 +831,23 @@ static int hci_h4p_probe(struct platform_device *pdev)
 		goto cleanup;
 	}
 
-	err = omap_request_gpio(info->bt_wakeup_gpio);
+	err = gpio_request(info->bt_wakeup_gpio, "BT wakeup");
 	if (err < 0)
 	{
 		dev_err(info->dev, "Cannot get GPIO line 0x%d",
 			info->bt_wakeup_gpio);
-		omap_free_gpio(info->reset_gpio);
+		gpio_free(info->reset_gpio);
 		kfree(info);
 		goto cleanup;
 	}
 
-	err = omap_request_gpio(info->host_wakeup_gpio);
+	err = gpio_request(info->host_wakeup_gpio, "BT host wakeup");
 	if (err < 0)
 	{
 		dev_err(info->dev, "Cannot get GPIO line %d",
 		       info->host_wakeup_gpio);
-		omap_free_gpio(info->reset_gpio);
-		omap_free_gpio(info->bt_wakeup_gpio);
+		gpio_free(info->reset_gpio);
+		gpio_free(info->bt_wakeup_gpio);
 		kfree(info);
 		goto cleanup;
 	}
@@ -953,9 +953,9 @@ cleanup_irq:
 	free_irq(gpio_to_irq(info->host_wakeup_gpio), (void *)info);
 cleanup:
 	gpio_set_value(info->reset_gpio, 0);
-	omap_free_gpio(info->reset_gpio);
-	omap_free_gpio(info->bt_wakeup_gpio);
-	omap_free_gpio(info->host_wakeup_gpio);
+	gpio_free(info->reset_gpio);
+	gpio_free(info->bt_wakeup_gpio);
+	gpio_free(info->host_wakeup_gpio);
 	kfree(info);
 
 	return err;
@@ -971,9 +971,9 @@ static int hci_h4p_remove(struct platform_device *dev)
 	hci_h4p_hci_close(info->hdev);
 	free_irq(gpio_to_irq(info->host_wakeup_gpio), (void *) info);
 	hci_free_dev(info->hdev);
-	omap_free_gpio(info->reset_gpio);
-	omap_free_gpio(info->bt_wakeup_gpio);
-	omap_free_gpio(info->host_wakeup_gpio);
+	gpio_free(info->reset_gpio);
+	gpio_free(info->bt_wakeup_gpio);
+	gpio_free(info->host_wakeup_gpio);
 	free_irq(info->irq, (void *) info);
 	kfree(info);
 
