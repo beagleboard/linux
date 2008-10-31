@@ -28,8 +28,8 @@
 
 #include <linux/input.h>
 #include <linux/device.h>
+#include <linux/gpio.h>
 #include <asm/mach-types.h>
-#include <asm/arch/gpio.h>
 #include <asm/arch/mux.h>
 #include <asm/arch/hardware.h>
 #include <asm/hardware/tsc2101.h>
@@ -92,7 +92,7 @@ static int __init hx_ts_probe(struct omap_ts_t *ts)
 		return -ENODEV;
 
 	ts->irq = gpio_to_irq(gpio);
-	if (omap_request_gpio(gpio) != 0) {
+	if (gpio_request(gpio, "TS irq") != 0) {
 		printk(KERN_ERR "hX_ts_init.c: Could not reserve GPIO!\n");
 		return -EINVAL;
 	};
@@ -177,8 +177,8 @@ static void hx_ts_disable(void)
 static void __exit hx_ts_remove(void)
 {
 	if (machine_is_omap_h2())
-		omap_free_gpio(H2_GPIO_NUM);
+		gpio_free(H2_GPIO_NUM);
 	else if (machine_is_omap_h3())
-		omap_free_gpio(H3_GPIO_NUM);
+		gpio_free(H3_GPIO_NUM);
 }
 #endif
