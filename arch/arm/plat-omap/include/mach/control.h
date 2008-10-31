@@ -208,6 +208,10 @@
 #define OMAP2_PBIASLITEPWRDNZ0		(1 << 1)
 #define OMAP2_PBIASLITEVMODE0		(1 << 0)
 
+/* CONTROL_PADCONF_X bits */
+#define OMAP3_PADCONF_WAKEUPEVENT0	(1 << 15)
+#define OMAP3_PADCONF_WAKEUPENABLE0	(1 << 14)
+
 #ifndef __ASSEMBLY__
 #if defined(CONFIG_ARCH_OMAP2) || defined(CONFIG_ARCH_OMAP3)
 extern void __iomem *omap_ctrl_base_get(void);
