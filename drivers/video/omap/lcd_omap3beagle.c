@@ -22,9 +22,9 @@
 
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/gpio.h>
 #include <linux/i2c/twl4030.h>
 
-#include <mach/gpio.h>
 #include <mach/mux.h>
 #include <mach/omapfb.h>
 #include <asm/mach-types.h>
@@ -38,7 +38,7 @@
 static int omap3beagle_panel_init(struct lcd_panel *panel,
 				struct omapfb_device *fbdev)
 {
-	omap_request_gpio(LCD_PANEL_ENABLE_GPIO);
+	gpio_request(LCD_PANEL_ENABLE_GPIO, "LCD enable");
 	return 0;
 }
 

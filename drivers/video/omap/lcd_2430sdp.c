@@ -24,9 +24,9 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/delay.h>
+#include <linux/gpio.h>
 #include <linux/i2c/twl4030.h>
 
-#include <mach/gpio.h>
 #include <mach/mux.h>
 #include <mach/omapfb.h>
 #include <asm/mach-types.h>
@@ -65,8 +65,8 @@ static int sdp2430_panel_init(struct lcd_panel *panel,
 		backlight_gpio = SDP2430_LCD_PANEL_BACKLIGHT_GPIO;
 	}
 
-	omap_request_gpio(enable_gpio);			/* LCD panel */
-	omap_request_gpio(backlight_gpio);		/* LCD backlight */
+	gpio_request(enable_gpio, "LCD enable");	/* LCD panel */
+	gpio_request(backlight_gpio, "LCD bl");		/* LCD backlight */
 	gpio_direction_output(enable_gpio, 0);
 	gpio_direction_output(backlight_gpio, 0);
 

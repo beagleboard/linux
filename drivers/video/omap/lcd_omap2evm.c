@@ -23,9 +23,9 @@
 
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/gpio.h>
 #include <linux/i2c/twl4030.h>
 
-#include <mach/gpio.h>
 #include <mach/mux.h>
 #include <mach/omapfb.h>
 #include <asm/mach-types.h>
@@ -50,12 +50,12 @@ static unsigned int bklight_level;
 static int omap2evm_panel_init(struct lcd_panel *panel,
 				struct omapfb_device *fbdev)
 {
-	omap_request_gpio(LCD_PANEL_ENABLE_GPIO);
-	omap_request_gpio(LCD_PANEL_LR);
-	omap_request_gpio(LCD_PANEL_UD);
-	omap_request_gpio(LCD_PANEL_INI);
-	omap_request_gpio(LCD_PANEL_QVGA);
-	omap_request_gpio(LCD_PANEL_RESB);
+	gpio_request(LCD_PANEL_ENABLE_GPIO, "LCD enable");
+	gpio_request(LCD_PANEL_LR, "LCD lr");
+	gpio_request(LCD_PANEL_UD, "LCD ud");
+	gpio_request(LCD_PANEL_INI, "LCD ini");
+	gpio_request(LCD_PANEL_QVGA, "LCD qvga");
+	gpio_request(LCD_PANEL_RESB, "LCD resb");
 
 	gpio_direction_output(LCD_PANEL_ENABLE_GPIO, 1);
 	gpio_direction_output(LCD_PANEL_RESB, 1);
