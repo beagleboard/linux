@@ -10,11 +10,13 @@ config ARCH_OMAP2420
 	depends on ARCH_OMAP24XX
 	select OMAP_DM_TIMER
 	select ARCH_OMAP_OTG
+	select CPU_V6
 
 config ARCH_OMAP2430
 	bool "OMAP2430 support"
 	depends on ARCH_OMAP24XX
 	select ARCH_OMAP_OTG
+	select CPU_V6
 
 config ARCH_OMAP34XX
 	bool "OMAP34xx Based System"
@@ -24,6 +26,7 @@ config ARCH_OMAP3430
 	bool "OMAP3430 support"
 	depends on ARCH_OMAP3 && ARCH_OMAP34XX
 	select ARCH_OMAP_OTG
+	select CPU_V7
 
 comment "OMAP Board Type"
 	depends on ARCH_OMAP2 || ARCH_OMAP3
