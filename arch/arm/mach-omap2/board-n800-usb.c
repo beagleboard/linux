@@ -14,9 +14,9 @@
 #include <linux/platform_device.h>
 #include <linux/clk.h>
 #include <linux/err.h>
+#include <linux/gpio.h>
 #include <linux/usb/musb.h>
 #include <mach/gpmc.h>
-#include <mach/gpio.h>
 #include <mach/pm.h>
 
 #define TUSB_ASYNC_CS		1
@@ -150,7 +150,7 @@ void __init n800_usb_init(void)
 	static char	announce[] __initdata = KERN_INFO "TUSB 6010\n";
 
 	/* PM companion chip power control pin */
-	ret = omap_request_gpio(GPIO_TUSB_ENABLE);
+	ret = gpio_request(GPIO_TUSB_ENABLE, "TUSB6010 enable");
 	if (ret != 0) {
 		printk(KERN_ERR "Could not get TUSB power GPIO%i\n",
 		       GPIO_TUSB_ENABLE);
@@ -171,5 +171,5 @@ void __init n800_usb_init(void)
 	return;
 
 err:
-	omap_free_gpio(GPIO_TUSB_ENABLE);
+	gpio_free(GPIO_TUSB_ENABLE);
 }

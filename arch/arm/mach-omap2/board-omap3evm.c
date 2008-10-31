@@ -77,7 +77,7 @@ static inline void __init omap3evm_init_smc911x(void)
 	else
 		rate = clk_get_rate(l3ck);
 
-	if (omap_request_gpio(OMAP3EVM_ETHR_GPIO_IRQ) < 0) {
+	if (gpio_request(OMAP3EVM_ETHR_GPIO_IRQ, "SMC911x irq") < 0) {
 		printk(KERN_ERR "Failed to request GPIO%d for smc911x IRQ\n",
 			OMAP3EVM_ETHR_GPIO_IRQ);
 		return;
@@ -173,7 +173,7 @@ static struct omap_lcd_config omap3_evm_lcd_config __initdata = {
 
 static void ads7846_dev_init(void)
 {
-	if (omap_request_gpio(OMAP3_EVM_TS_GPIO) < 0)
+	if (gpio_request(OMAP3_EVM_TS_GPIO, "ADS7846 pendown") < 0)
 		printk(KERN_ERR "can't get ads7846 pen down GPIO\n");
 
 	gpio_direction_input(OMAP3_EVM_TS_GPIO);

@@ -11,12 +11,12 @@
 
 #include <linux/delay.h>
 #include <linux/platform_device.h>
+#include <linux/gpio.h>
 #include <linux/i2c/menelaus.h>
 
 #include <asm/mach-types.h>
 
 #include <mach/mmc.h>
-#include <mach/gpio.h>
 
 #if defined(CONFIG_MMC_OMAP) || defined(CONFIG_MMC_OMAP_MODULE)
 
@@ -284,11 +284,11 @@ static void n800_mmc_cleanup(struct device *dev)
 {
 	menelaus_unregister_mmc_callback();
 
-	omap_free_gpio(slot_switch_gpio);
+	gpio_free(slot_switch_gpio);
 
 	if (machine_is_nokia_n810()) {
-		omap_free_gpio(n810_slot2_pw_vddf);
-		omap_free_gpio(n810_slot2_pw_vdd);
+		gpio_free(n810_slot2_pw_vddf);
+		gpio_free(n810_slot2_pw_vdd);
 	}
 }
 
@@ -344,16 +344,16 @@ void __init n800_mmc_init(void)
 		mmc1_data.slots[1].ban_openended = 1;
 	}
 
-	if (omap_request_gpio(slot_switch_gpio) < 0)
+	if (gpio_request(slot_switch_gpio, "MMC slot switch") < 0)
 		BUG();
 	gpio_direction_output(slot_switch_gpio, 0);
 
 	if (machine_is_nokia_n810()) {
-		if (omap_request_gpio(n810_slot2_pw_vddf) < 0)
+		if (gpio_request(n810_slot2_pw_vddf, "MMC slot 2 Vddf") < 0)
 			BUG();
 		gpio_direction_output(n810_slot2_pw_vddf, 0);
 
-		if (omap_request_gpio(n810_slot2_pw_vdd) < 0)
+		if (gpio_request(n810_slot2_pw_vdd, "MMC slot 2 Vdd") < 0)
 			BUG();
 		gpio_direction_output(n810_slot2_pw_vdd, 0);
 	}

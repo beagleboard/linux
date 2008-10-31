@@ -127,7 +127,7 @@ void __init nokia_n800_init_irq(void)
 	omap_gpio_init();
 
 #ifdef CONFIG_OMAP_STI
-	if (omap_request_gpio(N800_STI_GPIO) < 0) {
+	if (gpio_request(N800_STI_GPIO, "STI") < 0) {
 		printk(KERN_ERR "Failed to request GPIO %d for STI\n",
 		       N800_STI_GPIO);
 		return;
@@ -254,7 +254,7 @@ static void __init blizzard_dev_init(void)
 {
 	int r;
 
-	r = omap_request_gpio(N800_BLIZZARD_POWERDOWN_GPIO);
+	r = gpio_request(N800_BLIZZARD_POWERDOWN_GPIO, "Blizzard pd");
 	if (r < 0)
 		return;
 	gpio_direction_output(N800_BLIZZARD_POWERDOWN_GPIO, 1);
@@ -331,7 +331,7 @@ static int __init tea5761_dev_init(void)
 		pr_debug("Enabling tea5761 at GPIO %d\n",
 			 enable_gpio);
 
-		if (omap_request_gpio(enable_gpio) < 0) {
+		if (gpio_request(enable_gpio, "TEA5761 enable") < 0) {
 			printk(KERN_ERR "Can't request GPIO %d\n",
 			       enable_gpio);
 			return -ENODEV;

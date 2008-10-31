@@ -166,7 +166,7 @@ out:
  */
 static void ads7846_dev_init(void)
 {
-	if (omap_request_gpio(ts_gpio) < 0) {
+	if (gpio_request(ts_gpio, "ADS7846 pendown") < 0) {
 		printk(KERN_ERR "can't get ads746 pen down GPIO\n");
 		return;
 	}
@@ -274,7 +274,7 @@ static inline void __init sdp3430_init_smc91x(void)
 
 	sdp3430_smc91x_resources[1].start = gpio_to_irq(eth_gpio);
 
-	if (omap_request_gpio(eth_gpio) < 0) {
+	if (gpio_request(eth_gpio, "SMC91x irq") < 0) {
 		printk(KERN_ERR "Failed to request GPIO%d for smc91x IRQ\n",
 			eth_gpio);
 		return;

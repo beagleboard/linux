@@ -25,13 +25,13 @@
 #include <linux/platform_device.h>
 #include <linux/delay.h>
 #include <linux/videodev2.h>
+#include <linux/gpio.h>
 #include <linux/i2c/menelaus.h>
 
 #include <media/v4l2-int-device.h>
 
 #include <asm/mach-types.h>
 
-#include <mach/gpio.h>
 #include <mach/board.h>
 
 #include <../drivers/cbus/retu.h>
@@ -356,7 +356,7 @@ void __init n800_cam_init(void)
 {
 	int r;
 
-	r = omap_request_gpio(N800_CAM_SENSOR_RESET_GPIO);
+	r = gpio_request(N800_CAM_SENSOR_RESET_GPIO, "TCM825x reset");
 	if (r < 0) {
 		printk(KERN_WARNING "%s: failed to request gpio\n",
 			__func__);

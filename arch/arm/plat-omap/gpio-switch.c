@@ -19,8 +19,8 @@
 #include <linux/platform_device.h>
 #include <linux/timer.h>
 #include <linux/err.h>
+#include <linux/gpio.h>
 #include <mach/hardware.h>
-#include <mach/gpio.h>
 #include <mach/irqs.h>
 #include <mach/mux.h>
 #include <mach/board.h>
@@ -278,7 +278,7 @@ static int __init new_switch(struct gpio_switch *sw)
 	}
 	dev_set_drvdata(&sw->pdev.dev, sw);
 
-	r = omap_request_gpio(sw->gpio);
+	r = gpio_request(sw->gpio, sw->name);
 	if (r < 0) {
 		platform_device_unregister(&sw->pdev);
 		return r;
@@ -319,7 +319,7 @@ static int __init new_switch(struct gpio_switch *sw)
 		printk(KERN_ERR "gpio-switch: request_irq() failed "
 		       "for GPIO %d\n", sw->gpio);
 		platform_device_unregister(&sw->pdev);
-		omap_free_gpio(sw->gpio);
+		gpio_free(sw->gpio);
 		return r;
 	}
 
@@ -455,7 +455,7 @@ static void gpio_sw_cleanup(void)
 		device_remove_file(&sw->pdev.dev, &dev_attr_direction);
 
 		platform_device_unregister(&sw->pdev);
-		omap_free_gpio(sw->gpio);
+		gpio_free(sw->gpio);
 		old = sw;
 	}
 	kfree(old);
