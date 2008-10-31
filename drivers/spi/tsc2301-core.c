@@ -22,12 +22,9 @@
 #include <linux/module.h>
 #include <linux/device.h>
 #include <linux/delay.h>
+#include <linux/gpio.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/tsc2301.h>
-
-#ifdef CONFIG_ARCH_OMAP
-#include <mach/gpio.h>
-#endif
 
 u16 tsc2301_read_reg(struct tsc2301 *tsc, int reg)
 {
@@ -157,14 +154,12 @@ static int __devinit tsc2301_probe(struct spi_device *spi)
 
 	if (pdata->reset_gpio >= 0) {
 		tsc->reset_gpio = pdata->reset_gpio;
-#ifdef CONFIG_ARCH_OMAP
-		r = omap_request_gpio(tsc->reset_gpio);
+		r = gpio_request(tsc->reset_gpio, "TSC2301 reset");
 		if (r < 0)
 			goto err1;
 		gpio_direction_output(tsc->reset_gpio, 1);
 		mdelay(1);
 		gpio_set_value(tsc->reset_gpio, 0);
-#endif
 	} else
 		tsc->reset_gpio = -1;
 
@@ -229,8 +224,10 @@ static int __devexit tsc2301_remove(struct spi_device *spi)
 	struct tsc2301 *tsc = dev_get_drvdata(&spi->dev);
 
 	tsc2301_mixer_exit(tsc);
-        tsc2301_ts_exit(tsc);
-        tsc2301_kp_exit(tsc);
+	tsc2301_ts_exit(tsc);
+	tsc2301_kp_exit(tsc);
+	if (tsc->reset_gpio >= 0)
+		gpio_free(tsc->reset_gpio);
 	kfree(tsc);
 
 	return 0;
