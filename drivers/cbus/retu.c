@@ -35,11 +35,11 @@
 #include <linux/irq.h>
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
+#include <linux/gpio.h>
 
 #include <asm/uaccess.h>
 
 #include <mach/mux.h>
-#include <mach/gpio.h>
 #include <mach/board.h>
 #include <mach/board-nokia.h>
 
@@ -336,7 +336,7 @@ static int __devinit retu_probe(struct device *dev)
 
 	retu_irq_pin = em_asic_config->retu_irq_gpio;
 
-	if ((ret = omap_request_gpio(retu_irq_pin)) < 0) {
+	if ((ret = gpio_request(retu_irq_pin, "RETU irq")) < 0) {
 		printk(KERN_ERR PFX "Unable to reserve IRQ GPIO\n");
 		return ret;
 	}
@@ -363,7 +363,7 @@ static int __devinit retu_probe(struct device *dev)
 			  "retu", 0);
 	if (ret < 0) {
 		printk(KERN_ERR PFX "Unable to register IRQ handler\n");
-		omap_free_gpio(retu_irq_pin);
+		gpio_free(retu_irq_pin);
 		return ret;
 	}
 	set_irq_wake(gpio_to_irq(retu_irq_pin), 1);
@@ -376,7 +376,7 @@ static int __devinit retu_probe(struct device *dev)
 	if (retu_user_init() < 0) {
 		printk(KERN_ERR "Unable to initialize driver\n");
 		free_irq(gpio_to_irq(retu_irq_pin), 0);
-		omap_free_gpio(retu_irq_pin);
+		gpio_free(retu_irq_pin);
 		return ret;
 	}
 #endif
@@ -392,7 +392,7 @@ static int retu_remove(struct device *dev)
 	/* Mask all RETU interrupts */
 	retu_write_reg(RETU_REG_IMR, 0xffff);
 	free_irq(gpio_to_irq(retu_irq_pin), 0);
-	omap_free_gpio(retu_irq_pin);
+	gpio_free(retu_irq_pin);
 	tasklet_kill(&retu_tasklet);
 
 	return 0;

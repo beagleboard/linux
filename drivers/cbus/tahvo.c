@@ -35,11 +35,11 @@
 #include <linux/irq.h>
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
+#include <linux/gpio.h>
 
 #include <asm/uaccess.h>
 
 #include <mach/mux.h>
-#include <mach/gpio.h>
 #include <mach/board.h>
 #include <mach/board-nokia.h>
 
@@ -323,7 +323,7 @@ static int __devinit tahvo_probe(struct device *dev)
 
 	tahvo_irq_pin = em_asic_config->tahvo_irq_gpio;
 
-	if ((ret = omap_request_gpio(tahvo_irq_pin)) < 0) {
+	if ((ret = gpio_request(tahvo_irq_pin, "TAHVO irq")) < 0) {
 		printk(KERN_ERR PFX "Unable to reserve IRQ GPIO\n");
 		return ret;
 	}
@@ -341,7 +341,7 @@ static int __devinit tahvo_probe(struct device *dev)
 			  "tahvo", 0);
 	if (ret < 0) {
 		printk(KERN_ERR PFX "Unable to register IRQ handler\n");
-		omap_free_gpio(tahvo_irq_pin);
+		gpio_free(tahvo_irq_pin);
 		return ret;
 	}
 #ifdef CONFIG_CBUS_TAHVO_USER
@@ -349,7 +349,7 @@ static int __devinit tahvo_probe(struct device *dev)
 	if (tahvo_user_init() < 0) {
 		printk(KERN_ERR "Unable to initialize driver\n");
 		free_irq(gpio_to_irq(tahvo_irq_pin), 0);
-		omap_free_gpio(tahvo_irq_pin);
+		gpio_free(tahvo_irq_pin);
 		return ret;
 	}
 #endif
@@ -364,7 +364,7 @@ static int tahvo_remove(struct device *dev)
 	/* Mask all TAHVO interrupts */
 	tahvo_write_reg(TAHVO_REG_IMR, 0xffff);
 	free_irq(gpio_to_irq(tahvo_irq_pin), 0);
-	omap_free_gpio(tahvo_irq_pin);
+	gpio_free(tahvo_irq_pin);
 	tasklet_kill(&tahvo_tasklet);
 
 	return 0;

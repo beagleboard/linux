@@ -28,8 +28,8 @@
 #include <linux/kernel.h>
 #include <linux/delay.h>
 #include <linux/spinlock.h>
+#include <linux/gpio.h>
 
-#include <mach/gpio.h>
 #include <mach/board.h>
 #include <mach/board-nokia.h>
 
@@ -254,13 +254,13 @@ int __init cbus_bus_init(void)
 	}
 #endif
 
-	if ((ret = omap_request_gpio(chost->clk_gpio)) < 0)
+	if ((ret = gpio_request(chost->clk_gpio, "CBUS clk")) < 0)
 		goto exit1;
 
-	if ((ret = omap_request_gpio(chost->dat_gpio)) < 0)
+	if ((ret = gpio_request(chost->dat_gpio, "CBUS data")) < 0)
 		goto exit2;
 
-	if ((ret = omap_request_gpio(chost->sel_gpio)) < 0)
+	if ((ret = gpio_request(chost->sel_gpio, "CBUS sel")) < 0)
 		goto exit3;
 
 	gpio_direction_output(chost->clk_gpio, 0);
@@ -274,9 +274,9 @@ int __init cbus_bus_init(void)
 
 	return 0;
 exit3:
-	omap_free_gpio(chost->dat_gpio);
+	gpio_free(chost->dat_gpio);
 exit2:
-	omap_free_gpio(chost->clk_gpio);
+	gpio_free(chost->clk_gpio);
 exit1:
 	kfree(chost);
 	return ret;
