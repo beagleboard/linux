@@ -14,8 +14,8 @@
 #include <linux/init.h>
 #include <linux/platform_device.h>
 #include <linux/leds.h>
+#include <linux/gpio.h>
 
-#include <mach/gpio.h>
 #include <mach/hardware.h>
 #include <mach/led.h>
 
@@ -30,15 +30,6 @@ static void omap_set_led_gpio(struct led_classdev *led_cdev,
 	gpio_set_value(led_dev->gpio, value);
 }
 
-static void omap_configure_led_gpio(int gpio)
-{
-	if (omap_request_gpio(gpio) < 0) {
-		printk(KERN_ERR "Failed to request GPIO%d for LEDs\n", gpio);
-		return;
-	}
-	gpio_direction_output(gpio, 0);
-}
-
 static int omap_led_probe(struct platform_device *dev)
 {
 	struct omap_led_platform_data *pdata = dev->dev.platform_data;
@@ -46,7 +37,10 @@ static int omap_led_probe(struct platform_device *dev)
 	int i, ret = 0;
 
 	for (i = 0; ret >= 0 && i < pdata->nr_leds; i++) {
-		omap_configure_led_gpio(leds[i].gpio);
+		ret = gpio_request(leds[i].gpio, leds[i].cdev.name);
+		if (ret < 0)
+			break;
+		gpio_direction_output(leds[i].gpio, 0);
 		if (!leds[i].cdev.brightness_set)
 			leds[i].cdev.brightness_set = omap_set_led_gpio;
 
@@ -54,8 +48,10 @@ static int omap_led_probe(struct platform_device *dev)
 	}
 
 	if (ret < 0 && i > 1) {
-		for (i = i - 2; i >= 0; i--)
+		for (i = i - 2; i >= 0; i--) {
 			led_classdev_unregister(&leds[i].cdev);
+			gpio_free(leds[i].gpio);
+		}
 	}
 
 	return ret;
@@ -67,8 +63,10 @@ static int omap_led_remove(struct platform_device *dev)
 	struct omap_led_config *leds = pdata->leds;
 	int i;
 
-	for (i = 0; i < pdata->nr_leds; i++)
+	for (i = 0; i < pdata->nr_leds; i++) {
 		led_classdev_unregister(&leds[i].cdev);
+		gpio_free(leds[i].gpio);
+	}
 
 	return 0;
 }
