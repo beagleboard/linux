@@ -109,7 +109,7 @@ static irqreturn_t prcm_interrupt_handler (int irq, void *dev_id)
 		cm_write_mod_reg(fclk, OMAP3430_PER_MOD, CM_FCLKEN);
 	}
 
-	if (system_rev > OMAP3430_REV_ES1_0) {
+	if (omap_rev() > OMAP3430_REV_ES1_0) {
 		/* USBHOST */
 		wkst = prm_read_mod_reg(OMAP3430ES2_USBHOST_MOD, PM_WKST);
 		if (wkst) {
@@ -194,7 +194,7 @@ static int omap3_fclks_active(void)
 
 	fck_core1 = cm_read_mod_reg(CORE_MOD,
 				    CM_FCLKEN1);
-	if (system_rev > OMAP3430_REV_ES1_0) {
+	if (omap_rev() > OMAP3430_REV_ES1_0) {
 		fck_core3 = cm_read_mod_reg(CORE_MOD,
 					    OMAP3430ES2_CM_FCLKEN3);
 		fck_sgx = cm_read_mod_reg(OMAP3430ES2_SGX_MOD,
@@ -368,7 +368,7 @@ static void __init prcm_setup_regs(void)
 	prm_write_mod_reg(0, OMAP3430_NEON_MOD, PM_WKDEP);
 	prm_write_mod_reg(0, OMAP3430_CAM_MOD, PM_WKDEP);
 	prm_write_mod_reg(0, OMAP3430_PER_MOD, PM_WKDEP);
-	if (system_rev > OMAP3430_REV_ES1_0) {
+	if (omap_rev() > OMAP3430_REV_ES1_0) {
 		prm_write_mod_reg(0, OMAP3430ES2_SGX_MOD, PM_WKDEP);
 		prm_write_mod_reg(0, OMAP3430ES2_USBHOST_MOD, PM_WKDEP);
 	} else
@@ -418,7 +418,7 @@ static void __init prcm_setup_regs(void)
 		OMAP3430_AUTO_DES1,
 		CORE_MOD, CM_AUTOIDLE2);
 
-	if (system_rev > OMAP3430_REV_ES1_0) {
+	if (omap_rev() > OMAP3430_REV_ES1_0) {
 		cm_write_mod_reg(
 			OMAP3430ES2_AUTO_USBTLL,
 			CORE_MOD, CM_AUTOIDLE3);
@@ -465,7 +465,7 @@ static void __init prcm_setup_regs(void)
 		OMAP3430_PER_MOD,
 		CM_AUTOIDLE);
 
-	if (system_rev > OMAP3430_REV_ES1_0) {
+	if (omap_rev() > OMAP3430_REV_ES1_0) {
 		cm_write_mod_reg(
 			OMAP3430ES2_AUTO_USBHOST,
 			OMAP3430ES2_USBHOST_MOD,

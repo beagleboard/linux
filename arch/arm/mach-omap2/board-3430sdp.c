@@ -129,7 +129,7 @@ static int __init msecure_init(void)
 #ifdef CONFIG_RTC_DRV_TWL4030
 	/* 3430ES2.0 doesn't have msecure/gpio-22 line connected to T2 */
 	if (omap_type() == OMAP2_DEVICE_TYPE_GP &&
-			system_rev < OMAP3430_REV_ES2_0) {
+			omap_rev() < OMAP3430_REV_ES2_0) {
 		void __iomem *msecure_pad_config_reg = omap_ctrl_base_get() +
 			0xA3C;
 		int mux_mask = 0x04;
@@ -266,7 +266,7 @@ static inline void __init sdp3430_init_smc91x(void)
 	sdp3430_smc91x_resources[0].end   = cs_mem_base + 0xf;
 	udelay(100);
 
-	if (system_rev > OMAP3430_REV_ES1_0)
+	if (omap_rev() > OMAP3430_REV_ES1_0)
 		eth_gpio = OMAP34XX_ETHR_GPIO_IRQ_SDPV2;
 	else
 		eth_gpio = OMAP34XX_ETHR_GPIO_IRQ_SDPV1;
@@ -452,7 +452,7 @@ static void __init omap_3430sdp_init(void)
 	platform_add_devices(sdp3430_devices, ARRAY_SIZE(sdp3430_devices));
 	omap_board_config = sdp3430_config;
 	omap_board_config_size = ARRAY_SIZE(sdp3430_config);
-	if (system_rev > OMAP3430_REV_ES1_0)
+	if (omap_rev() > OMAP3430_REV_ES1_0)
 		ts_gpio = OMAP34XX_TS_GPIO_IRQ_SDPV2;
 	else
 		ts_gpio = OMAP34XX_TS_GPIO_IRQ_SDPV1;

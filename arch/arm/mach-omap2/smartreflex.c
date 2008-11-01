@@ -766,7 +766,7 @@ static int __init omap3_sr_init(void)
 	int ret = 0;
 	u8 RdReg;
 
-	if (system_rev > OMAP3430_REV_ES1_0) {
+	if (omap_rev() > OMAP3430_REV_ES1_0) {
 		current_vdd1_opp = PRCM_VDD1_OPP3;
 		current_vdd2_opp = PRCM_VDD2_OPP3;
 	} else {

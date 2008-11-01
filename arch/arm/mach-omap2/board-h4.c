@@ -495,7 +495,7 @@ static void __init tusb_evm_setup(void)
 	omap_cfg_reg(L2_GPMC_NCS7);
 	omap_cfg_reg(M1_GPMC_WAIT2);
 
-	switch ((system_rev >> 8) & 0x0f) {
+	switch ((omap_rev() >> 8) & 0x0f) {
 	case 0:		/* ES 1.0 */
 	case 1:		/* ES 2.0 */
 		/* Assume early board revision without optional ES2.0
