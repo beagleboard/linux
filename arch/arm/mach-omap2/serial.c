@@ -49,6 +49,18 @@ struct omap_uart_state {
 
 	struct plat_serial8250_port *p;
 	struct list_head node;
+
+#if defined(CONFIG_ARCH_OMAP3) && defined(CONFIG_PM)
+	int context_valid;
+
+	/* Registers to be saved/restored for OFF-mode */
+	u16 dll;
+	u16 dlh;
+	u16 ier;
+	u16 sysc;
+	u16 scr;
+	u16 wer;
+#endif
 };
 
 static struct omap_uart_state omap_uart[OMAP_MAX_NR_PORTS];
@@ -114,6 +126,69 @@ static inline void __init omap_uart_reset(struct omap_uart_state *uart)
 }
 
 #ifdef CONFIG_PM
+#ifdef CONFIG_ARCH_OMAP3
+
+static int enable_off_mode; /* to be removed by full off-mode patches */
+
+static void omap_uart_save_context(struct omap_uart_state *uart)
+{
+	u16 lcr = 0;
+	struct plat_serial8250_port *p = uart->p;
+
+	if (!enable_off_mode)
+		return;
+
+	lcr = serial_read_reg(p, UART_LCR);
+	serial_write_reg(p, UART_LCR, 0xBF);
+	uart->dll = serial_read_reg(p, UART_DLL);
+	uart->dlh = serial_read_reg(p, UART_DLM);
+	serial_write_reg(p, UART_LCR, lcr);
+	uart->ier = serial_read_reg(p, UART_IER);
+	uart->sysc = serial_read_reg(p, UART_OMAP_SYSC);
+	uart->scr = serial_read_reg(p, UART_OMAP_SCR);
+	uart->wer = serial_read_reg(p, UART_OMAP_WER);
+
+	uart->context_valid = 1;
+}
+
+static void omap_uart_restore_context(struct omap_uart_state *uart)
+{
+	u16 efr = 0;
+	struct plat_serial8250_port *p = uart->p;
+
+	if (!enable_off_mode)
+		return;
+
+	if (!uart->context_valid)
+		return;
+
+	uart->context_valid = 0;
+
+	serial_write_reg(p, UART_OMAP_MDR1, 0x7);
+	serial_write_reg(p, UART_LCR, 0xBF); /* Config B mode */
+	efr = serial_read_reg(p, UART_EFR);
+	serial_write_reg(p, UART_EFR, UART_EFR_ECB);
+	serial_write_reg(p, UART_LCR, 0x0); /* Operational mode */
+	serial_write_reg(p, UART_IER, 0x0);
+	serial_write_reg(p, UART_LCR, 0xBF); /* Config B mode */
+	serial_write_reg(p, UART_DLL, uart->dll);
+	serial_write_reg(p, UART_DLM, uart->dlh);
+	serial_write_reg(p, UART_LCR, 0x0); /* Operational mode */
+	serial_write_reg(p, UART_IER, uart->ier);
+	serial_write_reg(p, UART_FCR, 0xA1);
+	serial_write_reg(p, UART_LCR, 0xBF); /* Config B mode */
+	serial_write_reg(p, UART_EFR, efr);
+	serial_write_reg(p, UART_LCR, UART_LCR_WLEN8);
+	serial_write_reg(p, UART_OMAP_SCR, uart->scr);
+	serial_write_reg(p, UART_OMAP_WER, uart->wer);
+	serial_write_reg(p, UART_OMAP_SYSC, uart->sysc);
+	serial_write_reg(p, UART_OMAP_MDR1, 0x00); /* UART 16x mode */
+}
+#else
+static inline void omap_uart_save_context(struct omap_uart_state *uart) {}
+static inline void omap_uart_restore_context(struct omap_uart_state *uart) {}
+#endif /* CONFIG_ARCH_OMAP3 */
+
 static void omap_uart_smart_idle_enable(struct omap_uart_state *uart,
 					  int enable)
 {
@@ -137,6 +212,7 @@ static inline void omap_uart_enable_clocks(struct omap_uart_state *uart)
 	clk_enable(uart->ick);
 	clk_enable(uart->fck);
 	uart->clocked = 1;
+	omap_uart_restore_context(uart);
 }
 
 static inline void omap_uart_disable_clocks(struct omap_uart_state *uart)
@@ -144,6 +220,7 @@ static inline void omap_uart_disable_clocks(struct omap_uart_state *uart)
 	if (!uart->clocked)
 		return;
 
+	omap_uart_save_context(uart);
 	uart->clocked = 0;
 	clk_disable(uart->ick);
 	clk_disable(uart->fck);
