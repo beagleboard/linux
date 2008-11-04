@@ -236,10 +236,6 @@ static struct mem_type mem_types[] = {
 		.prot_sect = PMD_TYPE_SECT,
 		.domain    = DOMAIN_KERNEL,
 	},
-	[MT_MEMORY_SO] = {
-		.prot_sect = PMD_TYPE_SECT | PMD_SECT_AP_WRITE | PMD_SECT_UNCACHED,
-		.domain    = DOMAIN_KERNEL,
-	},
 };
 
 const struct mem_type *get_mem_type(unsigned int type)
@@ -284,7 +280,7 @@ static void __init build_mem_type_table(void)
 	if (cpu_arch < CPU_ARCH_ARMv5)
 		for (i = 0; i < ARRAY_SIZE(mem_types); i++)
 			mem_types[i].prot_sect &= ~PMD_SECT_TEX(7);
-	if (cpu_arch < CPU_ARCH_ARMv6 || !(cr & CR_XP))
+	if ((cpu_arch < CPU_ARCH_ARMv6 || !(cr & CR_XP)) && !cpu_is_xsc3())
 		for (i = 0; i < ARRAY_SIZE(mem_types); i++)
 			mem_types[i].prot_sect &= ~PMD_SECT_S;
 
@@ -332,14 +328,24 @@ static void __init build_mem_type_table(void)
 			mem_types[MT_DEVICE].prot_sect |= PMD_SECT_TEX(1);
 			mem_types[MT_DEVICE_NONSHARED].prot_sect |= PMD_SECT_TEX(1);
 			mem_types[MT_DEVICE_WC].prot_sect |= PMD_SECT_BUFFERABLE;
+		} else if (cpu_is_xsc3()) {
+			/*
+			 * For Xscale3,
+			 * - shared device is TEXCB=00101
+			 * - nonshared device is TEXCB=01000
+			 * - write combine device mem is TEXCB=00100
+			 * (Inner/Outer Uncacheable in xsc3 parlance)
+			 */
+			mem_types[MT_DEVICE].prot_sect |= PMD_SECT_TEX(1) | PMD_SECT_BUFFERED;
+			mem_types[MT_DEVICE_NONSHARED].prot_sect |= PMD_SECT_TEX(2);
+			mem_types[MT_DEVICE_WC].prot_sect |= PMD_SECT_TEX(1);
 		} else {
 			/*
-			 * For Xscale3, ARMv6 and ARMv7 without TEX remapping,
+			 * For ARMv6 and ARMv7 without TEX remapping,
 			 * - shared device is TEXCB=00001
 			 * - nonshared device is TEXCB=01000
 			 * - write combine device mem is TEXCB=00100
-			 * (Inner/Outer Uncacheable in xsc3 parlance, Uncached
-			 * Normal in ARMv6 parlance).
+			 * (Uncached Normal in ARMv6 parlance).
 			 */
 			mem_types[MT_DEVICE].prot_sect |= PMD_SECT_BUFFERED;
 			mem_types[MT_DEVICE_NONSHARED].prot_sect |= PMD_SECT_TEX(2);
@@ -428,22 +434,6 @@ static void __init build_mem_type_table(void)
 
 	for (i = 0; i < ARRAY_SIZE(mem_types); i++) {
 		struct mem_type *t = &mem_types[i];
-		const char *s;
-#define T(n)	if (i == (n)) s = #n;
-		s = "???";
-		T(MT_DEVICE);
-		T(MT_DEVICE_NONSHARED);
-		T(MT_DEVICE_CACHED);
-		T(MT_DEVICE_WC);
-		T(MT_CACHECLEAN);
-		T(MT_MINICLEAN);
-		T(MT_LOW_VECTORS);
-		T(MT_HIGH_VECTORS);
-		T(MT_MEMORY);
-		T(MT_ROM);
-		printk(KERN_INFO "%-19s: DOM=%#3x S=%#010x L1=%#010x P=%#010x\n",
-			s, t->domain, t->prot_sect, t->prot_l1, t->prot_pte);
-
 		if (t->prot_l1)
 			t->prot_l1 |= PMD_DOMAIN(t->domain);
 		if (t->prot_sect)
@@ -711,7 +701,7 @@ static inline void prepare_page_table(struct meminfo *mi)
 	/*
 	 * Clear out all the mappings below the kernel image.
 	 */
-	for (addr = 0; addr < MODULE_START; addr += PGDIR_SIZE)
+	for (addr = 0; addr < MODULES_VADDR; addr += PGDIR_SIZE)
 		pmd_clear(pmd_off_k(addr));
 
 #ifdef CONFIG_XIP_KERNEL
@@ -823,7 +813,7 @@ static void __init devicemaps_init(struct machine_desc *mdesc)
 	 */
 #ifdef CONFIG_XIP_KERNEL
 	map.pfn = __phys_to_pfn(CONFIG_XIP_PHYS_ADDR & SECTION_MASK);
-	map.virtual = MODULE_START;
+	map.virtual = MODULES_VADDR;
 	map.length = ((unsigned long)&_etext - map.virtual + ~SECTION_MASK) & SECTION_MASK;
 	map.type = MT_ROM;
 	create_mapping(&map);

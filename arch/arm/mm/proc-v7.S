@@ -115,7 +115,7 @@ ENTRY(cpu_v7_set_pte_ext)
 	orr	r3, r3, r2
 	orr	r3, r3, #PTE_EXT_AP0 | 2
 
-	tst	r2, #1 << 4
+	tst	r1, #1 << 4
 	orrne	r3, r3, #PTE_EXT_TEX(1)
 
 	tst	r1, #L_PTE_WRITE
