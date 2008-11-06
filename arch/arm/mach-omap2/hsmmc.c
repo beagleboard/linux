@@ -1,5 +1,5 @@
 /*
- * linux/arch/arm/mach-omap2/board-sdp-hsmmc.c
+ * linux/arch/arm/mach-omap2/hsmmc.c
  *
  * Copyright (C) 2007-2008 Texas Instruments
  * Copyright (C) 2008 Nokia Corporation
@@ -101,6 +101,7 @@ static int hsmmc1_late_init(struct device *dev)
 
 err:
 	dev_err(dev, "Failed to configure TWL4030 GPIO IRQ\n");
+
 	return ret;
 }
 
@@ -232,7 +233,7 @@ static int hsmmc_twl_set_voltage(struct hsmmc_controller *c, int vdd)
 		return ret;
 
 	ret = twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
-						vmmc, c->twl_mmc_dedicated);
+					vmmc, c->twl_mmc_dedicated);
 
 	return ret;
 }
@@ -331,8 +332,8 @@ static struct omap_mmc_platform_data mmc1_data = {
 						MMC_VDD_165_195,
 		.name			= "first slot",
 
-		.card_detect_irq        = TWL4030_GPIO_IRQ_NO(0),
-		.card_detect            = hsmmc1_card_detect,
+		.card_detect_irq	= TWL4030_GPIO_IRQ_NO(0),
+		.card_detect		= hsmmc1_card_detect,
 	},
 };
 
@@ -366,13 +367,6 @@ void __init hsmmc_init(int controller_mask)
 	if (controller_mask & HSMMC3)
 		pr_err("HSMMC: Unknown configuration for controller 3\n");
 	omap2_init_mmc(hsmmc_data, OMAP34XX_NR_MMC);
-}
-
-#else
-
-void __init hsmmc_init(void)
-{
-
 }
 
 #endif

@@ -111,6 +111,7 @@ void omap1_init_mmc(struct omap_mmc_platform_data **mmc_data,
 				int nr_controllers);
 void omap2_init_mmc(struct omap_mmc_platform_data **mmc_data,
 				int nr_controllers);
+void hsmmc_init(int controller_mask);
 int omap_mmc_add(int id, unsigned long base, unsigned long size,
 			unsigned int irq, struct omap_mmc_platform_data *data);
 #else
@@ -122,19 +123,14 @@ static inline void omap2_init_mmc(struct omap_mmc_platform_data **mmc_data,
 				int nr_controllers)
 {
 }
+static inline void hsmmc_init(int controller_mask)
+{
+}
 static inline int omap_mmc_add(int id, unsigned long base, unsigned long size,
 		unsigned int irq, struct omap_mmc_platform_data *data)
 {
 	return 0;
 }
-#endif
 
-#if defined(CONFIG_MMC_OMAP_HS) || defined(CONFIG_MMC_OMAP_HS_MODULE)
-void __init hsmmc_init(int controller_mask);
-#else
-static inline void hsmmc_init(void)
-{
-}
 #endif
-
 #endif
