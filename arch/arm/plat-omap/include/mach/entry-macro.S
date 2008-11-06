@@ -1,5 +1,5 @@
 /*
- * include/asm-arm/arch-omap/entry-macro.S
+ * arch/arm/plat-omap/include/mach/entry-macro.S
  *
  * Low-level IRQ helper macros for OMAP-based platforms
  *

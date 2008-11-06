@@ -1,5 +1,5 @@
 /*
- * include/asm-arm/arch-omap/omap34xx.h
+ * arch/arm/plat-omap/include/mach/omap34xx.h
  *
  * This file contains the processor specific definitions of the TI OMAP34XX.
  *

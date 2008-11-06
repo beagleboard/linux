@@ -23,6 +23,7 @@
 #include <linux/i2c/twl4030.h>
 #include <linux/err.h>
 #include <linux/clk.h>
+#include <linux/io.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/ads7846.h>
 
@@ -42,7 +43,6 @@
 #include <mach/gpmc.h>
 #include <mach/mcspi.h>
 
-#include <asm/io.h>
 
 #include "mmc-twl4030.h"
 

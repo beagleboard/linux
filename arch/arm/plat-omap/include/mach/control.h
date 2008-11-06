@@ -1,5 +1,5 @@
 /*
- * include/asm-arm/arch-omap/control.h
+ * arch/arm/plat-omap/include/mach/control.h
  *
  * OMAP2/3 System Control Module definitions
  *

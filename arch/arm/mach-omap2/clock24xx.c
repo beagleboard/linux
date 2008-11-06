@@ -24,9 +24,9 @@
 #include <linux/errno.h>
 #include <linux/delay.h>
 #include <linux/clk.h>
-#include <linux/bitops.h>
 #include <linux/io.h>
 #include <linux/cpufreq.h>
+#include <linux/bitops.h>
 
 #include <mach/common.h>
 #include <mach/clock.h>

@@ -1,5 +1,5 @@
 /*
- * Copied from linux/include/asm-arm/arch-sa1100/system.h
+ * Copied from arch/arm/mach-sa1100/include/mach/system.h
  * Copyright (c) 1999 Nicolas Pitre <nico@cam.org>
  */
 #ifndef __ASM_ARCH_SYSTEM_H

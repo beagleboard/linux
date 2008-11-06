@@ -1,5 +1,5 @@
 /*
- * File: include/asm-arm/arch-omap/omapfb.h
+ * File: arch/arm/plat-omap/include/mach/omapfb.h
  *
  * Framebuffer driver for TI OMAP boards
  *

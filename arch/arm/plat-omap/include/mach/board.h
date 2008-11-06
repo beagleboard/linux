@@ -102,7 +102,7 @@ struct omap_pwm_led_platform_data {
 	void (*set_power)(struct omap_pwm_led_platform_data *self, int on_off);
 };
 
-/* See include/asm-arm/arch-omap/gpio-switch.h for definitions */
+/* See arch/arm/plat-omap/include/mach/gpio-switch.h for definitions */
 struct omap_gpio_switch_config {
 	char name[12];
 	u16 gpio;

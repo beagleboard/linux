@@ -17,8 +17,8 @@
 #include <linux/clk.h>
 #include <linux/ioport.h>
 #include <linux/spinlock.h>
-#include <linux/module.h>
 #include <linux/io.h>
+#include <linux/module.h>
 
 #include <asm/mach-types.h>
 #include <mach/gpmc.h>

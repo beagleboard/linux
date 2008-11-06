@@ -17,7 +17,6 @@
 #include <linux/serial_8250.h>
 #include <linux/serial_reg.h>
 #include <linux/clk.h>
-
 #include <linux/io.h>
 
 #include <mach/common.h>
