@@ -41,6 +41,9 @@
 #include <asm/delay.h>
 #include <mach/control.h>
 
+#include "mmc-twl4030.h"
+
+
 #define CONFIG_DISABLE_HFCLK 1
 
 #define ENABLE_VAUX1_DEDICATED	0x03

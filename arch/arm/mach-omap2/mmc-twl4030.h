@@ -6,20 +6,20 @@
  * published by the Free Software Foundation.
  */
 
-#if	defined(CONFIG_MMC_OMAP) || defined(CONFIG_MMC_OMAP_MODULE) || \
-	defined(CONFIG_MMC_OMAP_HS) || defined(CONFIG_MMC_OMAP_HS_MODULE)
-
 struct twl4030_hsmmc_info {
 	u8	mmc;		/* controller 1/2/3 */
 	u8	wires;		/* 1/4/8 wires */
 	int	gpio_cd;	/* or -EINVAL */
 };
 
+#if	defined(CONFIG_MMC_OMAP) || defined(CONFIG_MMC_OMAP_MODULE) || \
+	defined(CONFIG_MMC_OMAP_HS) || defined(CONFIG_MMC_OMAP_HS_MODULE)
+
 void hsmmc_init(struct twl4030_hsmmc_info *);
 
 #else
 
-static inline void hsmmc_init(struct twl4030_hsmmc_info *)
+static inline void hsmmc_init(struct twl4030_hsmmc_info *info)
 {
 }
 

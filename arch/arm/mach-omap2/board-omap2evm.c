@@ -41,6 +41,9 @@
 #include <mach/mcspi.h>
 #include <mach/mux.h>
 
+#include "mmc-twl4030.h"
+
+
 #define GPMC_OFF_CONFIG1_0 0x60
 
 static struct mtd_partition omap2evm_nand_partitions[] = {

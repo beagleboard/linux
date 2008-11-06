@@ -40,6 +40,8 @@
 
 #include "sdram-micron-mt46h32m32lf-6.h"
 #include "twl4030-generic-scripts.h"
+#include "mmc-twl4030.h"
+
 
 static struct resource omap3evm_smc911x_resources[] = {
 	[0] =	{

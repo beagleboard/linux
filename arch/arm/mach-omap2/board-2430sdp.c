@@ -44,6 +44,9 @@
 
 #include <asm/io.h>
 
+#include "mmc-twl4030.h"
+
+
 #define	SDP2430_FLASH_CS	0
 #define	SDP2430_SMC91X_CS	5
 

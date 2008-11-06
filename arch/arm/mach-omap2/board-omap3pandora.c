@@ -47,6 +47,8 @@
 #include <mach/usb-musb.h>
 
 #include "sdram-micron-mt46h32m32lf-6.h"
+#include "mmc-twl4030.h"
+
 
 #define NAND_BLOCK_SIZE SZ_128K
 #define GPMC_CS0_BASE  0x60
