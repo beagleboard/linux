@@ -34,7 +34,7 @@
 #include <mach/board.h>
 #include <mach/common.h>
 #include <mach/gpmc.h>
-#include <mach/hsmmc.h>
+#include <mach/mmc.h>
 #include <mach/usb-musb.h>
 
 #include <asm/io.h>
@@ -352,7 +352,7 @@ static void __init omap_ldp_init(void)
 	ads7846_dev_init();
 	omap_serial_init();
 	usb_musb_init();
-	hsmmc_init();
+	hsmmc_init(HSMMC1);
 }
 
 static void __init omap_ldp_map_io(void)

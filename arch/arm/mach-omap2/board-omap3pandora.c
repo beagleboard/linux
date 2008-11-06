@@ -41,7 +41,7 @@
 #include <mach/gpio.h>
 #include <mach/gpmc.h>
 #include <mach/hardware.h>
-#include <mach/hsmmc.h>
+#include <mach/mmc.h>
 #include <mach/nand.h>
 #include <mach/usb-ehci.h>
 #include <mach/usb-musb.h>
@@ -208,7 +208,7 @@ static void __init omap3pandora_init(void)
 	omap_board_config = omap3pandora_config;
 	omap_board_config_size = ARRAY_SIZE(omap3pandora_config);
 	omap_serial_init();
-	hsmmc_init();
+	hsmmc_init(HSMMC1);
 	usb_musb_init();
 	usb_ehci_init();
 	omap3pandora_flash_init();

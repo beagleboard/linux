@@ -30,6 +30,9 @@
 #define OMAP2_MMC1_BASE		0x4809c000
 #define OMAP2_MMC2_BASE		0x480b4000
 #define OMAP3_MMC3_BASE		0x480ad000
+#define HSMMC3			(1 << 2)
+#define HSMMC2			(1 << 1)
+#define HSMMC1			(1 << 0)
 
 #define OMAP_MMC_MAX_SLOTS	2
 
@@ -127,7 +130,11 @@ static inline int omap_mmc_add(int id, unsigned long base, unsigned long size,
 #endif
 
 #if defined(CONFIG_MMC_OMAP_HS) || defined(CONFIG_MMC_OMAP_HS_MODULE)
-void __init hsmmc_init(void);
+void __init hsmmc_init(int controller_mask);
+#else
+static inline void hsmmc_init(void)
+{
+}
 #endif
 
 #endif

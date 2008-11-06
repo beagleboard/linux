@@ -37,7 +37,7 @@
 #include <mach/board.h>
 #include <mach/usb-musb.h>
 #include <mach/usb-ehci.h>
-#include <mach/hsmmc.h>
+#include <mach/mmc.h>
 #include <mach/common.h>
 #include <mach/gpmc.h>
 #include <mach/nand.h>
@@ -309,7 +309,7 @@ static void __init omap3_beagle_init(void)
 	omap_cfg_reg(AH8_34XX_GPIO29);
 	gpio_request(29, "mmc0_wp");
 	gpio_direction_input(29);
-	hsmmc_init();
+	hsmmc_init(HSMMC1);
 
 	omap_cfg_reg(J25_34XX_GPIO170);
 	gpio_request(170, "DVI_nPD");

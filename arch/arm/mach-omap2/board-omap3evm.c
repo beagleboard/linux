@@ -32,7 +32,7 @@
 #include <mach/gpio.h>
 #include <mach/keypad.h>
 #include <mach/board.h>
-#include <mach/hsmmc.h>
+#include <mach/mmc.h>
 #include <mach/usb-musb.h>
 #include <mach/usb-ehci.h>
 #include <mach/common.h>
@@ -245,7 +245,7 @@ static void __init omap3_evm_init(void)
 				ARRAY_SIZE(omap3evm_spi_board_info));
 
 	omap_serial_init();
-	hsmmc_init();
+	hsmmc_init(HSMMC1);
 	usb_musb_init();
 	usb_ehci_init();
 	omap3evm_flash_init();

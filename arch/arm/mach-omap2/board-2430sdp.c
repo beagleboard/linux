@@ -36,7 +36,7 @@
 #include <mach/mux.h>
 #include <mach/board.h>
 #include <mach/usb-musb.h>
-#include <mach/hsmmc.h>
+#include <mach/mmc.h>
 #include <mach/common.h>
 #include <mach/keypad.h>
 #include <mach/gpmc.h>
@@ -404,7 +404,7 @@ static void __init omap_2430sdp_init(void)
 	spi_register_board_info(sdp2430_spi_board_info,
 				ARRAY_SIZE(sdp2430_spi_board_info));
 	ads7846_dev_init();
-	hsmmc_init();
+	hsmmc_init(HSMMC1);
 
 	/* turn off secondary LCD backlight */
 	omap_set_gpio_direction(SECONDARY_LCD_GPIO, 0);

@@ -34,7 +34,7 @@
 #include <mach/gpio.h>
 #include <mach/board.h>
 #include <mach/common.h>
-#include <mach/hsmmc.h>
+#include <mach/mmc.h>
 #include <mach/keypad.h>
 #include <mach/gpmc.h>
 #include <mach/nand.h>
@@ -347,7 +347,7 @@ static void __init omap2_evm_init(void)
 	spi_register_board_info(omap2evm_spi_board_info,
 				ARRAY_SIZE(omap2evm_spi_board_info));
 	omap_serial_init();
-	hsmmc_init();
+	hsmmc_init(HSMMC1);
 	omap2evm_flash_init();
 	ads7846_dev_init();
 }
