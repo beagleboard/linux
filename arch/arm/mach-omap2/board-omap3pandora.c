@@ -270,7 +270,8 @@ static struct twl4030_hsmmc_info mmc[] __initdata = {
 static void __init omap3pandora_init(void)
 {
 	omap3pandora_i2c_init();
-	platform_add_devices(omap3pandora_devices, ARRAY_SIZE(omap3pandora_devices));
+	platform_add_devices(omap3pandora_devices,
+			ARRAY_SIZE(omap3pandora_devices));
 	omap_board_config = omap3pandora_config;
 	omap_board_config_size = ARRAY_SIZE(omap3pandora_config);
 	omap_serial_init();
