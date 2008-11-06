@@ -529,10 +529,13 @@ static int omap_mmc_switch_opcond(struct mmc_omap_host *host, int vdd)
 	 * Only MMC1 supports 3.0V.  MMC2 will not function if SDVS30 is
 	 * set in HCTL.
 	 */
-	if (host->id == OMAP_MMC1_DEVID && (((1 << vdd) == MMC_VDD_32_33) ||
-				((1 << vdd) == MMC_VDD_33_34)))
-		reg_val |= SDVS30;
-	if ((1 << vdd) == MMC_VDD_165_195)
+	if (host->id == OMAP_MMC1_DEVID) {
+		if (((1 << vdd) == MMC_VDD_32_33) ||
+		    ((1 << vdd) == MMC_VDD_33_34))
+			reg_val |= SDVS30;
+		else if ((1 << vdd) == MMC_VDD_165_195)
+			reg_val |= SDVS18;
+	} else
 		reg_val |= SDVS18;
 
 	OMAP_HSMMC_WRITE(host->base, HCTL, reg_val);
