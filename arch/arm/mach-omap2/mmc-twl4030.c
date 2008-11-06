@@ -54,7 +54,7 @@
 
 static u16 control_pbias_offset;
 
-static struct hsmmc_controller {
+static struct twl_mmc_controller {
 	u16		control_devconf_offset;
 	u32		devconf_loopback_clock;
 	int		card_detect_gpio;
@@ -76,7 +76,7 @@ static struct hsmmc_controller {
 	},
  };
 
-static int hsmmc1_card_detect(int irq)
+static int twl_mmc1_card_detect(int irq)
 {
 	return gpio_get_value_cansleep(hsmmc[0].card_detect_gpio);
 }
@@ -84,7 +84,7 @@ static int hsmmc1_card_detect(int irq)
 /*
  * MMC Slot Initialization.
  */
-static int hsmmc1_late_init(struct device *dev)
+static int twl_mmc1_late_init(struct device *dev)
 {
 	int ret = 0;
 
@@ -107,7 +107,7 @@ err:
 	return ret;
 }
 
-static void hsmmc1_cleanup(struct device *dev)
+static void twl_mmc1_cleanup(struct device *dev)
 {
 	gpio_free(hsmmc[0].card_detect_gpio);
 }
@@ -119,7 +119,7 @@ static void hsmmc1_cleanup(struct device *dev)
  * mask : 1
  * unmask : 0
  */
-static int mask_cd_interrupt(int mask)
+static int twl_mmc_mask_cd_interrupt(int mask)
 {
 	u8 reg = 0, ret = 0;
 
@@ -147,35 +147,35 @@ err:
 	return ret;
 }
 
-static int hsmmc1_suspend(struct device *dev, int slot)
+static int twl_mmc1_suspend(struct device *dev, int slot)
 {
 	int ret = 0;
 
 	disable_irq(hsmmc[0].card_detect_gpio);
-	ret = mask_cd_interrupt(1);
+	ret = twl_mmc_mask_cd_interrupt(1);
 
 	return ret;
 }
 
-static int hsmmc1_resume(struct device *dev, int slot)
+static int twl_mmc1_resume(struct device *dev, int slot)
 {
 	int ret = 0;
 
 	enable_irq(hsmmc[0].card_detect_gpio);
-	ret = mask_cd_interrupt(0);
+	ret = twl_mmc_mask_cd_interrupt(0);
 
 	return ret;
 }
 
 #else
-#define hsmmc1_suspend	NULL
-#define hsmmc1_resume	NULL
+#define twl_mmc1_suspend	NULL
+#define twl_mmc1_resume		NULL
 #endif
 
 /*
  * Sets the MMC voltage in twl4030
  */
-static int hsmmc_twl_set_voltage(struct hsmmc_controller *c, int vdd)
+static int twl_mmc_set_voltage(struct twl_mmc_controller *c, int vdd)
 {
 	int ret;
 	u8 vmmc, dev_grp_val;
@@ -243,12 +243,12 @@ static int hsmmc_twl_set_voltage(struct hsmmc_controller *c, int vdd)
 	return ret;
 }
 
-static int hsmmc1_set_power(struct device *dev, int slot, int power_on,
+static int twl_mmc1_set_power(struct device *dev, int slot, int power_on,
 				int vdd)
 {
 	u32 reg;
 	int ret = 0;
-	struct hsmmc_controller *c = &hsmmc[0];
+	struct twl_mmc_controller *c = &hsmmc[0];
 
 	if (power_on) {
 		if (cpu_is_omap2430()) {
@@ -272,7 +272,7 @@ static int hsmmc1_set_power(struct device *dev, int slot, int power_on,
 		reg &= ~OMAP2_PBIASLITEPWRDNZ0;
 		omap_ctrl_writel(reg, control_pbias_offset);
 
-		ret = hsmmc_twl_set_voltage(c, vdd);
+		ret = twl_mmc_set_voltage(c, vdd);
 
 		/* 100ms delay required for PBIAS configuration */
 		msleep(100);
@@ -288,7 +288,7 @@ static int hsmmc1_set_power(struct device *dev, int slot, int power_on,
 		reg &= ~OMAP2_PBIASLITEPWRDNZ0;
 		omap_ctrl_writel(reg, control_pbias_offset);
 
-		ret = hsmmc_twl_set_voltage(c, 0);
+		ret = twl_mmc_set_voltage(c, 0);
 
 		/* 100ms delay required for PBIAS configuration */
 		msleep(100);
@@ -301,11 +301,11 @@ static int hsmmc1_set_power(struct device *dev, int slot, int power_on,
 	return ret;
 }
 
-static int hsmmc2_set_power(struct device *dev, int slot, int power_on, int vdd)
+static int twl_mmc2_set_power(struct device *dev, int slot, int power_on, int vdd)
 {
 	int ret;
 
-	struct hsmmc_controller *c = &hsmmc[1];
+	struct twl_mmc_controller *c = &hsmmc[1];
 
 	if (power_on) {
 		u32 reg;
@@ -313,9 +313,9 @@ static int hsmmc2_set_power(struct device *dev, int slot, int power_on, int vdd)
 		reg = omap_ctrl_readl(c->control_devconf_offset);
 		reg |= OMAP2_MMCSDIO2ADPCLKISEL;
 		omap_ctrl_writel(reg, c->control_devconf_offset);
-		ret = hsmmc_twl_set_voltage(c, vdd);
+		ret = twl_mmc_set_voltage(c, vdd);
 	} else {
-		ret = hsmmc_twl_set_voltage(c, 0);
+		ret = twl_mmc_set_voltage(c, 0);
 	}
 
 	return ret;
@@ -368,16 +368,16 @@ void __init hsmmc_init(struct twl4030_hsmmc_info *controllers)
 
 		switch (c->mmc) {
 		case 1:
-			mmc->init = hsmmc1_late_init;
-			mmc->cleanup = hsmmc1_cleanup;
-			mmc->suspend = hsmmc1_suspend;
-			mmc->resume = hsmmc1_resume;
-			mmc->slots[0].set_power = hsmmc1_set_power;
-			mmc->slots[0].card_detect = hsmmc1_card_detect;
+			mmc->init = twl_mmc1_late_init;
+			mmc->cleanup = twl_mmc1_cleanup;
+			mmc->suspend = twl_mmc1_suspend;
+			mmc->resume = twl_mmc1_resume;
+			mmc->slots[0].set_power = twl_mmc1_set_power;
+			mmc->slots[0].card_detect = twl_mmc1_card_detect;
 			hsmmc_data[0] = mmc;
 			break;
 		case 2:
-			mmc->slots[0].set_power = hsmmc2_set_power;
+			mmc->slots[0].set_power = twl_mmc2_set_power;
 			hsmmc_data[1] = mmc;
 			break;
 		default:
