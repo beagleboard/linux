@@ -19,6 +19,7 @@
 #include <linux/i2c/twl4030.h>
 
 #include <mach/hardware.h>
+#include <mach/control.h>
 #include <mach/mmc.h>
 #include <mach/board.h>
 
@@ -35,16 +36,22 @@
 #define VSEL_S2_CLR		0x40
 #define GPIO_0_BIT_POS		(1 << 0)
 
-#define OMAP2_CONTROL_DEVCONF0	0x48002274
-#define OMAP2_CONTROL_DEVCONF1	0x490022E8
+static u16 control_pbias_offset;
 
-#define OMAP2_CONTROL_DEVCONF0_LBCLK	(1 << 24)
-#define OMAP2_CONTROL_DEVCONF1_ACTOV	(1 << 31)
-
-#define OMAP2_CONTROL_PBIAS_VMODE	(1 << 0)
-#define OMAP2_CONTROL_PBIAS_PWRDNZ	(1 << 1)
-#define OMAP2_CONTROL_PBIAS_SCTRL	(1 << 2)
-
+static struct hsmmc_controller {
+	u16		control_devconf_offset;
+	u32		devconf_loopback_clock;
+	int		mmc1_cd_gpio;
+} hsmmc[] = {
+	{
+		.control_devconf_offset		= OMAP2_CONTROL_DEVCONF0,
+		.devconf_loopback_clock		= OMAP2_MMCSDIO1ADPCLKISEL,
+	},
+	{
+		/* control_devconf_offset set dynamically */
+		.devconf_loopback_clock		= OMAP2_MMCSDIO2ADPCLKISEL,
+	},
+};
 
 static const int mmc1_cd_gpio = OMAP_MAX_GPIO_LINES;		/* HACK!! */
 
@@ -140,53 +147,45 @@ static int hsmmc_resume(struct device *dev, int slot)
 
 #endif
 
-static int hsmmc_set_power(struct device *dev, int slot, int power_on,
+static int hsmmc1_set_power(struct device *dev, int slot, int power_on,
 				int vdd)
 {
-	u32 vdd_sel = 0, devconf = 0, reg = 0;
+	u32 reg;
 	int ret = 0;
-
-	/* REVISIT: Using address directly till the control.h defines
-	 * are settled.
-	 */
-#if defined(CONFIG_ARCH_OMAP2430)
-	#define OMAP2_CONTROL_PBIAS 0x490024A0
-#else
-	#define OMAP2_CONTROL_PBIAS 0x48002520
-#endif
+	u16 control_devconf_offset = hsmmc[0].control_devconf_offset;
 
 	if (power_on) {
-		if (cpu_is_omap24xx())
-			devconf = omap_readl(OMAP2_CONTROL_DEVCONF1);
-		else
-			devconf = omap_readl(OMAP2_CONTROL_DEVCONF0);
+		u32 vdd_sel = 0;
 
 		switch (1 << vdd) {
 		case MMC_VDD_33_34:
 		case MMC_VDD_32_33:
 			vdd_sel = VSEL_3V;
-			if (cpu_is_omap24xx())
-				devconf |= OMAP2_CONTROL_DEVCONF1_ACTOV;
 			break;
 		case MMC_VDD_165_195:
 			vdd_sel = VSEL_18V;
-			if (cpu_is_omap24xx())
-				devconf &= ~OMAP2_CONTROL_DEVCONF1_ACTOV;
 		}
 
-		if (cpu_is_omap24xx())
-			omap_writel(devconf, OMAP2_CONTROL_DEVCONF1);
-		else
-			omap_writel(devconf | OMAP2_CONTROL_DEVCONF0_LBCLK,
-				    OMAP2_CONTROL_DEVCONF0);
+		if (cpu_is_omap2430()) {
+			reg = omap_ctrl_readl(OMAP243X_CONTROL_DEVCONF1);
+			if (vdd_sel == VSEL_3V)
+				reg |= OMAP243X_MMC1_ACTIVE_OVERWRITE;
+			else
+				reg &= ~OMAP243X_MMC1_ACTIVE_OVERWRITE;
+			omap_ctrl_writel(reg, OMAP243X_CONTROL_DEVCONF1);
+		}
 
-		reg = omap_readl(OMAP2_CONTROL_PBIAS);
-		reg |= OMAP2_CONTROL_PBIAS_SCTRL;
-		omap_writel(reg, OMAP2_CONTROL_PBIAS);
+		/* REVISIT: Loop back clock not needed for 2430? */
+		if (!cpu_is_omap2430()) {
+			reg = omap_ctrl_readl(control_devconf_offset);
+			reg |= OMAP2_MMCSDIO1ADPCLKISEL;
+			omap_ctrl_writel(reg, control_devconf_offset);
+		}
 
-		reg = omap_readl(OMAP2_CONTROL_PBIAS);
-		reg &= ~OMAP2_CONTROL_PBIAS_PWRDNZ;
-		omap_writel(reg, OMAP2_CONTROL_PBIAS);
+		reg = omap_ctrl_readl(control_pbias_offset);
+		reg |= OMAP2_PBIASSPEEDCTRL0;
+		reg &= ~OMAP2_PBIASLITEPWRDNZ0;
+		omap_ctrl_writel(reg, control_pbias_offset);
 
 		ret = twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
 						P1_DEV_GRP, VMMC1_DEV_GRP);
@@ -198,15 +197,16 @@ static int hsmmc_set_power(struct device *dev, int slot, int power_on,
 		if (ret)
 			goto err;
 
+		/* 100ms delay required for PBIAS configuration */
 		msleep(100);
-		reg = omap_readl(OMAP2_CONTROL_PBIAS);
-		reg |= (OMAP2_CONTROL_PBIAS_SCTRL |
-			OMAP2_CONTROL_PBIAS_PWRDNZ);
+
+		reg = omap_ctrl_readl(control_pbias_offset);
+		reg |= (OMAP2_PBIASLITEPWRDNZ0 | OMAP2_PBIASSPEEDCTRL0);
 		if (vdd_sel == VSEL_18V)
-			reg &= ~OMAP2_CONTROL_PBIAS_VMODE;
+			reg &= ~OMAP2_PBIASLITEVMODE0;
 		else
-			reg |= OMAP2_CONTROL_PBIAS_VMODE;
-		omap_writel(reg, OMAP2_CONTROL_PBIAS);
+			reg |= OMAP2_PBIASLITEVMODE0;
+		omap_ctrl_writel(reg, control_pbias_offset);
 
 		return ret;
 
@@ -214,9 +214,9 @@ static int hsmmc_set_power(struct device *dev, int slot, int power_on,
 		/* Power OFF */
 
 		/* For MMC1, Toggle PBIAS before every power up sequence */
-		reg = omap_readl(OMAP2_CONTROL_PBIAS);
-		reg &= ~OMAP2_CONTROL_PBIAS_PWRDNZ;
-		omap_writel(reg, OMAP2_CONTROL_PBIAS);
+		reg = omap_ctrl_readl(control_pbias_offset);
+		reg &= ~OMAP2_PBIASLITEPWRDNZ0;
+		omap_ctrl_writel(reg, control_pbias_offset);
 
 		ret = twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
 						LDO_CLR, VMMC1_DEV_GRP);
@@ -230,11 +230,11 @@ static int hsmmc_set_power(struct device *dev, int slot, int power_on,
 
 		/* 100ms delay required for PBIAS configuration */
 		msleep(100);
-		reg = omap_readl(OMAP2_CONTROL_PBIAS);
-		reg |= (OMAP2_CONTROL_PBIAS_VMODE |
-			OMAP2_CONTROL_PBIAS_PWRDNZ |
-			OMAP2_CONTROL_PBIAS_SCTRL);
-		omap_writel(reg, OMAP2_CONTROL_PBIAS);
+
+		reg = omap_ctrl_readl(control_pbias_offset);
+		reg |= (OMAP2_PBIASSPEEDCTRL0 | OMAP2_PBIASLITEPWRDNZ0 |
+			OMAP2_PBIASLITEVMODE0);
+		omap_ctrl_writel(reg, control_pbias_offset);
 	}
 
 	return 0;
@@ -254,7 +254,7 @@ static struct omap_mmc_platform_data mmc1_data = {
 	.dma_mask			= 0xffffffff,
 	.slots[0] = {
 		.wire4			= 1,
-		.set_power		= hsmmc_set_power,
+		.set_power		= hsmmc1_set_power,
 		.ocr_mask		= MMC_VDD_32_33 | MMC_VDD_33_34 |
 						MMC_VDD_165_195,
 		.name			= "first slot",
@@ -268,6 +268,14 @@ static struct omap_mmc_platform_data *hsmmc_data[OMAP34XX_NR_MMC];
 
 void __init hsmmc_init(void)
 {
+	if (cpu_is_omap2430()) {
+		control_pbias_offset = OMAP243X_CONTROL_PBIAS_LITE;
+		hsmmc[1].control_devconf_offset = OMAP243X_CONTROL_DEVCONF1;
+	} else {
+		control_pbias_offset = OMAP343X_CONTROL_PBIAS_LITE;
+		hsmmc[1].control_devconf_offset = OMAP343X_CONTROL_DEVCONF1;
+	}
+
 	hsmmc_data[0] = &mmc1_data;
 	omap2_init_mmc(hsmmc_data, OMAP34XX_NR_MMC);
 }
