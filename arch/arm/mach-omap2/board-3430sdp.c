@@ -46,6 +46,7 @@
 #include <mach/control.h>
 
 #include "sdram-qimonda-hyb18m512160af-6.h"
+#include "mmc-twl4030.h"
 
 #define CONFIG_DISABLE_HFCLK 1
 
@@ -444,6 +445,20 @@ static int __init omap3430_i2c_init(void)
 	return 0;
 }
 
+static struct twl4030_hsmmc_info mmc[] __initdata = {
+	{
+		.mmc		= 1,
+		.wires		= 8,
+		.gpio_cd	= -EINVAL,
+	},
+	{
+		.mmc		= 2,
+		.wires		= 8,
+		.gpio_cd	= -EINVAL,
+	},
+	{}	/* Terminator */
+};
+
 extern void __init sdp3430_flash_init(void);
 
 static void __init omap_3430sdp_init(void)
@@ -465,7 +480,7 @@ static void __init omap_3430sdp_init(void)
 	omap_serial_init();
 	usb_musb_init();
 	usb_ehci_init();
-	hsmmc_init(HSMMC1 | HSMMC2);
+	hsmmc_init(mmc);
 }
 
 static void __init omap_3430sdp_map_io(void)

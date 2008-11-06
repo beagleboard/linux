@@ -936,7 +936,7 @@ static int __init omap_mmc_probe(struct platform_device *pdev)
 	mmc->ocr_avail = mmc_slot(host).ocr_mask;
 	mmc->caps |= MMC_CAP_MMC_HIGHSPEED | MMC_CAP_SD_HIGHSPEED;
 
-	if (pdata->slots[host->slot_id].wire4)
+	if (pdata->slots[host->slot_id].wires >= 4)
 		mmc->caps |= MMC_CAP_4_BIT_DATA;
 
 	/* Only MMC1 supports 3.0V */

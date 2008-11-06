@@ -297,6 +297,15 @@ static void __init omap3beagle_flash_init(void)
 	}
 }
 
+static struct twl4030_hsmmc_info mmc[] __initdata = {
+	{
+		.mmc		= 1,
+		.wires		= 8,
+		.gpio_cd	= TWL4030_GPIO_IRQ_NO(0),
+	},
+	{}	/* Terminator */
+};
+
 static void __init omap3_beagle_init(void)
 {
 	omap3_beagle_i2c_init();
@@ -309,7 +318,7 @@ static void __init omap3_beagle_init(void)
 	omap_cfg_reg(AH8_34XX_GPIO29);
 	gpio_request(29, "mmc0_wp");
 	gpio_direction_input(29);
-	hsmmc_init(HSMMC1);
+	hsmmc_init(mmc);
 
 	omap_cfg_reg(J25_34XX_GPIO170);
 	gpio_request(170, "DVI_nPD");

@@ -338,6 +338,15 @@ static int __init omap_i2c_init(void)
 	return 0;
 }
 
+static struct twl4030_hsmmc_info mmc[] __initdata = {
+	{
+		.mmc		= 1,
+		.wires		= 4,
+		.gpio_cd	= -EINVAL,
+	},
+	{}	/* Terminator */
+};
+
 static void __init omap_ldp_init(void)
 {
 	omap_i2c_init();
@@ -352,7 +361,7 @@ static void __init omap_ldp_init(void)
 	ads7846_dev_init();
 	omap_serial_init();
 	usb_musb_init();
-	hsmmc_init(HSMMC1);
+	hsmmc_init(mmc);
 }
 
 static void __init omap_ldp_map_io(void)

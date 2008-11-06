@@ -71,7 +71,7 @@ struct omap_mmc_platform_data {
 		unsigned cover:1;
 
 		/* 4 wire signaling is optional, and is only used for SD/SDIO */
-		unsigned wire4:1;
+		u8 wires;
 
 		/* use the internal clock */
 		unsigned internal_clock:1;
@@ -111,7 +111,6 @@ void omap1_init_mmc(struct omap_mmc_platform_data **mmc_data,
 				int nr_controllers);
 void omap2_init_mmc(struct omap_mmc_platform_data **mmc_data,
 				int nr_controllers);
-void hsmmc_init(int controller_mask);
 int omap_mmc_add(int id, unsigned long base, unsigned long size,
 			unsigned int irq, struct omap_mmc_platform_data *data);
 #else
@@ -121,9 +120,6 @@ static inline void omap1_init_mmc(struct omap_mmc_platform_data **mmc_data,
 }
 static inline void omap2_init_mmc(struct omap_mmc_platform_data **mmc_data,
 				int nr_controllers)
-{
-}
-static inline void hsmmc_init(int controller_mask)
 {
 }
 static inline int omap_mmc_add(int id, unsigned long base, unsigned long size,

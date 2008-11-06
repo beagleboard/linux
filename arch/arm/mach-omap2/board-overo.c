@@ -50,6 +50,7 @@
 
 #include "sdram-micron-mt46h32m32lf-6.h"
 #include "twl4030-generic-scripts.h"
+#include "mmc-twl4030.h"
 
 #define NAND_BLOCK_SIZE SZ_128K
 #define GPMC_CS0_BASE  0x60
@@ -207,6 +208,20 @@ static struct platform_device *overo_devices[] __initdata = {
 	&overo_lcd_device,
 };
 
+static struct twl4030_hsmmc_info mmc[] __initdata = {
+	{
+		.mmc		= 1,
+		.wires		= 4,
+		.gpio_cd	= -EINVAL,
+	},
+	{
+		.mmc		= 2,
+		.wires		= 4,
+		.gpio_cd	= -EINVAL,
+	},
+	{}	/* Terminator */
+};
+
 static void __init overo_init(void)
 {
 	overo_i2c_init();
@@ -214,7 +229,7 @@ static void __init overo_init(void)
 	omap_board_config = overo_config;
 	omap_board_config_size = ARRAY_SIZE(overo_config);
 	omap_serial_init();
-	hsmmc_init(HSMMC1);
+	hsmmc_init(mmc);
 	usb_musb_init();
 	usb_ehci_init();
 	overo_flash_init();

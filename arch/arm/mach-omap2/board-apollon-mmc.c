@@ -68,7 +68,7 @@ static struct omap_mmc_platform_data mmc1_data = {
 	.cleanup			= apollon_mmc_cleanup,
 	.dma_mask			= 0xffffffff,
 	.slots[0]	= {
-		.wire4			= 1,
+		.wires			= 4,
 
 		/*
 		 * Use internal loop-back in MMC/SDIO Module Input Clock

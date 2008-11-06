@@ -23,6 +23,8 @@
 #include <mach/mmc.h>
 #include <mach/board.h>
 
+#include "mmc-twl4030.h"
+
 #if defined(CONFIG_MMC_OMAP_HS) || defined(CONFIG_MMC_OMAP_HS_MODULE)
 
 #define TWL_GPIO_IMR1A		0x1C
@@ -149,7 +151,7 @@ static int hsmmc1_suspend(struct device *dev, int slot)
 {
 	int ret = 0;
 
-	disable_irq(TWL4030_GPIO_IRQ_NO(0));
+	disable_irq(hsmmc[0].card_detect_gpio);
 	ret = mask_cd_interrupt(1);
 
 	return ret;
@@ -159,12 +161,15 @@ static int hsmmc1_resume(struct device *dev, int slot)
 {
 	int ret = 0;
 
-	enable_irq(TWL4030_GPIO_IRQ_NO(0));
+	enable_irq(hsmmc[0].card_detect_gpio);
 	ret = mask_cd_interrupt(0);
 
 	return ret;
 }
 
+#else
+#define hsmmc1_suspend	NULL
+#define hsmmc1_resume	NULL
 #endif
 
 /*
@@ -316,42 +321,14 @@ static int hsmmc2_set_power(struct device *dev, int slot, int power_on, int vdd)
 	return ret;
 }
 
-static struct omap_mmc_platform_data mmc1_data = {
-	.nr_slots			= 1,
-	.init				= hsmmc1_late_init,
-	.cleanup			= hsmmc1_cleanup,
-#ifdef CONFIG_PM
-	.suspend			= hsmmc1_suspend,
-	.resume				= hsmmc1_resume,
-#endif
-	.dma_mask			= 0xffffffff,
-	.slots[0] = {
-		.wire4			= 1,
-		.set_power		= hsmmc1_set_power,
-		.ocr_mask		= MMC_VDD_32_33 | MMC_VDD_33_34 |
-						MMC_VDD_165_195,
-		.name			= "first slot",
-
-		.card_detect_irq	= TWL4030_GPIO_IRQ_NO(0),
-		.card_detect		= hsmmc1_card_detect,
-	},
-};
-
-static struct omap_mmc_platform_data mmc2_data = {
-	.nr_slots			= 1,
-	.slots[0] = {
-		.set_power		= hsmmc2_set_power,
-		.ocr_mask		= MMC_VDD_27_28 | MMC_VDD_28_29 |
-					  MMC_VDD_29_30 | MMC_VDD_30_31 |
-					  MMC_VDD_31_32 | MMC_VDD_32_33,
-		.name			= "second slot",
-	},
-};
-
 static struct omap_mmc_platform_data *hsmmc_data[OMAP34XX_NR_MMC];
 
-void __init hsmmc_init(int controller_mask)
+#define HSMMC_NAME_LEN	9
+
+void __init hsmmc_init(struct twl4030_hsmmc_info *controllers)
 {
+	struct twl4030_hsmmc_info *c;
+
 	if (cpu_is_omap2430()) {
 		control_pbias_offset = OMAP243X_CONTROL_PBIAS_LITE;
 		hsmmc[1].control_devconf_offset = OMAP243X_CONTROL_DEVCONF1;
@@ -360,12 +337,55 @@ void __init hsmmc_init(int controller_mask)
 		hsmmc[1].control_devconf_offset = OMAP343X_CONTROL_DEVCONF1;
 	}
 
-	if (controller_mask & HSMMC1)
-		hsmmc_data[0] = &mmc1_data;
-	if (controller_mask & HSMMC2)
-		hsmmc_data[1] = &mmc2_data;
-	if (controller_mask & HSMMC3)
-		pr_err("HSMMC: Unknown configuration for controller 3\n");
+	for (c = controllers; c->mmc; c++) {
+		struct omap_mmc_platform_data *mmc;
+		char *name;
+
+		mmc = kzalloc(sizeof(struct omap_mmc_platform_data), GFP_KERNEL);
+		if (!mmc) {
+			pr_err("Cannot allocate memory for mmc device!\n");
+			return;
+		}
+
+		name = kzalloc(HSMMC_NAME_LEN, GFP_KERNEL);
+		if (!name) {
+			kfree(mmc);
+			pr_err("Cannot allocate memory for mmc name!\n");
+			return;
+		}
+
+		sprintf(name, "mmc%islot%i", c->mmc, 1);
+		mmc->slots[0].name = name;
+		mmc->nr_slots = 1;
+		mmc->slots[0].ocr_mask = MMC_VDD_165_195 |
+					MMC_VDD_26_27 | MMC_VDD_27_28 |
+					MMC_VDD_29_30 |
+					MMC_VDD_30_31 | MMC_VDD_31_32;
+		mmc->slots[0].wires = c->wires;
+		if (c->gpio_cd != -EINVAL)
+			mmc->slots[0].card_detect_irq = c->gpio_cd;
+		mmc->dma_mask = 0xffffffff;
+
+		switch (c->mmc) {
+		case 1:
+			mmc->init = hsmmc1_late_init;
+			mmc->cleanup = hsmmc1_cleanup;
+			mmc->suspend = hsmmc1_suspend;
+			mmc->resume = hsmmc1_resume;
+			mmc->slots[0].set_power = hsmmc1_set_power;
+			mmc->slots[0].card_detect = hsmmc1_card_detect;
+			hsmmc_data[0] = mmc;
+			break;
+		case 2:
+			mmc->slots[0].set_power = hsmmc2_set_power;
+			hsmmc_data[1] = mmc;
+			break;
+		default:
+			pr_err("Unknown MMC configuration!\n");
+			return;
+		}
+	}
+
 	omap2_init_mmc(hsmmc_data, OMAP34XX_NR_MMC);
 }
 

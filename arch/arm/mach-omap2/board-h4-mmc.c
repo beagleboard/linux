@@ -231,7 +231,7 @@ static struct omap_mmc_platform_data mmc1_data = {
 	.cleanup		= h4_mmc_cleanup,
 	.dma_mask		= 0xffffffff,
 	.slots[0] = {
-		.wire4		= 1,
+		.wires		= 4,
 		.set_power	= h4_mmc_set_power,
 		.set_bus_mode	= h4_mmc_set_bus_mode,
 		.get_cover_state= h4_mmc_slot1_cover_state,
@@ -241,7 +241,7 @@ static struct omap_mmc_platform_data mmc1_data = {
 		.name		= "slot1",
 	},
 	.slots[1] = {
-		.wire4		= 1,
+		.wires		= 4,
 		.set_power	= h4_mmc_set_power,
 		.set_bus_mode	= h4_mmc_set_bus_mode,
 		.get_cover_state= h4_mmc_slot2_cover_state,
