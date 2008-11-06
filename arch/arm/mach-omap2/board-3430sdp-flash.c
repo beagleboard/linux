@@ -210,7 +210,7 @@ void __init sdp3430_flash_init(void)
 	gpmc_base_add   = OMAP34XX_GPMC_VIRT;
 
 	/* Configure start address and size of NOR device */
-	if (system_rev > OMAP3430_REV_ES1_0) {
+	if (omap_rev() > OMAP3430_REV_ES1_0) {
 		sdp_nor_resource.start	= FLASH_BASE_SDPV2;
 		sdp_nor_resource.end	= FLASH_BASE_SDPV2
 						+ FLASH_SIZE_SDPV2 - 1;
