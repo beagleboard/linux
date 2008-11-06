@@ -1128,15 +1128,17 @@ static int omap_mmc_remove(struct platform_device *pdev)
 	struct resource *res;
 	u16 vdd = 0;
 
-	mmc_omap_fclk_state(host, ON);
-	if (!(OMAP_HSMMC_READ(host->base, HCTL) & SDVSDET)) {
-	/*
-	 * Set the vdd back to 3V,
-	 * applicable for dual volt support.
-	 */
-		vdd = fls(host->mmc->ocr_avail) - 1;
-		if (omap_mmc_switch_opcond(host, vdd) != 0)
-			host->mmc->ios.vdd = vdd;
+	if (host) {
+		mmc_omap_fclk_state(host, ON);
+		if (!(OMAP_HSMMC_READ(host->base, HCTL) & SDVSDET)) {
+			/*
+			 * Set the vdd back to 3V,
+			 * applicable for dual volt support.
+			 */
+			vdd = fls(host->mmc->ocr_avail) - 1;
+			if (omap_mmc_switch_opcond(host, vdd) != 0)
+				host->mmc->ios.vdd = vdd;
+		}
 	}
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
