@@ -540,7 +540,7 @@ static int __init clkdms_setup(struct clockdomain *clkdm)
 
 int __init omap3_pm_init(void)
 {
-	struct power_state *pwrst;
+	struct power_state *pwrst, *tmp;
 	int ret;
 
 	printk(KERN_ERR "Power Management for TI OMAP3.\n");
@@ -583,7 +583,7 @@ err1:
 	return ret;
 err2:
 	free_irq(INT_34XX_PRCM_MPU_IRQ, NULL);
-	list_for_each_entry(pwrst, &pwrst_list, node) {
+	list_for_each_entry_safe(pwrst, tmp, &pwrst_list, node) {
 		list_del(&pwrst->node);
 		kfree(pwrst);
 	}
