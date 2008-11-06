@@ -41,6 +41,7 @@
 #include <mach/mux.h>
 #include <mach/gpio.h>
 #include <mach/board.h>
+#include <mach/board-nokia.h>
 
 #include "cbus.h"
 #include "retu.h"
