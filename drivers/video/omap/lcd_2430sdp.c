@@ -88,7 +88,7 @@ static int sdp2430_panel_enable(struct lcd_panel *panel)
 		grp_reg = TWL4030_VAUX3_DEV_GRP;
 		grp_val = ENABLE_VAUX3_DEV_GRP;
 
-		if (system_rev > OMAP3430_REV_ES1_0) {
+		if (omap_rev() > OMAP3430_REV_ES1_0) {
 			t2_out(PM_RECEIVER, ENABLE_VPLL2_DEDICATED,
 					TWL4030_VPLL2_DEDICATED);
 			t2_out(PM_RECEIVER, ENABLE_VPLL2_DEV_GRP,
@@ -116,7 +116,7 @@ static void sdp2430_panel_disable(struct lcd_panel *panel)
 {
 	omap_set_gpio_dataout(enable_gpio, 0);
 	omap_set_gpio_dataout(backlight_gpio, 0);
-	if (system_rev > OMAP3430_REV_ES1_0) {
+	if (omap_rev() > OMAP3430_REV_ES1_0) {
 		t2_out(PM_RECEIVER, 0x0, TWL4030_VPLL2_DEDICATED);
 		t2_out(PM_RECEIVER, 0x0, TWL4030_VPLL2_DEV_GRP);
 		mdelay(4);
