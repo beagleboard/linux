@@ -27,11 +27,8 @@
 
 #if defined(CONFIG_MMC_OMAP_HS) || defined(CONFIG_MMC_OMAP_HS_MODULE)
 
-#define TWL_GPIO_IMR1A		0x1C
-#define TWL_GPIO_ISR1A		0x19
 #define LDO_CLR			0x00
 #define VSEL_S2_CLR		0x40
-#define GPIO_0_BIT_POS		(1 << 0)
 
 #define VMMC1_DEV_GRP		0x27
 #define VMMC1_CLR		0x00
@@ -58,27 +55,36 @@ static struct twl_mmc_controller {
 	u16		control_devconf_offset;
 	u32		devconf_loopback_clock;
 	int		card_detect_gpio;
+	unsigned	card_wp_gpio;
 	u8		twl_vmmc_dev_grp;
 	u8		twl_mmc_dedicated;
 } hsmmc[] = {
 	{
 		.control_devconf_offset		= OMAP2_CONTROL_DEVCONF0,
 		.devconf_loopback_clock		= OMAP2_MMCSDIO1ADPCLKISEL,
-		.card_detect_gpio		= OMAP_MAX_GPIO_LINES,
+		.card_detect_gpio		= -EINVAL,
 		.twl_vmmc_dev_grp		= VMMC1_DEV_GRP,
 		.twl_mmc_dedicated		= VMMC1_DEDICATED,
 	},
 	{
 		/* control_devconf_offset set dynamically */
 		.devconf_loopback_clock		= OMAP2_MMCSDIO2ADPCLKISEL,
+		.card_detect_gpio		= -EINVAL,
 		.twl_vmmc_dev_grp		= VMMC2_DEV_GRP,
 		.twl_mmc_dedicated		= VMMC2_DEDICATED,
 	},
- };
+};
 
 static int twl_mmc1_card_detect(int irq)
 {
-	return gpio_get_value_cansleep(hsmmc[0].card_detect_gpio);
+	/* NOTE: assumes card detect signal is active-low */
+	return !gpio_get_value_cansleep(hsmmc[0].card_detect_gpio);
+}
+
+static int twl_mmc1_get_ro(struct device *dev, int slot)
+{
+	/* NOTE: assumes write protect signal is active-high */
+	return gpio_get_value_cansleep(hsmmc[0].card_wp_gpio);
 }
 
 /*
@@ -86,15 +92,19 @@ static int twl_mmc1_card_detect(int irq)
  */
 static int twl_mmc1_late_init(struct device *dev)
 {
+	struct omap_mmc_platform_data *mmc = dev->platform_data;
 	int ret = 0;
 
-	/*
-	 * Configure TWL4030 GPIO parameters for MMC hotplug irq
-	 */
 	ret = gpio_request(hsmmc[0].card_detect_gpio, "mmc0_cd");
+	if (ret)
+		goto done;
+	ret = gpio_direction_input(hsmmc[0].card_detect_gpio);
 	if (ret)
 		goto err;
 
+	/* FIXME assumes this uses (a) TWL4030 and (b) GPIO-0 ...
+	 * but that's not actually required.
+	 */
 	ret = twl4030_set_gpio_debounce(0, true);
 	if (ret)
 		goto err;
@@ -102,8 +112,10 @@ static int twl_mmc1_late_init(struct device *dev)
 	return ret;
 
 err:
-	dev_err(dev, "Failed to configure TWL4030 GPIO IRQ\n");
-
+	dev_err(dev, "Failed to configure TWL4030 card detect\n");
+done:
+	mmc->slots[0].card_detect_irq = 0;
+	mmc->slots[0].card_detect = NULL;
 	return ret;
 }
 
@@ -114,62 +126,25 @@ static void twl_mmc1_cleanup(struct device *dev)
 
 #ifdef CONFIG_PM
 
-/*
- * Mask and unmask MMC Card Detect Interrupt
- * mask : 1
- * unmask : 0
- */
-static int twl_mmc_mask_cd_interrupt(int mask)
+static int twl_mmc_suspend(struct device *dev, int slot)
 {
-	u8 reg = 0, ret = 0;
+	struct omap_mmc_platform_data *mmc = dev->platform_data;
 
-	ret = twl4030_i2c_read_u8(TWL4030_MODULE_GPIO, &reg, TWL_GPIO_IMR1A);
-	if (ret)
-		goto err;
-
-	reg = (mask == 1) ? (reg | GPIO_0_BIT_POS) : (reg & ~GPIO_0_BIT_POS);
-
-	ret = twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, reg, TWL_GPIO_IMR1A);
-	if (ret)
-		goto err;
-
-	ret = twl4030_i2c_read_u8(TWL4030_MODULE_GPIO, &reg, TWL_GPIO_ISR1A);
-	if (ret)
-		goto err;
-
-	reg = (mask == 1) ? (reg | GPIO_0_BIT_POS) : (reg & ~GPIO_0_BIT_POS);
-
-	ret = twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, reg, TWL_GPIO_ISR1A);
-	if (ret)
-		goto err;
-
-err:
-	return ret;
+	disable_irq(mmc->slots[0].card_detect_irq);
+	return 0;
 }
 
-static int twl_mmc1_suspend(struct device *dev, int slot)
+static int twl_mmc_resume(struct device *dev, int slot)
 {
-	int ret = 0;
+	struct omap_mmc_platform_data *mmc = dev->platform_data;
 
-	disable_irq(hsmmc[0].card_detect_gpio);
-	ret = twl_mmc_mask_cd_interrupt(1);
-
-	return ret;
-}
-
-static int twl_mmc1_resume(struct device *dev, int slot)
-{
-	int ret = 0;
-
-	enable_irq(hsmmc[0].card_detect_gpio);
-	ret = twl_mmc_mask_cd_interrupt(0);
-
-	return ret;
+	enable_irq(mmc->slots[0].card_detect_irq);
+	return 0;
 }
 
 #else
-#define twl_mmc1_suspend	NULL
-#define twl_mmc1_resume		NULL
+#define twl_mmc_suspend	NULL
+#define twl_mmc_resume	NULL
 #endif
 
 /*
@@ -362,26 +337,52 @@ void __init hsmmc_init(struct twl4030_hsmmc_info *controllers)
 					MMC_VDD_29_30 |
 					MMC_VDD_30_31 | MMC_VDD_31_32;
 		mmc->slots[0].wires = c->wires;
-		if (c->gpio_cd != -EINVAL)
-			mmc->slots[0].card_detect_irq = c->gpio_cd;
 		mmc->dma_mask = 0xffffffff;
+
+		/* NOTE:  we assume OMAP's MMC1 and MMC2 use
+		 * the TWL4030's VMMC1 and VMMC2, respectively;
+		 * and that OMAP's MMC3 isn't used.
+		 */
 
 		switch (c->mmc) {
 		case 1:
-			mmc->init = twl_mmc1_late_init;
-			mmc->cleanup = twl_mmc1_cleanup;
-			mmc->suspend = twl_mmc1_suspend;
-			mmc->resume = twl_mmc1_resume;
 			mmc->slots[0].set_power = twl_mmc1_set_power;
-			mmc->slots[0].card_detect = twl_mmc1_card_detect;
+			if (gpio_is_valid(c->gpio_cd)) {
+				mmc->slots[0].card_detect_irq =
+						gpio_to_irq(c->gpio_cd);
+				mmc->suspend = twl_mmc_suspend;
+				mmc->resume = twl_mmc_resume;
+
+				/* NOTE: hsmmc[0] is hard-wired ... */
+				hsmmc[0].card_detect_gpio = c->gpio_cd;
+				mmc->init = twl_mmc1_late_init;
+				mmc->cleanup = twl_mmc1_cleanup;
+				mmc->slots[0].card_detect =
+						twl_mmc1_card_detect;
+			}
+			if (gpio_is_valid(c->gpio_wp)) {
+				gpio_request(c->gpio_wp, "mmc0_wp");
+				gpio_direction_input(c->gpio_wp);
+
+				/* NOTE: hsmmc[0] is hard-wired ... */
+				hsmmc[0].card_wp_gpio = c->gpio_wp;
+				mmc->slots[0].get_ro = twl_mmc1_get_ro;
+			}
 			hsmmc_data[0] = mmc;
 			break;
 		case 2:
+			/* FIXME rework interfaces so that mmc2 (and mmc3) can
+			 * be fully functional... hsmmc[] shouldn't hold gpios.
+			 */
 			mmc->slots[0].set_power = twl_mmc2_set_power;
+			if (gpio_is_valid(c->gpio_cd))
+				pr_warning("MMC2 detect nyet supported!\n");
+			if (gpio_is_valid(c->gpio_wp))
+				pr_warning("MMC2 WP nyet supported!\n");
 			hsmmc_data[1] = mmc;
 			break;
 		default:
-			pr_err("Unknown MMC configuration!\n");
+			pr_err("MMC%d configuration not supported!\n", c->mmc);
 			return;
 		}
 	}

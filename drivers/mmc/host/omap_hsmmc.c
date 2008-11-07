@@ -825,10 +825,33 @@ static void omap_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		OMAP_HSMMC_WRITE(host->base, CON,
 				OMAP_HSMMC_READ(host->base, CON) | OD);
 }
-/* NOTE: Read only switch not supported yet */
+
+static int omap_hsmmc_get_cd(struct mmc_host *mmc)
+{
+	struct mmc_omap_host *host = mmc_priv(mmc);
+	struct omap_mmc_platform_data *pdata = host->pdata;
+
+	if (!pdata->slots[0].card_detect)
+		return -ENOSYS;
+	return pdata->slots[0].card_detect(pdata->slots[0].card_detect_irq);
+}
+
+static int omap_hsmmc_get_ro(struct mmc_host *mmc)
+{
+	struct mmc_omap_host *host = mmc_priv(mmc);
+	struct omap_mmc_platform_data *pdata = host->pdata;
+
+	if (!pdata->slots[0].get_ro)
+		return -ENOSYS;
+	return pdata->slots[0].get_ro(host->dev, 0);
+}
+
 static struct mmc_host_ops mmc_omap_ops = {
 	.request = omap_mmc_request,
 	.set_ios = omap_mmc_set_ios,
+	.get_cd = omap_hsmmc_get_cd,
+	.get_ro = omap_hsmmc_get_ro,
+	/* NYET -- enable_sdio_irq */
 };
 
 static int __init omap_mmc_probe(struct platform_device *pdev)
@@ -878,6 +901,10 @@ static int __init omap_mmc_probe(struct platform_device *pdev)
 	host->slot_id	= 0;
 	host->mapbase	= res->start;
 	host->base	= ioremap(host->mapbase, SZ_4K);
+
+	platform_set_drvdata(pdev, host);
+	INIT_WORK(&host->mmc_carddetect_work, mmc_omap_detect);
+
 	mmc->ops	= &mmc_omap_ops;
 	mmc->f_min	= 400000;
 	mmc->f_max	= 52000000;
@@ -970,6 +997,14 @@ static int __init omap_mmc_probe(struct platform_device *pdev)
 		goto err_irq;
 	}
 
+	if (pdata->init != NULL) {
+		if (pdata->init(&pdev->dev) != 0) {
+			dev_dbg(mmc_dev(host->mmc),
+				"Unable to configure MMC IRQs\n");
+			goto err_irq_cd_init;
+		}
+	}
+
 	/* Request IRQ for card detect */
 	if ((mmc_slot(host).card_detect_irq) && (mmc_slot(host).card_detect)) {
 		ret = request_irq(mmc_slot(host).card_detect_irq,
@@ -984,19 +1019,9 @@ static int __init omap_mmc_probe(struct platform_device *pdev)
 		}
 	}
 
-	INIT_WORK(&host->mmc_carddetect_work, mmc_omap_detect);
-	if (pdata->init != NULL) {
-		if (pdata->init(&pdev->dev) != 0) {
-			dev_dbg(mmc_dev(host->mmc),
-				"Unable to configure MMC IRQs\n");
-			goto err_irq_cd_init;
-		}
-	}
-
 	OMAP_HSMMC_WRITE(host->base, ISE, INT_EN_MASK);
 	OMAP_HSMMC_WRITE(host->base, IE, INT_EN_MASK);
 
-	platform_set_drvdata(pdev, host);
 	mmc_add_host(mmc);
 
 	if (host->pdata->slots[host->slot_id].name != NULL) {
@@ -1017,9 +1042,9 @@ err_cover_switch:
 	device_remove_file(&mmc->class_dev, &dev_attr_cover_switch);
 err_slot_name:
 	mmc_remove_host(mmc);
-err_irq_cd_init:
-	free_irq(mmc_slot(host).card_detect_irq, host);
 err_irq_cd:
+	free_irq(mmc_slot(host).card_detect_irq, host);
+err_irq_cd_init:
 	free_irq(host->irq, host);
 err_irq:
 	clk_disable(host->fclk);
