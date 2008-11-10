@@ -10,6 +10,7 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_TLV320AIC23
 	select SND_SOC_TLV320AIC26
 	select SND_SOC_TLV320AIC3X
+	select SND_SOC_TWL4030
 	select SND_SOC_UDA1380
 	select SND_SOC_WM8510
 	select SND_SOC_WM8580
@@ -74,6 +75,10 @@ config SND_SOC_TLV320AIC26
 config SND_SOC_TLV320AIC3X
 	tristate
 	depends on I2C
+
+config SND_SOC_TWL4030
+	tristate
+	depends on TWL4030_CORE
 
 config SND_SOC_UDA1380
         tristate
