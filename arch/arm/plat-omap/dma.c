@@ -279,10 +279,7 @@ void omap_set_dma_transfer_params(int lch, int data_type, int elem_count,
 
 		val = dma_read(CCR(lch));
 		val &= ~(3 << 19);
-		if (dma_trigger > 63)
-			val |= 1 << 20;
-		if (dma_trigger > 31)
-			val |= 1 << 19;
+		val |= ((dma_trigger & ~(0x1f)) << 14);
 
 		val &= ~(0x1f);
 		val |= (dma_trigger & 0x1f);
