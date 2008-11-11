@@ -174,7 +174,7 @@ static void twl4030_kp_scan(struct omap_keypad *kp, int release_all)
 		if (!changed)
 			continue;
 
-		for (col = 0; col < kp->n_cols + 1; col++) {
+		for (col = 0; col < kp->n_cols; col++) {
 			int key;
 
 			if (!(changed & (1 << col)))
