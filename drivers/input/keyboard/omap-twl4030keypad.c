@@ -38,14 +38,13 @@
 #include <linux/i2c.h>
 #include <linux/i2c/twl4030.h>
 #include <linux/irq.h>
+#include <mach/keypad.h>
+
 #include "twl4030-keypad.h"
 
 #define PTV_PRESCALER		4
 
 #define MAX_ROWS		8 /* TWL4030 hardlimit */
-#define ROWCOL_MASK		0xFF000000
-#define KEYNUM_MASK		0x00FFFFFF
-#define KEY(col, row, val) (((col) << 28) | ((row) << 24) | (val))
 
 /* Global variables */
 
@@ -101,7 +100,7 @@ static int omap_kp_find_key(struct omap_keypad *kp, int col, int row)
 	rc = KEY(col, row, 0);
 	for (i = 0; i < kp->keymapsize; i++)
 		if ((kp->keymap[i] & ROWCOL_MASK) == rc)
-			return kp->keymap[i] & KEYNUM_MASK;
+			return kp->keymap[i] & (KEYNUM_MASK | KEY_PERSISTENT);
 
 	return -EINVAL;
 }
@@ -189,6 +188,8 @@ static void twl4030_kp_scan(struct omap_keypad *kp, int release_all)
 				dev_warn(kp->dbg_dev,
 					"Spurious key event %d-%d\n",
 					 col, row);
+			else if (key & KEY_PERSISTENT)
+				continue;
 			else
 				input_report_key(kp->omap_twl4030kp, key,
 						 new_state[row] & (1 << col));

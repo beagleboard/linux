@@ -16,6 +16,7 @@
 #include <linux/platform_device.h>
 #include <linux/delay.h>
 #include <linux/input.h>
+#include <linux/gpio_keys.h>
 #include <linux/workqueue.h>
 #include <linux/err.h>
 #include <linux/clk.h>
@@ -33,6 +34,7 @@
 #include <mach/gpio.h>
 #include <mach/board.h>
 #include <mach/common.h>
+#include <mach/keypad.h>
 #include <mach/gpmc.h>
 #include <mach/mmc.h>
 #include <mach/usb-musb.h>
@@ -70,6 +72,116 @@ static struct platform_device ldp_smc911x_device = {
 	.id		= -1,
 	.num_resources	= ARRAY_SIZE(ldp_smc911x_resources),
 	.resource	= ldp_smc911x_resources,
+};
+
+static int ldp_twl4030_keymap[] = {
+	KEY(0, 0, KEY_1),
+	KEY(1, 0, KEY_2),
+	KEY(2, 0, KEY_3),
+	KEY(0, 1, KEY_4),
+	KEY(1, 1, KEY_5),
+	KEY(2, 1, KEY_6),
+	KEY(3, 1, KEY_F5),
+	KEY(0, 2, KEY_7),
+	KEY(1, 2, KEY_8),
+	KEY(2, 2, KEY_9),
+	KEY(3, 2, KEY_F6),
+	KEY(0, 3, KEY_F7),
+	KEY(1, 3, KEY_0),
+	KEY(2, 3, KEY_F8),
+	PERSISTENT_KEY(4, 5),
+	KEY(4, 4, KEY_VOLUMEUP),
+	KEY(5, 5, KEY_VOLUMEDOWN),
+	0
+};
+
+static struct twl4030_keypad_data ldp_kp_twl4030_data = {
+	.rows		= 6,
+	.cols		= 6,
+	.keymap		= ldp_twl4030_keymap,
+	.keymapsize	= ARRAY_SIZE(ldp_twl4030_keymap),
+	.rep		= 1,
+	.irq		= TWL4030_MODIRQ_KEYPAD,
+};
+
+static struct gpio_keys_button ldp_gpio_keys_buttons[] = {
+	[0] = {
+		.code			= KEY_ENTER,
+		.gpio			= 101,
+		.desc			= "enter sw",
+		.active_low		= 1,
+		.debounce_interval	= 30,
+	},
+	[1] = {
+		.code			= KEY_F1,
+		.gpio			= 102,
+		.desc			= "func 1",
+		.active_low		= 1,
+		.debounce_interval	= 30,
+	},
+	[2] = {
+		.code			= KEY_F2,
+		.gpio			= 103,
+		.desc			= "func 2",
+		.active_low		= 1,
+		.debounce_interval	= 30,
+	},
+	[3] = {
+		.code			= KEY_F3,
+		.gpio			= 104,
+		.desc			= "func 3",
+		.active_low		= 1,
+		.debounce_interval 	= 30,
+	},
+	[4] = {
+		.code			= KEY_F4,
+		.gpio			= 105,
+		.desc			= "func 4",
+		.active_low		= 1,
+		.debounce_interval	= 30,
+	},
+	[5] = {
+		.code			= KEY_LEFT,
+		.gpio			= 106,
+		.desc			= "left sw",
+		.active_low		= 1,
+		.debounce_interval	= 30,
+	},
+	[6] = {
+		.code			= KEY_RIGHT,
+		.gpio			= 107,
+		.desc			= "right sw",
+		.active_low		= 1,
+		.debounce_interval	= 30,
+	},
+	[7] = {
+		.code			= KEY_UP,
+		.gpio			= 108,
+		.desc			= "up sw",
+		.active_low		= 1,
+		.debounce_interval	= 30,
+	},
+	[8] = {
+		.code			= KEY_DOWN,
+		.gpio			= 109,
+		.desc			= "down sw",
+		.active_low		= 1,
+		.debounce_interval	= 30,
+	},
+};
+
+static struct gpio_keys_platform_data ldp_gpio_keys = {
+	.buttons		= ldp_gpio_keys_buttons,
+	.nbuttons		= ARRAY_SIZE(ldp_gpio_keys_buttons),
+	.rep			= 1,
+};
+
+static struct platform_device ldp_gpio_keys_device = {
+	.name		= "gpio-keys",
+	.id		= -1,
+	.dev		= {
+		.platform_data	= &ldp_gpio_keys,
+	},
 };
 
 static int ts_gpio;
@@ -200,6 +312,7 @@ static struct platform_device ldp_lcd_device = {
 static struct platform_device *ldp_devices[] __initdata = {
 	&ldp_smc911x_device,
 	&ldp_lcd_device,
+	&ldp_gpio_keys_device,
 };
 
 static inline void __init ldp_init_smc911x(void)
@@ -374,6 +487,7 @@ static struct twl4030_platform_data ldp_twldata = {
 	.usb		= &ldp_usb_data,
 	.power		= &sdp3430_t2scripts_data,
 	.gpio		= &ldp_gpio_data,
+	.keypad		= &ldp_kp_twl4030_data,
 };
 
 static struct i2c_board_info __initdata ldp_i2c_boardinfo[] = {
