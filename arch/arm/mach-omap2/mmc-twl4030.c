@@ -50,26 +50,21 @@
 #define VMMC_DEV_GRP_P1		0x20
 
 static u16 control_pbias_offset;
+static u16 control_devconf1_offset;
 
 #define HSMMC_NAME_LEN	9
 
 static struct twl_mmc_controller {
 	struct omap_mmc_platform_data	*mmc;
-	u32		devconf_loopback_clock;
-	u16		control_devconf_offset;
 	u8		twl_vmmc_dev_grp;
 	u8		twl_mmc_dedicated;
 	char		name[HSMMC_NAME_LEN];
 } hsmmc[] = {
 	{
-		.control_devconf_offset		= OMAP2_CONTROL_DEVCONF0,
-		.devconf_loopback_clock		= OMAP2_MMCSDIO1ADPCLKISEL,
 		.twl_vmmc_dev_grp		= VMMC1_DEV_GRP,
 		.twl_mmc_dedicated		= VMMC1_DEDICATED,
 	},
 	{
-		/* control_devconf_offset set dynamically */
-		.devconf_loopback_clock		= OMAP2_MMCSDIO2ADPCLKISEL,
 		.twl_vmmc_dev_grp		= VMMC2_DEV_GRP,
 		.twl_mmc_dedicated		= VMMC2_DEDICATED,
 	},
@@ -257,9 +252,9 @@ static int twl_mmc1_set_power(struct device *dev, int slot, int power_on,
 
 		/* REVISIT: Loop back clock not needed for 2430? */
 		if (!cpu_is_omap2430()) {
-			reg = omap_ctrl_readl(c->control_devconf_offset);
+			reg = omap_ctrl_readl(OMAP2_CONTROL_DEVCONF0);
 			reg |= OMAP2_MMCSDIO1ADPCLKISEL;
-			omap_ctrl_writel(reg, c->control_devconf_offset);
+			omap_ctrl_writel(reg, OMAP2_CONTROL_DEVCONF0);
 		}
 
 		reg = omap_ctrl_readl(control_pbias_offset);
@@ -305,9 +300,9 @@ static int twl_mmc2_set_power(struct device *dev, int slot, int power_on, int vd
 	if (power_on) {
 		u32 reg;
 
-		reg = omap_ctrl_readl(c->control_devconf_offset);
+		reg = omap_ctrl_readl(control_devconf1_offset);
 		reg |= OMAP2_MMCSDIO2ADPCLKISEL;
-		omap_ctrl_writel(reg, c->control_devconf_offset);
+		omap_ctrl_writel(reg, control_devconf1_offset);
 		ret = twl_mmc_set_voltage(c, vdd);
 	} else {
 		ret = twl_mmc_set_voltage(c, 0);
@@ -325,11 +320,11 @@ void __init hsmmc_init(struct twl4030_hsmmc_info *controllers)
 
 	if (cpu_is_omap2430()) {
 		control_pbias_offset = OMAP243X_CONTROL_PBIAS_LITE;
-		hsmmc[1].control_devconf_offset = OMAP243X_CONTROL_DEVCONF1;
+		control_devconf1_offset = OMAP243X_CONTROL_DEVCONF1;
 		nr_hsmmc = 2;
 	} else {
 		control_pbias_offset = OMAP343X_CONTROL_PBIAS_LITE;
-		hsmmc[1].control_devconf_offset = OMAP343X_CONTROL_DEVCONF1;
+		control_devconf1_offset = OMAP343X_CONTROL_DEVCONF1;
 	}
 
 	for (c = controllers; c->mmc; c++) {
