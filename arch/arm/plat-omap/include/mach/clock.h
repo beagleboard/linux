@@ -39,6 +39,7 @@ struct dpll_data {
 	unsigned long		last_rounded_rate;
 	unsigned int		rate_tolerance;
 	u16			max_multiplier;
+	u8			min_divider;
 	u8			max_divider;
 	u32			max_tolerance;
 	u16			idlest_reg;

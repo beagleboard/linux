@@ -676,6 +676,7 @@ static struct dpll_data dpll_dd = {
 	.idlest_reg		= CM_IDLEST,
 	.idlest_mask		= OMAP24XX_ST_CORE_CLK_MASK,
 	.max_multiplier		= 1024,
+	.min_divider		= 1,
 	.max_divider		= 16,
 	.rate_tolerance		= DEFAULT_DPLL_RATE_TOLERANCE
 };
