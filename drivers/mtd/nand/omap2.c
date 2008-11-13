@@ -196,7 +196,7 @@ static void omap_read_buf16(struct mtd_info *mtd, u_char *buf, int len)
 {
 	struct nand_chip *nand = mtd->priv;
 
-	__raw_readsl(nand->IO_ADDR_R, buf, len / 2);
+	__raw_readsw(nand->IO_ADDR_R, buf, len / 2);
 }
 
 /*
