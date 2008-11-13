@@ -25,7 +25,6 @@ struct map_desc {
 #define MT_HIGH_VECTORS		7
 #define MT_MEMORY		8
 #define MT_ROM			9
-#define MT_MEMORY_SO		10
 
 #ifdef CONFIG_MMU
 extern void iotable_init(struct map_desc *, int);
