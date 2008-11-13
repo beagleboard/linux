@@ -250,8 +250,7 @@ static int twl_mmc1_set_power(struct device *dev, int slot, int power_on,
 			omap_ctrl_writel(reg, OMAP243X_CONTROL_DEVCONF1);
 		}
 
-		/* REVISIT: Loop back clock not needed for 2430? */
-		if (!cpu_is_omap2430()) {
+		if (c->mmc->slots[0].internal_clock) {
 			reg = omap_ctrl_readl(OMAP2_CONTROL_DEVCONF0);
 			reg |= OMAP2_MMCSDIO1ADPCLKISEL;
 			omap_ctrl_writel(reg, OMAP2_CONTROL_DEVCONF0);
@@ -298,11 +297,13 @@ static int twl_mmc2_set_power(struct device *dev, int slot, int power_on, int vd
 	struct twl_mmc_controller *c = &hsmmc[1];
 
 	if (power_on) {
-		u32 reg;
+		if (c->mmc->slots[0].internal_clock) {
+			u32 reg;
 
-		reg = omap_ctrl_readl(control_devconf1_offset);
-		reg |= OMAP2_MMCSDIO2ADPCLKISEL;
-		omap_ctrl_writel(reg, control_devconf1_offset);
+			reg = omap_ctrl_readl(control_devconf1_offset);
+			reg |= OMAP2_MMCSDIO2ADPCLKISEL;
+			omap_ctrl_writel(reg, control_devconf1_offset);
+		}
 		ret = twl_mmc_set_voltage(c, vdd);
 	} else {
 		ret = twl_mmc_set_voltage(c, 0);
@@ -354,6 +355,7 @@ void __init hsmmc_init(struct twl4030_hsmmc_info *controllers)
 					MMC_VDD_29_30 |
 					MMC_VDD_30_31 | MMC_VDD_31_32;
 		mmc->slots[0].wires = c->wires;
+		mmc->slots[0].internal_clock = !c->ext_clock;
 		mmc->dma_mask = 0xffffffff;
 
 		/* note: twl4030 card detect GPIOs normally switch VMMCx ... */
