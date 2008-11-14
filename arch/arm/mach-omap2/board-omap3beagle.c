@@ -116,7 +116,7 @@ static struct twl4030_usb_data beagle_usb_data = {
 	.usb_mode	= T2_USB_MODE_ULPI,
 };
 
-static struct twl4030_hsmmc_info mmc[] __initdata = {
+static struct twl4030_hsmmc_info mmc[] = {
 	{
 		.mmc		= 1,
 		.wires		= 8,
