@@ -239,6 +239,7 @@ static int twl_mmc1_set_power(struct device *dev, int slot, int power_on,
 	u32 reg;
 	int ret = 0;
 	struct twl_mmc_controller *c = &hsmmc[0];
+	struct omap_mmc_platform_data *mmc = dev->platform_data;
 
 	if (power_on) {
 		if (cpu_is_omap2430()) {
@@ -250,7 +251,7 @@ static int twl_mmc1_set_power(struct device *dev, int slot, int power_on,
 			omap_ctrl_writel(reg, OMAP243X_CONTROL_DEVCONF1);
 		}
 
-		if (c->mmc->slots[0].internal_clock) {
+		if (mmc->slots[0].internal_clock) {
 			reg = omap_ctrl_readl(OMAP2_CONTROL_DEVCONF0);
 			reg |= OMAP2_MMCSDIO1ADPCLKISEL;
 			omap_ctrl_writel(reg, OMAP2_CONTROL_DEVCONF0);
@@ -293,11 +294,11 @@ static int twl_mmc1_set_power(struct device *dev, int slot, int power_on,
 static int twl_mmc2_set_power(struct device *dev, int slot, int power_on, int vdd)
 {
 	int ret;
-
 	struct twl_mmc_controller *c = &hsmmc[1];
+	struct omap_mmc_platform_data *mmc = dev->platform_data;
 
 	if (power_on) {
-		if (c->mmc->slots[0].internal_clock) {
+		if (mmc->slots[0].internal_clock) {
 			u32 reg;
 
 			reg = omap_ctrl_readl(control_devconf1_offset);
