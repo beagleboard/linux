@@ -23,12 +23,12 @@
 #define HDQ_CMD_READ	(0)
 #define HDQ_CMD_WRITE	(1<<7)
 
-int F_ID;
-int family_id;
+static int F_ID;
 
 void w1_bq27000_write(struct device *dev, u8 buf, u8 reg)
 {
 	struct w1_slave *sl = container_of(dev, struct w1_slave, dev);
+
 	if (!dev) {
 		pr_info("Could not obtain slave dev ptr\n");
 		return;
@@ -43,6 +43,7 @@ int w1_bq27000_read(struct device *dev, u8 reg)
 {
 	u8 val;
 	struct w1_slave *sl = container_of(dev, struct w1_slave, dev);
+
 	if (!dev)
 		return 0;
 
@@ -83,6 +84,7 @@ success:
 static void w1_bq27000_remove_slave(struct w1_slave *sl)
 {
 	struct platform_device *pdev = dev_get_drvdata(&sl->dev);
+
 	platform_device_unregister(pdev);
 }
 
@@ -114,6 +116,7 @@ module_init(w1_bq27000_init);
 module_exit(w1_bq27000_exit);
 
 module_param(F_ID, int, S_IRUSR);
+MODULE_PARM_DESC(F_ID, "1-wire slave FID for BQ device");
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Texas Instruments Ltd");
