@@ -575,27 +575,28 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 	const u8		epnum = req->epnum;
 	struct usb_request	*request = &req->request;
 	struct musb_ep		*musb_ep = &musb->endpoints[epnum].ep_out;
+	struct dma_controller	*c = musb->dma_controller;
+	struct dma_channel	*channel = musb_ep->dma;
 	void __iomem		*epio = musb->endpoints[epnum].regs;
 	u16			fifo_count = 0;
 	u16			len = musb_ep->packet_sz;
+	int			use_dma = 0;
 
 	csr = musb_readw(epio, MUSB_RXCSR);
 
 	if (cppi_ti_dma() && musb_ep->dma) {
-		struct dma_controller	*c = musb->dma_controller;
-		struct dma_channel	*channel = musb_ep->dma;
-
 		/* NOTE:  CPPI won't actually stop advancing the DMA
 		 * queue after short packet transfers, so this is almost
 		 * always going to run as IRQ-per-packet DMA so that
 		 * faults will be handled correctly.
 		 */
-		if (c->channel_program(channel,
+		use_dma = c->channel_program(channel,
 				musb_ep->packet_sz,
 				!request->short_not_ok,
 				request->dma + request->actual,
-				request->length - request->actual)) {
+				request->length - request->actual);
 
+		if (use_dma) {
 			/* make sure that if an rxpkt arrived after the irq,
 			 * the cppi engine will be ready to take it as soon
 			 * as DMA is enabled
@@ -604,7 +605,6 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 					| MUSB_RXCSR_DMAMODE);
 			csr |= MUSB_RXCSR_DMAENAB | MUSB_RXCSR_P_WZC_BITS;
 			musb_writew(epio, MUSB_RXCSR, csr);
-			return;
 		}
 	}
 
@@ -674,24 +674,20 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 							request->dma
 							+ request->actual,
 							transfer_size);
+					if (use_dma)
+						return;
 				}
-
-				if (use_dma)
-					return;
 			}
 
 			if (tusb_dma_omap() && musb_ep->dma) {
-				struct dma_controller *c = musb->dma_controller;
-				struct dma_channel *channel = musb_ep->dma;
 				u32 dma_addr = request->dma + request->actual;
-				int ret;
 
-				ret = c->channel_program(channel,
+				use_dma = c->channel_program(channel,
 						musb_ep->packet_sz,
 						channel->desired_mode,
 						dma_addr,
 						fifo_count);
-				if (ret)
+				if (use_dma)
 					return;
 			}
 
