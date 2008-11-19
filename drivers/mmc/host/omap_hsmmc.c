@@ -897,10 +897,7 @@ static void omap_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		OMAP_HSMMC_WRITE(host->base, CON,
 				OMAP_HSMMC_READ(host->base, CON) | OD);
 
-	if (ios->power_mode == MMC_POWER_OFF)
-		mmc_omap_fclk_state(host, OFF);
-	else
-		mmc_omap_fclk_lazy_disable(host);
+	mmc_omap_fclk_lazy_disable(host);
 }
 
 static int omap_hsmmc_get_cd(struct mmc_host *mmc)
@@ -1207,12 +1204,11 @@ static int omap_mmc_suspend(struct platform_device *pdev, pm_message_t state)
 		return 0;
 
 	if (host) {
-		mmc_omap_fclk_state(host, ON);
-
 		ret = mmc_suspend_host(host->mmc, state);
 		if (ret == 0) {
 			host->suspended = 1;
 
+			mmc_omap_fclk_state(host, ON);
 			OMAP_HSMMC_WRITE(host->base, ISE, 0);
 			OMAP_HSMMC_WRITE(host->base, IE, 0);
 
@@ -1224,19 +1220,8 @@ static int omap_mmc_suspend(struct platform_device *pdev, pm_message_t state)
 						" level suspend\n");
 			}
 
-			if (!(OMAP_HSMMC_READ(host->base, HCTL) & SDVSDET)) {
-				u32 hctl = OMAP_HSMMC_READ(host->base, HCTL) &
-					SDVSCLR;
-
-				if (host->id == OMAP_MMC1_DEVID)
-					hctl |= SDVS30;
-				else
-					hctl |= SDVS18;
-
-				OMAP_HSMMC_WRITE(host->base, HCTL, hctl);
-				OMAP_HSMMC_WRITE(host->base, HCTL, hctl | SDBP);
-			}
-
+			OMAP_HSMMC_WRITE(host->base, HCTL,
+					 OMAP_HSMMC_READ(host->base, HCTL) & ~SDBP);
 			mmc_omap_fclk_state(host, OFF);
 			clk_disable(host->iclk);
 			clk_disable(host->dbclk);
@@ -1256,6 +1241,7 @@ static int omap_mmc_resume(struct platform_device *pdev)
 		return 0;
 
 	if (host) {
+		int i;
 		if (mmc_omap_fclk_state(host, ON) != 0)
 			goto clk_en_err;
 
@@ -1269,6 +1255,13 @@ static int omap_mmc_resume(struct platform_device *pdev)
 		if (clk_enable(host->dbclk) != 0)
 			dev_dbg(mmc_dev(host->mmc),
 					"Enabling debounce clk failed\n");
+
+		OMAP_HSMMC_WRITE(host->base, HCTL,
+				 OMAP_HSMMC_READ(host->base, HCTL) | SDBP);
+
+		for (i = 0; i < 100; i++)
+			if (OMAP_HSMMC_READ(host->base, HCTL) & SDBP)
+				break;
 
 		if (host->pdata->resume) {
 			ret = host->pdata->resume(&pdev->dev, host->slot_id);
