@@ -297,8 +297,7 @@ static void txstate(struct musb *musb, struct musb_request *req)
 
 		/* MUSB_TXCSR_P_ISO is still set correctly */
 
-#ifdef CONFIG_USB_INVENTRA_DMA
-		{
+		if (musb_inventra_dma()) {
 			size_t request_size;
 
 			/* setup DMA, then program endpoint CSR */
@@ -332,49 +331,51 @@ static void txstate(struct musb *musb, struct musb_request *req)
 			}
 		}
 
-#elif defined(CONFIG_USB_TI_CPPI_DMA)
-		/* program endpoint CSR first, then setup DMA */
-		csr &= ~(MUSB_TXCSR_AUTOSET
-				| MUSB_TXCSR_DMAMODE
-				| MUSB_TXCSR_P_UNDERRUN
-				| MUSB_TXCSR_TXPKTRDY);
-		csr |= MUSB_TXCSR_MODE | MUSB_TXCSR_DMAENAB;
-		musb_writew(epio, MUSB_TXCSR,
-			(MUSB_TXCSR_P_WZC_BITS & ~MUSB_TXCSR_P_UNDERRUN)
-				| csr);
+		if (cppi_ti_dma()) {
+			/* program endpoint CSR first, then setup DMA */
+			csr &= ~(MUSB_TXCSR_AUTOSET
+					| MUSB_TXCSR_DMAMODE
+					| MUSB_TXCSR_P_UNDERRUN
+					| MUSB_TXCSR_TXPKTRDY);
+			csr |= MUSB_TXCSR_MODE | MUSB_TXCSR_DMAENAB;
+			musb_writew(epio, MUSB_TXCSR,
+					(MUSB_TXCSR_P_WZC_BITS & ~MUSB_TXCSR_P_UNDERRUN)
+					| csr);
 
-		/* ensure writebuffer is empty */
-		csr = musb_readw(epio, MUSB_TXCSR);
+			/* ensure writebuffer is empty */
+			csr = musb_readw(epio, MUSB_TXCSR);
 
-		/* NOTE host side sets DMAENAB later than this; both are
-		 * OK since the transfer dma glue (between CPPI and Mentor
-		 * fifos) just tells CPPI it could start.  Data only moves
-		 * to the USB TX fifo when both fifos are ready.
-		 */
+			/* NOTE host side sets DMAENAB later than this; both are
+			 * OK since the transfer dma glue (between CPPI and Mentor
+			 * fifos) just tells CPPI it could start.  Data only moves
+			 * to the USB TX fifo when both fifos are ready.
+			 */
 
-		/* "mode" is irrelevant here; handle terminating ZLPs like
-		 * PIO does, since the hardware RNDIS mode seems unreliable
-		 * except for the last-packet-is-already-short case.
-		 */
-		use_dma = use_dma && c->channel_program(
-				musb_ep->dma, musb_ep->packet_sz,
-				0,
-				request->dma,
-				request->length);
-		if (!use_dma) {
-			c->channel_release(musb_ep->dma);
-			musb_ep->dma = NULL;
-			/* ASSERT: DMAENAB clear */
-			csr &= ~(MUSB_TXCSR_DMAMODE | MUSB_TXCSR_MODE);
-			/* invariant: prequest->buf is non-null */
+			/* "mode" is irrelevant here; handle terminating ZLPs like
+			 * PIO does, since the hardware RNDIS mode seems unreliable
+			 * except for the last-packet-is-already-short case.
+			 */
+			use_dma = use_dma && c->channel_program(
+					musb_ep->dma, musb_ep->packet_sz,
+					0,
+					request->dma,
+					request->length);
+			if (!use_dma) {
+				c->channel_release(musb_ep->dma);
+				musb_ep->dma = NULL;
+				/* ASSERT: DMAENAB clear */
+				csr &= ~(MUSB_TXCSR_DMAMODE | MUSB_TXCSR_MODE);
+				/* invariant: prequest->buf is non-null */
+			}
 		}
-#elif defined(CONFIG_USB_TUSB_OMAP_DMA)
-		use_dma = use_dma && c->channel_program(
-				musb_ep->dma, musb_ep->packet_sz,
-				request->zero,
-				request->dma,
-				request->length);
-#endif
+
+		if (tusb_dma_omap()) {
+			use_dma = use_dma && c->channel_program(
+					musb_ep->dma, musb_ep->packet_sz,
+					request->zero,
+					request->dma,
+					request->length);
+		}
 	}
 #endif
 
@@ -580,7 +581,7 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 
 	csr = musb_readw(epio, MUSB_RXCSR);
 
-	if (is_cppi_enabled() && musb_ep->dma) {
+	if (cppi_ti_dma() && musb_ep->dma) {
 		struct dma_controller	*c = musb->dma_controller;
 		struct dma_channel	*channel = musb_ep->dma;
 
@@ -610,35 +611,34 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 	if (csr & MUSB_RXCSR_RXPKTRDY) {
 		len = musb_readw(epio, MUSB_RXCOUNT);
 		if (request->actual < request->length) {
-#ifdef CONFIG_USB_INVENTRA_DMA
-			if (is_dma_capable() && musb_ep->dma) {
+
+		/* We use DMA Req mode 0 in rx_csr, and DMA controller operates in
+		 * mode 0 only. So we do not get endpoint interrupts due to DMA
+		 * completion. We only get interrupts from DMA controller.
+		 *
+		 * We could operate in DMA mode 1 if we knew the size of the tranfer
+		 * in advance. For mass storage class, request->length = what the host
+		 * sends, so that'd work.  But for pretty much everything else,
+		 * request->length is routinely more than what the host sends. For
+		 * most these gadgets, end of is signified either by a short packet,
+		 * or filling the last byte of the buffer.  (Sending extra data in
+		 * that last pckate should trigger an overflow fault.)  But in mode 1,
+		 * we don't get DMA completion interrrupt for short packets.
+		 *
+		 * Theoretically, we could enable DMAReq irq (MUSB_RXCSR_DMAMODE = 1),
+		 * to get endpoint interrupt on every DMA req, but that didn't seem
+		 * to work reliably.
+		 *
+		 * REVISIT an updated g_file_storage can set req->short_not_ok, which
+		 * then becomes usable as a runtime "use mode 1" hint...
+		 */
+			if (musb_inventra_dma() && musb_ep->dma) {
 				struct dma_controller	*c;
 				struct dma_channel	*channel;
 				int			use_dma = 0;
 
 				c = musb->dma_controller;
 				channel = musb_ep->dma;
-
-	/* We use DMA Req mode 0 in rx_csr, and DMA controller operates in
-	 * mode 0 only. So we do not get endpoint interrupts due to DMA
-	 * completion. We only get interrupts from DMA controller.
-	 *
-	 * We could operate in DMA mode 1 if we knew the size of the tranfer
-	 * in advance. For mass storage class, request->length = what the host
-	 * sends, so that'd work.  But for pretty much everything else,
-	 * request->length is routinely more than what the host sends. For
-	 * most these gadgets, end of is signified either by a short packet,
-	 * or filling the last byte of the buffer.  (Sending extra data in
-	 * that last pckate should trigger an overflow fault.)  But in mode 1,
-	 * we don't get DMA completion interrrupt for short packets.
-	 *
-	 * Theoretically, we could enable DMAReq irq (MUSB_RXCSR_DMAMODE = 1),
-	 * to get endpoint interrupt on every DMA req, but that didn't seem
-	 * to work reliably.
-	 *
-	 * REVISIT an updated g_file_storage can set req->short_not_ok, which
-	 * then becomes usable as a runtime "use mode 1" hint...
-	 */
 
 				csr |= MUSB_RXCSR_DMAENAB;
 #ifdef USE_MODE1
@@ -650,7 +650,7 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 				 * to get DMAReq to activate
 				 */
 				musb_writew(epio, MUSB_RXCSR,
-					csr | MUSB_RXCSR_DMAMODE);
+						csr | MUSB_RXCSR_DMAMODE);
 #endif
 				musb_writew(epio, MUSB_RXCSR, csr);
 
@@ -679,17 +679,7 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 				if (use_dma)
 					return;
 			}
-#endif	/* Mentor's DMA */
 
-			fifo_count = request->length - request->actual;
-			DBG(3, "%s OUT/RX pio fifo %d/%d, maxpacket %d\n",
-					musb_ep->end_point.name,
-					len, fifo_count,
-					musb_ep->packet_sz);
-
-			fifo_count = min(len, fifo_count);
-
-#ifdef	CONFIG_USB_TUSB_OMAP_DMA
 			if (tusb_dma_omap() && musb_ep->dma) {
 				struct dma_controller *c = musb->dma_controller;
 				struct dma_channel *channel = musb_ep->dma;
@@ -704,7 +694,14 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 				if (ret)
 					return;
 			}
-#endif
+
+			fifo_count = request->length - request->actual;
+			DBG(3, "%s OUT/RX pio fifo %d/%d, maxpacket %d\n",
+					musb_ep->end_point.name,
+					len, fifo_count,
+					musb_ep->packet_sz);
+
+			fifo_count = min(len, fifo_count);
 
 			musb_read_fifo(musb_ep->hw_ep, fifo_count, (u8 *)
 					(request->buf + request->actual));
@@ -800,11 +797,11 @@ void musb_g_rx(struct musb *musb, u8 epnum)
 			musb_readw(epio, MUSB_RXCSR),
 			musb_ep->dma->actual_len, request);
 
-#if defined(CONFIG_USB_INVENTRA_DMA) || defined(CONFIG_USB_TUSB_OMAP_DMA)
 		/* Autoclear doesn't clear RxPktRdy for short packets */
-		if ((dma->desired_mode == 0)
+		if ((tusb_dma_omap() || musb_inventra_dma())
+				&& ((dma->desired_mode == 0)
 				|| (dma->actual_len
-					& (musb_ep->packet_sz - 1))) {
+					& (musb_ep->packet_sz - 1)))) {
 			/* ack the read! */
 			csr &= ~MUSB_RXCSR_RXPKTRDY;
 			musb_writew(epio, MUSB_RXCSR, csr);
@@ -815,7 +812,7 @@ void musb_g_rx(struct musb *musb, u8 epnum)
 				&& (musb_ep->dma->actual_len
 					== musb_ep->packet_sz))
 			goto done;
-#endif
+
 		musb_g_giveback(musb_ep, request, 0);
 
 		request = next_request(musb_ep);

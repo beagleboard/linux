@@ -260,7 +260,7 @@ start:
 
 		if (!hw_ep->tx_channel)
 			musb_h_tx_start(hw_ep);
-		else if (is_cppi_enabled() || tusb_dma_omap())
+		else if (cppi_ti_dma() || tusb_dma_omap())
 			cppi_host_txdma_start(hw_ep);
 	}
 }
@@ -745,8 +745,7 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 		else
 			load_count = min((u32) packet_sz, len);
 
-#ifdef CONFIG_USB_INVENTRA_DMA
-		if (dma_channel) {
+		if (musb_inventra_dma() && dma_channel) {
 
 			/* clear previous state */
 			csr = musb_readw(epio, MUSB_TXCSR);
@@ -793,10 +792,9 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 				dma_channel = NULL;
 			}
 		}
-#endif
 
 		/* candidate for DMA */
-		if ((is_cppi_enabled() || tusb_dma_omap()) && dma_channel) {
+		if ((cppi_ti_dma() || tusb_dma_omap()) && dma_channel) {
 
 			/* program endpoint CSRs first, then setup DMA.
 			 * assume CPPI setup succeeds.
@@ -888,7 +886,7 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 
 		/* kick things off */
 
-		if ((is_cppi_enabled() || tusb_dma_omap()) && dma_channel) {
+		if ((cppi_ti_dma() || tusb_dma_omap()) && dma_channel) {
 			/* candidate for DMA */
 			if (dma_channel) {
 				dma_channel->actual_len = 0L;
@@ -1473,8 +1471,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 
 	/* FIXME this is _way_ too much in-line logic for Mentor DMA */
 
-#ifndef CONFIG_USB_INVENTRA_DMA
-	if (rx_csr & MUSB_RXCSR_H_REQPKT)  {
+	if (!musb_inventra_dma() && (rx_csr & MUSB_RXCSR_H_REQPKT))  {
 		/* REVISIT this happened for a while on some short reads...
 		 * the cleanup still needs investigation... looks bad...
 		 * and also duplicates dma cleanup code above ... plus,
@@ -1495,7 +1492,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 		musb_writew(epio, MUSB_RXCSR,
 				MUSB_RXCSR_H_WZC_BITS | rx_csr);
 	}
-#endif
+
 	if (dma && (rx_csr & MUSB_RXCSR_DMAENAB)) {
 		xfer_len = dma->actual_len;
 
@@ -1561,8 +1558,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 		}
 
 		/* we are expecting IN packets */
-#ifdef CONFIG_USB_INVENTRA_DMA
-		if (dma) {
+		if (musb_inventra_dma() && dma) {
 			struct dma_controller	*c;
 			u16			rx_count;
 			int			ret, length;
@@ -1671,7 +1667,6 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 				/* REVISIT reset CSR */
 			}
 		}
-#endif	/* Mentor DMA */
 
 		if (!dma) {
 			done = musb_host_packet_rx(musb, urb,
