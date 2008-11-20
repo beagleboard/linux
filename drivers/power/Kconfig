@@ -58,8 +58,7 @@ config BATTERY_TOSA
 
 config TWL4030_BCI_BATTERY
 	tristate "OMAP TWL4030 BCI Battery driver"
-	depends on (MACH_OMAP_2430SDP || MACH_OMAP_3430SDP || MACH_OMAP_LDP) && TWL4030_MADC
-	default y
+	depends on TWL4030_CORE && TWL4030_MADC
 	help
 	  Support for OMAP TWL4030 BCI Battery driver.
 	  This driver can give support for TWL4030 Battery Charge Interface.

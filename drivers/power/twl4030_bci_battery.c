@@ -958,17 +958,17 @@ static int __init twl4030_bci_battery_probe(struct platform_device *pdev)
 	/* REVISIT do we need to request both IRQs ?? */
 
 	/* request BCI interruption */
-	ret = request_irq(TWL4030_MODIRQ_BCI, twl4030battery_interrupt,
+	irq = platform_get_irq(pdev, 1);
+	ret = request_irq(irq, twl4030battery_interrupt,
 		0, pdev->name, NULL);
 	if (ret) {
 		dev_dbg(&pdev->dev, "could not request irq %d, status %d\n",
-			TWL4030_MODIRQ_BCI, ret);
+			irq, ret);
 		goto batt_irq_fail;
 	}
 
-	irq = platform_get_irq(pdev, 0);
-
 	/* request Power interruption */
+	irq = platform_get_irq(pdev, 0);
 	ret = request_irq(irq, twl4030charger_interrupt,
 		0, pdev->name, di);
 
@@ -1005,7 +1005,8 @@ bk_batt_failed:
 batt_failed:
 	free_irq(irq, di);
 chg_irq_fail:
-	free_irq(TWL4030_MODIRQ_BCI, NULL);
+	irq = platform_get_irq(pdev, 1);
+	free_irq(irq, NULL);
 batt_irq_fail:
 voltage_setup_fail:
 temp_setup_fail:
@@ -1021,15 +1022,18 @@ temp_setup_fail:
 static int __exit twl4030_bci_battery_remove(struct platform_device *pdev)
 {
 	struct twl4030_bci_device_info *di = platform_get_drvdata(pdev);
-	int irq = platform_get_irq(pdev, 0);
+	int irq;
 
 	twl4030charger_ac_en(DISABLE);
 	twl4030charger_usb_en(DISABLE);
 	twl4030battery_hw_level_en(DISABLE);
 	twl4030battery_hw_presence_en(DISABLE);
 
-	free_irq(TWL4030_MODIRQ_BCI, NULL);
+	irq = platform_get_irq(pdev, 0);
 	free_irq(irq, di);
+
+	irq = platform_get_irq(pdev, 1);
+	free_irq(irq, NULL);
 
 	flush_scheduled_work();
 	power_supply_unregister(&di->bat);
