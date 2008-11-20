@@ -458,7 +458,7 @@ static int __init twl4030_madc_probe(struct platform_device *pdev)
 	ret = twl4030_i2c_write_u8(TWL4030_MODULE_MAIN_CHARGE,
 				   regval, TWL4030_BCI_BCICTL1);
 
-	ret = request_irq(TWL4030_MODIRQ_MADC, twl4030_madc_irq_handler,
+	ret = request_irq(platform_get_irq(pdev, 0), twl4030_madc_irq_handler,
 			  0, "twl4030_madc", madc);
 	if (ret) {
 		dev_dbg(&pdev->dev, "could not request irq\n");
@@ -489,7 +489,7 @@ static int __exit twl4030_madc_remove(struct platform_device *pdev)
 
 	twl4030_madc_set_power(madc, 0);
 	twl4030_madc_set_current_generator(madc, 0, 0);
-	free_irq(TWL4030_MODIRQ_MADC, madc);
+	free_irq(platform_get_irq(pdev, 0), madc);
 	cancel_work_sync(&madc->ws);
 	misc_deregister(&twl4030_madc_device);
 
