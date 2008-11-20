@@ -259,7 +259,6 @@ struct twl4030_keypad_data {
 	int rows;
 	int cols;
 	int *keymap;
-	int irq;
 	unsigned int keymapsize;
 	unsigned int rep:1;
 };
@@ -374,7 +373,7 @@ int twl4030_sih_setup(int module);
 /* TWL4030 interrupts */
 
 /* #define TWL4030_MODIRQ_GPIO		(TWL4030_IRQ_BASE + 0) */
-#define TWL4030_MODIRQ_KEYPAD		(TWL4030_IRQ_BASE + 1)
+/* #define TWL4030_MODIRQ_KEYPAD		(TWL4030_IRQ_BASE + 1) */
 #define TWL4030_MODIRQ_BCI		(TWL4030_IRQ_BASE + 2)
 #define TWL4030_MODIRQ_MADC		(TWL4030_IRQ_BASE + 3)
 /* #define TWL4030_MODIRQ_USB		(TWL4030_IRQ_BASE + 4) */

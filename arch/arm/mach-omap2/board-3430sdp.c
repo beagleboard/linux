@@ -118,7 +118,6 @@ static struct twl4030_keypad_data sdp3430_kp_data = {
 	.keymap		= sdp3430_keymap,
 	.keymapsize	= ARRAY_SIZE(sdp3430_keymap),
 	.rep		= 1,
-	.irq		= TWL4030_MODIRQ_KEYPAD,
 };
 
 static int ts_gpio;

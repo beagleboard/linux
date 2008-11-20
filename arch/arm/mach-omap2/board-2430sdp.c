@@ -182,7 +182,6 @@ static struct twl4030_keypad_data sdp2430_kp_data = {
 	.keymap		= sdp2430_keymap,
 	.keymapsize	= ARRAY_SIZE(sdp2430_keymap),
 	.rep		= 1,
-	.irq		= TWL4030_MODIRQ_KEYPAD,
 };
 
 static int __init msecure_init(void)

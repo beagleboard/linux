@@ -101,7 +101,6 @@ static struct twl4030_keypad_data ldp_kp_twl4030_data = {
 	.keymap		= ldp_twl4030_keymap,
 	.keymapsize	= ARRAY_SIZE(ldp_twl4030_keymap),
 	.rep		= 1,
-	.irq		= TWL4030_MODIRQ_KEYPAD,
 };
 
 static struct gpio_keys_button ldp_gpio_keys_buttons[] = {

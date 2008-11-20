@@ -273,7 +273,6 @@ static struct twl4030_keypad_data omap2evm_kp_data = {
 	.keymap		= omap2evm_keymap,
 	.keymapsize	= ARRAY_SIZE(omap2evm_keymap),
 	.rep		= 1,
-	.irq		= TWL4030_MODIRQ_KEYPAD,
 };
 
 static void __init omap2_evm_init_irq(void)

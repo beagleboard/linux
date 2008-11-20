@@ -269,7 +269,7 @@ static int __init omap_kp_probe(struct platform_device *pdev)
 	kp->keymapsize = pdata->keymapsize;
 	kp->n_rows = pdata->rows;
 	kp->n_cols = pdata->cols;
-	kp->irq = pdata->irq;
+	kp->irq = platform_get_irq(pdev, 0);
 
 	/* setup input device */
 	set_bit(EV_KEY, kp->omap_twl4030kp->evbit);
