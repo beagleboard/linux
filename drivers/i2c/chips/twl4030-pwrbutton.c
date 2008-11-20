@@ -29,18 +29,16 @@
 #include <linux/interrupt.h>
 #include <linux/i2c/twl4030.h>
 
-#define PWR_ISR1 0
-#define PWR_IMR1 1
+
 #define PWR_PWRON_IRQ (1<<0)
 
-#define PWR_EDR1 5
-#define PWR_PWRON_RISING (1<<1)
-#define PWR_PWRON_FALLING  (1<<0)
-#define PWR_PWRON_BOTH (PWR_PWRON_RISING | PWR_PWRON_FALLING)
-
-#define PWR_SIH_CTRL 7
-
 #define STS_HW_CONDITIONS 0xf
+
+
+/* FIXME have this constant delivered to us as part of the
+ * twl4030-core setup ...
+ */
+#define TWL4030_PWRIRQ_PWRBTN	(TWL4030_PWR_IRQ_BASE + 0)
 
 static struct input_dev *powerbutton_dev;
 
@@ -73,20 +71,19 @@ static irqreturn_t powerbutton_irq(int irq, void *dev_id)
 static int __init twl4030_pwrbutton_init(void)
 {
 	int err = 0;
-	u8 value;
 
 	/* PWRBTN == PWRON */
-	if (request_irq(TWL4030_PWRIRQ_PWRBTN, powerbutton_irq, 0,
-			"PwrButton", NULL) < 0) {
-		printk(KERN_ERR "Unable to allocate IRQ for power button\n");
-		err = -EBUSY;
+	err = request_irq(TWL4030_PWRIRQ_PWRBTN, powerbutton_irq,
+			IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING,
+			"PwrButton", NULL);
+	if (err < 0) {
+		pr_debug("Can't get IRQ for power button: %d\n", err);
 		goto out;
 	}
 
 	powerbutton_dev = input_allocate_device();
 	if (!powerbutton_dev) {
-		printk(KERN_ERR
-			"Unable to allocate input device for power button\n");
+		pr_debug("Can't allocate power button\n");
 		err = -ENOMEM;
 		goto free_irq_and_out;
 	}
@@ -97,26 +94,7 @@ static int __init twl4030_pwrbutton_init(void)
 
 	err = input_register_device(powerbutton_dev);
 	if (err) {
-		input_free_device(powerbutton_dev);
-		goto free_irq_and_out;
-	}
-
-	/* FIXME just pass IRQF_EDGE_FALLING | IRQF_EDGE_RISING
-	 * to request_irq(), once MODULE_INT supports them...
-	 */
-	err = twl4030_i2c_read_u8(TWL4030_MODULE_INT, &value, PWR_EDR1);
-	if (err) {
-		printk(KERN_WARNING "I2C error %d while reading TWL4030"
-					" INT PWR_EDR1 register\n", err);
-		goto free_input_dev;
-	}
-
-	err = twl4030_i2c_write_u8(TWL4030_MODULE_INT,
-				   value | PWR_PWRON_BOTH, PWR_EDR1);
-
-	if (err) {
-		printk(KERN_WARNING "I2C error %d while writing TWL4030"
-					" INT PWR_EDR1 register\n", err);
+		pr_debug("Can't register power button: %d\n", err);
 		goto free_input_dev;
 	}
 
@@ -126,7 +104,7 @@ static int __init twl4030_pwrbutton_init(void)
 
 
 free_input_dev:
-	input_unregister_device(powerbutton_dev);
+	input_free_device(powerbutton_dev);
 free_irq_and_out:
 	free_irq(TWL4030_PWRIRQ_PWRBTN, NULL);
 out:
