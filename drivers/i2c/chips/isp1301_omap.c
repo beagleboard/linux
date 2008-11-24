@@ -32,7 +32,6 @@
 #include <linux/usb/otg.h>
 #include <linux/i2c.h>
 #include <linux/workqueue.h>
-#include <linux/io.h>
 
 #include <asm/irq.h>
 #include <asm/mach-types.h>
