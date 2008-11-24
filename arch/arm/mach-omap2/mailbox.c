@@ -18,6 +18,8 @@
 #include <mach/irqs.h>
 #include <asm/io.h>
 
+#define DRV_NAME "omap2-mailbox"
+
 #define MAILBOX_REVISION		0x000
 #define MAILBOX_SYSCONFIG		0x010
 #define MAILBOX_SYSSTATUS		0x014
@@ -234,7 +236,7 @@ static struct omap_mbox mbox_iva_info = {
 };
 #endif
 
-static int __init omap2_mbox_probe(struct platform_device *pdev)
+static int __devinit omap2_mbox_probe(struct platform_device *pdev)
 {
 	struct resource *res;
 	int ret;
@@ -258,7 +260,7 @@ static int __init omap2_mbox_probe(struct platform_device *pdev)
 	}
 	mbox_dsp_info.irq = res->start;
 
-	ret = omap_mbox_register(&mbox_dsp_info);
+	ret = omap_mbox_register(&pdev->dev, &mbox_dsp_info);
 	if (ret)
 		goto err_dsp;
 
@@ -272,7 +274,7 @@ static int __init omap2_mbox_probe(struct platform_device *pdev)
 			goto err_iva1;
 		}
 		mbox_iva_info.irq = res->start;
-		ret = omap_mbox_register(&mbox_iva_info);
+		ret = omap_mbox_register(&pdev->dev, &mbox_iva_info);
 		if (ret)
 			goto err_iva1;
 	}
@@ -286,7 +288,7 @@ err_dsp:
 	return ret;
 }
 
-static int omap2_mbox_remove(struct platform_device *pdev)
+static int __devexit omap2_mbox_remove(struct platform_device *pdev)
 {
 #if defined(CONFIG_ARCH_OMAP2420)
 	omap_mbox_unregister(&mbox_iva_info);
@@ -298,9 +300,9 @@ static int omap2_mbox_remove(struct platform_device *pdev)
 
 static struct platform_driver omap2_mbox_driver = {
 	.probe = omap2_mbox_probe,
-	.remove = omap2_mbox_remove,
+	.remove = __devexit_p(omap2_mbox_remove),
 	.driver = {
-		.name = "mailbox",
+		.name = DRV_NAME,
 	},
 };
 
@@ -320,3 +322,4 @@ module_exit(omap2_mbox_exit);
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("omap mailbox: omap2/3 architecture specific functions");
 MODULE_AUTHOR("Hiroshi DOYU <Hiroshi.DOYU@nokia.com>, Paul Mundt");
+MODULE_ALIAS("platform:"DRV_NAME);
