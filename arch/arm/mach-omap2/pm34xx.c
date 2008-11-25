@@ -481,9 +481,8 @@ static void __init prcm_setup_regs(void)
 	 * Set all plls to autoidle. This is needed until autoidle is
 	 * enabled by clockfw
 	 */
-	cm_write_mod_reg(1 << OMAP3430_CLKTRCTRL_IVA2_SHIFT,
-			 OMAP3430_IVA2_MOD,
-			 CM_AUTOIDLE2);
+	cm_write_mod_reg(1 << OMAP3430_AUTO_IVA2_DPLL_SHIFT,
+			 OMAP3430_IVA2_MOD, CM_AUTOIDLE2);
 	cm_write_mod_reg(1 << OMAP3430_AUTO_MPU_DPLL_SHIFT,
 			 MPU_MOD,
 			 CM_AUTOIDLE2);
