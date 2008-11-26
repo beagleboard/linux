@@ -337,7 +337,13 @@ static int omap_i2c_init(struct omap_i2c_dev *dev)
 	if (cpu_is_omap2430() || cpu_is_omap34xx()) {
 
 		/* HSI2C controller internal clk rate should be 19.2 Mhz */
-		internal_clk = 19200;
+		if (dev->speed > 400)
+			internal_clk = 19200;
+		else if (dev->speed > 100)
+			internal_clk = 9600;
+		else
+			internal_clk = 4000;
+
 		fclk_rate = clk_get_rate(dev->fclk) / 1000;
 
 		/* Compute prescaler divisor */
@@ -355,8 +361,8 @@ static int omap_i2c_init(struct omap_i2c_dev *dev)
 			hssclh = fclk_rate / (dev->speed * 2) - 6;
 		} else {
 			/* To handle F/S modes */
-			fsscll = internal_clk / (dev->speed * 2) - 6;
-			fssclh = internal_clk / (dev->speed * 2) - 6;
+			fsscll = internal_clk / (dev->speed * 2) - 3;
+			fssclh = internal_clk / (dev->speed * 2) - 9;
 		}
 		scll = (hsscll << OMAP_I2C_SCLL_HSSCLL) | fsscll;
 		sclh = (hssclh << OMAP_I2C_SCLH_HSSCLH) | fssclh;
