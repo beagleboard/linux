@@ -139,7 +139,7 @@ static struct twl4030_platform_data omap3evm_twldata = {
 	.keypad		= &omap3evm_kp_data,
 	.madc		= &omap3evm_madc_data,
 	.usb		= &omap3evm_usb_data,
-	.power		= &generic3430_t2scripts_data,
+	.power		= GENERIC3430_T2SCRIPTS_DATA,
 	.gpio		= &omap3evm_gpio_data,
 };
 

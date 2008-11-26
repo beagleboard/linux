@@ -23,6 +23,8 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+#ifdef CONFIG_TWL4030_POWER
+
 #include <linux/kernel.h>
 #include <linux/device.h>
 #include <linux/init.h>
@@ -76,3 +78,4 @@ struct twl4030_power_data generic3430_t2scripts_data __initdata = {
 };
 
 
+#endif /* CONFIG_TWL4030_POWER */

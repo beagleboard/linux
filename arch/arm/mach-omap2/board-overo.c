@@ -162,7 +162,7 @@ static struct twl4030_platform_data overo_twldata = {
 	.irq_end	= TWL4030_IRQ_END,
 	.gpio		= &overo_gpio_data,
 	.usb		= &overo_usb_data,
-	.power		= &generic3430_t2scripts_data,
+	.power		= GENERIC3430_T2SCRIPTS_DATA,
 };
 
 static struct i2c_board_info __initdata overo_i2c_boardinfo[] = {
