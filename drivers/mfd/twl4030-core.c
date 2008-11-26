@@ -503,9 +503,6 @@ add_children(struct twl4030_platform_data *pdata, unsigned long features)
 			return PTR_ERR(child);
 	}
 
-	if (twl_has_power() && pdata->power)
-		twl4030_power_init(pdata->power);
-
 	if (twl_has_rtc()) {
 		/*
 		 * REVISIT platform_data here currently might expose the
@@ -787,6 +784,10 @@ twl4030_probe(struct i2c_client *client, const struct i2c_device_id *id)
 
 	/* setup clock framework */
 	clocks_init();
+
+	/* load power event scripts */
+	if (twl_has_power() && pdata->power)
+		twl4030_power_init(pdata->power);
 
 	/* Maybe init the T2 Interrupt subsystem */
 	if (client->irq
