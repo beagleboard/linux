@@ -285,13 +285,18 @@ static int twl4030_i2c_write_u8_verify(struct twl4030_usb *twl,
 	    (twl4030_i2c_read_u8(module, &check, address) >= 0) &&
 						(check == data))
 		return 0;
+	dev_dbg(twl->dev, "Write%d[%d,0x%x] wrote %02x but read %02x\n",
+			1, module, address, check, data);
+
 	/* Failed once: Try again */
 	if ((twl4030_i2c_write_u8(module, data, address) >= 0) &&
 	    (twl4030_i2c_read_u8(module, &check, address) >= 0) &&
 						(check == data))
 		return 0;
-	/* Failed again: Return error */
+	dev_dbg(twl->dev, "Write%d[%d,0x%x] wrote %02x but read %02x\n",
+			2, module, address, check, data);
 
+	/* Failed again: Return error */
 	return -EBUSY;
 }
 
@@ -304,23 +309,9 @@ static inline int twl4030_usb_write(struct twl4030_usb *twl,
 	int ret = 0;
 
 	ret = twl4030_i2c_write_u8(TWL4030_MODULE_USB, data, address);
-	if (ret >= 0) {
-#if 0	/* debug */
-		u8 data1;
-		if (twl4030_i2c_read_u8(TWL4030_MODULE_USB, &data1,
-					address) < 0)
-			dev_err(twl->dev, "re-read failed\n");
-		else
-			dev_dbg(twl->dev,
-			       "Write %s wrote %x read %x from reg %x\n",
-			       (data1 == data) ? "succeed" : "mismatch",
-			       data, data1, address);
-#endif
-	} else {
-		dev_warn(twl->dev,
+	if (ret < 0)
+		dev_dbg(twl->dev,
 			"TWL4030:USB:Write[0x%x] Error %d\n", address, ret);
-	}
-
 	return ret;
 }
 
@@ -333,7 +324,7 @@ static inline int twl4030_readb(struct twl4030_usb *twl, u8 module, u8 address)
 	if (ret >= 0)
 		ret = data;
 	else
-		dev_warn(twl->dev,
+		dev_dbg(twl->dev,
 			"TWL4030:readb[0x%x,0x%x] Error %d\n",
 					module, address, ret);
 
@@ -655,7 +646,7 @@ static int __init twl4030_usb_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	if (!pdata) {
-		dev_info(&pdev->dev, "platform_data not available\n");
+		dev_dbg(&pdev->dev, "platform_data not available\n");
 		return -EINVAL;
 	}
 
