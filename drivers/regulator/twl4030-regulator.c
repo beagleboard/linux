@@ -391,7 +391,7 @@ static struct twlreg_info twl4030_regs[] = {
 	TWL_FIXED_LDO(VUSB1V5, 0x71, 1500, 17),
 	TWL_FIXED_LDO(VUSB1V8, 0x74, 1800, 18),
 	TWL_FIXED_LDO(VUSB3V1, 0x77, 3100, 19),
-	TWL_FIXED_LDO(VUSBCP, 0x7a, 4800, 21),
+	/* VUSBCP is managed *only* by the USB subchip */
 };
 
 static int twl4030reg_probe(struct platform_device *pdev)

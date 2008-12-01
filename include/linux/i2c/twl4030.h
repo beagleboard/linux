@@ -417,6 +417,5 @@ int twl4030_sih_setup(int module);
 #define TWL4030_REG_VUSB1V5	17
 #define TWL4030_REG_VUSB1V8	18
 #define TWL4030_REG_VUSB3V1	19
-#define TWL4030_REG_VUSBCP	20
 
 #endif /* End of __TWL4030_H */
