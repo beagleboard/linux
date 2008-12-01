@@ -71,10 +71,6 @@
 #define DPLL_FINT_UNDERFLOW		-1
 #define DPLL_FINT_INVALID		-2
 
-/* Some OMAP2xxx CM_CLKSEL_PLL.ST_CORE_CLK bits - for omap2_get_dpll_rate() */
-#define ST_CORE_CLK_REF			0x1
-#define ST_CORE_CLK_32K			0x3
-
 /* Bitmask to isolate the register type of clk.enable_reg */
 #define PRCM_REGTYPE_MASK		0xf0
 /* various CM register type options */
@@ -267,19 +263,20 @@ u32 omap2_get_dpll_rate(struct clk *clk)
 		return 0;
 
 	/* Return bypass rate if DPLL is bypassed */
-	v = cm_read_mod_reg(clk->prcm_mod, dd->idlest_reg);
-	v &= dd->idlest_mask;
-	v >>= __ffs(dd->idlest_mask);
+	v = cm_read_mod_reg(clk->prcm_mod, dd->control_reg);
+	v &= dd->enable_mask;
+	v >>= __ffs(dd->enable_mask);
+
 	if (cpu_is_omap24xx()) {
 
-		if (v == ST_CORE_CLK_REF)
-			return clk->parent->rate; /* sys_clk */
-		else if (v == ST_CORE_CLK_32K)
-			return 32768;
+		if (v == OMAP2XXX_EN_DPLL_LPBYPASS ||
+		    v == OMAP2XXX_EN_DPLL_FRBYPASS)
+			return clk->parent->rate;
 
 	} else if (cpu_is_omap34xx()) {
 
-		if (!v)
+		if (v == OMAP3XXX_EN_DPLL_LPBYPASS ||
+		    v == OMAP3XXX_EN_DPLL_FRBYPASS)
 			return dd->bypass_clk->rate;
 
 	}

@@ -42,14 +42,14 @@ struct dpll_data {
 	u8			min_divider;
 	u8			max_divider;
 	u32			max_tolerance;
-	u16			idlest_reg;
-	u32			idlest_mask;
 	struct clk		*bypass_clk;
-#  if defined(CONFIG_ARCH_OMAP3)
-	u32			freqsel_mask;
-	u8			modes;
 	u16			control_reg;
 	u32			enable_mask;
+#  if defined(CONFIG_ARCH_OMAP3)
+	u16			idlest_reg;
+	u32			idlest_mask;
+	u32			freqsel_mask;
+	u8			modes;
 	u8			auto_recal_bit;
 	u8			recal_en_bit;
 	u8			recal_st_bit;
@@ -174,10 +174,5 @@ extern void clk_init_cpufreq_table(struct cpufreq_frequency_table **table);
 #define PRCM_MOD_ADDR_MASK	0xff00
 #define CLK_REG_IN_PRM		(1 << 0)
 #define CLK_REG_IN_SCM		(1 << 1)
-
-/* CM_CLKSEL2_PLL.CORE_CLK_SRC options (24XX) */
-#define CORE_CLK_SRC_32K		0
-#define CORE_CLK_SRC_DPLL		1
-#define CORE_CLK_SRC_DPLL_X2		2
 
 #endif
