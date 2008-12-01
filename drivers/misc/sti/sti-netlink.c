@@ -68,7 +68,8 @@ static int sti_netlink_receive_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
 {
 	void *data;
 	u8 chan, id;
-	int size, ret = 0;
+	int size;
+	int ret = 0, len = 0;
 
 	data	= NLMSG_DATA(nlh);
 	chan	= (nlh->nlmsg_flags >> 8) & 0xff;
@@ -81,8 +82,6 @@ static int sti_netlink_receive_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
 		break;
 #if defined(CONFIG_ARCH_OMAP1) || defined(CONFIG_ARCH_OMAP2)
 	case STI_READ:
-		int len = 0;
-
 		data = kmalloc(size, GFP_KERNEL);
 		if (!data)
 			return -ENOMEM;
