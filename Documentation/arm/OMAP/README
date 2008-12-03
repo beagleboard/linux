@@ -370,45 +370,6 @@ other users. It then can be included into the public OMAP kernel tree.
 processor peripherals or board devices. Improve and maintain the code for your 
 new processor or board.
 
-
-4. General guidelines to write clean and OMAP Linux compatible code
--------------------------------------------------------------------
-
-- For register access use the __REG8/16/32() macros. At the moment, see first
-example in include/asm-arm/arch-omap/hardware.h.
-
-Allegedly __REG() makes at least some versions of GCC emit tighter code
-than the more direct wrappers. Presumably by making it easier to use certain 
-addressing modes. 
-
-Make sure that the registers names are clearly marked as being registers
-(and not addresses of registers). This has to be done by adding a '_REG'
-suffix. E.g.
-
-#define OMAP_ID_REG  (__REG32(0xfffed400))
-#define DPLL_CTL_REG (__REG16(0xfffecf00))
-
-__raw_read[bwl] and __raw_write[bwl] are deprecated. They will converted to
-__REG8/16/32() syntax, soon. Don't use anything else like own pointer
-definitions or in[bwl]/out[bwl] etc., too.
-
-- Make read-modify-write register access preemption save. Use spin_lock() and 
-spin_unlock() where necessary. If an IRQ handler can access the registers, 
-use spin_lock_irqsave(), too. 
-
-- Functions declared as __init shouldn't have any references after the kernel 
-initialization phase is complete. Usually they should be static as well.
-
-- Don't use return statements at end of void functions.
-
-- Use consistent indentation style. Don't use space indentations. Use tab 
-indentations.
-
-- In general use Linux formatting style. See Documentation/CodingStyle for more
-information. If you use GNU emacs, see also chapter 8 of that document how to
-add a linux-c-mode to emacs.
-
-
 ------------------------------------------------------------------
 Last modified 15. March 2006
 The OMAP Linux Kernel Team
