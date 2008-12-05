@@ -103,7 +103,7 @@
 #define OMAP_MMC_DATADIR_WRITE	2
 #define MMC_TIMEOUT_MS		20
 #define OMAP_MMC_MASTER_CLOCK	96000000
-#define DRIVER_NAME		"mmci-omap"
+#define DRIVER_NAME		"mmci-omap-hs"
 
 /*
  * One controller can have multiple slots, like on some omap boards using

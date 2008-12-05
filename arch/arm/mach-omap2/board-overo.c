@@ -43,7 +43,6 @@
 #include <mach/gpio.h>
 #include <mach/gpmc.h>
 #include <mach/hardware.h>
-#include <mach/mmc.h>
 #include <mach/nand.h>
 #include <mach/usb-ehci.h>
 #include <mach/usb-musb.h>
@@ -231,7 +230,7 @@ static void __init overo_init(void)
 	omap_board_config = overo_config;
 	omap_board_config_size = ARRAY_SIZE(overo_config);
 	omap_serial_init();
-	hsmmc_init(mmc);
+	twl4030_mmc_init(mmc);
 	usb_musb_init();
 	usb_ehci_init();
 	overo_flash_init();

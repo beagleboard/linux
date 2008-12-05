@@ -36,7 +36,6 @@
 #include <mach/common.h>
 #include <mach/keypad.h>
 #include <mach/gpmc.h>
-#include <mach/mmc.h>
 #include <mach/usb-musb.h>
 
 #include <asm/io.h>
@@ -340,7 +339,7 @@ static inline void __init ldp_init_smc911x(void)
 				eth_gpio);
 		return;
 	}
-	omap_set_gpio_direction(eth_gpio, 1);
+	gpio_direction_input(eth_gpio);
 }
 
 
@@ -531,7 +530,7 @@ static void __init omap_ldp_init(void)
 	ads7846_dev_init();
 	omap_serial_init();
 	usb_musb_init();
-	hsmmc_init(mmc);
+	twl4030_mmc_init(mmc);
 }
 
 static void __init omap_ldp_map_io(void)

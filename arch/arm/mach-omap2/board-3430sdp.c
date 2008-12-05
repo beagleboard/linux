@@ -35,7 +35,6 @@
 #include <mach/board.h>
 #include <mach/usb-musb.h>
 #include <mach/usb-ehci.h>
-#include <mach/mmc.h>
 #include <mach/common.h>
 #include <mach/keypad.h>
 #include <mach/dma.h>
@@ -481,7 +480,7 @@ static void __init omap_3430sdp_init(void)
 	omap_serial_init();
 	usb_musb_init();
 	usb_ehci_init();
-	hsmmc_init(mmc);
+	twl4030_mmc_init(mmc);
 }
 
 static void __init omap_3430sdp_map_io(void)

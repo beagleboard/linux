@@ -69,8 +69,8 @@ static int ldp_panel_init(struct lcd_panel *panel,
 	gpio_request(LCD_PANEL_ENABLE_GPIO, "lcd panel");
 	gpio_request(LCD_PANEL_BACKLIGHT_GPIO, "lcd backlight");
 
-	omap_set_gpio_direction(LCD_PANEL_QVGA_GPIO, 0);
-	omap_set_gpio_direction(LCD_PANEL_RESET_GPIO, 0);
+	gpio_direction_output(LCD_PANEL_QVGA_GPIO, 0);
+	gpio_direction_output(LCD_PANEL_RESET_GPIO, 0);
 	gpio_direction_output(LCD_PANEL_ENABLE_GPIO, 0);
 	gpio_direction_output(LCD_PANEL_BACKLIGHT_GPIO, 0);
 

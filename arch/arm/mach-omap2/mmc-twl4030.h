@@ -14,14 +14,15 @@ struct twl4030_hsmmc_info {
 	int	ext_clock:1;	/* use external pin for input clock */
 };
 
-#if	defined(CONFIG_MMC_OMAP) || defined(CONFIG_MMC_OMAP_MODULE) || \
-	defined(CONFIG_MMC_OMAP_HS) || defined(CONFIG_MMC_OMAP_HS_MODULE)
+#if	defined(CONFIG_TWL4030_CORE) && \
+	(defined(CONFIG_MMC_OMAP) || defined(CONFIG_MMC_OMAP_MODULE) || \
+	 defined(CONFIG_MMC_OMAP_HS) || defined(CONFIG_MMC_OMAP_HS_MODULE))
 
-void hsmmc_init(struct twl4030_hsmmc_info *);
+void twl4030_mmc_init(struct twl4030_hsmmc_info *);
 
 #else
 
-static inline void hsmmc_init(struct twl4030_hsmmc_info *info)
+static inline void twl4030_mmc_init(struct twl4030_hsmmc_info *info)
 {
 }
 

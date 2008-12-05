@@ -39,7 +39,6 @@
 #include <mach/board.h>
 #include <mach/usb-musb.h>
 #include <mach/usb-ehci.h>
-#include <mach/mmc.h>
 #include <mach/common.h>
 #include <mach/gpmc.h>
 #include <mach/nand.h>
@@ -135,7 +134,7 @@ static int beagle_twl_gpio_setup(struct device *dev,
 	/* gpio + 0 is "mmc0_cd" (input/IRQ) */
 	omap_cfg_reg(AH8_34XX_GPIO29);
 	mmc[0].gpio_cd = gpio + 0;
-	hsmmc_init(mmc);
+	twl4030_mmc_init(mmc);
 
 	/* REVISIT: need ehci-omap hooks for external VBUS
 	 * power switch and overcurrent detect

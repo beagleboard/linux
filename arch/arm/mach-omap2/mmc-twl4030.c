@@ -25,7 +25,8 @@
 
 #include "mmc-twl4030.h"
 
-#if defined(CONFIG_MMC_OMAP_HS) || defined(CONFIG_MMC_OMAP_HS_MODULE)
+#if defined(CONFIG_TWL4030_CORE) && \
+	(defined(CONFIG_MMC_OMAP_HS) || defined(CONFIG_MMC_OMAP_HS_MODULE))
 
 #define LDO_CLR			0x00
 #define VSEL_S2_CLR		0x40
@@ -315,7 +316,7 @@ static int twl_mmc2_set_power(struct device *dev, int slot, int power_on, int vd
 
 static struct omap_mmc_platform_data *hsmmc_data[OMAP34XX_NR_MMC] __initdata;
 
-void __init hsmmc_init(struct twl4030_hsmmc_info *controllers)
+void __init twl4030_mmc_init(struct twl4030_hsmmc_info *controllers)
 {
 	struct twl4030_hsmmc_info *c;
 	int nr_hsmmc = ARRAY_SIZE(hsmmc_data);

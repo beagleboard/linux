@@ -359,7 +359,7 @@ static void __init omap2_evm_init(void)
 	spi_register_board_info(omap2evm_spi_board_info,
 				ARRAY_SIZE(omap2evm_spi_board_info));
 	omap_serial_init();
-	hsmmc_init(mmc);
+	twl4030_mmc_init(mmc);
 	omap2evm_flash_init();
 	ads7846_dev_init();
 }

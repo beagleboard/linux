@@ -43,7 +43,6 @@
 #include <mach/gpio.h>
 #include <mach/gpmc.h>
 #include <mach/hardware.h>
-#include <mach/mmc.h>
 #include <mach/nand.h>
 #include <mach/usb-ehci.h>
 #include <mach/usb-musb.h>
@@ -172,7 +171,7 @@ static int omap3pandora_twl_gpio_setup(struct device *dev,
 	/* gpio + {0,1} is "mmc{0,1}_cd" (input/IRQ) */
 	omap3pandora_mmc[0].gpio_cd = gpio + 0;
 	omap3pandora_mmc[1].gpio_cd = gpio + 1;
-	hsmmc_init(omap3pandora_mmc);
+	twl4030_mmc_init(omap3pandora_mmc);
 
 	return 0;
 }
