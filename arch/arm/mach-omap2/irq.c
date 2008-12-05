@@ -96,7 +96,7 @@ static void omap_mask_irq(unsigned int irq)
 	int offset = irq & (~(IRQ_BITS_PER_REG - 1));
 
 	if (cpu_is_omap34xx()) {
-		int spurious;
+		int spurious = 0;
 
 		/*
 		 * INT_34XX_GPT12_IRQ is also the spurious irq. Maybe because
