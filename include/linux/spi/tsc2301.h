@@ -191,17 +191,6 @@ TSC2301_DECL_MOD(ts)
 TSC2301_DECL_EMPTY_MOD(ts)
 #endif
 
-#ifdef CONFIG_SPI_TSC2301_AUDIO
-TSC2301_DECL_MOD(mixer)
-extern void tsc2301_mixer_set_power(struct device *tsc_dev, int dac, int adc);
-
-struct snd_card;
-extern int tsc2301_mixer_register_controls(struct device *tsc_dev,
-					   struct snd_card *card);
-#else
-TSC2301_DECL_EMPTY_MOD(mixer)
-#endif
-
 extern void tsc2301_mixer_enable_mclk(struct device *tsc_dev);
 extern void tsc2301_mixer_disable_mclk(struct device *tsc_dev);
 

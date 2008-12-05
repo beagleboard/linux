@@ -205,12 +205,8 @@ static int __devinit tsc2301_probe(struct spi_device *spi)
 	r = tsc2301_ts_init(tsc, pdata);
 	if (r)
 		goto err2;
-	r = tsc2301_mixer_init(tsc, pdata);
-	if (r)
-		goto err3;
 	return 0;
 
-err3:
 	tsc2301_ts_exit(tsc);
 err2:
 	tsc2301_kp_exit(tsc);
@@ -223,7 +219,6 @@ static int __devexit tsc2301_remove(struct spi_device *spi)
 {
 	struct tsc2301 *tsc = dev_get_drvdata(&spi->dev);
 
-	tsc2301_mixer_exit(tsc);
 	tsc2301_ts_exit(tsc);
 	tsc2301_kp_exit(tsc);
 	if (tsc->reset_gpio >= 0)
@@ -239,19 +234,14 @@ static int tsc2301_suspend(struct spi_device *spi, pm_message_t mesg)
 	struct tsc2301 *tsc = dev_get_drvdata(&spi->dev);
 	int r;
 
-	if ((r = tsc2301_mixer_suspend(tsc)) < 0)
-		return r;
 	if ((r = tsc2301_kp_suspend(tsc)) < 0)
-		goto err1;
-	if ((r = tsc2301_ts_suspend(tsc)) < 0)
-		goto err2;
+		return r;
+	if ((r = tsc2301_ts_suspend(tsc)) < 0) {
+		tsc2301_kp_resume(tsc);
+		return r;
+	}
 
 	return 0;
-err2:
-	tsc2301_kp_resume(tsc);
-err1:
-	tsc2301_mixer_resume(tsc);
-	return r;
 }
 
 static int tsc2301_resume(struct spi_device *spi)
@@ -260,7 +250,7 @@ static int tsc2301_resume(struct spi_device *spi)
 
 	tsc2301_ts_resume(tsc);
 	tsc2301_kp_resume(tsc);
-	tsc2301_mixer_resume(tsc);
+
 	return 0;
 }
 #endif
