@@ -30,6 +30,7 @@
 #include <linux/clk.h>
 #include <linux/io.h>
 #include <linux/irq.h>
+#include <linux/time.h>
 
 #include <asm/mach/time.h>
 #include <asm/mach/irq.h>
@@ -74,7 +75,11 @@ static int omap2_fclks_active(void)
 
 	f1 = cm_read_mod_reg(CORE_MOD, CM_FCLKEN1);
 	f2 = cm_read_mod_reg(CORE_MOD, OMAP24XX_CM_FCLKEN2);
-	serial_console_fclk_mask(&f1, &f2);
+
+	/* Ignore UART clocks.  These are handled by UART core (serial.c) */
+	f1 &= ~(OMAP24XX_EN_UART1 | OMAP24XX_EN_UART2);
+	f2 &= ~OMAP24XX_EN_UART3;
+
 	if (f1 | f2)
 		return 1;
 	return 0;
@@ -82,7 +87,8 @@ static int omap2_fclks_active(void)
 
 static void omap2_enter_full_retention(void)
 {
-	u32 l, sleep_time = 0;
+	u32 l;
+	struct timespec ts_preidle, ts_postidle, ts_idle;
 
 	/* There is 1 reference hold for all children of the oscillator
 	 * clock, the following will remove it. If no one else uses the
@@ -112,7 +118,7 @@ static void omap2_enter_full_retention(void)
 
 	if (omap2_pm_debug) {
 		omap2_pm_dump(0, 0, 0);
-		sleep_time = omap2_read_32k_sync_counter();
+		getnstimeofday(&ts_preidle);
 	}
 
 	/* One last check for pending IRQs to avoid extra latency due
@@ -120,22 +126,26 @@ static void omap2_enter_full_retention(void)
 	if (omap_irq_pending())
 		goto no_sleep;
 
-	serial_console_sleep(1);
+	omap_uart_prepare_idle(0);
+	omap_uart_prepare_idle(1);
+	omap_uart_prepare_idle(2);
+
 	/* Jump to SRAM suspend code */
 	omap2_sram_suspend(sdrc_read_reg(SDRC_DLLA_CTRL),
 				OMAP_SDRC_REGADDR(SDRC_DLLA_CTRL),
 				OMAP_SDRC_REGADDR(SDRC_POWER));
 no_sleep:
-	serial_console_sleep(0);
+	omap_uart_resume_idle(2);
+	omap_uart_resume_idle(1);
+	omap_uart_resume_idle(0);
 
 	if (omap2_pm_debug) {
 		unsigned long long tmp;
-		u32 resume_time;
 
-		resume_time = omap2_read_32k_sync_counter();
-		tmp = resume_time - sleep_time;
-		tmp *= 1000000;
-		omap2_pm_dump(0, 1, tmp / 32768);
+		getnstimeofday(&ts_postidle);
+		ts_idle = timespec_sub(ts_postidle, ts_preidle);
+		tmp = timespec_to_ns(&ts_idle) * NSEC_PER_USEC;
+		omap2_pm_dump(0, 1, tmp);
 	}
 	omap2_gpio_resume_after_retention();
 
@@ -196,8 +206,8 @@ static int omap2_allow_mpu_retention(void)
 
 static void omap2_enter_mpu_retention(void)
 {
-	u32 sleep_time = 0;
 	int only_idle = 0;
+	struct timespec ts_preidle, ts_postidle, ts_idle;
 
 	/* Putting MPU into the WFI state while a transfer is active
 	 * seems to cause the I2C block to timeout. Why? Good question. */
@@ -225,19 +235,18 @@ static void omap2_enter_mpu_retention(void)
 
 	if (omap2_pm_debug) {
 		omap2_pm_dump(only_idle ? 2 : 1, 0, 0);
-		sleep_time = omap2_read_32k_sync_counter();
+		getnstimeofday(&ts_preidle);
 	}
 
 	omap2_sram_idle();
 
 	if (omap2_pm_debug) {
 		unsigned long long tmp;
-		u32 resume_time;
 
-		resume_time = omap2_read_32k_sync_counter();
-		tmp = resume_time - sleep_time;
-		tmp *= 1000000;
-		omap2_pm_dump(only_idle ? 2 : 1, 1, tmp / 32768);
+		getnstimeofday(&ts_postidle);
+		ts_idle = timespec_sub(ts_postidle, ts_preidle);
+		tmp = timespec_to_ns(&ts_idle) * NSEC_PER_USEC;
+		omap2_pm_dump(only_idle ? 2 : 1, 1, tmp);
 	}
 }
 
@@ -303,6 +312,7 @@ static int omap2_pm_suspend(void)
 	mir1 = omap_readl(0x480fe0a4);
 	omap_writel(1 << 5, 0x480fe0ac);
 
+	omap_uart_prepare_suspend();
 	omap2_enter_full_retention();
 
 	omap_writel(mir1, 0x480fe0a4);
@@ -519,8 +529,6 @@ int __init omap2_pm_init(void)
 	}
 
 	prcm_setup_regs();
-
-	pm_init_serial_console();
 
 	/* Hack to prevent MPU retention when STI console is enabled. */
 	{
