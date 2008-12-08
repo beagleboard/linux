@@ -51,8 +51,6 @@
 #include <mach/usb.h>
 #include <mach/keypad.h>
 #include <mach/common.h>
-#include <mach/mcbsp.h>
-#include <mach/omap-alsa.h>
 
 static int h2_keymap[] = {
 	KEY(0, 0, KEY_LEFT),
@@ -317,40 +315,6 @@ static void h2_lcd_dev_init(struct spi_device *tsc2101)
 	platform_device_register(&h2_lcd_device);
 }
 
-static struct omap_mcbsp_reg_cfg mcbsp_regs = {
-	.spcr2 = FREE | FRST | GRST | XRST | XINTM(3),
-	.spcr1 = RINTM(3) | RRST,
-	.rcr2  = RPHASE | RFRLEN2(OMAP_MCBSP_WORD_8) |
-			RWDLEN2(OMAP_MCBSP_WORD_16) | RDATDLY(1),
-	.rcr1  = RFRLEN1(OMAP_MCBSP_WORD_8) | RWDLEN1(OMAP_MCBSP_WORD_16),
-	.xcr2  = XPHASE | XFRLEN2(OMAP_MCBSP_WORD_8) |
-			XWDLEN2(OMAP_MCBSP_WORD_16) | XDATDLY(1) | XFIG,
-	.xcr1  = XFRLEN1(OMAP_MCBSP_WORD_8) | XWDLEN1(OMAP_MCBSP_WORD_16),
-	.srgr1 = FWID(15),
-	.srgr2 = GSYNC | CLKSP | FSGM | FPER(31),
-	.pcr0  = CLKXM | CLKRM | FSXP | FSRP | CLKXP | CLKRP,
-	/*.pcr0 = CLKXP | CLKRP,*/        /* mcbsp: slave */
-};
-
-static struct omap_alsa_codec_config alsa_config = {
-	.name                   = "H2 TSC2101",
-	.mcbsp_regs_alsa        = &mcbsp_regs,
-};
-
-static struct platform_device h2_mcbsp1_device = {
-	.name	= "omap_alsa_mcbsp",
-	.id	= 1,
-	.dev = {
-		.platform_data	= &alsa_config,
-	},
-};
-
-static void h2_audio_dev_init(struct spi_device *tsc2101)
-{
-	h2_mcbsp1_device.dev.platform_data = tsc2101;
-	platform_device_register(&h2_mcbsp1_device);
-}
-
 static int h2_tsc2101_init(struct spi_device *spi)
 {
 	int r;
@@ -375,7 +339,6 @@ static int h2_tsc2101_init(struct spi_device *spi)
 	omap_cfg_reg(N15_1610_UWIRE_CS1);
 
 	h2_lcd_dev_init(spi);
-	h2_audio_dev_init(spi);
 
 	return 0;
 err:
