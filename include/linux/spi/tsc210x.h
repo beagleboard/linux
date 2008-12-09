@@ -1,5 +1,5 @@
 /*
- * include/linux/spi/tsc2102.h
+ * include/linux/spi/tsc210x.h
  *
  * TI TSC2101/2102 control register definitions.
  *
