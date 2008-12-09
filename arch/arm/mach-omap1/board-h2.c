@@ -30,8 +30,6 @@
 #include <linux/input.h>
 #include <linux/i2c/tps65010.h>
 #include <linux/workqueue.h>
-#include <linux/spi/spi.h>
-#include <linux/spi/tsc2101.h>
 #include <linux/clk.h>
 
 #include <mach/hardware.h>
@@ -296,97 +294,13 @@ static struct platform_device h2_lcd_device = {
 	.id		= -1,
 };
 
-struct {
-	struct clk	*mclk;
-	int		initialized;
-} h2_tsc2101;
-
-#define TSC2101_MUX_MCLK_ON	R10_1610_MCLK_ON
-#define TSC2101_MUX_MCLK_OFF	R10_1610_MCLK_OFF
-
-static void h2_lcd_dev_init(struct spi_device *tsc2101)
-{
-	/* The LCD is connected to the GPIO pins of the TSC2101, so
-	 * we have to tie them here. We can also register the LCD driver
-	 * first only here, where we know that the TSC driver is ready.
-	 */
-
-	h2_lcd_device.dev.platform_data = tsc2101;
-	platform_device_register(&h2_lcd_device);
-}
-
-static int h2_tsc2101_init(struct spi_device *spi)
-{
-	int r;
-
-	if (h2_tsc2101.initialized) {
-		printk(KERN_ERR "tsc2101: already initialized\n");
-		return -ENODEV;
-	}
-
-	/* Get the MCLK */
-	h2_tsc2101.mclk = clk_get(&spi->dev, "mclk");
-	if (IS_ERR(h2_tsc2101.mclk)) {
-		dev_err(&spi->dev, "unable to get the clock MCLK\n");
-		return PTR_ERR(h2_tsc2101.mclk);
-	}
-	if ((r = clk_set_rate(h2_tsc2101.mclk, 12000000)) < 0) {
-		dev_err(&spi->dev, "unable to set rate to the MCLK\n");
-		goto err;
-	}
-
-	omap_cfg_reg(TSC2101_MUX_MCLK_OFF);
-	omap_cfg_reg(N15_1610_UWIRE_CS1);
-
-	h2_lcd_dev_init(spi);
-
-	return 0;
-err:
-	clk_put(h2_tsc2101.mclk);
-	return r;
-}
-
-static void h2_tsc2101_cleanup(struct spi_device *spi)
-{
-	clk_put(h2_tsc2101.mclk);
-	omap_cfg_reg(TSC2101_MUX_MCLK_OFF);
-}
-
-static void h2_tsc2101_enable_mclk(struct spi_device *spi)
-{
-	omap_cfg_reg(TSC2101_MUX_MCLK_ON);
-	clk_enable(h2_tsc2101.mclk);
-}
-
-static void h2_tsc2101_disable_mclk(struct spi_device *spi)
-{
-	clk_disable(h2_tsc2101.mclk);
-	omap_cfg_reg(R10_1610_MCLK_OFF);
-}
-
-static struct tsc2101_platform_data h2_tsc2101_platform_data = {
-	.init		= h2_tsc2101_init,
-	.cleanup	= h2_tsc2101_cleanup,
-	.enable_mclk	= h2_tsc2101_enable_mclk,
-	.disable_mclk	= h2_tsc2101_disable_mclk,
-};
-
-static struct spi_board_info h2_spi_board_info[] __initdata = {
-	[0] = {
-		.modalias	= "tsc2101",
-		.bus_num	= 2,
-		.chip_select	= 1,
-		.max_speed_hz	= 16000000,
-		.platform_data	= &h2_tsc2101_platform_data,
-	},
-};
-
 static struct platform_device *h2_devices[] __initdata = {
 	&h2_nor_device,
 	&h2_nand_device,
 	&h2_smc91x_device,
 	&h2_irda_device,
 	&h2_kp_device,
+	&h2_lcd_device,
 };
 
 static void __init h2_init_smc91x(void)
@@ -496,15 +410,13 @@ static void __init h2_init(void)
 	/* Irda */
 #if defined(CONFIG_OMAP_IR) || defined(CONFIG_OMAP_IR_MODULE)
 	omap_writel(omap_readl(FUNC_MUX_CTRL_A) | 7, FUNC_MUX_CTRL_A);
-	if (gpio_request(H2_IRDA_FIRSEL_GPIO_PIN, "IRDA mode") < 0)
-		BUG();
-	gpio_direction_output(H2_IRDA_FIRSEL_GPIO_PIN, 0);
-	h2_irda_data.transceiver_mode = h2_transceiver_mode;
+	if (!(omap_request_gpio(H2_IRDA_FIRSEL_GPIO_PIN))) {
+		omap_set_gpio_direction(H2_IRDA_FIRSEL_GPIO_PIN, 0);
+		h2_irda_data.transceiver_mode = h2_transceiver_mode;
+	}
 #endif
 
 	platform_add_devices(h2_devices, ARRAY_SIZE(h2_devices));
-	spi_register_board_info(h2_spi_board_info,
-				ARRAY_SIZE(h2_spi_board_info));
 	omap_board_config = h2_config;
 	omap_board_config_size = ARRAY_SIZE(h2_config);
 	omap_serial_init();
