@@ -40,6 +40,7 @@
 #include <asm/mach/flash.h>
 #include <asm/mach/map.h>
 
+#include <mach/dma.h>
 #include <mach/gpio.h>
 #include <mach/gpio-switch.h>
 #include <mach/mux.h>
