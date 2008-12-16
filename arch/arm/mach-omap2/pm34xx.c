@@ -505,10 +505,12 @@ static void __init prcm_setup_regs(void)
 			     OMAP3_PRM_CLKSRC_CTRL_OFFSET);
 
 	/* setup wakup source */
-	prm_write_mod_reg(OMAP3430_EN_IO | OMAP3430_EN_GPIO1 | OMAP3430_EN_GPT1,
+	prm_write_mod_reg(OMAP3430_EN_IO | OMAP3430_EN_GPIO1 |
+			  OMAP3430_EN_GPT1 | OMAP3430_EN_GPT12,
 			  WKUP_MOD, PM_WKEN);
 	/* No need to write EN_IO, that is always enabled */
-	prm_write_mod_reg(OMAP3430_EN_GPIO1 | OMAP3430_EN_GPT1,
+	prm_write_mod_reg(OMAP3430_EN_GPIO1 | OMAP3430_EN_GPT1 |
+			  OMAP3430_EN_GPT12,
 			  WKUP_MOD, OMAP3430_PM_MPUGRPSEL);
 	/* For some reason IO doesn't generate wakeup event even if
 	 * it is selected to mpu wakeup goup */
