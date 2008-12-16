@@ -696,7 +696,7 @@ static int __exit twl4030_usb_remove(struct platform_device *pdev)
 
 static struct platform_driver twl4030_usb_driver = {
 	.probe		= twl4030_usb_probe,
-	.remove		= __exit_p(twl4030_remove),
+	.remove		= __exit_p(twl4030_usb_remove),
 	.driver		= {
 		.name	= "twl4030_usb",
 		.owner	= THIS_MODULE,
