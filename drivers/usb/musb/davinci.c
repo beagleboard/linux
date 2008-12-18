@@ -32,9 +32,9 @@
 #include <linux/io.h>
 #include <linux/gpio.h>
 
-#include <asm/arch/hardware.h>
-#include <asm/arch/memory.h>
-#include <asm/arch/gpio.h>
+#include <mach/arch/hardware.h>
+#include <mach/arch/memory.h>
+#include <mach/arch/gpio.h>
 #include <asm/mach-types.h>
 
 #include "musb_core.h"
@@ -265,7 +265,7 @@ static irqreturn_t davinci_interrupt(int irq, void *__hci)
 	/* CPPI interrupts share the same IRQ line, but have their own
 	 * mask, state, "vector", and EOI registers.
 	 */
-	if (is_cppi_enabled()) {
+	if (cppi_ti_dma()) {
 		u32 cppi_tx = musb_readl(tibase, DAVINCI_TXCPPI_MASKED_REG);
 		u32 cppi_rx = musb_readl(tibase, DAVINCI_RXCPPI_MASKED_REG);
 
@@ -362,6 +362,18 @@ static irqreturn_t davinci_interrupt(int irq, void *__hci)
 	if (retval != IRQ_HANDLED)
 		DBG(5, "unhandled? %08x\n", tmp);
 	return IRQ_HANDLED;
+}
+
+int musb_platform_set_mode(struct musb *musb, u8 mode)
+{
+	/* EVM can't do this (right?) */
+	return -EIO;
+}
+
+int musb_platform_set_mode(struct musb *musb, u8 mode)
+{
+       /* EVM can't do this (right?) */
+       return -EIO;
 }
 
 int __init musb_platform_init(struct musb *musb)
