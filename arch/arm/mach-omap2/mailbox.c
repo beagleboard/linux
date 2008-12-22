@@ -1,9 +1,9 @@
 /*
- * Mailbox reservation modules for OMAP2
+ * Mailbox reservation modules for OMAP2/3
  *
- * Copyright (C) 2006 Nokia Corporation
+ * Copyright (C) 2006-2008 Nokia Corporation
  * Written by: Hiroshi DOYU <Hiroshi.DOYU@nokia.com>
- *        and  Paul Mundt <paul.mundt@nokia.com>
+ *        and  Paul Mundt
  *
  * This file is subject to the terms and conditions of the GNU General Public
  * License.  See the file "COPYING" in the main directory of this archive
@@ -18,40 +18,23 @@
 #include <mach/mailbox.h>
 #include <mach/irqs.h>
 
-#define MAILBOX_REVISION		0x00
-#define MAILBOX_SYSCONFIG		0x10
-#define MAILBOX_SYSSTATUS		0x14
-#define MAILBOX_MESSAGE_0		0x40
-#define MAILBOX_MESSAGE_1		0x44
-#define MAILBOX_MESSAGE_2		0x48
-#define MAILBOX_MESSAGE_3		0x4c
-#define MAILBOX_MESSAGE_4		0x50
-#define MAILBOX_MESSAGE_5		0x54
-#define MAILBOX_FIFOSTATUS_0		0x80
-#define MAILBOX_FIFOSTATUS_1		0x84
-#define MAILBOX_FIFOSTATUS_2		0x88
-#define MAILBOX_FIFOSTATUS_3		0x8c
-#define MAILBOX_FIFOSTATUS_4		0x90
-#define MAILBOX_FIFOSTATUS_5		0x94
-#define MAILBOX_MSGSTATUS_0		0xc0
-#define MAILBOX_MSGSTATUS_1		0xc4
-#define MAILBOX_MSGSTATUS_2		0xc8
-#define MAILBOX_MSGSTATUS_3		0xcc
-#define MAILBOX_MSGSTATUS_4		0xd0
-#define MAILBOX_MSGSTATUS_5		0xd4
-#define MAILBOX_IRQSTATUS_0		0x100
-#define MAILBOX_IRQENABLE_0		0x104
-#define MAILBOX_IRQSTATUS_1		0x108
-#define MAILBOX_IRQENABLE_1		0x10c
-#define MAILBOX_IRQSTATUS_2		0x110
-#define MAILBOX_IRQENABLE_2		0x114
-#define MAILBOX_IRQSTATUS_3		0x118
-#define MAILBOX_IRQENABLE_3		0x11c
+#define DRV_NAME "omap2-mailbox"
 
-static unsigned long mbox_base;
+#define MAILBOX_REVISION		0x000
+#define MAILBOX_SYSCONFIG		0x010
+#define MAILBOX_SYSSTATUS		0x014
+#define MAILBOX_MESSAGE(m)		(0x040 + 4 * (m))
+#define MAILBOX_FIFOSTATUS(m)		(0x080 + 4 * (m))
+#define MAILBOX_MSGSTATUS(m)		(0x0c0 + 4 * (m))
+#define MAILBOX_IRQSTATUS(u)		(0x100 + 8 * (u))
+#define MAILBOX_IRQENABLE(u)		(0x108 + 8 * (u))
 
-#define MAILBOX_IRQ_NOTFULL(n)		(1 << (2 * (n) + 1))
-#define MAILBOX_IRQ_NEWMSG(n)		(1 << (2 * (n)))
+#define MAILBOX_IRQ_NEWMSG(u)		(1 << (2 * (u)))
+#define MAILBOX_IRQ_NOTFULL(u)		(1 << (2 * (u) + 1))
+
+#define MBOX_REG_SIZE			0x120
+
+static void __iomem *mbox_base;
 
 struct omap_mbox2_fifo {
 	unsigned long msg;
@@ -66,6 +49,7 @@ struct omap_mbox2_priv {
 	unsigned long irqstatus;
 	u32 newmsg_bit;
 	u32 notfull_bit;
+	char ctx[MBOX_REG_SIZE];
 };
 
 static struct clk *mbox_ick_handle;
@@ -73,14 +57,14 @@ static struct clk *mbox_ick_handle;
 static void omap2_mbox_enable_irq(struct omap_mbox *mbox,
 				  omap_mbox_type_t irq);
 
-static inline unsigned int mbox_read_reg(unsigned int reg)
+static inline unsigned int mbox_read_reg(size_t ofs)
 {
-	return __raw_readl(mbox_base + reg);
+	return __raw_readl(mbox_base + ofs);
 }
 
-static inline void mbox_write_reg(unsigned int val, unsigned int reg)
+static inline void mbox_write_reg(u32 val, size_t ofs)
 {
-	__raw_writel(val, mbox_base + reg);
+	__raw_writel(val, mbox_base + ofs);
 }
 
 /* Mailbox H/W preparations */
@@ -94,6 +78,9 @@ static int omap2_mbox_startup(struct omap_mbox *mbox)
 		return -ENODEV;
 	}
 	clk_enable(mbox_ick_handle);
+
+	l = mbox_read_reg(MAILBOX_REVISION);
+	pr_info("omap mailbox rev %d.%d\n", (l & 0xf0) >> 4, (l & 0x0f));
 
 	/* set smart-idle & autoidle */
 	l = mbox_read_reg(MAILBOX_SYSCONFIG);
@@ -183,6 +170,36 @@ static int omap2_mbox_is_irq(struct omap_mbox *mbox,
 	return (enable & status & bit);
 }
 
+static void omap2_mbox_save_ctx(struct omap_mbox *mbox)
+{
+	int i;
+	struct omap_mbox2_priv *p = mbox->priv;
+
+	for (i = 0; i < MBOX_REG_SIZE; i += sizeof(u32)) {
+		u32 val;
+
+		val = mbox_read_reg(i);
+		*(u32 *)(p->ctx + i) = val;
+
+		dev_dbg(mbox->dev, "%s\t[%02d] %08x\n", __func__, i, val);
+	}
+}
+
+static void omap2_mbox_restore_ctx(struct omap_mbox *mbox)
+{
+	int i;
+	struct omap_mbox2_priv *p = mbox->priv;
+
+	for (i = 0; i < MBOX_REG_SIZE; i += sizeof(u32)) {
+		u32 val;
+
+		val = *(u32 *)(p->ctx + i);
+		mbox_write_reg(val, i);
+
+		dev_dbg(mbox->dev, "%s\t[%02d] %08x\n", __func__, i, val);
+	}
+}
+
 static struct omap_mbox_ops omap2_mbox_ops = {
 	.type		= OMAP_MBOX_TYPE2,
 	.startup	= omap2_mbox_startup,
@@ -195,6 +212,8 @@ static struct omap_mbox_ops omap2_mbox_ops = {
 	.disable_irq	= omap2_mbox_disable_irq,
 	.ack_irq	= omap2_mbox_ack_irq,
 	.is_irq		= omap2_mbox_is_irq,
+	.save_ctx	= omap2_mbox_save_ctx,
+	.restore_ctx	= omap2_mbox_restore_ctx,
 };
 
 /*
@@ -209,15 +228,15 @@ static struct omap_mbox_ops omap2_mbox_ops = {
 /* DSP */
 static struct omap_mbox2_priv omap2_mbox_dsp_priv = {
 	.tx_fifo = {
-		.msg		= MAILBOX_MESSAGE_0,
-		.fifo_stat	= MAILBOX_FIFOSTATUS_0,
+		.msg		= MAILBOX_MESSAGE(0),
+		.fifo_stat	= MAILBOX_FIFOSTATUS(0),
 	},
 	.rx_fifo = {
-		.msg		= MAILBOX_MESSAGE_1,
-		.msg_stat	= MAILBOX_MSGSTATUS_1,
+		.msg		= MAILBOX_MESSAGE(1),
+		.msg_stat	= MAILBOX_MSGSTATUS(1),
 	},
-	.irqenable	= MAILBOX_IRQENABLE_0,
-	.irqstatus	= MAILBOX_IRQSTATUS_0,
+	.irqenable	= MAILBOX_IRQENABLE(0),
+	.irqstatus	= MAILBOX_IRQSTATUS(0),
 	.notfull_bit	= MAILBOX_IRQ_NOTFULL(0),
 	.newmsg_bit	= MAILBOX_IRQ_NEWMSG(1),
 };
@@ -229,18 +248,18 @@ struct omap_mbox mbox_dsp_info = {
 };
 EXPORT_SYMBOL(mbox_dsp_info);
 
-/* IVA */
+#if defined(CONFIG_ARCH_OMAP2420) /* IVA */
 static struct omap_mbox2_priv omap2_mbox_iva_priv = {
 	.tx_fifo = {
-		.msg		= MAILBOX_MESSAGE_2,
-		.fifo_stat	= MAILBOX_FIFOSTATUS_2,
+		.msg		= MAILBOX_MESSAGE(2),
+		.fifo_stat	= MAILBOX_FIFOSTATUS(2),
 	},
 	.rx_fifo = {
-		.msg		= MAILBOX_MESSAGE_3,
-		.msg_stat	= MAILBOX_MSGSTATUS_3,
+		.msg		= MAILBOX_MESSAGE(3),
+		.msg_stat	= MAILBOX_MSGSTATUS(3),
 	},
-	.irqenable	= MAILBOX_IRQENABLE_3,
-	.irqstatus	= MAILBOX_IRQSTATUS_3,
+	.irqenable	= MAILBOX_IRQENABLE(3),
+	.irqstatus	= MAILBOX_IRQSTATUS(3),
 	.notfull_bit	= MAILBOX_IRQ_NOTFULL(2),
 	.newmsg_bit	= MAILBOX_IRQ_NEWMSG(3),
 };
@@ -250,17 +269,12 @@ static struct omap_mbox mbox_iva_info = {
 	.ops	= &omap2_mbox_ops,
 	.priv	= &omap2_mbox_iva_priv,
 };
+#endif
 
-static int __init omap2_mbox_probe(struct platform_device *pdev)
+static int __devinit omap2_mbox_probe(struct platform_device *pdev)
 {
 	struct resource *res;
-	int ret = 0;
-
-	if (pdev->num_resources != 3) {
-		dev_err(&pdev->dev, "invalid number of resources: %d\n",
-			pdev->num_resources);
-		return -ENODEV;
-	}
+	int ret;
 
 	/* MBOX base */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -268,42 +282,62 @@ static int __init omap2_mbox_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "invalid mem resource\n");
 		return -ENODEV;
 	}
-	mbox_base = res->start;
+	mbox_base = ioremap(res->start, res->end - res->start);
+	if (!mbox_base)
+		return -ENOMEM;
 
-	/* DSP IRQ */
+	/* DSP or IVA2 IRQ */
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	if (unlikely(!res)) {
 		dev_err(&pdev->dev, "invalid irq resource\n");
-		return -ENODEV;
+		ret = -ENODEV;
+		goto err_dsp;
 	}
 	mbox_dsp_info.irq = res->start;
 
-	ret = omap_mbox_register(&mbox_dsp_info);
+	ret = omap_mbox_register(&pdev->dev, &mbox_dsp_info);
+	if (ret)
+		goto err_dsp;
 
-	/* IVA IRQ */
-	res = platform_get_resource(pdev, IORESOURCE_IRQ, 1);
-	if (unlikely(!res)) {
-		dev_err(&pdev->dev, "invalid irq resource\n");
-		return -ENODEV;
+#if defined(CONFIG_ARCH_OMAP2420) /* IVA */
+	if (cpu_is_omap2420()) {
+		/* IVA IRQ */
+		res = platform_get_resource(pdev, IORESOURCE_IRQ, 1);
+		if (unlikely(!res)) {
+			dev_err(&pdev->dev, "invalid irq resource\n");
+			ret = -ENODEV;
+			goto err_iva1;
+		}
+		mbox_iva_info.irq = res->start;
+		ret = omap_mbox_register(&pdev->dev, &mbox_iva_info);
+		if (ret)
+			goto err_iva1;
 	}
-	mbox_iva_info.irq = res->start;
+#endif
+	return 0;
 
-	ret = omap_mbox_register(&mbox_iva_info);
-
+err_iva1:
+	omap_mbox_unregister(&mbox_dsp_info);
+err_dsp:
+	iounmap(mbox_base);
 	return ret;
 }
 
-static int omap2_mbox_remove(struct platform_device *pdev)
+static int __devexit omap2_mbox_remove(struct platform_device *pdev)
 {
+#if defined(CONFIG_ARCH_OMAP2420)
+	omap_mbox_unregister(&mbox_iva_info);
+#endif
 	omap_mbox_unregister(&mbox_dsp_info);
+	iounmap(mbox_base);
 	return 0;
 }
 
 static struct platform_driver omap2_mbox_driver = {
 	.probe = omap2_mbox_probe,
-	.remove = omap2_mbox_remove,
+	.remove = __devexit_p(omap2_mbox_remove),
 	.driver = {
-		.name = "mailbox",
+		.name = DRV_NAME,
 	},
 };
 
@@ -320,4 +354,7 @@ static void __exit omap2_mbox_exit(void)
 module_init(omap2_mbox_init);
 module_exit(omap2_mbox_exit);
 
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("GPL v2");
+MODULE_DESCRIPTION("omap mailbox: omap2/3 architecture specific functions");
+MODULE_AUTHOR("Hiroshi DOYU <Hiroshi.DOYU@nokia.com>, Paul Mundt");
+MODULE_ALIAS("platform:"DRV_NAME);
