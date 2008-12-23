@@ -294,9 +294,10 @@ mmc_omap_start_command(struct mmc_omap_host *host, struct mmc_command *cmd,
 
 	/*
 	 * Unlike OMAP1 controller, the cmdtype does not seem to be based on
-	 * ac, bc, adtc, bcr. Only CMD12 needs a val of 0x3, rest 0x0.
+	 * ac, bc, adtc, bcr. Only commands ending an open ended transfer need
+	 * a val of 0x3, rest 0x0.
 	 */
-	if (cmd->opcode == 12)
+	if (cmd == host->mrq->stop)
 		cmdtype = 0x3;
 
 	cmdreg = (cmd->opcode << 24) | (resptype << 16) | (cmdtype << 22);
@@ -1003,7 +1004,7 @@ static int __init omap_mmc_probe(struct platform_device *pdev)
 	 * MMC can still work without debounce clock.
 	 */
 	if (IS_ERR(host->dbclk))
-		dev_dbg(mmc_dev(host->mmc), "Failed to get debounce clock\n");
+		dev_warn(mmc_dev(host->mmc), "Failed to get debounce clock\n");
 	else
 		if (clk_enable(host->dbclk) != 0)
 			dev_dbg(mmc_dev(host->mmc), "Enabling debounce"
@@ -1131,26 +1132,7 @@ static int omap_mmc_remove(struct platform_device *pdev)
 {
 	struct mmc_omap_host *host = platform_get_drvdata(pdev);
 	struct resource *res;
-	u16 vdd = 0;
 
-	if (host) {
-		mmc_omap_fclk_state(host, ON);
-		if (!(OMAP_HSMMC_READ(host->base, HCTL) & SDVSDET)) {
-			/*
-			 * Set the vdd back to 3V,
-			 * applicable for dual volt support.
-			 */
-			vdd = fls(host->mmc->ocr_avail) - 1;
-			if (omap_mmc_switch_opcond(host, vdd) != 0)
-				host->mmc->ios.vdd = vdd;
-		}
-	}
-
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (res)
-		release_mem_region(res->start, res->end - res->start + 1);
-
-	platform_set_drvdata(pdev, NULL);
 	if (host) {
 		mmc_remove_host(host->mmc);
 		if (host->pdata->cleanup)
@@ -1172,6 +1154,11 @@ static int omap_mmc_remove(struct platform_device *pdev)
 		mmc_free_host(host->mmc);
 		iounmap(host->base);
 	}
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (res)
+		release_mem_region(res->start, res->end - res->start + 1);
+	platform_set_drvdata(pdev, NULL);
 
 	return 0;
 }
