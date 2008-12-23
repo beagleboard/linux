@@ -112,7 +112,7 @@ static struct resource omap3_mbox_resources[] = {
 		.flags		= IORESOURCE_MEM,
 	},
 	{
-		.start		= INT_34XX_MAIL_U0_MPU,
+		.start		= INT_24XX_MAIL_U0_MPU,
 		.flags		= IORESOURCE_IRQ,
 	},
 };
