@@ -530,7 +530,7 @@ static int omap_mmc_switch_opcond(struct mmc_omap_host *host, int vdd)
 	/*
 	 * If a MMC dual voltage card is detected, the set_ios fn calls
 	 * this fn with VDD bit set for 1.8V. Upon card removal from the
-	 * slot, mmc_omap_detect fn sets the VDD back to 3V.
+	 * slot, omap_mmc_set_ios sets the VDD back to 3V on MMC_POWER_OFF.
 	 *
 	 * Only MMC1 supports 3.0V.  MMC2 will not function if SDVS30 is
 	 * set in HCTL.
@@ -567,15 +567,6 @@ static void mmc_omap_detect(struct work_struct *work)
 	sysfs_notify(&host->mmc->class_dev.kobj, NULL, "cover_switch");
 	mmc_omap_fclk_state(host, ON);
 	if (host->carddetect) {
-		if (!(OMAP_HSMMC_READ(host->base, HCTL) & SDVSDET)) {
-			/*
-			 * Set the VDD back to 3V when the card is removed
-			 * before the set_ios fn turns off the power.
-			 */
-			vdd = fls(host->mmc->ocr_avail) - 1;
-			if (omap_mmc_switch_opcond(host, vdd) != 0)
-				host->mmc->ios.vdd = vdd;
-		}
 		mmc_detect_change(host->mmc, (HZ * 200) / 1000);
 	} else {
 		OMAP_HSMMC_WRITE(host->base, SYSCTL,
@@ -813,6 +804,17 @@ static void omap_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	switch (ios->power_mode) {
 	case MMC_POWER_OFF:
 		mmc_slot(host).set_power(host->dev, host->slot_id, 0, 0);
+
+		/*
+		 * Reset bus voltage to 3V if it got set to 1.8V earlier.
+		 * REVISIT: If we are able to detect cards after unplugging
+		 * a 1.8V card, this code should not be needed.
+		 */
+		regval = OMAP_HSMMC_READ(host->base, HCTL);
+		if (regval & SDVSDET) {
+			regval &= ~SDVSDET;
+			OMAP_HSMMC_WRITE(host->base, HCTL, regval);
+		}
 		break;
 	case MMC_POWER_UP:
 		mmc_slot(host).set_power(host->dev, host->slot_id, 1, ios->vdd);
