@@ -234,9 +234,12 @@ static void send_init_stream(struct mmc_omap_host *host)
 static inline
 int mmc_omap_cover_is_closed(struct mmc_omap_host *host)
 {
+	int r = 1;
+
 	if (host->pdata->slots[host->slot_id].get_cover_state)
-		return host->pdata->slots[host->slot_id].get_cover_state(host->dev, host->slot_id);
-	return 1;
+		r = host->pdata->slots[host->slot_id].get_cover_state(host->dev,
+			host->slot_id);
+	return r;
 }
 
 static ssize_t
@@ -403,20 +406,20 @@ static void mmc_omap_report_irq(struct mmc_omap_host *host, u32 status)
 		"CEB", "CIE", "DTO", "DCRC", "DEB", "---", "ACE", "---",
 		"---", "---", "---", "CERR", "CERR", "BADA", "---", "---", "---"
 	};
-	int i;
+	char res[256];
+	char *buf = res;
+	int len, i;
 
-	dev_dbg(mmc_dev(host->mmc), "MMC IRQ 0x%x :", status);
+	len = sprintf(buf, "MMC IRQ 0x%x :", status);
+	buf += len;
 
 	for (i = 0; i < ARRAY_SIZE(mmc_omap_status_bits); i++)
-		if (status & (1 << i))
-			/*
-			 * KERN_* facility is not used here because this should
-			 * print a single line.
-			 */
-			printk(" %s", mmc_omap_status_bits[i]);
+		if (status & (1 << i)) {
+			len = sprintf(buf, " %s", mmc_omap_status_bits[i]);
+			buf += len;
+		}
 
-	printk("\n");
-
+	dev_dbg(mmc_dev(host->mmc), "%s\n", res);
 }
 #endif  /* CONFIG_MMC_DEBUG */
 
@@ -452,7 +455,9 @@ static irqreturn_t mmc_omap_irq(int irq, void *dev_id)
 						OMAP_HSMMC_READ(host->base,
 								SYSCTL) | SRC);
 					while (OMAP_HSMMC_READ(host->base,
-								SYSCTL) & SRC) ;
+							SYSCTL) & SRC)
+						;
+
 					host->cmd->error = -ETIMEDOUT;
 				} else {
 					host->cmd->error = -EILSEQ;
@@ -473,7 +478,8 @@ static irqreturn_t mmc_omap_irq(int irq, void *dev_id)
 					OMAP_HSMMC_READ(host->base,
 							SYSCTL) | SRD);
 				while (OMAP_HSMMC_READ(host->base,
-							SYSCTL) & SRD) ;
+						SYSCTL) & SRD)
+					;
 				end_trans = 1;
 			}
 		}
@@ -560,7 +566,6 @@ err:
  */
 static void mmc_omap_detect(struct work_struct *work)
 {
-	u16 vdd = 0;
 	struct mmc_omap_host *host = container_of(work, struct mmc_omap_host,
 						mmc_carddetect_work);
 
@@ -571,7 +576,9 @@ static void mmc_omap_detect(struct work_struct *work)
 	} else {
 		OMAP_HSMMC_WRITE(host->base, SYSCTL,
 			OMAP_HSMMC_READ(host->base, SYSCTL) | SRD);
-		while (OMAP_HSMMC_READ(host->base, SYSCTL) & SRD) ;
+		while (OMAP_HSMMC_READ(host->base, SYSCTL) & SRD)
+			;
+
 		mmc_detect_change(host->mmc, (HZ * 50) / 1000);
 	}
 	mmc_omap_fclk_lazy_disable(host);
@@ -804,16 +811,15 @@ static void omap_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	switch (ios->power_mode) {
 	case MMC_POWER_OFF:
 		mmc_slot(host).set_power(host->dev, host->slot_id, 0, 0);
-
 		/*
 		 * Reset bus voltage to 3V if it got set to 1.8V earlier.
 		 * REVISIT: If we are able to detect cards after unplugging
 		 * a 1.8V card, this code should not be needed.
 		 */
-		regval = OMAP_HSMMC_READ(host->base, HCTL);
-		if (regval & SDVSDET) {
-			regval &= ~SDVSDET;
-			OMAP_HSMMC_WRITE(host->base, HCTL, regval);
+		if (!(OMAP_HSMMC_READ(host->base, HCTL) & SDVSDET)) {
+			int vdd = fls(host->mmc->ocr_avail) - 1;
+			if (omap_mmc_switch_opcond(host, vdd) != 0)
+				host->mmc->ios.vdd = vdd;
 		}
 		break;
 	case MMC_POWER_UP:
@@ -920,7 +926,7 @@ static int __init omap_mmc_probe(struct platform_device *pdev)
 	struct mmc_host *mmc;
 	struct mmc_omap_host *host = NULL;
 	struct resource *res;
-	int ret = 0, irq, reg;
+	int ret = 0, irq;
 	u32 hctl, capa;
 
 	if (pdata == NULL) {
@@ -1094,7 +1100,8 @@ static int __init omap_mmc_probe(struct platform_device *pdev)
 	}
 	if (mmc_slot(host).card_detect_irq && mmc_slot(host).card_detect &&
 			host->pdata->slots[host->slot_id].get_cover_state) {
-		ret = device_create_file(&mmc->class_dev, &dev_attr_cover_switch);
+		ret = device_create_file(&mmc->class_dev,
+					&dev_attr_cover_switch);
 		if (ret < 0)
 			goto err_cover_switch;
 	}
@@ -1184,7 +1191,8 @@ static int omap_mmc_suspend(struct platform_device *pdev, pm_message_t state)
 			OMAP_HSMMC_WRITE(host->base, IE, 0);
 
 			if (host->pdata->suspend) {
-				ret = host->pdata->suspend(&pdev->dev, host->slot_id);
+				ret = host->pdata->suspend(&pdev->dev,
+								host->slot_id);
 				if (ret)
 					dev_dbg(mmc_dev(host->mmc),
 						"Unable to handle MMC board"
