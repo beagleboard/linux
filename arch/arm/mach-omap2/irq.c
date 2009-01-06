@@ -123,6 +123,11 @@ static void omap_unmask_irq(unsigned int irq)
 	intc_bank_write_reg(1 << irq, &irq_banks[0], INTC_MIR_CLEAR0 + offset);
 }
 
+static void omap_disable_irq(unsigned int irq)
+{
+	omap_mask_irq(irq);
+}
+
 static void omap_mask_ack_irq(unsigned int irq)
 {
 	omap_mask_irq(irq);
@@ -134,6 +139,7 @@ static struct irq_chip omap_irq_chip = {
 	.ack	= omap_mask_ack_irq,
 	.mask	= omap_mask_irq,
 	.unmask	= omap_unmask_irq,
+	.disable = omap_disable_irq,
 };
 
 static void __init omap_irq_bank_init_one(struct omap_irq_bank *bank)
