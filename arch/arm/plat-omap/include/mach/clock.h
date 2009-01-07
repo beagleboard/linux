@@ -153,12 +153,10 @@ void omap_clk_del_child(struct clk *clk, struct clk *clk2);
 
 /* Clock flags */
 #define RATE_CKCTL		(1 << 0)	/* Main fixed ratio clocks */
-
-
-#define VIRTUAL_CLOCK		(1 << 3)	/* Composite clock from table */
+/* bits 1-3 are currently free */
 #define ALWAYS_ENABLED		(1 << 4)	/* Clock cannot be disabled */
 #define ENABLE_REG_32BIT	(1 << 5)	/* Use 32-bit access */
-
+/* bit 6 is currently free */
 #define CLOCK_IDLE_CONTROL	(1 << 7)
 #define CLOCK_NO_IDLE_PARENT	(1 << 8)
 #define DELAYED_APP		(1 << 9)	/* Delay application of clock */
