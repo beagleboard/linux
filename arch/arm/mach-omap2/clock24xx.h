@@ -24,13 +24,16 @@
 #include "cm-regbits-24xx.h"
 #include "sdrc.h"
 
-static void omap2_table_mpu_recalc(struct clk *clk);
+static void omap2_table_mpu_recalc(struct clk *clk, unsigned long parent_rate,
+				   u8 rate_storage);
 static int omap2_select_table_rate(struct clk *clk, unsigned long rate);
 static long omap2_round_to_table_rate(struct clk *clk, unsigned long rate);
-static void omap2_sys_clk_recalc(struct clk *clk);
-static void omap2_osc_clk_recalc(struct clk *clk);
-static void omap2_sys_clk_recalc(struct clk *clk);
-static void omap2_dpllcore_recalc(struct clk *clk);
+static void omap2_sys_clk_recalc(struct clk *clk, unsigned long parent_rate,
+				 u8 rate_storage);
+static void omap2_osc_clk_recalc(struct clk *clk, unsigned long parent_rate,
+				 u8 rate_storage);
+static void omap2_dpllcore_recalc(struct clk *clk, unsigned long parent_rate,
+				 u8 rate_storage);
 static int omap2_clk_fixed_enable(struct clk *clk);
 static void omap2_clk_fixed_disable(struct clk *clk);
 static int omap2_enable_osc_ck(struct clk *clk);

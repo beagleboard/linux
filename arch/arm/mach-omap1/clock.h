@@ -15,16 +15,22 @@
 
 static int omap1_clk_enable_generic(struct clk * clk);
 static void omap1_clk_disable_generic(struct clk * clk);
-static void omap1_ckctl_recalc(struct clk * clk);
-static void omap1_watchdog_recalc(struct clk * clk);
+static void omap1_ckctl_recalc(struct clk *clk, unsigned long parent_rate,
+			       u8 rate_storage);
+static void omap1_watchdog_recalc(struct clk *clk, unsigned long parent_rate,
+				  u8 rate_storage);
 static int omap1_set_sossi_rate(struct clk *clk, unsigned long rate);
-static void omap1_sossi_recalc(struct clk *clk);
-static void omap1_ckctl_recalc_dsp_domain(struct clk * clk);
+static void omap1_sossi_recalc(struct clk *clk, unsigned long parent_rate,
+			       u8 rate_storage);
+static void omap1_ckctl_recalc_dsp_domain(struct clk *clk,
+					  unsigned long parent_rate,
+					  u8 rate_storage);
 static int omap1_clk_enable_dsp_domain(struct clk * clk);
 static int omap1_clk_set_rate_dsp_domain(struct clk * clk, unsigned long rate);
 static void omap1_clk_disable_dsp_domain(struct clk * clk);
 static int omap1_set_uart_rate(struct clk * clk, unsigned long rate);
-static void omap1_uart_recalc(struct clk * clk);
+static void omap1_uart_recalc(struct clk *clk, unsigned long parent_rate,
+			      u8 rate_storage);
 static int omap1_clk_enable_uart_functional(struct clk * clk);
 static void omap1_clk_disable_uart_functional(struct clk * clk);
 static int omap1_set_ext_clk_rate(struct clk * clk, unsigned long rate);

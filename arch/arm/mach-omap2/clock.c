@@ -241,6 +241,7 @@ void omap2_init_clksel_parent(struct clk *clk)
 /**
  * omap2_get_dpll_rate - returns the current DPLL CLKOUT rate
  * @clk: struct clk * of a DPLL
+ * @parent_rate: rate of the parent of the DPLL clock
  *
  * DPLLs can be locked or bypassed - basically, enabled or disabled.
  * When locked, the DPLL output depends on the M and N values.  When
@@ -252,7 +253,7 @@ void omap2_init_clksel_parent(struct clk *clk)
  * locked, or the appropriate bypass rate if the DPLL is bypassed, or 0
  * if the clock @clk is not a DPLL.
  */
-u32 omap2_get_dpll_rate(struct clk *clk)
+u32 omap2_get_dpll_rate(struct clk *clk, unsigned long parent_rate)
 {
 	long long dpll_clk;
 	u32 dpll_mult, dpll_div, v;
@@ -271,7 +272,7 @@ u32 omap2_get_dpll_rate(struct clk *clk)
 
 		if (v == OMAP2XXX_EN_DPLL_LPBYPASS ||
 		    v == OMAP2XXX_EN_DPLL_FRBYPASS)
-			return clk->parent->rate;
+			return parent_rate;
 
 	} else if (cpu_is_omap34xx()) {
 
@@ -287,7 +288,7 @@ u32 omap2_get_dpll_rate(struct clk *clk)
 	dpll_div = v & dd->div1_mask;
 	dpll_div >>= __ffs(dd->div1_mask);
 
-	dpll_clk = (long long)clk->parent->rate * dpll_mult;
+	dpll_clk = (long long)parent_rate * dpll_mult;
 	do_div(dpll_clk, dpll_div + 1);
 
 	return dpll_clk;
@@ -297,11 +298,19 @@ u32 omap2_get_dpll_rate(struct clk *clk)
  * Used for clocks that have the same value as the parent clock,
  * divided by some factor
  */
-void omap2_fixed_divisor_recalc(struct clk *clk)
+void omap2_fixed_divisor_recalc(struct clk *clk, unsigned long parent_rate,
+				u8 rate_storage)
 {
-	WARN_ON(!clk->fixed_div);
+	unsigned long rate;
 
-	clk->rate = clk->parent->rate / clk->fixed_div;
+	WARN_ON(!clk->fixed_div); /* XXX move this to init */
+
+	rate = parent_rate / clk->fixed_div;
+
+	if (rate_storage == CURRENT_RATE)
+		clk->rate = rate;
+	else if (rate_storage == TEMP_RATE)
+		clk->temp_rate = rate;
 }
 
 /**
@@ -488,9 +497,11 @@ int omap2_clk_enable(struct clk *clk)
  * Used for clocks that are part of CLKSEL_xyz governed clocks.
  * REVISIT: Maybe change to use clk->enable() functions like on omap1?
  */
-void omap2_clksel_recalc(struct clk *clk)
+void omap2_clksel_recalc(struct clk *clk, unsigned long parent_rate,
+			 u8 rate_storage)
 {
 	u32 div = 0;
+	unsigned long rate;
 
 	pr_debug("clock: recalc'ing clksel clk %s\n", clk->name);
 
@@ -498,9 +509,12 @@ void omap2_clksel_recalc(struct clk *clk)
 	if (div == 0)
 		return;
 
-	if (clk->rate == (clk->parent->rate / div))
-		return;
-	clk->rate = clk->parent->rate / div;
+	rate = parent_rate / div;
+
+	if (rate_storage == CURRENT_RATE)
+		clk->rate = rate;
+	else if (rate_storage == TEMP_RATE)
+		clk->temp_rate = rate;
 
 	pr_debug("clock: new clock rate is %ld (div %d)\n", clk->rate, div);
 }

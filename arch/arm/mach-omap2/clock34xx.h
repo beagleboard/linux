@@ -27,8 +27,10 @@
 #include "prm.h"
 #include "prm-regbits-34xx.h"
 
-static void omap3_dpll_recalc(struct clk *clk);
-static void omap3_clkoutx2_recalc(struct clk *clk);
+static void omap3_dpll_recalc(struct clk *clk, unsigned long parent_rate,
+			      u8 rate_storage);
+static void omap3_clkoutx2_recalc(struct clk *clk, unsigned long parent_rate,
+			      u8 rate_storage);
 static void omap3_dpll_allow_idle(struct clk *clk);
 static void omap3_dpll_deny_idle(struct clk *clk);
 static u32 omap3_dpll_autoidle_read(struct clk *clk);
@@ -292,7 +294,8 @@ static struct clk dpll1_ck = {
 	.parent		= &sys_ck,
 	.prcm_mod	= MPU_MOD,
 	.dpll_data	= &dpll1_dd,
-	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES | ALWAYS_ENABLED,
+	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES |
+			  ALWAYS_ENABLED | RECALC_ON_ENABLE,
 	.round_rate	= &omap2_dpll_round_rate,
 	.set_rate	= &omap3_noncore_dpll_set_rate,
 	.clkdm		= { .name = "dpll1_clkdm" },
@@ -368,7 +371,8 @@ static struct clk dpll2_ck = {
 	.parent		= &sys_ck,
 	.prcm_mod	= OMAP3430_IVA2_MOD,
 	.dpll_data	= &dpll2_dd,
-	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES,
+	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES |
+			  RECALC_ON_ENABLE,
 	.enable		= &omap3_noncore_dpll_enable,
 	.disable	= &omap3_noncore_dpll_disable,
 	.round_rate	= &omap2_dpll_round_rate,
@@ -431,7 +435,8 @@ static struct clk dpll3_ck = {
 	.parent		= &sys_ck,
 	.prcm_mod	= PLL_MOD,
 	.dpll_data	= &dpll3_dd,
-	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES | ALWAYS_ENABLED,
+	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES |
+			  ALWAYS_ENABLED | RECALC_ON_ENABLE,
 	.round_rate	= &omap2_dpll_round_rate,
 	.clkdm		= { .name = "dpll3_clkdm" },
 	.recalc		= &omap3_dpll_recalc,
@@ -597,7 +602,8 @@ static struct clk dpll4_ck = {
 	.parent		= &sys_ck,
 	.prcm_mod	= PLL_MOD,
 	.dpll_data	= &dpll4_dd,
-	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES,
+	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES |
+			  RECALC_ON_ENABLE,
 	.enable		= &omap3_noncore_dpll_enable,
 	.disable	= &omap3_noncore_dpll_disable,
 	.round_rate	= &omap2_dpll_round_rate,
@@ -926,7 +932,8 @@ static struct clk dpll5_ck = {
 	.parent		= &sys_ck,
 	.prcm_mod	= PLL_MOD,
 	.dpll_data	= &dpll5_dd,
-	.flags		= CLOCK_IN_OMAP3430ES2 | RATE_PROPAGATES,
+	.flags		= CLOCK_IN_OMAP3430ES2 | RATE_PROPAGATES |
+			  RECALC_ON_ENABLE,
 	.enable		= &omap3_noncore_dpll_enable,
 	.disable	= &omap3_noncore_dpll_disable,
 	.round_rate	= &omap2_dpll_round_rate,

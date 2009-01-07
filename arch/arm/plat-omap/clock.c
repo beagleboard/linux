@@ -83,8 +83,17 @@ int clk_enable(struct clk *clk)
 		return -EINVAL;
 
 	spin_lock_irqsave(&clockfw_lock, flags);
-	if (arch_clock->clk_enable)
+	if (arch_clock->clk_enable) {
 		ret = arch_clock->clk_enable(clk);
+		if (ret == 0 && clk->flags & RECALC_ON_ENABLE) {
+			if (clk->recalc)
+				(*clk->recalc)(clk, clk->parent->rate,
+					       CURRENT_RATE);
+			if (clk->flags & RATE_PROPAGATES)
+				propagate_rate(clk, CURRENT_RATE);
+		}
+	}
+
 	spin_unlock_irqrestore(&clockfw_lock, flags);
 
 	return ret;
@@ -106,8 +115,16 @@ void clk_disable(struct clk *clk)
 		goto out;
 	}
 
-	if (arch_clock->clk_disable)
+	if (arch_clock->clk_disable) {
 		arch_clock->clk_disable(clk);
+		if (clk->flags & RECALC_ON_ENABLE) {
+			if (clk->recalc)
+				(*clk->recalc)(clk, clk->parent->rate,
+					       CURRENT_RATE);
+			if (clk->flags & RATE_PROPAGATES)
+				propagate_rate(clk, CURRENT_RATE);
+		}
+	}
 
 out:
 	spin_unlock_irqrestore(&clockfw_lock, flags);
@@ -188,9 +205,10 @@ int clk_set_rate(struct clk *clk, unsigned long rate)
 		ret = arch_clock->clk_set_rate(clk, rate);
 		if (ret == 0) {
 			if (clk->recalc)
-				(*clk->recalc)(clk);
+				(*clk->recalc)(clk, clk->parent->rate,
+					       CURRENT_RATE);
 			if (clk->flags & RATE_PROPAGATES)
-				propagate_rate(clk);
+				propagate_rate(clk, CURRENT_RATE);
 		}
 	}
 
@@ -214,9 +232,10 @@ int clk_set_parent(struct clk *clk, struct clk *parent)
 		ret = arch_clock->clk_set_parent(clk, parent);
 		if (ret == 0) {
 			if (clk->recalc)
-				(*clk->recalc)(clk);
+				(*clk->recalc)(clk, clk->parent->rate,
+					       CURRENT_RATE);
 			if (clk->flags & RATE_PROPAGATES)
-				propagate_rate(clk);
+				propagate_rate(clk, CURRENT_RATE);
 		}
 	}
 
@@ -268,18 +287,20 @@ static int __init omap_clk_setup(char *str)
 __setup("mpurate=", omap_clk_setup);
 
 /* Used for clocks that always have same value as the parent clock */
-void followparent_recalc(struct clk *clk)
+void followparent_recalc(struct clk *clk, unsigned long new_parent_rate,
+			 u8 rate_storage)
 {
-	if (clk == NULL || IS_ERR(clk))
-		return;
-
-	clk->rate = clk->parent->rate;
+	if (rate_storage == CURRENT_RATE)
+		clk->rate = new_parent_rate;
+	else if (rate_storage == TEMP_RATE)
+		clk->temp_rate = new_parent_rate;
 }
 
 /* Propagate rate to children */
-void propagate_rate(struct clk * tclk)
+void propagate_rate(struct clk *tclk, u8 rate_storage)
 {
 	struct clk *clkp;
+	unsigned long parent_rate = 0;
 
 	if (tclk == NULL || IS_ERR(tclk))
 		return;
@@ -287,10 +308,16 @@ void propagate_rate(struct clk * tclk)
 	list_for_each_entry(clkp, &clocks, node) {
 		if (likely(clkp->parent != tclk))
 			continue;
+
+		if (rate_storage == CURRENT_RATE)
+			parent_rate = tclk->rate;
+		else if (rate_storage == TEMP_RATE)
+			parent_rate = tclk->temp_rate;
+
 		if (clkp->recalc)
-			clkp->recalc(clkp);
+			clkp->recalc(clkp, parent_rate, rate_storage);
 		if (clkp->flags & RATE_PROPAGATES)
-			propagate_rate(clkp);
+			propagate_rate(clkp, rate_storage);
 	}
 }
 
@@ -308,9 +335,9 @@ void recalculate_root_clocks(void)
 	list_for_each_entry(clkp, &clocks, node) {
 		if (unlikely(!clkp->parent)) {
 			if (clkp->recalc)
-				clkp->recalc(clkp);
+				clkp->recalc(clkp, 0, CURRENT_RATE);
 			if (clkp->flags & RATE_PROPAGATES)
-				propagate_rate(clkp);
+				propagate_rate(clkp, CURRENT_RATE);
 		}
 	}
 }

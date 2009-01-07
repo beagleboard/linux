@@ -67,12 +67,13 @@ struct clk {
 	int			id;
 	struct clk		*parent;
 	unsigned long		rate;
+	unsigned long		temp_rate;
 	__u32			flags;
 	u32			enable_reg;
 	__u8			enable_bit;
 	__s8			usecount;
 	u8			idlest_bit;
-	void			(*recalc)(struct clk *);
+	void			(*recalc)(struct clk *, unsigned long, u8);
 	int			(*set_rate)(struct clk *, unsigned long);
 	long			(*round_rate)(struct clk *, unsigned long);
 	void			(*init)(struct clk *);
@@ -120,9 +121,10 @@ extern unsigned int mpurate;
 extern int clk_init(struct clk_functions *custom_clocks);
 extern int clk_register(struct clk *clk);
 extern void clk_unregister(struct clk *clk);
-extern void propagate_rate(struct clk *clk);
+extern void propagate_rate(struct clk *clk, u8 rate_storage);
 extern void recalculate_root_clocks(void);
-extern void followparent_recalc(struct clk *clk);
+extern void followparent_recalc(struct clk *clk, unsigned long parent_rate,
+				u8 rate_storage);
 extern void clk_allow_idle(struct clk *clk);
 extern void clk_deny_idle(struct clk *clk);
 extern int clk_get_usecount(struct clk *clk);
@@ -146,7 +148,8 @@ extern void clk_init_cpufreq_table(struct cpufreq_frequency_table **table);
 #define ENABLE_ON_INIT		(1 << 11)	/* Enable upon framework init */
 #define INVERT_ENABLE		(1 << 12)	/* 0 enables, 1 disables */
 #define WAIT_READY		(1 << 13)	/* wait for dev to leave idle */
-/* bits 14-20 are currently free */
+#define RECALC_ON_ENABLE	(1 << 14)	/* recalc/prop on ena/disa */
+/* bits 15-20 are currently free */
 #define CLOCK_IN_OMAP310	(1 << 21)
 #define CLOCK_IN_OMAP730	(1 << 22)
 #define CLOCK_IN_OMAP1510	(1 << 23)
@@ -166,6 +169,10 @@ extern void clk_init_cpufreq_table(struct cpufreq_frequency_table **table);
 #define RATE_IN_3430ES2		(1 << 4)	/* 3430ES2+ rates only */
 
 #define RATE_IN_24XX		(RATE_IN_242X | RATE_IN_243X)
+
+/* rate_storage parameter flags */
+#define CURRENT_RATE		0
+#define TEMP_RATE		1
 
 /*
  * clk.prcm_mod flags (possible since only the top byte in clk.prcm_mod

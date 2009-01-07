@@ -52,7 +52,8 @@ void omap2_clk_disable_unused(struct clk *clk);
 #define omap2_clk_disable_unused	NULL
 #endif
 
-void omap2_clksel_recalc(struct clk *clk);
+void omap2_clksel_recalc(struct clk *clk, unsigned long new_parent_rate,
+			 u8 rate_storage);
 void omap2_init_clk_clkdm(struct clk *clk);
 void omap2_init_clksel_parent(struct clk *clk);
 u32 omap2_clksel_get_divisor(struct clk *clk);
@@ -60,10 +61,11 @@ u32 omap2_clksel_round_rate_div(struct clk *clk, unsigned long target_rate,
 				u32 *new_div);
 u32 omap2_clksel_to_divisor(struct clk *clk, u32 field_val);
 u32 omap2_divisor_to_clksel(struct clk *clk, u32 div);
-void omap2_fixed_divisor_recalc(struct clk *clk);
+void omap2_fixed_divisor_recalc(struct clk *clk, unsigned long new_parent_rate,
+				u8 rate_storage);
 long omap2_clksel_round_rate(struct clk *clk, unsigned long target_rate);
 int omap2_clksel_set_rate(struct clk *clk, unsigned long rate);
-u32 omap2_get_dpll_rate(struct clk *clk);
+u32 omap2_get_dpll_rate(struct clk *clk, unsigned long parent_rate);
 int omap2_wait_clock_ready(s16 prcm_mod, u16 idlest_reg, u32 cval,
 			   const char *name);
 void omap2_clk_prepare_for_reboot(void);
