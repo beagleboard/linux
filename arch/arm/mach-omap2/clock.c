@@ -488,15 +488,16 @@ int omap2_clk_enable(struct clk *clk)
 	if (++clk->usecount > 1)
 		return 0;
 
+	omap2_clkdm_clk_enable(clk->clkdm.ptr, clk);
+
 	if (clk->parent)
 		ret = omap2_clk_enable(clk->parent);
 
 	if (ret != 0) {
 		clk->usecount--;
+		omap2_clkdm_clk_disable(clk->clkdm.ptr, clk);
 		return ret;
 	}
-
-	omap2_clkdm_clk_enable(clk->clkdm.ptr, clk);
 
 	ret = _omap2_clk_enable(clk);
 
