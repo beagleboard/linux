@@ -214,7 +214,7 @@ static struct platform_device *sdp2430_devices[] __initdata = {
 
 static void ads7846_dev_init(void)
 {
-	if (omap_request_gpio(TS_GPIO) < 0)
+	if (gpio_request(TS_GPIO, "ads7846 irq") < 0)
 		printk(KERN_ERR "can't get ads746 pen down GPIO\n");
 
 	gpio_direction_input(TS_GPIO);

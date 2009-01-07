@@ -195,8 +195,8 @@ static struct resource apollon_smc91x_resources[] = {
 		.flags  = IORESOURCE_MEM,
 	},
 	[1] = {
-		.start	= OMAP_GPIO_IRQ(APOLLON_ETHR_GPIO_IRQ),
-		.end	= OMAP_GPIO_IRQ(APOLLON_ETHR_GPIO_IRQ),
+		.start	= gpio_to_irq(APOLLON_ETHR_GPIO_IRQ),
+		.end	= gpio_to_irq(APOLLON_ETHR_GPIO_IRQ),
 		.flags	= IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHEDGE,
 	},
 };
@@ -399,7 +399,7 @@ static void __init apollon_tsc_init(void)
 {
 	/* TSC2101 */
 	omap_cfg_reg(N15_24XX_GPIO85);
-	omap_request_gpio(85);
+	gpio_request(85, "tsc2101 irq");
 	gpio_direction_input(85);
 
 	omap_cfg_reg(W14_24XX_SYS_CLKOUT);	/* mclk */

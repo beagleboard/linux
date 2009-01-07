@@ -64,8 +64,8 @@
 static int ldp_panel_init(struct lcd_panel *panel,
 				struct omapfb_device *fbdev)
 {
-	omap_request_gpio(LCD_PANEL_RESET_GPIO);
-	omap_request_gpio(LCD_PANEL_QVGA_GPIO);
+	gpio_request(LCD_PANEL_RESET_GPIO, "lcd reset");
+	gpio_request(LCD_PANEL_QVGA_GPIO, "lcd qvga");
 	gpio_request(LCD_PANEL_ENABLE_GPIO, "lcd panel");
 	gpio_request(LCD_PANEL_BACKLIGHT_GPIO, "lcd backlight");
 
@@ -75,19 +75,19 @@ static int ldp_panel_init(struct lcd_panel *panel,
 	gpio_direction_output(LCD_PANEL_BACKLIGHT_GPIO, 0);
 
 #ifdef CONFIG_FB_OMAP_LCD_VGA
-	omap_set_gpio_dataout(LCD_PANEL_QVGA_GPIO, 0);
+	gpio_set_value(LCD_PANEL_QVGA_GPIO, 0);
 #else
-	omap_set_gpio_dataout(LCD_PANEL_QVGA_GPIO, 1);
+	gpio_set_value(LCD_PANEL_QVGA_GPIO, 1);
 #endif
-	omap_set_gpio_dataout(LCD_PANEL_RESET_GPIO, 1);
+	gpio_set_value(LCD_PANEL_RESET_GPIO, 1);
 
 	return 0;
 }
 
 static void ldp_panel_cleanup(struct lcd_panel *panel)
 {
-	omap_free_gpio(LCD_PANEL_RESET_GPIO);
-	omap_free_gpio(LCD_PANEL_QVGA_GPIO);
+	gpio_free(LCD_PANEL_RESET_GPIO);
+	gpio_free(LCD_PANEL_QVGA_GPIO);
 	gpio_free(LCD_PANEL_ENABLE_GPIO);
 	gpio_free(LCD_PANEL_BACKLIGHT_GPIO);
 }
