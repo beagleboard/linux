@@ -633,6 +633,7 @@ static void omap3_clkoutx2_recalc(struct clk *clk, unsigned long parent_rate,
 #if defined(CONFIG_ARCH_OMAP3)
 
 static struct clk_functions omap2_clk_functions = {
+	.clk_register		= omap2_clk_register,
 	.clk_enable		= omap2_clk_enable,
 	.clk_disable		= omap2_clk_disable,
 	.clk_round_rate		= omap2_clk_round_rate,
@@ -729,10 +730,8 @@ int __init omap2_clk_init(void)
 	for (clkp = onchip_34xx_clks;
 	     clkp < onchip_34xx_clks + ARRAY_SIZE(onchip_34xx_clks);
 	     clkp++) {
-		if ((*clkp)->flags & cpu_clkflg) {
+		if ((*clkp)->flags & cpu_clkflg)
 			clk_register(*clkp);
-			omap2_init_clk_clkdm(*clkp);
-		}
 	}
 
 	/* REVISIT: Not yet ready for OMAP3 */

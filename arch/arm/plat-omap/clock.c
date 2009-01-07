@@ -439,10 +439,17 @@ void recalculate_root_clocks(void)
 
 int clk_register(struct clk *clk)
 {
+	int ret;
+
 	if (clk == NULL || IS_ERR(clk))
 		return -EINVAL;
 
 	mutex_lock(&clocks_mutex);
+	if (arch_clock->clk_register) {
+		ret = arch_clock->clk_register(clk);
+		if (ret)
+			goto cr_out;
+	}
 	list_add(&clk->node, &clocks);
 	if (!clk->children.next)
 		INIT_LIST_HEAD(&clk->children);
@@ -450,9 +457,11 @@ int clk_register(struct clk *clk)
 		omap_clk_add_child(clk->parent, clk);
 	if (clk->init)
 		clk->init(clk);
+	ret = 0;
+cr_out:
 	mutex_unlock(&clocks_mutex);
 
-	return 0;
+	return ret;
 }
 EXPORT_SYMBOL(clk_register);
 

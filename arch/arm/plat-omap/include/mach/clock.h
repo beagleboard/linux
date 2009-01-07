@@ -117,6 +117,7 @@ struct clk {
 struct cpufreq_frequency_table;
 
 struct clk_functions {
+	int		(*clk_register)(struct clk *clk);
 	int		(*clk_enable)(struct clk *clk);
 	void		(*clk_disable)(struct clk *clk);
 	long		(*clk_round_rate)(struct clk *clk, unsigned long rate);

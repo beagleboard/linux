@@ -450,6 +450,7 @@ void omap2_clk_init_cpufreq_table(struct cpufreq_frequency_table **table)
 #endif
 
 static struct clk_functions omap2_clk_functions = {
+	.clk_register		= omap2_clk_register,
 	.clk_enable		= omap2_clk_enable,
 	.clk_disable		= omap2_clk_disable,
 	.clk_round_rate		= omap2_clk_round_rate,
@@ -578,13 +579,11 @@ int __init omap2_clk_init(void)
 
 		if ((*clkp)->flags & CLOCK_IN_OMAP242X && cpu_is_omap2420()) {
 			clk_register(*clkp);
-			omap2_init_clk_clkdm(*clkp);
 			continue;
 		}
 
 		if ((*clkp)->flags & CLOCK_IN_OMAP243X && cpu_is_omap2430()) {
 			clk_register(*clkp);
-			omap2_init_clk_clkdm(*clkp);
 			continue;
 		}
 	}

@@ -1085,3 +1085,9 @@ void omap2_clk_disable_unused(struct clk *clk)
 	_omap2_clk_disable(clk);
 }
 #endif
+
+int omap2_clk_register(struct clk *clk)
+{
+	omap2_init_clk_clkdm(clk);
+	return 0;
+}
