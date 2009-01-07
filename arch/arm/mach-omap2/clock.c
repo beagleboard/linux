@@ -302,9 +302,6 @@ void omap2_fixed_divisor_recalc(struct clk *clk)
 	WARN_ON(!clk->fixed_div);
 
 	clk->rate = clk->parent->rate / clk->fixed_div;
-
-	if (clk->flags & RATE_PROPAGATES)
-		propagate_rate(clk);
 }
 
 /**
@@ -506,9 +503,6 @@ void omap2_clksel_recalc(struct clk *clk)
 	clk->rate = clk->parent->rate / div;
 
 	pr_debug("clock: new clock rate is %ld (div %d)\n", clk->rate, div);
-
-	if (clk->flags & RATE_PROPAGATES)
-		propagate_rate(clk);
 }
 
 /**
@@ -779,9 +773,6 @@ int omap2_clk_set_rate(struct clk *clk, unsigned long rate)
 	if (clk->set_rate != NULL)
 		ret = clk->set_rate(clk, rate);
 
-	if (ret == 0 && (clk->flags & RATE_PROPAGATES))
-		propagate_rate(clk);
-
 	return ret;
 }
 
@@ -862,9 +853,6 @@ int omap2_clk_set_parent(struct clk *clk, struct clk *new_parent)
 
 	pr_debug("clock: set parent of %s to %s (new rate %ld)\n",
 		 clk->name, clk->parent->name, clk->rate);
-
-	if (clk->flags & RATE_PROPAGATES)
-		propagate_rate(clk);
 
 	return 0;
 }

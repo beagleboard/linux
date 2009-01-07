@@ -225,9 +225,6 @@ static void omap1_ckctl_recalc(struct clk * clk)
 	if (unlikely(clk->rate == clk->parent->rate / dsor))
 		return; /* No change, quick exit */
 	clk->rate = clk->parent->rate / dsor;
-
-	if (unlikely(clk->flags & RATE_PROPAGATES))
-		propagate_rate(clk);
 }
 
 static void omap1_ckctl_recalc_dsp_domain(struct clk * clk)
@@ -248,9 +245,6 @@ static void omap1_ckctl_recalc_dsp_domain(struct clk * clk)
 	if (unlikely(clk->rate == clk->parent->rate / dsor))
 		return; /* No change, quick exit */
 	clk->rate = clk->parent->rate / dsor;
-
-	if (unlikely(clk->flags & RATE_PROPAGATES))
-		propagate_rate(clk);
 }
 
 /* MPU virtual clock functions */
@@ -313,9 +307,6 @@ static int omap1_clk_set_rate_dsp_domain(struct clk *clk, unsigned long rate)
 		clk->rate = clk->parent->rate / (1 << dsor_exp);
 		ret = 0;
 	}
-
-	if (unlikely(ret == 0 && (clk->flags & RATE_PROPAGATES)))
-		propagate_rate(clk);
 
 	return ret;
 }
@@ -423,8 +414,6 @@ static int omap1_set_sossi_rate(struct clk *clk, unsigned long rate)
 	omap_writel(l, MOD_CONF_CTRL_1);
 
 	clk->rate = p_rate / (div + 1);
-	if (unlikely(clk->flags & RATE_PROPAGATES))
-		propagate_rate(clk);
 
 	return 0;
 }
@@ -582,9 +571,6 @@ static int omap1_clk_set_rate(struct clk *clk, unsigned long rate)
 		clk->rate = clk->parent->rate / (1 << dsor_exp);
 		ret = 0;
 	}
-
-	if (unlikely(ret == 0 && (clk->flags & RATE_PROPAGATES)))
-		propagate_rate(clk);
 
 	return ret;
 }

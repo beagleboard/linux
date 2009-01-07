@@ -54,8 +54,6 @@
 static void omap3_dpll_recalc(struct clk *clk)
 {
 	clk->rate = omap2_get_dpll_rate(clk);
-
-	propagate_rate(clk);
 }
 
 /* _omap3_dpll_write_clken - write clken_bits arg to a DPLL's enable bits */
@@ -429,8 +427,6 @@ static int omap3_noncore_dpll_set_rate(struct clk *clk, unsigned long rate)
 
 	}
 
-	omap3_dpll_recalc(clk);
-
 	return 0;
 }
 
@@ -492,8 +488,6 @@ static int omap3_core_dpll_m2_set_rate(struct clk *clk, unsigned long rate)
 	omap3_configure_core_dpll(sp->rfr_ctrl, sp->actim_ctrla,
 				  sp->actim_ctrlb, new_div);
 	local_irq_enable();
-
-	omap2_clksel_recalc(clk);
 
 	return 0;
 }
@@ -612,9 +606,6 @@ static void omap3_clkoutx2_recalc(struct clk *clk)
 		clk->rate = clk->parent->rate;
 	else
 		clk->rate = clk->parent->rate * 2;
-
-	if (clk->flags & RATE_PROPAGATES)
-		propagate_rate(clk);
 }
 
 /* Common clock code */

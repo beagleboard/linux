@@ -178,8 +178,6 @@ static long omap2_dpllcore_round_rate(unsigned long target_rate)
 static void omap2_dpllcore_recalc(struct clk *clk)
 {
 	clk->rate = omap2xxx_clk_get_core_rate(clk);
-
-	propagate_rate(clk);
 }
 
 static int omap2_reprogram_dpllcore(struct clk *clk, unsigned long rate)
@@ -250,7 +248,6 @@ static int omap2_reprogram_dpllcore(struct clk *clk, unsigned long rate)
 		omap2xxx_sdrc_init_params(omap2xxx_sdrc_dll_is_unlocked());
 		omap2xxx_sdrc_reprogram(done_rate, 0);
 	}
-	omap2_dpllcore_recalc(&dpll_ck);
 	ret = 0;
 
 dpll_exit:
@@ -379,7 +376,6 @@ static int omap2_select_table_rate(struct clk *clk, unsigned long rate)
 
 		local_irq_restore(flags);
 	}
-	omap2_dpllcore_recalc(&dpll_ck);
 
 	return 0;
 }
@@ -469,13 +465,11 @@ static u32 omap2_get_sysclkdiv(void)
 static void omap2_osc_clk_recalc(struct clk *clk)
 {
 	clk->rate = omap2_get_apll_clkin() * omap2_get_sysclkdiv();
-	propagate_rate(clk);
 }
 
 static void omap2_sys_clk_recalc(struct clk *clk)
 {
 	clk->rate = clk->parent->rate / omap2_get_sysclkdiv();
-	propagate_rate(clk);
 }
 
 /*
