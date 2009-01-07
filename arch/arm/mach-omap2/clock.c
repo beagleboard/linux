@@ -224,7 +224,11 @@ void omap2_init_clksel_parent(struct clk *clk)
 						 clk->name, clks->parent->name,
 						 ((clk->parent) ?
 						  clk->parent->name : "NULL"));
+					if (clk->parent)
+						omap_clk_del_child(clk->parent,
+								   clk);
 					clk->parent = clks->parent;
+					omap_clk_add_child(clk->parent, clk);
 				};
 				found = 1;
 			}

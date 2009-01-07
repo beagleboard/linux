@@ -60,6 +60,21 @@ struct dpll_data {
 
 #endif
 
+/**
+ * struct clk_child - used to track the children of a clock
+ * @clk: child struct clk *
+ * @node: list_head
+ * @flags: is this entry allocated in bootmem or slab?  is it deleted?
+ *
+ * One struct clk_child is allocated for each child clock @clk of a
+ * parent clock.  @flags values are listed below and start with CLK_CHILD_*.
+ */
+struct clk_child {
+	struct clk		*clk;
+	struct list_head	node;
+	u8			flags;
+};
+
 struct clk {
 	struct list_head	node;
 	struct module		*owner;
@@ -68,6 +83,7 @@ struct clk {
 	struct clk		*parent;
 	unsigned long		rate;
 	unsigned long		temp_rate;
+	struct list_head	children;
 	__u32			flags;
 	u32			enable_reg;
 	__u8			enable_bit;
@@ -132,6 +148,8 @@ extern void clk_enable_init_clocks(void);
 #ifdef CONFIG_CPU_FREQ
 extern void clk_init_cpufreq_table(struct cpufreq_frequency_table **table);
 #endif
+void omap_clk_add_child(struct clk *clk, struct clk *clk2);
+void omap_clk_del_child(struct clk *clk, struct clk *clk2);
 
 /* Clock flags */
 #define RATE_CKCTL		(1 << 0)	/* Main fixed ratio clocks */
@@ -173,6 +191,10 @@ extern void clk_init_cpufreq_table(struct cpufreq_frequency_table **table);
 /* rate_storage parameter flags */
 #define CURRENT_RATE		0
 #define TEMP_RATE		1
+
+/* clk_child flags */
+#define CLK_CHILD_SLAB_ALLOC	(1 << 0)	/* if !set, bootmem was used */
+#define CLK_CHILD_DELETED	(1 << 1)	/* can be reused */
 
 /*
  * clk.prcm_mod flags (possible since only the top byte in clk.prcm_mod
