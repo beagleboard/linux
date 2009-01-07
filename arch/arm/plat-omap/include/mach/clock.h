@@ -77,7 +77,6 @@ struct clk_child {
 
 struct clk {
 	struct list_head	node;
-	struct module		*owner;
 	const char		*name;
 	int			id;
 	struct clk		*parent;
