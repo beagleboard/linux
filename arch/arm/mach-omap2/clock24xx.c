@@ -220,10 +220,7 @@ static int omap2_reprogram_dpllcore(struct clk *clk, unsigned long rate)
 	u32 bypass = 0;
 	struct prcm_config tmpset;
 	const struct dpll_data *dd;
-	unsigned long flags;
-	int ret = -EINVAL;
 
-	local_irq_save(flags);
 	cur_rate = omap2xxx_clk_get_core_rate(&dpll_ck, dpll_ck.parent->rate);
 	mult = cm_read_mod_reg(PLL_MOD, CM_CLKSEL2);
 	mult &= OMAP24XX_CORE_CLK_SRC_MASK;
@@ -235,7 +232,7 @@ static int omap2_reprogram_dpllcore(struct clk *clk, unsigned long rate)
 	} else if (rate != cur_rate) {
 		valid_rate = omap2_dpllcore_round_rate(rate);
 		if (valid_rate != rate)
-			goto dpll_exit;
+			return -EINVAL;
 
 		if (mult == 1)
 			low = curr_prcm_set->dpll_speed;
@@ -244,7 +241,7 @@ static int omap2_reprogram_dpllcore(struct clk *clk, unsigned long rate)
 
 		dd = clk->dpll_data;
 		if (!dd)
-			goto dpll_exit;
+			return -EINVAL;
 
 		tmpset.cm_clksel1_pll = cm_read_mod_reg(clk->prcm_mod,
 							dd->mult_div1_reg);
@@ -282,11 +279,8 @@ static int omap2_reprogram_dpllcore(struct clk *clk, unsigned long rate)
 		omap2xxx_sdrc_init_params(omap2xxx_sdrc_dll_is_unlocked());
 		omap2xxx_sdrc_reprogram(done_rate, 0);
 	}
-	ret = 0;
 
-dpll_exit:
-	local_irq_restore(flags);
-	return(ret);
+	return 0;
 }
 
 /**
