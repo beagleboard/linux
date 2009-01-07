@@ -66,14 +66,14 @@ static struct clk dpll2_fck;
 static struct clk omap_32k_fck = {
 	.name		= "omap_32k_fck",
 	.rate		= 32768,
-	.flags		= CLOCK_IN_OMAP343X | RATE_FIXED | ALWAYS_ENABLED,
+	.flags		= CLOCK_IN_OMAP343X | ALWAYS_ENABLED,
 	.clkdm		= { .name = "prm_clkdm" },
 };
 
 static struct clk secure_32k_fck = {
 	.name		= "secure_32k_fck",
 	.rate		= 32768,
-	.flags		= CLOCK_IN_OMAP343X | RATE_FIXED | ALWAYS_ENABLED,
+	.flags		= CLOCK_IN_OMAP343X | ALWAYS_ENABLED,
 	.clkdm		= { .name = "prm_clkdm" },
 };
 
@@ -81,42 +81,42 @@ static struct clk secure_32k_fck = {
 static struct clk virt_12m_ck = {
 	.name		= "virt_12m_ck",
 	.rate		= 12000000,
-	.flags		= CLOCK_IN_OMAP343X | RATE_FIXED | ALWAYS_ENABLED,
+	.flags		= CLOCK_IN_OMAP343X | ALWAYS_ENABLED,
 	.clkdm		= { .name = "prm_clkdm" },
 };
 
 static struct clk virt_13m_ck = {
 	.name		= "virt_13m_ck",
 	.rate		= 13000000,
-	.flags		= CLOCK_IN_OMAP343X | RATE_FIXED | ALWAYS_ENABLED,
+	.flags		= CLOCK_IN_OMAP343X | ALWAYS_ENABLED,
 	.clkdm		= { .name = "prm_clkdm" },
 };
 
 static struct clk virt_16_8m_ck = {
 	.name		= "virt_16_8m_ck",
 	.rate		= 16800000,
-	.flags		= CLOCK_IN_OMAP3430ES2 | RATE_FIXED | ALWAYS_ENABLED,
+	.flags		= CLOCK_IN_OMAP3430ES2 | ALWAYS_ENABLED,
 	.clkdm		= { .name = "prm_clkdm" },
 };
 
 static struct clk virt_19_2m_ck = {
 	.name		= "virt_19_2m_ck",
 	.rate		= 19200000,
-	.flags		= CLOCK_IN_OMAP343X | RATE_FIXED | ALWAYS_ENABLED,
+	.flags		= CLOCK_IN_OMAP343X | ALWAYS_ENABLED,
 	.clkdm		= { .name = "prm_clkdm" },
 };
 
 static struct clk virt_26m_ck = {
 	.name		= "virt_26m_ck",
 	.rate		= 26000000,
-	.flags		= CLOCK_IN_OMAP343X | RATE_FIXED | ALWAYS_ENABLED,
+	.flags		= CLOCK_IN_OMAP343X | ALWAYS_ENABLED,
 	.clkdm		= { .name = "prm_clkdm" },
 };
 
 static struct clk virt_38_4m_ck = {
 	.name		= "virt_38_4m_ck",
 	.rate		= 38400000,
-	.flags		= CLOCK_IN_OMAP343X | RATE_FIXED | ALWAYS_ENABLED,
+	.flags		= CLOCK_IN_OMAP343X | ALWAYS_ENABLED,
 	.clkdm		= { .name = "prm_clkdm" },
 };
 
@@ -170,8 +170,7 @@ static struct clk osc_sys_ck = {
 	.clksel_mask	= OMAP3430_SYS_CLKIN_SEL_MASK,
 	.clksel		= osc_sys_clksel,
 	/* REVISIT: deal with autoextclkmode? */
-	.flags		= CLOCK_IN_OMAP343X | RATE_FIXED |
-				ALWAYS_ENABLED,
+	.flags		= CLOCK_IN_OMAP343X | ALWAYS_ENABLED,
 	.clkdm		= { .name = "prm_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 };

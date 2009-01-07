@@ -570,9 +570,6 @@ static long omap1_clk_round_rate(struct clk *clk, unsigned long rate)
 {
 	int dsor_exp;
 
-	if (clk->flags & RATE_FIXED)
-		return clk->rate;
-
 	if (clk->flags & RATE_CKCTL) {
 		dsor_exp = calc_dsor_exp(clk, rate);
 		if (dsor_exp < 0)
