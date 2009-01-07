@@ -446,7 +446,7 @@ static int _omap2_clk_enable(struct clk *clk)
 	else
 		v |= (1 << clk->enable_bit);
 	_omap2_clk_write_reg(v, clk->enable_reg, clk);
-	wmb();
+	v = _omap2_clk_read_reg(clk->enable_reg, clk); /* OCP barrier */
 
 	omap2_clk_wait_ready(clk);
 
@@ -774,8 +774,7 @@ int omap2_clksel_set_rate(struct clk *clk, unsigned long rate)
 	v &= ~clk->clksel_mask;
 	v |= field_val << __ffs(clk->clksel_mask);
 	_omap2_clk_write_reg(v, clk->clksel_reg, clk);
-
-	wmb();
+	v = _omap2_clk_read_reg(clk->clksel_reg, clk); /* OCP barrier */
 
 	clk->rate = clk->parent->rate / new_div;
 
@@ -851,7 +850,7 @@ int omap2_clk_set_parent(struct clk *clk, struct clk *new_parent)
 	v &= ~clk->clksel_mask;
 	v |= field_val << __ffs(clk->clksel_mask);
 	_omap2_clk_write_reg(v, clk->clksel_reg, clk);
-	wmb();
+	v = _omap2_clk_read_reg(clk->clksel_reg, clk);    /* OCP barrier */
 
 	_omap2xxx_clk_commit(clk);
 
