@@ -450,7 +450,7 @@ static void _omap2_clk_disable(struct clk *clk)
 	else
 		v &= ~(1 << clk->enable_bit);
 	_omap2_clk_write_reg(v, clk->enable_reg, clk);
-	wmb();
+	/* No OCP barrier needed here since it is a disable operation */
 }
 
 void omap2_clk_disable(struct clk *clk)
