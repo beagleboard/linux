@@ -20,8 +20,8 @@ struct clockdomain;
 #if defined(CONFIG_ARCH_OMAP2) || defined(CONFIG_ARCH_OMAP3)
 
 struct clksel_rate {
-	u8			div;
 	u32			val;
+	u8			div;
 	u8			flags;
 };
 
@@ -31,30 +31,30 @@ struct clksel {
 };
 
 struct dpll_data {
-	u16			mult_div1_reg;
 	u32			mult_mask;
 	u32			div1_mask;
-	u16			last_rounded_m;
-	u8			last_rounded_n;
 	unsigned long		last_rounded_rate;
 	unsigned int		rate_tolerance;
-	u16			max_multiplier;
-	u8			min_divider;
-	u8			max_divider;
 	u32			max_tolerance;
 	struct clk		*bypass_clk;
-	u16			control_reg;
 	u32			enable_mask;
+	u16			mult_div1_reg;
+	u16			control_reg;
+	u16			max_multiplier;
+	u16			last_rounded_m;
+	u8			last_rounded_n;
+	u8			min_divider;
+	u8			max_divider;
 #  if defined(CONFIG_ARCH_OMAP3)
-	u16			idlest_reg;
-	u32			idlest_mask;
-	u32			freqsel_mask;
 	u8			modes;
 	u8			auto_recal_bit;
 	u8			recal_en_bit;
 	u8			recal_st_bit;
 	u16			autoidle_reg;
+	u16			idlest_reg;
 	u32			autoidle_mask;
+	u32			idlest_mask;
+	u32			freqsel_mask;
 #  endif
 };
 
@@ -85,18 +85,17 @@ struct clk {
 	struct list_head	children;
 	__u32			flags;
 	u32			enable_reg;
-	__u8			enable_bit;
-	__s8			usecount;
-	u8			idlest_bit;
 	void			(*recalc)(struct clk *, unsigned long, u8);
 	int			(*set_rate)(struct clk *, unsigned long);
 	long			(*round_rate)(struct clk *, unsigned long);
 	void			(*init)(struct clk *);
 	int			(*enable)(struct clk *);
 	void			(*disable)(struct clk *);
+	__u8			enable_bit;
+	__s8			usecount;
+	u8			idlest_bit;
 #if defined(CONFIG_ARCH_OMAP2) || defined(CONFIG_ARCH_OMAP3)
 	u8			fixed_div;
-	u16			clksel_reg;
 	u32			clksel_mask;
 	const struct clksel	*clksel;
 	struct dpll_data	*dpll_data;
@@ -104,6 +103,7 @@ struct clk {
 		const char		*name;
 		struct clockdomain	*ptr;
 	} clkdm;
+	u16			clksel_reg;
 	s16			prcm_mod;
 #else
 	__u8			rate_offset;
