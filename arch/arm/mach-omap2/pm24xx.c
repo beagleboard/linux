@@ -249,7 +249,7 @@ static int omap2_can_sleep(void)
 		return 0;
 	if (atomic_read(&sleep_block) > 0)
 		return 0;
-	if (clk_get_usecount(osc_ck) > 1)
+	if (osc_ck->usecount > 1)
 		return 0;
 	if (omap_dma_running())
 		return 0;

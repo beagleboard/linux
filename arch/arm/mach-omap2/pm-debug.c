@@ -93,7 +93,7 @@ void serial_console_sleep(int enable)
 
 	if (enable) {
 		BUG_ON(serial_console_clock_disabled);
-		if (clk_get_usecount(console_fclk) == 0)
+		if (console_fclk->usecount == 0)
 			return;
 		if ((int) serial_console_next_disable - (int) omap2_read_32k_sync_counter() >= 0)
 			return;
