@@ -200,11 +200,6 @@ void omap2_init_clk_clkdm(struct clk *clk)
 {
 	struct clockdomain *clkdm;
 
-	if (!clk->clkdm.name) {
-		pr_err("clock: %s: missing clockdomain", clk->name);
-		return;
-	}
-
 	clkdm = clkdm_lookup(clk->clkdm.name);
 	if (clkdm) {
 		pr_debug("clock: associated clk %s to clkdm %s\n",
@@ -481,8 +476,7 @@ void omap2_clk_disable(struct clk *clk)
 		_omap2_clk_disable(clk);
 		if (clk->parent)
 			omap2_clk_disable(clk->parent);
-		if (clk->clkdm.ptr)
-			omap2_clkdm_clk_disable(clk->clkdm.ptr, clk);
+		omap2_clkdm_clk_disable(clk->clkdm.ptr, clk);
 
 	}
 }
@@ -500,14 +494,12 @@ int omap2_clk_enable(struct clk *clk)
 			return ret;
 		}
 
-		if (clk->clkdm.ptr)
-			omap2_clkdm_clk_enable(clk->clkdm.ptr, clk);
+		omap2_clkdm_clk_enable(clk->clkdm.ptr, clk);
 
 		ret = _omap2_clk_enable(clk);
 
 		if (ret != 0) {
-			if (clk->clkdm.ptr)
-				omap2_clkdm_clk_disable(clk->clkdm.ptr, clk);
+			omap2_clkdm_clk_disable(clk->clkdm.ptr, clk);
 
 			if (clk->parent) {
 				omap2_clk_disable(clk->parent);
@@ -1088,6 +1080,12 @@ void omap2_clk_disable_unused(struct clk *clk)
 
 int omap2_clk_register(struct clk *clk)
 {
+	if (!clk->clkdm.name) {
+		pr_debug("clock: %s: missing clockdomain", clk->name);
+		WARN_ON(1);
+		return -EINVAL;
+	}
+
 	omap2_init_clk_clkdm(clk);
 	return 0;
 }
