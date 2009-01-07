@@ -1018,16 +1018,13 @@ static struct clk mpu_ck = {	/* Control cpu */
 	.parent		= &core_ck,
 	.prcm_mod	= MPU_MOD,
 	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X |
-				ALWAYS_ENABLED | DELAYED_APP |
-				CONFIG_PARTICIPANT,
+				ALWAYS_ENABLED | DELAYED_APP,
 	.clkdm		= { .name = "mpu_clkdm" },
 	.init		= &omap2_init_clksel_parent,
 	.clksel_reg	= CM_CLKSEL,
 	.clksel_mask	= OMAP24XX_CLKSEL_MPU_MASK,
 	.clksel		= mpu_clksel,
 	.recalc		= &omap2_clksel_recalc,
-	.round_rate	= &omap2_clksel_round_rate,
-	.set_rate	= &omap2_clksel_set_rate
 };
 
 /*
@@ -1061,8 +1058,7 @@ static struct clk dsp_fck = {
 	.name		= "dsp_fck",
 	.parent		= &core_ck,
 	.prcm_mod	= OMAP24XX_DSP_MOD,
-	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X | DELAYED_APP |
-				CONFIG_PARTICIPANT,
+	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X | DELAYED_APP,
 	.clkdm		= { .name = "dsp_clkdm" },
 	.enable_reg	= CM_FCLKEN,
 	.enable_bit	= OMAP24XX_CM_FCLKEN_DSP_EN_DSP_SHIFT,
@@ -1070,8 +1066,6 @@ static struct clk dsp_fck = {
 	.clksel_mask	= OMAP24XX_CLKSEL_DSP_MASK,
 	.clksel		= dsp_fck_clksel,
 	.recalc		= &omap2_clksel_recalc,
-	.round_rate	= &omap2_clksel_round_rate,
-	.set_rate	= &omap2_clksel_set_rate
 };
 
 /* DSP interface clock */
@@ -1093,14 +1087,12 @@ static struct clk dsp_irate_ick = {
 	.parent		= &dsp_fck,
 	.prcm_mod	= OMAP24XX_DSP_MOD,
 	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X | DELAYED_APP |
-				CONFIG_PARTICIPANT | PARENT_CONTROLS_CLOCK,
+				PARENT_CONTROLS_CLOCK,
 	.clkdm		= { .name = "dsp_clkdm" },
 	.clksel_reg	= CM_CLKSEL,
 	.clksel_mask	= OMAP24XX_CLKSEL_DSP_IF_MASK,
 	.clksel		= dsp_irate_ick_clksel,
 	.recalc		= &omap2_clksel_recalc,
-	.round_rate	= &omap2_clksel_round_rate,
-	.set_rate	= &omap2_clksel_set_rate
 };
 
 /* 2420 only */
@@ -1108,7 +1100,7 @@ static struct clk dsp_ick = {
 	.name		= "dsp_ick",	 /* apparently ipi and isp */
 	.parent		= &dsp_irate_ick,
 	.prcm_mod	= OMAP24XX_DSP_MOD,
-	.flags		= CLOCK_IN_OMAP242X | DELAYED_APP | CONFIG_PARTICIPANT,
+	.flags		= CLOCK_IN_OMAP242X | DELAYED_APP,
 	.clkdm		= { .name = "dsp_clkdm" },
 	.enable_reg	= CM_ICLKEN,
 	.enable_bit	= OMAP2420_EN_DSP_IPI_SHIFT,	      /* for ipi */
@@ -1119,7 +1111,7 @@ static struct clk iva2_1_ick = {
 	.name		= "iva2_1_ick",
 	.parent		= &dsp_irate_ick,
 	.prcm_mod	= OMAP24XX_DSP_MOD,
-	.flags		= CLOCK_IN_OMAP243X | DELAYED_APP | CONFIG_PARTICIPANT,
+	.flags		= CLOCK_IN_OMAP243X | DELAYED_APP,
 	.clkdm		= { .name = "dsp_clkdm" },
 	.enable_reg	= CM_FCLKEN,
 	.enable_bit	= OMAP24XX_CM_FCLKEN_DSP_EN_DSP_SHIFT,
@@ -1134,7 +1126,7 @@ static struct clk iva1_ifck = {
 	.name		= "iva1_ifck",
 	.parent		= &core_ck,
 	.prcm_mod	= OMAP24XX_DSP_MOD,
-	.flags		= CLOCK_IN_OMAP242X | CONFIG_PARTICIPANT | DELAYED_APP,
+	.flags		= CLOCK_IN_OMAP242X | DELAYED_APP,
 	.clkdm		= { .name = "iva1_clkdm" },
 	.enable_reg	= CM_FCLKEN,
 	.enable_bit	= OMAP2420_EN_IVA_COP_SHIFT,
@@ -1199,15 +1191,12 @@ static struct clk core_l3_ck = {	/* Used for ick and fck, interconnect */
 	.parent		= &core_ck,
 	.prcm_mod	= CORE_MOD,
 	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X |
-				ALWAYS_ENABLED | DELAYED_APP |
-				CONFIG_PARTICIPANT,
+				ALWAYS_ENABLED | DELAYED_APP,
 	.clkdm		= { .name = "core_l3_clkdm" },
 	.clksel_reg	= CM_CLKSEL1,
 	.clksel_mask	= OMAP24XX_CLKSEL_L3_MASK,
 	.clksel		= core_l3_clksel,
 	.recalc		= &omap2_clksel_recalc,
-	.round_rate	= &omap2_clksel_round_rate,
-	.set_rate	= &omap2_clksel_set_rate
 };
 
 /* usb_l4_ick */
@@ -1228,8 +1217,8 @@ static struct clk usb_l4_ick = {	/* FS-USB interface clock */
 	.name		= "usb_l4_ick",
 	.parent		= &core_l3_ck,
 	.prcm_mod	= CORE_MOD,
-	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X |
-				DELAYED_APP | CONFIG_PARTICIPANT | WAIT_READY,
+	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X | WAIT_READY |
+				DELAYED_APP,
 	.clkdm		= { .name = "core_l4_clkdm" },
 	.enable_reg	= CM_ICLKEN2,
 	.enable_bit	= OMAP24XX_EN_USB_SHIFT,
@@ -1238,8 +1227,6 @@ static struct clk usb_l4_ick = {	/* FS-USB interface clock */
 	.clksel_mask	= OMAP24XX_CLKSEL_USB_MASK,
 	.clksel		= usb_l4_ick_clksel,
 	.recalc		= &omap2_clksel_recalc,
-	.round_rate	= &omap2_clksel_round_rate,
-	.set_rate	= &omap2_clksel_set_rate
 };
 
 /*
@@ -1345,7 +1332,7 @@ static struct clk ssi_l4_ick = {
  * divided value of fclk.
  *
  */
-/* XXX REVISIT: GFX clock is part of CONFIG_PARTICIPANT, no? doublecheck. */
+/* XXX REVISIT: GFX clock is part of the table rate set also? doublecheck. */
 
 /* This clksel struct is shared between gfx_3d_fck and gfx_2d_fck */
 static const struct clksel gfx_fck_clksel[] = {
@@ -1420,7 +1407,7 @@ static struct clk mdm_ick = {		/* used both as a ick and fck */
 	.name		= "mdm_ick",
 	.parent		= &core_ck,
 	.prcm_mod	= OMAP2430_MDM_MOD,
-	.flags		= CLOCK_IN_OMAP243X | DELAYED_APP | CONFIG_PARTICIPANT,
+	.flags		= CLOCK_IN_OMAP243X | DELAYED_APP,
 	.clkdm		= { .name = "mdm_clkdm" },
 	.enable_reg	= CM_ICLKEN,
 	.enable_bit	= OMAP2430_CM_ICLKEN_MDM_EN_MDM_SHIFT,
@@ -1428,8 +1415,6 @@ static struct clk mdm_ick = {		/* used both as a ick and fck */
 	.clksel_mask	= OMAP2430_CLKSEL_MDM_MASK,
 	.clksel		= mdm_ick_clksel,
 	.recalc		= &omap2_clksel_recalc,
-	.round_rate	= &omap2_clksel_round_rate,
-	.set_rate	= &omap2_clksel_set_rate
 };
 
 static struct clk mdm_osc_ck = {

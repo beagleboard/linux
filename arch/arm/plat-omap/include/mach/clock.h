@@ -160,7 +160,7 @@ void omap_clk_del_child(struct clk *clk, struct clk *clk2);
 #define CLOCK_IDLE_CONTROL	(1 << 7)
 #define CLOCK_NO_IDLE_PARENT	(1 << 8)
 #define DELAYED_APP		(1 << 9)	/* Delay application of clock */
-#define CONFIG_PARTICIPANT	(1 << 10)	/* Fundamental clock */
+/* bit 10 is currently free */
 #define ENABLE_ON_INIT		(1 << 11)	/* Enable upon framework init */
 #define INVERT_ENABLE		(1 << 12)	/* 0 enables, 1 disables */
 #define WAIT_READY		(1 << 13)	/* wait for dev to leave idle */

@@ -563,8 +563,6 @@ static const struct clksel *omap2_get_clksel_by_parent(struct clk *clk,
  *
  * Finds 'best' divider value in an array based on the source and target
  * rates.  The divider array must be sorted with smallest divider first.
- * Note that this will not work for clocks which are part of CONFIG_PARTICIPANT,
- * they are only settable as part of virtual_prcm set.
  *
  * Returns the rounded clock rate or returns 0xffffffff on error.
  */
@@ -625,8 +623,6 @@ u32 omap2_clksel_round_rate_div(struct clk *clk, unsigned long target_rate,
  * Compatibility wrapper for OMAP clock framework
  * Finds best target rate based on the source clock and possible dividers.
  * rates. The divider array must be sorted with smallest divider first.
- * Note that this will not work for clocks which are part of CONFIG_PARTICIPANT,
- * they are only settable as part of virtual_prcm set.
  *
  * Returns the rounded clock rate or returns 0xffffffff on error.
  */
@@ -778,12 +774,6 @@ int omap2_clk_set_rate(struct clk *clk, unsigned long rate)
 
 	pr_debug("clock: set_rate for clock %s to rate %ld\n", clk->name, rate);
 
-	/* CONFIG_PARTICIPANT clocks are changed only in sets via the
-	   rate table mechanism, driven by mpu_speed  */
-	if (clk->flags & CONFIG_PARTICIPANT)
-		return -EINVAL;
-
-	/* dpll_ck, core_ck, virt_prcm_set; plus all clksel clocks */
 	if (clk->set_rate != NULL)
 		ret = clk->set_rate(clk, rate);
 
@@ -827,9 +817,6 @@ static u32 _omap2_clksel_get_src_field(struct clk *src_clk, struct clk *clk,
 int omap2_clk_set_parent(struct clk *clk, struct clk *new_parent)
 {
 	u32 field_val, v, parent_div;
-
-	if (clk->flags & CONFIG_PARTICIPANT)
-		return -EINVAL;
 
 	if (!clk->clksel)
 		return -EINVAL;
