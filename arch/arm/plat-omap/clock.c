@@ -187,7 +187,8 @@ int clk_set_rate(struct clk *clk, unsigned long rate)
 	if (arch_clock->clk_set_rate) {
 		ret = arch_clock->clk_set_rate(clk, rate);
 		if (ret == 0) {
-			(*clk->recalc)(clk);
+			if (clk->recalc)
+				(*clk->recalc)(clk);
 			if (clk->flags & RATE_PROPAGATES)
 				propagate_rate(clk);
 		}
@@ -212,7 +213,8 @@ int clk_set_parent(struct clk *clk, struct clk *parent)
 	if (arch_clock->clk_set_parent) {
 		ret = arch_clock->clk_set_parent(clk, parent);
 		if (ret == 0) {
-			(*clk->recalc)(clk);
+			if (clk->recalc)
+				(*clk->recalc)(clk);
 			if (clk->flags & RATE_PROPAGATES)
 				propagate_rate(clk);
 		}
@@ -285,11 +287,10 @@ void propagate_rate(struct clk * tclk)
 	list_for_each_entry(clkp, &clocks, node) {
 		if (likely(clkp->parent != tclk))
 			continue;
-		if (likely((u32)clkp->recalc)) {
+		if (clkp->recalc)
 			clkp->recalc(clkp);
-			if (clkp->flags & RATE_PROPAGATES)
-				propagate_rate(clkp);
-		}
+		if (clkp->flags & RATE_PROPAGATES)
+			propagate_rate(clkp);
 	}
 }
 
@@ -305,8 +306,9 @@ void recalculate_root_clocks(void)
 	struct clk *clkp;
 
 	list_for_each_entry(clkp, &clocks, node) {
-		if (unlikely(!clkp->parent) && likely((u32)clkp->recalc)) {
-			clkp->recalc(clkp);
+		if (unlikely(!clkp->parent)) {
+			if (clkp->recalc)
+				clkp->recalc(clkp);
 			if (clkp->flags & RATE_PROPAGATES)
 				propagate_rate(clkp);
 		}

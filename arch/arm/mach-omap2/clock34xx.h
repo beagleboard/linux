@@ -67,7 +67,6 @@ static struct clk omap_32k_fck = {
 	.flags		= CLOCK_IN_OMAP343X | RATE_FIXED | RATE_PROPAGATES |
 				ALWAYS_ENABLED,
 	.clkdm		= { .name = "prm_clkdm" },
-	.recalc		= &propagate_rate,
 };
 
 static struct clk secure_32k_fck = {
@@ -76,7 +75,6 @@ static struct clk secure_32k_fck = {
 	.flags		= CLOCK_IN_OMAP343X | RATE_FIXED | RATE_PROPAGATES |
 				ALWAYS_ENABLED,
 	.clkdm		= { .name = "prm_clkdm" },
-	.recalc		= &propagate_rate,
 };
 
 /* Virtual source clocks for osc_sys_ck */
@@ -86,7 +84,6 @@ static struct clk virt_12m_ck = {
 	.flags		= CLOCK_IN_OMAP343X | RATE_FIXED | RATE_PROPAGATES |
 				ALWAYS_ENABLED,
 	.clkdm		= { .name = "prm_clkdm" },
-	.recalc		= &propagate_rate,
 };
 
 static struct clk virt_13m_ck = {
@@ -95,7 +92,6 @@ static struct clk virt_13m_ck = {
 	.flags		= CLOCK_IN_OMAP343X | RATE_FIXED | RATE_PROPAGATES |
 				ALWAYS_ENABLED,
 	.clkdm		= { .name = "prm_clkdm" },
-	.recalc		= &propagate_rate,
 };
 
 static struct clk virt_16_8m_ck = {
@@ -104,7 +100,6 @@ static struct clk virt_16_8m_ck = {
 	.flags		= CLOCK_IN_OMAP3430ES2 | RATE_FIXED | RATE_PROPAGATES |
 				ALWAYS_ENABLED,
 	.clkdm		= { .name = "prm_clkdm" },
-	.recalc		= &propagate_rate,
 };
 
 static struct clk virt_19_2m_ck = {
@@ -113,7 +108,6 @@ static struct clk virt_19_2m_ck = {
 	.flags		= CLOCK_IN_OMAP343X | RATE_FIXED | RATE_PROPAGATES |
 				ALWAYS_ENABLED,
 	.clkdm		= { .name = "prm_clkdm" },
-	.recalc		= &propagate_rate,
 };
 
 static struct clk virt_26m_ck = {
@@ -122,7 +116,6 @@ static struct clk virt_26m_ck = {
 	.flags		= CLOCK_IN_OMAP343X | RATE_FIXED | RATE_PROPAGATES |
 				ALWAYS_ENABLED,
 	.clkdm		= { .name = "prm_clkdm" },
-	.recalc		= &propagate_rate,
 };
 
 static struct clk virt_38_4m_ck = {
@@ -131,7 +124,6 @@ static struct clk virt_38_4m_ck = {
 	.flags		= CLOCK_IN_OMAP343X | RATE_FIXED | RATE_PROPAGATES |
 				ALWAYS_ENABLED,
 	.clkdm		= { .name = "prm_clkdm" },
-	.recalc		= &propagate_rate,
 };
 
 static const struct clksel_rate osc_sys_12m_rates[] = {
@@ -220,7 +212,6 @@ static struct clk sys_altclk = {
 	.name		= "sys_altclk",
 	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES | ALWAYS_ENABLED,
 	.clkdm		= { .name = "cm_clkdm" },
-	.recalc		= &propagate_rate,
 };
 
 /*
@@ -232,7 +223,6 @@ static struct clk mcbsp_clks = {
 	.name		= "mcbsp_clks",
 	.flags		= CLOCK_IN_OMAP343X | RATE_PROPAGATES | ALWAYS_ENABLED,
 	.clkdm		= { .name = "prm_clkdm" },
-	.recalc		= &propagate_rate,
 };
 
 /* PRM EXTERNAL CLOCK OUTPUT */

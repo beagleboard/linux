@@ -627,7 +627,6 @@ static struct clk func_32k_ck = {
 	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X |
 				RATE_FIXED | ALWAYS_ENABLED | RATE_PROPAGATES,
 	.clkdm		= { .name = "prm_clkdm" },
-	.recalc		= &propagate_rate,
 };
 
 /* Typical 12/13MHz in standalone mode, will be 26Mhz in chassis mode */
@@ -657,7 +656,6 @@ static struct clk alt_ck = {		/* Typical 54M or 48M, may not exist */
 	.flags		= CLOCK_IN_OMAP242X | CLOCK_IN_OMAP243X |
 				RATE_FIXED | ALWAYS_ENABLED | RATE_PROPAGATES,
 	.clkdm		= { .name = "prm_clkdm" },
-	.recalc		= &propagate_rate,
 };
 
 /*
@@ -709,7 +707,6 @@ static struct clk apll96_ck = {
 	.enable_bit	= OMAP24XX_EN_96M_PLL_SHIFT,
 	.enable		= &omap2_clk_fixed_enable,
 	.disable	= &omap2_clk_fixed_disable,
-	.recalc		= &propagate_rate,
 };
 
 static struct clk apll54_ck = {
@@ -724,7 +721,6 @@ static struct clk apll54_ck = {
 	.enable_bit	= OMAP24XX_EN_54M_PLL_SHIFT,
 	.enable		= &omap2_clk_fixed_enable,
 	.disable	= &omap2_clk_fixed_disable,
-	.recalc		= &propagate_rate,
 };
 
 /*
