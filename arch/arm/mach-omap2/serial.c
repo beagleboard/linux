@@ -125,6 +125,16 @@ static inline void __init omap_uart_reset(struct omap_uart_state *uart)
 	serial_write_reg(p, UART_OMAP_SYSC, (0x02 << 3) | (1 << 2) | (1 << 0));
 }
 
+static inline void omap_uart_enable_clocks(struct omap_uart_state *uart)
+{
+	if (uart->clocked)
+		return;
+
+	clk_enable(uart->ick);
+	clk_enable(uart->fck);
+	uart->clocked = 1;
+}
+
 #ifdef CONFIG_PM
 #ifdef CONFIG_ARCH_OMAP3
 
@@ -204,14 +214,9 @@ static void omap_uart_smart_idle_enable(struct omap_uart_state *uart,
 	serial_write_reg(p, UART_OMAP_SYSC, sysc);
 }
 
-static inline void omap_uart_enable_clocks(struct omap_uart_state *uart)
+static inline void omap_uart_restore(struct omap_uart_state *uart)
 {
-	if (uart->clocked)
-		return;
-
-	clk_enable(uart->ick);
-	clk_enable(uart->fck);
-	uart->clocked = 1;
+	omap_uart_enable_clocks(uart);
 	omap_uart_restore_context(uart);
 }
 
@@ -228,7 +233,7 @@ static inline void omap_uart_disable_clocks(struct omap_uart_state *uart)
 
 static void omap_uart_block_sleep(struct omap_uart_state *uart)
 {
-	omap_uart_enable_clocks(uart);
+	omap_uart_restore(uart);
 
 	omap_uart_smart_idle_enable(uart, 0);
 	uart->can_sleep = 0;
@@ -273,7 +278,7 @@ void omap_uart_resume_idle(int num)
 
 	list_for_each_entry(uart, &uart_list, node) {
 		if (num == uart->num) {
-			omap_uart_enable_clocks(uart);
+			omap_uart_restore(uart);
 
 			/* Check for IO pad wakeup */
 			if (cpu_is_omap34xx() && uart->padconf) {
