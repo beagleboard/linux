@@ -34,7 +34,7 @@
 #define SDTI_SYSCONFIG_SOFTRESET	(1 << 1)
 #define SDTI_SYSCONFIG_AUTOIDLE		(1 << 0)
 
-static struct clk *sdti_ck;
+static struct clk *sdti_fck, *sdti_ick;
 void __iomem *sti_base, *sti_channel_base;
 static DEFINE_SPINLOCK(sdti_lock);
 
@@ -70,14 +70,30 @@ static void omap_sdti_reset(void)
 static int __init omap_sdti_init(void)
 {
 	char buf[64];
-	int i;
+	int i, ret = 0;
 
-	sdti_ck = clk_get(NULL, "emu_per_alwon_ck");
-	if (IS_ERR(sdti_ck)) {
-		printk(KERN_ERR "Cannot get clk emu_per_alwon_ck\n");
-		return PTR_ERR(sdti_ck);
+	sdti_fck = clk_get(NULL, "pclk_fck");
+	if (IS_ERR(sdti_fck)) {
+		printk(KERN_ERR "Cannot get clk pclk_fck\n");
+		ret = PTR_ERR(sdti_fck);
+		goto err0;
 	}
-	clk_enable(sdti_ck);
+	sdti_ick = clk_get(NULL, "pclkx2_fck");
+	if (IS_ERR(sdti_ick)) {
+		printk(KERN_ERR "Cannot get clk pclkx2_fck\n");
+		ret = PTR_ERR(sdti_ick);
+		goto err1;
+	}
+	ret = clk_enable(sdti_fck);
+	if (ret) {
+		printk(KERN_ERR "Cannot enable sdti_fck\n");
+		goto err2;
+	}
+	ret = clk_enable(sdti_ick);
+	if (ret) {
+		printk(KERN_ERR "Cannot enable sdti_ick\n");
+		goto err3;
+	}
 
 	omap_sdti_reset();
 	sti_writel(0xC5ACCE55, SDTI_LOCK_ACCESS);
@@ -107,14 +123,25 @@ static int __init omap_sdti_init(void)
 	printk(KERN_INFO "%s", buf);
 	sti_channel_write_trace(strlen(buf), 0xc3, buf, 239);
 
-	return 0;
+	return ret;
+
+err3:
+	clk_disable(sdti_fck);
+err2:
+	clk_put(sdti_ick);
+err1:
+	clk_put(sdti_fck);
+err0:
+	return ret;
 }
 
 static void omap_sdti_exit(void)
 {
 	sti_writel(0, SDTI_WINCTRL);
-	clk_disable(sdti_ck);
-	clk_put(sdti_ck);
+	clk_disable(sdti_fck);
+	clk_disable(sdti_ick);
+	clk_put(sdti_fck);
+	clk_put(sdti_ick);
 }
 
 static int __devinit omap_sdti_probe(struct platform_device *pdev)
