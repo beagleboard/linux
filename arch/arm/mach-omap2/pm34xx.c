@@ -605,9 +605,18 @@ static int __init pwrdms_setup(struct powerdomain *pwrdm)
 	return set_pwrdm_state(pwrst->pwrdm, pwrst->next_state);
 }
 
+/*
+ * Enable hw supervised mode for all clockdomains if it's
+ * supported. Initiate sleep transition for other clockdomains, if
+ * they are not used
+ */
 static int __init clkdms_setup(struct clockdomain *clkdm)
 {
-	omap2_clkdm_allow_idle(clkdm);
+	if (clkdm->flags & CLKDM_CAN_ENABLE_AUTO)
+		omap2_clkdm_allow_idle(clkdm);
+	else if (clkdm->flags & CLKDM_CAN_FORCE_SLEEP &&
+		 atomic_read(&clkdm->usecount) == 0)
+		omap2_clkdm_sleep(clkdm);
 	return 0;
 }
 
