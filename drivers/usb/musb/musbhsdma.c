@@ -136,7 +136,7 @@ static void configure_channel(struct dma_channel *channel,
 		csr |= MUSB_HSDMA_BURSTMODE_INCR4;
 
 	csr |= (musb_channel->epnum << MUSB_HSDMA_ENDPOINT_SHIFT)
-		| MUSB_HSDMA_MODE1
+		| (mode ? MUSB_HSDMA_MODE1 : 0)
 		| MUSB_HSDMA_ENABLE
 		| MUSB_HSDMA_IRQENABLE
 		| (musb_channel->transmit
