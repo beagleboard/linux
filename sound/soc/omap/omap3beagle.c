@@ -88,16 +88,16 @@ static struct snd_soc_dai_link omap3beagle_dai = {
 };
 
 /* Audio machine driver */
-static struct snd_soc_machine snd_soc_machine_omap3beagle = {
+static struct snd_soc_card snd_soc_omap3beagle = {
 	.name = "omap3beagle",
+	.platform = &omap_soc_platform,
 	.dai_link = &omap3beagle_dai,
 	.num_links = 1,
 };
 
 /* Audio subsystem */
 static struct snd_soc_device omap3beagle_snd_devdata = {
-	.machine = &snd_soc_machine_omap3beagle,
-	.platform = &omap_soc_platform,
+	.card = &snd_soc_omap3beagle,
 	.codec_dev = &soc_codec_dev_twl4030,
 };
 

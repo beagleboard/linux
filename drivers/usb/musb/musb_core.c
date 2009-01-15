@@ -1596,7 +1596,7 @@ void musb_dma_completion(struct musb *musb, u8 epnum, u8 transmit)
 
 	if (!epnum) {
 #ifndef CONFIG_USB_TUSB_OMAP_DMA
-		if (!cppi_ti_dma()) {
+		if (!is_cppi_enabled()) {
 			/* endpoint 0 */
 			if (devctl & MUSB_DEVCTL_HM)
 				musb_h_ep0_irq(musb);
@@ -1768,7 +1768,7 @@ allocate_instance(struct device *dev,
 #ifdef CONFIG_USB_MUSB_HDRC_HCD
 	struct usb_hcd	*hcd;
 
-	hcd = usb_create_hcd(&musb_hc_driver, dev, dev->bus_id);
+	hcd = usb_create_hcd(&musb_hc_driver, dev, dev_name(dev));
 	if (!hcd)
 		return NULL;
 	/* usbcore sets dev->driver_data to hcd, and sometimes uses that... */
@@ -1970,7 +1970,7 @@ bad_config:
 	INIT_WORK(&musb->irq_work, musb_irq_work);
 
 	/* attach to the IRQ */
-	if (request_irq(nIrq, musb->isr, 0, dev->bus_id, musb)) {
+	if (request_irq(nIrq, musb->isr, 0, dev_name(dev), musb)) {
 		dev_err(dev, "request_irq %d failed!\n", nIrq);
 		status = -ENODEV;
 		goto fail2;

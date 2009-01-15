@@ -265,7 +265,7 @@ static irqreturn_t davinci_interrupt(int irq, void *__hci)
 	/* CPPI interrupts share the same IRQ line, but have their own
 	 * mask, state, "vector", and EOI registers.
 	 */
-	if (cppi_ti_dma()) {
+	if (is_cppi_enabled()) {
 		u32 cppi_tx = musb_readl(tibase, DAVINCI_TXCPPI_MASKED_REG);
 		u32 cppi_rx = musb_readl(tibase, DAVINCI_RXCPPI_MASKED_REG);
 

@@ -88,16 +88,16 @@ static struct snd_soc_dai_link overo_dai = {
 };
 
 /* Audio machine driver */
-static struct snd_soc_machine snd_soc_machine_overo = {
+static struct snd_soc_card snd_soc_card_overo = {
 	.name = "overo",
+	.platform = &omap_soc_platform,
 	.dai_link = &overo_dai,
 	.num_links = 1,
 };
 
 /* Audio subsystem */
 static struct snd_soc_device overo_snd_devdata = {
-	.machine = &snd_soc_machine_overo,
-	.platform = &omap_soc_platform,
+	.card = &snd_soc_card_overo,
 	.codec_dev = &soc_codec_dev_twl4030,
 };
 

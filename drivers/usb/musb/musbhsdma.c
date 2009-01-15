@@ -128,19 +128,27 @@ static void configure_channel(struct dma_channel *channel,
 	DBG(4, "%p, pkt_sz %d, addr 0x%x, len %d, mode %d\n",
 			channel, packet_sz, dma_addr, len, mode);
 
-	if (packet_sz >= 64)
-		csr |= MUSB_HSDMA_BURSTMODE_INCR16;
-	else if (packet_sz >= 32)
-		csr |= MUSB_HSDMA_BURSTMODE_INCR8;
-	else if (packet_sz >= 16)
-		csr |= MUSB_HSDMA_BURSTMODE_INCR4;
+	if (mode) {
+		csr |= 1 << MUSB_HSDMA_MODE1_SHIFT;
+		BUG_ON(len < packet_sz);
+
+		if (packet_sz >= 64) {
+			csr |= MUSB_HSDMA_BURSTMODE_INCR16
+					<< MUSB_HSDMA_BURSTMODE_SHIFT;
+		} else if (packet_sz >= 32) {
+			csr |= MUSB_HSDMA_BURSTMODE_INCR8
+					<< MUSB_HSDMA_BURSTMODE_SHIFT;
+		} else if (packet_sz >= 16) {
+			csr |= MUSB_HSDMA_BURSTMODE_INCR4
+					<< MUSB_HSDMA_BURSTMODE_SHIFT;
+		}
+	}
 
 	csr |= (musb_channel->epnum << MUSB_HSDMA_ENDPOINT_SHIFT)
-		| (mode ? MUSB_HSDMA_MODE1 : 0)
-		| MUSB_HSDMA_ENABLE
-		| MUSB_HSDMA_IRQENABLE
+		| (1 << MUSB_HSDMA_ENABLE_SHIFT)
+		| (1 << MUSB_HSDMA_IRQENABLE_SHIFT)
 		| (musb_channel->transmit
-				? MUSB_HSDMA_TRANSMIT
+				? (1 << MUSB_HSDMA_TRANSMIT_SHIFT)
 				: 0);
 
 	/* address/count */
@@ -173,7 +181,10 @@ static int dma_channel_program(struct dma_channel *channel,
 	musb_channel->max_packet_sz = packet_sz;
 	channel->status = MUSB_DMA_STATUS_BUSY;
 
-	configure_channel(channel, packet_sz, mode, dma_addr, len);
+	if ((mode == 1) && (len >= packet_sz))
+		configure_channel(channel, packet_sz, 1, dma_addr, len);
+	else
+		configure_channel(channel, packet_sz, 0, dma_addr, len);
 
 	return true;
 }
@@ -256,7 +267,7 @@ static irqreturn_t dma_controller_irq(int irq, void *private_data)
 					MUSB_HSDMA_CHANNEL_OFFSET(bchannel,
 							MUSB_HSDMA_CONTROL));
 
-			if (csr & MUSB_HSDMA_BUSERROR) {
+			if (csr & (1 << MUSB_HSDMA_BUSERROR_SHIFT)) {
 				musb_channel->channel.status =
 					MUSB_DMA_STATUS_BUS_ABORT;
 			} else {
@@ -357,7 +368,7 @@ dma_controller_create(struct musb *musb, void __iomem *base)
 	controller->controller.channel_abort = dma_channel_abort;
 
 	if (request_irq(irq, dma_controller_irq, IRQF_DISABLED,
-			musb->controller->bus_id, &controller->controller)) {
+			dev_name(musb->controller), &controller->controller)) {
 		dev_err(dev, "request_irq %d failed!\n", irq);
 		dma_controller_destroy(&controller->controller);
 

@@ -100,7 +100,7 @@ static int __devinit gpio_keys_probe(struct platform_device *pdev)
 
 	/* Enable auto repeat feature of Linux input subsystem */
 	if (pdata->rep)
-		set_bit(EV_REP, input->evbit);
+		__set_bit(EV_REP, input->evbit);
 
 	ddata->input = input;
 

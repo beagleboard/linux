@@ -69,21 +69,15 @@ struct musb_hw_ep;
 #endif
 
 #ifdef CONFIG_USB_TI_CPPI_DMA
-#define	cppi_ti_dma()			true
+#define	is_cppi_enabled()	1
 #else
-#define	cppi_ti_dma()			false
+#define	is_cppi_enabled()	0
 #endif
 
 #ifdef CONFIG_USB_TUSB_OMAP_DMA
-#define tusb_dma_omap()			true
+#define tusb_dma_omap()			1
 #else
-#define tusb_dma_omap()			false
-#endif
-
-#ifdef CONFIG_USB_INVENTRA_DMA
-#define musb_inventra_dma()		true
-#else
-#define musb_inventra_dma()		false
+#define tusb_dma_omap()			0
 #endif
 
 /*

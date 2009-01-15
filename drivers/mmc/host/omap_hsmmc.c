@@ -27,7 +27,7 @@
 #include <linux/mmc/host.h>
 #include <linux/io.h>
 #include <linux/semaphore.h>
-#include <asm/dma.h>
+#include <mach/dma.h>
 #include <mach/hardware.h>
 #include <mach/board.h>
 #include <mach/mmc.h>

@@ -168,7 +168,7 @@ int twl4030_i2c_read(u8 mod_no, u8 *value, u8 reg, unsigned num_bytes);
 /*----------------------------------------------------------------------*/
 
 /*
- * Monitoring ADC register offsets (use TWL4030_MODULE_MADC)
+ * Multichannel ADC register offsets (use TWL4030_MODULE_MADC)
  * ... SIH/interrupt only
  */
 

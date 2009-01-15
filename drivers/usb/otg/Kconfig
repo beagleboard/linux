@@ -48,7 +48,7 @@ config TWL4030_USB
 	help
 	  Enable this to support the USB OTG transceiver on TWL4030
 	  family chips (including the TWL5030 and TPS659x0 devices).
-	  This is transceiver supports high and full speed devices
-	  plus, in host mode, low speed.
+	  This transceiver supports high and full speed devices plus,
+	  in host mode, low speed.
 
 endif # USB || OTG
