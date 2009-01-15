@@ -223,6 +223,9 @@ static struct i2c_board_info __initdata osk_i2c_board_info[] = {
 	{
 		I2C_BOARD_INFO("tlv320aic23", 0x1B),
 	},
+	/* TODO when driver support is ready:
+	 *  - optionally on Mistral, ov9640 camera sensor at 0x30
+	 */
 };
 
 static void __init osk_init_smc91x(void)

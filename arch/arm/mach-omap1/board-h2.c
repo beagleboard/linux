@@ -20,7 +20,6 @@
  */
 
 #include <linux/kernel.h>
-#include <linux/init.h>
 #include <linux/platform_device.h>
 #include <linux/delay.h>
 #include <linux/i2c.h>
@@ -29,8 +28,6 @@
 #include <linux/mtd/partitions.h>
 #include <linux/input.h>
 #include <linux/i2c/tps65010.h>
-#include <linux/workqueue.h>
-#include <linux/clk.h>
 
 #include <mach/hardware.h>
 #include <asm/gpio.h>
@@ -40,10 +37,8 @@
 #include <asm/mach/flash.h>
 #include <asm/mach/map.h>
 
-#include <mach/dma.h>
-#include <mach/gpio.h>
-#include <mach/gpio-switch.h>
 #include <mach/mux.h>
+#include <mach/dma.h>
 #include <mach/tc.h>
 #include <mach/nand.h>
 #include <mach/irda.h>
@@ -376,11 +371,6 @@ static struct omap_board_config_kernel h2_config[] __initdata = {
 
 #define H2_NAND_RB_GPIO_PIN	62
 
-static int h2_nand_dev_ready(struct omap_nand_platform_data *data)
-{
-	return gpio_get_value(H2_NAND_RB_GPIO_PIN);
-}
-
 static void __init h2_init(void)
 {
 	/* Here we assume the NOR boot config:  NOR on CS3 (possibly swapped
@@ -411,10 +401,10 @@ static void __init h2_init(void)
 	/* Irda */
 #if defined(CONFIG_OMAP_IR) || defined(CONFIG_OMAP_IR_MODULE)
 	omap_writel(omap_readl(FUNC_MUX_CTRL_A) | 7, FUNC_MUX_CTRL_A);
-	if (!(gpio_request(H2_IRDA_FIRSEL_GPIO_PIN, "irda firsel"))) {
-		gpio_direction_output(H2_IRDA_FIRSEL_GPIO_PIN);
-		h2_irda_data.transceiver_mode = h2_transceiver_mode;
-	}
+	if (gpio_request(H2_IRDA_FIRSEL_GPIO_PIN, "IRDA mode") < 0)
+		BUG();
+	gpio_direction_output(H2_IRDA_FIRSEL_GPIO_PIN, 0);
+	h2_irda_data.transceiver_mode = h2_transceiver_mode;
 #endif
 
 	platform_add_devices(h2_devices, ARRAY_SIZE(h2_devices));

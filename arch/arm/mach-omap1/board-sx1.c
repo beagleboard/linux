@@ -33,8 +33,8 @@
 #include <asm/mach/map.h>
 
 #include <mach/gpio.h>
-#include <mach/gpio-switch.h>
 #include <mach/mux.h>
+#include <mach/dma.h>
 #include <mach/irda.h>
 #include <mach/usb.h>
 #include <mach/tc.h>

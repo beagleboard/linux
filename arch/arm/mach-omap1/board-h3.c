@@ -26,13 +26,8 @@
 #include <linux/mtd/nand.h>
 #include <linux/mtd/partitions.h>
 #include <linux/input.h>
-#include <linux/clk.h>
-
-#include <linux/i2c/tps65010.h>
-#include <linux/i2c/pcf857x.h>
-
 #include <linux/spi/spi.h>
-#include <linux/spi/tsc210x.h>
+#include <linux/i2c/tps65010.h>
 
 #include <asm/setup.h>
 #include <asm/page.h>
@@ -44,10 +39,7 @@
 #include <asm/mach/flash.h>
 #include <asm/mach/map.h>
 
-#include <media/v4l2-int-device.h>
-
-#include <mach/gpio.h>
-#include <mach/gpio-switch.h>
+#include <mach/gpioexpander.h>
 #include <mach/irqs.h>
 #include <mach/mux.h>
 #include <mach/tc.h>
@@ -282,15 +274,29 @@ static struct platform_device h3_kp_device = {
 
 /* Select between the IrDA and aGPS module
  */
-
-static int gpio_irda_enable;
-static int gpio_irda_x;
-static int gpio_irda_fir;
-
 static int h3_select_irda(struct device *dev, int state)
 {
-	gpio_set_value_cansleep(gpio_irda_enable, state & IR_SEL);
-	return 0;
+	unsigned char expa;
+	int err = 0;
+
+	if ((err = read_gpio_expa(&expa, 0x26))) {
+		printk(KERN_ERR "Error reading from I/O EXPANDER \n");
+		return err;
+	}
+
+	/* 'P6' enable/disable IRDA_TX and IRDA_RX */
+	if (state & IR_SEL) { /* IrDA */
+		if ((err = write_gpio_expa(expa | 0x40, 0x26))) {
+			printk(KERN_ERR "Error writing to I/O EXPANDER \n");
+			return err;
+		}
+	} else {
+		if ((err = write_gpio_expa(expa & ~0x40, 0x26))) {
+			printk(KERN_ERR "Error writing to I/O EXPANDER \n");
+			return err;
+		}
+	}
+	return err;
 }
 
 static void set_trans_mode(struct work_struct *work)
@@ -298,9 +304,24 @@ static void set_trans_mode(struct work_struct *work)
 	struct omap_irda_config *irda_config =
 		container_of(work, struct omap_irda_config, gpio_expa.work);
 	int mode = irda_config->mode;
+	unsigned char expa;
+	int err = 0;
 
-	gpio_set_value_cansleep(gpio_irda_x, 1);
-	gpio_set_value_cansleep(gpio_irda_fir, !(mode & IR_SIRMODE));
+	if ((err = read_gpio_expa(&expa, 0x27)) != 0) {
+		printk(KERN_ERR "Error reading from I/O expander\n");
+	}
+
+	expa &= ~0x03;
+
+	if (mode & IR_SIRMODE) {
+		expa |= 0x01;
+	} else { /* MIR/FIR */
+		expa |= 0x03;
+	}
+
+	if ((err = write_gpio_expa(expa, 0x27)) != 0) {
+		printk(KERN_ERR "Error writing to I/O expander\n");
+	}
 }
 
 static int h3_transceiver_mode(struct device *dev, int mode)
@@ -353,12 +374,6 @@ static struct platform_device h3_lcd_device = {
 	.id		= -1,
 };
 
-static struct tsc210x_config tsc_platform_data = {
-	.use_internal		= 1,
-	.monitor		= TSC_VBAT | TSC_TEMP,
-	.mclk			= "mclk",
-};
-
 static struct spi_board_info h3_spi_board_info[] __initdata = {
 	[0] = {
 		.modalias	= "tsc2101",
@@ -366,7 +381,7 @@ static struct spi_board_info h3_spi_board_info[] __initdata = {
 		.chip_select	= 0,
 		.irq		= OMAP_GPIO_IRQ(H3_TS_GPIO),
 		.max_speed_hz	= 16000000,
-		.platform_data	= &tsc_platform_data,
+		/* .platform_data	= &tsc_platform_data, */
 	},
 };
 
@@ -375,6 +390,7 @@ static struct platform_device *devices[] __initdata = {
 	&nand_device,
         &smc91x_device,
 	&intlat_device,
+	&h3_irda_device,
 	&h3_kp_device,
 	&h3_lcd_device,
 };
@@ -407,179 +423,23 @@ static struct omap_board_config_kernel h3_config[] __initdata = {
 	{ OMAP_TAG_LCD,		&h3_lcd_config },
 };
 
+static struct i2c_board_info __initdata h3_i2c_board_info[] = {
+       {
+		I2C_BOARD_INFO("tps65013", 0x48),
+               /* .irq         = OMAP_GPIO_IRQ(??), */
+       },
+	{
+		I2C_BOARD_INFO("isp1301_omap", 0x2d),
+		.irq		= OMAP_GPIO_IRQ(14),
+	},
+};
+
 #define H3_NAND_RB_GPIO_PIN	10
 
 static int nand_dev_ready(struct omap_nand_platform_data *data)
 {
 	return gpio_get_value(H3_NAND_RB_GPIO_PIN);
 }
-
-#if defined(CONFIG_VIDEO_OV9640) || defined(CONFIG_VIDEO_OV9640_MODULE)
-
-#include <../drivers/media/video/ov9640.h>
-
-/*
- * Common OV9640 register initialization for all image sizes, pixel formats,
- * and frame rates
- */
-const static struct ov9640_reg ov9640_common[] = {
-
-	{ 0x12, 0x80 }, { 0x11, 0x80 }, { 0x13, 0x88 },	/* COM7, CLKRC, COM8 */
-	{ 0x01, 0x58 }, { 0x02, 0x24 }, { 0x04, 0x00 },	/* BLUE, RED, COM1 */
-	{ 0x0E, 0x81 }, { 0x0F, 0x4F }, { 0x14, 0xcA },	/* COM5, COM6, COM9 */
-	{ 0x16, 0x02 }, { 0x1B, 0x01 }, { 0x24, 0x70 },	/* ?, PSHFT, AEW */
-	{ 0x25, 0x68 }, { 0x26, 0xD3 }, { 0x27, 0x90 },	/* AEB, VPT, BBIAS */
-	{ 0x2A, 0x00 }, { 0x2B, 0x00 }, { 0x32, 0x24 },	/* EXHCH, EXHCL, HREF */
-	{ 0x33, 0x02 }, { 0x37, 0x02 }, { 0x38, 0x13 },	/* CHLF, ADC, ACOM */
-	{ 0x39, 0xF0 }, { 0x3A, 0x00 }, { 0x3B, 0x01 },	/* OFON, TSLB, COM11 */
-	{ 0x3D, 0x90 }, { 0x3E, 0x02 }, { 0x3F, 0xF2 },	/* COM13, COM14, EDGE */
-	{ 0x41, 0x02 }, { 0x42, 0xC8 },		/* COM16, COM17 */
-	{ 0x43, 0xF0 }, { 0x44, 0x10 }, { 0x45, 0x6C },	/* ?, ?, ? */
-	{ 0x46, 0x6C }, { 0x47, 0x44 }, { 0x48, 0x44 },	/* ?, ?, ? */
-	{ 0x49, 0x03 }, { 0x59, 0x49 }, { 0x5A, 0x94 },	/* ?, ?, ? */
-	{ 0x5B, 0x46 }, { 0x5C, 0x84 }, { 0x5D, 0x5C },	/* ?, ?, ? */
-	{ 0x5E, 0x08 }, { 0x5F, 0x00 }, { 0x60, 0x14 },	/* ?, ?, ? */
-	{ 0x61, 0xCE },					/* ? */
-	{ 0x62, 0x70 }, { 0x63, 0x00 }, { 0x64, 0x04 },	/* LCC1, LCC2, LCC3 */
-	{ 0x65, 0x00 }, { 0x66, 0x00 },			/* LCC4, LCC5 */
-	{ 0x69, 0x00 }, { 0x6A, 0x3E }, { 0x6B, 0x3F },	/* HV, MBD, DBLV */
-	{ 0x6C, 0x40 }, { 0x6D, 0x30 }, { 0x6E, 0x4B },	/* GSP1, GSP2, GSP3 */
-	{ 0x6F, 0x60 }, { 0x70, 0x70 }, { 0x71, 0x70 },	/* GSP4, GSP5, GSP6 */
-	{ 0x72, 0x70 }, { 0x73, 0x70 }, { 0x74, 0x60 },	/* GSP7, GSP8, GSP9 */
-	{ 0x75, 0x60 }, { 0x76, 0x50 }, { 0x77, 0x48 },	/* GSP10,GSP11,GSP12 */
-	{ 0x78, 0x3A }, { 0x79, 0x2E }, { 0x7A, 0x28 },	/* GSP13,GSP14,GSP15 */
-	{ 0x7B, 0x22 }, { 0x7C, 0x04 }, { 0x7D, 0x07 },	/* GSP16,GST1, GST2 */
-	{ 0x7E, 0x10 }, { 0x7F, 0x28 }, { 0x80, 0x36 },	/* GST3, GST4, GST5 */
-	{ 0x81, 0x44 }, { 0x82, 0x52 }, { 0x83, 0x60 },	/* GST6, GST7, GST8 */
-	{ 0x84, 0x6C }, { 0x85, 0x78 }, { 0x86, 0x8C },	/* GST9, GST10,GST11 */
-	{ 0x87, 0x9E }, { 0x88, 0xBB }, { 0x89, 0xD2 },	/* GST12,GST13,GST14 */
-	{ 0x8A, 0xE6 }, { 0x13, 0xaF }, { 0x15, 0x02 },	/* GST15, COM8 */
-	{ 0x22, 0x8a }, /* GROS */
-	{ OV9640_REG_TERM, OV9640_VAL_TERM }
-};
-
-static int ov9640_sensor_power_set(int power)
-{
-	unsigned char expa;
-	int err;
-
-	/* read current state of GPIO EXPA outputs */
-	err = read_gpio_expa(&expa, 0x27);
-	if (err) {
-		printk(KERN_ERR "Error reading GPIO EXPA\n");
-		return err;
-	}
-	/* Clear GPIO EXPA P3 (CAMERA_MODULE_EN) to power-up/down sensor */
-	if (power)
-		expa |= 0x08;
-	else
-		expa &= ~0x08;
-
-	err = write_gpio_expa(expa, 0x27);
-	if (err) {
-		printk(KERN_ERR "Error writing to GPIO EXPA\n");
-		return err;
-	}
-
-	return err;
-}
-
-static struct v4l2_ifparm ifparm = {
-	.if_type = V4L2_IF_TYPE_BT656,
-	.u = {
-		.bt656 = {
-			 .frame_start_on_rising_vs = 1,
-			 .nobt_vs_inv = 1,
-			 .mode = V4L2_IF_TYPE_BT656_MODE_NOBT_8BIT,
-			 .clock_min = OV9640_XCLK_MIN,
-			 .clock_max = OV9640_XCLK_MAX,
-		 },
-	},
-};
-
-static int ov9640_ifparm(struct v4l2_ifparm *p)
-{
-	*p = ifparm;
-
-	return 0;
-}
-
-static struct ov9640_platform_data h3_ov9640_platform_data = {
-	.power_set	= ov9640_sensor_power_set,
-	.default_regs	= ov9640_common,
-	.ifparm		= ov9640_ifparm,
-};
-#endif
-
-static int h3_pcf_setup(struct i2c_client *client, int gpio,
-		unsigned ngpio, void *context)
-{
-	int	status;
-
-	/* REVISIT someone with schematics should look up the rest
-	 * of these signals, and configure them appropriately ...
-	 * camera and audio seem to be involved, too.
-	 */
-
-	/* P0 - ? */
-	gpio_irda_x = gpio + 0;
-	status = gpio_request(gpio_irda_x, "irda_x");
-	if (status < 0)
-		goto done;
-	status = gpio_direction_output(gpio_irda_x, 0);
-	if (status < 0)
-		goto done;
-
-	/* P1 - set if MIR/FIR */
-	gpio_irda_fir = gpio + 1;
-	status = gpio_request(gpio_irda_fir, "irda_fir");
-	if (status < 0)
-		goto done;
-	status = gpio_direction_output(gpio_irda_fir, 0);
-	if (status < 0)
-		goto done;
-
-	/* 'P6' enable/disable IRDA_TX and IRDA_RX ... default, off */
-	gpio_irda_enable = gpio + 6;
-	status = gpio_request(gpio_irda_enable, "irda_enable");
-	if (status < 0)
-		goto done;
-	status = gpio_direction_output(gpio_irda_enable, 0);
-	if (status < 0)
-		goto done;
-
-	/* register the IRDA device now that it can be operated */
-	status = platform_device_register(&h3_irda_device);
-
-done:
-	return status;
-}
-
-static struct pcf857x_platform_data h3_pcf_data = {
-	/* assign these GPIO numbers right after the MPUIO lines */
-	.gpio_base	= OMAP_MAX_GPIO_LINES + 16,
-	.setup		= h3_pcf_setup,
-};
-
-static struct i2c_board_info __initdata h3_i2c_board_info[] = {
-       {
-		I2C_BOARD_INFO("pcf8574", 0x27),
-		.platform_data = &h3_pcf_data,
-       }, {
-		I2C_BOARD_INFO("tps65013", 0x48),
-               /* .irq         = OMAP_GPIO_IRQ(??), */
-       },
-#if defined(CONFIG_VIDEO_OV9640) || defined(CONFIG_VIDEO_OV9640_MODULE)
-	{
-		I2C_BOARD_INFO("ov9640", 0x30),
-		.platform_data = &h3_ov9640_platform_data,
-	},
-#endif
-	{
-		I2C_BOARD_INFO("isp1301_omap", 0x2d),
-		.irq		= OMAP_GPIO_IRQ(14),
-	},
-};
 
 static void __init h3_init(void)
 {
@@ -603,12 +463,6 @@ static void __init h3_init(void)
 	/* GPIO10 Func_MUX_CTRL reg bit 29:27, Configure V2 to mode1 as GPIO */
 	/* GPIO10 pullup/down register, Enable pullup on GPIO10 */
 	omap_cfg_reg(V2_1710_GPIO10);
-
-	/* TSC2101 */
-	omap_cfg_reg(W19_1610_GPIO48);
-	gpio_request(H3_TS_GPIO, "tsc_irq");
-	gpio_direction_input(H3_TS_GPIO);
-	omap_cfg_reg(N14_1610_UWIRE_CS0);
 
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	spi_register_board_info(h3_spi_board_info,
