@@ -25,6 +25,7 @@
 #include <linux/usb/musb.h>
 
 #include <mach/hardware.h>
+#include <mach/irqs.h>
 #include <mach/pm.h>
 #include <mach/usb.h>
 
