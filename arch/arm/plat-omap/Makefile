@@ -23,9 +23,6 @@ obj-$(CONFIG_OMAP_DEBUG_DEVICES) += debug-devices.o
 obj-$(CONFIG_OMAP_DEBUG_LEDS) += debug-leds.o
 obj-$(CONFIG_I2C_OMAP) += i2c.o
 
-# OMAP MMU framework
-obj-$(CONFIG_OMAP_MMU_FWK) += mmu.o
-
 # OMAP mailbox framework
 obj-$(CONFIG_OMAP_MBOX_FWK) += mailbox.o
 

@@ -41,9 +41,6 @@ extern unsigned int __kfifo_put(struct kfifo *fifo,
 				unsigned char *buffer, unsigned int len);
 extern unsigned int __kfifo_get(struct kfifo *fifo,
 				unsigned char *buffer, unsigned int len);
-extern unsigned int __kfifo_get_to_user(struct kfifo *fifo,
-					unsigned char __user *buffer,
-					unsigned int len);
 
 /**
  * __kfifo_reset - removes the entire FIFO contents, no locking version
@@ -146,38 +143,6 @@ static inline unsigned int kfifo_len(struct kfifo *fifo)
 	spin_lock_irqsave(fifo->lock, flags);
 
 	ret = __kfifo_len(fifo);
-
-	spin_unlock_irqrestore(fifo->lock, flags);
-
-	return ret;
-}
-
-/**
- * kfifo_get_to_user - gets some data from the FIFO
- * @fifo: the fifo to be used.
- * @buffer: where the data must be copied. user buffer
- * @len: the size of the destination buffer.
- *
- * This function copies at most @len bytes from the FIFO into the
- * user @buffer and returns the number of copied bytes.
- */
-static inline unsigned int kfifo_get_to_user(struct kfifo *fifo,
-					     unsigned char __user *buffer,
-					     unsigned int len)
-{
-	unsigned long flags;
-	unsigned int ret;
-
-	spin_lock_irqsave(fifo->lock, flags);
-
-	ret = __kfifo_get_to_user(fifo, buffer, len);
-
-	/*
-	 * optimization: if the FIFO is empty, set the indices to 0
-	 * so we don't wrap the next time
-	 */
-	if (fifo->in == fifo->out)
-		fifo->in = fifo->out = 0;
 
 	spin_unlock_irqrestore(fifo->lock, flags);
 
