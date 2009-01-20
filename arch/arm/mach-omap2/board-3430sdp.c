@@ -332,6 +332,18 @@ static struct twl4030_hsmmc_info mmc[] = {
 	{}	/* Terminator */
 };
 
+static struct regulator_consumer_supply sdp3430_vmmc1_supply = {
+	.supply			= "vmmc",
+};
+
+static struct regulator_consumer_supply sdp3430_vsim_supply = {
+	.supply			= "vmmc_dat4..7",
+};
+
+static struct regulator_consumer_supply sdp3430_vmmc2_supply = {
+	.supply			= "vmmc",
+};
+
 static int sdp3430_twl_gpio_setup(struct device *dev,
 		unsigned gpio, unsigned ngpio)
 {
@@ -341,6 +353,13 @@ static int sdp3430_twl_gpio_setup(struct device *dev,
 	mmc[0].gpio_cd = gpio + 0;
 	mmc[1].gpio_cd = gpio + 1;
 	twl4030_mmc_init(mmc);
+
+	/* link regulators to MMC adapters ... we "know" the
+	 * regulators will be set up only *after* we return.
+	 */
+	sdp3430_vmmc1_supply.dev = mmc[0].dev;
+	sdp3430_vsim_supply.dev = mmc[0].dev;
+	sdp3430_vmmc2_supply.dev = mmc[1].dev;
 
 	/* gpio + 7 is "sub_lcd_en_bkl" (output/PWM1) */
 	gpio_request(gpio + 7, "sub_lcd_en_bkl");
@@ -517,6 +536,8 @@ static struct regulator_init_data sdp3430_vmmc1 = {
 				| REGULATOR_CHANGE_MODE
 				| REGULATOR_CHANGE_STATUS,
 	},
+	.num_consumer_supplies	= 1,
+	.consumer_supplies	= &sdp3430_vmmc1_supply,
 };
 
 /* VMMC2 for MMC2 card */
@@ -530,6 +551,8 @@ static struct regulator_init_data sdp3430_vmmc2 = {
 		.valid_ops_mask		= REGULATOR_CHANGE_MODE
 					| REGULATOR_CHANGE_STATUS,
 	},
+	.num_consumer_supplies	= 1,
+	.consumer_supplies	= &sdp3430_vmmc2_supply,
 };
 
 /* VSIM for OMAP VDD_MMC1A (i/o for DAT4..DAT7) */
@@ -541,6 +564,8 @@ static struct regulator_init_data sdp3430_vsim = {
 				| REGULATOR_CHANGE_MODE
 				| REGULATOR_CHANGE_STATUS,
 	},
+	.num_consumer_supplies	= 1,
+	.consumer_supplies	= &sdp3430_vsim_supply,
 };
 
 /* VDAC for DSS driving S-Video */
