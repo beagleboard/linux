@@ -27,6 +27,7 @@
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
 #include <linux/i2c/twl4030.h>
+#include <linux/regulator/machine.h>
 
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/nand.h>
@@ -156,12 +157,25 @@ static struct twl4030_usb_data overo_usb_data = {
 	.usb_mode	= T2_USB_MODE_ULPI,
 };
 
+static struct regulator_init_data overo_vmmc1 = {
+	.constraints = {
+		.valid_modes_mask = REGULATOR_MODE_NORMAL
+				| REGULATOR_MODE_STANDBY,
+		.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE
+				| REGULATOR_CHANGE_MODE
+				| REGULATOR_CHANGE_STATUS,
+	},
+};
+
+/* mmc2 (WLAN) and Bluetooth don't use twl4030 regulators */
+
 static struct twl4030_platform_data overo_twldata = {
 	.irq_base	= TWL4030_IRQ_BASE,
 	.irq_end	= TWL4030_IRQ_END,
 	.gpio		= &overo_gpio_data,
 	.usb		= &overo_usb_data,
 	.power		= GENERIC3430_T2SCRIPTS_DATA,
+	.vmmc1		= &overo_vmmc1,
 };
 
 static struct i2c_board_info __initdata overo_i2c_boardinfo[] = {
