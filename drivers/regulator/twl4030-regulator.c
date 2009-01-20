@@ -90,17 +90,6 @@ static int twl4030reg_grp(struct regulator_dev *rdev)
 	return twl4030reg_read(rdev_get_drvdata(rdev), VREG_GRP);
 }
 
-static int twl4030reg_is_enabled(struct regulator_dev *rdev)
-{
-	int	state = twl4030reg_grp(rdev);
-
-	if (state < 0)
-		return state;
-
-	/* resource state == OFF (vs SLEEP or ACTIVE) */
-	return (state & 0x0f) != 0;
-}
-
 /*
  * Enable/disable regulators by joining/leaving the P1 (processor) group.
  * We assume nobody else is updating the DEV_GRP registers.
@@ -109,6 +98,16 @@ static int twl4030reg_is_enabled(struct regulator_dev *rdev)
 #define P3_GRP		BIT(7)		/* "peripherals" */
 #define P2_GRP		BIT(6)		/* secondary processor, modem, etc */
 #define P1_GRP		BIT(5)		/* CPU/Linux */
+
+static int twl4030reg_is_enabled(struct regulator_dev *rdev)
+{
+	int	state = twl4030reg_grp(rdev);
+
+	if (state < 0)
+		return state;
+
+	return (state & P1_GRP) != 0;
+}
 
 static int twl4030reg_enable(struct regulator_dev *rdev)
 {
@@ -136,7 +135,7 @@ static int twl4030reg_disable(struct regulator_dev *rdev)
 	return twl4030reg_write(info, VREG_GRP, grp);
 }
 
-static unsigned twl4030reg_get_mode(struct regulator_dev *rdev)
+static int twl4030reg_get_status(struct regulator_dev *rdev)
 {
 	int	state = twl4030reg_grp(rdev);
 
@@ -146,10 +145,10 @@ static unsigned twl4030reg_get_mode(struct regulator_dev *rdev)
 
 	/* assume state != WARM_RESET; we'd not be running...  */
 	if (!state)
-		return REGULATOR_MODE_OFF;
+		return REGULATOR_STATUS_OFF;
 	return (state & BIT(3))
-		? REGULATOR_MODE_NORMAL
-		: REGULATOR_MODE_STANDBY;
+		? REGULATOR_STATUS_NORMAL
+		: REGULATOR_STATUS_STANDBY;
 }
 
 static int twl4030reg_set_mode(struct regulator_dev *rdev, unsigned mode)
@@ -306,7 +305,8 @@ static struct regulator_ops twl4030ldo_ops = {
 	.is_enabled	= twl4030reg_is_enabled,
 
 	.set_mode	= twl4030reg_set_mode,
-	.get_mode	= twl4030reg_get_mode,
+
+	.get_status	= twl4030reg_get_status,
 };
 
 /*----------------------------------------------------------------------*/
@@ -329,7 +329,8 @@ static struct regulator_ops twl4030fixed_ops = {
 	.is_enabled	= twl4030reg_is_enabled,
 
 	.set_mode	= twl4030reg_set_mode,
-	.get_mode	= twl4030reg_get_mode,
+
+	.get_status	= twl4030reg_get_status,
 };
 
 /*----------------------------------------------------------------------*/
@@ -426,9 +427,7 @@ static int twl4030reg_probe(struct platform_device *pdev)
 		c->min_uV = min_uV;
 	if (!c->max_uV || c->max_uV > max_uV)
 		c->max_uV = max_uV;
-	c->valid_modes_mask &= REGULATOR_MODE_NORMAL
-				| REGULATOR_MODE_STANDBY
-				| REGULATOR_MODE_OFF;
+	c->valid_modes_mask &= REGULATOR_MODE_NORMAL | REGULATOR_MODE_STANDBY;
 	c->valid_ops_mask &= REGULATOR_CHANGE_VOLTAGE
 				| REGULATOR_CHANGE_MODE
 				| REGULATOR_CHANGE_STATUS;
