@@ -127,6 +127,14 @@ static struct twl4030_hsmmc_info mmc[] = {
 	{}	/* Terminator */
 };
 
+static struct regulator_consumer_supply beagle_vmmc1_supply = {
+	.supply			= "vmmc",
+};
+
+static struct regulator_consumer_supply beagle_vsim_supply = {
+	.supply			= "vmmc_dat4..7",
+};
+
 static struct gpio_led gpio_leds[];
 
 static int beagle_twl_gpio_setup(struct device *dev,
@@ -136,6 +144,10 @@ static int beagle_twl_gpio_setup(struct device *dev,
 	omap_cfg_reg(AH8_34XX_GPIO29);
 	mmc[0].gpio_cd = gpio + 0;
 	twl4030_mmc_init(mmc);
+
+	/* link regulators to MMC adapters */
+	beagle_vmmc1_supply.dev = mmc[0].dev;
+	beagle_vsim_supply.dev = mmc[0].dev;
 
 	/* REVISIT: need ehci-omap hooks for external VBUS
 	 * power switch and overcurrent detect
@@ -174,6 +186,8 @@ static struct regulator_init_data beagle_vmmc1 = {
 				| REGULATOR_CHANGE_MODE
 				| REGULATOR_CHANGE_STATUS,
 	},
+	.num_consumer_supplies	= 1,
+	.consumer_supplies	= &beagle_vmmc1_supply,
 };
 
 /* VSIM for MMC1 pins DAT4..DAT7 (2 mA, plus card == max 50 mA) */
@@ -185,6 +199,8 @@ static struct regulator_init_data beagle_vsim = {
 				| REGULATOR_CHANGE_MODE
 				| REGULATOR_CHANGE_STATUS,
 	},
+	.num_consumer_supplies	= 1,
+	.consumer_supplies	= &beagle_vsim_supply,
 };
 
 /* VDAC for DSS driving S-Video (8 mA unloaded, max 65 mA) */
