@@ -61,7 +61,7 @@ static struct twl_mmc_controller {
 	struct omap_mmc_platform_data	*mmc;
 	u8		twl_vmmc_dev_grp;
 	u8		twl_mmc_dedicated;
-	char		name[HSMMC_NAME_LEN];
+	char		name[HSMMC_NAME_LEN + 1];
 } hsmmc[OMAP34XX_NR_MMC] = {
 	{
 		.twl_vmmc_dev_grp		= VMMC1_DEV_GRP,
