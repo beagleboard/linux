@@ -53,6 +53,10 @@ config MACH_NOKIA_N810_WIMAX
 	depends on MACH_NOKIA_N800
 	select MACH_NOKIA_N810
 
+config MACH_NOKIA_RX51
+	bool "Nokia RX-51 board"
+	depends on ARCH_OMAP3 && ARCH_OMAP34XX
+
 config MACH_OMAP2_TUSB6010
 	bool
 	depends on ARCH_OMAP2 && ARCH_OMAP2420
