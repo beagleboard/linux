@@ -36,7 +36,6 @@
 #include <mach/usb-musb.h>
 #include <mach/usb-ehci.h>
 #include <mach/common.h>
-#include <mach/keypad.h>
 #include <mach/dma.h>
 #include <mach/gpmc.h>
 

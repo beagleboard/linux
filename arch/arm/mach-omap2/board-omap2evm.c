@@ -35,7 +35,6 @@
 #include <mach/board.h>
 #include <mach/common.h>
 #include <mach/mmc.h>
-#include <mach/keypad.h>
 #include <mach/gpmc.h>
 #include <mach/nand.h>
 #include <mach/mcspi.h>

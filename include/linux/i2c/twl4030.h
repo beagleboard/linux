@@ -302,11 +302,19 @@ struct twl4030_madc_platform_data {
 	int		irq_line;
 };
 
+/* Boards have uniqe mappings of {col, row} --> keycode.
+ * Column and row are 4 bits, but range only from 0..7;
+ * a PERSISTENT_KEY is "always on" and never reported.
+ */
+#define KEY_PERSISTENT		0x00800000
+#define KEY(col, row, keycode)	(((col) << 28) | ((row) << 24) | (keycode))
+#define PERSISTENT_KEY(c, r)	KEY(c, r, KEY_PERSISTENT)
+
 struct twl4030_keypad_data {
-	int rows;
-	int cols;
-	int *keymap;
-	unsigned int keymapsize;
+	unsigned rows;
+	unsigned cols;
+	unsigned *keymap;
+	unsigned short keymapsize;
 	unsigned int rep:1;
 };
 

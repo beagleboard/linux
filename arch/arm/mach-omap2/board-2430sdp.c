@@ -38,7 +38,6 @@
 #include <mach/board.h>
 #include <mach/usb-musb.h>
 #include <mach/common.h>
-#include <mach/keypad.h>
 #include <mach/gpmc.h>
 #include <mach/mcspi.h>
 

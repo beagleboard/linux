@@ -30,7 +30,6 @@
 #include <asm/mach/map.h>
 
 #include <mach/gpio.h>
-#include <mach/keypad.h>
 #include <mach/board.h>
 #include <mach/usb-musb.h>
 #include <mach/usb-ehci.h>
