@@ -249,7 +249,23 @@
 #define RDISABLE		0x0001
 
 /********************** McBSP SYSCONFIG bit definitions ********************/
+#define SIDLEMODE(value)	((value)<<3)
+#define ENAWAKEUP		0x0004
 #define SOFTRST			0x0002
+
+/********************** McBSP WAKEUPEN bit definitions *********************/
+#define XEMPTYEOFEN		0x4000
+#define XRDYEN			0x0400
+#define XEOFEN			0x0200
+#define XFSXEN			0x0100
+#define XSYNCERREN		0x0080
+#define RRDYEN			0x0008
+#define REOFEN			0x0004
+#define RFSREN			0x0002
+#define RSYNCERREN		0x0001
+#define WAKEUPEN_ALL		(XEMPTYEOFEN | XRDYEN | XEOFEN | XFSXEN | \
+				 XSYNCERREN | RRDYEN | REOFEN | RFSREN | \
+				 RSYNCERREN)
 
 /* we don't do multichannel for now */
 struct omap_mcbsp_reg_cfg {
