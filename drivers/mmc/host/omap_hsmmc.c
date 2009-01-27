@@ -121,9 +121,6 @@
 #define OMAP_HSMMC_WRITE(base, reg, val) \
 	__raw_writel((val), (base) + OMAP_HSMMC_##reg)
 
-enum {OFF = 0, ON};
-#define IDLE_TIMEOUT (jiffies_to_msecs(10))
-
 struct mmc_omap_host {
 	struct	device		*dev;
 	struct	mmc_host	*mmc;
@@ -151,51 +148,8 @@ struct mmc_omap_host {
 	int			initstr;
 	int			slot_id;
 	int			dbclk_enabled;
-
-	struct timer_list       idle_timer;
-	spinlock_t		clk_lock;     /* for changing enabled state */
-	unsigned int		fclk_enabled:1;
-
 	struct	omap_mmc_platform_data	*pdata;
 };
-
-static int mmc_omap_fclk_state(struct mmc_omap_host *host, unsigned int state)
-{
-	unsigned long flags;
-	int ret = 0;
-
-	spin_lock_irqsave(&host->clk_lock, flags);
-	del_timer(&host->idle_timer);
-	if (host->fclk_enabled != state) {
-		if (state == ON) {
-			ret = clk_enable(host->fclk);
-			if (ret != 0)
-				goto err_out;
-
-			dev_dbg(mmc_dev(host->mmc), "mmc_fclk: enabled\n");
-		} else {
-			clk_disable(host->fclk);
-			dev_dbg(mmc_dev(host->mmc), "mmc_fclk: disabled\n");
-		}
-		host->fclk_enabled = state;
-	}
-
-err_out:
-	spin_unlock_irqrestore(&host->clk_lock, flags);
-	return ret;
-}
-
-static void mmc_omap_idle_timer(unsigned long data)
-{
-	struct mmc_omap_host *host = (struct mmc_omap_host *) data;
-
-	mmc_omap_fclk_state(host, OFF);
-}
-
-static void mmc_omap_fclk_lazy_disable(struct mmc_omap_host *host)
-{
-	mod_timer(&host->idle_timer, jiffies + IDLE_TIMEOUT);
-}
 
 /*
  * Stop clock to the card
@@ -341,7 +295,6 @@ mmc_omap_xfer_done(struct mmc_omap_host *host, struct mmc_data *data)
 
 	if (!data->stop) {
 		host->mrq = NULL;
-		mmc_omap_fclk_lazy_disable(host);
 		mmc_request_done(host->mmc, data->mrq);
 		return;
 	}
@@ -370,7 +323,6 @@ mmc_omap_cmd_done(struct mmc_omap_host *host, struct mmc_command *cmd)
 	}
 	if (host->data == NULL || cmd->error) {
 		host->mrq = NULL;
-		mmc_omap_fclk_lazy_disable(host);
 		mmc_request_done(host->mmc, cmd->mrq);
 	}
 }
@@ -512,7 +464,7 @@ static int omap_mmc_switch_opcond(struct mmc_omap_host *host, int vdd)
 	int ret;
 
 	/* Disable the clocks */
-	mmc_omap_fclk_state(host, OFF);
+	clk_disable(host->fclk);
 	clk_disable(host->iclk);
 	clk_disable(host->dbclk);
 
@@ -526,7 +478,7 @@ static int omap_mmc_switch_opcond(struct mmc_omap_host *host, int vdd)
 	if (ret != 0)
 		goto err;
 
-	mmc_omap_fclk_state(host, ON);
+	clk_enable(host->fclk);
 	clk_enable(host->iclk);
 	clk_enable(host->dbclk);
 
@@ -541,13 +493,10 @@ static int omap_mmc_switch_opcond(struct mmc_omap_host *host, int vdd)
 	 * Only MMC1 supports 3.0V.  MMC2 will not function if SDVS30 is
 	 * set in HCTL.
 	 */
-	if (host->id == OMAP_MMC1_DEVID) {
-		if (((1 << vdd) == MMC_VDD_32_33) ||
-		    ((1 << vdd) == MMC_VDD_33_34))
-			reg_val |= SDVS30;
-		else if ((1 << vdd) == MMC_VDD_165_195)
-			reg_val |= SDVS18;
-	} else
+	if (host->id == OMAP_MMC1_DEVID && (((1 << vdd) == MMC_VDD_32_33) ||
+				((1 << vdd) == MMC_VDD_33_34)))
+		reg_val |= SDVS30;
+	if ((1 << vdd) == MMC_VDD_165_195)
 		reg_val |= SDVS18;
 
 	OMAP_HSMMC_WRITE(host->base, HCTL, reg_val);
@@ -570,7 +519,6 @@ static void mmc_omap_detect(struct work_struct *work)
 						mmc_carddetect_work);
 
 	sysfs_notify(&host->mmc->class_dev.kobj, NULL, "cover_switch");
-	mmc_omap_fclk_state(host, ON);
 	if (host->carddetect) {
 		mmc_detect_change(host->mmc, (HZ * 200) / 1000);
 	} else {
@@ -581,7 +529,6 @@ static void mmc_omap_detect(struct work_struct *work)
 
 		mmc_detect_change(host->mmc, (HZ * 50) / 1000);
 	}
-	mmc_omap_fclk_lazy_disable(host);
 }
 
 /*
@@ -793,10 +740,10 @@ static void omap_mmc_request(struct mmc_host *mmc, struct mmc_request *req)
 
 	WARN_ON(host->mrq != NULL);
 	host->mrq = req;
-	mmc_omap_fclk_state(host, ON);
 	mmc_omap_prepare_data(host, req);
 	mmc_omap_start_command(host, req->cmd, req->data);
 }
+
 
 /* Routine to configure clock values. Exposed API to core */
 static void omap_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
@@ -805,8 +752,6 @@ static void omap_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	u16 dsor = 0;
 	unsigned long regval;
 	unsigned long timeout;
-
-	mmc_omap_fclk_state(host, ON);
 
 	switch (ios->power_mode) {
 	case MMC_POWER_OFF:
@@ -888,8 +833,6 @@ static void omap_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	if (ios->bus_mode == MMC_BUSMODE_OPENDRAIN)
 		OMAP_HSMMC_WRITE(host->base, CON,
 				OMAP_HSMMC_READ(host->base, CON) | OD);
-
-	mmc_omap_fclk_lazy_disable(host);
 }
 
 static int omap_hsmmc_get_cd(struct mmc_host *mmc)
@@ -991,17 +934,14 @@ static int __init omap_mmc_probe(struct platform_device *pdev)
 		goto err1;
 	}
 
-	spin_lock_init(&host->clk_lock);
-	setup_timer(&host->idle_timer, mmc_omap_idle_timer,
-		    (unsigned long) host);
-
-	if (mmc_omap_fclk_state(host, ON) != 0) {
+	if (clk_enable(host->fclk) != 0) {
 		clk_put(host->iclk);
 		clk_put(host->fclk);
 		goto err1;
 	}
+
 	if (clk_enable(host->iclk) != 0) {
-		mmc_omap_fclk_state(host, OFF);
+		clk_disable(host->fclk);
 		clk_put(host->iclk);
 		clk_put(host->fclk);
 		goto err1;
@@ -1105,7 +1045,6 @@ static int __init omap_mmc_probe(struct platform_device *pdev)
 		if (ret < 0)
 			goto err_cover_switch;
 	}
-	mmc_omap_fclk_lazy_disable(host);
 
 	return 0;
 
@@ -1118,7 +1057,7 @@ err_irq_cd:
 err_irq_cd_init:
 	free_irq(host->irq, host);
 err_irq:
-	mmc_omap_fclk_state(host, OFF);
+	clk_disable(host->fclk);
 	clk_disable(host->iclk);
 	clk_put(host->fclk);
 	clk_put(host->iclk);
@@ -1151,7 +1090,7 @@ static int omap_mmc_remove(struct platform_device *pdev)
 			free_irq(mmc_slot(host).card_detect_irq, host);
 		flush_scheduled_work();
 
-		mmc_omap_fclk_state(host, OFF);
+		clk_disable(host->fclk);
 		clk_disable(host->iclk);
 		clk_put(host->fclk);
 		clk_put(host->iclk);
@@ -1186,7 +1125,6 @@ static int omap_mmc_suspend(struct platform_device *pdev, pm_message_t state)
 		if (ret == 0) {
 			host->suspended = 1;
 
-			mmc_omap_fclk_state(host, ON);
 			OMAP_HSMMC_WRITE(host->base, ISE, 0);
 			OMAP_HSMMC_WRITE(host->base, IE, 0);
 
@@ -1199,9 +1137,19 @@ static int omap_mmc_suspend(struct platform_device *pdev, pm_message_t state)
 						" level suspend\n");
 			}
 
-			OMAP_HSMMC_WRITE(host->base, HCTL,
-					 OMAP_HSMMC_READ(host->base, HCTL) & ~SDBP);
-			mmc_omap_fclk_state(host, OFF);
+			if (!(OMAP_HSMMC_READ(host->base, HCTL) & SDVSDET)) {
+				OMAP_HSMMC_WRITE(host->base, HCTL,
+					OMAP_HSMMC_READ(host->base, HCTL)
+					& SDVSCLR);
+				OMAP_HSMMC_WRITE(host->base, HCTL,
+					OMAP_HSMMC_READ(host->base, HCTL)
+					| SDVS30);
+				OMAP_HSMMC_WRITE(host->base, HCTL,
+					OMAP_HSMMC_READ(host->base, HCTL)
+					| SDBP);
+			}
+
+			clk_disable(host->fclk);
 			clk_disable(host->iclk);
 			clk_disable(host->dbclk);
 		}
@@ -1220,13 +1168,14 @@ static int omap_mmc_resume(struct platform_device *pdev)
 		return 0;
 
 	if (host) {
-		int i;
-		if (mmc_omap_fclk_state(host, ON) != 0)
+
+		ret = clk_enable(host->fclk);
+		if (ret)
 			goto clk_en_err;
 
 		ret = clk_enable(host->iclk);
 		if (ret) {
-			mmc_omap_fclk_state(host, OFF);
+			clk_disable(host->fclk);
 			clk_put(host->fclk);
 			goto clk_en_err;
 		}
@@ -1234,13 +1183,6 @@ static int omap_mmc_resume(struct platform_device *pdev)
 		if (clk_enable(host->dbclk) != 0)
 			dev_dbg(mmc_dev(host->mmc),
 					"Enabling debounce clk failed\n");
-
-		OMAP_HSMMC_WRITE(host->base, HCTL,
-				 OMAP_HSMMC_READ(host->base, HCTL) | SDBP);
-
-		for (i = 0; i < 100; i++)
-			if (OMAP_HSMMC_READ(host->base, HCTL) & SDBP)
-				break;
 
 		if (host->pdata->resume) {
 			ret = host->pdata->resume(&pdev->dev, host->slot_id);
@@ -1253,8 +1195,6 @@ static int omap_mmc_resume(struct platform_device *pdev)
 		ret = mmc_resume_host(host->mmc);
 		if (ret == 0)
 			host->suspended = 0;
-
-		mmc_omap_fclk_lazy_disable(host);
 	}
 
 	return ret;
