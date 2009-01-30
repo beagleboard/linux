@@ -35,13 +35,7 @@
 
 #ifdef CONFIG_USB_MUSB_SOC
 static struct resource musb_resources[] = {
-	[0] = {
-		.start	= cpu_is_omap34xx()
-			? OMAP34XX_HSUSB_OTG_BASE
-			: OMAP243X_HS_BASE,
-		.end	= cpu_is_omap34xx()
-			? OMAP34XX_HSUSB_OTG_BASE + SZ_8K - 1
-			: OMAP243X_HS_BASE + SZ_8K - 1,
+	[0] = { /* start and end set dynamically */
 		.flags	= IORESOURCE_MEM,
 	},
 	[1] = {	/* general IRQ */
@@ -128,9 +122,7 @@ static struct musb_hdrc_platform_data musb_plat = {
 #elif defined(CONFIG_USB_GADGET_MUSB_HDRC)
 	.mode		= MUSB_PERIPHERAL,
 #endif
-	.clock		= cpu_is_omap34xx()
-			? "hsotgusb_ick"
-			: "usbhs_ick",
+	/* .clock is set dynamically */
 	.set_clock	= musb_set_clock,
 	.config		= &musb_config,
 
@@ -160,6 +152,17 @@ static struct platform_device musb_device = {
 void __init usb_musb_init(void)
 {
 #ifdef CONFIG_USB_MUSB_SOC
+
+	if (cpu_is_omap243x()) {
+		musb_resources[0].start = OMAP243X_HS_BASE;
+		musb_plat.clock = "usbhs_ick";
+	} else {
+		musb_resources[0].start = OMAP34XX_HSUSB_OTG_BASE;
+		musb_plat.clock = "hsotgusb_ick";
+	}
+
+	musb_resources[0].end = musb_resources[0].start + SZ_8K - 1;
+
 	if (platform_device_register(&musb_device) < 0) {
 		printk(KERN_ERR "Unable to register HS-USB (MUSB) device\n");
 		return;
