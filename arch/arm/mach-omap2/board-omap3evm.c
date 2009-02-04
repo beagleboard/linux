@@ -19,6 +19,7 @@
 #include <linux/err.h>
 #include <linux/clk.h>
 #include <linux/input.h>
+#include <linux/leds.h>
 
 #include <linux/spi/spi.h>
 #include <linux/spi/ads7846.h>
@@ -31,6 +32,7 @@
 
 #include <mach/gpio.h>
 #include <mach/board.h>
+#include <mach/mux.h>
 #include <mach/usb.h>
 #include <mach/common.h>
 #include <mach/mcspi.h>
@@ -87,10 +89,66 @@ static struct omap_uart_config omap3_evm_uart_config __initdata = {
 	.enabled_uarts	= ((1 << 0) | (1 << 1) | (1 << 2)),
 };
 
+static struct twl4030_hsmmc_info mmc[] = {
+	{
+		.mmc		= 1,
+		.wires		= 4,
+		.gpio_cd	= -EINVAL,
+		.gpio_wp	= 63,
+	},
+	{}	/* Terminator */
+};
+
+static struct gpio_led gpio_leds[] = {
+	{
+		.name			= "omap3evm::ledb",
+		/* normally not visible (board underside) */
+		.default_trigger	= "default-on",
+		.gpio			= -EINVAL,	/* gets replaced */
+		.active_low		= true,
+	},
+};
+
+static struct gpio_led_platform_data gpio_led_info = {
+	.leds		= gpio_leds,
+	.num_leds	= ARRAY_SIZE(gpio_leds),
+};
+
+static struct platform_device leds_gpio = {
+	.name	= "leds-gpio",
+	.id	= -1,
+	.dev	= {
+		.platform_data	= &gpio_led_info,
+	},
+};
+
+
+static int omap3evm_twl_gpio_setup(struct device *dev,
+		unsigned gpio, unsigned ngpio)
+{
+	/* gpio + 0 is "mmc0_cd" (input/IRQ) */
+	omap_cfg_reg(L8_34XX_GPIO63);
+	mmc[0].gpio_cd = gpio + 0;
+	twl4030_mmc_init(mmc);
+
+	/* Most GPIOs are for USB OTG.  Some are mostly sent to
+	 * the P2 connector; notably LEDA for the LCD backlight.
+	 */
+
+	/* TWL4030_GPIO_MAX + 1 == ledB (out, active low LED) */
+	gpio_leds[2].gpio = gpio + TWL4030_GPIO_MAX + 1;
+
+	platform_device_register(&leds_gpio);
+
+	return 0;
+}
+
 static struct twl4030_gpio_platform_data omap3evm_gpio_data = {
 	.gpio_base	= OMAP_MAX_GPIO_LINES,
 	.irq_base	= TWL4030_GPIO_IRQ_BASE,
 	.irq_end	= TWL4030_GPIO_IRQ_END,
+	.use_leds	= true,
+	.setup		= omap3evm_twl_gpio_setup,
 };
 
 static struct twl4030_usb_data omap3evm_usb_data = {
@@ -231,16 +289,6 @@ static struct platform_device *omap3_evm_devices[] __initdata = {
 	&omap3evm_smc911x_device,
 };
 
-static struct twl4030_hsmmc_info mmc[] __initdata = {
-	{
-		.mmc		= 1,
-		.wires		= 4,
-		.gpio_cd	= -EINVAL,
-		.gpio_wp	= -EINVAL,
-	},
-	{}	/* Terminator */
-};
-
 static void __init omap3_evm_init(void)
 {
 	omap3_evm_i2c_init();
@@ -253,7 +301,6 @@ static void __init omap3_evm_init(void)
 				ARRAY_SIZE(omap3evm_spi_board_info));
 
 	omap_serial_init();
-	twl4030_mmc_init(mmc);
 	usb_musb_init();
 	usb_ehci_init();
 	omap3evm_flash_init();
