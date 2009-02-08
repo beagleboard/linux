@@ -1,5 +1,5 @@
 /*
- * drivers/input/keyboard/omap-twl4030keypad.c
+ * twl4030_keypad.c - driver for 8x8 keypad controller in twl4030 chips
  *
  * Copyright (C) 2007 Texas Instruments, Inc.
  * Copyright (C) 2008 Nokia Corporation
@@ -32,6 +32,7 @@
 #include <linux/input.h>
 #include <linux/platform_device.h>
 #include <linux/i2c/twl4030.h>
+
 
 /*
  * The TWL4030 family chips include a keypad controller that supports
@@ -458,6 +459,12 @@ static int __devexit twl4030_kp_remove(struct platform_device *pdev)
 	return 0;
 }
 
+/*
+ * NOTE: twl4030 are multi-function devices connected via I2C.
+ * So this device is a child of an I2C parent, thus it needs to
+ * support unplug/replug (which most platform devices don't).
+ */
+
 MODULE_ALIAS("platform:twl4030_keypad");
 
 static struct platform_driver twl4030_kp_driver = {
@@ -469,9 +476,6 @@ static struct platform_driver twl4030_kp_driver = {
 	},
 };
 
-/*
- * OMAP TWL4030 Keypad init
- */
 static int __init twl4030_kp_init(void)
 {
 	return platform_driver_register(&twl4030_kp_driver);
