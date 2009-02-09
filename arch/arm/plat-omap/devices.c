@@ -199,18 +199,13 @@ void omap_mcbsp_register_board_cfg(struct omap_mcbsp_platform_data *config,
 /*
  * Register MMC devices. Called from mach-omap1 and mach-omap2 device init.
  */
-int __init omap_mmc_add(int id, unsigned long base, unsigned long size,
-		unsigned int irq, struct omap_mmc_platform_data *data)
+int __init omap_mmc_add(const char *name, int id, unsigned long base,
+				unsigned long size, unsigned int irq,
+				struct omap_mmc_platform_data *data)
 {
 	struct platform_device *pdev;
 	struct resource res[OMAP_MMC_NR_RES];
-	char *name;
 	int ret;
-
-	if (cpu_class_is_omap1() || cpu_is_omap242x())
-		name = "mmci-omap";
-	else
-		name = "mmci-omap-hs";
 
 	pdev = platform_device_alloc(name, id);
 	if (!pdev)
