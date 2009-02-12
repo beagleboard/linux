@@ -22,7 +22,6 @@
 #include <linux/clk.h>
 #include <asm/io.h>
 #include <mach/mux.h>
-#include <linux/usb/musb.h>
 
 #include <mach/hardware.h>
 #include <mach/irqs.h>

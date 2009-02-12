@@ -35,7 +35,7 @@
 #include <mach/board.h>
 #include <mach/common.h>
 #include <mach/gpmc.h>
-#include <mach/usb-musb.h>
+#include <mach/usb.h>
 
 #include <asm/io.h>
 #include <asm/delay.h>

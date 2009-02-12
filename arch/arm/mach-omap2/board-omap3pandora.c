@@ -44,8 +44,7 @@
 #include <mach/gpmc.h>
 #include <mach/hardware.h>
 #include <mach/nand.h>
-#include <mach/usb-ehci.h>
-#include <mach/usb-musb.h>
+#include <mach/usb.h>
 #include <mach/mcspi.h>
 
 #include "sdram-micron-mt46h32m32lf-6.h"

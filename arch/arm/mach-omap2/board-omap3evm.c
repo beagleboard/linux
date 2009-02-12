@@ -31,8 +31,7 @@
 
 #include <mach/gpio.h>
 #include <mach/board.h>
-#include <mach/usb-musb.h>
-#include <mach/usb-ehci.h>
+#include <mach/usb.h>
 #include <mach/common.h>
 #include <mach/mcspi.h>
 
