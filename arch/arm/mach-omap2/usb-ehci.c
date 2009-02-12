@@ -28,7 +28,6 @@
 #include <mach/pm.h>
 #include <mach/usb.h>
 
-#if	defined(CONFIG_USB_EHCI_HCD) || defined(CONFIG_USB_EHCI_HCD_MODULE)
 static struct resource ehci_resources[] = {
 	[0] = {
 		.start   = OMAP34XX_HSUSB_HOST_BASE + 0x800,
@@ -53,7 +52,6 @@ static struct platform_device ehci_device = {
 	.num_resources  = ARRAY_SIZE(ehci_resources),
 	.resource       = ehci_resources,
 };
-
 
 /* MUX settings for EHCI pins */
 /*
@@ -147,11 +145,8 @@ static void setup_ehci_io_mux(void)
 	return;
 }
 
-#endif /* EHCI specific data */
-
 void __init usb_ehci_init(void)
 {
-#if     defined(CONFIG_USB_EHCI_HCD) || defined(CONFIG_USB_EHCI_HCD_MODULE)
 	/* Setup Pin IO MUX for EHCI */
 	if (cpu_is_omap34xx())
 		setup_ehci_io_mux();
@@ -160,6 +155,6 @@ void __init usb_ehci_init(void)
 		printk(KERN_ERR "Unable to register HS-USB (EHCI) device\n");
 		return;
 	}
-#endif
 }
+
 

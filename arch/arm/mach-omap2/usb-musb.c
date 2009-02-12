@@ -33,7 +33,6 @@
 #include <mach/mux.h>
 #include <mach/usb.h>
 
-#ifdef CONFIG_USB_MUSB_SOC
 static struct resource musb_resources[] = {
 	[0] = { /* start and end set dynamically */
 		.flags	= IORESOURCE_MEM,
@@ -146,13 +145,9 @@ static struct platform_device musb_device = {
 	.num_resources	= ARRAY_SIZE(musb_resources),
 	.resource	= musb_resources,
 };
-#endif
-
 
 void __init usb_musb_init(void)
 {
-#ifdef CONFIG_USB_MUSB_SOC
-
 	if (cpu_is_omap243x()) {
 		musb_resources[0].start = OMAP243X_HS_BASE;
 		musb_plat.clock = "usbhs_ick";
@@ -167,6 +162,4 @@ void __init usb_musb_init(void)
 		printk(KERN_ERR "Unable to register HS-USB (MUSB) device\n");
 		return;
 	}
-#endif
 }
-
