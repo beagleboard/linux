@@ -37,20 +37,25 @@
 static struct clk *sdti_fck, *sdti_ick;
 void __iomem *sti_base, *sti_channel_base;
 static DEFINE_SPINLOCK(sdti_lock);
+static int sdti_initialized;
 
 void sti_channel_write_trace(int len, int id, void *data,
 				unsigned int channel)
 {
 	const u8 *tpntr = data;
+	unsigned long flags;
 
-	spin_lock_irq(&sdti_lock);
+	spin_lock_irqsave(&sdti_lock, flags);
+
+	if (unlikely(!sdti_initialized))
+		goto skip;
 
 	sti_channel_writeb(id, channel);
 	while (len--)
 		sti_channel_writeb(*tpntr++, channel);
 	sti_channel_flush(channel);
-
-	spin_unlock_irq(&sdti_lock);
+ skip:
+	spin_unlock_irqrestore(&sdti_lock, flags);
 }
 EXPORT_SYMBOL(sti_channel_write_trace);
 
@@ -116,6 +121,10 @@ static int __init omap_sdti_init(void)
 
 	/* Enable SDTI */
 	sti_writel((1 << 31) | (i & 0x3FFFFFFF), SDTI_WINCTRL);
+
+	spin_lock_irq(&sdti_lock);
+	sdti_initialized = 1;
+	spin_unlock_irq(&sdti_lock);
 
 	i = sti_readl(SDTI_REVISION);
 	snprintf(buf, sizeof(buf), "OMAP SDTI support loaded (HW v%u.%u)\n",
