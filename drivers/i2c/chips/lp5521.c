@@ -28,13 +28,8 @@
 
 #define LP5521_DRIVER_NAME		"lp5521"
 
-#ifdef LED_CONNECTED_WRONG
-#define LP5521_REG_R_PWM		0x04
-#define LP5521_REG_B_PWM		0x02
-#else
 #define LP5521_REG_R_PWM		0x02
 #define LP5521_REG_B_PWM		0x04
-#endif
 #define LP5521_REG_ENABLE		0x00
 #define LP5521_REG_OP_MODE		0x01
 #define LP5521_REG_G_PWM		0x03
@@ -200,22 +195,12 @@ static ssize_t show_active_channels(struct device *dev,
 	char channels[4];
 	int pos = 0;
 
-#ifdef LED_CONNECTED_WRONG
-	if (chip->blue)
-		pos += sprintf(channels + pos, "r");
-	if (chip->green)
-		pos += sprintf(channels + pos, "g");
-	if (chip->red)
-		pos += sprintf(channels + pos, "b");
-
-#else
 	if (chip->red)
 		pos += sprintf(channels + pos, "r");
 	if (chip->green)
 		pos += sprintf(channels + pos, "g");
 	if (chip->blue)
 		pos += sprintf(channels + pos, "b");
-#endif
 
 	channels[pos] = '\0';
 
@@ -232,17 +217,10 @@ static ssize_t store_active_channels(struct device *dev,
 	chip->green = 0;
 	chip->blue = 0;
 
-#ifdef LED_CONNECTED_WRONG
-	if (strchr(buf, 'r') != NULL)
-		chip->blue = 1;
-	if (strchr(buf, 'b') != NULL)
-		chip->red = 1;
-#else
 	if (strchr(buf, 'r') != NULL)
 		chip->red = 1;
 	if (strchr(buf, 'b') != NULL)
 		chip->blue = 1;
-#endif
 	if (strchr(buf, 'g') != NULL)
 		chip->green = 1;
 
