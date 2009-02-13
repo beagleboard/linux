@@ -26,6 +26,7 @@
 #include <linux/i2c.h>
 #include <linux/i2c/lm8323.h>
 #include <linux/i2c/menelaus.h>
+#include <linux/i2c/lp5521.h>
 #include <mach/hardware.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -628,6 +629,14 @@ static struct i2c_board_info __initdata n800_i2c_board_info_1[] = {
 	},
 };
 
+static struct lp5521_platform_data n810_lp5521_platform_data = {
+	.mode		= LP5521_MODE_DIRECT_CONTROL,
+	.label		= "n810",
+	.red_present	= true,
+	.green_present	= true,
+	.blue_present	= true,
+};
+
 extern struct tcm825x_platform_data n800_tcm825x_platform_data;
 
 static struct i2c_board_info __initdata_or_module n8x0_i2c_board_info_2[] = {
@@ -657,6 +666,7 @@ static struct i2c_board_info __initdata_or_module n810_i2c_board_info_2[] = {
 	},
 	{
 		I2C_BOARD_INFO("lp5521", 0x32),
+		.platform_data = &n810_lp5521_platform_data,
 	},
 };
 
