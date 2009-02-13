@@ -352,12 +352,14 @@ static ssize_t store_mode(struct device *dev,
 
 	mutex_lock(&chip->lock);
 
-	if (!strncmp(buf, "run", 3))
+	if (sysfs_streq(buf, "run"))
 		lp5521_set_mode(chip, LP5521_MODE_RUN);
-	else if (!strncmp(buf, "load", 4))
+	else if (sysfs_streq(buf, "load"))
 		lp5521_set_mode(chip, LP5521_MODE_LOAD);
-	else if (!strncmp(buf, "direct", 6))
+	else if (sysfs_streq(buf, "direct"))
 		lp5521_set_mode(chip, LP5521_MODE_DIRECT_CONTROL);
+	else
+		len = -EINVAL;
 
 	mutex_unlock(&chip->lock);
 
