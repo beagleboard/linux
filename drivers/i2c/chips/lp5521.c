@@ -46,10 +46,6 @@
 #define LP5521_REG_G_PROG_MEM		0x30
 #define LP5521_REG_B_PROG_MEM		0x50
 
-#define LP5521_MODE_LOAD		"load"
-#define LP5521_MODE_RUN			"run"
-#define LP5521_MODE_DIRECT_CONTROL	"direct"
-
 #define LP5521_CURRENT_1m5		0x0f
 #define LP5521_CURRENT_3m1		0x1f
 #define LP5521_CURRENT_4m7		0x2f
@@ -69,17 +65,23 @@
 
 #define LP5521_PROGRAM_LENGTH		32	/* in bytes */
 
+enum lp5521_mode {
+	LP5521_MODE_LOAD,
+	LP5521_MODE_RUN,
+	LP5521_MODE_DIRECT_CONTROL,
+};
+
 struct lp5521_chip {
 	/* device lock */
 	struct mutex		lock;
 	struct i2c_client	*client;
-	char			*mode;
+	enum lp5521_mode	mode;
 	int			red;
 	int			green;
 	int			blue;
 };
 
-static int lp5521_set_mode(struct lp5521_chip *chip, char *mode);
+static int lp5521_set_mode(struct lp5521_chip *chip, enum lp5521_mode mode);
 
 static inline int lp5521_write(struct i2c_client *client, u8 reg, u8 value)
 {
@@ -313,8 +315,25 @@ static ssize_t show_mode(struct device *dev,
 		char *buf)
 {
 	struct lp5521_chip *chip = dev_get_drvdata(dev);
+	char *mode;
 
-	return sprintf(buf, "%s\n", chip->mode);
+	mutex_lock(&chip->lock);
+	switch (chip->mode) {
+	case LP5521_MODE_RUN:
+		mode = "run";
+		break;
+	case LP5521_MODE_LOAD:
+		mode = "load";
+		break;
+	case LP5521_MODE_DIRECT_CONTROL:
+		mode = "direct";
+		break;
+	default:
+		mode = "undefined";
+	}
+	mutex_unlock(&chip->lock);
+
+	return sprintf(buf, "%s\n", mode);
 }
 
 static ssize_t store_mode(struct device *dev,
@@ -442,23 +461,28 @@ static void lp5521_unregister_sysfs(struct i2c_client *client)
 /*			Set chip operating mode			*/
 /*--------------------------------------------------------------*/
 
-static int lp5521_set_mode(struct lp5521_chip *chip, char *mode)
+static int lp5521_set_mode(struct lp5521_chip *chip, enum lp5521_mode mode)
 {
 	struct i2c_client *client = chip->client ;
 	int ret = 0;
 
 	/* if in that mode already do nothing, except for run */
-	if (!strcmp(mode, chip->mode) && strcmp(mode, LP5521_MODE_RUN))
+	if (chip->mode == mode && mode != LP5521_MODE_RUN)
 		return 0;
 
-	if (!strcmp(mode, LP5521_MODE_RUN))
+	switch (mode) {
+	case LP5521_MODE_RUN:
 		ret = lp5521_run_program(chip);
-
-	if (!strcmp(mode, LP5521_MODE_LOAD))
+		break;
+	case LP5521_MODE_LOAD:
 		ret |= lp5521_write(client, LP5521_REG_OP_MODE, 0x15);
-
-	if (!strcmp(mode, LP5521_MODE_DIRECT_CONTROL))
+		break;
+	case LP5521_MODE_DIRECT_CONTROL:
 		ret |= lp5521_write(client, LP5521_REG_OP_MODE, 0x3F);
+		break;
+	default:
+		dev_dbg(&client->dev, "unsupported mode %d\n", mode);
+	}
 
 	chip->mode = mode;
 
