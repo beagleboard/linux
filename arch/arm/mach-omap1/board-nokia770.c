@@ -371,8 +371,6 @@ static __init int omap_dsp_init(void)
 
 static void __init omap_nokia770_init(void)
 {
-	nokia770_config[0].data = &nokia770_usb_config;
-
 	platform_add_devices(nokia770_devices, ARRAY_SIZE(nokia770_devices));
 	spi_register_board_info(nokia770_spi_board_info,
 				ARRAY_SIZE(nokia770_spi_board_info));
@@ -384,6 +382,7 @@ static void __init omap_nokia770_init(void)
 	omap_dsp_init();
 	ads7846_dev_init();
 	mipid_dev_init();
+	omap_usb_init(&nokia770_usb_config);
 	nokia770_mmc_init();
 }
 

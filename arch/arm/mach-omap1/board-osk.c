@@ -290,7 +290,6 @@ static struct omap_lcd_config osk_lcd_config __initdata = {
 #endif
 
 static struct omap_board_config_kernel osk_config[] __initdata = {
-	{ OMAP_TAG_USB,           &osk_usb_config },
 	{ OMAP_TAG_UART,		&osk_uart_config },
 #ifdef	CONFIG_OMAP_OSK_MISTRAL
 	{ OMAP_TAG_LCD,			&osk_lcd_config },
@@ -510,6 +509,7 @@ static void __init osk_mistral_init(void)
 	i2c_register_board_info(1, mistral_i2c_board_info,
 			ARRAY_SIZE(mistral_i2c_board_info));
 
+	omap_usb_init(&osk_usb_config);
 	platform_add_devices(mistral_devices, ARRAY_SIZE(mistral_devices));
 }
 #else

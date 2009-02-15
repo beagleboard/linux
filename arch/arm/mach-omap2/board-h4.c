@@ -429,7 +429,6 @@ static struct spi_board_info h4_spi_board_info[] __initdata = {
 static struct omap_board_config_kernel h4_config[] __initdata = {
 	{ OMAP_TAG_UART,	&h4_uart_config },
 	{ OMAP_TAG_LCD,		&h4_lcd_config },
-	{ OMAP_TAG_USB,		&h4_usb_config },
 };
 
 #ifdef	CONFIG_MACH_OMAP_H4_TUSB
@@ -748,6 +747,7 @@ static void __init omap_h4_init(void)
 	omap_board_config = h4_config;
 	omap_board_config_size = ARRAY_SIZE(h4_config);
 	omap_serial_init();
+	omap_usb_init(&h4_usb_config);
 	h4_mmc_init();
 	omap_register_i2c_bus(1, 100, h4_i2c_board_info,
 			      ARRAY_SIZE(h4_i2c_board_info));
