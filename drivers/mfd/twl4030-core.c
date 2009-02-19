@@ -107,7 +107,8 @@
 #define twl_has_usb()	false
 #endif
 
-#if defined(CONFIG_TWL4030_PWRBUTTON) || defined(CONFIG_TWL4030_PWBUTTON_MODULE)
+#if defined(CONFIG_INPUT_TWL4030_PWRBUTTON) \
+	|| defined(CONFIG_INPUT_TWL4030_PWBUTTON_MODULE)
 #define twl_has_pwrbutton()	true
 #else
 #define twl_has_pwrbutton()	false

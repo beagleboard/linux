@@ -98,10 +98,6 @@ config TWL4030_MADC
 	  to build it as a dinamically loadable module. The module will be
 	  called twl4030-madc.ko
 
-config TWL4030_PWRBUTTON
-	tristate "TWL4030 Power button Driver"
-	depends on TWL4030_CORE
-
 config TWL4030_POWEROFF
 	tristate "TWL4030 device poweroff"
 	depends on TWL4030_CORE
