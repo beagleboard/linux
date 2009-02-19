@@ -120,8 +120,8 @@ static struct lm8323_platform_data lm8323_pdata = {
 	.active_time	= 500,
 
 	.name		= "Internal keyboard",
-	.pwm1_name	= "keyboard",
-	.pwm2_name	= "cover",
+	.pwm1_name	= "n810::keyboard",
+	.pwm2_name	= "n810::cover",
 };
 #endif
 
