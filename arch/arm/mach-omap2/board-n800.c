@@ -112,12 +112,16 @@ static s16 rx44_keymap[LM8323_KEYMAP_SIZE] = {
 };
 
 static struct lm8323_platform_data lm8323_pdata = {
-	.repeat = 0, /* Repeat is handled in userspace for now. */
-	.keymap = rx44_keymap,
+	.repeat		= 0, /* Repeat is handled in userspace for now. */
+	.keymap		= rx44_keymap,
+	.size_x		= 8,
+	.size_y		= 8,
+	.debounce_time	= 12,
+	.active_time	= 500,
 
-	.name = "Internal keyboard",
-	.pwm1_name = "keyboard",
-	.pwm2_name = "cover",
+	.name		= "Internal keyboard",
+	.pwm1_name	= "keyboard",
+	.pwm2_name	= "cover",
 };
 #endif
 
