@@ -107,6 +107,11 @@
 #define twl_has_usb()	false
 #endif
 
+#if defined(CONFIG_TWL4030_PWRBUTTON) || defined(CONFIG_TWL4030_PWBUTTON_MODULE)
+#define twl_has_pwrbutton()	true
+#else
+#define twl_has_pwrbutton()	false
+#endif
 
 /* Triton Core internal information (BEGIN) */
 
@@ -532,6 +537,13 @@ add_children(struct twl4030_platform_data *pdata, unsigned long features)
 
 		/* we need to connect regulators to this transceiver */
 		usb_transceiver = child;
+	}
+
+	if (twl_has_pwrbutton()) {
+		child = add_child(1, "twl4030_pwrbutton",
+				NULL, 0, true, pdata->irq_base + 8 + 0, 0);
+		if (IS_ERR(child))
+			return PTR_ERR(child);
 	}
 
 	if (twl_has_regulator()) {
