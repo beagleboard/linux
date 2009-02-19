@@ -32,6 +32,4 @@ struct lm8323_platform_data {
 	char *name; /* Device name. */
 };
 
-void __init lm8323_set_platform_data(struct lm8323_platform_data *pdata);
-
 #endif /* __LINUX_LM8323_H */
