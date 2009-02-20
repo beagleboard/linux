@@ -427,18 +427,6 @@ static struct clk dpll3_ck = {
 	.recalc		= &omap3_dpll_recalc,
 };
 
-/*
- * This virtual clock provides the CLKOUTX2 output from the DPLL if the
- * DPLL isn't bypassed
- */
-static struct clk dpll3_x2_ck = {
-	.name		= "dpll3_x2_ck",
-	.parent		= &dpll3_ck,
-	.flags		= CLOCK_IN_OMAP343X | PARENT_CONTROLS_CLOCK,
-	.clkdm		= { .name = "dpll3_clkdm" },
-	.recalc		= &omap3_clkoutx2_recalc,
-};
-
 static const struct clksel_rate div31_dpll3_rates[] = {
 	{ .div = 1, .val = 1, .flags = RATE_IN_343X | DEFAULT_RATE },
 	{ .div = 2, .val = 2, .flags = RATE_IN_343X },
@@ -505,10 +493,10 @@ static struct clk core_ck = {
 
 static struct clk dpll3_m2x2_ck = {
 	.name		= "dpll3_m2x2_ck",
-	.parent		= &dpll3_x2_ck,
+	.parent		= &dpll3_m2_ck,
 	.flags		= CLOCK_IN_OMAP343X | PARENT_CONTROLS_CLOCK,
 	.clkdm		= { .name = "dpll3_clkdm" },
-	.recalc		= &followparent_recalc,
+	.recalc		= &omap3_clkoutx2_recalc,
 };
 
 /* The PWRDN bit is apparently only available on 3430ES2 and above */
@@ -588,19 +576,6 @@ static struct clk dpll4_ck = {
 	.set_rate	= &omap3_noncore_dpll_set_rate,
 	.clkdm		= { .name = "dpll4_clkdm" },
 	.recalc		= &omap3_dpll_recalc,
-};
-
-/*
- * This virtual clock provides the CLKOUTX2 output from the DPLL if the
- * DPLL isn't bypassed --
- * XXX does this serve any downstream clocks?
- */
-static struct clk dpll4_x2_ck = {
-	.name		= "dpll4_x2_ck",
-	.parent		= &dpll4_ck,
-	.flags		= CLOCK_IN_OMAP343X | PARENT_CONTROLS_CLOCK,
-	.clkdm		= { .name = "dpll4_clkdm" },
-	.recalc		= &omap3_clkoutx2_recalc,
 };
 
 static const struct clksel div16_dpll4_clksel[] = {
@@ -3355,14 +3330,12 @@ static struct clk *onchip_34xx_clks[] __initdata = {
 	&dpll2_m2_ck,
 	&dpll3_ck,
 	&core_ck,
-	&dpll3_x2_ck,
 	&dpll3_m2_ck,
 	&dpll3_m2x2_ck,
 	&dpll3_m3_ck,
 	&dpll3_m3x2_ck,
 	&emu_core_alwon_ck,
 	&dpll4_ck,
-	&dpll4_x2_ck,
 	&omap_96m_alwon_fck,
 	&omap_96m_fck,
 	&cm_96m_fck,
