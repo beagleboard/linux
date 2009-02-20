@@ -216,7 +216,6 @@ int omap_mcbsp_request(unsigned int id)
 	struct omap_mcbsp *mcbsp;
 	int i;
 	int err;
-	u16 syscon;
 
 	if (!omap_mcbsp_check_valid_id(id)) {
 		printk(KERN_ERR "%s: Invalid id (%d)\n", __func__, id + 1);
@@ -246,10 +245,12 @@ int omap_mcbsp_request(unsigned int id)
 	 * REVISIT: some wakeups may be unnecessary
 	 */
 	if (cpu_is_omap34xx()) {
-		syscon = OMAP_MCBSP_READ(mcbsp->io_base, SYSCON);
-		syscon &= ~(ENAWAKEUP | SIDLEMODE(0x03));
-		syscon |= (ENAWAKEUP | SIDLEMODE(0x02));
-		OMAP_MCBSP_WRITE(mcbsp->io_base, SYSCON, syscon);
+		u16 w;
+
+		w = OMAP_MCBSP_READ(mcbsp->io_base, SYSCON);
+		w &= ~(ENAWAKEUP | SIDLEMODE(0x03));
+		w |= (ENAWAKEUP | SIDLEMODE(0x02));
+		OMAP_MCBSP_WRITE(mcbsp->io_base, SYSCON, w);
 
 		OMAP_MCBSP_WRITE(mcbsp->io_base, WAKEUPEN, WAKEUPEN_ALL);
 	}
@@ -292,7 +293,6 @@ EXPORT_SYMBOL(omap_mcbsp_request);
 void omap_mcbsp_free(unsigned int id)
 {
 	struct omap_mcbsp *mcbsp;
-	u16 syscon, wakeupen;
 	int i;
 
 	if (!omap_mcbsp_check_valid_id(id)) {
@@ -305,13 +305,15 @@ void omap_mcbsp_free(unsigned int id)
 	 * Disable wakup behavior, smart idle and all wakeups
 	 */
 	if (cpu_is_omap34xx()) {
-		syscon = OMAP_MCBSP_READ(mcbsp->io_base, SYSCON);
-		syscon &= ~(ENAWAKEUP | SIDLEMODE(0x03));
-		OMAP_MCBSP_WRITE(mcbsp->io_base, SYSCON, syscon);
+		u16 w;
 
-		wakeupen = OMAP_MCBSP_READ(mcbsp->io_base, WAKEUPEN);
-		wakeupen &= ~WAKEUPEN_ALL;
-		OMAP_MCBSP_WRITE(mcbsp->io_base, WAKEUPEN, wakeupen);
+		w = OMAP_MCBSP_READ(mcbsp->io_base, SYSCON);
+		w &= ~(ENAWAKEUP | SIDLEMODE(0x03));
+		OMAP_MCBSP_WRITE(mcbsp->io_base, SYSCON, w);
+
+		w = OMAP_MCBSP_READ(mcbsp->io_base, WAKEUPEN);
+		w &= ~WAKEUPEN_ALL;
+		OMAP_MCBSP_WRITE(mcbsp->io_base, WAKEUPEN, w);
 	}
 
 	if (mcbsp->pdata && mcbsp->pdata->ops && mcbsp->pdata->ops->free)
