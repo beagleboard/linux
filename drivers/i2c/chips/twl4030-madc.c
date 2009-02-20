@@ -246,24 +246,28 @@ static inline void twl4030_madc_start_conversion(struct twl4030_madc_data *madc,
 	}
 }
 
-static void twl4030_madc_wait_conversion_ready_ms(
+static int twl4030_madc_wait_conversion_ready(
 		struct twl4030_madc_data *madc,
-		u8 *time, u8 status_reg)
+		unsigned int timeout_ms, u8 status_reg)
 {
-	u8 reg = 0;
+	unsigned long timeout;
 
+	timeout = jiffies + msecs_to_jiffies(timeout_ms);
 	do {
-		msleep(1);
-		(*time)--;
+		u8 reg;
+
 		reg = twl4030_madc_read(madc, status_reg);
-	} while (((reg & TWL4030_MADC_BUSY) && !(reg & TWL4030_MADC_EOC_SW)) &&
-		  (*time != 0));
+		if (!(reg & TWL4030_MADC_BUSY) && (reg & TWL4030_MADC_EOC_SW))
+			return 0;
+	} while (!time_after(jiffies, timeout));
+
+	return -EAGAIN;
 }
 
 int twl4030_madc_conversion(struct twl4030_madc_request *req)
 {
 	const struct twl4030_madc_conversion_method *method;
-	u8 wait_time, ch_msb, ch_lsb;
+	u8 ch_msb, ch_lsb;
 	int ret;
 
 	if (unlikely(!req))
@@ -310,12 +314,10 @@ int twl4030_madc_conversion(struct twl4030_madc_request *req)
 	the_madc->requests[req->method].active = 1;
 
 	/* Wait until conversion is ready (ctrl register returns EOC) */
-	wait_time = 50;
-	twl4030_madc_wait_conversion_ready_ms(the_madc,
-			&wait_time, method->ctrl);
-	if (wait_time == 0) {
+	ret = twl4030_madc_wait_conversion_ready(the_madc, 5, method->ctrl);
+	if (ret) {
 		dev_dbg(the_madc->dev, "conversion timeout!\n");
-		ret = -EAGAIN;
+		the_madc->requests[req->method].active = 0;
 		goto out;
 	}
 
