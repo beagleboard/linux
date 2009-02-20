@@ -1,7 +1,18 @@
 /*
- * include/lm8323.h
+ * lm8323.h - Configuration for LM8323 keypad driver.
  *
- * Configuration for LM8323 keypad driver.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation (version 2 of the License only).
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 
 #ifndef __LINUX_LM8323_H
@@ -22,7 +33,7 @@ struct lm8323_platform_data {
 
 	int size_x;
 	int size_y;
-	int repeat : 1;
+	int repeat:1;
 	const s16 *keymap;
 
 	char *pwm1_name; /* Device name for PWM1. */
