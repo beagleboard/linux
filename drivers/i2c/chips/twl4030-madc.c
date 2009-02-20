@@ -269,16 +269,18 @@ int twl4030_madc_conversion(struct twl4030_madc_request *req)
 	if (unlikely(!req))
 		return -EINVAL;
 
+	mutex_lock(&the_madc->lock);
+
 	/* Do we have a conversion request ongoing */
-	if (the_madc->requests[req->method].active)
-		return -EBUSY;
+	if (the_madc->requests[req->method].active) {
+		ret = -EBUSY;
+		goto out;
+	}
 
 	ch_msb = (req->channels >> 8) & 0xff;
 	ch_lsb = req->channels & 0xff;
 
 	method = &twl4030_conversion_methods[req->method];
-
-	mutex_lock(&the_madc->lock);
 
 	/* Select channels to be converted */
 	twl4030_madc_write(the_madc, method->sel + 1, ch_msb);
@@ -366,8 +368,8 @@ static int twl4030_madc_set_power(struct twl4030_madc_data *madc, int on)
 	return 0;
 }
 
-static int twl4030_madc_ioctl(struct inode *inode, struct file *filp,
-			      unsigned int cmd, unsigned long arg)
+static long twl4030_madc_ioctl(struct file *filp, unsigned int cmd,
+			       unsigned long arg)
 {
 	struct twl4030_madc_user_parms par;
 	int val, ret;
@@ -413,7 +415,7 @@ static int twl4030_madc_ioctl(struct inode *inode, struct file *filp,
 
 static struct file_operations twl4030_madc_fileops = {
 	.owner = THIS_MODULE,
-	.ioctl = twl4030_madc_ioctl
+	.unlocked_ioctl = twl4030_madc_ioctl
 };
 
 static struct miscdevice twl4030_madc_device = {
