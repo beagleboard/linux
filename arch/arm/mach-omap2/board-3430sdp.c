@@ -623,8 +623,6 @@ static int __init omap3430_i2c_init(void)
 	return 0;
 }
 
-extern void __init sdp3430_flash_init(void);
-
 static void __init omap_3430sdp_init(void)
 {
 	omap3430_i2c_init();
