@@ -24,6 +24,7 @@
 #include <linux/spi/ads7846.h>
 #include <linux/i2c/twl4030.h>
 #include <linux/regulator/machine.h>
+#include <linux/io.h>
 
 #include <mach/hardware.h>
 #include <asm/mach-types.h>
@@ -39,8 +40,6 @@
 #include <mach/dma.h>
 #include <mach/gpmc.h>
 
-#include <asm/io.h>
-#include <asm/delay.h>
 #include <mach/control.h>
 
 #include "sdram-qimonda-hyb18m512160af-6.h"
