@@ -21,8 +21,6 @@
 #define UDC_BASE			OMAP1_UDC_BASE
 #define OMAP_OHCI_BASE			OMAP1_OHCI_BASE
 
-void omap_usb_init(struct omap_usb_config *pdata);
-
 #else
 
 #define OTG_BASE			OMAP2_OTG_BASE
@@ -36,6 +34,8 @@ static inline void usb_musb_init(void)
 {
 }
 #endif
+
+void omap_usb_init(struct omap_usb_config *pdata);
 
 #if defined(CONFIG_USB_EHCI_HCD) || defined(CONFIG_USB_EHCI_HCD_MODULE)
 extern void usb_ehci_init(void);

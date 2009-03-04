@@ -35,6 +35,7 @@
 #include <mach/omapfb.h>
 #include <mach/lcd_mipid.h>
 #include <mach/mmc.h>
+#include <mach/usb.h>
 
 #define ADS7846_PENDOWN_GPIO	15
 
@@ -233,10 +234,6 @@ static inline void nokia770_mmc_init(void)
 }
 #endif
 
-static struct omap_board_config_kernel nokia770_config[] __initdata = {
-	{ OMAP_TAG_USB,		NULL },
-};
-
 #if	defined(CONFIG_OMAP_DSP)
 /*
  * audio power control
@@ -374,8 +371,6 @@ static void __init omap_nokia770_init(void)
 	platform_add_devices(nokia770_devices, ARRAY_SIZE(nokia770_devices));
 	spi_register_board_info(nokia770_spi_board_info,
 				ARRAY_SIZE(nokia770_spi_board_info));
-	omap_board_config = nokia770_config;
-	omap_board_config_size = ARRAY_SIZE(nokia770_config);
 	omap_gpio_init();
 	omap_serial_init();
 	omap_register_i2c_bus(1, 100, NULL, 0);
