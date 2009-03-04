@@ -56,10 +56,60 @@ static inline void omap_init_camera(void)
 
 #elif defined(CONFIG_VIDEO_OMAP3) || defined(CONFIG_VIDEO_OMAP3_MODULE)
 
-static struct resource cam_resources[] = {
+static struct resource omap3isp_resources[] = {
 	{
-		.start		= OMAP34XX_CAMERA_BASE,
-		.end		= OMAP34XX_CAMERA_BASE + 0x1B70,
+		.start		= OMAP3430_ISP_BASE,
+		.end		= OMAP3430_ISP_END,
+		.flags		= IORESOURCE_MEM,
+	},
+	{
+		.start		= OMAP3430_ISP_CBUFF_BASE,
+		.end		= OMAP3430_ISP_CBUFF_END,
+		.flags		= IORESOURCE_MEM,
+	},
+	{
+		.start		= OMAP3430_ISP_CCP2_BASE,
+		.end		= OMAP3430_ISP_CCP2_END,
+		.flags		= IORESOURCE_MEM,
+	},
+	{
+		.start		= OMAP3430_ISP_CCDC_BASE,
+		.end		= OMAP3430_ISP_CCDC_END,
+		.flags		= IORESOURCE_MEM,
+	},
+	{
+		.start		= OMAP3430_ISP_HIST_BASE,
+		.end		= OMAP3430_ISP_HIST_END,
+		.flags		= IORESOURCE_MEM,
+	},
+	{
+		.start		= OMAP3430_ISP_H3A_BASE,
+		.end		= OMAP3430_ISP_H3A_END,
+		.flags		= IORESOURCE_MEM,
+	},
+	{
+		.start		= OMAP3430_ISP_PREV_BASE,
+		.end		= OMAP3430_ISP_PREV_END,
+		.flags		= IORESOURCE_MEM,
+	},
+	{
+		.start		= OMAP3430_ISP_RESZ_BASE,
+		.end		= OMAP3430_ISP_RESZ_END,
+		.flags		= IORESOURCE_MEM,
+	},
+	{
+		.start		= OMAP3430_ISP_SBL_BASE,
+		.end		= OMAP3430_ISP_SBL_END,
+		.flags		= IORESOURCE_MEM,
+	},
+	{
+		.start		= OMAP3430_ISP_CSI2A_BASE,
+		.end		= OMAP3430_ISP_CSI2A_END,
+		.flags		= IORESOURCE_MEM,
+	},
+	{
+		.start		= OMAP3430_ISP_CSI2PHY_BASE,
+		.end		= OMAP3430_ISP_CSI2PHY_END,
 		.flags		= IORESOURCE_MEM,
 	},
 	{
@@ -68,16 +118,16 @@ static struct resource cam_resources[] = {
 	}
 };
 
-static struct platform_device omap_cam_device = {
-	.name		= "omap34xxcam",
+static struct platform_device omap3isp_device = {
+	.name		= "omap3isp",
 	.id		= -1,
-	.num_resources	= ARRAY_SIZE(cam_resources),
-	.resource	= cam_resources,
+	.num_resources	= ARRAY_SIZE(omap3isp_resources),
+	.resource	= omap3isp_resources,
 };
 
 static inline void omap_init_camera(void)
 {
-	platform_device_register(&omap_cam_device);
+	platform_device_register(&omap3isp_device);
 }
 #else
 static inline void omap_init_camera(void)
