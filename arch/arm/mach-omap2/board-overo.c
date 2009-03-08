@@ -279,11 +279,13 @@ static struct twl4030_usb_data overo_usb_data = {
 
 static struct regulator_init_data overo_vmmc1 = {
 	.constraints = {
-		.valid_modes_mask = REGULATOR_MODE_NORMAL
-				| REGULATOR_MODE_STANDBY,
-		.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE
-				| REGULATOR_CHANGE_MODE
-				| REGULATOR_CHANGE_STATUS,
+		.min_uV			= 1850000,
+		.max_uV			= 3150000,
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL
+					| REGULATOR_MODE_STANDBY,
+		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE
+					| REGULATOR_CHANGE_MODE
+					| REGULATOR_CHANGE_STATUS,
 	},
 };
 

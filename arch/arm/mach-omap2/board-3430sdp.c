@@ -335,7 +335,7 @@ static struct regulator_consumer_supply sdp3430_vmmc1_supply = {
 };
 
 static struct regulator_consumer_supply sdp3430_vsim_supply = {
-	.supply			= "vmmc_dat4..7",
+	.supply			= "vmmc_aux",
 };
 
 static struct regulator_consumer_supply sdp3430_vmmc2_supply = {
@@ -528,11 +528,13 @@ static struct regulator_init_data sdp3430_vaux4 = {
 /* VMMC1 for OMAP VDD_MMC1 (i/o) and MMC1 card */
 static struct regulator_init_data sdp3430_vmmc1 = {
 	.constraints = {
-		.valid_modes_mask = REGULATOR_MODE_NORMAL
-				| REGULATOR_MODE_STANDBY,
-		.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE
-				| REGULATOR_CHANGE_MODE
-				| REGULATOR_CHANGE_STATUS,
+		.min_uV			= 1850000,
+		.max_uV			= 3150000,
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL
+					| REGULATOR_MODE_STANDBY,
+		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE
+					| REGULATOR_CHANGE_MODE
+					| REGULATOR_CHANGE_STATUS,
 	},
 	.num_consumer_supplies	= 1,
 	.consumer_supplies	= &sdp3430_vmmc1_supply,
@@ -556,11 +558,13 @@ static struct regulator_init_data sdp3430_vmmc2 = {
 /* VSIM for OMAP VDD_MMC1A (i/o for DAT4..DAT7) */
 static struct regulator_init_data sdp3430_vsim = {
 	.constraints = {
-		.valid_modes_mask = REGULATOR_MODE_NORMAL
-				| REGULATOR_MODE_STANDBY,
-		.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE
-				| REGULATOR_CHANGE_MODE
-				| REGULATOR_CHANGE_STATUS,
+		.min_uV			= 1800000,
+		.max_uV			= 3000000,
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL
+					| REGULATOR_MODE_STANDBY,
+		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE
+					| REGULATOR_CHANGE_MODE
+					| REGULATOR_CHANGE_STATUS,
 	},
 	.num_consumer_supplies	= 1,
 	.consumer_supplies	= &sdp3430_vsim_supply,

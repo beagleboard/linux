@@ -131,7 +131,7 @@ static struct regulator_consumer_supply beagle_vmmc1_supply = {
 };
 
 static struct regulator_consumer_supply beagle_vsim_supply = {
-	.supply			= "vmmc_dat4..7",
+	.supply			= "vmmc_aux",
 };
 
 static struct gpio_led gpio_leds[];
@@ -179,11 +179,13 @@ static struct twl4030_gpio_platform_data beagle_gpio_data = {
 /* VMMC1 for MMC1 pins CMD, CLK, DAT0..DAT3 (20 mA, plus card == max 220 mA) */
 static struct regulator_init_data beagle_vmmc1 = {
 	.constraints = {
-		.valid_modes_mask = REGULATOR_MODE_NORMAL
-				| REGULATOR_MODE_STANDBY,
-		.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE
-				| REGULATOR_CHANGE_MODE
-				| REGULATOR_CHANGE_STATUS,
+		.min_uV			= 1850000,
+		.max_uV			= 3150000,
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL
+					| REGULATOR_MODE_STANDBY,
+		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE
+					| REGULATOR_CHANGE_MODE
+					| REGULATOR_CHANGE_STATUS,
 	},
 	.num_consumer_supplies	= 1,
 	.consumer_supplies	= &beagle_vmmc1_supply,
@@ -192,11 +194,13 @@ static struct regulator_init_data beagle_vmmc1 = {
 /* VSIM for MMC1 pins DAT4..DAT7 (2 mA, plus card == max 50 mA) */
 static struct regulator_init_data beagle_vsim = {
 	.constraints = {
-		.valid_modes_mask = REGULATOR_MODE_NORMAL
-				| REGULATOR_MODE_STANDBY,
-		.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE
-				| REGULATOR_CHANGE_MODE
-				| REGULATOR_CHANGE_STATUS,
+		.min_uV			= 1800000,
+		.max_uV			= 3000000,
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL
+					| REGULATOR_MODE_STANDBY,
+		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE
+					| REGULATOR_CHANGE_MODE
+					| REGULATOR_CHANGE_STATUS,
 	},
 	.num_consumer_supplies	= 1,
 	.consumer_supplies	= &beagle_vsim_supply,
