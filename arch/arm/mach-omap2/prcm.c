@@ -19,6 +19,7 @@
 #include <linux/io.h>
 
 #include <mach/common.h>
+#include <mach/control.h>
 #include <mach/prcm.h>
 
 #include "clock.h"
