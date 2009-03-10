@@ -357,7 +357,8 @@ static int twl_mmc2_set_power(struct device *dev, int slot, int power_on, int vd
 	return ret;
 }
 
-static int twl_mmc3_set_power(struct device *dev, int slot, int power_on, int vdd)
+static int twl_mmc3_set_power(struct device *dev, int slot, int power_on,
+		int vdd)
 {
 	/*
 	 * Assume MMC3 has self-powered device connected, for example on-board
