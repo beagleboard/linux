@@ -36,12 +36,12 @@ struct twlreg_info {
 	/* twl4030 resource ID, for resource control state machine */
 	u8			id;
 
+	/* FIXED_LDO voltage */
+	u8			deciV;
+
 	/* voltage in mV = table[VSEL]; table_len must be a power-of-two */
 	u8			table_len;
 	const u16		*table;
-
-	/* chip constraints on regulator behavior */
-	u16			min_mV;
 
 	/* used by regulator core */
 	struct regulator_desc	desc;
@@ -97,6 +97,7 @@ static int twl4030reg_grp(struct regulator_dev *rdev)
 #define P3_GRP		BIT(7)		/* "peripherals" */
 #define P2_GRP		BIT(6)		/* secondary processor, modem, etc */
 #define P1_GRP		BIT(5)		/* CPU/Linux */
+#define WARM_CFG	BIT(4)
 
 static int twl4030reg_is_enabled(struct regulator_dev *rdev)
 {
@@ -329,14 +330,14 @@ static int twl4030fixed_list_voltage(struct regulator_dev *rdev, unsigned index)
 {
 	struct twlreg_info	*info = rdev_get_drvdata(rdev);
 
-	return info->min_mV * 1000;
+	return info->deciV * 100 * 1000;
 }
 
 static int twl4030fixed_get_voltage(struct regulator_dev *rdev)
 {
 	struct twlreg_info	*info = rdev_get_drvdata(rdev);
 
-	return info->min_mV * 1000;
+	return info->deciV * 100 * 1000;
 }
 
 static struct regulator_ops twl4030fixed_ops = {
@@ -373,7 +374,7 @@ static struct regulator_ops twl4030fixed_ops = {
 #define TWL_FIXED_LDO(label, offset, mVolts, num) { \
 	.base = offset, \
 	.id = num, \
-	.min_mV = mVolts, \
+	.deciV = mVolts / 100 , \
 	.desc = { \
 		.name = #label, \
 		.id = TWL4030_REG_##label, \
@@ -385,7 +386,7 @@ static struct regulator_ops twl4030fixed_ops = {
 	}
 
 /*
- * We list regulators here if systems need some level of
+ * We expose regulators here if systems need some level of
  * software control over them after boot.
  */
 static struct twlreg_info twl4030_regs[] = {
@@ -439,6 +440,7 @@ static int twl4030reg_probe(struct platform_device *pdev)
 
 	/* Constrain board-specific capabilities according to what
 	 * this driver and the chip itself can actually do.
+	 * (Regulator core now does this for voltage constraints.)
 	 */
 	c = &initdata->constraints;
 	c->valid_modes_mask &= REGULATOR_MODE_NORMAL | REGULATOR_MODE_STANDBY;
