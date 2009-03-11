@@ -286,12 +286,17 @@ static int __init new_switch(struct gpio_switch *sw)
 
 	/* input: 1, output: 0 */
 	direction = !(sw->flags & OMAP_GPIO_SWITCH_FLAG_OUTPUT);
-	if (direction)
+	if (direction) {
 		gpio_direction_input(sw->gpio);
-	else
-		gpio_direction_output(sw->gpio, true);
+		sw->state = gpio_sw_get_state(sw);
+	} else {
+		int state = sw->state = !!(sw->flags &
+			OMAP_GPIO_SWITCH_FLAG_OUTPUT_INIT_ACTIVE);
 
-	sw->state = gpio_sw_get_state(sw);
+		if (sw->flags & OMAP_GPIO_SWITCH_FLAG_INVERTED)
+			state = !state;
+		gpio_direction_output(sw->gpio, state);
+	}
 
 	r = 0;
 	r |= device_create_file(&sw->pdev.dev, &dev_attr_state);
