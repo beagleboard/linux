@@ -28,7 +28,10 @@
 #include <mach/dma.h>
 #include <mach/gpmc.h>
 
-#define	SMC91X_CS			1
+#include "mmc-twl4030.h"
+
+
+#define SMC91X_CS			1
 #define SMC91X_GPIO_IRQ			54
 #define SMC91X_GPIO_RESET		164
 #define SMC91X_GPIO_PWRDWN		86
@@ -247,6 +250,37 @@ static struct twl4030_madc_platform_data rx51_madc_data = {
 	.irq_line		= 1,
 };
 
+static struct twl4030_hsmmc_info mmc[] = {
+	{
+		.name		= "external",
+		.mmc		= 1,
+		.wires		= 4,
+		.cover_only	= true,
+		.gpio_cd	= 160,
+		.gpio_wp	= -EINVAL,
+	},
+	{
+		.name		= "internal",
+		.mmc		= 2,
+		.wires		= 8,
+		.gpio_cd	= -EINVAL,
+		.gpio_wp	= -EINVAL,
+	},
+	{}	/* Terminator */
+};
+
+static struct regulator_consumer_supply rx51_vmmc1_supply = {
+	.supply			= "vmmc",
+};
+
+static struct regulator_consumer_supply rx51_vmmc2_supply = {
+	.supply			= "vmmc",
+};
+
+static struct regulator_consumer_supply rx51_vsim_supply = {
+	.supply			= "vmmc_aux",
+};
+
 static struct regulator_init_data rx51_vaux1 = {
 	.constraints = {
 		.name			= "V28",
@@ -308,6 +342,8 @@ static struct regulator_init_data rx51_vmmc1 = {
 					| REGULATOR_CHANGE_MODE
 					| REGULATOR_CHANGE_STATUS,
 	},
+	.num_consumer_supplies	= 1,
+	.consumer_supplies	= &rx51_vmmc1_supply,
 };
 
 static struct regulator_init_data rx51_vmmc2 = {
@@ -322,6 +358,8 @@ static struct regulator_init_data rx51_vmmc2 = {
 					| REGULATOR_CHANGE_MODE
 					| REGULATOR_CHANGE_STATUS,
 	},
+	.num_consumer_supplies	= 1,
+	.consumer_supplies	= &rx51_vmmc2_supply,
 };
 
 static struct regulator_init_data rx51_vsim = {
@@ -335,6 +373,8 @@ static struct regulator_init_data rx51_vsim = {
 		.valid_ops_mask		= REGULATOR_CHANGE_MODE
 					| REGULATOR_CHANGE_STATUS,
 	},
+	.num_consumer_supplies	= 1,
+	.consumer_supplies	= &rx51_vsim_supply,
 };
 
 static struct regulator_init_data rx51_vdac = {
@@ -357,7 +397,11 @@ static int rx51_twlgpio_setup(struct device *dev, unsigned gpio, unsigned n)
 	gpio_request(gpio + 7, "speaker_en");
 	gpio_direction_output(gpio + 7, 1);
 
-	/* FIXME connect power supplies to devices; register MMC */
+	/* set up MMC adapters, linking their regulators to them */
+	twl4030_mmc_init(mmc);
+	rx51_vmmc1_supply.dev = mmc[0].dev;
+	rx51_vmmc2_supply.dev = mmc[1].dev;
+	rx51_vsim_supply.dev = mmc[1].dev;
 
 	return 0;
 }

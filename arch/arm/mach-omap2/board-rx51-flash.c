@@ -10,34 +10,11 @@
 
 #include <linux/kernel.h>
 #include <linux/init.h>
-#include <linux/errno.h>
-
-#include "mmc-twl4030.h"
 
 extern void __init n800_flash_init(void);
-
-static struct twl4030_hsmmc_info mmc[] __initdata = {
-	{
-		.name		= "external",
-		.mmc		= 1,
-		.wires		= 4,
-		.cover_only	= true,
-		.gpio_cd	= 160,
-		.gpio_wp	= -EINVAL,
-	},
-	{
-		.name		= "internal",
-		.mmc		= 2,
-		.wires		= 8,
-		.gpio_cd	= -EINVAL,
-		.gpio_wp	= -EINVAL,
-	},
-	{}	/* Terminator */
-};
 
 void __init rx51_flash_init(void)
 {
 	n800_flash_init();
-	twl4030_mmc_init(mmc);
 }
 
