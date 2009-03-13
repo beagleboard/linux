@@ -33,20 +33,6 @@ extern void sdp3430_usb_init(void);
 extern void sdp3430_flash_init(void);
 extern void twl4030_bci_battery_init(void);
 
-#define DEBUG_BASE			0x08000000  /* debug board */
-
-/* Placeholder for 3430SDP specific defines */
-
-#define OMAP34XX_ETHR_START		DEBUG_BASE
-#define OMAP34XX_ETHR_GPIO_IRQ_SDPV1	29
-#define OMAP34XX_ETHR_GPIO_IRQ_SDPV2	6
-
-/*
- * GPIO used for TSC2046, TI's Touchscreen controller
- */
-#define OMAP34XX_TS_GPIO_IRQ_SDPV1     3
-#define OMAP34XX_TS_GPIO_IRQ_SDPV2     2
-
 /* NAND */
 /* IMPORTANT NOTE ON MAPPING
  * 3430SDP - 34XX

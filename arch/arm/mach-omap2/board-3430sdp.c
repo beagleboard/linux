@@ -17,9 +17,7 @@
 #include <linux/platform_device.h>
 #include <linux/delay.h>
 #include <linux/input.h>
-#include <linux/workqueue.h>
 #include <linux/err.h>
-#include <linux/clk.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/ads7846.h>
 #include <linux/i2c/twl4030.h>
@@ -47,11 +45,19 @@
 
 #define CONFIG_DISABLE_HFCLK 1
 
-#define	SDP3430_SMC91X_CS	3
+#define SDP3430_ETHR_START		DEBUG_BASE
+#define SDP3430_ETHR_GPIO_IRQ_SDPV1	29
+#define SDP3430_ETHR_GPIO_IRQ_SDPV2	6
+#define SDP3430_SMC91X_CS		3
+
+#define SDP3430_TS_GPIO_IRQ_SDPV1	3
+#define SDP3430_TS_GPIO_IRQ_SDPV2	2
 
 #define ENABLE_VAUX3_DEDICATED	0x03
 #define ENABLE_VAUX3_DEV_GRP	0x20
 
+#define ENABLE_VAUX3_DEDICATED	0x03
+#define ENABLE_VAUX3_DEV_GRP	0x20
 
 #define TWL4030_MSECURE_GPIO 22
 
@@ -115,7 +121,7 @@ static struct twl4030_keypad_data sdp3430_kp_data = {
 	.rep		= 1,
 };
 
-static int ts_gpio;
+static int ts_gpio;	/* Needed for ads7846_get_pendown_state */
 
 static int __init msecure_init(void)
 {
@@ -215,7 +221,7 @@ static struct ads7846_platform_data tsc2046_config __initdata = {
 
 static struct omap2_mcspi_device_config tsc2046_mcspi_config = {
 	.turbo_mode	= 0,
-	.single_channel	= 1,  /* 0: slave, 1: master */
+	.single_channel	= 1,	/* 0: slave, 1: master */
 };
 
 static struct spi_board_info sdp3430_spi_board_info[] __initdata = {
@@ -258,13 +264,13 @@ static inline void __init sdp3430_init_smc91x(void)
 	}
 
 	sdp3430_smc91x_resources[0].start = cs_mem_base + 0x300;
-	sdp3430_smc91x_resources[0].end   = cs_mem_base + 0x30f;
+	sdp3430_smc91x_resources[0].end = cs_mem_base + 0x30f;
 	udelay(100);
 
 	if (omap_rev() > OMAP3430_REV_ES1_0)
-		eth_gpio = OMAP34XX_ETHR_GPIO_IRQ_SDPV2;
+		eth_gpio = SDP3430_ETHR_GPIO_IRQ_SDPV2;
 	else
-		eth_gpio = OMAP34XX_ETHR_GPIO_IRQ_SDPV1;
+		eth_gpio = SDP3430_ETHR_GPIO_IRQ_SDPV1;
 
 	sdp3430_smc91x_resources[1].start = gpio_to_irq(eth_gpio);
 
@@ -309,8 +315,8 @@ static int sdp3430_batt_table[] = {
 };
 
 static struct twl4030_bci_platform_data sdp3430_bci_data = {
-      .battery_tmp_tbl	= sdp3430_batt_table,
-      .tblsize		= ARRAY_SIZE(sdp3430_batt_table),
+	.battery_tmp_tbl	= sdp3430_batt_table,
+	.tblsize		= ARRAY_SIZE(sdp3430_batt_table),
 };
 
 static struct twl4030_hsmmc_info mmc[] = {
@@ -633,9 +639,9 @@ static void __init omap_3430sdp_init(void)
 	omap_board_config = sdp3430_config;
 	omap_board_config_size = ARRAY_SIZE(sdp3430_config);
 	if (omap_rev() > OMAP3430_REV_ES1_0)
-		ts_gpio = OMAP34XX_TS_GPIO_IRQ_SDPV2;
+		ts_gpio = SDP3430_TS_GPIO_IRQ_SDPV2;
 	else
-		ts_gpio = OMAP34XX_TS_GPIO_IRQ_SDPV1;
+		ts_gpio = SDP3430_TS_GPIO_IRQ_SDPV1;
 	sdp3430_spi_board_info[0].irq = gpio_to_irq(ts_gpio);
 	spi_register_board_info(sdp3430_spi_board_info,
 				ARRAY_SIZE(sdp3430_spi_board_info));
