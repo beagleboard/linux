@@ -14,6 +14,8 @@
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/clk.h>
+#include <linux/io.h>
+#include <linux/delay.h>
 
 #include <mach/hardware.h>
 #include <asm/mach-types.h>
@@ -29,10 +31,6 @@
 #include <mach/dma.h>
 #include <mach/gpmc.h>
 #include <mach/usb.h>
-
-#include <asm/io.h>
-#include <asm/delay.h>
-
 
 static struct omap_uart_config rx51_uart_config = {
 	.enabled_uarts	= ((1 << 0) | (1 << 1) | (1 << 2)),
