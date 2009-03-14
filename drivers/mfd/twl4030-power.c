@@ -38,6 +38,8 @@ static u8 triton_next_free_address = 0x2b;
 #define PHY_TO_OFF_PM_MASTER(p)		(p - 0x36)
 #define PHY_TO_OFF_PM_RECEIVER(p)	(p - 0x5b)
 
+#define NUM_OF_RESOURCES	28
+
 /* resource - hfclk */
 #define R_HFCLKOUT_DEV_GRP 	PHY_TO_OFF_PM_RECEIVER(0xe6)
 
@@ -65,6 +67,42 @@ static u8 triton_next_free_address = 0x2b;
 #define R_PROTECT_KEY		0x0E
 #define KEY_1			0xC0
 #define KEY_2			0x0C
+
+/* resource configuration registers */
+
+#define DEVGROUP_OFFSET		0
+#define TYPE_OFFSET		1
+
+static u8 res_config_addrs[] = {
+	[RES_VAUX1]	= 0x17,
+	[RES_VAUX2]	= 0x1b,
+	[RES_VAUX3]	= 0x1f,
+	[RES_VAUX4]	= 0x23,
+	[RES_VMMC1]	= 0x27,
+	[RES_VMMC2]	= 0x2b,
+	[RES_VPLL1]	= 0x2f,
+	[RES_VPLL2]	= 0x33,
+	[RES_VSIM]	= 0x37,
+	[RES_VDAC]	= 0x3b,
+	[RES_VINTANA1]	= 0x3f,
+	[RES_VINTANA2]	= 0x43,
+	[RES_VINTDIG]	= 0x47,
+	[RES_VIO]	= 0x4b,
+	[RES_VDD1]	= 0x55,
+	[RES_VDD2]	= 0x63,
+	[RES_VUSB_1V5]	= 0x71,
+	[RES_VUSB_1V8]	= 0x74,
+	[RES_VUSB_3V1]	= 0x77,
+	[RES_VUSBCP]	= 0x7a,
+	[RES_REGEN]	= 0x7f,
+	[RES_NRES_PWRON] = 0x82,
+	[RES_CLKEN]	= 0x85,
+	[RES_SYSEN]	= 0x88,
+	[RES_HFCLKOUT]	= 0x8b,
+	[RES_32KCLKOUT]	= 0x8e,
+	[RES_RESET]	= 0x91,
+	[RES_Main_Ref]	= 0x94,
+};
 
 static int __init twl4030_write_script_byte(u8 address, u8 byte)
 {
@@ -219,6 +257,53 @@ static int __init config_warmreset_sequence(u8 address)
 	return err;
 }
 
+void twl4030_configure_resource(struct twl4030_resconfig *rconfig)
+{
+	int rconfig_addr;
+	u8 type;
+
+	if (rconfig->resource > NUM_OF_RESOURCES) {
+		printk(KERN_ERR
+			"TWL4030 Resource %d does not exist\n",
+			rconfig->resource);
+		return;
+	}
+
+	rconfig_addr = res_config_addrs[rconfig->resource];
+
+	/* Set resource group */
+
+	if (rconfig->devgroup >= 0)
+		twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
+					rconfig->devgroup << 5,
+					rconfig_addr + DEVGROUP_OFFSET);
+
+	/* Set resource types */
+
+	if (twl4030_i2c_read_u8(TWL4030_MODULE_PM_RECEIVER,
+					&type,
+					rconfig_addr + TYPE_OFFSET) < 0) {
+		printk(KERN_ERR
+			"TWL4030 Resource %d type could not read\n",
+			rconfig->resource);
+		return;
+	}
+
+	if (rconfig->type >= 0) {
+		type &= ~7;
+		type |= rconfig->type;
+	}
+
+	if (rconfig->type2 >= 0) {
+		type &= ~(3 << 3);
+		type |= rconfig->type2 << 3;
+	}
+
+	twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
+				type, rconfig_addr + TYPE_OFFSET);
+
+}
+
 static int __init load_triton_script(struct twl4030_script *tscript)
 {
 	u8 address = triton_next_free_address;
@@ -249,6 +334,7 @@ void __init twl4030_power_init(struct twl4030_power_data *triton2_scripts)
 {
 	int err = 0;
 	int i;
+	struct twl4030_resconfig *resconfig;
 
 	err = twl4030_i2c_write_u8(TWL4030_MODULE_PM_MASTER, KEY_1,
 				R_PROTECT_KEY);
@@ -262,6 +348,14 @@ void __init twl4030_power_init(struct twl4030_power_data *triton2_scripts)
 		err = load_triton_script(triton2_scripts->scripts[i]);
 		if (err)
 			break;
+	}
+
+	resconfig = triton2_scripts->resource_config;
+	if (resconfig) {
+		while (resconfig->resource) {
+			twl4030_configure_resource(resconfig);
+			resconfig++;
+		}
 	}
 
 	if (twl4030_i2c_write_u8(TWL4030_MODULE_PM_MASTER, 0, R_PROTECT_KEY))
