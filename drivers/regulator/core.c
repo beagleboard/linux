@@ -711,6 +711,7 @@ static int set_machine_constraints(struct regulator_dev *rdev,
 	int ret = 0;
 	const char *name;
 	struct regulator_ops *ops = rdev->desc->ops;
+	int enable = 0;
 
 	if (constraints->name)
 		name = constraints->name;
@@ -799,10 +800,6 @@ static int set_machine_constraints(struct regulator_dev *rdev,
 			}
 	}
 
-	/* are we enabled at boot time by firmware / bootloader */
-	if (rdev->constraints->boot_on)
-		rdev->use_count = 1;
-
 	/* do we need to setup our suspend state */
 	if (constraints->initial_state) {
 		ret = suspend_prepare(rdev, constraints->initial_state);
@@ -814,21 +811,39 @@ static int set_machine_constraints(struct regulator_dev *rdev,
 		}
 	}
 
-	/* if always_on is set then turn the regulator on if it's not
-	 * already on. */
-	if (constraints->always_on && ops->enable &&
-	    ((ops->is_enabled && !ops->is_enabled(rdev)) ||
-	     (!ops->is_enabled && !constraints->boot_on))) {
-		ret = ops->enable(rdev);
-		if (ret < 0) {
-			printk(KERN_ERR "%s: failed to enable %s\n",
-			       __func__, name);
-			rdev->constraints = NULL;
-			goto out;
+	/* Should this be enabled when we return from here?  The difference
+	 * between "boot_on" and "always_on" is that "always_on" regulators
+	 * won't ever be disabled.
+	 */
+	if (constraints->boot_on || constraints->always_on)
+		enable = 1;
+
+	/* Make sure the regulator isn't wrongly enabled or disabled.
+	 * Bootloaders are often sloppy about leaving things on; and
+	 * sometimes Linux wants to use a different model.
+	 */
+	if (enable) {
+		if (ops->enable) {
+			ret = ops->enable(rdev);
+			if (ret < 0)
+				pr_warning("%s: %s disable --> %d\n",
+					       __func__, name, ret);
+		}
+		if (ret >= 0)
+			rdev->use_count = 1;
+	} else {
+		if (ops->disable) {
+			ret = ops->disable(rdev);
+			if (ret < 0)
+				pr_warning("%s: %s disable --> %d\n",
+					       __func__, name, ret);
 		}
 	}
 
-	print_constraints(rdev);
+	if (ret < 0)
+		rdev->constraints = NULL;
+	else
+		print_constraints(rdev);
 out:
 	return ret;
 }
