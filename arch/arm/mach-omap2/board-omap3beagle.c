@@ -176,6 +176,21 @@ static struct twl4030_gpio_platform_data beagle_gpio_data = {
 	.setup		= beagle_twl_gpio_setup,
 };
 
+static struct platform_device omap3_beagle_lcd_device = {
+	.name		= "omap3beagle_lcd",
+	.id		= -1,
+};
+
+static struct regulator_consumer_supply beagle_vdac_supply = {
+	.supply		= "vdac",
+	.dev		= &omap3_beagle_lcd_device.dev,
+};
+
+static struct regulator_consumer_supply beagle_vdvi_supply = {
+	.supply		= "vdvi",
+	.dev		= &omap3_beagle_lcd_device.dev,
+};
+
 /* VMMC1 for MMC1 pins CMD, CLK, DAT0..DAT3 (20 mA, plus card == max 220 mA) */
 static struct regulator_init_data beagle_vmmc1 = {
 	.constraints = {
@@ -216,6 +231,45 @@ static struct regulator_init_data beagle_vdac = {
 		.valid_ops_mask		= REGULATOR_CHANGE_MODE
 					| REGULATOR_CHANGE_STATUS,
 	},
+	.num_consumer_supplies	= 1,
+	.consumer_supplies	= &beagle_vdac_supply,
+};
+
+/* VPLL2 for digital video outputs */
+static struct regulator_init_data beagle_vpll2 = {
+	.constraints = {
+		.name			= "VDVI",
+		.min_uV			= 1800000,
+		.max_uV			= 1800000,
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL
+					| REGULATOR_MODE_STANDBY,
+		.valid_ops_mask		= REGULATOR_CHANGE_MODE
+					| REGULATOR_CHANGE_STATUS,
+	},
+	.num_consumer_supplies	= 1,
+	.consumer_supplies	= &beagle_vdvi_supply,
+};
+
+static const struct twl4030_resconfig beagle_resconfig[] = {
+	/* disable regulators that u-boot left enabled; the
+	 * devices' drivers should be managing these.
+	 */
+	{ .resource = RES_VAUX3, },	/* not even connected! */
+	{ .resource = RES_VMMC1, },
+	{ .resource = RES_VSIM, },
+	{ .resource = RES_VPLL2, },
+	{ .resource = RES_VDAC, },
+	{ .resource = RES_VUSB_1V5, },
+	{ .resource = RES_VUSB_1V8, },
+	{ .resource = RES_VUSB_3V1, },
+	{ 0, },
+};
+
+static struct twl4030_power_data beagle_power_data = {
+	.resource_config	= beagle_resconfig,
+	/* REVISIT can't use GENERIC3430_T2SCRIPTS_DATA;
+	 * among other things, it makes reboot fail.
+	 */
 };
 
 static struct twl4030_platform_data beagle_twldata = {
@@ -225,10 +279,11 @@ static struct twl4030_platform_data beagle_twldata = {
 	/* platform_data for children goes here */
 	.usb		= &beagle_usb_data,
 	.gpio		= &beagle_gpio_data,
-	.power		= GENERIC3430_T2SCRIPTS_DATA,
+	.power		= &beagle_power_data,
 	.vmmc1		= &beagle_vmmc1,
 	.vsim		= &beagle_vsim,
 	.vdac		= &beagle_vdac,
+	.vpll2		= &beagle_vpll2,
 };
 
 static struct i2c_board_info __initdata beagle_i2c_boardinfo[] = {
@@ -256,11 +311,6 @@ static void __init omap3_beagle_init_irq(void)
 	omap_init_irq();
 	omap_gpio_init();
 }
-
-static struct platform_device omap3_beagle_lcd_device = {
-	.name		= "omap3beagle_lcd",
-	.id		= -1,
-};
 
 static struct omap_lcd_config omap3_beagle_lcd_config __initdata = {
 	.ctrl_name	= "internal",
