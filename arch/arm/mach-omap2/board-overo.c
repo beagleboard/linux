@@ -267,10 +267,43 @@ static struct omap_uart_config overo_uart_config __initdata = {
 	.enabled_uarts	= ((1 << 0) | (1 << 1) | (1 << 2)),
 };
 
+static struct twl4030_hsmmc_info mmc[] = {
+	{
+		.mmc		= 1,
+		.wires		= 4,
+		.gpio_cd	= -EINVAL,
+		.gpio_wp	= -EINVAL,
+	},
+	{
+		.mmc		= 2,
+		.wires		= 4,
+		.gpio_cd	= -EINVAL,
+		.gpio_wp	= -EINVAL,
+		.transceiver	= true,
+		.ocr_mask	= 0x00100000,	/* 3.3V */
+	},
+	{}	/* Terminator */
+};
+
+static struct regulator_consumer_supply overo_vmmc1_supply = {
+	.supply			= "vmmc",
+};
+
+static int overo_twl_gpio_setup(struct device *dev,
+		unsigned gpio, unsigned ngpio)
+{
+	twl4030_mmc_init(mmc);
+
+	overo_vmmc1_supply.dev = mmc[0].dev;
+
+	return 0;
+}
+
 static struct twl4030_gpio_platform_data overo_gpio_data = {
 	.gpio_base	= OMAP_MAX_GPIO_LINES,
 	.irq_base	= TWL4030_GPIO_IRQ_BASE,
 	.irq_end	= TWL4030_GPIO_IRQ_END,
+	.setup		= overo_twl_gpio_setup,
 };
 
 static struct twl4030_usb_data overo_usb_data = {
@@ -287,6 +320,8 @@ static struct regulator_init_data overo_vmmc1 = {
 					| REGULATOR_CHANGE_MODE
 					| REGULATOR_CHANGE_STATUS,
 	},
+	.num_consumer_supplies	= 1,
+	.consumer_supplies	= &overo_vmmc1_supply,
 };
 
 /* mmc2 (WLAN) and Bluetooth don't use twl4030 regulators */
@@ -343,23 +378,6 @@ static struct platform_device *overo_devices[] __initdata = {
 	&overo_lcd_device,
 };
 
-static struct twl4030_hsmmc_info mmc[] __initdata = {
-	{
-		.mmc		= 1,
-		.wires		= 4,
-		.gpio_cd	= -EINVAL,
-		.gpio_wp	= -EINVAL,
-	},
-	{
-		.mmc		= 2,
-		.wires		= 4,
-		.gpio_cd	= -EINVAL,
-		.gpio_wp	= -EINVAL,
-		.transceiver	= true,
-	},
-	{}	/* Terminator */
-};
-
 static void __init overo_init(void)
 {
 	overo_i2c_init();
@@ -367,7 +385,6 @@ static void __init overo_init(void)
 	omap_board_config = overo_config;
 	omap_board_config_size = ARRAY_SIZE(overo_config);
 	omap_serial_init();
-	twl4030_mmc_init(mmc);
 	usb_musb_init();
 	usb_ehci_init();
 	overo_flash_init();
