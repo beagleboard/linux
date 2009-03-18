@@ -226,9 +226,6 @@ int omap_mcbsp_request(unsigned int id)
 	if (mcbsp->pdata && mcbsp->pdata->ops && mcbsp->pdata->ops->request)
 		mcbsp->pdata->ops->request(id);
 
-	for (i = 0; i < mcbsp->num_clks; i++)
-		clk_enable(mcbsp->clks[i]);
-
 	spin_lock(&mcbsp->lock);
 	if (!mcbsp->free) {
 		dev_err(mcbsp->dev, "McBSP%d is currently in use\n",
@@ -239,6 +236,9 @@ int omap_mcbsp_request(unsigned int id)
 
 	mcbsp->free = 0;
 	spin_unlock(&mcbsp->lock);
+
+	for (i = 0; i < mcbsp->num_clks; i++)
+		clk_enable(mcbsp->clks[i]);
 
 	/*
 	 * Enable wakup behavior, smart idle and all wakeups
@@ -319,9 +319,6 @@ void omap_mcbsp_free(unsigned int id)
 	if (mcbsp->pdata && mcbsp->pdata->ops && mcbsp->pdata->ops->free)
 		mcbsp->pdata->ops->free(id);
 
-	for (i = mcbsp->num_clks - 1; i >= 0; i--)
-		clk_disable(mcbsp->clks[i]);
-
 	spin_lock(&mcbsp->lock);
 	if (mcbsp->free) {
 		dev_err(mcbsp->dev, "McBSP%d was not reserved\n",
@@ -329,7 +326,12 @@ void omap_mcbsp_free(unsigned int id)
 		spin_unlock(&mcbsp->lock);
 		return;
 	}
+	spin_unlock(&mcbsp->lock);
 
+	for (i = mcbsp->num_clks - 1; i >= 0; i--)
+		clk_disable(mcbsp->clks[i]);
+
+	spin_lock(&mcbsp->lock);
 	mcbsp->free = 1;
 	spin_unlock(&mcbsp->lock);
 
