@@ -248,8 +248,8 @@ int omap_mcbsp_request(unsigned int id)
 		u16 w;
 
 		w = OMAP_MCBSP_READ(mcbsp->io_base, SYSCON);
-		w &= ~(ENAWAKEUP | SIDLEMODE(0x03));
-		w |= (ENAWAKEUP | SIDLEMODE(0x02));
+		w &= ~(ENAWAKEUP | SIDLEMODE(0x03) | CLOCKACTIVITY(0x03));
+		w |= (ENAWAKEUP | SIDLEMODE(0x02) | CLOCKACTIVITY(0x02));
 		OMAP_MCBSP_WRITE(mcbsp->io_base, SYSCON, w);
 
 		OMAP_MCBSP_WRITE(mcbsp->io_base, WAKEUPEN, WAKEUPEN_ALL);
@@ -308,7 +308,7 @@ void omap_mcbsp_free(unsigned int id)
 		u16 w;
 
 		w = OMAP_MCBSP_READ(mcbsp->io_base, SYSCON);
-		w &= ~(ENAWAKEUP | SIDLEMODE(0x03));
+		w &= ~(ENAWAKEUP | SIDLEMODE(0x03) | CLOCKACTIVITY(0x03));
 		OMAP_MCBSP_WRITE(mcbsp->io_base, SYSCON, w);
 
 		w = OMAP_MCBSP_READ(mcbsp->io_base, WAKEUPEN);
