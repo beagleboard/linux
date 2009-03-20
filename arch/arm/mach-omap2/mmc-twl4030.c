@@ -128,6 +128,27 @@ static int twl_mmc_late_init(struct device *dev)
 			reg = regulator_get(dev, "vmmc_aux");
 			hsmmc[i].vcc_aux = IS_ERR(reg) ? NULL : reg;
 
+			/* UGLY HACK:  workaround regulator framework bugs.
+			 * When the bootloader leaves a supply active, it's
+			 * initialized with zero usecount ... and we can't
+			 * disable it without first disabling it.  Until the
+			 * framework is fixed, we need a workaround like this
+			 * (which is safe for MMC, but not in general).
+			 */
+			if (regulator_is_enabled(hsmmc[i].vcc) > 0) {
+				dev_warn(dev, "APPLY REGULATOR HACK for vmmc\n");
+				regulator_enable(hsmmc[i].vcc);
+				regulator_disable(hsmmc[i].vcc);
+			}
+			if (hsmmc[i].vcc_aux) {
+				if (regulator_is_enabled(reg) > 0) {
+					dev_warn(dev, "APPLY REGULATOR HACK "
+						"for vmmc_aux\n");
+					regulator_enable(reg);
+					regulator_disable(reg);
+				}
+			}
+
 			break;
 		}
 	}
@@ -285,7 +306,7 @@ static int twl_mmc23_set_power(struct device *dev, int slot, int power_on, int v
 		}
 	} else {
 		if (c->vcc_aux)
-			ret = regulator_enable(c->vcc_aux);
+			ret = regulator_disable(c->vcc_aux);
 		if (ret == 0)
 			ret = mmc_regulator_set_ocr(c->vcc, 0);
 	}
