@@ -189,6 +189,8 @@ static int ads7846_vaux_control(int vaux_cntrl)
 {
 	int ret = 0;
 
+	/* FIXME use regulator calls */
+
 #ifdef CONFIG_TWL4030_CORE
 	/* check for return value of ldo_use: if success it returns 0 */
 	if (vaux_cntrl == VAUX_ENABLE) {
@@ -243,6 +245,16 @@ static struct spi_board_info sdp3430_spi_board_info[] __initdata = {
 static struct platform_device sdp3430_lcd_device = {
 	.name		= "sdp2430_lcd",
 	.id		= -1,
+};
+
+static struct regulator_consumer_supply sdp3430_vdac_supply = {
+	.supply		= "vdac",
+	.dev		= &sdp3430_lcd_device.dev,
+};
+
+static struct regulator_consumer_supply sdp3430_vdvi_supply = {
+	.supply		= "vdvi",
+	.dev		= &sdp3430_lcd_device.dev,
 };
 
 static struct platform_device *sdp3430_devices[] __initdata = {
@@ -587,6 +599,23 @@ static struct regulator_init_data sdp3430_vdac = {
 		.valid_ops_mask		= REGULATOR_CHANGE_MODE
 					| REGULATOR_CHANGE_STATUS,
 	},
+	.num_consumer_supplies	= 1,
+	.consumer_supplies	= &sdp3430_vdac_supply,
+};
+
+/* VPLL2 for digital video outputs */
+static struct regulator_init_data sdp3430_vpll2 = {
+	.constraints = {
+		.name			= "VDVI",
+		.min_uV			= 1800000,
+		.max_uV			= 1800000,
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL
+					| REGULATOR_MODE_STANDBY,
+		.valid_ops_mask		= REGULATOR_CHANGE_MODE
+					| REGULATOR_CHANGE_STATUS,
+	},
+	.num_consumer_supplies	= 1,
+	.consumer_supplies	= &sdp3430_vdvi_supply,
 };
 
 static struct twl4030_platform_data sdp3430_twldata = {
@@ -609,6 +638,7 @@ static struct twl4030_platform_data sdp3430_twldata = {
 	.vmmc2		= &sdp3430_vmmc2,
 	.vsim		= &sdp3430_vsim,
 	.vdac		= &sdp3430_vdac,
+	.vpll2		= &sdp3430_vpll2,
 };
 
 static struct i2c_board_info __initdata sdp3430_i2c_boardinfo[] = {
