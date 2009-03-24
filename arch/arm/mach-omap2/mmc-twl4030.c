@@ -305,7 +305,7 @@ static int twl_mmc23_set_power(struct device *dev, int slot, int power_on, int v
 				ret = mmc_regulator_set_ocr(c->vcc, 0);
 		}
 	} else {
-		if (c->vcc_aux)
+		if (c->vcc_aux && (ret = regulator_is_enabled(c->vcc_aux)) > 0)
 			ret = regulator_disable(c->vcc_aux);
 		if (ret == 0)
 			ret = mmc_regulator_set_ocr(c->vcc, 0);
