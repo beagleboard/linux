@@ -109,7 +109,7 @@
 	!defined(CONFIG_ARCH_OMAP16XX) && \
 	!defined(CONFIG_ARCH_OMAP24XX) && \
 	!defined(CONFIG_ARCH_OMAP34XX)
-#error "Power management for this processor not implemented yet"
+#warning "Power management for this processor not implemented yet"
 #endif
 
 #ifndef __ASSEMBLER__
