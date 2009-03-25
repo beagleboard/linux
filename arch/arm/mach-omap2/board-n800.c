@@ -568,9 +568,19 @@ static struct omap_gpio_switch n800_gpio_switches[] __initdata = {
 	},
 };
 
+#if defined(CONFIG_CBUS_RETU_HEADSET)
+static struct platform_device retu_headset_device = {
+	.name	= "retu-headset",
+	.id	= -1,
+};
+#endif
+
 static struct platform_device *n800_devices[] __initdata = {
 #if defined(CONFIG_CBUS_RETU) && defined(CONFIG_LEDS_OMAP_PWM)
 	&n800_keypad_led_device,
+#endif
+#if defined(CONFIG_CBUS_RETU_HEADSET)
+	&retu_headset_device,
 #endif
 };
 
