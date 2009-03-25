@@ -722,7 +722,6 @@ static void __init nokia_n800_init(void)
 {
 	nokia_n800_common_init();
 
-	n800_audio_init(&tsc2301_config);
 	n800_ts_set_config();
 	tsc2301_dev_init();
 	tea5761_dev_init();
