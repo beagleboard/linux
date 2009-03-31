@@ -97,8 +97,6 @@
 	/* 5, 6 not connected */
 #	define H4_GPIO_CAM_RST		(H4_U193_GPIO_BASE + 7)
 
-extern void h4_mmc_init(void);
-
 static unsigned int row_gpios[6] = { 88, 89, 124, 11, 6, 96 };
 static unsigned int col_gpios[7] = { 90, 91, 100, 36, 12, 97, 98 };
 
@@ -793,7 +791,6 @@ static void __init omap_h4_init(void)
 	omap_board_config_size = ARRAY_SIZE(h4_config);
 	omap_serial_init();
 	omap_usb_init(&h4_usb_config);
-	h4_mmc_init();
 	omap_register_i2c_bus(1, 100, h4_i2c_board_info,
 			      ARRAY_SIZE(h4_i2c_board_info));
 

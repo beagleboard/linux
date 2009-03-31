@@ -40,7 +40,7 @@ mailbox_mach-objs		:= mailbox.o
 
 # Specific board support
 obj-$(CONFIG_MACH_OMAP_GENERIC)		+= board-generic.o
-obj-$(CONFIG_MACH_OMAP_H4)		+= board-h4.o board-h4-mmc.o
+obj-$(CONFIG_MACH_OMAP_H4)		+= board-h4.o
 obj-$(CONFIG_MACH_OMAP_2430SDP)		+= board-2430sdp.o \
 					   board-2430sdp-flash.o \
 					   mmc-twl4030.o
