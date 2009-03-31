@@ -306,11 +306,6 @@
 #include "board-rx51.h"
 #endif
 
-
-#ifdef CONFIG_MACH_OMAP_2430SDP
-#include "board-2430sdp.h"
-#endif
-
 #ifdef CONFIG_MACH_OMAP2EVM
 #include "board-omap2evm.h"
 #endif
