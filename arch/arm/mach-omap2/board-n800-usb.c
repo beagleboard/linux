@@ -129,7 +129,7 @@ static int tusb_set_clock(struct clk *osc_ck, int state)
 		if (osc_ck_on > 0)
 			return -ENODEV;
 
-		omap2_block_sleep();
+		//omap2_block_sleep();
 		clk_enable(osc_ck);
 		osc_ck_on = 1;
 	} else {
@@ -138,7 +138,7 @@ static int tusb_set_clock(struct clk *osc_ck, int state)
 
 		clk_disable(osc_ck);
 		osc_ck_on = 0;
-		omap2_allow_sleep();
+		//omap2_allow_sleep();
 	}
 
 	return 0;

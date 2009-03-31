@@ -61,6 +61,8 @@
 
 #define TWL4030_MSECURE_GPIO 22
 
+extern void sdp3430_flash_init(void);
+
 static struct resource sdp3430_smc91x_resources[] = {
 	[0] = {
 		.flags	= IORESOURCE_MEM,

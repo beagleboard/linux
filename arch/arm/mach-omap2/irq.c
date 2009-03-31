@@ -157,26 +157,6 @@ static void __init omap_irq_bank_init_one(struct omap_irq_bank *bank)
 	intc_bank_write_reg(1 << 0, bank, INTC_SYSCONFIG);
 }
 
-int omap_irq_pending(void)
-{
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(irq_banks); i++) {
-		struct omap_irq_bank *bank = irq_banks + i;
-		int irq;
-
-		for (irq = 0; irq < bank->nr_irqs; irq += IRQ_BITS_PER_REG) {
-			int offset = irq & (~(IRQ_BITS_PER_REG - 1));
-
-			if (intc_bank_read_reg(bank, (INTC_PENDING_IRQ0 +
-						      offset)))
-				return 1;
-		}
-	}
-
-	return 0;
-}
-
 void __init omap_init_irq(void)
 {
 	unsigned long nr_of_irqs = 0;

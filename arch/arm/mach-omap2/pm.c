@@ -1,18 +1,13 @@
 /*
  * linux/arch/arm/mach-omap2/pm.c
  *
- * OMAP Power Management Common Routines
+ * OMAP2 Power Management Routines
+ *
+ * Copyright (C) 2006 Nokia Corporation
+ * Tony Lindgren <tony@atomide.com>
  *
  * Copyright (C) 2005 Texas Instruments, Inc.
- * Copyright (C) 2006-2008 Nokia Corporation
- *
- * Written by:
  * Richard Woodruff <r-woodruff2@ti.com>
- * Tony Lindgren
- * Juha Yrjola
- * Amit Kucheria <amit.kucheria@nokia.com>
- * Igor Stoppa <igor.stoppa@nokia.com>
- * Jouni Hogander
  *
  * Based on pm.c for omap1
  *
@@ -22,98 +17,95 @@
  */
 
 #include <linux/suspend.h>
-#include <linux/time.h>
+#include <linux/sched.h>
+#include <linux/proc_fs.h>
+#include <linux/interrupt.h>
+#include <linux/sysfs.h>
+#include <linux/module.h>
+#include <linux/delay.h>
+#include <linux/clk.h>
+#include <linux/io.h>
 
-#include <mach/cpu.h>
-#include <asm/mach/time.h>
+#include <asm/irq.h>
 #include <asm/atomic.h>
+#include <asm/mach/time.h>
+#include <asm/mach/irq.h>
 
+#include <mach/irqs.h>
+#include <mach/clock.h>
+#include <mach/sram.h>
 #include <mach/pm.h>
-#include "pm.h"
 
-unsigned short enable_dyn_sleep;
-unsigned short clocks_off_while_idle;
-atomic_t sleep_block = ATOMIC_INIT(0);
+static struct clk *vclk;
+static void (*omap2_sram_idle)(void);
+static void (*omap2_sram_suspend)(int dllctrl, int cpu_rev);
+static void (*saved_idle)(void);
 
-static ssize_t idle_show(struct kobject *, struct kobj_attribute *, char *);
-static ssize_t idle_store(struct kobject *k, struct kobj_attribute *,
-			  const char *buf, size_t n);
+extern void __init pmdomain_init(void);
+extern void pmdomain_set_autoidle(void);
 
-static struct kobj_attribute sleep_while_idle_attr =
-	__ATTR(sleep_while_idle, 0644, idle_show, idle_store);
+static unsigned int omap24xx_sleep_save[OMAP24XX_SLEEP_SAVE_SIZE];
 
-static struct kobj_attribute clocks_off_while_idle_attr =
-	__ATTR(clocks_off_while_idle, 0644, idle_show, idle_store);
-
-static ssize_t idle_show(struct kobject *kobj, struct kobj_attribute *attr,
-			 char *buf)
+void omap2_pm_idle(void)
 {
-	if (attr == &sleep_while_idle_attr)
-		return sprintf(buf, "%hu\n", enable_dyn_sleep);
-	else if (attr == &clocks_off_while_idle_attr)
-		return sprintf(buf, "%hu\n", clocks_off_while_idle);
-	else
-		return -EINVAL;
-}
-
-static ssize_t idle_store(struct kobject *kobj, struct kobj_attribute *attr,
-			  const char *buf, size_t n)
-{
-	unsigned short value;
-
-	if (sscanf(buf, "%hu", &value) != 1 ||
-	    (value != 0 && value != 1)) {
-		printk(KERN_ERR "idle_store: Invalid value\n");
-		return -EINVAL;
+	local_irq_disable();
+	local_fiq_disable();
+	if (need_resched()) {
+		local_fiq_enable();
+		local_irq_enable();
+		return;
 	}
 
-	if (attr == &sleep_while_idle_attr)
-		enable_dyn_sleep = value;
-	else if (attr == &clocks_off_while_idle_attr)
-		clocks_off_while_idle = value;
-	else
-		return -EINVAL;
-
-	return n;
+	omap2_sram_idle();
+	local_fiq_enable();
+	local_irq_enable();
 }
 
-void omap2_block_sleep(void)
+static int omap2_pm_prepare(void)
 {
-	atomic_inc(&sleep_block);
+	/* We cannot sleep in idle until we have resumed */
+	saved_idle = pm_idle;
+	pm_idle = NULL;
+	return 0;
 }
 
-void omap2_allow_sleep(void)
+static int omap2_pm_suspend(void)
 {
-	int i;
-
-	i = atomic_dec_return(&sleep_block);
-	BUG_ON(i < 0);
+	return 0;
 }
 
-static int __init omap_pm_init(void)
+static int omap2_pm_enter(suspend_state_t state)
 {
-	int error = -1;
+	int ret = 0;
 
-	if (cpu_is_omap24xx())
-		error = omap2_pm_init();
-	if (cpu_is_omap34xx())
-		error = omap3_pm_init();
-	if (error) {
-		printk(KERN_ERR "omap2|3_pm_init failed: %d\n", error);
-		return error;
+	switch (state)
+	{
+	case PM_SUSPEND_STANDBY:
+	case PM_SUSPEND_MEM:
+		ret = omap2_pm_suspend();
+		break;
+	default:
+		ret = -EINVAL;
 	}
 
-	/* disabled till drivers are fixed */
-	enable_dyn_sleep = 0;
-	error = sysfs_create_file(power_kobj, &sleep_while_idle_attr.attr);
-	if (error)
-		printk(KERN_ERR "sysfs_create_file failed: %d\n", error);
-	error = sysfs_create_file(power_kobj,
-				  &clocks_off_while_idle_attr.attr);
-	if (error)
-		printk(KERN_ERR "sysfs_create_file failed: %d\n", error);
-
-	return error;
+	return ret;
 }
 
-late_initcall(omap_pm_init);
+static void omap2_pm_finish(void)
+{
+	pm_idle = saved_idle;
+}
+
+static struct platform_suspend_ops omap_pm_ops = {
+	.prepare	= omap2_pm_prepare,
+	.enter		= omap2_pm_enter,
+	.finish		= omap2_pm_finish,
+	.valid		= suspend_valid_only_mem,
+};
+
+static int __init omap2_pm_init(void)
+{
+	return 0;
+}
+
+__initcall(omap2_pm_init);

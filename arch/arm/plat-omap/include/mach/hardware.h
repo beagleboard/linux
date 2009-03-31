@@ -286,46 +286,4 @@
 #include "omap24xx.h"
 #include "omap34xx.h"
 
-#ifndef __ASSEMBLER__
-
-/*
- * ---------------------------------------------------------------------------
- * Board specific defines
- * ---------------------------------------------------------------------------
- */
-
-#if defined(CONFIG_MACH_NOKIA_N800) || defined(CONFIG_MACH_NOKIA770)
-#include "board-nokia.h"
-#endif
-
-#ifdef CONFIG_MACH_NOKIA_RX51
-#include "board-rx51.h"
-#endif
-
-#ifdef CONFIG_MACH_OMAP2EVM
-#include "board-omap2evm.h"
-#endif
-
-#ifdef CONFIG_MACH_OMAP_3430SDP
-#include "board-3430sdp.h"
-#endif
-
-#ifdef CONFIG_MACH_OMAP3EVM
-#include "board-omap3evm.h"
-#endif
-
-#ifdef CONFIG_MACH_OMAP3_BEAGLE
-#include "board-omap3beagle.h"
-#endif
-
-#ifdef CONFIG_MACH_VOICEBLUE
-#include "board-voiceblue.h"
-#endif
-
-#ifdef CONFIG_MACH_SX1
-#include "board-sx1.h"
-#endif
-
-#endif /* !__ASSEMBLER__ */
-
 #endif	/* __ASM_ARCH_OMAP_HARDWARE_H */

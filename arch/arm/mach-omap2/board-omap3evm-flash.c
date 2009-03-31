@@ -23,6 +23,8 @@
 #include <mach/gpmc.h>
 #include <mach/nand.h>
 
+#define ONENAND_MAP		0x20000000
+
 static int omap3evm_onenand_setup(void __iomem *, int freq);
 
 static struct mtd_partition omap3evm_onenand_partitions[] = {

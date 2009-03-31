@@ -10,6 +10,7 @@
 
 #include <linux/kernel.h>
 #include <linux/init.h>
+#include <mach/board-rx51.h>
 
 extern void __init n800_flash_init(void);
 

@@ -1,7 +1,7 @@
 /*
  * OMAP mailbox driver
  *
- * Copyright (C) 2006-2008 Nokia Corporation. All rights reserved.
+ * Copyright (C) 2006-2009 Nokia Corporation. All rights reserved.
  *
  * Contact: Hiroshi DOYU <Hiroshi.DOYU@nokia.com>
  *

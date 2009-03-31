@@ -45,33 +45,6 @@
 #include <sound/pcm.h>
 #include <mach/mcbsp.h>
 #include <linux/platform_device.h>
-/*
- * Debug functions
- */
-#undef DEBUG
-/* #define DEBUG */
-
-#define ERR(ARGS...)						\
-	do {							\
-		printk(KERN_ERR "{%s}-ERROR: ", __func__);	\
-		printk(ARGS);					\
-	} while (0)
-
-#ifdef DEBUG
-#define DPRINTK(ARGS...)					\
-	do {							\
-		printk(KERN_INFO "<%s>: ", __func__);		\
-		printk(ARGS);					\
-	} while (0)
-#define ADEBUG() printk("XXX Alsa debug f:%s, l:%d\n", __func__, __LINE__)
-#define FN_IN printk(KERN_INFO "[%s]: start\n", __func__)
-#define FN_OUT(n) printk(KERN_INFO "[%s]: end(%u)\n", __func__, n)
-#else
-#define DPRINTK(ARGS...)	/* nop */
-#define ADEBUG()		/* nop */
-#define FN_IN			/* nop */
-#define FN_OUT(n)		/* nop */
-#endif
 
 #define DMA_BUF_SIZE	(1024 * 8)
 
@@ -89,12 +62,12 @@ struct audio_stream {
 	char dma_q_count;	/* DMA Channel Q Count */
 	int active:1;		/* we are using this stream for transfer now */
 	int period;		/* current transfer period */
-	int periods;		/* current registered periods in DMA engine */
+	int periods;		/* current count of periods registerd in the DMA engine */
 	spinlock_t dma_lock;	/* for locking in DMA operations */
 	struct snd_pcm_substream *stream;	/* the pcm stream */
 	unsigned linked:1;	/* dma channels linked */
-	int offset;		/* start position of last period in alsa buf */
-	int (*hw_start)(void);  /* interface to start HW interface, (McBSP) */
+	int offset;		/* store start position of the last period in the alsa buffer */
+	int (*hw_start)(void);  /* interface to start HW interface, e.g. McBSP */
 	int (*hw_stop)(void);   /* interface to stop HW interface, e.g. McBSP */
 };
 
@@ -135,8 +108,7 @@ void snd_omap_suspend_mixer(void);
 void snd_omap_resume_mixer(void);
 #endif
 
-int snd_omap_alsa_post_probe(struct platform_device *pdev,
-				struct omap_alsa_codec_config *config);
+int snd_omap_alsa_post_probe(struct platform_device *pdev, struct omap_alsa_codec_config *config);
 int snd_omap_alsa_remove(struct platform_device *pdev);
 #ifdef CONFIG_PM
 int snd_omap_alsa_suspend(struct platform_device *pdev, pm_message_t state);

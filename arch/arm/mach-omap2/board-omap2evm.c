@@ -42,8 +42,12 @@
 
 #include "mmc-twl4030.h"
 
+#define OMAP2EVM_ETHR_START		0x2c000000
+#define OMAP2EVM_ETHR_SIZE		1024
+#define OMAP2EVM_ETHR_GPIO_IRQ		149
+#define	OMAP2_EVM_TS_GPIO		85
 
-#define GPMC_OFF_CONFIG1_0 0x60
+#define GPMC_OFF_CONFIG1_0		0x60
 
 static struct mtd_partition omap2evm_nand_partitions[] = {
 	{

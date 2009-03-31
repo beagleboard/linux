@@ -23,8 +23,6 @@
 #include <linux/cpufreq.h>
 #include <linux/debugfs.h>
 #include <linux/io.h>
-#include <linux/bootmem.h>
-#include <linux/slab.h>
 
 #include <mach/clock.h>
 
@@ -34,182 +32,9 @@ static DEFINE_SPINLOCK(clockfw_lock);
 
 static struct clk_functions *arch_clock;
 
-/**
- * omap_clk_for_each_child - call callback on each child clock of clk
- * @clk: struct clk * to use as the "parent"
- * @parent_rate: rate of the parent of @clk to pass along
- * @rate_storage: flag indicating whether current or temporary rates are used
- * @cb: pointer to a callback function
- *
- * For each child clock of @clk, call the callback function @cb, passing
- * along the contents of @parent_rate and @rate_storage.  If the callback
- * function returns non-zero, terminate the function and pass along the
- * return value.
- */
-static int omap_clk_for_each_child(struct clk *clk, unsigned long parent_rate,
-				   u8 rate_storage,
-				   int (*cb)(struct clk *clk,
-					     unsigned long parent_rate,
-					     u8 rate_storage))
-{
-	struct clk_child *child;
-	int ret;
-
-	list_for_each_entry(child, &clk->children, node) {
-		ret = (*cb)(child->clk, parent_rate, rate_storage);
-		if (ret)
-			break;
-	}
-
-	return ret;
-}
-
-/**
- * omap_clk_has_children - does clk @clk have any child clocks?
- * @clk: struct clk * to test for child clocks
- *
- * If clock @clk has any child clocks, return 1; otherwise, return 0.
- */
-static int omap_clk_has_children(struct clk *clk)
-{
-	return (list_empty(&clk->children)) ? 0 : 1;
-}
-
-/**
- * _do_propagate_rate - callback function for rate propagation
- * @clk: struct clk * to recalc and propagate from
- * @parent_rate: rate of the parent of @clk, to use in recalculation
- * @rate_storage: flag indicating whether current or temporary rates are used
- *
- * If @clk has a recalc function, call it.  If @clk has any children,
- * propagate @clk's rate.  Returns 0.
- */
-static int _do_propagate_rate(struct clk *clk, unsigned long parent_rate,
-			      u8 rate_storage)
-{
-	if (clk->recalc)
-		clk->recalc(clk, parent_rate, rate_storage);
-	if (omap_clk_has_children(clk))
-		propagate_rate(clk, rate_storage);
-	return 0;
-}
-
-/**
- * omap_clk_add_child - add a child clock @clk2 to @clk
- * @clk: parent struct clk *
- * @clk2: new child struct clk *
- *
- * Add a child clock @clk2 to the list of children of parent clock
- * @clk.  Will potentially allocate memory from bootmem or, if
- * available, from slab.  Must only be called with the clock framework
- * spinlock held.  No return value.
- */
-void omap_clk_add_child(struct clk *clk, struct clk *clk2)
-{
-	struct clk_child *child;
-	int reuse = 0;
-
-	if (!clk->children.next)
-		INIT_LIST_HEAD(&clk->children);
-
-	list_for_each_entry(child, &clk->children, node) {
-		if (child->flags & CLK_CHILD_DELETED) {
-			reuse = 1;
-			child->flags &= ~CLK_CHILD_DELETED;
-			break;
-		}
-	}
-
-	if (!reuse) {
-		if (slab_is_available())
-			child = kmalloc(sizeof(struct clk_child), GFP_ATOMIC);
-		else
-			child = alloc_bootmem(sizeof(struct clk_child));
-
-		if (!child) {
-			WARN_ON(1);
-			return;
-		}
-
-		memset(child, 0, sizeof(struct clk_child));
-
-		if (slab_is_available())
-			child->flags |= CLK_CHILD_SLAB_ALLOC;
-	}
-
-	child->clk = clk2;
-
-	list_add_tail(&child->node, &clk->children);
-}
-
-/**
- * omap_clk_del_child - add a child clock @clk2 to @clk
- * @clk: parent struct clk *
- * @clk2: former child struct clk *
- *
- * Remove a child clock @clk2 from the list of children of parent
- * clock @clk.  Must only be called with the clock framework spinlock
- * held.  No return value.
- */
-void omap_clk_del_child(struct clk *clk, struct clk *clk2)
-{
-	struct clk_child *child, *tmp;
-
-	/* Loop over all existing clk_childs, when found, deallocate */
-	list_for_each_entry_safe(child, tmp, &clk->children, node) {
-		if (child->clk == clk2) {
-			list_del(&child->node);
-			if (child->flags & CLK_CHILD_SLAB_ALLOC) {
-				kfree(child);
-			} else {
-				child->clk = NULL;
-				child->flags |= CLK_CHILD_DELETED;
-			}
-			break;
-		}
-	}
-}
-
 /*-------------------------------------------------------------------------
  * Standard clock functions defined in include/linux/clk.h
  *-------------------------------------------------------------------------*/
-
-/*
- * Returns a clock. Note that we first try to use device id on the bus
- * and clock name. If this fails, we try to use clock name only.
- */
-struct clk * clk_get(struct device *dev, const char *id)
-{
-	struct clk *p, *clk = ERR_PTR(-ENOENT);
-	int idno;
-
-	if (dev == NULL || dev->bus != &platform_bus_type)
-		idno = -1;
-	else
-		idno = to_platform_device(dev)->id;
-
-	mutex_lock(&clocks_mutex);
-
-	list_for_each_entry(p, &clocks, node) {
-		if (p->id == idno && strcmp(id, p->name) == 0) {
-			clk = p;
-			goto found;
-		}
-	}
-
-	list_for_each_entry(p, &clocks, node) {
-		if (strcmp(id, p->name) == 0) {
-			clk = p;
-			break;
-		}
-	}
-
-found:
-	mutex_unlock(&clocks_mutex);
-
-	return clk;
-}
-EXPORT_SYMBOL(clk_get);
 
 int clk_enable(struct clk *clk)
 {
@@ -220,13 +45,8 @@ int clk_enable(struct clk *clk)
 		return -EINVAL;
 
 	spin_lock_irqsave(&clockfw_lock, flags);
-	if (arch_clock->clk_enable) {
+	if (arch_clock->clk_enable)
 		ret = arch_clock->clk_enable(clk);
-		if (ret == 0 && clk->flags & RECALC_ON_ENABLE)
-			_do_propagate_rate(clk, clk->parent->rate,
-					   CURRENT_RATE);
-	}
-
 	spin_unlock_irqrestore(&clockfw_lock, flags);
 
 	return ret;
@@ -248,12 +68,8 @@ void clk_disable(struct clk *clk)
 		goto out;
 	}
 
-	if (arch_clock->clk_disable) {
+	if (arch_clock->clk_disable)
 		arch_clock->clk_disable(clk);
-		if (clk->flags & RECALC_ON_ENABLE)
-			_do_propagate_rate(clk, clk->parent->rate,
-					   CURRENT_RATE);
-	}
 
 out:
 	spin_unlock_irqrestore(&clockfw_lock, flags);
@@ -275,11 +91,6 @@ unsigned long clk_get_rate(struct clk *clk)
 	return ret;
 }
 EXPORT_SYMBOL(clk_get_rate);
-
-void clk_put(struct clk *clk)
-{
-}
-EXPORT_SYMBOL(clk_put);
 
 /*-------------------------------------------------------------------------
  * Optional clock functions defined in include/linux/clk.h
@@ -311,14 +122,13 @@ int clk_set_rate(struct clk *clk, unsigned long rate)
 		return ret;
 
 	spin_lock_irqsave(&clockfw_lock, flags);
-
-	if (arch_clock->clk_set_rate) {
+	if (arch_clock->clk_set_rate)
 		ret = arch_clock->clk_set_rate(clk, rate);
-		if (ret == 0)
-			_do_propagate_rate(clk, clk->parent->rate,
-					   CURRENT_RATE);
+	if (ret == 0) {
+		if (clk->recalc)
+			clk->rate = clk->recalc(clk);
+		propagate_rate(clk);
 	}
-
 	spin_unlock_irqrestore(&clockfw_lock, flags);
 
 	return ret;
@@ -328,25 +138,22 @@ EXPORT_SYMBOL(clk_set_rate);
 int clk_set_parent(struct clk *clk, struct clk *parent)
 {
 	unsigned long flags;
-	struct clk *prev_parent;
 	int ret = -EINVAL;
 
 	if (clk == NULL || IS_ERR(clk) || parent == NULL || IS_ERR(parent))
 		return ret;
 
 	spin_lock_irqsave(&clockfw_lock, flags);
-
-	if (arch_clock->clk_set_parent) {
-		prev_parent = clk->parent;
-		ret = arch_clock->clk_set_parent(clk, parent);
+	if (clk->usecount == 0) {
+		if (arch_clock->clk_set_parent)
+			ret = arch_clock->clk_set_parent(clk, parent);
 		if (ret == 0) {
-			omap_clk_del_child(prev_parent, clk);
-			omap_clk_add_child(parent, clk);
-			_do_propagate_rate(clk, clk->parent->rate,
-					   CURRENT_RATE);
+			if (clk->recalc)
+				clk->rate = clk->recalc(clk);
+			propagate_rate(clk);
 		}
-	}
-
+	} else
+		ret = -EBUSY;
 	spin_unlock_irqrestore(&clockfw_lock, flags);
 
 	return ret;
@@ -355,18 +162,7 @@ EXPORT_SYMBOL(clk_set_parent);
 
 struct clk *clk_get_parent(struct clk *clk)
 {
-	unsigned long flags;
-	struct clk * ret = NULL;
-
-	if (clk == NULL || IS_ERR(clk))
-		return ret;
-
-	spin_lock_irqsave(&clockfw_lock, flags);
-	if (arch_clock->clk_get_parent)
-		ret = arch_clock->clk_get_parent(clk);
-	spin_unlock_irqrestore(&clockfw_lock, flags);
-
-	return ret;
+	return clk->parent;
 }
 EXPORT_SYMBOL(clk_get_parent);
 
@@ -395,31 +191,35 @@ static int __init omap_clk_setup(char *str)
 __setup("mpurate=", omap_clk_setup);
 
 /* Used for clocks that always have same value as the parent clock */
-void followparent_recalc(struct clk *clk, unsigned long new_parent_rate,
-			 u8 rate_storage)
+unsigned long followparent_recalc(struct clk *clk)
 {
-	if (rate_storage == CURRENT_RATE)
-		clk->rate = new_parent_rate;
-	else if (rate_storage == TEMP_RATE)
-		clk->temp_rate = new_parent_rate;
+	return clk->parent->rate;
+}
+
+void clk_reparent(struct clk *child, struct clk *parent)
+{
+	list_del_init(&child->sibling);
+	if (parent)
+		list_add(&child->sibling, &parent->children);
+	child->parent = parent;
+
+	/* now do the debugfs renaming to reattach the child
+	   to the proper parent */
 }
 
 /* Propagate rate to children */
-void propagate_rate(struct clk *tclk, u8 rate_storage)
+void propagate_rate(struct clk * tclk)
 {
-	unsigned long parent_rate = 0;
+	struct clk *clkp;
 
-	if (tclk == NULL || IS_ERR(tclk))
-		return;
-
-	if (rate_storage == CURRENT_RATE)
-		parent_rate = tclk->rate;
-	else if (rate_storage == TEMP_RATE)
-		parent_rate = tclk->temp_rate;
-
-	omap_clk_for_each_child(tclk, parent_rate, rate_storage,
-				_do_propagate_rate);
+	list_for_each_entry(clkp, &tclk->children, sibling) {
+		if (clkp->recalc)
+			clkp->rate = clkp->recalc(clkp);
+		propagate_rate(clkp);
+	}
 }
+
+static LIST_HEAD(root_clks);
 
 /**
  * recalculate_root_clocks - recalculate and propagate all root clocks
@@ -432,84 +232,55 @@ void recalculate_root_clocks(void)
 {
 	struct clk *clkp;
 
-	list_for_each_entry(clkp, &clocks, node)
-		if (unlikely(!clkp->parent))
-			_do_propagate_rate(clkp, 0, CURRENT_RATE);
+	list_for_each_entry(clkp, &root_clks, sibling) {
+		if (clkp->recalc)
+			clkp->rate = clkp->recalc(clkp);
+		propagate_rate(clkp);
+	}
+}
+
+void clk_init_one(struct clk *clk)
+{
+	INIT_LIST_HEAD(&clk->children);
 }
 
 int clk_register(struct clk *clk)
 {
-	int ret;
-
 	if (clk == NULL || IS_ERR(clk))
 		return -EINVAL;
 
+	/*
+	 * trap out already registered clocks
+	 */
+	if (clk->node.next || clk->node.prev)
+		return 0;
+
 	mutex_lock(&clocks_mutex);
-	if (arch_clock->clk_register) {
-		ret = arch_clock->clk_register(clk);
-		if (ret)
-			goto cr_out;
-	}
-	list_add(&clk->node, &clocks);
-	if (!clk->children.next)
-		INIT_LIST_HEAD(&clk->children);
 	if (clk->parent)
-		omap_clk_add_child(clk->parent, clk);
+		list_add(&clk->sibling, &clk->parent->children);
+	else
+		list_add(&clk->sibling, &root_clks);
+
+	list_add(&clk->node, &clocks);
 	if (clk->init)
 		clk->init(clk);
-	ret = 0;
-cr_out:
 	mutex_unlock(&clocks_mutex);
 
-	return ret;
+	return 0;
 }
 EXPORT_SYMBOL(clk_register);
 
 void clk_unregister(struct clk *clk)
 {
-	struct clk_child *child, *tmp;
-
 	if (clk == NULL || IS_ERR(clk))
 		return;
 
 	mutex_lock(&clocks_mutex);
+	list_del(&clk->sibling);
 	list_del(&clk->node);
-	if (clk->parent)
-		omap_clk_del_child(clk->parent, clk);
-	list_for_each_entry_safe(child, tmp, &clk->children, node)
-		if (child->flags & CLK_CHILD_SLAB_ALLOC)
-			kfree(child);
 	mutex_unlock(&clocks_mutex);
 }
 EXPORT_SYMBOL(clk_unregister);
-
-void clk_deny_idle(struct clk *clk)
-{
-	unsigned long flags;
-
-	if (clk == NULL || IS_ERR(clk))
-		return;
-
-	spin_lock_irqsave(&clockfw_lock, flags);
-	if (arch_clock->clk_deny_idle)
-		arch_clock->clk_deny_idle(clk);
-	spin_unlock_irqrestore(&clockfw_lock, flags);
-}
-EXPORT_SYMBOL(clk_deny_idle);
-
-void clk_allow_idle(struct clk *clk)
-{
-	unsigned long flags;
-
-	if (clk == NULL || IS_ERR(clk))
-		return;
-
-	spin_lock_irqsave(&clockfw_lock, flags);
-	if (arch_clock->clk_allow_idle)
-		arch_clock->clk_allow_idle(clk);
-	spin_unlock_irqrestore(&clockfw_lock, flags);
-}
-EXPORT_SYMBOL(clk_allow_idle);
 
 void clk_enable_init_clocks(void)
 {
@@ -521,6 +292,23 @@ void clk_enable_init_clocks(void)
 	}
 }
 EXPORT_SYMBOL(clk_enable_init_clocks);
+
+/*
+ * Low level helpers
+ */
+static int clkll_enable_null(struct clk *clk)
+{
+	return 0;
+}
+
+static void clkll_disable_null(struct clk *clk)
+{
+}
+
+const struct clkops clkops_null = {
+	.enable		= clkll_enable_null,
+	.disable	= clkll_disable_null,
+};
 
 #ifdef CONFIG_CPU_FREQ
 void clk_init_cpufreq_table(struct cpufreq_frequency_table **table)
@@ -547,11 +335,10 @@ static int __init clk_disable_unused(void)
 	unsigned long flags;
 
 	list_for_each_entry(ck, &clocks, node) {
-		if (ck->usecount > 0 ||
-		    (ck->flags & (ALWAYS_ENABLED | PARENT_CONTROLS_CLOCK)))
+		if (ck->ops == &clkops_null)
 			continue;
 
-		if (cpu_class_is_omap1() && ck->enable_reg == 0)
+		if (ck->usecount > 0 || ck->enable_reg == 0)
 			continue;
 
 		spin_lock_irqsave(&clockfw_lock, flags);

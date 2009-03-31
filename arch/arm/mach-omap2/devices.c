@@ -181,6 +181,7 @@ static inline void omap_init_mbox(void)
 		mbox_device.num_resources = ARRAY_SIZE(omap3_mbox_resources);
 		mbox_device.resource = omap3_mbox_resources;
 	} else {
+		pr_err("%s: platform not supported\n", __func__);
 		return;
 	}
 	platform_device_register(&mbox_device);
@@ -477,11 +478,12 @@ static void __init omap_hsmmc_reset(void)
 		}
 
 		dummy_pdev.id = i;
-		iclk = clk_get(dev, "mmchs_ick");
+		dev_set_name(&dummy_pdev.dev, "mmci-omap-hs.%d", i);
+		iclk = clk_get(dev, "ick");
 		if (iclk && clk_enable(iclk))
 			iclk = NULL;
 
-		fclk = clk_get(dev, "mmchs_fck");
+		fclk = clk_get(dev, "fck");
 		if (fclk && clk_enable(fclk))
 			fclk = NULL;
 

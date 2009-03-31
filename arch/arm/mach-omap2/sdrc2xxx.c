@@ -1,7 +1,7 @@
 /*
- * linux/arch/arm/mach-omap2/memory.c
+ * linux/arch/arm/mach-omap2/sdrc2xxx.c
  *
- * Memory timing related functions for OMAP2xxx
+ * SDRAM timing related functions for OMAP2xxx
  *
  * Copyright (C) 2005, 2008 Texas Instruments Inc.
  * Copyright (C) 2005, 2008 Nokia Corporation
@@ -28,10 +28,8 @@
 #include <mach/clock.h>
 #include <mach/sram.h>
 
-#include "clock.h"
-
 #include "prm.h"
-
+#include "clock.h"
 #include <mach/sdrc.h>
 #include "sdrc.h"
 
@@ -101,8 +99,7 @@ u32 omap2xxx_sdrc_reprogram(u32 level, u32 force)
 	m_type = omap2xxx_sdrc_get_type();
 
 	local_irq_save(flags);
-	prm_write_mod_reg(0xffff, OMAP24XX_GR_MOD,
-			  OMAP24XX_PRCM_VOLTSETUP_OFFSET);
+	__raw_writel(0xffff, OMAP24XX_PRCM_VOLTSETUP);
 	omap2_sram_reprogram_sdrc(level, dll_ctrl, m_type);
 	curr_perf_level = level;
 	local_irq_restore(flags);

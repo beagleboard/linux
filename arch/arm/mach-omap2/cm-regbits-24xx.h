@@ -147,7 +147,6 @@
 
 /* CM_IDLEST3_CORE */
 /* 2430 only */
-#define OMAP2430_ST_SDRC_SHIFT				2
 #define OMAP2430_ST_SDRC_MASK				(1 << 2)
 
 /* CM_IDLEST4_CORE */

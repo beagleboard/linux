@@ -60,6 +60,9 @@
 #define GPMC_CS0_BASE  0x60
 #define GPMC_CS_SIZE   0x30
 
+#define OVERO_SMSC911X_CS	5
+#define OVERO_SMSC911X_GPIO	176
+
 #if defined(CONFIG_SMSC911X) || defined(CONFIG_SMSC911X_MODULE)
 
 #include <linux/smsc911x.h>

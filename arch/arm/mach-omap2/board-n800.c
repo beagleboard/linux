@@ -41,6 +41,7 @@
 #include <mach/gpio-switch.h>
 #include <mach/omapfb.h>
 #include <mach/blizzard.h>
+#include <mach/board-nokia.h>
 
 #include <../drivers/cbus/tahvo.h>
 #include <../drivers/media/video/tcm825x.h>

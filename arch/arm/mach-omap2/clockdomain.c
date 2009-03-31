@@ -22,6 +22,7 @@
 #include <linux/delay.h>
 #include <linux/clk.h>
 #include <linux/limits.h>
+#include <linux/err.h>
 
 #include <linux/io.h>
 
@@ -73,14 +74,11 @@ static void _autodep_lookup(struct clkdm_pwrdm_autodep *autodep)
 
 	pwrdm = pwrdm_lookup(autodep->pwrdm.name);
 	if (!pwrdm) {
-		pr_debug("clockdomain: _autodep_lookup: powerdomain %s "
-			 "does not exist\n", autodep->pwrdm.name);
-		WARN_ON(1);
-		return;
+		pr_err("clockdomain: autodeps: powerdomain %s does not exist\n",
+			 autodep->pwrdm.name);
+		pwrdm = ERR_PTR(-ENOENT);
 	}
 	autodep->pwrdm.ptr = pwrdm;
-
-	return;
 }
 
 /*
@@ -96,6 +94,9 @@ static void _clkdm_add_autodeps(struct clockdomain *clkdm)
 	struct clkdm_pwrdm_autodep *autodep;
 
 	for (autodep = autodeps; autodep->pwrdm.ptr; autodep++) {
+		if (IS_ERR(autodep->pwrdm.ptr))
+			continue;
+
 		if (!omap_chip_is(autodep->omap_chip))
 			continue;
 
@@ -121,6 +122,9 @@ static void _clkdm_del_autodeps(struct clockdomain *clkdm)
 	struct clkdm_pwrdm_autodep *autodep;
 
 	for (autodep = autodeps; autodep->pwrdm.ptr; autodep++) {
+		if (IS_ERR(autodep->pwrdm.ptr))
+			continue;
+
 		if (!omap_chip_is(autodep->omap_chip))
 			continue;
 
@@ -204,8 +208,8 @@ int clkdm_register(struct clockdomain *clkdm)
 
 	pwrdm = pwrdm_lookup(clkdm->pwrdm.name);
 	if (!pwrdm) {
-		pr_debug("clockdomain: clkdm_register %s: powerdomain %s "
-			 "does not exist\n", clkdm->name, clkdm->pwrdm.name);
+		pr_err("clockdomain: %s: powerdomain %s does not exist\n",
+			clkdm->name, clkdm->pwrdm.name);
 		return -EINVAL;
 	}
 	clkdm->pwrdm.ptr = pwrdm;
@@ -215,7 +219,7 @@ int clkdm_register(struct clockdomain *clkdm)
 	if (_clkdm_lookup(clkdm->name)) {
 		ret = -EEXIST;
 		goto cr_unlock;
-	};
+	}
 
 	list_add(&clkdm->node, &clkdm_list);
 

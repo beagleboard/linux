@@ -41,6 +41,14 @@
 #include "twl4030-generic-scripts.h"
 #include "mmc-twl4030.h"
 
+#define OMAP3_EVM_TS_GPIO	175
+
+#define OMAP3EVM_ETHR_START	0x2c000000
+#define OMAP3EVM_ETHR_SIZE	1024
+#define OMAP3EVM_ETHR_GPIO_IRQ	176
+#define OMAP3EVM_SMC911X_CS	5
+
+extern void omap3evm_flash_init(void);
 
 static struct resource omap3evm_smc911x_resources[] = {
 	[0] =	{

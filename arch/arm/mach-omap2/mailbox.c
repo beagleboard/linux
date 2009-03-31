@@ -1,7 +1,7 @@
 /*
  * Mailbox reservation modules for OMAP2/3
  *
- * Copyright (C) 2006-2008 Nokia Corporation
+ * Copyright (C) 2006-2009 Nokia Corporation
  * Written by: Hiroshi DOYU <Hiroshi.DOYU@nokia.com>
  *        and  Paul Mundt
  *
@@ -18,8 +18,6 @@
 #include <mach/mailbox.h>
 #include <mach/irqs.h>
 
-#define DRV_NAME "omap2-mailbox"
-
 #define MAILBOX_REVISION		0x000
 #define MAILBOX_SYSCONFIG		0x010
 #define MAILBOX_SYSSTATUS		0x014
@@ -27,12 +25,13 @@
 #define MAILBOX_FIFOSTATUS(m)		(0x080 + 4 * (m))
 #define MAILBOX_MSGSTATUS(m)		(0x0c0 + 4 * (m))
 #define MAILBOX_IRQSTATUS(u)		(0x100 + 8 * (u))
-#define MAILBOX_IRQENABLE(u)		(0x108 + 8 * (u))
+#define MAILBOX_IRQENABLE(u)		(0x104 + 8 * (u))
 
 #define MAILBOX_IRQ_NEWMSG(u)		(1 << (2 * (u)))
 #define MAILBOX_IRQ_NOTFULL(u)		(1 << (2 * (u) + 1))
 
 #define MBOX_REG_SIZE			0x120
+#define MBOX_NR_REGS			(MBOX_REG_SIZE / sizeof(u32))
 
 static void __iomem *mbox_base;
 
@@ -49,7 +48,7 @@ struct omap_mbox2_priv {
 	unsigned long irqstatus;
 	u32 newmsg_bit;
 	u32 notfull_bit;
-	char ctx[MBOX_REG_SIZE];
+	u32 ctx[MBOX_NR_REGS];
 };
 
 static struct clk *mbox_ick_handle;
@@ -175,13 +174,11 @@ static void omap2_mbox_save_ctx(struct omap_mbox *mbox)
 	int i;
 	struct omap_mbox2_priv *p = mbox->priv;
 
-	for (i = 0; i < MBOX_REG_SIZE; i += sizeof(u32)) {
-		u32 val;
+	for (i = 0; i < MBOX_NR_REGS; i++) {
+		p->ctx[i] = mbox_read_reg(i * sizeof(u32));
 
-		val = mbox_read_reg(i);
-		*(u32 *)(p->ctx + i) = val;
-
-		dev_dbg(mbox->dev, "%s\t[%02d] %08x\n", __func__, i, val);
+		dev_dbg(mbox->dev, "%s: [%02x] %08x\n", __func__,
+			i, p->ctx[i]);
 	}
 }
 
@@ -190,13 +187,11 @@ static void omap2_mbox_restore_ctx(struct omap_mbox *mbox)
 	int i;
 	struct omap_mbox2_priv *p = mbox->priv;
 
-	for (i = 0; i < MBOX_REG_SIZE; i += sizeof(u32)) {
-		u32 val;
+	for (i = 0; i < MBOX_NR_REGS; i++) {
+		mbox_write_reg(p->ctx[i], i * sizeof(u32));
 
-		val = *(u32 *)(p->ctx + i);
-		mbox_write_reg(val, i);
-
-		dev_dbg(mbox->dev, "%s\t[%02d] %08x\n", __func__, i, val);
+		dev_dbg(mbox->dev, "%s: [%02x] %08x\n", __func__,
+			i, p->ctx[i]);
 	}
 }
 
@@ -287,13 +282,12 @@ static int __devinit omap2_mbox_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	/* DSP or IVA2 IRQ */
-	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-	if (unlikely(!res)) {
+	mbox_dsp_info.irq = platform_get_irq(pdev, 0);
+	if (mbox_dsp_info.irq < 0) {
 		dev_err(&pdev->dev, "invalid irq resource\n");
 		ret = -ENODEV;
 		goto err_dsp;
 	}
-	mbox_dsp_info.irq = res->start;
 
 	ret = omap_mbox_register(&pdev->dev, &mbox_dsp_info);
 	if (ret)
@@ -337,7 +331,7 @@ static struct platform_driver omap2_mbox_driver = {
 	.probe = omap2_mbox_probe,
 	.remove = __devexit_p(omap2_mbox_remove),
 	.driver = {
-		.name = DRV_NAME,
+		.name = "omap2-mailbox",
 	},
 };
 
@@ -357,4 +351,4 @@ module_exit(omap2_mbox_exit);
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("omap mailbox: omap2/3 architecture specific functions");
 MODULE_AUTHOR("Hiroshi DOYU <Hiroshi.DOYU@nokia.com>, Paul Mundt");
-MODULE_ALIAS("platform:"DRV_NAME);
+MODULE_ALIAS("platform:omap2-mailbox");

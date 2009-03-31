@@ -28,6 +28,27 @@
 
 #define NAND_BLOCK_SIZE		SZ_128K
 
+/* NAND */
+/* IMPORTANT NOTE ON MAPPING
+ * 3430SDP - 34XX
+ * ----------
+ * NOR always on 0x04000000 for SDPV1
+ * NOR always on 0x10000000 for SDPV2
+ * MPDB always on 0x08000000
+ * NAND always on 0x0C000000
+ * OneNand Mapped to 0x20000000
+ * Boot Mode(NAND/NOR). The other on CS1
+ */
+#define FLASH_BASE_SDPV1	0x04000000 /* NOR flash (64 Meg aligned) */
+#define FLASH_BASE_SDPV2	0x10000000 /* NOR flash (256 Meg aligned) */
+#define DEBUG_BASE		0x08000000 /* debug board */
+#define NAND_BASE		0x0C000000 /* NAND flash */
+#define ONENAND_MAP		0x20000000 /* OneNand flash */
+
+/* various memory sizes */
+#define FLASH_SIZE_SDPV1	SZ_64M
+#define FLASH_SIZE_SDPV2	SZ_128M
+
 static struct mtd_partition sdp_nor_partitions[] = {
 	/* bootloader (U-Boot, etc) in first sector */
 	{

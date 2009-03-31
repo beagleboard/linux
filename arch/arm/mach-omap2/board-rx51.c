@@ -31,6 +31,7 @@
 #include <mach/dma.h>
 #include <mach/gpmc.h>
 #include <mach/usb.h>
+#include <mach/board-rx51.h>
 
 static struct omap_uart_config rx51_uart_config = {
 	.enabled_uarts	= ((1 << 0) | (1 << 1) | (1 << 2)),

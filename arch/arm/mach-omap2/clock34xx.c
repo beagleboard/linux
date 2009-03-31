@@ -30,14 +30,250 @@
 #include <mach/clock.h>
 #include <mach/sram.h>
 #include <asm/div64.h>
+#include <asm/clkdev.h>
 
 #include <mach/sdrc.h>
 #include "clock.h"
-#include "clock34xx.h"
 #include "prm.h"
 #include "prm-regbits-34xx.h"
 #include "cm.h"
 #include "cm-regbits-34xx.h"
+
+static const struct clkops clkops_noncore_dpll_ops;
+
+#include "clock34xx.h"
+
+struct omap_clk {
+	u32		cpu;
+	struct clk_lookup lk;
+};
+
+#define CLK(dev, con, ck, cp) 		\
+	{				\
+		 .cpu = cp,		\
+		.lk = {			\
+			.dev_id = dev,	\
+			.con_id = con,	\
+			.clk = ck,	\
+		},			\
+	}
+
+#define CK_343X		(1 << 0)
+#define CK_3430ES1	(1 << 1)
+#define CK_3430ES2	(1 << 2)
+
+static struct omap_clk omap34xx_clks[] = {
+	CLK(NULL,	"omap_32k_fck",	&omap_32k_fck,	CK_343X),
+	CLK(NULL,	"virt_12m_ck",	&virt_12m_ck,	CK_343X),
+	CLK(NULL,	"virt_13m_ck",	&virt_13m_ck,	CK_343X),
+	CLK(NULL,	"virt_16_8m_ck", &virt_16_8m_ck, CK_3430ES2),
+	CLK(NULL,	"virt_19_2m_ck", &virt_19_2m_ck, CK_343X),
+	CLK(NULL,	"virt_26m_ck",	&virt_26m_ck,	CK_343X),
+	CLK(NULL,	"virt_38_4m_ck", &virt_38_4m_ck, CK_343X),
+	CLK(NULL,	"osc_sys_ck",	&osc_sys_ck,	CK_343X),
+	CLK(NULL,	"sys_ck",	&sys_ck,	CK_343X),
+	CLK(NULL,	"sys_altclk",	&sys_altclk,	CK_343X),
+	CLK(NULL,	"mcbsp_clks",	&mcbsp_clks,	CK_343X),
+	CLK(NULL,	"sys_clkout1",	&sys_clkout1,	CK_343X),
+	CLK(NULL,	"dpll1_ck",	&dpll1_ck,	CK_343X),
+	CLK(NULL,	"dpll1_x2_ck",	&dpll1_x2_ck,	CK_343X),
+	CLK(NULL,	"dpll1_x2m2_ck", &dpll1_x2m2_ck, CK_343X),
+	CLK(NULL,	"dpll2_ck",	&dpll2_ck,	CK_343X),
+	CLK(NULL,	"dpll2_m2_ck",	&dpll2_m2_ck,	CK_343X),
+	CLK(NULL,	"dpll3_ck",	&dpll3_ck,	CK_343X),
+	CLK(NULL,	"core_ck",	&core_ck,	CK_343X),
+	CLK(NULL,	"dpll3_x2_ck",	&dpll3_x2_ck,	CK_343X),
+	CLK(NULL,	"dpll3_m2_ck",	&dpll3_m2_ck,	CK_343X),
+	CLK(NULL,	"dpll3_m2x2_ck", &dpll3_m2x2_ck, CK_343X),
+	CLK(NULL,	"dpll3_m3_ck",	&dpll3_m3_ck,	CK_343X),
+	CLK(NULL,	"dpll3_m3x2_ck", &dpll3_m3x2_ck, CK_343X),
+	CLK(NULL,	"emu_core_alwon_ck", &emu_core_alwon_ck, CK_343X),
+	CLK(NULL,	"dpll4_ck",	&dpll4_ck,	CK_343X),
+	CLK(NULL,	"dpll4_x2_ck",	&dpll4_x2_ck,	CK_343X),
+	CLK(NULL,	"omap_96m_alwon_fck", &omap_96m_alwon_fck, CK_343X),
+	CLK(NULL,	"omap_96m_fck",	&omap_96m_fck,	CK_343X),
+	CLK(NULL,	"cm_96m_fck",	&cm_96m_fck,	CK_343X),
+	CLK(NULL,	"omap_54m_fck",	&omap_54m_fck,	CK_343X),
+	CLK(NULL,	"omap_48m_fck",	&omap_48m_fck,	CK_343X),
+	CLK(NULL,	"omap_12m_fck",	&omap_12m_fck,	CK_343X),
+	CLK(NULL,	"dpll4_m2_ck",	&dpll4_m2_ck,	CK_343X),
+	CLK(NULL,	"dpll4_m2x2_ck", &dpll4_m2x2_ck, CK_343X),
+	CLK(NULL,	"dpll4_m3_ck",	&dpll4_m3_ck,	CK_343X),
+	CLK(NULL,	"dpll4_m3x2_ck", &dpll4_m3x2_ck, CK_343X),
+	CLK(NULL,	"dpll4_m4_ck",	&dpll4_m4_ck,	CK_343X),
+	CLK(NULL,	"dpll4_m4x2_ck", &dpll4_m4x2_ck, CK_343X),
+	CLK(NULL,	"dpll4_m5_ck",	&dpll4_m5_ck,	CK_343X),
+	CLK(NULL,	"dpll4_m5x2_ck", &dpll4_m5x2_ck, CK_343X),
+	CLK(NULL,	"dpll4_m6_ck",	&dpll4_m6_ck,	CK_343X),
+	CLK(NULL,	"dpll4_m6x2_ck", &dpll4_m6x2_ck, CK_343X),
+	CLK(NULL,	"emu_per_alwon_ck", &emu_per_alwon_ck, CK_343X),
+	CLK(NULL,	"dpll5_ck",	&dpll5_ck,	CK_3430ES2),
+	CLK(NULL,	"dpll5_m2_ck",	&dpll5_m2_ck,	CK_3430ES2),
+	CLK(NULL,	"clkout2_src_ck", &clkout2_src_ck, CK_343X),
+	CLK(NULL,	"sys_clkout2",	&sys_clkout2,	CK_343X),
+	CLK(NULL,	"corex2_fck",	&corex2_fck,	CK_343X),
+	CLK(NULL,	"dpll1_fck",	&dpll1_fck,	CK_343X),
+	CLK(NULL,	"mpu_ck",	&mpu_ck,	CK_343X),
+	CLK(NULL,	"arm_fck",	&arm_fck,	CK_343X),
+	CLK(NULL,	"emu_mpu_alwon_ck", &emu_mpu_alwon_ck, CK_343X),
+	CLK(NULL,	"dpll2_fck",	&dpll2_fck,	CK_343X),
+	CLK(NULL,	"iva2_ck",	&iva2_ck,	CK_343X),
+	CLK(NULL,	"l3_ick",	&l3_ick,	CK_343X),
+	CLK(NULL,	"l4_ick",	&l4_ick,	CK_343X),
+	CLK(NULL,	"rm_ick",	&rm_ick,	CK_343X),
+	CLK(NULL,	"gfx_l3_ck",	&gfx_l3_ck,	CK_3430ES1),
+	CLK(NULL,	"gfx_l3_fck",	&gfx_l3_fck,	CK_3430ES1),
+	CLK(NULL,	"gfx_l3_ick",	&gfx_l3_ick,	CK_3430ES1),
+	CLK(NULL,	"gfx_cg1_ck",	&gfx_cg1_ck,	CK_3430ES1),
+	CLK(NULL,	"gfx_cg2_ck",	&gfx_cg2_ck,	CK_3430ES1),
+	CLK(NULL,	"sgx_fck",	&sgx_fck,	CK_3430ES2),
+	CLK(NULL,	"sgx_ick",	&sgx_ick,	CK_3430ES2),
+	CLK(NULL,	"d2d_26m_fck",	&d2d_26m_fck,	CK_3430ES1),
+	CLK(NULL,	"gpt10_fck",	&gpt10_fck,	CK_343X),
+	CLK(NULL,	"gpt11_fck",	&gpt11_fck,	CK_343X),
+	CLK(NULL,	"cpefuse_fck",	&cpefuse_fck,	CK_3430ES2),
+	CLK(NULL,	"ts_fck",	&ts_fck,	CK_3430ES2),
+	CLK(NULL,	"usbtll_fck",	&usbtll_fck,	CK_3430ES2),
+	CLK(NULL,	"core_96m_fck",	&core_96m_fck,	CK_343X),
+	CLK("mmci-omap-hs.2",	"fck",	&mmchs3_fck,	CK_3430ES2),
+	CLK("mmci-omap-hs.1",	"fck",	&mmchs2_fck,	CK_343X),
+	CLK(NULL,	"mspro_fck",	&mspro_fck,	CK_343X),
+	CLK("mmci-omap-hs.0",	"fck",	&mmchs1_fck,	CK_343X),
+	CLK("i2c_omap.3", "fck",	&i2c3_fck,	CK_343X),
+	CLK("i2c_omap.2", "fck",	&i2c2_fck,	CK_343X),
+	CLK("i2c_omap.1", "fck",	&i2c1_fck,	CK_343X),
+	CLK("omap-mcbsp.5", "fck",	&mcbsp5_fck,	CK_343X),
+	CLK("omap-mcbsp.1", "fck",	&mcbsp1_fck,	CK_343X),
+	CLK(NULL,	"core_48m_fck",	&core_48m_fck,	CK_343X),
+	CLK("omap2_mcspi.4", "fck",	&mcspi4_fck,	CK_343X),
+	CLK("omap2_mcspi.3", "fck",	&mcspi3_fck,	CK_343X),
+	CLK("omap2_mcspi.2", "fck",	&mcspi2_fck,	CK_343X),
+	CLK("omap2_mcspi.1", "fck",	&mcspi1_fck,	CK_343X),
+	CLK(NULL,	"uart2_fck",	&uart2_fck,	CK_343X),
+	CLK(NULL,	"uart1_fck",	&uart1_fck,	CK_343X),
+	CLK(NULL,	"fshostusb_fck", &fshostusb_fck, CK_3430ES1),
+	CLK(NULL,	"core_12m_fck",	&core_12m_fck,	CK_343X),
+	CLK("omap_hdq.0", "fck",	&hdq_fck,	CK_343X),
+	CLK(NULL,	"ssi_ssr_fck",	&ssi_ssr_fck,	CK_343X),
+	CLK(NULL,	"ssi_sst_fck",	&ssi_sst_fck,	CK_343X),
+	CLK(NULL,	"core_l3_ick",	&core_l3_ick,	CK_343X),
+	CLK(NULL,	"hsotgusb_ick",	&hsotgusb_ick,	CK_343X),
+	CLK(NULL,	"sdrc_ick",	&sdrc_ick,	CK_343X),
+	CLK(NULL,	"gpmc_fck",	&gpmc_fck,	CK_343X),
+	CLK(NULL,	"security_l3_ick", &security_l3_ick, CK_343X),
+	CLK(NULL,	"pka_ick",	&pka_ick,	CK_343X),
+	CLK(NULL,	"core_l4_ick",	&core_l4_ick,	CK_343X),
+	CLK(NULL,	"usbtll_ick",	&usbtll_ick,	CK_3430ES2),
+	CLK("mmci-omap-hs.2",	"ick",	&mmchs3_ick,	CK_3430ES2),
+	CLK(NULL,	"icr_ick",	&icr_ick,	CK_343X),
+	CLK(NULL,	"aes2_ick",	&aes2_ick,	CK_343X),
+	CLK(NULL,	"sha12_ick",	&sha12_ick,	CK_343X),
+	CLK(NULL,	"des2_ick",	&des2_ick,	CK_343X),
+	CLK("mmci-omap-hs.1",	"ick",	&mmchs2_ick,	CK_343X),
+	CLK("mmci-omap-hs.0",	"ick",	&mmchs1_ick,	CK_343X),
+	CLK(NULL,	"mspro_ick",	&mspro_ick,	CK_343X),
+	CLK("omap_hdq.0", "ick",	&hdq_ick,	CK_343X),
+	CLK("omap2_mcspi.4", "ick",	&mcspi4_ick,	CK_343X),
+	CLK("omap2_mcspi.3", "ick",	&mcspi3_ick,	CK_343X),
+	CLK("omap2_mcspi.2", "ick",	&mcspi2_ick,	CK_343X),
+	CLK("omap2_mcspi.1", "ick",	&mcspi1_ick,	CK_343X),
+	CLK("i2c_omap.3", "ick",	&i2c3_ick,	CK_343X),
+	CLK("i2c_omap.2", "ick",	&i2c2_ick,	CK_343X),
+	CLK("i2c_omap.1", "ick",	&i2c1_ick,	CK_343X),
+	CLK(NULL,	"uart2_ick",	&uart2_ick,	CK_343X),
+	CLK(NULL,	"uart1_ick",	&uart1_ick,	CK_343X),
+	CLK(NULL,	"gpt11_ick",	&gpt11_ick,	CK_343X),
+	CLK(NULL,	"gpt10_ick",	&gpt10_ick,	CK_343X),
+	CLK("omap-mcbsp.5", "ick",	&mcbsp5_ick,	CK_343X),
+	CLK("omap-mcbsp.1", "ick",	&mcbsp1_ick,	CK_343X),
+	CLK(NULL,	"fac_ick",	&fac_ick,	CK_3430ES1),
+	CLK(NULL,	"mailboxes_ick", &mailboxes_ick, CK_343X),
+	CLK(NULL,	"omapctrl_ick",	&omapctrl_ick,	CK_343X),
+	CLK(NULL,	"ssi_l4_ick",	&ssi_l4_ick,	CK_343X),
+	CLK(NULL,	"ssi_ick",	&ssi_ick,	CK_343X),
+	CLK(NULL,	"usb_l4_ick",	&usb_l4_ick,	CK_3430ES1),
+	CLK(NULL,	"security_l4_ick2", &security_l4_ick2, CK_343X),
+	CLK(NULL,	"aes1_ick",	&aes1_ick,	CK_343X),
+	CLK("omap_rng",	"ick",		&rng_ick,	CK_343X),
+	CLK(NULL,	"sha11_ick",	&sha11_ick,	CK_343X),
+	CLK(NULL,	"des1_ick",	&des1_ick,	CK_343X),
+	CLK(NULL,	"dss1_alwon_fck", &dss1_alwon_fck, CK_343X),
+	CLK(NULL,	"dss_tv_fck",	&dss_tv_fck,	CK_343X),
+	CLK(NULL,	"dss_96m_fck",	&dss_96m_fck,	CK_343X),
+	CLK(NULL,	"dss2_alwon_fck", &dss2_alwon_fck, CK_343X),
+	CLK(NULL,	"dss_ick",	&dss_ick,	CK_343X),
+	CLK(NULL,	"cam_mclk",	&cam_mclk,	CK_343X),
+	CLK(NULL,	"cam_ick",	&cam_ick,	CK_343X),
+	CLK(NULL,	"csi2_96m_fck",	&csi2_96m_fck,	CK_343X),
+	CLK(NULL,	"usbhost_120m_fck", &usbhost_120m_fck, CK_3430ES2),
+	CLK(NULL,	"usbhost_48m_fck", &usbhost_48m_fck, CK_3430ES2),
+	CLK(NULL,	"usbhost_ick",	&usbhost_ick,	CK_3430ES2),
+	CLK(NULL,	"usim_fck",	&usim_fck,	CK_3430ES2),
+	CLK(NULL,	"gpt1_fck",	&gpt1_fck,	CK_343X),
+	CLK(NULL,	"wkup_32k_fck",	&wkup_32k_fck,	CK_343X),
+	CLK(NULL,	"gpio1_dbck",	&gpio1_dbck,	CK_343X),
+	CLK("omap_wdt",	"fck",		&wdt2_fck,	CK_343X),
+	CLK(NULL,	"wkup_l4_ick",	&wkup_l4_ick,	CK_343X),
+	CLK(NULL,	"usim_ick",	&usim_ick,	CK_3430ES2),
+	CLK("omap_wdt",	"ick",		&wdt2_ick,	CK_343X),
+	CLK(NULL,	"wdt1_ick",	&wdt1_ick,	CK_343X),
+	CLK(NULL,	"gpio1_ick",	&gpio1_ick,	CK_343X),
+	CLK(NULL,	"omap_32ksync_ick", &omap_32ksync_ick, CK_343X),
+	CLK(NULL,	"gpt12_ick",	&gpt12_ick,	CK_343X),
+	CLK(NULL,	"gpt1_ick",	&gpt1_ick,	CK_343X),
+	CLK(NULL,	"per_96m_fck",	&per_96m_fck,	CK_343X),
+	CLK(NULL,	"per_48m_fck",	&per_48m_fck,	CK_343X),
+	CLK(NULL,	"uart3_fck",	&uart3_fck,	CK_343X),
+	CLK(NULL,	"gpt2_fck",	&gpt2_fck,	CK_343X),
+	CLK(NULL,	"gpt3_fck",	&gpt3_fck,	CK_343X),
+	CLK(NULL,	"gpt4_fck",	&gpt4_fck,	CK_343X),
+	CLK(NULL,	"gpt5_fck",	&gpt5_fck,	CK_343X),
+	CLK(NULL,	"gpt6_fck",	&gpt6_fck,	CK_343X),
+	CLK(NULL,	"gpt7_fck",	&gpt7_fck,	CK_343X),
+	CLK(NULL,	"gpt8_fck",	&gpt8_fck,	CK_343X),
+	CLK(NULL,	"gpt9_fck",	&gpt9_fck,	CK_343X),
+	CLK(NULL,	"per_32k_alwon_fck", &per_32k_alwon_fck, CK_343X),
+	CLK(NULL,	"gpio6_dbck",	&gpio6_dbck,	CK_343X),
+	CLK(NULL,	"gpio5_dbck",	&gpio5_dbck,	CK_343X),
+	CLK(NULL,	"gpio4_dbck",	&gpio4_dbck,	CK_343X),
+	CLK(NULL,	"gpio3_dbck",	&gpio3_dbck,	CK_343X),
+	CLK(NULL,	"gpio2_dbck",	&gpio2_dbck,	CK_343X),
+	CLK(NULL,	"wdt3_fck",	&wdt3_fck,	CK_343X),
+	CLK(NULL,	"per_l4_ick",	&per_l4_ick,	CK_343X),
+	CLK(NULL,	"gpio6_ick",	&gpio6_ick,	CK_343X),
+	CLK(NULL,	"gpio5_ick",	&gpio5_ick,	CK_343X),
+	CLK(NULL,	"gpio4_ick",	&gpio4_ick,	CK_343X),
+	CLK(NULL,	"gpio3_ick",	&gpio3_ick,	CK_343X),
+	CLK(NULL,	"gpio2_ick",	&gpio2_ick,	CK_343X),
+	CLK(NULL,	"wdt3_ick",	&wdt3_ick,	CK_343X),
+	CLK(NULL,	"uart3_ick",	&uart3_ick,	CK_343X),
+	CLK(NULL,	"gpt9_ick",	&gpt9_ick,	CK_343X),
+	CLK(NULL,	"gpt8_ick",	&gpt8_ick,	CK_343X),
+	CLK(NULL,	"gpt7_ick",	&gpt7_ick,	CK_343X),
+	CLK(NULL,	"gpt6_ick",	&gpt6_ick,	CK_343X),
+	CLK(NULL,	"gpt5_ick",	&gpt5_ick,	CK_343X),
+	CLK(NULL,	"gpt4_ick",	&gpt4_ick,	CK_343X),
+	CLK(NULL,	"gpt3_ick",	&gpt3_ick,	CK_343X),
+	CLK(NULL,	"gpt2_ick",	&gpt2_ick,	CK_343X),
+	CLK("omap-mcbsp.2", "ick",	&mcbsp2_ick,	CK_343X),
+	CLK("omap-mcbsp.3", "ick",	&mcbsp3_ick,	CK_343X),
+	CLK("omap-mcbsp.4", "ick",	&mcbsp4_ick,	CK_343X),
+	CLK("omap-mcbsp.2", "fck",	&mcbsp2_fck,	CK_343X),
+	CLK("omap-mcbsp.3", "fck",	&mcbsp3_fck,	CK_343X),
+	CLK("omap-mcbsp.4", "fck",	&mcbsp4_fck,	CK_343X),
+	CLK(NULL,	"emu_src_ck",	&emu_src_ck,	CK_343X),
+	CLK(NULL,	"pclk_fck",	&pclk_fck,	CK_343X),
+	CLK(NULL,	"pclkx2_fck",	&pclkx2_fck,	CK_343X),
+	CLK(NULL,	"atclk_fck",	&atclk_fck,	CK_343X),
+	CLK(NULL,	"traceclk_src_fck", &traceclk_src_fck, CK_343X),
+	CLK(NULL,	"traceclk_fck",	&traceclk_fck,	CK_343X),
+	CLK(NULL,	"sr1_fck",	&sr1_fck,	CK_343X),
+	CLK(NULL,	"sr2_fck",	&sr2_fck,	CK_343X),
+	CLK(NULL,	"sr_l4_ick",	&sr_l4_ick,	CK_343X),
+	CLK(NULL,	"secure_32k_fck", &secure_32k_fck, CK_343X),
+	CLK(NULL,	"gpt12_fck",	&gpt12_fck,	CK_343X),
+	CLK(NULL,	"wdt1_fck",	&wdt1_fck,	CK_343X),
+};
 
 /* CM_AUTOIDLE_PLL*.AUTO_* bit values */
 #define DPLL_AUTOIDLE_DISABLE			0x0
@@ -48,22 +284,12 @@
 /**
  * omap3_dpll_recalc - recalculate DPLL rate
  * @clk: DPLL struct clk
- * @parent_rate: rate of the DPLL's parent clock
- * @rate_storage: flag indicating whether current or temporary rate is changing
  *
  * Recalculate and propagate the DPLL rate.
  */
-static void omap3_dpll_recalc(struct clk *clk, unsigned long parent_rate,
-			      u8 rate_storage)
+static unsigned long omap3_dpll_recalc(struct clk *clk)
 {
-	unsigned long rate;
-
-	rate = omap2_get_dpll_rate(clk, parent_rate);
-
-	if (rate_storage == CURRENT_RATE)
-		clk->rate = rate;
-	else if (rate_storage == TEMP_RATE)
-		clk->temp_rate = rate;
+	return omap2_get_dpll_rate(clk);
 }
 
 /* _omap3_dpll_write_clken - write clken_bits arg to a DPLL's enable bits */
@@ -74,10 +300,10 @@ static void _omap3_dpll_write_clken(struct clk *clk, u8 clken_bits)
 
 	dd = clk->dpll_data;
 
-	v = cm_read_mod_reg(clk->prcm_mod, dd->control_reg);
+	v = __raw_readl(dd->control_reg);
 	v &= ~dd->enable_mask;
 	v |= clken_bits << __ffs(dd->enable_mask);
-	cm_write_mod_reg(v, clk->prcm_mod, dd->control_reg);
+	__raw_writel(v, dd->control_reg);
 }
 
 /* _omap3_wait_dpll_status: wait for a DPLL to enter a specific state */
@@ -91,8 +317,7 @@ static int _omap3_wait_dpll_status(struct clk *clk, u8 state)
 
 	state <<= __ffs(dd->idlest_mask);
 
-	while (((cm_read_mod_reg(clk->prcm_mod, dd->idlest_reg)
-		 & dd->idlest_mask) != state) &&
+	while (((__raw_readl(dd->idlest_reg) & dd->idlest_mask) != state) &&
 	       i < MAX_DPLL_WAIT_TRIES) {
 		i++;
 		udelay(1);
@@ -117,7 +342,7 @@ static u16 _omap3_dpll_compute_freqsel(struct clk *clk, u8 n)
 	unsigned long fint;
 	u16 f = 0;
 
-	fint = clk->parent->rate / (n + 1);
+	fint = clk->dpll_data->clk_ref->rate / (n + 1);
 
 	pr_debug("clock: fint is %lu\n", fint);
 
@@ -283,10 +508,16 @@ static int omap3_noncore_dpll_enable(struct clk *clk)
 	if (!dd)
 		return -EINVAL;
 
-	if (clk->rate == dd->bypass_clk->rate)
+	if (clk->rate == dd->clk_bypass->rate) {
+		WARN_ON(clk->parent != dd->clk_bypass);
 		r = _omap3_noncore_dpll_bypass(clk);
-	else
+	} else {
+		WARN_ON(clk->parent != dd->clk_ref);
 		r = _omap3_noncore_dpll_lock(clk);
+	}
+	/* FIXME: this is dubious - if clk->rate has changed, what about propagating? */
+	if (!r)
+		clk->rate = omap2_get_dpll_rate(clk);
 
 	return r;
 }
@@ -328,43 +559,24 @@ static void omap3_noncore_dpll_disable(struct clk *clk)
  */
 static int omap3_noncore_dpll_program(struct clk *clk, u16 m, u8 n, u16 freqsel)
 {
-	struct dpll_data *dd;
+	struct dpll_data *dd = clk->dpll_data;
 	u32 v;
-
-	if (!clk)
-		return -EINVAL;
-
-	dd = clk->dpll_data;
-	if (!dd)
-		return -EINVAL;
-
-	/*
-	 * According to the 12-5 CDP code from TI, "Limitation 2.5"
-	 * on 3430ES1 prevents us from changing DPLL multipliers or dividers
-	 * on DPLL4.
-	 */
-	if (omap_rev() == OMAP3430_REV_ES1_0 &&
-	    !strcmp("dpll4_ck", clk->name)) {
-		printk(KERN_ERR "clock: DPLL4 cannot change rate due to "
-		       "silicon 'Limitation 2.5' on 3430ES1.\n");
-		return -EINVAL;
-	}
 
 	/* 3430 ES2 TRM: 4.7.6.9 DPLL Programming Sequence */
 	_omap3_noncore_dpll_bypass(clk);
 
 	/* Set jitter correction */
-	v = cm_read_mod_reg(clk->prcm_mod, dd->control_reg);
+	v = __raw_readl(dd->control_reg);
 	v &= ~dd->freqsel_mask;
 	v |= freqsel << __ffs(dd->freqsel_mask);
-	cm_write_mod_reg(v, clk->prcm_mod, dd->control_reg);
+	__raw_writel(v, dd->control_reg);
 
 	/* Set DPLL multiplier, divider */
-	v = cm_read_mod_reg(clk->prcm_mod, dd->mult_div1_reg);
+	v = __raw_readl(dd->mult_div1_reg);
 	v &= ~(dd->mult_mask | dd->div1_mask);
 	v |= m << __ffs(dd->mult_mask);
 	v |= (n - 1) << __ffs(dd->div1_mask);
-	cm_write_mod_reg(v, clk->prcm_mod, dd->mult_div1_reg);
+	__raw_writel(v, dd->mult_div1_reg);
 
 	/* We let the clock framework set the other output dividers later */
 
@@ -388,6 +600,7 @@ static int omap3_noncore_dpll_program(struct clk *clk, u16 m, u8 n, u16 freqsel)
  */
 static int omap3_noncore_dpll_set_rate(struct clk *clk, unsigned long rate)
 {
+	struct clk *new_parent = NULL;
 	u16 freqsel;
 	struct dpll_data *dd;
 	int ret;
@@ -399,20 +612,25 @@ static int omap3_noncore_dpll_set_rate(struct clk *clk, unsigned long rate)
 	if (!dd)
 		return -EINVAL;
 
-	if (rate == omap2_get_dpll_rate(clk, clk->parent->rate))
+	if (rate == omap2_get_dpll_rate(clk))
 		return 0;
 
-	if (dd->bypass_clk->rate == rate &&
-	    (clk->dpll_data->modes & (1 << DPLL_LOW_POWER_BYPASS))) {
+	/*
+	 * Ensure both the bypass and ref clocks are enabled prior to
+	 * doing anything; we need the bypass clock running to reprogram
+	 * the DPLL.
+	 */
+	omap2_clk_enable(dd->clk_bypass);
+	omap2_clk_enable(dd->clk_ref);
 
+	if (dd->clk_bypass->rate == rate &&
+	    (clk->dpll_data->modes & (1 << DPLL_LOW_POWER_BYPASS))) {
 		pr_debug("clock: %s: set rate: entering bypass.\n", clk->name);
 
 		ret = _omap3_noncore_dpll_bypass(clk);
 		if (!ret)
-			clk->rate = rate;
-
+			new_parent = dd->clk_bypass;
 	} else {
-
 		if (dd->last_rounded_rate != rate)
 			omap2_dpll_round_rate(clk, rate);
 
@@ -428,13 +646,42 @@ static int omap3_noncore_dpll_set_rate(struct clk *clk, unsigned long rate)
 
 		ret = omap3_noncore_dpll_program(clk, dd->last_rounded_m,
 						 dd->last_rounded_n, freqsel);
-
 		if (!ret)
-			clk->rate = rate;
-
+			new_parent = dd->clk_ref;
 	}
+	if (!ret) {
+		/*
+		 * Switch the parent clock in the heirarchy, and make sure
+		 * that the new parent's usecount is correct.  Note: we
+		 * enable the new parent before disabling the old to avoid
+		 * any unnecessary hardware disable->enable transitions.
+		 */
+		if (clk->usecount) {
+			omap2_clk_enable(new_parent);
+			omap2_clk_disable(clk->parent);
+		}
+		clk_reparent(clk, new_parent);
+		clk->rate = rate;
+	}
+	omap2_clk_disable(dd->clk_ref);
+	omap2_clk_disable(dd->clk_bypass);
 
 	return 0;
+}
+
+static int omap3_dpll4_set_rate(struct clk *clk, unsigned long rate)
+{
+	/*
+	 * According to the 12-5 CDP code from TI, "Limitation 2.5"
+	 * on 3430ES1 prevents us from changing DPLL multipliers or dividers
+	 * on DPLL4.
+	 */
+	if (omap_rev() == OMAP3430_REV_ES1_0) {
+		printk(KERN_ERR "clock: DPLL4 cannot change rate due to "
+		       "silicon 'Limitation 2.5' on 3430ES1.\n");
+		return -EINVAL;
+	}
+	return omap3_noncore_dpll_set_rate(clk, rate);
 }
 
 
@@ -498,6 +745,11 @@ static int omap3_core_dpll_m2_set_rate(struct clk *clk, unsigned long rate)
 }
 
 
+static const struct clkops clkops_noncore_dpll_ops = {
+	.enable		= &omap3_noncore_dpll_enable,
+	.disable	= &omap3_noncore_dpll_disable,
+};
+
 /* DPLL autoidle read/set code */
 
 
@@ -519,7 +771,7 @@ static u32 omap3_dpll_autoidle_read(struct clk *clk)
 
 	dd = clk->dpll_data;
 
-	v = cm_read_mod_reg(clk->prcm_mod, dd->autoidle_reg);
+	v = __raw_readl(dd->autoidle_reg);
 	v &= dd->autoidle_mask;
 	v >>= __ffs(dd->autoidle_mask);
 
@@ -550,10 +802,10 @@ static void omap3_dpll_allow_idle(struct clk *clk)
 	 * by writing 0x5 instead of 0x1.  Add some mechanism to
 	 * optionally enter this mode.
 	 */
-	v = cm_read_mod_reg(clk->prcm_mod, dd->autoidle_reg);
+	v = __raw_readl(dd->autoidle_reg);
 	v &= ~dd->autoidle_mask;
 	v |= DPLL_AUTOIDLE_LOW_POWER_STOP << __ffs(dd->autoidle_mask);
-	cm_write_mod_reg(v, clk->prcm_mod, dd->autoidle_reg);
+	__raw_writel(v, dd->autoidle_reg);
 }
 
 /**
@@ -572,10 +824,10 @@ static void omap3_dpll_deny_idle(struct clk *clk)
 
 	dd = clk->dpll_data;
 
-	v = cm_read_mod_reg(clk->prcm_mod, dd->autoidle_reg);
+	v = __raw_readl(dd->autoidle_reg);
 	v &= ~dd->autoidle_mask;
 	v |= DPLL_AUTOIDLE_DISABLE << __ffs(dd->autoidle_mask);
-	cm_write_mod_reg(v, clk->prcm_mod, dd->autoidle_reg);
+	__raw_writel(v, dd->autoidle_reg);
 }
 
 /* Clock control for DPLL outputs */
@@ -583,18 +835,15 @@ static void omap3_dpll_deny_idle(struct clk *clk)
 /**
  * omap3_clkoutx2_recalc - recalculate DPLL X2 output virtual clock rate
  * @clk: DPLL output struct clk
- * @parent_rate: rate of the parent clock of @clk
- * @rate_storage: flag indicating whether current or temporary rate is changing
  *
  * Using parent clock DPLL data, look up DPLL state.  If locked, set our
  * rate to the dpll_clk * 2; otherwise, just use dpll_clk.
  */
-static void omap3_clkoutx2_recalc(struct clk *clk, unsigned long parent_rate,
-				  u8 rate_storage)
+static unsigned long omap3_clkoutx2_recalc(struct clk *clk)
 {
 	const struct dpll_data *dd;
-	u32 v;
 	unsigned long rate;
+	u32 v;
 	struct clk *pclk;
 
 	/* Walk up the parents of clk, looking for a DPLL */
@@ -609,17 +858,13 @@ static void omap3_clkoutx2_recalc(struct clk *clk, unsigned long parent_rate,
 
 	WARN_ON(!dd->enable_mask);
 
-	rate = parent_rate;
-
-	v = cm_read_mod_reg(pclk->prcm_mod, dd->control_reg) & dd->enable_mask;
+	v = __raw_readl(dd->control_reg) & dd->enable_mask;
 	v >>= __ffs(dd->enable_mask);
-	if (v == OMAP3XXX_EN_DPLL_LOCKED)
-		rate *= 2;
-
-	if (rate_storage == CURRENT_RATE)
-		clk->rate = rate;
-	else if (rate_storage == TEMP_RATE)
-		clk->temp_rate = rate;
+	if (v != OMAP3XXX_EN_DPLL_LOCKED)
+		rate = clk->parent->rate;
+	else
+		rate = clk->parent->rate * 2;
+	return rate;
 }
 
 /* Common clock code */
@@ -631,13 +876,11 @@ static void omap3_clkoutx2_recalc(struct clk *clk, unsigned long parent_rate,
 #if defined(CONFIG_ARCH_OMAP3)
 
 static struct clk_functions omap2_clk_functions = {
-	.clk_register		= omap2_clk_register,
 	.clk_enable		= omap2_clk_enable,
 	.clk_disable		= omap2_clk_disable,
 	.clk_round_rate		= omap2_clk_round_rate,
 	.clk_set_rate		= omap2_clk_set_rate,
 	.clk_set_parent		= omap2_clk_set_parent,
-	.clk_get_parent		= omap2_clk_get_parent,
 	.clk_disable_unused	= omap2_clk_disable_unused,
 };
 
@@ -689,26 +932,13 @@ arch_initcall(omap2_clk_arch_init);
 int __init omap2_clk_init(void)
 {
 	/* struct prcm_config *prcm; */
-	struct clk **clkp;
+	struct omap_clk *c;
 	/* u32 clkrate; */
 	u32 cpu_clkflg;
 
-	/* REVISIT: Ultimately this will be used for multiboot */
-#if 0
-	if (cpu_is_omap242x()) {
-		cpu_mask = RATE_IN_242X;
-		cpu_clkflg = CLOCK_IN_OMAP242X;
-		clkp = onchip_24xx_clks;
-	} else if (cpu_is_omap2430()) {
-		cpu_mask = RATE_IN_243X;
-		cpu_clkflg = CLOCK_IN_OMAP243X;
-		clkp = onchip_24xx_clks;
-	}
-#endif
 	if (cpu_is_omap34xx()) {
 		cpu_mask = RATE_IN_343X;
-		cpu_clkflg = CLOCK_IN_OMAP343X;
-		clkp = onchip_34xx_clks;
+		cpu_clkflg = CK_343X;
 
 		/*
 		 * Update this if there are further clock changes between ES2
@@ -716,21 +946,24 @@ int __init omap2_clk_init(void)
 		 */
 		if (omap_rev() == OMAP3430_REV_ES1_0) {
 			/* No 3430ES1-only rates exist, so no RATE_IN_3430ES1 */
-			cpu_clkflg |= CLOCK_IN_OMAP3430ES1;
+			cpu_clkflg |= CK_3430ES1;
 		} else {
 			cpu_mask |= RATE_IN_3430ES2;
-			cpu_clkflg |= CLOCK_IN_OMAP3430ES2;
+			cpu_clkflg |= CK_3430ES2;
 		}
 	}
 
 	clk_init(&omap2_clk_functions);
 
-	for (clkp = onchip_34xx_clks;
-	     clkp < onchip_34xx_clks + ARRAY_SIZE(onchip_34xx_clks);
-	     clkp++) {
-		if ((*clkp)->flags & cpu_clkflg)
-			clk_register(*clkp);
-	}
+	for (c = omap34xx_clks; c < omap34xx_clks + ARRAY_SIZE(omap34xx_clks); c++)
+		clk_init_one(c->lk.clk);
+
+	for (c = omap34xx_clks; c < omap34xx_clks + ARRAY_SIZE(omap34xx_clks); c++)
+		if (c->cpu & cpu_clkflg) {
+			clkdev_add(&c->lk);
+			clk_register(c->lk.clk);
+			omap2_init_clk_clkdm(c->lk.clk);
+		}
 
 	/* REVISIT: Not yet ready for OMAP3 */
 #if 0

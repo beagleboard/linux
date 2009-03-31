@@ -11,14 +11,17 @@ choice
 
 config ARCH_OMAP1
 	bool "TI OMAP1"
+	select COMMON_CLKDEV
 
 config ARCH_OMAP2
 	bool "TI OMAP2"
 	select CPU_V6
+	select COMMON_CLKDEV
 
 config ARCH_OMAP3
 	bool "TI OMAP3"
 	select CPU_V7
+	select COMMON_CLKDEV
 
 endchoice
 
@@ -57,37 +60,6 @@ config OMAP_DEBUG_CLOCKDOMAIN
 	  may be failing, and will also emit a descriptive message
 	  for every clockdomain register write.  However, the
 	  extra detail costs some memory.
-
-config OMAP_SMARTREFLEX
-	bool "SmartReflex support"
-	depends on ARCH_OMAP34XX && TWL4030_CORE
-	help
-	  Say Y if you want to enable SmartReflex.
-
-	  SmartReflex can perform continuous dynamic voltage
-	  scaling around the nominal operating point voltage
-	  according to silicon characteristics and operating
-	  conditions. Enabling SmartReflex reduces power
-	  consumption.
-
-	  Please note, that by default SmartReflex is only
-	  initialized. To enable the automatic voltage
-	  compensation for VDD1 and VDD2, user must write 1 to
-	  /sys/power/sr_vddX_autocomp, where X is 1 or 2.
-
-config OMAP_SMARTREFLEX_TESTING
-	bool "Smartreflex testing support"
-	depends on OMAP_SMARTREFLEX
-	default n
-	help
-	  Say Y if you want to enable SmartReflex testing with SW hardcoded
-	  NVALUES intead of E-fuse NVALUES set in factory silicon testing.
-
-	  In some devices the E-fuse values have not been set, even though
-	  SmartReflex modules are included. Using these hardcoded values set
-	  in software, one can test the SmartReflex features without E-fuse.
-
-	  WARNING: Enabling this option may cause your device to hang!
 
 config OMAP_RESET_CLOCKS
 	bool "Reset unused clocks during boot"
@@ -207,21 +179,6 @@ config OMAP_32K_TIMER_HZ
        help
 	  Kernel internal timer frequency should be a divisor of 32768,
 	  such as 64 or 128.
-
-config OMAP_TICK_GPTIMER
-	int "GPTIMER used for system tick timer"
-	depends on ARCH_OMAP2 || ARCH_OMAP3
-	range 1 12
-	default 1
-	help
-	  Linux uses one of the twelve on-board OMAP GPTIMER blocks to generate
-	  system tick interrupts.  The twelve GPTIMERs have slightly
-	  different powerdomain, source clock, and security properties
-	  (mostly documented in the OMAP3 TRMs) that can affect the selection
-	  of which GPTIMER to use.  The historical default is GPTIMER1.
-	  If CONFIG_OMAP_32K_TIMER is selected, Beagle may require GPTIMER12
-	  due to hardware sensitivity to glitches on the OMAP 32kHz clock
-	  input.
 
 config OMAP_DM_TIMER
 	bool "Use dual-mode timer"
