@@ -66,7 +66,7 @@
 #include <mach/hardware.h>
 #include <asm/serial.h>
 #include <asm/mach-types.h>
-#include <asm/dma.h>
+#include <mach/dma.h>
 #include <mach/mux.h>
 #include <mach/gpio.h>
 #include <mach/irda.h>

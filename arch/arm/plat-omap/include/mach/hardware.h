@@ -294,10 +294,6 @@
  * ---------------------------------------------------------------------------
  */
 
-#ifdef CONFIG_MACH_OMAP_H4
-#include "board-h4.h"
-#endif
-
 #if defined(CONFIG_MACH_NOKIA_N800) || defined(CONFIG_MACH_NOKIA770)
 #include "board-nokia.h"
 #endif
