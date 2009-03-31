@@ -25,6 +25,8 @@
 #define SW_RIGHT_GPIO96		96
 #define SW_ESC_GPIO97		97
 
+extern int apollon_plus(void);
+
 static struct gpio_keys_button apollon_gpio_keys_buttons[] = {
 	[0] = {
 		.code		= KEY_ENTER,

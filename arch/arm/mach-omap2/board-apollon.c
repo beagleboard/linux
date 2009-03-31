@@ -55,9 +55,18 @@
 #define APOLLON_FLASH_CS	0
 #define APOLLON_ETH_CS		1
 #define APOLLON_NOR_CS		3
+#define APOLLON_ETHR_GPIO_IRQ	74
 
 #define APOLLON_ONENAND_CS2_ADDRESS	(0x00000e40 | (0x10000000 >> 24))
 #define APOLLON_EXT_CS3_ADDRESS		(0x00000c40 | (0x18000000 >> 24))
+
+extern apollon_mmc_init(void);
+
+int apollon_plus(void)
+{
+	/* The apollon plus has IDCODE revision 5 */
+	return omap_rev() & 0xc0;
+}
 
 static struct mtd_partition apollon_partitions[] = {
 	{
