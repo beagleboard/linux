@@ -38,7 +38,6 @@
 #include <asm/mach/flash.h>
 #include <asm/mach/map.h>
 
-#include <mach/board-overo.h>
 #include <mach/board.h>
 #include <mach/common.h>
 #include <mach/gpio.h>
@@ -50,6 +49,12 @@
 #include "sdram-micron-mt46h32m32lf-6.h"
 #include "twl4030-generic-scripts.h"
 #include "mmc-twl4030.h"
+
+#define OVERO_GPIO_BT_XGATE	15
+#define OVERO_GPIO_W2W_NRESET	16
+#define OVERO_GPIO_BT_NRESET	164
+#define OVERO_GPIO_USBH_CPEN	168
+#define OVERO_GPIO_USBH_NRESET	183
 
 #define NAND_BLOCK_SIZE SZ_128K
 #define GPMC_CS0_BASE  0x60
