@@ -464,6 +464,7 @@ static irqreturn_t mmc_omap_irq(int irq, void *dev_id)
 	}
 
 	OMAP_HSMMC_WRITE(host->base, STAT, status);
+	OMAP_HSMMC_READ(host->base, STAT); /* flush posted write */
 
 	if (end_cmd || (status & CC))
 		mmc_omap_cmd_done(host, host->cmd);
