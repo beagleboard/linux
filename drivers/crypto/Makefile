@@ -5,3 +5,4 @@ obj-$(CONFIG_OMAP_SHA1_MD5) += omap-sha1-md5.o
 obj-$(CONFIG_CRYPTO_DEV_HIFN_795X) += hifn_795x.o
 obj-$(CONFIG_CRYPTO_DEV_TALITOS) += talitos.o
 obj-$(CONFIG_CRYPTO_DEV_IXP4XX) += ixp4xx_crypto.o
+obj-$(CONFIG_CRYPTO_DEV_PPC4XX) += amcc/

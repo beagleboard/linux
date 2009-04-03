@@ -566,7 +566,7 @@ static int __devinit tsc2005_ts_init(struct tsc2005 *ts,
 
 	idev->name = "TSC2005 touchscreen";
 	snprintf(ts->phys, sizeof(ts->phys), "%s/input-ts",
-		 ts->spi->dev.bus_id);
+		 dev_name(&ts->spi->dev));
 	idev->phys = ts->phys;
 
 	idev->evbit[0] = BIT(EV_ABS) | BIT(EV_KEY);

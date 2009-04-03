@@ -599,7 +599,7 @@ static int __devinit omap_nand_probe(struct platform_device *pdev)
 	info->gpmc_cs_baseaddr	= pdata->gpmc_cs_baseaddr;
 
 	info->mtd.priv		= &info->nand;
-	info->mtd.name		= pdev->dev.bus_id;
+	info->mtd.name		= dev_name(&pdev->dev);
 	info->mtd.owner		= THIS_MODULE;
 
 	err = gpmc_cs_request(info->gpmc_cs, NAND_IO_SIZE, &info->phys_base);

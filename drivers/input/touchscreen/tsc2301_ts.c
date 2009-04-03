@@ -603,7 +603,7 @@ int __devinit tsc2301_ts_init(struct tsc2301 *tsc,
 	}
 	idev->name = "TSC2301 touchscreen";
 	snprintf(ts->phys, sizeof(ts->phys),
-		 "%s/input-ts", tsc->spi->dev.bus_id);
+		 "%s/input-ts", dev_name(&tsc->spi->dev));
 	idev->phys = ts->phys;
 	idev->dev.parent = &tsc->spi->dev;
 

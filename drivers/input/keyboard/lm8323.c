@@ -777,7 +777,7 @@ static int lm8323_probe(struct i2c_client *client,
 		idev->name = pdata->name;
 	else
 		idev->name = "LM8323 keypad";
-	snprintf(lm->phys, sizeof(lm->phys), "%s/input-kp", client->dev.bus_id);
+	snprintf(lm->phys, sizeof(lm->phys), "%s/input-kp", dev_name(&client->dev));
 	idev->phys = lm->phys;
 
 	lm->keys_down = 0;

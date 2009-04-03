@@ -103,7 +103,7 @@ static int __devinit omap_nand_probe(struct platform_device *pdev)
 	else
 		info->nand.chip_delay = 20;
 
-	info->mtd.name = pdev->dev.bus_id;
+	info->mtd.name = dev_name(&pdev->dev);
 	info->mtd.priv = &info->nand;
 
 	info->pdata = pdata;
