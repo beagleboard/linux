@@ -175,6 +175,8 @@ static int tusb_set_sync_mode(unsigned sysclk_ps, unsigned fclk_ps)
 	return gpmc_cs_set_timings(sync_cs, &t);
 }
 
+extern unsigned long gpmc_get_fclk_period(void);
+
 /* tusb driver calls this when it changes the chip's clocking */
 int tusb6010_platform_retime(unsigned is_refclk)
 {
@@ -185,7 +187,7 @@ int tusb6010_platform_retime(unsigned is_refclk)
 	unsigned	sysclk_ps;
 	int		status;
 
-	if (!refclk_psec || sysclk_ps == 0)
+	if (!refclk_psec)
 		return -ENODEV;
 
 	sysclk_ps = is_refclk ? refclk_psec : TUSB6010_OSCCLK_60;

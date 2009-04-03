@@ -40,31 +40,11 @@
 
 #define NO_LENGTH_CHECK 0xffffffff
 
-unsigned char omap_bootloader_tag[1024];
+unsigned char omap_bootloader_tag[512];
 int omap_bootloader_tag_len;
 
 struct omap_board_config_kernel *omap_board_config;
 int omap_board_config_size;
-
-#ifdef CONFIG_OMAP_BOOT_TAG
-
-static int __init parse_tag_omap(const struct tag *tag)
-{
-	u32 size = tag->hdr.size - (sizeof(tag->hdr) >> 2);
-
-        size <<= 2;
-	if (size > sizeof(omap_bootloader_tag))
-		return -1;
-
-	memcpy(omap_bootloader_tag, tag->u.omap.data, size);
-	omap_bootloader_tag_len = size;
-
-        return 0;
-}
-
-__tagtable(ATAG_BOARD, parse_tag_omap);
-
-#endif
 
 static const void *get_config(u16 tag, size_t len, int skip, size_t *len_out)
 {

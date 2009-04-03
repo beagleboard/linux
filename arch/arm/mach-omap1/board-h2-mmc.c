@@ -26,13 +26,19 @@
 static int mmc_set_power(struct device *dev, int slot, int power_on,
 				int vdd)
 {
-	gpio_set_value(H2_TPS_GPIO_MMC_PWR_EN, power_on);
+	if (power_on)
+		gpio_direction_output(H2_TPS_GPIO_MMC_PWR_EN, 1);
+	else
+		gpio_direction_output(H2_TPS_GPIO_MMC_PWR_EN, 0);
+
 	return 0;
 }
 
 static int mmc_late_init(struct device *dev)
 {
-	int ret = gpio_request(H2_TPS_GPIO_MMC_PWR_EN, "MMC power");
+	int ret;
+
+	ret = gpio_request(H2_TPS_GPIO_MMC_PWR_EN, "MMC power");
 	if (ret < 0)
 		return ret;
 
@@ -41,7 +47,7 @@ static int mmc_late_init(struct device *dev)
 	return ret;
 }
 
-static void mmc_cleanup(struct device *dev)
+static void mmc_shutdown(struct device *dev)
 {
 	gpio_free(H2_TPS_GPIO_MMC_PWR_EN);
 }
@@ -54,7 +60,7 @@ static void mmc_cleanup(struct device *dev)
 static struct omap_mmc_platform_data mmc1_data = {
 	.nr_slots                       = 1,
 	.init				= mmc_late_init,
-	.cleanup			= mmc_cleanup,
+	.shutdown			= mmc_shutdown,
 	.dma_mask			= 0xffffffff,
 	.slots[0]       = {
 		.set_power              = mmc_set_power,

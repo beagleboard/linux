@@ -38,8 +38,8 @@
 #define OMAP1_SRAM_VA		VMALLOC_END
 #define OMAP2_SRAM_PA		0x40200000
 #define OMAP2_SRAM_PUB_PA	0x4020f800
-#define OMAP2_SRAM_VA		0xe3000000
-#define OMAP2_SRAM_PUB_VA	(OMAP2_SRAM_VA + 0x800)
+#define OMAP2_SRAM_VA		VMALLOC_END
+#define OMAP2_SRAM_PUB_VA	(VMALLOC_END + 0x800)
 #define OMAP3_SRAM_PA           0x40200000
 #define OMAP3_SRAM_VA           0xd7000000
 #define OMAP3_SRAM_PUB_PA       0x40208000
@@ -359,14 +359,14 @@ static u32 (*_omap3_sram_configure_core_dpll)(u32 sdrc_rfr_ctrl,
 					      u32 m2);
 u32 omap3_configure_core_dpll(u32 sdrc_rfr_ctrl, u32 sdrc_actim_ctrla,
 			      u32 sdrc_actim_ctrlb, u32 m2)
- {
+{
 	if (!_omap3_sram_configure_core_dpll)
 		omap_sram_error();
 
 	return _omap3_sram_configure_core_dpll(sdrc_rfr_ctrl,
 					       sdrc_actim_ctrla,
 					       sdrc_actim_ctrlb, m2);
- }
+}
 
 /* REVISIT: Should this be same as omap34xx_sram_init() after off-idle? */
 void restore_sram_functions(void)
@@ -378,7 +378,7 @@ void restore_sram_functions(void)
 			       omap3_sram_configure_core_dpll_sz);
 }
 
-int __init omap3_sram_init(void)
+int __init omap34xx_sram_init(void)
 {
 	_omap3_sram_configure_core_dpll =
 		omap_sram_push(omap3_sram_configure_core_dpll,
@@ -387,7 +387,7 @@ int __init omap3_sram_init(void)
 	return 0;
 }
 #else
-static inline int omap3_sram_init(void)
+static inline int omap34xx_sram_init(void)
 {
 	return 0;
 }
@@ -405,7 +405,7 @@ int __init omap_sram_init(void)
 	else if (cpu_is_omap2430())
 		omap243x_sram_init();
 	else if (cpu_is_omap34xx())
-		omap3_sram_init();
+		omap34xx_sram_init();
 
 	return 0;
 }

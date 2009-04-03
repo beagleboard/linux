@@ -16,10 +16,9 @@ struct twl4030_hsmmc_info {
 	int	gpio_wp;	/* or -EINVAL */
 	char	*name;		/* or NULL for default */
 	struct device *dev;	/* returned: pointer to mmc adapter */
-	int	ocr_mask;	/* temporary HACK */
 };
 
-#if defined(CONFIG_REGULATOR) && \
+#if	defined(CONFIG_TWL4030_CORE) && \
 	(defined(CONFIG_MMC_OMAP) || defined(CONFIG_MMC_OMAP_MODULE) || \
 	 defined(CONFIG_MMC_OMAP_HS) || defined(CONFIG_MMC_OMAP_HS_MODULE))
 

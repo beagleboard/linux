@@ -26,7 +26,11 @@
 static int mmc_set_power(struct device *dev, int slot, int power_on,
 				int vdd)
 {
-	gpio_set_value(H3_TPS_GPIO_MMC_PWR_EN, power_on);
+	if (power_on)
+		gpio_direction_output(H3_TPS_GPIO_MMC_PWR_EN, 1);
+	else
+		gpio_direction_output(H3_TPS_GPIO_MMC_PWR_EN, 0);
+
 	return 0;
 }
 

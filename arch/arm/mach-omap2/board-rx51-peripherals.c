@@ -13,33 +13,28 @@
 #include <linux/platform_device.h>
 #include <linux/input.h>
 #include <linux/spi/spi.h>
-#include <linux/spi/tsc2005.h>
 #include <linux/i2c.h>
 #include <linux/i2c/twl4030.h>
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/regulator/machine.h>
+#include <linux/gpio.h>
 
 #include <mach/mcspi.h>
-#include <mach/gpio.h>
 #include <mach/mux.h>
 #include <mach/board.h>
 #include <mach/common.h>
 #include <mach/dma.h>
 #include <mach/gpmc.h>
+#include <mach/keypad.h>
 
 #include "mmc-twl4030.h"
 
-#define SYSTEM_REV_B_USES_VAUX3 0x1699
-#define SYSTEM_REV_S_USES_VAUX3 0x8
 
 #define SMC91X_CS			1
 #define SMC91X_GPIO_IRQ			54
 #define SMC91X_GPIO_RESET		164
 #define SMC91X_GPIO_PWRDWN		86
-
-#define RX51_TSC2005_RESET_GPIO		104
-#define RX51_TSC2005_IRQ_GPIO		100
 
 static struct resource rx51_smc91x_resources[] = {
 	[0] = {
@@ -55,38 +50,6 @@ static struct platform_device rx51_smc91x_device = {
 	.id		= -1,
 	.num_resources	= ARRAY_SIZE(rx51_smc91x_resources),
 	.resource	= rx51_smc91x_resources,
-};
-
-static struct tsc2005_platform_data tsc2005_config = {
-	.reset_gpio		= RX51_TSC2005_RESET_GPIO, /* not used */
-
-	.ts_x_plate_ohm		= 280,
-	.ts_hw_avg		= 0,
-	.ts_touch_pressure	= 1500,
-	.ts_stab_time		= 1000,
-	.ts_pressure_max	= 2048,
-	.ts_pressure_fudge	= 2,
-	.ts_x_max		= 4096,
-	.ts_x_fudge		= 4,
-	.ts_y_max		= 4096,
-	.ts_y_fudge		= 7,
-};
-
-static struct omap2_mcspi_device_config tsc2005_mcspi_config = {
-	.turbo_mode	= 0,
-	.single_channel = 1,
-};
-
-static struct spi_board_info rx51_peripherals_spi_board_info[] = {
-	[0] = {
-		.modalias		= "tsc2005",
-		.bus_num		= 1,
-		.chip_select		= 0,
-		.irq			= OMAP_GPIO_IRQ(RX51_TSC2005_IRQ_GPIO),
-		.max_speed_hz		= 6000000,
-		.controller_data	= &tsc2005_mcspi_config,
-		.platform_data		= &tsc2005_config,
-	},
 };
 
 static int rx51_keymap[] = {
@@ -236,18 +199,6 @@ free1:
 	printk(KERN_ERR "Could not initialize smc91x\n");
 }
 
-static void __init rx51_init_tsc2005(void)
-{
-	int r;
-
-	r = gpio_request(RX51_TSC2005_IRQ_GPIO, "tsc2005 DAV IRQ");
-	if (r >= 0) {
-		gpio_direction_input(RX51_TSC2005_IRQ_GPIO);
-	} else {
-		printk(KERN_ERR "unable to get DAV GPIO");
-	}
-}
-
 static struct twl4030_madc_platform_data rx51_madc_data = {
 	.irq_line		= 1,
 };
@@ -308,7 +259,7 @@ static struct regulator_init_data rx51_vaux2 = {
 };
 
 /* VAUX3 - adds more power to VIO_18 rail */
-static struct regulator_init_data rx51_vaux3_cam = {
+static struct regulator_init_data rx51_vaux3 = {
 	.constraints = {
 		.name			= "VCAM_DIG_18",
 		.min_uV			= 1800000,
@@ -319,22 +270,6 @@ static struct regulator_init_data rx51_vaux3_cam = {
 		.valid_ops_mask		= REGULATOR_CHANGE_MODE
 					| REGULATOR_CHANGE_STATUS,
 	},
-};
-
-static struct regulator_init_data rx51_vaux3_mmc = {
-	.constraints = {
-		.name			= "VMMC2_30",
-		.min_uV			= 2800000,
-		.max_uV			= 3000000,
-		.apply_uV		= true,
-		.valid_modes_mask	= REGULATOR_MODE_NORMAL
-					| REGULATOR_MODE_STANDBY,
-		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE
-					| REGULATOR_CHANGE_MODE
-					| REGULATOR_CHANGE_STATUS,
-	},
-	.num_consumer_supplies	= 1,
-	.consumer_supplies	= &rx51_vmmc2_supply,
 };
 
 static struct regulator_init_data rx51_vaux4 = {
@@ -447,8 +382,10 @@ static struct twl4030_platform_data rx51_twldata = {
 
 	.vaux1			= &rx51_vaux1,
 	.vaux2			= &rx51_vaux2,
+	.vaux3			= &rx51_vaux3,
 	.vaux4			= &rx51_vaux4,
 	.vmmc1			= &rx51_vmmc1,
+	.vmmc2			= &rx51_vmmc2,
 	.vsim			= &rx51_vsim,
 	.vdac			= &rx51_vdac,
 };
@@ -464,13 +401,6 @@ static struct i2c_board_info __initdata rx51_peripherals_i2c_board_info_1[] = {
 
 static int __init rx51_i2c_init(void)
 {
-	if ((system_rev >= SYSTEM_REV_S_USES_VAUX3 && system_rev < 0x100) ||
-	    system_rev >= SYSTEM_REV_B_USES_VAUX3)
-		rx51_twldata.vaux3 = &rx51_vaux3_mmc;
-	else {
-		rx51_twldata.vaux3 = &rx51_vaux3_cam;
-		rx51_twldata.vmmc2 = &rx51_vmmc2;
-	}
 	omap_register_i2c_bus(1, 2600, rx51_peripherals_i2c_board_info_1,
 			ARRAY_SIZE(rx51_peripherals_i2c_board_info_1));
 	omap_register_i2c_bus(2, 100, NULL, 0);
@@ -483,10 +413,7 @@ void __init rx51_peripherals_init(void)
 {
 	platform_add_devices(rx51_peripherals_devices,
 				ARRAY_SIZE(rx51_peripherals_devices));
-	spi_register_board_info(rx51_peripherals_spi_board_info,
-				ARRAY_SIZE(rx51_peripherals_spi_board_info));
 	rx51_i2c_init();
 	rx51_init_smc91x();
-	rx51_init_tsc2005();
 }
 
