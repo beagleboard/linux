@@ -136,14 +136,11 @@ static int twl_mmc_late_init(struct device *dev)
 			 * (which is safe for MMC, but not in general).
 			 */
 			if (regulator_is_enabled(hsmmc[i].vcc) > 0) {
-				dev_warn(dev, "APPLY REGULATOR HACK for vmmc\n");
 				regulator_enable(hsmmc[i].vcc);
 				regulator_disable(hsmmc[i].vcc);
 			}
 			if (hsmmc[i].vcc_aux) {
 				if (regulator_is_enabled(reg) > 0) {
-					dev_warn(dev, "APPLY REGULATOR HACK "
-						"for vmmc_aux\n");
 					regulator_enable(reg);
 					regulator_disable(reg);
 				}
