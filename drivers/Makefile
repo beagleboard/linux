@@ -34,6 +34,8 @@ obj-$(CONFIG_CONNECTOR)		+= connector/
 obj-$(CONFIG_FB_I810)           += video/i810/
 obj-$(CONFIG_FB_INTEL)          += video/intelfb/
 
+obj-y				+= cbus/
+
 # we also need input/serio early so serio bus is initialized by the time
 # serial drivers start registering their serio ports
 obj-$(CONFIG_SERIO)		+= input/serio/
