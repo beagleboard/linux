@@ -738,7 +738,7 @@ int omap_request_dma(int dev_id, const char *dev_name,
 		 * id.
 		 */
 		dma_write(dev_id | (1 << 10), CCR(free_ch));
-	} else if (cpu_is_omap7xx() || cpu_is_omap15xx()) {
+	} else if (cpu_is_omap730() || cpu_is_omap15xx()) {
 		dma_write(dev_id, CCR(free_ch));
 	}
 
@@ -2346,7 +2346,7 @@ static int __init omap_init_dma(void)
 		printk(KERN_INFO "DMA support for OMAP15xx initialized\n");
 		dma_chan_count = 9;
 		enable_1510_mode = 1;
-	} else if (cpu_is_omap16xx() || cpu_is_omap7xx()) {
+	} else if (cpu_is_omap16xx() || cpu_is_omap730()) {
 		printk(KERN_INFO "OMAP DMA hardware version %d\n",
 		       dma_read(HW_ID));
 		printk(KERN_INFO "DMA capabilities: %08x:%08x:%04x:%04x:%04x\n",
@@ -2423,6 +2423,19 @@ static int __init omap_init_dma(void)
 
 	if (cpu_class_is_omap2())
 		setup_irq(INT_24XX_SDMA_IRQ0, &omap24xx_dma_irq);
+
+	/* Enable smartidle idlemodes and autoidle */
+	if (cpu_is_omap34xx()) {
+		u32 v = dma_read(OCP_SYSCONFIG);
+		v &= ~(DMA_SYSCONFIG_MIDLEMODE_MASK |
+				DMA_SYSCONFIG_SIDLEMODE_MASK |
+				DMA_SYSCONFIG_AUTOIDLE);
+		v |= (DMA_SYSCONFIG_MIDLEMODE(DMA_IDLEMODE_SMARTIDLE) |
+			DMA_SYSCONFIG_SIDLEMODE(DMA_IDLEMODE_SMARTIDLE) |
+			DMA_SYSCONFIG_AUTOIDLE);
+		dma_write(v , OCP_SYSCONFIG);
+	}
+
 
 	/* FIXME: Update LCD DMA to work on 24xx */
 	if (cpu_class_is_omap1()) {

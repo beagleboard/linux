@@ -25,8 +25,18 @@
 #define GPMC_CS_NAND_ADDRESS	0x20
 #define GPMC_CS_NAND_DATA	0x24
 
+/*
+ * The following gpmc registers are being used by
+ * nand driver and hence is defined here.
+ * TBD: Move them to gpmc.c by providing appropriate
+ *  methods to read and write into these registers
+ */
+#define GPMC_IRQSTATUS		0x18
 #define GPMC_CONFIG		0x50
 #define GPMC_STATUS		0x54
+#define GPMC_CS0_BASE           0x60
+#define GPMC_CS_SIZE            0x30
+
 
 #define GPMC_CONFIG1_WRAPBURST_SUPP     (1 << 31)
 #define GPMC_CONFIG1_READMULTIPLE_SUPP  (1 << 30)
