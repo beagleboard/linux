@@ -36,20 +36,16 @@ struct twlreg_info {
 	/* twl4030 resource ID, for resource control state machine */
 	u8			id;
 
-	/* FIXED_LDO voltage */
-	u8			deciV;
-
 	/* voltage in mV = table[VSEL]; table_len must be a power-of-two */
 	u8			table_len;
 	const u16		*table;
 
+	/* chip constraints on regulator behavior */
+	u16			min_mV;
+
 	/* used by regulator core */
 	struct regulator_desc	desc;
 };
-
-#ifndef REGULATOR_MODE_OFF
-#define REGULATOR_MODE_OFF 0
-#endif
 
 
 /* LDO control registers ... offset is from the base of its register bank.
@@ -97,7 +93,6 @@ static int twl4030reg_grp(struct regulator_dev *rdev)
 #define P3_GRP		BIT(7)		/* "peripherals" */
 #define P2_GRP		BIT(6)		/* secondary processor, modem, etc */
 #define P1_GRP		BIT(5)		/* CPU/Linux */
-#define WARM_CFG	BIT(4)
 
 static int twl4030reg_is_enabled(struct regulator_dev *rdev)
 {
@@ -198,6 +193,9 @@ static int twl4030reg_set_mode(struct regulator_dev *rdev, unsigned mode)
  *
  * VSEL values documented as "TI cannot support these values" are flagged
  * in these tables as UNSUP() values; we normally won't assign them.
+ *
+ * VAUX3 at 3V is incorrectly listed in some TI manuals as unsupported.
+ * TI are revising the twl5030/tps659x0 specs to support that 3.0V setting.
  */
 #ifdef CONFIG_TWL4030_ALLOW_UNSUPPORTED
 #define UNSUP_MASK	0x0000
@@ -228,7 +226,7 @@ static const u16 VAUX2_VSEL_table[] = {
 };
 static const u16 VAUX3_VSEL_table[] = {
 	1500, 1800, 2500, 2800,
-	UNSUP(3000), UNSUP(3000), UNSUP(3000), UNSUP(3000),
+	3000, 3000, 3000, 3000,
 };
 static const u16 VAUX4_VSEL_table[] = {
 	700, 1000, 1200, UNSUP(1300),
@@ -332,14 +330,14 @@ static int twl4030fixed_list_voltage(struct regulator_dev *rdev, unsigned index)
 {
 	struct twlreg_info	*info = rdev_get_drvdata(rdev);
 
-	return info->deciV * 100 * 1000;
+	return info->min_mV * 1000;
 }
 
 static int twl4030fixed_get_voltage(struct regulator_dev *rdev)
 {
 	struct twlreg_info	*info = rdev_get_drvdata(rdev);
 
-	return info->deciV * 100 * 1000;
+	return info->min_mV * 1000;
 }
 
 static struct regulator_ops twl4030fixed_ops = {
@@ -376,7 +374,7 @@ static struct regulator_ops twl4030fixed_ops = {
 #define TWL_FIXED_LDO(label, offset, mVolts, num) { \
 	.base = offset, \
 	.id = num, \
-	.deciV = mVolts / 100 , \
+	.min_mV = mVolts, \
 	.desc = { \
 		.name = #label, \
 		.id = TWL4030_REG_##label, \
@@ -388,34 +386,34 @@ static struct regulator_ops twl4030fixed_ops = {
 	}
 
 /*
- * We expose regulators here if systems need some level of
+ * We list regulators here if systems need some level of
  * software control over them after boot.
  */
 static struct twlreg_info twl4030_regs[] = {
-	TWL_ADJUSTABLE_LDO(VAUX1, 0x17, RES_VAUX1),
-	TWL_ADJUSTABLE_LDO(VAUX2_4030, 0x1b, RES_VAUX2),
-	TWL_ADJUSTABLE_LDO(VAUX2, 0x1b, RES_VAUX2),
-	TWL_ADJUSTABLE_LDO(VAUX3, 0x1f, RES_VAUX3),
-	TWL_ADJUSTABLE_LDO(VAUX4, 0x23, RES_VAUX4),
-	TWL_ADJUSTABLE_LDO(VMMC1, 0x27, RES_VMMC1),
-	TWL_ADJUSTABLE_LDO(VMMC2, 0x2b, RES_VMMC2),
+	TWL_ADJUSTABLE_LDO(VAUX1, 0x17, 1),
+	TWL_ADJUSTABLE_LDO(VAUX2_4030, 0x1b, 2),
+	TWL_ADJUSTABLE_LDO(VAUX2, 0x1b, 2),
+	TWL_ADJUSTABLE_LDO(VAUX3, 0x1f, 3),
+	TWL_ADJUSTABLE_LDO(VAUX4, 0x23, 4),
+	TWL_ADJUSTABLE_LDO(VMMC1, 0x27, 5),
+	TWL_ADJUSTABLE_LDO(VMMC2, 0x2b, 6),
 	/*
-	TWL_ADJUSTABLE_LDO(VPLL1, 0x2f, RES_VPLL1),
+	TWL_ADJUSTABLE_LDO(VPLL1, 0x2f, 7),
 	*/
-	TWL_ADJUSTABLE_LDO(VPLL2, 0x33, RES_VPLL2),
-	TWL_ADJUSTABLE_LDO(VSIM, 0x37, RES_VSIM),
-	TWL_ADJUSTABLE_LDO(VDAC, 0x3b, RES_VDAC),
+	TWL_ADJUSTABLE_LDO(VPLL2, 0x33, 8),
+	TWL_ADJUSTABLE_LDO(VSIM, 0x37, 9),
+	TWL_ADJUSTABLE_LDO(VDAC, 0x3b, 10),
 	/*
-	TWL_ADJUSTABLE_LDO(VINTANA1, 0x3f, RES_VINTANA1),
-	TWL_ADJUSTABLE_LDO(VINTANA2, 0x43, RES_VINTANA1),
-	TWL_ADJUSTABLE_LDO(VINTDIG, 0x47, RES_VINTDIG),
-	TWL_SMPS(VIO, 0x4b, RES_VIO),
-	TWL_SMPS(VDD1, 0x55, RES_VDD1),
-	TWL_SMPS(VDD2, 0x63, RES_VDD2),
+	TWL_ADJUSTABLE_LDO(VINTANA1, 0x3f, 11),
+	TWL_ADJUSTABLE_LDO(VINTANA2, 0x43, 12),
+	TWL_ADJUSTABLE_LDO(VINTDIG, 0x47, 13),
+	TWL_SMPS(VIO, 0x4b, 14),
+	TWL_SMPS(VDD1, 0x55, 15),
+	TWL_SMPS(VDD2, 0x63, 16),
 	 */
-	TWL_FIXED_LDO(VUSB1V5, 0x71, 1500, RES_VUSB_1V5),
-	TWL_FIXED_LDO(VUSB1V8, 0x74, 1800, RES_VUSB_1V8),
-	TWL_FIXED_LDO(VUSB3V1, 0x77, 3100, RES_VUSB_3V1),
+	TWL_FIXED_LDO(VUSB1V5, 0x71, 1500, 17),
+	TWL_FIXED_LDO(VUSB1V8, 0x74, 1800, 18),
+	TWL_FIXED_LDO(VUSB3V1, 0x77, 3100, 19),
 	/* VUSBCP is managed *only* by the USB subchip */
 };
 
@@ -442,7 +440,6 @@ static int twl4030reg_probe(struct platform_device *pdev)
 
 	/* Constrain board-specific capabilities according to what
 	 * this driver and the chip itself can actually do.
-	 * (Regulator core now does this for voltage constraints.)
 	 */
 	c = &initdata->constraints;
 	c->valid_modes_mask &= REGULATOR_MODE_NORMAL | REGULATOR_MODE_STANDBY;
@@ -450,7 +447,7 @@ static int twl4030reg_probe(struct platform_device *pdev)
 				| REGULATOR_CHANGE_MODE
 				| REGULATOR_CHANGE_STATUS;
 
-	rdev = regulator_register(&info->desc, &pdev->dev, info);
+	rdev = regulator_register(&info->desc, &pdev->dev, initdata, info);
 	if (IS_ERR(rdev)) {
 		dev_err(&pdev->dev, "can't register %s, %ld\n",
 				info->desc.name, PTR_ERR(rdev));

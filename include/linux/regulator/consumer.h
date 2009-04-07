@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2007, 2008 Wolfson Microelectronics PLC.
  *
- * Author: Liam Girdwood <lg@opensource.wolfsonmicro.com>
+ * Author: Liam Girdwood <lrg@slimlogic.co.uk>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -88,6 +88,7 @@
  * FAIL           Regulator output has failed.
  * OVER_TEMP      Regulator over temp.
  * FORCE_DISABLE  Regulator shut down by software.
+ * VOLTAGE_CHANGE Regulator voltage changed.
  *
  * NOTE: These events can be OR'ed together when passed into handler.
  */
@@ -98,6 +99,7 @@
 #define REGULATOR_EVENT_FAIL			0x08
 #define REGULATOR_EVENT_OVER_TEMP		0x10
 #define REGULATOR_EVENT_FORCE_DISABLE		0x20
+#define REGULATOR_EVENT_VOLTAGE_CHANGE		0x40
 
 struct regulator;
 

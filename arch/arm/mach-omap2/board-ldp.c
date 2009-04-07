@@ -23,6 +23,7 @@
 #include <linux/spi/spi.h>
 #include <linux/spi/ads7846.h>
 #include <linux/i2c/twl4030.h>
+#include <linux/smsc911x.h>
 
 #include <mach/hardware.h>
 #include <asm/mach-types.h>
@@ -42,8 +43,8 @@
 
 #include "mmc-twl4030.h"
 
-#define LDP_SMC911X_CS		1
-#define LDP_SMC911X_GPIO	152
+#define LDP_SMSC911X_CS		1
+#define LDP_SMSC911X_GPIO	152
 #define DEBUG_BASE		0x08000000
 #define LDP_ETHR_START		DEBUG_BASE
 #define ENABLE_VAUX1_DEDICATED	0x03
@@ -51,7 +52,7 @@
 
 #define TWL4030_MSECURE_GPIO	22
 
-static struct resource ldp_smc911x_resources[] = {
+static struct resource ldp_smsc911x_resources[] = {
 	[0] = {
 		.start	= LDP_ETHR_START,
 		.end	= LDP_ETHR_START + SZ_4K,
@@ -64,11 +65,21 @@ static struct resource ldp_smc911x_resources[] = {
 	},
 };
 
-static struct platform_device ldp_smc911x_device = {
-	.name		= "smc911x",
+static struct smsc911x_platform_config ldp_smsc911x_config = {
+	.irq_polarity	= SMSC911X_IRQ_POLARITY_ACTIVE_LOW,
+	.irq_type	= SMSC911X_IRQ_TYPE_OPEN_DRAIN,
+	.flags		= SMSC911X_USE_32BIT,
+	.phy_interface	= PHY_INTERFACE_MODE_MII,
+};
+
+static struct platform_device ldp_smsc911x_device = {
+	.name		= "smsc911x",
 	.id		= -1,
-	.num_resources	= ARRAY_SIZE(ldp_smc911x_resources),
-	.resource	= ldp_smc911x_resources,
+	.num_resources	= ARRAY_SIZE(ldp_smsc911x_resources),
+	.resource	= ldp_smsc911x_resources,
+	.dev		= {
+		.platform_data = &ldp_smsc911x_config,
+	},
 };
 
 static int ldp_twl4030_keymap[] = {
@@ -306,34 +317,34 @@ static struct platform_device ldp_lcd_device = {
 };
 
 static struct platform_device *ldp_devices[] __initdata = {
-	&ldp_smc911x_device,
+	&ldp_smsc911x_device,
 	&ldp_lcd_device,
 	&ldp_gpio_keys_device,
 };
 
-static inline void __init ldp_init_smc911x(void)
+static inline void __init ldp_init_smsc911x(void)
 {
 	int eth_cs;
 	unsigned long cs_mem_base;
 	int eth_gpio = 0;
 
-	eth_cs = LDP_SMC911X_CS;
+	eth_cs = LDP_SMSC911X_CS;
 
 	if (gpmc_cs_request(eth_cs, SZ_16M, &cs_mem_base) < 0) {
-		printk(KERN_ERR "Failed to request GPMC mem for smc911x\n");
+		printk(KERN_ERR "Failed to request GPMC mem for smsc911x\n");
 		return;
 	}
 
-	ldp_smc911x_resources[0].start = cs_mem_base + 0x0;
-	ldp_smc911x_resources[0].end   = cs_mem_base + 0xff;
+	ldp_smsc911x_resources[0].start = cs_mem_base + 0x0;
+	ldp_smsc911x_resources[0].end   = cs_mem_base + 0xff;
 	udelay(100);
 
-	eth_gpio = LDP_SMC911X_GPIO;
+	eth_gpio = LDP_SMSC911X_GPIO;
 
-	ldp_smc911x_resources[1].start = OMAP_GPIO_IRQ(eth_gpio);
+	ldp_smsc911x_resources[1].start = OMAP_GPIO_IRQ(eth_gpio);
 
-	if (gpio_request(eth_gpio, "smc911x irq") < 0) {
-		printk(KERN_ERR "Failed to request GPIO%d for smc911x IRQ\n",
+	if (gpio_request(eth_gpio, "smsc911x irq") < 0) {
+		printk(KERN_ERR "Failed to request GPIO%d for smsc911x IRQ\n",
 				eth_gpio);
 		return;
 	}
@@ -346,7 +357,7 @@ static void __init omap_ldp_init_irq(void)
 	omap2_init_common_hw(NULL);
 	omap_init_irq();
 	omap_gpio_init();
-	ldp_init_smc911x();
+	ldp_init_smsc911x();
 }
 
 static struct omap_uart_config ldp_uart_config __initdata = {
