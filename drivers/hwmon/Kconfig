@@ -995,6 +995,22 @@ config SENSORS_APPLESMC
 	  Say Y here if you have an applicable laptop and want to experience
 	  the awesome power of applesmc.
 
+config SENSORS_TSC210X
+	tristate "TI TSC210x battery & temperature sensors"
+	depends on HWMON && SPI_MASTER
+	select SPI_TSC210X
+	help
+	  Say Y if your board has a TSC210x chip and you want to
+	  have its battery state, auxiliary input and/or temperature
+	  sensors exported through hwmon.
+
+	  This driver can also be built as a module.  In this case
+	  the module will be called tsc210x_sensors.
+
+config SENSORS_OMAP34XX
+	tristate "TI OMAP34xx internal temperature sensor"
+	depends on ARCH_OMAP3 && HIGH_RES_TIMERS
+
 config HWMON_DEBUG_CHIP
 	bool "Hardware Monitoring Chip debugging messages"
 	default n

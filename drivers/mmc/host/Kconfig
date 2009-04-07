@@ -85,8 +85,9 @@ config MMC_SDHCI_OF
 
 config MMC_OMAP
 	tristate "TI OMAP Multimedia Card Interface support"
-	depends on ARCH_OMAP
+	depends on ARCH_OMAP1 || (ARCH_OMAP2 && ARCH_OMAP2420)
 	select TPS65010 if MACH_OMAP_H2
+	select OMAP_GPIO_SWITCH if MACH_NOKIA_N800
 	help
 	  This selects the TI OMAP Multimedia card Interface.
 	  If you have an OMAP board with a Multimedia Card slot,

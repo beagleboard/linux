@@ -18,6 +18,7 @@ obj-$(CONFIG_VLSI_FIR)		+= vlsi_ir.o
 obj-$(CONFIG_VIA_FIR)		+= via-ircc.o
 obj-$(CONFIG_PXA_FICP)	        += pxaficp_ir.o
 obj-$(CONFIG_MCS_FIR)	        += mcs7780.o
+obj-$(CONFIG_OMAP_IR)		+= omap-ir.o
 obj-$(CONFIG_AU1000_FIR)	+= au1k_ir.o
 # SIR drivers
 obj-$(CONFIG_IRTTY_SIR)		+= irtty-sir.o	sir-dev.o

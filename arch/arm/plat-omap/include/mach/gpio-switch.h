@@ -24,11 +24,12 @@
  *	low  -> inactive
  *
  */
-#define OMAP_GPIO_SWITCH_TYPE_COVER		0x0000
-#define OMAP_GPIO_SWITCH_TYPE_CONNECTION	0x0001
-#define OMAP_GPIO_SWITCH_TYPE_ACTIVITY		0x0002
-#define OMAP_GPIO_SWITCH_FLAG_INVERTED		0x0001
-#define OMAP_GPIO_SWITCH_FLAG_OUTPUT		0x0002
+#define OMAP_GPIO_SWITCH_TYPE_COVER			0x0000
+#define OMAP_GPIO_SWITCH_TYPE_CONNECTION		0x0001
+#define OMAP_GPIO_SWITCH_TYPE_ACTIVITY			0x0002
+#define OMAP_GPIO_SWITCH_FLAG_INVERTED			0x0001
+#define OMAP_GPIO_SWITCH_FLAG_OUTPUT			0x0002
+#define OMAP_GPIO_SWITCH_FLAG_OUTPUT_INIT_ACTIVE	0x0004
 
 struct omap_gpio_switch {
 	const char *name;
@@ -48,7 +49,11 @@ struct omap_gpio_switch {
 };
 
 /* Call at init time only */
+#ifdef CONFIG_OMAP_GPIO_SWITCH
 extern void omap_register_gpio_switches(const struct omap_gpio_switch *tbl,
 					int count);
+#else
+#define omap_register_gpio_switches(tbl, count)	do { } while (0)
+#endif
 
 #endif

@@ -1,0 +1,376 @@
+
+                  README for ARM based OMAP processor from TI
+                  ===========================================
+
+This is the README for Linux 2.6 on ARM based TI OMAP processors.
+
+In the first section it gives some general hints how to start with OMAP Linux.
+ 
+When successfully build a OMAP Linux kernel with help of first section and no 
+bootloader is already on the board, section 2 gives some tips how to use
+commercial JTAG tools. 
+
+In March 2004 the Linux Kernel 2.6 for ARM based TI OMAP processors was cleaned.
+The goal was to send clean patches to RMK's official ARM tree and to make it 
+easier to add new OMAP processors or boards to the kernel tree. To keep the
+kernel tree clean now, this document describes also some steps how 
+to add code for a new OMAP processor or OMAP based board to the OMAP Linux 2.6 
+kernel tree. This is what the third section of this document is about.
+
+Section 4 of this README reports some rules to be followed to write 
+clean code to make it ready for easy inclusion into public OMAP Linux kernel.
+
+For more information also see TI's 'Linux Community for Texas Instruments OMAP
+Processors' web page:
+
+http://linux.omap.com
+
+There, various downloads and resources can be found (e.g. documentation how
+to build the kernel, how to use u-boot with OMAP Linux, pre-built tool chain
+etc.).
+
+The mailing list for OMAP Linux is hosted there, too:
+
+http://linux.omap.com/mailman/listinfo
+
+
+1. General hints how to start with OMAP Linux
+--------------------------------------------------------------
+
+The minimal setup is a arm-linux-gcc cross compiler, make, and some editor.
+You will also most likely need a JTAG to flash the bootloader for the first
+time.
+
+The first step is to get a bootloader for your board, u-boot is the
+recommended one:
+
+http://www.denx.de/en/Software/GIT
+
+Then you need to compile it with the same cross compiler as you would use
+for the Linux kernel. Then you need to flash it to the board either via the
+serial port, or by using a JTAG.
+
+Once you have the bootloader running, you can compile the kernel.
+
+You can get the OMAP sources either from the OMAP GIT tree, or by
+applying patches. The OMAP GIT tree has the most up to date sources
+and is the recommended one.
+
+- Using GIT and cloning OMAP GIT tree please follow the README at:
+
+http://www.muru.com/linux/omap/README_OMAP_GIT
+
+Hint: If you are sitting behind a firewall and have to use a proxy for 
+internet access, you can access GIT by http by setting the
+http_proxy envirionment variable:
+
+http_proxy=http://proxy_username:proxy_password@proxy_name:proxy_port/
+
+If you use bash shell, then this might look like:
+
+export http_proxy=http://foo:123@abc.host.com:8080/
+
+with:
+
+foo: Your user name for the proxy
+123: Your password for the proxy
+abc.host.com: The name of your proxy you use for internet access
+8080: The port used on to access the proxy
+
+
+- Using Patches:
+
+If you don't want to use GIT, then you can do the same thing with patch.
+
+Download the latest OMAP Linux patch from:
+
+http://www.muru.com/linux/omap/
+
+Get a matching Linux kernel from:
+
+ftp://ftp.kernel.org/pub/linux/kernel/v2.6/
+
+For example, if you download Linux-2.6.4-omap1 from muru.com, then you need
+linux-2.6.4 kernel from kernel.org:
+
+$ wget ftp://ftp.kernel.org/pub/linux/kernel/v2.6/linux-2.6.4.tar.bz2
+$ tar xjf linux-2.6.4.tar.bz2
+$ cd linux-2.6.4
+$ cat ../Linux-2.6.4-omap1 | patch -p1
+
+Note: If OMAP patch from muru.com is against a kernel release candidate, 
+marked by -rcX, then kernel can be found on kernel.org under v2.6/testing/
+
+Now, if you have a local kernel tree, either by GIT or by patch, you
+should look into arch/arm/configs/ to see which of the various omap_xxx
+configurations there you want to use. For example, if you have a OMAP1510
+based Innovator board, you select omap_innovator_1510_defconfig by 
+
+$ make omap_innovator_1510_defconfig
+
+at top level directory (linux-2.6.4 in the example above).
+
+Then you can compile the kernel with
+
+$ make vmlinux
+
+Or make Image or make zImage or make uImage.
+
+Once you have the kernel compiled, you can upload it to the board via serial
+port or JTAG (see below).
+
+Then you need a root file system either as initrd or on the flash.
+
+Once you have the system booting to Linux, you can use pretty much any Linux
+applications cross compiled for ARM.
+
+
+2. JTAG usage
+--------------------------------------------------------------
+
+If the flash of your board is really 'empty' and no bootloader is on the board
+(e.g. u-boot) then you need a JTAG connection. With JTAG you can write
+a bootloader to board's flash or download OMAP Linux kernel. For OMAP
+commercial JTAG tools are available, so you have to pay for it.
+
+Examples are TI's Code Composer Studio (CCS) or Lauterbach's TRACE32 JTAG.
+
+- Linux kernel download with CCS
+
+You can use CCS to directly load an ELF file to your board. For example, use  
+arch/arm/boot/compressed/vmlinux. zImage isn't suited because it is not an ELF
+file. CCS looks for .out files, so copy arch/arm/boot/compressed/vmlinux 
+to vmlinux.out and load it using CCS. Or use the filter *.* to select
+vmlinux directly. Remember to run arm-linux-strip on ELF file first as CCS 
+get stroppy about unstripped ELF files.
+
+If you want vmlinux to be linked to run at a specific address, you can use 
+the CONFIG_ZBOOT options in the kernel build. But first try without
+CONFIG_ZBOOT as the compressed image should be able to run from address
+zero (if your CCS .gel files map address zero.)
+
+Otherwise, use something like this:
+
+CONFIG_ZBOOT_ROM=y
+CONFIG_ZBOOT_ROM_TEXT=10408000
+CONFIG_ZBOOT_ROM_BSS=10800000
+
+Also note that CCS is pretty useless for debugging Linux as it doesn't
+properly handle virtual memory. In other words, once the MMU is
+turned on and Linux is using virtual memory, CCS can no longer
+properly disassemble, set breakpoints or read memory.
+
+
+- Linux kernel download with Lauterbach TRACE32
+
+To be done.
+
+
+3. How to add new processor or board to OMAP Linux kernel tree
+--------------------------------------------------------------
+
+It is assumed that the OMAP processor to be added is based on an already 
+supported ARM core (e.g. ARM925 or ARM926). How to add support for new ARM 
+processor core that is not supported by ARM Linux is not scope of this document.
+
+1. If a new OMAP processor should be added, identify the ARM core of this 
+processor. E.g. at time of writing this document in March 2004 OMAP730 (ARM926 
+core), OMAP1510 (ARM925 core) and OMAP1610 (ARM926 core) are supported.
+
+For a new board or device, identify the OMAP processor on the board. E.g. at 
+time of writing this document in March 2004 four boards are supported: 
+Innovator1510 (OMAP1510 processor), Innovator1610 (OMAP1610 processor), 
+Perseus2 (OMAP730 processor) and H2 (OMAP1610 processor).
+
+Please refer http://www.muru.com/linux/omap/ to get latest information on the
+list of boards supported.
+
+/* Discussion needed: How to handle the tons of compatible processors? 
+E.g. what to do if OMAP16xx is mainly identical with OMAP16yy? */
+
+2. Start with arch/arm/mach-omap[1/2]/Kconfig and add a new processor or board
+option.
+
+To add a new processor add a new config option to the "OMAP Core Type" choice. 
+See examples for the syntax. The config option has to be called "ARCH_OMAPxxxx" 
+where xxxx is the number of OMAP processor. Don't forget to select a existing
+clock frequency or to add a new one in "OMAP Feature Selections" section for
+your new processor. 
+
+To add a new board or device, add a new config option to the "OMAP Board Type" 
+choice. See examples for the syntax. The config option for boards has to be 
+called "MACH_OMAP_yyyy" where yyyy is the board name. Don't forget to add a 
+short help.
+
+Note: Kernel 2.6 Kconfig system will automatically expand the configuration 
+names with a leading "CONFIG_". So "ARCH_OMAPxxxx" will be expanded to 
+"CONFIG_ARCH_OMAPxxxx" and "MACH_OMAP_yyy" will expand to 
+"CONFIG_MACH_OMAP_yyyy". In code this can then be used by macros like 
+"#ifdef CONFIG_ARCH_OMAPxxxx" and "#ifdef CONFIG_MACH_OMAP_yyyy".
+
+Note: How to handle boards which are compatible or extensions of other boards? 
+See MACH_OMAP_H2 for example. The H2 depends on MACH_OMAP_INNOVATOR and expands 
+it. This is done by an additional select MACH_OMAP_INNOVATOR in MACH_OMAP_H2
+configuration option. With this the whole MACH_OMAP_INNOVATOR configuration is
+selected and an additional symbol CONFIG_MACH_OMAP_H2 is available to
+distinguish between INNOVATOR and H2 where necessary. 
+
+3a. Only for new processors: Add the ARCH_OMAPxxxx to the correct ARM core in 
+arch/arm/mm/Kconfig. E.g. ARCH_OMAP730 in CPU_ARM926T configuration.
+
+3b. Only for new boards: Register the board within ARM Linux machine 
+registration system from RMK. For the CONFIG_ section use the same name like 
+in arch/arm/mach-omap[1/2]/Kconfig. E.g. MACH_OMAP_yyyy. For MACH_TYPE_ section use
+OMAP_yyyy where yyyy is the board name like above.
+
+Note: The elements of RMKs machine registration are used in 
+arch/arm/tools/mach-types. While kernel compilation
+include/asm-arm/mach-types.h is generated automagically from this file. The
+content of mach-types.h then is used for machine identification by kernel
+bootcode and can be used for board identification.
+
+Note: The ARM Linux machine registration system from RMK can be found under:
+
+www.arm.linux.org.uk/developer/machines/
+
+Note: Only OMAP based boards should be registered to RMKs registration
+system. Not processors.
+
+4. Add a processor or board specific header file in include/asm-arm/arch-omap/. 
+Use board-yyyy.h with yyyy board name or omapxxxx.h with xxxx processor number.
+
+5. Add a processor or board specific section into include/asm-arm/arch-omap/
+hardware.h. Use examples for syntax and use CONFIG_ names as defined in 
+arch/arm/mach-omap[1/2]/Kconfig.
+
+6. Add processor or board specific macros to board-yyyy.h or omapxxxx.h. The
+macros to these specific files have to be named OMAPxxxx_ with xxxx processor
+number to make them unique.
+
+7a. Only for new boards: Add a file board-yyyy.c with yyyy board name to 
+arch/arm/mach-omap[1/2]/. Put board specific initialization code and resource
+description into this file. The first element of MACHINE_START must be equal to 
+MACH_TYPE_ section of machine registration (see arch/arm/tools/mach-types after 
+machine registration at RMKs registration system).
+
+Put only code into this file that is board specific and not common. See other 
+board files for examples.
+
+7b. Only for new processors: Add processor specific IO description and
+iotable_init() to arch/arm/mach-omap[1/2]/io.c. See examples for the syntax.
+
+If you have introduced new clock definition in 2., add support for this new
+clock in include/asm-arm/arch-omap/clocks.h and arch/arm/mach-omap[1/2]/clocks.c.
+
+8. Only for new boards: Add "obj-$(CONFIG_MACH_OMAP_yyyy) += board-yyyy.o" with 
+yyyy board name to arch/arm/mach-omap[1/2]/Makefile. This is used to compile your new
+board specific initialization code from 7a.
+
+9. Check if other of the existing files have to be adjusted for the new 
+processor or board. Things to check:
+
+- Pin multiplexing
+- GPIO configuration
+- Power Management
+- Clocking
+- Interrupt controller and interrupt configuration
+- Additional board specific things (e.g. FPGAs)
+
+If other existing files or device drivers have to be changed, use the following 
+mechanism for processor specific things:
+
+#ifdef CONFIG_ARCH_OMAPxxxx
+ 	if (cpu_is_omapxxxx()) {
+ 		/* Do the OMAPxxxx processor specific magic */
+ 	}
+#endif
+
+Note: cpu_is_omapxxxx() macro is defined in include/asm-arm/arch-omap/hardware.h
+and uses OMAP_ID_REG for runtime processor identifcation.
+
+For board differentiation use board macro from include/asm-arm/mach-types.h:
+
+#ifdef CONFIG_MACH_OMAP_yyyy
+ 	if (machine_is_omap_yyyy()) {
+ 		/* Do the board specific magic */
+ 	}
+#endif
+
+Note: If technically possible and already implemented the OMAP Linux kernel
+has support for a "one binary fits all" machanism. That is, the goal is to be
+able to enable support for multiple OMAP processors and/or boards in Kconfig
+system. Then it is decided by bootparameters and at runtime on which processor 
+and/or board the kernel is actually running on. With this machanism it is 
+possible to use the same kernel binary on different OMAP processors or boards 
+without recompiling. This is achived by the cpu_is_omapxxxx() and
+machine_is_omap_yyyy() macros.
+
+On the other hand, for memory limited embedded systems it should be possible
+to compile the kernel with support for only one processor/board combination.
+For this a kernel binary is necessary which isn't bloated with code for all
+other (unused) processors and boards. This is achived by using the preprocessor
+CONFIG_ARCH_OMAPxxxx and CONFIG_MACH_OMAP_yyyy macros around the runtime
+cpu_is_omapxxxx() and machine_is_omap_yyyy() selection.
+
+At the moment, the price for this flexibility is a increased number of #ifdef's
+throughout the code.
+
+10. Configure the kernel by make menuconfig or make xconfig and select the new 
+processor or board.
+
+11. Compile the kernel by an appropriate cross compilation toolchain. Make this
+until the code compiles error and warning free. The kernel should also be 
+compiled with the various debug checking thingies enabled (e.g.
+CONFIG_DEBUG_SPINLOCK,  CONFIG_DEBUG_PAGEALLOC etc.).
+
+/* ToDo: Anything to say about toolchain? */
+
+12. Download the kernel image to the board and test it until it works ;-)
+
+It's not in the scope of this document how to do this (use a appropriate 
+bootloader or JTAG download).
+
+Note: The kernel initialization code expects some special values in the
+registers R0, R1 and R2 of the ARM processor. These registers have to be
+written by bootloader or debugger before starting the kernel. R0 has to be
+zero, R1 has to contain the machine number from machine registration in
+arch/arm/tools/mach-types. R2 points to the physical address of tagged list
+in system RAM. For more information see Documentation/arm/Booting.
+
+While testing a new processor or board configuration, it is recommended to 
+enable low level debugging. This uses low level output functions to print kernel
+messages on serial line before console is working. Enable it by 
+
+Kernel hacking -> Kernel debugging -> Kernel low-level debugging functions
+
+in kernel configuration system.
+
+13. Check that no other processors or boards are broken by the new code. A first
+test is to successful compile the other omap_xxx configurations from 
+arch/arm/configs/. Do this by e.g.
+
+cd linux
+make omap_innovator_1510_defconfig
+Compile the kernel
+
+Even better: Enable support for several processors and boards in Kconfig
+system and compile kernel successfully.
+
+14. Only for new boards: Add a new default board configuration to 
+arch/arm/configs. Use omap_yyyy_xxxx_defconfig with yyyy boardname and xxxx 
+processornumber as filename.
+
+15. If the new code works, compiles without warnings and seems to break no other
+configurations, post a patch to linux-omap-open-source@list.ti.com.
+
+With sending a patch to the community, it is reviewed, can be used and tested by
+other users. It then can be included into the public OMAP kernel tree. 
+
+16. Then adapt device drivers or write additional drivers for non-existing 
+processor peripherals or board devices. Improve and maintain the code for your 
+new processor or board.
+
+------------------------------------------------------------------
+Last modified 15. March 2006
+The OMAP Linux Kernel Team
+Dirk Behme <dirk.behme@de.bosch.com>

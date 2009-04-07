@@ -489,6 +489,7 @@ static irqreturn_t mmc_omap_irq(int irq, void *dev_id)
 	}
 
 	OMAP_HSMMC_WRITE(host->base, STAT, status);
+	OMAP_HSMMC_READ(host->base, STAT); /* flush posted write */
 
 	if (end_cmd || (status & CC))
 		mmc_omap_cmd_done(host, host->cmd);
@@ -1070,7 +1071,6 @@ static int __init omap_mmc_probe(struct platform_device *pdev)
 	mmc->max_req_size = mmc->max_blk_size * mmc->max_blk_count;
 	mmc->max_seg_size = mmc->max_req_size;
 
-	mmc->ocr_avail = mmc_slot(host).ocr_mask;
 	mmc->caps |= MMC_CAP_MMC_HIGHSPEED | MMC_CAP_SD_HIGHSPEED;
 
 	if (pdata->slots[host->slot_id].wires >= 8)
@@ -1107,13 +1107,14 @@ static int __init omap_mmc_probe(struct platform_device *pdev)
 		goto err_irq;
 	}
 
+	/* initialize power supplies, gpios, etc */
 	if (pdata->init != NULL) {
 		if (pdata->init(&pdev->dev) != 0) {
-			dev_dbg(mmc_dev(host->mmc),
-				"Unable to configure MMC IRQs\n");
+			dev_dbg(mmc_dev(host->mmc), "late init error\n");
 			goto err_irq_cd_init;
 		}
 	}
+	mmc->ocr_avail = mmc_slot(host).ocr_mask;
 
 	/* Request IRQ for card detect */
 	if ((mmc_slot(host).card_detect_irq)) {
