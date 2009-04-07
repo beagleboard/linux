@@ -18,12 +18,22 @@
 #include <linux/mtd/partitions.h>
 #include <linux/delay.h>
 #include <linux/workqueue.h>
-#include <linux/i2c.h>
-#include <linux/i2c/at24.h>
 #include <linux/input.h>
 #include <linux/err.h>
 #include <linux/clk.h>
 #include <linux/io.h>
+#include <linux/i2c.h>
+#include <linux/gpio.h>
+#include <linux/leds.h>
+
+#include <linux/i2c/at24.h>
+#include <linux/i2c/menelaus.h>
+#include <linux/i2c/pcf857x.h>
+
+#include <linux/spi/spi.h>
+#include <linux/spi/tsc210x.h>
+
+#include <media/v4l2-int-device.h>
 
 #include <mach/hardware.h>
 #include <asm/mach-types.h>
@@ -32,15 +42,12 @@
 #include <asm/mach/flash.h>
 
 #include <mach/control.h>
-#include <mach/gpio.h>
-#include <mach/gpioexpander.h>
 #include <mach/mux.h>
 #include <mach/usb.h>
 #include <mach/irda.h>
 #include <mach/board.h>
 #include <mach/common.h>
 #include <mach/keypad.h>
-#include <mach/menelaus.h>
 #include <mach/dma.h>
 #include <mach/gpmc.h>
 
@@ -48,6 +55,47 @@
 #define H4_SMC91X_CS	1
 
 #define H4_ETHR_GPIO_IRQ		92
+
+/* FPGA on debug board has 32 GPIOs:  16 dedicated to leds,
+ * 8 outputs on a header, and 6 inputs from a DIP switch.
+ */
+#define H4_DEBUG_GPIO_BASE		OMAP_MAX_GPIO_LINES
+#	define H4_DEBUG_GPIO_SW3_1	(H4_DEBUG_GPIO_BASE + 24)
+#	define H4_DEBUG_GPIO_SW3_2	(H4_DEBUG_GPIO_BASE + 25)
+#	define H4_DEBUG_GPIO_SW3_3	(H4_DEBUG_GPIO_BASE + 26)
+#	define H4_DEBUG_GPIO_SW3_4	(H4_DEBUG_GPIO_BASE + 27)
+#	define H4_DEBUG_GPIO_SW3_5	(H4_DEBUG_GPIO_BASE + 28)
+#	define H4_DEBUG_GPIO_SW3_8	(H4_DEBUG_GPIO_BASE + 29)
+
+/* H4 baseboard has 3 PCF8574 (8 bit) I2C GPIO expanders */
+#define H4_U191_GPIO_BASE		(H4_DEBUG_GPIO_BASE + 32)
+#	define H4_GPIO_IRDA_FIRSEL	(H4_U191_GPIO_BASE + 0)
+#	define H4_GPIO_MODEM_MOD_EN	(H4_U191_GPIO_BASE + 1)
+#	define H4_GPIO_WLAN_MOD_EN	(H4_U191_GPIO_BASE + 2)
+#	define H4_GPIO_CAM_MODULE_EN	(H4_U191_GPIO_BASE + 3)
+#	define H4_GPIO_HANDSET_EN	(H4_U191_GPIO_BASE + 4)
+#	define H4_GPIO_LCD_ENBKL	(H4_U191_GPIO_BASE + 5)
+#	define H4_GPIO_AUDIO_ENVDD	(H4_U191_GPIO_BASE + 6)
+#	define H4_GPIO_LCD_ENVDD	(H4_U191_GPIO_BASE + 7)
+
+#define H4_U192_GPIO_BASE		(H4_U191_GPIO_BASE + 8)
+#	define H4_GPIO_IRDA_AGPSn	(H4_U192_GPIO_BASE + 0)
+#	define H4_GPIO_AGPS_PWREN	(H4_U192_GPIO_BASE + 1)
+#	define H4_GPIO_AGPS_RSTn	(H4_U192_GPIO_BASE + 2)
+#	define H4_GPIO_AGPS_SLEEP	(H4_U192_GPIO_BASE + 3)
+#	define H4_GPIO_AGPS_PA_XMT	(H4_U192_GPIO_BASE + 4)
+#	define H4_GPIO_MODEM_SPR2	(H4_U192_GPIO_BASE + 5)
+#	define H4_GPIO_MODEM_SPR1	(H4_U192_GPIO_BASE + 6)
+#	define H4_GPIO_BT_ACLK_ENn	(H4_U192_GPIO_BASE + 7)
+
+#define H4_U193_GPIO_BASE		(H4_U192_GPIO_BASE + 8)
+#	define H4_GPIO_SPR0		(H4_U193_GPIO_BASE + 0)
+#	define H4_GPIO_SPR1		(H4_U193_GPIO_BASE + 1)
+#	define H4_GPIO_WLAN_SHUTDOWN	(H4_U193_GPIO_BASE + 2)
+#	define H4_GPIO_WLAN_RESET	(H4_U193_GPIO_BASE + 3)
+#	define H4_GPIO_WLAN_CLK_ENn	(H4_U193_GPIO_BASE + 4)
+	/* 5, 6 not connected */
+#	define H4_GPIO_CAM_RST		(H4_U193_GPIO_BASE + 7)
 
 static unsigned int row_gpios[6] = { 88, 89, 124, 11, 6, 96 };
 static unsigned int col_gpios[7] = { 90, 91, 100, 36, 12, 97, 98 };
@@ -138,31 +186,16 @@ static struct platform_device h4_flash_device = {
 	.resource	= &h4_flash_resource,
 };
 
-/* Select between the IrDA and aGPS module
- */
+#if defined(CONFIG_OMAP_IR) || defined(CONFIG_OMAP_IR_MODULE)
+
+/* Select between the IrDA and aGPS module */
 static int h4_select_irda(struct device *dev, int state)
 {
-	unsigned char expa;
-	int err = 0;
+	/* U192.P0 = high for IRDA; else AGPS */
+	gpio_set_value_cansleep(H4_GPIO_IRDA_AGPSn, state & IR_SEL);
 
-	if ((err = read_gpio_expa(&expa, 0x21))) {
-		printk(KERN_ERR "Error reading from I/O expander\n");
-		return err;
-	}
-
-	/* 'P6' enable/disable IRDA_TX and IRDA_RX */
-	if (state & IR_SEL) {	/* IrDa */
-		if ((err = write_gpio_expa(expa | 0x01, 0x21))) {
-			printk(KERN_ERR "Error writing to I/O expander\n");
-			return err;
-		}
-	} else {
-		if ((err = write_gpio_expa(expa & ~0x01, 0x21))) {
-			printk(KERN_ERR "Error writing to I/O expander\n");
-			return err;
-		}
-	}
-	return err;
+	/* NOTE:  UART3 can also hook up to a DB9 or to GSM ... */
+	return 0;
 }
 
 static void set_trans_mode(struct work_struct *work)
@@ -170,22 +203,9 @@ static void set_trans_mode(struct work_struct *work)
 	struct omap_irda_config *irda_config =
 		container_of(work, struct omap_irda_config, gpio_expa.work);
 	int mode = irda_config->mode;
-	unsigned char expa;
-	int err = 0;
 
-	if ((err = read_gpio_expa(&expa, 0x20)) != 0) {
-		printk(KERN_ERR "Error reading from I/O expander\n");
-	}
-
-	expa &= ~0x01;
-
-	if (!(mode & IR_SIRMODE)) { /* MIR/FIR */
-		expa |= 0x01;
-	}
-
-	if ((err = write_gpio_expa(expa, 0x20)) != 0) {
-		printk(KERN_ERR "Error writing to I/O expander\n");
-	}
+	/* U191.P0 = low for SIR; else MIR/FIR */
+	gpio_set_value_cansleep(H4_GPIO_IRDA_FIRSEL, !(mode & IR_SIRMODE));
 }
 
 static int h4_transceiver_mode(struct device *dev, int mode)
@@ -199,6 +219,10 @@ static int h4_transceiver_mode(struct device *dev, int mode)
 
 	return 0;
 }
+#else
+static int h4_select_irda(struct device *dev, int state) { return 0; }
+static int h4_transceiver_mode(struct device *dev, int mode) { return 0; }
+#endif
 
 static struct omap_irda_config h4_irda_data = {
 	.transceiver_cap	= IR_SIRMODE | IR_MIRMODE | IR_FIRMODE,
@@ -268,6 +292,8 @@ static u32 get_sysboot_value(void)
 		 OMAP2_SYSBOOT_3_MASK | OMAP2_SYSBOOT_2_MASK |
 		 OMAP2_SYSBOOT_1_MASK | OMAP2_SYSBOOT_0_MASK));
 }
+
+/* FIXME: This function should be moved to some other file, gpmc.c? */
 
 /* H4-2420's always used muxed mode, H4-2422's always use non-muxed
  *
@@ -372,7 +398,11 @@ static void __init omap_h4_init_irq(void)
 }
 
 static struct omap_uart_config h4_uart_config __initdata = {
+#ifdef	CONFIG_MACH_OMAP2_H4_USB1
+	.enabled_uarts = ((1 << 0) | (1 << 1)),
+#else
 	.enabled_uarts = ((1 << 0) | (1 << 1) | (1 << 2)),
+#endif
 };
 
 static struct omap_lcd_config h4_lcd_config __initdata = {
@@ -412,9 +442,271 @@ static struct omap_usb_config h4_usb_config __initdata = {
 #endif
 };
 
-static struct omap_board_config_kernel h4_config[] = {
+/* ----------------------------------------------------------------------- */
+
+static struct tsc210x_config tsc_platform_data = {
+	.use_internal		= 1,
+	.monitor		= TSC_VBAT | TSC_TEMP,
+	/* REVISIT temp calibration data -- board-specific; from EEPROM? */
+	.mclk			= "sys_clkout",
+};
+
+static struct spi_board_info h4_spi_board_info[] __initdata = {
+	{
+		.modalias	= "tsc2101",
+		.bus_num	= 1,
+		.chip_select	= 0,
+		.mode		= SPI_MODE_1,
+		.irq		= OMAP_GPIO_IRQ(93),
+		.max_speed_hz	= 16000000,
+		.platform_data	= &tsc_platform_data,
+	},
+
+	/* nCS1 -- to lcd board, but unused
+	 * nCS2 -- to WLAN/miniPCI
+	 */
+};
+
+/* ----------------------------------------------------------------------- */
+
+static struct omap_board_config_kernel h4_config[] __initdata = {
 	{ OMAP_TAG_UART,	&h4_uart_config },
 	{ OMAP_TAG_LCD,		&h4_lcd_config },
+};
+
+#ifdef	CONFIG_MACH_OMAP_H4_TUSB
+
+#include <linux/usb/musb.h>
+
+static struct musb_hdrc_platform_data tusb_data = {
+	.mode		= MUSB_OTG,
+	.min_power	= 25,	/* x2 = 50 mA drawn from VBUS as peripheral */
+
+	/* 1.8V supplied by Menelaus, other voltages supplied by VBAT;
+	 * so no switching.
+	 */
+};
+
+static void __init tusb_evm_setup(void)
+{
+	static char	announce[] __initdata =
+				KERN_INFO "TUSB 6010 EVM\n";
+	int		irq;
+	unsigned	dmachan = 0;
+
+	/* There are at least 32 different combinations of boards that
+	 * are loosely called "H4", with a 2420 ... different OMAP chip
+	 * revisions (with pin mux changes for DMAREQ, GPMC errata, etc),
+	 * modifications of the CPU board, mainboard, EVM, TUSB etc.
+	 * Plus omap2422, omap2423, etc.
+	 *
+	 * So you might need to tweak this setup to make the TUSB EVM
+	 * behave on your particular setup ...
+	 */
+
+	/* Already set up:  GPMC AD[0..15], CLK, nOE, nWE, nADV_ALE */
+	omap_cfg_reg(E2_GPMC_NCS2);
+	omap_cfg_reg(L2_GPMC_NCS7);
+	omap_cfg_reg(M1_GPMC_WAIT2);
+
+	switch ((omap_rev() >> 8) & 0x0f) {
+	case 0:		/* ES 1.0 */
+	case 1:		/* ES 2.0 */
+		/* Assume early board revision without optional ES2.0
+		 * rework to swap J15 & AA10 so DMAREQ0 works
+		 */
+		omap_cfg_reg(AA10_242X_GPIO13);
+		irq = 13;
+		/* omap_cfg_reg(J15_24XX_DMAREQ0); */
+		break;
+	default:
+		/* Later Menelaus boards can support all 6 DMA request
+		 * lines, at the price of boot flash A23-A26.
+		 */
+		omap_cfg_reg(J15_24XX_GPIO99);
+		irq = 99;
+		dmachan = (1 << 1) | (1 << 0);
+#if !(defined(CONFIG_MTD_OMAP_NOR) || defined(CONFIG_MTD_OMAP_NOR_MODULE))
+		dmachan |= (1 << 5) | (1 << 4) (1 << 3) | (1 << 2);
+#endif
+		break;
+	}
+
+	if (tusb6010_setup_interface(&tusb_data,
+			TUSB6010_REFCLK_24, /* waitpin */ 2,
+			/* async cs */ 2, /* sync cs */ 7,
+			irq, dmachan) == 0)
+		printk(announce);
+}
+
+#endif
+
+#if defined(CONFIG_VIDEO_OV9640) || defined(CONFIG_VIDEO_OV9640_MODULE)
+/*
+ * Common OV9640 register initialization for all image sizes, pixel formats,
+ * and frame rates
+ */
+const static struct ov9640_reg ov9640_common[] = {
+	{ 0x12, 0x80 }, { 0x11, 0x80 }, { 0x13, 0x8F },	/* COM7, CLKRC, COM8 */
+	{ 0x01, 0x80 }, { 0x02, 0x80 }, { 0x04, 0x00 },	/* BLUE, RED, COM1 */
+	{ 0x0E, 0x81 }, { 0x0F, 0x4F }, { 0x14, 0x4A },	/* COM5, COM6, COM9 */
+	{ 0x16, 0x02 }, { 0x1B, 0x01 }, { 0x24, 0x70 },	/* ?, PSHFT, AEW */
+	{ 0x25, 0x68 }, { 0x26, 0xD3 }, { 0x27, 0x90 },	/* AEB, VPT, BBIAS */
+	{ 0x2A, 0x00 }, { 0x2B, 0x00 }, { 0x32, 0x24 },	/* EXHCH, EXHCL, HREF */
+	{ 0x33, 0x02 }, { 0x37, 0x02 }, { 0x38, 0x13 },	/* CHLF, ADC, ACOM */
+	{ 0x39, 0xF0 }, { 0x3A, 0x00 }, { 0x3B, 0x01 },	/* OFON, TSLB, COM11 */
+	{ 0x3D, 0x90 }, { 0x3E, 0x02 }, { 0x3F, 0xF2 },	/* COM13, COM14, EDGE */
+	{ 0x41, 0x02 }, { 0x42, 0xC8 },		/* COM16, COM17 */
+	{ 0x43, 0xF0 }, { 0x44, 0x10 }, { 0x45, 0x6C },	/* ?, ?, ? */
+	{ 0x46, 0x6C }, { 0x47, 0x44 }, { 0x48, 0x44 },	/* ?, ?, ? */
+	{ 0x49, 0x03 }, { 0x59, 0x49 }, { 0x5A, 0x94 },	/* ?, ?, ? */
+	{ 0x5B, 0x46 }, { 0x5C, 0x84 }, { 0x5D, 0x5C },	/* ?, ?, ? */
+	{ 0x5E, 0x08 }, { 0x5F, 0x00 }, { 0x60, 0x14 },	/* ?, ?, ? */
+	{ 0x61, 0xCE },					/* ? */
+	{ 0x62, 0x70 }, { 0x63, 0x00 }, { 0x64, 0x04 },	/* LCC1, LCC2, LCC3 */
+	{ 0x65, 0x00 }, { 0x66, 0x00 },			/* LCC4, LCC5 */
+	{ 0x69, 0x00 }, { 0x6A, 0x3E }, { 0x6B, 0x3F },	/* HV, MBD, DBLV */
+	{ 0x6C, 0x40 }, { 0x6D, 0x30 }, { 0x6E, 0x4B },	/* GSP1, GSP2, GSP3 */
+	{ 0x6F, 0x60 }, { 0x70, 0x70 }, { 0x71, 0x70 },	/* GSP4, GSP5, GSP6 */
+	{ 0x72, 0x70 }, { 0x73, 0x70 }, { 0x74, 0x60 },	/* GSP7, GSP8, GSP9 */
+	{ 0x75, 0x60 }, { 0x76, 0x50 }, { 0x77, 0x48 },	/* GSP10,GSP11,GSP12 */
+	{ 0x78, 0x3A }, { 0x79, 0x2E }, { 0x7A, 0x28 },	/* GSP13,GSP14,GSP15 */
+	{ 0x7B, 0x22 }, { 0x7C, 0x04 }, { 0x7D, 0x07 },	/* GSP16,GST1, GST2 */
+	{ 0x7E, 0x10 }, { 0x7F, 0x28 }, { 0x80, 0x36 },	/* GST3, GST4, GST5 */
+	{ 0x81, 0x44 }, { 0x82, 0x52 }, { 0x83, 0x60 },	/* GST6, GST7, GST8 */
+	{ 0x84, 0x6C }, { 0x85, 0x78 }, { 0x86, 0x8C },	/* GST9, GST10,GST11 */
+	{ 0x87, 0x9E }, { 0x88, 0xBB }, { 0x89, 0xD2 },	/* GST12,GST13,GST14 */
+	{ 0x8A, 0xE6 }, { 0x13, 0x8F }, { 0x00, 0x7F },	/* GST15, COM8 */
+	{ OV9640_REG_TERM, OV9640_VAL_TERM }
+};
+
+static int ov9640_sensor_power_set(int power)
+{
+	/* power up the sensor? */
+	gpio_set_value_cansleep(H4_GPIO_CAM_MODULE_EN, power);
+
+	/* take it out of reset if it's not powered */
+	gpio_direction_output(H4_GPIO_CAM_RST, !power);
+
+	return 0;
+}
+
+static struct v4l2_ifparm ifparm = {
+	.if_type = V4L2_IF_TYPE_BT656,
+	.u = {
+		.bt656 = {
+			 .frame_start_on_rising_vs = 1,
+			 .nobt_vs_inv = 1,
+			 .mode = V4L2_IF_TYPE_BT656_MODE_NOBT_8BIT,
+			 .clock_min = OV9640_XCLK_MIN,
+			 .clock_max = OV9640_XCLK_MAX,
+		 },
+	},
+};
+
+static int ov9640_ifparm(struct v4l2_ifparm *p)
+{
+	*p = ifparm;
+
+	return 0;
+}
+
+static struct ov9640_platform_data h4_ov9640_platform_data = {
+	.power_set	= ov9640_sensor_power_set,
+	.default_regs	= ov9640_common,
+	.ifparm		= ov9640_ifparm,
+};
+
+#endif
+
+/* leave LCD powered off unless it will be used */
+#if defined(CONFIG_FB_OMAP) || defined(CONFIG_FB_OMAP_MODULE)
+#define LCD_ENABLED		true
+#else
+#define LCD_ENABLED		false
+#endif
+
+static struct gpio_led backlight_leds[] = {
+	{
+		.name			= "lcd_h4",
+		.default_trigger	= "backlight",
+		.gpio			= H4_GPIO_LCD_ENBKL,
+	},
+	{ },
+};
+
+static struct gpio_led_platform_data backlight_led_data = {
+	.num_leds		= 1,
+	.leds			= backlight_leds,
+};
+
+static struct platform_device h4_backlight_device = {
+	.name			= "leds-gpio",
+	.id			= 0,
+	.dev.platform_data	= &backlight_led_data,
+};
+
+static int
+u191_setup(struct i2c_client *client, int gpio, unsigned ngpio, void *context)
+{
+	/* P0 = IRDA control, FIR/MIR vs SIR */
+	gpio_request(H4_GPIO_IRDA_FIRSEL, "irda_firsel");
+	gpio_direction_output(H4_GPIO_IRDA_FIRSEL, false);
+
+	/* P3 = camera sensor module PWDN */
+	gpio_request(H4_GPIO_CAM_MODULE_EN, "camera_en");
+	gpio_direction_output(H4_GPIO_CAM_MODULE_EN, false);
+
+	/* P7 = LCD_ENVDD ... controls power to LCD (including backlight)
+	 * P5 = LCD_ENBKL ... switches backlight
+	 */
+	gpio_request(H4_GPIO_LCD_ENVDD, "lcd_power");
+	gpio_direction_output(H4_GPIO_LCD_ENVDD, LCD_ENABLED);
+	if (LCD_ENABLED) {
+		h4_backlight_device.dev.parent = &client->dev;
+		platform_device_register(&h4_backlight_device);
+	}
+
+	/* P6 = AUDIO_ENVDD ... switch power to microphone */
+	gpio_request(H4_GPIO_AUDIO_ENVDD, "audio_power");
+	gpio_direction_output(H4_GPIO_AUDIO_ENVDD, true);
+
+	return 0;
+}
+
+
+static struct pcf857x_platform_data u191_platform_data = {
+	.gpio_base	= H4_U191_GPIO_BASE,
+	.setup		= u191_setup,
+};
+
+static int
+u192_setup(struct i2c_client *client, int gpio, unsigned ngpio, void *context)
+{
+	gpio_request(H4_GPIO_IRDA_AGPSn, "irda/agps");
+	gpio_direction_output(H4_GPIO_IRDA_AGPSn, false);
+
+	return 0;
+}
+
+static struct pcf857x_platform_data u192_platform_data = {
+	.gpio_base	= H4_U192_GPIO_BASE,
+	.setup		= u192_setup,
+};
+
+static int
+u193_setup(struct i2c_client *client, int gpio, unsigned ngpio, void *context)
+{
+	/* reset sensor */
+	gpio_request(H4_GPIO_CAM_RST, "camera_rst");
+	gpio_direction_output(H4_GPIO_CAM_RST, true);
+
+	return 0;
+}
+
+static struct pcf857x_platform_data u193_platform_data = {
+	.gpio_base	= H4_U193_GPIO_BASE,
+	.setup		= u193_setup,
 };
 
 static struct at24_platform_data m24c01 = {
@@ -423,10 +715,36 @@ static struct at24_platform_data m24c01 = {
 };
 
 static struct i2c_board_info __initdata h4_i2c_board_info[] = {
+	{	/* U191 gpios */
+		I2C_BOARD_INFO("pcf8574", 0x20),
+		.platform_data	= &u191_platform_data,
+	},
+	{	/* U192 gpios */
+		I2C_BOARD_INFO("pcf8574", 0x21),
+		.platform_data	= &u192_platform_data,
+	},
+	{	/* U193 gpios */
+		I2C_BOARD_INFO("pcf8574", 0x22),
+		.platform_data	= &u193_platform_data,
+	},
+	{
+		I2C_BOARD_INFO("rv5c387a", 0x32),
+		/* no IRQ wired to OMAP; nINTB goes to AGPS */
+	},
+	{
+		I2C_BOARD_INFO("menelaus", 0x72),
+		.irq = INT_24XX_SYS_NIRQ,
+	},
 	{
 		I2C_BOARD_INFO("isp1301_omap", 0x2d),
 		.irq		= OMAP_GPIO_IRQ(125),
 	},
+#if defined(CONFIG_VIDEO_OV9640) || defined(CONFIG_VIDEO_OV9640_MODULE)
+	{
+		I2C_BOARD_INFO("ov9640", 0x30),
+		.platform_data = &h4_ov9640_platform_data,
+	},
+#endif
 	{	/* EEPROM on mainboard */
 		I2C_BOARD_INFO("24c01", 0x52),
 		.platform_data	= &m24c01,
@@ -457,14 +775,54 @@ static void __init omap_h4_init(void)
 	}
 #endif
 
-	i2c_register_board_info(1, h4_i2c_board_info,
-			ARRAY_SIZE(h4_i2c_board_info));
+#ifdef	CONFIG_MACH_OMAP2_H4_USB1
+	/* S3.3 controls whether these pins are for UART2 or USB1 */
+	omap_cfg_reg(N14_24XX_USB1_SE0);
+	omap_cfg_reg(P15_24XX_USB1_DAT);
+	omap_cfg_reg(W20_24XX_USB1_TXEN);
+	omap_cfg_reg(V19_24XX_USB1_RCV);
+#endif
+
+	/* Menelaus interrupt */
+	omap_cfg_reg(W19_24XX_SYS_NIRQ);
 
 	platform_add_devices(h4_devices, ARRAY_SIZE(h4_devices));
 	omap_board_config = h4_config;
 	omap_board_config_size = ARRAY_SIZE(h4_config);
-	omap_usb_init(&h4_usb_config);
 	omap_serial_init();
+	omap_usb_init(&h4_usb_config);
+	omap_register_i2c_bus(1, 100, h4_i2c_board_info,
+			      ARRAY_SIZE(h4_i2c_board_info));
+
+	/* smc91x, debug leds, ps/2, extra uarts */
+	h4_init_debug();
+
+#ifdef	CONFIG_MACH_OMAP_H4_TUSB
+	tusb_evm_setup();
+#endif
+
+	/* defaults seem ok for:
+	 * omap_cfg_reg(U18_24XX_SPI1_SCK);
+	 * omap_cfg_reg(V20_24XX_SPI1_MOSI);
+	 * omap_cfg_reg(T18_24XX_SPI1_MISO);
+	 * omap_cfg_reg(U19_24XX_SPI1_NCS0);
+	 */
+
+	/* TSC2101 */
+	omap_cfg_reg(P20_24XX_GPIO93);
+	gpio_request(93, "tsc_irq");
+	gpio_direction_input(93);
+
+	omap_cfg_reg(W14_24XX_SYS_CLKOUT);	/* mclk */
+	/* defaults seem ok for:
+	 * omap_cfg_reg(Y15_EAC_AC_SCLK);	// bclk
+	 * omap_cfg_reg(R14_EAC_AC_FS);
+	 * omap_cfg_reg(V15_EAC_AC_DOUT);
+	 * omap_cfg_reg(W15_EAC_AC_DIN);
+	 */
+
+	spi_register_board_info(h4_spi_board_info,
+				ARRAY_SIZE(h4_spi_board_info));
 }
 
 static void __init omap_h4_map_io(void)

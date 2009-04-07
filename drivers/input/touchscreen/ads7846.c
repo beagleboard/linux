@@ -878,6 +878,15 @@ static int __devinit ads7846_probe(struct spi_device *spi)
 		return -ENODEV;
 	}
 
+	/* enable voltage */
+	if (pdata->vaux_control != NULL) {
+		err = pdata->vaux_control(VAUX_ENABLE);
+		if (err != 0) {
+			dev_dbg(&spi->dev, "TS vaux enable failed\n");
+			return err;
+		}
+	}
+
 	/* don't exceed max specified sample rate */
 	if (spi->max_speed_hz > (125000 * SAMPLE_BITS)) {
 		dev_dbg(&spi->dev, "f(sample) %d KHz?\n",
