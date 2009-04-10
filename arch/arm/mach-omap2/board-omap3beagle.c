@@ -43,6 +43,7 @@
 #include <mach/gpmc.h>
 #include <mach/nand.h>
 #include <mach/mux.h>
+#include <mach/timer-gp.h>
 
 #include "twl4030-generic-scripts.h"
 #include "mmc-twl4030.h"
@@ -309,6 +310,9 @@ static void __init omap3_beagle_init_irq(void)
 {
 	omap2_init_common_hw(mt46h32m32lf6_sdrc_params);
 	omap_init_irq();
+#ifdef CONFIG_OMAP_32K_TIMER
+	omap2_gp_clockevent_set_gptimer(12);
+#endif
 	omap_gpio_init();
 }
 
