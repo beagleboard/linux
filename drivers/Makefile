@@ -34,6 +34,8 @@ obj-$(CONFIG_CONNECTOR)		+= connector/
 obj-$(CONFIG_FB_I810)           += video/i810/
 obj-$(CONFIG_FB_INTEL)          += video/intelfb/
 
+obj-y				+= cbus/
+
 obj-y				+= serial/
 obj-$(CONFIG_PARPORT)		+= parport/
 obj-y				+= base/ block/ misc/ mfd/ media/
