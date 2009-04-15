@@ -720,6 +720,8 @@ int __init omap2_clk_init(void)
 
 	clk_init(&omap2_clk_functions);
 
+	clk_init_one(&osc_ck);
+	clk_init_one(&sys_ck);
 	osc_ck.rate = omap2_osc_clk_recalc(&osc_ck);
 	propagate_rate(&osc_ck);
 	sys_ck.rate = omap2_sys_clk_recalc(&sys_ck);
