@@ -230,6 +230,47 @@ config SPI_XILINX
 #
 comment "SPI Protocol Masters"
 
+config SPI_TSC210X
+	depends on SPI_MASTER && EXPERIMENTAL
+	tristate "TI TSC210x (TSC2101/TSC2102) support"
+	help
+	  Say Y here if you want support for the TSC210x chips.  Some
+	  boards use these for touchscreen and audio support.
+
+	  These are members of a family of highly integrated PDA analog
+	  interface circuit.  They include a 12-bit ADC used for battery,
+	  temperature, touchscreen, and other sensors.  They also have
+	  an audio DAC and amplifier, and in some models an audio ADC.
+	  The audio support is highly chip-specific, but most of the
+	  sensor support works the same.
+
+	  Note that the device has to be present in the board's SPI
+	  devices table for this driver to load.  This driver doesn't
+	  automatically enable touchscreen, sensors or audio
+	  functionality - enable these in their respective menus.
+
+config SPI_TSC2301
+	tristate "TSC2301 driver"
+	depends on SPI_MASTER
+	help
+	  Say Y here if you have a TSC2301 chip connected to an SPI
+	  bus on your board.
+
+	  The TSC2301 is a highly integrated PDA analog interface circuit.
+	  It contains a complete 12-bit A/D resistive touch screen
+	  converter (ADC) including drivers, touch pressure measurement
+	  capability, keypad controller, and 8-bit D/A converter (DAC) output
+	  for LCD contrast control.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called tsc2301.
+
+config SPI_TSC2301_AUDIO
+	boolean "TSC2301 audio support"
+	depends on SPI_TSC2301 && SND
+	help
+	  Say Y here for if you are using the audio features of TSC2301.
+
 config SPI_SPIDEV
 	tristate "User mode SPI device driver support"
 	depends on EXPERIMENTAL

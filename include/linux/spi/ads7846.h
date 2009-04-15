@@ -51,5 +51,10 @@ struct ads7846_platform_data {
 				 void **filter_data);
 	int	(*filter)	(void *filter_data, int data_idx, int *val);
 	void	(*filter_cleanup)(void *filter_data);
+
+	/* controls enabling/disabling*/
+	int	(*vaux_control)(int vaux_cntrl);
+#define VAUX_ENABLE	1
+#define VAUX_DISABLE	0
 };
 

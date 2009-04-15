@@ -33,9 +33,17 @@ extern void usb_musb_init(void);
 static inline void usb_musb_init(void)
 {
 }
-#endif
+#endif	/* !OMAP1 && !MUSB */
 
-#endif
+#if defined(CONFIG_USB_EHCI_HCD) || defined(CONFIG_USB_EHCI_HCD_MODULE)
+extern void usb_ehci_init(void);
+#else
+static inline void usb_ehci_init(void)
+{
+}
+#endif	/* !OMAP1 && !EHCI */
+
+#endif	/* !OMAP1 */
 
 void omap_usb_init(struct omap_usb_config *pdata);
 
