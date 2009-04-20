@@ -625,8 +625,8 @@ static struct clk func_32k_ck = {
 	.clkdm_name	= "wkup_clkdm",
 };
 
-static struct clk secure_32k_fck = {
-	.name		= "secure_32k_fck",
+static struct clk secure_32k_ck = {
+	.name		= "secure_32k_ck",
 	.ops		= &clkops_null,
 	.rate		= 32768,
 	.flags		= RATE_FIXED,
