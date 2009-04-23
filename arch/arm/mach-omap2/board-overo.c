@@ -52,6 +52,7 @@
 
 #define OVERO_GPIO_BT_XGATE	15
 #define OVERO_GPIO_W2W_NRESET	16
+#define OVERO_GPIO_PENDOWN	114
 #define OVERO_GPIO_BT_NRESET	164
 #define OVERO_GPIO_USBH_CPEN	168
 #define OVERO_GPIO_USBH_NRESET	183
@@ -397,7 +398,6 @@ static void __init overo_init(void)
 	usb_musb_init();
 	usb_ehci_init();
 	overo_flash_init();
-	overo_init_smsc911x();
 	overo_ads7846_init();
 	overo_init_smsc911x();
 
