@@ -239,7 +239,14 @@ void recalculate_root_clocks(void)
 	}
 }
 
-void clk_init_one(struct clk *clk)
+/**
+ * clk_preinit - initialize any fields in the struct clk before clk init
+ * @clk: struct clk * to initialize
+ *
+ * Initialize any struct clk fields needed before normal clk initialization
+ * can run.  No return value.
+ */
+void clk_preinit(struct clk *clk)
 {
 	INIT_LIST_HEAD(&clk->children);
 }

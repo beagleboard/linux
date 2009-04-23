@@ -118,8 +118,8 @@ struct clk_functions {
 
 extern unsigned int mpurate;
 
+extern void clk_preinit(struct clk *clk);
 extern int clk_init(struct clk_functions *custom_clocks);
-extern void clk_init_one(struct clk *clk);
 extern int clk_register(struct clk *clk);
 extern void clk_reparent(struct clk *child, struct clk *parent);
 extern void clk_unregister(struct clk *clk);
