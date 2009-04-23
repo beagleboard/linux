@@ -22,6 +22,7 @@
 #include <linux/clk.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/ads7846.h>
+#include <linux/regulator/machine.h>
 #include <linux/i2c/twl4030.h>
 #include <linux/smsc911x.h>
 
@@ -460,7 +461,16 @@ static struct twl4030_script *twl4030_scripts[] __initdata = {
 	&wrst_script,
 };
 
+static const struct twl4030_resconfig ldp_resconfig[] = {
+	/* disable regulators that u-boot left enabled; the
+	 * devices' drivers should be managing these.
+	 */
+	{ .resource = RES_VMMC1, },
+	{ 0, },
+};
+
 static struct twl4030_power_data sdp3430_t2scripts_data __initdata = {
+	.resource_config	= ldp_resconfig,
 	.scripts	= twl4030_scripts,
 	.size		= ARRAY_SIZE(twl4030_scripts),
 };
@@ -484,6 +494,25 @@ static struct twl4030_madc_platform_data ldp_madc_data = {
 	.irq_line	= 1,
 };
 
+static struct regulator_consumer_supply ldp_vmmc1_supply = {
+	.supply			= "vmmc",
+};
+
+/* VMMC1 for MMC1 pins CMD, CLK, DAT0..DAT3 (20 mA, plus card == max 220 mA) */
+static struct regulator_init_data ldp_vmmc1 = {
+	.constraints = {
+		.min_uV			= 1850000,
+		.max_uV			= 3150000,
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL
+					| REGULATOR_MODE_STANDBY,
+		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE
+					| REGULATOR_CHANGE_MODE
+					| REGULATOR_CHANGE_STATUS,
+	},
+	.num_consumer_supplies	= 1,
+	.consumer_supplies	= &ldp_vmmc1_supply,
+};
+
 static struct twl4030_platform_data ldp_twldata = {
 	.irq_base	= TWL4030_IRQ_BASE,
 	.irq_end	= TWL4030_IRQ_END,
@@ -493,6 +522,7 @@ static struct twl4030_platform_data ldp_twldata = {
 	.madc		= &ldp_madc_data,
 	.usb		= &ldp_usb_data,
 	.power		= &sdp3430_t2scripts_data,
+	.vmmc1		= &ldp_vmmc1,
 	.gpio		= &ldp_gpio_data,
 	.keypad		= &ldp_kp_twl4030_data,
 };
@@ -540,6 +570,8 @@ static void __init omap_ldp_init(void)
 	omap_serial_init();
 	usb_musb_init();
 	twl4030_mmc_init(mmc);
+	/* link regulators to MMC adapters */
+	ldp_vmmc1_supply.dev = mmc[0].dev;
 }
 
 static void __init omap_ldp_map_io(void)
