@@ -161,6 +161,27 @@ config BT_HCIBTUART
 	  Say Y here to compile support for HCI UART devices into the
 	  kernel or say M to compile it as module (btuart_cs).
 
+config BT_HCIBRF6150
+	tristate "HCI TI BRF6150 driver with H4 extensions"
+	depends on BT && ARCH_OMAP
+	help
+	  Bluetooth HCI driver for TI BRF6150 with H4 extensions.
+	  This driver provides support for BRF6150 Bluetooth chip 
+	  with vendor-specific H4 extensions.
+
+	  Say Y here to compile support for TI BRF6150 devices into the
+	  kernel or say M to compile it as module (brf6150).
+
+config BT_HCIH4P
+	tristate "HCI driver with H4 Nokia extensions"
+	depends on BT && ARCH_OMAP 
+	help 
+	  Bluetooth HCI driver with H4 extensions.  This driver provides
+	  support for H4+ Bluetooth chip with vendor-specific H4 extensions.
+
+	  Say Y here to compile support for h4 extended devices into the kernel
+	  or say M to compile it as module (hci_h4p).
+
 config BT_HCIVHCI
 	tristate "HCI VHCI (Virtual HCI device) driver"
 	help

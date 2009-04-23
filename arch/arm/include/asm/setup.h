@@ -136,6 +136,13 @@ struct tag_acorn {
 	__u8 adfsdrives;
 };
 
+/* TI OMAP specific information */
+#define ATAG_BOARD       0x414f4d50
+
+struct tag_omap {
+	u8 data[0];
+};
+
 /* footbridge memory clock, see arch/arm/mach-footbridge/arch.c */
 #define ATAG_MEMCLK	0x41000402
 
@@ -160,6 +167,11 @@ struct tag {
 		 * Acorn specific
 		 */
 		struct tag_acorn	acorn;
+
+		/*
+		 * OMAP specific
+                 */
+                struct tag_omap         omap;
 
 		/*
 		 * DC21285 specific

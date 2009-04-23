@@ -17,7 +17,11 @@
  *
  */
 
+#include <linux/clk.h>
+#include <linux/delay.h>
+#include <linux/err.h>
 #include <linux/init.h>
+#include <linux/io.h>
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
 
@@ -25,20 +29,118 @@
 #include <linux/spi/ads7846.h>
 #include <linux/i2c/twl4030.h>
 
+#include <linux/mtd/mtd.h>
+#include <linux/mtd/nand.h>
+#include <linux/mtd/partitions.h>
+
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
+#include <asm/mach/flash.h>
 #include <asm/mach/map.h>
 
 #include <mach/board.h>
 #include <mach/common.h>
 #include <mach/gpio.h>
+#include <mach/gpmc.h>
 #include <mach/hardware.h>
-#include <mach/mcspi.h>
+#include <mach/nand.h>
 #include <mach/usb.h>
+#include <mach/mcspi.h>
 
+#include "sdram-micron-mt46h32m32lf-6.h"
 #include "mmc-twl4030.h"
 
+
+#define NAND_BLOCK_SIZE			SZ_128K
+#define GPMC_CS0_BASE			0x60
+#define GPMC_CS_SIZE			0x30
+
 #define OMAP3_PANDORA_TS_GPIO		94
+
+static struct mtd_partition omap3pandora_nand_partitions[] = {
+	{
+		.name		= "xloader",
+		.offset		= 0,			/* Offset = 0x00000 */
+		.size		= 4 * NAND_BLOCK_SIZE,
+		.mask_flags	= MTD_WRITEABLE
+	}, {
+		.name		= "uboot",
+		.offset		= MTDPART_OFS_APPEND,	/* Offset = 0x80000 */
+		.size		= 14 * NAND_BLOCK_SIZE,
+	}, {
+		.name		= "uboot environment",
+		.offset		= MTDPART_OFS_APPEND,	/* Offset = 0x240000 */
+		.size		= 2 * NAND_BLOCK_SIZE,
+	}, {
+		.name		= "linux",
+		.offset		= MTDPART_OFS_APPEND,	/* Offset = 0x280000 */
+		.size		= 32 * NAND_BLOCK_SIZE,
+	}, {
+		.name		= "rootfs",
+		.offset		= MTDPART_OFS_APPEND,	/* Offset = 0x680000 */
+		.size		= MTDPART_SIZ_FULL,
+	},
+};
+
+static struct omap_nand_platform_data omap3pandora_nand_data = {
+	.parts		= omap3pandora_nand_partitions,
+	.nr_parts	= ARRAY_SIZE(omap3pandora_nand_partitions),
+	.dma_channel	= -1,	/* disable DMA in OMAP NAND driver */
+};
+
+static struct resource omap3pandora_nand_resource[] = {
+	{
+		.flags		= IORESOURCE_MEM,
+	},
+};
+
+static struct platform_device omap3pandora_nand_device = {
+	.name		= "omap2-nand",
+	.id		= -1,
+	.dev		= {
+		.platform_data	= &omap3pandora_nand_data,
+	},
+	.num_resources	= ARRAY_SIZE(omap3pandora_nand_resource),
+	.resource	= omap3pandora_nand_resource,
+};
+
+static void __init omap3pandora_flash_init(void)
+{
+	u8 cs = 0;
+	u8 nandcs = GPMC_CS_NUM + 1;
+
+	u32 gpmc_base_add = OMAP34XX_GPMC_VIRT;
+
+	/* find out the chip-select on which NAND exists */
+	while (cs < GPMC_CS_NUM) {
+		u32 ret = 0;
+		ret = gpmc_cs_read_reg(cs, GPMC_CS_CONFIG1);
+
+		if ((ret & 0xC00) == 0x800) {
+			printk(KERN_INFO "Found NAND on CS%d\n", cs);
+			if (nandcs > GPMC_CS_NUM)
+				nandcs = cs;
+		}
+		cs++;
+	}
+
+	if (nandcs > GPMC_CS_NUM) {
+		printk(KERN_INFO "NAND: Unable to find configuration "
+				 "in GPMC\n ");
+		return;
+	}
+
+	if (nandcs < GPMC_CS_NUM) {
+		omap3pandora_nand_data.cs = nandcs;
+		omap3pandora_nand_data.gpmc_cs_baseaddr = (void *)
+			(gpmc_base_add + GPMC_CS0_BASE + nandcs * GPMC_CS_SIZE);
+		omap3pandora_nand_data.gpmc_baseaddr = (void *) (gpmc_base_add);
+
+		printk(KERN_INFO "Registering NAND on CS%d\n", nandcs);
+		if (platform_device_register(&omap3pandora_nand_device) < 0)
+			printk(KERN_ERR "Unable to register NAND device\n");
+	}
+}
 
 static struct twl4030_hsmmc_info omap3pandora_mmc[] = {
 	{
@@ -118,7 +220,7 @@ static int __init omap3pandora_i2c_init(void)
 
 static void __init omap3pandora_init_irq(void)
 {
-	omap2_init_common_hw(NULL);
+	omap2_init_common_hw(mt46h32m32lf6_sdrc_params);
 	omap_init_irq();
 	omap_gpio_init();
 }
@@ -200,8 +302,10 @@ static void __init omap3pandora_init(void)
 	omap_serial_init();
 	spi_register_board_info(omap3pandora_spi_board_info,
 			ARRAY_SIZE(omap3pandora_spi_board_info));
-	omap3pandora_ads7846_init();
 	usb_musb_init();
+	usb_ehci_init();
+	omap3pandora_flash_init();
+	omap3pandora_ads7846_init();
 }
 
 static void __init omap3pandora_map_io(void)
