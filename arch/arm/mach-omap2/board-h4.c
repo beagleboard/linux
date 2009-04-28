@@ -186,43 +186,12 @@ static struct platform_device h4_flash_device = {
 	.resource	= &h4_flash_resource,
 };
 
-#if defined(CONFIG_OMAP_IR) || defined(CONFIG_OMAP_IR_MODULE)
-
-/* Select between the IrDA and aGPS module */
-static int h4_select_irda(struct device *dev, int state)
-{
-	/* U192.P0 = high for IRDA; else AGPS */
-	gpio_set_value_cansleep(H4_GPIO_IRDA_AGPSn, state & IR_SEL);
-
-	/* NOTE:  UART3 can also hook up to a DB9 or to GSM ... */
-	return 0;
-}
-
-static void set_trans_mode(struct work_struct *work)
-{
-	struct omap_irda_config *irda_config =
-		container_of(work, struct omap_irda_config, gpio_expa.work);
-	int mode = irda_config->mode;
-
-	/* U191.P0 = low for SIR; else MIR/FIR */
-	gpio_set_value_cansleep(H4_GPIO_IRDA_FIRSEL, !(mode & IR_SIRMODE));
-}
-
-static int h4_transceiver_mode(struct device *dev, int mode)
-{
-	struct omap_irda_config *irda_config = dev->platform_data;
-
-	irda_config->mode = mode;
-	cancel_delayed_work(&irda_config->gpio_expa);
-	PREPARE_DELAYED_WORK(&irda_config->gpio_expa, set_trans_mode);
-	schedule_delayed_work(&irda_config->gpio_expa, 0);
-
-	return 0;
-}
-#else
+/*
+ * IRDA code removed due to dependency on dead gpio_expa code -
+ * feel free to fix and add back in if you are a user
+ */
 static int h4_select_irda(struct device *dev, int state) { return 0; }
 static int h4_transceiver_mode(struct device *dev, int mode) { return 0; }
-#endif
 
 static struct omap_irda_config h4_irda_data = {
 	.transceiver_cap	= IR_SIRMODE | IR_MIRMODE | IR_FIRMODE,
