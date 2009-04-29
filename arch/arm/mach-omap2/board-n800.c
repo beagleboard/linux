@@ -689,7 +689,7 @@ void __init nokia_n800_common_init(void)
 {
 	platform_add_devices(n800_devices, ARRAY_SIZE(n800_devices));
 
-	n800_flash_init();
+	gpmc_onenand_init();
 	n800_mmc_init();
 	n800_bt_init();
 	n800_dsp_init();

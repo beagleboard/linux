@@ -62,7 +62,6 @@ obj-$(CONFIG_MACH_NOKIA_N800)		+= board-n800.o \
 					   board-n800-camera.o
 obj-$(CONFIG_MACH_NOKIA_N810)		+= board-n810.o
 obj-$(CONFIG_MACH_NOKIA_RX51)		+= board-rx51.o \
-					   board-rx51-flash.o \
 					   board-rx51-sdram.o \
 					   board-rx51-video.o \
 					   board-rx51-peripherals.o \

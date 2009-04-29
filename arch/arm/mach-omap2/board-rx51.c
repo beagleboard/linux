@@ -30,6 +30,7 @@
 #include <mach/dma.h>
 #include <mach/gpmc.h>
 #include <mach/usb.h>
+#include <mach/onenand.h>
 #include <mach/board-rx51.h>
 
 static struct omap_uart_config rx51_uart_config = {
@@ -67,7 +68,6 @@ static void __init rx51_init_irq(void)
 	omap_gpio_init();
 }
 
-extern void __init rx51_flash_init(void);
 extern void __init rx51_peripherals_init(void);
 extern void __init rx51_video_init(void);
 
@@ -77,7 +77,7 @@ static void __init rx51_init(void)
 	omap_board_config_size = ARRAY_SIZE(rx51_config);
 	omap_serial_init();
 	usb_musb_init();
-	rx51_flash_init();
+	gpmc_onenand_init();
 	rx51_peripherals_init();
 	rx51_video_init();
 }

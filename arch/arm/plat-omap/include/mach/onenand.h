@@ -23,3 +23,15 @@ struct omap_onenand_platform_data {
 int omap2_onenand_rephase(void);
 
 #define ONENAND_MAX_PARTITIONS 8
+
+#if defined(CONFIG_MTD_ONENAND) || defined(CONFIG_MTD_ONENAND_MODULE)
+
+extern void gpmc_onenand_init(void);
+
+#else
+
+static inline void gpmc_onenand_init(void)
+{
+}
+
+#endif
