@@ -55,14 +55,14 @@ obj-$(CONFIG_MACH_OMAP_LDP)		+= board-ldp.o \
 obj-$(CONFIG_MACH_OMAP_APOLLON)		+= board-apollon.o \
 					   board-apollon-mmc.o	\
 					   board-apollon-keys.o
-obj-$(CONFIG_MACH_NOKIA_N800)		+= board-n800.o board-n800-flash.o \
+obj-$(CONFIG_MACH_NOKIA_N800)		+= board-n800.o gpmc-onenand.o \
 					   board-n800-mmc.o board-n800-bt.o \
 					   board-n800-usb.o \
 					   board-n800-dsp.o \
 					   board-n800-camera.o
 obj-$(CONFIG_MACH_NOKIA_N810)		+= board-n810.o
 obj-$(CONFIG_MACH_NOKIA_RX51)		+= board-rx51.o \
-					   board-n800-flash.o \
+					   gpmc-onenand.o \
 					   board-rx51-flash.o \
 					   board-rx51-sdram.o \
 					   board-rx51-video.o \
