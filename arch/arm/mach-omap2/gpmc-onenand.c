@@ -19,23 +19,11 @@
 #include <mach/board.h>
 #include <mach/gpmc.h>
 
-struct mtd_partition gpmc_onenand_partitions[ONENAND_MAX_PARTITIONS];
-
-int gpmc_onenand_setup(void __iomem *, int freq);
-
-static struct omap_onenand_platform_data gpmc_onenand_data = {
-	.cs = 0,
-	.parts = gpmc_onenand_partitions,
-	.nr_parts = 0, /* filled later */
-	.onenand_setup = gpmc_onenand_setup,
-};
+static struct omap_onenand_platform_data *gpmc_onenand_data;
 
 static struct platform_device gpmc_onenand_device = {
 	.name		= "omap2-onenand",
 	.id		= -1,
-	.dev = {
-		.platform_data = &gpmc_onenand_data,
-	},
 };
 
 static int omap2_onenand_set_async_mode(int cs, void __iomem *onenand_base)
@@ -305,13 +293,13 @@ static int omap2_onenand_set_sync_mode(int cs, void __iomem *onenand_base,
 	return 0;
 }
 
-int gpmc_onenand_setup(void __iomem *onenand_base, int freq)
+static int gpmc_onenand_setup(void __iomem *onenand_base, int freq)
 {
-	struct omap_onenand_platform_data *datap = &gpmc_onenand_data;
 	struct device *dev = &gpmc_onenand_device.dev;
 
 	/* Set sync timings in GPMC */
-	if (omap2_onenand_set_sync_mode(datap->cs, onenand_base, freq) < 0) {
+	if (omap2_onenand_set_sync_mode(gpmc_onenand_data->cs, onenand_base,
+			freq) < 0) {
 		dev_err(dev, "Unable to set synchronous mode\n");
 		return -EINVAL;
 	}
@@ -319,29 +307,12 @@ int gpmc_onenand_setup(void __iomem *onenand_base, int freq)
 	return 0;
 }
 
-void __init gpmc_flash_init(void)
+void __init gpmc_onenand_init(struct omap_onenand_platform_data *_onenand_data)
 {
-	const struct omap_partition_config *part;
-	int i = 0;
+	gpmc_onenand_data = _onenand_data;
+	gpmc_onenand_data->onenand_setup = gpmc_onenand_setup;
+	gpmc_onenand_device.dev.platform_data = gpmc_onenand_data;
 
-	gpmc_onenand_data.gpio_irq = cpu_is_omap34xx() ? 65 : 26;
-
-	while ((part = omap_get_nr_config(OMAP_TAG_PARTITION,
-				struct omap_partition_config, i)) != NULL) {
-		struct mtd_partition *mpart;
-
-		mpart = gpmc_onenand_partitions + i;
-		mpart->name = (char *) part->name;
-		mpart->size = part->size;
-		mpart->offset = part->offset;
-		mpart->mask_flags = part->mask_flags;
-		i++;
-		if (i == ARRAY_SIZE(gpmc_onenand_partitions)) {
-			printk(KERN_ERR "Too many partitions supplied\n");
-			return;
-		}
-	}
-	gpmc_onenand_data.nr_parts = i;
 	if (platform_device_register(&gpmc_onenand_device) < 0) {
 		printk(KERN_ERR "Unable to register OneNAND device\n");
 		return;

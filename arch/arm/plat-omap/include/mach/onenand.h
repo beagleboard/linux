@@ -9,7 +9,10 @@
  * published by the Free Software Foundation.
  */
 
+#include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
+
+#ifndef __ASM_ARCH_OMAP_ONENAND_H__
 
 struct omap_onenand_platform_data {
 	int			cs;
@@ -24,14 +27,21 @@ int omap2_onenand_rephase(void);
 
 #define ONENAND_MAX_PARTITIONS 8
 
-#if defined(CONFIG_MTD_ONENAND) || defined(CONFIG_MTD_ONENAND_MODULE)
+#if defined(CONFIG_MTD_ONENAND_OMAP2) || defined(CONFIG_MTD_ONENAND_OMAP2_MODULE)
 
-extern void gpmc_onenand_init(void);
+extern void gpmc_onenand_init(struct omap_onenand_platform_data *d);
 
 #else
 
-static inline void gpmc_onenand_init(void)
+#define board_onenand_data	NULL
+
+static inline void board_onenand_init(void)
 {
 }
 
+static inline void gpmc_onenand_init(struct omap_onenand_platform_data *d)
+{
+}
+
+#endif
 #endif
