@@ -14,6 +14,9 @@
 
 #ifndef __ASM_ARCH_OMAP_ONENAND_H__
 
+#define ONENAND_SYNC_READ	(1 << 0)
+#define ONENAND_SYNC_READWRITE	(1 << 1)
+
 struct omap_onenand_platform_data {
 	int			cs;
 	int			gpio_irq;
@@ -21,6 +24,7 @@ struct omap_onenand_platform_data {
 	int			nr_parts;
 	int                     (*onenand_setup)(void __iomem *, int freq);
 	int			dma_channel;
+	u8			flags;
 };
 
 int omap2_onenand_rephase(void);

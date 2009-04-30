@@ -722,6 +722,7 @@ static struct omap_onenand_platform_data board_onenand_data = {
 	.gpio_irq	= 26,
 	.parts		= onenand_partitions,
 	.nr_parts	= ARRAY_SIZE(onenand_partitions),
+	.flags		= ONENAND_SYNC_READ,
 };
 
 static void __init board_onenand_init(void)
