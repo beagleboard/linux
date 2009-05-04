@@ -103,8 +103,6 @@ static struct platform_device sdp_nor_device = {
 	.resource	= &sdp_nor_resource,
 };
 
-static int sdp_onenand_setup(void __iomem *, int freq);
-
 static struct mtd_partition sdp_onenand_partitions[] = {
 	{
 		.name		= "X-Loader-OneNAND",
@@ -138,29 +136,8 @@ static struct mtd_partition sdp_onenand_partitions[] = {
 static struct omap_onenand_platform_data sdp_onenand_data = {
 	.parts		= sdp_onenand_partitions,
 	.nr_parts	= ARRAY_SIZE(sdp_onenand_partitions),
-	.onenand_setup	= sdp_onenand_setup,
 	.dma_channel	= -1,	/* disable DMA in OMAP OneNAND driver */
 };
-
-static struct platform_device sdp_onenand_device = {
-	.name		= "omap2-onenand",
-	.id		= -1,
-	.dev = {
-		.platform_data = &sdp_onenand_data,
-	},
-};
-
-/*
- * sdp_onenand_setup - The function configures the onenand flash.
- * @onenand_base: Onenand base address
- *
- * @return int:	Currently always returning zero.
- */
-static int sdp_onenand_setup(void __iomem *onenand_base, int freq)
-{
-	/* Onenand setup does nothing at present */
-	return 0;
-}
 
 static struct mtd_partition sdp_nand_partitions[] = {
 	/* All the partition sizes are listed in terms of NAND block size */
@@ -262,7 +239,7 @@ void __init sdp3430_flash_init(void)
 		} else {
 			ret = gpmc_cs_read_reg(cs, GPMC_CS_CONFIG7);
 			if ((ret & 0x3F) == (ONENAND_MAP >> 24))
-			onenandcs = cs;
+				onenandcs = cs;
 		}
 		cs++;
 	}
@@ -284,7 +261,6 @@ void __init sdp3430_flash_init(void)
 
 	if (onenandcs < GPMC_CS_NUM) {
 		sdp_onenand_data.cs = onenandcs;
-		if (platform_device_register(&sdp_onenand_device) < 0)
-			printk(KERN_ERR "Unable to register OneNAND device\n");
+		gpmc_onenand_init(&sdp_onenand_data);
 	}
 }
