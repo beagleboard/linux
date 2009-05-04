@@ -44,7 +44,6 @@
 #include <mach/nand.h>
 #include <mach/mux.h>
 #include <mach/timer-gp.h>
-#include <mach/timer-gp.h>
 
 #include "twl4030-generic-scripts.h"
 #include "mmc-twl4030.h"
