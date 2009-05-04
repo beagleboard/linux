@@ -27,11 +27,10 @@ struct omap_onenand_platform_data {
 	u8			flags;
 };
 
-int omap2_onenand_rephase(void);
-
 #define ONENAND_MAX_PARTITIONS 8
 
-#if defined(CONFIG_MTD_ONENAND_OMAP2) || defined(CONFIG_MTD_ONENAND_OMAP2_MODULE)
+#if defined(CONFIG_MTD_ONENAND_OMAP2) || \
+	defined(CONFIG_MTD_ONENAND_OMAP2_MODULE)
 
 extern void gpmc_onenand_init(struct omap_onenand_platform_data *d);
 
