@@ -55,15 +55,13 @@ obj-$(CONFIG_MACH_OMAP_LDP)		+= board-ldp.o \
 obj-$(CONFIG_MACH_OMAP_APOLLON)		+= board-apollon.o \
 					   board-apollon-mmc.o	\
 					   board-apollon-keys.o
-obj-$(CONFIG_MACH_NOKIA_N800)		+= board-n800.o board-n800-flash.o \
+obj-$(CONFIG_MACH_NOKIA_N800)		+= board-n800.o \
 					   board-n800-mmc.o board-n800-bt.o \
 					   board-n800-usb.o \
 					   board-n800-dsp.o \
 					   board-n800-camera.o
 obj-$(CONFIG_MACH_NOKIA_N810)		+= board-n810.o
 obj-$(CONFIG_MACH_NOKIA_RX51)		+= board-rx51.o \
-					   board-n800-flash.o \
-					   board-rx51-flash.o \
 					   board-rx51-sdram.o \
 					   board-rx51-video.o \
 					   board-rx51-peripherals.o \
@@ -78,6 +76,9 @@ obj-$(CONFIG_MACH_OMAP3_PANDORA)	+= board-omap3pandora.o \
 # Platform specific device init code
 obj-$(CONFIG_USB_MUSB_SOC)		+= usb-musb.o
 obj-$(CONFIG_MACH_OMAP2_TUSB6010)	+= usb-tusb6010.o
+
+onenand-$(CONFIG_MTD_ONENAND_OMAP2)	:= gpmc-onenand.o
+obj-y					+= $(onenand-m) $(onenand-y)
 
 ifneq ($(CONFIG_USB_EHCI_HCD),)
 	obj-y				+= usb-ehci.o

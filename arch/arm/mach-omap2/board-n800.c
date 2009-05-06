@@ -41,6 +41,7 @@
 #include <mach/gpio-switch.h>
 #include <mach/omapfb.h>
 #include <mach/blizzard.h>
+#include <mach/onenand.h>
 #include <mach/board-nokia.h>
 
 #include <../drivers/cbus/tahvo.h>
@@ -685,11 +686,56 @@ static struct i2c_board_info __initdata_or_module n810_i2c_board_info_2[] = {
 	},
 };
 
+#if defined(CONFIG_MTD_ONENAND_OMAP2) || defined(CONFIG_MTD_ONENAND_OMAP2_MODULE)
+
+static struct mtd_partition onenand_partitions[] = {
+	{
+		.name           = "bootloader",
+		.offset         = 0,
+		.size           = 0x20000,
+		.mask_flags     = MTD_WRITEABLE,	/* Force read-only */
+	},
+	{
+		.name           = "config",
+		.offset         = MTDPART_OFS_APPEND,
+		.size           = 0x60000,
+	},
+	{
+		.name           = "kernel",
+		.offset         = MTDPART_OFS_APPEND,
+		.size           = 0x200000,
+	},
+	{
+		.name           = "initfs",
+		.offset         = MTDPART_OFS_APPEND,
+		.size           = 0x400000,
+	},
+	{
+		.name           = "rootfs",
+		.offset         = MTDPART_OFS_APPEND,
+		.size           = MTDPART_SIZ_FULL,
+	},
+};
+
+static struct omap_onenand_platform_data board_onenand_data = {
+	.cs		= 0,
+	.gpio_irq	= 26,
+	.parts		= onenand_partitions,
+	.nr_parts	= ARRAY_SIZE(onenand_partitions),
+	.flags		= ONENAND_SYNC_READ,
+};
+
+static void __init board_onenand_init(void)
+{
+	gpmc_onenand_init(&board_onenand_data);
+}
+
+#endif
+
 void __init nokia_n800_common_init(void)
 {
 	platform_add_devices(n800_devices, ARRAY_SIZE(n800_devices));
 
-	n800_flash_init();
 	n800_mmc_init();
 	n800_bt_init();
 	n800_dsp_init();
@@ -717,6 +763,7 @@ void __init nokia_n800_common_init(void)
 		
 	mipid_dev_init();
 	blizzard_dev_init();
+	board_onenand_init();
 }
 
 static void __init nokia_n800_init(void)
@@ -728,6 +775,7 @@ static void __init nokia_n800_init(void)
 	tea5761_dev_init();
 	omap_register_gpio_switches(n800_gpio_switches,
 				    ARRAY_SIZE(n800_gpio_switches));
+	board_onenand_init();
 }
 
 void __init nokia_n800_map_io(void)

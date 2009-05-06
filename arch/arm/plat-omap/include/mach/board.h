@@ -125,14 +125,6 @@ struct omap_tmp105_config {
 	int (* set_power)(int enable);
 };
 
-struct omap_partition_config {
-	char name[16];
-	unsigned int size;
-	unsigned int offset;
-	/* same as in include/linux/mtd/partitions.h */
-	unsigned int mask_flags;
-};
-
 struct omap_flash_part_str_config {
 	char part_table[0];
 };

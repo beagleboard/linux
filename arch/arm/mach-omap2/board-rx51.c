@@ -67,7 +67,6 @@ static void __init rx51_init_irq(void)
 	omap_gpio_init();
 }
 
-extern void __init rx51_flash_init(void);
 extern void __init rx51_peripherals_init(void);
 extern void __init rx51_video_init(void);
 
@@ -77,7 +76,6 @@ static void __init rx51_init(void)
 	omap_board_config_size = ARRAY_SIZE(rx51_config);
 	omap_serial_init();
 	usb_musb_init();
-	rx51_flash_init();
 	rx51_peripherals_init();
 	rx51_video_init();
 }
