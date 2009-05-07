@@ -494,6 +494,11 @@ static struct mtd_partition onenand_partitions[] = {
 		.size           = 0x60000,
 	},
 	{
+		.name           = "log",
+		.offset         = MTDPART_OFS_APPEND,
+		.size           = 0x40000,
+	},
+	{
 		.name           = "kernel",
 		.offset         = MTDPART_OFS_APPEND,
 		.size           = 0x200000,
