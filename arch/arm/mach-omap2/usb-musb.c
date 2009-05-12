@@ -161,15 +161,17 @@ static struct platform_device nop_xceiv_device = {
 
 void __init usb_musb_init(void)
 {
-	if (cpu_is_omap243x()) {
+	if (cpu_is_omap243x())
 		musb_resources[0].start = OMAP243X_HS_BASE;
-		musb_plat.clock = "usbhs_ick";
-	} else {
+	else
 		musb_resources[0].start = OMAP34XX_HSUSB_OTG_BASE;
-		musb_plat.clock = "hsotgusb_ick";
-	}
-
 	musb_resources[0].end = musb_resources[0].start + SZ_8K - 1;
+
+	/*
+	 * REVISIT: This line can be removed once all the platforms using
+	 * musb_core.c have been converted to use use clkdev.
+	 */
+	musb_plat.clock = "ick";
 
 #ifdef CONFIG_NOP_USB_XCEIV
 	if (platform_device_register(&nop_xceiv_device) < 0) {
