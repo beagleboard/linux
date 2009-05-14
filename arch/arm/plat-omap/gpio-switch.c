@@ -318,6 +318,13 @@ static int __init new_switch(struct gpio_switch *sw)
 		else
 			trigger = IRQF_TRIGGER_RISING;
 	}
+
+	INIT_WORK(&sw->work, gpio_sw_handler);
+	init_timer(&sw->timer);
+
+	sw->timer.function = gpio_sw_timer;
+	sw->timer.data = (unsigned long)sw;
+
 	r = request_irq(gpio_to_irq(sw->gpio), gpio_sw_irq_handler,
 			IRQF_SHARED | trigger, sw->name, sw);
 	if (r < 0) {
@@ -327,12 +334,6 @@ static int __init new_switch(struct gpio_switch *sw)
 		gpio_free(sw->gpio);
 		return r;
 	}
-
-	INIT_WORK(&sw->work, gpio_sw_handler);
-	init_timer(&sw->timer);
-
-	sw->timer.function = gpio_sw_timer;
-	sw->timer.data = (unsigned long)sw;
 
 	list_add(&sw->node, &gpio_switches);
 
