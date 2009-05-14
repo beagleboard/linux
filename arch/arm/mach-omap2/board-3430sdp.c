@@ -473,7 +473,7 @@ static struct twl4030_ins wrst_seq[] __initdata = {
 };
 static struct twl4030_script wrst_script __initdata = {
 	.script = wrst_seq,
-	.size   = ARRAY_SIZE(wakeup_seq),
+	.size   = ARRAY_SIZE(wrst_seq),
 	.flags  = TRITON_WRST_SCRIPT,
 };
 
