@@ -72,7 +72,9 @@ obj-$(CONFIG_MACH_OVERO)		+= board-overo.o \
 					   twl4030-generic-scripts.o
 obj-$(CONFIG_MACH_OMAP3_PANDORA)	+= board-omap3pandora.o \
 					   mmc-twl4030.o
-
+obj-$(CONFIG_MACH_OMAP_ZOOM2)		+= board-zoom2.o \
+					   mmc-twl4030.o \
+					   board-zoom-debugboard.o
 # Platform specific device init code
 obj-$(CONFIG_USB_MUSB_SOC)		+= usb-musb.o
 obj-$(CONFIG_MACH_OMAP2_TUSB6010)	+= usb-tusb6010.o
