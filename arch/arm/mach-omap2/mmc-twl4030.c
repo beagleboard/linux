@@ -349,7 +349,8 @@ void __init twl4030_mmc_init(struct twl4030_hsmmc_info *controllers)
 		if (c->name)
 			strncpy(twl->name, c->name, HSMMC_NAME_LEN);
 		else
-			sprintf(twl->name, "mmc%islot%i", c->mmc, 1);
+			snprintf(twl->name, ARRAY_SIZE(twl->name),
+				"mmc%islot%i", c->mmc, 1);
 		mmc->slots[0].name = twl->name;
 		mmc->nr_slots = 1;
 		mmc->slots[0].wires = c->wires;
