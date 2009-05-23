@@ -2,7 +2,7 @@
  * SDRC register values for the Micron MT46H32M32LF-6
  *
  * Copyright (C) 2008 Texas Instruments, Inc.
- * Copyright (C) 2008 Nokia Corporation
+ * Copyright (C) 2008-2009 Nokia Corporation
  *
  * Paul Walmsley
  *
@@ -34,34 +34,20 @@ static struct omap_sdrc_params mt46h32m32lf6_sdrc_params[] = {
 		.mr	     = 0x00000032,
 	},
 	[2] = {
-		.rate	     = 133333333,
-		.actim_ctrla = 0x7a19b485,
-		.actim_ctrlb = 0x00011213,
-		.rfr_ctrl    = 0x0003de01,
-		.mr	     = 0x00000032,
-	},
-	[3] = {
 		.rate	     = 83000000,
 		.actim_ctrla = 0x51512283,
 		.actim_ctrlb = 0x0001120c,
 		.rfr_ctrl    = 0x00025501,
 		.mr	     = 0x00000032,
 	},
-	[4] = {
+	[3] = {
 		.rate	     = 82970588,
 		.actim_ctrla = 0x51512283,
 		.actim_ctrlb = 0x0001120c,
 		.rfr_ctrl    = 0x00025501,
 		.mr	     = 0x00000032,
 	},
-	[5] = {
-		.rate	     = 66666666,
-		.actim_ctrla = 0x410d2243,
-		.actim_ctrlb = 0x0001120a,
-		.rfr_ctrl    = 0x0001d601,
-		.mr	     = 0x00000032,
-	},
-	[6] = {
+	[4] = {
 		.rate	     = 0
 	},
 };
