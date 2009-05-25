@@ -905,24 +905,22 @@ static irqreturn_t omap_dispc_irq_handler(int irq, void *dev)
 
 static int get_dss_clocks(void)
 {
-	char *dss_ick = "dss_ick";
-	char *dss1_fck = cpu_is_omap34xx() ? "dss1_alwon_fck" : "dss1_fck";
-	char *tv_fck = cpu_is_omap34xx() ? "dss_tv_fck" : "dss_54m_fck";
-
-	if (IS_ERR((dispc.dss_ick = clk_get(dispc.fbdev->dev, dss_ick)))) {
-		dev_err(dispc.fbdev->dev, "can't get %s", dss_ick);
+	dispc.dss_ick = clk_get(dispc.fbdev->dev, "ick");
+	if (IS_ERR(dispc.dss_ick)) {
+		dev_err(dispc.fbdev->dev, "can't get ick\n");
 		return PTR_ERR(dispc.dss_ick);
 	}
 
-	if (IS_ERR((dispc.dss1_fck = clk_get(dispc.fbdev->dev, dss1_fck)))) {
-		dev_err(dispc.fbdev->dev, "can't get %s", dss1_fck);
+	dispc.dss1_fck = clk_get(dispc.fbdev->dev, "dss1_fck");
+	if (IS_ERR(dispc.dss1_fck)) {
+		dev_err(dispc.fbdev->dev, "can't get dss1_fck\n");
 		clk_put(dispc.dss_ick);
 		return PTR_ERR(dispc.dss1_fck);
 	}
 
-	if (IS_ERR((dispc.dss_54m_fck =
-				clk_get(dispc.fbdev->dev, tv_fck)))) {
-		dev_err(dispc.fbdev->dev, "can't get %s", tv_fck);
+	dispc.dss_54m_fck = clk_get(dispc.fbdev->dev, "tv_fck");
+	if (IS_ERR(dispc.dss_54m_fck)) {
+		dev_err(dispc.fbdev->dev, "can't get tv_fck\n");
 		clk_put(dispc.dss_ick);
 		clk_put(dispc.dss1_fck);
 		return PTR_ERR(dispc.dss_54m_fck);
