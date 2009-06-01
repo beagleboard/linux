@@ -90,9 +90,10 @@ static struct platform_device brf6150_device = {
 	}
 };
 
-static struct device_driver brf6150_driver = {
-	.name		= BT_DRIVER,
-	.bus		= &platform_bus_type,
+static struct platform_driver brf6150_driver = {
+	.driver = {
+		.name		= BT_DRIVER,
+	}
 };
 
 static inline void brf6150_outb(struct brf6150_info *info, unsigned int offset, u8 val)
@@ -1002,7 +1003,7 @@ static int __init brf6150_init(void)
 		goto cleanup_irq;
 	}
 	/* Register the driver with LDM */
-	if (driver_register(&brf6150_driver)) {
+	if (platform_driver_register(&brf6150_driver)) {
 		printk(KERN_WARNING "failed to register brf6150 driver\n");
 		platform_device_unregister(&brf6150_device);
 		err = -ENODEV;
@@ -1012,7 +1013,7 @@ static int __init brf6150_init(void)
 	if (brf6150_register_hdev(info) < 0) {
 		printk(KERN_WARNING "failed to register brf6150 hci device\n");
 		platform_device_unregister(&brf6150_device);
-		driver_unregister(&brf6150_driver);
+		platform_driver_unregister(&brf6150_driver);
 		goto cleanup_irq;
 	}
 
