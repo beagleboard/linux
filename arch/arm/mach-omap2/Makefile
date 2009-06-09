@@ -52,9 +52,7 @@ obj-$(CONFIG_MACH_OMAP3_BEAGLE)		+= board-omap3beagle.o \
 					   twl4030-generic-scripts.o
 obj-$(CONFIG_MACH_OMAP_LDP)		+= board-ldp.o \
 					   mmc-twl4030.o
-obj-$(CONFIG_MACH_OMAP_APOLLON)		+= board-apollon.o \
-					   board-apollon-mmc.o	\
-					   board-apollon-keys.o
+obj-$(CONFIG_MACH_OMAP_APOLLON)		+= board-apollon.o
 obj-$(CONFIG_MACH_NOKIA_N800)		+= board-n800.o \
 					   board-n800-mmc.o \
 					   board-n800-usb.o \
