@@ -201,15 +201,6 @@ static void n800_mmc_callback(void *data, u8 card_mask)
 	omap_mmc_notify_cover_event(mmc_device, index, *openp);
 }
 
-void n800_mmc_slot1_cover_handler(void *arg, int closed_state)
-{
-	if (mmc_device == NULL)
-		return;
-
-	slot1_cover_open = !closed_state;
-	omap_mmc_notify_cover_event(mmc_device, 0, closed_state);
-}
-
 static int n800_mmc_late_init(struct device *dev)
 {
 	int r, bit, *openp;
@@ -364,10 +355,6 @@ void __init n800_mmc_init(void)
 #else
 
 void __init n800_mmc_init(void)
-{
-}
-
-void n800_mmc_slot1_cover_handler(void *arg, int state)
 {
 }
 

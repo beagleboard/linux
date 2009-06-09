@@ -12,13 +12,10 @@
 
 #include <linux/types.h>
 
-#include <mach/gpio-switch.h>
-
 /* Different peripheral ids */
 #define OMAP_TAG_CLOCK		0x4f01
 #define OMAP_TAG_SERIAL_CONSOLE 0x4f03
 #define OMAP_TAG_LCD		0x4f05
-#define OMAP_TAG_GPIO_SWITCH	0x4f06
 #define OMAP_TAG_UART		0x4f07
 #define OMAP_TAG_FBMEM		0x4f08
 #define OMAP_TAG_STI_CONSOLE	0x4f09
@@ -99,15 +96,6 @@ struct omap_pwm_led_platform_data {
 	int intensity_timer;
 	int blink_timer;
 	void (*set_power)(struct omap_pwm_led_platform_data *self, int on_off);
-};
-
-/* See arch/arm/plat-omap/include/mach/gpio-switch.h for definitions */
-struct omap_gpio_switch_config {
-	char name[12];
-	u16 gpio;
-	u8 flags:4;
-	u8 type:4;
-	unsigned int key_code:24; /* Linux key code */
 };
 
 struct omap_uart_config {

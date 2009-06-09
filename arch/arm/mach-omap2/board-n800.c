@@ -38,7 +38,6 @@
 #include <mach/mcspi.h>
 #include <mach/lcd_mipid.h>
 #include <mach/clock.h>
-#include <mach/gpio-switch.h>
 #include <mach/omapfb.h>
 #include <mach/blizzard.h>
 #include <mach/onenand.h>
@@ -544,32 +543,6 @@ static inline void n800_ts_set_config(void)
 }
 #endif
 
-static struct omap_gpio_switch n800_gpio_switches[] __initdata = {
-	{
-		.name			= "bat_cover",
-		.gpio			= -1,
-		.debounce_rising	= 100,
-		.debounce_falling	= 0,
-		.notify			= n800_mmc_slot1_cover_handler,
-		.notify_data		= NULL,
-	}, {
-		.name			= "headphone",
-		.gpio			= -1,
-		.debounce_rising	= 200,
-		.debounce_falling	= 200,
-	}, {
-		.name			= "cam_act",
-		.gpio			= -1,
-		.debounce_rising	= 200,
-		.debounce_falling	= 200,
-	}, {
-		.name			= "cam_turn",
-		.gpio			= -1,
-		.debounce_rising	= 100,
-		.debounce_falling	= 100,
-	},
-};
-
 #if defined(CONFIG_CBUS_RETU_HEADSET)
 static struct platform_device retu_headset_device = {
 	.name	= "retu-headset",
@@ -773,8 +746,6 @@ static void __init nokia_n800_init(void)
 	n800_ts_set_config();
 	tsc2301_dev_init();
 	tea5761_dev_init();
-	omap_register_gpio_switches(n800_gpio_switches,
-				    ARRAY_SIZE(n800_gpio_switches));
 	board_onenand_init();
 }
 
