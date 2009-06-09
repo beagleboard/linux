@@ -36,13 +36,11 @@ mailbox_mach-objs		:= mailbox.o
 obj-$(CONFIG_MACH_OMAP_GENERIC)		+= board-generic.o
 obj-$(CONFIG_MACH_OMAP_H4)		+= board-h4.o
 obj-$(CONFIG_MACH_OMAP_2430SDP)		+= board-2430sdp.o \
-					   board-2430sdp-flash.o \
 					   mmc-twl4030.o
 obj-$(CONFIG_MACH_OMAP2EVM)		+= board-omap2evm.o \
 					   mmc-twl4030.o
 obj-$(CONFIG_MACH_OMAP_3430SDP)		+= board-3430sdp.o \
-					   mmc-twl4030.o \
-					   board-3430sdp-flash.o
+					   mmc-twl4030.o
 obj-$(CONFIG_MACH_OMAP3EVM)		+= board-omap3evm.o \
 					   mmc-twl4030.o \
 					   board-omap3evm-flash.o \
