@@ -9,10 +9,10 @@
 
 #include <linux/kernel.h>
 #include <linux/init.h>
+#include <linux/gpio.h>
 #include <linux/serial_8250.h>
 #include <linux/smsc911x.h>
 
-#include <mach/gpio.h>
 #include <mach/gpmc.h>
 
 #define ZOOM2_SMSC911X_CS	7

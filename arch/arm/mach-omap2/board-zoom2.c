@@ -12,12 +12,12 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/platform_device.h>
+#include <linux/gpio.h>
 #include <linux/i2c/twl4030.h>
 
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 
-#include <mach/gpio.h>
 #include <mach/common.h>
 #include <mach/usb.h>
 
@@ -55,9 +55,9 @@ static struct twl4030_platform_data zoom2_twldata = {
 static struct i2c_board_info __initdata zoom2_i2c_boardinfo[] = {
 	{
 		I2C_BOARD_INFO("twl4030", 0x48),
-		.flags = I2C_CLIENT_WAKE,
-		.irq = INT_34XX_SYS_NIRQ,
-		.platform_data = &zoom2_twldata,
+		.flags		= I2C_CLIENT_WAKE,
+		.irq		= INT_34XX_SYS_NIRQ,
+		.platform_data	= &zoom2_twldata,
 	},
 };
 
