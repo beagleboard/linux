@@ -24,7 +24,6 @@
 #define OMAP_TAG_TEA5761	0x4f10
 #define OMAP_TAG_TMP105		0x4f11
 
-#define OMAP_TAG_BOOT_REASON    0x4f80
 #define OMAP_TAG_FLASH_PART_STR	0x4f81
 #define OMAP_TAG_VERSION_STR	0x4f82
 
@@ -115,10 +114,6 @@ struct omap_tmp105_config {
 
 struct omap_flash_part_str_config {
 	char part_table[0];
-};
-
-struct omap_boot_reason_config {
-	char reason_str[12];
 };
 
 struct omap_version_config {
