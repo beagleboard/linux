@@ -47,12 +47,10 @@
 #include <mach/usb.h>
 
 #include "sdram-micron-mt46h32m32lf-6.h"
-#include "twl4030-generic-scripts.h"
 #include "mmc-twl4030.h"
 
 #define OVERO_GPIO_BT_XGATE	15
 #define OVERO_GPIO_W2W_NRESET	16
-#define OVERO_GPIO_PENDOWN	114
 #define OVERO_GPIO_BT_NRESET	164
 #define OVERO_GPIO_USBH_CPEN	168
 #define OVERO_GPIO_USBH_NRESET	183
@@ -61,8 +59,8 @@
 #define GPMC_CS0_BASE  0x60
 #define GPMC_CS_SIZE   0x30
 
-#define OVERO_SMSC911X_CS	5
-#define OVERO_SMSC911X_GPIO	176
+#define OVERO_SMSC911X_CS      5
+#define OVERO_SMSC911X_GPIO    176
 
 #if defined(CONFIG_TOUCHSCREEN_ADS7846) || \
 	defined(CONFIG_TOUCHSCREEN_ADS7846_MODULE)
@@ -183,8 +181,6 @@ static inline void __init overo_init_smsc911x(void)
 #else
 static inline void __init overo_init_smsc911x(void) { return; }
 #endif
-
-
 
 static struct mtd_partition overo_nand_partitions[] = {
 	{
@@ -341,7 +337,6 @@ static struct twl4030_platform_data overo_twldata = {
 	.irq_end	= TWL4030_IRQ_END,
 	.gpio		= &overo_gpio_data,
 	.usb		= &overo_usb_data,
-	.power		= GENERIC3430_T2SCRIPTS_DATA,
 	.vmmc1		= &overo_vmmc1,
 };
 
@@ -395,9 +390,8 @@ static void __init overo_init(void)
 	omap_board_config = overo_config;
 	omap_board_config_size = ARRAY_SIZE(overo_config);
 	omap_serial_init();
-	usb_musb_init();
-	usb_ehci_init();
 	overo_flash_init();
+	usb_musb_init();
 	overo_ads7846_init();
 	overo_init_smsc911x();
 

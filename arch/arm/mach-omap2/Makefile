@@ -58,8 +58,7 @@ obj-$(CONFIG_MACH_NOKIA_RX51)		+= board-rx51.o\
 					   mmc-twl4030.o
 
 obj-$(CONFIG_MACH_OVERO)		+= board-overo.o \
-					   mmc-twl4030.o \
-					   twl4030-generic-scripts.o
+					   mmc-twl4030.o
 obj-$(CONFIG_MACH_OMAP3_PANDORA)	+= board-omap3pandora.o \
 					   mmc-twl4030.o
 obj-$(CONFIG_MACH_OMAP_ZOOM2)		+= board-zoom2.o \
