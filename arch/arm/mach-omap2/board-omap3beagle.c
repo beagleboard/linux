@@ -38,16 +38,14 @@
 #include <asm/mach/flash.h>
 
 #include <mach/board.h>
-#include <mach/usb.h>
 #include <mach/common.h>
 #include <mach/gpmc.h>
 #include <mach/nand.h>
 #include <mach/mux.h>
+#include <mach/usb.h>
 #include <mach/timer-gp.h>
 
-#include "twl4030-generic-scripts.h"
 #include "mmc-twl4030.h"
-
 
 #define GPMC_CS0_BASE  0x60
 #define GPMC_CS_SIZE   0x30
@@ -114,10 +112,6 @@ static struct omap_uart_config omap3_beagle_uart_config __initdata = {
 	.enabled_uarts	= ((1 << 0) | (1 << 1) | (1 << 2)),
 };
 
-static struct twl4030_usb_data beagle_usb_data = {
-	.usb_mode	= T2_USB_MODE_ULPI,
-};
-
 static struct twl4030_hsmmc_info mmc[] = {
 	{
 		.mmc		= 1,
@@ -125,6 +119,15 @@ static struct twl4030_hsmmc_info mmc[] = {
 		.gpio_wp	= 29,
 	},
 	{}	/* Terminator */
+};
+
+static struct platform_device omap3_beagle_lcd_device = {
+	.name		= "omap3beagle_lcd",
+	.id		= -1,
+};
+
+static struct omap_lcd_config omap3_beagle_lcd_config __initdata = {
+	.ctrl_name	= "internal",
 };
 
 static struct regulator_consumer_supply beagle_vmmc1_supply = {
@@ -175,11 +178,6 @@ static struct twl4030_gpio_platform_data beagle_gpio_data = {
 	.pulldowns	= BIT(2) | BIT(6) | BIT(7) | BIT(8) | BIT(13)
 				| BIT(15) | BIT(16) | BIT(17),
 	.setup		= beagle_twl_gpio_setup,
-};
-
-static struct platform_device omap3_beagle_lcd_device = {
-	.name		= "omap3beagle_lcd",
-	.id		= -1,
 };
 
 static struct regulator_consumer_supply beagle_vdac_supply = {
@@ -251,36 +249,12 @@ static struct regulator_init_data beagle_vpll2 = {
 	.consumer_supplies	= &beagle_vdvi_supply,
 };
 
-static const struct twl4030_resconfig beagle_resconfig[] = {
-	/* disable regulators that u-boot left enabled; the
-	 * devices' drivers should be managing these.
-	 */
-	{ .resource = RES_VAUX3, },	/* not even connected! */
-	{ .resource = RES_VMMC1, },
-	{ .resource = RES_VSIM, },
-	{ .resource = RES_VPLL2, },
-	{ .resource = RES_VDAC, },
-	{ .resource = RES_VUSB_1V5, },
-	{ .resource = RES_VUSB_1V8, },
-	{ .resource = RES_VUSB_3V1, },
-	{ 0, },
-};
-
-static struct twl4030_power_data beagle_power_data = {
-	.resource_config	= beagle_resconfig,
-	/* REVISIT can't use GENERIC3430_T2SCRIPTS_DATA;
-	 * among other things, it makes reboot fail.
-	 */
-};
-
 static struct twl4030_platform_data beagle_twldata = {
 	.irq_base	= TWL4030_IRQ_BASE,
 	.irq_end	= TWL4030_IRQ_END,
 
 	/* platform_data for children goes here */
-	.usb		= &beagle_usb_data,
 	.gpio		= &beagle_gpio_data,
-	.power		= &beagle_power_data,
 	.vmmc1		= &beagle_vmmc1,
 	.vsim		= &beagle_vsim,
 	.vdac		= &beagle_vdac,
@@ -315,10 +289,6 @@ static void __init omap3_beagle_init_irq(void)
 #endif
 	omap_gpio_init();
 }
-
-static struct omap_lcd_config omap3_beagle_lcd_config __initdata = {
-	.ctrl_name	= "internal",
-};
 
 static struct gpio_led gpio_leds[] = {
 	{
@@ -437,7 +407,6 @@ static void __init omap3_beagle_init(void)
 	gpio_direction_output(170, true);
 
 	usb_musb_init();
-	usb_ehci_init();
 	omap3beagle_flash_init();
 }
 
