@@ -25,7 +25,6 @@
 #define OMAP_TAG_TMP105		0x4f11
 
 #define OMAP_TAG_FLASH_PART_STR	0x4f81
-#define OMAP_TAG_VERSION_STR	0x4f82
 
 struct omap_clock_config {
 	/* 0 for 12 MHz, 1 for 13 MHz and 2 for 19.2 MHz */
@@ -114,11 +113,6 @@ struct omap_tmp105_config {
 
 struct omap_flash_part_str_config {
 	char part_table[0];
-};
-
-struct omap_version_config {
-	char component[12];
-	char version[12];
 };
 
 struct omap_board_config_entry {
