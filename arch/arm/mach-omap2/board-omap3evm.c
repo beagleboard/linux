@@ -18,6 +18,7 @@
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/clk.h>
+#include <linux/gpio.h>
 #include <linux/input.h>
 #include <linux/leds.h>
 
@@ -30,15 +31,14 @@
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
 
-#include <mach/gpio.h>
 #include <mach/board.h>
 #include <mach/mux.h>
 #include <mach/usb.h>
 #include <mach/common.h>
 #include <mach/mcspi.h>
+#include <mach/keypad.h>
 
 #include "sdram-micron-mt46h32m32lf-6.h"
-#include "twl4030-generic-scripts.h"
 #include "mmc-twl4030.h"
 
 #define OMAP3_EVM_TS_GPIO	175
@@ -48,18 +48,16 @@
 #define OMAP3EVM_ETHR_GPIO_IRQ	176
 #define OMAP3EVM_SMC911X_CS	5
 
-extern void omap3evm_flash_init(void);
-
 static struct resource omap3evm_smc911x_resources[] = {
 	[0] =	{
-		.start  = OMAP3EVM_ETHR_START,
-		.end    = (OMAP3EVM_ETHR_START + OMAP3EVM_ETHR_SIZE - 1),
-		.flags  = IORESOURCE_MEM,
+		.start	= OMAP3EVM_ETHR_START,
+		.end	= (OMAP3EVM_ETHR_START + OMAP3EVM_ETHR_SIZE - 1),
+		.flags	= IORESOURCE_MEM,
 	},
 	[1] =	{
-		.start  = OMAP_GPIO_IRQ(OMAP3EVM_ETHR_GPIO_IRQ),
-		.end    = OMAP_GPIO_IRQ(OMAP3EVM_ETHR_GPIO_IRQ),
-		.flags  = IORESOURCE_IRQ,
+		.start	= OMAP_GPIO_IRQ(OMAP3EVM_ETHR_GPIO_IRQ),
+		.end	= OMAP_GPIO_IRQ(OMAP3EVM_ETHR_GPIO_IRQ),
+		.flags	= IORESOURCE_IRQ,
 	},
 };
 
@@ -67,7 +65,7 @@ static struct platform_device omap3evm_smc911x_device = {
 	.name		= "smc911x",
 	.id		= -1,
 	.num_resources	= ARRAY_SIZE(omap3evm_smc911x_resources),
-	.resource	= &omap3evm_smc911x_resources [0],
+	.resource	= &omap3evm_smc911x_resources[0],
 };
 
 static inline void __init omap3evm_init_smc911x(void)
@@ -139,7 +137,8 @@ static int omap3evm_twl_gpio_setup(struct device *dev,
 	mmc[0].gpio_cd = gpio + 0;
 	twl4030_mmc_init(mmc);
 
-	/* Most GPIOs are for USB OTG.  Some are mostly sent to
+	/*
+	 * Most GPIOs are for USB OTG.  Some are mostly sent to
 	 * the P2 connector; notably LEDA for the LCD backlight.
 	 */
 
@@ -202,7 +201,6 @@ static struct twl4030_platform_data omap3evm_twldata = {
 	.keypad		= &omap3evm_kp_data,
 	.madc		= &omap3evm_madc_data,
 	.usb		= &omap3evm_usb_data,
-	.power		= GENERIC3430_T2SCRIPTS_DATA,
 	.gpio		= &omap3evm_gpio_data,
 };
 
@@ -250,21 +248,21 @@ static int ads7846_get_pendown_state(void)
 }
 
 struct ads7846_platform_data ads7846_config = {
-	.x_max                  = 0x0fff,
-	.y_max                  = 0x0fff,
-	.x_plate_ohms           = 180,
-	.pressure_max           = 255,
-	.debounce_max           = 10,
-	.debounce_tol           = 3,
-	.debounce_rep           = 1,
+	.x_max			= 0x0fff,
+	.y_max			= 0x0fff,
+	.x_plate_ohms		= 180,
+	.pressure_max		= 255,
+	.debounce_max		= 10,
+	.debounce_tol		= 3,
+	.debounce_rep		= 1,
 	.get_pendown_state	= ads7846_get_pendown_state,
 	.keep_vref_on		= 1,
-	.settle_delay_usecs     = 150,
+	.settle_delay_usecs	= 150,
 };
 
 static struct omap2_mcspi_device_config ads7846_mcspi_config = {
 	.turbo_mode	= 0,
-	.single_channel	= 1,  /* 0: slave, 1: master */
+	.single_channel	= 1,	/* 0: slave, 1: master */
 };
 
 struct spi_board_info omap3evm_spi_board_info[] = {
@@ -310,8 +308,6 @@ static void __init omap3_evm_init(void)
 
 	omap_serial_init();
 	usb_musb_init();
-	usb_ehci_init();
-	omap3evm_flash_init();
 	ads7846_dev_init();
 }
 
