@@ -15,6 +15,7 @@
 #include <linux/err.h>
 #include <linux/clk.h>
 #include <linux/io.h>
+#include <linux/gpio.h>
 
 #include <mach/hardware.h>
 #include <asm/mach-types.h>
@@ -22,7 +23,6 @@
 #include <asm/mach/map.h>
 
 #include <mach/mcspi.h>
-#include <mach/gpio.h>
 #include <mach/mux.h>
 #include <mach/board.h>
 #include <mach/common.h>
@@ -30,7 +30,6 @@
 #include <mach/dma.h>
 #include <mach/gpmc.h>
 #include <mach/usb.h>
-#include <mach/board-rx51.h>
 
 static struct omap_uart_config rx51_uart_config = {
 	.enabled_uarts	= ((1 << 0) | (1 << 1) | (1 << 2)),
@@ -62,13 +61,12 @@ static struct omap_board_config_kernel rx51_config[] = {
 
 static void __init rx51_init_irq(void)
 {
-	omap2_init_common_hw(rx51_get_sdram_timings());
+	omap2_init_common_hw(NULL);
 	omap_init_irq();
 	omap_gpio_init();
 }
 
 extern void __init rx51_peripherals_init(void);
-extern void __init rx51_video_init(void);
 
 static void __init rx51_init(void)
 {
@@ -77,7 +75,6 @@ static void __init rx51_init(void)
 	omap_serial_init();
 	usb_musb_init();
 	rx51_peripherals_init();
-	rx51_video_init();
 }
 
 static void __init rx51_map_io(void)
