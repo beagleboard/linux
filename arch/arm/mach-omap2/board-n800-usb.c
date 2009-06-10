@@ -17,7 +17,6 @@
 #include <linux/gpio.h>
 #include <linux/usb/musb.h>
 #include <mach/gpmc.h>
-#include <mach/pm.h>
 
 #define TUSB_ASYNC_CS		1
 #define TUSB_SYNC_CS		4

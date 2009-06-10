@@ -46,6 +46,20 @@
 #include <../drivers/cbus/tahvo.h>
 #include <../drivers/media/video/tcm825x.h>
 
+/* FIXME: These should be done in platform_data */
+#define OMAP_TAG_TEA5761		0x4f10
+#define OMAP_TAG_TMP105			0x4f11
+
+struct omap_tea5761_config {
+	u16 enable_gpio;
+};
+
+struct omap_tmp105_config {
+	u16 tmp105_irq_pin;
+	int (* set_power)(int enable);
+};
+
+
 #define N800_BLIZZARD_POWERDOWN_GPIO	15
 #define N800_STI_GPIO			62
 #define N800_KEYB_IRQ_GPIO		109
