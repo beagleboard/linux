@@ -131,7 +131,7 @@ static int twl_mmc_late_init(struct device *dev)
 			/* UGLY HACK:  workaround regulator framework bugs.
 			 * When the bootloader leaves a supply active, it's
 			 * initialized with zero usecount ... and we can't
-			 * disable it without first disabling it.  Until the
+			 * disable it without first enabling it.  Until the
 			 * framework is fixed, we need a workaround like this
 			 * (which is safe for MMC, but not in general).
 			 */
@@ -263,19 +263,8 @@ static int twl_mmc1_set_power(struct device *dev, int slot, int power_on,
 static int twl_mmc23_set_power(struct device *dev, int slot, int power_on, int vdd)
 {
 	int ret = 0;
-	struct twl_mmc_controller *c = NULL;
+	struct twl_mmc_controller *c = &hsmmc[1];
 	struct omap_mmc_platform_data *mmc = dev->platform_data;
-	int i;
-
-	for (i = 1; i < ARRAY_SIZE(hsmmc); i++) {
-		if (mmc == hsmmc[i].mmc) {
-			c = &hsmmc[i];
-			break;
-		}
-	}
-
-	if (c == NULL)
-		return -ENODEV;
 
 	/* If we don't see a Vcc regulator, assume it's a fixed
 	 * voltage always-on regulator.
