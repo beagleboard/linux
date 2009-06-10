@@ -27,23 +27,9 @@
 #define UDC_BASE			OMAP2_UDC_BASE
 #define OMAP_OHCI_BASE			OMAP2_OHCI_BASE
 
-#ifdef CONFIG_USB_MUSB_SOC
 extern void usb_musb_init(void);
-#else
-static inline void usb_musb_init(void)
-{
-}
-#endif	/* !OMAP1 && !MUSB */
 
-#if defined(CONFIG_USB_EHCI_HCD) || defined(CONFIG_USB_EHCI_HCD_MODULE)
-extern void usb_ehci_init(void);
-#else
-static inline void usb_ehci_init(void)
-{
-}
-#endif	/* !OMAP1 && !EHCI */
-
-#endif	/* !OMAP1 */
+#endif
 
 void omap_usb_init(struct omap_usb_config *pdata);
 
