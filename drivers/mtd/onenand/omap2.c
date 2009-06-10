@@ -39,6 +39,7 @@
 #include <mach/gpmc.h>
 #include <mach/onenand.h>
 #include <mach/gpio.h>
+#include <mach/pm.h>
 
 #include <mach/dma.h>
 
