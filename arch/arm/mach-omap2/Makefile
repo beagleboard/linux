@@ -3,9 +3,14 @@
 #
 
 # Common support
-obj-y := irq.o id.o io.o sdrc.o control.o prcm.o clock.o mux.o \
-		devices.o serial.o gpmc.o timer-gp.o powerdomain.o \
-		clockdomain.o
+obj-y := id.o io.o control.o mux.o devices.o serial.o gpmc.o timer-gp.o
+
+omap-2-3-common				= irq.o sdrc.o
+prcm-common				= prcm.o powerdomain.o
+clock-common				= clock.o clockdomain.o
+
+obj-$(CONFIG_ARCH_OMAP2) += $(omap-2-3-common) $(prcm-common) $(clock-common)
+obj-$(CONFIG_ARCH_OMAP3) += $(omap-2-3-common) $(prcm-common) $(clock-common)
 
 obj-$(CONFIG_OMAP_MCBSP) += mcbsp.o
 
@@ -20,8 +25,10 @@ obj-$(CONFIG_ARCH_OMAP2)		+= sdrc2xxx.o
 
 # Power Management
 ifeq ($(CONFIG_PM),y)
-obj-y					+= pm.o
+obj-$(CONFIG_ARCH_OMAP2)		+= pm24xx.o
 obj-$(CONFIG_ARCH_OMAP24XX)		+= sleep24xx.o
+obj-$(CONFIG_ARCH_OMAP3)		+= pm34xx.o sleep34xx.o
+obj-$(CONFIG_PM_DEBUG)			+= pm-debug.o
 endif
 
 # Clock framework
