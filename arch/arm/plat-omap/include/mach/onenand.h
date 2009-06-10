@@ -12,8 +12,6 @@
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
 
-#ifndef __ASM_ARCH_OMAP_ONENAND_H__
-
 #define ONENAND_SYNC_READ	(1 << 0)
 #define ONENAND_SYNC_READWRITE	(1 << 1)
 
@@ -38,13 +36,8 @@ extern void gpmc_onenand_init(struct omap_onenand_platform_data *d);
 
 #define board_onenand_data	NULL
 
-static inline void board_onenand_init(void)
-{
-}
-
 static inline void gpmc_onenand_init(struct omap_onenand_platform_data *d)
 {
 }
 
-#endif
 #endif

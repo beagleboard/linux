@@ -12,10 +12,11 @@
 
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
-#include <asm/mach/flash.h>
 #include <linux/mtd/onenand_regs.h>
-
 #include <linux/io.h>
+
+#include <asm/mach/flash.h>
+
 #include <mach/onenand.h>
 #include <mach/board.h>
 #include <mach/gpmc.h>
@@ -76,22 +77,12 @@ static int omap2_onenand_set_async_mode(int cs, void __iomem *onenand_base)
 	return gpmc_cs_set_timings(cs, &t);
 }
 
-static unsigned short omap2_onenand_readw(void __iomem *addr)
-{
-	return readw(addr);
-}
-
-static void omap2_onenand_writew(unsigned short value, void __iomem *addr)
-{
-	writew(value, addr);
-}
-
 static void set_onenand_cfg(void __iomem *onenand_base, int latency,
 				int sync_read, int sync_write, int hf)
 {
 	u32 reg;
 
-	reg = omap2_onenand_readw(onenand_base + ONENAND_REG_SYS_CFG1);
+	reg = readw(onenand_base + ONENAND_REG_SYS_CFG1);
 	reg &= ~((0x7 << ONENAND_SYS_CFG1_BRL_SHIFT) | (0x7 << 9));
 	reg |=	(latency << ONENAND_SYS_CFG1_BRL_SHIFT) |
 		ONENAND_SYS_CFG1_BL_16;
@@ -107,7 +98,7 @@ static void set_onenand_cfg(void __iomem *onenand_base, int latency,
 		reg |= ONENAND_SYS_CFG1_HF;
 	else
 		reg &= ~ONENAND_SYS_CFG1_HF;
-	omap2_onenand_writew(reg, onenand_base + ONENAND_REG_SYS_CFG1);
+	writew(reg, onenand_base + ONENAND_REG_SYS_CFG1);
 }
 
 static int omap2_onenand_set_sync_mode(struct omap_onenand_platform_data *cfg,
@@ -140,8 +131,7 @@ static int omap2_onenand_set_sync_mode(struct omap_onenand_platform_data *cfg,
 		err = omap2_onenand_set_async_mode(cs, onenand_base);
 		if (err)
 			return err;
-		reg = omap2_onenand_readw(onenand_base +
-					  ONENAND_REG_VERSION_ID);
+		reg = readw(onenand_base + ONENAND_REG_VERSION_ID);
 		switch ((reg >> 4) & 0xf) {
 		case 0:
 			freq = 40;
