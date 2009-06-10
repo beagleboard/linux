@@ -12,19 +12,21 @@
 
 #include <linux/types.h>
 
+#include <mach/gpio-switch.h>
+
 /* Different peripheral ids */
 #define OMAP_TAG_CLOCK		0x4f01
 #define OMAP_TAG_SERIAL_CONSOLE 0x4f03
 #define OMAP_TAG_LCD		0x4f05
+#define OMAP_TAG_GPIO_SWITCH	0x4f06
 #define OMAP_TAG_UART		0x4f07
 #define OMAP_TAG_FBMEM		0x4f08
 #define OMAP_TAG_STI_CONSOLE	0x4f09
 #define OMAP_TAG_CAMERA_SENSOR	0x4f0a
-#define OMAP_TAG_PARTITION      0x4f0b
-#define OMAP_TAG_TEA5761	0x4f10
-#define OMAP_TAG_TMP105		0x4f11
 
-#define OMAP_TAG_FLASH_PART_STR	0x4f81
+#define OMAP_TAG_BOOT_REASON    0x4f80
+#define OMAP_TAG_FLASH_PART	0x4f81
+#define OMAP_TAG_VERSION_STR	0x4f82
 
 struct omap_clock_config {
 	/* 0 for 12 MHz, 1 for 13 MHz and 2 for 19.2 MHz */
@@ -39,6 +41,12 @@ struct omap_serial_console_config {
 struct omap_sti_console_config {
 	unsigned enable:1;
 	u8 channel;
+};
+
+struct omap_camera_sensor_config {
+	u16 reset_gpio;
+	int (*power_on)(void * data);
+	int (*power_off)(void * data);
 };
 
 struct omap_usb_config {
@@ -96,23 +104,32 @@ struct omap_pwm_led_platform_data {
 	void (*set_power)(struct omap_pwm_led_platform_data *self, int on_off);
 };
 
+/* See arch/arm/plat-omap/include/mach/gpio-switch.h for definitions */
+struct omap_gpio_switch_config {
+	char name[12];
+	u16 gpio;
+	int flags:4;
+	int type:4;
+	int key_code:24; /* Linux key code */
+};
+
 struct omap_uart_config {
 	/* Bit field of UARTs present; bit 0 --> UART1 */
 	unsigned int enabled_uarts;
 };
 
-struct omap_tea5761_config {
-	u16 enable_gpio;
-};
 
-/* This cannot be passed from the bootloader */
-struct omap_tmp105_config {
-	u16 tmp105_irq_pin;
-	int (* set_power)(int enable);
-};
-
-struct omap_flash_part_str_config {
+struct omap_flash_part_config {
 	char part_table[0];
+};
+
+struct omap_boot_reason_config {
+	char reason_str[12];
+};
+
+struct omap_version_config {
+	char component[12];
+	char version[12];
 };
 
 struct omap_board_config_entry {
