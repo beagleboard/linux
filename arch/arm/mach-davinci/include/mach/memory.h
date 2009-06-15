@@ -21,6 +21,7 @@
  * Definitions
  **************************************************************************/
 #define DAVINCI_DDR_BASE    0x80000000
+#define DAVINCI_IRAM_BASE   0x00008000 /* ARM Internal RAM */
 
 #define PHYS_OFFSET DAVINCI_DDR_BASE
 

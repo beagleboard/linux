@@ -17,7 +17,6 @@
 #include <asm-generic/gpio.h>
 
 #include <mach/irqs.h>
-#include <mach/common.h>
 
 #define DAVINCI_GPIO_BASE 0x01C67000
 
@@ -68,16 +67,15 @@ static inline struct gpio_controller *__iomem
 __gpio_to_controller(unsigned gpio)
 {
 	void *__iomem ptr;
-	void __iomem *base = davinci_soc_info.gpio_base;
 
 	if (gpio < 32 * 1)
-		ptr = base + 0x10;
+		ptr = IO_ADDRESS(DAVINCI_GPIO_BASE + 0x10);
 	else if (gpio < 32 * 2)
-		ptr = base + 0x38;
+		ptr = IO_ADDRESS(DAVINCI_GPIO_BASE + 0x38);
 	else if (gpio < 32 * 3)
-		ptr = base + 0x60;
+		ptr = IO_ADDRESS(DAVINCI_GPIO_BASE + 0x60);
 	else if (gpio < 32 * 4)
-		ptr = base + 0x88;
+		ptr = IO_ADDRESS(DAVINCI_GPIO_BASE + 0x88);
 	else
 		ptr = NULL;
 	return ptr;
@@ -144,13 +142,13 @@ static inline int gpio_to_irq(unsigned gpio)
 {
 	if (gpio >= DAVINCI_N_GPIO)
 		return -EINVAL;
-	return davinci_soc_info.intc_irq_num + gpio;
+	return DAVINCI_N_AINTC_IRQ + gpio;
 }
 
 static inline int irq_to_gpio(unsigned irq)
 {
 	/* caller guarantees gpio_to_irq() succeeded */
-	return irq - davinci_soc_info.intc_irq_num;
+	return irq - DAVINCI_N_AINTC_IRQ;
 }
 
 #endif				/* __DAVINCI_GPIO_H */

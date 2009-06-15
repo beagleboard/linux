@@ -21,7 +21,18 @@
 
 #include <mach/hardware.h>
 #include <mach/mux.h>
-#include <mach/common.h>
+
+static const struct mux_config *mux_table;
+static unsigned long pin_table_sz;
+
+int __init davinci_mux_register(const struct mux_config *pins,
+				unsigned long size)
+{
+	mux_table = pins;
+	pin_table_sz = size;
+
+	return 0;
+}
 
 /*
  * Sets the DAVINCI MUX register based on the table
@@ -29,24 +40,23 @@
 int __init_or_module davinci_cfg_reg(const unsigned long index)
 {
 	static DEFINE_SPINLOCK(mux_spin_lock);
-	struct davinci_soc_info *soc_info = &davinci_soc_info;
-	void __iomem *base = soc_info->pinmux_base;
+	void __iomem *base = IO_ADDRESS(DAVINCI_SYSTEM_MODULE_BASE);
 	unsigned long flags;
 	const struct mux_config *cfg;
 	unsigned int reg_orig = 0, reg = 0;
 	unsigned int mask, warn = 0;
 
-	if (!soc_info->pinmux_pins)
+	if (!mux_table)
 		BUG();
 
-	if (index >= soc_info->pinmux_pins_num) {
+	if (index >= pin_table_sz) {
 		printk(KERN_ERR "Invalid pin mux index: %lu (%lu)\n",
-		       index, soc_info->pinmux_pins_num);
+		       index, pin_table_sz);
 		dump_stack();
 		return -ENODEV;
 	}
 
-	cfg = &soc_info->pinmux_pins[index];
+	cfg = &mux_table[index];
 
 	if (cfg->name == NULL) {
 		printk(KERN_ERR "No entry for the specified index\n");

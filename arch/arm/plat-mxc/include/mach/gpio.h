@@ -35,7 +35,6 @@ struct mxc_gpio_port {
 	int irq;
 	int virtual_irq_start;
 	struct gpio_chip chip;
-	u32 both_edges;
 };
 
 int mxc_gpio_init(struct mxc_gpio_port*, int);

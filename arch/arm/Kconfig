@@ -253,14 +253,6 @@ config ARCH_CLPS711X
 	help
 	  Support for Cirrus Logic 711x/721x based boards.
 
-config ARCH_GEMINI
-	bool "Cortina Systems Gemini"
-	select CPU_FA526
-	select GENERIC_GPIO
-	select ARCH_REQUIRE_GPIOLIB
-	help
-	  Support for the Cortina Systems Gemini family SoCs
-
 config ARCH_EBSA110
 	bool "EBSA-110"
 	select CPU_SA110
@@ -285,6 +277,14 @@ config ARCH_EP93XX
 	help
 	  This enables support for the Cirrus EP93xx series of CPUs.
 
+config ARCH_GEMINI
+	bool "Cortina Systems Gemini"
+	select CPU_FA526
+	select GENERIC_GPIO
+	select ARCH_REQUIRE_GPIOLIB
+	help
+	  Support for the Cortina Systems Gemini family SoCs
+
 config ARCH_FOOTBRIDGE
 	bool "FootBridge"
 	select CPU_SA110
@@ -292,17 +292,6 @@ config ARCH_FOOTBRIDGE
 	help
 	  Support for systems based on the DC21285 companion chip
 	  ("FootBridge"), such as the Simtec CATS and the Rebel NetWinder.
-
-config ARCH_MXC
-	bool "Freescale MXC/iMX-based"
-	select GENERIC_TIME
-	select GENERIC_CLOCKEVENTS
-	select ARCH_MTD_XIP
-	select GENERIC_GPIO
-	select ARCH_REQUIRE_GPIOLIB
-	select HAVE_CLK
-	help
-	  Support for Freescale MXC/iMX-based family of processors
 
 config ARCH_NETX
 	bool "Hilscher NetX based"
@@ -319,6 +308,15 @@ config ARCH_H720X
 	select ISA_DMA_API
 	help
 	  This enables support for systems based on the Hynix HMS720x
+
+config ARCH_IMX
+	bool "IMX"
+	select CPU_ARM920T
+	select GENERIC_GPIO
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	help
+	  Support for Motorola's i.MX family of processors (MX1, MXL).
 
 config ARCH_IOP13XX
 	bool "IOP13xx-based"
@@ -407,55 +405,6 @@ config ARCH_KIRKWOOD
 	  Support for the following Marvell Kirkwood series SoCs:
 	  88F6180, 88F6192 and 88F6281.
 
-config ARCH_LOKI
-	bool "Marvell Loki (88RC8480)"
-	select CPU_FEROCEON
-	select GENERIC_TIME
-	select GENERIC_CLOCKEVENTS
-	select PLAT_ORION
-	help
-	  Support for the Marvell Loki (88RC8480) SoC.
-
-config ARCH_MV78XX0
-	bool "Marvell MV78xx0"
-	select CPU_FEROCEON
-	select PCI
-	select GENERIC_GPIO
-	select GENERIC_TIME
-	select GENERIC_CLOCKEVENTS
-	select PLAT_ORION
-	help
-	  Support for the following Marvell MV78xx0 series SoCs:
-	  MV781x0, MV782x0.
-
-config ARCH_ORION5X
-	bool "Marvell Orion"
-	depends on MMU
-	select CPU_FEROCEON
-	select PCI
-	select GENERIC_GPIO
-	select GENERIC_TIME
-	select GENERIC_CLOCKEVENTS
-	select PLAT_ORION
-	help
-	  Support for the following Marvell Orion 5x series SoCs:
-	  Orion-1 (5181), Orion-VoIP (5181L), Orion-NAS (5182),
-	  Orion-2 (5281), Orion-1-90 (6183).
-
-config ARCH_MMP
-	bool "Marvell PXA168/910"
-	depends on MMU
-	select GENERIC_GPIO
-	select ARCH_REQUIRE_GPIOLIB
-	select HAVE_CLK
-	select COMMON_CLKDEV
-	select GENERIC_TIME
-	select GENERIC_CLOCKEVENTS
-	select TICK_ONESHOT
-	select PLAT_PXA
-	help
-	  Support for Marvell's PXA168/910 processor line.
-
 config ARCH_KS8695
 	bool "Micrel/Kendin KS8695"
 	select CPU_ARM922T
@@ -478,12 +427,51 @@ config ARCH_NS9XXX
 
 	  <http://www.digi.com/products/microprocessors/index.jsp>
 
-config ARCH_W90X900
-	bool "Nuvoton W90X900 CPU"
-	select CPU_ARM926T
+config ARCH_LOKI
+	bool "Marvell Loki (88RC8480)"
+	select CPU_FEROCEON
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	select PLAT_ORION
 	help
-		Support for Nuvoton (Winbond logic dept.) ARM9 processor,You
-		can login www.mcuos.com or www.nuvoton.com to know more.
+	  Support for the Marvell Loki (88RC8480) SoC.
+
+config ARCH_MV78XX0
+	bool "Marvell MV78xx0"
+	select CPU_FEROCEON
+	select PCI
+	select GENERIC_GPIO
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	select PLAT_ORION
+	help
+	  Support for the following Marvell MV78xx0 series SoCs:
+	  MV781x0, MV782x0.
+
+config ARCH_MXC
+	bool "Freescale MXC/iMX-based"
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	select ARCH_MTD_XIP
+	select GENERIC_GPIO
+	select ARCH_REQUIRE_GPIOLIB
+	select HAVE_CLK
+	help
+	  Support for Freescale MXC/iMX-based family of processors
+
+config ARCH_ORION5X
+	bool "Marvell Orion"
+	depends on MMU
+	select CPU_FEROCEON
+	select PCI
+	select GENERIC_GPIO
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	select PLAT_ORION
+	help
+	  Support for the following Marvell Orion 5x series SoCs:
+	  Orion-1 (5181), Orion-VoIP (5181L), Orion-NAS (5182),
+	  Orion-2 (5281), Orion-1-90 (6183).
 
 config ARCH_PNX4008
 	bool "Philips Nexperia PNX4008 Mobile"
@@ -507,16 +495,19 @@ config ARCH_PXA
 	help
 	  Support for Intel/Marvell's PXA2xx/PXA3xx processor line.
 
-config ARCH_MSM
-	bool "Qualcomm MSM"
-	select CPU_V6
+config ARCH_MMP
+	bool "Marvell PXA168/910"
+	depends on MMU
+	select GENERIC_GPIO
+	select ARCH_REQUIRE_GPIOLIB
+	select HAVE_CLK
+	select COMMON_CLKDEV
 	select GENERIC_TIME
 	select GENERIC_CLOCKEVENTS
+	select TICK_ONESHOT
+	select PLAT_PXA
 	help
-	  Support for Qualcomm MSM7K based systems.  This runs on the ARM11
-	  apps processor of the MSM7K and depends on a shared memory
-	  interface to the ARM9 modem processor which runs the baseband stack
-	  and controls some vital subsystems (clock and power control, etc).
+	  Support for Marvell's PXA168/910 processor line.
 
 config ARCH_RPC
 	bool "RiscPC"
@@ -596,7 +587,6 @@ config ARCH_DAVINCI
 	select ZONE_DMA
 	select HAVE_IDE
 	select COMMON_CLKDEV
-	select GENERIC_ALLOCATOR
 	help
 	  Support for TI's DaVinci platform.
 
@@ -609,6 +599,24 @@ config ARCH_OMAP
 	select GENERIC_CLOCKEVENTS
 	help
 	  Support for TI's OMAP platform (OMAP1 and OMAP2).
+
+config ARCH_MSM
+	bool "Qualcomm MSM"
+	select CPU_V6
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	help
+	  Support for Qualcomm MSM7K based systems.  This runs on the ARM11
+	  apps processor of the MSM7K and depends on a shared memory
+	  interface to the ARM9 modem processor which runs the baseband stack
+	  and controls some vital subsystems (clock and power control, etc).
+
+config ARCH_W90X900
+	bool "Nuvoton W90X900 CPU"
+	select CPU_ARM926T
+	help
+		Support for Nuvoton (Winbond logic dept.) ARM9 processor,You
+		can login www.mcuos.com or www.nuvoton.com to know more.
 
 endchoice
 
@@ -674,6 +682,8 @@ source "arch/arm/mach-s3c6410/Kconfig"
 endif
 
 source "arch/arm/mach-lh7a40x/Kconfig"
+
+source "arch/arm/mach-imx/Kconfig"
 
 source "arch/arm/mach-h720x/Kconfig"
 
@@ -1012,7 +1022,7 @@ source "mm/Kconfig"
 config LEDS
 	bool "Timer and CPU usage LEDs"
 	depends on ARCH_CDB89712 || ARCH_EBSA110 || \
-		   ARCH_EBSA285 || ARCH_INTEGRATOR || \
+		   ARCH_EBSA285 || ARCH_IMX || ARCH_INTEGRATOR || \
 		   ARCH_LUBBOCK || MACH_MAINSTONE || ARCH_NETWINDER || \
 		   ARCH_OMAP || ARCH_P720T || ARCH_PXA_IDP || \
 		   ARCH_SA1100 || ARCH_SHARK || ARCH_VERSATILE || \
@@ -1178,7 +1188,7 @@ endmenu
 
 menu "CPU Power Management"
 
-if (ARCH_SA1100 || ARCH_INTEGRATOR || ARCH_OMAP || ARCH_PXA)
+if (ARCH_SA1100 || ARCH_INTEGRATOR || ARCH_OMAP || ARCH_IMX || ARCH_PXA)
 
 source "drivers/cpufreq/Kconfig"
 
@@ -1203,11 +1213,14 @@ config CPU_FREQ_INTEGRATOR
 
 	  If in doubt, say Y.
 
-config CPU_FREQ_PXA
-	bool
-	depends on CPU_FREQ && ARCH_PXA && PXA25x
-	default y
-	select CPU_FREQ_DEFAULT_GOV_USERSPACE
+config CPU_FREQ_IMX
+	tristate "CPUfreq driver for i.MX CPUs"
+	depends on ARCH_IMX && CPU_FREQ
+	default n
+	help
+	  This enables the CPUfreq driver for i.MX CPUs.
+
+	  If in doubt, say N.
 
 endif
 
