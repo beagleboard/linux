@@ -63,13 +63,6 @@ config BATTERY_TOSA
 	  Say Y to enable support for the battery on the Sharp Zaurus
 	  SL-6000 (tosa) models.
 
-config TWL4030_BCI_BATTERY
-	tristate "OMAP TWL4030 BCI Battery driver"
-	depends on TWL4030_CORE && TWL4030_MADC
-	help
-	  Support for OMAP TWL4030 BCI Battery driver.
-	  This driver can give support for TWL4030 Battery Charge Interface.
-
 config BATTERY_WM97XX
 	bool "WM97xx generic battery driver"
 	depends on TOUCHSCREEN_WM97XX=y
