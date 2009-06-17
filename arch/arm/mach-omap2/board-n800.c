@@ -17,16 +17,11 @@
 #include <linux/device.h>
 #include <linux/platform_device.h>
 #include <linux/spi/spi.h>
-#include <linux/spi/tsc2301.h>
-#include <linux/spi/tsc2005.h>
 #include <linux/input.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/i2c.h>
-#include <linux/i2c/lm8323.h>
-#include <linux/i2c/menelaus.h>
-#include <linux/i2c/lp5521.h>
 #include <mach/hardware.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -38,6 +33,7 @@
 #include <mach/mcspi.h>
 #include <mach/lcd_mipid.h>
 #include <mach/clock.h>
+#include <mach/menelaus.h>
 #include <mach/omapfb.h>
 #include <mach/blizzard.h>
 #include <mach/onenand.h>
@@ -65,80 +61,6 @@ struct omap_tmp105_config {
 #define N800_KEYB_IRQ_GPIO		109
 #define N800_DAV_IRQ_GPIO		103
 #define N800_TSC2301_RESET_GPIO		118
-
-#ifdef CONFIG_MACH_NOKIA_N810
-static s16 rx44_keymap[LM8323_KEYMAP_SIZE] = {
-	[0x01] = KEY_Q,
-	[0x02] = KEY_K,
-	[0x03] = KEY_O,
-	[0x04] = KEY_P,
-	[0x05] = KEY_BACKSPACE,
-	[0x06] = KEY_A,
-	[0x07] = KEY_S,
-	[0x08] = KEY_D,
-	[0x09] = KEY_F,
-	[0x0a] = KEY_G,
-	[0x0b] = KEY_H,
-	[0x0c] = KEY_J,
-
-	[0x11] = KEY_W,
-	[0x12] = KEY_F4,
-	[0x13] = KEY_L,
-	[0x14] = KEY_APOSTROPHE,
-	[0x16] = KEY_Z,
-	[0x17] = KEY_X,
-	[0x18] = KEY_C,
-	[0x19] = KEY_V,
-	[0x1a] = KEY_B,
-	[0x1b] = KEY_N,
-	[0x1c] = KEY_LEFTSHIFT, /* Actually, this is both shift keys */
-	[0x1f] = KEY_F7,
-
-	[0x21] = KEY_E,
-	[0x22] = KEY_SEMICOLON,
-	[0x23] = KEY_MINUS,
-	[0x24] = KEY_EQUAL,
-	[0x2b] = KEY_FN,
-	[0x2c] = KEY_M,
-	[0x2f] = KEY_F8,
-
-	[0x31] = KEY_R,
-	[0x32] = KEY_RIGHTCTRL,
-	[0x34] = KEY_SPACE,
-	[0x35] = KEY_COMMA,
-	[0x37] = KEY_UP,
-	[0x3c] = KEY_COMPOSE,
-	[0x3f] = KEY_F6,
-
-	[0x41] = KEY_T,
-	[0x44] = KEY_DOT,
-	[0x46] = KEY_RIGHT,
-	[0x4f] = KEY_F5,
-	[0x51] = KEY_Y,
-	[0x53] = KEY_DOWN,
-	[0x55] = KEY_ENTER,
-	[0x5f] = KEY_ESC,
-
-	[0x61] = KEY_U,
-	[0x64] = KEY_LEFT,
-
-	[0x71] = KEY_I,
-	[0x75] = KEY_KPENTER,
-};
-
-static struct lm8323_platform_data lm8323_pdata = {
-	.repeat		= 0, /* Repeat is handled in userspace for now. */
-	.keymap		= rx44_keymap,
-	.size_x		= 8,
-	.size_y		= 8,
-	.debounce_time	= 12,
-	.active_time	= 500,
-
-	.name		= "Internal keyboard",
-	.pwm1_name	= "n810::keyboard",
-	.pwm2_name	= "n810::cover",
-};
-#endif
 
 void __init nokia_n800_init_irq(void)
 {
@@ -291,53 +213,6 @@ static struct omap_board_config_kernel n800_config[] __initdata = {
 	{ OMAP_TAG_TMP105,			&n800_tmp105_config },
 };
 
-static struct tsc2301_platform_data tsc2301_config = {
-	.reset_gpio	= N800_TSC2301_RESET_GPIO,
-	.keymap = {
-		-1,		/* Event for bit 0 */
-		KEY_UP,		/* Event for bit 1 (up) */
-		KEY_F5,		/* Event for bit 2 (home) */
-		-1,		/* Event for bit 3 */
-		KEY_LEFT,	/* Event for bit 4 (left) */
-		KEY_ENTER,	/* Event for bit 5 (enter) */
-		KEY_RIGHT,	/* Event for bit 6 (right) */
-		-1,		/* Event for bit 7 */
-		KEY_ESC,	/* Event for bit 8 (cycle) */
-		KEY_DOWN,	/* Event for bit 9 (down) */
-		KEY_F4,		/* Event for bit 10 (menu) */
-		-1,		/* Event for bit 11 */
-		KEY_F8,		/* Event for bit 12 (Zoom-) */
-		KEY_F6,		/* Event for bit 13 (FS) */
-		KEY_F7,		/* Event for bit 14 (Zoom+) */
-		-1,		/* Event for bit 15 */
-	},
-	.kp_rep 	= 0,
-	.keyb_name	= "Internal keypad",
-};
-
-static void tsc2301_dev_init(void)
-{
-	int r;
-	int gpio = N800_KEYB_IRQ_GPIO;
-
-	r = gpio_request(gpio, "tsc2301 KBD IRQ");
-	if (r >= 0) {
-		gpio_direction_input(gpio);
-		tsc2301_config.keyb_int = gpio_to_irq(gpio);
-	} else {
-		printk(KERN_ERR "unable to get KBD GPIO");
-	}
-
-	gpio = N800_DAV_IRQ_GPIO;
-	r = gpio_request(gpio, "tsc2301 DAV IRQ");
-	if (r >= 0) {
-		gpio_direction_input(gpio);
-		tsc2301_config.dav_int = gpio_to_irq(gpio);
-	} else {
-		printk(KERN_ERR "unable to get DAV GPIO");
-	}
-}
-
 static int __init tea5761_dev_init(void)
 {
 	const struct omap_tea5761_config *info;
@@ -380,18 +255,6 @@ static struct omap2_mcspi_device_config cx3110x_mcspi_config = {
 	.single_channel = 1,
 };
 
-#ifdef CONFIG_TOUCHSCREEN_TSC2005
-static struct tsc2005_platform_data tsc2005_config = {
-	.reset_gpio = 94,
-	.dav_gpio = 106
-};
-
-static struct omap2_mcspi_device_config tsc2005_mcspi_config = {
-	.turbo_mode	= 0,
-	.single_channel = 1,
-};
-#endif
-
 static struct spi_board_info n800_spi_board_info[] __initdata = {
 	{
 		.modalias	= "lcd_mipid",
@@ -413,7 +276,6 @@ static struct spi_board_info n800_spi_board_info[] __initdata = {
 		.chip_select	= 0,
 		.max_speed_hz   = 6000000,
 		.controller_data= &tsc2301_mcspi_config,
-		.platform_data  = &tsc2301_config,
 	},
 };
 
@@ -438,51 +300,8 @@ static struct spi_board_info n810_spi_board_info[] __initdata = {
 		.bus_num	 = 1,
 		.chip_select	 = 0,
 		.max_speed_hz    = 6000000,
-		.controller_data = &tsc2005_mcspi_config,
-		.platform_data   = &tsc2005_config,
 	},
 };
-
-static void __init tsc2005_set_config(void)
-{
-	const struct omap_lcd_config *conf;
-
-	conf = omap_get_config(OMAP_TAG_LCD, struct omap_lcd_config);
-	if (conf != NULL) {
-#ifdef CONFIG_TOUCHSCREEN_TSC2005
-		if (strcmp(conf->panel_name, "lph8923") == 0) {
-			tsc2005_config.ts_x_plate_ohm = 180;
-			tsc2005_config.ts_hw_avg = 0;
-			tsc2005_config.ts_ignore_last = 0;
-			tsc2005_config.ts_touch_pressure = 1500;
-			tsc2005_config.ts_stab_time = 100;
-			tsc2005_config.ts_pressure_max = 2048;
-			tsc2005_config.ts_pressure_fudge = 2;
-			tsc2005_config.ts_x_max = 4096;
-			tsc2005_config.ts_x_fudge = 4;
-			tsc2005_config.ts_y_max = 4096;
-			tsc2005_config.ts_y_fudge = 7;
-		} else if (strcmp(conf->panel_name, "ls041y3") == 0) {
-			tsc2005_config.ts_x_plate_ohm = 280;
-			tsc2005_config.ts_hw_avg = 0;
-			tsc2005_config.ts_ignore_last = 0;
-			tsc2005_config.ts_touch_pressure = 1500;
-			tsc2005_config.ts_stab_time = 1000;
-			tsc2005_config.ts_pressure_max = 2048;
-			tsc2005_config.ts_pressure_fudge = 2;
-			tsc2005_config.ts_x_max = 4096;
-			tsc2005_config.ts_x_fudge = 4;
-			tsc2005_config.ts_y_max = 4096;
-			tsc2005_config.ts_y_fudge = 7;
-		} else {
-			printk(KERN_ERR "Unknown panel type, set default "
-			       "touchscreen configuration\n");
-			tsc2005_config.ts_x_plate_ohm = 200;
-			tsc2005_config.ts_stab_time = 100;
-		}
-#endif
-	}
-}
 
 #if defined(CONFIG_CBUS_RETU) && defined(CONFIG_LEDS_OMAP_PWM)
 
@@ -632,14 +451,6 @@ static struct i2c_board_info __initdata n800_i2c_board_info_1[] = {
 	},
 };
 
-static struct lp5521_platform_data n810_lp5521_platform_data = {
-	.mode		= LP5521_MODE_DIRECT_CONTROL,
-	.label		= "n810",
-	.red_present	= true,
-	.green_present	= true,
-	.blue_present	= true,
-};
-
 extern struct tcm825x_platform_data n800_tcm825x_platform_data;
 
 static struct i2c_board_info __initdata_or_module n8x0_i2c_board_info_2[] = {
@@ -662,14 +473,12 @@ static struct i2c_board_info __initdata_or_module n810_i2c_board_info_2[] = {
 	{
 		I2C_BOARD_INFO("lm8323", 0x45),
 		.irq		= OMAP_GPIO_IRQ(109),
-		.platform_data	= &lm8323_pdata,
 	},
 	{
 		I2C_BOARD_INFO("tsl2563", 0x29),
 	},
 	{
 		I2C_BOARD_INFO("lp5521", 0x32),
-		.platform_data = &n810_lp5521_platform_data,
 	},
 };
 
@@ -731,7 +540,6 @@ void __init nokia_n800_common_init(void)
 		spi_register_board_info(n800_spi_board_info,
 				ARRAY_SIZE(n800_spi_board_info));
 	if (machine_is_nokia_n810()) {
-		tsc2005_set_config();
 		spi_register_board_info(n810_spi_board_info,
 				ARRAY_SIZE(n810_spi_board_info));
 	}
@@ -757,7 +565,6 @@ static void __init nokia_n800_init(void)
 	nokia_n800_common_init();
 
 	n800_ts_set_config();
-	tsc2301_dev_init();
 	tea5761_dev_init();
 	board_onenand_init();
 }

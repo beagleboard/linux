@@ -26,13 +26,12 @@
 #include <linux/delay.h>
 #include <linux/videodev2.h>
 #include <linux/gpio.h>
-#include <linux/i2c/menelaus.h>
 
 #include <media/v4l2-int-device.h>
 
 #include <asm/mach-types.h>
-
 #include <mach/board.h>
+#include <mach/menelaus.h>
 
 #include <../drivers/cbus/retu.h>
 #include <../drivers/media/video/tcm825x.h>

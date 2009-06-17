@@ -12,10 +12,10 @@
 #include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <linux/gpio.h>
-#include <linux/i2c/menelaus.h>
 
 #include <asm/mach-types.h>
 
+#include <mach/menelaus.h>
 #include <mach/mmc.h>
 
 #if defined(CONFIG_MMC_OMAP) || defined(CONFIG_MMC_OMAP_MODULE)
