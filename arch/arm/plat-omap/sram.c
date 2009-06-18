@@ -131,15 +131,9 @@ void __init omap_detect_sram(void)
 	if (cpu_class_is_omap2()) {
 		if (is_sram_locked()) {
 			if (cpu_is_omap34xx()) {
-				if (omap_type() == OMAP2_DEVICE_TYPE_GP) {
-					omap_sram_base = OMAP3_SRAM_PUB_VA;
-					omap_sram_start = OMAP3_SRAM_PUB_PA;
-					omap_sram_size = 0x8000; /* 32K */
-				} else {
-					omap_sram_base = OMAP3_SRAM_PUB_VA;
-					omap_sram_start = OMAP3_SRAM_PUB_PA;
-					omap_sram_size = 0x7000; /* 28K */
-				}
+				omap_sram_base = OMAP3_SRAM_PUB_VA;
+				omap_sram_start = OMAP3_SRAM_PUB_PA;
+				omap_sram_size = 0x8000; /* 32K */
 			} else {
 				omap_sram_base = OMAP2_SRAM_PUB_VA;
 				omap_sram_start = OMAP2_SRAM_PUB_PA;
