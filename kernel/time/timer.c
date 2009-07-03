@@ -1395,6 +1395,14 @@ unsigned long get_next_timer_interrupt(unsigned long now)
 	if (cpu_is_offline(smp_processor_id()))
 		return expires;
 
+#ifdef CONFIG_PREEMPT_RT_FULL
+	/*
+	 * On PREEMPT_RT we cannot sleep here. As a result we can't take
+	 * the base lock to check when the next timer is pending and so
+	 * we assume the next jiffy.
+	 */
+	return now + 1;
+#endif
 	spin_lock(&base->lock);
 	if (base->active_timers) {
 		if (time_before_eq(base->next_timer, base->timer_jiffies))
@@ -1594,7 +1602,7 @@ static void migrate_timers(int cpu)
 
 	BUG_ON(cpu_online(cpu));
 	old_base = per_cpu(tvec_bases, cpu);
-	new_base = get_cpu_var(tvec_bases);
+	new_base = get_local_var(tvec_bases);
 	/*
 	 * The caller is globally serialized and nobody else
 	 * takes two locks at once, deadlock is not possible.
@@ -1618,7 +1626,7 @@ static void migrate_timers(int cpu)
 
 	spin_unlock(&old_base->lock);
 	spin_unlock_irq(&new_base->lock);
-	put_cpu_var(tvec_bases);
+	put_local_var(tvec_bases);
 }
 
 static int timer_cpu_notify(struct notifier_block *self,
