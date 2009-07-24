@@ -278,7 +278,8 @@ static int __devinit cppi41_controller_start(struct dma_controller *controller)
 	musb_writel(reg_base, USB_AUTOREQ_REG, 0);
 
 	/* Disable the CDC/RNDIS modes */
-	musb_writel(reg_base, USB_MODE_REG, 0);
+	musb_writel(reg_base, USB_TX_MODE_REG, 0);
+	musb_writel(reg_base, USB_RX_MODE_REG, 0);
 
 	return 1;
 
@@ -332,7 +333,8 @@ static int cppi41_controller_stop(struct dma_controller *controller)
 	musb_writel(reg_base, USB_AUTOREQ_REG, 0);
 
 	/* Disable the CDC/RNDIS modes */
-	musb_writel(reg_base, USB_MODE_REG, 0);
+	musb_writel(reg_base, USB_TX_MODE_REG, 0);
+	musb_writel(reg_base, USB_RX_MODE_REG, 0);
 
 	return 1;
 }
@@ -480,17 +482,20 @@ static void cppi41_mode_update(struct cppi41_channel *cppi_ch, u8 mode)
 	if (mode != cppi_ch->dma_mode) {
 		struct cppi41 *cppi = cppi_ch->channel.private_data;
 		void *__iomem reg_base = cppi->musb->ctrl_base;
-		u32 reg_val = musb_readl(reg_base, USB_MODE_REG);
+		u32 reg_val;
 		u8 ep_num = cppi_ch->ch_num + 1;
 
 		if (cppi_ch->transmit) {
+			reg_val = musb_readl(reg_base, USB_TX_MODE_REG);
 			reg_val &= ~USB_TX_MODE_MASK(ep_num);
 			reg_val |= mode << USB_TX_MODE_SHIFT(ep_num);
+			musb_writel(reg_base, USB_TX_MODE_REG, reg_val);
 		} else {
+			reg_val = musb_readl(reg_base, USB_RX_MODE_REG);
 			reg_val &= ~USB_RX_MODE_MASK(ep_num);
 			reg_val |= mode << USB_RX_MODE_SHIFT(ep_num);
+			musb_writel(reg_base, USB_RX_MODE_REG, reg_val);
 		}
-		musb_writel(reg_base, USB_MODE_REG, reg_val);
 		cppi_ch->dma_mode = mode;
 	}
 }
