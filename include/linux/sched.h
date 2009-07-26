@@ -302,6 +302,11 @@ extern char ___assert_task_state[1 - 2*!!(
 
 #endif
 
+#define __set_current_state_no_track(state_value)	\
+	do { current->state = (state_value); } while (0)
+#define set_current_state_no_track(state_value)		\
+	set_mb(current->state, (state_value))
+
 /* Task command name length */
 #define TASK_COMM_LEN 16
 
