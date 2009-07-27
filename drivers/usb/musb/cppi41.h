@@ -284,6 +284,8 @@ struct cppi41_teardown_desc {
 /* CPPI 4.1 configuration for DA8xx */
 #define CPPI41_NUM_QUEUE_MGR		1	/* 4  max */
 #define CPPI41_NUM_DMA_BLOCK		4	/* 64 max */
+#define cppi41_num_queue_mgr	CPPI41_NUM_QUEUE_MGR
+#define cppi41_num_dma_block	CPPI41_NUM_DMA_BLOCK
 
 /**
  * struct cppi41_queue - Queue Tuple
@@ -462,8 +464,6 @@ struct cppi41_dma_block {
 
 extern const struct cppi41_queue_mgr cppi41_queue_mgr[];
 extern const struct cppi41_dma_block cppi41_dma_block[];
-extern const u8 cppi41_num_queue_mgr;
-extern const u8 cppi41_num_dma_block;
 
 /**
  * struct cppi41_dma_ch_obj - CPPI 4.1 DMA Channel object
