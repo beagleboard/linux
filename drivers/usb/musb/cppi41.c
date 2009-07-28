@@ -70,18 +70,7 @@ int cppi41_queue_mgr_init(u8 q_mgr, dma_addr_t rgn0_base, u16 rgn0_size)
 		return -EINVAL;
 
 	q_mgr_regs = cppi41_queue_mgr[q_mgr].q_mgr_rgn_base;
-
-	__raw_writel(rgn0_base, q_mgr_regs + QMGR_LINKING_RAM_RGN0_BASE_REG);
-	DBG("Linking RAM region 0 base @ %p, value: %x\n",
-	    q_mgr_regs + QMGR_LINKING_RAM_RGN0_BASE_REG,
-	    __raw_readl(q_mgr_regs + QMGR_LINKING_RAM_RGN0_BASE_REG));
-
-	__raw_writel(rgn0_size, q_mgr_regs + QMGR_LINKING_RAM_RGN0_SIZE_REG);
-	DBG("Linking RAM region 0 size @ %p, value: %x\n",
-	    q_mgr_regs + QMGR_LINKING_RAM_RGN0_SIZE_REG,
-	    __raw_readl(q_mgr_regs + QMGR_LINKING_RAM_RGN0_SIZE_REG));
-
-	ptr = dma_alloc_coherent(NULL, 0x10000 - rgn0_size * 4,
+	ptr = dma_alloc_coherent(NULL, rgn0_size * 4,
 				 &linking_ram[q_mgr].phys_addr,
 				 GFP_KERNEL | GFP_DMA);
 	if (ptr == NULL) {
@@ -92,17 +81,22 @@ int cppi41_queue_mgr_init(u8 q_mgr, dma_addr_t rgn0_base, u16 rgn0_size)
 	linking_ram[q_mgr].virt_addr = ptr;
 
 	__raw_writel(linking_ram[q_mgr].phys_addr,
-		     q_mgr_regs + QMGR_LINKING_RAM_RGN1_BASE_REG);
-	DBG("Linking RAM region 1 base @ %p, value: %x\n",
-	    q_mgr_regs + QMGR_LINKING_RAM_RGN1_BASE_REG,
-	    __raw_readl(q_mgr_regs + QMGR_LINKING_RAM_RGN1_BASE_REG));
+			q_mgr_regs + QMGR_LINKING_RAM_RGN0_BASE_REG);
+	DBG("Linking RAM region 0 base @ %p, value: %x\n",
+	    q_mgr_regs + QMGR_LINKING_RAM_RGN0_BASE_REG,
+	    __raw_readl(q_mgr_regs + QMGR_LINKING_RAM_RGN0_BASE_REG));
+
+	__raw_writel(rgn0_size, q_mgr_regs + QMGR_LINKING_RAM_RGN0_SIZE_REG);
+	DBG("Linking RAM region 0 size @ %p, value: %x\n",
+	    q_mgr_regs + QMGR_LINKING_RAM_RGN0_SIZE_REG,
+	    __raw_readl(q_mgr_regs + QMGR_LINKING_RAM_RGN0_SIZE_REG));
 
 	ptr = kzalloc(BITS_TO_LONGS(cppi41_queue_mgr[q_mgr].num_queue),
 		      GFP_KERNEL);
 	if (ptr == NULL) {
 		printk(KERN_ERR "ERROR: %s: Unable to allocate queue bitmap.\n",
 		       __func__);
-		dma_free_coherent(NULL, 0x10000 - rgn0_size * 4,
+		dma_free_coherent(NULL, rgn0_size * 4,
 				  linking_ram[q_mgr].virt_addr,
 				  linking_ram[q_mgr].phys_addr);
 		return -ENOMEM;
