@@ -572,6 +572,28 @@ void cppi41_dma_ch_disable(struct cppi41_dma_ch_obj *dma_ch_obj)
 }
 EXPORT_SYMBOL(cppi41_dma_ch_disable);
 
+void cppi41_exit(void)
+{
+	int i;
+	for (i = 0; i < CPPI41_NUM_QUEUE_MGR; i++) {
+		if (linking_ram[i].virt_addr != NULL)
+			dma_free_coherent(NULL, 0x10000,
+				linking_ram[i].virt_addr,
+				linking_ram[i].phys_addr);
+		if (allocated_queues[i] != NULL)
+			kfree(allocated_queues[i]);
+	}
+	for (i = 0; i < CPPI41_NUM_DMA_BLOCK; i++)
+		if (dma_teardown[i].virt_addr != NULL) {
+
+			cppi41_mem_rgn_free(0,  dma_teardown[i].mem_rgn);
+			dma_free_coherent(NULL, dma_teardown[i].rgn_size,
+					dma_teardown[i].virt_addr,
+					dma_teardown[i].phys_addr);
+		}
+}
+EXPORT_SYMBOL(cppi41_exit);
+
 /**
  * alloc_queue - allocate a queue in the given range
  * @allocated:	pointer to the bitmap of the allocated queues

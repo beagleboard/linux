@@ -710,3 +710,8 @@ unsigned long cppi41_queue_pop(const struct cppi41_queue_obj *queue_obj);
  * Returns 0 if valid descriptor, -EINVAL otherwise.
  */
 int cppi41_get_teardown_info(unsigned long addr, u32 *info);
+
+/**
+ * cppi41_exit - delete the instance created via cppi41_init()
+ */
+void cppi41_exit(void);
