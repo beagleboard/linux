@@ -281,9 +281,9 @@ struct cppi41_teardown_desc {
 
 #define CPPI41_MAX_MEM_RGN		16
 
-/* CPPI 4.1 configuration for DA8xx */
+/* CPPI 4.1 configuration for AM3517 */
 #define CPPI41_NUM_QUEUE_MGR		1	/* 4  max */
-#define CPPI41_NUM_DMA_BLOCK		4	/* 64 max */
+#define CPPI41_NUM_DMA_BLOCK		1	/* 64 max */
 #define cppi41_num_queue_mgr	CPPI41_NUM_QUEUE_MGR
 #define cppi41_num_dma_block	CPPI41_NUM_DMA_BLOCK
 
