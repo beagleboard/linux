@@ -805,6 +805,7 @@ static int cppi41_channel_program(struct dma_channel *channel,	u16 maxpacket,
 	cppi_ch->length = length;
 	cppi_ch->transfer_mode = mode;
 	cppi_ch->zlp_queued = 0;
+	cppi_ch->channel.actual_len = 0;
 
 	/* Tx or Rx channel? */
 	if (cppi_ch->transmit)
