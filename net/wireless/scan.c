@@ -35,8 +35,6 @@ void cfg80211_scan_done(struct cfg80211_scan_request *request, bool aborted)
 	else
 		nl80211_send_scan_done(wiphy_to_dev(request->wiphy), dev);
 
-	wiphy_to_dev(request->wiphy)->scan_req = NULL;
-
 #ifdef CONFIG_WIRELESS_EXT
 	if (!aborted) {
 		memset(&wrqu, 0, sizeof(wrqu));
@@ -48,6 +46,7 @@ void cfg80211_scan_done(struct cfg80211_scan_request *request, bool aborted)
 	dev_put(dev);
 
  out:
+	wiphy_to_dev(request->wiphy)->scan_req = NULL;
 	kfree(request);
 }
 EXPORT_SYMBOL(cfg80211_scan_done);
@@ -366,7 +365,6 @@ cfg80211_bss_update(struct cfg80211_registered_device *dev,
 	found = rb_find_bss(dev, res);
 
 	if (found) {
-		kref_get(&found->ref);
 		found->pub.beacon_interval = res->pub.beacon_interval;
 		found->pub.tsf = res->pub.tsf;
 		found->pub.signal = res->pub.signal;

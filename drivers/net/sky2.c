@@ -1151,14 +1151,7 @@ stopped:
 
 	/* reset the Rx prefetch unit */
 	sky2_write32(hw, Y2_QADDR(rxq, PREF_UNIT_CTRL), PREF_UNIT_RST_SET);
-
-	/* Reset the RAM Buffer receive queue */
-	sky2_write8(hw, RB_ADDR(rxq, RB_CTRL), RB_RST_SET);
-
-	/* Reset Rx MAC FIFO */
-	sky2_write8(hw, SK_REG(sky2->port, RX_GMF_CTRL_T), GMF_RST_SET);
-
-	sky2_read8(hw, B0_CTST);
+	mmiowb();
 }
 
 /* Clean out receive buffer area, assumes receiver hardware stopped */
@@ -1825,12 +1818,6 @@ static int sky2_down(struct net_device *dev)
 	if (netif_msg_ifdown(sky2))
 		printk(KERN_INFO PFX "%s: disabling interface\n", dev->name);
 
-	/* Disable port IRQ */
-	imask = sky2_read32(hw, B0_IMSK);
-	imask &= ~portirq_msk[port];
-	sky2_write32(hw, B0_IMSK, imask);
-	sky2_read32(hw, B0_IMSK);
-
 	/* Force flow control off */
 	sky2_write8(hw, SK_REG(port, GMAC_CTRL), GMC_PAUSE_OFF);
 
@@ -1870,8 +1857,6 @@ static int sky2_down(struct net_device *dev)
 
 	sky2_write32(hw, RB_ADDR(txqaddr[port], RB_CTRL), RB_RST_SET);
 
-	sky2_rx_stop(sky2);
-
 	sky2_write8(hw, SK_REG(port, RX_GMF_CTRL_T), GMF_RST_SET);
 	sky2_write8(hw, SK_REG(port, TX_GMF_CTRL_T), GMF_RST_SET);
 
@@ -1880,6 +1865,14 @@ static int sky2_down(struct net_device *dev)
 	sky2_write32(hw, STAT_TX_TIMER_CNT, 0);
 	sky2_write32(hw, STAT_ISR_TIMER_CNT, 0);
 	sky2_read8(hw, STAT_ISR_TIMER_CTRL);
+
+	sky2_rx_stop(sky2);
+
+	/* Disable port IRQ */
+	imask = sky2_read32(hw, B0_IMSK);
+	imask &= ~portirq_msk[port];
+	sky2_write32(hw, B0_IMSK, imask);
+	sky2_read32(hw, B0_IMSK);
 
 	synchronize_irq(hw->pdev->irq);
 	napi_synchronize(&hw->napi);
@@ -2495,7 +2488,7 @@ static int sky2_status_intr(struct sky2_hw *hw, int to_do, u16 idx)
 			if (likely(status >> 16 == (status & 0xffff))) {
 				skb = sky2->rx_ring[sky2->rx_next].skb;
 				skb->ip_summed = CHECKSUM_COMPLETE;
-				skb->csum = status & 0xffff;
+				skb->csum = le16_to_cpu(status);
 			} else {
 				printk(KERN_NOTICE PFX "%s: hardware receive "
 				       "checksum problem (status = %#x)\n",
