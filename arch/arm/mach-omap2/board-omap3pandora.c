@@ -212,7 +212,7 @@ static struct twl4030_hsmmc_info omap3pandora_mmc[] = {
 	{}	/* Terminator */
 };
 
-static struct omap_uart_config omap3pandora_uart_config __initdata = {
+static struct omap_uart_platform_data omap3pandora_uart_config __initdata = {
 	.enabled_uarts	= (1 << 2), /* UART3 */
 };
 
@@ -374,7 +374,6 @@ static struct omap_lcd_config omap3pandora_lcd_config __initdata = {
 };
 
 static struct omap_board_config_kernel omap3pandora_config[] __initdata = {
-	{ OMAP_TAG_UART,	&omap3pandora_uart_config },
 	{ OMAP_TAG_LCD,		&omap3pandora_lcd_config },
 };
 
@@ -391,7 +390,7 @@ static void __init omap3pandora_init(void)
 			ARRAY_SIZE(omap3pandora_devices));
 	omap_board_config = omap3pandora_config;
 	omap_board_config_size = ARRAY_SIZE(omap3pandora_config);
-	omap_serial_init();
+	omap_serial_init(&omap3pandora_uart_config);
 	spi_register_board_info(omap3pandora_spi_board_info,
 			ARRAY_SIZE(omap3pandora_spi_board_info));
 	omap3pandora_ads7846_init();

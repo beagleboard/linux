@@ -212,7 +212,7 @@ static struct omap_lcd_config palmte_lcd_config __initdata = {
 	.ctrl_name	= "internal",
 };
 
-static struct omap_uart_config palmte_uart_config __initdata = {
+static struct omap_uart_platform_data palmte_uart_config __initdata = {
 	.enabled_uarts = (1 << 0) | (1 << 1) | (0 << 2),
 };
 
@@ -302,7 +302,6 @@ static void palmte_get_power_status(struct apm_power_info *info, int *battery)
 
 static struct omap_board_config_kernel palmte_config[] __initdata = {
 	{ OMAP_TAG_LCD,		&palmte_lcd_config },
-	{ OMAP_TAG_UART,	&palmte_uart_config },
 };
 
 static struct spi_board_info palmte_spi_info[] __initdata = {
@@ -354,7 +353,7 @@ static void __init omap_palmte_init(void)
 
 	spi_register_board_info(palmte_spi_info, ARRAY_SIZE(palmte_spi_info));
 	palmte_misc_gpio_setup();
-	omap_serial_init();
+	omap_serial_init(&palmte_uart_config);
 	omap_usb_init(&palmte_usb_config);
 	omap_register_i2c_bus(1, 100, NULL, 0);
 }

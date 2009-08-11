@@ -162,7 +162,7 @@ static struct omap_lcd_config ams_delta_lcd_config __initdata = {
 	.ctrl_name	= "internal",
 };
 
-static struct omap_uart_config ams_delta_uart_config __initdata = {
+static struct omap_uart_platform_data ams_delta_uart_config __initdata = {
 	.enabled_uarts = 1,
 };
 
@@ -174,7 +174,6 @@ static struct omap_usb_config ams_delta_usb_config __initdata = {
 
 static struct omap_board_config_kernel ams_delta_config[] = {
 	{ OMAP_TAG_LCD,		&ams_delta_lcd_config },
-	{ OMAP_TAG_UART,	&ams_delta_uart_config },
 };
 
 static struct resource ams_delta_kp_resources[] = {
@@ -225,7 +224,7 @@ static void __init ams_delta_init(void)
 
 	omap_board_config = ams_delta_config;
 	omap_board_config_size = ARRAY_SIZE(ams_delta_config);
-	omap_serial_init();
+	omap_serial_init(&ams_delta_uart_config);
 	omap_register_i2c_bus(1, 100, NULL, 0);
 
 	/* Clear latch2 (NAND, LCD, modem enable) */

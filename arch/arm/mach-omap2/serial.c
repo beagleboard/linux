@@ -480,10 +480,9 @@ static struct platform_device serial_device = {
 	},
 };
 
-void __init omap_serial_init(void)
+void __init omap_serial_init(const struct omap_uart_platform_data *pdata)
 {
 	int i, err;
-	const struct omap_uart_config *info;
 	char name[16];
 
 	/*
@@ -492,9 +491,7 @@ void __init omap_serial_init(void)
 	 * if not needed.
 	 */
 
-	info = omap_get_config(OMAP_TAG_UART, struct omap_uart_config);
-
-	if (info == NULL)
+	if (pdata == NULL)
 		return;
 	if (cpu_is_omap44xx()) {
 		for (i = 0; i < OMAP_MAX_NR_PORTS; i++)
@@ -505,7 +502,7 @@ void __init omap_serial_init(void)
 		struct plat_serial8250_port *p = serial_platform_data + i;
 		struct omap_uart_state *uart = &omap_uart[i];
 
-		if (!(info->enabled_uarts & (1 << i))) {
+		if (!(pdata->enabled_uarts & (1 << i))) {
 			p->membase = NULL;
 			p->mapbase = 0;
 			continue;

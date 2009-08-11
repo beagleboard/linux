@@ -293,7 +293,7 @@ static struct omap_usb_config osk_usb_config __initdata = {
 	.pins[0]	= 2,
 };
 
-static struct omap_uart_config osk_uart_config __initdata = {
+static struct omap_uart_platform_data osk_uart_config __initdata = {
 	.enabled_uarts = (1 << 0),
 };
 
@@ -304,7 +304,6 @@ static struct omap_lcd_config osk_lcd_config __initdata = {
 #endif
 
 static struct omap_board_config_kernel osk_config[] __initdata = {
-	{ OMAP_TAG_UART,		&osk_uart_config },
 #ifdef	CONFIG_OMAP_OSK_MISTRAL
 	{ OMAP_TAG_LCD,			&osk_lcd_config },
 #endif
@@ -561,7 +560,7 @@ static void __init osk_init(void)
 	if (gpio_request(OMAP_MPUIO(1), "tps65010") == 0)
 		gpio_direction_input(OMAP_MPUIO(1));
 
-	omap_serial_init();
+	omap_serial_init(&osk_uart_config);
 	omap_register_i2c_bus(1, 400, osk_i2c_board_info,
 			      ARRAY_SIZE(osk_i2c_board_info));
 	osk_mistral_init();

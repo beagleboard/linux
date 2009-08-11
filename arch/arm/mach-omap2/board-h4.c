@@ -276,7 +276,7 @@ static void __init omap_h4_init_irq(void)
 	h4_init_flash();
 }
 
-static struct omap_uart_config h4_uart_config __initdata = {
+static struct omap_uart_platform_data h4_uart_config __initdata = {
 	.enabled_uarts = ((1 << 0) | (1 << 1) | (1 << 2)),
 };
 
@@ -318,7 +318,6 @@ static struct omap_usb_config h4_usb_config __initdata = {
 };
 
 static struct omap_board_config_kernel h4_config[] = {
-	{ OMAP_TAG_UART,	&h4_uart_config },
 	{ OMAP_TAG_LCD,		&h4_lcd_config },
 };
 
@@ -369,7 +368,7 @@ static void __init omap_h4_init(void)
 	omap_board_config = h4_config;
 	omap_board_config_size = ARRAY_SIZE(h4_config);
 	omap_usb_init(&h4_usb_config);
-	omap_serial_init();
+	omap_serial_init(&h4_uart_config);
 }
 
 static void __init omap_h4_map_io(void)
