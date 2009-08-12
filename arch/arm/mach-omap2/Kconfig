@@ -10,13 +10,10 @@ config ARCH_OMAP2420
 	depends on ARCH_OMAP24XX
 	select OMAP_DM_TIMER
 	select ARCH_OMAP_OTG
-	select CPU_V6
 
 config ARCH_OMAP2430
 	bool "OMAP2430 support"
 	depends on ARCH_OMAP24XX
-	select ARCH_OMAP_OTG
-	select CPU_V6
 
 config ARCH_OMAP34XX
 	bool "OMAP34xx Based System"
@@ -26,7 +23,6 @@ config ARCH_OMAP3430
 	bool "OMAP3430 support"
 	depends on ARCH_OMAP3 && ARCH_OMAP34XX
 	select ARCH_OMAP_OTG
-	select CPU_V7
 
 comment "OMAP Board Type"
 	depends on ARCH_OMAP2 || ARCH_OMAP3 || ARCH_OMAP4
@@ -35,88 +31,45 @@ config MACH_OMAP_GENERIC
 	bool "Generic OMAP board"
 	depends on ARCH_OMAP2 && ARCH_OMAP24XX
 
-config MACH_NOKIA_RX51
-	bool "Nokia RX-51 board"
-	depends on ARCH_OMAP3 && ARCH_OMAP34XX
-
-config MACH_OMAP2_TUSB6010
-	bool
-	depends on ARCH_OMAP2 && ARCH_OMAP2420
-	default y if MACH_NOKIA_N800
-
 config MACH_OMAP_H4
 	bool "OMAP 2420 H4 board"
-	depends on ARCH_OMAP2 && ARCH_OMAP2420
+	depends on ARCH_OMAP2 && ARCH_OMAP24XX
 	select OMAP_DEBUG_DEVICES
-
-config MACH_OMAP_H4_TUSB
-	bool "TUSB 6010 EVM board"
-	depends on MACH_OMAP_H4
-	select MACH_OMAP2_TUSB6010
-	help
-	  Set this if you've got a TUSB6010 high speed USB board.
-	  You may need to consult the schematics for your revisions
-	  of the Menelaus and TUSB boards, and make changes to be
-	  sure this is set up properly for your board stack.
-
-	  Be sure to select OTG mode operation, not host-only or
-	  peripheral-only.
-
-config MACH_OMAP_H4_OTG
-	bool "Use USB OTG connector, not device connector (S1.10)"
-	depends on MACH_OMAP_H4
-	help
-	  Set this if you've set S1.10 (on the mainboard) to use the
-	  Mini-AB (OTG) connector and OTG transceiver with the USB0
-	  port, instead of the Mini-B ("download") connector with its
-	  non-OTG transceiver.
-
-	  Note that the "download" connector can be used to bootstrap
-	  the system from the OMAP mask ROM.  Also, since this is a
-	  development platform, you can also force the OTG port into
-	  a non-OTG operational mode.
-
-config MACH_OMAP2_H4_USB1
-	bool "Use USB1 port, not UART2 (S3.3)"
-	depends on MACH_OMAP_H4
-	help
-	  Set this if you've set SW3.3 (on the CPU card) so that the
-	  expansion connectors receive USB1 signals instead of UART2.
 
 config MACH_OMAP_APOLLON
 	bool "OMAP 2420 Apollon board"
-	depends on ARCH_OMAP2 && ARCH_OMAP2420
+	depends on ARCH_OMAP2 && ARCH_OMAP24XX
 
 config MACH_OMAP_2430SDP
 	bool "OMAP 2430 SDP board"
-	depends on ARCH_OMAP2 && ARCH_OMAP2430
-
-config MACH_OMAP_LDP
-	bool "OMAP3 LDP board"
-	depends on ARCH_OMAP3 && ARCH_OMAP34XX
-
-config MACH_OMAP2EVM 
-	bool "OMAP 2530 EVM board"
 	depends on ARCH_OMAP2 && ARCH_OMAP24XX
-
-config MACH_OMAP_3430SDP
-	bool "OMAP 3430 SDP board"
-	depends on ARCH_OMAP3 && ARCH_OMAP34XX
-
-config MACH_OMAP3EVM
-	bool "OMAP 3530 EVM board"
-	depends on ARCH_OMAP3 && ARCH_OMAP34XX
 
 config MACH_OMAP3_BEAGLE
 	bool "OMAP3 BEAGLE board"
+	depends on ARCH_OMAP3 && ARCH_OMAP34XX
+
+config MACH_OMAP_LDP
+	bool "OMAP3 LDP board"
 	depends on ARCH_OMAP3 && ARCH_OMAP34XX
 
 config MACH_OVERO
 	bool "Gumstix Overo board"
 	depends on ARCH_OMAP3 && ARCH_OMAP34XX
 
+config MACH_OMAP3EVM
+	bool "OMAP 3530 EVM board"
+	depends on ARCH_OMAP3 && ARCH_OMAP34XX
+
 config MACH_OMAP3_PANDORA
 	bool "OMAP3 Pandora"
+	depends on ARCH_OMAP3 && ARCH_OMAP34XX
+
+config MACH_OMAP_3430SDP
+	bool "OMAP 3430 SDP board"
+	depends on ARCH_OMAP3 && ARCH_OMAP34XX
+
+config MACH_NOKIA_RX51
+	bool "Nokia RX-51 board"
 	depends on ARCH_OMAP3 && ARCH_OMAP34XX
 
 config MACH_OMAP_ZOOM2

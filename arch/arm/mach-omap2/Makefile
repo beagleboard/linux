@@ -62,6 +62,7 @@ obj-$(CONFIG_MACH_OMAP3_PANDORA)	+= board-omap3pandora.o \
 					   mmc-twl4030.o
 obj-$(CONFIG_MACH_OMAP_3430SDP)		+= board-3430sdp.o \
 					   mmc-twl4030.o
+
 obj-$(CONFIG_MACH_NOKIA_RX51)		+= board-rx51.o \
 					   board-rx51-peripherals.o \
 					   mmc-twl4030.o
@@ -74,7 +75,6 @@ obj-$(CONFIG_MACH_OMAP_4430SDP)		+= board-4430sdp.o
 # Platform specific device init code
 obj-y					+= usb-musb.o
 obj-y					+= usb-ehci.o
-obj-$(CONFIG_MACH_OMAP2_TUSB6010)	+= usb-tusb6010.o
 
 onenand-$(CONFIG_MTD_ONENAND_OMAP2)	:= gpmc-onenand.o
 obj-y					+= $(onenand-m) $(onenand-y)
