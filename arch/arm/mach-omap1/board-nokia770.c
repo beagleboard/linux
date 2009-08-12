@@ -380,7 +380,10 @@ static void __init omap_nokia770_init(void)
 	spi_register_board_info(nokia770_spi_board_info,
 				ARRAY_SIZE(nokia770_spi_board_info));
 	omap_gpio_init();
-	omap_serial_init();
+
+	/* FIXME: configure serial ports */
+	omap_serial_init(NULL);
+
 	omap_register_i2c_bus(1, 100, NULL, 0);
 	omap_dsp_init();
 	hwa742_dev_init();

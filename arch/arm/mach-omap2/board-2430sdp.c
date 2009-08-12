@@ -146,12 +146,11 @@ static void __init omap_2430sdp_init_irq(void)
 	omap_gpio_init();
 }
 
-static struct omap_uart_config sdp2430_uart_config __initdata = {
+static struct omap_uart_platform_data sdp2430_uart_config __initdata = {
 	.enabled_uarts = ((1 << 0) | (1 << 1) | (1 << 2)),
 };
 
 static struct omap_board_config_kernel sdp2430_config[] = {
-	{OMAP_TAG_UART, &sdp2430_uart_config},
 	{OMAP_TAG_LCD, &sdp2430_lcd_config},
 };
 
@@ -207,7 +206,7 @@ static void __init omap_2430sdp_init(void)
 	platform_add_devices(sdp2430_devices, ARRAY_SIZE(sdp2430_devices));
 	omap_board_config = sdp2430_config;
 	omap_board_config_size = ARRAY_SIZE(sdp2430_config);
-	omap_serial_init();
+	omap_serial_init(&sdp2430_uart_config);
 	twl4030_mmc_init(mmc);
 	usb_musb_init();
 	board_smc91x_init();

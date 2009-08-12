@@ -274,13 +274,12 @@ static struct omap_lcd_config palmtt_lcd_config __initdata = {
 	.ctrl_name	= "internal",
 };
 
-static struct omap_uart_config palmtt_uart_config __initdata = {
+static struct omap_uart_platform_data palmtt_uart_config __initdata = {
 	.enabled_uarts = (1 << 0) | (1 << 1) | (0 << 2),
 };
 
 static struct omap_board_config_kernel palmtt_config[] __initdata = {
 	{ OMAP_TAG_LCD,		&palmtt_lcd_config	},
-	{ OMAP_TAG_UART,	&palmtt_uart_config	},
 };
 
 static void __init omap_mpu_wdt_mode(int mode) {
@@ -302,7 +301,7 @@ static void __init omap_palmtt_init(void)
 	platform_add_devices(palmtt_devices, ARRAY_SIZE(palmtt_devices));
 
 	spi_register_board_info(palmtt_boardinfo,ARRAY_SIZE(palmtt_boardinfo));
-	omap_serial_init();
+	omap_serial_init(&palmtt_uart_config);
 	omap_usb_init(&palmtt_usb_config);
 	omap_register_i2c_bus(1, 100, NULL, 0);
 }

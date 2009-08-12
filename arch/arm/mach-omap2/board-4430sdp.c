@@ -38,7 +38,7 @@ static struct platform_device *sdp4430_devices[] __initdata = {
 	&sdp4430_lcd_device,
 };
 
-static struct omap_uart_config sdp4430_uart_config __initdata = {
+static struct omap_uart_platform_data sdp4430_uart_config __initdata = {
 	.enabled_uarts	= (1 << 0) | (1 << 1) | (1 << 2),
 };
 
@@ -47,7 +47,6 @@ static struct omap_lcd_config sdp4430_lcd_config __initdata = {
 };
 
 static struct omap_board_config_kernel sdp4430_config[] __initdata = {
-	{ OMAP_TAG_UART,	&sdp4430_uart_config },
 	{ OMAP_TAG_LCD,		&sdp4430_lcd_config },
 };
 
@@ -73,7 +72,7 @@ static void __init omap_4430sdp_init(void)
 	platform_add_devices(sdp4430_devices, ARRAY_SIZE(sdp4430_devices));
 	omap_board_config = sdp4430_config;
 	omap_board_config_size = ARRAY_SIZE(sdp4430_config);
-	omap_serial_init();
+	omap_serial_init(&sdp4430_uart_config);
 }
 
 static void __init omap_4430sdp_map_io(void)
