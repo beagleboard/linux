@@ -429,7 +429,7 @@ static void omap_uart_idle_init(struct omap_uart_state *uart)
 		omap_ctrl_writew(v, uart->padconf);
 	}
 
-	p->flags |= UPF_SHARE_IRQ;
+	p->irqflags |= IRQF_SHARED;
 	ret = request_irq(p->irq, omap_uart_interrupt, IRQF_SHARED,
 			  "serial idle", (void *)uart);
 	WARN_ON(ret);

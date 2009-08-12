@@ -513,6 +513,48 @@ static inline void omap2_mmc_mux(struct omap_mmc_platform_data *mmc_controller,
 			omap_ctrl_writel(v, OMAP2_CONTROL_DEVCONF0);
 		}
 	}
+
+	if (cpu_is_omap3430()) {
+		if (controller_nr == 0) {
+			omap_cfg_reg(N28_3430_MMC1_CLK);
+			omap_cfg_reg(M27_3430_MMC1_CMD);
+			omap_cfg_reg(N27_3430_MMC1_DAT0);
+			if (mmc_controller->slots[0].wires == 4 ||
+				mmc_controller->slots[0].wires == 8) {
+				omap_cfg_reg(N26_3430_MMC1_DAT1);
+				omap_cfg_reg(N25_3430_MMC1_DAT2);
+				omap_cfg_reg(P28_3430_MMC1_DAT3);
+			}
+			if (mmc_controller->slots[0].wires == 8) {
+				omap_cfg_reg(P27_3430_MMC1_DAT4);
+				omap_cfg_reg(P26_3430_MMC1_DAT5);
+				omap_cfg_reg(R27_3430_MMC1_DAT6);
+				omap_cfg_reg(R25_3430_MMC1_DAT7);
+			}
+		}
+		if (controller_nr == 1) {
+			/* MMC2 */
+			omap_cfg_reg(AE2_3430_MMC2_CLK);
+			omap_cfg_reg(AG5_3430_MMC2_CMD);
+			omap_cfg_reg(AH5_3430_MMC2_DAT0);
+			if (mmc_controller->slots[0].wires == 4 ||
+				mmc_controller->slots[0].wires == 8) {
+				omap_cfg_reg(AH4_3430_MMC2_DAT1);
+				omap_cfg_reg(AG4_3430_MMC2_DAT2);
+				omap_cfg_reg(AF4_3430_MMC2_DAT3);
+			}
+			if (mmc_controller->slots[0].wires == 8)
+				printk(KERN_WARNING
+					"\n MMC2: DAT4, DAT5, DAT6, DAT7: "
+					"Setup the mux in board file");
+		}
+		if (controller_nr == 2) {
+			/* MMC3 */
+			printk(KERN_WARNING
+				"\n MMC3: Setup the mux in board file: "
+				"Multiple options exist, so is board specific");
+		}
+	}
 }
 
 void __init omap2_init_mmc(struct omap_mmc_platform_data **mmc_data,
