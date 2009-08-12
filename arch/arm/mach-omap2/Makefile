@@ -62,12 +62,6 @@ obj-$(CONFIG_MACH_OMAP3_PANDORA)	+= board-omap3pandora.o \
 					   mmc-twl4030.o
 obj-$(CONFIG_MACH_OMAP_3430SDP)		+= board-3430sdp.o \
 					   mmc-twl4030.o
-obj-$(CONFIG_MACH_NOKIA_N800)		+= board-n800.o \
-					   board-n800-mmc.o \
-					   board-n800-usb.o \
-					   board-n800-dsp.o \
-					   board-n800-camera.o
-obj-$(CONFIG_MACH_NOKIA_N810)		+= board-n810.o
 obj-$(CONFIG_MACH_NOKIA_RX51)		+= board-rx51.o \
 					   board-rx51-peripherals.o \
 					   mmc-twl4030.o

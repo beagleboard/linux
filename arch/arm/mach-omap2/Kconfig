@@ -35,24 +35,6 @@ config MACH_OMAP_GENERIC
 	bool "Generic OMAP board"
 	depends on ARCH_OMAP2 && ARCH_OMAP24XX
 
-config MACH_NOKIA_N800
-	bool "Nokia N800"
-	depends on ARCH_OMAP2420
-	select VIDEO_TCM825X if VIDEO_OMAP2 && VIDEO_HELPER_CHIPS_AUTO
-	select CBUS if VIDEO_TCM825X
-	select CBUS_RETU if VIDEO_TCM825X
-	select MENELAUS if VIDEO_TCM825X
-	select OMAP_GPIO_SWITCH
-
-config MACH_NOKIA_N810
-	bool "Nokia N810"
-	depends on MACH_NOKIA_N800
-
-config MACH_NOKIA_N810_WIMAX
-	bool "Nokia N810 WiMAX"
-	depends on MACH_NOKIA_N800
-	select MACH_NOKIA_N810
-
 config MACH_NOKIA_RX51
 	bool "Nokia RX-51 board"
 	depends on ARCH_OMAP3 && ARCH_OMAP34XX
