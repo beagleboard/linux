@@ -89,6 +89,7 @@ static struct twl4030_keypad_data zoom2_kp_twl4030_data = {
 	.keymapsize	= ARRAY_SIZE(zoom2_twl4030_keymap),
 	.rep		= 1,
 };
+
 static void __init omap_zoom2_init_irq(void)
 {
 	omap2_init_common_hw(NULL, NULL);
@@ -102,8 +103,6 @@ static struct omap_uart_platform_data zoom2_uart_config __initdata = {
 
 static struct omap_board_config_kernel zoom2_config[] __initdata = {
 };
-
-
 
 static struct regulator_consumer_supply zoom2_vmmc1_supply = {
 	.supply		= "vmmc",

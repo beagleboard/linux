@@ -25,7 +25,6 @@
 #define MAXCOLUMN 100 /* for short messages */
 
 static DEFINE_MUTEX(iommu_debug_lock);
-static char local_buffer[SZ_4K];
 
 static struct dentry *iommu_debug_root;
 
@@ -44,14 +43,22 @@ static ssize_t debug_read_regs(struct file *file, char __user *userbuf,
 			       size_t count, loff_t *ppos)
 {
 	struct iommu *obj = file->private_data;
-	char *p = local_buffer;
+	char *p, *buf;
 	ssize_t bytes;
 
+	buf = kmalloc(count, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+	p = buf;
+
 	mutex_lock(&iommu_debug_lock);
-	p += iommu_dump_ctx(obj, p);
-	bytes = simple_read_from_buffer(userbuf, count, ppos, local_buffer,
-					p - local_buffer);
+
+	bytes = iommu_dump_ctx(obj, p, count);
+	bytes = simple_read_from_buffer(userbuf, count, ppos, buf, bytes);
+
 	mutex_unlock(&iommu_debug_lock);
+	kfree(buf);
+
 	return bytes;
 }
 
@@ -59,16 +66,26 @@ static ssize_t debug_read_tlb(struct file *file, char __user *userbuf,
 			      size_t count, loff_t *ppos)
 {
 	struct iommu *obj = file->private_data;
-	char *p = local_buffer;
-	ssize_t bytes;
+	char *p, *buf;
+	ssize_t bytes, rest;
+
+	buf = kmalloc(count, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+	p = buf;
 
 	mutex_lock(&iommu_debug_lock);
+
 	p += sprintf(p, "%8s %8s\n", "cam:", "ram:");
 	p += sprintf(p, "-----------------------------------------\n");
-	p += dump_tlb_entries(obj, p);
-	bytes = simple_read_from_buffer(userbuf, count, ppos, local_buffer,
-					p - local_buffer);
+	rest = count - (p - buf);
+	p += dump_tlb_entries(obj, p, rest);
+
+	bytes = simple_read_from_buffer(userbuf, count, ppos, buf, p - buf);
+
 	mutex_unlock(&iommu_debug_lock);
+	kfree(buf);
+
 	return bytes;
 }
 
@@ -104,55 +121,88 @@ static ssize_t debug_write_pagetable(struct file *file,
 	return count;
 }
 
-static ssize_t debug_read_pagetable(struct file *file, char __user *userbuf,
-				    size_t count, loff_t *ppos)
+#define dump_ioptable_entry_one(lv, da, pteval)			\
+	({							\
+		int __err = 0;					\
+		ssize_t bytes;					\
+		const char *str = "%d: %08x %08x\n";		\
+		bytes = snprintf(p, 22, str, lv, da, pteval);	\
+		p += bytes;					\
+		len -= bytes;					\
+		if (len < strlen(str) + 1)			\
+			__err = -ENOMEM;			\
+		__err;						\
+	})
+
+static ssize_t dump_ioptable(struct iommu *obj, char *buf, ssize_t len)
 {
 	int i;
 	u32 *iopgd;
-	struct iommu *obj = file->private_data;
-	char *p = local_buffer;
-	ssize_t bytes;
-
-	mutex_lock(&iommu_debug_lock);
-
-	p += sprintf(p, "L: %8s %8s\n", "da:", "pa:");
-	p += sprintf(p, "-----------------------------------------\n");
+	char *p = buf;
 
 	spin_lock(&obj->page_table_lock);
 
 	iopgd = iopgd_offset(obj, 0);
 	for (i = 0; i < PTRS_PER_IOPGD; i++, iopgd++) {
-		int j;
+		int j, err;
 		u32 *iopte;
+		u32 da;
 
 		if (!*iopgd)
 			continue;
 
 		if (!(*iopgd & IOPGD_TABLE)) {
-			u32 da;
-
 			da = i << IOPGD_SHIFT;
-			p += sprintf(p, "1: %08x %08x\n", da, *iopgd);
+
+			err = dump_ioptable_entry_one(1, da, *iopgd);
+			if (err)
+				goto out;
 			continue;
 		}
 
 		iopte = iopte_offset(iopgd, 0);
 
 		for (j = 0; j < PTRS_PER_IOPTE; j++, iopte++) {
-			u32 da;
-
 			if (!*iopte)
 				continue;
 
 			da = (i << IOPGD_SHIFT) + (j << IOPTE_SHIFT);
-			p += sprintf(p, "2: %08x %08x\n", da, *iopte);
+			err = dump_ioptable_entry_one(2, da, *iopgd);
+			if (err)
+				goto out;
 		}
 	}
+out:
 	spin_unlock(&obj->page_table_lock);
 
-	bytes = simple_read_from_buffer(userbuf, count, ppos, local_buffer,
-					p - local_buffer);
+	return p - buf;
+}
+
+static ssize_t debug_read_pagetable(struct file *file, char __user *userbuf,
+				    size_t count, loff_t *ppos)
+{
+	struct iommu *obj = file->private_data;
+	char *p, *buf;
+	size_t bytes;
+
+	buf = (char *)__get_free_page(GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+	p = buf;
+
+	p += sprintf(p, "L: %8s %8s\n", "da:", "pa:");
+	p += sprintf(p, "-----------------------------------------\n");
+
+	mutex_lock(&iommu_debug_lock);
+
+	bytes = PAGE_SIZE - (p - buf);
+	p += dump_ioptable(obj, p, bytes);
+
+	bytes = simple_read_from_buffer(userbuf, count, ppos, buf, p - buf);
+
 	mutex_unlock(&iommu_debug_lock);
+	free_page((unsigned long)buf);
+
 	return bytes;
 }
 
@@ -160,28 +210,40 @@ static ssize_t debug_read_mmap(struct file *file, char __user *userbuf,
 			       size_t count, loff_t *ppos)
 {
 	struct iommu *obj = file->private_data;
-	char *p = local_buffer;
+	char *p, *buf;
 	struct iovm_struct *tmp;
 	int uninitialized_var(i);
 	ssize_t bytes;
 
-	mutex_lock(&iommu_debug_lock);
+	buf = (char *)__get_free_page(GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+	p = buf;
 
 	p += sprintf(p, "%-3s %-8s %-8s %6s %8s\n",
 		     "No", "start", "end", "size", "flags");
 	p += sprintf(p, "-------------------------------------------------\n");
 
+	mutex_lock(&iommu_debug_lock);
+
 	list_for_each_entry(tmp, &obj->mmap, list) {
 		size_t len;
+		const char *str = "%3d %08x-%08x %6x %8x\n";
 
 		len = tmp->da_end - tmp->da_start;
-		p += sprintf(p, "%3d %08x-%08x %6x %8x\n",
-			     i, tmp->da_start, tmp->da_end, len, tmp->flags);
+		p += snprintf(p, strlen(str) + 1, str,
+			      i, tmp->da_start, tmp->da_end, len, tmp->flags);
+
+		if ((strlen(str) + 1) > (PAGE_SIZE - (p - buf)))
+			break;
 		i++;
 	}
-	bytes = simple_read_from_buffer(userbuf, count, ppos, local_buffer,
-					p - local_buffer);
+
+	bytes = simple_read_from_buffer(userbuf, count, ppos, buf, p - buf);
+
 	mutex_unlock(&iommu_debug_lock);
+	free_page((unsigned long)buf);
+
 	return bytes;
 }
 
@@ -189,9 +251,16 @@ static ssize_t debug_read_mem(struct file *file, char __user *userbuf,
 			      size_t count, loff_t *ppos)
 {
 	struct iommu *obj = file->private_data;
-	char *p = local_buffer;
+	char *p, *buf;
 	struct iovm_struct *area;
 	ssize_t bytes;
+
+	count = min_t(ssize_t, count, PAGE_SIZE);
+
+	buf = (char *)__get_free_page(GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+	p = buf;
 
 	mutex_lock(&iommu_debug_lock);
 
@@ -203,9 +272,11 @@ static ssize_t debug_read_mem(struct file *file, char __user *userbuf,
 	memcpy(p, area->va, count);
 	p += count;
 
-	bytes = simple_read_from_buffer(userbuf, count, ppos, local_buffer,
-					p - local_buffer);
+	bytes = simple_read_from_buffer(userbuf, count, ppos, buf, p - buf);
+
 	mutex_unlock(&iommu_debug_lock);
+	free_page((unsigned long)buf);
+
 	return bytes;
 }
 
@@ -214,9 +285,14 @@ static ssize_t debug_write_mem(struct file *file, const char __user *userbuf,
 {
 	struct iommu *obj = file->private_data;
 	struct iovm_struct *area;
-	char *p = local_buffer;
+	char *p, *buf;
 
-	count = min(count, sizeof(local_buffer));
+	count = min_t(size_t, count, PAGE_SIZE);
+
+	buf = (char *)__get_free_page(GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+	p = buf;
 
 	mutex_lock(&iommu_debug_lock);
 
@@ -231,7 +307,10 @@ static ssize_t debug_write_mem(struct file *file, const char __user *userbuf,
 		return -EINVAL;
 	}
 	memcpy(area->va, p, count);
+
 	mutex_unlock(&iommu_debug_lock);
+	free_page((unsigned long)buf);
+
 	return count;
 }
 

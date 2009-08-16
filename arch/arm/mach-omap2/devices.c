@@ -537,23 +537,22 @@ static inline void omap2_mmc_mux(struct omap_mmc_platform_data *mmc_controller,
 			omap_cfg_reg(AE2_3430_MMC2_CLK);
 			omap_cfg_reg(AG5_3430_MMC2_CMD);
 			omap_cfg_reg(AH5_3430_MMC2_DAT0);
+
+			/*
+			 * For 8 wire configurations, Lines DAT4, 5, 6 and 7 need to be muxed
+			 * in the board-*.c files
+			 */
 			if (mmc_controller->slots[0].wires == 4 ||
 				mmc_controller->slots[0].wires == 8) {
 				omap_cfg_reg(AH4_3430_MMC2_DAT1);
 				omap_cfg_reg(AG4_3430_MMC2_DAT2);
 				omap_cfg_reg(AF4_3430_MMC2_DAT3);
 			}
-			if (mmc_controller->slots[0].wires == 8)
-				printk(KERN_WARNING
-					"\n MMC2: DAT4, DAT5, DAT6, DAT7: "
-					"Setup the mux in board file");
 		}
-		if (controller_nr == 2) {
-			/* MMC3 */
-			printk(KERN_WARNING
-				"\n MMC3: Setup the mux in board file: "
-				"Multiple options exist, so is board specific");
-		}
+
+		/*
+		 * For MMC3 the pins need to be muxed in the board-*.c files
+		 */
 	}
 }
 
