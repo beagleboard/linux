@@ -422,3 +422,5 @@ IS_OMAP_TYPE(3430, 0x3430)
 
 int omap_chip_is(struct omap_chip_id oci);
 void omap2_check_revision(void);
+
+#endif /* __ASM_ARCH_OMAP_CPU_H */
