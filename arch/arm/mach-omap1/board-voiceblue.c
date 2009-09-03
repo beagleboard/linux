@@ -140,10 +140,6 @@ static struct omap_usb_config voiceblue_usb_config __initdata = {
 	.pins[2]	= 6,
 };
 
-static struct omap_uart_platform_data voiceblue_uart_config __initdata = {
-	.enabled_uarts = ((1 << 0) | (1 << 1) | (1 << 2)),
-};
-
 static struct omap_board_config_kernel voiceblue_config[] = {
 };
 
@@ -182,7 +178,7 @@ static void __init voiceblue_init(void)
 	platform_add_devices(voiceblue_devices, ARRAY_SIZE(voiceblue_devices));
 	omap_board_config = voiceblue_config;
 	omap_board_config_size = ARRAY_SIZE(voiceblue_config);
-	omap_serial_init(&voiceblue_uart_config);
+	omap_serial_init();
 	omap_usb_init(&voiceblue_usb_config);
 	omap_register_i2c_bus(1, 100, NULL, 0);
 

@@ -220,11 +220,12 @@ static ssize_t omap2_dump_cr(struct iommu *obj, struct cr_regs *cr, char *buf)
 	do {								\
 		ssize_t bytes;						\
 		const char *str = "%20s: %08x\n";			\
-		bytes = snprintf(p, 32, str, __stringify(name),		\
+		const int maxcol = 32;					\
+		bytes = snprintf(p, maxcol, str, __stringify(name),	\
 				 iommu_read_reg(obj, MMU_##name));	\
 		p += bytes;						\
 		len -= bytes;						\
-		if (len < strlen(str) + 1)				\
+		if (len < maxcol)					\
 			goto out;					\
 	} while (0)
 

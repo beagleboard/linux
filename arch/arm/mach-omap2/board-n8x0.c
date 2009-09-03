@@ -96,11 +96,6 @@ static void __init n8x0_onenand_init(void) {}
 
 #endif
 
-/* FIXME: n810 needs UART1 */
-static struct omap_uart_platform_data n8x0_uart_config __initdata = {
-	.enabled_uarts = (1 << 2),
-};
-
 static void __init n8x0_map_io(void)
 {
 	omap2_set_globals_242x();
@@ -120,7 +115,7 @@ static void __init n8x0_init_machine(void)
 	spi_register_board_info(n800_spi_board_info,
 				ARRAY_SIZE(n800_spi_board_info));
 
-	omap_serial_init(&n8x0_uart_config);
+	omap_serial_init();
 	n8x0_onenand_init();
 }
 

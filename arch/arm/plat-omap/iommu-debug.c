@@ -121,15 +121,16 @@ static ssize_t debug_write_pagetable(struct file *file,
 	return count;
 }
 
-#define dump_ioptable_entry_one(lv, da, pteval)			\
+#define dump_ioptable_entry_one(lv, da, val)			\
 	({							\
 		int __err = 0;					\
 		ssize_t bytes;					\
+		const int maxcol = 22;				\
 		const char *str = "%d: %08x %08x\n";		\
-		bytes = snprintf(p, 22, str, lv, da, pteval);	\
+		bytes = snprintf(p, maxcol, str, lv, da, val);	\
 		p += bytes;					\
 		len -= bytes;					\
-		if (len < strlen(str) + 1)			\
+		if (len < maxcol)				\
 			__err = -ENOMEM;			\
 		__err;						\
 	})
@@ -229,12 +230,13 @@ static ssize_t debug_read_mmap(struct file *file, char __user *userbuf,
 	list_for_each_entry(tmp, &obj->mmap, list) {
 		size_t len;
 		const char *str = "%3d %08x-%08x %6x %8x\n";
+		const int maxcol = 39;
 
 		len = tmp->da_end - tmp->da_start;
-		p += snprintf(p, strlen(str) + 1, str,
+		p += snprintf(p, maxcol, str,
 			      i, tmp->da_start, tmp->da_end, len, tmp->flags);
 
-		if ((strlen(str) + 1) > (PAGE_SIZE - (p - buf)))
+		if (PAGE_SIZE - (p - buf) < maxcol)
 			break;
 		i++;
 	}
@@ -266,14 +268,14 @@ static ssize_t debug_read_mem(struct file *file, char __user *userbuf,
 
 	area = find_iovm_area(obj, (u32)ppos);
 	if (IS_ERR(area)) {
-		mutex_unlock(&iommu_debug_lock);
-		return -EINVAL;
+		bytes = -EINVAL;
+		goto err_out;
 	}
 	memcpy(p, area->va, count);
 	p += count;
 
 	bytes = simple_read_from_buffer(userbuf, count, ppos, buf, p - buf);
-
+err_out:
 	mutex_unlock(&iommu_debug_lock);
 	free_page((unsigned long)buf);
 
@@ -297,17 +299,17 @@ static ssize_t debug_write_mem(struct file *file, const char __user *userbuf,
 	mutex_lock(&iommu_debug_lock);
 
 	if (copy_from_user(p, userbuf, count)) {
-		mutex_unlock(&iommu_debug_lock);
-		return -EFAULT;
+		count =  -EFAULT;
+		goto err_out;
 	}
 
 	area = find_iovm_area(obj, (u32)ppos);
 	if (IS_ERR(area)) {
-		mutex_unlock(&iommu_debug_lock);
-		return -EINVAL;
+		count = -EINVAL;
+		goto err_out;
 	}
 	memcpy(area->va, p, count);
-
+err_out:
 	mutex_unlock(&iommu_debug_lock);
 	free_page((unsigned long)buf);
 

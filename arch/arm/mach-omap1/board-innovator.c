@@ -368,10 +368,6 @@ static inline void innovator_mmc_init(void)
 }
 #endif
 
-static struct omap_uart_platform_data innovator_uart_config __initdata = {
-	.enabled_uarts = ((1 << 0) | (1 << 1) | (1 << 2)),
-};
-
 static struct omap_board_config_kernel innovator_config[] = {
 	{ OMAP_TAG_LCD,		NULL },
 };
@@ -405,7 +401,7 @@ static void __init innovator_init(void)
 #endif
 	omap_board_config = innovator_config;
 	omap_board_config_size = ARRAY_SIZE(innovator_config);
-	omap_serial_init(&innovator_uart_config);
+	omap_serial_init();
 	omap_register_i2c_bus(1, 100, NULL, 0);
 	innovator_mmc_init();
 }

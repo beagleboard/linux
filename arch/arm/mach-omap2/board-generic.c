@@ -37,10 +37,6 @@ static void __init omap_generic_init_irq(void)
 	omap_init_irq();
 }
 
-static struct omap_uart_platform_data generic_uart_config __initdata = {
-	.enabled_uarts = ((1 << 0) | (1 << 1) | (1 << 2)),
-};
-
 static struct omap_board_config_kernel generic_config[] = {
 };
 
@@ -48,7 +44,7 @@ static void __init omap_generic_init(void)
 {
 	omap_board_config = generic_config;
 	omap_board_config_size = ARRAY_SIZE(generic_config);
-	omap_serial_init(&generic_uart_config);
+	omap_serial_init();
 }
 
 static void __init omap_generic_map_io(void)

@@ -276,10 +276,6 @@ static void __init omap_ldp_init_irq(void)
 	ldp_init_smsc911x();
 }
 
-static struct omap_uart_platform_data ldp_uart_config __initdata = {
-	.enabled_uarts	= ((1 << 0) | (1 << 1) | (1 << 2)),
-};
-
 static struct platform_device ldp_lcd_device = {
 	.name		= "ldp_lcd",
 	.id		= -1,
@@ -383,7 +379,7 @@ static void __init omap_ldp_init(void)
 	spi_register_board_info(ldp_spi_board_info,
 				ARRAY_SIZE(ldp_spi_board_info));
 	ads7846_dev_init();
-	omap_serial_init(&ldp_uart_config);
+	omap_serial_init();
 	usb_musb_init();
 
 	twl4030_mmc_init(mmc);

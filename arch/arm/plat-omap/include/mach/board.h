@@ -111,7 +111,7 @@ struct omap_gpio_switch_config {
 	int key_code:24; /* Linux key code */
 };
 
-struct omap_uart_platform_data {
+struct omap_uart_config {
 	/* Bit field of UARTs present; bit 0 --> UART1 */
 	unsigned int enabled_uarts;
 };

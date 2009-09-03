@@ -256,10 +256,6 @@ static void __init omap_apollon_init_irq(void)
 	apollon_init_smc91x();
 }
 
-static struct omap_uart_platform_data apollon_uart_config __initdata = {
-	.enabled_uarts = (1 << 0) | (0 << 1) | (0 << 2),
-};
-
 static struct omap_usb_config apollon_usb_config __initdata = {
 	.register_dev	= 1,
 	.hmc_mode	= 0x14,	/* 0:dev 1:host1 2:disable */
@@ -325,7 +321,7 @@ static void __init omap_apollon_init(void)
 	platform_add_devices(apollon_devices, ARRAY_SIZE(apollon_devices));
 	omap_board_config = apollon_config;
 	omap_board_config_size = ARRAY_SIZE(apollon_config);
-	omap_serial_init(&apollon_uart_config);
+	omap_serial_init();
 }
 
 static void __init omap_apollon_map_io(void)

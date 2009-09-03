@@ -53,9 +53,7 @@
 			})
 
 #ifndef __ASSEMBLER__
-struct omap_uart_platform_data;
-
-extern void omap_serial_init(const struct omap_uart_platform_data *pdata);
+extern void omap_serial_init(void);
 extern int omap_uart_can_sleep(void);
 extern void omap_uart_check_wakeup(void);
 extern void omap_uart_prepare_suspend(void);

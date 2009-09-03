@@ -276,10 +276,6 @@ static void __init omap_h4_init_irq(void)
 	h4_init_flash();
 }
 
-static struct omap_uart_platform_data h4_uart_config __initdata = {
-	.enabled_uarts = ((1 << 0) | (1 << 1) | (1 << 2)),
-};
-
 static struct omap_lcd_config h4_lcd_config __initdata = {
 	.ctrl_name	= "internal",
 };
@@ -368,7 +364,7 @@ static void __init omap_h4_init(void)
 	omap_board_config = h4_config;
 	omap_board_config_size = ARRAY_SIZE(h4_config);
 	omap_usb_init(&h4_usb_config);
-	omap_serial_init(&h4_uart_config);
+	omap_serial_init();
 }
 
 static void __init omap_h4_map_io(void)

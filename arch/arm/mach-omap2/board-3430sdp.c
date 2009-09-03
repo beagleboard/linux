@@ -174,10 +174,6 @@ static void __init omap_3430sdp_init_irq(void)
 	omap_gpio_init();
 }
 
-static struct omap_uart_platform_data sdp3430_uart_config __initdata = {
-	.enabled_uarts	= ((1 << 0) | (1 << 1) | (1 << 2)),
-};
-
 static struct omap_lcd_config sdp3430_lcd_config __initdata = {
 	.ctrl_name	= "internal",
 };
@@ -491,7 +487,7 @@ static void __init omap_3430sdp_init(void)
 	spi_register_board_info(sdp3430_spi_board_info,
 				ARRAY_SIZE(sdp3430_spi_board_info));
 	ads7846_dev_init();
-	omap_serial_init(&sdp3430_uart_config);
+	omap_serial_init();
 	usb_musb_init();
 	board_smc91x_init();
 	usb_ehci_init(EHCI_HCD_OMAP_MODE_PHY, true, true, 57, 61);

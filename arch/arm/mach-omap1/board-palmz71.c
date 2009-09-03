@@ -244,10 +244,6 @@ static struct omap_lcd_config palmz71_lcd_config __initdata = {
 	.ctrl_name = "internal",
 };
 
-static struct omap_uart_platform_data palmz71_uart_config __initdata = {
-	.enabled_uarts = (1 << 0) | (1 << 1) | (0 << 2),
-};
-
 static struct omap_board_config_kernel palmz71_config[] __initdata = {
 	{OMAP_TAG_LCD,	&palmz71_lcd_config},
 };
@@ -322,7 +318,7 @@ omap_palmz71_init(void)
 	spi_register_board_info(palmz71_boardinfo,
 				ARRAY_SIZE(palmz71_boardinfo));
 	omap_usb_init(&palmz71_usb_config);
-	omap_serial_init(&palmz71_uart_config);
+	omap_serial_init();
 	omap_register_i2c_bus(1, 100, NULL, 0);
 	palmz71_gpio_setup(0);
 }

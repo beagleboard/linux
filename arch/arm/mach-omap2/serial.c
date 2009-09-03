@@ -460,7 +460,7 @@ static void omap_uart_idle_init(struct omap_uart_state *uart)
 		uart->padconf = 0;
 	}
 
-	p->flags |= UPF_SHARE_IRQ;
+	p->irqflags |= IRQF_SHARED;
 	ret = request_irq(p->irq, omap_uart_interrupt, IRQF_SHARED,
 			  "serial idle", (void *)uart);
 	WARN_ON(ret);
@@ -552,7 +552,7 @@ static struct omap_uart_state omap_uart[OMAP_MAX_NR_PORTS] = {
 	},
 };
 
-void __init omap_serial_init(const struct omap_uart_platform_data *pdata)
+void __init omap_serial_init(void)
 {
 	int i;
 	char name[16];
@@ -563,20 +563,11 @@ void __init omap_serial_init(const struct omap_uart_platform_data *pdata)
 	 * if not needed.
 	 */
 
-	if (pdata == NULL)
-		return;
-
 	for (i = 0; i < OMAP_MAX_NR_PORTS; i++) {
 		struct omap_uart_state *uart = &omap_uart[i];
 		struct platform_device *pdev = &uart->pdev;
 		struct device *dev = &pdev->dev;
 		struct plat_serial8250_port *p = dev->platform_data;
-
-		if (!(pdata->enabled_uarts & (1 << i))) {
-			p->membase = NULL;
-			p->mapbase = 0;
-			continue;
-		}
 
 		sprintf(name, "uart%d_ick", i+1);
 		uart->ick = clk_get(NULL, name);

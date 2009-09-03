@@ -212,10 +212,6 @@ static struct omap_lcd_config palmte_lcd_config __initdata = {
 	.ctrl_name	= "internal",
 };
 
-static struct omap_uart_platform_data palmte_uart_config __initdata = {
-	.enabled_uarts = (1 << 0) | (1 << 1) | (0 << 2),
-};
-
 #ifdef CONFIG_APM
 /*
  * Values measured in 10 minute intervals averaged over 10 samples.
@@ -353,7 +349,7 @@ static void __init omap_palmte_init(void)
 
 	spi_register_board_info(palmte_spi_info, ARRAY_SIZE(palmte_spi_info));
 	palmte_misc_gpio_setup();
-	omap_serial_init(&palmte_uart_config);
+	omap_serial_init();
 	omap_usb_init(&palmte_usb_config);
 	omap_register_i2c_bus(1, 100, NULL, 0);
 }
