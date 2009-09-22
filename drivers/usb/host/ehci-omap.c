@@ -748,7 +748,7 @@ static struct platform_driver ehci_hcd_omap_driver = {
 static const struct hc_driver ehci_omap_hc_driver = {
 	.description		= hcd_name,
 	.product_desc		= "OMAP-EHCI Host Controller",
-	.hcd_priv_size		= sizeof(struct ehci_hcd_omap),
+	.hcd_priv_size		= sizeof(struct ehci_hcd),
 
 	/*
 	 * generic hardware linkage
@@ -784,6 +784,8 @@ static const struct hc_driver ehci_omap_hc_driver = {
 	.hub_control		= ehci_hub_control,
 	.bus_suspend		= ehci_bus_suspend,
 	.bus_resume		= ehci_bus_resume,
+
+	.clear_tt_buffer_complete = ehci_clear_tt_buffer_complete,
 };
 
 MODULE_ALIAS("platform:omap-ehci");
