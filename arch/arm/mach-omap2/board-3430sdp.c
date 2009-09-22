@@ -495,6 +495,7 @@ static void __init omap_3430sdp_init(void)
 	omap_serial_init();
 	usb_musb_init();
 	board_smc91x_init();
+	usb_ehci_init(EHCI_HCD_OMAP_MODE_PHY, true, true, 57, 61);
 }
 
 static void __init omap_3430sdp_map_io(void)
