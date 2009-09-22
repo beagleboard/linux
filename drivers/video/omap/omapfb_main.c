@@ -1503,21 +1503,12 @@ static int fbinfo_init(struct omapfb_device *fbdev, struct fb_info *info)
 	var->rotate	  = def_rotate;
 	var->bits_per_pixel = fbdev->panel->bpp;
 
-	r = register_framebuffer(info);
-	if (r != 0) {
-		dev_err(fbdev->dev,
-			"registering framebuffer failed\n");
-		return r;
-	}
-
 	set_fb_var(info, var);
 	set_fb_fix(info);
 
 	r = fb_alloc_cmap(&info->cmap, 16, 0);
-	if (r != 0) {
+	if (r != 0)
 		dev_err(fbdev->dev, "unable to allocate color map memory\n");
-		unregister_framebuffer(info);
-	}
 
 	return r;
 }
@@ -1782,8 +1773,15 @@ static int omapfb_do_probe(struct platform_device *pdev,
 	init_state++;
 
 	vram = 0;
-	for (i = 0; i < fbdev->mem_desc.region_cnt; i++)
+	for (i = 0; i < fbdev->mem_desc.region_cnt; i++) {
+		r = register_framebuffer(fbdev->fb_info[i]);
+		if (r != 0) {
+			dev_err(fbdev->dev,
+				"registering framebuffer %d failed\n", i);
+			goto cleanup;
+		}
 		vram += fbdev->mem_desc.region[i].size;
+	}
 
 	fbdev->state = OMAPFB_ACTIVE;
 
