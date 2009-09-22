@@ -324,7 +324,6 @@ static void __init omap3_evm_init(void)
 	/* Setup EHCI phy reset padconfig */
 	omap_cfg_reg(AF4_34XX_GPIO135_OUT);
 	usb_ehci_init(&ehci_pdata);
-	omap3evm_flash_init();
 	ads7846_dev_init();
 }
 
