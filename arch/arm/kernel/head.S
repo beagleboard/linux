@@ -282,7 +282,7 @@ __create_page_tables:
 	.endif
 	str	r6, [r0]
 
-#if defined(CONFIG_DEBUG_LL) || defined(CONFIG_DEBUG_SPINLOCK)
+#ifdef CONFIG_DEBUG_LL
 	ldr	r7, [r10, #PROCINFO_IO_MMUFLAGS] @ io_mmuflags
 	/*
 	 * Map in IO space for serial debugging.
