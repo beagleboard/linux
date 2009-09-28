@@ -297,6 +297,19 @@ static struct platform_device *omap3_evm_devices[] __initdata = {
 	&omap3evm_smc911x_device,
 };
 
+static struct ehci_hcd_omap_platform_data ehci_pdata __initconst = {
+
+	.port_mode[0] = EHCI_HCD_OMAP_MODE_UNKNOWN,
+	.port_mode[1] = EHCI_HCD_OMAP_MODE_PHY,
+	.port_mode[2] = EHCI_HCD_OMAP_MODE_UNKNOWN,
+
+	.chargepump = false,
+	.phy_reset  = true,
+	.reset_gpio_port[0]  = -EINVAL,
+	.reset_gpio_port[1]  = 135,
+	.reset_gpio_port[2]  = -EINVAL
+};
+
 static void __init omap3_evm_init(void)
 {
 	omap3_evm_i2c_init();
@@ -312,6 +325,10 @@ static void __init omap3_evm_init(void)
 	usb_nop_xceiv_register();
 #endif
 	usb_musb_init();
+	/* Setup EHCI phy reset padconfig */
+	omap_cfg_reg(AF4_34XX_GPIO135_OUT);
+	usb_ehci_init(&ehci_pdata);
+	omap3evm_flash_init();
 	ads7846_dev_init();
 }
 
