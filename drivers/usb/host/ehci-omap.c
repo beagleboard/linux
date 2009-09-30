@@ -169,9 +169,6 @@ struct ehci_hcd_omap {
 	/* phy reset workaround */
 	int			phy_reset;
 
-	/* vbus internal chargepump workaround */
-	int			chargepump;
-
 	/* desired phy_mode: TLL, PHY */
 	enum ehci_hcd_omap_mode	port_mode[OMAP3_HS_USB_PORTS];
 
@@ -421,25 +418,6 @@ static int omap_start_ehc(struct ehci_hcd_omap *omap, struct usb_hcd *hcd)
 
 		if (gpio_is_valid(omap->reset_gpio_port[1]))
 			gpio_set_value(omap->reset_gpio_port[1], 1);
-	}
-
-	if (omap->chargepump) {
-
-		/* Refer ISSUE2: LINK assumes external charge pump */
-
-		/* use Port1 VBUS to charge externally Port2:
-		 *	So for PHY mode operation use Port2 only
-		 */
-		ehci_omap_writel(omap->ehci_base, EHCI_INSNREG05_ULPI,
-				/* OTG ctrl reg*/
-				(0xa << EHCI_INSNREG05_ULPI_REGADD_SHIFT) |
-				/*   Write */
-				(2 << EHCI_INSNREG05_ULPI_OPSEL_SHIFT) |
-				/* Port1 */
-				(1 << EHCI_INSNREG05_ULPI_PORTSEL_SHIFT) |
-				/* Start */
-				(1 << EHCI_INSNREG05_ULPI_CONTROL_SHIFT) |
-				(0x26));
 	}
 
 	return 0;
