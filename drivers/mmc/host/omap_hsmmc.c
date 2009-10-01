@@ -2001,6 +2001,7 @@ clk_en_err:
 #endif
 
 static struct platform_driver omap_hsmmc_driver = {
+	.probe		= omap_hsmmc_probe,
 	.remove		= omap_hsmmc_remove,
 	.suspend	= omap_hsmmc_suspend,
 	.resume		= omap_hsmmc_resume,
