@@ -601,6 +601,29 @@ add_children(struct twl4030_platform_data *pdata, unsigned long features)
 			return PTR_ERR(child);
 	}
 
+	if (twl_has_regulator()) {
+		/*
+		child = add_regulator(TWL4030_REG_VPLL1, pdata->vpll1);
+		if (IS_ERR(child))
+			return PTR_ERR(child);
+		*/
+
+		child = add_regulator(TWL4030_REG_VMMC1, pdata->vmmc1);
+		if (IS_ERR(child))
+			return PTR_ERR(child);
+
+		child = add_regulator(TWL4030_REG_VDAC, pdata->vdac);
+		if (IS_ERR(child))
+			return PTR_ERR(child);
+
+		child = add_regulator((features & TWL4030_VAUX2)
+					? TWL4030_REG_VAUX2_4030
+					: TWL4030_REG_VAUX2,
+				pdata->vaux2);
+		if (IS_ERR(child))
+			return PTR_ERR(child);
+	}
+
 	/* maybe add LDOs that are omitted on cost-reduced parts */
 	if (twl_has_regulator() && !(features & TPS_SUBSET)) {
 		child = add_regulator(TWL4030_REG_VPLL2, pdata->vpll2);
