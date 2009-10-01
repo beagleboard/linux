@@ -568,7 +568,6 @@ static int ehci_hcd_omap_probe(struct platform_device *pdev)
 	omap->port_mode[0]		= pdata->port_mode[0];
 	omap->port_mode[1]		= pdata->port_mode[1];
 	omap->port_mode[2]		= pdata->port_mode[2];
-	omap->chargepump		= pdata->chargepump;
 	omap->ehci		= hcd_to_ehci(hcd);
 	omap->ehci->sbrn	= 0x20;
 
