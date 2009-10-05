@@ -162,8 +162,7 @@ struct ehci_hcd_omap {
 	 */
 
 	/* gpio for resetting phy */
-	int			reset_gpio_port1;
-	int			reset_gpio_port2;
+	int			reset_gpio_port[OMAP3_HS_USB_PORTS];
 
 	/* phy reset workaround */
 	int			phy_reset;
@@ -172,7 +171,7 @@ struct ehci_hcd_omap {
 	int			chargepump;
 
 	/* desired phy_mode: TLL, PHY */
-	enum ehci_hcd_omap_mode	phy_mode;
+	enum ehci_hcd_omap_mode	port_mode[OMAP3_HS_USB_PORTS];
 
 	void __iomem		*uhh_base;
 	void __iomem		*tll_base;
@@ -297,14 +296,16 @@ static int omap_start_ehc(struct ehci_hcd_omap *omap, struct usb_hcd *hcd)
 
 	if (omap->phy_reset) {
 		/* Refer: ISSUE1 */
-		if (gpio_is_valid(omap->reset_gpio_port1)) {
-			gpio_request(omap->reset_gpio_port1, "USB1 PHY reset");
-			gpio_direction_output(omap->reset_gpio_port1, 0);
+		if (gpio_is_valid(omap->reset_gpio_port[0])) {
+			gpio_request(omap->reset_gpio_port[0],
+						"USB1 PHY reset");
+			gpio_direction_output(omap->reset_gpio_port[0], 0);
 		}
 
-		if (gpio_is_valid(omap->reset_gpio_port2)) {
-			gpio_request(omap->reset_gpio_port2, "USB2 PHY reset");
-			gpio_direction_output(omap->reset_gpio_port2, 0);
+		if (gpio_is_valid(omap->reset_gpio_port[1])) {
+			gpio_request(omap->reset_gpio_port[1],
+						"USB2 PHY reset");
+			gpio_direction_output(omap->reset_gpio_port[1], 0);
 		}
 
 		/* Hold the PHY in RESET for enough time till DIR is high */
@@ -361,7 +362,10 @@ static int omap_start_ehc(struct ehci_hcd_omap *omap, struct usb_hcd *hcd)
 
 	ehci_omap_writel(omap->uhh_base, OMAP_UHH_SYSCONFIG, reg);
 
-	if (omap->phy_mode == EHCI_HCD_OMAP_MODE_PHY) {
+	if ((omap->port_mode[0] == EHCI_HCD_OMAP_MODE_PHY) ||
+		(omap->port_mode[1] == EHCI_HCD_OMAP_MODE_PHY) ||
+		(omap->port_mode[2] == EHCI_HCD_OMAP_MODE_PHY)) {
+
 		reg = ehci_omap_readl(omap->uhh_base, OMAP_UHH_HOSTCONFIG);
 
 		reg |= (OMAP_UHH_HOSTCONFIG_INCR4_BURST_EN
@@ -374,7 +378,9 @@ static int omap_start_ehc(struct ehci_hcd_omap *omap, struct usb_hcd *hcd)
 		ehci_omap_writel(omap->uhh_base, OMAP_UHH_HOSTCONFIG, reg);
 		dev_dbg(omap->dev, "Entered ULPI PHY MODE: success\n");
 
-	} else if (omap->phy_mode == EHCI_HCD_OMAP_MODE_TLL) {
+	} else if ((omap->port_mode[0] == EHCI_HCD_OMAP_MODE_TLL) ||
+		(omap->port_mode[1] == EHCI_HCD_OMAP_MODE_TLL) ||
+		(omap->port_mode[2] == EHCI_HCD_OMAP_MODE_TLL)) {
 
 		/* Enable UTMI mode for all 3 TLL channels */
 		omap_usb_utmi_init(omap,
@@ -396,11 +402,11 @@ static int omap_start_ehc(struct ehci_hcd_omap *omap, struct usb_hcd *hcd)
 		 */
 		udelay(10);
 
-		if (gpio_is_valid(omap->reset_gpio_port1))
-			gpio_set_value(omap->reset_gpio_port1, 1);
+		if (gpio_is_valid(omap->reset_gpio_port[0]))
+			gpio_set_value(omap->reset_gpio_port[0], 1);
 
-		if (gpio_is_valid(omap->reset_gpio_port2))
-			gpio_set_value(omap->reset_gpio_port2, 1);
+		if (gpio_is_valid(omap->reset_gpio_port[1]))
+			gpio_set_value(omap->reset_gpio_port[1], 1);
 	}
 
 	if (omap->chargepump) {
@@ -438,11 +444,11 @@ err_tll_fck:
 	clk_put(omap->usbhost1_48m_fck);
 
 	if (omap->phy_reset) {
-		if (gpio_is_valid(omap->reset_gpio_port1))
-			gpio_free(omap->reset_gpio_port1);
+		if (gpio_is_valid(omap->reset_gpio_port[0]))
+			gpio_free(omap->reset_gpio_port[0]);
 
-		if (gpio_is_valid(omap->reset_gpio_port2))
-			gpio_free(omap->reset_gpio_port2);
+		if (gpio_is_valid(omap->reset_gpio_port[1]))
+			gpio_free(omap->reset_gpio_port[1]);
 	}
 
 err_host_48m_fck:
@@ -531,11 +537,11 @@ static void omap_stop_ehc(struct ehci_hcd_omap *omap, struct usb_hcd *hcd)
 	}
 
 	if (omap->phy_reset) {
-		if (gpio_is_valid(omap->reset_gpio_port1))
-			gpio_free(omap->reset_gpio_port1);
+		if (gpio_is_valid(omap->reset_gpio_port[0]))
+			gpio_free(omap->reset_gpio_port[0]);
 
-		if (gpio_is_valid(omap->reset_gpio_port2))
-			gpio_free(omap->reset_gpio_port2);
+		if (gpio_is_valid(omap->reset_gpio_port[1]))
+			gpio_free(omap->reset_gpio_port[1]);
 	}
 
 	dev_dbg(omap->dev, "Clock to USB host has been disabled\n");
@@ -590,10 +596,13 @@ static int ehci_hcd_omap_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, omap);
 	omap->dev		= &pdev->dev;
 	omap->phy_reset		= pdata->phy_reset;
-	omap->reset_gpio_port1	= pdata->reset_gpio_port1;
-	omap->reset_gpio_port2	= pdata->reset_gpio_port2;
-	omap->phy_mode		= pdata->phy_mode;
-	omap->chargepump	= pdata->chargepump;
+	omap->reset_gpio_port[0]	= pdata->reset_gpio_port[0];
+	omap->reset_gpio_port[1]	= pdata->reset_gpio_port[1];
+	omap->reset_gpio_port[2]	= pdata->reset_gpio_port[2];
+	omap->port_mode[0]		= pdata->port_mode[0];
+	omap->port_mode[1]		= pdata->port_mode[1];
+	omap->port_mode[2]		= pdata->port_mode[2];
+	omap->chargepump		= pdata->chargepump;
 	omap->ehci		= hcd_to_ehci(hcd);
 	omap->ehci->sbrn	= 0x20;
 
