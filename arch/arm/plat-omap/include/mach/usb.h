@@ -14,7 +14,6 @@ enum ehci_hcd_omap_mode {
 
 struct ehci_hcd_omap_platform_data {
 	enum ehci_hcd_omap_mode		port_mode[OMAP3_HS_USB_PORTS];
-	unsigned			chargepump:1;
 	unsigned			phy_reset:1;
 
 	/* have to be valid if phy_reset is true and portx is in phy mode */
