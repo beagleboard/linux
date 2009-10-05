@@ -33,7 +33,6 @@
  *	- add suspend/resume
  *	- move workarounds to board-files
  *	- differentiate between ES2.x and ES3.x
- *	- make it enumerate devices
  */
 
 #include <linux/platform_device.h>
@@ -590,6 +589,7 @@ static int ehci_hcd_omap_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, omap);
 	omap->dev		= &pdev->dev;
+	omap->phy_reset		= pdata->phy_reset;
 	omap->reset_gpio_port1	= pdata->reset_gpio_port1;
 	omap->reset_gpio_port2	= pdata->reset_gpio_port2;
 	omap->phy_mode		= pdata->phy_mode;
