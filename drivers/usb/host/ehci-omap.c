@@ -225,8 +225,6 @@ static void omap_usb_utmi_init(struct ehci_hcd_omap *omap, u8 tll_channel_mask)
 
 /*-------------------------------------------------------------------------*/
 
-#include "../../../arch/arm/mach-omap2/cm-regbits-34xx.h"
-
 /* omap_start_ehc
  *	- Start the TI USBHOST controller
  */
@@ -238,29 +236,6 @@ static int omap_start_ehc(struct ehci_hcd_omap *omap, struct usb_hcd *hcd)
 	int ret = 0;
 
 	dev_dbg(omap->dev, "starting TI EHCI USB Controller\n");
-
-	/* Start DPLL5 Programming:
-	 * Clock Framework is not doing this now:
-	 * This will be done in clock framework later
-	 */
-	/* Enable DPLL 5 : Based on Input of 13Mhz*/
-	cm_write_mod_reg((12 << OMAP3430ES2_PERIPH2_DPLL_DIV_SHIFT)|
-			(120 << OMAP3430ES2_PERIPH2_DPLL_MULT_SHIFT),
-			PLL_MOD, OMAP3430ES2_CM_CLKSEL4);
-
-	cm_write_mod_reg(1 << OMAP3430ES2_DIV_120M_SHIFT,
-			PLL_MOD, OMAP3430ES2_CM_CLKSEL5);
-
-	cm_write_mod_reg((7 << OMAP3430ES2_PERIPH2_DPLL_FREQSEL_SHIFT) |
-			(7 << OMAP3430ES2_EN_PERIPH2_DPLL_SHIFT),
-			PLL_MOD, OMAP3430ES2_CM_CLKEN2);
-
-	while (!(cm_read_mod_reg(PLL_MOD, CM_IDLEST2) &
-				OMAP3430ES2_ST_PERIPH2_CLK_MASK))
-		dev_dbg(omap->dev, "idlest2 = 0x%x\n",
-			cm_read_mod_reg(PLL_MOD, CM_IDLEST2));
-	/* End DPLL5 programming */
-
 
 	/* Enable Clocks for USBHOST */
 	omap->usbhost_ick = clk_get(omap->dev, "usbhost_ick");
