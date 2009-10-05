@@ -770,6 +770,8 @@ static const struct hc_driver ehci_omap_hc_driver = {
 	.hub_control		= ehci_hub_control,
 	.bus_suspend		= ehci_bus_suspend,
 	.bus_resume		= ehci_bus_resume,
+
+	.clear_tt_buffer_complete = ehci_clear_tt_buffer_complete,
 };
 
 MODULE_ALIAS("platform:omap-ehci");
