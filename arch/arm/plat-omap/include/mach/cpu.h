@@ -30,6 +30,8 @@
 #ifndef __ASM_ARCH_OMAP_CPU_H
 #define __ASM_ARCH_OMAP_CPU_H
 
+#include <linux/bitops.h>
+
 /*
  * Omap device type i.e. EMU/HS/TST/GP/BAD
  */
@@ -55,6 +57,23 @@ struct omap_chip_id {
  * CPU class bits (15xx, 16xx, 24xx, 34xx...)	[07:00]
  */
 unsigned int omap_rev(void);
+
+/*
+ * Define CPU revision bits
+ *
+ * Verbose meaning of the revision bits may be different for a silicon
+ * family. This difference can be handled separately.
+ */
+#define OMAP_REVBITS_00		0x00
+#define OMAP_REVBITS_10		0x10
+#define OMAP_REVBITS_20		0x20
+#define OMAP_REVBITS_30		0x30
+#define OMAP_REVBITS_40		0x40
+
+/*
+ * Get the CPU revision for OMAP devices
+ */
+#define GET_OMAP_REVISION()	((omap_rev() >> 8) & 0xff)
 
 /*
  * Test if multicore OMAP support is needed
@@ -351,7 +370,21 @@ IS_OMAP_TYPE(3430, 0x3430)
 
 #if defined(CONFIG_ARCH_OMAP34XX)
 # undef cpu_is_omap3430
+# undef cpu_is_omap3503
+# undef cpu_is_omap3515
+# undef cpu_is_omap3525
+# undef cpu_is_omap3530
 # define cpu_is_omap3430()		is_omap3430()
+# define cpu_is_omap3503		(cpu_is_omap3430() &		\
+						(!omap3_has_iva()) &	\
+						(!omap3_has_sgx()))
+# define cpu_is_omap3515		(cpu_is_omap3430() &		\
+						(omap3_has_iva()) &	\
+						(!omap3_has_sgx()))
+# define cpu_is_omap3525		(cpu_is_omap3430() &		\
+						(omap3_has_sgx()) &	\
+						(!omap3_has_iva()))
+# define cpu_is_omap3530		(cpu_is_omap3430())
 #endif
 
 # if defined(CONFIG_ARCH_OMAP4)
@@ -381,6 +414,12 @@ IS_OMAP_TYPE(3430, 0x3430)
 #define OMAP3430_REV_ES2_1	0x34302034
 #define OMAP3430_REV_ES3_0	0x34303034
 #define OMAP3430_REV_ES3_1	0x34304034
+
+#define OMAP35XX_CLASS		0x35000034
+#define OMAP3503_REV(v)		(OMAP35XX_CLASS | (0x3503 << 16) | (v << 12))
+#define OMAP3515_REV(v)		(OMAP35XX_CLASS | (0x3515 << 16) | (v << 12))
+#define OMAP3525_REV(v)		(OMAP35XX_CLASS | (0x3525 << 16) | (v << 12))
+#define OMAP3530_REV(v)		(OMAP35XX_CLASS | (0x3530 << 16) | (v << 12))
 
 #define OMAP443X_CLASS		0x44300034
 
@@ -422,5 +461,28 @@ IS_OMAP_TYPE(3430, 0x3430)
 
 int omap_chip_is(struct omap_chip_id oci);
 void omap2_check_revision(void);
+
+/*
+ * Runtime detection of OMAP3 features
+ */
+extern u32 omap3_features;
+
+#define OMAP3_HAS_L2CACHE		BIT(0)
+#define OMAP3_HAS_IVA			BIT(1)
+#define OMAP3_HAS_SGX			BIT(2)
+#define OMAP3_HAS_NEON			BIT(3)
+#define OMAP3_HAS_ISP			BIT(4)
+
+#define OMAP3_HAS_FEATURE(feat,flag)			\
+static inline unsigned int omap3_has_ ##feat(void)	\
+{							\
+	return (omap3_features & OMAP3_HAS_ ##flag);	\
+}							\
+
+OMAP3_HAS_FEATURE(l2cache, L2CACHE)
+OMAP3_HAS_FEATURE(sgx, SGX)
+OMAP3_HAS_FEATURE(iva, IVA)
+OMAP3_HAS_FEATURE(neon, NEON)
+OMAP3_HAS_FEATURE(isp, ISP)
 
 #endif
