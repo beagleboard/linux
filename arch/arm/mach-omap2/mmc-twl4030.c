@@ -10,7 +10,6 @@
  * published by the Free Software Foundation.
  */
 #include <linux/err.h>
-#include <linux/bitops.h>
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
