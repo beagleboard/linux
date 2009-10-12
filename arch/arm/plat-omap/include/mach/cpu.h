@@ -30,6 +30,8 @@
 #ifndef __ASM_ARCH_OMAP_CPU_H
 #define __ASM_ARCH_OMAP_CPU_H
 
+#include <linux/bitops.h>
+
 /*
  * Omap device type i.e. EMU/HS/TST/GP/BAD
  */
