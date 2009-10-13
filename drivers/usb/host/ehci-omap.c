@@ -373,7 +373,7 @@ static int omap_start_ehc(struct ehci_hcd_omap *omap, struct usb_hcd *hcd)
 
 	}
 	ehci_omap_writel(omap->uhh_base, OMAP_UHH_HOSTCONFIG, reg);
-	dev_dbg(omap->dev, "UHH setup done, uhh_base=%x\n", reg);
+	dev_dbg(omap->dev, "UHH setup done, uhh_hostconfig=%x\n", reg);
 
 
 	if ((omap->port_mode[0] == EHCI_HCD_OMAP_MODE_TLL) ||
