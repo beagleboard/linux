@@ -108,6 +108,9 @@
 #define OMAP_UHH_HOSTCONFIG_INCR8_BURST_EN		(1 << 3)
 #define OMAP_UHH_HOSTCONFIG_INCR16_BURST_EN		(1 << 4)
 #define OMAP_UHH_HOSTCONFIG_INCRX_ALIGN_EN		(1 << 5)
+#define OMAP_UHH_HOSTCONFIG_P1_CONNECT_STATUS		(1 << 8)
+#define OMAP_UHH_HOSTCONFIG_P2_CONNECT_STATUS		(1 << 9)
+#define OMAP_UHH_HOSTCONFIG_P3_CONNECT_STATUS		(1 << 10)
 
 #define	OMAP_UHH_DEBUG_CSR				(0x44)
 
@@ -334,6 +337,13 @@ static int omap_start_ehc(struct ehci_hcd_omap *omap, struct usb_hcd *hcd)
 			| OMAP_UHH_HOSTCONFIG_INCR8_BURST_EN
 			| OMAP_UHH_HOSTCONFIG_INCR16_BURST_EN);
 	reg &= ~OMAP_UHH_HOSTCONFIG_INCRX_ALIGN_EN;
+
+	if (omap->port_mode[0] == EHCI_HCD_OMAP_MODE_UNKNOWN)
+		reg &= ~OMAP_UHH_HOSTCONFIG_P1_CONNECT_STATUS;
+	if (omap->port_mode[1] == EHCI_HCD_OMAP_MODE_UNKNOWN)
+		reg &= ~OMAP_UHH_HOSTCONFIG_P2_CONNECT_STATUS;
+	if (omap->port_mode[2] == EHCI_HCD_OMAP_MODE_UNKNOWN)
+		reg &= ~OMAP_UHH_HOSTCONFIG_P3_CONNECT_STATUS;
 
 	/* Bypass the TLL module for PHY mode operation */
 	 if (omap_rev() <= OMAP3430_REV_ES2_1) {
