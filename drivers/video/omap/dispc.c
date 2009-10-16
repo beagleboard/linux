@@ -216,9 +216,9 @@ static void enable_rfbi_mode(int enable)
 	dispc_write_reg(DISPC_CONTROL, l);
 
 	/* Set bypass mode in RFBI module */
-	l = __raw_readl(OMAP2_IO_ADDRESS(RFBI_CONTROL));
+	l = __raw_readl(OMAP2_L4_IO_ADDRESS(RFBI_CONTROL));
 	l |= enable ? 0 : (1 << 1);
-	__raw_writel(l, OMAP2_IO_ADDRESS(RFBI_CONTROL));
+	__raw_writel(l, OMAP2_L4_IO_ADDRESS(RFBI_CONTROL));
 }
 
 static void set_lcd_data_lines(int data_lines)
@@ -1441,7 +1441,7 @@ static int omap_dispc_init(struct omapfb_device *fbdev, int ext_mode,
 	}
 
 	/* L3 firewall setting: enable access to OCM RAM */
-	__raw_writel(0x402000b0, OMAP2_IO_ADDRESS(0x680050a0));
+	__raw_writel(0x402000b0, OMAP2_L3_IO_ADDRESS(0x680050a0));
 
 	if ((r = alloc_palette_ram()) < 0)
 		goto fail2;
