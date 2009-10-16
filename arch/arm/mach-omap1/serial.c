@@ -87,7 +87,6 @@ static struct plat_serial8250_port serial_platform_data[] = {
 		.regshift	= 2,
 		.uartclk	= OMAP16XX_BASE_BAUD * 16,
 	},
-	{ },
 };
 
 static struct platform_device serial_device = {
@@ -120,7 +119,7 @@ void __init omap_serial_init(void)
 		serial_platform_data[2].uartclk = OMAP1510_BASE_BAUD * 16;
 	}
 
-	for (i = 0; i < OMAP_MAX_NR_PORTS; i++) {
+	for (i = 0; i < ARRAY_SIZE(serial_platform_data); i++) {
 		unsigned char reg;
 
 		/* Static mapping, never released */
