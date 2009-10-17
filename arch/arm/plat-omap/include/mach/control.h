@@ -205,6 +205,40 @@
 #define OMAP3_PADCONF_WAKEUPEVENT0	(1 << 15)
 #define OMAP3_PADCONF_WAKEUPENABLE0	(1 << 14)
 
+/*
+ * CONTROL OMAP STATUS register to identify OMAP3 features
+ */
+#define OMAP3_CONTROL_OMAP_STATUS	0x044c
+
+#define OMAP3_SGX_SHIFT			13
+#define OMAP3_SGX_MASK			(3 << OMAP3_SGX_SHIFT)
+#define		FEAT_SGX_FULL		0
+#define		FEAT_SGX_HALF		1
+#define		FEAT_SGX_NONE		2
+
+#define OMAP3_IVA_SHIFT			12
+#define OMAP3_IVA_MASK			(1 << OMAP3_SGX_SHIFT)
+#define		FEAT_IVA		0
+#define		FEAT_IVA_NONE		1
+
+#define OMAP3_L2CACHE_SHIFT		10
+#define OMAP3_L2CACHE_MASK		(3 << OMAP3_L2CACHE_SHIFT)
+#define		FEAT_L2CACHE_NONE	0
+#define		FEAT_L2CACHE_64KB	1
+#define		FEAT_L2CACHE_128KB	2
+#define		FEAT_L2CACHE_256KB	3
+
+#define OMAP3_ISP_SHIFT			5
+#define OMAP3_ISP_MASK			(1<< OMAP3_ISP_SHIFT)
+#define		FEAT_ISP		0
+#define		FEAT_ISP_NONE		1
+
+#define OMAP3_NEON_SHIFT		4
+#define OMAP3_NEON_MASK			(1<< OMAP3_NEON_SHIFT)
+#define		FEAT_NEON		0
+#define		FEAT_NEON_NONE		1
+
+
 #ifndef __ASSEMBLY__
 #if defined(CONFIG_ARCH_OMAP2) || defined(CONFIG_ARCH_OMAP3) || \
 		defined(CONFIG_ARCH_OMAP4)
