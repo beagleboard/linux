@@ -73,7 +73,6 @@ static LIST_HEAD(uart_list);
 
 static struct plat_serial8250_port serial_platform_data0[] = {
 	{
-		.membase	= OMAP2_IO_ADDRESS(OMAP_UART1_BASE),
 		.mapbase	= OMAP_UART1_BASE,
 		.irq		= 72,
 		.flags		= UPF_BOOT_AUTOCONF,
@@ -87,7 +86,6 @@ static struct plat_serial8250_port serial_platform_data0[] = {
 
 static struct plat_serial8250_port serial_platform_data1[] = {
 	{
-		.membase	= OMAP2_IO_ADDRESS(OMAP_UART2_BASE),
 		.mapbase	= OMAP_UART2_BASE,
 		.irq		= 73,
 		.flags		= UPF_BOOT_AUTOCONF,
@@ -101,7 +99,6 @@ static struct plat_serial8250_port serial_platform_data1[] = {
 
 static struct plat_serial8250_port serial_platform_data2[] = {
 	{
-		.membase	= OMAP2_IO_ADDRESS(OMAP_UART3_BASE),
 		.mapbase	= OMAP_UART3_BASE,
 		.irq		= 74,
 		.flags		= UPF_BOOT_AUTOCONF,
@@ -110,7 +107,6 @@ static struct plat_serial8250_port serial_platform_data2[] = {
 		.uartclk	= OMAP24XX_BASE_BAUD * 16,
 	}, {
 #ifdef CONFIG_ARCH_OMAP4
-		.membase	= OMAP2_IO_ADDRESS(OMAP_UART4_BASE),
 		.mapbase	= OMAP_UART4_BASE,
 		.irq		= 70,
 		.flags		= UPF_BOOT_AUTOCONF,
@@ -126,7 +122,6 @@ static struct plat_serial8250_port serial_platform_data2[] = {
 #ifdef CONFIG_ARCH_OMAP4
 static struct plat_serial8250_port serial_platform_data3[] = {
 	{
-		.membase	= OMAP2_IO_ADDRESS(OMAP_UART4_BASE),
 		.mapbase	= OMAP_UART4_BASE,
 		.irq		= 70,
 		.flags		= UPF_BOOT_AUTOCONF,
@@ -549,7 +544,7 @@ static inline void omap_uart_idle_init(struct omap_uart_state *uart) {}
 #define DEV_CREATE_FILE(dev, attr)
 #endif /* CONFIG_PM */
 
-static struct omap_uart_state omap_uart[OMAP_MAX_NR_PORTS] = {
+static struct omap_uart_state omap_uart[] = {
 	{
 		.pdev = {
 			.name			= "serial8250",
@@ -599,11 +594,21 @@ void __init omap_serial_early_init(void)
 	 * if not needed.
 	 */
 
-	for (i = 0; i < OMAP_MAX_NR_PORTS; i++) {
+	for (i = 0; i < ARRAY_SIZE(omap_uart); i++) {
 		struct omap_uart_state *uart = &omap_uart[i];
 		struct platform_device *pdev = &uart->pdev;
 		struct device *dev = &pdev->dev;
 		struct plat_serial8250_port *p = dev->platform_data;
+
+		/*
+		 * Module 4KB + L4 interconnect 4KB
+		 * Static mapping, never released
+		 */
+		p->membase = ioremap(p->mapbase, SZ_8K);
+		if (!p->membase) {
+			printk(KERN_ERR "ioremap failed for uart%i\n", i + 1);
+			continue;
+		}
 
 		sprintf(name, "uart%d_ick", i+1);
 		uart->ick = clk_get(NULL, name);
@@ -641,7 +646,7 @@ void __init omap_serial_init(void)
 {
 	int i;
 
-	for (i = 0; i < OMAP_MAX_NR_PORTS; i++) {
+	for (i = 0; i < ARRAY_SIZE(omap_uart); i++) {
 		struct omap_uart_state *uart = &omap_uart[i];
 		struct platform_device *pdev = &uart->pdev;
 		struct device *dev = &pdev->dev;

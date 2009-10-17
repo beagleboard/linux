@@ -17,11 +17,11 @@
 
 #if defined(CONFIG_ARCH_OMAP1)
 
-#if defined(CONFIG_ARCH_OMAP730) && \
+#if (defined(CONFIG_ARCH_OMAP730)||defined(CONFIG_ARCH_OMAP850)) && \
 	(defined(CONFIG_ARCH_OMAP15XX) || defined(CONFIG_ARCH_OMAP16XX))
-#error "FIXME: OMAP730 doesn't support multiple-OMAP"
-#elif defined(CONFIG_ARCH_OMAP730)
-#define INT_IH2_IRQ		INT_730_IH2_IRQ
+#error "FIXME: OMAP7XX doesn't support multiple-OMAP"
+#elif defined(CONFIG_ARCH_OMAP730) || defined(CONFIG_ARCH_OMAP850)
+#define INT_IH2_IRQ		INT_7XX_IH2_IRQ
 #elif defined(CONFIG_ARCH_OMAP15XX)
 #define INT_IH2_IRQ		INT_1510_IH2_IRQ
 #elif defined(CONFIG_ARCH_OMAP16XX)
@@ -68,9 +68,9 @@
 
 /* REVISIT: This should be set dynamically if CONFIG_MULTI_OMAP2 is selected */
 #if defined(CONFIG_ARCH_OMAP2420) || defined(CONFIG_ARCH_OMAP2430)
-#define OMAP2_VA_IC_BASE		OMAP2_IO_ADDRESS(OMAP24XX_IC_BASE)
+#define OMAP2_VA_IC_BASE		OMAP2_L4_IO_ADDRESS(OMAP24XX_IC_BASE)
 #elif defined(CONFIG_ARCH_OMAP34XX)
-#define OMAP2_VA_IC_BASE		OMAP2_IO_ADDRESS(OMAP34XX_IC_BASE)
+#define OMAP2_VA_IC_BASE		OMAP2_L4_IO_ADDRESS(OMAP34XX_IC_BASE)
 #endif
 #if defined(CONFIG_ARCH_OMAP4)
 #include <mach/omap44xx.h>
@@ -104,6 +104,8 @@
 
 		.endm
 #else
+#define OMAP44XX_VA_GIC_CPU_BASE	OMAP2_L4_IO_ADDRESS(OMAP44XX_GIC_CPU_BASE)
+
 		/*
 		 * The interrupt numbering scheme is defined in the
 		 * interrupt controller spec.  To wit:
