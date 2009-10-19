@@ -24,6 +24,7 @@
 #include <asm/localtimer.h>
 #include <asm/smp_scu.h>
 #include <mach/hardware.h>
+#include <mach/common.h>
 
 /* Registers used for communicating startup information */
 static void __iomem *omap4_auxcoreboot_reg0;
@@ -46,8 +47,6 @@ static DEFINE_SPINLOCK(boot_lock);
 
 void __cpuinit platform_secondary_init(unsigned int cpu)
 {
-	void __iomem *gic_cpu_base;
-
 	trace_hardirqs_off();
 
 	/*
@@ -55,11 +54,7 @@ void __cpuinit platform_secondary_init(unsigned int cpu)
 	 * core (e.g. timer irq), then they will not have been enabled
 	 * for us: do so
 	 */
-
-	/* Static mapping, never released */
-	gic_cpu_base = ioremap(OMAP44XX_GIC_CPU_BASE, SZ_256);
-	BUG_ON(!gic_cpu_base);
-	gic_cpu_init(0, gic_cpu_base);
+	gic_cpu_init(0, gic_cpu_base_addr);
 
 	/*
 	 * Synchronise with the boot thread.
@@ -125,7 +120,13 @@ static void __init wakeup_secondary(void)
  */
 void __init smp_init_cpus(void)
 {
-	unsigned int i, ncores = get_core_count();
+	unsigned int i, ncores;
+
+	/* Never released */
+	scu_base = ioremap(OMAP44XX_SCU_BASE, SZ_256);
+	BUG_ON(!scu_base);
+
+	ncores = get_core_count();
 
 	for (i = 0; i < ncores; i++)
 		set_cpu_possible(i, true);
@@ -171,11 +172,7 @@ void __init smp_prepare_cpus(unsigned int max_cpus)
 	omap4_wkupgen_base = ioremap(OMAP44XX_WKUPGEN_BASE, SZ_4K);
 	BUG_ON(!omap4_wkupgen_base);
 	omap4_auxcoreboot_reg0 = omap4_wkupgen_base + 0x800;
-	omap4_auxcoreboot_reg0 = omap4_wkupgen_base + 0x804;
-
-	/* Never released */
-	scu_base = ioremap(OMAP44XX_GIC_CPU_BASE, SZ_256);
-	BUG_ON(!scu_base);
+	omap4_auxcoreboot_reg1 = omap4_wkupgen_base + 0x804;
 
 	if (max_cpus > 1) {
 		/*

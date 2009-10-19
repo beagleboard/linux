@@ -60,9 +60,9 @@ static void __init gic_init_irq(void)
 	gic_dist_init(0, base, 29);
 
 	/* Static mapping, never released */
-	base = ioremap(OMAP44XX_GIC_CPU_BASE, SZ_256);
+	gic_cpu_base_addr = ioremap(OMAP44XX_GIC_CPU_BASE, SZ_512);
 	BUG_ON(!base);
-	gic_cpu_init(0, OMAP44XX_GIC_CPU_BASE);
+	gic_cpu_init(0, gic_cpu_base_addr);
 }
 
 static void __init omap_4430sdp_init_irq(void)
