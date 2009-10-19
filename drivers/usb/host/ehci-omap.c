@@ -709,10 +709,19 @@ static int ehci_hcd_omap_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static void ehci_hcd_omap_shutdown(struct platform_device *pdev)
+{
+	struct ehci_hcd_omap *omap = platform_get_drvdata(pdev);
+	struct usb_hcd *hcd = ehci_to_hcd(omap->ehci);
+
+	if (hcd->driver->shutdown)
+		hcd->driver->shutdown(hcd);
+}
+
 static struct platform_driver ehci_hcd_omap_driver = {
 	.probe			= ehci_hcd_omap_probe,
 	.remove			= ehci_hcd_omap_remove,
-	.shutdown		= usb_hcd_platform_shutdown,
+	.shutdown		= ehci_hcd_omap_shutdown,
 	/*.suspend		= ehci_hcd_omap_suspend, */
 	/*.resume		= ehci_hcd_omap_resume, */
 	.driver = {
