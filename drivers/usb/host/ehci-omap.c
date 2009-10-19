@@ -734,7 +734,7 @@ static struct platform_driver ehci_hcd_omap_driver = {
 static const struct hc_driver ehci_omap_hc_driver = {
 	.description		= hcd_name,
 	.product_desc		= "OMAP-EHCI Host Controller",
-	.hcd_priv_size		= sizeof(struct ehci_hcd_omap),
+	.hcd_priv_size		= sizeof(struct ehci_hcd),
 
 	/*
 	 * generic hardware linkage
