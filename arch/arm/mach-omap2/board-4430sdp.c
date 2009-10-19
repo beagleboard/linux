@@ -61,7 +61,7 @@ static void __init gic_init_irq(void)
 
 	/* Static mapping, never released */
 	gic_cpu_base_addr = ioremap(OMAP44XX_GIC_CPU_BASE, SZ_512);
-	BUG_ON(!base);
+	BUG_ON(!gic_cpu_base_addr);
 	gic_cpu_init(0, gic_cpu_base_addr);
 }
 
