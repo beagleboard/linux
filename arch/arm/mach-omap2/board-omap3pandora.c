@@ -396,6 +396,7 @@ static void __init omap3pandora_init(void)
 	spi_register_board_info(omap3pandora_spi_board_info,
 			ARRAY_SIZE(omap3pandora_spi_board_info));
 	omap3pandora_ads7846_init();
+	usb_ehci_init(EHCI_HCD_OMAP_MODE_PHY, false, true, 16, -EINVAL);
 	pandora_keys_gpio_init();
 	usb_musb_init();
 
