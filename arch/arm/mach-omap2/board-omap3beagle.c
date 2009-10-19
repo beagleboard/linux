@@ -406,10 +406,10 @@ static struct ehci_hcd_omap_platform_data ehci_pdata __initconst = {
 	.port_mode[1] = EHCI_HCD_OMAP_MODE_PHY,
 	.port_mode[2] = EHCI_HCD_OMAP_MODE_UNKNOWN,
 
-	.chargepump = true,
+	.chargepump = false,
 	.phy_reset  = true,
-	.reset_gpio_port[0]  = 57,
-	.reset_gpio_port[1]  = 61,
+	.reset_gpio_port[0]  = -EINVAL,
+	.reset_gpio_port[1]  = 147,
 	.reset_gpio_port[2]  = -EINVAL
 };
 
