@@ -38,10 +38,10 @@
 #include <linux/gpio.h>
 
 #include <asm/uaccess.h>
+#include <asm/mach-types.h>
 
 #include <plat/mux.h>
 #include <plat/board.h>
-#include <mach/board-nokia.h>
 
 #include "cbus.h"
 #include "tahvo.h"
@@ -322,6 +322,17 @@ static int __devinit tahvo_probe(struct device *dev)
 	       (rev >> 4) & 0x0f, rev & 0x0f);
 
 	tahvo_irq_pin = em_asic_config->tahvo_irq_gpio;
+
+	/* REVISIT: Pass these from board-*.c files in platform_data */
+	if (machine_is_nokia770()) {
+		tahvo_irq_pin = 40;
+	} else if (machine_is_nokia_n800() || machine_is_nokia_n810() ||
+			machine_is_nokia_n810_wimax()) {
+		tahvo_irq_pin = 111;
+	} else {
+		printk(KERN_ERR "cbus: Unsupported board for tahvo\n");
+		return -ENODEV;
+	}
 
 	if ((ret = gpio_request(tahvo_irq_pin, "TAHVO irq")) < 0) {
 		printk(KERN_ERR PFX "Unable to reserve IRQ GPIO\n");
