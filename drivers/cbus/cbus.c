@@ -144,7 +144,7 @@ static int cbus_transfer(struct cbus_host *host, int dev, int reg, int data)
 	u32 base;
 
 #ifdef CONFIG_ARCH_OMAP1
-	base = OMAP1_IO_ADDRESS(OMAP_MPUIO_BASE);
+	base = OMAP1_IO_ADDRESS(OMAP1_MPUIO_BASE);
 #else
 	base = 0;
 #endif
