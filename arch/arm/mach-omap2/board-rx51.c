@@ -26,7 +26,6 @@
 #include <plat/mux.h>
 #include <plat/board.h>
 #include <plat/common.h>
-#include <plat/keypad.h>
 #include <plat/dma.h>
 #include <plat/gpmc.h>
 #include <plat/usb.h>

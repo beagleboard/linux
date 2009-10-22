@@ -12,6 +12,7 @@
 #include <linux/init.h>
 #include <linux/platform_device.h>
 #include <linux/input.h>
+#include <linux/input/matrix_keypad.h>
 #include <linux/spi/spi.h>
 #include <linux/i2c.h>
 #include <linux/i2c/twl4030.h>
@@ -27,7 +28,6 @@
 #include <plat/common.h>
 #include <plat/dma.h>
 #include <plat/gpmc.h>
-#include <plat/keypad.h>
 #include <plat/onenand.h>
 #include <plat/gpmc-smc91x.h>
 
