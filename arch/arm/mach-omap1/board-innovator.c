@@ -376,7 +376,9 @@ static void __init innovator_init(void)
 {
 #ifdef CONFIG_ARCH_OMAP15XX
 	if (cpu_is_omap1510()) {
-		/* setup mux pins for uarts, removed from serial.c */
+		unsigned char reg;
+
+		/* mux pins for uarts */
 		omap_cfg_reg(UART1_TX);
 		omap_cfg_reg(UART1_RTS);
 		omap_cfg_reg(UART2_TX);

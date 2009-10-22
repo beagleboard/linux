@@ -289,7 +289,7 @@ static void __init omap_mpu_wdt_mode(int mode) {
 
 static void __init omap_palmtt_init(void)
 {
-	/* setup mux pins for uarts, removed from serial.c */
+	/* mux pins for uarts */
 	omap_cfg_reg(UART1_TX);
 	omap_cfg_reg(UART1_RTS);
 	omap_cfg_reg(UART2_TX);

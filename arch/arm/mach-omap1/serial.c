@@ -121,7 +121,6 @@ void __init omap_serial_init(void)
 	}
 
 	for (i = 0; i < ARRAY_SIZE(serial_platform_data) - 1; i++) {
-		unsigned char reg;
 
 		/* Static mapping, never released */
 		serial_platform_data[i].membase =
