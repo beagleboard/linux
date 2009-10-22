@@ -219,6 +219,10 @@ static struct platform_device *ams_delta_devices[] __initdata = {
 
 static void __init ams_delta_init(void)
 {
+	/* setup mux pins for uarts, removed from serial.c */
+	omap_cfg_reg(UART1_TX);
+	omap_cfg_reg(UART1_RTS);
+
 	iotable_init(ams_delta_io_desc, ARRAY_SIZE(ams_delta_io_desc));
 
 	omap_board_config = ams_delta_config;
