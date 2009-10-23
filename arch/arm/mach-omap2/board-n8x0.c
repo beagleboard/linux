@@ -76,10 +76,12 @@ static struct spi_board_info n800_spi_board_info[] __initdata = {
 #define N8X0_BLIZZARD_POWERDOWN_GPIO	15
 
 /* REVISIT: Get rid of the these *_config entries, use platform_data */
+/* Seems to be only used for ctrl_name */
 static struct omap_lcd_config n8x0_lcd_config __initdata = {
-	.nreset_gpio	= 30,
-	.data_lines	= 24,
+	//.nreset_gpio	= 30,		// REVISIT: Needed?
+	//.data_lines	= 24,		// REVISIT: Needed?
 	.ctrl_name	= "blizzard",
+	//.panel_name	= "ls041y3",	// REVISIT: Needed?
 };
 
 static struct omap_fbmem_config n8x0_fbmem0_config __initdata = {
