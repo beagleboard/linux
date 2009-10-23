@@ -538,7 +538,7 @@ static int mipid_detect(struct mipid_device *md)
 	}
 
 	mipid_read(md, MIPID_CMD_READ_DISP_ID, display_id, 3);
-	dev_dbg(&md->spi->dev, "MIPI display ID: %02x%02x%02x\n",
+	dev_err(&md->spi->dev, "MIPI display ID: %02x%02x%02x\n",
 		display_id[0], display_id[1], display_id[2]);
 
 	switch (display_id[0]) {
@@ -550,9 +550,9 @@ static int mipid_detect(struct mipid_device *md)
 		md->esd_check = ls041y3_esd_check;
 		break;
 	default:
-		md->panel.name = "unknown";
-		dev_err(&md->spi->dev, "invalid display ID\n");
-		return -ENODEV;
+		dev_err(&md->spi->dev, "FIXME: LCD panel detection failed!\n");
+		md->panel.name = "ls041y3";
+		md->esd_check = ls041y3_esd_check;
 	}
 
 	md->revision = display_id[1];
