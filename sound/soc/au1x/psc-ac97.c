@@ -61,7 +61,8 @@ static unsigned short au1xpsc_ac97_read(struct snd_ac97 *ac97,
 {
 	/* FIXME */
 	struct au1xpsc_audio_data *pscdata = au1xpsc_ac97_workdata;
-	unsigned short data, retry, tmo;
+	unsigned short retry, tmo;
+	unsigned long data;
 
 	au_writel(PSC_AC97EVNT_CD, AC97_EVNT(pscdata));
 	au_sync();
@@ -74,20 +75,26 @@ static unsigned short au1xpsc_ac97_read(struct snd_ac97 *ac97,
 			  AC97_CDC(pscdata));
 		au_sync();
 
-		tmo = 2000;
-		while ((!(au_readl(AC97_EVNT(pscdata)) & PSC_AC97EVNT_CD))
-			&& --tmo)
-			udelay(2);
+		tmo = 20;
+		do {
+			udelay(21);
+			if (au_readl(AC97_EVNT(pscdata)) & PSC_AC97EVNT_CD)
+				break;
+		} while (--tmo);
 
-		data = au_readl(AC97_CDC(pscdata)) & 0xffff;
+		data = au_readl(AC97_CDC(pscdata));
 
 		au_writel(PSC_AC97EVNT_CD, AC97_EVNT(pscdata));
 		au_sync();
 
 		mutex_unlock(&pscdata->lock);
+
+		if (reg != ((data >> 16) & 0x7f))
+			tmo = 1;	/* wrong register, try again */
+
 	} while (--retry && !tmo);
 
-	return retry ? data : 0xffff;
+	return retry ? data & 0xffff : 0xffff;
 }
 
 /* AC97 controller writes to codec register */
@@ -109,10 +116,12 @@ static void au1xpsc_ac97_write(struct snd_ac97 *ac97, unsigned short reg,
 			  AC97_CDC(pscdata));
 		au_sync();
 
-		tmo = 2000;
-		while ((!(au_readl(AC97_EVNT(pscdata)) & PSC_AC97EVNT_CD))
-		       && --tmo)
-			udelay(2);
+		tmo = 20;
+		do {
+			udelay(21);
+			if (au_readl(AC97_EVNT(pscdata)) & PSC_AC97EVNT_CD)
+				break;
+		} while (--tmo);
 
 		au_writel(PSC_AC97EVNT_CD, AC97_EVNT(pscdata));
 		au_sync();
@@ -195,7 +204,7 @@ static int au1xpsc_ac97_hw_params(struct snd_pcm_substream *substream,
 	/* FIXME */
 	struct au1xpsc_audio_data *pscdata = au1xpsc_ac97_workdata;
 	unsigned long r, ro, stat;
-	int chans, stype = SUBSTREAM_TYPE(substream);
+	int chans, t, stype = SUBSTREAM_TYPE(substream);
 
 	chans = params_channels(params);
 
@@ -237,8 +246,12 @@ static int au1xpsc_ac97_hw_params(struct snd_pcm_substream *substream,
 		au_sync();
 
 		/* ...wait for it... */
-		while (au_readl(AC97_STAT(pscdata)) & PSC_AC97STAT_DR)
-			asm volatile ("nop");
+		t = 100;
+		while ((au_readl(AC97_STAT(pscdata)) & PSC_AC97STAT_DR) && --t)
+			msleep(1);
+
+		if (!t)
+			printk(KERN_ERR "PSC-AC97: can't disable!\n");
 
 		/* ...write config... */
 		au_writel(r, AC97_CFG(pscdata));
@@ -249,8 +262,12 @@ static int au1xpsc_ac97_hw_params(struct snd_pcm_substream *substream,
 		au_sync();
 
 		/* ...and wait for ready bit */
-		while (!(au_readl(AC97_STAT(pscdata)) & PSC_AC97STAT_DR))
-			asm volatile ("nop");
+		t = 100;
+		while ((!(au_readl(AC97_STAT(pscdata)) & PSC_AC97STAT_DR)) && --t)
+			msleep(1);
+
+		if (!t)
+			printk(KERN_ERR "PSC-AC97: can't enable!\n");
 
 		mutex_unlock(&pscdata->lock);
 
