@@ -21,11 +21,11 @@
 #include <linux/platform_device.h>
 #include <linux/clk.h>
 #include <asm/io.h>
-#include <mach/mux.h>
+#include <plat/mux.h>
 
 #include <mach/hardware.h>
 #include <mach/irqs.h>
-#include <mach/usb.h>
+#include <plat/usb.h>
 
 #if defined(CONFIG_USB_EHCI_HCD) || defined(CONFIG_USB_EHCI_HCD_MODULE)
 
