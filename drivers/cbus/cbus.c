@@ -30,10 +30,10 @@
 #include <linux/spinlock.h>
 #include <linux/gpio.h>
 
-#include <plat/board.h>
-#include <mach/board-nokia.h>
-
 #include <asm/io.h>
+#include <asm/mach-types.h>
+
+#include <plat/board.h>
 
 #include "cbus.h"
 
@@ -144,7 +144,7 @@ static int cbus_transfer(struct cbus_host *host, int dev, int reg, int data)
 	u32 base;
 
 #ifdef CONFIG_ARCH_OMAP1
-	base = OMAP1_IO_ADDRESS(OMAP_MPUIO_BASE);
+	base = OMAP1_IO_ADDRESS(OMAP1_MPUIO_BASE);
 #else
 	base = 0;
 #endif
@@ -221,7 +221,6 @@ int cbus_write_reg(struct cbus_host *host, int dev, int reg, u16 val)
 
 int __init cbus_bus_init(void)
 {
-	const struct omap_cbus_config * cbus_config;
 	struct cbus_host *chost;
 	int ret;
 
@@ -233,16 +232,21 @@ int __init cbus_bus_init(void)
 
 	spin_lock_init(&chost->lock);
 
-	cbus_config = omap_get_config(OMAP_TAG_CBUS, struct omap_cbus_config);
-
-	if (cbus_config == NULL) {
-		printk(KERN_ERR "cbus: Unable to retrieve config data\n");
-		return -ENODATA;
+	/* REVISIT: Pass these from board-*.c files in platform_data */
+	if (machine_is_nokia770()) {
+		chost->clk_gpio = OMAP_MPUIO(11);
+		chost->dat_gpio = OMAP_MPUIO(10);
+		chost->sel_gpio = OMAP_MPUIO(9);
+	} else if (machine_is_nokia_n800() || machine_is_nokia_n810() ||
+			machine_is_nokia_n810_wimax()) {
+		chost->clk_gpio = 66;
+		chost->dat_gpio = 65;
+		chost->sel_gpio = 64;
+	} else {
+		printk(KERN_ERR "cbus: Unsupported board\n");
+		ret = -ENODEV;
+		goto exit1;
 	}
-
-	chost->clk_gpio = cbus_config->clk_gpio;
-	chost->dat_gpio = cbus_config->dat_gpio;
-	chost->sel_gpio = cbus_config->sel_gpio;
 
 #ifdef CONFIG_ARCH_OMAP1
 	if (!OMAP_GPIO_IS_MPUIO(chost->clk_gpio) ||
