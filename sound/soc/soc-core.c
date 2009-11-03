@@ -37,7 +37,6 @@
 #include <sound/initval.h>
 
 static DEFINE_MUTEX(pcm_mutex);
-static DEFINE_MUTEX(io_mutex);
 static DECLARE_WAIT_QUEUE_HEAD(soc_pm_waitq);
 
 #ifdef CONFIG_DEBUG_FS
@@ -1346,17 +1345,39 @@ int snd_soc_update_bits(struct snd_soc_codec *codec, unsigned short reg,
 	int change;
 	unsigned int old, new;
 
-	mutex_lock(&io_mutex);
 	old = snd_soc_read(codec, reg);
 	new = (old & ~mask) | value;
 	change = old != new;
 	if (change)
 		snd_soc_write(codec, reg, new);
 
-	mutex_unlock(&io_mutex);
 	return change;
 }
 EXPORT_SYMBOL_GPL(snd_soc_update_bits);
+
+/**
+ * snd_soc_update_bits_locked - update codec register bits
+ * @codec: audio codec
+ * @reg: codec register
+ * @mask: register mask
+ * @value: new value
+ *
+ * Writes new register value, and takes the codec mutex.
+ *
+ * Returns 1 for change else 0.
+ */
+static int snd_soc_update_bits_locked(struct snd_soc_codec *codec,
+				unsigned short reg, unsigned int mask,
+				unsigned int value)
+{
+	int change;
+
+	mutex_lock(&codec->mutex);
+	change = snd_soc_update_bits(codec, reg, mask, value);
+	mutex_unlock(&codec->mutex);
+
+	return change;
+}
 
 /**
  * snd_soc_test_bits - test register for change
@@ -1376,11 +1397,9 @@ int snd_soc_test_bits(struct snd_soc_codec *codec, unsigned short reg,
 	int change;
 	unsigned int old, new;
 
-	mutex_lock(&io_mutex);
 	old = snd_soc_read(codec, reg);
 	new = (old & ~mask) | value;
 	change = old != new;
-	mutex_unlock(&io_mutex);
 
 	return change;
 }
@@ -1711,7 +1730,7 @@ int snd_soc_put_enum_double(struct snd_kcontrol *kcontrol,
 		mask |= (bitmask - 1) << e->shift_r;
 	}
 
-	return snd_soc_update_bits(codec, e->reg, mask, val);
+	return snd_soc_update_bits_locked(codec, e->reg, mask, val);
 }
 EXPORT_SYMBOL_GPL(snd_soc_put_enum_double);
 
@@ -1785,7 +1804,7 @@ int snd_soc_put_value_enum_double(struct snd_kcontrol *kcontrol,
 		mask |= e->mask << e->shift_r;
 	}
 
-	return snd_soc_update_bits(codec, e->reg, mask, val);
+	return snd_soc_update_bits_locked(codec, e->reg, mask, val);
 }
 EXPORT_SYMBOL_GPL(snd_soc_put_value_enum_double);
 
@@ -1946,7 +1965,7 @@ int snd_soc_put_volsw(struct snd_kcontrol *kcontrol,
 		val_mask |= mask << rshift;
 		val |= val2 << rshift;
 	}
-	return snd_soc_update_bits(codec, reg, val_mask, val);
+	return snd_soc_update_bits_locked(codec, reg, val_mask, val);
 }
 EXPORT_SYMBOL_GPL(snd_soc_put_volsw);
 
@@ -2052,11 +2071,11 @@ int snd_soc_put_volsw_2r(struct snd_kcontrol *kcontrol,
 	val = val << shift;
 	val2 = val2 << shift;
 
-	err = snd_soc_update_bits(codec, reg, val_mask, val);
+	err = snd_soc_update_bits_locked(codec, reg, val_mask, val);
 	if (err < 0)
 		return err;
 
-	err = snd_soc_update_bits(codec, reg2, val_mask, val2);
+	err = snd_soc_update_bits_locked(codec, reg2, val_mask, val2);
 	return err;
 }
 EXPORT_SYMBOL_GPL(snd_soc_put_volsw_2r);
@@ -2135,7 +2154,7 @@ int snd_soc_put_volsw_s8(struct snd_kcontrol *kcontrol,
 	val = (ucontrol->value.integer.value[0]+min) & 0xff;
 	val |= ((ucontrol->value.integer.value[1]+min) & 0xff) << 8;
 
-	return snd_soc_update_bits(codec, reg, 0xffff, val);
+	return snd_soc_update_bits_locked(codec, reg, 0xffff, val);
 }
 EXPORT_SYMBOL_GPL(snd_soc_put_volsw_s8);
 
