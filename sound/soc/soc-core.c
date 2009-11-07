@@ -80,6 +80,173 @@ static int run_delayed_work(struct delayed_work *dwork)
 	return ret;
 }
 
+/* codec register dump */
+static ssize_t soc_codec_reg_show(struct snd_soc_codec *codec, char *buf)
+{
+	int i, step = 1, count = 0;
+
+	if (!codec->reg_cache_size)
+		return 0;
+
+	if (codec->reg_cache_step)
+		step = codec->reg_cache_step;
+
+	count += sprintf(buf, "%s registers\n", codec->name);
+	for (i = 0; i < codec->reg_cache_size; i += step) {
+		if (codec->readable_register && !codec->readable_register(i))
+			continue;
+
+		count += sprintf(buf + count, "%2x: ", i);
+		if (count >= PAGE_SIZE - 1)
+			break;
+
+		if (codec->display_register)
+			count += codec->display_register(codec, buf + count,
+							 PAGE_SIZE - count, i);
+		else
+			count += snprintf(buf + count, PAGE_SIZE - count,
+					  "%4x", codec->read(codec, i));
+
+		if (count >= PAGE_SIZE - 1)
+			break;
+
+		count += snprintf(buf + count, PAGE_SIZE - count, "\n");
+		if (count >= PAGE_SIZE - 1)
+			break;
+	}
+
+	/* Truncate count; min() would cause a warning */
+	if (count >= PAGE_SIZE)
+		count = PAGE_SIZE - 1;
+
+	return count;
+}
+static ssize_t codec_reg_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct snd_soc_device *devdata = dev_get_drvdata(dev);
+	return soc_codec_reg_show(devdata->card->codec, buf);
+}
+
+static DEVICE_ATTR(codec_reg, 0444, codec_reg_show, NULL);
+
+#ifdef CONFIG_DEBUG_FS
+static int codec_reg_open_file(struct inode *inode, struct file *file)
+{
+	file->private_data = inode->i_private;
+	return 0;
+}
+
+static ssize_t codec_reg_read_file(struct file *file, char __user *user_buf,
+			       size_t count, loff_t *ppos)
+{
+	ssize_t ret;
+	struct snd_soc_codec *codec = file->private_data;
+	char *buf = kmalloc(PAGE_SIZE, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+	ret = soc_codec_reg_show(codec, buf);
+	if (ret >= 0)
+		ret = simple_read_from_buffer(user_buf, count, ppos, buf, ret);
+	kfree(buf);
+	return ret;
+}
+
+static ssize_t codec_reg_write_file(struct file *file,
+		const char __user *user_buf, size_t count, loff_t *ppos)
+{
+	char buf[32];
+	int buf_size;
+	char *start = buf;
+	unsigned long reg, value;
+	int step = 1;
+	struct snd_soc_codec *codec = file->private_data;
+
+	buf_size = min(count, (sizeof(buf)-1));
+	if (copy_from_user(buf, user_buf, buf_size))
+		return -EFAULT;
+	buf[buf_size] = 0;
+
+	if (codec->reg_cache_step)
+		step = codec->reg_cache_step;
+
+	while (*start == ' ')
+		start++;
+	reg = simple_strtoul(start, &start, 16);
+	if ((reg >= codec->reg_cache_size) || (reg % step))
+		return -EINVAL;
+	while (*start == ' ')
+		start++;
+	if (strict_strtoul(start, 16, &value))
+		return -EINVAL;
+	codec->write(codec, reg, value);
+	return buf_size;
+}
+
+static const struct file_operations codec_reg_fops = {
+	.open = codec_reg_open_file,
+	.read = codec_reg_read_file,
+	.write = codec_reg_write_file,
+};
+
+static void soc_init_codec_debugfs(struct snd_soc_codec *codec)
+{
+	char codec_root[128];
+
+	if (codec->dev)
+		snprintf(codec_root, sizeof(codec_root),
+			"%s.%s", codec->name, dev_name(codec->dev));
+	else
+		snprintf(codec_root, sizeof(codec_root),
+			"%s", codec->name);
+
+	codec->debugfs_codec_root = debugfs_create_dir(codec_root,
+						       debugfs_root);
+	if (!codec->debugfs_codec_root) {
+		printk(KERN_WARNING
+		       "ASoC: Failed to create codec debugfs directory\n");
+		return;
+	}
+
+	codec->debugfs_reg = debugfs_create_file("codec_reg", 0644,
+						 codec->debugfs_codec_root,
+						 codec, &codec_reg_fops);
+	if (!codec->debugfs_reg)
+		printk(KERN_WARNING
+		       "ASoC: Failed to create codec register debugfs file\n");
+
+	codec->debugfs_pop_time = debugfs_create_u32("dapm_pop_time", 0744,
+						     codec->debugfs_codec_root,
+						     &codec->pop_time);
+	if (!codec->debugfs_pop_time)
+		printk(KERN_WARNING
+		       "Failed to create pop time debugfs file\n");
+
+	codec->debugfs_dapm = debugfs_create_dir("dapm",
+						 codec->debugfs_codec_root);
+	if (!codec->debugfs_dapm)
+		printk(KERN_WARNING
+		       "Failed to create DAPM debugfs directory\n");
+
+	snd_soc_dapm_debugfs_init(codec);
+}
+
+static void soc_cleanup_codec_debugfs(struct snd_soc_codec *codec)
+{
+	debugfs_remove_recursive(codec->debugfs_codec_root);
+}
+
+#else
+
+static inline void soc_init_codec_debugfs(struct snd_soc_codec *codec)
+{
+}
+
+static inline void soc_cleanup_codec_debugfs(struct snd_soc_codec *codec)
+{
+}
+#endif
+
 #ifdef CONFIG_SND_SOC_AC97_BUS
 /* unregister ac97 codec */
 static int soc_ac97_dev_unregister(struct snd_soc_codec *codec)
@@ -803,6 +970,7 @@ static void snd_soc_instantiate_card(struct snd_soc_card *card)
 						    struct platform_device,
 						    dev);
 	struct snd_soc_codec_device *codec_dev = card->socdev->codec_dev;
+	struct snd_soc_codec *codec;
 	struct snd_soc_platform *platform;
 	struct snd_soc_dai *dai;
 	int i, found, ret, ac97;
@@ -891,6 +1059,7 @@ static void snd_soc_instantiate_card(struct snd_soc_card *card)
 		if (ret < 0)
 			goto cpu_dai_err;
 	}
+	codec = card->codec;
 
 	if (platform->probe) {
 		ret = platform->probe(pdev);
@@ -905,9 +1074,71 @@ static void snd_soc_instantiate_card(struct snd_soc_card *card)
 	INIT_WORK(&card->deferred_resume_work, soc_resume_deferred);
 #endif
 
+	for (i = 0; i < card->num_links; i++) {
+		if (card->dai_link[i].init) {
+			ret = card->dai_link[i].init(codec);
+			if (ret < 0) {
+				printk(KERN_ERR "asoc: failed to init %s\n",
+					card->dai_link[i].stream_name);
+				continue;
+			}
+		}
+		if (card->dai_link[i].codec_dai->ac97_control) {
+			ac97 = 1;
+			snd_ac97_dev_add_pdata(codec->ac97,
+				card->dai_link[i].cpu_dai->ac97_pdata);
+		}
+	}
+
+	snprintf(codec->card->shortname, sizeof(codec->card->shortname),
+		 "%s",  card->name);
+	snprintf(codec->card->longname, sizeof(codec->card->longname),
+		 "%s (%s)", card->name, codec->name);
+
+	/* Make sure all DAPM widgets are instantiated */
+	snd_soc_dapm_new_widgets(codec);
+
+	ret = snd_card_register(codec->card);
+	if (ret < 0) {
+		printk(KERN_ERR "asoc: failed to register soundcard for %s\n",
+				codec->name);
+		goto card_err;
+	}
+
+	mutex_lock(&codec->mutex);
+#ifdef CONFIG_SND_SOC_AC97_BUS
+	/* Only instantiate AC97 if not already done by the adaptor
+	 * for the generic AC97 subsystem.
+	 */
+	if (ac97 && strcmp(codec->name, "AC97") != 0) {
+		ret = soc_ac97_dev_register(codec);
+		if (ret < 0) {
+			printk(KERN_ERR "asoc: AC97 device register failed\n");
+			snd_card_free(codec->card);
+			mutex_unlock(&codec->mutex);
+			goto card_err;
+		}
+	}
+#endif
+
+	ret = snd_soc_dapm_sys_add(card->socdev->dev);
+	if (ret < 0)
+		printk(KERN_WARNING "asoc: failed to add dapm sysfs entries\n");
+
+	ret = device_create_file(card->socdev->dev, &dev_attr_codec_reg);
+	if (ret < 0)
+		printk(KERN_WARNING "asoc: failed to add codec sysfs files\n");
+
+	soc_init_codec_debugfs(codec);
+	mutex_unlock(&codec->mutex);
+
 	card->instantiated = 1;
 
 	return;
+
+card_err:
+	if (platform->remove)
+		platform->remove(pdev);
 
 platform_err:
 	if (codec_dev->remove)
@@ -1111,173 +1342,6 @@ int snd_soc_codec_volatile_register(struct snd_soc_codec *codec, int reg)
 }
 EXPORT_SYMBOL_GPL(snd_soc_codec_volatile_register);
 
-/* codec register dump */
-static ssize_t soc_codec_reg_show(struct snd_soc_codec *codec, char *buf)
-{
-	int i, step = 1, count = 0;
-
-	if (!codec->reg_cache_size)
-		return 0;
-
-	if (codec->reg_cache_step)
-		step = codec->reg_cache_step;
-
-	count += sprintf(buf, "%s registers\n", codec->name);
-	for (i = 0; i < codec->reg_cache_size; i += step) {
-		if (codec->readable_register && !codec->readable_register(i))
-			continue;
-
-		count += sprintf(buf + count, "%2x: ", i);
-		if (count >= PAGE_SIZE - 1)
-			break;
-
-		if (codec->display_register)
-			count += codec->display_register(codec, buf + count,
-							 PAGE_SIZE - count, i);
-		else
-			count += snprintf(buf + count, PAGE_SIZE - count,
-					  "%4x", codec->read(codec, i));
-
-		if (count >= PAGE_SIZE - 1)
-			break;
-
-		count += snprintf(buf + count, PAGE_SIZE - count, "\n");
-		if (count >= PAGE_SIZE - 1)
-			break;
-	}
-
-	/* Truncate count; min() would cause a warning */
-	if (count >= PAGE_SIZE)
-		count = PAGE_SIZE - 1;
-
-	return count;
-}
-static ssize_t codec_reg_show(struct device *dev,
-	struct device_attribute *attr, char *buf)
-{
-	struct snd_soc_device *devdata = dev_get_drvdata(dev);
-	return soc_codec_reg_show(devdata->card->codec, buf);
-}
-
-static DEVICE_ATTR(codec_reg, 0444, codec_reg_show, NULL);
-
-#ifdef CONFIG_DEBUG_FS
-static int codec_reg_open_file(struct inode *inode, struct file *file)
-{
-	file->private_data = inode->i_private;
-	return 0;
-}
-
-static ssize_t codec_reg_read_file(struct file *file, char __user *user_buf,
-			       size_t count, loff_t *ppos)
-{
-	ssize_t ret;
-	struct snd_soc_codec *codec = file->private_data;
-	char *buf = kmalloc(PAGE_SIZE, GFP_KERNEL);
-	if (!buf)
-		return -ENOMEM;
-	ret = soc_codec_reg_show(codec, buf);
-	if (ret >= 0)
-		ret = simple_read_from_buffer(user_buf, count, ppos, buf, ret);
-	kfree(buf);
-	return ret;
-}
-
-static ssize_t codec_reg_write_file(struct file *file,
-		const char __user *user_buf, size_t count, loff_t *ppos)
-{
-	char buf[32];
-	int buf_size;
-	char *start = buf;
-	unsigned long reg, value;
-	int step = 1;
-	struct snd_soc_codec *codec = file->private_data;
-
-	buf_size = min(count, (sizeof(buf)-1));
-	if (copy_from_user(buf, user_buf, buf_size))
-		return -EFAULT;
-	buf[buf_size] = 0;
-
-	if (codec->reg_cache_step)
-		step = codec->reg_cache_step;
-
-	while (*start == ' ')
-		start++;
-	reg = simple_strtoul(start, &start, 16);
-	if ((reg >= codec->reg_cache_size) || (reg % step))
-		return -EINVAL;
-	while (*start == ' ')
-		start++;
-	if (strict_strtoul(start, 16, &value))
-		return -EINVAL;
-	codec->write(codec, reg, value);
-	return buf_size;
-}
-
-static const struct file_operations codec_reg_fops = {
-	.open = codec_reg_open_file,
-	.read = codec_reg_read_file,
-	.write = codec_reg_write_file,
-};
-
-static void soc_init_codec_debugfs(struct snd_soc_codec *codec)
-{
-	char codec_root[128];
-
-	if (codec->dev)
-		snprintf(codec_root, sizeof(codec_root),
-			"%s.%s", codec->name, dev_name(codec->dev));
-	else
-		snprintf(codec_root, sizeof(codec_root),
-			"%s", codec->name);
-
-	codec->debugfs_codec_root = debugfs_create_dir(codec_root,
-						       debugfs_root);
-	if (!codec->debugfs_codec_root) {
-		printk(KERN_WARNING
-		       "ASoC: Failed to create codec debugfs directory\n");
-		return;
-	}
-
-	codec->debugfs_reg = debugfs_create_file("codec_reg", 0644,
-						 codec->debugfs_codec_root,
-						 codec, &codec_reg_fops);
-	if (!codec->debugfs_reg)
-		printk(KERN_WARNING
-		       "ASoC: Failed to create codec register debugfs file\n");
-
-	codec->debugfs_pop_time = debugfs_create_u32("dapm_pop_time", 0744,
-						     codec->debugfs_codec_root,
-						     &codec->pop_time);
-	if (!codec->debugfs_pop_time)
-		printk(KERN_WARNING
-		       "Failed to create pop time debugfs file\n");
-
-	codec->debugfs_dapm = debugfs_create_dir("dapm",
-						 codec->debugfs_codec_root);
-	if (!codec->debugfs_dapm)
-		printk(KERN_WARNING
-		       "Failed to create DAPM debugfs directory\n");
-
-	snd_soc_dapm_debugfs_init(codec);
-}
-
-static void soc_cleanup_codec_debugfs(struct snd_soc_codec *codec)
-{
-	debugfs_remove_recursive(codec->debugfs_codec_root);
-}
-
-#else
-
-static inline void soc_init_codec_debugfs(struct snd_soc_codec *codec)
-{
-}
-
-static inline void soc_cleanup_codec_debugfs(struct snd_soc_codec *codec)
-{
-}
-#endif
-
 /**
  * snd_soc_new_ac97_codec - initailise AC97 device
  * @codec: audio codec
@@ -1452,83 +1516,6 @@ int snd_soc_new_pcms(struct snd_soc_device *socdev, int idx, const char *xid)
 	return ret;
 }
 EXPORT_SYMBOL_GPL(snd_soc_new_pcms);
-
-/**
- * snd_soc_init_card - register sound card
- * @socdev: the SoC audio device
- *
- * Register a SoC sound card. Also registers an AC97 device if the
- * codec is AC97 for ad hoc devices.
- *
- * Returns 0 for success, else error.
- */
-int snd_soc_init_card(struct snd_soc_device *socdev)
-{
-	struct snd_soc_card *card = socdev->card;
-	struct snd_soc_codec *codec = card->codec;
-	int ret = 0, i, ac97 = 0, err = 0;
-
-	for (i = 0; i < card->num_links; i++) {
-		if (card->dai_link[i].init) {
-			err = card->dai_link[i].init(codec);
-			if (err < 0) {
-				printk(KERN_ERR "asoc: failed to init %s\n",
-					card->dai_link[i].stream_name);
-				continue;
-			}
-		}
-		if (card->dai_link[i].codec_dai->ac97_control) {
-			ac97 = 1;
-			snd_ac97_dev_add_pdata(codec->ac97,
-				card->dai_link[i].cpu_dai->ac97_pdata);
-		}
-	}
-	snprintf(codec->card->shortname, sizeof(codec->card->shortname),
-		 "%s",  card->name);
-	snprintf(codec->card->longname, sizeof(codec->card->longname),
-		 "%s (%s)", card->name, codec->name);
-
-	/* Make sure all DAPM widgets are instantiated */
-	snd_soc_dapm_new_widgets(codec);
-
-	ret = snd_card_register(codec->card);
-	if (ret < 0) {
-		printk(KERN_ERR "asoc: failed to register soundcard for %s\n",
-				codec->name);
-		goto out;
-	}
-
-	mutex_lock(&codec->mutex);
-#ifdef CONFIG_SND_SOC_AC97_BUS
-	/* Only instantiate AC97 if not already done by the adaptor
-	 * for the generic AC97 subsystem.
-	 */
-	if (ac97 && strcmp(codec->name, "AC97") != 0) {
-		ret = soc_ac97_dev_register(codec);
-		if (ret < 0) {
-			printk(KERN_ERR "asoc: AC97 device register failed\n");
-			snd_card_free(codec->card);
-			mutex_unlock(&codec->mutex);
-			goto out;
-		}
-	}
-#endif
-
-	err = snd_soc_dapm_sys_add(socdev->dev);
-	if (err < 0)
-		printk(KERN_WARNING "asoc: failed to add dapm sysfs entries\n");
-
-	err = device_create_file(socdev->dev, &dev_attr_codec_reg);
-	if (err < 0)
-		printk(KERN_WARNING "asoc: failed to add codec sysfs files\n");
-
-	soc_init_codec_debugfs(codec);
-	mutex_unlock(&codec->mutex);
-
-out:
-	return ret;
-}
-EXPORT_SYMBOL_GPL(snd_soc_init_card);
 
 /**
  * snd_soc_free_pcms - free sound card and pcms
