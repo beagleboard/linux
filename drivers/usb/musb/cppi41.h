@@ -537,7 +537,7 @@ int cppi41_mem_rgn_free(u8 q_mgr, u8 mem_rgn);
  * Returns 0 on success, error otherwise.
  */
 int cppi41_dma_block_init(u8 dma_num, u8 q_mgr, u8 num_order,
-				 u8 *sched_tbl, u8 tbl_size);
+				 u32 *sched_tbl, u8 tbl_size);
 
 /*
  * CPPI 4.1 DMA Channel Management APIs

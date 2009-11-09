@@ -107,14 +107,14 @@ int cppi41_queue_mgr_init(u8 q_mgr, dma_addr_t rgn0_base, u16 rgn0_size)
 }
 
 int cppi41_dma_block_init(u8 dma_num, u8 q_mgr, u8 num_order,
-				 u8 *sched_tbl, u8 tbl_size)
+				 u32 *sched_tbl, u8 tbl_size)
 {
 	const struct cppi41_dma_block *dma_block;
 	struct cppi41_teardown_desc *curr_td;
 	dma_addr_t td_addr;
 	unsigned num_desc, num_reg;
 	void *ptr;
-	int error, i, j, k;
+	int error, i;
 	u16 q_num;
 	u32 val;
 
@@ -193,13 +193,8 @@ int cppi41_dma_block_init(u8 dma_num, u8 q_mgr, u8 num_order,
 
 	/* Initialize the DMA scheduler. */
 	num_reg = (tbl_size + 3) / 4;
-	for (k = i = 0; i < num_reg; i++) {
-		for (val = j = 0; j < 4; j++, k++) {
-			val >>= 8;
-			if (k < tbl_size)
-				val |= sched_tbl[k] << 24;
-		}
-
+	for (i = 0; i < num_reg; i++) {
+		val = sched_tbl[i];
 		__raw_writel(val, dma_block->sched_table_base +
 			     DMA_SCHED_TABLE_WORD_REG(i));
 		DBG("DMA scheduler table @ %p, value written: %x\n",
