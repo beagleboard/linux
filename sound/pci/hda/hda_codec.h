@@ -674,6 +674,7 @@ struct hda_codec_ops {
 #ifdef CONFIG_SND_HDA_POWER_SAVE
 	int (*check_power_status)(struct hda_codec *codec, hda_nid_t nid);
 #endif
+	void (*reboot_notify)(struct hda_codec *codec);
 };
 
 /* record for amp information cache */
@@ -893,6 +894,7 @@ int snd_hda_codec_build_controls(struct hda_codec *codec);
 /*
  * PCM
  */
+extern const char *snd_hda_pcm_type_name[];
 int snd_hda_build_pcms(struct hda_bus *bus);
 int snd_hda_codec_build_pcms(struct hda_codec *codec);
 void snd_hda_codec_setup_stream(struct hda_codec *codec, hda_nid_t nid,
@@ -910,6 +912,7 @@ int snd_hda_is_supported_format(struct hda_codec *codec, hda_nid_t nid,
  * Misc
  */
 void snd_hda_get_codec_name(struct hda_codec *codec, char *name, int namelen);
+void snd_hda_bus_reboot_notify(struct hda_bus *bus);
 
 /*
  * power management

@@ -2877,14 +2877,15 @@ static int set_pcm_default_values(struct hda_codec *codec,
 	return 0;
 }
 
+const char *snd_hda_pcm_type_name[HDA_PCM_NTYPES] = {
+	"Audio", "SPDIF", "HDMI", "Modem"
+};
+
 /*
  * get the empty PCM device number to assign
  */
 static int get_empty_pcm_device(struct hda_bus *bus, int type)
 {
-	static const char *dev_name[HDA_PCM_NTYPES] = {
-		"Audio", "SPDIF", "HDMI", "Modem"
-	};
 	/* audio device indices; not linear to keep compatibility */
 	static int audio_idx[HDA_PCM_NTYPES][5] = {
 		[HDA_PCM_TYPE_AUDIO] = { 0, 2, 4, 5, -1 },
@@ -2903,7 +2904,7 @@ static int get_empty_pcm_device(struct hda_bus *bus, int type)
 		if (!test_and_set_bit(audio_idx[type][i], bus->pcm_dev_bits))
 			return audio_idx[type][i];
 
-	snd_printk(KERN_WARNING "Too many %s devices\n", dev_name[type]);
+	snd_printk(KERN_WARNING "Too many %s devices\n", snd_hda_pcm_type_name[type]);
 	return -EAGAIN;
 }
 
@@ -3401,6 +3402,23 @@ static void cleanup_dig_out_stream(struct hda_codec *codec, hda_nid_t nid)
 		hda_nid_t *d;
 		for (d = codec->slave_dig_outs; *d; d++)
 			snd_hda_codec_cleanup_stream(codec, *d);
+	}
+}
+
+/* call each reboot notifier */
+void snd_hda_bus_reboot_notify(struct hda_bus *bus)
+{
+	struct hda_codec *codec;
+
+	if (!bus)
+		return;
+	list_for_each_entry(codec, &bus->codec_list, list) {
+#ifdef CONFIG_SND_HDA_POWER_SAVE
+		if (!codec->power_on)
+			continue;
+#endif
+		if (codec->patch_ops.reboot_notify)
+			codec->patch_ops.reboot_notify(codec);
 	}
 }
 
