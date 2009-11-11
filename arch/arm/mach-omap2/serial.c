@@ -535,7 +535,7 @@ static inline void omap_uart_idle_init(struct omap_uart_state *uart) {}
 #define DEV_CREATE_FILE(dev, attr)
 #endif /* CONFIG_PM */
 
-static struct omap_uart_state omap_uart[OMAP_MAX_NR_PORTS] = {
+static struct omap_uart_state omap_uart[] = {
 	{
 		.pdev = {
 			.name			= "serial8250",
@@ -585,7 +585,7 @@ void __init omap_serial_early_init(void)
 	 * if not needed.
 	 */
 
-	for (i = 0; i < OMAP_MAX_NR_PORTS; i++) {
+	for (i = 0; i < ARRAY_SIZE(omap_uart); i++) {
 		struct omap_uart_state *uart = &omap_uart[i];
 		struct platform_device *pdev = &uart->pdev;
 		struct device *dev = &pdev->dev;
@@ -637,7 +637,7 @@ void __init omap_serial_init(void)
 {
 	int i;
 
-	for (i = 0; i < OMAP_MAX_NR_PORTS; i++) {
+	for (i = 0; i < ARRAY_SIZE(omap_uart); i++) {
 		struct omap_uart_state *uart = &omap_uart[i];
 		struct platform_device *pdev = &uart->pdev;
 		struct device *dev = &pdev->dev;
