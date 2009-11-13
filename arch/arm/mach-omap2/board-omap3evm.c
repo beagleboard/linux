@@ -28,26 +28,61 @@
 #include <linux/i2c/twl4030.h>
 #include <linux/usb/otg.h>
 
+#include <linux/regulator/machine.h>
+
 #include <mach/hardware.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
 
-#include <mach/board.h>
-#include <mach/mux.h>
-#include <mach/usb.h>
-#include <mach/common.h>
-#include <mach/mcspi.h>
+#include <plat/board.h>
+#include <plat/mux.h>
+#include <plat/usb.h>
+#include <plat/common.h>
+#include <plat/mcspi.h>
 
 #include "sdram-micron-mt46h32m32lf-6.h"
 #include "mmc-twl4030.h"
 
 #define OMAP3_EVM_TS_GPIO	175
+#define OMAP3_EVM_EHCI_VBUS	22
+#define OMAP3_EVM_EHCI_SELECT	61
 
 #define OMAP3EVM_ETHR_START	0x2c000000
 #define OMAP3EVM_ETHR_SIZE	1024
+#define OMAP3EVM_ETHR_ID_REV	0x50
 #define OMAP3EVM_ETHR_GPIO_IRQ	176
 #define OMAP3EVM_SMC911X_CS	5
+
+static u8 omap3_evm_version;
+
+u8 get_omap3_evm_rev(void)
+{
+	return omap3_evm_version;
+}
+EXPORT_SYMBOL(get_omap3_evm_rev);
+
+static void __init omap3_evm_get_revision(void)
+{
+	void __iomem *ioaddr;
+	unsigned int smsc_id;
+
+	/* Ethernet PHY ID is stored at ID_REV register */
+	ioaddr = ioremap_nocache(OMAP3EVM_ETHR_START, SZ_1K);
+	smsc_id = readl(ioaddr + OMAP3EVM_ETHR_ID_REV) & 0xFFFF0000;
+	iounmap(ioaddr);
+
+	switch (smsc_id) {
+	/*SMSC9115 chipset*/
+	case 0x01150000:
+		omap3_evm_version = OMAP3EVM_BOARD_GEN_1;
+		break;
+	/*SMSC 9220 chipset*/
+	case 0x92200000:
+	default:
+		omap3_evm_version = OMAP3EVM_BOARD_GEN_2;
+	}
+}
 
 static struct resource omap3evm_smc911x_resources[] = {
 	[0] =	{
@@ -92,6 +127,44 @@ static inline void __init omap3evm_init_smc911x(void)
 	gpio_direction_input(OMAP3EVM_ETHR_GPIO_IRQ);
 }
 
+static struct regulator_consumer_supply omap3evm_vmmc1_supply = {
+	.supply			= "vmmc",
+};
+
+static struct regulator_consumer_supply omap3evm_vsim_supply = {
+	.supply			= "vmmc_aux",
+};
+
+/* VMMC1 for MMC1 pins CMD, CLK, DAT0..DAT3 (20 mA, plus card == max 220 mA) */
+static struct regulator_init_data omap3evm_vmmc1 = {
+	.constraints = {
+		.min_uV			= 1850000,
+		.max_uV			= 3150000,
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL
+					| REGULATOR_MODE_STANDBY,
+		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE
+					| REGULATOR_CHANGE_MODE
+					| REGULATOR_CHANGE_STATUS,
+	},
+	.num_consumer_supplies	= 1,
+	.consumer_supplies	= &omap3evm_vmmc1_supply,
+};
+
+/* VSIM for MMC1 pins DAT4..DAT7 (2 mA, plus card == max 50 mA) */
+static struct regulator_init_data omap3evm_vsim = {
+	.constraints = {
+		.min_uV			= 1800000,
+		.max_uV			= 3000000,
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL
+					| REGULATOR_MODE_STANDBY,
+		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE
+					| REGULATOR_CHANGE_MODE
+					| REGULATOR_CHANGE_STATUS,
+	},
+	.num_consumer_supplies	= 1,
+	.consumer_supplies	= &omap3evm_vsim_supply,
+};
+
 static struct twl4030_hsmmc_info mmc[] = {
 	{
 		.mmc		= 1,
@@ -133,6 +206,10 @@ static int omap3evm_twl_gpio_setup(struct device *dev,
 	omap_cfg_reg(L8_34XX_GPIO63);
 	mmc[0].gpio_cd = gpio + 0;
 	twl4030_mmc_init(mmc);
+
+	/* link regulators to MMC adapters */
+	omap3evm_vmmc1_supply.dev = mmc[0].dev;
+	omap3evm_vsim_supply.dev = mmc[0].dev;
 
 	/*
 	 * Most GPIOs are for USB OTG.  Some are mostly sent to
@@ -203,6 +280,8 @@ static struct twl4030_platform_data omap3evm_twldata = {
 	.madc		= &omap3evm_madc_data,
 	.usb		= &omap3evm_usb_data,
 	.gpio		= &omap3evm_gpio_data,
+	.vmmc1		= &omap3evm_vmmc1,
+	.vsim		= &omap3evm_vsim,
 };
 
 static struct i2c_board_info __initdata omap3evm_i2c_boardinfo[] = {
@@ -297,8 +376,23 @@ static struct platform_device *omap3_evm_devices[] __initdata = {
 	&omap3evm_smc911x_device,
 };
 
+static struct ehci_hcd_omap_platform_data ehci_pdata __initconst = {
+
+	.port_mode[0] = EHCI_HCD_OMAP_MODE_UNKNOWN,
+	.port_mode[1] = EHCI_HCD_OMAP_MODE_PHY,
+	.port_mode[2] = EHCI_HCD_OMAP_MODE_UNKNOWN,
+
+	.phy_reset  = true,
+	/* PHY reset GPIO will be runtime programmed based on EVM version */
+	.reset_gpio_port[0]  = -EINVAL,
+	.reset_gpio_port[1]  = -EINVAL,
+	.reset_gpio_port[2]  = -EINVAL
+};
+
 static void __init omap3_evm_init(void)
 {
+	omap3_evm_get_revision();
+
 	omap3_evm_i2c_init();
 
 	platform_add_devices(omap3_evm_devices, ARRAY_SIZE(omap3_evm_devices));
@@ -311,7 +405,30 @@ static void __init omap3_evm_init(void)
 	/* OMAP3EVM uses ISP1504 phy and so register nop transceiver */
 	usb_nop_xceiv_register();
 #endif
+	if (get_omap3_evm_rev() >= OMAP3EVM_BOARD_GEN_2) {
+		/* enable EHCI VBUS using GPIO22 */
+		omap_cfg_reg(AF9_34XX_GPIO22);
+		gpio_request(OMAP3_EVM_EHCI_VBUS, "enable EHCI VBUS");
+		gpio_direction_output(OMAP3_EVM_EHCI_VBUS, 0);
+		gpio_set_value(OMAP3_EVM_EHCI_VBUS, 1);
+
+		/* Select EHCI port on main board */
+		omap_cfg_reg(U3_34XX_GPIO61);
+		gpio_request(OMAP3_EVM_EHCI_SELECT, "select EHCI port");
+		gpio_direction_output(OMAP3_EVM_EHCI_SELECT, 0);
+		gpio_set_value(OMAP3_EVM_EHCI_SELECT, 0);
+
+		/* setup EHCI phy reset config */
+		omap_cfg_reg(AH14_34XX_GPIO21);
+		ehci_pdata.reset_gpio_port[1] = 21;
+
+	} else {
+		/* setup EHCI phy reset on MDC */
+		omap_cfg_reg(AF4_34XX_GPIO135_OUT);
+		ehci_pdata.reset_gpio_port[1] = 135;
+	}
 	usb_musb_init();
+	usb_ehci_init(&ehci_pdata);
 	ads7846_dev_init();
 }
 
@@ -324,7 +441,7 @@ static void __init omap3_evm_map_io(void)
 MACHINE_START(OMAP3EVM, "OMAP3 EVM")
 	/* Maintainer: Syed Mohammed Khasim - Texas Instruments */
 	.phys_io	= 0x48000000,
-	.io_pg_offst	= ((0xd8000000) >> 18) & 0xfffc,
+	.io_pg_offst	= ((0xfa000000) >> 18) & 0xfffc,
 	.boot_params	= 0x80000100,
 	.map_io		= omap3_evm_map_io,
 	.init_irq	= omap3_evm_init_irq,
