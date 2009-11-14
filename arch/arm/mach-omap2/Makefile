@@ -90,6 +90,8 @@ obj-$(CONFIG_MACH_CM_T35)		+= board-cm-t35.o \
 
 obj-$(CONFIG_MACH_OMAP_4430SDP)		+= board-4430sdp.o
 
+obj-$(CONFIG_MACH_OMAP3517EVM)     += board-am3517evm.o
+
 # Platform specific device init code
 obj-y					+= usb-musb.o
 obj-$(CONFIG_MACH_OMAP2_TUSB6010)	+= usb-tusb6010.o
