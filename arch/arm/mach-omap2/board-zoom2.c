@@ -36,6 +36,31 @@ static void __init omap_zoom2_init_irq(void)
 	omap_gpio_init();
 }
 
+/* REVISIT: These audio entries can be removed once MFD code is merged */
+#if 0
+
+static struct twl4030_madc_platform_data zoom2_madc_data = {
+	.irq_line	= 1,
+};
+
+static struct twl4030_platform_data zoom2_twldata = {
+	.irq_base	= TWL4030_IRQ_BASE,
+	.irq_end	= TWL4030_IRQ_END,
+
+	/* platform_data for children goes here */
+	.bci		= &zoom2_bci_data,
+	.madc		= &zoom2_madc_data,
+	.usb		= &zoom2_usb_data,
+	.gpio		= &zoom2_gpio_data,
+	.keypad		= &zoom2_kp_twl4030_data,
+	.vmmc1          = &zoom2_vmmc1,
+	.vmmc2          = &zoom2_vmmc2,
+	.vsim           = &zoom2_vsim,
+
+};
+
+#endif
+
 extern int __init omap_zoom2_debugboard_init(void);
 extern void __init zoom_peripherals_init(void);
 

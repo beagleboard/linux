@@ -308,8 +308,6 @@ static struct twl4030_platform_data omap3evm_twldata = {
 	.usb		= &omap3evm_usb_data,
 	.gpio		= &omap3evm_gpio_data,
 	.codec		= &omap3evm_codec_data,
-	.vmmc1		= &omap3evm_vmmc1,
-	.vsim		= &omap3evm_vsim,
 };
 
 static struct i2c_board_info __initdata omap3evm_i2c_boardinfo[] = {
@@ -323,6 +321,13 @@ static struct i2c_board_info __initdata omap3evm_i2c_boardinfo[] = {
 
 static int __init omap3_evm_i2c_init(void)
 {
+	/*
+	 * REVISIT: These entries can be set in omap3evm_twl_data
+	 * after a merge with MFD tree
+	 */
+	omap3evm_twldata.vmmc1 = &omap3evm_vmmc1;
+	omap3evm_twldata.vsim = &omap3evm_vsim;
+
 	omap_register_i2c_bus(1, 2600, omap3evm_i2c_boardinfo,
 			ARRAY_SIZE(omap3evm_i2c_boardinfo));
 	omap_register_i2c_bus(2, 400, NULL, 0);
