@@ -35,7 +35,7 @@
 #include <mach/dma.h>
 
 #include "s3c-i2s-v2.h"
-#include "s3c24xx-pcm.h"
+#include "s3c-dma.h"
 
 #undef S3C_IIS_V2_SUPPORTED
 
@@ -394,7 +394,7 @@ static int s3c2412_i2s_trigger(struct snd_pcm_substream *substream, int cmd,
 	int capture = (substream->stream == SNDRV_PCM_STREAM_CAPTURE);
 	unsigned long irqs;
 	int ret = 0;
-	int channel = ((struct s3c24xx_pcm_dma_params *)
+	int channel = ((struct s3c_dma_params *)
 		  rtd->dai->cpu_dai->dma_data)->channel;
 
 	pr_debug("Entered %s\n", __func__);
