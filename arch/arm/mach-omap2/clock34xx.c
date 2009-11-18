@@ -27,13 +27,13 @@
 #include <linux/limits.h>
 #include <linux/bitops.h>
 
-#include <mach/cpu.h>
-#include <mach/clock.h>
-#include <mach/sram.h>
+#include <plat/cpu.h>
+#include <plat/clock.h>
+#include <plat/sram.h>
 #include <asm/div64.h>
 #include <asm/clkdev.h>
 
-#include <mach/sdrc.h>
+#include <plat/sdrc.h>
 #include "clock.h"
 #include "prm.h"
 #include "prm-regbits-34xx.h"
@@ -473,7 +473,7 @@ static u16 _omap3_dpll_compute_freqsel(struct clk *clk, u8 n)
 	unsigned long fint;
 	u16 f = 0;
 
-	fint = clk->dpll_data->clk_ref->rate / (n + 1);
+	fint = clk->dpll_data->clk_ref->rate / n;
 
 	pr_debug("clock: fint is %lu\n", fint);
 
