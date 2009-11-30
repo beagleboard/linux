@@ -14,6 +14,7 @@
 #include <linux/platform_device.h>
 #include <linux/input.h>
 #include <linux/clk.h>
+#include <linux/omapfb.h>
 
 #include <linux/spi/spi.h>
 #include <linux/spi/ads7846.h>
