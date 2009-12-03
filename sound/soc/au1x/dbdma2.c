@@ -480,6 +480,7 @@ struct platform_device *au1xpsc_pcm_add(struct platform_device *pdev)
 	if (!ret)
 		return pd;
 
+	platform_device_put(pd);
 out:
 	kfree(res);
 	return NULL;
@@ -488,11 +489,8 @@ EXPORT_SYMBOL_GPL(au1xpsc_pcm_add);
 
 void au1xpsc_pcm_destroy(struct platform_device *dmapd)
 {
-	if (dmapd) {
-		kfree(dmapd->resource);
-		dmapd->resource = NULL;
+	if (dmapd)
 		platform_device_unregister(dmapd);
-	}
 }
 EXPORT_SYMBOL_GPL(au1xpsc_pcm_destroy);
 
