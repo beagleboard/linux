@@ -71,10 +71,10 @@ static int __mbox_msg_send(struct omap_mbox *mbox, mbox_msg_t msg)
 	int ret = 0, i = 1000;
 
 	while (mbox_fifo_full(mbox)) {
-		if (mbox->ops->type == OMAP_MBOX_TYPE2)
+		if (--i == 0) {
+			printk(KERN_ERR "Mailbox send failure\n");
 			return -1;
-		if (--i == 0)
-			return -1;
+		}
 		udelay(1);
 	}
 	mbox_fifo_write(mbox, msg);
