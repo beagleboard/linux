@@ -23,6 +23,7 @@
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
 #include <linux/input.h>
+#include <linux/smc91x.h>
 
 #include <mach/hardware.h>
 #include <asm/mach-types.h>
@@ -159,6 +160,12 @@ static struct map_desc innovator1510_io_desc[] __initdata = {
 	}
 };
 
+static struct smc91x_platdata innovator_smc91x_info = {
+	.flags	= SMC91X_USE_16BIT | SMC91X_NOWAIT,
+	.leda	= RPC_LED_100_10,
+	.ledb	= RPC_LED_TX_RX,
+};
+
 static struct resource innovator1510_smc91x_resources[] = {
 	[0] = {
 		.start	= OMAP1510_FPGA_ETHR_START,	/* Physical */
@@ -175,6 +182,9 @@ static struct resource innovator1510_smc91x_resources[] = {
 static struct platform_device innovator1510_smc91x_device = {
 	.name		= "smc91x",
 	.id		= 0,
+	.dev	= {
+		.platform_data	= &innovator_smc91x_info,
+	},
 	.num_resources	= ARRAY_SIZE(innovator1510_smc91x_resources),
 	.resource	= innovator1510_smc91x_resources,
 };
@@ -241,6 +251,9 @@ static struct resource innovator1610_smc91x_resources[] = {
 static struct platform_device innovator1610_smc91x_device = {
 	.name		= "smc91x",
 	.id		= 0,
+	.dev	= {
+		.platform_data	= &innovator_smc91x_info,
+	},
 	.num_resources	= ARRAY_SIZE(innovator1610_smc91x_resources),
 	.resource	= innovator1610_smc91x_resources,
 };
