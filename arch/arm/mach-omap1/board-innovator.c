@@ -143,6 +143,11 @@ static struct platform_device innovator_kp_device = {
 	.resource	= innovator_kp_resources,
 };
 
+static struct smc91x_platdata innovator_smc91x_info = {
+	.flags	= SMC91X_USE_16BIT | SMC91X_NOWAIT,
+	.leda	= RPC_LED_100_10,
+	.ledb	= RPC_LED_TX_RX,
+};
 
 #ifdef CONFIG_ARCH_OMAP15XX
 
@@ -158,12 +163,6 @@ static struct map_desc innovator1510_io_desc[] __initdata = {
 		.length		= OMAP1510_FPGA_SIZE,
 		.type		= MT_DEVICE
 	}
-};
-
-static struct smc91x_platdata innovator_smc91x_info = {
-	.flags	= SMC91X_USE_16BIT | SMC91X_NOWAIT,
-	.leda	= RPC_LED_100_10,
-	.ledb	= RPC_LED_TX_RX,
 };
 
 static struct resource innovator1510_smc91x_resources[] = {
