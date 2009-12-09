@@ -25,8 +25,8 @@
 #include <linux/io.h>
 
 #include <plat/dma.h>
-#include <plat/omapfb.h>
 
+#include "omapfb.h"
 #include "lcdc.h"
 
 #define MODULE_NAME		"omapfb-sossi"

@@ -31,9 +31,10 @@
 
 #include <mach/lcdc.h>
 #include <plat/dma.h>
-#include <plat/omapfb.h>
 
 #include <asm/mach-types.h>
+
+#include "omapfb.h"
 
 #include "lcdc.h"
 
