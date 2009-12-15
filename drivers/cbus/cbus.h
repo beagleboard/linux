@@ -24,8 +24,14 @@
 #define __DRIVERS_CBUS_CBUS_H
 
 struct cbus_host {
-	int clk_gpio, dat_gpio, sel_gpio;
-        spinlock_t lock;
+	/* host lock */
+	spinlock_t lock;
+
+	void __iomem *base;
+
+	int	clk_gpio;
+	int	dat_gpio;
+	int	sel_gpio;
 };
 
 extern struct cbus_host *cbus_host;
