@@ -38,10 +38,10 @@
 #include <linux/gpio.h>
 
 #include <asm/uaccess.h>
+#include <asm/mach-types.h>
 
 #include <plat/mux.h>
 #include <plat/board.h>
-#include <mach/board-nokia.h>
 
 #include "cbus.h"
 #include "tahvo.h"
@@ -289,18 +289,10 @@ void tahvo_free_irq(int id)
  */
 static int __devinit tahvo_probe(struct device *dev)
 {
-	const struct omap_em_asic_bb5_config * em_asic_config;
 	int rev, id, ret;
 
 	/* Prepare tasklet */
 	tasklet_init(&tahvo_tasklet, tahvo_tasklet_handler, 0);
-
-	em_asic_config = omap_get_config(OMAP_TAG_EM_ASIC_BB5,
-					 struct omap_em_asic_bb5_config);
-	if (em_asic_config == NULL) {
-		printk(KERN_ERR PFX "Unable to retrieve config data\n");
-		return -ENODATA;
-	}
 
 	tahvo_initialized = 1;
 
@@ -321,7 +313,16 @@ static int __devinit tahvo_probe(struct device *dev)
 	printk(KERN_INFO "%s v%d.%d found\n", tahvo_is_betty ? "Betty" : "Tahvo",
 	       (rev >> 4) & 0x0f, rev & 0x0f);
 
-	tahvo_irq_pin = em_asic_config->tahvo_irq_gpio;
+	/* REVISIT: Pass these from board-*.c files in platform_data */
+	if (machine_is_nokia770()) {
+		tahvo_irq_pin = 40;
+	} else if (machine_is_nokia_n800() || machine_is_nokia_n810() ||
+			machine_is_nokia_n810_wimax()) {
+		tahvo_irq_pin = 111;
+	} else {
+		printk(KERN_ERR "cbus: Unsupported board for tahvo\n");
+		return -ENODEV;
+	}
 
 	if ((ret = gpio_request(tahvo_irq_pin, "TAHVO irq")) < 0) {
 		printk(KERN_ERR PFX "Unable to reserve IRQ GPIO\n");
