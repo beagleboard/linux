@@ -32,7 +32,7 @@ struct cbus_host {
 	int	sel_gpio;
 };
 
-extern int cbus_read_reg(int dev, int reg);
-extern int cbus_write_reg(int dev, int reg, int val);
+extern int cbus_read_reg(unsigned dev, unsigned reg);
+extern int cbus_write_reg(unsigned dev, unsigned reg, unsigned val);
 
 #endif /* __DRIVERS_CBUS_CBUS_H */

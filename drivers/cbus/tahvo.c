@@ -78,7 +78,7 @@ EXPORT_SYMBOL(tahvo_get_status);
  *
  * This function returns the contents of the specified register
  */
-int tahvo_read_reg(int reg)
+int tahvo_read_reg(unsigned reg)
 {
 	BUG_ON(!tahvo_initialized);
 	return cbus_read_reg(TAHVO_ID, reg);
@@ -91,7 +91,7 @@ int tahvo_read_reg(int reg)
  *
  * This function writes a value to the specified register
  */
-void tahvo_write_reg(int reg, u16 val)
+void tahvo_write_reg(unsigned reg, u16 val)
 {
 	BUG_ON(!tahvo_initialized);
 	cbus_write_reg(TAHVO_ID, reg, val);
@@ -104,7 +104,7 @@ void tahvo_write_reg(int reg, u16 val)
  *
  * This function sets and clears the specified Tahvo register bits atomically
  */
-void tahvo_set_clear_reg_bits(int reg, u16 set, u16 clear)
+void tahvo_set_clear_reg_bits(unsigned reg, u16 set, u16 clear)
 {
 	unsigned long flags;
 	u16 w;
