@@ -1446,10 +1446,8 @@ struct task_struct {
 	gfp_t lockdep_reclaim_gfp;
 #endif
 
-#ifdef CONFIG_FS_JOURNAL_INFO
 /* journalling filesystem info */
 	void *journal_info;
-#endif
 
 /* stacked block device info */
 	struct bio *bio_list, **bio_tail;
@@ -1555,7 +1553,7 @@ struct task_struct {
 };
 
 /* Future-safe accessor for struct task_struct's cpus_allowed. */
-#define tsk_cpumask(tsk) (&(tsk)->cpus_allowed)
+#define tsk_cpus_allowed(tsk) (&(tsk)->cpus_allowed)
 
 /*
  * Priority of a process goes from 0..MAX_PRIO-1, valid RT
