@@ -1164,6 +1164,15 @@ static void usb_process_tx_queue(struct cppi41 *cppi, unsigned index)
 		else if (tx_ch->channel.actual_len >= tx_ch->length) {
 			tx_ch->channel.status = MUSB_DMA_STATUS_FREE;
 
+			/*
+			 * We get Tx DMA completion interrupt even when
+			 * data is still in FIFO and not moved out to
+			 * USB bus. As we program the next request we
+			 * flush out and old data in FIFO which affects
+			 * USB functionality. So far, we have obsered
+			 * failure with iperf.
+			 */
+			udelay(20);
 			/* Tx completion routine callback */
 			musb_dma_completion(cppi->musb, ep_num, 1);
 		}
