@@ -44,7 +44,6 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/usb.h>
-#include <linux/vmalloc.h>
 #include <linux/moduleparam.h>
 #include <linux/mutex.h>
 #include <sound/core.h>
@@ -735,41 +734,6 @@ static void snd_complete_sync_urb(struct urb *urb)
 }
 
 
-/* get the physical page pointer at the given offset */
-static struct page *snd_pcm_get_vmalloc_page(struct snd_pcm_substream *subs,
-					     unsigned long offset)
-{
-	void *pageptr = subs->runtime->dma_area + offset;
-	return vmalloc_to_page(pageptr);
-}
-
-/* allocate virtual buffer; may be called more than once */
-static int snd_pcm_alloc_vmalloc_buffer(struct snd_pcm_substream *subs, size_t size)
-{
-	struct snd_pcm_runtime *runtime = subs->runtime;
-	if (runtime->dma_area) {
-		if (runtime->dma_bytes >= size)
-			return 0; /* already large enough */
-		vfree(runtime->dma_area);
-	}
-	runtime->dma_area = vmalloc_user(size);
-	if (!runtime->dma_area)
-		return -ENOMEM;
-	runtime->dma_bytes = size;
-	return 0;
-}
-
-/* free virtual buffer; may be called more than once */
-static int snd_pcm_free_vmalloc_buffer(struct snd_pcm_substream *subs)
-{
-	struct snd_pcm_runtime *runtime = subs->runtime;
-
-	vfree(runtime->dma_area);
-	runtime->dma_area = NULL;
-	return 0;
-}
-
-
 /*
  * unlink active urbs.
  */
@@ -1449,8 +1413,8 @@ static int snd_usb_hw_params(struct snd_pcm_substream *substream,
 	unsigned int channels, rate, format;
 	int ret, changed;
 
-	ret = snd_pcm_alloc_vmalloc_buffer(substream,
-					   params_buffer_bytes(hw_params));
+	ret = snd_pcm_lib_alloc_vmalloc_buffer(substream,
+					       params_buffer_bytes(hw_params));
 	if (ret < 0)
 		return ret;
 
@@ -1507,7 +1471,7 @@ static int snd_usb_hw_free(struct snd_pcm_substream *substream)
 	subs->period_bytes = 0;
 	if (!subs->stream->chip->shutdown)
 		release_substream_urbs(subs, 0);
-	return snd_pcm_free_vmalloc_buffer(substream);
+	return snd_pcm_lib_free_vmalloc_buffer(substream);
 }
 
 /*
@@ -1973,7 +1937,7 @@ static struct snd_pcm_ops snd_usb_playback_ops = {
 	.prepare =	snd_usb_pcm_prepare,
 	.trigger =	snd_usb_pcm_playback_trigger,
 	.pointer =	snd_usb_pcm_pointer,
-	.page =		snd_pcm_get_vmalloc_page,
+	.page =		snd_pcm_lib_get_vmalloc_page,
 };
 
 static struct snd_pcm_ops snd_usb_capture_ops = {
@@ -1985,7 +1949,7 @@ static struct snd_pcm_ops snd_usb_capture_ops = {
 	.prepare =	snd_usb_pcm_prepare,
 	.trigger =	snd_usb_pcm_capture_trigger,
 	.pointer =	snd_usb_pcm_pointer,
-	.page =		snd_pcm_get_vmalloc_page,
+	.page =		snd_pcm_lib_get_vmalloc_page,
 };
 
 
@@ -3142,59 +3106,6 @@ static int create_ua1000_quirk(struct snd_usb_audio *chip,
 	return 0;
 }
 
-/*
- * Create a stream for an Edirol UA-101 interface.
- * Copy, paste and modify from Edirol UA-1000
- */
-static int create_ua101_quirk(struct snd_usb_audio *chip,
-			       struct usb_interface *iface,
-			       const struct snd_usb_audio_quirk *quirk)
-{
-	static const struct audioformat ua101_format = {
-		.format = SNDRV_PCM_FORMAT_S32_LE,
-		.fmt_type = USB_FORMAT_TYPE_I,
-		.altsetting = 1,
-		.altset_idx = 1,
-		.attributes = 0,
-		.rates = SNDRV_PCM_RATE_CONTINUOUS,
-	};
-	struct usb_host_interface *alts;
-	struct usb_interface_descriptor *altsd;
-	struct audioformat *fp;
-	int stream, err;
-
-	if (iface->num_altsetting != 2)
-		return -ENXIO;
-	alts = &iface->altsetting[1];
-	altsd = get_iface_desc(alts);
-	if (alts->extralen != 18 || alts->extra[1] != USB_DT_CS_INTERFACE ||
-	    altsd->bNumEndpoints != 1)
-		return -ENXIO;
-
-	fp = kmemdup(&ua101_format, sizeof(*fp), GFP_KERNEL);
-	if (!fp)
-		return -ENOMEM;
-
-	fp->channels = alts->extra[11];
-	fp->iface = altsd->bInterfaceNumber;
-	fp->endpoint = get_endpoint(alts, 0)->bEndpointAddress;
-	fp->ep_attr = get_endpoint(alts, 0)->bmAttributes;
-	fp->datainterval = parse_datainterval(chip, alts);
-	fp->maxpacksize = le16_to_cpu(get_endpoint(alts, 0)->wMaxPacketSize);
-	fp->rate_max = fp->rate_min = combine_triple(&alts->extra[15]);
-
-	stream = (fp->endpoint & USB_DIR_IN)
-		? SNDRV_PCM_STREAM_CAPTURE : SNDRV_PCM_STREAM_PLAYBACK;
-	err = add_audio_endpoint(chip, stream, fp);
-	if (err < 0) {
-		kfree(fp);
-		return err;
-	}
-	/* FIXME: playback must be synchronized to capture */
-	usb_set_interface(chip->dev, fp->iface, 0);
-	return 0;
-}
-
 static int snd_usb_create_quirk(struct snd_usb_audio *chip,
 				struct usb_interface *iface,
 				const struct snd_usb_audio_quirk *quirk);
@@ -3406,7 +3317,6 @@ static int snd_usb_create_quirk(struct snd_usb_audio *chip,
 		[QUIRK_AUDIO_STANDARD_INTERFACE] = create_standard_audio_quirk,
 		[QUIRK_AUDIO_FIXED_ENDPOINT] = create_fixed_stream_quirk,
 		[QUIRK_AUDIO_EDIROL_UA1000] = create_ua1000_quirk,
-		[QUIRK_AUDIO_EDIROL_UA101] = create_ua101_quirk,
 		[QUIRK_AUDIO_EDIROL_UAXX] = create_uaxx_quirk
 	};
 
