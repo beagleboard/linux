@@ -739,6 +739,8 @@ static int dapm_seq_compare(struct snd_soc_dapm_widget *a,
 			    struct snd_soc_dapm_widget *b,
 			    int sort[])
 {
+	if (a->codec != b->codec)
+		return (unsigned long)a - (unsigned long)b;
 	if (sort[a->id] != sort[b->id])
 		return sort[a->id] - sort[b->id];
 	if (a->reg != b->reg)
@@ -1147,8 +1149,15 @@ static ssize_t dapm_widget_power_read_file(struct file *file,
 	out = is_connected_output_ep(w);
 	dapm_clear_walk(w->codec);
 
-	ret = snprintf(buf, PAGE_SIZE, "%s: %s  in %d out %d\n",
+	ret = snprintf(buf, PAGE_SIZE, "%s: %s  in %d out %d",
 		       w->name, w->power ? "On" : "Off", in, out);
+
+	if (w->reg >= 0)
+		ret += snprintf(buf + ret, PAGE_SIZE - ret,
+				" - R%d(0x%x) bit %d",
+				w->reg, w->reg, w->shift);
+
+	ret += snprintf(buf + ret, PAGE_SIZE - ret, "\n");
 
 	if (w->sname)
 		ret += snprintf(buf + ret, PAGE_SIZE - ret, " stream %s %s\n",
@@ -1255,8 +1264,7 @@ static int dapm_mux_update_power(struct snd_soc_dapm_widget *widget,
 
 /* test and update the power status of a mixer or switch widget */
 static int dapm_mixer_update_power(struct snd_soc_dapm_widget *widget,
-				   struct snd_kcontrol *kcontrol, int reg,
-				   int val_mask, int val, int invert)
+				   struct snd_kcontrol *kcontrol, int connect)
 {
 	struct snd_soc_dapm_path *path;
 	int found = 0;
@@ -1266,9 +1274,6 @@ static int dapm_mixer_update_power(struct snd_soc_dapm_widget *widget,
 	    widget->id != snd_soc_dapm_switch)
 		return -ENODEV;
 
-	if (!snd_soc_test_bits(widget->codec, reg, val_mask, val))
-		return 0;
-
 	/* find dapm widget path assoc with kcontrol */
 	list_for_each_entry(path, &widget->codec->dapm_paths, list) {
 		if (path->kcontrol != kcontrol)
@@ -1276,12 +1281,7 @@ static int dapm_mixer_update_power(struct snd_soc_dapm_widget *widget,
 
 		/* found, now check type */
 		found = 1;
-		if (val)
-			/* new connection */
-			path->connect = invert ? 0:1;
-		else
-			/* old connection must be powered down */
-			path->connect = invert ? 1:0;
+		path->connect = connect;
 		break;
 	}
 
@@ -1688,6 +1688,7 @@ int snd_soc_dapm_put_volsw(struct snd_kcontrol *kcontrol,
 	unsigned int mask = (1 << fls(max)) - 1;
 	unsigned int invert = mc->invert;
 	unsigned int val, val2, val_mask;
+	int connect;
 	int ret;
 
 	val = (ucontrol->value.integer.value[0] & mask);
@@ -1714,7 +1715,17 @@ int snd_soc_dapm_put_volsw(struct snd_kcontrol *kcontrol,
 		return 1;
 	}
 
-	dapm_mixer_update_power(widget, kcontrol, reg, val_mask, val, invert);
+	if (snd_soc_test_bits(widget->codec, reg, val_mask, val)) {
+		if (val)
+			/* new connection */
+			connect = invert ? 0:1;
+		else
+			/* old connection must be powered down */
+			connect = invert ? 1:0;
+
+		dapm_mixer_update_power(widget, kcontrol, connect);
+	}
+
 	if (widget->event) {
 		if (widget->event_flags & SND_SOC_DAPM_PRE_REG) {
 			ret = widget->event(widget, kcontrol,
