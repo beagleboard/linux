@@ -279,8 +279,16 @@ static void __init n8x0_init_irq(void)
 	omap_gpio_init();
 }
 
+#ifdef CONFIG_MACH_NOKIA_N8X0_USB
+extern void n8x0_usb_init(void);
+#else
+static inline void n8x0_usb_init (void) {}
+#endif
+
 static void __init n8x0_init_machine(void)
 {
+	n8x0_usb_init();
+
 	platform_device_register(&n8x0_cbus_device);
 
 	/* FIXME: add n810 spi devices */

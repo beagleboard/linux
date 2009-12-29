@@ -117,6 +117,11 @@ config MACH_NOKIA_N8X0
 	select MACH_NOKIA_N810
 	select MACH_NOKIA_N810_WIMAX
 
+config MACH_NOKIA_N8X0_USB
+	bool
+	depends on MACH_NOKIA_N8X0 && MACH_OMAP2_TUSB6010
+	default y
+
 config MACH_NOKIA_RX51
 	bool "Nokia RX-51 board"
 	depends on ARCH_OMAP3 && ARCH_OMAP34XX
