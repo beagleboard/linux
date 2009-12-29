@@ -25,7 +25,6 @@
 #define GPIO_TUSB_ENABLE	0
 
 static int tusb_set_power(int state);
-static int tusb_set_clock(struct clk *osc_ck, int state);
 
 #if	defined(CONFIG_USB_MUSB_OTG)
 #	define BOARD_MODE	MUSB_OTG
@@ -82,10 +81,8 @@ static struct musb_hdrc_config musb_config = {
 static struct musb_hdrc_platform_data tusb_data = {
 	.mode		= BOARD_MODE,
 	.set_power	= tusb_set_power,
-	.set_clock	= tusb_set_clock,
 	.min_power	= 25,	/* x2 = 50 mA drawn from VBUS as peripheral */
 	.power		= 100,	/* Max 100 mA VBUS for host mode */
-	.clock		= "osc_ck",
 	.config		= &musb_config,
 };
 
@@ -121,27 +118,6 @@ static int tusb_set_power(int state)
 	return retval;
 }
 
-static int		osc_ck_on;
-
-static int tusb_set_clock(struct clk *osc_ck, int state)
-{
-	if (state) {
-		if (osc_ck_on > 0)
-			return -ENODEV;
-
-		clk_enable(osc_ck);
-		osc_ck_on = 1;
-	} else {
-		if (osc_ck_on == 0)
-			return -ENODEV;
-
-		clk_disable(osc_ck);
-		osc_ck_on = 0;
-	}
-
-	return 0;
-}
-
 void __init n8x0_usb_init(void)
 {
 	int ret = 0;
@@ -155,6 +131,12 @@ void __init n8x0_usb_init(void)
 		return;
 	}
 	gpio_direction_output(GPIO_TUSB_ENABLE, 0);
+
+	/*
+	 * REVISIT: This line can be removed once all the platforms using
+	 * musb_core.c have been converted to use use clkdev.
+	 */
+	tusb_data.clock = "fck";
 
 	tusb_set_power(0);
 
