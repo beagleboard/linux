@@ -218,7 +218,7 @@ static void omap_init_spi100k(void)
 		platform_device_register(&omap_spi1);
 
 	omap_spi2.dev.platform_data = ioremap(OMAP7XX_SPI2_BASE, 0x7ff);
-	ifi (omap_spi2.dev.platform_data)
+	if (omap_spi2.dev.platform_data)
 		platform_device_register(&omap_spi2);
 }
 
