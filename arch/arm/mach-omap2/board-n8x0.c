@@ -30,6 +30,7 @@
 #include <plat/mcspi.h>
 #include <plat/onenand.h>
 #include <plat/serial.h>
+#include <plat/cbus.h>
 
 static struct omap2_mcspi_device_config p54spi_mcspi_config = {
 	.turbo_mode	= 0,
@@ -78,9 +79,18 @@ static struct mtd_partition onenand_partitions[] = {
 	},
 };
 
+static struct cbus_host_platform_data n8x0_cbus_data = {
+	.clk_gpio	= 66,
+	.dat_gpio	= 65,
+	.sel_gpio	= 64,
+};
+
 static struct platform_device n8x0_cbus_device = {
 	.name		= "cbus",
 	.id		= -1,
+	.dev		= {
+		.platform_data = &n8x0_cbus_data,
+	},
 };
 
 static struct omap_onenand_platform_data board_onenand_data = {
