@@ -67,6 +67,7 @@
 /* DOFF_ST */
 #define ERR_OVER	0x00000010
 #define ERR_UNDER	0x00000001
+#define ST_ERR		(ERR_OVER | ERR_UNDER)
 
 /* CLK_RST */
 #define B_CLK		0x00000010
@@ -210,11 +211,17 @@ static int fsi_is_port_a(struct fsi_priv *fsi)
 	return fsi->master->base == fsi->base;
 }
 
-static struct fsi_priv *fsi_get_priv(struct snd_pcm_substream *substream)
+static struct snd_soc_dai *fsi_get_dai(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai_link *machine = rtd->dai;
-	struct snd_soc_dai *dai = machine->cpu_dai;
+
+	return  machine->cpu_dai;
+}
+
+static struct fsi_priv *fsi_get_priv(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_dai *dai = fsi_get_dai(substream);
 
 	return dai->private_data;
 }
@@ -369,18 +376,21 @@ static int fsi_data_push(struct fsi_priv *fsi)
 {
 	struct snd_pcm_runtime *runtime;
 	struct snd_pcm_substream *substream = NULL;
+	u32 status;
 	int send;
 	int fifo_free;
 	int width;
 	u8 *start;
-	int i;
+	int i, ret, over_period;
 
 	if (!fsi			||
 	    !fsi->substream		||
 	    !fsi->substream->runtime)
 		return -EINVAL;
 
-	runtime = fsi->substream->runtime;
+	over_period	= 0;
+	substream	= fsi->substream;
+	runtime		= substream->runtime;
 
 	/* FSI FIFO has limit.
 	 * So, this driver can not send periods data at a time
@@ -388,7 +398,7 @@ static int fsi_data_push(struct fsi_priv *fsi)
 	if (fsi->byte_offset >=
 	    fsi->period_len * (fsi->periods + 1)) {
 
-		substream = fsi->substream;
+		over_period = 1;
 		fsi->periods = (fsi->periods + 1) % runtime->periods;
 
 		if (0 == fsi->periods)
@@ -427,30 +437,42 @@ static int fsi_data_push(struct fsi_priv *fsi)
 
 	fsi->byte_offset += send * width;
 
+	ret = 0;
+	status = fsi_reg_read(fsi, DOFF_ST);
+	if (status & ERR_OVER) {
+		struct snd_soc_dai *dai = fsi_get_dai(substream);
+		dev_err(dai->dev, "over run error\n");
+		fsi_reg_write(fsi, DOFF_ST, status & ~ST_ERR);
+		ret = -EIO;
+	}
+
 	fsi_irq_enable(fsi, 1);
 
-	if (substream)
+	if (over_period)
 		snd_pcm_period_elapsed(substream);
 
-	return 0;
+	return ret;
 }
 
 static int fsi_data_pop(struct fsi_priv *fsi)
 {
 	struct snd_pcm_runtime *runtime;
 	struct snd_pcm_substream *substream = NULL;
+	u32 status;
 	int free;
 	int fifo_fill;
 	int width;
 	u8 *start;
-	int i;
+	int i, ret, over_period;
 
 	if (!fsi			||
 	    !fsi->substream		||
 	    !fsi->substream->runtime)
 		return -EINVAL;
 
-	runtime = fsi->substream->runtime;
+	over_period	= 0;
+	substream	= fsi->substream;
+	runtime		= substream->runtime;
 
 	/* FSI FIFO has limit.
 	 * So, this driver can not send periods data at a time
@@ -458,7 +480,7 @@ static int fsi_data_pop(struct fsi_priv *fsi)
 	if (fsi->byte_offset >=
 	    fsi->period_len * (fsi->periods + 1)) {
 
-		substream = fsi->substream;
+		over_period = 1;
 		fsi->periods = (fsi->periods + 1) % runtime->periods;
 
 		if (0 == fsi->periods)
@@ -496,12 +518,21 @@ static int fsi_data_pop(struct fsi_priv *fsi)
 
 	fsi->byte_offset += fifo_fill * width;
 
+	ret = 0;
+	status = fsi_reg_read(fsi, DIFF_ST);
+	if (status & ERR_UNDER) {
+		struct snd_soc_dai *dai = fsi_get_dai(substream);
+		dev_err(dai->dev, "under run error\n");
+		fsi_reg_write(fsi, DIFF_ST, status & ~ST_ERR);
+		ret = -EIO;
+	}
+
 	fsi_irq_enable(fsi, 0);
 
-	if (substream)
+	if (over_period)
 		snd_pcm_period_elapsed(substream);
 
-	return 0;
+	return ret;
 }
 
 static irqreturn_t fsi_interrupt(int irq, void *data)

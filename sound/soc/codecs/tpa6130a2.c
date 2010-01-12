@@ -41,6 +41,11 @@ static const char *tpa6130a2_supply_names[TPA6130A2_NUM_SUPPLIES] = {
 	"Vdd",
 };
 
+static const char *tpa6140a2_supply_names[TPA6130A2_NUM_SUPPLIES] = {
+	"HPVdd",
+	"AVdd",
+};
+
 /* This struct is used to save the context */
 struct tpa6130a2_data {
 	struct mutex mutex;
@@ -267,11 +272,7 @@ static const struct snd_kcontrol_new tpa6130a2_controls[] = {
  */
 static void tpa6130a2_channel_enable(u8 channel, int enable)
 {
-	struct	tpa6130a2_data *data;
 	u8	val;
-
-	BUG_ON(tpa6130a2_client == NULL);
-	data = i2c_get_clientdata(tpa6130a2_client);
 
 	if (enable) {
 		/* Enable channel */
@@ -424,8 +425,21 @@ static int tpa6130a2_probe(struct i2c_client *client,
 		gpio_direction_output(data->power_gpio, 0);
 	}
 
-	for (i = 0; i < ARRAY_SIZE(data->supplies); i++)
-		data->supplies[i].supply = tpa6130a2_supply_names[i];
+	switch (pdata->id) {
+	case TPA6130A2:
+		for (i = 0; i < ARRAY_SIZE(data->supplies); i++)
+			data->supplies[i].supply = tpa6130a2_supply_names[i];
+		break;
+	case TPA6140A2:
+		for (i = 0; i < ARRAY_SIZE(data->supplies); i++)
+			data->supplies[i].supply = tpa6140a2_supply_names[i];;
+		break;
+	default:
+		dev_warn(dev, "Unknown TPA model (%d). Assuming 6130A2\n",
+			 pdata->id);
+		for (i = 0; i < ARRAY_SIZE(data->supplies); i++)
+			data->supplies[i].supply = tpa6130a2_supply_names[i];
+	}
 
 	ret = regulator_bulk_get(dev, ARRAY_SIZE(data->supplies),
 				 data->supplies);
