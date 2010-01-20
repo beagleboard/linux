@@ -86,6 +86,11 @@
 #define VENC_OUTPUT_TEST			0xC8
 #define VENC_DAC_B__DAC_C			0xC8
 
+static char *tv_connection;
+
+module_param_named(tvcable, tv_connection, charp, 0);
+MODULE_PARM_DESC(tvcable, "TV connection type (svideo, composite)");
+
 struct venc_config {
 	u32 f_control;
 	u32 vidout_ctrl;
@@ -464,6 +469,23 @@ static int venc_power_on(struct omap_dss_device *dssdev)
 	r = dss_mgr_enable(mgr);
 	if (r)
 		goto err2;
+
+	/* Allow the TV output to be overriden */
+	if (tv_connection) {
+		if (strcmp(tv_connection, "svideo") == 0) {
+			printk(KERN_INFO
+				"omapdss: tv output is svideo.\n");
+			dssdev->phy.venc.type = OMAP_DSS_VENC_TYPE_SVIDEO;
+		} else if (strcmp(tv_connection, "composite") == 0) {
+			printk(KERN_INFO
+				"omapdss: tv output is composite.\n");
+			dssdev->phy.venc.type = OMAP_DSS_VENC_TYPE_COMPOSITE;
+		} else {
+			printk(KERN_INFO
+				"omapdss: unsupported output type'%s'.\n",
+				tv_connection);
+		}
+	}
 
 	return 0;
 
