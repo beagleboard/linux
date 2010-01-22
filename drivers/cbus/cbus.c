@@ -291,4 +291,6 @@ subsys_initcall(cbus_bus_init);
 
 MODULE_DESCRIPTION("CBUS serial protocol");
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Juha Yrjölä, David Weinehall, and Mikko Ylinen");
+MODULE_AUTHOR("Juha Yrjölä");
+MODULE_AUTHOR("David Weinehall");
+MODULE_AUTHOR("Mikko Ylinen");
