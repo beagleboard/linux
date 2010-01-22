@@ -51,7 +51,7 @@ struct omap_mux_entry {
 static unsigned long mux_phys;
 static void __iomem *mux_base;
 
-static inline u16 omap_mux_read(u16 reg)
+u16 omap_mux_read(u16 reg)
 {
 	if (cpu_is_omap24xx())
 		return __raw_readb(mux_base + reg);
@@ -59,12 +59,20 @@ static inline u16 omap_mux_read(u16 reg)
 		return __raw_readw(mux_base + reg);
 }
 
-static inline void omap_mux_write(u16 val, u16 reg)
+void omap_mux_write(u16 val, u16 reg)
 {
 	if (cpu_is_omap24xx())
 		__raw_writeb(val, mux_base + reg);
 	else
 		__raw_writew(val, mux_base + reg);
+}
+
+void omap_mux_write_array(struct omap_board_mux *board_mux)
+{
+	while (board_mux->reg_offset !=  OMAP_MUX_TERMINATOR) {
+		omap_mux_write(board_mux->value, board_mux->reg_offset);
+		board_mux++;
+	}
 }
 
 #if defined(CONFIG_ARCH_OMAP24XX) && defined(CONFIG_OMAP_MUX)
@@ -833,14 +841,6 @@ static void __init omap_mux_set_cmdline_signals(void)
 	kfree(options);
 }
 
-static void __init omap_mux_set_board_signals(struct omap_board_mux *board_mux)
-{
-	while (board_mux->reg_offset !=  OMAP_MUX_TERMINATOR) {
-		omap_mux_write(board_mux->value, board_mux->reg_offset);
-		board_mux++;
-	}
-}
-
 static int __init omap_mux_copy_names(struct omap_mux *src,
 					struct omap_mux *dst)
 {
@@ -977,6 +977,38 @@ static void __init omap_mux_init_list(struct omap_mux *superset)
 	}
 }
 
+#ifdef CONFIG_OMAP_MUX
+
+static void omap_mux_init_package(struct omap_mux *superset,
+				  struct omap_mux *package_subset,
+				  struct omap_ball *package_balls)
+{
+	if (package_subset)
+		omap_mux_package_fixup(package_subset, superset);
+	if (package_balls)
+		omap_mux_package_init_balls(package_balls, superset);
+}
+
+static void omap_mux_init_signals(struct omap_board_mux *board_mux)
+{
+	omap_mux_set_cmdline_signals();
+	omap_mux_write_array(board_mux);
+}
+
+#else
+
+static void omap_mux_init_package(struct omap_mux *superset,
+				  struct omap_mux *package_subset,
+				  struct omap_ball *package_balls)
+{
+}
+
+static void omap_mux_init_signals(struct omap_board_mux *board_mux)
+{
+}
+
+#endif
+
 int __init omap_mux_init(u32 mux_pbase, u32 mux_size,
 				struct omap_mux *superset,
 				struct omap_mux *package_subset,
@@ -993,16 +1025,9 @@ int __init omap_mux_init(u32 mux_pbase, u32 mux_size,
 		return -ENODEV;
 	}
 
-#ifdef CONFIG_OMAP_MUX
-	if (package_subset)
-		omap_mux_package_fixup(package_subset, superset);
-	if (package_balls)
-		omap_mux_package_init_balls(package_balls, superset);
-	omap_mux_set_cmdline_signals();
-	omap_mux_set_board_signals(board_mux);
-#endif
-
+	omap_mux_init_package(superset, package_subset, package_balls);
 	omap_mux_init_list(superset);
+	omap_mux_init_signals(board_mux);
 
 	return 0;
 }
