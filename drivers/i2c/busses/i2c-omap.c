@@ -894,6 +894,12 @@ omap_i2c_probe(struct platform_device *pdev)
 	dev->idle = 1;
 	dev->dev = &pdev->dev;
 	dev->irq = irq->start;
+
+	if (cpu_is_omap7xx())
+		dev->reg_shift = 1;
+	else
+		dev->reg_shift = 2;
+
 	dev->base = ioremap(mem->start, resource_size(mem));
 	if (!dev->base) {
 		r = -ENOMEM;
@@ -924,11 +930,6 @@ omap_i2c_probe(struct platform_device *pdev)
 		dev->fifo_size = (dev->fifo_size / 2);
 		dev->b_hw = 1; /* Enable hardware fixes */
 	}
-
-	if (cpu_is_omap7xx())
-		dev->reg_shift = 1;
-	else
-		dev->reg_shift = 2;
 
 	/* reset ASAP, clearing any IRQs */
 	omap_i2c_init(dev);
