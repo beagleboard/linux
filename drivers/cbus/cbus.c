@@ -30,7 +30,7 @@
 #include <linux/spinlock.h>
 #include <linux/gpio.h>
 
-#include <mach/board.h>
+#include <plat/board.h>
 #include <mach/board-nokia.h>
 
 #include <asm/io.h>
