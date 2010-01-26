@@ -651,6 +651,7 @@ err_uhh_ioremap:
 
 err_ioremap:
 	usb_put_hcd(hcd);
+	kfree(omap);
 
 err_create_hcd:
 	kfree(omap);
