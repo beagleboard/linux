@@ -38,10 +38,10 @@
 #include <linux/gpio.h>
 
 #include <asm/uaccess.h>
+#include <asm/mach-types.h>
 
 #include <plat/mux.h>
 #include <plat/board.h>
-#include <mach/board-nokia.h>
 
 #include "cbus.h"
 #include "retu.h"
@@ -321,20 +321,21 @@ static void retu_power_off(void)
  */
 static int __devinit retu_probe(struct device *dev)
 {
-	const struct omap_em_asic_bb5_config * em_asic_config;
 	int rev, ret;
 
 	/* Prepare tasklet */
 	tasklet_init(&retu_tasklet, retu_tasklet_handler, 0);
 
-	em_asic_config = omap_get_config(OMAP_TAG_EM_ASIC_BB5,
-					 struct omap_em_asic_bb5_config);
-	if (em_asic_config == NULL) {
-		printk(KERN_ERR PFX "Unable to retrieve config data\n");
-		return -ENODATA;
+	/* REVISIT: Pass these from board-*.c files in platform_data */
+	if (machine_is_nokia770()) {
+		retu_irq_pin = 62;
+	} else if (machine_is_nokia_n800() || machine_is_nokia_n810() ||
+			machine_is_nokia_n810_wimax()) {
+		retu_irq_pin = 108;
+	} else {
+		printk(KERN_ERR "cbus: Unsupported board for tahvo\n");
+		return -ENODEV;
 	}
-
-	retu_irq_pin = em_asic_config->retu_irq_gpio;
 
 	if ((ret = gpio_request(retu_irq_pin, "RETU irq")) < 0) {
 		printk(KERN_ERR PFX "Unable to reserve IRQ GPIO\n");
