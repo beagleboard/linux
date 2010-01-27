@@ -79,20 +79,6 @@ static struct mtd_partition onenand_partitions[] = {
 	},
 };
 
-static struct cbus_host_platform_data n8x0_cbus_data = {
-	.clk_gpio	= 66,
-	.dat_gpio	= 65,
-	.sel_gpio	= 64,
-};
-
-static struct platform_device n8x0_cbus_device = {
-	.name		= "cbus",
-	.id		= -1,
-	.dev		= {
-		.platform_data = &n8x0_cbus_data,
-	},
-};
-
 static struct omap_onenand_platform_data board_onenand_data = {
 	.cs		= 0,
 	.gpio_irq	= 26,
@@ -112,6 +98,33 @@ static void __init n8x0_onenand_init(void) {}
 
 #endif
 
+#if defined(CONFIG_CBUS) || defined(CONFIG_CBUS_MODULE)
+
+static struct cbus_host_platform_data n8x0_cbus_data = {
+	.clk_gpio	= 66,
+	.dat_gpio	= 65,
+	.sel_gpio	= 64,
+};
+
+static struct platform_device n8x0_cbus_device = {
+	.name		= "cbus",
+	.id		= -1,
+	.dev		= {
+		.platform_data = &n8x0_cbus_data,
+	},
+};
+
+static void __init n8x0_cbus_init(void)
+{
+	platform_device_register(&n8x0_cbus_device);
+}
+
+#else
+static inline void __init n8x0_cbus_init(void)
+{
+}
+#endif
+
 static void __init n8x0_map_io(void)
 {
 	omap2_set_globals_242x();
@@ -127,7 +140,7 @@ static void __init n8x0_init_irq(void)
 
 static void __init n8x0_init_machine(void)
 {
-	platform_device_register(&n8x0_cbus_device);
+	n8x0_cbus_init();
 
 	/* FIXME: add n810 spi devices */
 	spi_register_board_info(n800_spi_board_info,
