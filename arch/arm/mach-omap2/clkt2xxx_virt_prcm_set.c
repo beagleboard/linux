@@ -177,14 +177,14 @@ int omap2_select_table_rate(struct clk *clk, unsigned long rate)
  */
 static struct cpufreq_frequency_table *freq_table;
 
-void omap2xxx_clk_init_cpufreq_table(struct cpufreq_frequency_table **table)
+void omap2_clk_init_cpufreq_table(struct cpufreq_frequency_table **table)
 {
 	const struct prcm_config *prcm;
 	long sys_ck_rate;
 	int i = 0;
 	int tbl_sz = 0;
 
-	if (!cpu_is_omap2xxx())
+	if (!cpu_is_omap24xx())
 		return;
 
 	sys_ck_rate = clk_get_rate(sclk);
@@ -243,9 +243,9 @@ void omap2xxx_clk_init_cpufreq_table(struct cpufreq_frequency_table **table)
 	*table = &freq_table[0];
 }
 
-void omap2xxx_clk_exit_cpufreq_table(struct cpufreq_frequency_table **table)
+void omap2_clk_exit_cpufreq_table(struct cpufreq_frequency_table **table)
 {
-	if (!cpu_is_omap2xxx())
+	if (!cpu_is_omap24xx())
 		return;
 
 	kfree(freq_table);

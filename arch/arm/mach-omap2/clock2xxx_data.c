@@ -2243,7 +2243,7 @@ int __init omap2xxx_clk_init(void)
 	const struct prcm_config *prcm;
 	struct omap_clk *c;
 	u32 clkrate;
-	u16 cpu_clkflg;
+	u16 cpu_clkflg = 0;
 
 	if (cpu_is_omap242x()) {
 		prcm_clksrc_ctrl = OMAP2420_PRCM_CLKSRC_CTRL;
