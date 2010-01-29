@@ -648,6 +648,10 @@ static int tahvo_usb_probe(struct device *dev)
 	struct tahvo_usb *tu;
 	int ret;
 
+	ret = tahvo_get_status();
+	if (!ret)
+		return -ENODEV;
+
 	dev_dbg(dev, "probe\n");
 
 	/* Create driver data */
