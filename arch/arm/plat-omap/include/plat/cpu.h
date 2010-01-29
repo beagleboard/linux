@@ -44,7 +44,7 @@
 int omap_type(void);
 
 struct omap_chip_id {
-	u8 oc;
+	u16 oc;
 	u8 type;
 };
 
@@ -114,7 +114,7 @@ unsigned int omap_rev(void);
 #  define OMAP_NAME omap16xx
 # endif
 #endif
-#if (defined(CONFIG_ARCH_OMAP24XX) || defined(CONFIG_ARCH_OMAP34XX))
+#if (defined(CONFIG_ARCH_OMAP2) || defined(CONFIG_ARCH_OMAP3))
 # if (defined(OMAP_NAME) || defined(MULTI_OMAP1))
 #  error "OMAP1 and OMAP2 can't be selected at the same time"
 # endif
@@ -154,6 +154,7 @@ unsigned int omap_rev(void);
  * cpu_is_omap242x():	True for OMAP2420, OMAP2422, OMAP2423
  * cpu_is_omap243x():	True for OMAP2430
  * cpu_is_omap343x():	True for OMAP3430
+ * cpu_is_omap443x():	True for OMAP4430
  */
 #define GET_OMAP_CLASS	(omap_rev() & 0xff)
 
@@ -232,7 +233,7 @@ IS_OMAP_SUBCLASS(443x, 0x443)
 #endif
 
 #if defined(MULTI_OMAP2)
-# if defined(CONFIG_ARCH_OMAP24XX)
+# if defined(CONFIG_ARCH_OMAP2)
 #  undef  cpu_is_omap24xx
 #  undef  cpu_is_omap242x
 #  undef  cpu_is_omap243x
@@ -240,14 +241,14 @@ IS_OMAP_SUBCLASS(443x, 0x443)
 #  define cpu_is_omap242x()		is_omap242x()
 #  define cpu_is_omap243x()		is_omap243x()
 # endif
-# if defined(CONFIG_ARCH_OMAP34XX)
+# if defined(CONFIG_ARCH_OMAP3)
 #  undef  cpu_is_omap34xx
 #  undef  cpu_is_omap343x
 #  define cpu_is_omap34xx()		is_omap34xx()
 #  define cpu_is_omap343x()		is_omap343x()
 # endif
 #else
-# if defined(CONFIG_ARCH_OMAP24XX)
+# if defined(CONFIG_ARCH_OMAP2)
 #  undef  cpu_is_omap24xx
 #  define cpu_is_omap24xx()		1
 # endif
@@ -259,7 +260,7 @@ IS_OMAP_SUBCLASS(443x, 0x443)
 #  undef  cpu_is_omap243x
 #  define cpu_is_omap243x()		1
 # endif
-# if defined(CONFIG_ARCH_OMAP34XX)
+# if defined(CONFIG_ARCH_OMAP3)
 #  undef  cpu_is_omap34xx
 #  define cpu_is_omap34xx()		1
 # endif
@@ -286,6 +287,7 @@ IS_OMAP_SUBCLASS(443x, 0x443)
  * cpu_is_omap2423():	True for OMAP2423
  * cpu_is_omap2430():	True for OMAP2430
  * cpu_is_omap3430():	True for OMAP3430
+ * cpu_is_omap4430():	True for OMAP4430
  * cpu_is_omap3505():	True for OMAP3505
  * cpu_is_omap3517():	True for OMAP3517
  */
@@ -334,6 +336,7 @@ IS_OMAP_TYPE(3517, 0x3517)
 #define cpu_is_omap3505()		0
 #define cpu_is_omap3517()		0
 #define cpu_is_omap3430()		0
+#define cpu_is_omap4430()		0
 #define cpu_is_omap3630()		0
 
 /*
@@ -371,7 +374,7 @@ IS_OMAP_TYPE(3517, 0x3517)
 # define cpu_is_omap1710()		is_omap1710()
 #endif
 
-#if defined(CONFIG_ARCH_OMAP24XX)
+#if defined(CONFIG_ARCH_OMAP2)
 # undef  cpu_is_omap2420
 # undef  cpu_is_omap2422
 # undef  cpu_is_omap2423
@@ -382,7 +385,7 @@ IS_OMAP_TYPE(3517, 0x3517)
 # define cpu_is_omap2430()		is_omap2430()
 #endif
 
-#if defined(CONFIG_ARCH_OMAP34XX)
+#if defined(CONFIG_ARCH_OMAP3)
 # undef cpu_is_omap3430
 # undef cpu_is_omap3503
 # undef cpu_is_omap3515
@@ -471,8 +474,11 @@ IS_OMAP_TYPE(3517, 0x3517)
 #define CHIP_IS_OMAP3430ES3_0		(1 << 5)
 #define CHIP_IS_OMAP3430ES3_1		(1 << 6)
 #define CHIP_IS_OMAP3630ES1		(1 << 7)
+#define CHIP_IS_OMAP4430ES1		(1 << 8)
 
 #define CHIP_IS_OMAP24XX		(CHIP_IS_OMAP2420 | CHIP_IS_OMAP2430)
+
+#define CHIP_IS_OMAP4430		(CHIP_IS_OMAP4430ES1)
 
 /*
  * "GE" here represents "greater than or equal to" in terms of ES
