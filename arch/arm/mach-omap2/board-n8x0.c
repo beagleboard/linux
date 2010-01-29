@@ -33,6 +33,7 @@
 #include <plat/onenand.h>
 #include <plat/mmc.h>
 #include <plat/serial.h>
+#include <plat/cbus.h>
 
 static int slot1_cover_open;
 static int slot2_cover_open;
@@ -85,9 +86,18 @@ static struct mtd_partition onenand_partitions[] = {
 	},
 };
 
+static struct cbus_host_platform_data n8x0_cbus_data = {
+	.clk_gpio	= 66,
+	.dat_gpio	= 65,
+	.sel_gpio	= 64,
+};
+
 static struct platform_device n8x0_cbus_device = {
 	.name		= "cbus",
 	.id		= -1,
+	.dev		= {
+		.platform_data = &n8x0_cbus_data,
+	},
 };
 
 static struct omap_onenand_platform_data board_onenand_data = {
