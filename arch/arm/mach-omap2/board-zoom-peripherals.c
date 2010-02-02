@@ -25,7 +25,7 @@
 #include <plat/usb.h>
 
 #include "mux.h"
-#include "mmc-twl4030.h"
+#include "hsmmc.h"
 
 /* Zoom2 has Qwerty keyboard*/
 static int board_keymap[] = {
