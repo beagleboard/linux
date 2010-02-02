@@ -43,7 +43,7 @@
 
 #include "mux.h"
 #include "sdram-micron-mt46h32m32lf-6.h"
-#include "mmc-twl4030.h"
+#include "hsmmc.h"
 
 #define OMAP3_PANDORA_TS_GPIO		94
 
@@ -192,7 +192,7 @@ static struct twl4030_keypad_data pandora_kp_data = {
 	.rep		= 1,
 };
 
-static struct twl4030_hsmmc_info omap3pandora_mmc[] = {
+static struct omap2_hsmmc_info omap3pandora_mmc[] = {
 	{
 		.mmc		= 1,
 		.wires		= 4,
@@ -231,7 +231,7 @@ static int omap3pandora_twl_gpio_setup(struct device *dev,
 	/* gpio + {0,1} is "mmc{0,1}_cd" (input/IRQ) */
 	omap3pandora_mmc[0].gpio_cd = gpio + 0;
 	omap3pandora_mmc[1].gpio_cd = gpio + 1;
-	twl4030_mmc_init(omap3pandora_mmc);
+	omap2_hsmmc_init(omap3pandora_mmc);
 
 	/* link regulators to MMC adapters */
 	pandora_vmmc1_supply.dev = omap3pandora_mmc[0].dev;
@@ -423,7 +423,7 @@ static void __init omap3pandora_init(void)
 static void __init omap3pandora_map_io(void)
 {
 	omap2_set_globals_343x();
-	omap2_map_common_io();
+	omap34xx_map_common_io();
 }
 
 MACHINE_START(OMAP3_PANDORA, "Pandora Handheld Console")
