@@ -748,7 +748,8 @@ static int rmap_write_protect(struct kvm *kvm, u64 gfn)
 	return write_protected;
 }
 
-static int kvm_unmap_rmapp(struct kvm *kvm, unsigned long *rmapp, u64 data)
+static int kvm_unmap_rmapp(struct kvm *kvm, unsigned long *rmapp,
+			   unsigned long data)
 {
 	u64 *spte;
 	int need_tlb_flush = 0;
@@ -763,7 +764,8 @@ static int kvm_unmap_rmapp(struct kvm *kvm, unsigned long *rmapp, u64 data)
 	return need_tlb_flush;
 }
 
-static int kvm_set_pte_rmapp(struct kvm *kvm, unsigned long *rmapp, u64 data)
+static int kvm_set_pte_rmapp(struct kvm *kvm, unsigned long *rmapp,
+			     unsigned long data)
 {
 	int need_flush = 0;
 	u64 *spte, new_spte;
@@ -799,9 +801,10 @@ static int kvm_set_pte_rmapp(struct kvm *kvm, unsigned long *rmapp, u64 data)
 	return 0;
 }
 
-static int kvm_handle_hva(struct kvm *kvm, unsigned long hva, u64 data,
+static int kvm_handle_hva(struct kvm *kvm, unsigned long hva,
+			  unsigned long data,
 			  int (*handler)(struct kvm *kvm, unsigned long *rmapp,
-					 u64 data))
+					 unsigned long data))
 {
 	int i, j;
 	int retval = 0;
@@ -846,10 +849,11 @@ int kvm_unmap_hva(struct kvm *kvm, unsigned long hva)
 
 void kvm_set_spte_hva(struct kvm *kvm, unsigned long hva, pte_t pte)
 {
-	kvm_handle_hva(kvm, hva, (u64)&pte, kvm_set_pte_rmapp);
+	kvm_handle_hva(kvm, hva, (unsigned long)&pte, kvm_set_pte_rmapp);
 }
 
-static int kvm_age_rmapp(struct kvm *kvm, unsigned long *rmapp, u64 data)
+static int kvm_age_rmapp(struct kvm *kvm, unsigned long *rmapp,
+			 unsigned long data)
 {
 	u64 *spte;
 	int young = 0;
@@ -2785,7 +2789,7 @@ int kvm_mmu_page_fault(struct kvm_vcpu *vcpu, gva_t cr2, u32 error_code)
 	if (r)
 		goto out;
 
-	er = emulate_instruction(vcpu, vcpu->run, cr2, error_code, 0);
+	er = emulate_instruction(vcpu, cr2, error_code, 0);
 
 	switch (er) {
 	case EMULATE_DONE:
@@ -2796,6 +2800,7 @@ int kvm_mmu_page_fault(struct kvm_vcpu *vcpu, gva_t cr2, u32 error_code)
 	case EMULATE_FAIL:
 		vcpu->run->exit_reason = KVM_EXIT_INTERNAL_ERROR;
 		vcpu->run->internal.suberror = KVM_INTERNAL_ERROR_EMULATION;
+		vcpu->run->internal.ndata = 0;
 		return 0;
 	default:
 		BUG();
