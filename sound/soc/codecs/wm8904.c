@@ -33,6 +33,11 @@
 static struct snd_soc_codec *wm8904_codec;
 struct snd_soc_codec_device soc_codec_dev_wm8904;
 
+enum wm8904_type {
+	WM8904,
+	WM8912,
+};
+
 #define WM8904_NUM_DCS_CHANNELS 4
 
 #define WM8904_NUM_SUPPLIES 5
@@ -48,6 +53,8 @@ static const char *wm8904_supply_names[WM8904_NUM_SUPPLIES] = {
 struct wm8904_priv {
 	struct snd_soc_codec codec;
 	u16 reg_cache[WM8904_MAX_REGISTER + 1];
+
+	enum wm8904_type devtype;
 
 	struct regulator_bulk_data supplies[WM8904_NUM_SUPPLIES];
 
@@ -979,6 +986,7 @@ static int out_pga_event(struct snd_soc_dapm_widget *w,
 	int dcs_l, dcs_r;
 	int dcs_l_reg, dcs_r_reg;
 	int timeout;
+	int pwr_reg;
 
 	/* This code is shared between HP and LINEOUT; we do all our
 	 * power management in stereo pairs to avoid latency issues so
@@ -988,6 +996,7 @@ static int out_pga_event(struct snd_soc_dapm_widget *w,
 
 	switch (reg) {
 	case WM8904_ANALOGUE_HP_0:
+		pwr_reg = WM8904_POWER_MANAGEMENT_2;
 		dcs_mask = WM8904_DCS_ENA_CHAN_0 | WM8904_DCS_ENA_CHAN_1;
 		dcs_r_reg = WM8904_DC_SERVO_8;
 		dcs_l_reg = WM8904_DC_SERVO_9;
@@ -995,6 +1004,7 @@ static int out_pga_event(struct snd_soc_dapm_widget *w,
 		dcs_r = 1;
 		break;
 	case WM8904_ANALOGUE_LINEOUT_0:
+		pwr_reg = WM8904_POWER_MANAGEMENT_3;
 		dcs_mask = WM8904_DCS_ENA_CHAN_2 | WM8904_DCS_ENA_CHAN_3;
 		dcs_r_reg = WM8904_DC_SERVO_6;
 		dcs_l_reg = WM8904_DC_SERVO_7;
@@ -1007,11 +1017,17 @@ static int out_pga_event(struct snd_soc_dapm_widget *w,
 	}
 
 	switch (event) {
-	case SND_SOC_DAPM_POST_PMU:
+	case SND_SOC_DAPM_PRE_PMU:
+		/* Power on the PGAs */
+		snd_soc_update_bits(codec, pwr_reg,
+				    WM8904_HPL_PGA_ENA | WM8904_HPR_PGA_ENA,
+				    WM8904_HPL_PGA_ENA | WM8904_HPR_PGA_ENA);
+
 		/* Power on the amplifier */
 		snd_soc_update_bits(codec, reg,
 				    WM8904_HPL_ENA | WM8904_HPR_ENA,
 				    WM8904_HPL_ENA | WM8904_HPR_ENA);
+
 
 		/* Enable the first stage */
 		snd_soc_update_bits(codec, reg,
@@ -1064,7 +1080,9 @@ static int out_pga_event(struct snd_soc_dapm_widget *w,
 		snd_soc_update_bits(codec, reg,
 				    WM8904_HPL_ENA_OUTP | WM8904_HPR_ENA_OUTP,
 				    WM8904_HPL_ENA_OUTP | WM8904_HPR_ENA_OUTP);
+		break;
 
+	case SND_SOC_DAPM_POST_PMU:
 		/* Unshort the output itself */
 		snd_soc_update_bits(codec, reg,
 				    WM8904_HPL_RMV_SHORT |
@@ -1079,7 +1097,9 @@ static int out_pga_event(struct snd_soc_dapm_widget *w,
 		snd_soc_update_bits(codec, reg,
 				    WM8904_HPL_RMV_SHORT |
 				    WM8904_HPR_RMV_SHORT, 0);
+		break;
 
+	case SND_SOC_DAPM_POST_PMD:
 		/* Cache the DC servo configuration; this will be
 		 * invalidated if we change the configuration. */
 		wm8904->dcs_state[dcs_l] = snd_soc_read(codec, dcs_l_reg);
@@ -1093,6 +1113,11 @@ static int out_pga_event(struct snd_soc_dapm_widget *w,
 				    WM8904_HPL_ENA | WM8904_HPR_ENA |
 				    WM8904_HPL_ENA_DLY | WM8904_HPR_ENA_DLY |
 				    WM8904_HPL_ENA_OUTP | WM8904_HPR_ENA_OUTP,
+				    0);
+
+		/* PGAs too */
+		snd_soc_update_bits(codec, pwr_reg,
+				    WM8904_HPL_PGA_ENA | WM8904_HPR_PGA_ENA,
 				    0);
 		break;
 	}
@@ -1212,18 +1237,20 @@ SND_SOC_DAPM_DAC("DACR", NULL, WM8904_POWER_MANAGEMENT_6, 2, 0),
 SND_SOC_DAPM_SUPPLY("Charge pump", WM8904_CHARGE_PUMP_0, 0, 0, cp_event,
 		    SND_SOC_DAPM_POST_PMU),
 
-SND_SOC_DAPM_PGA("HPL PGA", WM8904_POWER_MANAGEMENT_2, 1, 0, NULL, 0),
-SND_SOC_DAPM_PGA("HPR PGA", WM8904_POWER_MANAGEMENT_2, 0, 0, NULL, 0),
+SND_SOC_DAPM_PGA("HPL PGA", SND_SOC_NOPM, 1, 0, NULL, 0),
+SND_SOC_DAPM_PGA("HPR PGA", SND_SOC_NOPM, 0, 0, NULL, 0),
 
-SND_SOC_DAPM_PGA("LINEL PGA", WM8904_POWER_MANAGEMENT_3, 1, 0, NULL, 0),
-SND_SOC_DAPM_PGA("LINER PGA", WM8904_POWER_MANAGEMENT_3, 0, 0, NULL, 0),
+SND_SOC_DAPM_PGA("LINEL PGA", SND_SOC_NOPM, 1, 0, NULL, 0),
+SND_SOC_DAPM_PGA("LINER PGA", SND_SOC_NOPM, 0, 0, NULL, 0),
 
 SND_SOC_DAPM_PGA_E("Headphone Output", SND_SOC_NOPM, WM8904_ANALOGUE_HP_0,
 		   0, NULL, 0, out_pga_event,
-		   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD),
+		   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+		   SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
 SND_SOC_DAPM_PGA_E("Line Output", SND_SOC_NOPM, WM8904_ANALOGUE_LINEOUT_0,
 		   0, NULL, 0, out_pga_event,
-		   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD),
+		   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+		   SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
 
 SND_SOC_DAPM_OUTPUT("HPOUTL"),
 SND_SOC_DAPM_OUTPUT("HPOUTR"),
@@ -1391,30 +1418,62 @@ static const struct snd_soc_dapm_route wm8904_intercon[] = {
 	{ "LINER PGA", NULL, "LINER Mux" },
 };
 
+static const struct snd_soc_dapm_route wm8912_intercon[] = {
+	{ "HPL PGA", NULL, "DACL" },
+	{ "HPR PGA", NULL, "DACR" },
+
+	{ "LINEL PGA", NULL, "DACL" },
+	{ "LINER PGA", NULL, "DACR" },
+};
+
 static int wm8904_add_widgets(struct snd_soc_codec *codec)
 {
-	snd_soc_add_controls(codec, wm8904_adc_snd_controls,
-			     ARRAY_SIZE(wm8904_adc_snd_controls));
-	snd_soc_add_controls(codec, wm8904_dac_snd_controls,
-			     ARRAY_SIZE(wm8904_dac_snd_controls));
-	snd_soc_add_controls(codec, wm8904_snd_controls,
-			     ARRAY_SIZE(wm8904_snd_controls));
+	struct wm8904_priv *wm8904 = codec->private_data;
 
 	snd_soc_dapm_new_controls(codec, wm8904_core_dapm_widgets,
 				  ARRAY_SIZE(wm8904_core_dapm_widgets));
-	snd_soc_dapm_new_controls(codec, wm8904_adc_dapm_widgets,
-				  ARRAY_SIZE(wm8904_adc_dapm_widgets));
-	snd_soc_dapm_new_controls(codec, wm8904_dac_dapm_widgets,
-				  ARRAY_SIZE(wm8904_dac_dapm_widgets));
-	snd_soc_dapm_new_controls(codec, wm8904_dapm_widgets,
-				  ARRAY_SIZE(wm8904_dapm_widgets));
-
 	snd_soc_dapm_add_routes(codec, core_intercon,
 				ARRAY_SIZE(core_intercon));
-	snd_soc_dapm_add_routes(codec, adc_intercon, ARRAY_SIZE(adc_intercon));
-	snd_soc_dapm_add_routes(codec, dac_intercon, ARRAY_SIZE(dac_intercon));
-	snd_soc_dapm_add_routes(codec, wm8904_intercon,
-				ARRAY_SIZE(wm8904_intercon));
+
+	switch (wm8904->devtype) {
+	case WM8904:
+		snd_soc_add_controls(codec, wm8904_adc_snd_controls,
+				     ARRAY_SIZE(wm8904_adc_snd_controls));
+		snd_soc_add_controls(codec, wm8904_dac_snd_controls,
+				     ARRAY_SIZE(wm8904_dac_snd_controls));
+		snd_soc_add_controls(codec, wm8904_snd_controls,
+				     ARRAY_SIZE(wm8904_snd_controls));
+
+		snd_soc_dapm_new_controls(codec, wm8904_adc_dapm_widgets,
+					  ARRAY_SIZE(wm8904_adc_dapm_widgets));
+		snd_soc_dapm_new_controls(codec, wm8904_dac_dapm_widgets,
+					  ARRAY_SIZE(wm8904_dac_dapm_widgets));
+		snd_soc_dapm_new_controls(codec, wm8904_dapm_widgets,
+					  ARRAY_SIZE(wm8904_dapm_widgets));
+
+		snd_soc_dapm_add_routes(codec, core_intercon,
+					ARRAY_SIZE(core_intercon));
+		snd_soc_dapm_add_routes(codec, adc_intercon,
+					ARRAY_SIZE(adc_intercon));
+		snd_soc_dapm_add_routes(codec, dac_intercon,
+					ARRAY_SIZE(dac_intercon));
+		snd_soc_dapm_add_routes(codec, wm8904_intercon,
+					ARRAY_SIZE(wm8904_intercon));
+		break;
+
+	case WM8912:
+		snd_soc_add_controls(codec, wm8904_dac_snd_controls,
+				     ARRAY_SIZE(wm8904_dac_snd_controls));
+
+		snd_soc_dapm_new_controls(codec, wm8904_dac_dapm_widgets,
+					  ARRAY_SIZE(wm8904_dac_dapm_widgets));
+
+		snd_soc_dapm_add_routes(codec, dac_intercon,
+					ARRAY_SIZE(dac_intercon));
+		snd_soc_dapm_add_routes(codec, wm8912_intercon,
+					ARRAY_SIZE(wm8912_intercon));
+		break;
+	}
 
 	snd_soc_dapm_new_widgets(codec);
 	return 0;
@@ -2033,11 +2092,37 @@ static int wm8904_digital_mute(struct snd_soc_dai *codec_dai, int mute)
 	return 0;
 }
 
+static void wm8904_sync_cache(struct snd_soc_codec *codec)
+{
+	struct wm8904_priv *wm8904 = codec->private_data;
+	int i;
+
+	if (!codec->cache_sync)
+		return;
+
+	codec->cache_only = 0;
+
+	/* Sync back cached values if they're different from the
+	 * hardware default.
+	 */
+	for (i = 1; i < ARRAY_SIZE(wm8904->reg_cache); i++) {
+		if (!wm8904_access[i].writable)
+			continue;
+
+		if (wm8904->reg_cache[i] == wm8904_reg[i])
+			continue;
+
+		snd_soc_write(codec, i, wm8904->reg_cache[i]);
+	}
+
+	codec->cache_sync = 0;
+}
+
 static int wm8904_set_bias_level(struct snd_soc_codec *codec,
 				 enum snd_soc_bias_level level)
 {
 	struct wm8904_priv *wm8904 = codec->private_data;
-	int ret, i;
+	int ret;
 
 	switch (level) {
 	case SND_SOC_BIAS_ON:
@@ -2065,18 +2150,7 @@ static int wm8904_set_bias_level(struct snd_soc_codec *codec,
 				return ret;
 			}
 
-			/* Sync back cached values if they're
-			 * different from the hardware default.
-			 */
-			for (i = 1; i < ARRAY_SIZE(wm8904->reg_cache); i++) {
-				if (!wm8904_access[i].writable)
-					continue;
-
-				if (wm8904->reg_cache[i] == wm8904_reg[i])
-					continue;
-
-				snd_soc_write(codec, i, wm8904->reg_cache[i]);
-			}
+			wm8904_sync_cache(codec);
 
 			/* Enable bias */
 			snd_soc_update_bits(codec, WM8904_BIAS_CONTROL_0,
@@ -2111,6 +2185,15 @@ static int wm8904_set_bias_level(struct snd_soc_codec *codec,
 		/* Stop bias generation */
 		snd_soc_update_bits(codec, WM8904_BIAS_CONTROL_0,
 				    WM8904_BIAS_ENA, 0);
+
+#ifdef CONFIG_REGULATOR
+		/* Post 2.6.34 we will be able to get a callback when
+		 * the regulators are disabled which we can use but
+		 * for now just assume that the power will be cut if
+		 * the regulator API is in use.
+		 */
+		codec->cache_sync = 1;
+#endif
 
 		regulator_bulk_disable(ARRAY_SIZE(wm8904->supplies),
 				       wm8904->supplies);
@@ -2365,6 +2448,20 @@ static int wm8904_register(struct wm8904_priv *wm8904,
 	codec->reg_cache_size = WM8904_MAX_REGISTER;
 	codec->reg_cache = &wm8904->reg_cache;
 	codec->volatile_register = wm8904_volatile_register;
+	codec->cache_sync = 1;
+	codec->idle_bias_off = 1;
+
+	switch (wm8904->devtype) {
+	case WM8904:
+		break;
+	case WM8912:
+		memset(&wm8904_dai.capture, 0, sizeof(wm8904_dai.capture));
+		break;
+	default:
+		dev_err(codec->dev, "Unknown device type %d\n",
+			wm8904->devtype);
+		return -EINVAL;
+	}
 
 	memcpy(codec->reg_cache, wm8904_reg, sizeof(wm8904_reg));
 
@@ -2496,6 +2593,8 @@ static __devinit int wm8904_i2c_probe(struct i2c_client *i2c,
 	codec = &wm8904->codec;
 	codec->hw_write = (hw_write_t)i2c_master_send;
 
+	wm8904->devtype = id->driver_data;
+
 	i2c_set_clientdata(i2c, wm8904);
 	codec->control_data = i2c;
 	wm8904->pdata = i2c->dev.platform_data;
@@ -2513,7 +2612,8 @@ static __devexit int wm8904_i2c_remove(struct i2c_client *client)
 }
 
 static const struct i2c_device_id wm8904_i2c_id[] = {
-	{ "wm8904", 0 },
+	{ "wm8904", WM8904 },
+	{ "wm8912", WM8912 },
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, wm8904_i2c_id);

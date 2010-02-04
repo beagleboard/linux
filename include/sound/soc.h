@@ -423,6 +423,8 @@ struct snd_soc_codec {
 	short reg_cache_step;
 
 	unsigned int idle_bias_off:1; /* Use BIAS_OFF instead of STANDBY */
+	unsigned int cache_only:1;  /* Suppress writes to hardware */
+	unsigned int cache_sync:1; /* Cache needs to be synced to hardware */
 
 	/* dapm */
 	u32 pop_time;
