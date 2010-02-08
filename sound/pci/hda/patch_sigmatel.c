@@ -4363,6 +4363,12 @@ static int stac92xx_init(struct hda_codec *codec)
 		if (enable_pin_detect(codec, nid, STAC_PWR_EVENT))
 			stac_issue_unsol_event(codec, nid);
 	}
+
+#ifdef CONFIG_SND_HDA_POWER_SAVE
+	/* sync mute LED */
+	if (spec->gpio_led && codec->patch_ops.check_power_status)
+		codec->patch_ops.check_power_status(codec, 0x01);
+#endif	
 	if (spec->dac_list)
 		stac92xx_power_down(codec);
 	return 0;
@@ -4754,19 +4760,14 @@ static int hp_blike_system(u32 subsystem_id);
 static void set_hp_led_gpio(struct hda_codec *codec)
 {
 	struct sigmatel_spec *spec = codec->spec;
-	switch (codec->vendor_id) {
-	case 0x111d7608:
-		/* GPIO 0 */
-		spec->gpio_led = 0x01;
-		break;
-	case 0x111d7600:
-	case 0x111d7601:
-	case 0x111d7602:
-	case 0x111d7603:
-		/* GPIO 3 */
-		spec->gpio_led = 0x08;
-		break;
-	}
+	unsigned int gpio;
+
+	gpio = snd_hda_param_read(codec, codec->afg, AC_PAR_GPIO_CAP);
+	gpio &= AC_GPIO_IO_COUNT;
+	if (gpio > 3)
+		spec->gpio_led = 0x08; /* GPIO 3 */
+	else
+		spec->gpio_led = 0x01; /* GPIO 0 */
 }
 
 /*
@@ -4914,6 +4915,11 @@ static int stac92xx_resume(struct hda_codec *codec)
 			stac_issue_unsol_event(codec,
 					       spec->autocfg.line_out_pins[0]);
 	}
+#ifdef CONFIG_SND_HDA_POWER_SAVE
+	/* sync mute LED */
+	if (spec->gpio_led && codec->patch_ops.check_power_status)
+		codec->patch_ops.check_power_status(codec, 0x01);
+#endif	
 	return 0;
 }
 
@@ -4933,43 +4939,29 @@ static int stac92xx_hp_check_power_status(struct hda_codec *codec,
 					      hda_nid_t nid)
 {
 	struct sigmatel_spec *spec = codec->spec;
+	int i, muted = 1;
 
-	if (nid == 0x10) {
-		if (snd_hda_codec_amp_read(codec, nid, 0, HDA_OUTPUT, 0) &
-		    HDA_AMP_MUTE)
-			spec->gpio_data &= ~spec->gpio_led; /* orange */
-		else
-			spec->gpio_data |= spec->gpio_led; /* white */
-
-		if (!spec->gpio_led_polarity) {
-			/* LED state is inverted on these systems */
-			spec->gpio_data ^= spec->gpio_led;
+	for (i = 0; i < spec->multiout.num_dacs; i++) {
+		nid = spec->multiout.dac_nids[i];
+		if (!(snd_hda_codec_amp_read(codec, nid, 0, HDA_OUTPUT, 0) &
+		      HDA_AMP_MUTE)) {
+			muted = 0; /* something heard */
+			break;
 		}
+	}
+	if (muted)
+		spec->gpio_data &= ~spec->gpio_led; /* orange */
+	else
+		spec->gpio_data |= spec->gpio_led; /* white */
 
-		stac_gpio_set(codec, spec->gpio_mask,
-			      spec->gpio_dir,
-			      spec->gpio_data);
+	if (!spec->gpio_led_polarity) {
+		/* LED state is inverted on these systems */
+		spec->gpio_data ^= spec->gpio_led;
 	}
 
-	return 0;
-}
-
-static int idt92hd83xxx_hp_check_power_status(struct hda_codec *codec,
-					      hda_nid_t nid)
-{
-	struct sigmatel_spec *spec = codec->spec;
-
-	if (nid != 0x13)
-		return 0;
-	if (snd_hda_codec_amp_read(codec, nid, 0, HDA_OUTPUT, 0) & HDA_AMP_MUTE)
-		spec->gpio_data |= spec->gpio_led; /* mute LED on */
-	else
-		spec->gpio_data &= ~spec->gpio_led; /* mute LED off */
 	stac_gpio_set(codec, spec->gpio_mask, spec->gpio_dir, spec->gpio_data);
-
 	return 0;
 }
-
 #endif
 
 static int stac92xx_suspend(struct hda_codec *codec, pm_message_t state)
@@ -5351,9 +5343,6 @@ again:
 
 	codec->patch_ops = stac92xx_patch_ops;
 
-	if (spec->board_config == STAC_92HD83XXX_HP)
-		spec->gpio_led = 0x01;
-
 	if (find_mute_led_gpio(codec))
 		snd_printd("mute LED gpio %d polarity %d\n",
 				spec->gpio_led,
@@ -5366,7 +5355,7 @@ again:
 		spec->gpio_data |= spec->gpio_led;
 		/* register check_power_status callback. */
 		codec->patch_ops.check_power_status =
-			idt92hd83xxx_hp_check_power_status;
+			stac92xx_hp_check_power_status;
 	}
 #endif	
 
@@ -5681,7 +5670,6 @@ again:
 		 */
 		spec->num_smuxes = 1;
 		spec->num_dmuxes = 1;
-		spec->gpio_led = 0x01;
 		/* fallthrough */
 	case STAC_HP_DV5:
 		snd_hda_codec_set_pincfg(codec, 0x0d, 0x90170010);
@@ -5696,8 +5684,6 @@ again:
 		spec->num_dmics = 1;
 		spec->num_dmuxes = 1;
 		spec->num_smuxes = 1;
-		/* orange/white mute led on GPIO3, orange=0, white=1 */
-		spec->gpio_led = 0x08;
 		break;
 	}
 
