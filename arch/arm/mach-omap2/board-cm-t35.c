@@ -46,7 +46,7 @@
 
 #include "mux.h"
 #include "sdram-micron-mt46h32m32lf-6.h"
-#include "mmc-twl4030.h"
+#include "hsmmc.h"
 
 #define CM_T35_GPIO_PENDOWN	57
 
@@ -364,7 +364,7 @@ static struct twl4030_keypad_data cm_t35_kp_data = {
 	.rep		= 1,
 };
 
-static struct twl4030_hsmmc_info mmc[] = {
+static struct omap2_hsmmc_info mmc[] = {
 	{
 		.mmc		= 1,
 		.wires		= 4,
@@ -413,7 +413,7 @@ static int cm_t35_twl_gpio_setup(struct device *dev, unsigned gpio,
 
 	/* gpio + 0 is "mmc0_cd" (input/IRQ) */
 	mmc[0].gpio_cd = gpio + 0;
-	twl4030_mmc_init(mmc);
+	omap2_hsmmc_init(mmc);
 
 	/* link regulators to MMC adapters */
 	cm_t35_vmmc1_supply.dev = mmc[0].dev;
@@ -479,7 +479,7 @@ static void __init cm_t35_init_irq(void)
 static void __init cm_t35_map_io(void)
 {
 	omap2_set_globals_343x();
-	omap2_map_common_io();
+	omap34xx_map_common_io();
 }
 
 static struct omap_board_mux board_mux[] __initdata = {
@@ -575,6 +575,12 @@ static struct omap_board_mux board_mux[] __initdata = {
 	{ .reg_offset = OMAP_MUX_TERMINATOR },
 };
 
+static struct omap_musb_board_data musb_board_data = {
+	.interface_type		= MUSB_INTERFACE_ULPI,
+	.mode			= MUSB_OTG,
+	.power			= 100,
+};
+
 static void __init cm_t35_init(void)
 {
 	omap3_mux_init(board_mux, OMAP_PACKAGE_CUS);
@@ -585,7 +591,7 @@ static void __init cm_t35_init(void)
 	cm_t35_init_ethernet();
 	cm_t35_init_led();
 
-	usb_musb_init();
+	usb_musb_init(&musb_board_data);
 }
 
 MACHINE_START(CM_T35, "Compulab CM-T35")

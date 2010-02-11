@@ -279,7 +279,7 @@ static struct clk dpll_abe_ck = {
 	.parent		= &abe_dpll_refclk_mux_ck,
 	.dpll_data	= &dpll_abe_dd,
 	.init		= &omap2_init_dpll_parent,
-	.ops		= &clkops_noncore_dpll_ops,
+	.ops		= &omap4_clkops_noncore_dpll_ops,
 	.recalc		= &omap3_dpll_recalc,
 	.round_rate	= &omap2_dpll_round_rate,
 	.set_rate	= &omap3_noncore_dpll_set_rate,
@@ -668,7 +668,7 @@ static struct clk dpll_iva_ck = {
 	.parent		= &dpll_sys_ref_clk,
 	.dpll_data	= &dpll_iva_dd,
 	.init		= &omap2_init_dpll_parent,
-	.ops		= &clkops_noncore_dpll_ops,
+	.ops		= &omap4_clkops_noncore_dpll_ops,
 	.recalc		= &omap3_dpll_recalc,
 	.round_rate	= &omap2_dpll_round_rate,
 	.set_rate	= &omap3_noncore_dpll_set_rate,
@@ -731,7 +731,7 @@ static struct clk dpll_mpu_ck = {
 	.parent		= &dpll_sys_ref_clk,
 	.dpll_data	= &dpll_mpu_dd,
 	.init		= &omap2_init_dpll_parent,
-	.ops		= &clkops_noncore_dpll_ops,
+	.ops		= &omap4_clkops_noncore_dpll_ops,
 	.recalc		= &omap3_dpll_recalc,
 	.round_rate	= &omap2_dpll_round_rate,
 	.set_rate	= &omap3_noncore_dpll_set_rate,
@@ -807,7 +807,7 @@ static struct clk dpll_per_ck = {
 	.parent		= &dpll_sys_ref_clk,
 	.dpll_data	= &dpll_per_dd,
 	.init		= &omap2_init_dpll_parent,
-	.ops		= &clkops_noncore_dpll_ops,
+	.ops		= &omap4_clkops_noncore_dpll_ops,
 	.recalc		= &omap3_dpll_recalc,
 	.round_rate	= &omap2_dpll_round_rate,
 	.set_rate	= &omap3_noncore_dpll_set_rate,
@@ -930,7 +930,7 @@ static struct clk dpll_unipro_ck = {
 	.parent		= &dpll_sys_ref_clk,
 	.dpll_data	= &dpll_unipro_dd,
 	.init		= &omap2_init_dpll_parent,
-	.ops		= &clkops_noncore_dpll_ops,
+	.ops		= &omap4_clkops_noncore_dpll_ops,
 	.recalc		= &omap3_dpll_recalc,
 	.round_rate	= &omap2_dpll_round_rate,
 	.set_rate	= &omap3_noncore_dpll_set_rate,
@@ -988,7 +988,7 @@ static struct clk dpll_usb_ck = {
 	.parent		= &dpll_sys_ref_clk,
 	.dpll_data	= &dpll_usb_dd,
 	.init		= &omap2_init_dpll_parent,
-	.ops		= &clkops_noncore_dpll_ops,
+	.ops		= &omap4_clkops_noncore_dpll_ops,
 	.recalc		= &omap3_dpll_recalc,
 	.round_rate	= &omap2_dpll_round_rate,
 	.set_rate	= &omap3_noncore_dpll_set_rate,
@@ -2726,11 +2726,9 @@ static struct omap_clk omap44xx_clks[] = {
 	CLK(NULL,	"utmi_p2_gfclk_ck",		&utmi_p2_gfclk_ck,	CK_443X),
 };
 
-int __init omap2_clk_init(void)
+int __init omap4xxx_clk_init(void)
 {
-	/* struct prcm_config *prcm; */
 	struct omap_clk *c;
-	/* u32 clkrate; */
 	u32 cpu_clkflg;
 
 	if (cpu_is_omap44xx()) {
@@ -2749,9 +2747,7 @@ int __init omap2_clk_init(void)
 		if (c->cpu & cpu_clkflg) {
 			clkdev_add(&c->lk);
 			clk_register(c->lk.clk);
-			/* TODO
 			omap2_init_clk_clkdm(c->lk.clk);
-			*/
 		}
 
 	recalculate_root_clocks();
