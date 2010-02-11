@@ -46,7 +46,7 @@
 
 #include "mux.h"
 #include "sdram-micron-mt46h32m32lf-6.h"
-#include "mmc-twl4030.h"
+#include "hsmmc.h"
 
 #define CM_T35_GPIO_PENDOWN	57
 
