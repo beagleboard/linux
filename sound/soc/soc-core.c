@@ -130,6 +130,29 @@ static ssize_t codec_reg_show(struct device *dev,
 
 static DEVICE_ATTR(codec_reg, 0444, codec_reg_show, NULL);
 
+static ssize_t pmdown_time_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct snd_soc_device *socdev = dev_get_drvdata(dev);
+	struct snd_soc_card *card = socdev->card;
+
+	return sprintf(buf, "%d\n", card->pmdown_time);
+}
+
+static ssize_t pmdown_time_set(struct device *dev,
+			       struct device_attribute *attr,
+			       const char *buf, size_t count)
+{
+	struct snd_soc_device *socdev = dev_get_drvdata(dev);
+	struct snd_soc_card *card = socdev->card;
+
+	strict_strtol(buf, 10, &card->pmdown_time);
+
+	return count;
+}
+
+static DEVICE_ATTR(pmdown_time, 0644, pmdown_time_show, pmdown_time_set);
+
 #ifdef CONFIG_DEBUG_FS
 static int codec_reg_open_file(struct inode *inode, struct file *file)
 {
@@ -542,7 +565,7 @@ static int soc_codec_close(struct snd_pcm_substream *substream)
 		/* start delayed pop wq here for playback streams */
 		codec_dai->pop_wait = 1;
 		schedule_delayed_work(&card->delayed_work,
-			msecs_to_jiffies(pmdown_time));
+			msecs_to_jiffies(card->pmdown_time));
 	} else {
 		/* capture streams can be powered down now */
 		snd_soc_dapm_stream_event(codec,
@@ -1039,6 +1062,8 @@ static void snd_soc_instantiate_card(struct snd_soc_card *card)
 	dev_dbg(card->dev, "All components present, instantiating\n");
 
 	/* Found everything, bring it up */
+	card->pmdown_time = pmdown_time;
+
 	if (card->probe) {
 		ret = card->probe(pdev);
 		if (ret < 0)
@@ -1121,6 +1146,10 @@ static void snd_soc_instantiate_card(struct snd_soc_card *card)
 	ret = snd_soc_dapm_sys_add(card->socdev->dev);
 	if (ret < 0)
 		printk(KERN_WARNING "asoc: failed to add dapm sysfs entries\n");
+
+	ret = device_create_file(card->socdev->dev, &dev_attr_pmdown_time);
+	if (ret < 0)
+		printk(KERN_WARNING "asoc: failed to add pmdown_time sysfs\n");
 
 	ret = device_create_file(card->socdev->dev, &dev_attr_codec_reg);
 	if (ret < 0)

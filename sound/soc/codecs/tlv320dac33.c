@@ -700,7 +700,7 @@ static int dac33_hw_params(struct snd_pcm_substream *substream,
 }
 
 #define CALC_OSCSET(rate, refclk) ( \
-	((((rate * 10000) / refclk) * 4096) + 5000) / 10000)
+	((((rate * 10000) / refclk) * 4096) + 7000) / 10000)
 #define CALC_RATIOSET(rate, refclk) ( \
 	((((refclk  * 100000) / rate) * 16384) + 50000) / 100000)
 
@@ -734,7 +734,10 @@ static int dac33_prepare_chip(struct snd_pcm_substream *substream)
 
 	aictrl_a = dac33_read_reg_cache(codec, DAC33_SER_AUDIOIF_CTRL_A);
 	aictrl_a &= ~(DAC33_NCYCL_MASK | DAC33_WLEN_MASK);
+	/* Read FIFO control A, and clear FIFO flush bit */
 	fifoctrl_a = dac33_read_reg_cache(codec, DAC33_FIFO_CTRL_A);
+	fifoctrl_a &= ~DAC33_FIFOFLUSH;
+
 	fifoctrl_a &= ~DAC33_WIDTH;
 	switch (substream->runtime->format) {
 	case SNDRV_PCM_FORMAT_S16_LE:
