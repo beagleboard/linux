@@ -49,7 +49,6 @@ static struct resource musb_resources[] = {
 
 static struct musb_hdrc_config musb_config = {
 	.multipoint	= 1,
-	.dyn_fifo	= 1,
 	.num_eps	= 16,
 	.ram_bits	= 12,
 };
