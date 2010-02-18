@@ -2238,11 +2238,11 @@ static void snd_cs46xx_codec_reset (struct snd_ac97 * ac97)
 
 	/* set the desired CODEC mode */
 	if (ac97->num == CS46XX_PRIMARY_CODEC_INDEX) {
-		snd_printdd("cs46xx: CODOEC1 mode %04x\n",0x0);
-		snd_cs46xx_ac97_write(ac97,AC97_CSR_ACMODE,0x0);
+		snd_printdd("cs46xx: CODEC1 mode %04x\n", 0x0);
+		snd_cs46xx_ac97_write(ac97, AC97_CSR_ACMODE, 0x0);
 	} else if (ac97->num == CS46XX_SECONDARY_CODEC_INDEX) {
-		snd_printdd("cs46xx: CODOEC2 mode %04x\n",0x3);
-		snd_cs46xx_ac97_write(ac97,AC97_CSR_ACMODE,0x3);
+		snd_printdd("cs46xx: CODEC2 mode %04x\n", 0x3);
+		snd_cs46xx_ac97_write(ac97, AC97_CSR_ACMODE, 0x3);
 	} else {
 		snd_BUG(); /* should never happen ... */
 	}
@@ -2266,7 +2266,7 @@ static void snd_cs46xx_codec_reset (struct snd_ac97 * ac97)
 			return;
 
 		/* test if we can write to the record gain volume register */
-		snd_ac97_write_cache(ac97, AC97_REC_GAIN, 0x8a05);
+		snd_ac97_write(ac97, AC97_REC_GAIN, 0x8a05);
 		if ((err = snd_ac97_read(ac97, AC97_REC_GAIN)) == 0x8a05)
 			return;
 
