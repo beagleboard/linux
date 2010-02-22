@@ -57,6 +57,8 @@ int omap_type(void)
 		val = omap_ctrl_readl(OMAP24XX_CONTROL_STATUS);
 	} else if (cpu_is_omap34xx()) {
 		val = omap_ctrl_readl(OMAP343X_CONTROL_STATUS);
+	} else if (cpu_is_omap44xx()) {
+		val = omap_ctrl_readl(OMAP44XX_CONTROL_STATUS);
 	} else {
 		pr_err("Cannot detect omap type!\n");
 		goto out;
@@ -281,6 +283,7 @@ void __init omap4_check_revision(void)
 
 	if ((hawkeye == 0xb852) && (rev == 0x0)) {
 		omap_revision = OMAP4430_REV_ES1_0;
+		omap_chip.oc |= CHIP_IS_OMAP4430ES1;
 		pr_info("OMAP%04x %s\n", omap_rev() >> 16, rev_name);
 		return;
 	}

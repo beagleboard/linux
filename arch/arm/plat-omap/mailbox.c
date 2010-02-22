@@ -28,6 +28,7 @@
 
 #include <plat/mailbox.h>
 
+static struct workqueue_struct *mboxd;
 static struct omap_mbox *mboxes;
 static DEFINE_RWLOCK(mboxes_lock);
 
@@ -70,10 +71,10 @@ static int __mbox_msg_send(struct omap_mbox *mbox, mbox_msg_t msg)
 	int ret = 0, i = 1000;
 
 	while (mbox_fifo_full(mbox)) {
-		if (mbox->ops->type == OMAP_MBOX_TYPE2)
+		if (--i == 0) {
+			printk(KERN_ERR "Mailbox send failure\n");
 			return -1;
-		if (--i == 0)
-			return -1;
+		}
 		udelay(1);
 	}
 	mbox_fifo_write(mbox, msg);
@@ -188,7 +189,7 @@ static void __mbox_rx_interrupt(struct omap_mbox *mbox)
 	/* no more messages in the fifo. clear IRQ source. */
 	ack_mbox_irq(mbox, IRQ_RX);
 nomem:
-	schedule_work(&mbox->rxq->work);
+	queue_work(mboxd, &mbox->rxq->work);
 }
 
 static irqreturn_t mbox_interrupt(int irq, void *p)
@@ -401,12 +402,17 @@ EXPORT_SYMBOL(omap_mbox_unregister);
 
 static int __init omap_mbox_init(void)
 {
+	mboxd = create_workqueue("mboxd");
+	if (!mboxd)
+		return -ENOMEM;
+
 	return 0;
 }
 module_init(omap_mbox_init);
 
 static void __exit omap_mbox_exit(void)
 {
+	destroy_workqueue(mboxd);
 }
 module_exit(omap_mbox_exit);
 
