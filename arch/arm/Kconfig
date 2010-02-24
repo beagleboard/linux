@@ -1538,6 +1538,10 @@ source "net/Kconfig"
 
 source "drivers/Kconfig"
 
+if ARCH_OMAP
+source "drivers/cbus/Kconfig"
+endif
+
 source "fs/Kconfig"
 
 source "arch/arm/Kconfig.debug"
