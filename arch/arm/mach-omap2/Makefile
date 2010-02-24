@@ -6,14 +6,22 @@
 obj-y := id.o io.o control.o mux.o devices.o serial.o gpmc.o timer-gp.o
 
 omap-2-3-common				= irq.o sdrc.o omap_hwmod.o
-omap-3-4-common				= dpll.o
+omap-3-4-common				= dpll3xxx.o
 prcm-common				= prcm.o powerdomain.o
-clock-common				= clock.o clock_common_data.o clockdomain.o
+clock-common				= clock.o clock_common_data.o \
+					  clockdomain.o clkt_dpll.o \
+					  clkt_clksel.o
+clock-omap2xxx				= clkt2xxx_dpllcore.o \
+					  clkt2xxx_virt_prcm_set.o \
+					  clkt2xxx_apll.o clkt2xxx_osc.o \
+					  clkt2xxx_sys.o
+clock-omap3xxx				= clkt34xx_dpll3m2.o
 
-obj-$(CONFIG_ARCH_OMAP2) += $(omap-2-3-common) $(prcm-common) $(clock-common)
+obj-$(CONFIG_ARCH_OMAP2) += $(omap-2-3-common) $(prcm-common) $(clock-common) \
+			    $(clock-omap2xxx)
 obj-$(CONFIG_ARCH_OMAP3) += $(omap-2-3-common) $(prcm-common) $(clock-common) \
-			    $(omap-3-4-common)
-obj-$(CONFIG_ARCH_OMAP4) += $(omap-3-4-common) prcm.o clock.o
+			    $(omap-3-4-common) $(clock-omap3xxx)
+obj-$(CONFIG_ARCH_OMAP4) += $(omap-3-4-common) $(prcm-common) $(clock-common)
 
 obj-$(CONFIG_OMAP_MCBSP) += mcbsp.o
 
@@ -26,6 +34,10 @@ obj-$(CONFIG_ARCH_OMAP2420)		+= sram242x.o
 obj-$(CONFIG_ARCH_OMAP2430)		+= sram243x.o
 obj-$(CONFIG_ARCH_OMAP3)		+= sram34xx.o
 
+AFLAGS_sram242x.o			:=-Wa,-march=armv6
+AFLAGS_sram243x.o			:=-Wa,-march=armv6
+AFLAGS_sram34xx.o			:=-Wa,-march=armv7-a
+
 # Pin multiplexing
 obj-$(CONFIG_ARCH_OMAP3)		+= mux34xx.o
 
@@ -36,9 +48,13 @@ obj-$(CONFIG_ARCH_OMAP2)		+= sdrc2xxx.o
 # Power Management
 ifeq ($(CONFIG_PM),y)
 obj-$(CONFIG_ARCH_OMAP2)		+= pm24xx.o
-obj-$(CONFIG_ARCH_OMAP24XX)		+= sleep24xx.o
+obj-$(CONFIG_ARCH_OMAP2)		+= sleep24xx.o
 obj-$(CONFIG_ARCH_OMAP3)		+= pm34xx.o sleep34xx.o cpuidle34xx.o
 obj-$(CONFIG_PM_DEBUG)			+= pm-debug.o
+
+AFLAGS_sleep24xx.o			:=-Wa,-march=armv6
+AFLAGS_sleep34xx.o			:=-Wa,-march=armv7-a
+
 endif
 
 # PRCM
@@ -71,42 +87,45 @@ obj-y					+= $(i2c-omap-m) $(i2c-omap-y)
 obj-$(CONFIG_MACH_OMAP_GENERIC)		+= board-generic.o
 obj-$(CONFIG_MACH_OMAP_H4)		+= board-h4.o
 obj-$(CONFIG_MACH_OMAP_2430SDP)		+= board-2430sdp.o \
-					   mmc-twl4030.o
+					   hsmmc.o
 obj-$(CONFIG_MACH_OMAP_APOLLON)		+= board-apollon.o
 obj-$(CONFIG_MACH_OMAP3_BEAGLE)		+= board-omap3beagle.o \
-					   mmc-twl4030.o
+					   hsmmc.o
+obj-$(CONFIG_MACH_DEVKIT8000)     	+= board-devkit8000.o \
+                                           hsmmc.o
 obj-$(CONFIG_MACH_OMAP_LDP)		+= board-ldp.o \
-					   mmc-twl4030.o
+					   hsmmc.o
 obj-$(CONFIG_MACH_OVERO)		+= board-overo.o \
-					   mmc-twl4030.o
+					   hsmmc.o
 obj-$(CONFIG_MACH_OMAP3EVM)		+= board-omap3evm.o \
-					   mmc-twl4030.o
+					   hsmmc.o
 obj-$(CONFIG_MACH_OMAP3_PANDORA)	+= board-omap3pandora.o \
-					   mmc-twl4030.o
+					   hsmmc.o
 obj-$(CONFIG_MACH_OMAP_3430SDP)		+= board-3430sdp.o \
-					   mmc-twl4030.o
+					   hsmmc.o \
+					   board-sdp-flash.o
 obj-$(CONFIG_MACH_NOKIA_N8X0)		+= board-n8x0.o
 obj-$(CONFIG_MACH_NOKIA_RX51)		+= board-rx51.o \
 					   board-rx51-sdram.o \
 					   board-rx51-peripherals.o \
-					   mmc-twl4030.o
+					   hsmmc.o
 obj-$(CONFIG_MACH_OMAP_ZOOM2)		+= board-zoom2.o \
 					   board-zoom-peripherals.o \
-					   mmc-twl4030.o \
+					   hsmmc.o \
 					   board-zoom-debugboard.o
 obj-$(CONFIG_MACH_OMAP_ZOOM3)		+= board-zoom3.o \
 					   board-zoom-peripherals.o \
-					   mmc-twl4030.o \
+					   hsmmc.o \
 					   board-zoom-debugboard.o
 obj-$(CONFIG_MACH_OMAP_3630SDP)		+= board-3630sdp.o \
 					   board-zoom-peripherals.o \
-					   mmc-twl4030.o
+					   hsmmc.o
 obj-$(CONFIG_MACH_CM_T35)		+= board-cm-t35.o \
-					   mmc-twl4030.o
+					   hsmmc.o
 obj-$(CONFIG_MACH_IGEP0020)		+= board-igep0020.o \
-					   mmc-twl4030.o
+					   hsmmc.o
 obj-$(CONFIG_MACH_OMAP3_TOUCHBOOK)	+= board-omap3touchbook.o \
-					   mmc-twl4030.o
+					   hsmmc.o
 obj-$(CONFIG_MACH_OMAP_4430SDP)		+= board-4430sdp.o
 
 obj-$(CONFIG_MACH_OMAP3517EVM)     += board-am3517evm.o
@@ -118,6 +137,9 @@ obj-y					+= usb-ehci.o
 
 onenand-$(CONFIG_MTD_ONENAND_OMAP2)	:= gpmc-onenand.o
 obj-y					+= $(onenand-m) $(onenand-y)
+
+nand-$(CONFIG_MTD_NAND_OMAP2)		:= gpmc-nand.o
+obj-y					+= $(nand-m) $(nand-y)
 
 smc91x-$(CONFIG_SMC91X)			:= gpmc-smc91x.o
 obj-y					+= $(smc91x-m) $(smc91x-y)
