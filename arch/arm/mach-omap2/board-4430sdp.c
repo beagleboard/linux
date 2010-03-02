@@ -49,7 +49,7 @@ static struct omap_board_config_kernel sdp4430_config[] __initdata = {
 	{ OMAP_TAG_LCD,		&sdp4430_lcd_config },
 };
 
-#ifdef CONFIG_CACHE_L2X0
+#if defined(CONFIG_SMP) && defined(CONFIG_CACHE_L2X0)
 noinline void omap_smc1(u32 fn, u32 arg)
 {
 	register u32 r12 asm("r12") = fn;
