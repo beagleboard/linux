@@ -1549,7 +1549,7 @@ config VFP
 config VFPv3
 	bool
 	depends on VFP
-	default y if CPU_V7
+	default y if CPU_V7 && !ARCH_OMAP2
 
 config NEON
 	bool "Advanced SIMD (NEON) Extension support"
