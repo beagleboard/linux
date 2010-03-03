@@ -724,6 +724,8 @@ static void nand_command_lp(struct mtd_info *mtd, unsigned int command,
 		chip->cmd_ctrl(mtd, NAND_CMD_NONE,
 			       NAND_NCE | NAND_CTRL_CHANGE);
 
+		dmb();
+
 		/* This applies to read commands */
 	default:
 		/*
