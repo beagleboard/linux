@@ -718,7 +718,7 @@ config TLS_REG_EMUL
 config HAS_TLS_REG
 	bool
 	depends on !TLS_REG_EMUL
-	default y if SMP || CPU_32v7
+	default y if (SMP || CPU_32v7) && !ARCH_OMAP2
 	help
 	  This selects support for the CP15 thread register.
 	  It is defined to be available on some ARMv6 processors (including
