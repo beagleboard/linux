@@ -17,6 +17,7 @@
 #include <linux/init.h>
 #include <linux/io.h>
 #include <linux/stddef.h>
+#include <linux/platform_device.h>
 #include <linux/i2c.h>
 #include <linux/spi/spi.h>
 #include <linux/usb/musb.h>
@@ -32,6 +33,7 @@
 #include <plat/onenand.h>
 #include <plat/mmc.h>
 #include <plat/serial.h>
+#include <plat/cbus.h>
 
 static int slot1_cover_open;
 static int slot2_cover_open;
@@ -101,6 +103,33 @@ static void __init n8x0_onenand_init(void)
 
 static void __init n8x0_onenand_init(void) {}
 
+#endif
+
+#if defined(CONFIG_CBUS) || defined(CONFIG_CBUS_MODULE)
+
+static struct cbus_host_platform_data n8x0_cbus_data = {
+	.clk_gpio	= 66,
+	.dat_gpio	= 65,
+	.sel_gpio	= 64,
+};
+
+static struct platform_device n8x0_cbus_device = {
+	.name		= "cbus",
+	.id		= -1,
+	.dev		= {
+		.platform_data = &n8x0_cbus_data,
+	},
+};
+
+static void __init n8x0_cbus_init(void)
+{
+	platform_device_register(&n8x0_cbus_device);
+}
+
+#else
+static inline void __init n8x0_cbus_init(void)
+{
+}
 #endif
 
 #if defined(CONFIG_MENELAUS) &&						\
@@ -554,6 +583,8 @@ static void __init n8x0_init_irq(void)
 
 static void __init n8x0_init_machine(void)
 {
+	n8x0_cbus_init();
+
 	/* FIXME: add n810 spi devices */
 	spi_register_board_info(n800_spi_board_info,
 				ARRAY_SIZE(n800_spi_board_info));
