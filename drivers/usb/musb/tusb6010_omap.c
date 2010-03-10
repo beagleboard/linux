@@ -172,12 +172,12 @@ static void tusb_omap_dma_cb(int lch, u16 ch_status, void *data)
 		DBG(3, "Using PIO for remaining %lu bytes\n", pio);
 		buf = phys_to_virt((u32)chdat->dma_addr) + chdat->transfer_len;
 		if (chdat->tx) {
-			dma_cache_maint(phys_to_virt((u32)chdat->dma_addr),
+			__dma_single_cpu_to_dev(phys_to_virt((u32)chdat->dma_addr),
 					chdat->transfer_len, DMA_TO_DEVICE);
 			musb_write_fifo(hw_ep, pio, buf);
 		} else {
 			musb_read_fifo(hw_ep, pio, buf);
-			dma_cache_maint(phys_to_virt((u32)chdat->dma_addr),
+			__dma_single_cpu_to_dev(phys_to_virt((u32)chdat->dma_addr),
 					chdat->transfer_len, DMA_FROM_DEVICE);
 		}
 		channel->actual_len += pio;
@@ -303,9 +303,9 @@ static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,
 
 	/* Since we're recycling dma areas, we need to clean or invalidate */
 	if (chdat->tx)
-		dma_cache_maint(phys_to_virt(dma_addr), len, DMA_TO_DEVICE);
+		__dma_single_cpu_to_dev(phys_to_virt(dma_addr), len, DMA_TO_DEVICE);
 	else
-		dma_cache_maint(phys_to_virt(dma_addr), len, DMA_FROM_DEVICE);
+		__dma_single_cpu_to_dev(phys_to_virt(dma_addr), len, DMA_FROM_DEVICE);
 
 	/* Use 16-bit transfer if dma_addr is not 32-bit aligned */
 	if ((dma_addr & 0x3) == 0) {
