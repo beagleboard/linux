@@ -365,6 +365,10 @@ static int __devinit retu_rtc_probe(struct device *dev)
 {
 	int r;
 
+	r = retu_get_status();
+	if (!r)
+		return -ENODEV;
+
 	retu_rtc_alarm_expired = retu_read_reg(RETU_REG_IDR) &
 					       (0x1 << RETU_INT_RTCA);
 
