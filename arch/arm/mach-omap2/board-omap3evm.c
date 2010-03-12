@@ -514,15 +514,9 @@ static struct regulator_init_data omap3_evm_vdac = {
 };
 
 /* VPLL2 for digital video outputs */
-static struct regulator_consumer_supply omap3_evm_vpll2_supplies[] = {
-	{
-		.supply		= "vdvi",
-		.dev		= &omap3_evm_lcd_device.dev,
-	},
-	{
-		.supply		= "vdds_dsi",
-		.dev		= &omap3_evm_dss_device.dev,
-	},
+static struct regulator_consumer_supply omap3_evm_vpll2_supply = {
+	.supply		= "vdvi",
+	.dev		= &omap3_evm_lcd_device.dev,
 };
 
 static struct regulator_init_data omap3_evm_vpll2 = {
@@ -536,8 +530,8 @@ static struct regulator_init_data omap3_evm_vpll2 = {
 		.valid_ops_mask		= REGULATOR_CHANGE_MODE
 					| REGULATOR_CHANGE_STATUS,
 	},
-	.num_consumer_supplies	= ARRAY_SIZE(omap3_evm_vpll2_supplies),
-	.consumer_supplies	= omap3_evm_vpll2_supplies,
+	.num_consumer_supplies	= 1,
+	.consumer_supplies	= &omap3_evm_vpll2_supply,
 };
 
 static struct twl4030_platform_data omap3evm_twldata = {
