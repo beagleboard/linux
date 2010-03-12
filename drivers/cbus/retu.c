@@ -39,8 +39,8 @@
 
 #include <asm/uaccess.h>
 
-#include <mach/mux.h>
-#include <mach/board.h>
+#include <plat/mux.h>
+#include <plat/board.h>
 #include <mach/board-nokia.h>
 
 #include "cbus.h"
