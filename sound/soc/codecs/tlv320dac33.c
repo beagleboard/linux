@@ -93,6 +93,8 @@ struct tlv320dac33_priv {
 	unsigned int nsample;		/* burst read amount from host */
 	u8 burst_bclkdiv;		/* BCLK divider value in burst mode */
 
+	int keep_bclk;			/* Keep the BCLK continuously running
+					 * in FIFO modes */
 	enum dac33_state state;
 };
 
@@ -310,7 +312,8 @@ static inline void dac33_soft_power(struct snd_soc_codec *codec, int power)
 	if (power)
 		reg |= DAC33_PDNALLB;
 	else
-		reg &= ~DAC33_PDNALLB;
+		reg &= ~(DAC33_PDNALLB | DAC33_OSCPDNB |
+			 DAC33_DACRPDNB | DAC33_DACLPDNB);
 	dac33_write(codec, DAC33_PWR_CTRL, reg);
 }
 
@@ -634,26 +637,6 @@ static irqreturn_t dac33_interrupt_handler(int irq, void *dev)
 	return IRQ_HANDLED;
 }
 
-static void dac33_shutdown(struct snd_pcm_substream *substream,
-			     struct snd_soc_dai *dai)
-{
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_device *socdev = rtd->socdev;
-	struct snd_soc_codec *codec = socdev->card->codec;
-	struct tlv320dac33_priv *dac33 = codec->private_data;
-	unsigned int pwr_ctrl;
-
-	/* Stop pending workqueue */
-	if (dac33->fifo_mode)
-		cancel_work_sync(&dac33->work);
-
-	mutex_lock(&dac33->mutex);
-	pwr_ctrl = dac33_read_reg_cache(codec, DAC33_PWR_CTRL);
-	pwr_ctrl &= ~(DAC33_OSCPDNB | DAC33_DACRPDNB | DAC33_DACLPDNB);
-	dac33_write(codec, DAC33_PWR_CTRL, pwr_ctrl);
-	mutex_unlock(&dac33->mutex);
-}
-
 static void dac33_oscwait(struct snd_soc_codec *codec)
 {
 	int timeout = 20;
@@ -751,6 +734,7 @@ static int dac33_prepare_chip(struct snd_pcm_substream *substream)
 	}
 
 	mutex_lock(&dac33->mutex);
+	dac33_soft_power(codec, 0);
 	dac33_soft_power(codec, 1);
 
 	reg_tmp = dac33_read_reg_cache(codec, DAC33_INT_OSC_CTRL);
@@ -821,7 +805,10 @@ static int dac33_prepare_chip(struct snd_pcm_substream *substream)
 		 */
 		fifoctrl_a &= ~DAC33_FBYPAS;
 		fifoctrl_a &= ~DAC33_FAUTO;
-		aictrl_b &= ~DAC33_BCLKON;
+		if (dac33->keep_bclk)
+			aictrl_b |= DAC33_BCLKON;
+		else
+			aictrl_b &= ~DAC33_BCLKON;
 		break;
 	case DAC33_FIFO_MODE7:
 		/*
@@ -832,7 +819,10 @@ static int dac33_prepare_chip(struct snd_pcm_substream *substream)
 		 */
 		fifoctrl_a &= ~DAC33_FBYPAS;
 		fifoctrl_a |= DAC33_FAUTO;
-		aictrl_b &= ~DAC33_BCLKON;
+		if (dac33->keep_bclk)
+			aictrl_b |= DAC33_BCLKON;
+		else
+			aictrl_b &= ~DAC33_BCLKON;
 		break;
 	default:
 		/*
@@ -1181,7 +1171,6 @@ EXPORT_SYMBOL_GPL(soc_codec_dev_tlv320dac33);
 #define DAC33_FORMATS	SNDRV_PCM_FMTBIT_S16_LE
 
 static struct snd_soc_dai_ops dac33_dai_ops = {
-	.shutdown	= dac33_shutdown,
 	.hw_params	= dac33_hw_params,
 	.prepare	= dac33_pcm_prepare,
 	.trigger	= dac33_pcm_trigger,
@@ -1249,6 +1238,7 @@ static int __devinit dac33_i2c_probe(struct i2c_client *client,
 
 	dac33->power_gpio = pdata->power_gpio;
 	dac33->burst_bclkdiv = pdata->burst_bclkdiv;
+	dac33->keep_bclk = pdata->keep_bclk;
 	dac33->irq = client->irq;
 	dac33->nsample = NSAMPLE_MAX;
 	/* Disable FIFO use by default */

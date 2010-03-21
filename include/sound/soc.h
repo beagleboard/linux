@@ -212,6 +212,7 @@ struct snd_soc_dai_mode;
 struct snd_soc_pcm_runtime;
 struct snd_soc_dai;
 struct snd_soc_platform;
+struct snd_soc_dai_link;
 struct snd_soc_codec;
 struct soc_enum;
 struct snd_soc_ac97_ops;
@@ -374,7 +375,8 @@ struct snd_soc_pcm_stream {
 	unsigned int rate_max;		/* max rate */
 	unsigned int channels_min;	/* min channels */
 	unsigned int channels_max;	/* max channels */
-	unsigned int active:1;		/* stream is in use */
+	unsigned int active;		/* num of active users of the stream */
+	void *dma_data;			/* used by platform code */
 };
 
 /* SoC audio ops */
@@ -461,13 +463,20 @@ struct snd_soc_platform {
 
 	int (*probe)(struct platform_device *pdev);
 	int (*remove)(struct platform_device *pdev);
-	int (*suspend)(struct snd_soc_dai *dai);
-	int (*resume)(struct snd_soc_dai *dai);
+	int (*suspend)(struct snd_soc_dai_link *dai_link);
+	int (*resume)(struct snd_soc_dai_link *dai_link);
 
 	/* pcm creation and destruction */
 	int (*pcm_new)(struct snd_card *, struct snd_soc_dai *,
 		struct snd_pcm *);
 	void (*pcm_free)(struct snd_pcm *);
+
+	/*
+	 * For platform caused delay reporting.
+	 * Optional.
+	 */
+	snd_pcm_sframes_t (*delay)(struct snd_pcm_substream *,
+		struct snd_soc_dai *);
 
 	/* platform stream ops */
 	struct snd_pcm_ops *pcm_ops;

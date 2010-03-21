@@ -29,8 +29,6 @@
 
 #include "wm8750.h"
 
-#define WM8750_VERSION "0.12"
-
 /* codec private data */
 struct wm8750_priv {
 	unsigned int sysclk;
@@ -613,10 +611,16 @@ static int wm8750_set_bias_level(struct snd_soc_codec *codec,
 		snd_soc_write(codec, WM8750_PWR1, pwr_reg | 0x00c0);
 		break;
 	case SND_SOC_BIAS_PREPARE:
-		/* set vmid to 5k for quick power up */
-		snd_soc_write(codec, WM8750_PWR1, pwr_reg | 0x01c1);
 		break;
 	case SND_SOC_BIAS_STANDBY:
+		if (codec->bias_level == SND_SOC_BIAS_OFF) {
+			/* Set VMID to 5k */
+			snd_soc_write(codec, WM8750_PWR1, pwr_reg | 0x01c1);
+
+			/* ...and ramp */
+			msleep(1000);
+		}
+
 		/* mute dac and set vmid to 500k, enable VREF */
 		snd_soc_write(codec, WM8750_PWR1, pwr_reg | 0x0141);
 		break;
@@ -660,13 +664,6 @@ struct snd_soc_dai wm8750_dai = {
 };
 EXPORT_SYMBOL_GPL(wm8750_dai);
 
-static void wm8750_work(struct work_struct *work)
-{
-	struct snd_soc_codec *codec =
-		container_of(work, struct snd_soc_codec, delayed_work.work);
-	wm8750_set_bias_level(codec, codec->bias_level);
-}
-
 static int wm8750_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	struct snd_soc_device *socdev = platform_get_drvdata(pdev);
@@ -694,14 +691,6 @@ static int wm8750_resume(struct platform_device *pdev)
 	}
 
 	wm8750_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
-
-	/* charge wm8750 caps */
-	if (codec->suspend_bias_level == SND_SOC_BIAS_ON) {
-		wm8750_set_bias_level(codec, SND_SOC_BIAS_PREPARE);
-		codec->bias_level = SND_SOC_BIAS_ON;
-		schedule_delayed_work(&codec->delayed_work,
-					msecs_to_jiffies(1000));
-	}
 
 	return 0;
 }
@@ -746,9 +735,7 @@ static int wm8750_init(struct snd_soc_device *socdev,
 	}
 
 	/* charge output caps */
-	wm8750_set_bias_level(codec, SND_SOC_BIAS_PREPARE);
-	codec->bias_level = SND_SOC_BIAS_STANDBY;
-	schedule_delayed_work(&codec->delayed_work, msecs_to_jiffies(1000));
+	wm8750_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
 
 	/* set the update bits */
 	reg = snd_soc_read(codec, WM8750_LDAC);
@@ -912,7 +899,6 @@ static int wm8750_probe(struct platform_device *pdev)
 	struct wm8750_priv *wm8750;
 	int ret;
 
-	pr_info("WM8750 Audio Codec %s", WM8750_VERSION);
 	codec = kzalloc(sizeof(struct snd_soc_codec), GFP_KERNEL);
 	if (codec == NULL)
 		return -ENOMEM;
@@ -929,7 +915,6 @@ static int wm8750_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&codec->dapm_widgets);
 	INIT_LIST_HEAD(&codec->dapm_paths);
 	wm8750_socdev = socdev;
-	INIT_DELAYED_WORK(&codec->delayed_work, wm8750_work);
 
 	ret = -ENODEV;
 
@@ -953,25 +938,6 @@ static int wm8750_probe(struct platform_device *pdev)
 	return ret;
 }
 
-/*
- * This function forces any delayed work to be queued and run.
- */
-static int run_delayed_work(struct delayed_work *dwork)
-{
-	int ret;
-
-	/* cancel any work waiting to be queued. */
-	ret = cancel_delayed_work(dwork);
-
-	/* if there was any work waiting then we run it now and
-	 * wait for it's completion */
-	if (ret) {
-		schedule_delayed_work(dwork, 0);
-		flush_scheduled_work();
-	}
-	return ret;
-}
-
 /* power down chip */
 static int wm8750_remove(struct platform_device *pdev)
 {
@@ -980,7 +946,6 @@ static int wm8750_remove(struct platform_device *pdev)
 
 	if (codec->control_data)
 		wm8750_set_bias_level(codec, SND_SOC_BIAS_OFF);
-	run_delayed_work(&codec->delayed_work);
 	snd_soc_free_pcms(socdev);
 	snd_soc_dapm_free(socdev);
 #if defined(CONFIG_I2C) || defined(CONFIG_I2C_MODULE)
