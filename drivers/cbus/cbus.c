@@ -38,6 +38,7 @@
 #include "cbus.h"
 
 struct cbus_host *cbus_host = NULL;
+EXPORT_SYMBOL(cbus_host);
 
 #ifdef CONFIG_ARCH_OMAP1
 /* We use our own MPUIO functions to get closer to 1MHz bus speed */
@@ -210,6 +211,7 @@ int cbus_read_reg(struct cbus_host *host, int dev, int reg)
 {
 	return cbus_host ? cbus_transfer(host, dev, reg, -1) : -ENODEV;
 }
+EXPORT_SYMBOL(cbus_read_reg);
 
 /*
  * Write to a given register of the device
@@ -218,8 +220,9 @@ int cbus_write_reg(struct cbus_host *host, int dev, int reg, u16 val)
 {
 	return cbus_host ? cbus_transfer(host, dev, reg, (int)val) : -ENODEV;
 }
+EXPORT_SYMBOL(cbus_write_reg);
 
-int __init cbus_bus_init(void)
+static int __init cbus_bus_init(void)
 {
 	struct cbus_host *chost;
 	int ret;
@@ -285,10 +288,6 @@ exit1:
 }
 
 subsys_initcall(cbus_bus_init);
-
-EXPORT_SYMBOL(cbus_host);
-EXPORT_SYMBOL(cbus_read_reg);
-EXPORT_SYMBOL(cbus_write_reg);
 
 MODULE_DESCRIPTION("CBUS serial protocol");
 MODULE_LICENSE("GPL");
