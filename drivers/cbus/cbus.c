@@ -29,6 +29,7 @@
 #include <linux/delay.h>
 #include <linux/spinlock.h>
 #include <linux/gpio.h>
+#include <linux/platform_device.h>
 
 #include <asm/io.h>
 #include <asm/mach-types.h>
@@ -222,7 +223,7 @@ int cbus_write_reg(struct cbus_host *host, int dev, int reg, u16 val)
 }
 EXPORT_SYMBOL(cbus_write_reg);
 
-static int __init cbus_bus_init(void)
+static int __init cbus_bus_probe(struct platform_device *pdev)
 {
 	struct cbus_host *chost;
 	int ret;
@@ -275,6 +276,8 @@ static int __init cbus_bus_init(void)
 	gpio_set_value(chost->clk_gpio, 1);
 	gpio_set_value(chost->clk_gpio, 0);
 
+	platform_set_drvdata(pdev, chost);
+
 	cbus_host = chost;
 
 	return 0;
@@ -284,13 +287,42 @@ exit2:
 	gpio_free(chost->clk_gpio);
 exit1:
 	kfree(chost);
+
 	return ret;
 }
 
+static void __exit cbus_bus_remove(struct platform_device *pdev)
+{
+	struct cbus_host	*chost = platform_get_drvdata(pdev);
+
+	gpio_free(chost->dat_gpio);
+	gpio_free(chost->clk_gpio);
+	kfree(chost);
+}
+
+static struct platform_driver cbus_driver = {
+	.remove		= __exit_p(cbus_bus_remove),
+	.driver		= {
+		.name	= "cbus",
+	},
+};
+
+static int __init cbus_bus_init(void)
+{
+	return platform_driver_probe(&cbus_driver, cbus_bus_probe);
+}
+
 subsys_initcall(cbus_bus_init);
+
+static void __exit cbus_bus_exit(void)
+{
+	platform_driver_unregister(&cbus_driver);
+}
+module_exit(cbus_bus_exit);
 
 MODULE_DESCRIPTION("CBUS serial protocol");
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Juha Yrjölä");
 MODULE_AUTHOR("David Weinehall");
 MODULE_AUTHOR("Mikko Ylinen");
+
