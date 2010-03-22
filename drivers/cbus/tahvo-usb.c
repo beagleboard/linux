@@ -132,12 +132,14 @@ static irqreturn_t omap_otg_irq(int irq, void *arg)
 	} else if (otg_irq & A_VBUS_ERR) {
 		omap_writew(A_VBUS_ERR, OTG_IRQ_SRC);
 	} else if (otg_irq & DRIVER_SWITCH) {
+#ifdef CONFIG_USB_OTG
 		if ((!(omap_readl(OTG_CTRL) & OTG_DRIVER_SEL)) &&
 		   tu->otg.host && tu->otg.state == OTG_STATE_A_HOST) {
 			/* role is host */
 			usb_bus_start_enum(tu->otg.host,
 					   tu->otg.host->otg_port);
 		}
+#endif
 		omap_writew(DRIVER_SWITCH, OTG_IRQ_SRC);
 	} else
 		return IRQ_NONE;
