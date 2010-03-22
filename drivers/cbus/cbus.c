@@ -35,6 +35,7 @@
 #include <asm/mach-types.h>
 
 #include <plat/board.h>
+#include <plat/cbus.h>
 
 #include "cbus.h"
 
@@ -226,6 +227,7 @@ EXPORT_SYMBOL(cbus_write_reg);
 static int __init cbus_bus_probe(struct platform_device *pdev)
 {
 	struct cbus_host *chost;
+	struct cbus_host_platform_data *pdata = pdev->dev.platform_data;
 	int ret;
 
 	chost = kzalloc(sizeof (*chost), GFP_KERNEL);
@@ -234,31 +236,9 @@ static int __init cbus_bus_probe(struct platform_device *pdev)
 
 	spin_lock_init(&chost->lock);
 
-	/* REVISIT: Pass these from board-*.c files in platform_data */
-	if (machine_is_nokia770()) {
-		chost->clk_gpio = OMAP_MPUIO(11);
-		chost->dat_gpio = OMAP_MPUIO(10);
-		chost->sel_gpio = OMAP_MPUIO(9);
-	} else if (machine_is_nokia_n800() || machine_is_nokia_n810() ||
-			machine_is_nokia_n810_wimax()) {
-		chost->clk_gpio = 66;
-		chost->dat_gpio = 65;
-		chost->sel_gpio = 64;
-	} else {
-		printk(KERN_ERR "cbus: Unsupported board\n");
-		ret = -ENODEV;
-		goto exit1;
-	}
-
-#ifdef CONFIG_ARCH_OMAP1
-	if (!OMAP_GPIO_IS_MPUIO(chost->clk_gpio) ||
-	    !OMAP_GPIO_IS_MPUIO(chost->dat_gpio) ||
-	    !OMAP_GPIO_IS_MPUIO(chost->sel_gpio)) {
-		printk(KERN_ERR "cbus: Only MPUIO pins supported\n");
-		ret = -ENODEV;
-		goto exit1;
-	}
-#endif
+	chost->clk_gpio = pdata->clk_gpio;
+	chost->dat_gpio = pdata->dat_gpio;
+	chost->sel_gpio = pdata->sel_gpio;
 
 	if ((ret = gpio_request(chost->clk_gpio, "CBUS clk")) < 0)
 		goto exit1;
