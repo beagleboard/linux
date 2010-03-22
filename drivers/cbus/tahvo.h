@@ -39,6 +39,7 @@
 
 #define MAX_TAHVO_IRQ_HANDLERS	8
 
+int tahvo_get_status(void);
 int tahvo_read_reg(int reg);
 void tahvo_write_reg(int reg, u16 val);
 void tahvo_set_clear_reg_bits(int reg, u16 set, u16 clear);
