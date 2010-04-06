@@ -330,6 +330,67 @@ static void retu_power_off(void)
 }
 
 /**
+ * retu_allocate_child - Allocates one Retu child
+ * @name: name of new child
+ * @parent: parent device for this child
+ */
+static struct device *retu_allocate_child(char *name, struct device *parent)
+{
+	struct platform_device		*pdev;
+	int				status;
+
+	pdev = platform_device_alloc(name, -1);
+	if (!pdev) {
+		dev_dbg(parent, "can't allocate %s\n", name);
+		goto err;
+	}
+
+	pdev->dev.parent = parent;
+
+	status = platform_device_add(pdev);
+	if (status < 0) {
+		dev_dbg(parent, "can't add %s\n", name);
+		goto err;
+	}
+
+	return &pdev->dev;
+
+err:
+	platform_device_put(pdev);
+	return NULL;
+}
+
+/**
+ * retu_allocate_children - Allocates Retu's children
+ */
+static int retu_allocate_children(struct device *parent)
+{
+	struct device	*child;
+
+	child = retu_allocate_child("retu-pwrbutton", parent);
+	if (!child)
+		return -ENOMEM;
+
+	child = retu_allocate_child("retu-headset", parent);
+	if (!child)
+		return -ENOMEM;
+
+	child = retu_allocate_child("retu-rtc", parent);
+	if (!child)
+		return -ENOMEM;
+
+	child = retu_allocate_child("retu-user", parent);
+	if (!child)
+		return -ENOMEM;
+
+	child = retu_allocate_child("retu-wdt", parent);
+	if (!child)
+		return -ENOMEM;
+
+	return 0;
+}
+
+/**
  * retu_probe - Probe for Retu ASIC
  * @dev: the Retu device
  *
@@ -399,6 +460,19 @@ static int __devinit retu_probe(struct platform_device *pdev)
 		return ret;
 	}
 #endif
+
+	ret = retu_allocate_children(&pdev->dev);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "Unable to allocate Retu children\n");
+#ifdef CONFIG_CBUS_RETU_USER
+		retu_user_cleanup();
+#endif
+		retu_write_reg(RETU_REG_IMR, 0xffff);
+		free_irq(gpio_to_irq(retu_irq_pin), 0);
+		gpio_free(retu_irq_pin);
+		tasklet_kill(&retu_tasklet);
+		return ret;
+	}
 
 	return 0;
 }
