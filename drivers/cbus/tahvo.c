@@ -322,11 +322,11 @@ static int __devinit tahvo_probe(struct device *dev)
 		tahvo_is_betty = 1;
 		tahvo_7bit_backlight = 1;
 	} else {
-		printk(KERN_ERR "Tahvo/Betty chip not found");
+		dev_err(dev, "Tahvo/Betty chip not found");
 		return -ENODEV;
 	}
 
-	printk(KERN_INFO "%s v%d.%d found\n", tahvo_is_betty ? "Betty" : "Tahvo",
+	dev_err(dev, "%s v%d.%d found\n", tahvo_is_betty ? "Betty" : "Tahvo",
 	       (rev >> 4) & 0x0f, rev & 0x0f);
 
 	/* REVISIT: Pass these from board-*.c files in platform_data */
@@ -336,13 +336,13 @@ static int __devinit tahvo_probe(struct device *dev)
 			machine_is_nokia_n810_wimax()) {
 		tahvo_irq_pin = 111;
 	} else {
-		printk(KERN_ERR "cbus: Unsupported board for tahvo\n");
+		dev_err(dev, "cbus: Unsupported board for tahvo\n");
 		return -ENODEV;
 	}
 
 	ret = gpio_request(tahvo_irq_pin, "TAHVO irq");
 	if (ret) {
-		printk(KERN_ERR PFX "Unable to reserve IRQ GPIO\n");
+		dev_err(dev, "Unable to reserve IRQ GPIO\n");
 		return ret;
 	}
 
@@ -358,14 +358,14 @@ static int __devinit tahvo_probe(struct device *dev)
 	ret = request_irq(gpio_to_irq(tahvo_irq_pin), tahvo_irq_handler, 0,
 			  "tahvo", 0);
 	if (ret < 0) {
-		printk(KERN_ERR PFX "Unable to register IRQ handler\n");
+		dev_err(dev, "Unable to register IRQ handler\n");
 		gpio_free(tahvo_irq_pin);
 		return ret;
 	}
 #ifdef CONFIG_CBUS_TAHVO_USER
 	/* Initialize user-space interface */
 	if (tahvo_user_init() < 0) {
-		printk(KERN_ERR "Unable to initialize driver\n");
+		dev_err(dev, "Unable to initialize driver\n");
 		free_irq(gpio_to_irq(tahvo_irq_pin), 0);
 		gpio_free(tahvo_irq_pin);
 		return ret;
@@ -420,8 +420,6 @@ static int __init tahvo_init(void)
 	if (!(machine_is_nokia770() || machine_is_nokia_n800() ||
 		machine_is_nokia_n810() || machine_is_nokia_n810_wimax()))
 			return -ENODEV;
-
-	printk(KERN_INFO "Tahvo/Betty driver initialising\n");
 
 	init_completion(&device_release);
 
