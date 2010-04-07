@@ -32,7 +32,6 @@
 #include <linux/completion.h>
 #include <linux/errno.h>
 #include <linux/moduleparam.h>
-#include <linux/platform_device.h>
 #include <linux/miscdevice.h>
 #include <linux/watchdog.h>
 
@@ -48,7 +47,6 @@
 #define RETU_WDT_DEFAULT_TIMER 32
 #define RETU_WDT_MAX_TIMER 63
 
-static struct completion retu_wdt_completion;
 static DEFINE_MUTEX(retu_wdt_mutex);
 
 /* Current period of watchdog */
@@ -321,21 +319,8 @@ static int __devexit retu_wdt_remove(struct device *dev)
 	return 0;
 }
 
-static void retu_wdt_device_release(struct device *dev)
-{
-	complete(&retu_wdt_completion);
-}
-
-static struct platform_device retu_wdt_device = {
-	.name = "retu-watchdog",
-	.id = -1,
-	.dev = {
-		.release = retu_wdt_device_release,
-	},
-};
-
 static struct device_driver retu_wdt_driver = {
-	.name = "retu-watchdog",
+	.name = "retu-wdt",
 	.bus = &platform_bus_type,
 	.probe = retu_wdt_probe,
 	.remove = __devexit_p(retu_wdt_remove),
@@ -349,15 +334,9 @@ static int __init retu_wdt_init(void)
 	if (!ret)
 		return -ENODEV;
 
-	init_completion(&retu_wdt_completion);
-
 	ret = driver_register(&retu_wdt_driver);
 	if (ret)
 		return ret;
-
-	ret = platform_device_register(&retu_wdt_device);
-	if (ret)
-		goto exit1;
 
 	/* passed as module parameter? */
 	ret = retu_modify_counter(counter_param);
@@ -367,23 +346,12 @@ static int __init retu_wdt_init(void)
 		       "retu_wdt_init: Intializing to default value\n");
 	}
 
-	printk(KERN_INFO "Retu watchdog driver initialized\n");
-
 	return retu_wdt_ping();
-
-exit1:
-	driver_unregister(&retu_wdt_driver);
-	wait_for_completion(&retu_wdt_completion);
-
-	return ret;
 }
 
 static void __exit retu_wdt_exit(void)
 {
-	platform_device_unregister(&retu_wdt_device);
 	driver_unregister(&retu_wdt_driver);
-
-	wait_for_completion(&retu_wdt_completion);
 }
 
 module_init(retu_wdt_init);
