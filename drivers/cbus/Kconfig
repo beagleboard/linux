@@ -65,7 +65,7 @@ config CBUS_RETU_POWERBUTTON
 	  If you want support for the Retu power button, you should say Y here.
 
 config CBUS_RETU_RTC
-	depends on CBUS_RETU && SYSFS
+	depends on CBUS_RETU && RTC_CLASS
 	tristate "Support for Retu pseudo-RTC"
 	---help---
 	  Say Y here if you want support for the device that alleges to be an
