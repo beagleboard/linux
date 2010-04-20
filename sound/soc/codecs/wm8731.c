@@ -225,7 +225,7 @@ static int wm8731_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_device *socdev = rtd->socdev;
 	struct snd_soc_codec *codec = socdev->card->codec;
-	struct wm8731_priv *wm8731 = codec->private_data;
+	struct wm8731_priv *wm8731 = snd_soc_codec_get_drvdata(codec);
 	u16 iface = snd_soc_read(codec, WM8731_IFACE) & 0xfff3;
 	int i = get_coeff(wm8731->sysclk, params_rate(params));
 	u16 srate = (coeff_div[i].sr << 2) |
@@ -292,7 +292,7 @@ static int wm8731_set_dai_sysclk(struct snd_soc_dai *codec_dai,
 		int clk_id, unsigned int freq, int dir)
 {
 	struct snd_soc_codec *codec = codec_dai->codec;
-	struct wm8731_priv *wm8731 = codec->private_data;
+	struct wm8731_priv *wm8731 = snd_soc_codec_get_drvdata(codec);
 
 	switch (freq) {
 	case 11289600:
@@ -428,7 +428,7 @@ static int wm8731_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	struct snd_soc_device *socdev = platform_get_drvdata(pdev);
 	struct snd_soc_codec *codec = socdev->card->codec;
-	struct wm8731_priv *wm8731 = codec->private_data;
+	struct wm8731_priv *wm8731 = snd_soc_codec_get_drvdata(codec);
 
 	snd_soc_write(codec, WM8731_ACTIVE, 0x0);
 	wm8731_set_bias_level(codec, SND_SOC_BIAS_OFF);
@@ -441,7 +441,7 @@ static int wm8731_resume(struct platform_device *pdev)
 {
 	struct snd_soc_device *socdev = platform_get_drvdata(pdev);
 	struct snd_soc_codec *codec = socdev->card->codec;
-	struct wm8731_priv *wm8731 = codec->private_data;
+	struct wm8731_priv *wm8731 = snd_soc_codec_get_drvdata(codec);
 	int i, ret;
 	u8 data[2];
 	u16 *cache = codec->reg_cache;
@@ -536,7 +536,7 @@ static int wm8731_register(struct wm8731_priv *wm8731,
 	INIT_LIST_HEAD(&codec->dapm_widgets);
 	INIT_LIST_HEAD(&codec->dapm_paths);
 
-	codec->private_data = wm8731;
+	snd_soc_codec_set_drvdata(codec, wm8731);
 	codec->name = "WM8731";
 	codec->owner = THIS_MODULE;
 	codec->bias_level = SND_SOC_BIAS_OFF;
