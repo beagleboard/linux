@@ -26,6 +26,7 @@
 #include <linux/device.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
+#include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/spinlock.h>
 #include <linux/gpio.h>
