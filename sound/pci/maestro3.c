@@ -849,6 +849,7 @@ struct snd_m3 {
 	struct snd_kcontrol *master_switch;
 	struct snd_kcontrol *master_volume;
 	struct tasklet_struct hwvol_tq;
+	unsigned int in_suspend;
 
 #ifdef CONFIG_PM
 	u16 *suspend_mem;
@@ -884,6 +885,7 @@ static DEFINE_PCI_DEVICE_TABLE(snd_m3_ids) = {
 MODULE_DEVICE_TABLE(pci, snd_m3_ids);
 
 static struct snd_pci_quirk m3_amp_quirk_list[] __devinitdata = {
+	SND_PCI_QUIRK(0x0E11, 0x0094, "Compaq Evo N600c", 0x0c),
 	SND_PCI_QUIRK(0x10f7, 0x833e, "Panasonic CF-28", 0x0d),
 	SND_PCI_QUIRK(0x10f7, 0x833d, "Panasonic CF-72", 0x0d),
 	SND_PCI_QUIRK(0x1033, 0x80f1, "NEC LM800J/7", 0x03),
@@ -1596,6 +1598,10 @@ static void snd_m3_update_ptr(struct snd_m3 *chip, struct m3_dma *s)
 	}
 }
 
+/* The m3's hardware volume works by incrementing / decrementing 2 counters
+   (without wrap around) in response to volume button presses and then
+   generating an interrupt. The pair of counters is stored in bits 1-3 and 5-7
+   of a byte wide register. The meaning of bits 0 and 4 is unknown. */
 static void snd_m3_update_hw_volume(unsigned long private_data)
 {
 	struct snd_m3 *chip = (struct snd_m3 *) private_data;
@@ -1607,11 +1613,24 @@ static void snd_m3_update_hw_volume(unsigned long private_data)
 	   values. */
 	x = inb(chip->iobase + SHADOW_MIX_REG_VOICE) & 0xee;
 
-	/* Reset the volume control registers. */
+	/* Reset the volume counters to 4. Tests on the allegro integrated
+	   into a Compaq N600C laptop, have revealed that:
+	   1) Writing any value will result in the 2 counters being reset to
+	      4 so writing 0x88 is not strictly necessary
+	   2) Writing to any of the 4 involved registers will reset all 4
+	      of them (and reading them always returns the same value for all
+	      of them)
+	   It could be that a maestro deviates from this, so leave the code
+	   as is. */
 	outb(0x88, chip->iobase + SHADOW_MIX_REG_VOICE);
 	outb(0x88, chip->iobase + HW_VOL_COUNTER_VOICE);
 	outb(0x88, chip->iobase + SHADOW_MIX_REG_MASTER);
 	outb(0x88, chip->iobase + HW_VOL_COUNTER_MASTER);
+
+	/* Ignore spurious HV interrupts during suspend / resume, this avoids
+	   mistaking them for a mute button press. */
+	if (chip->in_suspend)
+		return;
 
 	if (!chip->master_switch || !chip->master_volume)
 		return;
@@ -1622,7 +1641,9 @@ static void snd_m3_update_hw_volume(unsigned long private_data)
 	val = chip->ac97->regs[AC97_MASTER_VOL];
 	switch (x) {
 	case 0x88:
-		/* mute */
+		/* The counters have not changed, yet we've received a HV
+		   interrupt. According to tests run by various people this
+		   happens when pressing the mute button. */
 		val ^= 0x8000;
 		chip->ac97->regs[AC97_MASTER_VOL] = val;
 		outw(val, chip->iobase + CODEC_DATA);
@@ -1631,7 +1652,7 @@ static void snd_m3_update_hw_volume(unsigned long private_data)
 			       &chip->master_switch->id);
 		break;
 	case 0xaa:
-		/* volume up */
+		/* counters increased by 1 -> volume up */
 		if ((val & 0x7f) > 0)
 			val--;
 		if ((val & 0x7f00) > 0)
@@ -1643,7 +1664,7 @@ static void snd_m3_update_hw_volume(unsigned long private_data)
 			       &chip->master_volume->id);
 		break;
 	case 0x66:
-		/* volume down */
+		/* counters decreased by 1 -> volume down */
 		if ((val & 0x7f) < 0x1f)
 			val++;
 		if ((val & 0x7f00) < 0x1f00)
@@ -2424,6 +2445,7 @@ static int m3_suspend(struct pci_dev *pci, pm_message_t state)
 	if (chip->suspend_mem == NULL)
 		return 0;
 
+	chip->in_suspend = 1;
 	snd_power_change_state(card, SNDRV_CTL_POWER_D3hot);
 	snd_pcm_suspend_all(chip->pcm);
 	snd_ac97_suspend(chip->ac97);
@@ -2497,6 +2519,7 @@ static int m3_resume(struct pci_dev *pci)
 	snd_m3_hv_init(chip);
 
 	snd_power_change_state(card, SNDRV_CTL_POWER_D0);
+	chip->in_suspend = 0;
 	return 0;
 }
 #endif /* CONFIG_PM */
