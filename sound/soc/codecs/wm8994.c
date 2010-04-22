@@ -2190,13 +2190,13 @@ static void wm8994_update_class_w(struct snd_soc_codec *codec)
 	/* Only support direct DAC->headphone paths */
 	reg = snd_soc_read(codec, WM8994_OUTPUT_MIXER_1);
 	if (!(reg & WM8994_DAC1L_TO_HPOUT1L)) {
-		dev_dbg(codec->dev, "HPL connected to output mixer\n");
+		dev_vdbg(codec->dev, "HPL connected to output mixer\n");
 		enable = 0;
 	}
 
 	reg = snd_soc_read(codec, WM8994_OUTPUT_MIXER_2);
 	if (!(reg & WM8994_DAC1R_TO_HPOUT1R)) {
-		dev_dbg(codec->dev, "HPR connected to output mixer\n");
+		dev_vdbg(codec->dev, "HPR connected to output mixer\n");
 		enable = 0;
 	}
 
@@ -2204,26 +2204,26 @@ static void wm8994_update_class_w(struct snd_soc_codec *codec)
 	reg = snd_soc_read(codec, WM8994_DAC1_LEFT_MIXER_ROUTING);
 	switch (reg) {
 	case WM8994_AIF2DACL_TO_DAC1L:
-		dev_dbg(codec->dev, "Class W source AIF2DAC\n");
+		dev_vdbg(codec->dev, "Class W source AIF2DAC\n");
 		source = 2 << WM8994_CP_DYN_SRC_SEL_SHIFT;
 		break;
 	case WM8994_AIF1DAC2L_TO_DAC1L:
-		dev_dbg(codec->dev, "Class W source AIF1DAC2\n");
+		dev_vdbg(codec->dev, "Class W source AIF1DAC2\n");
 		source = 1 << WM8994_CP_DYN_SRC_SEL_SHIFT;
 		break;
 	case WM8994_AIF1DAC1L_TO_DAC1L:
-		dev_dbg(codec->dev, "Class W source AIF1DAC1\n");
+		dev_vdbg(codec->dev, "Class W source AIF1DAC1\n");
 		source = 0 << WM8994_CP_DYN_SRC_SEL_SHIFT;
 		break;
 	default:
-		dev_dbg(codec->dev, "DAC mixer setting: %x\n", reg);
+		dev_vdbg(codec->dev, "DAC mixer setting: %x\n", reg);
 		enable = 0;
 		break;
 	}
 
 	reg_r = snd_soc_read(codec, WM8994_DAC1_RIGHT_MIXER_ROUTING);
 	if (reg_r != reg) {
-		dev_dbg(codec->dev, "Left and right DAC mixers different\n");
+		dev_vdbg(codec->dev, "Left and right DAC mixers different\n");
 		enable = 0;
 	}
 
@@ -2785,9 +2785,18 @@ static int wm8994_get_fll_config(struct fll_div *fll,
 
 	if (freq_in > 1000000) {
 		fll->fll_fratio = 0;
-	} else {
+	} else if (freq_in > 256000) {
+		fll->fll_fratio = 1;
+		freq_in *= 2;
+	} else if (freq_in > 128000) {
+		fll->fll_fratio = 2;
+		freq_in *= 4;
+	} else if (freq_in > 64000) {
 		fll->fll_fratio = 3;
 		freq_in *= 8;
+	} else {
+		fll->fll_fratio = 4;
+		freq_in *= 16;
 	}
 	pr_debug("FLL_FRATIO=%d, Fref=%dHz\n", fll->fll_fratio, freq_in);
 
@@ -2844,6 +2853,21 @@ static int wm8994_set_fll(struct snd_soc_dai *dai, int id, int src,
 		return -EINVAL;
 	}
 
+	switch (src) {
+	case 0:
+		/* Allow no source specification when stopping */
+		if (freq_out)
+			return -EINVAL;
+		break;
+	case WM8994_FLL_SRC_MCLK1:
+	case WM8994_FLL_SRC_MCLK2:
+	case WM8994_FLL_SRC_LRCLK:
+	case WM8994_FLL_SRC_BCLK:
+		break;
+	default:
+		return -EINVAL;
+	}
+
 	/* Are we changing anything? */
 	if (wm8994->fll[id].src == src &&
 	    wm8994->fll[id].in == freq_in && wm8994->fll[id].out == freq_out)
@@ -2884,8 +2908,10 @@ static int wm8994_set_fll(struct snd_soc_dai *dai, int id, int src,
 				    fll.n << WM8994_FLL1_N_SHIFT);
 
 	snd_soc_update_bits(codec, WM8994_FLL1_CONTROL_5 + reg_offset,
-			    WM8994_FLL1_REFCLK_DIV_MASK,
-			    fll.clk_ref_div << WM8994_FLL1_REFCLK_DIV_SHIFT);
+			    WM8994_FLL1_REFCLK_DIV_MASK |
+			    WM8994_FLL1_REFCLK_SRC_MASK,
+			    (fll.clk_ref_div << WM8994_FLL1_REFCLK_DIV_SHIFT) |
+			    (src - 1));
 
 	/* Enable (with fractional mode if required) */
 	if (freq_out) {
@@ -2900,6 +2926,7 @@ static int wm8994_set_fll(struct snd_soc_dai *dai, int id, int src,
 
 	wm8994->fll[id].in = freq_in;
 	wm8994->fll[id].out = freq_out;
+	wm8994->fll[id].src = src;
 
 	/* Enable any gated AIF clocks */
 	snd_soc_update_bits(codec, WM8994_AIF1_CLOCKING_1,
