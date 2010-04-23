@@ -3,11 +3,14 @@
  *
  * Support functions for CBUS serial protocol
  *
- * Copyright (C) 2004, 2005 Nokia Corporation
+ * Copyright (C) 2004-2010 Nokia Corporation
+ * Contact: Felipe Balbi <felipe.balbi@nokia.com>
  *
  * Written by Juha Yrjölä <juha.yrjola@nokia.com>,
  *	      David Weinehall <david.weinehall@nokia.com>, and
  *	      Mikko Ylinen <mikko.k.ylinen@nokia.com>
+ *
+ * Several updates and cleanups by Felipe Balbi <felipe.balbi@nokia.com>
  *
  * This file is subject to the terms and conditions of the GNU General
  * Public License. See the file "COPYING" in the main directory of this
@@ -40,188 +43,206 @@
 
 #include "cbus.h"
 
-struct cbus_host *cbus_host = NULL;
-EXPORT_SYMBOL(cbus_host);
+#define CBUS_XFER_READ		1
+#define CBUS_XFER_WRITE		0
 
-#ifdef CONFIG_ARCH_OMAP1
-/* We use our own MPUIO functions to get closer to 1MHz bus speed */
+struct cbus_host {
+	/* host lock */
+	spinlock_t	lock;
 
-static inline void cbus_set_gpio_direction(u32 base, int mpuio, int is_input)
+	struct device	*dev;
+
+	int		clk_gpio;
+	int		dat_gpio;
+	int		sel_gpio;
+};
+
+static struct cbus_host *cbus_host;
+
+/**
+ * cbus_send_bit - sends one bit over the bus
+ * @host: the host we're using
+ * @bit: one bit of information to send
+ * @input: whether to set data pin as input after sending
+ */
+static int cbus_send_bit(struct cbus_host *host, unsigned bit,
+		unsigned input)
 {
-	u16 w;
+	int ret = 0;
 
-	mpuio &= 0x0f;
-	w = __raw_readw(base + OMAP_MPUIO_IO_CNTL);
-	if (is_input)
-		w |= 1 << mpuio;
-	else
-		w &= ~(1 << mpuio);
-	__raw_writew(w, base + OMAP_MPUIO_IO_CNTL);
-
-}
-
-static inline void cbus_set_gpio_dataout(u32 base, int mpuio, int enable)
-{
-	u16 w;
-
-	mpuio &= 0x0f;
-	w = __raw_readw(base + OMAP_MPUIO_OUTPUT);
-	if (enable)
-		w |= 1 << mpuio;
-	else
-		w &= ~(1 << mpuio);
-	__raw_writew(w, base + OMAP_MPUIO_OUTPUT);
-}
-
-static inline int cbus_get_gpio_datain(u32 base, int mpuio)
-{
-	mpuio &= 0x0f;
-
-	return (__raw_readw(base + OMAP_MPUIO_INPUT_LATCH) & (1 << mpuio)) != 0;
-}
-
-static void cbus_send_bit(struct cbus_host *host, u32 base, int bit,
-			  int set_to_input)
-{
-	cbus_set_gpio_dataout(base, host->dat_gpio, bit ? 1 : 0);
-	cbus_set_gpio_dataout(base, host->clk_gpio, 1);
-
-	/* The data bit is read on the rising edge of CLK */
-	if (set_to_input)
-		cbus_set_gpio_direction(base, host->dat_gpio, 1);
-
-	cbus_set_gpio_dataout(base, host->clk_gpio, 0);
-}
-
-static u8 cbus_receive_bit(struct cbus_host *host, u32 base)
-{
-	u8 ret;
-
-	cbus_set_gpio_dataout(base, host->clk_gpio, 1);
-	ret = cbus_get_gpio_datain(base, host->dat_gpio);
-	cbus_set_gpio_dataout(base, host->clk_gpio, 0);
-
-	return ret;
-}
-
-#define cbus_output(base, gpio, val)	cbus_set_gpio_direction(base, gpio, 0)
-
-#else
-
-#define cbus_output(base, gpio, val)	gpio_direction_output(gpio, val)
-#define cbus_set_gpio_dataout(base, gpio, enable) gpio_set_value(gpio, enable)
-#define cbus_get_gpio_datain(base, int, gpio) gpio_get_value(gpio)
-
-static void _cbus_send_bit(struct cbus_host *host, int bit, int set_to_input)
-{
 	gpio_set_value(host->dat_gpio, bit ? 1 : 0);
 	gpio_set_value(host->clk_gpio, 1);
 
 	/* The data bit is read on the rising edge of CLK */
-	if (set_to_input)
-		gpio_direction_input(host->dat_gpio);
+	if (input)
+		ret = gpio_direction_input(host->dat_gpio);
 
-	gpio_set_value(host->clk_gpio, 0);
-}
-
-static u8 _cbus_receive_bit(struct cbus_host *host)
-{
-	u8 ret;
-
-	gpio_set_value(host->clk_gpio, 1);
-	ret = gpio_get_value(host->dat_gpio);
 	gpio_set_value(host->clk_gpio, 0);
 
 	return ret;
 }
 
-#define cbus_send_bit(host, base, bit, set_to_input) _cbus_send_bit(host, bit, set_to_input)
-#define cbus_receive_bit(host, base) _cbus_receive_bit(host)
-
-#endif
-
-static int cbus_transfer(struct cbus_host *host, int dev, int reg, int data)
+/**
+ * cbus_send_data - sends @len amount of data over the bus
+ * @host: the host we're using
+ * @data: the data to send
+ * @len: size of the transfer
+ * @input: whether to set data pin as input after sending
+ */
+static int cbus_send_data(struct cbus_host *host, unsigned data, unsigned len,
+		unsigned input)
 {
+	int ret = 0;
 	int i;
-	int is_read = 0;
+
+	for (i = len; i > 0; i--) {
+		ret = cbus_send_bit(host, data & (1 << (i - 1)),
+				input && (i == 1));
+		if (ret < 0)
+			goto out;
+	}
+
+out:
+	return ret;
+}
+
+/**
+ * cbus_receive_bit - receives one bit from the bus
+ * @host: the host we're using
+ */
+static int cbus_receive_bit(struct cbus_host *host)
+{
+	int ret;
+
+	gpio_set_value(host->clk_gpio, 1);
+	ret = gpio_get_value(host->dat_gpio);
+	if (ret < 0)
+		goto out;
+	gpio_set_value(host->clk_gpio, 0);
+
+out:
+	return ret;
+}
+
+/**
+ * cbus_receive_data - receives @len data from the bus
+ * @host: the host we're using
+ * @len: the length of data to receive
+ */
+static int cbus_receive_data(struct cbus_host *host, unsigned len)
+{
+	int ret = 0;
+	int i;
+
+	for (i = 16; i > 0; i--) {
+		int bit = cbus_receive_bit(host);
+
+		if (bit < 0)
+			goto out;
+
+		if (bit)
+			ret |= 1 << (i - 1);
+	}
+
+out:
+	return ret;
+}
+
+/**
+ * cbus_transfer - transfers data over the bus
+ * @host: the host we're using
+ * @rw: read/write flag
+ * @dev: device address
+ * @reg: register address
+ * @data: if @rw == 0 data to send otherwise 0
+ */
+static int cbus_transfer(struct cbus_host *host, unsigned rw, unsigned dev,
+		unsigned reg, unsigned data)
+{
 	unsigned long flags;
-	u32 base;
-
-#ifdef CONFIG_ARCH_OMAP1
-	base = OMAP1_IO_ADDRESS(OMAP1_MPUIO_BASE);
-#else
-	base = 0;
-#endif
-
-	if (data < 0)
-		is_read = 1;
+	int input = 0;
+	int ret = 0;
 
 	/* We don't want interrupts disturbing our transfer */
 	spin_lock_irqsave(&host->lock, flags);
 
 	/* Reset state and start of transfer, SEL stays down during transfer */
-	cbus_set_gpio_dataout(base, host->sel_gpio, 0);
+	gpio_set_value(host->sel_gpio, 0);
 
 	/* Set the DAT pin to output */
-	cbus_output(base, host->dat_gpio, 1);
+	gpio_direction_output(host->dat_gpio, 1);
 
 	/* Send the device address */
-	for (i = 3; i > 0; i--)
-		cbus_send_bit(host, base, dev & (1 << (i - 1)), 0);
-
-	/* Send the rw flag */
-	cbus_send_bit(host, base, is_read, 0);
-
-	/* Send the register address */
-	for (i = 5; i > 0; i--) {
-		int set_to_input = 0;
-
-		if (is_read && i == 1)
-			set_to_input = 1;
-
-		cbus_send_bit(host, base, reg & (1 << (i - 1)), set_to_input);
+	ret = cbus_send_data(host, dev, 3, 0);
+	if (ret < 0) {
+		dev_dbg(host->dev, "failed sending device addr\n");
+		goto out;
 	}
 
-	if (!is_read) {
-		for (i = 16; i > 0; i--)
-			cbus_send_bit(host, base, data & (1 << (i - 1)), 0);
+	/* Send the rw flag */
+	ret = cbus_send_bit(host, rw, 0);
+	if (ret < 0) {
+		dev_dbg(host->dev, "failed sending read/write flag\n");
+		goto out;
+	}
+
+	/* Send the register address */
+	if (rw)
+		input = true;
+
+	ret = cbus_send_data(host, reg, 5, input);
+	if (ret < 0) {
+		dev_dbg(host->dev, "failed sending register addr\n");
+		goto out;
+	}
+
+	if (!rw) {
+		ret = cbus_send_data(host, data, 16, 0);
+		if (ret < 0) {
+			dev_dbg(host->dev, "failed sending data\n");
+			goto out;
+		}
 	} else {
-		cbus_set_gpio_dataout(base, host->clk_gpio, 1);
-		data = 0;
+		gpio_set_value(host->clk_gpio, 1);
 
-		for (i = 16; i > 0; i--) {
-			u8 bit = cbus_receive_bit(host, base);
-
-			if (bit)
-				data |= 1 << (i - 1);
+		ret = cbus_receive_data(host, 16);
+		if (ret < 0) {
+			dev_dbg(host->dev, "failed receiving data\n");
+			goto out;
 		}
 	}
 
 	/* Indicate end of transfer, SEL goes up until next transfer */
-	cbus_set_gpio_dataout(base, host->sel_gpio, 1);
-	cbus_set_gpio_dataout(base, host->clk_gpio, 1);
-	cbus_set_gpio_dataout(base, host->clk_gpio, 0);
+	gpio_set_value(host->sel_gpio, 1);
+	gpio_set_value(host->clk_gpio, 1);
+	gpio_set_value(host->clk_gpio, 0);
 
+out:
 	spin_unlock_irqrestore(&host->lock, flags);
 
-	return is_read ? data : 0;
+	return ret;
 }
 
-/*
- * Read a given register from the device
+/**
+ * cbus_read_reg - reads a given register from the device
+ * @dev: device address
+ * @reg: register address
  */
-int cbus_read_reg(struct cbus_host *host, int dev, int reg)
+int cbus_read_reg(unsigned dev, unsigned reg)
 {
-	return cbus_host ? cbus_transfer(host, dev, reg, -1) : -ENODEV;
+	return cbus_transfer(cbus_host, CBUS_XFER_READ, dev, reg, 0);
 }
 EXPORT_SYMBOL(cbus_read_reg);
 
-/*
- * Write to a given register of the device
+/**
+ * cbus_write_reg - writes to a given register of the device
+ * @dev: device address
+ * @reg: register address
+ * @val: data to be written to @reg
  */
-int cbus_write_reg(struct cbus_host *host, int dev, int reg, u16 val)
+int cbus_write_reg(unsigned dev, unsigned reg, unsigned val)
 {
-	return cbus_host ? cbus_transfer(host, dev, reg, (int)val) : -ENODEV;
+	return cbus_transfer(cbus_host, CBUS_XFER_WRITE, dev, reg, val);
 }
 EXPORT_SYMBOL(cbus_write_reg);
 
@@ -231,7 +252,7 @@ static int __init cbus_bus_probe(struct platform_device *pdev)
 	struct cbus_host_platform_data *pdata = pdev->dev.platform_data;
 	int ret;
 
-	chost = kzalloc(sizeof (*chost), GFP_KERNEL);
+	chost = kzalloc(sizeof(*chost), GFP_KERNEL);
 	if (chost == NULL)
 		return -ENOMEM;
 
@@ -240,14 +261,18 @@ static int __init cbus_bus_probe(struct platform_device *pdev)
 	chost->clk_gpio = pdata->clk_gpio;
 	chost->dat_gpio = pdata->dat_gpio;
 	chost->sel_gpio = pdata->sel_gpio;
+	chost->dev = &pdev->dev;
 
-	if ((ret = gpio_request(chost->clk_gpio, "CBUS clk")) < 0)
+	ret = gpio_request(chost->clk_gpio, "CBUS clk");
+	if (ret < 0)
 		goto exit1;
 
-	if ((ret = gpio_request(chost->dat_gpio, "CBUS data")) < 0)
+	ret = gpio_request(chost->dat_gpio, "CBUS data");
+	if (ret < 0)
 		goto exit2;
 
-	if ((ret = gpio_request(chost->sel_gpio, "CBUS sel")) < 0)
+	ret = gpio_request(chost->sel_gpio, "CBUS sel");
+	if (ret < 0)
 		goto exit3;
 
 	gpio_direction_output(chost->clk_gpio, 0);
@@ -276,9 +301,12 @@ static void __exit cbus_bus_remove(struct platform_device *pdev)
 {
 	struct cbus_host	*chost = platform_get_drvdata(pdev);
 
+	gpio_free(chost->sel_gpio);
 	gpio_free(chost->dat_gpio);
 	gpio_free(chost->clk_gpio);
+
 	kfree(chost);
+	cbus_host = NULL;
 }
 
 static struct platform_driver cbus_driver = {
@@ -292,7 +320,6 @@ static int __init cbus_bus_init(void)
 {
 	return platform_driver_probe(&cbus_driver, cbus_bus_probe);
 }
-
 subsys_initcall(cbus_bus_init);
 
 static void __exit cbus_bus_exit(void)
@@ -306,4 +333,5 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Juha Yrjölä");
 MODULE_AUTHOR("David Weinehall");
 MODULE_AUTHOR("Mikko Ylinen");
+MODULE_AUTHOR("Felipe Balbi <felipe.balbi@nokia.com>");
 

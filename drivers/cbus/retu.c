@@ -78,11 +78,12 @@ EXPORT_SYMBOL(retu_get_status);
  *
  * This function returns the contents of the specified register
  */
-int retu_read_reg(int reg)
+int retu_read_reg(unsigned reg)
 {
 	BUG_ON(!retu_initialized);
-	return cbus_read_reg(cbus_host, RETU_ID, reg);
+	return cbus_read_reg(RETU_ID, reg);
 }
+EXPORT_SYMBOL(retu_read_reg);
 
 /**
  * retu_write_reg - Write a value to a register in Retu
@@ -91,13 +92,14 @@ int retu_read_reg(int reg)
  *
  * This function writes a value to the specified register
  */
-void retu_write_reg(int reg, u16 val)
+void retu_write_reg(unsigned reg, u16 val)
 {
 	BUG_ON(!retu_initialized);
-	cbus_write_reg(cbus_host, RETU_ID, reg, val);
+	cbus_write_reg(RETU_ID, reg, val);
 }
+EXPORT_SYMBOL(retu_write_reg);
 
-void retu_set_clear_reg_bits(int reg, u16 set, u16 clear)
+void retu_set_clear_reg_bits(unsigned reg, u16 set, u16 clear)
 {
 	unsigned long flags;
 	u16 w;
@@ -109,6 +111,7 @@ void retu_set_clear_reg_bits(int reg, u16 set, u16 clear)
 	retu_write_reg(reg, w);
 	spin_unlock_irqrestore(&retu_lock, flags);
 }
+EXPORT_SYMBOL_GPL(retu_set_clear_reg_bits);
 
 #define ADC_MAX_CHAN_NUMBER	13
 
@@ -141,7 +144,7 @@ int retu_read_adc(int channel)
 
 	return res;
 }
-
+EXPORT_SYMBOL(retu_read_adc);
 
 static u16 retu_disable_bogus_irqs(u16 mask)
 {
@@ -174,6 +177,7 @@ void retu_disable_irq(int id)
 	retu_write_reg(RETU_REG_IMR, mask);
 	spin_unlock_irqrestore(&retu_lock, flags);
 }
+EXPORT_SYMBOL(retu_disable_irq);
 
 /*
  * Enable given RETU interrupt
@@ -194,6 +198,7 @@ void retu_enable_irq(int id)
 	retu_write_reg(RETU_REG_IMR, mask);
 	spin_unlock_irqrestore(&retu_lock, flags);
 }
+EXPORT_SYMBOL(retu_enable_irq);
 
 /*
  * Acknowledge given RETU interrupt
@@ -202,6 +207,7 @@ void retu_ack_irq(int id)
 {
 	retu_write_reg(RETU_REG_IDR, 1 << id);
 }
+EXPORT_SYMBOL(retu_ack_irq);
 
 /*
  * RETU interrupt handler. Only schedules the tasklet.
@@ -283,6 +289,7 @@ int retu_request_irq(int id, void *irq_handler, unsigned long arg, char *name)
 
 	return 0;
 }
+EXPORT_SYMBOL(retu_request_irq);
 
 /*
  * Unregister the handler for a given RETU interrupt source.
@@ -305,6 +312,7 @@ void retu_free_irq(int id)
 	retu_disable_irq(id);
 	hnd->func = NULL;
 }
+EXPORT_SYMBOL(retu_free_irq);
 
 /**
  * retu_power_off - Shut down power to system
@@ -322,13 +330,74 @@ static void retu_power_off(void)
 }
 
 /**
+ * retu_allocate_child - Allocates one Retu child
+ * @name: name of new child
+ * @parent: parent device for this child
+ */
+static struct device *retu_allocate_child(char *name, struct device *parent)
+{
+	struct platform_device		*pdev;
+	int				status;
+
+	pdev = platform_device_alloc(name, -1);
+	if (!pdev) {
+		dev_dbg(parent, "can't allocate %s\n", name);
+		goto err;
+	}
+
+	pdev->dev.parent = parent;
+
+	status = platform_device_add(pdev);
+	if (status < 0) {
+		dev_dbg(parent, "can't add %s\n", name);
+		goto err;
+	}
+
+	return &pdev->dev;
+
+err:
+	platform_device_put(pdev);
+	return NULL;
+}
+
+/**
+ * retu_allocate_children - Allocates Retu's children
+ */
+static int retu_allocate_children(struct device *parent)
+{
+	struct device	*child;
+
+	child = retu_allocate_child("retu-pwrbutton", parent);
+	if (!child)
+		return -ENOMEM;
+
+	child = retu_allocate_child("retu-headset", parent);
+	if (!child)
+		return -ENOMEM;
+
+	child = retu_allocate_child("retu-rtc", parent);
+	if (!child)
+		return -ENOMEM;
+
+	child = retu_allocate_child("retu-user", parent);
+	if (!child)
+		return -ENOMEM;
+
+	child = retu_allocate_child("retu-wdt", parent);
+	if (!child)
+		return -ENOMEM;
+
+	return 0;
+}
+
+/**
  * retu_probe - Probe for Retu ASIC
  * @dev: the Retu device
  *
  * Probe for the Retu ASIC and allocate memory
  * for its device-struct if found
  */
-static int __devinit retu_probe(struct device *dev)
+static int __devinit retu_probe(struct platform_device *pdev)
 {
 	int rev, ret;
 
@@ -342,12 +411,13 @@ static int __devinit retu_probe(struct device *dev)
 			machine_is_nokia_n810_wimax()) {
 		retu_irq_pin = 108;
 	} else {
-		printk(KERN_ERR "cbus: Unsupported board for tahvo\n");
+		dev_err(&pdev->dev, "cbus: Unsupported board for tahvo\n");
 		return -ENODEV;
 	}
 
-	if ((ret = gpio_request(retu_irq_pin, "RETU irq")) < 0) {
-		printk(KERN_ERR PFX "Unable to reserve IRQ GPIO\n");
+	ret = gpio_request(retu_irq_pin, "RETU irq");
+	if (ret < 0) {
+		dev_err(&pdev->dev, "Unable to reserve IRQ GPIO\n");
 		return ret;
 	}
 
@@ -363,7 +433,7 @@ static int __devinit retu_probe(struct device *dev)
 	if (rev & (1 << 7))
 		retu_is_vilma = 1;
 
-	printk(KERN_INFO "%s v%d.%d found\n", retu_is_vilma ? "Vilma" : "Retu",
+	dev_info(&pdev->dev, "%s v%d.%d found\n", retu_is_vilma ? "Vilma" : "Retu",
 	       (rev >> 4) & 0x07, rev & 0x0f);
 
 	/* Mask all RETU interrupts */
@@ -372,7 +442,7 @@ static int __devinit retu_probe(struct device *dev)
 	ret = request_irq(gpio_to_irq(retu_irq_pin), retu_irq_handler, 0,
 			  "retu", 0);
 	if (ret < 0) {
-		printk(KERN_ERR PFX "Unable to register IRQ handler\n");
+		dev_err(&pdev->dev, "Unable to register IRQ handler\n");
 		gpio_free(retu_irq_pin);
 		return ret;
 	}
@@ -384,17 +454,30 @@ static int __devinit retu_probe(struct device *dev)
 #ifdef CONFIG_CBUS_RETU_USER
 	/* Initialize user-space interface */
 	if (retu_user_init() < 0) {
-		printk(KERN_ERR "Unable to initialize driver\n");
+		dev_err(&pdev->dev, "Unable to initialize driver\n");
 		free_irq(gpio_to_irq(retu_irq_pin), 0);
 		gpio_free(retu_irq_pin);
 		return ret;
 	}
 #endif
 
+	ret = retu_allocate_children(&pdev->dev);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "Unable to allocate Retu children\n");
+#ifdef CONFIG_CBUS_RETU_USER
+		retu_user_cleanup();
+#endif
+		retu_write_reg(RETU_REG_IMR, 0xffff);
+		free_irq(gpio_to_irq(retu_irq_pin), 0);
+		gpio_free(retu_irq_pin);
+		tasklet_kill(&retu_tasklet);
+		return ret;
+	}
+
 	return 0;
 }
 
-static int retu_remove(struct device *dev)
+static int __devexit retu_remove(struct platform_device *pdev)
 {
 #ifdef CONFIG_CBUS_RETU_USER
 	retu_user_cleanup();
@@ -413,11 +496,12 @@ static void retu_device_release(struct device *dev)
 	complete(&device_release);
 }
 
-static struct device_driver retu_driver = {
-	.name		= "retu",
-	.bus		= &platform_bus_type,
+static struct platform_driver retu_driver = {
 	.probe		= retu_probe,
-	.remove		= retu_remove,
+	.remove		= __devexit_p(retu_remove),
+	.driver		= {
+		.name	= "retu",
+	},
 };
 
 static struct platform_device retu_device = {
@@ -441,17 +525,18 @@ static int __init retu_init(void)
 		machine_is_nokia_n810() || machine_is_nokia_n810_wimax()))
 			return -ENODEV;
 
-	printk(KERN_INFO "Retu/Vilma driver initialising\n");
-
 	init_completion(&device_release);
 
-	if ((ret = driver_register(&retu_driver)) < 0)
+	ret = platform_driver_register(&retu_driver);
+	if (ret < 0)
 		return ret;
 
-	if ((ret = platform_device_register(&retu_device)) < 0) {
-		driver_unregister(&retu_driver);
+	ret = platform_device_register(&retu_device);
+	if (ret < 0) {
+		platform_driver_unregister(&retu_driver);
 		return ret;
 	}
+
 	return 0;
 }
 
@@ -461,21 +546,15 @@ static int __init retu_init(void)
 static void __exit retu_exit(void)
 {
 	platform_device_unregister(&retu_device);
-	driver_unregister(&retu_driver);
+	platform_driver_unregister(&retu_driver);
 	wait_for_completion(&device_release);
 }
-
-EXPORT_SYMBOL(retu_request_irq);
-EXPORT_SYMBOL(retu_free_irq);
-EXPORT_SYMBOL(retu_enable_irq);
-EXPORT_SYMBOL(retu_disable_irq);
-EXPORT_SYMBOL(retu_ack_irq);
-EXPORT_SYMBOL(retu_read_reg);
-EXPORT_SYMBOL(retu_write_reg);
 
 subsys_initcall(retu_init);
 module_exit(retu_exit);
 
 MODULE_DESCRIPTION("Retu ASIC control");
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Juha Yrjölä, David Weinehall, and Mikko Ylinen");
+MODULE_AUTHOR("Juha Yrjölä");
+MODULE_AUTHOR("David Weinehall");
+MODULE_AUTHOR("Mikko Ylinen");

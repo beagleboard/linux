@@ -23,14 +23,7 @@
 #ifndef __DRIVERS_CBUS_CBUS_H
 #define __DRIVERS_CBUS_CBUS_H
 
-struct cbus_host {
-	int clk_gpio, dat_gpio, sel_gpio;
-        spinlock_t lock;
-};
-
-extern struct cbus_host *cbus_host;
-
-extern int cbus_read_reg(struct cbus_host *host, int dev, int reg);
-extern int cbus_write_reg(struct cbus_host *host, int dev, int reg, u16 val);
+extern int cbus_read_reg(unsigned dev, unsigned reg);
+extern int cbus_write_reg(unsigned dev, unsigned reg, unsigned val);
 
 #endif /* __DRIVERS_CBUS_CBUS_H */
