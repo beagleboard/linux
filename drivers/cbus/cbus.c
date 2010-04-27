@@ -122,7 +122,7 @@ static int cbus_transfer(struct cbus_host *host, int dev, int reg, int data)
 
 	spin_unlock_irqrestore(&host->lock, flags);
 
-	return is_read ? data : 0;
+	return data;
 }
 
 /*
