@@ -253,10 +253,14 @@ static const struct file_operations retu_wdt_fops = {
 
 /*----------------------------------------------------------------------------*/
 
-static int __devinit retu_wdt_probe(struct device *dev)
+static int __devinit retu_wdt_probe(struct platform_device *pdev)
 {
 	struct retu_wdt_dev *wdev;
 	int ret;
+
+	ret = retu_get_status();
+	if (!ret)
+		return -ENODEV;
 
 	wdev = kzalloc(sizeof(struct retu_wdt_dev), GFP_KERNEL);
 	if (!wdev)
@@ -264,23 +268,23 @@ static int __devinit retu_wdt_probe(struct device *dev)
 
 	wdev->users = 0;
 
-	ret = device_create_file(dev, &dev_attr_period);
+	ret = device_create_file(&pdev->dev, &dev_attr_period);
 	if (ret) {
 		printk(KERN_ERR "retu_wdt_probe: Error creating "
 					"sys device file: period\n");
 		goto free1;
 	}
 
-	ret = device_create_file(dev, &dev_attr_counter);
+	ret = device_create_file(&pdev->dev, &dev_attr_counter);
 	if (ret) {
 		printk(KERN_ERR "retu_wdt_probe: Error creating "
 					"sys device file: counter\n");
 		goto free2;
 	}
 
-	dev_set_drvdata(dev, wdev);
+	platform_set_drvdata(pdev, wdev);
 	retu_wdt = wdev;
-	wdev->retu_wdt_miscdev.parent = dev;
+	wdev->retu_wdt_miscdev.parent = &pdev->dev;
 	wdev->retu_wdt_miscdev.minor = WATCHDOG_MINOR;
 	wdev->retu_wdt_miscdev.name = "watchdog";
 	wdev->retu_wdt_miscdev.fops = &retu_wdt_fops;
@@ -291,54 +295,6 @@ static int __devinit retu_wdt_probe(struct device *dev)
 
 	setup_timer(&wdev->ping_timer, retu_wdt_set_ping_timer, 1);
 
-	/* Kick the watchdog for kernel booting to finish */
-	retu_modify_counter(RETU_WDT_MAX_TIMER);
-
-	return 0;
-
-free3:
-	device_remove_file(dev, &dev_attr_counter);
-
-free2:
-	device_remove_file(dev, &dev_attr_period);
-free1:
-	kfree(wdev);
-
-	return ret;
-}
-
-static int __devexit retu_wdt_remove(struct device *dev)
-{
-	struct retu_wdt_dev *wdev;
-
-	wdev = dev_get_drvdata(dev);
-	misc_deregister(&(wdev->retu_wdt_miscdev));
-	device_remove_file(dev, &dev_attr_period);
-	device_remove_file(dev, &dev_attr_counter);
-	kfree(wdev);
-
-	return 0;
-}
-
-static struct device_driver retu_wdt_driver = {
-	.name = "retu-wdt",
-	.bus = &platform_bus_type,
-	.probe = retu_wdt_probe,
-	.remove = __devexit_p(retu_wdt_remove),
-};
-
-static int __init retu_wdt_init(void)
-{
-	int ret;
-
-	ret = retu_get_status();
-	if (!ret)
-		return -ENODEV;
-
-	ret = driver_register(&retu_wdt_driver);
-	if (ret)
-		return ret;
-
 	/* passed as module parameter? */
 	ret = retu_modify_counter(counter_param);
 	if (ret == -EINVAL) {
@@ -347,12 +303,61 @@ static int __init retu_wdt_init(void)
 		       "retu_wdt_init: Intializing to default value\n");
 	}
 
-	return retu_wdt_ping();
+	/* Kick the watchdog for kernel booting to finish */
+	retu_modify_counter(RETU_WDT_MAX_TIMER);
+
+	ret = retu_wdt_ping();
+	if (ret < 0) {
+		printk(KERN_INFO "retu_wdt_init: Failed to ping\n");
+		goto free4;
+	}
+
+	return 0;
+
+free4:
+	misc_deregister(&wdev->retu_wdt_miscdev);
+
+free3:
+	device_remove_file(&pdev->dev, &dev_attr_counter);
+
+free2:
+	device_remove_file(&pdev->dev, &dev_attr_period);
+
+free1:
+	kfree(wdev);
+
+	return ret;
+}
+
+static int __devexit retu_wdt_remove(struct platform_device *pdev)
+{
+	struct retu_wdt_dev *wdev;
+
+	wdev = platform_get_drvdata(pdev);
+	misc_deregister(&(wdev->retu_wdt_miscdev));
+	device_remove_file(&pdev->dev, &dev_attr_period);
+	device_remove_file(&pdev->dev, &dev_attr_counter);
+	kfree(wdev);
+
+	return 0;
+}
+
+static struct platform_driver retu_wdt_driver = {
+	.probe		= retu_wdt_probe,
+	.remove		= __devexit_p(retu_wdt_remove),
+	.driver		= {
+		.name	= "retu-wdt",
+	},
+};
+
+static int __init retu_wdt_init(void)
+{
+	return platform_driver_register(&retu_wdt_driver);
 }
 
 static void __exit retu_wdt_exit(void)
 {
-	driver_unregister(&retu_wdt_driver);
+	platform_driver_unregister(&retu_wdt_driver);
 }
 
 module_init(retu_wdt_init);
