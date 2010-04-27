@@ -23,15 +23,6 @@
 #ifndef __DRIVERS_CBUS_CBUS_H
 #define __DRIVERS_CBUS_CBUS_H
 
-struct cbus_host {
-	/* host lock */
-	spinlock_t lock;
-
-	int	clk_gpio;
-	int	dat_gpio;
-	int	sel_gpio;
-};
-
 extern int cbus_read_reg(unsigned dev, unsigned reg);
 extern int cbus_write_reg(unsigned dev, unsigned reg, unsigned val);
 
