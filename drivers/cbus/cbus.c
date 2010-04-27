@@ -46,7 +46,8 @@ EXPORT_SYMBOL(cbus_host);
 #ifdef CONFIG_ARCH_OMAP1
 /* We use our own MPUIO functions to get closer to 1MHz bus speed */
 
-static inline void cbus_set_gpio_direction(u32 base, int mpuio, int is_input)
+static inline void cbus_set_gpio_direction(void __iomem *base,
+		int mpuio, int is_input)
 {
 	u16 w;
 
@@ -60,7 +61,8 @@ static inline void cbus_set_gpio_direction(u32 base, int mpuio, int is_input)
 
 }
 
-static inline void cbus_set_gpio_dataout(u32 base, int mpuio, int enable)
+static inline void cbus_set_gpio_dataout(void __iomem *base,
+		int mpuio, int enable)
 {
 	u16 w;
 
@@ -73,14 +75,14 @@ static inline void cbus_set_gpio_dataout(u32 base, int mpuio, int enable)
 	__raw_writew(w, base + OMAP_MPUIO_OUTPUT);
 }
 
-static inline int cbus_get_gpio_datain(u32 base, int mpuio)
+static inline int cbus_get_gpio_datain(void __iomem *base, int mpuio)
 {
 	mpuio &= 0x0f;
 
 	return (__raw_readw(base + OMAP_MPUIO_INPUT_LATCH) & (1 << mpuio)) != 0;
 }
 
-static void cbus_send_bit(struct cbus_host *host, u32 base, int bit,
+static void cbus_send_bit(struct cbus_host *host, void __iomem *base, int bit,
 			  int set_to_input)
 {
 	cbus_set_gpio_dataout(base, host->dat_gpio, bit ? 1 : 0);
@@ -93,7 +95,7 @@ static void cbus_send_bit(struct cbus_host *host, u32 base, int bit,
 	cbus_set_gpio_dataout(base, host->clk_gpio, 0);
 }
 
-static u8 cbus_receive_bit(struct cbus_host *host, u32 base)
+static u8 cbus_receive_bit(struct cbus_host *host, void __iomem *base)
 {
 	u8 ret;
 
@@ -145,12 +147,12 @@ static int cbus_transfer(struct cbus_host *host, int dev, int reg, int data)
 	int i;
 	int is_read = 0;
 	unsigned long flags;
-	u32 base;
+	void __iomem *base;
 
 #ifdef CONFIG_ARCH_OMAP1
 	base = OMAP1_IO_ADDRESS(OMAP1_MPUIO_BASE);
 #else
-	base = 0;
+	base = NULL;
 #endif
 
 	if (data < 0)
