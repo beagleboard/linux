@@ -452,4 +452,6 @@ module_exit(retu_rtc_exit);
 
 MODULE_DESCRIPTION("Retu RTC");
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Paul Mundt and Igor Stoppa");
+MODULE_AUTHOR("Paul Mundt");
+MODULE_AUTHOR("Igor Stoppa");
+
