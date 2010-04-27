@@ -280,7 +280,9 @@ static void __exit cbus_bus_remove(struct platform_device *pdev)
 
 	gpio_free(chost->dat_gpio);
 	gpio_free(chost->clk_gpio);
+
 	kfree(chost);
+	cbus_host = NULL;
 }
 
 static struct platform_driver cbus_driver = {
