@@ -3,11 +3,14 @@
  *
  * Support functions for CBUS serial protocol
  *
- * Copyright (C) 2004, 2005 Nokia Corporation
+ * Copyright (C) 2004-2010 Nokia Corporation
+ * Contact: Felipe Balbi <felipe.balbi@nokia.com>
  *
  * Written by Juha Yrjölä <juha.yrjola@nokia.com>,
  *	      David Weinehall <david.weinehall@nokia.com>, and
  *	      Mikko Ylinen <mikko.k.ylinen@nokia.com>
+ *
+ * Several updates and cleanups by Felipe Balbi <felipe.balbi@nokia.com>
  *
  * This file is subject to the terms and conditions of the GNU General
  * Public License. See the file "COPYING" in the main directory of this
@@ -40,6 +43,9 @@
 
 #include "cbus.h"
 
+#define CBUS_XFER_READ		1
+#define CBUS_XFER_WRITE		0
+
 static struct cbus_host *cbus_host;
 
 static void cbus_send_bit(struct cbus_host *host, int bit, int set_to_input)
@@ -65,14 +71,11 @@ static u8 cbus_receive_bit(struct cbus_host *host)
 	return ret;
 }
 
-static int cbus_transfer(struct cbus_host *host, int dev, int reg, int data)
+static int cbus_transfer(struct cbus_host *host, unsigned rw, unsigned dev,
+		unsigned reg, unsigned data)
 {
-	int i;
-	int is_read = 0;
 	unsigned long flags;
-
-	if (data < 0)
-		is_read = 1;
+	int i;
 
 	/* We don't want interrupts disturbing our transfer */
 	spin_lock_irqsave(&host->lock, flags);
@@ -88,24 +91,23 @@ static int cbus_transfer(struct cbus_host *host, int dev, int reg, int data)
 		cbus_send_bit(host, dev & (1 << (i - 1)), 0);
 
 	/* Send the rw flag */
-	cbus_send_bit(host, is_read, 0);
+	cbus_send_bit(host, rw, 0);
 
 	/* Send the register address */
 	for (i = 5; i > 0; i--) {
 		int set_to_input = 0;
 
-		if (is_read && i == 1)
+		if (rw && i == 1)
 			set_to_input = 1;
 
 		cbus_send_bit(host, reg & (1 << (i - 1)), set_to_input);
 	}
 
-	if (!is_read) {
+	if (!rw) {
 		for (i = 16; i > 0; i--)
 			cbus_send_bit(host, data & (1 << (i - 1)), 0);
 	} else {
 		gpio_set_value(host->clk_gpio, 1);
-		data = 0;
 
 		for (i = 16; i > 0; i--) {
 			u8 bit = cbus_receive_bit(host);
@@ -130,7 +132,7 @@ static int cbus_transfer(struct cbus_host *host, int dev, int reg, int data)
  */
 int cbus_read_reg(int dev, int reg)
 {
-	return cbus_transfer(cbus_host, dev, reg, -1);
+	return cbus_transfer(cbus_host, CBUS_XFER_READ, dev, reg, 0);
 }
 EXPORT_SYMBOL(cbus_read_reg);
 
@@ -139,7 +141,7 @@ EXPORT_SYMBOL(cbus_read_reg);
  */
 int cbus_write_reg(int dev, int reg, int val)
 {
-	return cbus_transfer(cbus_host, dev, reg, val);
+	return cbus_transfer(cbus_host, CBUS_XFER_WRITE, dev, reg, val);
 }
 EXPORT_SYMBOL(cbus_write_reg);
 
@@ -215,7 +217,6 @@ static int __init cbus_bus_init(void)
 {
 	return platform_driver_probe(&cbus_driver, cbus_bus_probe);
 }
-
 subsys_initcall(cbus_bus_init);
 
 static void __exit cbus_bus_exit(void)
@@ -229,4 +230,5 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Juha Yrjölä");
 MODULE_AUTHOR("David Weinehall");
 MODULE_AUTHOR("Mikko Ylinen");
+MODULE_AUTHOR("Felipe Balbi <felipe.balbi@nokia.com>");
 
