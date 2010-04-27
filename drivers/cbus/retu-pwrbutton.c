@@ -3,11 +3,13 @@
  *
  * Driver for sending retu power button event to input-layer
  *
- * Copyright (C) 2004 Nokia Corporation
+ * Copyright (C) 2004-2010 Nokia Corporation
  *
- * Written by Ari Saastamoinen <ari.saastamoinen@elektrobit.com>
+ * Written by
+ *	Ari Saastamoinen <ari.saastamoinen@elektrobit.com>
+ *	Juha Yrjola <juha.yrjola@solidboot.com>
  *
- * Contact Juha Yrjölä <juha.yrjola@nokia.com>
+ * Contact: Felipe Balbi <felipe.balbi@nokia.com>
  *
  * This file is subject to the terms and conditions of the GNU General
  * Public License. See the file "COPYING" in the main directory of this
@@ -31,6 +33,7 @@
 #include <linux/timer.h>
 #include <linux/jiffies.h>
 #include <linux/bitops.h>
+#include <linux/platform_device.h>
 
 #include "retu.h"
 
@@ -40,12 +43,17 @@
 #define PWRBTN_UP		0
 #define PWRBTN_PRESSED		1
 
-static int pwrbtn_state;
-static struct input_dev *pwrbtn_dev;
-static struct timer_list pwrbtn_timer;
+struct retu_pwrbutton {
+	struct input_dev	*idev;
+	struct timer_list	timer;
+
+	int			state;
+	int			irq;
+};
 
 static void retubutton_timer_func(unsigned long arg)
 {
+	struct retu_pwrbutton *pwr = (struct retu_pwrbutton *) arg;
 	int state;
 
 	if (retu_read_reg(RETU_REG_STATUS) & RETU_STATUS_PWRONX)
@@ -53,9 +61,10 @@ static void retubutton_timer_func(unsigned long arg)
 	else
 		state = PWRBTN_PRESSED;
 
-	if (pwrbtn_state != state) {
-		input_report_key(pwrbtn_dev, KEY_POWER, state);
-		pwrbtn_state = state;
+	if (pwr->state != state) {
+		input_report_key(pwr->idev, KEY_POWER, state);
+		input_sync(pwr->idev);
+		pwr->state = state;
 	}
 }
 
@@ -65,54 +74,109 @@ static void retubutton_timer_func(unsigned long arg)
  */
 static void retubutton_irq(unsigned long arg)
 {
+	struct retu_pwrbutton *pwr = (struct retu_pwrbutton *) arg;
+
 	retu_ack_irq(RETU_INT_PWR);
-	mod_timer(&pwrbtn_timer, jiffies + msecs_to_jiffies(PWRBTN_DELAY));
+	mod_timer(&pwr->timer, jiffies + msecs_to_jiffies(PWRBTN_DELAY));
 }
 
 /**
  * Init function.
  * Allocates interrupt for power button and registers itself to input layer.
  */
-static int __init retubutton_init(void)
+static int __devinit retubutton_probe(struct platform_device *pdev)
 {
-	int irq;
+	struct retu_pwrbutton		*pwr;
+	int				ret = 0;
 
-	printk(KERN_INFO "Retu power button driver initialized\n");
-	irq = RETU_INT_PWR;
-
-	init_timer(&pwrbtn_timer);
-	pwrbtn_timer.function = retubutton_timer_func;
-
-	if (retu_request_irq(irq, &retubutton_irq, 0, "PwrOnX") < 0) {
-		printk(KERN_ERR "%s@%s: Cannot allocate irq\n",
-		       __FUNCTION__, __FILE__);
-		return -EBUSY;
+	pwr = kzalloc(sizeof(*pwr), GFP_KERNEL);
+	if (!pwr) {
+		dev_err(&pdev->dev, "not enough memory\n");
+		ret = -ENOMEM;
+		goto err0;
 	}
 
-	pwrbtn_dev = input_allocate_device();
-	if (!pwrbtn_dev)
-		return -ENOMEM;
+	pwr->irq = RETU_INT_PWR;
+	platform_set_drvdata(pdev, pwr);
+	setup_timer(&pwr->timer, retubutton_timer_func, (unsigned long) pwr);
 
-	pwrbtn_dev->evbit[0] = BIT_MASK(EV_KEY);
-	pwrbtn_dev->keybit[BIT_WORD(KEY_POWER)] = BIT_MASK(KEY_POWER);
-	pwrbtn_dev->name = "retu-pwrbutton";
+	ret = retu_request_irq(pwr->irq, retubutton_irq, (unsigned long) pwr,
+			"PwrOnX");
+	if (ret < 0) {
+		dev_err(&pdev->dev, "Cannot allocate irq\n");
+		goto err1;
+	}
 
-	return input_register_device(pwrbtn_dev);
+	pwr->idev = input_allocate_device();
+	if (!pwr->idev) {
+		dev_err(&pdev->dev, "can't allocate input device\n");
+		ret = -ENOMEM;
+		goto err2;
+	}
+
+	pwr->idev->evbit[0] = BIT_MASK(EV_KEY);
+	pwr->idev->keybit[BIT_WORD(KEY_POWER)] = BIT_MASK(KEY_POWER);
+	pwr->idev->name = "retu-pwrbutton";
+
+	ret = input_register_device(pwr->idev);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "failed to register input device\n");
+		goto err3;
+	}
+
+	return 0;
+
+err3:
+	input_free_device(pwr->idev);
+
+err2:
+	retu_free_irq(pwr->irq);
+
+err1:
+	kfree(pwr);
+
+err0:
+	return ret;
 }
 
 /**
  * Cleanup function which is called when driver is unloaded
  */
-static void __exit retubutton_exit(void)
+static int __devexit retubutton_remove(struct platform_device *pdev)
 {
-	retu_free_irq(RETU_INT_PWR);
-	del_timer_sync(&pwrbtn_timer);
-	input_unregister_device(pwrbtn_dev);
+	struct retu_pwrbutton		*pwr = platform_get_drvdata(pdev);
+
+	retu_free_irq(pwr->irq);
+	del_timer_sync(&pwr->timer);
+	input_unregister_device(pwr->idev);
+	input_free_device(pwr->idev);
+	kfree(pwr);
+
+	return 0;
 }
 
+static struct platform_driver retu_pwrbutton_driver = {
+	.probe		= retubutton_probe,
+	.remove		= __devexit_p(retubutton_remove),
+	.driver		= {
+		.name	= "retu-pwrbutton",
+	},
+};
+
+static int __init retubutton_init(void)
+{
+	return platform_driver_register(&retu_pwrbutton_driver);
+}
 module_init(retubutton_init);
+
+static void __exit retubutton_exit(void)
+{
+	platform_driver_unregister(&retu_pwrbutton_driver);
+}
 module_exit(retubutton_exit);
 
 MODULE_DESCRIPTION("Retu Power Button");
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Ari Saastamoinen");
+MODULE_AUTHOR("Felipe Balbi <felipe.balbi@nokia.com>");
+
