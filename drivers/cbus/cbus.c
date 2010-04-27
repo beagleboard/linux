@@ -59,7 +59,8 @@ struct cbus_host {
 
 static struct cbus_host *cbus_host;
 
-static int cbus_send_bit(struct cbus_host *host, int bit, int set_to_input)
+static int cbus_send_bit(struct cbus_host *host, unsigned bit,
+		unsigned input)
 {
 	int ret = 0;
 
@@ -67,11 +68,28 @@ static int cbus_send_bit(struct cbus_host *host, int bit, int set_to_input)
 	gpio_set_value(host->clk_gpio, 1);
 
 	/* The data bit is read on the rising edge of CLK */
-	if (set_to_input)
+	if (input)
 		ret = gpio_direction_input(host->dat_gpio);
 
 	gpio_set_value(host->clk_gpio, 0);
 
+	return ret;
+}
+
+static int cbus_send_data(struct cbus_host *host, unsigned data, unsigned len,
+		unsigned input)
+{
+	int ret = 0;
+	int i;
+
+	for (i = len; i > 0; i--) {
+		ret = cbus_send_bit(host, data & (1 << (i - 1)),
+				input && (i == 1));
+		if (ret < 0)
+			goto out;
+	}
+
+out:
 	return ret;
 }
 
@@ -89,12 +107,31 @@ out:
 	return ret;
 }
 
+static int cbus_receive_data(struct cbus_host *host, unsigned len)
+{
+	int ret = 0;
+	int i;
+
+	for (i = 16; i > 0; i--) {
+		int bit = cbus_receive_bit(host);
+
+		if (bit < 0)
+			goto out;
+
+		if (bit)
+			ret |= 1 << (i - 1);
+	}
+
+out:
+	return ret;
+}
+
 static int cbus_transfer(struct cbus_host *host, unsigned rw, unsigned dev,
 		unsigned reg, unsigned data)
 {
 	unsigned long flags;
+	int input = 0;
 	int ret = 0;
-	int i;
 
 	/* We don't want interrupts disturbing our transfer */
 	spin_lock_irqsave(&host->lock, flags);
@@ -106,12 +143,10 @@ static int cbus_transfer(struct cbus_host *host, unsigned rw, unsigned dev,
 	gpio_direction_output(host->dat_gpio, 1);
 
 	/* Send the device address */
-	for (i = 3; i > 0; i--) {
-		ret = cbus_send_bit(host, dev & (1 << (i - 1)), 0);
-		if (ret < 0) {
-			dev_dbg(host->dev, "failed sending device addr\n");
-			goto out;
-		}
+	ret = cbus_send_data(host, dev, 3, 0);
+	if (ret < 0) {
+		dev_dbg(host->dev, "failed sending device addr\n");
+		goto out;
 	}
 
 	/* Send the rw flag */
@@ -122,44 +157,29 @@ static int cbus_transfer(struct cbus_host *host, unsigned rw, unsigned dev,
 	}
 
 	/* Send the register address */
-	for (i = 5; i > 0; i--) {
-		int set_to_input = 0;
+	if (rw)
+		input = true;
 
-		if (rw && i == 1)
-			set_to_input = 1;
-
-		ret = cbus_send_bit(host, reg & (1 << (i - 1)), set_to_input);
-		if (ret < 0) {
-			dev_dbg(host->dev, "failed sending register addr\n");
-			goto out;
-		}
+	ret = cbus_send_data(host, reg, 5, input);
+	if (ret < 0) {
+		dev_dbg(host->dev, "failed sending register addr\n");
+		goto out;
 	}
 
 	if (!rw) {
-		for (i = 16; i > 0; i--) {
-			ret = cbus_send_bit(host, data & (1 << (i - 1)), 0);
-			if (ret < 0) {
-				dev_dbg(host->dev, "failed sending data\n");
-				goto out;
-			}
+		ret = cbus_send_data(host, data, 16, 0);
+		if (ret < 0) {
+			dev_dbg(host->dev, "failed sending data\n");
+			goto out;
 		}
 	} else {
 		gpio_set_value(host->clk_gpio, 1);
 
-		for (i = 16; i > 0; i--) {
-			u8 bit = cbus_receive_bit(host);
-
-			if (bit < 0) {
-				dev_dbg(host->dev, "failed receiving data\n");
-				goto out;
-			}
-
-			if (bit)
-				data |= 1 << (i - 1);
+		ret = cbus_receive_data(host, 16);
+		if (ret < 0) {
+			dev_dbg(host->dev, "failed receiving data\n");
+			goto out;
 		}
-
-		/* return the data received */
-		ret = data;
 	}
 
 	/* Indicate end of transfer, SEL goes up until next transfer */
