@@ -46,6 +46,15 @@
 #define CBUS_XFER_READ		1
 #define CBUS_XFER_WRITE		0
 
+struct cbus_host {
+	/* host lock */
+	spinlock_t lock;
+
+	int	clk_gpio;
+	int	dat_gpio;
+	int	sel_gpio;
+};
+
 static struct cbus_host *cbus_host;
 
 static void cbus_send_bit(struct cbus_host *host, int bit, int set_to_input)
