@@ -78,7 +78,7 @@ EXPORT_SYMBOL(retu_get_status);
  *
  * This function returns the contents of the specified register
  */
-int retu_read_reg(int reg)
+int retu_read_reg(unsigned reg)
 {
 	BUG_ON(!retu_initialized);
 	return cbus_read_reg(RETU_ID, reg);
@@ -91,13 +91,13 @@ int retu_read_reg(int reg)
  *
  * This function writes a value to the specified register
  */
-void retu_write_reg(int reg, u16 val)
+void retu_write_reg(unsigned reg, u16 val)
 {
 	BUG_ON(!retu_initialized);
 	cbus_write_reg(RETU_ID, reg, val);
 }
 
-void retu_set_clear_reg_bits(int reg, u16 set, u16 clear)
+void retu_set_clear_reg_bits(unsigned reg, u16 set, u16 clear)
 {
 	unsigned long flags;
 	u16 w;
