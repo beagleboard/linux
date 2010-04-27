@@ -355,8 +355,9 @@ static int retu_rtc_init_irq(void)
 }
 
 
-static int __devinit retu_rtc_probe(struct device *dev)
+static int __devinit retu_rtc_probe(struct platform_device *pdev)
 {
+	struct device		*dev = &pdev->dev;
 	int r;
 
 	r = retu_get_status();
@@ -402,8 +403,10 @@ err_unregister_time:
 	return r;
 }
 
-static int __devexit retu_rtc_remove(struct device *dev)
+static int __devexit retu_rtc_remove(struct platform_device *pdev)
 {
+	struct device		*dev = &pdev->dev;
+
 	retu_disable_irq(RETU_INT_RTCS);
 	retu_free_irq(RETU_INT_RTCS);
 	retu_free_irq(RETU_INT_RTCA);
@@ -412,14 +415,16 @@ static int __devexit retu_rtc_remove(struct device *dev)
 	device_remove_file(dev, &dev_attr_alarm);
 	device_remove_file(dev, &dev_attr_reset);
 	device_remove_file(dev, &dev_attr_time);
+
 	return 0;
 }
 
-static struct device_driver retu_rtc_driver = {
-	.name		= "retu-rtc",
-	.bus		= &platform_bus_type,
+static struct platform_driver retu_rtc_driver = {
 	.probe		= retu_rtc_probe,
 	.remove		= __devexit_p(retu_rtc_remove),
+	.driver		= {
+		.name	= "retu-rtc",
+	},
 };
 
 /* This function provides syncronization with the RTCS interrupt handler */
@@ -434,12 +439,12 @@ static void retu_rtc_barrier(void)
 
 static int __init retu_rtc_init(void)
 {
-	return driver_register(&retu_rtc_driver);
+	return platform_driver_register(&retu_rtc_driver);
 }
 
 static void __exit retu_rtc_exit(void)
 {
-	driver_unregister(&retu_rtc_driver);
+	platform_driver_unregister(&retu_rtc_driver);
 }
 
 module_init(retu_rtc_init);
