@@ -332,15 +332,7 @@ static struct platform_driver retu_headset_driver = {
 
 static int __init retu_headset_init(void)
 {
-	int r;
-
-	printk(KERN_INFO "Retu/Vilma headset driver initializing\n");
-
-	r = platform_driver_register(&retu_headset_driver);
-	if (r < 0)
-		return r;
-
-	return 0;
+	return platform_driver_register(&retu_headset_driver);
 }
 
 static void __exit retu_headset_exit(void)
