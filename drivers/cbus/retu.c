@@ -354,7 +354,8 @@ static int __devinit retu_probe(struct device *dev)
 		return -ENODEV;
 	}
 
-	if ((ret = gpio_request(retu_irq_pin, "RETU irq")) < 0) {
+	ret = gpio_request(retu_irq_pin, "RETU irq");
+	if (ret < 0) {
 		printk(KERN_ERR PFX "Unable to reserve IRQ GPIO\n");
 		return ret;
 	}
@@ -453,13 +454,16 @@ static int __init retu_init(void)
 
 	init_completion(&device_release);
 
-	if ((ret = driver_register(&retu_driver)) < 0)
+	ret = driver_register(&retu_driver);
+	if (ret < 0)
 		return ret;
 
-	if ((ret = platform_device_register(&retu_device)) < 0) {
+	ret = platform_device_register(&retu_device);
+	if (ret < 0) {
 		driver_unregister(&retu_driver);
 		return ret;
 	}
+
 	return 0;
 }
 
