@@ -81,7 +81,7 @@ EXPORT_SYMBOL(retu_get_status);
 int retu_read_reg(int reg)
 {
 	BUG_ON(!retu_initialized);
-	return cbus_read_reg(cbus_host, RETU_ID, reg);
+	return cbus_read_reg(RETU_ID, reg);
 }
 
 /**
@@ -94,7 +94,7 @@ int retu_read_reg(int reg)
 void retu_write_reg(int reg, u16 val)
 {
 	BUG_ON(!retu_initialized);
-	cbus_write_reg(cbus_host, RETU_ID, reg, val);
+	cbus_write_reg(RETU_ID, reg, val);
 }
 
 void retu_set_clear_reg_bits(int reg, u16 set, u16 clear)
