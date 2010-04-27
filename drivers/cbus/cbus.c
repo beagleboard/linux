@@ -137,7 +137,7 @@ static u8 _cbus_receive_bit(struct cbus_host *host)
 	return ret;
 }
 
-#define cbus_send_bit(host, base, bit, set_to_input) _cbus_send_bit(host, bit, set_to_input)
+#define cbus_send_bit(h, b, bit, i) _cbus_send_bit(h, bit, i)
 #define cbus_receive_bit(host, base) _cbus_receive_bit(host)
 
 #endif
@@ -233,7 +233,7 @@ static int __init cbus_bus_probe(struct platform_device *pdev)
 	struct cbus_host_platform_data *pdata = pdev->dev.platform_data;
 	int ret;
 
-	chost = kzalloc(sizeof (*chost), GFP_KERNEL);
+	chost = kzalloc(sizeof(*chost), GFP_KERNEL);
 	if (chost == NULL)
 		return -ENOMEM;
 
@@ -243,13 +243,16 @@ static int __init cbus_bus_probe(struct platform_device *pdev)
 	chost->dat_gpio = pdata->dat_gpio;
 	chost->sel_gpio = pdata->sel_gpio;
 
-	if ((ret = gpio_request(chost->clk_gpio, "CBUS clk")) < 0)
+	ret = gpio_request(chost->clk_gpio, "CBUS clk");
+	if (ret < 0)
 		goto exit1;
 
-	if ((ret = gpio_request(chost->dat_gpio, "CBUS data")) < 0)
+	ret = gpio_request(chost->dat_gpio, "CBUS data");
+	if (ret < 0)
 		goto exit2;
 
-	if ((ret = gpio_request(chost->sel_gpio, "CBUS sel")) < 0)
+	ret = gpio_request(chost->sel_gpio, "CBUS sel");
+	if (ret < 0)
 		goto exit3;
 
 	gpio_direction_output(chost->clk_gpio, 0);
