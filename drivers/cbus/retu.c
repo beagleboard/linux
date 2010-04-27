@@ -350,13 +350,13 @@ static int __devinit retu_probe(struct device *dev)
 			machine_is_nokia_n810_wimax()) {
 		retu_irq_pin = 108;
 	} else {
-		printk(KERN_ERR "cbus: Unsupported board for tahvo\n");
+		dev_err(dev, "cbus: Unsupported board for tahvo\n");
 		return -ENODEV;
 	}
 
 	ret = gpio_request(retu_irq_pin, "RETU irq");
 	if (ret < 0) {
-		printk(KERN_ERR PFX "Unable to reserve IRQ GPIO\n");
+		dev_err(dev, "Unable to reserve IRQ GPIO\n");
 		return ret;
 	}
 
@@ -372,7 +372,7 @@ static int __devinit retu_probe(struct device *dev)
 	if (rev & (1 << 7))
 		retu_is_vilma = 1;
 
-	printk(KERN_INFO "%s v%d.%d found\n", retu_is_vilma ? "Vilma" : "Retu",
+	dev_info(dev, "%s v%d.%d found\n", retu_is_vilma ? "Vilma" : "Retu",
 	       (rev >> 4) & 0x07, rev & 0x0f);
 
 	/* Mask all RETU interrupts */
@@ -381,7 +381,7 @@ static int __devinit retu_probe(struct device *dev)
 	ret = request_irq(gpio_to_irq(retu_irq_pin), retu_irq_handler, 0,
 			  "retu", 0);
 	if (ret < 0) {
-		printk(KERN_ERR PFX "Unable to register IRQ handler\n");
+		dev_err(dev, "Unable to register IRQ handler\n");
 		gpio_free(retu_irq_pin);
 		return ret;
 	}
@@ -393,7 +393,7 @@ static int __devinit retu_probe(struct device *dev)
 #ifdef CONFIG_CBUS_RETU_USER
 	/* Initialize user-space interface */
 	if (retu_user_init() < 0) {
-		printk(KERN_ERR "Unable to initialize driver\n");
+		dev_err(dev, "Unable to initialize driver\n");
 		free_irq(gpio_to_irq(retu_irq_pin), 0);
 		gpio_free(retu_irq_pin);
 		return ret;
@@ -449,8 +449,6 @@ static int __init retu_init(void)
 	if (!(machine_is_nokia770() || machine_is_nokia_n800() ||
 		machine_is_nokia_n810() || machine_is_nokia_n810_wimax()))
 			return -ENODEV;
-
-	printk(KERN_INFO "Retu/Vilma driver initialising\n");
 
 	init_completion(&device_release);
 
