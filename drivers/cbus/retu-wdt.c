@@ -244,7 +244,6 @@ static int __init retu_wdt_ping(void)
 
 	return 0;
 }
-late_initcall(retu_wdt_ping);
 
 static const struct file_operations retu_wdt_fops = {
 	.owner = THIS_MODULE,
@@ -370,7 +369,8 @@ static int __init retu_wdt_init(void)
 	}
 
 	printk(KERN_INFO "Retu watchdog driver initialized\n");
-	return ret;
+
+	return retu_wdt_ping();
 
 exit1:
 	driver_unregister(&retu_wdt_driver);
