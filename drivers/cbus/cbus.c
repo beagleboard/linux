@@ -199,6 +199,7 @@ static void __exit cbus_bus_remove(struct platform_device *pdev)
 {
 	struct cbus_host	*chost = platform_get_drvdata(pdev);
 
+	gpio_free(chost->sel_gpio);
 	gpio_free(chost->dat_gpio);
 	gpio_free(chost->clk_gpio);
 
