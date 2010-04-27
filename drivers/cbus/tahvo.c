@@ -83,6 +83,7 @@ int tahvo_read_reg(unsigned reg)
 	BUG_ON(!tahvo_initialized);
 	return cbus_read_reg(TAHVO_ID, reg);
 }
+EXPORT_SYMBOL(tahvo_read_reg);
 
 /**
  * tahvo_write_reg - Write a value to a register in Tahvo
@@ -96,6 +97,7 @@ void tahvo_write_reg(unsigned reg, u16 val)
 	BUG_ON(!tahvo_initialized);
 	cbus_write_reg(TAHVO_ID, reg, val);
 }
+EXPORT_SYMBOL(tahvo_write_reg);
 
 /**
  * tahvo_set_clear_reg_bits - set and clear register bits atomically
@@ -131,6 +133,7 @@ void tahvo_disable_irq(int id)
 	tahvo_write_reg(TAHVO_REG_IMR, mask);
 	spin_unlock_irqrestore(&tahvo_lock, flags);
 }
+EXPORT_SYMBOL(tahvo_disable_irq);
 
 /*
  * Enable given TAHVO interrupt
@@ -146,6 +149,7 @@ void tahvo_enable_irq(int id)
 	tahvo_write_reg(TAHVO_REG_IMR, mask);
 	spin_unlock_irqrestore(&tahvo_lock, flags);
 }
+EXPORT_SYMBOL(tahvo_enable_irq);
 
 /*
  * Acknowledge given TAHVO interrupt
@@ -154,6 +158,7 @@ void tahvo_ack_irq(int id)
 {
 	tahvo_write_reg(TAHVO_REG_IDR, 1 << id);
 }
+EXPORT_SYMBOL(tahvo_ack_irq);
 
 static int tahvo_7bit_backlight;
 
@@ -167,6 +172,7 @@ int tahvo_get_backlight_level(void)
 		mask = 0x0f;
 	return tahvo_read_reg(TAHVO_REG_LEDPWMR) & mask;
 }
+EXPORT_SYMBOL(tahvo_get_backlight_level);
 
 int tahvo_get_max_backlight_level(void)
 {
@@ -175,6 +181,7 @@ int tahvo_get_max_backlight_level(void)
 	else
 		return 0x0f;
 }
+EXPORT_SYMBOL(tahvo_get_max_backlight_level);
 
 void tahvo_set_backlight_level(int level)
 {
@@ -185,6 +192,7 @@ void tahvo_set_backlight_level(int level)
 		level = max_level;
 	tahvo_write_reg(TAHVO_REG_LEDPWMR, level);
 }
+EXPORT_SYMBOL(tahvo_set_backlight_level);
 
 /*
  * TAHVO interrupt handler. Only schedules the tasklet.
@@ -263,6 +271,7 @@ int tahvo_request_irq(int id, void *irq_handler, unsigned long arg, char *name)
 
 	return 0;
 }
+EXPORT_SYMBOL(tahvo_request_irq);
 
 /*
  * Unregister the handler for a given TAHVO interrupt source.
@@ -285,6 +294,7 @@ void tahvo_free_irq(int id)
 	tahvo_disable_irq(id);
 	hnd->func = NULL;
 }
+EXPORT_SYMBOL(tahvo_free_irq);
 
 /**
  * tahvo_probe - Probe for Tahvo ASIC
@@ -434,17 +444,6 @@ static void __exit tahvo_exit(void)
 	wait_for_completion(&device_release);
 }
 
-EXPORT_SYMBOL(tahvo_request_irq);
-EXPORT_SYMBOL(tahvo_free_irq);
-EXPORT_SYMBOL(tahvo_enable_irq);
-EXPORT_SYMBOL(tahvo_disable_irq);
-EXPORT_SYMBOL(tahvo_ack_irq);
-EXPORT_SYMBOL(tahvo_read_reg);
-EXPORT_SYMBOL(tahvo_write_reg);
-EXPORT_SYMBOL(tahvo_get_backlight_level);
-EXPORT_SYMBOL(tahvo_get_max_backlight_level);
-EXPORT_SYMBOL(tahvo_set_backlight_level);
-
 subsys_initcall(tahvo_init);
 module_exit(tahvo_exit);
 
@@ -453,3 +452,4 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Juha Yrjölä");
 MODULE_AUTHOR("David Weinehall");
 MODULE_AUTHOR("Mikko Ylinen");
+
