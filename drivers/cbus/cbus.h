@@ -27,8 +27,6 @@ struct cbus_host {
 	/* host lock */
 	spinlock_t lock;
 
-	void __iomem *base;
-
 	int	clk_gpio;
 	int	dat_gpio;
 	int	sel_gpio;
