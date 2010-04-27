@@ -83,6 +83,7 @@ int retu_read_reg(unsigned reg)
 	BUG_ON(!retu_initialized);
 	return cbus_read_reg(RETU_ID, reg);
 }
+EXPORT_SYMBOL(retu_read_reg);
 
 /**
  * retu_write_reg - Write a value to a register in Retu
@@ -96,6 +97,7 @@ void retu_write_reg(unsigned reg, u16 val)
 	BUG_ON(!retu_initialized);
 	cbus_write_reg(RETU_ID, reg, val);
 }
+EXPORT_SYMBOL(retu_write_reg);
 
 void retu_set_clear_reg_bits(unsigned reg, u16 set, u16 clear)
 {
@@ -109,6 +111,7 @@ void retu_set_clear_reg_bits(unsigned reg, u16 set, u16 clear)
 	retu_write_reg(reg, w);
 	spin_unlock_irqrestore(&retu_lock, flags);
 }
+EXPORT_SYMBOL_GPL(retu_set_clear_reg_bits);
 
 #define ADC_MAX_CHAN_NUMBER	13
 
@@ -141,7 +144,7 @@ int retu_read_adc(int channel)
 
 	return res;
 }
-
+EXPORT_SYMBOL(retu_read_adc);
 
 static u16 retu_disable_bogus_irqs(u16 mask)
 {
@@ -174,6 +177,7 @@ void retu_disable_irq(int id)
 	retu_write_reg(RETU_REG_IMR, mask);
 	spin_unlock_irqrestore(&retu_lock, flags);
 }
+EXPORT_SYMBOL(retu_disable_irq);
 
 /*
  * Enable given RETU interrupt
@@ -194,6 +198,7 @@ void retu_enable_irq(int id)
 	retu_write_reg(RETU_REG_IMR, mask);
 	spin_unlock_irqrestore(&retu_lock, flags);
 }
+EXPORT_SYMBOL(retu_enable_irq);
 
 /*
  * Acknowledge given RETU interrupt
@@ -202,6 +207,7 @@ void retu_ack_irq(int id)
 {
 	retu_write_reg(RETU_REG_IDR, 1 << id);
 }
+EXPORT_SYMBOL(retu_ack_irq);
 
 /*
  * RETU interrupt handler. Only schedules the tasklet.
@@ -283,6 +289,7 @@ int retu_request_irq(int id, void *irq_handler, unsigned long arg, char *name)
 
 	return 0;
 }
+EXPORT_SYMBOL(retu_request_irq);
 
 /*
  * Unregister the handler for a given RETU interrupt source.
@@ -305,6 +312,7 @@ void retu_free_irq(int id)
 	retu_disable_irq(id);
 	hnd->func = NULL;
 }
+EXPORT_SYMBOL(retu_free_irq);
 
 /**
  * retu_power_off - Shut down power to system
@@ -464,14 +472,6 @@ static void __exit retu_exit(void)
 	driver_unregister(&retu_driver);
 	wait_for_completion(&device_release);
 }
-
-EXPORT_SYMBOL(retu_request_irq);
-EXPORT_SYMBOL(retu_free_irq);
-EXPORT_SYMBOL(retu_enable_irq);
-EXPORT_SYMBOL(retu_disable_irq);
-EXPORT_SYMBOL(retu_ack_irq);
-EXPORT_SYMBOL(retu_read_reg);
-EXPORT_SYMBOL(retu_write_reg);
 
 subsys_initcall(retu_init);
 module_exit(retu_exit);
