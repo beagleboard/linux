@@ -34,9 +34,7 @@ struct cbus_host {
 	int	sel_gpio;
 };
 
-extern struct cbus_host *cbus_host;
-
-extern int cbus_read_reg(struct cbus_host *host, int dev, int reg);
-extern int cbus_write_reg(struct cbus_host *host, int dev, int reg, u16 val);
+extern int cbus_read_reg(int dev, int reg);
+extern int cbus_write_reg(int dev, int reg, int val);
 
 #endif /* __DRIVERS_CBUS_CBUS_H */

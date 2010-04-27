@@ -81,7 +81,7 @@ EXPORT_SYMBOL(tahvo_get_status);
 int tahvo_read_reg(int reg)
 {
 	BUG_ON(!tahvo_initialized);
-	return cbus_read_reg(cbus_host, TAHVO_ID, reg);
+	return cbus_read_reg(TAHVO_ID, reg);
 }
 
 /**
@@ -94,7 +94,7 @@ int tahvo_read_reg(int reg)
 void tahvo_write_reg(int reg, u16 val)
 {
 	BUG_ON(!tahvo_initialized);
-	cbus_write_reg(cbus_host, TAHVO_ID, reg, val);
+	cbus_write_reg(TAHVO_ID, reg, val);
 }
 
 /**
