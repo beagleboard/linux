@@ -59,6 +59,12 @@ struct cbus_host {
 
 static struct cbus_host *cbus_host;
 
+/**
+ * cbus_send_bit - sends one bit over the bus
+ * @host: the host we're using
+ * @bit: one bit of information to send
+ * @input: whether to set data pin as input after sending
+ */
 static int cbus_send_bit(struct cbus_host *host, unsigned bit,
 		unsigned input)
 {
@@ -76,6 +82,13 @@ static int cbus_send_bit(struct cbus_host *host, unsigned bit,
 	return ret;
 }
 
+/**
+ * cbus_send_data - sends @len amount of data over the bus
+ * @host: the host we're using
+ * @data: the data to send
+ * @len: size of the transfer
+ * @input: whether to set data pin as input after sending
+ */
 static int cbus_send_data(struct cbus_host *host, unsigned data, unsigned len,
 		unsigned input)
 {
@@ -93,6 +106,10 @@ out:
 	return ret;
 }
 
+/**
+ * cbus_receive_bit - receives one bit from the bus
+ * @host: the host we're using
+ */
 static int cbus_receive_bit(struct cbus_host *host)
 {
 	int ret;
@@ -107,6 +124,11 @@ out:
 	return ret;
 }
 
+/**
+ * cbus_receive_data - receives @len data from the bus
+ * @host: the host we're using
+ * @len: the length of data to receive
+ */
 static int cbus_receive_data(struct cbus_host *host, unsigned len)
 {
 	int ret = 0;
@@ -126,6 +148,14 @@ out:
 	return ret;
 }
 
+/**
+ * cbus_transfer - transfers data over the bus
+ * @host: the host we're using
+ * @rw: read/write flag
+ * @dev: device address
+ * @reg: register address
+ * @data: if @rw == 0 data to send otherwise 0
+ */
 static int cbus_transfer(struct cbus_host *host, unsigned rw, unsigned dev,
 		unsigned reg, unsigned data)
 {
@@ -193,8 +223,10 @@ out:
 	return ret;
 }
 
-/*
- * Read a given register from the device
+/**
+ * cbus_read_reg - reads a given register from the device
+ * @dev: device address
+ * @reg: register address
  */
 int cbus_read_reg(unsigned dev, unsigned reg)
 {
@@ -202,8 +234,11 @@ int cbus_read_reg(unsigned dev, unsigned reg)
 }
 EXPORT_SYMBOL(cbus_read_reg);
 
-/*
- * Write to a given register of the device
+/**
+ * cbus_write_reg - writes to a given register of the device
+ * @dev: device address
+ * @reg: register address
+ * @val: data to be written to @reg
  */
 int cbus_write_reg(unsigned dev, unsigned reg, unsigned val)
 {
