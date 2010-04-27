@@ -226,7 +226,7 @@ static int retu_wdt_ioctl(struct inode *inode, struct file *file,
 }
 
 /* Start kicking retu watchdog until user space starts doing the kicking */
-static int __init retu_wdt_ping(void)
+static int __devinit retu_wdt_ping(void)
 {
 	int r;
 
@@ -244,11 +244,11 @@ static int __init retu_wdt_ping(void)
 }
 
 static const struct file_operations retu_wdt_fops = {
-	.owner = THIS_MODULE,
-	.write = retu_wdt_write,
-	.ioctl = retu_wdt_ioctl,
-	.open = retu_wdt_open,
-	.release = retu_wdt_release,
+	.owner		= THIS_MODULE,
+	.write		= retu_wdt_write,
+	.ioctl		= retu_wdt_ioctl,
+	.open		= retu_wdt_open,
+	.release	= retu_wdt_release,
 };
 
 /*----------------------------------------------------------------------------*/
@@ -270,15 +270,13 @@ static int __devinit retu_wdt_probe(struct platform_device *pdev)
 
 	ret = device_create_file(&pdev->dev, &dev_attr_period);
 	if (ret) {
-		printk(KERN_ERR "retu_wdt_probe: Error creating "
-					"sys device file: period\n");
+		dev_err(&pdev->dev, "Error creating sysfs period\n");
 		goto free1;
 	}
 
 	ret = device_create_file(&pdev->dev, &dev_attr_counter);
 	if (ret) {
-		printk(KERN_ERR "retu_wdt_probe: Error creating "
-					"sys device file: counter\n");
+		dev_err(&pdev->dev, "Error creating sysfs counter\n");
 		goto free2;
 	}
 
@@ -299,8 +297,7 @@ static int __devinit retu_wdt_probe(struct platform_device *pdev)
 	ret = retu_modify_counter(counter_param);
 	if (ret == -EINVAL) {
 		ret = retu_modify_counter(RETU_WDT_DEFAULT_TIMER);
-		printk(KERN_INFO
-		       "retu_wdt_init: Intializing to default value\n");
+		dev_dbg(&pdev->dev, "Initializing to default value\n");
 	}
 
 	/* Kick the watchdog for kernel booting to finish */
@@ -308,7 +305,7 @@ static int __devinit retu_wdt_probe(struct platform_device *pdev)
 
 	ret = retu_wdt_ping();
 	if (ret < 0) {
-		printk(KERN_INFO "retu_wdt_init: Failed to ping\n");
+		dev_err(&pdev->dev, "Failed to ping\n");
 		goto free4;
 	}
 
@@ -334,7 +331,7 @@ static int __devexit retu_wdt_remove(struct platform_device *pdev)
 	struct retu_wdt_dev *wdev;
 
 	wdev = platform_get_drvdata(pdev);
-	misc_deregister(&(wdev->retu_wdt_miscdev));
+	misc_deregister(&wdev->retu_wdt_miscdev);
 	device_remove_file(&pdev->dev, &dev_attr_period);
 	device_remove_file(&pdev->dev, &dev_attr_counter);
 	kfree(wdev);
