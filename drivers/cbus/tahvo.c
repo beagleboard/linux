@@ -340,7 +340,8 @@ static int __devinit tahvo_probe(struct device *dev)
 		return -ENODEV;
 	}
 
-	if ((ret = gpio_request(tahvo_irq_pin, "TAHVO irq")) < 0) {
+	ret = gpio_request(tahvo_irq_pin, "TAHVO irq");
+	if (ret) {
 		printk(KERN_ERR PFX "Unable to reserve IRQ GPIO\n");
 		return ret;
 	}
@@ -424,10 +425,12 @@ static int __init tahvo_init(void)
 
 	init_completion(&device_release);
 
-	if ((ret = driver_register(&tahvo_driver)) < 0)
+	ret = driver_register(&tahvo_driver);
+	if (ret)
 		return ret;
 
-	if ((ret = platform_device_register(&tahvo_device)) < 0) {
+	ret = platform_device_register(&tahvo_device);
+	if (ret) {
 		driver_unregister(&tahvo_driver);
 		return ret;
 	}
