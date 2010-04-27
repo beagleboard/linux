@@ -130,7 +130,7 @@ static int cbus_transfer(struct cbus_host *host, unsigned rw, unsigned dev,
 /*
  * Read a given register from the device
  */
-int cbus_read_reg(int dev, int reg)
+int cbus_read_reg(unsigned dev, unsigned reg)
 {
 	return cbus_transfer(cbus_host, CBUS_XFER_READ, dev, reg, 0);
 }
@@ -139,7 +139,7 @@ EXPORT_SYMBOL(cbus_read_reg);
 /*
  * Write to a given register of the device
  */
-int cbus_write_reg(int dev, int reg, int val)
+int cbus_write_reg(unsigned dev, unsigned reg, unsigned val)
 {
 	return cbus_transfer(cbus_host, CBUS_XFER_WRITE, dev, reg, val);
 }
