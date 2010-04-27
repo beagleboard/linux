@@ -57,7 +57,15 @@ struct retu_rtc {
 
 #define work_to_rtc(r)	(container_of(r, struct retu_rtc, work))
 
-static void retu_rtc_barrier(struct retu_rtc *rtc);
+/* This function provides syncronization with the RTCS interrupt handler */
+static void retu_rtc_barrier(struct retu_rtc *rtc)
+{
+	INIT_COMPLETION(rtc->sync);
+	retu_ack_irq(RETU_INT_RTCS);
+	retu_enable_irq(RETU_INT_RTCS);
+	wait_for_completion(&rtc->sync);
+	retu_disable_irq(RETU_INT_RTCS);
+}
 
 static ssize_t retu_rtc_time_show(struct device *dev, struct device_attribute *attr,
 				  char *buf)
@@ -475,16 +483,6 @@ static struct platform_driver retu_rtc_driver = {
 		.name	= "retu-rtc",
 	},
 };
-
-/* This function provides syncronization with the RTCS interrupt handler */
-static void retu_rtc_barrier(struct retu_rtc *rtc)
-{
-	INIT_COMPLETION(rtc->sync);
-	retu_ack_irq(RETU_INT_RTCS);
-	retu_enable_irq(RETU_INT_RTCS);
-	wait_for_completion(&rtc->sync);
-	retu_disable_irq(RETU_INT_RTCS);
-}
 
 static int __init retu_rtc_init(void)
 {
