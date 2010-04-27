@@ -245,7 +245,7 @@ static inline void __init n8x0_cbus_init(void)
  */
 #define N8X0_SLOT_SWITCH_GPIO	96
 #define N810_EMMC_VSD_GPIO	23
-#define NN810_EMMC_VIO_GPIO	9
+#define N810_EMMC_VIO_GPIO	9
 
 static int n8x0_mmc_switch_slot(struct device *dev, int slot)
 {
@@ -333,10 +333,10 @@ static void n810_set_power_emmc(struct device *dev,
 	if (power_on) {
 		gpio_set_value(N810_EMMC_VSD_GPIO, 1);
 		msleep(1);
-		gpio_set_value(NN810_EMMC_VIO_GPIO, 1);
+		gpio_set_value(N810_EMMC_VIO_GPIO, 1);
 		msleep(1);
 	} else {
-		gpio_set_value(NN810_EMMC_VIO_GPIO, 0);
+		gpio_set_value(N810_EMMC_VIO_GPIO, 0);
 		msleep(50);
 		gpio_set_value(N810_EMMC_VSD_GPIO, 0);
 		msleep(50);
@@ -497,7 +497,7 @@ static void n8x0_mmc_cleanup(struct device *dev)
 
 	if (machine_is_nokia_n810()) {
 		gpio_free(N810_EMMC_VSD_GPIO);
-		gpio_free(NN810_EMMC_VIO_GPIO);
+		gpio_free(N810_EMMC_VIO_GPIO);
 	}
 }
 
@@ -558,7 +558,7 @@ void __init n8x0_mmc_init(void)
 
 	err = gpio_request(N8X0_SLOT_SWITCH_GPIO, "MMC slot switch");
 	if (err)
-		return err;
+		return;
 
 	gpio_direction_output(N8X0_SLOT_SWITCH_GPIO, 0);
 
@@ -566,17 +566,17 @@ void __init n8x0_mmc_init(void)
 		err = gpio_request(N810_EMMC_VSD_GPIO, "MMC slot 2 Vddf");
 		if (err) {
 			gpio_free(N8X0_SLOT_SWITCH_GPIO);
-			return err;
+			return;
 		}
 		gpio_direction_output(N810_EMMC_VSD_GPIO, 0);
 
-		err = gpio_request(NN810_EMMC_VIO_GPIO, "MMC slot 2 Vdd");
+		err = gpio_request(N810_EMMC_VIO_GPIO, "MMC slot 2 Vdd");
 		if (err) {
 			gpio_free(N8X0_SLOT_SWITCH_GPIO);
 			gpio_free(N810_EMMC_VSD_GPIO);
-			return err;
+			return;
 		}
-		gpio_direction_output(NN810_EMMC_VIO_GPIO, 0);
+		gpio_direction_output(N810_EMMC_VIO_GPIO, 0);
 	}
 
 	mmc_data[0] = &mmc1_data;
