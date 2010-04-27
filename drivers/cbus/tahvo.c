@@ -303,7 +303,7 @@ EXPORT_SYMBOL(tahvo_free_irq);
  * Probe for the Tahvo ASIC and allocate memory
  * for its device-struct if found
  */
-static int __devinit tahvo_probe(struct device *dev)
+static int __devinit tahvo_probe(struct platform_device *pdev)
 {
 	int rev, id, ret;
 
@@ -322,11 +322,11 @@ static int __devinit tahvo_probe(struct device *dev)
 		tahvo_is_betty = 1;
 		tahvo_7bit_backlight = 1;
 	} else {
-		dev_err(dev, "Tahvo/Betty chip not found");
+		dev_err(&pdev->dev, "Tahvo/Betty chip not found");
 		return -ENODEV;
 	}
 
-	dev_err(dev, "%s v%d.%d found\n", tahvo_is_betty ? "Betty" : "Tahvo",
+	dev_err(&pdev->dev, "%s v%d.%d found\n", tahvo_is_betty ? "Betty" : "Tahvo",
 	       (rev >> 4) & 0x0f, rev & 0x0f);
 
 	/* REVISIT: Pass these from board-*.c files in platform_data */
@@ -336,13 +336,13 @@ static int __devinit tahvo_probe(struct device *dev)
 			machine_is_nokia_n810_wimax()) {
 		tahvo_irq_pin = 111;
 	} else {
-		dev_err(dev, "cbus: Unsupported board for tahvo\n");
+		dev_err(&pdev->dev, "cbus: Unsupported board for tahvo\n");
 		return -ENODEV;
 	}
 
 	ret = gpio_request(tahvo_irq_pin, "TAHVO irq");
 	if (ret) {
-		dev_err(dev, "Unable to reserve IRQ GPIO\n");
+		dev_err(&pdev->dev, "Unable to reserve IRQ GPIO\n");
 		return ret;
 	}
 
@@ -358,14 +358,14 @@ static int __devinit tahvo_probe(struct device *dev)
 	ret = request_irq(gpio_to_irq(tahvo_irq_pin), tahvo_irq_handler, 0,
 			  "tahvo", 0);
 	if (ret < 0) {
-		dev_err(dev, "Unable to register IRQ handler\n");
+		dev_err(&pdev->dev, "Unable to register IRQ handler\n");
 		gpio_free(tahvo_irq_pin);
 		return ret;
 	}
 #ifdef CONFIG_CBUS_TAHVO_USER
 	/* Initialize user-space interface */
 	if (tahvo_user_init() < 0) {
-		dev_err(dev, "Unable to initialize driver\n");
+		dev_err(&pdev->dev, "Unable to initialize driver\n");
 		free_irq(gpio_to_irq(tahvo_irq_pin), 0);
 		gpio_free(tahvo_irq_pin);
 		return ret;
@@ -374,7 +374,7 @@ static int __devinit tahvo_probe(struct device *dev)
 	return 0;
 }
 
-static int tahvo_remove(struct device *dev)
+static int __devexit tahvo_remove(struct platform_device *pdev)
 {
 #ifdef CONFIG_CBUS_TAHVO_USER
 	tahvo_user_cleanup();
@@ -393,11 +393,12 @@ static void tahvo_device_release(struct device *dev)
 	complete(&device_release);
 }
 
-static struct device_driver tahvo_driver = {
-	.name		= "tahvo",
-	.bus		= &platform_bus_type,
+static struct platform_driver tahvo_driver = {
 	.probe		= tahvo_probe,
-	.remove		= tahvo_remove,
+	.remove		= __devexit_p(tahvo_remove),
+	.driver		= {
+		.name	= "tahvo",
+	},
 };
 
 static struct platform_device tahvo_device = {
@@ -423,13 +424,13 @@ static int __init tahvo_init(void)
 
 	init_completion(&device_release);
 
-	ret = driver_register(&tahvo_driver);
+	ret = platform_driver_register(&tahvo_driver);
 	if (ret)
 		return ret;
 
 	ret = platform_device_register(&tahvo_device);
 	if (ret) {
-		driver_unregister(&tahvo_driver);
+		platform_driver_unregister(&tahvo_driver);
 		return ret;
 	}
 	return 0;
@@ -441,7 +442,7 @@ static int __init tahvo_init(void)
 static void __exit tahvo_exit(void)
 {
 	platform_device_unregister(&tahvo_device);
-	driver_unregister(&tahvo_driver);
+	platform_driver_unregister(&tahvo_driver);
 	wait_for_completion(&device_release);
 }
 
