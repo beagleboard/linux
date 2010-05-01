@@ -364,12 +364,12 @@ int tahvo_user_init(void)
 	struct tahvo_irq *irq;
 	int res, i;
 
-	irq = kmalloc(sizeof(*irq) * TAHVO_MAX_IRQ_BUF_LEN, GFP_KERNEL);
+	irq = kzalloc(sizeof(*irq) * TAHVO_MAX_IRQ_BUF_LEN, GFP_KERNEL);
 	if (irq == NULL) {
-		printk(KERN_ERR PFX "kmalloc failed\n");
+		printk(KERN_ERR PFX "kzalloc failed\n");
 		return -ENOMEM;
 	}
-	memset(irq, 0, sizeof(*irq) * TAHVO_MAX_IRQ_BUF_LEN);
+
 	for (i = 0; i < TAHVO_MAX_IRQ_BUF_LEN; i++)
 		list_add(&irq[i].node, &tahvo_irqs_reserve);
 
