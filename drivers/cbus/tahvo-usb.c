@@ -655,10 +655,10 @@ static int tahvo_usb_probe(struct device *dev)
 	dev_dbg(dev, "probe\n");
 
 	/* Create driver data */
-	tu = kmalloc(sizeof(*tu), GFP_KERNEL);
+	tu = kzalloc(sizeof(*tu), GFP_KERNEL);
 	if (!tu)
 		return -ENOMEM;
-	memset(tu, 0, sizeof(*tu));
+
 	tu->pt_dev = container_of(dev, struct platform_device, dev);
 #ifdef CONFIG_USB_OTG
 	/* Default mode */
