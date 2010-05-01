@@ -34,6 +34,7 @@
 #include <linux/jiffies.h>
 #include <linux/bitops.h>
 #include <linux/platform_device.h>
+#include <linux/slab.h>
 
 #include "retu.h"
 
