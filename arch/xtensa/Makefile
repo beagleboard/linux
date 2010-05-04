@@ -24,6 +24,7 @@ export VARIANT
 # Platform configuration
 
 platform-$(CONFIG_XTENSA_PLATFORM_XT2000)	:= xt2000
+platform-$(CONFIG_XTENSA_PLATFORM_XTAVNET)	:= xtavnet
 platform-$(CONFIG_XTENSA_PLATFORM_ISS)		:= iss
 platform-$(CONFIG_XTENSA_PLATFORM_S6105)	:= s6105
 

@@ -84,10 +84,10 @@ config XTENSA_VARIANT_S6000
 endchoice
 
 config XTENSA_UNALIGNED_USER
-	bool "Unaligned memory access in use space"
+	bool "Unaligned memory access in user space"
 	help
-	  The Xtensa architecture currently does not handle unaligned
-	  memory accesses in hardware but through an exception handler.
+	  Xtensa processors are often not configured to handle unaligned
+	  memory accesses in hardware, but rather through an exception handler.
 	  Per default, unaligned memory accesses are disabled in user space.
 
 	  Say Y here to enable unaligned memory access in user space.
@@ -157,8 +157,15 @@ config XTENSA_PLATFORM_ISS
 config XTENSA_PLATFORM_XT2000
 	bool "XT2000"
 	help
-	  XT2000 is the name of Tensilica's feature-rich emulation platform.
-	  This hardware is capable of running a full Linux distribution.
+	  XT2000 is the name of Tensilica's older emulation platform.
+
+config XTENSA_PLATFORM_XTAVNET
+	bool "XTAVNET"
+	select XTENSA_CALIBRATE_CCOUNT
+	select ETHOC
+	help
+	  Selects support for the Tensilica-configured Avnet emulation boards.
+	  These include the LX60 (XT-AV60), LX200 (XT-AV200), and LX110 (XT-AV110).
 
 config XTENSA_PLATFORM_S6105
 	bool "S6105"
