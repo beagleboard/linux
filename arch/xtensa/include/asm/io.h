@@ -1,11 +1,11 @@
 /*
- * include/asm-xtensa/io.h
+ * arch/xtensa/include/asm/io.h
  *
  * This file is subject to the terms and conditions of the GNU General Public
  * License.  See the file "COPYING" in the main directory of this archive
  * for more details.
  *
- * Copyright (C) 2001 - 2005 Tensilica Inc.
+ * Copyright (C) 2001-2010 Tensilica Inc.
  */
 
 #ifndef _XTENSA_IO_H
@@ -63,39 +63,32 @@ static inline void * phys_to_virt(unsigned long address)
 #define bus_to_virt(x)	phys_to_virt(x)
 
 /*
- * Return the virtual (cached) address for the specified bus memory.
+ * Return the virtual (uncached) address for the specified bus memory
+ * (which is, for now, simply a physical address).
  * Note that we currently don't support any address outside the KIO segment.
+ * See also arch/mips/include/asm/io.h for nice comments.
  */
 
-static inline void *ioremap(unsigned long offset, unsigned long size)
+static inline void __iomem *__ioremap(unsigned long offset, unsigned long size)
 {
 #ifdef CONFIG_MMU
 	if (offset >= XCHAL_KIO_PADDR
-	    && offset < XCHAL_KIO_PADDR + XCHAL_KIO_SIZE)
-		return (void*)(offset-XCHAL_KIO_PADDR+XCHAL_KIO_BYPASS_VADDR);
+	    && offset <= XCHAL_KIO_PADDR + XCHAL_KIO_SIZE - 1)
+		return (void __iomem *)(offset - XCHAL_KIO_PADDR + XCHAL_KIO_BYPASS_VADDR);
 	else
 		BUG();
 #else
-	return (void *)offset;
+	return (void __iomem *)offset;
 #endif
 }
 
-static inline void *ioremap_nocache(unsigned long offset, unsigned long size)
+#define ioremap(offset, size)		__ioremap(offset, size)
+#define ioremap_nocache(offset, size)	__ioremap(offset, size)
+
+static inline void iounmap(void __iomem *addr)
 {
-#ifdef CONFIG_MMU
-	if (offset >= XCHAL_KIO_PADDR
-	    && offset < XCHAL_KIO_PADDR + XCHAL_KIO_SIZE)
-		return (void*)(offset-XCHAL_KIO_PADDR+XCHAL_KIO_CACHED_VADDR);
-	else
-		BUG();
-#else
-	return (void *)offset;
-#endif
 }
 
-static inline void iounmap(void *addr)
-{
-}
 
 /*
  * Generic I/O
@@ -188,6 +181,13 @@ extern void outsl (unsigned long port, const void *src, unsigned long count);
 # define out_le32(b, addr) *(u32*)(addr) = (b)
 #else
 # error processor byte order undefined!
+#endif
+
+
+#ifndef CONFIG_GENERIC_IOMAP
+/* Partial Simple MMIO */
+#define ioread32(a)		__raw_readl(a)
+#define iowrite32(v,a)		__raw_writel((v),(a))
 #endif
 
 
