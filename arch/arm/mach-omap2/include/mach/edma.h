@@ -167,7 +167,7 @@ struct edma {
 	struct event_to_channel_map	*xbar_event_mapping;
 };
 
-extern struct edma *edma_info[EDMA_MAX_CC];
+extern struct edma *edma_cc[EDMA_MAX_CC];
 
 /* alloc/free DMA channels and their dedicated parameter RAM slots */
 int edma_alloc_channel(int channel,
