@@ -61,7 +61,9 @@ ifneq ($(VARIANT),)
 
   ifneq ($(COMPILE_ARCH), xtensa)
     ifndef CROSS_COMPILE
-      CROSS_COMPILE = xtensa_$(VARIANT)-
+      CROSS_COMPILE := $(call cc-cross-prefix, xtensa_$(VARIANT)- \
+			 xtensa-linux-uclibc-  xtensa_$(VARIANT)-linux-uclibc- \
+			 xtensa-linux-gnu-     xtensa_$(VARIANT)-linux-gnu-)
     endif
   endif
 endif
