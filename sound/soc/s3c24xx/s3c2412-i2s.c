@@ -32,12 +32,11 @@
 #include <sound/soc.h>
 #include <mach/hardware.h>
 
-#include <plat/regs-s3c2412-iis.h>
-
 #include <mach/regs-gpio.h>
 #include <mach/dma.h>
 
 #include "s3c-dma.h"
+#include "regs-i2s-v2.h"
 #include "s3c2412-i2s.h"
 
 #define S3C2412_I2S_DEBUG 0
@@ -65,43 +64,6 @@ static struct s3c_dma_params s3c2412_i2s_pcm_stereo_in = {
 };
 
 static struct s3c_i2sv2_info s3c2412_i2s;
-
-/*
- * Set S3C2412 Clock source
- */
-static int s3c2412_i2s_set_sysclk(struct snd_soc_dai *cpu_dai,
-				  int clk_id, unsigned int freq, int dir)
-{
-	u32 iismod = readl(s3c2412_i2s.regs + S3C2412_IISMOD);
-
-	pr_debug("%s(%p, %d, %u, %d)\n", __func__, cpu_dai, clk_id,
-	    freq, dir);
-
-	switch (clk_id) {
-	case S3C2412_CLKSRC_PCLK:
-		s3c2412_i2s.master = 1;
-		iismod &= ~S3C2412_IISMOD_MASTER_MASK;
-		iismod |= S3C2412_IISMOD_MASTER_INTERNAL;
-		break;
-	case S3C2412_CLKSRC_I2SCLK:
-		s3c2412_i2s.master = 0;
-		iismod &= ~S3C2412_IISMOD_MASTER_MASK;
-		iismod |= S3C2412_IISMOD_MASTER_EXTERNAL;
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	writel(iismod, s3c2412_i2s.regs + S3C2412_IISMOD);
-	return 0;
-}
-
-
-struct clk *s3c2412_get_iisclk(void)
-{
-	return s3c2412_i2s.iis_clk;
-}
-EXPORT_SYMBOL_GPL(s3c2412_get_iisclk);
 
 static inline struct s3c_i2sv2_info *to_info(struct snd_soc_dai *cpu_dai)
 {
@@ -187,7 +149,6 @@ static int s3c2412_i2s_hw_params(struct snd_pcm_substream *substream,
 	SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_88200 | SNDRV_PCM_RATE_96000)
 
 static struct snd_soc_dai_ops s3c2412_i2s_dai_ops = {
-	.set_sysclk	= s3c2412_i2s_set_sysclk,
 	.hw_params	= s3c2412_i2s_hw_params,
 };
 

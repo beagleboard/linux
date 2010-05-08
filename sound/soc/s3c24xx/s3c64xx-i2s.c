@@ -18,7 +18,6 @@
 
 #include <sound/soc.h>
 
-#include <plat/regs-s3c2412-iis.h>
 #include <mach/gpio-bank-d.h>
 #include <mach/gpio-bank-e.h>
 #include <plat/gpio-cfg.h>
@@ -27,6 +26,7 @@
 #include <mach/dma.h>
 
 #include "s3c-dma.h"
+#include "regs-i2s-v2.h"
 #include "s3c64xx-i2s.h"
 
 /* The value should be set to maximum of the total number
@@ -54,55 +54,6 @@ static inline struct s3c_i2sv2_info *to_info(struct snd_soc_dai *cpu_dai)
 	return cpu_dai->private_data;
 }
 
-static int s3c64xx_i2s_set_sysclk(struct snd_soc_dai *cpu_dai,
-				  int clk_id, unsigned int freq, int dir)
-{
-	struct s3c_i2sv2_info *i2s = to_info(cpu_dai);
-	u32 iismod = readl(i2s->regs + S3C2412_IISMOD);
-
-	switch (clk_id) {
-	case S3C64XX_CLKSRC_PCLK:
-		iismod &= ~S3C64XX_IISMOD_IMS_SYSMUX;
-		break;
-
-	case S3C64XX_CLKSRC_MUX:
-		iismod |= S3C64XX_IISMOD_IMS_SYSMUX;
-		break;
-
-	case S3C64XX_CLKSRC_CDCLK:
-		switch (dir) {
-		case SND_SOC_CLOCK_IN:
-			iismod |= S3C64XX_IISMOD_CDCLKCON;
-			break;
-		case SND_SOC_CLOCK_OUT:
-			iismod &= ~S3C64XX_IISMOD_CDCLKCON;
-			break;
-		default:
-			return -EINVAL;
-		}
-		break;
-
-	default:
-		return -EINVAL;
-	}
-
-	writel(iismod, i2s->regs + S3C2412_IISMOD);
-
-	return 0;
-}
-
-struct clk *s3c64xx_i2s_get_clock(struct snd_soc_dai *dai)
-{
-	struct s3c_i2sv2_info *i2s = to_info(dai);
-	u32 iismod = readl(i2s->regs + S3C2412_IISMOD);
-
-	if (iismod & S3C64XX_IISMOD_IMS_SYSMUX)
-		return i2s->iis_cclk;
-	else
-		return i2s->iis_pclk;
-}
-EXPORT_SYMBOL_GPL(s3c64xx_i2s_get_clock);
-
 static int s3c64xx_i2s_probe(struct platform_device *pdev,
 			     struct snd_soc_dai *dai)
 {
@@ -127,9 +78,7 @@ static int s3c64xx_i2s_probe(struct platform_device *pdev,
 }
 
 
-static struct snd_soc_dai_ops s3c64xx_i2s_dai_ops = {
-	.set_sysclk	= s3c64xx_i2s_set_sysclk,	
-};
+static struct snd_soc_dai_ops s3c64xx_i2s_dai_ops;
 
 static __devinit int s3c64xx_iis_dev_probe(struct platform_device *pdev)
 {
@@ -158,6 +107,8 @@ static __devinit int s3c64xx_iis_dev_probe(struct platform_device *pdev)
 	dai->capture.formats = S3C64XX_I2S_FMTS;
 	dai->probe = s3c64xx_i2s_probe;
 	dai->ops = &s3c64xx_i2s_dai_ops;
+
+	i2s->feature |= S3C_FEATURE_CDCLKCON;
 
 	i2s->dma_capture = &s3c64xx_i2s_pcm_stereo_in[pdev->id];
 	i2s->dma_playback = &s3c64xx_i2s_pcm_stereo_out[pdev->id];
