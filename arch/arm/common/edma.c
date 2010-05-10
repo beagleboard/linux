@@ -285,16 +285,16 @@ setup_dma_interrupt(unsigned lch,
 
 	if (!callback)
 		edma_shadow0_write_array(ctlr, SH_IECR, lch >> 5,
-				(1 << (lch & 0x1f)));
+				BIT(lch & 0x1f));
 
 	edma_cc[ctlr]->intr_data[lch].callback = callback;
 	edma_cc[ctlr]->intr_data[lch].data = data;
 
 	if (callback) {
 		edma_shadow0_write_array(ctlr, SH_ICR, lch >> 5,
-				(1 << (lch & 0x1f)));
+				BIT(lch & 0x1f));
 		edma_shadow0_write_array(ctlr, SH_IESR, lch >> 5,
-				(1 << (lch & 0x1f)));
+				BIT(lch & 0x1f));
 	}
 }
 
@@ -344,7 +344,7 @@ static irqreturn_t dma_irq_handler(int irq, void *data)
 							(1 << i)) {
 				/* Clear the corresponding IPR bits */
 				edma_shadow0_write_array(ctlr, SH_ICR, j,
-							(1 << i));
+							BIT(i));
 				if (edma_cc[ctlr]->intr_data[k].callback)
 					edma_cc[ctlr]->intr_data[k].callback(
 						k, DMA_COMPLETE,
@@ -393,13 +393,13 @@ static irqreturn_t dma_ccerr_handler(int irq, void *data)
 			for (i = 0; i < 32; i++) {
 				int k = (j << 5) + i;
 				if (edma_read_array(ctlr, EDMA_EMR, j) &
-							(1 << i)) {
+							BIT(i)) {
 					/* Clear the corresponding EMR bits */
 					edma_write_array(ctlr, EDMA_EMCR, j,
-							1 << i);
+							BIT(i));
 					/* Clear any SER */
 					edma_shadow0_write_array(ctlr, SH_SECR,
-								j, (1 << i));
+								j, BIT(i));
 					if (edma_cc[ctlr]->intr_data[k].
 								callback) {
 						edma_cc[ctlr]->intr_data[k].
@@ -414,11 +414,11 @@ static irqreturn_t dma_ccerr_handler(int irq, void *data)
 			dev_dbg(data, "QEMR %02x\n",
 				edma_read(ctlr, EDMA_QEMR));
 			for (i = 0; i < 8; i++) {
-				if (edma_read(ctlr, EDMA_QEMR) & (1 << i)) {
+				if (edma_read(ctlr, EDMA_QEMR) & BIT(i)) {
 					/* Clear the corresponding IPR bits */
-					edma_write(ctlr, EDMA_QEMCR, 1 << i);
+					edma_write(ctlr, EDMA_QEMCR, BIT(i));
 					edma_shadow0_write(ctlr, SH_QSECR,
-								(1 << i));
+								BIT(i));
 
 					/* NOTE:  not reported!! */
 				}
@@ -430,9 +430,9 @@ static irqreturn_t dma_ccerr_handler(int irq, void *data)
 			 * to just write CCERRCLR with CCERR value...
 			 */
 			for (i = 0; i < 8; i++) {
-				if (edma_read(ctlr, EDMA_CCERR) & (1 << i)) {
+				if (edma_read(ctlr, EDMA_CCERR) & BIT(i)) {
 					/* Clear the corresponding IPR bits */
-					edma_write(ctlr, EDMA_CCERRCLR, 1 << i);
+					edma_write(ctlr, EDMA_CCERRCLR, BIT(i));
 
 					/* NOTE:  not reported!! */
 				}
@@ -629,7 +629,7 @@ int edma_alloc_channel(int channel,
 	}
 
 	/* ensure access through shadow region 0 */
-	edma_or_array2(ctlr, EDMA_DRAE, 0, channel >> 5, 1 << (channel & 0x1f));
+	edma_or_array2(ctlr, EDMA_DRAE, 0, channel >> 5, BIT(channel & 0x1f));
 
 	/* ensure no events are pending */
 	edma_stop(EDMA_CTLR_CHAN(ctlr, channel));
@@ -1167,7 +1167,7 @@ void edma_pause(unsigned channel)
 	channel = EDMA_CHAN_SLOT(channel);
 
 	if (channel < edma_cc[ctlr]->num_channels) {
-		unsigned int mask = (1 << (channel & 0x1f));
+		unsigned int mask = BIT(channel & 0x1f);
 
 		edma_shadow0_write_array(ctlr, SH_EECR, channel >> 5, mask);
 	}
@@ -1188,7 +1188,7 @@ void edma_resume(unsigned channel)
 	channel = EDMA_CHAN_SLOT(channel);
 
 	if (channel < edma_cc[ctlr]->num_channels) {
-		unsigned int mask = (1 << (channel & 0x1f));
+		unsigned int mask = BIT(channel & 0x1f);
 
 		edma_shadow0_write_array(ctlr, SH_EESR, channel >> 5, mask);
 	}
@@ -1215,7 +1215,7 @@ int edma_start(unsigned channel)
 
 	if (channel < edma_cc[ctlr]->num_channels) {
 		int j = channel >> 5;
-		unsigned int mask = (1 << (channel & 0x1f));
+		unsigned int mask = BIT(channel & 0x1f);
 
 		/* EDMA channels without event association */
 		if (test_bit(channel, edma_cc[ctlr]->edma_unused)) {
@@ -1260,7 +1260,7 @@ void edma_stop(unsigned channel)
 
 	if (channel < edma_cc[ctlr]->num_channels) {
 		int j = channel >> 5;
-		unsigned int mask = (1 << (channel & 0x1f));
+		unsigned int mask = BIT(channel & 0x1f);
 
 		edma_shadow0_write_array(ctlr, SH_EECR, j, mask);
 		edma_shadow0_write_array(ctlr, SH_ECR, j, mask);
@@ -1299,7 +1299,7 @@ void edma_clean_channel(unsigned channel)
 
 	if (channel < edma_cc[ctlr]->num_channels) {
 		int j = (channel >> 5);
-		unsigned int mask = 1 << (channel & 0x1f);
+		unsigned int mask = BIT(channel & 0x1f);
 
 		pr_debug("EDMA: EMR%d %08x\n", j,
 				edma_read_array(ctlr, EDMA_EMR, j));
@@ -1308,7 +1308,7 @@ void edma_clean_channel(unsigned channel)
 		edma_write_array(ctlr, EDMA_EMCR, j, mask);
 		/* Clear any SER */
 		edma_shadow0_write_array(ctlr, SH_SECR, j, mask);
-		edma_write(ctlr, EDMA_CCERRCLR, (1 << 16) | 0x3);
+		edma_write(ctlr, EDMA_CCERRCLR, BIT(16) | BIT(1) | BIT(0));
 	}
 }
 EXPORT_SYMBOL(edma_clean_channel);
@@ -1328,9 +1328,9 @@ void edma_clear_event(unsigned channel)
 	if (channel >= edma_cc[ctlr]->num_channels)
 		return;
 	if (channel < 32)
-		edma_write(ctlr, EDMA_ECR, 1 << channel);
+		edma_write(ctlr, EDMA_ECR, BIT(channel));
 	else
-		edma_write(ctlr, EDMA_ECRH, 1 << (channel - 32));
+		edma_write(ctlr, EDMA_ECRH, BIT(channel - 32));
 }
 EXPORT_SYMBOL(edma_clear_event);
 
