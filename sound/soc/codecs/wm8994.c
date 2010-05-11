@@ -1711,6 +1711,8 @@ static int wm8994_write(struct snd_soc_codec *codec, unsigned int reg,
 	if (!wm8994_volatile(reg))
 		wm8994->reg_cache[reg] = value;
 
+	dev_dbg(codec->dev, "0x%x = 0x%x\n", reg, value);
+
 	return wm8994_reg_write(codec->control_data, reg, value);
 }
 
@@ -3547,6 +3549,9 @@ static int wm8994_resume(struct platform_device *pdev)
 	wm8994_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
 
 	for (i = 0; i < ARRAY_SIZE(wm8994->fll); i++) {
+		if (!wm8994->fll_suspend[i].out)
+			continue;
+
 		ret = wm8994_set_fll(&codec->dai[0], i + 1,
 				     wm8994->fll_suspend[i].src,
 				     wm8994->fll_suspend[i].in,

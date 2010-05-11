@@ -127,6 +127,8 @@ static void calibrate_dc_servo(struct snd_soc_codec *codec)
 			break;
 		}
 
+		dev_dbg(codec->dev, "DCS input: %x %x\n", reg_l, reg_r);
+
 		/* HPOUT1L */
 		if (reg_l + hubs->dcs_codes > 0 &&
 		    reg_l + hubs->dcs_codes < 0xff)
@@ -138,6 +140,8 @@ static void calibrate_dc_servo(struct snd_soc_codec *codec)
 		    reg_r + hubs->dcs_codes < 0xff)
 			reg_r += hubs->dcs_codes;
 		dcs_cfg |= reg_r;
+
+		dev_dbg(codec->dev, "DCS result: %x\n", dcs_cfg);
 
 		/* Do it */
 		snd_soc_write(codec, WM8993_DC_SERVO_3, dcs_cfg);
@@ -397,14 +401,14 @@ static int hp_event(struct snd_soc_dapm_widget *w,
 
 	case SND_SOC_DAPM_PRE_PMD:
 		snd_soc_update_bits(codec, WM8993_ANALOGUE_HP_0,
-				    WM8993_HPOUT1L_DLY |
-				    WM8993_HPOUT1R_DLY |
+				    WM8993_HPOUT1L_OUTP |
+				    WM8993_HPOUT1R_OUTP |
 				    WM8993_HPOUT1L_RMV_SHORT |
 				    WM8993_HPOUT1R_RMV_SHORT, 0);
 
 		snd_soc_update_bits(codec, WM8993_ANALOGUE_HP_0,
-				    WM8993_HPOUT1L_OUTP |
-				    WM8993_HPOUT1R_OUTP, 0);
+				    WM8993_HPOUT1L_DLY |
+				    WM8993_HPOUT1R_DLY, 0);
 
 		snd_soc_update_bits(codec, WM8993_POWER_MANAGEMENT_1,
 				    WM8993_HPOUT1L_ENA | WM8993_HPOUT1R_ENA,
