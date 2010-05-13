@@ -14,6 +14,7 @@
 #include <linux/bootmem.h>
 #include <linux/mman.h>
 #include <linux/nodemask.h>
+#include <linux/sort.h>
 
 #include <asm/cputype.h>
 #include <asm/mach-types.h>
@@ -1017,6 +1018,13 @@ static void __init kmap_init(void)
 #endif
 }
 
+static int __init meminfo_cmp(const void *_a, const void *_b)
+{
+	const struct membank *a = _a, *b = _b;
+	long cmp = bank_pfn_start(a) - bank_pfn_start(b);
+	return cmp < 0 ? -1 : cmp > 0 ? 1 : 0;
+}
+
 /*
  * paging_init() sets up the page tables, initialises the zone memory
  * maps, and sets up the zero page, bad page and bad page tables.
@@ -1024,6 +1032,8 @@ static void __init kmap_init(void)
 void __init paging_init(struct machine_desc *mdesc)
 {
 	void *zero_page;
+
+	sort(&meminfo.bank, meminfo.nr_banks, sizeof(meminfo.bank[0]), meminfo_cmp, NULL);
 
 	build_mem_type_table();
 	sanity_check_meminfo();
