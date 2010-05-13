@@ -18,8 +18,10 @@
 #include <linux/io.h>
 #include <linux/gpio.h>
 #include <linux/usb/otg.h>
+#include <linux/spi/spi.h>
 
 #include <mach/hardware.h>
+#include <mach/omap4-common.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
@@ -29,8 +31,75 @@
 #include <plat/control.h>
 #include <plat/timer-gp.h>
 #include <plat/usb.h>
-#include <asm/hardware/gic.h>
-#include <asm/hardware/cache-l2x0.h>
+
+#define ETH_KS8851_IRQ			34
+#define ETH_KS8851_POWER_ON		48
+#define ETH_KS8851_QUART		138
+
+static struct spi_board_info sdp4430_spi_board_info[] __initdata = {
+	{
+		.modalias               = "ks8851",
+		.bus_num                = 1,
+		.chip_select            = 0,
+		.max_speed_hz           = 24000000,
+		.irq                    = ETH_KS8851_IRQ,
+	},
+};
+
+static int omap_ethernet_init(void)
+{
+	int status;
+
+	/* Request of GPIO lines */
+
+	status = gpio_request(ETH_KS8851_POWER_ON, "eth_power");
+	if (status) {
+		pr_err("Cannot request GPIO %d\n", ETH_KS8851_POWER_ON);
+		return status;
+	}
+
+	status = gpio_request(ETH_KS8851_QUART, "quart");
+	if (status) {
+		pr_err("Cannot request GPIO %d\n", ETH_KS8851_QUART);
+		goto error1;
+	}
+
+	status = gpio_request(ETH_KS8851_IRQ, "eth_irq");
+	if (status) {
+		pr_err("Cannot request GPIO %d\n", ETH_KS8851_IRQ);
+		goto error2;
+	}
+
+	/* Configuration of requested GPIO lines */
+
+	status = gpio_direction_output(ETH_KS8851_POWER_ON, 1);
+	if (status) {
+		pr_err("Cannot set output GPIO %d\n", ETH_KS8851_IRQ);
+		goto error3;
+	}
+
+	status = gpio_direction_output(ETH_KS8851_QUART, 1);
+	if (status) {
+		pr_err("Cannot set output GPIO %d\n", ETH_KS8851_QUART);
+		goto error3;
+	}
+
+	status = gpio_direction_input(ETH_KS8851_IRQ);
+	if (status) {
+		pr_err("Cannot set input GPIO %d\n", ETH_KS8851_IRQ);
+		goto error3;
+	}
+
+	return 0;
+
+error3:
+	gpio_free(ETH_KS8851_IRQ);
+error2:
+	gpio_free(ETH_KS8851_QUART);
+error1:
+	gpio_free(ETH_KS8851_POWER_ON);
+	return status;
+}
 
 static struct platform_device sdp4430_lcd_device = {
 	.name		= "sdp4430_lcd",
@@ -48,50 +117,6 @@ static struct omap_lcd_config sdp4430_lcd_config __initdata = {
 static struct omap_board_config_kernel sdp4430_config[] __initdata = {
 	{ OMAP_TAG_LCD,		&sdp4430_lcd_config },
 };
-
-#ifdef CONFIG_CACHE_L2X0
-static int __init omap_l2_cache_init(void)
-{
-	extern void omap_smc1(u32 fn, u32 arg);
-	void __iomem *l2cache_base;
-
-	/* To avoid code running on other OMAPs in
-	 * multi-omap builds
-	 */
-	if (!cpu_is_omap44xx())
-		return -ENODEV;
-
-	/* Static mapping, never released */
-	l2cache_base = ioremap(OMAP44XX_L2CACHE_BASE, SZ_4K);
-	BUG_ON(!l2cache_base);
-
-	/* Enable PL310 L2 Cache controller */
-	omap_smc1(0x102, 0x1);
-
-	/* 32KB way size, 16-way associativity,
-	* parity disabled
-	*/
-	l2x0_init(l2cache_base, 0x0e050000, 0xc0000fff);
-
-	return 0;
-}
-early_initcall(omap_l2_cache_init);
-#endif
-
-static void __init gic_init_irq(void)
-{
-	void __iomem *base;
-
-	/* Static mapping, never released */
-	base = ioremap(OMAP44XX_GIC_DIST_BASE, SZ_4K);
-	BUG_ON(!base);
-	gic_dist_init(0, base, 29);
-
-	/* Static mapping, never released */
-	gic_cpu_base_addr = ioremap(OMAP44XX_GIC_CPU_BASE, SZ_512);
-	BUG_ON(!gic_cpu_base_addr);
-	gic_cpu_init(0, gic_cpu_base_addr);
-}
 
 static void __init omap_4430sdp_init_irq(void)
 {
@@ -113,6 +138,8 @@ static struct omap_musb_board_data musb_board_data = {
 
 static void __init omap_4430sdp_init(void)
 {
+	int status;
+
 	platform_add_devices(sdp4430_devices, ARRAY_SIZE(sdp4430_devices));
 	omap_serial_init();
 	/* OMAP4 SDP uses internal transceiver so register nop transceiver */
@@ -120,6 +147,15 @@ static void __init omap_4430sdp_init(void)
 	/* FIXME: allow multi-omap to boot until musb is updated for omap4 */
 	if (!cpu_is_omap44xx())
 		usb_musb_init(&musb_board_data);
+
+	status = omap_ethernet_init();
+	if (status) {
+		pr_err("Ethernet initialization failed: %d\n", status);
+	} else {
+		sdp4430_spi_board_info[0].irq = gpio_to_irq(ETH_KS8851_IRQ);
+		spi_register_board_info(sdp4430_spi_board_info,
+				ARRAY_SIZE(sdp4430_spi_board_info));
+	}
 }
 
 static void __init omap_4430sdp_map_io(void)
