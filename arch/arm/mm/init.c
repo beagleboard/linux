@@ -275,7 +275,7 @@ static void arm_memory_present(struct meminfo *mi, int node)
 }
 #endif
 
-void __init arm_lmb_init(struct meminfo *mi)
+void __init arm_lmb_init(struct meminfo *mi, struct machine_desc *mdesc)
 {
 	int i;
 
@@ -300,6 +300,10 @@ void __init arm_lmb_init(struct meminfo *mi)
 #endif
 
 	arm_mm_lmb_reserve();
+
+	/* reserve any lmb areas */
+	if (mdesc->reserve)
+		mdesc->reserve();
 }
 
 void __init bootmem_init(void)

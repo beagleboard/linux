@@ -841,75 +841,19 @@ static inline void prepare_page_table(void)
  */
 void __init arm_mm_lmb_reserve(void)
 {
-	unsigned long res_size = 0;
-
 	/*
 	 * Reserve the page tables.  These are already in use,
 	 * and can only be in node 0.
 	 */
 	lmb_reserve(__pa(swapper_pg_dir), PTRS_PER_PGD * sizeof(pgd_t));
 
-	/*
-	 * Hmm... This should go elsewhere, but we really really need to
-	 * stop things allocating the low memory; ideally we need a better
-	 * implementation of GFP_DMA which does not assume that DMA-able
-	 * memory starts at zero.
-	 */
-	if (machine_is_integrator() || machine_is_cintegrator())
-		res_size = __pa(swapper_pg_dir) - PHYS_OFFSET;
-
-	/*
-	 * These should likewise go elsewhere.  They pre-reserve the
-	 * screen memory region at the start of main system memory.
-	 */
-	if (machine_is_edb7211())
-		res_size = 0x00020000;
-	if (machine_is_p720t())
-		res_size = 0x00014000;
-
-	/* H1940 and RX3715 need to reserve this for suspend */
-
-	if (machine_is_h1940() || machine_is_rx3715()) {
-		lmb_reserve(0x30003000, 0x1000);
-		lmb_reserve(0x30081000, 0x1000);
-	}
-
-	if (machine_is_palmld() || machine_is_palmtx()) {
-		lmb_reserve(0xa0000000, 0x1000);
-		lmb_reserve(0xa0200000, 0x1000);
-	}
-
-	if (machine_is_treo680() || machine_is_centro()) {
-		lmb_reserve(0xa0000000, 0x1000);
-		lmb_reserve(0xa2000000, 0x1000);
-	}
-
-	if (machine_is_palmt5())
-		lmb_reserve(0xa0200000, 0x1000);
-
-	/*
-	 * U300 - This platform family can share physical memory
-	 * between two ARM cpus, one running Linux and the other
-	 * running another OS.
-	 */
-	if (machine_is_u300()) {
-#ifdef CONFIG_MACH_U300_SINGLE_RAM
-#if ((CONFIG_MACH_U300_ACCESS_MEM_SIZE & 1) == 1) &&	\
-	CONFIG_MACH_U300_2MB_ALIGNMENT_FIX
-		res_size = 0x00100000;
-#endif
-#endif
-	}
-
 #ifdef CONFIG_SA1111
 	/*
 	 * Because of the SA1111 DMA bug, we want to preserve our
 	 * precious DMA-able memory...
 	 */
-	res_size = __pa(swapper_pg_dir) - PHYS_OFFSET;
+	lmb_reserve(PHYS_OFFSET, __pa(swapper_pg_dir) - PHYS_OFFSET);
 #endif
-	if (res_size)
-		lmb_reserve(PHYS_OFFSET, res_size);
 }
 
 /*
