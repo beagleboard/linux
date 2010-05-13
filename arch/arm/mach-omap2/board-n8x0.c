@@ -687,6 +687,7 @@ MACHINE_START(NOKIA_N810_WIMAX, "Nokia N810 WiMAX")
 	.io_pg_offst	= ((0xfa000000) >> 18) & 0xfffc,
 	.boot_params	= 0x80000100,
 	.map_io		= n8x0_map_io,
+	.reserve	= omap2_reserve,
 	.init_irq	= n8x0_init_irq,
 	.init_machine	= n8x0_init_machine,
 	.timer		= &omap_timer,
