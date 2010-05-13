@@ -11,9 +11,10 @@
 #include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/init.h>
-#include <linux/bootmem.h>
 #include <linux/mman.h>
 #include <linux/nodemask.h>
+#include <linux/lmb.h>
+#include <linux/sort.h>
 
 #include <asm/cputype.h>
 #include <asm/mach-types.h>
@@ -487,6 +488,13 @@ static void __init build_mem_type_table(void)
 
 #define vectors_base()	(vectors_high() ? 0xffff0000 : 0)
 
+static void __init *early_alloc(unsigned long sz)
+{
+	void *ptr = __va(lmb_alloc(sz, sz));
+	memset(ptr, 0, sz);
+	return ptr;
+}
+
 static void __init alloc_init_pte(pmd_t *pmd, unsigned long addr,
 				  unsigned long end, unsigned long pfn,
 				  const struct mem_type *type)
@@ -494,7 +502,7 @@ static void __init alloc_init_pte(pmd_t *pmd, unsigned long addr,
 	pte_t *pte;
 
 	if (pmd_none(*pmd)) {
-		pte = alloc_bootmem_low_pages(2 * PTRS_PER_PTE * sizeof(pte_t));
+		pte = early_alloc(2 * PTRS_PER_PTE * sizeof(pte_t));
 		__pmd_populate(pmd, __pa(pte) | type->prot_l1);
 	}
 
@@ -603,7 +611,7 @@ static void __init create_36bit_mapping(struct map_desc *md,
  * offsets, and we take full advantage of sections and
  * supersections.
  */
-void __init create_mapping(struct map_desc *md)
+static void __init create_mapping(struct map_desc *md)
 {
 	unsigned long phys, addr, length, end;
 	const struct mem_type *type;
@@ -696,6 +704,9 @@ static int __init early_vmalloc(char *arg)
 early_param("vmalloc", early_vmalloc);
 
 #define VMALLOC_MIN	(void *)(VMALLOC_END - vmalloc_reserve)
+
+/* FIXME: we need to teach LMB about the highmem boundary */
+phys_addr_t lowmem_end_addr = PHYS_OFFSET + 32*1048576;
 
 static void __init sanity_check_meminfo(void)
 {
@@ -826,100 +837,23 @@ static inline void prepare_page_table(void)
 }
 
 /*
- * Reserve the various regions of node 0
+ * Reserve the special regions of memory
  */
-void __init reserve_node_zero(pg_data_t *pgdat)
+void __init arm_mm_lmb_reserve(void)
 {
-	unsigned long res_size = 0;
-
-	/*
-	 * Register the kernel text and data with bootmem.
-	 * Note that this can only be in node 0.
-	 */
-#ifdef CONFIG_XIP_KERNEL
-	reserve_bootmem_node(pgdat, __pa(_data), _end - _data,
-			BOOTMEM_DEFAULT);
-#else
-	reserve_bootmem_node(pgdat, __pa(_stext), _end - _stext,
-			BOOTMEM_DEFAULT);
-#endif
-
 	/*
 	 * Reserve the page tables.  These are already in use,
 	 * and can only be in node 0.
 	 */
-	reserve_bootmem_node(pgdat, __pa(swapper_pg_dir),
-			     PTRS_PER_PGD * sizeof(pgd_t), BOOTMEM_DEFAULT);
-
-	/*
-	 * Hmm... This should go elsewhere, but we really really need to
-	 * stop things allocating the low memory; ideally we need a better
-	 * implementation of GFP_DMA which does not assume that DMA-able
-	 * memory starts at zero.
-	 */
-	if (machine_is_integrator() || machine_is_cintegrator())
-		res_size = __pa(swapper_pg_dir) - PHYS_OFFSET;
-
-	/*
-	 * These should likewise go elsewhere.  They pre-reserve the
-	 * screen memory region at the start of main system memory.
-	 */
-	if (machine_is_edb7211())
-		res_size = 0x00020000;
-	if (machine_is_p720t())
-		res_size = 0x00014000;
-
-	/* H1940 and RX3715 need to reserve this for suspend */
-
-	if (machine_is_h1940() || machine_is_rx3715()) {
-		reserve_bootmem_node(pgdat, 0x30003000, 0x1000,
-				BOOTMEM_DEFAULT);
-		reserve_bootmem_node(pgdat, 0x30081000, 0x1000,
-				BOOTMEM_DEFAULT);
-	}
-
-	if (machine_is_palmld() || machine_is_palmtx()) {
-		reserve_bootmem_node(pgdat, 0xa0000000, 0x1000,
-				BOOTMEM_EXCLUSIVE);
-		reserve_bootmem_node(pgdat, 0xa0200000, 0x1000,
-				BOOTMEM_EXCLUSIVE);
-	}
-
-	if (machine_is_treo680() || machine_is_centro()) {
-		reserve_bootmem_node(pgdat, 0xa0000000, 0x1000,
-				BOOTMEM_EXCLUSIVE);
-		reserve_bootmem_node(pgdat, 0xa2000000, 0x1000,
-				BOOTMEM_EXCLUSIVE);
-	}
-
-	if (machine_is_palmt5())
-		reserve_bootmem_node(pgdat, 0xa0200000, 0x1000,
-				BOOTMEM_EXCLUSIVE);
-
-	/*
-	 * U300 - This platform family can share physical memory
-	 * between two ARM cpus, one running Linux and the other
-	 * running another OS.
-	 */
-	if (machine_is_u300()) {
-#ifdef CONFIG_MACH_U300_SINGLE_RAM
-#if ((CONFIG_MACH_U300_ACCESS_MEM_SIZE & 1) == 1) &&	\
-	CONFIG_MACH_U300_2MB_ALIGNMENT_FIX
-		res_size = 0x00100000;
-#endif
-#endif
-	}
+	lmb_reserve(__pa(swapper_pg_dir), PTRS_PER_PGD * sizeof(pgd_t));
 
 #ifdef CONFIG_SA1111
 	/*
 	 * Because of the SA1111 DMA bug, we want to preserve our
 	 * precious DMA-able memory...
 	 */
-	res_size = __pa(swapper_pg_dir) - PHYS_OFFSET;
+	lmb_reserve(PHYS_OFFSET, __pa(swapper_pg_dir) - PHYS_OFFSET);
 #endif
-	if (res_size)
-		reserve_bootmem_node(pgdat, PHYS_OFFSET, res_size,
-				BOOTMEM_DEFAULT);
 }
 
 /*
@@ -938,7 +872,7 @@ static void __init devicemaps_init(struct machine_desc *mdesc)
 	/*
 	 * Allocate the vector page early.
 	 */
-	vectors = alloc_bootmem_low_pages(PAGE_SIZE);
+	vectors = early_alloc(PAGE_SIZE);
 
 	for (addr = VMALLOC_END; addr; addr += PGDIR_SIZE)
 		pmd_clear(pmd_off_k(addr));
@@ -1010,11 +944,44 @@ static void __init kmap_init(void)
 {
 #ifdef CONFIG_HIGHMEM
 	pmd_t *pmd = pmd_off_k(PKMAP_BASE);
-	pte_t *pte = alloc_bootmem_low_pages(2 * PTRS_PER_PTE * sizeof(pte_t));
+	pte_t *pte = early_alloc(2 * PTRS_PER_PTE * sizeof(pte_t));
 	BUG_ON(!pmd_none(*pmd) || !pte);
 	__pmd_populate(pmd, __pa(pte) | _PAGE_KERNEL_TABLE);
 	pkmap_page_table = pte + PTRS_PER_PTE;
 #endif
+}
+
+static inline void map_memory_bank(struct membank *bank)
+{
+	struct map_desc map;
+
+	map.pfn = bank_pfn_start(bank);
+	map.virtual = __phys_to_virt(bank_phys_start(bank));
+	map.length = bank_phys_size(bank);
+	map.type = MT_MEMORY;
+
+	create_mapping(&map);
+}
+
+static void __init map_lowmem(void)
+{
+	struct meminfo *mi = &meminfo;
+	int i;
+
+	/* Map all the lowmem memory banks. */
+	for (i = 0; i < mi->nr_banks; i++) {
+		struct membank *bank = &mi->bank[i];
+
+		if (!bank->highmem)
+			map_memory_bank(bank);
+	}
+}
+
+static int __init meminfo_cmp(const void *_a, const void *_b)
+{
+	const struct membank *a = _a, *b = _b;
+	long cmp = bank_pfn_start(a) - bank_pfn_start(b);
+	return cmp < 0 ? -1 : cmp > 0 ? 1 : 0;
 }
 
 /*
@@ -1025,20 +992,22 @@ void __init paging_init(struct machine_desc *mdesc)
 {
 	void *zero_page;
 
+	sort(&meminfo.bank, meminfo.nr_banks, sizeof(meminfo.bank[0]), meminfo_cmp, NULL);
+
 	build_mem_type_table();
 	sanity_check_meminfo();
 	prepare_page_table();
-	bootmem_init();
+	map_lowmem();
 	devicemaps_init(mdesc);
 	kmap_init();
 
 	top_pmd = pmd_off_k(0xffff0000);
 
-	/*
-	 * allocate the zero page.  Note that this always succeeds and
-	 * returns a zeroed result.
-	 */
-	zero_page = alloc_bootmem_low_pages(PAGE_SIZE);
+	/* allocate the zero page. */
+	zero_page = early_alloc(PAGE_SIZE);
+
+	bootmem_init();
+
 	empty_zero_page = virt_to_page(zero_page);
 	__flush_dcache_page(NULL, empty_zero_page);
 }
