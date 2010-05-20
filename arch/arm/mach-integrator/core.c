@@ -14,6 +14,7 @@
 #include <linux/spinlock.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
+#include <linux/lmb.h>
 #include <linux/sched.h>
 #include <linux/smp.h>
 #include <linux/termios.h>
@@ -333,4 +334,14 @@ void __init integrator_time_init(unsigned long reload, unsigned int ctrl)
 	 * Make irqs happen for the system timer
 	 */
 	setup_irq(IRQ_TIMERINT1, &integrator_timer_irq);
+}
+
+/*
+ * We need to stop things allocating the low memory; ideally we need a
+ * better implementation of GFP_DMA which does not assume that DMA-able
+ * memory starts at zero.
+ */
+void __init integrator_reserve(void)
+{
+	lmb_reserve(PHYS_OFFSET, __pa(swapper_pg_dir) - PHYS_OFFSET);
 }
