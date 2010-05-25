@@ -77,6 +77,7 @@ CONFIG_XTENSA_ISS_NETWORK=y
 #
 # Bus options
 #
+CONFIG_PCI=n
 
 #
 # PCCARD (PCMCIA/CardBus) support
