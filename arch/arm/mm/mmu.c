@@ -17,7 +17,6 @@
 #include <linux/sort.h>
 
 #include <asm/cputype.h>
-#include <asm/mach-types.h>
 #include <asm/sections.h>
 #include <asm/cachetype.h>
 #include <asm/setup.h>
@@ -668,7 +667,7 @@ void __init iotable_init(struct map_desc *io_desc, int nr)
 		create_mapping(io_desc + i);
 }
 
-static unsigned long __initdata vmalloc_reserve = SZ_128M;
+static void * __initdata vmalloc_min = (void *)(VMALLOC_END - SZ_128M);
 
 /*
  * vmalloc=size forces the vmalloc area to be exactly 'size'
@@ -677,7 +676,7 @@ static unsigned long __initdata vmalloc_reserve = SZ_128M;
  */
 static int __init early_vmalloc(char *arg)
 {
-	vmalloc_reserve = memparse(arg, NULL);
+	unsigned long vmalloc_reserve = memparse(arg, NULL);
 
 	if (vmalloc_reserve < SZ_16M) {
 		vmalloc_reserve = SZ_16M;
@@ -692,11 +691,11 @@ static int __init early_vmalloc(char *arg)
 			"vmalloc area is too big, limiting to %luMB\n",
 			vmalloc_reserve >> 20);
 	}
+
+	vmalloc_min = (void *)(VMALLOC_END - vmalloc_reserve);
 	return 0;
 }
 early_param("vmalloc", early_vmalloc);
-
-#define VMALLOC_MIN	(void *)(VMALLOC_END - vmalloc_reserve)
 
 static void __init sanity_check_meminfo(void)
 {
@@ -707,7 +706,7 @@ static void __init sanity_check_meminfo(void)
 		*bank = meminfo.bank[i];
 
 #ifdef CONFIG_HIGHMEM
-		if (__va(bank->start) > VMALLOC_MIN ||
+		if (__va(bank->start) > vmalloc_min ||
 		    __va(bank->start) < (void *)PAGE_OFFSET)
 			highmem = 1;
 
@@ -717,8 +716,8 @@ static void __init sanity_check_meminfo(void)
 		 * Split those memory banks which are partially overlapping
 		 * the vmalloc area greatly simplifying things later.
 		 */
-		if (__va(bank->start) < VMALLOC_MIN &&
-		    bank->size > VMALLOC_MIN - __va(bank->start)) {
+		if (__va(bank->start) < vmalloc_min &&
+		    bank->size > vmalloc_min - __va(bank->start)) {
 			if (meminfo.nr_banks >= NR_BANKS) {
 				printk(KERN_CRIT "NR_BANKS too low, "
 						 "ignoring high memory\n");
@@ -727,12 +726,12 @@ static void __init sanity_check_meminfo(void)
 					(meminfo.nr_banks - i) * sizeof(*bank));
 				meminfo.nr_banks++;
 				i++;
-				bank[1].size -= VMALLOC_MIN - __va(bank->start);
-				bank[1].start = __pa(VMALLOC_MIN - 1) + 1;
+				bank[1].size -= vmalloc_min - __va(bank->start);
+				bank[1].start = __pa(vmalloc_min - 1) + 1;
 				bank[1].highmem = highmem = 1;
 				j++;
 			}
-			bank->size = VMALLOC_MIN - __va(bank->start);
+			bank->size = vmalloc_min - __va(bank->start);
 		}
 #else
 		bank->highmem = highmem;
@@ -741,7 +740,7 @@ static void __init sanity_check_meminfo(void)
 		 * Check whether this memory bank would entirely overlap
 		 * the vmalloc area.
 		 */
-		if (__va(bank->start) >= VMALLOC_MIN ||
+		if (__va(bank->start) >= vmalloc_min ||
 		    __va(bank->start) < (void *)PAGE_OFFSET) {
 			printk(KERN_NOTICE "Ignoring RAM at %.8lx-%.8lx "
 			       "(vmalloc region overlap).\n",
@@ -753,9 +752,9 @@ static void __init sanity_check_meminfo(void)
 		 * Check whether this memory bank would partially overlap
 		 * the vmalloc area.
 		 */
-		if (__va(bank->start + bank->size) > VMALLOC_MIN ||
+		if (__va(bank->start + bank->size) > vmalloc_min ||
 		    __va(bank->start + bank->size) < __va(bank->start)) {
-			unsigned long newsize = VMALLOC_MIN - __va(bank->start);
+			unsigned long newsize = vmalloc_min - __va(bank->start);
 			printk(KERN_NOTICE "Truncating RAM at %.8lx-%.8lx "
 			       "to -%.8lx (vmalloc region overlap).\n",
 			       bank->start, bank->start + bank->size - 1,
@@ -827,101 +826,35 @@ static inline void prepare_page_table(void)
 }
 
 /*
- * Reserve the various regions of node 0
+ * Reserve the various regions
  */
-void __init reserve_node_zero(pg_data_t *pgdat)
+void __init reserve_special_regions(void)
 {
-	unsigned long res_size = 0;
-
 	/*
 	 * Register the kernel text and data with bootmem.
 	 * Note that this can only be in node 0.
 	 */
 #ifdef CONFIG_XIP_KERNEL
-	reserve_bootmem_node(pgdat, __pa(_data), _end - _data,
-			BOOTMEM_DEFAULT);
+	reserve_bootmem(__pa(_data), _end - _data, BOOTMEM_DEFAULT);
 #else
-	reserve_bootmem_node(pgdat, __pa(_stext), _end - _stext,
-			BOOTMEM_DEFAULT);
+	reserve_bootmem(__pa(_stext), _end - _stext, BOOTMEM_DEFAULT);
 #endif
 
 	/*
 	 * Reserve the page tables.  These are already in use,
 	 * and can only be in node 0.
 	 */
-	reserve_bootmem_node(pgdat, __pa(swapper_pg_dir),
-			     PTRS_PER_PGD * sizeof(pgd_t), BOOTMEM_DEFAULT);
-
-	/*
-	 * Hmm... This should go elsewhere, but we really really need to
-	 * stop things allocating the low memory; ideally we need a better
-	 * implementation of GFP_DMA which does not assume that DMA-able
-	 * memory starts at zero.
-	 */
-	if (machine_is_integrator() || machine_is_cintegrator())
-		res_size = __pa(swapper_pg_dir) - PHYS_OFFSET;
-
-	/*
-	 * These should likewise go elsewhere.  They pre-reserve the
-	 * screen memory region at the start of main system memory.
-	 */
-	if (machine_is_edb7211())
-		res_size = 0x00020000;
-	if (machine_is_p720t())
-		res_size = 0x00014000;
-
-	/* H1940, RX3715 and RX1950 need to reserve this for suspend */
-
-	if (machine_is_h1940() || machine_is_rx3715()
-		|| machine_is_rx1950()) {
-		reserve_bootmem_node(pgdat, 0x30003000, 0x1000,
-				BOOTMEM_DEFAULT);
-		reserve_bootmem_node(pgdat, 0x30081000, 0x1000,
-				BOOTMEM_DEFAULT);
-	}
-
-	if (machine_is_palmld() || machine_is_palmtx()) {
-		reserve_bootmem_node(pgdat, 0xa0000000, 0x1000,
-				BOOTMEM_EXCLUSIVE);
-		reserve_bootmem_node(pgdat, 0xa0200000, 0x1000,
-				BOOTMEM_EXCLUSIVE);
-	}
-
-	if (machine_is_treo680() || machine_is_centro()) {
-		reserve_bootmem_node(pgdat, 0xa0000000, 0x1000,
-				BOOTMEM_EXCLUSIVE);
-		reserve_bootmem_node(pgdat, 0xa2000000, 0x1000,
-				BOOTMEM_EXCLUSIVE);
-	}
-
-	if (machine_is_palmt5())
-		reserve_bootmem_node(pgdat, 0xa0200000, 0x1000,
-				BOOTMEM_EXCLUSIVE);
-
-	/*
-	 * U300 - This platform family can share physical memory
-	 * between two ARM cpus, one running Linux and the other
-	 * running another OS.
-	 */
-	if (machine_is_u300()) {
-#ifdef CONFIG_MACH_U300_SINGLE_RAM
-#if ((CONFIG_MACH_U300_ACCESS_MEM_SIZE & 1) == 1) &&	\
-	CONFIG_MACH_U300_2MB_ALIGNMENT_FIX
-		res_size = 0x00100000;
-#endif
-#endif
-	}
+	reserve_bootmem(__pa(swapper_pg_dir),
+			PTRS_PER_PGD * sizeof(pgd_t), BOOTMEM_DEFAULT);
 
 #ifdef CONFIG_SA1111
 	/*
 	 * Because of the SA1111 DMA bug, we want to preserve our
 	 * precious DMA-able memory...
 	 */
-	res_size = __pa(swapper_pg_dir) - PHYS_OFFSET;
+	reserve_bootmem(PHYS_OFFSET, __pa(swapper_pg_dir) - PHYS_OFFSET,
+			BOOTMEM_DEFAULT);
 #endif
-	if (res_size)
-		reserve_bootmem_node(pgdat, PHYS_OFFSET, res_size,
-				BOOTMEM_DEFAULT);
 }
 
 /*
@@ -1066,7 +999,7 @@ void __init paging_init(struct machine_desc *mdesc)
 	sanity_check_meminfo();
 	prepare_page_table();
 	map_lowmem();
-	bootmem_init();
+	bootmem_init(mdesc);
 	devicemaps_init(mdesc);
 	kmap_init();
 
