@@ -2119,11 +2119,9 @@ void musb_g_disconnect(struct musb *musb)
 		dev_dbg(musb->controller, "Unhandled disconnect %s, setting a_idle\n",
 			otg_state_string(musb->xceiv->state));
 		musb->xceiv->state = OTG_STATE_A_IDLE;
-		MUSB_HST_MODE(musb);
 		break;
 	case OTG_STATE_A_PERIPHERAL:
 		musb->xceiv->state = OTG_STATE_A_WAIT_BCON;
-		MUSB_HST_MODE(musb);
 		break;
 	case OTG_STATE_B_WAIT_ACON:
 	case OTG_STATE_B_HOST:

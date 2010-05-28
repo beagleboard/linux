@@ -385,12 +385,9 @@ void musb_otg_timer_func(unsigned long data)
 		musb->xceiv->state = OTG_STATE_B_PERIPHERAL;
 		musb->is_active = 0;
 		break;
-	case OTG_STATE_A_SUSPEND:
 	case OTG_STATE_A_WAIT_BCON:
-		dev_dbg(musb->controller, "HNP: %s timeout\n",
-			otg_state_string(musb->xceiv->state));
-		musb_platform_set_vbus(musb, 0);
-		musb->xceiv->state = OTG_STATE_A_WAIT_VFALL;
+		dev_dbg(musb->controller, "HNP: a_wait_bcon timeout; back to a_host\n");
+		musb_hnp_stop(musb);
 		break;
 	default:
 		dev_dbg(musb->controller, "HNP: Unhandled mode %s\n",
@@ -409,13 +406,15 @@ void musb_hnp_stop(struct musb *musb)
 	void __iomem	*mbase = musb->mregs;
 	u8	reg;
 
-	dev_dbg(musb->controller, "HNP: stop from %s\n", otg_state_string(musb->xceiv->state));
-
 	switch (musb->xceiv->state) {
 	case OTG_STATE_A_PERIPHERAL:
+	case OTG_STATE_A_WAIT_VFALL:
+	case OTG_STATE_A_WAIT_BCON:
+		dev_dbg(musb->controller, "HNP: Switching back to A-host\n");
 		musb_g_disconnect(musb);
-		dev_dbg(musb->controller, "HNP: back to %s\n",
-			otg_state_string(musb->xceiv->state));
+		musb->xceiv->state = OTG_STATE_A_IDLE;
+		MUSB_HST_MODE(musb);
+		musb->is_active = 0;
 		break;
 	case OTG_STATE_B_HOST:
 		dev_dbg(musb->controller, "HNP: Disabling HR\n");
@@ -646,20 +645,10 @@ static irqreturn_t musb_stage0_irq(struct musb *musb, u8 int_usb,
 
 		switch (musb->xceiv->state) {
 		case OTG_STATE_A_PERIPHERAL:
-			/* We also come here if the cable is removed, since
-			 * this silicon doesn't report ID-no-longer-grounded.
-			 *
-			 * We depend on T(a_wait_bcon) to shut us down, and
-			 * hope users don't do anything dicey during this
-			 * undesired detour through A_WAIT_BCON.
+			/*
+			 * We cannot stop HNP here, devctl BDEVICE might be
+			 * still set.
 			 */
-			musb_hnp_stop(musb);
-			usb_hcd_resume_root_hub(musb_to_hcd(musb));
-			musb_root_disconnect(musb);
-			musb_platform_try_idle(musb, jiffies
-					+ msecs_to_jiffies(musb->a_wait_bcon
-						? : OTG_TIME_A_WAIT_BCON));
-
 			break;
 		case OTG_STATE_B_IDLE:
 			if (!musb->is_active)
@@ -778,16 +767,7 @@ b_host:
 					+ msecs_to_jiffies(musb->a_wait_bcon));
 			break;
 		case OTG_STATE_B_HOST:
-			/* REVISIT this behaves for "real disconnect"
-			 * cases; make sure the other transitions from
-			 * from B_HOST act right too.  The B_HOST code
-			 * in hnp_stop() is currently not used...
-			 */
-			musb_root_disconnect(musb);
-			musb_to_hcd(musb)->self.is_b_host = 0;
-			musb->xceiv->state = OTG_STATE_B_PERIPHERAL;
-			MUSB_DEV_MODE(musb);
-			musb_g_disconnect(musb);
+			musb_hnp_stop(musb);
 			break;
 		case OTG_STATE_A_PERIPHERAL:
 			musb_hnp_stop(musb);
