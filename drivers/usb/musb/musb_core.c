@@ -782,6 +782,10 @@ static irqreturn_t musb_stage0_irq(struct musb *musb, u8 int_usb,
 			/* FALLTHROUGH */
 		case OTG_STATE_B_PERIPHERAL:
 		case OTG_STATE_B_IDLE:
+			printk(KERN_INFO "musb %s gadget disconnected.\n",
+				musb->gadget_driver
+				? musb->gadget_driver->driver.name
+				: "");
 			musb_g_disconnect(musb);
 			break;
 		default:
