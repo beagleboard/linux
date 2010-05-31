@@ -166,7 +166,6 @@ EXPORT_SYMBOL_GPL(xprt_unregister_transport);
 int xprt_load_transport(const char *transport_name)
 {
 	struct xprt_class *t;
-	char module_name[sizeof t->name + 5];
 	int result;
 
 	result = 0;
@@ -178,9 +177,7 @@ int xprt_load_transport(const char *transport_name)
 		}
 	}
 	spin_unlock(&xprt_list_lock);
-	strcpy(module_name, "xprt");
-	strncat(module_name, transport_name, sizeof t->name);
-	result = request_module(module_name);
+	result = request_module("xprt%s", transport_name);
 out:
 	return result;
 }
@@ -984,7 +981,7 @@ void xprt_reserve(struct rpc_task *task)
 
 static inline __be32 xprt_alloc_xid(struct rpc_xprt *xprt)
 {
-	return xprt->xid++;
+	return (__force __be32)xprt->xid++;
 }
 
 static inline void xprt_init_xid(struct rpc_xprt *xprt)

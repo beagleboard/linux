@@ -1035,8 +1035,6 @@ static inline void xs_tcp_read_common(struct rpc_xprt *xprt,
 		if (transport->tcp_flags & TCP_RCV_LAST_FRAG)
 			transport->tcp_flags &= ~TCP_RCV_COPY_DATA;
 	}
-
-	return;
 }
 
 /*
@@ -2182,7 +2180,6 @@ static int bc_send_request(struct rpc_task *task)
 
 static void bc_close(struct rpc_xprt *xprt)
 {
-	return;
 }
 
 /*
@@ -2192,7 +2189,6 @@ static void bc_close(struct rpc_xprt *xprt)
 
 static void bc_destroy(struct rpc_xprt *xprt)
 {
-	return;
 }
 
 static struct rpc_xprt_ops xs_udp_ops = {
@@ -2297,6 +2293,7 @@ static struct rpc_xprt *xs_setup_udp(struct xprt_create *args)
 	struct sockaddr *addr = args->dstaddr;
 	struct rpc_xprt *xprt;
 	struct sock_xprt *transport;
+	struct rpc_xprt *ret;
 
 	xprt = xs_setup_xprt(args, xprt_udp_slot_table_entries);
 	if (IS_ERR(xprt))
@@ -2334,8 +2331,8 @@ static struct rpc_xprt *xs_setup_udp(struct xprt_create *args)
 		xs_format_peer_addresses(xprt, "udp", RPCBIND_NETID_UDP6);
 		break;
 	default:
-		kfree(xprt);
-		return ERR_PTR(-EAFNOSUPPORT);
+		ret = ERR_PTR(-EAFNOSUPPORT);
+		goto out_err;
 	}
 
 	if (xprt_bound(xprt))
@@ -2350,10 +2347,11 @@ static struct rpc_xprt *xs_setup_udp(struct xprt_create *args)
 
 	if (try_module_get(THIS_MODULE))
 		return xprt;
-
+	ret = ERR_PTR(-EINVAL);
+out_err:
 	kfree(xprt->slot);
 	kfree(xprt);
-	return ERR_PTR(-EINVAL);
+	return ret;
 }
 
 static const struct rpc_timeout xs_tcp_default_timeout = {
@@ -2372,6 +2370,7 @@ static struct rpc_xprt *xs_setup_tcp(struct xprt_create *args)
 	struct sockaddr *addr = args->dstaddr;
 	struct rpc_xprt *xprt;
 	struct sock_xprt *transport;
+	struct rpc_xprt *ret;
 
 	xprt = xs_setup_xprt(args, xprt_tcp_slot_table_entries);
 	if (IS_ERR(xprt))
@@ -2407,8 +2406,8 @@ static struct rpc_xprt *xs_setup_tcp(struct xprt_create *args)
 		xs_format_peer_addresses(xprt, "tcp", RPCBIND_NETID_TCP6);
 		break;
 	default:
-		kfree(xprt);
-		return ERR_PTR(-EAFNOSUPPORT);
+		ret = ERR_PTR(-EAFNOSUPPORT);
+		goto out_err;
 	}
 
 	if (xprt_bound(xprt))
@@ -2424,10 +2423,11 @@ static struct rpc_xprt *xs_setup_tcp(struct xprt_create *args)
 
 	if (try_module_get(THIS_MODULE))
 		return xprt;
-
+	ret = ERR_PTR(-EINVAL);
+out_err:
 	kfree(xprt->slot);
 	kfree(xprt);
-	return ERR_PTR(-EINVAL);
+	return ret;
 }
 
 /**
@@ -2441,6 +2441,7 @@ static struct rpc_xprt *xs_setup_bc_tcp(struct xprt_create *args)
 	struct rpc_xprt *xprt;
 	struct sock_xprt *transport;
 	struct svc_sock *bc_sock;
+	struct rpc_xprt *ret;
 
 	xprt = xs_setup_xprt(args, xprt_tcp_slot_table_entries);
 	if (IS_ERR(xprt))
@@ -2480,8 +2481,8 @@ static struct rpc_xprt *xs_setup_bc_tcp(struct xprt_create *args)
 				   RPCBIND_NETID_TCP6);
 		break;
 	default:
-		kfree(xprt);
-		return ERR_PTR(-EAFNOSUPPORT);
+		ret = ERR_PTR(-EAFNOSUPPORT);
+		goto out_err;
 	}
 
 	if (xprt_bound(xprt))
@@ -2503,9 +2504,11 @@ static struct rpc_xprt *xs_setup_bc_tcp(struct xprt_create *args)
 
 	if (try_module_get(THIS_MODULE))
 		return xprt;
+	ret = ERR_PTR(-EINVAL);
+out_err:
 	kfree(xprt->slot);
 	kfree(xprt);
-	return ERR_PTR(-EINVAL);
+	return ret;
 }
 
 static struct xprt_class	xs_udp_transport = {
