@@ -33,7 +33,7 @@ void __init arm_mm_lmb_reserve(void)
  */
 void __init paging_init(struct machine_desc *mdesc)
 {
-	bootmem_init(mdesc);
+	bootmem_init();
 }
 
 /*
