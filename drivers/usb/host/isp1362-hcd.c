@@ -77,6 +77,7 @@
 #include <linux/interrupt.h>
 #include <linux/usb.h>
 #include <linux/usb/isp1362.h>
+#include <linux/usb/hcd.h>
 #include <linux/platform_device.h>
 #include <linux/pm.h>
 #include <linux/io.h>
@@ -95,7 +96,6 @@ module_param(dbg_level, int, 0);
 #define	STUB_DEBUG_FILE
 #endif
 
-#include "../core/hcd.h"
 #include "../core/usb.h"
 #include "isp1362.h"
 
@@ -1257,7 +1257,7 @@ static int isp1362_urb_enqueue(struct usb_hcd *hcd,
 
 	/* avoid all allocations within spinlocks: request or endpoint */
 	if (!hep->hcpriv) {
-		ep = kcalloc(1, sizeof *ep, mem_flags);
+		ep = kzalloc(sizeof *ep, mem_flags);
 		if (!ep)
 			return -ENOMEM;
 	}
@@ -1265,7 +1265,7 @@ static int isp1362_urb_enqueue(struct usb_hcd *hcd,
 
 	/* don't submit to a dead or disabled port */
 	if (!((isp1362_hcd->rhport[0] | isp1362_hcd->rhport[1]) &
-	      (1 << USB_PORT_FEAT_ENABLE)) ||
+	      USB_PORT_STAT_ENABLE) ||
 	    !HC_IS_RUNNING(hcd->state)) {
 		kfree(ep);
 		retval = -ENODEV;
@@ -2217,7 +2217,7 @@ static void create_debug_file(struct isp1362_hcd *isp1362_hcd)
 static void remove_debug_file(struct isp1362_hcd *isp1362_hcd)
 {
 	if (isp1362_hcd->pde)
-		remove_proc_entry(proc_filename, 0);
+		remove_proc_entry(proc_filename, NULL);
 }
 
 #endif
@@ -2719,24 +2719,11 @@ static int __init isp1362_probe(struct platform_device *pdev)
 	}
 	irq = irq_res->start;
 
-#ifdef CONFIG_USB_HCD_DMA
-	if (pdev->dev.dma_mask) {
-		struct resource *dma_res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
-
-		if (!dma_res) {
-			retval = -ENODEV;
-			goto err1;
-		}
-		isp1362_hcd->data_dma = dma_res->start;
-		isp1362_hcd->max_dma_size = resource_len(dma_res);
-	}
-#else
 	if (pdev->dev.dma_mask) {
 		DBG(1, "won't do DMA");
 		retval = -ENODEV;
 		goto err1;
 	}
-#endif
 
 	if (!request_mem_region(addr->start, resource_len(addr), hcd_name)) {
 		retval = -EBUSY;

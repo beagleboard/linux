@@ -24,6 +24,12 @@
  * 2 of the License, or (at your option) any later version.
  */
 
+#ifdef __KERNEL__
+#include <linux/types.h>
+#else
+#include <stdint.h>
+#endif
+
 #ifndef __ASSEMBLY__
 
 struct pt_regs {
@@ -83,6 +89,7 @@ struct pt_regs {
 
 #define instruction_pointer(regs) ((regs)->nip)
 #define user_stack_pointer(regs) ((regs)->gpr[1])
+#define kernel_stack_pointer(regs) ((regs)->gpr[1])
 #define regs_return_value(regs) ((regs)->gpr[3])
 
 #ifdef CONFIG_SMP
@@ -131,16 +138,72 @@ do {									      \
 } while (0)
 #endif /* __powerpc64__ */
 
-/*
- * These are defined as per linux/ptrace.h, which see.
- */
 #define arch_has_single_step()	(1)
 #define arch_has_block_step()	(!cpu_has_feature(CPU_FTR_601))
-extern void user_enable_single_step(struct task_struct *);
-extern void user_enable_block_step(struct task_struct *);
-extern void user_disable_single_step(struct task_struct *);
-
 #define ARCH_HAS_USER_SINGLE_STEP_INFO
+
+/*
+ * kprobe-based event tracer support
+ */
+
+#include <linux/stddef.h>
+#include <linux/thread_info.h>
+extern int regs_query_register_offset(const char *name);
+extern const char *regs_query_register_name(unsigned int offset);
+#define MAX_REG_OFFSET (offsetof(struct pt_regs, dsisr))
+
+/**
+ * regs_get_register() - get register value from its offset
+ * @regs:	   pt_regs from which register value is gotten
+ * @offset:    offset number of the register.
+ *
+ * regs_get_register returns the value of a register whose offset from @regs.
+ * The @offset is the offset of the register in struct pt_regs.
+ * If @offset is bigger than MAX_REG_OFFSET, this returns 0.
+ */
+static inline unsigned long regs_get_register(struct pt_regs *regs,
+						unsigned int offset)
+{
+	if (unlikely(offset > MAX_REG_OFFSET))
+		return 0;
+	return *(unsigned long *)((unsigned long)regs + offset);
+}
+
+/**
+ * regs_within_kernel_stack() - check the address in the stack
+ * @regs:      pt_regs which contains kernel stack pointer.
+ * @addr:      address which is checked.
+ *
+ * regs_within_kernel_stack() checks @addr is within the kernel stack page(s).
+ * If @addr is within the kernel stack, it returns true. If not, returns false.
+ */
+
+static inline bool regs_within_kernel_stack(struct pt_regs *regs,
+						unsigned long addr)
+{
+	return ((addr & ~(THREAD_SIZE - 1))  ==
+		(kernel_stack_pointer(regs) & ~(THREAD_SIZE - 1)));
+}
+
+/**
+ * regs_get_kernel_stack_nth() - get Nth entry of the stack
+ * @regs:	pt_regs which contains kernel stack pointer.
+ * @n:		stack entry number.
+ *
+ * regs_get_kernel_stack_nth() returns @n th entry of the kernel stack which
+ * is specified by @regs. If the @n th entry is NOT in the kernel stack,
+ * this returns 0.
+ */
+static inline unsigned long regs_get_kernel_stack_nth(struct pt_regs *regs,
+						      unsigned int n)
+{
+	unsigned long *addr = (unsigned long *)kernel_stack_pointer(regs);
+	addr += n;
+	if (regs_within_kernel_stack(regs, (unsigned long)addr))
+		return *addr;
+	else
+		return 0;
+}
 
 #endif /* __ASSEMBLY__ */
 
@@ -293,5 +356,76 @@ extern void user_disable_single_step(struct task_struct *);
 #define PPC_PTRACE_POKEUSR_3264  0x90
 
 #define PTRACE_SINGLEBLOCK	0x100	/* resume execution until next branch */
+
+#define PPC_PTRACE_GETHWDBGINFO	0x89
+#define PPC_PTRACE_SETHWDEBUG	0x88
+#define PPC_PTRACE_DELHWDEBUG	0x87
+
+#ifndef __ASSEMBLY__
+
+struct ppc_debug_info {
+	uint32_t version;		/* Only version 1 exists to date */
+	uint32_t num_instruction_bps;
+	uint32_t num_data_bps;
+	uint32_t num_condition_regs;
+	uint32_t data_bp_alignment;
+	uint32_t sizeof_condition;	/* size of the DVC register */
+	uint64_t features;
+};
+
+#endif /* __ASSEMBLY__ */
+
+/*
+ * features will have bits indication whether there is support for:
+ */
+#define PPC_DEBUG_FEATURE_INSN_BP_RANGE		0x0000000000000001
+#define PPC_DEBUG_FEATURE_INSN_BP_MASK		0x0000000000000002
+#define PPC_DEBUG_FEATURE_DATA_BP_RANGE		0x0000000000000004
+#define PPC_DEBUG_FEATURE_DATA_BP_MASK		0x0000000000000008
+
+#ifndef __ASSEMBLY__
+
+struct ppc_hw_breakpoint {
+	uint32_t version;		/* currently, version must be 1 */
+	uint32_t trigger_type;		/* only some combinations allowed */
+	uint32_t addr_mode;		/* address match mode */
+	uint32_t condition_mode;	/* break/watchpoint condition flags */
+	uint64_t addr;			/* break/watchpoint address */
+	uint64_t addr2;			/* range end or mask */
+	uint64_t condition_value;	/* contents of the DVC register */
+};
+
+#endif /* __ASSEMBLY__ */
+
+/*
+ * Trigger Type
+ */
+#define PPC_BREAKPOINT_TRIGGER_EXECUTE	0x00000001
+#define PPC_BREAKPOINT_TRIGGER_READ	0x00000002
+#define PPC_BREAKPOINT_TRIGGER_WRITE	0x00000004
+#define PPC_BREAKPOINT_TRIGGER_RW	\
+	(PPC_BREAKPOINT_TRIGGER_READ | PPC_BREAKPOINT_TRIGGER_WRITE)
+
+/*
+ * Address Mode
+ */
+#define PPC_BREAKPOINT_MODE_EXACT		0x00000000
+#define PPC_BREAKPOINT_MODE_RANGE_INCLUSIVE	0x00000001
+#define PPC_BREAKPOINT_MODE_RANGE_EXCLUSIVE	0x00000002
+#define PPC_BREAKPOINT_MODE_MASK		0x00000003
+
+/*
+ * Condition Mode
+ */
+#define PPC_BREAKPOINT_CONDITION_MODE	0x00000003
+#define PPC_BREAKPOINT_CONDITION_NONE	0x00000000
+#define PPC_BREAKPOINT_CONDITION_AND	0x00000001
+#define PPC_BREAKPOINT_CONDITION_EXACT	PPC_BREAKPOINT_CONDITION_AND
+#define PPC_BREAKPOINT_CONDITION_OR	0x00000002
+#define PPC_BREAKPOINT_CONDITION_AND_OR	0x00000003
+#define PPC_BREAKPOINT_CONDITION_BE_ALL	0x00ff0000
+#define PPC_BREAKPOINT_CONDITION_BE_SHIFT	16
+#define PPC_BREAKPOINT_CONDITION_BE(n)	\
+	(1<<((n)+PPC_BREAKPOINT_CONDITION_BE_SHIFT))
 
 #endif /* _ASM_POWERPC_PTRACE_H */

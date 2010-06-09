@@ -6,6 +6,7 @@
  */
 
 #include <linux/kobject.h>
+#include <linux/slab.h>
 #include <linux/pci.h>
 #include <linux/err.h>
 #include "pci.h"
@@ -29,7 +30,7 @@ static ssize_t pci_slot_attr_store(struct kobject *kobj,
 	return attribute->store ? attribute->store(slot, buf, len) : -EIO;
 }
 
-static struct sysfs_ops pci_slot_sysfs_ops = {
+static const struct sysfs_ops pci_slot_sysfs_ops = {
 	.show = pci_slot_attr_show,
 	.store = pci_slot_attr_store,
 };
@@ -47,6 +48,99 @@ static ssize_t address_read_file(struct pci_slot *slot, char *buf)
 				slot->number);
 }
 
+/* these strings match up with the values in pci_bus_speed */
+static char *pci_bus_speed_strings[] = {
+	"33 MHz PCI",		/* 0x00 */
+	"66 MHz PCI",		/* 0x01 */
+	"66 MHz PCI-X", 	/* 0x02 */
+	"100 MHz PCI-X",	/* 0x03 */
+	"133 MHz PCI-X",	/* 0x04 */
+	NULL,			/* 0x05 */
+	NULL,			/* 0x06 */
+	NULL,			/* 0x07 */
+	NULL,			/* 0x08 */
+	"66 MHz PCI-X 266",	/* 0x09 */
+	"100 MHz PCI-X 266",	/* 0x0a */
+	"133 MHz PCI-X 266",	/* 0x0b */
+	"Unknown AGP",		/* 0x0c */
+	"1x AGP",		/* 0x0d */
+	"2x AGP",		/* 0x0e */
+	"4x AGP",		/* 0x0f */
+	"8x AGP",		/* 0x10 */
+	"66 MHz PCI-X 533",	/* 0x11 */
+	"100 MHz PCI-X 533",	/* 0x12 */
+	"133 MHz PCI-X 533",	/* 0x13 */
+	"2.5 GT/s PCIe",	/* 0x14 */
+	"5.0 GT/s PCIe",	/* 0x15 */
+	"8.0 GT/s PCIe",	/* 0x16 */
+};
+
+static ssize_t bus_speed_read(enum pci_bus_speed speed, char *buf)
+{
+	const char *speed_string;
+
+	if (speed < ARRAY_SIZE(pci_bus_speed_strings))
+		speed_string = pci_bus_speed_strings[speed];
+	else
+		speed_string = "Unknown";
+
+	return sprintf(buf, "%s\n", speed_string);
+}
+
+static ssize_t max_speed_read_file(struct pci_slot *slot, char *buf)
+{
+	return bus_speed_read(slot->bus->max_bus_speed, buf);
+}
+
+static ssize_t cur_speed_read_file(struct pci_slot *slot, char *buf)
+{
+	return bus_speed_read(slot->bus->cur_bus_speed, buf);
+}
+
+static void remove_sysfs_files(struct pci_slot *slot)
+{
+	char func[10];
+	struct list_head *tmp;
+
+	list_for_each(tmp, &slot->bus->devices) {
+		struct pci_dev *dev = pci_dev_b(tmp);
+		if (PCI_SLOT(dev->devfn) != slot->number)
+			continue;
+		sysfs_remove_link(&dev->dev.kobj, "slot");
+
+		snprintf(func, 10, "function%d", PCI_FUNC(dev->devfn));
+		sysfs_remove_link(&slot->kobj, func);
+	}
+}
+
+static int create_sysfs_files(struct pci_slot *slot)
+{
+	int result;
+	char func[10];
+	struct list_head *tmp;
+
+	list_for_each(tmp, &slot->bus->devices) {
+		struct pci_dev *dev = pci_dev_b(tmp);
+		if (PCI_SLOT(dev->devfn) != slot->number)
+			continue;
+
+		result = sysfs_create_link(&dev->dev.kobj, &slot->kobj, "slot");
+		if (result)
+			goto fail;
+
+		snprintf(func, 10, "function%d", PCI_FUNC(dev->devfn));
+		result = sysfs_create_link(&slot->kobj, &dev->dev.kobj, func);
+		if (result)
+			goto fail;
+	}
+
+	return 0;
+
+fail:
+	remove_sysfs_files(slot);
+	return result;
+}
+
 static void pci_slot_release(struct kobject *kobj)
 {
 	struct pci_dev *dev;
@@ -59,6 +153,8 @@ static void pci_slot_release(struct kobject *kobj)
 		if (PCI_SLOT(dev->devfn) == slot->number)
 			dev->slot = NULL;
 
+	remove_sysfs_files(slot);
+
 	list_del(&slot->list);
 
 	kfree(slot);
@@ -66,9 +162,15 @@ static void pci_slot_release(struct kobject *kobj)
 
 static struct pci_slot_attribute pci_slot_attr_address =
 	__ATTR(address, (S_IFREG | S_IRUGO), address_read_file, NULL);
+static struct pci_slot_attribute pci_slot_attr_max_speed =
+	__ATTR(max_bus_speed, (S_IFREG | S_IRUGO), max_speed_read_file, NULL);
+static struct pci_slot_attribute pci_slot_attr_cur_speed =
+	__ATTR(cur_bus_speed, (S_IFREG | S_IRUGO), cur_speed_read_file, NULL);
 
 static struct attribute *pci_slot_default_attrs[] = {
 	&pci_slot_attr_address.attr,
+	&pci_slot_attr_max_speed.attr,
+	&pci_slot_attr_cur_speed.attr,
 	NULL,
 };
 
@@ -243,6 +345,8 @@ placeholder:
 
 	INIT_LIST_HEAD(&slot->list);
 	list_add(&slot->list, &parent->slots);
+
+	create_sysfs_files(slot);
 
 	list_for_each_entry(dev, &parent->devices, bus_list)
 		if (PCI_SLOT(dev->devfn) == slot_nr)

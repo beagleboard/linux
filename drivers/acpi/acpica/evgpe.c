@@ -5,7 +5,7 @@
  *****************************************************************************/
 
 /*
- * Copyright (C) 2000 - 2008, Intel Corp.
+ * Copyright (C) 2000 - 2010, Intel Corp.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -54,64 +54,19 @@ static void ACPI_SYSTEM_XFACE acpi_ev_asynch_execute_gpe_method(void *context);
 
 /*******************************************************************************
  *
- * FUNCTION:    acpi_ev_set_gpe_type
- *
- * PARAMETERS:  gpe_event_info          - GPE to set
- *              Type                    - New type
- *
- * RETURN:      Status
- *
- * DESCRIPTION: Sets the new type for the GPE (wake, run, or wake/run)
- *
- ******************************************************************************/
-
-acpi_status
-acpi_ev_set_gpe_type(struct acpi_gpe_event_info *gpe_event_info, u8 type)
-{
-	acpi_status status;
-
-	ACPI_FUNCTION_TRACE(ev_set_gpe_type);
-
-	/* Validate type and update register enable masks */
-
-	switch (type) {
-	case ACPI_GPE_TYPE_WAKE:
-	case ACPI_GPE_TYPE_RUNTIME:
-	case ACPI_GPE_TYPE_WAKE_RUN:
-		break;
-
-	default:
-		return_ACPI_STATUS(AE_BAD_PARAMETER);
-	}
-
-	/* Disable the GPE if currently enabled */
-
-	status = acpi_ev_disable_gpe(gpe_event_info);
-
-	/* Clear the type bits and insert the new Type */
-
-	gpe_event_info->flags &= ~ACPI_GPE_TYPE_MASK;
-	gpe_event_info->flags |= type;
-	return_ACPI_STATUS(status);
-}
-
-/*******************************************************************************
- *
  * FUNCTION:    acpi_ev_update_gpe_enable_masks
  *
  * PARAMETERS:  gpe_event_info          - GPE to update
- *              Type                    - What to do: ACPI_GPE_DISABLE or
- *                                        ACPI_GPE_ENABLE
  *
  * RETURN:      Status
  *
- * DESCRIPTION: Updates GPE register enable masks based on the GPE type
+ * DESCRIPTION: Updates GPE register enable masks based upon whether there are
+ *              references (either wake or run) to this GPE
  *
  ******************************************************************************/
 
 acpi_status
-acpi_ev_update_gpe_enable_masks(struct acpi_gpe_event_info *gpe_event_info,
-				u8 type)
+acpi_ev_update_gpe_enable_masks(struct acpi_gpe_event_info *gpe_event_info)
 {
 	struct acpi_gpe_register_info *gpe_register_info;
 	u8 register_bit;
@@ -127,36 +82,19 @@ acpi_ev_update_gpe_enable_masks(struct acpi_gpe_event_info *gpe_event_info,
 	    (1 <<
 	     (gpe_event_info->gpe_number - gpe_register_info->base_gpe_number));
 
-	/* 1) Disable case. Simply clear all enable bits */
+	/* Clear the wake/run bits up front */
 
-	if (type == ACPI_GPE_DISABLE) {
-		ACPI_CLEAR_BIT(gpe_register_info->enable_for_wake,
-			       register_bit);
-		ACPI_CLEAR_BIT(gpe_register_info->enable_for_run, register_bit);
-		return_ACPI_STATUS(AE_OK);
+	ACPI_CLEAR_BIT(gpe_register_info->enable_for_wake, register_bit);
+	ACPI_CLEAR_BIT(gpe_register_info->enable_for_run, register_bit);
+
+	/* Set the mask bits only if there are references to this GPE */
+
+	if (gpe_event_info->runtime_count) {
+		ACPI_SET_BIT(gpe_register_info->enable_for_run, register_bit);
 	}
 
-	/* 2) Enable case. Set/Clear the appropriate enable bits */
-
-	switch (gpe_event_info->flags & ACPI_GPE_TYPE_MASK) {
-	case ACPI_GPE_TYPE_WAKE:
+	if (gpe_event_info->wakeup_count) {
 		ACPI_SET_BIT(gpe_register_info->enable_for_wake, register_bit);
-		ACPI_CLEAR_BIT(gpe_register_info->enable_for_run, register_bit);
-		break;
-
-	case ACPI_GPE_TYPE_RUNTIME:
-		ACPI_CLEAR_BIT(gpe_register_info->enable_for_wake,
-			       register_bit);
-		ACPI_SET_BIT(gpe_register_info->enable_for_run, register_bit);
-		break;
-
-	case ACPI_GPE_TYPE_WAKE_RUN:
-		ACPI_SET_BIT(gpe_register_info->enable_for_wake, register_bit);
-		ACPI_SET_BIT(gpe_register_info->enable_for_run, register_bit);
-		break;
-
-	default:
-		return_ACPI_STATUS(AE_BAD_PARAMETER);
 	}
 
 	return_ACPI_STATUS(AE_OK);
@@ -167,69 +105,52 @@ acpi_ev_update_gpe_enable_masks(struct acpi_gpe_event_info *gpe_event_info,
  * FUNCTION:    acpi_ev_enable_gpe
  *
  * PARAMETERS:  gpe_event_info          - GPE to enable
- *              write_to_hardware       - Enable now, or just mark data structs
- *                                        (WAKE GPEs should be deferred)
  *
  * RETURN:      Status
  *
- * DESCRIPTION: Enable a GPE based on the GPE type
+ * DESCRIPTION: Hardware-enable a GPE. Always enables the GPE, regardless
+ *              of type or number of references.
+ *
+ * Note: The GPE lock should be already acquired when this function is called.
  *
  ******************************************************************************/
 
-acpi_status
-acpi_ev_enable_gpe(struct acpi_gpe_event_info *gpe_event_info,
-		   u8 write_to_hardware)
+acpi_status acpi_ev_enable_gpe(struct acpi_gpe_event_info *gpe_event_info)
 {
 	acpi_status status;
 
+
 	ACPI_FUNCTION_TRACE(ev_enable_gpe);
 
-	/* Make sure HW enable masks are updated */
 
-	status =
-	    acpi_ev_update_gpe_enable_masks(gpe_event_info, ACPI_GPE_ENABLE);
+	/*
+	 * We will only allow a GPE to be enabled if it has either an
+	 * associated method (_Lxx/_Exx) or a handler. Otherwise, the
+	 * GPE will be immediately disabled by acpi_ev_gpe_dispatch the
+	 * first time it fires.
+	 */
+	if (!(gpe_event_info->flags & ACPI_GPE_DISPATCH_MASK)) {
+		return_ACPI_STATUS(AE_NO_HANDLER);
+	}
+
+	/* Ensure the HW enable masks are current */
+
+	status = acpi_ev_update_gpe_enable_masks(gpe_event_info);
 	if (ACPI_FAILURE(status)) {
 		return_ACPI_STATUS(status);
 	}
 
-	/* Mark wake-enabled or HW enable, or both */
+	/* Clear the GPE (of stale events) */
 
-	switch (gpe_event_info->flags & ACPI_GPE_TYPE_MASK) {
-	case ACPI_GPE_TYPE_WAKE:
-
-		ACPI_SET_BIT(gpe_event_info->flags, ACPI_GPE_WAKE_ENABLED);
-		break;
-
-	case ACPI_GPE_TYPE_WAKE_RUN:
-
-		ACPI_SET_BIT(gpe_event_info->flags, ACPI_GPE_WAKE_ENABLED);
-
-		/*lint -fallthrough */
-
-	case ACPI_GPE_TYPE_RUNTIME:
-
-		ACPI_SET_BIT(gpe_event_info->flags, ACPI_GPE_RUN_ENABLED);
-
-		if (write_to_hardware) {
-
-			/* Clear the GPE (of stale events), then enable it */
-
-			status = acpi_hw_clear_gpe(gpe_event_info);
-			if (ACPI_FAILURE(status)) {
-				return_ACPI_STATUS(status);
-			}
-
-			/* Enable the requested runtime GPE */
-
-			status = acpi_hw_write_gpe_enable_reg(gpe_event_info);
-		}
-		break;
-
-	default:
-		return_ACPI_STATUS(AE_BAD_PARAMETER);
+	status = acpi_hw_clear_gpe(gpe_event_info);
+	if (ACPI_FAILURE(status)) {
+		return_ACPI_STATUS(status);
 	}
 
-	return_ACPI_STATUS(AE_OK);
+	/* Enable the requested GPE */
+
+	status = acpi_hw_write_gpe_enable_reg(gpe_event_info);
+	return_ACPI_STATUS(status);
 }
 
 /*******************************************************************************
@@ -240,7 +161,10 @@ acpi_ev_enable_gpe(struct acpi_gpe_event_info *gpe_event_info,
  *
  * RETURN:      Status
  *
- * DESCRIPTION: Disable a GPE based on the GPE type
+ * DESCRIPTION: Hardware-disable a GPE. Always disables the requested GPE,
+ *              regardless of the type or number of references.
+ *
+ * Note: The GPE lock should be already acquired when this function is called.
  *
  ******************************************************************************/
 
@@ -250,48 +174,70 @@ acpi_status acpi_ev_disable_gpe(struct acpi_gpe_event_info *gpe_event_info)
 
 	ACPI_FUNCTION_TRACE(ev_disable_gpe);
 
-	/* Make sure HW enable masks are updated */
 
-	status =
-	    acpi_ev_update_gpe_enable_masks(gpe_event_info, ACPI_GPE_DISABLE);
+	/*
+	 * Note: Always disable the GPE, even if we think that that it is already
+	 * disabled. It is possible that the AML or some other code has enabled
+	 * the GPE behind our back.
+	 */
+
+	/* Ensure the HW enable masks are current */
+
+	status = acpi_ev_update_gpe_enable_masks(gpe_event_info);
 	if (ACPI_FAILURE(status)) {
 		return_ACPI_STATUS(status);
 	}
 
-	/* Clear the appropriate enabled flags for this GPE */
-
-	switch (gpe_event_info->flags & ACPI_GPE_TYPE_MASK) {
-	case ACPI_GPE_TYPE_WAKE:
-		ACPI_CLEAR_BIT(gpe_event_info->flags, ACPI_GPE_WAKE_ENABLED);
-		break;
-
-	case ACPI_GPE_TYPE_WAKE_RUN:
-		ACPI_CLEAR_BIT(gpe_event_info->flags, ACPI_GPE_WAKE_ENABLED);
-
-		/* fallthrough */
-
-	case ACPI_GPE_TYPE_RUNTIME:
-
-		/* Disable the requested runtime GPE */
-
-		ACPI_CLEAR_BIT(gpe_event_info->flags, ACPI_GPE_RUN_ENABLED);
-		break;
-
-	default:
-		break;
-	}
-
 	/*
-	 * Even if we don't know the GPE type, make sure that we always
-	 * disable it. low_disable_gpe will just clear the enable bit for this
-	 * GPE and write it. It will not write out the current GPE enable mask,
-	 * since this may inadvertently enable GPEs too early, if a rogue GPE has
-	 * come in during ACPICA initialization - possibly as a result of AML or
-	 * other code that has enabled the GPE.
+	 * Always H/W disable this GPE, even if we don't know the GPE type.
+	 * Simply clear the enable bit for this particular GPE, but do not
+	 * write out the current GPE enable mask since this may inadvertently
+	 * enable GPEs too early. An example is a rogue GPE that has arrived
+	 * during ACPICA initialization - possibly because AML or other code
+	 * has enabled the GPE.
 	 */
 	status = acpi_hw_low_disable_gpe(gpe_event_info);
 	return_ACPI_STATUS(status);
 }
+
+
+/*******************************************************************************
+ *
+ * FUNCTION:    acpi_ev_low_get_gpe_info
+ *
+ * PARAMETERS:  gpe_number          - Raw GPE number
+ *              gpe_block           - A GPE info block
+ *
+ * RETURN:      A GPE event_info struct. NULL if not a valid GPE (The gpe_number
+ *              is not within the specified GPE block)
+ *
+ * DESCRIPTION: Returns the event_info struct associated with this GPE. This is
+ *              the low-level implementation of ev_get_gpe_event_info.
+ *
+ ******************************************************************************/
+
+struct acpi_gpe_event_info *acpi_ev_low_get_gpe_info(u32 gpe_number,
+						     struct acpi_gpe_block_info
+						     *gpe_block)
+{
+	u32 gpe_index;
+
+	/*
+	 * Validate that the gpe_number is within the specified gpe_block.
+	 * (Two steps)
+	 */
+	if (!gpe_block || (gpe_number < gpe_block->block_base_number)) {
+		return (NULL);
+	}
+
+	gpe_index = gpe_number - gpe_block->block_base_number;
+	if (gpe_index >= gpe_block->gpe_count) {
+		return (NULL);
+	}
+
+	return (&gpe_block->event_info[gpe_index]);
+}
+
 
 /*******************************************************************************
  *
@@ -314,29 +260,23 @@ struct acpi_gpe_event_info *acpi_ev_get_gpe_event_info(acpi_handle gpe_device,
 						       u32 gpe_number)
 {
 	union acpi_operand_object *obj_desc;
-	struct acpi_gpe_block_info *gpe_block;
+	struct acpi_gpe_event_info *gpe_info;
 	u32 i;
 
 	ACPI_FUNCTION_ENTRY();
 
-	/* A NULL gpe_block means use the FADT-defined GPE block(s) */
+	/* A NULL gpe_device means use the FADT-defined GPE block(s) */
 
 	if (!gpe_device) {
 
 		/* Examine GPE Block 0 and 1 (These blocks are permanent) */
 
 		for (i = 0; i < ACPI_MAX_GPE_BLOCKS; i++) {
-			gpe_block = acpi_gbl_gpe_fadt_blocks[i];
-			if (gpe_block) {
-				if ((gpe_number >= gpe_block->block_base_number)
-				    && (gpe_number <
-					gpe_block->block_base_number +
-					(gpe_block->register_count * 8))) {
-					return (&gpe_block->
-						event_info[gpe_number -
-							   gpe_block->
-							   block_base_number]);
-				}
+			gpe_info = acpi_ev_low_get_gpe_info(gpe_number,
+							    acpi_gbl_gpe_fadt_blocks
+							    [i]);
+			if (gpe_info) {
+				return (gpe_info);
 			}
 		}
 
@@ -353,16 +293,8 @@ struct acpi_gpe_event_info *acpi_ev_get_gpe_event_info(acpi_handle gpe_device,
 		return (NULL);
 	}
 
-	gpe_block = obj_desc->device.gpe_block;
-
-	if ((gpe_number >= gpe_block->block_base_number) &&
-	    (gpe_number <
-	     gpe_block->block_base_number + (gpe_block->register_count * 8))) {
-		return (&gpe_block->
-			event_info[gpe_number - gpe_block->block_base_number]);
-	}
-
-	return (NULL);
+	return (acpi_ev_low_get_gpe_info
+		(gpe_number, obj_desc->device.gpe_block));
 }
 
 /*******************************************************************************
@@ -519,9 +451,9 @@ static void ACPI_SYSTEM_XFACE acpi_ev_asynch_execute_gpe_method(void *context)
 		return_VOID;
 	}
 
-	/* Set the GPE flags for return to enabled state */
+	/* Update the GPE register masks for return to enabled state */
 
-	(void)acpi_ev_enable_gpe(gpe_event_info, FALSE);
+	(void)acpi_ev_update_gpe_enable_masks(gpe_event_info);
 
 	/*
 	 * Take a snapshot of the GPE info for this level - we copy the info to
@@ -629,7 +561,7 @@ acpi_ev_gpe_dispatch(struct acpi_gpe_event_info *gpe_event_info, u32 gpe_number)
 		status = acpi_hw_clear_gpe(gpe_event_info);
 		if (ACPI_FAILURE(status)) {
 			ACPI_EXCEPTION((AE_INFO, status,
-					"Unable to clear GPE[%2X]",
+					"Unable to clear GPE[0x%2X]",
 					gpe_number));
 			return_UINT32(ACPI_INTERRUPT_NOT_HANDLED);
 		}
@@ -662,7 +594,7 @@ acpi_ev_gpe_dispatch(struct acpi_gpe_event_info *gpe_event_info, u32 gpe_number)
 			status = acpi_hw_clear_gpe(gpe_event_info);
 			if (ACPI_FAILURE(status)) {
 				ACPI_EXCEPTION((AE_INFO, status,
-						"Unable to clear GPE[%2X]",
+					"Unable to clear GPE[0x%2X]",
 						gpe_number));
 				return_UINT32(ACPI_INTERRUPT_NOT_HANDLED);
 			}
@@ -678,7 +610,7 @@ acpi_ev_gpe_dispatch(struct acpi_gpe_event_info *gpe_event_info, u32 gpe_number)
 		status = acpi_ev_disable_gpe(gpe_event_info);
 		if (ACPI_FAILURE(status)) {
 			ACPI_EXCEPTION((AE_INFO, status,
-					"Unable to disable GPE[%2X]",
+					"Unable to disable GPE[0x%2X]",
 					gpe_number));
 			return_UINT32(ACPI_INTERRUPT_NOT_HANDLED);
 		}
@@ -692,27 +624,30 @@ acpi_ev_gpe_dispatch(struct acpi_gpe_event_info *gpe_event_info, u32 gpe_number)
 					 gpe_event_info);
 		if (ACPI_FAILURE(status)) {
 			ACPI_EXCEPTION((AE_INFO, status,
-					"Unable to queue handler for GPE[%2X] - event disabled",
+					"Unable to queue handler for GPE[0x%2X] - event disabled",
 					gpe_number));
 		}
 		break;
 
 	default:
 
-		/* No handler or method to run! */
-
+		/*
+		 * No handler or method to run!
+		 * 03/2010: This case should no longer be possible. We will not allow
+		 * a GPE to be enabled if it has no handler or method.
+		 */
 		ACPI_ERROR((AE_INFO,
-			    "No handler or method for GPE[%2X], disabling event",
+			    "No handler or method for GPE[0x%2X], disabling event",
 			    gpe_number));
 
 		/*
-		 * Disable the GPE. The GPE will remain disabled until the ACPICA
-		 * Core Subsystem is restarted, or a handler is installed.
+		 * Disable the GPE. The GPE will remain disabled a handler
+		 * is installed or ACPICA is restarted.
 		 */
 		status = acpi_ev_disable_gpe(gpe_event_info);
 		if (ACPI_FAILURE(status)) {
 			ACPI_EXCEPTION((AE_INFO, status,
-					"Unable to disable GPE[%2X]",
+					"Unable to disable GPE[0x%2X]",
 					gpe_number));
 			return_UINT32(ACPI_INTERRUPT_NOT_HANDLED);
 		}
