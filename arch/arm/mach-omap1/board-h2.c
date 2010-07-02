@@ -437,6 +437,19 @@ static void __init h2_init(void)
 	/* omap_cfg_reg(U19_ARMIO1); */		/* CD */
 	omap_cfg_reg(BALLOUT_V8_ARMIO3);	/* WP */
 
+	/* Mux pins for keypad */
+	omap_cfg_reg(F18_1610_KBC0);
+	omap_cfg_reg(D20_1610_KBC1);
+	omap_cfg_reg(D19_1610_KBC2);
+	omap_cfg_reg(E18_1610_KBC3);
+	omap_cfg_reg(C21_1610_KBC4);
+	omap_cfg_reg(G18_1610_KBR0);
+	omap_cfg_reg(F19_1610_KBR1);
+	omap_cfg_reg(H14_1610_KBR2);
+	omap_cfg_reg(E20_1610_KBR3);
+	omap_cfg_reg(E19_1610_KBR4);
+	omap_cfg_reg(N19_1610_KBR5);
+
 	/* Irda */
 #if defined(CONFIG_OMAP_IR) || defined(CONFIG_OMAP_IR_MODULE)
 	omap_writel(omap_readl(FUNC_MUX_CTRL_A) | 7, FUNC_MUX_CTRL_A);
@@ -452,7 +465,7 @@ static void __init h2_init(void)
 	omap_serial_init();
 	omap_register_i2c_bus(1, 100, h2_i2c_board_info,
 			      ARRAY_SIZE(h2_i2c_board_info));
-	omap_usb_init(&h2_usb_config);
+	omap1_usb_init(&h2_usb_config);
 	h2_mmc_init();
 }
 
@@ -467,6 +480,7 @@ MACHINE_START(OMAP_H2, "TI-H2")
 	.io_pg_offst	= ((0xfef00000) >> 18) & 0xfffc,
 	.boot_params	= 0x10000100,
 	.map_io		= h2_map_io,
+	.reserve	= omap_reserve,
 	.init_irq	= h2_init_irq,
 	.init_machine	= h2_init,
 	.timer		= &omap_timer,

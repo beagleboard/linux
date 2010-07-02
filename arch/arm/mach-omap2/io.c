@@ -28,12 +28,10 @@
 
 #include <asm/mach/map.h>
 
-#include <plat/mux.h>
 #include <plat/sram.h>
 #include <plat/sdrc.h>
 #include <plat/gpmc.h>
 #include <plat/serial.h>
-#include <plat/vram.h>
 
 #include "clock2xxx.h"
 #include "clock3xxx.h"
@@ -241,8 +239,6 @@ static void __init _omap2_map_common_io(void)
 
 	omap2_check_revision();
 	omap_sram_init();
-	omapfb_reserve_sdram();
-	omap_vram_reserve_sdram();
 }
 
 #ifdef CONFIG_ARCH_OMAP2420
@@ -324,7 +320,6 @@ void __init omap2_init_common_hw(struct omap_sdrc_params *sdrc_cs0,
 		omap2430_hwmod_init();
 	else if (cpu_is_omap34xx())
 		omap3xxx_hwmod_init();
-	omap2_mux_init();
 	/* The OPP tables have to be registered before a clk init */
 	omap_pm_if_early_init(mpu_opps, dsp_opps, l3_opps);
 

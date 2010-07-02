@@ -36,6 +36,8 @@ AFLAGS_sram243x.o			:=-Wa,-march=armv6
 AFLAGS_sram34xx.o			:=-Wa,-march=armv7-a
 
 # Pin multiplexing
+obj-$(CONFIG_ARCH_OMAP2420)		+= mux2420.o
+obj-$(CONFIG_ARCH_OMAP2430)		+= mux2430.o
 obj-$(CONFIG_ARCH_OMAP3)		+= mux34xx.o
 
 # SMS/SDRC
@@ -89,7 +91,10 @@ obj-$(CONFIG_OMAP3_EMU)			+= emu.o
 obj-$(CONFIG_OMAP_MBOX_FWK)		+= mailbox_mach.o
 mailbox_mach-objs			:= mailbox.o
 
-obj-$(CONFIG_OMAP_IOMMU)		:= iommu2.o omap-iommu.o
+obj-$(CONFIG_OMAP_IOMMU)		+= iommu2.o
+
+iommu-$(CONFIG_OMAP_IOMMU)		:= omap-iommu.o
+obj-y					+= $(iommu-m) $(iommu-y)
 
 i2c-omap-$(CONFIG_I2C_OMAP)		:= i2c.o
 obj-y					+= $(i2c-omap-m) $(i2c-omap-y)
@@ -146,6 +151,8 @@ obj-$(CONFIG_MACH_OMAP3517EVM)		+= board-am3517evm.o
 obj-$(CONFIG_MACH_SBC3530)		+= board-omap3stalker.o \
 					   hsmmc.o
 # Platform specific device init code
+usbfs-$(CONFIG_ARCH_OMAP_OTG)		:= usb-fs.o
+obj-y					+= $(usbfs-m) $(usbfs-y)
 obj-y					+= usb-musb.o
 obj-$(CONFIG_MACH_OMAP2_TUSB6010)	+= usb-tusb6010.o
 obj-y					+= usb-ehci.o
