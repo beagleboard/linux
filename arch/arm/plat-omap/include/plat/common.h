@@ -34,6 +34,8 @@ struct sys_timer;
 extern void omap_map_common_io(void);
 extern struct sys_timer omap_timer;
 
+extern void omap_reserve(void);
+
 /*
  * IO bases for various OMAP processors
  * Except the tap base, rest all the io bases
@@ -86,5 +88,9 @@ void omap2_set_globals_uart(struct omap_globals *);
 		udelay(1);					\
 	}							\
 })
+
+extern struct device *omap2_get_mpuss_device(void);
+extern struct device *omap2_get_dsp_device(void);
+extern struct device *omap2_get_l3_device(void);
 
 #endif /* __ARCH_ARM_MACH_OMAP_COMMON_H */
