@@ -148,7 +148,7 @@ static irqreturn_t omap_otg_irq(int irq, void *arg)
 
 }
 
-static int omap_otg_init(void)
+static int tahvo_otg_init(void)
 {
 	u32 l;
 
@@ -193,9 +193,9 @@ static int omap_otg_probe(struct device *dev)
 	int ret;
 
 	tahvo_otg_dev = to_platform_device(dev);
-	ret = omap_otg_init();
+	ret = tahvo_otg_init();
 	if (ret != 0) {
-		printk(KERN_ERR "tahvo-usb: omap_otg_init failed\n");
+		printk(KERN_ERR "tahvo-usb: tahvo_otg_init failed\n");
 		return ret;
 	}
 
@@ -338,7 +338,7 @@ static void tahvo_usb_become_host(struct tahvo_usb *tu)
 
 	/* Clear system and transceiver controlled bits
 	 * also mark the A-session is always valid */
-	omap_otg_init();
+	tahvo_otg_init();
 
 	l = omap_readl(OTG_CTRL);
 	l &= ~(OTG_CTRL_XCVR_MASK | OTG_CTRL_SYS_MASK);
@@ -366,7 +366,7 @@ static void tahvo_usb_become_peripheral(struct tahvo_usb *tu)
 	/* Clear system and transceiver controlled bits
 	 * and enable ID to mark peripheral mode and
 	 * BSESSEND to mark no Vbus */
-	omap_otg_init();
+	tahvo_otg_init();
 	l = omap_readl(OTG_CTRL);
 	l &= ~(OTG_CTRL_XCVR_MASK | OTG_CTRL_SYS_MASK | OTG_BSESSVLD);
 	l |= OTG_ID | OTG_BSESSEND;
