@@ -23,6 +23,7 @@
 #include <linux/gpio.h>
 #include <linux/gpio_keys.h>
 #include <linux/mmc/host.h>
+#include <../drivers/staging/iio/light/tsl2563.h>
 
 #include <plat/mcspi.h>
 #include <plat/board.h>
@@ -67,6 +68,10 @@ static struct omap2_mcspi_device_config tsc2005_mcspi_config = {
 	.turbo_mode	= 0,
 	.single_channel	= 1,
 };
+
+static struct tsl2563_platform_data rx51_tsl2563_platform_data = {
+	.cover_comp_gain = 16,
+	};
 
 static struct spi_board_info rx51_peripherals_spi_board_info[] __initdata = {
 	[RX51_SPI_WL1251] = {
@@ -706,6 +711,9 @@ static struct i2c_board_info __initdata rx51_peripherals_i2c_board_info_1[] = {
 		.flags = I2C_CLIENT_WAKE,
 		.irq = INT_34XX_SYS_NIRQ,
 		.platform_data = &rx51_twldata,
+	},
+	{	I2C_BOARD_INFO("tsl2563", 0x29),
+		.platform_data = &rx51_tsl2563_platform_data,
 	},
 };
 
