@@ -166,9 +166,26 @@ static struct platform_device overo_smsc911x_device = {
 	},
 };
 
+static struct platform_device overo_smsc911x2_device = {
+	.name		= "smsc911x",
+	.id		= 1,
+	.num_resources	= ARRAY_SIZE(overo_smsc911x2_resources),
+	.resource	= overo_smsc911x2_resources,
+	.dev		= {
+		.platform_data = &overo_smsc911x_config,
+	},
+};
+
+static struct platform_device *smsc911x_devices[] = {
+	&overo_smsc911x_device,
+	&overo_smsc911x2_device,
+};
+
 static inline void __init overo_init_smsc911x(void)
 {
-	unsigned long cs_mem_base;
+	unsigned long cs_mem_base, cs_mem_base2;
+
+	/* set up first smsc911x chip */
 
 	if (gpmc_cs_request(OVERO_SMSC911X_CS, SZ_16M, &cs_mem_base) < 0) {
 		printk(KERN_ERR "Failed request for GPMC mem for smsc911x\n");
@@ -189,7 +206,28 @@ static inline void __init overo_init_smsc911x(void)
 	overo_smsc911x_resources[1].start = OMAP_GPIO_IRQ(OVERO_SMSC911X_GPIO);
 	overo_smsc911x_resources[1].end	  = 0;
 
-	platform_device_register(&overo_smsc911x_device);
+	/* set up second smsc911x chip */
+
+	if (gpmc_cs_request(OVERO_SMSC911X2_CS, SZ_16M, &cs_mem_base2) < 0) {
+		printk(KERN_ERR "Failed request for GPMC mem for smsc911x2\n");
+		return;
+	}
+
+	overo_smsc911x2_resources[0].start = cs_mem_base2 + 0x0;
+	overo_smsc911x2_resources[0].end   = cs_mem_base2 + 0xff;
+
+	if ((gpio_request(OVERO_SMSC911X2_GPIO, "SMSC911X2 IRQ") == 0) &&
+	    (gpio_direction_input(OVERO_SMSC911X2_GPIO) == 0)) {
+		gpio_export(OVERO_SMSC911X2_GPIO, 0);
+	} else {
+		printk(KERN_ERR "could not obtain gpio for SMSC911X2 IRQ\n");
+		return;
+	}
+
+	overo_smsc911x2_resources[1].start = OMAP_GPIO_IRQ(OVERO_SMSC911X2_GPIO);
+	overo_smsc911x2_resources[1].end   = 0;
+
+	platform_add_devices(smsc911x_devices, ARRAY_SIZE(smsc911x_devices));
 }
 
 #else
@@ -484,17 +522,12 @@ static void __init overo_init(void)
 					"OVERO_GPIO_USBH_CPEN\n");
 }
 
-static void __init overo_map_io(void)
-{
-	omap2_set_globals_343x();
-	omap34xx_map_common_io();
-}
-
 MACHINE_START(OVERO, "Gumstix Overo")
 	.phys_io	= 0x48000000,
 	.io_pg_offst	= ((0xfa000000) >> 18) & 0xfffc,
 	.boot_params	= 0x80000100,
-	.map_io		= overo_map_io,
+	.map_io		= omap3_map_io,
+	.reserve	= omap_reserve,
 	.init_irq	= overo_init_irq,
 	.init_machine	= overo_init,
 	.timer		= &omap_timer,
