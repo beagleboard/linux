@@ -411,6 +411,7 @@ MACHINE_START(OMAP_LDP, "OMAP LDP board")
 	.io_pg_offst	= ((0xfa000000) >> 18) & 0xfffc,
 	.boot_params	= 0x80000100,
 	.map_io		= omap3_map_io,
+	.reserve	= omap_reserve,
 	.init_irq	= omap_ldp_init_irq,
 	.init_machine	= omap_ldp_init,
 	.timer		= &omap_timer,

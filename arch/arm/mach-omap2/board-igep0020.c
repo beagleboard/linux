@@ -537,6 +537,7 @@ MACHINE_START(IGEP0020, "IGEP v2 board")
 	.io_pg_offst	= ((0xfa000000) >> 18) & 0xfffc,
 	.boot_params	= 0x80000100,
 	.map_io		= omap3_map_io,
+	.reserve	= omap_reserve,
 	.init_irq	= igep2_init_irq,
 	.init_machine	= igep2_init,
 	.timer		= &omap_timer,
