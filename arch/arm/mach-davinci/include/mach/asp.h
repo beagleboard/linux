@@ -63,6 +63,49 @@ struct snd_platform_data {
 	unsigned sram_size_playback;
 	unsigned sram_size_capture;
 
+	/*
+	 * If McBSP peripheral gets the clock from an external pin,
+	 * there are three chooses, that are MCBSP_CLKX, MCBSP_CLKR
+	 * and MCBSP_CLKS.
+	 * Depending on different hardware connections it is possible
+	 * to use this setting to change the behaviour of McBSP
+	 * driver. The dm365_clk_input_pin enum is available for dm365
+	 */
+	int clk_input_pin;
+
+	/*
+	 * This flag works when both clock and FS are outputs for the cpu
+	 * and makes clock more accurate (FS is not symmetrical and the
+	 * clock is very fast.
+	 * The clock becoming faster is named
+	 * i2s continuous serial clock (I2S_SCK) and it is an externally
+	 * visible bit clock.
+	 *
+	 * first line : WordSelect
+	 * second line : ContinuousSerialClock
+	 * third line: SerialData
+	 *
+	 * SYMMETRICAL APPROACH:
+	 *   _______________________          LEFT
+	 * _|         RIGHT         |______________________|
+	 *     _   _         _   _   _   _         _   _
+	 *   _| |_| |_ x16 _| |_| |_| |_| |_ x16 _| |_| |_
+	 *     _   _         _   _   _   _         _   _
+	 *   _/ \_/ \_ ... _/ \_/ \_/ \_/ \_ ... _/ \_/ \_
+	 *    \_/ \_/       \_/ \_/ \_/ \_/       \_/ \_/
+	 *
+	 * ACCURATE CLOCK APPROACH:
+	 *   ______________          LEFT
+	 * _|     RIGHT    |_______________________________|
+	 *     _         _   _         _   _   _   _   _   _
+	 *   _| |_ x16 _| |_| |_ x16 _| |_| |_| |_| |_| |_| |
+	 *     _         _   _          _      dummy cycles
+	 *   _/ \_ ... _/ \_/ \_  ... _/ \__________________
+	 *    \_/       \_/ \_/        \_/
+	 *
+	 */
+	bool i2s_accurate_sck;
+
 	/* McASP specific fields */
 	int tdm_slots;
 	u8 op_mode;
@@ -76,6 +119,11 @@ struct snd_platform_data {
 enum {
 	MCASP_VERSION_1 = 0,	/* DM646x */
 	MCASP_VERSION_2,	/* DA8xx/OMAPL1x */
+};
+
+enum dm365_clk_input_pin {
+	MCBSP_CLKR = 0,		/* DM365 */
+	MCBSP_CLKS,
 };
 
 #define INACTIVE_MODE	0
