@@ -1309,11 +1309,11 @@ static int alc_auto_parse_customize_define(struct hda_codec *codec)
 	unsigned nid = 0;
 	struct alc_spec *spec = codec->spec;
 
+	spec->cdefine.enable_pcbeep = 1; /* assume always enabled */
+
 	ass = codec->subsystem_id & 0xffff;
-	if (ass != codec->bus->pci->subsystem_device && (ass & 1)) {
-		spec->cdefine.enable_pcbeep = 1; /* assume always enabled */
+	if (ass != codec->bus->pci->subsystem_device && (ass & 1))
 		goto do_sku;
-	}
 
 	nid = 0x1d;
 	if (codec->vendor_id == 0x10ec0260)
@@ -10666,10 +10666,12 @@ static int patch_alc882(struct hda_codec *codec)
 		}
 	}
 
-	err = snd_hda_attach_beep_device(codec, 0x1);
-	if (err < 0) {
-		alc_free(codec);
-		return err;
+	if (spec->cdefine.enable_pcbeep) {
+		err = snd_hda_attach_beep_device(codec, 0x1);
+		if (err < 0) {
+			alc_free(codec);
+			return err;
+		}
 	}
 
 	if (board_config != ALC882_AUTO)
@@ -12535,7 +12537,7 @@ static int patch_alc262(struct hda_codec *codec)
 		}
 	}
 
-	if (!spec->no_analog) {
+	if (!spec->no_analog && spec->cdefine.enable_pcbeep) {
 		err = snd_hda_attach_beep_device(codec, 0x1);
 		if (err < 0) {
 			alc_free(codec);
@@ -14591,10 +14593,12 @@ static int patch_alc269(struct hda_codec *codec)
 		}
 	}
 
-	err = snd_hda_attach_beep_device(codec, 0x1);
-	if (err < 0) {
-		alc_free(codec);
-		return err;
+	if (spec->cdefine.enable_pcbeep) {
+		err = snd_hda_attach_beep_device(codec, 0x1);
+		if (err < 0) {
+			alc_free(codec);
+			return err;
+		}
 	}
 
 	if (board_config != ALC269_AUTO)
@@ -18828,10 +18832,12 @@ static int patch_alc662(struct hda_codec *codec)
 		}
 	}
 
-	err = snd_hda_attach_beep_device(codec, 0x1);
-	if (err < 0) {
-		alc_free(codec);
-		return err;
+	if (spec->cdefine.enable_pcbeep) {
+		err = snd_hda_attach_beep_device(codec, 0x1);
+		if (err < 0) {
+			alc_free(codec);
+			return err;
+		}
 	}
 
 	if (board_config != ALC662_AUTO)
