@@ -3053,7 +3053,8 @@ static struct hda_rate_tbl rate_bits[] = {
 unsigned int snd_hda_calc_stream_format(unsigned int rate,
 					unsigned int channels,
 					unsigned int format,
-					unsigned int maxbps)
+					unsigned int maxbps,
+					unsigned short spdif_ctls)
 {
 	int i;
 	unsigned int val = 0;
@@ -3096,6 +3097,9 @@ unsigned int snd_hda_calc_stream_format(unsigned int rate,
 			    snd_pcm_format_width(format));
 		return 0;
 	}
+
+	if (spdif_ctls & AC_DIG1_NONAUDIO)
+		val |= 0x8000;
 
 	return val;
 }
