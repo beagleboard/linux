@@ -67,6 +67,16 @@ struct retu_irq_handler_desc {
 static struct retu_irq_handler_desc retu_irq_handlers[MAX_RETU_IRQ_HANDLERS];
 
 /**
+ *
+ *
+ */
+int retu_get_status(void)
+{
+	return retu_initialized;
+}
+EXPORT_SYMBOL(retu_get_status);
+
+/**
  * retu_read_reg - Read a value from a register in Retu
  * @reg: the register to read from
  *
@@ -251,6 +261,9 @@ static void retu_tasklet_handler(unsigned long data)
 int retu_request_irq(int id, void *irq_handler, unsigned long arg, char *name)
 {
 	struct retu_irq_handler_desc *hnd;
+
+	if (!retu_initialized)
+		return -ENODEV;
 
 	if (irq_handler == NULL || id >= MAX_RETU_IRQ_HANDLERS ||
 	    name == NULL) {

@@ -229,6 +229,11 @@ static int retu_wdt_ioctl(struct inode *inode, struct file *file,
 /* Start kicking retu watchdog until user space starts doing the kicking */
 static int __init retu_wdt_ping(void)
 {
+	int r;
+
+	r = retu_get_status();
+	if (!r)
+		return -ENODEV;
 
 #ifdef CONFIG_WATCHDOG_NOWAYOUT
 	retu_modify_counter(RETU_WDT_MAX_TIMER);
@@ -340,6 +345,10 @@ static struct device_driver retu_wdt_driver = {
 static int __init retu_wdt_init(void)
 {
 	int ret;
+
+	ret = retu_get_status();
+	if (!ret)
+		return -ENODEV;
 
 	init_completion(&retu_wdt_completion);
 
