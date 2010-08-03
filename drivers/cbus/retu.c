@@ -66,10 +66,6 @@ struct retu_irq_handler_desc {
 
 static struct retu_irq_handler_desc retu_irq_handlers[MAX_RETU_IRQ_HANDLERS];
 
-/**
- *
- *
- */
 int retu_get_status(void)
 {
 	return retu_initialized;
@@ -440,6 +436,10 @@ static struct platform_device retu_device = {
 static int __init retu_init(void)
 {
 	int ret = 0;
+
+	if (!(machine_is_nokia770() || machine_is_nokia_n800() ||
+		machine_is_nokia_n810() || machine_is_nokia_n810_wimax()))
+			return -ENODEV;
 
 	printk(KERN_INFO "Retu/Vilma driver initialising\n");
 

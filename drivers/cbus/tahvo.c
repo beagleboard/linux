@@ -66,6 +66,12 @@ struct tahvo_irq_handler_desc {
 
 static struct tahvo_irq_handler_desc tahvo_irq_handlers[MAX_TAHVO_IRQ_HANDLERS];
 
+int tahvo_get_status(void)
+{
+	return tahvo_initialized;
+}
+EXPORT_SYMBOL(tahvo_get_status);
+
 /**
  * tahvo_read_reg - Read a value from a register in Tahvo
  * @reg: the register to read from
@@ -399,6 +405,10 @@ static struct platform_device tahvo_device = {
 static int __init tahvo_init(void)
 {
 	int ret = 0;
+
+	if (!(machine_is_nokia770() || machine_is_nokia_n800() ||
+		machine_is_nokia_n810() || machine_is_nokia_n810_wimax()))
+			return -ENODEV;
 
 	printk(KERN_INFO "Tahvo/Betty driver initialising\n");
 
