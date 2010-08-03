@@ -36,6 +36,7 @@
 #include <plat/lcd_mipid.h>
 #include <plat/mmc.h>
 #include <plat/clock.h>
+#include <plat/cbus.h>
 
 #define ADS7846_PENDOWN_GPIO	15
 
@@ -95,9 +96,18 @@ static struct platform_device nokia770_kp_device = {
 	.resource	= nokia770_kp_resources,
 };
 
+static struct cbus_host_platform_data nokia770_cbus_data = {
+	.clk_gpio	= OMAP_MPUIO(11),
+	.dat_gpio	= OMAP_MPUIO(10),
+	.sel_gpio	= OMAP_MPUIO(9),
+};
+
 static struct platform_device nokia770_cbus_device = {
 	.name		= "cbus",
 	.id		= -1,
+	.dev		= {
+		.platform_data = &nokia770_cbus_data,
+	},
 };
 
 static struct platform_device *nokia770_devices[] __initdata = {
