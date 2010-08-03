@@ -96,6 +96,8 @@ static struct platform_device nokia770_kp_device = {
 	.resource	= nokia770_kp_resources,
 };
 
+#if defined(CONFIG_CBUS) || defined(CONFIG_CBUS_MODULE)
+
 static struct cbus_host_platform_data nokia770_cbus_data = {
 	.clk_gpio	= OMAP_MPUIO(11),
 	.dat_gpio	= OMAP_MPUIO(10),
@@ -110,9 +112,19 @@ static struct platform_device nokia770_cbus_device = {
 	},
 };
 
+static void __init nokia770_cbus_init(void)
+{
+	platform_device_register(&nokia770_cbus_device);
+}
+
+#else
+static inline void __init nokia770_cbus_init(void)
+{
+}
+#endif
+
 static struct platform_device *nokia770_devices[] __initdata = {
 	&nokia770_kp_device,
-	&nokia770_cbus_device,
 };
 
 static void mipid_shutdown(struct mipid_platform_data *pdata)
@@ -259,6 +271,7 @@ static inline void nokia770_mmc_init(void)
 
 static void __init omap_nokia770_init(void)
 {
+	nokia770_cbus_init();
 	platform_add_devices(nokia770_devices, ARRAY_SIZE(nokia770_devices));
 	spi_register_board_info(nokia770_spi_board_info,
 				ARRAY_SIZE(nokia770_spi_board_info));
