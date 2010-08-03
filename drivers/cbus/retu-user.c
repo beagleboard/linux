@@ -31,6 +31,7 @@
 #include <linux/poll.h>
 #include <linux/list.h>
 #include <linux/spinlock.h>
+#include <linux/sched.h>
 #include <linux/mutex.h>
 
 #include <asm/uaccess.h>
