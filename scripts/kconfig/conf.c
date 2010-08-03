@@ -10,31 +10,31 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <getopt.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 
 #define LKC_DIRECT_LINK
 #include "lkc.h"
 
-/* Return codes */
-#define EUNSETOPT	2	/* if -B and -b are used and unset config
-				 * options were found */
-
 static void conf(struct menu *menu);
 static void check_conf(struct menu *menu);
 
-enum {
-	ask_all,
-	ask_new,
-	ask_silent,
-	dont_ask,
-	dont_ask_dont_tell,
-	set_default,
-	set_yes,
-	set_mod,
-	set_no,
-	set_random
-} input_mode = ask_all;
+enum input_mode {
+	oldaskconfig,
+	silentoldconfig,
+	oldconfig,
+	allnoconfig,
+	allyesconfig,
+	allmodconfig,
+	alldefconfig,
+	randconfig,
+	defconfig,
+	savedefconfig,
+	listnewconfig,
+	oldnoconfig,
+} input_mode = oldaskconfig;
+
 char *defconfig_file;
 
 static int indent = 1;
@@ -43,7 +43,6 @@ static int sync_kconfig;
 static int conf_cnt;
 static char line[128];
 static struct menu *rootEntry;
-static int unset_variables;
 
 static void print_help(struct menu *menu)
 {
@@ -100,14 +99,14 @@ static int conf_askvalue(struct symbol *sym, const char *def)
 	}
 
 	switch (input_mode) {
-	case ask_new:
-	case ask_silent:
+	case oldconfig:
+	case silentoldconfig:
 		if (sym_has_value(sym)) {
 			printf("%s\n", def);
 			return 0;
 		}
 		check_stdin();
-	case ask_all:
+	case oldaskconfig:
 		fflush(stdout);
 		fgets(line, 128, stdin);
 		return 1;
@@ -297,15 +296,15 @@ static int conf_choice(struct menu *menu)
 			printf("?");
 		printf("]: ");
 		switch (input_mode) {
-		case ask_new:
-		case ask_silent:
+		case oldconfig:
+		case silentoldconfig:
 			if (!is_new) {
 				cnt = def;
 				printf("%d\n", cnt);
 				break;
 			}
 			check_stdin();
-		case ask_all:
+		case oldaskconfig:
 			fflush(stdout);
 			fgets(line, 128, stdin);
 			strip(line);
@@ -363,9 +362,9 @@ static void conf(struct menu *menu)
 
 		switch (prop->type) {
 		case P_MENU:
-			if ((input_mode == ask_silent ||
-			     input_mode == dont_ask ||
-			     input_mode == dont_ask_dont_tell) &&
+			if ((input_mode == silentoldconfig ||
+			     input_mode == listnewconfig ||
+			     input_mode == oldnoconfig) &&
 			    rootEntry != menu) {
 				check_conf(menu);
 				return;
@@ -424,16 +423,9 @@ static void check_conf(struct menu *menu)
 	if (sym && !sym_has_value(sym)) {
 		if (sym_is_changable(sym) ||
 		    (sym_is_choice(sym) && sym_get_tristate_value(sym) == yes)) {
-			if (input_mode == dont_ask ||
-			    input_mode == dont_ask_dont_tell) {
-				if (input_mode == dont_ask &&
-				    sym->name && !sym_is_choice_value(sym)) {
-					if (!unset_variables)
-						fprintf(stderr, "The following"
-						  " variables are not set:\n");
-					fprintf(stderr, "CONFIG_%s\n",
-							sym->name);
-					unset_variables++;
+			if (input_mode == listnewconfig) {
+				if (sym->name && !sym_is_choice_value(sym)) {
+					printf("CONFIG_%s\n", sym->name);
 				}
 			} else {
 				if (!conf_cnt++)
@@ -448,6 +440,22 @@ static void check_conf(struct menu *menu)
 		check_conf(child);
 }
 
+static struct option long_opts[] = {
+	{"oldaskconfig",    no_argument,       NULL, oldaskconfig},
+	{"oldconfig",       no_argument,       NULL, oldconfig},
+	{"silentoldconfig", no_argument,       NULL, silentoldconfig},
+	{"defconfig",       optional_argument, NULL, defconfig},
+	{"savedefconfig",   required_argument, NULL, savedefconfig},
+	{"allnoconfig",     no_argument,       NULL, allnoconfig},
+	{"allyesconfig",    no_argument,       NULL, allyesconfig},
+	{"allmodconfig",    no_argument,       NULL, allmodconfig},
+	{"alldefconfig",    no_argument,       NULL, alldefconfig},
+	{"randconfig",      no_argument,       NULL, randconfig},
+	{"listnewconfig",   no_argument,       NULL, listnewconfig},
+	{"oldnoconfig",     no_argument,       NULL, oldnoconfig},
+	{NULL, 0, NULL, 0}
+};
+
 int main(int ac, char **av)
 {
 	int opt;
@@ -458,38 +466,17 @@ int main(int ac, char **av)
 	bindtextdomain(PACKAGE, LOCALEDIR);
 	textdomain(PACKAGE);
 
-	while ((opt = getopt(ac, av, "osbBdD:nmyrh")) != -1) {
+	while ((opt = getopt_long_only(ac, av, "", long_opts, NULL)) != -1) {
+		input_mode = (enum input_mode)opt;
 		switch (opt) {
-		case 'o':
-			input_mode = ask_silent;
-			break;
-		case 's':
-			input_mode = ask_silent;
+		case silentoldconfig:
 			sync_kconfig = 1;
 			break;
-		case 'b':
-			input_mode = dont_ask;
-			break;
-		case 'B':
-			input_mode = dont_ask_dont_tell;
-			break;
-		case 'd':
-			input_mode = set_default;
-			break;
-		case 'D':
-			input_mode = set_default;
+		case defconfig:
+		case savedefconfig:
 			defconfig_file = optarg;
 			break;
-		case 'n':
-			input_mode = set_no;
-			break;
-		case 'm':
-			input_mode = set_mod;
-			break;
-		case 'y':
-			input_mode = set_yes;
-			break;
-		case 'r':
+		case randconfig:
 		{
 			struct timeval now;
 			unsigned int seed;
@@ -502,17 +489,12 @@ int main(int ac, char **av)
 
 			seed = (unsigned int)((now.tv_sec + 1) * (now.tv_usec + 1));
 			srand(seed);
-
-			input_mode = set_random;
 			break;
 		}
-		case 'h':
-			printf(_("See README for usage info\n"));
-			exit(0);
-			break;
-		default:
+		case '?':
 			fprintf(stderr, _("See README for usage info\n"));
 			exit(1);
+			break;
 		}
 	}
 	if (ac == optind) {
@@ -537,7 +519,7 @@ int main(int ac, char **av)
 	}
 
 	switch (input_mode) {
-	case set_default:
+	case defconfig:
 		if (!defconfig_file)
 			defconfig_file = conf_get_default_confname();
 		if (conf_read(defconfig_file)) {
@@ -547,27 +529,32 @@ int main(int ac, char **av)
 			exit(1);
 		}
 		break;
-	case ask_silent:
-	case ask_all:
-	case ask_new:
-	case dont_ask:
-	case dont_ask_dont_tell:
+	case savedefconfig:
 		conf_read(NULL);
 		break;
-	case set_no:
-	case set_mod:
-	case set_yes:
-	case set_random:
+	case silentoldconfig:
+	case oldaskconfig:
+	case oldconfig:
+	case listnewconfig:
+	case oldnoconfig:
+		conf_read(NULL);
+		break;
+	case allnoconfig:
+	case allyesconfig:
+	case allmodconfig:
+	case alldefconfig:
+	case randconfig:
 		name = getenv("KCONFIG_ALLCONFIG");
 		if (name && !stat(name, &tmpstat)) {
 			conf_read_simple(name, S_DEF_USER);
 			break;
 		}
 		switch (input_mode) {
-		case set_no:	 name = "allno.config"; break;
-		case set_mod:	 name = "allmod.config"; break;
-		case set_yes:	 name = "allyes.config"; break;
-		case set_random: name = "allrandom.config"; break;
+		case allnoconfig:	name = "allno.config"; break;
+		case allyesconfig:	name = "allyes.config"; break;
+		case allmodconfig:	name = "allmod.config"; break;
+		case alldefconfig:	name = "alldef.config"; break;
+		case randconfig:	name = "allrandom.config"; break;
 		default: break;
 		}
 		if (!stat(name, &tmpstat))
@@ -592,37 +579,42 @@ int main(int ac, char **av)
 	}
 
 	switch (input_mode) {
-	case set_no:
+	case allnoconfig:
 		conf_set_all_new_symbols(def_no);
 		break;
-	case set_yes:
+	case allyesconfig:
 		conf_set_all_new_symbols(def_yes);
 		break;
-	case set_mod:
+	case allmodconfig:
 		conf_set_all_new_symbols(def_mod);
 		break;
-	case set_random:
-		conf_set_all_new_symbols(def_random);
-		break;
-	case set_default:
+	case alldefconfig:
 		conf_set_all_new_symbols(def_default);
 		break;
-	case ask_new:
-	case ask_all:
+	case randconfig:
+		conf_set_all_new_symbols(def_random);
+		break;
+	case defconfig:
+		conf_set_all_new_symbols(def_default);
+		break;
+	case savedefconfig:
+		break;
+	case oldconfig:
+	case oldaskconfig:
 		rootEntry = &rootmenu;
 		conf(&rootmenu);
-		input_mode = ask_silent;
+		input_mode = silentoldconfig;
 		/* fall through */
-	case dont_ask:
-	case dont_ask_dont_tell:
-	case ask_silent:
+	case listnewconfig:
+	case oldnoconfig:
+	case silentoldconfig:
 		/* Update until a loop caused no more changes */
 		do {
 			conf_cnt = 0;
 			check_conf(&rootmenu);
 		} while (conf_cnt &&
-			 (input_mode != dont_ask &&
-			  input_mode != dont_ask_dont_tell));
+			 (input_mode != listnewconfig &&
+			  input_mode != oldnoconfig));
 		break;
 	}
 
@@ -638,11 +630,17 @@ int main(int ac, char **av)
 			fprintf(stderr, _("\n*** Error during update of the kernel configuration.\n\n"));
 			return 1;
 		}
-	} else if (!unset_variables || input_mode != dont_ask) {
+	} else if (input_mode == savedefconfig) {
+		if (conf_write_defconfig(defconfig_file)) {
+			fprintf(stderr, _("n*** Error while saving defconfig to: %s\n\n"),
+			        defconfig_file);
+			return 1;
+		}
+	} else if (input_mode != listnewconfig) {
 		if (conf_write(NULL)) {
 			fprintf(stderr, _("\n*** Error during writing of the kernel configuration.\n\n"));
 			exit(1);
 		}
 	}
-	return unset_variables ? EUNSETOPT : 0;
+	return 0;
 }
