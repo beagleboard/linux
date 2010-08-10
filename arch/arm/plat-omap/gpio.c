@@ -2084,7 +2084,7 @@ void omap2_gpio_prepare_for_idle(int power_state)
 
 	for (i = min; i < gpio_bank_count; i++) {
 		struct gpio_bank *bank = &gpio_bank[i];
-		u32 l1, l2;
+		u32 l1 = 0, l2 = 0;
 
 		if (bank->dbck_enable_mask)
 			clk_disable(bank->dbck);
@@ -2151,7 +2151,7 @@ void omap2_gpio_resume_after_idle(void)
 		min = 1;
 	for (i = min; i < gpio_bank_count; i++) {
 		struct gpio_bank *bank = &gpio_bank[i];
-		u32 l, gen, gen0, gen1;
+		u32 l = 0, gen, gen0, gen1;
 
 		if (bank->dbck_enable_mask)
 			clk_enable(bank->dbck);
