@@ -36,6 +36,7 @@
 #include <plat/lcd_mipid.h>
 #include <plat/mmc.h>
 #include <plat/clock.h>
+#include <plat/cbus.h>
 
 #define ADS7846_PENDOWN_GPIO	15
 
@@ -94,6 +95,33 @@ static struct platform_device nokia770_kp_device = {
 	.num_resources	= ARRAY_SIZE(nokia770_kp_resources),
 	.resource	= nokia770_kp_resources,
 };
+
+#if defined(CONFIG_CBUS) || defined(CONFIG_CBUS_MODULE)
+
+static struct cbus_host_platform_data nokia770_cbus_data = {
+	.clk_gpio	= OMAP_MPUIO(11),
+	.dat_gpio	= OMAP_MPUIO(10),
+	.sel_gpio	= OMAP_MPUIO(9),
+};
+
+static struct platform_device nokia770_cbus_device = {
+	.name		= "cbus",
+	.id		= -1,
+	.dev		= {
+		.platform_data = &nokia770_cbus_data,
+	},
+};
+
+static void __init nokia770_cbus_init(void)
+{
+	platform_device_register(&nokia770_cbus_device);
+}
+
+#else
+static inline void __init nokia770_cbus_init(void)
+{
+}
+#endif
 
 static struct platform_device *nokia770_devices[] __initdata = {
 	&nokia770_kp_device,
@@ -243,6 +271,7 @@ static inline void nokia770_mmc_init(void)
 
 static void __init omap_nokia770_init(void)
 {
+	nokia770_cbus_init();
 	platform_add_devices(nokia770_devices, ARRAY_SIZE(nokia770_devices));
 	spi_register_board_info(nokia770_spi_board_info,
 				ARRAY_SIZE(nokia770_spi_board_info));
