@@ -990,23 +990,44 @@ static void alc_fix_pll_init(struct hda_codec *codec, hda_nid_t nid,
 	alc_fix_pll(codec);
 }
 
-static void alc_automute_pin(struct hda_codec *codec)
+static void alc_automute_speaker(struct hda_codec *codec, int pinctl)
 {
 	struct alc_spec *spec = codec->spec;
-	unsigned int nid = spec->autocfg.hp_pins[0];
+	unsigned int mute;
+	hda_nid_t nid;
 	int i;
 
-	if (!nid)
-		return;
-	spec->jack_present = snd_hda_jack_detect(codec, nid);
+	spec->jack_present = 0;
+	for (i = 0; i < ARRAY_SIZE(spec->autocfg.hp_pins); i++) {
+		nid = spec->autocfg.hp_pins[i];
+		if (!nid)
+			break;
+		if (snd_hda_jack_detect(codec, nid)) {
+			spec->jack_present = 1;
+			break;
+		}
+	}
+
+	mute = spec->jack_present ? HDA_AMP_MUTE : 0;
+	/* Toggle internal speakers muting */
 	for (i = 0; i < ARRAY_SIZE(spec->autocfg.speaker_pins); i++) {
 		nid = spec->autocfg.speaker_pins[i];
 		if (!nid)
 			break;
-		snd_hda_codec_write(codec, nid, 0,
+		if (pinctl) {
+			snd_hda_codec_write(codec, nid, 0,
 				    AC_VERB_SET_PIN_WIDGET_CONTROL,
 				    spec->jack_present ? 0 : PIN_OUT);
+		} else {
+			snd_hda_codec_amp_stereo(codec, nid, HDA_OUTPUT, 0,
+					 HDA_AMP_MUTE, mute);
+		}
 	}
+}
+
+static void alc_automute_pin(struct hda_codec *codec)
+{
+	alc_automute_speaker(codec, 1);
 }
 
 static int get_connection_index(struct hda_codec *codec, hda_nid_t mux,
@@ -1236,24 +1257,35 @@ static void alc_auto_init_amp(struct hda_codec *codec, int type)
 static void alc_init_auto_hp(struct hda_codec *codec)
 {
 	struct alc_spec *spec = codec->spec;
+	struct auto_pin_cfg *cfg = &spec->autocfg;
+	int i;
 
-	if (!spec->autocfg.hp_pins[0])
-		return;
-
-	if (!spec->autocfg.speaker_pins[0]) {
-		if (spec->autocfg.line_out_pins[0] &&
-		    spec->autocfg.line_out_type == AUTO_PIN_SPEAKER_OUT)
-			spec->autocfg.speaker_pins[0] =
-				spec->autocfg.line_out_pins[0];
-		else
+	if (!cfg->hp_pins[0]) {
+		if (cfg->line_out_type != AUTO_PIN_HP_OUT)
 			return;
 	}
 
-	snd_printdd("realtek: Enable HP auto-muting on NID 0x%x\n",
-		    spec->autocfg.hp_pins[0]);
-	snd_hda_codec_write_cache(codec, spec->autocfg.hp_pins[0], 0,
+	if (!cfg->speaker_pins[0]) {
+		if (cfg->line_out_type != AUTO_PIN_SPEAKER_OUT)
+			return;
+		memcpy(cfg->speaker_pins, cfg->line_out_pins,
+		       sizeof(cfg->speaker_pins));
+		cfg->speaker_outs = cfg->line_outs;
+	}
+
+	if (!cfg->hp_pins[0]) {
+		memcpy(cfg->hp_pins, cfg->line_out_pins,
+		       sizeof(cfg->hp_pins));
+		cfg->hp_outs = cfg->line_outs;
+	}
+
+	for (i = 0; i < cfg->hp_outs; i++) {
+		snd_printdd("realtek: Enable HP auto-muting on NID 0x%x\n",
+			    cfg->hp_pins[i]);
+		snd_hda_codec_write_cache(codec, cfg->hp_pins[i], 0,
 				  AC_VERB_SET_UNSOLICITED_ENABLE,
 				  AC_USRSP_EN | ALC880_HP_EVENT);
+	}
 	spec->unsol_event = alc_sku_unsol_event;
 }
 
@@ -1711,31 +1743,7 @@ static struct hda_verb alc888_fujitsu_xa3530_verbs[] = {
 
 static void alc_automute_amp(struct hda_codec *codec)
 {
-	struct alc_spec *spec = codec->spec;
-	unsigned int mute;
-	hda_nid_t nid;
-	int i;
-
-	spec->jack_present = 0;
-	for (i = 0; i < ARRAY_SIZE(spec->autocfg.hp_pins); i++) {
-		nid = spec->autocfg.hp_pins[i];
-		if (!nid)
-			break;
-		if (snd_hda_jack_detect(codec, nid)) {
-			spec->jack_present = 1;
-			break;
-		}
-	}
-
-	mute = spec->jack_present ? HDA_AMP_MUTE : 0;
-	/* Toggle internal speakers muting */
-	for (i = 0; i < ARRAY_SIZE(spec->autocfg.speaker_pins); i++) {
-		nid = spec->autocfg.speaker_pins[i];
-		if (!nid)
-			break;
-		snd_hda_codec_amp_stereo(codec, nid, HDA_OUTPUT, 0,
-					 HDA_AMP_MUTE, mute);
-	}
+	alc_automute_speaker(codec, 0);
 }
 
 static void alc_automute_amp_unsol_event(struct hda_codec *codec,
@@ -11816,7 +11824,7 @@ static int alc262_check_volbit(hda_nid_t nid)
 }
 
 static int alc262_add_out_vol_ctl(struct alc_spec *spec, hda_nid_t nid,
-				  const char *pfx, int *vbits)
+				  const char *pfx, int *vbits, int idx)
 {
 	unsigned long val;
 	int vbit;
@@ -11831,11 +11839,11 @@ static int alc262_add_out_vol_ctl(struct alc_spec *spec, hda_nid_t nid,
 		val = HDA_COMPOSE_AMP_VAL(0x0e, 2, 0, HDA_OUTPUT);
 	else
 		val = HDA_COMPOSE_AMP_VAL(0x0c, 3, 0, HDA_OUTPUT);
-	return add_pb_vol_ctrl(spec, ALC_CTL_WIDGET_VOL, pfx, val);
+	return __add_pb_vol_ctrl(spec, ALC_CTL_WIDGET_VOL, pfx, idx, val);
 }
 
 static int alc262_add_out_sw_ctl(struct alc_spec *spec, hda_nid_t nid,
-				 const char *pfx)
+				 const char *pfx, int idx)
 {
 	unsigned long val;
 
@@ -11845,7 +11853,7 @@ static int alc262_add_out_sw_ctl(struct alc_spec *spec, hda_nid_t nid,
 		val = HDA_COMPOSE_AMP_VAL(nid, 2, 0, HDA_OUTPUT);
 	else
 		val = HDA_COMPOSE_AMP_VAL(nid, 3, 0, HDA_OUTPUT);
-	return add_pb_sw_ctrl(spec, ALC_CTL_WIDGET_MUTE, pfx, val);
+	return __add_pb_sw_ctrl(spec, ALC_CTL_WIDGET_MUTE, pfx, idx, val);
 }
 
 /* add playback controls from the parsed DAC table */
@@ -11854,7 +11862,7 @@ static int alc262_auto_create_multi_out_ctls(struct alc_spec *spec,
 {
 	const char *pfx;
 	int vbits;
-	int err;
+	int i, err;
 
 	spec->multiout.num_dacs = 1;	/* only use one dac */
 	spec->multiout.dac_nids = spec->private_dac_nids;
@@ -11864,39 +11872,52 @@ static int alc262_auto_create_multi_out_ctls(struct alc_spec *spec,
 		pfx = "Master";
 	else if (cfg->line_out_type == AUTO_PIN_SPEAKER_OUT)
 		pfx = "Speaker";
+	else if (cfg->line_out_type == AUTO_PIN_HP_OUT)
+		pfx = "Headphone";
 	else
 		pfx = "Front";
-	err = alc262_add_out_sw_ctl(spec, cfg->line_out_pins[0], pfx);
-	if (err < 0)
-		return err;
-	err = alc262_add_out_sw_ctl(spec, cfg->speaker_pins[0], "Speaker");
-	if (err < 0)
-		return err;
-	err = alc262_add_out_sw_ctl(spec, cfg->hp_pins[0], "Headphone");
-	if (err < 0)
-		return err;
+	for (i = 0; i < 2; i++) {
+		err = alc262_add_out_sw_ctl(spec, cfg->line_out_pins[i], pfx, i);
+		if (err < 0)
+			return err;
+		if (cfg->line_out_type != AUTO_PIN_SPEAKER_OUT) {
+			err = alc262_add_out_sw_ctl(spec, cfg->speaker_pins[i],
+						    "Speaker", i);
+			if (err < 0)
+				return err;
+		}
+		if (cfg->line_out_type != AUTO_PIN_HP_OUT) {
+			err = alc262_add_out_sw_ctl(spec, cfg->hp_pins[i],
+						    "Headphone", i);
+			if (err < 0)
+				return err;
+		}
+	}
 
 	vbits = alc262_check_volbit(cfg->line_out_pins[0]) |
 		alc262_check_volbit(cfg->speaker_pins[0]) |
 		alc262_check_volbit(cfg->hp_pins[0]);
 	if (vbits == 1 || vbits == 2)
 		pfx = "Master"; /* only one mixer is used */
-	else if (cfg->line_out_type == AUTO_PIN_SPEAKER_OUT)
-		pfx = "Speaker";
-	else
-		pfx = "Front";
 	vbits = 0;
-	err = alc262_add_out_vol_ctl(spec, cfg->line_out_pins[0], pfx, &vbits);
-	if (err < 0)
-		return err;
-	err = alc262_add_out_vol_ctl(spec, cfg->speaker_pins[0], "Speaker",
-				     &vbits);
-	if (err < 0)
-		return err;
-	err = alc262_add_out_vol_ctl(spec, cfg->hp_pins[0], "Headphone",
-				     &vbits);
-	if (err < 0)
-		return err;
+	for (i = 0; i < 2; i++) {
+		err = alc262_add_out_vol_ctl(spec, cfg->line_out_pins[i], pfx,
+					     &vbits, i);
+		if (err < 0)
+			return err;
+		if (cfg->line_out_type != AUTO_PIN_SPEAKER_OUT) {
+			err = alc262_add_out_vol_ctl(spec, cfg->speaker_pins[i],
+						     "Speaker", &vbits, i);
+			if (err < 0)
+				return err;
+		}
+		if (cfg->line_out_type != AUTO_PIN_HP_OUT) {
+			err = alc262_add_out_vol_ctl(spec, cfg->hp_pins[i],
+						     "Headphone", &vbits, i);
+			if (err < 0)
+				return err;
+		}
+	}
 	return 0;
 }
 
@@ -12181,6 +12202,35 @@ static struct hda_verb alc262_toshiba_rx1_unsol_verbs[] = {
 	{0x15, AC_VERB_SET_PIN_WIDGET_CONTROL, PIN_HP },	/* HP  jack */
 	{0x15, AC_VERB_SET_CONNECT_SEL, 0x00},
 	{0x15, AC_VERB_SET_UNSOLICITED_ENABLE, AC_USRSP_EN | ALC880_HP_EVENT},
+	{}
+};
+
+/*
+ * Pin config fixes
+ */
+enum {
+	PINFIX_FSC_H270,
+};
+
+static const struct alc_fixup alc262_fixups[] = {
+	[PINFIX_FSC_H270] = {
+		.pins = (const struct alc_pincfg[]) {
+			{ 0x14, 0x99130110 }, /* speaker */
+			{ 0x15, 0x0221142f }, /* front HP */
+			{ 0x1b, 0x0121141f }, /* rear HP */
+			{ }
+		}
+	},
+	[PINFIX_PB_M5210] = {
+		.verbs = (const struct hda_verb[]) {
+			{ 0x19, AC_VERB_SET_PIN_WIDGET_CONTROL, PIN_VREF50 },
+			{}
+		}
+	},
+};
+
+static struct snd_pci_quirk alc262_fixup_tbl[] = {
+	SND_PCI_QUIRK(0x1734, 0x1147, "FSC Celsius H270", PINFIX_FSC_H270),
 	{}
 };
 
@@ -12607,6 +12657,9 @@ static int patch_alc262(struct hda_codec *codec)
 		board_config = ALC262_AUTO;
 	}
 
+	if (board_config == ALC262_AUTO)
+		alc_pick_fixup(codec, alc262_fixup_tbl, alc262_fixups, 1);
+
 	if (board_config == ALC262_AUTO) {
 		/* automatic parse from the BIOS config */
 		err = alc262_parse_auto_config(codec);
@@ -12674,6 +12727,9 @@ static int patch_alc262(struct hda_codec *codec)
 		set_capture_mixer(codec);
 	if (!spec->no_analog && has_cdefine_beep(codec))
 		set_beep_amp(spec, 0x0b, 0x05, HDA_INPUT);
+
+	if (board_config == ALC262_AUTO)
+		alc_pick_fixup(codec, alc262_fixup_tbl, alc262_fixups, 0);
 
 	spec->vmaster_nid = 0x0c;
 
