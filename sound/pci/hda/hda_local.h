@@ -215,7 +215,7 @@ int snd_hda_create_spdif_in_ctls(struct hda_codec *codec, hda_nid_t nid);
  */
 #define HDA_MAX_NUM_INPUTS	16
 struct hda_input_mux_item {
-	const char *label;
+	char label[32];
 	unsigned int index;
 };
 struct hda_input_mux {
@@ -366,9 +366,7 @@ struct hda_bus_unsolicited {
 
 enum {
 	AUTO_PIN_MIC,
-	AUTO_PIN_FRONT_MIC,
-	AUTO_PIN_LINE,
-	AUTO_PIN_FRONT_LINE,
+	AUTO_PIN_LINE_IN,
 	AUTO_PIN_CD,
 	AUTO_PIN_AUX,
 	AUTO_PIN_LAST
@@ -380,8 +378,6 @@ enum {
 	AUTO_PIN_HP_OUT
 };
 
-extern const char *auto_pin_cfg_labels[AUTO_PIN_LAST];
-
 #define AUTO_CFG_MAX_OUTS	5
 #define AUTO_CFG_MAX_INS	8
 
@@ -391,8 +387,13 @@ struct auto_pin_cfg_item {
 };
 
 struct auto_pin_cfg;
-const char *snd_hda_get_input_pin_label(const struct auto_pin_cfg *cfg,
+const char *hda_get_input_pin_label(struct hda_codec *codec, hda_nid_t pin,
+				    int check_location);
+const char *hda_get_autocfg_input_label(struct hda_codec *codec,
+					const struct auto_pin_cfg *cfg,
 					int input);
+int snd_hda_add_imux_item(struct hda_input_mux *imux, const char *label,
+			  int index, int *type_index_ret);
 
 struct auto_pin_cfg {
 	int line_outs;
@@ -403,7 +404,6 @@ struct auto_pin_cfg {
 	int hp_outs;
 	int line_out_type;	/* AUTO_PIN_XXX_OUT */
 	hda_nid_t hp_pins[AUTO_CFG_MAX_OUTS];
-	hda_nid_t input_pins[AUTO_PIN_LAST]; /* old config; to be deprecated */
 	int num_inputs;
 	struct auto_pin_cfg_item inputs[AUTO_CFG_MAX_INS];
 	int dig_outs;

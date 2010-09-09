@@ -436,8 +436,8 @@ static int parse_input(struct hda_codec *codec)
 
 	/* check whether the automatic mic switch is available */
 	if (spec->num_inputs == 2 &&
-	    cfg->inputs[0].type <= AUTO_PIN_FRONT_MIC &&
-	    cfg->inputs[1].type == AUTO_PIN_FRONT_MIC) {
+	    cfg->inputs[0].type == AUTO_PIN_MIC &&
+	    cfg->inputs[1].type == AUTO_PIN_MIC) {
 		if (is_ext_mic(codec, cfg->inputs[0].pin)) {
 			if (!is_ext_mic(codec, cfg->inputs[1].pin)) {
 				spec->mic_detect = 1;
@@ -673,6 +673,7 @@ static int cs_capture_source_info(struct snd_kcontrol *kcontrol,
 {
 	struct hda_codec *codec = snd_kcontrol_chip(kcontrol);
 	struct cs_spec *spec = codec->spec;
+	struct auto_pin_cfg *cfg = &spec->autocfg;
 	unsigned int idx;
 
 	uinfo->type = SNDRV_CTL_ELEM_TYPE_ENUMERATED;
@@ -681,7 +682,8 @@ static int cs_capture_source_info(struct snd_kcontrol *kcontrol,
 	if (uinfo->value.enumerated.item >= spec->num_inputs)
 		uinfo->value.enumerated.item = spec->num_inputs - 1;
 	idx = spec->input_idx[uinfo->value.enumerated.item];
-	strcpy(uinfo->value.enumerated.name, auto_pin_cfg_labels[idx]);
+	strcpy(uinfo->value.enumerated.name,
+	       hda_get_input_pin_label(codec, cfg->inputs[idx].pin, 1));
 	return 0;
 }
 
@@ -921,7 +923,7 @@ static void init_input(struct hda_codec *codec)
 			continue;
 		/* set appropriate pin control and mute first */
 		ctl = PIN_IN;
-		if (cfg->inputs[i].type <= AUTO_PIN_FRONT_MIC) {
+		if (cfg->inputs[i].type == AUTO_PIN_MIC) {
 			unsigned int caps = snd_hda_query_pin_caps(codec, pin);
 			caps >>= AC_PINCAP_VREF_SHIFT;
 			if (caps & AC_PINCAP_VREF_80)
