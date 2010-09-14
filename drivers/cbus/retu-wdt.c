@@ -184,8 +184,8 @@ static ssize_t retu_wdt_write(struct file *file, const char __user *data,
 	return len;
 }
 
-static int retu_wdt_ioctl(struct inode *inode, struct file *file,
-					unsigned int cmd, unsigned long arg)
+static long retu_wdt_ioctl(struct file *file, unsigned int cmd,
+			   unsigned long arg)
 {
 	int new_margin;
 
@@ -246,7 +246,7 @@ static int __devinit retu_wdt_ping(void)
 static const struct file_operations retu_wdt_fops = {
 	.owner		= THIS_MODULE,
 	.write		= retu_wdt_write,
-	.ioctl		= retu_wdt_ioctl,
+	.unlocked_ioctl	= retu_wdt_ioctl,
 	.open		= retu_wdt_open,
 	.release	= retu_wdt_release,
 };

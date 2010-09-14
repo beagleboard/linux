@@ -254,8 +254,7 @@ static int tahvo_close(struct inode *inode, struct file *filp)
 /*
  * Device control (ioctl)
  */
-static int tahvo_ioctl(struct inode *inode, struct file *filp,
-		       unsigned int cmd, unsigned long arg)
+static long tahvo_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	struct retu_tahvo_write_parms par;
 	int ret;
@@ -342,7 +341,7 @@ static unsigned tahvo_poll(struct file *filp, struct poll_table_struct *pt)
 
 static struct file_operations tahvo_user_fileops = {
 	.owner = THIS_MODULE,
-	.ioctl = tahvo_ioctl,
+	.unlocked_ioctl = tahvo_ioctl,
 	.read = tahvo_read,
 	.release = tahvo_close,
 	.poll = tahvo_poll
