@@ -56,8 +56,6 @@ static int retu_is_vilma;
 static struct tasklet_struct retu_tasklet;
 spinlock_t retu_lock = SPIN_LOCK_UNLOCKED;
 
-static struct completion device_release;
-
 struct retu_irq_handler_desc {
 	int (*func)(unsigned long);
 	unsigned long arg;
@@ -491,11 +489,6 @@ static int __devexit retu_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static void retu_device_release(struct device *dev)
-{
-	complete(&device_release);
-}
-
 static struct platform_driver retu_driver = {
 	.probe		= retu_probe,
 	.remove		= __devexit_p(retu_remove),
@@ -507,9 +500,6 @@ static struct platform_driver retu_driver = {
 static struct platform_device retu_device = {
 	.name		= "retu",
 	.id		= -1,
-	.dev = {
-		.release = retu_device_release,
-	}
 };
 
 /**
@@ -524,8 +514,6 @@ static int __init retu_init(void)
 	if (!(machine_is_nokia770() || machine_is_nokia_n800() ||
 		machine_is_nokia_n810() || machine_is_nokia_n810_wimax()))
 			return -ENODEV;
-
-	init_completion(&device_release);
 
 	ret = platform_driver_register(&retu_driver);
 	if (ret < 0)
@@ -547,7 +535,6 @@ static void __exit retu_exit(void)
 {
 	platform_device_unregister(&retu_device);
 	platform_driver_unregister(&retu_driver);
-	wait_for_completion(&device_release);
 }
 
 subsys_initcall(retu_init);
