@@ -270,8 +270,7 @@ static int retu_close(struct inode *inode, struct file *filp)
 /*
  * Device control (ioctl)
  */
-static int retu_ioctl(struct inode *inode, struct file *filp,
-		      unsigned int cmd, unsigned long arg)
+static long retu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	struct retu_tahvo_write_parms par;
 	int ret;
@@ -360,7 +359,7 @@ static unsigned retu_poll(struct file *filp, struct poll_table_struct *pt)
 
 static struct file_operations retu_user_fileops = {
 	.owner = THIS_MODULE,
-	.ioctl = retu_ioctl,
+	.unlocked_ioctl = retu_ioctl,
 	.read = retu_read,
 	.release = retu_close,
 	.poll = retu_poll
