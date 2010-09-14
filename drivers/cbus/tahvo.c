@@ -301,7 +301,7 @@ EXPORT_SYMBOL(tahvo_free_irq);
  * Probe for the Tahvo ASIC and allocate memory
  * for its device-struct if found
  */
-static int __devinit tahvo_probe(struct platform_device *pdev)
+static int __init tahvo_probe(struct platform_device *pdev)
 {
 	int rev, id, ret;
 	int irq;
@@ -350,7 +350,7 @@ static int __devinit tahvo_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int __devexit tahvo_remove(struct platform_device *pdev)
+static int __exit tahvo_remove(struct platform_device *pdev)
 {
 	int irq;
 
@@ -368,8 +368,7 @@ static int __devexit tahvo_remove(struct platform_device *pdev)
 }
 
 static struct platform_driver tahvo_driver = {
-	.probe		= tahvo_probe,
-	.remove		= __devexit_p(tahvo_remove),
+	.remove		= __exit_p(tahvo_remove),
 	.driver		= {
 		.name	= "tahvo",
 	},
@@ -425,7 +424,7 @@ static int __init tahvo_init(void)
 
 	tahvo_resource[0].start = gpio_to_irq(tahvo_irq_pin);
 
-	ret = platform_driver_register(&tahvo_driver);
+	ret = platform_driver_probe(&tahvo_driver, tahvo_probe);
 	if (ret)
 		goto err1;
 
