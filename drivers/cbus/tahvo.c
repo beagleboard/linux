@@ -56,8 +56,6 @@ static int tahvo_is_betty;
 static struct tasklet_struct tahvo_tasklet;
 spinlock_t tahvo_lock = SPIN_LOCK_UNLOCKED;
 
-static struct completion device_release;
-
 struct tahvo_irq_handler_desc {
 	int (*func)(unsigned long);
 	unsigned long arg;
@@ -388,11 +386,6 @@ static int __devexit tahvo_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static void tahvo_device_release(struct device *dev)
-{
-	complete(&device_release);
-}
-
 static struct platform_driver tahvo_driver = {
 	.probe		= tahvo_probe,
 	.remove		= __devexit_p(tahvo_remove),
@@ -404,9 +397,6 @@ static struct platform_driver tahvo_driver = {
 static struct platform_device tahvo_device = {
 	.name		= "tahvo",
 	.id		= -1,
-	.dev = {
-		.release = tahvo_device_release,
-	}
 };
 
 /**
@@ -421,8 +411,6 @@ static int __init tahvo_init(void)
 	if (!(machine_is_nokia770() || machine_is_nokia_n800() ||
 		machine_is_nokia_n810() || machine_is_nokia_n810_wimax()))
 			return -ENODEV;
-
-	init_completion(&device_release);
 
 	ret = platform_driver_register(&tahvo_driver);
 	if (ret)
@@ -443,7 +431,6 @@ static void __exit tahvo_exit(void)
 {
 	platform_device_unregister(&tahvo_device);
 	platform_driver_unregister(&tahvo_driver);
-	wait_for_completion(&device_release);
 }
 
 subsys_initcall(tahvo_init);
