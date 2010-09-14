@@ -273,7 +273,7 @@ static struct rtc_class_ops retu_rtc_ops = {
 	.set_alarm		= retu_rtc_set_alarm,
 };
 
-static int __devinit retu_rtc_probe(struct platform_device *pdev)
+static int __init retu_rtc_probe(struct platform_device *pdev)
 {
 	struct retu_rtc		*rtc;
 	int			r;
@@ -350,8 +350,7 @@ static int __devexit retu_rtc_remove(struct platform_device *pdev)
 }
 
 static struct platform_driver retu_rtc_driver = {
-	.probe		= retu_rtc_probe,
-	.remove		= __devexit_p(retu_rtc_remove),
+	.remove		= __exit_p(retu_rtc_remove),
 	.driver		= {
 		.name	= "retu-rtc",
 	},
@@ -359,7 +358,7 @@ static struct platform_driver retu_rtc_driver = {
 
 static int __init retu_rtc_init(void)
 {
-	return platform_driver_register(&retu_rtc_driver);
+	return platform_driver_probe(&retu_rtc_driver, retu_rtc_probe);
 }
 
 static void __exit retu_rtc_exit(void)

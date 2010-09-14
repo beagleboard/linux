@@ -395,7 +395,7 @@ static int retu_allocate_children(struct device *parent)
  * Probe for the Retu ASIC and allocate memory
  * for its device-struct if found
  */
-static int __devinit retu_probe(struct platform_device *pdev)
+static int __init retu_probe(struct platform_device *pdev)
 {
 	int rev, ret;
 	int irq;
@@ -453,7 +453,7 @@ static int __devinit retu_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int __devexit retu_remove(struct platform_device *pdev)
+static int __exit retu_remove(struct platform_device *pdev)
 {
 	int irq;
 
@@ -471,8 +471,7 @@ static int __devexit retu_remove(struct platform_device *pdev)
 }
 
 static struct platform_driver retu_driver = {
-	.probe		= retu_probe,
-	.remove		= __devexit_p(retu_remove),
+	.remove		= __exit_p(retu_remove),
 	.driver		= {
 		.name	= "retu",
 	},
@@ -532,7 +531,7 @@ static int __init retu_init(void)
 	/* Set up correct gpio number on struct resource */
 	retu_resource[0].start = gpio_to_irq(retu_irq_pin);
 
-	ret = platform_driver_register(&retu_driver);
+	ret = platform_driver_probe(&retu_driver, retu_probe);
 	if (ret < 0)
 		goto err1;
 

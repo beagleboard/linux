@@ -253,7 +253,7 @@ static const struct file_operations retu_wdt_fops = {
 
 /*----------------------------------------------------------------------------*/
 
-static int __devinit retu_wdt_probe(struct platform_device *pdev)
+static int __init retu_wdt_probe(struct platform_device *pdev)
 {
 	struct retu_wdt_dev *wdev;
 	int ret;
@@ -340,8 +340,7 @@ static int __devexit retu_wdt_remove(struct platform_device *pdev)
 }
 
 static struct platform_driver retu_wdt_driver = {
-	.probe		= retu_wdt_probe,
-	.remove		= __devexit_p(retu_wdt_remove),
+	.remove		= __exit_p(retu_wdt_remove),
 	.driver		= {
 		.name	= "retu-wdt",
 	},
@@ -349,7 +348,7 @@ static struct platform_driver retu_wdt_driver = {
 
 static int __init retu_wdt_init(void)
 {
-	return platform_driver_register(&retu_wdt_driver);
+	return platform_driver_probe(&retu_wdt_driver, retu_wdt_probe);
 }
 
 static void __exit retu_wdt_exit(void)
