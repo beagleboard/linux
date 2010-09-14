@@ -85,7 +85,7 @@ static void retubutton_irq(unsigned long arg)
  * Init function.
  * Allocates interrupt for power button and registers itself to input layer.
  */
-static int __devinit retubutton_probe(struct platform_device *pdev)
+static int __init retubutton_probe(struct platform_device *pdev)
 {
 	struct retu_pwrbutton		*pwr;
 	int				ret = 0;
@@ -143,7 +143,7 @@ err0:
 /**
  * Cleanup function which is called when driver is unloaded
  */
-static int __devexit retubutton_remove(struct platform_device *pdev)
+static int __exit retubutton_remove(struct platform_device *pdev)
 {
 	struct retu_pwrbutton		*pwr = platform_get_drvdata(pdev);
 
@@ -157,8 +157,7 @@ static int __devexit retubutton_remove(struct platform_device *pdev)
 }
 
 static struct platform_driver retu_pwrbutton_driver = {
-	.probe		= retubutton_probe,
-	.remove		= __devexit_p(retubutton_remove),
+	.remove		= __exit_p(retubutton_remove),
 	.driver		= {
 		.name	= "retu-pwrbutton",
 	},
@@ -166,7 +165,7 @@ static struct platform_driver retu_pwrbutton_driver = {
 
 static int __init retubutton_init(void)
 {
-	return platform_driver_register(&retu_pwrbutton_driver);
+	return platform_driver_probe(&retu_pwrbutton_driver, retubutton_probe);
 }
 module_init(retubutton_init);
 

@@ -321,7 +321,6 @@ static int retu_headset_resume(struct platform_device *pdev)
 }
 
 static struct platform_driver retu_headset_driver = {
-	.probe		= retu_headset_probe,
 	.remove		= retu_headset_remove,
 	.suspend	= retu_headset_suspend,
 	.resume		= retu_headset_resume,
@@ -332,7 +331,7 @@ static struct platform_driver retu_headset_driver = {
 
 static int __init retu_headset_init(void)
 {
-	return platform_driver_register(&retu_headset_driver);
+	return platform_driver_probe(&retu_headset_driver, retu_headset_probe);
 }
 
 static void __exit retu_headset_exit(void)
