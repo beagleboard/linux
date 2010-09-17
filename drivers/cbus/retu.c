@@ -531,11 +531,11 @@ static int __init retu_init(void)
 	/* Set up correct gpio number on struct resource */
 	retu_resource[0].start = gpio_to_irq(retu_irq_pin);
 
-	ret = platform_driver_probe(&retu_driver, retu_probe);
+	ret = platform_device_register(&retu_device);
 	if (ret < 0)
 		goto err1;
 
-	ret = platform_device_register(&retu_device);
+	ret = platform_driver_probe(&retu_driver, retu_probe);
 	if (ret < 0)
 		goto err2;
 
