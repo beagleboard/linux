@@ -393,6 +393,7 @@ struct alc_spec {
 	unsigned int no_analog :1; /* digital I/O only */
 	unsigned int dual_adc_switch:1; /* switch ADCs (for ALC275) */
 	int init_amp;
+	int codec_variant;	/* flag for other variants */
 
 	/* for virtual master */
 	hda_nid_t vmaster_nid;
@@ -876,6 +877,28 @@ static void alc_set_input_pin(struct hda_codec *codec, hda_nid_t nid,
 	snd_hda_codec_write(codec, nid, 0, AC_VERB_SET_PIN_WIDGET_CONTROL, val);
 }
 
+static void alc_fixup_autocfg_pin_nums(struct hda_codec *codec)
+{
+	struct alc_spec *spec = codec->spec;
+	struct auto_pin_cfg *cfg = &spec->autocfg;
+
+	if (!cfg->line_outs) {
+		while (cfg->line_outs < AUTO_CFG_MAX_OUTS &&
+		       cfg->line_out_pins[cfg->line_outs])
+			cfg->line_outs++;
+	}
+	if (!cfg->speaker_outs) {
+		while (cfg->speaker_outs < AUTO_CFG_MAX_OUTS &&
+		       cfg->speaker_pins[cfg->speaker_outs])
+			cfg->speaker_outs++;
+	}
+	if (!cfg->hp_outs) {
+		while (cfg->hp_outs < AUTO_CFG_MAX_OUTS &&
+		       cfg->hp_pins[cfg->hp_outs])
+			cfg->hp_outs++;
+	}
+}
+
 /*
  */
 static void add_mixer(struct alc_spec *spec, struct snd_kcontrol_new *mix)
@@ -944,6 +967,8 @@ static void setup_preset(struct hda_codec *codec,
 
 	if (preset->setup)
 		preset->setup(codec);
+
+	alc_fixup_autocfg_pin_nums(codec);
 }
 
 /* Enable GPIO mask and set output */
@@ -4103,10 +4128,8 @@ static int alc_resume(struct hda_codec *codec)
 	codec->patch_ops.init(codec);
 	snd_hda_codec_resume_amp(codec);
 	snd_hda_codec_resume_cache(codec);
-#ifdef CONFIG_SND_HDA_POWER_SAVE
 	if (codec->patch_ops.check_power_status)
 		codec->patch_ops.check_power_status(codec, 0x01);
-#endif
 	return 0;
 }
 #endif
@@ -13460,8 +13483,10 @@ static void alc268_auto_set_output_and_unmute(struct hda_codec *codec,
 static void alc268_auto_init_multi_out(struct hda_codec *codec)
 {
 	struct alc_spec *spec = codec->spec;
-	hda_nid_t nid = spec->autocfg.line_out_pins[0];
-	if (nid) {
+	int i;
+
+	for (i = 0; i < spec->autocfg.line_outs; i++) {
+		hda_nid_t nid = spec->autocfg.line_out_pins[i];
 		int pin_type = get_pin_type(spec->autocfg.line_out_type);
 		alc268_auto_set_output_and_unmute(codec, nid, pin_type);
 	}
@@ -13471,13 +13496,19 @@ static void alc268_auto_init_hp_out(struct hda_codec *codec)
 {
 	struct alc_spec *spec = codec->spec;
 	hda_nid_t pin;
+	int i;
 
-	pin = spec->autocfg.hp_pins[0];
-	if (pin)
+	for (i = 0; i < spec->autocfg.hp_outs; i++) {
+		pin = spec->autocfg.hp_pins[i];
 		alc268_auto_set_output_and_unmute(codec, pin, PIN_HP);
-	pin = spec->autocfg.speaker_pins[0];
-	if (pin)
+	}
+	for (i = 0; i < spec->autocfg.speaker_outs; i++) {
+		pin = spec->autocfg.speaker_pins[i];
 		alc268_auto_set_output_and_unmute(codec, pin, PIN_OUT);
+	}
+	if (spec->autocfg.mono_out_pin)
+		snd_hda_codec_write(codec, spec->autocfg.mono_out_pin, 0,
+				    AC_VERB_SET_PIN_WIDGET_CONTROL, PIN_OUT);
 }
 
 static void alc268_auto_init_mono_speaker_out(struct hda_codec *codec)
@@ -14536,6 +14567,13 @@ static int alc275_setup_dual_adc(struct hda_codec *codec)
 	return 0;
 }
 
+/* different alc269-variants */
+enum {
+	ALC269_TYPE_NORMAL,
+	ALC269_TYPE_ALC259,
+	ALC269_TYPE_ALC271X,
+};
+
 /*
  * BIOS auto configuration
  */
@@ -14553,7 +14591,11 @@ static int alc269_parse_auto_config(struct hda_codec *codec)
 	err = alc269_auto_create_multi_out_ctls(spec, &spec->autocfg);
 	if (err < 0)
 		return err;
-	err = alc269_auto_create_input_ctls(codec, &spec->autocfg);
+	if (spec->codec_variant == ALC269_TYPE_NORMAL)
+		err = alc269_auto_create_input_ctls(codec, &spec->autocfg);
+	else
+		err = alc_auto_create_input_ctls(codec, &spec->autocfg, 0,
+						 0x22, 0);
 	if (err < 0)
 		return err;
 
@@ -14564,7 +14606,7 @@ static int alc269_parse_auto_config(struct hda_codec *codec)
 	if (spec->kctls.list)
 		add_mixer(spec, spec->kctls.list);
 
-	if ((alc_read_coef_idx(codec, 0) & 0x00f0) == 0x0010) {
+	if (spec->codec_variant != ALC269_TYPE_NORMAL) {
 		add_verb(spec, alc269vb_init_verbs);
 		alc_ssid_check(codec, 0, 0x1b, 0x14, 0x21);
 	} else {
@@ -14612,22 +14654,26 @@ static void alc269_auto_init(struct hda_codec *codec)
 		alc_inithook(codec);
 }
 
+#ifdef SND_HDA_NEEDS_RESUME
+static void alc269_toggle_power_output(struct hda_codec *codec, int power_up)
+{
+	int val = alc_read_coef_idx(codec, 0x04);
+	if (power_up)
+		val |= 1 << 11;
+	else
+		val &= ~(1 << 11);
+	alc_write_coef_idx(codec, 0x04, val);
+}
+
 #ifdef CONFIG_SND_HDA_POWER_SAVE
 static int alc269_suspend(struct hda_codec *codec, pm_message_t state)
 {
 	struct alc_spec *spec = codec->spec;
-	int val;
 
-	if ((alc_read_coef_idx(codec, 0) & 0x00ff) == 0x017) {
-		val = alc_read_coef_idx(codec, 0x04);
-		/* Power down output pin */
-		alc_write_coef_idx(codec, 0x04, val & ~(1<<11));
-	}
-
+	if ((alc_read_coef_idx(codec, 0) & 0x00ff) == 0x017)
+		alc269_toggle_power_output(codec, 0);
 	if ((alc_read_coef_idx(codec, 0) & 0x00ff) == 0x018) {
-		val = alc_read_coef_idx(codec, 0x04);
-		/* Power down output pin */
-		alc_write_coef_idx(codec, 0x04, val & ~(1<<11));
+		alc269_toggle_power_output(codec, 0);
 		msleep(150);
 	}
 
@@ -14636,43 +14682,32 @@ static int alc269_suspend(struct hda_codec *codec, pm_message_t state)
 		spec->power_hook(codec);
 	return 0;
 }
-#endif
-#ifdef SND_HDA_NEEDS_RESUME
+#endif /* CONFIG_SND_HDA_POWER_SAVE */
+
 static int alc269_resume(struct hda_codec *codec)
 {
-	int val;
-
 	if ((alc_read_coef_idx(codec, 0) & 0x00ff) == 0x018) {
-		val = alc_read_coef_idx(codec, 0x04);
-		/* Power down output pin */
-		alc_write_coef_idx(codec, 0x04, val & ~(1<<11));
+		alc269_toggle_power_output(codec, 0);
 		msleep(150);
 	}
 
 	codec->patch_ops.init(codec);
 
 	if ((alc_read_coef_idx(codec, 0) & 0x00ff) == 0x017) {
-		val = alc_read_coef_idx(codec, 0x04);
-		/* Power up output pin */
-		alc_write_coef_idx(codec, 0x04, val | (1<<11));
+		alc269_toggle_power_output(codec, 1);
 		msleep(200);
 	}
 
-	if ((alc_read_coef_idx(codec, 0) & 0x00ff) == 0x018) {
-		val = alc_read_coef_idx(codec, 0x04);
-		/* Power up output pin */
-		alc_write_coef_idx(codec, 0x04, val | (1<<11));
-	}
+	if ((alc_read_coef_idx(codec, 0) & 0x00ff) == 0x018)
+		alc269_toggle_power_output(codec, 1);
 
 	snd_hda_codec_resume_amp(codec);
 	snd_hda_codec_resume_cache(codec);
-#ifdef CONFIG_SND_HDA_POWER_SAVE
 	if (codec->patch_ops.check_power_status)
 		codec->patch_ops.check_power_status(codec, 0x01);
-#endif
 	return 0;
 }
-#endif
+#endif /* SND_HDA_NEEDS_RESUME */
 
 enum {
 	ALC269_FIXUP_SONY_VAIO,
@@ -14940,7 +14975,6 @@ static int patch_alc269(struct hda_codec *codec)
 	struct alc_spec *spec;
 	int board_config;
 	int err;
-	int is_alc269vb = 0;
 
 	spec = kzalloc(sizeof(*spec), GFP_KERNEL);
 	if (spec == NULL)
@@ -14952,11 +14986,13 @@ static int patch_alc269(struct hda_codec *codec)
 
 	if ((alc_read_coef_idx(codec, 0) & 0x00f0) == 0x0010){
 		if (codec->bus->pci->subsystem_vendor == 0x1025 &&
-		    spec->cdefine.platform_type == 1)
+		    spec->cdefine.platform_type == 1) {
 			alc_codec_rename(codec, "ALC271X");
-		else
+			spec->codec_variant = ALC269_TYPE_ALC271X;
+		} else {
 			alc_codec_rename(codec, "ALC259");
-		is_alc269vb = 1;
+			spec->codec_variant = ALC269_TYPE_ALC259;
+		}
 	} else
 		alc_fix_pll_init(codec, 0x20, 0x04, 15);
 
@@ -15018,7 +15054,7 @@ static int patch_alc269(struct hda_codec *codec)
 	spec->stream_digital_capture = &alc269_pcm_digital_capture;
 
 	if (!spec->adc_nids) { /* wasn't filled automatically? use default */
-		if (!is_alc269vb) {
+		if (spec->codec_variant != ALC269_TYPE_NORMAL) {
 			spec->adc_nids = alc269_adc_nids;
 			spec->num_adc_nids = ARRAY_SIZE(alc269_adc_nids);
 			spec->capsrc_nids = alc269_capsrc_nids;
