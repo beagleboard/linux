@@ -10,11 +10,23 @@
 /* all SMP configurations have the extended CPUID registers */
 static inline int tlb_ops_need_broadcast(void)
 {
+	cpumask_t mask = cpu_online_map;
+
+	cpu_clear(smp_processor_id(), mask);
+	if (cpus_empty(mask))
+		return 0;
+
 	return ((read_cpuid_ext(CPUID_EXT_MMFR3) >> 12) & 0xf) < 2;
 }
 
 static inline int cache_ops_need_broadcast(void)
 {
+	cpumask_t mask = cpu_online_map;
+
+	cpu_clear(smp_processor_id(), mask);
+	if (cpus_empty(mask))
+		return 0;
+
 	return ((read_cpuid_ext(CPUID_EXT_MMFR3) >> 12) & 0xf) < 1;
 }
 
