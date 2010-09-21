@@ -324,7 +324,7 @@ extern void copy_to_user_page(struct vm_area_struct *, struct page *,
 #elif __LINUX_ARM_ARCH__ == 6 && defined(CONFIG_ARM_ERRATA_411920)
 #define __flush_icache_preferred	__cpuc_flush_icache_all
 #else
-#define __fluch_icache_preferred	__flush_icache_all_generic
+#define __flush_icache_preferred	__flush_icache_all_generic
 #endif
 
 static inline void __flush_icache_all(void)
