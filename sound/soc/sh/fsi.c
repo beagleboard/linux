@@ -101,25 +101,31 @@
 
 #define FSI_FMTS (SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S16_LE)
 
-/************************************************************************
+/*
+ * FSI driver use below type name for variable
+ *
+ * xxx_len	: data length
+ * xxx_width	: data width
+ * xxx_offset	: data offset
+ * xxx_num	: number of data
+ */
 
+/*
+ *		struct
+ */
 
-		struct
-
-
-************************************************************************/
 struct fsi_priv {
 	void __iomem *base;
 	struct snd_pcm_substream *substream;
 	struct fsi_master *master;
 
-	int fifo_max;
-	int chan;
+	int fifo_max_num;
+	int chan_num;
 
-	int byte_offset;
+	int buff_offset;
+	int buff_len;
 	int period_len;
-	int buffer_len;
-	int periods;
+	int period_num;
 
 	u32 mst_ctrl;
 };
@@ -142,13 +148,10 @@ struct fsi_master {
 	spinlock_t lock;
 };
 
-/************************************************************************
+/*
+ *		basic read write function
+ */
 
-
-		basic read write function
-
-
-************************************************************************/
 static void __fsi_reg_write(u32 reg, u32 data)
 {
 	/* valid data area is 24bit */
@@ -251,13 +254,10 @@ static void fsi_master_mask_set(struct fsi_master *master,
 	spin_unlock_irqrestore(&master->lock, flags);
 }
 
-/************************************************************************
+/*
+ *		basic function
+ */
 
-
-		basic function
-
-
-************************************************************************/
 static struct fsi_master *fsi_get_master(struct fsi_priv *fsi)
 {
 	return fsi->master;
@@ -271,16 +271,19 @@ static int fsi_is_port_a(struct fsi_priv *fsi)
 static struct snd_soc_dai *fsi_get_dai(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_dai_link *machine = rtd->dai;
 
-	return  machine->cpu_dai;
+	return  rtd->cpu_dai;
 }
 
 static struct fsi_priv *fsi_get_priv(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_dai *dai = fsi_get_dai(substream);
+	struct fsi_master *master = snd_soc_dai_get_drvdata(dai);
 
-	return dai->private_data;
+	if (dai->id == 0)
+		return &master->fsia;
+	else
+		return &master->fsib;
 }
 
 static u32 fsi_get_info_flags(struct fsi_priv *fsi)
@@ -326,41 +329,102 @@ static void fsi_stream_push(struct fsi_priv *fsi,
 			    u32 period_len)
 {
 	fsi->substream		= substream;
-	fsi->buffer_len		= buffer_len;
+	fsi->buff_len		= buffer_len;
+	fsi->buff_offset	= 0;
 	fsi->period_len		= period_len;
-	fsi->byte_offset	= 0;
-	fsi->periods		= 0;
+	fsi->period_num		= 0;
 }
 
 static void fsi_stream_pop(struct fsi_priv *fsi)
 {
 	fsi->substream		= NULL;
-	fsi->buffer_len		= 0;
+	fsi->buff_len		= 0;
+	fsi->buff_offset	= 0;
 	fsi->period_len		= 0;
-	fsi->byte_offset	= 0;
-	fsi->periods		= 0;
+	fsi->period_num		= 0;
 }
 
-static int fsi_get_fifo_residue(struct fsi_priv *fsi, int is_play)
+static int fsi_get_fifo_data_num(struct fsi_priv *fsi, int is_play)
 {
 	u32 status;
 	u32 reg = is_play ? DOFF_ST : DIFF_ST;
-	int residue;
+	int data_num;
 
 	status = fsi_reg_read(fsi, reg);
-	residue = 0x1ff & (status >> 8);
-	residue *= fsi->chan;
+	data_num = 0x1ff & (status >> 8);
+	data_num *= fsi->chan_num;
 
-	return residue;
+	return data_num;
 }
 
-/************************************************************************
+static int fsi_len2num(int len, int width)
+{
+	return len / width;
+}
 
+#define fsi_num2offset(a, b) fsi_num2len(a, b)
+static int fsi_num2len(int num, int width)
+{
+	return num * width;
+}
 
-		irq function
+/*
+ *		dma function
+ */
 
+static u8 *fsi_dma_get_area(struct fsi_priv *fsi)
+{
+	return fsi->substream->runtime->dma_area + fsi->buff_offset;
+}
 
-************************************************************************/
+static void fsi_dma_soft_push16(struct fsi_priv *fsi, int num)
+{
+	u16 *start;
+	int i;
+
+	start  = (u16 *)fsi_dma_get_area(fsi);
+
+	for (i = 0; i < num; i++)
+		fsi_reg_write(fsi, DODT, ((u32)*(start + i) << 8));
+}
+
+static void fsi_dma_soft_pop16(struct fsi_priv *fsi, int num)
+{
+	u16 *start;
+	int i;
+
+	start  = (u16 *)fsi_dma_get_area(fsi);
+
+	for (i = 0; i < num; i++)
+		*(start + i) = (u16)(fsi_reg_read(fsi, DIDT) >> 8);
+}
+
+static void fsi_dma_soft_push32(struct fsi_priv *fsi, int num)
+{
+	u32 *start;
+	int i;
+
+	start  = (u32 *)fsi_dma_get_area(fsi);
+
+	for (i = 0; i < num; i++)
+		fsi_reg_write(fsi, DODT, *(start + i));
+}
+
+static void fsi_dma_soft_pop32(struct fsi_priv *fsi, int num)
+{
+	u32 *start;
+	int i;
+
+	start  = (u32 *)fsi_dma_get_area(fsi);
+
+	for (i = 0; i < num; i++)
+		*(start + i) = fsi_reg_read(fsi, DIDT);
+}
+
+/*
+ *		irq function
+ */
+
 static void fsi_irq_enable(struct fsi_priv *fsi, int is_play)
 {
 	u32 data = fsi_port_ab_io_bit(fsi, is_play);
@@ -401,13 +465,11 @@ static void fsi_irq_clear_status(struct fsi_priv *fsi)
 	fsi_master_mask_set(master, master->core->int_st, data, 0);
 }
 
-/************************************************************************
-
-
-		SPDIF master clock function
-
-These functions are used later FSI2
-************************************************************************/
+/*
+ *		SPDIF master clock function
+ *
+ * These functions are used later FSI2
+ */
 static void fsi_spdif_clk_ctrl(struct fsi_priv *fsi, int enable)
 {
 	struct fsi_master *master = fsi_get_master(fsi);
@@ -424,13 +486,10 @@ static void fsi_spdif_clk_ctrl(struct fsi_priv *fsi, int enable)
 		fsi_master_mask_set(master, fsi->mst_ctrl, val, 0);
 }
 
-/************************************************************************
+/*
+ *		ctrl function
+ */
 
-
-		ctrl function
-
-
-************************************************************************/
 static void fsi_clk_ctrl(struct fsi_priv *fsi, int enable)
 {
 	u32 val = fsi_is_port_a(fsi) ? (1 << 0) : (1 << 4);
@@ -453,8 +512,8 @@ static void fsi_fifo_init(struct fsi_priv *fsi,
 	shift = fsi_master_read(master, FIFO_SZ);
 	shift >>= fsi_is_port_a(fsi) ? AO_SZ_SHIFT : BO_SZ_SHIFT;
 	shift &= OUT_SZ_MASK;
-	fsi->fifo_max = 256 << shift;
-	dev_dbg(dai->dev, "fifo = %d words\n", fsi->fifo_max);
+	fsi->fifo_max_num = 256 << shift;
+	dev_dbg(dai->dev, "fifo = %d words\n", fsi->fifo_max_num);
 
 	/*
 	 * The maximum number of sample data varies depending
@@ -475,9 +534,10 @@ static void fsi_fifo_init(struct fsi_priv *fsi,
 	 * 7 channels:  32 ( 32 x 7 = 224)
 	 * 8 channels:  32 ( 32 x 8 = 256)
 	 */
-	for (i = 1; i < fsi->chan; i <<= 1)
-		fsi->fifo_max >>= 1;
-	dev_dbg(dai->dev, "%d channel %d store\n", fsi->chan, fsi->fifo_max);
+	for (i = 1; i < fsi->chan_num; i <<= 1)
+		fsi->fifo_max_num >>= 1;
+	dev_dbg(dai->dev, "%d channel %d store\n",
+		fsi->chan_num, fsi->fifo_max_num);
 
 	ctrl = is_play ? DOFF_CTL : DIFF_CTL;
 
@@ -500,17 +560,18 @@ static void fsi_soft_all_reset(struct fsi_master *master)
 	mdelay(10);
 }
 
-/* playback interrupt */
-static int fsi_data_push(struct fsi_priv *fsi, int startup)
+static int fsi_fifo_data_ctrl(struct fsi_priv *fsi, int startup, int is_play)
 {
 	struct snd_pcm_runtime *runtime;
 	struct snd_pcm_substream *substream = NULL;
 	u32 status;
-	int send;
-	int fifo_free;
-	int width;
-	u8 *start;
-	int i, over_period;
+	u32 status_reg = is_play ? DOFF_ST : DIFF_ST;
+	int data_residue_num;
+	int data_num;
+	int data_num_max;
+	int ch_width;
+	int over_period;
+	void (*fn)(struct fsi_priv *fsi, int size);
 
 	if (!fsi			||
 	    !fsi->substream		||
@@ -524,49 +585,76 @@ static int fsi_data_push(struct fsi_priv *fsi, int startup)
 	/* FSI FIFO has limit.
 	 * So, this driver can not send periods data at a time
 	 */
-	if (fsi->byte_offset >=
-	    fsi->period_len * (fsi->periods + 1)) {
+	if (fsi->buff_offset >=
+	    fsi_num2offset(fsi->period_num + 1, fsi->period_len)) {
 
 		over_period = 1;
-		fsi->periods = (fsi->periods + 1) % runtime->periods;
+		fsi->period_num = (fsi->period_num + 1) % runtime->periods;
 
-		if (0 == fsi->periods)
-			fsi->byte_offset = 0;
+		if (0 == fsi->period_num)
+			fsi->buff_offset = 0;
 	}
 
 	/* get 1 channel data width */
-	width = frames_to_bytes(runtime, 1) / fsi->chan;
+	ch_width = frames_to_bytes(runtime, 1) / fsi->chan_num;
 
-	/* get send size for alsa */
-	send = (fsi->buffer_len - fsi->byte_offset) / width;
+	/* get residue data number of alsa */
+	data_residue_num = fsi_len2num(fsi->buff_len - fsi->buff_offset,
+				       ch_width);
 
-	/*  get FIFO free size */
-	fifo_free = (fsi->fifo_max * fsi->chan) - fsi_get_fifo_residue(fsi, 1);
+	if (is_play) {
+		/*
+		 * for play-back
+		 *
+		 * data_num_max	: number of FSI fifo free space
+		 * data_num	: number of ALSA residue data
+		 */
+		data_num_max  = fsi->fifo_max_num * fsi->chan_num;
+		data_num_max -= fsi_get_fifo_data_num(fsi, is_play);
 
-	/* size check */
-	if (fifo_free < send)
-		send = fifo_free;
+		data_num = data_residue_num;
 
-	start = runtime->dma_area;
-	start += fsi->byte_offset;
+		switch (ch_width) {
+		case 2:
+			fn = fsi_dma_soft_push16;
+			break;
+		case 4:
+			fn = fsi_dma_soft_push32;
+			break;
+		default:
+			return -EINVAL;
+		}
+	} else {
+		/*
+		 * for capture
+		 *
+		 * data_num_max	: number of ALSA free space
+		 * data_num	: number of data in FSI fifo
+		 */
+		data_num_max = data_residue_num;
+		data_num     = fsi_get_fifo_data_num(fsi, is_play);
 
-	switch (width) {
-	case 2:
-		for (i = 0; i < send; i++)
-			fsi_reg_write(fsi, DODT,
-				      ((u32)*((u16 *)start + i) << 8));
-		break;
-	case 4:
-		for (i = 0; i < send; i++)
-			fsi_reg_write(fsi, DODT, *((u32 *)start + i));
-		break;
-	default:
-		return -EINVAL;
+		switch (ch_width) {
+		case 2:
+			fn = fsi_dma_soft_pop16;
+			break;
+		case 4:
+			fn = fsi_dma_soft_pop32;
+			break;
+		default:
+			return -EINVAL;
+		}
 	}
 
-	fsi->byte_offset += send * width;
+	data_num = min(data_num, data_num_max);
 
-	status = fsi_reg_read(fsi, DOFF_ST);
+	fn(fsi, data_num);
+
+	/* update buff_offset */
+	fsi->buff_offset += fsi_num2offset(data_num, ch_width);
+
+	/* check fifo status */
+	status = fsi_reg_read(fsi, status_reg);
 	if (!startup) {
 		struct snd_soc_dai *dai = fsi_get_dai(substream);
 
@@ -575,9 +663,10 @@ static int fsi_data_push(struct fsi_priv *fsi, int startup)
 		if (status & ERR_UNDER)
 			dev_err(dai->dev, "under run\n");
 	}
-	fsi_reg_write(fsi, DOFF_ST, 0);
+	fsi_reg_write(fsi, status_reg, 0);
 
-	fsi_irq_enable(fsi, 1);
+	/* re-enable irq */
+	fsi_irq_enable(fsi, is_play);
 
 	if (over_period)
 		snd_pcm_period_elapsed(substream);
@@ -587,85 +676,12 @@ static int fsi_data_push(struct fsi_priv *fsi, int startup)
 
 static int fsi_data_pop(struct fsi_priv *fsi, int startup)
 {
-	struct snd_pcm_runtime *runtime;
-	struct snd_pcm_substream *substream = NULL;
-	u32 status;
-	int free;
-	int fifo_fill;
-	int width;
-	u8 *start;
-	int i, over_period;
+	return fsi_fifo_data_ctrl(fsi, startup, 0);
+}
 
-	if (!fsi			||
-	    !fsi->substream		||
-	    !fsi->substream->runtime)
-		return -EINVAL;
-
-	over_period	= 0;
-	substream	= fsi->substream;
-	runtime		= substream->runtime;
-
-	/* FSI FIFO has limit.
-	 * So, this driver can not send periods data at a time
-	 */
-	if (fsi->byte_offset >=
-	    fsi->period_len * (fsi->periods + 1)) {
-
-		over_period = 1;
-		fsi->periods = (fsi->periods + 1) % runtime->periods;
-
-		if (0 == fsi->periods)
-			fsi->byte_offset = 0;
-	}
-
-	/* get 1 channel data width */
-	width = frames_to_bytes(runtime, 1) / fsi->chan;
-
-	/* get free space for alsa */
-	free = (fsi->buffer_len - fsi->byte_offset) / width;
-
-	/* get recv size */
-	fifo_fill = fsi_get_fifo_residue(fsi, 0);
-
-	if (free < fifo_fill)
-		fifo_fill = free;
-
-	start = runtime->dma_area;
-	start += fsi->byte_offset;
-
-	switch (width) {
-	case 2:
-		for (i = 0; i < fifo_fill; i++)
-			*((u16 *)start + i) =
-				(u16)(fsi_reg_read(fsi, DIDT) >> 8);
-		break;
-	case 4:
-		for (i = 0; i < fifo_fill; i++)
-			*((u32 *)start + i) = fsi_reg_read(fsi, DIDT);
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	fsi->byte_offset += fifo_fill * width;
-
-	status = fsi_reg_read(fsi, DIFF_ST);
-	if (!startup) {
-		struct snd_soc_dai *dai = fsi_get_dai(substream);
-
-		if (status & ERR_OVER)
-			dev_err(dai->dev, "over run\n");
-		if (status & ERR_UNDER)
-			dev_err(dai->dev, "under run\n");
-	}
-	fsi_reg_write(fsi, DIFF_ST, 0);
-
-	fsi_irq_enable(fsi, 0);
-
-	if (over_period)
-		snd_pcm_period_elapsed(substream);
-
-	return 0;
+static int fsi_data_push(struct fsi_priv *fsi, int startup)
+{
+	return fsi_fifo_data_ctrl(fsi, startup, 1);
 }
 
 static irqreturn_t fsi_interrupt(int irq, void *data)
@@ -691,13 +707,10 @@ static irqreturn_t fsi_interrupt(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-/************************************************************************
+/*
+ *		dai ops
+ */
 
-
-		dai ops
-
-
-************************************************************************/
 static int fsi_dai_startup(struct snd_pcm_substream *substream,
 			   struct snd_soc_dai *dai)
 {
@@ -741,29 +754,29 @@ static int fsi_dai_startup(struct snd_pcm_substream *substream,
 	switch (fmt) {
 	case SH_FSI_FMT_MONO:
 		data = CR_MONO;
-		fsi->chan = 1;
+		fsi->chan_num = 1;
 		break;
 	case SH_FSI_FMT_MONO_DELAY:
 		data = CR_MONO_D;
-		fsi->chan = 1;
+		fsi->chan_num = 1;
 		break;
 	case SH_FSI_FMT_PCM:
 		data = CR_PCM;
-		fsi->chan = 2;
+		fsi->chan_num = 2;
 		break;
 	case SH_FSI_FMT_I2S:
 		data = CR_I2S;
-		fsi->chan = 2;
+		fsi->chan_num = 2;
 		break;
 	case SH_FSI_FMT_TDM:
-		fsi->chan = is_play ?
+		fsi->chan_num = is_play ?
 			SH_FSI_GET_CH_O(flags) : SH_FSI_GET_CH_I(flags);
-		data = CR_TDM | (fsi->chan - 1);
+		data = CR_TDM | (fsi->chan_num - 1);
 		break;
 	case SH_FSI_FMT_TDM_DELAY:
-		fsi->chan = is_play ?
+		fsi->chan_num = is_play ?
 			SH_FSI_GET_CH_O(flags) : SH_FSI_GET_CH_I(flags);
-		data = CR_TDM_D | (fsi->chan - 1);
+		data = CR_TDM_D | (fsi->chan_num - 1);
 		break;
 	case SH_FSI_FMT_SPDIF:
 		if (master->core->ver < 2) {
@@ -771,7 +784,7 @@ static int fsi_dai_startup(struct snd_pcm_substream *substream,
 			return -EINVAL;
 		}
 		data = CR_SPDIF;
-		fsi->chan = 2;
+		fsi->chan_num = 2;
 		fsi_spdif_clk_ctrl(fsi, 1);
 		fsi_reg_mask_set(fsi, OUT_SEL, 0x0010, 0x0010);
 		break;
@@ -916,13 +929,10 @@ static struct snd_soc_dai_ops fsi_dai_ops = {
 	.hw_params	= fsi_dai_hw_params,
 };
 
-/************************************************************************
+/*
+ *		pcm ops
+ */
 
-
-		pcm ops
-
-
-************************************************************************/
 static struct snd_pcm_hardware fsi_pcm_hardware = {
 	.info =		SNDRV_PCM_INFO_INTERLEAVED	|
 			SNDRV_PCM_INFO_MMAP		|
@@ -973,7 +983,7 @@ static snd_pcm_uframes_t fsi_pointer(struct snd_pcm_substream *substream)
 	struct fsi_priv *fsi = fsi_get_priv(substream);
 	long location;
 
-	location = (fsi->byte_offset - 1);
+	location = (fsi->buff_offset - 1);
 	if (location < 0)
 		location = 0;
 
@@ -988,13 +998,10 @@ static struct snd_pcm_ops fsi_pcm_ops = {
 	.pointer	= fsi_pointer,
 };
 
-/************************************************************************
+/*
+ *		snd_soc_platform
+ */
 
-
-		snd_soc_platform
-
-
-************************************************************************/
 #define PREALLOC_BUFFER		(32 * 1024)
 #define PREALLOC_BUFFER_MAX	(32 * 1024)
 
@@ -1018,17 +1025,13 @@ static int fsi_pcm_new(struct snd_card *card,
 		PREALLOC_BUFFER, PREALLOC_BUFFER_MAX);
 }
 
-/************************************************************************
+/*
+ *		alsa struct
+ */
 
-
-		alsa struct
-
-
-************************************************************************/
-struct snd_soc_dai fsi_soc_dai[] = {
+static struct snd_soc_dai_driver fsi_soc_dai[] = {
 	{
-		.name			= "FSIA",
-		.id			= 0,
+		.name			= "fsia-dai",
 		.playback = {
 			.rates		= FSI_RATES,
 			.formats	= FSI_FMTS,
@@ -1044,8 +1047,7 @@ struct snd_soc_dai fsi_soc_dai[] = {
 		.ops = &fsi_dai_ops,
 	},
 	{
-		.name			= "FSIB",
-		.id			= 1,
+		.name			= "fsib-dai",
 		.playback = {
 			.rates		= FSI_RATES,
 			.formats	= FSI_FMTS,
@@ -1061,23 +1063,17 @@ struct snd_soc_dai fsi_soc_dai[] = {
 		.ops = &fsi_dai_ops,
 	},
 };
-EXPORT_SYMBOL_GPL(fsi_soc_dai);
 
-struct snd_soc_platform fsi_soc_platform = {
-	.name		= "fsi-pcm",
-	.pcm_ops 	= &fsi_pcm_ops,
+static struct snd_soc_platform_driver fsi_soc_platform = {
+	.ops		= &fsi_pcm_ops,
 	.pcm_new	= fsi_pcm_new,
 	.pcm_free	= fsi_pcm_free,
 };
-EXPORT_SYMBOL_GPL(fsi_soc_platform);
 
-/************************************************************************
+/*
+ *		platform function
+ */
 
-
-		platform function
-
-
-************************************************************************/
 static int fsi_probe(struct platform_device *pdev)
 {
 	struct fsi_master *master;
@@ -1132,11 +1128,7 @@ static int fsi_probe(struct platform_device *pdev)
 
 	pm_runtime_enable(&pdev->dev);
 	pm_runtime_resume(&pdev->dev);
-
-	fsi_soc_dai[0].dev		= &pdev->dev;
-	fsi_soc_dai[0].private_data	= &master->fsia;
-	fsi_soc_dai[1].dev		= &pdev->dev;
-	fsi_soc_dai[1].private_data	= &master->fsib;
+	dev_set_drvdata(&pdev->dev, master);
 
 	fsi_soft_all_reset(master);
 
@@ -1147,13 +1139,13 @@ static int fsi_probe(struct platform_device *pdev)
 		goto exit_iounmap;
 	}
 
-	ret = snd_soc_register_platform(&fsi_soc_platform);
+	ret = snd_soc_register_platform(&pdev->dev, &fsi_soc_platform);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "cannot snd soc register\n");
 		goto exit_free_irq;
 	}
 
-	return snd_soc_register_dais(fsi_soc_dai, ARRAY_SIZE(fsi_soc_dai));
+	return snd_soc_register_dais(&pdev->dev, fsi_soc_dai, ARRAY_SIZE(fsi_soc_dai));
 
 exit_free_irq:
 	free_irq(irq, master);
@@ -1171,10 +1163,10 @@ static int fsi_remove(struct platform_device *pdev)
 {
 	struct fsi_master *master;
 
-	master = fsi_get_master(fsi_soc_dai[0].private_data);
+	master = dev_get_drvdata(&pdev->dev);
 
-	snd_soc_unregister_dais(fsi_soc_dai, ARRAY_SIZE(fsi_soc_dai));
-	snd_soc_unregister_platform(&fsi_soc_platform);
+	snd_soc_unregister_dais(&pdev->dev, ARRAY_SIZE(fsi_soc_dai));
+	snd_soc_unregister_platform(&pdev->dev);
 
 	pm_runtime_disable(&pdev->dev);
 
@@ -1182,11 +1174,6 @@ static int fsi_remove(struct platform_device *pdev)
 
 	iounmap(master->base);
 	kfree(master);
-
-	fsi_soc_dai[0].dev		= NULL;
-	fsi_soc_dai[0].private_data	= NULL;
-	fsi_soc_dai[1].dev		= NULL;
-	fsi_soc_dai[1].private_data	= NULL;
 
 	return 0;
 }
@@ -1230,10 +1217,11 @@ static struct platform_device_id fsi_id_table[] = {
 	{ "sh_fsi",	(kernel_ulong_t)&fsi1_core },
 	{ "sh_fsi2",	(kernel_ulong_t)&fsi2_core },
 };
+MODULE_DEVICE_TABLE(platform, fsi_id_table);
 
 static struct platform_driver fsi_driver = {
 	.driver 	= {
-		.name	= "sh_fsi",
+		.name	= "fsi-pcm-audio",
 		.pm	= &fsi_pm_ops,
 	},
 	.probe		= fsi_probe,
@@ -1250,6 +1238,7 @@ static void __exit fsi_mobile_exit(void)
 {
 	platform_driver_unregister(&fsi_driver);
 }
+
 module_init(fsi_mobile_init);
 module_exit(fsi_mobile_exit);
 
