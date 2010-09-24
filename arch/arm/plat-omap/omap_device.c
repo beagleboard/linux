@@ -82,6 +82,7 @@
 #include <linux/slab.h>
 #include <linux/err.h>
 #include <linux/io.h>
+#include <linux/clk.h>
 
 #include <plat/omap_device.h>
 #include <plat/omap_hwmod.h>
@@ -89,12 +90,6 @@
 /* These parameters are passed to _omap_device_{de,}activate() */
 #define USE_WAKEUP_LAT			0
 #define IGNORE_WAKEUP_LAT		1
-
-/*
- * OMAP_DEVICE_MAGIC: used to determine whether a struct omap_device
- * obtained via container_of() is in fact a struct omap_device
- */
-#define OMAP_DEVICE_MAGIC		 0xf00dcafe
 
 /* Private functions */
 
@@ -241,6 +236,44 @@ static int _omap_device_deactivate(struct omap_device *od, u8 ignore_lat)
 static inline struct omap_device *_find_by_pdev(struct platform_device *pdev)
 {
 	return container_of(pdev, struct omap_device, pdev);
+}
+
+/**
+ * _add_optional_clock_alias - Add clock alias for hwmod optional clocks
+ * @od: struct omap_device *od
+ *
+ * For every optional clock present per hwmod per omap_device, this function
+ * adds an entry in the clocks list of the form <dev-id=dev_name, con-id=role>
+ * if an entry is already present in it with the form <dev-id=NULL, con-id=role>
+ *
+ * The function is called from inside omap_device_build_ss(), after
+ * omap_device_register.
+ *
+ * This allows drivers to get a pointer to its optional clocks based on its role
+ * by calling clk_get(<dev*>, <role>).
+ *
+ * No return value.
+ */
+static void _add_optional_clock_alias(struct omap_device *od,
+				      struct omap_hwmod *oh)
+{
+	int i;
+
+	for (i = 0; i < oh->opt_clks_cnt; i++) {
+		struct omap_hwmod_opt_clk *oc;
+		int r;
+
+		oc = &oh->opt_clks[i];
+
+		if (!oc->_clk)
+			continue;
+
+		r = clk_add_alias(oc->role, dev_name(&od->pdev.dev),
+				  (char *)oc->clk, &od->pdev.dev);
+		if (r)
+			pr_err("omap_device: %s: clk_add_alias for %s failed\n",
+			       dev_name(&od->pdev.dev), oc->role);
+	}
 }
 
 
@@ -414,15 +447,15 @@ struct omap_device *omap_device_build_ss(const char *pdev_name, int pdev_id,
 	od->pm_lats = pm_lats;
 	od->pm_lats_cnt = pm_lats_cnt;
 
-	od->magic = OMAP_DEVICE_MAGIC;
-
 	if (is_early_device)
 		ret = omap_early_device_register(od);
 	else
 		ret = omap_device_register(od);
 
-	for (i = 0; i < oh_cnt; i++)
+	for (i = 0; i < oh_cnt; i++) {
 		hwmods[i]->od = od;
+		_add_optional_clock_alias(od, hwmods[i]);
+	}
 
 	if (ret)
 		goto odbs_exit4;
@@ -473,6 +506,7 @@ int omap_device_register(struct omap_device *od)
 {
 	pr_debug("omap_device: %s: registering\n", od->pdev.name);
 
+	od->pdev.dev.parent = &omap_device_parent;
 	return platform_device_register(&od->pdev);
 }
 
@@ -627,18 +661,6 @@ int omap_device_align_pm_lat(struct platform_device *pdev,
 }
 
 /**
- * omap_device_is_valid - Check if pointer is a valid omap_device
- * @od: struct omap_device *
- *
- * Return whether struct omap_device pointer @od points to a valid
- * omap_device.
- */
-bool omap_device_is_valid(struct omap_device *od)
-{
-	return (od && od->magic == OMAP_DEVICE_MAGIC);
-}
-
-/**
  * omap_device_get_pwrdm - return the powerdomain * associated with @od
  * @od: struct omap_device *
  *
@@ -757,3 +779,14 @@ int omap_device_enable_clocks(struct omap_device *od)
 	/* XXX pass along return value here? */
 	return 0;
 }
+
+struct device omap_device_parent = {
+	.init_name	= "omap",
+	.parent         = &platform_bus,
+};
+
+static int __init omap_device_init(void)
+{
+	return device_register(&omap_device_parent);
+}
+core_initcall(omap_device_init);
