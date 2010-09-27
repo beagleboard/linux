@@ -15,7 +15,6 @@
 #include <linux/device.h>
 #include <sound/soc.h>
 
-#include "../codecs/wm9713.h"
 #include "s3c-dma.h"
 #include "s3c-ac97.h"
 
@@ -53,7 +52,7 @@ static struct snd_soc_dai_link smdk_dai = {
 };
 
 static struct snd_soc_card smdk = {
-	.name = "SMDK",
+	.name = "SMDK WM9713",
 	.dai_link = &smdk_dai,
 	.num_links = 1,
 };
@@ -96,6 +95,7 @@ err:
 static void __exit smdk_exit(void)
 {
 	platform_device_unregister(smdk_snd_ac97_device);
+	platform_device_unregister(smdk_snd_wm9713_device);
 }
 
 module_init(smdk_init);
