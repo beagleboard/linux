@@ -142,6 +142,7 @@ static inline void __arch_decomp_setup(unsigned long arch_id)
 
 		/* omap3 based boards using UART3 */
 		DEBUG_LL_OMAP3(3, cm_t35);
+		DEBUG_LL_OMAP3(3, cm_t3517);
 		DEBUG_LL_OMAP3(3, igep0020);
 		DEBUG_LL_OMAP3(3, nokia_rx51);
 		DEBUG_LL_OMAP3(3, omap3517evm);
@@ -153,6 +154,7 @@ static inline void __arch_decomp_setup(unsigned long arch_id)
 
 		/* omap4 based boards using UART3 */
 		DEBUG_LL_OMAP4(3, omap_4430sdp);
+		DEBUG_LL_OMAP4(3, omap4_panda);
 
 		/* zoom2/3 external uart */
 		DEBUG_LL_ZOOM(omap_zoom2);
