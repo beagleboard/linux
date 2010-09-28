@@ -224,11 +224,9 @@ int __init cbus_bus_init(void)
 	struct cbus_host *chost;
 	int ret;
 
-	chost = kmalloc(sizeof (*chost), GFP_KERNEL);
+	chost = kzalloc(sizeof (*chost), GFP_KERNEL);
 	if (chost == NULL)
 		return -ENOMEM;
-
-	memset(chost, 0, sizeof (*chost));
 
 	spin_lock_init(&chost->lock);
 
