@@ -95,8 +95,14 @@ static struct platform_device nokia770_kp_device = {
 	.resource	= nokia770_kp_resources,
 };
 
+static struct platform_device nokia770_cbus_device = {
+	.name		= "cbus",
+	.id		= -1,
+};
+
 static struct platform_device *nokia770_devices[] __initdata = {
 	&nokia770_kp_device,
+	&nokia770_cbus_device,
 };
 
 static void mipid_shutdown(struct mipid_platform_data *pdata)

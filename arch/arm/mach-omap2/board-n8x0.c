@@ -17,6 +17,7 @@
 #include <linux/init.h>
 #include <linux/io.h>
 #include <linux/stddef.h>
+#include <linux/platform_device.h>
 #include <linux/i2c.h>
 #include <linux/spi/spi.h>
 #include <linux/usb/musb.h>
@@ -182,6 +183,11 @@ static struct mtd_partition onenand_partitions[] = {
 		.offset         = MTDPART_OFS_APPEND,
 		.size           = MTDPART_SIZ_FULL,
 	},
+};
+
+static struct platform_device n8x0_cbus_device = {
+	.name		= "cbus",
+	.id		= -1,
 };
 
 static struct omap_onenand_platform_data board_onenand_data = {
@@ -674,6 +680,8 @@ static struct omap_board_mux board_mux[] __initdata = {
 static void __init n8x0_init_machine(void)
 {
 	omap2420_mux_init(board_mux, OMAP_PACKAGE_ZAC);
+	platform_device_register(&n8x0_cbus_device);
+
 	/* FIXME: add n810 spi devices */
 	spi_register_board_info(n800_spi_board_info,
 				ARRAY_SIZE(n800_spi_board_info));
