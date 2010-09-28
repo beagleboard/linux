@@ -45,7 +45,7 @@
 #include <linux/mutex.h>
 
 #include <asm/irq.h>
-#include <mach/usb.h>
+#include <plat/usb.h>
 
 #include "cbus.h"
 #include "tahvo.h"
