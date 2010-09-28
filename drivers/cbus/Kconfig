@@ -72,7 +72,7 @@ config CBUS_RETU_RTC
 	  RTC in Retu. This will expose a sysfs interface for it.
 
 config CBUS_RETU_WDT
-	depends on CBUS_RETU && SYSFS
+	depends on CBUS_RETU && SYSFS && WATCHDOG
 	tristate "Support for Retu watchdog timer"
 	---help---
 	  Say Y here if you want support for the watchdog in Retu. This will
