@@ -74,7 +74,7 @@ static void __init omap3_evm_get_revision(void)
 	ioaddr = ioremap_nocache(OMAP3EVM_ETHR_START, SZ_1K);
 	if (!ioaddr)
 		return;
-	smsc_id = readl(ioaddr + OMAP3EVM_ETHR_ID_REV) & 0xFFFF0000;
+	smsc_id = __raw_readl(ioaddr + OMAP3EVM_ETHR_ID_REV) & 0xFFFF0000;
 	iounmap(ioaddr);
 
 	switch (smsc_id) {
