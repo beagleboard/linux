@@ -47,6 +47,7 @@ struct omap_globals {
 	unsigned long   sdrc;           /* SDRAM Controller */
 	unsigned long   sms;            /* SDRAM Memory Scheduler */
 	unsigned long   ctrl;           /* System Control Module */
+	unsigned long   ctrl_pad;	/* PAD Control Module */
 	unsigned long   prm;            /* Power and Reset Management */
 	unsigned long   cm;             /* Clock Management */
 	unsigned long   cm2;
@@ -91,7 +92,8 @@ void omap3_map_io(void);
 })
 
 extern struct device *omap2_get_mpuss_device(void);
-extern struct device *omap2_get_dsp_device(void);
+extern struct device *omap2_get_iva_device(void);
 extern struct device *omap2_get_l3_device(void);
+extern struct device *omap4_get_dsp_device(void);
 
 #endif /* __ARCH_ARM_MACH_OMAP_COMMON_H */
