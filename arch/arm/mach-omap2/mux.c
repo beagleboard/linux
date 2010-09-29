@@ -87,7 +87,7 @@ static char *omap_mux_options;
 int __init omap_mux_init_gpio(int gpio, int val)
 {
 	struct omap_mux_entry *e;
-	struct omap_mux *gpio_mux;
+	struct omap_mux *gpio_mux = NULL;
 	u16 old_mode;
 	u16 mux_mode;
 	int found = 0;
@@ -127,17 +127,16 @@ int __init omap_mux_init_gpio(int gpio, int val)
 	return 0;
 }
 
-int __init omap_mux_init_signal(char *muxname, int val)
+int __init omap_mux_init_signal(const char *muxname, int val)
 {
 	struct omap_mux_entry *e;
-	char *m0_name = NULL, *mode_name = NULL;
-	int found = 0;
+	const char *mode_name;
+	int found = 0, mode0_len = 0;
 
 	mode_name = strchr(muxname, '.');
 	if (mode_name) {
-		*mode_name = '\0';
+		mode0_len = strlen(muxname) - strlen(mode_name);
 		mode_name++;
-		m0_name = muxname;
 	} else {
 		mode_name = muxname;
 	}
@@ -147,9 +146,11 @@ int __init omap_mux_init_signal(char *muxname, int val)
 		char *m0_entry = m->muxnames[0];
 		int i;
 
-		if (m0_name && strcmp(m0_name, m0_entry))
+		/* First check for full name in mode0.muxmode format */
+		if (mode0_len && strncmp(muxname, m0_entry, mode0_len))
 			continue;
 
+		/* Then check for muxmode only */
 		for (i = 0; i < OMAP_MUX_NR_MODES; i++) {
 			char *mode_cur = m->muxnames[i];
 
