@@ -35,6 +35,7 @@
 
 #include "mux.h"
 #include "hsmmc.h"
+#include "control.h"
 
 #include <plat/mux.h>
 #include <plat/board.h>
@@ -43,7 +44,6 @@
 #include <plat/gpmc.h>
 #include <plat/timer-gp.h>
 #include <plat/sdrc.h>
-#include <plat/control.h>
 
 #define OMAP3LOGIC_SMSC911X_CS			1
 
