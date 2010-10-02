@@ -37,7 +37,6 @@ static void __init __omap2_set_globals(struct omap_globals *omap2_globals)
 	omap2_set_globals_sdrc(omap2_globals);
 	omap2_set_globals_control(omap2_globals);
 	omap2_set_globals_prcm(omap2_globals);
-	omap2_set_globals_uart(omap2_globals);
 }
 
 #endif
@@ -132,7 +131,6 @@ void __init omap2_set_globals_443x(void)
 	omap2_set_globals_tap(&omap4_globals);
 	omap2_set_globals_control(&omap4_globals);
 	omap2_set_globals_prcm(&omap4_globals);
-	omap2_set_globals_uart(&omap4_globals);
 }
 #endif
 
