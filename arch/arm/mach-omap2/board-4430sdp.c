@@ -32,12 +32,12 @@
 
 #include <plat/board.h>
 #include <plat/common.h>
-#include <plat/timer-gp.h>
 #include <plat/usb.h>
 #include <plat/mmc.h>
 
 #include "hsmmc.h"
 #include "control.h"
+#include "timer-gp.h"
 
 #define ETH_KS8851_IRQ			34
 #define ETH_KS8851_POWER_ON		48

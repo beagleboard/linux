@@ -42,8 +42,9 @@
 #include <plat/common.h>
 #include <plat/gpmc-smsc911x.h>
 #include <plat/gpmc.h>
-#include <plat/timer-gp.h>
 #include <plat/sdrc.h>
+
+#include "timer-gp.h"
 
 #define OMAP3LOGIC_SMSC911X_CS			1
 
