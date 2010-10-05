@@ -9,12 +9,12 @@
  * (at your option) any later version.
  */
 
-#include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/platform_device.h>
 #include <linux/io.h>
 #include <linux/clk.h>
+#include <linux/err.h>
 
 #include <mach/hardware.h>
 #include <mach/irqs.h>
@@ -22,14 +22,16 @@
 #include <asm/mach/map.h>
 #include <asm/pmu.h>
 
-#include <plat/control.h>
 #include <plat/tc.h>
 #include <plat/board.h>
 #include <mach/gpio.h>
 #include <plat/mmc.h>
 #include <plat/dma.h>
+#include <plat/omap_hwmod.h>
+#include <plat/omap_device.h>
 
 #include "mux.h"
+#include "control.h"
 
 #if defined(CONFIG_VIDEO_OMAP2) || defined(CONFIG_VIDEO_OMAP2_MODULE)
 
@@ -817,13 +819,13 @@ void __init omap2_init_mmc(struct omap_mmc_platform_data **mmc_data,
 		case 3:
 			if (!cpu_is_omap44xx())
 				return;
-			base = OMAP4_MMC4_BASE + OMAP4_MMC_REG_OFFSET;
+			base = OMAP4_MMC4_BASE;
 			irq = OMAP44XX_IRQ_MMC4;
 			break;
 		case 4:
 			if (!cpu_is_omap44xx())
 				return;
-			base = OMAP4_MMC5_BASE + OMAP4_MMC_REG_OFFSET;
+			base = OMAP4_MMC5_BASE;
 			irq = OMAP44XX_IRQ_MMC5;
 			break;
 		default:
@@ -834,10 +836,8 @@ void __init omap2_init_mmc(struct omap_mmc_platform_data **mmc_data,
 			size = OMAP2420_MMC_SIZE;
 			name = "mmci-omap";
 		} else if (cpu_is_omap44xx()) {
-			if (i < 3) {
-				base += OMAP4_MMC_REG_OFFSET;
+			if (i < 3)
 				irq += OMAP44XX_IRQ_GIC_START;
-			}
 			size = OMAP4_HSMMC_SIZE;
 			name = "mmci-omap-hs";
 		} else {
@@ -913,11 +913,72 @@ static inline void omap_init_vout(void) {}
 
 /*-------------------------------------------------------------------------*/
 
+/*
+ * Inorder to avoid any assumptions from bootloader regarding WDT
+ * settings, WDT module is reset during init. This enables the watchdog
+ * timer. Hence it is required to disable the watchdog after the WDT reset
+ * during init. Otherwise the system would reboot as per the default
+ * watchdog timer registers settings.
+ */
+#define OMAP_WDT_WPS	(0x34)
+#define OMAP_WDT_SPR	(0x48)
+
+static int omap2_disable_wdt(struct omap_hwmod *oh, void *unused)
+{
+	void __iomem *base;
+	int ret;
+
+	if (!oh) {
+		pr_err("%s: Could not look up wdtimer_hwmod\n", __func__);
+		return -EINVAL;
+	}
+
+	base = omap_hwmod_get_mpu_rt_va(oh);
+	if (!base) {
+		pr_err("%s: Could not get the base address for %s\n",
+				oh->name, __func__);
+		return -EINVAL;
+	}
+
+	/* Enable the clocks before accessing the WDT registers */
+	ret = omap_hwmod_enable(oh);
+	if (ret) {
+		pr_err("%s: Could not enable clocks for %s\n",
+				oh->name, __func__);
+		return ret;
+	}
+
+	/* sequence required to disable watchdog */
+	__raw_writel(0xAAAA, base + OMAP_WDT_SPR);
+	while (__raw_readl(base + OMAP_WDT_WPS) & 0x10)
+		cpu_relax();
+
+	__raw_writel(0x5555, base + OMAP_WDT_SPR);
+	while (__raw_readl(base + OMAP_WDT_WPS) & 0x10)
+		cpu_relax();
+
+	ret = omap_hwmod_idle(oh);
+	if (ret)
+		pr_err("%s: Could not disable clocks for %s\n",
+				oh->name, __func__);
+
+	return ret;
+}
+
+static void __init omap_disable_wdt(void)
+{
+	if (cpu_class_is_omap2())
+		omap_hwmod_for_each_by_class("wd_timer",
+						omap2_disable_wdt, NULL);
+	return;
+}
+
 static int __init omap2_init_devices(void)
 {
 	/* please keep these calls, and their implementations above,
 	 * in alphabetical order so they're easier to sort through.
 	 */
+	omap_disable_wdt();
 	omap_hsmmc_reset();
 	omap_init_camera();
 	omap_init_mbox();
@@ -932,3 +993,39 @@ static int __init omap2_init_devices(void)
 	return 0;
 }
 arch_initcall(omap2_init_devices);
+
+#if defined(CONFIG_OMAP_WATCHDOG) || defined(CONFIG_OMAP_WATCHDOG_MODULE)
+struct omap_device_pm_latency omap_wdt_latency[] = {
+	[0] = {
+		.deactivate_func = omap_device_idle_hwmods,
+		.activate_func   = omap_device_enable_hwmods,
+		.flags		 = OMAP_DEVICE_LATENCY_AUTO_ADJUST,
+	},
+};
+
+static int __init omap_init_wdt(void)
+{
+	int id = -1;
+	struct omap_device *od;
+	struct omap_hwmod *oh;
+	char *oh_name = "wd_timer2";
+	char *dev_name = "omap_wdt";
+
+	if (!cpu_class_is_omap2())
+		return 0;
+
+	oh = omap_hwmod_lookup(oh_name);
+	if (!oh) {
+		pr_err("Could not look up wd_timer%d hwmod\n", id);
+		return -EINVAL;
+	}
+
+	od = omap_device_build(dev_name, id, oh, NULL, 0,
+				omap_wdt_latency,
+				ARRAY_SIZE(omap_wdt_latency), 0);
+	WARN(IS_ERR(od), "Cant build omap_device for %s:%s.\n",
+				dev_name, oh->name);
+	return 0;
+}
+subsys_initcall(omap_init_wdt);
+#endif

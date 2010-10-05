@@ -48,10 +48,10 @@
 #include <plat/gpmc.h>
 #include <plat/nand.h>
 #include <plat/usb.h>
-#include <plat/timer-gp.h>
 
 #include "mux.h"
 #include "hsmmc.h"
+#include "timer-gp.h"
 
 #include <asm/setup.h>
 
@@ -62,7 +62,7 @@
 #define TB_BL_PWM_TIMER		9
 #define TB_KILL_POWER_GPIO	168
 
-unsigned long touchbook_revision;
+static unsigned long touchbook_revision;
 
 static struct mtd_partition omap3touchbook_nand_partitions[] = {
 	/* All the partition sizes are listed in terms of NAND block size */

@@ -292,10 +292,10 @@ static spinlock_t dm_timer_lock;
 static inline u32 omap_dm_timer_read_reg(struct omap_dm_timer *timer, u32 reg)
 {
 	if (timer->posted)
-		while (readl(timer->io_base + (OMAP_TIMER_WRITE_PEND_REG & 0xff))
+		while (__raw_readl(timer->io_base + (OMAP_TIMER_WRITE_PEND_REG & 0xff))
 				& (reg >> WPSHIFT))
 			cpu_relax();
-	return readl(timer->io_base + (reg & 0xff));
+	return __raw_readl(timer->io_base + (reg & 0xff));
 }
 
 /*
@@ -308,7 +308,7 @@ static void omap_dm_timer_write_reg(struct omap_dm_timer *timer, u32 reg,
 						u32 value)
 {
 	if (timer->posted)
-		while (readl(timer->io_base + (OMAP_TIMER_WRITE_PEND_REG & 0xff))
+		while (__raw_readl(timer->io_base + (OMAP_TIMER_WRITE_PEND_REG & 0xff))
 				& (reg >> WPSHIFT))
 			cpu_relax();
 	writel(value, timer->io_base + (reg & 0xff));
