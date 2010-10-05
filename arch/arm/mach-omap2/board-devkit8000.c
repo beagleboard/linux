@@ -45,7 +45,6 @@
 #include <plat/gpmc.h>
 #include <plat/nand.h>
 #include <plat/usb.h>
-#include <plat/timer-gp.h>
 #include <plat/display.h>
 
 #include <plat/mcspi.h>
@@ -59,6 +58,7 @@
 
 #include "mux.h"
 #include "hsmmc.h"
+#include "timer-gp.h"
 
 #define NAND_BLOCK_SIZE		SZ_128K
 
@@ -199,7 +199,7 @@ static struct platform_device devkit8000_dss_device = {
 static struct regulator_consumer_supply devkit8000_vdda_dac_supply =
 	REGULATOR_SUPPLY("vdda_dac", "omapdss");
 
-static int board_keymap[] = {
+static uint32_t board_keymap[] = {
 	KEY(0, 0, KEY_1),
 	KEY(1, 0, KEY_2),
 	KEY(2, 0, KEY_3),
