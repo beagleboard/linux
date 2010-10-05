@@ -9,7 +9,6 @@
  * (at your option) any later version.
  */
 
-#include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/platform_device.h>
@@ -22,7 +21,6 @@
 #include <asm/mach/map.h>
 #include <asm/pmu.h>
 
-#include <plat/control.h>
 #include <plat/tc.h>
 #include <plat/board.h>
 #include <mach/gpio.h>
@@ -30,6 +28,7 @@
 #include <plat/dma.h>
 
 #include "mux.h"
+#include "control.h"
 
 #if defined(CONFIG_VIDEO_OMAP2) || defined(CONFIG_VIDEO_OMAP2_MODULE)
 
@@ -498,6 +497,76 @@ static void omap_init_sham(void)
 static inline void omap_init_sham(void) { }
 #endif
 
+#if defined(CONFIG_CRYPTO_DEV_OMAP_AES) || defined(CONFIG_CRYPTO_DEV_OMAP_AES_MODULE)
+
+#ifdef CONFIG_ARCH_OMAP2
+static struct resource omap2_aes_resources[] = {
+	{
+		.start	= OMAP24XX_SEC_AES_BASE,
+		.end	= OMAP24XX_SEC_AES_BASE + 0x4C,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= OMAP24XX_DMA_AES_TX,
+		.flags	= IORESOURCE_DMA,
+	},
+	{
+		.start	= OMAP24XX_DMA_AES_RX,
+		.flags	= IORESOURCE_DMA,
+	}
+};
+static int omap2_aes_resources_sz = ARRAY_SIZE(omap2_aes_resources);
+#else
+#define omap2_aes_resources		NULL
+#define omap2_aes_resources_sz		0
+#endif
+
+#ifdef CONFIG_ARCH_OMAP3
+static struct resource omap3_aes_resources[] = {
+	{
+		.start	= OMAP34XX_SEC_AES_BASE,
+		.end	= OMAP34XX_SEC_AES_BASE + 0x4C,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= OMAP34XX_DMA_AES2_TX,
+		.flags	= IORESOURCE_DMA,
+	},
+	{
+		.start	= OMAP34XX_DMA_AES2_RX,
+		.flags	= IORESOURCE_DMA,
+	}
+};
+static int omap3_aes_resources_sz = ARRAY_SIZE(omap3_aes_resources);
+#else
+#define omap3_aes_resources		NULL
+#define omap3_aes_resources_sz		0
+#endif
+
+static struct platform_device aes_device = {
+	.name		= "omap-aes",
+	.id		= -1,
+};
+
+static void omap_init_aes(void)
+{
+	if (cpu_is_omap24xx()) {
+		aes_device.resource = omap2_aes_resources;
+		aes_device.num_resources = omap2_aes_resources_sz;
+	} else if (cpu_is_omap34xx()) {
+		aes_device.resource = omap3_aes_resources;
+		aes_device.num_resources = omap3_aes_resources_sz;
+	} else {
+		pr_err("%s: platform not supported\n", __func__);
+		return;
+	}
+	platform_device_register(&aes_device);
+}
+
+#else
+static inline void omap_init_aes(void) { }
+#endif
+
 /*-------------------------------------------------------------------------*/
 
 #if defined(CONFIG_ARCH_OMAP3) || defined(CONFIG_ARCH_OMAP4)
@@ -624,7 +693,7 @@ static inline void omap2_mmc_mux(struct omap_mmc_platform_data *mmc_controller,
 		omap_mux_init_signal("sdmmc_dat0", 0);
 		omap_mux_init_signal("sdmmc_dat_dir0", 0);
 		omap_mux_init_signal("sdmmc_cmd_dir", 0);
-		if (mmc_controller->slots[0].wires == 4) {
+		if (mmc_controller->slots[0].caps & MMC_CAP_4_BIT_DATA) {
 			omap_mux_init_signal("sdmmc_dat1", 0);
 			omap_mux_init_signal("sdmmc_dat2", 0);
 			omap_mux_init_signal("sdmmc_dat3", 0);
@@ -652,8 +721,8 @@ static inline void omap2_mmc_mux(struct omap_mmc_platform_data *mmc_controller,
 				OMAP_PIN_INPUT_PULLUP);
 			omap_mux_init_signal("sdmmc1_dat0",
 				OMAP_PIN_INPUT_PULLUP);
-			if (mmc_controller->slots[0].wires == 4 ||
-				mmc_controller->slots[0].wires == 8) {
+			if (mmc_controller->slots[0].caps &
+				(MMC_CAP_4_BIT_DATA | MMC_CAP_8_BIT_DATA)) {
 				omap_mux_init_signal("sdmmc1_dat1",
 					OMAP_PIN_INPUT_PULLUP);
 				omap_mux_init_signal("sdmmc1_dat2",
@@ -661,7 +730,8 @@ static inline void omap2_mmc_mux(struct omap_mmc_platform_data *mmc_controller,
 				omap_mux_init_signal("sdmmc1_dat3",
 					OMAP_PIN_INPUT_PULLUP);
 			}
-			if (mmc_controller->slots[0].wires == 8) {
+			if (mmc_controller->slots[0].caps &
+						MMC_CAP_8_BIT_DATA) {
 				omap_mux_init_signal("sdmmc1_dat4",
 					OMAP_PIN_INPUT_PULLUP);
 				omap_mux_init_signal("sdmmc1_dat5",
@@ -685,8 +755,8 @@ static inline void omap2_mmc_mux(struct omap_mmc_platform_data *mmc_controller,
 			 * For 8 wire configurations, Lines DAT4, 5, 6 and 7 need to be muxed
 			 * in the board-*.c files
 			 */
-			if (mmc_controller->slots[0].wires == 4 ||
-				mmc_controller->slots[0].wires == 8) {
+			if (mmc_controller->slots[0].caps &
+				(MMC_CAP_4_BIT_DATA | MMC_CAP_8_BIT_DATA)) {
 				omap_mux_init_signal("sdmmc2_dat1",
 					OMAP_PIN_INPUT_PULLUP);
 				omap_mux_init_signal("sdmmc2_dat2",
@@ -694,7 +764,8 @@ static inline void omap2_mmc_mux(struct omap_mmc_platform_data *mmc_controller,
 				omap_mux_init_signal("sdmmc2_dat3",
 					OMAP_PIN_INPUT_PULLUP);
 			}
-			if (mmc_controller->slots[0].wires == 8) {
+			if (mmc_controller->slots[0].caps &
+							MMC_CAP_8_BIT_DATA) {
 				omap_mux_init_signal("sdmmc2_dat4.sdmmc2_dat4",
 					OMAP_PIN_INPUT_PULLUP);
 				omap_mux_init_signal("sdmmc2_dat5.sdmmc2_dat5",
@@ -745,13 +816,13 @@ void __init omap2_init_mmc(struct omap_mmc_platform_data **mmc_data,
 		case 3:
 			if (!cpu_is_omap44xx())
 				return;
-			base = OMAP4_MMC4_BASE + OMAP4_MMC_REG_OFFSET;
+			base = OMAP4_MMC4_BASE;
 			irq = OMAP44XX_IRQ_MMC4;
 			break;
 		case 4:
 			if (!cpu_is_omap44xx())
 				return;
-			base = OMAP4_MMC5_BASE + OMAP4_MMC_REG_OFFSET;
+			base = OMAP4_MMC5_BASE;
 			irq = OMAP44XX_IRQ_MMC5;
 			break;
 		default:
@@ -762,10 +833,8 @@ void __init omap2_init_mmc(struct omap_mmc_platform_data **mmc_data,
 			size = OMAP2420_MMC_SIZE;
 			name = "mmci-omap";
 		} else if (cpu_is_omap44xx()) {
-			if (i < 3) {
-				base += OMAP4_MMC_REG_OFFSET;
+			if (i < 3)
 				irq += OMAP44XX_IRQ_GIC_START;
-			}
 			size = OMAP4_HSMMC_SIZE;
 			name = "mmci-omap-hs";
 		} else {
@@ -854,6 +923,7 @@ static int __init omap2_init_devices(void)
 	omap_hdq_init();
 	omap_init_sti();
 	omap_init_sham();
+	omap_init_aes();
 	omap_init_vout();
 
 	return 0;
