@@ -42,8 +42,7 @@
 #include <plat/control.h>
 #include <plat/gpmc-smc91x.h>
 
-#include <mach/board-flash.h>
-
+#include "board-flash.h"
 #include "mux.h"
 #include "sdram-qimonda-hyb18m512160af-6.h"
 #include "hsmmc.h"
@@ -77,7 +76,7 @@ static struct cpuidle_params omap3_cpuidle_params_table[] = {
 	{1, 10000, 30000, 300000},
 };
 
-static int board_keymap[] = {
+static uint32_t board_keymap[] = {
 	KEY(0, 0, KEY_LEFT),
 	KEY(0, 1, KEY_RIGHT),
 	KEY(0, 2, KEY_A),
