@@ -46,7 +46,7 @@ static int omap2_onenand_set_async_mode(int cs, void __iomem *onenand_base)
 	const int t_wph = 30;
 
 	/* Ensure sync read and sync write are disabled */
-	reg = readw(onenand_base + ONENAND_REG_SYS_CFG1);
+	reg = __raw_readw(onenand_base + ONENAND_REG_SYS_CFG1);
 	reg &= ~ONENAND_SYS_CFG1_SYNC_READ & ~ONENAND_SYS_CFG1_SYNC_WRITE;
 	writew(reg, onenand_base + ONENAND_REG_SYS_CFG1);
 
@@ -86,7 +86,7 @@ static int omap2_onenand_set_async_mode(int cs, void __iomem *onenand_base)
 		return err;
 
 	/* Ensure sync read and sync write are disabled */
-	reg = readw(onenand_base + ONENAND_REG_SYS_CFG1);
+	reg = __raw_readw(onenand_base + ONENAND_REG_SYS_CFG1);
 	reg &= ~ONENAND_SYS_CFG1_SYNC_READ & ~ONENAND_SYS_CFG1_SYNC_WRITE;
 	writew(reg, onenand_base + ONENAND_REG_SYS_CFG1);
 
@@ -98,7 +98,7 @@ static void set_onenand_cfg(void __iomem *onenand_base, int latency,
 {
 	u32 reg;
 
-	reg = readw(onenand_base + ONENAND_REG_SYS_CFG1);
+	reg = __raw_readw(onenand_base + ONENAND_REG_SYS_CFG1);
 	reg &= ~((0x7 << ONENAND_SYS_CFG1_BRL_SHIFT) | (0x7 << 9));
 	reg |=	(latency << ONENAND_SYS_CFG1_BRL_SHIFT) |
 		ONENAND_SYS_CFG1_BL_16;
@@ -148,7 +148,7 @@ static int omap2_onenand_set_sync_mode(struct omap_onenand_platform_data *cfg,
 		err = omap2_onenand_set_async_mode(cs, onenand_base);
 		if (err)
 			return err;
-		reg = readw(onenand_base + ONENAND_REG_VERSION_ID);
+		reg = __raw_readw(onenand_base + ONENAND_REG_VERSION_ID);
 		switch ((reg >> 4) & 0xf) {
 		case 0:
 			freq = 40;
