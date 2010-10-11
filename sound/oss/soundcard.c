@@ -249,7 +249,7 @@ static int sound_open(struct inode *inode, struct file *file)
 	}
 
 	mutex_unlock(&soundcard_mutex);
-	return 0;
+	return retval;
 }
 
 static int sound_release(struct inode *inode, struct file *file)
@@ -392,11 +392,11 @@ static long sound_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case SND_DEV_DSP:
 	case SND_DEV_DSP16:
 	case SND_DEV_AUDIO:
-		return audio_ioctl(dev, file, cmd, p);
+		ret = audio_ioctl(dev, file, cmd, p);
 		break;
 
 	case SND_DEV_MIDIN:
-		return MIDIbuf_ioctl(dev, file, cmd, p);
+		ret = MIDIbuf_ioctl(dev, file, cmd, p);
 		break;
 
 	}
