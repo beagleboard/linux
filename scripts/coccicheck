@@ -16,6 +16,7 @@ if [ "$C" = "1" -o "$C" = "2" ]; then
 else
     ONLINE=0
     FLAGS="-very_quiet"
+    OPTIONS="-dir $srctree"
 fi
 
 if [ ! -x "$SPATCH" ]; then
@@ -25,11 +26,13 @@ fi
 
 if [ "$MODE" = "" ] ; then
     if [ "$ONLINE" = "0" ] ; then
-	echo 'You have not explicitly specify the mode to use. Fallback to "report".'
+	echo 'You have not explicitly specified the mode to use. Using default "chain" mode.'
+	echo 'All available modes will be tried (in that order): patch, report, context, org'
 	echo 'You can specify the mode with "make coccicheck MODE=<mode>"'
-	echo 'Available modes are: report, patch, context, org'
     fi
-    MODE="report"
+    MODE="chain"
+elif [ "$MODE" = "report" -o "$MODE" = "org" ] ; then
+    FLAGS="$FLAGS -no_show_diff"    
 fi
 
 if [ "$ONLINE" = "0" ] ; then
@@ -52,10 +55,12 @@ coccinelle () {
 
 	FILE=`echo $COCCI | sed "s|$srctree/||"`
 
-	echo "Processing `basename $COCCI` with option(s) \"$OPT\""
+	echo "Processing `basename $COCCI`"
+	echo "with option(s) \"$OPT\""
+	echo ''
 	echo 'Message example to submit a patch:'
 
-	sed -e '/\/\/\//!d' -e 's|^///||' $COCCI
+	sed -ne 's|^///||p' $COCCI
 
 	echo ' The semantic patch that makes this change is available'
 	echo " in $FILE."
@@ -64,9 +69,20 @@ coccinelle () {
 	echo ' http://coccinelle.lip6.fr/'
 	echo ''
 
-	$SPATCH -D $MODE $FLAGS -sp_file $COCCI $OPT -dir $srctree || exit 1
+	if [ "`sed -ne 's|^//#||p' $COCCI`" ] ; then
+	    echo 'Semantic patch information:'
+	    sed -ne 's|^//#||p' $COCCI
+	    echo ''
+	fi
+    fi
+
+    if [ "$MODE" = "chain" ] ; then
+	$SPATCH -D patch   $FLAGS -sp_file $COCCI $OPT $OPTIONS               || \
+	$SPATCH -D report  $FLAGS -sp_file $COCCI $OPT $OPTIONS -no_show_diff || \
+	$SPATCH -D context $FLAGS -sp_file $COCCI $OPT $OPTIONS               || \
+	$SPATCH -D org     $FLAGS -sp_file $COCCI $OPT $OPTIONS -no_show_diff || exit 1
     else
-	$SPATCH -D $MODE $FLAGS -sp_file $COCCI $OPT $OPTIONS || exit 1
+	$SPATCH -D $MODE   $FLAGS -sp_file $COCCI $OPT $OPTIONS || exit 1
     fi
 
 }
