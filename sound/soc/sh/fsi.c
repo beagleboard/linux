@@ -80,11 +80,12 @@
 #define B_CLK		0x00000010
 #define A_CLK		0x00000001
 
-/* INT_ST */
-#define INT_B_IN	(1 << 12)
-#define INT_B_OUT	(1 << 8)
-#define INT_A_IN	(1 << 4)
-#define INT_A_OUT	(1 << 0)
+/* IO SHIFT / MACRO */
+#define BI_SHIFT	12
+#define BO_SHIFT	8
+#define AI_SHIFT	4
+#define AO_SHIFT	0
+#define AB_IO(param, shift)	(param << shift)
 
 /* SOFT_RST */
 #define PBSR		(1 << 12) /* Port B Software Reset */
@@ -93,9 +94,7 @@
 #define FSISR		(1 <<  0) /* Software Reset */
 
 /* FIFO_SZ */
-#define OUT_SZ_MASK	0x7
-#define BO_SZ_SHIFT	8
-#define AO_SZ_SHIFT	0
+#define FIFO_SZ_MASK	0x7
 
 #define FSI_RATES SNDRV_PCM_RATE_8000_96000
 
@@ -295,6 +294,11 @@ static u32 fsi_get_info_flags(struct fsi_priv *fsi)
 		master->info->portb_flags;
 }
 
+static inline int fsi_is_play(struct snd_pcm_substream *substream)
+{
+	return substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
+}
+
 static int fsi_is_master_mode(struct fsi_priv *fsi, int is_play)
 {
 	u32 mode;
@@ -310,17 +314,17 @@ static int fsi_is_master_mode(struct fsi_priv *fsi, int is_play)
 	return (mode & flags) != mode;
 }
 
-static u32 fsi_port_ab_io_bit(struct fsi_priv *fsi, int is_play)
+static u32 fsi_get_port_shift(struct fsi_priv *fsi, int is_play)
 {
 	int is_porta = fsi_is_port_a(fsi);
-	u32 data;
+	u32 shift;
 
 	if (is_porta)
-		data = is_play ? (1 << 0) : (1 << 4);
+		shift = is_play ? AO_SHIFT : AI_SHIFT;
 	else
-		data = is_play ? (1 << 8) : (1 << 12);
+		shift = is_play ? BO_SHIFT : BI_SHIFT;
 
-	return data;
+	return shift;
 }
 
 static void fsi_stream_push(struct fsi_priv *fsi,
@@ -366,6 +370,14 @@ static int fsi_len2num(int len, int width)
 static int fsi_num2len(int num, int width)
 {
 	return num * width;
+}
+
+static int fsi_get_frame_width(struct fsi_priv *fsi)
+{
+	struct snd_pcm_substream *substream = fsi->substream;
+	struct snd_pcm_runtime *runtime = substream->runtime;
+
+	return frames_to_bytes(runtime, 1) / fsi->chan_num;
 }
 
 /*
@@ -427,7 +439,7 @@ static void fsi_dma_soft_pop32(struct fsi_priv *fsi, int num)
 
 static void fsi_irq_enable(struct fsi_priv *fsi, int is_play)
 {
-	u32 data = fsi_port_ab_io_bit(fsi, is_play);
+	u32 data = AB_IO(1, fsi_get_port_shift(fsi, is_play));
 	struct fsi_master *master = fsi_get_master(fsi);
 
 	fsi_master_mask_set(master, master->core->imsk,  data, data);
@@ -436,7 +448,7 @@ static void fsi_irq_enable(struct fsi_priv *fsi, int is_play)
 
 static void fsi_irq_disable(struct fsi_priv *fsi, int is_play)
 {
-	u32 data = fsi_port_ab_io_bit(fsi, is_play);
+	u32 data = AB_IO(1, fsi_get_port_shift(fsi, is_play));
 	struct fsi_master *master = fsi_get_master(fsi);
 
 	fsi_master_mask_set(master, master->core->imsk,  data, 0);
@@ -458,8 +470,8 @@ static void fsi_irq_clear_status(struct fsi_priv *fsi)
 	u32 data = 0;
 	struct fsi_master *master = fsi_get_master(fsi);
 
-	data |= fsi_port_ab_io_bit(fsi, 0);
-	data |= fsi_port_ab_io_bit(fsi, 1);
+	data |= AB_IO(1, fsi_get_port_shift(fsi, 0));
+	data |= AB_IO(1, fsi_get_port_shift(fsi, 1));
 
 	/* clear interrupt factor */
 	fsi_master_mask_set(master, master->core->int_st, data, 0);
@@ -510,8 +522,8 @@ static void fsi_fifo_init(struct fsi_priv *fsi,
 
 	/* get on-chip RAM capacity */
 	shift = fsi_master_read(master, FIFO_SZ);
-	shift >>= fsi_is_port_a(fsi) ? AO_SZ_SHIFT : BO_SZ_SHIFT;
-	shift &= OUT_SZ_MASK;
+	shift >>= fsi_get_port_shift(fsi, is_play);
+	shift &= FIFO_SZ_MASK;
 	fsi->fifo_max_num = 256 << shift;
 	dev_dbg(dai->dev, "fifo = %d words\n", fsi->fifo_max_num);
 
@@ -564,7 +576,6 @@ static int fsi_fifo_data_ctrl(struct fsi_priv *fsi, int startup, int is_play)
 {
 	struct snd_pcm_runtime *runtime;
 	struct snd_pcm_substream *substream = NULL;
-	u32 status;
 	u32 status_reg = is_play ? DOFF_ST : DIFF_ST;
 	int data_residue_num;
 	int data_num;
@@ -596,7 +607,7 @@ static int fsi_fifo_data_ctrl(struct fsi_priv *fsi, int startup, int is_play)
 	}
 
 	/* get 1 channel data width */
-	ch_width = frames_to_bytes(runtime, 1) / fsi->chan_num;
+	ch_width = fsi_get_frame_width(fsi);
 
 	/* get residue data number of alsa */
 	data_residue_num = fsi_len2num(fsi->buff_len - fsi->buff_offset,
@@ -654,9 +665,9 @@ static int fsi_fifo_data_ctrl(struct fsi_priv *fsi, int startup, int is_play)
 	fsi->buff_offset += fsi_num2offset(data_num, ch_width);
 
 	/* check fifo status */
-	status = fsi_reg_read(fsi, status_reg);
 	if (!startup) {
 		struct snd_soc_dai *dai = fsi_get_dai(substream);
+		u32 status = fsi_reg_read(fsi, status_reg);
 
 		if (status & ERR_OVER)
 			dev_err(dai->dev, "over run\n");
@@ -693,13 +704,13 @@ static irqreturn_t fsi_interrupt(int irq, void *data)
 	fsi_master_mask_set(master, SOFT_RST, IR, 0);
 	fsi_master_mask_set(master, SOFT_RST, IR, IR);
 
-	if (int_st & INT_A_OUT)
+	if (int_st & AB_IO(1, AO_SHIFT))
 		fsi_data_push(&master->fsia, 0);
-	if (int_st & INT_B_OUT)
+	if (int_st & AB_IO(1, BO_SHIFT))
 		fsi_data_push(&master->fsib, 0);
-	if (int_st & INT_A_IN)
+	if (int_st & AB_IO(1, AI_SHIFT))
 		fsi_data_pop(&master->fsia, 0);
-	if (int_st & INT_B_IN)
+	if (int_st & AB_IO(1, BI_SHIFT))
 		fsi_data_pop(&master->fsib, 0);
 
 	fsi_irq_clear_all_status(master);
@@ -720,9 +731,8 @@ static int fsi_dai_startup(struct snd_pcm_substream *substream,
 	u32 fmt;
 	u32 reg;
 	u32 data;
-	int is_play = (substream->stream == SNDRV_PCM_STREAM_PLAYBACK);
+	int is_play = fsi_is_play(substream);
 	int is_master;
-	int ret = 0;
 
 	pm_runtime_get_sync(dai->dev);
 
@@ -801,14 +811,14 @@ static int fsi_dai_startup(struct snd_pcm_substream *substream,
 	/* fifo init */
 	fsi_fifo_init(fsi, is_play, dai);
 
-	return ret;
+	return 0;
 }
 
 static void fsi_dai_shutdown(struct snd_pcm_substream *substream,
 			     struct snd_soc_dai *dai)
 {
 	struct fsi_priv *fsi = fsi_get_priv(substream);
-	int is_play = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
+	int is_play = fsi_is_play(substream);
 
 	fsi_irq_disable(fsi, is_play);
 	fsi_clk_ctrl(fsi, 0);
@@ -821,7 +831,7 @@ static int fsi_dai_trigger(struct snd_pcm_substream *substream, int cmd,
 {
 	struct fsi_priv *fsi = fsi_get_priv(substream);
 	struct snd_pcm_runtime *runtime = substream->runtime;
-	int is_play = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
+	int is_play = fsi_is_play(substream);
 	int ret = 0;
 
 	switch (cmd) {
@@ -848,7 +858,7 @@ static int fsi_dai_hw_params(struct snd_pcm_substream *substream,
 	struct fsi_master *master = fsi_get_master(fsi);
 	int (*set_rate)(int is_porta, int rate) = master->info->set_rate;
 	int fsi_ver = master->core->ver;
-	int is_play = (substream->stream == SNDRV_PCM_STREAM_PLAYBACK);
+	int is_play = fsi_is_play(substream);
 	int ret;
 
 	/* if slave mode, set_rate is not needed */
