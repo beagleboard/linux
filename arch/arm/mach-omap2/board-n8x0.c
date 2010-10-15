@@ -413,15 +413,6 @@ static void n8x0_mmc_callback(void *data, u8 card_mask)
 	omap_mmc_notify_cover_event(mmc_device, index, *openp);
 }
 
-void n8x0_mmc_slot1_cover_handler(void *arg, int closed_state)
-{
-	if (mmc_device == NULL)
-		return;
-
-	slot1_cover_open = !closed_state;
-	omap_mmc_notify_cover_event(mmc_device, 0, closed_state);
-}
-
 static int n8x0_mmc_late_init(struct device *dev)
 {
 	int r, bit, *openp;
@@ -517,7 +508,7 @@ static struct omap_mmc_platform_data mmc1_data = {
 	.max_freq			= 24000000,
 	.dma_mask			= 0xffffffff,
 	.slots[0] = {
-		.caps			= MMC_CAP_4_BIT_DATA,
+		.wires			= 4,
 		.set_power		= n8x0_mmc_set_power,
 		.set_bus_mode		= n8x0_mmc_set_bus_mode,
 		.get_cover_state	= n8x0_mmc_get_cover_state,
@@ -541,7 +532,7 @@ static struct omap_mmc_platform_data mmc1_data = {
 
 static struct omap_mmc_platform_data *mmc_data[OMAP24XX_NR_MMC];
 
-void __init n8x0_mmc_init(void)
+static void __init n8x0_mmc_init(void)
 
 {
 	int err;
@@ -590,11 +581,6 @@ void __init n8x0_mmc_init(void)
 void __init n8x0_mmc_init(void)
 {
 }
-
-void n8x0_mmc_slot1_cover_handler(void *arg, int state)
-{
-}
-
 #endif	/* CONFIG_MMC_OMAP */
 
 #ifdef CONFIG_MENELAUS
