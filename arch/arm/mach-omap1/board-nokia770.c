@@ -127,6 +127,20 @@ static struct platform_device retu_device = {
 	.num_resources	= ARRAY_SIZE(retu_resource),
 };
 
+static struct resource tahvo_resource[] = {
+	{
+		.start	= -EINVAL, /* set later */
+		.flags	= IORESOURCE_IRQ,
+	}
+};
+
+static struct platform_device tahvo_device = {
+	.name		= "tahvo",
+	.id		= -1,
+	.resource	= tahvo_resource,
+	.num_resources	= ARRAY_SIZE(tahvo_resource),
+};
+
 static void __init nokia770_cbus_init(void)
 {
 	int		ret;
@@ -149,6 +163,24 @@ static void __init nokia770_cbus_init(void)
 	set_irq_type(gpio_to_irq(62), IRQ_TYPE_EDGE_RISING);
 	retu_resource[0].start = gpio_to_irq(62);
 	platform_device_register(&retu_device);
+
+	ret = gpio_request(40, "TAHVO irq");
+	if (ret) {
+		pr_err("tahvo: Unable to reserve IRQ GPIO\n");
+		gpio_free(62);
+		return;
+	}
+
+	ret = gpio_direction_input(40);
+	if (ret) {
+		pr_err("tahvo: Unable to change direction\n");
+		gpio_free(62);
+		gpio_free(40);
+		return;
+	}
+
+	tahvo_resource[0].start = gpio_to_irq(40);
+	platform_device_register(&tahvo_device);
 }
 
 #else

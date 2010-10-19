@@ -50,7 +50,6 @@
 #define PFX			"tahvo: "
 
 static int tahvo_initialized;
-static int tahvo_irq_pin;
 static int tahvo_is_betty;
 
 static struct tasklet_struct tahvo_tasklet;
@@ -374,20 +373,6 @@ static struct platform_driver tahvo_driver = {
 	},
 };
 
-static struct resource tahvo_resource[] = {
-	{
-		.start	= -EINVAL, /* set later */
-		.flags	= IORESOURCE_IRQ,
-	}
-};
-
-static struct platform_device tahvo_device = {
-	.name		= "tahvo",
-	.id		= -1,
-	.resource	= tahvo_resource,
-	.num_resources	= ARRAY_SIZE(tahvo_resource),
-};
-
 /**
  * tahvo_init - initialise Tahvo driver
  *
@@ -395,53 +380,7 @@ static struct platform_device tahvo_device = {
  */
 static int __init tahvo_init(void)
 {
-	int ret = 0;
-
-	/* REVISIT: Pass these from board-*.c files in platform_data */
-	if (machine_is_nokia770()) {
-		tahvo_irq_pin = 40;
-	} else if (machine_is_nokia_n800() || machine_is_nokia_n810() ||
-			machine_is_nokia_n810_wimax()) {
-		tahvo_irq_pin = 111;
-	} else {
-		pr_err("tahvo: Unsupported board for tahvo\n");
-		ret = -ENODEV;
-		goto err0;
-	}
-
-	ret = gpio_request(tahvo_irq_pin, "TAHVO irq");
-	if (ret) {
-		pr_err("tahvo: Unable to reserve IRQ GPIO\n");
-		goto err0;
-	}
-
-	/* Set the pin as input */
-	ret = gpio_direction_input(tahvo_irq_pin);
-	if (ret) {
-		pr_err("tahvo: Unable to change direction\n");
-		goto err1;
-	}
-
-	tahvo_resource[0].start = gpio_to_irq(tahvo_irq_pin);
-
-	ret = platform_driver_probe(&tahvo_driver, tahvo_probe);
-	if (ret)
-		goto err1;
-
-	ret = platform_device_register(&tahvo_device);
-	if (ret)
-		goto err2;
-
-	return 0;
-
-err2:
-	platform_driver_unregister(&tahvo_driver);
-
-err1:
-	gpio_free(tahvo_irq_pin);
-
-err0:
-	return ret;
+	return platform_driver_probe(&tahvo_driver, tahvo_probe);
 }
 
 /*
@@ -449,9 +388,7 @@ err0:
  */
 static void __exit tahvo_exit(void)
 {
-	platform_device_unregister(&tahvo_device);
 	platform_driver_unregister(&tahvo_driver);
-	gpio_free(tahvo_irq_pin);
 }
 
 subsys_initcall(tahvo_init);
