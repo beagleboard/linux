@@ -12,6 +12,7 @@
 #include <linux/init.h>
 #include <linux/mutex.h>
 #include <linux/platform_device.h>
+#include <linux/irq.h>
 #include <linux/input.h>
 #include <linux/clk.h>
 #include <linux/omapfb.h>
@@ -112,9 +113,42 @@ static struct platform_device nokia770_cbus_device = {
 	},
 };
 
+static struct resource retu_resource[] = {
+	{
+		.start	= -EINVAL, /* set later */
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device retu_device = {
+	.name		= "retu",
+	.id		= -1,
+	.resource	= retu_resource,
+	.num_resources	= ARRAY_SIZE(retu_resource),
+};
+
 static void __init nokia770_cbus_init(void)
 {
+	int		ret;
+
 	platform_device_register(&nokia770_cbus_device);
+
+	ret = gpio_request(62, "RETU irq");
+	if (ret < 0) {
+		pr_err("retu: Unable to reserve IRQ GPIO\n");
+		return;
+	}
+
+	ret = gpio_direction_input(62);
+	if (ret < 0) {
+		pr_err("retu: Unable to change gpio direction\n");
+		gpio_free(62);
+		return;
+	}
+
+	set_irq_type(gpio_to_irq(62), IRQ_TYPE_EDGE_RISING);
+	retu_resource[0].start = gpio_to_irq(62);
+	platform_device_register(&retu_device);
 }
 
 #else

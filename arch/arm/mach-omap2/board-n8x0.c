@@ -15,6 +15,7 @@
 #include <linux/delay.h>
 #include <linux/gpio.h>
 #include <linux/init.h>
+#include <linux/irq.h>
 #include <linux/io.h>
 #include <linux/stddef.h>
 #include <linux/platform_device.h>
@@ -221,9 +222,42 @@ static struct platform_device n8x0_cbus_device = {
 	},
 };
 
+static struct resource retu_resource[] = {
+	{
+		.start	= -EINVAL, /* set later */
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device retu_device = {
+	.name		= "retu",
+	.id		= -1,
+	.resource	= retu_resource,
+	.num_resources	= ARRAY_SIZE(retu_resource),
+};
+
 static void __init n8x0_cbus_init(void)
 {
+	int		ret;
+
 	platform_device_register(&n8x0_cbus_device);
+
+	ret = gpio_request(108, "RETU irq");
+	if (ret < 0) {
+		pr_err("retu: Unable to reserve IRQ GPIO\n");
+		return;
+	}
+
+	ret = gpio_direction_input(108);
+	if (ret < 0) {
+		pr_err("retu: Unable to change gpio direction\n");
+		gpio_free(108);
+		return;
+	}
+
+	set_irq_type(gpio_to_irq(108), IRQ_TYPE_EDGE_RISING);
+	retu_resource[0].start = gpio_to_irq(108);
+	platform_device_register(&retu_device);
 }
 
 #else
