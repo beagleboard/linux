@@ -996,8 +996,6 @@ static void __init stargate2_init(void)
 
 #ifdef CONFIG_MACH_INTELMOTE2
 MACHINE_START(INTELMOTE2, "IMOTE 2")
-	.phys_io	= 0x40000000,
-	.io_pg_offst	= (io_p2v(0x40000000) >> 18) & 0xfffc,
 	.map_io		= pxa_map_io,
 	.init_irq	= pxa27x_init_irq,
 	.timer		= &pxa_timer,
@@ -1008,8 +1006,6 @@ MACHINE_END
 
 #ifdef CONFIG_MACH_STARGATE2
 MACHINE_START(STARGATE2, "Stargate 2")
-	.phys_io = 0x40000000,
-	.io_pg_offst = (io_p2v(0x40000000) >> 18) & 0xfffc,
 	.map_io = pxa_map_io,
 	.init_irq = pxa27x_init_irq,
 	.timer = &pxa_timer,
