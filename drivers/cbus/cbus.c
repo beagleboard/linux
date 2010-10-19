@@ -30,15 +30,10 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
-#include <linux/delay.h>
 #include <linux/spinlock.h>
 #include <linux/gpio.h>
 #include <linux/platform_device.h>
 
-#include <asm/io.h>
-#include <asm/mach-types.h>
-
-#include <plat/board.h>
 #include <plat/cbus.h>
 
 #include "cbus.h"
