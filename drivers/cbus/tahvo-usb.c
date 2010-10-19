@@ -742,30 +742,20 @@ static struct platform_driver tahvo_usb_driver = {
 	.remove		= __exit_p(tahvo_usb_remove),
 };
 
-static struct platform_device tahvo_usb_device = {
-	.name		= "tahvo-usb",
-	.id		= -1,
-};
-
 static int __init tahvo_usb_init(void)
 {
 	int ret = 0;
 
-	printk(KERN_INFO "Tahvo USB transceiver driver initializing\n");
 	ret = platform_driver_probe(&tahvo_usb_driver, tahvo_usb_probe);
 	if (ret)
 		return ret;
-	ret = platform_device_register(&tahvo_usb_device);
-	if (ret < 0) {
-		platform_driver_unregister(&tahvo_usb_driver);
-		return ret;
-	}
+
 	ret = platform_driver_probe(&omap_otg_driver, omap_otg_probe);
 	if (ret) {
-		platform_device_unregister(&tahvo_usb_device);
 		platform_driver_unregister(&tahvo_usb_driver);
 		return ret;
 	}
+
 	return 0;
 }
 
@@ -774,7 +764,6 @@ subsys_initcall(tahvo_usb_init);
 static void __exit tahvo_usb_exit(void)
 {
 	platform_driver_unregister(&omap_otg_driver);
-	platform_device_unregister(&tahvo_usb_device);
 	platform_driver_unregister(&tahvo_usb_driver);
 }
 module_exit(tahvo_usb_exit);
