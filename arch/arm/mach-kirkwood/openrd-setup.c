@@ -115,8 +115,6 @@ subsys_initcall(openrd_pci_init);
 #ifdef CONFIG_MACH_OPENRD_BASE
 MACHINE_START(OPENRD_BASE, "Marvell OpenRD Base Board")
 	/* Maintainer: Dhaval Vasa <dhaval.vasa@einfochips.com> */
-	.phys_io	= KIRKWOOD_REGS_PHYS_BASE,
-	.io_pg_offst	= ((KIRKWOOD_REGS_VIRT_BASE) >> 18) & 0xfffc,
 	.boot_params	= 0x00000100,
 	.init_machine	= openrd_init,
 	.map_io		= kirkwood_map_io,
@@ -128,8 +126,6 @@ MACHINE_END
 #ifdef CONFIG_MACH_OPENRD_CLIENT
 MACHINE_START(OPENRD_CLIENT, "Marvell OpenRD Client Board")
 	/* Maintainer: Dhaval Vasa <dhaval.vasa@einfochips.com> */
-	.phys_io	= KIRKWOOD_REGS_PHYS_BASE,
-	.io_pg_offst	= ((KIRKWOOD_REGS_VIRT_BASE) >> 18) & 0xfffc,
 	.boot_params	= 0x00000100,
 	.init_machine	= openrd_init,
 	.map_io		= kirkwood_map_io,
@@ -141,8 +137,6 @@ MACHINE_END
 #ifdef CONFIG_MACH_OPENRD_ULTIMATE
 MACHINE_START(OPENRD_ULTIMATE, "Marvell OpenRD Ultimate Board")
 	/* Maintainer: Dhaval Vasa <dhaval.vasa@einfochips.com> */
-	.phys_io	= KIRKWOOD_REGS_PHYS_BASE,
-	.io_pg_offst	= ((KIRKWOOD_REGS_VIRT_BASE) >> 18) & 0xfffc,
 	.boot_params	= 0x00000100,
 	.init_machine	= openrd_init,
 	.map_io		= kirkwood_map_io,

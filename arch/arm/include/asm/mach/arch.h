@@ -21,10 +21,6 @@ struct machine_desc {
 	 */
 	unsigned int		nr;		/* architecture number	*/
 	unsigned int		nr_irqs;	/* number of IRQs */
-	unsigned int		phys_io;	/* start of physical io	*/
-	unsigned int		io_pg_offst;	/* byte offset for io 
-						 * page tabe entry	*/
-
 	const char		*name;		/* architecture name	*/
 	unsigned long		boot_params;	/* tagged list		*/
 

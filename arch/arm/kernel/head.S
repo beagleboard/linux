@@ -22,6 +22,10 @@
 #include <asm/thread_info.h>
 #include <asm/system.h>
 
+#ifdef CONFIG_DEBUG_LL
+#include <mach/debug-macro.S>
+#endif
+
 #if (PHYS_OFFSET & 0x001fffff)
 #error "PHYS_OFFSET must be at an even 2MiB boundary!"
 #endif
@@ -86,6 +90,9 @@ ENTRY(stext)
 	movs	r8, r5				@ invalid machine (r5=0)?
 	beq	__error_a			@ yes, error 'a'
 	bl	__vet_atags
+#ifdef CONFIG_SMP_ON_UP
+	bl	__fixup_smp
+#endif
 	bl	__create_page_tables
 
 	/*
@@ -289,24 +296,35 @@ __create_page_tables:
 	str	r6, [r0]
 
 #ifdef CONFIG_DEBUG_LL
-	ldr	r7, [r10, #PROCINFO_IO_MMUFLAGS] @ io_mmuflags
+#ifndef CONFIG_DEBUG_ICEDCC
 	/*
 	 * Map in IO space for serial debugging.
 	 * This allows debug messages to be output
 	 * via a serial console before paging_init.
 	 */
-	ldr	r3, [r8, #MACHINFO_PGOFFIO]
+	addruart r7, r3
+
+	mov	r3, r3, lsr #20
+	mov	r3, r3, lsl #2
+
 	add	r0, r4, r3
 	rsb	r3, r3, #0x4000			@ PTRS_PER_PGD*sizeof(long)
 	cmp	r3, #0x0800			@ limit to 512MB
 	movhi	r3, #0x0800
 	add	r6, r0, r3
-	ldr	r3, [r8, #MACHINFO_PHYSIO]
-	orr	r3, r3, r7
+	mov	r3, r7, lsr #20
+	ldr	r7, [r10, #PROCINFO_IO_MMUFLAGS] @ io_mmuflags
+	orr	r3, r7, r3, lsl #20
 1:	str	r3, [r0], #4
 	add	r3, r3, #1 << 20
 	teq	r0, r6
 	bne	1b
+
+#else /* CONFIG_DEBUG_ICEDCC */
+	/* we don't need any serial debugging mappings for ICEDCC */
+	ldr	r7, [r10, #PROCINFO_IO_MMUFLAGS] @ io_mmuflags
+#endif /* !CONFIG_DEBUG_ICEDCC */
+
 #if defined(CONFIG_ARCH_NETWINDER) || defined(CONFIG_ARCH_CATS)
 	/*
 	 * If we're using the NetWinder or CATS, we also need to map
@@ -332,5 +350,52 @@ __create_page_tables:
 	mov	pc, lr
 ENDPROC(__create_page_tables)
 	.ltorg
+
+#ifdef CONFIG_SMP_ON_UP
+__fixup_smp:
+	mov	r7, #0x00070000
+	orr	r6, r7, #0xff000000	@ mask 0xff070000
+	orr	r7, r7, #0x41000000	@ val 0x41070000
+	and	r0, r9, r6
+	teq	r0, r7			@ ARM CPU and ARMv6/v7?
+	bne	__fixup_smp_on_up	@ no, assume UP
+
+	orr	r6, r6, #0x0000ff00
+	orr	r6, r6, #0x000000f0	@ mask 0xff07fff0
+	orr	r7, r7, #0x0000b000
+	orr	r7, r7, #0x00000020	@ val 0x4107b020
+	and	r0, r9, r6
+	teq	r0, r7			@ ARM 11MPCore?
+	moveq	pc, lr			@ yes, assume SMP
+
+	mrc	p15, 0, r0, c0, c0, 5	@ read MPIDR
+	tst	r0, #1 << 31
+	movne	pc, lr			@ bit 31 => SMP
+
+__fixup_smp_on_up:
+	adr	r0, 1f
+	ldmia	r0, {r3, r6, r7}
+	sub	r3, r0, r3
+	add	r6, r6, r3
+	add	r7, r7, r3
+2:	cmp	r6, r7
+	ldmia	r6!, {r0, r4}
+	strlo	r4, [r0, r3]
+	blo	2b
+	mov	pc, lr
+ENDPROC(__fixup_smp)
+
+1:	.word	.
+	.word	__smpalt_begin
+	.word	__smpalt_end
+
+	.pushsection .data
+	.globl	smp_on_up
+smp_on_up:
+	ALT_SMP(.long	1)
+	ALT_UP(.long	0)
+	.popsection
+
+#endif
 
 #include "head-common.S"

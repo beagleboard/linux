@@ -113,8 +113,6 @@ static void __init flint_init(void)
 }
 
 MACHINE_START(FLINT, "Flint Development Platform")
-	.phys_io        = APB_PHYS_BASE,
-	.io_pg_offst    = (APB_VIRT_BASE >> 18) & 0xfffc,
 	.map_io		= mmp_map_io,
 	.init_irq       = mmp2_init_irq,
 	.timer          = &mmp2_timer,
