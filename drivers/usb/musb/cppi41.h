@@ -462,8 +462,8 @@ struct cppi41_dma_block {
 	const struct cppi41_tx_ch *tx_ch_info;
 };
 
-extern const struct cppi41_queue_mgr cppi41_queue_mgr[];
-extern const struct cppi41_dma_block cppi41_dma_block[];
+extern struct cppi41_queue_mgr cppi41_queue_mgr[];
+extern struct cppi41_dma_block cppi41_dma_block[];
 
 /**
  * struct cppi41_dma_ch_obj - CPPI 4.1 DMA Channel object

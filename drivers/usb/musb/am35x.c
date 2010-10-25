@@ -204,14 +204,6 @@ static const struct cppi41_tx_ch tx_ch_info[] = {
 
 struct cppi41_dma_block cppi41_dma_block[CPPI41_NUM_DMA_BLOCK] = {
 	[0] = {
-		.global_ctrl_base =
-			IO_ADDRESS(OMAP34XX_HSUSB_OTG_BASE) + 0x1000,
-		.ch_ctrl_stat_base =
-			IO_ADDRESS(OMAP34XX_HSUSB_OTG_BASE) + 0x1800,
-		.sched_ctrl_base =
-			IO_ADDRESS(OMAP34XX_HSUSB_OTG_BASE) + 0x2000,
-		.sched_table_base =
-			IO_ADDRESS(OMAP34XX_HSUSB_OTG_BASE) + 0x2800,
 		.num_tx_ch	= 15,
 		.num_rx_ch	= 15,
 		.tx_ch_info	= tx_ch_info
@@ -225,15 +217,6 @@ static const u32 assigned_queues[] = { 0xffffffff, 0xffffffff, 0x7 };
 /* Queue manager information */
 struct cppi41_queue_mgr cppi41_queue_mgr[CPPI41_NUM_QUEUE_MGR] = {
 	[0] = {
-		.q_mgr_rgn_base =
-			IO_ADDRESS(OMAP34XX_HSUSB_OTG_BASE) + 0x4000,
-		.desc_mem_rgn_base =
-			IO_ADDRESS(OMAP34XX_HSUSB_OTG_BASE) + 0x5000,
-		.q_mgmt_rgn_base =
-			IO_ADDRESS(OMAP34XX_HSUSB_OTG_BASE) + 0x6000,
-		.q_stat_rgn_base =
-			IO_ADDRESS(OMAP34XX_HSUSB_OTG_BASE) + 0x6800,
-
 		.num_queue	= 96,
 		.queue_types	= CPPI41_FREE_DESC_BUF_QUEUE |
 					CPPI41_UNASSIGNED_QUEUE,
@@ -246,6 +229,17 @@ EXPORT_SYMBOL(cppi41_queue_mgr);
 int __init cppi41_init(struct musb *musb)
 {
 	u16 numch, blknum = usb_cppi41_info.dma_block, order;
+
+	/* init mappings */
+	cppi41_queue_mgr[0].q_mgr_rgn_base = musb->ctrl_base + 0x4000;
+	cppi41_queue_mgr[0].desc_mem_rgn_base = musb->ctrl_base + 0x5000;
+	cppi41_queue_mgr[0].q_mgmt_rgn_base = musb->ctrl_base + 0x6000;
+	cppi41_queue_mgr[0].q_stat_rgn_base = musb->ctrl_base + 0x6800;
+
+	cppi41_dma_block[0].global_ctrl_base = musb->ctrl_base + 0x1000;
+	cppi41_dma_block[0].ch_ctrl_stat_base = musb->ctrl_base + 0x1800;
+	cppi41_dma_block[0].sched_ctrl_base = musb->ctrl_base + 0x2000;
+	cppi41_dma_block[0].sched_table_base = musb->ctrl_base + 0x2800;
 
 	/* Initialize for Linking RAM region 0 alone */
 	cppi41_queue_mgr_init(usb_cppi41_info.q_mgr, 0, 0x3fff);
@@ -591,7 +585,7 @@ static int am35x_musb_init(struct musb *musb)
 	msleep(5);
 
 #ifdef CONFIG_USB_TI_CPPI41_DMA
-	cppi41_init();
+	cppi41_init(musb);
 #endif
 
 	musb->isr = am35x_musb_interrupt;
