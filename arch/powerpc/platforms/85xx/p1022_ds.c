@@ -18,7 +18,6 @@
 
 #include <linux/pci.h>
 #include <linux/of_platform.h>
-#include <linux/lmb.h>
 #include <linux/memblock.h>
 #include <asm/div64.h>
 #include <asm/mpic.h>
