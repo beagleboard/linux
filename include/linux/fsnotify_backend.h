@@ -412,8 +412,6 @@ extern void fsnotify_clear_inode_marks_by_group(struct fsnotify_group *group);
 extern void fsnotify_clear_marks_by_group_flags(struct fsnotify_group *group, unsigned int flags);
 /* run all the marks in a group, and flag them to be freed */
 extern void fsnotify_clear_marks_by_group(struct fsnotify_group *group);
-extern void fsnotify_get_mark(struct fsnotify_mark *mark);
-extern void fsnotify_put_mark(struct fsnotify_mark *mark);
 extern void fsnotify_unmount_inodes(struct list_head *list);
 
 /* put here because inotify does some weird stuff when destroying watches */
@@ -427,6 +425,16 @@ extern struct fsnotify_event *fsnotify_clone_event(struct fsnotify_event *old_ev
 extern int fsnotify_replace_event(struct fsnotify_event_holder *old_holder,
 				  struct fsnotify_event *new_event);
 
+static inline void fsnotify_get_mark(struct fsnotify_mark *mark)
+{
+	atomic_inc(&mark->refcnt);
+}
+
+static inline void fsnotify_put_mark(struct fsnotify_mark *mark)
+{
+	if (atomic_dec_and_test(&mark->refcnt))
+		mark->free_mark(mark);
+}
 #else
 
 static inline int fsnotify(struct inode *to_tell, __u32 mask, void *data, int data_is,

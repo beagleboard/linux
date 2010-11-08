@@ -103,17 +103,6 @@ static DEFINE_SPINLOCK(destroy_lock);
 static LIST_HEAD(destroy_list);
 static DECLARE_WAIT_QUEUE_HEAD(destroy_waitq);
 
-void fsnotify_get_mark(struct fsnotify_mark *mark)
-{
-	atomic_inc(&mark->refcnt);
-}
-
-void fsnotify_put_mark(struct fsnotify_mark *mark)
-{
-	if (atomic_dec_and_test(&mark->refcnt))
-		mark->free_mark(mark);
-}
-
 /*
  * Any time a mark is getting freed we end up here.
  * The caller had better be holding a reference to this mark so we don't actually
