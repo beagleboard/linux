@@ -62,6 +62,7 @@ static int create_fd(struct fsnotify_group *group, struct fsnotify_event *event)
 	struct dentry *dentry;
 	struct vfsmount *mnt;
 	struct file *new_file;
+	unsigned int flags;
 
 	pr_debug("%s: group=%p event=%p\n", __func__, group, event);
 
@@ -83,12 +84,25 @@ static int create_fd(struct fsnotify_group *group, struct fsnotify_event *event)
 	mnt = mntget(event->path.mnt);
 	/* it's possible this event was an overflow event.  in that case dentry and mnt
 	 * are NULL;  That's fine, just don't call dentry open */
-	if (dentry && mnt)
+	if (dentry && mnt) {
+		flags = group->fanotify_data.f_flags;
 		new_file = dentry_open(dentry, mnt,
-				       group->fanotify_data.f_flags | FMODE_NONOTIFY,
+				       flags | FMODE_NONOTIFY,
 				       current_cred());
-	else
+		/*
+		 * Attempt fallback to read-only access if writable was not possible
+		 * in order to at least provide something to the listener.
+		 */
+		if (IS_ERR(new_file) && group->fanotify_data.readonly_fallback) {
+			flags &= ~O_ACCMODE;
+			flags |= O_RDONLY;
+			new_file = dentry_open(dentry, mnt,
+					       flags | FMODE_NONOTIFY,
+					       current_cred());
+		}
+	} else {
 		new_file = ERR_PTR(-EOVERFLOW);
+	}
 	if (IS_ERR(new_file)) {
 		/*
 		 * we still send an event even if we can't open the file.  this
@@ -749,6 +763,14 @@ SYSCALL_DEFINE2(fanotify_init, unsigned int, flags, unsigned int, event_f_flags)
 		group->fanotify_data.max_marks = UINT_MAX;
 	} else {
 		group->fanotify_data.max_marks = FANOTIFY_DEFAULT_MAX_MARKS;
+	}
+
+	fd = -EINVAL;
+	if (flags & FAN_READONLY_FALLBACK) {
+		if ((event_f_flags & O_ACCMODE) == O_RDWR)
+			group->fanotify_data.readonly_fallback = true;
+		else
+			goto out_put_group;
 	}
 
 	fd = anon_inode_getfd("[fanotify]", &fanotify_fops, group, f_flags);
