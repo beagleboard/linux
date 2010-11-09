@@ -220,21 +220,27 @@ int fsnotify_add_mark(struct fsnotify_mark *mark,
 	spin_lock(&mark->lock);
 	spin_lock(&group->mark_lock);
 
+	fsnotify_get_mark(mark); /* for i_list and g_list */
+
+	if (atomic_read(&group->num_marks) > group->fanotify_data.max_marks) {
+		ret = -ENOSPC;
+		goto err;
+	}
+
 	mark->flags |= FSNOTIFY_MARK_FLAG_ALIVE;
 
 	mark->group = group;
 	list_add(&mark->g_list, &group->marks_list);
 	atomic_inc(&group->num_marks);
-	fsnotify_get_mark(mark); /* for i_list and g_list */
 
 	if (inode) {
 		ret = fsnotify_add_inode_mark(mark, group, inode, allow_dups);
 		if (ret)
-			goto err;
+			goto err2;
 	} else if (mnt) {
 		ret = fsnotify_add_vfsmount_mark(mark, group, mnt, allow_dups);
 		if (ret)
-			goto err;
+			goto err2;
 	} else {
 		BUG();
 	}
@@ -250,12 +256,12 @@ int fsnotify_add_mark(struct fsnotify_mark *mark,
 		__fsnotify_update_child_dentry_flags(inode);
 
 	return ret;
-err:
+err2:
 	mark->flags &= ~FSNOTIFY_MARK_FLAG_ALIVE;
 	list_del_init(&mark->g_list);
 	mark->group = NULL;
 	atomic_dec(&group->num_marks);
-
+err:
 	spin_unlock(&group->mark_lock);
 	spin_unlock(&mark->lock);
 
