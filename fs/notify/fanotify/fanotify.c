@@ -204,10 +204,13 @@ static bool fanotify_should_send_event(struct fsnotify_group *group,
 	    (marks_ignored_mask & FS_ISDIR))
 		return false;
 
-	if (event_mask & marks_mask & ~marks_ignored_mask)
-		return true;
-
-	return false;
+	/*
+	 * It might seem logical to check:
+	 * if (event_mask & marks_mask & ~marks_ignored_mask)
+	 * 	return true;
+	 * but we we know this was true from the caller so just return true.
+	 */
+	return true;
 }
 
 static void fanotify_free_group_priv(struct fsnotify_group *group)
