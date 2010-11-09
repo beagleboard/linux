@@ -184,13 +184,6 @@ static bool fanotify_should_send_event(struct fsnotify_group *group,
 		marks_mask = (vfsmnt_mark->mask | inode_mark->mask);
 		marks_ignored_mask = (vfsmnt_mark->ignored_mask | inode_mark->ignored_mask);
 	} else if (inode_mark) {
-		/*
-		 * if the event is for a child and this inode doesn't care about
-		 * events on the child, don't send it!
-		 */
-		if ((event_mask & FS_EVENT_ON_CHILD) &&
-		    !(inode_mark->mask & FS_EVENT_ON_CHILD))
-			return false;
 		marks_mask = inode_mark->mask;
 		marks_ignored_mask = inode_mark->ignored_mask;
 	} else if (vfsmnt_mark) {
@@ -202,6 +195,14 @@ static bool fanotify_should_send_event(struct fsnotify_group *group,
 
 	if (S_ISDIR(path->dentry->d_inode->i_mode) &&
 	    (marks_ignored_mask & FS_ISDIR))
+		return false;
+
+	/*
+	 * if the event is for a child and this inode doesn't care about
+	 * events on the child, don't send it!
+	 */
+	if ((event_mask & FS_EVENT_ON_CHILD) &&
+	    !(marks_mask & FS_EVENT_ON_CHILD))
 		return false;
 
 	/*
