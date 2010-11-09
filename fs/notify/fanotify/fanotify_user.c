@@ -86,9 +86,7 @@ static int create_fd(struct fsnotify_group *group, struct fsnotify_event *event)
 	 * are NULL;  That's fine, just don't call dentry open */
 	if (dentry && mnt) {
 		flags = group->fanotify_data.f_flags;
-		new_file = dentry_open(dentry, mnt,
-				       flags | FMODE_NONOTIFY,
-				       current_cred());
+		new_file = dentry_open(dentry, mnt, flags, current_cred());
 		/*
 		 * Attempt fallback to read-only access if writable was not possible
 		 * in order to at least provide something to the listener.
@@ -96,8 +94,7 @@ static int create_fd(struct fsnotify_group *group, struct fsnotify_event *event)
 		if (IS_ERR(new_file) && group->fanotify_data.readonly_fallback) {
 			flags &= ~O_ACCMODE;
 			flags |= O_RDONLY;
-			new_file = dentry_open(dentry, mnt,
-					       flags | FMODE_NONOTIFY,
+			new_file = dentry_open(dentry, mnt, flags,
 					       current_cred());
 		}
 	} else {
@@ -725,7 +722,7 @@ SYSCALL_DEFINE2(fanotify_init, unsigned int, flags, unsigned int, event_f_flags)
 	group->fanotify_data.user = user;
 	atomic_inc(&user->fanotify_listeners);
 
-	group->fanotify_data.f_flags = event_f_flags;
+	group->fanotify_data.f_flags = event_f_flags | FMODE_NONOTIFY;
 #ifdef CONFIG_FANOTIFY_ACCESS_PERMISSIONS
 	mutex_init(&group->fanotify_data.access_mutex);
 	init_waitqueue_head(&group->fanotify_data.access_waitq);
