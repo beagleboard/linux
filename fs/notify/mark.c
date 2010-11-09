@@ -206,7 +206,7 @@ int fsnotify_add_mark(struct fsnotify_mark *mark,
 		      struct fsnotify_group *group, struct inode *inode,
 		      struct vfsmount *mnt, int allow_dups)
 {
-	int ret = 0;
+	int ret;
 
 	BUG_ON(inode && mnt);
 	BUG_ON(!inode && !mnt);
@@ -220,30 +220,25 @@ int fsnotify_add_mark(struct fsnotify_mark *mark,
 	spin_lock(&mark->lock);
 	spin_lock(&group->mark_lock);
 
-	fsnotify_get_mark(mark); /* for i_list and g_list */
-
-	if (atomic_read(&group->num_marks) > group->fanotify_data.max_marks) {
-		ret = -ENOSPC;
-		goto err;
-	}
-
 	mark->flags |= FSNOTIFY_MARK_FLAG_ALIVE;
-
 	mark->group = group;
 	list_add(&mark->g_list, &group->marks_list);
+	fsnotify_get_mark(mark); /* for i_list and g_list */
 	atomic_inc(&group->num_marks);
 
-	if (inode) {
+	ret = -ENOSPC;
+	if (atomic_read(&group->num_marks) > group->fanotify_data.max_marks)
+		goto err;
+
+	ret = 0;
+	if (inode)
 		ret = fsnotify_add_inode_mark(mark, group, inode, allow_dups);
-		if (ret)
-			goto err2;
-	} else if (mnt) {
+	else if (mnt)
 		ret = fsnotify_add_vfsmount_mark(mark, group, mnt, allow_dups);
-		if (ret)
-			goto err2;
-	} else {
+	else
 		BUG();
-	}
+	if (ret)
+		goto err;
 
 	spin_unlock(&group->mark_lock);
 
@@ -255,13 +250,12 @@ int fsnotify_add_mark(struct fsnotify_mark *mark,
 	if (inode)
 		__fsnotify_update_child_dentry_flags(inode);
 
-	return ret;
-err2:
+	return 0;
+err:
 	mark->flags &= ~FSNOTIFY_MARK_FLAG_ALIVE;
 	list_del_init(&mark->g_list);
 	mark->group = NULL;
 	atomic_dec(&group->num_marks);
-err:
 	spin_unlock(&group->mark_lock);
 	spin_unlock(&mark->lock);
 
@@ -341,6 +335,10 @@ static int fsnotify_mark_destroy(void *ignored)
 
 		synchronize_srcu(&fsnotify_mark_srcu);
 
+		/*
+		 * at this point we cannot be found via the i_list or g_list so
+		 * drop that reference.
+		 */
 		list_for_each_entry_safe(mark, next, &private_destroy_list, destroy_list) {
 			list_del_init(&mark->destroy_list);
 			fsnotify_put_mark(mark);
