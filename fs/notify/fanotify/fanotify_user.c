@@ -620,6 +620,9 @@ static int fanotify_add_vfsmount_mark(struct fsnotify_group *group,
 
 	fsn_mark = fsnotify_find_vfsmount_mark(group, mnt);
 	if (!fsn_mark) {
+		if (atomic_read(&group->num_marks) > group->fanotify_data.max_marks)
+			return -ENOSPC;
+
 		fsn_mark = kmem_cache_alloc(fanotify_mark_cache, GFP_KERNEL);
 		if (!fsn_mark)
 			return -ENOMEM;
@@ -660,6 +663,9 @@ static int fanotify_add_inode_mark(struct fsnotify_group *group,
 
 	fsn_mark = fsnotify_find_inode_mark(group, inode);
 	if (!fsn_mark) {
+		if (atomic_read(&group->num_marks) > group->fanotify_data.max_marks)
+			return -ENOSPC;
+
 		fsn_mark = kmem_cache_alloc(fanotify_mark_cache, GFP_KERNEL);
 		if (!fsn_mark)
 			return -ENOMEM;

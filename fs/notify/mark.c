@@ -226,10 +226,6 @@ int fsnotify_add_mark(struct fsnotify_mark *mark,
 	fsnotify_get_mark(mark); /* for i_list and g_list */
 	atomic_inc(&group->num_marks);
 
-	ret = -ENOSPC;
-	if (atomic_read(&group->num_marks) > group->fanotify_data.max_marks)
-		goto err;
-
 	ret = 0;
 	if (inode)
 		ret = fsnotify_add_inode_mark(mark, group, inode, allow_dups);
@@ -256,6 +252,7 @@ err:
 	list_del_init(&mark->g_list);
 	mark->group = NULL;
 	atomic_dec(&group->num_marks);
+
 	spin_unlock(&group->mark_lock);
 	spin_unlock(&mark->lock);
 
