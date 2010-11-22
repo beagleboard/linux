@@ -2062,6 +2062,9 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 			? "DMA" : "PIO",
 			musb->nIrq);
 
+	if (status == 0)
+		musb_debug_create("driver/musb_hdrc", musb);
+
 	return 0;
 
 fail5:
@@ -2142,6 +2145,7 @@ static int __exit musb_remove(struct platform_device *pdev)
 	pm_runtime_get_sync(musb->controller);
 	musb_exit_debugfs(musb);
 	musb_shutdown(pdev);
+	musb_debug_delete("driver/musb_hdrc", musb);
 
 	pm_runtime_put(musb->controller);
 	musb_free(musb);
