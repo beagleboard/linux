@@ -238,6 +238,8 @@ struct soc_enum;
 struct snd_soc_ac97_ops;
 struct snd_soc_jack;
 struct snd_soc_jack_pin;
+struct snd_soc_cache_ops;
+#include <sound/soc-dapm.h>
 
 #ifdef CONFIG_GPIOLIB
 struct snd_soc_jack_gpio;
@@ -253,6 +255,12 @@ enum snd_soc_control_type {
 	SND_SOC_SPI,
 };
 
+enum snd_soc_compress_type {
+	SND_SOC_NO_COMPRESSION,
+	SND_SOC_LZO_COMPRESSION,
+	SND_SOC_RBTREE_COMPRESSION
+};
+
 int snd_soc_register_platform(struct device *dev,
 		struct snd_soc_platform_driver *platform_drv);
 void snd_soc_unregister_platform(struct device *dev);
@@ -264,6 +272,13 @@ int snd_soc_codec_volatile_register(struct snd_soc_codec *codec, int reg);
 int snd_soc_codec_set_cache_io(struct snd_soc_codec *codec,
 			       int addr_bits, int data_bits,
 			       enum snd_soc_control_type control);
+int snd_soc_cache_sync(struct snd_soc_codec *codec);
+int snd_soc_cache_init(struct snd_soc_codec *codec);
+int snd_soc_cache_exit(struct snd_soc_codec *codec);
+int snd_soc_cache_write(struct snd_soc_codec *codec,
+			unsigned int reg, unsigned int value);
+int snd_soc_cache_read(struct snd_soc_codec *codec,
+		       unsigned int reg, unsigned int *value);
 
 /* Utility functions to get clock rates from various things */
 int snd_soc_calc_frame_size(int sample_size, int channels, int tdm_slots);
@@ -420,9 +435,22 @@ struct snd_soc_ops {
 	int (*trigger)(struct snd_pcm_substream *, int);
 };
 
+/* SoC cache ops */
+struct snd_soc_cache_ops {
+	enum snd_soc_compress_type id;
+	int (*init)(struct snd_soc_codec *codec);
+	int (*exit)(struct snd_soc_codec *codec);
+	int (*read)(struct snd_soc_codec *codec, unsigned int reg,
+		unsigned int *value);
+	int (*write)(struct snd_soc_codec *codec, unsigned int reg,
+		unsigned int value);
+	int (*sync)(struct snd_soc_codec *codec);
+};
+
 /* SoC Audio Codec device */
 struct snd_soc_codec {
 	const char *name;
+	const char *name_prefix;
 	int id;
 	struct device *dev;
 	struct snd_soc_codec_driver *driver;
@@ -436,7 +464,6 @@ struct snd_soc_codec {
 	/* runtime */
 	struct snd_ac97 *ac97;  /* for ad-hoc ac97 devices */
 	unsigned int active;
-	unsigned int idle_bias_off:1; /* Use BIAS_OFF instead of STANDBY */
 	unsigned int cache_only:1;  /* Suppress writes to hardware */
 	unsigned int cache_sync:1; /* Cache needs to be synced to hardware */
 	unsigned int suspended:1; /* Codec is in suspend PM state */
@@ -450,19 +477,15 @@ struct snd_soc_codec {
 	hw_write_t hw_write;
 	unsigned int (*hw_read)(struct snd_soc_codec *, unsigned int);
 	void *reg_cache;
+	const struct snd_soc_cache_ops *cache_ops;
+	struct mutex cache_rw_mutex;
 
 	/* dapm */
-	u32 pop_time;
-	struct list_head dapm_widgets;
-	struct list_head dapm_paths;
-	enum snd_soc_bias_level bias_level;
-	enum snd_soc_bias_level suspend_bias_level;
-	struct delayed_work delayed_work;
+	struct snd_soc_dapm_context dapm;
 
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *debugfs_codec_root;
 	struct dentry *debugfs_reg;
-	struct dentry *debugfs_pop_time;
 	struct dentry *debugfs_dapm;
 #endif
 };
@@ -488,6 +511,7 @@ struct snd_soc_codec_driver {
 	short reg_cache_step;
 	short reg_word_size;
 	const void *reg_cache_default;
+	enum snd_soc_compress_type compress_type;
 
 	/* codec bias level */
 	int (*set_bias_level)(struct snd_soc_codec *,
@@ -554,6 +578,11 @@ struct snd_soc_dai_link {
 	struct snd_soc_ops *ops;
 };
 
+struct snd_soc_prefix_map {
+	const char *dev_name;
+	const char *name_prefix;
+};
+
 /* SoC card */
 struct snd_soc_card {
 	const char *name;
@@ -588,12 +617,25 @@ struct snd_soc_card {
 	struct snd_soc_pcm_runtime *rtd;
 	int num_rtd;
 
+	/*
+	 * optional map of kcontrol, widget and path name prefixes that are
+	 * associated per device
+	 */
+	struct snd_soc_prefix_map *prefix_map;
+	int num_prefixes;
+
 	struct work_struct deferred_resume_work;
 
 	/* lists of probed devices belonging to this card */
 	struct list_head codec_dev_list;
 	struct list_head platform_dev_list;
 	struct list_head dai_dev_list;
+
+#ifdef CONFIG_DEBUG_FS
+	struct dentry *debugfs_card_root;
+	struct dentry *debugfs_pop_time;
+#endif
+	u32 pop_time;
 };
 
 /* SoC machine DAI configuration, glues a codec and cpu DAI together */
@@ -639,17 +681,9 @@ struct soc_enum {
 };
 
 /* codec IO */
-static inline unsigned int snd_soc_read(struct snd_soc_codec *codec,
-					unsigned int reg)
-{
-	return codec->driver->read(codec, reg);
-}
-
-static inline unsigned int snd_soc_write(struct snd_soc_codec *codec,
-					 unsigned int reg, unsigned int val)
-{
-	return codec->driver->write(codec, reg, val);
-}
+unsigned int snd_soc_read(struct snd_soc_codec *codec, unsigned int reg);
+unsigned int snd_soc_write(struct snd_soc_codec *codec,
+			   unsigned int reg, unsigned int val);
 
 /* device driver data */
 
