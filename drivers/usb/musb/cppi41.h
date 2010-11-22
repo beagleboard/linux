@@ -746,3 +746,8 @@ int cppi41_schedtbl_add_dma_ch(u8 dmanum, u8 qmgr, u8 dma_ch, u8 is_tx);
  * returns      number of channel in schedular table
  */
 int cppi41_schedtbl_remove_dma_ch(u8 dmanum, u8 qmgr, u8 dma_ch, u8 is_tx);
+
+/**
+ * cppi41_free_teardown_queue
+ */
+void cppi41_free_teardown_queue(int dma_num);

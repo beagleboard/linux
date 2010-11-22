@@ -131,7 +131,7 @@ int cppi41_dma_sched_tbl_init(u8 dma_num, u8 q_mgr,
 	struct cppi41_dma_block *dma_block;
 	int num_reg, k, i, val = 0;
 
-	dma_block = &cppi41_dma_block[dma_num];
+	dma_block = (struct cppi41_dma_block *)&cppi41_dma_block[dma_num];
 
 	num_reg = (tbl_size + 3) / 4;
 	for (k = i = 0; i < num_reg; i++) {
@@ -149,7 +149,7 @@ int cppi41_dma_sched_tbl_init(u8 dma_num, u8 q_mgr,
 		dma_block->sched_table_base + DMA_SCHED_TABLE_WORD_REG(i),
 			val);
 	}
-
+	return 0;
 }
 EXPORT_SYMBOL(cppi41_dma_sched_tbl_init);
 
@@ -684,6 +684,16 @@ void cppi41_dma_ch_disable(struct cppi41_dma_ch_obj *dma_ch_obj)
 	    __raw_readl(dma_ch_obj->base_addr));
 }
 EXPORT_SYMBOL(cppi41_dma_ch_disable);
+
+void cppi41_free_teardown_queue(int dma_num)
+{
+	unsigned long td_addr;
+
+	while ((td_addr =
+		cppi41_queue_pop(&dma_teardown[dma_num].queue_obj)) != 0)
+		DBG("pop tdDesc(%p) from tdQueue\n", td_addr);
+}
+EXPORT_SYMBOL(cppi41_free_teardown_queue);
 
 void cppi41_exit(void)
 {
