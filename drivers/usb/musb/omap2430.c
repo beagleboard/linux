@@ -95,6 +95,7 @@ static void musb_do_idle(unsigned long _musb)
 	spin_unlock_irqrestore(&musb->lock, flags);
 }
 
+#define MUSB_TIMEOUT_A_WAIT_BCON	1100
 
 static void omap2430_musb_try_idle(struct musb *musb, unsigned long timeout)
 {
@@ -331,6 +332,7 @@ static int omap2430_musb_init(struct musb *musb)
 	if (status)
 		dev_dbg(musb->controller, "notification register failed\n");
 
+	musb->a_wait_bcon = MUSB_TIMEOUT_A_WAIT_BCON;
 	setup_timer(&musb_idle_timer, musb_do_idle, (unsigned long) musb);
 
 	return 0;
