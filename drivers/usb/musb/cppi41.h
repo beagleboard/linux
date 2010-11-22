@@ -188,6 +188,7 @@
  * DMA Scheduler - Table Region
  */
 #define DMA_SCHED_TABLE_WORD_REG(n)	((n) << 2)
+#define MAX_SCHED_TBL_ENTRY     8
 
 /*
  * CPPI 4.1 Host Packet Descriptor
@@ -715,3 +716,33 @@ int cppi41_get_teardown_info(unsigned long addr, u32 *info);
  * cppi41_exit - delete the instance created via cppi41_init()
  */
 void cppi41_exit(void);
+
+/**
+ * cppi41_dma_sched_tbl_init
+ */
+int cppi41_dma_sched_tbl_init(u8 dma_num, u8 q_mgr,
+				u32 *sched_tbl, u8 tbl_size);
+
+/**
+ * cppi41_schedtbl_add_dma_ch - add a dma channel to schedular table
+ *
+ * @dmanum      Number of DMa block
+ * @qmgr        Queue Manager Number
+ * @dma_ch      dma channel number
+ * @is_tx       transmit (is_tx=1) or recieve(is_tx=0)
+ *
+ * returns      number of channel in schedular table
+ */
+int cppi41_schedtbl_add_dma_ch(u8 dmanum, u8 qmgr, u8 dma_ch, u8 is_tx);
+
+/**
+ * cppi41_schedtbl_remove_dma_ch - remove a dma channel from schedular table
+ *
+ * @dmanum      Number of DMa block
+ * @qmgr        Queue Manager Number
+ * @dma_ch      dma channel number
+ * @is_tx       transmit (is_tx=1) or recieve(is_tx=0)
+ *
+ * returns      number of channel in schedular table
+ */
+int cppi41_schedtbl_remove_dma_ch(u8 dmanum, u8 qmgr, u8 dma_ch, u8 is_tx);

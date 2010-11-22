@@ -59,6 +59,25 @@ static struct {
 	u8 mem_rgn;
 } dma_teardown[CPPI41_NUM_DMA_BLOCK];
 
+struct cppi41_dma_sched_tbl_t {
+	u8      pos;
+	u8      dma_ch;
+	u8      is_tx;
+	u8      enb;
+};
+
+struct cppi41_dma_sched_tbl_t dma_sched_tbl[MAX_SCHED_TBL_ENTRY] = {
+	/*pos  dma_ch#  is_tx  enb/dis*/
+	{ 0,    0,      0,      1},
+	{ 1,    0,      1,      1},
+	{ 2,    1,      0,      1},
+	{ 3,    1,      1,      1},
+	{ 4,    2,      0,      1},
+	{ 5,    2,      1,      1},
+	{ 6,    3,      0,      1},
+	{ 7,    3,      1,      1}
+};
+
 /******************** CPPI 4.1 Functions (External Interface) *****************/
 
 int cppi41_queue_mgr_init(u8 q_mgr, dma_addr_t rgn0_base, u16 rgn0_size)
@@ -105,6 +124,111 @@ int cppi41_queue_mgr_init(u8 q_mgr, dma_addr_t rgn0_base, u16 rgn0_size)
 
 	return 0;
 }
+
+int cppi41_dma_sched_tbl_init(u8 dma_num, u8 q_mgr,
+			u32 *sched_tbl, u8 tbl_size)
+{
+	struct cppi41_dma_block *dma_block;
+	int num_reg, k, i, val = 0;
+
+	dma_block = &cppi41_dma_block[dma_num];
+
+	num_reg = (tbl_size + 3) / 4;
+	for (k = i = 0; i < num_reg; i++) {
+#if 0
+		for (val = j = 0; j < 4; j++, k++) {
+			val >>= 8;
+			if (k < tbl_size)
+				val |= sched_tbl[k] << 24;
+		}
+#endif
+		val = sched_tbl[i];
+		__raw_writel(val, dma_block->sched_table_base +
+			DMA_SCHED_TABLE_WORD_REG(i));
+		DBG("DMA scheduler table @ %p, value written: %x\n",
+		dma_block->sched_table_base + DMA_SCHED_TABLE_WORD_REG(i),
+			val);
+	}
+
+}
+EXPORT_SYMBOL(cppi41_dma_sched_tbl_init);
+
+int cppi41_schedtbl_add_dma_ch(u8 dmanum, u8 qmgr, u8 dma_ch, u8 is_tx)
+{
+	struct cppi41_dma_block *dma_block;
+	int num_ch, i, tbl_index = 0, j = 0, found = 0;
+	u32 val;
+
+	dma_block = (struct cppi41_dma_block *)&cppi41_dma_block[dmanum];
+
+	val = 0;
+	for (num_ch = 0, i = 0; i < MAX_SCHED_TBL_ENTRY; i++) {
+		if (!found && dma_sched_tbl[i].dma_ch == dma_ch &&
+			dma_sched_tbl[i].is_tx == is_tx &&
+			dma_sched_tbl[i].enb == 0) {
+			dma_sched_tbl[i].enb = 1;
+			found = 1;
+		}
+
+		if (dma_sched_tbl[i].enb) {
+			val |= ((dma_sched_tbl[i].dma_ch |
+				(dma_sched_tbl[i].is_tx ? 0 : (1<<7))) << j*8);
+			num_ch++;
+			j++;
+		}
+		if (num_ch % 4 == 0) {
+			__raw_writel(val, dma_block->sched_table_base +
+				DMA_SCHED_TABLE_WORD_REG(tbl_index));
+			tbl_index++;
+			val = j = 0;
+		}
+	}
+
+	if (num_ch % 4) {
+		__raw_writel(val, dma_block->sched_table_base +
+			DMA_SCHED_TABLE_WORD_REG(tbl_index));
+	}
+	return num_ch;
+}
+EXPORT_SYMBOL(cppi41_schedtbl_add_dma_ch);
+
+int cppi41_schedtbl_remove_dma_ch(u8 dmanum, u8 qmgr, u8 dma_ch, u8 is_tx)
+{
+	struct cppi41_dma_block *dma_block;
+	int num_ch, i, tbl_index = 0, j = 0, found = 0;
+	u32 val;
+
+	dma_block = (struct cppi41_dma_block *)&cppi41_dma_block[dmanum];
+
+	val = 0;
+	for (num_ch = 0, i = 0; i < MAX_SCHED_TBL_ENTRY; i++) {
+		if (!found && dma_sched_tbl[i].dma_ch == dma_ch &&
+			dma_sched_tbl[i].is_tx == is_tx &&
+			dma_sched_tbl[i].enb == 1) {
+			dma_sched_tbl[i].enb = 0;
+		}
+
+		if (dma_sched_tbl[i].enb) {
+			val |= ((dma_sched_tbl[i].dma_ch |
+				(dma_sched_tbl[i].is_tx ? 0 : (1<<7))) << j*8);
+			num_ch++;
+			j++;
+		}
+		if (num_ch % 4 == 0) {
+			__raw_writel(val, dma_block->sched_table_base +
+				DMA_SCHED_TABLE_WORD_REG(tbl_index));
+			tbl_index++;
+			val = j = 0;
+		}
+	}
+
+	if (num_ch % 4) {
+		__raw_writel(val, dma_block->sched_table_base +
+			DMA_SCHED_TABLE_WORD_REG(tbl_index));
+	}
+	return num_ch;
+}
+EXPORT_SYMBOL(cppi41_schedtbl_remove_dma_ch);
 
 int cppi41_dma_block_init(u8 dma_num, u8 q_mgr, u8 num_order,
 				 u32 *sched_tbl, u8 tbl_size)
