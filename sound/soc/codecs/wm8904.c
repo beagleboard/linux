@@ -2499,6 +2499,8 @@ static int wm8904_remove(struct snd_soc_codec *codec)
 
 	wm8904_set_bias_level(codec, SND_SOC_BIAS_OFF);
 	regulator_bulk_free(ARRAY_SIZE(wm8904->supplies), wm8904->supplies);
+	kfree(wm8904->retune_mobile_texts);
+	kfree(wm8904->drc_texts);
 
 	return 0;
 }
