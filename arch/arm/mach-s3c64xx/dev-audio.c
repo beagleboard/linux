@@ -296,7 +296,7 @@ static struct s3c_audio_pdata s3c_ac97_pdata;
 static u64 s3c64xx_ac97_dmamask = DMA_BIT_MASK(32);
 
 struct platform_device s3c64xx_device_ac97 = {
-	.name		  = "s3c-ac97",
+	.name		  = "samsung-ac97",
 	.id		  = -1,
 	.num_resources	  = ARRAY_SIZE(s3c64xx_ac97_resource),
 	.resource	  = s3c64xx_ac97_resource,
@@ -315,16 +315,3 @@ void __init s3c64xx_ac97_setup_gpio(int num)
 	else
 		s3c_ac97_pdata.cfg_gpio = s3c64xx_ac97_cfg_gpe;
 }
-
-static u64 s3c_device_audio_dmamask = 0xffffffffUL;
-
-struct platform_device s3c_device_pcm = {
-	.name		  = "s3c24xx-pcm-audio",
-	.id		  = -1,
-	.dev              = {
-		.dma_mask = &s3c_device_audio_dmamask,
-		.coherent_dma_mask = 0xffffffffUL
-	}
-};
-EXPORT_SYMBOL(s3c_device_pcm);
-
