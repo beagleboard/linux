@@ -1211,6 +1211,7 @@ struct urb {
 	struct list_head urb_list;	/* list head for use by the urb's
 					 * current owner */
 	struct list_head anchor_list;	/* the URB may be anchored */
+	struct list_head giveback_list;	/* to postpone the giveback call */
 	struct usb_anchor *anchor;
 	struct usb_device *dev;		/* (in) pointer to associated device */
 	struct usb_host_endpoint *ep;	/* (internal) pointer to endpoint */

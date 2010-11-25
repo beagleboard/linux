@@ -350,6 +350,11 @@ struct musb {
 	struct list_head	in_bulk;	/* of musb_qh */
 	struct list_head	out_bulk;	/* of musb_qh */
 
+	struct workqueue_struct *gb_queue;
+	struct work_struct      gb_work;
+	spinlock_t              gb_lock;
+	struct list_head        gb_list;        /* of urbs */
+
 	struct notifier_block	nb;
 
 	struct dma_controller	*dma_controller;
@@ -623,6 +628,7 @@ static inline const char *get_dma_name(struct musb *musb)
 #endif
 }
 
+extern void musb_gb_work(struct work_struct *data);
 /*-------------------------- ProcFS definitions ---------------------*/
 
 struct proc_dir_entry;
