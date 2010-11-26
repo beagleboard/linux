@@ -1073,6 +1073,9 @@ void __mark_inode_dirty(struct inode *inode, int flags)
 	if ((inode->i_state & flags) == flags)
 		return;
 
+	if (flags & (I_DIRTY_SYNC | I_DIRTY_DATASYNC | I_DIRTY_PAGES))
+		trace_writeback_inode_dirty(inode, flags);
+
 	if (unlikely(block_dump))
 		block_dump___mark_inode_dirty(inode);
 

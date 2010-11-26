@@ -400,6 +400,34 @@ DEFINE_EVENT(writeback_congest_waited_template, writeback_wait_iff_congested,
 	TP_ARGS(usec_timeout, usec_delayed)
 );
 
+/*
+ * Tracepoint for dirtying an inode; used by PowerTOP
+ */
+TRACE_EVENT(writeback_inode_dirty,
+
+	TP_PROTO(struct inode *inode, int flags),
+
+	TP_ARGS(inode, flags),
+
+	TP_STRUCT__entry(
+		__field(	__kernel_dev_t,	dev		)
+		__field(	ino_t,		ino		)
+		__field(	u32,		flags		)
+	),
+
+	TP_fast_assign(
+		__entry->dev	= inode->i_sb->s_dev;
+		__entry->ino	= inode->i_ino;
+		__entry->flags  = flags;
+	),
+
+	TP_printk("dev %d:%d ino %lu flags %d %s", MAJOR(__entry->dev), MINOR(__entry->dev),
+		  (unsigned long) __entry->ino,
+		  __entry->flags,
+		  __print_flags(__entry->flags, "|", INODE_DIRTY_FLAGS)
+	)
+);
+
 DECLARE_EVENT_CLASS(writeback_single_inode_template,
 
 	TP_PROTO(struct inode *inode,

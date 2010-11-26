@@ -1763,6 +1763,18 @@ struct super_operations {
 
 #define I_DIRTY (I_DIRTY_SYNC | I_DIRTY_DATASYNC | I_DIRTY_PAGES)
 
+#define INODE_DIRTY_FLAGS \
+	{ I_DIRTY_SYNC,		"DIRTY-SYNC" }, \
+	{ I_DIRTY_DATASYNC,	"DIRTY-DATASYNC" }, \
+	{ I_DIRTY_PAGES,	"DIRTY-PAGES" }, \
+	{ I_NEW,		"NEW" }, \
+	{ I_WILL_FREE,		"WILL-FREE" }, \
+	{ I_FREEING,		"FREEING" }, \
+	{ I_CLEAR,		"CLEAR" }, \
+	{ I_SYNC,		"SYNC" }, \
+	{ I_REFERENCED,		"REFERENCED" }
+
+
 extern void __mark_inode_dirty(struct inode *, int);
 static inline void mark_inode_dirty(struct inode *inode)
 {
