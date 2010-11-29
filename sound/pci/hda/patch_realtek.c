@@ -231,7 +231,6 @@ enum {
 	ALC888_ACER_ASPIRE_8930G,
 	ALC888_ACER_ASPIRE_7730G,
 	ALC883_MEDION,
-	ALC883_MEDION_MD2,
 	ALC883_MEDION_WIM2160,
 	ALC883_LAPTOP_EAPD,
 	ALC883_LENOVO_101E_2ch,
@@ -8989,19 +8988,6 @@ static struct snd_kcontrol_new alc883_lenovo_nb0763_mixer[] = {
 	{ } /* end */
 };
 
-static struct snd_kcontrol_new alc883_medion_md2_mixer[] = {
-	HDA_CODEC_VOLUME("Front Playback Volume", 0x0c, 0x0, HDA_OUTPUT),
-	HDA_CODEC_MUTE("Headphone Playback Switch", 0x14, 0x0, HDA_OUTPUT),
-	HDA_CODEC_MUTE("Front Playback Switch", 0x15, 0x0, HDA_OUTPUT),
-	HDA_CODEC_VOLUME("CD Playback Volume", 0x0b, 0x04, HDA_INPUT),
-	HDA_CODEC_MUTE("CD Playback Switch", 0x0b, 0x04, HDA_INPUT),
-	HDA_CODEC_VOLUME("Mic Playback Volume", 0x0b, 0x0, HDA_INPUT),
-	HDA_CODEC_MUTE("Mic Playback Switch", 0x0b, 0x0, HDA_INPUT),
-	HDA_CODEC_VOLUME("Line Playback Volume", 0x0b, 0x02, HDA_INPUT),
-	HDA_CODEC_MUTE("Line Playback Switch", 0x0b, 0x02, HDA_INPUT),
-	{ } /* end */
-};
-
 static struct snd_kcontrol_new alc883_medion_wim2160_mixer[] = {
 	HDA_CODEC_VOLUME("Front Playback Volume", 0x0c, 0x0, HDA_OUTPUT),
 	HDA_BIND_MUTE("Front Playback Switch", 0x0c, 2, HDA_INPUT),
@@ -9443,18 +9429,8 @@ static void alc883_lenovo_ms7195_unsol_event(struct hda_codec *codec,
 		alc888_lenovo_ms7195_rca_automute(codec);
 }
 
-static struct hda_verb alc883_medion_md2_verbs[] = {
-	{0x0c, AC_VERB_SET_AMP_GAIN_MUTE, AMP_IN_UNMUTE(0)},
-	{0x0c, AC_VERB_SET_AMP_GAIN_MUTE, AMP_IN_UNMUTE(1)},
-
-	{0x14, AC_VERB_SET_PIN_WIDGET_CONTROL, PIN_HP},
-
-	{0x14, AC_VERB_SET_UNSOLICITED_ENABLE, ALC880_HP_EVENT | AC_USRSP_EN},
-	{ } /* end */
-};
-
 /* toggle speaker-output according to the hp-jack state */
-static void alc883_medion_md2_setup(struct hda_codec *codec)
+static void alc883_lenovo_nb0763_setup(struct hda_codec *codec)
 {
 	struct alc_spec *spec = codec->spec;
 
@@ -9739,7 +9715,6 @@ static const char *alc882_models[ALC882_MODEL_LAST] = {
 	[ALC888_ACER_ASPIRE_8930G]	= "acer-aspire-8930g",
 	[ALC888_ACER_ASPIRE_7730G]	= "acer-aspire-7730g",
 	[ALC883_MEDION]		= "medion",
-	[ALC883_MEDION_MD2]	= "medion-md2",
 	[ALC883_MEDION_WIM2160]	= "medion-wim2160",
 	[ALC883_LAPTOP_EAPD]	= "laptop-eapd",
 	[ALC883_LENOVO_101E_2ch] = "lenovo-101e",
@@ -9874,7 +9849,6 @@ static struct snd_pci_quirk alc882_cfg_tbl[] = {
 	SND_PCI_QUIRK(0x17aa, 0x3bfc, "Lenovo NB0763", ALC883_LENOVO_NB0763),
 	SND_PCI_QUIRK(0x17aa, 0x3bfd, "Lenovo NB0763", ALC883_LENOVO_NB0763),
 	SND_PCI_QUIRK(0x17aa, 0x101d, "Lenovo Sky", ALC888_LENOVO_SKY),
-	SND_PCI_QUIRK(0x17c0, 0x4071, "MEDION MD2", ALC883_MEDION_MD2),
 	SND_PCI_QUIRK(0x17c0, 0x4085, "MEDION MD96630", ALC888_LENOVO_MS7195_DIG),
 	SND_PCI_QUIRK(0x17f2, 0x5000, "Albatron KI690-AM2", ALC883_6ST_DIG),
 	SND_PCI_QUIRK(0x1991, 0x5625, "Haier W66", ALC883_HAIER_W66),
@@ -10388,19 +10362,6 @@ static struct alc_config_preset alc882_presets[] = {
 		.channel_mode = alc883_sixstack_modes,
 		.input_mux = &alc883_capture_source,
 	},
-	[ALC883_MEDION_MD2] = {
-		.mixers = { alc883_medion_md2_mixer},
-		.init_verbs = { alc883_init_verbs, alc883_medion_md2_verbs},
-		.num_dacs = ARRAY_SIZE(alc883_dac_nids),
-		.dac_nids = alc883_dac_nids,
-		.dig_out_nid = ALC883_DIGOUT_NID,
-		.num_channel_mode = ARRAY_SIZE(alc883_3ST_2ch_modes),
-		.channel_mode = alc883_3ST_2ch_modes,
-		.input_mux = &alc883_capture_source,
-		.unsol_event = alc_automute_amp_unsol_event,
-		.setup = alc883_medion_md2_setup,
-		.init_hook = alc_automute_amp,
-	},
 	[ALC883_MEDION_WIM2160] = {
 		.mixers = { alc883_medion_wim2160_mixer },
 		.init_verbs = { alc883_init_verbs, alc883_medion_wim2160_verbs },
@@ -10477,7 +10438,7 @@ static struct alc_config_preset alc882_presets[] = {
 		.need_dac_fix = 1,
 		.input_mux = &alc883_lenovo_nb0763_capture_source,
 		.unsol_event = alc_automute_amp_unsol_event,
-		.setup = alc883_medion_md2_setup,
+		.setup = alc883_lenovo_nb0763_setup,
 		.init_hook = alc_automute_amp,
 	},
 	[ALC888_LENOVO_MS7195_DIG] = {
