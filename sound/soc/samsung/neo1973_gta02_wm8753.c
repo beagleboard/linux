@@ -438,25 +438,21 @@ static int __init neo1973_gta02_init(void)
 		return -ENOMEM;
 
 	/* register bluetooth DAI here */
-	ret = snd_soc_register_dai(&neo1973_gta02_snd_device->dev, -1, &bt_dai);
-	if (ret) {
-		platform_device_put(neo1973_gta02_snd_device);
-		return ret;
-	}
+	ret = snd_soc_register_dai(&neo1973_gta02_snd_device->dev, &bt_dai);
+	if (ret)
+		goto err_put_device;
 
 	platform_set_drvdata(neo1973_gta02_snd_device, &neo1973_gta02);
 	ret = platform_device_add(neo1973_gta02_snd_device);
 
-	if (ret) {
-		platform_device_put(neo1973_gta02_snd_device);
-		return ret;
-	}
+	if (ret)
+		goto err_unregister_dai;
 
 	/* Initialise GPIOs used by amp */
 	ret = gpio_request(GTA02_GPIO_HP_IN, "GTA02_HP_IN");
 	if (ret) {
 		pr_err("gta02_wm8753: Failed to register GPIO %d\n", GTA02_GPIO_HP_IN);
-		goto err_unregister_device;
+		goto err_del_device;
 	}
 
 	ret = gpio_direction_output(GTA02_GPIO_HP_IN, 1);
@@ -483,15 +479,19 @@ err_free_gpio_amp_shut:
 	gpio_free(GTA02_GPIO_AMP_SHUT);
 err_free_gpio_hp_in:
 	gpio_free(GTA02_GPIO_HP_IN);
-err_unregister_device:
-	platform_device_unregister(neo1973_gta02_snd_device);
+err_del_device:
+	platform_device_del(neo1973_gta02_snd_device);
+err_unregister_dai:
+	snd_soc_unregister_dai(&neo1973_gta02_snd_device->dev);
+err_put_device:
+	platform_device_put(neo1973_gta02_snd_device);
 	return ret;
 }
 module_init(neo1973_gta02_init);
 
 static void __exit neo1973_gta02_exit(void)
 {
-	snd_soc_unregister_dai(&neo1973_gta02_snd_device->dev, -1);
+	snd_soc_unregister_dai(&neo1973_gta02_snd_device->dev);
 	platform_device_unregister(neo1973_gta02_snd_device);
 	gpio_free(GTA02_GPIO_HP_IN);
 	gpio_free(GTA02_GPIO_AMP_SHUT);
