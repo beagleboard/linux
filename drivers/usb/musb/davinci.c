@@ -83,7 +83,7 @@ static inline void phy_off(void)
 
 static int dma_off = 1;
 
-void musb_platform_enable(struct musb *musb)
+static void davinci_enable(struct musb *musb)
 {
 	u32	tmp, old, val;
 
@@ -116,7 +116,7 @@ void musb_platform_enable(struct musb *musb)
 /*
  * Disable the HDRC and flush interrupts
  */
-void musb_platform_disable(struct musb *musb)
+static void davinci_disable(struct musb *musb)
 {
 	/* because we don't set CTRLR.UINT, "important" to:
 	 *  - not read/write INTRUSB/INTRUSBE
@@ -370,13 +370,13 @@ static irqreturn_t davinci_interrupt(int irq, void *__hci)
 	return retval;
 }
 
-int musb_platform_set_mode(struct musb *musb, u8 mode)
+static int davinci_set_mode(struct musb *musb, u8 mode)
 {
 	/* EVM can't do this (right?) */
 	return -EIO;
 }
 
-int __init musb_platform_init(struct musb *musb, void *board_data)
+static int davinci_init(struct musb *musb, void *board_data)
 {
 	void __iomem	*tibase = musb->ctrl_base;
 	u32		revision;
@@ -451,7 +451,7 @@ fail:
 	return -ENODEV;
 }
 
-int musb_platform_exit(struct musb *musb)
+static int davinci_exit(struct musb *musb)
 {
 	if (is_host_enabled(musb))
 		del_timer_sync(&otg_workaround);
@@ -502,3 +502,15 @@ int musb_platform_exit(struct musb *musb)
 
 	return 0;
 }
+
+struct musb_platform_ops musb_ops = {
+	.init		= davinci_init,
+	.exit		= davinci_exit,
+
+	.enable		= davinci_enable,
+	.disable	= davinci_disable,
+
+	.set_mode	= davinci_set_mode,
+
+	.set_vbus	= davinci_set_vbus,
+};

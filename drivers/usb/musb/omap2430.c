@@ -35,7 +35,6 @@
 #include "musb_core.h"
 #include "omap2430.h"
 
-
 static struct timer_list musb_idle_timer;
 
 static void musb_do_idle(unsigned long _musb)
@@ -98,7 +97,7 @@ static void musb_do_idle(unsigned long _musb)
 }
 
 
-void musb_platform_try_idle(struct musb *musb, unsigned long timeout)
+static void omap2430_try_idle(struct musb *musb, unsigned long timeout)
 {
 	unsigned long		default_timeout = jiffies + msecs_to_jiffies(3);
 	static unsigned long	last_timer;
@@ -131,13 +130,15 @@ void musb_platform_try_idle(struct musb *musb, unsigned long timeout)
 	mod_timer(&musb_idle_timer, timeout);
 }
 
-void musb_platform_enable(struct musb *musb)
+static void omap2430_enable(struct musb *musb)
 {
 }
-void musb_platform_disable(struct musb *musb)
+
+static void omap2430_disable(struct musb *musb)
 {
 }
-static void omap_set_vbus(struct musb *musb, int is_on)
+
+static void omap2430_set_vbus(struct musb *musb, int is_on)
 {
 	u8		devctl;
 	/* HDRC controls CPEN, but beware current surges during device
@@ -175,9 +176,9 @@ static void omap_set_vbus(struct musb *musb, int is_on)
 		musb_readb(musb->mregs, MUSB_DEVCTL));
 }
 
-static int musb_platform_resume(struct musb *musb);
+static int omap2430_resume(struct musb *musb);
 
-int musb_platform_set_mode(struct musb *musb, u8 musb_mode)
+static int omap2430_set_mode(struct musb *musb, u8 musb_mode)
 {
 	u8	devctl = musb_readb(musb->mregs, MUSB_DEVCTL);
 
@@ -187,7 +188,7 @@ int musb_platform_set_mode(struct musb *musb, u8 musb_mode)
 	return 0;
 }
 
-int __init musb_platform_init(struct musb *musb, void *board_data)
+static int omap2430_init(struct musb *musb, void *board_data)
 {
 	u32 l;
 	struct omap_musb_board_data *data = board_data;
@@ -202,7 +203,7 @@ int __init musb_platform_init(struct musb *musb, void *board_data)
 		return -ENODEV;
 	}
 
-	musb_platform_resume(musb);
+	omap2430_resume(musb);
 
 	l = musb_readl(musb->mregs, OTG_SYSCONFIG);
 	l &= ~ENABLEWAKEUP;	/* disable wakeup */
@@ -240,7 +241,7 @@ int __init musb_platform_init(struct musb *musb, void *board_data)
 			musb_readl(musb->mregs, OTG_SIMENABLE));
 
 	if (is_host_enabled(musb))
-		musb->board_set_vbus = omap_set_vbus;
+		musb->board_set_vbus = omap2430_set_vbus;
 
 	setup_timer(&musb_idle_timer, musb_do_idle, (unsigned long) musb);
 
@@ -263,7 +264,7 @@ void musb_platform_restore_context(struct musb *musb,
 }
 #endif
 
-static int musb_platform_suspend(struct musb *musb)
+static int omap2430_suspend(struct musb *musb)
 {
 	u32 l;
 
@@ -289,7 +290,7 @@ static int musb_platform_suspend(struct musb *musb)
 	return 0;
 }
 
-static int musb_platform_resume(struct musb *musb)
+static int omap2430_resume(struct musb *musb)
 {
 	u32 l;
 
@@ -314,12 +315,27 @@ static int musb_platform_resume(struct musb *musb)
 	return 0;
 }
 
-
-int musb_platform_exit(struct musb *musb)
+static int omap2430_exit(struct musb *musb)
 {
 
-	musb_platform_suspend(musb);
+	omap2430_suspend(musb);
 
 	otg_put_transceiver(musb->xceiv);
 	return 0;
 }
+
+struct musb_platform_ops musb_ops = {
+	.init		= omap2430_init,
+	.exit		= omap2430_exit,
+
+	.suspend	= omap2430_suspend,
+	.resume		= omap2430_resume,
+
+	.enable		= omap2430_enable,
+	.disable	= omap2430_disable,
+
+	.set_mode	= omap2430_set_mode,
+	.try_idle	= omap2430_try_idle,
+
+	.set_vbus	= omap2430_set_vbus,
+};

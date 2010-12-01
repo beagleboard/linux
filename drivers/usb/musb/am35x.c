@@ -122,9 +122,9 @@ static inline void phy_off(void)
 }
 
 /*
- * musb_platform_enable - enable interrupts
+ * am35x_enable - enable interrupts
  */
-void musb_platform_enable(struct musb *musb)
+static void am35x_enable(struct musb *musb)
 {
 	void __iomem *reg_base = musb->ctrl_base;
 	u32 epmask;
@@ -143,9 +143,9 @@ void musb_platform_enable(struct musb *musb)
 }
 
 /*
- * musb_platform_disable - disable HDRC and flush interrupts
+ * am35x_disable - disable HDRC and flush interrupts
  */
-void musb_platform_disable(struct musb *musb)
+static void am35x_disable(struct musb *musb)
 {
 	void __iomem *reg_base = musb->ctrl_base;
 
@@ -221,7 +221,7 @@ static void otg_timer(unsigned long _musb)
 	spin_unlock_irqrestore(&musb->lock, flags);
 }
 
-void musb_platform_try_idle(struct musb *musb, unsigned long timeout)
+static void am35x_try_idle(struct musb *musb, unsigned long timeout)
 {
 	static unsigned long last_timer;
 
@@ -362,7 +362,7 @@ eoi:
 	return ret;
 }
 
-int musb_platform_set_mode(struct musb *musb, u8 musb_mode)
+static int am35x_set_mode(struct musb *musb, u8 musb_mode)
 {
 	u32 devconf2 = omap_ctrl_readl(AM35XX_CONTROL_DEVCONF2);
 
@@ -391,7 +391,7 @@ int musb_platform_set_mode(struct musb *musb, u8 musb_mode)
 	return 0;
 }
 
-int __init musb_platform_init(struct musb *musb, void *board_data)
+static int am35x_init(struct musb *musb, void *board_data)
 {
 	void __iomem *reg_base = musb->ctrl_base;
 	u32 rev, lvl_intr, sw_reset;
@@ -461,7 +461,7 @@ exit0:
 	return status;
 }
 
-int musb_platform_exit(struct musb *musb)
+static int am35x_exit(struct musb *musb)
 {
 	if (is_host_enabled(musb))
 		del_timer_sync(&otg_workaround);
@@ -522,3 +522,16 @@ void musb_read_fifo(struct musb_hw_ep *hw_ep, u16 len, u8 *dst)
 		memcpy(dst, &val, len);
 	}
 }
+
+struct musb_platform_ops musb_ops = {
+	.init		= am35x_init,
+	.exit		= am35x_exit,
+
+	.enable		= am35x_enable,
+	.disable	= am35x_disable,
+
+	.set_mode	= am35x_set_mode,
+	.try_idle	= am35x_try_idle,
+
+	.set_vbus	= am35x_set_vbus,
+};
