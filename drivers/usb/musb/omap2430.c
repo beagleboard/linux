@@ -31,6 +31,8 @@
 #include <linux/list.h>
 #include <linux/clk.h>
 #include <linux/io.h>
+#include <linux/platform_device.h>
+#include <linux/dma-mapping.h>
 
 #include "musb_core.h"
 #include "omap2430.h"
@@ -188,7 +190,7 @@ static int omap2430_set_mode(struct musb *musb, u8 musb_mode)
 	return 0;
 }
 
-static int omap2430_init(struct musb *musb, void *board_data)
+static int omap2430_platform_init(struct musb *musb, void *board_data)
 {
 	u32 l;
 	struct omap_musb_board_data *data = board_data;
@@ -315,7 +317,7 @@ static int omap2430_resume(struct musb *musb)
 	return 0;
 }
 
-static int omap2430_exit(struct musb *musb)
+static int omap2430_platform_exit(struct musb *musb)
 {
 
 	omap2430_suspend(musb);
@@ -325,8 +327,8 @@ static int omap2430_exit(struct musb *musb)
 }
 
 struct musb_platform_ops musb_ops = {
-	.init		= omap2430_init,
-	.exit		= omap2430_exit,
+	.init		= omap2430_platform_init,
+	.exit		= omap2430_platform_exit,
 
 	.suspend	= omap2430_suspend,
 	.resume		= omap2430_resume,
@@ -339,3 +341,88 @@ struct musb_platform_ops musb_ops = {
 
 	.set_vbus	= omap2430_set_vbus,
 };
+
+static u64 omap2430_dmamask = DMA_BIT_MASK(32);
+
+static int __init omap2430_probe(struct platform_device *pdev)
+{
+	struct musb_hdrc_platform_data	*pdata = pdev->dev.platform_data;
+	struct platform_device		*musb;
+
+	int				ret = -ENOMEM;
+
+	musb = platform_device_alloc("musb-hdrc", -1);
+	if (!musb) {
+		dev_err(&pdev->dev, "failed to allocate musb device\n");
+		goto err0;
+	}
+
+	musb->dev.parent		= &pdev->dev;
+	musb->dev.dma_mask		= &omap2430_dmamask;
+	musb->dev.coherent_dma_mask	= omap2430_dmamask;
+
+	platform_set_drvdata(pdev, musb);
+
+	ret = platform_device_add_resources(musb, pdev->resource,
+			pdev->num_resources);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to add resources\n");
+		goto err1;
+	}
+
+	ret = platform_device_add_data(musb, pdata, sizeof(*pdata));
+	if (ret) {
+		dev_err(&pdev->dev, "failed to add platform_data\n");
+		goto err1;
+	}
+
+	ret = platform_device_add(musb);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to register musb device\n");
+		goto err2;
+	}
+
+	return 0;
+
+err2:
+	platform_device_put(musb);
+
+err1:
+	platform_device_del(musb);
+
+err0:
+	return ret;
+}
+
+static int __exit omap2430_remove(struct platform_device *pdev)
+{
+	struct platform_device		*musb = platform_get_drvdata(pdev);
+
+	platform_device_put(musb);
+	platform_device_del(musb);
+
+	return 0;
+}
+
+static struct platform_driver omap2430_driver = {
+	.remove		= __exit_p(omap2430_remove),
+	.driver		= {
+		.name	= "musb-omap2430",
+	},
+};
+
+MODULE_DESCRIPTION("OMAP2PLUS MUSB Glue Layer");
+MODULE_AUTHOR("Felipe Balbi <balbi@ti.com>");
+MODULE_LICENSE("GPL v2");
+
+static int __init omap2430_init(void)
+{
+	return platform_driver_probe(&omap2430_driver, omap2430_probe);
+}
+subsys_initcall(omap2430_init);
+
+static void __exit omap2430_exit(void)
+{
+	platform_driver_unregister(&omap2430_driver);
+}
+module_exit(omap2430_exit);
