@@ -438,7 +438,7 @@ static int bfin_platform_exit(struct musb *musb)
 	return 0;
 }
 
-struct musb_platform_ops musb_ops = {
+static struct musb_platform_ops bfin_ops = {
 	.init		= bfin_platform_init,
 	.exit		= bfin_platform_exit,
 
@@ -480,6 +480,8 @@ static int __init bfin_probe(struct platform_device *pdev)
 
 	glue->dev			= &pdev->dev;
 	glue->musb			= musb;
+
+	pdata->platform_ops		= &bfin_ops;
 
 	platform_set_drvdata(pdev, glue);
 

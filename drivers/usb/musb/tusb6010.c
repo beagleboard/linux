@@ -1178,7 +1178,7 @@ static int tusb_platform_exit(struct musb *musb)
 	return 0;
 }
 
-struct musb_platform_ops musb_ops = {
+static struct musb_platform_ops tusb_ops = {
 	.init		= tusb_platform_init,
 	.exit		= tusb_platform_exit,
 
@@ -1220,6 +1220,8 @@ static int __init tusb_probe(struct platform_device *pdev)
 
 	glue->dev			= &pdev->dev;
 	glue->musb			= musb;
+
+	pdata->platform_ops		= &tusb_ops;
 
 	platform_set_drvdata(pdev, glue);
 

@@ -128,6 +128,9 @@ struct musb_hdrc_platform_data {
 
 	/* Architecture specific board data	*/
 	void		*board_data;
+
+	/* Platform specific struct musb_ops pointer */
+	void		*platform_ops;
 };
 
 
