@@ -1049,8 +1049,6 @@ static void musb_shutdown(struct platform_device *pdev)
 	spin_lock_irqsave(&musb->lock, flags);
 	musb_platform_disable(musb);
 	musb_generic_disable(musb);
-	if (musb->clock)
-		clk_put(musb->clock);
 	spin_unlock_irqrestore(&musb->lock, flags);
 
 	if (!is_otg_enabled(musb) && is_host_enabled(musb))
@@ -2004,20 +2002,6 @@ bad_config:
 	musb->min_power = plat->min_power;
 	musb->ops = plat->platform_ops;
 
-	/* Clock usage is chip-specific ... functional clock (DaVinci,
-	 * OMAP2430), or PHY ref (some TUSB6010 boards).  All this core
-	 * code does is make sure a clock handle is available; platform
-	 * code manages it during start/stop and suspend/resume.
-	 */
-	if (plat->clock) {
-		musb->clock = clk_get(dev, plat->clock);
-		if (IS_ERR(musb->clock)) {
-			status = PTR_ERR(musb->clock);
-			musb->clock = NULL;
-			goto fail1;
-		}
-	}
-
 	/* The musb_platform_init() call:
 	 *   - adjusts musb->mregs and musb->isr if needed,
 	 *   - may initialize an integrated tranceiver
@@ -2185,9 +2169,6 @@ fail3:
 	musb_platform_exit(musb);
 
 fail2:
-	if (musb->clock)
-		clk_put(musb->clock);
-
 fail1:
 	dev_err(musb->controller,
 		"musb_init_controller failed with status %d\n", status);
@@ -2423,12 +2404,6 @@ static int musb_suspend(struct device *dev)
 
 	musb_save_context(musb);
 
-	if (musb->clock) {
-		if (musb->set_clock)
-			musb->set_clock(musb->clock, 0);
-		else
-			clk_disable(musb->clock);
-	}
 	spin_unlock_irqrestore(&musb->lock, flags);
 	return 0;
 }
@@ -2437,13 +2412,6 @@ static int musb_resume_noirq(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct musb	*musb = dev_to_musb(&pdev->dev);
-
-	if (musb->clock) {
-		if (musb->set_clock)
-			musb->set_clock(musb->clock, 1);
-		else
-			clk_enable(musb->clock);
-	}
 
 	musb_restore_context(musb);
 
