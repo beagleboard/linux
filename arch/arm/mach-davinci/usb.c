@@ -97,6 +97,9 @@ void __init davinci_setup_usb(unsigned mA, unsigned potpgt_ms)
 	} else	/* other devices don't have dedicated CPPI IRQ */
 		usb_dev.num_resources = 2;
 
+	if (cpu_is_davinci_da830() || cpu_is_davinci_da850())
+		usb_dev.name = "musb-da8xx";
+
 	platform_device_register(&usb_dev);
 }
 

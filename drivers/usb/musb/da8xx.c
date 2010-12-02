@@ -29,6 +29,8 @@
 #include <linux/init.h>
 #include <linux/clk.h>
 #include <linux/io.h>
+#include <linux/platform_device.h>
+#include <linux/dma-mapping.h>
 
 #include <mach/da8xx.h>
 #include <mach/usb.h>
@@ -409,7 +411,7 @@ int da8xx_set_mode(struct musb *musb, u8 musb_mode)
 	return 0;
 }
 
-static int da8xx_init(struct musb *musb, void *board_data)
+static int da8xx_platform_init(struct musb *musb, void *board_data)
 {
 	void __iomem *reg_base = musb->ctrl_base;
 	u32 rev;
@@ -453,7 +455,7 @@ fail:
 	return -ENODEV;
 }
 
-static int da8xx_exit(struct musb *musb)
+static int da8xx_platform_exit(struct musb *musb)
 {
 	if (is_host_enabled(musb))
 		del_timer_sync(&otg_workaround);
@@ -469,8 +471,8 @@ static int da8xx_exit(struct musb *musb)
 }
 
 struct musb_platform_ops musb_ops = {
-	.init		= da8xx_init,
-	.exit		= da8xx_exit,
+	.init		= da8xx_platform_init,
+	.exit		= da8xx_platform_exit,
 
 	.enable		= da8xx_enable,
 	.disable	= da8xx_disable,
@@ -480,3 +482,88 @@ struct musb_platform_ops musb_ops = {
 
 	.set_vbus	= da8xx_set_vbus,
 };
+
+static u64 da8xx_dmamask = DMA_BIT_MASK(32);
+
+static int __init da8xx_probe(struct platform_device *pdev)
+{
+	struct musb_hdrc_platform_data	*pdata = pdev->dev.platform_data;
+	struct platform_device		*musb;
+
+	int				ret = -ENOMEM;
+
+	musb = platform_device_alloc("musb-hdrc", -1);
+	if (!musb) {
+		dev_err(&pdev->dev, "failed to allocate musb device\n");
+		goto err0;
+	}
+
+	musb->dev.parent		= &pdev->dev;
+	musb->dev.dma_mask		= &da8xx_dmamask;
+	musb->dev.coherent_dma_mask	= da8xx_dmamask;
+
+	platform_set_drvdata(pdev, musb);
+
+	ret = platform_device_add_resources(musb, pdev->resource,
+			pdev->num_resources);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to add resources\n");
+		goto err1;
+	}
+
+	ret = platform_device_add_data(musb, pdata, sizeof(*pdata));
+	if (ret) {
+		dev_err(&pdev->dev, "failed to add platform_data\n");
+		goto err1;
+	}
+
+	ret = platform_device_add(musb);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to register musb device\n");
+		goto err2;
+	}
+
+	return 0;
+
+err2:
+	platform_device_put(musb);
+
+err1:
+	platform_device_del(musb);
+
+err0:
+	return ret;
+}
+
+static int __exit da8xx_remove(struct platform_device *pdev)
+{
+	struct platform_device		*musb = platform_get_drvdata(pdev);
+
+	platform_device_put(musb);
+	platform_device_del(musb);
+
+	return 0;
+}
+
+static struct platform_driver da8xx_driver = {
+	.remove		= __exit_p(da8xx_remove),
+	.driver		= {
+		.name	= "musb-da8xx",
+	},
+};
+
+MODULE_DESCRIPTION("OMAP2PLUS MUSB Glue Layer");
+MODULE_AUTHOR("Felipe Balbi <balbi@ti.com>");
+MODULE_LICENSE("GPL v2");
+
+static int __init da8xx_init(void)
+{
+	return platform_driver_probe(&da8xx_driver, da8xx_probe);
+}
+subsys_initcall(da8xx_init);
+
+static void __exit da8xx_exit(void)
+{
+	platform_driver_unregister(&da8xx_driver);
+}
+module_exit(da8xx_exit);
