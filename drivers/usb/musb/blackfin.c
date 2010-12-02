@@ -27,6 +27,7 @@ struct bfin_glue {
 	struct device		*dev;
 	struct platform_device	*musb;
 };
+#define glue_to_musb(g)		platform_get_drvdata(g->musb)
 
 /*
  * Load an endpoint's FIFO
@@ -408,27 +409,6 @@ static int bfin_platform_init(struct musb *musb, void *board_data)
 	return 0;
 }
 
-static int bfin_suspend(struct musb *musb)
-{
-	if (is_host_active(musb))
-		/*
-		 * During hibernate gpio_vrsel will change from high to low
-		 * low which will generate wakeup event resume the system
-		 * immediately.  Set it to 0 before hibernate to avoid this
-		 * wakeup event.
-		 */
-		gpio_set_value(musb->config->gpio_vrsel, 0);
-
-	return 0;
-}
-
-static int bfin_resume(struct musb *musb)
-{
-	bfin_reg_init(musb);
-
-	return 0;
-}
-
 static int bfin_platform_exit(struct musb *musb)
 {
 	gpio_free(musb->config->gpio_vrsel);
@@ -447,9 +427,6 @@ static struct musb_platform_ops bfin_ops = {
 
 	.set_mode	= bfin_set_mode,
 	.try_idle	= bfin_try_idle,
-
-	.suspend	= bfin_suspend,
-	.resume		= bfin_resume,
 
 	.vbus_status	= bfin_vbus_status,
 	.set_vbus	= bfin_set_vbus,
@@ -533,10 +510,49 @@ static int __exit bfin_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM
+static int bfin_suspend(struct device *dev)
+{
+	struct bfin_glue	*glue = dev_get_drvdata(dev);
+	struct musb		*musb = glue_to_musb(glue);
+
+	if (is_host_active(musb))
+		/*
+		 * During hibernate gpio_vrsel will change from high to low
+		 * low which will generate wakeup event resume the system
+		 * immediately.  Set it to 0 before hibernate to avoid this
+		 * wakeup event.
+		 */
+		gpio_set_value(musb->config->gpio_vrsel, 0);
+
+	return 0;
+}
+
+static int bfin_resume(struct device *dev)
+{
+	struct bfin_glue	*glue = dev_get_drvdata(dev);
+	struct musb		*musb = glue_to_musb(glue);
+
+	bfin_reg_init(musb);
+
+	return 0;
+}
+
+static struct dev_pm_ops bfin_pm_ops = {
+	.suspend	= bfin_suspend,
+	.resume		= bfin_resume,
+};
+
+#define DEV_PM_OPS	&bfin_pm_op,
+#else
+#define DEV_PM_OPS	NULL
+#endif
+
 static struct platform_driver bfin_driver = {
 	.remove		= __exit_p(bfin_remove),
 	.driver		= {
 		.name	= "musb-bfin",
+		.pm	= DEV_PM_OPS,
 	},
 };
 
