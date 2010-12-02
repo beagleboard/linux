@@ -125,6 +125,7 @@ struct fsnotify_group {
 
 	const struct fsnotify_ops *ops;	/* how this group handles things */
 
+	struct mutex mutex;
 	/* needed to send notification to userspace */
 	struct mutex notification_mutex;	/* protect the notification_list */
 	struct list_head notification_list;	/* list of event_holder this group needs to send to userspace */
