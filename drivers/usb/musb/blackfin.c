@@ -15,6 +15,8 @@
 #include <linux/list.h>
 #include <linux/gpio.h>
 #include <linux/io.h>
+#include <linux/platform_device.h>
+#include <linux/dma-mapping.h>
 
 #include <asm/cacheflush.h>
 
@@ -362,7 +364,7 @@ static void bfin_reg_init(struct musb *musb)
 	SSYNC();
 }
 
-static int bfin_init(struct musb *musb, void *board_data)
+static int bfin_platform_init(struct musb *musb, void *board_data)
 {
 
 	/*
@@ -422,7 +424,7 @@ void musb_platform_restore_context(struct musb *musb,
 }
 #endif
 
-static int bfin_exit(struct musb *musb)
+static int bfin_platform_exit(struct musb *musb)
 {
 	gpio_free(musb->config->gpio_vrsel);
 
@@ -432,8 +434,8 @@ static int bfin_exit(struct musb *musb)
 }
 
 struct musb_platform_ops musb_ops = {
-	.init		= bfin_init,
-	.exit		= bfin_exit,
+	.init		= bfin_platform_init,
+	.exit		= bfin_platform_exit,
 
 	.enable		= bfin_enable,
 	.disable	= bfin_disable,
@@ -444,3 +446,88 @@ struct musb_platform_ops musb_ops = {
 	.vbus_status	= bfin_vbus_status,
 	.set_vbus	= bfin_set_vbus,
 };
+
+static u64 bfin_dmamask = DMA_BIT_MASK(32);
+
+static int __init bfin_probe(struct platform_device *pdev)
+{
+	struct musb_hdrc_platform_data	*pdata = pdev->dev.platform_data;
+	struct platform_device		*musb;
+
+	int				ret = -ENOMEM;
+
+	musb = platform_device_alloc("musb-hdrc", -1);
+	if (!musb) {
+		dev_err(&pdev->dev, "failed to allocate musb device\n");
+		goto err0;
+	}
+
+	musb->dev.parent		= &pdev->dev;
+	musb->dev.dma_mask		= &bfin_dmamask;
+	musb->dev.coherent_dma_mask	= bfin_dmamask;
+
+	platform_set_drvdata(pdev, musb);
+
+	ret = platform_device_add_resources(musb, pdev->resource,
+			pdev->num_resources);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to add resources\n");
+		goto err1;
+	}
+
+	ret = platform_device_add_data(musb, pdata, sizeof(*pdata));
+	if (ret) {
+		dev_err(&pdev->dev, "failed to add platform_data\n");
+		goto err1;
+	}
+
+	ret = platform_device_add(musb);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to register musb device\n");
+		goto err2;
+	}
+
+	return 0;
+
+err2:
+	platform_device_put(musb);
+
+err1:
+	platform_device_del(musb);
+
+err0:
+	return ret;
+}
+
+static int __exit bfin_remove(struct platform_device *pdev)
+{
+	struct platform_device		*musb = platform_get_drvdata(pdev);
+
+	platform_device_put(musb);
+	platform_device_del(musb);
+
+	return 0;
+}
+
+static struct platform_driver bfin_driver = {
+	.remove		= __exit_p(bfin_remove),
+	.driver		= {
+		.name	= "musb-bfin",
+	},
+};
+
+MODULE_DESCRIPTION("OMAP2PLUS MUSB Glue Layer");
+MODULE_AUTHOR("Felipe Balbi <balbi@ti.com>");
+MODULE_LICENSE("GPL v2");
+
+static int __init bfin_init(void)
+{
+	return platform_driver_probe(&bfin_driver, bfin_probe);
+}
+subsys_initcall(bfin_init);
+
+static void __exit bfin_exit(void)
+{
+	platform_driver_unregister(&bfin_driver);
+}
+module_exit(bfin_exit);
