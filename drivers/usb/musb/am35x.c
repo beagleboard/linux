@@ -88,6 +88,7 @@ struct am35x_glue {
 	struct clk		*phy_clk;
 	struct clk		*clk;
 };
+#define glue_to_musb(g)		platform_get_drvdata(g->musb)
 
 static inline void phy_on(void)
 {
@@ -468,20 +469,6 @@ static int am35x_platform_exit(struct musb *musb)
 	return 0;
 }
 
-static int am35x_suspend(struct musb *musb)
-{
-	phy_off();
-
-	return 0;
-}
-
-static int am35x_resume(struct musb *musb)
-{
-	phy_on();
-
-	return 0;
-}
-
 /* AM35x supports only 32bit read operation */
 void musb_read_fifo(struct musb_hw_ep *hw_ep, u16 len, u8 *dst)
 {
@@ -521,9 +508,6 @@ static struct musb_platform_ops am35x_ops = {
 
 	.set_mode	= am35x_set_mode,
 	.try_idle	= am35x_try_idle,
-
-	.suspend	= am35x_suspend,
-	.resume		= am35x_resume,
 
 	.set_vbus	= am35x_set_vbus,
 };
@@ -653,10 +637,56 @@ static int __exit am35x_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM
+static int am35x_suspend(struct device *dev)
+{
+	struct am35x_glue	*glue = dev_get_drvdata(dev);
+	struct musb		*musb = glue_to_musb(musb);
+
+	phy_off();
+	clk_disable(glue->phy_clk);
+	clk_disable(glue->clk);
+
+	return 0;
+}
+
+static int am35x_resume(struct device *dev)
+{
+	struct am35x_glue	*glue = dev_get_drvdata(dev);
+	struct musb		*musb = glue_to_musb(musb);
+	int			ret;
+
+	phy_oon();
+	ret = clk_enable(glue->phy_clk);
+	if (ret) {
+		dev_err(dev, "failed to enable PHY clock\n");
+		return ret;
+	}
+
+	ret = clk_enable(glue->clk);
+	if (ret) {
+		dev_err(dev, "failed to enable clock\n");
+		return ret;
+	}
+
+	return 0;
+}
+
+static struct dev_pm_ops am35x_pm_ops = {
+	.suspend	= am35x_suspend,
+	.resume		= am35x_resume,
+};
+
+#define DEV_PM_OPS	&am35x_pm_ops
+#else
+#define DEV_PM_OPS	NULL
+#endif
+
 static struct platform_driver am35x_driver = {
 	.remove		= __exit_p(am35x_remove),
 	.driver		= {
 		.name	= "musb-am35x",
+		.pm	= DEV_PM_OPS,
 	},
 };
 
