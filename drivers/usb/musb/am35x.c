@@ -29,6 +29,8 @@
 #include <linux/init.h>
 #include <linux/clk.h>
 #include <linux/io.h>
+#include <linux/platform_device.h>
+#include <linux/dma-mapping.h>
 
 #include <plat/control.h>
 #include <plat/usb.h>
@@ -391,7 +393,7 @@ static int am35x_set_mode(struct musb *musb, u8 musb_mode)
 	return 0;
 }
 
-static int am35x_init(struct musb *musb, void *board_data)
+static int am35x_platform_init(struct musb *musb, void *board_data)
 {
 	void __iomem *reg_base = musb->ctrl_base;
 	u32 rev, lvl_intr, sw_reset;
@@ -461,7 +463,7 @@ exit0:
 	return status;
 }
 
-static int am35x_exit(struct musb *musb)
+static int am35x_platform_exit(struct musb *musb)
 {
 	if (is_host_enabled(musb))
 		del_timer_sync(&otg_workaround);
@@ -524,8 +526,8 @@ void musb_read_fifo(struct musb_hw_ep *hw_ep, u16 len, u8 *dst)
 }
 
 struct musb_platform_ops musb_ops = {
-	.init		= am35x_init,
-	.exit		= am35x_exit,
+	.init		= am35x_platform_init,
+	.exit		= am35x_platform_exit,
 
 	.enable		= am35x_enable,
 	.disable	= am35x_disable,
@@ -535,3 +537,88 @@ struct musb_platform_ops musb_ops = {
 
 	.set_vbus	= am35x_set_vbus,
 };
+
+static u64 am35x_dmamask = DMA_BIT_MASK(32);
+
+static int __init am35x_probe(struct platform_device *pdev)
+{
+	struct musb_hdrc_platform_data	*pdata = pdev->dev.platform_data;
+	struct platform_device		*musb;
+
+	int				ret = -ENOMEM;
+
+	musb = platform_device_alloc("musb-hdrc", -1);
+	if (!musb) {
+		dev_err(&pdev->dev, "failed to allocate musb device\n");
+		goto err0;
+	}
+
+	musb->dev.parent		= &pdev->dev;
+	musb->dev.dma_mask		= &am35x_dmamask;
+	musb->dev.coherent_dma_mask	= am35x_dmamask;
+
+	platform_set_drvdata(pdev, musb);
+
+	ret = platform_device_add_resources(musb, pdev->resource,
+			pdev->num_resources);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to add resources\n");
+		goto err1;
+	}
+
+	ret = platform_device_add_data(musb, pdata, sizeof(*pdata));
+	if (ret) {
+		dev_err(&pdev->dev, "failed to add platform_data\n");
+		goto err1;
+	}
+
+	ret = platform_device_add(musb);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to register musb device\n");
+		goto err2;
+	}
+
+	return 0;
+
+err2:
+	platform_device_put(musb);
+
+err1:
+	platform_device_del(musb);
+
+err0:
+	return ret;
+}
+
+static int __exit am35x_remove(struct platform_device *pdev)
+{
+	struct platform_device		*musb = platform_get_drvdata(pdev);
+
+	platform_device_put(musb);
+	platform_device_del(musb);
+
+	return 0;
+}
+
+static struct platform_driver am35x_driver = {
+	.remove		= __exit_p(am35x_remove),
+	.driver		= {
+		.name	= "musb-am35x",
+	},
+};
+
+MODULE_DESCRIPTION("AM35x MUSB Glue Layer");
+MODULE_AUTHOR("Felipe Balbi <balbi@ti.com>");
+MODULE_LICENSE("GPL v2");
+
+static int __init am35x_init(void)
+{
+	return platform_driver_probe(&am35x_driver, am35x_probe);
+}
+subsys_initcall(am35x_init);
+
+static void __exit am35x_exit(void)
+{
+	platform_driver_unregister(&am35x_driver);
+}
+module_exit(am35x_exit);
