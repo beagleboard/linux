@@ -25,6 +25,11 @@
 
 #include "musb_core.h"
 
+struct tusb6010_glue {
+	struct device		*dev;
+	struct platform_device	*musb;
+};
+
 static void tusb_set_vbus(struct musb *musb, int is_on);
 
 #define TUSB_REV_MAJOR(reg_val)		((reg_val >> 4) & 0xf)
@@ -1193,47 +1198,60 @@ static int __init tusb_probe(struct platform_device *pdev)
 {
 	struct musb_hdrc_platform_data	*pdata = pdev->dev.platform_data;
 	struct platform_device		*musb;
+	struct tusb6010_glue		*glue;
 
 	int				ret = -ENOMEM;
+
+	glue = kzalloc(sizeof(*glue), GFP_KERNEL);
+	if (!glue) {
+		dev_err(&pdev->dev, "failed to allocate glue context\n");
+		goto err0;
+	}
 
 	musb = platform_device_alloc("musb-hdrc", -1);
 	if (!musb) {
 		dev_err(&pdev->dev, "failed to allocate musb device\n");
-		goto err0;
+		goto err1;
 	}
 
 	musb->dev.parent		= &pdev->dev;
 	musb->dev.dma_mask		= &tusb_dmamask;
 	musb->dev.coherent_dma_mask	= tusb_dmamask;
 
-	platform_set_drvdata(pdev, musb);
+	glue->dev			= &pdev->dev;
+	glue->musb			= musb;
+
+	platform_set_drvdata(pdev, glue);
 
 	ret = platform_device_add_resources(musb, pdev->resource,
 			pdev->num_resources);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to add resources\n");
-		goto err1;
+		goto err2;
 	}
 
 	ret = platform_device_add_data(musb, pdata, sizeof(*pdata));
 	if (ret) {
 		dev_err(&pdev->dev, "failed to add platform_data\n");
-		goto err1;
+		goto err2;
 	}
 
 	ret = platform_device_add(musb);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to register musb device\n");
-		goto err2;
+		goto err3;
 	}
 
 	return 0;
 
-err2:
+err3:
 	platform_device_put(musb);
 
-err1:
+err2:
 	platform_device_del(musb);
+
+err1:
+	kfree(glue);
 
 err0:
 	return ret;
@@ -1241,10 +1259,11 @@ err0:
 
 static int __exit tusb_remove(struct platform_device *pdev)
 {
-	struct platform_device		*musb = platform_get_drvdata(pdev);
+	struct tusb6010_glue		*glue = platform_get_drvdata(pdev);
 
-	platform_device_put(musb);
-	platform_device_del(musb);
+	platform_device_put(glue->musb);
+	platform_device_del(glue->musb);
+	kfree(glue);
 
 	return 0;
 }
