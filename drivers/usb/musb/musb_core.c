@@ -1998,7 +1998,6 @@ bad_config:
 	spin_lock_init(&musb->lock);
 	musb->board_mode = plat->mode;
 	musb->board_set_power = plat->set_power;
-	musb->set_clock = plat->set_clock;
 	musb->min_power = plat->min_power;
 	musb->ops = plat->platform_ops;
 
