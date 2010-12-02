@@ -266,9 +266,6 @@ static int omap2430_platform_init(struct musb *musb, void *board_data)
 			musb_readl(musb->mregs, OTG_INTERFSEL),
 			musb_readl(musb->mregs, OTG_SIMENABLE));
 
-	if (is_host_enabled(musb))
-		musb->board_set_vbus = omap2430_set_vbus;
-
 	setup_timer(&musb_idle_timer, musb_do_idle, (unsigned long) musb);
 
 	return 0;

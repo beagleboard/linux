@@ -426,8 +426,6 @@ static int am35x_platform_init(struct musb *musb, void *board_data)
 	if (is_host_enabled(musb))
 		setup_timer(&otg_workaround, otg_timer, (unsigned long) musb);
 
-	musb->board_set_vbus = am35x_set_vbus;
-
 	/* Global reset */
 	sw_reset = omap_ctrl_readl(AM35XX_CONTROL_IP_SW_RESET);
 

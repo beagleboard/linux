@@ -397,7 +397,6 @@ static int bfin_platform_init(struct musb *musb, void *board_data)
 	bfin_reg_init(musb);
 
 	if (is_host_enabled(musb)) {
-		musb->board_set_vbus = bfin_set_vbus;
 		setup_timer(&musb_conn_timer,
 			musb_conn_timer_handler, (unsigned long) musb);
 	}
