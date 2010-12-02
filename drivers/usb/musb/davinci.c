@@ -30,6 +30,8 @@
 #include <linux/clk.h>
 #include <linux/io.h>
 #include <linux/gpio.h>
+#include <linux/platform_device.h>
+#include <linux/dma-mapping.h>
 
 #include <mach/hardware.h>
 #include <mach/memory.h>
@@ -376,7 +378,7 @@ static int davinci_set_mode(struct musb *musb, u8 mode)
 	return -EIO;
 }
 
-static int davinci_init(struct musb *musb, void *board_data)
+static int davinci_platform_init(struct musb *musb, void *board_data)
 {
 	void __iomem	*tibase = musb->ctrl_base;
 	u32		revision;
@@ -451,7 +453,7 @@ fail:
 	return -ENODEV;
 }
 
-static int davinci_exit(struct musb *musb)
+static int davinci_platform_exit(struct musb *musb)
 {
 	if (is_host_enabled(musb))
 		del_timer_sync(&otg_workaround);
@@ -504,8 +506,8 @@ static int davinci_exit(struct musb *musb)
 }
 
 struct musb_platform_ops musb_ops = {
-	.init		= davinci_init,
-	.exit		= davinci_exit,
+	.init		= davinci_platform_init,
+	.exit		= davinci_platform_exit,
 
 	.enable		= davinci_enable,
 	.disable	= davinci_disable,
@@ -514,3 +516,88 @@ struct musb_platform_ops musb_ops = {
 
 	.set_vbus	= davinci_set_vbus,
 };
+
+static u64 davinci_dmamask = DMA_BIT_MASK(32);
+
+static int __init davinci_probe(struct platform_device *pdev)
+{
+	struct musb_hdrc_platform_data	*pdata = pdev->dev.platform_data;
+	struct platform_device		*musb;
+
+	int				ret = -ENOMEM;
+
+	musb = platform_device_alloc("musb-hdrc", -1);
+	if (!musb) {
+		dev_err(&pdev->dev, "failed to allocate musb device\n");
+		goto err0;
+	}
+
+	musb->dev.parent		= &pdev->dev;
+	musb->dev.dma_mask		= &davinci_dmamask;
+	musb->dev.coherent_dma_mask	= davinci_dmamask;
+
+	platform_set_drvdata(pdev, musb);
+
+	ret = platform_device_add_resources(musb, pdev->resource,
+			pdev->num_resources);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to add resources\n");
+		goto err1;
+	}
+
+	ret = platform_device_add_data(musb, pdata, sizeof(*pdata));
+	if (ret) {
+		dev_err(&pdev->dev, "failed to add platform_data\n");
+		goto err1;
+	}
+
+	ret = platform_device_add(musb);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to register musb device\n");
+		goto err2;
+	}
+
+	return 0;
+
+err2:
+	platform_device_put(musb);
+
+err1:
+	platform_device_del(musb);
+
+err0:
+	return ret;
+}
+
+static int __exit davinci_remove(struct platform_device *pdev)
+{
+	struct platform_device		*musb = platform_get_drvdata(pdev);
+
+	platform_device_put(musb);
+	platform_device_del(musb);
+
+	return 0;
+}
+
+static struct platform_driver davinci_driver = {
+	.remove		= __exit_p(davinci_remove),
+	.driver		= {
+		.name	= "musb-davinci",
+	},
+};
+
+MODULE_DESCRIPTION("OMAP2PLUS MUSB Glue Layer");
+MODULE_AUTHOR("Felipe Balbi <balbi@ti.com>");
+MODULE_LICENSE("GPL v2");
+
+static int __init davinci_init(void)
+{
+	return platform_driver_probe(&davinci_driver, davinci_probe);
+}
+subsys_initcall(davinci_init);
+
+static void __exit davinci_exit(void)
+{
+	platform_driver_unregister(&davinci_driver);
+}
+module_exit(davinci_exit);
