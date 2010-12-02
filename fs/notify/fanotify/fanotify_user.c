@@ -519,6 +519,7 @@ static __u32 fanotify_mark_remove_from_mask(struct fsnotify_mark *fsn_mark,
 					    unsigned int flags)
 {
 	__u32 oldmask;
+	int destroy_mark;
 
 	spin_lock(&fsn_mark->lock);
 	if (!(flags & FAN_MARK_IGNORED_MASK)) {
@@ -528,9 +529,10 @@ static __u32 fanotify_mark_remove_from_mask(struct fsnotify_mark *fsn_mark,
 		oldmask = fsn_mark->ignored_mask;
 		fsnotify_set_mark_ignored_mask_locked(fsn_mark, (oldmask & ~mask));
 	}
+	destroy_mark = (!fsn_mark->mask && !fsn_mark->ignored_mask);
 	spin_unlock(&fsn_mark->lock);
 
-	if (!(oldmask & ~mask))
+	if (destroy_mark)
 		fsnotify_destroy_mark(fsn_mark);
 
 	return mask & oldmask;
