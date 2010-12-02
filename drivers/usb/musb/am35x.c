@@ -468,19 +468,19 @@ static int am35x_platform_exit(struct musb *musb)
 	return 0;
 }
 
-#ifdef CONFIG_PM
-void musb_platform_save_context(struct musb *musb,
-	struct musb_context_registers *musb_context)
+static int am35x_suspend(struct musb *musb)
 {
 	phy_off();
+
+	return 0;
 }
 
-void musb_platform_restore_context(struct musb *musb,
-	struct musb_context_registers *musb_context)
+static int am35x_resume(struct musb *musb)
 {
 	phy_on();
+
+	return 0;
 }
-#endif
 
 /* AM35x supports only 32bit read operation */
 void musb_read_fifo(struct musb_hw_ep *hw_ep, u16 len, u8 *dst)
@@ -521,6 +521,9 @@ static struct musb_platform_ops am35x_ops = {
 
 	.set_mode	= am35x_set_mode,
 	.try_idle	= am35x_try_idle,
+
+	.suspend	= am35x_suspend,
+	.resume		= am35x_resume,
 
 	.set_vbus	= am35x_set_vbus,
 };
