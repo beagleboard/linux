@@ -5423,7 +5423,7 @@ static int patch_stac92hd83xxx(struct hda_codec *codec)
 	snd_hda_codec_write_cache(codec, codec->afg, 0, 0x7ED, 0);
 	codec->no_trigger_sense = 1;
 	codec->spec = spec;
-	spec->linear_tone_beep = 1;
+	spec->linear_tone_beep = 0;
 	codec->slave_dig_outs = stac92hd83xxx_slave_dig_outs;
 	spec->digbeep_nid = 0x21;
 	spec->dmic_nids = stac92hd83xxx_dmic_nids;
@@ -5471,7 +5471,6 @@ again:
 		spec->num_pins = ARRAY_SIZE(stac92hd88xxx_pin_nids);
 		spec->pin_nids = stac92hd88xxx_pin_nids;
 		spec->mono_nid = 0;
-		spec->digbeep_nid = 0;
 		spec->num_pwrs = 0;
 		break;
 	case 0x111d7604:
