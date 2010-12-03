@@ -31,7 +31,7 @@
 #include <mach/am35xx.h>
 #include <plat/usb.h>
 
-#ifdef CONFIG_USB_MUSB_SOC
+#if defined(CONFIG_USB_MUSB_OMAP2PLUS) || defined (CONFIG_USB_MUSB_AM35X)
 
 static struct resource musb_resources[] = {
 	[0] = { /* start and end set dynamically */
@@ -75,7 +75,7 @@ static struct musb_hdrc_platform_data musb_plat = {
 static u64 musb_dmamask = DMA_BIT_MASK(32);
 
 static struct platform_device musb_device = {
-	.name		= "musb_hdrc",
+	.name		= "musb-omap2430",
 	.id		= -1,
 	.dev = {
 		.dma_mask		= &musb_dmamask,
@@ -91,6 +91,7 @@ void __init usb_musb_init(struct omap_musb_board_data *board_data)
 	if (cpu_is_omap243x()) {
 		musb_resources[0].start = OMAP243X_HS_BASE;
 	} else if (cpu_is_omap3517() || cpu_is_omap3505()) {
+		musb_device.name = "musb-am35x";
 		musb_resources[0].start = AM35XX_IPSS_USBOTGSS_BASE;
 		musb_resources[1].start = INT_35XX_USBOTG_IRQ;
 	} else if (cpu_is_omap34xx()) {

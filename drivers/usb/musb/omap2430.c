@@ -31,10 +31,18 @@
 #include <linux/list.h>
 #include <linux/clk.h>
 #include <linux/io.h>
+#include <linux/platform_device.h>
+#include <linux/dma-mapping.h>
 
 #include "musb_core.h"
 #include "omap2430.h"
 
+struct omap2430_glue {
+	struct device		*dev;
+	struct platform_device	*musb;
+	struct clk		*clk;
+};
+#define glue_to_musb(g)		platform_get_drvdata(g->musb)
 
 static struct timer_list musb_idle_timer;
 
@@ -98,7 +106,7 @@ static void musb_do_idle(unsigned long _musb)
 }
 
 
-void musb_platform_try_idle(struct musb *musb, unsigned long timeout)
+static void omap2430_try_idle(struct musb *musb, unsigned long timeout)
 {
 	unsigned long		default_timeout = jiffies + msecs_to_jiffies(3);
 	static unsigned long	last_timer;
@@ -131,13 +139,7 @@ void musb_platform_try_idle(struct musb *musb, unsigned long timeout)
 	mod_timer(&musb_idle_timer, timeout);
 }
 
-void musb_platform_enable(struct musb *musb)
-{
-}
-void musb_platform_disable(struct musb *musb)
-{
-}
-static void omap_set_vbus(struct musb *musb, int is_on)
+static void omap2430_set_vbus(struct musb *musb, int is_on)
 {
 	u8		devctl;
 	/* HDRC controls CPEN, but beware current surges during device
@@ -175,9 +177,7 @@ static void omap_set_vbus(struct musb *musb, int is_on)
 		musb_readb(musb->mregs, MUSB_DEVCTL));
 }
 
-static int musb_platform_resume(struct musb *musb);
-
-int musb_platform_set_mode(struct musb *musb, u8 musb_mode)
+static int omap2430_set_mode(struct musb *musb, u8 musb_mode)
 {
 	u8	devctl = musb_readb(musb->mregs, MUSB_DEVCTL);
 
@@ -187,7 +187,34 @@ int musb_platform_set_mode(struct musb *musb, u8 musb_mode)
 	return 0;
 }
 
-int __init musb_platform_init(struct musb *musb, void *board_data)
+static inline void omap2430_low_level_init(struct musb *musb)
+{
+	u32 l;
+
+	/* in any role */
+	l = musb_readl(musb->mregs, OTG_FORCESTDBY);
+	l |= ENABLEFORCE;	/* enable MSTANDBY */
+	musb_writel(musb->mregs, OTG_FORCESTDBY, l);
+
+	l = musb_readl(musb->mregs, OTG_SYSCONFIG);
+	l |= ENABLEWAKEUP;	/* enable wakeup */
+	musb_writel(musb->mregs, OTG_SYSCONFIG, l);
+}
+
+static inline void omap2430_low_level_exit(struct musb *musb)
+{
+	u32 l;
+
+	l = musb_readl(musb->mregs, OTG_SYSCONFIG);
+	l &= ~ENABLEWAKEUP;	/* disable wakeup */
+	musb_writel(musb->mregs, OTG_SYSCONFIG, l);
+
+	l = musb_readl(musb->mregs, OTG_FORCESTDBY);
+	l &= ~ENABLEFORCE;	/* disable MSTANDBY */
+	musb_writel(musb->mregs, OTG_FORCESTDBY, l);
+}
+
+static int omap2430_platform_init(struct musb *musb, void *board_data)
 {
 	u32 l;
 	struct omap_musb_board_data *data = board_data;
@@ -202,7 +229,7 @@ int __init musb_platform_init(struct musb *musb, void *board_data)
 		return -ENODEV;
 	}
 
-	musb_platform_resume(musb);
+	omap2430_low_level_init(musb);
 
 	l = musb_readl(musb->mregs, OTG_SYSCONFIG);
 	l &= ~ENABLEWAKEUP;	/* disable wakeup */
@@ -239,87 +266,206 @@ int __init musb_platform_init(struct musb *musb, void *board_data)
 			musb_readl(musb->mregs, OTG_INTERFSEL),
 			musb_readl(musb->mregs, OTG_SIMENABLE));
 
-	if (is_host_enabled(musb))
-		musb->board_set_vbus = omap_set_vbus;
-
 	setup_timer(&musb_idle_timer, musb_do_idle, (unsigned long) musb);
 
 	return 0;
 }
 
-#ifdef CONFIG_PM
-void musb_platform_save_context(struct musb *musb,
-		struct musb_context_registers *musb_context)
+static int omap2430_platform_exit(struct musb *musb)
 {
-	musb_context->otg_sysconfig = musb_readl(musb->mregs, OTG_SYSCONFIG);
-	musb_context->otg_forcestandby = musb_readl(musb->mregs, OTG_FORCESTDBY);
-}
 
-void musb_platform_restore_context(struct musb *musb,
-		struct musb_context_registers *musb_context)
-{
-	musb_writel(musb->mregs, OTG_SYSCONFIG, musb_context->otg_sysconfig);
-	musb_writel(musb->mregs, OTG_FORCESTDBY, musb_context->otg_forcestandby);
-}
-#endif
-
-static int musb_platform_suspend(struct musb *musb)
-{
-	u32 l;
-
-	if (!musb->clock)
-		return 0;
-
-	/* in any role */
-	l = musb_readl(musb->mregs, OTG_FORCESTDBY);
-	l |= ENABLEFORCE;	/* enable MSTANDBY */
-	musb_writel(musb->mregs, OTG_FORCESTDBY, l);
-
-	l = musb_readl(musb->mregs, OTG_SYSCONFIG);
-	l |= ENABLEWAKEUP;	/* enable wakeup */
-	musb_writel(musb->mregs, OTG_SYSCONFIG, l);
-
-	otg_set_suspend(musb->xceiv, 1);
-
-	if (musb->set_clock)
-		musb->set_clock(musb->clock, 0);
-	else
-		clk_disable(musb->clock);
+	omap2430_low_level_exit(musb);
+	otg_put_transceiver(musb->xceiv);
 
 	return 0;
 }
 
-static int musb_platform_resume(struct musb *musb)
+static struct musb_platform_ops omap2430_ops = {
+	.init		= omap2430_platform_init,
+	.exit		= omap2430_platform_exit,
+
+	.set_mode	= omap2430_set_mode,
+	.try_idle	= omap2430_try_idle,
+
+	.set_vbus	= omap2430_set_vbus,
+};
+
+static u64 omap2430_dmamask = DMA_BIT_MASK(32);
+
+static int __init omap2430_probe(struct platform_device *pdev)
 {
-	u32 l;
+	struct musb_hdrc_platform_data	*pdata = pdev->dev.platform_data;
+	struct platform_device		*musb;
+	struct omap2430_glue		*glue;
+	struct clk			*clk;
 
-	if (!musb->clock)
-		return 0;
+	int				ret = -ENOMEM;
 
+	glue = kzalloc(sizeof(*glue), GFP_KERNEL);
+	if (!glue) {
+		dev_err(&pdev->dev, "failed to allocate glue context\n");
+		goto err0;
+	}
+
+	musb = platform_device_alloc("musb-hdrc", -1);
+	if (!musb) {
+		dev_err(&pdev->dev, "failed to allocate musb device\n");
+		goto err1;
+	}
+
+	clk = clk_get(&pdev->dev, "ick");
+	if (IS_ERR(clk)) {
+		dev_err(&pdev->dev, "failed to get clock\n");
+		ret = PTR_ERR(clk);
+		goto err2;
+	}
+
+	ret = clk_enable(clk);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to enable clock\n");
+		goto err3;
+	}
+
+	musb->dev.parent		= &pdev->dev;
+	musb->dev.dma_mask		= &omap2430_dmamask;
+	musb->dev.coherent_dma_mask	= omap2430_dmamask;
+
+	glue->dev			= &pdev->dev;
+	glue->musb			= musb;
+	glue->clk			= clk;
+
+	pdata->platform_ops		= &omap2430_ops;
+
+	platform_set_drvdata(pdev, glue);
+
+	ret = platform_device_add_resources(musb, pdev->resource,
+			pdev->num_resources);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to add resources\n");
+		goto err4;
+	}
+
+	ret = platform_device_add_data(musb, pdata, sizeof(*pdata));
+	if (ret) {
+		dev_err(&pdev->dev, "failed to add platform_data\n");
+		goto err4;
+	}
+
+	ret = platform_device_add(musb);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to register musb device\n");
+		goto err5;
+	}
+
+	return 0;
+
+err5:
+	platform_device_put(musb);
+
+err4:
+	clk_disable(clk);
+
+err3:
+	clk_put(clk);
+
+err2:
+	platform_device_del(musb);
+
+err1:
+	kfree(glue);
+
+err0:
+	return ret;
+}
+
+static int __exit omap2430_remove(struct platform_device *pdev)
+{
+	struct omap2430_glue		*glue = platform_get_drvdata(pdev);
+
+	platform_device_put(glue->musb);
+	platform_device_del(glue->musb);
+	clk_disable(glue->clk);
+	clk_put(glue->clk);
+	kfree(glue);
+
+	return 0;
+}
+
+#ifdef CONFIG_PM
+static void omap2430_save_context(struct musb *musb)
+{
+	musb->context.otg_sysconfig = musb_readl(musb->mregs, OTG_SYSCONFIG);
+	musb->context.otg_forcestandby = musb_readl(musb->mregs, OTG_FORCESTDBY);
+}
+
+static void omap2430_restore_context(struct musb *musb)
+{
+	musb_writel(musb->mregs, OTG_SYSCONFIG, musb->context.otg_sysconfig);
+	musb_writel(musb->mregs, OTG_FORCESTDBY, musb->context.otg_forcestandby);
+}
+
+static int omap2430_suspend(struct device *dev)
+{
+	struct omap2430_glue		*glue = dev_get_drvdata(dev);
+	struct musb			*musb = glue_to_musb(glue);
+
+	omap2430_low_level_exit(musb);
+	otg_set_suspend(musb->xceiv, 1);
+	omap2430_save_context(musb);
+	clk_disable(glue->clk);
+
+	return 0;
+}
+
+static int omap2430_resume(struct device *dev)
+{
+	struct omap2430_glue		*glue = dev_get_drvdata(dev);
+	struct musb			*musb = glue_to_musb(glue);
+	int				ret;
+
+	ret = clk_enable(glue->clk);
+	if (ret) {
+		dev_err(dev, "faled to enable clock\n");
+		return ret;
+	}
+
+	omap2430_low_level_init(musb);
+	omap2430_restore_context(musb);
 	otg_set_suspend(musb->xceiv, 0);
 
-	if (musb->set_clock)
-		musb->set_clock(musb->clock, 1);
-	else
-		clk_enable(musb->clock);
-
-	l = musb_readl(musb->mregs, OTG_SYSCONFIG);
-	l &= ~ENABLEWAKEUP;	/* disable wakeup */
-	musb_writel(musb->mregs, OTG_SYSCONFIG, l);
-
-	l = musb_readl(musb->mregs, OTG_FORCESTDBY);
-	l &= ~ENABLEFORCE;	/* disable MSTANDBY */
-	musb_writel(musb->mregs, OTG_FORCESTDBY, l);
-
 	return 0;
 }
 
+static struct dev_pm_ops omap2430_pm_ops = {
+	.suspend	= omap2430_suspend,
+	.resume		= omap2430_resume,
+};
 
-int musb_platform_exit(struct musb *musb)
+#define DEV_PM_OPS	&omap2430_pm_ops
+#else
+#define DEV_PM_OPS	NULL
+#endif
+
+static struct platform_driver omap2430_driver = {
+	.remove		= __exit_p(omap2430_remove),
+	.driver		= {
+		.name	= "musb-omap2430",
+		.pm	= DEV_PM_OPS,
+	},
+};
+
+MODULE_DESCRIPTION("OMAP2PLUS MUSB Glue Layer");
+MODULE_AUTHOR("Felipe Balbi <balbi@ti.com>");
+MODULE_LICENSE("GPL v2");
+
+static int __init omap2430_init(void)
 {
-
-	musb_platform_suspend(musb);
-
-	otg_put_transceiver(musb->xceiv);
-	return 0;
+	return platform_driver_probe(&omap2430_driver, omap2430_probe);
 }
+subsys_initcall(omap2430_init);
+
+static void __exit omap2430_exit(void)
+{
+	platform_driver_unregister(&omap2430_driver);
+}
+module_exit(omap2430_exit);

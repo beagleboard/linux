@@ -74,7 +74,7 @@ static struct resource usb_resources[] = {
 static u64 usb_dmamask = DMA_BIT_MASK(32);
 
 static struct platform_device usb_dev = {
-	.name           = "musb_hdrc",
+	.name           = "musb-davinci",
 	.id             = -1,
 	.dev = {
 		.platform_data		= &usb_data,
@@ -96,6 +96,9 @@ void __init davinci_setup_usb(unsigned mA, unsigned potpgt_ms)
 		usb_dev.resource[2].start = IRQ_DM646X_USBDMAINT;
 	} else	/* other devices don't have dedicated CPPI IRQ */
 		usb_dev.num_resources = 2;
+
+	if (cpu_is_davinci_da830() || cpu_is_davinci_da850())
+		usb_dev.name = "musb-da8xx";
 
 	platform_device_register(&usb_dev);
 }
