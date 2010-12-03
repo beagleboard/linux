@@ -4,7 +4,7 @@
 
 # Common support
 obj-y := id.o io.o control.o mux.o devices.o serial.o gpmc.o timer-gp.o pm.o \
-	 common.o
+	 common.o gpio.o
 
 omap-2-3-common				= irq.o sdrc.o prm2xxx_3xxx.o
 hwmod-common				= omap_hwmod.o \
@@ -42,6 +42,7 @@ AFLAGS_sram34xx.o			:=-Wa,-march=armv7-a
 obj-$(CONFIG_ARCH_OMAP2420)		+= mux2420.o
 obj-$(CONFIG_ARCH_OMAP2430)		+= mux2430.o
 obj-$(CONFIG_ARCH_OMAP3)		+= mux34xx.o
+obj-$(CONFIG_ARCH_OMAP4)		+= mux44xx.o
 
 # SMS/SDRC
 obj-$(CONFIG_ARCH_OMAP2)		+= sdrc2xxx.o
@@ -144,12 +145,12 @@ obj-$(CONFIG_MACH_NOKIA_RX51)		+= board-rx51.o \
 					   board-rx51-peripherals.o \
 					   board-rx51-video.o \
 					   hsmmc.o
-obj-$(CONFIG_MACH_OMAP_ZOOM2)		+= board-zoom2.o \
+obj-$(CONFIG_MACH_OMAP_ZOOM2)		+= board-zoom.o \
 					   board-zoom-peripherals.o \
 					   board-flash.o \
 					   hsmmc.o \
 					   board-zoom-debugboard.o
-obj-$(CONFIG_MACH_OMAP_ZOOM3)		+= board-zoom3.o \
+obj-$(CONFIG_MACH_OMAP_ZOOM3)		+= board-zoom.o \
 					   board-zoom-peripherals.o \
 					   board-flash.o \
 					   hsmmc.o \
@@ -173,6 +174,8 @@ obj-$(CONFIG_MACH_OMAP4_PANDA)		+= board-omap4panda.o \
 					   hsmmc.o
 
 obj-$(CONFIG_MACH_OMAP3517EVM)		+= board-am3517evm.o
+
+obj-$(CONFIG_MACH_CRANEBOARD)		+= board-am3517crane.o
 
 obj-$(CONFIG_MACH_SBC3530)		+= board-omap3stalker.o \
 					   hsmmc.o

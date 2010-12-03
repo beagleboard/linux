@@ -589,7 +589,6 @@ static void __init omap3_stalker_init_irq(void)
 #ifdef CONFIG_OMAP_32K_TIMER
 	omap2_gp_clockevent_set_gptimer(12);
 #endif
-	omap_gpio_init();
 }
 
 static struct platform_device *omap3_stalker_devices[] __initdata = {
@@ -616,8 +615,6 @@ static struct omap_board_mux board_mux[] __initdata = {
 		  OMAP_PIN_OFF_INPUT_PULLUP | OMAP_PIN_OFF_WAKEUPENABLE),
 	{.reg_offset = OMAP_MUX_TERMINATOR},
 };
-#else
-#define board_mux	NULL
 #endif
 
 static struct omap_musb_board_data musb_board_data = {

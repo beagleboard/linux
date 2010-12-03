@@ -27,6 +27,7 @@
 #define __ASM_ARCH_OMAP_GPIO_H
 
 #include <linux/io.h>
+#include <linux/platform_device.h>
 #include <mach/irqs.h>
 
 #define OMAP1_MPUIO_BASE			0xfffb5000
@@ -71,7 +72,28 @@
 				 IH_MPUIO_BASE + ((nr) & 0x0f) : \
 				 IH_GPIO_BASE + (nr))
 
-extern int omap_gpio_init(void);	/* Call from board init only */
+#define METHOD_MPUIO		0
+#define METHOD_GPIO_1510	1
+#define METHOD_GPIO_1610	2
+#define METHOD_GPIO_7XX		3
+#define METHOD_GPIO_24XX	5
+#define METHOD_GPIO_44XX	6
+
+struct omap_gpio_dev_attr {
+	int bank_width;		/* GPIO bank width */
+	bool dbck_flag;		/* dbck required or not - True for OMAP3&4 */
+};
+
+struct omap_gpio_platform_data {
+	u16 virtual_irq_start;
+	int bank_type;
+	int bank_width;		/* GPIO bank width */
+	bool dbck_flag;		/* dbck required or not - True for OMAP3&4 */
+};
+
+/* TODO: Analyze removing gpio_bank_count usage from driver code */
+extern int gpio_bank_count;
+
 extern void omap2_gpio_prepare_for_idle(int power_state);
 extern void omap2_gpio_resume_after_idle(void);
 extern void omap_set_gpio_debounce(int gpio, int enable);

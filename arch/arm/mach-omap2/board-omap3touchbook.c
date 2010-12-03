@@ -413,8 +413,6 @@ static struct omap_board_config_kernel omap3_touchbook_config[] __initdata = {
 static struct omap_board_mux board_mux[] __initdata = {
 	{ .reg_offset = OMAP_MUX_TERMINATOR },
 };
-#else
-#define board_mux	NULL
 #endif
 
 static void __init omap3_touchbook_init_irq(void)
@@ -428,7 +426,6 @@ static void __init omap3_touchbook_init_irq(void)
 #ifdef CONFIG_OMAP_32K_TIMER
 	omap2_gp_clockevent_set_gptimer(12);
 #endif
-	omap_gpio_init();
 }
 
 static struct platform_device *omap3_touchbook_devices[] __initdata = {
