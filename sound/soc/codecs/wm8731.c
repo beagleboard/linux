@@ -46,6 +46,8 @@ struct wm8731_priv {
 	u16 reg_cache[WM8731_CACHEREGNUM];
 	unsigned int sysclk;
 	int sysclk_type;
+	int playback_fs;
+	bool deemph;
 };
 
 
@@ -64,16 +66,79 @@ static const u16 wm8731_reg[WM8731_CACHEREGNUM] = {
 #define wm8731_reset(c)	snd_soc_write(c, WM8731_RESET, 0)
 
 static const char *wm8731_input_select[] = {"Line In", "Mic"};
-static const char *wm8731_deemph[] = {"None", "32Khz", "44.1Khz", "48Khz"};
 
-static const struct soc_enum wm8731_enum[] = {
-	SOC_ENUM_SINGLE(WM8731_APANA, 2, 2, wm8731_input_select),
-	SOC_ENUM_SINGLE(WM8731_APDIGI, 1, 4, wm8731_deemph),
-};
+static const struct soc_enum wm8731_insel_enum =
+	SOC_ENUM_SINGLE(WM8731_APANA, 2, 2, wm8731_input_select);
+
+static int wm8731_deemph[] = { 0, 32000, 44100, 48000 };
+
+static int wm8731_set_deemph(struct snd_soc_codec *codec)
+{
+	struct wm8731_priv *wm8731 = snd_soc_codec_get_drvdata(codec);
+	int val, i, best;
+
+	/* If we're using deemphasis select the nearest available sample
+	 * rate.
+	 */
+	if (wm8731->deemph) {
+		best = 1;
+		for (i = 2; i < ARRAY_SIZE(wm8731_deemph); i++) {
+			if (abs(wm8731_deemph[i] - wm8731->playback_fs) <
+			    abs(wm8731_deemph[best] - wm8731->playback_fs))
+				best = i;
+		}
+
+		val = best << 1;
+	} else {
+		best = 0;
+		val = 0;
+	}
+
+	dev_dbg(codec->dev, "Set deemphasis %d (%dHz)\n",
+		best, wm8731_deemph[best]);
+
+	return snd_soc_update_bits(codec, WM8731_APDIGI, 0x6, val);
+}
+
+static int wm8731_get_deemph(struct snd_kcontrol *kcontrol,
+			     struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct wm8731_priv *wm8731 = snd_soc_codec_get_drvdata(codec);
+
+	ucontrol->value.enumerated.item[0] = wm8731->deemph;
+
+	return 0;
+}
+
+static int wm8731_put_deemph(struct snd_kcontrol *kcontrol,
+			     struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct wm8731_priv *wm8731 = snd_soc_codec_get_drvdata(codec);
+	int deemph = ucontrol->value.enumerated.item[0];
+	int ret = 0;
+
+	if (deemph > 1)
+		return -EINVAL;
+
+	mutex_lock(&codec->mutex);
+	if (wm8731->deemph != deemph) {
+		wm8731->deemph = deemph;
+
+		wm8731_set_deemph(codec);
+
+		ret = 1;
+	}
+	mutex_unlock(&codec->mutex);
+
+	return ret;
+}
 
 static const DECLARE_TLV_DB_SCALE(in_tlv, -3450, 150, 0);
 static const DECLARE_TLV_DB_SCALE(sidetone_tlv, -1500, 300, 0);
 static const DECLARE_TLV_DB_SCALE(out_tlv, -12100, 100, 1);
+static const DECLARE_TLV_DB_SCALE(mic_tlv, 0, 2000, 0);
 
 static const struct snd_kcontrol_new wm8731_snd_controls[] = {
 
@@ -86,7 +151,7 @@ SOC_DOUBLE_R_TLV("Capture Volume", WM8731_LINVOL, WM8731_RINVOL, 0, 31, 0,
 		 in_tlv),
 SOC_DOUBLE_R("Line Capture Switch", WM8731_LINVOL, WM8731_RINVOL, 7, 1, 1),
 
-SOC_SINGLE("Mic Boost (+20dB)", WM8731_APANA, 0, 1, 0),
+SOC_SINGLE_TLV("Mic Boost Volume", WM8731_APANA, 0, 1, 0, mic_tlv),
 SOC_SINGLE("Mic Capture Switch", WM8731_APANA, 1, 1, 1),
 
 SOC_SINGLE_TLV("Sidetone Playback Volume", WM8731_APANA, 6, 3, 1,
@@ -95,7 +160,8 @@ SOC_SINGLE_TLV("Sidetone Playback Volume", WM8731_APANA, 6, 3, 1,
 SOC_SINGLE("ADC High Pass Filter Switch", WM8731_APDIGI, 0, 1, 1),
 SOC_SINGLE("Store DC Offset Switch", WM8731_APDIGI, 4, 1, 0),
 
-SOC_ENUM("Playback De-emphasis", wm8731_enum[1]),
+SOC_SINGLE_BOOL_EXT("Playback Deemphasis Switch", 0,
+		    wm8731_get_deemph, wm8731_put_deemph),
 };
 
 /* Output Mixer */
@@ -107,7 +173,7 @@ SOC_DAPM_SINGLE("HiFi Playback Switch", WM8731_APANA, 4, 1, 0),
 
 /* Input mux */
 static const struct snd_kcontrol_new wm8731_input_mux_controls =
-SOC_DAPM_ENUM("Input Select", wm8731_enum[0]);
+SOC_DAPM_ENUM("Input Select", wm8731_insel_enum);
 
 static const struct snd_soc_dapm_widget wm8731_dapm_widgets[] = {
 SND_SOC_DAPM_SUPPLY("OSC", WM8731_PWR, 5, 1, NULL, 0),
@@ -239,6 +305,8 @@ static int wm8731_hw_params(struct snd_pcm_substream *substream,
 	u16 srate = (coeff_div[i].sr << 2) |
 		(coeff_div[i].bosr << 1) | coeff_div[i].usb;
 
+	wm8731->playback_fs = params_rate(params);
+
 	snd_soc_write(codec, WM8731_SRATE, srate);
 
 	/* bit size */
@@ -252,6 +320,8 @@ static int wm8731_hw_params(struct snd_pcm_substream *substream,
 		iface |= 0x0008;
 		break;
 	}
+
+	wm8731_set_deemph(codec);
 
 	snd_soc_write(codec, WM8731_IFACE, iface);
 	return 0;

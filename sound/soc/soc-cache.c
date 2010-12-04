@@ -728,8 +728,8 @@ int snd_soc_codec_set_cache_io(struct snd_soc_codec *codec,
 		return -EINVAL;
 	}
 
-	codec->driver->write = io_types[i].write;
-	codec->driver->read = io_types[i].read;
+	codec->write = io_types[i].write;
+	codec->read = io_types[i].read;
 
 	switch (control) {
 	case SND_SOC_CUSTOM:
@@ -933,7 +933,7 @@ static int snd_soc_rbtree_cache_init(struct snd_soc_codec *codec)
 	rbtree_ctx = codec->reg_cache;
 	rbtree_ctx->root = RB_ROOT;
 
-	if (!codec->driver->reg_cache_default)
+	if (!codec->reg_def_copy)
 		return 0;
 
 /*
@@ -951,7 +951,7 @@ static int snd_soc_rbtree_cache_init(struct snd_soc_codec *codec)
 	struct snd_soc_rbtree_node *rbtree_node;			\
 									\
 	ret = 0;							\
-	cache = codec->driver->reg_cache_default;			\
+	cache = codec->reg_def_copy;					\
 	for (i = 0; i < codec->driver->reg_cache_size; ++i) {		\
 		if (!cache[i])						\
 			continue;					\
@@ -1078,7 +1078,7 @@ static int snd_soc_lzo_decompress_cache_block(struct snd_soc_codec *codec,
 static inline int snd_soc_lzo_get_blkindex(struct snd_soc_codec *codec,
 		unsigned int reg)
 {
-	struct snd_soc_codec_driver *codec_drv;
+	const struct snd_soc_codec_driver *codec_drv;
 	size_t reg_size;
 
 	codec_drv = codec->driver;
@@ -1090,7 +1090,7 @@ static inline int snd_soc_lzo_get_blkindex(struct snd_soc_codec *codec,
 static inline int snd_soc_lzo_get_blkpos(struct snd_soc_codec *codec,
 		unsigned int reg)
 {
-	struct snd_soc_codec_driver *codec_drv;
+	const struct snd_soc_codec_driver *codec_drv;
 	size_t reg_size;
 
 	codec_drv = codec->driver;
@@ -1101,7 +1101,7 @@ static inline int snd_soc_lzo_get_blkpos(struct snd_soc_codec *codec,
 
 static inline int snd_soc_lzo_get_blksize(struct snd_soc_codec *codec)
 {
-	struct snd_soc_codec_driver *codec_drv;
+	const struct snd_soc_codec_driver *codec_drv;
 	size_t reg_size;
 
 	codec_drv = codec->driver;
@@ -1301,7 +1301,7 @@ static int snd_soc_lzo_cache_init(struct snd_soc_codec *codec)
 {
 	struct snd_soc_lzo_ctx **lzo_blocks;
 	size_t reg_size, bmp_size;
-	struct snd_soc_codec_driver *codec_drv;
+	const struct snd_soc_codec_driver *codec_drv;
 	int ret, tofree, i, blksize, blkcount;
 	const char *p, *end;
 	unsigned long *sync_bmp;
@@ -1316,13 +1316,13 @@ static int snd_soc_lzo_cache_init(struct snd_soc_codec *codec)
 	 * and remember to free it afterwards.
 	 */
 	tofree = 0;
-	if (!codec_drv->reg_cache_default)
+	if (!codec->reg_def_copy)
 		tofree = 1;
 
-	if (!codec_drv->reg_cache_default) {
-		codec_drv->reg_cache_default = kzalloc(reg_size,
+	if (!codec->reg_def_copy) {
+		codec->reg_def_copy = kzalloc(reg_size,
 						       GFP_KERNEL);
-		if (!codec_drv->reg_cache_default)
+		if (!codec->reg_def_copy)
 			return -ENOMEM;
 	}
 
@@ -1348,7 +1348,7 @@ static int snd_soc_lzo_cache_init(struct snd_soc_codec *codec)
 		ret = -ENOMEM;
 		goto err;
 	}
-	bitmap_zero(sync_bmp, reg_size);
+	bitmap_zero(sync_bmp, bmp_size);
 
 	/* allocate the lzo blocks and initialize them */
 	for (i = 0; i < blkcount; ++i) {
@@ -1368,8 +1368,8 @@ static int snd_soc_lzo_cache_init(struct snd_soc_codec *codec)
 	}
 
 	blksize = snd_soc_lzo_get_blksize(codec);
-	p = codec_drv->reg_cache_default;
-	end = codec_drv->reg_cache_default + reg_size;
+	p = codec->reg_def_copy;
+	end = codec->reg_def_copy + reg_size;
 	/* compress the register map and fill the lzo blocks */
 	for (i = 0; i < blkcount; ++i, p += blksize) {
 		lzo_blocks[i]->src = p;
@@ -1385,14 +1385,18 @@ static int snd_soc_lzo_cache_init(struct snd_soc_codec *codec)
 			lzo_blocks[i]->src_len;
 	}
 
-	if (tofree)
-		kfree(codec_drv->reg_cache_default);
+	if (tofree) {
+		kfree(codec->reg_def_copy);
+		codec->reg_def_copy = NULL;
+	}
 	return 0;
 err:
 	snd_soc_cache_exit(codec);
 err_tofree:
-	if (tofree)
-		kfree(codec_drv->reg_cache_default);
+	if (tofree) {
+		kfree(codec->reg_def_copy);
+		codec->reg_def_copy = NULL;
+	}
 	return ret;
 }
 
@@ -1400,7 +1404,7 @@ static int snd_soc_flat_cache_sync(struct snd_soc_codec *codec)
 {
 	int i;
 	int ret;
-	struct snd_soc_codec_driver *codec_drv;
+	const struct snd_soc_codec_driver *codec_drv;
 	unsigned int val;
 
 	codec_drv = codec->driver;
@@ -1500,11 +1504,19 @@ static int snd_soc_flat_cache_exit(struct snd_soc_codec *codec)
 
 static int snd_soc_flat_cache_init(struct snd_soc_codec *codec)
 {
-	struct snd_soc_codec_driver *codec_drv;
+	const struct snd_soc_codec_driver *codec_drv;
 	size_t reg_size;
 
 	codec_drv = codec->driver;
 	reg_size = codec_drv->reg_cache_size * codec_drv->reg_word_size;
+
+	/*
+	 * for flat compression, we don't need to keep a copy of the
+	 * original defaults register cache as it will definitely not
+	 * be marked as __devinitconst
+	 */
+	kfree(codec->reg_def_copy);
+	codec->reg_def_copy = NULL;
 
 	if (codec_drv->reg_cache_default)
 		codec->reg_cache = kmemdup(codec_drv->reg_cache_default,
@@ -1550,11 +1562,11 @@ int snd_soc_cache_init(struct snd_soc_codec *codec)
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(cache_types); ++i)
-		if (cache_types[i].id == codec->driver->compress_type)
+		if (cache_types[i].id == codec->compress_type)
 			break;
 	if (i == ARRAY_SIZE(cache_types)) {
 		dev_err(codec->dev, "Could not match compress type: %d\n",
-			codec->driver->compress_type);
+			codec->compress_type);
 		return -EINVAL;
 	}
 
