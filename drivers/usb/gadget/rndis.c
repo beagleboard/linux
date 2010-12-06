@@ -314,7 +314,8 @@ static int gen_ndis_query_resp(int configNr, u32 OID, u8 *buf,
 	/* mandatory */
 	case OID_GEN_CURRENT_PACKET_FILTER:
 		pr_debug("%s: OID_GEN_CURRENT_PACKET_FILTER\n", __func__);
-		*outbuf = cpu_to_le32(*rndis_per_dev_params[configNr].filter);
+		*outbuf =
+		cpu_to_le32(*(u16 *)rndis_per_dev_params[configNr].filter);
 		retval = 0;
 		break;
 
@@ -336,7 +337,7 @@ static int gen_ndis_query_resp(int configNr, u32 OID, u8 *buf,
 
 	case OID_GEN_PHYSICAL_MEDIUM:
 		pr_debug("%s: OID_GEN_PHYSICAL_MEDIUM\n", __func__);
-		*outbuf = cpu_to_le32(0);
+		*outbuf = __constant_cpu_to_le32(2);
 		retval = 0;
 		break;
 
@@ -413,7 +414,7 @@ static int gen_ndis_query_resp(int configNr, u32 OID, u8 *buf,
 		if (rndis_per_dev_params[configNr].dev) {
 			length = ETH_ALEN;
 			memcpy(outbuf,
-				rndis_per_dev_params[configNr].host_mac,
+				rndis_per_dev_params[configNr].perm_mac,
 				length);
 			retval = 0;
 		}
@@ -443,7 +444,7 @@ static int gen_ndis_query_resp(int configNr, u32 OID, u8 *buf,
 	case OID_802_3_MAXIMUM_LIST_SIZE:
 		pr_debug("%s: OID_802_3_MAXIMUM_LIST_SIZE\n", __func__);
 		/* Multicast base address only */
-		*outbuf = cpu_to_le32(1);
+		*outbuf = __constant_cpu_to_le32(32);
 		retval = 0;
 		break;
 
@@ -549,6 +550,10 @@ static int gen_ndis_set_resp(u8 configNr, u32 OID, u8 *buf, u32 buf_len,
 	case OID_802_3_MULTICAST_LIST:
 		/* I think we can ignore this */
 		pr_debug("%s: OID_802_3_MULTICAST_LIST\n", __func__);
+		memset(rndis_per_dev_params[configNr].mcast_addr, 0,
+			RNDIS_MAX_MULTICAST_SIZE * 6);
+		memcpy(rndis_per_dev_params[configNr].mcast_addr,
+			buf, buf_len);
 		retval = 0;
 		break;
 
@@ -577,6 +582,9 @@ static int rndis_init_response(int configNr, rndis_init_msg_type *buf)
 	if (!r)
 		return -ENOMEM;
 	resp = (rndis_init_cmplt_type *)r->buf;
+
+	if (!resp)
+		return -ENOMEM;
 
 	resp->MessageType = cpu_to_le32(REMOTE_NDIS_INITIALIZE_CMPLT);
 	resp->MessageLength = cpu_to_le32(52);
@@ -788,7 +796,8 @@ void rndis_uninit(int configNr)
 
 void rndis_set_host_mac(int configNr, const u8 *addr)
 {
-	rndis_per_dev_params[configNr].host_mac = addr;
+	rndis_per_dev_params[configNr].host_mac = (u8 *)addr;
+	memcpy((void *)rndis_per_dev_params[configNr].perm_mac, addr, 6);
 }
 
 /*
@@ -830,6 +839,8 @@ int rndis_msg_parser(u8 configNr, u8 *buf)
 			__func__);
 		params->state = RNDIS_UNINITIALIZED;
 		if (params->dev) {
+			memcpy((void *)rndis_per_dev_params[configNr].host_mac,
+			(void *)rndis_per_dev_params[configNr].perm_mac, 6);
 			netif_carrier_off(params->dev);
 			netif_stop_queue(params->dev);
 		}
