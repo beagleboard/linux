@@ -437,6 +437,7 @@ struct snd_soc_ops {
 
 /* SoC cache ops */
 struct snd_soc_cache_ops {
+	const char *name;
 	enum snd_soc_compress_type id;
 	int (*init)(struct snd_soc_codec *codec);
 	int (*exit)(struct snd_soc_codec *codec);
@@ -632,6 +633,8 @@ struct snd_soc_card {
 	/* callbacks */
 	int (*set_bias_level)(struct snd_soc_card *,
 			      enum snd_soc_bias_level level);
+	int (*set_bias_level_post)(struct snd_soc_card *,
+				   enum snd_soc_bias_level level);
 
 	long pmdown_time;
 

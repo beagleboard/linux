@@ -33,6 +33,7 @@
 #include <linux/slab.h>
 #include <sound/ac97_codec.h>
 #include <sound/core.h>
+#include <sound/jack.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
@@ -1741,8 +1742,6 @@ static int snd_soc_init_codec_cache(struct snd_soc_codec *codec,
 	/* override the compress_type if necessary */
 	if (compress_type && codec->compress_type != compress_type)
 		codec->compress_type = compress_type;
-	dev_dbg(codec->dev, "Cache compress_type for %s is %d\n",
-		codec->name, codec->compress_type);
 	ret = snd_soc_cache_init(codec);
 	if (ret < 0) {
 		dev_err(codec->dev, "Failed to set cache compression type: %d\n",
@@ -1752,7 +1751,6 @@ static int snd_soc_init_codec_cache(struct snd_soc_codec *codec,
 	codec->cache_init = 1;
 	return 0;
 }
-
 
 static void snd_soc_instantiate_card(struct snd_soc_card *card)
 {
@@ -3363,7 +3361,9 @@ int snd_soc_register_dais(struct device *dev,
 		pr_debug("Registered DAI '%s'\n", dai->name);
 	}
 
+	mutex_lock(&client_mutex);
 	snd_soc_instantiate_cards();
+	mutex_unlock(&client_mutex);
 	return 0;
 
 err:
