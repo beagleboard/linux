@@ -34,6 +34,7 @@
 #include "mux.h"
 
 static struct musb_hdrc_config musb_config = {
+	.fifo_mode	= 4,
 	.multipoint	= 1,
 	.dyn_fifo	= 1,
 	.num_eps	= 16,
@@ -89,6 +90,14 @@ void __init usb_musb_init(struct omap_musb_board_data *musb_board_data)
 	musb_plat.power = board_data->power >> 1;
 	musb_plat.mode = board_data->mode;
 	musb_plat.extvbus = board_data->extvbus;
+
+	/*
+	 * OMAP3630/AM35x platform has MUSB RTL-1.8 which has the fix for the
+	 * issue restricting active endpoints to use first 8K of FIFO space.
+	 * This issue restricts OMAP35x platform to use fifo_mode '5'.
+	 */
+	if (cpu_is_omap3430())
+		musb_config.fifo_mode = 5;
 
 	if (cpu_is_omap3517() || cpu_is_omap3505()) {
 		oh_name = "am35x_otg_hs";
