@@ -637,7 +637,7 @@ static void __init omap3_evm_init(void)
 	omap_sdrc_init(mt46h32m32lf6_sdrc_params, NULL);
 
 	/* OMAP3EVM uses ISP1504 phy and so register nop transceiver */
-	usb_nop_xceiv_register();
+	usb_nop_xceiv_register(0);
 
 	if (get_omap3_evm_rev() >= OMAP3EVM_BOARD_GEN_2) {
 		/* enable EHCI VBUS using GPIO22 */

@@ -63,6 +63,7 @@ struct otg_transceiver {
 	struct device		*dev;
 	const char		*label;
 	unsigned int		 flags;
+	u8			id;
 
 	u8			default_a;
 	enum usb_otg_state	state;
@@ -116,17 +117,18 @@ struct otg_transceiver {
 
 /* for board-specific init logic */
 extern int otg_set_transceiver(struct otg_transceiver *);
+extern int otg_reset_transceiver(struct otg_transceiver *);
 
 #if defined(CONFIG_NOP_USB_XCEIV) || (defined(CONFIG_NOP_USB_XCEIV_MODULE) && defined(MODULE))
 /* sometimes transceivers are accessed only through e.g. ULPI */
-extern void usb_nop_xceiv_register(void);
-extern void usb_nop_xceiv_unregister(void);
+extern void usb_nop_xceiv_register(int id);
+extern void usb_nop_xceiv_unregister(int id);
 #else
-static inline void usb_nop_xceiv_register(void)
+static inline void usb_nop_xceiv_register(int id)
 {
 }
 
-static inline void usb_nop_xceiv_unregister(void)
+static inline void usb_nop_xceiv_unregister(int id)
 {
 }
 #endif
@@ -166,11 +168,11 @@ otg_shutdown(struct otg_transceiver *otg)
 
 /* for usb host and peripheral controller drivers */
 #ifdef CONFIG_USB_OTG_UTILS
-extern struct otg_transceiver *otg_get_transceiver(void);
+extern struct otg_transceiver *otg_get_transceiver(int id);
 extern void otg_put_transceiver(struct otg_transceiver *);
 extern const char *otg_state_string(enum usb_otg_state state);
 #else
-static inline struct otg_transceiver *otg_get_transceiver(void)
+static inline struct otg_transceiver *otg_get_transceiver(int id)
 {
 	return NULL;
 }

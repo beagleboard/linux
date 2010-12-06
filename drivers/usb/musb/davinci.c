@@ -385,8 +385,8 @@ static int davinci_musb_init(struct musb *musb)
 	void __iomem	*tibase = musb->ctrl_base;
 	u32		revision;
 
-	usb_nop_xceiv_register();
-	musb->xceiv = otg_get_transceiver();
+	usb_nop_xceiv_register(musb->id);
+	musb->xceiv = otg_get_transceiver(musb->id);
 	if (!musb->xceiv)
 		return -ENODEV;
 
@@ -446,7 +446,7 @@ static int davinci_musb_init(struct musb *musb)
 
 fail:
 	otg_put_transceiver(musb->xceiv);
-	usb_nop_xceiv_unregister();
+	usb_nop_xceiv_unregister(musb->id);
 	return -ENODEV;
 }
 
@@ -495,7 +495,7 @@ static int davinci_musb_exit(struct musb *musb)
 	phy_off();
 
 	otg_put_transceiver(musb->xceiv);
-	usb_nop_xceiv_unregister();
+	usb_nop_xceiv_unregister(musb->id);
 
 	return 0;
 }

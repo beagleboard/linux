@@ -37,24 +37,24 @@ struct nop_usb_xceiv {
 	struct device		*dev;
 };
 
-static struct platform_device *pd;
+static struct platform_device *pd[2] = {NULL, NULL};
 
-void usb_nop_xceiv_register(void)
+void usb_nop_xceiv_register(int id)
 {
-	if (pd)
+	if (pd[id])
 		return;
-	pd = platform_device_register_simple("nop_usb_xceiv", -1, NULL, 0);
-	if (!pd) {
+	pd[id] = platform_device_register_simple("nop_usb_xceiv", id, NULL, 0);
+	if (!pd[id]) {
 		printk(KERN_ERR "Unable to register usb nop transceiver\n");
 		return;
 	}
 }
 EXPORT_SYMBOL(usb_nop_xceiv_register);
 
-void usb_nop_xceiv_unregister(void)
+void usb_nop_xceiv_unregister(int id)
 {
-	platform_device_unregister(pd);
-	pd = NULL;
+	platform_device_unregister(pd[id]);
+	pd[id] = NULL;
 }
 EXPORT_SYMBOL(usb_nop_xceiv_unregister);
 
@@ -122,6 +122,7 @@ static int __devinit nop_usb_xceiv_probe(struct platform_device *pdev)
 	nop->otg.set_host	= nop_set_host;
 	nop->otg.set_peripheral	= nop_set_peripheral;
 	nop->otg.set_suspend	= nop_set_suspend;
+	nop->otg.id		= pdev->id;
 
 	err = otg_set_transceiver(&nop->otg);
 	if (err) {
@@ -144,7 +145,7 @@ static int __devexit nop_usb_xceiv_remove(struct platform_device *pdev)
 {
 	struct nop_usb_xceiv *nop = platform_get_drvdata(pdev);
 
-	otg_set_transceiver(NULL);
+	otg_reset_transceiver(&nop->otg);
 
 	platform_set_drvdata(pdev, NULL);
 	kfree(nop);
