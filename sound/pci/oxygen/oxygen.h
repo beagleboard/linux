@@ -35,6 +35,7 @@
 #define MIDI_OUTPUT		0x0800
 #define MIDI_INPUT		0x1000
 #define AC97_CD_INPUT		0x2000
+#define AC97_FMIC_SWITCH	0x4000
 
 enum {
 	CONTROL_SPDIF_PCM,
@@ -65,6 +66,7 @@ struct snd_pcm_hardware;
 struct snd_pcm_hw_params;
 struct snd_kcontrol_new;
 struct snd_rawmidi;
+struct snd_info_buffer;
 struct oxygen;
 
 struct oxygen_model {
@@ -92,6 +94,8 @@ struct oxygen_model {
 	void (*uart_input)(struct oxygen *chip);
 	void (*ac97_switch)(struct oxygen *chip,
 			    unsigned int reg, unsigned int mute);
+	void (*dump_registers)(struct oxygen *chip,
+			       struct snd_info_buffer *buffer);
 	const unsigned int *dac_tlv;
 	unsigned long private_data;
 	size_t model_data_size;

@@ -202,7 +202,13 @@ static void oxygen_proc_read(struct snd_info_entry *entry,
 	struct oxygen *chip = entry->private_data;
 	int i, j;
 
-	snd_iprintf(buffer, "CMI8788\n\n");
+	switch (oxygen_read8(chip, OXYGEN_REVISION) & OXYGEN_PACKAGE_ID_MASK) {
+	case OXYGEN_PACKAGE_ID_8786: i = '6'; break;
+	case OXYGEN_PACKAGE_ID_8787: i = '7'; break;
+	case OXYGEN_PACKAGE_ID_8788: i = '8'; break;
+	default:                     i = '?'; break;
+	}
+	snd_iprintf(buffer, "CMI878%c:\n", i);
 	for (i = 0; i < OXYGEN_IO_SIZE; i += 0x10) {
 		snd_iprintf(buffer, "%02x:", i);
 		for (j = 0; j < 0x10; ++j)
@@ -212,7 +218,7 @@ static void oxygen_proc_read(struct snd_info_entry *entry,
 	if (mutex_lock_interruptible(&chip->mutex) < 0)
 		return;
 	if (chip->has_ac97_0) {
-		snd_iprintf(buffer, "\nAC97\n");
+		snd_iprintf(buffer, "\nAC97:\n");
 		for (i = 0; i < 0x80; i += 0x10) {
 			snd_iprintf(buffer, "%02x:", i);
 			for (j = 0; j < 0x10; j += 2)
@@ -222,7 +228,7 @@ static void oxygen_proc_read(struct snd_info_entry *entry,
 		}
 	}
 	if (chip->has_ac97_1) {
-		snd_iprintf(buffer, "\nAC97 2\n");
+		snd_iprintf(buffer, "\nAC97 2:\n");
 		for (i = 0; i < 0x80; i += 0x10) {
 			snd_iprintf(buffer, "%02x:", i);
 			for (j = 0; j < 0x10; j += 2)
@@ -232,13 +238,15 @@ static void oxygen_proc_read(struct snd_info_entry *entry,
 		}
 	}
 	mutex_unlock(&chip->mutex);
+	if (chip->model.dump_registers)
+		chip->model.dump_registers(chip, buffer);
 }
 
 static void oxygen_proc_init(struct oxygen *chip)
 {
 	struct snd_info_entry *entry;
 
-	if (!snd_card_proc_new(chip->card, "cmi8788", &entry))
+	if (!snd_card_proc_new(chip->card, "oxygen", &entry))
 		snd_info_set_text_ops(entry, chip, oxygen_proc_read);
 }
 #else

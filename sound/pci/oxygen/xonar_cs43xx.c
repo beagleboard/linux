@@ -22,29 +22,28 @@
  *
  * CMI8788:
  *
- * I²C <-> CS4398 (front)
- *     <-> CS4362A (surround, center/LFE, back)
+ *   I²C <-> CS4398 (addr 1001111) (front)
+ *       <-> CS4362A (addr 0011000) (surround, center/LFE, back)
  *
- * GPI 0 <- external power present (DX only)
+ *   GPI 0 <- external power present (DX only)
  *
- * GPIO 0 -> enable output to speakers
- * GPIO 1 -> enable front panel I/O
- * GPIO 2 -> M0 of CS5361
- * GPIO 3 -> M1 of CS5361
- * GPIO 8 -> route input jack to line-in (0) or mic-in (1)
- *
- * CS4398:
- *
- * AD0 <- 1
- * AD1 <- 1
- *
- * CS4362A:
- *
- * AD0 <- 0
+ *   GPIO 0 -> enable output to speakers
+ *   GPIO 1 -> route output to front panel
+ *   GPIO 2 -> M0 of CS5361
+ *   GPIO 3 -> M1 of CS5361
+ *   GPIO 6 -> ?
+ *   GPIO 7 -> ?
+ *   GPIO 8 -> route input jack to line-in (0) or mic-in (1)
  *
  * CM9780:
  *
- * GPO 0 -> route line-in (0) or AC97 output (1) to CS5361 input
+ *   LINE_OUT -> input of ADC
+ *
+ *   AUX_IN  <- aux
+ *   MIC_IN  <- mic
+ *   FMIC_IN <- front mic
+ *
+ *   GPO 0 -> route line-in (0) or AC97 output (1) to CS5361 input
  */
 
 #include <linux/pci.h>
@@ -63,6 +62,7 @@
 #define GPI_EXT_POWER		0x01
 #define GPIO_D1_OUTPUT_ENABLE	0x0001
 #define GPIO_D1_FRONT_PANEL	0x0002
+#define GPIO_D1_MAGIC		0x00c0
 #define GPIO_D1_INPUT_ROUTE	0x0100
 
 #define I2C_DEVICE_CS4398	0x9e	/* 10011, AD1=1, AD0=1, /W=0 */
@@ -169,11 +169,11 @@ static void xonar_d1_init(struct oxygen *chip)
 	cs43xx_registers_init(chip);
 
 	oxygen_set_bits16(chip, OXYGEN_GPIO_CONTROL,
-			  GPIO_D1_FRONT_PANEL | GPIO_D1_INPUT_ROUTE);
+			  GPIO_D1_FRONT_PANEL |
+			  GPIO_D1_MAGIC |
+			  GPIO_D1_INPUT_ROUTE);
 	oxygen_clear_bits16(chip, OXYGEN_GPIO_DATA,
 			    GPIO_D1_FRONT_PANEL | GPIO_D1_INPUT_ROUTE);
-
-	oxygen_ac97_set_bits(chip, 0, CM9780_JACK, CM9780_FMIC2MIC);
 
 	xonar_init_cs53x1(chip);
 	xonar_enable_output(chip);
@@ -284,7 +284,7 @@ static void update_cs43xx_center_lfe_mix(struct oxygen *chip, bool mixed)
 
 static const struct snd_kcontrol_new front_panel_switch = {
 	.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
-	.name = "Front Panel Switch",
+	.name = "Front Panel Playback Switch",
 	.info = snd_ctl_boolean_mono_info,
 	.get = xonar_gpio_bit_switch_get,
 	.put = xonar_gpio_bit_switch_put,
@@ -380,6 +380,30 @@ static int xonar_d1_mixer_init(struct oxygen *chip)
 	return 0;
 }
 
+static void dump_cs4362a_registers(struct xonar_cs43xx *data,
+				   struct snd_info_buffer *buffer)
+{
+	unsigned int i;
+
+	snd_iprintf(buffer, "\nCS4362A:");
+	for (i = 1; i <= 14; ++i)
+		snd_iprintf(buffer, " %02x", data->cs4362a_regs[i]);
+	snd_iprintf(buffer, "\n");
+}
+
+static void dump_d1_registers(struct oxygen *chip,
+			      struct snd_info_buffer *buffer)
+{
+	struct xonar_cs43xx *data = chip->model_data;
+	unsigned int i;
+
+	snd_iprintf(buffer, "\nCS4398: 7?");
+	for (i = 2; i <= 8; ++i)
+		snd_iprintf(buffer, " %02x", data->cs4398_regs[i]);
+	snd_iprintf(buffer, "\n");
+	dump_cs4362a_registers(data, buffer);
+}
+
 static const struct oxygen_model model_xonar_d1 = {
 	.longname = "Asus Virtuoso 100",
 	.chip = "AV200",
@@ -395,11 +419,13 @@ static const struct oxygen_model model_xonar_d1 = {
 	.update_dac_mute = update_cs43xx_mute,
 	.update_center_lfe_mix = update_cs43xx_center_lfe_mix,
 	.ac97_switch = xonar_d1_line_mic_ac97_switch,
+	.dump_registers = dump_d1_registers,
 	.dac_tlv = cs4362a_db_scale,
 	.model_data_size = sizeof(struct xonar_cs43xx),
 	.device_config = PLAYBACK_0_TO_I2S |
 			 PLAYBACK_1_TO_SPDIF |
-			 CAPTURE_0_FROM_I2S_2,
+			 CAPTURE_0_FROM_I2S_2 |
+			 AC97_FMIC_SWITCH,
 	.dac_channels = 8,
 	.dac_volume_min = 127 - 60,
 	.dac_volume_max = 127,

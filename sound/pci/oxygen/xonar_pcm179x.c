@@ -22,20 +22,26 @@
  *
  * CMI8788:
  *
- * SPI 0 -> 1st PCM1796 (front)
- * SPI 1 -> 2nd PCM1796 (surround)
- * SPI 2 -> 3rd PCM1796 (center/LFE)
- * SPI 4 -> 4th PCM1796 (back)
+ *   SPI 0 -> 1st PCM1796 (front)
+ *   SPI 1 -> 2nd PCM1796 (surround)
+ *   SPI 2 -> 3rd PCM1796 (center/LFE)
+ *   SPI 4 -> 4th PCM1796 (back)
  *
- * GPIO 2 -> M0 of CS5381
- * GPIO 3 -> M1 of CS5381
- * GPIO 5 <- external power present (D2X only)
- * GPIO 7 -> ALT
- * GPIO 8 -> enable output to speakers
+ *   GPIO 2 -> M0 of CS5381
+ *   GPIO 3 -> M1 of CS5381
+ *   GPIO 5 <- external power present (D2X only)
+ *   GPIO 7 -> ALT
+ *   GPIO 8 -> enable output to speakers
  *
  * CM9780:
  *
- * GPO 0 -> route line-in (0) or AC97 output (1) to CS5381 input
+ *   LINE_OUT -> input of ADC
+ *
+ *   AUX_IN   <- aux
+ *   VIDEO_IN <- CD
+ *   FMIC_IN  <- mic
+ *
+ *   GPO 0 -> route line-in (0) or AC97 output (1) to CS5381 input
  */
 
 /*
@@ -44,52 +50,53 @@
  *
  * CMI8788:
  *
- * I²C <-> PCM1796 (front)
+ *   I²C <-> PCM1796 (addr 1001100) (front)
  *
- * GPI 0 <- external power present
+ *   GPI 0 <- external power present
  *
- * GPIO 0 -> enable output to speakers
- * GPIO 2 -> M0 of CS5381
- * GPIO 3 -> M1 of CS5381
- * GPIO 8 -> route input jack to line-in (0) or mic-in (1)
+ *   GPIO 0 -> enable HDMI (0) or speaker (1) output
+ *   GPIO 2 -> M0 of CS5381
+ *   GPIO 3 -> M1 of CS5381
+ *   GPIO 4 <- daughterboard detection
+ *   GPIO 5 <- daughterboard detection
+ *   GPIO 6 -> ?
+ *   GPIO 7 -> ?
+ *   GPIO 8 -> route input jack to line-in (0) or mic-in (1)
  *
- * TXD -> HDMI controller
- * RXD <- HDMI controller
- *
- * PCM1796 front: AD1,0 <- 0,0
+ *   UART <-> HDMI controller
  *
  * CM9780:
  *
- * GPO 0 -> route line-in (0) or AC97 output (1) to CS5381 input
+ *   LINE_OUT -> input of ADC
+ *
+ *   AUX_IN <- aux
+ *   CD_IN  <- CD
+ *   MIC_IN <- mic
+ *
+ *   GPO 0 -> route line-in (0) or AC97 output (1) to CS5381 input
  *
  * no daughterboard
  * ----------------
  *
- * GPIO 4 <- 1
+ *   GPIO 4 <- 1
  *
  * H6 daughterboard
  * ----------------
  *
- * GPIO 4 <- 0
- * GPIO 5 <- 0
+ *   GPIO 4 <- 0
+ *   GPIO 5 <- 0
  *
- * I²C <-> PCM1796 (surround)
- *     <-> PCM1796 (center/LFE)
- *     <-> PCM1796 (back)
- *
- * PCM1796 surround:   AD1,0 <- 0,1
- * PCM1796 center/LFE: AD1,0 <- 1,0
- * PCM1796 back:       AD1,0 <- 1,1
+ *   I²C <-> PCM1796 (addr 1001101) (surround)
+ *       <-> PCM1796 (addr 1001110) (center/LFE)
+ *       <-> PCM1796 (addr 1001111) (back)
  *
  * unknown daughterboard
  * ---------------------
  *
- * GPIO 4 <- 0
- * GPIO 5 <- 1
+ *   GPIO 4 <- 0
+ *   GPIO 5 <- 1
  *
- * I²C <-> CS4362A (surround, center/LFE, back)
- *
- * CS4362A: AD0 <- 0
+ *   I²C <-> CS4362A (addr 0011000) (surround, center/LFE, back)
  */
 
 /*
@@ -98,32 +105,35 @@
  *
  * CMI8788:
  *
- * I²C <-> PCM1792A
- *     <-> CS2000 (ST only)
+ *   I²C <-> PCM1792A (addr 1001100)
+ *       <-> CS2000 (addr 1001110) (ST only)
  *
- * ADC1 MCLK -> REF_CLK of CS2000 (ST only)
+ *   ADC1 MCLK -> REF_CLK of CS2000 (ST only)
  *
- * GPI 0 <- external power present (STX only)
+ *   GPI 0 <- external power present (STX only)
  *
- * GPIO 0 -> enable output to speakers
- * GPIO 1 -> route HP to front panel (0) or rear jack (1)
- * GPIO 2 -> M0 of CS5381
- * GPIO 3 -> M1 of CS5381
- * GPIO 7 -> route output to speaker jacks (0) or HP (1)
- * GPIO 8 -> route input jack to line-in (0) or mic-in (1)
+ *   GPIO 0 -> enable output to speakers
+ *   GPIO 1 -> route HP to front panel (0) or rear jack (1)
+ *   GPIO 2 -> M0 of CS5381
+ *   GPIO 3 -> M1 of CS5381
+ *   GPIO 4 <- daughterboard detection
+ *   GPIO 5 <- daughterboard detection
+ *   GPIO 6 -> ?
+ *   GPIO 7 -> route output to speaker jacks (0) or HP (1)
+ *   GPIO 8 -> route input jack to line-in (0) or mic-in (1)
  *
  * PCM1792A:
  *
- * AD1,0 <- 0,0
- * SCK <- CLK_OUT of CS2000 (ST only)
- *
- * CS2000:
- *
- * AD0 <- 0
+ *   SCK <- CLK_OUT of CS2000 (ST only)
  *
  * CM9780:
  *
- * GPO 0 -> route line-in (0) or AC97 output (1) to CS5381 input
+ *   LINE_OUT -> input of ADC
+ *
+ *   AUX_IN <- aux
+ *   MIC_IN <- mic
+ *
+ *   GPO 0 -> route line-in (0) or AC97 output (1) to CS5381 input
  *
  * H6 daughterboard
  * ----------------
@@ -133,15 +143,39 @@
  */
 
 /*
- * Xonar HDAV1.3 Slim
- * ------------------
+ * Xonar Xense
+ * -----------
  *
  * CMI8788:
  *
- * GPIO 1 -> enable output
+ *   I²C <-> PCM1796 (addr 1001100) (front)
+ *       <-> CS4362A (addr 0011000) (surround, center/LFE, back)
+ *       <-> CS2000 (addr 1001110)
  *
- * TXD -> HDMI controller
- * RXD <- HDMI controller
+ *   ADC1 MCLK -> REF_CLK of CS2000
+ *
+ *   GPI 0 <- external power present
+ *
+ *   GPIO 0 -> enable output
+ *   GPIO 1 -> route HP to front panel (0) or rear jack (1)
+ *   GPIO 2 -> M0 of CS5381
+ *   GPIO 3 -> M1 of CS5381
+ *   GPIO 4 -> enable output
+ *   GPIO 5 -> enable output
+ *   GPIO 6 -> ?
+ *   GPIO 7 -> route output to HP (0) or speaker (1)
+ *   GPIO 8 -> route input jack to mic-in (0) or line-in (1)
+ *
+ * CM9780:
+ *
+ *   LINE_OUT -> input of ADC
+ *
+ *   AUX_IN   <- aux
+ *   VIDEO_IN <- ?
+ *   FMIC_IN  <- mic
+ *
+ *   GPO 0 -> route line-in (0) or AC97 output (1) to CS5381 input
+ *   GPO 1 -> route mic-in from input jack (0) or front panel header (1)
  */
 
 #include <linux/pci.h>
@@ -150,6 +184,7 @@
 #include <sound/ac97_codec.h>
 #include <sound/control.h>
 #include <sound/core.h>
+#include <sound/info.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
 #include <sound/tlv.h>
@@ -167,12 +202,14 @@
 #define GPIO_INPUT_ROUTE	0x0100
 
 #define GPIO_HDAV_OUTPUT_ENABLE	0x0001
+#define GPIO_HDAV_MAGIC		0x00c0
 
 #define GPIO_DB_MASK		0x0030
 #define GPIO_DB_H6		0x0000
 
 #define GPIO_ST_OUTPUT_ENABLE	0x0001
 #define GPIO_ST_HP_REAR		0x0002
+#define GPIO_ST_MAGIC		0x0040
 #define GPIO_ST_HP		0x0080
 
 #define I2C_DEVICE_PCM1796(i)	(0x98 + ((i) << 1))	/* 10011, ii, /W=0 */
@@ -190,7 +227,7 @@ struct xonar_pcm179x {
 	bool hp_active;
 	s8 hp_gain_offset;
 	bool has_cs2000;
-	u8 cs2000_fun_cfg_1;
+	u8 cs2000_regs[0x1f];
 };
 
 struct xonar_hdav {
@@ -249,16 +286,14 @@ static void cs2000_write(struct oxygen *chip, u8 reg, u8 value)
 	struct xonar_pcm179x *data = chip->model_data;
 
 	oxygen_write_i2c(chip, I2C_DEVICE_CS2000, reg, value);
-	if (reg == CS2000_FUN_CFG_1)
-		data->cs2000_fun_cfg_1 = value;
+	data->cs2000_regs[reg] = value;
 }
 
 static void cs2000_write_cached(struct oxygen *chip, u8 reg, u8 value)
 {
 	struct xonar_pcm179x *data = chip->model_data;
 
-	if (reg != CS2000_FUN_CFG_1 ||
-	    value != data->cs2000_fun_cfg_1)
+	if (value != data->cs2000_regs[reg])
 		cs2000_write(chip, reg, value);
 }
 
@@ -350,7 +385,8 @@ static void xonar_hdav_init(struct oxygen *chip)
 
 	pcm1796_init(chip);
 
-	oxygen_set_bits16(chip, OXYGEN_GPIO_CONTROL, GPIO_INPUT_ROUTE);
+	oxygen_set_bits16(chip, OXYGEN_GPIO_CONTROL,
+			  GPIO_HDAV_MAGIC | GPIO_INPUT_ROUTE);
 	oxygen_clear_bits16(chip, OXYGEN_GPIO_DATA, GPIO_INPUT_ROUTE);
 
 	xonar_init_cs53x1(chip);
@@ -381,7 +417,8 @@ static void xonar_st_init_common(struct oxygen *chip)
 	pcm1796_init(chip);
 
 	oxygen_set_bits16(chip, OXYGEN_GPIO_CONTROL,
-			  GPIO_INPUT_ROUTE | GPIO_ST_HP_REAR | GPIO_ST_HP);
+			  GPIO_INPUT_ROUTE | GPIO_ST_HP_REAR |
+			  GPIO_ST_MAGIC | GPIO_ST_HP);
 	oxygen_clear_bits16(chip, OXYGEN_GPIO_DATA,
 			    GPIO_INPUT_ROUTE | GPIO_ST_HP_REAR | GPIO_ST_HP);
 
@@ -410,7 +447,8 @@ static void cs2000_registers_init(struct oxygen *chip)
 	cs2000_write(chip, CS2000_RATIO_0 + 1, 0x10);
 	cs2000_write(chip, CS2000_RATIO_0 + 2, 0x00);
 	cs2000_write(chip, CS2000_RATIO_0 + 3, 0x00);
-	cs2000_write(chip, CS2000_FUN_CFG_1, data->cs2000_fun_cfg_1);
+	cs2000_write(chip, CS2000_FUN_CFG_1,
+		     data->cs2000_regs[CS2000_FUN_CFG_1]);
 	cs2000_write(chip, CS2000_FUN_CFG_2, 0);
 	cs2000_write(chip, CS2000_GLOBAL_CFG, CS2000_EN_DEV_CFG_2);
 }
@@ -421,7 +459,7 @@ static void xonar_st_init(struct oxygen *chip)
 
 	data->generic.anti_pop_delay = 100;
 	data->has_cs2000 = 1;
-	data->cs2000_fun_cfg_1 = CS2000_REF_CLK_DIV_1;
+	data->cs2000_regs[CS2000_FUN_CFG_1] = CS2000_REF_CLK_DIV_1;
 
 	oxygen_write16(chip, OXYGEN_I2S_A_FORMAT,
 		       OXYGEN_RATE_48000 | OXYGEN_I2S_FORMAT_I2S |
@@ -772,6 +810,15 @@ static const struct snd_kcontrol_new os_128_control = {
 	.put = os_128_put,
 };
 
+static const struct snd_kcontrol_new hdav_hdmi_control = {
+	.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+	.name = "HDMI Playback Switch",
+	.info = snd_ctl_boolean_mono_info,
+	.get = xonar_gpio_bit_switch_get,
+	.put = xonar_gpio_bit_switch_put,
+	.private_value = GPIO_HDAV_OUTPUT_ENABLE | XONAR_GPIO_BIT_INVERT,
+};
+
 static int st_output_switch_info(struct snd_kcontrol *ctl,
 				 struct snd_ctl_elem_info *info)
 {
@@ -956,7 +1003,15 @@ static int xonar_d2_mixer_init(struct oxygen *chip)
 
 static int xonar_hdav_mixer_init(struct oxygen *chip)
 {
-	return add_pcm1796_controls(chip);
+	int err;
+
+	err = snd_ctl_add(chip->card, snd_ctl_new1(&hdav_hdmi_control, chip));
+	if (err < 0)
+		return err;
+	err = add_pcm1796_controls(chip);
+	if (err < 0)
+		return err;
+	return 0;
 }
 
 static int xonar_st_mixer_init(struct oxygen *chip)
@@ -976,6 +1031,45 @@ static int xonar_st_mixer_init(struct oxygen *chip)
 	return 0;
 }
 
+static void dump_pcm1796_registers(struct oxygen *chip,
+				   struct snd_info_buffer *buffer)
+{
+	struct xonar_pcm179x *data = chip->model_data;
+	unsigned int dac, i;
+
+	for (dac = 0; dac < data->dacs; ++dac) {
+		snd_iprintf(buffer, "\nPCM1796 %u:", dac + 1);
+		for (i = 0; i < 5; ++i)
+			snd_iprintf(buffer, " %02x",
+				    data->pcm1796_regs[dac][i]);
+	}
+	snd_iprintf(buffer, "\n");
+}
+
+static void dump_cs2000_registers(struct oxygen *chip,
+				  struct snd_info_buffer *buffer)
+{
+	struct xonar_pcm179x *data = chip->model_data;
+	unsigned int i;
+
+	if (data->has_cs2000) {
+		snd_iprintf(buffer, "\nCS2000:\n00:   ");
+		for (i = 1; i < 0x10; ++i)
+			snd_iprintf(buffer, " %02x", data->cs2000_regs[i]);
+		snd_iprintf(buffer, "\n10:");
+		for (i = 0x10; i < 0x1f; ++i)
+			snd_iprintf(buffer, " %02x", data->cs2000_regs[i]);
+		snd_iprintf(buffer, "\n");
+	}
+}
+
+static void dump_st_registers(struct oxygen *chip,
+			      struct snd_info_buffer *buffer)
+{
+	dump_pcm1796_registers(chip, buffer);
+	dump_cs2000_registers(chip, buffer);
+}
+
 static const struct oxygen_model model_xonar_d2 = {
 	.longname = "Asus Virtuoso 200",
 	.chip = "AV200",
@@ -990,6 +1084,7 @@ static const struct oxygen_model model_xonar_d2 = {
 	.set_adc_params = xonar_set_cs53x1_params,
 	.update_dac_volume = update_pcm1796_volume,
 	.update_dac_mute = update_pcm1796_mute,
+	.dump_registers = dump_pcm1796_registers,
 	.dac_tlv = pcm1796_db_scale,
 	.model_data_size = sizeof(struct xonar_pcm179x),
 	.device_config = PLAYBACK_0_TO_I2S |
@@ -1025,6 +1120,7 @@ static const struct oxygen_model model_xonar_hdav = {
 	.update_dac_mute = update_pcm1796_mute,
 	.uart_input = xonar_hdmi_uart_input,
 	.ac97_switch = xonar_line_mic_ac97_switch,
+	.dump_registers = dump_pcm1796_registers,
 	.dac_tlv = pcm1796_db_scale,
 	.model_data_size = sizeof(struct xonar_hdav),
 	.device_config = PLAYBACK_0_TO_I2S |
@@ -1054,11 +1150,13 @@ static const struct oxygen_model model_xonar_st = {
 	.update_dac_volume = update_pcm1796_volume,
 	.update_dac_mute = update_pcm1796_mute,
 	.ac97_switch = xonar_line_mic_ac97_switch,
+	.dump_registers = dump_st_registers,
 	.dac_tlv = pcm1796_db_scale,
 	.model_data_size = sizeof(struct xonar_pcm179x),
 	.device_config = PLAYBACK_0_TO_I2S |
 			 PLAYBACK_1_TO_SPDIF |
-			 CAPTURE_0_FROM_I2S_2,
+			 CAPTURE_0_FROM_I2S_2 |
+			 AC97_FMIC_SWITCH,
 	.dac_channels = 2,
 	.dac_volume_min = 255 - 2*60,
 	.dac_volume_max = 255,
