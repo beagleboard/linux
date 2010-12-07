@@ -542,23 +542,23 @@ static int fanotify_remove_vfsmount_mark(struct fsnotify_group *group,
 {
 	struct fsnotify_mark *fsn_mark = NULL;
 	__u32 removed;
-	int ret = 0;
+	int ret;
 
 	mutex_lock(&group->mutex);
+	ret = -ENOENT;
 	fsn_mark = fsnotify_find_vfsmount_mark(group, mnt);
-	if (!fsn_mark) {
-		ret = -ENOENT;
+	if (!fsn_mark)
 		goto err;
-	}
 
 	removed = fanotify_mark_remove_from_mask(fsn_mark, mask, flags);
 	fsnotify_put_mark(fsn_mark);
 	if (removed & mnt->mnt_fsnotify_mask)
 		fsnotify_recalc_vfsmount_mask(mnt);
+	ret = 0;
 err:
 	mutex_unlock(&group->mutex);
 
-	return 0;
+	return ret;
 }
 
 static int fanotify_remove_inode_mark(struct fsnotify_group *group,
@@ -567,24 +567,24 @@ static int fanotify_remove_inode_mark(struct fsnotify_group *group,
 {
 	struct fsnotify_mark *fsn_mark = NULL;
 	__u32 removed;
-	int ret = 0;
+	int ret;
 
 	mutex_lock(&group->mutex);
+	ret = -ENOENT;
 	fsn_mark = fsnotify_find_inode_mark(group, inode);
-	if (!fsn_mark) {
-		ret = -ENOENT;
+	if (!fsn_mark)
 		goto err;
-	}
 
 	removed = fanotify_mark_remove_from_mask(fsn_mark, mask, flags);
 	/* matches the fsnotify_find_inode_mark() */
 	fsnotify_put_mark(fsn_mark);
 	if (removed & inode->i_fsnotify_mask)
 		fsnotify_recalc_inode_mask(inode);
+	ret = 0;
 err:
 	mutex_unlock(&group->mutex);
 
-	return 0;
+	return ret;
 }
 
 static __u32 fanotify_mark_add_to_mask(struct fsnotify_mark *fsn_mark,
@@ -620,22 +620,20 @@ static int fanotify_add_vfsmount_mark(struct fsnotify_group *group,
 {
 	struct fsnotify_mark *fsn_mark;
 	__u32 added;
-	int ret = 0;
+	int ret;
 
 	mutex_lock(&group->mutex);
 	fsn_mark = fsnotify_find_vfsmount_mark(group, mnt);
 	if (!fsn_mark) {
+		ret = -ENOSPC;
 		if (atomic_read(&group->num_marks) >
-		    group->fanotify_data.max_marks) {
-			ret = -ENOSPC;
+		    group->fanotify_data.max_marks)
 			goto err;
-		}
 
+		ret = -ENOMEM;
 		fsn_mark = kmem_cache_alloc(fanotify_mark_cache, GFP_KERNEL);
-		if (!fsn_mark) {
-			ret = -ENOMEM;
+		if (!fsn_mark)
 			goto err;
-		}
 
 		fsnotify_init_mark(fsn_mark, fanotify_free_mark);
 		ret = fsnotify_add_mark(fsn_mark, group, NULL, mnt, 0);
@@ -646,6 +644,7 @@ static int fanotify_add_vfsmount_mark(struct fsnotify_group *group,
 
 	if (added & ~mnt->mnt_fsnotify_mask)
 		fsnotify_recalc_vfsmount_mask(mnt);
+	ret = 0;
 err2:
 	fsnotify_put_mark(fsn_mark);
 err:
@@ -659,7 +658,7 @@ static int fanotify_add_inode_mark(struct fsnotify_group *group,
 {
 	struct fsnotify_mark *fsn_mark;
 	__u32 added;
-	int ret = 0;
+	int ret;
 
 	pr_debug("%s: group=%p inode=%p\n", __func__, group, inode);
 
@@ -676,17 +675,15 @@ static int fanotify_add_inode_mark(struct fsnotify_group *group,
 	mutex_lock(&group->mutex);
 	fsn_mark = fsnotify_find_inode_mark(group, inode);
 	if (!fsn_mark) {
+		ret = -ENOSPC;
 		if (atomic_read(&group->num_marks) >
-		    group->fanotify_data.max_marks) {
-			ret = -ENOSPC;
+		    group->fanotify_data.max_marks)
 			goto err;
-		}
 
+		ret = -ENOMEM;
 		fsn_mark = kmem_cache_alloc(fanotify_mark_cache, GFP_KERNEL);
-		if (!fsn_mark) {
-			ret = -ENOMEM;
+		if (!fsn_mark)
 			goto err;
-		}
 
 		fsnotify_init_mark(fsn_mark, fanotify_free_mark);
 		ret = fsnotify_add_mark(fsn_mark, group, inode, NULL, 0);
@@ -697,6 +694,7 @@ static int fanotify_add_inode_mark(struct fsnotify_group *group,
 
 	if (added & ~inode->i_fsnotify_mask)
 		fsnotify_recalc_inode_mask(inode);
+	ret = 0;
 err2:
 	fsnotify_put_mark(fsn_mark);
 err:
