@@ -46,6 +46,7 @@
 #include "clockdomains.h"
 
 #include <plat/omap_hwmod.h>
+#include <plat/multi.h>
 
 /*
  * The machine specific code may provide the extra mapping besides the
@@ -297,7 +298,7 @@ static int __init _omap2_init_reprogram_sdrc(void)
 		return 0;
 
 	dpll3_m2_ck = clk_get(NULL, "dpll3_m2_ck");
-	if (!dpll3_m2_ck)
+	if (IS_ERR(dpll3_m2_ck))
 		return -EINVAL;
 
 	rate = clk_get_rate(dpll3_m2_ck);
@@ -309,6 +310,25 @@ static int __init _omap2_init_reprogram_sdrc(void)
 	clk_put(dpll3_m2_ck);
 
 	return v;
+}
+
+/*
+ * Initialize asm_irq_base for entry-macro.S
+ */
+static inline void omap_irq_base_init(void)
+{
+	extern void __iomem *omap_irq_base;
+
+#ifdef MULTI_OMAP2
+	if (cpu_is_omap242x())
+		omap_irq_base = OMAP2_L4_IO_ADDRESS(OMAP24XX_IC_BASE);
+	else if (cpu_is_omap34xx())
+		omap_irq_base = OMAP2_L4_IO_ADDRESS(OMAP34XX_IC_BASE);
+	else if (cpu_is_omap44xx())
+		omap_irq_base = OMAP2_L4_IO_ADDRESS(OMAP44XX_GIC_CPU_BASE);
+	else
+		pr_err("Could not initialize omap_irq_base\n");
+#endif
 }
 
 void __init omap2_init_common_hw(struct omap_sdrc_params *sdrc_cs0,
@@ -352,4 +372,46 @@ void __init omap2_init_common_hw(struct omap_sdrc_params *sdrc_cs0,
 		_omap2_init_reprogram_sdrc();
 	}
 	gpmc_init();
+
+	omap_irq_base_init();
 }
+
+/*
+ * NOTE: Please use ioremap + __raw_read/write where possible instead of these
+ */
+
+u8 omap_readb(u32 pa)
+{
+	return __raw_readb(OMAP2_L4_IO_ADDRESS(pa));
+}
+EXPORT_SYMBOL(omap_readb);
+
+u16 omap_readw(u32 pa)
+{
+	return __raw_readw(OMAP2_L4_IO_ADDRESS(pa));
+}
+EXPORT_SYMBOL(omap_readw);
+
+u32 omap_readl(u32 pa)
+{
+	return __raw_readl(OMAP2_L4_IO_ADDRESS(pa));
+}
+EXPORT_SYMBOL(omap_readl);
+
+void omap_writeb(u8 v, u32 pa)
+{
+	__raw_writeb(v, OMAP2_L4_IO_ADDRESS(pa));
+}
+EXPORT_SYMBOL(omap_writeb);
+
+void omap_writew(u16 v, u32 pa)
+{
+	__raw_writew(v, OMAP2_L4_IO_ADDRESS(pa));
+}
+EXPORT_SYMBOL(omap_writew);
+
+void omap_writel(u32 v, u32 pa)
+{
+	__raw_writel(v, OMAP2_L4_IO_ADDRESS(pa));
+}
+EXPORT_SYMBOL(omap_writel);
