@@ -117,7 +117,7 @@ static ssize_t soc_codec_reg_show(struct snd_soc_codec *codec, char *buf)
 			 * the register being volatile and the device being
 			 * powered off.
 			 */
-			ret = codec->driver->read(codec, i);
+			ret = snd_soc_read(codec, i);
 			if (ret >= 0)
 				count += snprintf(buf + count,
 						  PAGE_SIZE - count,
@@ -228,7 +228,7 @@ static ssize_t codec_reg_write_file(struct file *file,
 		start++;
 	if (strict_strtoul(start, 16, &value))
 		return -EINVAL;
-	codec->driver->write(codec, reg, value);
+	snd_soc_write(codec, reg, value);
 	return buf_size;
 }
 
@@ -1328,6 +1328,27 @@ out:
 	return 1;
 }
 
+static void soc_remove_codec(struct snd_soc_codec *codec)
+{
+	int err;
+
+	if (codec->driver->remove) {
+		err = codec->driver->remove(codec);
+		if (err < 0)
+			dev_err(codec->dev,
+				"asoc: failed to remove %s: %d\n",
+				codec->name, err);
+	}
+
+	/* Make sure all DAPM widgets are freed */
+	snd_soc_dapm_free(&codec->dapm);
+
+	soc_cleanup_codec_debugfs(codec);
+	codec->probed = 0;
+	list_del(&codec->card_list);
+	module_put(codec->dev->driver->owner);
+}
+
 static void soc_remove_dai_link(struct snd_soc_card *card, int num)
 {
 	struct snd_soc_pcm_runtime *rtd = &card->rtd[num];
@@ -1339,6 +1360,7 @@ static void soc_remove_dai_link(struct snd_soc_card *card, int num)
 	/* unregister the rtd device */
 	if (rtd->dev_registered) {
 		device_remove_file(&rtd->dev, &dev_attr_pmdown_time);
+		device_remove_file(&rtd->dev, &dev_attr_codec_reg);
 		device_unregister(&rtd->dev);
 		rtd->dev_registered = 0;
 	}
@@ -1367,22 +1389,8 @@ static void soc_remove_dai_link(struct snd_soc_card *card, int num)
 	}
 
 	/* remove the CODEC */
-	if (codec && codec->probed) {
-		if (codec->driver->remove) {
-			err = codec->driver->remove(codec);
-			if (err < 0)
-				printk(KERN_ERR "asoc: failed to remove %s\n", codec->name);
-		}
-
-		/* Make sure all DAPM widgets are freed */
-		snd_soc_dapm_free(&codec->dapm);
-
-		soc_cleanup_codec_debugfs(codec);
-		device_remove_file(&rtd->dev, &dev_attr_codec_reg);
-		codec->probed = 0;
-		list_del(&codec->card_list);
-		module_put(codec->dev->driver->owner);
-	}
+	if (codec && codec->probed)
+		soc_remove_codec(codec);
 
 	/* remove the cpu_dai */
 	if (cpu_dai && cpu_dai->probed) {
@@ -1414,7 +1422,104 @@ static void soc_set_name_prefix(struct snd_soc_card *card,
 	}
 }
 
+static int soc_probe_codec(struct snd_soc_card *card,
+			   struct snd_soc_codec *codec)
+{
+	int ret = 0;
+
+	codec->card = card;
+	codec->dapm.card = card;
+	soc_set_name_prefix(card, codec);
+
+	if (codec->driver->probe) {
+		ret = codec->driver->probe(codec);
+		if (ret < 0) {
+			dev_err(codec->dev,
+				"asoc: failed to probe CODEC %s: %d\n",
+				codec->name, ret);
+			return ret;
+		}
+	}
+
+	soc_init_codec_debugfs(codec);
+
+	/* mark codec as probed and add to card codec list */
+	codec->probed = 1;
+	list_add(&codec->card_list, &card->codec_dev_list);
+
+	return ret;
+}
+
 static void rtd_release(struct device *dev) {}
+
+static int soc_post_component_init(struct snd_soc_card *card,
+				   struct snd_soc_codec *codec,
+				   int num, int dailess)
+{
+	struct snd_soc_dai_link *dai_link = NULL;
+	struct snd_soc_aux_dev *aux_dev = NULL;
+	struct snd_soc_pcm_runtime *rtd;
+	const char *temp, *name;
+	int ret = 0;
+
+	if (!dailess) {
+		dai_link = &card->dai_link[num];
+		rtd = &card->rtd[num];
+		name = dai_link->name;
+	} else {
+		aux_dev = &card->aux_dev[num];
+		rtd = &card->rtd_aux[num];
+		name = aux_dev->name;
+	}
+
+	/* machine controls, routes and widgets are not prefixed */
+	temp = codec->name_prefix;
+	codec->name_prefix = NULL;
+
+	/* do machine specific initialization */
+	if (!dailess && dai_link->init)
+		ret = dai_link->init(rtd);
+	else if (dailess && aux_dev->init)
+		ret = aux_dev->init(&codec->dapm);
+	if (ret < 0) {
+		dev_err(card->dev, "asoc: failed to init %s: %d\n", name, ret);
+		return ret;
+	}
+	codec->name_prefix = temp;
+
+	/* Make sure all DAPM widgets are instantiated */
+	snd_soc_dapm_new_widgets(&codec->dapm);
+	snd_soc_dapm_sync(&codec->dapm);
+
+	/* register the rtd device */
+	rtd->codec = codec;
+	rtd->card = card;
+	rtd->dev.parent = card->dev;
+	rtd->dev.release = rtd_release;
+	rtd->dev.init_name = name;
+	ret = device_register(&rtd->dev);
+	if (ret < 0) {
+		dev_err(card->dev,
+			"asoc: failed to register runtime device: %d\n", ret);
+		return ret;
+	}
+	rtd->dev_registered = 1;
+
+	/* add DAPM sysfs entries for this codec */
+	ret = snd_soc_dapm_sys_add(&rtd->dev);
+	if (ret < 0)
+		dev_err(codec->dev,
+			"asoc: failed to add codec dapm sysfs entries: %d\n",
+			ret);
+
+	/* add codec sysfs entries */
+	ret = device_create_file(&rtd->dev, &dev_attr_codec_reg);
+	if (ret < 0)
+		dev_err(codec->dev,
+			"asoc: failed to add codec sysfs files: %d\n", ret);
+
+	return 0;
+}
 
 static int soc_probe_dai_link(struct snd_soc_card *card, int num)
 {
@@ -1423,17 +1528,13 @@ static int soc_probe_dai_link(struct snd_soc_card *card, int num)
 	struct snd_soc_codec *codec = rtd->codec;
 	struct snd_soc_platform *platform = rtd->platform;
 	struct snd_soc_dai *codec_dai = rtd->codec_dai, *cpu_dai = rtd->cpu_dai;
-	const char *temp;
 	int ret;
 
 	dev_dbg(card->dev, "probe %s dai link %d\n", card->name, num);
 
 	/* config components */
 	codec_dai->codec = codec;
-	codec->card = card;
 	cpu_dai->platform = platform;
-	rtd->card = card;
-	rtd->dev.parent = card->dev;
 	codec_dai->card = card;
 	cpu_dai->card = card;
 
@@ -1457,22 +1558,9 @@ static int soc_probe_dai_link(struct snd_soc_card *card, int num)
 
 	/* probe the CODEC */
 	if (!codec->probed) {
-		codec->dapm.card = card;
-		soc_set_name_prefix(card, codec);
-		if (codec->driver->probe) {
-			ret = codec->driver->probe(codec);
-			if (ret < 0) {
-				printk(KERN_ERR "asoc: failed to probe CODEC %s\n",
-						codec->name);
-				return ret;
-			}
-		}
-
-		soc_init_codec_debugfs(codec);
-
-		/* mark codec as probed and add to card codec list */
-		codec->probed = 1;
-		list_add(&codec->card_list, &card->codec_dev_list);
+		ret = soc_probe_codec(card, codec);
+		if (ret < 0)
+			return ret;
 	}
 
 	/* probe the platform */
@@ -1509,46 +1597,13 @@ static int soc_probe_dai_link(struct snd_soc_card *card, int num)
 	/* DAPM dai link stream work */
 	INIT_DELAYED_WORK(&rtd->delayed_work, close_delayed_work);
 
-	/* now that all clients have probed, initialise the DAI link */
-	if (dai_link->init) {
-		/* machine controls, routes and widgets are not prefixed */
-		temp = rtd->codec->name_prefix;
-		rtd->codec->name_prefix = NULL;
-		ret = dai_link->init(rtd);
-		if (ret < 0) {
-			printk(KERN_ERR "asoc: failed to init %s\n", dai_link->stream_name);
-			return ret;
-		}
-		rtd->codec->name_prefix = temp;
-	}
-
-	/* Make sure all DAPM widgets are instantiated */
-	snd_soc_dapm_new_widgets(&codec->dapm);
-	snd_soc_dapm_sync(&codec->dapm);
-
-	/* register the rtd device */
-	rtd->dev.release = rtd_release;
-	rtd->dev.init_name = dai_link->name;
-	ret = device_register(&rtd->dev);
-	if (ret < 0) {
-		printk(KERN_ERR "asoc: failed to register DAI runtime device %d\n", ret);
+	ret = soc_post_component_init(card, codec, num, 0);
+	if (ret)
 		return ret;
-	}
 
-	rtd->dev_registered = 1;
 	ret = device_create_file(&rtd->dev, &dev_attr_pmdown_time);
 	if (ret < 0)
 		printk(KERN_WARNING "asoc: failed to add pmdown_time sysfs\n");
-
-	/* add DAPM sysfs entries for this codec */
-	ret = snd_soc_dapm_sys_add(&rtd->dev);
-	if (ret < 0)
-		printk(KERN_WARNING "asoc: failed to add codec dapm sysfs entries\n");
-
-	/* add codec sysfs entries */
-	ret = device_create_file(&rtd->dev, &dev_attr_codec_reg);
-	if (ret < 0)
-		printk(KERN_WARNING "asoc: failed to add codec sysfs files\n");
 
 	/* create the pcm */
 	ret = soc_new_pcm(rtd, num);
@@ -1607,9 +1662,7 @@ static void soc_unregister_ac97_dai_link(struct snd_soc_codec *codec)
 static int soc_probe_aux_dev(struct snd_soc_card *card, int num)
 {
 	struct snd_soc_aux_dev *aux_dev = &card->aux_dev[num];
-	struct snd_soc_pcm_runtime *rtd = &card->rtd_aux[num];
 	struct snd_soc_codec *codec;
-	const char *temp;
 	int ret = -ENODEV;
 
 	/* find CODEC from registered CODECs*/
@@ -1632,67 +1685,11 @@ found:
 	if (!try_module_get(codec->dev->driver->owner))
 		return -ENODEV;
 
-	codec->card = card;
-	codec->dapm.card = card;
-
-	soc_set_name_prefix(card, codec);
-	if (codec->driver->probe) {
-		ret = codec->driver->probe(codec);
-		if (ret < 0) {
-			dev_err(codec->dev, "asoc: failed to probe CODEC");
-			return ret;
-		}
-	}
-
-	soc_init_codec_debugfs(codec);
-
-	/* mark codec as probed and add to card codec list */
-	codec->probed = 1;
-	list_add(&codec->card_list, &card->codec_dev_list);
-
-	/* now that all clients have probed, initialise the DAI link */
-	if (aux_dev->init) {
-		/* machine controls, routes and widgets are not prefixed */
-		temp = codec->name_prefix;
-		codec->name_prefix = NULL;
-		ret = aux_dev->init(&codec->dapm);
-		if (ret < 0) {
-			dev_err(codec->dev,
-				"asoc: failed to init %s\n", aux_dev->name);
-			return ret;
-		}
-		codec->name_prefix = temp;
-	}
-
-	/* Make sure all DAPM widgets are instantiated */
-	snd_soc_dapm_new_widgets(&codec->dapm);
-	snd_soc_dapm_sync(&codec->dapm);
-
-	/* register the rtd device */
-	rtd->codec = codec;
-	rtd->card = card;
-	rtd->dev.parent = card->dev;
-	rtd->dev.release = rtd_release;
-	rtd->dev.init_name = aux_dev->name;
-	ret = device_register(&rtd->dev);
-	if (ret < 0) {
-		dev_err(codec->dev,
-			"asoc: failed to register aux runtime device %d\n",
-			ret);
+	ret = soc_probe_codec(card, codec);
+	if (ret < 0)
 		return ret;
-	}
-	rtd->dev_registered = 1;
 
-	/* add DAPM sysfs entries for this codec */
-	ret = snd_soc_dapm_sys_add(&rtd->dev);
-	if (ret < 0)
-		dev_err(codec->dev,
-			"asoc: failed to add codec dapm sysfs entries\n");
-
-	/* add codec sysfs entries */
-	ret = device_create_file(&rtd->dev, &dev_attr_codec_reg);
-	if (ret < 0)
-		dev_err(codec->dev, "asoc: failed to add codec sysfs files\n");
+	ret = soc_post_component_init(card, codec, num, 1);
 
 out:
 	return ret;
@@ -1702,33 +1699,16 @@ static void soc_remove_aux_dev(struct snd_soc_card *card, int num)
 {
 	struct snd_soc_pcm_runtime *rtd = &card->rtd_aux[num];
 	struct snd_soc_codec *codec = rtd->codec;
-	int err;
 
 	/* unregister the rtd device */
 	if (rtd->dev_registered) {
+		device_remove_file(&rtd->dev, &dev_attr_codec_reg);
 		device_unregister(&rtd->dev);
 		rtd->dev_registered = 0;
 	}
 
-	/* remove the CODEC */
-	if (codec && codec->probed) {
-		if (codec->driver->remove) {
-			err = codec->driver->remove(codec);
-			if (err < 0)
-				dev_err(codec->dev,
-					"asoc: failed to remove %s\n",
-					codec->name);
-		}
-
-		/* Make sure all DAPM widgets are freed */
-		snd_soc_dapm_free(&codec->dapm);
-
-		soc_cleanup_codec_debugfs(codec);
-		device_remove_file(&rtd->dev, &dev_attr_codec_reg);
-		codec->probed = 0;
-		list_del(&codec->card_list);
-		module_put(codec->dev->driver->owner);
-	}
+	if (codec && codec->probed)
+		soc_remove_codec(codec);
 }
 
 static int snd_soc_init_codec_cache(struct snd_soc_codec *codec,
@@ -1859,7 +1839,7 @@ static void snd_soc_instantiate_card(struct snd_soc_card *card)
 	ret = snd_card_register(card->snd_card);
 	if (ret < 0) {
 		printk(KERN_ERR "asoc: failed to register soundcard for %s\n", card->name);
-		goto probe_dai_err;
+		goto probe_aux_dev_err;
 	}
 
 #ifdef CONFIG_SND_SOC_AC97_BUS
@@ -1870,7 +1850,7 @@ static void snd_soc_instantiate_card(struct snd_soc_card *card)
 			printk(KERN_ERR "asoc: failed to register AC97 %s\n", card->name);
 			while (--i >= 0)
 				soc_unregister_ac97_dai_link(&card->rtd[i]);
-			goto probe_dai_err;
+			goto probe_aux_dev_err;
 		}
 	}
 #endif
@@ -3197,7 +3177,7 @@ static int snd_soc_unregister_card(struct snd_soc_card *card)
  * Simplify DAI link configuration by removing ".-1" from device names
  * and sanitizing names.
  */
-static inline char *fmt_single_name(struct device *dev, int *id)
+static char *fmt_single_name(struct device *dev, int *id)
 {
 	char *found, name[NAME_SIZE];
 	int id1, id2;
@@ -3205,7 +3185,7 @@ static inline char *fmt_single_name(struct device *dev, int *id)
 	if (dev_name(dev) == NULL)
 		return NULL;
 
-	strncpy(name, dev_name(dev), NAME_SIZE);
+	strlcpy(name, dev_name(dev), NAME_SIZE);
 
 	/* are we a "%s.%d" name (platform and SPI components) */
 	found = strstr(name, dev->driver->name);
@@ -3228,7 +3208,7 @@ static inline char *fmt_single_name(struct device *dev, int *id)
 
 			/* sanitize component name for DAI link creation */
 			snprintf(tmp, NAME_SIZE, "%s.%s", dev->driver->name, name);
-			strncpy(name, tmp, NAME_SIZE);
+			strlcpy(name, tmp, NAME_SIZE);
 		} else
 			*id = 0;
 	}

@@ -310,6 +310,19 @@ static const char *sidetone_hpf_text[] = {
 static const struct soc_enum sidetone_hpf =
 	SOC_ENUM_SINGLE(WM8994_SIDETONE, 7, 7, sidetone_hpf_text);
 
+static const char *adc_hpf_text[] = {
+	"HiFi", "Voice 1", "Voice 2", "Voice 3"
+};
+
+static const struct soc_enum aif1adc1_hpf =
+	SOC_ENUM_SINGLE(WM8994_AIF1_ADC1_FILTERS, 13, 4, adc_hpf_text);
+
+static const struct soc_enum aif1adc2_hpf =
+	SOC_ENUM_SINGLE(WM8994_AIF1_ADC2_FILTERS, 13, 4, adc_hpf_text);
+
+static const struct soc_enum aif2adc_hpf =
+	SOC_ENUM_SINGLE(WM8994_AIF2_ADC_FILTERS, 13, 4, adc_hpf_text);
+
 static const DECLARE_TLV_DB_SCALE(aif_tlv, 0, 600, 0);
 static const DECLARE_TLV_DB_SCALE(digital_tlv, -7200, 75, 1);
 static const DECLARE_TLV_DB_SCALE(st_tlv, -3600, 300, 0);
@@ -811,6 +824,15 @@ SOC_SINGLE_TLV("DAC2 Left Sidetone Volume", WM8994_DAC2_MIXER_VOLUMES,
 	       0, 12, 0, st_tlv),
 SOC_ENUM("Sidetone HPF Mux", sidetone_hpf),
 SOC_SINGLE("Sidetone HPF Switch", WM8994_SIDETONE, 6, 1, 0),
+
+SOC_ENUM("AIF1ADC1 HPF Mode", aif1adc1_hpf),
+SOC_DOUBLE("AIF1ADC1 HPF Switch", WM8994_AIF1_ADC1_FILTERS, 12, 11, 1, 0),
+
+SOC_ENUM("AIF1ADC2 HPF Mode", aif1adc2_hpf),
+SOC_DOUBLE("AIF1ADC2 HPF Switch", WM8994_AIF1_ADC2_FILTERS, 12, 11, 1, 0),
+
+SOC_ENUM("AIF2ADC HPF Mode", aif2adc_hpf),
+SOC_DOUBLE("AIF2ADC HPF Switch", WM8994_AIF2_ADC_FILTERS, 12, 11, 1, 0),
 
 SOC_DOUBLE_R_TLV("DAC1 Volume", WM8994_DAC1_LEFT_VOLUME,
 		 WM8994_DAC1_RIGHT_VOLUME, 1, 96, 0, digital_tlv),
@@ -2099,10 +2121,12 @@ static int wm8994_hw_params(struct snd_pcm_substream *substream,
 	struct wm8994 *control = codec->control_data;
 	struct wm8994_priv *wm8994 = snd_soc_codec_get_drvdata(codec);
 	int aif1_reg;
+	int aif2_reg;
 	int bclk_reg;
 	int lrclk_reg;
 	int rate_reg;
 	int aif1 = 0;
+	int aif2 = 0;
 	int bclk = 0;
 	int lrclk = 0;
 	int rate_val = 0;
@@ -2113,6 +2137,7 @@ static int wm8994_hw_params(struct snd_pcm_substream *substream,
 	switch (dai->id) {
 	case 1:
 		aif1_reg = WM8994_AIF1_CONTROL_1;
+		aif2_reg = WM8994_AIF1_CONTROL_2;
 		bclk_reg = WM8994_AIF1_BCLK;
 		rate_reg = WM8994_AIF1_RATE;
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK ||
@@ -2125,6 +2150,7 @@ static int wm8994_hw_params(struct snd_pcm_substream *substream,
 		break;
 	case 2:
 		aif1_reg = WM8994_AIF2_CONTROL_1;
+		aif2_reg = WM8994_AIF2_CONTROL_2;
 		bclk_reg = WM8994_AIF2_BCLK;
 		rate_reg = WM8994_AIF2_RATE;
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK ||
@@ -2180,6 +2206,10 @@ static int wm8994_hw_params(struct snd_pcm_substream *substream,
 	dev_dbg(dai->dev, "AIF%dCLK is %dHz, target BCLK %dHz\n",
 		dai->id, wm8994->aifclk[id], bclk_rate);
 
+	if (params_channels(params) == 1 &&
+	    (snd_soc_read(codec, aif1_reg) & 0x18) == 0x18)
+		aif2 |= WM8994_AIF1_MONO;
+
 	if (wm8994->aifclk[id] == 0) {
 		dev_err(dai->dev, "AIF%dCLK not configured\n", dai->id);
 		return -EINVAL;
@@ -2223,6 +2253,7 @@ static int wm8994_hw_params(struct snd_pcm_substream *substream,
 		lrclk, bclk_rate / lrclk);
 
 	snd_soc_update_bits(codec, aif1_reg, WM8994_AIF1_WL_MASK, aif1);
+	snd_soc_update_bits(codec, aif2_reg, WM8994_AIF1_MONO, aif2);
 	snd_soc_update_bits(codec, bclk_reg, WM8994_AIF1_BCLK_DIV_MASK, bclk);
 	snd_soc_update_bits(codec, lrclk_reg, WM8994_AIF1DAC_RATE_MASK,
 			    lrclk);
@@ -2378,14 +2409,14 @@ static struct snd_soc_dai_driver wm8994_dai[] = {
 		.id = 1,
 		.playback = {
 			.stream_name = "AIF1 Playback",
-			.channels_min = 2,
+			.channels_min = 1,
 			.channels_max = 2,
 			.rates = WM8994_RATES,
 			.formats = WM8994_FORMATS,
 		},
 		.capture = {
 			.stream_name = "AIF1 Capture",
-			.channels_min = 2,
+			.channels_min = 1,
 			.channels_max = 2,
 			.rates = WM8994_RATES,
 			.formats = WM8994_FORMATS,
@@ -2397,14 +2428,14 @@ static struct snd_soc_dai_driver wm8994_dai[] = {
 		.id = 2,
 		.playback = {
 			.stream_name = "AIF2 Playback",
-			.channels_min = 2,
+			.channels_min = 1,
 			.channels_max = 2,
 			.rates = WM8994_RATES,
 			.formats = WM8994_FORMATS,
 		},
 		.capture = {
 			.stream_name = "AIF2 Capture",
-			.channels_min = 2,
+			.channels_min = 1,
 			.channels_max = 2,
 			.rates = WM8994_RATES,
 			.formats = WM8994_FORMATS,
@@ -2416,14 +2447,14 @@ static struct snd_soc_dai_driver wm8994_dai[] = {
 		.id = 3,
 		.playback = {
 			.stream_name = "AIF3 Playback",
-			.channels_min = 2,
+			.channels_min = 1,
 			.channels_max = 2,
 			.rates = WM8994_RATES,
 			.formats = WM8994_FORMATS,
 		},
 		.capture = {
 			.stream_name = "AIF3 Capture",
-			.channels_min = 2,
+			.channels_min = 1,
 			.channels_max = 2,
 			.rates = WM8994_RATES,
 			.formats = WM8994_FORMATS,
