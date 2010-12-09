@@ -121,6 +121,7 @@ struct cppi41 {
 					/* object */
 	u32 pkt_info;			/* Tx PD Packet Information field */
 	struct usb_cppi41_info *cppi_info; /* cppi channel information */
+	u8 en_bd_intr;			/* enable bd interrupt */
 };
 
 struct usb_cppi41_info usb_cppi41_info[2];
@@ -552,6 +553,7 @@ static unsigned cppi41_next_tx_segment(struct cppi41_channel *tx_ch)
 	struct usb_cppi41_info *cppi_info = cppi->cppi_info;
 	u16 q_mgr = cppi_info->q_mgr;
 	u16 tx_comp_q = cppi_info->tx_comp_q[tx_ch->ch_num];
+	u8 en_bd_intr = cppi->en_bd_intr;
 
 	/*
 	 * Tx can use the generic RNDIS mode where we can probably fit this
@@ -612,6 +614,9 @@ static unsigned cppi41_next_tx_segment(struct cppi41_channel *tx_ch)
 
 		if (pkt_size == 0)
 			tx_ch->zlp_queued = 1;
+
+		if (en_bd_intr)
+			hw_desc->orig_buf_len |= CPPI41_PKT_INTR_FLAG;
 
 		dev_dbg(musb->controller, "TX PD %p: buf %08x, len %08x, pkt info %08x\n", curr_pd,
 		    hw_desc->buf_ptr, hw_desc->buf_len, hw_desc->pkt_info);
@@ -726,6 +731,7 @@ static unsigned cppi41_next_rx_segment(struct cppi41_channel *rx_ch)
 	u32 max_rx_transfer_size = 64 * 1024;
 	u32 i, n_bd , pkt_len;
 	struct usb_gadget_driver *gadget_driver;
+	u8 en_bd_intr = cppi->en_bd_intr;
 
 	if (is_peripheral_active(cppi->musb)) {
 		/* TODO: temporary fix for CDC/RNDIS which needs to be in
@@ -796,6 +802,8 @@ static unsigned cppi41_next_rx_segment(struct cppi41_channel *rx_ch)
 		curr_pd->eop = (length -= pkt_len) ? 0 : 1;
 		rx_ch->curr_offset += pkt_len;
 
+		if (en_bd_intr)
+			hw_desc->orig_buf_len |= CPPI41_PKT_INTR_FLAG;
 		/*
 		 * Push the free Rx packet descriptor
 		 * to the free descriptor/buffer queue.
@@ -1192,6 +1200,7 @@ cppi41_dma_controller_create(struct musb  *musb, void __iomem *mregs)
 	cppi->controller.channel_program = cppi41_channel_program;
 	cppi->controller.channel_abort = cppi41_channel_abort;
 	cppi->cppi_info = (struct usb_cppi41_info *)&usb_cppi41_info[musb->id];;
+	cppi->en_bd_intr = cppi->cppi_info->bd_intr_ctrl;
 
 	return &cppi->controller;
 }
@@ -1280,6 +1289,7 @@ static void usb_process_rx_queue(struct cppi41 *cppi, unsigned index)
 	unsigned long pd_addr;
 	struct usb_cppi41_info *cppi_info = cppi->cppi_info;
 	struct musb *musb = cppi->musb;
+	u8 en_bd_intr = cppi->en_bd_intr;
 
 	if (cppi41_queue_init(&rx_queue_obj, cppi_info->q_mgr,
 			      cppi_info->rx_comp_q[index])) {
@@ -1291,7 +1301,7 @@ static void usb_process_rx_queue(struct cppi41 *cppi, unsigned index)
 		struct usb_pkt_desc *curr_pd;
 		struct cppi41_channel *rx_ch;
 		u8 ch_num, ep_num;
-		u32 length;
+		u32 length, orig_buf_len;
 
 		curr_pd = usb_get_pd_ptr(cppi, pd_addr);
 		if (curr_pd == NULL) {
@@ -1320,8 +1330,12 @@ static void usb_process_rx_queue(struct cppi41 *cppi, unsigned index)
 		 */
 		usb_put_free_pd(cppi, curr_pd);
 
+		orig_buf_len = curr_pd->hw_desc.orig_buf_len;
+		if (en_bd_intr)
+			orig_buf_len &= ~CPPI41_PKT_INTR_FLAG;
+
 		if (unlikely(rx_ch->channel.actual_len >= rx_ch->length ||
-			     length < curr_pd->hw_desc.orig_buf_len)) {
+			     length < orig_buf_len)) {
 			rx_ch->channel.status = MUSB_DMA_STATUS_FREE;
 
 			/* Rx completion routine callback */

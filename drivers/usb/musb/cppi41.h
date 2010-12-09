@@ -264,6 +264,7 @@ struct cppi41_host_buf_desc {
 					CPPI41_SRC_TAG_SUB_CH_NUM_SHIFT)
 #define CPPI41_DEST_TAG_SHIFT		0
 #define CPPI41_DEST_TAG_MASK		(0xffff << CPPI41_DEST_TAG_SHIFT)
+#define CPPI41_PKT_INTR_FLAG		(1 << 31)
 
 /*
  * CPPI 4.1 Teardown Descriptor
