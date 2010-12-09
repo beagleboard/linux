@@ -104,8 +104,10 @@
  * ---------------------------------
  */
 
-static const u16 tx_comp_q[] = { 63, 64 };
-static const u16 rx_comp_q[] = { 65, 66 };
+static const u16 tx_comp_q[] = {63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63,
+				63, 63};
+static const u16 rx_comp_q[] = {65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65,
+				65, 65};
 
 /* Fair scheduling */
 u32 dma_sched_table[] = {
@@ -197,20 +199,21 @@ static const u32 assigned_queues[] = { 0xffffffff, 0xffffffff, 0x7 };
 
 int __devinit cppi41_init(struct musb *musb)
 {
+	struct usb_cppi41_info *cppi_info = &usb_cppi41_info[musb->id];
 	u16 numch, blknum, order, i;
 
 	/* init cppi info structure  */
-	usb_cppi41_info.dma_block = 0;
+	cppi_info->dma_block = 0;
 	for (i = 0 ; i < USB_CPPI41_NUM_CH ; i++)
-		usb_cppi41_info.ep_dma_ch[i] = i;
+		cppi_info->ep_dma_ch[i] = i;
 
-	usb_cppi41_info.q_mgr = 0;
-	usb_cppi41_info.num_tx_comp_q = 4;
-	usb_cppi41_info.num_rx_comp_q = 4;
-	usb_cppi41_info.tx_comp_q = tx_comp_q;
-	usb_cppi41_info.rx_comp_q = rx_comp_q;
+	cppi_info->q_mgr = 0;
+	cppi_info->num_tx_comp_q = 15;
+	cppi_info->num_rx_comp_q = 15;
+	cppi_info->tx_comp_q = tx_comp_q;
+	cppi_info->rx_comp_q = rx_comp_q;
 
-	blknum = usb_cppi41_info.dma_block;
+	blknum = cppi_info->dma_block;
 
 	/* Queue manager information */
 	cppi41_queue_mgr[0].num_queue = 96;
@@ -236,7 +239,7 @@ int __devinit cppi41_init(struct musb *musb)
 	cppi41_dma_block[0].sched_table_base = musb->ctrl_base + 0x2800;
 
 	/* Initialize for Linking RAM region 0 alone */
-	cppi41_queue_mgr_init(usb_cppi41_info.q_mgr, 0, 0x3fff);
+	cppi41_queue_mgr_init(cppi_info->q_mgr, 0, 0x3fff);
 
 	numch =  USB_CPPI41_NUM_CH * 2;
 	order = get_count_order(numch);
@@ -245,7 +248,7 @@ int __devinit cppi41_init(struct musb *musb)
 	if (order < 5)
 		order = 5;
 
-	cppi41_dma_block_init(blknum, usb_cppi41_info.q_mgr, order,
+	cppi41_dma_block_init(blknum, cppi_info->q_mgr, order,
 			dma_sched_table, numch);
 	return 0;
 }

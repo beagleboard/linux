@@ -123,7 +123,7 @@ struct cppi41 {
 	struct usb_cppi41_info *cppi_info; /* cppi channel information */
 };
 
-struct usb_cppi41_info usb_cppi41_info;
+struct usb_cppi41_info usb_cppi41_info[2];
 EXPORT_SYMBOL(usb_cppi41_info);
 
 #ifdef DEBUG_CPPI_TD
@@ -273,10 +273,7 @@ static int __devinit cppi41_controller_start(struct dma_controller *controller)
 
 	/* Construct/store Tx PD packet info field for later use */
 	cppi->pkt_info = (CPPI41_PKT_TYPE_USB << CPPI41_PKT_TYPE_SHIFT) |
-			 (CPPI41_RETURN_LINKED << CPPI41_RETURN_POLICY_SHIFT) |
-			 (cppi_info->q_mgr << CPPI41_RETURN_QMGR_SHIFT) |
-			 (cppi_info->tx_comp_q[0] <<
-			  CPPI41_RETURN_QNUM_SHIFT);
+			 (CPPI41_RETURN_LINKED << CPPI41_RETURN_POLICY_SHIFT);
 
 	/* Do necessary configuartion in hardware to get started */
 	reg_base = cppi->musb->ctrl_base;
@@ -429,7 +426,7 @@ static struct dma_channel *cppi41_channel_alloc(struct dma_controller
 		rx_cfg.sop_offset = 0;
 		rx_cfg.retry_starved = 1;
 		rx_cfg.rx_queue.q_mgr = cppi_ch->src_queue.q_mgr = q_mgr;
-		rx_cfg.rx_queue.q_num = cppi_info->rx_comp_q[0];
+		rx_cfg.rx_queue.q_num = cppi_info->rx_comp_q[ch_num];
 		for (i = 0; i < 4; i++)
 			rx_cfg.cfg.host_pkt.fdb_queue[i] = cppi_ch->src_queue;
 		cppi41_rx_ch_configure(&cppi_ch->dma_ch_obj, &rx_cfg);
@@ -544,6 +541,9 @@ static unsigned cppi41_next_tx_segment(struct cppi41_channel *tx_ch)
 	u32 length = tx_ch->length - tx_ch->curr_offset;
 	u32 pkt_size = tx_ch->pkt_size;
 	unsigned num_pds, n;
+	struct usb_cppi41_info *cppi_info = cppi->cppi_info;
+	u16 q_mgr = cppi_info->q_mgr;
+	u16 tx_comp_q = cppi_info->tx_comp_q[tx_ch->ch_num];
 
 	/*
 	 * Tx can use the generic RNDIS mode where we can probably fit this
@@ -588,10 +588,13 @@ static unsigned cppi41_next_tx_segment(struct cppi41_channel *tx_ch)
 				      CPPI41_DESC_TYPE_SHIFT) | pkt_size;
 		hw_desc->tag_info = tx_ch->tag_info;
 		hw_desc->pkt_info = cppi->pkt_info;
+		hw_desc->pkt_info |= ((q_mgr << CPPI41_RETURN_QMGR_SHIFT) |
+				(tx_comp_q << CPPI41_RETURN_QNUM_SHIFT));
 
 		hw_desc->buf_ptr = tx_ch->start_addr + tx_ch->curr_offset;
 		hw_desc->buf_len = pkt_size;
 		hw_desc->next_desc_ptr = 0;
+		hw_desc->orig_buf_len = pkt_size;
 
 		curr_pd->ch_num = tx_ch->ch_num;
 		curr_pd->ep_num = tx_ch->end_pt->epnum;
@@ -1014,7 +1017,7 @@ static void usb_rx_ch_teardown(struct cppi41_channel *rx_ch)
 
 	/* Now restore the default Rx completion queue... */
 	cppi41_dma_ch_default_queue(&rx_ch->dma_ch_obj, cppi_info->q_mgr,
-				    cppi_info->rx_comp_q[0]);
+				    cppi_info->rx_comp_q[rx_ch->ch_num]);
 }
 
 /*
@@ -1178,7 +1181,7 @@ cppi41_dma_controller_create(struct musb  *musb, void __iomem *mregs)
 	cppi->controller.channel_release = cppi41_channel_release;
 	cppi->controller.channel_program = cppi41_channel_program;
 	cppi->controller.channel_abort = cppi41_channel_abort;
-	cppi->cppi_info = &usb_cppi41_info;
+	cppi->cppi_info = (struct usb_cppi41_info *)&usb_cppi41_info[musb->id];;
 
 	return &cppi->controller;
 }
