@@ -324,6 +324,8 @@ static inline u32 omap1_usb2_init(unsigned nwires, unsigned alt_pingroup)
 #endif
 
 /* DMA registers */
+#define TI81XX_USB_AUTOREQ_REG	0xd0
+#define TI81XX_USB_TEARDOWN_REG	0xd8
 #define USB_AUTOREQ_REG		0x14
 #define USB_TEARDOWN_REG	0x1c
 #define MOP_SOP_INTR_ENABLE	0x64

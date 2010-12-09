@@ -122,6 +122,8 @@ struct cppi41 {
 	u32 pkt_info;			/* Tx PD Packet Information field */
 	struct usb_cppi41_info *cppi_info; /* cppi channel information */
 	u8 en_bd_intr;			/* enable bd interrupt */
+	u32 automode_reg_offs;		/* USB_AUTOREQ_REG offset */
+	u32 teardown_reg_offs;		/* USB_TEARDOWN_REG offset */
 };
 
 struct usb_cppi41_info usb_cppi41_info[2];
@@ -181,6 +183,14 @@ static int __devinit cppi41_controller_start(struct dma_controller *controller)
 	cppi = container_of(controller, struct cppi41, controller);
 	cppi_info = cppi->cppi_info;
 	musb = cppi->musb;
+
+	if (cpu_is_ti81xx()) {
+		cppi->automode_reg_offs = TI81XX_USB_AUTOREQ_REG;
+		cppi->teardown_reg_offs = TI81XX_USB_TEARDOWN_REG;
+	} else {
+		cppi->automode_reg_offs = USB_AUTOREQ_REG;
+		cppi->teardown_reg_offs = USB_TEARDOWN_REG;
+	}
 
 	/*
 	 * TODO: We may need to check USB_CPPI41_MAX_PD here since CPPI 4.1
@@ -282,7 +292,7 @@ static int __devinit cppi41_controller_start(struct dma_controller *controller)
 	reg_base = cppi->musb->ctrl_base;
 
 	/* Disable auto request mode */
-	musb_writel(reg_base, USB_AUTOREQ_REG, 0);
+	musb_writel(reg_base, cppi->automode_reg_offs, 0);
 
 	/* Disable the CDC/RNDIS modes */
 	musb_writel(reg_base, USB_TX_MODE_REG, 0);
@@ -346,7 +356,7 @@ static int cppi41_controller_stop(struct dma_controller *controller)
 	reg_base = cppi->musb->ctrl_base;
 
 	/* Disable auto request mode */
-	musb_writel(reg_base, USB_AUTOREQ_REG, 0);
+	musb_writel(reg_base, cppi->automode_reg_offs, 0);
 
 	/* Disable the CDC/RNDIS modes */
 	musb_writel(reg_base, USB_TX_MODE_REG, 0);
@@ -635,13 +645,13 @@ static void cppi41_autoreq_update(struct cppi41_channel *rx_ch, u8 autoreq)
 	if (is_host_active(cppi->musb) &&
 	    autoreq != rx_ch->autoreq) {
 		void *__iomem reg_base = cppi->musb->ctrl_base;
-		u32 reg_val = musb_readl(reg_base, USB_AUTOREQ_REG);
+		u32 reg_val = musb_readl(reg_base, cppi->automode_reg_offs);
 		u8 ep_num = rx_ch->ch_num + 1;
 
 		reg_val &= ~USB_RX_AUTOREQ_MASK(ep_num);
 		reg_val |= autoreq << USB_RX_AUTOREQ_SHIFT(ep_num);
 
-		musb_writel(reg_base, USB_AUTOREQ_REG, reg_val);
+		musb_writel(reg_base, cppi->automode_reg_offs, reg_val);
 		rx_ch->autoreq = autoreq;
 	}
 }
@@ -947,9 +957,9 @@ static void usb_tx_ch_teardown(struct cppi41_channel *tx_ch)
 
 	/* Wait for a descriptor to be queued and pop it... */
 	do {
-		td_reg  = musb_readl(reg_base, USB_TEARDOWN_REG);
+		td_reg  = musb_readl(reg_base, cppi->teardown_reg_offs);
 		td_reg |= USB_TX_TDOWN_MASK(ep_num);
-		musb_writel(reg_base, USB_TEARDOWN_REG, td_reg);
+		musb_writel(reg_base, cppi->teardown_reg_offs, td_reg);
 
 		pd_addr = cppi41_queue_pop(&cppi->queue_obj);
 	} while (!pd_addr && timeout--);
@@ -1091,9 +1101,9 @@ static int cppi41_channel_abort(struct dma_channel *channel)
 		usb_tx_ch_teardown(cppi_ch);
 
 		/* Issue CPPI FIFO teardown for Tx channel */
-		td_reg  = musb_readl(reg_base, USB_TEARDOWN_REG);
+		td_reg  = musb_readl(reg_base, cppi->teardown_reg_offs);
 		td_reg |= USB_TX_TDOWN_MASK(ep_num);
-		musb_writel(reg_base, USB_TEARDOWN_REG, td_reg);
+		musb_writel(reg_base, cppi->teardown_reg_offs, td_reg);
 
 		/* Flush FIFO of the endpoint */
 		csr  = musb_readw(epio, MUSB_TXCSR);
@@ -1110,9 +1120,9 @@ static int cppi41_channel_abort(struct dma_channel *channel)
 		musb_writew(epio, MUSB_RXCSR, csr);
 
 		/* Issue CPPI FIFO teardown for Rx channel */
-		td_reg  = musb_readl(reg_base, USB_TEARDOWN_REG);
+		td_reg  = musb_readl(reg_base, cppi->teardown_reg_offs);
 		td_reg |= USB_RX_TDOWN_MASK(ep_num);
-		musb_writel(reg_base, USB_TEARDOWN_REG, td_reg);
+		musb_writel(reg_base, cppi->teardown_reg_offs, td_reg);
 
 		/* Tear down Rx DMA channel */
 		usb_rx_ch_teardown(cppi_ch);
