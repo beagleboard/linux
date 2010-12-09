@@ -1677,6 +1677,11 @@ struct alc_pincfg {
 	u32 val;
 };
 
+struct alc_model_fixup {
+	const int id;
+	const char *name;
+};
+
 struct alc_fixup {
 	unsigned int sku;
 	const struct alc_pincfg *pins;
@@ -1685,23 +1690,19 @@ struct alc_fixup {
 		     int pre_init);
 };
 
-static void alc_pick_fixup(struct hda_codec *codec,
-			   const struct snd_pci_quirk *quirk,
-			   const struct alc_fixup *fix,
-			   int pre_init)
+static void __alc_pick_fixup(struct hda_codec *codec,
+			     const struct alc_fixup *fix,
+			     const char *modelname,
+			     int pre_init)
 {
 	const struct alc_pincfg *cfg;
 	struct alc_spec *spec;
 
-	quirk = snd_pci_quirk_lookup(codec->bus->pci, quirk);
-	if (!quirk)
-		return;
-	fix += quirk->value;
 	cfg = fix->pins;
 	if (pre_init && fix->sku) {
 #ifdef CONFIG_SND_DEBUG_VERBOSE
 		snd_printdd(KERN_INFO "hda_codec: %s: Apply sku override for %s\n",
-			    codec->chip_name, quirk->name);
+			    codec->chip_name, modelname);
 #endif
 		spec = codec->spec;
 		spec->cdefine.sku_cfg = fix->sku;
@@ -1710,7 +1711,7 @@ static void alc_pick_fixup(struct hda_codec *codec,
 	if (pre_init && cfg) {
 #ifdef CONFIG_SND_DEBUG_VERBOSE
 		snd_printdd(KERN_INFO "hda_codec: %s: Apply pincfg for %s\n",
-			    codec->chip_name, quirk->name);
+			    codec->chip_name, modelname);
 #endif
 		for (; cfg->nid; cfg++)
 			snd_hda_codec_set_pincfg(codec, cfg->nid, cfg->val);
@@ -1718,16 +1719,52 @@ static void alc_pick_fixup(struct hda_codec *codec,
 	if (!pre_init && fix->verbs) {
 #ifdef CONFIG_SND_DEBUG_VERBOSE
 		snd_printdd(KERN_INFO "hda_codec: %s: Apply fix-verbs for %s\n",
-			    codec->chip_name, quirk->name);
+			    codec->chip_name, modelname);
 #endif
 		add_verb(codec->spec, fix->verbs);
 	}
 	if (fix->func) {
 #ifdef CONFIG_SND_DEBUG_VERBOSE
 		snd_printdd(KERN_INFO "hda_codec: %s: Apply fix-func for %s\n",
-			    codec->chip_name, quirk->name);
+			    codec->chip_name, modelname);
 #endif
 		fix->func(codec, fix, pre_init);
+	}
+}
+
+static void alc_pick_fixup(struct hda_codec *codec,
+				 const struct snd_pci_quirk *quirk,
+				 const struct alc_fixup *fix,
+				 int pre_init)
+{
+	quirk = snd_pci_quirk_lookup(codec->bus->pci, quirk);
+	if (quirk) {
+		fix += quirk->value;
+#ifdef CONFIG_SND_DEBUG_VERBOSE
+		__alc_pick_fixup(codec, fix, quirk->name, pre_init);
+#else
+		__alc_pick_fixup(codec, fix, NULL, pre_init);
+#endif
+	}
+}
+
+static void alc_pick_fixup_model(struct hda_codec *codec,
+				 const struct alc_model_fixup *models,
+				 const struct snd_pci_quirk *quirk,
+				 const struct alc_fixup *fix,
+				 int pre_init)
+{
+	if (codec->modelname && models) {
+		while (models->name) {
+			if (!strcmp(codec->modelname, models->name)) {
+				fix += models->id;
+				break;
+			}
+			models++;
+		}
+		__alc_pick_fixup(codec, fix, codec->modelname, pre_init);
+	} else {
+		alc_pick_fixup(codec, quirk, fix, pre_init);
 	}
 }
 
@@ -19295,9 +19332,21 @@ static void alc662_auto_init(struct hda_codec *codec)
 		alc_inithook(codec);
 }
 
+static void alc272_fixup_mario(struct hda_codec *codec,
+			       const struct alc_fixup *fix, int pre_init) {
+	if (snd_hda_override_amp_caps(codec, 0x2, HDA_OUTPUT,
+				      (0x3b << AC_AMPCAP_OFFSET_SHIFT) |
+				      (0x3b << AC_AMPCAP_NUM_STEPS_SHIFT) |
+				      (0x03 << AC_AMPCAP_STEP_SIZE_SHIFT) |
+				      (0 << AC_AMPCAP_MUTE_SHIFT)))
+		printk(KERN_WARNING
+		       "hda_codec: failed to override amp caps for NID 0x2\n");
+}
+
 enum {
 	ALC662_FIXUP_ASPIRE,
 	ALC662_FIXUP_IDEAPAD,
+	ALC272_FIXUP_MARIO,
 };
 
 static const struct alc_fixup alc662_fixups[] = {
@@ -19313,6 +19362,9 @@ static const struct alc_fixup alc662_fixups[] = {
 			{ }
 		}
 	},
+	[ALC272_FIXUP_MARIO] = {
+		.func = alc272_fixup_mario,
+	}
 };
 
 static struct snd_pci_quirk alc662_fixup_tbl[] = {
@@ -19323,6 +19375,10 @@ static struct snd_pci_quirk alc662_fixup_tbl[] = {
 	{}
 };
 
+static const struct alc_model_fixup alc662_fixup_models[] = {
+	{.id = ALC272_FIXUP_MARIO, .name = "mario"},
+	{}
+};
 
 
 static int patch_alc662(struct hda_codec *codec)
@@ -19422,7 +19478,8 @@ static int patch_alc662(struct hda_codec *codec)
 	codec->patch_ops = alc_patch_ops;
 	if (board_config == ALC662_AUTO) {
 		spec->init_hook = alc662_auto_init;
-		alc_pick_fixup(codec, alc662_fixup_tbl, alc662_fixups, 0);
+		alc_pick_fixup_model(codec, alc662_fixup_models,
+				     alc662_fixup_tbl, alc662_fixups, 0);
 	}
 
 	alc_init_jacks(codec);
