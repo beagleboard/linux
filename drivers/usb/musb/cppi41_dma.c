@@ -120,6 +120,7 @@ struct cppi41 {
 	struct cppi41_queue_obj queue_obj; /* Teardown completion queue */
 					/* object */
 	u32 pkt_info;			/* Tx PD Packet Information field */
+	struct usb_cppi41_info *cppi_info; /* cppi channel information */
 };
 
 struct usb_cppi41_info usb_cppi41_info;
@@ -173,8 +174,10 @@ static int __devinit cppi41_controller_start(struct dma_controller *controller)
 	struct usb_pkt_desc *curr_pd;
 	unsigned long pd_addr;
 	int i;
+	struct usb_cppi41_info *cppi_info;
 
 	cppi = container_of(controller, struct cppi41, controller);
+	cppi_info = cppi->cppi_info;
 
 	/*
 	 * TODO: We may need to check USB_CPPI41_MAX_PD here since CPPI 4.1
@@ -196,7 +199,7 @@ static int __devinit cppi41_controller_start(struct dma_controller *controller)
 		DBG(1, "ERROR: packet descriptor memory allocation failed\n");
 		return 0;
 	}
-	if (cppi41_mem_rgn_alloc(usb_cppi41_info.q_mgr, cppi->pd_mem_phys,
+	if (cppi41_mem_rgn_alloc(cppi_info->q_mgr, cppi->pd_mem_phys,
 				 USB_CPPI41_DESC_SIZE_SHIFT,
 				 get_count_order(USB_CPPI41_MAX_PD),
 				 &cppi->pd_mem_rgn)) {
@@ -249,8 +252,8 @@ static int __devinit cppi41_controller_start(struct dma_controller *controller)
 		 * Extract the CPPI 4.1 DMA Tx channel configuration and
 		 * construct/store the Tx PD tag info field for later use...
 		 */
-		tx_info = cppi41_dma_block[usb_cppi41_info.dma_block].tx_ch_info
-			  + usb_cppi41_info.ep_dma_ch[i];
+		tx_info = cppi41_dma_block[cppi_info->dma_block].tx_ch_info
+			  + cppi_info->ep_dma_ch[i];
 		cppi_ch->src_queue = tx_info->tx_queue[0];
 		cppi_ch->tag_info = (tx_info->port_num <<
 				     CPPI41_SRC_TAG_PORT_NUM_SHIFT) |
@@ -271,8 +274,8 @@ static int __devinit cppi41_controller_start(struct dma_controller *controller)
 	/* Construct/store Tx PD packet info field for later use */
 	cppi->pkt_info = (CPPI41_PKT_TYPE_USB << CPPI41_PKT_TYPE_SHIFT) |
 			 (CPPI41_RETURN_LINKED << CPPI41_RETURN_POLICY_SHIFT) |
-			 (usb_cppi41_info.q_mgr << CPPI41_RETURN_QMGR_SHIFT) |
-			 (usb_cppi41_info.tx_comp_q[0] <<
+			 (cppi_info->q_mgr << CPPI41_RETURN_QMGR_SHIFT) |
+			 (cppi_info->tx_comp_q[0] <<
 			  CPPI41_RETURN_QNUM_SHIFT);
 
 	/* Do necessary configuartion in hardware to get started */
@@ -292,7 +295,7 @@ static int __devinit cppi41_controller_start(struct dma_controller *controller)
 		DBG(1, "ERROR: failed to free teardown completion queue\n");
 
  free_mem_rgn:
-	if (cppi41_mem_rgn_free(usb_cppi41_info.q_mgr, cppi->pd_mem_rgn))
+	if (cppi41_mem_rgn_free(cppi_info->q_mgr, cppi->pd_mem_rgn))
 		DBG(1, "ERROR: failed to free queue manager memory region\n");
 
  free_pds:
@@ -313,8 +316,10 @@ static int cppi41_controller_stop(struct dma_controller *controller)
 {
 	struct cppi41 *cppi;
 	void __iomem *reg_base;
+	struct usb_cppi41_info *cppi_info;
 
 	cppi = container_of(controller, struct cppi41, controller);
+	cppi_info = cppi->cppi_info;
 
 	/*
 	 * pop all the teardwon descriptor queued to tdQueue
@@ -322,14 +327,14 @@ static int cppi41_controller_stop(struct dma_controller *controller)
 	cppi41_free_teardown_queue(0);
 
 	/* Free the teardown completion queue */
-	if (cppi41_queue_free(usb_cppi41_info.q_mgr, cppi->teardownQNum))
+	if (cppi41_queue_free(cppi_info->q_mgr, cppi->teardownQNum))
 		DBG(1, "ERROR: failed to free teardown completion queue\n");
 
 	/*
 	 * Free the packet descriptor region allocated
 	 * for all Tx/Rx channels.
 	 */
-	if (cppi41_mem_rgn_free(usb_cppi41_info.q_mgr, cppi->pd_mem_rgn))
+	if (cppi41_mem_rgn_free(cppi_info->q_mgr, cppi->pd_mem_rgn))
 		DBG(1, "ERROR: failed to free queue manager memory region\n");
 
 	dma_free_coherent(cppi->musb->controller,
@@ -365,8 +370,10 @@ static struct dma_channel *cppi41_channel_alloc(struct dma_controller
 	struct cppi41 *cppi;
 	struct cppi41_channel  *cppi_ch;
 	u32 ch_num, ep_num = ep->epnum;
+	struct usb_cppi41_info *cppi_info;
 
 	cppi = container_of(controller, struct cppi41, controller);
+	cppi_info = cppi->cppi_info;
 
 	/* Remember, ep_num: 1 .. Max_EP, and CPPI ch_num: 0 .. Max_EP - 1 */
 	ch_num = ep_num - 1;
@@ -383,8 +390,8 @@ static struct dma_channel *cppi41_channel_alloc(struct dma_controller
 	if (is_tx) {
 		/* Initialize the CPPI 4.1 Tx DMA channel */
 		if (cppi41_tx_ch_init(&cppi_ch->dma_ch_obj,
-				      usb_cppi41_info.dma_block,
-				      usb_cppi41_info.ep_dma_ch[ch_num])) {
+				      cppi_info->dma_block,
+				      cppi_info->ep_dma_ch[ch_num])) {
 			DBG(1, "ERROR: cppi41_tx_ch_init failed for "
 			    "channel %d\n", ch_num);
 			return NULL;
@@ -397,13 +404,13 @@ static struct dma_channel *cppi41_channel_alloc(struct dma_controller
 					    0, cppi->teardownQNum);
 	} else {
 		struct cppi41_rx_ch_cfg rx_cfg;
-		u8 q_mgr = usb_cppi41_info.q_mgr;
+		u8 q_mgr = cppi_info->q_mgr;
 		int i;
 
 		/* Initialize the CPPI 4.1 Rx DMA channel */
 		if (cppi41_rx_ch_init(&cppi_ch->dma_ch_obj,
-				      usb_cppi41_info.dma_block,
-				      usb_cppi41_info.ep_dma_ch[ch_num])) {
+				      cppi_info->dma_block,
+				      cppi_info->ep_dma_ch[ch_num])) {
 			DBG(1, "ERROR: cppi41_rx_ch_init failed\n");
 			return NULL;
 		}
@@ -422,7 +429,7 @@ static struct dma_channel *cppi41_channel_alloc(struct dma_controller
 		rx_cfg.sop_offset = 0;
 		rx_cfg.retry_starved = 1;
 		rx_cfg.rx_queue.q_mgr = cppi_ch->src_queue.q_mgr = q_mgr;
-		rx_cfg.rx_queue.q_num = usb_cppi41_info.rx_comp_q[0];
+		rx_cfg.rx_queue.q_num = cppi_info->rx_comp_q[0];
 		for (i = 0; i < 4; i++)
 			rx_cfg.cfg.host_pkt.fdb_queue[i] = cppi_ch->src_queue;
 		cppi41_rx_ch_configure(&cppi_ch->dma_ch_obj, &rx_cfg);
@@ -878,6 +885,8 @@ static int usb_check_teardown(struct cppi41_channel *cppi_ch,
 			      unsigned long pd_addr)
 {
 	u32 info;
+	struct cppi41 *cppi = cppi_ch->channel.private_data;
+	struct usb_cppi41_info *cppi_info = cppi->cppi_info;
 
 	if (cppi41_get_teardown_info(pd_addr, &info)) {
 		DBG(1, "ERROR: not a teardown descriptor\n");
@@ -887,9 +896,9 @@ static int usb_check_teardown(struct cppi41_channel *cppi_ch,
 	if ((info & CPPI41_TEARDOWN_TX_RX_MASK) ==
 	    (!cppi_ch->transmit << CPPI41_TEARDOWN_TX_RX_SHIFT) &&
 	    (info & CPPI41_TEARDOWN_DMA_NUM_MASK) ==
-	    (usb_cppi41_info.dma_block << CPPI41_TEARDOWN_DMA_NUM_SHIFT) &&
+	    (cppi_info->dma_block << CPPI41_TEARDOWN_DMA_NUM_SHIFT) &&
 	    (info & CPPI41_TEARDOWN_CHAN_NUM_MASK) ==
-	    (usb_cppi41_info.ep_dma_ch[cppi_ch->ch_num] <<
+	    (cppi_info->ep_dma_ch[cppi_ch->ch_num] <<
 	     CPPI41_TEARDOWN_CHAN_NUM_SHIFT))
 		return 1;
 
@@ -949,6 +958,7 @@ static void usb_tx_ch_teardown(struct cppi41_channel *tx_ch)
 static void usb_rx_ch_teardown(struct cppi41_channel *rx_ch)
 {
 	struct cppi41 *cppi = rx_ch->channel.private_data;
+	struct usb_cppi41_info *cppi_info = cppi->cppi_info;
 	u32 timeout = 0xfffff;
 
 	cppi41_dma_ch_default_queue(&rx_ch->dma_ch_obj, 0, cppi->teardownQNum);
@@ -1003,8 +1013,8 @@ static void usb_rx_ch_teardown(struct cppi41_channel *rx_ch)
 	} while (0);
 
 	/* Now restore the default Rx completion queue... */
-	cppi41_dma_ch_default_queue(&rx_ch->dma_ch_obj, usb_cppi41_info.q_mgr,
-				    usb_cppi41_info.rx_comp_q[0]);
+	cppi41_dma_ch_default_queue(&rx_ch->dma_ch_obj, cppi_info->q_mgr,
+				    cppi_info->rx_comp_q[0]);
 }
 
 /*
@@ -1168,6 +1178,7 @@ cppi41_dma_controller_create(struct musb  *musb, void __iomem *mregs)
 	cppi->controller.channel_release = cppi41_channel_release;
 	cppi->controller.channel_program = cppi41_channel_program;
 	cppi->controller.channel_abort = cppi41_channel_abort;
+	cppi->cppi_info = &usb_cppi41_info;
 
 	return &cppi->controller;
 }
@@ -1193,9 +1204,10 @@ static void usb_process_tx_queue(struct cppi41 *cppi, unsigned index)
 {
 	struct cppi41_queue_obj tx_queue_obj;
 	unsigned long pd_addr;
+	struct usb_cppi41_info *cppi_info = cppi->cppi_info;
 
-	if (cppi41_queue_init(&tx_queue_obj, usb_cppi41_info.q_mgr,
-			      usb_cppi41_info.tx_comp_q[index])) {
+	if (cppi41_queue_init(&tx_queue_obj, cppi_info->q_mgr,
+			      cppi_info->tx_comp_q[index])) {
 		DBG(1, "ERROR: cppi41_queue_init failed for "
 		    "Tx completion queue");
 		return;
@@ -1252,9 +1264,10 @@ static void usb_process_rx_queue(struct cppi41 *cppi, unsigned index)
 {
 	struct cppi41_queue_obj rx_queue_obj;
 	unsigned long pd_addr;
+	struct usb_cppi41_info *cppi_info = cppi->cppi_info;
 
-	if (cppi41_queue_init(&rx_queue_obj, usb_cppi41_info.q_mgr,
-			      usb_cppi41_info.rx_comp_q[index])) {
+	if (cppi41_queue_init(&rx_queue_obj, cppi_info->q_mgr,
+			      cppi_info->rx_comp_q[index])) {
 		DBG(1, "ERROR: cppi41_queue_init failed for Rx queue\n");
 		return;
 	}
