@@ -148,7 +148,6 @@ static void __init rm680_init_irq(void)
 	sdrc_params = nokia_get_sdram_timings();
 	omap2_init_common_hw(sdrc_params, sdrc_params);
 	omap_init_irq();
-	omap_gpio_init();
 }
 
 #ifdef CONFIG_OMAP_MUX
