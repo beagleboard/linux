@@ -1021,10 +1021,6 @@ static void xen_reboot(int reason)
 {
 	struct sched_shutdown r = { .reason = reason };
 
-#ifdef CONFIG_SMP
-	stop_other_cpus();
-#endif
-
 	if (HYPERVISOR_sched_op(SCHEDOP_shutdown, &r))
 		BUG();
 }
@@ -1199,8 +1195,6 @@ asmlinkage void __init xen_start_kernel(void)
 
 	/* Allocate and initialize top and mid mfn levels for p2m structure */
 	xen_build_mfn_list_list();
-
-	init_mm.pgd = pgd;
 
 	/* keep using Xen gdt for now; no urgent need to change it */
 
