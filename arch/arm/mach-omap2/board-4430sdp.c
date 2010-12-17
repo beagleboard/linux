@@ -35,6 +35,7 @@
 #include <plat/usb.h>
 #include <plat/mmc.h>
 
+#include "mux.h"
 #include "hsmmc.h"
 #include "timer-gp.h"
 #include "control.h"
@@ -222,7 +223,6 @@ static void __init omap_4430sdp_init_irq(void)
 	omap2_gp_clockevent_set_gptimer(1);
 #endif
 	gic_init_irq();
-	omap_gpio_init();
 }
 
 static struct omap_musb_board_data musb_board_data = {
@@ -505,9 +505,22 @@ static void __init omap_sfh7741prox_init(void)
 	}
 }
 
+#ifdef CONFIG_OMAP_MUX
+static struct omap_board_mux board_mux[] __initdata = {
+	{ .reg_offset = OMAP_MUX_TERMINATOR },
+};
+#else
+#define board_mux	NULL
+#endif
+
 static void __init omap_4430sdp_init(void)
 {
 	int status;
+	int package = OMAP_PACKAGE_CBS;
+
+	if (omap_rev() == OMAP4430_REV_ES1_0)
+		package = OMAP_PACKAGE_CBL;
+	omap4_mux_init(board_mux, package);
 
 	omap4_i2c_init();
 	omap_sfh7741prox_init();

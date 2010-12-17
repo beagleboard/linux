@@ -85,6 +85,12 @@ config OMAP_PACKAGE_CUS
 config OMAP_PACKAGE_CBP
        bool
 
+config OMAP_PACKAGE_CBL
+       bool
+
+config OMAP_PACKAGE_CBS
+       bool
+
 comment "OMAP Board Type"
 	depends on ARCH_OMAP2PLUS
 
@@ -128,7 +134,6 @@ config MACH_DEVKIT8000
 	depends on ARCH_OMAP3
 	default y
 	select OMAP_PACKAGE_CUS
-	select OMAP_MUX
 
 config MACH_OMAP_LDP
 	bool "OMAP3 LDP board"
@@ -174,6 +179,11 @@ config MACH_OMAP3517EVM
 	default y
 	select OMAP_PACKAGE_CBB
 
+config MACH_CRANEBOARD
+	bool "AM3517/05 CRANE board"
+	depends on ARCH_OMAP3
+	select OMAP_PACKAGE_CBB
+
 config MACH_OMAP3_PANDORA
 	bool "OMAP3 Pandora"
 	depends on ARCH_OMAP3
@@ -210,6 +220,12 @@ config MACH_NOKIA_N8X0
 	select MACH_NOKIA_N810
 	select MACH_NOKIA_N810_WIMAX
 
+config MACH_NOKIA_RM680
+	bool "Nokia RM-680 board"
+	depends on ARCH_OMAP3
+	default y
+	select OMAP_PACKAGE_CBB
+
 config MACH_NOKIA_RX51
 	bool "Nokia RX-51 board"
 	depends on ARCH_OMAP3
@@ -239,14 +255,12 @@ config MACH_CM_T35
 	depends on ARCH_OMAP3
 	default y
 	select OMAP_PACKAGE_CUS
-	select OMAP_MUX
 
 config MACH_CM_T3517
 	bool "CompuLab CM-T3517 module"
 	depends on ARCH_OMAP3
 	default y
 	select OMAP_PACKAGE_CBB
-	select OMAP_MUX
 
 config MACH_IGEP0020
 	bool "IGEP v2 board"
@@ -265,7 +279,6 @@ config MACH_SBC3530
 	depends on ARCH_OMAP3
 	default y
 	select OMAP_PACKAGE_CUS
-	select OMAP_MUX
 
 config MACH_OMAP_3630SDP
 	bool "OMAP3630 SDP board"
@@ -277,11 +290,15 @@ config MACH_OMAP_4430SDP
 	bool "OMAP 4430 SDP board"
 	default y
 	depends on ARCH_OMAP4
+	select OMAP_PACKAGE_CBL
+	select OMAP_PACKAGE_CBS
 
 config MACH_OMAP4_PANDA
 	bool "OMAP4 Panda Board"
 	default y
 	depends on ARCH_OMAP4
+	select OMAP_PACKAGE_CBL
+	select OMAP_PACKAGE_CBS
 
 config OMAP3_EMU
 	bool "OMAP3 debugging peripherals"
