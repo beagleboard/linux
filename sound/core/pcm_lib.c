@@ -1092,8 +1092,10 @@ int snd_pcm_hw_rule_add(struct snd_pcm_runtime *runtime, unsigned int cond,
 		struct snd_pcm_hw_rule *new;
 		unsigned int new_rules = constrs->rules_all + 16;
 		new = kcalloc(new_rules, sizeof(*c), GFP_KERNEL);
-		if (!new)
+		if (!new) {
+			va_end(args);
 			return -ENOMEM;
+		}
 		if (constrs->rules) {
 			memcpy(new, constrs->rules,
 			       constrs->rules_num * sizeof(*c));
@@ -1109,8 +1111,10 @@ int snd_pcm_hw_rule_add(struct snd_pcm_runtime *runtime, unsigned int cond,
 	c->private = private;
 	k = 0;
 	while (1) {
-		if (snd_BUG_ON(k >= ARRAY_SIZE(c->deps)))
+		if (snd_BUG_ON(k >= ARRAY_SIZE(c->deps))) {
+			va_end(args);
 			return -EINVAL;
+		}
 		c->deps[k++] = dep;
 		if (dep < 0)
 			break;
@@ -1119,7 +1123,7 @@ int snd_pcm_hw_rule_add(struct snd_pcm_runtime *runtime, unsigned int cond,
 	constrs->rules_num++;
 	va_end(args);
 	return 0;
-}				    
+}
 
 EXPORT_SYMBOL(snd_pcm_hw_rule_add);
 
