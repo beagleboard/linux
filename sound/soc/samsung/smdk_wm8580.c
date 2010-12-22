@@ -212,7 +212,7 @@ static struct snd_soc_dai_link smdk_dai[] = {
 	[PRI_PLAYBACK] = { /* Primary Playback i/f */
 		.name = "WM8580 PAIF RX",
 		.stream_name = "Playback",
-		.cpu_dai_name = "samsung-i2s.2",
+		.cpu_dai_name = "samsung-i2s.0",
 		.codec_dai_name = "wm8580-hifi-playback",
 		.platform_name = "samsung-audio",
 		.codec_name = "wm8580-codec.0-001b",
@@ -222,7 +222,7 @@ static struct snd_soc_dai_link smdk_dai[] = {
 	[PRI_CAPTURE] = { /* Primary Capture i/f */
 		.name = "WM8580 PAIF TX",
 		.stream_name = "Capture",
-		.cpu_dai_name = "samsung-i2s.2",
+		.cpu_dai_name = "samsung-i2s.0",
 		.codec_dai_name = "wm8580-hifi-capture",
 		.platform_name = "samsung-audio",
 		.codec_name = "wm8580-codec.0-001b",
@@ -254,16 +254,17 @@ static int __init smdk_audio_init(void)
 	int ret;
 	char *str;
 
-	if (machine_is_smdkc100()) {
+	if (machine_is_smdkc100() || machine_is_smdk6442()
+			|| machine_is_smdkv210() || machine_is_smdkc110()) {
 		smdk.num_links = 3;
-		/* S5PC100 has I2S0 as v5 */
-		str = (char *)smdk_dai[PRI_PLAYBACK].cpu_dai_name;
-		str[strlen(str) - 1] = '0';
-		str = (char *)smdk_dai[PRI_CAPTURE].cpu_dai_name;
-		str[strlen(str) - 1] = '0';
 		/* Secondary is at offset SAMSUNG_I2S_SECOFF from Primary */
 		str = (char *)smdk_dai[SEC_PLAYBACK].cpu_dai_name;
 		str[strlen(str) - 1] = '0' + SAMSUNG_I2S_SECOFF;
+	} else if (machine_is_smdk6410()) {
+		str = (char *)smdk_dai[PRI_PLAYBACK].cpu_dai_name;
+		str[strlen(str) - 1] = '2';
+		str = (char *)smdk_dai[PRI_CAPTURE].cpu_dai_name;
+		str[strlen(str) - 1] = '2';
 	}
 
 	smdk_snd_device = platform_device_alloc("soc-audio", -1);

@@ -1427,6 +1427,7 @@ static int soc_probe_codec(struct snd_soc_card *card,
 	/* mark codec as probed and add to card codec list */
 	codec->probed = 1;
 	list_add(&codec->card_list, &card->codec_dev_list);
+	list_add(&codec->dapm.list, &card->dapm_list);
 
 	return ret;
 }
@@ -1879,6 +1880,9 @@ static int soc_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&card->dai_dev_list);
 	INIT_LIST_HEAD(&card->codec_dev_list);
 	INIT_LIST_HEAD(&card->platform_dev_list);
+	INIT_LIST_HEAD(&card->widgets);
+	INIT_LIST_HEAD(&card->paths);
+	INIT_LIST_HEAD(&card->dapm_list);
 
 	soc_init_card_debugfs(card);
 
@@ -3480,8 +3484,6 @@ int snd_soc_register_codec(struct device *dev,
 	else
 		codec->compress_type = SND_SOC_FLAT_COMPRESSION;
 
-	INIT_LIST_HEAD(&codec->dapm.widgets);
-	INIT_LIST_HEAD(&codec->dapm.paths);
 	codec->write = codec_drv->write;
 	codec->read = codec_drv->read;
 	codec->dapm.bias_level = SND_SOC_BIAS_OFF;
