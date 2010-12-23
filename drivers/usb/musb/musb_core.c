@@ -1411,18 +1411,23 @@ static int __devinit musb_core_init(u16 musb_type, struct musb *musb)
 	for (i = 0; i < musb->nr_endpoints; i++) {
 		struct musb_hw_ep	*hw_ep = musb->endpoints + i;
 
-		hw_ep->fifo = MUSB_FIFO_OFFSET(i) + mbase;
-#if defined(CONFIG_USB_MUSB_TUSB6010) || defined (CONFIG_USB_MUSB_TUSB6010_MODULE)
-		hw_ep->fifo_async = musb->async + 0x400 + MUSB_FIFO_OFFSET(i);
-		hw_ep->fifo_sync = musb->sync + 0x400 + MUSB_FIFO_OFFSET(i);
-		hw_ep->fifo_sync_va =
-			musb->sync_va + 0x400 + MUSB_FIFO_OFFSET(i);
+		if (musb->ops->flags & MUSB_GLUE_TUSB_STYLE) {
+			hw_ep->fifo = MUSB_TUSB_FIFO_OFFSET(i) + mbase;
+			hw_ep->fifo_async = musb->async +
+					0x400 + MUSB_TUSB_FIFO_OFFSET(i);
+			hw_ep->fifo_sync = musb->sync +
+					0x400 + MUSB_TUSB_FIFO_OFFSET(i);
+			hw_ep->fifo_sync_va = musb->sync_va + 0x400 +
+					MUSB_TUSB_FIFO_OFFSET(i);
 
-		if (i == 0)
-			hw_ep->conf = mbase - 0x400 + TUSB_EP0_CONF;
-		else
-			hw_ep->conf = mbase + 0x400 + (((i - 1) & 0xf) << 2);
-#endif
+			if (i == 0)
+				hw_ep->conf = mbase - 0x400 + TUSB_EP0_CONF;
+			else
+				hw_ep->conf = mbase + 0x400 +
+						(((i - 1) & 0xf) << 2);
+		} else {
+			hw_ep->fifo = MUSB_FIFO_OFFSET(i) + mbase;
+		}
 
 		hw_ep->regs = MUSB_EP_OFFSET(i, 0) + mbase;
 		hw_ep->target_regs = musb_read_target_reg_base(i, mbase);

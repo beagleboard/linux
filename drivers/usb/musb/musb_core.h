@@ -203,6 +203,8 @@ enum musb_g_ep0_state {
 
 /******************************** TYPES *************************************/
 
+#define     MUSB_GLUE_TUSB_STYLE   0x0001
+
 /**
  * struct musb_platform_ops - Operations passed to musb_core by HW glue layer
  * @fifo_mode: which fifo_mode is taken by me
@@ -253,10 +255,8 @@ struct musb_hw_ep {
 	void __iomem		*fifo;
 	void __iomem		*regs;
 
-#if defined(CONFIG_USB_MUSB_TUSB6010) || \
-	defined(CONFIG_USB_MUSB_TUSB6010_MODULE)
+	/*Fixme: the following field is only used by tusb*/
 	void __iomem		*conf;
-#endif
 
 	/* index in musb->endpoints[]  */
 	u8			epnum;
@@ -271,13 +271,13 @@ struct musb_hw_ep {
 	struct dma_channel	*tx_channel;
 	struct dma_channel	*rx_channel;
 
-#if defined(CONFIG_USB_MUSB_TUSB6010) || \
-	defined(CONFIG_USB_MUSB_TUSB6010_MODULE)
-	/* TUSB has "asynchronous" and "synchronous" dma modes */
+	/*
+	 * TUSB has "asynchronous" and "synchronous" dma modes
+	 * Fixme: the following three fields are only valid for TUSB.
+	 * */
 	dma_addr_t		fifo_async;
 	dma_addr_t		fifo_sync;
 	void __iomem		*fifo_sync_va;
-#endif
 
 	void __iomem		*target_regs;
 
@@ -372,12 +372,10 @@ struct musb {
 	void __iomem		*ctrl_base;
 	void __iomem		*mregs;
 
-#if defined(CONFIG_USB_MUSB_TUSB6010) || \
-	defined(CONFIG_USB_MUSB_TUSB6010_MODULE)
+	/*Fixme: the three fields below are only used by tusb*/
 	dma_addr_t		async;
 	dma_addr_t		sync;
 	void __iomem		*sync_va;
-#endif
 
 	/* passed down from chip/board specific irq handlers */
 	u8			int_usb;
