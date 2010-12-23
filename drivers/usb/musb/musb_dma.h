@@ -68,6 +68,18 @@ struct musb_hw_ep;
 #define	is_dma_capable()	(0)
 #endif
 
+#ifdef CONFIG_USB_UX500_DMA
+#define	is_ux500_dma(musb)	(musb->ops->flags & MUSB_GLUE_DMA_UX500)
+#else
+#define	is_ux500_dma(musb)	0
+#endif
+
+#ifdef CONFIG_USB_INVENTRA_DMA
+#define	is_inventra_dma()	1
+#else
+#define	is_inventra_dma()	0
+#endif
+
 #ifdef CONFIG_USB_TI_CPPI_DMA
 #define	is_cppi_enabled()	1
 #else
