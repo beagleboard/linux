@@ -1929,6 +1929,8 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 		musb_writeb = __musb_writeb;
 	}
 
+	dev_info(dev, "dma type: %s\n", get_dma_name(musb));
+
 	/* The musb_platform_init() call:
 	 *   - adjusts musb->mregs and musb->isr if needed,
 	 *   - may initialize an integrated tranceiver

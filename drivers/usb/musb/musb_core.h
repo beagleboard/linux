@@ -614,4 +614,20 @@ static inline u16 musb_platform_get_hw_revision(struct musb *musb)
 	return musb->ops->get_hw_revision(musb);
 }
 
+static inline const char *get_dma_name(struct musb *musb)
+{
+#ifdef CONFIG_MUSB_PIO_ONLY
+	return "pio";
+#else
+	if (musb->ops->flags & MUSB_GLUE_DMA_INVENTRA)
+		return "dma-inventra";
+	else if (musb->ops->flags & MUSB_GLUE_DMA_CPPI)
+		return "dma-cppi3";
+	else if (musb->ops->flags & MUSB_GLUE_DMA_TUSB)
+		return "dma-tusb-omap";
+	else
+		return "?dma?";
+#endif
+}
+
 #endif	/* __MUSB_CORE_H__ */
