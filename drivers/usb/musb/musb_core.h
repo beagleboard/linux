@@ -173,15 +173,8 @@ enum musb_g_ep0_state {
 #define	MUSB_FLAT_REG
 #endif
 
-/* TUSB mapping: "flat" plus ep0 special cases */
-#if defined(CONFIG_USB_MUSB_TUSB6010) || \
-	defined(CONFIG_USB_MUSB_TUSB6010_MODULE)
-#define musb_ep_select(_mbase, _epnum) \
-	musb_writeb((_mbase), MUSB_INDEX, (_epnum))
-#define	MUSB_EP_OFFSET			MUSB_TUSB_OFFSET
-
 /* "flat" mapping: each endpoint has its own i/o address */
-#elif	defined(MUSB_FLAT_REG)
+#ifdef	MUSB_FLAT_REG
 #define musb_ep_select(_mbase, _epnum)	(((void)(_mbase)), ((void)(_epnum)))
 #define	MUSB_EP_OFFSET			MUSB_FLAT_OFFSET
 
