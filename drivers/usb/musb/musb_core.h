@@ -207,6 +207,8 @@ enum musb_g_ep0_state {
  * struct musb_platform_ops - Operations passed to musb_core by HW glue layer
  * @init:	turns on clocks, sets up platform-specific registers, etc
  * @exit:	undoes @init
+ * @read_fifo: read data from musb fifo in PIO
+ * @write_fifo: write data into musb fifo in PIO
  * @set_mode:	forcefully changes operating mode
  * @try_ilde:	tries to idle the IP
  * @get_hw_revision: get hardware revision
@@ -220,6 +222,9 @@ struct musb_platform_ops {
 
 	void	(*enable)(struct musb *musb);
 	void	(*disable)(struct musb *musb);
+
+	void (*read_fifo)(struct musb_hw_ep *hw_ep, u16 len, u8 *buf);
+	void (*write_fifo)(struct musb_hw_ep *hw_ep, u16 len, const u8 *buf);
 
 	int	(*set_mode)(struct musb *musb, u8 mode);
 	void	(*try_idle)(struct musb *musb, unsigned long timeout);
