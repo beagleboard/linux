@@ -615,36 +615,36 @@ static bool musb_tx_dma_program(struct dma_controller *dma,
 	u16			csr;
 	u8			mode;
 
-#ifdef	CONFIG_USB_INVENTRA_DMA
-	if (length > channel->max_len)
-		length = channel->max_len;
+	if (is_inventra_dma()) {
+		if (length > channel->max_len)
+			length = channel->max_len;
 
-	csr = musb_readw(epio, MUSB_TXCSR);
-	if (length > pkt_size) {
-		mode = 1;
-		csr |= MUSB_TXCSR_DMAMODE | MUSB_TXCSR_DMAENAB;
-		/* autoset shouldn't be set in high bandwidth */
-		if (qh->hb_mult == 1)
-			csr |= MUSB_TXCSR_AUTOSET;
+		csr = musb_readw(epio, MUSB_TXCSR);
+		if (length > pkt_size) {
+			mode = 1;
+			csr |= MUSB_TXCSR_DMAMODE | MUSB_TXCSR_DMAENAB;
+			/* autoset shouldn't be set in high bandwidth */
+			if (qh->hb_mult == 1)
+				csr |= MUSB_TXCSR_AUTOSET;
+		} else {
+			mode = 0;
+			csr &= ~(MUSB_TXCSR_AUTOSET | MUSB_TXCSR_DMAMODE);
+			csr |= MUSB_TXCSR_DMAENAB; /* against progrmr's guide */
+		}
+		channel->desired_mode = mode;
+		musb_writew(epio, MUSB_TXCSR, csr);
 	} else {
-		mode = 0;
-		csr &= ~(MUSB_TXCSR_AUTOSET | MUSB_TXCSR_DMAMODE);
-		csr |= MUSB_TXCSR_DMAENAB; /* against programmer's guide */
+		if (!is_cppi_enabled() && !tusb_dma_omap())
+			return false;
+
+		channel->actual_len = 0;
+
+		/*
+		 * TX uses "RNDIS" mode automatically but needs help
+		 * to identify the zero-length-final-packet case.
+		 */
+		mode = (urb->transfer_flags & URB_ZERO_PACKET) ? 1 : 0;
 	}
-	channel->desired_mode = mode;
-	musb_writew(epio, MUSB_TXCSR, csr);
-#else
-	if (!is_cppi_enabled() && !tusb_dma_omap())
-		return false;
-
-	channel->actual_len = 0;
-
-	/*
-	 * TX uses "RNDIS" mode automatically but needs help
-	 * to identify the zero-length-final-packet case.
-	 */
-	mode = (urb->transfer_flags & URB_ZERO_PACKET) ? 1 : 0;
-#endif
 
 	qh->segsize = length;
 
@@ -1529,8 +1529,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 
 	/* FIXME this is _way_ too much in-line logic for Mentor DMA */
 
-#ifndef CONFIG_USB_INVENTRA_DMA
-	if (rx_csr & MUSB_RXCSR_H_REQPKT)  {
+	if (!is_inventra_dma() && (rx_csr & MUSB_RXCSR_H_REQPKT))  {
 		/* REVISIT this happened for a while on some short reads...
 		 * the cleanup still needs investigation... looks bad...
 		 * and also duplicates dma cleanup code above ... plus,
@@ -1551,7 +1550,6 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 		musb_writew(epio, MUSB_RXCSR,
 				MUSB_RXCSR_H_WZC_BITS | rx_csr);
 	}
-#endif
 	if (dma && (rx_csr & MUSB_RXCSR_DMAENAB)) {
 		xfer_len = dma->actual_len;
 
@@ -1561,45 +1559,47 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 			| MUSB_RXCSR_RXPKTRDY);
 		musb_writew(hw_ep->regs, MUSB_RXCSR, val);
 
-#ifdef CONFIG_USB_INVENTRA_DMA
-		if (usb_pipeisoc(pipe)) {
-			struct usb_iso_packet_descriptor *d;
+		if (is_inventra_dma()) {
+			if (usb_pipeisoc(pipe)) {
+				struct usb_iso_packet_descriptor *d;
 
-			d = urb->iso_frame_desc + qh->iso_idx;
-			d->actual_length = xfer_len;
+				d = urb->iso_frame_desc + qh->iso_idx;
+				d->actual_length = xfer_len;
 
-			/* even if there was an error, we did the dma
-			 * for iso_frame_desc->length
-			 */
-			if (d->status != -EILSEQ && d->status != -EOVERFLOW)
-				d->status = 0;
+				/* even if there was an error, we did the dma
+				 * for iso_frame_desc->length
+				 */
+				if (d->status != -EILSEQ
+					&& d->status != -EOVERFLOW)
+					d->status = 0;
 
-			if (++qh->iso_idx >= urb->number_of_packets)
-				done = true;
-			else
-				done = false;
+				if (++qh->iso_idx >= urb->number_of_packets)
+					done = true;
+				else
+					done = false;
 
-		} else  {
-		/* done if urb buffer is full or short packet is recd */
-		done = (urb->actual_length + xfer_len >=
-				urb->transfer_buffer_length
-			|| dma->actual_len < qh->maxpacket);
+			} else  {
+			/* done if urb buffer is full or short packet is recd */
+			done = (urb->actual_length + xfer_len >=
+					urb->transfer_buffer_length
+				|| dma->actual_len < qh->maxpacket);
+			}
+
+			/* send IN token for next packet, without AUTOREQ */
+			if (!done) {
+				val |= MUSB_RXCSR_H_REQPKT;
+				musb_writew(epio, MUSB_RXCSR,
+					MUSB_RXCSR_H_WZC_BITS | val);
+			}
+
+			dev_dbg(musb->controller,
+			"ep %d dma %s, rxcsr %04x, rxcount %d\n", epnum,
+				done ? "off" : "reset",
+				musb_readw(epio, MUSB_RXCSR),
+				musb_readw(epio, MUSB_RXCOUNT));
+		} else {
+			done = true;
 		}
-
-		/* send IN token for next packet, without AUTOREQ */
-		if (!done) {
-			val |= MUSB_RXCSR_H_REQPKT;
-			musb_writew(epio, MUSB_RXCSR,
-				MUSB_RXCSR_H_WZC_BITS | val);
-		}
-
-		dev_dbg(musb->controller, "ep %d dma %s, rxcsr %04x, rxcount %d\n", epnum,
-			done ? "off" : "reset",
-			musb_readw(epio, MUSB_RXCSR),
-			musb_readw(epio, MUSB_RXCOUNT));
-#else
-		done = true;
-#endif
 	} else if (urb->status == -EINPROGRESS) {
 		/* if no errors, be sure a packet is ready for unloading */
 		if (unlikely(!(rx_csr & MUSB_RXCSR_RXPKTRDY))) {
@@ -1617,8 +1617,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 		}
 
 		/* we are expecting IN packets */
-#ifdef CONFIG_USB_INVENTRA_DMA
-		if (dma) {
+		if (is_inventra_dma() && dma) {
 			struct dma_controller	*c;
 			u16			rx_count;
 			int			ret, length;
@@ -1731,7 +1730,6 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 				/* REVISIT reset CSR */
 			}
 		}
-#endif	/* Mentor DMA */
 
 		if (!dma) {
 			/* Unmap the buffer so that CPU can use it */
