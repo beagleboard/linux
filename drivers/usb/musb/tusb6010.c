@@ -40,11 +40,11 @@ static void tusb_musb_set_vbus(struct musb *musb, int is_on);
  * Checks the revision. We need to use the DMA register as 3.0 does not
  * have correct versions for TUSB_PRCM_REV or TUSB_INT_CTRL_REV.
  */
-u8 tusb_get_revision(struct musb *musb)
+static u16 tusb_get_revision(struct musb *musb)
 {
 	void __iomem	*tbase = musb->ctrl_base;
 	u32		die_id;
-	u8		rev;
+	u16		rev;
 
 	rev = musb_readl(tbase, TUSB_DMA_CTRL_REV) & 0xff;
 	if (TUSB_REV_MAJOR(rev) == 3) {
@@ -61,7 +61,7 @@ EXPORT_SYMBOL_GPL(tusb_get_revision);
 static int tusb_print_revision(struct musb *musb)
 {
 	void __iomem	*tbase = musb->ctrl_base;
-	u8		rev;
+	u16		rev;
 
 	rev = tusb_get_revision(musb);
 
@@ -1158,6 +1158,8 @@ static const struct musb_platform_ops tusb_ops = {
 
 	.set_mode	= tusb_musb_set_mode,
 	.try_idle	= tusb_musb_try_idle,
+
+	.get_hw_revision	= tusb_get_revision,
 
 	.vbus_status	= tusb_musb_vbus_status,
 	.set_vbus	= tusb_musb_set_vbus,

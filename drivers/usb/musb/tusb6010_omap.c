@@ -697,7 +697,7 @@ dma_controller_create(struct musb *musb, void __iomem *base)
 	tusb_dma->controller.channel_program = tusb_omap_dma_program;
 	tusb_dma->controller.channel_abort = tusb_omap_dma_abort;
 
-	if (tusb_get_revision(musb) >= TUSB_REV_30)
+	if (musb_platform_get_hw_revision(musb) >= TUSB_REV_30)
 		tusb_dma->multichannel = 1;
 
 	for (i = 0; i < MAX_DMAREQ; i++) {

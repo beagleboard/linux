@@ -12,8 +12,6 @@
 #ifndef __TUSB6010_H__
 #define __TUSB6010_H__
 
-extern u8 tusb_get_revision(struct musb *musb);
-
 #ifdef CONFIG_USB_TUSB6010
 #define musb_in_tusb()			1
 #else

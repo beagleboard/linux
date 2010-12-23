@@ -209,6 +209,7 @@ enum musb_g_ep0_state {
  * @exit:	undoes @init
  * @set_mode:	forcefully changes operating mode
  * @try_ilde:	tries to idle the IP
+ * @get_hw_revision: get hardware revision
  * @vbus_status: returns vbus status if possible
  * @set_vbus:	forces vbus status
  * @adjust_channel_params: pre check for standard dma channel_program func
@@ -222,6 +223,8 @@ struct musb_platform_ops {
 
 	int	(*set_mode)(struct musb *musb, u8 mode);
 	void	(*try_idle)(struct musb *musb, unsigned long timeout);
+
+	u16  (*get_hw_revision)(struct musb *musb);
 
 	int	(*vbus_status)(struct musb *musb);
 	void	(*set_vbus)(struct musb *musb, int on);
@@ -601,6 +604,14 @@ static inline int musb_platform_exit(struct musb *musb)
 		return -EINVAL;
 
 	return musb->ops->exit(musb);
+}
+
+static inline u16 musb_platform_get_hw_revision(struct musb *musb)
+{
+	if (!musb->ops->get_hw_revision)
+		return musb_readw(musb->mregs, MUSB_HWVERS);
+
+	return musb->ops->get_hw_revision(musb);
 }
 
 #endif	/* __MUSB_CORE_H__ */
