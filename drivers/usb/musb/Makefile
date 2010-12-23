@@ -11,13 +11,13 @@ musb_hdrc-y					+= musb_virthub.o musb_host.o
 musb_hdrc-$(CONFIG_DEBUG_FS)			+= musb_debugfs.o
 
 # Hardware Glue Layer
-obj-$(CONFIG_USB_MUSB_OMAP2PLUS)		+= omap2430.o
-obj-$(CONFIG_USB_MUSB_AM35X)			+= am35x.o
-obj-$(CONFIG_USB_MUSB_TUSB6010)			+= tusb6010.o
-obj-$(CONFIG_USB_MUSB_DAVINCI)			+= davinci.o
-obj-$(CONFIG_USB_MUSB_DA8XX)			+= da8xx.o
-obj-$(CONFIG_USB_MUSB_BLACKFIN)			+= blackfin.o
-obj-$(CONFIG_USB_MUSB_UX500)			+= ux500.o
+obj-$(CONFIG_USB_MUSB_OMAP2PLUS_GLUE)		+= omap2430.o
+obj-$(CONFIG_USB_MUSB_AM35X_GLUE)			+= am35x.o
+obj-$(CONFIG_USB_MUSB_TUSB6010_GLUE)		+= tusb6010.o
+obj-$(CONFIG_USB_MUSB_DAVINCI_GLUE)			+= davinci.o
+obj-$(CONFIG_USB_MUSB_DA8XX_GLUE)			+= da8xx.o
+obj-$(CONFIG_USB_MUSB_BLACKFIN_GLUE)		+= blackfin.o
+obj-$(CONFIG_USB_MUSB_UX500_GLUE)			+= ux500.o
 
 # the kconfig must guarantee that only one of the
 # possible I/O schemes will be enabled at a time ...
