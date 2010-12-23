@@ -249,6 +249,7 @@ void musb_write_fifo(struct musb_hw_ep *hw_ep, u16 len, const u8 *src)
 		writesb(fifo, src, len);
 	}
 }
+EXPORT_SYMBOL_GPL(musb_write_fifo);
 
 #if !defined(CONFIG_USB_MUSB_AM35X)
 /*
@@ -289,6 +290,7 @@ void musb_read_fifo(struct musb_hw_ep *hw_ep, u16 len, u8 *dst)
 		readsb(fifo, dst, len);
 	}
 }
+EXPORT_SYMBOL_GPL(musb_read_fifo);
 #endif
 
 #endif	/* normal PIO */
@@ -1298,7 +1300,6 @@ done:
 
 	return 0;
 }
-
 
 /*
  * ep_config_from_hw - when MUSB_C_DYNFIFO_DEF is false
