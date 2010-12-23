@@ -1008,12 +1008,12 @@ static void musb_shutdown(struct platform_device *pdev)
 	|| defined(CONFIG_USB_MUSB_OMAP2PLUS_MODULE)	\
 	|| defined(CONFIG_USB_MUSB_AM35X)		\
 	|| defined(CONFIG_USB_MUSB_AM35X_MODULE)
-static ushort __initdata fifo_mode = 4;
+static ushort __devinitdata fifo_mode = 4;
 #elif defined(CONFIG_USB_MUSB_UX500)			\
 	|| defined(CONFIG_USB_MUSB_UX500_MODULE)
-static ushort __initdata fifo_mode = 5;
+static ushort __devinitdata fifo_mode = 5;
 #else
-static ushort __initdata fifo_mode = 2;
+static ushort __devinitdata fifo_mode = 2;
 #endif
 
 /* "modprobe ... fifo_mode=1" etc */
@@ -1026,7 +1026,7 @@ MODULE_PARM_DESC(fifo_mode, "initial endpoint configuration");
  */
 
 /* mode 0 - fits in 2KB */
-static struct musb_fifo_cfg __initdata mode_0_cfg[] = {
+static struct musb_fifo_cfg __devinitdata mode_0_cfg[] = {
 { .hw_ep_num = 1, .style = FIFO_TX,   .maxpacket = 512, },
 { .hw_ep_num = 1, .style = FIFO_RX,   .maxpacket = 512, },
 { .hw_ep_num = 2, .style = FIFO_RXTX, .maxpacket = 512, },
@@ -1035,7 +1035,7 @@ static struct musb_fifo_cfg __initdata mode_0_cfg[] = {
 };
 
 /* mode 1 - fits in 4KB */
-static struct musb_fifo_cfg __initdata mode_1_cfg[] = {
+static struct musb_fifo_cfg __devinitdata mode_1_cfg[] = {
 { .hw_ep_num = 1, .style = FIFO_TX,   .maxpacket = 512, .mode = BUF_DOUBLE, },
 { .hw_ep_num = 1, .style = FIFO_RX,   .maxpacket = 512, .mode = BUF_DOUBLE, },
 { .hw_ep_num = 2, .style = FIFO_RXTX, .maxpacket = 512, .mode = BUF_DOUBLE, },
@@ -1044,7 +1044,7 @@ static struct musb_fifo_cfg __initdata mode_1_cfg[] = {
 };
 
 /* mode 2 - fits in 4KB */
-static struct musb_fifo_cfg __initdata mode_2_cfg[] = {
+static struct musb_fifo_cfg __devinitdata mode_2_cfg[] = {
 { .hw_ep_num = 1, .style = FIFO_TX,   .maxpacket = 512, },
 { .hw_ep_num = 1, .style = FIFO_RX,   .maxpacket = 512, },
 { .hw_ep_num = 2, .style = FIFO_TX,   .maxpacket = 512, },
@@ -1054,7 +1054,7 @@ static struct musb_fifo_cfg __initdata mode_2_cfg[] = {
 };
 
 /* mode 3 - fits in 4KB */
-static struct musb_fifo_cfg __initdata mode_3_cfg[] = {
+static struct musb_fifo_cfg __devinitdata mode_3_cfg[] = {
 { .hw_ep_num = 1, .style = FIFO_TX,   .maxpacket = 512, .mode = BUF_DOUBLE, },
 { .hw_ep_num = 1, .style = FIFO_RX,   .maxpacket = 512, .mode = BUF_DOUBLE, },
 { .hw_ep_num = 2, .style = FIFO_TX,   .maxpacket = 512, },
@@ -1064,7 +1064,7 @@ static struct musb_fifo_cfg __initdata mode_3_cfg[] = {
 };
 
 /* mode 4 - fits in 16KB */
-static struct musb_fifo_cfg __initdata mode_4_cfg[] = {
+static struct musb_fifo_cfg __devinitdata mode_4_cfg[] = {
 { .hw_ep_num =  1, .style = FIFO_TX,   .maxpacket = 512, },
 { .hw_ep_num =  1, .style = FIFO_RX,   .maxpacket = 512, },
 { .hw_ep_num =  2, .style = FIFO_TX,   .maxpacket = 512, },
@@ -1095,7 +1095,7 @@ static struct musb_fifo_cfg __initdata mode_4_cfg[] = {
 };
 
 /* mode 5 - fits in 8KB */
-static struct musb_fifo_cfg __initdata mode_5_cfg[] = {
+static struct musb_fifo_cfg __devinitdata mode_5_cfg[] = {
 { .hw_ep_num =  1, .style = FIFO_TX,   .maxpacket = 512, },
 { .hw_ep_num =  1, .style = FIFO_RX,   .maxpacket = 512, },
 { .hw_ep_num =  2, .style = FIFO_TX,   .maxpacket = 512, },
@@ -1131,7 +1131,7 @@ static struct musb_fifo_cfg __initdata mode_5_cfg[] = {
  *
  * returns negative errno or offset for next fifo.
  */
-static int __init
+static int __devinit
 fifo_setup(struct musb *musb, struct musb_hw_ep  *hw_ep,
 		const struct musb_fifo_cfg *cfg, u16 offset)
 {
@@ -1202,11 +1202,11 @@ fifo_setup(struct musb *musb, struct musb_hw_ep  *hw_ep,
 	return offset + (maxpacket << ((c_size & MUSB_FIFOSZ_DPB) ? 1 : 0));
 }
 
-static struct musb_fifo_cfg __initdata ep0_cfg = {
+static struct musb_fifo_cfg __devinitdata ep0_cfg = {
 	.style = FIFO_RXTX, .maxpacket = 64,
 };
 
-static int __init ep_config_from_table(struct musb *musb)
+static int __devinit ep_config_from_table(struct musb *musb)
 {
 	const struct musb_fifo_cfg	*cfg;
 	unsigned		i, n;
@@ -1296,7 +1296,7 @@ done:
  * ep_config_from_hw - when MUSB_C_DYNFIFO_DEF is false
  * @param musb the controller
  */
-static int __init ep_config_from_hw(struct musb *musb)
+static int __devinit ep_config_from_hw(struct musb *musb)
 {
 	u8 epnum = 0;
 	struct musb_hw_ep *hw_ep;
@@ -1343,7 +1343,7 @@ enum { MUSB_CONTROLLER_MHDRC, MUSB_CONTROLLER_HDRC, };
 /* Initialize MUSB (M)HDRC part of the USB hardware subsystem;
  * configure endpoints, or take their config from silicon
  */
-static int __init musb_core_init(u16 musb_type, struct musb *musb)
+static int __devinit musb_core_init(u16 musb_type, struct musb *musb)
 {
 	u8 reg;
 	char *type;
@@ -1579,7 +1579,7 @@ irqreturn_t musb_interrupt(struct musb *musb)
 EXPORT_SYMBOL_GPL(musb_interrupt);
 
 #ifndef CONFIG_MUSB_PIO_ONLY
-static int __initdata use_dma = 1;
+static int __devinitdata use_dma = 1;
 
 /* "modprobe ... use_dma=0" etc */
 module_param(use_dma, bool, 0);
@@ -1767,7 +1767,7 @@ static void musb_irq_work(struct work_struct *data)
  * Init support
  */
 
-static struct musb *__init
+static struct musb *__devinit
 allocate_instance(struct device *dev,
 		struct musb_hdrc_config *config, void __iomem *mbase)
 {
@@ -1845,7 +1845,7 @@ static void musb_free(struct musb *musb)
  * @mregs: virtual address of controller registers,
  *	not yet corrected for platform-specific offsets
  */
-static int __init
+static int __devinit
 musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 {
 	int			status;
@@ -2065,7 +2065,7 @@ fail0:
 static u64	*orig_dma_mask;
 #endif
 
-static int __init musb_probe(struct platform_device *pdev)
+static int __devinit musb_probe(struct platform_device *pdev)
 {
 	struct device	*dev = &pdev->dev;
 	int		irq = platform_get_irq_byname(pdev, "mc");
@@ -2356,6 +2356,7 @@ static struct platform_driver musb_driver = {
 		.owner		= THIS_MODULE,
 		.pm		= MUSB_DEV_PM_OPS,
 	},
+	.probe      = musb_probe,
 	.remove		= __exit_p(musb_remove),
 	.shutdown	= musb_shutdown,
 };
@@ -2372,7 +2373,7 @@ static int __init musb_init(void)
 		", "
 		"otg (peripheral+host)",
 		musb_driver_name);
-	return platform_driver_probe(&musb_driver, musb_probe);
+	return platform_driver_register(&musb_driver);
 }
 
 /* make us init after usbcore and i2c (transceivers, regulators, etc)
