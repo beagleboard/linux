@@ -501,6 +501,7 @@ static int davinci_musb_exit(struct musb *musb)
 }
 
 static const struct musb_platform_ops davinci_ops = {
+	.fifo_mode	= 2,
 	.init		= davinci_musb_init,
 	.exit		= davinci_musb_exit,
 

@@ -54,6 +54,7 @@ static int ux500_musb_exit(struct musb *musb)
 }
 
 static const struct musb_platform_ops ux500_ops = {
+	.fifo_mode	= 5,
 	.init		= ux500_musb_init,
 	.exit		= ux500_musb_exit,
 };

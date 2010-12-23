@@ -394,6 +394,7 @@ static int omap2430_musb_exit(struct musb *musb)
 }
 
 static const struct musb_platform_ops omap2430_ops = {
+	.fifo_mode	= 4,
 	.init		= omap2430_musb_init,
 	.exit		= omap2430_musb_exit,
 
