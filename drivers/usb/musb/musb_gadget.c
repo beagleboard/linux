@@ -978,7 +978,7 @@ void musb_g_rx(struct musb *musb, u8 epnum)
 			csr = musb_readw(epio, MUSB_RXCSR);
 			if ((csr & MUSB_RXCSR_RXPKTRDY) &&
 				hw_ep->rx_double_buffered)
-				goto exit;
+				rxstate(musb, to_musb_request(request));
 			return;
 		}
 #endif
@@ -988,10 +988,6 @@ void musb_g_rx(struct musb *musb, u8 epnum)
 		if (!req)
 			return;
 	}
-#if defined(CONFIG_USB_INVENTRA_DMA) || defined(CONFIG_USB_TUSB_OMAP_DMA) || \
-	defined(CONFIG_USB_UX500_DMA)
-exit:
-#endif
 	/* Analyze request */
 	rxstate(musb, req);
 }
