@@ -1633,7 +1633,7 @@ void musb_dma_completion(struct musb *musb, u8 epnum, u8 transmit)
 	/* called with controller lock already held */
 
 	if (!epnum) {
-		if (!tusb_dma_omap(musb) && !is_cppi_enabled()) {
+		if (!tusb_dma_omap(musb) && !is_cppi_enabled(musb)) {
 			/* endpoint 0 */
 			if (devctl & MUSB_DEVCTL_HM)
 				musb_h_ep0_irq(musb);

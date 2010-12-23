@@ -178,7 +178,7 @@ static inline void musb_h_tx_dma_start(struct musb_hw_ep *ep)
 	/* NOTE: no locks here; caller should lock and select EP */
 	txcsr = musb_readw(ep->regs, MUSB_TXCSR);
 	txcsr |= MUSB_TXCSR_DMAENAB | MUSB_TXCSR_H_WZC_BITS;
-	if (is_cppi_enabled())
+	if (is_cppi_enabled(ep->musb))
 		txcsr |= MUSB_TXCSR_DMAMODE;
 	musb_writew(ep->regs, MUSB_TXCSR, txcsr);
 }
@@ -292,7 +292,7 @@ start:
 
 		if (!hw_ep->tx_channel)
 			musb_h_tx_start(hw_ep);
-		else if (is_cppi_enabled() || tusb_dma_omap(musb))
+		else if (is_cppi_enabled(musb) || tusb_dma_omap(musb))
 			musb_h_tx_dma_start(hw_ep);
 	}
 }
@@ -634,7 +634,8 @@ static bool musb_tx_dma_program(struct dma_controller *dma,
 		channel->desired_mode = mode;
 		musb_writew(epio, MUSB_TXCSR, csr);
 	} else {
-		if (!is_cppi_enabled() && !tusb_dma_omap(hw_ep->musb))
+		if (!is_cppi_enabled(hw_ep->musb) &&
+			!tusb_dma_omap(hw_ep->musb))
 			return false;
 
 		channel->actual_len = 0;
@@ -840,7 +841,8 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 
 		/* kick things off */
 
-		if ((is_cppi_enabled() || tusb_dma_omap(musb)) && dma_channel) {
+		if ((is_cppi_enabled(musb) || tusb_dma_omap(musb))
+			&& dma_channel) {
 			/* Candidate for DMA */
 			dma_channel->actual_len = 0L;
 			qh->segsize = len;
@@ -1298,7 +1300,7 @@ void musb_host_tx(struct musb *musb, u8 epnum)
 	} else if ((usb_pipeisoc(pipe) || transfer_pending) && dma) {
 		if (musb_tx_dma_program(musb->dma_controller, hw_ep, qh, urb,
 				offset, length)) {
-			if (is_cppi_enabled() || tusb_dma_omap(musb))
+			if (is_cppi_enabled(musb) || tusb_dma_omap(musb))
 				musb_h_tx_dma_start(hw_ep);
 			return;
 		}
