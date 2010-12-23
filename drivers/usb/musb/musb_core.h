@@ -175,12 +175,13 @@ enum musb_g_ep0_state {
 
 /* "flat" mapping: each endpoint has its own i/o address */
 #ifdef	MUSB_FLAT_REG
-#define musb_ep_select(_mbase, _epnum)	(((void)(_mbase)), ((void)(_epnum)))
+#define musb_ep_select(_musb, _mbase, _epnum)	\
+	(((void)(_mbase)), ((void)(_epnum)))
 #define	MUSB_EP_OFFSET			MUSB_FLAT_OFFSET
 
 /* "indexed" mapping: INDEX register controls register bank select */
 #else
-#define musb_ep_select(_mbase, _epnum) \
+#define musb_ep_select(_musb, _mbase, _epnum) \
 	musb_writeb((_mbase), MUSB_INDEX, (_epnum))
 #define	MUSB_EP_OFFSET			MUSB_INDEXED_OFFSET
 #endif
@@ -504,7 +505,7 @@ static inline int musb_read_fifosize(struct musb *musb,
 	u8 reg = 0;
 
 	/* read from core using indexed model */
-	reg = musb_readb(mbase, MUSB_EP_OFFSET(epnum, MUSB_FIFOSIZE));
+	reg = musb_readb(mbase, MUSB_EP_OFFSET(musb, epnum, MUSB_FIFOSIZE));
 	/* 0's returned when no more endpoints */
 	if (!reg)
 		return -ENODEV;

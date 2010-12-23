@@ -211,7 +211,7 @@ static void tusb_omap_dma_cb(int lch, u16 ch_status, void *data)
 
 		if (chdat->tx) {
 			dev_dbg(musb->controller, "terminating short tx packet\n");
-			musb_ep_select(mbase, chdat->epnum);
+			musb_ep_select(musb, mbase, chdat->epnum);
 			csr = musb_readw(hw_ep->regs, MUSB_TXCSR);
 			csr |= MUSB_TXCSR_MODE | MUSB_TXCSR_TXPKTRDY
 				| MUSB_TXCSR_P_WZC_BITS;
@@ -386,14 +386,14 @@ static int tusb_omap_dma_program(struct dma_channel *channel, u16 packet_sz,
 	 * Prepare MUSB for DMA transfer
 	 */
 	if (chdat->tx) {
-		musb_ep_select(mbase, chdat->epnum);
+		musb_ep_select(musb, mbase, chdat->epnum);
 		csr = musb_readw(hw_ep->regs, MUSB_TXCSR);
 		csr |= (MUSB_TXCSR_AUTOSET | MUSB_TXCSR_DMAENAB
 			| MUSB_TXCSR_DMAMODE | MUSB_TXCSR_MODE);
 		csr &= ~MUSB_TXCSR_P_UNDERRUN;
 		musb_writew(hw_ep->regs, MUSB_TXCSR, csr);
 	} else {
-		musb_ep_select(mbase, chdat->epnum);
+		musb_ep_select(musb, mbase, chdat->epnum);
 		csr = musb_readw(hw_ep->regs, MUSB_RXCSR);
 		csr |= MUSB_RXCSR_DMAENAB;
 		csr &= ~(MUSB_RXCSR_AUTOCLEAR | MUSB_RXCSR_DMAMODE);

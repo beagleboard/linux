@@ -285,11 +285,11 @@
 #define MUSB_CONFIGDATA		MUSB_FIFOSIZE	/* Re-used for EP0 */
 
 /* Offsets to endpoint registers in indexed model (using INDEX register) */
-#define MUSB_INDEXED_OFFSET(_epnum, _offset)	\
+#define MUSB_INDEXED_OFFSET(_musb, _epnum, _offset)	\
 	(0x10 + (_offset))
 
 /* Offsets to endpoint registers in flat models */
-#define MUSB_FLAT_OFFSET(_epnum, _offset)	\
+#define MUSB_FLAT_OFFSET(_musb, _epnum, _offset)	\
 	(0x100 + (0x10*(_epnum)) + (_offset))
 
 #include "tusb6010.h"		/* Needed "only" for TUSB_EP0_CONF */
@@ -496,11 +496,11 @@ static inline u8  musb_read_txhubport(void __iomem *mbase, u8 epnum)
 #define MUSB_TXCOUNT		0x28
 
 /* Offsets to endpoint registers in indexed model (using INDEX register) */
-#define MUSB_INDEXED_OFFSET(_epnum, _offset)	\
+#define MUSB_INDEXED_OFFSET(_musb, _epnum, _offset)	\
 	(0x40 + (_offset))
 
 /* Offsets to endpoint registers in flat models */
-#define MUSB_FLAT_OFFSET(_epnum, _offset)	\
+#define MUSB_FLAT_OFFSET(_musb, _epnum, _offset)	\
 	(USB_OFFSET(USB_EP_NI0_TXMAXP) + (0x40 * (_epnum)) + (_offset))
 
 /* Not implemented - HW has separate Tx/Rx FIFO */
