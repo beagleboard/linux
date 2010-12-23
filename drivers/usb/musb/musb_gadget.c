@@ -276,8 +276,6 @@ static inline int max_ep_writesize(struct musb *musb, struct musb_ep *ep)
 }
 
 
-#ifdef CONFIG_USB_INVENTRA_DMA
-
 /* Peripheral tx (IN) using Mentor DMA works as follows:
 	Only mode 0 is used for transfers <= wPktSize,
 	mode 1 is used for larger transfers,
@@ -307,8 +305,6 @@ static inline int max_ep_writesize(struct musb *musb, struct musb_ep *ep)
  * Non-Mentor DMA engines can of course work differently, such as by
  * upleveling from irq-per-packet to irq-per-buffer.
  */
-
-#endif
 
 /*
  * An endpoint is transmitting data. This can be called either from
@@ -588,8 +584,6 @@ void musb_g_tx(struct musb *musb, u8 epnum)
 
 /* ------------------------------------------------------------ */
 
-#ifdef CONFIG_USB_INVENTRA_DMA
-
 /* Peripheral rx (OUT) using Mentor DMA works as follows:
 	- Only mode 0 is used.
 
@@ -616,8 +610,6 @@ void musb_g_tx(struct musb *musb, u8 epnum)
 
  * Non-Mentor DMA engines can of course work differently.
  */
-
-#endif
 
 /*
  * Context: controller locked, IRQs blocked, endpoint selected
