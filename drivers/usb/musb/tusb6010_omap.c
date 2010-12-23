@@ -178,12 +178,12 @@ static void tusb_omap_dma_cb(int lch, u16 ch_status, void *data)
 			dma_unmap_single(dev, chdat->dma_addr,
 						chdat->transfer_len,
 						DMA_TO_DEVICE);
-			musb_write_fifo(hw_ep, pio, buf);
+			musb->ops->write_fifo(hw_ep, pio, buf);
 		} else {
 			dma_unmap_single(dev, chdat->dma_addr,
 						chdat->transfer_len,
 						DMA_FROM_DEVICE);
-			musb_read_fifo(hw_ep, pio, buf);
+			musb->ops->read_fifo(hw_ep, pio, buf);
 		}
 		channel->actual_len += pio;
 	}

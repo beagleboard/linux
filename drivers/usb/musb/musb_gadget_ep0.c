@@ -151,7 +151,7 @@ static int service_tx_status_request(
 
 		if (len > 2)
 			len = 2;
-		musb_write_fifo(&musb->endpoints[0], len, result);
+		musb->ops->write_fifo(&musb->endpoints[0], len, result);
 	}
 
 	return handled;
@@ -505,7 +505,7 @@ static void ep0_rxstate(struct musb *musb)
 			req->status = -EOVERFLOW;
 			count = len;
 		}
-		musb_read_fifo(&musb->endpoints[0], count, buf);
+		musb->ops->read_fifo(&musb->endpoints[0], count, buf);
 		req->actual += count;
 		csr = MUSB_CSR0_P_SVDRXPKTRDY;
 		if (count < 64 || req->actual == req->length) {
@@ -558,7 +558,7 @@ static void ep0_txstate(struct musb *musb)
 	fifo_src = (u8 *) request->buf + request->actual;
 	fifo_count = min((unsigned) MUSB_EP0_FIFOSIZE,
 		request->length - request->actual);
-	musb_write_fifo(&musb->endpoints[0], fifo_count, fifo_src);
+	musb->ops->write_fifo(&musb->endpoints[0], fifo_count, fifo_src);
 	request->actual += fifo_count;
 
 	/* update the flags */
@@ -600,7 +600,7 @@ musb_read_setup(struct musb *musb, struct usb_ctrlrequest *req)
 	struct musb_request	*r;
 	void __iomem		*regs = musb->control_ep->regs;
 
-	musb_read_fifo(&musb->endpoints[0], sizeof *req, (u8 *)req);
+	musb->ops->read_fifo(&musb->endpoints[0], sizeof *req, (u8 *)req);
 
 	/* NOTE:  earlier 2.6 versions changed setup packets to host
 	 * order, but now USB packets always stay in USB byte order.

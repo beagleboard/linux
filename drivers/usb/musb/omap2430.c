@@ -397,6 +397,9 @@ static const struct musb_platform_ops omap2430_ops = {
 	.init		= omap2430_musb_init,
 	.exit		= omap2430_musb_exit,
 
+	.read_fifo      = musb_read_fifo,
+	.write_fifo     = musb_write_fifo,
+
 	.set_mode	= omap2430_musb_set_mode,
 	.try_idle	= omap2430_musb_try_idle,
 

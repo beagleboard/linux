@@ -474,6 +474,9 @@ static const struct musb_platform_ops da8xx_ops = {
 	.try_idle	= da8xx_musb_try_idle,
 
 	.set_vbus	= da8xx_musb_set_vbus,
+
+	.read_fifo	= musb_read_fifo,
+	.write_fifo	= musb_write_fifo,
 };
 
 static u64 da8xx_dmamask = DMA_BIT_MASK(32);

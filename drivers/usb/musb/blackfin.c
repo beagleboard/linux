@@ -34,7 +34,8 @@ struct bfin_glue {
 /*
  * Load an endpoint's FIFO
  */
-void musb_write_fifo(struct musb_hw_ep *hw_ep, u16 len, const u8 *src)
+static void bfin_musb_write_fifo(struct musb_hw_ep *hw_ep, u16 len,
+				const u8 *src)
 {
 	struct musb *musb = hw_ep->musb;
 	void __iomem *fifo = hw_ep->fifo;
@@ -98,7 +99,7 @@ void musb_write_fifo(struct musb_hw_ep *hw_ep, u16 len, const u8 *src)
 /*
  * Unload an endpoint's FIFO
  */
-void musb_read_fifo(struct musb_hw_ep *hw_ep, u16 len, u8 *dst)
+static void bfin_musb_read_fifo(struct musb_hw_ep *hw_ep, u16 len, u8 *dst)
 {
 	struct musb *musb = hw_ep->musb;
 	void __iomem *fifo = hw_ep->fifo;
@@ -451,6 +452,9 @@ static const struct musb_platform_ops bfin_ops = {
 
 	.enable		= bfin_musb_enable,
 	.disable	= bfin_musb_disable,
+
+	.read_fifo      = bfin_musb_read_fifo,
+	.write_fifo     = bfin_musb_write_fifo,
 
 	.set_mode	= bfin_musb_set_mode,
 	.try_idle	= bfin_musb_try_idle,

@@ -205,10 +205,6 @@ static struct otg_io_access_ops musb_ulpi_access = {
 	.write = musb_ulpi_write,
 };
 
-/*-------------------------------------------------------------------------*/
-
-#if !defined(CONFIG_USB_MUSB_TUSB6010) && !defined(CONFIG_USB_MUSB_BLACKFIN)
-
 /*
  * Load an endpoint's FIFO
  */
@@ -251,7 +247,6 @@ void musb_write_fifo(struct musb_hw_ep *hw_ep, u16 len, const u8 *src)
 }
 EXPORT_SYMBOL_GPL(musb_write_fifo);
 
-#if !defined(CONFIG_USB_MUSB_AM35X)
 /*
  * Unload an endpoint's FIFO
  */
@@ -291,10 +286,6 @@ void musb_read_fifo(struct musb_hw_ep *hw_ep, u16 len, u8 *dst)
 	}
 }
 EXPORT_SYMBOL_GPL(musb_read_fifo);
-#endif
-
-#endif	/* normal PIO */
-
 
 /*-------------------------------------------------------------------------*/
 
@@ -323,7 +314,7 @@ void musb_load_testpacket(struct musb *musb)
 	void __iomem	*regs = musb->endpoints[0].regs;
 
 	musb_ep_select(musb->mregs, 0);
-	musb_write_fifo(musb->control_ep,
+	musb->ops->write_fifo(musb->control_ep,
 			sizeof(musb_test_packet), musb_test_packet);
 	musb_writew(regs, MUSB_CSR0, MUSB_CSR0_TXPKTRDY);
 }

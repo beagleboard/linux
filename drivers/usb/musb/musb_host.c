@@ -517,7 +517,7 @@ musb_host_packet_rx(struct musb *musb, struct urb *urb, u8 epnum, u8 iso_err)
 			urb->status = -EREMOTEIO;
 	}
 
-	musb_read_fifo(hw_ep, length, buf);
+	musb->ops->read_fifo(hw_ep, length, buf);
 
 	csr = musb_readw(epio, MUSB_RXCSR);
 	csr |= MUSB_RXCSR_H_WZC_BITS;
@@ -803,7 +803,7 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 		if (load_count) {
 			/* PIO to load FIFO */
 			qh->segsize = load_count;
-			musb_write_fifo(hw_ep, load_count, buf);
+			musb->ops->write_fifo(hw_ep, load_count, buf);
 		}
 
 		/* re-enable interrupt */
@@ -894,7 +894,7 @@ static bool musb_h_ep0_continue(struct musb *musb, u16 len, struct urb *urb)
 		if (fifo_count < len)
 			urb->status = -EOVERFLOW;
 
-		musb_read_fifo(hw_ep, fifo_count, fifo_dest);
+		musb->ops->read_fifo(hw_ep, fifo_count, fifo_dest);
 
 		urb->actual_length += fifo_count;
 		if (len < qh->maxpacket) {
@@ -933,7 +933,7 @@ static bool musb_h_ep0_continue(struct musb *musb, u16 len, struct urb *urb)
 					fifo_count,
 					(fifo_count == 1) ? "" : "s",
 					fifo_dest);
-			musb_write_fifo(hw_ep, fifo_count, fifo_dest);
+			musb->ops->write_fifo(hw_ep, fifo_count, fifo_dest);
 
 			urb->actual_length += fifo_count;
 			more = true;
@@ -1322,7 +1322,7 @@ void musb_host_tx(struct musb *musb, u8 epnum)
 		length = qh->maxpacket;
 	/* Unmap the buffer so that CPU can use it */
 	usb_hcd_unmap_urb_for_dma(musb_to_hcd(musb), urb);
-	musb_write_fifo(hw_ep, length, urb->transfer_buffer + offset);
+	musb->ops->write_fifo(hw_ep, length, urb->transfer_buffer + offset);
 	qh->segsize = length;
 
 	musb_ep_select(mbase, epnum);

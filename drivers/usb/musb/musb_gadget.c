@@ -461,7 +461,7 @@ static void txstate(struct musb *musb, struct musb_request *req)
 		 */
 		unmap_dma_buffer(req, musb);
 
-		musb_write_fifo(musb_ep->hw_ep, fifo_count,
+		musb->ops->write_fifo(musb_ep->hw_ep, fifo_count,
 				(u8 *) (request->buf + request->actual));
 		request->actual += fifo_count;
 		csr |= MUSB_TXCSR_TXPKTRDY;
@@ -862,7 +862,7 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 				musb_writew(epio, MUSB_RXCSR, csr);
 			}
 
-			musb_read_fifo(musb_ep->hw_ep, fifo_count, (u8 *)
+			musb->ops->read_fifo(musb_ep->hw_ep, fifo_count, (u8 *)
 					(request->buf + request->actual));
 			request->actual += fifo_count;
 

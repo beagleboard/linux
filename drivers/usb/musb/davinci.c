@@ -510,6 +510,9 @@ static const struct musb_platform_ops davinci_ops = {
 	.set_mode	= davinci_musb_set_mode,
 
 	.set_vbus	= davinci_musb_set_vbus,
+
+	.read_fifo	= musb_read_fifo,
+	.write_fifo	= musb_write_fifo,
 };
 
 static u64 davinci_dmamask = DMA_BIT_MASK(32);
