@@ -61,6 +61,9 @@ struct musb_ep;
 #define MUSB_HWVERS_1900	0x784
 #define MUSB_HWVERS_2000	0x800
 
+extern u8 (*musb_readb)(const void __iomem *addr, unsigned offset);
+extern void (*musb_writeb)(void __iomem *addr, unsigned offset, u8 data);
+
 #include "musb_debug.h"
 #include "musb_dma.h"
 

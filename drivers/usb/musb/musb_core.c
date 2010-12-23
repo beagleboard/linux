@@ -120,6 +120,10 @@ MODULE_AUTHOR(DRIVER_AUTHOR);
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("platform:" MUSB_DRIVER_NAME);
 
+u8 (*musb_readb)(const void __iomem *addr, unsigned offset);
+EXPORT_SYMBOL_GPL(musb_readb);
+void (*musb_writeb)(void __iomem *addr, unsigned offset, u8 data);
+EXPORT_SYMBOL_GPL(musb_writeb);
 
 /*-------------------------------------------------------------------------*/
 
@@ -131,6 +135,44 @@ static inline struct musb *dev_to_musb(struct device *dev)
 /*-------------------------------------------------------------------------*/
 
 #ifndef CONFIG_BLACKFIN
+
+/*
+ * TUSB6010 doesn't allow 8-bit access; 16-bit access is the minimum.
+ */
+static inline u8 __tusb_musb_readb(const void __iomem *addr, unsigned offset)
+{
+	u16 tmp;
+	u8 val;
+
+	tmp = __raw_readw(addr + (offset & ~1));
+	if (offset & 1)
+		val = (tmp >> 8);
+	else
+		val = tmp & 0xff;
+
+	return val;
+}
+
+static inline void __tusb_musb_writeb(void __iomem *addr, unsigned offset,
+					u8 data)
+{
+	u16 tmp;
+
+	tmp = __raw_readw(addr + (offset & ~1));
+	if (offset & 1)
+		tmp = (data << 8) | (tmp & 0xff);
+	else
+		tmp = (tmp & 0xff00) | data;
+
+	__raw_writew(tmp, addr + (offset & ~1));
+}
+
+static inline u8 __musb_readb(const void __iomem *addr, unsigned offset)
+	{ return __raw_readb(addr + offset); }
+
+static inline void __musb_writeb(void __iomem *addr, unsigned offset, u8 data)
+	{ __raw_writeb(data, addr + offset); }
+
 static int musb_ulpi_read(struct otg_transceiver *otg, u32 offset)
 {
 	void __iomem *addr = otg->io_priv;
@@ -196,6 +238,12 @@ static int musb_ulpi_write(struct otg_transceiver *otg,
 	return 0;
 }
 #else
+static inline u8 __musb_readb(const void __iomem *addr, unsigned offset)
+	{ return (u8) (bfin_read16(addr + offset)); }
+
+static inline void __musb_writeb(void __iomem *addr, unsigned offset, u8 data)
+	{ bfin_write16(addr + offset, (u16) data); }
+
 #define musb_ulpi_read		NULL
 #define musb_ulpi_write		NULL
 #endif
@@ -1872,6 +1920,14 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 	musb->ops = plat->platform_ops;
 	if (fifo_mode == -1)
 		fifo_mode = musb->ops->fifo_mode;
+
+	if (musb->ops->flags & MUSB_GLUE_TUSB_STYLE) {
+		musb_readb = __tusb_musb_readb;
+		musb_writeb = __tusb_musb_writeb;
+	} else {
+		musb_readb = __musb_readb;
+		musb_writeb = __musb_writeb;
+	}
 
 	/* The musb_platform_init() call:
 	 *   - adjusts musb->mregs and musb->isr if needed,
