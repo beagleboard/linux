@@ -42,7 +42,6 @@
 
 struct wm8940_priv {
 	unsigned int sysclk;
-	u16 reg_cache[WM8940_CACHEREGNUM];
 	enum snd_soc_control_type control_type;
 	void *control_data;
 };
@@ -767,6 +766,7 @@ static __devinit int wm8940_i2c_probe(struct i2c_client *i2c,
 
 	i2c_set_clientdata(i2c, wm8940);
 	wm8940->control_data = i2c;
+	wm8940->control_type = SND_SOC_I2C;
 
 	ret = snd_soc_register_codec(&i2c->dev,
 			&soc_codec_dev_wm8940, &wm8940_dai, 1);

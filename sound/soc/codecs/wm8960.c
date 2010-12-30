@@ -71,7 +71,6 @@ static const u16 wm8960_reg[WM8960_CACHEREGNUM] = {
 };
 
 struct wm8960_priv {
-	u16 reg_cache[WM8960_CACHEREGNUM];
 	enum snd_soc_control_type control_type;
 	void *control_data;
 	int (*set_bias_level)(struct snd_soc_codec *,
@@ -1015,6 +1014,7 @@ static __devinit int wm8960_i2c_probe(struct i2c_client *i2c,
 		return -ENOMEM;
 
 	i2c_set_clientdata(i2c, wm8960);
+	wm8960->control_type = SND_SOC_I2C;
 	wm8960->control_data = i2c;
 
 	ret = snd_soc_register_codec(&i2c->dev,

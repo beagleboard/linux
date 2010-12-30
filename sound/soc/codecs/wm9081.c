@@ -157,7 +157,6 @@ static struct {
 struct wm9081_priv {
 	enum snd_soc_control_type control_type;
 	void *control_data;
-	u16 reg_cache[WM9081_MAX_REGISTER + 1];
 	int sysclk_source;
 	int mclk_rate;
 	int sysclk_rate;
@@ -1339,6 +1338,7 @@ static __devinit int wm9081_i2c_probe(struct i2c_client *i2c,
 		return -ENOMEM;
 
 	i2c_set_clientdata(i2c, wm9081);
+	wm9081->control_type = SND_SOC_I2C;
 	wm9081->control_data = i2c;
 
 	ret = snd_soc_register_codec(&i2c->dev,
