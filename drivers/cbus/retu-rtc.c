@@ -289,6 +289,7 @@ static int __init retu_rtc_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, rtc);
 	INIT_WORK(&rtc->work, retu_rtca_expired);
 	mutex_init(&rtc->mutex);
+	init_completion(&rtc->sync);
 
 	r = retu_get_status();
 	if (!r) {
