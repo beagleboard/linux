@@ -12,6 +12,7 @@
 #include <linux/init.h>
 #include <linux/mutex.h>
 #include <linux/platform_device.h>
+#include <linux/irq.h>
 #include <linux/input.h>
 #include <linux/clk.h>
 #include <linux/omapfb.h>
@@ -36,6 +37,7 @@
 #include <plat/lcd_mipid.h>
 #include <plat/mmc.h>
 #include <plat/clock.h>
+#include <plat/cbus.h>
 
 #define ADS7846_PENDOWN_GPIO	15
 
@@ -54,19 +56,18 @@ static void __init omap_nokia770_init_irq(void)
 	omap_init_irq();
 }
 
-static int nokia770_keymap[] = {
-	KEY(0, 1, GROUP_0 | KEY_UP),
-	KEY(0, 2, GROUP_1 | KEY_F5),
-	KEY(1, 0, GROUP_0 | KEY_LEFT),
+static const unsigned int nokia770_keymap[] = {
+	KEY(1, 0, GROUP_0 | KEY_UP),
+	KEY(2, 0, GROUP_1 | KEY_F5),
+	KEY(0, 1, GROUP_0 | KEY_LEFT),
 	KEY(1, 1, GROUP_0 | KEY_ENTER),
-	KEY(1, 2, GROUP_0 | KEY_RIGHT),
-	KEY(2, 0, GROUP_1 | KEY_ESC),
-	KEY(2, 1, GROUP_0 | KEY_DOWN),
+	KEY(2, 1, GROUP_0 | KEY_RIGHT),
+	KEY(0, 2, GROUP_1 | KEY_ESC),
+	KEY(1, 2, GROUP_0 | KEY_DOWN),
 	KEY(2, 2, GROUP_1 | KEY_F4),
-	KEY(3, 0, GROUP_2 | KEY_F7),
-	KEY(3, 1, GROUP_2 | KEY_F8),
-	KEY(3, 2, GROUP_2 | KEY_F6),
-	0
+	KEY(0, 3, GROUP_2 | KEY_F7),
+	KEY(1, 3, GROUP_2 | KEY_F8),
+	KEY(2, 3, GROUP_2 | KEY_F6),
 };
 
 static struct resource nokia770_kp_resources[] = {
@@ -77,11 +78,15 @@ static struct resource nokia770_kp_resources[] = {
 	},
 };
 
+static const struct matrix_keymap_data nokia770_keymap_data = {
+	.keymap		= nokia770_keymap,
+	.keymap_size	= ARRAY_SIZE(nokia770_keymap),
+};
+
 static struct omap_kp_platform_data nokia770_kp_data = {
 	.rows		= 8,
 	.cols		= 8,
-	.keymap		= nokia770_keymap,
-	.keymapsize	= ARRAY_SIZE(nokia770_keymap),
+	.keymap_data	= &nokia770_keymap_data,
 	.delay		= 4,
 };
 
@@ -94,6 +99,104 @@ static struct platform_device nokia770_kp_device = {
 	.num_resources	= ARRAY_SIZE(nokia770_kp_resources),
 	.resource	= nokia770_kp_resources,
 };
+
+#if defined(CONFIG_CBUS) || defined(CONFIG_CBUS_MODULE)
+
+static struct cbus_host_platform_data nokia770_cbus_data = {
+	.clk_gpio	= OMAP_MPUIO(11),
+	.dat_gpio	= OMAP_MPUIO(10),
+	.sel_gpio	= OMAP_MPUIO(9),
+};
+
+static struct platform_device nokia770_cbus_device = {
+	.name		= "cbus",
+	.id		= -1,
+	.dev		= {
+		.platform_data = &nokia770_cbus_data,
+	},
+};
+
+static struct resource retu_resource[] = {
+	{
+		.start	= -EINVAL, /* set later */
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device retu_device = {
+	.name		= "retu",
+	.id		= -1,
+	.resource	= retu_resource,
+	.num_resources	= ARRAY_SIZE(retu_resource),
+};
+
+static struct resource tahvo_resource[] = {
+	{
+		.start	= -EINVAL, /* set later */
+		.flags	= IORESOURCE_IRQ,
+	}
+};
+
+static struct platform_device tahvo_device = {
+	.name		= "tahvo",
+	.id		= -1,
+	.resource	= tahvo_resource,
+	.num_resources	= ARRAY_SIZE(tahvo_resource),
+};
+
+static struct platform_device tahvo_usb_device = {
+	.name		= "tahvo-usb",
+	.id		= -1,
+};
+
+static void __init nokia770_cbus_init(void)
+{
+	int		ret;
+
+	platform_device_register(&nokia770_cbus_device);
+
+	ret = gpio_request(62, "RETU irq");
+	if (ret < 0) {
+		pr_err("retu: Unable to reserve IRQ GPIO\n");
+		return;
+	}
+
+	ret = gpio_direction_input(62);
+	if (ret < 0) {
+		pr_err("retu: Unable to change gpio direction\n");
+		gpio_free(62);
+		return;
+	}
+
+	set_irq_type(gpio_to_irq(62), IRQ_TYPE_EDGE_RISING);
+	retu_resource[0].start = gpio_to_irq(62);
+	platform_device_register(&retu_device);
+
+	ret = gpio_request(40, "TAHVO irq");
+	if (ret) {
+		pr_err("tahvo: Unable to reserve IRQ GPIO\n");
+		gpio_free(62);
+		return;
+	}
+
+	ret = gpio_direction_input(40);
+	if (ret) {
+		pr_err("tahvo: Unable to change direction\n");
+		gpio_free(62);
+		gpio_free(40);
+		return;
+	}
+
+	tahvo_resource[0].start = gpio_to_irq(40);
+	platform_device_register(&tahvo_device);
+	platform_device_register(&tahvo_usb_device);
+}
+
+#else
+static inline void __init nokia770_cbus_init(void)
+{
+}
+#endif
 
 static struct platform_device *nokia770_devices[] __initdata = {
 	&nokia770_kp_device,
@@ -243,10 +346,10 @@ static inline void nokia770_mmc_init(void)
 
 static void __init omap_nokia770_init(void)
 {
+	nokia770_cbus_init();
 	platform_add_devices(nokia770_devices, ARRAY_SIZE(nokia770_devices));
 	spi_register_board_info(nokia770_spi_board_info,
 				ARRAY_SIZE(nokia770_spi_board_info));
-	omap_gpio_init();
 	omap_serial_init();
 	omap_register_i2c_bus(1, 100, NULL, 0);
 	hwa742_dev_init();

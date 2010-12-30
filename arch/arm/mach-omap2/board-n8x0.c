@@ -15,8 +15,10 @@
 #include <linux/delay.h>
 #include <linux/gpio.h>
 #include <linux/init.h>
+#include <linux/irq.h>
 #include <linux/io.h>
 #include <linux/stddef.h>
+#include <linux/platform_device.h>
 #include <linux/i2c.h>
 #include <linux/spi/spi.h>
 #include <linux/usb/musb.h>
@@ -33,6 +35,7 @@
 #include <plat/onenand.h>
 #include <plat/mmc.h>
 #include <plat/serial.h>
+#include <plat/cbus.h>
 
 #include "mux.h"
 
@@ -184,23 +187,114 @@ static struct mtd_partition onenand_partitions[] = {
 	},
 };
 
-static struct omap_onenand_platform_data board_onenand_data = {
-	.cs		= 0,
-	.gpio_irq	= 26,
-	.parts		= onenand_partitions,
-	.nr_parts	= ARRAY_SIZE(onenand_partitions),
-	.flags		= ONENAND_SYNC_READ,
+static struct omap_onenand_platform_data board_onenand_data[] = {
+	{
+		.cs		= 0,
+		.gpio_irq	= 26,
+		.parts		= onenand_partitions,
+		.nr_parts	= ARRAY_SIZE(onenand_partitions),
+		.flags		= ONENAND_SYNC_READ,
+	}
+};
+#endif
+
+#if defined(CONFIG_CBUS) || defined(CONFIG_CBUS_MODULE)
+
+static struct cbus_host_platform_data n8x0_cbus_data = {
+	.clk_gpio	= 66,
+	.dat_gpio	= 65,
+	.sel_gpio	= 64,
 };
 
-static void __init n8x0_onenand_init(void)
+static struct platform_device n8x0_cbus_device = {
+	.name		= "cbus",
+	.id		= -1,
+	.dev		= {
+		.platform_data = &n8x0_cbus_data,
+	},
+};
+
+static struct resource retu_resource[] = {
+	{
+		.start	= -EINVAL, /* set later */
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device retu_device = {
+	.name		= "retu",
+	.id		= -1,
+	.resource	= retu_resource,
+	.num_resources	= ARRAY_SIZE(retu_resource),
+};
+
+static struct resource tahvo_resource[] = {
+	{
+		.start	= -EINVAL, /* set later */
+		.flags	= IORESOURCE_IRQ,
+	}
+};
+
+static struct platform_device tahvo_device = {
+	.name		= "tahvo",
+	.id		= -1,
+	.resource	= tahvo_resource,
+	.num_resources	= ARRAY_SIZE(tahvo_resource),
+};
+
+static struct platform_device tahvo_usb_device = {
+	.name		= "tahvo-usb",
+	.id		= -1,
+};
+
+static void __init n8x0_cbus_init(void)
 {
-	gpmc_onenand_init(&board_onenand_data);
+	int		ret;
+
+	platform_device_register(&n8x0_cbus_device);
+
+	ret = gpio_request(108, "RETU irq");
+	if (ret < 0) {
+		pr_err("retu: Unable to reserve IRQ GPIO\n");
+		return;
+	}
+
+	ret = gpio_direction_input(108);
+	if (ret < 0) {
+		pr_err("retu: Unable to change gpio direction\n");
+		gpio_free(108);
+		return;
+	}
+
+	set_irq_type(gpio_to_irq(108), IRQ_TYPE_EDGE_RISING);
+	retu_resource[0].start = gpio_to_irq(108);
+	platform_device_register(&retu_device);
+
+	ret = gpio_request(111, "TAHVO irq");
+	if (ret) {
+		pr_err("tahvo: Unable to reserve IRQ GPIO\n");
+		gpio_free(108);
+		return;
+	}
+
+	/* Set the pin as input */
+	ret = gpio_direction_input(111);
+	if (ret) {
+		pr_err("tahvo: Unable to change direction\n");
+		gpio_free(108);
+		gpio_free(111);
+		return;
+	}
+
+	tahvo_resource[0].start = gpio_to_irq(111);
+	platform_device_register(&tahvo_device);
+	platform_device_register(&tahvo_usb_device);
 }
 
 #else
-
-static void __init n8x0_onenand_init(void) {}
-
+static inline void __init n8x0_cbus_init(void)
+{
+}
 #endif
 
 #if defined(CONFIG_MENELAUS) &&						\
@@ -639,9 +733,9 @@ static void __init n8x0_map_io(void)
 
 static void __init n8x0_init_irq(void)
 {
-	omap2_init_common_hw(NULL, NULL);
+	omap2_init_common_infrastructure();
+	omap2_init_common_devices(NULL, NULL);
 	omap_init_irq();
-	omap_gpio_init();
 }
 
 #ifdef CONFIG_OMAP_MUX
@@ -653,13 +747,50 @@ static struct omap_board_mux board_mux[] __initdata = {
 	OMAP2420_MUX(EAC_AC_DOUT, OMAP_MUX_MODE1 | OMAP_PIN_OUTPUT),
 	{ .reg_offset = OMAP_MUX_TERMINATOR },
 };
+
+static struct omap_device_pad serial2_pads[] __initdata = {
+	{
+		.name	= "uart3_rx_irrx.uart3_rx_irrx",
+		.flags	= OMAP_DEVICE_PAD_REMUX | OMAP_DEVICE_PAD_WAKEUP,
+		.enable	= OMAP_MUX_MODE0,
+		.idle	= OMAP_MUX_MODE3	/* Mux as GPIO for idle */
+	},
+};
+
+static inline void board_serial_init(void)
+{
+	struct omap_board_data bdata;
+
+	bdata.flags = 0;
+	bdata.pads = NULL;
+	bdata.pads_cnt = 0;
+
+	bdata.id = 0;
+	omap_serial_init_port(&bdata);
+
+	bdata.id = 1;
+	omap_serial_init_port(&bdata);
+
+	bdata.id = 2;
+	bdata.pads = serial2_pads;
+	bdata.pads_cnt = ARRAY_SIZE(serial2_pads);
+	omap_serial_init_port(&bdata);
+}
+
 #else
-#define board_mux	NULL
+
+static inline void board_serial_init(void)
+{
+	omap_serial_init();
+}
+
 #endif
 
 static void __init n8x0_init_machine(void)
 {
 	omap2420_mux_init(board_mux, OMAP_PACKAGE_ZAC);
+	n8x0_cbus_init();
+
 	/* FIXME: add n810 spi devices */
 	spi_register_board_info(n800_spi_board_info,
 				ARRAY_SIZE(n800_spi_board_info));
@@ -669,9 +800,8 @@ static void __init n8x0_init_machine(void)
 	if (machine_is_nokia_n810())
 		i2c_register_board_info(2, n810_i2c_board_info_2,
 					ARRAY_SIZE(n810_i2c_board_info_2));
-
-	omap_serial_init();
-	n8x0_onenand_init();
+	board_serial_init();
+	gpmc_onenand_init(board_onenand_data);
 	n8x0_mmc_init();
 	n8x0_usb_init();
 }
