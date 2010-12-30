@@ -309,10 +309,9 @@ static int __init retu_rtc_probe(struct platform_device *pdev)
 	 * power */
 	if (retu_read_reg(RETU_REG_RTCCALR) & 0x00ff)
 		rtc->reset_occurred = 0;
-#if 0
 	else
 		retu_rtc_do_reset(rtc);
-#endif
+
 
 	rtc->rtc = rtc_device_register(pdev->name, &pdev->dev, &
 			retu_rtc_ops, THIS_MODULE);
