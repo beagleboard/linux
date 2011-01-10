@@ -28,7 +28,13 @@
  *
  *   GPIO 0 -> DFS0 of AK5385
  *   GPIO 1 -> DFS1 of AK5385
- *   GPIO 8 -> enable headphone amplifier on HT-Omega models
+ *
+ * X-Meridian models:
+ *   GPIO 4 -> enable extension S/PDIF input
+ *   GPIO 6 -> enable on-board S/PDIF input
+ *
+ * Claro models:
+ *   GPIO 8 -> enable headphone amplifier
  *
  * CM9780:
  *
@@ -53,13 +59,16 @@
 #include <sound/pcm_params.h>
 #include <sound/tlv.h>
 #include "oxygen.h"
+#include "xonar_dg.h"
 #include "ak4396.h"
 #include "wm8785.h"
 
 MODULE_AUTHOR("Clemens Ladisch <clemens@ladisch.de>");
 MODULE_DESCRIPTION("C-Media CMI8788 driver");
 MODULE_LICENSE("GPL v2");
-MODULE_SUPPORTED_DEVICE("{{C-Media,CMI8788}}");
+MODULE_SUPPORTED_DEVICE("{{C-Media,CMI8786}"
+			",{C-Media,CMI8787}"
+			",{C-Media,CMI8788}}");
 
 static int index[SNDRV_CARDS] = SNDRV_DEFAULT_IDX;
 static char *id[SNDRV_CARDS] = SNDRV_DEFAULT_STR;
@@ -75,15 +84,20 @@ MODULE_PARM_DESC(enable, "enable card");
 enum {
 	MODEL_CMEDIA_REF,
 	MODEL_MERIDIAN,
+	MODEL_MERIDIAN_2G,
 	MODEL_CLARO,
 	MODEL_CLARO_HALO,
 	MODEL_FANTASIA,
+	MODEL_SERENADE,
 	MODEL_2CH_OUTPUT,
+	MODEL_HG2PCI,
+	MODEL_XONAR_DG,
 };
 
 static DEFINE_PCI_DEVICE_TABLE(oxygen_ids) = {
 	/* C-Media's reference design */
 	{ OXYGEN_PCI_SUBID(0x10b0, 0x0216), .driver_data = MODEL_CMEDIA_REF },
+	{ OXYGEN_PCI_SUBID(0x10b0, 0x0217), .driver_data = MODEL_CMEDIA_REF },
 	{ OXYGEN_PCI_SUBID(0x10b0, 0x0218), .driver_data = MODEL_CMEDIA_REF },
 	{ OXYGEN_PCI_SUBID(0x10b0, 0x0219), .driver_data = MODEL_CMEDIA_REF },
 	{ OXYGEN_PCI_SUBID(0x13f6, 0x0001), .driver_data = MODEL_CMEDIA_REF },
@@ -91,14 +105,20 @@ static DEFINE_PCI_DEVICE_TABLE(oxygen_ids) = {
 	{ OXYGEN_PCI_SUBID(0x13f6, 0x8788), .driver_data = MODEL_CMEDIA_REF },
 	{ OXYGEN_PCI_SUBID(0x147a, 0xa017), .driver_data = MODEL_CMEDIA_REF },
 	{ OXYGEN_PCI_SUBID(0x1a58, 0x0910), .driver_data = MODEL_CMEDIA_REF },
+	/* Asus Xonar DG */
+	{ OXYGEN_PCI_SUBID(0x1043, 0x8467), .driver_data = MODEL_XONAR_DG },
+	/* PCI 2.0 HD Audio */
+	{ OXYGEN_PCI_SUBID(0x13f6, 0x8782), .driver_data = MODEL_2CH_OUTPUT },
 	/* Kuroutoshikou CMI8787-HG2PCI */
-	{ OXYGEN_PCI_SUBID(0x13f6, 0xffff), .driver_data = MODEL_2CH_OUTPUT },
+	{ OXYGEN_PCI_SUBID(0x13f6, 0xffff), .driver_data = MODEL_HG2PCI },
 	/* TempoTec HiFier Fantasia */
 	{ OXYGEN_PCI_SUBID(0x14c3, 0x1710), .driver_data = MODEL_FANTASIA },
 	/* TempoTec HiFier Serenade */
-	{ OXYGEN_PCI_SUBID(0x14c3, 0x1711), .driver_data = MODEL_2CH_OUTPUT },
+	{ OXYGEN_PCI_SUBID(0x14c3, 0x1711), .driver_data = MODEL_SERENADE },
 	/* AuzenTech X-Meridian */
 	{ OXYGEN_PCI_SUBID(0x415a, 0x5431), .driver_data = MODEL_MERIDIAN },
+	/* AuzenTech X-Meridian 2G */
+	{ OXYGEN_PCI_SUBID(0x5431, 0x017a), .driver_data = MODEL_MERIDIAN_2G },
 	/* HT-Omega Claro */
 	{ OXYGEN_PCI_SUBID(0x7284, 0x9761), .driver_data = MODEL_CLARO },
 	/* HT-Omega Claro halo */
@@ -112,6 +132,10 @@ MODULE_DEVICE_TABLE(pci, oxygen_ids);
 #define GPIO_AK5385_DFS_NORMAL	0x0000
 #define GPIO_AK5385_DFS_DOUBLE	0x0001
 #define GPIO_AK5385_DFS_QUAD	0x0002
+
+#define GPIO_MERIDIAN_DIG_MASK	0x0050
+#define GPIO_MERIDIAN_DIG_EXT	0x0010
+#define GPIO_MERIDIAN_DIG_BOARD	0x0040
 
 #define GPIO_CLARO_HP		0x0100
 
@@ -185,7 +209,7 @@ static void ak4396_init(struct oxygen *chip)
 {
 	struct generic_data *data = chip->model_data;
 
-	data->dacs = chip->model.dac_channels / 2;
+	data->dacs = chip->model.dac_channels_pcm / 2;
 	data->ak4396_regs[0][AK4396_CONTROL_2] =
 		AK4396_SMUTE | AK4396_DEM_OFF | AK4396_DFS_NORMAL;
 	ak4396_registers_init(chip);
@@ -227,6 +251,10 @@ static void generic_init(struct oxygen *chip)
 
 static void meridian_init(struct oxygen *chip)
 {
+	oxygen_set_bits16(chip, OXYGEN_GPIO_CONTROL,
+			  GPIO_MERIDIAN_DIG_MASK);
+	oxygen_write16_masked(chip, OXYGEN_GPIO_DATA,
+			      GPIO_MERIDIAN_DIG_BOARD, GPIO_MERIDIAN_DIG_MASK);
 	ak4396_init(chip);
 	ak5385_init(chip);
 }
@@ -404,13 +432,7 @@ static int rolloff_info(struct snd_kcontrol *ctl,
 		"Sharp Roll-off", "Slow Roll-off"
 	};
 
-	info->type = SNDRV_CTL_ELEM_TYPE_ENUMERATED;
-	info->count = 1;
-	info->value.enumerated.items = 2;
-	if (info->value.enumerated.item >= 2)
-		info->value.enumerated.item = 1;
-	strcpy(info->value.enumerated.name, names[info->value.enumerated.item]);
-	return 0;
+	return snd_ctl_enum_info(info, 1, 2, names);
 }
 
 static int rolloff_get(struct snd_kcontrol *ctl,
@@ -462,13 +484,7 @@ static int hpf_info(struct snd_kcontrol *ctl, struct snd_ctl_elem_info *info)
 		"None", "High-pass Filter"
 	};
 
-	info->type = SNDRV_CTL_ELEM_TYPE_ENUMERATED;
-	info->count = 1;
-	info->value.enumerated.items = 2;
-	if (info->value.enumerated.item >= 2)
-		info->value.enumerated.item = 1;
-	strcpy(info->value.enumerated.name, names[info->value.enumerated.item]);
-	return 0;
+	return snd_ctl_enum_info(info, 1, 2, names);
 }
 
 static int hpf_get(struct snd_kcontrol *ctl, struct snd_ctl_elem_value *value)
@@ -507,6 +523,51 @@ static const struct snd_kcontrol_new hpf_control = {
 	.put = hpf_put,
 };
 
+static int meridian_dig_source_info(struct snd_kcontrol *ctl, struct snd_ctl_elem_info *info)
+{
+	static const char *const names[2] = { "On-board", "Extension" };
+
+	return snd_ctl_enum_info(info, 1, 2, names);
+}
+
+static int meridian_dig_source_get(struct snd_kcontrol *ctl, struct snd_ctl_elem_value *value)
+{
+	struct oxygen *chip = ctl->private_data;
+
+	value->value.enumerated.item[0] =
+		!!(oxygen_read16(chip, OXYGEN_GPIO_DATA) &
+		   GPIO_MERIDIAN_DIG_EXT);
+	return 0;
+}
+
+static int meridian_dig_source_put(struct snd_kcontrol *ctl, struct snd_ctl_elem_value *value)
+{
+	struct oxygen *chip = ctl->private_data;
+	u16 old_reg, new_reg;
+	int changed;
+
+	mutex_lock(&chip->mutex);
+	old_reg = oxygen_read16(chip, OXYGEN_GPIO_DATA);
+	new_reg = old_reg & ~GPIO_MERIDIAN_DIG_MASK;
+	if (value->value.enumerated.item[0] == 0)
+		new_reg |= GPIO_MERIDIAN_DIG_BOARD;
+	else
+		new_reg |= GPIO_MERIDIAN_DIG_EXT;
+	changed = new_reg != old_reg;
+	if (changed)
+		oxygen_write16(chip, OXYGEN_GPIO_DATA, new_reg);
+	mutex_unlock(&chip->mutex);
+	return changed;
+}
+
+static const struct snd_kcontrol_new meridian_dig_source_control = {
+	.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+	.name = "IEC958 Source Capture Enum",
+	.info = meridian_dig_source_info,
+	.get = meridian_dig_source_get,
+	.put = meridian_dig_source_put,
+};
+
 static int generic_mixer_init(struct oxygen *chip)
 {
 	return snd_ctl_add(chip->card, snd_ctl_new1(&rolloff_control, chip));
@@ -520,6 +581,20 @@ static int generic_wm8785_mixer_init(struct oxygen *chip)
 	if (err < 0)
 		return err;
 	err = snd_ctl_add(chip->card, snd_ctl_new1(&hpf_control, chip));
+	if (err < 0)
+		return err;
+	return 0;
+}
+
+static int meridian_mixer_init(struct oxygen *chip)
+{
+	int err;
+
+	err = generic_mixer_init(chip);
+	if (err < 0)
+		return err;
+	err = snd_ctl_add(chip->card,
+			  snd_ctl_new1(&meridian_dig_source_control, chip));
 	if (err < 0)
 		return err;
 	return 0;
@@ -568,7 +643,6 @@ static const struct oxygen_model model_generic = {
 	.mixer_init = generic_wm8785_mixer_init,
 	.cleanup = generic_cleanup,
 	.resume = generic_resume,
-	.get_i2s_mclk = oxygen_default_i2s_mclk,
 	.set_dac_params = set_ak4396_params,
 	.set_adc_params = set_wm8785_params,
 	.update_dac_volume = update_ak4396_volume,
@@ -583,11 +657,14 @@ static const struct oxygen_model model_generic = {
 			 CAPTURE_1_FROM_SPDIF |
 			 CAPTURE_2_FROM_AC97_1 |
 			 AC97_CD_INPUT,
-	.dac_channels = 8,
+	.dac_channels_pcm = 8,
+	.dac_channels_mixer = 8,
 	.dac_volume_min = 0,
 	.dac_volume_max = 255,
 	.function_flags = OXYGEN_FUNCTION_SPI |
 			  OXYGEN_FUNCTION_ENABLE_SPI_4_5,
+	.dac_mclks = OXYGEN_MCLKS(256, 128, 128),
+	.adc_mclks = OXYGEN_MCLKS(256, 256, 128),
 	.dac_i2s_format = OXYGEN_I2S_FORMAT_LJUST,
 	.adc_i2s_format = OXYGEN_I2S_FORMAT_LJUST,
 };
@@ -595,11 +672,22 @@ static const struct oxygen_model model_generic = {
 static int __devinit get_oxygen_model(struct oxygen *chip,
 				      const struct pci_device_id *id)
 {
+	static const char *const names[] = {
+		[MODEL_MERIDIAN]	= "AuzenTech X-Meridian",
+		[MODEL_MERIDIAN_2G]	= "AuzenTech X-Meridian 2G",
+		[MODEL_CLARO]		= "HT-Omega Claro",
+		[MODEL_CLARO_HALO]	= "HT-Omega Claro halo",
+		[MODEL_FANTASIA]	= "TempoTec HiFier Fantasia",
+		[MODEL_SERENADE]	= "TempoTec HiFier Serenade",
+		[MODEL_HG2PCI]		= "CMI8787-HG2PCI",
+	};
+
 	chip->model = model_generic;
 	switch (id->driver_data) {
 	case MODEL_MERIDIAN:
+	case MODEL_MERIDIAN_2G:
 		chip->model.init = meridian_init;
-		chip->model.mixer_init = generic_mixer_init;
+		chip->model.mixer_init = meridian_mixer_init;
 		chip->model.resume = meridian_resume;
 		chip->model.set_adc_params = set_ak5385_params;
 		chip->model.dump_registers = dump_ak4396_registers;
@@ -628,7 +716,9 @@ static int __devinit get_oxygen_model(struct oxygen *chip,
 					    CAPTURE_1_FROM_SPDIF;
 		break;
 	case MODEL_FANTASIA:
+	case MODEL_SERENADE:
 	case MODEL_2CH_OUTPUT:
+	case MODEL_HG2PCI:
 		chip->model.shortname = "C-Media CMI8787";
 		chip->model.chip = "CMI8787";
 		if (id->driver_data == MODEL_FANTASIA)
@@ -641,9 +731,15 @@ static int __devinit get_oxygen_model(struct oxygen *chip,
 		chip->model.dump_registers = dump_ak4396_registers;
 		chip->model.device_config = PLAYBACK_0_TO_I2S |
 					    PLAYBACK_1_TO_SPDIF;
-		if (id->driver_data == MODEL_FANTASIA)
+		if (id->driver_data == MODEL_FANTASIA) {
 			chip->model.device_config |= CAPTURE_0_FROM_I2S_1;
-		chip->model.dac_channels = 2;
+			chip->model.adc_mclks = OXYGEN_MCLKS(256, 128, 128);
+		}
+		chip->model.dac_channels_pcm = 2;
+		chip->model.dac_channels_mixer = 2;
+		break;
+	case MODEL_XONAR_DG:
+		chip->model = model_xonar_dg;
 		break;
 	}
 	if (id->driver_data == MODEL_MERIDIAN ||
@@ -651,6 +747,8 @@ static int __devinit get_oxygen_model(struct oxygen *chip,
 		chip->model.misc_flags = OXYGEN_MISC_MIDI;
 		chip->model.device_config |= MIDI_OUTPUT | MIDI_INPUT;
 	}
+	if (id->driver_data < ARRAY_SIZE(names) && names[id->driver_data])
+		chip->model.shortname = names[id->driver_data];
 	return 0;
 }
 

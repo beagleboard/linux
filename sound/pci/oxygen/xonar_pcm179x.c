@@ -223,11 +223,12 @@ struct xonar_pcm179x {
 	unsigned int dacs;
 	u8 pcm1796_regs[4][5];
 	unsigned int current_rate;
-	bool os_128;
+	bool h6;
 	bool hp_active;
 	s8 hp_gain_offset;
 	bool has_cs2000;
 	u8 cs2000_regs[0x1f];
+	bool broken_i2c;
 };
 
 struct xonar_hdav {
@@ -303,6 +304,7 @@ static void pcm1796_registers_init(struct oxygen *chip)
 	unsigned int i;
 	s8 gain_offset;
 
+	msleep(1);
 	gain_offset = data->hp_active ? data->hp_gain_offset : 0;
 	for (i = 0; i < data->dacs; ++i) {
 		/* set ATLD before ATL/ATR */
@@ -317,6 +319,7 @@ static void pcm1796_registers_init(struct oxygen *chip)
 		pcm1796_write(chip, i, 20,
 			      data->pcm1796_regs[0][20 - PCM1796_REG_BASE]);
 		pcm1796_write(chip, i, 21, 0);
+		gain_offset = 0;
 	}
 }
 
@@ -325,10 +328,11 @@ static void pcm1796_init(struct oxygen *chip)
 	struct xonar_pcm179x *data = chip->model_data;
 
 	data->pcm1796_regs[0][18 - PCM1796_REG_BASE] = PCM1796_MUTE |
-		PCM1796_DMF_DISABLED | PCM1796_FMT_24_LJUST | PCM1796_ATLD;
+		PCM1796_DMF_DISABLED | PCM1796_FMT_24_I2S | PCM1796_ATLD;
 	data->pcm1796_regs[0][19 - PCM1796_REG_BASE] =
 		PCM1796_FLT_SHARP | PCM1796_ATS_1;
-	data->pcm1796_regs[0][20 - PCM1796_REG_BASE] = PCM1796_OS_64;
+	data->pcm1796_regs[0][20 - PCM1796_REG_BASE] =
+		data->h6 ? PCM1796_OS_64 : PCM1796_OS_128;
 	pcm1796_registers_init(chip);
 	data->current_rate = 48000;
 }
@@ -374,14 +378,15 @@ static void xonar_hdav_init(struct oxygen *chip)
 	oxygen_write16(chip, OXYGEN_2WIRE_BUS_STATUS,
 		       OXYGEN_2WIRE_LENGTH_8 |
 		       OXYGEN_2WIRE_INTERRUPT_MASK |
-		       OXYGEN_2WIRE_SPEED_FAST);
+		       OXYGEN_2WIRE_SPEED_STANDARD);
 
 	data->pcm179x.generic.anti_pop_delay = 100;
 	data->pcm179x.generic.output_enable_bit = GPIO_HDAV_OUTPUT_ENABLE;
 	data->pcm179x.generic.ext_power_reg = OXYGEN_GPI_DATA;
 	data->pcm179x.generic.ext_power_int_reg = OXYGEN_GPI_INTERRUPT_MASK;
 	data->pcm179x.generic.ext_power_bit = GPI_EXT_POWER;
-	data->pcm179x.dacs = chip->model.private_data ? 4 : 1;
+	data->pcm179x.dacs = chip->model.dac_channels_mixer / 2;
+	data->pcm179x.h6 = chip->model.dac_channels_mixer > 2;
 
 	pcm1796_init(chip);
 
@@ -403,7 +408,7 @@ static void xonar_st_init_i2c(struct oxygen *chip)
 	oxygen_write16(chip, OXYGEN_2WIRE_BUS_STATUS,
 		       OXYGEN_2WIRE_LENGTH_8 |
 		       OXYGEN_2WIRE_INTERRUPT_MASK |
-		       OXYGEN_2WIRE_SPEED_FAST);
+		       OXYGEN_2WIRE_SPEED_STANDARD);
 }
 
 static void xonar_st_init_common(struct oxygen *chip)
@@ -411,7 +416,7 @@ static void xonar_st_init_common(struct oxygen *chip)
 	struct xonar_pcm179x *data = chip->model_data;
 
 	data->generic.output_enable_bit = GPIO_ST_OUTPUT_ENABLE;
-	data->dacs = chip->model.private_data ? 4 : 1;
+	data->dacs = chip->model.dac_channels_mixer / 2;
 	data->hp_gain_offset = 2*-18;
 
 	pcm1796_init(chip);
@@ -451,6 +456,7 @@ static void cs2000_registers_init(struct oxygen *chip)
 		     data->cs2000_regs[CS2000_FUN_CFG_1]);
 	cs2000_write(chip, CS2000_FUN_CFG_2, 0);
 	cs2000_write(chip, CS2000_GLOBAL_CFG, CS2000_EN_DEV_CFG_2);
+	msleep(3); /* PLL lock delay */
 }
 
 static void xonar_st_init(struct oxygen *chip)
@@ -458,13 +464,18 @@ static void xonar_st_init(struct oxygen *chip)
 	struct xonar_pcm179x *data = chip->model_data;
 
 	data->generic.anti_pop_delay = 100;
+	data->h6 = chip->model.dac_channels_mixer > 2;
 	data->has_cs2000 = 1;
 	data->cs2000_regs[CS2000_FUN_CFG_1] = CS2000_REF_CLK_DIV_1;
+	data->broken_i2c = true;
 
 	oxygen_write16(chip, OXYGEN_I2S_A_FORMAT,
-		       OXYGEN_RATE_48000 | OXYGEN_I2S_FORMAT_I2S |
-		       OXYGEN_I2S_MCLK_128 | OXYGEN_I2S_BITS_16 |
-		       OXYGEN_I2S_MASTER | OXYGEN_I2S_BCLK_64);
+		       OXYGEN_RATE_48000 |
+		       OXYGEN_I2S_FORMAT_I2S |
+		       OXYGEN_I2S_MCLK(data->h6 ? MCLK_256 : MCLK_512) |
+		       OXYGEN_I2S_BITS_16 |
+		       OXYGEN_I2S_MASTER |
+		       OXYGEN_I2S_BCLK_64);
 
 	xonar_st_init_i2c(chip);
 	cs2000_registers_init(chip);
@@ -545,44 +556,16 @@ static void xonar_st_resume(struct oxygen *chip)
 	xonar_stx_resume(chip);
 }
 
-static unsigned int mclk_from_rate(struct oxygen *chip, unsigned int rate)
-{
-	struct xonar_pcm179x *data = chip->model_data;
-
-	if (rate <= 32000)
-		return OXYGEN_I2S_MCLK_512;
-	else if (rate <= 48000 && data->os_128)
-		return OXYGEN_I2S_MCLK_512;
-	else if (rate <= 96000)
-		return OXYGEN_I2S_MCLK_256;
-	else
-		return OXYGEN_I2S_MCLK_128;
-}
-
-static unsigned int get_pcm1796_i2s_mclk(struct oxygen *chip,
-					 unsigned int channel,
-					 struct snd_pcm_hw_params *params)
-{
-	if (channel == PCM_MULTICH)
-		return mclk_from_rate(chip, params_rate(params));
-	else
-		return oxygen_default_i2s_mclk(chip, channel, params);
-}
-
 static void update_pcm1796_oversampling(struct oxygen *chip)
 {
 	struct xonar_pcm179x *data = chip->model_data;
 	unsigned int i;
 	u8 reg;
 
-	if (data->current_rate <= 32000)
+	if (data->current_rate <= 48000 && !data->h6)
 		reg = PCM1796_OS_128;
-	else if (data->current_rate <= 48000 && data->os_128)
-		reg = PCM1796_OS_128;
-	else if (data->current_rate <= 96000 || data->os_128)
-		reg = PCM1796_OS_64;
 	else
-		reg = PCM1796_OS_32;
+		reg = PCM1796_OS_64;
 	for (i = 0; i < data->dacs; ++i)
 		pcm1796_write_cached(chip, i, 20, reg);
 }
@@ -592,6 +575,7 @@ static void set_pcm1796_params(struct oxygen *chip,
 {
 	struct xonar_pcm179x *data = chip->model_data;
 
+	msleep(1);
 	data->current_rate = params_rate(params);
 	update_pcm1796_oversampling(chip);
 }
@@ -608,6 +592,7 @@ static void update_pcm1796_volume(struct oxygen *chip)
 				     + gain_offset);
 		pcm1796_write_cached(chip, i, 17, chip->dac_volume[i * 2 + 1]
 				     + gain_offset);
+		gain_offset = 0;
 	}
 }
 
@@ -617,7 +602,7 @@ static void update_pcm1796_mute(struct oxygen *chip)
 	unsigned int i;
 	u8 value;
 
-	value = PCM1796_DMF_DISABLED | PCM1796_FMT_24_LJUST | PCM1796_ATLD;
+	value = PCM1796_DMF_DISABLED | PCM1796_FMT_24_I2S | PCM1796_ATLD;
 	if (chip->dac_mute)
 		value |= PCM1796_MUTE;
 	for (i = 0; i < data->dacs; ++i)
@@ -630,45 +615,35 @@ static void update_cs2000_rate(struct oxygen *chip, unsigned int rate)
 	u8 rate_mclk, reg;
 
 	switch (rate) {
-		/* XXX Why is the I2S A MCLK half the actual I2S MCLK? */
 	case 32000:
-		rate_mclk = OXYGEN_RATE_32000 | OXYGEN_I2S_MCLK_256;
+	case 64000:
+		rate_mclk = OXYGEN_RATE_32000;
 		break;
 	case 44100:
-		if (data->os_128)
-			rate_mclk = OXYGEN_RATE_44100 | OXYGEN_I2S_MCLK_256;
-		else
-			rate_mclk = OXYGEN_RATE_44100 | OXYGEN_I2S_MCLK_128;
-		break;
-	default: /* 48000 */
-		if (data->os_128)
-			rate_mclk = OXYGEN_RATE_48000 | OXYGEN_I2S_MCLK_256;
-		else
-			rate_mclk = OXYGEN_RATE_48000 | OXYGEN_I2S_MCLK_128;
-		break;
-	case 64000:
-		rate_mclk = OXYGEN_RATE_32000 | OXYGEN_I2S_MCLK_256;
-		break;
 	case 88200:
-		rate_mclk = OXYGEN_RATE_44100 | OXYGEN_I2S_MCLK_256;
-		break;
-	case 96000:
-		rate_mclk = OXYGEN_RATE_48000 | OXYGEN_I2S_MCLK_256;
-		break;
 	case 176400:
-		rate_mclk = OXYGEN_RATE_44100 | OXYGEN_I2S_MCLK_256;
+		rate_mclk = OXYGEN_RATE_44100;
 		break;
+	default:
+	case 48000:
+	case 96000:
 	case 192000:
-		rate_mclk = OXYGEN_RATE_48000 | OXYGEN_I2S_MCLK_256;
+		rate_mclk = OXYGEN_RATE_48000;
 		break;
 	}
+
+	if (rate <= 96000 && (rate > 48000 || data->h6)) {
+		rate_mclk |= OXYGEN_I2S_MCLK(MCLK_256);
+		reg = CS2000_REF_CLK_DIV_1;
+	} else {
+		rate_mclk |= OXYGEN_I2S_MCLK(MCLK_512);
+		reg = CS2000_REF_CLK_DIV_2;
+	}
+
 	oxygen_write16_masked(chip, OXYGEN_I2S_A_FORMAT, rate_mclk,
 			      OXYGEN_I2S_RATE_MASK | OXYGEN_I2S_MCLK_MASK);
-	if ((rate_mclk & OXYGEN_I2S_MCLK_MASK) <= OXYGEN_I2S_MCLK_128)
-		reg = CS2000_REF_CLK_DIV_1;
-	else
-		reg = CS2000_REF_CLK_DIV_2;
 	cs2000_write_cached(chip, CS2000_FUN_CFG_1, reg);
+	msleep(3); /* PLL lock delay */
 }
 
 static void set_st_params(struct oxygen *chip,
@@ -703,13 +678,7 @@ static int rolloff_info(struct snd_kcontrol *ctl,
 		"Sharp Roll-off", "Slow Roll-off"
 	};
 
-	info->type = SNDRV_CTL_ELEM_TYPE_ENUMERATED;
-	info->count = 1;
-	info->value.enumerated.items = 2;
-	if (info->value.enumerated.item >= 2)
-		info->value.enumerated.item = 1;
-	strcpy(info->value.enumerated.name, names[info->value.enumerated.item]);
-	return 0;
+	return snd_ctl_enum_info(info, 1, 2, names);
 }
 
 static int rolloff_get(struct snd_kcontrol *ctl,
@@ -757,59 +726,6 @@ static const struct snd_kcontrol_new rolloff_control = {
 	.put = rolloff_put,
 };
 
-static int os_128_info(struct snd_kcontrol *ctl, struct snd_ctl_elem_info *info)
-{
-	static const char *const names[2] = { "64x", "128x" };
-
-	info->type = SNDRV_CTL_ELEM_TYPE_ENUMERATED;
-	info->count = 1;
-	info->value.enumerated.items = 2;
-	if (info->value.enumerated.item >= 2)
-		info->value.enumerated.item = 1;
-	strcpy(info->value.enumerated.name, names[info->value.enumerated.item]);
-	return 0;
-}
-
-static int os_128_get(struct snd_kcontrol *ctl,
-		      struct snd_ctl_elem_value *value)
-{
-	struct oxygen *chip = ctl->private_data;
-	struct xonar_pcm179x *data = chip->model_data;
-
-	value->value.enumerated.item[0] = data->os_128;
-	return 0;
-}
-
-static int os_128_put(struct snd_kcontrol *ctl,
-		      struct snd_ctl_elem_value *value)
-{
-	struct oxygen *chip = ctl->private_data;
-	struct xonar_pcm179x *data = chip->model_data;
-	int changed;
-
-	mutex_lock(&chip->mutex);
-	changed = value->value.enumerated.item[0] != data->os_128;
-	if (changed) {
-		data->os_128 = value->value.enumerated.item[0];
-		if (data->has_cs2000)
-			update_cs2000_rate(chip, data->current_rate);
-		oxygen_write16_masked(chip, OXYGEN_I2S_MULTICH_FORMAT,
-				      mclk_from_rate(chip, data->current_rate),
-				      OXYGEN_I2S_MCLK_MASK);
-		update_pcm1796_oversampling(chip);
-	}
-	mutex_unlock(&chip->mutex);
-	return changed;
-}
-
-static const struct snd_kcontrol_new os_128_control = {
-	.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
-	.name = "DAC Oversampling Playback Enum",
-	.info = os_128_info,
-	.get = os_128_get,
-	.put = os_128_put,
-};
-
 static const struct snd_kcontrol_new hdav_hdmi_control = {
 	.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
 	.name = "HDMI Playback Switch",
@@ -826,13 +742,7 @@ static int st_output_switch_info(struct snd_kcontrol *ctl,
 		"Speakers", "Headphones", "FP Headphones"
 	};
 
-	info->type = SNDRV_CTL_ELEM_TYPE_ENUMERATED;
-	info->count = 1;
-	info->value.enumerated.items = 3;
-	if (info->value.enumerated.item >= 3)
-		info->value.enumerated.item = 2;
-	strcpy(info->value.enumerated.name, names[info->value.enumerated.item]);
-	return 0;
+	return snd_ctl_enum_info(info, 1, 3, names);
 }
 
 static int st_output_switch_get(struct snd_kcontrol *ctl,
@@ -887,13 +797,7 @@ static int st_hp_volume_offset_info(struct snd_kcontrol *ctl,
 		"< 64 ohms", "64-300 ohms", "300-600 ohms"
 	};
 
-	info->type = SNDRV_CTL_ELEM_TYPE_ENUMERATED;
-	info->count = 1;
-	info->value.enumerated.items = 3;
-	if (info->value.enumerated.item > 2)
-		info->value.enumerated.item = 2;
-	strcpy(info->value.enumerated.name, names[info->value.enumerated.item]);
-	return 0;
+	return snd_ctl_enum_info(info, 1, 3, names);
 }
 
 static int st_hp_volume_offset_get(struct snd_kcontrol *ctl,
@@ -975,16 +879,25 @@ static int xonar_d2_control_filter(struct snd_kcontrol_new *template)
 	return 0;
 }
 
+static int xonar_st_h6_control_filter(struct snd_kcontrol_new *template)
+{
+	if (!strncmp(template->name, "Master Playback ", 16))
+		/* no volume/mute, as I²C to the third DAC does not work */
+		return 1;
+	return 0;
+}
+
 static int add_pcm1796_controls(struct oxygen *chip)
 {
+	struct xonar_pcm179x *data = chip->model_data;
 	int err;
 
-	err = snd_ctl_add(chip->card, snd_ctl_new1(&rolloff_control, chip));
-	if (err < 0)
-		return err;
-	err = snd_ctl_add(chip->card, snd_ctl_new1(&os_128_control, chip));
-	if (err < 0)
-		return err;
+	if (!data->broken_i2c) {
+		err = snd_ctl_add(chip->card,
+				  snd_ctl_new1(&rolloff_control, chip));
+		if (err < 0)
+			return err;
+	}
 	return 0;
 }
 
@@ -1079,7 +992,6 @@ static const struct oxygen_model model_xonar_d2 = {
 	.cleanup = xonar_d2_cleanup,
 	.suspend = xonar_d2_suspend,
 	.resume = xonar_d2_resume,
-	.get_i2s_mclk = get_pcm1796_i2s_mclk,
 	.set_dac_params = set_pcm1796_params,
 	.set_adc_params = xonar_set_cs53x1_params,
 	.update_dac_volume = update_pcm1796_volume,
@@ -1094,13 +1006,16 @@ static const struct oxygen_model model_xonar_d2 = {
 			 MIDI_OUTPUT |
 			 MIDI_INPUT |
 			 AC97_CD_INPUT,
-	.dac_channels = 8,
+	.dac_channels_pcm = 8,
+	.dac_channels_mixer = 8,
 	.dac_volume_min = 255 - 2*60,
 	.dac_volume_max = 255,
 	.misc_flags = OXYGEN_MISC_MIDI,
 	.function_flags = OXYGEN_FUNCTION_SPI |
 			  OXYGEN_FUNCTION_ENABLE_SPI_4_5,
-	.dac_i2s_format = OXYGEN_I2S_FORMAT_LJUST,
+	.dac_mclks = OXYGEN_MCLKS(512, 128, 128),
+	.adc_mclks = OXYGEN_MCLKS(256, 128, 128),
+	.dac_i2s_format = OXYGEN_I2S_FORMAT_I2S,
 	.adc_i2s_format = OXYGEN_I2S_FORMAT_LJUST,
 };
 
@@ -1113,7 +1028,6 @@ static const struct oxygen_model model_xonar_hdav = {
 	.suspend = xonar_hdav_suspend,
 	.resume = xonar_hdav_resume,
 	.pcm_hardware_filter = xonar_hdmi_pcm_hardware_filter,
-	.get_i2s_mclk = get_pcm1796_i2s_mclk,
 	.set_dac_params = set_hdav_params,
 	.set_adc_params = xonar_set_cs53x1_params,
 	.update_dac_volume = update_pcm1796_volume,
@@ -1127,12 +1041,15 @@ static const struct oxygen_model model_xonar_hdav = {
 			 PLAYBACK_1_TO_SPDIF |
 			 CAPTURE_0_FROM_I2S_2 |
 			 CAPTURE_1_FROM_SPDIF,
-	.dac_channels = 8,
+	.dac_channels_pcm = 8,
+	.dac_channels_mixer = 2,
 	.dac_volume_min = 255 - 2*60,
 	.dac_volume_max = 255,
 	.misc_flags = OXYGEN_MISC_MIDI,
 	.function_flags = OXYGEN_FUNCTION_2WIRE,
-	.dac_i2s_format = OXYGEN_I2S_FORMAT_LJUST,
+	.dac_mclks = OXYGEN_MCLKS(512, 128, 128),
+	.adc_mclks = OXYGEN_MCLKS(256, 128, 128),
+	.dac_i2s_format = OXYGEN_I2S_FORMAT_I2S,
 	.adc_i2s_format = OXYGEN_I2S_FORMAT_LJUST,
 };
 
@@ -1144,7 +1061,6 @@ static const struct oxygen_model model_xonar_st = {
 	.cleanup = xonar_st_cleanup,
 	.suspend = xonar_st_suspend,
 	.resume = xonar_st_resume,
-	.get_i2s_mclk = get_pcm1796_i2s_mclk,
 	.set_dac_params = set_st_params,
 	.set_adc_params = xonar_set_cs53x1_params,
 	.update_dac_volume = update_pcm1796_volume,
@@ -1157,11 +1073,14 @@ static const struct oxygen_model model_xonar_st = {
 			 PLAYBACK_1_TO_SPDIF |
 			 CAPTURE_0_FROM_I2S_2 |
 			 AC97_FMIC_SWITCH,
-	.dac_channels = 2,
+	.dac_channels_pcm = 2,
+	.dac_channels_mixer = 2,
 	.dac_volume_min = 255 - 2*60,
 	.dac_volume_max = 255,
 	.function_flags = OXYGEN_FUNCTION_2WIRE,
-	.dac_i2s_format = OXYGEN_I2S_FORMAT_LJUST,
+	.dac_mclks = OXYGEN_MCLKS(512, 128, 128),
+	.adc_mclks = OXYGEN_MCLKS(256, 128, 128),
+	.dac_i2s_format = OXYGEN_I2S_FORMAT_I2S,
 	.adc_i2s_format = OXYGEN_I2S_FORMAT_LJUST,
 };
 
@@ -1187,7 +1106,8 @@ int __devinit get_xonar_pcm179x_model(struct oxygen *chip,
 			break;
 		case GPIO_DB_H6:
 			chip->model.shortname = "Xonar HDAV1.3+H6";
-			chip->model.private_data = 1;
+			chip->model.dac_channels_mixer = 8;
+			chip->model.dac_mclks = OXYGEN_MCLKS(256, 128, 128);
 			break;
 		}
 		break;
@@ -1200,8 +1120,10 @@ int __devinit get_xonar_pcm179x_model(struct oxygen *chip,
 			break;
 		case GPIO_DB_H6:
 			chip->model.shortname = "Xonar ST+H6";
-			chip->model.dac_channels = 8;
-			chip->model.private_data = 1;
+			chip->model.control_filter = xonar_st_h6_control_filter;
+			chip->model.dac_channels_pcm = 8;
+			chip->model.dac_channels_mixer = 8;
+			chip->model.dac_mclks = OXYGEN_MCLKS(256, 128, 128);
 			break;
 		}
 		break;
@@ -1212,9 +1134,6 @@ int __devinit get_xonar_pcm179x_model(struct oxygen *chip,
 		chip->model.resume = xonar_stx_resume;
 		chip->model.set_dac_params = set_pcm1796_params;
 		break;
-	case 0x835e:
-		snd_printk(KERN_ERR "the HDAV1.3 Slim is not supported\n");
-		return -ENODEV;
 	default:
 		return -EINVAL;
 	}

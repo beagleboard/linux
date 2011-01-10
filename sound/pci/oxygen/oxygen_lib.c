@@ -372,12 +372,7 @@ static void oxygen_init(struct oxygen *chip)
 		(IEC958_AES1_CON_PCM_CODER << OXYGEN_SPDIF_CATEGORY_SHIFT);
 	chip->spdif_pcm_bits = chip->spdif_bits;
 
-	if (oxygen_read8(chip, OXYGEN_REVISION) & OXYGEN_REVISION_2)
-		chip->revision = 2;
-	else
-		chip->revision = 1;
-
-	if (chip->revision == 1)
+	if (!(oxygen_read8(chip, OXYGEN_REVISION) & OXYGEN_REVISION_2))
 		oxygen_set_bits8(chip, OXYGEN_MISC,
 				 OXYGEN_MISC_PCI_MEM_W_1_CLOCK);
 
@@ -414,28 +409,40 @@ static void oxygen_init(struct oxygen *chip)
 		      (OXYGEN_FORMAT_16 << OXYGEN_MULTICH_FORMAT_SHIFT));
 	oxygen_write8(chip, OXYGEN_REC_CHANNELS, OXYGEN_REC_CHANNELS_2_2_2);
 	oxygen_write16(chip, OXYGEN_I2S_MULTICH_FORMAT,
-		       OXYGEN_RATE_48000 | chip->model.dac_i2s_format |
-		       OXYGEN_I2S_MCLK_256 | OXYGEN_I2S_BITS_16 |
-		       OXYGEN_I2S_MASTER | OXYGEN_I2S_BCLK_64);
+		       OXYGEN_RATE_48000 |
+		       chip->model.dac_i2s_format |
+		       OXYGEN_I2S_MCLK(chip->model.dac_mclks) |
+		       OXYGEN_I2S_BITS_16 |
+		       OXYGEN_I2S_MASTER |
+		       OXYGEN_I2S_BCLK_64);
 	if (chip->model.device_config & CAPTURE_0_FROM_I2S_1)
 		oxygen_write16(chip, OXYGEN_I2S_A_FORMAT,
-			       OXYGEN_RATE_48000 | chip->model.adc_i2s_format |
-			       OXYGEN_I2S_MCLK_256 | OXYGEN_I2S_BITS_16 |
-			       OXYGEN_I2S_MASTER | OXYGEN_I2S_BCLK_64);
+			       OXYGEN_RATE_48000 |
+			       chip->model.adc_i2s_format |
+			       OXYGEN_I2S_MCLK(chip->model.adc_mclks) |
+			       OXYGEN_I2S_BITS_16 |
+			       OXYGEN_I2S_MASTER |
+			       OXYGEN_I2S_BCLK_64);
 	else
 		oxygen_write16(chip, OXYGEN_I2S_A_FORMAT,
-			       OXYGEN_I2S_MASTER | OXYGEN_I2S_MUTE_MCLK);
+			       OXYGEN_I2S_MASTER |
+			       OXYGEN_I2S_MUTE_MCLK);
 	if (chip->model.device_config & (CAPTURE_0_FROM_I2S_2 |
 					 CAPTURE_2_FROM_I2S_2))
 		oxygen_write16(chip, OXYGEN_I2S_B_FORMAT,
-			       OXYGEN_RATE_48000 | chip->model.adc_i2s_format |
-			       OXYGEN_I2S_MCLK_256 | OXYGEN_I2S_BITS_16 |
-			       OXYGEN_I2S_MASTER | OXYGEN_I2S_BCLK_64);
+			       OXYGEN_RATE_48000 |
+			       chip->model.adc_i2s_format |
+			       OXYGEN_I2S_MCLK(chip->model.adc_mclks) |
+			       OXYGEN_I2S_BITS_16 |
+			       OXYGEN_I2S_MASTER |
+			       OXYGEN_I2S_BCLK_64);
 	else
 		oxygen_write16(chip, OXYGEN_I2S_B_FORMAT,
-			       OXYGEN_I2S_MASTER | OXYGEN_I2S_MUTE_MCLK);
+			       OXYGEN_I2S_MASTER |
+			       OXYGEN_I2S_MUTE_MCLK);
 	oxygen_write16(chip, OXYGEN_I2S_C_FORMAT,
-		       OXYGEN_I2S_MASTER | OXYGEN_I2S_MUTE_MCLK);
+		       OXYGEN_I2S_MASTER |
+		       OXYGEN_I2S_MUTE_MCLK);
 	oxygen_clear_bits32(chip, OXYGEN_SPDIF_CONTROL,
 			    OXYGEN_SPDIF_OUT_ENABLE |
 			    OXYGEN_SPDIF_LOOPBACK);
@@ -657,8 +664,8 @@ int oxygen_pci_probe(struct pci_dev *pci, int index, char *id,
 
 	strcpy(card->driver, chip->model.chip);
 	strcpy(card->shortname, chip->model.shortname);
-	sprintf(card->longname, "%s (rev %u) at %#lx, irq %i",
-		chip->model.longname, chip->revision, chip->addr, chip->irq);
+	sprintf(card->longname, "%s at %#lx, irq %i",
+		chip->model.longname, chip->addr, chip->irq);
 	strcpy(card->mixername, chip->model.chip);
 	snd_component_add(card, chip->model.chip);
 

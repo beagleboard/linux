@@ -298,13 +298,7 @@ static int rolloff_info(struct snd_kcontrol *ctl,
 		"Fast Roll-off", "Slow Roll-off"
 	};
 
-	info->type = SNDRV_CTL_ELEM_TYPE_ENUMERATED;
-	info->count = 1;
-	info->value.enumerated.items = 2;
-	if (info->value.enumerated.item >= 2)
-		info->value.enumerated.item = 1;
-	strcpy(info->value.enumerated.name, names[info->value.enumerated.item]);
-	return 0;
+	return snd_ctl_enum_info(info, 1, 2, names);
 }
 
 static int rolloff_get(struct snd_kcontrol *ctl,
@@ -412,7 +406,6 @@ static const struct oxygen_model model_xonar_d1 = {
 	.cleanup = xonar_d1_cleanup,
 	.suspend = xonar_d1_suspend,
 	.resume = xonar_d1_resume,
-	.get_i2s_mclk = oxygen_default_i2s_mclk,
 	.set_dac_params = set_cs43xx_params,
 	.set_adc_params = xonar_set_cs53x1_params,
 	.update_dac_volume = update_cs43xx_volume,
@@ -426,10 +419,13 @@ static const struct oxygen_model model_xonar_d1 = {
 			 PLAYBACK_1_TO_SPDIF |
 			 CAPTURE_0_FROM_I2S_2 |
 			 AC97_FMIC_SWITCH,
-	.dac_channels = 8,
+	.dac_channels_pcm = 8,
+	.dac_channels_mixer = 8,
 	.dac_volume_min = 127 - 60,
 	.dac_volume_max = 127,
 	.function_flags = OXYGEN_FUNCTION_2WIRE,
+	.dac_mclks = OXYGEN_MCLKS(256, 128, 128),
+	.adc_mclks = OXYGEN_MCLKS(256, 128, 128),
 	.dac_i2s_format = OXYGEN_I2S_FORMAT_LJUST,
 	.adc_i2s_format = OXYGEN_I2S_FORMAT_LJUST,
 };
