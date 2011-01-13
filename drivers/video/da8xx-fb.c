@@ -177,7 +177,7 @@ static struct fb_var_screeninfo da8xx_fb_var __devinitdata = {
 	.activate = 0,
 	.height = -1,
 	.width = -1,
-	.pixclock = 33333,	/* 46us - AUO display */
+	.pixclock = 33333,/*Pico Sec*/
 	.accel_flags = 0,
 	.left_margin = LEFT_MARGIN,
 	.right_margin = RIGHT_MARGIN,
@@ -1301,6 +1301,11 @@ static int __devinit fb_probe(struct platform_device *device)
 
 	da8xx_fb_var.hsync_len = lcdc_info->hsw;
 	da8xx_fb_var.vsync_len = lcdc_info->vsw;
+
+	da8xx_fb_var.right_margin = lcdc_info->hfp;
+	da8xx_fb_var.left_margin  = lcdc_info->hbp;
+	da8xx_fb_var.lower_margin = lcdc_info->vfp;
+	da8xx_fb_var.upper_margin = lcdc_info->vbp;
 
 	/* Initialize fbinfo */
 	da8xx_fb_info->flags = FBINFO_FLAG_DEFAULT;
