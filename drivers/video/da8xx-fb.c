@@ -1393,6 +1393,8 @@ static int fb_suspend(struct platform_device *dev, pm_message_t state)
 {
 	struct fb_info *info = platform_get_drvdata(dev);
 	struct da8xx_fb_par *par = info->par;
+	unsigned long timeo = jiffies + msecs_to_jiffies(5000);
+	u32 stat;
 
 	console_lock();
 	if (par->panel_power_ctrl)
@@ -1400,6 +1402,26 @@ static int fb_suspend(struct platform_device *dev, pm_message_t state)
 
 	fb_set_suspend(info, 1);
 	lcd_disable_raster();
+
+	/* Wait for the current frame to complete */
+	do {
+		if (lcd_revision == LCD_VERSION_1)
+			stat = lcdc_read(LCD_STAT_REG);
+		else
+			stat = lcdc_read(LCD_MASKED_STAT_REG);
+		cpu_relax();
+	} while (!(stat & BIT(0)) && time_before(jiffies, timeo));
+
+	if (lcd_revision == LCD_VERSION_1)
+		lcdc_write(stat, LCD_STAT_REG);
+	else
+		lcdc_write(stat, LCD_MASKED_STAT_REG);
+
+	if (time_after_eq(jiffies, timeo)) {
+		dev_err(&dev->dev, "controller timed out\n");
+		return -ETIMEDOUT;
+	}
+
 	clk_disable(par->lcdc_clk);
 	console_unlock();
 
@@ -1415,7 +1437,12 @@ static int fb_resume(struct platform_device *dev)
 		par->panel_power_ctrl(1);
 
 	clk_enable(par->lcdc_clk);
+
 	lcd_enable_raster();
+
+	if (par->panel_power_ctrl)
+		par->panel_power_ctrl(1);
+
 	fb_set_suspend(info, 0);
 	console_unlock();
 
