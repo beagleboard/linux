@@ -182,6 +182,8 @@
 #define DMA_SCHED_LAST_ENTRY_SHIFT	0
 #define DMA_SCHED_LAST_ENTRY_MASK	(0xff << DMA_SCHED_LAST_ENTRY_SHIFT)
 
+#define CPPI41_TXDMA_MAXLEN		(4 * 1024 * 1024 - 1)
+#define CPPI41_RXDMA_MAXLEN		(64 * 1024)
 /*
  * DMA Scheduler - Table Region
  */
@@ -534,7 +536,7 @@ int cppi41_mem_rgn_free(u8 q_mgr, u8 mem_rgn);
  *
  * Returns 0 on success, error otherwise.
  */
-int __init cppi41_dma_block_init(u8 dma_num, u8 q_mgr, u8 num_order,
+int cppi41_dma_block_init(u8 dma_num, u8 q_mgr, u8 num_order,
 				 u8 *sched_tbl, u8 tbl_size);
 
 /*

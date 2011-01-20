@@ -21,6 +21,7 @@
 
 #include <linux/errno.h>
 #include <linux/dma-mapping.h>
+#include <linux/module.h>
 
 #include "cppi41.h"
 
@@ -160,7 +161,7 @@ static void usb_put_free_pd(struct cppi41 *cppi, struct usb_pkt_desc *free_pd)
  *
  * This function initializes the CPPI 4.1 Tx/Rx channels.
  */
-static int __init cppi41_controller_start(struct dma_controller *controller)
+static int __devinit cppi41_controller_start(struct dma_controller *controller)
 {
 	struct cppi41 *cppi;
 	struct cppi41_channel *cppi_ch;
@@ -439,6 +440,8 @@ static struct dma_channel *cppi41_channel_alloc(struct dma_controller
 	cppi_ch->end_pt = ep;
 	cppi_ch->ch_num = ch_num;
 	cppi_ch->channel.status = MUSB_DMA_STATUS_FREE;
+	cppi_ch->channel.max_len = is_tx ?
+				CPPI41_TXDMA_MAXLEN : CPPI41_RXDMA_MAXLEN;
 
 	DBG(4, "Allocated DMA %cx channel %d for EP%d\n", is_tx ? 'T' : 'R',
 	    ch_num, ep_num);
@@ -1070,10 +1073,11 @@ static int cppi41_channel_abort(struct dma_channel *channel)
 }
 
 /**
- * dma_controller_create - instantiate an object representing DMA controller.
+ * cppi41_dma_controller_create -
+ * instantiate an object representing DMA controller.
  */
-struct dma_controller * __init dma_controller_create(struct musb  *musb,
-						     void __iomem *mregs)
+struct dma_controller * __devinit
+cppi41_dma_controller_create(struct musb  *musb, void __iomem *mregs)
 {
 	struct cppi41 *cppi;
 
@@ -1092,12 +1096,14 @@ struct dma_controller * __init dma_controller_create(struct musb  *musb,
 
 	return &cppi->controller;
 }
+EXPORT_SYMBOL(cppi41_dma_controller_create);
 
 /**
- * dma_controller_destroy - destroy a previously instantiated DMA controller
+ * cppi41_dma_controller_destroy -
+ * destroy a previously instantiated DMA controller
  * @controller: the controller
  */
-void dma_controller_destroy(struct dma_controller *controller)
+void cppi41_dma_controller_destroy(struct dma_controller *controller)
 {
 	struct cppi41 *cppi;
 
@@ -1106,6 +1112,7 @@ void dma_controller_destroy(struct dma_controller *controller)
 	/* Free the CPPI object */
 	kfree(cppi);
 }
+EXPORT_SYMBOL(cppi41_dma_controller_destroy);
 
 static void usb_process_tx_queue(struct cppi41 *cppi, unsigned index)
 {
@@ -1228,3 +1235,17 @@ void cppi41_completion(struct musb *musb, u32 rx, u32 tx)
 		if (tx & 1)
 			usb_process_tx_queue(cppi, index);
 }
+
+MODULE_DESCRIPTION("CPPI4.1 dma controller driver for musb");
+MODULE_LICENSE("GPL v2");
+
+static int __init cppi41_dma_init(void)
+{
+	return 0;
+}
+module_init(cppi41_dma_init);
+
+static void __exit cppi41_dma__exit(void)
+{
+}
+module_exit(cppi41_dma__exit);
