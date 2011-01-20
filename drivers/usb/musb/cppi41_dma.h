@@ -41,7 +41,7 @@ struct usb_cppi41_info {
 	const u16 *rx_comp_q;
 };
 
-extern const struct usb_cppi41_info usb_cppi41_info;
+extern struct usb_cppi41_info usb_cppi41_info;
 
 /**
  * cppi41_completion - Tx/Rx completion queue interrupt handling hook

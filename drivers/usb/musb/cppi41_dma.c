@@ -122,6 +122,9 @@ struct cppi41 {
 	u32 pkt_info;			/* Tx PD Packet Information field */
 };
 
+struct usb_cppi41_info usb_cppi41_info;
+EXPORT_SYMBOL(usb_cppi41_info);
+
 #ifdef DEBUG_CPPI_TD
 static void print_pd_list(struct usb_pkt_desc *pd_pool_head)
 {
@@ -1326,6 +1329,7 @@ void cppi41_completion(struct musb *musb, u32 rx, u32 tx)
 		if (tx & 1)
 			usb_process_tx_queue(cppi, index);
 }
+EXPORT_SYMBOL(cppi41_completion);
 
 MODULE_DESCRIPTION("CPPI4.1 dma controller driver for musb");
 MODULE_LICENSE("GPL v2");

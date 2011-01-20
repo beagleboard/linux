@@ -107,16 +107,6 @@
 static const u16 tx_comp_q[] = { 63, 64 };
 static const u16 rx_comp_q[] = { 65, 66 };
 
-const struct usb_cppi41_info usb_cppi41_info = {
-	.dma_block	= 0,
-	.ep_dma_ch	= { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14 },
-	.q_mgr		= 0,
-	.num_tx_comp_q	= 2,
-	.num_rx_comp_q	= 2,
-	.tx_comp_q	= tx_comp_q,
-	.rx_comp_q	= rx_comp_q
-};
-
 /* Fair scheduling */
 u32 dma_sched_table[] = {
 	0x81018000, 0x83038202, 0x85058404, 0x87078606,
@@ -202,39 +192,43 @@ static const struct cppi41_tx_ch tx_ch_info[] = {
 	}
 };
 
-struct cppi41_dma_block cppi41_dma_block[CPPI41_NUM_DMA_BLOCK] = {
-	[0] = {
-		.num_tx_ch	= 15,
-		.num_rx_ch	= 15,
-		.tx_ch_info	= tx_ch_info
-	}
-};
-EXPORT_SYMBOL(cppi41_dma_block);
-
 /* Queues 0 to 66 are pre-assigned, others are spare */
 static const u32 assigned_queues[] = { 0xffffffff, 0xffffffff, 0x7 };
 
-/* Queue manager information */
-struct cppi41_queue_mgr cppi41_queue_mgr[CPPI41_NUM_QUEUE_MGR] = {
-	[0] = {
-		.num_queue	= 96,
-		.queue_types	= CPPI41_FREE_DESC_BUF_QUEUE |
-					CPPI41_UNASSIGNED_QUEUE,
-		.base_fdbq_num	= 0,
-		.assigned	= assigned_queues
-	}
-};
-EXPORT_SYMBOL(cppi41_queue_mgr);
-
-int __init cppi41_init(struct musb *musb)
+int __devinit cppi41_init(struct musb *musb)
 {
-	u16 numch, blknum = usb_cppi41_info.dma_block, order;
+	u16 numch, blknum, order, i;
+
+	/* init cppi info structure  */
+	usb_cppi41_info.dma_block = 0;
+	for (i = 0 ; i < USB_CPPI41_NUM_CH ; i++)
+		usb_cppi41_info.ep_dma_ch[i] = i;
+
+	usb_cppi41_info.q_mgr = 0;
+	usb_cppi41_info.num_tx_comp_q = 4;
+	usb_cppi41_info.num_rx_comp_q = 4;
+	usb_cppi41_info.tx_comp_q = tx_comp_q;
+	usb_cppi41_info.rx_comp_q = rx_comp_q;
+
+	blknum = usb_cppi41_info.dma_block;
+
+	/* Queue manager information */
+	cppi41_queue_mgr[0].num_queue = 96;
+	cppi41_queue_mgr[0].queue_types = CPPI41_FREE_DESC_BUF_QUEUE |
+						CPPI41_UNASSIGNED_QUEUE;
+	cppi41_queue_mgr[0].base_fdbq_num = 0;
+	cppi41_queue_mgr[0].assigned = assigned_queues;
 
 	/* init mappings */
 	cppi41_queue_mgr[0].q_mgr_rgn_base = musb->ctrl_base + 0x4000;
 	cppi41_queue_mgr[0].desc_mem_rgn_base = musb->ctrl_base + 0x5000;
 	cppi41_queue_mgr[0].q_mgmt_rgn_base = musb->ctrl_base + 0x6000;
 	cppi41_queue_mgr[0].q_stat_rgn_base = musb->ctrl_base + 0x6800;
+
+	/* init DMA block */
+	cppi41_dma_block[0].num_tx_ch = 15;
+	cppi41_dma_block[0].num_rx_ch = 15;
+	cppi41_dma_block[0].tx_ch_info = tx_ch_info;
 
 	cppi41_dma_block[0].global_ctrl_base = musb->ctrl_base + 0x1000;
 	cppi41_dma_block[0].ch_ctrl_stat_base = musb->ctrl_base + 0x1800;
@@ -783,7 +777,7 @@ static int __exit am35x_remove(struct platform_device *pdev)
 	struct am35x_glue	*glue = platform_get_drvdata(pdev);
 
 	platform_device_del(glue->musb);
-	platform_device_put(glue->musb);
+	/*platform_device_put(glue->musb);*/
 	clk_disable(glue->clk);
 	clk_disable(glue->phy_clk);
 	clk_put(glue->clk);
