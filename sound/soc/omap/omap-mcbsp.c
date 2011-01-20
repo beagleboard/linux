@@ -113,6 +113,7 @@ static const int omap44xx_dma_reqs[][2] = {
 static const int omap44xx_dma_reqs[][2] = {};
 #endif
 
+#if defined(CONFIG_SOC_OMAP2420)
 static const unsigned long omap2420_mcbsp_port[][2] = {
 	{ OMAP24XX_MCBSP1_BASE + OMAP_MCBSP_REG_DXR1,
 	  OMAP24XX_MCBSP1_BASE + OMAP_MCBSP_REG_DRR1 },

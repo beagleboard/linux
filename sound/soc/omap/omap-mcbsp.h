@@ -54,6 +54,7 @@ enum omap_mcbsp_div {
 #undef  NUM_LINKS
 #define NUM_LINKS	4
 #endif
+#if defined(CONFIG_ARCH_OMAP3) || defined(CONFIG_SOC_OMAP2430)
 #undef  NUM_LINKS
 #define NUM_LINKS	5
 #endif
