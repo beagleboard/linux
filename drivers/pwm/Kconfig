@@ -8,3 +8,11 @@ menuconfig GENERIC_PWM
 	help
 	  Enables PWM device support implemented via a generic
 	  framework.  If unsure, say N.
+
+config DAVINCI_EHRPWM
+	bool "Davinci eHRPWM support"
+	select HAVE_PWM
+	depends on GENERIC_PWM && ARCH_DAVINCI_DA850
+	help
+	  This option enables support for eHRPWM driver. If
+	  unsure, say N.
