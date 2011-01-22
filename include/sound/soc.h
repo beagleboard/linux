@@ -258,6 +258,8 @@ enum snd_soc_compress_type {
 	SND_SOC_RBTREE_COMPRESSION
 };
 
+int snd_soc_register_card(struct snd_soc_card *card);
+int snd_soc_unregister_card(struct snd_soc_card *card);
 int snd_soc_register_platform(struct device *dev,
 		struct snd_soc_platform_driver *platform_drv);
 void snd_soc_unregister_platform(struct device *dev);
@@ -276,6 +278,10 @@ int snd_soc_cache_write(struct snd_soc_codec *codec,
 			unsigned int reg, unsigned int value);
 int snd_soc_cache_read(struct snd_soc_codec *codec,
 		       unsigned int reg, unsigned int *value);
+int snd_soc_default_volatile_register(struct snd_soc_codec *codec,
+				      unsigned int reg);
+int snd_soc_default_readable_register(struct snd_soc_codec *codec,
+				      unsigned int reg);
 
 /* Utility functions to get clock rates from various things */
 int snd_soc_calc_frame_size(int sample_size, int channels, int tdm_slots);
@@ -365,6 +371,22 @@ int snd_soc_get_volsw_2r_sx(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol);
 int snd_soc_put_volsw_2r_sx(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol);
+
+/**
+ * struct snd_soc_reg_access - Describes whether a given register is
+ * readable, writable or volatile.
+ *
+ * @reg: the register number
+ * @read: whether this register is readable
+ * @write: whether this register is writable
+ * @vol: whether this register is volatile
+ */
+struct snd_soc_reg_access {
+	u16 reg;
+	u16 read;
+	u16 write;
+	u16 vol;
+};
 
 /**
  * struct snd_soc_jack_pin - Describes a pin to update based on jack detection
@@ -459,6 +481,9 @@ struct snd_soc_codec {
 	struct list_head card_list;
 	int num_dai;
 	enum snd_soc_compress_type compress_type;
+	size_t reg_size;	/* reg_cache_size * reg_word_size */
+	int (*volatile_register)(struct snd_soc_codec *, unsigned int);
+	int (*readable_register)(struct snd_soc_codec *, unsigned int);
 
 	/* runtime */
 	struct snd_ac97 *ac97;  /* for ad-hoc ac97 devices */
@@ -508,12 +533,14 @@ struct snd_soc_codec_driver {
 	int (*write)(struct snd_soc_codec *, unsigned int, unsigned int);
 	int (*display_register)(struct snd_soc_codec *, char *,
 				size_t, unsigned int);
-	int (*volatile_register)(unsigned int);
-	int (*readable_register)(unsigned int);
+	int (*volatile_register)(struct snd_soc_codec *, unsigned int);
+	int (*readable_register)(struct snd_soc_codec *, unsigned int);
 	short reg_cache_size;
 	short reg_cache_step;
 	short reg_word_size;
 	const void *reg_cache_default;
+	short reg_access_size;
+	const struct snd_soc_reg_access *reg_access_default;
 	enum snd_soc_compress_type compress_type;
 
 	/* codec bias level */
@@ -754,6 +781,20 @@ static inline void *snd_soc_pcm_get_drvdata(struct snd_soc_pcm_runtime *rtd)
 	return dev_get_drvdata(&rtd->dev);
 }
 
+static inline void snd_soc_initialize_card_lists(struct snd_soc_card *card)
+{
+	INIT_LIST_HEAD(&card->dai_dev_list);
+	INIT_LIST_HEAD(&card->codec_dev_list);
+	INIT_LIST_HEAD(&card->platform_dev_list);
+	INIT_LIST_HEAD(&card->widgets);
+	INIT_LIST_HEAD(&card->paths);
+	INIT_LIST_HEAD(&card->dapm_list);
+}
+
 #include <sound/soc-dai.h>
+
+#ifdef CONFIG_DEBUG_FS
+extern struct dentry *snd_soc_debugfs_root;
+#endif
 
 #endif

@@ -48,7 +48,8 @@ static DEFINE_MUTEX(pcm_mutex);
 static DECLARE_WAIT_QUEUE_HEAD(soc_pm_waitq);
 
 #ifdef CONFIG_DEBUG_FS
-static struct dentry *debugfs_root;
+struct dentry *snd_soc_debugfs_root;
+EXPORT_SYMBOL_GPL(snd_soc_debugfs_root);
 #endif
 
 static DEFINE_MUTEX(client_mutex);
@@ -57,8 +58,6 @@ static LIST_HEAD(dai_list);
 static LIST_HEAD(platform_list);
 static LIST_HEAD(codec_list);
 
-static int snd_soc_register_card(struct snd_soc_card *card);
-static int snd_soc_unregister_card(struct snd_soc_card *card);
 static int soc_new_pcm(struct snd_soc_pcm_runtime *rtd, int num);
 
 /*
@@ -83,7 +82,7 @@ static ssize_t soc_codec_reg_show(struct snd_soc_codec *codec, char *buf)
 
 	count += sprintf(buf, "%s registers\n", codec->name);
 	for (i = 0; i < codec->driver->reg_cache_size; i += step) {
-		if (codec->driver->readable_register && !codec->driver->readable_register(i))
+		if (codec->readable_register && !codec->readable_register(codec, i))
 			continue;
 
 		count += sprintf(buf + count, "%2x: ", i);
@@ -209,6 +208,10 @@ static ssize_t codec_reg_write_file(struct file *file,
 		start++;
 	if (strict_strtoul(start, 16, &value))
 		return -EINVAL;
+
+	/* Userspace has been fiddling around behind the kernel's back */
+	add_taint(TAINT_USER);
+
 	snd_soc_write(codec, reg, value);
 	return buf_size;
 }
@@ -356,7 +359,7 @@ static const struct file_operations platform_list_fops = {
 static void soc_init_card_debugfs(struct snd_soc_card *card)
 {
 	card->debugfs_card_root = debugfs_create_dir(card->name,
-						     debugfs_root);
+						     snd_soc_debugfs_root);
 	if (!card->debugfs_card_root) {
 		dev_warn(card->dev,
 			 "ASoC: Failed to create codec debugfs directory\n");
@@ -1467,7 +1470,6 @@ static int soc_post_component_init(struct snd_soc_card *card,
 
 	/* Make sure all DAPM widgets are instantiated */
 	snd_soc_dapm_new_widgets(&codec->dapm);
-	snd_soc_dapm_sync(&codec->dapm);
 
 	/* register the rtd device */
 	rtd->codec = codec;
@@ -1743,6 +1745,8 @@ static void snd_soc_instantiate_card(struct snd_soc_card *card)
 	list_for_each_entry(codec, &codec_list, list) {
 		if (codec->cache_init)
 			continue;
+		/* by default we don't override the compress_type */
+		compress_type = 0;
 		/* check to see if we need to override the compress_type */
 		for (i = 0; i < card->num_configs; ++i) {
 			codec_conf = &card->codec_conf[i];
@@ -1753,18 +1757,6 @@ static void snd_soc_instantiate_card(struct snd_soc_card *card)
 					break;
 			}
 		}
-		if (i == card->num_configs) {
-			/* no need to override the compress_type so
-			 * go ahead and do the standard thing */
-			ret = snd_soc_init_codec_cache(codec, 0);
-			if (ret < 0) {
-				mutex_unlock(&card->mutex);
-				return;
-			}
-			continue;
-		}
-		/* override the compress_type with the one supplied in
-		 * the machine driver */
 		ret = snd_soc_init_codec_cache(codec, compress_type);
 		if (ret < 0) {
 			mutex_unlock(&card->mutex);
@@ -1875,16 +1867,16 @@ static int soc_probe(struct platform_device *pdev)
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
 	int ret = 0;
 
+	/*
+	 * no card, so machine driver should be registering card
+	 * we should not be here in that case so ret error
+	 */
+	if (!card)
+		return -EINVAL;
+
 	/* Bodge while we unpick instantiation */
 	card->dev = &pdev->dev;
-	INIT_LIST_HEAD(&card->dai_dev_list);
-	INIT_LIST_HEAD(&card->codec_dev_list);
-	INIT_LIST_HEAD(&card->platform_dev_list);
-	INIT_LIST_HEAD(&card->widgets);
-	INIT_LIST_HEAD(&card->paths);
-	INIT_LIST_HEAD(&card->dapm_list);
-
-	soc_init_card_debugfs(card);
+	snd_soc_initialize_card_lists(card);
 
 	ret = snd_soc_register_card(card);
 	if (ret != 0) {
@@ -1895,37 +1887,42 @@ static int soc_probe(struct platform_device *pdev)
 	return 0;
 }
 
+static int soc_cleanup_card_resources(struct snd_soc_card *card)
+{
+	struct platform_device *pdev = to_platform_device(card->dev);
+	int i;
+
+	/* make sure any delayed work runs */
+	for (i = 0; i < card->num_rtd; i++) {
+		struct snd_soc_pcm_runtime *rtd = &card->rtd[i];
+		flush_delayed_work_sync(&rtd->delayed_work);
+	}
+
+	/* remove auxiliary devices */
+	for (i = 0; i < card->num_aux_devs; i++)
+		soc_remove_aux_dev(card, i);
+
+	/* remove and free each DAI */
+	for (i = 0; i < card->num_rtd; i++)
+		soc_remove_dai_link(card, i);
+
+	soc_cleanup_card_debugfs(card);
+
+	/* remove the card */
+	if (card->remove)
+		card->remove(pdev);
+
+	kfree(card->rtd);
+	snd_card_free(card->snd_card);
+	return 0;
+
+}
+
 /* removes a socdev */
 static int soc_remove(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
-	int i;
 
-		if (card->instantiated) {
-
-		/* make sure any delayed work runs */
-		for (i = 0; i < card->num_rtd; i++) {
-			struct snd_soc_pcm_runtime *rtd = &card->rtd[i];
-			flush_delayed_work_sync(&rtd->delayed_work);
-		}
-
-		/* remove auxiliary devices */
-		for (i = 0; i < card->num_aux_devs; i++)
-			soc_remove_aux_dev(card, i);
-
-		/* remove and free each DAI */
-		for (i = 0; i < card->num_rtd; i++)
-			soc_remove_dai_link(card, i);
-
-		soc_cleanup_card_debugfs(card);
-
-		/* remove the card */
-		if (card->remove)
-			card->remove(pdev);
-
-		kfree(card->rtd);
-		snd_card_free(card->snd_card);
-	}
 	snd_soc_unregister_card(card);
 	return 0;
 }
@@ -2034,8 +2031,8 @@ static int soc_new_pcm(struct snd_soc_pcm_runtime *rtd, int num)
  */
 int snd_soc_codec_volatile_register(struct snd_soc_codec *codec, int reg)
 {
-	if (codec->driver->volatile_register)
-		return codec->driver->volatile_register(reg);
+	if (codec->volatile_register)
+		return codec->volatile_register(codec, reg);
 	else
 		return 0;
 }
@@ -2132,19 +2129,27 @@ EXPORT_SYMBOL_GPL(snd_soc_write);
  *
  * Writes new register value.
  *
- * Returns 1 for change else 0.
+ * Returns 1 for change, 0 for no change, or negative error code.
  */
 int snd_soc_update_bits(struct snd_soc_codec *codec, unsigned short reg,
 				unsigned int mask, unsigned int value)
 {
 	int change;
 	unsigned int old, new;
+	int ret;
 
-	old = snd_soc_read(codec, reg);
+	ret = snd_soc_read(codec, reg);
+	if (ret < 0)
+		return ret;
+
+	old = ret;
 	new = (old & ~mask) | value;
 	change = old != new;
-	if (change)
-		snd_soc_write(codec, reg, new);
+	if (change) {
+		ret = snd_soc_write(codec, reg, new);
+		if (ret < 0)
+			return ret;
+	}
 
 	return change;
 }
@@ -3104,16 +3109,15 @@ EXPORT_SYMBOL_GPL(snd_soc_dai_digital_mute);
  *
  * @card: Card to register
  *
- * Note that currently this is an internal only function: it will be
- * exposed to machine drivers after further backporting of ASoC v2
- * registration APIs.
  */
-static int snd_soc_register_card(struct snd_soc_card *card)
+int snd_soc_register_card(struct snd_soc_card *card)
 {
 	int i;
 
 	if (!card->name || !card->dev)
 		return -EINVAL;
+
+	soc_init_card_debugfs(card);
 
 	card->rtd = kzalloc(sizeof(struct snd_soc_pcm_runtime) *
 			    (card->num_links + card->num_aux_devs),
@@ -3138,18 +3142,18 @@ static int snd_soc_register_card(struct snd_soc_card *card)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(snd_soc_register_card);
 
 /**
  * snd_soc_unregister_card - Unregister a card with the ASoC core
  *
  * @card: Card to unregister
  *
- * Note that currently this is an internal only function: it will be
- * exposed to machine drivers after further backporting of ASoC v2
- * registration APIs.
  */
-static int snd_soc_unregister_card(struct snd_soc_card *card)
+int snd_soc_unregister_card(struct snd_soc_card *card)
 {
+	if (card->instantiated)
+		soc_cleanup_card_resources(card);
 	mutex_lock(&client_mutex);
 	list_del(&card->list);
 	mutex_unlock(&client_mutex);
@@ -3157,6 +3161,7 @@ static int snd_soc_unregister_card(struct snd_soc_card *card)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(snd_soc_unregister_card);
 
 /*
  * Simplify DAI link configuration by removing ".-1" from device names
@@ -3486,6 +3491,8 @@ int snd_soc_register_codec(struct device *dev,
 
 	codec->write = codec_drv->write;
 	codec->read = codec_drv->read;
+	codec->volatile_register = codec_drv->volatile_register;
+	codec->readable_register = codec_drv->readable_register;
 	codec->dapm.bias_level = SND_SOC_BIAS_OFF;
 	codec->dapm.dev = dev;
 	codec->dapm.codec = codec;
@@ -3497,18 +3504,28 @@ int snd_soc_register_codec(struct device *dev,
 	/* allocate CODEC register cache */
 	if (codec_drv->reg_cache_size && codec_drv->reg_word_size) {
 		reg_size = codec_drv->reg_cache_size * codec_drv->reg_word_size;
+		codec->reg_size = reg_size;
 		/* it is necessary to make a copy of the default register cache
 		 * because in the case of using a compression type that requires
 		 * the default register cache to be marked as __devinitconst the
 		 * kernel might have freed the array by the time we initialize
 		 * the cache.
 		 */
-		codec->reg_def_copy = kmemdup(codec_drv->reg_cache_default,
-					      reg_size, GFP_KERNEL);
-		if (!codec->reg_def_copy) {
-			ret = -ENOMEM;
-			goto fail;
+		if (codec_drv->reg_cache_default) {
+			codec->reg_def_copy = kmemdup(codec_drv->reg_cache_default,
+						      reg_size, GFP_KERNEL);
+			if (!codec->reg_def_copy) {
+				ret = -ENOMEM;
+				goto fail;
+			}
 		}
+	}
+
+	if (codec_drv->reg_access_size && codec_drv->reg_access_default) {
+		if (!codec->volatile_register)
+			codec->volatile_register = snd_soc_default_volatile_register;
+		if (!codec->readable_register)
+			codec->readable_register = snd_soc_default_readable_register;
 	}
 
 	for (i = 0; i < num_dai; i++) {
@@ -3577,22 +3594,22 @@ EXPORT_SYMBOL_GPL(snd_soc_unregister_codec);
 static int __init snd_soc_init(void)
 {
 #ifdef CONFIG_DEBUG_FS
-	debugfs_root = debugfs_create_dir("asoc", NULL);
-	if (IS_ERR(debugfs_root) || !debugfs_root) {
+	snd_soc_debugfs_root = debugfs_create_dir("asoc", NULL);
+	if (IS_ERR(snd_soc_debugfs_root) || !snd_soc_debugfs_root) {
 		printk(KERN_WARNING
 		       "ASoC: Failed to create debugfs directory\n");
-		debugfs_root = NULL;
+		snd_soc_debugfs_root = NULL;
 	}
 
-	if (!debugfs_create_file("codecs", 0444, debugfs_root, NULL,
+	if (!debugfs_create_file("codecs", 0444, snd_soc_debugfs_root, NULL,
 				 &codec_list_fops))
 		pr_warn("ASoC: Failed to create CODEC list debugfs file\n");
 
-	if (!debugfs_create_file("dais", 0444, debugfs_root, NULL,
+	if (!debugfs_create_file("dais", 0444, snd_soc_debugfs_root, NULL,
 				 &dai_list_fops))
 		pr_warn("ASoC: Failed to create DAI list debugfs file\n");
 
-	if (!debugfs_create_file("platforms", 0444, debugfs_root, NULL,
+	if (!debugfs_create_file("platforms", 0444, snd_soc_debugfs_root, NULL,
 				 &platform_list_fops))
 		pr_warn("ASoC: Failed to create platform list debugfs file\n");
 #endif
@@ -3604,7 +3621,7 @@ module_init(snd_soc_init);
 static void __exit snd_soc_exit(void)
 {
 #ifdef CONFIG_DEBUG_FS
-	debugfs_remove_recursive(debugfs_root);
+	debugfs_remove_recursive(snd_soc_debugfs_root);
 #endif
 	platform_driver_unregister(&soc_driver);
 }
