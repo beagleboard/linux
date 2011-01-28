@@ -1,6 +1,7 @@
 /* linux/arch/arm/mach-msm/dma.c
  *
  * Copyright (C) 2007 Google, Inc.
+ * Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -88,6 +89,18 @@ void msm_dmov_enqueue_cmd(unsigned id, struct msm_dmov_cmd *cmd)
 		list_add_tail(&cmd->list, &ready_commands[id]);
 	}
 	spin_unlock_irqrestore(&msm_dmov_lock, irq_flags);
+}
+
+void msm_dmov_flush(unsigned int id)
+{
+	unsigned long flags;
+	spin_lock_irqsave(&msm_dmov_lock, flags);
+	/* XXX not checking if flush cmd sent already */
+	if (!list_empty(&active_commands[id])) {
+		PRINT_IO("msm_dmov_flush(%d), send flush cmd\n", id);
+		writel(DMOV_FLUSH_GRACEFUL, DMOV_FLUSH0(id));
+	}
+	spin_unlock_irqrestore(&msm_dmov_lock, flags);
 }
 
 struct msm_dmov_exec_cmdptr_cmd {

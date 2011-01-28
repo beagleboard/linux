@@ -38,6 +38,7 @@ struct msm_dmov_cmd {
 void msm_dmov_enqueue_cmd(unsigned id, struct msm_dmov_cmd *cmd);
 void msm_dmov_stop_cmd(unsigned id, struct msm_dmov_cmd *cmd, int graceful);
 int msm_dmov_exec_cmd(unsigned id, unsigned int cmdptr);
+void msm_dmov_flush(unsigned int id);
 #else
 static inline
 void msm_dmov_enqueue_cmd(unsigned id, struct msm_dmov_cmd *cmd) { }
@@ -45,6 +46,8 @@ static inline
 void msm_dmov_stop_cmd(unsigned id, struct msm_dmov_cmd *cmd, int graceful) { }
 static inline
 int msm_dmov_exec_cmd(unsigned id, unsigned int cmdptr) { return -EIO; }
+static inline
+void msm_dmov_flush(unsigned int id) { }
 #endif
 
 
@@ -79,6 +82,7 @@ int msm_dmov_exec_cmd(unsigned id, unsigned int cmdptr) { return -EIO; }
 #define DMOV_FLUSH3(ch)       DMOV_SD_AARM(0x140, ch)
 #define DMOV_FLUSH4(ch)       DMOV_SD_AARM(0x180, ch)
 #define DMOV_FLUSH5(ch)       DMOV_SD_AARM(0x1C0, ch)
+#define DMOV_FLUSH_GRACEFUL  (1 << 31)
 
 #define DMOV_STATUS(ch)       DMOV_SD_AARM(0x200, ch)
 #define DMOV_STATUS_RSLT_COUNT(n)    (((n) >> 29))
