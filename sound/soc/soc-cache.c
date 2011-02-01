@@ -18,6 +18,8 @@
 #include <linux/bitmap.h>
 #include <linux/rbtree.h>
 
+#include <trace/events/asoc.h>
+
 static unsigned int snd_soc_4_12_read(struct snd_soc_codec *codec,
 				     unsigned int reg)
 {
@@ -25,7 +27,8 @@ static unsigned int snd_soc_4_12_read(struct snd_soc_codec *codec,
 	unsigned int val;
 
 	if (reg >= codec->driver->reg_cache_size ||
-		snd_soc_codec_volatile_register(codec, reg)) {
+		snd_soc_codec_volatile_register(codec, reg) ||
+		codec->cache_bypass) {
 			if (codec->cache_only)
 				return -1;
 
@@ -49,7 +52,8 @@ static int snd_soc_4_12_write(struct snd_soc_codec *codec, unsigned int reg,
 	data[1] = value & 0x00ff;
 
 	if (!snd_soc_codec_volatile_register(codec, reg) &&
-		reg < codec->driver->reg_cache_size) {
+		reg < codec->driver->reg_cache_size &&
+		!codec->cache_bypass) {
 		ret = snd_soc_cache_write(codec, reg, value);
 		if (ret < 0)
 			return -1;
@@ -106,7 +110,8 @@ static unsigned int snd_soc_7_9_read(struct snd_soc_codec *codec,
 	unsigned int val;
 
 	if (reg >= codec->driver->reg_cache_size ||
-		snd_soc_codec_volatile_register(codec, reg)) {
+		snd_soc_codec_volatile_register(codec, reg) ||
+		codec->cache_bypass) {
 			if (codec->cache_only)
 				return -1;
 
@@ -130,7 +135,8 @@ static int snd_soc_7_9_write(struct snd_soc_codec *codec, unsigned int reg,
 	data[1] = value & 0x00ff;
 
 	if (!snd_soc_codec_volatile_register(codec, reg) &&
-		reg < codec->driver->reg_cache_size) {
+		reg < codec->driver->reg_cache_size &&
+		!codec->cache_bypass) {
 		ret = snd_soc_cache_write(codec, reg, value);
 		if (ret < 0)
 			return -1;
@@ -191,7 +197,8 @@ static int snd_soc_8_8_write(struct snd_soc_codec *codec, unsigned int reg,
 	data[1] = value & 0xff;
 
 	if (!snd_soc_codec_volatile_register(codec, reg) &&
-		reg < codec->driver->reg_cache_size) {
+		reg < codec->driver->reg_cache_size &&
+		!codec->cache_bypass) {
 		ret = snd_soc_cache_write(codec, reg, value);
 		if (ret < 0)
 			return -1;
@@ -216,7 +223,8 @@ static unsigned int snd_soc_8_8_read(struct snd_soc_codec *codec,
 
 	reg &= 0xff;
 	if (reg >= codec->driver->reg_cache_size ||
-		snd_soc_codec_volatile_register(codec, reg)) {
+		snd_soc_codec_volatile_register(codec, reg) ||
+		codec->cache_bypass) {
 			if (codec->cache_only)
 				return -1;
 
@@ -271,7 +279,8 @@ static int snd_soc_8_16_write(struct snd_soc_codec *codec, unsigned int reg,
 	data[2] = value & 0xff;
 
 	if (!snd_soc_codec_volatile_register(codec, reg) &&
-		reg < codec->driver->reg_cache_size) {
+		reg < codec->driver->reg_cache_size &&
+		!codec->cache_bypass) {
 		ret = snd_soc_cache_write(codec, reg, value);
 		if (ret < 0)
 			return -1;
@@ -295,7 +304,8 @@ static unsigned int snd_soc_8_16_read(struct snd_soc_codec *codec,
 	unsigned int val;
 
 	if (reg >= codec->driver->reg_cache_size ||
-	    snd_soc_codec_volatile_register(codec, reg)) {
+	    snd_soc_codec_volatile_register(codec, reg) ||
+	    codec->cache_bypass) {
 		if (codec->cache_only)
 			return -1;
 
@@ -450,7 +460,8 @@ static unsigned int snd_soc_16_8_read(struct snd_soc_codec *codec,
 
 	reg &= 0xff;
 	if (reg >= codec->driver->reg_cache_size ||
-		snd_soc_codec_volatile_register(codec, reg)) {
+		snd_soc_codec_volatile_register(codec, reg) ||
+		codec->cache_bypass) {
 			if (codec->cache_only)
 				return -1;
 
@@ -476,7 +487,8 @@ static int snd_soc_16_8_write(struct snd_soc_codec *codec, unsigned int reg,
 
 	reg &= 0xff;
 	if (!snd_soc_codec_volatile_register(codec, reg) &&
-		reg < codec->driver->reg_cache_size) {
+		reg < codec->driver->reg_cache_size &&
+		!codec->cache_bypass) {
 		ret = snd_soc_cache_write(codec, reg, value);
 		if (ret < 0)
 			return -1;
@@ -568,7 +580,8 @@ static unsigned int snd_soc_16_16_read(struct snd_soc_codec *codec,
 	unsigned int val;
 
 	if (reg >= codec->driver->reg_cache_size ||
-	    snd_soc_codec_volatile_register(codec, reg)) {
+	    snd_soc_codec_volatile_register(codec, reg) ||
+	    codec->cache_bypass) {
 		if (codec->cache_only)
 			return -1;
 
@@ -595,7 +608,8 @@ static int snd_soc_16_16_write(struct snd_soc_codec *codec, unsigned int reg,
 	data[3] = value & 0xff;
 
 	if (!snd_soc_codec_volatile_register(codec, reg) &&
-		reg < codec->driver->reg_cache_size) {
+		reg < codec->driver->reg_cache_size &&
+		!codec->cache_bypass) {
 		ret = snd_soc_cache_write(codec, reg, value);
 		if (ret < 0)
 			return -1;
@@ -878,7 +892,9 @@ static int snd_soc_rbtree_cache_sync(struct snd_soc_codec *codec)
 		ret = snd_soc_cache_read(codec, rbnode->reg, &val);
 		if (ret)
 			return ret;
+		codec->cache_bypass = 1;
 		ret = snd_soc_write(codec, rbnode->reg, val);
+		codec->cache_bypass = 0;
 		if (ret)
 			return ret;
 		dev_dbg(codec->dev, "Synced register %#x, value = %#x\n",
@@ -1136,7 +1152,9 @@ static int snd_soc_lzo_cache_sync(struct snd_soc_codec *codec)
 		ret = snd_soc_cache_read(codec, i, &val);
 		if (ret)
 			return ret;
+		codec->cache_bypass = 1;
 		ret = snd_soc_write(codec, i, val);
+		codec->cache_bypass = 0;
 		if (ret)
 			return ret;
 		dev_dbg(codec->dev, "Synced register %#x, value = %#x\n",
@@ -1585,18 +1603,26 @@ EXPORT_SYMBOL_GPL(snd_soc_cache_write);
 int snd_soc_cache_sync(struct snd_soc_codec *codec)
 {
 	int ret;
+	const char *name;
 
 	if (!codec->cache_sync) {
 		return 0;
 	}
 
+	if (codec->cache_ops->name)
+		name = codec->cache_ops->name;
+	else
+		name = "unknown";
+
 	if (codec->cache_ops && codec->cache_ops->sync) {
 		if (codec->cache_ops->name)
 			dev_dbg(codec->dev, "Syncing %s cache for %s codec\n",
 				codec->cache_ops->name, codec->name);
+		trace_snd_soc_cache_sync(codec, name, "start");
 		ret = codec->cache_ops->sync(codec);
 		if (!ret)
 			codec->cache_sync = 0;
+		trace_snd_soc_cache_sync(codec, name, "end");
 		return ret;
 	}
 

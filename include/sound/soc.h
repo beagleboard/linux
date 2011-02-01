@@ -260,6 +260,9 @@ enum snd_soc_compress_type {
 
 int snd_soc_register_card(struct snd_soc_card *card);
 int snd_soc_unregister_card(struct snd_soc_card *card);
+int snd_soc_suspend(struct device *dev);
+int snd_soc_resume(struct device *dev);
+int snd_soc_poweroff(struct device *dev);
 int snd_soc_register_platform(struct device *dev,
 		struct snd_soc_platform_driver *platform_drv);
 void snd_soc_unregister_platform(struct device *dev);
@@ -267,7 +270,8 @@ int snd_soc_register_codec(struct device *dev,
 		const struct snd_soc_codec_driver *codec_drv,
 		struct snd_soc_dai_driver *dai_drv, int num_dai);
 void snd_soc_unregister_codec(struct device *dev);
-int snd_soc_codec_volatile_register(struct snd_soc_codec *codec, int reg);
+int snd_soc_codec_volatile_register(struct snd_soc_codec *codec,
+				    unsigned int reg);
 int snd_soc_codec_set_cache_io(struct snd_soc_codec *codec,
 			       int addr_bits, int data_bits,
 			       enum snd_soc_control_type control);
@@ -488,14 +492,15 @@ struct snd_soc_codec {
 	/* runtime */
 	struct snd_ac97 *ac97;  /* for ad-hoc ac97 devices */
 	unsigned int active;
-	unsigned int cache_only:1;  /* Suppress writes to hardware */
-	unsigned int cache_sync:1; /* Cache needs to be synced to hardware */
+	unsigned int cache_bypass:1; /* Suppress access to the cache */
 	unsigned int suspended:1; /* Codec is in suspend PM state */
 	unsigned int probed:1; /* Codec has been probed */
 	unsigned int ac97_registered:1; /* Codec has been AC97 registered */
 	unsigned int ac97_created:1; /* Codec has been created by SoC */
 	unsigned int sysfs_registered:1; /* codec has been sysfs registered */
 	unsigned int cache_init:1; /* codec cache has been initialized */
+	u32 cache_only;  /* Suppress writes to hardware */
+	u32 cache_sync; /* Cache needs to be synced to hardware */
 
 	/* codec IO */
 	void *control_data; /* codec control (i2c/3wire) data */
@@ -546,6 +551,9 @@ struct snd_soc_codec_driver {
 	/* codec bias level */
 	int (*set_bias_level)(struct snd_soc_codec *,
 			      enum snd_soc_bias_level level);
+
+	void (*seq_notifier)(struct snd_soc_dapm_context *,
+			     enum snd_soc_dapm_type, int);
 };
 
 /* SoC platform interface */
@@ -644,15 +652,15 @@ struct snd_soc_card {
 
 	bool instantiated;
 
-	int (*probe)(struct platform_device *pdev);
-	int (*remove)(struct platform_device *pdev);
+	int (*probe)(struct snd_soc_card *card);
+	int (*remove)(struct snd_soc_card *card);
 
 	/* the pre and post PM functions are used to do any PM work before and
 	 * after the codec and DAI's do any PM work. */
-	int (*suspend_pre)(struct platform_device *pdev, pm_message_t state);
-	int (*suspend_post)(struct platform_device *pdev, pm_message_t state);
-	int (*resume_pre)(struct platform_device *pdev);
-	int (*resume_post)(struct platform_device *pdev);
+	int (*suspend_pre)(struct snd_soc_card *card);
+	int (*suspend_post)(struct snd_soc_card *card);
+	int (*resume_pre)(struct snd_soc_card *card);
+	int (*resume_post)(struct snd_soc_card *card);
 
 	/* callbacks */
 	int (*set_bias_level)(struct snd_soc_card *,
@@ -697,6 +705,8 @@ struct snd_soc_card {
 	struct dentry *debugfs_pop_time;
 #endif
 	u32 pop_time;
+
+	void *drvdata;
 };
 
 /* SoC machine DAI configuration, glues a codec and cpu DAI together */
@@ -748,6 +758,17 @@ unsigned int snd_soc_write(struct snd_soc_codec *codec,
 
 /* device driver data */
 
+static inline void snd_soc_card_set_drvdata(struct snd_soc_card *card,
+		void *data)
+{
+	card->drvdata = data;
+}
+
+static inline void *snd_soc_card_get_drvdata(struct snd_soc_card *card)
+{
+	return card->drvdata;
+}
+
 static inline void snd_soc_codec_set_drvdata(struct snd_soc_codec *codec,
 		void *data)
 {
@@ -796,5 +817,7 @@ static inline void snd_soc_initialize_card_lists(struct snd_soc_card *card)
 #ifdef CONFIG_DEBUG_FS
 extern struct dentry *snd_soc_debugfs_root;
 #endif
+
+extern const struct dev_pm_ops snd_soc_pm_ops;
 
 #endif

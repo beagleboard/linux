@@ -726,10 +726,23 @@ static int dapm_supply_check_power(struct snd_soc_dapm_widget *w)
 
 static int dapm_seq_compare(struct snd_soc_dapm_widget *a,
 			    struct snd_soc_dapm_widget *b,
-			    int sort[])
+			    bool power_up)
 {
+	int *sort;
+
+	if (power_up)
+		sort = dapm_up_seq;
+	else
+		sort = dapm_down_seq;
+
 	if (sort[a->id] != sort[b->id])
 		return sort[a->id] - sort[b->id];
+	if (a->subseq != b->subseq) {
+		if (power_up)
+			return a->subseq - b->subseq;
+		else
+			return b->subseq - a->subseq;
+	}
 	if (a->reg != b->reg)
 		return a->reg - b->reg;
 	if (a->dapm != b->dapm)
@@ -741,12 +754,12 @@ static int dapm_seq_compare(struct snd_soc_dapm_widget *a,
 /* Insert a widget in order into a DAPM power sequence. */
 static void dapm_seq_insert(struct snd_soc_dapm_widget *new_widget,
 			    struct list_head *list,
-			    int sort[])
+			    bool power_up)
 {
 	struct snd_soc_dapm_widget *w;
 
 	list_for_each_entry(w, list, power_list)
-		if (dapm_seq_compare(new_widget, w, sort) < 0) {
+		if (dapm_seq_compare(new_widget, w, power_up) < 0) {
 			list_add_tail(&new_widget->power_list, &w->power_list);
 			return;
 		}
@@ -857,26 +870,42 @@ static void dapm_seq_run_coalesced(struct snd_soc_dapm_context *dapm,
  * handled.
  */
 static void dapm_seq_run(struct snd_soc_dapm_context *dapm,
-			 struct list_head *list, int event, int sort[])
+			 struct list_head *list, int event, bool power_up)
 {
 	struct snd_soc_dapm_widget *w, *n;
 	LIST_HEAD(pending);
 	int cur_sort = -1;
+	int cur_subseq = -1;
 	int cur_reg = SND_SOC_NOPM;
 	struct snd_soc_dapm_context *cur_dapm = NULL;
-	int ret;
+	int ret, i;
+	int *sort;
+
+	if (power_up)
+		sort = dapm_up_seq;
+	else
+		sort = dapm_down_seq;
 
 	list_for_each_entry_safe(w, n, list, power_list) {
 		ret = 0;
 
 		/* Do we need to apply any queued changes? */
 		if (sort[w->id] != cur_sort || w->reg != cur_reg ||
-		    w->dapm != cur_dapm) {
+		    w->dapm != cur_dapm || w->subseq != cur_subseq) {
 			if (!list_empty(&pending))
 				dapm_seq_run_coalesced(cur_dapm, &pending);
 
+			if (cur_dapm && cur_dapm->seq_notifier) {
+				for (i = 0; i < ARRAY_SIZE(dapm_up_seq); i++)
+					if (sort[i] == cur_sort)
+						cur_dapm->seq_notifier(cur_dapm,
+								       i,
+								       cur_subseq);
+			}
+
 			INIT_LIST_HEAD(&pending);
 			cur_sort = -1;
+			cur_subseq = -1;
 			cur_reg = SND_SOC_NOPM;
 			cur_dapm = NULL;
 		}
@@ -921,6 +950,7 @@ static void dapm_seq_run(struct snd_soc_dapm_context *dapm,
 		default:
 			/* Queue it up for application */
 			cur_sort = sort[w->id];
+			cur_subseq = w->subseq;
 			cur_reg = w->reg;
 			cur_dapm = w->dapm;
 			list_move(&w->power_list, &pending);
@@ -934,6 +964,13 @@ static void dapm_seq_run(struct snd_soc_dapm_context *dapm,
 
 	if (!list_empty(&pending))
 		dapm_seq_run_coalesced(dapm, &pending);
+
+	if (cur_dapm && cur_dapm->seq_notifier) {
+		for (i = 0; i < ARRAY_SIZE(dapm_up_seq); i++)
+			if (sort[i] == cur_sort)
+				cur_dapm->seq_notifier(cur_dapm,
+						       i, cur_subseq);
+	}
 }
 
 static void dapm_widget_update(struct snd_soc_dapm_context *dapm)
@@ -1002,10 +1039,10 @@ static int dapm_power_widgets(struct snd_soc_dapm_context *dapm, int event)
 	list_for_each_entry(w, &card->widgets, list) {
 		switch (w->id) {
 		case snd_soc_dapm_pre:
-			dapm_seq_insert(w, &down_list, dapm_down_seq);
+			dapm_seq_insert(w, &down_list, false);
 			break;
 		case snd_soc_dapm_post:
-			dapm_seq_insert(w, &up_list, dapm_up_seq);
+			dapm_seq_insert(w, &up_list, true);
 			break;
 
 		default:
@@ -1025,9 +1062,9 @@ static int dapm_power_widgets(struct snd_soc_dapm_context *dapm, int event)
 			trace_snd_soc_dapm_widget_power(w, power);
 
 			if (power)
-				dapm_seq_insert(w, &up_list, dapm_up_seq);
+				dapm_seq_insert(w, &up_list, true);
 			else
-				dapm_seq_insert(w, &down_list, dapm_down_seq);
+				dapm_seq_insert(w, &down_list, false);
 
 			w->power = power;
 			break;
@@ -1086,12 +1123,12 @@ static int dapm_power_widgets(struct snd_soc_dapm_context *dapm, int event)
 	}
 
 	/* Power down widgets first; try to avoid amplifying pops. */
-	dapm_seq_run(dapm, &down_list, event, dapm_down_seq);
+	dapm_seq_run(dapm, &down_list, event, false);
 
 	dapm_widget_update(dapm);
 
 	/* Now power up. */
-	dapm_seq_run(dapm, &up_list, event, dapm_up_seq);
+	dapm_seq_run(dapm, &up_list, event, true);
 
 	list_for_each_entry(d, &dapm->card->dapm_list, list) {
 		/* If we just powered the last thing off drop to standby bias */
@@ -1742,7 +1779,7 @@ int snd_soc_dapm_put_volsw(struct snd_kcontrol *kcontrol,
 	int max = mc->max;
 	unsigned int mask = (1 << fls(max)) - 1;
 	unsigned int invert = mc->invert;
-	unsigned int val, val_mask;
+	unsigned int val;
 	int connect, change;
 	struct snd_soc_dapm_update update;
 
@@ -1750,13 +1787,13 @@ int snd_soc_dapm_put_volsw(struct snd_kcontrol *kcontrol,
 
 	if (invert)
 		val = max - val;
-	val_mask = mask << shift;
+	mask = mask << shift;
 	val = val << shift;
 
 	mutex_lock(&widget->codec->mutex);
 	widget->value = val;
 
-	change = snd_soc_test_bits(widget->codec, reg, val_mask, val);
+	change = snd_soc_test_bits(widget->codec, reg, mask, val);
 	if (change) {
 		if (val)
 			/* new connection */
@@ -2372,7 +2409,7 @@ static void soc_dapm_shutdown_codec(struct snd_soc_dapm_context *dapm)
 		if (w->dapm != dapm)
 			continue;
 		if (w->power) {
-			dapm_seq_insert(w, &down_list, dapm_down_seq);
+			dapm_seq_insert(w, &down_list, false);
 			w->power = 0;
 			powerdown = 1;
 		}
@@ -2383,7 +2420,7 @@ static void soc_dapm_shutdown_codec(struct snd_soc_dapm_context *dapm)
 	 */
 	if (powerdown) {
 		snd_soc_dapm_set_bias_level(NULL, dapm, SND_SOC_BIAS_PREPARE);
-		dapm_seq_run(dapm, &down_list, 0, dapm_down_seq);
+		dapm_seq_run(dapm, &down_list, 0, false);
 		snd_soc_dapm_set_bias_level(NULL, dapm, SND_SOC_BIAS_STANDBY);
 	}
 }

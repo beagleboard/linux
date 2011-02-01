@@ -69,10 +69,32 @@ static int pmdown_time = 5000;
 module_param(pmdown_time, int, 0);
 MODULE_PARM_DESC(pmdown_time, "DAPM stream powerdown time (msecs)");
 
+/* returns the minimum number of bytes needed to represent
+ * a particular given value */
+static int min_bytes_needed(unsigned long val)
+{
+	int c = 0;
+	int i;
+
+	for (i = (sizeof val * 8) - 1; i >= 0; --i, ++c)
+		if (val & (1UL << i))
+			break;
+	c = (sizeof val * 8) - c;
+	if (!c || (c % 8))
+		c = (c + 8) / 8;
+	else
+		c /= 8;
+	return c;
+}
+
 /* codec register dump */
 static ssize_t soc_codec_reg_show(struct snd_soc_codec *codec, char *buf)
 {
 	int ret, i, step = 1, count = 0;
+	int wordsize, regsize;
+
+	wordsize = codec->driver->reg_word_size * 2;
+	regsize = min_bytes_needed(codec->driver->reg_cache_size) * 2;
 
 	if (!codec->driver->reg_cache_size)
 		return 0;
@@ -80,12 +102,11 @@ static ssize_t soc_codec_reg_show(struct snd_soc_codec *codec, char *buf)
 	if (codec->driver->reg_cache_step)
 		step = codec->driver->reg_cache_step;
 
-	count += sprintf(buf, "%s registers\n", codec->name);
 	for (i = 0; i < codec->driver->reg_cache_size; i += step) {
 		if (codec->readable_register && !codec->readable_register(codec, i))
 			continue;
 
-		count += sprintf(buf + count, "%2x: ", i);
+		count += sprintf(buf + count, "%.*x: ", regsize, i);
 		if (count >= PAGE_SIZE - 1)
 			break;
 
@@ -101,7 +122,7 @@ static ssize_t soc_codec_reg_show(struct snd_soc_codec *codec, char *buf)
 			if (ret >= 0)
 				count += snprintf(buf + count,
 						  PAGE_SIZE - count,
-						  "%4x", ret);
+						  "%.*x", wordsize, ret);
 			else
 				count += snprintf(buf + count,
 						  PAGE_SIZE - count,
@@ -234,6 +255,11 @@ static void soc_init_codec_debugfs(struct snd_soc_codec *codec)
 		       "ASoC: Failed to create codec debugfs directory\n");
 		return;
 	}
+
+	debugfs_create_bool("cache_sync", 0444, codec->debugfs_codec_root,
+			    &codec->cache_sync);
+	debugfs_create_bool("cache_only", 0444, codec->debugfs_codec_root,
+			    &codec->cache_only);
 
 	codec->debugfs_reg = debugfs_create_file("codec_reg", 0644,
 						 codec->debugfs_codec_root,
@@ -965,12 +991,11 @@ static struct snd_pcm_ops soc_pcm_ops = {
 	.pointer	= soc_pcm_pointer,
 };
 
-#ifdef CONFIG_PM
+#ifdef CONFIG_PM_SLEEP
 /* powers down audio subsystem for suspend */
-static int soc_suspend(struct device *dev)
+int snd_soc_suspend(struct device *dev)
 {
-	struct platform_device *pdev = to_platform_device(dev);
-	struct snd_soc_card *card = platform_get_drvdata(pdev);
+	struct snd_soc_card *card = dev_get_drvdata(dev);
 	struct snd_soc_codec *codec;
 	int i;
 
@@ -1011,7 +1036,7 @@ static int soc_suspend(struct device *dev)
 	}
 
 	if (card->suspend_pre)
-		card->suspend_pre(pdev, PMSG_SUSPEND);
+		card->suspend_pre(card);
 
 	for (i = 0; i < card->num_rtd; i++) {
 		struct snd_soc_dai *cpu_dai = card->rtd[i].cpu_dai;
@@ -1078,10 +1103,11 @@ static int soc_suspend(struct device *dev)
 	}
 
 	if (card->suspend_post)
-		card->suspend_post(pdev, PMSG_SUSPEND);
+		card->suspend_post(card);
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(snd_soc_suspend);
 
 /* deferred resume work, so resume can complete before we finished
  * setting our codec back up, which can be very slow on I2C
@@ -1090,7 +1116,6 @@ static void soc_resume_deferred(struct work_struct *work)
 {
 	struct snd_soc_card *card =
 			container_of(work, struct snd_soc_card, deferred_resume_work);
-	struct platform_device *pdev = to_platform_device(card->dev);
 	struct snd_soc_codec *codec;
 	int i;
 
@@ -1104,7 +1129,7 @@ static void soc_resume_deferred(struct work_struct *work)
 	snd_power_change_state(card->snd_card, SNDRV_CTL_POWER_D2);
 
 	if (card->resume_pre)
-		card->resume_pre(pdev);
+		card->resume_pre(card);
 
 	/* resume AC97 DAIs */
 	for (i = 0; i < card->num_rtd; i++) {
@@ -1179,7 +1204,7 @@ static void soc_resume_deferred(struct work_struct *work)
 	}
 
 	if (card->resume_post)
-		card->resume_post(pdev);
+		card->resume_post(card);
 
 	dev_dbg(card->dev, "resume work completed\n");
 
@@ -1188,10 +1213,9 @@ static void soc_resume_deferred(struct work_struct *work)
 }
 
 /* powers up audio subsystem after a suspend */
-static int soc_resume(struct device *dev)
+int snd_soc_resume(struct device *dev)
 {
-	struct platform_device *pdev = to_platform_device(dev);
-	struct snd_soc_card *card = platform_get_drvdata(pdev);
+	struct snd_soc_card *card = dev_get_drvdata(dev);
 	int i;
 
 	/* AC97 devices might have other drivers hanging off them so
@@ -1213,9 +1237,10 @@ static int soc_resume(struct device *dev)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(snd_soc_resume);
 #else
-#define soc_suspend	NULL
-#define soc_resume	NULL
+#define snd_soc_suspend NULL
+#define snd_soc_resume NULL
 #endif
 
 static struct snd_soc_dai_ops null_dai_ops = {
@@ -1408,25 +1433,30 @@ static int soc_probe_codec(struct snd_soc_card *card,
 	codec->dapm.card = card;
 	soc_set_name_prefix(card, codec);
 
+	if (!try_module_get(codec->dev->driver->owner))
+		return -ENODEV;
+
 	if (codec->driver->probe) {
 		ret = codec->driver->probe(codec);
 		if (ret < 0) {
 			dev_err(codec->dev,
 				"asoc: failed to probe CODEC %s: %d\n",
 				codec->name, ret);
-			return ret;
+			goto err_probe;
 		}
 	}
 
 	soc_init_codec_debugfs(codec);
 
 	/* mark codec as probed and add to card codec list */
-	if (!try_module_get(codec->dev->driver->owner))
-		return -ENODEV;
-
 	codec->probed = 1;
 	list_add(&codec->card_list, &card->codec_dev_list);
 	list_add(&codec->dapm.list, &card->dapm_list);
+
+	return 0;
+
+err_probe:
+	module_put(codec->dev->driver->owner);
 
 	return ret;
 }
@@ -1545,19 +1575,19 @@ static int soc_probe_dai_link(struct snd_soc_card *card, int num)
 
 	/* probe the platform */
 	if (!platform->probed) {
+		if (!try_module_get(platform->dev->driver->owner))
+			return -ENODEV;
+
 		if (platform->driver->probe) {
 			ret = platform->driver->probe(platform);
 			if (ret < 0) {
 				printk(KERN_ERR "asoc: failed to probe platform %s\n",
 						platform->name);
+				module_put(platform->dev->driver->owner);
 				return ret;
 			}
 		}
 		/* mark platform as probed and add to card platform list */
-
-		if (!try_module_get(platform->dev->driver->owner))
-			return -ENODEV;
-
 		platform->probed = 1;
 		list_add(&platform->card_list, &card->platform_dev_list);
 	}
@@ -1666,9 +1696,6 @@ static int soc_probe_aux_dev(struct snd_soc_card *card, int num)
 	goto out;
 
 found:
-	if (!try_module_get(codec->dev->driver->owner))
-		return -ENODEV;
-
 	ret = soc_probe_codec(card, codec);
 	if (ret < 0)
 		return ret;
@@ -1718,7 +1745,6 @@ static int snd_soc_init_codec_cache(struct snd_soc_codec *codec,
 
 static void snd_soc_instantiate_card(struct snd_soc_card *card)
 {
-	struct platform_device *pdev = to_platform_device(card->dev);
 	struct snd_soc_codec *codec;
 	struct snd_soc_codec_conf *codec_conf;
 	enum snd_soc_compress_type compress_type;
@@ -1782,7 +1808,7 @@ static void snd_soc_instantiate_card(struct snd_soc_card *card)
 
 	/* initialise the sound card only once */
 	if (card->probe) {
-		ret = card->probe(pdev);
+		ret = card->probe(card);
 		if (ret < 0)
 			goto card_probe_error;
 	}
@@ -1843,7 +1869,7 @@ probe_dai_err:
 
 card_probe_error:
 	if (card->remove)
-		card->remove(pdev);
+		card->remove(card);
 
 	snd_card_free(card->snd_card);
 
@@ -1876,7 +1902,6 @@ static int soc_probe(struct platform_device *pdev)
 
 	/* Bodge while we unpick instantiation */
 	card->dev = &pdev->dev;
-	snd_soc_initialize_card_lists(card);
 
 	ret = snd_soc_register_card(card);
 	if (ret != 0) {
@@ -1889,7 +1914,6 @@ static int soc_probe(struct platform_device *pdev)
 
 static int soc_cleanup_card_resources(struct snd_soc_card *card)
 {
-	struct platform_device *pdev = to_platform_device(card->dev);
 	int i;
 
 	/* make sure any delayed work runs */
@@ -1910,7 +1934,7 @@ static int soc_cleanup_card_resources(struct snd_soc_card *card)
 
 	/* remove the card */
 	if (card->remove)
-		card->remove(pdev);
+		card->remove(card);
 
 	kfree(card->rtd);
 	snd_card_free(card->snd_card);
@@ -1927,10 +1951,9 @@ static int soc_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static int soc_poweroff(struct device *dev)
+int snd_soc_poweroff(struct device *dev)
 {
-	struct platform_device *pdev = to_platform_device(dev);
-	struct snd_soc_card *card = platform_get_drvdata(pdev);
+	struct snd_soc_card *card = dev_get_drvdata(dev);
 	int i;
 
 	if (!card->instantiated)
@@ -1947,11 +1970,12 @@ static int soc_poweroff(struct device *dev)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(snd_soc_poweroff);
 
-static const struct dev_pm_ops soc_pm_ops = {
-	.suspend = soc_suspend,
-	.resume = soc_resume,
-	.poweroff = soc_poweroff,
+const struct dev_pm_ops snd_soc_pm_ops = {
+	.suspend = snd_soc_suspend,
+	.resume = snd_soc_resume,
+	.poweroff = snd_soc_poweroff,
 };
 
 /* ASoC platform driver */
@@ -1959,7 +1983,7 @@ static struct platform_driver soc_driver = {
 	.driver		= {
 		.name		= "soc-audio",
 		.owner		= THIS_MODULE,
-		.pm		= &soc_pm_ops,
+		.pm		= &snd_soc_pm_ops,
 	},
 	.probe		= soc_probe,
 	.remove		= soc_remove,
@@ -2029,7 +2053,8 @@ static int soc_new_pcm(struct snd_soc_pcm_runtime *rtd, int num)
  *
  * Boolean function indiciating if a CODEC register is volatile.
  */
-int snd_soc_codec_volatile_register(struct snd_soc_codec *codec, int reg)
+int snd_soc_codec_volatile_register(struct snd_soc_codec *codec,
+				    unsigned int reg)
 {
 	if (codec->volatile_register)
 		return codec->volatile_register(codec, reg);
@@ -3117,6 +3142,8 @@ int snd_soc_register_card(struct snd_soc_card *card)
 	if (!card->name || !card->dev)
 		return -EINVAL;
 
+	snd_soc_initialize_card_lists(card);
+
 	soc_init_card_debugfs(card);
 
 	card->rtd = kzalloc(sizeof(struct snd_soc_pcm_runtime) *
@@ -3496,6 +3523,7 @@ int snd_soc_register_codec(struct device *dev,
 	codec->dapm.bias_level = SND_SOC_BIAS_OFF;
 	codec->dapm.dev = dev;
 	codec->dapm.codec = codec;
+	codec->dapm.seq_notifier = codec_drv->seq_notifier;
 	codec->dev = dev;
 	codec->driver = codec_drv;
 	codec->num_dai = num_dai;
