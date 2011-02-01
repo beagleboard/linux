@@ -988,7 +988,7 @@ static void usb_rx_ch_teardown(struct cppi41_channel *rx_ch)
 			pd_addr = cppi41_queue_pop(&cppi->queue_obj);
 		} while (!pd_addr && timeout--);
 
-		if (timeout <= 0) {
+		if (timeout <= 0 || !pd_addr) {
 			ERR("teardown Desc not found\n");
 			break;
 		}
