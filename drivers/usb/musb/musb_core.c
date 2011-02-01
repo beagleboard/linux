@@ -957,7 +957,7 @@ void musb_start(struct musb *musb)
 	musb_platform_enable(musb);
 	musb_writeb(regs, MUSB_DEVCTL, devctl);
 }
-
+EXPORT_SYMBOL(musb_start);
 
 static void musb_generic_disable(struct musb *musb)
 {
