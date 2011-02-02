@@ -20,9 +20,12 @@
 #include <linux/interrupt.h>
 #include <linux/completion.h>
 #include <linux/module.h>
+#include <linux/platform_device.h>
 #include <mach/dma.h>
 
 #define MSM_DMOV_CHANNEL_COUNT 16
+
+#define MODULE_NAME "msm_dmov"
 
 enum {
 	MSM_DMOV_PRINT_ERRORS = 1,
@@ -37,11 +40,13 @@ static unsigned int channel_active;
 static struct list_head ready_commands[MSM_DMOV_CHANNEL_COUNT];
 static struct list_head active_commands[MSM_DMOV_CHANNEL_COUNT];
 unsigned int msm_dmov_print_mask = MSM_DMOV_PRINT_ERRORS;
+static void __iomem *msm_dmov_base;
+static unsigned msm_dmov_irq;
 
-#define DMOV_SD0(off, ch) (MSM_DMOV_BASE + 0x0000 + (off) + ((ch) << 2))
-#define DMOV_SD1(off, ch) (MSM_DMOV_BASE + 0x0400 + (off) + ((ch) << 2))
-#define DMOV_SD2(off, ch) (MSM_DMOV_BASE + 0x0800 + (off) + ((ch) << 2))
-#define DMOV_SD3(off, ch) (MSM_DMOV_BASE + 0x0C00 + (off) + ((ch) << 2))
+#define DMOV_SD0(off, ch) (msm_dmov_base + 0x0000 + (off) + ((ch) << 2))
+#define DMOV_SD1(off, ch) (msm_dmov_base + 0x0400 + (off) + ((ch) << 2))
+#define DMOV_SD2(off, ch) (msm_dmov_base + 0x0800 + (off) + ((ch) << 2))
+#define DMOV_SD3(off, ch) (msm_dmov_base + 0x0C00 + (off) + ((ch) << 2))
 
 #if defined(CONFIG_ARCH_MSM7X30)
 #define DMOV_SD_AARM DMOV_SD2
@@ -127,7 +132,7 @@ void msm_dmov_enqueue_cmd(unsigned id, struct msm_dmov_cmd *cmd)
 		PRINT_IO("msm_dmov_enqueue_cmd(%d), start command, status %x\n", id, status);
 		list_add_tail(&cmd->list, &active_commands[id]);
 		if (!channel_active)
-			enable_irq(INT_ADM_AARM);
+			enable_irq(msm_dmov_irq);
 		channel_active |= 1U << id;
 		writel(cmd->cmdptr, DMOV_CMD_PTR(id));
 	} else {
@@ -303,7 +308,7 @@ static irqreturn_t msm_datamover_irq_handler(int irq, void *dev_id)
 	}
 
 	if (!channel_active) {
-		disable_irq_nosync(INT_ADM_AARM);
+		disable_irq_nosync(msm_dmov_irq);
 		msm_dmov_clocks_off();
 	}
 
@@ -319,46 +324,79 @@ static void __init msm_dmov_deinit_clocks(void)
 		clk_put(msm_dmov_pclk);
 }
 
-static int __init msm_dmov_init_clocks(void)
+static int __devinit msm_dmov_init_clocks(struct platform_device *pdev)
 {
 	int ret = 0;
 
-	msm_dmov_clk = clk_get(NULL, "adm_clk");
+	msm_dmov_clk = clk_get(&pdev->dev, "adm_clk");
 	if (IS_ERR(msm_dmov_clk)) {
 		PRINT_ERROR("%s: Error getting adm_clk\n", __func__);
 		ret = PTR_ERR(msm_dmov_clk);
 	}
 
-	msm_dmov_pclk = clk_get(NULL, "adm_pclk");
+	msm_dmov_pclk = clk_get(&pdev->dev, "adm_pclk");
 	/* pclk not present on all SoCs, don't return error on failure */
 
 	return ret;
 }
 
-static int __init msm_init_datamover(void)
+static int __devinit msm_dmov_probe(struct platform_device *pdev)
 {
 	int i;
 	int ret;
+	struct resource *res;
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res)
+		return -ENXIO;
+
+	msm_dmov_base = ioremap_nocache(res->start, resource_size(res));
+	if (!msm_dmov_base)
+		return -ENOMEM;
 
 	for (i = 0; i < MSM_DMOV_CHANNEL_COUNT; i++) {
 		INIT_LIST_HEAD(&ready_commands[i]);
 		INIT_LIST_HEAD(&active_commands[i]);
-		writel(DMOV_CONFIG_IRQ_EN | DMOV_CONFIG_FORCE_TOP_PTR_RSLT | DMOV_CONFIG_FORCE_FLUSH_RSLT, DMOV_CONFIG(i));
+		writel(DMOV_CONFIG_IRQ_EN | DMOV_CONFIG_FORCE_TOP_PTR_RSLT |
+		       DMOV_CONFIG_FORCE_FLUSH_RSLT, DMOV_CONFIG(i));
 	}
 
-	ret = msm_dmov_init_clocks();
+	ret = msm_dmov_init_clocks(pdev);
 	if (ret)
-		return ret;
+		goto out_map;
 
-	ret = request_irq(INT_ADM_AARM, msm_datamover_irq_handler, 0,
-			  "msmdatamover", NULL);
-	if (ret) {
-		msm_dmov_deinit_clocks();
-		return ret;
+	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+	if (!res) {
+		ret = -EINVAL;
+		goto out_clock;
 	}
-	disable_irq(INT_ADM_AARM);
+
+	msm_dmov_irq = res->start;
+	ret = request_irq(msm_dmov_irq, msm_datamover_irq_handler, 0,
+			  "msmdatamover", NULL);
+	if (ret)
+		goto out_clock;
+	disable_irq(msm_dmov_irq);
+
 	return 0;
+out_clock:
+	msm_dmov_deinit_clocks();
+out_map:
+	iounmap(msm_dmov_base);
+	return ret;
+}
+
+static struct platform_driver msm_dmov_driver = {
+	.probe = msm_dmov_probe,
+	.driver = {
+		.name = MODULE_NAME,
+		.owner = THIS_MODULE,
+	},
+};
+
+static int __init msm_init_datamover(void)
+{
+	return platform_driver_register(&msm_dmov_driver);
 }
 
 arch_initcall(msm_init_datamover);
-
