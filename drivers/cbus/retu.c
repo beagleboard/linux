@@ -498,25 +498,16 @@ static struct platform_driver retu_driver = {
 	},
 };
 
-/**
- * retu_init - initialise Retu driver
- *
- * Initialise the Retu driver and return 0 if everything worked ok
- */
 static int __init retu_init(void)
 {
 	return platform_driver_probe(&retu_driver, retu_probe);
 }
+subsys_initcall(retu_init);
 
-/*
- * Cleanup
- */
 static void __exit retu_exit(void)
 {
 	platform_driver_unregister(&retu_driver);
 }
-
-subsys_initcall(retu_init);
 module_exit(retu_exit);
 
 MODULE_DESCRIPTION("Retu ASIC control");
