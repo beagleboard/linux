@@ -52,7 +52,6 @@ struct retu_rtc {
 	struct rtc_device	*rtc;
 
 	u16			alarm_expired;
-	u16			reset_occurred;
 };
 
 static void retu_rtc_do_reset(struct retu_rtc *rtc)
@@ -71,7 +70,6 @@ static void retu_rtc_do_reset(struct retu_rtc *rtc)
 	retu_write_reg(RETU_REG_RTCCALR, 0x00c0);
 
 	rtc->alarm_expired = 0;
-	rtc->reset_occurred = 1;
 }
 
 static irqreturn_t retu_rtc_interrupt(int irq, void *_rtc)
@@ -223,13 +221,9 @@ static int __init retu_rtc_probe(struct platform_device *pdev)
 		goto err1;
 	}
 
-	/* If the calibration register is zero, we've probably lost
-	 * power */
-	if (retu_read_reg(RETU_REG_RTCCALR) & 0x00ff)
-		rtc->reset_occurred = 0;
-	else
+	/* If the calibration register is zero, we've probably lost power */
+	if (!(retu_read_reg(RETU_REG_RTCCALR) & 0x00ff))
 		retu_rtc_do_reset(rtc);
-
 
 	rtc->rtc = rtc_device_register(pdev->name, &pdev->dev, &
 			retu_rtc_ops, THIS_MODULE);
