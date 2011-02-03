@@ -33,6 +33,7 @@
 #include <linux/miscdevice.h>
 #include <linux/poll.h>
 #include <linux/fs.h>
+#include <linux/mutex.h>
 #include <linux/irq.h>
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
@@ -43,6 +44,7 @@
 
 #include <plat/mux.h>
 #include <plat/board.h>
+#include <plat/cbus.h>
 
 #include "cbus.h"
 #include "retu.h"
@@ -53,23 +55,24 @@
 struct retu {
 	/* Device lock */
 	spinlock_t		lock;
-	struct tasklet_struct	tasklet;
+	struct mutex		irq_lock;
 	struct device		*dev;
 
+	int			irq_base;
+	int			irq_end;
+
 	int			irq;
+
+	int			ack;
+	bool			ack_pending;
+
+	int			mask;
+	bool			mask_pending;
 
 	bool			is_vilma;
 };
 
 static struct retu *the_retu;
-
-struct retu_irq_handler_desc {
-	int (*func)(unsigned long);
-	unsigned long arg;
-	char name[8];
-};
-
-static struct retu_irq_handler_desc retu_irq_handlers[MAX_RETU_IRQ_HANDLERS];
 
 int retu_get_status(void)
 {
@@ -156,180 +159,137 @@ int retu_read_adc(int channel)
 }
 EXPORT_SYMBOL(retu_read_adc);
 
-static u16 retu_disable_bogus_irqs(u16 mask)
-{
-       int i;
-
-       for (i = 0; i < MAX_RETU_IRQ_HANDLERS; i++) {
-               if (mask & (1 << i))
-                       continue;
-               if (retu_irq_handlers[i].func != NULL)
-                       continue;
-               /* an IRQ was enabled but we don't have a handler for it */
-               printk(KERN_INFO PFX "disabling bogus IRQ %d\n", i);
-               mask |= (1 << i);
-       }
-       return mask;
-}
-
-/*
- * Disable given RETU interrupt
- */
-void retu_disable_irq(int id)
-{
-	struct retu		*retu = the_retu;
-	unsigned long		flags;
-	u16			mask;
-
-	spin_lock_irqsave(&retu->lock, flags);
-	mask = retu_read_reg(RETU_REG_IMR);
-	mask |= 1 << id;
-	mask = retu_disable_bogus_irqs(mask);
-	retu_write_reg(RETU_REG_IMR, mask);
-	spin_unlock_irqrestore(&retu->lock, flags);
-}
-EXPORT_SYMBOL(retu_disable_irq);
-
-/*
- * Enable given RETU interrupt
- */
-void retu_enable_irq(int id)
-{
-	struct retu		*retu = the_retu;
-	unsigned long		flags;
-	u16			mask;
-
-	if (id == 3) {
-		printk("Enabling Retu IRQ %d\n", id);
-		dump_stack();
-	}
-
-	spin_lock_irqsave(&retu->lock, flags);
-	mask = retu_read_reg(RETU_REG_IMR);
-	mask &= ~(1 << id);
-	mask = retu_disable_bogus_irqs(mask);
-	retu_write_reg(RETU_REG_IMR, mask);
-	spin_unlock_irqrestore(&retu->lock, flags);
-}
-EXPORT_SYMBOL(retu_enable_irq);
-
-/*
- * Acknowledge given RETU interrupt
- */
-void retu_ack_irq(int id)
-{
-	retu_write_reg(RETU_REG_IDR, 1 << id);
-}
-EXPORT_SYMBOL(retu_ack_irq);
-
-/*
- * RETU interrupt handler. Only schedules the tasklet.
- */
 static irqreturn_t retu_irq_handler(int irq, void *_retu)
 {
 	struct retu		*retu = _retu;
 
-	tasklet_schedule(&retu->tasklet);
+	int			i;
+
+	u16			idr;
+	u16			imr;
+
+	idr = retu_read_reg(RETU_REG_IDR);
+	imr = retu_read_reg(RETU_REG_IMR);
+	idr &= ~imr;
+
+	if (!idr) {
+		dev_vdbg(retu->dev, "No IRQ, spurious?\n");
+		return IRQ_NONE;
+	}
+
+	for (i = 0; idr != 0; i++, idr >>= 1) {
+		if (!(idr & 1))
+			continue;
+
+		handle_nested_irq(i);
+	}
 
 	return IRQ_HANDLED;
 }
 
-/*
- * Tasklet handler
- */
-static void retu_tasklet_handler(unsigned long data)
+/* -------------------------------------------------------------------------- */
+
+static void retu_irq_mask(struct irq_data *data)
 {
-	struct retu_irq_handler_desc *hnd;
-	u16 id;
-	u16 im;
-	int i;
+	struct retu		*retu = irq_data_get_irq_chip_data(data);
+	int			irq = data->irq;
 
-	for (;;) {
-		id = retu_read_reg(RETU_REG_IDR);
-		im = ~retu_read_reg(RETU_REG_IMR);
-		id &= im;
+	retu->mask |= (1 << (irq - retu->irq_base));
+	retu->mask_pending = true;
+}
 
-		if (!id)
-			break;
+static void retu_irq_unmask(struct irq_data *data)
+{
+	struct retu		*retu = irq_data_get_irq_chip_data(data);
+	int			irq = data->irq;
 
-		for (i = 0; id != 0; i++, id >>= 1) {
-			if (!(id & 1))
-				continue;
-			hnd = &retu_irq_handlers[i];
-			if (hnd->func == NULL) {
-                               /* Spurious retu interrupt - disable and ack it */
-				printk(KERN_INFO "Spurious Retu interrupt "
-						 "(id %d)\n", i);
-				retu_disable_irq(i);
-				retu_ack_irq(i);
-				continue;
-			}
-			hnd->func(hnd->arg);
-			/*
-			 * Don't acknowledge the interrupt here
-			 * It must be done explicitly
-			 */
-		}
+	retu->mask &= ~(1 << (irq - retu->irq_base));
+	retu->mask_pending = true;
+
+}
+
+static void retu_irq_ack(struct irq_data *data)
+{
+	struct retu		*retu = irq_data_get_irq_chip_data(data);
+	int			irq = data->irq;
+
+	retu->ack |= (1 << (irq - retu->irq_base));
+	retu->ack_pending = true;
+}
+
+static void retu_bus_lock(struct irq_data *data)
+{
+	struct retu		*retu = irq_data_get_irq_chip_data(data);
+
+	mutex_lock(&retu->irq_lock);
+}
+
+static void retu_bus_sync_unlock(struct irq_data *data)
+{
+	struct retu		*retu = irq_data_get_irq_chip_data(data);
+
+	if (retu->mask_pending) {
+		retu_write_reg(RETU_REG_IMR, retu->mask);
+		retu->mask_pending = false;
+	}
+
+	if (retu->ack_pending) {
+		retu_write_reg(RETU_REG_IDR, retu->ack);
+		retu->ack_pending = false;
+	}
+
+	mutex_unlock(&retu->irq_lock);
+}
+
+static struct irq_chip retu_irq_chip = {
+	.name			= "retu",
+	.irq_bus_lock		= retu_bus_lock,
+	.irq_bus_sync_unlock	= retu_bus_sync_unlock,
+	.irq_mask		= retu_irq_mask,
+	.irq_unmask		= retu_irq_unmask,
+	.irq_ack		= retu_irq_ack,
+};
+
+static inline void retu_irq_setup(int irq)
+{
+#ifdef CONFIG_ARM
+	set_irq_flags(irq, IRQF_VALID);
+#else
+	set_irq_noprobe(irq);
+#endif
+}
+
+static void retu_irq_init(struct retu *retu)
+{
+	int			base = retu->irq_base;
+	int			end = retu->irq_end;
+	int			irq;
+
+	for (irq = base; irq < end; irq++) {
+		set_irq_chip_data(irq, retu);
+		set_irq_chip_and_handler(irq, &retu_irq_chip,
+				handle_simple_irq);
+		set_irq_nested_thread(irq, 1);
+		retu_irq_setup(irq);
 	}
 }
 
-/*
- * Register the handler for a given RETU interrupt source.
- */
-int retu_request_irq(int id, void *irq_handler, unsigned long arg, char *name)
+static void retu_irq_exit(struct retu *retu)
 {
-	struct retu			*retu = the_retu;
-	struct retu_irq_handler_desc	*hnd;
+	int			base = retu->irq_base;
+	int			end = retu->irq_end;
+	int			irq;
 
-	if (!retu)
-		return -ENODEV;
-
-	if (irq_handler == NULL || id >= MAX_RETU_IRQ_HANDLERS ||
-	    name == NULL) {
-		printk(KERN_ERR PFX "Invalid arguments to %s\n",
-		       __FUNCTION__);
-		return -EINVAL;
+	for (irq = base; irq < end; irq++) {
+#ifdef CONFIG_ARM
+		set_irq_flags(irq, 0);
+#endif
+		set_irq_chip_and_handler(irq, NULL, NULL);
+		set_irq_chip_data(irq, NULL);
 	}
-	hnd = &retu_irq_handlers[id];
-	if (hnd->func != NULL) {
-		printk(KERN_ERR PFX "IRQ %d already reserved\n", id);
-		return -EBUSY;
-	}
-	printk(KERN_INFO PFX "Registering interrupt %d for device %s\n",
-	       id, name);
-	hnd->func = irq_handler;
-	hnd->arg = arg;
-	strlcpy(hnd->name, name, sizeof(hnd->name));
-
-	retu_ack_irq(id);
-	retu_enable_irq(id);
-
-	return 0;
 }
-EXPORT_SYMBOL(retu_request_irq);
 
-/*
- * Unregister the handler for a given RETU interrupt source.
- */
-void retu_free_irq(int id)
-{
-	struct retu_irq_handler_desc *hnd;
-
-	if (id >= MAX_RETU_IRQ_HANDLERS) {
-		printk(KERN_ERR PFX "Invalid argument to %s\n",
-		       __FUNCTION__);
-		return;
-	}
-	hnd = &retu_irq_handlers[id];
-	if (hnd->func == NULL) {
-		printk(KERN_ERR PFX "IRQ %d already freed\n", id);
-		return;
-	}
-
-	retu_disable_irq(id);
-	hnd->func = NULL;
-}
-EXPORT_SYMBOL(retu_free_irq);
+/* -------------------------------------------------------------------------- */
 
 /**
  * retu_power_off - Shut down power to system
@@ -413,6 +373,7 @@ static int retu_allocate_children(struct device *parent)
 static int __init retu_probe(struct platform_device *pdev)
 {
 	struct retu	*retu;
+	struct cbus_retu_platform_data *pdata = pdev->dev.platform_data;
 
 	int		ret = -ENOMEM;
 	int		rev;
@@ -428,12 +389,16 @@ static int __init retu_probe(struct platform_device *pdev)
 	the_retu = retu;
 
 	/* Prepare tasklet */
-	tasklet_init(&retu->tasklet, retu_tasklet_handler, 0);
 	spin_lock_init(&retu->lock);
+	mutex_init(&retu->irq_lock);
 
 	irq = platform_get_irq(pdev, 0);
 
 	retu->irq = irq;
+	retu->irq_base = pdata->irq_base;
+	retu->irq_end = pdata->irq_end;
+
+	retu_irq_init(retu);
 
 	rev = retu_read_reg(RETU_REG_ASICR) & 0xff;
 	if (rev & (1 << 7))
@@ -446,7 +411,7 @@ static int __init retu_probe(struct platform_device *pdev)
 	/* Mask all RETU interrupts */
 	retu_write_reg(RETU_REG_IMR, 0xffff);
 
-	ret = request_irq(irq, retu_irq_handler, 0,
+	ret = request_threaded_irq(irq, NULL, retu_irq_handler, 0,
 			  "retu", retu);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Unable to register IRQ handler\n");
@@ -471,7 +436,6 @@ err2:
 	free_irq(irq, retu);
 
 err1:
-	tasklet_kill(&retu->tasklet);
 	kfree(retu);
 	the_retu = NULL;
 
@@ -489,7 +453,7 @@ static int __exit retu_remove(struct platform_device *pdev)
 	/* Mask all RETU interrupts */
 	retu_write_reg(RETU_REG_IMR, 0xffff);
 	free_irq(irq, retu);
-	tasklet_kill(&retu->tasklet);
+	retu_irq_exit(retu);
 	kfree(retu);
 	the_retu = NULL;
 

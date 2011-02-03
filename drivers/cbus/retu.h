@@ -62,10 +62,5 @@ int retu_read_reg(unsigned reg);
 void retu_write_reg(unsigned reg, u16 val);
 void retu_set_clear_reg_bits(unsigned reg, u16 set, u16 clear);
 int retu_read_adc(int channel);
-int retu_request_irq(int id, void *irq_handler, unsigned long arg, char *name);
-void retu_free_irq(int id);
-void retu_enable_irq(int id);
-void retu_disable_irq(int id);
-void retu_ack_irq(int id);
 
 #endif /* __DRIVERS_CBUS_RETU_H */
