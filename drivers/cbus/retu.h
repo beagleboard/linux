@@ -68,6 +68,4 @@ void retu_enable_irq(int id);
 void retu_disable_irq(int id);
 void retu_ack_irq(int id);
 
-extern spinlock_t retu_lock;
-
 #endif /* __DRIVERS_CBUS_RETU_H */
