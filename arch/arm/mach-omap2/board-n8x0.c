@@ -220,11 +220,19 @@ static struct resource retu_resource[] = {
 	},
 };
 
+static struct cbus_retu_platform_data n8x0_retu_data = {
+	.irq_base	= CBUS_RETU_IRQ_BASE,
+	.irq_end	= CBUS_RETU_IRQ_END,
+};
+
 static struct platform_device retu_device = {
 	.name		= "retu",
 	.id		= -1,
 	.resource	= retu_resource,
 	.num_resources	= ARRAY_SIZE(retu_resource),
+	.dev		= {
+		.platform_data = &n8x0_retu_data,
+	},
 };
 
 static struct resource tahvo_resource[] = {

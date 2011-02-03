@@ -28,4 +28,9 @@ struct cbus_host_platform_data {
 	int	sel_gpio;
 };
 
+struct cbus_retu_platform_data {
+	int	irq_base;
+	int	irq_end;
+};
+
 #endif /* __PLAT_CBUS_H */
