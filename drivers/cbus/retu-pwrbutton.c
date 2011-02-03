@@ -30,9 +30,10 @@
 #include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/input.h>
-#include <linux/timer.h>
 #include <linux/jiffies.h>
 #include <linux/bitops.h>
+#include <linux/irq.h>
+#include <linux/interrupt.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 
@@ -46,15 +47,14 @@
 
 struct retu_pwrbutton {
 	struct input_dev	*idev;
-	struct timer_list	timer;
 
 	int			state;
 	int			irq;
 };
 
-static void retubutton_timer_func(unsigned long arg)
+static irqreturn_t retubutton_irq(int irq, void *_pwr)
 {
-	struct retu_pwrbutton *pwr = (struct retu_pwrbutton *) arg;
+	struct retu_pwrbutton *pwr = _pwr;
 	int state;
 
 	if (retu_read_reg(RETU_REG_STATUS) & RETU_STATUS_PWRONX)
@@ -67,24 +67,10 @@ static void retubutton_timer_func(unsigned long arg)
 		input_sync(pwr->idev);
 		pwr->state = state;
 	}
+
+	return IRQ_HANDLED;
 }
 
-/**
- * Interrupt function is called whenever power button key is pressed
- * or released.
- */
-static void retubutton_irq(unsigned long arg)
-{
-	struct retu_pwrbutton *pwr = (struct retu_pwrbutton *) arg;
-
-	retu_ack_irq(RETU_INT_PWR);
-	mod_timer(&pwr->timer, jiffies + msecs_to_jiffies(PWRBTN_DELAY));
-}
-
-/**
- * Init function.
- * Allocates interrupt for power button and registers itself to input layer.
- */
 static int __init retubutton_probe(struct platform_device *pdev)
 {
 	struct retu_pwrbutton		*pwr;
@@ -99,10 +85,9 @@ static int __init retubutton_probe(struct platform_device *pdev)
 
 	pwr->irq = RETU_INT_PWR;
 	platform_set_drvdata(pdev, pwr);
-	setup_timer(&pwr->timer, retubutton_timer_func, (unsigned long) pwr);
 
-	ret = retu_request_irq(pwr->irq, retubutton_irq, (unsigned long) pwr,
-			"PwrOnX");
+	ret = request_threaded_irq(pwr->irq, NULL, retubutton_irq, 0,
+			"retu-pwrbutton", pwr);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Cannot allocate irq\n");
 		goto err1;
@@ -131,7 +116,7 @@ err3:
 	input_free_device(pwr->idev);
 
 err2:
-	retu_free_irq(pwr->irq);
+	free_irq(pwr->irq, pwr);
 
 err1:
 	kfree(pwr);
@@ -140,15 +125,11 @@ err0:
 	return ret;
 }
 
-/**
- * Cleanup function which is called when driver is unloaded
- */
 static int __exit retubutton_remove(struct platform_device *pdev)
 {
 	struct retu_pwrbutton		*pwr = platform_get_drvdata(pdev);
 
-	retu_free_irq(pwr->irq);
-	del_timer_sync(&pwr->timer);
+	free_irq(pwr->irq, pwr);
 	input_unregister_device(pwr->idev);
 	input_free_device(pwr->idev);
 	kfree(pwr);
