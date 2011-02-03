@@ -22,6 +22,8 @@
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
+#include <linux/irq.h>
+#include <linux/interrupt.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/input.h>
@@ -84,7 +86,6 @@ static void retu_headset_det_enable(struct retu_headset *hs)
 	if (!hs->detection_enabled) {
 		hs->detection_enabled = 1;
 		retu_set_clear_reg_bits(RETU_REG_CC1, (1 << 10) | (1 << 8), 0);
-		retu_enable_irq(RETU_INT_HOOK);
 	}
 	mutex_unlock(&hs->mutex);
 }
@@ -96,7 +97,6 @@ static void retu_headset_det_disable(struct retu_headset *hs)
 	mutex_lock(&hs->mutex);
 	if (hs->detection_enabled) {
 		hs->detection_enabled = 0;
-		retu_disable_irq(RETU_INT_HOOK);
 		del_timer_sync(&hs->enable_timer);
 		del_timer_sync(&hs->detect_timer);
 		spin_lock_irqsave(&hs->lock, flags);
@@ -177,12 +177,11 @@ static DEVICE_ATTR(enable_det, S_IRUGO | S_IWUSR | S_IWGRP,
 		   retu_headset_enable_det_show,
 		   retu_headset_enable_det_store);
 
-static void retu_headset_hook_interrupt(unsigned long arg)
+static irqreturn_t retu_headset_hook_interrupt(int irq, void *_hs)
 {
-	struct retu_headset *hs = (struct retu_headset *) arg;
-	unsigned long flags;
+	struct retu_headset	*hs = _hs;
+	unsigned long		flags;
 
-	retu_ack_irq(RETU_INT_HOOK);
 	spin_lock_irqsave(&hs->lock, flags);
 	if (!hs->pressed) {
 		/* Headset button was just pressed down. */
@@ -192,6 +191,8 @@ static void retu_headset_hook_interrupt(unsigned long arg)
 	spin_unlock_irqrestore(&hs->lock, flags);
 	retu_set_clear_reg_bits(RETU_REG_CC1, 0, (1 << 10) | (1 << 8));
 	mod_timer(&hs->enable_timer, jiffies + msecs_to_jiffies(50));
+
+	return IRQ_HANDLED;
 }
 
 static void retu_headset_enable_timer(unsigned long arg)
@@ -257,13 +258,13 @@ static int __init retu_headset_probe(struct platform_device *pdev)
 	setup_timer(&hs->detect_timer, retu_headset_detect_timer,
 		    (unsigned long) hs);
 
-	r = retu_request_irq(RETU_INT_HOOK, retu_headset_hook_interrupt,
-			     (unsigned long) hs, "hookdet");
+	r = request_threaded_irq(RETU_INT_HOOK, NULL,
+			retu_headset_hook_interrupt, 0, "hookdet", hs);
 	if (r != 0) {
 		dev_err(&pdev->dev, "hookdet IRQ not available\n");
 		goto err6;
 	}
-	retu_disable_irq(RETU_INT_HOOK);
+
 	return 0;
 err6:
 	device_remove_file(&pdev->dev, &dev_attr_enable_det);
@@ -289,9 +290,10 @@ static int retu_headset_remove(struct platform_device *pdev)
 	device_remove_file(&pdev->dev, &dev_attr_enable_det);
 	retu_headset_disable(hs);
 	retu_headset_det_disable(hs);
-	retu_free_irq(RETU_INT_HOOK);
+	free_irq(RETU_INT_HOOK, hs);
 	input_unregister_device(hs->idev);
 	input_free_device(hs->idev);
+
 	return 0;
 }
 
