@@ -338,14 +338,6 @@ static int __init tahvo_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Unable to register IRQ handler\n");
 		return ret;
 	}
-#ifdef CONFIG_CBUS_TAHVO_USER
-	/* Initialize user-space interface */
-	if (tahvo_user_init() < 0) {
-		dev_err(&pdev->dev, "Unable to initialize driver\n");
-		free_irq(irq, 0);
-		return ret;
-	}
-#endif
 	return 0;
 }
 
@@ -355,9 +347,6 @@ static int __exit tahvo_remove(struct platform_device *pdev)
 
 	irq = platform_get_irq(pdev, 0);
 
-#ifdef CONFIG_CBUS_TAHVO_USER
-	tahvo_user_cleanup();
-#endif
 	/* Mask all TAHVO interrupts */
 	tahvo_write_reg(TAHVO_REG_IMR, 0xffff);
 	free_irq(irq, 0);

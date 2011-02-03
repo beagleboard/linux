@@ -21,13 +21,6 @@ config CBUS_TAHVO
 
 	  If you want Tahvo support, you should say Y here.
 
-config CBUS_TAHVO_USER
-	depends on CBUS_TAHVO
-	bool "Support for Tahvo user space functions"
-	---help---
-	  If you want support for Tahvo's user space read/write etc. functions,
-	  you should say Y here.
-
 config CBUS_TAHVO_USB
 	depends on CBUS_TAHVO && USB
 	tristate "Support for Tahvo USB transceiver"
