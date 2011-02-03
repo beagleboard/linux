@@ -49,13 +49,6 @@ config CBUS_RETU
 
 	  If you want Retu support, you should say Y here.
 
-config CBUS_RETU_USER
-	depends on CBUS_RETU
-	bool "Support for Retu user space functions"
-	---help---
-	  If you want support for Retu's user space read/write etc. functions,
-	  you should say Y here.
-
 config CBUS_RETU_POWERBUTTON
 	depends on CBUS_RETU
 	bool "Support for Retu power button"

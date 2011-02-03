@@ -376,10 +376,6 @@ static int retu_allocate_children(struct device *parent)
 	if (!child)
 		return -ENOMEM;
 
-	child = retu_allocate_child("retu-user", parent);
-	if (!child)
-		return -ENOMEM;
-
 	child = retu_allocate_child("retu-wdt", parent);
 	if (!child)
 		return -ENOMEM;
@@ -428,21 +424,9 @@ static int __init retu_probe(struct platform_device *pdev)
 	/* Register power off function */
 	pm_power_off = retu_power_off;
 
-#ifdef CONFIG_CBUS_RETU_USER
-	/* Initialize user-space interface */
-	if (retu_user_init() < 0) {
-		dev_err(&pdev->dev, "Unable to initialize driver\n");
-		free_irq(irq, 0);
-		return ret;
-	}
-#endif
-
 	ret = retu_allocate_children(&pdev->dev);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Unable to allocate Retu children\n");
-#ifdef CONFIG_CBUS_RETU_USER
-		retu_user_cleanup();
-#endif
 		retu_write_reg(RETU_REG_IMR, 0xffff);
 		free_irq(irq, 0);
 		tasklet_kill(&retu_tasklet);
@@ -458,9 +442,6 @@ static int __exit retu_remove(struct platform_device *pdev)
 
 	irq = platform_get_irq(pdev, 0);
 
-#ifdef CONFIG_CBUS_RETU_USER
-	retu_user_cleanup();
-#endif
 	/* Mask all RETU interrupts */
 	retu_write_reg(RETU_REG_IMR, 0xffff);
 	free_irq(irq, 0);
