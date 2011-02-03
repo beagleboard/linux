@@ -413,14 +413,15 @@ static int retu_allocate_children(struct device *parent)
 static int __init retu_probe(struct platform_device *pdev)
 {
 	struct retu	*retu;
+
+	int		ret = -ENOMEM;
 	int		rev;
-	int		ret;
 	int		irq;
 
 	retu = kzalloc(sizeof(*retu), GFP_KERNEL);
 	if (!retu) {
 		dev_err(&pdev->dev, "not enough memory\n");
-		return -ENOMEM;
+		goto err0;
 	}
 
 	platform_set_drvdata(pdev, retu);
@@ -449,10 +450,7 @@ static int __init retu_probe(struct platform_device *pdev)
 			  "retu", retu);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Unable to register IRQ handler\n");
-		tasklet_kill(&retu->tasklet);
-		kfree(retu);
-		the_retu = NULL;
-		return ret;
+		goto err1;
 	}
 
 	set_irq_wake(irq, 1);
@@ -463,15 +461,22 @@ static int __init retu_probe(struct platform_device *pdev)
 	ret = retu_allocate_children(&pdev->dev);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Unable to allocate Retu children\n");
-		retu_write_reg(RETU_REG_IMR, 0xffff);
-		free_irq(irq, 0);
-		tasklet_kill(&retu->tasklet);
-		kfree(retu);
-		the_retu = NULL;
-		return ret;
+		goto err2;
 	}
 
 	return 0;
+
+err2:
+	retu_write_reg(RETU_REG_IMR, 0xffff);
+	free_irq(irq, retu);
+
+err1:
+	tasklet_kill(&retu->tasklet);
+	kfree(retu);
+	the_retu = NULL;
+
+err0:
+	return ret;
 }
 
 static int __exit retu_remove(struct platform_device *pdev)
