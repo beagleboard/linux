@@ -1,0 +1,10 @@
+#
+# PWM infrastructure and devices
+#
+
+menuconfig GENERIC_PWM
+	tristate "PWM Support"
+	default n
+	help
+	  Enables PWM device support implemented via a generic
+	  framework.  If unsure, say N.
