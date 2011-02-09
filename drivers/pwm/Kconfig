@@ -16,3 +16,14 @@ config DAVINCI_EHRPWM
 	help
 	  This option enables support for eHRPWM driver. If
 	  unsure, say N.
+
+config ECAP_PWM
+	tristate "eCAP PWM support"
+	select HAVE_PWM
+	depends on GENERIC_PWM && ARCH_DAVINCI_DA850
+	help
+	  This option enables device driver support for eCAP module found
+	  on DA8xx Processors. eCAP module is used to geenrate wide range
+	  of PWM waveforms. Maximum frequency generated is equal to half
+	  the system clock frequency.
+	  Say Y to enable the eCAP support. If unsure, say N.
