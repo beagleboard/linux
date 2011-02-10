@@ -45,6 +45,7 @@ struct retu_headset {
 	unsigned			pressed;
 	struct timer_list		enable_timer;
 	struct timer_list		detect_timer;
+	int				irq;
 };
 
 static void retu_headset_set_bias(int enable)
@@ -219,6 +220,7 @@ static void retu_headset_detect_timer(unsigned long arg)
 static int __init retu_headset_probe(struct platform_device *pdev)
 {
 	struct retu_headset *hs;
+	int irq;
 	int r;
 
 	hs = kzalloc(sizeof(*hs), GFP_KERNEL);
@@ -258,8 +260,11 @@ static int __init retu_headset_probe(struct platform_device *pdev)
 	setup_timer(&hs->detect_timer, retu_headset_detect_timer,
 		    (unsigned long) hs);
 
-	r = request_threaded_irq(CBUS_RETU_IRQ_BASE + RETU_INT_HOOK, NULL,
-			retu_headset_hook_interrupt, 0, "hookdet", hs);
+	irq = platform_get_irq(pdev, 0);
+	hs->irq = irq;
+
+	r = request_threaded_irq(irq, NULL, retu_headset_hook_interrupt, 0,
+			"hookdet", hs);
 	if (r != 0) {
 		dev_err(&pdev->dev, "hookdet IRQ not available\n");
 		goto err6;
@@ -290,7 +295,7 @@ static int retu_headset_remove(struct platform_device *pdev)
 	device_remove_file(&pdev->dev, &dev_attr_enable_det);
 	retu_headset_disable(hs);
 	retu_headset_det_disable(hs);
-	free_irq(CBUS_RETU_IRQ_BASE + RETU_INT_HOOK, hs);
+	free_irq(hs->irq, hs);
 	input_unregister_device(hs->idev);
 	input_free_device(hs->idev);
 
