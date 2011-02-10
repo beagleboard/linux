@@ -52,6 +52,8 @@ struct retu_rtc {
 	struct rtc_device	*rtc;
 
 	u16			alarm_expired;
+	int			irq_rtcs;
+	int			irq_rtca;
 };
 
 static void retu_rtc_do_reset(struct retu_rtc *rtc)
@@ -86,17 +88,24 @@ static irqreturn_t retu_rtc_interrupt(int irq, void *_rtc)
 
 static int retu_rtc_init_irq(struct retu_rtc *rtc)
 {
+	int irq;
 	int ret;
 
-	ret = request_threaded_irq(CBUS_RETU_IRQ_BASE + RETU_INT_RTCS, NULL, retu_rtc_interrupt,
+	irq = platform_get_irq(to_platform_device(rtc->dev), 0);
+	rtc->irq_rtcs = irq;
+
+	irq = platform_get_irq(to_platform_device(rtc->dev), 1);
+	rtc->irq_rtca = irq;
+
+	ret = request_threaded_irq(rtc->irq_rtcs, NULL, retu_rtc_interrupt,
 			0, "RTCS", rtc);
 	if (ret != 0)
 		return ret;
 
-	ret = request_threaded_irq(CBUS_RETU_IRQ_BASE + RETU_INT_RTCA, NULL, retu_rtc_interrupt,
+	ret = request_threaded_irq(rtc->irq_rtca, NULL, retu_rtc_interrupt,
 			0, "RTCA", rtc);
 	if (ret != 0) {
-		free_irq(CBUS_RETU_IRQ_BASE + RETU_INT_RTCS, rtc);
+		free_irq(rtc->irq_rtcs, rtc);
 		return ret;
 	}
 
@@ -235,8 +244,8 @@ static int __init retu_rtc_probe(struct platform_device *pdev)
 	return 0;
 
 err2:
-	free_irq(CBUS_RETU_IRQ_BASE + RETU_INT_RTCS, rtc);
-	free_irq(CBUS_RETU_IRQ_BASE + RETU_INT_RTCA, rtc);
+	free_irq(rtc->irq_rtcs, rtc);
+	free_irq(rtc->irq_rtca, rtc);
 
 err1:
 	kfree(rtc);
@@ -249,8 +258,8 @@ static int __devexit retu_rtc_remove(struct platform_device *pdev)
 {
 	struct retu_rtc		*rtc = platform_get_drvdata(pdev);
 
-	free_irq(CBUS_RETU_IRQ_BASE + RETU_INT_RTCS, rtc);
-	free_irq(CBUS_RETU_IRQ_BASE + RETU_INT_RTCA, rtc);
+	free_irq(rtc->irq_rtcs, rtc);
+	free_irq(rtc->irq_rtca, rtc);
 	rtc_device_unregister(rtc->rtc);
 	kfree(rtc);
 
