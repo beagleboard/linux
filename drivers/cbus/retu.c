@@ -306,12 +306,24 @@ static void retu_power_off(void)
 	for (;;);
 }
 
+static struct resource generic_resources[] = {
+	{
+		.start	= -EINVAL,	/* fixed later */
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.start	= -EINVAL,	/* fixed later */
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
 /**
  * retu_allocate_child - Allocates one Retu child
  * @name: name of new child
  * @parent: parent device for this child
  */
-static struct device *retu_allocate_child(char *name, struct device *parent)
+static struct device *retu_allocate_child(char *name, struct device *parent,
+		int irq_base, int irq1, int irq2, int num)
 {
 	struct platform_device		*pdev;
 	int				status;
@@ -324,6 +336,18 @@ static struct device *retu_allocate_child(char *name, struct device *parent)
 
 	pdev->dev.parent = parent;
 
+	if (num) {
+		generic_resources[0].start = irq_base + irq1;
+		generic_resources[1].start = irq_base + irq2;
+
+		status = platform_device_add_resources(pdev,
+				generic_resources, num);
+		if (status < 0) {
+			dev_dbg(parent, "can't add resources to %s\n", name);
+			goto err;
+		}
+	}
+
 	status = platform_device_add(pdev);
 	if (status < 0) {
 		dev_dbg(parent, "can't add %s\n", name);
@@ -334,29 +358,33 @@ static struct device *retu_allocate_child(char *name, struct device *parent)
 
 err:
 	platform_device_put(pdev);
+
 	return NULL;
 }
 
 /**
  * retu_allocate_children - Allocates Retu's children
  */
-static int retu_allocate_children(struct device *parent)
+static int retu_allocate_children(struct device *parent, int irq_base)
 {
 	struct device	*child;
 
-	child = retu_allocate_child("retu-pwrbutton", parent);
+	child = retu_allocate_child("retu-pwrbutton", parent, irq_base,
+			RETU_INT_PWR, -1, 1);
 	if (!child)
 		return -ENOMEM;
 
-	child = retu_allocate_child("retu-headset", parent);
+	child = retu_allocate_child("retu-headset", parent, irq_base,
+			RETU_INT_HOOK, -1, 1);
 	if (!child)
 		return -ENOMEM;
 
-	child = retu_allocate_child("retu-rtc", parent);
+	child = retu_allocate_child("retu-rtc", parent, irq_base,
+			RETU_INT_RTCS, RETU_INT_RTCA, 2);
 	if (!child)
 		return -ENOMEM;
 
-	child = retu_allocate_child("retu-wdt", parent);
+	child = retu_allocate_child("retu-wdt", parent, -1, -1, -1, 0);
 	if (!child)
 		return -ENOMEM;
 
@@ -423,7 +451,7 @@ static int __init retu_probe(struct platform_device *pdev)
 	/* Register power off function */
 	pm_power_off = retu_power_off;
 
-	ret = retu_allocate_children(&pdev->dev);
+	ret = retu_allocate_children(&pdev->dev, retu->irq_base);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Unable to allocate Retu children\n");
 		goto err2;
