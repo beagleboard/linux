@@ -83,7 +83,7 @@ static int __init retubutton_probe(struct platform_device *pdev)
 		goto err0;
 	}
 
-	pwr->irq = RETU_INT_PWR;
+	pwr->irq = CBUS_RETU_IRQ_BASE + RETU_INT_PWR;
 	platform_set_drvdata(pdev, pwr);
 
 	ret = request_threaded_irq(pwr->irq, NULL, retubutton_irq, 0,

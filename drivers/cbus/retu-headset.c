@@ -258,7 +258,7 @@ static int __init retu_headset_probe(struct platform_device *pdev)
 	setup_timer(&hs->detect_timer, retu_headset_detect_timer,
 		    (unsigned long) hs);
 
-	r = request_threaded_irq(RETU_INT_HOOK, NULL,
+	r = request_threaded_irq(CBUS_RETU_IRQ_BASE + RETU_INT_HOOK, NULL,
 			retu_headset_hook_interrupt, 0, "hookdet", hs);
 	if (r != 0) {
 		dev_err(&pdev->dev, "hookdet IRQ not available\n");
@@ -290,7 +290,7 @@ static int retu_headset_remove(struct platform_device *pdev)
 	device_remove_file(&pdev->dev, &dev_attr_enable_det);
 	retu_headset_disable(hs);
 	retu_headset_det_disable(hs);
-	free_irq(RETU_INT_HOOK, hs);
+	free_irq(CBUS_RETU_IRQ_BASE + RETU_INT_HOOK, hs);
 	input_unregister_device(hs->idev);
 	input_free_device(hs->idev);
 
