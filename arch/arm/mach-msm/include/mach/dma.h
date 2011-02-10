@@ -34,24 +34,10 @@ struct msm_dmov_cmd {
 	void *data;
 };
 
-#ifndef CONFIG_ARCH_MSM8X60
 int msm_dmov_enqueue_cmd(unsigned id, struct msm_dmov_cmd *cmd);
 int msm_dmov_stop_cmd(unsigned id, struct msm_dmov_cmd *cmd, int graceful);
 int msm_dmov_exec_cmd(unsigned id, unsigned int cmdptr);
 int msm_dmov_flush(unsigned int id);
-#else
-static inline
-int msm_dmov_enqueue_cmd(unsigned id, struct msm_dmov_cmd *cmd) { return -EIO; }
-static inline
-int msm_dmov_stop_cmd(unsigned id, struct msm_dmov_cmd *cmd, int graceful)
-{
-	return -EIO;
-}
-static inline
-int msm_dmov_exec_cmd(unsigned id, unsigned int cmdptr) { return -EIO; }
-static inline
-int msm_dmov_flush(unsigned int id) { return -EIO; }
-#endif
 
 #define DMOV_CMD_LIST         (0 << 29) /* does not work */
 #define DMOV_CMD_PTR_LIST     (1 << 29) /* works */
@@ -76,8 +62,47 @@ int msm_dmov_flush(unsigned int id) { return -EIO; }
 #define DMOV_CONFIG_FORCE_FLUSH_RSLT   (1 << 1)
 #define DMOV_CONFIG_IRQ_EN             (1 << 0)
 
-/* channel assignments */
+#define DMOV_8X60_GP_CHAN           16
 
+#define DMOV_8X60_CE_IN_CHAN        2
+#define DMOV_8X60_CE_IN_CRCI        4
+
+#define DMOV_8X60_CE_OUT_CHAN       3
+#define DMOV_8X60_CE_OUT_CRCI       5
+
+#define DMOV_8X60_CE_HASH_CRCI      15
+
+#define DMOV_8X60_SDC1_CHAN         18
+#define DMOV_8X60_SDC1_CRCI         1
+
+#define DMOV_8X60_SDC2_CHAN         19
+#define DMOV_8X60_SDC2_CRCI         4
+
+#define DMOV_8X60_SDC3_CHAN         20
+#define DMOV_8X60_SDC3_CRCI         2
+
+#define DMOV_8X60_SDC4_CHAN         21
+#define DMOV_8X60_SDC4_CRCI         5
+
+#define DMOV_8X60_SDC5_CHAN         21
+#define DMOV_8X60_SDC5_CRCI         14
+
+#define DMOV_8X60_TSIF_CHAN         4
+#define DMOV_8X60_TSIF_CRCI         6
+
+#define DMOV_8X60_HSUART1_TX_CHAN   22
+#define DMOV_8X60_HSUART1_TX_CRCI   8
+
+#define DMOV_8X60_HSUART1_RX_CHAN   23
+#define DMOV_8X60_HSUART1_RX_CRCI   9
+
+#define DMOV_8X60_HSUART2_TX_CHAN   8
+#define DMOV_8X60_HSUART2_TX_CRCI   13
+
+#define DMOV_8X60_HSUART2_RX_CHAN   8
+#define DMOV_8X60_HSUART2_RX_CRCI   14
+
+/* channel assignments before 8x60 */
 #define DMOV_NAND_CHAN        7
 #define DMOV_NAND_CRCI_CMD    5
 #define DMOV_NAND_CRCI_DATA   4

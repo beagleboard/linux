@@ -51,16 +51,23 @@ struct msm_dmov_conf {
 static struct msm_dmov_conf dmov_conf[MSM_DMOV_MAX_ADMS];
 static int nr_adms;
 
-#define DMOV_SD0(off, ch) (0x0000 + (off) + ((ch) << 2))
-#define DMOV_SD1(off, ch) (0x0400 + (off) + ((ch) << 2))
-#define DMOV_SD2(off, ch) (0x0800 + (off) + ((ch) << 2))
-#define DMOV_SD3(off, ch) (0x0C00 + (off) + ((ch) << 2))
-
 #if defined(CONFIG_ARCH_MSM7X30)
 #define DMOV_SD_AARM DMOV_SD2
+#define DMOV_SD_SIZE 0x400
+#elif defined(CONFIG_ARCH_MSM8X60)
+#define DMOV_SD_AARM DMOV_SD1
+#define DMOV_SD_SIZE 0x800
 #else
 #define DMOV_SD_AARM DMOV_SD3
+#define DMOV_SD_SIZE 0x400
 #endif
+
+#define DMOV_ADDR(sd, off, ch) (((sd) * DMOV_SD_SIZE) + (off) + ((ch) << 2))
+
+#define DMOV_SD0(off, ch) DMOV_ADDR(0, off, ch)
+#define DMOV_SD1(off, ch) DMOV_ADDR(1, off, ch)
+#define DMOV_SD2(off, ch) DMOV_ADDR(2, off, ch)
+#define DMOV_SD3(off, ch) DMOV_ADDR(3, off, ch)
 
 #define DMOV_CMD_PTR(ch)      DMOV_SD_AARM(0x000, ch)
 #define DMOV_RSLT(ch)         DMOV_SD_AARM(0x040, ch)
