@@ -178,7 +178,6 @@ ssize_t btrfs_listxattr(struct dentry *dentry, char *buffer, size_t size)
 	struct inode *inode = dentry->d_inode;
 	struct btrfs_root *root = BTRFS_I(inode)->root;
 	struct btrfs_path *path;
-	struct btrfs_item *item;
 	struct extent_buffer *leaf;
 	struct btrfs_dir_item *di;
 	int ret = 0, slot, advance;
@@ -234,7 +233,6 @@ ssize_t btrfs_listxattr(struct dentry *dentry, char *buffer, size_t size)
 		}
 		advance = 1;
 
-		item = btrfs_item_nr(leaf, slot);
 		btrfs_item_key_to_cpu(leaf, &found_key, slot);
 
 		/* check to make sure this item is what we want */
@@ -318,6 +316,15 @@ ssize_t btrfs_getxattr(struct dentry *dentry, const char *name,
 int btrfs_setxattr(struct dentry *dentry, const char *name, const void *value,
 		   size_t size, int flags)
 {
+	struct btrfs_root *root = BTRFS_I(dentry->d_inode)->root;
+
+	/*
+	 * The permission on security.* and system.* is not checked
+	 * in permission().
+	 */
+	if (btrfs_root_readonly(root))
+		return -EROFS;
+
 	/*
 	 * If this is a request for a synthetic attribute in the system.*
 	 * namespace use the generic infrastructure to resolve a handler
@@ -338,6 +345,15 @@ int btrfs_setxattr(struct dentry *dentry, const char *name, const void *value,
 
 int btrfs_removexattr(struct dentry *dentry, const char *name)
 {
+	struct btrfs_root *root = BTRFS_I(dentry->d_inode)->root;
+
+	/*
+	 * The permission on security.* and system.* is not checked
+	 * in permission().
+	 */
+	if (btrfs_root_readonly(root))
+		return -EROFS;
+
 	/*
 	 * If this is a request for a synthetic attribute in the system.*
 	 * namespace use the generic infrastructure to resolve a handler

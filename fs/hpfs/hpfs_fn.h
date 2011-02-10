@@ -87,7 +87,7 @@ struct hpfs_sb_info {
 	unsigned *sb_bmp_dir;		/* main bitmap directory */
 	unsigned sb_c_bitmap;		/* current bitmap */
 	unsigned sb_max_fwd_alloc;	/* max forwad allocation */
-	struct semaphore hpfs_creation_de; /* when creating dirents, nobody else
+	struct mutex hpfs_creation_de;	/* when creating dirents, nobody else
 					   can alloc blocks */
 	/*unsigned sb_mounting : 1;*/
 	int sb_timeshift;
@@ -233,7 +233,7 @@ void hpfs_mark_4buffers_dirty(struct quad_buffer_head *);
 
 /* dentry.c */
 
-void hpfs_set_dentry_operations(struct dentry *);
+extern const struct dentry_operations hpfs_dentry_operations;
 
 /* dir.c */
 

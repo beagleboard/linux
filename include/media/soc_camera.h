@@ -21,6 +21,8 @@
 
 extern struct bus_type soc_camera_bus_type;
 
+struct file;
+
 struct soc_camera_device {
 	struct list_head list;
 	struct device dev;
@@ -41,10 +43,7 @@ struct soc_camera_device {
 	/* soc_camera.c private count. Only accessed with .video_lock held */
 	int use_count;
 	struct mutex video_lock;	/* Protects device data */
-};
-
-struct soc_camera_file {
-	struct soc_camera_device *icd;
+	struct file *streamer;		/* stream owner */
 	struct videobuf_queue vb_vidq;
 };
 
@@ -79,7 +78,7 @@ struct soc_camera_host_ops {
 	int (*try_fmt)(struct soc_camera_device *, struct v4l2_format *);
 	void (*init_videobuf)(struct videobuf_queue *,
 			      struct soc_camera_device *);
-	int (*reqbufs)(struct soc_camera_file *, struct v4l2_requestbuffers *);
+	int (*reqbufs)(struct soc_camera_device *, struct v4l2_requestbuffers *);
 	int (*querycap)(struct soc_camera_host *, struct v4l2_capability *);
 	int (*set_bus_param)(struct soc_camera_device *, __u32);
 	int (*get_ctrl)(struct soc_camera_device *, struct v4l2_control *);
@@ -98,6 +97,7 @@ struct soc_camera_host_ops {
 #define SOCAM_SENSOR_INVERT_DATA	(1 << 4)
 
 struct i2c_board_info;
+struct regulator_bulk_data;
 
 struct soc_camera_link {
 	/* Camera bus id, used to match a camera and a bus */
@@ -108,6 +108,10 @@ struct soc_camera_link {
 	struct i2c_board_info *board_info;
 	const char *module_name;
 	void *priv;
+
+	/* Optional regulators that have to be managed on power on/off events */
+	struct regulator_bulk_data *regulators;
+	int num_regulators;
 
 	/*
 	 * For non-I2C devices platform platform has to provide methods to

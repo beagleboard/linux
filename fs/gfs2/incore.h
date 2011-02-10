@@ -11,6 +11,7 @@
 #define __INCORE_DOT_H__
 
 #include <linux/fs.h>
+#include <linux/kobject.h>
 #include <linux/workqueue.h>
 #include <linux/dlm.h>
 #include <linux/buffer_head.h>
@@ -196,6 +197,7 @@ enum {
 	GLF_REPLY_PENDING		= 9,
 	GLF_INITIAL			= 10,
 	GLF_FROZEN			= 11,
+	GLF_QUEUED			= 12,
 };
 
 struct gfs2_glock {
@@ -206,12 +208,14 @@ struct gfs2_glock {
 
 	spinlock_t gl_spin;
 
-	unsigned int gl_state;
-	unsigned int gl_target;
-	unsigned int gl_reply;
+	/* State fields protected by gl_spin */
+	unsigned int gl_state:2,	/* Current state */
+		     gl_target:2,	/* Target state */
+		     gl_demote_state:2,	/* State requested by remote node */
+		     gl_req:2,		/* State in last dlm request */
+		     gl_reply:8;	/* Last reply from the dlm */
+
 	unsigned int gl_hash;
-	unsigned int gl_req;
-	unsigned int gl_demote_state; /* state requested by remote node */
 	unsigned long gl_demote_time; /* time of first demote request */
 	struct list_head gl_holders;
 
@@ -267,7 +271,6 @@ struct gfs2_inode {
 	u64 i_no_formal_ino;
 	u64 i_generation;
 	u64 i_eattr;
-	loff_t i_disksize;
 	unsigned long i_flags;		/* GIF_... */
 	struct gfs2_glock *i_gl; /* Move into i_gh? */
 	struct gfs2_holder i_iopen_gh;
@@ -416,11 +419,8 @@ struct gfs2_args {
 	char ar_locktable[GFS2_LOCKNAME_LEN];	/* Name of the Lock Table */
 	char ar_hostdata[GFS2_LOCKNAME_LEN];	/* Host specific data */
 	unsigned int ar_spectator:1;		/* Don't get a journal */
-	unsigned int ar_ignore_local_fs:1;	/* Ignore optimisations */
 	unsigned int ar_localflocks:1;		/* Let the VFS do flock|fcntl */
-	unsigned int ar_localcaching:1;		/* Local caching */
 	unsigned int ar_debug:1;		/* Oops on errors */
-	unsigned int ar_upgrade:1;		/* Upgrade ondisk format */
 	unsigned int ar_posix_acl:1;		/* Enable posix acls */
 	unsigned int ar_quota:2;		/* off/account/on */
 	unsigned int ar_suiddir:1;		/* suiddir support */
@@ -497,7 +497,7 @@ struct gfs2_sb_host {
  */
 
 struct lm_lockstruct {
-	unsigned int ls_jid;
+	int ls_jid;
 	unsigned int ls_first;
 	unsigned int ls_first_done;
 	unsigned int ls_nodir;
@@ -572,6 +572,7 @@ struct gfs2_sbd {
 	struct list_head sd_rindex_mru_list;
 	struct gfs2_rgrpd *sd_rindex_forward;
 	unsigned int sd_rgrps;
+	unsigned int sd_max_rg_data;
 
 	/* Journal index stuff */
 

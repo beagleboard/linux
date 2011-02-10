@@ -27,7 +27,7 @@
 #include <asm/irq_regs.h>
 #include <linux/perf_event.h>
 
-int watchdog_enabled;
+int watchdog_enabled = 1;
 int __read_mostly softlockup_thresh = 60;
 
 static DEFINE_PER_CPU(unsigned long, watchdog_touch_ts);
@@ -43,10 +43,6 @@ static DEFINE_PER_CPU(unsigned long, hrtimer_interrupts_saved);
 static DEFINE_PER_CPU(struct perf_event *, watchdog_ev);
 #endif
 
-static int __read_mostly did_panic;
-static int __initdata no_watchdog;
-
-
 /* boot commands */
 /*
  * Should we panic when a soft-lockup or hard-lockup occurs:
@@ -58,6 +54,8 @@ static int __init hardlockup_panic_setup(char *str)
 {
 	if (!strncmp(str, "panic", 5))
 		hardlockup_panic = 1;
+	else if (!strncmp(str, "0", 1))
+		watchdog_enabled = 0;
 	return 1;
 }
 __setup("nmi_watchdog=", hardlockup_panic_setup);
@@ -76,7 +74,7 @@ __setup("softlockup_panic=", softlockup_panic_setup);
 
 static int __init nowatchdog_setup(char *str)
 {
-	no_watchdog = 1;
+	watchdog_enabled = 0;
 	return 1;
 }
 __setup("nowatchdog", nowatchdog_setup);
@@ -84,7 +82,7 @@ __setup("nowatchdog", nowatchdog_setup);
 /* deprecated */
 static int __init nosoftlockup_setup(char *str)
 {
-	no_watchdog = 1;
+	watchdog_enabled = 0;
 	return 1;
 }
 __setup("nosoftlockup", nosoftlockup_setup);
@@ -117,12 +115,12 @@ static void __touch_watchdog(void)
 {
 	int this_cpu = smp_processor_id();
 
-	__get_cpu_var(watchdog_touch_ts) = get_timestamp(this_cpu);
+	__this_cpu_write(watchdog_touch_ts, get_timestamp(this_cpu));
 }
 
 void touch_softlockup_watchdog(void)
 {
-	__raw_get_cpu_var(watchdog_touch_ts) = 0;
+	__this_cpu_write(watchdog_touch_ts, 0);
 }
 EXPORT_SYMBOL(touch_softlockup_watchdog);
 
@@ -166,12 +164,12 @@ void touch_softlockup_watchdog_sync(void)
 /* watchdog detector functions */
 static int is_hardlockup(void)
 {
-	unsigned long hrint = __get_cpu_var(hrtimer_interrupts);
+	unsigned long hrint = __this_cpu_read(hrtimer_interrupts);
 
-	if (__get_cpu_var(hrtimer_interrupts_saved) == hrint)
+	if (__this_cpu_read(hrtimer_interrupts_saved) == hrint)
 		return 1;
 
-	__get_cpu_var(hrtimer_interrupts_saved) = hrint;
+	__this_cpu_write(hrtimer_interrupts_saved, hrint);
 	return 0;
 }
 #endif
@@ -187,18 +185,6 @@ static int is_softlockup(unsigned long touch_ts)
 	return 0;
 }
 
-static int
-watchdog_panic(struct notifier_block *this, unsigned long event, void *ptr)
-{
-	did_panic = 1;
-
-	return NOTIFY_DONE;
-}
-
-static struct notifier_block panic_block = {
-	.notifier_call = watchdog_panic,
-};
-
 #ifdef CONFIG_HARDLOCKUP_DETECTOR
 static struct perf_event_attr wd_hw_attr = {
 	.type		= PERF_TYPE_HARDWARE,
@@ -209,15 +195,15 @@ static struct perf_event_attr wd_hw_attr = {
 };
 
 /* Callback function for perf event subsystem */
-void watchdog_overflow_callback(struct perf_event *event, int nmi,
+static void watchdog_overflow_callback(struct perf_event *event, int nmi,
 		 struct perf_sample_data *data,
 		 struct pt_regs *regs)
 {
 	/* Ensure the watchdog never gets throttled */
 	event->hw.interrupts = 0;
 
-	if (__get_cpu_var(watchdog_nmi_touch) == true) {
-		__get_cpu_var(watchdog_nmi_touch) = false;
+	if (__this_cpu_read(watchdog_nmi_touch) == true) {
+		__this_cpu_write(watchdog_nmi_touch, false);
 		return;
 	}
 
@@ -231,7 +217,7 @@ void watchdog_overflow_callback(struct perf_event *event, int nmi,
 		int this_cpu = smp_processor_id();
 
 		/* only print hardlockups once */
-		if (__get_cpu_var(hard_watchdog_warn) == true)
+		if (__this_cpu_read(hard_watchdog_warn) == true)
 			return;
 
 		if (hardlockup_panic)
@@ -239,16 +225,16 @@ void watchdog_overflow_callback(struct perf_event *event, int nmi,
 		else
 			WARN(1, "Watchdog detected hard LOCKUP on cpu %d", this_cpu);
 
-		__get_cpu_var(hard_watchdog_warn) = true;
+		__this_cpu_write(hard_watchdog_warn, true);
 		return;
 	}
 
-	__get_cpu_var(hard_watchdog_warn) = false;
+	__this_cpu_write(hard_watchdog_warn, false);
 	return;
 }
 static void watchdog_interrupt_count(void)
 {
-	__get_cpu_var(hrtimer_interrupts)++;
+	__this_cpu_inc(hrtimer_interrupts);
 }
 #else
 static inline void watchdog_interrupt_count(void) { return; }
@@ -257,7 +243,7 @@ static inline void watchdog_interrupt_count(void) { return; }
 /* watchdog kicker functions */
 static enum hrtimer_restart watchdog_timer_fn(struct hrtimer *hrtimer)
 {
-	unsigned long touch_ts = __get_cpu_var(watchdog_touch_ts);
+	unsigned long touch_ts = __this_cpu_read(watchdog_touch_ts);
 	struct pt_regs *regs = get_irq_regs();
 	int duration;
 
@@ -265,18 +251,18 @@ static enum hrtimer_restart watchdog_timer_fn(struct hrtimer *hrtimer)
 	watchdog_interrupt_count();
 
 	/* kick the softlockup detector */
-	wake_up_process(__get_cpu_var(softlockup_watchdog));
+	wake_up_process(__this_cpu_read(softlockup_watchdog));
 
 	/* .. and repeat */
 	hrtimer_forward_now(hrtimer, ns_to_ktime(get_sample_period()));
 
 	if (touch_ts == 0) {
-		if (unlikely(__get_cpu_var(softlockup_touch_sync))) {
+		if (unlikely(__this_cpu_read(softlockup_touch_sync))) {
 			/*
 			 * If the time stamp was touched atomically
 			 * make sure the scheduler tick is up to date.
 			 */
-			__get_cpu_var(softlockup_touch_sync) = false;
+			__this_cpu_write(softlockup_touch_sync, false);
 			sched_clock_tick();
 		}
 		__touch_watchdog();
@@ -292,7 +278,7 @@ static enum hrtimer_restart watchdog_timer_fn(struct hrtimer *hrtimer)
 	duration = is_softlockup(touch_ts);
 	if (unlikely(duration)) {
 		/* only warn once */
-		if (__get_cpu_var(soft_watchdog_warn) == true)
+		if (__this_cpu_read(soft_watchdog_warn) == true)
 			return HRTIMER_RESTART;
 
 		printk(KERN_ERR "BUG: soft lockup - CPU#%d stuck for %us! [%s:%d]\n",
@@ -307,9 +293,9 @@ static enum hrtimer_restart watchdog_timer_fn(struct hrtimer *hrtimer)
 
 		if (softlockup_panic)
 			panic("softlockup: hung tasks");
-		__get_cpu_var(soft_watchdog_warn) = true;
+		__this_cpu_write(soft_watchdog_warn, true);
 	} else
-		__get_cpu_var(soft_watchdog_warn) = false;
+		__this_cpu_write(soft_watchdog_warn, false);
 
 	return HRTIMER_RESTART;
 }
@@ -320,7 +306,7 @@ static enum hrtimer_restart watchdog_timer_fn(struct hrtimer *hrtimer)
  */
 static int watchdog(void *unused)
 {
-	struct sched_param param = { .sched_priority = MAX_RT_PRIO-1 };
+	static struct sched_param param = { .sched_priority = MAX_RT_PRIO-1 };
 	struct hrtimer *hrtimer = &__raw_get_cpu_var(watchdog_hrtimer);
 
 	sched_setscheduler(current, SCHED_FIFO, &param);
@@ -371,14 +357,15 @@ static int watchdog_nmi_enable(int cpu)
 	/* Try to register using hardware perf events */
 	wd_attr = &wd_hw_attr;
 	wd_attr->sample_period = hw_nmi_get_sample_period();
-	event = perf_event_create_kernel_counter(wd_attr, cpu, -1, watchdog_overflow_callback);
+	event = perf_event_create_kernel_counter(wd_attr, cpu, NULL, watchdog_overflow_callback);
 	if (!IS_ERR(event)) {
 		printk(KERN_INFO "NMI watchdog enabled, takes one hw-pmu counter.\n");
 		goto out_save;
 	}
 
-	printk(KERN_ERR "NMI watchdog failed to create perf event on cpu%i: %p\n", cpu, event);
-	return -1;
+	printk(KERN_ERR "NMI watchdog disabled for cpu%i: unable to create perf event: %ld\n",
+	       cpu, PTR_ERR(event));
+	return PTR_ERR(event);
 
 	/* success path */
 out_save:
@@ -422,26 +409,25 @@ static int watchdog_prepare_cpu(int cpu)
 static int watchdog_enable(int cpu)
 {
 	struct task_struct *p = per_cpu(softlockup_watchdog, cpu);
+	int err;
 
 	/* enable the perf event */
-	if (watchdog_nmi_enable(cpu) != 0)
-		return -1;
+	err = watchdog_nmi_enable(cpu);
+	if (err)
+		return err;
 
 	/* create the watchdog thread */
 	if (!p) {
 		p = kthread_create(watchdog, (void *)(unsigned long)cpu, "watchdog/%d", cpu);
 		if (IS_ERR(p)) {
 			printk(KERN_ERR "softlockup watchdog for %i failed\n", cpu);
-			return -1;
+			return PTR_ERR(p);
 		}
 		kthread_bind(p, cpu);
 		per_cpu(watchdog_touch_ts, cpu) = 0;
 		per_cpu(softlockup_watchdog, cpu) = p;
 		wake_up_process(p);
 	}
-
-	/* if any cpu succeeds, watchdog is considered enabled for the system */
-	watchdog_enabled = 1;
 
 	return 0;
 }
@@ -470,12 +456,16 @@ static void watchdog_disable(int cpu)
 static void watchdog_enable_all_cpus(void)
 {
 	int cpu;
-	int result = 0;
+
+	watchdog_enabled = 0;
 
 	for_each_online_cpu(cpu)
-		result += watchdog_enable(cpu);
+		if (!watchdog_enable(cpu))
+			/* if any cpu succeeds, watchdog is considered
+			   enabled for the system */
+			watchdog_enabled = 1;
 
-	if (result)
+	if (!watchdog_enabled)
 		printk(KERN_ERR "watchdog: failed to be enabled on some cpus\n");
 
 }
@@ -503,10 +493,12 @@ int proc_dowatchdog_enabled(struct ctl_table *table, int write,
 {
 	proc_dointvec(table, write, buffer, length, ppos);
 
-	if (watchdog_enabled)
-		watchdog_enable_all_cpus();
-	else
-		watchdog_disable_all_cpus();
+	if (write) {
+		if (watchdog_enabled)
+			watchdog_enable_all_cpus();
+		else
+			watchdog_disable_all_cpus();
+	}
 	return 0;
 }
 
@@ -526,17 +518,17 @@ static int __cpuinit
 cpu_callback(struct notifier_block *nfb, unsigned long action, void *hcpu)
 {
 	int hotcpu = (unsigned long)hcpu;
+	int err = 0;
 
 	switch (action) {
 	case CPU_UP_PREPARE:
 	case CPU_UP_PREPARE_FROZEN:
-		if (watchdog_prepare_cpu(hotcpu))
-			return NOTIFY_BAD;
+		err = watchdog_prepare_cpu(hotcpu);
 		break;
 	case CPU_ONLINE:
 	case CPU_ONLINE_FROZEN:
-		if (watchdog_enable(hotcpu))
-			return NOTIFY_BAD;
+		if (watchdog_enabled)
+			err = watchdog_enable(hotcpu);
 		break;
 #ifdef CONFIG_HOTPLUG_CPU
 	case CPU_UP_CANCELED:
@@ -549,29 +541,23 @@ cpu_callback(struct notifier_block *nfb, unsigned long action, void *hcpu)
 		break;
 #endif /* CONFIG_HOTPLUG_CPU */
 	}
-	return NOTIFY_OK;
+	return notifier_from_errno(err);
 }
 
 static struct notifier_block __cpuinitdata cpu_nfb = {
 	.notifier_call = cpu_callback
 };
 
-static int __init spawn_watchdog_task(void)
+void __init lockup_detector_init(void)
 {
 	void *cpu = (void *)(long)smp_processor_id();
 	int err;
 
-	if (no_watchdog)
-		return 0;
-
 	err = cpu_callback(&cpu_nfb, CPU_UP_PREPARE, cpu);
-	WARN_ON(err == NOTIFY_BAD);
+	WARN_ON(notifier_to_errno(err));
 
 	cpu_callback(&cpu_nfb, CPU_ONLINE, cpu);
 	register_cpu_notifier(&cpu_nfb);
 
-	atomic_notifier_chain_register(&panic_notifier_list, &panic_block);
-
-	return 0;
+	return;
 }
-early_initcall(spawn_watchdog_task);

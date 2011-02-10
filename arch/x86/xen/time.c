@@ -135,24 +135,24 @@ static void do_stolen_accounting(void)
 
 	/* Add the appropriate number of ticks of stolen time,
 	   including any left-overs from last time. */
-	stolen = runnable + offline + __get_cpu_var(xen_residual_stolen);
+	stolen = runnable + offline + __this_cpu_read(xen_residual_stolen);
 
 	if (stolen < 0)
 		stolen = 0;
 
 	ticks = iter_div_u64_rem(stolen, NS_PER_TICK, &stolen);
-	__get_cpu_var(xen_residual_stolen) = stolen;
+	__this_cpu_write(xen_residual_stolen, stolen);
 	account_steal_ticks(ticks);
 
 	/* Add the appropriate number of ticks of blocked time,
 	   including any left-overs from last time. */
-	blocked += __get_cpu_var(xen_residual_blocked);
+	blocked += __this_cpu_read(xen_residual_blocked);
 
 	if (blocked < 0)
 		blocked = 0;
 
 	ticks = iter_div_u64_rem(blocked, NS_PER_TICK, &blocked);
-	__get_cpu_var(xen_residual_blocked) = blocked;
+	__this_cpu_write(xen_residual_blocked, blocked);
 	account_idle_ticks(ticks);
 }
 
@@ -426,6 +426,8 @@ void xen_timer_resume(void)
 {
 	int cpu;
 
+	pvclock_resume();
+
 	if (xen_clockevent != &xen_vcpuop_clockevent)
 		return;
 
@@ -489,8 +491,9 @@ static void xen_hvm_setup_cpu_clockevents(void)
 __init void xen_hvm_init_time_ops(void)
 {
 	/* vector callback is needed otherwise we cannot receive interrupts
-	 * on cpu > 0 */
-	if (!xen_have_vector_callback && num_present_cpus() > 1)
+	 * on cpu > 0 and at this point we don't know how many cpus are
+	 * available */
+	if (!xen_have_vector_callback)
 		return;
 	if (!xen_feature(XENFEAT_hvm_safe_pvclock)) {
 		printk(KERN_INFO "Xen doesn't support pvclock on HVM,"

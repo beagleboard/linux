@@ -42,12 +42,15 @@
 #include <linux/log2.h>
 #include <linux/vmalloc.h>
 #include <linux/backing-dev.h>
+#include <linux/bitops.h>
+#include <linux/ratelimit.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/jbd2.h>
 
 #include <asm/uaccess.h>
 #include <asm/page.h>
+#include <asm/system.h>
 
 EXPORT_SYMBOL(jbd2_journal_extend);
 EXPORT_SYMBOL(jbd2_journal_stop);
@@ -91,6 +94,7 @@ EXPORT_SYMBOL(jbd2_journal_file_inode);
 EXPORT_SYMBOL(jbd2_journal_init_jbd_inode);
 EXPORT_SYMBOL(jbd2_journal_release_jbd_inode);
 EXPORT_SYMBOL(jbd2_journal_begin_ordered_truncate);
+EXPORT_SYMBOL(jbd2_inode_cache);
 
 static int journal_convert_superblock_v1(journal_t *, journal_superblock_t *);
 static void __journal_abort_soft (journal_t *journal, int errno);
@@ -478,7 +482,7 @@ int __jbd2_log_start_commit(journal_t *journal, tid_t target)
 	 */
 	if (!tid_geq(journal->j_commit_request, target)) {
 		/*
-		 * We want a new commit: OK, mark the request and wakup the
+		 * We want a new commit: OK, mark the request and wakeup the
 		 * commit thread.  We do _not_ do the commit ourselves.
 		 */
 
@@ -825,7 +829,7 @@ static journal_t * journal_init_common (void)
 
 	journal = kzalloc(sizeof(*journal), GFP_KERNEL);
 	if (!journal)
-		goto fail;
+		return NULL;
 
 	init_waitqueue_head(&journal->j_wait_transaction_locked);
 	init_waitqueue_head(&journal->j_wait_logspace);
@@ -850,14 +854,12 @@ static journal_t * journal_init_common (void)
 	err = jbd2_journal_init_revoke(journal, JOURNAL_REVOKE_DEFAULT_HASH);
 	if (err) {
 		kfree(journal);
-		goto fail;
+		return NULL;
 	}
 
 	spin_lock_init(&journal->j_history_lock);
 
 	return journal;
-fail:
-	return NULL;
 }
 
 /* jbd2_journal_init_dev and jbd2_journal_init_inode:
@@ -897,6 +899,14 @@ journal_t * jbd2_journal_init_dev(struct block_device *bdev,
 
 	/* journal descriptor can store up to n blocks -bzzz */
 	journal->j_blocksize = blocksize;
+	journal->j_dev = bdev;
+	journal->j_fs_dev = fs_dev;
+	journal->j_blk_offset = start;
+	journal->j_maxlen = len;
+	bdevname(journal->j_dev, journal->j_devname);
+	p = journal->j_devname;
+	while ((p = strchr(p, '/')))
+		*p = '!';
 	jbd2_stats_proc_init(journal);
 	n = journal->j_blocksize / sizeof(journal_block_tag_t);
 	journal->j_wbufsize = n;
@@ -906,14 +916,6 @@ journal_t * jbd2_journal_init_dev(struct block_device *bdev,
 			__func__);
 		goto out_err;
 	}
-	journal->j_dev = bdev;
-	journal->j_fs_dev = fs_dev;
-	journal->j_blk_offset = start;
-	journal->j_maxlen = len;
-	bdevname(journal->j_dev, journal->j_devname);
-	p = journal->j_devname;
-	while ((p = strchr(p, '/')))
-		*p = '!';
 
 	bh = __getblk(journal->j_dev, start, journal->j_blocksize);
 	if (!bh) {
@@ -1371,6 +1373,10 @@ int jbd2_journal_check_used_features (journal_t *journal, unsigned long compat,
 
 	if (!compat && !ro && !incompat)
 		return 1;
+	/* Load journal superblock if it is not loaded yet. */
+	if (journal->j_format_version == 0 &&
+	    journal_get_superblock(journal) != 0)
+		return 0;
 	if (journal->j_format_version == 1)
 		return 0;
 
@@ -1832,7 +1838,6 @@ size_t journal_tag_bytes(journal_t *journal)
  */
 #define JBD2_MAX_SLABS 8
 static struct kmem_cache *jbd2_slab[JBD2_MAX_SLABS];
-static DECLARE_MUTEX(jbd2_slab_create_sem);
 
 static const char *jbd2_slab_names[JBD2_MAX_SLABS] = {
 	"jbd2_1k", "jbd2_2k", "jbd2_4k", "jbd2_8k",
@@ -1853,6 +1858,7 @@ static void jbd2_journal_destroy_slabs(void)
 
 static int jbd2_journal_create_slab(size_t size)
 {
+	static DEFINE_MUTEX(jbd2_slab_create_mutex);
 	int i = order_base_2(size) - 10;
 	size_t slab_size;
 
@@ -1864,16 +1870,16 @@ static int jbd2_journal_create_slab(size_t size)
 
 	if (unlikely(i < 0))
 		i = 0;
-	down(&jbd2_slab_create_sem);
+	mutex_lock(&jbd2_slab_create_mutex);
 	if (jbd2_slab[i]) {
-		up(&jbd2_slab_create_sem);
+		mutex_unlock(&jbd2_slab_create_mutex);
 		return 0;	/* Already created */
 	}
 
 	slab_size = 1 << (i+10);
 	jbd2_slab[i] = kmem_cache_create(jbd2_slab_names[i], slab_size,
 					 slab_size, 0, NULL);
-	up(&jbd2_slab_create_sem);
+	mutex_unlock(&jbd2_slab_create_mutex);
 	if (!jbd2_slab[i]) {
 		printk(KERN_EMERG "JBD2: no memory for jbd2_slab cache\n");
 		return -ENOMEM;
@@ -1976,7 +1982,6 @@ static void jbd2_journal_destroy_jbd2_journal_head_cache(void)
 static struct journal_head *journal_alloc_journal_head(void)
 {
 	struct journal_head *ret;
-	static unsigned long last_warning;
 
 #ifdef CONFIG_JBD2_DEBUG
 	atomic_inc(&nr_journal_heads);
@@ -1984,11 +1989,7 @@ static struct journal_head *journal_alloc_journal_head(void)
 	ret = kmem_cache_alloc(jbd2_journal_head_cache, GFP_NOFS);
 	if (!ret) {
 		jbd_debug(1, "out of memory for journal_head\n");
-		if (time_after(jiffies, last_warning + 5*HZ)) {
-			printk(KERN_NOTICE "ENOMEM in %s, retrying.\n",
-			       __func__);
-			last_warning = jiffies;
-		}
+		pr_notice_ratelimited("ENOMEM in %s, retrying.\n", __func__);
 		while (!ret) {
 			yield();
 			ret = kmem_cache_alloc(jbd2_journal_head_cache, GFP_NOFS);
@@ -2206,7 +2207,7 @@ void jbd2_journal_release_jbd_inode(journal_t *journal,
 restart:
 	spin_lock(&journal->j_list_lock);
 	/* Is commit writing out inode - we have to wait */
-	if (jinode->i_flags & JI_COMMIT_RUNNING) {
+	if (test_bit(__JI_COMMIT_RUNNING, &jinode->i_flags)) {
 		wait_queue_head_t *wq;
 		DEFINE_WAIT_BIT(wait, &jinode->i_flags, __JI_COMMIT_RUNNING);
 		wq = bit_waitqueue(&jinode->i_flags, __JI_COMMIT_RUNNING);
@@ -2286,17 +2287,19 @@ static void __exit jbd2_remove_jbd_stats_proc_entry(void)
 
 #endif
 
-struct kmem_cache *jbd2_handle_cache;
+struct kmem_cache *jbd2_handle_cache, *jbd2_inode_cache;
 
 static int __init journal_init_handle_cache(void)
 {
-	jbd2_handle_cache = kmem_cache_create("jbd2_journal_handle",
-				sizeof(handle_t),
-				0,		/* offset */
-				SLAB_TEMPORARY,	/* flags */
-				NULL);		/* ctor */
+	jbd2_handle_cache = KMEM_CACHE(jbd2_journal_handle, SLAB_TEMPORARY);
 	if (jbd2_handle_cache == NULL) {
-		printk(KERN_EMERG "JBD: failed to create handle cache\n");
+		printk(KERN_EMERG "JBD2: failed to create handle cache\n");
+		return -ENOMEM;
+	}
+	jbd2_inode_cache = KMEM_CACHE(jbd2_inode, 0);
+	if (jbd2_inode_cache == NULL) {
+		printk(KERN_EMERG "JBD2: failed to create inode cache\n");
+		kmem_cache_destroy(jbd2_handle_cache);
 		return -ENOMEM;
 	}
 	return 0;
@@ -2306,6 +2309,9 @@ static void jbd2_journal_destroy_handle_cache(void)
 {
 	if (jbd2_handle_cache)
 		kmem_cache_destroy(jbd2_handle_cache);
+	if (jbd2_inode_cache)
+		kmem_cache_destroy(jbd2_inode_cache);
+
 }
 
 /*

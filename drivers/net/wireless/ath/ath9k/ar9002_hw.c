@@ -22,27 +22,9 @@
 
 int modparam_force_new_ani;
 module_param_named(force_new_ani, modparam_force_new_ani, int, 0444);
-MODULE_PARM_DESC(nohwcrypt, "Force new ANI for AR5008, AR9001, AR9002");
+MODULE_PARM_DESC(force_new_ani, "Force new ANI for AR5008, AR9001, AR9002");
 
 /* General hardware code for the A5008/AR9001/AR9002 hadware families */
-
-static bool ar9002_hw_macversion_supported(u32 macversion)
-{
-	switch (macversion) {
-	case AR_SREV_VERSION_5416_PCI:
-	case AR_SREV_VERSION_5416_PCIE:
-	case AR_SREV_VERSION_9160:
-	case AR_SREV_VERSION_9100:
-	case AR_SREV_VERSION_9280:
-	case AR_SREV_VERSION_9285:
-	case AR_SREV_VERSION_9287:
-	case AR_SREV_VERSION_9271:
-		return true;
-	default:
-		break;
-	}
-	return false;
-}
 
 static void ar9002_hw_init_mode_regs(struct ath_hw *ah)
 {
@@ -371,7 +353,6 @@ static void ar9002_hw_configpcipowersave(struct ath_hw *ah,
 			REG_WRITE(ah, AR_PCIE_SERDES2, 0x00000000);
 
 			REGWRITE_BUFFER_FLUSH(ah);
-			DISABLE_REGWRITE_BUFFER(ah);
 		}
 
 		udelay(1000);
@@ -411,6 +392,9 @@ static void ar9002_hw_configpcipowersave(struct ath_hw *ah,
 			val &= ~(AR_WA_BIT6 | AR_WA_BIT7);
 		}
 
+		if (AR_SREV_9280(ah))
+			val |= AR_WA_BIT22;
+
 		if (AR_SREV_9285E_20(ah))
 			val |= AR_WA_BIT23;
 
@@ -442,9 +426,8 @@ static void ar9002_hw_configpcipowersave(struct ath_hw *ah,
 		}
 
 		/* WAR for ASPM system hang */
-		if (AR_SREV_9280(ah) || AR_SREV_9285(ah) || AR_SREV_9287(ah)) {
+		if (AR_SREV_9285(ah) || AR_SREV_9287(ah))
 			val |= (AR_WA_BIT6 | AR_WA_BIT7);
-		}
 
 		if (AR_SREV_9285E_20(ah))
 			val |= AR_WA_BIT23;
@@ -468,7 +451,6 @@ static int ar9002_hw_get_radiorev(struct ath_hw *ah)
 		REG_WRITE(ah, AR_PHY(0x20), 0x00010000);
 
 	REGWRITE_BUFFER_FLUSH(ah);
-	DISABLE_REGWRITE_BUFFER(ah);
 
 	val = (REG_READ(ah, AR_PHY(256)) >> 24) & 0xff;
 	val = ((val & 0xf0) >> 4) | ((val & 0x0f) << 4);
@@ -493,9 +475,9 @@ int ar9002_hw_rf_claim(struct ath_hw *ah)
 	case AR_RAD2122_SREV_MAJOR:
 		break;
 	default:
-		ath_print(ath9k_hw_common(ah), ATH_DBG_FATAL,
-			  "Radio Chip Rev 0x%02X not supported\n",
-			  val & AR_RADIO_SREV_MAJOR);
+		ath_err(ath9k_hw_common(ah),
+			"Radio Chip Rev 0x%02X not supported\n",
+			val & AR_RADIO_SREV_MAJOR);
 		return -EOPNOTSUPP;
 	}
 
@@ -564,19 +546,61 @@ void ar9002_hw_attach_ops(struct ath_hw *ah)
 
 	priv_ops->init_mode_regs = ar9002_hw_init_mode_regs;
 	priv_ops->init_mode_gain_regs = ar9002_hw_init_mode_gain_regs;
-	priv_ops->macversion_supported = ar9002_hw_macversion_supported;
 
 	ops->config_pci_powersave = ar9002_hw_configpcipowersave;
 
 	ar5008_hw_attach_phy_ops(ah);
-	if (AR_SREV_9280_10_OR_LATER(ah))
+	if (AR_SREV_9280_20_OR_LATER(ah))
 		ar9002_hw_attach_phy_ops(ah);
 
 	ar9002_hw_attach_calib_ops(ah);
 	ar9002_hw_attach_mac_ops(ah);
+}
 
-	if (modparam_force_new_ani)
-		ath9k_hw_attach_ani_ops_new(ah);
-	else
-		ath9k_hw_attach_ani_ops_old(ah);
+void ar9002_hw_load_ani_reg(struct ath_hw *ah, struct ath9k_channel *chan)
+{
+	u32 modesIndex;
+	int i;
+
+	switch (chan->chanmode) {
+	case CHANNEL_A:
+	case CHANNEL_A_HT20:
+		modesIndex = 1;
+		break;
+	case CHANNEL_A_HT40PLUS:
+	case CHANNEL_A_HT40MINUS:
+		modesIndex = 2;
+		break;
+	case CHANNEL_G:
+	case CHANNEL_G_HT20:
+	case CHANNEL_B:
+		modesIndex = 4;
+		break;
+	case CHANNEL_G_HT40PLUS:
+	case CHANNEL_G_HT40MINUS:
+		modesIndex = 3;
+		break;
+
+	default:
+		return;
+	}
+
+	ENABLE_REGWRITE_BUFFER(ah);
+
+	for (i = 0; i < ah->iniModes_9271_ANI_reg.ia_rows; i++) {
+		u32 reg = INI_RA(&ah->iniModes_9271_ANI_reg, i, 0);
+		u32 val = INI_RA(&ah->iniModes_9271_ANI_reg, i, modesIndex);
+		u32 val_orig;
+
+		if (reg == AR_PHY_CCK_DETECT) {
+			val_orig = REG_READ(ah, reg);
+			val &= AR_PHY_CCK_DETECT_WEAK_SIG_THR_CCK;
+			val_orig &= ~AR_PHY_CCK_DETECT_WEAK_SIG_THR_CCK;
+
+			REG_WRITE(ah, reg, val|val_orig);
+		} else
+			REG_WRITE(ah, reg, val);
+	}
+
+	REGWRITE_BUFFER_FLUSH(ah);
 }

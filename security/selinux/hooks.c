@@ -1973,13 +1973,9 @@ static int selinux_quota_on(struct dentry *dentry)
 	return dentry_has_perm(cred, NULL, dentry, FILE__QUOTAON);
 }
 
-static int selinux_syslog(int type, bool from_file)
+static int selinux_syslog(int type)
 {
 	int rc;
-
-	rc = cap_syslog(type, from_file);
-	if (rc)
-		return rc;
 
 	switch (type) {
 	case SYSLOG_ACTION_READ_ALL:	/* Read last kernel messages */
@@ -2529,7 +2525,10 @@ static int selinux_inode_init_security(struct inode *inode, struct inode *dir,
 	sid = tsec->sid;
 	newsid = tsec->create_sid;
 
-	if (!newsid || !(sbsec->flags & SE_SBLABELSUPP)) {
+	if ((sbsec->flags & SE_SBINITIALIZED) &&
+	    (sbsec->behavior == SECURITY_FS_USE_MNTPOINT))
+		newsid = sbsec->mntpoint_sid;
+	else if (!newsid || !(sbsec->flags & SE_SBLABELSUPP)) {
 		rc = security_transition_sid(sid, dsec->sid,
 					     inode_mode_to_security_class(inode->i_mode),
 					     &newsid);
@@ -3199,7 +3198,11 @@ static void selinux_cred_free(struct cred *cred)
 {
 	struct task_security_struct *tsec = cred->security;
 
-	BUG_ON((unsigned long) cred->security < PAGE_SIZE);
+	/*
+	 * cred->security == NULL if security_cred_alloc_blank() or
+	 * security_prepare_creds() returned an error.
+	 */
+	BUG_ON(cred->security && (unsigned long) cred->security < PAGE_SIZE);
 	cred->security = (void *) 0x7UL;
 	kfree(tsec);
 }
@@ -3354,11 +3357,11 @@ static int selinux_task_setrlimit(struct task_struct *p, unsigned int resource,
 	return 0;
 }
 
-static int selinux_task_setscheduler(struct task_struct *p, int policy, struct sched_param *lp)
+static int selinux_task_setscheduler(struct task_struct *p)
 {
 	int rc;
 
-	rc = cap_task_setscheduler(p, policy, lp);
+	rc = cap_task_setscheduler(p);
 	if (rc)
 		return rc;
 
@@ -3925,18 +3928,18 @@ static int selinux_socket_shutdown(struct socket *sock, int how)
 	return sock_has_perm(current, sock->sk, SOCKET__SHUTDOWN);
 }
 
-static int selinux_socket_unix_stream_connect(struct socket *sock,
-					      struct socket *other,
+static int selinux_socket_unix_stream_connect(struct sock *sock,
+					      struct sock *other,
 					      struct sock *newsk)
 {
-	struct sk_security_struct *sksec_sock = sock->sk->sk_security;
-	struct sk_security_struct *sksec_other = other->sk->sk_security;
+	struct sk_security_struct *sksec_sock = sock->sk_security;
+	struct sk_security_struct *sksec_other = other->sk_security;
 	struct sk_security_struct *sksec_new = newsk->sk_security;
 	struct common_audit_data ad;
 	int err;
 
 	COMMON_AUDIT_DATA_INIT(&ad, NET);
-	ad.u.net.sk = other->sk;
+	ad.u.net.sk = other;
 
 	err = avc_has_perm(sksec_sock->sid, sksec_other->sid,
 			   sksec_other->sclass,
@@ -4279,6 +4282,27 @@ static void selinux_inet_conn_established(struct sock *sk, struct sk_buff *skb)
 	selinux_skb_peerlbl_sid(skb, family, &sksec->peer_sid);
 }
 
+static int selinux_secmark_relabel_packet(u32 sid)
+{
+	const struct task_security_struct *__tsec;
+	u32 tsid;
+
+	__tsec = current_security();
+	tsid = __tsec->sid;
+
+	return avc_has_perm(tsid, sid, SECCLASS_PACKET, PACKET__RELABELTO, NULL);
+}
+
+static void selinux_secmark_refcount_inc(void)
+{
+	atomic_inc(&selinux_secmark_refcount);
+}
+
+static void selinux_secmark_refcount_dec(void)
+{
+	atomic_dec(&selinux_secmark_refcount);
+}
+
 static void selinux_req_classify_flow(const struct request_sock *req,
 				      struct flowi *fl)
 {
@@ -4503,11 +4527,11 @@ static unsigned int selinux_ip_postroute_compat(struct sk_buff *skb,
 	if (selinux_secmark_enabled())
 		if (avc_has_perm(sksec->sid, skb->secmark,
 				 SECCLASS_PACKET, PACKET__SEND, &ad))
-			return NF_DROP;
+			return NF_DROP_ERR(-ECONNREFUSED);
 
 	if (selinux_policycap_netpeer)
 		if (selinux_xfrm_postroute_last(sksec->sid, skb, &ad, proto))
-			return NF_DROP;
+			return NF_DROP_ERR(-ECONNREFUSED);
 
 	return NF_ACCEPT;
 }
@@ -4564,7 +4588,7 @@ static unsigned int selinux_ip_postroute(struct sk_buff *skb, int ifindex,
 				secmark_perm = PACKET__SEND;
 			break;
 		default:
-			return NF_DROP;
+			return NF_DROP_ERR(-ECONNREFUSED);
 		}
 		if (secmark_perm == PACKET__FORWARD_OUT) {
 			if (selinux_skb_peerlbl_sid(skb, family, &peer_sid))
@@ -4586,7 +4610,7 @@ static unsigned int selinux_ip_postroute(struct sk_buff *skb, int ifindex,
 	if (secmark_active)
 		if (avc_has_perm(peer_sid, skb->secmark,
 				 SECCLASS_PACKET, secmark_perm, &ad))
-			return NF_DROP;
+			return NF_DROP_ERR(-ECONNREFUSED);
 
 	if (peerlbl_active) {
 		u32 if_sid;
@@ -4596,13 +4620,13 @@ static unsigned int selinux_ip_postroute(struct sk_buff *skb, int ifindex,
 			return NF_DROP;
 		if (avc_has_perm(peer_sid, if_sid,
 				 SECCLASS_NETIF, NETIF__EGRESS, &ad))
-			return NF_DROP;
+			return NF_DROP_ERR(-ECONNREFUSED);
 
 		if (sel_netnode_sid(addrp, family, &node_sid))
 			return NF_DROP;
 		if (avc_has_perm(peer_sid, node_sid,
 				 SECCLASS_NODE, NODE__SENDTO, &ad))
-			return NF_DROP;
+			return NF_DROP_ERR(-ECONNREFUSED);
 	}
 
 	return NF_ACCEPT;
@@ -5533,6 +5557,9 @@ static struct security_operations selinux_ops = {
 	.inet_conn_request =		selinux_inet_conn_request,
 	.inet_csk_clone =		selinux_inet_csk_clone,
 	.inet_conn_established =	selinux_inet_conn_established,
+	.secmark_relabel_packet =	selinux_secmark_relabel_packet,
+	.secmark_refcount_inc =		selinux_secmark_refcount_inc,
+	.secmark_refcount_dec =		selinux_secmark_refcount_dec,
 	.req_classify_flow =		selinux_req_classify_flow,
 	.tun_dev_create =		selinux_tun_dev_create,
 	.tun_dev_post_create = 		selinux_tun_dev_post_create,

@@ -584,34 +584,33 @@ struct platform_device *of_device_alloc(struct device_node *np,
 				  struct device *parent)
 {
 	struct platform_device *dev;
-	int rc, i, num_reg = 0, num_irq = 0;
+	int rc, i, num_reg = 0, num_irq;
 	struct resource *res, temp_res;
 
-	/* First count how many resources are needed */
-	while (of_address_to_resource(np, num_reg, &temp_res) == 0)
-		num_reg++;
-	while (of_irq_to_resource(np, num_irq, &temp_res) != NO_IRQ)
-		num_irq++;
-
-	/* Allocate memory for both the struct device and the resource table */
-	dev = kzalloc(sizeof(*dev) + (sizeof(*res) * (num_reg + num_irq)),
-		      GFP_KERNEL);
+	dev = platform_device_alloc("", -1);
 	if (!dev)
 		return NULL;
-	res = (struct resource *) &dev[1];
+
+	/* count the io and irq resources */
+	while (of_address_to_resource(np, num_reg, &temp_res) == 0)
+		num_reg++;
+	num_irq = of_irq_count(np);
 
 	/* Populate the resource table */
 	if (num_irq || num_reg) {
+		res = kzalloc(sizeof(*res) * (num_irq + num_reg), GFP_KERNEL);
+		if (!res) {
+			platform_device_put(dev);
+			return NULL;
+		}
+
 		dev->num_resources = num_reg + num_irq;
 		dev->resource = res;
 		for (i = 0; i < num_reg; i++, res++) {
 			rc = of_address_to_resource(np, i, res);
 			WARN_ON(rc);
 		}
-		for (i = 0; i < num_irq; i++, res++) {
-			rc = of_irq_to_resource(np, i, res);
-			WARN_ON(rc == NO_IRQ);
-		}
+		WARN_ON(of_irq_to_resource_table(np, res, num_irq) != num_irq);
 	}
 
 	dev->dev.of_node = of_node_get(np);
@@ -619,7 +618,6 @@ struct platform_device *of_device_alloc(struct device_node *np,
 	dev->dev.dma_mask = &dev->archdata.dma_mask;
 #endif
 	dev->dev.parent = parent;
-	dev->dev.release = of_release_dev;
 
 	if (bus_id)
 		dev_set_name(&dev->dev, "%s", bus_id);
@@ -635,12 +633,18 @@ EXPORT_SYMBOL(of_device_alloc);
  * @np: pointer to node to create device for
  * @bus_id: name to assign device
  * @parent: Linux device model parent device.
+ *
+ * Returns pointer to created platform device, or NULL if a device was not
+ * registered.  Unavailable devices will not get registered.
  */
 struct platform_device *of_platform_device_create(struct device_node *np,
 					    const char *bus_id,
 					    struct device *parent)
 {
 	struct platform_device *dev;
+
+	if (!of_device_is_available(np))
+		return NULL;
 
 	dev = of_device_alloc(np, bus_id, parent);
 	if (!dev)
@@ -657,8 +661,8 @@ struct platform_device *of_platform_device_create(struct device_node *np,
 	 * to do such, possibly using a device notifier
 	 */
 
-	if (of_device_register(dev) != 0) {
-		of_device_free(dev);
+	if (of_device_add(dev) != 0) {
+		platform_device_put(dev);
 		return NULL;
 	}
 
@@ -685,8 +689,9 @@ static int of_platform_bus_create(const struct device_node *bus,
 		pr_debug("   create child: %s\n", child->full_name);
 		dev = of_platform_device_create(child, NULL, parent);
 		if (dev == NULL)
-			rc = -ENOMEM;
-		else if (!of_match_node(matches, child))
+			continue;
+
+		if (!of_match_node(matches, child))
 			continue;
 		if (rc == 0) {
 			pr_debug("   and sub busses\n");
@@ -735,10 +740,9 @@ int of_platform_bus_probe(struct device_node *root,
 	if (of_match_node(matches, root)) {
 		pr_debug(" root match, create all sub devices\n");
 		dev = of_platform_device_create(root, NULL, parent);
-		if (dev == NULL) {
-			rc = -ENOMEM;
+		if (dev == NULL)
 			goto bail;
-		}
+
 		pr_debug(" create all sub busses\n");
 		rc = of_platform_bus_create(root, matches, &dev->dev);
 		goto bail;
@@ -750,9 +754,9 @@ int of_platform_bus_probe(struct device_node *root,
 		pr_debug("  match: %s\n", child->full_name);
 		dev = of_platform_device_create(child, NULL, parent);
 		if (dev == NULL)
-			rc = -ENOMEM;
-		else
-			rc = of_platform_bus_create(child, matches, &dev->dev);
+			continue;
+
+		rc = of_platform_bus_create(child, matches, &dev->dev);
 		if (rc) {
 			of_node_put(child);
 			break;

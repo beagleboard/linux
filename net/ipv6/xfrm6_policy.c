@@ -98,6 +98,10 @@ static int xfrm6_fill_dst(struct xfrm_dst *xdst, struct net_device *dev,
 	if (!xdst->u.rt6.rt6i_idev)
 		return -ENODEV;
 
+	xdst->u.rt6.rt6i_peer = rt->rt6i_peer;
+	if (rt->rt6i_peer)
+		atomic_inc(&rt->rt6i_peer->refcnt);
+
 	/* Sheit... I remember I did this right. Apparently,
 	 * it was magically lost, so this code needs audit */
 	xdst->u.rt6.rt6i_flags = rt->rt6i_flags & (RTF_ANYCAST |
@@ -199,7 +203,7 @@ static inline int xfrm6_garbage_collect(struct dst_ops *ops)
 	struct net *net = container_of(ops, struct net, xfrm.xfrm6_dst_ops);
 
 	xfrm6_policy_afinfo.garbage_collect(net);
-	return (atomic_read(&ops->entries) > ops->gc_thresh * 2);
+	return dst_entries_get_fast(ops) > ops->gc_thresh * 2;
 }
 
 static void xfrm6_update_pmtu(struct dst_entry *dst, u32 mtu)
@@ -216,6 +220,8 @@ static void xfrm6_dst_destroy(struct dst_entry *dst)
 
 	if (likely(xdst->u.rt6.rt6i_idev))
 		in6_dev_put(xdst->u.rt6.rt6i_idev);
+	if (likely(xdst->u.rt6.rt6i_peer))
+		inet_putpeer(xdst->u.rt6.rt6i_peer);
 	xfrm_dst_destroy(xdst);
 }
 
@@ -255,7 +261,6 @@ static struct dst_ops xfrm6_dst_ops = {
 	.ifdown =		xfrm6_dst_ifdown,
 	.local_out =		__ip6_local_out,
 	.gc_thresh =		1024,
-	.entries =		ATOMIC_INIT(0),
 };
 
 static struct xfrm_policy_afinfo xfrm6_policy_afinfo = {
@@ -312,11 +317,13 @@ int __init xfrm6_init(void)
 	 */
 	gc_thresh = FIB6_TABLE_HASHSZ * 8;
 	xfrm6_dst_ops.gc_thresh = (gc_thresh < 1024) ? 1024 : gc_thresh;
+	dst_entries_init(&xfrm6_dst_ops);
 
 	ret = xfrm6_policy_init();
-	if (ret)
+	if (ret) {
+		dst_entries_destroy(&xfrm6_dst_ops);
 		goto out;
-
+	}
 	ret = xfrm6_state_init();
 	if (ret)
 		goto out_policy;
@@ -341,4 +348,5 @@ void xfrm6_fini(void)
 	//xfrm6_input_fini();
 	xfrm6_policy_fini();
 	xfrm6_state_fini();
+	dst_entries_destroy(&xfrm6_dst_ops);
 }

@@ -9,8 +9,8 @@ endef
 ifndef NO_DWARF
 define SOURCE_DWARF
 #include <dwarf.h>
-#include <libdw.h>
-#include <version.h>
+#include <elfutils/libdw.h>
+#include <elfutils/version.h>
 #ifndef _ELFUTILS_PREREQ
 #error
 #endif
@@ -106,6 +106,17 @@ extern char *cplus_demangle(const char *, int);
 int main(void)
 {
 	cplus_demangle(0, 0);
+	return 0;
+}
+endef
+
+define SOURCE_STRLCPY
+#include <stdlib.h>
+extern size_t strlcpy(char *dest, const char *src, size_t size);
+
+int main(void)
+{
+	strlcpy(NULL, NULL, 0);
 	return 0;
 }
 endef

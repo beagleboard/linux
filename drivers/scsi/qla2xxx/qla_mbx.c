@@ -3828,8 +3828,6 @@ qla2x00_loopback_test(scsi_qla_host_t *vha, struct msg_echo_lb *mreq,
 
 	/* Copy mailbox information */
 	memcpy( mresp, mcp->mb, 64);
-	mresp[3] = mcp->mb[18];
-	mresp[4] = mcp->mb[19];
 	return rval;
 }
 
@@ -3890,9 +3888,10 @@ qla2x00_echo_test(scsi_qla_host_t *vha, struct msg_echo_lb *mreq,
 	}
 
 	/* Copy mailbox information */
-	memcpy( mresp, mcp->mb, 32);
+	memcpy(mresp, mcp->mb, 64);
 	return rval;
 }
+
 int
 qla84xx_reset_chip(scsi_qla_host_t *ha, uint16_t enable_diagnostic)
 {
@@ -3952,6 +3951,67 @@ qla2x00_write_ram_word(scsi_qla_host_t *vha, uint32_t risc_addr, uint32_t data)
 	return rval;
 }
 
+int
+qla81xx_write_mpi_register(scsi_qla_host_t *vha, uint16_t *mb)
+{
+	int rval;
+	uint32_t stat, timer;
+	uint16_t mb0 = 0;
+	struct qla_hw_data *ha = vha->hw;
+	struct device_reg_24xx __iomem *reg = &ha->iobase->isp24;
+
+	rval = QLA_SUCCESS;
+
+	DEBUG11(qla_printk(KERN_INFO, ha,
+	    "%s(%ld): entered.\n", __func__, vha->host_no));
+
+	clear_bit(MBX_INTERRUPT, &ha->mbx_cmd_flags);
+
+	/* Write the MBC data to the registers */
+	WRT_REG_WORD(&reg->mailbox0, MBC_WRITE_MPI_REGISTER);
+	WRT_REG_WORD(&reg->mailbox1, mb[0]);
+	WRT_REG_WORD(&reg->mailbox2, mb[1]);
+	WRT_REG_WORD(&reg->mailbox3, mb[2]);
+	WRT_REG_WORD(&reg->mailbox4, mb[3]);
+
+	WRT_REG_DWORD(&reg->hccr, HCCRX_SET_HOST_INT);
+
+	/* Poll for MBC interrupt */
+	for (timer = 6000000; timer; timer--) {
+		/* Check for pending interrupts. */
+		stat = RD_REG_DWORD(&reg->host_status);
+		if (stat & HSRX_RISC_INT) {
+			stat &= 0xff;
+
+			if (stat == 0x1 || stat == 0x2 ||
+			    stat == 0x10 || stat == 0x11) {
+				set_bit(MBX_INTERRUPT,
+				    &ha->mbx_cmd_flags);
+				mb0 = RD_REG_WORD(&reg->mailbox0);
+				WRT_REG_DWORD(&reg->hccr,
+				    HCCRX_CLR_RISC_INT);
+				RD_REG_DWORD(&reg->hccr);
+				break;
+			}
+		}
+		udelay(5);
+	}
+
+	if (test_and_clear_bit(MBX_INTERRUPT, &ha->mbx_cmd_flags))
+		rval = mb0 & MBS_MASK;
+	else
+		rval = QLA_FUNCTION_FAILED;
+
+	if (rval != QLA_SUCCESS) {
+		DEBUG2_3_11(printk(KERN_INFO "%s(%ld): failed=%x mb[0]=%x.\n",
+		    __func__, vha->host_no, rval, mb[0]));
+	} else {
+		DEBUG11(printk(KERN_INFO
+		    "%s(%ld): done.\n", __func__, vha->host_no));
+	}
+
+	return rval;
+}
 int
 qla2x00_get_data_rate(scsi_qla_host_t *vha)
 {
@@ -4065,7 +4125,7 @@ qla24xx_set_fcp_prio(scsi_qla_host_t *vha, uint16_t loop_id, uint16_t priority,
 		return QLA_FUNCTION_FAILED;
 
 	DEBUG11(printk(KERN_INFO
-	    "%s(%ld): entered.\n", __func__, ha->host_no));
+	    "%s(%ld): entered.\n", __func__, vha->host_no));
 
 	mcp->mb[0] = MBC_PORT_PARAMS;
 	mcp->mb[1] = loop_id;
@@ -4096,6 +4156,71 @@ qla24xx_set_fcp_prio(scsi_qla_host_t *vha, uint16_t loop_id, uint16_t priority,
 		    "%s(%ld): done.\n", __func__, vha->host_no));
 	}
 
+	return rval;
+}
+
+int
+qla2x00_get_thermal_temp(scsi_qla_host_t *vha, uint16_t *temp, uint16_t *frac)
+{
+	int rval;
+	mbx_cmd_t mc;
+	mbx_cmd_t *mcp = &mc;
+	struct qla_hw_data *ha = vha->hw;
+
+	DEBUG11(printk(KERN_INFO "%s(%ld): entered.\n", __func__, ha->host_no));
+
+	/* High bits. */
+	mcp->mb[0] = MBC_READ_SFP;
+	mcp->mb[1] = 0x98;
+	mcp->mb[2] = 0;
+	mcp->mb[3] = 0;
+	mcp->mb[6] = 0;
+	mcp->mb[7] = 0;
+	mcp->mb[8] = 1;
+	mcp->mb[9] = 0x01;
+	mcp->mb[10] = BIT_13|BIT_0;
+	mcp->out_mb = MBX_10|MBX_9|MBX_8|MBX_7|MBX_6|MBX_3|MBX_2|MBX_1|MBX_0;
+	mcp->in_mb = MBX_1|MBX_0;
+	mcp->tov = MBX_TOV_SECONDS;
+	mcp->flags = 0;
+	rval = qla2x00_mailbox_command(vha, mcp);
+	if (rval != QLA_SUCCESS) {
+		DEBUG2_3_11(printk(KERN_WARNING
+		    "%s(%ld): failed=%x (%x).\n", __func__,
+		    vha->host_no, rval, mcp->mb[0]));
+		ha->flags.thermal_supported = 0;
+		goto fail;
+	}
+	*temp = mcp->mb[1] & 0xFF;
+
+	/* Low bits. */
+	mcp->mb[0] = MBC_READ_SFP;
+	mcp->mb[1] = 0x98;
+	mcp->mb[2] = 0;
+	mcp->mb[3] = 0;
+	mcp->mb[6] = 0;
+	mcp->mb[7] = 0;
+	mcp->mb[8] = 1;
+	mcp->mb[9] = 0x10;
+	mcp->mb[10] = BIT_13|BIT_0;
+	mcp->out_mb = MBX_10|MBX_9|MBX_8|MBX_7|MBX_6|MBX_3|MBX_2|MBX_1|MBX_0;
+	mcp->in_mb = MBX_1|MBX_0;
+	mcp->tov = MBX_TOV_SECONDS;
+	mcp->flags = 0;
+	rval = qla2x00_mailbox_command(vha, mcp);
+	if (rval != QLA_SUCCESS) {
+		DEBUG2_3_11(printk(KERN_WARNING
+		    "%s(%ld): failed=%x (%x).\n", __func__,
+		    vha->host_no, rval, mcp->mb[0]));
+		ha->flags.thermal_supported = 0;
+		goto fail;
+	}
+	*frac = ((mcp->mb[1] & 0xFF) >> 6) * 25;
+
+	if (rval == QLA_SUCCESS)
+		DEBUG11(printk(KERN_INFO
+		    "%s(%ld): done.\n", __func__, ha->host_no));
+fail:
 	return rval;
 }
 

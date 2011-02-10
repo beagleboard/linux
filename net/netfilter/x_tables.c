@@ -116,10 +116,8 @@ EXPORT_SYMBOL(xt_register_targets);
 void
 xt_unregister_targets(struct xt_target *target, unsigned int n)
 {
-	unsigned int i;
-
-	for (i = 0; i < n; i++)
-		xt_unregister_target(&target[i]);
+	while (n-- > 0)
+		xt_unregister_target(&target[n]);
 }
 EXPORT_SYMBOL(xt_unregister_targets);
 
@@ -174,10 +172,8 @@ EXPORT_SYMBOL(xt_register_matches);
 void
 xt_unregister_matches(struct xt_match *match, unsigned int n)
 {
-	unsigned int i;
-
-	for (i = 0; i < n; i++)
-		xt_unregister_match(&match[i]);
+	while (n-- > 0)
+		xt_unregister_match(&match[n]);
 }
 EXPORT_SYMBOL(xt_unregister_matches);
 
@@ -1329,7 +1325,8 @@ static int __init xt_init(void)
 
 	for_each_possible_cpu(i) {
 		struct xt_info_lock *lock = &per_cpu(xt_info_locks, i);
-		spin_lock_init(&lock->lock);
+
+		seqlock_init(&lock->lock);
 		lock->readers = 0;
 	}
 

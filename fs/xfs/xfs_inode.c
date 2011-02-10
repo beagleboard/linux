@@ -660,7 +660,8 @@ xfs_dinode_from_disk(
 	to->di_uid = be32_to_cpu(from->di_uid);
 	to->di_gid = be32_to_cpu(from->di_gid);
 	to->di_nlink = be32_to_cpu(from->di_nlink);
-	to->di_projid = be16_to_cpu(from->di_projid);
+	to->di_projid_lo = be16_to_cpu(from->di_projid_lo);
+	to->di_projid_hi = be16_to_cpu(from->di_projid_hi);
 	memcpy(to->di_pad, from->di_pad, sizeof(to->di_pad));
 	to->di_flushiter = be16_to_cpu(from->di_flushiter);
 	to->di_atime.t_sec = be32_to_cpu(from->di_atime.t_sec);
@@ -695,7 +696,8 @@ xfs_dinode_to_disk(
 	to->di_uid = cpu_to_be32(from->di_uid);
 	to->di_gid = cpu_to_be32(from->di_gid);
 	to->di_nlink = cpu_to_be32(from->di_nlink);
-	to->di_projid = cpu_to_be16(from->di_projid);
+	to->di_projid_lo = cpu_to_be16(from->di_projid_lo);
+	to->di_projid_hi = cpu_to_be16(from->di_projid_hi);
 	memcpy(to->di_pad, from->di_pad, sizeof(to->di_pad));
 	to->di_flushiter = cpu_to_be16(from->di_flushiter);
 	to->di_atime.t_sec = cpu_to_be32(from->di_atime.t_sec);
@@ -874,7 +876,7 @@ xfs_iread(
 	if (ip->i_d.di_version == 1) {
 		ip->i_d.di_nlink = ip->i_d.di_onlink;
 		ip->i_d.di_onlink = 0;
-		ip->i_d.di_projid = 0;
+		xfs_set_projid(ip, 0);
 	}
 
 	ip->i_delayed_blks = 0;
@@ -885,7 +887,7 @@ xfs_iread(
 	 * around for a while.  This helps to keep recently accessed
 	 * meta-data in-core longer.
 	 */
-	XFS_BUF_SET_REF(bp, XFS_INO_REF);
+	xfs_buf_set_ref(bp, XFS_INO_REF);
 
 	/*
 	 * Use xfs_trans_brelse() to release the buffer containing the
@@ -982,8 +984,7 @@ xfs_ialloc(
 	mode_t		mode,
 	xfs_nlink_t	nlink,
 	xfs_dev_t	rdev,
-	cred_t		*cr,
-	xfs_prid_t	prid,
+	prid_t		prid,
 	int		okalloc,
 	xfs_buf_t	**ialloc_context,
 	boolean_t	*call_again,
@@ -1027,7 +1028,7 @@ xfs_ialloc(
 	ASSERT(ip->i_d.di_nlink == nlink);
 	ip->i_d.di_uid = current_fsuid();
 	ip->i_d.di_gid = current_fsgid();
-	ip->i_d.di_projid = prid;
+	xfs_set_projid(ip, prid);
 	memset(&(ip->i_d.di_pad[0]), 0, sizeof(ip->i_d.di_pad));
 
 	/*
@@ -1999,15 +2000,31 @@ xfs_ifree_cluster(
 		 */
 		for (i = 0; i < ninodes; i++) {
 retry:
-			read_lock(&pag->pag_ici_lock);
+			rcu_read_lock();
 			ip = radix_tree_lookup(&pag->pag_ici_root,
 					XFS_INO_TO_AGINO(mp, (inum + i)));
 
-			/* Inode not in memory or stale, nothing to do */
-			if (!ip || xfs_iflags_test(ip, XFS_ISTALE)) {
-				read_unlock(&pag->pag_ici_lock);
+			/* Inode not in memory, nothing to do */
+			if (!ip) {
+				rcu_read_unlock();
 				continue;
 			}
+
+			/*
+			 * because this is an RCU protected lookup, we could
+			 * find a recently freed or even reallocated inode
+			 * during the lookup. We need to check under the
+			 * i_flags_lock for a valid inode here. Skip it if it
+			 * is not valid, the wrong inode or stale.
+			 */
+			spin_lock(&ip->i_flags_lock);
+			if (ip->i_ino != inum + i ||
+			    __xfs_iflags_test(ip, XFS_ISTALE)) {
+				spin_unlock(&ip->i_flags_lock);
+				rcu_read_unlock();
+				continue;
+			}
+			spin_unlock(&ip->i_flags_lock);
 
 			/*
 			 * Don't try to lock/unlock the current inode, but we
@@ -2018,11 +2035,11 @@ retry:
 			 */
 			if (ip != free_ip &&
 			    !xfs_ilock_nowait(ip, XFS_ILOCK_EXCL)) {
-				read_unlock(&pag->pag_ici_lock);
+				rcu_read_unlock();
 				delay(1);
 				goto retry;
 			}
-			read_unlock(&pag->pag_ici_lock);
+			rcu_read_unlock();
 
 			xfs_iflock(ip);
 			xfs_iflags_set(ip, XFS_ISTALE);
@@ -2628,7 +2645,7 @@ xfs_iflush_cluster(
 
 	mask = ~(((XFS_INODE_CLUSTER_SIZE(mp) >> mp->m_sb.sb_inodelog)) - 1);
 	first_index = XFS_INO_TO_AGINO(mp, ip->i_ino) & mask;
-	read_lock(&pag->pag_ici_lock);
+	rcu_read_lock();
 	/* really need a gang lookup range call here */
 	nr_found = radix_tree_gang_lookup(&pag->pag_ici_root, (void**)ilist,
 					first_index, inodes_per_cluster);
@@ -2639,9 +2656,21 @@ xfs_iflush_cluster(
 		iq = ilist[i];
 		if (iq == ip)
 			continue;
-		/* if the inode lies outside this cluster, we're done. */
-		if ((XFS_INO_TO_AGINO(mp, iq->i_ino) & mask) != first_index)
-			break;
+
+		/*
+		 * because this is an RCU protected lookup, we could find a
+		 * recently freed or even reallocated inode during the lookup.
+		 * We need to check under the i_flags_lock for a valid inode
+		 * here. Skip it if it is not valid or the wrong inode.
+		 */
+		spin_lock(&ip->i_flags_lock);
+		if (!ip->i_ino ||
+		    (XFS_INO_TO_AGINO(mp, iq->i_ino) & mask) != first_index) {
+			spin_unlock(&ip->i_flags_lock);
+			continue;
+		}
+		spin_unlock(&ip->i_flags_lock);
+
 		/*
 		 * Do an un-protected check to see if the inode is dirty and
 		 * is a candidate for flushing.  These checks will be repeated
@@ -2691,7 +2720,7 @@ xfs_iflush_cluster(
 	}
 
 out_free:
-	read_unlock(&pag->pag_ici_lock);
+	rcu_read_unlock();
 	kmem_free(ilist);
 out_put:
 	xfs_perag_put(pag);
@@ -2703,7 +2732,7 @@ cluster_corrupt_out:
 	 * Corruption detected in the clustering loop.  Invalidate the
 	 * inode buffer and shut down the filesystem.
 	 */
-	read_unlock(&pag->pag_ici_lock);
+	rcu_read_unlock();
 	/*
 	 * Clean up the buffer.  If it was B_DELWRI, just release it --
 	 * brelse can handle it with no problems.  If not, shut down the
@@ -2725,7 +2754,7 @@ cluster_corrupt_out:
 			XFS_BUF_UNDONE(bp);
 			XFS_BUF_STALE(bp);
 			XFS_BUF_ERROR(bp,EIO);
-			xfs_biodone(bp);
+			xfs_buf_ioend(bp, 0);
 		} else {
 			XFS_BUF_STALE(bp);
 			xfs_buf_relse(bp);
@@ -3008,7 +3037,7 @@ xfs_iflush_int(
 			memset(&(ip->i_d.di_pad[0]), 0, sizeof(ip->i_d.di_pad));
 			memset(&(dip->di_pad[0]), 0,
 			      sizeof(dip->di_pad));
-			ASSERT(ip->i_d.di_projid == 0);
+			ASSERT(xfs_get_projid(ip) == 0);
 		}
 	}
 

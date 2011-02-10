@@ -25,12 +25,14 @@ static inline void trace_ ## name(proto) {}
 #define STA_PR_FMT	" sta:%pM"
 #define STA_PR_ARG	__entry->sta_addr
 
-#define VIF_ENTRY	__field(enum nl80211_iftype, vif_type) __field(void *, sdata) \
+#define VIF_ENTRY	__field(enum nl80211_iftype, vif_type) __field(void *, sdata)	\
+			__field(bool, p2p)						\
 			__string(vif_name, sdata->dev ? sdata->dev->name : "<nodev>")
-#define VIF_ASSIGN	__entry->vif_type = sdata->vif.type; __entry->sdata = sdata; \
+#define VIF_ASSIGN	__entry->vif_type = sdata->vif.type; __entry->sdata = sdata;	\
+			__entry->p2p = sdata->vif.p2p;					\
 			__assign_str(vif_name, sdata->dev ? sdata->dev->name : "<nodev>")
-#define VIF_PR_FMT	" vif:%s(%d)"
-#define VIF_PR_ARG	__get_str(vif_name), __entry->vif_type
+#define VIF_PR_FMT	" vif:%s(%d%s)"
+#define VIF_PR_ARG	__get_str(vif_name), __entry->vif_type, __entry->p2p ? "/p2p" : ""
 
 /*
  * Tracing for driver callbacks.
@@ -133,6 +135,34 @@ TRACE_EVENT(drv_add_interface,
 	TP_printk(
 		LOCAL_PR_FMT  VIF_PR_FMT " addr:%pM",
 		LOCAL_PR_ARG, VIF_PR_ARG, __entry->addr
+	)
+);
+
+TRACE_EVENT(drv_change_interface,
+	TP_PROTO(struct ieee80211_local *local,
+		 struct ieee80211_sub_if_data *sdata,
+		 enum nl80211_iftype type, bool p2p),
+
+	TP_ARGS(local, sdata, type, p2p),
+
+	TP_STRUCT__entry(
+		LOCAL_ENTRY
+		VIF_ENTRY
+		__field(u32, new_type)
+		__field(bool, new_p2p)
+	),
+
+	TP_fast_assign(
+		LOCAL_ASSIGN;
+		VIF_ASSIGN;
+		__entry->new_type = type;
+		__entry->new_p2p = p2p;
+	),
+
+	TP_printk(
+		LOCAL_PR_FMT  VIF_PR_FMT " new type:%d%s",
+		LOCAL_PR_ARG, VIF_PR_ARG, __entry->new_type,
+		__entry->new_p2p ? "/p2p" : ""
 	)
 );
 
@@ -336,7 +366,7 @@ TRACE_EVENT(drv_set_key,
 		LOCAL_ENTRY
 		VIF_ENTRY
 		STA_ENTRY
-		__field(enum ieee80211_key_alg, alg)
+		__field(u32, cipher)
 		__field(u8, hw_key_idx)
 		__field(u8, flags)
 		__field(s8, keyidx)
@@ -346,7 +376,7 @@ TRACE_EVENT(drv_set_key,
 		LOCAL_ASSIGN;
 		VIF_ASSIGN;
 		STA_ASSIGN;
-		__entry->alg = key->alg;
+		__entry->cipher = key->cipher;
 		__entry->flags = key->flags;
 		__entry->keyidx = key->keyidx;
 		__entry->hw_key_idx = key->hw_key_idx;
@@ -498,6 +528,27 @@ TRACE_EVENT(drv_get_tkip_seq,
 
 	TP_printk(
 		LOCAL_PR_FMT, LOCAL_PR_ARG
+	)
+);
+
+TRACE_EVENT(drv_set_frag_threshold,
+	TP_PROTO(struct ieee80211_local *local, u32 value),
+
+	TP_ARGS(local, value),
+
+	TP_STRUCT__entry(
+		LOCAL_ENTRY
+		__field(u32, value)
+	),
+
+	TP_fast_assign(
+		LOCAL_ASSIGN;
+		__entry->value = value;
+	),
+
+	TP_printk(
+		LOCAL_PR_FMT " value:%d",
+		LOCAL_PR_ARG, __entry->value
 	)
 );
 
@@ -832,6 +883,100 @@ TRACE_EVENT(drv_channel_switch,
 	)
 );
 
+TRACE_EVENT(drv_set_antenna,
+	TP_PROTO(struct ieee80211_local *local, u32 tx_ant, u32 rx_ant, int ret),
+
+	TP_ARGS(local, tx_ant, rx_ant, ret),
+
+	TP_STRUCT__entry(
+		LOCAL_ENTRY
+		__field(u32, tx_ant)
+		__field(u32, rx_ant)
+		__field(int, ret)
+	),
+
+	TP_fast_assign(
+		LOCAL_ASSIGN;
+		__entry->tx_ant = tx_ant;
+		__entry->rx_ant = rx_ant;
+		__entry->ret = ret;
+	),
+
+	TP_printk(
+		LOCAL_PR_FMT " tx_ant:%d rx_ant:%d ret:%d",
+		LOCAL_PR_ARG, __entry->tx_ant, __entry->rx_ant, __entry->ret
+	)
+);
+
+TRACE_EVENT(drv_get_antenna,
+	TP_PROTO(struct ieee80211_local *local, u32 tx_ant, u32 rx_ant, int ret),
+
+	TP_ARGS(local, tx_ant, rx_ant, ret),
+
+	TP_STRUCT__entry(
+		LOCAL_ENTRY
+		__field(u32, tx_ant)
+		__field(u32, rx_ant)
+		__field(int, ret)
+	),
+
+	TP_fast_assign(
+		LOCAL_ASSIGN;
+		__entry->tx_ant = tx_ant;
+		__entry->rx_ant = rx_ant;
+		__entry->ret = ret;
+	),
+
+	TP_printk(
+		LOCAL_PR_FMT " tx_ant:%d rx_ant:%d ret:%d",
+		LOCAL_PR_ARG, __entry->tx_ant, __entry->rx_ant, __entry->ret
+	)
+);
+
+TRACE_EVENT(drv_remain_on_channel,
+	TP_PROTO(struct ieee80211_local *local, struct ieee80211_channel *chan,
+		 enum nl80211_channel_type chantype, unsigned int duration),
+
+	TP_ARGS(local, chan, chantype, duration),
+
+	TP_STRUCT__entry(
+		LOCAL_ENTRY
+		__field(int, center_freq)
+		__field(int, channel_type)
+		__field(unsigned int, duration)
+	),
+
+	TP_fast_assign(
+		LOCAL_ASSIGN;
+		__entry->center_freq = chan->center_freq;
+		__entry->channel_type = chantype;
+		__entry->duration = duration;
+	),
+
+	TP_printk(
+		LOCAL_PR_FMT " freq:%dMHz duration:%dms",
+		LOCAL_PR_ARG, __entry->center_freq, __entry->duration
+	)
+);
+
+TRACE_EVENT(drv_cancel_remain_on_channel,
+	TP_PROTO(struct ieee80211_local *local),
+
+	TP_ARGS(local),
+
+	TP_STRUCT__entry(
+		LOCAL_ENTRY
+	),
+
+	TP_fast_assign(
+		LOCAL_ASSIGN;
+	),
+
+	TP_printk(
+		LOCAL_PR_FMT, LOCAL_PR_ARG
+	)
+);
+
 /*
  * Tracing for API calls that drivers call.
  */
@@ -1066,6 +1211,42 @@ TRACE_EVENT(api_chswitch_done,
 	TP_printk(
 		VIF_PR_FMT " success=%d",
 		VIF_PR_ARG, __entry->success
+	)
+);
+
+TRACE_EVENT(api_ready_on_channel,
+	TP_PROTO(struct ieee80211_local *local),
+
+	TP_ARGS(local),
+
+	TP_STRUCT__entry(
+		LOCAL_ENTRY
+	),
+
+	TP_fast_assign(
+		LOCAL_ASSIGN;
+	),
+
+	TP_printk(
+		LOCAL_PR_FMT, LOCAL_PR_ARG
+	)
+);
+
+TRACE_EVENT(api_remain_on_channel_expired,
+	TP_PROTO(struct ieee80211_local *local),
+
+	TP_ARGS(local),
+
+	TP_STRUCT__entry(
+		LOCAL_ENTRY
+	),
+
+	TP_fast_assign(
+		LOCAL_ASSIGN;
+	),
+
+	TP_printk(
+		LOCAL_PR_FMT, LOCAL_PR_ARG
 	)
 );
 

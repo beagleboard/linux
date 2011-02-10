@@ -27,12 +27,17 @@
 #ifndef __ARCH_ARM_MACH_OMAP_COMMON_H
 #define __ARCH_ARM_MACH_OMAP_COMMON_H
 
+#include <linux/delay.h>
+
 #include <plat/i2c.h>
 
 struct sys_timer;
 
 extern void omap_map_common_io(void);
 extern struct sys_timer omap_timer;
+extern bool omap_32k_timer_init(void);
+extern int __init omap_init_clocksource_32k(void);
+extern unsigned long long notrace omap_32k_sched_clock(void);
 
 extern void omap_reserve(void);
 
@@ -67,7 +72,6 @@ void omap2_set_globals_tap(struct omap_globals *);
 void omap2_set_globals_sdrc(struct omap_globals *);
 void omap2_set_globals_control(struct omap_globals *);
 void omap2_set_globals_prcm(struct omap_globals *);
-void omap2_set_globals_uart(struct omap_globals *);
 
 void omap3_map_io(void);
 

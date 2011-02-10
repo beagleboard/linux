@@ -120,7 +120,7 @@ static void * r10buf_pool_alloc(gfp_t gfp_flags, void *data)
 	 * Allocate bios.
 	 */
 	for (j = nalloc ; j-- ; ) {
-		bio = bio_alloc(gfp_flags, RESYNC_PAGES);
+		bio = bio_kmalloc(gfp_flags, RESYNC_PAGES);
 		if (!bio)
 			goto out_free_bio;
 		r10_bio->devs[j].bio = bio;
@@ -800,12 +800,12 @@ static int make_request(mddev_t *mddev, struct bio * bio)
 	int chunk_sects = conf->chunk_mask + 1;
 	const int rw = bio_data_dir(bio);
 	const unsigned long do_sync = (bio->bi_rw & REQ_SYNC);
-	struct bio_list bl;
+	const unsigned long do_fua = (bio->bi_rw & REQ_FUA);
 	unsigned long flags;
 	mdk_rdev_t *blocked_rdev;
 
-	if (unlikely(bio->bi_rw & REQ_HARDBARRIER)) {
-		md_barrier_request(mddev, bio);
+	if (unlikely(bio->bi_rw & REQ_FLUSH)) {
+		md_flush_request(mddev, bio);
 		return 0;
 	}
 
@@ -889,7 +889,7 @@ static int make_request(mddev_t *mddev, struct bio * bio)
 		}
 		mirror = conf->mirrors + disk;
 
-		read_bio = bio_clone(bio, GFP_NOIO);
+		read_bio = bio_clone_mddev(bio, GFP_NOIO, mddev);
 
 		r10_bio->devs[slot].bio = read_bio;
 
@@ -949,41 +949,41 @@ static int make_request(mddev_t *mddev, struct bio * bio)
 		goto retry_write;
 	}
 
-	atomic_set(&r10_bio->remaining, 0);
+	atomic_set(&r10_bio->remaining, 1);
+	bitmap_startwrite(mddev->bitmap, bio->bi_sector, r10_bio->sectors, 0);
 
-	bio_list_init(&bl);
 	for (i = 0; i < conf->copies; i++) {
 		struct bio *mbio;
 		int d = r10_bio->devs[i].devnum;
 		if (!r10_bio->devs[i].bio)
 			continue;
 
-		mbio = bio_clone(bio, GFP_NOIO);
+		mbio = bio_clone_mddev(bio, GFP_NOIO, mddev);
 		r10_bio->devs[i].bio = mbio;
 
 		mbio->bi_sector	= r10_bio->devs[i].addr+
 			conf->mirrors[d].rdev->data_offset;
 		mbio->bi_bdev = conf->mirrors[d].rdev->bdev;
 		mbio->bi_end_io	= raid10_end_write_request;
-		mbio->bi_rw = WRITE | do_sync;
+		mbio->bi_rw = WRITE | do_sync | do_fua;
 		mbio->bi_private = r10_bio;
 
 		atomic_inc(&r10_bio->remaining);
-		bio_list_add(&bl, mbio);
+		spin_lock_irqsave(&conf->device_lock, flags);
+		bio_list_add(&conf->pending_bio_list, mbio);
+		blk_plug_device(mddev->queue);
+		spin_unlock_irqrestore(&conf->device_lock, flags);
 	}
 
-	if (unlikely(!atomic_read(&r10_bio->remaining))) {
-		/* the array is dead */
+	if (atomic_dec_and_test(&r10_bio->remaining)) {
+		/* This matches the end of raid10_end_write_request() */
+		bitmap_endwrite(r10_bio->mddev->bitmap, r10_bio->sector,
+				r10_bio->sectors,
+				!test_bit(R10BIO_Degraded, &r10_bio->state),
+				0);
 		md_write_end(mddev);
 		raid_end_bio_io(r10_bio);
-		return 0;
 	}
-
-	bitmap_startwrite(mddev->bitmap, bio->bi_sector, r10_bio->sectors, 0);
-	spin_lock_irqsave(&conf->device_lock, flags);
-	bio_list_merge(&conf->pending_bio_list, &bl);
-	blk_plug_device(mddev->queue);
-	spin_unlock_irqrestore(&conf->device_lock, flags);
 
 	/* In case raid10d snuck in to freeze_array */
 	wake_up(&conf->wait_barrier);
@@ -1051,8 +1051,9 @@ static void error(mddev_t *mddev, mdk_rdev_t *rdev)
 	}
 	set_bit(Faulty, &rdev->flags);
 	set_bit(MD_CHANGE_DEVS, &mddev->flags);
-	printk(KERN_ALERT "md/raid10:%s: Disk failure on %s, disabling device.\n"
-	       KERN_ALERT "md/raid10:%s: Operation continuing on %d devices.\n",
+	printk(KERN_ALERT
+	       "md/raid10:%s: Disk failure on %s, disabling device.\n"
+	       "md/raid10:%s: Operation continuing on %d devices.\n",
 	       mdname(mddev), bdevname(rdev->bdev, b),
 	       mdname(mddev), conf->raid_disks - mddev->degraded);
 }
@@ -1557,11 +1558,11 @@ static void fix_read_error(conf_t *conf, mddev_t *mddev, r10bio_t *r10_bio)
 			    test_bit(In_sync, &rdev->flags)) {
 				atomic_inc(&rdev->nr_pending);
 				rcu_read_unlock();
-				success = sync_page_io(rdev->bdev,
+				success = sync_page_io(rdev,
 						       r10_bio->devs[sl].addr +
-						       sect + rdev->data_offset,
+						       sect,
 						       s<<9,
-						       conf->tmppage, READ);
+						       conf->tmppage, READ, false);
 				rdev_dec_pending(rdev, mddev);
 				rcu_read_lock();
 				if (success)
@@ -1596,10 +1597,10 @@ static void fix_read_error(conf_t *conf, mddev_t *mddev, r10bio_t *r10_bio)
 				atomic_inc(&rdev->nr_pending);
 				rcu_read_unlock();
 				atomic_add(s, &rdev->corrected_errors);
-				if (sync_page_io(rdev->bdev,
+				if (sync_page_io(rdev,
 						 r10_bio->devs[sl].addr +
-						 sect + rdev->data_offset,
-						 s<<9, conf->tmppage, WRITE)
+						 sect,
+						 s<<9, conf->tmppage, WRITE, false)
 				    == 0) {
 					/* Well, this device is dead */
 					printk(KERN_NOTICE
@@ -1633,11 +1634,11 @@ static void fix_read_error(conf_t *conf, mddev_t *mddev, r10bio_t *r10_bio)
 				char b[BDEVNAME_SIZE];
 				atomic_inc(&rdev->nr_pending);
 				rcu_read_unlock();
-				if (sync_page_io(rdev->bdev,
+				if (sync_page_io(rdev,
 						 r10_bio->devs[sl].addr +
-						 sect + rdev->data_offset,
+						 sect,
 						 s<<9, conf->tmppage,
-						 READ) == 0) {
+						 READ, false) == 0) {
 					/* Well, this device is dead */
 					printk(KERN_NOTICE
 					       "md/raid10:%s: unable to read back "
@@ -1746,7 +1747,8 @@ static void raid10d(mddev_t *mddev)
 					       mdname(mddev),
 					       bdevname(rdev->bdev,b),
 					       (unsigned long long)r10_bio->sector);
-				bio = bio_clone(r10_bio->master_bio, GFP_NOIO);
+				bio = bio_clone_mddev(r10_bio->master_bio,
+						      GFP_NOIO, mddev);
 				r10_bio->devs[r10_bio->read_slot].bio = bio;
 				bio->bi_sector = r10_bio->devs[r10_bio->read_slot].addr
 					+ rdev->data_offset;
@@ -1819,7 +1821,7 @@ static sector_t sync_request(mddev_t *mddev, sector_t sector_nr, int *skipped, i
 	int disk;
 	int i;
 	int max_sync;
-	int sync_blocks;
+	sector_t sync_blocks;
 
 	sector_t sectors_skipped = 0;
 	int chunks_skipped = 0;
@@ -2396,13 +2398,13 @@ static int run(mddev_t *mddev)
 	return 0;
 
 out_free_conf:
+	md_unregister_thread(mddev->thread);
 	if (conf->r10bio_pool)
 		mempool_destroy(conf->r10bio_pool);
 	safe_put_page(conf->tmppage);
 	kfree(conf->mirrors);
 	kfree(conf);
 	mddev->private = NULL;
-	md_unregister_thread(mddev->thread);
 out:
 	return -EIO;
 }

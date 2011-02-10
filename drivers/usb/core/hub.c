@@ -24,7 +24,6 @@
 #include <linux/kthread.h>
 #include <linux/mutex.h>
 #include <linux/freezer.h>
-#include <linux/pm_runtime.h>
 
 #include <asm/uaccess.h>
 #include <asm/byteorder.h>
@@ -677,6 +676,8 @@ static void hub_init_func3(struct work_struct *ws);
 static void hub_activate(struct usb_hub *hub, enum hub_activation_type type)
 {
 	struct usb_device *hdev = hub->hdev;
+	struct usb_hcd *hcd;
+	int ret;
 	int port1;
 	int status;
 	bool need_debounce_delay = false;
@@ -715,6 +716,25 @@ static void hub_activate(struct usb_hub *hub, enum hub_activation_type type)
 			usb_autopm_get_interface_no_resume(
 					to_usb_interface(hub->intfdev));
 			return;		/* Continues at init2: below */
+		} else if (type == HUB_RESET_RESUME) {
+			/* The internal host controller state for the hub device
+			 * may be gone after a host power loss on system resume.
+			 * Update the device's info so the HW knows it's a hub.
+			 */
+			hcd = bus_to_hcd(hdev->bus);
+			if (hcd->driver->update_hub_device) {
+				ret = hcd->driver->update_hub_device(hcd, hdev,
+						&hub->tt, GFP_NOIO);
+				if (ret < 0) {
+					dev_err(hub->intfdev, "Host not "
+							"accepting hub info "
+							"update.\n");
+					dev_err(hub->intfdev, "LS/FS devices "
+							"and hubs may not work "
+							"under this hub\n.");
+				}
+			}
+			hub_power_on(hub, true);
 		} else {
 			hub_power_on(hub, true);
 		}
@@ -757,6 +777,9 @@ static void hub_activate(struct usb_hub *hub, enum hub_activation_type type)
 			     !(portstatus & USB_PORT_STAT_SUPER_SPEED))) {
 				clear_port_feature(hdev, port1,
 						   USB_PORT_FEAT_ENABLE);
+				portstatus &= ~USB_PORT_STAT_ENABLE;
+			} else {
+				/* Pretend that power was lost for USB3 devs */
 				portstatus &= ~USB_PORT_STAT_ENABLE;
 			}
 		}
@@ -1801,7 +1824,14 @@ int usb_new_device(struct usb_device *udev)
 
 	/* Tell the runtime-PM framework the device is active */
 	pm_runtime_set_active(&udev->dev);
+	pm_runtime_get_noresume(&udev->dev);
+	pm_runtime_use_autosuspend(&udev->dev);
 	pm_runtime_enable(&udev->dev);
+
+	/* By default, forbid autosuspend for all devices.  It will be
+	 * allowed for hubs during binding.
+	 */
+	usb_disable_autosuspend(udev);
 
 	err = usb_enumerate_device(udev);	/* Read descriptors */
 	if (err < 0)
@@ -1828,6 +1858,8 @@ int usb_new_device(struct usb_device *udev)
 	}
 
 	(void) usb_create_ep_devs(&udev->dev, &udev->ep0, udev);
+	usb_mark_last_busy(udev);
+	pm_runtime_put_sync_autosuspend(&udev->dev);
 	return err;
 
 fail:
@@ -2218,6 +2250,7 @@ int usb_port_suspend(struct usb_device *udev, pm_message_t msg)
 		usb_set_device_state(udev, USB_STATE_SUSPENDED);
 		msleep(10);
 	}
+	usb_mark_last_busy(hub->hdev);
 	return status;
 }
 
@@ -2594,16 +2627,14 @@ static int hub_set_address(struct usb_device *udev, int devnum)
 		return 0;
 	if (udev->state != USB_STATE_DEFAULT)
 		return -EINVAL;
-	if (hcd->driver->address_device) {
+	if (hcd->driver->address_device)
 		retval = hcd->driver->address_device(hcd, udev);
-	} else {
+	else
 		retval = usb_control_msg(udev, usb_sndaddr0pipe(),
 				USB_REQ_SET_ADDRESS, 0, devnum, 0,
 				NULL, 0, USB_CTRL_SET_TIMEOUT);
-		if (retval == 0)
-			update_address(udev, devnum);
-	}
 	if (retval == 0) {
+		update_address(udev, devnum);
 		/* Device now using proper address. */
 		usb_set_device_state(udev, USB_STATE_ADDRESS);
 		usb_ep0_reinit(udev);
@@ -2860,13 +2891,16 @@ hub_port_init (struct usb_hub *hub, struct usb_device *udev, int port1,
 	else
 		i = udev->descriptor.bMaxPacketSize0;
 	if (le16_to_cpu(udev->ep0.desc.wMaxPacketSize) != i) {
-		if (udev->speed != USB_SPEED_FULL ||
+		if (udev->speed == USB_SPEED_LOW ||
 				!(i == 8 || i == 16 || i == 32 || i == 64)) {
-			dev_err(&udev->dev, "ep0 maxpacket = %d\n", i);
+			dev_err(&udev->dev, "Invalid ep0 maxpacket: %d\n", i);
 			retval = -EMSGSIZE;
 			goto fail;
 		}
-		dev_dbg(&udev->dev, "ep0 maxpacket = %d\n", i);
+		if (udev->speed == USB_SPEED_FULL)
+			dev_dbg(&udev->dev, "ep0 maxpacket = %d\n", i);
+		else
+			dev_warn(&udev->dev, "Using ep0 maxpacket: %d\n", i);
 		udev->ep0.desc.wMaxPacketSize = cpu_to_le16(i);
 		usb_ep0_reinit(udev);
 	}
@@ -3097,16 +3131,17 @@ static void hub_port_connect_change(struct usb_hub *hub, int port1,
 			udev->speed = USB_SPEED_UNKNOWN;
 
 		/*
-		 * xHCI needs to issue an address device command later
-		 * in the hub_port_init sequence for SS/HS/FS/LS devices.
+		 * Set the address.
+		 * Note xHCI needs to issue an address device command later
+		 * in the hub_port_init sequence for SS/HS/FS/LS devices,
+		 * and xHC will assign an address to the device. But use
+		 * kernel assigned address here, to avoid any address conflict
+		 * issue.
 		 */
-		if (!(hcd->driver->flags & HCD_USB3)) {
-			/* set the address */
-			choose_address(udev);
-			if (udev->devnum <= 0) {
-				status = -ENOTCONN;	/* Don't retry */
-				goto loop;
-			}
+		choose_address(udev);
+		if (udev->devnum <= 0) {
+			status = -ENOTCONN;	/* Don't retry */
+			goto loop;
 		}
 
 		/* reset (non-USB 3.0 devices) and get descriptor */
@@ -3629,7 +3664,7 @@ static int usb_reset_and_verify_device(struct usb_device *udev)
 	}
 
 	if (!parent_hdev) {
-		/* this requires hcd-specific logic; see OHCI hc_restart() */
+		/* this requires hcd-specific logic; see ohci_restart() */
 		dev_dbg(&udev->dev, "%s for root hub!\n", __func__);
 		return -EISDIR;
 	}

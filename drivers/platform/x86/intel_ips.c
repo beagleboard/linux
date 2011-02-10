@@ -51,7 +51,6 @@
  * TODO:
  *   - handle CPU hotplug
  *   - provide turbo enable/disable api
- *   - make sure we can write turbo enable/disable reg based on MISC_EN
  *
  * Related documents:
  *   - CDI 403777, 403778 - Auburndale EDS vol 1 & 2
@@ -76,6 +75,7 @@
 #include <drm/i915_drm.h>
 #include <asm/msr.h>
 #include <asm/processor.h>
+#include "intel_ips.h"
 
 #define PCI_DEVICE_ID_INTEL_THERMAL_SENSOR 0x3b32
 
@@ -230,7 +230,7 @@
 #define THM_TC2		0xac
 #define THM_DTV		0xb0
 #define THM_ITV		0xd8
-#define   ITV_ME_SEQNO_MASK 0x000f0000 /* ME should update every ~200ms */
+#define   ITV_ME_SEQNO_MASK 0x00ff0000 /* ME should update every ~200ms */
 #define   ITV_ME_SEQNO_SHIFT (16)
 #define   ITV_MCH_TEMP_MASK 0x0000ff00
 #define   ITV_MCH_TEMP_SHIFT (8)
@@ -246,6 +246,7 @@
 #define thm_writel(off, val) writel((val), ips->regmap + (off))
 
 static const int IPS_ADJUST_PERIOD = 5000; /* ms */
+static bool late_i915_load = false;
 
 /* For initial average collection */
 static const int IPS_SAMPLE_PERIOD = 200; /* ms */
@@ -325,6 +326,7 @@ struct ips_driver {
 	bool gpu_preferred;
 	bool poll_turbo_status;
 	bool second_cpu;
+	bool turbo_toggle_allowed;
 	struct ips_mcp_limits *limits;
 
 	/* Optional MCH interfaces for if i915 is in use */
@@ -338,6 +340,9 @@ struct ips_driver {
 	u64 orig_turbo_limit;
 	u64 orig_turbo_ratios;
 };
+
+static bool
+ips_gpu_turbo_enabled(struct ips_driver *ips);
 
 /**
  * ips_cpu_busy - is CPU busy?
@@ -415,7 +420,7 @@ static void ips_cpu_lower(struct ips_driver *ips)
 	new_limit = cur_limit - 8; /* 1W decrease */
 
 	/* Clamp to SKU TDP limit */
-	if (((new_limit * 10) / 8) < (ips->orig_turbo_limit & TURBO_TDP_MASK))
+	if (new_limit  < (ips->orig_turbo_limit & TURBO_TDP_MASK))
 		new_limit = ips->orig_turbo_limit & TURBO_TDP_MASK;
 
 	thm_writew(THM_MPCPC, (new_limit * 10) / 8);
@@ -461,7 +466,8 @@ static void ips_enable_cpu_turbo(struct ips_driver *ips)
 	if (ips->__cpu_turbo_on)
 		return;
 
-	on_each_cpu(do_enable_cpu_turbo, ips, 1);
+	if (ips->turbo_toggle_allowed)
+		on_each_cpu(do_enable_cpu_turbo, ips, 1);
 
 	ips->__cpu_turbo_on = true;
 }
@@ -498,7 +504,8 @@ static void ips_disable_cpu_turbo(struct ips_driver *ips)
 	if (!ips->__cpu_turbo_on)
 		return;
 
-	on_each_cpu(do_disable_cpu_turbo, ips, 1);
+	if (ips->turbo_toggle_allowed)
+		on_each_cpu(do_disable_cpu_turbo, ips, 1);
 
 	ips->__cpu_turbo_on = false;
 }
@@ -515,7 +522,7 @@ static void ips_disable_cpu_turbo(struct ips_driver *ips)
  */
 static bool ips_gpu_busy(struct ips_driver *ips)
 {
-	if (!ips->gpu_turbo_enabled)
+	if (!ips_gpu_turbo_enabled(ips))
 		return false;
 
 	return ips->gpu_busy();
@@ -530,7 +537,7 @@ static bool ips_gpu_busy(struct ips_driver *ips)
  */
 static void ips_gpu_raise(struct ips_driver *ips)
 {
-	if (!ips->gpu_turbo_enabled)
+	if (!ips_gpu_turbo_enabled(ips))
 		return;
 
 	if (!ips->gpu_raise())
@@ -547,7 +554,7 @@ static void ips_gpu_raise(struct ips_driver *ips)
  */
 static void ips_gpu_lower(struct ips_driver *ips)
 {
-	if (!ips->gpu_turbo_enabled)
+	if (!ips_gpu_turbo_enabled(ips))
 		return;
 
 	if (!ips->gpu_lower())
@@ -598,17 +605,29 @@ static bool mcp_exceeded(struct ips_driver *ips)
 {
 	unsigned long flags;
 	bool ret = false;
+	u32 temp_limit;
+	u32 avg_power;
+	const char *msg = "MCP limit exceeded: ";
 
 	spin_lock_irqsave(&ips->turbo_status_lock, flags);
-	if (ips->mcp_avg_temp > (ips->mcp_temp_limit * 100))
-		ret = true;
-	if (ips->cpu_avg_power + ips->mch_avg_power > ips->mcp_power_limit)
-		ret = true;
-	spin_unlock_irqrestore(&ips->turbo_status_lock, flags);
 
-	if (ret)
+	temp_limit = ips->mcp_temp_limit * 100;
+	if (ips->mcp_avg_temp > temp_limit) {
 		dev_info(&ips->dev->dev,
-			 "MCP power or thermal limit exceeded\n");
+			"%sAvg temp %u, limit %u\n", msg, ips->mcp_avg_temp,
+			temp_limit);
+		ret = true;
+	}
+
+	avg_power = ips->cpu_avg_power + ips->mch_avg_power;
+	if (avg_power > ips->mcp_power_limit) {
+		dev_info(&ips->dev->dev,
+			"%sAvg power %u, limit %u\n", msg, avg_power,
+			ips->mcp_power_limit);
+		ret = true;
+	}
+
+	spin_unlock_irqrestore(&ips->turbo_status_lock, flags);
 
 	return ret;
 }
@@ -663,6 +682,27 @@ static bool mch_exceeded(struct ips_driver *ips)
 }
 
 /**
+ * verify_limits - verify BIOS provided limits
+ * @ips: IPS structure
+ *
+ * BIOS can optionally provide non-default limits for power and temp.  Check
+ * them here and use the defaults if the BIOS values are not provided or
+ * are otherwise unusable.
+ */
+static void verify_limits(struct ips_driver *ips)
+{
+	if (ips->mcp_power_limit < ips->limits->mcp_power_limit ||
+	    ips->mcp_power_limit > 35000)
+		ips->mcp_power_limit = ips->limits->mcp_power_limit;
+
+	if (ips->mcp_temp_limit < ips->limits->core_temp_limit ||
+	    ips->mcp_temp_limit < ips->limits->mch_temp_limit ||
+	    ips->mcp_temp_limit > 150)
+		ips->mcp_temp_limit = min(ips->limits->core_temp_limit,
+					  ips->limits->mch_temp_limit);
+}
+
+/**
  * update_turbo_limits - get various limits & settings from regs
  * @ips: IPS driver struct
  *
@@ -680,12 +720,21 @@ static void update_turbo_limits(struct ips_driver *ips)
 	u32 hts = thm_readl(THM_HTS);
 
 	ips->cpu_turbo_enabled = !(hts & HTS_PCTD_DIS);
-	ips->gpu_turbo_enabled = !(hts & HTS_GTD_DIS);
+	/* 
+	 * Disable turbo for now, until we can figure out why the power figures
+	 * are wrong
+	 */
+	ips->cpu_turbo_enabled = false;
+
+	if (ips->gpu_busy)
+		ips->gpu_turbo_enabled = !(hts & HTS_GTD_DIS);
+
 	ips->core_power_limit = thm_readw(THM_MPCPC);
 	ips->mch_power_limit = thm_readw(THM_MMGPC);
 	ips->mcp_temp_limit = thm_readw(THM_PTL);
 	ips->mcp_power_limit = thm_readw(THM_MPPC);
 
+	verify_limits(ips);
 	/* Ignore BIOS CPU vs GPU pref */
 }
 
@@ -858,7 +907,7 @@ static u32 get_cpu_power(struct ips_driver *ips, u32 *last, int period)
 	ret = (ret * 1000) / 65535;
 	*last = val;
 
-	return ret;
+	return 0;
 }
 
 static const u16 temp_decay_factor = 2;
@@ -940,7 +989,6 @@ static int ips_monitor(void *data)
 		kfree(mch_samples);
 		kfree(cpu_samples);
 		kfree(mchp_samples);
-		kthread_stop(ips->adjust);
 		return -ENOMEM;
 	}
 
@@ -948,7 +996,7 @@ static int ips_monitor(void *data)
 		ITV_ME_SEQNO_SHIFT;
 	seqno_timestamp = get_jiffies_64();
 
-	old_cpu_power = thm_readl(THM_CEC) / 65535;
+	old_cpu_power = thm_readl(THM_CEC);
 	schedule_timeout_interruptible(msecs_to_jiffies(IPS_SAMPLE_PERIOD));
 
 	/* Collect an initial average */
@@ -1150,11 +1198,18 @@ static irqreturn_t ips_irq_handler(int irq, void *arg)
 				STS_GPL_SHIFT;
 			/* ignore EC CPU vs GPU pref */
 			ips->cpu_turbo_enabled = !(sts & STS_PCTD_DIS);
-			ips->gpu_turbo_enabled = !(sts & STS_GTD_DIS);
+			/* 
+			 * Disable turbo for now, until we can figure
+			 * out why the power figures are wrong
+			 */
+			ips->cpu_turbo_enabled = false;
+			if (ips->gpu_busy)
+				ips->gpu_turbo_enabled = !(sts & STS_GTD_DIS);
 			ips->mcp_temp_limit = (sts & STS_PTL_MASK) >>
 				STS_PTL_SHIFT;
 			ips->mcp_power_limit = (tc1 & STS_PPL_MASK) >>
 				STS_PPL_SHIFT;
+			verify_limits(ips);
 			spin_unlock(&ips->turbo_status_lock);
 
 			thm_writeb(THM_SEC, SEC_ACK);
@@ -1333,8 +1388,10 @@ static struct ips_mcp_limits *ips_detect_cpu(struct ips_driver *ips)
 	 * turbo manually or we'll get an illegal MSR access, even though
 	 * turbo will still be available.
 	 */
-	if (!(misc_en & IA32_MISC_TURBO_EN))
-		; /* add turbo MSR write allowed flag if necessary */
+	if (misc_en & IA32_MISC_TURBO_EN)
+		ips->turbo_toggle_allowed = true;
+	else
+		ips->turbo_toggle_allowed = false;
 
 	if (strstr(boot_cpu_data.x86_model_id, "CPU       M"))
 		limits = &ips_sv_limits;
@@ -1351,9 +1408,10 @@ static struct ips_mcp_limits *ips_detect_cpu(struct ips_driver *ips)
 	tdp = turbo_power & TURBO_TDP_MASK;
 
 	/* Sanity check TDP against CPU */
-	if (limits->mcp_power_limit != (tdp / 8) * 1000) {
-		dev_warn(&ips->dev->dev, "Warning: CPU TDP doesn't match expected value (found %d, expected %d)\n",
-			 tdp / 8, limits->mcp_power_limit / 1000);
+	if (limits->core_power_limit != (tdp / 8) * 1000) {
+		dev_info(&ips->dev->dev, "CPU TDP doesn't match expected value (found %d, expected %d)\n",
+			 tdp / 8, limits->core_power_limit / 1000);
+		limits->core_power_limit = (tdp / 8) * 1000;
 	}
 
 out:
@@ -1390,7 +1448,7 @@ static bool ips_get_i915_syms(struct ips_driver *ips)
 	return true;
 
 out_put_busy:
-	symbol_put(i915_gpu_turbo_disable);
+	symbol_put(i915_gpu_busy);
 out_put_lower:
 	symbol_put(i915_gpu_lower);
 out_put_raise:
@@ -1400,6 +1458,31 @@ out_put_mch:
 out_err:
 	return false;
 }
+
+static bool
+ips_gpu_turbo_enabled(struct ips_driver *ips)
+{
+	if (!ips->gpu_busy && late_i915_load) {
+		if (ips_get_i915_syms(ips)) {
+			dev_info(&ips->dev->dev,
+				 "i915 driver attached, reenabling gpu turbo\n");
+			ips->gpu_turbo_enabled = !(thm_readl(THM_HTS) & HTS_GTD_DIS);
+		}
+	}
+
+	return ips->gpu_turbo_enabled;
+}
+
+void
+ips_link_to_i915_driver(void)
+{
+	/* We can't cleanly get at the various ips_driver structs from
+	 * this caller (the i915 driver), so just set a flag saying
+	 * that it's time to try getting the symbols again.
+	 */
+	late_i915_load = true;
+}
+EXPORT_SYMBOL_GPL(ips_link_to_i915_driver);
 
 static DEFINE_PCI_DEVICE_TABLE(ips_id_table) = {
 	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL,
@@ -1532,22 +1615,27 @@ static int ips_probe(struct pci_dev *dev, const struct pci_device_id *id)
 	/* Save turbo limits & ratios */
 	rdmsrl(TURBO_POWER_CURRENT_LIMIT, ips->orig_turbo_limit);
 
-	ips_enable_cpu_turbo(ips);
-	ips->cpu_turbo_enabled = true;
+	ips_disable_cpu_turbo(ips);
+	ips->cpu_turbo_enabled = false;
 
-	/* Set up the work queue and monitor/adjust threads */
-	ips->monitor = kthread_run(ips_monitor, ips, "ips-monitor");
-	if (IS_ERR(ips->monitor)) {
-		dev_err(&dev->dev,
-			"failed to create thermal monitor thread, aborting\n");
-		ret = -ENOMEM;
-		goto error_free_irq;
-	}
-
+	/* Create thermal adjust thread */
 	ips->adjust = kthread_create(ips_adjust, ips, "ips-adjust");
 	if (IS_ERR(ips->adjust)) {
 		dev_err(&dev->dev,
 			"failed to create thermal adjust thread, aborting\n");
+		ret = -ENOMEM;
+		goto error_free_irq;
+
+	}
+
+	/*
+	 * Set up the work queue and monitor thread. The monitor thread
+	 * will wake up ips_adjust thread.
+	 */
+	ips->monitor = kthread_run(ips_monitor, ips, "ips-monitor");
+	if (IS_ERR(ips->monitor)) {
+		dev_err(&dev->dev,
+			"failed to create thermal monitor thread, aborting\n");
 		ret = -ENOMEM;
 		goto error_thread_cleanup;
 	}
@@ -1566,7 +1654,7 @@ static int ips_probe(struct pci_dev *dev, const struct pci_device_id *id)
 	return ret;
 
 error_thread_cleanup:
-	kthread_stop(ips->monitor);
+	kthread_stop(ips->adjust);
 error_free_irq:
 	free_irq(ips->dev->irq, ips);
 error_unmap:

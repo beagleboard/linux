@@ -16,17 +16,14 @@ struct sys_timer;
 
 struct machine_desc {
 	/*
-	 * Note! The first four elements are used
+	 * Note! The first two elements are used
 	 * by assembler code in head.S, head-common.S
 	 */
 	unsigned int		nr;		/* architecture number	*/
-	unsigned int		nr_irqs;	/* number of IRQs */
-	unsigned int		phys_io;	/* start of physical io	*/
-	unsigned int		io_pg_offst;	/* byte offset for io 
-						 * page tabe entry	*/
-
 	const char		*name;		/* architecture name	*/
 	unsigned long		boot_params;	/* tagged list		*/
+
+	unsigned int		nr_irqs;	/* number of IRQs */
 
 	unsigned int		video_start;	/* start of video RAM	*/
 	unsigned int		video_end;	/* end of video RAM	*/
@@ -40,10 +37,19 @@ struct machine_desc {
 					 struct meminfo *);
 	void			(*reserve)(void);/* reserve mem blocks	*/
 	void			(*map_io)(void);/* IO mapping function	*/
+	void			(*init_early)(void);
 	void			(*init_irq)(void);
 	struct sys_timer	*timer;		/* system tick timer	*/
 	void			(*init_machine)(void);
+#ifdef CONFIG_MULTI_IRQ_HANDLER
+	void			(*handle_irq)(struct pt_regs *);
+#endif
 };
+
+/*
+ * Current machine - only accessible during boot.
+ */
+extern struct machine_desc *machine_desc;
 
 /*
  * Set of macros to define architecture features.  This is built into

@@ -14,16 +14,38 @@
 #include <linux/threads.h>
 #include <linux/memblock.h>
 #include <linux/of.h>
+#include <linux/irq.h>
+#include <linux/ftrace.h>
+
 #include <asm/machdep.h>
 #include <asm/prom.h>
 #include <asm/sections.h>
 
+void machine_kexec_mask_interrupts(void) {
+	unsigned int i;
+
+	for_each_irq(i) {
+		struct irq_desc *desc = irq_to_desc(i);
+
+		if (!desc || !desc->chip)
+			continue;
+
+		if (desc->chip->eoi &&
+		    desc->status & IRQ_INPROGRESS)
+			desc->chip->eoi(i);
+
+		if (desc->chip->mask)
+			desc->chip->mask(i);
+
+		if (desc->chip->disable &&
+		    !(desc->status & IRQ_DISABLED))
+			desc->chip->disable(i);
+	}
+}
+
 void machine_crash_shutdown(struct pt_regs *regs)
 {
-	if (ppc_md.machine_crash_shutdown)
-		ppc_md.machine_crash_shutdown(regs);
-	else
-		default_machine_crash_shutdown(regs);
+	default_machine_crash_shutdown(regs);
 }
 
 /*
@@ -41,8 +63,6 @@ int machine_kexec_prepare(struct kimage *image)
 
 void machine_kexec_cleanup(struct kimage *image)
 {
-	if (ppc_md.machine_kexec_cleanup)
-		ppc_md.machine_kexec_cleanup(image);
 }
 
 void arch_crash_save_vmcoreinfo(void)
@@ -63,10 +83,13 @@ void arch_crash_save_vmcoreinfo(void)
  */
 void machine_kexec(struct kimage *image)
 {
-	if (ppc_md.machine_kexec)
-		ppc_md.machine_kexec(image);
-	else
-		default_machine_kexec(image);
+	int save_ftrace_enabled;
+
+	save_ftrace_enabled = __ftrace_enabled_save();
+
+	default_machine_kexec(image);
+
+	__ftrace_enabled_restore(save_ftrace_enabled);
 
 	/* Fall back to normal restart if we're still alive. */
 	machine_restart(NULL);

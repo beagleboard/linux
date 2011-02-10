@@ -313,15 +313,12 @@ static void __init gic_init_irq(void)
 {
 	/* ARM PBX on-board GIC */
 	if (core_tile_pbx11mp() || core_tile_pbxa9mp()) {
-		gic_cpu_base_addr = __io_address(REALVIEW_PBX_TILE_GIC_CPU_BASE);
-		gic_dist_init(0, __io_address(REALVIEW_PBX_TILE_GIC_DIST_BASE),
-			      29);
-		gic_cpu_init(0, __io_address(REALVIEW_PBX_TILE_GIC_CPU_BASE));
+		gic_init(0, 29, __io_address(REALVIEW_PBX_TILE_GIC_DIST_BASE),
+			 __io_address(REALVIEW_PBX_TILE_GIC_CPU_BASE));
 	} else {
-		gic_cpu_base_addr = __io_address(REALVIEW_PBX_GIC_CPU_BASE);
-		gic_dist_init(0, __io_address(REALVIEW_PBX_GIC_DIST_BASE),
-			      IRQ_PBX_GIC_START);
-		gic_cpu_init(0, __io_address(REALVIEW_PBX_GIC_CPU_BASE));
+		gic_init(0, IRQ_PBX_GIC_START,
+			 __io_address(REALVIEW_PBX_GIC_DIST_BASE),
+			 __io_address(REALVIEW_PBX_GIC_CPU_BASE));
 	}
 }
 
@@ -417,8 +414,6 @@ static void __init realview_pbx_init(void)
 
 MACHINE_START(REALVIEW_PBX, "ARM-RealView PBX")
 	/* Maintainer: ARM Ltd/Deep Blue Solutions Ltd */
-	.phys_io	= REALVIEW_PBX_UART0_BASE & SECTION_MASK,
-	.io_pg_offst	= (IO_ADDRESS(REALVIEW_PBX_UART0_BASE) >> 18) & 0xfffc,
 	.boot_params	= PHYS_OFFSET + 0x00000100,
 	.fixup		= realview_pbx_fixup,
 	.map_io		= realview_pbx_map_io,

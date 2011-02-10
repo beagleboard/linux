@@ -18,7 +18,7 @@
 #include <linux/timer.h>
 #include <linux/proc_fs.h>
 #include <linux/if_bonding.h>
-#include <linux/kobject.h>
+#include <linux/cpumask.h>
 #include <linux/in6.h>
 #include "bond_3ad.h"
 #include "bond_alb.h"
@@ -117,6 +117,31 @@
 		bond_for_each_slave_from(bond, pos, cnt, (bond)->first_slave)
 
 
+#ifdef CONFIG_NET_POLL_CONTROLLER
+extern atomic_t netpoll_block_tx;
+
+static inline void block_netpoll_tx(void)
+{
+	atomic_inc(&netpoll_block_tx);
+}
+
+static inline void unblock_netpoll_tx(void)
+{
+	atomic_dec(&netpoll_block_tx);
+}
+
+static inline int is_netpoll_tx_blocked(struct net_device *dev)
+{
+	if (unlikely(dev->priv_flags & IFF_IN_NETPOLL))
+		return atomic_read(&netpoll_block_tx);
+	return 0;
+}
+#else
+#define block_netpoll_tx()
+#define unblock_netpoll_tx()
+#define is_netpoll_tx_blocked(dev) (0)
+#endif
+
 struct bond_params {
 	int mode;
 	int xmit_policy;
@@ -136,6 +161,7 @@ struct bond_params {
 	__be32 arp_targets[BOND_MAX_ARP_TARGETS];
 	int tx_queues;
 	int all_slaves_active;
+	int resend_igmp;
 };
 
 struct bond_parm_tbl {
@@ -202,6 +228,7 @@ struct bonding {
 	s8	 send_grat_arp;
 	s8	 send_unsol_na;
 	s8	 setup_by_slave;
+	s8       igmp_retrans;
 #ifdef CONFIG_PROC_FS
 	struct   proc_dir_entry *proc_entry;
 	char     proc_file_name[IFNAMSIZ];
@@ -223,9 +250,14 @@ struct bonding {
 	struct   delayed_work arp_work;
 	struct   delayed_work alb_work;
 	struct   delayed_work ad_work;
+	struct   delayed_work mcast_work;
 #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
 	struct   in6_addr master_ipv6;
 #endif
+#ifdef CONFIG_DEBUG_FS
+	/* debugging suport via debugfs */
+	struct	 dentry *debug_dir;
+#endif /* CONFIG_DEBUG_FS */
 };
 
 /**
@@ -240,11 +272,11 @@ static inline struct slave *bond_get_slave_by_dev(struct bonding *bond, struct n
 
 	bond_for_each_slave(bond, slave, i) {
 		if (slave->dev == slave_dev) {
-			break;
+			return slave;
 		}
 	}
 
-	return slave;
+	return 0;
 }
 
 static inline struct bonding *bond_get_bond_by_slave(struct slave *slave)
@@ -253,7 +285,7 @@ static inline struct bonding *bond_get_bond_by_slave(struct slave *slave)
 		return NULL;
 	}
 
-	return (struct bonding *)netdev_priv(slave->dev->master);
+	return netdev_priv(slave->dev->master);
 }
 
 static inline bool bond_is_lb(const struct bonding *bond)
@@ -331,7 +363,6 @@ static inline void bond_unset_master_alb_flags(struct bonding *bond)
 struct vlan_entry *bond_next_vlan(struct bonding *bond, struct vlan_entry *curr);
 int bond_dev_queue_xmit(struct bonding *bond, struct sk_buff *skb, struct net_device *slave_dev);
 int bond_create(struct net *net, const char *name);
-int  bond_release_and_destroy(struct net_device *bond_dev, struct net_device *slave_dev);
 int bond_create_sysfs(void);
 void bond_destroy_sysfs(void);
 void bond_prepare_sysfs_group(struct bonding *bond);
@@ -348,6 +379,11 @@ void bond_select_active_slave(struct bonding *bond);
 void bond_change_active_slave(struct bonding *bond, struct slave *new_active);
 void bond_register_arp(struct bonding *);
 void bond_unregister_arp(struct bonding *);
+void bond_create_debugfs(void);
+void bond_destroy_debugfs(void);
+void bond_debug_register(struct bonding *bond);
+void bond_debug_unregister(struct bonding *bond);
+void bond_debug_reregister(struct bonding *bond);
 
 struct bond_net {
 	struct net *		net;	/* Associated network namespace */

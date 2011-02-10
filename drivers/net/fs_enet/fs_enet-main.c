@@ -40,6 +40,7 @@
 #include <linux/of_mdio.h>
 #include <linux/of_platform.h>
 #include <linux/of_gpio.h>
+#include <linux/of_net.h>
 
 #include <linux/vmalloc.h>
 #include <asm/pgtable.h>
@@ -1036,7 +1037,7 @@ static int __devinit fs_enet_probe(struct platform_device *ofdev,
 	ndev = alloc_etherdev(privsize);
 	if (!ndev) {
 		ret = -ENOMEM;
-		goto out_free_fpi;
+		goto out_put;
 	}
 
 	SET_NETDEV_DEV(ndev, &ofdev->dev);
@@ -1099,6 +1100,7 @@ out_cleanup_data:
 out_free_dev:
 	free_netdev(ndev);
 	dev_set_drvdata(&ofdev->dev, NULL);
+out_put:
 	of_node_put(fpi->phy_node);
 out_free_fpi:
 	kfree(fpi);

@@ -27,12 +27,12 @@
 
 #include <plat/prcm.h>
 #include <plat/irqs.h>
-#include <plat/powerdomain.h>
-#include <plat/clockdomain.h>
-#include <plat/control.h>
+#include "powerdomain.h"
+#include "clockdomain.h"
 #include <plat/serial.h>
 
 #include "pm.h"
+#include "control.h"
 
 #ifdef CONFIG_CPU_IDLE
 
@@ -46,6 +46,8 @@
 #define OMAP3_STATE_C7 6 /* C7 - MPU OFF + Core OFF */
 
 #define OMAP3_STATE_MAX OMAP3_STATE_C7
+
+#define CPUIDLE_FLAG_CHECK_BM	0x10000	/* use omap3_enter_idle_bm() */
 
 struct omap3_processor_cx {
 	u8 valid;
@@ -252,7 +254,7 @@ static int omap3_enter_idle_bm(struct cpuidle_device *dev,
 	 * FIXME: we currently manage device-specific idle states
 	 *        for PER and CORE in combination with CPU-specific
 	 *        idle states.  This is wrong, and device-specific
-	 *        idle managment needs to be separated out into 
+	 *        idle management needs to be separated out into 
 	 *        its own code.
 	 */
 
@@ -272,10 +274,8 @@ static int omap3_enter_idle_bm(struct cpuidle_device *dev,
 	 */
 	per_next_state = per_saved_state = pwrdm_read_next_pwrst(per_pd);
 	if ((per_next_state == PWRDM_POWER_OFF) &&
-	    (core_next_state > PWRDM_POWER_RET)) {
+	    (core_next_state > PWRDM_POWER_RET))
 		per_next_state = PWRDM_POWER_RET;
-		pwrdm_set_next_pwrst(per_pd, per_next_state);
-	}
 
 	/* Are we changing PER target state? */
 	if (per_next_state != per_saved_state)
@@ -295,25 +295,26 @@ select_state:
 DEFINE_PER_CPU(struct cpuidle_device, omap3_idle_dev);
 
 /**
- * omap3_cpuidle_update_states - Update the cpuidle states.
+ * omap3_cpuidle_update_states() - Update the cpuidle states
+ * @mpu_deepest_state:	Enable states upto and including this for mpu domain
+ * @core_deepest_state:	Enable states upto and including this for core domain
  *
- * Currently, this function toggles the validity of idle states based upon
- * the flag 'enable_off_mode'. When the flag is set all states are valid.
- * Else, states leading to OFF state set to be invalid.
+ * This goes through the list of states available and enables and disables the
+ * validity of C states based on deepest state that can be achieved for the
+ * variable domain
  */
-void omap3_cpuidle_update_states(void)
+void omap3_cpuidle_update_states(u32 mpu_deepest_state, u32 core_deepest_state)
 {
 	int i;
 
 	for (i = OMAP3_STATE_C1; i < OMAP3_MAX_STATES; i++) {
 		struct omap3_processor_cx *cx = &omap3_power_states[i];
 
-		if (enable_off_mode) {
+		if ((cx->mpu_state >= mpu_deepest_state) &&
+		    (cx->core_state >= core_deepest_state)) {
 			cx->valid = 1;
 		} else {
-			if ((cx->mpu_state == PWRDM_POWER_OFF) ||
-				(cx->core_state	== PWRDM_POWER_OFF))
-				cx->valid = 0;
+			cx->valid = 0;
 		}
 	}
 }
@@ -454,6 +455,18 @@ void omap_init_power_states(void)
 	omap3_power_states[OMAP3_STATE_C7].core_state = PWRDM_POWER_OFF;
 	omap3_power_states[OMAP3_STATE_C7].flags = CPUIDLE_FLAG_TIME_VALID |
 				CPUIDLE_FLAG_CHECK_BM;
+
+	/*
+	 * Erratum i583: implementation for ES rev < Es1.2 on 3630. We cannot
+	 * enable OFF mode in a stable form for previous revisions.
+	 * we disable C7 state as a result.
+	 */
+	if (IS_PM34XX_ERRATUM(PM_SDRC_WAKEUP_ERRATUM_i583)) {
+		omap3_power_states[OMAP3_STATE_C7].valid = 0;
+		cpuidle_params_table[OMAP3_STATE_C7].valid = 0;
+		WARN_ONCE(1, "%s: core off state C7 disabled due to i583\n",
+				__func__);
+	}
 }
 
 struct cpuidle_driver omap3_idle_driver = {
@@ -506,7 +519,10 @@ int __init omap3_idle_init(void)
 		return -EINVAL;
 	dev->state_count = count;
 
-	omap3_cpuidle_update_states();
+	if (enable_off_mode)
+		omap3_cpuidle_update_states(PWRDM_POWER_OFF, PWRDM_POWER_OFF);
+	else
+		omap3_cpuidle_update_states(PWRDM_POWER_RET, PWRDM_POWER_RET);
 
 	if (cpuidle_register_device(dev)) {
 		printk(KERN_ERR "%s: CPUidle register device failed\n",

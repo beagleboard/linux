@@ -83,8 +83,6 @@ multiq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
 
 	ret = qdisc_enqueue(skb, qdisc);
 	if (ret == NET_XMIT_SUCCESS) {
-		sch->bstats.bytes += qdisc_pkt_len(skb);
-		sch->bstats.packets++;
 		sch->q.qlen++;
 		return NET_XMIT_SUCCESS;
 	}
@@ -113,6 +111,7 @@ static struct sk_buff *multiq_dequeue(struct Qdisc *sch)
 			qdisc = q->queues[q->curband];
 			skb = qdisc->dequeue(qdisc);
 			if (skb) {
+				qdisc_bstats_update(sch, skb);
 				sch->q.qlen--;
 				return skb;
 			}
@@ -227,8 +226,7 @@ static int multiq_tune(struct Qdisc *sch, struct nlattr *opt)
 	for (i = 0; i < q->bands; i++) {
 		if (q->queues[i] == &noop_qdisc) {
 			struct Qdisc *child, *old;
-			child = qdisc_create_dflt(qdisc_dev(sch),
-						  sch->dev_queue,
+			child = qdisc_create_dflt(sch->dev_queue,
 						  &pfifo_qdisc_ops,
 						  TC_H_MAKE(sch->handle,
 							    i + 1));

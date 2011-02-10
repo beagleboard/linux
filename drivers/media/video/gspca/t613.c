@@ -487,7 +487,7 @@ static const u8 gamma_table[GAMMA_MAX][17] = {
 	{0x00, 0x02, 0x07, 0x0f, 0x18, 0x24, 0x30, 0x3f,	/* 3 */
 	 0x4f, 0x61, 0x73, 0x88, 0x9d, 0xb4, 0xcd, 0xe6,
 	 0xff},
-	{0x00, 0x04, 0x0B, 0x15, 0x20, 0x2d, 0x3b, 0x4a,	/* 4 */
+	{0x00, 0x04, 0x0b, 0x15, 0x20, 0x2d, 0x3b, 0x4a,	/* 4 */
 	 0x5b, 0x6c, 0x7f, 0x92, 0xa7, 0xbc, 0xd2, 0xe9,
 	 0xff},
 	{0x00, 0x07, 0x11, 0x15, 0x20, 0x2d, 0x48, 0x58,	/* 5 */
@@ -892,7 +892,7 @@ static int sd_init(struct gspca_dev *gspca_dev)
 		sd->sensor = SENSOR_OM6802;
 		break;
 	default:
-		PDEBUG(D_ERR|D_PROBE, "unknown sensor %04x", sensor_id);
+		err("unknown sensor %04x", sensor_id);
 		return -EINVAL;
 	}
 
@@ -1416,7 +1416,7 @@ static const struct sd_desc sd_desc = {
 };
 
 /* -- module initialisation -- */
-static const __devinitdata struct usb_device_id device_table[] = {
+static const struct usb_device_id device_table[] = {
 	{USB_DEVICE(0x17a1, 0x0128)},
 	{}
 };
@@ -1444,17 +1444,11 @@ static struct usb_driver sd_driver = {
 /* -- module insert / remove -- */
 static int __init sd_mod_init(void)
 {
-	int ret;
-	ret = usb_register(&sd_driver);
-	if (ret < 0)
-		return ret;
-	PDEBUG(D_PROBE, "registered");
-	return 0;
+	return usb_register(&sd_driver);
 }
 static void __exit sd_mod_exit(void)
 {
 	usb_deregister(&sd_driver);
-	PDEBUG(D_PROBE, "deregistered");
 }
 
 module_init(sd_mod_init);

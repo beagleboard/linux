@@ -1286,7 +1286,7 @@ static int omap_vout_release(struct file *file)
 	videobuf_mmap_free(q);
 
 	/* Even if apply changes fails we should continue
-	   freeing allocated memeory */
+	   freeing allocated memory */
 	if (vout->streaming) {
 		u32 mask = 0;
 
@@ -1341,7 +1341,7 @@ static int omap_vout_open(struct file *file)
 
 	videobuf_queue_dma_contig_init(q, &video_vbq_ops, q->dev,
 			&vout->vbq_lock, vout->type, V4L2_FIELD_NONE,
-			sizeof(struct videobuf_buffer), vout);
+			sizeof(struct videobuf_buffer), vout, NULL);
 
 	v4l2_dbg(1, debug, &vout->vid_dev->v4l2_dev, "Exiting %s\n", __func__);
 	return 0;
@@ -2230,7 +2230,6 @@ static int __init omap_vout_setup_video_data(struct omap_vout_device *vout)
 
 	strlcpy(vfd->name, VOUT_NAME, sizeof(vfd->name));
 
-	/* need to register for a VID_HARDWARE_* ID in videodev.h */
 	vfd->fops = &omap_vout_fops;
 	vfd->v4l2_dev = &vout->vid_dev->v4l2_dev;
 	mutex_init(&vout->lock);

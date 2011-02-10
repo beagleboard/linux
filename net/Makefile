@@ -68,3 +68,5 @@ obj-$(CONFIG_SYSCTL)		+= sysctl_net.o
 endif
 obj-$(CONFIG_WIMAX)		+= wimax/
 obj-$(CONFIG_DNS_RESOLVER)	+= dns_resolver/
+obj-$(CONFIG_CEPH_LIB)		+= ceph/
+obj-$(CONFIG_BATMAN_ADV)	+= batman-adv/

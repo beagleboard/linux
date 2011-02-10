@@ -20,6 +20,7 @@
 #include <linux/z2_battery.h>
 #include <linux/dma-mapping.h>
 #include <linux/spi/spi.h>
+#include <linux/spi/pxa2xx_spi.h>
 #include <linux/spi/libertas_spi.h>
 #include <linux/spi/lms283gf05.h>
 #include <linux/power_supply.h>
@@ -37,8 +38,7 @@
 #include <mach/z2.h>
 #include <mach/pxafb.h>
 #include <mach/mmc.h>
-#include <mach/pxa27x_keypad.h>
-#include <mach/pxa2xx_spi.h>
+#include <plat/pxa27x_keypad.h>
 
 #include <plat/i2c.h>
 
@@ -703,10 +703,8 @@ static void __init z2_init(void)
 }
 
 MACHINE_START(ZIPIT2, "Zipit Z2")
-	.phys_io	= 0x40000000,
 	.boot_params	= 0xa0000100,
-	.io_pg_offst	= (io_p2v(0x40000000) >> 18) & 0xfffc,
-	.map_io		= pxa_map_io,
+	.map_io		= pxa27x_map_io,
 	.init_irq	= pxa27x_init_irq,
 	.timer		= &pxa_timer,
 	.init_machine	= z2_init,

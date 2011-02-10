@@ -77,12 +77,12 @@ void PSvEnablePowerSaving(void *hDeviceContext,
     PSMgmtObject    pMgmt = &(pDevice->sMgmtObj);
     WORD            wAID = pMgmt->wCurrAID | BIT14 | BIT15;
 
-    // set period of power up before TBTT
+    /* set period of power up before TBTT */
     MACvWriteWord(pDevice, MAC_REG_PWBT, C_PWBT);
 
     if (pDevice->eOPMode != OP_MODE_ADHOC) {
-        // set AID
-        MACvWriteWord(pDevice, MAC_REG_AIDATIM, wAID);
+	/* set AID */
+	MACvWriteWord(pDevice, MAC_REG_AIDATIM, wAID);
     } else {
     	// set ATIM Window
         //MACvWriteATIMW(pDevice->PortOffset, pMgmt->wCurrATIMWindow);
@@ -192,7 +192,7 @@ BOOL PSbConsiderPowerDown(void *hDeviceContext,
     // check if already in Doze mode
     ControlvReadByte(pDevice, MESSAGE_REQUEST_MACREG, MAC_REG_PSCTL, &byData);
     if ( (byData & PSCTL_PS) != 0 )
-        return TRUE;;
+        return TRUE;
 
     if (pMgmt->eCurrMode != WMAC_MODE_IBSS_STA) {
         // check if in TIM wake period

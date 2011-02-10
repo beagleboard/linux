@@ -16,12 +16,13 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <plat/dsp.h>
+
 #include <linux/types.h>
 /*  ----------------------------------- Host OS */
 #include <dspbridge/host_os.h>
 #include <linux/mm.h>
 #include <linux/mmzone.h>
-#include <plat/control.h>
 
 /*  ----------------------------------- DSP/BIOS Bridge */
 #include <dspbridge/dbdefs.h>
@@ -30,7 +31,6 @@
 #include <dspbridge/dbc.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
-#include <dspbridge/cfg.h>
 #include <dspbridge/drv.h>
 #include <dspbridge/sync.h>
 
@@ -72,6 +72,19 @@
 #define OMAP3_IVA2_BOOTADDR_MASK 0xFFFFFC00
 #define PAGES_II_LVL_TABLE   512
 #define PHYS_TO_PAGE(phys)      pfn_to_page((phys) >> PAGE_SHIFT)
+
+/*
+ * This is a totally ugly layer violation, but needed until
+ * omap_ctrl_set_dsp_boot*() are provided.
+ */
+#define OMAP3_IVA2_BOOTMOD_IDLE 1
+#define OMAP2_CONTROL_GENERAL 0x270
+#define OMAP343X_CONTROL_IVA2_BOOTADDR (OMAP2_CONTROL_GENERAL + 0x0190)
+#define OMAP343X_CONTROL_IVA2_BOOTMOD (OMAP2_CONTROL_GENERAL + 0x0194)
+
+#define OMAP343X_CTRL_REGADDR(reg) \
+	OMAP2_L4_IO_ADDRESS(OMAP343X_CTRL_BASE + (reg))
+
 
 /* Forward Declarations: */
 static int bridge_brd_monitor(struct bridge_dev_context *dev_ctxt);
@@ -210,6 +223,10 @@ static struct bridge_drv_interface drv_interface_fxns = {
 	bridge_msg_set_queue_id,
 };
 
+static struct notifier_block dsp_mbox_notifier = {
+	.notifier_call = io_mbox_msg,
+};
+
 static inline void flush_all(struct bridge_dev_context *dev_context)
 {
 	if (dev_context->dw_brd_state == BRD_DSP_HIBERNATION ||
@@ -264,8 +281,8 @@ static int bridge_brd_monitor(struct bridge_dev_context *dev_ctxt)
 {
 	struct bridge_dev_context *dev_context = dev_ctxt;
 	u32 temp;
-	struct dspbridge_platform_data *pdata =
-				    omap_dspbridge_dev->dev.platform_data;
+	struct omap_dsp_platform_data *pdata =
+		omap_dspbridge_dev->dev.platform_data;
 
 	temp = (*pdata->dsp_prm_read)(OMAP3430_IVA2_MOD, OMAP2_PM_PWSTST) &
 					OMAP_POWERSTATEST_MASK;
@@ -374,8 +391,8 @@ static int bridge_brd_start(struct bridge_dev_context *dev_ctxt,
 	u32 clk_cmd;
 	struct io_mgr *hio_mgr;
 	u32 ul_load_monitor_timer;
-	struct dspbridge_platform_data *pdata =
-				omap_dspbridge_dev->dev.platform_data;
+	struct omap_dsp_platform_data *pdata =
+		omap_dspbridge_dev->dev.platform_data;
 
 	/* The device context contains all the mmu setup info from when the
 	 * last dsp base image was loaded. The first entry is always
@@ -540,7 +557,7 @@ static int bridge_brd_start(struct bridge_dev_context *dev_ctxt,
 		 * Enable Mailbox events and also drain any pending
 		 * stale messages.
 		 */
-		dev_context->mbox = omap_mbox_get("dsp");
+		dev_context->mbox = omap_mbox_get("dsp", &dsp_mbox_notifier);
 		if (IS_ERR(dev_context->mbox)) {
 			dev_context->mbox = NULL;
 			pr_err("%s: Failed to get dsp mailbox handle\n",
@@ -550,8 +567,6 @@ static int bridge_brd_start(struct bridge_dev_context *dev_ctxt,
 
 	}
 	if (!status) {
-		dev_context->mbox->rxq->callback = (int (*)(void *))io_mbox_msg;
-
 /*PM_IVA2GRPSEL_PER = 0xC0;*/
 		temp = readl(resources->dw_per_pm_base + 0xA8);
 		temp = (temp & 0xFFFFFF30) | 0xC0;
@@ -583,7 +598,7 @@ static int bridge_brd_start(struct bridge_dev_context *dev_ctxt,
 		dev_dbg(bridge, "DSP c_int00 Address =  0x%x\n", dsp_addr);
 		if (dsp_debug)
 			while (__raw_readw(dw_sync_addr))
-				;;
+				;
 
 		/* Wait for DSP to clear word in shared memory */
 		/* Read the Location */
@@ -626,9 +641,8 @@ static int bridge_brd_stop(struct bridge_dev_context *dev_ctxt)
 	struct bridge_dev_context *dev_context = dev_ctxt;
 	struct pg_table_attrs *pt_attrs;
 	u32 dsp_pwr_state;
-	int clk_status;
-	struct dspbridge_platform_data *pdata =
-				omap_dspbridge_dev->dev.platform_data;
+	struct omap_dsp_platform_data *pdata =
+		omap_dspbridge_dev->dev.platform_data;
 
 	if (dev_context->dw_brd_state == BRD_STOPPED)
 		return status;
@@ -673,14 +687,15 @@ static int bridge_brd_stop(struct bridge_dev_context *dev_ctxt)
 	/* Disable the mailbox interrupts */
 	if (dev_context->mbox) {
 		omap_mbox_disable_irq(dev_context->mbox, IRQ_RX);
-		omap_mbox_put(dev_context->mbox);
+		omap_mbox_put(dev_context->mbox, &dsp_mbox_notifier);
 		dev_context->mbox = NULL;
 	}
 	/* Reset IVA2 clocks*/
 	(*pdata->dsp_prm_write)(OMAP3430_RST1_IVA2_MASK | OMAP3430_RST2_IVA2_MASK |
 			OMAP3430_RST3_IVA2_MASK, OMAP3430_IVA2_MOD, OMAP2_RM_RSTCTRL);
 
-	clk_status = dsp_clk_disable(DSP_CLK_IVA2);
+	dsp_clock_disable_all(dev_context->dsp_per_clks);
+	dsp_clk_disable(DSP_CLK_IVA2);
 
 	return status;
 }
@@ -773,10 +788,7 @@ static int bridge_dev_create(struct bridge_dev_context
 
 	pt_attrs = kzalloc(sizeof(struct pg_table_attrs), GFP_KERNEL);
 	if (pt_attrs != NULL) {
-		/* Assuming that we use only DSP's memory map
-		 * until 0x4000:0000 , we would need only 1024
-		 * L1 enties i.e L1 size = 4K */
-		pt_attrs->l1_size = 0x1000;
+		pt_attrs->l1_size = SZ_16K; /* 4096 entries of 32 bits */
 		align_size = pt_attrs->l1_size;
 		/* Align sizes are expected to be power of 2 */
 		/* we like to get aligned on L1 table size */
@@ -1658,7 +1670,7 @@ static int pte_set(struct pg_table_attrs *pt, u32 pa, u32 va,
 			/* Find a free L2 PT. */
 			for (i = 0; (i < pt->l2_num_pages) &&
 			     (pt->pg_info[i].num_entries != 0); i++)
-				;;
+				;
 			if (i < pt->l2_num_pages) {
 				l2_page_num = i;
 				l2_base_pa = pt->l2_base_pa + (l2_page_num *

@@ -108,7 +108,7 @@ void show_pte(struct mm_struct *mm, unsigned long addr)
 
 		pte = pte_offset_map(pmd, addr);
 		printk(", *pte=%08lx", pte_val(*pte));
-		printk(", *ppte=%08lx", pte_val(pte[-PTRS_PER_PTE]));
+		printk(", *ppte=%08lx", pte_val(pte[PTE_HWTABLE_PTRS]));
 		pte_unmap(pte);
 	} while(0);
 
@@ -580,6 +580,19 @@ static struct fsr_info ifsr_info[] = {
 	{ do_bad,		SIGBUS,  0,		"unknown 30"			   },
 	{ do_bad,		SIGBUS,  0,		"unknown 31"			   },
 };
+
+void __init
+hook_ifault_code(int nr, int (*fn)(unsigned long, unsigned int, struct pt_regs *),
+		 int sig, int code, const char *name)
+{
+	if (nr < 0 || nr >= ARRAY_SIZE(ifsr_info))
+		BUG();
+
+	ifsr_info[nr].fn   = fn;
+	ifsr_info[nr].sig  = sig;
+	ifsr_info[nr].code = code;
+	ifsr_info[nr].name = name;
+}
 
 asmlinkage void __exception
 do_PrefetchAbort(unsigned long addr, unsigned int ifsr, struct pt_regs *regs)

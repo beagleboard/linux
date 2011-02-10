@@ -21,8 +21,7 @@
 #include <linux/list.h>
 #include <linux/clk.h>
 #include <linux/io.h>
-
-#include <asm/clkdev.h>
+#include <linux/clkdev.h>
 
 #include <mach/clock.h>
 #include <mach/hardware.h>
@@ -364,8 +363,8 @@ DEFINE_CLOCK(cspi2_clk,  1, CCM_CGR0, 12, get_rate_ipg, NULL);
 DEFINE_CLOCK(ect_clk,    0, CCM_CGR0, 14, get_rate_ipg, NULL);
 DEFINE_CLOCK(edio_clk,   0, CCM_CGR0, 16, NULL, NULL);
 DEFINE_CLOCK(emi_clk,    0, CCM_CGR0, 18, get_rate_ipg, NULL);
-DEFINE_CLOCK(epit1_clk,  0, CCM_CGR0, 20, get_rate_ipg_per, NULL);
-DEFINE_CLOCK(epit2_clk,  1, CCM_CGR0, 22, get_rate_ipg_per, NULL);
+DEFINE_CLOCK(epit1_clk,  0, CCM_CGR0, 20, get_rate_ipg, NULL);
+DEFINE_CLOCK(epit2_clk,  1, CCM_CGR0, 22, get_rate_ipg, NULL);
 DEFINE_CLOCK(esai_clk,   0, CCM_CGR0, 24, NULL, NULL);
 DEFINE_CLOCK(esdhc1_clk, 0, CCM_CGR0, 26, get_rate_sdhc, NULL);
 DEFINE_CLOCK(esdhc2_clk, 1, CCM_CGR0, 28, get_rate_sdhc, NULL);
@@ -451,17 +450,17 @@ static struct clk_lookup lookups[] = {
 	_REGISTER_CLOCK(NULL, "ata", ata_clk)
 	_REGISTER_CLOCK("flexcan.0", NULL, can1_clk)
 	_REGISTER_CLOCK("flexcan.1", NULL, can2_clk)
-	_REGISTER_CLOCK("spi_imx.0", NULL, cspi1_clk)
-	_REGISTER_CLOCK("spi_imx.1", NULL, cspi2_clk)
+	_REGISTER_CLOCK("imx35-cspi.0", NULL, cspi1_clk)
+	_REGISTER_CLOCK("imx35-cspi.1", NULL, cspi2_clk)
 	_REGISTER_CLOCK(NULL, "ect", ect_clk)
 	_REGISTER_CLOCK(NULL, "edio", edio_clk)
 	_REGISTER_CLOCK(NULL, "emi", emi_clk)
-	_REGISTER_CLOCK(NULL, "epit", epit1_clk)
-	_REGISTER_CLOCK(NULL, "epit", epit2_clk)
+	_REGISTER_CLOCK("imx-epit.0", NULL, epit1_clk)
+	_REGISTER_CLOCK("imx-epit.1", NULL, epit2_clk)
 	_REGISTER_CLOCK(NULL, "esai", esai_clk)
-	_REGISTER_CLOCK(NULL, "sdhc", esdhc1_clk)
-	_REGISTER_CLOCK(NULL, "sdhc", esdhc2_clk)
-	_REGISTER_CLOCK(NULL, "sdhc", esdhc3_clk)
+	_REGISTER_CLOCK("sdhci-esdhc-imx.0", NULL, esdhc1_clk)
+	_REGISTER_CLOCK("sdhci-esdhc-imx.1", NULL, esdhc2_clk)
+	_REGISTER_CLOCK("sdhci-esdhc-imx.2", NULL, esdhc3_clk)
 	_REGISTER_CLOCK("fec.0", NULL, fec_clk)
 	_REGISTER_CLOCK(NULL, "gpio", gpio1_clk)
 	_REGISTER_CLOCK(NULL, "gpio", gpio2_clk)
@@ -482,7 +481,7 @@ static struct clk_lookup lookups[] = {
 	_REGISTER_CLOCK(NULL, "rtc", rtc_clk)
 	_REGISTER_CLOCK(NULL, "rtic", rtic_clk)
 	_REGISTER_CLOCK(NULL, "scc", scc_clk)
-	_REGISTER_CLOCK(NULL, "sdma", sdma_clk)
+	_REGISTER_CLOCK("imx-sdma", NULL, sdma_clk)
 	_REGISTER_CLOCK(NULL, "spba", spba_clk)
 	_REGISTER_CLOCK(NULL, "spdif", spdif_clk)
 	_REGISTER_CLOCK("imx-ssi.0", NULL, ssi1_clk)
@@ -495,7 +494,7 @@ static struct clk_lookup lookups[] = {
 	_REGISTER_CLOCK("mxc-ehci.2", "usb", usbotg_clk)
 	_REGISTER_CLOCK("fsl-usb2-udc", "usb", usbotg_clk)
 	_REGISTER_CLOCK("fsl-usb2-udc", "usb_ahb", usbahb_clk)
-	_REGISTER_CLOCK("imx-wdt.0", NULL, wdog_clk)
+	_REGISTER_CLOCK("imx2-wdt.0", NULL, wdog_clk)
 	_REGISTER_CLOCK(NULL, "max", max_clk)
 	_REGISTER_CLOCK(NULL, "audmux", audmux_clk)
 	_REGISTER_CLOCK(NULL, "csi", csi_clk)
@@ -535,8 +534,16 @@ int __init mx35_clocks_init()
 	__raw_writel(cgr2, CCM_BASE + CCM_CGR2);
 	__raw_writel(cgr3, CCM_BASE + CCM_CGR3);
 
+	clk_enable(&iim_clk);
+	mx35_read_cpu_rev();
+
+#ifdef CONFIG_MXC_USE_EPIT
+	epit_timer_init(&epit1_clk,
+			MX35_IO_ADDRESS(MX35_EPIT1_BASE_ADDR), MX35_INT_EPIT1);
+#else
 	mxc_timer_init(&gpt_clk,
 			MX35_IO_ADDRESS(MX35_GPT1_BASE_ADDR), MX35_INT_GPT);
+#endif
 
 	return 0;
 }

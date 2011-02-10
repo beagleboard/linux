@@ -92,6 +92,16 @@ struct ccw_device {
 };
 
 /*
+ * Possible events used by the path_event notifier.
+ */
+#define PE_NONE				0x0
+#define PE_PATH_GONE			0x1 /* A path is no longer available. */
+#define PE_PATH_AVAILABLE		0x2 /* A path has become available and
+					       was successfully verified. */
+#define PE_PATHGROUP_ESTABLISHED	0x4 /* A pathgroup was reset and had
+					       to be established again. */
+
+/*
  * Possible CIO actions triggered by the unit check handler.
  */
 enum uc_todo {
@@ -109,6 +119,7 @@ enum uc_todo {
  * @set_online: called when setting device online
  * @set_offline: called when setting device offline
  * @notify: notify driver of device state changes
+ * @path_event: notify driver of channel path events
  * @shutdown: called at device shutdown
  * @prepare: prepare for pm state transition
  * @complete: undo work done in @prepare
@@ -127,6 +138,7 @@ struct ccw_driver {
 	int (*set_online) (struct ccw_device *);
 	int (*set_offline) (struct ccw_device *);
 	int (*notify) (struct ccw_device *, int);
+	void (*path_event) (struct ccw_device *, int *);
 	void (*shutdown) (struct ccw_device *);
 	int (*prepare) (struct ccw_device *);
 	void (*complete) (struct ccw_device *);
@@ -191,6 +203,8 @@ int ccw_device_tm_start(struct ccw_device *, struct tcw *,
 int ccw_device_tm_start_timeout(struct ccw_device *, struct tcw *,
 			    unsigned long, u8, int);
 int ccw_device_tm_intrg(struct ccw_device *cdev);
+
+int ccw_device_get_mdc(struct ccw_device *cdev, u8 mask);
 
 extern int ccw_device_set_online(struct ccw_device *cdev);
 extern int ccw_device_set_offline(struct ccw_device *cdev);

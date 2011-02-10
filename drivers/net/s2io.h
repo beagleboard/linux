@@ -355,13 +355,12 @@ struct stat_block {
 #define FIFO_OTHER_MAX_NUM			1
 
 
-#define MAX_RX_DESC_1  (MAX_RX_RINGS * MAX_RX_BLOCKS_PER_RING * 127 )
-#define MAX_RX_DESC_2  (MAX_RX_RINGS * MAX_RX_BLOCKS_PER_RING * 85 )
-#define MAX_RX_DESC_3  (MAX_RX_RINGS * MAX_RX_BLOCKS_PER_RING * 85 )
+#define MAX_RX_DESC_1  (MAX_RX_RINGS * MAX_RX_BLOCKS_PER_RING * 128)
+#define MAX_RX_DESC_2  (MAX_RX_RINGS * MAX_RX_BLOCKS_PER_RING * 86)
 #define MAX_TX_DESC    (MAX_AVAILABLE_TXDS)
 
 /* FIFO mappings for all possible number of fifos configured */
-static int fifo_map[][MAX_TX_FIFOS] = {
+static const int fifo_map[][MAX_TX_FIFOS] = {
 	{0, 0, 0, 0, 0, 0, 0, 0},
 	{0, 0, 0, 0, 1, 1, 1, 1},
 	{0, 0, 0, 1, 1, 1, 2, 2},
@@ -372,7 +371,7 @@ static int fifo_map[][MAX_TX_FIFOS] = {
 	{0, 1, 2, 3, 4, 5, 6, 7},
 };
 
-static u16 fifo_selector[MAX_TX_FIFOS] = {0, 1, 3, 3, 7, 7, 7, 7};
+static const u16 fifo_selector[MAX_TX_FIFOS] = {0, 1, 3, 3, 7, 7, 7, 7};
 
 /* Maintains Per FIFO related information. */
 struct tx_fifo_config {
@@ -816,12 +815,6 @@ struct mac_info {
 	struct stat_block *stats_info;	/* Logical address of the stat block */
 };
 
-/* structure representing the user defined MAC addresses */
-struct usr_addr {
-	char addr[ETH_ALEN];
-	int usage_cnt;
-};
-
 /* Default Tunable parameters of the NIC. */
 #define DEFAULT_FIFO_0_LEN 4096
 #define DEFAULT_FIFO_1_7_LEN 512
@@ -894,9 +887,7 @@ struct s2io_nic {
 #define ALL_MULTI   2
 
 #define MAX_ADDRS_SUPPORTED 64
-	u16 usr_addr_count;
 	u16 mc_addr_count;
-	struct usr_addr usr_addrs[256];
 
 	u16 m_cast_flg;
 	u16 all_multi_pos;
@@ -971,7 +962,6 @@ struct s2io_nic {
 
 	unsigned long	clubbed_frms_cnt;
 	unsigned long	sending_both;
-	u8		lro;
 	u16		lro_max_aggr_per_sess;
 	volatile unsigned long state;
 	u64		general_int_mask;

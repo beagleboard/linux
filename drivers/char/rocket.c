@@ -1764,7 +1764,7 @@ static void rp_flush_buffer(struct tty_struct *tty)
 
 #ifdef CONFIG_PCI
 
-static struct pci_device_id __devinitdata rocket_pci_ids[] = {
+static struct pci_device_id __devinitdata __used rocket_pci_ids[] = {
 	{ PCI_DEVICE(PCI_VENDOR_ID_RP, PCI_ANY_ID) },
 	{ }
 };
@@ -2345,7 +2345,7 @@ static int __init rp_init(void)
 	ret = tty_register_driver(rocket_driver);
 	if (ret < 0) {
 		printk(KERN_ERR "Couldn't install tty RocketPort driver\n");
-		goto err_tty;
+		goto err_controller;
 	}
 
 #ifdef ROCKET_DEBUG_OPEN
@@ -2380,6 +2380,9 @@ static int __init rp_init(void)
 	return 0;
 err_ttyu:
 	tty_unregister_driver(rocket_driver);
+err_controller:
+	if (controller)
+		release_region(controller, 4);
 err_tty:
 	put_tty_driver(rocket_driver);
 err:

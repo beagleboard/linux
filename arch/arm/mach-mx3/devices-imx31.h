@@ -9,30 +9,60 @@
 #include <mach/mx31.h>
 #include <mach/devices-common.h>
 
-#define imx31_add_imx_i2c0(pdata)	\
-	imx_add_imx_i2c(0, MX31_I2C1_BASE_ADDR, SZ_4K, MX31_INT_I2C1, pdata)
-#define imx31_add_imx_i2c1(pdata)	\
-	imx_add_imx_i2c(1, MX31_I2C2_BASE_ADDR, SZ_4K, MX31_INT_I2C2, pdata)
-#define imx31_add_imx_i2c2(pdata)	\
-	imx_add_imx_i2c(2, MX31_I2C3_BASE_ADDR, SZ_4K, MX31_INT_I2C3, pdata)
+extern const struct imx_fsl_usb2_udc_data imx31_fsl_usb2_udc_data __initconst;
+#define imx31_add_fsl_usb2_udc(pdata)	\
+	imx_add_fsl_usb2_udc(&imx31_fsl_usb2_udc_data, pdata)
 
-#define imx31_add_imx_uart0(pdata)	\
-	imx_add_imx_uart_1irq(0, MX31_UART1_BASE_ADDR, SZ_16K, MX31_INT_UART1, pdata)
-#define imx31_add_imx_uart1(pdata)	\
-	imx_add_imx_uart_1irq(1, MX31_UART2_BASE_ADDR, SZ_16K, MX31_INT_UART2, pdata)
-#define imx31_add_imx_uart2(pdata)	\
-	imx_add_imx_uart_1irq(2, MX31_UART3_BASE_ADDR, SZ_16K, MX31_INT_UART3, pdata)
-#define imx31_add_imx_uart3(pdata)	\
-	imx_add_imx_uart_1irq(3, MX31_UART4_BASE_ADDR, SZ_16K, MX31_INT_UART4, pdata)
-#define imx31_add_imx_uart4(pdata)	\
-	imx_add_imx_uart_1irq(4, MX31_UART5_BASE_ADDR, SZ_16K, MX31_INT_UART5, pdata)
+extern const struct imx_imx2_wdt_data imx31_imx2_wdt_data __initconst;
+#define imx31_add_imx2_wdt(pdata)       \
+	imx_add_imx2_wdt(&imx31_imx2_wdt_data)
 
+extern const struct imx_imx_i2c_data imx31_imx_i2c_data[] __initconst;
+#define imx31_add_imx_i2c(id, pdata)	\
+	imx_add_imx_i2c(&imx31_imx_i2c_data[id], pdata)
+#define imx31_add_imx_i2c0(pdata)	imx31_add_imx_i2c(0, pdata)
+#define imx31_add_imx_i2c1(pdata)	imx31_add_imx_i2c(1, pdata)
+#define imx31_add_imx_i2c2(pdata)	imx31_add_imx_i2c(2, pdata)
+
+extern const struct imx_imx_keypad_data imx31_imx_keypad_data __initconst;
+#define imx31_add_imx_keypad(pdata)	\
+	imx_add_imx_keypad(&imx31_imx_keypad_data, pdata)
+
+extern const struct imx_imx_ssi_data imx31_imx_ssi_data[] __initconst;
+#define imx31_add_imx_ssi(id, pdata)    \
+	imx_add_imx_ssi(&imx31_imx_ssi_data[id], pdata)
+
+extern const struct imx_imx_uart_1irq_data imx31_imx_uart_data[] __initconst;
+#define imx31_add_imx_uart(id, pdata)	\
+	imx_add_imx_uart_1irq(&imx31_imx_uart_data[id], pdata)
+#define imx31_add_imx_uart0(pdata)	imx31_add_imx_uart(0, pdata)
+#define imx31_add_imx_uart1(pdata)	imx31_add_imx_uart(1, pdata)
+#define imx31_add_imx_uart2(pdata)	imx31_add_imx_uart(2, pdata)
+#define imx31_add_imx_uart3(pdata)	imx31_add_imx_uart(3, pdata)
+#define imx31_add_imx_uart4(pdata)	imx31_add_imx_uart(4, pdata)
+
+extern const struct imx_mxc_ehci_data imx31_mxc_ehci_otg_data __initconst;
+#define imx31_add_mxc_ehci_otg(pdata)	\
+	imx_add_mxc_ehci(&imx31_mxc_ehci_otg_data, pdata)
+extern const struct imx_mxc_ehci_data imx31_mxc_ehci_hs_data[] __initconst;
+#define imx31_add_mxc_ehci_hs(id, pdata)	\
+	imx_add_mxc_ehci(&imx31_mxc_ehci_hs_data[id - 1], pdata)
+
+extern const struct imx_mxc_mmc_data imx31_mxc_mmc_data[] __initconst;
+#define imx31_add_mxc_mmc(id, pdata)	\
+	imx_add_mxc_mmc(&imx31_mxc_mmc_data[id], pdata)
+
+extern const struct imx_mxc_nand_data imx31_mxc_nand_data __initconst;
 #define imx31_add_mxc_nand(pdata)	\
-	imx_add_mxc_nand_v1(MX31_NFC_BASE_ADDR, MX31_INT_NANDFC, pdata)
+	imx_add_mxc_nand(&imx31_mxc_nand_data, pdata)
 
-#define imx31_add_spi_imx0(pdata)	\
-	imx_add_spi_imx(0, MX31_CSPI1_BASE_ADDR, SZ_4K, MX31_INT_CSPI1, pdata)
-#define imx31_add_spi_imx1(pdata)	\
-	imx_add_spi_imx(1, MX31_CSPI2_BASE_ADDR, SZ_4K, MX31_INT_CSPI2, pdata)
-#define imx31_add_spi_imx2(pdata)	\
-	imx_add_spi_imx(2, MX31_CSPI3_BASE_ADDR, SZ_4K, MX31_INT_CSPI3, pdata)
+extern const struct imx_mxc_w1_data imx31_mxc_w1_data __initconst;
+#define imx31_add_mxc_w1(pdata)	\
+	imx_add_mxc_w1(&imx31_mxc_w1_data)
+
+extern const struct imx_spi_imx_data imx31_cspi_data[] __initconst;
+#define imx31_add_cspi(id, pdata)	\
+	imx_add_spi_imx(&imx31_cspi_data[id], pdata)
+#define imx31_add_spi_imx0(pdata)	imx31_add_cspi(0, pdata)
+#define imx31_add_spi_imx1(pdata)	imx31_add_cspi(1, pdata)
+#define imx31_add_spi_imx2(pdata)	imx31_add_cspi(2, pdata)

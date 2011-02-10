@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2009 Advanced Micro Devices, Inc.
+ * Copyright (C) 2007-2010 Advanced Micro Devices, Inc.
  * Author: Joerg Roedel <joerg.roedel@amd.com>
  *         Leo Duran <leo.duran@amd.com>
  *
@@ -1086,7 +1086,7 @@ static int alloc_new_range(struct dma_ops_domain *dma_dom,
 
 	dma_dom->aperture_size += APERTURE_RANGE_SIZE;
 
-	/* Intialize the exclusion range if necessary */
+	/* Initialize the exclusion range if necessary */
 	for_each_iommu(iommu) {
 		if (iommu->exclusion_start &&
 		    iommu->exclusion_start >= dma_dom->aperture[index]->offset
@@ -1353,7 +1353,7 @@ static void dma_ops_domain_free(struct dma_ops_domain *dom)
 
 /*
  * Allocates a new protection domain usable for the dma_ops functions.
- * It also intializes the page table and the address allocator data
+ * It also initializes the page table and the address allocator data
  * structures required for the dma_ops interface
  */
 static struct dma_ops_domain *dma_ops_domain_alloc(void)
@@ -1953,6 +1953,7 @@ static void __unmap_single(struct dma_ops_domain *dma_dom,
 			   size_t size,
 			   int dir)
 {
+	dma_addr_t flush_addr;
 	dma_addr_t i, start;
 	unsigned int pages;
 
@@ -1960,6 +1961,7 @@ static void __unmap_single(struct dma_ops_domain *dma_dom,
 	    (dma_addr + size > dma_dom->aperture_size))
 		return;
 
+	flush_addr = dma_addr;
 	pages = iommu_num_pages(dma_addr, size, PAGE_SIZE);
 	dma_addr &= PAGE_MASK;
 	start = dma_addr;
@@ -1974,7 +1976,7 @@ static void __unmap_single(struct dma_ops_domain *dma_dom,
 	dma_ops_free_addresses(dma_dom, dma_addr, pages);
 
 	if (amd_iommu_unmap_flush || dma_dom->need_flush) {
-		iommu_flush_pages(&dma_dom->domain, dma_addr, size);
+		iommu_flush_pages(&dma_dom->domain, flush_addr, size);
 		dma_dom->need_flush = false;
 	}
 }

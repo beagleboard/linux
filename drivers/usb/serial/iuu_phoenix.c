@@ -807,7 +807,6 @@ static void read_rxcmd_callback(struct urb *urb)
 			  iuu_uart_read_callback, port);
 	result = usb_submit_urb(port->read_urb, GFP_ATOMIC);
 	dbg("%s - submit result = %d", __func__, result);
-	return;
 }
 
 static int iuu_uart_on(struct usb_serial_port *port)
@@ -1276,6 +1275,7 @@ static struct usb_serial_driver iuu_device = {
 		   .name = "iuu_phoenix",
 		   },
 	.id_table = id_table,
+	.usb_driver = &iuu_driver,
 	.num_ports = 1,
 	.bulk_in_size = 512,
 	.bulk_out_size = 512,

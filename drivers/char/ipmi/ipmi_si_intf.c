@@ -57,6 +57,7 @@
 #include <asm/irq.h>
 #include <linux/interrupt.h>
 #include <linux/rcupdate.h>
+#include <linux/ipmi.h>
 #include <linux/ipmi_smi.h>
 #include <asm/io.h>
 #include "ipmi_si_sm.h"
@@ -69,6 +70,8 @@
 #ifdef CONFIG_PPC_OF
 #include <linux/of_device.h>
 #include <linux/of_platform.h>
+#include <linux/of_address.h>
+#include <linux/of_irq.h>
 #endif
 
 #define PFX "ipmi_si: "
@@ -107,10 +110,6 @@ enum si_type {
 };
 static char *si_to_str[] = { "kcs", "smic", "bt" };
 
-enum ipmi_addr_src {
-	SI_INVALID = 0, SI_HOTMOD, SI_HARDCODED, SI_SPMI, SI_ACPI, SI_SMBIOS,
-	SI_PCI,	SI_DEVICETREE, SI_DEFAULT
-};
 static char *ipmi_addr_src_to_str[] = { NULL, "hotmod", "hardcoded", "SPMI",
 					"ACPI", "SMBIOS", "PCI",
 					"device-tree", "default" };
@@ -291,6 +290,7 @@ struct smi_info {
 	struct task_struct *thread;
 
 	struct list_head link;
+	union ipmi_smi_info_union addr_info;
 };
 
 #define smi_inc_stat(smi, stat) \
@@ -304,6 +304,9 @@ static int force_kipmid[SI_MAX_PARMS];
 static int num_force_kipmid;
 #ifdef CONFIG_PCI
 static int pci_registered;
+#endif
+#ifdef CONFIG_ACPI
+static int pnp_registered;
 #endif
 #ifdef CONFIG_PPC_OF
 static int of_registered;
@@ -1183,6 +1186,18 @@ static int smi_start_processing(void       *send_info,
 	return 0;
 }
 
+static int get_smi_info(void *send_info, struct ipmi_smi_info *data)
+{
+	struct smi_info *smi = send_info;
+
+	data->addr_src = smi->addr_source;
+	data->dev = smi->dev;
+	data->addr_info = smi->addr_info;
+	get_device(smi->dev);
+
+	return 0;
+}
+
 static void set_maintenance_mode(void *send_info, int enable)
 {
 	struct smi_info   *smi_info = send_info;
@@ -1194,6 +1209,7 @@ static void set_maintenance_mode(void *send_info, int enable)
 static struct ipmi_smi_handlers handlers = {
 	.owner                  = THIS_MODULE,
 	.start_processing       = smi_start_processing,
+	.get_smi_info		= get_smi_info,
 	.sender			= sender,
 	.request_events		= request_events,
 	.set_maintenance_mode   = set_maintenance_mode,
@@ -1662,6 +1678,17 @@ static int check_hotmod_int_op(const char *curr, const char *option,
 	return 0;
 }
 
+static struct smi_info *smi_info_alloc(void)
+{
+	struct smi_info *info = kzalloc(sizeof(*info), GFP_KERNEL);
+
+	if (info) {
+		spin_lock_init(&info->si_lock);
+		spin_lock_init(&info->msg_lock);
+	}
+	return info;
+}
+
 static int hotmod_handler(const char *val, struct kernel_param *kp)
 {
 	char *str = kstrdup(val, GFP_KERNEL);
@@ -1776,7 +1803,7 @@ static int hotmod_handler(const char *val, struct kernel_param *kp)
 		}
 
 		if (op == HM_ADD) {
-			info = kzalloc(sizeof(*info), GFP_KERNEL);
+			info = smi_info_alloc();
 			if (!info) {
 				rv = -ENOMEM;
 				goto out;
@@ -1832,7 +1859,7 @@ static int hotmod_handler(const char *val, struct kernel_param *kp)
 	return rv;
 }
 
-static __devinit void hardcode_find_bmc(void)
+static void __devinit hardcode_find_bmc(void)
 {
 	int             i;
 	struct smi_info *info;
@@ -1841,7 +1868,7 @@ static __devinit void hardcode_find_bmc(void)
 		if (!ports[i] && !addrs[i])
 			continue;
 
-		info = kzalloc(sizeof(*info), GFP_KERNEL);
+		info = smi_info_alloc();
 		if (!info)
 			return;
 
@@ -1914,7 +1941,8 @@ static __devinit void hardcode_find_bmc(void)
 static int acpi_failure;
 
 /* For GPE-type interrupts. */
-static u32 ipmi_acpi_gpe(void *context)
+static u32 ipmi_acpi_gpe(acpi_handle gpe_device,
+	u32 gpe_number, void *context)
 {
 	struct smi_info *smi_info = context;
 	unsigned long   flags;
@@ -1971,8 +1999,7 @@ static int acpi_gpe_irq_setup(struct smi_info *info)
 
 /*
  * Defined at
- * http://h21007.www2.hp.com/portal/download/files
- * /unprot/hpspmi.pdf
+ * http://h21007.www2.hp.com/portal/download/files/unprot/hpspmi.pdf
  */
 struct SPMITable {
 	s8	Signature[4];
@@ -2016,7 +2043,7 @@ struct SPMITable {
 	s8      spmi_id[1]; /* A '\0' terminated array starts here. */
 };
 
-static __devinit int try_init_spmi(struct SPMITable *spmi)
+static int __devinit try_init_spmi(struct SPMITable *spmi)
 {
 	struct smi_info  *info;
 
@@ -2025,7 +2052,7 @@ static __devinit int try_init_spmi(struct SPMITable *spmi)
 		return -ENODEV;
 	}
 
-	info = kzalloc(sizeof(*info), GFP_KERNEL);
+	info = smi_info_alloc();
 	if (!info) {
 		printk(KERN_ERR PFX "Could not allocate SI data (3)\n");
 		return -ENOMEM;
@@ -2099,7 +2126,7 @@ static __devinit int try_init_spmi(struct SPMITable *spmi)
 	return 0;
 }
 
-static __devinit void spmi_find_bmc(void)
+static void __devinit spmi_find_bmc(void)
 {
 	acpi_status      status;
 	struct SPMITable *spmi;
@@ -2126,7 +2153,7 @@ static int __devinit ipmi_pnp_probe(struct pnp_dev *dev,
 {
 	struct acpi_device *acpi_dev;
 	struct smi_info *info;
-	struct resource *res;
+	struct resource *res, *res_second;
 	acpi_handle handle;
 	acpi_status status;
 	unsigned long long tmp;
@@ -2135,7 +2162,7 @@ static int __devinit ipmi_pnp_probe(struct pnp_dev *dev,
 	if (!acpi_dev)
 		return -ENODEV;
 
-	info = kzalloc(sizeof(*info), GFP_KERNEL);
+	info = smi_info_alloc();
 	if (!info)
 		return -ENOMEM;
 
@@ -2143,6 +2170,7 @@ static int __devinit ipmi_pnp_probe(struct pnp_dev *dev,
 	printk(KERN_INFO PFX "probing via ACPI\n");
 
 	handle = acpi_dev->handle;
+	info->addr_info.acpi_info.acpi_handle = handle;
 
 	/* _IFT tells us the interface type: KCS, BT, etc */
 	status = acpi_evaluate_integer(handle, "_IFT", NULL, &tmp);
@@ -2182,13 +2210,13 @@ static int __devinit ipmi_pnp_probe(struct pnp_dev *dev,
 	info->io.addr_data = res->start;
 
 	info->io.regspacing = DEFAULT_REGSPACING;
-	res = pnp_get_resource(dev,
+	res_second = pnp_get_resource(dev,
 			       (info->io.addr_type == IPMI_IO_ADDR_SPACE) ?
 					IORESOURCE_IO : IORESOURCE_MEM,
 			       1);
-	if (res) {
-		if (res->start > info->io.addr_data)
-			info->io.regspacing = res->start - info->io.addr_data;
+	if (res_second) {
+		if (res_second->start > info->io.addr_data)
+			info->io.regspacing = res_second->start - info->io.addr_data;
 	}
 	info->io.regsize = DEFAULT_REGSPACING;
 	info->io.regshift = 0;
@@ -2312,11 +2340,11 @@ static int __devinit decode_dmi(const struct dmi_header *dm,
 	return 0;
 }
 
-static __devinit void try_init_dmi(struct dmi_ipmi_data *ipmi_data)
+static void __devinit try_init_dmi(struct dmi_ipmi_data *ipmi_data)
 {
 	struct smi_info *info;
 
-	info = kzalloc(sizeof(*info), GFP_KERNEL);
+	info = smi_info_alloc();
 	if (!info) {
 		printk(KERN_ERR PFX "Could not allocate SI data\n");
 		return;
@@ -2423,7 +2451,7 @@ static int __devinit ipmi_pci_probe(struct pci_dev *pdev,
 	int class_type = pdev->class & PCI_ERMC_CLASSCODE_TYPE_MASK;
 	struct smi_info *info;
 
-	info = kzalloc(sizeof(*info), GFP_KERNEL);
+	info = smi_info_alloc();
 	if (!info)
 		return -ENOMEM;
 
@@ -2533,7 +2561,7 @@ static int __devinit ipmi_of_probe(struct platform_device *dev,
 {
 	struct smi_info *info;
 	struct resource resource;
-	const int *regsize, *regspacing, *regshift;
+	const __be32 *regsize, *regspacing, *regshift;
 	struct device_node *np = dev->dev.of_node;
 	int ret;
 	int proplen;
@@ -2564,7 +2592,7 @@ static int __devinit ipmi_of_probe(struct platform_device *dev,
 		return -EINVAL;
 	}
 
-	info = kzalloc(sizeof(*info), GFP_KERNEL);
+	info = smi_info_alloc();
 
 	if (!info) {
 		dev_err(&dev->dev,
@@ -2586,9 +2614,9 @@ static int __devinit ipmi_of_probe(struct platform_device *dev,
 
 	info->io.addr_data	= resource.start;
 
-	info->io.regsize	= regsize ? *regsize : DEFAULT_REGSIZE;
-	info->io.regspacing	= regspacing ? *regspacing : DEFAULT_REGSPACING;
-	info->io.regshift	= regshift ? *regshift : 0;
+	info->io.regsize	= regsize ? be32_to_cpup(regsize) : DEFAULT_REGSIZE;
+	info->io.regspacing	= regspacing ? be32_to_cpup(regspacing) : DEFAULT_REGSPACING;
+	info->io.regshift	= regshift ? be32_to_cpup(regshift) : 0;
 
 	info->irq		= irq_of_parse_and_map(dev->dev.of_node, 0);
 	info->dev		= &dev->dev;
@@ -2999,7 +3027,7 @@ static __devinitdata struct ipmi_default_vals
 	{ .port = 0 }
 };
 
-static __devinit void default_find_bmc(void)
+static void __devinit default_find_bmc(void)
 {
 	struct smi_info *info;
 	int             i;
@@ -3011,7 +3039,7 @@ static __devinit void default_find_bmc(void)
 		if (check_legacy_ioport(ipmi_defaults[i].port))
 			continue;
 #endif
-		info = kzalloc(sizeof(*info), GFP_KERNEL);
+		info = smi_info_alloc();
 		if (!info)
 			return;
 
@@ -3135,9 +3163,6 @@ static int try_smi_init(struct smi_info *new_smi)
 		printk(KERN_ERR PFX "Could not set up I/O space\n");
 		goto out_err;
 	}
-
-	spin_lock_init(&(new_smi->si_lock));
-	spin_lock_init(&(new_smi->msg_lock));
 
 	/* Do low-level detection first. */
 	if (new_smi->handlers->detect(new_smi->si_sm)) {
@@ -3302,7 +3327,7 @@ static int try_smi_init(struct smi_info *new_smi)
 	return rv;
 }
 
-static __devinit int init_ipmi_si(void)
+static int __devinit init_ipmi_si(void)
 {
 	int  i;
 	char *str;
@@ -3359,6 +3384,7 @@ static __devinit int init_ipmi_si(void)
 
 #ifdef CONFIG_ACPI
 	pnp_register_driver(&ipmi_pnp_driver);
+	pnp_registered = 1;
 #endif
 
 #ifdef CONFIG_DMI
@@ -3514,7 +3540,7 @@ static void cleanup_one_si(struct smi_info *to_clean)
 	kfree(to_clean);
 }
 
-static __exit void cleanup_ipmi_si(void)
+static void __exit cleanup_ipmi_si(void)
 {
 	struct smi_info *e, *tmp_e;
 
@@ -3526,7 +3552,8 @@ static __exit void cleanup_ipmi_si(void)
 		pci_unregister_driver(&ipmi_pci_driver);
 #endif
 #ifdef CONFIG_ACPI
-	pnp_unregister_driver(&ipmi_pnp_driver);
+	if (pnp_registered)
+		pnp_unregister_driver(&ipmi_pnp_driver);
 #endif
 
 #ifdef CONFIG_PPC_OF

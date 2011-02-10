@@ -63,7 +63,8 @@ static const struct file_operations qib_file_ops = {
 	.open = qib_open,
 	.release = qib_close,
 	.poll = qib_poll,
-	.mmap = qib_mmapf
+	.mmap = qib_mmapf,
+	.llseek = noop_llseek,
 };
 
 /*
@@ -1378,17 +1379,17 @@ static int get_a_ctxt(struct file *fp, const struct qib_user_info *uinfo,
 		/* find device (with ACTIVE ports) with fewest ctxts in use */
 		for (ndev = 0; ndev < devmax; ndev++) {
 			struct qib_devdata *dd = qib_lookup(ndev);
-			unsigned cused = 0, cfree = 0;
+			unsigned cused = 0, cfree = 0, pusable = 0;
 			if (!dd)
 				continue;
 			if (port && port <= dd->num_pports &&
 			    usable(dd->pport + port - 1))
-				dusable = 1;
+				pusable = 1;
 			else
 				for (i = 0; i < dd->num_pports; i++)
 					if (usable(dd->pport + i))
-						dusable++;
-			if (!dusable)
+						pusable++;
+			if (!pusable)
 				continue;
 			for (ctxt = dd->first_user_ctxt; ctxt < dd->cfgctxts;
 			     ctxt++)
@@ -1396,7 +1397,7 @@ static int get_a_ctxt(struct file *fp, const struct qib_user_info *uinfo,
 					cused++;
 				else
 					cfree++;
-			if (cfree && cused < inuse) {
+			if (pusable && cfree && cused < inuse) {
 				udd = dd;
 				inuse = cused;
 			}
@@ -1722,7 +1723,7 @@ static int qib_close(struct inode *in, struct file *fp)
 
 	mutex_lock(&qib_mutex);
 
-	fd = (struct qib_filedata *) fp->private_data;
+	fd = fp->private_data;
 	fp->private_data = NULL;
 	rcd = fd->rcd;
 	if (!rcd) {
@@ -1808,7 +1809,7 @@ static int qib_ctxt_info(struct file *fp, struct qib_ctxt_info __user *uinfo)
 	struct qib_ctxtdata *rcd = ctxt_fp(fp);
 	struct qib_filedata *fd;
 
-	fd = (struct qib_filedata *) fp->private_data;
+	fd = fp->private_data;
 
 	info.num_active = qib_count_active_units();
 	info.unit = rcd->dd->unit;

@@ -376,7 +376,7 @@ MODULE_DEVICE_TABLE(pnp, smsc_ircc_pnp_table);
 static int pnp_driver_registered;
 
 #ifdef CONFIG_PNP
-static int __init smsc_ircc_pnp_probe(struct pnp_dev *dev,
+static int __devinit smsc_ircc_pnp_probe(struct pnp_dev *dev,
 				      const struct pnp_device_id *dev_id)
 {
 	unsigned int firbase, sirbase;
@@ -2051,7 +2051,7 @@ static int smsc_ircc_sir_write(int iobase, int fifo_size, __u8 *buf, int len)
  */
 static int smsc_ircc_is_receiving(struct smsc_ircc_cb *self)
 {
-	return (self->rx_buff.state != OUTSIDE_FRAME);
+	return self->rx_buff.state != OUTSIDE_FRAME;
 }
 
 

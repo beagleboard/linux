@@ -242,6 +242,30 @@ static int drm_fb_helper_parse_command_line(struct drm_fb_helper *fb_helper)
 	return 0;
 }
 
+static void drm_fb_helper_save_lut_atomic(struct drm_crtc *crtc, struct drm_fb_helper *helper)
+{
+	uint16_t *r_base, *g_base, *b_base;
+	int i;
+
+	r_base = crtc->gamma_store;
+	g_base = r_base + crtc->gamma_size;
+	b_base = g_base + crtc->gamma_size;
+
+	for (i = 0; i < crtc->gamma_size; i++)
+		helper->funcs->gamma_get(crtc, &r_base[i], &g_base[i], &b_base[i], i);
+}
+
+static void drm_fb_helper_restore_lut_atomic(struct drm_crtc *crtc)
+{
+	uint16_t *r_base, *g_base, *b_base;
+
+	r_base = crtc->gamma_store;
+	g_base = r_base + crtc->gamma_size;
+	b_base = g_base + crtc->gamma_size;
+
+	crtc->funcs->gamma_set(crtc, r_base, g_base, b_base, 0, crtc->gamma_size);
+}
+
 int drm_fb_helper_debug_enter(struct fb_info *info)
 {
 	struct drm_fb_helper *helper = info->par;
@@ -260,11 +284,12 @@ int drm_fb_helper_debug_enter(struct fb_info *info)
 				continue;
 
 			funcs =	mode_set->crtc->helper_private;
+			drm_fb_helper_save_lut_atomic(mode_set->crtc, helper);
 			funcs->mode_set_base_atomic(mode_set->crtc,
 						    mode_set->fb,
 						    mode_set->x,
-						    mode_set->y);
-
+						    mode_set->y,
+						    ENTER_ATOMIC_MODE_SET);
 		}
 	}
 
@@ -308,8 +333,9 @@ int drm_fb_helper_debug_leave(struct fb_info *info)
 			continue;
 		}
 
+		drm_fb_helper_restore_lut_atomic(mode_set->crtc);
 		funcs->mode_set_base_atomic(mode_set->crtc, fb, crtc->x,
-					    crtc->y);
+					    crtc->y, LEAVE_ATOMIC_MODE_SET);
 	}
 
 	return 0;
@@ -959,6 +985,8 @@ void drm_fb_helper_fill_fix(struct fb_info *info, uint32_t pitch,
 	info->fix.type = FB_TYPE_PACKED_PIXELS;
 	info->fix.visual = depth == 8 ? FB_VISUAL_PSEUDOCOLOR :
 		FB_VISUAL_TRUECOLOR;
+	info->fix.mmio_start = 0;
+	info->fix.mmio_len = 0;
 	info->fix.type_aux = 0;
 	info->fix.xpanstep = 1; /* doing it in hw */
 	info->fix.ypanstep = 1; /* doing it in hw */
@@ -979,6 +1007,7 @@ void drm_fb_helper_fill_var(struct fb_info *info, struct drm_fb_helper *fb_helpe
 	info->var.xres_virtual = fb->width;
 	info->var.yres_virtual = fb->height;
 	info->var.bits_per_pixel = fb->bits_per_pixel;
+	info->var.accel_flags = FB_ACCELF_TEXT;
 	info->var.xoffset = 0;
 	info->var.yoffset = 0;
 	info->var.activate = FB_ACTIVATE_NOW;
@@ -1504,3 +1533,24 @@ bool drm_fb_helper_hotplug_event(struct drm_fb_helper *fb_helper)
 }
 EXPORT_SYMBOL(drm_fb_helper_hotplug_event);
 
+/* The Kconfig DRM_KMS_HELPER selects FRAMEBUFFER_CONSOLE (if !EXPERT)
+ * but the module doesn't depend on any fb console symbols.  At least
+ * attempt to load fbcon to avoid leaving the system without a usable console.
+ */
+#if defined(CONFIG_FRAMEBUFFER_CONSOLE_MODULE) && !defined(CONFIG_EXPERT)
+static int __init drm_fb_helper_modinit(void)
+{
+	const char *name = "fbcon";
+	struct module *fbcon;
+
+	mutex_lock(&module_mutex);
+	fbcon = find_module(name);
+	mutex_unlock(&module_mutex);
+
+	if (!fbcon)
+		request_module_nowait(name);
+	return 0;
+}
+
+module_init(drm_fb_helper_modinit);
+#endif

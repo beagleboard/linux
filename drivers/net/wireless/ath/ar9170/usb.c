@@ -54,8 +54,6 @@ MODULE_AUTHOR("Christian Lamparter <chunkeey@web.de>");
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("Atheros AR9170 802.11n USB wireless");
 MODULE_FIRMWARE("ar9170.fw");
-MODULE_FIRMWARE("ar9170-1.fw");
-MODULE_FIRMWARE("ar9170-2.fw");
 
 enum ar9170_requirements {
 	AR9170_REQ_FW1_ONLY = 1,
@@ -163,8 +161,7 @@ static void ar9170_usb_submit_urb(struct ar9170_usb *aru)
 static void ar9170_usb_tx_urb_complete_frame(struct urb *urb)
 {
 	struct sk_buff *skb = urb->context;
-	struct ar9170_usb *aru = (struct ar9170_usb *)
-	      usb_get_intfdata(usb_ifnum_to_if(urb->dev, 0));
+	struct ar9170_usb *aru = usb_get_intfdata(usb_ifnum_to_if(urb->dev, 0));
 
 	if (unlikely(!aru)) {
 		dev_kfree_skb_irq(skb);
@@ -221,8 +218,7 @@ free:
 static void ar9170_usb_rx_completed(struct urb *urb)
 {
 	struct sk_buff *skb = urb->context;
-	struct ar9170_usb *aru = (struct ar9170_usb *)
-		usb_get_intfdata(usb_ifnum_to_if(urb->dev, 0));
+	struct ar9170_usb *aru = usb_get_intfdata(usb_ifnum_to_if(urb->dev, 0));
 	int err;
 
 	if (!aru)

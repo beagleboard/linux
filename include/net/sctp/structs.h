@@ -261,8 +261,6 @@ extern struct sctp_globals {
 #define sctp_assoc_hashsize		(sctp_globals.assoc_hashsize)
 #define sctp_assoc_hashtable		(sctp_globals.assoc_hashtable)
 #define sctp_port_hashsize		(sctp_globals.port_hashsize)
-#define sctp_port_rover			(sctp_globals.port_rover)
-#define sctp_port_alloc_lock		(sctp_globals.port_alloc_lock)
 #define sctp_port_hashtable		(sctp_globals.port_hashtable)
 #define sctp_local_addr_list		(sctp_globals.local_addr_list)
 #define sctp_local_addr_lock		(sctp_globals.addr_list_lock)
@@ -847,7 +845,7 @@ void sctp_packet_free(struct sctp_packet *);
 
 static inline int sctp_packet_empty(struct sctp_packet *packet)
 {
-	return (packet->size == packet->overhead);
+	return packet->size == packet->overhead;
 }
 
 /* This represents a remote transport address.

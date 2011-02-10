@@ -13,6 +13,7 @@
 #include <linux/types.h>
 #include <linux/if_ether.h>
 #include <linux/workqueue.h>
+#include <linux/average.h>
 #include "key.h"
 
 /**
@@ -77,24 +78,29 @@ enum ieee80211_sta_info_flags {
  * @addba_resp_timer: timer for peer's response to addba request
  * @pending: pending frames queue -- use sta's spinlock to protect
  * @dialog_token: dialog token for aggregation session
+ * @timeout: session timeout value to be filled in ADDBA requests
  * @state: session state (see above)
  * @stop_initiator: initiator of a session stop
+ * @tx_stop: TX DelBA frame when stopping
  *
- * This structure is protected by RCU and the per-station
- * spinlock. Assignments to the array holding it must hold
- * the spinlock, only the TX path can access it under RCU
- * lock-free if, and only if, the state has  the flag
- * %HT_AGG_STATE_OPERATIONAL set. Otherwise, the TX path
- * must also acquire the spinlock and re-check the state,
- * see comments in the tx code touching it.
+ * This structure's lifetime is managed by RCU, assignments to
+ * the array holding it must hold the aggregation mutex.
+ *
+ * The TX path can access it under RCU lock-free if, and
+ * only if, the state has the flag %HT_AGG_STATE_OPERATIONAL
+ * set. Otherwise, the TX path must also acquire the spinlock
+ * and re-check the state, see comments in the tx code
+ * touching it.
  */
 struct tid_ampdu_tx {
 	struct rcu_head rcu_head;
 	struct timer_list addba_resp_timer;
 	struct sk_buff_head pending;
 	unsigned long state;
+	u16 timeout;
 	u8 dialog_token;
 	u8 stop_initiator;
+	bool tx_stop;
 };
 
 /**
@@ -103,6 +109,7 @@ struct tid_ampdu_tx {
  * @reorder_buf: buffer to reorder incoming aggregated MPDUs
  * @reorder_time: jiffies when skb was added
  * @session_timer: check if peer keeps Tx-ing on the TID (by timeout value)
+ * @reorder_timer: releases expired frames from the reorder buffer.
  * @head_seq_num: head sequence number in reordering buffer.
  * @stored_mpdu_num: number of MPDUs in reordering buffer
  * @ssn: Starting Sequence Number expected to be aggregated.
@@ -110,20 +117,23 @@ struct tid_ampdu_tx {
  * @timeout: reset timer value (in TUs).
  * @dialog_token: dialog token for aggregation session
  * @rcu_head: RCU head used for freeing this struct
+ * @reorder_lock: serializes access to reorder buffer, see below.
  *
- * This structure is protected by RCU and the per-station
- * spinlock. Assignments to the array holding it must hold
- * the spinlock, only the RX path can access it under RCU
- * lock-free. The RX path, since it is single-threaded,
- * can even modify the structure without locking since the
- * only other modifications to it are done when the struct
- * can not yet or no longer be found by the RX path.
+ * This structure's lifetime is managed by RCU, assignments to
+ * the array holding it must hold the aggregation mutex.
+ *
+ * The @reorder_lock is used to protect the members of this
+ * struct, except for @timeout, @buf_size and @dialog_token,
+ * which are constant across the lifetime of the struct (the
+ * dialog token being used only for debugging).
  */
 struct tid_ampdu_rx {
 	struct rcu_head rcu_head;
+	spinlock_t reorder_lock;
 	struct sk_buff **reorder_buf;
 	unsigned long *reorder_time;
 	struct timer_list session_timer;
+	struct timer_list reorder_timer;
 	u16 head_seq_num;
 	u16 stored_mpdu_num;
 	u16 ssn;
@@ -191,7 +201,8 @@ enum plink_state {
  * @hnext: hash table linked list pointer
  * @local: pointer to the global information
  * @sdata: virtual interface this station belongs to
- * @key: peer key negotiated with this station, if any
+ * @ptk: peer key negotiated with this station, if any
+ * @gtk: group keys negotiated with this station, if any
  * @rate_ctrl: rate control algorithm reference
  * @rate_ctrl_priv: rate control private per-STA pointer
  * @last_tx_rate: rate used for last transmit, to report to userspace as
@@ -215,6 +226,7 @@ enum plink_state {
  * @rx_fragments: number of received MPDUs
  * @rx_dropped: number of dropped MPDUs from this STA
  * @last_signal: signal of last received frame from this STA
+ * @avg_signal: moving average of signal of received frames from this STA
  * @last_seq_ctrl: last received seq/frag number from this STA (per RX queue)
  * @tx_filtered_count: number of frames the hardware filtered for this STA
  * @tx_retry_failed: number of frames that failed retry
@@ -239,6 +251,7 @@ enum plink_state {
  * @sta: station information we share with the driver
  * @dead: set to true when sta is unlinked
  * @uploaded: set to true when sta is uploaded to the driver
+ * @lost_packets: number of consecutive lost packets
  */
 struct sta_info {
 	/* General information, mostly static */
@@ -246,7 +259,8 @@ struct sta_info {
 	struct sta_info *hnext;
 	struct ieee80211_local *local;
 	struct ieee80211_sub_if_data *sdata;
-	struct ieee80211_key *key;
+	struct ieee80211_key *gtk[NUM_DEFAULT_KEYS + NUM_DEFAULT_MGMT_KEYS];
+	struct ieee80211_key *ptk;
 	struct rate_control_ref *rate_ctrl;
 	void *rate_ctrl_priv;
 	spinlock_t lock;
@@ -281,6 +295,7 @@ struct sta_info {
 	unsigned long rx_fragments;
 	unsigned long rx_dropped;
 	int last_signal;
+	struct ewma avg_signal;
 	__le16 last_seq_ctrl[NUM_RX_DATA_QUEUES];
 
 	/* Updated from TX status path only, no locking requirements */
@@ -324,6 +339,8 @@ struct sta_info {
 		bool add_has_run;
 	} debugfs;
 #endif
+
+	unsigned int lost_packets;
 
 	/* keep last! */
 	struct ieee80211_sta sta;

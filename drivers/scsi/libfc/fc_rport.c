@@ -196,9 +196,9 @@ static const char *fc_rport_state(struct fc_rport_priv *rdata)
 void fc_set_rport_loss_tmo(struct fc_rport *rport, u32 timeout)
 {
 	if (timeout)
-		rport->dev_loss_tmo = timeout + 5;
+		rport->dev_loss_tmo = timeout;
 	else
-		rport->dev_loss_tmo = 30;
+		rport->dev_loss_tmo = 1;
 }
 EXPORT_SYMBOL(fc_set_rport_loss_tmo);
 
@@ -652,7 +652,7 @@ void fc_rport_flogi_resp(struct fc_seq *sp, struct fc_frame *fp,
 	FC_RPORT_DBG(rdata, "Received a FLOGI %s\n", fc_els_resp_type(fp));
 
 	if (fp == ERR_PTR(-FC_EX_CLOSED))
-		return;
+		goto put;
 
 	mutex_lock(&rdata->rp_mutex);
 
@@ -689,6 +689,7 @@ out:
 	fc_frame_free(fp);
 err:
 	mutex_unlock(&rdata->rp_mutex);
+put:
 	kref_put(&rdata->kref, rdata->local_port->tt.rport_destroy);
 	return;
 bad:

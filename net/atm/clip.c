@@ -310,9 +310,9 @@ static int clip_constructor(struct neighbour *neigh)
 	return 0;
 }
 
-static u32 clip_hash(const void *pkey, const struct net_device *dev)
+static u32 clip_hash(const void *pkey, const struct net_device *dev, __u32 rnd)
 {
-	return jhash_2words(*(u32 *) pkey, dev->ifindex, clip_tbl.hash_rnd);
+	return jhash_2words(*(u32 *) pkey, dev->ifindex, rnd);
 }
 
 static struct neigh_table clip_tbl = {
@@ -502,7 +502,8 @@ static int clip_setentry(struct atm_vcc *vcc, __be32 ip)
 	struct atmarp_entry *entry;
 	int error;
 	struct clip_vcc *clip_vcc;
-	struct flowi fl = { .nl_u = { .ip4_u = { .daddr = ip, .tos = 1}} };
+	struct flowi fl = { .fl4_dst = ip,
+			    .fl4_tos = 1 };
 	struct rtable *rt;
 
 	if (vcc->push != clip_push) {

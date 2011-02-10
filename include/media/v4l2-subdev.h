@@ -106,10 +106,7 @@ struct v4l2_subdev_io_pin_config {
 	u8 strength;	/* Pin drive strength */
 };
 
-/* s_config: if set, then it is always called by the v4l2_i2c_new_subdev*
-	functions after the v4l2_subdev was registered. It is used to pass
-	platform data to the subdev which can be used during initialization.
-
+/*
    s_io_pin_config: configure one or more chip I/O pins for chips that
 	multiplex different internal signal pads out to IO pins.  This function
 	takes a pointer to an array of 'n' pin configuration entries, one for
@@ -141,7 +138,6 @@ struct v4l2_subdev_io_pin_config {
 struct v4l2_subdev_core_ops {
 	int (*g_chip_ident)(struct v4l2_subdev *sd, struct v4l2_dbg_chip_ident *chip);
 	int (*log_status)(struct v4l2_subdev *sd);
-	int (*s_config)(struct v4l2_subdev *sd, int irq, void *platform_data);
 	int (*s_io_pin_config)(struct v4l2_subdev *sd, size_t n,
 				      struct v4l2_subdev_io_pin_config *pincfg);
 	int (*init)(struct v4l2_subdev *sd, u32 val);
@@ -256,10 +252,6 @@ struct v4l2_subdev_video_ops {
 	int (*querystd)(struct v4l2_subdev *sd, v4l2_std_id *std);
 	int (*g_input_status)(struct v4l2_subdev *sd, u32 *status);
 	int (*s_stream)(struct v4l2_subdev *sd, int enable);
-	int (*enum_fmt)(struct v4l2_subdev *sd, struct v4l2_fmtdesc *fmtdesc);
-	int (*g_fmt)(struct v4l2_subdev *sd, struct v4l2_format *fmt);
-	int (*try_fmt)(struct v4l2_subdev *sd, struct v4l2_format *fmt);
-	int (*s_fmt)(struct v4l2_subdev *sd, struct v4l2_format *fmt);
 	int (*cropcap)(struct v4l2_subdev *sd, struct v4l2_cropcap *cc);
 	int (*g_crop)(struct v4l2_subdev *sd, struct v4l2_crop *crop);
 	int (*s_crop)(struct v4l2_subdev *sd, struct v4l2_crop *crop);
@@ -419,6 +411,21 @@ struct v4l2_subdev_ops {
 	const struct v4l2_subdev_sensor_ops	*sensor;
 };
 
+/*
+ * Internal ops. Never call this from drivers, only the v4l2 framework can call
+ * these ops.
+ *
+ * registered: called when this subdev is registered. When called the v4l2_dev
+ *	field is set to the correct v4l2_device.
+ *
+ * unregistered: called when this subdev is unregistered. When called the
+ *	v4l2_dev field is still set to the correct v4l2_device.
+ */
+struct v4l2_subdev_internal_ops {
+	int (*registered)(struct v4l2_subdev *sd);
+	void (*unregistered)(struct v4l2_subdev *sd);
+};
+
 #define V4L2_SUBDEV_NAME_SIZE 32
 
 /* Set this flag if this subdev is a i2c device. */
@@ -435,6 +442,8 @@ struct v4l2_subdev {
 	u32 flags;
 	struct v4l2_device *v4l2_dev;
 	const struct v4l2_subdev_ops *ops;
+	/* Never call these internal ops from within a driver! */
+	const struct v4l2_subdev_internal_ops *internal_ops;
 	/* The control handler of this subdev. May be NULL. */
 	struct v4l2_ctrl_handler *ctrl_handler;
 	/* name must be unique */
@@ -442,17 +451,28 @@ struct v4l2_subdev {
 	/* can be used to group similar subdevs, value is driver-specific */
 	u32 grp_id;
 	/* pointer to private data */
-	void *priv;
+	void *dev_priv;
+	void *host_priv;
 };
 
 static inline void v4l2_set_subdevdata(struct v4l2_subdev *sd, void *p)
 {
-	sd->priv = p;
+	sd->dev_priv = p;
 }
 
 static inline void *v4l2_get_subdevdata(const struct v4l2_subdev *sd)
 {
-	return sd->priv;
+	return sd->dev_priv;
+}
+
+static inline void v4l2_set_subdev_hostdata(struct v4l2_subdev *sd, void *p)
+{
+	sd->host_priv = p;
+}
+
+static inline void *v4l2_get_subdev_hostdata(const struct v4l2_subdev *sd)
+{
+	return sd->host_priv;
 }
 
 static inline void v4l2_subdev_init(struct v4l2_subdev *sd,
@@ -466,7 +486,8 @@ static inline void v4l2_subdev_init(struct v4l2_subdev *sd,
 	sd->flags = 0;
 	sd->name[0] = '\0';
 	sd->grp_id = 0;
-	sd->priv = NULL;
+	sd->dev_priv = NULL;
+	sd->host_priv = NULL;
 }
 
 /* Call an ops of a v4l2_subdev, doing the right checks against

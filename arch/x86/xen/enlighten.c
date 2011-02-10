@@ -30,6 +30,7 @@
 #include <linux/console.h>
 #include <linux/pci.h>
 #include <linux/gfp.h>
+#include <linux/memblock.h>
 
 #include <xen/xen.h>
 #include <xen/interface/xen.h>
@@ -45,6 +46,7 @@
 #include <asm/paravirt.h>
 #include <asm/apic.h>
 #include <asm/page.h>
+#include <asm/xen/pci.h>
 #include <asm/xen/hypercall.h>
 #include <asm/xen/hypervisor.h>
 #include <asm/fixmap.h>
@@ -58,7 +60,6 @@
 #include <asm/pgtable.h>
 #include <asm/tlbflush.h>
 #include <asm/reboot.h>
-#include <asm/setup.h>
 #include <asm/stackprotector.h>
 #include <asm/hypervisor.h>
 
@@ -73,6 +74,11 @@ DEFINE_PER_CPU(struct vcpu_info, xen_vcpu_info);
 
 enum xen_domain_type xen_domain_type = XEN_NATIVE;
 EXPORT_SYMBOL_GPL(xen_domain_type);
+
+unsigned long *machine_to_phys_mapping = (void *)MACH2PHYS_VIRT_START;
+EXPORT_SYMBOL(machine_to_phys_mapping);
+unsigned int   machine_to_phys_order;
+EXPORT_SYMBOL(machine_to_phys_order);
 
 struct start_info *xen_start_info;
 EXPORT_SYMBOL_GPL(xen_start_info);
@@ -135,9 +141,6 @@ static void xen_vcpu_setup(int cpu)
 	info.mfn = arbitrary_virt_to_mfn(vcpup);
 	info.offset = offset_in_page(vcpup);
 
-	printk(KERN_DEBUG "trying to map vcpu_info %d at %p, mfn %llx, offset %d\n",
-	       cpu, vcpup, info.mfn, info.offset);
-
 	/* Check to see if the hypervisor will put the vcpu_info
 	   structure where we want it, which allows direct access via
 	   a percpu-variable. */
@@ -151,9 +154,6 @@ static void xen_vcpu_setup(int cpu)
 		/* This cpu is using the registered vcpu info, even if
 		   later ones fail to. */
 		per_cpu(xen_vcpu, cpu) = vcpup;
-
-		printk(KERN_DEBUG "cpu %d using vcpu_info at %p\n",
-		       cpu, vcpup);
 	}
 }
 
@@ -242,6 +242,7 @@ static __init void xen_init_cpuid_mask(void)
 	cpuid_leaf1_edx_mask =
 		~((1 << X86_FEATURE_MCE)  |  /* disable MCE */
 		  (1 << X86_FEATURE_MCA)  |  /* disable MCA */
+		  (1 << X86_FEATURE_MTRR) |  /* disable MTRR */
 		  (1 << X86_FEATURE_ACC));   /* thermal monitoring */
 
 	if (!xen_initial_domain())
@@ -573,8 +574,8 @@ static void xen_write_idt_entry(gate_desc *dt, int entrynum, const gate_desc *g)
 
 	preempt_disable();
 
-	start = __get_cpu_var(idt_desc).address;
-	end = start + __get_cpu_var(idt_desc).size + 1;
+	start = __this_cpu_read(idt_desc.address);
+	end = start + __this_cpu_read(idt_desc.size) + 1;
 
 	xen_mc_flush();
 
@@ -835,6 +836,11 @@ static int xen_write_msr_safe(unsigned int msr, unsigned low, unsigned high)
 		   Xen console noise. */
 		break;
 
+	case MSR_IA32_CR_PAT:
+		if (smp_processor_id() == 0)
+			xen_set_pat(((u64)high << 32) | low);
+		break;
+
 	default:
 		ret = native_write_msr_safe(msr, low, high);
 	}
@@ -873,8 +879,6 @@ void xen_setup_vcpu_info_placement(void)
 	/* xen_vcpu_setup managed to place the vcpu_info within the
 	   percpu area for all cpus, so make use of it */
 	if (have_vcpu_info_placement) {
-		printk(KERN_INFO "Xen: using vcpu_info placement\n");
-
 		pv_irq_ops.save_fl = __PV_IS_CALLEE_SAVE(xen_save_fl_direct);
 		pv_irq_ops.restore_fl = __PV_IS_CALLEE_SAVE(xen_restore_fl_direct);
 		pv_irq_ops.irq_disable = __PV_IS_CALLEE_SAVE(xen_irq_disable_direct);
@@ -1017,10 +1021,6 @@ static void xen_reboot(int reason)
 {
 	struct sched_shutdown r = { .reason = reason };
 
-#ifdef CONFIG_SMP
-	smp_send_stop();
-#endif
-
 	if (HYPERVISOR_sched_op(SCHEDOP_shutdown, &r))
 		BUG();
 }
@@ -1091,12 +1091,16 @@ static void __init xen_setup_stackprotector(void)
 /* First C function to be called on Xen boot */
 asmlinkage void __init xen_start_kernel(void)
 {
+	struct physdev_set_iopl set_iopl;
+	int rc;
 	pgd_t *pgd;
 
 	if (!xen_start_info)
 		return;
 
 	xen_domain_type = XEN_PV_DOMAIN;
+
+	xen_setup_machphys_mapping();
 
 	/* Install Xen paravirt ops */
 	pv_info = xen_info;
@@ -1170,6 +1174,15 @@ asmlinkage void __init xen_start_kernel(void)
 
 	xen_smp_init();
 
+#ifdef CONFIG_ACPI_NUMA
+	/*
+	 * The pages we from Xen are not related to machine pages, so
+	 * any NUMA information the kernel tries to get from ACPI will
+	 * be meaningless.  Prevent it from trying.
+	 */
+	acpi_numa = -1;
+#endif
+
 	pgd = (pgd_t *)xen_start_info->pt_base;
 
 	if (!xen_initial_domain())
@@ -1181,12 +1194,16 @@ asmlinkage void __init xen_start_kernel(void)
 	per_cpu(xen_vcpu, 0) = &HYPERVISOR_shared_info->vcpu_info[0];
 
 	local_irq_disable();
-	early_boot_irqs_off();
+	early_boot_irqs_disabled = true;
+
+	memblock_init();
 
 	xen_raw_console_write("mapping kernel into physical memory\n");
 	pgd = xen_setup_kernel_pagetable(pgd, xen_start_info->nr_pages);
+	xen_ident_map_ISA();
 
-	init_mm.pgd = pgd;
+	/* Allocate and initialize top and mid mfn levels for p2m structure */
+	xen_build_mfn_list_list();
 
 	/* keep using Xen gdt for now; no urgent need to change it */
 
@@ -1197,9 +1214,17 @@ asmlinkage void __init xen_start_kernel(void)
 #else
 	pv_info.kernel_rpl = 0;
 #endif
-
 	/* set the limit of our address space */
 	xen_reserve_top();
+
+	/* We used to do this in xen_arch_setup, but that is too late on AMD
+	 * were early_cpu_init (run before ->arch_setup()) calls early_amd_init
+	 * which pokes 0xcf8 port.
+	 */
+	set_iopl.iopl = 1;
+	rc = HYPERVISOR_physdev_op(PHYSDEVOP_set_iopl, &set_iopl);
+	if (rc != 0)
+		xen_raw_printk("physdev_op failed %d\n", rc);
 
 #ifdef CONFIG_X86_32
 	/* set up basic CPUID stuff */
@@ -1220,6 +1245,8 @@ asmlinkage void __init xen_start_kernel(void)
 		add_preferred_console("xenboot", 0, NULL);
 		add_preferred_console("tty", 0, NULL);
 		add_preferred_console("hvc", 0, NULL);
+		if (pci_xen)
+			x86_init.pci.arch_init = pci_xen_init;
 	} else {
 		/* Make sure ACS will be enabled */
 		pci_request_acs();
@@ -1236,25 +1263,6 @@ asmlinkage void __init xen_start_kernel(void)
 #else
 	x86_64_start_reservations((char *)__pa_symbol(&boot_params));
 #endif
-}
-
-static uint32_t xen_cpuid_base(void)
-{
-	uint32_t base, eax, ebx, ecx, edx;
-	char signature[13];
-
-	for (base = 0x40000000; base < 0x40010000; base += 0x100) {
-		cpuid(base, &eax, &ebx, &ecx, &edx);
-		*(uint32_t *)(signature + 0) = ebx;
-		*(uint32_t *)(signature + 4) = ecx;
-		*(uint32_t *)(signature + 8) = edx;
-		signature[12] = 0;
-
-		if (!strcmp("XenVMMXenVMM", signature) && ((eax - base) >= 2))
-			return base;
-	}
-
-	return 0;
 }
 
 static int init_hvm_pv_info(int *major, int *minor)
@@ -1365,6 +1373,18 @@ static bool __init xen_hvm_platform(void)
 
 	return true;
 }
+
+bool xen_hvm_need_lapic(void)
+{
+	if (xen_pv_domain())
+		return false;
+	if (!xen_hvm_domain())
+		return false;
+	if (xen_feature(XENFEAT_hvm_pirqs) && xen_have_vector_callback)
+		return false;
+	return true;
+}
+EXPORT_SYMBOL_GPL(xen_hvm_need_lapic);
 
 const __refconst struct hypervisor_x86 x86_hyper_xen_hvm = {
 	.name			= "Xen HVM",

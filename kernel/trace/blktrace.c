@@ -23,7 +23,6 @@
 #include <linux/mutex.h>
 #include <linux/slab.h>
 #include <linux/debugfs.h>
-#include <linux/smp_lock.h>
 #include <linux/time.h>
 #include <linux/uaccess.h>
 
@@ -169,7 +168,6 @@ static int act_log_check(struct blk_trace *bt, u32 what, sector_t sector,
 static const u32 ddir_act[2] = { BLK_TC_ACT(BLK_TC_READ),
 				 BLK_TC_ACT(BLK_TC_WRITE) };
 
-#define BLK_TC_HARDBARRIER	BLK_TC_BARRIER
 #define BLK_TC_RAHEAD		BLK_TC_AHEAD
 
 /* The ilog2() calls fall out because they're constant */
@@ -197,7 +195,6 @@ static void __blk_add_trace(struct blk_trace *bt, sector_t sector, int bytes,
 		return;
 
 	what |= ddir_act[rw & WRITE];
-	what |= MASK_TC_BIT(rw, HARDBARRIER);
 	what |= MASK_TC_BIT(rw, SYNC);
 	what |= MASK_TC_BIT(rw, RAHEAD);
 	what |= MASK_TC_BIT(rw, META);
@@ -326,6 +323,7 @@ static const struct file_operations blk_dropped_fops = {
 	.owner =	THIS_MODULE,
 	.open =		blk_dropped_open,
 	.read =		blk_dropped_read,
+	.llseek =	default_llseek,
 };
 
 static int blk_msg_open(struct inode *inode, struct file *filp)
@@ -365,6 +363,7 @@ static const struct file_operations blk_msg_fops = {
 	.owner =	THIS_MODULE,
 	.open =		blk_msg_open,
 	.write =	blk_msg_write,
+	.llseek =	noop_llseek,
 };
 
 /*
@@ -639,7 +638,6 @@ int blk_trace_ioctl(struct block_device *bdev, unsigned cmd, char __user *arg)
 	if (!q)
 		return -ENXIO;
 
-	lock_kernel();
 	mutex_lock(&bdev->bd_mutex);
 
 	switch (cmd) {
@@ -667,7 +665,6 @@ int blk_trace_ioctl(struct block_device *bdev, unsigned cmd, char __user *arg)
 	}
 
 	mutex_unlock(&bdev->bd_mutex);
-	unlock_kernel();
 	return ret;
 }
 
@@ -761,53 +758,58 @@ static void blk_add_trace_rq_complete(void *ignore,
  * @q:		queue the io is for
  * @bio:	the source bio
  * @what:	the action
+ * @error:	error, if any
  *
  * Description:
  *     Records an action against a bio. Will log the bio offset + size.
  *
  **/
 static void blk_add_trace_bio(struct request_queue *q, struct bio *bio,
-				     u32 what)
+			      u32 what, int error)
 {
 	struct blk_trace *bt = q->blk_trace;
 
 	if (likely(!bt))
 		return;
 
+	if (!error && !bio_flagged(bio, BIO_UPTODATE))
+		error = EIO;
+
 	__blk_add_trace(bt, bio->bi_sector, bio->bi_size, bio->bi_rw, what,
-			!bio_flagged(bio, BIO_UPTODATE), 0, NULL);
+			error, 0, NULL);
 }
 
 static void blk_add_trace_bio_bounce(void *ignore,
 				     struct request_queue *q, struct bio *bio)
 {
-	blk_add_trace_bio(q, bio, BLK_TA_BOUNCE);
+	blk_add_trace_bio(q, bio, BLK_TA_BOUNCE, 0);
 }
 
 static void blk_add_trace_bio_complete(void *ignore,
-				       struct request_queue *q, struct bio *bio)
+				       struct request_queue *q, struct bio *bio,
+				       int error)
 {
-	blk_add_trace_bio(q, bio, BLK_TA_COMPLETE);
+	blk_add_trace_bio(q, bio, BLK_TA_COMPLETE, error);
 }
 
 static void blk_add_trace_bio_backmerge(void *ignore,
 					struct request_queue *q,
 					struct bio *bio)
 {
-	blk_add_trace_bio(q, bio, BLK_TA_BACKMERGE);
+	blk_add_trace_bio(q, bio, BLK_TA_BACKMERGE, 0);
 }
 
 static void blk_add_trace_bio_frontmerge(void *ignore,
 					 struct request_queue *q,
 					 struct bio *bio)
 {
-	blk_add_trace_bio(q, bio, BLK_TA_FRONTMERGE);
+	blk_add_trace_bio(q, bio, BLK_TA_FRONTMERGE, 0);
 }
 
 static void blk_add_trace_bio_queue(void *ignore,
 				    struct request_queue *q, struct bio *bio)
 {
-	blk_add_trace_bio(q, bio, BLK_TA_QUEUE);
+	blk_add_trace_bio(q, bio, BLK_TA_QUEUE, 0);
 }
 
 static void blk_add_trace_getrq(void *ignore,
@@ -815,7 +817,7 @@ static void blk_add_trace_getrq(void *ignore,
 				struct bio *bio, int rw)
 {
 	if (bio)
-		blk_add_trace_bio(q, bio, BLK_TA_GETRQ);
+		blk_add_trace_bio(q, bio, BLK_TA_GETRQ, 0);
 	else {
 		struct blk_trace *bt = q->blk_trace;
 
@@ -830,7 +832,7 @@ static void blk_add_trace_sleeprq(void *ignore,
 				  struct bio *bio, int rw)
 {
 	if (bio)
-		blk_add_trace_bio(q, bio, BLK_TA_SLEEPRQ);
+		blk_add_trace_bio(q, bio, BLK_TA_SLEEPRQ, 0);
 	else {
 		struct blk_trace *bt = q->blk_trace;
 
@@ -890,7 +892,7 @@ static void blk_add_trace_split(void *ignore,
 }
 
 /**
- * blk_add_trace_remap - Add a trace for a remap operation
+ * blk_add_trace_bio_remap - Add a trace for a bio-remap operation
  * @ignore:	trace callback data parameter (not used)
  * @q:		queue the io is for
  * @bio:	the source bio
@@ -902,9 +904,9 @@ static void blk_add_trace_split(void *ignore,
  *     it spans a stripe (or similar). Add a trace for that action.
  *
  **/
-static void blk_add_trace_remap(void *ignore,
-				struct request_queue *q, struct bio *bio,
-				dev_t dev, sector_t from)
+static void blk_add_trace_bio_remap(void *ignore,
+				    struct request_queue *q, struct bio *bio,
+				    dev_t dev, sector_t from)
 {
 	struct blk_trace *bt = q->blk_trace;
 	struct blk_io_trace_remap r;
@@ -1019,7 +1021,7 @@ static void blk_register_tracepoints(void)
 	WARN_ON(ret);
 	ret = register_trace_block_split(blk_add_trace_split, NULL);
 	WARN_ON(ret);
-	ret = register_trace_block_remap(blk_add_trace_remap, NULL);
+	ret = register_trace_block_bio_remap(blk_add_trace_bio_remap, NULL);
 	WARN_ON(ret);
 	ret = register_trace_block_rq_remap(blk_add_trace_rq_remap, NULL);
 	WARN_ON(ret);
@@ -1028,7 +1030,7 @@ static void blk_register_tracepoints(void)
 static void blk_unregister_tracepoints(void)
 {
 	unregister_trace_block_rq_remap(blk_add_trace_rq_remap, NULL);
-	unregister_trace_block_remap(blk_add_trace_remap, NULL);
+	unregister_trace_block_bio_remap(blk_add_trace_bio_remap, NULL);
 	unregister_trace_block_split(blk_add_trace_split, NULL);
 	unregister_trace_block_unplug_io(blk_add_trace_unplug_io, NULL);
 	unregister_trace_block_unplug_timer(blk_add_trace_unplug_timer, NULL);
@@ -1652,10 +1654,9 @@ static ssize_t sysfs_blk_trace_attr_show(struct device *dev,
 	struct block_device *bdev;
 	ssize_t ret = -ENXIO;
 
-	lock_kernel();
 	bdev = bdget(part_devt(p));
 	if (bdev == NULL)
-		goto out_unlock_kernel;
+		goto out;
 
 	q = blk_trace_get_queue(bdev);
 	if (q == NULL)
@@ -1683,8 +1684,7 @@ out_unlock_bdev:
 	mutex_unlock(&bdev->bd_mutex);
 out_bdput:
 	bdput(bdev);
-out_unlock_kernel:
-	unlock_kernel();
+out:
 	return ret;
 }
 
@@ -1714,11 +1714,10 @@ static ssize_t sysfs_blk_trace_attr_store(struct device *dev,
 
 	ret = -ENXIO;
 
-	lock_kernel();
 	p = dev_to_part(dev);
 	bdev = bdget(part_devt(p));
 	if (bdev == NULL)
-		goto out_unlock_kernel;
+		goto out;
 
 	q = blk_trace_get_queue(bdev);
 	if (q == NULL)
@@ -1753,8 +1752,6 @@ out_unlock_bdev:
 	mutex_unlock(&bdev->bd_mutex);
 out_bdput:
 	bdput(bdev);
-out_unlock_kernel:
-	unlock_kernel();
 out:
 	return ret ? ret : count;
 }
@@ -1813,8 +1810,6 @@ void blk_fill_rwbs(char *rwbs, u32 rw, int bytes)
 
 	if (rw & REQ_RAHEAD)
 		rwbs[i++] = 'A';
-	if (rw & REQ_HARDBARRIER)
-		rwbs[i++] = 'B';
 	if (rw & REQ_SYNC)
 		rwbs[i++] = 'S';
 	if (rw & REQ_META)

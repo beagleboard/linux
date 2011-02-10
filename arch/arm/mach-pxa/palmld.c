@@ -39,7 +39,7 @@
 #include <mach/mmc.h>
 #include <mach/pxafb.h>
 #include <mach/irda.h>
-#include <mach/pxa27x_keypad.h>
+#include <plat/pxa27x_keypad.h>
 #include <mach/palmasoc.h>
 #include <mach/palm27x.h>
 
@@ -313,7 +313,7 @@ static struct map_desc palmld_io_desc[] __initdata = {
 
 static void __init palmld_map_io(void)
 {
-	pxa_map_io();
+	pxa27x_map_io();
 	iotable_init(palmld_io_desc, ARRAY_SIZE(palmld_io_desc));
 }
 
@@ -343,8 +343,6 @@ static void __init palmld_init(void)
 }
 
 MACHINE_START(PALMLD, "Palm LifeDrive")
-	.phys_io	= PALMLD_PHYS_IO_START,
-	.io_pg_offst	= (io_p2v(0x40000000) >> 18) & 0xfffc,
 	.boot_params	= 0xa0000100,
 	.map_io		= palmld_map_io,
 	.init_irq	= pxa27x_init_irq,

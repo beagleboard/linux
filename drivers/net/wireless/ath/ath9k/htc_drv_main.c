@@ -24,12 +24,12 @@ static struct dentry *ath9k_debugfs_root;
 /* Utilities */
 /*************/
 
-static void ath_update_txpow(struct ath9k_htc_priv *priv)
+void ath_update_txpow(struct ath9k_htc_priv *priv)
 {
 	struct ath_hw *ah = priv->ah;
 
 	if (priv->curtxpow != priv->txpowlimit) {
-		ath9k_hw_set_txpowerlimit(ah, priv->txpowlimit);
+		ath9k_hw_set_txpowerlimit(ah, priv->txpowlimit, false);
 		/* read back in case value is clamped */
 		priv->curtxpow = ath9k_hw_regulatory(ah)->power_limit;
 	}
@@ -63,8 +63,8 @@ static enum htc_phymode ath9k_htc_get_curmode(struct ath9k_htc_priv *priv,
 	return mode;
 }
 
-static bool ath9k_htc_setpower(struct ath9k_htc_priv *priv,
-			       enum ath9k_power_mode mode)
+bool ath9k_htc_setpower(struct ath9k_htc_priv *priv,
+			enum ath9k_power_mode mode)
 {
 	bool ret;
 
@@ -116,6 +116,60 @@ void ath9k_ps_work(struct work_struct *work)
 	ath9k_htc_setpower(priv, ATH9K_PM_NETWORK_SLEEP);
 }
 
+void ath9k_htc_reset(struct ath9k_htc_priv *priv)
+{
+	struct ath_hw *ah = priv->ah;
+	struct ath_common *common = ath9k_hw_common(ah);
+	struct ieee80211_channel *channel = priv->hw->conf.channel;
+	struct ath9k_hw_cal_data *caldata;
+	enum htc_phymode mode;
+	__be16 htc_mode;
+	u8 cmd_rsp;
+	int ret;
+
+	mutex_lock(&priv->mutex);
+	ath9k_htc_ps_wakeup(priv);
+
+	if (priv->op_flags & OP_ASSOCIATED)
+		cancel_delayed_work_sync(&priv->ath9k_ani_work);
+
+	ieee80211_stop_queues(priv->hw);
+	htc_stop(priv->htc);
+	WMI_CMD(WMI_DISABLE_INTR_CMDID);
+	WMI_CMD(WMI_DRAIN_TXQ_ALL_CMDID);
+	WMI_CMD(WMI_STOP_RECV_CMDID);
+
+	caldata = &priv->caldata[channel->hw_value];
+	ret = ath9k_hw_reset(ah, ah->curchan, caldata, false);
+	if (ret) {
+		ath_err(common,
+			"Unable to reset device (%u Mhz) reset status %d\n",
+			channel->center_freq, ret);
+	}
+
+	ath_update_txpow(priv);
+
+	WMI_CMD(WMI_START_RECV_CMDID);
+	ath9k_host_rx_init(priv);
+
+	mode = ath9k_htc_get_curmode(priv, ah->curchan);
+	htc_mode = cpu_to_be16(mode);
+	WMI_CMD_BUF(WMI_SET_MODE_CMDID, &htc_mode);
+
+	WMI_CMD(WMI_ENABLE_INTR_CMDID);
+	htc_start(priv->htc);
+
+	if (priv->op_flags & OP_ASSOCIATED) {
+		ath9k_htc_beacon_config(priv, priv->vif);
+		ath_start_ani(priv);
+	}
+
+	ieee80211_wake_queues(priv->hw);
+
+	ath9k_htc_ps_restore(priv);
+	mutex_unlock(&priv->mutex);
+}
+
 static int ath9k_htc_set_channel(struct ath9k_htc_priv *priv,
 				 struct ieee80211_hw *hw,
 				 struct ath9k_channel *hchan)
@@ -123,7 +177,7 @@ static int ath9k_htc_set_channel(struct ath9k_htc_priv *priv,
 	struct ath_hw *ah = priv->ah;
 	struct ath_common *common = ath9k_hw_common(ah);
 	struct ieee80211_conf *conf = &common->hw->conf;
-	bool fastcc = true;
+	bool fastcc;
 	struct ieee80211_channel *channel = hw->conf.channel;
 	struct ath9k_hw_cal_data *caldata;
 	enum htc_phymode mode;
@@ -134,28 +188,26 @@ static int ath9k_htc_set_channel(struct ath9k_htc_priv *priv,
 	if (priv->op_flags & OP_INVALID)
 		return -EIO;
 
-	if (priv->op_flags & OP_FULL_RESET)
-		fastcc = false;
+	fastcc = !!(hw->conf.flags & IEEE80211_CONF_OFFCHANNEL);
 
-	/* Fiddle around with fastcc later on, for now just use full reset */
-	fastcc = false;
 	ath9k_htc_ps_wakeup(priv);
 	htc_stop(priv->htc);
 	WMI_CMD(WMI_DISABLE_INTR_CMDID);
 	WMI_CMD(WMI_DRAIN_TXQ_ALL_CMDID);
 	WMI_CMD(WMI_STOP_RECV_CMDID);
 
-	ath_print(common, ATH_DBG_CONFIG,
-		  "(%u MHz) -> (%u MHz), HT: %d, HT40: %d\n",
-		  priv->ah->curchan->channel,
-		  channel->center_freq, conf_is_ht(conf), conf_is_ht40(conf));
+	ath_dbg(common, ATH_DBG_CONFIG,
+		"(%u MHz) -> (%u MHz), HT: %d, HT40: %d fastcc: %d\n",
+		priv->ah->curchan->channel,
+		channel->center_freq, conf_is_ht(conf), conf_is_ht40(conf),
+		fastcc);
 
 	caldata = &priv->caldata[channel->hw_value];
 	ret = ath9k_hw_reset(ah, hchan, caldata, fastcc);
 	if (ret) {
-		ath_print(common, ATH_DBG_FATAL,
-			  "Unable to reset channel (%u Mhz) "
-			  "reset status %d\n", channel->center_freq, ret);
+		ath_err(common,
+			"Unable to reset channel (%u Mhz) reset status %d\n",
+			channel->center_freq, ret);
 		goto err;
 	}
 
@@ -178,22 +230,42 @@ static int ath9k_htc_set_channel(struct ath9k_htc_priv *priv,
 		goto err;
 
 	htc_start(priv->htc);
-
-	priv->op_flags &= ~OP_FULL_RESET;
 err:
 	ath9k_htc_ps_restore(priv);
 	return ret;
 }
 
-static int ath9k_htc_add_monitor_interface(struct ath9k_htc_priv *priv)
+static void __ath9k_htc_remove_monitor_interface(struct ath9k_htc_priv *priv)
 {
 	struct ath_common *common = ath9k_hw_common(priv->ah);
 	struct ath9k_htc_target_vif hvif;
 	int ret = 0;
 	u8 cmd_rsp;
 
+	memset(&hvif, 0, sizeof(struct ath9k_htc_target_vif));
+	memcpy(&hvif.myaddr, common->macaddr, ETH_ALEN);
+	hvif.index = 0; /* Should do for now */
+	WMI_CMD_BUF(WMI_VAP_REMOVE_CMDID, &hvif);
+	priv->nvifs--;
+}
+
+static int ath9k_htc_add_monitor_interface(struct ath9k_htc_priv *priv)
+{
+	struct ath_common *common = ath9k_hw_common(priv->ah);
+	struct ath9k_htc_target_vif hvif;
+	struct ath9k_htc_target_sta tsta;
+	int ret = 0;
+	u8 cmd_rsp;
+
 	if (priv->nvifs > 0)
 		return -ENOBUFS;
+
+	if (priv->nstations >= ATH9K_HTC_MAX_STA)
+		return -ENOBUFS;
+
+	/*
+	 * Add an interface.
+	 */
 
 	memset(&hvif, 0, sizeof(struct ath9k_htc_target_vif));
 	memcpy(&hvif.myaddr, common->macaddr, ETH_ALEN);
@@ -207,23 +279,68 @@ static int ath9k_htc_add_monitor_interface(struct ath9k_htc_priv *priv)
 		return ret;
 
 	priv->nvifs++;
+
+	/*
+	 * Associate a station with the interface for packet injection.
+	 */
+
+	memset(&tsta, 0, sizeof(struct ath9k_htc_target_sta));
+
+	memcpy(&tsta.macaddr, common->macaddr, ETH_ALEN);
+
+	tsta.is_vif_sta = 1;
+	tsta.sta_index = priv->nstations;
+	tsta.vif_index = hvif.index;
+	tsta.maxampdu = 0xffff;
+
+	WMI_CMD_BUF(WMI_NODE_CREATE_CMDID, &tsta);
+	if (ret) {
+		ath_err(common, "Unable to add station entry for monitor mode\n");
+		goto err_vif;
+	}
+
+	priv->nstations++;
+
+	/*
+	 * Set chainmask etc. on the target.
+	 */
+	ret = ath9k_htc_update_cap_target(priv);
+	if (ret)
+		ath_dbg(common, ATH_DBG_CONFIG,
+			"Failed to update capability in target\n");
+
+	priv->ah->is_monitoring = true;
+
 	return 0;
+
+err_vif:
+	/*
+	 * Remove the interface from the target.
+	 */
+	__ath9k_htc_remove_monitor_interface(priv);
+	return ret;
 }
 
 static int ath9k_htc_remove_monitor_interface(struct ath9k_htc_priv *priv)
 {
 	struct ath_common *common = ath9k_hw_common(priv->ah);
-	struct ath9k_htc_target_vif hvif;
 	int ret = 0;
-	u8 cmd_rsp;
+	u8 cmd_rsp, sta_idx;
 
-	memset(&hvif, 0, sizeof(struct ath9k_htc_target_vif));
-	memcpy(&hvif.myaddr, common->macaddr, ETH_ALEN);
-	hvif.index = 0; /* Should do for now */
-	WMI_CMD_BUF(WMI_VAP_REMOVE_CMDID, &hvif);
-	priv->nvifs--;
+	__ath9k_htc_remove_monitor_interface(priv);
 
-	return ret;
+	sta_idx = 0; /* Only single interface, for now */
+
+	WMI_CMD_BUF(WMI_NODE_REMOVE_CMDID, &sta_idx);
+	if (ret) {
+		ath_err(common, "Unable to remove station entry for monitor mode\n");
+		return ret;
+	}
+
+	priv->nstations--;
+	priv->ah->is_monitoring = false;
+
+	return 0;
 }
 
 static int ath9k_htc_add_station(struct ath9k_htc_priv *priv,
@@ -264,15 +381,16 @@ static int ath9k_htc_add_station(struct ath9k_htc_priv *priv,
 	WMI_CMD_BUF(WMI_NODE_CREATE_CMDID, &tsta);
 	if (ret) {
 		if (sta)
-			ath_print(common, ATH_DBG_FATAL,
-			  "Unable to add station entry for: %pM\n", sta->addr);
+			ath_err(common,
+				"Unable to add station entry for: %pM\n",
+				sta->addr);
 		return ret;
 	}
 
 	if (sta)
-		ath_print(common, ATH_DBG_CONFIG,
-			  "Added a station entry for: %pM (idx: %d)\n",
-			  sta->addr, tsta.sta_index);
+		ath_dbg(common, ATH_DBG_CONFIG,
+			"Added a station entry for: %pM (idx: %d)\n",
+			sta->addr, tsta.sta_index);
 
 	priv->nstations++;
 	return 0;
@@ -297,22 +415,22 @@ static int ath9k_htc_remove_station(struct ath9k_htc_priv *priv,
 	WMI_CMD_BUF(WMI_NODE_REMOVE_CMDID, &sta_idx);
 	if (ret) {
 		if (sta)
-			ath_print(common, ATH_DBG_FATAL,
-			  "Unable to remove station entry for: %pM\n",
-			  sta->addr);
+			ath_err(common,
+				"Unable to remove station entry for: %pM\n",
+				sta->addr);
 		return ret;
 	}
 
 	if (sta)
-		ath_print(common, ATH_DBG_CONFIG,
-			  "Removed a station entry for: %pM (idx: %d)\n",
-			  sta->addr, sta_idx);
+		ath_dbg(common, ATH_DBG_CONFIG,
+			"Removed a station entry for: %pM (idx: %d)\n",
+			sta->addr, sta_idx);
 
 	priv->nstations--;
 	return 0;
 }
 
-static int ath9k_htc_update_cap_target(struct ath9k_htc_priv *priv)
+int ath9k_htc_update_cap_target(struct ath9k_htc_priv *priv)
 {
 	struct ath9k_htc_cap_target tcap;
 	int ret;
@@ -391,8 +509,8 @@ static int ath9k_htc_send_rate_cmd(struct ath9k_htc_priv *priv,
 
 	WMI_CMD_BUF(WMI_RC_RATE_UPDATE_CMDID, trate);
 	if (ret) {
-		ath_print(common, ATH_DBG_FATAL,
-			  "Unable to initialize Rate information on target\n");
+		ath_err(common,
+			"Unable to initialize Rate information on target\n");
 	}
 
 	return ret;
@@ -409,9 +527,9 @@ static void ath9k_htc_init_rate(struct ath9k_htc_priv *priv,
 	ath9k_htc_setup_rate(priv, sta, &trate);
 	ret = ath9k_htc_send_rate_cmd(priv, &trate);
 	if (!ret)
-		ath_print(common, ATH_DBG_CONFIG,
-			  "Updated target sta: %pM, rate caps: 0x%X\n",
-			  sta->addr, be32_to_cpu(trate.capflags));
+		ath_dbg(common, ATH_DBG_CONFIG,
+			"Updated target sta: %pM, rate caps: 0x%X\n",
+			sta->addr, be32_to_cpu(trate.capflags));
 }
 
 static void ath9k_htc_update_rate(struct ath9k_htc_priv *priv,
@@ -436,9 +554,9 @@ static void ath9k_htc_update_rate(struct ath9k_htc_priv *priv,
 
 	ret = ath9k_htc_send_rate_cmd(priv, &trate);
 	if (!ret)
-		ath_print(common, ATH_DBG_CONFIG,
-			  "Updated target sta: %pM, rate caps: 0x%X\n",
-			  bss_conf->bssid, be32_to_cpu(trate.capflags));
+		ath_dbg(common, ATH_DBG_CONFIG,
+			"Updated target sta: %pM, rate caps: 0x%X\n",
+			bss_conf->bssid, be32_to_cpu(trate.capflags));
 }
 
 static int ath9k_htc_tx_aggr_oper(struct ath9k_htc_priv *priv,
@@ -465,14 +583,14 @@ static int ath9k_htc_tx_aggr_oper(struct ath9k_htc_priv *priv,
 
 	WMI_CMD_BUF(WMI_TX_AGGR_ENABLE_CMDID, &aggr);
 	if (ret)
-		ath_print(common, ATH_DBG_CONFIG,
-			  "Unable to %s TX aggregation for (%pM, %d)\n",
-			  (aggr.aggr_enable) ? "start" : "stop", sta->addr, tid);
+		ath_dbg(common, ATH_DBG_CONFIG,
+			"Unable to %s TX aggregation for (%pM, %d)\n",
+			(aggr.aggr_enable) ? "start" : "stop", sta->addr, tid);
 	else
-		ath_print(common, ATH_DBG_CONFIG,
-			  "%s TX aggregation for (%pM, %d)\n",
-			  (aggr.aggr_enable) ? "Starting" : "Stopping",
-			  sta->addr, tid);
+		ath_dbg(common, ATH_DBG_CONFIG,
+			"%s TX aggregation for (%pM, %d)\n",
+			(aggr.aggr_enable) ? "Starting" : "Stopping",
+			sta->addr, tid);
 
 	spin_lock_bh(&priv->tx_lock);
 	ista->tid_state[tid] = (aggr.aggr_enable && !ret) ? AGGR_START : AGGR_STOP;
@@ -536,7 +654,8 @@ static ssize_t read_file_tgt_stats(struct file *file, char __user *user_buf,
 static const struct file_operations fops_tgt_stats = {
 	.read = read_file_tgt_stats,
 	.open = ath9k_debugfs_open,
-	.owner = THIS_MODULE
+	.owner = THIS_MODULE,
+	.llseek = default_llseek,
 };
 
 static ssize_t read_file_xmit(struct file *file, char __user *user_buf,
@@ -584,7 +703,8 @@ static ssize_t read_file_xmit(struct file *file, char __user *user_buf,
 static const struct file_operations fops_xmit = {
 	.read = read_file_xmit,
 	.open = ath9k_debugfs_open,
-	.owner = THIS_MODULE
+	.owner = THIS_MODULE,
+	.llseek = default_llseek,
 };
 
 static ssize_t read_file_recv(struct file *file, char __user *user_buf,
@@ -613,7 +733,8 @@ static ssize_t read_file_recv(struct file *file, char __user *user_buf,
 static const struct file_operations fops_recv = {
 	.read = read_file_recv,
 	.open = ath9k_debugfs_open,
-	.owner = THIS_MODULE
+	.owner = THIS_MODULE,
+	.llseek = default_llseek,
 };
 
 int ath9k_htc_init_debug(struct ath_hw *ah)
@@ -687,7 +808,7 @@ void ath9k_htc_debug_remove_root(void)
 /* ANI */
 /*******/
 
-static void ath_start_ani(struct ath9k_htc_priv *priv)
+void ath_start_ani(struct ath9k_htc_priv *priv)
 {
 	struct ath_common *common = ath9k_hw_common(priv->ah);
 	unsigned long timestamp = jiffies_to_msecs(jiffies);
@@ -722,7 +843,7 @@ void ath9k_ani_work(struct work_struct *work)
 	/* Long calibration runs independently of short calibration. */
 	if ((timestamp - common->ani.longcal_timer) >= ATH_LONG_CALINTERVAL) {
 		longcal = true;
-		ath_print(common, ATH_DBG_ANI, "longcal @%lu\n", jiffies);
+		ath_dbg(common, ATH_DBG_ANI, "longcal @%lu\n", jiffies);
 		common->ani.longcal_timer = timestamp;
 	}
 
@@ -731,8 +852,8 @@ void ath9k_ani_work(struct work_struct *work)
 		if ((timestamp - common->ani.shortcal_timer) >=
 		    short_cal_interval) {
 			shortcal = true;
-			ath_print(common, ATH_DBG_ANI,
-				  "shortcal @%lu\n", jiffies);
+			ath_dbg(common, ATH_DBG_ANI,
+				"shortcal @%lu\n", jiffies);
 			common->ani.shortcal_timer = timestamp;
 			common->ani.resetcal_timer = timestamp;
 		}
@@ -761,22 +882,11 @@ void ath9k_ani_work(struct work_struct *work)
 			ath9k_hw_ani_monitor(ah, ah->curchan);
 
 		/* Perform calibration if necessary */
-		if (longcal || shortcal) {
+		if (longcal || shortcal)
 			common->ani.caldone =
 				ath9k_hw_calibrate(ah, ah->curchan,
 						   common->rx_chainmask,
 						   longcal);
-
-			if (longcal)
-				common->ani.noise_floor =
-					ath9k_hw_getchan_noise(ah, ah->curchan);
-
-			ath_print(common, ATH_DBG_ANI,
-				  " calibrate chan %u/%x nf: %d\n",
-				  ah->curchan->channel,
-				  ah->curchan->channelFlags,
-				  common->ani.noise_floor);
-		}
 
 		ath9k_htc_ps_restore(priv);
 	}
@@ -795,317 +905,6 @@ set_timer:
 
 	ieee80211_queue_delayed_work(common->hw, &priv->ath9k_ani_work,
 				     msecs_to_jiffies(cal_interval));
-}
-
-/*******/
-/* LED */
-/*******/
-
-static void ath9k_led_blink_work(struct work_struct *work)
-{
-	struct ath9k_htc_priv *priv = container_of(work, struct ath9k_htc_priv,
-						   ath9k_led_blink_work.work);
-
-	if (!(priv->op_flags & OP_LED_ASSOCIATED))
-		return;
-
-	if ((priv->led_on_duration == ATH_LED_ON_DURATION_IDLE) ||
-	    (priv->led_off_duration == ATH_LED_OFF_DURATION_IDLE))
-		ath9k_hw_set_gpio(priv->ah, priv->ah->led_pin, 0);
-	else
-		ath9k_hw_set_gpio(priv->ah, priv->ah->led_pin,
-				  (priv->op_flags & OP_LED_ON) ? 1 : 0);
-
-	ieee80211_queue_delayed_work(priv->hw,
-				     &priv->ath9k_led_blink_work,
-				     (priv->op_flags & OP_LED_ON) ?
-				     msecs_to_jiffies(priv->led_off_duration) :
-				     msecs_to_jiffies(priv->led_on_duration));
-
-	priv->led_on_duration = priv->led_on_cnt ?
-		max((ATH_LED_ON_DURATION_IDLE - priv->led_on_cnt), 25) :
-		ATH_LED_ON_DURATION_IDLE;
-	priv->led_off_duration = priv->led_off_cnt ?
-		max((ATH_LED_OFF_DURATION_IDLE - priv->led_off_cnt), 10) :
-		ATH_LED_OFF_DURATION_IDLE;
-	priv->led_on_cnt = priv->led_off_cnt = 0;
-
-	if (priv->op_flags & OP_LED_ON)
-		priv->op_flags &= ~OP_LED_ON;
-	else
-		priv->op_flags |= OP_LED_ON;
-}
-
-static void ath9k_led_brightness_work(struct work_struct *work)
-{
-	struct ath_led *led = container_of(work, struct ath_led,
-					   brightness_work.work);
-	struct ath9k_htc_priv *priv = led->priv;
-
-	switch (led->brightness) {
-	case LED_OFF:
-		if (led->led_type == ATH_LED_ASSOC ||
-		    led->led_type == ATH_LED_RADIO) {
-			ath9k_hw_set_gpio(priv->ah, priv->ah->led_pin,
-					  (led->led_type == ATH_LED_RADIO));
-			priv->op_flags &= ~OP_LED_ASSOCIATED;
-			if (led->led_type == ATH_LED_RADIO)
-				priv->op_flags &= ~OP_LED_ON;
-		} else {
-			priv->led_off_cnt++;
-		}
-		break;
-	case LED_FULL:
-		if (led->led_type == ATH_LED_ASSOC) {
-			priv->op_flags |= OP_LED_ASSOCIATED;
-			ieee80211_queue_delayed_work(priv->hw,
-					     &priv->ath9k_led_blink_work, 0);
-		} else if (led->led_type == ATH_LED_RADIO) {
-			ath9k_hw_set_gpio(priv->ah, priv->ah->led_pin, 0);
-			priv->op_flags |= OP_LED_ON;
-		} else {
-			priv->led_on_cnt++;
-		}
-		break;
-	default:
-		break;
-	}
-}
-
-static void ath9k_led_brightness(struct led_classdev *led_cdev,
-				 enum led_brightness brightness)
-{
-	struct ath_led *led = container_of(led_cdev, struct ath_led, led_cdev);
-	struct ath9k_htc_priv *priv = led->priv;
-
-	led->brightness = brightness;
-	if (!(priv->op_flags & OP_LED_DEINIT))
-		ieee80211_queue_delayed_work(priv->hw,
-					     &led->brightness_work, 0);
-}
-
-static void ath9k_led_stop_brightness(struct ath9k_htc_priv *priv)
-{
-	cancel_delayed_work_sync(&priv->radio_led.brightness_work);
-	cancel_delayed_work_sync(&priv->assoc_led.brightness_work);
-	cancel_delayed_work_sync(&priv->tx_led.brightness_work);
-	cancel_delayed_work_sync(&priv->rx_led.brightness_work);
-}
-
-static int ath9k_register_led(struct ath9k_htc_priv *priv, struct ath_led *led,
-			      char *trigger)
-{
-	int ret;
-
-	led->priv = priv;
-	led->led_cdev.name = led->name;
-	led->led_cdev.default_trigger = trigger;
-	led->led_cdev.brightness_set = ath9k_led_brightness;
-
-	ret = led_classdev_register(wiphy_dev(priv->hw->wiphy), &led->led_cdev);
-	if (ret)
-		ath_print(ath9k_hw_common(priv->ah), ATH_DBG_FATAL,
-			  "Failed to register led:%s", led->name);
-	else
-		led->registered = 1;
-
-	INIT_DELAYED_WORK(&led->brightness_work, ath9k_led_brightness_work);
-
-	return ret;
-}
-
-static void ath9k_unregister_led(struct ath_led *led)
-{
-	if (led->registered) {
-		led_classdev_unregister(&led->led_cdev);
-		led->registered = 0;
-	}
-}
-
-void ath9k_deinit_leds(struct ath9k_htc_priv *priv)
-{
-	priv->op_flags |= OP_LED_DEINIT;
-	ath9k_unregister_led(&priv->assoc_led);
-	priv->op_flags &= ~OP_LED_ASSOCIATED;
-	ath9k_unregister_led(&priv->tx_led);
-	ath9k_unregister_led(&priv->rx_led);
-	ath9k_unregister_led(&priv->radio_led);
-}
-
-void ath9k_init_leds(struct ath9k_htc_priv *priv)
-{
-	char *trigger;
-	int ret;
-
-	if (AR_SREV_9287(priv->ah))
-		priv->ah->led_pin = ATH_LED_PIN_9287;
-	else if (AR_SREV_9271(priv->ah))
-		priv->ah->led_pin = ATH_LED_PIN_9271;
-	else if (AR_DEVID_7010(priv->ah))
-		priv->ah->led_pin = ATH_LED_PIN_7010;
-	else
-		priv->ah->led_pin = ATH_LED_PIN_DEF;
-
-	/* Configure gpio 1 for output */
-	ath9k_hw_cfg_output(priv->ah, priv->ah->led_pin,
-			    AR_GPIO_OUTPUT_MUX_AS_OUTPUT);
-	/* LED off, active low */
-	ath9k_hw_set_gpio(priv->ah, priv->ah->led_pin, 1);
-
-	INIT_DELAYED_WORK(&priv->ath9k_led_blink_work, ath9k_led_blink_work);
-
-	trigger = ieee80211_get_radio_led_name(priv->hw);
-	snprintf(priv->radio_led.name, sizeof(priv->radio_led.name),
-		"ath9k-%s::radio", wiphy_name(priv->hw->wiphy));
-	ret = ath9k_register_led(priv, &priv->radio_led, trigger);
-	priv->radio_led.led_type = ATH_LED_RADIO;
-	if (ret)
-		goto fail;
-
-	trigger = ieee80211_get_assoc_led_name(priv->hw);
-	snprintf(priv->assoc_led.name, sizeof(priv->assoc_led.name),
-		"ath9k-%s::assoc", wiphy_name(priv->hw->wiphy));
-	ret = ath9k_register_led(priv, &priv->assoc_led, trigger);
-	priv->assoc_led.led_type = ATH_LED_ASSOC;
-	if (ret)
-		goto fail;
-
-	trigger = ieee80211_get_tx_led_name(priv->hw);
-	snprintf(priv->tx_led.name, sizeof(priv->tx_led.name),
-		"ath9k-%s::tx", wiphy_name(priv->hw->wiphy));
-	ret = ath9k_register_led(priv, &priv->tx_led, trigger);
-	priv->tx_led.led_type = ATH_LED_TX;
-	if (ret)
-		goto fail;
-
-	trigger = ieee80211_get_rx_led_name(priv->hw);
-	snprintf(priv->rx_led.name, sizeof(priv->rx_led.name),
-		"ath9k-%s::rx", wiphy_name(priv->hw->wiphy));
-	ret = ath9k_register_led(priv, &priv->rx_led, trigger);
-	priv->rx_led.led_type = ATH_LED_RX;
-	if (ret)
-		goto fail;
-
-	priv->op_flags &= ~OP_LED_DEINIT;
-
-	return;
-
-fail:
-	cancel_delayed_work_sync(&priv->ath9k_led_blink_work);
-	ath9k_deinit_leds(priv);
-}
-
-/*******************/
-/*	Rfkill	   */
-/*******************/
-
-static bool ath_is_rfkill_set(struct ath9k_htc_priv *priv)
-{
-	return ath9k_hw_gpio_get(priv->ah, priv->ah->rfkill_gpio) ==
-		priv->ah->rfkill_polarity;
-}
-
-static void ath9k_htc_rfkill_poll_state(struct ieee80211_hw *hw)
-{
-	struct ath9k_htc_priv *priv = hw->priv;
-	bool blocked = !!ath_is_rfkill_set(priv);
-
-	wiphy_rfkill_set_hw_state(hw->wiphy, blocked);
-}
-
-void ath9k_start_rfkill_poll(struct ath9k_htc_priv *priv)
-{
-	if (priv->ah->caps.hw_caps & ATH9K_HW_CAP_RFSILENT)
-		wiphy_rfkill_start_polling(priv->hw->wiphy);
-}
-
-static void ath9k_htc_radio_enable(struct ieee80211_hw *hw)
-{
-	struct ath9k_htc_priv *priv = hw->priv;
-	struct ath_hw *ah = priv->ah;
-	struct ath_common *common = ath9k_hw_common(ah);
-	int ret;
-	u8 cmd_rsp;
-
-	if (!ah->curchan)
-		ah->curchan = ath9k_cmn_get_curchannel(hw, ah);
-
-	/* Reset the HW */
-	ret = ath9k_hw_reset(ah, ah->curchan, ah->caldata, false);
-	if (ret) {
-		ath_print(common, ATH_DBG_FATAL,
-			  "Unable to reset hardware; reset status %d "
-			  "(freq %u MHz)\n", ret, ah->curchan->channel);
-	}
-
-	ath_update_txpow(priv);
-
-	/* Start RX */
-	WMI_CMD(WMI_START_RECV_CMDID);
-	ath9k_host_rx_init(priv);
-
-	/* Start TX */
-	htc_start(priv->htc);
-	spin_lock_bh(&priv->tx_lock);
-	priv->tx_queues_stop = false;
-	spin_unlock_bh(&priv->tx_lock);
-	ieee80211_wake_queues(hw);
-
-	WMI_CMD(WMI_ENABLE_INTR_CMDID);
-
-	/* Enable LED */
-	ath9k_hw_cfg_output(ah, ah->led_pin,
-			    AR_GPIO_OUTPUT_MUX_AS_OUTPUT);
-	ath9k_hw_set_gpio(ah, ah->led_pin, 0);
-}
-
-static void ath9k_htc_radio_disable(struct ieee80211_hw *hw)
-{
-	struct ath9k_htc_priv *priv = hw->priv;
-	struct ath_hw *ah = priv->ah;
-	struct ath_common *common = ath9k_hw_common(ah);
-	int ret;
-	u8 cmd_rsp;
-
-	ath9k_htc_ps_wakeup(priv);
-
-	/* Disable LED */
-	ath9k_hw_set_gpio(ah, ah->led_pin, 1);
-	ath9k_hw_cfg_gpio_input(ah, ah->led_pin);
-
-	WMI_CMD(WMI_DISABLE_INTR_CMDID);
-
-	/* Stop TX */
-	ieee80211_stop_queues(hw);
-	htc_stop(priv->htc);
-	WMI_CMD(WMI_DRAIN_TXQ_ALL_CMDID);
-	skb_queue_purge(&priv->tx_queue);
-
-	/* Stop RX */
-	WMI_CMD(WMI_STOP_RECV_CMDID);
-
-	/*
-	 * The MIB counters have to be disabled here,
-	 * since the target doesn't do it.
-	 */
-	ath9k_hw_disable_mib_counters(ah);
-
-	if (!ah->curchan)
-		ah->curchan = ath9k_cmn_get_curchannel(hw, ah);
-
-	/* Reset the HW */
-	ret = ath9k_hw_reset(ah, ah->curchan, ah->caldata, false);
-	if (ret) {
-		ath_print(common, ATH_DBG_FATAL,
-			  "Unable to reset hardware; reset status %d "
-			  "(freq %u MHz)\n", ret, ah->curchan->channel);
-	}
-
-	/* Disable the PHY */
-	ath9k_hw_phy_disable(ah);
-
-	ath9k_htc_ps_restore(priv);
-	ath9k_htc_setpower(priv, ATH9K_PM_FULL_SLEEP);
 }
 
 /**********************/
@@ -1133,15 +932,15 @@ static int ath9k_htc_tx(struct ieee80211_hw *hw, struct sk_buff *skb)
 	ret = ath9k_htc_tx_start(priv, skb);
 	if (ret != 0) {
 		if (ret == -ENOMEM) {
-			ath_print(ath9k_hw_common(priv->ah), ATH_DBG_XMIT,
-				  "Stopping TX queues\n");
+			ath_dbg(ath9k_hw_common(priv->ah), ATH_DBG_XMIT,
+				"Stopping TX queues\n");
 			ieee80211_stop_queues(hw);
 			spin_lock_bh(&priv->tx_lock);
 			priv->tx_queues_stop = true;
 			spin_unlock_bh(&priv->tx_lock);
 		} else {
-			ath_print(ath9k_hw_common(priv->ah), ATH_DBG_XMIT,
-				  "Tx failed");
+			ath_dbg(ath9k_hw_common(priv->ah), ATH_DBG_XMIT,
+				"Tx failed\n");
 		}
 		goto fail_tx;
 	}
@@ -1167,9 +966,9 @@ static int ath9k_htc_start(struct ieee80211_hw *hw)
 
 	mutex_lock(&priv->mutex);
 
-	ath_print(common, ATH_DBG_CONFIG,
-		  "Starting driver with initial channel: %d MHz\n",
-		  curchan->center_freq);
+	ath_dbg(common, ATH_DBG_CONFIG,
+		"Starting driver with initial channel: %d MHz\n",
+		curchan->center_freq);
 
 	/* Ensure that HW is awake before flushing RX */
 	ath9k_htc_setpower(priv, ATH9K_PM_AWAKE);
@@ -1178,15 +977,12 @@ static int ath9k_htc_start(struct ieee80211_hw *hw)
 	/* setup initial channel */
 	init_channel = ath9k_cmn_get_curchannel(hw, ah);
 
-	/* Reset SERDES registers */
-	ath9k_hw_configpcipowersave(ah, 0, 0);
-
 	ath9k_hw_htc_resetinit(ah);
 	ret = ath9k_hw_reset(ah, init_channel, ah->caldata, false);
 	if (ret) {
-		ath_print(common, ATH_DBG_FATAL,
-			  "Unable to reset hardware; reset status %d "
-			  "(freq %u MHz)\n", ret, curchan->center_freq);
+		ath_err(common,
+			"Unable to reset hardware; reset status %d (freq %u MHz)\n",
+			ret, curchan->center_freq);
 		mutex_unlock(&priv->mutex);
 		return ret;
 	}
@@ -1210,6 +1006,12 @@ static int ath9k_htc_start(struct ieee80211_hw *hw)
 
 	ieee80211_wake_queues(hw);
 
+	if (ah->btcoex_hw.scheme == ATH_BTCOEX_CFG_3WIRE) {
+		ath9k_hw_btcoex_set_weight(ah, AR_BT_COEX_WGHT,
+					   AR_STOMP_LOW_WLAN_WGHT);
+		ath9k_hw_btcoex_enable(ah);
+		ath_htc_resume_btcoex_work(priv);
+	}
 	mutex_unlock(&priv->mutex);
 
 	return ret;
@@ -1226,43 +1028,56 @@ static void ath9k_htc_stop(struct ieee80211_hw *hw)
 	mutex_lock(&priv->mutex);
 
 	if (priv->op_flags & OP_INVALID) {
-		ath_print(common, ATH_DBG_ANY, "Device not present\n");
+		ath_dbg(common, ATH_DBG_ANY, "Device not present\n");
 		mutex_unlock(&priv->mutex);
 		return;
 	}
-
-	/* Cancel all the running timers/work .. */
-	cancel_work_sync(&priv->ps_work);
-	cancel_delayed_work_sync(&priv->ath9k_ani_work);
-	cancel_delayed_work_sync(&priv->ath9k_led_blink_work);
-	ath9k_led_stop_brightness(priv);
 
 	ath9k_htc_ps_wakeup(priv);
 	htc_stop(priv->htc);
 	WMI_CMD(WMI_DISABLE_INTR_CMDID);
 	WMI_CMD(WMI_DRAIN_TXQ_ALL_CMDID);
 	WMI_CMD(WMI_STOP_RECV_CMDID);
+
+	tasklet_kill(&priv->swba_tasklet);
+	tasklet_kill(&priv->rx_tasklet);
+	tasklet_kill(&priv->tx_tasklet);
+
 	skb_queue_purge(&priv->tx_queue);
+
+	mutex_unlock(&priv->mutex);
+
+	/* Cancel all the running timers/work .. */
+	cancel_work_sync(&priv->fatal_work);
+	cancel_work_sync(&priv->ps_work);
+	cancel_delayed_work_sync(&priv->ath9k_led_blink_work);
+	ath9k_led_stop_brightness(priv);
+
+	mutex_lock(&priv->mutex);
 
 	/* Remove monitor interface here */
 	if (ah->opmode == NL80211_IFTYPE_MONITOR) {
 		if (ath9k_htc_remove_monitor_interface(priv))
-			ath_print(common, ATH_DBG_FATAL,
-				  "Unable to remove monitor interface\n");
+			ath_err(common, "Unable to remove monitor interface\n");
 		else
-			ath_print(common, ATH_DBG_CONFIG,
-				  "Monitor interface removed\n");
+			ath_dbg(common, ATH_DBG_CONFIG,
+				"Monitor interface removed\n");
+	}
+
+	if (ah->btcoex_hw.enabled) {
+		ath9k_hw_btcoex_disable(ah);
+		if (ah->btcoex_hw.scheme == ATH_BTCOEX_CFG_3WIRE)
+			ath_htc_cancel_btcoex_work(priv);
 	}
 
 	ath9k_hw_phy_disable(ah);
 	ath9k_hw_disable(ah);
-	ath9k_hw_configpcipowersave(ah, 1, 1);
 	ath9k_htc_ps_restore(priv);
 	ath9k_htc_setpower(priv, ATH9K_PM_FULL_SLEEP);
 
 	priv->op_flags |= OP_INVALID;
 
-	ath_print(common, ATH_DBG_CONFIG, "Driver halt\n");
+	ath_dbg(common, ATH_DBG_CONFIG, "Driver halt\n");
 	mutex_unlock(&priv->mutex);
 }
 
@@ -1296,14 +1111,14 @@ static int ath9k_htc_add_interface(struct ieee80211_hw *hw,
 		hvif.opmode = cpu_to_be32(HTC_M_IBSS);
 		break;
 	default:
-		ath_print(common, ATH_DBG_FATAL,
+		ath_err(common,
 			"Interface type %d not yet supported\n", vif->type);
 		ret = -EOPNOTSUPP;
 		goto out;
 	}
 
-	ath_print(common, ATH_DBG_CONFIG,
-		  "Attach a VIF of type: %d\n", vif->type);
+	ath_dbg(common, ATH_DBG_CONFIG,
+		"Attach a VIF of type: %d\n", vif->type);
 
 	priv->ah->opmode = vif->type;
 
@@ -1326,8 +1141,8 @@ static int ath9k_htc_add_interface(struct ieee80211_hw *hw,
 
 	ret = ath9k_htc_update_cap_target(priv);
 	if (ret)
-		ath_print(common, ATH_DBG_CONFIG, "Failed to update"
-			  " capability in target \n");
+		ath_dbg(common, ATH_DBG_CONFIG,
+			"Failed to update capability in target\n");
 
 	priv->vif = vif;
 out:
@@ -1347,7 +1162,7 @@ static void ath9k_htc_remove_interface(struct ieee80211_hw *hw,
 	int ret = 0;
 	u8 cmd_rsp;
 
-	ath_print(common, ATH_DBG_CONFIG, "Detach Interface\n");
+	ath_dbg(common, ATH_DBG_CONFIG, "Detach Interface\n");
 
 	mutex_lock(&priv->mutex);
 	ath9k_htc_ps_wakeup(priv);
@@ -1384,10 +1199,24 @@ static int ath9k_htc_config(struct ieee80211_hw *hw, u32 changed)
 		mutex_unlock(&priv->htc_pm_lock);
 
 		if (enable_radio) {
-			ath_print(common, ATH_DBG_CONFIG,
-				  "not-idle: enabling radio\n");
+			ath_dbg(common, ATH_DBG_CONFIG,
+				"not-idle: enabling radio\n");
 			ath9k_htc_setpower(priv, ATH9K_PM_AWAKE);
 			ath9k_htc_radio_enable(hw);
+		}
+	}
+
+	/*
+	 * Monitor interface should be added before
+	 * IEEE80211_CONF_CHANGE_CHANNEL is handled.
+	 */
+	if (changed & IEEE80211_CONF_CHANGE_MONITOR) {
+		if (conf->flags & IEEE80211_CONF_MONITOR) {
+			if (ath9k_htc_add_monitor_interface(priv))
+				ath_err(common, "Failed to set monitor mode\n");
+			else
+				ath_dbg(common, ATH_DBG_CONFIG,
+					"HW opmode set to Monitor mode\n");
 		}
 	}
 
@@ -1395,19 +1224,21 @@ static int ath9k_htc_config(struct ieee80211_hw *hw, u32 changed)
 		struct ieee80211_channel *curchan = hw->conf.channel;
 		int pos = curchan->hw_value;
 
-		ath_print(common, ATH_DBG_CONFIG, "Set channel: %d MHz\n",
-			  curchan->center_freq);
+		ath_dbg(common, ATH_DBG_CONFIG, "Set channel: %d MHz\n",
+			curchan->center_freq);
 
-		ath9k_cmn_update_ichannel(hw, &priv->ah->channels[pos]);
+		ath9k_cmn_update_ichannel(&priv->ah->channels[pos],
+					  hw->conf.channel,
+					  hw->conf.channel_type);
 
 		if (ath9k_htc_set_channel(priv, hw, &priv->ah->channels[pos]) < 0) {
-			ath_print(common, ATH_DBG_FATAL,
-				  "Unable to set channel\n");
+			ath_err(common, "Unable to set channel\n");
 			mutex_unlock(&priv->mutex);
 			return -EINVAL;
 		}
 
 	}
+
 	if (changed & IEEE80211_CONF_CHANGE_PS) {
 		if (conf->flags & IEEE80211_CONF_PS) {
 			ath9k_htc_setpower(priv, ATH9K_PM_NETWORK_SLEEP);
@@ -1419,15 +1250,9 @@ static int ath9k_htc_config(struct ieee80211_hw *hw, u32 changed)
 		}
 	}
 
-	if (changed & IEEE80211_CONF_CHANGE_MONITOR) {
-		if (conf->flags & IEEE80211_CONF_MONITOR) {
-			if (ath9k_htc_add_monitor_interface(priv))
-				ath_print(common, ATH_DBG_FATAL,
-					  "Failed to set monitor mode\n");
-			else
-				ath_print(common, ATH_DBG_CONFIG,
-					  "HW opmode set to Monitor mode\n");
-		}
+	if (changed & IEEE80211_CONF_CHANGE_POWER) {
+		priv->txpowlimit = 2 * conf->power_level;
+		ath_update_txpow(priv);
 	}
 
 	if (changed & IEEE80211_CONF_CHANGE_IDLE) {
@@ -1438,8 +1263,8 @@ static int ath9k_htc_config(struct ieee80211_hw *hw, u32 changed)
 		}
 		mutex_unlock(&priv->htc_pm_lock);
 
-		ath_print(common, ATH_DBG_CONFIG,
-			  "idle: disabling radio\n");
+		ath_dbg(common, ATH_DBG_CONFIG,
+			"idle: disabling radio\n");
 		ath9k_htc_radio_disable(hw);
 	}
 
@@ -1455,6 +1280,7 @@ out:
 	FIF_PSPOLL |				\
 	FIF_OTHER_BSS |				\
 	FIF_BCN_PRBRESP_PROMISC |		\
+	FIF_PROBE_REQ |				\
 	FIF_FCSFAIL)
 
 static void ath9k_htc_configure_filter(struct ieee80211_hw *hw,
@@ -1475,8 +1301,8 @@ static void ath9k_htc_configure_filter(struct ieee80211_hw *hw,
 	rfilt = ath9k_htc_calcrxfilter(priv);
 	ath9k_hw_setrxfilter(priv->ah, rfilt);
 
-	ath_print(ath9k_hw_common(priv->ah), ATH_DBG_CONFIG,
-		  "Set HW RX filter: 0x%x\n", rfilt);
+	ath_dbg(ath9k_hw_common(priv->ah), ATH_DBG_CONFIG,
+		"Set HW RX filter: 0x%x\n", rfilt);
 
 	ath9k_htc_ps_restore(priv);
 	mutex_unlock(&priv->mutex);
@@ -1539,15 +1365,14 @@ static int ath9k_htc_conf_tx(struct ieee80211_hw *hw, u16 queue,
 
 	qnum = get_hw_qnum(queue, priv->hwq_map);
 
-	ath_print(common, ATH_DBG_CONFIG,
-		  "Configure tx [queue/hwq] [%d/%d],  "
-		  "aifs: %d, cw_min: %d, cw_max: %d, txop: %d\n",
-		  queue, qnum, params->aifs, params->cw_min,
-		  params->cw_max, params->txop);
+	ath_dbg(common, ATH_DBG_CONFIG,
+		"Configure tx [queue/hwq] [%d/%d],  aifs: %d, cw_min: %d, cw_max: %d, txop: %d\n",
+		queue, qnum, params->aifs, params->cw_min,
+		params->cw_max, params->txop);
 
 	ret = ath_htc_txq_update(priv, qnum, &qi);
 	if (ret) {
-		ath_print(common, ATH_DBG_FATAL, "TXQ Update failed\n");
+		ath_err(common, "TXQ Update failed\n");
 		goto out;
 	}
 
@@ -1575,25 +1400,26 @@ static int ath9k_htc_set_key(struct ieee80211_hw *hw,
 		return -ENOSPC;
 
 	mutex_lock(&priv->mutex);
-	ath_print(common, ATH_DBG_CONFIG, "Set HW Key\n");
+	ath_dbg(common, ATH_DBG_CONFIG, "Set HW Key\n");
 	ath9k_htc_ps_wakeup(priv);
 
 	switch (cmd) {
 	case SET_KEY:
-		ret = ath9k_cmn_key_config(common, vif, sta, key);
+		ret = ath_key_config(common, vif, sta, key);
 		if (ret >= 0) {
 			key->hw_key_idx = ret;
 			/* push IV and Michael MIC generation to stack */
 			key->flags |= IEEE80211_KEY_FLAG_GENERATE_IV;
-			if (key->alg == ALG_TKIP)
+			if (key->cipher == WLAN_CIPHER_SUITE_TKIP)
 				key->flags |= IEEE80211_KEY_FLAG_GENERATE_MMIC;
-			if (priv->ah->sw_mgmt_crypto && key->alg == ALG_CCMP)
+			if (priv->ah->sw_mgmt_crypto &&
+			    key->cipher == WLAN_CIPHER_SUITE_CCMP)
 				key->flags |= IEEE80211_KEY_FLAG_SW_MGMT;
 			ret = 0;
 		}
 		break;
 	case DISABLE_KEY:
-		ath9k_cmn_key_delete(common, key);
+		ath_key_delete(common, key);
 		break;
 	default:
 		ret = -EINVAL;
@@ -1620,7 +1446,7 @@ static void ath9k_htc_bss_info_changed(struct ieee80211_hw *hw,
 	if (changed & BSS_CHANGED_ASSOC) {
 		common->curaid = bss_conf->assoc ?
 				 bss_conf->aid : 0;
-		ath_print(common, ATH_DBG_CONFIG, "BSS Changed ASSOC %d\n",
+		ath_dbg(common, ATH_DBG_CONFIG, "BSS Changed ASSOC %d\n",
 			bss_conf->assoc);
 
 		if (bss_conf->assoc) {
@@ -1637,9 +1463,9 @@ static void ath9k_htc_bss_info_changed(struct ieee80211_hw *hw,
 		memcpy(common->curbssid, bss_conf->bssid, ETH_ALEN);
 		ath9k_hw_write_associd(ah);
 
-		ath_print(common, ATH_DBG_CONFIG,
-			  "BSSID: %pM aid: 0x%x\n",
-			  common->curbssid, common->curaid);
+		ath_dbg(common, ATH_DBG_CONFIG,
+			"BSSID: %pM aid: 0x%x\n",
+			common->curbssid, common->curaid);
 	}
 
 	if ((changed & BSS_CHANGED_BEACON_INT) ||
@@ -1657,8 +1483,8 @@ static void ath9k_htc_bss_info_changed(struct ieee80211_hw *hw,
 	}
 
 	if (changed & BSS_CHANGED_ERP_PREAMBLE) {
-		ath_print(common, ATH_DBG_CONFIG, "BSS Changed PREAMBLE %d\n",
-			  bss_conf->use_short_preamble);
+		ath_dbg(common, ATH_DBG_CONFIG, "BSS Changed PREAMBLE %d\n",
+			bss_conf->use_short_preamble);
 		if (bss_conf->use_short_preamble)
 			priv->op_flags |= OP_PREAMBLE_SHORT;
 		else
@@ -1666,8 +1492,8 @@ static void ath9k_htc_bss_info_changed(struct ieee80211_hw *hw,
 	}
 
 	if (changed & BSS_CHANGED_ERP_CTS_PROT) {
-		ath_print(common, ATH_DBG_CONFIG, "BSS Changed CTS PROT %d\n",
-			  bss_conf->use_cts_prot);
+		ath_dbg(common, ATH_DBG_CONFIG, "BSS Changed CTS PROT %d\n",
+			bss_conf->use_cts_prot);
 		if (bss_conf->use_cts_prot &&
 		    hw->conf.channel->band != IEEE80211_BAND_5GHZ)
 			priv->op_flags |= OP_PROTECT_ENABLE;
@@ -1758,8 +1584,7 @@ static int ath9k_htc_ampdu_action(struct ieee80211_hw *hw,
 		spin_unlock_bh(&priv->tx_lock);
 		break;
 	default:
-		ath_print(ath9k_hw_common(priv->ah), ATH_DBG_FATAL,
-			  "Unknown AMPDU action\n");
+		ath_err(ath9k_hw_common(priv->ah), "Unknown AMPDU action\n");
 	}
 
 	return ret;
@@ -1774,7 +1599,8 @@ static void ath9k_htc_sw_scan_start(struct ieee80211_hw *hw)
 	priv->op_flags |= OP_SCANNING;
 	spin_unlock_bh(&priv->beacon_lock);
 	cancel_work_sync(&priv->ps_work);
-	cancel_delayed_work_sync(&priv->ath9k_ani_work);
+	if (priv->op_flags & OP_ASSOCIATED)
+		cancel_delayed_work_sync(&priv->ath9k_ani_work);
 	mutex_unlock(&priv->mutex);
 }
 
@@ -1787,10 +1613,10 @@ static void ath9k_htc_sw_scan_complete(struct ieee80211_hw *hw)
 	spin_lock_bh(&priv->beacon_lock);
 	priv->op_flags &= ~OP_SCANNING;
 	spin_unlock_bh(&priv->beacon_lock);
-	priv->op_flags |= OP_FULL_RESET;
-	if (priv->op_flags & OP_ASSOCIATED)
+	if (priv->op_flags & OP_ASSOCIATED) {
 		ath9k_htc_beacon_config(priv, priv->vif);
-	ath_start_ani(priv);
+		ath_start_ani(priv);
+	}
 	ath9k_htc_ps_restore(priv);
 	mutex_unlock(&priv->mutex);
 }

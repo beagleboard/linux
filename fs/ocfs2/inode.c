@@ -335,6 +335,7 @@ void ocfs2_populate_inode(struct inode *inode, struct ocfs2_dinode *fe,
 		    else
 			    inode->i_fop = &ocfs2_dops_no_plocks;
 		    i_size_write(inode, le64_to_cpu(fe->i_size));
+		    OCFS2_I(inode)->ip_dir_lock_gen = 1;
 		    break;
 	    case S_IFLNK:
 		    if (ocfs2_inode_is_fast_symlink(inode))
@@ -433,7 +434,7 @@ static int ocfs2_read_locked_inode(struct inode *inode,
 	 * #1 and #2 can be simply solved by never taking the lock
 	 * here for system files (which are the only type we read
 	 * during mount). It's a heavier approach, but our main
-	 * concern is user-accesible files anyway.
+	 * concern is user-accessible files anyway.
 	 *
 	 * #3 works itself out because we'll eventually take the
 	 * cluster lock before trusting anything anyway.

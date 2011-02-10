@@ -1,7 +1,7 @@
 /*
  *	intel TCO Watchdog Driver
  *
- *	(c) Copyright 2006-2009 Wim Van Sebroeck <wim@iguana.be>.
+ *	(c) Copyright 2006-2010 Wim Van Sebroeck <wim@iguana.be>.
  *
  *	This program is free software; you can redistribute it and/or
  *	modify it under the terms of the GNU General Public License
@@ -26,12 +26,15 @@
  *	document number 301473-002, 301474-026: 82801F (ICH6)
  *	document number 313082-001, 313075-006: 631xESB, 632xESB
  *	document number 307013-003, 307014-024: 82801G (ICH7)
+ *	document number 322896-001, 322897-001: NM10
  *	document number 313056-003, 313057-017: 82801H (ICH8)
  *	document number 316972-004, 316973-012: 82801I (ICH9)
  *	document number 319973-002, 319974-002: 82801J (ICH10)
  *	document number 322169-001, 322170-003: 5 Series, 3400 Series (PCH)
  *	document number 320066-003, 320257-008: EP80597 (IICH)
- *	document number TBD                   : Cougar Point (CPT)
+ *	document number 324645-001, 324646-001: Cougar Point (CPT)
+ *	document number TBD                   : Patsburg (PBG)
+ *	document number TBD                   : DH89xxCC
  */
 
 /*
@@ -84,6 +87,7 @@ enum iTCO_chipsets {
 	TCO_ICH7DH,	/* ICH7DH */
 	TCO_ICH7M,	/* ICH7-M & ICH7-U */
 	TCO_ICH7MDH,	/* ICH7-M DH */
+	TCO_NM10,	/* NM10 */
 	TCO_ICH8,	/* ICH8 & ICH8R */
 	TCO_ICH8DH,	/* ICH8DH */
 	TCO_ICH8DO,	/* ICH8DO */
@@ -146,6 +150,9 @@ enum iTCO_chipsets {
 	TCO_CPT29,	/* Cougar Point */
 	TCO_CPT30,	/* Cougar Point */
 	TCO_CPT31,	/* Cougar Point */
+	TCO_PBG1,	/* Patsburg */
+	TCO_PBG2,	/* Patsburg */
+	TCO_DH89XXCC,	/* DH89xxCC */
 };
 
 static struct {
@@ -171,6 +178,7 @@ static struct {
 	{"ICH7DH", 2},
 	{"ICH7-M or ICH7-U", 2},
 	{"ICH7-M DH", 2},
+	{"NM10", 2},
 	{"ICH8 or ICH8R", 2},
 	{"ICH8DH", 2},
 	{"ICH8DO", 2},
@@ -233,6 +241,9 @@ static struct {
 	{"Cougar Point", 2},
 	{"Cougar Point", 2},
 	{"Cougar Point", 2},
+	{"Patsburg", 2},
+	{"Patsburg", 2},
+	{"DH89xxCC", 2},
 	{NULL, 0}
 };
 
@@ -286,6 +297,7 @@ static struct pci_device_id iTCO_wdt_pci_tbl[] = {
 	{ ITCO_PCI_DEVICE(PCI_DEVICE_ID_INTEL_ICH7_30,		TCO_ICH7DH)},
 	{ ITCO_PCI_DEVICE(PCI_DEVICE_ID_INTEL_ICH7_1,		TCO_ICH7M)},
 	{ ITCO_PCI_DEVICE(PCI_DEVICE_ID_INTEL_ICH7_31,		TCO_ICH7MDH)},
+	{ ITCO_PCI_DEVICE(0x27bc,				TCO_NM10)},
 	{ ITCO_PCI_DEVICE(PCI_DEVICE_ID_INTEL_ICH8_0,		TCO_ICH8)},
 	{ ITCO_PCI_DEVICE(PCI_DEVICE_ID_INTEL_ICH8_2,		TCO_ICH8DH)},
 	{ ITCO_PCI_DEVICE(PCI_DEVICE_ID_INTEL_ICH8_3,		TCO_ICH8DO)},
@@ -348,6 +360,9 @@ static struct pci_device_id iTCO_wdt_pci_tbl[] = {
 	{ ITCO_PCI_DEVICE(0x1c5d,				TCO_CPT29)},
 	{ ITCO_PCI_DEVICE(0x1c5e,				TCO_CPT30)},
 	{ ITCO_PCI_DEVICE(0x1c5f,				TCO_CPT31)},
+	{ ITCO_PCI_DEVICE(0x1d40,				TCO_PBG1)},
+	{ ITCO_PCI_DEVICE(0x1d41,				TCO_PBG2)},
+	{ ITCO_PCI_DEVICE(0x2310,				TCO_DH89XXCC)},
 	{ 0, },			/* End of list */
 };
 MODULE_DEVICE_TABLE(pci, iTCO_wdt_pci_tbl);
@@ -374,7 +389,7 @@ static char expect_release;
 static struct {		/* this is private data for the iTCO_wdt device */
 	/* TCO version/generation */
 	unsigned int iTCO_version;
-	/* The cards ACPIBASE address (TCOBASE = ACPIBASE+0x60) */
+	/* The device's ACPIBASE address (TCOBASE = ACPIBASE+0x60) */
 	unsigned long ACPIBASE;
 	/* NO_REBOOT flag is Memory-Mapped GCS register bit 5 (TCO version 2)*/
 	unsigned long __iomem *gcs;
@@ -467,7 +482,7 @@ static int iTCO_wdt_start(void)
 	if (iTCO_wdt_unset_NO_REBOOT_bit()) {
 		spin_unlock(&iTCO_wdt_private.io_lock);
 		printk(KERN_ERR PFX "failed to reset NO_REBOOT flag, "
-					"reboot disabled by hardware\n");
+					"reboot disabled by hardware/BIOS\n");
 		return -EIO;
 	}
 
@@ -781,8 +796,8 @@ static int __devinit iTCO_wdt_init(struct pci_dev *pdev,
 	base_address &= 0x0000ff80;
 	if (base_address == 0x00000000) {
 		/* Something's wrong here, ACPIBASE has to be set */
-		printk(KERN_ERR PFX "failed to get TCOBASE address\n");
-		pci_dev_put(pdev);
+		printk(KERN_ERR PFX "failed to get TCOBASE address, "
+					"device disabled by hardware/BIOS\n");
 		return -ENODEV;
 	}
 	iTCO_wdt_private.iTCO_version =
@@ -797,7 +812,8 @@ static int __devinit iTCO_wdt_init(struct pci_dev *pdev,
 	if (iTCO_wdt_private.iTCO_version == 2) {
 		pci_read_config_dword(pdev, 0xf0, &base_address);
 		if ((base_address & 1) == 0) {
-			printk(KERN_ERR PFX "RCBA is disabled by hardware\n");
+			printk(KERN_ERR PFX "RCBA is disabled by hardware"
+						"/BIOS, device disabled\n");
 			ret = -ENODEV;
 			goto out;
 		}
@@ -808,7 +824,7 @@ static int __devinit iTCO_wdt_init(struct pci_dev *pdev,
 	/* Check chipset's NO_REBOOT bit */
 	if (iTCO_wdt_unset_NO_REBOOT_bit() && iTCO_vendor_check_noreboot_on()) {
 		printk(KERN_INFO PFX "unable to reset NO_REBOOT flag, "
-					"platform may have disabled it\n");
+					"device disabled by hardware/BIOS\n");
 		ret = -ENODEV;	/* Cannot reset NO_REBOOT bit */
 		goto out_unmap;
 	}
@@ -819,7 +835,8 @@ static int __devinit iTCO_wdt_init(struct pci_dev *pdev,
 	/* The TCO logic uses the TCO_EN bit in the SMI_EN register */
 	if (!request_region(SMI_EN, 4, "iTCO_wdt")) {
 		printk(KERN_ERR PFX
-			"I/O address 0x%04lx already in use\n", SMI_EN);
+			"I/O address 0x%04lx already in use, "
+						"device disabled\n", SMI_EN);
 		ret = -EIO;
 		goto out_unmap;
 	}
@@ -831,8 +848,8 @@ static int __devinit iTCO_wdt_init(struct pci_dev *pdev,
 	/* The TCO I/O registers reside in a 32-byte range pointed to
 	   by the TCOBASE value */
 	if (!request_region(TCOBASE, 0x20, "iTCO_wdt")) {
-		printk(KERN_ERR PFX "I/O address 0x%04lx already in use\n",
-			TCOBASE);
+		printk(KERN_ERR PFX "I/O address 0x%04lx already in use "
+						"device disabled\n", TCOBASE);
 		ret = -EIO;
 		goto unreg_smi_en;
 	}
@@ -880,7 +897,6 @@ out_unmap:
 	if (iTCO_wdt_private.iTCO_version == 2)
 		iounmap(iTCO_wdt_private.gcs);
 out:
-	pci_dev_put(iTCO_wdt_private.pdev);
 	iTCO_wdt_private.ACPIBASE = 0;
 	return ret;
 }
@@ -921,7 +937,7 @@ static int __devinit iTCO_wdt_probe(struct platform_device *dev)
 	}
 
 	if (!found)
-		printk(KERN_INFO PFX "No card detected\n");
+		printk(KERN_INFO PFX "No device detected.\n");
 
 	return ret;
 }

@@ -1,20 +1,20 @@
 /*
-   tm6000-cards.c - driver for TM5600/TM6000/TM6010 USB video capture devices
-
-   Copyright (C) 2006-2007 Mauro Carvalho Chehab <mchehab@infradead.org>
-
-   This program is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation version 2
-
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
-
-   You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software
-   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *  tm6000-cards.c - driver for TM5600/TM6000/TM6010 USB video capture devices
+ *
+ *  Copyright (C) 2006-2007 Mauro Carvalho Chehab <mchehab@infradead.org>
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation version 2
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
 #include <linux/init.h>
@@ -328,6 +328,47 @@ struct usb_device_id tm6000_id_table[] = {
 	{ },
 };
 
+/* Control power led for show some activity */
+void tm6000_flash_led(struct tm6000_core *dev, u8 state)
+{
+	/* Power LED unconfigured */
+	if (!dev->gpio.power_led)
+		return;
+
+	/* ON Power LED */
+	if (state) {
+		switch (dev->model) {
+		case TM6010_BOARD_HAUPPAUGE_900H:
+		case TM6010_BOARD_TERRATEC_CINERGY_HYBRID_XE:
+		case TM6010_BOARD_TWINHAN_TU501:
+			tm6000_set_reg(dev, REQ_03_SET_GET_MCU_PIN,
+				dev->gpio.power_led, 0x00);
+			break;
+		case TM6010_BOARD_BEHOLD_WANDER:
+		case TM6010_BOARD_BEHOLD_VOYAGER:
+			tm6000_set_reg(dev, REQ_03_SET_GET_MCU_PIN,
+				dev->gpio.power_led, 0x01);
+			break;
+		}
+	}
+	/* OFF Power LED */
+	else {
+		switch (dev->model) {
+		case TM6010_BOARD_HAUPPAUGE_900H:
+		case TM6010_BOARD_TERRATEC_CINERGY_HYBRID_XE:
+		case TM6010_BOARD_TWINHAN_TU501:
+			tm6000_set_reg(dev, REQ_03_SET_GET_MCU_PIN,
+				dev->gpio.power_led, 0x01);
+			break;
+		case TM6010_BOARD_BEHOLD_WANDER:
+		case TM6010_BOARD_BEHOLD_VOYAGER:
+			tm6000_set_reg(dev, REQ_03_SET_GET_MCU_PIN,
+				dev->gpio.power_led, 0x00);
+			break;
+		}
+	}
+}
+
 /* Tuner callback to provide the proper gpio changes needed for xc5000 */
 int tm6000_xc5000_callback(void *ptr, int component, int command, int arg)
 {
@@ -349,7 +390,7 @@ int tm6000_xc5000_callback(void *ptr, int component, int command, int arg)
 			       dev->gpio.tuner_reset, 0x01);
 		break;
 	}
-	return (rc);
+	return rc;
 }
 EXPORT_SYMBOL_GPL(tm6000_xc5000_callback);
 
@@ -521,13 +562,6 @@ int tm6000_cards_setup(struct tm6000_core *dev)
 				printk(KERN_ERR "Error %i doing tuner reset\n", rc);
 				return rc;
 			}
-			msleep(10);
-
-			if (!i) {
-				rc = tm6000_get_reg32(dev, REQ_40_GET_VERSION, 0, 0);
-				if (rc >= 0)
-					printk(KERN_DEBUG "board=0x%08x\n", rc);
-			}
 		}
 	} else {
 		printk(KERN_ERR "Tuner reset is not configured\n");
@@ -545,7 +579,7 @@ static void tm6000_config_tuner(struct tm6000_core *dev)
 
 	/* Load tuner module */
 	v4l2_i2c_new_subdev(&dev->v4l2_dev, &dev->i2c_adap,
-		"tuner", "tuner", dev->tuner_addr, NULL);
+		"tuner", dev->tuner_addr, NULL);
 
 	memset(&tun_setup, 0, sizeof(tun_setup));
 	tun_setup.type = dev->tuner_type;
@@ -683,7 +717,7 @@ static int tm6000_init_dev(struct tm6000_core *dev)
 
 	if (dev->caps.has_tda9874)
 		v4l2_i2c_new_subdev(&dev->v4l2_dev, &dev->i2c_adap,
-			"tvaudio", "tvaudio", I2C_ADDR_TDA9874, NULL);
+			"tvaudio", I2C_ADDR_TDA9874, NULL);
 
 	/* register and initialize V4L2 */
 	rc = tm6000_v4l2_register(dev);
@@ -909,8 +943,6 @@ static void tm6000_usb_disconnect(struct usb_interface *interface)
 
 	printk(KERN_INFO "tm6000: disconnecting %s\n", dev->name);
 
-	mutex_lock(&dev->lock);
-
 	tm6000_ir_fini(dev);
 
 	if (dev->gpio.power_led) {
@@ -945,7 +977,6 @@ static void tm6000_usb_disconnect(struct usb_interface *interface)
 	tm6000_close_extension(dev);
 	tm6000_remove_from_devlist(dev);
 
-	mutex_unlock(&dev->lock);
 	kfree(dev);
 }
 

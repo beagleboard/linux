@@ -209,11 +209,27 @@ cmd_modversions =								\
 endif
 
 ifdef CONFIG_FTRACE_MCOUNT_RECORD
-cmd_record_mcount = set -e ; perl $(srctree)/scripts/recordmcount.pl "$(ARCH)" \
+ifdef BUILD_C_RECORDMCOUNT
+# Due to recursion, we must skip empty.o.
+# The empty.o file is created in the make process in order to determine
+#  the target endianness and word size. It is made before all other C
+#  files, including recordmcount.
+sub_cmd_record_mcount =					\
+	if [ $(@) != "scripts/mod/empty.o" ]; then	\
+		$(objtree)/scripts/recordmcount "$(@)";	\
+	fi;
+else
+sub_cmd_record_mcount = set -e ; perl $(srctree)/scripts/recordmcount.pl "$(ARCH)" \
 	"$(if $(CONFIG_CPU_BIG_ENDIAN),big,little)" \
 	"$(if $(CONFIG_64BIT),64,32)" \
-	"$(OBJDUMP)" "$(OBJCOPY)" "$(CC)" "$(LD)" "$(NM)" "$(RM)" "$(MV)" \
+	"$(OBJDUMP)" "$(OBJCOPY)" "$(CC) $(KBUILD_CFLAGS)" \
+	"$(LD)" "$(NM)" "$(RM)" "$(MV)" \
 	"$(if $(part-of-module),1,0)" "$(@)";
+endif
+cmd_record_mcount = 						\
+	if [ "$(findstring -pg,$(_c_flags))" = "-pg" ]; then	\
+		$(sub_cmd_record_mcount)			\
+	fi;
 endif
 
 define rule_cc_o_c

@@ -133,16 +133,20 @@ __cacheline_aligned_in_smp DEFINE_SPINLOCK(dq_data_lock);
 EXPORT_SYMBOL(dq_data_lock);
 
 void __quota_error(struct super_block *sb, const char *func,
-		  const char *fmt, ...)
+		   const char *fmt, ...)
 {
-	va_list args;
-
 	if (printk_ratelimit()) {
+		va_list args;
+		struct va_format vaf;
+
 		va_start(args, fmt);
-		printk(KERN_ERR "Quota error (device %s): %s: ",
-		       sb->s_id, func);
-		vprintk(fmt, args);
-		printk("\n");
+
+		vaf.fmt = fmt;
+		vaf.va = &args;
+
+		printk(KERN_ERR "Quota error (device %s): %s: %pV\n",
+		       sb->s_id, func, &vaf);
+
 		va_end(args);
 	}
 }
@@ -1386,6 +1390,9 @@ static void __dquot_initialize(struct inode *inode, int type)
 		/* Avoid races with quotaoff() */
 		if (!sb_has_quota_active(sb, cnt))
 			continue;
+		/* We could race with quotaon or dqget() could have failed */
+		if (!got[cnt])
+			continue;
 		if (!inode->i_dquot[cnt]) {
 			inode->i_dquot[cnt] = got[cnt];
 			got[cnt] = NULL;
@@ -1736,6 +1743,7 @@ int __dquot_transfer(struct inode *inode, struct dquot **transfer_to)
 	qsize_t rsv_space = 0;
 	struct dquot *transfer_from[MAXQUOTAS] = {};
 	int cnt, ret = 0;
+	char is_valid[MAXQUOTAS] = {};
 	char warntype_to[MAXQUOTAS];
 	char warntype_from_inodes[MAXQUOTAS], warntype_from_space[MAXQUOTAS];
 
@@ -1757,8 +1765,15 @@ int __dquot_transfer(struct inode *inode, struct dquot **transfer_to)
 	space = cur_space + rsv_space;
 	/* Build the transfer_from list and check the limits */
 	for (cnt = 0; cnt < MAXQUOTAS; cnt++) {
+		/*
+		 * Skip changes for same uid or gid or for turned off quota-type.
+		 */
 		if (!transfer_to[cnt])
 			continue;
+		/* Avoid races with quotaoff() */
+		if (!sb_has_quota_active(inode->i_sb, cnt))
+			continue;
+		is_valid[cnt] = 1;
 		transfer_from[cnt] = inode->i_dquot[cnt];
 		ret = check_idq(transfer_to[cnt], 1, warntype_to + cnt);
 		if (ret)
@@ -1772,12 +1787,8 @@ int __dquot_transfer(struct inode *inode, struct dquot **transfer_to)
 	 * Finally perform the needed transfer from transfer_from to transfer_to
 	 */
 	for (cnt = 0; cnt < MAXQUOTAS; cnt++) {
-		/*
-		 * Skip changes for same uid or gid or for turned off quota-type.
-		 */
-		if (!transfer_to[cnt])
+		if (!is_valid[cnt])
 			continue;
-
 		/* Due to IO error we might not have transfer_from[] structure */
 		if (transfer_from[cnt]) {
 			warntype_from_inodes[cnt] =
@@ -1801,18 +1812,19 @@ int __dquot_transfer(struct inode *inode, struct dquot **transfer_to)
 
 	mark_all_dquot_dirty(transfer_from);
 	mark_all_dquot_dirty(transfer_to);
-	/* Pass back references to put */
-	for (cnt = 0; cnt < MAXQUOTAS; cnt++)
-		transfer_to[cnt] = transfer_from[cnt];
-warn:
 	flush_warnings(transfer_to, warntype_to);
 	flush_warnings(transfer_from, warntype_from_inodes);
 	flush_warnings(transfer_from, warntype_from_space);
-	return ret;
+	/* Pass back references to put */
+	for (cnt = 0; cnt < MAXQUOTAS; cnt++)
+		if (is_valid[cnt])
+			transfer_to[cnt] = transfer_from[cnt];
+	return 0;
 over_quota:
 	spin_unlock(&dq_data_lock);
 	up_write(&sb_dqopt(inode->i_sb)->dqptr_sem);
-	goto warn;
+	flush_warnings(transfer_to, warntype_to);
+	return ret;
 }
 EXPORT_SYMBOL(__dquot_transfer);
 
@@ -2177,8 +2189,8 @@ int dquot_resume(struct super_block *sb, int type)
 }
 EXPORT_SYMBOL(dquot_resume);
 
-int dquot_quota_on_path(struct super_block *sb, int type, int format_id,
-		      struct path *path)
+int dquot_quota_on(struct super_block *sb, int type, int format_id,
+		   struct path *path)
 {
 	int error = security_quota_on(path->dentry);
 	if (error)
@@ -2190,20 +2202,6 @@ int dquot_quota_on_path(struct super_block *sb, int type, int format_id,
 		error = vfs_load_quota_inode(path->dentry->d_inode, type,
 					     format_id, DQUOT_USAGE_ENABLED |
 					     DQUOT_LIMITS_ENABLED);
-	return error;
-}
-EXPORT_SYMBOL(dquot_quota_on_path);
-
-int dquot_quota_on(struct super_block *sb, int type, int format_id, char *name)
-{
-	struct path path;
-	int error;
-
-	error = kern_path(name, LOOKUP_FOLLOW, &path);
-	if (!error) {
-		error = dquot_quota_on_path(sb, type, format_id, &path);
-		path_put(&path);
-	}
 	return error;
 }
 EXPORT_SYMBOL(dquot_quota_on);

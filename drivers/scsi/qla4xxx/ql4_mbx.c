@@ -1,6 +1,6 @@
 /*
  * QLogic iSCSI HBA Driver
- * Copyright (c)  2003-2006 QLogic Corporation
+ * Copyright (c)  2003-2010 QLogic Corporation
  *
  * See LICENSE.qla4xxx for copyright and licensing details.
  */
@@ -81,23 +81,7 @@ int qla4xxx_mailbox_command(struct scsi_qla_host *ha, uint8_t inCount,
 	 */
 	spin_lock_irqsave(&ha->hardware_lock, flags);
 
-	if (is_qla8022(ha)) {
-		intr_status = readl(&ha->qla4_8xxx_reg->host_int);
-		if (intr_status & ISRX_82XX_RISC_INT) {
-			/* Service existing interrupt */
-			DEBUG2(printk("scsi%ld: %s: "
-			    "servicing existing interrupt\n",
-			    ha->host_no, __func__));
-			intr_status = readl(&ha->qla4_8xxx_reg->host_status);
-			ha->isp_ops->interrupt_service_routine(ha, intr_status);
-			clear_bit(AF_MBOX_COMMAND_DONE, &ha->flags);
-			if (test_bit(AF_INTERRUPTS_ON, &ha->flags) &&
-			    test_bit(AF_INTx_ENABLED, &ha->flags))
-				qla4_8xxx_wr_32(ha,
-				    ha->nx_legacy_intr.tgt_mask_reg,
-				    0xfbff);
-		}
-	} else {
+	if (!is_qla8022(ha)) {
 		intr_status = readl(&ha->reg->ctrl_status);
 		if (intr_status & CSR_SCSI_PROCESSOR_INTR) {
 			/* Service existing interrupt */
@@ -299,6 +283,10 @@ qla4xxx_set_ifcb(struct scsi_qla_host *ha, uint32_t *mbox_cmd,
 {
 	memset(mbox_cmd, 0, sizeof(mbox_cmd[0]) * MBOX_REG_COUNT);
 	memset(mbox_sts, 0, sizeof(mbox_sts[0]) * MBOX_REG_COUNT);
+
+	if (is_qla8022(ha))
+		qla4_8xxx_wr_32(ha, ha->nx_db_wr_ptr, 0);
+
 	mbox_cmd[0] = MBOX_CMD_INITIALIZE_FIRMWARE;
 	mbox_cmd[1] = 0;
 	mbox_cmd[2] = LSDW(init_fw_cb_dma);
@@ -472,6 +460,11 @@ int qla4xxx_initialize_fw_cb(struct scsi_qla_host * ha)
 	init_fw_cb->fw_options |=
 		__constant_cpu_to_le16(FWOPT_SESSION_MODE |
 				       FWOPT_INITIATOR_MODE);
+
+	if (is_qla8022(ha))
+		init_fw_cb->fw_options |=
+		    __constant_cpu_to_le16(FWOPT_ENABLE_CRBDB);
+
 	init_fw_cb->fw_options &= __constant_cpu_to_le16(~FWOPT_TARGET_MODE);
 
 	if (qla4xxx_set_ifcb(ha, &mbox_cmd[0], &mbox_sts[0], init_fw_cb_dma)
@@ -592,7 +585,7 @@ int qla4xxx_get_firmware_status(struct scsi_qla_host * ha)
 	}
 
 	ql4_printk(KERN_INFO, ha, "%ld firmare IOCBs available (%d).\n",
-	    ha->host_no, mbox_cmd[2]);
+	    ha->host_no, mbox_sts[2]);
 
 	return QLA_SUCCESS;
 }
@@ -925,7 +918,7 @@ int qla4xxx_abort_task(struct scsi_qla_host *ha, struct srb *srb)
 		return status;
 
 	mbox_cmd[0] = MBOX_CMD_ABORT_TASK;
-	mbox_cmd[1] = srb->fw_ddb_index;
+	mbox_cmd[1] = srb->ddb->fw_ddb_index;
 	mbox_cmd[2] = index;
 	/* Immediate Command Enable */
 	mbox_cmd[5] = 0x01;

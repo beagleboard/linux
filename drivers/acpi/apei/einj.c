@@ -39,7 +39,7 @@
 #define EINJ_PFX "EINJ: "
 
 #define SPIN_UNIT		100			/* 100ns */
-/* Firmware should respond within 1 miliseconds */
+/* Firmware should respond within 1 milliseconds */
 #define FIRMWARE_TIMEOUT	(1 * NSEC_PER_MSEC)
 
 /*
@@ -426,7 +426,9 @@ DEFINE_SIMPLE_ATTRIBUTE(error_inject_fops, NULL,
 
 static int einj_check_table(struct acpi_table_einj *einj_tab)
 {
-	if (einj_tab->header_length != sizeof(struct acpi_table_einj))
+	if ((einj_tab->header_length !=
+	     (sizeof(struct acpi_table_einj) - sizeof(einj_tab->header)))
+	    && (einj_tab->header_length != sizeof(struct acpi_table_einj)))
 		return -EINVAL;
 	if (einj_tab->header.length < sizeof(struct acpi_table_einj))
 		return -EINVAL;

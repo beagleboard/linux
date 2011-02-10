@@ -30,7 +30,6 @@
 #include <linux/fs.h>
 #include <linux/vfs.h>
 #include <linux/slab.h>
-#include <linux/smp_lock.h>
 #include <linux/mutex.h>
 #include <linux/pagemap.h>
 #include <linux/init.h>
@@ -354,8 +353,6 @@ static int squashfs_remount(struct super_block *sb, int *flags, char *data)
 
 static void squashfs_put_super(struct super_block *sb)
 {
-	lock_kernel();
-
 	if (sb->s_fs_info) {
 		struct squashfs_sb_info *sbi = sb->s_fs_info;
 		squashfs_cache_delete(sbi->block_cache);
@@ -370,17 +367,13 @@ static void squashfs_put_super(struct super_block *sb)
 		kfree(sb->s_fs_info);
 		sb->s_fs_info = NULL;
 	}
-
-	unlock_kernel();
 }
 
 
-static int squashfs_get_sb(struct file_system_type *fs_type, int flags,
-				const char *dev_name, void *data,
-				struct vfsmount *mnt)
+static struct dentry *squashfs_mount(struct file_system_type *fs_type, int flags,
+				const char *dev_name, void *data)
 {
-	return get_sb_bdev(fs_type, flags, dev_name, data, squashfs_fill_super,
-				mnt);
+	return mount_bdev(fs_type, flags, dev_name, data, squashfs_fill_super);
 }
 
 
@@ -447,16 +440,23 @@ static struct inode *squashfs_alloc_inode(struct super_block *sb)
 }
 
 
+static void squashfs_i_callback(struct rcu_head *head)
+{
+	struct inode *inode = container_of(head, struct inode, i_rcu);
+	INIT_LIST_HEAD(&inode->i_dentry);
+	kmem_cache_free(squashfs_inode_cachep, squashfs_i(inode));
+}
+
 static void squashfs_destroy_inode(struct inode *inode)
 {
-	kmem_cache_free(squashfs_inode_cachep, squashfs_i(inode));
+	call_rcu(&inode->i_rcu, squashfs_i_callback);
 }
 
 
 static struct file_system_type squashfs_fs_type = {
 	.owner = THIS_MODULE,
 	.name = "squashfs",
-	.get_sb = squashfs_get_sb,
+	.mount = squashfs_mount,
 	.kill_sb = kill_block_super,
 	.fs_flags = FS_REQUIRES_DEV
 };

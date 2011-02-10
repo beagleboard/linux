@@ -35,7 +35,6 @@
 
 #define MAX_UDP_CHUNK 1460
 #define MAX_SKBS 32
-#define MAX_QUEUE_DEPTH (MAX_SKBS / 2)
 
 static struct sk_buff_head skb_pool;
 
@@ -76,8 +75,7 @@ static void queue_process(struct work_struct *work)
 
 		local_irq_save(flags);
 		__netif_tx_lock(txq, smp_processor_id());
-		if (netif_tx_queue_stopped(txq) ||
-		    netif_tx_queue_frozen(txq) ||
+		if (netif_tx_queue_frozen_or_stopped(txq) ||
 		    ops->ndo_start_xmit(skb, dev) != NETDEV_TX_OK) {
 			skb_queue_head(&npinfo->txq, skb);
 			__netif_tx_unlock(txq);
@@ -288,11 +286,11 @@ static int netpoll_owner_active(struct net_device *dev)
 	return 0;
 }
 
-void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb)
+void netpoll_send_skb_on_dev(struct netpoll *np, struct sk_buff *skb,
+			     struct net_device *dev)
 {
 	int status = NETDEV_TX_BUSY;
 	unsigned long tries;
-	struct net_device *dev = np->dev;
 	const struct net_device_ops *ops = dev->netdev_ops;
 	/* It is up to the caller to keep npinfo alive. */
 	struct netpoll_info *npinfo = np->dev->npinfo;
@@ -346,7 +344,7 @@ void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb)
 		schedule_delayed_work(&npinfo->tx_work,0);
 	}
 }
-EXPORT_SYMBOL(netpoll_send_skb);
+EXPORT_SYMBOL(netpoll_send_skb_on_dev);
 
 void netpoll_send_udp(struct netpoll *np, const char *msg, int len)
 {
@@ -925,7 +923,7 @@ void __netpoll_cleanup(struct netpoll *np)
 
 		skb_queue_purge(&npinfo->arp_tx);
 		skb_queue_purge(&npinfo->txq);
-		cancel_rearming_delayed_work(&npinfo->tx_work);
+		cancel_delayed_work_sync(&npinfo->tx_work);
 
 		/* clean after last, unfinished work */
 		__skb_queue_purge(&npinfo->txq);

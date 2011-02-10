@@ -9,12 +9,12 @@
  * (at your option) any later version.
  */
 
-#include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/platform_device.h>
 #include <linux/io.h>
 #include <linux/clk.h>
+#include <linux/err.h>
 
 #include <mach/hardware.h>
 #include <mach/irqs.h>
@@ -22,14 +22,17 @@
 #include <asm/mach/map.h>
 #include <asm/pmu.h>
 
-#include <plat/control.h>
 #include <plat/tc.h>
 #include <plat/board.h>
+#include <plat/mcbsp.h>
 #include <mach/gpio.h>
 #include <plat/mmc.h>
 #include <plat/dma.h>
+#include <plat/omap_hwmod.h>
+#include <plat/omap_device.h>
 
 #include "mux.h"
+#include "control.h"
 
 #if defined(CONFIG_VIDEO_OMAP2) || defined(CONFIG_VIDEO_OMAP2_MODULE)
 
@@ -234,6 +237,43 @@ static inline void omap_init_mbox(void) { }
 #endif /* CONFIG_OMAP_MBOX_FWK */
 
 static inline void omap_init_sti(void) {}
+
+#if defined(CONFIG_SND_SOC) || defined(CONFIG_SND_SOC_MODULE)
+
+static struct platform_device omap_pcm = {
+	.name	= "omap-pcm-audio",
+	.id	= -1,
+};
+
+/*
+ * OMAP2420 has 2 McBSP ports
+ * OMAP2430 has 5 McBSP ports
+ * OMAP3 has 5 McBSP ports
+ * OMAP4 has 4 McBSP ports
+ */
+OMAP_MCBSP_PLATFORM_DEVICE(1);
+OMAP_MCBSP_PLATFORM_DEVICE(2);
+OMAP_MCBSP_PLATFORM_DEVICE(3);
+OMAP_MCBSP_PLATFORM_DEVICE(4);
+OMAP_MCBSP_PLATFORM_DEVICE(5);
+
+static void omap_init_audio(void)
+{
+	platform_device_register(&omap_mcbsp1);
+	platform_device_register(&omap_mcbsp2);
+	if (cpu_is_omap243x() || cpu_is_omap34xx() || cpu_is_omap44xx()) {
+		platform_device_register(&omap_mcbsp3);
+		platform_device_register(&omap_mcbsp4);
+	}
+	if (cpu_is_omap243x() || cpu_is_omap34xx())
+		platform_device_register(&omap_mcbsp5);
+
+	platform_device_register(&omap_pcm);
+}
+
+#else
+static inline void omap_init_audio(void) {}
+#endif
 
 #if defined(CONFIG_SPI_OMAP24XX) || defined(CONFIG_SPI_OMAP24XX_MODULE)
 
@@ -598,6 +638,7 @@ static struct platform_device dummy_pdev = {
 static void __init omap_hsmmc_reset(void)
 {
 	u32 i, nr_controllers;
+	struct clk *iclk, *fclk;
 
 	if (cpu_is_omap242x())
 		return;
@@ -607,7 +648,6 @@ static void __init omap_hsmmc_reset(void)
 
 	for (i = 0; i < nr_controllers; i++) {
 		u32 v, base = 0;
-		struct clk *iclk, *fclk;
 		struct device *dev = &dummy_pdev.dev;
 
 		switch (i) {
@@ -638,19 +678,16 @@ static void __init omap_hsmmc_reset(void)
 		dummy_pdev.id = i;
 		dev_set_name(&dummy_pdev.dev, "mmci-omap-hs.%d", i);
 		iclk = clk_get(dev, "ick");
-		if (iclk && clk_enable(iclk))
-			iclk = NULL;
+		if (IS_ERR(iclk))
+			goto err1;
+		if (clk_enable(iclk))
+			goto err2;
 
 		fclk = clk_get(dev, "fck");
-		if (fclk && clk_enable(fclk))
-			fclk = NULL;
-
-		if (!iclk || !fclk) {
-			printk(KERN_WARNING
-			       "%s: Unable to enable clocks for MMC%d, "
-			       "cannot reset.\n",  __func__, i);
-			break;
-		}
+		if (IS_ERR(fclk))
+			goto err3;
+		if (clk_enable(fclk))
+			goto err4;
 
 		omap_writel(MMCHS_SYSCONFIG_SWRESET, base + MMCHS_SYSCONFIG);
 		v = omap_readl(base + MMCHS_SYSSTATUS);
@@ -658,15 +695,22 @@ static void __init omap_hsmmc_reset(void)
 			 MMCHS_SYSSTATUS_RESETDONE))
 			cpu_relax();
 
-		if (fclk) {
-			clk_disable(fclk);
-			clk_put(fclk);
-		}
-		if (iclk) {
-			clk_disable(iclk);
-			clk_put(iclk);
-		}
+		clk_disable(fclk);
+		clk_put(fclk);
+		clk_disable(iclk);
+		clk_put(iclk);
 	}
+	return;
+
+err4:
+	clk_put(fclk);
+err3:
+	clk_disable(iclk);
+err2:
+	clk_put(iclk);
+err1:
+	printk(KERN_WARNING "%s: Unable to enable clocks for MMC%d, "
+			    "cannot reset.\n",  __func__, i);
 }
 #else
 static inline void omap_hsmmc_reset(void) {}
@@ -817,13 +861,13 @@ void __init omap2_init_mmc(struct omap_mmc_platform_data **mmc_data,
 		case 3:
 			if (!cpu_is_omap44xx())
 				return;
-			base = OMAP4_MMC4_BASE + OMAP4_MMC_REG_OFFSET;
+			base = OMAP4_MMC4_BASE;
 			irq = OMAP44XX_IRQ_MMC4;
 			break;
 		case 4:
 			if (!cpu_is_omap44xx())
 				return;
-			base = OMAP4_MMC5_BASE + OMAP4_MMC_REG_OFFSET;
+			base = OMAP4_MMC5_BASE;
 			irq = OMAP44XX_IRQ_MMC5;
 			break;
 		default:
@@ -834,10 +878,8 @@ void __init omap2_init_mmc(struct omap_mmc_platform_data **mmc_data,
 			size = OMAP2420_MMC_SIZE;
 			name = "mmci-omap";
 		} else if (cpu_is_omap44xx()) {
-			if (i < 3) {
-				base += OMAP4_MMC_REG_OFFSET;
+			if (i < 3)
 				irq += OMAP44XX_IRQ_GIC_START;
-			}
 			size = OMAP4_HSMMC_SIZE;
 			name = "mmci-omap-hs";
 		} else {
@@ -915,10 +957,12 @@ static inline void omap_init_vout(void) {}
 
 static int __init omap2_init_devices(void)
 {
-	/* please keep these calls, and their implementations above,
+	/*
+	 * please keep these calls, and their implementations above,
 	 * in alphabetical order so they're easier to sort through.
 	 */
 	omap_hsmmc_reset();
+	omap_init_audio();
 	omap_init_camera();
 	omap_init_mbox();
 	omap_init_mcspi();
@@ -932,3 +976,39 @@ static int __init omap2_init_devices(void)
 	return 0;
 }
 arch_initcall(omap2_init_devices);
+
+#if defined(CONFIG_OMAP_WATCHDOG) || defined(CONFIG_OMAP_WATCHDOG_MODULE)
+static struct omap_device_pm_latency omap_wdt_latency[] = {
+	[0] = {
+		.deactivate_func = omap_device_idle_hwmods,
+		.activate_func   = omap_device_enable_hwmods,
+		.flags		 = OMAP_DEVICE_LATENCY_AUTO_ADJUST,
+	},
+};
+
+static int __init omap_init_wdt(void)
+{
+	int id = -1;
+	struct omap_device *od;
+	struct omap_hwmod *oh;
+	char *oh_name = "wd_timer2";
+	char *dev_name = "omap_wdt";
+
+	if (!cpu_class_is_omap2())
+		return 0;
+
+	oh = omap_hwmod_lookup(oh_name);
+	if (!oh) {
+		pr_err("Could not look up wd_timer%d hwmod\n", id);
+		return -EINVAL;
+	}
+
+	od = omap_device_build(dev_name, id, oh, NULL, 0,
+				omap_wdt_latency,
+				ARRAY_SIZE(omap_wdt_latency), 0);
+	WARN(IS_ERR(od), "Cant build omap_device for %s:%s.\n",
+				dev_name, oh->name);
+	return 0;
+}
+subsys_initcall(omap_init_wdt);
+#endif

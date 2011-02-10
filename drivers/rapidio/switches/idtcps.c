@@ -126,6 +126,12 @@ static int idtcps_switch_init(struct rio_dev *rdev, int do_enum)
 	rdev->rswitch->em_init = NULL;
 	rdev->rswitch->em_handle = NULL;
 
+	if (do_enum) {
+		/* set TVAL = ~50us */
+		rio_write_config_32(rdev,
+			rdev->phys_efptr + RIO_PORT_LINKTO_CTL_CSR, 0x8e << 8);
+	}
+
 	return 0;
 }
 

@@ -93,8 +93,13 @@ static struct mfd_cell rtc_devs[] = {
 static struct resource onkey_resources[] = {
 	{
 		.name	= "max8925-onkey",
-		.start	= MAX8925_IRQ_GPM_SW_3SEC,
-		.end	= MAX8925_IRQ_GPM_SW_3SEC,
+		.start	= MAX8925_IRQ_GPM_SW_R,
+		.end	= MAX8925_IRQ_GPM_SW_R,
+		.flags	= IORESOURCE_IRQ,
+	}, {
+		.name	= "max8925-onkey",
+		.start	= MAX8925_IRQ_GPM_SW_F,
+		.end	= MAX8925_IRQ_GPM_SW_F,
 		.flags	= IORESOURCE_IRQ,
 	},
 };
@@ -102,7 +107,7 @@ static struct resource onkey_resources[] = {
 static struct mfd_cell onkey_devs[] = {
 	{
 		.name		= "max8925-onkey",
-		.num_resources	= 1,
+		.num_resources	= 2,
 		.resources	= &onkey_resources[0],
 		.id		= -1,
 	},
@@ -402,16 +407,16 @@ static irqreturn_t max8925_tsc_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-static void max8925_irq_lock(unsigned int irq)
+static void max8925_irq_lock(struct irq_data *data)
 {
-	struct max8925_chip *chip = get_irq_chip_data(irq);
+	struct max8925_chip *chip = irq_data_get_irq_chip_data(data);
 
 	mutex_lock(&chip->irq_lock);
 }
 
-static void max8925_irq_sync_unlock(unsigned int irq)
+static void max8925_irq_sync_unlock(struct irq_data *data)
 {
-	struct max8925_chip *chip = get_irq_chip_data(irq);
+	struct max8925_chip *chip = irq_data_get_irq_chip_data(data);
 	struct max8925_irq_data *irq_data;
 	static unsigned char cache_chg[2] = {0xff, 0xff};
 	static unsigned char cache_on[2] = {0xff, 0xff};
@@ -429,24 +434,25 @@ static void max8925_irq_sync_unlock(unsigned int irq)
 	irq_tsc = cache_tsc;
 	for (i = 0; i < ARRAY_SIZE(max8925_irqs); i++) {
 		irq_data = &max8925_irqs[i];
+		/* 1 -- disable, 0 -- enable */
 		switch (irq_data->mask_reg) {
 		case MAX8925_CHG_IRQ1_MASK:
-			irq_chg[0] &= irq_data->enable;
+			irq_chg[0] &= ~irq_data->enable;
 			break;
 		case MAX8925_CHG_IRQ2_MASK:
-			irq_chg[1] &= irq_data->enable;
+			irq_chg[1] &= ~irq_data->enable;
 			break;
 		case MAX8925_ON_OFF_IRQ1_MASK:
-			irq_on[0] &= irq_data->enable;
+			irq_on[0] &= ~irq_data->enable;
 			break;
 		case MAX8925_ON_OFF_IRQ2_MASK:
-			irq_on[1] &= irq_data->enable;
+			irq_on[1] &= ~irq_data->enable;
 			break;
 		case MAX8925_RTC_IRQ_MASK:
-			irq_rtc &= irq_data->enable;
+			irq_rtc &= ~irq_data->enable;
 			break;
 		case MAX8925_TSC_IRQ_MASK:
-			irq_tsc &= irq_data->enable;
+			irq_tsc &= ~irq_data->enable;
 			break;
 		default:
 			dev_err(chip->dev, "wrong IRQ\n");
@@ -486,25 +492,25 @@ static void max8925_irq_sync_unlock(unsigned int irq)
 	mutex_unlock(&chip->irq_lock);
 }
 
-static void max8925_irq_enable(unsigned int irq)
+static void max8925_irq_enable(struct irq_data *data)
 {
-	struct max8925_chip *chip = get_irq_chip_data(irq);
-	max8925_irqs[irq - chip->irq_base].enable
-		= max8925_irqs[irq - chip->irq_base].offs;
+	struct max8925_chip *chip = irq_data_get_irq_chip_data(data);
+	max8925_irqs[data->irq - chip->irq_base].enable
+		= max8925_irqs[data->irq - chip->irq_base].offs;
 }
 
-static void max8925_irq_disable(unsigned int irq)
+static void max8925_irq_disable(struct irq_data *data)
 {
-	struct max8925_chip *chip = get_irq_chip_data(irq);
-	max8925_irqs[irq - chip->irq_base].enable = 0;
+	struct max8925_chip *chip = irq_data_get_irq_chip_data(data);
+	max8925_irqs[data->irq - chip->irq_base].enable = 0;
 }
 
 static struct irq_chip max8925_irq_chip = {
 	.name		= "max8925",
-	.bus_lock	= max8925_irq_lock,
-	.bus_sync_unlock = max8925_irq_sync_unlock,
-	.enable		= max8925_irq_enable,
-	.disable	= max8925_irq_disable,
+	.irq_bus_lock	= max8925_irq_lock,
+	.irq_bus_sync_unlock = max8925_irq_sync_unlock,
+	.irq_enable	= max8925_irq_enable,
+	.irq_disable	= max8925_irq_disable,
 };
 
 static int max8925_irq_init(struct max8925_chip *chip, int irq,

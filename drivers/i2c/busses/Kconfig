@@ -95,10 +95,11 @@ config I2C_I801
 	    ESB2
 	    ICH8
 	    ICH9
-	    Tolapai
+	    EP80579 (Tolapai)
 	    ICH10
-	    3400/5 Series (PCH)
+	    5/3400 Series (PCH)
 	    Cougar Point (PCH)
+	    Patsburg (PCH)
 
 	  This driver can also be built as a module.  If so, the module
 	  will be called i2c-i801.
@@ -396,6 +397,16 @@ config I2C_IMX
 	  This driver can also be built as a module.  If so, the module
 	  will be called i2c-imx.
 
+config I2C_INTEL_MID
+	tristate "Intel Moorestown/Medfield Platform I2C controller"
+	depends on PCI
+	help
+	  Say Y here if you have an Intel Moorestown/Medfield platform I2C
+	  controller.
+
+	  This support is also available as a module. If so, the module
+	  will be called i2c-intel-mid.
+
 config I2C_IOP3XX
 	tristate "Intel IOPx3xx and IXP4xx on-chip I2C interface"
 	depends on ARCH_IOP32X || ARCH_IOP33X || ARCH_IXP4XX || ARCH_IOP13XX
@@ -626,6 +637,14 @@ config I2C_XILINX
 
 	  This driver can also be built as a module.  If so, the module
 	  will be called xilinx_i2c.
+
+config I2C_EG20T
+        tristate "PCH I2C of Intel EG20T"
+        depends on PCI
+        help
+          This driver is for PCH(Platform controller Hub) I2C of EG20T which
+          is an IOH(Input/Output Hub) for x86 embedded processor.
+          This driver can access PCH I2C bus device.
 
 comment "External I2C/SMBus adapter drivers"
 

@@ -93,6 +93,9 @@ extern u8 acpi_sci_flags;
 extern int acpi_sci_override_gsi;
 void acpi_pic_sci_set_trigger(unsigned int, u16);
 
+extern int (*__acpi_register_gsi)(struct device *dev, u32 gsi,
+				  int trigger, int polarity);
+
 static inline void disable_acpi(void)
 {
 	acpi_disabled = 1;
@@ -182,17 +185,16 @@ struct bootnode;
 
 #ifdef CONFIG_ACPI_NUMA
 extern int acpi_numa;
-extern int acpi_get_nodes(struct bootnode *physnodes);
+extern void acpi_get_nodes(struct bootnode *physnodes, unsigned long start,
+				unsigned long end);
 extern int acpi_scan_nodes(unsigned long start, unsigned long end);
 #define NR_NODE_MEMBLKS (MAX_NUMNODES*2)
+
+#ifdef CONFIG_NUMA_EMU
 extern void acpi_fake_nodes(const struct bootnode *fake_nodes,
 				   int num_nodes);
-#else
-static inline void acpi_fake_nodes(const struct bootnode *fake_nodes,
-				   int num_nodes)
-{
-}
 #endif
+#endif /* CONFIG_ACPI_NUMA */
 
 #define acpi_unlazy_tlb(x)	leave_mm(x)
 

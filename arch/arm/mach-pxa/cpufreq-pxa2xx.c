@@ -38,8 +38,10 @@
 #include <linux/cpufreq.h>
 #include <linux/err.h>
 #include <linux/regulator/consumer.h>
+#include <linux/io.h>
 
 #include <mach/pxa2xx-regs.h>
+#include <mach/smemc.h>
 
 #ifdef DEBUG
 static unsigned int freq_debug;
@@ -242,7 +244,7 @@ static void pxa27x_guess_max_freq(void)
 
 static void init_sdram_rows(void)
 {
-	uint32_t mdcnfg = MDCNFG;
+	uint32_t mdcnfg = __raw_readl(MDCNFG);
 	unsigned int drac2 = 0, drac0 = 0;
 
 	if (mdcnfg & (MDCNFG_DE2 | MDCNFG_DE3))
@@ -312,8 +314,7 @@ static int pxa_set_target(struct cpufreq_policy *policy,
 	freqs.cpu = policy->cpu;
 
 	if (freq_debug)
-		pr_debug(KERN_INFO "Changing CPU frequency to %d Mhz, "
-			 "(SDRAM %d Mhz)\n",
+		pr_debug("Changing CPU frequency to %d Mhz, (SDRAM %d Mhz)\n",
 			 freqs.new / 1000, (pxa_freq_settings[idx].div2) ?
 			 (new_freq_mem / 2000) : (new_freq_mem / 1000));
 
@@ -332,8 +333,8 @@ static int pxa_set_target(struct cpufreq_policy *policy,
 	 * we need to preset the smaller DRI before the change.	 If we're
 	 * speeding up we need to set the larger DRI value after the change.
 	 */
-	preset_mdrefr = postset_mdrefr = MDREFR;
-	if ((MDREFR & MDREFR_DRI_MASK) > mdrefr_dri(new_freq_mem)) {
+	preset_mdrefr = postset_mdrefr = __raw_readl(MDREFR);
+	if ((preset_mdrefr & MDREFR_DRI_MASK) > mdrefr_dri(new_freq_mem)) {
 		preset_mdrefr = (preset_mdrefr & ~MDREFR_DRI_MASK);
 		preset_mdrefr |= mdrefr_dri(new_freq_mem);
 	}
@@ -371,7 +372,7 @@ static int pxa_set_target(struct cpufreq_policy *policy,
 3:		nop							\n\
 	  "
 		     : "=&r" (unused)
-		     : "r" (&MDREFR), "r" (cclkcfg),
+		     : "r" (MDREFR), "r" (cclkcfg),
 		       "r" (preset_mdrefr), "r" (postset_mdrefr)
 		     : "r4", "r5");
 	local_irq_restore(flags);

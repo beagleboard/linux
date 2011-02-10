@@ -42,11 +42,12 @@
 #include <mach/board-zoom.h>
 
 #include <asm/delay.h>
-#include <plat/control.h>
 #include <plat/usb.h>
 
+#include "board-flash.h"
 #include "mux.h"
 #include "hsmmc.h"
+#include "control.h"
 
 #define LDP_SMSC911X_CS		1
 #define LDP_SMSC911X_GPIO	152
@@ -83,7 +84,7 @@ static struct platform_device ldp_smsc911x_device = {
 	},
 };
 
-static int board_keymap[] = {
+static uint32_t board_keymap[] = {
 	KEY(0, 0, KEY_1),
 	KEY(1, 0, KEY_2),
 	KEY(2, 0, KEY_3),
@@ -291,10 +292,9 @@ static void __init omap_ldp_init_irq(void)
 {
 	omap_board_config = ldp_config;
 	omap_board_config_size = ARRAY_SIZE(ldp_config);
-	omap2_init_common_hw(NULL, NULL);
+	omap2_init_common_infrastructure();
+	omap2_init_common_devices(NULL, NULL);
 	omap_init_irq();
-	omap_gpio_init();
-	ldp_init_smsc911x();
 }
 
 static struct twl4030_usb_data ldp_usb_data = {
@@ -380,8 +380,6 @@ static struct platform_device *ldp_devices[] __initdata = {
 static struct omap_board_mux board_mux[] __initdata = {
 	{ .reg_offset = OMAP_MUX_TERMINATOR },
 };
-#else
-#define board_mux	NULL
 #endif
 
 static struct omap_musb_board_data musb_board_data = {
@@ -425,6 +423,7 @@ static struct mtd_partition ldp_nand_partitions[] = {
 static void __init omap_ldp_init(void)
 {
 	omap3_mux_init(board_mux, OMAP_PACKAGE_CBB);
+	ldp_init_smsc911x();
 	omap_i2c_init();
 	platform_add_devices(ldp_devices, ARRAY_SIZE(ldp_devices));
 	ts_gpio = 54;
@@ -443,8 +442,6 @@ static void __init omap_ldp_init(void)
 }
 
 MACHINE_START(OMAP_LDP, "OMAP LDP board")
-	.phys_io	= 0x48000000,
-	.io_pg_offst	= ((0xfa000000) >> 18) & 0xfffc,
 	.boot_params	= 0x80000100,
 	.map_io		= omap3_map_io,
 	.reserve	= omap_reserve,

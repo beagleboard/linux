@@ -1,25 +1,8 @@
 /*
- * Copyright (C) 2009 - QLogic Corporation.
- * All rights reserved.
+ * QLogic qlcnic NIC Driver
+ * Copyright (c)  2009-2010 QLogic Corporation
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston,
- * MA  02111-1307, USA.
- *
- * The full GNU General Public License is included in this distribution
- * in the file called "COPYING".
- *
+ * See LICENSE.qlcnic for copyright and licensing details.
  */
 
 #ifndef _QLCNIC_H_
@@ -51,9 +34,11 @@
 
 #define _QLCNIC_LINUX_MAJOR 5
 #define _QLCNIC_LINUX_MINOR 0
-#define _QLCNIC_LINUX_SUBVERSION 7
-#define QLCNIC_LINUX_VERSIONID  "5.0.7"
+#define _QLCNIC_LINUX_SUBVERSION 15
+#define QLCNIC_LINUX_VERSIONID  "5.0.15"
 #define QLCNIC_DRV_IDC_VER  0x01
+#define QLCNIC_DRIVER_VERSION  ((_QLCNIC_LINUX_MAJOR << 16) |\
+		 (_QLCNIC_LINUX_MINOR << 8) | (_QLCNIC_LINUX_SUBVERSION))
 
 #define QLCNIC_VERSION_CODE(a, b, c)	(((a) << 24) + ((b) << 16) + (c))
 #define _major(v)	(((v) >> 24) & 0xff)
@@ -92,11 +77,12 @@
 #define FIRST_PAGE_GROUP_START	0
 #define FIRST_PAGE_GROUP_END	0x100000
 
-#define P3_MAX_MTU                     (9600)
+#define P3P_MAX_MTU                     (9600)
+#define P3P_MIN_MTU                     (68)
 #define QLCNIC_MAX_ETHERHDR                32 /* This contains some padding */
 
-#define QLCNIC_P3_RX_BUF_MAX_LEN         (QLCNIC_MAX_ETHERHDR + ETH_DATA_LEN)
-#define QLCNIC_P3_RX_JUMBO_BUF_MAX_LEN   (QLCNIC_MAX_ETHERHDR + P3_MAX_MTU)
+#define QLCNIC_P3P_RX_BUF_MAX_LEN         (QLCNIC_MAX_ETHERHDR + ETH_DATA_LEN)
+#define QLCNIC_P3P_RX_JUMBO_BUF_MAX_LEN   (QLCNIC_MAX_ETHERHDR + P3P_MAX_MTU)
 #define QLCNIC_CT_DEFAULT_RX_BUF_LEN	2048
 #define QLCNIC_LRO_BUFFER_EXTRA		2048
 
@@ -143,11 +129,14 @@
 #define MAX_CMD_DESCRIPTORS		1024
 #define MAX_RCV_DESCRIPTORS_1G		4096
 #define MAX_RCV_DESCRIPTORS_10G 	8192
+#define MAX_RCV_DESCRIPTORS_VF		2048
 #define MAX_JUMBO_RCV_DESCRIPTORS_1G	512
 #define MAX_JUMBO_RCV_DESCRIPTORS_10G	1024
 
 #define DEFAULT_RCV_DESCRIPTORS_1G	2048
 #define DEFAULT_RCV_DESCRIPTORS_10G	4096
+#define DEFAULT_RCV_DESCRIPTORS_VF	1024
+#define MAX_RDS_RINGS                   2
 
 #define get_next_index(index, length)	\
 	(((index) + 1) & ((length) - 1))
@@ -172,7 +161,7 @@
 	((_desc)->port_ctxid = ((_port) & 0xf) | (((_port) << 4) & 0xf0))
 
 #define qlcnic_set_tx_flags_opcode(_desc, _flags, _opcode) \
-	((_desc)->flags_opcode = \
+	((_desc)->flags_opcode |= \
 	cpu_to_le16(((_flags) & 0x7f) | (((_opcode) & 0x3f) << 7)))
 
 #define qlcnic_set_tx_frags_len(_desc, _frags, _len) \
@@ -221,7 +210,8 @@ struct rcv_desc {
 #define QLCNIC_LRO_DESC  	0x12
 
 /* for status field in status_desc */
-#define STATUS_CKSUM_OK		(2)
+#define STATUS_CKSUM_LOOP	0
+#define STATUS_CKSUM_OK		2
 
 /* owner bits of status_desc */
 #define STATUS_OWNER_HOST	(0x1ULL << 56)
@@ -299,23 +289,43 @@ struct uni_data_desc{
 	u32	reserved[5];
 };
 
+/* Flash Defines and Structures */
+#define QLCNIC_FLT_LOCATION	0x3F1000
+#define QLCNIC_FW_IMAGE_REGION	0x74
+struct qlcnic_flt_header {
+	u16 version;
+	u16 len;
+	u16 checksum;
+	u16 reserved;
+};
+
+struct qlcnic_flt_entry {
+	u8 region;
+	u8 reserved0;
+	u8 attrib;
+	u8 reserved1;
+	u32 size;
+	u32 start_addr;
+	u32 end_add;
+};
+
 /* Magic number to let user know flash is programmed */
 #define	QLCNIC_BDINFO_MAGIC 0x12345678
 
-#define QLCNIC_BRDTYPE_P3_REF_QG	0x0021
-#define QLCNIC_BRDTYPE_P3_HMEZ		0x0022
-#define QLCNIC_BRDTYPE_P3_10G_CX4_LP	0x0023
-#define QLCNIC_BRDTYPE_P3_4_GB		0x0024
-#define QLCNIC_BRDTYPE_P3_IMEZ		0x0025
-#define QLCNIC_BRDTYPE_P3_10G_SFP_PLUS	0x0026
-#define QLCNIC_BRDTYPE_P3_10000_BASE_T	0x0027
-#define QLCNIC_BRDTYPE_P3_XG_LOM	0x0028
-#define QLCNIC_BRDTYPE_P3_4_GB_MM	0x0029
-#define QLCNIC_BRDTYPE_P3_10G_SFP_CT	0x002a
-#define QLCNIC_BRDTYPE_P3_10G_SFP_QT	0x002b
-#define QLCNIC_BRDTYPE_P3_10G_CX4	0x0031
-#define QLCNIC_BRDTYPE_P3_10G_XFP	0x0032
-#define QLCNIC_BRDTYPE_P3_10G_TP	0x0080
+#define QLCNIC_BRDTYPE_P3P_REF_QG	0x0021
+#define QLCNIC_BRDTYPE_P3P_HMEZ		0x0022
+#define QLCNIC_BRDTYPE_P3P_10G_CX4_LP	0x0023
+#define QLCNIC_BRDTYPE_P3P_4_GB		0x0024
+#define QLCNIC_BRDTYPE_P3P_IMEZ		0x0025
+#define QLCNIC_BRDTYPE_P3P_10G_SFP_PLUS	0x0026
+#define QLCNIC_BRDTYPE_P3P_10000_BASE_T	0x0027
+#define QLCNIC_BRDTYPE_P3P_XG_LOM	0x0028
+#define QLCNIC_BRDTYPE_P3P_4_GB_MM	0x0029
+#define QLCNIC_BRDTYPE_P3P_10G_SFP_CT	0x002a
+#define QLCNIC_BRDTYPE_P3P_10G_SFP_QT	0x002b
+#define QLCNIC_BRDTYPE_P3P_10G_CX4	0x0031
+#define QLCNIC_BRDTYPE_P3P_10G_XFP	0x0032
+#define QLCNIC_BRDTYPE_P3P_10G_TP	0x0080
 
 #define QLCNIC_MSIX_TABLE_OFFSET	0x44
 
@@ -555,6 +565,8 @@ struct qlcnic_recv_context {
 #define QLCNIC_CDRP_CMD_GET_ESWITCH_STATUS	0x00000026
 #define QLCNIC_CDRP_CMD_SET_PORTMIRRORING	0x00000027
 #define QLCNIC_CDRP_CMD_CONFIGURE_ESWITCH	0x00000028
+#define QLCNIC_CDRP_CMD_GET_ESWITCH_PORT_CONFIG	0x00000029
+#define QLCNIC_CDRP_CMD_GET_ESWITCH_STATS	0x0000002a
 
 #define QLCNIC_RCODE_SUCCESS		0
 #define QLCNIC_RCODE_TIMEOUT		17
@@ -712,11 +724,13 @@ struct qlcnic_cardrsp_tx_ctx {
 
 /* MAC */
 
-#define MC_COUNT_P3	38
+#define MC_COUNT_P3P	38
 
 #define QLCNIC_MAC_NOOP	0
 #define QLCNIC_MAC_ADD	1
 #define QLCNIC_MAC_DEL	2
+#define QLCNIC_MAC_VLAN_ADD	3
+#define QLCNIC_MAC_VLAN_DEL	4
 
 struct qlcnic_mac_list_s {
 	struct list_head list;
@@ -787,7 +801,6 @@ struct qlcnic_nic_intr_coalesce {
 #define QLCNIC_H2C_OPCODE_GET_NET_STATS 		16
 #define QLCNIC_H2C_OPCODE_PROXY_UPDATE_P2V		17
 #define QLCNIC_H2C_OPCODE_CONFIG_IPADDR 		18
-#define QLCNIC_H2C_OPCODE_CONFIG_LOOPBACK		19
 #define QLCNIC_H2C_OPCODE_PROXY_STOP_DONE		20
 #define QLCNIC_H2C_OPCODE_GET_LINKEVENT 		21
 #define QLCNIC_C2C_OPCODE				22
@@ -890,12 +903,29 @@ struct qlcnic_mac_req {
 	u8 mac_addr[6];
 };
 
+struct qlcnic_vlan_req {
+	__le16 vlan_id;
+	__le16 rsvd[3];
+};
+
+struct qlcnic_ipaddr {
+	__be32 ipv4;
+	__be32 ipv6[4];
+};
+
 #define QLCNIC_MSI_ENABLED		0x02
 #define QLCNIC_MSIX_ENABLED		0x04
 #define QLCNIC_LRO_ENABLED		0x08
+#define QLCNIC_LRO_DISABLED		0x00
 #define QLCNIC_BRIDGE_ENABLED       	0X10
 #define QLCNIC_DIAG_ENABLED		0x20
 #define QLCNIC_ESWITCH_ENABLED		0x40
+#define QLCNIC_ADAPTER_INITIALIZED	0x80
+#define QLCNIC_TAGGING_ENABLED		0x100
+#define QLCNIC_MACSPOOF			0x200
+#define QLCNIC_MAC_OVERRIDE_DISABLED	0x400
+#define QLCNIC_PROMISC_DISABLED		0x800
+#define QLCNIC_NEED_FLR			0x1000
 #define QLCNIC_IS_MSI_FAMILY(adapter) \
 	((adapter)->flags & (QLCNIC_MSI_ENABLED | QLCNIC_MSIX_ENABLED))
 
@@ -915,6 +945,24 @@ struct qlcnic_mac_req {
 
 #define QLCNIC_INTERRUPT_TEST		1
 #define QLCNIC_LOOPBACK_TEST		2
+#define QLCNIC_LED_TEST		3
+
+#define QLCNIC_FILTER_AGE	80
+#define QLCNIC_READD_AGE	20
+#define QLCNIC_LB_MAX_FILTERS	64
+
+struct qlcnic_filter {
+	struct hlist_node fnode;
+	u8 faddr[ETH_ALEN];
+	__le16 vlan_id;
+	unsigned long ftime;
+};
+
+struct qlcnic_filter_hash {
+	struct hlist_head *fhead;
+	u8 fnum;
+	u8 fmax;
+};
 
 struct qlcnic_adapter {
 	struct qlcnic_hardware_context ahw;
@@ -924,14 +972,16 @@ struct qlcnic_adapter {
 	struct list_head mac_list;
 
 	spinlock_t tx_clean_lock;
+	spinlock_t mac_learn_lock;
 
 	u16 num_txd;
 	u16 num_rxd;
 	u16 num_jumbo_rxd;
+	u16 max_rxd;
+	u16 max_jumbo_rxd;
 
 	u8 max_rds_rings;
 	u8 max_sds_rings;
-	u8 driver_mismatch;
 	u8 msix_supported;
 	u8 rx_csum;
 	u8 portnum;
@@ -961,6 +1011,7 @@ struct qlcnic_adapter {
 	u16 max_tx_ques;
 	u16 max_rx_ques;
 	u16 max_mtu;
+	u16 pvid;
 
 	u32 fw_hal_version;
 	u32 capabilities;
@@ -969,7 +1020,7 @@ struct qlcnic_adapter {
 	u32 temp;
 
 	u32 int_vec_bit;
-	u32 heartbit;
+	u32 heartbeat;
 
 	u8 max_mac_filters;
 	u8 dev_state;
@@ -983,6 +1034,7 @@ struct qlcnic_adapter {
 
 	u64 dev_rst_time;
 
+	struct vlan_group *vlgrp;
 	struct qlcnic_npar_info *npars;
 	struct qlcnic_eswitch *eswitch;
 	struct qlcnic_nic_template *nic_ops;
@@ -1002,6 +1054,8 @@ struct qlcnic_adapter {
 	struct delayed_work fw_work;
 
 	struct qlcnic_nic_intr_coalesce coal;
+
+	struct qlcnic_filter_hash fhash;
 
 	unsigned long state;
 	__le32 file_prd_off;	/*File fw product offset*/
@@ -1042,7 +1096,7 @@ struct qlcnic_pci_info {
 };
 
 struct qlcnic_npar_info {
-	u16	vlan_id;
+	u16	pvid;
 	u16	min_bw;
 	u16	max_bw;
 	u8	phy_port;
@@ -1050,11 +1104,13 @@ struct qlcnic_npar_info {
 	u8	active;
 	u8	enable_pm;
 	u8	dest_npar;
-	u8	host_vlan_tag;
-	u8	promisc_mode;
 	u8	discard_tagged;
-	u8	mac_learning;
+	u8	mac_override;
+	u8	mac_anti_spoof;
+	u8	promisc_mode;
+	u8	offload_flags;
 };
+
 struct qlcnic_eswitch {
 	u8	port;
 	u8	active_vports;
@@ -1074,19 +1130,17 @@ struct qlcnic_eswitch {
 /* Return codes for Error handling */
 #define QL_STATUS_INVALID_PARAM	-1
 
-#define MAX_BW			100
-#define MIN_BW			1
+#define MAX_BW			100	/* % of link speed */
 #define MAX_VLAN_ID		4095
 #define MIN_VLAN_ID		2
 #define MAX_TX_QUEUES		1
 #define MAX_RX_QUEUES		4
 #define DEFAULT_MAC_LEARN	1
 
-#define IS_VALID_VLAN(vlan)	(vlan >= MIN_VLAN_ID && vlan <= MAX_VLAN_ID)
-#define IS_VALID_BW(bw)		(bw >= MIN_BW && bw <= MAX_BW)
+#define IS_VALID_VLAN(vlan)	(vlan >= MIN_VLAN_ID && vlan < MAX_VLAN_ID)
+#define IS_VALID_BW(bw)		(bw <= MAX_BW)
 #define IS_VALID_TX_QUEUES(que)	(que > 0 && que <= MAX_TX_QUEUES)
 #define IS_VALID_RX_QUEUES(que)	(que > 0 && que <= MAX_RX_QUEUES)
-#define IS_VALID_MODE(mode)	(mode == 0 || mode == 1)
 
 struct qlcnic_pci_func_cfg {
 	u16	func_type;
@@ -1118,12 +1172,53 @@ struct qlcnic_pm_func_cfg {
 
 struct qlcnic_esw_func_cfg {
 	u16	vlan_id;
+	u8	op_mode;
+	u8	op_type;
 	u8	pci_func;
 	u8	host_vlan_tag;
 	u8	promisc_mode;
 	u8	discard_tagged;
-	u8	mac_learning;
-	u8	reserved;
+	u8	mac_override;
+	u8	mac_anti_spoof;
+	u8	offload_flags;
+	u8	reserved[5];
+};
+
+#define QLCNIC_STATS_VERSION		1
+#define QLCNIC_STATS_PORT		1
+#define QLCNIC_STATS_ESWITCH		2
+#define QLCNIC_QUERY_RX_COUNTER		0
+#define QLCNIC_QUERY_TX_COUNTER		1
+#define QLCNIC_ESW_STATS_NOT_AVAIL	0xffffffffffffffffULL
+
+#define QLCNIC_ADD_ESW_STATS(VAL1, VAL2)\
+do {	\
+	if (((VAL1) == QLCNIC_ESW_STATS_NOT_AVAIL) && \
+	    ((VAL2) != QLCNIC_ESW_STATS_NOT_AVAIL)) \
+		(VAL1) = (VAL2); \
+	else if (((VAL1) != QLCNIC_ESW_STATS_NOT_AVAIL) && \
+		 ((VAL2) != QLCNIC_ESW_STATS_NOT_AVAIL)) \
+			(VAL1) += (VAL2); \
+} while (0)
+
+struct __qlcnic_esw_statistics {
+	__le16 context_id;
+	__le16 version;
+	__le16 size;
+	__le16 unused;
+	__le64 unicast_frames;
+	__le64 multicast_frames;
+	__le64 broadcast_frames;
+	__le64 dropped_frames;
+	__le64 errors;
+	__le64 local_frames;
+	__le64 numbytes;
+	__le64 rsvd[3];
+};
+
+struct qlcnic_esw_statistics {
+	struct __qlcnic_esw_statistics rx;
+	struct __qlcnic_esw_statistics tx;
 };
 
 int qlcnic_fw_cmd_query_phy(struct qlcnic_adapter *adapter, u32 reg, u32 *val);
@@ -1171,6 +1266,8 @@ void qlcnic_pcie_sem_unlock(struct qlcnic_adapter *, int);
 int qlcnic_get_board_info(struct qlcnic_adapter *adapter);
 int qlcnic_wol_supported(struct qlcnic_adapter *adapter);
 int qlcnic_config_led(struct qlcnic_adapter *adapter, u32 state, u32 rate);
+void qlcnic_prune_lb_filters(struct qlcnic_adapter *adapter);
+void qlcnic_delete_lb_filters(struct qlcnic_adapter *adapter);
 
 /* Functions from qlcnic_init.c */
 int qlcnic_load_firmware(struct qlcnic_adapter *adapter);
@@ -1199,7 +1296,7 @@ void qlcnic_reset_rx_buffers_list(struct qlcnic_adapter *adapter);
 void qlcnic_release_rx_buffers(struct qlcnic_adapter *adapter);
 void qlcnic_release_tx_buffers(struct qlcnic_adapter *adapter);
 
-int qlcnic_init_firmware(struct qlcnic_adapter *adapter);
+int qlcnic_check_fw_status(struct qlcnic_adapter *adapter);
 void qlcnic_watchdog_task(struct work_struct *work);
 void qlcnic_post_rx_buffers(struct qlcnic_adapter *adapter, u32 ringid,
 		struct qlcnic_host_rds_ring *rds_ring);
@@ -1209,7 +1306,7 @@ void qlcnic_free_mac_list(struct qlcnic_adapter *adapter);
 int qlcnic_nic_set_promisc(struct qlcnic_adapter *adapter, u32);
 int qlcnic_config_intr_coalesce(struct qlcnic_adapter *adapter);
 int qlcnic_config_rss(struct qlcnic_adapter *adapter, int enable);
-int qlcnic_config_ipaddr(struct qlcnic_adapter *adapter, u32 ip, int cmd);
+int qlcnic_config_ipaddr(struct qlcnic_adapter *adapter, __be32 ip, int cmd);
 int qlcnic_linkevent_request(struct qlcnic_adapter *adapter, int enable);
 void qlcnic_advert_link_change(struct qlcnic_adapter *adapter, int linkup);
 
@@ -1220,9 +1317,6 @@ int qlcnic_config_bridged_mode(struct qlcnic_adapter *adapter, u32 enable);
 int qlcnic_send_lro_cleanup(struct qlcnic_adapter *adapter);
 void qlcnic_update_cmd_producer(struct qlcnic_adapter *adapter,
 		struct qlcnic_host_tx_ring *tx_ring);
-int qlcnic_get_mac_addr(struct qlcnic_adapter *adapter, u8 *mac);
-void qlcnic_clear_ilb_mode(struct qlcnic_adapter *adapter);
-int qlcnic_set_ilb_mode(struct qlcnic_adapter *adapter);
 void qlcnic_fetch_mac(struct qlcnic_adapter *, u32, u32, u8, u8 *);
 
 /* Functions from qlcnic_main.c */
@@ -1231,27 +1325,25 @@ u32 qlcnic_issue_cmd(struct qlcnic_adapter *adapter,
 	u32 pci_fn, u32 version, u32 arg1, u32 arg2, u32 arg3, u32 cmd);
 void qlcnic_diag_free_res(struct net_device *netdev, int max_sds_rings);
 int qlcnic_diag_alloc_res(struct net_device *netdev, int test);
-int qlcnic_check_loopback_buff(unsigned char *data);
 netdev_tx_t qlcnic_xmit_frame(struct sk_buff *skb, struct net_device *netdev);
-void qlcnic_process_rcv_ring_diag(struct qlcnic_host_sds_ring *sds_ring);
 
 /* Management functions */
-int qlcnic_set_mac_address(struct qlcnic_adapter *, u8*);
 int qlcnic_get_mac_address(struct qlcnic_adapter *, u8*);
 int qlcnic_get_nic_info(struct qlcnic_adapter *, struct qlcnic_info *, u8);
 int qlcnic_set_nic_info(struct qlcnic_adapter *, struct qlcnic_info *);
 int qlcnic_get_pci_info(struct qlcnic_adapter *, struct qlcnic_pci_info*);
-int qlcnic_reset_partition(struct qlcnic_adapter *, u8);
 
 /*  eSwitch management functions */
-int qlcnic_get_eswitch_capabilities(struct qlcnic_adapter *, u8,
-				struct qlcnic_eswitch *);
-int qlcnic_get_eswitch_status(struct qlcnic_adapter *, u8,
-				struct qlcnic_eswitch *);
-int qlcnic_toggle_eswitch(struct qlcnic_adapter *, u8, u8);
-int qlcnic_config_switch_port(struct qlcnic_adapter *, u8, int, u8, u8,
-			u8, u8, u16);
+int qlcnic_config_switch_port(struct qlcnic_adapter *,
+				struct qlcnic_esw_func_cfg *);
+int qlcnic_get_eswitch_port_config(struct qlcnic_adapter *,
+				struct qlcnic_esw_func_cfg *);
 int qlcnic_config_port_mirroring(struct qlcnic_adapter *, u8, u8, u8);
+int qlcnic_get_port_stats(struct qlcnic_adapter *, const u8, const u8,
+					struct __qlcnic_esw_statistics *);
+int qlcnic_get_eswitch_stats(struct qlcnic_adapter *, const u8, u8,
+					struct __qlcnic_esw_statistics *);
+int qlcnic_clear_esw_stats(struct qlcnic_adapter *adapter, u8, u8, u8);
 extern int qlcnic_config_tso;
 
 /*
@@ -1280,6 +1372,10 @@ static const struct qlcnic_brdinfo qlcnic_boards[] = {
 		"3200 Series Quad Port 1Gb Intelligent Ethernet Adapter"},
 	{0x1077, 0x8020, 0x1077, 0x20f,
 		"3200 Series Single Port 10Gb Intelligent Ethernet Adapter"},
+	{0x1077, 0x8020, 0x103c, 0x3733,
+		"NC523SFP 10Gb 2-port Server Adapter"},
+	{0x1077, 0x8020, 0x103c, 0x3346,
+		"CN1000Q Dual Port Converged Network Adapter"},
 	{0x1077, 0x8020, 0x0, 0x0, "cLOM8214 1/10GbE Controller"},
 };
 
@@ -1298,7 +1394,6 @@ static inline u32 qlcnic_tx_avail(struct qlcnic_host_tx_ring *tx_ring)
 extern const struct ethtool_ops qlcnic_ethtool_ops;
 
 struct qlcnic_nic_template {
-	int (*get_mac_addr) (struct qlcnic_adapter *, u8*);
 	int (*config_bridged_mode) (struct qlcnic_adapter *, u32);
 	int (*config_led) (struct qlcnic_adapter *, u32, u32);
 	int (*start_firmware) (struct qlcnic_adapter *);

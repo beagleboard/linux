@@ -9,7 +9,8 @@
 
 /*
  * TODO:
- * - IBSS mode simulation (Beacon transmission with competition for "air time")
+ * - Add TSF sync and fix IBSS beacon transmission by adding
+ *   competition for "air time" at TBTT
  * - RX filtering based on filter configuration (data->rx_filter)
  */
 
@@ -308,6 +309,8 @@ struct mac80211_hwsim_data {
 	 */
 	u64 group;
 	struct dentry *debugfs_group;
+
+	int power_level;
 };
 
 
@@ -496,7 +499,7 @@ static bool mac80211_hwsim_tx_frame(struct ieee80211_hw *hw,
 	rx_status.band = data->channel->band;
 	rx_status.rate_idx = info->control.rates[0].idx;
 	/* TODO: simulate real signal strength (and optional packet loss) */
-	rx_status.signal = -50;
+	rx_status.signal = data->power_level - 50;
 
 	if (data->ps != PS_DISABLED)
 		hdr->frame_control |= cpu_to_le16(IEEE80211_FCTL_PM);
@@ -594,17 +597,34 @@ static int mac80211_hwsim_add_interface(struct ieee80211_hw *hw,
 					struct ieee80211_vif *vif)
 {
 	wiphy_debug(hw->wiphy, "%s (type=%d mac_addr=%pM)\n",
-		    __func__, vif->type, vif->addr);
+		    __func__, ieee80211_vif_type_p2p(vif),
+		    vif->addr);
 	hwsim_set_magic(vif);
 	return 0;
 }
 
 
+static int mac80211_hwsim_change_interface(struct ieee80211_hw *hw,
+					   struct ieee80211_vif *vif,
+					   enum nl80211_iftype newtype,
+					   bool newp2p)
+{
+	newtype = ieee80211_iftype_p2p(newtype, newp2p);
+	wiphy_debug(hw->wiphy,
+		    "%s (old type=%d, new type=%d, mac_addr=%pM)\n",
+		    __func__, ieee80211_vif_type_p2p(vif),
+		    newtype, vif->addr);
+	hwsim_check_magic(vif);
+
+	return 0;
+}
+
 static void mac80211_hwsim_remove_interface(
 	struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 {
 	wiphy_debug(hw->wiphy, "%s (type=%d mac_addr=%pM)\n",
-		    __func__, vif->type, vif->addr);
+		    __func__, ieee80211_vif_type_p2p(vif),
+		    vif->addr);
 	hwsim_check_magic(vif);
 	hwsim_clear_magic(vif);
 }
@@ -620,7 +640,8 @@ static void mac80211_hwsim_beacon_tx(void *arg, u8 *mac,
 	hwsim_check_magic(vif);
 
 	if (vif->type != NL80211_IFTYPE_AP &&
-	    vif->type != NL80211_IFTYPE_MESH_POINT)
+	    vif->type != NL80211_IFTYPE_MESH_POINT &&
+	    vif->type != NL80211_IFTYPE_ADHOC)
 		return;
 
 	skb = ieee80211_beacon_get(hw, vif);
@@ -679,6 +700,7 @@ static int mac80211_hwsim_config(struct ieee80211_hw *hw, u32 changed)
 	data->idle = !!(conf->flags & IEEE80211_CONF_IDLE);
 
 	data->channel = conf->channel;
+	data->power_level = conf->power_level;
 	if (!data->started || !data->beacon_int)
 		del_timer(&data->beacon_timer);
 	else
@@ -1025,6 +1047,7 @@ static struct ieee80211_ops mac80211_hwsim_ops =
 	.start = mac80211_hwsim_start,
 	.stop = mac80211_hwsim_stop,
 	.add_interface = mac80211_hwsim_add_interface,
+	.change_interface = mac80211_hwsim_change_interface,
 	.remove_interface = mac80211_hwsim_remove_interface,
 	.config = mac80211_hwsim_config,
 	.configure_filter = mac80211_hwsim_configure_filter,
@@ -1295,6 +1318,9 @@ static int __init init_mac80211_hwsim(void)
 		hw->wiphy->interface_modes =
 			BIT(NL80211_IFTYPE_STATION) |
 			BIT(NL80211_IFTYPE_AP) |
+			BIT(NL80211_IFTYPE_P2P_CLIENT) |
+			BIT(NL80211_IFTYPE_P2P_GO) |
+			BIT(NL80211_IFTYPE_ADHOC) |
 			BIT(NL80211_IFTYPE_MESH_POINT);
 
 		hw->flags = IEEE80211_HW_MFP_CAPABLE |

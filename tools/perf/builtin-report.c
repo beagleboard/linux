@@ -32,7 +32,7 @@
 
 static char		const *input_name = "perf.data";
 
-static bool		force;
+static bool		force, use_tui, use_stdio;
 static bool		hide_unresolved;
 static bool		dont_use_callchains;
 
@@ -107,7 +107,8 @@ static int perf_session__add_hist_entry(struct perf_session *self,
 		goto out_free_syms;
 	err = 0;
 	if (symbol_conf.use_callchain) {
-		err = append_chain(he->callchain, data->callchain, syms, data->period);
+		err = callchain_append(he->callchain, data->callchain, syms,
+				       data->period);
 		if (err)
 			goto out_free_syms;
 	}
@@ -149,13 +150,13 @@ static int add_event_total(struct perf_session *session,
 	return 0;
 }
 
-static int process_sample_event(event_t *event, struct perf_session *session)
+static int process_sample_event(event_t *event, struct sample_data *sample,
+				struct perf_session *session)
 {
-	struct sample_data data = { .period = 1, };
 	struct addr_location al;
 	struct perf_event_attr *attr;
 
-	if (event__preprocess_sample(event, session, &al, &data, NULL) < 0) {
+	if (event__preprocess_sample(event, session, &al, sample, NULL) < 0) {
 		fprintf(stderr, "problem processing %d event, skipping it.\n",
 			event->header.type);
 		return -1;
@@ -164,14 +165,14 @@ static int process_sample_event(event_t *event, struct perf_session *session)
 	if (al.filtered || (hide_unresolved && al.sym == NULL))
 		return 0;
 
-	if (perf_session__add_hist_entry(session, &al, &data)) {
+	if (perf_session__add_hist_entry(session, &al, sample)) {
 		pr_debug("problem incrementing symbol period, skipping event\n");
 		return -1;
 	}
 
-	attr = perf_header__find_attr(data.id, &session->header);
+	attr = perf_header__find_attr(sample->id, &session->header);
 
-	if (add_event_total(session, &data, attr)) {
+	if (add_event_total(session, sample, attr)) {
 		pr_debug("problem adding event period\n");
 		return -1;
 	}
@@ -179,7 +180,8 @@ static int process_sample_event(event_t *event, struct perf_session *session)
 	return 0;
 }
 
-static int process_read_event(event_t *event, struct perf_session *session __used)
+static int process_read_event(event_t *event, struct sample_data *sample __used,
+			      struct perf_session *session __used)
 {
 	struct perf_event_attr *attr;
 
@@ -195,7 +197,7 @@ static int process_read_event(event_t *event, struct perf_session *session __use
 					   event->read.value);
 	}
 
-	dump_printf(": %d %d %s %Lu\n", event->read.pid, event->read.tid,
+	dump_printf(": %d %d %s %" PRIu64 "\n", event->read.pid, event->read.tid,
 		    attr ? __event_name(attr->type, attr->config) : "FAIL",
 		    event->read.value);
 
@@ -242,6 +244,8 @@ static struct perf_event_ops event_ops = {
 	.event_type = event__process_event_type,
 	.tracing_data = event__process_tracing_data,
 	.build_id = event__process_build_id,
+	.ordered_samples = true,
+	.ordering_requires_timestamps = true,
 };
 
 extern volatile int session_done;
@@ -306,7 +310,7 @@ static int __cmd_report(void)
 
 	signal(SIGINT, sig_handler);
 
-	session = perf_session__new(input_name, O_RDONLY, force, false);
+	session = perf_session__new(input_name, O_RDONLY, force, false, &event_ops);
 	if (session == NULL)
 		return -ENOMEM;
 
@@ -441,6 +445,8 @@ static const struct option options[] = {
 		    "dump raw trace in ASCII"),
 	OPT_STRING('k', "vmlinux", &symbol_conf.vmlinux_name,
 		   "file", "vmlinux pathname"),
+	OPT_STRING(0, "kallsyms", &symbol_conf.kallsyms_name,
+		   "file", "kallsyms pathname"),
 	OPT_BOOLEAN('f', "force", &force, "don't complain, do it"),
 	OPT_BOOLEAN('m', "modules", &symbol_conf.use_modules,
 		    "load module symbols - WARNING: use only with -k and LIVE kernel"),
@@ -450,6 +456,8 @@ static const struct option options[] = {
 		    "Show per-thread event counters"),
 	OPT_STRING(0, "pretty", &pretty_printing_style, "key",
 		   "pretty printing style key: normal raw"),
+	OPT_BOOLEAN(0, "tui", &use_tui, "Use the TUI interface"),
+	OPT_BOOLEAN(0, "stdio", &use_stdio, "Use the stdio interface"),
 	OPT_STRING('s', "sort", &sort_order, "key[,key2...]",
 		   "sort by key(s): pid, comm, dso, symbol, parent"),
 	OPT_BOOLEAN(0, "showcpuutilization", &symbol_conf.show_cpu_utilization,
@@ -475,6 +483,8 @@ static const struct option options[] = {
 		   "columns '.' is reserved."),
 	OPT_BOOLEAN('U', "hide-unresolved", &hide_unresolved,
 		    "Only display entries resolved to a symbol"),
+	OPT_STRING(0, "symfs", &symbol_conf.symfs, "directory",
+		    "Look for files with symbols relative to this directory"),
 	OPT_END()
 };
 
@@ -482,8 +492,15 @@ int cmd_report(int argc, const char **argv, const char *prefix __used)
 {
 	argc = parse_options(argc, argv, options, report_usage, 0);
 
+	if (use_stdio)
+		use_browser = 0;
+	else if (use_tui)
+		use_browser = 1;
+
 	if (strcmp(input_name, "-") != 0)
 		setup_browser();
+	else
+		use_browser = 0;
 	/*
 	 * Only in the newt browser we are doing integrated annotation,
 	 * so don't allocate extra space that won't be used in the stdio

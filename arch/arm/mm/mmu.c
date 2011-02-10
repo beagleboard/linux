@@ -14,7 +14,7 @@
 #include <linux/mman.h>
 #include <linux/nodemask.h>
 #include <linux/memblock.h>
-#include <linux/sort.h>
+#include <linux/fs.h>
 
 #include <asm/cputype.h>
 #include <asm/sections.h>
@@ -24,6 +24,7 @@
 #include <asm/smp_plat.h>
 #include <asm/tlb.h>
 #include <asm/highmem.h>
+#include <asm/traps.h>
 
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
@@ -62,7 +63,7 @@ struct cachepolicy {
 	const char	policy[16];
 	unsigned int	cr_mask;
 	unsigned int	pmd;
-	unsigned int	pte;
+	pteval_t	pte;
 };
 
 static struct cachepolicy cache_policies[] __initdata = {
@@ -190,7 +191,7 @@ void adjust_cr(unsigned long mask, unsigned long set)
 }
 #endif
 
-#define PROT_PTE_DEVICE		L_PTE_PRESENT|L_PTE_YOUNG|L_PTE_DIRTY|L_PTE_WRITE
+#define PROT_PTE_DEVICE		L_PTE_PRESENT|L_PTE_YOUNG|L_PTE_DIRTY|L_PTE_XN
 #define PROT_SECT_DEVICE	PMD_TYPE_SECT|PMD_SECT_AP_WRITE
 
 static struct mem_type mem_types[] = {
@@ -235,17 +236,19 @@ static struct mem_type mem_types[] = {
 	},
 	[MT_LOW_VECTORS] = {
 		.prot_pte  = L_PTE_PRESENT | L_PTE_YOUNG | L_PTE_DIRTY |
-				L_PTE_EXEC,
+				L_PTE_RDONLY,
 		.prot_l1   = PMD_TYPE_TABLE,
 		.domain    = DOMAIN_USER,
 	},
 	[MT_HIGH_VECTORS] = {
 		.prot_pte  = L_PTE_PRESENT | L_PTE_YOUNG | L_PTE_DIRTY |
-				L_PTE_USER | L_PTE_EXEC,
+				L_PTE_USER | L_PTE_RDONLY,
 		.prot_l1   = PMD_TYPE_TABLE,
 		.domain    = DOMAIN_USER,
 	},
 	[MT_MEMORY] = {
+		.prot_pte  = L_PTE_PRESENT | L_PTE_YOUNG | L_PTE_DIRTY,
+		.prot_l1   = PMD_TYPE_TABLE,
 		.prot_sect = PMD_TYPE_SECT | PMD_SECT_AP_WRITE,
 		.domain    = DOMAIN_KERNEL,
 	},
@@ -254,21 +257,23 @@ static struct mem_type mem_types[] = {
 		.domain    = DOMAIN_KERNEL,
 	},
 	[MT_MEMORY_NONCACHED] = {
+		.prot_pte  = L_PTE_PRESENT | L_PTE_YOUNG | L_PTE_DIRTY |
+				L_PTE_MT_BUFFERABLE,
+		.prot_l1   = PMD_TYPE_TABLE,
 		.prot_sect = PMD_TYPE_SECT | PMD_SECT_AP_WRITE,
 		.domain    = DOMAIN_KERNEL,
 	},
 	[MT_MEMORY_DTCM] = {
-		.prot_pte	= L_PTE_PRESENT | L_PTE_YOUNG |
-		                  L_PTE_DIRTY | L_PTE_WRITE,
-		.prot_l1	= PMD_TYPE_TABLE,
-		.prot_sect	= PMD_TYPE_SECT | PMD_SECT_XN,
-		.domain		= DOMAIN_KERNEL,
+		.prot_pte  = L_PTE_PRESENT | L_PTE_YOUNG | L_PTE_DIRTY |
+				L_PTE_XN,
+		.prot_l1   = PMD_TYPE_TABLE,
+		.prot_sect = PMD_TYPE_SECT | PMD_SECT_XN,
+		.domain    = DOMAIN_KERNEL,
 	},
 	[MT_MEMORY_ITCM] = {
-		.prot_pte  = L_PTE_PRESENT | L_PTE_YOUNG | L_PTE_DIRTY |
-				L_PTE_USER | L_PTE_EXEC,
+		.prot_pte  = L_PTE_PRESENT | L_PTE_YOUNG | L_PTE_DIRTY,
 		.prot_l1   = PMD_TYPE_TABLE,
-		.domain    = DOMAIN_IO,
+		.domain    = DOMAIN_KERNEL,
 	},
 };
 
@@ -303,9 +308,8 @@ static void __init build_mem_type_table(void)
 			cachepolicy = CPOLICY_WRITEBACK;
 		ecc_mask = 0;
 	}
-#ifdef CONFIG_SMP
-	cachepolicy = CPOLICY_WRITEALLOC;
-#endif
+	if (is_smp())
+		cachepolicy = CPOLICY_WRITEALLOC;
 
 	/*
 	 * Strip out features not present on earlier architectures.
@@ -399,21 +403,22 @@ static void __init build_mem_type_table(void)
 	cp = &cache_policies[cachepolicy];
 	vecs_pgprot = kern_pgprot = user_pgprot = cp->pte;
 
-#ifndef CONFIG_SMP
 	/*
 	 * Only use write-through for non-SMP systems
 	 */
-	if (cpu_arch >= CPU_ARCH_ARMv5 && cachepolicy > CPOLICY_WRITETHROUGH)
+	if (!is_smp() && cpu_arch >= CPU_ARCH_ARMv5 && cachepolicy > CPOLICY_WRITETHROUGH)
 		vecs_pgprot = cache_policies[CPOLICY_WRITETHROUGH].pte;
-#endif
 
 	/*
 	 * Enable CPU-specific coherency if supported.
 	 * (Only available on XSC3 at the moment.)
 	 */
-	if (arch_is_coherent() && cpu_is_xsc3())
+	if (arch_is_coherent() && cpu_is_xsc3()) {
 		mem_types[MT_MEMORY].prot_sect |= PMD_SECT_S;
-
+		mem_types[MT_MEMORY].prot_pte |= L_PTE_SHARED;
+		mem_types[MT_MEMORY_NONCACHED].prot_sect |= PMD_SECT_S;
+		mem_types[MT_MEMORY_NONCACHED].prot_pte |= L_PTE_SHARED;
+	}
 	/*
 	 * ARMv6 and above have extended page tables.
 	 */
@@ -426,20 +431,23 @@ static void __init build_mem_type_table(void)
 		mem_types[MT_MINICLEAN].prot_sect |= PMD_SECT_APX|PMD_SECT_AP_WRITE;
 		mem_types[MT_CACHECLEAN].prot_sect |= PMD_SECT_APX|PMD_SECT_AP_WRITE;
 
-#ifdef CONFIG_SMP
-		/*
-		 * Mark memory with the "shared" attribute for SMP systems
-		 */
-		user_pgprot |= L_PTE_SHARED;
-		kern_pgprot |= L_PTE_SHARED;
-		vecs_pgprot |= L_PTE_SHARED;
-		mem_types[MT_DEVICE_WC].prot_sect |= PMD_SECT_S;
-		mem_types[MT_DEVICE_WC].prot_pte |= L_PTE_SHARED;
-		mem_types[MT_DEVICE_CACHED].prot_sect |= PMD_SECT_S;
-		mem_types[MT_DEVICE_CACHED].prot_pte |= L_PTE_SHARED;
-		mem_types[MT_MEMORY].prot_sect |= PMD_SECT_S;
-		mem_types[MT_MEMORY_NONCACHED].prot_sect |= PMD_SECT_S;
-#endif
+		if (is_smp()) {
+			/*
+			 * Mark memory with the "shared" attribute
+			 * for SMP systems
+			 */
+			user_pgprot |= L_PTE_SHARED;
+			kern_pgprot |= L_PTE_SHARED;
+			vecs_pgprot |= L_PTE_SHARED;
+			mem_types[MT_DEVICE_WC].prot_sect |= PMD_SECT_S;
+			mem_types[MT_DEVICE_WC].prot_pte |= L_PTE_SHARED;
+			mem_types[MT_DEVICE_CACHED].prot_sect |= PMD_SECT_S;
+			mem_types[MT_DEVICE_CACHED].prot_pte |= L_PTE_SHARED;
+			mem_types[MT_MEMORY].prot_sect |= PMD_SECT_S;
+			mem_types[MT_MEMORY].prot_pte |= L_PTE_SHARED;
+			mem_types[MT_MEMORY_NONCACHED].prot_sect |= PMD_SECT_S;
+			mem_types[MT_MEMORY_NONCACHED].prot_pte |= L_PTE_SHARED;
+		}
 	}
 
 	/*
@@ -470,11 +478,13 @@ static void __init build_mem_type_table(void)
 
 	pgprot_user   = __pgprot(L_PTE_PRESENT | L_PTE_YOUNG | user_pgprot);
 	pgprot_kernel = __pgprot(L_PTE_PRESENT | L_PTE_YOUNG |
-				 L_PTE_DIRTY | L_PTE_WRITE | kern_pgprot);
+				 L_PTE_DIRTY | kern_pgprot);
 
 	mem_types[MT_LOW_VECTORS].prot_l1 |= ecc_mask;
 	mem_types[MT_HIGH_VECTORS].prot_l1 |= ecc_mask;
 	mem_types[MT_MEMORY].prot_sect |= ecc_mask | cp->pmd;
+	mem_types[MT_MEMORY].prot_pte |= kern_pgprot;
+	mem_types[MT_MEMORY_NONCACHED].prot_sect |= ecc_mask;
 	mem_types[MT_ROM].prot_sect |= cp->pmd;
 
 	switch (cp->pmd) {
@@ -498,6 +508,19 @@ static void __init build_mem_type_table(void)
 	}
 }
 
+#ifdef CONFIG_ARM_DMA_MEM_BUFFERABLE
+pgprot_t phys_mem_access_prot(struct file *file, unsigned long pfn,
+			      unsigned long size, pgprot_t vma_prot)
+{
+	if (!pfn_valid(pfn))
+		return pgprot_noncached(vma_prot);
+	else if (file->f_flags & O_SYNC)
+		return pgprot_writecombine(vma_prot);
+	return vma_prot;
+}
+EXPORT_SYMBOL(phys_mem_access_prot);
+#endif
+
 #define vectors_base()	(vectors_high() ? 0xffff0000 : 0)
 
 static void __init *early_alloc(unsigned long sz)
@@ -511,7 +534,7 @@ static pte_t * __init early_pte_alloc(pmd_t *pmd, unsigned long addr, unsigned l
 {
 	if (pmd_none(*pmd)) {
 		pte_t *pte = early_alloc(2 * PTRS_PER_PTE * sizeof(pte_t));
-		__pmd_populate(pmd, __pa(pte) | prot);
+		__pmd_populate(pmd, __pa(pte), prot);
 	}
 	BUG_ON(pmd_bad(*pmd));
 	return pte_offset_kernel(pmd, addr);
@@ -529,7 +552,7 @@ static void __init alloc_init_pte(pmd_t *pmd, unsigned long addr,
 }
 
 static void __init alloc_init_section(pgd_t *pgd, unsigned long addr,
-				      unsigned long end, unsigned long phys,
+				      unsigned long end, phys_addr_t phys,
 				      const struct mem_type *type)
 {
 	pmd_t *pmd = pmd_offset(pgd, addr);
@@ -564,7 +587,8 @@ static void __init alloc_init_section(pgd_t *pgd, unsigned long addr,
 static void __init create_36bit_mapping(struct map_desc *md,
 					const struct mem_type *type)
 {
-	unsigned long phys, addr, length, end;
+	unsigned long addr, length, end;
+	phys_addr_t phys;
 	pgd_t *pgd;
 
 	addr = md->virtual;
@@ -720,13 +744,14 @@ static int __init early_vmalloc(char *arg)
 }
 early_param("vmalloc", early_vmalloc);
 
-phys_addr_t lowmem_end_addr;
+static phys_addr_t lowmem_limit __initdata = 0;
 
 static void __init sanity_check_meminfo(void)
 {
 	int i, j, highmem = 0;
 
-	lowmem_end_addr = __pa(vmalloc_min - 1) + 1;
+	lowmem_limit = __pa(vmalloc_min - 1) + 1;
+	memblock_set_current_limit(lowmem_limit);
 
 	for (i = 0, j = 0; i < meminfo.nr_banks; i++) {
 		struct membank *bank = &meminfo.bank[j];
@@ -802,8 +827,7 @@ static void __init sanity_check_meminfo(void)
 			 * rather difficult.
 			 */
 			reason = "with VIPT aliasing cache";
-#ifdef CONFIG_SMP
-		} else if (tlb_ops_need_broadcast()) {
+		} else if (is_smp() && tlb_ops_need_broadcast()) {
 			/*
 			 * kmap_high needs to occasionally flush TLB entries,
 			 * however, if the TLB entries need to be broadcast
@@ -813,7 +837,6 @@ static void __init sanity_check_meminfo(void)
 			 *   (must not be called with irqs off)
 			 */
 			reason = "without hardware TLB ops broadcasting";
-#endif
 		}
 		if (reason) {
 			printk(KERN_CRIT "HIGHMEM is not supported %s, ignoring high memory\n",
@@ -829,6 +852,7 @@ static void __init sanity_check_meminfo(void)
 static inline void prepare_page_table(void)
 {
 	unsigned long addr;
+	phys_addr_t end;
 
 	/*
 	 * Clear out all the mappings below the kernel image.
@@ -844,10 +868,17 @@ static inline void prepare_page_table(void)
 		pmd_clear(pmd_off_k(addr));
 
 	/*
+	 * Find the end of the first block of lowmem.
+	 */
+	end = memblock.memory.regions[0].base + memblock.memory.regions[0].size;
+	if (end >= lowmem_limit)
+		end = lowmem_limit;
+
+	/*
 	 * Clear out all the kernel space mappings, except for the first
 	 * memory bank, up to the end of the vmalloc region.
 	 */
-	for (addr = __phys_to_virt(bank_phys_end(&meminfo.bank[0]));
+	for (addr = __phys_to_virt(end);
 	     addr < VMALLOC_END; addr += PGDIR_SIZE)
 		pmd_clear(pmd_off_k(addr));
 }
@@ -883,12 +914,11 @@ static void __init devicemaps_init(struct machine_desc *mdesc)
 {
 	struct map_desc map;
 	unsigned long addr;
-	void *vectors;
 
 	/*
 	 * Allocate the vector page early.
 	 */
-	vectors = early_alloc(PAGE_SIZE);
+	vectors_page = early_alloc(PAGE_SIZE);
 
 	for (addr = VMALLOC_END; addr; addr += PGDIR_SIZE)
 		pmd_clear(pmd_off_k(addr));
@@ -928,7 +958,7 @@ static void __init devicemaps_init(struct machine_desc *mdesc)
 	 * location (0xffff0000).  If we aren't using high-vectors, also
 	 * create a mapping at the low-vectors virtual address.
 	 */
-	map.pfn = __phys_to_pfn(virt_to_phys(vectors));
+	map.pfn = __phys_to_pfn(virt_to_phys(vectors_page));
 	map.virtual = 0xffff0000;
 	map.length = PAGE_SIZE;
 	map.type = MT_HIGH_VECTORS;
@@ -964,37 +994,28 @@ static void __init kmap_init(void)
 #endif
 }
 
-static inline void map_memory_bank(struct membank *bank)
-{
-	struct map_desc map;
-
-	map.pfn = bank_pfn_start(bank);
-	map.virtual = __phys_to_virt(bank_phys_start(bank));
-	map.length = bank_phys_size(bank);
-	map.type = MT_MEMORY;
-
-	create_mapping(&map);
-}
-
 static void __init map_lowmem(void)
 {
-	struct meminfo *mi = &meminfo;
-	int i;
+	struct memblock_region *reg;
 
 	/* Map all the lowmem memory banks. */
-	for (i = 0; i < mi->nr_banks; i++) {
-		struct membank *bank = &mi->bank[i];
+	for_each_memblock(memory, reg) {
+		phys_addr_t start = reg->base;
+		phys_addr_t end = start + reg->size;
+		struct map_desc map;
 
-		if (!bank->highmem)
-			map_memory_bank(bank);
+		if (end > lowmem_limit)
+			end = lowmem_limit;
+		if (start >= end)
+			break;
+
+		map.pfn = __phys_to_pfn(start);
+		map.virtual = __phys_to_virt(start);
+		map.length = end - start;
+		map.type = MT_MEMORY;
+
+		create_mapping(&map);
 	}
-}
-
-static int __init meminfo_cmp(const void *_a, const void *_b)
-{
-	const struct membank *a = _a, *b = _b;
-	long cmp = bank_pfn_start(a) - bank_pfn_start(b);
-	return cmp < 0 ? -1 : cmp > 0 ? 1 : 0;
 }
 
 /*
@@ -1004,8 +1025,6 @@ static int __init meminfo_cmp(const void *_a, const void *_b)
 void __init paging_init(struct machine_desc *mdesc)
 {
 	void *zero_page;
-
-	sort(&meminfo.bank, meminfo.nr_banks, sizeof(meminfo.bank[0]), meminfo_cmp, NULL);
 
 	build_mem_type_table();
 	sanity_check_meminfo();
@@ -1023,39 +1042,4 @@ void __init paging_init(struct machine_desc *mdesc)
 
 	empty_zero_page = virt_to_page(zero_page);
 	__flush_dcache_page(NULL, empty_zero_page);
-}
-
-/*
- * In order to soft-boot, we need to insert a 1:1 mapping in place of
- * the user-mode pages.  This will then ensure that we have predictable
- * results when turning the mmu off
- */
-void setup_mm_for_reboot(char mode)
-{
-	unsigned long base_pmdval;
-	pgd_t *pgd;
-	int i;
-
-	/*
-	 * We need to access to user-mode page tables here. For kernel threads
-	 * we don't have any user-mode mappings so we use the context that we
-	 * "borrowed".
-	 */
-	pgd = current->active_mm->pgd;
-
-	base_pmdval = PMD_SECT_AP_WRITE | PMD_SECT_AP_READ | PMD_TYPE_SECT;
-	if (cpu_architecture() <= CPU_ARCH_ARMv5TEJ && !cpu_is_xscale())
-		base_pmdval |= PMD_BIT4;
-
-	for (i = 0; i < FIRST_USER_PGD_NR + USER_PTRS_PER_PGD; i++, pgd++) {
-		unsigned long pmdval = (i << PGDIR_SHIFT) | base_pmdval;
-		pmd_t *pmd;
-
-		pmd = pmd_off(pgd, i << PGDIR_SHIFT);
-		pmd[0] = __pmd(pmdval);
-		pmd[1] = __pmd(pmdval + (1 << (PGDIR_SHIFT - 1)));
-		flush_pmd_entry(pmd);
-	}
-
-	local_flush_tlb_all();
 }

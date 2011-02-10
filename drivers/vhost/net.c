@@ -10,7 +10,6 @@
 #include <linux/eventfd.h>
 #include <linux/vhost.h>
 #include <linux/virtio_net.h>
-#include <linux/mmu_context.h>
 #include <linux/miscdevice.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
@@ -127,7 +126,10 @@ static void handle_tx(struct vhost_net *net)
 	size_t len, total_len = 0;
 	int err, wmem;
 	size_t hdr_size;
-	struct socket *sock = rcu_dereference(vq->private_data);
+	struct socket *sock;
+
+	/* TODO: check that we are running from vhost_worker? */
+	sock = rcu_dereference_check(vq->private_data, 1);
 	if (!sock)
 		return;
 
@@ -139,7 +141,6 @@ static void handle_tx(struct vhost_net *net)
 		return;
 	}
 
-	use_mm(net->dev.mm);
 	mutex_lock(&vq->mutex);
 	vhost_disable_notify(vq);
 
@@ -204,7 +205,6 @@ static void handle_tx(struct vhost_net *net)
 	}
 
 	mutex_unlock(&vq->mutex);
-	unuse_mm(net->dev.mm);
 }
 
 static int peek_head_len(struct sock *sk)
@@ -243,7 +243,7 @@ static int get_rx_bufs(struct vhost_virtqueue *vq,
 	int r, nlogs = 0;
 
 	while (datalen > 0) {
-		if (unlikely(headcount >= VHOST_NET_MAX_SG)) {
+		if (unlikely(seg >= UIO_MAXIOV)) {
 			r = -ENOBUFS;
 			goto err;
 		}
@@ -305,11 +305,11 @@ static void handle_rx_big(struct vhost_net *net)
 	size_t len, total_len = 0;
 	int err;
 	size_t hdr_size;
-	struct socket *sock = rcu_dereference(vq->private_data);
+	/* TODO: check that we are running from vhost_worker? */
+	struct socket *sock = rcu_dereference_check(vq->private_data, 1);
 	if (!sock || skb_queue_empty(&sock->sk->sk_receive_queue))
 		return;
 
-	use_mm(net->dev.mm);
 	mutex_lock(&vq->mutex);
 	vhost_disable_notify(vq);
 	hdr_size = vq->vhost_hlen;
@@ -388,7 +388,6 @@ static void handle_rx_big(struct vhost_net *net)
 	}
 
 	mutex_unlock(&vq->mutex);
-	unuse_mm(net->dev.mm);
 }
 
 /* Expects to be always run from workqueue - which acts as
@@ -416,11 +415,11 @@ static void handle_rx_mergeable(struct vhost_net *net)
 	int err, headcount;
 	size_t vhost_hlen, sock_hlen;
 	size_t vhost_len, sock_len;
-	struct socket *sock = rcu_dereference(vq->private_data);
+	/* TODO: check that we are running from vhost_worker? */
+	struct socket *sock = rcu_dereference_check(vq->private_data, 1);
 	if (!sock || skb_queue_empty(&sock->sk->sk_receive_queue))
 		return;
 
-	use_mm(net->dev.mm);
 	mutex_lock(&vq->mutex);
 	vhost_disable_notify(vq);
 	vhost_hlen = vq->vhost_hlen;
@@ -455,7 +454,7 @@ static void handle_rx_mergeable(struct vhost_net *net)
 			move_iovec_hdr(vq->iov, vq->hdr, vhost_hlen, in);
 		else
 			/* Copy the header for use in VIRTIO_NET_F_MRG_RXBUF:
-			 * needed because sendmsg can modify msg_iov. */
+			 * needed because recvmsg can modify msg_iov. */
 			copy_iovec_hdr(vq->iov, vq->hdr, sock_hlen, in);
 		msg.msg_iovlen = in;
 		err = sock->ops->recvmsg(NULL, sock, &msg,
@@ -497,7 +496,6 @@ static void handle_rx_mergeable(struct vhost_net *net)
 	}
 
 	mutex_unlock(&vq->mutex);
-	unuse_mm(net->dev.mm);
 }
 
 static void handle_rx(struct vhost_net *net)
@@ -582,7 +580,10 @@ static void vhost_net_disable_vq(struct vhost_net *n,
 static void vhost_net_enable_vq(struct vhost_net *n,
 				struct vhost_virtqueue *vq)
 {
-	struct socket *sock = vq->private_data;
+	struct socket *sock;
+
+	sock = rcu_dereference_protected(vq->private_data,
+					 lockdep_is_held(&vq->mutex));
 	if (!sock)
 		return;
 	if (vq == n->vqs + VHOST_NET_VQ_TX) {
@@ -598,7 +599,8 @@ static struct socket *vhost_net_stop_vq(struct vhost_net *n,
 	struct socket *sock;
 
 	mutex_lock(&vq->mutex);
-	sock = vq->private_data;
+	sock = rcu_dereference_protected(vq->private_data,
+					 lockdep_is_held(&vq->mutex));
 	vhost_net_disable_vq(n, vq);
 	rcu_assign_pointer(vq->private_data, NULL);
 	mutex_unlock(&vq->mutex);
@@ -736,7 +738,8 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
 	}
 
 	/* start polling new socket */
-	oldsock = vq->private_data;
+	oldsock = rcu_dereference_protected(vq->private_data,
+					    lockdep_is_held(&vq->mutex));
 	if (sock != oldsock) {
                 vhost_net_disable_vq(n, vq);
                 rcu_assign_pointer(vq->private_data, sock);
@@ -869,6 +872,7 @@ static const struct file_operations vhost_net_fops = {
 	.compat_ioctl   = vhost_net_compat_ioctl,
 #endif
 	.open           = vhost_net_open,
+	.llseek		= noop_llseek,
 };
 
 static struct miscdevice vhost_net_misc = {

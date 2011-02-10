@@ -27,6 +27,12 @@
 
 DEFINE_MUTEX(event_mutex);
 
+DEFINE_MUTEX(event_storage_mutex);
+EXPORT_SYMBOL_GPL(event_storage_mutex);
+
+char event_storage[EVENT_STORAGE_SIZE];
+EXPORT_SYMBOL_GPL(event_storage);
+
 LIST_HEAD(ftrace_events);
 LIST_HEAD(ftrace_common_fields);
 
@@ -600,21 +606,29 @@ out:
 
 enum {
 	FORMAT_HEADER		= 1,
-	FORMAT_PRINTFMT		= 2,
+	FORMAT_FIELD_SEPERATOR	= 2,
+	FORMAT_PRINTFMT		= 3,
 };
 
 static void *f_next(struct seq_file *m, void *v, loff_t *pos)
 {
 	struct ftrace_event_call *call = m->private;
 	struct ftrace_event_field *field;
-	struct list_head *head;
+	struct list_head *common_head = &ftrace_common_fields;
+	struct list_head *head = trace_get_fields(call);
 
 	(*pos)++;
 
 	switch ((unsigned long)v) {
 	case FORMAT_HEADER:
-		head = &ftrace_common_fields;
+		if (unlikely(list_empty(common_head)))
+			return NULL;
 
+		field = list_entry(common_head->prev,
+				   struct ftrace_event_field, link);
+		return field;
+
+	case FORMAT_FIELD_SEPERATOR:
 		if (unlikely(list_empty(head)))
 			return NULL;
 
@@ -626,31 +640,10 @@ static void *f_next(struct seq_file *m, void *v, loff_t *pos)
 		return NULL;
 	}
 
-	head = trace_get_fields(call);
-
-	/*
-	 * To separate common fields from event fields, the
-	 * LSB is set on the first event field. Clear it in case.
-	 */
-	v = (void *)((unsigned long)v & ~1L);
-
 	field = v;
-	/*
-	 * If this is a common field, and at the end of the list, then
-	 * continue with main list.
-	 */
-	if (field->link.prev == &ftrace_common_fields) {
-		if (unlikely(list_empty(head)))
-			return NULL;
-		field = list_entry(head->prev, struct ftrace_event_field, link);
-		/* Set the LSB to notify f_show to print an extra newline */
-		field = (struct ftrace_event_field *)
-			((unsigned long)field | 1);
-		return field;
-	}
-
-	/* If we are done tell f_show to print the format */
-	if (field->link.prev == head)
+	if (field->link.prev == common_head)
+		return (void *)FORMAT_FIELD_SEPERATOR;
+	else if (field->link.prev == head)
 		return (void *)FORMAT_PRINTFMT;
 
 	field = list_entry(field->link.prev, struct ftrace_event_field, link);
@@ -688,20 +681,14 @@ static int f_show(struct seq_file *m, void *v)
 		seq_printf(m, "format:\n");
 		return 0;
 
+	case FORMAT_FIELD_SEPERATOR:
+		seq_putc(m, '\n');
+		return 0;
+
 	case FORMAT_PRINTFMT:
 		seq_printf(m, "\nprint fmt: %s\n",
 			   call->print_fmt);
 		return 0;
-	}
-
-	/*
-	 * To separate common fields from event fields, the
-	 * LSB is set on the first event field. Clear it and
-	 * print a newline if it is set.
-	 */
-	if ((unsigned long)v & 1) {
-		seq_putc(m, '\n');
-		v = (void *)((unsigned long)v & ~1L);
 	}
 
 	field = v;
@@ -951,6 +938,7 @@ static const struct file_operations ftrace_enable_fops = {
 	.open = tracing_open_generic,
 	.read = event_enable_read,
 	.write = event_enable_write,
+	.llseek = default_llseek,
 };
 
 static const struct file_operations ftrace_event_format_fops = {
@@ -963,29 +951,34 @@ static const struct file_operations ftrace_event_format_fops = {
 static const struct file_operations ftrace_event_id_fops = {
 	.open = tracing_open_generic,
 	.read = event_id_read,
+	.llseek = default_llseek,
 };
 
 static const struct file_operations ftrace_event_filter_fops = {
 	.open = tracing_open_generic,
 	.read = event_filter_read,
 	.write = event_filter_write,
+	.llseek = default_llseek,
 };
 
 static const struct file_operations ftrace_subsystem_filter_fops = {
 	.open = tracing_open_generic,
 	.read = subsystem_filter_read,
 	.write = subsystem_filter_write,
+	.llseek = default_llseek,
 };
 
 static const struct file_operations ftrace_system_enable_fops = {
 	.open = tracing_open_generic,
 	.read = system_enable_read,
 	.write = system_enable_write,
+	.llseek = default_llseek,
 };
 
 static const struct file_operations ftrace_show_header_fops = {
 	.open = tracing_open_generic,
 	.read = show_header,
+	.llseek = default_llseek,
 };
 
 static struct dentry *event_trace_events_dir(void)
@@ -1291,7 +1284,7 @@ trace_create_file_ops(struct module *mod)
 static void trace_module_add_events(struct module *mod)
 {
 	struct ftrace_module_file_ops *file_ops = NULL;
-	struct ftrace_event_call *call, *start, *end;
+	struct ftrace_event_call **call, **start, **end;
 
 	start = mod->trace_events;
 	end = mod->trace_events + mod->num_trace_events;
@@ -1304,7 +1297,7 @@ static void trace_module_add_events(struct module *mod)
 		return;
 
 	for_each_event(call, start, end) {
-		__trace_add_event_call(call, mod,
+		__trace_add_event_call(*call, mod,
 				       &file_ops->id, &file_ops->enable,
 				       &file_ops->filter, &file_ops->format);
 	}
@@ -1374,8 +1367,8 @@ static struct notifier_block trace_module_nb = {
 	.priority = 0,
 };
 
-extern struct ftrace_event_call __start_ftrace_events[];
-extern struct ftrace_event_call __stop_ftrace_events[];
+extern struct ftrace_event_call *__start_ftrace_events[];
+extern struct ftrace_event_call *__stop_ftrace_events[];
 
 static char bootup_event_buf[COMMAND_LINE_SIZE] __initdata;
 
@@ -1391,7 +1384,7 @@ __setup("trace_event=", setup_trace_event);
 
 static __init int event_trace_init(void)
 {
-	struct ftrace_event_call *call;
+	struct ftrace_event_call **call;
 	struct dentry *d_tracer;
 	struct dentry *entry;
 	struct dentry *d_events;
@@ -1437,7 +1430,7 @@ static __init int event_trace_init(void)
 		pr_warning("tracing: Failed to allocate common fields");
 
 	for_each_event(call, __start_ftrace_events, __stop_ftrace_events) {
-		__trace_add_event_call(call, NULL, &ftrace_event_id_fops,
+		__trace_add_event_call(*call, NULL, &ftrace_event_id_fops,
 				       &ftrace_enable_fops,
 				       &ftrace_event_filter_fops,
 				       &ftrace_event_format_fops);

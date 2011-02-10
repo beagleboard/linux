@@ -129,7 +129,7 @@ static int siena_probe_port(struct efx_nic *efx)
 	return 0;
 }
 
-void siena_remove_port(struct efx_nic *efx)
+static void siena_remove_port(struct efx_nic *efx)
 {
 	efx->phy_op->remove(efx);
 	efx_nic_free_buffer(efx, &efx->stats_buffer);
@@ -194,13 +194,7 @@ static int siena_reset_hw(struct efx_nic *efx, enum reset_type method)
 
 static int siena_probe_nvconfig(struct efx_nic *efx)
 {
-	int rc;
-
-	rc = efx_mcdi_get_board_cfg(efx, efx->mac_address, NULL);
-	if (rc)
-		return rc;
-
-	return 0;
+	return efx_mcdi_get_board_cfg(efx, efx->net_dev->perm_addr, NULL);
 }
 
 static int siena_probe_nic(struct efx_nic *efx)
@@ -450,7 +444,7 @@ static int siena_try_update_nic_stats(struct efx_nic *efx)
 				    mac_stats->rx_bad_bytes);
 	MAC_STAT(rx_packets, RX_PKTS);
 	MAC_STAT(rx_good, RX_GOOD_PKTS);
-	mac_stats->rx_bad = mac_stats->rx_packets - mac_stats->rx_good;
+	MAC_STAT(rx_bad, RX_BAD_FCS_PKTS);
 	MAC_STAT(rx_pause, RX_PAUSE_PKTS);
 	MAC_STAT(rx_control, RX_CONTROL_PKTS);
 	MAC_STAT(rx_unicast, RX_UNICAST_PKTS);
@@ -562,7 +556,7 @@ static int siena_set_wol(struct efx_nic *efx, u32 type)
 		if (nic_data->wol_filter_id != -1)
 			efx_mcdi_wol_filter_remove(efx,
 						   nic_data->wol_filter_id);
-		rc = efx_mcdi_wol_filter_set_magic(efx, efx->mac_address,
+		rc = efx_mcdi_wol_filter_set_magic(efx, efx->net_dev->dev_addr,
 						   &nic_data->wol_filter_id);
 		if (rc)
 			goto fail;
@@ -651,6 +645,6 @@ struct efx_nic_type siena_a0_nic_type = {
 	.tx_dc_base = 0x88000,
 	.rx_dc_base = 0x68000,
 	.offload_features = (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
-			     NETIF_F_RXHASH),
+			     NETIF_F_RXHASH | NETIF_F_NTUPLE),
 	.reset_world_flags = ETH_RESET_MGMT << ETH_RESET_SHARED_SHIFT,
 };

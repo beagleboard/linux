@@ -282,7 +282,7 @@ int sysctl_tcp_fin_timeout __read_mostly = TCP_FIN_TIMEOUT;
 struct percpu_counter tcp_orphan_count;
 EXPORT_SYMBOL_GPL(tcp_orphan_count);
 
-int sysctl_tcp_mem[3] __read_mostly;
+long sysctl_tcp_mem[3] __read_mostly;
 int sysctl_tcp_wmem[3] __read_mostly;
 int sysctl_tcp_rmem[3] __read_mostly;
 
@@ -290,7 +290,7 @@ EXPORT_SYMBOL(sysctl_tcp_mem);
 EXPORT_SYMBOL(sysctl_tcp_rmem);
 EXPORT_SYMBOL(sysctl_tcp_wmem);
 
-atomic_t tcp_memory_allocated;	/* Current allocated memory. */
+atomic_long_t tcp_memory_allocated;	/* Current allocated memory. */
 EXPORT_SYMBOL(tcp_memory_allocated);
 
 /*
@@ -386,8 +386,6 @@ unsigned int tcp_poll(struct file *file, struct socket *sock, poll_table *wait)
 	 */
 
 	mask = 0;
-	if (sk->sk_err)
-		mask = POLLERR;
 
 	/*
 	 * POLLHUP is certainly not done right. But poll() doesn't
@@ -457,6 +455,11 @@ unsigned int tcp_poll(struct file *file, struct socket *sock, poll_table *wait)
 		if (tp->urg_data & TCP_URG_VALID)
 			mask |= POLLPRI;
 	}
+	/* This barrier is coupled with smp_wmb() in tcp_reset() */
+	smp_rmb();
+	if (sk->sk_err)
+		mask |= POLLERR;
+
 	return mask;
 }
 EXPORT_SYMBOL(tcp_poll);
@@ -940,7 +943,7 @@ int tcp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
 	sg = sk->sk_route_caps & NETIF_F_SG;
 
 	while (--iovlen >= 0) {
-		int seglen = iov->iov_len;
+		size_t seglen = iov->iov_len;
 		unsigned char __user *from = iov->iov_base;
 
 		iov++;
@@ -1190,7 +1193,7 @@ void tcp_cleanup_rbuf(struct sock *sk, int copied)
 	struct sk_buff *skb = skb_peek(&sk->sk_receive_queue);
 
 	WARN(skb && !before(tp->copied_seq, TCP_SKB_CB(skb)->end_seq),
-	     KERN_INFO "cleanup rbuf bug: copied %X seq %X rcvnxt %X\n",
+	     "cleanup rbuf bug: copied %X seq %X rcvnxt %X\n",
 	     tp->copied_seq, TCP_SKB_CB(skb)->end_seq, tp->rcv_nxt);
 #endif
 
@@ -1474,10 +1477,9 @@ int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
 			 * shouldn't happen.
 			 */
 			if (WARN(before(*seq, TCP_SKB_CB(skb)->seq),
-			     KERN_INFO "recvmsg bug: copied %X "
-				       "seq %X rcvnxt %X fl %X\n", *seq,
-				       TCP_SKB_CB(skb)->seq, tp->rcv_nxt,
-				       flags))
+				 "recvmsg bug: copied %X seq %X rcvnxt %X fl %X\n",
+				 *seq, TCP_SKB_CB(skb)->seq, tp->rcv_nxt,
+				 flags))
 				break;
 
 			offset = *seq - TCP_SKB_CB(skb)->seq;
@@ -1487,10 +1489,9 @@ int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
 				goto found_ok_skb;
 			if (tcp_hdr(skb)->fin)
 				goto found_fin_ok;
-			WARN(!(flags & MSG_PEEK), KERN_INFO "recvmsg bug 2: "
-					"copied %X seq %X rcvnxt %X fl %X\n",
-					*seq, TCP_SKB_CB(skb)->seq,
-					tp->rcv_nxt, flags);
+			WARN(!(flags & MSG_PEEK),
+			     "recvmsg bug 2: copied %X seq %X rcvnxt %X fl %X\n",
+			     *seq, TCP_SKB_CB(skb)->seq, tp->rcv_nxt, flags);
 		}
 
 		/* Well, if we have backlog, try to process it now yet. */
@@ -2243,7 +2244,7 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
 		/* Values greater than interface MTU won't take effect. However
 		 * at the point when this call is done we typically don't yet
 		 * know which interface is going to be used */
-		if (val < 8 || val > MAX_TCP_WINDOW) {
+		if (val < TCP_MIN_MSS || val > MAX_TCP_WINDOW) {
 			err = -EINVAL;
 			break;
 		}
@@ -2389,7 +2390,12 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
 		err = tp->af_specific->md5_parse(sk, optval, optlen);
 		break;
 #endif
-
+	case TCP_USER_TIMEOUT:
+		/* Cap the max timeout in ms TCP will retry/retrans
+		 * before giving up and aborting (ETIMEDOUT) a connection.
+		 */
+		icsk->icsk_user_timeout = msecs_to_jiffies(val);
+		break;
 	default:
 		err = -ENOPROTOOPT;
 		break;
@@ -2607,6 +2613,10 @@ static int do_tcp_getsockopt(struct sock *sk, int level,
 		break;
 	case TCP_THIN_DUPACK:
 		val = tp->thin_dupack;
+		break;
+
+	case TCP_USER_TIMEOUT:
+		val = jiffies_to_msecs(icsk->icsk_user_timeout);
 		break;
 	default:
 		return -ENOPROTOOPT;

@@ -725,7 +725,7 @@ static void tulip_clean_tx_ring(struct tulip_private *tp)
 		int status = le32_to_cpu(tp->tx_ring[entry].status);
 
 		if (status < 0) {
-			tp->stats.tx_errors++;	/* It wasn't Txed */
+			tp->dev->stats.tx_errors++;	/* It wasn't Txed */
 			tp->tx_ring[entry].status = 0;
 		}
 
@@ -781,8 +781,8 @@ static void tulip_down (struct net_device *dev)
 	/* release any unconsumed transmit buffers */
 	tulip_clean_tx_ring(tp);
 
-	if (ioread32 (ioaddr + CSR6) != 0xffffffff)
-		tp->stats.rx_missed_errors += ioread32 (ioaddr + CSR8) & 0xffff;
+	if (ioread32(ioaddr + CSR6) != 0xffffffff)
+		dev->stats.rx_missed_errors += ioread32(ioaddr + CSR8) & 0xffff;
 
 	spin_unlock_irqrestore (&tp->lock, flags);
 
@@ -864,12 +864,12 @@ static struct net_device_stats *tulip_get_stats(struct net_device *dev)
 
 		spin_lock_irqsave (&tp->lock, flags);
 
-		tp->stats.rx_missed_errors += ioread32(ioaddr + CSR8) & 0xffff;
+		dev->stats.rx_missed_errors += ioread32(ioaddr + CSR8) & 0xffff;
 
 		spin_unlock_irqrestore(&tp->lock, flags);
 	}
 
-	return &tp->stats;
+	return &dev->stats;
 }
 
 
@@ -1302,17 +1302,18 @@ static const struct net_device_ops tulip_netdev_ops = {
 #endif
 };
 
+DEFINE_PCI_DEVICE_TABLE(early_486_chipsets) = {
+	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82424) },
+	{ PCI_DEVICE(PCI_VENDOR_ID_SI, PCI_DEVICE_ID_SI_496) },
+	{ },
+};
+
 static int __devinit tulip_init_one (struct pci_dev *pdev,
 				     const struct pci_device_id *ent)
 {
 	struct tulip_private *tp;
 	/* See note below on the multiport cards. */
 	static unsigned char last_phys_addr[6] = {0x00, 'L', 'i', 'n', 'u', 'x'};
-	static struct pci_device_id early_486_chipsets[] = {
-		{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82424) },
-		{ PCI_DEVICE(PCI_VENDOR_ID_SI, PCI_DEVICE_ID_SI_496) },
-		{ },
-	};
 	static int last_irq;
 	static int multiport_cnt;	/* For four-port boards w/one EEPROM */
 	int i, irq;
@@ -1682,7 +1683,9 @@ static int __devinit tulip_init_one (struct pci_dev *pdev,
 		tp->full_duplex_lock = 1;
 
 	if (tulip_media_cap[tp->default_port] & MediaIsMII) {
-		u16 media2advert[] = { 0x20, 0x40, 0x03e0, 0x60, 0x80, 0x100, 0x200 };
+		static const u16 media2advert[] = {
+			0x20, 0x40, 0x03e0, 0x60, 0x80, 0x100, 0x200
+		};
 		tp->mii_advertise = media2advert[tp->default_port - 9];
 		tp->mii_advertise |= (tp->flags & HAS_8023X); /* Matching bits! */
 	}

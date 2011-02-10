@@ -24,6 +24,7 @@
 #define KMSG_COMPONENT "ctcm"
 #define pr_fmt(fmt) KMSG_COMPONENT ": " fmt
 
+#include <linux/kernel_stat.h>
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
@@ -1154,7 +1155,7 @@ static struct net_device *ctcm_init_netdevice(struct ctcm_priv *priv)
 				dev_fsm, dev_fsm_len, GFP_KERNEL);
 	if (priv->fsm == NULL) {
 		CTCMY_DBF_DEV(SETUP, dev, "init_fsm error");
-		kfree(dev);
+		free_netdev(dev);
 		return NULL;
 	}
 	fsm_newstate(priv->fsm, DEV_STATE_STOPPED);
@@ -1165,7 +1166,7 @@ static struct net_device *ctcm_init_netdevice(struct ctcm_priv *priv)
 		grp = ctcmpc_init_mpc_group(priv);
 		if (grp == NULL) {
 			MPC_DBF_DEV(SETUP, dev, "init_mpc_group error");
-			kfree(dev);
+			free_netdev(dev);
 			return NULL;
 		}
 		tasklet_init(&grp->mpc_tasklet2,
@@ -1204,6 +1205,7 @@ static void ctcm_irq_handler(struct ccw_device *cdev,
 	int cstat;
 	int dstat;
 
+	kstat_cpu(smp_processor_id()).irqs[IOINT_CTC]++;
 	CTCM_DBF_TEXT_(TRACE, CTC_DBF_DEBUG,
 		"Enter %s(%s)", CTCM_FUNTAIL, dev_name(&cdev->dev));
 

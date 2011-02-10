@@ -46,6 +46,7 @@
 #include <plat/gpmc.h>
 #include <plat/usb.h>
 #include <plat/display.h>
+#include <plat/panel-generic-dpi.h>
 #include <plat/mcspi.h>
 
 #include <mach/hardware.h>
@@ -238,8 +239,6 @@ static inline void cm_t35_init_nand(void) {}
 	defined(CONFIG_TOUCHSCREEN_ADS7846_MODULE)
 #include <linux/spi/ads7846.h>
 
-#include <plat/mcspi.h>
-
 static struct omap2_mcspi_device_config ads7846_mcspi_config = {
 	.turbo_mode	= 0,
 	.single_channel	= 1,	/* 0: slave, 1: master */
@@ -353,22 +352,32 @@ static void cm_t35_panel_disable_tv(struct omap_dss_device *dssdev)
 {
 }
 
-static struct omap_dss_device cm_t35_lcd_device = {
-	.name			= "lcd",
-	.driver_name		= "toppoly_tdo35s_panel",
-	.type			= OMAP_DISPLAY_TYPE_DPI,
-	.phy.dpi.data_lines	= 18,
+static struct panel_generic_dpi_data lcd_panel = {
+	.name			= "toppoly_tdo35s",
 	.platform_enable	= cm_t35_panel_enable_lcd,
 	.platform_disable	= cm_t35_panel_disable_lcd,
 };
 
-static struct omap_dss_device cm_t35_dvi_device = {
-	.name			= "dvi",
-	.driver_name		= "generic_panel",
+static struct omap_dss_device cm_t35_lcd_device = {
+	.name			= "lcd",
 	.type			= OMAP_DISPLAY_TYPE_DPI,
-	.phy.dpi.data_lines	= 24,
+	.driver_name		= "generic_dpi_panel",
+	.data			= &lcd_panel,
+	.phy.dpi.data_lines	= 18,
+};
+
+static struct panel_generic_dpi_data dvi_panel = {
+	.name			= "generic",
 	.platform_enable	= cm_t35_panel_enable_dvi,
 	.platform_disable	= cm_t35_panel_disable_dvi,
+};
+
+static struct omap_dss_device cm_t35_dvi_device = {
+	.name			= "dvi",
+	.type			= OMAP_DISPLAY_TYPE_DPI,
+	.driver_name		= "generic_dpi_panel",
+	.data			= &dvi_panel,
+	.phy.dpi.data_lines	= 24,
 };
 
 static struct omap_dss_device cm_t35_tv_device = {
@@ -559,7 +568,7 @@ static struct twl4030_usb_data cm_t35_usb_data = {
 	.usb_mode	= T2_USB_MODE_ULPI,
 };
 
-static int cm_t35_keymap[] = {
+static uint32_t cm_t35_keymap[] = {
 	KEY(0, 0, KEY_A),	KEY(0, 1, KEY_B),	KEY(0, 2, KEY_LEFT),
 	KEY(1, 0, KEY_UP),	KEY(1, 1, KEY_ENTER),	KEY(1, 2, KEY_DOWN),
 	KEY(2, 0, KEY_RIGHT),	KEY(2, 1, KEY_C),	KEY(2, 2, KEY_D),
@@ -602,8 +611,8 @@ static struct ehci_hcd_omap_platform_data ehci_pdata __initdata = {
 	.port_mode[2] = EHCI_HCD_OMAP_MODE_UNKNOWN,
 
 	.phy_reset  = true,
-	.reset_gpio_port[0]  = -EINVAL,
-	.reset_gpio_port[1]  = -EINVAL,
+	.reset_gpio_port[0]  = OMAP_MAX_GPIO_LINES + 6,
+	.reset_gpio_port[1]  = OMAP_MAX_GPIO_LINES + 7,
 	.reset_gpio_port[2]  = -EINVAL
 };
 
@@ -631,12 +640,6 @@ static int cm_t35_twl_gpio_setup(struct device *dev, unsigned gpio,
 	/* link regulators to MMC adapters */
 	cm_t35_vmmc1_supply.dev = mmc[0].dev;
 	cm_t35_vsim_supply.dev = mmc[0].dev;
-
-	/* setup USB with proper PHY reset GPIOs */
-	ehci_pdata.reset_gpio_port[0] = gpio + 6;
-	ehci_pdata.reset_gpio_port[1] = gpio + 7;
-
-	usb_ehci_init(&ehci_pdata);
 
 	return 0;
 }
@@ -685,10 +688,10 @@ static void __init cm_t35_init_irq(void)
 	omap_board_config = cm_t35_config;
 	omap_board_config_size = ARRAY_SIZE(cm_t35_config);
 
-	omap2_init_common_hw(mt46h32m32lf6_sdrc_params,
+	omap2_init_common_infrastructure();
+	omap2_init_common_devices(mt46h32m32lf6_sdrc_params,
 			     mt46h32m32lf6_sdrc_params);
 	omap_init_irq();
-	omap_gpio_init();
 }
 
 static struct omap_board_mux board_mux[] __initdata = {
@@ -807,11 +810,10 @@ static void __init cm_t35_init(void)
 	cm_t35_init_display();
 
 	usb_musb_init(&musb_board_data);
+	usb_ehci_init(&ehci_pdata);
 }
 
 MACHINE_START(CM_T35, "Compulab CM-T35")
-	.phys_io	= 0x48000000,
-	.io_pg_offst	= ((0xd8000000) >> 18) & 0xfffc,
 	.boot_params	= 0x80000100,
 	.map_io		= omap3_map_io,
 	.reserve	= omap_reserve,

@@ -48,6 +48,7 @@
 #include <asm/apicdef.h>
 #include <asm/system.h>
 #include <asm/apic.h>
+#include <asm/nmi.h>
 
 struct dbg_reg_def_t dbg_reg_def[DBG_MAX_REG_NUM] =
 {
@@ -315,14 +316,18 @@ static void kgdb_remove_all_hw_break(void)
 		if (!breakinfo[i].enabled)
 			continue;
 		bp = *per_cpu_ptr(breakinfo[i].pev, cpu);
-		if (bp->attr.disabled == 1)
+		if (!bp->attr.disabled) {
+			arch_uninstall_hw_breakpoint(bp);
+			bp->attr.disabled = 1;
 			continue;
+		}
 		if (dbg_is_early)
 			early_dr7 &= ~encode_dr7(i, breakinfo[i].len,
 						 breakinfo[i].type);
-		else
-			arch_uninstall_hw_breakpoint(bp);
-		bp->attr.disabled = 1;
+		else if (hw_break_release_slot(i))
+			printk(KERN_ERR "KGDB: hw bpt remove failed %lx\n",
+			       breakinfo[i].addr);
+		breakinfo[i].enabled = 0;
 	}
 }
 
@@ -387,7 +392,7 @@ kgdb_set_hw_break(unsigned long addr, int len, enum kgdb_bptype bptype)
  *	disable hardware debugging while it is processing gdb packets or
  *	handling exception.
  */
-void kgdb_disable_hw_debug(struct pt_regs *regs)
+static void kgdb_disable_hw_debug(struct pt_regs *regs)
 {
 	int i;
 	int cpu = raw_smp_processor_id();
@@ -477,8 +482,6 @@ int kgdb_arch_handle_exception(int e_vector, int signo, int err_code,
 				   raw_smp_processor_id());
 		}
 
-		kgdb_correct_hw_break();
-
 		return 0;
 	}
 
@@ -521,10 +524,6 @@ static int __kgdb_notify(struct die_args *args, unsigned long cmd)
 			touch_nmi_watchdog();
 			return NOTIFY_STOP;
 		}
-		return NOTIFY_DONE;
-
-	case DIE_NMI_IPI:
-		/* Just ignore, we will handle the roundup on DIE_NMI. */
 		return NOTIFY_DONE;
 
 	case DIE_NMIUNKNOWN:
@@ -604,7 +603,7 @@ static struct notifier_block kgdb_notifier = {
 	/*
 	 * Lowest-prio notifier priority, we want to be notified last:
 	 */
-	.priority	= -INT_MAX,
+	.priority	= NMI_LOCAL_LOW_PRIOR,
 };
 
 /**
@@ -621,7 +620,12 @@ int kgdb_arch_init(void)
 static void kgdb_hw_overflow_handler(struct perf_event *event, int nmi,
 		struct perf_sample_data *data, struct pt_regs *regs)
 {
-	kgdb_ll_trap(DIE_DEBUG, "debug", regs, 0, 0, SIGTRAP);
+	struct task_struct *tsk = current;
+	int i;
+
+	for (i = 0; i < 4; i++)
+		if (breakinfo[i].enabled)
+			tsk->thread.debugreg6 |= (DR_TRAP0 << i);
 }
 
 void kgdb_arch_late(void)
@@ -644,7 +648,7 @@ void kgdb_arch_late(void)
 		if (breakinfo[i].pev)
 			continue;
 		breakinfo[i].pev = register_wide_hw_breakpoint(&attr, NULL);
-		if (IS_ERR(breakinfo[i].pev)) {
+		if (IS_ERR((void * __force)breakinfo[i].pev)) {
 			printk(KERN_ERR "kgdb: Could not allocate hw"
 			       "breakpoints\nDisabling the kernel debugger\n");
 			breakinfo[i].pev = NULL;
@@ -721,6 +725,7 @@ struct kgdb_arch arch_kgdb_ops = {
 	.flags			= KGDB_HW_BREAKPOINT,
 	.set_hw_breakpoint	= kgdb_set_hw_break,
 	.remove_hw_breakpoint	= kgdb_remove_hw_break,
+	.disable_hw_break	= kgdb_disable_hw_debug,
 	.remove_all_hw_break	= kgdb_remove_all_hw_break,
 	.correct_hw_break	= kgdb_correct_hw_break,
 };

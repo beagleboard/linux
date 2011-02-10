@@ -36,6 +36,7 @@
 #include <asm/procinfo.h>
 #include <asm/sections.h>
 #include <asm/setup.h>
+#include <asm/smp_plat.h>
 #include <asm/mach-types.h>
 #include <asm/cacheflush.h>
 #include <asm/cachetype.h>
@@ -74,9 +75,9 @@ extern void reboot_setup(char *str);
 
 unsigned int processor_id;
 EXPORT_SYMBOL(processor_id);
-unsigned int __machine_arch_type;
+unsigned int __machine_arch_type __read_mostly;
 EXPORT_SYMBOL(__machine_arch_type);
-unsigned int cacheid;
+unsigned int cacheid __read_mostly;
 EXPORT_SYMBOL(cacheid);
 
 unsigned int __atags_pointer __initdata;
@@ -90,24 +91,24 @@ EXPORT_SYMBOL(system_serial_low);
 unsigned int system_serial_high;
 EXPORT_SYMBOL(system_serial_high);
 
-unsigned int elf_hwcap;
+unsigned int elf_hwcap __read_mostly;
 EXPORT_SYMBOL(elf_hwcap);
 
 
 #ifdef MULTI_CPU
-struct processor processor;
+struct processor processor __read_mostly;
 #endif
 #ifdef MULTI_TLB
-struct cpu_tlb_fns cpu_tlb;
+struct cpu_tlb_fns cpu_tlb __read_mostly;
 #endif
 #ifdef MULTI_USER
-struct cpu_user_fns cpu_user;
+struct cpu_user_fns cpu_user __read_mostly;
 #endif
 #ifdef MULTI_CACHE
-struct cpu_cache_fns cpu_cache;
+struct cpu_cache_fns cpu_cache __read_mostly;
 #endif
 #ifdef CONFIG_OUTER_CACHE
-struct outer_cache_fns outer_cache;
+struct outer_cache_fns outer_cache __read_mostly;
 EXPORT_SYMBOL(outer_cache);
 #endif
 
@@ -125,6 +126,7 @@ EXPORT_SYMBOL(elf_platform);
 static const char *cpu_name;
 static const char *machine_name;
 static char __initdata cmd_line[COMMAND_LINE_SIZE];
+struct machine_desc *machine_desc __initdata;
 
 static char default_command_line[COMMAND_LINE_SIZE] __initdata = CONFIG_CMDLINE;
 static union { char c[4]; unsigned long l; } endian_test __initdata = { { 'l', '?', '?', 'b' } };
@@ -238,6 +240,35 @@ int cpu_architecture(void)
 	return cpu_arch;
 }
 
+static int cpu_has_aliasing_icache(unsigned int arch)
+{
+	int aliasing_icache;
+	unsigned int id_reg, num_sets, line_size;
+
+	/* arch specifies the register format */
+	switch (arch) {
+	case CPU_ARCH_ARMv7:
+		asm("mcr	p15, 2, %0, c0, c0, 0 @ set CSSELR"
+		    : /* No output operands */
+		    : "r" (1));
+		isb();
+		asm("mrc	p15, 1, %0, c0, c0, 0 @ read CCSIDR"
+		    : "=r" (id_reg));
+		line_size = 4 << ((id_reg & 0x7) + 2);
+		num_sets = ((id_reg >> 13) & 0x7fff) + 1;
+		aliasing_icache = (line_size * num_sets) > PAGE_SIZE;
+		break;
+	case CPU_ARCH_ARMv6:
+		aliasing_icache = read_cpuid_cachetype() & (1 << 11);
+		break;
+	default:
+		/* I-cache aliases will be handled by D-cache aliasing code */
+		aliasing_icache = 0;
+	}
+
+	return aliasing_icache;
+}
+
 static void __init cacheid_init(void)
 {
 	unsigned int cachetype = read_cpuid_cachetype();
@@ -249,10 +280,15 @@ static void __init cacheid_init(void)
 			cacheid = CACHEID_VIPT_NONALIASING;
 			if ((cachetype & (3 << 14)) == 1 << 14)
 				cacheid |= CACHEID_ASID_TAGGED;
-		} else if (cachetype & (1 << 23))
+			else if (cpu_has_aliasing_icache(CPU_ARCH_ARMv7))
+				cacheid |= CACHEID_VIPT_I_ALIASING;
+		} else if (cachetype & (1 << 23)) {
 			cacheid = CACHEID_VIPT_ALIASING;
-		else
+		} else {
 			cacheid = CACHEID_VIPT_NONALIASING;
+			if (cpu_has_aliasing_icache(CPU_ARCH_ARMv6))
+				cacheid |= CACHEID_VIPT_I_ALIASING;
+		}
 	} else {
 		cacheid = CACHEID_VIVT;
 	}
@@ -263,7 +299,7 @@ static void __init cacheid_init(void)
 		cache_is_vipt_nonaliasing() ? "VIPT nonaliasing" : "unknown",
 		cache_is_vivt() ? "VIVT" :
 		icache_is_vivt_asid_tagged() ? "VIVT ASID tagged" :
-		cache_is_vipt_aliasing() ? "VIPT aliasing" :
+		icache_is_vipt_aliasing() ? "VIPT aliasing" :
 		cache_is_vipt_nonaliasing() ? "VIPT nonaliasing" : "unknown");
 }
 
@@ -482,25 +518,21 @@ setup_ramdisk(int doload, int prompt, int image_start, unsigned int rd_sz)
 #endif
 }
 
-static void __init
-request_standard_resources(struct meminfo *mi, struct machine_desc *mdesc)
+static void __init request_standard_resources(struct machine_desc *mdesc)
 {
+	struct memblock_region *region;
 	struct resource *res;
-	int i;
 
 	kernel_code.start   = virt_to_phys(_text);
 	kernel_code.end     = virt_to_phys(_etext - 1);
-	kernel_data.start   = virt_to_phys(_data);
+	kernel_data.start   = virt_to_phys(_sdata);
 	kernel_data.end     = virt_to_phys(_end - 1);
 
-	for (i = 0; i < mi->nr_banks; i++) {
-		if (mi->bank[i].size == 0)
-			continue;
-
+	for_each_memblock(memory, region) {
 		res = alloc_bootmem_low(sizeof(*res));
 		res->name  = "System RAM";
-		res->start = mi->bank[i].start;
-		res->end   = mi->bank[i].start + mi->bank[i].size - 1;
+		res->start = __pfn_to_phys(memblock_region_memory_base_pfn(region));
+		res->end = __pfn_to_phys(memblock_region_memory_end_pfn(region)) - 1;
 		res->flags = IORESOURCE_MEM | IORESOURCE_BUSY;
 
 		request_resource(&iomem_resource, res);
@@ -614,15 +646,17 @@ static int __init parse_tag_revision(const struct tag *tag)
 
 __tagtable(ATAG_REVISION, parse_tag_revision);
 
-#ifndef CONFIG_CMDLINE_FORCE
 static int __init parse_tag_cmdline(const struct tag *tag)
 {
+#ifndef CONFIG_CMDLINE_FORCE
 	strlcpy(default_command_line, tag->u.cmdline.cmdline, COMMAND_LINE_SIZE);
+#else
+	pr_warning("Ignoring tag cmdline (using the default kernel command line)\n");
+#endif /* CONFIG_CMDLINE_FORCE */
 	return 0;
 }
 
 __tagtable(ATAG_CMDLINE, parse_tag_cmdline);
-#endif /* CONFIG_CMDLINE_FORCE */
 
 /*
  * Scan the tag table for this tag, and call its parse function.
@@ -673,13 +707,11 @@ static struct init_tags {
 	{ 0, ATAG_NONE }
 };
 
-static void (*init_machine)(void) __initdata;
-
 static int __init customize_machine(void)
 {
 	/* customizes platform devices, or adds new ones */
-	if (init_machine)
-		init_machine();
+	if (machine_desc->init_machine)
+		machine_desc->init_machine();
 	return 0;
 }
 arch_initcall(customize_machine);
@@ -774,6 +806,7 @@ void __init setup_arch(char **cmdline_p)
 
 	setup_processor();
 	mdesc = setup_machine(machine_arch_type);
+	machine_desc = mdesc;
 	machine_name = mdesc->name;
 
 	if (mdesc->soft_reboot)
@@ -822,23 +855,20 @@ void __init setup_arch(char **cmdline_p)
 	arm_memblock_init(&meminfo, mdesc);
 
 	paging_init(mdesc);
-	request_standard_resources(&meminfo, mdesc);
+	request_standard_resources(mdesc);
 
 #ifdef CONFIG_SMP
-	smp_init_cpus();
+	if (is_smp())
+		smp_init_cpus();
 #endif
 	reserve_crashkernel();
 
 	cpu_init();
 	tcm_init();
 
-	/*
-	 * Set up various architecture-specific pointers
-	 */
-	arch_nr_irqs = mdesc->nr_irqs;
-	init_arch_irq = mdesc->init_irq;
-	system_timer = mdesc->timer;
-	init_machine = mdesc->init_machine;
+#ifdef CONFIG_MULTI_IRQ_HANDLER
+	handle_arch_irq = mdesc->handle_irq;
+#endif
 
 #ifdef CONFIG_VT
 #if defined(CONFIG_VGA_CONSOLE)
@@ -848,6 +878,9 @@ void __init setup_arch(char **cmdline_p)
 #endif
 #endif
 	early_trap_init();
+
+	if (mdesc->init_early)
+		mdesc->init_early();
 }
 
 

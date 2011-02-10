@@ -67,7 +67,8 @@
  * Align to a 32 byte boundary equal to the
  * alignment gcc 4.5 uses for a struct
  */
-#define STRUCT_ALIGN() . = ALIGN(32)
+#define STRUCT_ALIGNMENT 32
+#define STRUCT_ALIGN() . = ALIGN(STRUCT_ALIGNMENT)
 
 /* The actual configuration determine if the init/exit sections
  * are handled as text/data or they can be discarded (which
@@ -123,7 +124,8 @@
 #endif
 
 #ifdef CONFIG_EVENT_TRACING
-#define FTRACE_EVENTS()	VMLINUX_SYMBOL(__start_ftrace_events) = .;	\
+#define FTRACE_EVENTS()	. = ALIGN(8);					\
+			VMLINUX_SYMBOL(__start_ftrace_events) = .;	\
 			*(_ftrace_events)				\
 			VMLINUX_SYMBOL(__stop_ftrace_events) = .;
 #else
@@ -139,27 +141,34 @@
 #endif
 
 #ifdef CONFIG_FTRACE_SYSCALLS
-#define TRACE_SYSCALLS() VMLINUX_SYMBOL(__start_syscalls_metadata) = .;	\
+#define TRACE_SYSCALLS() . = ALIGN(8);					\
+			 VMLINUX_SYMBOL(__start_syscalls_metadata) = .;	\
 			 *(__syscalls_metadata)				\
 			 VMLINUX_SYMBOL(__stop_syscalls_metadata) = .;
 #else
 #define TRACE_SYSCALLS()
 #endif
 
+
+#define KERNEL_DTB()							\
+	STRUCT_ALIGN();							\
+	VMLINUX_SYMBOL(__dtb_start) = .;				\
+	*(.dtb.init.rodata)						\
+	VMLINUX_SYMBOL(__dtb_end) = .;
+
 /* .data section */
 #define DATA_DATA							\
 	*(.data)							\
 	*(.ref.data)							\
+	*(.data..shared_aligned) /* percpu related */			\
 	DEV_KEEP(init.data)						\
 	DEV_KEEP(exit.data)						\
 	CPU_KEEP(init.data)						\
 	CPU_KEEP(exit.data)						\
 	MEM_KEEP(init.data)						\
 	MEM_KEEP(exit.data)						\
-	. = ALIGN(32);							\
-	VMLINUX_SYMBOL(__start___tracepoints) = .;			\
+	STRUCT_ALIGN();							\
 	*(__tracepoints)						\
-	VMLINUX_SYMBOL(__stop___tracepoints) = .;			\
 	/* implement dynamic printk debug */				\
 	. = ALIGN(8);							\
 	VMLINUX_SYMBOL(__start___verbose) = .;                          \
@@ -167,13 +176,7 @@
 	VMLINUX_SYMBOL(__stop___verbose) = .;				\
 	LIKELY_PROFILE()		       				\
 	BRANCH_PROFILE()						\
-	TRACE_PRINTKS()							\
-									\
-	STRUCT_ALIGN();							\
-	FTRACE_EVENTS()							\
-									\
-	STRUCT_ALIGN();							\
-	TRACE_SYSCALLS()
+	TRACE_PRINTKS()
 
 /*
  * Data section helpers
@@ -191,7 +194,8 @@
 
 #define READ_MOSTLY_DATA(align)						\
 	. = ALIGN(align);						\
-	*(.data..read_mostly)
+	*(.data..read_mostly)						\
+	. = ALIGN(align);
 
 #define CACHELINE_ALIGNED_DATA(align)					\
 	. = ALIGN(align);						\
@@ -210,6 +214,10 @@
 		VMLINUX_SYMBOL(__start_rodata) = .;			\
 		*(.rodata) *(.rodata.*)					\
 		*(__vermagic)		/* Kernel version magic */	\
+		. = ALIGN(8);						\
+		VMLINUX_SYMBOL(__start___tracepoints_ptrs) = .;		\
+		*(__tracepoints_ptrs)	/* Tracepoints: pointer array */\
+		VMLINUX_SYMBOL(__stop___tracepoints_ptrs) = .;		\
 		*(__markers_strings)	/* Markers: strings */		\
 		*(__tracepoints_strings)/* Tracepoints: strings */	\
 	}								\
@@ -219,6 +227,8 @@
 	}								\
 									\
 	BUG_TABLE							\
+									\
+	JUMP_TABLE							\
 									\
 	/* PCI quirks */						\
 	.pci_fixup        : AT(ADDR(.pci_fixup) - LOAD_OFFSET) {	\
@@ -352,6 +362,13 @@
 		VMLINUX_SYMBOL(__start___param) = .;			\
 		*(__param)						\
 		VMLINUX_SYMBOL(__stop___param) = .;			\
+	}								\
+									\
+	/* Built-in module versions. */					\
+	__modver : AT(ADDR(__modver) - LOAD_OFFSET) {			\
+		VMLINUX_SYMBOL(__start___modver) = .;			\
+		*(__modver)						\
+		VMLINUX_SYMBOL(__stop___modver) = .;			\
 		. = ALIGN((align));					\
 		VMLINUX_SYMBOL(__end_rodata) = .;			\
 	}								\
@@ -463,9 +480,12 @@
 	KERNEL_CTORS()							\
 	*(.init.rodata)							\
 	MCOUNT_REC()							\
+	FTRACE_EVENTS()							\
+	TRACE_SYSCALLS()						\
 	DEV_DISCARD(init.rodata)					\
 	CPU_DISCARD(init.rodata)					\
-	MEM_DISCARD(init.rodata)
+	MEM_DISCARD(init.rodata)					\
+	KERNEL_DTB()
 
 #define INIT_TEXT							\
 	*(.init.text)							\
@@ -563,6 +583,14 @@
 #define BUG_TABLE
 #endif
 
+#define JUMP_TABLE							\
+	. = ALIGN(8);							\
+	__jump_table : AT(ADDR(__jump_table) - LOAD_OFFSET) {		\
+		VMLINUX_SYMBOL(__start___jump_table) = .;		\
+		*(__jump_table)						\
+		VMLINUX_SYMBOL(__stop___jump_table) = .;		\
+	}
+
 #ifdef CONFIG_PM_TRACE
 #define TRACEDATA							\
 	. = ALIGN(4);							\
@@ -626,10 +654,11 @@
 
 #ifdef CONFIG_BLK_DEV_INITRD
 #define INIT_RAM_FS							\
-	. = ALIGN(PAGE_SIZE);						\
+	. = ALIGN(4);							\
 	VMLINUX_SYMBOL(__initramfs_start) = .;				\
 	*(.init.ramfs)							\
-	VMLINUX_SYMBOL(__initramfs_end) = .;
+	. = ALIGN(8);							\
+	*(.init.ramfs.info)
 #else
 #define INIT_RAM_FS
 #endif
@@ -677,7 +706,9 @@
 				- LOAD_OFFSET) {			\
 		VMLINUX_SYMBOL(__per_cpu_start) = .;			\
 		*(.data..percpu..first)					\
+		. = ALIGN(PAGE_SIZE);					\
 		*(.data..percpu..page_aligned)				\
+		*(.data..percpu..readmostly)				\
 		*(.data..percpu)					\
 		*(.data..percpu..shared_aligned)			\
 		VMLINUX_SYMBOL(__per_cpu_end) = .;			\
@@ -703,7 +734,9 @@
 		VMLINUX_SYMBOL(__per_cpu_load) = .;			\
 		VMLINUX_SYMBOL(__per_cpu_start) = .;			\
 		*(.data..percpu..first)					\
+		. = ALIGN(PAGE_SIZE);					\
 		*(.data..percpu..page_aligned)				\
+		*(.data..percpu..readmostly)				\
 		*(.data..percpu)					\
 		*(.data..percpu..shared_aligned)			\
 		VMLINUX_SYMBOL(__per_cpu_end) = .;			\

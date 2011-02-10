@@ -133,7 +133,7 @@ struct spcp8x5_usb_ctrl_arg {
 
 /* how come ??? */
 #define UART_STATE			0x08
-#define UART_STATE_TRANSIENT_MASK	0x74
+#define UART_STATE_TRANSIENT_MASK	0x75
 #define UART_DCD			0x01
 #define UART_DSR			0x02
 #define UART_BREAK_ERROR		0x04
@@ -441,7 +441,6 @@ static void spcp8x5_set_termios(struct tty_struct *tty,
 		spcp8x5_set_workMode(serial->dev, 0x000a,
 				     SET_WORKING_MODE_U2C, priv->type);
 	}
-	return;
 }
 
 /* open the serial port. do some usb system call. set termios and get the line
@@ -526,6 +525,10 @@ static void spcp8x5_process_read_urb(struct urb *urb)
 		/* overrun is special, not associated with a char */
 		if (status & UART_OVERRUN_ERROR)
 			tty_insert_flip_char(tty, 0, TTY_OVERRUN);
+
+		if (status & UART_DCD)
+			usb_serial_handle_dcd_change(port, tty,
+				   priv->line_status & MSR_STATUS_LINE_DCD);
 	}
 
 	tty_insert_flip_string_fixed_flag(tty, data, tty_flag,
@@ -646,6 +649,7 @@ static struct usb_serial_driver spcp8x5_device = {
 		.name =		"SPCP8x5",
 	},
 	.id_table		= id_table,
+	.usb_driver		= &spcp8x5_driver,
 	.num_ports		= 1,
 	.open 			= spcp8x5_open,
 	.dtr_rts		= spcp8x5_dtr_rts,

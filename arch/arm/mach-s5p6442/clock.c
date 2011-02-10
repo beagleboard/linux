@@ -192,6 +192,11 @@ static struct clk clk_pclkd1 = {
 	.parent		= &clk_hclkd1,
 };
 
+int s5p6442_clk_ip0_ctrl(struct clk *clk, int enable)
+{
+	return s5p_gatectrl(S5P_CLKGATE_IP0, clk, enable);
+}
+
 int s5p6442_clk_ip3_ctrl(struct clk *clk, int enable)
 {
 	return s5p_gatectrl(S5P_CLKGATE_IP3, clk, enable);
@@ -335,6 +340,16 @@ void __init_or_cpufreq s5p6442_setup_clocks(void)
 	clk_pclkd1.rate = pclkd1;
 }
 
+static struct clk init_clocks_off[] = {
+	{
+		.name		= "pdma",
+		.id		= -1,
+		.parent		= &clk_pclkd1,
+		.enable		= s5p6442_clk_ip0_ctrl,
+		.ctrlbit	= (1 << 3),
+	},
+};
+
 static struct clk init_clocks[] = {
 	{
 		.name		= "systimer",
@@ -397,6 +412,9 @@ void __init s5p6442_register_clocks(void)
 
 	s3c_register_clksrc(clksrcs, ARRAY_SIZE(clksrcs));
 	s3c_register_clocks(init_clocks, ARRAY_SIZE(init_clocks));
+
+	s3c_register_clocks(init_clocks_off, ARRAY_SIZE(init_clocks_off));
+	s3c_disable_clocks(init_clocks_off, ARRAY_SIZE(init_clocks_off));
 
 	s3c_pwmclk_init();
 }

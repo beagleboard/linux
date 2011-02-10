@@ -258,6 +258,21 @@ static int mmc_read_ext_csd(struct mmc_card *card)
 	}
 
 	switch (ext_csd[EXT_CSD_CARD_TYPE] & EXT_CSD_CARD_TYPE_MASK) {
+	case EXT_CSD_CARD_TYPE_DDR_52 | EXT_CSD_CARD_TYPE_52 |
+	     EXT_CSD_CARD_TYPE_26:
+		card->ext_csd.hs_max_dtr = 52000000;
+		card->ext_csd.card_type = EXT_CSD_CARD_TYPE_DDR_52;
+		break;
+	case EXT_CSD_CARD_TYPE_DDR_1_2V | EXT_CSD_CARD_TYPE_52 |
+	     EXT_CSD_CARD_TYPE_26:
+		card->ext_csd.hs_max_dtr = 52000000;
+		card->ext_csd.card_type = EXT_CSD_CARD_TYPE_DDR_1_2V;
+		break;
+	case EXT_CSD_CARD_TYPE_DDR_1_8V | EXT_CSD_CARD_TYPE_52 |
+	     EXT_CSD_CARD_TYPE_26:
+		card->ext_csd.hs_max_dtr = 52000000;
+		card->ext_csd.card_type = EXT_CSD_CARD_TYPE_DDR_1_8V;
+		break;
 	case EXT_CSD_CARD_TYPE_52 | EXT_CSD_CARD_TYPE_26:
 		card->ext_csd.hs_max_dtr = 52000000;
 		break;
@@ -360,7 +375,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	struct mmc_card *oldcard)
 {
 	struct mmc_card *card;
-	int err;
+	int err, ddr = 0;
 	u32 cid[4];
 	unsigned int max_dtr;
 
@@ -503,33 +518,74 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	mmc_set_clock(host, max_dtr);
 
 	/*
-	 * Activate wide bus (if supported).
+	 * Indicate DDR mode (if supported).
+	 */
+	if (mmc_card_highspeed(card)) {
+		if ((card->ext_csd.card_type & EXT_CSD_CARD_TYPE_DDR_1_8V)
+			&& (host->caps & (MMC_CAP_1_8V_DDR)))
+				ddr = MMC_1_8V_DDR_MODE;
+		else if ((card->ext_csd.card_type & EXT_CSD_CARD_TYPE_DDR_1_2V)
+			&& (host->caps & (MMC_CAP_1_2V_DDR)))
+				ddr = MMC_1_2V_DDR_MODE;
+	}
+
+	/*
+	 * Activate wide bus and DDR (if supported).
 	 */
 	if ((card->csd.mmca_vsn >= CSD_SPEC_VER_4) &&
 	    (host->caps & (MMC_CAP_4_BIT_DATA | MMC_CAP_8_BIT_DATA))) {
-		unsigned ext_csd_bit, bus_width;
+		static unsigned ext_csd_bits[][2] = {
+			{ EXT_CSD_BUS_WIDTH_8, EXT_CSD_DDR_BUS_WIDTH_8 },
+			{ EXT_CSD_BUS_WIDTH_4, EXT_CSD_DDR_BUS_WIDTH_4 },
+			{ EXT_CSD_BUS_WIDTH_1, EXT_CSD_BUS_WIDTH_1 },
+		};
+		static unsigned bus_widths[] = {
+			MMC_BUS_WIDTH_8,
+			MMC_BUS_WIDTH_4,
+			MMC_BUS_WIDTH_1
+		};
+		unsigned idx, bus_width = 0;
 
-		if (host->caps & MMC_CAP_8_BIT_DATA) {
-			ext_csd_bit = EXT_CSD_BUS_WIDTH_8;
-			bus_width = MMC_BUS_WIDTH_8;
-		} else {
-			ext_csd_bit = EXT_CSD_BUS_WIDTH_4;
-			bus_width = MMC_BUS_WIDTH_4;
+		if (host->caps & MMC_CAP_8_BIT_DATA)
+			idx = 0;
+		else
+			idx = 1;
+		for (; idx < ARRAY_SIZE(bus_widths); idx++) {
+			bus_width = bus_widths[idx];
+			if (bus_width == MMC_BUS_WIDTH_1)
+				ddr = 0; /* no DDR for 1-bit width */
+			err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
+					 EXT_CSD_BUS_WIDTH,
+					 ext_csd_bits[idx][0]);
+			if (!err) {
+				mmc_set_bus_width_ddr(card->host,
+						      bus_width, MMC_SDR_MODE);
+				/*
+				 * If controller can't handle bus width test,
+				 * use the highest bus width to maintain
+				 * compatibility with previous MMC behavior.
+				 */
+				if (!(host->caps & MMC_CAP_BUS_WIDTH_TEST))
+					break;
+				err = mmc_bus_test(card, bus_width);
+				if (!err)
+					break;
+			}
 		}
 
-		err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
-				 EXT_CSD_BUS_WIDTH, ext_csd_bit);
-
-		if (err && err != -EBADMSG)
-			goto free_card;
-
+		if (!err && ddr) {
+			err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
+					EXT_CSD_BUS_WIDTH,
+					ext_csd_bits[idx][1]);
+		}
 		if (err) {
-			printk(KERN_WARNING "%s: switch to bus width %d "
-			       "failed\n", mmc_hostname(card->host),
-			       1 << bus_width);
-			err = 0;
-		} else {
-			mmc_set_bus_width(card->host, bus_width);
+			printk(KERN_WARNING "%s: switch to bus width %d ddr %d "
+				"failed\n", mmc_hostname(card->host),
+				1 << bus_width, ddr);
+			goto free_card;
+		} else if (ddr) {
+			mmc_card_set_ddr_mode(card);
+			mmc_set_bus_width_ddr(card->host, bus_width, ddr);
 		}
 	}
 
@@ -623,12 +679,16 @@ static int mmc_resume(struct mmc_host *host)
 	return err;
 }
 
-static void mmc_power_restore(struct mmc_host *host)
+static int mmc_power_restore(struct mmc_host *host)
 {
+	int ret;
+
 	host->card->state &= ~MMC_STATE_HIGHSPEED;
 	mmc_claim_host(host);
-	mmc_init_card(host, host->ocr, host->card);
+	ret = mmc_init_card(host, host->ocr, host->card);
 	mmc_release_host(host);
+
+	return ret;
 }
 
 static int mmc_sleep(struct mmc_host *host)
@@ -685,7 +745,7 @@ static void mmc_attach_bus_ops(struct mmc_host *host)
 {
 	const struct mmc_bus_ops *bus_ops;
 
-	if (host->caps & MMC_CAP_NONREMOVABLE || !mmc_assume_removable)
+	if (!mmc_card_is_removable(host))
 		bus_ops = &mmc_ops_unsafe;
 	else
 		bus_ops = &mmc_ops;
@@ -695,14 +755,21 @@ static void mmc_attach_bus_ops(struct mmc_host *host)
 /*
  * Starting point for MMC card init.
  */
-int mmc_attach_mmc(struct mmc_host *host, u32 ocr)
+int mmc_attach_mmc(struct mmc_host *host)
 {
 	int err;
+	u32 ocr;
 
 	BUG_ON(!host);
 	WARN_ON(!host->claimed);
 
+	err = mmc_send_op_cond(host, 0, &ocr);
+	if (err)
+		return err;
+
 	mmc_attach_bus_ops(host);
+	if (host->ocr_avail_mmc)
+		host->ocr_avail = host->ocr_avail_mmc;
 
 	/*
 	 * We need to get OCR a different way for SPI.
@@ -742,20 +809,20 @@ int mmc_attach_mmc(struct mmc_host *host, u32 ocr)
 		goto err;
 
 	mmc_release_host(host);
-
 	err = mmc_add_card(host->card);
+	mmc_claim_host(host);
 	if (err)
 		goto remove_card;
 
 	return 0;
 
 remove_card:
+	mmc_release_host(host);
 	mmc_remove_card(host->card);
-	host->card = NULL;
 	mmc_claim_host(host);
+	host->card = NULL;
 err:
 	mmc_detach_bus(host);
-	mmc_release_host(host);
 
 	printk(KERN_ERR "%s: error %d whilst initialising MMC card\n",
 		mmc_hostname(host), err);

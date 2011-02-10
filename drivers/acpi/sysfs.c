@@ -100,7 +100,7 @@ static const struct acpi_dlevel acpi_debug_levels[] = {
 	ACPI_DEBUG_INIT(ACPI_LV_EVENTS),
 };
 
-static int param_get_debug_layer(char *buffer, struct kernel_param *kp)
+static int param_get_debug_layer(char *buffer, const struct kernel_param *kp)
 {
 	int result = 0;
 	int i;
@@ -128,7 +128,7 @@ static int param_get_debug_layer(char *buffer, struct kernel_param *kp)
 	return result;
 }
 
-static int param_get_debug_level(char *buffer, struct kernel_param *kp)
+static int param_get_debug_level(char *buffer, const struct kernel_param *kp)
 {
 	int result = 0;
 	int i;
@@ -149,10 +149,18 @@ static int param_get_debug_level(char *buffer, struct kernel_param *kp)
 	return result;
 }
 
-module_param_call(debug_layer, param_set_uint, param_get_debug_layer,
-		  &acpi_dbg_layer, 0644);
-module_param_call(debug_level, param_set_uint, param_get_debug_level,
-		  &acpi_dbg_level, 0644);
+static struct kernel_param_ops param_ops_debug_layer = {
+	.set = param_set_uint,
+	.get = param_get_debug_layer,
+};
+
+static struct kernel_param_ops param_ops_debug_level = {
+	.set = param_set_uint,
+	.get = param_get_debug_level,
+};
+
+module_param_cb(debug_layer, &param_ops_debug_layer, &acpi_dbg_layer, 0644);
+module_param_cb(debug_level, &param_ops_debug_level, &acpi_dbg_level, 0644);
 
 static char trace_method_name[6];
 module_param_string(trace_method_name, trace_method_name, 6, 0644);
@@ -430,7 +438,7 @@ static void delete_gpe_attr_array(void)
 	return;
 }
 
-void acpi_os_gpe_count(u32 gpe_number)
+static void gpe_count(u32 gpe_number)
 {
 	acpi_gpe_count++;
 
@@ -446,7 +454,7 @@ void acpi_os_gpe_count(u32 gpe_number)
 	return;
 }
 
-void acpi_os_fixed_event_count(u32 event_number)
+static void fixed_event_count(u32 event_number)
 {
 	if (!all_counters)
 		return;
@@ -458,6 +466,16 @@ void acpi_os_fixed_event_count(u32 event_number)
 			     COUNT_ERROR].count++;
 
 	return;
+}
+
+static void acpi_gbl_event_handler(u32 event_type, acpi_handle device,
+	u32 event_number, void *context)
+{
+	if (event_type == ACPI_EVENT_TYPE_GPE)
+		gpe_count(event_number);
+
+	if (event_type == ACPI_EVENT_TYPE_FIXED)
+		fixed_event_count(event_number);
 }
 
 static int get_status(u32 index, acpi_event_status *status,
@@ -593,6 +611,7 @@ end:
 
 void acpi_irq_stats_init(void)
 {
+	acpi_status status;
 	int i;
 
 	if (all_counters)
@@ -609,6 +628,10 @@ void acpi_irq_stats_init(void)
 	all_counters = kzalloc(sizeof(struct event_counter) * (num_counters),
 			       GFP_KERNEL);
 	if (all_counters == NULL)
+		goto fail;
+
+	status = acpi_install_global_event_handler(acpi_gbl_event_handler, NULL);
+	if (ACPI_FAILURE(status))
 		goto fail;
 
 	counter_attrs = kzalloc(sizeof(struct kobj_attribute) * (num_counters),

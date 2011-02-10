@@ -15,13 +15,13 @@
 #include <linux/platform_device.h>
 #include <linux/io.h>
 #include <linux/slab.h>
+#include <linux/memblock.h>
 
 #include <mach/hardware.h>
 #include <asm/mach-types.h>
 #include <asm/mach/map.h>
 
 #include <plat/tc.h>
-#include <plat/control.h>
 #include <plat/board.h>
 #include <plat/mmc.h>
 #include <mach/gpio.h>
@@ -232,44 +232,35 @@ static void omap_init_uwire(void)
 static inline void omap_init_uwire(void) {}
 #endif
 
-/*-------------------------------------------------------------------------*/
+#if defined(CONFIG_TIDSPBRIDGE) || defined(CONFIG_TIDSPBRIDGE_MODULE)
 
-#if	defined(CONFIG_OMAP_WATCHDOG) || defined(CONFIG_OMAP_WATCHDOG_MODULE)
+static phys_addr_t omap_dsp_phys_mempool_base;
 
-static struct resource wdt_resources[] = {
-	{
-		.flags		= IORESOURCE_MEM,
-	},
-};
-
-static struct platform_device omap_wdt_device = {
-	.name	   = "omap_wdt",
-	.id	     = -1,
-	.num_resources	= ARRAY_SIZE(wdt_resources),
-	.resource	= wdt_resources,
-};
-
-static void omap_init_wdt(void)
+void __init omap_dsp_reserve_sdram_memblock(void)
 {
-	if (cpu_is_omap16xx())
-		wdt_resources[0].start = 0xfffeb000;
-	else if (cpu_is_omap2420())
-		wdt_resources[0].start = 0x48022000; /* WDT2 */
-	else if (cpu_is_omap2430())
-		wdt_resources[0].start = 0x49016000; /* WDT2 */
-	else if (cpu_is_omap343x())
-		wdt_resources[0].start = 0x48314000; /* WDT2 */
-	else if (cpu_is_omap44xx())
-		wdt_resources[0].start = 0x4a314000;
-	else
+	phys_addr_t size = CONFIG_TIDSPBRIDGE_MEMPOOL_SIZE;
+	phys_addr_t paddr;
+
+	if (!size)
 		return;
 
-	wdt_resources[0].end = wdt_resources[0].start + 0x4f;
+	paddr = memblock_alloc(size, SZ_1M);
+	if (!paddr) {
+		pr_err("%s: failed to reserve %x bytes\n",
+				__func__, size);
+		return;
+	}
+	memblock_free(paddr, size);
+	memblock_remove(paddr, size);
 
-	(void) platform_device_register(&omap_wdt_device);
+	omap_dsp_phys_mempool_base = paddr;
 }
-#else
-static inline void omap_init_wdt(void) {}
+
+phys_addr_t omap_dsp_get_mempool_base(void)
+{
+	return omap_dsp_phys_mempool_base;
+}
+EXPORT_SYMBOL(omap_dsp_get_mempool_base);
 #endif
 
 /*
@@ -300,7 +291,6 @@ static int __init omap_init_devices(void)
 	omap_init_rng();
 	omap_init_mcpdm();
 	omap_init_uwire();
-	omap_init_wdt();
 	return 0;
 }
 arch_initcall(omap_init_devices);

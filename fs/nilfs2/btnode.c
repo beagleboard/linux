@@ -37,15 +37,7 @@
 
 void nilfs_btnode_cache_init_once(struct address_space *btnc)
 {
-	memset(btnc, 0, sizeof(*btnc));
-	INIT_RADIX_TREE(&btnc->page_tree, GFP_ATOMIC);
-	spin_lock_init(&btnc->tree_lock);
-	INIT_LIST_HEAD(&btnc->private_list);
-	spin_lock_init(&btnc->private_lock);
-
-	spin_lock_init(&btnc->i_mmap_lock);
-	INIT_RAW_PRIO_TREE_ROOT(&btnc->i_mmap);
-	INIT_LIST_HEAD(&btnc->i_mmap_nonlinear);
+	nilfs_mapping_init_once(btnc);
 }
 
 static const struct address_space_operations def_btnode_aops = {
@@ -55,12 +47,7 @@ static const struct address_space_operations def_btnode_aops = {
 void nilfs_btnode_cache_init(struct address_space *btnc,
 			     struct backing_dev_info *bdi)
 {
-	btnc->host = NULL;  /* can safely set to host inode ? */
-	btnc->flags = 0;
-	mapping_set_gfp_mask(btnc, GFP_NOFS);
-	btnc->assoc_mapping = NULL;
-	btnc->backing_dev_info = bdi;
-	btnc->a_ops = &def_btnode_aops;
+	nilfs_mapping_init(btnc, bdi, &def_btnode_aops);
 }
 
 void nilfs_btnode_cache_clear(struct address_space *btnc)
@@ -117,8 +104,7 @@ int nilfs_btnode_submit_block(struct address_space *btnc, __u64 blocknr,
 	if (pblocknr == 0) {
 		pblocknr = blocknr;
 		if (inode->i_ino != NILFS_DAT_INO) {
-			struct inode *dat =
-				nilfs_dat_inode(NILFS_I_NILFS(inode));
+			struct inode *dat = NILFS_I_NILFS(inode)->ns_dat;
 
 			/* blocknr is a virtual block number */
 			err = nilfs_dat_translate(dat, blocknr, &pblocknr);

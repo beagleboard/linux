@@ -1,6 +1,6 @@
 /*
  * QLogic iSCSI HBA Driver
- * Copyright (c)  2003-2006 QLogic Corporation
+ * Copyright (c)  2003-2010 QLogic Corporation
  *
  * See LICENSE.qla4xxx for copyright and licensing details.
  */
@@ -24,6 +24,7 @@
 #include <linux/delay.h>
 #include <linux/interrupt.h>
 #include <linux/mutex.h>
+#include <linux/aer.h>
 
 #include <net/tcp.h>
 #include <scsi/scsi.h>
@@ -35,24 +36,6 @@
 
 #include "ql4_dbg.h"
 #include "ql4_nx.h"
-
-#if defined(CONFIG_PCIEAER)
-#include <linux/aer.h>
-#else
-/* AER releated */
-static inline int pci_enable_pcie_error_reporting(struct pci_dev *dev)
-{
-	return -EINVAL;
-}
-static inline int pci_disable_pcie_error_reporting(struct pci_dev *dev)
-{
-	return -EINVAL;
-}
-static inline int pci_cleanup_aer_uncorrect_error_status(struct pci_dev *dev)
-{
-	return -EINVAL;
-}
-#endif
 
 #ifndef PCI_DEVICE_ID_QLOGIC_ISP4010
 #define PCI_DEVICE_ID_QLOGIC_ISP4010	0x4010
@@ -179,6 +162,7 @@ static inline int pci_cleanup_aer_uncorrect_error_status(struct pci_dev *dev)
 #define IOCB_TOV_MARGIN			10
 #define RELOGIN_TOV			18
 #define ISNS_DEREG_TOV			5
+#define HBA_ONLINE_TOV			30
 
 #define MAX_RESET_HA_RETRIES		2
 
@@ -191,7 +175,7 @@ static inline int pci_cleanup_aer_uncorrect_error_status(struct pci_dev *dev)
 struct srb {
 	struct list_head list;	/* (8)	 */
 	struct scsi_qla_host *ha;	/* HA the SP is queued on */
-	struct ddb_entry	*ddb;
+	struct ddb_entry *ddb;
 	uint16_t flags;		/* (1) Status flags. */
 
 #define SRB_DMA_VALID		BIT_3	/* DMA Buffer mapped. */
@@ -207,7 +191,6 @@ struct srb {
 	struct scsi_cmnd *cmd;	/* (4) SCSI command block */
 	dma_addr_t dma_handle;	/* (4) for unmap of single transfers */
 	struct kref srb_ref;	/* reference count for this srb */
-	uint32_t fw_ddb_index;
 	uint8_t err_id;		/* error id */
 #define SRB_ERR_PORT	   1	/* Request failed because "port down" */
 #define SRB_ERR_LOOP	   2	/* Request failed because "loop down" */

@@ -381,7 +381,7 @@ int efx_mcdi_rpc(struct efx_nic *efx, unsigned cmd,
 				  -rc);
 			efx_schedule_reset(efx, RESET_TYPE_MC_FAILURE);
 		} else
-			netif_err(efx, hw, efx->net_dev,
+			netif_dbg(efx, hw, efx->net_dev,
 				  "MC command 0x%x inlen %d failed rc=%d\n",
 				  cmd, (int)inlen, -rc);
 	}
@@ -463,6 +463,7 @@ static void efx_mcdi_ev_death(struct efx_nic *efx, int rc)
 		if (mcdi->mode == MCDI_MODE_EVENTS) {
 			mcdi->resprc = rc;
 			mcdi->resplen = 0;
+			++mcdi->credits;
 		}
 	} else
 		/* Nobody was waiting for an MCDI request, so trigger a reset */
@@ -1093,8 +1094,8 @@ int efx_mcdi_reset_mc(struct efx_nic *efx)
 	return rc;
 }
 
-int efx_mcdi_wol_filter_set(struct efx_nic *efx, u32 type,
-			    const u8 *mac, int *id_out)
+static int efx_mcdi_wol_filter_set(struct efx_nic *efx, u32 type,
+				   const u8 *mac, int *id_out)
 {
 	u8 inbuf[MC_CMD_WOL_FILTER_SET_IN_LEN];
 	u8 outbuf[MC_CMD_WOL_FILTER_SET_OUT_LEN];

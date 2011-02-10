@@ -28,7 +28,6 @@
 #include <linux/key.h>
 #include <linux/slab.h>
 #include <linux/seq_file.h>
-#include <linux/smp_lock.h>
 #include <linux/file.h>
 #include <linux/crypto.h>
 #include "ecryptfs_kernel.h"
@@ -63,6 +62,16 @@ out:
 	return inode;
 }
 
+static void ecryptfs_i_callback(struct rcu_head *head)
+{
+	struct inode *inode = container_of(head, struct inode, i_rcu);
+	struct ecryptfs_inode_info *inode_info;
+	inode_info = ecryptfs_inode_to_private(inode);
+
+	INIT_LIST_HEAD(&inode->i_dentry);
+	kmem_cache_free(ecryptfs_inode_info_cache, inode_info);
+}
+
 /**
  * ecryptfs_destroy_inode
  * @inode: The ecryptfs inode
@@ -89,7 +98,7 @@ static void ecryptfs_destroy_inode(struct inode *inode)
 		}
 	}
 	ecryptfs_destroy_crypt_stat(&inode_info->crypt_stat);
-	kmem_cache_free(ecryptfs_inode_info_cache, inode_info);
+	call_rcu(&inode->i_rcu, ecryptfs_i_callback);
 }
 
 /**
@@ -180,6 +189,8 @@ static int ecryptfs_show_options(struct seq_file *m, struct vfsmount *mnt)
 		seq_printf(m, ",ecryptfs_encrypted_view");
 	if (mount_crypt_stat->flags & ECRYPTFS_UNLINK_SIGS)
 		seq_printf(m, ",ecryptfs_unlink_sigs");
+	if (mount_crypt_stat->flags & ECRYPTFS_GLOBAL_MOUNT_AUTH_TOK_ONLY)
+		seq_printf(m, ",ecryptfs_mount_auth_tok_only");
 
 	return 0;
 }

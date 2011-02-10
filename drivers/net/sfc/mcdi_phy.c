@@ -16,7 +16,6 @@
 #include "phy.h"
 #include "mcdi.h"
 #include "mcdi_pcol.h"
-#include "mdio_10g.h"
 #include "nic.h"
 #include "selftest.h"
 
@@ -713,7 +712,8 @@ static int efx_mcdi_phy_run_tests(struct efx_nic *efx, int *results,
 	return 0;
 }
 
-const char *efx_mcdi_phy_test_name(struct efx_nic *efx, unsigned int index)
+static const char *efx_mcdi_phy_test_name(struct efx_nic *efx,
+					  unsigned int index)
 {
 	struct efx_mcdi_phy_data *phy_cfg = efx->phy_data;
 

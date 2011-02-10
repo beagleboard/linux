@@ -40,7 +40,6 @@
 #include <mach/board-mx31lite.h>
 #include <mach/iomux-mx3.h>
 #include <mach/irqs.h>
-#include <mach/mxc_ehci.h>
 #include <mach/ulpi.h>
 
 #include "devices-imx31.h"
@@ -171,7 +170,7 @@ static int usbh2_init(struct platform_device *pdev)
 	return 0;
 }
 
-static struct mxc_usbh_platform_data usbh2_pdata = {
+static struct mxc_usbh_platform_data usbh2_pdata __initdata = {
 	.init   = usbh2_init,
 	.portsc = MXC_EHCI_MODE_ULPI | MXC_EHCI_UTMI_8BIT,
 	.flags  = MXC_EHCI_POWER_PINS_ENABLED,
@@ -258,7 +257,7 @@ static void __init mxc_board_init(void)
 	usbh2_pdata.otg = otg_ulpi_create(&mxc_ulpi_access_ops,
 				ULPI_OTG_DRVVBUS | ULPI_OTG_DRVVBUS_EXT);
 
-	mxc_register_device(&mxc_usbh2, &usbh2_pdata);
+	imx31_add_mxc_ehci_hs(2, &usbh2_pdata);
 #endif
 
 	/* SMSC9117 IRQ pin */
@@ -282,8 +281,6 @@ struct sys_timer mx31lite_timer = {
 
 MACHINE_START(MX31LITE, "LogicPD i.MX31 SOM")
 	/* Maintainer: Freescale Semiconductor, Inc. */
-	.phys_io        = MX31_AIPS1_BASE_ADDR,
-	.io_pg_offst    = (MX31_AIPS1_BASE_ADDR_VIRT >> 18) & 0xfffc,
 	.boot_params    = MX3x_PHYS_OFFSET + 0x100,
 	.map_io         = mx31lite_map_io,
 	.init_irq       = mx31_init_irq,

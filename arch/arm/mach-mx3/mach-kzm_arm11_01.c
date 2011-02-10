@@ -41,9 +41,9 @@
 #include "devices-imx31.h"
 #include "devices.h"
 
-#define KZM_ARM11_IO_ADDRESS(x) (					\
-	IMX_IO_ADDRESS(x, MX31_CS4) ?:					\
-	IMX_IO_ADDRESS(x, MX31_CS5) ?:					\
+#define KZM_ARM11_IO_ADDRESS(x) (IOMEM(					\
+	IMX_IO_P2V_MODULE(x, MX31_CS4) ?:				\
+	IMX_IO_P2V_MODULE(x, MX31_CS5)) ?:				\
 	MX31_IO_ADDRESS(x))
 
 /*
@@ -274,8 +274,6 @@ static struct sys_timer kzm_timer = {
  * initialize __mach_desc_KZM_ARM11_01 data structure.
  */
 MACHINE_START(KZM_ARM11_01, "Kyoto Microcomputer Co., Ltd. KZM-ARM11-01")
-	.phys_io        = MX31_AIPS1_BASE_ADDR,
-	.io_pg_offst    = (MX31_AIPS1_BASE_ADDR_VIRT >> 18) & 0xfffc,
 	.boot_params    = MX3x_PHYS_OFFSET + 0x100,
 	.map_io         = kzm_map_io,
 	.init_irq       = mx31_init_irq,

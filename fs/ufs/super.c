@@ -696,6 +696,8 @@ static int ufs_fill_super(struct super_block *sb, void *data, int silent)
 	unsigned maxsymlen;
 	int ret = -EINVAL;
 
+	lock_kernel();
+
 	uspi = NULL;
 	ubh = NULL;
 	flags = 0;
@@ -1163,6 +1165,7 @@ magic_found:
 			goto failed;
 
 	UFSD("EXIT\n");
+	unlock_kernel();
 	return 0;
 
 dalloc_failed:
@@ -1174,10 +1177,12 @@ failed:
 	kfree(sbi);
 	sb->s_fs_info = NULL;
 	UFSD("EXIT (FAILED)\n");
+	unlock_kernel();
 	return ret;
 
 failed_nomem:
 	UFSD("EXIT (NOMEM)\n");
+	unlock_kernel();
 	return -ENOMEM;
 }
 
@@ -1407,9 +1412,16 @@ static struct inode *ufs_alloc_inode(struct super_block *sb)
 	return &ei->vfs_inode;
 }
 
+static void ufs_i_callback(struct rcu_head *head)
+{
+	struct inode *inode = container_of(head, struct inode, i_rcu);
+	INIT_LIST_HEAD(&inode->i_dentry);
+	kmem_cache_free(ufs_inode_cachep, UFS_I(inode));
+}
+
 static void ufs_destroy_inode(struct inode *inode)
 {
-	kmem_cache_free(ufs_inode_cachep, UFS_I(inode));
+	call_rcu(&inode->i_rcu, ufs_i_callback);
 }
 
 static void init_once(void *foo)
@@ -1449,16 +1461,16 @@ static const struct super_operations ufs_super_ops = {
 	.show_options   = ufs_show_options,
 };
 
-static int ufs_get_sb(struct file_system_type *fs_type,
-	int flags, const char *dev_name, void *data, struct vfsmount *mnt)
+static struct dentry *ufs_mount(struct file_system_type *fs_type,
+	int flags, const char *dev_name, void *data)
 {
-	return get_sb_bdev(fs_type, flags, dev_name, data, ufs_fill_super, mnt);
+	return mount_bdev(fs_type, flags, dev_name, data, ufs_fill_super);
 }
 
 static struct file_system_type ufs_fs_type = {
 	.owner		= THIS_MODULE,
 	.name		= "ufs",
-	.get_sb		= ufs_get_sb,
+	.mount		= ufs_mount,
 	.kill_sb	= kill_block_super,
 	.fs_flags	= FS_REQUIRES_DEV,
 };

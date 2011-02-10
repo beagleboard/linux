@@ -95,7 +95,7 @@
 /* PPC CPM type number */
 #define PORT_CPM        58
 
-/* MPC52xx type numbers */
+/* MPC52xx (and MPC512x) type numbers */
 #define PORT_MPC52xx	59
 
 /* IBM icom */
@@ -196,6 +196,12 @@
 /* High Speed UART for Medfield */
 #define PORT_MFD	95
 
+/* TI OMAP-UART */
+#define PORT_OMAP	96
+
+/* VIA VT8500 SoC */
+#define PORT_VT8500	97
+
 #ifdef __KERNEL__
 
 #include <linux/compiler.h>
@@ -206,6 +212,7 @@
 #include <linux/tty.h>
 #include <linux/mutex.h>
 #include <linux/sysrq.h>
+#include <linux/pps_kernel.h>
 
 struct uart_port;
 struct serial_struct;
@@ -289,6 +296,8 @@ struct uart_port {
 	void			(*set_termios)(struct uart_port *,
 				               struct ktermios *new,
 				               struct ktermios *old);
+	void			(*pm)(struct uart_port *, unsigned int state,
+				      unsigned int old);
 	unsigned int		irq;			/* irq number */
 	unsigned long		irqflags;		/* irq flags  */
 	unsigned int		uartclk;		/* base uart clock */
@@ -306,6 +315,7 @@ struct uart_port {
 #define UPIO_TSI		(5)			/* Tsi108/109 type IO */
 #define UPIO_DWAPB		(6)			/* DesignWare APB UART */
 #define UPIO_RM9000		(7)			/* RM9000 type IO */
+#define UPIO_DWAPB32		(8)			/* DesignWare APB UART (32 bit accesses) */
 
 	unsigned int		read_status_mask;	/* driver specific */
 	unsigned int		ignore_status_mask;	/* driver specific */
@@ -356,6 +366,7 @@ struct uart_port {
 	struct device		*dev;			/* parent device */
 	unsigned char		hub6;			/* this should be in the 8250 driver */
 	unsigned char		suspended;
+	unsigned char		irq_wake;
 	unsigned char		unused[2];
 	void			*private_data;		/* generic platform data pointer */
 };
@@ -410,6 +421,14 @@ unsigned int uart_get_baud_rate(struct uart_port *port, struct ktermios *termios
 				struct ktermios *old, unsigned int min,
 				unsigned int max);
 unsigned int uart_get_divisor(struct uart_port *port, unsigned int baud);
+
+/* Base timer interval for polling */
+static inline int uart_poll_timeout(struct uart_port *port)
+{
+	int timeout = port->timeout;
+
+	return timeout > 6 ? (timeout / 2 - 2) : 1;
+}
 
 /*
  * Console helpers.
@@ -510,10 +529,10 @@ uart_handle_dcd_change(struct uart_port *uport, unsigned int status)
 	struct uart_state *state = uport->state;
 	struct tty_port *port = &state->port;
 	struct tty_ldisc *ld = tty_ldisc_ref(port->tty);
-	struct timespec ts;
+	struct pps_event_time ts;
 
 	if (ld && ld->ops->dcd_change)
-		getnstimeofday(&ts);
+		pps_get_ts(&ts);
 
 	uport->icount.dcd++;
 #ifdef CONFIG_HARD_PPS

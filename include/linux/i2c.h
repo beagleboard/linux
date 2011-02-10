@@ -57,9 +57,10 @@ struct i2c_board_info;
  * transmit an arbitrary number of messages without interruption.
  * @count must be be less than 64k since msg.len is u16.
  */
-extern int i2c_master_send(struct i2c_client *client, const char *buf,
+extern int i2c_master_send(const struct i2c_client *client, const char *buf,
 			   int count);
-extern int i2c_master_recv(struct i2c_client *client, char *buf, int count);
+extern int i2c_master_recv(const struct i2c_client *client, char *buf,
+			   int count);
 
 /* Transfer num messages.
  */
@@ -78,23 +79,25 @@ extern s32 i2c_smbus_xfer(struct i2c_adapter *adapter, u16 addr,
 /* Now follow the 'nice' access routines. These also document the calling
    conventions of i2c_smbus_xfer. */
 
-extern s32 i2c_smbus_read_byte(struct i2c_client *client);
-extern s32 i2c_smbus_write_byte(struct i2c_client *client, u8 value);
-extern s32 i2c_smbus_read_byte_data(struct i2c_client *client, u8 command);
-extern s32 i2c_smbus_write_byte_data(struct i2c_client *client,
+extern s32 i2c_smbus_read_byte(const struct i2c_client *client);
+extern s32 i2c_smbus_write_byte(const struct i2c_client *client, u8 value);
+extern s32 i2c_smbus_read_byte_data(const struct i2c_client *client,
+				    u8 command);
+extern s32 i2c_smbus_write_byte_data(const struct i2c_client *client,
 				     u8 command, u8 value);
-extern s32 i2c_smbus_read_word_data(struct i2c_client *client, u8 command);
-extern s32 i2c_smbus_write_word_data(struct i2c_client *client,
+extern s32 i2c_smbus_read_word_data(const struct i2c_client *client,
+				    u8 command);
+extern s32 i2c_smbus_write_word_data(const struct i2c_client *client,
 				     u8 command, u16 value);
 /* Returns the number of read bytes */
-extern s32 i2c_smbus_read_block_data(struct i2c_client *client,
+extern s32 i2c_smbus_read_block_data(const struct i2c_client *client,
 				     u8 command, u8 *values);
-extern s32 i2c_smbus_write_block_data(struct i2c_client *client,
+extern s32 i2c_smbus_write_block_data(const struct i2c_client *client,
 				      u8 command, u8 length, const u8 *values);
 /* Returns the number of read bytes */
-extern s32 i2c_smbus_read_i2c_block_data(struct i2c_client *client,
+extern s32 i2c_smbus_read_i2c_block_data(const struct i2c_client *client,
 					 u8 command, u8 length, u8 *values);
-extern s32 i2c_smbus_write_i2c_block_data(struct i2c_client *client,
+extern s32 i2c_smbus_write_i2c_block_data(const struct i2c_client *client,
 					  u8 command, u8 length,
 					  const u8 *values);
 #endif /* I2C */
@@ -353,7 +356,7 @@ struct i2c_algorithm {
  */
 struct i2c_adapter {
 	struct module *owner;
-	unsigned int id;
+	unsigned int id __deprecated;
 	unsigned int class;		  /* classes to allow probing for */
 	const struct i2c_algorithm *algo; /* the algorithm to access the bus */
 	void *algo_data;
@@ -384,11 +387,15 @@ static inline void i2c_set_adapdata(struct i2c_adapter *dev, void *data)
 	dev_set_drvdata(&dev->dev, data);
 }
 
-static inline int i2c_parent_is_i2c_adapter(const struct i2c_adapter *adapter)
+static inline struct i2c_adapter *
+i2c_parent_is_i2c_adapter(const struct i2c_adapter *adapter)
 {
-	return adapter->dev.parent != NULL
-		&& adapter->dev.parent->bus == &i2c_bus_type
-		&& adapter->dev.parent->type == &i2c_adapter_type;
+	struct device *parent = adapter->dev.parent;
+
+	if (parent != NULL && parent->type == &i2c_adapter_type)
+		return to_i2c_adapter(parent);
+	else
+		return NULL;
 }
 
 /* Adapter locking functions, exported for shared pin cases */
@@ -403,8 +410,6 @@ void i2c_unlock_adapter(struct i2c_adapter *);
 
 /* i2c adapter classes (bitmask) */
 #define I2C_CLASS_HWMON		(1<<0)	/* lm_sensors, ... */
-#define I2C_CLASS_TV_ANALOG	(1<<1)	/* bttv + friends */
-#define I2C_CLASS_TV_DIGITAL	(1<<2)	/* dvb cards */
 #define I2C_CLASS_DDC		(1<<3)	/* DDC bus on graphics adapters */
 #define I2C_CLASS_SPD		(1<<7)	/* SPD EEPROMs and similar */
 

@@ -59,7 +59,7 @@ Configuration options:
     Data sheet: http://www.rtdusa.com/pdf/dm7520.pdf
     Example source: http://www.rtdusa.com/examples/dm/dm7520.zip
     Call them and ask for the register level manual.
-    PCI chip: http://www.plxtech.com/products/toolbox/9080.htm
+    PCI chip: http://www.plxtech.com/products/io/pci9080 
 
     Notes:
     This board is memory mapped.  There is some IO stuff, but it isn't needed.
@@ -329,10 +329,9 @@ static const struct rtdBoard rtd520Boards[] = {
 };
 
 static DEFINE_PCI_DEVICE_TABLE(rtd520_pci_table) = {
-	{
-	PCI_VENDOR_ID_RTD, 0x7520, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0}, {
-	PCI_VENDOR_ID_RTD, 0x4520, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0}, {
-	0}
+	{ PCI_DEVICE(PCI_VENDOR_ID_RTD, 0x7520) },
+	{ PCI_DEVICE(PCI_VENDOR_ID_RTD, 0x4520) },
+	{ 0 }
 };
 
 MODULE_DEVICE_TABLE(pci, rtd520_pci_table);
@@ -754,7 +753,7 @@ static int rtd_attach(struct comedi_device *dev, struct comedi_devconfig *it)
 	struct comedi_subdevice *s;
 	struct pci_dev *pcidev;
 	int ret;
-	resource_size_t physLas0;	/* configuation */
+	resource_size_t physLas0;	/* configuration */
 	resource_size_t physLas1;	/* data area */
 	resource_size_t physLcfg;	/* PLX9080 */
 #ifdef USE_DMA

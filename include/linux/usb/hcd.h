@@ -112,6 +112,7 @@ struct usb_hcd {
 	/* Flags that get set only during HCD registration or removal. */
 	unsigned		rh_registered:1;/* is root hub registered? */
 	unsigned		rh_pollable:1;	/* may we poll the root hub? */
+	unsigned		msix_enabled:1;	/* driver has MSI-X enabled? */
 
 	/* The next flag is a stopgap, to be removed when all the HCDs
 	 * support the new root-hub polling mechanism. */
@@ -329,6 +330,8 @@ extern int usb_hcd_submit_urb(struct urb *urb, gfp_t mem_flags);
 extern int usb_hcd_unlink_urb(struct urb *urb, int status);
 extern void usb_hcd_giveback_urb(struct usb_hcd *hcd, struct urb *urb,
 		int status);
+extern void unmap_urb_setup_for_dma(struct usb_hcd *, struct urb *);
+extern void unmap_urb_for_dma(struct usb_hcd *, struct urb *);
 extern void usb_hcd_flush_endpoint(struct usb_device *udev,
 		struct usb_host_endpoint *ep);
 extern void usb_hcd_disable_endpoint(struct usb_device *udev,
@@ -468,6 +471,10 @@ extern void usb_ep0_reinit(struct usb_device *);
 
 
 /*-------------------------------------------------------------------------*/
+
+/* class requests from USB 3.0 hub spec, table 10-5 */
+#define SetHubDepth		(0x3000 | HUB_SET_DEPTH)
+#define GetPortErrorCount	(0x8000 | HUB_GET_PORT_ERR_COUNT)
 
 /*
  * Generic bandwidth allocation constants/support

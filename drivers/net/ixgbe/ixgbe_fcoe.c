@@ -68,7 +68,7 @@ static inline bool ixgbe_rx_is_fcoe(union ixgbe_adv_rx_desc *rx_desc)
 static inline void ixgbe_fcoe_clear_ddp(struct ixgbe_fcoe_ddp *ddp)
 {
 	ddp->len = 0;
-	ddp->err = 0;
+	ddp->err = 1;
 	ddp->udl = NULL;
 	ddp->udp = 0UL;
 	ddp->sgl = NULL;
@@ -92,6 +92,7 @@ int ixgbe_fcoe_ddp_put(struct net_device *netdev, u16 xid)
 	struct ixgbe_fcoe *fcoe;
 	struct ixgbe_adapter *adapter;
 	struct ixgbe_fcoe_ddp *ddp;
+	u32 fcbuff;
 
 	if (!netdev)
 		goto out_ddp_put;
@@ -115,7 +116,14 @@ int ixgbe_fcoe_ddp_put(struct net_device *netdev, u16 xid)
 		IXGBE_WRITE_REG(&adapter->hw, IXGBE_FCBUFF, 0);
 		IXGBE_WRITE_REG(&adapter->hw, IXGBE_FCDMARW,
 				(xid | IXGBE_FCDMARW_WE));
+
+		/* guaranteed to be invalidated after 100us */
+		IXGBE_WRITE_REG(&adapter->hw, IXGBE_FCDMARW,
+				(xid | IXGBE_FCDMARW_RE));
+		fcbuff = IXGBE_READ_REG(&adapter->hw, IXGBE_FCBUFF);
 		spin_unlock_bh(&fcoe->lock);
+		if (fcbuff & IXGBE_FCBUFF_VALID)
+			udelay(100);
 	}
 	if (ddp->sgl)
 		pci_unmap_sg(adapter->pdev, ddp->sgl, ddp->sgc,
@@ -167,6 +175,11 @@ int ixgbe_fcoe_ddp_get(struct net_device *netdev, u16 xid,
 		e_warn(drv, "xid=0x%x out-of-range\n", xid);
 		return 0;
 	}
+
+	/* no DDP if we are already down or resetting */
+	if (test_bit(__IXGBE_DOWN, &adapter->state) ||
+	    test_bit(__IXGBE_RESETTING, &adapter->state))
+		return 0;
 
 	fcoe = &adapter->fcoe;
 	if (!fcoe->pool) {
@@ -304,12 +317,13 @@ int ixgbe_fcoe_ddp(struct ixgbe_adapter *adapter,
 	if (!ixgbe_rx_is_fcoe(rx_desc))
 		goto ddp_out;
 
-	skb->ip_summed = CHECKSUM_UNNECESSARY;
 	sterr = le32_to_cpu(rx_desc->wb.upper.status_error);
 	fcerr = (sterr & IXGBE_RXDADV_ERR_FCERR);
 	fceofe = (sterr & IXGBE_RXDADV_ERR_FCEOFE);
 	if (fcerr == IXGBE_FCERR_BADCRC)
-		skb->ip_summed = CHECKSUM_NONE;
+		skb_checksum_none_assert(skb);
+	else
+		skb->ip_summed = CHECKSUM_UNNECESSARY;
 
 	if (eth_hdr(skb)->h_proto == htons(ETH_P_8021Q))
 		fh = (struct fc_frame_header *)(skb->data +
@@ -471,7 +485,7 @@ int ixgbe_fso(struct ixgbe_adapter *adapter,
 
 	/* write context desc */
 	i = tx_ring->next_to_use;
-	context_desc = IXGBE_TX_CTXTDESC_ADV(*tx_ring, i);
+	context_desc = IXGBE_TX_CTXTDESC_ADV(tx_ring, i);
 	context_desc->vlan_macip_lens	= cpu_to_le32(vlan_macip_lens);
 	context_desc->seqnum_seed	= cpu_to_le32(fcoe_sof_eof);
 	context_desc->type_tucmd_mlhl	= cpu_to_le32(type_tucmd);
@@ -603,11 +617,13 @@ int ixgbe_fcoe_enable(struct net_device *netdev)
 {
 	int rc = -EINVAL;
 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+	struct ixgbe_fcoe *fcoe = &adapter->fcoe;
 
 
 	if (!(adapter->flags & IXGBE_FLAG_FCOE_CAPABLE))
 		goto out_enable;
 
+	atomic_inc(&fcoe->refcnt);
 	if (adapter->flags & IXGBE_FLAG_FCOE_ENABLED)
 		goto out_enable;
 
@@ -647,11 +663,15 @@ int ixgbe_fcoe_disable(struct net_device *netdev)
 {
 	int rc = -EINVAL;
 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+	struct ixgbe_fcoe *fcoe = &adapter->fcoe;
 
 	if (!(adapter->flags & IXGBE_FLAG_FCOE_CAPABLE))
 		goto out_disable;
 
 	if (!(adapter->flags & IXGBE_FLAG_FCOE_ENABLED))
+		goto out_disable;
+
+	if (!atomic_dec_and_test(&fcoe->refcnt))
 		goto out_disable;
 
 	e_info(drv, "Disabling FCoE offload features.\n");

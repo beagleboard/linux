@@ -1,6 +1,6 @@
 /* bnx2i.h: Broadcom NetXtreme II iSCSI driver.
  *
- * Copyright (c) 2006 - 2009 Broadcom Corporation
+ * Copyright (c) 2006 - 2010 Broadcom Corporation
  * Copyright (c) 2007, 2008 Red Hat, Inc.  All rights reserved.
  * Copyright (c) 2007, 2008 Mike Christie
  *
@@ -9,6 +9,7 @@
  * the Free Software Foundation.
  *
  * Written by: Anil Veerabhadrappa (anilgv@broadcom.com)
+ * Maintained by: Eddie Wai (eddie.wai@broadcom.com)
  */
 
 #ifndef _BNX2I_H_
@@ -57,6 +58,8 @@
 
 #define MAX_PAGES_PER_CTRL_STRUCT_POOL	8
 #define BNX2I_RESERVED_SLOW_PATH_CMD_SLOTS	4
+
+#define BNX2I_5771X_DBELL_PAGE_SIZE	128
 
 /* 5706/08 hardware has limit on maximum buffer size per BD it can handle */
 #define MAX_BD_LENGTH			65535
@@ -647,6 +650,7 @@ enum {
 	EP_STATE_OFLD_FAILED            = 0x8000000,
 	EP_STATE_CONNECT_FAILED         = 0x10000000,
 	EP_STATE_DISCONN_TIMEDOUT       = 0x20000000,
+	EP_STATE_OFLD_FAILED_CID_BUSY   = 0x80000000,
 };
 
 /**
@@ -715,14 +719,11 @@ extern struct device_attribute *bnx2i_dev_attributes[];
  * Function Prototypes
  */
 extern void bnx2i_identify_device(struct bnx2i_hba *hba);
-extern void bnx2i_register_device(struct bnx2i_hba *hba);
 
 extern void bnx2i_ulp_init(struct cnic_dev *dev);
 extern void bnx2i_ulp_exit(struct cnic_dev *dev);
 extern void bnx2i_start(void *handle);
 extern void bnx2i_stop(void *handle);
-extern void bnx2i_reg_dev_all(void);
-extern void bnx2i_unreg_dev_all(void);
 extern struct bnx2i_hba *get_adapter_list_head(void);
 
 struct bnx2i_conn *bnx2i_get_conn_from_id(struct bnx2i_hba *hba,
@@ -753,17 +754,17 @@ extern int bnx2i_send_iscsi_tmf(struct bnx2i_conn *conn,
 extern int bnx2i_send_iscsi_scsicmd(struct bnx2i_conn *conn,
 				    struct bnx2i_cmd *cmnd);
 extern int bnx2i_send_iscsi_nopout(struct bnx2i_conn *conn,
-				   struct iscsi_task *mtask, u32 ttt,
+				   struct iscsi_task *mtask,
 				   char *datap, int data_len, int unsol);
 extern int bnx2i_send_iscsi_logout(struct bnx2i_conn *conn,
 				   struct iscsi_task *mtask);
 extern void bnx2i_send_cmd_cleanup_req(struct bnx2i_hba *hba,
 				       struct bnx2i_cmd *cmd);
-extern void bnx2i_send_conn_ofld_req(struct bnx2i_hba *hba,
-				     struct bnx2i_endpoint *ep);
-extern void bnx2i_update_iscsi_conn(struct iscsi_conn *conn);
-extern void bnx2i_send_conn_destroy(struct bnx2i_hba *hba,
+extern int bnx2i_send_conn_ofld_req(struct bnx2i_hba *hba,
 				    struct bnx2i_endpoint *ep);
+extern void bnx2i_update_iscsi_conn(struct iscsi_conn *conn);
+extern int bnx2i_send_conn_destroy(struct bnx2i_hba *hba,
+				   struct bnx2i_endpoint *ep);
 
 extern int bnx2i_alloc_qp_resc(struct bnx2i_hba *hba,
 			       struct bnx2i_endpoint *ep);

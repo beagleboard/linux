@@ -551,7 +551,7 @@ static int autofs_dev_ioctl_ismountpoint(struct file *fp,
 
 		err = have_submounts(path.dentry);
 
-		if (follow_down(&path))
+		if (follow_down_one(&path))
 			magic = path.mnt->mnt_sb->s_magic;
 	}
 
@@ -724,6 +724,7 @@ static const struct file_operations _dev_ioctl_fops = {
 	.unlocked_ioctl	 = autofs_dev_ioctl,
 	.compat_ioctl = autofs_dev_ioctl_compat,
 	.owner	 = THIS_MODULE,
+	.llseek = noop_llseek,
 };
 
 static struct miscdevice _autofs_dev_ioctl_misc = {

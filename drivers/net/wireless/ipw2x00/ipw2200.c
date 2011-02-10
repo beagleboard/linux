@@ -1973,6 +1973,13 @@ static void ipw_irq_tasklet(struct ipw_priv *priv)
 
 	inta = ipw_read32(priv, IPW_INTA_RW);
 	inta_mask = ipw_read32(priv, IPW_INTA_MASK_R);
+
+	if (inta == 0xFFFFFFFF) {
+		/* Hardware disappeared */
+		IPW_WARNING("TASKLET INTA == 0xFFFFFFFF\n");
+		/* Only handle the cached INTA values */
+		inta = 0;
+	}
 	inta &= (IPW_INTA_MASK_ALL & inta_mask);
 
 	/* Add any cached INTA values that need to be handled */
@@ -11467,9 +11474,13 @@ static int ipw_net_init(struct net_device *dev)
 
 		bg_band->band = IEEE80211_BAND_2GHZ;
 		bg_band->n_channels = geo->bg_channels;
-		bg_band->channels =
-			kzalloc(geo->bg_channels *
-				sizeof(struct ieee80211_channel), GFP_KERNEL);
+		bg_band->channels = kcalloc(geo->bg_channels,
+					    sizeof(struct ieee80211_channel),
+					    GFP_KERNEL);
+		if (!bg_band->channels) {
+			rc = -ENOMEM;
+			goto out;
+		}
 		/* translate geo->bg to bg_band.channels */
 		for (i = 0; i < geo->bg_channels; i++) {
 			bg_band->channels[i].band = IEEE80211_BAND_2GHZ;
@@ -11502,9 +11513,13 @@ static int ipw_net_init(struct net_device *dev)
 
 		a_band->band = IEEE80211_BAND_5GHZ;
 		a_band->n_channels = geo->a_channels;
-		a_band->channels =
-			kzalloc(geo->a_channels *
-				sizeof(struct ieee80211_channel), GFP_KERNEL);
+		a_band->channels = kcalloc(geo->a_channels,
+					   sizeof(struct ieee80211_channel),
+					   GFP_KERNEL);
+		if (!a_band->channels) {
+			rc = -ENOMEM;
+			goto out;
+		}
 		/* translate geo->bg to a_band.channels */
 		for (i = 0; i < geo->a_channels; i++) {
 			a_band->channels[i].band = IEEE80211_BAND_2GHZ;

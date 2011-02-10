@@ -1,6 +1,6 @@
 /*
  * QLogic iSCSI HBA Driver
- * Copyright (c)  2003-2006 QLogic Corporation
+ * Copyright (c)  2003-2010 QLogic Corporation
  *
  * See LICENSE.qla4xxx for copyright and licensing details.
  */
@@ -72,7 +72,7 @@ qla4xxx_status_cont_entry(struct scsi_qla_host *ha,
 {
 	struct srb *srb = ha->status_srb;
 	struct scsi_cmnd *cmd;
-	uint8_t sense_len;
+	uint16_t sense_len;
 
 	if (srb == NULL)
 		return;
@@ -487,6 +487,8 @@ static void qla4xxx_isr_decode_mailbox(struct scsi_qla_host * ha,
 		case MBOX_ASTS_SYSTEM_ERROR:
 			/* Log Mailbox registers */
 			ql4_printk(KERN_INFO, ha, "%s: System Err\n", __func__);
+			qla4xxx_dump_registers(ha);
+
 			if (ql4xdontresethba) {
 				DEBUG2(printk("scsi%ld: %s:Don't Reset HBA\n",
 				    ha->host_no, __func__));
@@ -552,7 +554,8 @@ static void qla4xxx_isr_decode_mailbox(struct scsi_qla_host * ha,
 			/* mbox_sts[2] = Old ACB state
 			 * mbox_sts[3] = new ACB state */
 			if ((mbox_sts[3] == ACB_STATE_VALID) &&
-			    (mbox_sts[2] == ACB_STATE_TENTATIVE))
+			    ((mbox_sts[2] == ACB_STATE_TENTATIVE) ||
+			    (mbox_sts[2] == ACB_STATE_ACQUIRING)))
 				set_bit(DPC_GET_DHCP_IP_ADDR, &ha->dpc_flags);
 			else if ((mbox_sts[3] == ACB_STATE_ACQUIRING) &&
 			    (mbox_sts[2] == ACB_STATE_VALID))
@@ -619,6 +622,18 @@ static void qla4xxx_isr_decode_mailbox(struct scsi_qla_host * ha,
 						      mbox_sts[3]));
 				}
 			}
+			break;
+
+		case MBOX_ASTS_TXSCVR_INSERTED:
+			DEBUG2(printk(KERN_WARNING
+			    "scsi%ld: AEN %04x Transceiver"
+			    " inserted\n",  ha->host_no, mbox_sts[0]));
+			break;
+
+		case MBOX_ASTS_TXSCVR_REMOVED:
+			DEBUG2(printk(KERN_WARNING
+			    "scsi%ld: AEN %04x Transceiver"
+			    " removed\n",  ha->host_no, mbox_sts[0]));
 			break;
 
 		default:
@@ -1063,7 +1078,7 @@ try_msi:
 	ret = pci_enable_msi(ha->pdev);
 	if (!ret) {
 		ret = request_irq(ha->pdev->irq, qla4_8xxx_msi_handler,
-			IRQF_DISABLED|IRQF_SHARED, DRIVER_NAME, ha);
+			0, DRIVER_NAME, ha);
 		if (!ret) {
 			DEBUG2(ql4_printk(KERN_INFO, ha, "MSI: Enabled.\n"));
 			set_bit(AF_MSI_ENABLED, &ha->flags);
@@ -1081,7 +1096,7 @@ try_msi:
 try_intx:
 	/* Trying INTx */
 	ret = request_irq(ha->pdev->irq, ha->isp_ops->intr_handler,
-	    IRQF_DISABLED|IRQF_SHARED, DRIVER_NAME, ha);
+	    IRQF_SHARED, DRIVER_NAME, ha);
 	if (!ret) {
 		DEBUG2(ql4_printk(KERN_INFO, ha, "INTx: Enabled.\n"));
 		set_bit(AF_INTx_ENABLED, &ha->flags);

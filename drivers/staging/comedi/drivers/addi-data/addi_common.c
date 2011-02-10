@@ -8,7 +8,7 @@ Copyright (C) 2004,2005  ADDI-DATA GmbH for the source code of this module.
 	D-77833 Ottersweier
 	Tel: +19(0)7223/9493-0
 	Fax: +49(0)7223/9493-92
-	http://www.addi-data-com
+	http://www.addi-data.com
 	info@addi-data.com
 
 This program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation; either version 2 of the License, or (at your option) any later version.
@@ -2710,10 +2710,10 @@ static int i_ADDI_Attach(struct comedi_device *dev, struct comedi_devconfig *it)
 			} else {
 				outl(0x83838383, devpriv->i_IobaseAmcc + 0x60);
 			}
-			/*  Enable the interrupt for the controler */
+			/*  Enable the interrupt for the controller */
 			dw_Dummy = inl(devpriv->i_IobaseAmcc + 0x38);
 			outl(dw_Dummy | 0x2000, devpriv->i_IobaseAmcc + 0x38);
-			printk("\nEnable the interrupt for the controler");
+			printk("\nEnable the interrupt for the controller");
 		}
 		printk("\nRead Eeprom");
 		i_EepromReadMainHeader(io_addr[0], this_board->pc_EepromChip,

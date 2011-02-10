@@ -370,7 +370,6 @@ sanitize:
 	}
 	ep->hcpriv = NULL;
 	spin_unlock_irqrestore (&ohci->lock, flags);
-	return;
 }
 
 static int ohci_get_frame (struct usb_hcd *hcd)
@@ -398,7 +397,14 @@ ohci_shutdown (struct usb_hcd *hcd)
 
 	ohci = hcd_to_ohci (hcd);
 	ohci_writel (ohci, OHCI_INTR_MIE, &ohci->regs->intrdisable);
-	ohci_usb_reset (ohci);
+	ohci->hc_control = ohci_readl(ohci, &ohci->regs->control);
+
+	/* If the SHUTDOWN quirk is set, don't put the controller in RESET */
+	ohci->hc_control &= (ohci->flags & OHCI_QUIRK_SHUTDOWN ?
+			OHCI_CTRL_RWC | OHCI_CTRL_HCFS :
+			OHCI_CTRL_RWC);
+	ohci_writel(ohci, ohci->hc_control, &ohci->regs->control);
+
 	/* flush the writes */
 	(void) ohci_readl (ohci, &ohci->regs->control);
 }
@@ -895,7 +901,8 @@ static void ohci_stop (struct usb_hcd *hcd)
 
 	ohci_dump (ohci, 1);
 
-	flush_scheduled_work();
+	if (quirk_nec(ohci))
+		flush_work_sync(&ohci->nec_work);
 
 	ohci_usb_reset (ohci);
 	ohci_writel (ohci, OHCI_INTR_MIE, &ohci->regs->intrdisable);
@@ -1075,6 +1082,11 @@ MODULE_LICENSE ("GPL");
 #define OF_PLATFORM_DRIVER	ohci_hcd_ppc_of_driver
 #endif
 
+#ifdef CONFIG_PLAT_SPEAR
+#include "ohci-spear.c"
+#define PLATFORM_DRIVER		spear_ohci_hcd_driver
+#endif
+
 #ifdef CONFIG_PPC_PS3
 #include "ohci-ps3.c"
 #define PS3_SYSTEM_BUS_DRIVER	ps3_ohci_driver
@@ -1098,6 +1110,16 @@ MODULE_LICENSE ("GPL");
 #ifdef CONFIG_MACH_JZ4740
 #include "ohci-jz4740.c"
 #define PLATFORM_DRIVER	ohci_hcd_jz4740_driver
+#endif
+
+#ifdef CONFIG_USB_OCTEON_OHCI
+#include "ohci-octeon.c"
+#define PLATFORM_DRIVER		ohci_octeon_driver
+#endif
+
+#ifdef CONFIG_USB_CNS3XXX_OHCI
+#include "ohci-cns3xxx.c"
+#define PLATFORM_DRIVER		ohci_hcd_cns3xxx_driver
 #endif
 
 #if	!defined(PCI_DRIVER) &&		\
@@ -1269,6 +1291,9 @@ static void __exit ohci_hcd_mod_exit(void)
 #endif
 #ifdef PLATFORM_DRIVER
 	platform_driver_unregister(&PLATFORM_DRIVER);
+#endif
+#ifdef OMAP3_PLATFORM_DRIVER
+	platform_driver_unregister(&OMAP3_PLATFORM_DRIVER);
 #endif
 #ifdef PS3_SYSTEM_BUS_DRIVER
 	ps3_ohci_driver_unregister(&PS3_SYSTEM_BUS_DRIVER);

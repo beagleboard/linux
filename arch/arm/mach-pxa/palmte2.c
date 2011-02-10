@@ -373,10 +373,8 @@ static void __init palmte2_init(void)
 }
 
 MACHINE_START(PALMTE2, "Palm Tungsten|E2")
-	.phys_io	= 0x40000000,
-	.io_pg_offst	= (io_p2v(0x40000000) >> 18) & 0xfffc,
 	.boot_params	= 0xa0000100,
-	.map_io		= pxa_map_io,
+	.map_io		= pxa25x_map_io,
 	.init_irq	= pxa25x_init_irq,
 	.timer		= &pxa_timer,
 	.init_machine	= palmte2_init

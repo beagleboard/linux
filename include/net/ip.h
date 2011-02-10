@@ -53,13 +53,13 @@ struct ipcm_cookie {
 	__be32			addr;
 	int			oif;
 	struct ip_options	*opt;
-	union skb_shared_tx	shtx;
+	__u8			tx_flags;
 };
 
 #define IPCB(skb) ((struct inet_skb_parm*)((skb)->cb))
 
 struct ip_ra_chain {
-	struct ip_ra_chain	*next;
+	struct ip_ra_chain __rcu *next;
 	struct sock		*sk;
 	union {
 		void			(*destructor)(struct sock *);
@@ -68,7 +68,7 @@ struct ip_ra_chain {
 	struct rcu_head		rcu;
 };
 
-extern struct ip_ra_chain *ip_ra_chain;
+extern struct ip_ra_chain __rcu *ip_ra_chain;
 
 /* IP flags. */
 #define IP_CE		0x8000		/* Flag: "Congestion"		*/
@@ -201,7 +201,6 @@ static inline int inet_is_reserved_local_port(int port)
 	return test_bit(port, sysctl_local_reserved_ports);
 }
 
-extern int sysctl_ip_default_ttl;
 extern int sysctl_ip_nonlocal_bind;
 
 extern struct ctl_path net_core_path[];
@@ -238,9 +237,9 @@ int ip_decrease_ttl(struct iphdr *iph)
 static inline
 int ip_dont_fragment(struct sock *sk, struct dst_entry *dst)
 {
-	return (inet_sk(sk)->pmtudisc == IP_PMTUDISC_DO ||
+	return  inet_sk(sk)->pmtudisc == IP_PMTUDISC_DO ||
 		(inet_sk(sk)->pmtudisc == IP_PMTUDISC_WANT &&
-		 !(dst_metric_locked(dst, RTAX_MTU))));
+		 !(dst_metric_locked(dst, RTAX_MTU)));
 }
 
 extern void __ip_select_ident(struct iphdr *iph, struct dst_entry *dst, int more);
@@ -428,15 +427,6 @@ extern void	ip_icmp_error(struct sock *sk, struct sk_buff *skb, int err,
 extern void	ip_local_error(struct sock *sk, int err, __be32 daddr, __be16 dport,
 			       u32 info);
 
-/* sysctl helpers - any sysctl which holds a value that ends up being
- * fed into the routing cache should use these handlers.
- */
-int ipv4_doint_and_flush(ctl_table *ctl, int write,
-			 void __user *buffer,
-			 size_t *lenp, loff_t *ppos);
-int ipv4_doint_and_flush_strategy(ctl_table *table,
-				  void __user *oldval, size_t __user *oldlenp,
-				  void __user *newval, size_t newlen);
 #ifdef CONFIG_PROC_FS
 extern int ip_misc_proc_init(void);
 #endif

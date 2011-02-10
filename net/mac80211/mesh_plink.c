@@ -160,7 +160,8 @@ static int mesh_plink_frame_tx(struct ieee80211_sub_if_data *sdata,
 		enum plink_frame_type action, u8 *da, __le16 llid, __le16 plid,
 		__le16 reason) {
 	struct ieee80211_local *local = sdata->local;
-	struct sk_buff *skb = dev_alloc_skb(local->hw.extra_tx_headroom + 400);
+	struct sk_buff *skb = dev_alloc_skb(local->hw.extra_tx_headroom + 400 +
+			sdata->u.mesh.vendor_ie_len);
 	struct ieee80211_mgmt *mgmt;
 	bool include_plid = false;
 	static const u8 meshpeeringproto[] = { 0x00, 0x0F, 0xAC, 0x2A };
@@ -412,7 +413,7 @@ void mesh_rx_plink_frame(struct ieee80211_sub_if_data *sdata, struct ieee80211_m
 	enum plink_event event;
 	enum plink_frame_type ftype;
 	size_t baselen;
-	bool deactivated;
+	bool deactivated, matches_local = true;
 	u8 ie_len;
 	u8 *baseaddr;
 	__le16 plid, llid, reason;
@@ -487,6 +488,7 @@ void mesh_rx_plink_frame(struct ieee80211_sub_if_data *sdata, struct ieee80211_m
 	/* Now we will figure out the appropriate event... */
 	event = PLINK_UNDEFINED;
 	if (ftype != PLINK_CLOSE && (!mesh_matches_local(&elems, sdata))) {
+		matches_local = false;
 		switch (ftype) {
 		case PLINK_OPEN:
 			event = OPN_RJCT;
@@ -498,7 +500,15 @@ void mesh_rx_plink_frame(struct ieee80211_sub_if_data *sdata, struct ieee80211_m
 			/* avoid warning */
 			break;
 		}
-		spin_lock_bh(&sta->lock);
+	}
+
+	if (!sta && !matches_local) {
+		rcu_read_unlock();
+		reason = cpu_to_le16(MESH_CAPABILITY_POLICY_VIOLATION);
+		llid = 0;
+		mesh_plink_frame_tx(sdata, PLINK_CLOSE, mgmt->sa, llid,
+				    plid, reason);
+		return;
 	} else if (!sta) {
 		/* ftype == PLINK_OPEN */
 		u32 rates;
@@ -522,7 +532,7 @@ void mesh_rx_plink_frame(struct ieee80211_sub_if_data *sdata, struct ieee80211_m
 		}
 		event = OPN_ACPT;
 		spin_lock_bh(&sta->lock);
-	} else {
+	} else if (matches_local) {
 		spin_lock_bh(&sta->lock);
 		switch (ftype) {
 		case PLINK_OPEN:
@@ -564,6 +574,8 @@ void mesh_rx_plink_frame(struct ieee80211_sub_if_data *sdata, struct ieee80211_m
 			rcu_read_unlock();
 			return;
 		}
+	} else {
+		spin_lock_bh(&sta->lock);
 	}
 
 	mpl_dbg("Mesh plink (peer, state, llid, plid, event): %pM %s %d %d %d\n",

@@ -39,9 +39,9 @@
 #include <plat/board.h>
 #include <plat/common.h>
 #include <plat/gpmc.h>
-#include <plat/control.h>
 
 #include "mux.h"
+#include "control.h"
 
 /* LED & Switch macros */
 #define LED0_GPIO13		13
@@ -270,7 +270,7 @@ static struct omap_lcd_config apollon_lcd_config __initdata = {
 	.ctrl_name	= "internal",
 };
 
-static struct omap_board_config_kernel apollon_config[] = {
+static struct omap_board_config_kernel apollon_config[] __initdata = {
 	{ OMAP_TAG_LCD,		&apollon_lcd_config },
 };
 
@@ -278,10 +278,9 @@ static void __init omap_apollon_init_irq(void)
 {
 	omap_board_config = apollon_config;
 	omap_board_config_size = ARRAY_SIZE(apollon_config);
-	omap2_init_common_hw(NULL, NULL);
+	omap2_init_common_infrastructure();
+	omap2_init_common_devices(NULL, NULL);
 	omap_init_irq();
-	omap_gpio_init();
-	apollon_init_smc91x();
 }
 
 static void __init apollon_led_init(void)
@@ -314,8 +313,6 @@ static void __init apollon_usb_init(void)
 static struct omap_board_mux board_mux[] __initdata = {
 	{ .reg_offset = OMAP_MUX_TERMINATOR },
 };
-#else
-#define board_mux	NULL
 #endif
 
 static void __init omap_apollon_init(void)
@@ -324,6 +321,7 @@ static void __init omap_apollon_init(void)
 
 	omap2420_mux_init(board_mux, OMAP_PACKAGE_ZAC);
 
+	apollon_init_smc91x();
 	apollon_led_init();
 	apollon_flash_init();
 	apollon_usb_init();
@@ -356,8 +354,6 @@ static void __init omap_apollon_map_io(void)
 
 MACHINE_START(OMAP_APOLLON, "OMAP24xx Apollon")
 	/* Maintainer: Kyungmin Park <kyungmin.park@samsung.com> */
-	.phys_io	= 0x48000000,
-	.io_pg_offst	= ((0xfa000000) >> 18) & 0xfffc,
 	.boot_params	= 0x80000100,
 	.map_io		= omap_apollon_map_io,
 	.reserve	= omap_reserve,

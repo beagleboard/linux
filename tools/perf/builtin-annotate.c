@@ -28,7 +28,7 @@
 
 static char		const *input_name = "perf.data";
 
-static bool		force;
+static bool		force, use_tui, use_stdio;
 
 static bool		full_paths;
 
@@ -58,12 +58,12 @@ static int hists__add_entry(struct hists *self, struct addr_location *al)
 	return hist_entry__inc_addr_samples(he, al->addr);
 }
 
-static int process_sample_event(event_t *event, struct perf_session *session)
+static int process_sample_event(event_t *event, struct sample_data *sample,
+				struct perf_session *session)
 {
 	struct addr_location al;
-	struct sample_data data;
 
-	if (event__preprocess_sample(event, session, &al, &data, NULL) < 0) {
+	if (event__preprocess_sample(event, session, &al, sample, NULL) < 0) {
 		pr_warning("problem processing %d event, skipping it.\n",
 			   event->header.type);
 		return -1;
@@ -212,7 +212,7 @@ get_source_line(struct hist_entry *he, int len, const char *filename)
 			continue;
 
 		offset = start + i;
-		sprintf(cmd, "addr2line -e %s %016llx", filename, offset);
+		sprintf(cmd, "addr2line -e %s %016" PRIx64, filename, offset);
 		fp = popen(cmd, "r");
 		if (!fp)
 			continue;
@@ -270,9 +270,9 @@ static void hist_entry__print_hits(struct hist_entry *self)
 
 	for (offset = 0; offset < len; ++offset)
 		if (h->ip[offset] != 0)
-			printf("%*Lx: %Lu\n", BITS_PER_LONG / 2,
+			printf("%*" PRIx64 ": %" PRIu64 "\n", BITS_PER_LONG / 2,
 			       sym->start + offset, h->ip[offset]);
-	printf("%*s: %Lu\n", BITS_PER_LONG / 2, "h->sum", h->sum);
+	printf("%*s: %" PRIu64 "\n", BITS_PER_LONG / 2, "h->sum", h->sum);
 }
 
 static int hist_entry__tty_annotate(struct hist_entry *he)
@@ -321,7 +321,7 @@ static int hist_entry__tty_annotate(struct hist_entry *he)
 
 static void hists__find_annotations(struct hists *self)
 {
-	struct rb_node *first = rb_first(&self->entries), *nd = first;
+	struct rb_node *nd = rb_first(&self->entries), *next;
 	int key = KEY_RIGHT;
 
 	while (nd) {
@@ -343,20 +343,19 @@ find_next:
 
 		if (use_browser > 0) {
 			key = hist_entry__tui_annotate(he);
-			if (is_exit_key(key))
-				break;
 			switch (key) {
 			case KEY_RIGHT:
-			case '\t':
-				nd = rb_next(nd);
+				next = rb_next(nd);
 				break;
 			case KEY_LEFT:
-				if (nd == first)
-					continue;
-				nd = rb_prev(nd);
-			default:
+				next = rb_prev(nd);
 				break;
+			default:
+				return;
 			}
+
+			if (next != NULL)
+				nd = next;
 		} else {
 			hist_entry__tty_annotate(he);
 			nd = rb_next(nd);
@@ -376,6 +375,8 @@ static struct perf_event_ops event_ops = {
 	.mmap	= event__process_mmap,
 	.comm	= event__process_comm,
 	.fork	= event__process_task,
+	.ordered_samples = true,
+	.ordering_requires_timestamps = true,
 };
 
 static int __cmd_annotate(void)
@@ -383,7 +384,7 @@ static int __cmd_annotate(void)
 	int ret;
 	struct perf_session *session;
 
-	session = perf_session__new(input_name, O_RDONLY, force, false);
+	session = perf_session__new(input_name, O_RDONLY, force, false, &event_ops);
 	if (session == NULL)
 		return -ENOMEM;
 
@@ -428,6 +429,8 @@ static const struct option options[] = {
 		    "be more verbose (show symbol address, etc)"),
 	OPT_BOOLEAN('D', "dump-raw-trace", &dump_trace,
 		    "dump raw trace in ASCII"),
+	OPT_BOOLEAN(0, "tui", &use_tui, "Use the TUI interface"),
+	OPT_BOOLEAN(0, "stdio", &use_stdio, "Use the stdio interface"),
 	OPT_STRING('k', "vmlinux", &symbol_conf.vmlinux_name,
 		   "file", "vmlinux pathname"),
 	OPT_BOOLEAN('m', "modules", &symbol_conf.use_modules,
@@ -442,6 +445,11 @@ static const struct option options[] = {
 int cmd_annotate(int argc, const char **argv, const char *prefix __used)
 {
 	argc = parse_options(argc, argv, options, annotate_usage, 0);
+
+	if (use_stdio)
+		use_browser = 0;
+	else if (use_tui)
+		use_browser = 1;
 
 	setup_browser();
 

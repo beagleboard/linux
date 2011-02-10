@@ -137,22 +137,26 @@ static int __devinit solo6010_pci_probe(struct pci_dev *pdev,
 	int sdram;
 	u8 chip_id;
 
-	if ((solo_dev = kzalloc(sizeof(*solo_dev), GFP_KERNEL)) == NULL)
+	solo_dev = kzalloc(sizeof(*solo_dev), GFP_KERNEL);
+	if (solo_dev == NULL)
 		return -ENOMEM;
 
 	solo_dev->pdev = pdev;
 	spin_lock_init(&solo_dev->reg_io_lock);
 	pci_set_drvdata(pdev, solo_dev);
 
-	if ((ret = pci_enable_device(pdev)))
+	ret = pci_enable_device(pdev);
+	if (ret)
 		goto fail_probe;
 
 	pci_set_master(pdev);
 
-	if ((ret = pci_request_regions(pdev, SOLO6010_NAME)))
+	ret = pci_request_regions(pdev, SOLO6010_NAME);
+	if (ret)
 		goto fail_probe;
 
-	if ((solo_dev->reg_base = pci_ioremap_bar(pdev, 0)) == NULL) {
+	solo_dev->reg_base = pci_ioremap_bar(pdev, 0);
+	if (solo_dev->reg_base == NULL) {
 		ret = -ENOMEM;
 		goto fail_probe;
 	}
@@ -160,21 +164,21 @@ static int __devinit solo6010_pci_probe(struct pci_dev *pdev,
 	chip_id = solo_reg_read(solo_dev, SOLO_CHIP_OPTION) &
 					SOLO_CHIP_ID_MASK;
 	switch (chip_id) {
-		case 7:
-			solo_dev->nr_chans = 16;
-			solo_dev->nr_ext = 5;
-			break;
-		case 6:
-			solo_dev->nr_chans = 8;
-			solo_dev->nr_ext = 2;
-			break;
-		default:
-			dev_warn(&pdev->dev, "Invalid chip_id 0x%02x, "
-				 "defaulting to 4 channels\n",
-				 chip_id);
-		case 5:
-			solo_dev->nr_chans = 4;
-			solo_dev->nr_ext = 1;
+	case 7:
+		solo_dev->nr_chans = 16;
+		solo_dev->nr_ext = 5;
+		break;
+	case 6:
+		solo_dev->nr_chans = 8;
+		solo_dev->nr_ext = 2;
+		break;
+	default:
+		dev_warn(&pdev->dev, "Invalid chip_id 0x%02x, "
+			 "defaulting to 4 channels\n",
+			 chip_id);
+	case 5:
+		solo_dev->nr_chans = 4;
+		solo_dev->nr_ext = 1;
 	}
 
 	/* Disable all interrupts to start */
@@ -198,7 +202,8 @@ static int __devinit solo6010_pci_probe(struct pci_dev *pdev,
 	/* Handle this from the start */
 	solo6010_irq_on(solo_dev, SOLO_IRQ_PCI_ERR);
 
-	if ((ret = solo_i2c_init(solo_dev)))
+	ret = solo_i2c_init(solo_dev);
+	if (ret)
 		goto fail_probe;
 
 	/* Setup the DMA engine */
@@ -210,28 +215,36 @@ static int __devinit solo6010_pci_probe(struct pci_dev *pdev,
 		       SOLO_DMA_CTRL_READ_CLK_SELECT |
 		       SOLO_DMA_CTRL_LATENCY(1));
 
-	if ((ret = solo_p2m_init(solo_dev)))
+	ret = solo_p2m_init(solo_dev);
+	if (ret)
 		goto fail_probe;
 
-	if ((ret = solo_disp_init(solo_dev)))
+	ret = solo_disp_init(solo_dev);
+	if (ret)
 		goto fail_probe;
 
-	if ((ret = solo_gpio_init(solo_dev)))
+	ret = solo_gpio_init(solo_dev);
+	if (ret)
 		goto fail_probe;
 
-	if ((ret = solo_tw28_init(solo_dev)))
+	ret = solo_tw28_init(solo_dev);
+	if (ret)
 		goto fail_probe;
 
-	if ((ret = solo_v4l2_init(solo_dev)))
+	ret = solo_v4l2_init(solo_dev);
+	if (ret)
 		goto fail_probe;
 
-	if ((ret = solo_enc_init(solo_dev)))
+	ret = solo_enc_init(solo_dev);
+	if (ret)
 		goto fail_probe;
 
-	if ((ret = solo_enc_v4l2_init(solo_dev)))
+	ret = solo_enc_v4l2_init(solo_dev);
+	if (ret)
 		goto fail_probe;
 
-	if ((ret = solo_g723_init(solo_dev)))
+	ret = solo_g723_init(solo_dev);
+	if (ret)
 		goto fail_probe;
 
 	return 0;
@@ -249,13 +262,18 @@ static void __devexit solo6010_pci_remove(struct pci_dev *pdev)
 }
 
 static struct pci_device_id solo6010_id_table[] = {
+	/* 6010 based cards */
 	{PCI_DEVICE(PCI_VENDOR_ID_SOFTLOGIC, PCI_DEVICE_ID_SOLO6010)},
 	{PCI_DEVICE(PCI_VENDOR_ID_BLUECHERRY, PCI_DEVICE_ID_NEUSOLO_4)},
 	{PCI_DEVICE(PCI_VENDOR_ID_BLUECHERRY, PCI_DEVICE_ID_NEUSOLO_9)},
 	{PCI_DEVICE(PCI_VENDOR_ID_BLUECHERRY, PCI_DEVICE_ID_NEUSOLO_16)},
-	{PCI_DEVICE(PCI_VENDOR_ID_BLUECHERRY, PCI_DEVICE_ID_COMMSOLO_4)},
-	{PCI_DEVICE(PCI_VENDOR_ID_BLUECHERRY, PCI_DEVICE_ID_COMMSOLO_9)},
-	{PCI_DEVICE(PCI_VENDOR_ID_BLUECHERRY, PCI_DEVICE_ID_COMMSOLO_16)},
+	{PCI_DEVICE(PCI_VENDOR_ID_BLUECHERRY, PCI_DEVICE_ID_BC_SOLO_4)},
+	{PCI_DEVICE(PCI_VENDOR_ID_BLUECHERRY, PCI_DEVICE_ID_BC_SOLO_9)},
+	{PCI_DEVICE(PCI_VENDOR_ID_BLUECHERRY, PCI_DEVICE_ID_BC_SOLO_16)},
+	/* 6110 based cards */
+	{PCI_DEVICE(PCI_VENDOR_ID_BLUECHERRY, PCI_DEVICE_ID_BC_6110_4)},
+	{PCI_DEVICE(PCI_VENDOR_ID_BLUECHERRY, PCI_DEVICE_ID_BC_6110_8)},
+	{PCI_DEVICE(PCI_VENDOR_ID_BLUECHERRY, PCI_DEVICE_ID_BC_6110_16)},
 	{0,}
 };
 

@@ -62,15 +62,15 @@ static const u32 default_msg =
 /* NETIF_MSG_PKTDATA | */
     NETIF_MSG_HW | NETIF_MSG_WOL | 0;
 
-static int debug = 0x00007fff;	/* defaults above */
-module_param(debug, int, 0);
+static int debug = -1;	/* defaults above */
+module_param(debug, int, 0664);
 MODULE_PARM_DESC(debug, "Debug level (0=none,...,16=all)");
 
 #define MSIX_IRQ 0
 #define MSI_IRQ 1
 #define LEG_IRQ 2
 static int qlge_irq_type = MSIX_IRQ;
-module_param(qlge_irq_type, int, MSIX_IRQ);
+module_param(qlge_irq_type, int, 0664);
 MODULE_PARM_DESC(qlge_irq_type, "0 = MSI-X, 1 = MSI, 2 = Legacy.");
 
 static int qlge_mpi_coredump;
@@ -93,6 +93,9 @@ static DEFINE_PCI_DEVICE_TABLE(qlge_pci_tbl) = {
 };
 
 MODULE_DEVICE_TABLE(pci, qlge_pci_tbl);
+
+static int ql_wol(struct ql_adapter *qdev);
+static void qlge_set_multicast_list(struct net_device *ndev);
 
 /* This hardware semaphore causes exclusive access to
  * resources shared between the NIC driver, MPI firmware,
@@ -1566,7 +1569,7 @@ static void ql_process_mac_rx_page(struct ql_adapter *qdev,
 	rx_ring->rx_packets++;
 	rx_ring->rx_bytes += skb->len;
 	skb->protocol = eth_type_trans(skb, ndev);
-	skb->ip_summed = CHECKSUM_NONE;
+	skb_checksum_none_assert(skb);
 
 	if (qdev->rx_csum &&
 		!(ib_mac_rsp->flags1 & IB_MAC_CSUM_ERR_MASK)) {
@@ -1676,7 +1679,7 @@ static void ql_process_mac_rx_skb(struct ql_adapter *qdev,
 	rx_ring->rx_packets++;
 	rx_ring->rx_bytes += skb->len;
 	skb->protocol = eth_type_trans(skb, ndev);
-	skb->ip_summed = CHECKSUM_NONE;
+	skb_checksum_none_assert(skb);
 
 	/* If rx checksum is on, and there are no
 	 * csum or frame errors.
@@ -1996,7 +1999,7 @@ static void ql_process_mac_split_rx_intr(struct ql_adapter *qdev,
 	}
 
 	skb->protocol = eth_type_trans(skb, ndev);
-	skb->ip_summed = CHECKSUM_NONE;
+	skb_checksum_none_assert(skb);
 
 	/* If rx checksum is on, and there are no
 	 * csum or frame errors.
@@ -2222,10 +2225,11 @@ static int ql_clean_outbound_rx_ring(struct rx_ring *rx_ring)
 		ql_update_cq(rx_ring);
 		prod = ql_read_sh_reg(rx_ring->prod_idx_sh_reg);
 	}
+	if (!net_rsp)
+		return 0;
 	ql_write_cq_idx(rx_ring);
 	tx_ring = &qdev->tx_ring[net_rsp->txq_idx];
-	if (__netif_subqueue_stopped(qdev->ndev, tx_ring->wq_id) &&
-					net_rsp != NULL) {
+	if (__netif_subqueue_stopped(qdev->ndev, tx_ring->wq_id)) {
 		if (atomic_read(&tx_ring->queue_stopped) &&
 		    (atomic_read(&tx_ring->tx_count) > (tx_ring->wq_len / 4)))
 			/*
@@ -2379,6 +2383,20 @@ static void qlge_vlan_rx_kill_vid(struct net_device *ndev, u16 vid)
 	}
 	ql_sem_unlock(qdev, SEM_MAC_ADDR_MASK);
 
+}
+
+static void qlge_restore_vlan(struct ql_adapter *qdev)
+{
+	qlge_vlan_rx_register(qdev->ndev, qdev->vlgrp);
+
+	if (qdev->vlgrp) {
+		u16 vid;
+		for (vid = 0; vid < VLAN_N_VID; vid++) {
+			if (!vlan_group_get_device(qdev->vlgrp, vid))
+				continue;
+			qlge_vlan_rx_add_vid(qdev->ndev, vid);
+		}
+	}
 }
 
 /* MSI-X Multiple Vector Interrupt Handler for inbound completions. */
@@ -2571,7 +2589,7 @@ static netdev_tx_t qlge_send(struct sk_buff *skb, struct net_device *ndev)
 
 	mac_iocb_ptr->frame_len = cpu_to_le16((u16) skb->len);
 
-	if (qdev->vlgrp && vlan_tx_tag_present(skb)) {
+	if (vlan_tx_tag_present(skb)) {
 		netif_printk(qdev, tx_queued, KERN_DEBUG, qdev->ndev,
 			     "Adding a vlan tag %d.\n", vlan_tx_tag_get(skb));
 		mac_iocb_ptr->flags3 |= OB_MAC_IOCB_V;
@@ -3530,12 +3548,13 @@ err_irq:
 
 static int ql_start_rss(struct ql_adapter *qdev)
 {
-	u8 init_hash_seed[] = {0x6d, 0x5a, 0x56, 0xda, 0x25, 0x5b, 0x0e, 0xc2,
-				0x41, 0x67, 0x25, 0x3d, 0x43, 0xa3, 0x8f,
-				0xb0, 0xd0, 0xca, 0x2b, 0xcb, 0xae, 0x7b,
-				0x30, 0xb4, 0x77, 0xcb, 0x2d, 0xa3, 0x80,
-				0x30, 0xf2, 0x0c, 0x6a, 0x42, 0xb7, 0x3b,
-				0xbe, 0xac, 0x01, 0xfa};
+	static const u8 init_hash_seed[] = {
+		0x6d, 0x5a, 0x56, 0xda, 0x25, 0x5b, 0x0e, 0xc2,
+		0x41, 0x67, 0x25, 0x3d, 0x43, 0xa3, 0x8f, 0xb0,
+		0xd0, 0xca, 0x2b, 0xcb, 0xae, 0x7b, 0x30, 0xb4,
+		0x77, 0xcb, 0x2d, 0xa3, 0x80, 0x30, 0xf2, 0x0c,
+		0x6a, 0x42, 0xb7, 0x3b, 0xbe, 0xac, 0x01, 0xfa
+	};
 	struct ricb *ricb = &qdev->ricb;
 	int status = 0;
 	int i;
@@ -3826,7 +3845,7 @@ static int ql_adapter_reset(struct ql_adapter *qdev)
 
 static void ql_display_dev_info(struct net_device *ndev)
 {
-	struct ql_adapter *qdev = (struct ql_adapter *)netdev_priv(ndev);
+	struct ql_adapter *qdev = netdev_priv(ndev);
 
 	netif_info(qdev, probe, qdev->ndev,
 		   "Function #%d, Port %d, NIC Roll %d, NIC Rev = %d, "
@@ -3841,7 +3860,7 @@ static void ql_display_dev_info(struct net_device *ndev)
 		   "MAC address %pM\n", ndev->dev_addr);
 }
 
-int ql_wol(struct ql_adapter *qdev)
+static int ql_wol(struct ql_adapter *qdev)
 {
 	int status = 0;
 	u32 wol = MB_WOL_DISABLE;
@@ -3888,11 +3907,8 @@ int ql_wol(struct ql_adapter *qdev)
 	return status;
 }
 
-static int ql_adapter_down(struct ql_adapter *qdev)
+static void ql_cancel_all_work_sync(struct ql_adapter *qdev)
 {
-	int i, status = 0;
-
-	ql_link_off(qdev);
 
 	/* Don't kill the reset worker thread if we
 	 * are in the process of recovery.
@@ -3904,6 +3920,15 @@ static int ql_adapter_down(struct ql_adapter *qdev)
 	cancel_delayed_work_sync(&qdev->mpi_idc_work);
 	cancel_delayed_work_sync(&qdev->mpi_core_to_log);
 	cancel_delayed_work_sync(&qdev->mpi_port_cfg_work);
+}
+
+static int ql_adapter_down(struct ql_adapter *qdev)
+{
+	int i, status = 0;
+
+	ql_link_off(qdev);
+
+	ql_cancel_all_work_sync(qdev);
 
 	for (i = 0; i < qdev->rss_ring_count; i++)
 		napi_disable(&qdev->rx_ring[i].napi);
@@ -3949,6 +3974,9 @@ static int ql_adapter_up(struct ql_adapter *qdev)
 	clear_bit(QL_ALLMULTI, &qdev->flags);
 	clear_bit(QL_PROMISCUOUS, &qdev->flags);
 	qlge_set_multicast_list(qdev->ndev);
+
+	/* Restore vlan setting. */
+	qlge_restore_vlan(qdev);
 
 	ql_enable_interrupts(qdev);
 	ql_enable_all_completion_interrupts(qdev);
@@ -4235,9 +4263,9 @@ static struct net_device_stats *qlge_get_stats(struct net_device
 	return &ndev->stats;
 }
 
-void qlge_set_multicast_list(struct net_device *ndev)
+static void qlge_set_multicast_list(struct net_device *ndev)
 {
-	struct ql_adapter *qdev = (struct ql_adapter *)netdev_priv(ndev);
+	struct ql_adapter *qdev = netdev_priv(ndev);
 	struct netdev_hw_addr *ha;
 	int i, status;
 
@@ -4327,7 +4355,7 @@ exit:
 
 static int qlge_set_mac_address(struct net_device *ndev, void *p)
 {
-	struct ql_adapter *qdev = (struct ql_adapter *)netdev_priv(ndev);
+	struct ql_adapter *qdev = netdev_priv(ndev);
 	struct sockaddr *addr = p;
 	int status;
 
@@ -4350,7 +4378,7 @@ static int qlge_set_mac_address(struct net_device *ndev, void *p)
 
 static void qlge_tx_timeout(struct net_device *ndev)
 {
-	struct ql_adapter *qdev = (struct ql_adapter *)netdev_priv(ndev);
+	struct ql_adapter *qdev = netdev_priv(ndev);
 	ql_queue_asic_error(qdev);
 }
 
@@ -4602,6 +4630,7 @@ static int __devinit ql_init_device(struct pci_dev *pdev,
 	INIT_DELAYED_WORK(&qdev->mpi_idc_work, ql_mpi_idc_work);
 	INIT_DELAYED_WORK(&qdev->mpi_core_to_log, ql_mpi_core_to_log);
 	init_completion(&qdev->ide_completion);
+	mutex_init(&qdev->mpi_mutex);
 
 	if (!cards_found) {
 		dev_info(&pdev->dev, "%s\n", DRV_STRING);
@@ -4726,6 +4755,7 @@ static void __devexit qlge_remove(struct pci_dev *pdev)
 	struct net_device *ndev = pci_get_drvdata(pdev);
 	struct ql_adapter *qdev = netdev_priv(ndev);
 	del_timer_sync(&qdev->timer);
+	ql_cancel_all_work_sync(qdev);
 	unregister_netdev(ndev);
 	ql_release_all(pdev);
 	pci_disable_device(pdev);
@@ -4745,13 +4775,7 @@ static void ql_eeh_close(struct net_device *ndev)
 
 	/* Disabling the timer */
 	del_timer_sync(&qdev->timer);
-	if (test_bit(QL_ADAPTER_UP, &qdev->flags))
-		cancel_delayed_work_sync(&qdev->asic_reset_work);
-	cancel_delayed_work_sync(&qdev->mpi_reset_work);
-	cancel_delayed_work_sync(&qdev->mpi_work);
-	cancel_delayed_work_sync(&qdev->mpi_idc_work);
-	cancel_delayed_work_sync(&qdev->mpi_core_to_log);
-	cancel_delayed_work_sync(&qdev->mpi_port_cfg_work);
+	ql_cancel_all_work_sync(qdev);
 
 	for (i = 0; i < qdev->rss_ring_count; i++)
 		netif_napi_del(&qdev->rx_ring[i].napi);

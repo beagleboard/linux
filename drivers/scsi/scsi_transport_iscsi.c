@@ -537,7 +537,7 @@ static void iscsi_scan_session(struct work_struct *work)
 
 /**
  * iscsi_block_scsi_eh - block scsi eh until session state has transistioned
- * cmd: scsi cmd passed to scsi eh handler
+ * @cmd: scsi cmd passed to scsi eh handler
  *
  * If the session is down this function will wait for the recovery
  * timer to fire or for the session to be logged back in. If the
@@ -2200,3 +2200,4 @@ MODULE_AUTHOR("Mike Christie <michaelc@cs.wisc.edu>, "
 MODULE_DESCRIPTION("iSCSI Transport Interface");
 MODULE_LICENSE("GPL");
 MODULE_VERSION(ISCSI_TRANSPORT_VERSION);
+MODULE_ALIAS_NET_PF_PROTO(PF_NETLINK, NETLINK_ISCSI);

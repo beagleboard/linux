@@ -51,7 +51,7 @@
 #include <linux/types.h>
 #include <linux/pci.h>
 #include <linux/delay.h>
-#include <linux/smp_lock.h>
+#include <linux/mutex.h>
 #include <linux/compat.h>
 #include <linux/poll.h>
 
@@ -61,6 +61,7 @@
 #include "mpt2sas_base.h"
 #include "mpt2sas_ctl.h"
 
+static DEFINE_MUTEX(_ctl_mutex);
 static struct fasync_struct *async_queue;
 static DECLARE_WAIT_QUEUE_HEAD(ctl_poll_wait);
 
@@ -80,6 +81,7 @@ enum block_state {
 	BLOCKING,
 };
 
+#ifdef CONFIG_SCSI_MPT2SAS_LOGGING
 /**
  * _ctl_sas_device_find_by_handle - sas device search
  * @ioc: per adapter object
@@ -106,7 +108,6 @@ _ctl_sas_device_find_by_handle(struct MPT2SAS_ADAPTER *ioc, u16 handle)
 	return r;
 }
 
-#ifdef CONFIG_SCSI_MPT2SAS_LOGGING
 /**
  * _ctl_display_some_debug - debug routine
  * @ioc: per adapter object
@@ -2238,9 +2239,9 @@ _ctl_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	long ret;
 
-	lock_kernel();
+	mutex_lock(&_ctl_mutex);
 	ret = _ctl_ioctl_main(file, cmd, (void __user *)arg);
-	unlock_kernel();
+	mutex_unlock(&_ctl_mutex);
 	return ret;
 }
 
@@ -2309,12 +2310,12 @@ _ctl_ioctl_compat(struct file *file, unsigned cmd, unsigned long arg)
 {
 	long ret;
 
-	lock_kernel();
+	mutex_lock(&_ctl_mutex);
 	if (cmd == MPT2COMMAND32)
 		ret = _ctl_compat_mpt_command(file, cmd, arg);
 	else
 		ret = _ctl_ioctl_main(file, cmd, (void __user *)arg);
-	unlock_kernel();
+	mutex_unlock(&_ctl_mutex);
 	return ret;
 }
 #endif
@@ -2952,6 +2953,7 @@ static const struct file_operations ctl_fops = {
 #ifdef CONFIG_COMPAT
 	.compat_ioctl = _ctl_ioctl_compat,
 #endif
+	.llseek = noop_llseek,
 };
 
 static struct miscdevice ctl_dev = {

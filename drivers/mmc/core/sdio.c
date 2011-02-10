@@ -10,6 +10,7 @@
  */
 
 #include <linux/err.h>
+#include <linux/pm_runtime.h>
 
 #include <linux/mmc/host.h>
 #include <linux/mmc/card.h>
@@ -456,7 +457,6 @@ static int mmc_sdio_init_card(struct mmc_host *host, u32 ocr,
 			return -ENOENT;
 
 		card = oldcard;
-		return 0;
 	}
 
 	if (card->type == MMC_TYPE_SD_COMBO) {
@@ -546,6 +546,13 @@ static void mmc_sdio_detect(struct mmc_host *host)
 	BUG_ON(!host);
 	BUG_ON(!host->card);
 
+	/* Make sure card is powered before detecting it */
+	if (host->caps & MMC_CAP_POWER_OFF_CARD) {
+		err = pm_runtime_get_sync(&host->card->dev);
+		if (err < 0)
+			goto out;
+	}
+
 	mmc_claim_host(host);
 
 	/*
@@ -555,6 +562,21 @@ static void mmc_sdio_detect(struct mmc_host *host)
 
 	mmc_release_host(host);
 
+	/*
+	 * Tell PM core it's OK to power off the card now.
+	 *
+	 * The _sync variant is used in order to ensure that the card
+	 * is left powered off in case an error occurred, and the card
+	 * is going to be removed.
+	 *
+	 * Since there is no specific reason to believe a new user
+	 * is about to show up at this point, the _sync variant is
+	 * desirable anyway.
+	 */
+	if (host->caps & MMC_CAP_POWER_OFF_CARD)
+		pm_runtime_put_sync(&host->card->dev);
+
+out:
 	if (err) {
 		mmc_sdio_remove(host);
 
@@ -605,23 +627,27 @@ static int mmc_sdio_suspend(struct mmc_host *host)
 
 static int mmc_sdio_resume(struct mmc_host *host)
 {
-	int i, err;
+	int i, err = 0;
 
 	BUG_ON(!host);
 	BUG_ON(!host->card);
 
 	/* Basic card reinitialization. */
 	mmc_claim_host(host);
-	err = mmc_sdio_init_card(host, host->ocr, host->card,
+
+	/* No need to reinitialize powered-resumed nonremovable cards */
+	if (mmc_card_is_removable(host) || !mmc_card_is_powered_resumed(host))
+		err = mmc_sdio_init_card(host, host->ocr, host->card,
 				 (host->pm_flags & MMC_PM_KEEP_POWER));
-	if (!err) {
-		/* We may have switched to 1-bit mode during suspend. */
+	else if (mmc_card_is_powered_resumed(host)) {
+		/* We may have switched to 1-bit mode during suspend */
 		err = sdio_enable_4bit_bus(host->card);
 		if (err > 0) {
 			mmc_set_bus_width(host, MMC_BUS_WIDTH_4);
 			err = 0;
 		}
 	}
+
 	if (!err && host->sdio_irqs)
 		mmc_signal_sdio_irq(host);
 	mmc_release_host(host);
@@ -647,27 +673,51 @@ static int mmc_sdio_resume(struct mmc_host *host)
 	return err;
 }
 
+static int mmc_sdio_power_restore(struct mmc_host *host)
+{
+	int ret;
+
+	BUG_ON(!host);
+	BUG_ON(!host->card);
+
+	mmc_claim_host(host);
+	ret = mmc_sdio_init_card(host, host->ocr, host->card,
+			(host->pm_flags & MMC_PM_KEEP_POWER));
+	if (!ret && host->sdio_irqs)
+		mmc_signal_sdio_irq(host);
+	mmc_release_host(host);
+
+	return ret;
+}
+
 static const struct mmc_bus_ops mmc_sdio_ops = {
 	.remove = mmc_sdio_remove,
 	.detect = mmc_sdio_detect,
 	.suspend = mmc_sdio_suspend,
 	.resume = mmc_sdio_resume,
+	.power_restore = mmc_sdio_power_restore,
 };
 
 
 /*
  * Starting point for SDIO card init.
  */
-int mmc_attach_sdio(struct mmc_host *host, u32 ocr)
+int mmc_attach_sdio(struct mmc_host *host)
 {
-	int err;
-	int i, funcs;
+	int err, i, funcs;
+	u32 ocr;
 	struct mmc_card *card;
 
 	BUG_ON(!host);
 	WARN_ON(!host->claimed);
 
+	err = mmc_send_io_op_cond(host, 0, &ocr);
+	if (err)
+		return err;
+
 	mmc_attach_bus(host, &mmc_sdio_ops);
+	if (host->ocr_avail_sdio)
+		host->ocr_avail = host->ocr_avail_sdio;
 
 	/*
 	 * Sanity check the voltages that the card claims to
@@ -699,6 +749,23 @@ int mmc_attach_sdio(struct mmc_host *host, u32 ocr)
 	card = host->card;
 
 	/*
+	 * Enable runtime PM only if supported by host+card+board
+	 */
+	if (host->caps & MMC_CAP_POWER_OFF_CARD) {
+		/*
+		 * Let runtime PM core know our card is active
+		 */
+		err = pm_runtime_set_active(&card->dev);
+		if (err)
+			goto remove;
+
+		/*
+		 * Enable runtime PM for this card
+		 */
+		pm_runtime_enable(&card->dev);
+	}
+
+	/*
 	 * The number of functions on the card is encoded inside
 	 * the ocr.
 	 */
@@ -712,14 +779,20 @@ int mmc_attach_sdio(struct mmc_host *host, u32 ocr)
 		err = sdio_init_func(host->card, i + 1);
 		if (err)
 			goto remove;
-	}
 
-	mmc_release_host(host);
+		/*
+		 * Enable Runtime PM for this func (if supported)
+		 */
+		if (host->caps & MMC_CAP_POWER_OFF_CARD)
+			pm_runtime_enable(&card->sdio_func[i]->dev);
+	}
 
 	/*
 	 * First add the card to the driver model...
 	 */
+	mmc_release_host(host);
 	err = mmc_add_card(host->card);
+	mmc_claim_host(host);
 	if (err)
 		goto remove_added;
 
@@ -737,15 +810,17 @@ int mmc_attach_sdio(struct mmc_host *host, u32 ocr)
 
 remove_added:
 	/* Remove without lock if the device has been added. */
+	mmc_release_host(host);
 	mmc_sdio_remove(host);
 	mmc_claim_host(host);
 remove:
 	/* And with lock if it hasn't been added. */
+	mmc_release_host(host);
 	if (host->card)
 		mmc_sdio_remove(host);
+	mmc_claim_host(host);
 err:
 	mmc_detach_bus(host);
-	mmc_release_host(host);
 
 	printk(KERN_ERR "%s: error %d whilst initialising SDIO card\n",
 		mmc_hostname(host), err);

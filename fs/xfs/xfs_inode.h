@@ -134,8 +134,9 @@ typedef struct xfs_icdinode {
 	__uint32_t	di_uid;		/* owner's user id */
 	__uint32_t	di_gid;		/* owner's group id */
 	__uint32_t	di_nlink;	/* number of links to file */
-	__uint16_t	di_projid;	/* owner's project id */
-	__uint8_t	di_pad[8];	/* unused, zeroed space */
+	__uint16_t	di_projid_lo;	/* lower part of owner's project id */
+	__uint16_t	di_projid_hi;	/* higher part of owner's project id */
+	__uint8_t	di_pad[6];	/* unused, zeroed space */
 	__uint16_t	di_flushiter;	/* incremented on flush */
 	xfs_ictimestamp_t di_atime;	/* time last accessed */
 	xfs_ictimestamp_t di_mtime;	/* time last modified */
@@ -212,7 +213,6 @@ typedef struct xfs_icdinode {
 #ifdef __KERNEL__
 
 struct bhv_desc;
-struct cred;
 struct xfs_buf;
 struct xfs_bmap_free;
 struct xfs_bmbt_irec;
@@ -335,6 +335,25 @@ xfs_iflags_test_and_clear(xfs_inode_t *ip, unsigned short flags)
 }
 
 /*
+ * Project quota id helpers (previously projid was 16bit only
+ * and using two 16bit values to hold new 32bit projid was choosen
+ * to retain compatibility with "old" filesystems).
+ */
+static inline prid_t
+xfs_get_projid(struct xfs_inode *ip)
+{
+	return (prid_t)ip->i_d.di_projid_hi << 16 | ip->i_d.di_projid_lo;
+}
+
+static inline void
+xfs_set_projid(struct xfs_inode *ip,
+		prid_t projid)
+{
+	ip->i_d.di_projid_hi = (__uint16_t) (projid >> 16);
+	ip->i_d.di_projid_lo = (__uint16_t) (projid & 0xffff);
+}
+
+/*
  * Manage the i_flush queue embedded in the inode.  This completion
  * queue synchronizes processes attempting to flush the in-core
  * inode back to disk.
@@ -357,12 +376,13 @@ static inline void xfs_ifunlock(xfs_inode_t *ip)
 /*
  * In-core inode flags.
  */
-#define XFS_IRECLAIM    0x0001  /* we have started reclaiming this inode    */
-#define XFS_ISTALE	0x0002	/* inode has been staled */
-#define XFS_IRECLAIMABLE 0x0004 /* inode can be reclaimed */
-#define XFS_INEW	0x0008	/* inode has just been allocated */
-#define XFS_IFILESTREAM	0x0010	/* inode is in a filestream directory */
-#define XFS_ITRUNCATED	0x0020	/* truncated down so flush-on-close */
+#define XFS_IRECLAIM		0x0001  /* started reclaiming this inode */
+#define XFS_ISTALE		0x0002	/* inode has been staled */
+#define XFS_IRECLAIMABLE	0x0004	/* inode can be reclaimed */
+#define XFS_INEW		0x0008	/* inode has just been allocated */
+#define XFS_IFILESTREAM		0x0010	/* inode is in a filestream directory */
+#define XFS_ITRUNCATED		0x0020	/* truncated down so flush-on-close */
+#define XFS_IDIRTY_RELEASE	0x0040	/* dirty release already seen */
 
 /*
  * Flags for inode locking.
@@ -419,6 +439,8 @@ static inline void xfs_ifunlock(xfs_inode_t *ip)
 #define XFS_IOLOCK_DEP(flags)	(((flags) & XFS_IOLOCK_DEP_MASK) >> XFS_IOLOCK_SHIFT)
 #define XFS_ILOCK_DEP(flags)	(((flags) & XFS_ILOCK_DEP_MASK) >> XFS_ILOCK_SHIFT)
 
+extern struct lock_class_key xfs_iolock_reclaimable;
+
 /*
  * Flags for xfs_itruncate_start().
  */
@@ -456,8 +478,8 @@ void		xfs_inode_free(struct xfs_inode *ip);
  * xfs_inode.c prototypes.
  */
 int		xfs_ialloc(struct xfs_trans *, xfs_inode_t *, mode_t,
-			   xfs_nlink_t, xfs_dev_t, cred_t *, xfs_prid_t,
-			   int, struct xfs_buf **, boolean_t *, xfs_inode_t **);
+			   xfs_nlink_t, xfs_dev_t, prid_t, int,
+			   struct xfs_buf **, boolean_t *, xfs_inode_t **);
 
 uint		xfs_ip2xflags(struct xfs_inode *);
 uint		xfs_dic2xflags(struct xfs_dinode *);
@@ -471,7 +493,6 @@ int		xfs_iunlink(struct xfs_trans *, xfs_inode_t *);
 void		xfs_iext_realloc(xfs_inode_t *, int, int);
 void		xfs_iunpin_wait(xfs_inode_t *);
 int		xfs_iflush(xfs_inode_t *, uint);
-void		xfs_ichgtime(xfs_inode_t *, int);
 void		xfs_lock_inodes(xfs_inode_t **, int, uint);
 void		xfs_lock_two_inodes(xfs_inode_t *, xfs_inode_t *, uint);
 
@@ -482,7 +503,7 @@ void		xfs_mark_inode_dirty_sync(xfs_inode_t *);
 #define IHOLD(ip) \
 do { \
 	ASSERT(atomic_read(&VFS_I(ip)->i_count) > 0) ; \
-	atomic_inc(&(VFS_I(ip)->i_count)); \
+	ihold(VFS_I(ip)); \
 	trace_xfs_ihold(ip, _THIS_IP_); \
 } while (0)
 

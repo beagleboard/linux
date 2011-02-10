@@ -378,6 +378,7 @@ struct pktgen_dev {
 
 	u16 queue_map_min;
 	u16 queue_map_max;
+	__u32 skb_priority;	/* skb priority field */
 	int node;               /* Memory node */
 
 #ifdef CONFIG_XFRM
@@ -393,6 +394,8 @@ struct pktgen_hdr {
 	__be32 tv_sec;
 	__be32 tv_usec;
 };
+
+static bool pktgen_exiting __read_mostly;
 
 struct pktgen_thread {
 	spinlock_t if_lock;		/* for list of devices */
@@ -546,6 +549,10 @@ static int pktgen_if_show(struct seq_file *seq, void *v)
 		   "     queue_map_min: %u  queue_map_max: %u\n",
 		   pkt_dev->queue_map_min,
 		   pkt_dev->queue_map_max);
+
+	if (pkt_dev->skb_priority)
+		seq_printf(seq, "     skb_priority: %u\n",
+			   pkt_dev->skb_priority);
 
 	if (pkt_dev->flags & F_IPV6) {
 		char b1[128], b2[128], b3[128];
@@ -729,16 +736,14 @@ static int hex32_arg(const char __user *user_buffer, unsigned long maxlen,
 	*num = 0;
 
 	for (; i < maxlen; i++) {
+		int value;
 		char c;
 		*num <<= 4;
 		if (get_user(c, &user_buffer[i]))
 			return -EFAULT;
-		if ((c >= '0') && (c <= '9'))
-			*num |= c - '0';
-		else if ((c >= 'a') && (c <= 'f'))
-			*num |= c - 'a' + 10;
-		else if ((c >= 'A') && (c <= 'F'))
-			*num |= c - 'A' + 10;
+		value = hex_to_bin(c);
+		if (value >= 0)
+			*num |= value;
 		else
 			break;
 	}
@@ -773,10 +778,10 @@ done:
 static unsigned long num_arg(const char __user * user_buffer,
 			     unsigned long maxlen, unsigned long *num)
 {
-	int i = 0;
+	int i;
 	*num = 0;
 
-	for (; i < maxlen; i++) {
+	for (i = 0; i < maxlen; i++) {
 		char c;
 		if (get_user(c, &user_buffer[i]))
 			return -EFAULT;
@@ -791,9 +796,9 @@ static unsigned long num_arg(const char __user * user_buffer,
 
 static int strn_len(const char __user * user_buffer, unsigned int maxlen)
 {
-	int i = 0;
+	int i;
 
-	for (; i < maxlen; i++) {
+	for (i = 0; i < maxlen; i++) {
 		char c;
 		if (get_user(c, &user_buffer[i]))
 			return -EFAULT;
@@ -848,7 +853,7 @@ static ssize_t pktgen_if_write(struct file *file,
 {
 	struct seq_file *seq = file->private_data;
 	struct pktgen_dev *pkt_dev = seq->private;
-	int i = 0, max, len;
+	int i, max, len;
 	char name[16], valstr[32];
 	unsigned long value = 0;
 	char *pg_result = NULL;
@@ -862,13 +867,13 @@ static ssize_t pktgen_if_write(struct file *file,
 		return -EINVAL;
 	}
 
-	max = count - i;
-	tmp = count_trail_chars(&user_buffer[i], max);
+	max = count;
+	tmp = count_trail_chars(user_buffer, max);
 	if (tmp < 0) {
 		pr_warning("illegal format\n");
 		return tmp;
 	}
-	i += tmp;
+	i = tmp;
 
 	/* Read variable name */
 
@@ -889,10 +894,11 @@ static ssize_t pktgen_if_write(struct file *file,
 	i += len;
 
 	if (debug) {
-		char tb[count + 1];
-		if (copy_from_user(tb, user_buffer, count))
+		size_t copy = min_t(size_t, count, 1023);
+		char tb[copy + 1];
+		if (copy_from_user(tb, user_buffer, copy))
 			return -EFAULT;
-		tb[count] = 0;
+		tb[copy] = 0;
 		printk(KERN_DEBUG "pktgen: %s,%lu  buffer -:%s:-\n", name,
 		       (unsigned long)count, tb);
 	}
@@ -1712,6 +1718,18 @@ static ssize_t pktgen_if_write(struct file *file,
 		return count;
 	}
 
+	if (!strcmp(name, "skb_priority")) {
+		len = num_arg(&user_buffer[i], 9, &value);
+		if (len < 0)
+			return len;
+
+		i += len;
+		pkt_dev->skb_priority = value;
+		sprintf(pg_result, "OK: skb_priority=%i",
+			pkt_dev->skb_priority);
+		return count;
+	}
+
 	sprintf(pkt_dev->result, "No such parameter \"%s\"", name);
 	return -EINVAL;
 }
@@ -1766,7 +1784,7 @@ static ssize_t pktgen_thread_write(struct file *file,
 {
 	struct seq_file *seq = file->private_data;
 	struct pktgen_thread *t = seq->private;
-	int i = 0, max, len, ret;
+	int i, max, len, ret;
 	char name[40];
 	char *pg_result;
 
@@ -1775,12 +1793,12 @@ static ssize_t pktgen_thread_write(struct file *file,
 		return -EINVAL;
 	}
 
-	max = count - i;
-	len = count_trail_chars(&user_buffer[i], max);
+	max = count;
+	len = count_trail_chars(user_buffer, max);
 	if (len < 0)
 		return len;
 
-	i += len;
+	i = len;
 
 	/* Read variable name */
 
@@ -1977,7 +1995,7 @@ static struct net_device *pktgen_dev_get_by_name(struct pktgen_dev *pkt_dev,
 						 const char *ifname)
 {
 	char b[IFNAMSIZ+5];
-	int i = 0;
+	int i;
 
 	for (i = 0; ifname[i] != '@'; i++) {
 		if (i == IFNAMSIZ)
@@ -2521,8 +2539,8 @@ static void free_SAs(struct pktgen_dev *pkt_dev)
 {
 	if (pkt_dev->cflows) {
 		/* let go of the SAs if we have them */
-		int i = 0;
-		for (;  i < pkt_dev->cflows; i++) {
+		int i;
+		for (i = 0; i < pkt_dev->cflows; i++) {
 			struct xfrm_state *x = pkt_dev->flows[i].x;
 			if (x) {
 				xfrm_state_put(x);
@@ -2613,8 +2631,8 @@ static struct sk_buff *fill_packet_ipv4(struct net_device *odev,
 	/* Update any of the values, used when we're incrementing various
 	 * fields.
 	 */
-	queue_map = pkt_dev->cur_queue_map;
 	mod_cur_headers(pkt_dev);
+	queue_map = pkt_dev->cur_queue_map;
 
 	datalen = (odev->hard_header_len + 16) & ~0xf;
 
@@ -2642,6 +2660,7 @@ static struct sk_buff *fill_packet_ipv4(struct net_device *odev,
 		sprintf(pkt_dev->result, "No memory");
 		return NULL;
 	}
+	prefetchw(skb->data);
 
 	skb_reserve(skb, datalen);
 
@@ -2672,6 +2691,8 @@ static struct sk_buff *fill_packet_ipv4(struct net_device *odev,
 	skb->transport_header = skb->network_header + sizeof(struct iphdr);
 	skb_put(skb, sizeof(struct iphdr) + sizeof(struct udphdr));
 	skb_set_queue_mapping(skb, queue_map);
+	skb->priority = pkt_dev->skb_priority;
+
 	iph = ip_hdr(skb);
 	udph = udp_hdr(skb);
 
@@ -2977,8 +2998,8 @@ static struct sk_buff *fill_packet_ipv6(struct net_device *odev,
 	/* Update any of the values, used when we're incrementing various
 	 * fields.
 	 */
-	queue_map = pkt_dev->cur_queue_map;
 	mod_cur_headers(pkt_dev);
+	queue_map = pkt_dev->cur_queue_map;
 
 	skb = __netdev_alloc_skb(odev,
 				 pkt_dev->cur_pkt_size + 64
@@ -2987,6 +3008,7 @@ static struct sk_buff *fill_packet_ipv6(struct net_device *odev,
 		sprintf(pkt_dev->result, "No memory");
 		return NULL;
 	}
+	prefetchw(skb->data);
 
 	skb_reserve(skb, 16);
 
@@ -3017,6 +3039,7 @@ static struct sk_buff *fill_packet_ipv6(struct net_device *odev,
 	skb->transport_header = skb->network_header + sizeof(struct ipv6hdr);
 	skb_put(skb, sizeof(struct ipv6hdr) + sizeof(struct udphdr));
 	skb_set_queue_mapping(skb, queue_map);
+	skb->priority = pkt_dev->skb_priority;
 	iph = ipv6_hdr(skb);
 	udph = udp_hdr(skb);
 
@@ -3432,11 +3455,6 @@ static void pktgen_rem_thread(struct pktgen_thread *t)
 
 	remove_proc_entry(t->tsk->comm, pg_proc_dir);
 
-	mutex_lock(&pktgen_thread_lock);
-
-	list_del(&t->th_list);
-
-	mutex_unlock(&pktgen_thread_lock);
 }
 
 static void pktgen_resched(struct pktgen_dev *pkt_dev)
@@ -3511,7 +3529,7 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
 
 	__netif_tx_lock_bh(txq);
 
-	if (unlikely(netif_tx_queue_stopped(txq) || netif_tx_queue_frozen(txq))) {
+	if (unlikely(netif_tx_queue_frozen_or_stopped(txq))) {
 		ret = NETDEV_TX_BUSY;
 		pkt_dev->last_ok = 0;
 		goto unlock;
@@ -3535,8 +3553,7 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
 		break;
 	default: /* Drivers are not supposed to return other values! */
 		if (net_ratelimit())
-			pr_info("pktgen: %s xmit error: %d\n",
-				pkt_dev->odevname, ret);
+			pr_info("%s xmit error: %d\n", pkt_dev->odevname, ret);
 		pkt_dev->errors++;
 		/* fallthru */
 	case NETDEV_TX_LOCKED:
@@ -3583,6 +3600,8 @@ static int pktgen_thread_worker(void *arg)
 		pkt_dev = next_to_run(t);
 
 		if (unlikely(!pkt_dev && t->control == 0)) {
+			if (pktgen_exiting)
+				break;
 			wait_event_interruptible_timeout(t->queue,
 							 t->control != 0,
 							 HZ/10);
@@ -3634,6 +3653,13 @@ static int pktgen_thread_worker(void *arg)
 
 	pr_debug("%s removing thread\n", t->tsk->comm);
 	pktgen_rem_thread(t);
+
+	/* Wait for kthread_stop */
+	while (!kthread_should_stop()) {
+		set_current_state(TASK_INTERRUPTIBLE);
+		schedule();
+	}
+	__set_current_state(TASK_RUNNING);
 
 	return 0;
 }
@@ -3907,10 +3933,9 @@ static void __exit pg_cleanup(void)
 {
 	struct pktgen_thread *t;
 	struct list_head *q, *n;
-	wait_queue_head_t queue;
-	init_waitqueue_head(&queue);
 
 	/* Stop all interfaces & threads */
+	pktgen_exiting = true;
 
 	list_for_each_safe(q, n, &pktgen_threads) {
 		t = list_entry(q, struct pktgen_thread, th_list);

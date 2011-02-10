@@ -104,8 +104,7 @@ nv50_crtc_blank(struct nouveau_crtc *nv_crtc, bool blanked)
 		OUT_RING(evo, nv_crtc->lut.depth == 8 ?
 				NV50_EVO_CRTC_CLUT_MODE_OFF :
 				NV50_EVO_CRTC_CLUT_MODE_ON);
-		OUT_RING(evo, (nv_crtc->lut.nvbo->bo.mem.mm_node->start <<
-				 PAGE_SHIFT) >> 8);
+		OUT_RING(evo, (nv_crtc->lut.nvbo->bo.mem.start << PAGE_SHIFT) >> 8);
 		if (dev_priv->chipset != 0x50) {
 			BEGIN_RING(evo, 0, NV84_EVO_CRTC(index, CLUT_DMA), 1);
 			OUT_RING(evo, NvEvoVRAM);
@@ -116,15 +115,16 @@ nv50_crtc_blank(struct nouveau_crtc *nv_crtc, bool blanked)
 		OUT_RING(evo, 0);
 		BEGIN_RING(evo, 0, NV50_EVO_CRTC(index, FB_DMA), 1);
 		if (dev_priv->chipset != 0x50)
-			if (nv_crtc->fb.tile_flags == 0x7a00)
+			if (nv_crtc->fb.tile_flags == 0x7a00 ||
+			    nv_crtc->fb.tile_flags == 0xfe00)
 				OUT_RING(evo, NvEvoFB32);
 			else
 			if (nv_crtc->fb.tile_flags == 0x7000)
 				OUT_RING(evo, NvEvoFB16);
 			else
-				OUT_RING(evo, NvEvoVRAM);
+				OUT_RING(evo, NvEvoVRAM_LP);
 		else
-			OUT_RING(evo, NvEvoVRAM);
+			OUT_RING(evo, NvEvoVRAM_LP);
 	}
 
 	nv_crtc->fb.blanked = blanked;
@@ -266,15 +266,10 @@ nv50_crtc_set_clock(struct drm_device *dev, int head, int pclk)
 {
 	struct drm_nouveau_private *dev_priv = dev->dev_private;
 	struct pll_lims pll;
-	uint32_t reg, reg1, reg2;
+	uint32_t reg1, reg2;
 	int ret, N1, M1, N2, M2, P;
 
-	if (dev_priv->chipset < NV_C0)
-		reg = NV50_PDISPLAY_CRTC_CLK_CTRL1(head);
-	else
-		reg = 0x614140 + (head * 0x800);
-
-	ret = get_pll_limits(dev, reg, &pll);
+	ret = get_pll_limits(dev, PLL_VPLL0 + head, &pll);
 	if (ret)
 		return ret;
 
@@ -286,11 +281,11 @@ nv50_crtc_set_clock(struct drm_device *dev, int head, int pclk)
 		NV_DEBUG(dev, "pclk %d out %d NM1 %d %d NM2 %d %d P %d\n",
 			 pclk, ret, N1, M1, N2, M2, P);
 
-		reg1 = nv_rd32(dev, reg + 4) & 0xff00ff00;
-		reg2 = nv_rd32(dev, reg + 8) & 0x8000ff00;
-		nv_wr32(dev, reg, 0x10000611);
-		nv_wr32(dev, reg + 4, reg1 | (M1 << 16) | N1);
-		nv_wr32(dev, reg + 8, reg2 | (P << 28) | (M2 << 16) | N2);
+		reg1 = nv_rd32(dev, pll.reg + 4) & 0xff00ff00;
+		reg2 = nv_rd32(dev, pll.reg + 8) & 0x8000ff00;
+		nv_wr32(dev, pll.reg + 0, 0x10000611);
+		nv_wr32(dev, pll.reg + 4, reg1 | (M1 << 16) | N1);
+		nv_wr32(dev, pll.reg + 8, reg2 | (P << 28) | (M2 << 16) | N2);
 	} else
 	if (dev_priv->chipset < NV_C0) {
 		ret = nv50_calc_pll2(dev, &pll, pclk, &N1, &N2, &M1, &P);
@@ -300,10 +295,10 @@ nv50_crtc_set_clock(struct drm_device *dev, int head, int pclk)
 		NV_DEBUG(dev, "pclk %d out %d N %d fN 0x%04x M %d P %d\n",
 			 pclk, ret, N1, N2, M1, P);
 
-		reg1 = nv_rd32(dev, reg + 4) & 0xffc00000;
-		nv_wr32(dev, reg, 0x50000610);
-		nv_wr32(dev, reg + 4, reg1 | (P << 16) | (M1 << 8) | N1);
-		nv_wr32(dev, reg + 8, N2);
+		reg1 = nv_rd32(dev, pll.reg + 4) & 0xffc00000;
+		nv_wr32(dev, pll.reg + 0, 0x50000610);
+		nv_wr32(dev, pll.reg + 4, reg1 | (P << 16) | (M1 << 8) | N1);
+		nv_wr32(dev, pll.reg + 8, N2);
 	} else {
 		ret = nv50_calc_pll2(dev, &pll, pclk, &N1, &N2, &M1, &P);
 		if (ret <= 0)
@@ -312,9 +307,9 @@ nv50_crtc_set_clock(struct drm_device *dev, int head, int pclk)
 		NV_DEBUG(dev, "pclk %d out %d N %d fN 0x%04x M %d P %d\n",
 			 pclk, ret, N1, N2, M1, P);
 
-		nv_mask(dev, reg + 0x0c, 0x00000000, 0x00000100);
-		nv_wr32(dev, reg + 0x04, (P << 16) | (N1 << 8) | M1);
-		nv_wr32(dev, reg + 0x10, N2 << 16);
+		nv_mask(dev, pll.reg + 0x0c, 0x00000000, 0x00000100);
+		nv_wr32(dev, pll.reg + 0x04, (P << 16) | (N1 << 8) | M1);
+		nv_wr32(dev, pll.reg + 0x10, N2 << 16);
 	}
 
 	return 0;
@@ -338,7 +333,9 @@ nv50_crtc_destroy(struct drm_crtc *crtc)
 
 	nv50_cursor_fini(nv_crtc);
 
+	nouveau_bo_unmap(nv_crtc->lut.nvbo);
 	nouveau_bo_ref(NULL, &nv_crtc->lut.nvbo);
+	nouveau_bo_unmap(nv_crtc->cursor.nvbo);
 	nouveau_bo_ref(NULL, &nv_crtc->cursor.nvbo);
 	kfree(nv_crtc->mode);
 	kfree(nv_crtc);
@@ -349,7 +346,6 @@ nv50_crtc_cursor_set(struct drm_crtc *crtc, struct drm_file *file_priv,
 		     uint32_t buffer_handle, uint32_t width, uint32_t height)
 {
 	struct drm_device *dev = crtc->dev;
-	struct drm_nouveau_private *dev_priv = dev->dev_private;
 	struct nouveau_crtc *nv_crtc = nouveau_crtc(crtc);
 	struct nouveau_bo *cursor = NULL;
 	struct drm_gem_object *gem;
@@ -378,8 +374,7 @@ nv50_crtc_cursor_set(struct drm_crtc *crtc, struct drm_file *file_priv,
 
 	nouveau_bo_unmap(cursor);
 
-	nv_crtc->cursor.set_offset(nv_crtc, nv_crtc->cursor.nvbo->bo.offset -
-					    dev_priv->vm_vram_base);
+	nv_crtc->cursor.set_offset(nv_crtc, nv_crtc->cursor.nvbo->bo.mem.start << PAGE_SHIFT);
 	nv_crtc->cursor.show(nv_crtc, true);
 
 out:
@@ -441,6 +436,7 @@ static const struct drm_crtc_funcs nv50_crtc_funcs = {
 	.cursor_move = nv50_crtc_cursor_move,
 	.gamma_set = nv50_crtc_gamma_set,
 	.set_config = drm_crtc_helper_set_config,
+	.page_flip = nouveau_crtc_page_flip,
 	.destroy = nv50_crtc_destroy,
 };
 
@@ -457,6 +453,7 @@ nv50_crtc_prepare(struct drm_crtc *crtc)
 
 	NV_DEBUG_KMS(dev, "index %d\n", nv_crtc->index);
 
+	drm_vblank_pre_modeset(dev, nv_crtc->index);
 	nv50_crtc_blank(nv_crtc, true);
 }
 
@@ -472,6 +469,7 @@ nv50_crtc_commit(struct drm_crtc *crtc)
 	NV_DEBUG_KMS(dev, "index %d\n", nv_crtc->index);
 
 	nv50_crtc_blank(nv_crtc, false);
+	drm_vblank_post_modeset(dev, nv_crtc->index);
 
 	ret = RING_SPACE(evo, 2);
 	if (ret) {
@@ -491,8 +489,9 @@ nv50_crtc_mode_fixup(struct drm_crtc *crtc, struct drm_display_mode *mode,
 }
 
 static int
-nv50_crtc_do_mode_set_base(struct drm_crtc *crtc, int x, int y,
-			   struct drm_framebuffer *old_fb, bool update)
+nv50_crtc_do_mode_set_base(struct drm_crtc *crtc,
+			   struct drm_framebuffer *passed_fb,
+			   int x, int y, bool update, bool atomic)
 {
 	struct nouveau_crtc *nv_crtc = nouveau_crtc(crtc);
 	struct drm_device *dev = nv_crtc->base.dev;
@@ -503,6 +502,28 @@ nv50_crtc_do_mode_set_base(struct drm_crtc *crtc, int x, int y,
 	int ret, format;
 
 	NV_DEBUG_KMS(dev, "index %d\n", nv_crtc->index);
+
+	/* If atomic, we want to switch to the fb we were passed, so
+	 * now we update pointers to do that.  (We don't pin; just
+	 * assume we're already pinned and update the base address.)
+	 */
+	if (atomic) {
+		drm_fb = passed_fb;
+		fb = nouveau_framebuffer(passed_fb);
+	}
+	else {
+		/* If not atomic, we can go ahead and pin, and unpin the
+		 * old fb we were passed.
+		 */
+		ret = nouveau_bo_pin(fb->nvbo, TTM_PL_FLAG_VRAM);
+		if (ret)
+			return ret;
+
+		if (passed_fb) {
+			struct nouveau_framebuffer *ofb = nouveau_framebuffer(passed_fb);
+			nouveau_bo_unpin(ofb->nvbo);
+		}
+	}
 
 	switch (drm_fb->depth) {
 	case  8:
@@ -526,17 +547,8 @@ nv50_crtc_do_mode_set_base(struct drm_crtc *crtc, int x, int y,
 		 return -EINVAL;
 	}
 
-	ret = nouveau_bo_pin(fb->nvbo, TTM_PL_FLAG_VRAM);
-	if (ret)
-		return ret;
-
-	if (old_fb) {
-		struct nouveau_framebuffer *ofb = nouveau_framebuffer(old_fb);
-		nouveau_bo_unpin(ofb->nvbo);
-	}
-
-	nv_crtc->fb.offset = fb->nvbo->bo.offset - dev_priv->vm_vram_base;
-	nv_crtc->fb.tile_flags = fb->nvbo->tile_flags;
+	nv_crtc->fb.offset = fb->nvbo->bo.mem.start << PAGE_SHIFT;
+	nv_crtc->fb.tile_flags = nouveau_bo_tile_layout(fb->nvbo);
 	nv_crtc->fb.cpp = drm_fb->bits_per_pixel / 8;
 	if (!nv_crtc->fb.blanked && dev_priv->chipset != 0x50) {
 		ret = RING_SPACE(evo, 2);
@@ -544,13 +556,14 @@ nv50_crtc_do_mode_set_base(struct drm_crtc *crtc, int x, int y,
 			return ret;
 
 		BEGIN_RING(evo, 0, NV50_EVO_CRTC(nv_crtc->index, FB_DMA), 1);
-		if (nv_crtc->fb.tile_flags == 0x7a00)
+		if (nv_crtc->fb.tile_flags == 0x7a00 ||
+		    nv_crtc->fb.tile_flags == 0xfe00)
 			OUT_RING(evo, NvEvoFB32);
 		else
 		if (nv_crtc->fb.tile_flags == 0x7000)
 			OUT_RING(evo, NvEvoFB16);
 		else
-			OUT_RING(evo, NvEvoVRAM);
+			OUT_RING(evo, NvEvoVRAM_LP);
 	}
 
 	ret = RING_SPACE(evo, 12);
@@ -564,11 +577,13 @@ nv50_crtc_do_mode_set_base(struct drm_crtc *crtc, int x, int y,
 	if (!nv_crtc->fb.tile_flags) {
 		OUT_RING(evo, drm_fb->pitch | (1 << 20));
 	} else {
-		OUT_RING(evo, ((drm_fb->pitch / 4) << 4) |
-				  fb->nvbo->tile_mode);
+		u32 tile_mode = fb->nvbo->tile_mode;
+		if (dev_priv->card_type >= NV_C0)
+			tile_mode >>= 4;
+		OUT_RING(evo, ((drm_fb->pitch / 4) << 4) | tile_mode);
 	}
 	if (dev_priv->chipset == 0x50)
-		OUT_RING(evo, (fb->nvbo->tile_flags << 8) | format);
+		OUT_RING(evo, (nv_crtc->fb.tile_flags << 8) | format);
 	else
 		OUT_RING(evo, format);
 
@@ -685,14 +700,22 @@ nv50_crtc_mode_set(struct drm_crtc *crtc, struct drm_display_mode *mode,
 	nv_crtc->set_dither(nv_crtc, nv_connector->use_dithering, false);
 	nv_crtc->set_scale(nv_crtc, nv_connector->scaling_mode, false);
 
-	return nv50_crtc_do_mode_set_base(crtc, x, y, old_fb, false);
+	return nv50_crtc_do_mode_set_base(crtc, old_fb, x, y, false, false);
 }
 
 static int
 nv50_crtc_mode_set_base(struct drm_crtc *crtc, int x, int y,
 			struct drm_framebuffer *old_fb)
 {
-	return nv50_crtc_do_mode_set_base(crtc, x, y, old_fb, true);
+	return nv50_crtc_do_mode_set_base(crtc, old_fb, x, y, true, false);
+}
+
+static int
+nv50_crtc_mode_set_base_atomic(struct drm_crtc *crtc,
+			       struct drm_framebuffer *fb,
+			       int x, int y, enum mode_set_atomic state)
+{
+	return nv50_crtc_do_mode_set_base(crtc, fb, x, y, true, true);
 }
 
 static const struct drm_crtc_helper_funcs nv50_crtc_helper_funcs = {
@@ -702,6 +725,7 @@ static const struct drm_crtc_helper_funcs nv50_crtc_helper_funcs = {
 	.mode_fixup = nv50_crtc_mode_fixup,
 	.mode_set = nv50_crtc_mode_set,
 	.mode_set_base = nv50_crtc_mode_set_base,
+	.mode_set_base_atomic = nv50_crtc_mode_set_base_atomic,
 	.load_lut = nv50_crtc_lut_load,
 };
 

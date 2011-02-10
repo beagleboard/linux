@@ -36,7 +36,6 @@
 #include <dspbridge/dbc.h>
 
 /* Services Layer */
-#include <dspbridge/cfg.h>
 #include <dspbridge/ntfy.h>
 #include <dspbridge/sync.h>
 
@@ -950,7 +949,7 @@ func_end:
  *      Calls the Bridge's CHNL_ISR to determine if this interrupt is ours, then
  *      schedules a DPC to dispatch I/O.
  */
-void io_mbox_msg(u32 msg)
+int io_mbox_msg(struct notifier_block *self, unsigned long len, void *msg)
 {
 	struct io_mgr *pio_mgr;
 	struct dev_object *dev_obj;
@@ -960,9 +959,9 @@ void io_mbox_msg(u32 msg)
 	dev_get_io_mgr(dev_obj, &pio_mgr);
 
 	if (!pio_mgr)
-		return;
+		return NOTIFY_BAD;
 
-	pio_mgr->intr_val = (u16)msg;
+	pio_mgr->intr_val = (u16)((u32)msg);
 	if (pio_mgr->intr_val & MBX_PM_CLASS)
 		io_dispatch_pm(pio_mgr);
 
@@ -974,7 +973,7 @@ void io_mbox_msg(u32 msg)
 		spin_unlock_irqrestore(&pio_mgr->dpc_lock, flags);
 		tasklet_schedule(&pio_mgr->dpc_tasklet);
 	}
-	return;
+	return NOTIFY_OK;
 }
 
 /*

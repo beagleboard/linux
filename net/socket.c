@@ -156,7 +156,7 @@ static const struct file_operations socket_file_ops = {
  */
 
 static DEFINE_SPINLOCK(net_family_lock);
-static const struct net_proto_family *net_families[NPROTO] __read_mostly;
+static const struct net_proto_family __rcu *net_families[NPROTO] __read_mostly;
 
 /*
  *	Statistics counters of the socket lists
@@ -209,8 +209,8 @@ int move_addr_to_kernel(void __user *uaddr, int ulen, struct sockaddr *kaddr)
  *	specified. Zero is returned for a success.
  */
 
-int move_addr_to_user(struct sockaddr *kaddr, int klen, void __user *uaddr,
-		      int __user *ulen)
+static int move_addr_to_user(struct sockaddr *kaddr, int klen,
+			     void __user *uaddr, int __user *ulen)
 {
 	int err;
 	int len;
@@ -262,6 +262,7 @@ static struct inode *sock_alloc_inode(struct super_block *sb)
 }
 
 
+
 static void wq_free_rcu(struct rcu_head *head)
 {
 	struct socket_wq *wq = container_of(head, struct socket_wq, rcu);
@@ -305,22 +306,6 @@ static const struct super_operations sockfs_ops = {
 	.statfs		= simple_statfs,
 };
 
-static int sockfs_get_sb(struct file_system_type *fs_type,
-			 int flags, const char *dev_name, void *data,
-			 struct vfsmount *mnt)
-{
-	return get_sb_pseudo(fs_type, "socket:", &sockfs_ops, SOCKFS_MAGIC,
-			     mnt);
-}
-
-static struct vfsmount *sock_mnt __read_mostly;
-
-static struct file_system_type sock_fs_type = {
-	.name =		"sockfs",
-	.get_sb =	sockfs_get_sb,
-	.kill_sb =	kill_anon_super,
-};
-
 /*
  * sockfs_dname() is called from d_path().
  */
@@ -332,6 +317,21 @@ static char *sockfs_dname(struct dentry *dentry, char *buffer, int buflen)
 
 static const struct dentry_operations sockfs_dentry_operations = {
 	.d_dname  = sockfs_dname,
+};
+
+static struct dentry *sockfs_mount(struct file_system_type *fs_type,
+			 int flags, const char *dev_name, void *data)
+{
+	return mount_pseudo(fs_type, "socket:", &sockfs_ops,
+		&sockfs_dentry_operations, SOCKFS_MAGIC);
+}
+
+static struct vfsmount *sock_mnt __read_mostly;
+
+static struct file_system_type sock_fs_type = {
+	.name =		"sockfs",
+	.mount =	sockfs_mount,
+	.kill_sb =	kill_anon_super,
 };
 
 /*
@@ -362,14 +362,13 @@ static int sock_alloc_file(struct socket *sock, struct file **f, int flags)
 	if (unlikely(fd < 0))
 		return fd;
 
-	path.dentry = d_alloc(sock_mnt->mnt_sb->s_root, &name);
+	path.dentry = d_alloc_pseudo(sock_mnt->mnt_sb, &name);
 	if (unlikely(!path.dentry)) {
 		put_unused_fd(fd);
 		return -ENOMEM;
 	}
 	path.mnt = mntget(sock_mnt);
 
-	path.dentry->d_op = &sockfs_dentry_operations;
 	d_instantiate(path.dentry, SOCK_INODE(sock));
 	SOCK_INODE(sock)->i_fop = &socket_file_ops;
 
@@ -377,7 +376,7 @@ static int sock_alloc_file(struct socket *sock, struct file **f, int flags)
 		  &socket_file_ops);
 	if (unlikely(!file)) {
 		/* drop dentry, keep inode */
-		atomic_inc(&path.dentry->d_inode->i_count);
+		ihold(path.dentry->d_inode);
 		path_put(&path);
 		put_unused_fd(fd);
 		return -ENFILE;
@@ -480,6 +479,7 @@ static struct socket *sock_alloc(void)
 	sock = SOCKET_I(inode);
 
 	kmemcheck_annotate_bitfield(sock, type);
+	inode->i_ino = get_next_ino();
 	inode->i_mode = S_IFSOCK | S_IRWXUGO;
 	inode->i_uid = current_fsuid();
 	inode->i_gid = current_fsgid();
@@ -502,6 +502,7 @@ static int sock_no_open(struct inode *irrelevant, struct file *dontcare)
 const struct file_operations bad_sock_fops = {
 	.owner = THIS_MODULE,
 	.open = sock_no_open,
+	.llseek = noop_llseek,
 };
 
 /**
@@ -535,14 +536,13 @@ void sock_release(struct socket *sock)
 }
 EXPORT_SYMBOL(sock_release);
 
-int sock_tx_timestamp(struct msghdr *msg, struct sock *sk,
-		      union skb_shared_tx *shtx)
+int sock_tx_timestamp(struct sock *sk, __u8 *tx_flags)
 {
-	shtx->flags = 0;
+	*tx_flags = 0;
 	if (sock_flag(sk, SOCK_TIMESTAMPING_TX_HARDWARE))
-		shtx->hardware = 1;
+		*tx_flags |= SKBTX_HW_TSTAMP;
 	if (sock_flag(sk, SOCK_TIMESTAMPING_TX_SOFTWARE))
-		shtx->software = 1;
+		*tx_flags |= SKBTX_SW_TSTAMP;
 	return 0;
 }
 EXPORT_SYMBOL(sock_tx_timestamp);
@@ -662,7 +662,8 @@ void __sock_recv_timestamp(struct msghdr *msg, struct sock *sk,
 }
 EXPORT_SYMBOL_GPL(__sock_recv_timestamp);
 
-inline void sock_recv_drops(struct msghdr *msg, struct sock *sk, struct sk_buff *skb)
+static inline void sock_recv_drops(struct msghdr *msg, struct sock *sk,
+				   struct sk_buff *skb)
 {
 	if (sock_flag(sk, SOCK_RXQ_OVFL) && skb && skb->dropcount)
 		put_cmsg(msg, SOL_SOCKET, SO_RXQ_OVFL,
@@ -732,6 +733,21 @@ static int sock_recvmsg_nosec(struct socket *sock, struct msghdr *msg,
 	return ret;
 }
 
+/**
+ * kernel_recvmsg - Receive a message from a socket (kernel space)
+ * @sock:       The socket to receive the message from
+ * @msg:        Received message
+ * @vec:        Input s/g array for message data
+ * @num:        Size of input s/g array
+ * @size:       Number of bytes to read
+ * @flags:      Message flags (MSG_DONTWAIT, etc...)
+ *
+ * On return the msg structure contains the scatter/gather array passed in the
+ * vec argument. The array is modified so that it consists of the unfilled
+ * portion of the original array.
+ *
+ * The returned value is the total number of bytes received, or an error.
+ */
 int kernel_recvmsg(struct socket *sock, struct msghdr *msg,
 		   struct kvec *vec, size_t num, size_t size, int flags)
 {
@@ -1144,7 +1160,7 @@ call_kill:
 }
 EXPORT_SYMBOL(sock_wake_async);
 
-static int __sock_create(struct net *net, int family, int type, int protocol,
+int __sock_create(struct net *net, int family, int type, int protocol,
 			 struct socket **res, int kern)
 {
 	int err;
@@ -1200,7 +1216,7 @@ static int __sock_create(struct net *net, int family, int type, int protocol,
 	 * requested real, full-featured networking support upon configuration.
 	 * Otherwise module support will break!
 	 */
-	if (net_families[family] == NULL)
+	if (rcu_access_pointer(net_families[family]) == NULL)
 		request_module("net-pf-%d", family);
 #endif
 
@@ -1256,6 +1272,7 @@ out_release:
 	rcu_read_unlock();
 	goto out_sock_release;
 }
+EXPORT_SYMBOL(__sock_create);
 
 int sock_create(int family, int type, int protocol, struct socket **res)
 {
@@ -1651,6 +1668,8 @@ SYSCALL_DEFINE6(sendto, int, fd, void __user *, buff, size_t, len,
 	struct iovec iov;
 	int fput_needed;
 
+	if (len > INT_MAX)
+		len = INT_MAX;
 	sock = sockfd_lookup_light(fd, &err, &fput_needed);
 	if (!sock)
 		goto out;
@@ -1708,6 +1727,8 @@ SYSCALL_DEFINE6(recvfrom, int, fd, void __user *, ubuf, size_t, size,
 	int err, err2;
 	int fput_needed;
 
+	if (size > INT_MAX)
+		size = INT_MAX;
 	sock = sockfd_lookup_light(fd, &err, &fput_needed);
 	if (!sock)
 		goto out;
@@ -1919,7 +1940,8 @@ SYSCALL_DEFINE3(sendmsg, int, fd, struct msghdr __user *, msg, unsigned, flags)
 		 * Afterwards, it will be a kernel pointer. Thus the compiler-assisted
 		 * checking falls down on this.
 		 */
-		if (copy_from_user(ctl_buf, (void __user *)msg_sys.msg_control,
+		if (copy_from_user(ctl_buf,
+				   (void __user __force *)msg_sys.msg_control,
 				   ctl_len))
 			goto out_freectl;
 		msg_sys.msg_control = ctl_buf;
@@ -2326,10 +2348,11 @@ int sock_register(const struct net_proto_family *ops)
 	}
 
 	spin_lock(&net_family_lock);
-	if (net_families[ops->family])
+	if (rcu_dereference_protected(net_families[ops->family],
+				      lockdep_is_held(&net_family_lock)))
 		err = -EEXIST;
 	else {
-		net_families[ops->family] = ops;
+		rcu_assign_pointer(net_families[ops->family], ops);
 		err = 0;
 	}
 	spin_unlock(&net_family_lock);
@@ -2357,7 +2380,7 @@ void sock_unregister(int family)
 	BUG_ON(family < 0 || family >= NPROTO);
 
 	spin_lock(&net_family_lock);
-	net_families[family] = NULL;
+	rcu_assign_pointer(net_families[family], NULL);
 	spin_unlock(&net_family_lock);
 
 	synchronize_rcu();
@@ -2368,6 +2391,8 @@ EXPORT_SYMBOL(sock_unregister);
 
 static int __init sock_init(void)
 {
+	int err;
+
 	/*
 	 *      Initialize sock SLAB cache.
 	 */
@@ -2384,8 +2409,15 @@ static int __init sock_init(void)
 	 */
 
 	init_inodecache();
-	register_filesystem(&sock_fs_type);
+
+	err = register_filesystem(&sock_fs_type);
+	if (err)
+		goto out_fs;
 	sock_mnt = kern_mount(&sock_fs_type);
+	if (IS_ERR(sock_mnt)) {
+		err = PTR_ERR(sock_mnt);
+		goto out_mount;
+	}
 
 	/* The real protocol initialization is performed in later initcalls.
 	 */
@@ -2398,7 +2430,13 @@ static int __init sock_init(void)
 	skb_timestamping_init();
 #endif
 
-	return 0;
+out:
+	return err;
+
+out_mount:
+	unregister_filesystem(&sock_fs_type);
+out_fs:
+	goto out;
 }
 
 core_initcall(sock_init);	/* early initcall */
@@ -3054,14 +3092,19 @@ int kernel_getsockopt(struct socket *sock, int level, int optname,
 			char *optval, int *optlen)
 {
 	mm_segment_t oldfs = get_fs();
+	char __user *uoptval;
+	int __user *uoptlen;
 	int err;
+
+	uoptval = (char __user __force *) optval;
+	uoptlen = (int __user __force *) optlen;
 
 	set_fs(KERNEL_DS);
 	if (level == SOL_SOCKET)
-		err = sock_getsockopt(sock, level, optname, optval, optlen);
+		err = sock_getsockopt(sock, level, optname, uoptval, uoptlen);
 	else
-		err = sock->ops->getsockopt(sock, level, optname, optval,
-					    optlen);
+		err = sock->ops->getsockopt(sock, level, optname, uoptval,
+					    uoptlen);
 	set_fs(oldfs);
 	return err;
 }
@@ -3071,13 +3114,16 @@ int kernel_setsockopt(struct socket *sock, int level, int optname,
 			char *optval, unsigned int optlen)
 {
 	mm_segment_t oldfs = get_fs();
+	char __user *uoptval;
 	int err;
+
+	uoptval = (char __user __force *) optval;
 
 	set_fs(KERNEL_DS);
 	if (level == SOL_SOCKET)
-		err = sock_setsockopt(sock, level, optname, optval, optlen);
+		err = sock_setsockopt(sock, level, optname, uoptval, optlen);
 	else
-		err = sock->ops->setsockopt(sock, level, optname, optval,
+		err = sock->ops->setsockopt(sock, level, optname, uoptval,
 					    optlen);
 	set_fs(oldfs);
 	return err;

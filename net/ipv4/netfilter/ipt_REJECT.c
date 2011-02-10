@@ -112,10 +112,11 @@ static void send_reset(struct sk_buff *oldskb, int hook)
 	/* ip_route_me_harder expects skb->dst to be set */
 	skb_dst_set_noref(nskb, skb_dst(oldskb));
 
+	nskb->protocol = htons(ETH_P_IP);
 	if (ip_route_me_harder(nskb, addr_type))
 		goto free_nskb;
 
-	niph->ttl	= dst_metric(skb_dst(nskb), RTAX_HOPLIMIT);
+	niph->ttl	= ip4_dst_hoplimit(skb_dst(nskb));
 
 	/* "Never happens" */
 	if (nskb->len > dst_mtu(skb_dst(nskb)))

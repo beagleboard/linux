@@ -28,12 +28,14 @@
 #include <plat/dma.h>
 #include <plat/mcbsp.h>
 
+/* XXX These "sideways" includes are a sign that something is wrong */
+#include "../mach-omap2/cm2xxx_3xxx.h"
 #include "../mach-omap2/cm-regbits-34xx.h"
 
 struct omap_mcbsp **mcbsp_ptr;
 int omap_mcbsp_count, omap_mcbsp_cache_size;
 
-void omap_mcbsp_write(struct omap_mcbsp *mcbsp, u16 reg, u32 val)
+static void omap_mcbsp_write(struct omap_mcbsp *mcbsp, u16 reg, u32 val)
 {
 	if (cpu_class_is_omap1()) {
 		((u16 *)mcbsp->reg_cache)[reg / sizeof(u16)] = (u16)val;
@@ -47,7 +49,7 @@ void omap_mcbsp_write(struct omap_mcbsp *mcbsp, u16 reg, u32 val)
 	}
 }
 
-int omap_mcbsp_read(struct omap_mcbsp *mcbsp, u16 reg, bool from_cache)
+static int omap_mcbsp_read(struct omap_mcbsp *mcbsp, u16 reg, bool from_cache)
 {
 	if (cpu_class_is_omap1()) {
 		return !from_cache ? __raw_readw(mcbsp->io_base + reg) :
@@ -62,12 +64,12 @@ int omap_mcbsp_read(struct omap_mcbsp *mcbsp, u16 reg, bool from_cache)
 }
 
 #ifdef CONFIG_ARCH_OMAP3
-void omap_mcbsp_st_write(struct omap_mcbsp *mcbsp, u16 reg, u32 val)
+static void omap_mcbsp_st_write(struct omap_mcbsp *mcbsp, u16 reg, u32 val)
 {
 	__raw_writel(val, mcbsp->st_data->io_base_st + reg);
 }
 
-int omap_mcbsp_st_read(struct omap_mcbsp *mcbsp, u16 reg)
+static int omap_mcbsp_st_read(struct omap_mcbsp *mcbsp, u16 reg)
 {
 	return __raw_readl(mcbsp->st_data->io_base_st + reg);
 }
@@ -79,9 +81,6 @@ int omap_mcbsp_st_read(struct omap_mcbsp *mcbsp, u16 reg)
 		omap_mcbsp_write(mcbsp, OMAP_MCBSP_REG_##reg, val)
 #define MCBSP_READ_CACHE(mcbsp, reg) \
 		omap_mcbsp_read(mcbsp, OMAP_MCBSP_REG_##reg, 1)
-
-#define omap_mcbsp_check_valid_id(id)	(id < omap_mcbsp_count)
-#define id_to_mcbsp_ptr(id)		mcbsp_ptr[id];
 
 #define MCBSP_ST_READ(mcbsp, reg) \
 			omap_mcbsp_st_read(mcbsp, OMAP_ST_REG_##reg)
@@ -156,7 +155,7 @@ static irqreturn_t omap_mcbsp_rx_irq_handler(int irq, void *dev_id)
 		/* Writing zero to RSYNC_ERR clears the IRQ */
 		MCBSP_WRITE(mcbsp_rx, SPCR1, MCBSP_READ_CACHE(mcbsp_rx, SPCR1));
 	} else {
-		complete(&mcbsp_rx->tx_irq_completion);
+		complete(&mcbsp_rx->rx_irq_completion);
 	}
 
 	return IRQ_HANDLED;
@@ -237,9 +236,9 @@ static void omap_st_on(struct omap_mcbsp *mcbsp)
 	 * Sidetone uses McBSP ICLK - which must not idle when sidetones
 	 * are enabled or sidetones start sounding ugly.
 	 */
-	w = cm_read_mod_reg(OMAP3430_PER_MOD, CM_AUTOIDLE);
+	w = omap2_cm_read_mod_reg(OMAP3430_PER_MOD, CM_AUTOIDLE);
 	w &= ~(1 << (mcbsp->id - 2));
-	cm_write_mod_reg(w, OMAP3430_PER_MOD, CM_AUTOIDLE);
+	omap2_cm_write_mod_reg(w, OMAP3430_PER_MOD, CM_AUTOIDLE);
 
 	/* Enable McBSP Sidetone */
 	w = MCBSP_READ(mcbsp, SSELCR);
@@ -266,9 +265,9 @@ static void omap_st_off(struct omap_mcbsp *mcbsp)
 	w = MCBSP_READ(mcbsp, SSELCR);
 	MCBSP_WRITE(mcbsp, SSELCR, w & ~(SIDETONEEN));
 
-	w = cm_read_mod_reg(OMAP3430_PER_MOD, CM_AUTOIDLE);
+	w = omap2_cm_read_mod_reg(OMAP3430_PER_MOD, CM_AUTOIDLE);
 	w |= 1 << (mcbsp->id - 2);
-	cm_write_mod_reg(w, OMAP3430_PER_MOD, CM_AUTOIDLE);
+	omap2_cm_write_mod_reg(w, OMAP3430_PER_MOD, CM_AUTOIDLE);
 }
 
 static void omap_st_fir_write(struct omap_mcbsp *mcbsp, s16 *fir)
@@ -758,7 +757,7 @@ int omap_mcbsp_request(unsigned int id)
 		goto err_kfree;
 	}
 
-	mcbsp->free = 0;
+	mcbsp->free = false;
 	mcbsp->reg_cache = reg_cache;
 	spin_unlock(&mcbsp->lock);
 
@@ -818,7 +817,7 @@ err_clk_disable:
 	clk_disable(mcbsp->iclk);
 
 	spin_lock(&mcbsp->lock);
-	mcbsp->free = 1;
+	mcbsp->free = true;
 	mcbsp->reg_cache = NULL;
 err_kfree:
 	spin_unlock(&mcbsp->lock);
@@ -861,7 +860,7 @@ void omap_mcbsp_free(unsigned int id)
 	if (mcbsp->free)
 		dev_err(mcbsp->dev, "McBSP%d was not reserved\n", mcbsp->id);
 	else
-		mcbsp->free = 1;
+		mcbsp->free = true;
 	mcbsp->reg_cache = NULL;
 	spin_unlock(&mcbsp->lock);
 
@@ -1648,7 +1647,7 @@ static const struct attribute_group sidetone_attr_group = {
 	.attrs = (struct attribute **)sidetone_attrs,
 };
 
-int __devinit omap_st_add(struct omap_mcbsp *mcbsp)
+static int __devinit omap_st_add(struct omap_mcbsp *mcbsp)
 {
 	struct omap_mcbsp_platform_data *pdata = mcbsp->pdata;
 	struct omap_mcbsp_st_data *st_data;
@@ -1774,7 +1773,7 @@ static int __devinit omap_mcbsp_probe(struct platform_device *pdev)
 
 	spin_lock_init(&mcbsp->lock);
 	mcbsp->id = id + 1;
-	mcbsp->free = 1;
+	mcbsp->free = true;
 	mcbsp->dma_tx_lch = -1;
 	mcbsp->dma_rx_lch = -1;
 
@@ -1839,17 +1838,11 @@ static int __devexit omap_mcbsp_remove(struct platform_device *pdev)
 
 		omap34xx_device_exit(mcbsp);
 
-		clk_disable(mcbsp->fclk);
-		clk_disable(mcbsp->iclk);
 		clk_put(mcbsp->fclk);
 		clk_put(mcbsp->iclk);
 
 		iounmap(mcbsp->io_base);
-
-		mcbsp->fclk = NULL;
-		mcbsp->iclk = NULL;
-		mcbsp->free = 0;
-		mcbsp->dev = NULL;
+		kfree(mcbsp);
 	}
 
 	return 0;

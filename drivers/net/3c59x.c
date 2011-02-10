@@ -699,7 +699,8 @@ DEFINE_WINDOW_IO(32)
 #define DEVICE_PCI(dev) NULL
 #endif
 
-#define VORTEX_PCI(vp) (((vp)->gendev) ? DEVICE_PCI((vp)->gendev) : NULL)
+#define VORTEX_PCI(vp)							\
+	((struct pci_dev *) (((vp)->gendev) ? DEVICE_PCI((vp)->gendev) : NULL))
 
 #ifdef CONFIG_EISA
 #define DEVICE_EISA(dev) (((dev)->bus == &eisa_bus_type) ? to_eisa_device((dev)) : NULL)
@@ -707,7 +708,8 @@ DEFINE_WINDOW_IO(32)
 #define DEVICE_EISA(dev) NULL
 #endif
 
-#define VORTEX_EISA(vp) (((vp)->gendev) ? DEVICE_EISA((vp)->gendev) : NULL)
+#define VORTEX_EISA(vp)							\
+	((struct eisa_device *) (((vp)->gendev) ? DEVICE_EISA((vp)->gendev) : NULL))
 
 /* The action to take with a media selection timer tick.
    Note that we deviate from the 3Com order by checking 10base2 before AUI.
@@ -1742,7 +1744,7 @@ vortex_open(struct net_device *dev)
 
 	/* Use the now-standard shared IRQ implementation. */
 	if ((retval = request_irq(dev->irq, vp->full_bus_master_rx ?
-				&boomerang_interrupt : &vortex_interrupt, IRQF_SHARED, dev->name, dev))) {
+				boomerang_interrupt : vortex_interrupt, IRQF_SHARED, dev->name, dev))) {
 		pr_err("%s: Could not reserve IRQ %d\n", dev->name, dev->irq);
 		goto err;
 	}
@@ -2942,6 +2944,9 @@ static void vortex_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
 {
 	struct vortex_private *vp = netdev_priv(dev);
 
+	if (!VORTEX_PCI(vp))
+		return;
+
 	wol->supported = WAKE_MAGIC;
 
 	wol->wolopts = 0;
@@ -2952,6 +2957,10 @@ static void vortex_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
 static int vortex_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
 {
 	struct vortex_private *vp = netdev_priv(dev);
+
+	if (!VORTEX_PCI(vp))
+		return -EOPNOTSUPP;
+
 	if (wol->wolopts & ~WAKE_MAGIC)
 		return -EINVAL;
 
@@ -3200,6 +3209,9 @@ static void acpi_set_WOL(struct net_device *dev)
 			vp->enable_wol = 0;
 			return;
 		}
+
+		if (VORTEX_PCI(vp)->current_state < PCI_D3hot)
+			return;
 
 		/* Change the power state to D3; RxEnable doesn't take effect. */
 		pci_set_power_state(VORTEX_PCI(vp), PCI_D3hot);

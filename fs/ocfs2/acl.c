@@ -209,7 +209,10 @@ static int ocfs2_acl_set_mode(struct inode *inode, struct buffer_head *di_bh,
 	}
 
 	inode->i_mode = new_mode;
+	inode->i_ctime = CURRENT_TIME;
 	di->i_mode = cpu_to_le16(inode->i_mode);
+	di->i_ctime = cpu_to_le64(inode->i_ctime.tv_sec);
+	di->i_ctime_nsec = cpu_to_le32(inode->i_ctime.tv_nsec);
 
 	ocfs2_journal_dirty(handle, di_bh);
 
@@ -288,13 +291,17 @@ static int ocfs2_set_acl(handle_t *handle,
 	return ret;
 }
 
-int ocfs2_check_acl(struct inode *inode, int mask)
+int ocfs2_check_acl(struct inode *inode, int mask, unsigned int flags)
 {
-	struct ocfs2_super *osb = OCFS2_SB(inode->i_sb);
+	struct ocfs2_super *osb;
 	struct buffer_head *di_bh = NULL;
 	struct posix_acl *acl;
 	int ret = -EAGAIN;
 
+	if (flags & IPERM_FLAG_RCU)
+		return -ECHILD;
+
+	osb = OCFS2_SB(inode->i_sb);
 	if (!(osb->s_mount_opt & OCFS2_MOUNT_POSIX_ACL))
 		return ret;
 

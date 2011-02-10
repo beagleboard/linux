@@ -488,7 +488,7 @@ static void sd_callback(struct gspca_dev *gspca_dev)
 
 /*=================== USB driver structure initialisation ==================*/
 
-static const __devinitdata struct usb_device_id device_table[] = {
+static const struct usb_device_id device_table[] = {
 	{USB_DEVICE(0x05e3, 0x0503)},
 	{USB_DEVICE(0x05e3, 0xf191)},
 	{}
@@ -540,15 +540,12 @@ static int __init sd_mod_init(void)
 
 	if (usb_register(&sd_driver) < 0)
 		return -1;
-	PDEBUG(D_PROBE, "driver registered");
-
 	return 0;
 }
 
 static void __exit sd_mod_exit(void)
 {
 	usb_deregister(&sd_driver);
-	PDEBUG(D_PROBE, "driver deregistered");
 }
 
 module_init(sd_mod_init);
@@ -588,8 +585,7 @@ int gl860_RTx(struct gspca_dev *gspca_dev,
 	}
 
 	if (r < 0)
-		PDEBUG(D_ERR,
-			"ctrl transfer failed %4d "
+		err("ctrl transfer failed %4d "
 			"[p%02x r%d v%04x i%04x len%d]",
 			r, pref, req, val, index, len);
 	else if (len > 1 && r < len)

@@ -309,13 +309,13 @@ static void __init gic_init_irq(void)
 	writel(0x00000000, __io_address(REALVIEW_SYS_LOCK));
 
 	/* ARM11MPCore test chip GIC, primary */
-	gic_cpu_base_addr = __io_address(REALVIEW_TC11MP_GIC_CPU_BASE);
-	gic_dist_init(0, __io_address(REALVIEW_TC11MP_GIC_DIST_BASE), 29);
-	gic_cpu_init(0, gic_cpu_base_addr);
+	gic_init(0, 29, __io_address(REALVIEW_TC11MP_GIC_DIST_BASE),
+		 __io_address(REALVIEW_TC11MP_GIC_CPU_BASE));
 
 	/* board GIC, secondary */
-	gic_dist_init(1, __io_address(REALVIEW_PB11MP_GIC_DIST_BASE), IRQ_PB11MP_GIC_START);
-	gic_cpu_init(1, __io_address(REALVIEW_PB11MP_GIC_CPU_BASE));
+	gic_init(1, IRQ_PB11MP_GIC_START,
+		 __io_address(REALVIEW_PB11MP_GIC_DIST_BASE),
+		 __io_address(REALVIEW_PB11MP_GIC_CPU_BASE));
 	gic_cascade_irq(1, IRQ_TC11MP_PB_IRQ1);
 }
 
@@ -381,8 +381,6 @@ static void __init realview_pb11mp_init(void)
 
 MACHINE_START(REALVIEW_PB11MP, "ARM-RealView PB11MPCore")
 	/* Maintainer: ARM Ltd/Deep Blue Solutions Ltd */
-	.phys_io	= REALVIEW_PB11MP_UART0_BASE & SECTION_MASK,
-	.io_pg_offst	= (IO_ADDRESS(REALVIEW_PB11MP_UART0_BASE) >> 18) & 0xfffc,
 	.boot_params	= PHYS_OFFSET + 0x00000100,
 	.fixup		= realview_fixup,
 	.map_io		= realview_pb11mp_map_io,

@@ -38,16 +38,16 @@
 #include <plat/dma.h>
 #include <plat/gpmc.h>
 #include <plat/display.h>
+#include <plat/panel-generic-dpi.h>
 
-#include <plat/control.h>
 #include <plat/gpmc-smc91x.h>
 
-#include <mach/board-flash.h>
-
+#include "board-flash.h"
 #include "mux.h"
 #include "sdram-qimonda-hyb18m512160af-6.h"
 #include "hsmmc.h"
 #include "pm.h"
+#include "control.h"
 
 #define CONFIG_DISABLE_HFCLK 1
 
@@ -77,7 +77,7 @@ static struct cpuidle_params omap3_cpuidle_params_table[] = {
 	{1, 10000, 30000, 300000},
 };
 
-static int board_keymap[] = {
+static uint32_t board_keymap[] = {
 	KEY(0, 0, KEY_LEFT),
 	KEY(0, 1, KEY_RIGHT),
 	KEY(0, 2, KEY_A),
@@ -271,13 +271,18 @@ static struct omap_dss_device sdp3430_lcd_device = {
 	.platform_disable	= sdp3430_panel_disable_lcd,
 };
 
-static struct omap_dss_device sdp3430_dvi_device = {
-	.name			= "dvi",
-	.driver_name		= "generic_panel",
-	.type			= OMAP_DISPLAY_TYPE_DPI,
-	.phy.dpi.data_lines	= 24,
+static struct panel_generic_dpi_data dvi_panel = {
+	.name			= "generic",
 	.platform_enable	= sdp3430_panel_enable_dvi,
 	.platform_disable	= sdp3430_panel_disable_dvi,
+};
+
+static struct omap_dss_device sdp3430_dvi_device = {
+	.name			= "dvi",
+	.type			= OMAP_DISPLAY_TYPE_DPI,
+	.driver_name		= "generic_dpi_panel",
+	.data			= &dvi_panel,
+	.phy.dpi.data_lines	= 24,
 };
 
 static struct omap_dss_device sdp3430_tv_device = {
@@ -327,9 +332,9 @@ static void __init omap_3430sdp_init_irq(void)
 	omap_board_config = sdp3430_config;
 	omap_board_config_size = ARRAY_SIZE(sdp3430_config);
 	omap3_pm_init_cpuidle(omap3_cpuidle_params_table);
-	omap2_init_common_hw(hyb18m512160af6_sdrc_params, NULL);
+	omap2_init_common_infrastructure();
+	omap2_init_common_devices(hyb18m512160af6_sdrc_params, NULL);
 	omap_init_irq();
-	omap_gpio_init();
 }
 
 static int sdp3430_batt_table[] = {
@@ -664,8 +669,6 @@ static const struct ehci_hcd_omap_platform_data ehci_pdata __initconst = {
 static struct omap_board_mux board_mux[] __initdata = {
 	{ .reg_offset = OMAP_MUX_TERMINATOR },
 };
-#else
-#define board_mux	NULL
 #endif
 
 /*
@@ -818,8 +821,6 @@ static void __init omap_3430sdp_init(void)
 
 MACHINE_START(OMAP_3430SDP, "OMAP3430 3430SDP board")
 	/* Maintainer: Syed Khasim - Texas Instruments Inc */
-	.phys_io	= 0x48000000,
-	.io_pg_offst	= ((0xfa000000) >> 18) & 0xfffc,
 	.boot_params	= 0x80000100,
 	.map_io		= omap3_map_io,
 	.reserve	= omap_reserve,

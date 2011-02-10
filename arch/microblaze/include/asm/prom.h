@@ -27,6 +27,7 @@
 
 /* Other Prototypes */
 extern int early_uartlite_console(void);
+extern int early_uart16550_console(void);
 
 #ifdef CONFIG_PCI
 /*
@@ -62,9 +63,6 @@ extern void kdump_move_device_tree(void);
 
 /* CPU OF node matching */
 struct device_node *of_get_cpu_node(int cpu, unsigned int *thread);
-
-/* Get the MAC address */
-extern const void *of_get_mac_address(struct device_node *np);
 
 /**
  * of_irq_map_pci - Resolve the interrupt for a PCI device

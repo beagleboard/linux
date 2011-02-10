@@ -9,7 +9,6 @@ obj-$(CONFIG_SOUND_OSS)		+= sound.o
 
 # Please leave it as is, cause the link order is significant !
 
-obj-$(CONFIG_SOUND_SH_DAC_AUDIO)	+= sh_dac_audio.o
 obj-$(CONFIG_SOUND_AEDSP16)	+= aedsp16.o
 obj-$(CONFIG_SOUND_PSS)		+= pss.o ad1848.o mpu401.o
 obj-$(CONFIG_SOUND_TRIX)	+= trix.o ad1848.o sb_lib.o uart401.o
@@ -88,7 +87,7 @@ ifeq ($(CONFIG_PSS_HAVE_BOOT),y)
 	$(obj)/bin2hex pss_synth < $< > $@
 else
     $(obj)/pss_boot.h:
-	(							\
+	$(Q)(							\
 	    echo 'static unsigned char * pss_synth = NULL;';	\
 	    echo 'static int pss_synthLen = 0;';		\
 	) > $@
@@ -103,7 +102,7 @@ ifeq ($(CONFIG_TRIX_HAVE_BOOT),y)
 	$(obj)/hex2hex -i trix_boot < $< > $@
 else
     $(obj)/trix_boot.h:
-	(							\
+	$(Q)(							\
 	    echo 'static unsigned char * trix_boot = NULL;';	\
 	    echo 'static int trix_boot_len = 0;';		\
 	) > $@

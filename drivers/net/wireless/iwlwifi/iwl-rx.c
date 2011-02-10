@@ -36,7 +36,6 @@
 #include "iwl-core.h"
 #include "iwl-sta.h"
 #include "iwl-io.h"
-#include "iwl-calib.h"
 #include "iwl-helpers.h"
 /************************** RX-FUNCTIONS ****************************/
 /*
@@ -135,28 +134,37 @@ void iwl_rx_queue_update_write_ptr(struct iwl_priv *priv, struct iwl_rx_queue *q
 	if (q->need_update == 0)
 		goto exit_unlock;
 
-	/* If power-saving is in use, make sure device is awake */
-	if (test_bit(STATUS_POWER_PMI, &priv->status)) {
-		reg = iwl_read32(priv, CSR_UCODE_DRV_GP1);
-
-		if (reg & CSR_UCODE_DRV_GP1_BIT_MAC_SLEEP) {
-			IWL_DEBUG_INFO(priv, "Rx queue requesting wakeup, GP1 = 0x%x\n",
-				      reg);
-			iwl_set_bit(priv, CSR_GP_CNTRL,
-				    CSR_GP_CNTRL_REG_FLAG_MAC_ACCESS_REQ);
-			goto exit_unlock;
-		}
-
-		q->write_actual = (q->write & ~0x7);
-		iwl_write_direct32(priv, rx_wrt_ptr_reg, q->write_actual);
-
-	/* Else device is assumed to be awake */
-	} else {
+	if (priv->cfg->base_params->shadow_reg_enable) {
+		/* shadow register enabled */
 		/* Device expects a multiple of 8 */
 		q->write_actual = (q->write & ~0x7);
-		iwl_write_direct32(priv, rx_wrt_ptr_reg, q->write_actual);
-	}
+		iwl_write32(priv, rx_wrt_ptr_reg, q->write_actual);
+	} else {
+		/* If power-saving is in use, make sure device is awake */
+		if (test_bit(STATUS_POWER_PMI, &priv->status)) {
+			reg = iwl_read32(priv, CSR_UCODE_DRV_GP1);
 
+			if (reg & CSR_UCODE_DRV_GP1_BIT_MAC_SLEEP) {
+				IWL_DEBUG_INFO(priv,
+					"Rx queue requesting wakeup,"
+					" GP1 = 0x%x\n", reg);
+				iwl_set_bit(priv, CSR_GP_CNTRL,
+					CSR_GP_CNTRL_REG_FLAG_MAC_ACCESS_REQ);
+				goto exit_unlock;
+			}
+
+			q->write_actual = (q->write & ~0x7);
+			iwl_write_direct32(priv, rx_wrt_ptr_reg,
+					q->write_actual);
+
+		/* Else device is assumed to be awake */
+		} else {
+			/* Device expects a multiple of 8 */
+			q->write_actual = (q->write & ~0x7);
+			iwl_write_direct32(priv, rx_wrt_ptr_reg,
+				q->write_actual);
+		}
+	}
 	q->need_update = 0;
 
  exit_unlock:
@@ -228,7 +236,7 @@ void iwl_recover_from_statistics(struct iwl_priv *priv,
 {
 	if (test_bit(STATUS_EXIT_PENDING, &priv->status))
 		return;
-	if (iwl_is_associated(priv)) {
+	if (iwl_is_any_associated(priv)) {
 		if (priv->cfg->ops->lib->check_ack_health) {
 			if (!priv->cfg->ops->lib->check_ack_health(
 			    priv, pkt)) {
@@ -266,7 +274,12 @@ int iwl_set_decrypted_flag(struct iwl_priv *priv,
 {
 	u16 fc = le16_to_cpu(hdr->frame_control);
 
-	if (priv->active_rxon.filter_flags & RXON_FILTER_DIS_DECRYPT_MSK)
+	/*
+	 * All contexts have the same setting here due to it being
+	 * a module parameter, so OK to check any context.
+	 */
+	if (priv->contexts[IWL_RXON_CTX_BSS].active.filter_flags &
+						RXON_FILTER_DIS_DECRYPT_MSK)
 		return 0;
 
 	if (!(fc & IEEE80211_FCTL_PROTECTED))

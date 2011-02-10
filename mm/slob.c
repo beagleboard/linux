@@ -500,7 +500,9 @@ void *__kmalloc_node(size_t size, gfp_t gfp, int node)
 	} else {
 		unsigned int order = get_order(size);
 
-		ret = slob_new_pages(gfp | __GFP_COMP, get_order(size), node);
+		if (likely(order))
+			gfp |= __GFP_COMP;
+		ret = slob_new_pages(gfp, order, node);
 		if (ret) {
 			struct page *page;
 			page = virt_to_page(ret);
@@ -675,11 +677,6 @@ int kmem_cache_shrink(struct kmem_cache *d)
 	return 0;
 }
 EXPORT_SYMBOL(kmem_cache_shrink);
-
-int kmem_ptr_validate(struct kmem_cache *a, const void *b)
-{
-	return 0;
-}
 
 static unsigned int slob_ready __read_mostly;
 

@@ -43,6 +43,7 @@
 #include <plat/common.h>
 #include <plat/mcspi.h>
 #include <plat/display.h>
+#include <plat/panel-generic-dpi.h>
 
 #include "mux.h"
 #include "sdram-micron-mt46h32m32lf-6.h"
@@ -301,13 +302,18 @@ static void omap3_evm_disable_dvi(struct omap_dss_device *dssdev)
 	dvi_enabled = 0;
 }
 
-static struct omap_dss_device omap3_evm_dvi_device = {
-	.name			= "dvi",
-	.driver_name		= "generic_panel",
-	.type			= OMAP_DISPLAY_TYPE_DPI,
-	.phy.dpi.data_lines	= 24,
+static struct panel_generic_dpi_data dvi_panel = {
+	.name			= "generic",
 	.platform_enable	= omap3_evm_enable_dvi,
 	.platform_disable	= omap3_evm_disable_dvi,
+};
+
+static struct omap_dss_device omap3_evm_dvi_device = {
+	.name			= "dvi",
+	.type			= OMAP_DISPLAY_TYPE_DPI,
+	.driver_name		= "generic_dpi_panel",
+	.data			= &dvi_panel,
+	.phy.dpi.data_lines	= 24,
 };
 
 static struct omap_dss_device *omap3_evm_dss_devices[] = {
@@ -447,7 +453,7 @@ static struct twl4030_usb_data omap3evm_usb_data = {
 	.usb_mode	= T2_USB_MODE_ULPI,
 };
 
-static int board_keymap[] = {
+static uint32_t board_keymap[] = {
 	KEY(0, 0, KEY_LEFT),
 	KEY(0, 1, KEY_DOWN),
 	KEY(0, 2, KEY_ENTER),
@@ -585,7 +591,7 @@ static int ads7846_get_pendown_state(void)
 	return !gpio_get_value(OMAP3_EVM_TS_GPIO);
 }
 
-struct ads7846_platform_data ads7846_config = {
+static struct ads7846_platform_data ads7846_config = {
 	.x_max			= 0x0fff,
 	.y_max			= 0x0fff,
 	.x_plate_ohms		= 180,
@@ -604,7 +610,7 @@ static struct omap2_mcspi_device_config ads7846_mcspi_config = {
 	.single_channel	= 1,	/* 0: slave, 1: master */
 };
 
-struct spi_board_info omap3evm_spi_board_info[] = {
+static struct spi_board_info omap3evm_spi_board_info[] = {
 	[0] = {
 		.modalias		= "ads7846",
 		.bus_num		= 1,
@@ -623,9 +629,9 @@ static void __init omap3_evm_init_irq(void)
 {
 	omap_board_config = omap3_evm_config;
 	omap_board_config_size = ARRAY_SIZE(omap3_evm_config);
-	omap2_init_common_hw(mt46h32m32lf6_sdrc_params, NULL);
+	omap2_init_common_infrastructure();
+	omap2_init_common_devices(mt46h32m32lf6_sdrc_params, NULL);
 	omap_init_irq();
-	omap_gpio_init();
 }
 
 static struct platform_device *omap3_evm_devices[] __initdata = {
@@ -654,8 +660,6 @@ static struct omap_board_mux board_mux[] __initdata = {
 				OMAP_PIN_OFF_INPUT_PULLUP | OMAP_PIN_OFF_OUTPUT_LOW),
 	{ .reg_offset = OMAP_MUX_TERMINATOR },
 };
-#else
-#define board_mux	NULL
 #endif
 
 static struct omap_musb_board_data musb_board_data = {
@@ -715,8 +719,6 @@ static void __init omap3_evm_init(void)
 
 MACHINE_START(OMAP3EVM, "OMAP3 EVM")
 	/* Maintainer: Syed Mohammed Khasim - Texas Instruments */
-	.phys_io	= 0x48000000,
-	.io_pg_offst	= ((0xfa000000) >> 18) & 0xfffc,
 	.boot_params	= 0x80000100,
 	.map_io		= omap3_map_io,
 	.reserve	= omap_reserve,
