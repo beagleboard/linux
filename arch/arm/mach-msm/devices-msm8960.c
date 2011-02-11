@@ -21,6 +21,8 @@
 #include <linux/dma-mapping.h>
 #include <mach/irqs-8960.h>
 #include <mach/board.h>
+#include <mach/msm_iomap.h>
+#include <mach/irqs.h>
 
 #include "devices.h"
 #include "clock.h"
@@ -83,6 +85,25 @@ struct platform_device msm8960_device_uart_gsbi5 = {
 	.id	= 0,
 	.num_resources	= ARRAY_SIZE(resources_uart_gsbi5),
 	.resource	= resources_uart_gsbi5,
+};
+
+static struct resource resources_dmov[] = {
+	{
+		.start = MSM8960_DMOV_PHYS,
+		.end = MSM8960_DMOV_PHYS + MSM8960_DMOV_SIZE - 1,
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = INT_ADM0_SCSS_0_IRQ,
+		.flags = IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device msm8960_device_dmov = {
+	.name	= "msm_dmov",
+	.id	= -1,
+	.num_resources = ARRAY_SIZE(resources_dmov),
+	.resource = resources_dmov,
 };
 
 struct clk_lookup msm_clocks_8960[] = {

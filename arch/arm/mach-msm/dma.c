@@ -57,6 +57,9 @@ static int nr_adms;
 #elif defined(CONFIG_ARCH_MSM8X60)
 #define DMOV_SD_AARM DMOV_SD1
 #define DMOV_SD_SIZE 0x800
+#elif defined(CONFIG_ARCH_MSM8960)
+#define DMOV_SD_AARM DMOV_SD0
+#define DMOV_SD_SIZE 0x800
 #else
 #define DMOV_SD_AARM DMOV_SD3
 #define DMOV_SD_SIZE 0x400

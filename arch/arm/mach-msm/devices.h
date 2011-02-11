@@ -41,6 +41,7 @@ extern struct platform_device msm_device_i2c;
 extern struct platform_device msm_device_smd;
 
 extern struct platform_device msm_device_dmov;
+extern struct platform_device msm8960_device_dmov;
 extern struct platform_device msm_device_dmov_adm0;
 extern struct platform_device msm_device_dmov_adm1;
 

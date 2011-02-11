@@ -70,8 +70,13 @@ static struct platform_device *rumi3_devices[] __initdata = {
 	&msm8960_device_uart_gsbi5,
 };
 
+static struct platform_device *devices[] __initdata = {
+	&msm8960_device_dmov,
+};
+
 static void __init msm8960_init(void)
 {
+	platform_add_devices(devices, ARRAY_SIZE(devices));
 }
 
 static void __init msm8960_sim_init(void)
