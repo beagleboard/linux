@@ -22,6 +22,9 @@
 #ifndef __PLAT_CBUS_H
 #define __PLAT_CBUS_H
 
+#define CBUS_RETU_DEVICE_ID	0x01
+#define CBUS_TAHVO_DEVICE_ID	0x02
+
 struct cbus_host_platform_data {
 	int	dat_gpio;
 	int	clk_gpio;
