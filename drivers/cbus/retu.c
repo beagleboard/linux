@@ -74,12 +74,6 @@ struct retu {
 
 static struct retu *the_retu;
 
-int retu_get_status(void)
-{
-	return the_retu ? 1 : 0;
-}
-EXPORT_SYMBOL(retu_get_status);
-
 /**
  * retu_read_reg - Read a value from a register in Retu
  * @reg: the register to read from

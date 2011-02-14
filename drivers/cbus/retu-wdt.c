@@ -230,10 +230,6 @@ static int __devinit retu_wdt_ping(void)
 {
 	int r;
 
-	r = retu_get_status();
-	if (!r)
-		return -ENODEV;
-
 #ifdef CONFIG_WATCHDOG_NOWAYOUT
 	retu_modify_counter(RETU_WDT_MAX_TIMER);
 #else
@@ -257,10 +253,6 @@ static int __init retu_wdt_probe(struct platform_device *pdev)
 {
 	struct retu_wdt_dev *wdev;
 	int ret;
-
-	ret = retu_get_status();
-	if (!ret)
-		return -ENODEV;
 
 	wdev = kzalloc(sizeof(struct retu_wdt_dev), GFP_KERNEL);
 	if (!wdev)

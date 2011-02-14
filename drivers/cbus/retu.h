@@ -57,7 +57,6 @@
 
 #define	MAX_RETU_IRQ_HANDLERS	16
 
-int retu_get_status(void);
 int retu_read_reg(unsigned reg);
 void retu_write_reg(unsigned reg, u16 val);
 void retu_set_clear_reg_bits(unsigned reg, u16 set, u16 clear);

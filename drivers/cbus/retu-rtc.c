@@ -215,12 +215,6 @@ static int __init retu_rtc_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, rtc);
 	mutex_init(&rtc->mutex);
 
-	r = retu_get_status();
-	if (!r) {
-		dev_err(&pdev->dev, "retu not initialized\n");
-		goto err1;
-	}
-
 	rtc->alarm_expired = retu_read_reg(RETU_REG_IDR) &
 		(0x1 << RETU_INT_RTCA);
 
