@@ -49,12 +49,12 @@
 #include "cbus.h"
 #include "retu.h"
 
-#define RETU_ID			0x01
-
 struct retu {
 	/* Device lock */
 	struct mutex		mutex;
 	struct device		*dev;
+
+	int			devid;
 
 	int			irq_base;
 	int			irq_end;
@@ -81,7 +81,7 @@ static struct retu *the_retu;
 int retu_read_reg(unsigned reg)
 {
 	WARN(!the_retu, "Retu not initialized\n");
-	return cbus_read_reg(RETU_ID, reg);
+	return cbus_read_reg(the_retu->devid, reg);
 }
 EXPORT_SYMBOL(retu_read_reg);
 
@@ -95,7 +95,7 @@ EXPORT_SYMBOL(retu_read_reg);
 void retu_write_reg(unsigned reg, u16 val)
 {
 	WARN(!the_retu, "Retu not initialized\n");
-	cbus_write_reg(RETU_ID, reg, val);
+	cbus_write_reg(the_retu->devid, reg, val);
 }
 EXPORT_SYMBOL(retu_write_reg);
 
@@ -413,6 +413,7 @@ static int __init retu_probe(struct platform_device *pdev)
 	retu->irq = irq;
 	retu->irq_base = pdata->irq_base;
 	retu->irq_end = pdata->irq_end;
+	retu->devid = pdata->devid;
 
 	retu_irq_init(retu);
 
