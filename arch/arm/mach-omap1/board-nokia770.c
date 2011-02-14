@@ -126,6 +126,7 @@ static struct resource retu_resource[] = {
 static struct cbus_retu_platform_data nokia770_retu_data = {
 	.irq_base	= CBUS_RETU_IRQ_BASE,
 	.irq_end	= CBUS_RETU_IRQ_END,
+	.devid		= CBUS_RETU_DEVICE_ID,
 };
 
 static struct platform_device retu_device = {

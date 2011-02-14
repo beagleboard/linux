@@ -34,6 +34,7 @@ struct cbus_host_platform_data {
 struct cbus_retu_platform_data {
 	int	irq_base;
 	int	irq_end;
+	int	devid;
 };
 
 #endif /* __PLAT_CBUS_H */
