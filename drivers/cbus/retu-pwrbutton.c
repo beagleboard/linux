@@ -47,6 +47,7 @@
 
 struct retu_pwrbutton {
 	struct input_dev	*idev;
+	struct device		*dev;
 
 	int			state;
 	int			irq;
@@ -83,6 +84,7 @@ static int __init retubutton_probe(struct platform_device *pdev)
 		goto err0;
 	}
 
+	pwr->dev = &pdev->dev;
 	pwr->irq = platform_get_irq(pdev, 0);
 	platform_set_drvdata(pdev, pwr);
 
