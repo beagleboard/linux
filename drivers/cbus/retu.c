@@ -73,6 +73,27 @@ struct retu {
 static struct retu *the_retu;
 
 /**
+ * __retu_read_reg - Read a value from a register in Retu
+ * @retu: pointer to retu structure
+ * @reg: the register address to read from
+ */
+static int __retu_read_reg(struct retu *retu, unsigned reg)
+{
+	return cbus_read_reg(retu->devid, reg);
+}
+
+/**
+ * __retu_write_reg - Writes a value to a register in Retu
+ * @retu: pointer to retu structure
+ * @reg: the register address to write to
+ * @val: the value to write to the register
+ */
+static void __retu_write_reg(struct retu *retu, unsigned reg, u16 val)
+{
+	cbus_write_reg(retu->devid, reg, val);
+}
+
+/**
  * retu_read_reg - Read a value from a register in Retu
  * @reg: the register to read from
  *
@@ -81,21 +102,21 @@ static struct retu *the_retu;
 int retu_read_reg(unsigned reg)
 {
 	WARN(!the_retu, "Retu not initialized\n");
-	return cbus_read_reg(the_retu->devid, reg);
+	return __retu_read_reg(the_retu, reg);
 }
 EXPORT_SYMBOL(retu_read_reg);
 
 /**
  * retu_write_reg - Write a value to a register in Retu
  * @reg: the register to write to
- * @reg: the value to write to the register
+ * @val: the value to write to the register
  *
  * This function writes a value to the specified register
  */
 void retu_write_reg(unsigned reg, u16 val)
 {
 	WARN(!the_retu, "Retu not initialized\n");
-	cbus_write_reg(the_retu->devid, reg, val);
+	__retu_write_reg(the_retu, reg, val);
 }
 EXPORT_SYMBOL(retu_write_reg);
 
