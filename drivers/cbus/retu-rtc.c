@@ -60,16 +60,16 @@ static void retu_rtc_do_reset(struct retu_rtc *rtc)
 {
 	u16 ccr1;
 
-	ccr1 = retu_read_reg(RETU_REG_CC1);
+	ccr1 = retu_read_reg(rtc->dev, RETU_REG_CC1);
 	/* RTC in reset */
-	retu_write_reg(RETU_REG_CC1, ccr1 | 0x0001);
+	retu_write_reg(rtc->dev, RETU_REG_CC1, ccr1 | 0x0001);
 	/* RTC in normal operating mode */
-	retu_write_reg(RETU_REG_CC1, ccr1 & ~0x0001);
+	retu_write_reg(rtc->dev, RETU_REG_CC1, ccr1 & ~0x0001);
 
 	/* Disable alarm and RTC WD */
-	retu_write_reg(RETU_REG_RTCHMAR, 0x7f3f);
+	retu_write_reg(rtc->dev, RETU_REG_RTCHMAR, 0x7f3f);
 	/* Set Calibration register to default value */
-	retu_write_reg(RETU_REG_RTCCALR, 0x00c0);
+	retu_write_reg(rtc->dev, RETU_REG_RTCCALR, 0x00c0);
 
 	rtc->alarm_expired = 0;
 }
@@ -80,7 +80,7 @@ static irqreturn_t retu_rtc_interrupt(int irq, void *_rtc)
 
 	mutex_lock(&rtc->mutex);
 	rtc->alarm_expired = 1;
-	retu_write_reg(RETU_REG_RTCHMAR, (24 << 8) | 60);
+	retu_write_reg(rtc->dev, RETU_REG_RTCHMAR, (24 << 8) | 60);
 	mutex_unlock(&rtc->mutex);
 
 	return IRQ_HANDLED;
@@ -120,7 +120,7 @@ static int retu_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alm)
 	mutex_lock(&rtc->mutex);
 
 	chmar = ((alm->time.tm_hour & 0x1f) << 8) | (alm->time.tm_min & 0x3f);
-	retu_write_reg(RETU_REG_RTCHMAR, chmar);
+	retu_write_reg(rtc->dev, RETU_REG_RTCHMAR, chmar);
 
 	mutex_unlock(&rtc->mutex);
 
@@ -134,7 +134,7 @@ static int retu_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alm)
 
 	mutex_lock(&rtc->mutex);
 
-	chmar = retu_read_reg(RETU_REG_RTCHMAR);
+	chmar = retu_read_reg(rtc->dev, RETU_REG_RTCHMAR);
 
 	alm->time.tm_hour	= (chmar >> 8) & 0x1f;
 	alm->time.tm_min	= chmar & 0x3f;
@@ -156,8 +156,8 @@ static int retu_rtc_set_time(struct device *dev, struct rtc_time *tm)
 
 	mutex_lock(&rtc->mutex);
 
-	retu_write_reg(RETU_REG_RTCDSR, dsr);
-	retu_write_reg(RETU_REG_RTCHMR, hmr);
+	retu_write_reg(rtc->dev, RETU_REG_RTCDSR, dsr);
+	retu_write_reg(rtc->dev, RETU_REG_RTCHMR, hmr);
 
 	mutex_unlock(&rtc->mutex);
 
@@ -179,8 +179,8 @@ static int retu_rtc_read_time(struct device *dev, struct rtc_time *tm)
 
 	mutex_lock(&rtc->mutex);
 
-	dsr	= retu_read_reg(RETU_REG_RTCDSR);
-	hmr	= retu_read_reg(RETU_REG_RTCHMR);
+	dsr	= retu_read_reg(rtc->dev, RETU_REG_RTCDSR);
+	hmr	= retu_read_reg(rtc->dev, RETU_REG_RTCHMR);
 
 	tm->tm_sec	= hmr & 0xff;
 	tm->tm_min	= hmr >> 8;
@@ -215,7 +215,7 @@ static int __init retu_rtc_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, rtc);
 	mutex_init(&rtc->mutex);
 
-	rtc->alarm_expired = retu_read_reg(RETU_REG_IDR) &
+	rtc->alarm_expired = retu_read_reg(rtc->dev, RETU_REG_IDR) &
 		(0x1 << RETU_INT_RTCA);
 
 	r = retu_rtc_init_irq(rtc);
@@ -225,7 +225,7 @@ static int __init retu_rtc_probe(struct platform_device *pdev)
 	}
 
 	/* If the calibration register is zero, we've probably lost power */
-	if (!(retu_read_reg(RETU_REG_RTCCALR) & 0x00ff))
+	if (!(retu_read_reg(rtc->dev, RETU_REG_RTCCALR) & 0x00ff))
 		retu_rtc_do_reset(rtc);
 
 	rtc->rtc = rtc_device_register(pdev->name, &pdev->dev, &

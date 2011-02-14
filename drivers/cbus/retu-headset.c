@@ -48,15 +48,16 @@ struct retu_headset {
 	int				irq;
 };
 
-static void retu_headset_set_bias(int enable)
+static void retu_headset_set_bias(struct retu_headset *hs, int enable)
 {
 	if (enable) {
-		retu_set_clear_reg_bits(RETU_REG_AUDTXR,
+		retu_set_clear_reg_bits(&hs->pdev->dev, RETU_REG_AUDTXR,
 					(1 << 0) | (1 << 1), 0);
 		msleep(2);
-		retu_set_clear_reg_bits(RETU_REG_AUDTXR, 1 << 3, 0);
+		retu_set_clear_reg_bits(&hs->pdev->dev, RETU_REG_AUDTXR,
+				1 << 3, 0);
 	} else {
-		retu_set_clear_reg_bits(RETU_REG_AUDTXR, 0,
+		retu_set_clear_reg_bits(&hs->pdev->dev, RETU_REG_AUDTXR, 0,
 					(1 << 0) | (1 << 1) | (1 << 3));
 	}
 }
@@ -66,7 +67,7 @@ static void retu_headset_enable(struct retu_headset *hs)
 	mutex_lock(&hs->mutex);
 	if (!hs->bias_enabled) {
 		hs->bias_enabled = 1;
-		retu_headset_set_bias(1);
+		retu_headset_set_bias(hs, 1);
 	}
 	mutex_unlock(&hs->mutex);
 }
@@ -76,7 +77,7 @@ static void retu_headset_disable(struct retu_headset *hs)
 	mutex_lock(&hs->mutex);
 	if (hs->bias_enabled) {
 		hs->bias_enabled = 0;
-		retu_headset_set_bias(0);
+		retu_headset_set_bias(hs, 0);
 	}
 	mutex_unlock(&hs->mutex);
 }
@@ -86,7 +87,8 @@ static void retu_headset_det_enable(struct retu_headset *hs)
 	mutex_lock(&hs->mutex);
 	if (!hs->detection_enabled) {
 		hs->detection_enabled = 1;
-		retu_set_clear_reg_bits(RETU_REG_CC1, (1 << 10) | (1 << 8), 0);
+		retu_set_clear_reg_bits(&hs->pdev->dev, RETU_REG_CC1,
+				(1 << 10) | (1 << 8), 0);
 	}
 	mutex_unlock(&hs->mutex);
 }
@@ -104,7 +106,8 @@ static void retu_headset_det_disable(struct retu_headset *hs)
 		if (hs->pressed)
 			input_report_key(hs->idev, RETU_HEADSET_KEY, 0);
 		spin_unlock_irqrestore(&hs->lock, flags);
-		retu_set_clear_reg_bits(RETU_REG_CC1, 0, (1 << 10) | (1 << 8));
+		retu_set_clear_reg_bits(&hs->pdev->dev, RETU_REG_CC1, 0,
+				(1 << 10) | (1 << 8));
 	}
 	mutex_unlock(&hs->mutex);
 }
@@ -115,7 +118,7 @@ static ssize_t retu_headset_hookdet_show(struct device *dev,
 {
 	int val;
 
-	val = retu_read_adc(RETU_ADC_CHANNEL_HOOKDET);
+	val = retu_read_adc(dev, RETU_ADC_CHANNEL_HOOKDET);
 	return sprintf(buf, "%d\n", val);
 }
 
@@ -190,7 +193,8 @@ static irqreturn_t retu_headset_hook_interrupt(int irq, void *_hs)
 		input_report_key(hs->idev, RETU_HEADSET_KEY, 1);
 	}
 	spin_unlock_irqrestore(&hs->lock, flags);
-	retu_set_clear_reg_bits(RETU_REG_CC1, 0, (1 << 10) | (1 << 8));
+	retu_set_clear_reg_bits(&hs->pdev->dev, RETU_REG_CC1, 0,
+			(1 << 10) | (1 << 8));
 	mod_timer(&hs->enable_timer, jiffies + msecs_to_jiffies(50));
 
 	return IRQ_HANDLED;
@@ -200,7 +204,8 @@ static void retu_headset_enable_timer(unsigned long arg)
 {
 	struct retu_headset *hs = (struct retu_headset *) arg;
 
-	retu_set_clear_reg_bits(RETU_REG_CC1, (1 << 10) | (1 << 8), 0);
+	retu_set_clear_reg_bits(&hs->pdev->dev, RETU_REG_CC1,
+			(1 << 10) | (1 << 8), 0);
 	mod_timer(&hs->detect_timer, jiffies + msecs_to_jiffies(350));
 }
 
@@ -309,7 +314,7 @@ static int retu_headset_suspend(struct platform_device *pdev,
 
 	mutex_lock(&hs->mutex);
 	if (hs->bias_enabled)
-		retu_headset_set_bias(0);
+		retu_headset_set_bias(hs, 0);
 	mutex_unlock(&hs->mutex);
 
 	return 0;
@@ -321,7 +326,7 @@ static int retu_headset_resume(struct platform_device *pdev)
 
 	mutex_lock(&hs->mutex);
 	if (hs->bias_enabled)
-		retu_headset_set_bias(1);
+		retu_headset_set_bias(hs, 1);
 	mutex_unlock(&hs->mutex);
 
 	return 0;

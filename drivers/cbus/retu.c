@@ -95,34 +95,46 @@ static void __retu_write_reg(struct retu *retu, unsigned reg, u16 val)
 
 /**
  * retu_read_reg - Read a value from a register in Retu
+ * @child: device pointer for the calling child
  * @reg: the register to read from
  *
  * This function returns the contents of the specified register
  */
-int retu_read_reg(unsigned reg)
+int retu_read_reg(struct device *child, unsigned reg)
 {
-	WARN(!the_retu, "Retu not initialized\n");
-	return __retu_read_reg(the_retu, reg);
+	struct retu		*retu = dev_get_drvdata(child->parent);
+
+	return __retu_read_reg(retu, reg);
 }
 EXPORT_SYMBOL(retu_read_reg);
 
 /**
  * retu_write_reg - Write a value to a register in Retu
+ * @child: the pointer to our calling child
  * @reg: the register to write to
  * @val: the value to write to the register
  *
  * This function writes a value to the specified register
  */
-void retu_write_reg(unsigned reg, u16 val)
+void retu_write_reg(struct device *child, unsigned reg, u16 val)
 {
-	WARN(!the_retu, "Retu not initialized\n");
-	__retu_write_reg(the_retu, reg, val);
+	struct retu		*retu = dev_get_drvdata(child->parent);
+
+	__retu_write_reg(retu, reg, val);
 }
 EXPORT_SYMBOL(retu_write_reg);
 
-void retu_set_clear_reg_bits(unsigned reg, u16 set, u16 clear)
+/**
+ * retu_set_clear_reg_bits - helper function to read/set/clear bits
+ * @child: device pointer to calling child
+ * @reg: the register address
+ * @set: mask for setting bits
+ * @clear: mask for clearing bits
+ */
+void retu_set_clear_reg_bits(struct device *child, unsigned reg, u16 set,
+		u16 clear)
 {
-	struct retu		*retu = the_retu;
+	struct retu		*retu = dev_get_drvdata(child->parent);
 	u16			w;
 
 	mutex_lock(&retu->mutex);
@@ -136,9 +148,14 @@ EXPORT_SYMBOL_GPL(retu_set_clear_reg_bits);
 
 #define ADC_MAX_CHAN_NUMBER	13
 
-int retu_read_adc(int channel)
+/**
+ * retu_read_adc - Reads AD conversion result
+ * @child: device pointer to calling child
+ * @channel: the ADC channel to read from
+ */
+int retu_read_adc(struct device *child, int channel)
 {
-	struct retu		*retu = the_retu;
+	struct retu		*retu = dev_get_drvdata(child->parent);
 	int			res;
 
 	if (!retu)

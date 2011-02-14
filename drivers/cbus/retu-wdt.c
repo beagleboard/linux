@@ -67,7 +67,8 @@ static void retu_wdt_set_ping_timer(unsigned long enable);
 
 static int _retu_modify_counter(unsigned int new)
 {
-	retu_write_reg(RETU_REG_WATCHDOG, (u16)new);
+	if (retu_wdt)
+		retu_write_reg(retu_wdt->dev, RETU_REG_WATCHDOG, (u16)new);
 
 	return 0;
 }
@@ -125,7 +126,7 @@ static ssize_t retu_wdt_counter_show(struct device *dev,
 	u16 counter;
 
 	/* Show current value in watchdog counter */
-	counter = retu_read_reg(RETU_REG_WATCHDOG);
+	counter = retu_read_reg(dev, RETU_REG_WATCHDOG);
 
 	/* Only the 5 LSB are important */
 	return snprintf(buf, PAGE_SIZE, "%u\n", (counter & 0x3F));
@@ -228,8 +229,6 @@ static long retu_wdt_ioctl(struct file *file, unsigned int cmd,
 /* Start kicking retu watchdog until user space starts doing the kicking */
 static int __devinit retu_wdt_ping(void)
 {
-	int r;
-
 #ifdef CONFIG_WATCHDOG_NOWAYOUT
 	retu_modify_counter(RETU_WDT_MAX_TIMER);
 #else

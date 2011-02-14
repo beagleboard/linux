@@ -58,7 +58,7 @@ static irqreturn_t retubutton_irq(int irq, void *_pwr)
 	struct retu_pwrbutton *pwr = _pwr;
 	int state;
 
-	if (retu_read_reg(RETU_REG_STATUS) & RETU_STATUS_PWRONX)
+	if (retu_read_reg(pwr->dev, RETU_REG_STATUS) & RETU_STATUS_PWRONX)
 		state = PWRBTN_UP;
 	else
 		state = PWRBTN_PRESSED;

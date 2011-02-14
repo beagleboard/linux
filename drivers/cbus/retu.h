@@ -57,9 +57,10 @@
 
 #define	MAX_RETU_IRQ_HANDLERS	16
 
-int retu_read_reg(unsigned reg);
-void retu_write_reg(unsigned reg, u16 val);
-void retu_set_clear_reg_bits(unsigned reg, u16 set, u16 clear);
-int retu_read_adc(int channel);
+int retu_read_reg(struct device *child, unsigned reg);
+void retu_write_reg(struct device *child, unsigned reg, u16 val);
+void retu_set_clear_reg_bits(struct device *child, unsigned reg, u16 set,
+		u16 clear);
+int retu_read_adc(struct device *child, int channel);
 
 #endif /* __DRIVERS_CBUS_RETU_H */
