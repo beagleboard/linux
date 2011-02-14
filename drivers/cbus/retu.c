@@ -489,6 +489,7 @@ static int __init retu_probe(struct platform_device *pdev)
 	return 0;
 
 err2:
+	pm_power_off = NULL;
 	__retu_write_reg(retu, RETU_REG_IMR, 0xffff);
 	free_irq(retu->irq, retu);
 
@@ -504,13 +505,15 @@ static int __exit retu_remove(struct platform_device *pdev)
 {
 	struct retu		*retu = platform_get_drvdata(pdev);
 
+	pm_power_off = NULL;
+	the_retu = NULL;
+
 	/* Mask all RETU interrupts */
 	__retu_write_reg(retu, RETU_REG_IMR, 0xffff);
 
 	free_irq(retu->irq, retu);
 	retu_irq_exit(retu);
 	kfree(retu);
-	the_retu = NULL;
 
 	return 0;
 }
