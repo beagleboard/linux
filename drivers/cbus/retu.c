@@ -82,7 +82,7 @@ static struct retu *the_retu;
  */
 int retu_read_reg(unsigned reg)
 {
-	BUG_ON(!the_retu);
+	WARN(!the_retu, "Retu not initialized\n");
 	return cbus_read_reg(RETU_ID, reg);
 }
 EXPORT_SYMBOL(retu_read_reg);
@@ -96,7 +96,7 @@ EXPORT_SYMBOL(retu_read_reg);
  */
 void retu_write_reg(unsigned reg, u16 val)
 {
-	BUG_ON(!the_retu);
+	WARN(!the_retu, "Retu not initialized\n");
 	cbus_write_reg(RETU_ID, reg, val);
 }
 EXPORT_SYMBOL(retu_write_reg);
