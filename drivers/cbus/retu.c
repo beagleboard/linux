@@ -438,7 +438,6 @@ static int __init retu_probe(struct platform_device *pdev)
 
 	int		ret = -ENOMEM;
 	int		rev;
-	int		irq;
 
 	retu = kzalloc(sizeof(*retu), GFP_KERNEL);
 	if (!retu) {
@@ -447,16 +446,14 @@ static int __init retu_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, retu);
-	the_retu = retu;
+
+	retu->irq	= platform_get_irq(pdev, 0);
+	retu->irq_base	= pdata->irq_base;
+	retu->irq_end	= pdata->irq_end;
+	retu->devid	= pdata->devid;
+	the_retu	= retu;
 
 	mutex_init(&retu->mutex);
-
-	irq = platform_get_irq(pdev, 0);
-
-	retu->irq = irq;
-	retu->irq_base = pdata->irq_base;
-	retu->irq_end = pdata->irq_end;
-	retu->devid = pdata->devid;
 
 	retu_irq_init(retu);
 
@@ -471,14 +468,14 @@ static int __init retu_probe(struct platform_device *pdev)
 	/* Mask all RETU interrupts */
 	__retu_write_reg(retu, RETU_REG_IMR, 0xffff);
 
-	ret = request_threaded_irq(irq, NULL, retu_irq_handler, 0,
+	ret = request_threaded_irq(retu->irq, NULL, retu_irq_handler, 0,
 			  "retu", retu);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Unable to register IRQ handler\n");
 		goto err1;
 	}
 
-	set_irq_wake(irq, 1);
+	set_irq_wake(retu->irq, 1);
 
 	/* Register power off function */
 	pm_power_off = retu_power_off;
@@ -493,7 +490,7 @@ static int __init retu_probe(struct platform_device *pdev)
 
 err2:
 	__retu_write_reg(retu, RETU_REG_IMR, 0xffff);
-	free_irq(irq, retu);
+	free_irq(retu->irq, retu);
 
 err1:
 	kfree(retu);
@@ -506,13 +503,11 @@ err0:
 static int __exit retu_remove(struct platform_device *pdev)
 {
 	struct retu		*retu = platform_get_drvdata(pdev);
-	int			irq;
-
-	irq = platform_get_irq(pdev, 0);
 
 	/* Mask all RETU interrupts */
 	__retu_write_reg(retu, RETU_REG_IMR, 0xffff);
-	free_irq(irq, retu);
+
+	free_irq(retu->irq, retu);
 	retu_irq_exit(retu);
 	kfree(retu);
 	the_retu = NULL;
