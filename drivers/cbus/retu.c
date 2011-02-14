@@ -50,7 +50,6 @@
 #include "retu.h"
 
 #define RETU_ID			0x01
-#define PFX			"retu: "
 
 struct retu {
 	/* Device lock */
