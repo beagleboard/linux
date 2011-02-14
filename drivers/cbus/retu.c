@@ -54,8 +54,7 @@
 
 struct retu {
 	/* Device lock */
-	spinlock_t		lock;
-	struct mutex		irq_lock;
+	struct mutex		mutex;
 	struct device		*dev;
 
 	int			irq_base;
@@ -104,15 +103,14 @@ EXPORT_SYMBOL(retu_write_reg);
 void retu_set_clear_reg_bits(unsigned reg, u16 set, u16 clear)
 {
 	struct retu		*retu = the_retu;
-	unsigned long		flags;
 	u16			w;
 
-	spin_lock_irqsave(&retu->lock, flags);
+	mutex_lock(&retu->mutex);
 	w = retu_read_reg(reg);
 	w &= ~clear;
 	w |= set;
 	retu_write_reg(reg, w);
-	spin_unlock_irqrestore(&retu->lock, flags);
+	mutex_unlock(&retu->mutex);
 }
 EXPORT_SYMBOL_GPL(retu_set_clear_reg_bits);
 
@@ -121,7 +119,6 @@ EXPORT_SYMBOL_GPL(retu_set_clear_reg_bits);
 int retu_read_adc(int channel)
 {
 	struct retu		*retu = the_retu;
-	unsigned long		flags;
 	int			res;
 
 	if (!retu)
@@ -130,7 +127,7 @@ int retu_read_adc(int channel)
 	if (channel < 0 || channel > ADC_MAX_CHAN_NUMBER)
 		return -EINVAL;
 
-	spin_lock_irqsave(&retu->lock, flags);
+	mutex_lock(&retu->mutex);
 
 	if ((channel == 8) && retu->is_vilma) {
 		int scr = retu_read_reg(RETU_REG_ADCSCR);
@@ -147,7 +144,7 @@ int retu_read_adc(int channel)
 		retu_write_reg(RETU_REG_ADCR, (1 << 13));
 
 	/* Unlock retu */
-	spin_unlock_irqrestore(&retu->lock, flags);
+	mutex_unlock(&retu->mutex);
 
 	return res;
 }
@@ -215,7 +212,7 @@ static void retu_bus_lock(struct irq_data *data)
 {
 	struct retu		*retu = irq_data_get_irq_chip_data(data);
 
-	mutex_lock(&retu->irq_lock);
+	mutex_lock(&retu->mutex);
 }
 
 static void retu_bus_sync_unlock(struct irq_data *data)
@@ -232,7 +229,7 @@ static void retu_bus_sync_unlock(struct irq_data *data)
 		retu->ack_pending = false;
 	}
 
-	mutex_unlock(&retu->irq_lock);
+	mutex_unlock(&retu->mutex);
 }
 
 static struct irq_chip retu_irq_chip = {
@@ -410,9 +407,7 @@ static int __init retu_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, retu);
 	the_retu = retu;
 
-	/* Prepare tasklet */
-	spin_lock_init(&retu->lock);
-	mutex_init(&retu->irq_lock);
+	mutex_init(&retu->mutex);
 
 	irq = platform_get_irq(pdev, 0);
 
