@@ -126,10 +126,10 @@ void retu_set_clear_reg_bits(unsigned reg, u16 set, u16 clear)
 	u16			w;
 
 	mutex_lock(&retu->mutex);
-	w = retu_read_reg(reg);
+	w = __retu_read_reg(retu, reg);
 	w &= ~clear;
 	w |= set;
-	retu_write_reg(reg, w);
+	__retu_write_reg(retu, reg, w);
 	mutex_unlock(&retu->mutex);
 }
 EXPORT_SYMBOL_GPL(retu_set_clear_reg_bits);
@@ -150,18 +150,18 @@ int retu_read_adc(int channel)
 	mutex_lock(&retu->mutex);
 
 	if ((channel == 8) && retu->is_vilma) {
-		int scr = retu_read_reg(RETU_REG_ADCSCR);
-		int ch = (retu_read_reg(RETU_REG_ADCR) >> 10) & 0xf;
+		int scr = __retu_read_reg(retu, RETU_REG_ADCSCR);
+		int ch = (__retu_read_reg(retu, RETU_REG_ADCR) >> 10) & 0xf;
 		if (((scr & 0xff) != 0) && (ch != 8))
-			retu_write_reg (RETU_REG_ADCSCR, (scr & ~0xff));
+			__retu_write_reg(retu, RETU_REG_ADCSCR, (scr & ~0xff));
 	}
 
 	/* Select the channel and read result */
-	retu_write_reg(RETU_REG_ADCR, channel << 10);
-	res = retu_read_reg(RETU_REG_ADCR) & 0x3ff;
+	__retu_write_reg(retu, RETU_REG_ADCR, channel << 10);
+	res = __retu_read_reg(retu, RETU_REG_ADCR) & 0x3ff;
 
 	if (retu->is_vilma)
-		retu_write_reg(RETU_REG_ADCR, (1 << 13));
+		__retu_write_reg(retu, RETU_REG_ADCR, (1 << 13));
 
 	/* Unlock retu */
 	mutex_unlock(&retu->mutex);
@@ -179,8 +179,8 @@ static irqreturn_t retu_irq_handler(int irq, void *_retu)
 	u16			idr;
 	u16			imr;
 
-	idr = retu_read_reg(RETU_REG_IDR);
-	imr = retu_read_reg(RETU_REG_IMR);
+	idr = __retu_read_reg(retu, RETU_REG_IDR);
+	imr = __retu_read_reg(retu, RETU_REG_IMR);
 	idr &= ~imr;
 
 	if (!idr) {
@@ -240,12 +240,12 @@ static void retu_bus_sync_unlock(struct irq_data *data)
 	struct retu		*retu = irq_data_get_irq_chip_data(data);
 
 	if (retu->mask_pending) {
-		retu_write_reg(RETU_REG_IMR, retu->mask);
+		__retu_write_reg(retu, RETU_REG_IMR, retu->mask);
 		retu->mask_pending = false;
 	}
 
 	if (retu->ack_pending) {
-		retu_write_reg(RETU_REG_IDR, retu->ack);
+		__retu_write_reg(retu, RETU_REG_IDR, retu->ack);
 		retu->ack_pending = false;
 	}
 
@@ -309,10 +309,15 @@ static void retu_irq_exit(struct retu *retu)
  */
 static void retu_power_off(void)
 {
+	struct retu		*retu = the_retu;
+	unsigned		reg;
+
+	reg = __retu_read_reg(retu, RETU_REG_CC1);
+
 	/* Ignore power button state */
-	retu_write_reg(RETU_REG_CC1, retu_read_reg(RETU_REG_CC1) | 2);
+	__retu_write_reg(retu, RETU_REG_CC1, reg | 2);
 	/* Expire watchdog immediately */
-	retu_write_reg(RETU_REG_WATCHDOG, 0);
+	__retu_write_reg(retu, RETU_REG_WATCHDOG, 0);
 	/* Wait for poweroff*/
 	for (;;);
 }
@@ -438,7 +443,7 @@ static int __init retu_probe(struct platform_device *pdev)
 
 	retu_irq_init(retu);
 
-	rev = retu_read_reg(RETU_REG_ASICR) & 0xff;
+	rev = __retu_read_reg(retu, RETU_REG_ASICR) & 0xff;
 	if (rev & (1 << 7))
 		retu->is_vilma = true;
 
@@ -447,7 +452,7 @@ static int __init retu_probe(struct platform_device *pdev)
 			(rev >> 4) & 0x07, rev & 0x0f);
 
 	/* Mask all RETU interrupts */
-	retu_write_reg(RETU_REG_IMR, 0xffff);
+	__retu_write_reg(retu, RETU_REG_IMR, 0xffff);
 
 	ret = request_threaded_irq(irq, NULL, retu_irq_handler, 0,
 			  "retu", retu);
@@ -470,7 +475,7 @@ static int __init retu_probe(struct platform_device *pdev)
 	return 0;
 
 err2:
-	retu_write_reg(RETU_REG_IMR, 0xffff);
+	__retu_write_reg(retu, RETU_REG_IMR, 0xffff);
 	free_irq(irq, retu);
 
 err1:
@@ -489,7 +494,7 @@ static int __exit retu_remove(struct platform_device *pdev)
 	irq = platform_get_irq(pdev, 0);
 
 	/* Mask all RETU interrupts */
-	retu_write_reg(RETU_REG_IMR, 0xffff);
+	__retu_write_reg(retu, RETU_REG_IMR, 0xffff);
 	free_irq(irq, retu);
 	retu_irq_exit(retu);
 	kfree(retu);
