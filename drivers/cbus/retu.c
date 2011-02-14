@@ -106,7 +106,7 @@ int retu_read_reg(struct device *child, unsigned reg)
 
 	return __retu_read_reg(retu, reg);
 }
-EXPORT_SYMBOL(retu_read_reg);
+EXPORT_SYMBOL_GPL(retu_read_reg);
 
 /**
  * retu_write_reg - Write a value to a register in Retu
@@ -122,7 +122,7 @@ void retu_write_reg(struct device *child, unsigned reg, u16 val)
 
 	__retu_write_reg(retu, reg, val);
 }
-EXPORT_SYMBOL(retu_write_reg);
+EXPORT_SYMBOL_GPL(retu_write_reg);
 
 /**
  * retu_set_clear_reg_bits - helper function to read/set/clear bits
@@ -185,7 +185,7 @@ int retu_read_adc(struct device *child, int channel)
 
 	return res;
 }
-EXPORT_SYMBOL(retu_read_adc);
+EXPORT_SYMBOL_GPL(retu_read_adc);
 
 static irqreturn_t retu_irq_handler(int irq, void *_retu)
 {
