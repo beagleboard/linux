@@ -5,7 +5,7 @@
  *
  * Copyright (C) 2004, 2008 Nokia Corporation
  *
- * Copyright (C) 2009 Texas Instruments.
+ * Copyright (C) 2009-11 Texas Instruments.
  *
  * Written by Tony Lindgren <tony.lindgren@nokia.com>
  *
@@ -170,11 +170,11 @@ IS_OMAP_SUBCLASS(443x, 0x443)
 #  undef  cpu_is_omap24xx
 #  define cpu_is_omap24xx()		is_omap24xx()
 # endif
-# if defined (CONFIG_ARCH_OMAP2420)
+# if defined (CONFIG_SOC_OMAP2420)
 #  undef  cpu_is_omap242x
 #  define cpu_is_omap242x()		is_omap242x()
 # endif
-# if defined (CONFIG_ARCH_OMAP2430)
+# if defined (CONFIG_SOC_OMAP2430)
 #  undef  cpu_is_omap243x
 #  define cpu_is_omap243x()		is_omap243x()
 # endif
@@ -189,11 +189,11 @@ IS_OMAP_SUBCLASS(443x, 0x443)
 #  undef  cpu_is_omap24xx
 #  define cpu_is_omap24xx()		1
 # endif
-# if defined(CONFIG_ARCH_OMAP2420)
+# if defined(CONFIG_SOC_OMAP2420)
 #  undef  cpu_is_omap242x
 #  define cpu_is_omap242x()		1
 # endif
-# if defined(CONFIG_ARCH_OMAP2430)
+# if defined(CONFIG_SOC_OMAP2430)
 #  undef  cpu_is_omap243x
 #  define cpu_is_omap243x()		1
 # endif
@@ -201,7 +201,7 @@ IS_OMAP_SUBCLASS(443x, 0x443)
 #  undef  cpu_is_omap34xx
 #  define cpu_is_omap34xx()		1
 # endif
-# if defined(CONFIG_ARCH_OMAP3430)
+# if defined(CONFIG_SOC_OMAP3430)
 #  undef  cpu_is_omap343x
 #  define cpu_is_omap343x()		1
 # endif
@@ -390,8 +390,10 @@ IS_OMAP_TYPE(3517, 0x3517)
 #define OMAP3517_REV(v)		(OMAP35XX_CLASS | (0x3517 << 16) | (v << 8))
 
 #define OMAP443X_CLASS		0x44300044
-#define OMAP4430_REV_ES1_0	OMAP443X_CLASS
-#define OMAP4430_REV_ES2_0	0x44301044
+#define OMAP4430_REV_ES1_0	(OMAP443X_CLASS | (0x10 << 8))
+#define OMAP4430_REV_ES2_0	(OMAP443X_CLASS | (0x20 << 8))
+#define OMAP4430_REV_ES2_1	(OMAP443X_CLASS | (0x21 << 8))
+#define OMAP4430_REV_ES2_2	(OMAP443X_CLASS | (0x22 << 8))
 
 /*
  * omap_chip bits
@@ -419,11 +421,15 @@ IS_OMAP_TYPE(3517, 0x3517)
 #define CHIP_IS_OMAP3630ES1_1           (1 << 9)
 #define CHIP_IS_OMAP3630ES1_2           (1 << 10)
 #define CHIP_IS_OMAP4430ES2		(1 << 11)
+#define CHIP_IS_OMAP4430ES2_1		(1 << 12)
+#define CHIP_IS_OMAP4430ES2_2		(1 << 13)
 
 #define CHIP_IS_OMAP24XX		(CHIP_IS_OMAP2420 | CHIP_IS_OMAP2430)
 
-#define CHIP_IS_OMAP4430		(CHIP_IS_OMAP4430ES1 | \
-						 CHIP_IS_OMAP4430ES2)
+#define CHIP_IS_OMAP4430		(CHIP_IS_OMAP4430ES1 |		\
+					 CHIP_IS_OMAP4430ES2 |		\
+					 CHIP_IS_OMAP4430ES2_1 |	\
+					 CHIP_IS_OMAP4430ES2_2)
 
 /*
  * "GE" here represents "greater than or equal to" in terms of ES
