@@ -258,6 +258,7 @@ static int __init retu_wdt_probe(struct platform_device *pdev)
 	if (!wdev)
 		return -ENOMEM;
 
+	wdev->dev = &pdev->dev;
 	wdev->users = 0;
 
 	ret = device_create_file(&pdev->dev, &dev_attr_period);
