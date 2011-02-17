@@ -411,7 +411,15 @@
 #define TWL_IRQ_END		TWL6030_IRQ_END
 #endif
 
-#define NR_IRQS			TWL_IRQ_END
+#define CBUS_RETU_IRQ_BASE	TWL_IRQ_END
+#ifdef CONFIG_CBUS_RETU
+#define CBUS_RETU_NR_IRQS	16
+#else
+#define CBUS_RETU_NR_IRQS	0
+#endif
+#define CBUS_RETU_IRQ_END	(CBUS_RETU_IRQ_BASE + CBUS_RETU_NR_IRQS)
+
+#define NR_IRQS			CBUS_RETU_IRQ_END
 
 #define OMAP_IRQ_BIT(irq)	(1 << ((irq) % 32))
 
