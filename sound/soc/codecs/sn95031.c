@@ -34,17 +34,135 @@
 #include <sound/soc-dapm.h>
 #include <sound/initval.h>
 #include <sound/tlv.h>
+#include <sound/jack.h>
 #include "sn95031.h"
 
 #define SN95031_RATES (SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_44100)
 #define SN95031_FORMATS (SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S16_LE)
 
+/* adc helper functions */
+
+/* enables mic bias voltage */
+static void sn95031_enable_mic_bias(struct snd_soc_codec *codec)
+{
+	snd_soc_write(codec, SN95031_VAUD, BIT(2)|BIT(1)|BIT(0));
+	snd_soc_update_bits(codec, SN95031_MICBIAS, BIT(2), BIT(2));
+}
+
+/* Enable/Disable the ADC depending on the argument */
+static void configure_adc(struct snd_soc_codec *sn95031_codec, int val)
+{
+	int value = snd_soc_read(sn95031_codec, SN95031_ADC1CNTL1);
+
+	if (val) {
+		/* Enable and start the ADC */
+		value |= (SN95031_ADC_ENBL | SN95031_ADC_START);
+		value &= (~SN95031_ADC_NO_LOOP);
+	} else {
+		/* Just stop the ADC */
+		value &= (~SN95031_ADC_START);
+	}
+	snd_soc_write(sn95031_codec, SN95031_ADC1CNTL1, value);
+}
+
 /*
- * todo:
- * capture paths
- * jack detection
- * PM functions
+ * finds an empty channel for conversion
+ * If the ADC is not enabled then start using 0th channel
+ * itself. Otherwise find an empty channel by looking for a
+ * channel in which the stopbit is set to 1. returns the index
+ * of the first free channel if succeeds or an error code.
+ *
+ * Context: can sleep
+ *
  */
+static int find_free_channel(struct snd_soc_codec *sn95031_codec)
+{
+	int ret = 0, i, value;
+
+	/* check whether ADC is enabled */
+	value = snd_soc_read(sn95031_codec, SN95031_ADC1CNTL1);
+
+	if ((value & SN95031_ADC_ENBL) == 0)
+		return 0;
+
+	/* ADC is already enabled; Looking for an empty channel */
+	for (i = 0; i <	SN95031_ADC_CHANLS_MAX; i++) {
+		value = snd_soc_read(sn95031_codec,
+				SN95031_ADC_CHNL_START_ADDR + i);
+		if (value & SN95031_STOPBIT_MASK) {
+			ret = i;
+			break;
+		}
+	}
+	return (ret > SN95031_ADC_LOOP_MAX) ? (-EINVAL) : ret;
+}
+
+/* Initialize the ADC for reading micbias values. Can sleep. */
+static int sn95031_initialize_adc(struct snd_soc_codec *sn95031_codec)
+{
+	int base_addr, chnl_addr;
+	int value;
+	static int channel_index;
+
+	/* Index of the first channel in which the stop bit is set */
+	channel_index = find_free_channel(sn95031_codec);
+	if (channel_index < 0) {
+		pr_err("No free ADC channels");
+		return channel_index;
+	}
+
+	base_addr = SN95031_ADC_CHNL_START_ADDR + channel_index;
+
+	if (!(channel_index == 0 || channel_index ==  SN95031_ADC_LOOP_MAX)) {
+		/* Reset stop bit for channels other than 0 and 12 */
+		value = snd_soc_read(sn95031_codec, base_addr);
+		/* Set the stop bit to zero */
+		snd_soc_write(sn95031_codec, base_addr, value & 0xEF);
+		/* Index of the first free channel */
+		base_addr++;
+		channel_index++;
+	}
+
+	/* Since this is the last channel, set the stop bit
+	   to 1 by ORing the DIE_SENSOR_CODE with 0x10 */
+	snd_soc_write(sn95031_codec, base_addr,
+				SN95031_AUDIO_DETECT_CODE | 0x10);
+
+	chnl_addr = SN95031_ADC_DATA_START_ADDR + 2 * channel_index;
+	pr_debug("mid_initialize : %x", chnl_addr);
+	configure_adc(sn95031_codec, 1);
+	return chnl_addr;
+}
+
+
+/* reads the ADC registers and gets the mic bias value in mV. */
+static unsigned int sn95031_get_mic_bias(struct snd_soc_codec *codec)
+{
+	u16 adc_adr = sn95031_initialize_adc(codec);
+	u16 adc_val1, adc_val2;
+	unsigned int mic_bias;
+
+	sn95031_enable_mic_bias(codec);
+
+	/* Enable the sound card for conversion before reading */
+	snd_soc_write(codec, SN95031_ADC1CNTL3, 0x05);
+	/* Re-toggle the RRDATARD bit */
+	snd_soc_write(codec, SN95031_ADC1CNTL3, 0x04);
+
+	/* Read the higher bits of data */
+	msleep(1000);
+	adc_val1 = snd_soc_read(codec, adc_adr);
+	adc_adr++;
+	adc_val2 = snd_soc_read(codec, adc_adr);
+
+	/* Adding lower two bits to the higher bits */
+	mic_bias = (adc_val1 << 2) + (adc_val2 & 3);
+	mic_bias = (mic_bias * SN95031_ADC_ONE_LSB_MULTIPLIER) / 1000;
+	pr_debug("mic bias = %dmV\n", mic_bias);
+	return mic_bias;
+}
+EXPORT_SYMBOL_GPL(sn95031_get_mic_bias);
+/*end - adc helper functions */
 
 static inline unsigned int sn95031_read(struct snd_soc_codec *codec,
 			unsigned int reg)
@@ -241,7 +359,7 @@ static const struct snd_kcontrol_new sn95031_input4_mux_control =
 static const char *sn95031_micmode_text[] = {"Single Ended", "Differential"};
 
 /* 0dB to 30dB in 10dB steps */
-static const DECLARE_TLV_DB_SCALE(mic_tlv, 0, 10, 30);
+static const DECLARE_TLV_DB_SCALE(mic_tlv, 0, 10, 0);
 
 static const struct soc_enum sn95031_micmode1_enum =
 	SOC_ENUM_SINGLE(SN95031_MICAMP1, 1, 2, sn95031_micmode_text);
@@ -401,6 +519,8 @@ static const struct snd_soc_dapm_widget sn95031_dapm_widgets[] = {
 
 static const struct snd_soc_dapm_route sn95031_audio_map[] = {
 	/* headset and earpiece map */
+	{ "HPOUTL", NULL, "Headset Rail"},
+	{ "HPOUTR", NULL, "Headset Rail"},
 	{ "HPOUTL", NULL, "Headset Left Playback" },
 	{ "HPOUTR", NULL, "Headset Right Playback" },
 	{ "EPOUT", NULL, "Earpiece Playback" },
@@ -409,18 +529,16 @@ static const struct snd_soc_dapm_route sn95031_audio_map[] = {
 	{ "Earpiece Playback", NULL, "Headset Left Filter"},
 	{ "Headset Left Filter", NULL, "HSDAC Left"},
 	{ "Headset Right Filter", NULL, "HSDAC Right"},
-	{ "HSDAC Left", NULL, "Headset Rail"},
-	{ "HSDAC Right", NULL, "Headset Rail"},
 
 	/* speaker map */
+	{ "IHFOUTL", NULL, "Speaker Rail"},
+	{ "IHFOUTR", NULL, "Speaker Rail"},
 	{ "IHFOUTL", "NULL", "Speaker Left Playback"},
 	{ "IHFOUTR", "NULL", "Speaker Right Playback"},
 	{ "Speaker Left Playback", NULL, "Speaker Left Filter"},
 	{ "Speaker Right Playback", NULL, "Speaker Right Filter"},
 	{ "Speaker Left Filter", NULL, "IHFDAC Left"},
 	{ "Speaker Right Filter", NULL, "IHFDAC Right"},
-	{ "IHFDAC Left", NULL, "Speaker Rail"},
-	{ "IHFDAC Right", NULL, "Speaker Rail"},
 
 	/* vibra map */
 	{ "VIB1OUT", NULL, "Vibra1 Playback"},
@@ -484,30 +602,30 @@ static const struct snd_soc_dapm_route sn95031_audio_map[] = {
 	{ "Txpath2 Capture Route", "ADC Right", "ADC Right"},
 	{ "Txpath3 Capture Route", "ADC Right", "ADC Right"},
 	{ "Txpath4 Capture Route", "ADC Right", "ADC Right"},
-	{ "Txpath1 Capture Route", NULL, "DMIC1"},
-	{ "Txpath2 Capture Route", NULL, "DMIC1"},
-	{ "Txpath3 Capture Route", NULL, "DMIC1"},
-	{ "Txpath4 Capture Route", NULL, "DMIC1"},
-	{ "Txpath1 Capture Route", NULL, "DMIC2"},
-	{ "Txpath2 Capture Route", NULL, "DMIC2"},
-	{ "Txpath3 Capture Route", NULL, "DMIC2"},
-	{ "Txpath4 Capture Route", NULL, "DMIC2"},
-	{ "Txpath1 Capture Route", NULL, "DMIC3"},
-	{ "Txpath2 Capture Route", NULL, "DMIC3"},
-	{ "Txpath3 Capture Route", NULL, "DMIC3"},
-	{ "Txpath4 Capture Route", NULL, "DMIC3"},
-	{ "Txpath1 Capture Route", NULL, "DMIC4"},
-	{ "Txpath2 Capture Route", NULL, "DMIC4"},
-	{ "Txpath3 Capture Route", NULL, "DMIC4"},
-	{ "Txpath4 Capture Route", NULL, "DMIC4"},
-	{ "Txpath1 Capture Route", NULL, "DMIC5"},
-	{ "Txpath2 Capture Route", NULL, "DMIC5"},
-	{ "Txpath3 Capture Route", NULL, "DMIC5"},
-	{ "Txpath4 Capture Route", NULL, "DMIC5"},
-	{ "Txpath1 Capture Route", NULL, "DMIC6"},
-	{ "Txpath2 Capture Route", NULL, "DMIC6"},
-	{ "Txpath3 Capture Route", NULL, "DMIC6"},
-	{ "Txpath4 Capture Route", NULL, "DMIC6"},
+	{ "Txpath1 Capture Route", "DMIC1", "DMIC1"},
+	{ "Txpath2 Capture Route", "DMIC1", "DMIC1"},
+	{ "Txpath3 Capture Route", "DMIC1", "DMIC1"},
+	{ "Txpath4 Capture Route", "DMIC1", "DMIC1"},
+	{ "Txpath1 Capture Route", "DMIC2", "DMIC2"},
+	{ "Txpath2 Capture Route", "DMIC2", "DMIC2"},
+	{ "Txpath3 Capture Route", "DMIC2", "DMIC2"},
+	{ "Txpath4 Capture Route", "DMIC2", "DMIC2"},
+	{ "Txpath1 Capture Route", "DMIC3", "DMIC3"},
+	{ "Txpath2 Capture Route", "DMIC3", "DMIC3"},
+	{ "Txpath3 Capture Route", "DMIC3", "DMIC3"},
+	{ "Txpath4 Capture Route", "DMIC3", "DMIC3"},
+	{ "Txpath1 Capture Route", "DMIC4", "DMIC4"},
+	{ "Txpath2 Capture Route", "DMIC4", "DMIC4"},
+	{ "Txpath3 Capture Route", "DMIC4", "DMIC4"},
+	{ "Txpath4 Capture Route", "DMIC4", "DMIC4"},
+	{ "Txpath1 Capture Route", "DMIC5", "DMIC5"},
+	{ "Txpath2 Capture Route", "DMIC5", "DMIC5"},
+	{ "Txpath3 Capture Route", "DMIC5", "DMIC5"},
+	{ "Txpath4 Capture Route", "DMIC5", "DMIC5"},
+	{ "Txpath1 Capture Route", "DMIC6", "DMIC6"},
+	{ "Txpath2 Capture Route", "DMIC6", "DMIC6"},
+	{ "Txpath3 Capture Route", "DMIC6", "DMIC6"},
+	{ "Txpath4 Capture Route", "DMIC6", "DMIC6"},
 
 	/* tx path */
 	{ "TX1 Enable", NULL, "Txpath1 Capture Route"},
@@ -648,6 +766,61 @@ struct snd_soc_dai_driver sn95031_dais[] = {
 	.ops = &sn95031_vib2_dai_ops,
 },
 };
+
+static inline void sn95031_disable_jack_btn(struct snd_soc_codec *codec)
+{
+	snd_soc_write(codec, SN95031_BTNCTRL2, 0x00);
+}
+
+static inline void sn95031_enable_jack_btn(struct snd_soc_codec *codec)
+{
+	snd_soc_write(codec, SN95031_BTNCTRL1, 0x77);
+	snd_soc_write(codec, SN95031_BTNCTRL2, 0x01);
+}
+
+static int sn95031_get_headset_state(struct snd_soc_jack *mfld_jack)
+{
+	int micbias = sn95031_get_mic_bias(mfld_jack->codec);
+
+	int jack_type = snd_soc_jack_get_type(mfld_jack, micbias);
+
+	pr_debug("jack type detected = %d\n", jack_type);
+	if (jack_type == SND_JACK_HEADSET)
+		sn95031_enable_jack_btn(mfld_jack->codec);
+	return jack_type;
+}
+
+void sn95031_jack_detection(struct mfld_jack_data *jack_data)
+{
+	unsigned int status;
+	unsigned int mask = SND_JACK_BTN_0 | SND_JACK_BTN_1 | SND_JACK_HEADSET;
+
+	pr_debug("interrupt id read in sram = 0x%x\n", jack_data->intr_id);
+	if (jack_data->intr_id & 0x1) {
+		pr_debug("short_push detected\n");
+		status = SND_JACK_HEADSET | SND_JACK_BTN_0;
+	} else if (jack_data->intr_id & 0x2) {
+		pr_debug("long_push detected\n");
+		status = SND_JACK_HEADSET | SND_JACK_BTN_1;
+	} else if (jack_data->intr_id & 0x4) {
+		pr_debug("headset or headphones inserted\n");
+		status = sn95031_get_headset_state(jack_data->mfld_jack);
+	} else if (jack_data->intr_id & 0x8) {
+		pr_debug("headset or headphones removed\n");
+		status = 0;
+		sn95031_disable_jack_btn(jack_data->mfld_jack->codec);
+	} else {
+		pr_err("unidentified interrupt\n");
+		return;
+	}
+
+	snd_soc_jack_report(jack_data->mfld_jack, status, mask);
+	/*button pressed and released so we send explicit button release */
+	if ((status & SND_JACK_BTN_0) | (status & SND_JACK_BTN_1))
+		snd_soc_jack_report(jack_data->mfld_jack,
+				SND_JACK_HEADSET, mask);
+}
+EXPORT_SYMBOL_GPL(sn95031_jack_detection);
 
 /* codec registration */
 static int sn95031_codec_probe(struct snd_soc_codec *codec)

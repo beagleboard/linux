@@ -38,9 +38,12 @@
 #include <mach/harmony_audio.h>
 
 #include <sound/core.h>
+#include <sound/jack.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
+
+#include "../codecs/wm8903.h"
 
 #include "tegra_das.h"
 #include "tegra_i2s.h"
@@ -49,10 +52,14 @@
 
 #define DRV_NAME "tegra-snd-harmony"
 
+#define GPIO_SPKR_EN    BIT(0)
+#define GPIO_INT_MIC_EN BIT(1)
+#define GPIO_EXT_MIC_EN BIT(2)
+
 struct tegra_harmony {
 	struct tegra_asoc_utils_data util_data;
 	struct harmony_audio_platform_data *pdata;
-	int gpio_spkr_en_requested;
+	int gpio_requested;
 };
 
 static int harmony_asoc_hw_params(struct snd_pcm_substream *substream,
@@ -123,6 +130,33 @@ static struct snd_soc_ops harmony_asoc_ops = {
 	.hw_params = harmony_asoc_hw_params,
 };
 
+static struct snd_soc_jack harmony_hp_jack;
+
+static struct snd_soc_jack_pin harmony_hp_jack_pins[] = {
+	{
+		.pin = "Headphone Jack",
+		.mask = SND_JACK_HEADPHONE,
+	},
+};
+
+static struct snd_soc_jack_gpio harmony_hp_jack_gpios[] = {
+	{
+		.name = "headphone detect",
+		.report = SND_JACK_HEADPHONE,
+		.debounce_time = 150,
+		.invert = 1,
+	}
+};
+
+static struct snd_soc_jack harmony_mic_jack;
+
+static struct snd_soc_jack_pin harmony_mic_jack_pins[] = {
+	{
+		.pin = "Mic Jack",
+		.mask = SND_JACK_MICROPHONE,
+	},
+};
+
 static int harmony_event_int_spk(struct snd_soc_dapm_widget *w,
 					struct snd_kcontrol *k, int event)
 {
@@ -154,6 +188,10 @@ static const struct snd_soc_dapm_route harmony_audio_map[] = {
 	{"IN1L", NULL, "Mic Bias"},
 };
 
+static const struct snd_kcontrol_new harmony_controls[] = {
+	SOC_DAPM_PIN_SWITCH("Int Spk"),
+};
+
 static int harmony_asoc_init(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_soc_codec *codec = rtd->codec;
@@ -168,9 +206,34 @@ static int harmony_asoc_init(struct snd_soc_pcm_runtime *rtd)
 		dev_err(card->dev, "cannot get spkr_en gpio\n");
 		return ret;
 	}
-	harmony->gpio_spkr_en_requested = 1;
+	harmony->gpio_requested |= GPIO_SPKR_EN;
 
 	gpio_direction_output(pdata->gpio_spkr_en, 0);
+
+	ret = gpio_request(pdata->gpio_int_mic_en, "int_mic_en");
+	if (ret) {
+		dev_err(card->dev, "cannot get int_mic_en gpio\n");
+		return ret;
+	}
+	harmony->gpio_requested |= GPIO_INT_MIC_EN;
+
+	/* Disable int mic; enable signal is active-high */
+	gpio_direction_output(pdata->gpio_int_mic_en, 0);
+
+	ret = gpio_request(pdata->gpio_ext_mic_en, "ext_mic_en");
+	if (ret) {
+		dev_err(card->dev, "cannot get ext_mic_en gpio\n");
+		return ret;
+	}
+	harmony->gpio_requested |= GPIO_EXT_MIC_EN;
+
+	/* Enable ext mic; enable signal is active-low */
+	gpio_direction_output(pdata->gpio_ext_mic_en, 0);
+
+	ret = snd_soc_add_controls(codec, harmony_controls,
+				   ARRAY_SIZE(harmony_controls));
+	if (ret < 0)
+		return ret;
 
 	snd_soc_dapm_new_controls(dapm, harmony_dapm_widgets,
 					ARRAY_SIZE(harmony_dapm_widgets));
@@ -178,9 +241,30 @@ static int harmony_asoc_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_add_routes(dapm, harmony_audio_map,
 				ARRAY_SIZE(harmony_audio_map));
 
-	snd_soc_dapm_enable_pin(dapm, "Headphone Jack");
-	snd_soc_dapm_enable_pin(dapm, "Int Spk");
-	snd_soc_dapm_enable_pin(dapm, "Mic Jack");
+	harmony_hp_jack_gpios[0].gpio = pdata->gpio_hp_det;
+	snd_soc_jack_new(codec, "Headphone Jack", SND_JACK_HEADPHONE,
+			 &harmony_hp_jack);
+	snd_soc_jack_add_pins(&harmony_hp_jack,
+			      ARRAY_SIZE(harmony_hp_jack_pins),
+			      harmony_hp_jack_pins);
+	snd_soc_jack_add_gpios(&harmony_hp_jack,
+			       ARRAY_SIZE(harmony_hp_jack_gpios),
+			       harmony_hp_jack_gpios);
+
+	snd_soc_jack_new(codec, "Mic Jack", SND_JACK_MICROPHONE,
+			 &harmony_mic_jack);
+	snd_soc_jack_add_pins(&harmony_mic_jack,
+			      ARRAY_SIZE(harmony_mic_jack_pins),
+			      harmony_mic_jack_pins);
+	wm8903_mic_detect(codec, &harmony_mic_jack, SND_JACK_MICROPHONE, 0);
+
+	snd_soc_dapm_force_enable_pin(dapm, "Mic Bias");
+
+	snd_soc_dapm_nc_pin(dapm, "IN3L");
+	snd_soc_dapm_nc_pin(dapm, "IN3R");
+	snd_soc_dapm_nc_pin(dapm, "LINEOUTL");
+	snd_soc_dapm_nc_pin(dapm, "LINEOUTR");
+
 	snd_soc_dapm_sync(dapm);
 
 	return 0;
@@ -189,7 +273,7 @@ static int harmony_asoc_init(struct snd_soc_pcm_runtime *rtd)
 static struct snd_soc_dai_link harmony_wm8903_dai = {
 	.name = "WM8903",
 	.stream_name = "WM8903 PCM",
-	.codec_name = "wm8903-codec.0-001a",
+	.codec_name = "wm8903.0-001a",
 	.platform_name = "tegra-pcm-audio",
 	.cpu_dai_name = "tegra-i2s.0",
 	.codec_dai_name = "wm8903-hifi",
@@ -270,7 +354,11 @@ static int __devexit tegra_snd_harmony_remove(struct platform_device *pdev)
 
 	tegra_asoc_utils_fini(&harmony->util_data);
 
-	if (harmony->gpio_spkr_en_requested)
+	if (harmony->gpio_requested & GPIO_EXT_MIC_EN)
+		gpio_free(pdata->gpio_ext_mic_en);
+	if (harmony->gpio_requested & GPIO_INT_MIC_EN)
+		gpio_free(pdata->gpio_int_mic_en);
+	if (harmony->gpio_requested & GPIO_SPKR_EN)
 		gpio_free(pdata->gpio_spkr_en);
 
 	kfree(harmony);
@@ -302,3 +390,4 @@ module_exit(snd_tegra_harmony_exit);
 MODULE_AUTHOR("Stephen Warren <swarren@nvidia.com>");
 MODULE_DESCRIPTION("Harmony machine ASoC driver");
 MODULE_LICENSE("GPL");
+MODULE_ALIAS("platform:" DRV_NAME);
