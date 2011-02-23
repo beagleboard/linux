@@ -667,6 +667,12 @@ static char *texts_ports_aio_out_qs[] = {
 	"Phone.L", "Phone.R"
 };
 
+static char *texts_ports_aes32[] = {
+	"AES.1", "AES.2", "AES.3", "AES.4", "AES.5", "AES.6", "AES.7",
+	"AES.8", "AES.9.", "AES.10", "AES.11", "AES.12", "AES.13", "AES.14",
+	"AES.15", "AES.16"
+};
+
 /* These tables map the ALSA channels 1..N to the channels that we
    need to use in order to find the relevant channel buffer. RME
    refers to this kind of mapping as between "the ADAT channel and
@@ -808,6 +814,17 @@ static char channel_map_aio_out_qs[HDSPM_MAX_CHANNELS] = {
 	12, 16,			/* adat out */
 	6, 7,			/* phone out */
 	-1, -1, -1, -1, -1, -1,
+	-1, -1, -1, -1, -1, -1, -1, -1,
+	-1, -1, -1, -1, -1, -1, -1, -1,
+	-1, -1, -1, -1, -1, -1, -1, -1,
+	-1, -1, -1, -1, -1, -1, -1, -1,
+	-1, -1, -1, -1, -1, -1, -1, -1,
+	-1, -1, -1, -1, -1, -1, -1, -1
+};
+
+static char channel_map_aes32[HDSPM_MAX_CHANNELS] = {
+	0, 1, 2, 3, 4, 5, 6, 7,
+	8, 9, 10, 11, 12, 13, 14, 15,
 	-1, -1, -1, -1, -1, -1, -1, -1,
 	-1, -1, -1, -1, -1, -1, -1, -1,
 	-1, -1, -1, -1, -1, -1, -1, -1,
@@ -1065,7 +1082,7 @@ static int hdspm_external_sample_rate(struct hdspm *hdspm)
 	case AES32:
 		status2 = hdspm_read(hdspm, HDSPM_statusRegister2);
 		status = hdspm_read(hdspm, HDSPM_statusRegister);
-		timecode =	hdspm_read(hdspm, HDSPM_timecodeRegister);
+		timecode = hdspm_read(hdspm, HDSPM_timecodeRegister);
 
 		syncref = hdspm_autosync_ref(hdspm);
 
@@ -1214,8 +1231,17 @@ static snd_pcm_uframes_t hdspm_hw_pointer(struct hdspm *hdspm)
 	int position;
 
 	position = hdspm_read(hdspm, HDSPM_statusRegister);
-	position &= HDSPM_BufferPositionMask;
-	position /= 4; /* Bytes per sample */
+
+	switch (hdspm->io_type) {
+	case RayDAT:
+	case AIO:
+		position &= HDSPM_BufferPositionMask;
+		position /= 4; /* Bytes per sample */
+		break;
+	default:
+		position = (position & HDSPM_BufferID) ?
+			(hdspm->period_bytes / 4) : 0;
+	}
 
 	return position;
 }
@@ -2088,6 +2114,29 @@ static int snd_hdspm_get_autosync_sample_rate(struct snd_kcontrol *kcontrol,
 			ucontrol->value.enumerated.item[0] =
 				hdspm_get_s1_sample_rate(hdspm,
 						ucontrol->id.index-1);
+		}
+
+	case AES32:
+
+		switch (kcontrol->private_value) {
+		case 0: /* WC */
+			ucontrol->value.enumerated.item[0] =
+				hdspm_get_wc_sample_rate(hdspm);
+			break;
+		case 9: /* TCO */
+			ucontrol->value.enumerated.item[0] =
+				hdspm_get_tco_sample_rate(hdspm);
+			break;
+		case 10: /* SYNC_IN */
+			ucontrol->value.enumerated.item[0] =
+				hdspm_get_sync_in_sample_rate(hdspm);
+			break;
+		default: /* AES1 to AES8 */
+			ucontrol->value.enumerated.item[0] =
+				hdspm_get_s1_sample_rate(hdspm,
+						kcontrol->private_value-1);
+			break;
+
 		}
 	default:
 		break;
@@ -3651,8 +3700,8 @@ static int hdspm_sync_in_sync_check(struct hdspm *hdspm)
 	case MADI:
 	case AES32:
 		status = hdspm_read(hdspm, HDSPM_statusRegister2);
-		lock = (status & 0x400000) ? 1 : 0;
-		sync = (status & 0x800000) ? 1 : 0;
+		lock = (status & HDSPM_syncInLock) ? 1 : 0;
+		sync = (status & HDSPM_syncInSync) ? 1 : 0;
 		break;
 
 	case MADIface:
@@ -3777,9 +3826,9 @@ static int snd_hdspm_get_sync_check(struct snd_kcontrol *kcontrol,
 			val = hdspm_tco_sync_check(hdspm); break;
 		case 10 /* SYNC IN */:
 			val = hdspm_sync_in_sync_check(hdspm); break;
-		default:
+		default: /* AES1 to AES8 */
 			 val = hdspm_aes_sync_check(hdspm,
-					 ucontrol->id.index-1);
+					 kcontrol->private_value-1);
 		}
 
 	}
@@ -4246,8 +4295,7 @@ static struct snd_kcontrol_new snd_hdspm_controls_madiface[] = {
 	HDSPM_SYNC_CHECK("MADI SyncCheck", 0),
 	HDSPM_TX_64("TX 64 channels mode", 0),
 	HDSPM_C_TMS("Clear Track Marker", 0),
-	HDSPM_SAFE_MODE("Safe Mode", 0),
-	HDSPM_INPUT_SELECT("Input Select", 0),
+	HDSPM_SAFE_MODE("Safe Mode", 0)
 };
 
 static struct snd_kcontrol_new snd_hdspm_controls_aio[] = {
@@ -5810,17 +5858,19 @@ static int snd_hdspm_playback_open(struct snd_pcm_substream *substream)
 		snd_pcm_hw_constraint_list(runtime, 0, SNDRV_PCM_HW_PARAM_RATE,
 				&hdspm_hw_constraints_aes32_sample_rates);
 	} else {
-		snd_pcm_hw_rule_add(runtime, 0, SNDRV_PCM_HW_PARAM_CHANNELS,
-				snd_hdspm_hw_rule_out_channels, hdspm,
-				SNDRV_PCM_HW_PARAM_CHANNELS, -1);
-		snd_pcm_hw_rule_add(runtime, 0, SNDRV_PCM_HW_PARAM_CHANNELS,
-				snd_hdspm_hw_rule_out_channels_rate, hdspm,
-				SNDRV_PCM_HW_PARAM_RATE, -1);
-
 		snd_pcm_hw_rule_add(runtime, 0, SNDRV_PCM_HW_PARAM_RATE,
 				snd_hdspm_hw_rule_rate_out_channels, hdspm,
 				SNDRV_PCM_HW_PARAM_CHANNELS, -1);
 	}
+
+	snd_pcm_hw_rule_add(runtime, 0, SNDRV_PCM_HW_PARAM_CHANNELS,
+			snd_hdspm_hw_rule_out_channels, hdspm,
+			SNDRV_PCM_HW_PARAM_CHANNELS, -1);
+
+	snd_pcm_hw_rule_add(runtime, 0, SNDRV_PCM_HW_PARAM_CHANNELS,
+			snd_hdspm_hw_rule_out_channels_rate, hdspm,
+			SNDRV_PCM_HW_PARAM_RATE, -1);
+
 	return 0;
 }
 
@@ -5878,17 +5928,19 @@ static int snd_hdspm_capture_open(struct snd_pcm_substream *substream)
 		snd_pcm_hw_constraint_list(runtime, 0, SNDRV_PCM_HW_PARAM_RATE,
 				&hdspm_hw_constraints_aes32_sample_rates);
 	} else {
-		snd_pcm_hw_rule_add(runtime, 0, SNDRV_PCM_HW_PARAM_CHANNELS,
-				     snd_hdspm_hw_rule_in_channels, hdspm,
-				     SNDRV_PCM_HW_PARAM_CHANNELS, -1);
-		snd_pcm_hw_rule_add(runtime, 0, SNDRV_PCM_HW_PARAM_CHANNELS,
-				    snd_hdspm_hw_rule_in_channels_rate, hdspm,
-				    SNDRV_PCM_HW_PARAM_RATE, -1);
-
 		snd_pcm_hw_rule_add(runtime, 0, SNDRV_PCM_HW_PARAM_RATE,
-				    snd_hdspm_hw_rule_rate_in_channels, hdspm,
-				    SNDRV_PCM_HW_PARAM_CHANNELS, -1);
+				snd_hdspm_hw_rule_rate_in_channels, hdspm,
+				SNDRV_PCM_HW_PARAM_CHANNELS, -1);
 	}
+
+	snd_pcm_hw_rule_add(runtime, 0, SNDRV_PCM_HW_PARAM_CHANNELS,
+			snd_hdspm_hw_rule_in_channels, hdspm,
+			SNDRV_PCM_HW_PARAM_CHANNELS, -1);
+
+	snd_pcm_hw_rule_add(runtime, 0, SNDRV_PCM_HW_PARAM_CHANNELS,
+			snd_hdspm_hw_rule_in_channels_rate, hdspm,
+			SNDRV_PCM_HW_PARAM_RATE, -1);
+
 	return 0;
 }
 
@@ -6029,6 +6081,7 @@ static int snd_hdspm_hwdep_ioctl(struct snd_hwdep *hw, struct file *file,
 
 	case SNDRV_HDSPM_IOCTL_GET_CONFIG:
 
+		memset(&info, 0, sizeof(info));
 		spin_lock_irq(&hdspm->lock);
 		info.pref_sync_ref = hdspm_pref_sync_ref(hdspm);
 		info.wordclock_sync_check = hdspm_wc_sync_check(hdspm);
@@ -6396,6 +6449,29 @@ static int __devinit snd_hdspm_create(struct snd_card *card,
 
 	switch (hdspm->io_type) {
 	case AES32:
+		hdspm->ss_in_channels = hdspm->ss_out_channels = 16;
+		hdspm->ds_in_channels = hdspm->ds_out_channels = 16;
+		hdspm->qs_in_channels = hdspm->qs_out_channels = 16;
+
+		hdspm->channel_map_in_ss = hdspm->channel_map_out_ss =
+			channel_map_aes32;
+		hdspm->channel_map_in_ds = hdspm->channel_map_out_ds =
+			channel_map_aes32;
+		hdspm->channel_map_in_qs = hdspm->channel_map_out_qs =
+			channel_map_aes32;
+		hdspm->port_names_in_ss = hdspm->port_names_out_ss =
+			texts_ports_aes32;
+		hdspm->port_names_in_ds = hdspm->port_names_out_ds =
+			texts_ports_aes32;
+		hdspm->port_names_in_qs = hdspm->port_names_out_qs =
+			texts_ports_aes32;
+
+		hdspm->max_channels_out = hdspm->max_channels_in = 16;
+		hdspm->port_names_in = hdspm->port_names_out =
+			texts_ports_aes32;
+		hdspm->channel_map_in = hdspm->channel_map_out =
+			channel_map_aes32;
+
 		break;
 
 	case MADI:
@@ -6409,9 +6485,9 @@ static int __devinit snd_hdspm_create(struct snd_card *card,
 
 		hdspm->channel_map_in_ss = hdspm->channel_map_out_ss =
 			channel_map_unity_ss;
-		hdspm->channel_map_in_ds = hdspm->channel_map_out_ss =
+		hdspm->channel_map_in_ds = hdspm->channel_map_out_ds =
 			channel_map_unity_ss;
-		hdspm->channel_map_in_qs = hdspm->channel_map_out_ss =
+		hdspm->channel_map_in_qs = hdspm->channel_map_out_qs =
 			channel_map_unity_ss;
 
 		hdspm->port_names_in_ss = hdspm->port_names_out_ss =
