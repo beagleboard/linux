@@ -207,7 +207,7 @@ static irqreturn_t retu_irq_handler(int irq, void *_retu)
 		return IRQ_NONE;
 	}
 
-	for (i = 0; idr != 0; i++, idr >>= 1) {
+	for (i = retu->irq_base; idr != 0; i++, idr >>= 1) {
 		if (!(idr & 1))
 			continue;
 
