@@ -506,6 +506,8 @@ MODULE_SUPPORTED_DEVICE("{{RME HDSPM-MADI}}");
 #define AIO_OUT_DS_CHANNELS        12
 #define AIO_OUT_QS_CHANNELS        10
 
+#define AES32_CHANNELS		16
+
 /* the size of a substream (1 mono data stream) */
 #define HDSPM_CHANNEL_BUFFER_SAMPLES  (16*1024)
 #define HDSPM_CHANNEL_BUFFER_BYTES    (4*HDSPM_CHANNEL_BUFFER_SAMPLES)
@@ -524,6 +526,7 @@ MODULE_SUPPORTED_DEVICE("{{RME HDSPM-MADI}}");
 #define HDSPM_AIO_REV		212
 #define HDSPM_MADIFACE_REV	213
 #define HDSPM_AES_REV		240
+#define HDSPM_AES32_REV		234
 
 /* speed factor modes */
 #define HDSPM_SPEED_SINGLE 0
@@ -6288,8 +6291,10 @@ static int __devinit snd_hdspm_create_pcm(struct snd_card *card,
 
 static inline void snd_hdspm_initialize_midi_flush(struct hdspm * hdspm)
 {
-	snd_hdspm_flush_midi_input(hdspm, 0);
-	snd_hdspm_flush_midi_input(hdspm, 1);
+	int i;
+
+	for (i = 0; i < hdspm->midiPorts; i++)
+		snd_hdspm_flush_midi_input(hdspm, i);
 }
 
 static int __devinit snd_hdspm_create_alsa_devices(struct snd_card *card,
@@ -6391,10 +6396,15 @@ static int __devinit snd_hdspm_create(struct snd_card *card,
 		hdspm->midiPorts = 1;
 		break;
 	case HDSPM_AES_REV:
+	case HDSPM_AES32_REV:
 		hdspm->io_type = AES32;
 		hdspm->card_name = "RME AES32";
 		hdspm->midiPorts = 2;
 		break;
+	default:
+		snd_printk(KERN_ERR "HDSPM: unknown firmware revision %x\n",
+				hdspm->firmware_rev);
+		return -ENODEV;
 	}
 
 	err = pci_enable_device(pci);
@@ -6449,9 +6459,9 @@ static int __devinit snd_hdspm_create(struct snd_card *card,
 
 	switch (hdspm->io_type) {
 	case AES32:
-		hdspm->ss_in_channels = hdspm->ss_out_channels = 16;
-		hdspm->ds_in_channels = hdspm->ds_out_channels = 16;
-		hdspm->qs_in_channels = hdspm->qs_out_channels = 16;
+		hdspm->ss_in_channels = hdspm->ss_out_channels = AES32_CHANNELS;
+		hdspm->ds_in_channels = hdspm->ds_out_channels = AES32_CHANNELS;
+		hdspm->qs_in_channels = hdspm->qs_out_channels = AES32_CHANNELS;
 
 		hdspm->channel_map_in_ss = hdspm->channel_map_out_ss =
 			channel_map_aes32;
@@ -6466,7 +6476,8 @@ static int __devinit snd_hdspm_create(struct snd_card *card,
 		hdspm->port_names_in_qs = hdspm->port_names_out_qs =
 			texts_ports_aes32;
 
-		hdspm->max_channels_out = hdspm->max_channels_in = 16;
+		hdspm->max_channels_out = hdspm->max_channels_in =
+			AES32_CHANNELS;
 		hdspm->port_names_in = hdspm->port_names_out =
 			texts_ports_aes32;
 		hdspm->channel_map_in = hdspm->channel_map_out =
