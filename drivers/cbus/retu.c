@@ -198,10 +198,12 @@ static irqreturn_t retu_irq_handler(int irq, void *_retu)
 	u16			idr;
 	u16			imr;
 
+	mutex_lock(&retu->mutex);
 	idr = __retu_read_reg(retu, RETU_REG_IDR);
 	imr = __retu_read_reg(retu, RETU_REG_IMR);
-	idr &= ~imr;
+	mutex_unlock(&retu->mutex);
 
+	idr &= ~imr;
 	if (!idr) {
 		dev_vdbg(retu->dev, "No IRQ, spurious?\n");
 		return IRQ_NONE;
