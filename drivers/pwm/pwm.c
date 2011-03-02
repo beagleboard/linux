@@ -262,6 +262,9 @@ int pwm_set_period_ns(struct pwm_device *p, unsigned long period_ns)
 		.period_ticks = pwm_ns_to_ticks(p, period_ns),
 	};
 
+	spin_lock(&p->pwm_lock);
+	p->period_ns = period_ns;
+	spin_unlock(&p->pwm_lock);
 	return pwm_config(p, &c);
 }
 EXPORT_SYMBOL(pwm_set_period_ns);
@@ -272,12 +275,60 @@ unsigned long pwm_get_period_ns(struct pwm_device *p)
 }
 EXPORT_SYMBOL(pwm_get_period_ns);
 
+int pwm_set_frequency(struct pwm_device *p, unsigned long freq)
+{
+	struct pwm_config c = {
+		.config_mask = BIT(PWM_CONFIG_PERIOD_TICKS),
+		.period_ticks = pwm_ns_to_ticks(p, (NSEC_PER_SEC / freq)),
+	};
+
+	if (!freq)
+		return -EINVAL;
+
+	spin_lock(&p->pwm_lock);
+	p->period_ns = NSEC_PER_SEC / freq;
+	spin_unlock(&p->pwm_lock);
+	return pwm_config(p, &c);
+}
+EXPORT_SYMBOL(pwm_set_frequency);
+
+unsigned long pwm_get_frequency(struct pwm_device *p)
+{
+	unsigned long period_ns;
+
+	 period_ns = pwm_ticks_to_ns(p, p->period_ticks);
+
+	if (!period_ns)
+		return 0;
+
+	return	NSEC_PER_SEC / period_ns;
+}
+EXPORT_SYMBOL(pwm_get_frequency);
+
+int pwm_set_period_ticks(struct pwm_device *p,
+					unsigned long ticks)
+{
+	struct pwm_config c = {
+		.config_mask = BIT(PWM_CONFIG_PERIOD_TICKS),
+		.period_ticks = ticks,
+	};
+
+	spin_lock(&p->pwm_lock);
+	p->period_ns = pwm_ticks_to_ns(p, ticks);
+	spin_unlock(&p->pwm_lock);
+	return pwm_config(p, &c);
+}
+EXPORT_SYMBOL(pwm_set_period_ticks);
+
 int pwm_set_duty_ns(struct pwm_device *p, unsigned long duty_ns)
 {
 	struct pwm_config c = {
 		.config_mask = BIT(PWM_CONFIG_DUTY_TICKS),
 		.duty_ticks = pwm_ns_to_ticks(p, duty_ns),
 	};
+	spin_lock(&p->pwm_lock);
+	p->duty_ns = duty_ns;
+	spin_unlock(&p->pwm_lock);
 	return pwm_config(p, &c);
 }
 EXPORT_SYMBOL(pwm_set_duty_ns);
@@ -294,9 +345,40 @@ int pwm_set_duty_percent(struct pwm_device *p, int percent)
 		.config_mask = BIT(PWM_CONFIG_DUTY_PERCENT),
 		.duty_percent = percent,
 	};
+
+	spin_lock(&p->pwm_lock);
+	p->duty_ns = p->period_ns * percent;
+	p->duty_ns /= 100;
+	spin_unlock(&p->pwm_lock);
 	return pwm_config(p, &c);
 }
 EXPORT_SYMBOL(pwm_set_duty_percent);
+
+unsigned long pwm_get_duty_percent(struct pwm_device *p)
+{
+	unsigned long long duty_percent;
+
+	duty_percent = pwm_ticks_to_ns(p, p->duty_ticks);
+	duty_percent *= 100;
+	do_div(duty_percent, p->period_ns);
+	return duty_percent;
+}
+EXPORT_SYMBOL(pwm_get_duty_percent);
+
+int pwm_set_duty_ticks(struct pwm_device *p,
+					unsigned long ticks)
+{
+	struct pwm_config c = {
+		.config_mask = BIT(PWM_CONFIG_DUTY_TICKS),
+		.duty_ticks = ticks,
+	};
+
+	spin_lock(&p->pwm_lock);
+	p->duty_ns = pwm_ticks_to_ns(p, ticks);
+	spin_unlock(&p->pwm_lock);
+	return pwm_config(p, &c);
+}
+EXPORT_SYMBOL(pwm_set_duty_ticks);
 
 int pwm_set_polarity(struct pwm_device *p, int active_high)
 {
@@ -421,6 +503,30 @@ static ssize_t pwm_duty_ns_store(struct device *dev,
 static DEVICE_ATTR(duty_ns, S_IRUGO | S_IWUSR, pwm_duty_ns_show,
 	       pwm_duty_ns_store);
 
+static ssize_t pwm_duty_percent_show(struct device *dev,
+				struct device_attribute *attr,
+				char *buf)
+{
+	struct pwm_device *p = dev_get_drvdata(dev);
+	return sprintf(buf, "%lu\n", pwm_get_duty_percent(p));
+}
+
+static ssize_t pwm_duty_percent_store(struct device *dev,
+				 struct device_attribute *attr,
+				 const char *buf,
+				 size_t len)
+{
+	unsigned long duty_ns;
+	struct pwm_device *p = dev_get_drvdata(dev);
+
+	if (!kstrtoul(buf, 10, &duty_ns))
+		pwm_set_duty_percent(p, duty_ns);
+	return len;
+}
+
+static DEVICE_ATTR(duty_percent, S_IRUGO | S_IWUSR, pwm_duty_percent_show,
+	       pwm_duty_percent_store);
+
 static ssize_t pwm_period_ns_show(struct device *dev,
 				  struct device_attribute *attr,
 				  char *buf)
@@ -442,6 +548,30 @@ static ssize_t pwm_period_ns_store(struct device *dev,
 }
 static DEVICE_ATTR(period_ns, S_IRUGO | S_IWUSR, pwm_period_ns_show,
 	       pwm_period_ns_store);
+
+static ssize_t pwm_period_freq_show(struct device *dev,
+				  struct device_attribute *attr,
+				  char *buf)
+{
+	struct pwm_device *p = dev_get_drvdata(dev);
+	return sprintf(buf, "%lu\n", pwm_get_frequency(p));
+}
+
+static ssize_t pwm_period_freq_store(struct device *dev,
+				   struct device_attribute *attr,
+				   const char *buf,
+				   size_t len)
+{
+	unsigned long freq_hz;
+
+	struct pwm_device *p = dev_get_drvdata(dev);
+	if (!kstrtoul(buf, 10, &freq_hz))
+		pwm_set_frequency(p, freq_hz);
+	return len;
+}
+
+static DEVICE_ATTR(period_freq, S_IRUGO | S_IWUSR, pwm_period_freq_show,
+	       pwm_period_freq_store);
 
 static ssize_t pwm_polarity_show(struct device *dev,
 				 struct device_attribute *attr,
@@ -502,6 +632,8 @@ static const struct attribute *pwm_attrs[] = {
 	&dev_attr_duty_ns.attr,
 	&dev_attr_period_ns.attr,
 	&dev_attr_request.attr,
+	&dev_attr_duty_percent.attr,
+	&dev_attr_period_freq.attr,
 	NULL,
 };
 

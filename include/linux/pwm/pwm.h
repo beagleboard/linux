@@ -98,6 +98,8 @@ struct pwm_device {
 	int active_high;
 	unsigned long period_ticks;
 	unsigned long duty_ticks;
+	unsigned long period_ns;
+	unsigned long duty_ns;
 	spinlock_t pwm_lock;
 };
 
@@ -159,6 +161,11 @@ int pwm_unregister(struct pwm_device *p);
 struct pwm_device *gpio_pwm_create(int gpio);
 int gpio_pwm_destroy(struct pwm_device *p);
 #endif
-
-
+int pwm_set_frequency(struct pwm_device *p, unsigned long freq);
+unsigned long pwm_get_frequency(struct pwm_device *p);
+int pwm_set_period_ticks(struct pwm_device *p,
+					unsigned long ticks);
+unsigned long pwm_get_duty_percent(struct pwm_device *p);
+int pwm_set_duty_ticks(struct pwm_device *p,
+					unsigned long ticks);
 #endif
