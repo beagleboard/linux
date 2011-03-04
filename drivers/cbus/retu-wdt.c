@@ -149,7 +149,7 @@ static long retu_wdt_ioctl(struct file *file, unsigned int cmd,
 	struct retu_wdt_dev *wdev = container_of(mdev, struct retu_wdt_dev, miscdev);
 	int new_margin;
 
-	static struct watchdog_info ident = {
+	static const struct watchdog_info ident = {
 		.identity = "Retu Watchdog",
 		.options = WDIOF_SETTIMEOUT,
 		.firmware_version = 0,
