@@ -1837,6 +1837,11 @@ static void snd_soc_instantiate_card(struct snd_soc_card *card)
 	}
 	card->snd_card->dev = card->dev;
 
+	card->dapm.bias_level = SND_SOC_BIAS_OFF;
+	card->dapm.dev = card->dev;
+	card->dapm.card = card;
+	list_add(&card->dapm.list, &card->dapm_list);
+
 #ifdef CONFIG_PM_SLEEP
 	/* deferred resume work */
 	INIT_WORK(&card->deferred_resume_work, soc_resume_deferred);
@@ -1867,10 +1872,36 @@ static void snd_soc_instantiate_card(struct snd_soc_card *card)
 		}
 	}
 
+	if (card->dapm_widgets)
+		snd_soc_dapm_new_controls(&card->dapm, card->dapm_widgets,
+					  card->num_dapm_widgets);
+	if (card->dapm_routes)
+		snd_soc_dapm_add_routes(&card->dapm, card->dapm_routes,
+					card->num_dapm_routes);
+
+#ifdef CONFIG_DEBUG_FS
+	card->dapm.debugfs_dapm = debugfs_create_dir("dapm",
+						     card->debugfs_card_root);
+	if (!card->dapm.debugfs_dapm)
+		printk(KERN_WARNING
+		       "Failed to create card DAPM debugfs directory\n");
+
+	snd_soc_dapm_debugfs_init(&card->dapm);
+#endif
+
 	snprintf(card->snd_card->shortname, sizeof(card->snd_card->shortname),
 		 "%s",  card->name);
 	snprintf(card->snd_card->longname, sizeof(card->snd_card->longname),
 		 "%s", card->name);
+
+	if (card->late_probe) {
+		ret = card->late_probe(card);
+		if (ret < 0) {
+			dev_err(card->dev, "%s late_probe() failed: %d\n",
+				card->name, ret);
+			goto probe_aux_dev_err;
+		}
+	}
 
 	ret = snd_card_register(card->snd_card);
 	if (ret < 0) {

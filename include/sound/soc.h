@@ -682,6 +682,7 @@ struct snd_soc_card {
 	bool instantiated;
 
 	int (*probe)(struct snd_soc_card *card);
+	int (*late_probe)(struct snd_soc_card *card);
 	int (*remove)(struct snd_soc_card *card);
 
 	/* the pre and post PM functions are used to do any PM work before and
@@ -718,6 +719,14 @@ struct snd_soc_card {
 	struct snd_soc_pcm_runtime *rtd_aux;
 	int num_aux_rtd;
 
+	/*
+	 * Card-specific routes and widgets.
+	 */
+	struct snd_soc_dapm_widget *dapm_widgets;
+	int num_dapm_widgets;
+	struct snd_soc_dapm_route *dapm_routes;
+	int num_dapm_routes;
+
 	struct work_struct deferred_resume_work;
 
 	/* lists of probed devices belonging to this card */
@@ -728,6 +737,9 @@ struct snd_soc_card {
 	struct list_head widgets;
 	struct list_head paths;
 	struct list_head dapm_list;
+
+	/* Generic DAPM context for the card */
+	struct snd_soc_dapm_context dapm;
 
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *debugfs_card_root;
