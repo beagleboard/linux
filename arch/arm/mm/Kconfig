@@ -404,7 +404,6 @@ config CPU_V6
 # ARMv6k
 config CPU_V6K
 	bool "Support ARM V6K processor" if ARCH_INTEGRATOR || MACH_REALVIEW_EB || MACH_REALVIEW_PBX
-	default y if SMP
 	select CPU_32v6
 	select CPU_32v6K
 	select CPU_ABRT_EV6
