@@ -725,6 +725,8 @@ static int __init tahvo_usb_probe(struct platform_device *pdev)
 
 static int __exit tahvo_usb_remove(struct platform_device *pdev)
 {
+	struct tahvo_usb *tu = platform_get_drvdata(pdev);
+
 	dev_dbg(&pdev->dev, "remove\n");
 
 	tahvo_free_irq(TAHVO_INT_VBUSON);
@@ -734,6 +736,8 @@ static int __exit tahvo_usb_remove(struct platform_device *pdev)
 #ifdef CONFIG_USB_OTG
 	device_remove_file(&pdev->dev, &dev_attr_otg_mode);
 #endif
+
+	kfree(tu);
 	tahvo_usb_device = NULL;
 
 	return 0;
