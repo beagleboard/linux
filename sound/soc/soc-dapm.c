@@ -366,9 +366,20 @@ static int dapm_new_mixer(struct snd_soc_dapm_context *dapm,
 	struct snd_soc_dapm_widget *w)
 {
 	int i, ret = 0;
-	size_t name_len;
+	size_t name_len, prefix_len;
 	struct snd_soc_dapm_path *path;
 	struct snd_card *card = dapm->card->snd_card;
+	const char *prefix;
+
+	if (dapm->codec)
+		prefix = dapm->codec->name_prefix;
+	else
+		prefix = NULL;
+
+	if (prefix)
+		prefix_len = strlen(prefix) + 1;
+	else
+		prefix_len = 0;
 
 	/* add kcontrol */
 	for (i = 0; i < w->num_kcontrols; i++) {
@@ -397,8 +408,15 @@ static int dapm_new_mixer(struct snd_soc_dapm_context *dapm,
 
 			switch (w->id) {
 			default:
+				/* The control will get a prefix from
+				 * the control creation process but
+				 * we're also using the same prefix
+				 * for widgets so cut the prefix off
+				 * the front of the widget name.
+				 */
 				snprintf(path->long_name, name_len, "%s %s",
-					 w->name, w->kcontrols[i].name);
+					 w->name + prefix_len,
+					 w->kcontrols[i].name);
 				break;
 			case snd_soc_dapm_mixer_named_ctl:
 				snprintf(path->long_name, name_len, "%s",
@@ -409,7 +427,7 @@ static int dapm_new_mixer(struct snd_soc_dapm_context *dapm,
 			path->long_name[name_len - 1] = '\0';
 
 			path->kcontrol = snd_soc_cnew(&w->kcontrols[i], w,
-				path->long_name);
+						      path->long_name, prefix);
 			ret = snd_ctl_add(card, path->kcontrol);
 			if (ret < 0) {
 				dev_err(dapm->dev,
@@ -431,6 +449,8 @@ static int dapm_new_mux(struct snd_soc_dapm_context *dapm,
 	struct snd_soc_dapm_path *path = NULL;
 	struct snd_kcontrol *kcontrol;
 	struct snd_card *card = dapm->card->snd_card;
+	const char *prefix;
+	size_t prefix_len;
 	int ret = 0;
 
 	if (!w->num_kcontrols) {
@@ -438,7 +458,22 @@ static int dapm_new_mux(struct snd_soc_dapm_context *dapm,
 		return -EINVAL;
 	}
 
-	kcontrol = snd_soc_cnew(&w->kcontrols[0], w, w->name);
+	if (dapm->codec)
+		prefix = dapm->codec->name_prefix;
+	else
+		prefix = NULL;
+
+	if (prefix)
+		prefix_len = strlen(prefix) + 1;
+	else
+		prefix_len = 0;
+
+	/* The control will get a prefix from the control creation
+	 * process but we're also using the same prefix for widgets so
+	 * cut the prefix off the front of the widget name.
+	 */
+	kcontrol = snd_soc_cnew(&w->kcontrols[0], w, w->name + prefix_len,
+				prefix);
 	ret = snd_ctl_add(card, kcontrol);
 
 	if (ret < 0)
@@ -972,7 +1007,7 @@ static void dapm_seq_run(struct snd_soc_dapm_context *dapm,
 	}
 
 	if (!list_empty(&pending))
-		dapm_seq_run_coalesced(dapm, &pending);
+		dapm_seq_run_coalesced(cur_dapm, &pending);
 
 	if (cur_dapm && cur_dapm->seq_notifier) {
 		for (i = 0; i < ARRAY_SIZE(dapm_up_seq); i++)

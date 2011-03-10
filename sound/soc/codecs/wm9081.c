@@ -389,27 +389,6 @@ SOC_DAPM_SINGLE("IN2 Switch", WM9081_ANALOGUE_MIXER, 2, 1, 0),
 SOC_DAPM_SINGLE("Playback Switch", WM9081_ANALOGUE_MIXER, 4, 1, 0),
 };
 
-static int speaker_event(struct snd_soc_dapm_widget *w,
-			 struct snd_kcontrol *kcontrol, int event)
-{
-	struct snd_soc_codec *codec = w->codec;
-	unsigned int reg = snd_soc_read(codec, WM9081_POWER_MANAGEMENT);
-
-	switch (event) {
-	case SND_SOC_DAPM_POST_PMU:
-		reg |= WM9081_SPK_ENA;
-		break;
-
-	case SND_SOC_DAPM_PRE_PMD:
-		reg &= ~WM9081_SPK_ENA;
-		break;
-	}
-
-	snd_soc_write(codec, WM9081_POWER_MANAGEMENT, reg);
-
-	return 0;
-}
-
 struct _fll_div {
 	u16 fll_fratio;
 	u16 fll_outdiv;
@@ -747,9 +726,8 @@ SND_SOC_DAPM_MIXER_NAMED_CTL("Mixer", SND_SOC_NOPM, 0, 0,
 
 SND_SOC_DAPM_PGA("LINEOUT PGA", WM9081_POWER_MANAGEMENT, 4, 0, NULL, 0),
 
-SND_SOC_DAPM_PGA_E("Speaker PGA", WM9081_POWER_MANAGEMENT, 2, 0, NULL, 0,
-		   speaker_event,
-		   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD),
+SND_SOC_DAPM_PGA("Speaker PGA", WM9081_POWER_MANAGEMENT, 2, 0, NULL, 0),
+SND_SOC_DAPM_PGA("Speaker", WM9081_POWER_MANAGEMENT, 1, 0, NULL, 0),
 
 SND_SOC_DAPM_OUTPUT("LINEOUT"),
 SND_SOC_DAPM_OUTPUT("SPKN"),
@@ -762,7 +740,7 @@ SND_SOC_DAPM_SUPPLY("TOCLK", WM9081_CLOCK_CONTROL_3, 2, 0, NULL, 0),
 };
 
 
-static const struct snd_soc_dapm_route audio_paths[] = {
+static const struct snd_soc_dapm_route wm9081_audio_paths[] = {
 	{ "DAC", NULL, "CLK_SYS" },
 	{ "DAC", NULL, "CLK_DSP" },
 
@@ -780,8 +758,10 @@ static const struct snd_soc_dapm_route audio_paths[] = {
 	{ "Speaker PGA", NULL, "TOCLK" },
 	{ "Speaker PGA", NULL, "CLK_SYS" },
 
-	{ "SPKN", NULL, "Speaker PGA" },
-	{ "SPKP", NULL, "Speaker PGA" },
+	{ "Speaker", NULL, "Speaker PGA" },
+
+	{ "SPKN", NULL, "Speaker" },
+	{ "SPKP", NULL, "Speaker" },
 };
 
 static int wm9081_set_bias_level(struct snd_soc_codec *codec,
@@ -1140,10 +1120,9 @@ static int wm9081_digital_mute(struct snd_soc_dai *codec_dai, int mute)
 	return 0;
 }
 
-static int wm9081_set_sysclk(struct snd_soc_dai *codec_dai,
+static int wm9081_set_sysclk(struct snd_soc_codec *codec,
 			     int clk_id, unsigned int freq, int dir)
 {
-	struct snd_soc_codec *codec = codec_dai->codec;
 	struct wm9081_priv *wm9081 = snd_soc_codec_get_drvdata(codec);
 
 	switch (clk_id) {
@@ -1208,7 +1187,6 @@ static int wm9081_set_tdm_slot(struct snd_soc_dai *dai,
 
 static struct snd_soc_dai_ops wm9081_dai_ops = {
 	.hw_params = wm9081_hw_params,
-	.set_sysclk = wm9081_set_sysclk,
 	.set_fmt = wm9081_set_dai_fmt,
 	.digital_mute = wm9081_digital_mute,
 	.set_tdm_slot = wm9081_set_tdm_slot,
@@ -1232,7 +1210,6 @@ static struct snd_soc_dai_driver wm9081_dai = {
 static int wm9081_probe(struct snd_soc_codec *codec)
 {
 	struct wm9081_priv *wm9081 = snd_soc_codec_get_drvdata(codec);
-	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	int ret;
 	u16 reg;
 
@@ -1282,10 +1259,6 @@ static int wm9081_probe(struct snd_soc_codec *codec)
 				     ARRAY_SIZE(wm9081_eq_controls));
 	}
 
-	snd_soc_dapm_new_controls(dapm, wm9081_dapm_widgets,
-				  ARRAY_SIZE(wm9081_dapm_widgets));
-	snd_soc_dapm_add_routes(dapm, audio_paths, ARRAY_SIZE(audio_paths));
-
 	return ret;
 }
 
@@ -1329,11 +1302,19 @@ static struct snd_soc_codec_driver soc_codec_dev_wm9081 = {
 	.remove = 	wm9081_remove,
 	.suspend =	wm9081_suspend,
 	.resume =	wm9081_resume,
+
+	.set_sysclk = wm9081_set_sysclk,
 	.set_bias_level = wm9081_set_bias_level,
+
 	.reg_cache_size = ARRAY_SIZE(wm9081_reg_defaults),
 	.reg_word_size = sizeof(u16),
 	.reg_cache_default = wm9081_reg_defaults,
 	.volatile_register = wm9081_volatile_register,
+
+	.dapm_widgets	  = wm9081_dapm_widgets,
+	.num_dapm_widgets = ARRAY_SIZE(wm9081_dapm_widgets),
+	.dapm_routes     = wm9081_audio_paths,
+	.num_dapm_routes = ARRAY_SIZE(wm9081_audio_paths),
 };
 
 #if defined(CONFIG_I2C) || defined(CONFIG_I2C_MODULE)

@@ -259,6 +259,11 @@ enum snd_soc_compress_type {
 	SND_SOC_RBTREE_COMPRESSION
 };
 
+int snd_soc_codec_set_sysclk(struct snd_soc_codec *codec, int clk_id,
+			     unsigned int freq, int dir);
+int snd_soc_codec_set_pll(struct snd_soc_codec *codec, int pll_id, int source,
+			  unsigned int freq_in, unsigned int freq_out);
+
 int snd_soc_register_card(struct snd_soc_card *card);
 int snd_soc_unregister_card(struct snd_soc_card *card);
 int snd_soc_suspend(struct device *dev);
@@ -335,7 +340,8 @@ void snd_soc_free_ac97_codec(struct snd_soc_codec *codec);
  *Controls
  */
 struct snd_kcontrol *snd_soc_cnew(const struct snd_kcontrol_new *_template,
-	void *data, char *long_name);
+				  void *data, char *long_name,
+				  const char *prefix);
 int snd_soc_add_controls(struct snd_soc_codec *codec,
 	const struct snd_kcontrol_new *controls, int num_controls);
 int snd_soc_info_enum_double(struct snd_kcontrol *kcontrol,
@@ -561,6 +567,18 @@ struct snd_soc_codec_driver {
 	int (*suspend)(struct snd_soc_codec *,
 			pm_message_t state);
 	int (*resume)(struct snd_soc_codec *);
+
+	/* Default DAPM setup, added after probe() is run */
+	const struct snd_soc_dapm_widget *dapm_widgets;
+	int num_dapm_widgets;
+	const struct snd_soc_dapm_route *dapm_routes;
+	int num_dapm_routes;
+
+	/* codec wide operations */
+	int (*set_sysclk)(struct snd_soc_codec *codec,
+			  int clk_id, unsigned int freq, int dir);
+	int (*set_pll)(struct snd_soc_codec *codec, int pll_id, int source,
+		unsigned int freq_in, unsigned int freq_out);
 
 	/* codec IO */
 	unsigned int (*read)(struct snd_soc_codec *, unsigned int);

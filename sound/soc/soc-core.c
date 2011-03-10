@@ -500,20 +500,30 @@ static int soc_pcm_apply_symmetry(struct snd_pcm_substream *substream)
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 	int ret;
 
-	if (codec_dai->driver->symmetric_rates || cpu_dai->driver->symmetric_rates ||
-			rtd->dai_link->symmetric_rates) {
-		dev_dbg(&rtd->dev, "Symmetry forces %dHz rate\n",
-				rtd->rate);
+	if (!codec_dai->driver->symmetric_rates &&
+	    !cpu_dai->driver->symmetric_rates &&
+	    !rtd->dai_link->symmetric_rates)
+		return 0;
 
-		ret = snd_pcm_hw_constraint_minmax(substream->runtime,
-						   SNDRV_PCM_HW_PARAM_RATE,
-						   rtd->rate,
-						   rtd->rate);
-		if (ret < 0) {
-			dev_err(&rtd->dev,
-				"Unable to apply rate symmetry constraint: %d\n", ret);
-			return ret;
-		}
+	/* This can happen if multiple streams are starting simultaneously -
+	 * the second can need to get its constraints before the first has
+	 * picked a rate.  Complain and allow the application to carry on.
+	 */
+	if (!rtd->rate) {
+		dev_warn(&rtd->dev,
+			 "Not enforcing symmetric_rates due to race\n");
+		return 0;
+	}
+
+	dev_dbg(&rtd->dev, "Symmetry forces %dHz rate\n", rtd->rate);
+
+	ret = snd_pcm_hw_constraint_minmax(substream->runtime,
+					   SNDRV_PCM_HW_PARAM_RATE,
+					   rtd->rate, rtd->rate);
+	if (ret < 0) {
+		dev_err(&rtd->dev,
+			"Unable to apply rate symmetry constraint: %d\n", ret);
+		return ret;
 	}
 
 	return 0;
@@ -1464,6 +1474,7 @@ static int soc_probe_codec(struct snd_soc_card *card,
 			   struct snd_soc_codec *codec)
 {
 	int ret = 0;
+	const struct snd_soc_codec_driver *driver = codec->driver;
 
 	codec->card = card;
 	codec->dapm.card = card;
@@ -1472,8 +1483,8 @@ static int soc_probe_codec(struct snd_soc_card *card,
 	if (!try_module_get(codec->dev->driver->owner))
 		return -ENODEV;
 
-	if (codec->driver->probe) {
-		ret = codec->driver->probe(codec);
+	if (driver->probe) {
+		ret = driver->probe(codec);
 		if (ret < 0) {
 			dev_err(codec->dev,
 				"asoc: failed to probe CODEC %s: %d\n",
@@ -1481,6 +1492,13 @@ static int soc_probe_codec(struct snd_soc_card *card,
 			goto err_probe;
 		}
 	}
+
+	if (driver->dapm_widgets)
+		snd_soc_dapm_new_controls(&codec->dapm, driver->dapm_widgets,
+					  driver->num_dapm_widgets);
+	if (driver->dapm_routes)
+		snd_soc_dapm_add_routes(&codec->dapm, driver->dapm_routes,
+					driver->num_dapm_routes);
 
 	soc_init_codec_debugfs(codec);
 
@@ -2326,22 +2344,45 @@ EXPORT_SYMBOL_GPL(snd_soc_set_runtime_hwparams);
  * @_template: control template
  * @data: control private data
  * @long_name: control long name
+ * @prefix: control name prefix
  *
  * Create a new mixer control from a template control.
  *
  * Returns 0 for success, else error.
  */
 struct snd_kcontrol *snd_soc_cnew(const struct snd_kcontrol_new *_template,
-	void *data, char *long_name)
+				  void *data, char *long_name,
+				  const char *prefix)
 {
 	struct snd_kcontrol_new template;
+	struct snd_kcontrol *kcontrol;
+	char *name = NULL;
+	int name_len;
 
 	memcpy(&template, _template, sizeof(template));
-	if (long_name)
-		template.name = long_name;
 	template.index = 0;
 
-	return snd_ctl_new1(&template, data);
+	if (!long_name)
+		long_name = template.name;
+
+	if (prefix) {
+		name_len = strlen(long_name) + strlen(prefix) + 2;
+		name = kmalloc(name_len, GFP_ATOMIC);
+		if (!name)
+			return NULL;
+
+		snprintf(name, name_len, "%s %s", prefix, long_name);
+
+		template.name = name;
+	} else {
+		template.name = long_name;
+	}
+
+	kcontrol = snd_ctl_new1(&template, data);
+
+	kfree(name);
+
+	return kcontrol;
 }
 EXPORT_SYMBOL_GPL(snd_soc_cnew);
 
@@ -2360,22 +2401,16 @@ int snd_soc_add_controls(struct snd_soc_codec *codec,
 	const struct snd_kcontrol_new *controls, int num_controls)
 {
 	struct snd_card *card = codec->card->snd_card;
-	char prefixed_name[44], *name;
 	int err, i;
 
 	for (i = 0; i < num_controls; i++) {
 		const struct snd_kcontrol_new *control = &controls[i];
-		if (codec->name_prefix) {
-			snprintf(prefixed_name, sizeof(prefixed_name), "%s %s",
-				 codec->name_prefix, control->name);
-			name = prefixed_name;
-		} else {
-			name = control->name;
-		}
-		err = snd_ctl_add(card, snd_soc_cnew(control, codec, name));
+		err = snd_ctl_add(card, snd_soc_cnew(control, codec,
+						     control->name,
+						     codec->name_prefix));
 		if (err < 0) {
 			dev_err(codec->dev, "%s: Failed to add %s: %d\n",
-				codec->name, name, err);
+				codec->name, control->name, err);
 			return err;
 		}
 	}
@@ -3056,10 +3091,32 @@ int snd_soc_dai_set_sysclk(struct snd_soc_dai *dai, int clk_id,
 {
 	if (dai->driver && dai->driver->ops->set_sysclk)
 		return dai->driver->ops->set_sysclk(dai, clk_id, freq, dir);
+	else if (dai->codec && dai->codec->driver->set_sysclk)
+		return dai->codec->driver->set_sysclk(dai->codec, clk_id,
+						      freq, dir);
 	else
 		return -EINVAL;
 }
 EXPORT_SYMBOL_GPL(snd_soc_dai_set_sysclk);
+
+/**
+ * snd_soc_codec_set_sysclk - configure CODEC system or master clock.
+ * @codec: CODEC
+ * @clk_id: DAI specific clock ID
+ * @freq: new clock frequency in Hz
+ * @dir: new clock direction - input/output.
+ *
+ * Configures the CODEC master (MCLK) or system (SYSCLK) clocking.
+ */
+int snd_soc_codec_set_sysclk(struct snd_soc_codec *codec, int clk_id,
+	unsigned int freq, int dir)
+{
+	if (codec->driver->set_sysclk)
+		return codec->driver->set_sysclk(codec, clk_id, freq, dir);
+	else
+		return -EINVAL;
+}
+EXPORT_SYMBOL_GPL(snd_soc_codec_set_sysclk);
 
 /**
  * snd_soc_dai_set_clkdiv - configure DAI clock dividers.
@@ -3097,10 +3154,34 @@ int snd_soc_dai_set_pll(struct snd_soc_dai *dai, int pll_id, int source,
 	if (dai->driver && dai->driver->ops->set_pll)
 		return dai->driver->ops->set_pll(dai, pll_id, source,
 					 freq_in, freq_out);
+	else if (dai->codec && dai->codec->driver->set_pll)
+		return dai->codec->driver->set_pll(dai->codec, pll_id, source,
+						   freq_in, freq_out);
 	else
 		return -EINVAL;
 }
 EXPORT_SYMBOL_GPL(snd_soc_dai_set_pll);
+
+/*
+ * snd_soc_codec_set_pll - configure codec PLL.
+ * @codec: CODEC
+ * @pll_id: DAI specific PLL ID
+ * @source: DAI specific source for the PLL
+ * @freq_in: PLL input clock frequency in Hz
+ * @freq_out: requested PLL output clock frequency in Hz
+ *
+ * Configures and enables PLL to generate output clock based on input clock.
+ */
+int snd_soc_codec_set_pll(struct snd_soc_codec *codec, int pll_id, int source,
+			  unsigned int freq_in, unsigned int freq_out)
+{
+	if (codec->driver->set_pll)
+		return codec->driver->set_pll(codec, pll_id, source,
+					      freq_in, freq_out);
+	else
+		return -EINVAL;
+}
+EXPORT_SYMBOL_GPL(snd_soc_codec_set_pll);
 
 /**
  * snd_soc_dai_set_fmt - configure DAI hardware audio format.
