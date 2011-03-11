@@ -22,6 +22,7 @@
 #define __ASM__ARCH_OMAP_I2C_H
 
 #include <linux/i2c.h>
+#include <linux/i2c-omap.h>
 
 #if defined(CONFIG_I2C_OMAP) || defined(CONFIG_I2C_OMAP_MODULE)
 extern int omap_register_i2c_bus(int bus_id, u32 clkrate,
@@ -46,7 +47,7 @@ static inline int omap_register_i2c_bus(int bus_id, u32 clkrate,
  */
 struct omap_i2c_dev_attr {
 	u8	fifo_depth;
-	u8	flags;
+	u32	flags;
 };
 
 void __init omap1_i2c_mux_pins(int bus_id);
