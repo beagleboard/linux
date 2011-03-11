@@ -35,19 +35,22 @@ struct msm_dmov_cmd {
 };
 
 #ifndef CONFIG_ARCH_MSM8X60
-void msm_dmov_enqueue_cmd(unsigned id, struct msm_dmov_cmd *cmd);
-void msm_dmov_stop_cmd(unsigned id, struct msm_dmov_cmd *cmd, int graceful);
+int msm_dmov_enqueue_cmd(unsigned id, struct msm_dmov_cmd *cmd);
+int msm_dmov_stop_cmd(unsigned id, struct msm_dmov_cmd *cmd, int graceful);
 int msm_dmov_exec_cmd(unsigned id, unsigned int cmdptr);
-void msm_dmov_flush(unsigned int id);
+int msm_dmov_flush(unsigned int id);
 #else
 static inline
-void msm_dmov_enqueue_cmd(unsigned id, struct msm_dmov_cmd *cmd) { }
+int msm_dmov_enqueue_cmd(unsigned id, struct msm_dmov_cmd *cmd) { return -EIO; }
 static inline
-void msm_dmov_stop_cmd(unsigned id, struct msm_dmov_cmd *cmd, int graceful) { }
+int msm_dmov_stop_cmd(unsigned id, struct msm_dmov_cmd *cmd, int graceful)
+{
+	return -EIO;
+}
 static inline
 int msm_dmov_exec_cmd(unsigned id, unsigned int cmdptr) { return -EIO; }
 static inline
-void msm_dmov_flush(unsigned int id) { }
+int msm_dmov_flush(unsigned int id) { return -EIO; }
 #endif
 
 #define DMOV_CMD_LIST         (0 << 29) /* does not work */

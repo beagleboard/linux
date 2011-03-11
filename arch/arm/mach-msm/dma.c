@@ -100,12 +100,17 @@ static inline void dmov_writel(unsigned val, unsigned addr, int adm)
 #define DMOV_ID_TO_CHAN(id)   ((id) % MSM_DMOV_CHANNEL_COUNT)
 #define DMOV_CHAN_ADM_TO_ID(ch, adm) ((ch) + (adm) * MSM_DMOV_CHANNEL_COUNT)
 
-void msm_dmov_stop_cmd(unsigned id, struct msm_dmov_cmd *cmd, int graceful)
+int msm_dmov_stop_cmd(unsigned id, struct msm_dmov_cmd *cmd, int graceful)
 {
 	int adm = DMOV_ID_TO_ADM(id);
 	int ch = DMOV_ID_TO_CHAN(id);
 
+	if (!dmov_conf[adm].base)
+		return -ENODEV;
+
 	dmov_writel((graceful << 31), DMOV_FLUSH0(ch), adm);
+
+	return 0;
 }
 EXPORT_SYMBOL(msm_dmov_stop_cmd);
 
@@ -134,12 +139,15 @@ static void msm_dmov_clocks_off(int adm)
 		clk_disable(dmov_conf[adm].pclk);
 }
 
-void msm_dmov_enqueue_cmd(unsigned id, struct msm_dmov_cmd *cmd)
+int msm_dmov_enqueue_cmd(unsigned id, struct msm_dmov_cmd *cmd)
 {
 	unsigned long irq_flags;
 	unsigned int status;
 	int adm = DMOV_ID_TO_ADM(id);
 	int ch = DMOV_ID_TO_CHAN(id);
+
+	if (!dmov_conf[adm].base)
+		return -ENODEV;
 
 	spin_lock_irqsave(&dmov_conf[adm].lock, irq_flags);
 	if (!dmov_conf[adm].channel_active)
@@ -168,14 +176,19 @@ void msm_dmov_enqueue_cmd(unsigned id, struct msm_dmov_cmd *cmd)
 		list_add_tail(&cmd->list, &dmov_conf[adm].ready_commands[ch]);
 	}
 	spin_unlock_irqrestore(&dmov_conf[adm].lock, irq_flags);
+
+	return 0;
 }
 EXPORT_SYMBOL(msm_dmov_enqueue_cmd);
 
-void msm_dmov_flush(unsigned int id)
+int msm_dmov_flush(unsigned int id)
 {
 	unsigned long flags;
 	int ch = DMOV_ID_TO_CHAN(id);
 	int adm = DMOV_ID_TO_ADM(id);
+
+	if (!dmov_conf[adm].base)
+		return -ENODEV;
 
 	spin_lock_irqsave(&dmov_conf[adm].lock, flags);
 	/* XXX not checking if flush cmd sent already */
@@ -184,6 +197,8 @@ void msm_dmov_flush(unsigned int id)
 		dmov_writel(DMOV_FLUSH_GRACEFUL, DMOV_FLUSH0(ch), adm);
 	}
 	spin_unlock_irqrestore(&dmov_conf[adm].lock, flags);
+
+	return 0;
 }
 EXPORT_SYMBOL(msm_dmov_flush);
 
@@ -211,6 +226,10 @@ dmov_exec_cmdptr_complete_func(struct msm_dmov_cmd *_cmd,
 int msm_dmov_exec_cmd(unsigned id, unsigned int cmdptr)
 {
 	struct msm_dmov_exec_cmdptr_cmd cmd;
+	int adm = DMOV_ID_TO_ADM(id);
+
+	if (!dmov_conf[adm].base)
+		return -ENODEV;
 
 	PRINT_FLOW("dmov_exec_cmdptr(%d, %x)\n", id, cmdptr);
 
@@ -424,6 +443,7 @@ static int __devinit msm_dmov_conf_init(struct platform_device *pdev)
 static inline void __devinit msm_dmov_conf_free(int adm)
 {
 	iounmap(dmov_conf[adm].base);
+	dmov_conf[adm].base = NULL;
 }
 
 static int __devinit msm_dmov_probe(struct platform_device *pdev)
