@@ -1329,21 +1329,8 @@ static int at_context_queue_packet(struct context *ctx,
 				     DESCRIPTOR_IRQ_ALWAYS |
 				     DESCRIPTOR_BRANCH_ALWAYS);
 
-	/*
-	 * If the controller and packet generations don't match, we need to
-	 * bail out and try again.  If IntEvent.busReset is set, the AT context
-	 * is halted, so appending to the context and trying to run it is
-	 * futile.  Most controllers do the right thing and just flush the AT
-	 * queue (per section 7.2.3.2 of the OHCI 1.1 specification), but
-	 * some controllers (like a JMicron JMB381 PCI-e) misbehave and wind
-	 * up stalling out.  So we just bail out in software and try again
-	 * later, and everyone is happy.
-	 * FIXME: Test of IntEvent.busReset may no longer be necessary since we
-	 *        flush AT queues in bus_reset_tasklet.
-	 * FIXME: Document how the locking works.
-	 */
-	if (ohci->generation != packet->generation ||
-	    reg_read(ohci, OHCI1394_IntEventSet) & OHCI1394_busReset) {
+	/* FIXME: Document how the locking works. */
+	if (ohci->generation != packet->generation) {
 		if (packet->payload_mapped)
 			dma_unmap_single(ohci->card.device, payload_bus,
 					 packet->payload_length, DMA_TO_DEVICE);
@@ -3322,7 +3309,7 @@ static int __devinit pci_probe(struct pci_dev *dev,
  fail_disable:
 	pci_disable_device(dev);
  fail_free:
-	kfree(&ohci->card);
+	kfree(ohci);
 	pmac_ohci_off(dev);
  fail:
 	if (err == -ENOMEM)
@@ -3366,7 +3353,7 @@ static void pci_remove(struct pci_dev *dev)
 	pci_iounmap(dev, ohci->registers);
 	pci_release_region(dev, 0);
 	pci_disable_device(dev);
-	kfree(&ohci->card);
+	kfree(ohci);
 	pmac_ohci_off(dev);
 
 	fw_notify("Removed fw-ohci device.\n");
