@@ -116,20 +116,20 @@
 # define MULTI_CACHE 1
 #endif
 
-#if defined(CONFIG_CPU_V6)
-//# ifdef _CACHE
+#if defined(CONFIG_CPU_CACHE_V6)
+# ifdef _CACHE
 #  define MULTI_CACHE 1
-//# else
-//#  define _CACHE v6
-//# endif
+# else
+#  define _CACHE v6
+# endif
 #endif
 
-#if defined(CONFIG_CPU_V7)
-//# ifdef _CACHE
+#if defined(CONFIG_CPU_CACHE_V7)
+# ifdef _CACHE
 #  define MULTI_CACHE 1
-//# else
-//#  define _CACHE v7
-//# endif
+# else
+#  define _CACHE v7
+# endif
 #endif
 
 #if !defined(_CACHE) && !defined(MULTI_CACHE)
@@ -316,7 +316,8 @@ extern void copy_to_user_page(struct vm_area_struct *, struct page *,
  * Optimized __flush_icache_all for the common cases. Note that UP ARMv7
  * will fall through to use __flush_icache_all_generic.
  */
-#if (defined(CONFIG_CPU_V7) && defined(CONFIG_CPU_V6)) ||		\
+#if (defined(CONFIG_CPU_V7) && \
+     (defined(CONFIG_CPU_V6) || defined(CONFIG_CPU_V6K))) || \
 	defined(CONFIG_SMP_ON_UP)
 #define __flush_icache_preferred	__cpuc_flush_icache_all
 #elif __LINUX_ARM_ARCH__ >= 7 && defined(CONFIG_SMP)
