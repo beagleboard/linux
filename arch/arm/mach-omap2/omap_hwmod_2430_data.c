@@ -1547,6 +1547,7 @@ static struct omap_hwmod_ocp_if *omap2430_i2c1_slaves[] = {
 
 static struct omap_hwmod omap2430_i2c1_hwmod = {
 	.name		= "i2c1",
+	.flags		= HWMOD_16BIT_REG,
 	.mpu_irqs	= i2c1_mpu_irqs,
 	.mpu_irqs_cnt	= ARRAY_SIZE(i2c1_mpu_irqs),
 	.sdma_reqs	= i2c1_sdma_reqs,
@@ -1593,6 +1594,7 @@ static struct omap_hwmod_ocp_if *omap2430_i2c2_slaves[] = {
 
 static struct omap_hwmod omap2430_i2c2_hwmod = {
 	.name		= "i2c2",
+	.flags		= HWMOD_16BIT_REG,
 	.mpu_irqs	= i2c2_mpu_irqs,
 	.mpu_irqs_cnt	= ARRAY_SIZE(i2c2_mpu_irqs),
 	.sdma_reqs	= i2c2_sdma_reqs,
