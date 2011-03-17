@@ -157,6 +157,7 @@ MODULE_PARM_DESC(cardtype,
 		 "\t\t\t 7 = Leadtek WinFast PVR2100\n"
 		 "\t\t\t 8 = Leadtek WinFast DVR3100 H\n"
 		 "\t\t\t 9 = GoTView PCI DVD3 Hybrid\n"
+		 "\t\t\t 10 = Hauppauge HVR 1600 (S5H1411)\n"
 		 "\t\t\t 0 = Autodetect (default)\n"
 		 "\t\t\t-1 = Ignore this card\n\t\t");
 MODULE_PARM_DESC(pal, "Set PAL standard: B, G, H, D, K, I, M, N, Nc, 60");
@@ -337,6 +338,7 @@ void cx18_read_eeprom(struct cx18 *cx, struct tveeprom *tv)
 	switch (cx->card->type) {
 	case CX18_CARD_HVR_1600_ESMT:
 	case CX18_CARD_HVR_1600_SAMSUNG:
+	case CX18_CARD_HVR_1600_S5H1411:
 		tveeprom_hauppauge_analog(&c, tv, eedata);
 		break;
 	case CX18_CARD_YUAN_MPC718:
@@ -365,7 +367,25 @@ static void cx18_process_eeprom(struct cx18 *cx)
 	   from the model number. Use the cardtype module option if you
 	   have one of these preproduction models. */
 	switch (tv.model) {
-	case 74000 ... 74999:
+	case 74301: /* Retail models */
+	case 74321:
+	case 74351: /* OEM models */
+	case 74361:
+		/* Digital side is s5h1411/tda18271 */
+		cx->card = cx18_get_card(CX18_CARD_HVR_1600_S5H1411);
+		break;
+	case 74021: /* Retail models */
+	case 74031:
+	case 74041:
+	case 74141:
+	case 74541: /* OEM models */
+	case 74551:
+	case 74591:
+	case 74651:
+	case 74691:
+	case 74751:
+	case 74891:
+		/* Digital side is s5h1409/mxl5005s */
 		cx->card = cx18_get_card(CX18_CARD_HVR_1600_ESMT);
 		break;
 	case 0x718:
@@ -377,7 +397,8 @@ static void cx18_process_eeprom(struct cx18 *cx)
 		CX18_ERR("Invalid EEPROM\n");
 		return;
 	default:
-		CX18_ERR("Unknown model %d, defaulting to HVR-1600\n", tv.model);
+		CX18_ERR("Unknown model %d, defaulting to original HVR-1600 "
+			 "(cardtype=1)\n", tv.model);
 		cx->card = cx18_get_card(CX18_CARD_HVR_1600_ESMT);
 		break;
 	}
@@ -664,21 +685,9 @@ static int __devinit cx18_create_in_workq(struct cx18 *cx)
 {
 	snprintf(cx->in_workq_name, sizeof(cx->in_workq_name), "%s-in",
 		 cx->v4l2_dev.name);
-	cx->in_work_queue = create_singlethread_workqueue(cx->in_workq_name);
+	cx->in_work_queue = alloc_ordered_workqueue(cx->in_workq_name, 0);
 	if (cx->in_work_queue == NULL) {
 		CX18_ERR("Unable to create incoming mailbox handler thread\n");
-		return -ENOMEM;
-	}
-	return 0;
-}
-
-static int __devinit cx18_create_out_workq(struct cx18 *cx)
-{
-	snprintf(cx->out_workq_name, sizeof(cx->out_workq_name), "%s-out",
-		 cx->v4l2_dev.name);
-	cx->out_work_queue = create_workqueue(cx->out_workq_name);
-	if (cx->out_work_queue == NULL) {
-		CX18_ERR("Unable to create outgoing mailbox handler threads\n");
 		return -ENOMEM;
 	}
 	return 0;
@@ -710,15 +719,9 @@ static int __devinit cx18_init_struct1(struct cx18 *cx)
 	mutex_init(&cx->epu2apu_mb_lock);
 	mutex_init(&cx->epu2cpu_mb_lock);
 
-	ret = cx18_create_out_workq(cx);
+	ret = cx18_create_in_workq(cx);
 	if (ret)
 		return ret;
-
-	ret = cx18_create_in_workq(cx);
-	if (ret) {
-		destroy_workqueue(cx->out_work_queue);
-		return ret;
-	}
 
 	cx18_init_in_work_orders(cx);
 
@@ -1107,7 +1110,6 @@ free_mem:
 	release_mem_region(cx->base_addr, CX18_MEM_SIZE);
 free_workqueues:
 	destroy_workqueue(cx->in_work_queue);
-	destroy_workqueue(cx->out_work_queue);
 err:
 	if (retval == 0)
 		retval = -ENODEV;
@@ -1259,7 +1261,6 @@ static void cx18_remove(struct pci_dev *pci_dev)
 	cx18_halt_firmware(cx);
 
 	destroy_workqueue(cx->in_work_queue);
-	destroy_workqueue(cx->out_work_queue);
 
 	cx18_streams_cleanup(cx, 1);
 

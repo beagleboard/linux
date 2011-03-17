@@ -5,7 +5,7 @@
  *****************************************************************************/
 
 /*
- * Copyright (C) 2000 - 2010, Intel Corp.
+ * Copyright (C) 2000 - 2011, Intel Corp.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -416,10 +416,15 @@ struct acpi_gpe_handler_info {
 	u8 originally_enabled;  /* True if GPE was originally enabled */
 };
 
+struct acpi_gpe_notify_object {
+	struct acpi_namespace_node *node;
+	struct acpi_gpe_notify_object *next;
+};
+
 union acpi_gpe_dispatch_info {
 	struct acpi_namespace_node *method_node;	/* Method node for this GPE level */
 	struct acpi_gpe_handler_info *handler;  /* Installed GPE handler */
-	struct acpi_namespace_node *device_node;        /* Parent _PRW device for implicit notify */
+	struct acpi_gpe_notify_object device;   /* List of _PRW devices for implicit notify */
 };
 
 /*

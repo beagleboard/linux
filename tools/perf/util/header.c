@@ -270,10 +270,14 @@ int build_id_cache__add_s(const char *sbuild_id, const char *debugdir,
 			  const char *name, bool is_kallsyms)
 {
 	const size_t size = PATH_MAX;
-	char *realname = realpath(name, NULL),
-	     *filename = malloc(size),
+	char *realname, *filename = malloc(size),
 	     *linkname = malloc(size), *targetname;
 	int len, err = -1;
+
+	if (is_kallsyms)
+		realname = (char *)name;
+	else
+		realname = realpath(name, NULL);
 
 	if (realname == NULL || filename == NULL || linkname == NULL)
 		goto out_free;
@@ -306,7 +310,8 @@ int build_id_cache__add_s(const char *sbuild_id, const char *debugdir,
 	if (symlink(targetname, linkname) == 0)
 		err = 0;
 out_free:
-	free(realname);
+	if (!is_kallsyms)
+		free(realname);
 	free(filename);
 	free(linkname);
 	return err;
@@ -798,8 +803,8 @@ static int perf_file_section__process(struct perf_file_section *self,
 				      int feat, int fd)
 {
 	if (lseek(fd, self->offset, SEEK_SET) == (off_t)-1) {
-		pr_debug("Failed to lseek to %Ld offset for feature %d, "
-			 "continuing...\n", self->offset, feat);
+		pr_debug("Failed to lseek to %" PRIu64 " offset for feature "
+			  "%d, continuing...\n", self->offset, feat);
 		return 0;
 	}
 

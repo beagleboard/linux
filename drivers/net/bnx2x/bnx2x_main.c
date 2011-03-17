@@ -1974,13 +1974,22 @@ static void bnx2x_init_vn_minmax(struct bnx2x *bp, int vn)
 		vn_max_rate = 0;
 
 	} else {
+		u32 maxCfg = bnx2x_extract_max_cfg(bp, vn_cfg);
+
 		vn_min_rate = ((vn_cfg & FUNC_MF_CFG_MIN_BW_MASK) >>
 				FUNC_MF_CFG_MIN_BW_SHIFT) * 100;
-		/* If min rate is zero - set it to 1 */
+		/* If fairness is enabled (not all min rates are zeroes) and
+		   if current min rate is zero - set it to 1.
+		   This is a requirement of the algorithm. */
 		if (bp->vn_weight_sum && (vn_min_rate == 0))
 			vn_min_rate = DEF_MIN_RATE;
-		vn_max_rate = ((vn_cfg & FUNC_MF_CFG_MAX_BW_MASK) >>
-				FUNC_MF_CFG_MAX_BW_SHIFT) * 100;
+
+		if (IS_MF_SI(bp))
+			/* maxCfg in percents of linkspeed */
+			vn_max_rate = (bp->link_vars.line_speed * maxCfg) / 100;
+		else
+			/* maxCfg is absolute in 100Mb units */
+			vn_max_rate = maxCfg * 100;
 	}
 
 	DP(NETIF_MSG_IFUP,
@@ -2006,7 +2015,8 @@ static void bnx2x_init_vn_minmax(struct bnx2x *bp, int vn)
 		m_fair_vn.vn_credit_delta =
 			max_t(u32, (vn_min_rate * (T_FAIR_COEF /
 						   (8 * bp->vn_weight_sum))),
-			      (bp->cmng.fair_vars.fair_threshold * 2));
+			      (bp->cmng.fair_vars.fair_threshold +
+							MIN_ABOVE_THRESH));
 		DP(NETIF_MSG_IFUP, "m_fair_vn.vn_credit_delta %d\n",
 		   m_fair_vn.vn_credit_delta);
 	}
@@ -2082,8 +2092,9 @@ static void bnx2x_cmng_fns_init(struct bnx2x *bp, u8 read_cfg, u8 cmng_type)
 		bnx2x_calc_vn_weight_sum(bp);
 
 		/* calculate and set min-max rate for each vn */
-		for (vn = VN_0; vn < E1HVN_MAX; vn++)
-			bnx2x_init_vn_minmax(bp, vn);
+		if (bp->port.pmf)
+			for (vn = VN_0; vn < E1HVN_MAX; vn++)
+				bnx2x_init_vn_minmax(bp, vn);
 
 		/* always enable rate shaping and fairness */
 		bp->cmng.flags.cmng_enables |=
@@ -2152,13 +2163,6 @@ static void bnx2x_link_attn(struct bnx2x *bp)
 			bnx2x_stats_handle(bp, STATS_EVENT_LINK_UP);
 	}
 
-	/* indicate link status only if link status actually changed */
-	if (prev_link_status != bp->link_vars.link_status)
-		bnx2x_link_report(bp);
-
-	if (IS_MF(bp))
-		bnx2x_link_sync_notify(bp);
-
 	if (bp->link_vars.link_up && bp->link_vars.line_speed) {
 		int cmng_fns = bnx2x_get_cmng_fns_mode(bp);
 
@@ -2170,6 +2174,13 @@ static void bnx2x_link_attn(struct bnx2x *bp)
 			DP(NETIF_MSG_IFUP,
 			   "single function mode without fairness\n");
 	}
+
+	if (IS_MF(bp))
+		bnx2x_link_sync_notify(bp);
+
+	/* indicate link status only if link status actually changed */
+	if (prev_link_status != bp->link_vars.link_status)
+		bnx2x_link_report(bp);
 }
 
 void bnx2x__link_status_update(struct bnx2x *bp)
@@ -2301,15 +2312,10 @@ static void bnx2x_rxq_set_mac_filters(struct bnx2x *bp, u16 cl_id, u32 filters)
 		/* accept matched ucast */
 		drop_all_ucast = 0;
 	}
-	if (filters & BNX2X_ACCEPT_MULTICAST) {
+	if (filters & BNX2X_ACCEPT_MULTICAST)
 		/* accept matched mcast */
 		drop_all_mcast = 0;
-		if (IS_MF_SI(bp))
-			/* since mcast addresses won't arrive with ovlan,
-			 * fw needs to accept all of them in
-			 * switch-independent mode */
-			accp_all_mcast = 1;
-	}
+
 	if (filters & BNX2X_ACCEPT_ALL_UNICAST) {
 		/* accept all mcast */
 		drop_all_ucast = 0;
@@ -4281,9 +4287,12 @@ void bnx2x_set_storm_rx_mode(struct bnx2x *bp)
 		def_q_filters |= BNX2X_ACCEPT_UNICAST | BNX2X_ACCEPT_BROADCAST |
 				BNX2X_ACCEPT_MULTICAST;
 #ifdef BCM_CNIC
-		cl_id = bnx2x_fcoe(bp, cl_id);
-		bnx2x_rxq_set_mac_filters(bp, cl_id, BNX2X_ACCEPT_UNICAST |
-					  BNX2X_ACCEPT_MULTICAST);
+		if (!NO_FCOE(bp)) {
+			cl_id = bnx2x_fcoe(bp, cl_id);
+			bnx2x_rxq_set_mac_filters(bp, cl_id,
+						  BNX2X_ACCEPT_UNICAST |
+						  BNX2X_ACCEPT_MULTICAST);
+		}
 #endif
 		break;
 
@@ -4291,18 +4300,29 @@ void bnx2x_set_storm_rx_mode(struct bnx2x *bp)
 		def_q_filters |= BNX2X_ACCEPT_UNICAST | BNX2X_ACCEPT_BROADCAST |
 				BNX2X_ACCEPT_ALL_MULTICAST;
 #ifdef BCM_CNIC
-		cl_id = bnx2x_fcoe(bp, cl_id);
-		bnx2x_rxq_set_mac_filters(bp, cl_id, BNX2X_ACCEPT_UNICAST |
-					  BNX2X_ACCEPT_MULTICAST);
+		/*
+		 *  Prevent duplication of multicast packets by configuring FCoE
+		 *  L2 Client to receive only matched unicast frames.
+		 */
+		if (!NO_FCOE(bp)) {
+			cl_id = bnx2x_fcoe(bp, cl_id);
+			bnx2x_rxq_set_mac_filters(bp, cl_id,
+						  BNX2X_ACCEPT_UNICAST);
+		}
 #endif
 		break;
 
 	case BNX2X_RX_MODE_PROMISC:
 		def_q_filters |= BNX2X_PROMISCUOUS_MODE;
 #ifdef BCM_CNIC
-		cl_id = bnx2x_fcoe(bp, cl_id);
-		bnx2x_rxq_set_mac_filters(bp, cl_id, BNX2X_ACCEPT_UNICAST |
-					  BNX2X_ACCEPT_MULTICAST);
+		/*
+		 *  Prevent packets duplication by configuring DROP_ALL for FCoE
+		 *  L2 Client.
+		 */
+		if (!NO_FCOE(bp)) {
+			cl_id = bnx2x_fcoe(bp, cl_id);
+			bnx2x_rxq_set_mac_filters(bp, cl_id, BNX2X_ACCEPT_NONE);
+		}
 #endif
 		/* pass management unicast packets as well */
 		llh_mask |= NIG_LLH0_BRB1_DRV_MASK_REG_LLH0_BRB1_DRV_MASK_UNCST;
@@ -5296,10 +5316,6 @@ static int bnx2x_init_hw_common(struct bnx2x *bp, u32 load_code)
 		}
 	}
 
-	bp->port.need_hw_lock = bnx2x_hw_lock_required(bp,
-						       bp->common.shmem_base,
-						       bp->common.shmem2_base);
-
 	bnx2x_setup_fan_failure_detection(bp);
 
 	/* clear PXP2 attentions */
@@ -5503,9 +5519,6 @@ static int bnx2x_init_hw_port(struct bnx2x *bp)
 
 	bnx2x_init_block(bp, MCP_BLOCK, init_stage);
 	bnx2x_init_block(bp, DMAE_BLOCK, init_stage);
-	bp->port.need_hw_lock = bnx2x_hw_lock_required(bp,
-						       bp->common.shmem_base,
-						       bp->common.shmem2_base);
 	if (bnx2x_fan_failure_det_req(bp, bp->common.shmem_base,
 				      bp->common.shmem2_base, port)) {
 		u32 reg_addr = (port ? MISC_REG_AEU_ENABLE1_FUNC_1_OUT_0 :
@@ -8379,6 +8392,17 @@ static void __devinit bnx2x_get_port_hwinfo(struct bnx2x *bp)
 		 (ext_phy_type != PORT_HW_CFG_XGXS_EXT_PHY_TYPE_NOT_CONN))
 		bp->mdio.prtad =
 			XGXS_EXT_PHY_ADDR(ext_phy_config);
+
+	/*
+	 * Check if hw lock is required to access MDC/MDIO bus to the PHY(s)
+	 * In MF mode, it is set to cover self test cases
+	 */
+	if (IS_MF(bp))
+		bp->port.need_hw_lock = 1;
+	else
+		bp->port.need_hw_lock = bnx2x_hw_lock_required(bp,
+							bp->common.shmem_base,
+							bp->common.shmem2_base);
 }
 
 static void __devinit bnx2x_get_mac_hwinfo(struct bnx2x *bp)

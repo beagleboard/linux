@@ -179,10 +179,10 @@ void radeon_combios_get_power_modes(struct radeon_device *rdev);
 void radeon_atombios_get_power_modes(struct radeon_device *rdev);
 void radeon_atom_set_voltage(struct radeon_device *rdev, u16 level);
 void rs690_pm_info(struct radeon_device *rdev);
-extern u32 rv6xx_get_temp(struct radeon_device *rdev);
-extern u32 rv770_get_temp(struct radeon_device *rdev);
-extern u32 evergreen_get_temp(struct radeon_device *rdev);
-extern u32 sumo_get_temp(struct radeon_device *rdev);
+extern int rv6xx_get_temp(struct radeon_device *rdev);
+extern int rv770_get_temp(struct radeon_device *rdev);
+extern int evergreen_get_temp(struct radeon_device *rdev);
+extern int sumo_get_temp(struct radeon_device *rdev);
 
 /*
  * Fences.
@@ -345,7 +345,6 @@ struct radeon_mc {
 	 * about vram size near mc fb location */
 	u64			mc_vram_size;
 	u64			visible_vram_size;
-	u64			active_vram_size;
 	u64			gtt_size;
 	u64			gtt_start;
 	u64			gtt_end;
@@ -812,8 +811,7 @@ struct radeon_pm {
 	fixed20_12		sclk;
 	fixed20_12		mclk;
 	fixed20_12		needed_bandwidth;
-	/* XXX: use a define for num power modes */
-	struct radeon_power_state power_state[8];
+	struct radeon_power_state *power_state;
 	/* number of valid power states */
 	int                     num_power_states;
 	int                     current_power_state_index;
@@ -1449,6 +1447,7 @@ extern void radeon_vram_location(struct radeon_device *rdev, struct radeon_mc *m
 extern void radeon_gtt_location(struct radeon_device *rdev, struct radeon_mc *mc);
 extern int radeon_resume_kms(struct drm_device *dev);
 extern int radeon_suspend_kms(struct drm_device *dev, pm_message_t state);
+extern void radeon_ttm_set_active_vram_size(struct radeon_device *rdev, u64 size);
 
 /* r600, rv610, rv630, rv620, rv635, rv670, rs780, rs880 */
 extern bool r600_card_posted(struct radeon_device *rdev);

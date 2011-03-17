@@ -38,6 +38,7 @@
 #include <linux/workqueue.h>
 #include <linux/nmi.h>
 #include <linux/acpi.h>
+#include <linux/acpi_io.h>
 #include <linux/efi.h>
 #include <linux/ioport.h>
 #include <linux/list.h>
@@ -302,9 +303,10 @@ void __iomem *__init_refok
 acpi_os_map_memory(acpi_physical_address phys, acpi_size size)
 {
 	struct acpi_ioremap *map, *tmp_map;
-	unsigned long flags, pg_sz;
+	unsigned long flags;
 	void __iomem *virt;
-	phys_addr_t pg_off;
+	acpi_physical_address pg_off;
+	acpi_size pg_sz;
 
 	if (phys > ULONG_MAX) {
 		printk(KERN_ERR PREFIX "Cannot map memory that high\n");
@@ -320,7 +322,7 @@ acpi_os_map_memory(acpi_physical_address phys, acpi_size size)
 
 	pg_off = round_down(phys, PAGE_SIZE);
 	pg_sz = round_up(phys + size, PAGE_SIZE) - pg_off;
-	virt = ioremap_cache(pg_off, pg_sz);
+	virt = acpi_os_ioremap(pg_off, pg_sz);
 	if (!virt) {
 		kfree(map);
 		return NULL;
@@ -634,17 +636,21 @@ EXPORT_SYMBOL(acpi_os_write_port);
 acpi_status
 acpi_os_read_memory(acpi_physical_address phys_addr, u32 * value, u32 width)
 {
-	u32 dummy;
 	void __iomem *virt_addr;
-	int size = width / 8, unmap = 0;
+	unsigned int size = width / 8;
+	bool unmap = false;
+	u32 dummy;
 
 	rcu_read_lock();
 	virt_addr = acpi_map_vaddr_lookup(phys_addr, size);
-	rcu_read_unlock();
 	if (!virt_addr) {
-		virt_addr = ioremap_cache(phys_addr, size);
-		unmap = 1;
+		rcu_read_unlock();
+		virt_addr = acpi_os_ioremap(phys_addr, size);
+		if (!virt_addr)
+			return AE_BAD_ADDRESS;
+		unmap = true;
 	}
+
 	if (!value)
 		value = &dummy;
 
@@ -664,6 +670,8 @@ acpi_os_read_memory(acpi_physical_address phys_addr, u32 * value, u32 width)
 
 	if (unmap)
 		iounmap(virt_addr);
+	else
+		rcu_read_unlock();
 
 	return AE_OK;
 }
@@ -672,14 +680,17 @@ acpi_status
 acpi_os_write_memory(acpi_physical_address phys_addr, u32 value, u32 width)
 {
 	void __iomem *virt_addr;
-	int size = width / 8, unmap = 0;
+	unsigned int size = width / 8;
+	bool unmap = false;
 
 	rcu_read_lock();
 	virt_addr = acpi_map_vaddr_lookup(phys_addr, size);
-	rcu_read_unlock();
 	if (!virt_addr) {
-		virt_addr = ioremap_cache(phys_addr, size);
-		unmap = 1;
+		rcu_read_unlock();
+		virt_addr = acpi_os_ioremap(phys_addr, size);
+		if (!virt_addr)
+			return AE_BAD_ADDRESS;
+		unmap = true;
 	}
 
 	switch (width) {
@@ -698,6 +709,8 @@ acpi_os_write_memory(acpi_physical_address phys_addr, u32 value, u32 width)
 
 	if (unmap)
 		iounmap(virt_addr);
+	else
+		rcu_read_unlock();
 
 	return AE_OK;
 }
