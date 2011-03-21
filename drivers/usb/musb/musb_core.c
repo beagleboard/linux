@@ -1085,14 +1085,46 @@ static struct musb_fifo_cfg __devinitdata mode_3_cfg[] = {
 { .hw_ep_num = 4, .style = FIFO_RXTX, .maxpacket = 256, },
 };
 
+#if defined(CONFIG_USB_GADGET_MUSB_HDRC) && defined(CONFIG_USB_MUSB_TI81XX)
 /* mode 4 - fits in 16KB */
 static struct musb_fifo_cfg __devinitdata mode_4_cfg[] = {
-{ .hw_ep_num =  1, .style = FIFO_TX,   .maxpacket = 512, },
-{ .hw_ep_num =  1, .style = FIFO_RX,   .maxpacket = 512, },
-{ .hw_ep_num =  2, .style = FIFO_TX,   .maxpacket = 512, },
-{ .hw_ep_num =  2, .style = FIFO_RX,   .maxpacket = 512, },
-{ .hw_ep_num =  3, .style = FIFO_TX,   .maxpacket = 512, },
-{ .hw_ep_num =  3, .style = FIFO_RX,   .maxpacket = 512, },
+{ .hw_ep_num =  1, .style = FIFO_TX,   .maxpacket = 512, .mode = BUF_DOUBLE,},
+{ .hw_ep_num =  1, .style = FIFO_RX,   .maxpacket = 512, .mode = BUF_DOUBLE,},
+{ .hw_ep_num =  2, .style = FIFO_TX,   .maxpacket = 512, .mode = BUF_DOUBLE,},
+{ .hw_ep_num =  2, .style = FIFO_RX,   .maxpacket = 512, .mode = BUF_DOUBLE,},
+{ .hw_ep_num =  3, .style = FIFO_TX,   .maxpacket = 512, .mode = BUF_DOUBLE,},
+{ .hw_ep_num =  3, .style = FIFO_RX,   .maxpacket = 512, .mode = BUF_DOUBLE,},
+{ .hw_ep_num =  4, .style = FIFO_TX,   .maxpacket = 64, },
+{ .hw_ep_num =  4, .style = FIFO_RX,   .maxpacket = 64, },
+{ .hw_ep_num =  5, .style = FIFO_TX,   .maxpacket = 64, },
+{ .hw_ep_num =  5, .style = FIFO_RX,   .maxpacket = 64, },
+{ .hw_ep_num =  6, .style = FIFO_TX,   .maxpacket = 64, },
+{ .hw_ep_num =  6, .style = FIFO_RX,   .maxpacket = 64, },
+{ .hw_ep_num =  7, .style = FIFO_TX,   .maxpacket = 64, },
+{ .hw_ep_num =  7, .style = FIFO_RX,   .maxpacket = 64, },
+{ .hw_ep_num =  8, .style = FIFO_TX,   .maxpacket = 64, },
+{ .hw_ep_num =  8, .style = FIFO_RX,   .maxpacket = 64, },
+{ .hw_ep_num =  9, .style = FIFO_TX,   .maxpacket = 64, },
+{ .hw_ep_num =  9, .style = FIFO_RX,   .maxpacket = 64, },
+{ .hw_ep_num = 10, .style = FIFO_TX,   .maxpacket = 256, },
+{ .hw_ep_num = 10, .style = FIFO_RX,   .maxpacket = 64, },
+{ .hw_ep_num = 11, .style = FIFO_TX,   .maxpacket = 256, },
+{ .hw_ep_num = 11, .style = FIFO_RX,   .maxpacket = 64, },
+{ .hw_ep_num = 12, .style = FIFO_TX,   .maxpacket = 256, },
+{ .hw_ep_num = 12, .style = FIFO_RX,   .maxpacket = 64, },
+{ .hw_ep_num = 13, .style = FIFO_RXTX, .maxpacket = 4096, },
+{ .hw_ep_num = 14, .style = FIFO_RXTX, .maxpacket = 1024, },
+{ .hw_ep_num = 15, .style = FIFO_RXTX, .maxpacket = 1024, },
+};
+#else
+/* mode 4 - fits in 16KB */
+static struct musb_fifo_cfg __devinitdata mode_4_cfg[] = {
+{ .hw_ep_num =  1, .style = FIFO_TX,   .maxpacket = 512,},
+{ .hw_ep_num =  1, .style = FIFO_RX,   .maxpacket = 512,},
+{ .hw_ep_num =  2, .style = FIFO_TX,   .maxpacket = 512,},
+{ .hw_ep_num =  2, .style = FIFO_RX,   .maxpacket = 512,},
+{ .hw_ep_num =  3, .style = FIFO_TX,   .maxpacket = 512,},
+{ .hw_ep_num =  3, .style = FIFO_RX,   .maxpacket = 512,},
 { .hw_ep_num =  4, .style = FIFO_TX,   .maxpacket = 512, },
 { .hw_ep_num =  4, .style = FIFO_RX,   .maxpacket = 512, },
 { .hw_ep_num =  5, .style = FIFO_TX,   .maxpacket = 512, },
@@ -1115,6 +1147,7 @@ static struct musb_fifo_cfg __devinitdata mode_4_cfg[] = {
 { .hw_ep_num = 14, .style = FIFO_RXTX, .maxpacket = 1024, },
 { .hw_ep_num = 15, .style = FIFO_RXTX, .maxpacket = 1024, },
 };
+#endif
 
 /* mode 5 - fits in 8KB */
 static struct musb_fifo_cfg __devinitdata mode_5_cfg[] = {

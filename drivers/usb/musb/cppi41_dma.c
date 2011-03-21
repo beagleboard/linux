@@ -32,7 +32,7 @@
 /* Configuration */
 #define USB_CPPI41_DESC_SIZE_SHIFT 6
 #define USB_CPPI41_DESC_ALIGN	(1 << USB_CPPI41_DESC_SIZE_SHIFT)
-#define USB_CPPI41_CH_NUM_PD	64	/* 4K bulk data at full speed */
+#define USB_CPPI41_CH_NUM_PD	128	/* 4K bulk data at full speed */
 #define USB_CPPI41_MAX_PD	(USB_CPPI41_CH_NUM_PD * USB_CPPI41_NUM_CH)
 
 #undef DEBUG_CPPI_TD
