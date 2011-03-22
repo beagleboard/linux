@@ -135,6 +135,28 @@ int cppi41_queue_mgr_init(u8 q_mgr, dma_addr_t rgn0_base, u16 rgn0_size)
 }
 EXPORT_SYMBOL(cppi41_queue_mgr_init);
 
+int cppi41_queue_mgr_uninit(u8 q_mgr)
+{
+	void __iomem *q_mgr_regs;
+
+	if (q_mgr >= cppi41_num_queue_mgr)
+		return -EINVAL;
+
+	q_mgr_regs = cppi41_queue_mgr[q_mgr].q_mgr_rgn_base;
+
+	/* free the Queue Mgr linking ram space */
+	__raw_writel(0,	q_mgr_regs + QMGR_LINKING_RAM_RGN0_BASE_REG);
+	__raw_writel(0, q_mgr_regs + QMGR_LINKING_RAM_RGN0_SIZE_REG);
+	dma_free_coherent(NULL, linking_ram[q_mgr].size,
+			linking_ram[q_mgr].virt_addr,
+			linking_ram[q_mgr].phys_addr);
+
+	/* free the allocated queues */
+	kfree(allocated_queues[q_mgr]);
+	return 0;
+}
+EXPORT_SYMBOL(cppi41_queue_mgr_uninit);
+
 int cppi41_dma_sched_tbl_init(u8 dma_num, u8 q_mgr,
 			u32 *sched_tbl, u8 tbl_size)
 {
@@ -359,6 +381,43 @@ free_queue:
 }
 EXPORT_SYMBOL(cppi41_dma_block_init);
 
+int cppi41_dma_block_uninit(u8 dma_num, u8 q_mgr, u8 num_order,
+				 u32 *sched_tbl, u8 tbl_size)
+{
+	const struct cppi41_dma_block *dma_block;
+	unsigned num_reg;
+	int i;
+
+	/* popout all teardown descriptors */
+	cppi41_free_teardown_queue(dma_num);
+
+	/* free queue mgr region */
+	cppi41_mem_rgn_free(q_mgr, dma_teardown[dma_num].mem_rgn);
+	/* free the allocated teardown descriptors */
+	dma_free_coherent(NULL, dma_teardown[dma_num].rgn_size,
+			dma_teardown[dma_num].virt_addr,
+			dma_teardown[dma_num].phys_addr);
+
+	/* free the teardown queue*/
+	cppi41_queue_free(dma_teardown[dma_num].q_mgr,
+			dma_teardown[dma_num].q_num);
+
+	dma_block = (struct cppi41_dma_block *)&cppi41_dma_block[dma_num];
+	/* disable the dma schedular */
+	num_reg = (tbl_size + 3) / 4;
+	for (i = 0; i < num_reg; i++) {
+		__raw_writel(0, dma_block->sched_table_base +
+			     DMA_SCHED_TABLE_WORD_REG(i));
+		DBG("DMA scheduler table @ %p, value written: %x\n",
+		    dma_block->sched_table_base + DMA_SCHED_TABLE_WORD_REG(i),
+		    0);
+	}
+
+	__raw_writel(0,	dma_block->sched_ctrl_base + DMA_SCHED_CTRL_REG);
+
+	return 0;
+}
+EXPORT_SYMBOL(cppi41_dma_block_uninit);
 /*
  * cppi41_mem_rgn_alloc - allocate a memory region within the queue manager
  */
@@ -702,46 +761,14 @@ void cppi41_free_teardown_queue(int dma_num)
 {
 	unsigned long td_addr;
 
-	while ((td_addr =
-		cppi41_queue_pop(&dma_teardown[dma_num].queue_obj)) != 0)
-		DBG("pop tdDesc(%p) from tdQueue\n", td_addr);
+	while (1) {
+		td_addr = cppi41_queue_pop(&dma_teardown[dma_num].queue_obj);
+
+		if (td_addr == 0)
+			break;
+	}
 }
 EXPORT_SYMBOL(cppi41_free_teardown_queue);
-
-void cppi41_exit(void)
-{
-	int i;
-	for (i = 0; i < CPPI41_NUM_QUEUE_MGR; i++) {
-		if (linking_ram[i].virt_addr != NULL) {
-			dma_free_coherent(NULL, linking_ram[i].size,
-				linking_ram[i].virt_addr,
-				linking_ram[i].phys_addr);
-			linking_ram[i].virt_addr = 0;
-			linking_ram[i].phys_addr = 0;
-		}
-		if (allocated_queues[i] != NULL) {
-			kfree(allocated_queues[i]);
-			allocated_queues[i] = 0;
-		}
-	}
-
-	/*
-	 * pop all the teardwon descriptor queued to tdQueue
-	 */
-	cppi41_free_teardown_queue(0);
-
-	for (i = 0; i < CPPI41_NUM_DMA_BLOCK; i++)
-		if (dma_teardown[i].virt_addr != NULL) {
-
-			cppi41_mem_rgn_free(0,  dma_teardown[i].mem_rgn);
-			dma_free_coherent(NULL, dma_teardown[i].rgn_size,
-					dma_teardown[i].virt_addr,
-					dma_teardown[i].phys_addr);
-			dma_teardown[i].virt_addr = 0;
-			dma_teardown[i].phys_addr = 0;
-		}
-}
-EXPORT_SYMBOL(cppi41_exit);
 
 /**
  * alloc_queue - allocate a queue in the given range

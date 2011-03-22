@@ -494,6 +494,13 @@ struct cppi41_queue_obj {
  */
 int cppi41_queue_mgr_init(u8 q_mgr, dma_addr_t rgn0_base, u16 rgn0_size);
 
+/**
+ * cppi41_queue_mgr_init - CPPI 4.1 queue manager un-initialization.
+ * @q_mgr:	the queue manager to un-initialize
+ * Returns 0 on success, error otherwise.
+ */
+int cppi41_queue_mgr_uninit(u8 q_mgr);
+
 /*
  * CPPI 4.1 Queue Manager Memory Region Allocation and De-allocation APIs.
  */
@@ -539,6 +546,20 @@ int cppi41_mem_rgn_free(u8 q_mgr, u8 mem_rgn);
  * Returns 0 on success, error otherwise.
  */
 int cppi41_dma_block_init(u8 dma_num, u8 q_mgr, u8 num_order,
+				 u32 *sched_tbl, u8 tbl_size);
+
+/**
+ * cppi41_dma_block_init - CPPI 4.1 DMA block un-initialization.
+ * @dma_num:	number of the DMA block
+ * @q_mgr:	the queue manager in which to allocate the free teardown
+ *		descriptor queue
+ * @num_order:	number of teardown descriptors as a power of two (at least 5)
+ * @sched_tbl:	the DMA scheduler table
+ * @tbl_size:	number of entries in the DMA scheduler table
+ *
+ * Returns 0 on success, error otherwise.
+ */
+int cppi41_dma_block_uninit(u8 dma_num, u8 q_mgr, u8 num_order,
 				 u32 *sched_tbl, u8 tbl_size);
 
 /*

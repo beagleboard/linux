@@ -71,15 +71,19 @@ extern u32 omap_ctrl_readl(u16 offset);
 
 static inline u32 usbss_read(u32 offset)
 {
+	if (!usbss_init_done)
+		return 0;
 	return __raw_readl(usbss_virt_base + offset);
 }
 
 static inline void usbss_write(u32 offset, u32 data)
 {
+	if (!usbss_init_done)
+		return ;
 	__raw_writel(data, usbss_virt_base + offset);
 }
 
-static void __init usbotg_ss_init(struct musb *musb)
+static void usbotg_ss_init(struct musb *musb)
 {
 	if (!usbss_init_done) {
 		usbss_virt_base = ioremap(TI81XX_USBSS_BASE,
@@ -90,7 +94,14 @@ static void __init usbotg_ss_init(struct musb *musb)
 		usbss_write(USBSS_IRQ_STATUS, usbss_read(USBSS_IRQ_STATUS));
 	}
 }
-
+static void usbotg_ss_uninit(void)
+{
+	if (usbss_init_done) {
+		iounmap(usbss_virt_base);
+		usbss_init_done = 0;
+		usbss_virt_base = 0;
+	}
+}
 void set_frame_threshold(u8 musb_id, u8 is_tx, u8 epnum, u8 value, u8 en_intr)
 {
 	u32     base, reg_val, frame_intr = 0, frame_base = 0;
@@ -454,7 +465,7 @@ int __devinit cppi41_init(struct musb *musb)
 			dma_sched_table, numch);
 
 	/* attach to the IRQ */
-	if (request_irq(nIrq, cppi41dma_Interrupt, 0, "cppi41_dma", musb))
+	if (request_irq(nIrq, cppi41dma_Interrupt, 0, "cppi41_dma", 0))
 		printk(KERN_INFO "request_irq %d failed!\n", nIrq);
 	else
 		printk(KERN_INFO "registerd cppi-dma Intr @ IRQ %d\n", nIrq);
@@ -477,11 +488,21 @@ int __devinit cppi41_init(struct musb *musb)
 
 void cppi41_free(void)
 {
+	u32 numch, blknum, order;
+	struct usb_cppi41_info *cppi_info = &usb_cppi41_info[0];
+
 	if (!cppi41_init_done)
 		return ;
 
-	/* REVISIT: iounmap causing issue in rmmod */
-	/* iounmap(cppi41_dma_base); */
+	numch =  USB_CPPI41_NUM_CH * 2 * 2;
+	order = get_count_order(numch);
+	blknum = cppi_info->dma_block;
+
+	cppi41_dma_block_uninit(blknum, cppi_info->q_mgr, order,
+			dma_sched_table, numch);
+	cppi41_queue_mgr_uninit(cppi_info->q_mgr);
+
+	iounmap(cppi41_dma_base);
 	cppi41_dma_base = 0;
 	cppi41_init_done = 0;
 }
@@ -1293,11 +1314,22 @@ subsys_initcall(ti81xx_glue_init);
 
 static void __exit ti81xx_glue_exit(void)
 {
+	/* free the usbss irq */
+	free_irq(TI81XX_IRQ_USBSS, 0);
+
+	/* disable the interrupts */
+	usbss_write(USBSS_IRQ_EOI, 0);
+	usbss_write(USBSS_IRQ_ENABLE_SET, 0);
+	usbss_write(USBSS_IRQ_DMA_ENABLE_0, 0);
+
+	/* unregister platform driver */
+	platform_driver_unregister(&ti81xx_musb_driver);
+
 #ifdef CONFIG_USB_TI_CPPI41_DMA
-	cppi41_exit();
 	cppi41_free();
 #endif
-	platform_driver_unregister(&ti81xx_musb_driver);
+
+	usbotg_ss_uninit();
 }
 module_exit(ti81xx_glue_exit);
 
