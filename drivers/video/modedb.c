@@ -293,6 +293,10 @@ static const struct fb_videomode modedb[] = {
 	/* 864x480 @ 60 Hz, 35.15 kHz hsync */
 	{ NULL, 60, 864, 480, 27777, 1, 1, 1, 1, 0, 0,
 		0, FB_VMODE_NONINTERLACED },
+
+	/* 800x480 @ 60 Hz, Toshiba LTA070B220F 7 inch LCD */
+	{  NULL, 60, 800, 480, 32787, 48, 80, 33, 31, 32, 2,
+		FB_SYNC_HOR_HIGH_ACT|FB_SYNC_VERT_HIGH_ACT, FB_VMODE_NONINTERLACED },
 };
 
 #ifdef CONFIG_FB_MODE_HELPERS
