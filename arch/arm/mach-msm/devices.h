@@ -55,4 +55,7 @@ extern unsigned msm_num_clocks_7x30;
 extern struct clk_lookup msm_clocks_8x50[];
 extern unsigned msm_num_clocks_8x50;
 
+extern struct clk_lookup msm_clocks_8960[];
+extern unsigned msm_num_clocks_8960;
+
 #endif

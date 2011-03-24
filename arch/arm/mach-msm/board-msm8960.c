@@ -35,6 +35,11 @@ static void __init msm8960_map_io(void)
 	msm_map_msm8960_io();
 }
 
+static void __init msm8960_init_early(void)
+{
+	msm_clock_init(msm_clocks_8960, msm_num_clocks_8960);
+}
+
 static void __init msm8960_init_irq(void)
 {
 	unsigned int i;
@@ -77,6 +82,7 @@ static void __init msm8960_rumi3_init(void)
 
 MACHINE_START(MSM8960_SIM, "QCT MSM8960 SIMULATOR")
 	.map_io = msm8960_map_io,
+	.init_early = msm8960_init_early,
 	.init_irq = msm8960_init_irq,
 	.timer = &msm_timer,
 	.init_machine = msm8960_sim_init,
@@ -84,6 +90,7 @@ MACHINE_END
 
 MACHINE_START(MSM8960_RUMI3, "QCT MSM8960 RUMI3")
 	.map_io = msm8960_map_io,
+	.init_early = msm8960_init_early,
 	.init_irq = msm8960_init_irq,
 	.timer = &msm_timer,
 	.init_machine = msm8960_rumi3_init,
