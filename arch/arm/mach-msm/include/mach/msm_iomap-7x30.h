@@ -42,9 +42,8 @@
 #define MSM7X30_CSR_PHYS      0xC0100000
 #define MSM7X30_CSR_SIZE      SZ_4K
 
-#define MSM_DMOV_BASE         IOMEM(0xE0002000)
-#define MSM_DMOV_PHYS         0xAC400000
-#define MSM_DMOV_SIZE         SZ_4K
+#define MSM7X30_DMOV_PHYS     0xAC400000
+#define MSM7X30_DMOV_SIZE     SZ_4K
 
 #define MSM_GPIO1_BASE        IOMEM(0xE0003000)
 #define MSM_GPIO1_PHYS        0xAC001000

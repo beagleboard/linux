@@ -418,8 +418,27 @@ struct platform_device msm_device_mdp = {
 	.resource = resources_mdp,
 };
 
+static struct resource resources_dmov[] = {
+	{
+		.start = MSM7X00_DMOV_PHYS,
+		.end = MSM7X00_DMOV_PHYS + MSM7X00_DMOV_SIZE - 1,
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = INT_ADM_AARM,
+		.flags = IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device msm_device_dmov = {
+	.name	= "msm_dmov",
+	.id	= -1,
+	.num_resources = ARRAY_SIZE(resources_dmov),
+	.resource = resources_dmov,
+};
+
 struct clk_lookup msm_clocks_7x01a[] = {
-	CLK_PCOM("adm_clk",	ADM_CLK,	NULL, 0),
+	CLK_PCOM("adm_clk",	ADM_CLK,	"msm_dmov", 0),
 	CLK_PCOM("adsp_clk",	ADSP_CLK,	NULL, 0),
 	CLK_PCOM("ebi1_clk",	EBI1_CLK,	NULL, 0),
 	CLK_PCOM("ebi2_clk",	EBI2_CLK,	NULL, 0),
