@@ -10852,6 +10852,11 @@ static void alc882_auto_init_input_src(struct hda_codec *codec)
 		const struct hda_input_mux *imux;
 		int conns, mute, idx, item;
 
+		/* mute ADC */
+		snd_hda_codec_write(codec, spec->adc_nids[c], 0,
+				    AC_VERB_SET_AMP_GAIN_MUTE,
+				    AMP_IN_MUTE(0));
+
 		conns = snd_hda_get_connections(codec, nid, conn_list,
 						ARRAY_SIZE(conn_list));
 		if (conns < 0)
@@ -14820,8 +14825,6 @@ static void alc269_toggle_power_output(struct hda_codec *codec, int power_up)
 
 static void alc269_shutup(struct hda_codec *codec)
 {
-	struct alc_spec *spec = codec->spec;
-
 	if ((alc_read_coef_idx(codec, 0) & 0x00ff) == 0x017)
 		alc269_toggle_power_output(codec, 0);
 	if ((alc_read_coef_idx(codec, 0) & 0x00ff) == 0x018) {
@@ -17929,28 +17932,6 @@ static struct hda_verb alc662_eapd_init_verbs[] = {
 	{ }
 };
 
-static struct hda_verb alc663_init_verbs[] = {
-	{0x17, AC_VERB_SET_PIN_WIDGET_CONTROL, PIN_OUT},
-	{0x17, AC_VERB_SET_AMP_GAIN_MUTE, AMP_OUT_UNMUTE},
-	{0x21, AC_VERB_SET_PIN_WIDGET_CONTROL, PIN_OUT},
-	{0x21, AC_VERB_SET_AMP_GAIN_MUTE, AMP_OUT_UNMUTE},
-	{0x0f, AC_VERB_SET_AMP_GAIN_MUTE, AMP_IN_UNMUTE(0)},
-	{0x0f, AC_VERB_SET_AMP_GAIN_MUTE, AMP_IN_UNMUTE(1)},
-	{ }
-};
-
-static struct hda_verb alc272_init_verbs[] = {
-	{0x16, AC_VERB_SET_PIN_WIDGET_CONTROL, PIN_IN},
-	{0x16, AC_VERB_SET_AMP_GAIN_MUTE, AMP_OUT_MUTE},
-	{0x17, AC_VERB_SET_PIN_WIDGET_CONTROL, PIN_OUT},
-	{0x17, AC_VERB_SET_AMP_GAIN_MUTE, AMP_OUT_UNMUTE},
-	{0x21, AC_VERB_SET_PIN_WIDGET_CONTROL, PIN_OUT},
-	{0x21, AC_VERB_SET_AMP_GAIN_MUTE, AMP_OUT_UNMUTE},
-	{0x0f, AC_VERB_SET_AMP_GAIN_MUTE, AMP_IN_UNMUTE(0)},
-	{0x0f, AC_VERB_SET_AMP_GAIN_MUTE, AMP_IN_UNMUTE(1)},
-	{ }
-};
-
 static struct hda_verb alc662_sue_init_verbs[] = {
 	{0x14, AC_VERB_SET_UNSOLICITED_ENABLE, AC_USRSP_EN|ALC880_FRONT_EVENT},
 	{0x1b, AC_VERB_SET_UNSOLICITED_ENABLE, AC_USRSP_EN|ALC880_HP_EVENT},
@@ -19319,14 +19300,21 @@ static void alc662_auto_set_output_and_unmute(struct hda_codec *codec,
 	hda_nid_t srcs[HDA_MAX_CONNECTIONS];
 
 	alc_set_pin_output(codec, nid, pin_type);
-	/* need the manual connection? */
 	num = snd_hda_get_connections(codec, nid, srcs, ARRAY_SIZE(srcs));
-	if (num <= 1)
-		return;
 	for (i = 0; i < num; i++) {
 		if (alc662_mix_to_dac(codec, srcs[i]) != dac)
 			continue;
-		snd_hda_codec_write(codec, nid, 0, AC_VERB_SET_CONNECT_SEL, i);
+		/* need the manual connection? */
+		if (num > 1)
+			snd_hda_codec_write(codec, nid, 0,
+					    AC_VERB_SET_CONNECT_SEL, i);
+		/* unmute mixer widget inputs */
+		snd_hda_codec_write(codec, srcs[i], 0,
+				    AC_VERB_SET_AMP_GAIN_MUTE,
+				    AMP_IN_UNMUTE(0));
+		snd_hda_codec_write(codec, srcs[i], 0,
+				    AC_VERB_SET_AMP_GAIN_MUTE,
+				    AMP_IN_UNMUTE(1));
 		return;
 	}
 }
@@ -19428,14 +19416,6 @@ static int alc662_parse_auto_config(struct hda_codec *codec)
 
 	spec->num_mux_defs = 1;
 	spec->input_mux = &spec->private_imux[0];
-
-	add_verb(spec, alc662_init_verbs);
-	if (codec->vendor_id == 0x10ec0272 || codec->vendor_id == 0x10ec0663 ||
-	    codec->vendor_id == 0x10ec0665 || codec->vendor_id == 0x10ec0670)
-		add_verb(spec, alc663_init_verbs);
-
-	if (codec->vendor_id == 0x10ec0272)
-		add_verb(spec, alc272_init_verbs);
 
 	err = alc_auto_add_mic_boost(codec);
 	if (err < 0)
