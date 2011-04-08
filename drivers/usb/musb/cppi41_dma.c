@@ -1405,10 +1405,37 @@ static void usb_process_rx_queue(struct cppi41 *cppi, unsigned index)
 
 		if (unlikely(rx_ch->channel.actual_len >= rx_ch->length ||
 			     length < orig_buf_len)) {
-			rx_ch->channel.status = MUSB_DMA_STATUS_FREE;
 
-			/* Rx completion routine callback */
-			musb_dma_completion(cppi->musb, ep_num, 0);
+#ifdef CONFIG_SOC_OMAPTI81XX
+			struct musb_hw_ep *ep;
+			u8 isoc, next_seg = 0;
+
+			/* Workaround for early rx completion of
+			 * cppi41 dma in Generic RNDIS mode for ti81xx
+			 */
+			if (cpu_is_ti81xx() && is_host_enabled(cppi->musb)) {
+				u32 pkt_size = rx_ch->pkt_size;
+				ep = cppi->musb->endpoints + ep_num;
+				isoc = musb_readb(ep->regs, MUSB_RXTYPE);
+				isoc = (isoc >> 4) & 0x1;
+
+				if (!isoc
+				&& (rx_ch->dma_mode == USB_GENERIC_RNDIS_MODE)
+				&& (rx_ch->channel.actual_len < rx_ch->length)
+				&& !(rx_ch->channel.actual_len % pkt_size))
+					next_seg = 1;
+			}
+			if (next_seg) {
+				rx_ch->curr_offset = rx_ch->channel.actual_len;
+				cppi41_next_rx_segment(rx_ch);
+			} else
+#endif
+			{
+				rx_ch->channel.status = MUSB_DMA_STATUS_FREE;
+
+				/* Rx completion routine callback */
+				musb_dma_completion(cppi->musb, ep_num, 0);
+			}
 		} else {
 			if (is_peripheral_active(cppi->musb) &&
 				((rx_ch->length - rx_ch->curr_offset) > 0))
