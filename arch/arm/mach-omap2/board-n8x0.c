@@ -274,7 +274,7 @@ static void __init n8x0_cbus_init(void)
 		return;
 	}
 
-	set_irq_type(gpio_to_irq(108), IRQ_TYPE_EDGE_RISING);
+	irq_set_irq_type(gpio_to_irq(108), IRQ_TYPE_EDGE_RISING);
 	retu_resource[0].start = gpio_to_irq(108);
 	platform_device_register(&retu_device);
 

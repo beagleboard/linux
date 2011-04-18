@@ -177,7 +177,7 @@ static void __init nokia770_cbus_init(void)
 		return;
 	}
 
-	set_irq_type(gpio_to_irq(62), IRQ_TYPE_EDGE_RISING);
+	irq_set_irq_type(gpio_to_irq(62), IRQ_TYPE_EDGE_RISING);
 	retu_resource[0].start = gpio_to_irq(62);
 	platform_device_register(&retu_device);
 
