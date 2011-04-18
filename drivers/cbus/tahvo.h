@@ -63,6 +63,4 @@ int tahvo_get_backlight_level(void);
 int tahvo_get_max_backlight_level(void);
 void tahvo_set_backlight_level(int level);
 
-extern spinlock_t tahvo_lock;
-
 #endif /* __DRIVERS_CBUS_TAHVO_H */

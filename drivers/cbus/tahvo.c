@@ -53,7 +53,7 @@ static int tahvo_initialized;
 static int tahvo_is_betty;
 
 static struct tasklet_struct tahvo_tasklet;
-spinlock_t tahvo_lock = SPIN_LOCK_UNLOCKED;
+static DEFINE_SPINLOCK(tahvo_lock);
 
 struct tahvo_irq_handler_desc {
 	int (*func)(unsigned long);
