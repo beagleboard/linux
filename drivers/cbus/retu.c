@@ -298,10 +298,10 @@ static void retu_irq_init(struct retu *retu)
 	int			irq;
 
 	for (irq = base; irq < end; irq++) {
-		set_irq_chip_data(irq, retu);
-		set_irq_chip_and_handler(irq, &retu_irq_chip,
+		irq_set_chip_data(irq, retu);
+		irq_set_chip_and_handler(irq, &retu_irq_chip,
 				handle_simple_irq);
-		set_irq_nested_thread(irq, 1);
+		irq_set_nested_thread(irq, 1);
 		retu_irq_setup(irq);
 	}
 }
@@ -316,8 +316,8 @@ static void retu_irq_exit(struct retu *retu)
 #ifdef CONFIG_ARM
 		set_irq_flags(irq, 0);
 #endif
-		set_irq_chip_and_handler(irq, NULL, NULL);
-		set_irq_chip_data(irq, NULL);
+		irq_set_chip_and_handler(irq, NULL, NULL);
+		irq_set_chip_data(irq, NULL);
 	}
 }
 
@@ -479,7 +479,7 @@ static int __init retu_probe(struct platform_device *pdev)
 		goto err1;
 	}
 
-	set_irq_wake(retu->irq, 1);
+	irq_set_irq_wake(retu->irq, 1);
 
 	/* Register power off function */
 	pm_power_off = retu_power_off;
