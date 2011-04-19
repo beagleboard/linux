@@ -236,47 +236,6 @@ static DEVICE_ATTR(vbus_state, 0444, vbus_state_show, NULL);
 
 int vbus_active = 0;
 
-#if 0
-
-static int host_suspend(struct tahvo_usb *tu)
-{
-	struct device	*dev;
-
-	if (!tu->otg.host)
-		return -ENODEV;
-
-	/* Currently ASSUMES only the OTG port matters;
-	 * other ports could be active...
-	 */
-	dev = tu->otg.host->controller;
-	return dev->driver->suspend(dev, PMSG_SUSPEND);
-}
-
-static int host_resume(struct tahvo_usb *tu)
-{
-	struct device	*dev;
-
-	if (!tu->otg.host)
-		return -ENODEV;
-
-	dev = tu->otg.host->controller;
-	return dev->driver->resume(dev);
-}
-
-#else
-
-static int host_suspend(struct tahvo_usb *tu)
-{
-	return 0;
-}
-
-static int host_resume(struct tahvo_usb *tu)
-{
-	return 0;
-}
-
-#endif
-
 static void check_vbus_state(struct tahvo_usb *tu)
 {
 	int reg, prev_state;
@@ -303,7 +262,6 @@ static void check_vbus_state(struct tahvo_usb *tu)
 		case OTG_STATE_A_IDLE:
 			/* Session is now valid assuming the USB hub is driving Vbus */
 			tu->otg.state = OTG_STATE_A_HOST;
-			host_resume(tu);
 			break;
 		default:
 			break;
@@ -355,7 +313,6 @@ static void tahvo_usb_become_host(struct tahvo_usb *tu)
 
 static void tahvo_usb_stop_host(struct tahvo_usb *tu)
 {
-	host_suspend(tu);
 	tu->otg.state = OTG_STATE_A_IDLE;
 }
 
@@ -402,8 +359,6 @@ static void tahvo_usb_power_off(struct tahvo_usb *tu)
 	/* Disable gadget controller if any */
 	if (tu->otg.gadget)
 		usb_gadget_vbus_disconnect(tu->otg.gadget);
-
-	host_suspend(tu);
 
 	/* Disable OTG and interrupts */
 	if (TAHVO_MODE(tu) == TAHVO_MODE_PERIPHERAL)
@@ -521,8 +476,7 @@ static int tahvo_usb_set_host(struct otg_transceiver *otg, struct usb_bus *host)
 	if (TAHVO_MODE(tu) == TAHVO_MODE_HOST) {
 		tu->otg.host = NULL;
 		tahvo_usb_become_host(tu);
-	} else
-		host_suspend(tu);
+	}
 
 	tu->otg.host = host;
 
