@@ -23,6 +23,7 @@ config CBUS_TAHVO
 
 config CBUS_TAHVO_USB
 	depends on CBUS_TAHVO && USB
+	select USB_OTG_UTILS
 	tristate "Support for Tahvo USB transceiver"
 	---help---
 	  If you want Tahvo support for USB transceiver, say Y or M here.
