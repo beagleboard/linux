@@ -437,7 +437,7 @@ int r300_asic_reset(struct radeon_device *rdev)
 	status = RREG32(R_000E40_RBBM_STATUS);
 	dev_info(rdev->dev, "(%s:%d) RBBM_STATUS=0x%08X\n", __func__, __LINE__, status);
 	/* resetting the CP seems to be problematic sometimes it end up
-	 * hard locking the computer, but it's necessary for successfull
+	 * hard locking the computer, but it's necessary for successful
 	 * reset more test & playing is needed on R3XX/R4XX to find a
 	 * reliable (if any solution)
 	 */
@@ -910,6 +910,7 @@ static int r300_packet0_check(struct radeon_cs_parser *p,
 			track->textures[i].compress_format = R100_TRACK_COMP_NONE;
 			break;
 		case R300_TX_FORMAT_X16:
+		case R300_TX_FORMAT_FL_I16:
 		case R300_TX_FORMAT_Y8X8:
 		case R300_TX_FORMAT_Z5Y6X5:
 		case R300_TX_FORMAT_Z6Y5X5:
@@ -922,6 +923,7 @@ static int r300_packet0_check(struct radeon_cs_parser *p,
 			track->textures[i].compress_format = R100_TRACK_COMP_NONE;
 			break;
 		case R300_TX_FORMAT_Y16X16:
+		case R300_TX_FORMAT_FL_I16A16:
 		case R300_TX_FORMAT_Z11Y11X10:
 		case R300_TX_FORMAT_Z10Y11X11:
 		case R300_TX_FORMAT_W8Z8Y8X8:
@@ -1399,12 +1401,12 @@ static int r300_startup(struct radeon_device *rdev)
 	/* 1M ring buffer */
 	r = r100_cp_init(rdev, 1024 * 1024);
 	if (r) {
-		dev_err(rdev->dev, "failled initializing CP (%d).\n", r);
+		dev_err(rdev->dev, "failed initializing CP (%d).\n", r);
 		return r;
 	}
 	r = r100_ib_init(rdev);
 	if (r) {
-		dev_err(rdev->dev, "failled initializing IB (%d).\n", r);
+		dev_err(rdev->dev, "failed initializing IB (%d).\n", r);
 		return r;
 	}
 	return 0;

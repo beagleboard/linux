@@ -25,6 +25,8 @@
 #include <plat/gpio.h>
 #include <plat/dma.h>
 #include <plat/mcspi.h>
+#include <plat/mcbsp.h>
+#include <plat/mmc.h>
 
 #include "omap_hwmod_common_data.h"
 
@@ -262,11 +264,27 @@ static struct omap_hwmod_ocp_if omap44xx_mmc2__l3_main_1 = {
 	.user		= OCP_USER_MPU | OCP_USER_SDMA,
 };
 
+/* L3 target configuration and error log registers */
+static struct omap_hwmod_irq_info omap44xx_l3_targ_irqs[] = {
+	{ .irq = 9  + OMAP44XX_IRQ_GIC_START },
+	{ .irq = 10 + OMAP44XX_IRQ_GIC_START },
+};
+
+static struct omap_hwmod_addr_space omap44xx_l3_main_1_addrs[] = {
+	{
+		.pa_start	= 0x44000000,
+		.pa_end		= 0x44000fff,
+		.flags		= ADDR_TYPE_RT,
+	},
+};
+
 /* mpu -> l3_main_1 */
 static struct omap_hwmod_ocp_if omap44xx_mpu__l3_main_1 = {
 	.master		= &omap44xx_mpu_hwmod,
 	.slave		= &omap44xx_l3_main_1_hwmod,
 	.clk		= "l3_div_ck",
+	.addr		= omap44xx_l3_main_1_addrs,
+	.addr_cnt	= ARRAY_SIZE(omap44xx_l3_main_1_addrs),
 	.user		= OCP_USER_MPU | OCP_USER_SDMA,
 };
 
@@ -284,6 +302,8 @@ static struct omap_hwmod_ocp_if *omap44xx_l3_main_1_slaves[] = {
 static struct omap_hwmod omap44xx_l3_main_1_hwmod = {
 	.name		= "l3_main_1",
 	.class		= &omap44xx_l3_hwmod_class,
+	.mpu_irqs	= omap44xx_l3_targ_irqs,
+	.mpu_irqs_cnt	= ARRAY_SIZE(omap44xx_l3_targ_irqs),
 	.slaves		= omap44xx_l3_main_1_slaves,
 	.slaves_cnt	= ARRAY_SIZE(omap44xx_l3_main_1_slaves),
 	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
@@ -330,11 +350,21 @@ static struct omap_hwmod_ocp_if omap44xx_iva__l3_main_2 = {
 	.user		= OCP_USER_MPU | OCP_USER_SDMA,
 };
 
+static struct omap_hwmod_addr_space omap44xx_l3_main_2_addrs[] = {
+	{
+		.pa_start	= 0x44800000,
+		.pa_end		= 0x44801fff,
+		.flags		= ADDR_TYPE_RT,
+	},
+};
+
 /* l3_main_1 -> l3_main_2 */
 static struct omap_hwmod_ocp_if omap44xx_l3_main_1__l3_main_2 = {
 	.master		= &omap44xx_l3_main_1_hwmod,
 	.slave		= &omap44xx_l3_main_2_hwmod,
 	.clk		= "l3_div_ck",
+	.addr		= omap44xx_l3_main_2_addrs,
+	.addr_cnt	= ARRAY_SIZE(omap44xx_l3_main_2_addrs),
 	.user		= OCP_USER_MPU | OCP_USER_SDMA,
 };
 
@@ -375,11 +405,21 @@ static struct omap_hwmod omap44xx_l3_main_2_hwmod = {
 };
 
 /* l3_main_3 interface data */
+static struct omap_hwmod_addr_space omap44xx_l3_main_3_addrs[] = {
+	{
+		.pa_start	= 0x45000000,
+		.pa_end		= 0x45000fff,
+		.flags		= ADDR_TYPE_RT,
+	},
+};
+
 /* l3_main_1 -> l3_main_3 */
 static struct omap_hwmod_ocp_if omap44xx_l3_main_1__l3_main_3 = {
 	.master		= &omap44xx_l3_main_1_hwmod,
 	.slave		= &omap44xx_l3_main_3_hwmod,
 	.clk		= "l3_div_ck",
+	.addr		= omap44xx_l3_main_3_addrs,
+	.addr_cnt	= ARRAY_SIZE(omap44xx_l3_main_3_addrs),
 	.user		= OCP_USER_MPU | OCP_USER_SDMA,
 };
 
@@ -2737,6 +2777,7 @@ static struct omap_hwmod_class_sysconfig omap44xx_mcbsp_sysc = {
 static struct omap_hwmod_class omap44xx_mcbsp_hwmod_class = {
 	.name	= "mcbsp",
 	.sysc	= &omap44xx_mcbsp_sysc,
+	.rev	= MCBSP_CONFIG_TYPE4,
 };
 
 /* mcbsp1 */
@@ -2752,6 +2793,7 @@ static struct omap_hwmod_dma_info omap44xx_mcbsp1_sdma_reqs[] = {
 
 static struct omap_hwmod_addr_space omap44xx_mcbsp1_addrs[] = {
 	{
+		.name		= "mpu",
 		.pa_start	= 0x40122000,
 		.pa_end		= 0x401220ff,
 		.flags		= ADDR_TYPE_RT
@@ -2770,6 +2812,7 @@ static struct omap_hwmod_ocp_if omap44xx_l4_abe__mcbsp1 = {
 
 static struct omap_hwmod_addr_space omap44xx_mcbsp1_dma_addrs[] = {
 	{
+		.name		= "dma",
 		.pa_start	= 0x49022000,
 		.pa_end		= 0x490220ff,
 		.flags		= ADDR_TYPE_RT
@@ -2823,6 +2866,7 @@ static struct omap_hwmod_dma_info omap44xx_mcbsp2_sdma_reqs[] = {
 
 static struct omap_hwmod_addr_space omap44xx_mcbsp2_addrs[] = {
 	{
+		.name		= "mpu",
 		.pa_start	= 0x40124000,
 		.pa_end		= 0x401240ff,
 		.flags		= ADDR_TYPE_RT
@@ -2841,6 +2885,7 @@ static struct omap_hwmod_ocp_if omap44xx_l4_abe__mcbsp2 = {
 
 static struct omap_hwmod_addr_space omap44xx_mcbsp2_dma_addrs[] = {
 	{
+		.name		= "dma",
 		.pa_start	= 0x49024000,
 		.pa_end		= 0x490240ff,
 		.flags		= ADDR_TYPE_RT
@@ -2894,6 +2939,7 @@ static struct omap_hwmod_dma_info omap44xx_mcbsp3_sdma_reqs[] = {
 
 static struct omap_hwmod_addr_space omap44xx_mcbsp3_addrs[] = {
 	{
+		.name		= "mpu",
 		.pa_start	= 0x40126000,
 		.pa_end		= 0x401260ff,
 		.flags		= ADDR_TYPE_RT
@@ -2912,6 +2958,7 @@ static struct omap_hwmod_ocp_if omap44xx_l4_abe__mcbsp3 = {
 
 static struct omap_hwmod_addr_space omap44xx_mcbsp3_dma_addrs[] = {
 	{
+		.name		= "dma",
 		.pa_start	= 0x49026000,
 		.pa_end		= 0x490260ff,
 		.flags		= ADDR_TYPE_RT
@@ -3383,6 +3430,7 @@ static struct omap_hwmod_class omap44xx_mmc_hwmod_class = {
 };
 
 /* mmc1 */
+
 static struct omap_hwmod_irq_info omap44xx_mmc1_irqs[] = {
 	{ .irq = 83 + OMAP44XX_IRQ_GIC_START },
 };
@@ -3420,6 +3468,11 @@ static struct omap_hwmod_ocp_if *omap44xx_mmc1_slaves[] = {
 	&omap44xx_l4_per__mmc1,
 };
 
+/* mmc1 dev_attr */
+static struct omap_mmc_dev_attr mmc1_dev_attr = {
+	.flags	= OMAP_HSMMC_SUPPORTS_DUAL_VOLT,
+};
+
 static struct omap_hwmod omap44xx_mmc1_hwmod = {
 	.name		= "mmc1",
 	.class		= &omap44xx_mmc_hwmod_class,
@@ -3433,6 +3486,7 @@ static struct omap_hwmod omap44xx_mmc1_hwmod = {
 			.clkctrl_reg = OMAP4430_CM_L3INIT_MMC1_CLKCTRL,
 		},
 	},
+	.dev_attr	= &mmc1_dev_attr,
 	.slaves		= omap44xx_mmc1_slaves,
 	.slaves_cnt	= ARRAY_SIZE(omap44xx_mmc1_slaves),
 	.masters	= omap44xx_mmc1_masters,
@@ -3989,7 +4043,6 @@ static struct omap_hwmod_ocp_if *omap44xx_timer1_slaves[] = {
 static struct omap_hwmod omap44xx_timer1_hwmod = {
 	.name		= "timer1",
 	.class		= &omap44xx_timer_1ms_hwmod_class,
-	.flags		= HWMOD_INIT_NO_IDLE | HWMOD_INIT_NO_RESET,
 	.mpu_irqs	= omap44xx_timer1_irqs,
 	.mpu_irqs_cnt	= ARRAY_SIZE(omap44xx_timer1_irqs),
 	.main_clk	= "timer1_fck",
@@ -5077,11 +5130,11 @@ static __initdata struct omap_hwmod *omap44xx_hwmods[] = {
 	&omap44xx_mcspi4_hwmod,
 
 	/* mmc class */
-/*	&omap44xx_mmc1_hwmod, */
-/*	&omap44xx_mmc2_hwmod, */
-/*	&omap44xx_mmc3_hwmod, */
-/*	&omap44xx_mmc4_hwmod, */
-/*	&omap44xx_mmc5_hwmod, */
+	&omap44xx_mmc1_hwmod,
+	&omap44xx_mmc2_hwmod,
+	&omap44xx_mmc3_hwmod,
+	&omap44xx_mmc4_hwmod,
+	&omap44xx_mmc5_hwmod,
 
 	/* mpu class */
 	&omap44xx_mpu_hwmod,
@@ -5125,6 +5178,6 @@ static __initdata struct omap_hwmod *omap44xx_hwmods[] = {
 
 int __init omap44xx_hwmod_init(void)
 {
-	return omap_hwmod_init(omap44xx_hwmods);
+	return omap_hwmod_register(omap44xx_hwmods);
 }
 

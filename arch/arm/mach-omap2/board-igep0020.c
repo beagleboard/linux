@@ -250,7 +250,7 @@ static inline void __init igep2_init_smsc911x(void) { }
 #endif
 
 static struct regulator_consumer_supply igep2_vmmc1_supply =
-	REGULATOR_SUPPLY("vmmc", "mmci-omap-hs.0");
+	REGULATOR_SUPPLY("vmmc", "omap_hsmmc.0");
 
 /* VMMC1 for OMAP VDD_MMC1 (i/o) and MMC1 card */
 static struct regulator_init_data igep2_vmmc1 = {
@@ -268,7 +268,7 @@ static struct regulator_init_data igep2_vmmc1 = {
 };
 
 static struct regulator_consumer_supply igep2_vio_supply =
-	REGULATOR_SUPPLY("vmmc_aux", "mmci-omap-hs.1");
+	REGULATOR_SUPPLY("vmmc_aux", "omap_hsmmc.1");
 
 static struct regulator_init_data igep2_vio = {
 	.constraints = {
@@ -286,7 +286,7 @@ static struct regulator_init_data igep2_vio = {
 };
 
 static struct regulator_consumer_supply igep2_vmmc2_supply =
-	REGULATOR_SUPPLY("vmmc", "mmci-omap-hs.1");
+	REGULATOR_SUPPLY("vmmc", "omap_hsmmc.1");
 
 static struct regulator_init_data igep2_vmmc2 = {
 	.constraints		= {
@@ -485,8 +485,10 @@ static struct omap_dss_board_info igep2_dss_data = {
 	.default_device	= &igep2_dvi_device,
 };
 
-static struct regulator_consumer_supply igep2_vpll2_supply =
-	REGULATOR_SUPPLY("vdds_dsi", "omapdss");
+static struct regulator_consumer_supply igep2_vpll2_supplies[] = {
+	REGULATOR_SUPPLY("vdds_dsi", "omapdss"),
+	REGULATOR_SUPPLY("vdds_dsi", "omapdss_dsi1"),
+};
 
 static struct regulator_init_data igep2_vpll2 = {
 	.constraints = {
@@ -499,8 +501,8 @@ static struct regulator_init_data igep2_vpll2 = {
 		.valid_ops_mask		= REGULATOR_CHANGE_MODE
 					| REGULATOR_CHANGE_STATUS,
 	},
-	.num_consumer_supplies	= 1,
-	.consumer_supplies	= &igep2_vpll2_supply,
+	.num_consumer_supplies	= ARRAY_SIZE(igep2_vpll2_supplies),
+	.consumer_supplies	= igep2_vpll2_supplies,
 };
 
 static void __init igep2_display_init(void)
@@ -521,9 +523,7 @@ static void __init igep2_init_early(void)
 				  m65kxxxxam_sdrc_params);
 }
 
-static struct twl4030_codec_audio_data igep2_audio_data = {
-	.audio_mclk = 26000000,
-};
+static struct twl4030_codec_audio_data igep2_audio_data;
 
 static struct twl4030_codec_data igep2_codec_data = {
 	.audio_mclk = 26000000,
@@ -615,10 +615,10 @@ static struct omap_musb_board_data musb_board_data = {
 	.power			= 100,
 };
 
-static const struct ehci_hcd_omap_platform_data ehci_pdata __initconst = {
-	.port_mode[0] = EHCI_HCD_OMAP_MODE_PHY,
-	.port_mode[1] = EHCI_HCD_OMAP_MODE_UNKNOWN,
-	.port_mode[2] = EHCI_HCD_OMAP_MODE_UNKNOWN,
+static const struct usbhs_omap_board_data usbhs_bdata __initconst = {
+	.port_mode[0] = OMAP_EHCI_PORT_MODE_PHY,
+	.port_mode[1] = OMAP_USBHS_PORT_MODE_UNUSED,
+	.port_mode[2] = OMAP_USBHS_PORT_MODE_UNUSED,
 
 	.phy_reset = true,
 	.reset_gpio_port[0] = IGEP2_GPIO_USBH_NRESET,
@@ -688,7 +688,7 @@ static void __init igep2_init(void)
 	omap_display_init(&igep2_dss_data);
 	omap_serial_init();
 	usb_musb_init(&musb_board_data);
-	usb_ehci_init(&ehci_pdata);
+	usbhs_init(&usbhs_bdata);
 
 	igep2_flash_init();
 	igep2_leds_init();
@@ -696,7 +696,7 @@ static void __init igep2_init(void)
 	igep2_init_smsc911x();
 
 	/*
-	 * WLAN-BT combo module from MuRata wich has a Marvell WLAN
+	 * WLAN-BT combo module from MuRata which has a Marvell WLAN
 	 * (88W8686) + CSR Bluetooth chipset. Uses SDIO interface.
 	 */
 	igep2_wlan_bt_init();

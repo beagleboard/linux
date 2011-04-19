@@ -411,7 +411,7 @@ static struct omap2_hsmmc_info mmc[] = {
 #ifdef CONFIG_WL12XX_PLATFORM_DATA
 	{
 		.name		= "wl1271",
-		.mmc            = 2,
+		.mmc		= 2,
 		.caps		= MMC_CAP_4_BIT_DATA | MMC_CAP_POWER_OFF_CARD,
 		.gpio_wp	= -EINVAL,
 		.gpio_cd	= -EINVAL,
@@ -534,9 +534,7 @@ static struct twl4030_madc_platform_data omap3evm_madc_data = {
 	.irq_line	= 1,
 };
 
-static struct twl4030_codec_audio_data omap3evm_audio_data = {
-	.audio_mclk = 26000000,
-};
+static struct twl4030_codec_audio_data omap3evm_audio_data;
 
 static struct twl4030_codec_data omap3evm_codec_data = {
 	.audio_mclk = 26000000,
@@ -544,7 +542,7 @@ static struct twl4030_codec_data omap3evm_codec_data = {
 };
 
 static struct regulator_consumer_supply omap3_evm_vdda_dac_supply =
-	REGULATOR_SUPPLY("vdda_dac", "omapdss");
+	REGULATOR_SUPPLY("vdda_dac", "omapdss_venc");
 
 /* VDAC for DSS driving S-Video */
 static struct regulator_init_data omap3_evm_vdac = {
@@ -562,8 +560,10 @@ static struct regulator_init_data omap3_evm_vdac = {
 };
 
 /* VPLL2 for digital video outputs */
-static struct regulator_consumer_supply omap3_evm_vpll2_supply =
-	REGULATOR_SUPPLY("vdds_dsi", "omapdss");
+static struct regulator_consumer_supply omap3_evm_vpll2_supplies[] = {
+	REGULATOR_SUPPLY("vdds_dsi", "omapdss"),
+	REGULATOR_SUPPLY("vdds_dsi", "omapdss_dsi1"),
+};
 
 static struct regulator_init_data omap3_evm_vpll2 = {
 	.constraints = {
@@ -575,8 +575,8 @@ static struct regulator_init_data omap3_evm_vpll2 = {
 		.valid_ops_mask		= REGULATOR_CHANGE_MODE
 					| REGULATOR_CHANGE_STATUS,
 	},
-	.num_consumer_supplies	= 1,
-	.consumer_supplies	= &omap3_evm_vpll2_supply,
+	.num_consumer_supplies	= ARRAY_SIZE(omap3_evm_vpll2_supplies),
+	.consumer_supplies	= omap3_evm_vpll2_supplies,
 };
 
 /* ads7846 on SPI */
@@ -603,10 +603,8 @@ static struct regulator_init_data omap3evm_vio = {
 #define OMAP3EVM_WLAN_PMENA_GPIO	(150)
 #define OMAP3EVM_WLAN_IRQ_GPIO		(149)
 
-static struct regulator_consumer_supply omap3evm_vmmc2_supply = {
-	.supply			= "vmmc",
-	.dev_name		= "mmci-omap-hs.1",
-};
+static struct regulator_consumer_supply omap3evm_vmmc2_supply =
+	REGULATOR_SUPPLY("vmmc", "omap_hsmmc.1");
 
 /* VMMC2 for driving the WL12xx module */
 static struct regulator_init_data omap3evm_vmmc2 = {
@@ -627,7 +625,7 @@ static struct fixed_voltage_config omap3evm_vwlan = {
 	.init_data		= &omap3evm_vmmc2,
 };
 
-static struct platform_device omap3evm_vwlan_device = {
+static struct platform_device omap3evm_wlan_regulator = {
 	.name		= "reg-fixed-voltage",
 	.id		= 1,
 	.dev = {
@@ -637,8 +635,7 @@ static struct platform_device omap3evm_vwlan_device = {
 
 struct wl12xx_platform_data omap3evm_wlan_data __initdata = {
 	.irq = OMAP_GPIO_IRQ(OMAP3EVM_WLAN_IRQ_GPIO),
-	/* ref clock is 38.4 MHz */
-	.board_ref_clock = 2,
+	.board_ref_clock = WL12XX_REFCLOCK_38, /* 38.4 MHz */
 };
 #endif
 
@@ -732,17 +729,15 @@ static struct omap_board_config_kernel omap3_evm_config[] __initdata = {
 
 static void __init omap3_evm_init_early(void)
 {
-	omap_board_config = omap3_evm_config;
-	omap_board_config_size = ARRAY_SIZE(omap3_evm_config);
 	omap2_init_common_infrastructure();
 	omap2_init_common_devices(mt46h32m32lf6_sdrc_params, NULL);
 }
 
-static struct ehci_hcd_omap_platform_data ehci_pdata __initdata = {
+static struct usbhs_omap_board_data usbhs_bdata __initdata = {
 
-	.port_mode[0] = EHCI_HCD_OMAP_MODE_UNKNOWN,
-	.port_mode[1] = EHCI_HCD_OMAP_MODE_PHY,
-	.port_mode[2] = EHCI_HCD_OMAP_MODE_UNKNOWN,
+	.port_mode[0] = OMAP_USBHS_PORT_MODE_UNUSED,
+	.port_mode[1] = OMAP_EHCI_PORT_MODE_PHY,
+	.port_mode[2] = OMAP_USBHS_PORT_MODE_UNUSED,
 
 	.phy_reset  = true,
 	/* PHY reset GPIO will be runtime programmed based on EVM version */
@@ -765,7 +760,7 @@ static struct omap_board_mux omap35x_board_mux[] __initdata = {
 				OMAP_PIN_OFF_NONE),
 #ifdef CONFIG_WL12XX_PLATFORM_DATA
 	/* WLAN IRQ - GPIO 149 */
-	OMAP3_MUX(UART1_RTS, OMAP_MUX_MODE4 | OMAP_PIN_INPUT_PULLUP),
+	OMAP3_MUX(UART1_RTS, OMAP_MUX_MODE4 | OMAP_PIN_INPUT),
 
 	/* WLAN POWER ENABLE - GPIO 150 */
 	OMAP3_MUX(UART1_CTS, OMAP_MUX_MODE4 | OMAP_PIN_OUTPUT),
@@ -801,6 +796,21 @@ static struct omap_board_mux omap36x_board_mux[] __initdata = {
 	OMAP3_MUX(SYS_BOOT4, OMAP_MUX_MODE3 | OMAP_PIN_OFF_NONE),
 	OMAP3_MUX(SYS_BOOT5, OMAP_MUX_MODE3 | OMAP_PIN_OFF_NONE),
 	OMAP3_MUX(SYS_BOOT6, OMAP_MUX_MODE3 | OMAP_PIN_OFF_NONE),
+#ifdef CONFIG_WL12XX_PLATFORM_DATA
+	/* WLAN IRQ - GPIO 149 */
+	OMAP3_MUX(UART1_RTS, OMAP_MUX_MODE4 | OMAP_PIN_INPUT),
+
+	/* WLAN POWER ENABLE - GPIO 150 */
+	OMAP3_MUX(UART1_CTS, OMAP_MUX_MODE4 | OMAP_PIN_OUTPUT),
+
+	/* MMC2 SDIO pin muxes for WL12xx */
+	OMAP3_MUX(SDMMC2_CLK, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
+	OMAP3_MUX(SDMMC2_CMD, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
+	OMAP3_MUX(SDMMC2_DAT0, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
+	OMAP3_MUX(SDMMC2_DAT1, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
+	OMAP3_MUX(SDMMC2_DAT2, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
+	OMAP3_MUX(SDMMC2_DAT3, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
+#endif
 
 	{ .reg_offset = OMAP_MUX_TERMINATOR },
 };
@@ -823,6 +833,9 @@ static void __init omap3_evm_init(void)
 		omap3_mux_init(omap36x_board_mux, OMAP_PACKAGE_CBB);
 	else
 		omap3_mux_init(omap35x_board_mux, OMAP_PACKAGE_CBB);
+
+	omap_board_config = omap3_evm_config;
+	omap_board_config_size = ARRAY_SIZE(omap3_evm_config);
 
 	omap3_evm_i2c_init();
 
@@ -851,7 +864,7 @@ static void __init omap3_evm_init(void)
 
 		/* setup EHCI phy reset config */
 		omap_mux_init_gpio(21, OMAP_PIN_INPUT_PULLUP);
-		ehci_pdata.reset_gpio_port[1] = 21;
+		usbhs_bdata.reset_gpio_port[1] = 21;
 
 		/* EVM REV >= E can supply 500mA with EXTVBUS programming */
 		musb_board_data.power = 500;
@@ -859,10 +872,10 @@ static void __init omap3_evm_init(void)
 	} else {
 		/* setup EHCI phy reset on MDC */
 		omap_mux_init_gpio(135, OMAP_PIN_OUTPUT);
-		ehci_pdata.reset_gpio_port[1] = 135;
+		usbhs_bdata.reset_gpio_port[1] = 135;
 	}
 	usb_musb_init(&musb_board_data);
-	usb_ehci_init(&ehci_pdata);
+	usbhs_init(&usbhs_bdata);
 	ads7846_dev_init();
 	omap3evm_init_smsc911x();
 	omap3_evm_display_init();
@@ -871,7 +884,7 @@ static void __init omap3_evm_init(void)
 	/* WL12xx WLAN Init */
 	if (wl12xx_set_platform_data(&omap3evm_wlan_data))
 		pr_err("error setting wl12xx data\n");
-	platform_device_register(&omap3evm_vwlan_device);
+	platform_device_register(&omap3evm_wlan_regulator);
 #endif
 }
 

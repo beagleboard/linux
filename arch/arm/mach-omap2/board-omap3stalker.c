@@ -431,9 +431,7 @@ static struct twl4030_madc_platform_data omap3stalker_madc_data = {
 	.irq_line	= 1,
 };
 
-static struct twl4030_codec_audio_data omap3stalker_audio_data = {
-	.audio_mclk	= 26000000,
-};
+static struct twl4030_codec_audio_data omap3stalker_audio_data;
 
 static struct twl4030_codec_data omap3stalker_codec_data = {
 	.audio_mclk	= 26000000,
@@ -441,7 +439,7 @@ static struct twl4030_codec_data omap3stalker_codec_data = {
 };
 
 static struct regulator_consumer_supply omap3_stalker_vdda_dac_supply =
-	REGULATOR_SUPPLY("vdda_dac", "omapdss");
+	REGULATOR_SUPPLY("vdda_dac", "omapdss_venc");
 
 /* VDAC for DSS driving S-Video */
 static struct regulator_init_data omap3_stalker_vdac = {
@@ -459,8 +457,10 @@ static struct regulator_init_data omap3_stalker_vdac = {
 };
 
 /* VPLL2 for digital video outputs */
-static struct regulator_consumer_supply omap3_stalker_vpll2_supply =
-	REGULATOR_SUPPLY("vdds_dsi", "omapdss");
+static struct regulator_consumer_supply omap3_stalker_vpll2_supplies[] = {
+	REGULATOR_SUPPLY("vdds_dsi", "omapdss"),
+	REGULATOR_SUPPLY("vdds_dsi", "omapdss_dsi1"),
+};
 
 static struct regulator_init_data omap3_stalker_vpll2 = {
 	.constraints		= {
@@ -473,8 +473,8 @@ static struct regulator_init_data omap3_stalker_vpll2 = {
 		.valid_ops_mask		= REGULATOR_CHANGE_MODE
 		| REGULATOR_CHANGE_STATUS,
 	},
-	.num_consumer_supplies	= 1,
-	.consumer_supplies	= &omap3_stalker_vpll2_supply,
+	.num_consumer_supplies	= ARRAY_SIZE(omap3_stalker_vpll2_supplies),
+	.consumer_supplies	= omap3_stalker_vpll2_supplies,
 };
 
 static struct twl4030_platform_data omap3stalker_twldata = {
@@ -581,8 +581,6 @@ static struct omap_board_config_kernel omap3_stalker_config[] __initdata = {
 
 static void __init omap3_stalker_init_early(void)
 {
-	omap_board_config = omap3_stalker_config;
-	omap_board_config_size = ARRAY_SIZE(omap3_stalker_config);
 	omap2_init_common_infrastructure();
 	omap2_init_common_devices(mt46h32m32lf6_sdrc_params, NULL);
 }
@@ -599,10 +597,10 @@ static struct platform_device *omap3_stalker_devices[] __initdata = {
 	&keys_gpio,
 };
 
-static struct ehci_hcd_omap_platform_data ehci_pdata __initconst = {
-	.port_mode[0] = EHCI_HCD_OMAP_MODE_UNKNOWN,
-	.port_mode[1] = EHCI_HCD_OMAP_MODE_PHY,
-	.port_mode[2] = EHCI_HCD_OMAP_MODE_UNKNOWN,
+static struct usbhs_omap_board_data usbhs_bdata __initconst = {
+	.port_mode[0] = OMAP_USBHS_PORT_MODE_UNUSED,
+	.port_mode[1] = OMAP_EHCI_PORT_MODE_PHY,
+	.port_mode[2] = OMAP_USBHS_PORT_MODE_UNUSED,
 
 	.phy_reset = true,
 	.reset_gpio_port[0] = -EINVAL,
@@ -629,6 +627,8 @@ static struct omap_musb_board_data musb_board_data = {
 static void __init omap3_stalker_init(void)
 {
 	omap3_mux_init(board_mux, OMAP_PACKAGE_CUS);
+	omap_board_config = omap3_stalker_config;
+	omap_board_config_size = ARRAY_SIZE(omap3_stalker_config);
 
 	omap3_stalker_i2c_init();
 
@@ -641,7 +641,7 @@ static void __init omap3_stalker_init(void)
 
 	omap_serial_init();
 	usb_musb_init(&musb_board_data);
-	usb_ehci_init(&ehci_pdata);
+	usbhs_init(&usbhs_bdata);
 	ads7846_dev_init();
 
 	omap_mux_init_gpio(21, OMAP_PIN_OUTPUT);

@@ -167,10 +167,10 @@ static inline void cm_t3517_init_rtc(void) {}
 #define HSUSB2_RESET_GPIO	(147)
 #define USB_HUB_RESET_GPIO	(152)
 
-static struct ehci_hcd_omap_platform_data cm_t3517_ehci_pdata __initdata = {
-	.port_mode[0] = EHCI_HCD_OMAP_MODE_PHY,
-	.port_mode[1] = EHCI_HCD_OMAP_MODE_PHY,
-	.port_mode[2] = EHCI_HCD_OMAP_MODE_UNKNOWN,
+static struct usbhs_omap_board_data cm_t3517_ehci_pdata __initdata = {
+	.port_mode[0] = OMAP_EHCI_PORT_MODE_PHY,
+	.port_mode[1] = OMAP_EHCI_PORT_MODE_PHY,
+	.port_mode[2] = OMAP_USBHS_PORT_MODE_UNUSED,
 
 	.phy_reset  = true,
 	.reset_gpio_port[0]  = HSUSB1_RESET_GPIO,
@@ -192,7 +192,7 @@ static int cm_t3517_init_usbh(void)
 		msleep(1);
 	}
 
-	usb_ehci_init(&cm_t3517_ehci_pdata);
+	usbhs_init(&cm_t3517_ehci_pdata);
 
 	return 0;
 }
@@ -256,13 +256,11 @@ static struct omap_board_config_kernel cm_t3517_config[] __initdata = {
 
 static void __init cm_t3517_init_early(void)
 {
-	omap_board_config = cm_t3517_config;
-	omap_board_config_size = ARRAY_SIZE(cm_t3517_config);
-
 	omap2_init_common_infrastructure();
 	omap2_init_common_devices(NULL, NULL);
 }
 
+#ifdef CONFIG_OMAP_MUX
 static struct omap_board_mux board_mux[] __initdata = {
 	/* GPIO186 - Green LED */
 	OMAP3_MUX(SYS_CLKOUT2, OMAP_MUX_MODE4 | OMAP_PIN_OUTPUT),
@@ -288,11 +286,14 @@ static struct omap_board_mux board_mux[] __initdata = {
 
 	{ .reg_offset = OMAP_MUX_TERMINATOR },
 };
+#endif
 
 static void __init cm_t3517_init(void)
 {
 	omap3_mux_init(board_mux, OMAP_PACKAGE_CBB);
 	omap_serial_init();
+	omap_board_config = cm_t3517_config;
+	omap_board_config_size = ARRAY_SIZE(cm_t3517_config);
 	cm_t3517_init_leds();
 	cm_t3517_init_nand();
 	cm_t3517_init_rtc();

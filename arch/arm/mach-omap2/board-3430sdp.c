@@ -307,17 +307,11 @@ static struct omap_dss_board_info sdp3430_dss_data = {
 	.default_device	= &sdp3430_lcd_device,
 };
 
-static struct regulator_consumer_supply sdp3430_vdda_dac_supply =
-	REGULATOR_SUPPLY("vdda_dac", "omapdss");
-
 static struct omap_board_config_kernel sdp3430_config[] __initdata = {
 };
 
 static void __init omap_3430sdp_init_early(void)
 {
-	omap_board_config = sdp3430_config;
-	omap_board_config_size = ARRAY_SIZE(sdp3430_config);
-	omap3_pm_init_cpuidle(omap3_cpuidle_params_table);
 	omap2_init_common_infrastructure();
 	omap2_init_common_devices(hyb18m512160af6_sdrc_params, NULL);
 }
@@ -401,24 +395,25 @@ static struct regulator_consumer_supply sdp3430_vaux3_supplies[] = {
 };
 
 static struct regulator_consumer_supply sdp3430_vdda_dac_supplies[] = {
-	REGULATOR_SUPPLY("vdda_dac", "omapdss"),
+	REGULATOR_SUPPLY("vdda_dac", "omapdss_venc"),
 };
 
 /* VPLL2 for digital video outputs */
 static struct regulator_consumer_supply sdp3430_vpll2_supplies[] = {
 	REGULATOR_SUPPLY("vdds_dsi", "omapdss"),
+	REGULATOR_SUPPLY("vdds_dsi", "omapdss_dsi1"),
 };
 
 static struct regulator_consumer_supply sdp3430_vmmc1_supplies[] = {
-	REGULATOR_SUPPLY("vmmc", "mmci-omap-hs.0"),
+	REGULATOR_SUPPLY("vmmc", "omap_hsmmc.0"),
 };
 
 static struct regulator_consumer_supply sdp3430_vsim_supplies[] = {
-	REGULATOR_SUPPLY("vmmc_aux", "mmci-omap-hs.0"),
+	REGULATOR_SUPPLY("vmmc_aux", "omap_hsmmc.0"),
 };
 
 static struct regulator_consumer_supply sdp3430_vmmc2_supplies[] = {
-	REGULATOR_SUPPLY("vmmc", "mmci-omap-hs.1"),
+	REGULATOR_SUPPLY("vmmc", "omap_hsmmc.1"),
 };
 
 /*
@@ -555,9 +550,7 @@ static struct regulator_init_data sdp3430_vpll2 = {
 	.consumer_supplies	= sdp3430_vpll2_supplies,
 };
 
-static struct twl4030_codec_audio_data sdp3430_audio = {
-	.audio_mclk = 26000000,
-};
+static struct twl4030_codec_audio_data sdp3430_audio;
 
 static struct twl4030_codec_data sdp3430_codec = {
 	.audio_mclk = 26000000,
@@ -641,11 +634,11 @@ static void enable_board_wakeup_source(void)
 		OMAP_WAKEUP_EN | OMAP_PIN_INPUT_PULLUP);
 }
 
-static const struct ehci_hcd_omap_platform_data ehci_pdata __initconst = {
+static const struct usbhs_omap_board_data usbhs_bdata __initconst = {
 
-	.port_mode[0] = EHCI_HCD_OMAP_MODE_PHY,
-	.port_mode[1] = EHCI_HCD_OMAP_MODE_PHY,
-	.port_mode[2] = EHCI_HCD_OMAP_MODE_UNKNOWN,
+	.port_mode[0] = OMAP_EHCI_PORT_MODE_PHY,
+	.port_mode[1] = OMAP_EHCI_PORT_MODE_PHY,
+	.port_mode[2] = OMAP_USBHS_PORT_MODE_UNUSED,
 
 	.phy_reset  = true,
 	.reset_gpio_port[0]  = 57,
@@ -657,6 +650,106 @@ static const struct ehci_hcd_omap_platform_data ehci_pdata __initconst = {
 static struct omap_board_mux board_mux[] __initdata = {
 	{ .reg_offset = OMAP_MUX_TERMINATOR },
 };
+
+static struct omap_device_pad serial1_pads[] __initdata = {
+	/*
+	 * Note that off output enable is an active low
+	 * signal. So setting this means pin is a
+	 * input enabled in off mode
+	 */
+	OMAP_MUX_STATIC("uart1_cts.uart1_cts",
+			 OMAP_PIN_INPUT |
+			 OMAP_PIN_OFF_INPUT_PULLDOWN |
+			 OMAP_OFFOUT_EN |
+			 OMAP_MUX_MODE0),
+	OMAP_MUX_STATIC("uart1_rts.uart1_rts",
+			 OMAP_PIN_OUTPUT |
+			 OMAP_OFF_EN |
+			 OMAP_MUX_MODE0),
+	OMAP_MUX_STATIC("uart1_rx.uart1_rx",
+			 OMAP_PIN_INPUT |
+			 OMAP_PIN_OFF_INPUT_PULLDOWN |
+			 OMAP_OFFOUT_EN |
+			 OMAP_MUX_MODE0),
+	OMAP_MUX_STATIC("uart1_tx.uart1_tx",
+			 OMAP_PIN_OUTPUT |
+			 OMAP_OFF_EN |
+			 OMAP_MUX_MODE0),
+};
+
+static struct omap_device_pad serial2_pads[] __initdata = {
+	OMAP_MUX_STATIC("uart2_cts.uart2_cts",
+			 OMAP_PIN_INPUT_PULLUP |
+			 OMAP_PIN_OFF_INPUT_PULLDOWN |
+			 OMAP_OFFOUT_EN |
+			 OMAP_MUX_MODE0),
+	OMAP_MUX_STATIC("uart2_rts.uart2_rts",
+			 OMAP_PIN_OUTPUT |
+			 OMAP_OFF_EN |
+			 OMAP_MUX_MODE0),
+	OMAP_MUX_STATIC("uart2_rx.uart2_rx",
+			 OMAP_PIN_INPUT |
+			 OMAP_PIN_OFF_INPUT_PULLDOWN |
+			 OMAP_OFFOUT_EN |
+			 OMAP_MUX_MODE0),
+	OMAP_MUX_STATIC("uart2_tx.uart2_tx",
+			 OMAP_PIN_OUTPUT |
+			 OMAP_OFF_EN |
+			 OMAP_MUX_MODE0),
+};
+
+static struct omap_device_pad serial3_pads[] __initdata = {
+	OMAP_MUX_STATIC("uart3_cts_rctx.uart3_cts_rctx",
+			 OMAP_PIN_INPUT_PULLDOWN |
+			 OMAP_PIN_OFF_INPUT_PULLDOWN |
+			 OMAP_OFFOUT_EN |
+			 OMAP_MUX_MODE0),
+	OMAP_MUX_STATIC("uart3_rts_sd.uart3_rts_sd",
+			 OMAP_PIN_OUTPUT |
+			 OMAP_OFF_EN |
+			 OMAP_MUX_MODE0),
+	OMAP_MUX_STATIC("uart3_rx_irrx.uart3_rx_irrx",
+			 OMAP_PIN_INPUT |
+			 OMAP_PIN_OFF_INPUT_PULLDOWN |
+			 OMAP_OFFOUT_EN |
+			 OMAP_MUX_MODE0),
+	OMAP_MUX_STATIC("uart3_tx_irtx.uart3_tx_irtx",
+			 OMAP_PIN_OUTPUT |
+			 OMAP_OFF_EN |
+			 OMAP_MUX_MODE0),
+};
+
+static struct omap_board_data serial1_data = {
+	.id		= 0,
+	.pads		= serial1_pads,
+	.pads_cnt	= ARRAY_SIZE(serial1_pads),
+};
+
+static struct omap_board_data serial2_data = {
+	.id		= 1,
+	.pads		= serial2_pads,
+	.pads_cnt	= ARRAY_SIZE(serial2_pads),
+};
+
+static struct omap_board_data serial3_data = {
+	.id		= 2,
+	.pads		= serial3_pads,
+	.pads_cnt	= ARRAY_SIZE(serial3_pads),
+};
+
+static inline void board_serial_init(void)
+{
+	omap_serial_init_port(&serial1_data);
+	omap_serial_init_port(&serial2_data);
+	omap_serial_init_port(&serial3_data);
+}
+#else
+#define board_mux	NULL
+
+static inline void board_serial_init(void)
+{
+	omap_serial_init();
+}
 #endif
 
 /*
@@ -788,6 +881,9 @@ static struct omap_musb_board_data musb_board_data = {
 static void __init omap_3430sdp_init(void)
 {
 	omap3_mux_init(board_mux, OMAP_PACKAGE_CBB);
+	omap_board_config = sdp3430_config;
+	omap_board_config_size = ARRAY_SIZE(sdp3430_config);
+	omap3_pm_init_cpuidle(omap3_cpuidle_params_table);
 	omap3430_i2c_init();
 	omap_display_init(&sdp3430_dss_data);
 	if (omap_rev() > OMAP3430_REV_ES1_0)
@@ -798,13 +894,13 @@ static void __init omap_3430sdp_init(void)
 	spi_register_board_info(sdp3430_spi_board_info,
 				ARRAY_SIZE(sdp3430_spi_board_info));
 	ads7846_dev_init();
-	omap_serial_init();
+	board_serial_init();
 	usb_musb_init(&musb_board_data);
 	board_smc91x_init();
 	board_flash_init(sdp_flash_partitions, chip_sel_3430, 0);
 	sdp3430_display_init();
 	enable_board_wakeup_source();
-	usb_ehci_init(&ehci_pdata);
+	usbhs_init(&usbhs_bdata);
 }
 
 MACHINE_START(OMAP_3430SDP, "OMAP3430 3430SDP board")
