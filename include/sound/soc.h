@@ -577,7 +577,9 @@ struct snd_soc_codec_driver {
 			pm_message_t state);
 	int (*resume)(struct snd_soc_codec *);
 
-	/* Default DAPM setup, added after probe() is run */
+	/* Default control and setup, added after probe() is run */
+	const struct snd_kcontrol_new *controls;
+	int num_controls;
 	const struct snd_soc_dapm_widget *dapm_widgets;
 	int num_dapm_widgets;
 	const struct snd_soc_dapm_route *dapm_routes;
@@ -747,12 +749,15 @@ struct snd_soc_card {
 	struct snd_soc_pcm_runtime *rtd_aux;
 	int num_aux_rtd;
 
+	const struct snd_kcontrol_new *controls;
+	int num_controls;
+
 	/*
 	 * Card-specific routes and widgets.
 	 */
-	struct snd_soc_dapm_widget *dapm_widgets;
+	const struct snd_soc_dapm_widget *dapm_widgets;
 	int num_dapm_widgets;
-	struct snd_soc_dapm_route *dapm_routes;
+	const struct snd_soc_dapm_route *dapm_routes;
 	int num_dapm_routes;
 
 	struct work_struct deferred_resume_work;

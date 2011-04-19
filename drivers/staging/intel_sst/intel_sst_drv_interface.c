@@ -315,7 +315,7 @@ int sst_open_pcm_stream(struct snd_sst_params *str_param)
 	pm_runtime_get_sync(&sst_drv_ctx->pci->dev);
 
 	if (sst_drv_ctx->sst_state == SST_SUSPENDED) {
-		/* LPE is suspended, resume it before proceding*/
+		/* LPE is suspended, resume it before proceeding*/
 		pr_debug("Resuming from Suspended state\n");
 		retval = intel_sst_resume(sst_drv_ctx->pci);
 		if (retval) {
@@ -508,7 +508,6 @@ int register_sst_card(struct intel_sst_card_ops *card)
 			sst_drv_ctx->pmic_state = SND_MAD_INIT_DONE;
 			sst_drv_ctx->rx_time_slot_status = 0; /*default AMIC*/
 			card->pcm_control = sst_pmic_ops.pcm_control;
-			sst_drv_ctx->scard_ops->card_status = SND_CARD_UN_INIT;
 			return 0;
 		} else {
 			pr_err("strcmp fail %s\n", card->module_name);

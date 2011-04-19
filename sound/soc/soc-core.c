@@ -629,6 +629,7 @@ static int soc_pcm_open(struct snd_pcm_substream *substream)
 			runtime->hw.rates |= codec_dai_drv->capture.rates;
 	}
 
+	ret = -EINVAL;
 	snd_pcm_limit_hw_rates(runtime);
 	if (!runtime->hw.rates) {
 		printk(KERN_ERR "asoc: %s <-> %s No matching rates\n",
@@ -640,7 +641,8 @@ static int soc_pcm_open(struct snd_pcm_substream *substream)
 			codec_dai->name, cpu_dai->name);
 		goto config_err;
 	}
-	if (!runtime->hw.channels_min || !runtime->hw.channels_max) {
+	if (!runtime->hw.channels_min || !runtime->hw.channels_max ||
+	    runtime->hw.channels_min > runtime->hw.channels_max) {
 		printk(KERN_ERR "asoc: %s <-> %s No matching channels\n",
 				codec_dai->name, cpu_dai->name);
 		goto config_err;
@@ -1451,6 +1453,16 @@ static void soc_remove_dai_link(struct snd_soc_card *card, int num)
 	}
 }
 
+static void soc_remove_dai_links(struct snd_soc_card *card)
+{
+	int i;
+
+	for (i = 0; i < card->num_rtd; i++)
+		soc_remove_dai_link(card, i);
+
+	card->num_rtd = 0;
+}
+
 static void soc_set_name_prefix(struct snd_soc_card *card,
 				struct snd_soc_codec *codec)
 {
@@ -1491,6 +1503,9 @@ static int soc_probe_codec(struct snd_soc_card *card,
 		}
 	}
 
+	if (driver->controls)
+		snd_soc_add_controls(codec, driver->controls,
+				     driver->num_controls);
 	if (driver->dapm_widgets)
 		snd_soc_dapm_new_controls(&codec->dapm, driver->dapm_widgets,
 					  driver->num_dapm_widgets);
@@ -1863,6 +1878,10 @@ static void snd_soc_instantiate_card(struct snd_soc_card *card)
 	INIT_WORK(&card->deferred_resume_work, soc_resume_deferred);
 #endif
 
+	if (card->dapm_widgets)
+		snd_soc_dapm_new_controls(&card->dapm, card->dapm_widgets,
+					  card->num_dapm_widgets);
+
 	/* initialise the sound card only once */
 	if (card->probe) {
 		ret = card->probe(card);
@@ -1888,9 +1907,14 @@ static void snd_soc_instantiate_card(struct snd_soc_card *card)
 		}
 	}
 
-	if (card->dapm_widgets)
-		snd_soc_dapm_new_controls(&card->dapm, card->dapm_widgets,
-					  card->num_dapm_widgets);
+	/* We should have a non-codec control add function but we don't */
+	if (card->controls)
+		snd_soc_add_controls(list_first_entry(&card->codec_dev_list,
+						      struct snd_soc_codec,
+						      card_list),
+				     card->controls,
+				     card->num_controls);
+
 	if (card->dapm_routes)
 		snd_soc_dapm_add_routes(&card->dapm, card->dapm_routes,
 					card->num_dapm_routes);
@@ -1947,8 +1971,7 @@ probe_aux_dev_err:
 		soc_remove_aux_dev(card, i);
 
 probe_dai_err:
-	for (i = 0; i < card->num_links; i++)
-		soc_remove_dai_link(card, i);
+	soc_remove_dai_links(card);
 
 card_probe_error:
 	if (card->remove)
@@ -2010,8 +2033,7 @@ static int soc_cleanup_card_resources(struct snd_soc_card *card)
 		soc_remove_aux_dev(card, i);
 
 	/* remove and free each DAI */
-	for (i = 0; i < card->num_rtd; i++)
-		soc_remove_dai_link(card, i);
+	soc_remove_dai_links(card);
 
 	soc_cleanup_card_debugfs(card);
 
@@ -2060,6 +2082,7 @@ const struct dev_pm_ops snd_soc_pm_ops = {
 	.resume = snd_soc_resume,
 	.poweroff = snd_soc_poweroff,
 };
+EXPORT_SYMBOL_GPL(snd_soc_pm_ops);
 
 /* ASoC platform driver */
 static struct platform_driver soc_driver = {

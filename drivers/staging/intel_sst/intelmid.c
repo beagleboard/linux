@@ -32,6 +32,7 @@
 #include <linux/platform_device.h>
 #include <linux/interrupt.h>
 #include <linux/sched.h>
+#include <linux/firmware.h>
 #include <sound/control.h>
 #include <asm/mrst.h>
 #include <sound/pcm.h>
@@ -40,6 +41,8 @@
 #include <sound/initval.h>
 #include "intel_sst.h"
 #include "intel_sst_ioctl.h"
+#include "intel_sst_fw_ipc.h"
+#include "intel_sst_common.h"
 #include "intelmid_snd_control.h"
 #include "intelmid.h"
 
@@ -773,7 +776,7 @@ static int __devinit snd_intelmad_sst_register(
 		if (ret_val)
 			return ret_val;
 		sst_card_vendor_id = (vendor_addr.value & (MASK2|MASK1|MASK0));
-		pr_debug("orginal n extrated vendor id = 0x%x %d\n",
+		pr_debug("original n extrated vendor id = 0x%x %d\n",
 				vendor_addr.value, sst_card_vendor_id);
 		if (sst_card_vendor_id < 0 || sst_card_vendor_id > 2) {
 			pr_err("vendor card not supported!!\n");
@@ -802,6 +805,7 @@ static int __devinit snd_intelmad_sst_register(
 		pr_err("sst card registration failed\n");
 		return ret_val;
 	}
+	sst_drv_ctx->scard_ops->card_status = SND_CARD_UN_INIT;
 
 	sst_card_vendor_id = intelmaddata->sstdrv_ops->vendor_id;
 	intelmaddata->pmic_status = PMIC_UNINIT;
