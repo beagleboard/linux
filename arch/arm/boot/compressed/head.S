@@ -205,6 +205,7 @@ restart:	adr	r0, LC0
 
 /*
  * Check to see if we will overwrite ourselves.
+ *   r1  = corrupted, temporary uncompressed kernel end 
  *   r4  = final kernel address
  *   r5  = start of this image
  *   r9  = size of decompressed image
@@ -215,15 +216,24 @@ restart:	adr	r0, LC0
  */
 		cmp	r4, r10
 		bhs	wont_overwrite
-		add	r10, r4, r9
-		cmp	r10, r5
+		add	r1, r4, r9
+		cmp	r1, r5
 		bls	wont_overwrite
+
+		/*
+		 * Check if the compressed image end is past the uncompressed
+		 * kernel end. In that case, relocate ourselves to the end
+		 * of the compressed image instead of the uncompressed kernel
+		 * end to avoid overwriting ourselves.
+		 */
+		cmp	r10, r1
+		movls	r10, r1
 
 /*
  * Relocate ourselves past the end of the decompressed kernel.
  *   r5  = start of this image
  *   r6  = _edata
- *   r10 = end of the decompressed kernel
+ *   r10 = end of the decompressed kernel or end of this image if larger
  * Because we always copy ahead, we need to do it from the end and go
  * backward in case the source and destination overlap.
  */
