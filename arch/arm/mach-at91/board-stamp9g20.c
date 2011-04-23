@@ -76,12 +76,6 @@ static void __init portuxg20_init_early(void)
 	at91_register_uart(AT91SAM9260_ID_US5, 6, 0);
 }
 
-static void __init init_irq(void)
-{
-	at91sam9260_init_interrupts(NULL);
-}
-
-
 /*
  * NAND flash
  */

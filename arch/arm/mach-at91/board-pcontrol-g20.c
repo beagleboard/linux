@@ -53,13 +53,6 @@ static void __init pcontrol_g20_init_early(void)
 	at91_register_uart(AT91SAM9260_ID_US4, 3, 0);
 }
 
-
-static void __init init_irq(void)
-{
-	at91sam9260_init_interrupts(NULL);
-}
-
-
 static struct sam9_smc_config __initdata pcontrol_smc_config[2] = { {
 	.ncs_read_setup		= 16,
 	.nrd_setup		= 18,

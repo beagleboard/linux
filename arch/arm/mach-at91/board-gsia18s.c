@@ -75,11 +75,6 @@ static void __init gsia18s_init_early(void)
 	at91_register_uart(AT91SAM9260_ID_US4, 5, 0);
 }
 
-static void __init init_irq(void)
-{
-	at91sam9260_init_interrupts(NULL);
-}
-
 /*
  * Two USB Host ports
  */
