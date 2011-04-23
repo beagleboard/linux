@@ -16,6 +16,7 @@
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
 #include <mach/cpu.h>
+#include <mach/at91_dbgu.h>
 #include <mach/at91sam9rl.h>
 #include <mach/at91_pmc.h>
 #include <mach/at91_rstc.h>
@@ -281,11 +282,9 @@ static void at91sam9rl_poweroff(void)
 
 static void __init at91sam9rl_map_io(void)
 {
-	unsigned long cidr, sram_size;
+	unsigned long sram_size;
 
-	cidr = dbgu_readl(AT91_DBGU, CIDR);
-
-	switch (cidr & AT91_CIDR_SRAMSIZ) {
+	switch (at91_soc_data.cidr & AT91_CIDR_SRAMSIZ) {
 		case AT91_CIDR_SRAMSIZ_32K:
 			sram_size = 2 * SZ_16K;
 			break;

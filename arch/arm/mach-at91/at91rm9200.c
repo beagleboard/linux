@@ -300,14 +300,6 @@ static void at91rm9200_reset(void)
 	at91_sys_write(AT91_ST_CR, AT91_ST_WDRST);
 }
 
-int rm9200_type;
-EXPORT_SYMBOL(rm9200_type);
-
-void __init at91rm9200_set_type(int type)
-{
-	rm9200_type = type;
-}
-
 /* --------------------------------------------------------------------
  *  AT91RM9200 processor initialization
  * -------------------------------------------------------------------- */
