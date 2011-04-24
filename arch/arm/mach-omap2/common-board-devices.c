@@ -29,6 +29,7 @@
 
 #include <plat/i2c.h>
 #include <plat/mcspi.h>
+#include <plat/nand.h>
 
 #include "common-board-devices.h"
 
@@ -103,4 +104,45 @@ void __init omap_ads7846_init(int bus_num, int gpio_pendown, int gpio_debounce,
 		spi_bi->platform_data = board_pdata;
 
 	spi_register_board_info(&ads7846_spi_board_info, 1);
+}
+
+static struct omap_nand_platform_data nand_data = {
+	.dma_channel	= -1,		/* disable DMA in OMAP NAND driver */
+};
+
+void __init omap_nand_flash_init(int options, struct mtd_partition *parts,
+				 int nr_parts)
+{
+	u8 cs = 0;
+	u8 nandcs = GPMC_CS_NUM + 1;
+
+	/* find out the chip-select on which NAND exists */
+	while (cs < GPMC_CS_NUM) {
+		u32 ret = 0;
+		ret = gpmc_cs_read_reg(cs, GPMC_CS_CONFIG1);
+
+		if ((ret & 0xC00) == 0x800) {
+			printk(KERN_INFO "Found NAND on CS%d\n", cs);
+			if (nandcs > GPMC_CS_NUM)
+				nandcs = cs;
+		}
+		cs++;
+	}
+
+	if (nandcs > GPMC_CS_NUM) {
+		printk(KERN_INFO "NAND: Unable to find configuration "
+				 "in GPMC\n ");
+		return;
+	}
+
+	if (nandcs < GPMC_CS_NUM) {
+		nand_data.cs = nandcs;
+		nand_data.parts = parts;
+		nand_data.nr_parts = nr_parts;
+		nand_data.options = options;
+
+		printk(KERN_INFO "Registering NAND on CS%d\n", nandcs);
+		if (gpmc_nand_init(&nand_data) < 0)
+			printk(KERN_ERR "Unable to register NAND device\n");
+	}
 }

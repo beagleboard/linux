@@ -2,6 +2,7 @@
 #define __OMAP_COMMON_BOARD_DEVICES__
 
 struct twl4030_platform_data;
+struct mtd_partition;
 
 void omap_pmic_init(int bus, u32 clkrate, const char *pmic_type, int pmic_irq,
 		    struct twl4030_platform_data *pmic_data);
@@ -35,6 +36,15 @@ void omap_ads7846_init(int bus_num, int gpio_pendown, int gpio_debounce,
 static inline void omap_ads7846_init(int bus_num,
 				     int gpio_pendown, int gpio_debounce,
 				     struct ads7846_platform_data *board_data)
+{
+}
+#endif
+
+#if defined(CONFIG_MTD_NAND_OMAP2) || defined(CONFIG_MTD_NAND_OMAP2_MODULE)
+void omap_nand_flash_init(int opts, struct mtd_partition *parts, int n_parts);
+#else
+static inline void omap_nand_flash_init(int opts, struct mtd_partition *parts,
+					int nr_parts)
 {
 }
 #endif
