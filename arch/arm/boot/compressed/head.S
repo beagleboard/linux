@@ -209,6 +209,7 @@ restart:	adr	r0, LC0
  *   r5  = start of this image
  *   r9  = size of decompressed image
  *   r10 = end of this image, including  bss/stack/malloc space if non XIP
+ *   r12 = GOT end, corrupted if relocating
  * We basically want:
  *   r4 >= r10 -> OK
  *   r4 + image length <= r5 -> OK
@@ -219,11 +220,20 @@ restart:	adr	r0, LC0
 		cmp	r10, r5
 		bls	wont_overwrite
 
+		/*
+		 * Check if the relocate address overlaps the running code in
+		 * head.S. In that case we need to relocate past the code
+		 * to avoid overwriting some of the running code.
+		 */
+		add	r12, r12, r5		@ use GOT end for upper limit
+		cmp	r10, r12		@ relocating less than GOT end?
+		movle	r10, r12		@ if so, relocate past GOT end
+
 /*
  * Relocate ourselves past the end of the decompressed kernel.
  *   r5  = start of this image
  *   r6  = _edata
- *   r10 = end of the decompressed kernel
+ *   r10 = end of the decompressed kernel or end of GOT end if larger
  * Because we always copy ahead, we need to do it from the end and go
  * backward in case the source and destination overlap.
  */
