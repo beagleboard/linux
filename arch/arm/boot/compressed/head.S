@@ -209,6 +209,7 @@ restart:	adr	r0, LC0
  *   r5  = start of this image
  *   r9  = size of decompressed image
  *   r10 = end of this image, including  bss/stack/malloc space if non XIP
+ *   r12 = GOT end, corrupted if relocating
  * We basically want:
  *   r4 >= r10 -> OK
  *   r4 + image length <= r5 -> OK
@@ -219,11 +220,20 @@ restart:	adr	r0, LC0
 		cmp	r10, r5
 		bls	wont_overwrite
 
+		/*
+		 * Check if the relocate address overlaps the running code in
+		 * head.S. In that case we need to relocate past the code
+		 * to avoid overwriting some of the running code.
+		 */
+		add	r12, r12, r5		@ use GOT end for upper limit
+		cmp	r10, r12		@ relocating less than GOT end?
+		movle	r10, r12		@ if so, relocate past GOT end
+
 /*
  * Relocate ourselves past the end of the decompressed kernel.
  *   r5  = start of this image
  *   r6  = _edata
- *   r10 = end of the decompressed kernel
+ *   r10 = end of the decompressed kernel or end of GOT end if larger
  * Because we always copy ahead, we need to do it from the end and go
  * backward in case the source and destination overlap.
  */
@@ -838,9 +848,11 @@ __armv3_mmu_cache_off:
  * Clean and flush the cache to maintain consistency.
  *
  * On exit,
- *  r1, r2, r3, r9, r10, r11, r12 corrupted
+ *  r0, r1, r2, r3, r5, r9, r10, r11, r12, sp corrupted
  * This routine must preserve:
  *  r4, r6, r7, r8
+ *
+ * Yes, sp is destroyed by this call in the armv7 hierarchical case.
  */
 		.align	5
 cache_clean_flush:
@@ -888,7 +900,6 @@ __armv7_mmu_cache_flush:
 		b	iflush
 hierarchical:
 		mcr	p15, 0, r10, c7, c10, 5	@ DMB
-		stmfd	sp!, {r0-r7, r9-r11}
 		mrc	p15, 1, r0, c0, c0, 1	@ read clidr
 		ands	r3, r0, #0x7000000	@ extract loc from clidr
 		mov	r3, r3, lsr #23		@ left align loc bit field
@@ -905,31 +916,31 @@ loop1:
 		mrc	p15, 1, r1, c0, c0, 0	@ read the new csidr
 		and	r2, r1, #7		@ extract the length of the cache lines
 		add	r2, r2, #4		@ add 4 (line length offset)
-		ldr	r4, =0x3ff
-		ands	r4, r4, r1, lsr #3	@ find maximum number on the way size
-		clz	r5, r4			@ find bit position of way size increment
-		ldr	r7, =0x7fff
-		ands	r7, r7, r1, lsr #13	@ extract max number of the index size
+		ldr	r9, =0x3ff
+		ands	r9, r9, r1, lsr #3	@ find maximum number on the way size
+		clz	r5, r9			@ find bit position of way size increment
+		mov	sp, r9
+		ldr	r9, =0x7fff
+		ands	r1, r9, r1, lsr #13	@ extract max number of the index size
 loop2:
-		mov	r9, r4			@ create working copy of max way size
+		mov	r9, sp			@ create working copy of max way size
 loop3:
  ARM(		orr	r11, r10, r9, lsl r5	) @ factor way and cache number into r11
- ARM(		orr	r11, r11, r7, lsl r2	) @ factor index number into r11
- THUMB(		lsl	r6, r9, r5		)
- THUMB(		orr	r11, r10, r6		) @ factor way and cache number into r11
- THUMB(		lsl	r6, r7, r2		)
- THUMB(		orr	r11, r11, r6		) @ factor index number into r11
+ ARM(		orr	r11, r11, r1, lsl r2	) @ factor index number into r11
+ THUMB(		lsl	r12, r9, r5		)
+ THUMB(		orr	r11, r10, r12		) @ factor way and cache number into r11
+ THUMB(		lsl	r12, r1, r2		)
+ THUMB(		orr	r11, r11, r12		) @ factor index number into r11
 		mcr	p15, 0, r11, c7, c14, 2	@ clean & invalidate by set/way
 		subs	r9, r9, #1		@ decrement the way
 		bge	loop3
-		subs	r7, r7, #1		@ decrement the index
+		subs	r1, r1, #1		@ decrement the index
 		bge	loop2
 skip:
 		add	r10, r10, #2		@ increment cache number
 		cmp	r3, r10
 		bgt	loop1
 finished:
-		ldmfd	sp!, {r0-r7, r9-r11}
 		mov	r10, #0			@ swith back to cache level 0
 		mcr	p15, 2, r10, c0, c0, 0	@ select current cache level in cssr
 iflush:
