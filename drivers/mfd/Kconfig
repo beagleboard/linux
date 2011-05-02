@@ -671,6 +671,14 @@ config MFD_OMAP_USB_HOST
 	  This MFD driver does the required setup functionalities for
 	  OMAP USB Host drivers.
 
+config MFD_TPS65910
+	tristate "TPS65910 Power Management chip"
+	depends on I2C &&  GPIOLIB
+	select MFD_CORE
+	help
+	  if you say yes here you get support for the TPS65910 series of
+	  Power Management chips.
+
 endif # MFD_SUPPORT
 
 menu "Multimedia Capabilities Port drivers"
