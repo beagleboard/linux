@@ -52,6 +52,7 @@
 #include "hsmmc.h"
 #include "timer-gp.h"
 #include "pm.h"
+#include "common-board-devices.h"
 
 #define NAND_BLOCK_SIZE		SZ_128K
 
@@ -171,15 +172,6 @@ static struct mtd_partition omap3beagle_nand_partitions[] = {
 		.offset		= MTDPART_OFS_APPEND,	/* Offset = 0x680000 */
 		.size		= MTDPART_SIZ_FULL,
 	},
-};
-
-static struct omap_nand_platform_data omap3beagle_nand_data = {
-	.options	= NAND_BUSWIDTH_16,
-	.parts		= omap3beagle_nand_partitions,
-	.nr_parts	= ARRAY_SIZE(omap3beagle_nand_partitions),
-	.dma_channel	= -1,		/* disable DMA in OMAP NAND driver */
-	.nand_setup	= NULL,
-	.dev_ready	= NULL,
 };
 
 /* DSS */
@@ -453,15 +445,6 @@ static struct twl4030_platform_data beagle_twldata = {
 	.vpll2		= &beagle_vpll2,
 };
 
-static struct i2c_board_info __initdata beagle_i2c_boardinfo[] = {
-	{
-		I2C_BOARD_INFO("twl4030", 0x48),
-		.flags = I2C_CLIENT_WAKE,
-		.irq = INT_34XX_SYS_NIRQ,
-		.platform_data = &beagle_twldata,
-	},
-};
-
 static struct i2c_board_info __initdata beagle_i2c_eeprom[] = {
        {
                I2C_BOARD_INFO("eeprom", 0x50),
@@ -470,8 +453,7 @@ static struct i2c_board_info __initdata beagle_i2c_eeprom[] = {
 
 static int __init omap3_beagle_i2c_init(void)
 {
-	omap_register_i2c_bus(1, 2600, beagle_i2c_boardinfo,
-			ARRAY_SIZE(beagle_i2c_boardinfo));
+	omap3_pmic_init("twl4030", &beagle_twldata);
 	/* Bus 3 is attached to the DVI port where devices like the pico DLP
 	 * projector don't work reliably with 400kHz */
 	omap_register_i2c_bus(3, 100, beagle_i2c_eeprom, ARRAY_SIZE(beagle_i2c_eeprom));
@@ -551,39 +533,6 @@ static struct platform_device *omap3_beagle_devices[] __initdata = {
 	&keys_gpio,
 };
 
-static void __init omap3beagle_flash_init(void)
-{
-	u8 cs = 0;
-	u8 nandcs = GPMC_CS_NUM + 1;
-
-	/* find out the chip-select on which NAND exists */
-	while (cs < GPMC_CS_NUM) {
-		u32 ret = 0;
-		ret = gpmc_cs_read_reg(cs, GPMC_CS_CONFIG1);
-
-		if ((ret & 0xC00) == 0x800) {
-			printk(KERN_INFO "Found NAND on CS%d\n", cs);
-			if (nandcs > GPMC_CS_NUM)
-				nandcs = cs;
-		}
-		cs++;
-	}
-
-	if (nandcs > GPMC_CS_NUM) {
-		printk(KERN_INFO "NAND: Unable to find configuration "
-				 "in GPMC\n ");
-		return;
-	}
-
-	if (nandcs < GPMC_CS_NUM) {
-		omap3beagle_nand_data.cs = nandcs;
-
-		printk(KERN_INFO "Registering NAND on CS%d\n", nandcs);
-		if (gpmc_nand_init(&omap3beagle_nand_data) < 0)
-			printk(KERN_ERR "Unable to register NAND device\n");
-	}
-}
-
 static const struct usbhs_omap_board_data usbhs_bdata __initconst = {
 
 	.port_mode[0] = OMAP_EHCI_PORT_MODE_PHY,
@@ -601,12 +550,6 @@ static struct omap_board_mux board_mux[] __initdata = {
 	{ .reg_offset = OMAP_MUX_TERMINATOR },
 };
 #endif
-
-static struct omap_musb_board_data musb_board_data = {
-	.interface_type		= MUSB_INTERFACE_ULPI,
-	.mode			= MUSB_OTG,
-	.power			= 100,
-};
 
 static void __init beagle_opp_init(void)
 {
@@ -669,9 +612,10 @@ static void __init omap3_beagle_init(void)
 	/* REVISIT leave DVI powered down until it's needed ... */
 	gpio_direction_output(170, true);
 
-	usb_musb_init(&musb_board_data);
+	usb_musb_init(NULL);
 	usbhs_init(&usbhs_bdata);
-	omap3beagle_flash_init();
+	omap_nand_flash_init(NAND_BUSWIDTH_16, omap3beagle_nand_partitions,
+			     ARRAY_SIZE(omap3beagle_nand_partitions));
 
 	/* Ensure SDRC pins are mux'd for self-refresh */
 	omap_mux_init_signal("sdrc_cke0", OMAP_PIN_OUTPUT);

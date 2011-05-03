@@ -35,6 +35,7 @@
 #include "mux.h"
 #include "hsmmc.h"
 #include "sdram-numonyx-m65kxxxxam.h"
+#include "common-board-devices.h"
 
 #define IGEP3_GPIO_LED0_GREEN	54
 #define IGEP3_GPIO_LED0_RED	53
@@ -349,28 +350,12 @@ static struct twl4030_platform_data igep3_twl4030_pdata = {
 	.vio		= &igep3_vio,
 };
 
-static struct i2c_board_info __initdata igep3_i2c_boardinfo[] = {
-	{
-		I2C_BOARD_INFO("twl4030", 0x48),
-		.flags		= I2C_CLIENT_WAKE,
-		.irq		= INT_34XX_SYS_NIRQ,
-		.platform_data	= &igep3_twl4030_pdata,
-	},
-};
-
 static int __init igep3_i2c_init(void)
 {
-	omap_register_i2c_bus(1, 2600, igep3_i2c_boardinfo,
-			ARRAY_SIZE(igep3_i2c_boardinfo));
+	omap3_pmic_init("twl4030", &igep3_twl4030_pdata);
 
 	return 0;
 }
-
-static struct omap_musb_board_data musb_board_data = {
-	.interface_type	= MUSB_INTERFACE_ULPI,
-	.mode		= MUSB_OTG,
-	.power		= 100,
-};
 
 #if defined(CONFIG_LIBERTAS_SDIO) || defined(CONFIG_LIBERTAS_SDIO_MODULE)
 
@@ -433,7 +418,7 @@ static void __init igep3_init(void)
 	igep3_i2c_init();
 	platform_add_devices(igep3_devices, ARRAY_SIZE(igep3_devices));
 	omap_serial_init();
-	usb_musb_init(&musb_board_data);
+	usb_musb_init(NULL);
 	usbhs_init(&usbhs_bdata);
 
 	igep3_flash_init();

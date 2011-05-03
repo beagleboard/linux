@@ -38,6 +38,7 @@
 #include "mux.h"
 #include "hsmmc.h"
 #include "sdram-numonyx-m65kxxxxam.h"
+#include "common-board-devices.h"
 
 #define IGEP2_SMSC911X_CS       5
 #define IGEP2_SMSC911X_GPIO     176
@@ -192,57 +193,18 @@ static void __init igep2_flash_init(void) {}
 #if defined(CONFIG_SMSC911X) || defined(CONFIG_SMSC911X_MODULE)
 
 #include <linux/smsc911x.h>
+#include <plat/gpmc-smsc911x.h>
 
-static struct smsc911x_platform_config igep2_smsc911x_config = {
-	.irq_polarity	= SMSC911X_IRQ_POLARITY_ACTIVE_LOW,
-	.irq_type	= SMSC911X_IRQ_TYPE_OPEN_DRAIN,
-	.flags		= SMSC911X_USE_32BIT | SMSC911X_SAVE_MAC_ADDRESS  ,
-	.phy_interface	= PHY_INTERFACE_MODE_MII,
-};
-
-static struct resource igep2_smsc911x_resources[] = {
-	{
-		.flags	= IORESOURCE_MEM,
-	},
-	{
-		.start	= OMAP_GPIO_IRQ(IGEP2_SMSC911X_GPIO),
-		.end	= OMAP_GPIO_IRQ(IGEP2_SMSC911X_GPIO),
-		.flags	= IORESOURCE_IRQ | IORESOURCE_IRQ_LOWLEVEL,
-	},
-};
-
-static struct platform_device igep2_smsc911x_device = {
-	.name		= "smsc911x",
-	.id		= 0,
-	.num_resources	= ARRAY_SIZE(igep2_smsc911x_resources),
-	.resource	= igep2_smsc911x_resources,
-	.dev		= {
-		.platform_data = &igep2_smsc911x_config,
-	},
+static struct omap_smsc911x_platform_data smsc911x_cfg = {
+	.cs             = IGEP2_SMSC911X_CS,
+	.gpio_irq       = IGEP2_SMSC911X_GPIO,
+	.gpio_reset     = -EINVAL,
+	.flags		= SMSC911X_USE_32BIT | SMSC911X_SAVE_MAC_ADDRESS,
 };
 
 static inline void __init igep2_init_smsc911x(void)
 {
-	unsigned long cs_mem_base;
-
-	if (gpmc_cs_request(IGEP2_SMSC911X_CS, SZ_16M, &cs_mem_base) < 0) {
-		pr_err("IGEP v2: Failed request for GPMC mem for smsc911x\n");
-		gpmc_cs_free(IGEP2_SMSC911X_CS);
-		return;
-	}
-
-	igep2_smsc911x_resources[0].start = cs_mem_base + 0x0;
-	igep2_smsc911x_resources[0].end   = cs_mem_base + 0xff;
-
-	if ((gpio_request(IGEP2_SMSC911X_GPIO, "SMSC911X IRQ") == 0) &&
-	    (gpio_direction_input(IGEP2_SMSC911X_GPIO) == 0)) {
-		gpio_export(IGEP2_SMSC911X_GPIO, 0);
-	} else {
-		pr_err("IGEP v2: Could not obtain gpio for for SMSC911X IRQ\n");
-		return;
-	}
-
-	platform_device_register(&igep2_smsc911x_device);
+	gpmc_smsc911x_init(&smsc911x_cfg);
 }
 
 #else
@@ -575,15 +537,6 @@ static struct twl4030_platform_data igep2_twldata = {
 	.vio		= &igep2_vio,
 };
 
-static struct i2c_board_info __initdata igep2_i2c1_boardinfo[] = {
-	{
-		I2C_BOARD_INFO("twl4030", 0x48),
-		.flags		= I2C_CLIENT_WAKE,
-		.irq		= INT_34XX_SYS_NIRQ,
-		.platform_data	= &igep2_twldata,
-	},
-};
-
 static struct i2c_board_info __initdata igep2_i2c3_boardinfo[] = {
 	{
 		I2C_BOARD_INFO("eeprom", 0x50),
@@ -594,10 +547,7 @@ static void __init igep2_i2c_init(void)
 {
 	int ret;
 
-	ret = omap_register_i2c_bus(1, 2600, igep2_i2c1_boardinfo,
-		ARRAY_SIZE(igep2_i2c1_boardinfo));
-	if (ret)
-		pr_warning("IGEP2: Could not register I2C1 bus (%d)\n", ret);
+	omap3_pmic_init("twl4030", &igep2_twldata);
 
 	/*
 	 * Bus 3 is attached to the DVI port where devices like the pico DLP
@@ -608,12 +558,6 @@ static void __init igep2_i2c_init(void)
 	if (ret)
 		pr_warning("IGEP2: Could not register I2C3 bus (%d)\n", ret);
 }
-
-static struct omap_musb_board_data musb_board_data = {
-	.interface_type		= MUSB_INTERFACE_ULPI,
-	.mode			= MUSB_OTG,
-	.power			= 100,
-};
 
 static const struct usbhs_omap_board_data usbhs_bdata __initconst = {
 	.port_mode[0] = OMAP_EHCI_PORT_MODE_PHY,
@@ -687,7 +631,7 @@ static void __init igep2_init(void)
 	platform_add_devices(igep2_devices, ARRAY_SIZE(igep2_devices));
 	omap_display_init(&igep2_dss_data);
 	omap_serial_init();
-	usb_musb_init(&musb_board_data);
+	usb_musb_init(NULL);
 	usbhs_init(&usbhs_bdata);
 
 	igep2_flash_init();
