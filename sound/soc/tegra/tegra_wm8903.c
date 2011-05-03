@@ -72,7 +72,7 @@ static int tegra_wm8903_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_codec *codec = rtd->codec;
 	struct snd_soc_card *card = codec->card;
 	struct tegra_wm8903 *machine = snd_soc_card_get_drvdata(card);
-	int srate, mclk, mclk_change;
+	int srate, mclk;
 	int err;
 
 	srate = params_rate(params);
@@ -90,8 +90,7 @@ static int tegra_wm8903_hw_params(struct snd_pcm_substream *substream,
 	while (mclk < 6000000)
 		mclk *= 2;
 
-	err = tegra_asoc_utils_set_rate(&machine->util_data, srate, mclk,
-					&mclk_change);
+	err = tegra_asoc_utils_set_rate(&machine->util_data, srate, mclk);
 	if (err < 0) {
 		dev_err(card->dev, "Can't configure clocks\n");
 		return err;
@@ -115,13 +114,11 @@ static int tegra_wm8903_hw_params(struct snd_pcm_substream *substream,
 		return err;
 	}
 
-	if (mclk_change) {
-		err = snd_soc_dai_set_sysclk(codec_dai, 0, mclk,
-					     SND_SOC_CLOCK_IN);
-		if (err < 0) {
-			dev_err(card->dev, "codec_dai clock not set\n");
-			return err;
-		}
+	err = snd_soc_dai_set_sysclk(codec_dai, 0, mclk,
+					SND_SOC_CLOCK_IN);
+	if (err < 0) {
+		dev_err(card->dev, "codec_dai clock not set\n");
+		return err;
 	}
 
 	return 0;
@@ -159,8 +156,8 @@ static struct snd_soc_jack_pin tegra_wm8903_mic_jack_pins[] = {
 static int tegra_wm8903_event_int_spk(struct snd_soc_dapm_widget *w,
 					struct snd_kcontrol *k, int event)
 {
-	struct snd_soc_codec *codec = w->codec;
-	struct snd_soc_card *card = codec->card;
+	struct snd_soc_dapm_context *dapm = w->dapm;
+	struct snd_soc_card *card = dapm->card;
 	struct tegra_wm8903 *machine = snd_soc_card_get_drvdata(card);
 	struct tegra_wm8903_platform_data *pdata = machine->pdata;
 
@@ -176,8 +173,8 @@ static int tegra_wm8903_event_int_spk(struct snd_soc_dapm_widget *w,
 static int tegra_wm8903_event_hp(struct snd_soc_dapm_widget *w,
 					struct snd_kcontrol *k, int event)
 {
-	struct snd_soc_codec *codec = w->codec;
-	struct snd_soc_card *card = codec->card;
+	struct snd_soc_dapm_context *dapm = w->dapm;
+	struct snd_soc_card *card = dapm->card;
 	struct tegra_wm8903 *machine = snd_soc_card_get_drvdata(card);
 	struct tegra_wm8903_platform_data *pdata = machine->pdata;
 
@@ -297,28 +294,6 @@ static int tegra_wm8903_init(struct snd_soc_pcm_runtime *rtd)
 		gpio_direction_output(pdata->gpio_ext_mic_en, 0);
 	}
 
-	ret = snd_soc_add_controls(codec, tegra_wm8903_controls,
-				   ARRAY_SIZE(tegra_wm8903_controls));
-	if (ret < 0)
-		return ret;
-
-	snd_soc_dapm_new_controls(dapm, tegra_wm8903_dapm_widgets,
-					ARRAY_SIZE(tegra_wm8903_dapm_widgets));
-
-	if (machine_is_harmony() || machine_is_ventana()) {
-		snd_soc_dapm_add_routes(dapm, harmony_audio_map,
-					ARRAY_SIZE(harmony_audio_map));
-	} else if (machine_is_seaboard()) {
-		snd_soc_dapm_add_routes(dapm, seaboard_audio_map,
-					ARRAY_SIZE(seaboard_audio_map));
-	} else if (machine_is_kaen()) {
-		snd_soc_dapm_add_routes(dapm, kaen_audio_map,
-					ARRAY_SIZE(kaen_audio_map));
-	} else {
-		snd_soc_dapm_add_routes(dapm, aebl_audio_map,
-					ARRAY_SIZE(aebl_audio_map));
-	}
-
 	if (gpio_is_valid(pdata->gpio_hp_det)) {
 		tegra_wm8903_hp_jack_gpio.gpio = pdata->gpio_hp_det;
 		snd_soc_jack_new(codec, "Headphone Jack", SND_JACK_HEADPHONE,
@@ -382,6 +357,11 @@ static struct snd_soc_card snd_soc_tegra_wm8903 = {
 	.name = "tegra-wm8903",
 	.dai_link = &tegra_wm8903_dai,
 	.num_links = 1,
+
+	.controls = tegra_wm8903_controls,
+	.num_controls = ARRAY_SIZE(tegra_wm8903_controls),
+	.dapm_widgets = tegra_wm8903_dapm_widgets,
+	.num_dapm_widgets = ARRAY_SIZE(tegra_wm8903_dapm_widgets),
 };
 
 static __devinit int tegra_wm8903_driver_probe(struct platform_device *pdev)
@@ -390,13 +370,6 @@ static __devinit int tegra_wm8903_driver_probe(struct platform_device *pdev)
 	struct tegra_wm8903 *machine;
 	struct tegra_wm8903_platform_data *pdata;
 	int ret;
-
-	if (!machine_is_harmony() && !machine_is_ventana() &&
-	    !machine_is_seaboard() && !machine_is_kaen() &&
-	    !machine_is_aebl()) {
-		dev_err(&pdev->dev, "Not running on a supported board!\n");
-		return -ENODEV;
-	}
 
 	pdata = pdev->dev.platform_data;
 	if (!pdata) {
@@ -420,19 +393,30 @@ static __devinit int tegra_wm8903_driver_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, card);
 	snd_soc_card_set_drvdata(card, machine);
 
+	if (machine_is_harmony() || machine_is_ventana()) {
+		card->dapm_routes = harmony_audio_map;
+		card->num_dapm_routes = ARRAY_SIZE(harmony_audio_map);
+	} else if (machine_is_seaboard()) {
+		card->dapm_routes = seaboard_audio_map;
+		card->num_dapm_routes = ARRAY_SIZE(seaboard_audio_map);
+	} else if (machine_is_kaen()) {
+		card->dapm_routes = kaen_audio_map;
+		card->num_dapm_routes = ARRAY_SIZE(kaen_audio_map);
+	} else {
+		card->dapm_routes = aebl_audio_map;
+		card->num_dapm_routes = ARRAY_SIZE(aebl_audio_map);
+	}
+
 	ret = snd_soc_register_card(card);
 	if (ret) {
 		dev_err(&pdev->dev, "snd_soc_register_card failed (%d)\n",
 			ret);
-		goto err_clear_drvdata;
+		goto err_fini_utils;
 	}
 
 	return 0;
 
-err_clear_drvdata:
-	snd_soc_card_set_drvdata(card, NULL);
-	platform_set_drvdata(pdev, NULL);
-	card->dev = NULL;
+err_fini_utils:
 	tegra_asoc_utils_fini(&machine->util_data);
 err_free_machine:
 	kfree(machine);
@@ -446,10 +430,6 @@ static int __devexit tegra_wm8903_driver_remove(struct platform_device *pdev)
 	struct tegra_wm8903_platform_data *pdata = machine->pdata;
 
 	snd_soc_unregister_card(card);
-
-	snd_soc_card_set_drvdata(card, NULL);
-	platform_set_drvdata(pdev, NULL);
-	card->dev = NULL;
 
 	tegra_asoc_utils_fini(&machine->util_data);
 
