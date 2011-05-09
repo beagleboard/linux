@@ -19,7 +19,6 @@
 #include <linux/input.h>
 #include <linux/input/matrix_keypad.h>
 #include <linux/spi/spi.h>
-#include <linux/spi/ads7846.h>
 #include <linux/i2c/twl.h>
 #include <linux/regulator/machine.h>
 #include <linux/io.h>
@@ -48,6 +47,7 @@
 #include "hsmmc.h"
 #include "pm.h"
 #include "control.h"
+#include "common-board-devices.h"
 
 #define CONFIG_DISABLE_HFCLK 1
 
@@ -122,58 +122,6 @@ static struct twl4030_keypad_data sdp3430_kp_data = {
 	.cols		= 6,
 	.rep		= 1,
 };
-
-static int ts_gpio;	/* Needed for ads7846_get_pendown_state */
-
-/**
- * @brief ads7846_dev_init : Requests & sets GPIO line for pen-irq
- *
- * @return - void. If request gpio fails then Flag KERN_ERR.
- */
-static void ads7846_dev_init(void)
-{
-	if (gpio_request(ts_gpio, "ADS7846 pendown") < 0) {
-		printk(KERN_ERR "can't get ads746 pen down GPIO\n");
-		return;
-	}
-
-	gpio_direction_input(ts_gpio);
-	gpio_set_debounce(ts_gpio, 310);
-}
-
-static int ads7846_get_pendown_state(void)
-{
-	return !gpio_get_value(ts_gpio);
-}
-
-static struct ads7846_platform_data tsc2046_config __initdata = {
-	.get_pendown_state	= ads7846_get_pendown_state,
-	.keep_vref_on		= 1,
-	.wakeup				= true,
-};
-
-
-static struct omap2_mcspi_device_config tsc2046_mcspi_config = {
-	.turbo_mode	= 0,
-	.single_channel	= 1,	/* 0: slave, 1: master */
-};
-
-static struct spi_board_info sdp3430_spi_board_info[] __initdata = {
-	[0] = {
-		/*
-		 * TSC2046 operates at a max freqency of 2MHz, so
-		 * operate slightly below at 1.5MHz
-		 */
-		.modalias		= "ads7846",
-		.bus_num		= 1,
-		.chip_select		= 0,
-		.max_speed_hz		= 1500000,
-		.controller_data	= &tsc2046_mcspi_config,
-		.irq			= 0,
-		.platform_data		= &tsc2046_config,
-	},
-};
-
 
 #define SDP3430_LCD_PANEL_BACKLIGHT_GPIO	8
 #define SDP3430_LCD_PANEL_ENABLE_GPIO		5
@@ -580,20 +528,10 @@ static struct twl4030_platform_data sdp3430_twldata = {
 	.vpll2		= &sdp3430_vpll2,
 };
 
-static struct i2c_board_info __initdata sdp3430_i2c_boardinfo[] = {
-	{
-		I2C_BOARD_INFO("twl4030", 0x48),
-		.flags = I2C_CLIENT_WAKE,
-		.irq = INT_34XX_SYS_NIRQ,
-		.platform_data = &sdp3430_twldata,
-	},
-};
-
 static int __init omap3430_i2c_init(void)
 {
 	/* i2c1 for PMIC only */
-	omap_register_i2c_bus(1, 2600, sdp3430_i2c_boardinfo,
-			ARRAY_SIZE(sdp3430_i2c_boardinfo));
+	omap3_pmic_init("twl4030", &sdp3430_twldata);
 	/* i2c2 on camera connector (for sensor control) and optional isp1301 */
 	omap_register_i2c_bus(2, 400, NULL, 0);
 	/* i2c3 on display connector (for DVI, tfp410) */
@@ -872,14 +810,10 @@ static struct flash_partitions sdp_flash_partitions[] = {
 	},
 };
 
-static struct omap_musb_board_data musb_board_data = {
-	.interface_type		= MUSB_INTERFACE_ULPI,
-	.mode			= MUSB_OTG,
-	.power			= 100,
-};
-
 static void __init omap_3430sdp_init(void)
 {
+	int gpio_pendown;
+
 	omap3_mux_init(board_mux, OMAP_PACKAGE_CBB);
 	omap_board_config = sdp3430_config;
 	omap_board_config_size = ARRAY_SIZE(sdp3430_config);
@@ -887,15 +821,12 @@ static void __init omap_3430sdp_init(void)
 	omap3430_i2c_init();
 	omap_display_init(&sdp3430_dss_data);
 	if (omap_rev() > OMAP3430_REV_ES1_0)
-		ts_gpio = SDP3430_TS_GPIO_IRQ_SDPV2;
+		gpio_pendown = SDP3430_TS_GPIO_IRQ_SDPV2;
 	else
-		ts_gpio = SDP3430_TS_GPIO_IRQ_SDPV1;
-	sdp3430_spi_board_info[0].irq = gpio_to_irq(ts_gpio);
-	spi_register_board_info(sdp3430_spi_board_info,
-				ARRAY_SIZE(sdp3430_spi_board_info));
-	ads7846_dev_init();
+		gpio_pendown = SDP3430_TS_GPIO_IRQ_SDPV1;
+	omap_ads7846_init(1, gpio_pendown, 310, NULL);
 	board_serial_init();
-	usb_musb_init(&musb_board_data);
+	usb_musb_init(NULL);
 	board_smc91x_init();
 	board_flash_init(sdp_flash_partitions, chip_sel_3430, 0);
 	sdp3430_display_init();

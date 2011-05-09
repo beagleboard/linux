@@ -50,6 +50,7 @@
 #include "mux.h"
 #include "sdram-micron-mt46h32m32lf-6.h"
 #include "hsmmc.h"
+#include "common-board-devices.h"
 
 #define OMAP3_EVM_TS_GPIO	175
 #define OMAP3_EVM_EHCI_VBUS	22
@@ -101,48 +102,19 @@ static void __init omap3_evm_get_revision(void)
 }
 
 #if defined(CONFIG_SMSC911X) || defined(CONFIG_SMSC911X_MODULE)
-static struct resource omap3evm_smsc911x_resources[] = {
-	[0] =	{
-		.start	= OMAP3EVM_ETHR_START,
-		.end	= (OMAP3EVM_ETHR_START + OMAP3EVM_ETHR_SIZE - 1),
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] =	{
-		.start	= OMAP_GPIO_IRQ(OMAP3EVM_ETHR_GPIO_IRQ),
-		.end	= OMAP_GPIO_IRQ(OMAP3EVM_ETHR_GPIO_IRQ),
-		.flags	= (IORESOURCE_IRQ | IRQF_TRIGGER_LOW),
-	},
-};
+#include <plat/gpmc-smsc911x.h>
 
-static struct smsc911x_platform_config smsc911x_config = {
-	.phy_interface  = PHY_INTERFACE_MODE_MII,
-	.irq_polarity   = SMSC911X_IRQ_POLARITY_ACTIVE_LOW,
-	.irq_type       = SMSC911X_IRQ_TYPE_OPEN_DRAIN,
-	.flags          = (SMSC911X_USE_32BIT | SMSC911X_SAVE_MAC_ADDRESS),
-};
-
-static struct platform_device omap3evm_smsc911x_device = {
-	.name		= "smsc911x",
-	.id		= -1,
-	.num_resources	= ARRAY_SIZE(omap3evm_smsc911x_resources),
-	.resource	= &omap3evm_smsc911x_resources[0],
-	.dev		= {
-		.platform_data = &smsc911x_config,
-	},
+static struct omap_smsc911x_platform_data smsc911x_cfg = {
+	.cs             = OMAP3EVM_SMSC911X_CS,
+	.gpio_irq       = OMAP3EVM_ETHR_GPIO_IRQ,
+	.gpio_reset     = -EINVAL,
+	.flags		= SMSC911X_USE_32BIT | SMSC911X_SAVE_MAC_ADDRESS,
 };
 
 static inline void __init omap3evm_init_smsc911x(void)
 {
-	int eth_cs, eth_rst;
 	struct clk *l3ck;
 	unsigned int rate;
-
-	if (get_omap3_evm_rev() == OMAP3EVM_BOARD_GEN_1)
-		eth_rst = OMAP3EVM_GEN1_ETHR_GPIO_RST;
-	else
-		eth_rst = OMAP3EVM_GEN2_ETHR_GPIO_RST;
-
-	eth_cs = OMAP3EVM_SMSC911X_CS;
 
 	l3ck = clk_get(NULL, "l3_ck");
 	if (IS_ERR(l3ck))
@@ -152,33 +124,13 @@ static inline void __init omap3evm_init_smsc911x(void)
 
 	/* Configure ethernet controller reset gpio */
 	if (cpu_is_omap3430()) {
-		if (gpio_request(eth_rst, "SMSC911x gpio") < 0) {
-			pr_err(KERN_ERR "Failed to request %d for smsc911x\n",
-					eth_rst);
-			return;
-		}
-
-		if (gpio_direction_output(eth_rst, 1) < 0) {
-			pr_err(KERN_ERR "Failed to set direction of %d for" \
-					" smsc911x\n", eth_rst);
-			return;
-		}
-		/* reset pulse to ethernet controller*/
-		usleep_range(150, 220);
-		gpio_set_value(eth_rst, 0);
-		usleep_range(150, 220);
-		gpio_set_value(eth_rst, 1);
-		usleep_range(1, 2);
+		if (get_omap3_evm_rev() == OMAP3EVM_BOARD_GEN_1)
+			smsc911x_cfg.gpio_reset = OMAP3EVM_GEN1_ETHR_GPIO_RST;
+		else
+			smsc911x_cfg.gpio_reset = OMAP3EVM_GEN2_ETHR_GPIO_RST;
 	}
 
-	if (gpio_request(OMAP3EVM_ETHR_GPIO_IRQ, "SMSC911x irq") < 0) {
-		printk(KERN_ERR "Failed to request GPIO%d for smsc911x IRQ\n",
-			OMAP3EVM_ETHR_GPIO_IRQ);
-		return;
-	}
-
-	gpio_direction_input(OMAP3EVM_ETHR_GPIO_IRQ);
-	platform_device_register(&omap3evm_smsc911x_device);
+	gpmc_smsc911x_init(&smsc911x_cfg);
 }
 
 #else
@@ -652,77 +604,17 @@ static struct twl4030_platform_data omap3evm_twldata = {
 	.vdac		= &omap3_evm_vdac,
 	.vpll2		= &omap3_evm_vpll2,
 	.vio		= &omap3evm_vio,
-};
-
-static struct i2c_board_info __initdata omap3evm_i2c_boardinfo[] = {
-	{
-		I2C_BOARD_INFO("twl4030", 0x48),
-		.flags = I2C_CLIENT_WAKE,
-		.irq = INT_34XX_SYS_NIRQ,
-		.platform_data = &omap3evm_twldata,
-	},
+	.vmmc1		= &omap3evm_vmmc1,
+	.vsim		= &omap3evm_vsim,
 };
 
 static int __init omap3_evm_i2c_init(void)
 {
-	/*
-	 * REVISIT: These entries can be set in omap3evm_twl_data
-	 * after a merge with MFD tree
-	 */
-	omap3evm_twldata.vmmc1 = &omap3evm_vmmc1;
-	omap3evm_twldata.vsim = &omap3evm_vsim;
-
-	omap_register_i2c_bus(1, 2600, omap3evm_i2c_boardinfo,
-			ARRAY_SIZE(omap3evm_i2c_boardinfo));
+	omap3_pmic_init("twl4030", &omap3evm_twldata);
 	omap_register_i2c_bus(2, 400, NULL, 0);
 	omap_register_i2c_bus(3, 400, NULL, 0);
 	return 0;
 }
-
-static void ads7846_dev_init(void)
-{
-	if (gpio_request(OMAP3_EVM_TS_GPIO, "ADS7846 pendown") < 0)
-		printk(KERN_ERR "can't get ads7846 pen down GPIO\n");
-
-	gpio_direction_input(OMAP3_EVM_TS_GPIO);
-	gpio_set_debounce(OMAP3_EVM_TS_GPIO, 310);
-}
-
-static int ads7846_get_pendown_state(void)
-{
-	return !gpio_get_value(OMAP3_EVM_TS_GPIO);
-}
-
-static struct ads7846_platform_data ads7846_config = {
-	.x_max			= 0x0fff,
-	.y_max			= 0x0fff,
-	.x_plate_ohms		= 180,
-	.pressure_max		= 255,
-	.debounce_max		= 10,
-	.debounce_tol		= 3,
-	.debounce_rep		= 1,
-	.get_pendown_state	= ads7846_get_pendown_state,
-	.keep_vref_on		= 1,
-	.settle_delay_usecs	= 150,
-	.wakeup				= true,
-};
-
-static struct omap2_mcspi_device_config ads7846_mcspi_config = {
-	.turbo_mode	= 0,
-	.single_channel	= 1,	/* 0: slave, 1: master */
-};
-
-static struct spi_board_info omap3evm_spi_board_info[] = {
-	[0] = {
-		.modalias		= "ads7846",
-		.bus_num		= 1,
-		.chip_select		= 0,
-		.max_speed_hz		= 1500000,
-		.controller_data	= &ads7846_mcspi_config,
-		.irq			= OMAP_GPIO_IRQ(OMAP3_EVM_TS_GPIO),
-		.platform_data		= &ads7846_config,
-	},
-};
 
 static struct omap_board_config_kernel omap3_evm_config[] __initdata = {
 };
@@ -841,9 +733,6 @@ static void __init omap3_evm_init(void)
 
 	omap_display_init(&omap3_evm_dss_data);
 
-	spi_register_board_info(omap3evm_spi_board_info,
-				ARRAY_SIZE(omap3evm_spi_board_info));
-
 	omap_serial_init();
 
 	/* OMAP3EVM uses ISP1504 phy and so register nop transceiver */
@@ -876,7 +765,7 @@ static void __init omap3_evm_init(void)
 	}
 	usb_musb_init(&musb_board_data);
 	usbhs_init(&usbhs_bdata);
-	ads7846_dev_init();
+	omap_ads7846_init(1, OMAP3_EVM_TS_GPIO, 310, NULL);
 	omap3evm_init_smsc911x();
 	omap3_evm_display_init();
 
