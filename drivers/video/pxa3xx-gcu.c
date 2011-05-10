@@ -1,5 +1,5 @@
 /*
- *  pxa3xx-gc.c - Linux kernel module for PXA3xx graphics controllers
+ *  pxa3xx-gcu.c - Linux kernel module for PXA3xx graphics controllers
  *
  *  This driver needs a DirectFB counterpart in user space, communication
  *  is handled via mmap()ed memory areas and an ioctl.
@@ -25,7 +25,7 @@
 
 /*
  * WARNING: This controller is attached to System Bus 2 of the PXA which
- * needs its arbiter to be enabled explictly (CKENB & 1<<9).
+ * needs its arbiter to be enabled explicitly (CKENB & 1<<9).
  * There is currently no way to do this from Linux, so you need to teach
  * your bootloader for now.
  */
@@ -421,7 +421,7 @@ pxa3xx_gcu_misc_write(struct file *filp, const char *buff,
 		buffer->next = priv->free;
 		priv->free = buffer;
 		spin_unlock_irqrestore(&priv->spinlock, flags);
-		return ret;
+		return -EFAULT;
 	}
 
 	buffer->length = words;

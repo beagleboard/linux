@@ -47,7 +47,7 @@ config HOSTFS
 
 config HPPFS
 	tristate "HoneyPot ProcFS (EXPERIMENTAL)"
-	depends on EXPERIMENTAL
+	depends on EXPERIMENTAL && PROC_FS
 	help
 	  hppfs (HoneyPot ProcFS) is a filesystem which allows UML /proc
 	  entries to be overridden, removed, or fabricated from the host.
@@ -119,9 +119,6 @@ config SMP
 	  be some bugs being exposed by enabling SMP.
 
 	  If you don't know what to do, say N.
-
-config GENERIC_HARDIRQS_NO__DO_IRQ
-	def_bool y
 
 config NR_CPUS
 	int "Maximum number of CPUs (2-32)"

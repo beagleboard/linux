@@ -87,7 +87,7 @@ nfsd_cross_mnt(struct svc_rqst *rqstp, struct dentry **dpp,
 			    .dentry = dget(dentry)};
 	int err = 0;
 
-	err = follow_down(&path, false);
+	err = follow_down(&path);
 	if (err < 0)
 		goto out;
 
@@ -808,7 +808,7 @@ nfsd_get_raparms(dev_t dev, ino_t ino)
 		if (ra->p_count == 0)
 			frap = rap;
 	}
-	depth = nfsdstats.ra_size*11/10;
+	depth = nfsdstats.ra_size;
 	if (!frap) {	
 		spin_unlock(&rab->pb_lock);
 		return NULL;
@@ -1363,7 +1363,7 @@ nfsd_create_v3(struct svc_rqst *rqstp, struct svc_fh *fhp,
 		goto out;
 	if (!(iap->ia_valid & ATTR_MODE))
 		iap->ia_mode = 0;
-	err = fh_verify(rqstp, fhp, S_IFDIR, NFSD_MAY_CREATE);
+	err = fh_verify(rqstp, fhp, S_IFDIR, NFSD_MAY_EXEC);
 	if (err)
 		goto out;
 
@@ -1384,6 +1384,13 @@ nfsd_create_v3(struct svc_rqst *rqstp, struct svc_fh *fhp,
 	host_err = PTR_ERR(dchild);
 	if (IS_ERR(dchild))
 		goto out_nfserr;
+
+	/* If file doesn't exist, check for permissions to create one */
+	if (!dchild->d_inode) {
+		err = fh_verify(rqstp, fhp, S_IFDIR, NFSD_MAY_CREATE);
+		if (err)
+			goto out;
+	}
 
 	err = fh_compose(resfhp, fhp->fh_export, dchild, fhp);
 	if (err)
@@ -1744,6 +1751,11 @@ nfsd_rename(struct svc_rqst *rqstp, struct svc_fh *ffhp, char *fname, int flen,
 	host_err = nfsd_break_lease(odentry->d_inode);
 	if (host_err)
 		goto out_drop_write;
+	if (ndentry->d_inode) {
+		host_err = nfsd_break_lease(ndentry->d_inode);
+		if (host_err)
+			goto out_drop_write;
+	}
 	host_err = vfs_rename(fdir, odentry, tdir, ndentry);
 	if (!host_err) {
 		host_err = commit_metadata(tfhp);
@@ -1812,22 +1824,22 @@ nfsd_unlink(struct svc_rqst *rqstp, struct svc_fh *fhp, int type,
 
 	host_err = mnt_want_write(fhp->fh_export->ex_path.mnt);
 	if (host_err)
-		goto out_nfserr;
+		goto out_put;
 
 	host_err = nfsd_break_lease(rdentry->d_inode);
 	if (host_err)
-		goto out_put;
+		goto out_drop_write;
 	if (type != S_IFDIR)
 		host_err = vfs_unlink(dirp, rdentry);
 	else
 		host_err = vfs_rmdir(dirp, rdentry);
+	if (!host_err)
+		host_err = commit_metadata(fhp);
+out_drop_write:
+	mnt_drop_write(fhp->fh_export->ex_path.mnt);
 out_put:
 	dput(rdentry);
 
-	if (!host_err)
-		host_err = commit_metadata(fhp);
-
-	mnt_drop_write(fhp->fh_export->ex_path.mnt);
 out_nfserr:
 	err = nfserrno(host_err);
 out:
