@@ -814,12 +814,13 @@ static __always_inline bool __is_kfree_rcu_offset(unsigned long offset)
 	return offset < 4096;
 }
 
+/*
+ * Intended to be called only from the kfree_rcu() macro.
+ */
 static __always_inline
 void __kfree_rcu(struct rcu_head *head, unsigned long offset)
 {
 	typedef void (*rcu_callback)(struct rcu_head *);
-
-	BUILD_BUG_ON(!__builtin_constant_p(offset));
 
 	/* See the kfree_rcu() header comment. */
 	BUILD_BUG_ON(!__is_kfree_rcu_offset(offset));
