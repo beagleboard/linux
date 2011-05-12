@@ -1628,7 +1628,7 @@ static int rbd_header_add_snap(struct rbd_device *dev,
 	ret = rbd_req_sync_exec(dev, dev->obj_md_name, "rbd", "snap_add",
 				data_start, data - data_start, &ver);
 
-	kfree(data_start);
+	kfree(data);
 
 	if (ret < 0)
 		return ret;
