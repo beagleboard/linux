@@ -26,6 +26,8 @@
 #include <media/v4l2-dev.h>
 #include <media/v4l2-ioctl.h>
 
+#define TEA575X_FMIF	10700
+
 #define TEA575X_DATA	(1 << 0)
 #define TEA575X_CLK	(1 << 1)
 #define TEA575X_WREN	(1 << 2)
@@ -40,18 +42,18 @@ struct snd_tea575x_ops {
 };
 
 struct snd_tea575x {
-	struct snd_card *card;
 	struct video_device *vd;	/* video device */
 	bool tea5759;			/* 5759 chip is present */
 	bool mute;			/* Device is muted? */
 	bool stereo;			/* receiving stereo */
 	bool tuned;			/* tuned to a station */
-	unsigned int freq_fixup;	/* crystal onboard */
 	unsigned int val;		/* hw value */
 	unsigned long freq;		/* frequency */
 	unsigned long in_use;		/* set if the device is in use */
 	struct snd_tea575x_ops *ops;
 	void *private_data;
+	u8 card[32];
+	u8 bus_info[32];
 };
 
 int snd_tea575x_init(struct snd_tea575x *tea);

@@ -1230,10 +1230,9 @@ static int __devinit snd_fm801_create(struct snd_card *card,
 	snd_card_set_dev(card, &pci->dev);
 
 #ifdef TEA575X_RADIO
-	chip->tea.card = card;
-	chip->tea.freq_fixup = 10700;
 	chip->tea.private_data = chip;
 	chip->tea.ops = &snd_fm801_tea_ops;
+	sprintf(chip->tea.bus_info, "PCI:%s", pci_name(pci));
 	if ((tea575x_tuner & TUNER_TYPE_MASK) > 0 &&
 	    (tea575x_tuner & TUNER_TYPE_MASK) < 4) {
 		if (snd_tea575x_init(&chip->tea))
@@ -1248,6 +1247,7 @@ static int __devinit snd_fm801_create(struct snd_card *card,
 				break;
 			}
 		}
+	strlcpy(chip->tea.card, snd_fm801_tea575x_gpios[(tea575x_tuner & TUNER_TYPE_MASK) - 1].name, sizeof(chip->tea.card));
 #endif
 
 	*rchip = chip;

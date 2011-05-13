@@ -2793,10 +2793,10 @@ static int __devinit snd_es1968_create(struct snd_card *card,
 	snd_card_set_dev(card, &pci->dev);
 
 #ifdef CONFIG_SND_ES1968_RADIO
-	chip->tea.card = card;
-	chip->tea.freq_fixup = 10700;
 	chip->tea.private_data = chip;
 	chip->tea.ops = &snd_es1968_tea_ops;
+	strlcpy(chip->tea.card, "SF64-PCE2", sizeof(chip->tea.card));
+	sprintf(chip->tea.bus_info, "PCI:%s", pci_name(pci));
 	if (!snd_tea575x_init(&chip->tea))
 		printk(KERN_INFO "es1968: detected TEA575x radio\n");
 #endif

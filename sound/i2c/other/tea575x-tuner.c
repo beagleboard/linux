@@ -141,9 +141,9 @@ static void snd_tea575x_get_freq(struct snd_tea575x *tea)
 	freq /= 10;
 	/* crystal fixup */
 	if (tea->tea5759)
-		freq += tea->freq_fixup;
+		freq += TEA575X_FMIF;
 	else
-		freq -= tea->freq_fixup;
+		freq -= TEA575X_FMIF;
 
 	tea->freq = freq * 16;		/* from kHz */
 }
@@ -156,9 +156,9 @@ static void snd_tea575x_set_freq(struct snd_tea575x *tea)
 	freq /= 16;		/* to kHz */
 	/* crystal fixup */
 	if (tea->tea5759)
-		freq -= tea->freq_fixup;
+		freq -= TEA575X_FMIF;
 	else
-		freq += tea->freq_fixup;
+		freq += TEA575X_FMIF;
 	/* freq /= 12.5 */
 	freq *= 10;
 	freq /= 125;
@@ -178,8 +178,9 @@ static int vidioc_querycap(struct file *file, void  *priv,
 	struct snd_tea575x *tea = video_drvdata(file);
 
 	strlcpy(v->driver, "tea575x-tuner", sizeof(v->driver));
-	strlcpy(v->card, tea->tea5759 ? "TEA5759" : "TEA5757", sizeof(v->card));
-	sprintf(v->bus_info, "PCI");
+	strlcpy(v->card, tea->card, sizeof(v->card));
+	strlcat(v->card, tea->tea5759 ? " TEA5759" : " TEA5757", sizeof(v->card));
+	strlcpy(v->bus_info, tea->bus_info, sizeof(v->bus_info));
 	v->version = RADIO_VERSION;
 	v->capabilities = V4L2_CAP_TUNER | V4L2_CAP_RADIO;
 	return 0;
