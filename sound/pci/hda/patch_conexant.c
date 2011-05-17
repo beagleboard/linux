@@ -39,6 +39,7 @@
 
 #define CONEXANT_HP_EVENT	0x37
 #define CONEXANT_MIC_EVENT	0x38
+#define CONEXANT_LINE_EVENT	0x39
 
 /* Conexant 5051 specific */
 
@@ -53,6 +54,13 @@ struct pin_dac_pair {
 	hda_nid_t pin;
 	hda_nid_t dac;
 	int type;
+};
+
+struct imux_info {
+	hda_nid_t pin;		/* input pin NID */
+	hda_nid_t adc;		/* connected ADC NID */	
+	hda_nid_t boost;	/* optional boost volume NID */
+	int index;		/* corresponding to autocfg.input */
 };
 
 struct conexant_spec {
@@ -74,6 +82,7 @@ struct conexant_spec {
 					 */
 	unsigned int cur_eapd;
 	unsigned int hp_present;
+	unsigned int line_present;
 	unsigned int auto_mic;
 	int auto_mic_ext;		/* imux_pins[] index for ext mic */
 	unsigned int need_dac_fix;
@@ -108,10 +117,7 @@ struct conexant_spec {
 	/* dynamic controls, init_verbs and input_mux */
 	struct auto_pin_cfg autocfg;
 	struct hda_input_mux private_imux;
-	int imux_cfg_idx[HDA_MAX_NUM_INPUTS]; /* corresponding autocfg.input */
-	hda_nid_t imux_boost_nid[HDA_MAX_NUM_INPUTS]; /* boost widget */
-	hda_nid_t imux_adcs[HDA_MAX_NUM_INPUTS];
-	hda_nid_t imux_pins[HDA_MAX_NUM_INPUTS];
+	struct imux_info imux_info[HDA_MAX_NUM_INPUTS];
 	hda_nid_t private_adc_nids[HDA_MAX_NUM_INPUTS];
 	hda_nid_t private_dac_nids[AUTO_CFG_MAX_OUTS];
 	struct pin_dac_pair dac_info[8];
@@ -119,6 +125,9 @@ struct conexant_spec {
 
 	unsigned int port_d_mode;
 	unsigned int auto_mute:1;	/* used in auto-parser */
+	unsigned int detect_line:1;	/* Line-out detection enabled */
+	unsigned int automute_lines:1;	/* automute line-out as well */
+	unsigned int automute_hp_lo:1;	/* both HP and LO available */
 	unsigned int dell_automute:1;
 	unsigned int dell_vostro:1;
 	unsigned int ideapad:1;
@@ -471,12 +480,18 @@ static const struct snd_kcontrol_new cxt_beep_mixer[] = {
 static const char * const slave_vols[] = {
 	"Headphone Playback Volume",
 	"Speaker Playback Volume",
+	"Front Playback Volume",
+	"Surround Playback Volume",
+	"CLFE Playback Volume",
 	NULL
 };
 
 static const char * const slave_sws[] = {
 	"Headphone Playback Switch",
 	"Speaker Playback Switch",
+	"Front Playback Switch",
+	"Surround Playback Switch",
+	"CLFE Playback Switch",
 	NULL
 };
 
@@ -3254,7 +3269,7 @@ static int cx_auto_capture_pcm_prepare(struct hda_pcm_stream *hinfo,
 				       struct snd_pcm_substream *substream)
 {
 	struct conexant_spec *spec = codec->spec;
-	hda_nid_t adc = spec->imux_adcs[spec->cur_mux[0]];
+	hda_nid_t adc = spec->imux_info[spec->cur_mux[0]].adc;
 	if (spec->adc_switching) {
 		spec->cur_adc = adc;
 		spec->cur_adc_stream_tag = stream_tag;
@@ -3410,47 +3425,192 @@ static void cx_auto_parse_output(struct hda_codec *codec)
 	spec->multiout.dac_nids = spec->private_dac_nids;
 	spec->multiout.max_channels = spec->multiout.num_dacs * 2;
 
-	if (cfg->hp_outs > 0)
-		spec->auto_mute = 1;
+	for (i = 0; i < cfg->hp_outs; i++) {
+		if (is_jack_detectable(codec, cfg->hp_pins[i])) {
+			spec->auto_mute = 1;
+			break;
+		}
+	}
+	if (spec->auto_mute && cfg->line_out_pins[0] &&
+	    cfg->line_out_pins[0] != cfg->hp_pins[0] &&
+	    cfg->line_out_pins[0] != cfg->speaker_pins[0]) {
+		for (i = 0; i < cfg->line_outs; i++) {
+			if (is_jack_detectable(codec, cfg->line_out_pins[i])) {
+				spec->detect_line = 1;
+				break;
+			}
+		}
+		spec->automute_lines = spec->detect_line;
+	}
+
 	spec->vmaster_nid = spec->private_dac_nids[0];
 }
 
 static void cx_auto_turn_eapd(struct hda_codec *codec, int num_pins,
 			      hda_nid_t *pins, bool on);
 
+static void do_automute(struct hda_codec *codec, int num_pins,
+			hda_nid_t *pins, bool on)
+{
+	int i;
+	for (i = 0; i < num_pins; i++)
+		snd_hda_codec_write(codec, pins[i], 0,
+				    AC_VERB_SET_PIN_WIDGET_CONTROL,
+				    on ? PIN_OUT : 0);
+	cx_auto_turn_eapd(codec, num_pins, pins, on);
+}
+
+static int detect_jacks(struct hda_codec *codec, int num_pins, hda_nid_t *pins)
+{
+	int i, present = 0;
+
+	for (i = 0; i < num_pins; i++) {
+		hda_nid_t nid = pins[i];
+		if (!nid || !is_jack_detectable(codec, nid))
+			break;
+		snd_hda_input_jack_report(codec, nid);
+		present |= snd_hda_jack_detect(codec, nid);
+	}
+	return present;
+}
+
 /* auto-mute/unmute speaker and line outs according to headphone jack */
+static void cx_auto_update_speakers(struct hda_codec *codec)
+{
+	struct conexant_spec *spec = codec->spec;
+	struct auto_pin_cfg *cfg = &spec->autocfg;
+	int on;
+
+	if (!spec->auto_mute)
+		on = 0;
+	else
+		on = spec->hp_present | spec->line_present;
+	cx_auto_turn_eapd(codec, cfg->hp_outs, cfg->hp_pins, on);
+	do_automute(codec, cfg->speaker_outs, cfg->speaker_pins, !on);
+
+	/* toggle line-out mutes if needed, too */
+	/* if LO is a copy of either HP or Speaker, don't need to handle it */
+	if (cfg->line_out_pins[0] == cfg->hp_pins[0] ||
+	    cfg->line_out_pins[0] == cfg->speaker_pins[0])
+		return;
+	if (!spec->automute_lines || !spec->auto_mute)
+		on = 0;
+	else
+		on = spec->hp_present;
+	do_automute(codec, cfg->line_outs, cfg->line_out_pins, !on);
+}
+
 static void cx_auto_hp_automute(struct hda_codec *codec)
 {
 	struct conexant_spec *spec = codec->spec;
 	struct auto_pin_cfg *cfg = &spec->autocfg;
-	int i, present;
 
 	if (!spec->auto_mute)
 		return;
-	present = 0;
-	for (i = 0; i < cfg->hp_outs; i++) {
-		if (snd_hda_jack_detect(codec, cfg->hp_pins[i])) {
-			present = 1;
-			break;
-		}
-	}
-	cx_auto_turn_eapd(codec, cfg->hp_outs, cfg->hp_pins, present);
-	for (i = 0; i < cfg->line_outs; i++) {
-		snd_hda_codec_write(codec, cfg->line_out_pins[i], 0,
-				    AC_VERB_SET_PIN_WIDGET_CONTROL,
-				    present ? 0 : PIN_OUT);
-	}
-	cx_auto_turn_eapd(codec, cfg->line_outs, cfg->line_out_pins, !present);
-	for (i = 0; !present && i < cfg->line_outs; i++)
-		if (snd_hda_jack_detect(codec, cfg->line_out_pins[i]))
-			present = 1;
-	for (i = 0; i < cfg->speaker_outs; i++) {
-		snd_hda_codec_write(codec, cfg->speaker_pins[i], 0,
-				    AC_VERB_SET_PIN_WIDGET_CONTROL,
-				    present ? 0 : PIN_OUT);
-	}
-	cx_auto_turn_eapd(codec, cfg->speaker_outs, cfg->speaker_pins, !present);
+	spec->hp_present = detect_jacks(codec, cfg->hp_outs, cfg->hp_pins);
+	cx_auto_update_speakers(codec);
 }
+
+static void cx_auto_line_automute(struct hda_codec *codec)
+{
+	struct conexant_spec *spec = codec->spec;
+	struct auto_pin_cfg *cfg = &spec->autocfg;
+
+	if (!spec->auto_mute || !spec->detect_line)
+		return;
+	spec->line_present = detect_jacks(codec, cfg->line_outs,
+					  cfg->line_out_pins);
+	cx_auto_update_speakers(codec);
+}
+
+static int cx_automute_mode_info(struct snd_kcontrol *kcontrol,
+				 struct snd_ctl_elem_info *uinfo)
+{
+	struct hda_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct conexant_spec *spec = codec->spec;
+	static const char * const texts2[] = {
+		"Disabled", "Enabled"
+	};
+	static const char * const texts3[] = {
+		"Disabled", "Speaker Only", "Line-Out+Speaker"
+	};
+	const char * const *texts;
+
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_ENUMERATED;
+	uinfo->count = 1;
+	if (spec->automute_hp_lo) {
+		uinfo->value.enumerated.items = 3;
+		texts = texts3;
+	} else {
+		uinfo->value.enumerated.items = 2;
+		texts = texts2;
+	}
+	if (uinfo->value.enumerated.item >= uinfo->value.enumerated.items)
+		uinfo->value.enumerated.item = uinfo->value.enumerated.items - 1;
+	strcpy(uinfo->value.enumerated.name,
+	       texts[uinfo->value.enumerated.item]);
+	return 0;
+}
+
+static int cx_automute_mode_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct hda_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct conexant_spec *spec = codec->spec;
+	unsigned int val;
+	if (!spec->auto_mute)
+		val = 0;
+	else if (!spec->automute_lines)
+		val = 1;
+	else
+		val = 2;
+	ucontrol->value.enumerated.item[0] = val;
+	return 0;
+}
+
+static int cx_automute_mode_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct hda_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct conexant_spec *spec = codec->spec;
+
+	switch (ucontrol->value.enumerated.item[0]) {
+	case 0:
+		if (!spec->auto_mute)
+			return 0;
+		spec->auto_mute = 0;
+		break;
+	case 1:
+		if (spec->auto_mute && !spec->automute_lines)
+			return 0;
+		spec->auto_mute = 1;
+		spec->automute_lines = 0;
+		break;
+	case 2:
+		if (!spec->automute_hp_lo)
+			return -EINVAL;
+		if (spec->auto_mute && spec->automute_lines)
+			return 0;
+		spec->auto_mute = 1;
+		spec->automute_lines = 1;
+		break;
+	default:
+		return -EINVAL;
+	}
+	cx_auto_update_speakers(codec);
+	return 1;
+}
+
+static const struct snd_kcontrol_new cx_automute_mode_enum[] = {
+	{
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name = "Auto-Mute Mode",
+		.info = cx_automute_mode_info,
+		.get = cx_automute_mode_get,
+		.put = cx_automute_mode_put,
+	},
+	{ }
+};
 
 static int cx_auto_mux_enum_info(struct snd_kcontrol *kcontrol,
 				 struct snd_ctl_elem_info *uinfo)
@@ -3541,9 +3701,9 @@ static int cx_auto_mux_enum_update(struct hda_codec *codec,
 		idx = imux->num_items - 1;
 	if (spec->cur_mux[0] == idx)
 		return 0;
-	adc = spec->imux_adcs[idx];
-	select_input_connection(codec, spec->imux_adcs[idx],
-				spec->imux_pins[idx]);
+	adc = spec->imux_info[idx].adc;
+	select_input_connection(codec, spec->imux_info[idx].adc,
+				spec->imux_info[idx].pin);
 	if (spec->cur_adc && spec->cur_adc != adc) {
 		/* stream is running, let's swap the current ADC */
 		__snd_hda_codec_cleanup_stream(codec, spec->cur_adc, 1);
@@ -3585,7 +3745,7 @@ static void cx_auto_automic(struct hda_codec *codec)
 
 	if (!spec->auto_mic)
 		return;
-	if (snd_hda_jack_detect(codec, spec->imux_pins[ext_idx]))
+	if (snd_hda_jack_detect(codec, spec->imux_info[ext_idx].pin))
 		cx_auto_mux_enum_update(codec, &spec->private_imux, ext_idx);
 	else
 		cx_auto_mux_enum_update(codec, &spec->private_imux, !ext_idx);
@@ -3597,7 +3757,9 @@ static void cx_auto_unsol_event(struct hda_codec *codec, unsigned int res)
 	switch (res >> 26) {
 	case CONEXANT_HP_EVENT:
 		cx_auto_hp_automute(codec);
-		snd_hda_input_jack_report(codec, nid);
+		break;
+	case CONEXANT_LINE_EVENT:
+		cx_auto_line_automute(codec);
 		break;
 	case CONEXANT_MIC_EVENT:
 		cx_auto_automic(codec);
@@ -3620,7 +3782,7 @@ static int is_ext_mic(struct hda_codec *codec, hda_nid_t pin)
 	unsigned int def_conf = snd_hda_codec_get_pincfg(codec, pin);
 	return get_defcfg_device(def_conf) == AC_JACK_MIC_IN &&
 		snd_hda_get_input_pin_attr(def_conf) >= INPUT_PIN_ATTR_NORMAL &&
-		(snd_hda_query_pin_caps(codec, pin) & AC_PINCAP_PRES_DETECT);
+		is_jack_detectable(codec, pin);
 }
 
 /* check whether the pin config is suitable for auto-mic switching;
@@ -3630,14 +3792,14 @@ static void cx_auto_check_auto_mic(struct hda_codec *codec)
 {
 	struct conexant_spec *spec = codec->spec;
 
-	if (is_ext_mic(codec, spec->imux_pins[0]) &&
-	    is_int_mic(codec, spec->imux_pins[1])) {
+	if (is_ext_mic(codec, spec->imux_info[0].pin) &&
+	    is_int_mic(codec, spec->imux_info[1].pin)) {
 		spec->auto_mic = 1;
 		spec->auto_mic_ext = 0;
 		return;
 	}
-	if (is_int_mic(codec, spec->imux_pins[0]) &&
-	    is_ext_mic(codec, spec->imux_pins[1])) {
+	if (is_int_mic(codec, spec->imux_info[0].pin) &&
+	    is_ext_mic(codec, spec->imux_info[1].pin)) {
 		spec->auto_mic = 1;
 		spec->auto_mic_ext = 1;
 		return;
@@ -3660,10 +3822,10 @@ static void cx_auto_parse_input(struct hda_codec *codec)
 			if (idx >= 0) {
 				const char *label;
 				label = hda_get_autocfg_input_label(codec, cfg, i);
-				spec->imux_cfg_idx[imux->num_items] = i;
-				spec->imux_boost_nid[imux->num_items] = 0;
-				spec->imux_adcs[imux->num_items] = adc;
-				spec->imux_pins[imux->num_items] =
+				spec->imux_info[imux->num_items].index = i;
+				spec->imux_info[imux->num_items].boost = 0;
+				spec->imux_info[imux->num_items].adc = adc;
+				spec->imux_info[imux->num_items].pin =
 					cfg->inputs[i].pin;
 				snd_hda_add_imux_item(imux, label, idx, NULL);
 				break;
@@ -3674,7 +3836,7 @@ static void cx_auto_parse_input(struct hda_codec *codec)
 		cx_auto_check_auto_mic(codec);
 	if (imux->num_items > 1 && !spec->auto_mic) {
 		for (i = 1; i < imux->num_items; i++) {
-			if (spec->imux_adcs[i] != spec->imux_adcs[0]) {
+			if (spec->imux_info[i].adc != spec->imux_info[0].adc) {
 				spec->adc_switching = 1;
 				break;
 			}
@@ -3784,6 +3946,16 @@ static void mute_outputs(struct hda_codec *codec, int num_nids,
 	}
 }
 
+static void enable_unsol_pins(struct hda_codec *codec, int num_pins,
+			      hda_nid_t *pins, unsigned int tag)
+{
+	int i;
+	for (i = 0; i < num_pins; i++)
+		snd_hda_codec_write(codec, pins[i], 0,
+				    AC_VERB_SET_UNSOLICITED_ENABLE,
+				    AC_USRSP_EN | tag);
+}
+
 static void cx_auto_init_output(struct hda_codec *codec)
 {
 	struct conexant_spec *spec = codec->spec;
@@ -3798,35 +3970,27 @@ static void cx_auto_init_output(struct hda_codec *codec)
 	mute_outputs(codec, cfg->hp_outs, cfg->hp_pins);
 	mute_outputs(codec, cfg->line_outs, cfg->line_out_pins);
 	mute_outputs(codec, cfg->speaker_outs, cfg->speaker_pins);
-	if (spec->auto_mute) {
-		for (i = 0; i < cfg->hp_outs; i++) {
-			snd_hda_codec_write(codec, cfg->hp_pins[i], 0,
-				    AC_VERB_SET_UNSOLICITED_ENABLE,
-				    AC_USRSP_EN | CONEXANT_HP_EVENT);
-		}
-		cx_auto_hp_automute(codec);
-	} else {
-		for (i = 0; i < cfg->line_outs; i++)
-			snd_hda_codec_write(codec, cfg->line_out_pins[i], 0,
-				    AC_VERB_SET_PIN_WIDGET_CONTROL, PIN_OUT);
-		for (i = 0; i < cfg->speaker_outs; i++)
-			snd_hda_codec_write(codec, cfg->speaker_pins[i], 0,
-				    AC_VERB_SET_PIN_WIDGET_CONTROL, PIN_OUT);
-		/* turn on EAPD */
-		cx_auto_turn_eapd(codec, cfg->line_outs, cfg->line_out_pins,
-				  true);
-		cx_auto_turn_eapd(codec, cfg->hp_outs, cfg->hp_pins,
-				  true);
-		cx_auto_turn_eapd(codec, cfg->speaker_outs, cfg->speaker_pins,
-				  true);
-	}
-
 	for (i = 0; i < spec->dac_info_filled; i++) {
 		nid = spec->dac_info[i].dac;
 		if (!nid)
 			nid = spec->multiout.dac_nids[0];
 		select_connection(codec, spec->dac_info[i].pin, nid);
 	}
+	if (spec->auto_mute) {
+		enable_unsol_pins(codec, cfg->hp_outs, cfg->hp_pins,
+				  CONEXANT_HP_EVENT);
+		spec->hp_present = detect_jacks(codec, cfg->hp_outs,
+						cfg->hp_pins);
+		if (spec->detect_line) {
+			enable_unsol_pins(codec, cfg->line_outs,
+					  cfg->line_out_pins,
+					  CONEXANT_LINE_EVENT);
+			spec->line_present =
+				detect_jacks(codec, cfg->line_outs,
+					     cfg->line_out_pins);
+		}
+	}
+	cx_auto_update_speakers(codec);
 }
 
 static void cx_auto_init_input(struct hda_codec *codec)
@@ -3864,8 +4028,8 @@ static void cx_auto_init_input(struct hda_codec *codec)
 				    AC_USRSP_EN | CONEXANT_MIC_EVENT);
 		cx_auto_automic(codec);
 	} else {
-		select_input_connection(codec, spec->imux_adcs[0],
-					spec->imux_pins[0]);
+		select_input_connection(codec, spec->imux_info[0].adc,
+					spec->imux_info[0].pin);
 	}
 }
 
@@ -3982,6 +4146,13 @@ static int cx_auto_build_output_controls(struct hda_codec *codec)
 		if (err < 0)
 			return err;
 	}
+
+	if (spec->auto_mute) {
+		err = snd_hda_add_new_ctls(codec, cx_automute_mode_enum);
+		if (err < 0)
+			return err;
+	}
+	
 	return 0;
 }
 
@@ -4010,21 +4181,21 @@ static int cx_auto_add_boost_volume(struct hda_codec *codec, int idx,
 	hda_nid_t mux, nid;
 	int i, con;
 
-	nid = spec->imux_pins[idx];
+	nid = spec->imux_info[idx].pin;
 	if (get_wcaps(codec, nid) & AC_WCAP_IN_AMP)
 		return cx_auto_add_volume(codec, label, " Boost", cidx,
 					  nid, HDA_INPUT);
-	con = __select_input_connection(codec, spec->imux_adcs[idx], nid, &mux,
-					false, 0);
+	con = __select_input_connection(codec, spec->imux_info[idx].adc, nid,
+					&mux, false, 0);
 	if (con < 0)
 		return 0;
 	for (i = 0; i < idx; i++) {
-		if (spec->imux_boost_nid[i] == mux)
+		if (spec->imux_info[i].boost == mux)
 			return 0; /* already present */
 	}
 
 	if (get_wcaps(codec, mux) & AC_WCAP_OUT_AMP) {
-		spec->imux_boost_nid[idx] = mux;
+		spec->imux_info[idx].boost = mux;
 		return cx_auto_add_volume(codec, label, " Boost", 0,
 					  mux, HDA_OUTPUT);
 	}
@@ -4042,9 +4213,9 @@ static int cx_auto_build_input_controls(struct hda_codec *codec)
 
 	multi_connection = 0;
 	for (i = 0; i < imux->num_items; i++) {
-		cidx = get_input_connection(codec, spec->imux_adcs[i],
-					    spec->imux_pins[i]);
-		input_conn[i] = (spec->imux_adcs[i] << 8) | cidx;
+		cidx = get_input_connection(codec, spec->imux_info[i].adc,
+					    spec->imux_info[i].pin);
+		input_conn[i] = (spec->imux_info[i].adc << 8) | cidx;
 		if (i > 0 && input_conn[i] != input_conn[0])
 			multi_connection = 1;
 	}
@@ -4052,11 +4223,11 @@ static int cx_auto_build_input_controls(struct hda_codec *codec)
 	prev_label = NULL;
 	cidx = 0;
 	for (i = 0; i < imux->num_items; i++) {
-		hda_nid_t nid = spec->imux_pins[i];
+		hda_nid_t nid = spec->imux_info[i].pin;
 		const char *label;
 
 		label = hda_get_autocfg_input_label(codec, &spec->autocfg,
-						    spec->imux_cfg_idx[i]);
+						    spec->imux_info[i].index);
 		if (label == prev_label)
 			cidx++;
 		else

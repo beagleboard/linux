@@ -331,8 +331,8 @@ static int is_ext_mic(struct hda_codec *codec, unsigned int idx)
 	struct cs_spec *spec = codec->spec;
 	struct auto_pin_cfg *cfg = &spec->autocfg;
 	hda_nid_t pin = cfg->inputs[idx].pin;
-	unsigned int val = snd_hda_query_pin_caps(codec, pin);
-	if (!(val & AC_PINCAP_PRES_DETECT))
+	unsigned int val;
+	if (!is_jack_detectable(codec, pin))
 		return 0;
 	val = snd_hda_codec_get_pincfg(codec, pin);
 	return (snd_hda_get_input_pin_attr(val) != INPUT_PIN_ATTR_INT);
@@ -349,8 +349,7 @@ static hda_nid_t get_adc(struct hda_codec *codec, hda_nid_t pin,
 		hda_nid_t pins[2];
 		unsigned int type;
 		int j, nums;
-		type = (get_wcaps(codec, nid) & AC_WCAP_TYPE)
-			>> AC_WCAP_TYPE_SHIFT;
+		type = get_wcaps_type(get_wcaps(codec, nid));
 		if (type != AC_WID_AUD_IN)
 			continue;
 		nums = snd_hda_get_connections(codec, nid, pins,
@@ -847,15 +846,14 @@ static void cs_automute(struct hda_codec *codec)
 {
 	struct cs_spec *spec = codec->spec;
 	struct auto_pin_cfg *cfg = &spec->autocfg;
-	unsigned int caps, hp_present;
+	unsigned int hp_present;
 	hda_nid_t nid;
 	int i;
 
 	hp_present = 0;
 	for (i = 0; i < cfg->hp_outs; i++) {
 		nid = cfg->hp_pins[i];
-		caps = snd_hda_query_pin_caps(codec, nid);
-		if (!(caps & AC_PINCAP_PRES_DETECT))
+		if (!is_jack_detectable(codec, nid))
 			continue;
 		hp_present = snd_hda_jack_detect(codec, nid);
 		if (hp_present)
