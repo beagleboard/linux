@@ -15193,14 +15193,21 @@ static int alc269_fill_coef(struct hda_codec *codec)
 		val = alc_read_coef_idx(codec, 0xd);
 		if ((val & 0x0c00) >> 10 != 0x1) {
 			/* Capless ramp up clock control */
-			alc_write_coef_idx(codec, 0xd, val | 1<<10);
+			alc_write_coef_idx(codec, 0xd, val | (1<<10));
 		}
 		val = alc_read_coef_idx(codec, 0x17);
 		if ((val & 0x01c0) >> 6 != 0x4) {
 			/* Class D power on reset */
-			alc_write_coef_idx(codec, 0x17, val | 1<<7);
+			alc_write_coef_idx(codec, 0x17, val | (1<<7));
 		}
 	}
+
+	val = alc_read_coef_idx(codec, 0xd); /* Class D */
+	alc_write_coef_idx(codec, 0xd, val | (1<<14));
+
+	val = alc_read_coef_idx(codec, 0x4); /* HP */
+	alc_write_coef_idx(codec, 0x4, val | (1<<11));
+
 	return 0;
 }
 
@@ -19610,6 +19617,15 @@ static int patch_alc888(struct hda_codec *codec)
 	return patch_alc882(codec);
 }
 
+static int patch_alc899(struct hda_codec *codec)
+{
+	if ((alc_read_coef_idx(codec, 0) & 0x2000) != 0x2000) {
+		kfree(codec->chip_name);
+		codec->chip_name = kstrdup("ALC898", GFP_KERNEL);
+	}
+	return patch_alc882(codec);
+}
+
 /*
  * ALC680 support
  */
@@ -20062,6 +20078,7 @@ static int patch_alc680(struct hda_codec *codec)
  * patch entries
  */
 static const struct hda_codec_preset snd_hda_preset_realtek[] = {
+	{ .id = 0x10ec0221, .name = "ALC221", .patch = patch_alc269 },
 	{ .id = 0x10ec0260, .name = "ALC260", .patch = patch_alc260 },
 	{ .id = 0x10ec0262, .name = "ALC262", .patch = patch_alc262 },
 	{ .id = 0x10ec0267, .name = "ALC267", .patch = patch_alc268 },
@@ -20070,6 +20087,7 @@ static const struct hda_codec_preset snd_hda_preset_realtek[] = {
 	{ .id = 0x10ec0270, .name = "ALC270", .patch = patch_alc269 },
 	{ .id = 0x10ec0272, .name = "ALC272", .patch = patch_alc662 },
 	{ .id = 0x10ec0275, .name = "ALC275", .patch = patch_alc269 },
+	{ .id = 0x10ec0276, .name = "ALC276", .patch = patch_alc269 },
 	{ .id = 0x10ec0861, .rev = 0x100340, .name = "ALC660",
 	  .patch = patch_alc861 },
 	{ .id = 0x10ec0660, .name = "ALC660-VD", .patch = patch_alc861vd },
@@ -20097,6 +20115,7 @@ static const struct hda_codec_preset snd_hda_preset_realtek[] = {
 	{ .id = 0x10ec0888, .name = "ALC888", .patch = patch_alc888 },
 	{ .id = 0x10ec0889, .name = "ALC889", .patch = patch_alc882 },
 	{ .id = 0x10ec0892, .name = "ALC892", .patch = patch_alc662 },
+	{ .id = 0x10ec0899, .name = "ALC899", .patch = patch_alc899 },
 	{} /* terminator */
 };
 
