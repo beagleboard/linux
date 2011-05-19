@@ -806,8 +806,15 @@ static unsigned cppi41_next_rx_segment(struct cppi41_channel *rx_ch)
 		(length > max_rx_transfer_size) ? max_rx_transfer_size : length;
 
 		hw_desc = &curr_pd->hw_desc;
+		hw_desc->desc_info = (CPPI41_DESC_TYPE_HOST <<
+				      CPPI41_DESC_TYPE_SHIFT);
 		hw_desc->orig_buf_ptr = rx_ch->start_addr + rx_ch->curr_offset;
 		hw_desc->orig_buf_len = pkt_len;
+
+		/* buf_len field of buffer descriptor updated by dma
+		 * after reception of data is completed
+		 */
+		hw_desc->buf_len = 0;
 
 		curr_pd->ch_num = rx_ch->ch_num;
 		curr_pd->ep_num = rx_ch->end_pt->epnum;
@@ -1370,7 +1377,7 @@ static void usb_process_rx_queue(struct cppi41 *cppi, unsigned index)
 		struct usb_pkt_desc *curr_pd;
 		struct cppi41_channel *rx_ch;
 		u8 ch_num, ep_num;
-		u32 length, orig_buf_len;
+		u32 length, orig_buf_len, timeout = 50;
 
 		curr_pd = usb_get_pd_ptr(cppi, pd_addr);
 		if (curr_pd == NULL) {
@@ -1378,10 +1385,28 @@ static void usb_process_rx_queue(struct cppi41 *cppi, unsigned index)
 			continue;
 		}
 
+		/* This delay is required to overcome the dma race condition
+		 * where software reads buffer descriptor before being updated
+		 * by dma as buffer descriptor's writes by dma still pending in
+		 * interconnect bridge.
+		 */
+		while (timeout--) {
+			length = curr_pd->hw_desc.desc_info &
+					CPPI41_PKT_LEN_MASK;
+			if (length != 0)
+				break;
+			udelay(1);
+		}
+
+		if (length == 0)
+			ERR("!Race condtion: rxBD read before updated by dma");
+
 		/* Extract the data from received packet descriptor */
 		ch_num = curr_pd->ch_num;
 		ep_num = curr_pd->ep_num;
-		length = curr_pd->hw_desc.buf_len;
+
+		DBG(4, "Rx complete: dma channel(%d) ep%d len %d timeout %d\n",
+			ch_num, ep_num, length, (50-timeout));
 
 		rx_ch = &cppi->rx_cppi_ch[ch_num];
 		rx_ch->channel.actual_len += length;
