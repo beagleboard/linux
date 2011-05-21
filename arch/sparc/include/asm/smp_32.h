@@ -79,14 +79,6 @@ static inline int smp_call_function(void (*func)(void *info), void *info, int wa
 	return 0;
 }
 
-static inline int smp_call_function_single(int cpuid, void (*func) (void *info),
-					   void *info, int wait)
-{
-	smp_cross_call((smpfunc_t)func, cpumask_of_cpu(cpuid),
-		       (unsigned long) info, 0, 0, 0);
-	return 0;
-}
-
 static inline int cpu_logical_map(int cpu)
 {
 	return cpu;

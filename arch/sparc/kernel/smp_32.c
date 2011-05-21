@@ -233,6 +233,14 @@ void smp_reschedule_irq(void)
 	set_need_resched();
 }
 
+inline int smp_call_function_single(int cpuid, void (*func) (void *info),
+                                           void *info, int wait)
+{
+	smp_cross_call((smpfunc_t)func, cpumask_of_cpu(cpuid),
+	               (unsigned long) info, 0, 0, 0);
+	return 0;
+}
+
 void smp_flush_page_to_ram(unsigned long page)
 {
 	/* Current theory is that those who call this are the one's
