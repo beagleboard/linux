@@ -153,6 +153,12 @@ void rcu_bh_qs(int cpu)
  */
 void rcu_note_context_switch(int cpu)
 {
+	rcu_lockdep_assert(!lock_is_held(&rcu_bh_lock_map),
+			   "Illegal context switch in RCU-bh"
+			   " read-side critical section");
+	rcu_lockdep_assert(!lock_is_held(&rcu_sched_lock_map),
+			   "Illegal context switch in RCU-sched"
+			   " read-side critical section");
 	rcu_sched_qs(cpu);
 	rcu_preempt_note_context_switch(cpu);
 }
