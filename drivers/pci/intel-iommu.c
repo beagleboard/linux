@@ -1787,7 +1787,9 @@ static int __domain_mapping(struct dmar_domain *domain, unsigned long iov_pfn,
 				return -ENOMEM;
 			/* It is large page*/
 			if (largepage_lvl > 1)
-				pteval = pteval | DMA_PTE_LARGE_PAGE;
+				pteval |= DMA_PTE_LARGE_PAGE;
+			else
+				pteval &= ~(uint64_t)DMA_PTE_LARGE_PAGE;
 
 		}
 		/* We don't need lock here, nobody else
@@ -1806,24 +1808,30 @@ static int __domain_mapping(struct dmar_domain *domain, unsigned long iov_pfn,
 		}
 
 		lvl_pages = lvl_to_nr_pages(largepage_lvl);
-		if (nr_pages < lvl_pages)
-			nr_pages = 0;
-		else
-			nr_pages -= lvl_pages;
 
+		BUG_ON(nr_pages < lvl_pages);
+		BUG_ON(sg_res < lvl_pages);
+
+		nr_pages -= lvl_pages;
 		iov_pfn += lvl_pages;
-
 		phys_pfn += lvl_pages;
-
 		pteval += lvl_pages * VTD_PAGE_SIZE;
+		sg_res -= lvl_pages;
 
-		if (sg_res < lvl_pages)
-			sg_res = 0;
-		else
-			sg_res -= lvl_pages;
+		/* If the next PTE would be the first in a new page, then we
+		   need to flush the cache on the entries we've just written.
+		   And then we'll need to recalculate 'pte', so clear it and
+		   let it get set again in the if (!pte) block above.
 
+		   If we're done (!nr_pages) we need to flush the cache too.
+
+		   Also if we've been setting superpages, we may need to
+		   recalculate 'pte' and switch back to smaller pages for the
+		   end of the mapping, if the trailing size is not enough to
+		   use another superpage (i.e. sg_res < lvl_pages). */
 		pte++;
-		if (!nr_pages || first_pte_in_page(pte)) {
+		if (!nr_pages || first_pte_in_page(pte) ||
+		    (largepage_lvl > 1 && sg_res < lvl_pages)) {
 			domain_flush_cache(domain, first_pte,
 					   (void *)pte - (void *)first_pte);
 			pte = NULL;
