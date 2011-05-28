@@ -1776,7 +1776,7 @@ static int __domain_mapping(struct dmar_domain *domain, unsigned long iov_pfn,
 			sg->dma_address = ((dma_addr_t)iov_pfn << VTD_PAGE_SHIFT) + sg->offset;
 			sg->dma_length = sg->length;
 			pteval = page_to_phys(sg_page(sg)) | prot;
-			phys_pfn = page_to_phys(sg_page(sg));
+			phys_pfn = pteval >> VTD_PAGE_SHIFT;
 		}
 
 		if (!pte) {
