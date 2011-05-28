@@ -348,6 +348,9 @@ struct dmar_domain {
 	int		iommu_coherency;/* indicate coherency of iommu access */
 	int		iommu_snooping; /* indicate snooping control feature*/
 	int		iommu_count;	/* reference count of iommu */
+	int		iommu_superpage;/* Level of superpages supported:
+					   0 == 4KiB (no superpages), 1 == 2MiB,
+					   2 == 1GiB, 3 == 512GiB, 4 == 1TiB */
 	spinlock_t	iommu_lock;	/* protect iommu set in domain */
 	u64		max_addr;	/* maximum mapped address */
 };
@@ -570,11 +573,32 @@ static void domain_update_iommu_snooping(struct dmar_domain *domain)
 	}
 }
 
+static void domain_update_iommu_superpage(struct dmar_domain *domain)
+{
+	int i, mask = 0xf;
+
+	if (!intel_iommu_superpage) {
+		domain->iommu_superpage = 0;
+		return;
+	}
+
+	domain->iommu_superpage = 4; /* 1TiB */
+
+	for_each_set_bit(i, &domain->iommu_bmp, g_num_of_iommus) {
+		mask |= cap_super_page_val(g_iommus[i]->cap);
+		if (!mask) {
+			break;
+		}
+	}
+	domain->iommu_superpage = fls(mask);
+}
+
 /* Some capabilities may be different across iommus */
 static void domain_update_iommu_cap(struct dmar_domain *domain)
 {
 	domain_update_iommu_coherency(domain);
 	domain_update_iommu_snooping(domain);
+	domain_update_iommu_superpage(domain);
 }
 
 static struct intel_iommu *device_to_iommu(int segment, u8 bus, u8 devfn)
@@ -1435,6 +1459,7 @@ static int domain_init(struct dmar_domain *domain, int guest_width)
 	else
 		domain->iommu_snooping = 0;
 
+	domain->iommu_superpage = fls(cap_super_page_val(iommu->cap));
 	domain->iommu_count = 1;
 	domain->nid = iommu->node;
 
@@ -3648,6 +3673,7 @@ static int md_domain_init(struct dmar_domain *domain, int guest_width)
 	domain->iommu_count = 0;
 	domain->iommu_coherency = 0;
 	domain->iommu_snooping = 0;
+	domain->iommu_superpage = 0;
 	domain->max_addr = 0;
 	domain->nid = -1;
 
