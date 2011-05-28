@@ -1715,65 +1715,31 @@ static inline unsigned long aligned_nrpages(unsigned long host_addr,
 	return PAGE_ALIGN(host_addr + size) >> VTD_PAGE_SHIFT;
 }
 
-/* Return available page size level for physcial address */
-unsigned long get_phys_level(unsigned long phys_pfn, unsigned long pages)
+/* Return largest possible superpage level for a given mapping */
+static inline int hardware_largepage_caps(struct dmar_domain *domain,
+					  unsigned long iov_pfn,
+					  unsigned long phy_pfn,
+					  unsigned long pages)
 {
-	unsigned long sz_level = 1, al_level = 1, level = 1;
-	pages >>= 9;
-	while (pages) {
+	int support, level = 1;
+	unsigned long pfnmerge;
+
+	support = domain->iommu_superpage;
+
+	/* To use a large page, the virtual *and* physical addresses
+	   must be aligned to 2MiB/1GiB/etc. Lower bits set in either
+	   of them will mean we have to use smaller pages. So just
+	   merge them and check both at once. */
+	pfnmerge = iov_pfn | phy_pfn;
+
+	while (support && !(pfnmerge & ~VTD_PAGE_MASK)) {
 		pages >>= 9;
-		sz_level++;
-	}
-
-	/* Physical address is the first 4KiB */
-	if (phys_pfn == 0)
-		al_level = 6;
-
-	while (phys_pfn) {
-		if (phys_pfn & ~((1 << 9) - 1))
+		if (!pages)
 			break;
-		al_level++;
-		phys_pfn >>= 9;
+		pfnmerge >>= 9;
+		level++;
+		support--;
 	}
-
-	level = sz_level < al_level ? sz_level : al_level;
-
-	return level;
-}
-
-/* Return IOMMU largest page size level*/
-unsigned long get_hw_page_level(unsigned long large_lvl)
-{
-	unsigned long hw_lvl = 1;
-	while (large_lvl) {
-		large_lvl >>= 1;
-		hw_lvl++;
-	}
-	return hw_lvl;
-}
-
-/* Return availbale page size level */
-unsigned int hardware_largepage_caps(struct dmar_domain *domain,
-				     unsigned long iov_pfn,
-				     unsigned long phy_pfn, unsigned long pages)
-{
-	unsigned long hw_level, page_level, level;
-	struct intel_iommu *iommu = domain_get_iommu(domain);
-	if (!iommu) {
-		printk(KERN_ERR "NULL domain\n");
-		return 0;
-	}
-
-	hw_level = get_hw_page_level(cap_super_page_val(iommu->cap));
-
-	/* If not enable super page support, use 4KiB page */
-	if (!intel_iommu_superpage)
-		hw_level = 1;
-
-	page_level = get_phys_level(phy_pfn, pages);
-
-	level = (hw_level < page_level ? hw_level : page_level);
-
 	return level;
 }
 
