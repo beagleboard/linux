@@ -38,6 +38,7 @@
 #include <linux/bio.h>
 #include <linux/fiemap.h>
 #include <linux/namei.h>
+#include <trace/events/ext3.h>
 #include "xattr.h"
 #include "acl.h"
 
@@ -70,6 +71,7 @@ int ext3_forget(handle_t *handle, int is_metadata, struct inode *inode,
 
 	might_sleep();
 
+	trace_ext3_forget(inode, is_metadata, blocknr);
 	BUFFER_TRACE(bh, "enter");
 
 	jbd_debug(4, "forgetting bh %p: is_metadata = %d, mode %o, "
@@ -198,6 +200,7 @@ void ext3_evict_inode (struct inode *inode)
 	handle_t *handle;
 	int want_delete = 0;
 
+	trace_ext3_evict_inode(inode);
 	if (!inode->i_nlink && !is_bad_inode(inode)) {
 		dquot_initialize(inode);
 		want_delete = 1;
@@ -231,12 +234,10 @@ void ext3_evict_inode (struct inode *inode)
 	if (inode->i_blocks)
 		ext3_truncate(inode);
 	/*
-	 * Kill off the orphan record which ext3_truncate created.
-	 * AKPM: I think this can be inside the above `if'.
-	 * Note that ext3_orphan_del() has to be able to cope with the
-	 * deletion of a non-existent orphan - this is because we don't
-	 * know if ext3_truncate() actually created an orphan record.
-	 * (Well, we could do this if we need to, but heck - it works)
+	 * Kill off the orphan record created when the inode lost the last
+	 * link.  Note that ext3_orphan_del() has to be able to cope with the
+	 * deletion of a non-existent orphan - ext3_truncate() could
+	 * have removed the record.
 	 */
 	ext3_orphan_del(handle, inode);
 	EXT3_I(inode)->i_dtime	= get_seconds();
@@ -842,6 +843,7 @@ int ext3_get_blocks_handle(handle_t *handle, struct inode *inode,
 	ext3_fsblk_t first_block = 0;
 
 
+	trace_ext3_get_blocks_enter(inode, iblock, maxblocks, create);
 	J_ASSERT(handle != NULL || create == 0);
 	depth = ext3_block_to_path(inode,iblock,offsets,&blocks_to_boundary);
 
@@ -886,6 +888,9 @@ int ext3_get_blocks_handle(handle_t *handle, struct inode *inode,
 	if (!create || err == -EIO)
 		goto cleanup;
 
+	/*
+	 * Block out ext3_truncate while we alter the tree
+	 */
 	mutex_lock(&ei->truncate_mutex);
 
 	/*
@@ -934,9 +939,6 @@ int ext3_get_blocks_handle(handle_t *handle, struct inode *inode,
 	 */
 	count = ext3_blks_to_allocate(partial, indirect_blks,
 					maxblocks, blocks_to_boundary);
-	/*
-	 * Block out ext3_truncate while we alter the tree
-	 */
 	err = ext3_alloc_branch(handle, inode, indirect_blks, &count, goal,
 				offsets + (partial - chain), partial);
 
@@ -970,6 +972,9 @@ cleanup:
 	}
 	BUFFER_TRACE(bh_result, "returned");
 out:
+	trace_ext3_get_blocks_exit(inode, iblock,
+				   depth ? le32_to_cpu(chain[depth-1].key) : 0,
+				   count, err);
 	return err;
 }
 
@@ -1217,6 +1222,8 @@ static int ext3_write_begin(struct file *file, struct address_space *mapping,
 	 * we allocate blocks but write fails for some reason */
 	int needed_blocks = ext3_writepage_trans_blocks(inode) + 1;
 
+	trace_ext3_write_begin(inode, pos, len, flags);
+
 	index = pos >> PAGE_CACHE_SHIFT;
 	from = pos & (PAGE_CACHE_SIZE - 1);
 	to = from + len;
@@ -1332,6 +1339,7 @@ static int ext3_ordered_write_end(struct file *file,
 	unsigned from, to;
 	int ret = 0, ret2;
 
+	trace_ext3_ordered_write_end(inode, pos, len, copied);
 	copied = block_write_end(file, mapping, pos, len, copied, page, fsdata);
 
 	from = pos & (PAGE_CACHE_SIZE - 1);
@@ -1367,6 +1375,7 @@ static int ext3_writeback_write_end(struct file *file,
 	struct inode *inode = file->f_mapping->host;
 	int ret;
 
+	trace_ext3_writeback_write_end(inode, pos, len, copied);
 	copied = block_write_end(file, mapping, pos, len, copied, page, fsdata);
 	update_file_sizes(inode, pos, copied);
 	/*
@@ -1395,6 +1404,7 @@ static int ext3_journalled_write_end(struct file *file,
 	int partial = 0;
 	unsigned from, to;
 
+	trace_ext3_journalled_write_end(inode, pos, len, copied);
 	from = pos & (PAGE_CACHE_SIZE - 1);
 	to = from + len;
 
@@ -1577,6 +1587,7 @@ static int ext3_ordered_writepage(struct page *page,
 	if (ext3_journal_current_handle())
 		goto out_fail;
 
+	trace_ext3_ordered_writepage(page);
 	if (!page_has_buffers(page)) {
 		create_empty_buffers(page, inode->i_sb->s_blocksize,
 				(1 << BH_Dirty)|(1 << BH_Uptodate));
@@ -1647,6 +1658,7 @@ static int ext3_writeback_writepage(struct page *page,
 	if (ext3_journal_current_handle())
 		goto out_fail;
 
+	trace_ext3_writeback_writepage(page);
 	if (page_has_buffers(page)) {
 		if (!walk_page_buffers(NULL, page_buffers(page), 0,
 				      PAGE_CACHE_SIZE, NULL, buffer_unmapped)) {
@@ -1689,6 +1701,7 @@ static int ext3_journalled_writepage(struct page *page,
 	if (ext3_journal_current_handle())
 		goto no_write;
 
+	trace_ext3_journalled_writepage(page);
 	handle = ext3_journal_start(inode, ext3_writepage_trans_blocks(inode));
 	if (IS_ERR(handle)) {
 		ret = PTR_ERR(handle);
@@ -1739,6 +1752,7 @@ out_unlock:
 
 static int ext3_readpage(struct file *file, struct page *page)
 {
+	trace_ext3_readpage(page);
 	return mpage_readpage(page, ext3_get_block);
 }
 
@@ -1753,6 +1767,8 @@ static void ext3_invalidatepage(struct page *page, unsigned long offset)
 {
 	journal_t *journal = EXT3_JOURNAL(page->mapping->host);
 
+	trace_ext3_invalidatepage(page, offset);
+
 	/*
 	 * If it's a full truncate we just forget about the pending dirtying
 	 */
@@ -1766,6 +1782,7 @@ static int ext3_releasepage(struct page *page, gfp_t wait)
 {
 	journal_t *journal = EXT3_JOURNAL(page->mapping->host);
 
+	trace_ext3_releasepage(page);
 	WARN_ON(PageChecked(page));
 	if (!page_has_buffers(page))
 		return 0;
@@ -1793,6 +1810,8 @@ static ssize_t ext3_direct_IO(int rw, struct kiocb *iocb,
 	int orphan = 0;
 	size_t count = iov_length(iov, nr_segs);
 	int retries = 0;
+
+	trace_ext3_direct_IO_enter(inode, offset, iov_length(iov, nr_segs), rw);
 
 	if (rw == WRITE) {
 		loff_t final_size = offset + count;
@@ -1842,7 +1861,7 @@ retry:
 			/* This is really bad luck. We've written the data
 			 * but cannot extend i_size. Truncate allocated blocks
 			 * and pretend the write failed... */
-			ext3_truncate(inode);
+			ext3_truncate_failed_write(inode);
 			ret = PTR_ERR(handle);
 			goto out;
 		}
@@ -1868,6 +1887,8 @@ retry:
 			ret = err;
 	}
 out:
+	trace_ext3_direct_IO_exit(inode, offset,
+				iov_length(iov, nr_segs), rw, ret);
 	return ret;
 }
 
@@ -2391,8 +2412,6 @@ static void ext3_free_branches(handle_t *handle, struct inode *inode,
 
 int ext3_can_truncate(struct inode *inode)
 {
-	if (IS_APPEND(inode) || IS_IMMUTABLE(inode))
-		return 0;
 	if (S_ISREG(inode->i_mode))
 		return 1;
 	if (S_ISDIR(inode->i_mode))
@@ -2445,6 +2464,8 @@ void ext3_truncate(struct inode *inode)
 	long last_block;
 	unsigned blocksize = inode->i_sb->s_blocksize;
 	struct page *page;
+
+	trace_ext3_truncate_enter(inode);
 
 	if (!ext3_can_truncate(inode))
 		goto out_notrans;
@@ -2597,6 +2618,7 @@ out_stop:
 		ext3_orphan_del(handle, inode);
 
 	ext3_journal_stop(handle);
+	trace_ext3_truncate_exit(inode);
 	return;
 out_notrans:
 	/*
@@ -2605,6 +2627,7 @@ out_notrans:
 	 */
 	if (inode->i_nlink)
 		ext3_orphan_del(NULL, inode);
+	trace_ext3_truncate_exit(inode);
 }
 
 static ext3_fsblk_t ext3_get_inode_block(struct super_block *sb,
@@ -2746,6 +2769,7 @@ make_io:
 		 * has in-inode xattrs, or we don't have this inode in memory.
 		 * Read the block from disk.
 		 */
+		trace_ext3_load_inode(inode);
 		get_bh(bh);
 		bh->b_end_io = end_buffer_read_sync;
 		submit_bh(READ_META, bh);
@@ -3236,9 +3260,12 @@ int ext3_setattr(struct dentry *dentry, struct iattr *attr)
 
 	if ((attr->ia_valid & ATTR_SIZE) &&
 	    attr->ia_size != i_size_read(inode)) {
-		rc = vmtruncate(inode, attr->ia_size);
-		if (rc)
+		if (IS_APPEND(inode) || IS_IMMUTABLE(inode)) {
+			rc = -EPERM;
 			goto err_out;
+		}
+		truncate_setsize(inode, attr->ia_size);
+		ext3_truncate(inode);
 	}
 
 	setattr_copy(inode, attr);
@@ -3372,6 +3399,7 @@ int ext3_mark_inode_dirty(handle_t *handle, struct inode *inode)
 	int err;
 
 	might_sleep();
+	trace_ext3_mark_inode_dirty(inode, _RET_IP_);
 	err = ext3_reserve_inode_write(handle, inode, &iloc);
 	if (!err)
 		err = ext3_mark_iloc_dirty(handle, inode, &iloc);
