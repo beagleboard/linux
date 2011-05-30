@@ -23,6 +23,7 @@ subdir-y	:= lib
 
 bootdir-$(CONFIG_XTENSA_PLATFORM_ISS)	 += boot-elf
 bootdir-$(CONFIG_XTENSA_PLATFORM_XT2000) += boot-redboot boot-elf
+bootdir-$(CONFIG_XTENSA_PLATFORM_XTAVNET) += boot-redboot boot-elf
 
 
 zImage zImage.initrd Image Image.initrd: $(bootdir-y)
