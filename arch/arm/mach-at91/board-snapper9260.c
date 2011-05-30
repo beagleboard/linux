@@ -40,9 +40,9 @@
 
 #define SNAPPER9260_IO_EXP_GPIO(x)	(NR_BUILTIN_GPIO + (x))
 
-static void __init snapper9260_map_io(void)
+static void __init snapper9260_init_early(void)
 {
-	at91sam9260_initialize(18432000);
+	at91_initialize(18432000);
 
 	/* Debug on ttyS0 */
 	at91_register_uart(0, 0, 0);
@@ -53,11 +53,6 @@ static void __init snapper9260_map_io(void)
 	at91_register_uart(AT91SAM9260_ID_US1, 2,
 			   ATMEL_UART_CTS | ATMEL_UART_RTS);
 	at91_register_uart(AT91SAM9260_ID_US2, 3, 0);
-}
-
-static void __init snapper9260_init_irq(void)
-{
-	at91sam9260_init_interrupts(NULL);
 }
 
 static struct at91_usbh_data __initdata snapper9260_usbh_data = {
@@ -178,10 +173,10 @@ static void __init snapper9260_board_init(void)
 }
 
 MACHINE_START(SNAPPER_9260, "Bluewater Systems Snapper 9260/9G20 module")
-	.boot_params	= AT91_SDRAM_BASE + 0x100,
 	.timer		= &at91sam926x_timer,
-	.map_io		= snapper9260_map_io,
-	.init_irq	= snapper9260_init_irq,
+	.map_io		= at91_map_io,
+	.init_early	= snapper9260_init_early,
+	.init_irq	= at91_init_irq_default,
 	.init_machine	= snapper9260_board_init,
 MACHINE_END
 

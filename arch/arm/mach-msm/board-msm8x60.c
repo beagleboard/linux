@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,12 +27,18 @@
 
 #include <mach/board.h>
 #include <mach/msm_iomap.h>
+#include "devices.h"
 
 
 static void __init msm8x60_map_io(void)
 {
 	msm_map_msm8x60_io();
 }
+
+static struct platform_device *devices[] __initdata = {
+	&msm_device_dmov_adm0,
+	&msm_device_dmov_adm1,
+};
 
 static void __init msm8x60_init_irq(void)
 {
@@ -62,6 +68,7 @@ static void __init msm8x60_init_irq(void)
 
 static void __init msm8x60_init(void)
 {
+	platform_add_devices(devices, ARRAY_SIZE(devices));
 }
 
 MACHINE_START(MSM8X60_RUMI3, "QCT MSM8X60 RUMI3")

@@ -1,11 +1,11 @@
 /*
- * include/asm-xtensa/coprocessor.h
+ * arch/xtensa/include/asm/coprocessor.h
  *
  * This file is subject to the terms and conditions of the GNU General Public
  * License.  See the file "COPYING" in the main directory of this archive
  * for more details.
  *
- * Copyright (C) 2003 - 2007 Tensilica Inc.
+ * Copyright (C) 2003-2010 Tensilica Inc.
  */
 
 
@@ -15,9 +15,10 @@
 #include <linux/stringify.h>
 #include <variant/core.h>
 #include <variant/tie.h>
+#include <variant/core.h>
 #include <asm/types.h>
 
-#ifdef __ASSEMBLY__
+#if defined(__ASSEMBLY__) && !defined(LINKER_SCRIPT)
 # include <variant/tie-asm.h>
 
 .macro	xchal_sa_start  a b
@@ -70,7 +71,7 @@
 
 
 
-#endif	/* __ASSEMBLY__ */
+#endif	/* __ASSEMBLY__ && !LINKER_SCRIPT */
 
 /*
  * XTENSA_HAVE_COPROCESSOR(x) returns 1 if coprocessor x is configured.

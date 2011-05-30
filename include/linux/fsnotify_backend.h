@@ -125,6 +125,7 @@ struct fsnotify_group {
 
 	const struct fsnotify_ops *ops;	/* how this group handles things */
 
+	struct mutex mutex;
 	/* needed to send notification to userspace */
 	struct mutex notification_mutex;	/* protect the notification_list */
 	struct list_head notification_list;	/* list of event_holder this group needs to send to userspace */
@@ -168,6 +169,7 @@ struct fsnotify_group {
 			wait_queue_head_t access_waitq;
 			atomic_t bypass_perm;
 #endif /* CONFIG_FANOTIFY_ACCESS_PERMISSIONS */
+			bool readonly_fallback;
 			int f_flags;
 			unsigned int max_marks;
 			struct user_struct *user;
@@ -415,8 +417,6 @@ extern void fsnotify_clear_inode_marks_by_group(struct fsnotify_group *group);
 extern void fsnotify_clear_marks_by_group_flags(struct fsnotify_group *group, unsigned int flags);
 /* run all the marks in a group, and flag them to be freed */
 extern void fsnotify_clear_marks_by_group(struct fsnotify_group *group);
-extern void fsnotify_get_mark(struct fsnotify_mark *mark);
-extern void fsnotify_put_mark(struct fsnotify_mark *mark);
 extern void fsnotify_unmount_inodes(struct list_head *list);
 
 /* put here because inotify does some weird stuff when destroying watches */
@@ -430,6 +430,16 @@ extern struct fsnotify_event *fsnotify_clone_event(struct fsnotify_event *old_ev
 extern int fsnotify_replace_event(struct fsnotify_event_holder *old_holder,
 				  struct fsnotify_event *new_event);
 
+static inline void fsnotify_get_mark(struct fsnotify_mark *mark)
+{
+	atomic_inc(&mark->refcnt);
+}
+
+static inline void fsnotify_put_mark(struct fsnotify_mark *mark)
+{
+	if (atomic_dec_and_test(&mark->refcnt))
+		mark->free_mark(mark);
+}
 #else
 
 static inline int fsnotify(struct inode *to_tell, __u32 mask, void *data, int data_is,

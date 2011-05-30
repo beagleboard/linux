@@ -40,6 +40,11 @@ extern struct platform_device msm_device_i2c;
 
 extern struct platform_device msm_device_smd;
 
+extern struct platform_device msm_device_dmov;
+extern struct platform_device msm8960_device_dmov;
+extern struct platform_device msm_device_dmov_adm0;
+extern struct platform_device msm_device_dmov_adm1;
+
 extern struct platform_device msm_device_nand;
 
 extern struct platform_device msm_device_mddi0;
@@ -54,5 +59,8 @@ extern unsigned msm_num_clocks_7x30;
 
 extern struct clk_lookup msm_clocks_8x50[];
 extern unsigned msm_num_clocks_8x50;
+
+extern struct clk_lookup msm_clocks_8960[];
+extern unsigned msm_num_clocks_8960;
 
 #endif

@@ -10,7 +10,6 @@
  * Linux/m68k support by Hamish Macdonald
  */
 
-#include <linux/sys.h>
 #include <linux/linkage.h>
 #include <asm/thread_info.h>
 #include <asm/unistd.h>
@@ -80,7 +79,7 @@ ENTRY(system_call)
 	movel	%sp,%d1			/* get thread_info pointer */
 	andl	#-THREAD_SIZE,%d1
 	movel	%d1,%a2
-	btst	#(TIF_SYSCALL_TRACE%8),%a2@(TI_FLAGS+(31-TIF_SYSCALL_TRACE)/8)
+	btst	#(TIF_SYSCALL_TRACE%8),%a2@(TINFO_FLAGS+(31-TIF_SYSCALL_TRACE)/8)
 	jne	do_trace
 	cmpl	#NR_syscalls,%d0
 	jcc	badsys
@@ -107,12 +106,12 @@ Luser_return:
 	andl	#-THREAD_SIZE,%d1
 	movel	%d1,%a2
 1:
-	move	%a2@(TI_FLAGS),%d1	/* thread_info->flags */
+	move	%a2@(TINFO_FLAGS),%d1	/* thread_info->flags */
 	jne	Lwork_to_do
 	RESTORE_ALL
 
 Lwork_to_do:
-	movel	%a2@(TI_FLAGS),%d1	/* thread_info->flags */
+	movel	%a2@(TINFO_FLAGS),%d1	/* thread_info->flags */
 	btst	#TIF_NEED_RESCHED,%d1
 	jne	reschedule
 
@@ -242,22 +241,21 @@ ENTRY(bad_interrupt)
 
 /*
  * Beware - when entering resume, prev (the current task) is
- * in a0, next (the new task) is in a1,so don't change these
+ * in a0, next (the new task) is in a1, so don't change these
  * registers until their contents are no longer needed.
  */
 ENTRY(resume)
 	movel	%a0,%d1				/* save prev thread in d1 */
 	movew	%sr,%a0@(TASK_THREAD+THREAD_SR)	/* save sr */
-	movel	%usp,%a2			/* save usp */
-	movel	%a2,%a0@(TASK_THREAD+THREAD_USP)
-
 	SAVE_SWITCH_STACK
 	movel	%sp,%a0@(TASK_THREAD+THREAD_KSP) /* save kernel stack */
+	movel	%usp,%a3			/* save usp */
+	movel	%a3,%a0@(TASK_THREAD+THREAD_USP)
+
+	movel	%a1@(TASK_THREAD+THREAD_USP),%a3 /* restore user stack */
+	movel	%a3,%usp
 	movel	%a1@(TASK_THREAD+THREAD_KSP),%sp /* restore new thread stack */
 	RESTORE_SWITCH_STACK
-
-	movel	%a1@(TASK_THREAD+THREAD_USP),%a0 /* restore user stack */
-	movel	%a0,%usp
 	movew	%a1@(TASK_THREAD+THREAD_SR),%sr	/* restore thread status reg */
 	rts
 
