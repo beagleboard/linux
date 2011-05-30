@@ -3982,7 +3982,7 @@ void lockdep_sys_exit(void)
 	}
 }
 
-void lockdep_rcu_dereference(const char *file, const int line)
+void lockdep_rcu_suspicious(const char *file, const int line, const char *s)
 {
 	struct task_struct *curr = current;
 
@@ -3991,9 +3991,10 @@ void lockdep_rcu_dereference(const char *file, const int line)
 		return;
 #endif /* #ifdef CONFIG_PROVE_RCU_REPEATEDLY */
 	/* Note: the following can be executed concurrently, so be careful. */
-	printk("\n===================================================\n");
-	printk(  "[ INFO: suspicious rcu_dereference_check() usage. ]\n");
-	printk(  "---------------------------------------------------\n");
+	printk("\n===============================\n");
+	printk(  "[ INFO: suspicious RCU usage. ]\n");
+	printk(  "-------------------------------\n");
+	printk(  "%s\n", s);
 	printk("%s:%d invoked rcu_dereference_check() without protection!\n",
 			file, line);
 	printk("\nother info that might help us debug this:\n\n");
@@ -4002,4 +4003,4 @@ void lockdep_rcu_dereference(const char *file, const int line)
 	printk("\nstack backtrace:\n");
 	dump_stack();
 }
-EXPORT_SYMBOL_GPL(lockdep_rcu_dereference);
+EXPORT_SYMBOL_GPL(lockdep_rcu_suspicious);
