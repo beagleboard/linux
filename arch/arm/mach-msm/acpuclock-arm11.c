@@ -376,7 +376,7 @@ int acpuclk_set_rate(unsigned long rate, int for_power_collapse)
 		}
 #if PERF_SWITCH_STEP_DEBUG
 		printk(KERN_DEBUG "%s: STEP khz = %u, pll = %d\n",
-			__FUNCTION__, cur_s->a11clk_khz, cur_s->pll);
+			__func__, cur_s->a11clk_khz, cur_s->pll);
 #endif
 		if (!for_power_collapse&& cur_s->pll != ACPU_PLL_TCXO
 		    && !(plls_enabled & (1 << cur_s->pll))) {
