@@ -102,17 +102,6 @@ static DEFINE_SPINLOCK(destroy_lock);
 static LIST_HEAD(destroy_list);
 static DECLARE_WAIT_QUEUE_HEAD(destroy_waitq);
 
-void fsnotify_get_mark(struct fsnotify_mark *mark)
-{
-	atomic_inc(&mark->refcnt);
-}
-
-void fsnotify_put_mark(struct fsnotify_mark *mark)
-{
-	if (atomic_dec_and_test(&mark->refcnt))
-		mark->free_mark(mark);
-}
-
 /*
  * Any time a mark is getting freed we end up here.
  * The caller had better be holding a reference to this mark so we don't actually
@@ -216,7 +205,7 @@ int fsnotify_add_mark(struct fsnotify_mark *mark,
 		      struct fsnotify_group *group, struct inode *inode,
 		      struct vfsmount *mnt, int allow_dups)
 {
-	int ret = 0;
+	int ret;
 
 	BUG_ON(inode && mnt);
 	BUG_ON(!inode && !mnt);
@@ -231,23 +220,20 @@ int fsnotify_add_mark(struct fsnotify_mark *mark,
 	spin_lock(&group->mark_lock);
 
 	mark->flags |= FSNOTIFY_MARK_FLAG_ALIVE;
-
 	mark->group = group;
 	list_add(&mark->g_list, &group->marks_list);
-	atomic_inc(&group->num_marks);
 	fsnotify_get_mark(mark); /* for i_list and g_list */
+	atomic_inc(&group->num_marks);
 
-	if (inode) {
+	ret = 0;
+	if (inode)
 		ret = fsnotify_add_inode_mark(mark, group, inode, allow_dups);
-		if (ret)
-			goto err;
-	} else if (mnt) {
+	else if (mnt)
 		ret = fsnotify_add_vfsmount_mark(mark, group, mnt, allow_dups);
-		if (ret)
-			goto err;
-	} else {
+	else
 		BUG();
-	}
+	if (ret)
+		goto err;
 
 	spin_unlock(&group->mark_lock);
 
@@ -259,7 +245,7 @@ int fsnotify_add_mark(struct fsnotify_mark *mark,
 	if (inode)
 		__fsnotify_update_child_dentry_flags(inode);
 
-	return ret;
+	return 0;
 err:
 	mark->flags &= ~FSNOTIFY_MARK_FLAG_ALIVE;
 	list_del_init(&mark->g_list);
@@ -345,6 +331,10 @@ static int fsnotify_mark_destroy(void *ignored)
 
 		synchronize_srcu(&fsnotify_mark_srcu);
 
+		/*
+		 * at this point we cannot be found via the i_list or g_list so
+		 * drop that reference.
+		 */
 		list_for_each_entry_safe(mark, next, &private_destroy_list, destroy_list) {
 			list_del_init(&mark->destroy_list);
 			fsnotify_put_mark(mark);
