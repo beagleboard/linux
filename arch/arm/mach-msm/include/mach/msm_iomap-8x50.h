@@ -42,9 +42,8 @@
 #define QSD8X50_CSR_PHYS      0xAC100000
 #define QSD8X50_CSR_SIZE      SZ_4K
 
-#define MSM_DMOV_BASE         IOMEM(0xE0002000)
-#define MSM_DMOV_PHYS         0xA9700000
-#define MSM_DMOV_SIZE         SZ_4K
+#define QSD8X50_DMOV_PHYS     0xA9700000
+#define QSD8X50_DMOV_SIZE     SZ_4K
 
 #define MSM_GPIO1_BASE        IOMEM(0xE0003000)
 #define MSM_GPIO1_PHYS        0xA9000000

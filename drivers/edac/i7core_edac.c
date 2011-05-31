@@ -1874,7 +1874,8 @@ static void i7core_pci_ctl_create(struct i7core_pvt *pvt)
 						&pvt->i7core_dev->pdev[0]->dev,
 						EDAC_MOD_STR);
 	if (unlikely(!pvt->i7core_pci))
-		pr_warn("Unable to setup PCI error report via EDAC\n");
+		i7core_printk(KERN_WARNING,
+			      "Unable to setup PCI error report via EDAC\n");
 }
 
 static void i7core_pci_ctl_release(struct i7core_pvt *pvt)
@@ -2035,7 +2036,7 @@ fail0:
 static int __devinit i7core_probe(struct pci_dev *pdev,
 				  const struct pci_device_id *id)
 {
-	int rc;
+	int rc, count = 0;
 	struct i7core_dev *i7core_dev;
 
 	/* get the pci devices we want to reserve for our use */
@@ -2055,12 +2056,28 @@ static int __devinit i7core_probe(struct pci_dev *pdev,
 		goto fail0;
 
 	list_for_each_entry(i7core_dev, &i7core_edac_list, list) {
+		count++;
 		rc = i7core_register_mci(i7core_dev);
 		if (unlikely(rc < 0))
 			goto fail1;
 	}
 
-	i7core_printk(KERN_INFO, "Driver loaded.\n");
+	/*
+	 * Nehalem-EX uses a different memory controller. However, as the
+	 * memory controller is not visible on some Nehalem/Nehalem-EP, we
+	 * need to indirectly probe via a X58 PCI device. The same devices
+	 * are found on (some) Nehalem-EX. So, on those machines, the
+	 * probe routine needs to return -ENODEV, as the actual Memory
+	 * Controller registers won't be detected.
+	 */
+	if (!count) {
+		rc = -ENODEV;
+		goto fail1;
+	}
+
+	i7core_printk(KERN_INFO,
+		      "Driver loaded, %d memory controller(s) found.\n",
+		      count);
 
 	mutex_unlock(&i7core_edac_lock);
 	return 0;

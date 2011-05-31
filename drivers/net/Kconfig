@@ -2023,6 +2023,11 @@ config LANTIQ_ETOP
 	help
 	  Support for the MII0 inside the Lantiq SoC
 
+config MAC_PUV3
+	tristate "PKUnity v3 UMAL Gigabit Network Adapter support"
+	depends on UNICORE32 && ARCH_PUV3
+	select MII
+	select PHYLIB
 
 source "drivers/net/fs_enet/Kconfig"
 

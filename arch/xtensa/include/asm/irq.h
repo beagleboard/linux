@@ -1,11 +1,11 @@
 /*
- * include/asm-xtensa/irq.h
+ * arch/xtensa/include/asm/irq.h
  *
  * This file is subject to the terms and conditions of the GNU General Public
  * License.  See the file "COPYING" in the main directory of this archive
  * for more details.
  *
- * Copyright (C) 2001 - 2005 Tensilica Inc.
+ * Copyright (C) 2001-2010 Tensilica Inc.
  */
 
 #ifndef _XTENSA_IRQ_H
@@ -21,6 +21,9 @@
 static inline void variant_irq_enable(unsigned int irq) { }
 static inline void variant_irq_disable(unsigned int irq) { }
 #endif
+
+/* This number is used when no interrupt has been assigned. */
+#define NO_IRQ		(-1)
 
 #ifndef VARIANT_NR_IRQS
 # define VARIANT_NR_IRQS 0

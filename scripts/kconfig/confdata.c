@@ -768,6 +768,29 @@ out:
 	return res;
 }
 
+static void conf_write_function_autoconf(FILE *out, char* conf, char* name,
+					 int val)
+{
+	char c;
+	char *tmp, *d;
+
+	d = strdup(conf);
+	tmp = d;
+	while ((c = *conf++))
+		*d++ = tolower(c);
+
+	fprintf(out, "#define %sis_", tmp);
+	free(tmp);
+
+	d = strdup(name);
+	tmp = d;
+	while ((c = *name++))
+		*d++ = tolower(c);
+	fprintf(out, "%s%s() %d\n", tmp, (val > 1) ? "_module" : "",
+		      val ? 1 : 0);
+	free(tmp);
+}
+
 int conf_write_autoconf(void)
 {
 	struct symbol *sym;
@@ -815,6 +838,7 @@ int conf_write_autoconf(void)
 		       rootmenu.prompt->text);
 
 	for_all_symbols(i, sym) {
+		int fct_val = 0;
 		sym_calc_value(sym);
 		if (!(sym->flags & SYMBOL_WRITE) || !sym->name)
 			continue;
@@ -834,6 +858,7 @@ int conf_write_autoconf(void)
 				    CONFIG_, sym->name);
 				fprintf(out_h, "#define %s%s_MODULE 1\n",
 				    CONFIG_, sym->name);
+				fct_val = 2;
 				break;
 			case yes:
 				if (sym->type == S_TRISTATE)
@@ -841,8 +866,10 @@ int conf_write_autoconf(void)
 					    CONFIG_, sym->name);
 				fprintf(out_h, "#define %s%s 1\n",
 				    CONFIG_, sym->name);
+				fct_val = 1;
 				break;
 			}
+			conf_write_function_autoconf(out_h, CONFIG_, sym->name, fct_val);
 			break;
 		case S_STRING:
 			conf_write_string(true, sym->name, sym_get_string_value(sym), out_h);

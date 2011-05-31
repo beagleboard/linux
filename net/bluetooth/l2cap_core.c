@@ -2928,11 +2928,7 @@ static int l2cap_ertm_reassembly_sdu(struct l2cap_chan *chan, struct sk_buff *sk
 		if (chan->conn_state & L2CAP_CONN_SAR_SDU)
 			goto drop;
 
-		err = sock_queue_rcv_skb(chan->sk, skb);
-		if (!err)
-			return err;
-
-		break;
+		return sock_queue_rcv_skb(chan->sk, skb);
 
 	case L2CAP_SDU_START:
 		if (chan->conn_state & L2CAP_CONN_SAR_SDU)
@@ -3667,7 +3663,6 @@ static inline int l2cap_data_channel(struct l2cap_conn *conn, u16 cid, struct sk
 {
 	struct l2cap_chan *chan;
 	struct sock *sk = NULL;
-	struct l2cap_pinfo *pi;
 	u16 control;
 	u8 tx_seq;
 	int len;
@@ -3679,7 +3674,6 @@ static inline int l2cap_data_channel(struct l2cap_conn *conn, u16 cid, struct sk
 	}
 
 	sk = chan->sk;
-	pi = l2cap_pi(sk);
 
 	BT_DBG("chan %p, len %d", chan, skb->len);
 

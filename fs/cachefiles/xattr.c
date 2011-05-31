@@ -13,7 +13,6 @@
 #include <linux/sched.h>
 #include <linux/file.h>
 #include <linux/fs.h>
-#include <linux/fsnotify.h>
 #include <linux/quotaops.h>
 #include <linux/xattr.h>
 #include <linux/slab.h>
