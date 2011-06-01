@@ -355,6 +355,13 @@ config GPIO_BT8XX
 
 	  If unsure, say N.
 
+config GPIO_I801
+	tristate "Intel 82801 (ICH) GPIO"
+	depends on PCI
+	help
+	  This driver is for the GPIO pins of Intel 82801 south bridges
+	  (aka ICH).
+
 config GPIO_LANGWELL
 	bool "Intel Langwell/Penwell GPIO support"
 	depends on PCI && X86

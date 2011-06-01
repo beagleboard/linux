@@ -11,6 +11,7 @@
 
 #define DMA_PTE_READ (1)
 #define DMA_PTE_WRITE (2)
+#define DMA_PTE_LARGE_PAGE (1 << 7)
 #define DMA_PTE_SNP (1 << 11)
 
 #define CONTEXT_TT_MULTI_LEVEL	0

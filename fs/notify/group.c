@@ -90,6 +90,7 @@ struct fsnotify_group *fsnotify_alloc_group(const struct fsnotify_ops *ops)
 	 */
 	atomic_set(&group->num_marks, 1);
 
+	mutex_init(&group->mutex);
 	mutex_init(&group->notification_mutex);
 	INIT_LIST_HEAD(&group->notification_list);
 	init_waitqueue_head(&group->notification_waitq);

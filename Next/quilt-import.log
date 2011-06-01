@@ -1,0 +1,48 @@
+Importing i2c based on 2.6.39-git17
+	quilt series is empty
+$ git update-ref refs/heads/quilt/i2c eee0f252c6537da2e883f75d22cff1427515eaf3
+Importing jdelvare-hwmon based on 2.6.39-git17
+$ git clone -s -l -n -q . ../quilt-tmp
+$ cd ../quilt-tmp
+$ git reset --hard eee0f252c6537da2e883f75d22cff1427515eaf3
+HEAD is now at eee0f25 mm: fix page_lock_anon_vma leaving mutex locked
+$ git quiltimport --author Jean Delvare <khali@linux-fr.org> --patches ../quilt/jdelvare-hwmon
+hwmon-emc6w201-improve-error-handing.patch
+hwmon-factor-out-common-sch56xx-code.patch
+hwmon-reformat-hdegoede-email-address.patch
+hwmon-new-driver-sch5636.patch
+$ cd ../next
+$ git fetch -f ../quilt-tmp master:quilt/jdelvare-hwmon
+From ../quilt-tmp
+   4db70f7..798d9b7  master     -> quilt/jdelvare-hwmon
+Importing kernel-doc based on 2.6.39
+	quilt series is empty
+$ git update-ref refs/heads/quilt/kernel-doc 61c4f2c81c61f73549928dfd9f3e8f26aa36a8cf
+Importing rr based on v2.6.39-7551-g139f37f
+$ cd ../quilt-tmp
+$ git reset --hard 139f37f5e14cd883eee2a8a36289f544b5390a44
+HEAD is now at 139f37f Merge branch 'for-linus' of git://git.kernel.org/pub/scm/linux/kernel/git/vapier/blackfin
+$ git quiltimport --author Rusty Russell <rusty@rustcorp.com.au> --patches ../quilt/rr
+lguest-fix-timer-setup-WARN_ON.patch
+lguest-launcher-move-fix.patch
+lguest-remove-notify-on-empty.patch
+virtio:blk_allow_re_reading_config_space_at_runtime.patch
+virtio:drivers_block_blk_replace_cryptic_number_with_the_macro.patch
+virtio_console-dont-manually-set-features.patch
+virtio:balloon_kill_tell_host_first_logic.patch
+virtio-license-clarification.patch
+virtio:event_index_interface.patch
+virtio:ring_inline_function_to_check_for_events.patch
+virtio:ring_support_event_idx_feature.patch
+misc:vhost_support_event_index.patch
+virtio:test_support_event_index.patch
+virtio:add_api_for_delayed_callbacks.patch
+virtio:net_delay_tx_callbacks.patch
+misc:param_fix_return_value_handling_in_param_set.patch
+$ cd ../next
+$ git fetch -f ../quilt-tmp master:quilt/rr
+From ../quilt-tmp
+ + 10ae9b8...ef08531 master     -> quilt/rr  (forced update)
+Importing device-mapper based on v2.6.39
+	quilt series is empty
+$ git update-ref refs/heads/quilt/device-mapper 61c4f2c81c61f73549928dfd9f3e8f26aa36a8cf
