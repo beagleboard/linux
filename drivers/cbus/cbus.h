@@ -23,7 +23,8 @@
 #ifndef __DRIVERS_CBUS_CBUS_H
 #define __DRIVERS_CBUS_CBUS_H
 
-extern int cbus_read_reg(unsigned dev, unsigned reg);
-extern int cbus_write_reg(unsigned dev, unsigned reg, unsigned val);
+extern int cbus_read_reg(struct device *, unsigned dev, unsigned reg);
+extern int cbus_write_reg(struct device *, unsigned dev, unsigned reg,
+		unsigned val);
 
 #endif /* __DRIVERS_CBUS_CBUS_H */

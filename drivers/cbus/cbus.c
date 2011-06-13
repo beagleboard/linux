@@ -52,8 +52,6 @@ struct cbus_host {
 	int		sel_gpio;
 };
 
-static struct cbus_host *cbus_host;
-
 /**
  * cbus_send_bit - sends one bit over the bus
  * @host: the host we're using
@@ -220,24 +218,31 @@ out:
 
 /**
  * cbus_read_reg - reads a given register from the device
+ * @child: the child device
  * @dev: device address
  * @reg: register address
  */
-int cbus_read_reg(unsigned dev, unsigned reg)
+int cbus_read_reg(struct device *child, unsigned dev, unsigned reg)
 {
-	return cbus_transfer(cbus_host, CBUS_XFER_READ, dev, reg, 0);
+	struct cbus_host	*host = dev_get_drvdata(child->parent);
+
+	return cbus_transfer(host, CBUS_XFER_READ, dev, reg, 0);
 }
 EXPORT_SYMBOL(cbus_read_reg);
 
 /**
  * cbus_write_reg - writes to a given register of the device
+ * @child: the child device
  * @dev: device address
  * @reg: register address
  * @val: data to be written to @reg
  */
-int cbus_write_reg(unsigned dev, unsigned reg, unsigned val)
+int cbus_write_reg(struct device *child, unsigned dev, unsigned reg,
+		unsigned val)
 {
-	return cbus_transfer(cbus_host, CBUS_XFER_WRITE, dev, reg, val);
+	struct cbus_host	*host = dev_get_drvdata(child->parent);
+
+	return cbus_transfer(host, CBUS_XFER_WRITE, dev, reg, val);
 }
 EXPORT_SYMBOL(cbus_write_reg);
 
@@ -279,8 +284,6 @@ static int __init cbus_bus_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, chost);
 
-	cbus_host = chost;
-
 	return 0;
 exit3:
 	gpio_free(chost->dat_gpio);
@@ -301,7 +304,6 @@ static void __exit cbus_bus_remove(struct platform_device *pdev)
 	gpio_free(chost->clk_gpio);
 
 	kfree(chost);
-	cbus_host = NULL;
 }
 
 static struct platform_driver cbus_driver = {

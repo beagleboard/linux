@@ -55,6 +55,8 @@ static int tahvo_is_betty;
 static struct tasklet_struct tahvo_tasklet;
 static DEFINE_SPINLOCK(tahvo_lock);
 
+static struct device *the_dev;
+
 struct tahvo_irq_handler_desc {
 	int (*func)(unsigned long);
 	unsigned long arg;
@@ -78,7 +80,7 @@ EXPORT_SYMBOL(tahvo_get_status);
 int tahvo_read_reg(unsigned reg)
 {
 	BUG_ON(!tahvo_initialized);
-	return cbus_read_reg(TAHVO_ID, reg);
+	return cbus_read_reg(the_dev, TAHVO_ID, reg);
 }
 EXPORT_SYMBOL(tahvo_read_reg);
 
@@ -92,7 +94,7 @@ EXPORT_SYMBOL(tahvo_read_reg);
 void tahvo_write_reg(unsigned reg, u16 val)
 {
 	BUG_ON(!tahvo_initialized);
-	cbus_write_reg(TAHVO_ID, reg, val);
+	cbus_write_reg(the_dev, TAHVO_ID, reg, val);
 }
 EXPORT_SYMBOL(tahvo_write_reg);
 
@@ -305,6 +307,8 @@ static int __init tahvo_probe(struct platform_device *pdev)
 	int rev, id, ret;
 	int irq;
 
+	the_dev = &pdev->dev;
+
 	/* Prepare tasklet */
 	tasklet_init(&tahvo_tasklet, tahvo_tasklet_handler, 0);
 
@@ -351,6 +355,7 @@ static int __exit tahvo_remove(struct platform_device *pdev)
 	tahvo_write_reg(TAHVO_REG_IMR, 0xffff);
 	free_irq(irq, 0);
 	tasklet_kill(&tahvo_tasklet);
+	the_dev = NULL;
 
 	return 0;
 }

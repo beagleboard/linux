@@ -79,7 +79,7 @@ static struct retu *the_retu;
  */
 static int __retu_read_reg(struct retu *retu, unsigned reg)
 {
-	return cbus_read_reg(retu->devid, reg);
+	return cbus_read_reg(retu->dev, retu->devid, reg);
 }
 
 /**
@@ -90,7 +90,7 @@ static int __retu_read_reg(struct retu *retu, unsigned reg)
  */
 static void __retu_write_reg(struct retu *retu, unsigned reg, u16 val)
 {
-	cbus_write_reg(retu->devid, reg, val);
+	cbus_write_reg(retu->dev, retu->devid, reg, val);
 }
 
 /**
