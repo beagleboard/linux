@@ -136,6 +136,7 @@ static struct platform_device retu_device = {
 	.num_resources	= ARRAY_SIZE(retu_resource),
 	.dev		= {
 		.platform_data = &nokia770_retu_data,
+		.parent	= &nokia770_cbus_device.dev,
 	},
 };
 
@@ -151,6 +152,9 @@ static struct platform_device tahvo_device = {
 	.id		= -1,
 	.resource	= tahvo_resource,
 	.num_resources	= ARRAY_SIZE(tahvo_resource),
+	.dev		= {
+		.parent	= &nokia770_cbus_device.dev,
+	},
 };
 
 static struct platform_device tahvo_usb_device = {
