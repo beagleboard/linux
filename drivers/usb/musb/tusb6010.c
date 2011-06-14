@@ -856,7 +856,7 @@ static irqreturn_t tusb_musb_interrupt(int irq, void *__hci)
 
 		dev_dbg(musb->controller, "DMA IRQ %08x\n", dma_src);
 		real_dma_src = ~real_dma_src & dma_src;
-		if (tusb_dma_omap() && real_dma_src) {
+		if (tusb_dma_omap(musb) && real_dma_src) {
 			int	tx_source = (real_dma_src & 0xffff);
 			int	i;
 

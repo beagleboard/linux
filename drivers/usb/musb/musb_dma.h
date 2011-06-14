@@ -87,9 +87,9 @@ struct musb_hw_ep;
 #endif
 
 #ifdef CONFIG_USB_TUSB_OMAP_DMA
-#define tusb_dma_omap()			1
+#define tusb_dma_omap(musb)			1
 #else
-#define tusb_dma_omap()			0
+#define tusb_dma_omap(musb)			0
 #endif
 
 /* Anomaly 05000456 - USB Receive Interrupt Is Not Generated in DMA Mode 1
