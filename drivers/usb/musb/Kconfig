@@ -97,6 +97,7 @@ choice
 	default USB_INVENTRA_DMA_HW if USB_MUSB_OMAP2PLUS || USB_MUSB_BLACKFIN
 	default USB_TI_CPPI_DMA_HW if USB_MUSB_DAVINCI
 	default USB_TUSB_OMAP_DMA_HW if USB_MUSB_TUSB6010
+	default USB_TI_CPPI41_DMA_HW if USB_MUSB_DA8XX
 	default MUSB_PIO_ONLY if USB_MUSB_TUSB6010 || USB_MUSB_DA8XX || USB_MUSB_AM35X
 	help
 	  Unfortunately, only one option can be enabled here. Ideally one
@@ -124,6 +125,17 @@ config USB_TI_CPPI_DMA_HW
 	help
 	  Enable DMA transfers when TI CPPI DMA is available.
 
+config USB_TI_CPPI41_DMA_HW
+	tristate 'TI CPPI4.1'
+	select USB_TI_CPPI41_DMA
+	depends on USB_MUSB_DA8XX
+	select CPPI41
+	help
+	 Configure this option to include the CPPI 4.1 support,
+	 The CPPI 4.1 DMA engine integrated with musb controller
+	 accelarate the usb packet transmission and receception
+	 to/from musb endpoints.
+
 config USB_TUSB_OMAP_DMA_HW
 	tristate 'TUSB 6010'
 	select USB_TUSB_OMAP_DMA
@@ -150,6 +162,10 @@ config USB_INVENTRA_DMA
 	default n
 
 config USB_TI_CPPI_DMA
+	bool
+	default n
+
+config USB_TI_CPPI41_DMA
 	bool
 	default n
 
