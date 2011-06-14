@@ -455,6 +455,7 @@ static int __init retu_probe(struct platform_device *pdev)
 	retu->irq_base	= pdata->irq_base;
 	retu->irq_end	= pdata->irq_end;
 	retu->devid	= pdata->devid;
+	retu->dev	= &pdev->dev;
 	the_retu	= retu;
 
 	mutex_init(&retu->mutex);
