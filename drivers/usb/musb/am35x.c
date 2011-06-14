@@ -36,6 +36,8 @@
 #include <plat/usb.h>
 
 #include "musb_core.h"
+#include "cppi41.h"
+#include "cppi41_dma.h"
 
 /*
  * AM35x specific definitions
@@ -46,9 +48,7 @@
 #define USB_STAT_REG		0x08
 #define USB_EMULATION_REG	0x0c
 /* 0x10 Reserved */
-#define USB_AUTOREQ_REG		0x14
 #define USB_SRP_FIX_TIME_REG	0x18
-#define USB_TEARDOWN_REG	0x1c
 #define EP_INTR_SRC_REG		0x20
 #define EP_INTR_SRC_SET_REG	0x24
 #define EP_INTR_SRC_CLEAR_REG	0x28
@@ -80,7 +80,188 @@
 #define AM35X_TX_INTR_MASK	(AM35X_TX_EP_MASK << AM35X_INTR_TX_SHIFT)
 #define AM35X_RX_INTR_MASK	(AM35X_RX_EP_MASK << AM35X_INTR_RX_SHIFT)
 
+/* CPPI 4.1 queue manager registers */
+#define QMGR_PEND0_REG		0x4090
+#define QMGR_PEND1_REG		0x4094
+#define QMGR_PEND2_REG		0x4098
+
 #define USB_MENTOR_CORE_OFFSET	0x400
+
+#ifdef CONFIG_USB_TI_CPPI41_DMA
+/*
+ * CPPI 4.1 resources used for USB OTG controller module:
+ *
+ * USB   DMA  DMA  QMgr  Tx     Src
+ *       Tx   Rx         QNum   Port
+ * ---------------------------------
+ * EP0   0    0    0     16,17  1
+ * ---------------------------------
+ * EP1   1    1    0     18,19  2
+ * ---------------------------------
+ * EP2   2    2    0     20,21  3
+ * ---------------------------------
+ * EP3   3    3    0     22,23  4
+ * ---------------------------------
+ */
+
+static const u16 tx_comp_q[] = { 63, 64 };
+static const u16 rx_comp_q[] = { 65, 66 };
+
+const struct usb_cppi41_info usb_cppi41_info = {
+	.dma_block	= 0,
+	.ep_dma_ch	= { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14 },
+	.q_mgr		= 0,
+	.num_tx_comp_q	= 2,
+	.num_rx_comp_q	= 2,
+	.tx_comp_q	= tx_comp_q,
+	.rx_comp_q	= rx_comp_q
+};
+
+/* Fair scheduling */
+u32 dma_sched_table[] = {
+	0x81018000, 0x83038202, 0x85058404, 0x87078606,
+	0x89098808, 0x8b0b8a0a, 0x8d0d8c0c, 0x00008e0e
+};
+
+/* DMA block configuration */
+static const struct cppi41_tx_ch tx_ch_info[] = {
+	[0] = {
+		.port_num	= 1,
+		.num_tx_queue	= 2,
+		.tx_queue	= { {0, 32} , {0, 33} }
+	},
+	[1] = {
+		.port_num	= 2,
+		.num_tx_queue	= 2,
+		.tx_queue	= { {0, 34} , {0, 35} }
+	},
+	[2] = {
+		.port_num	= 3,
+		.num_tx_queue	= 2,
+		.tx_queue	= { {0, 36} , {0, 37} }
+	},
+	[3] = {
+		.port_num	= 4,
+		.num_tx_queue	= 2,
+		.tx_queue	= { {0, 38} , {0, 39} }
+	},
+	[4] = {
+		.port_num	= 5,
+		.num_tx_queue	= 2,
+		.tx_queue	= { {0, 40} , {0, 41} }
+	},
+	[5] = {
+		.port_num	= 6,
+		.num_tx_queue	= 2,
+		.tx_queue	= { {0, 42} , {0, 43} }
+	},
+	[6] = {
+		.port_num	= 7,
+		.num_tx_queue	= 2,
+		.tx_queue	= { {0, 44} , {0, 45} }
+	},
+	[7] = {
+		.port_num	= 8,
+		.num_tx_queue	= 2,
+		.tx_queue	= { {0, 46} , {0, 47} }
+	},
+	[8] = {
+		.port_num	= 9,
+		.num_tx_queue	= 2,
+		.tx_queue	= { {0, 48} , {0, 49} }
+	},
+	[9] = {
+		.port_num	= 10,
+		.num_tx_queue	= 2,
+		.tx_queue	= { {0, 50} , {0, 51} }
+	},
+	[10] = {
+		.port_num	= 11,
+		.num_tx_queue	= 2,
+		.tx_queue	= { {0, 52} , {0, 53} }
+	},
+	[11] = {
+		.port_num	= 12,
+		.num_tx_queue	= 2,
+		.tx_queue	= { {0, 54} , {0, 55} }
+	},
+	[12] = {
+		.port_num	= 13,
+		.num_tx_queue	= 2,
+		.tx_queue	= { {0, 56} , {0, 57} }
+	},
+	[13] = {
+		.port_num	= 14,
+		.num_tx_queue	= 2,
+		.tx_queue	= { {0, 58} , {0, 59} }
+	},
+	[14] = {
+		.port_num	= 15,
+		.num_tx_queue	= 2,
+		.tx_queue	= { {0, 60} , {0, 61} }
+	}
+};
+
+struct cppi41_dma_block cppi41_dma_block[CPPI41_NUM_DMA_BLOCK] = {
+	[0] = {
+		.global_ctrl_base =
+			IO_ADDRESS(OMAP34XX_HSUSB_OTG_BASE) + 0x1000,
+		.ch_ctrl_stat_base =
+			IO_ADDRESS(OMAP34XX_HSUSB_OTG_BASE) + 0x1800,
+		.sched_ctrl_base =
+			IO_ADDRESS(OMAP34XX_HSUSB_OTG_BASE) + 0x2000,
+		.sched_table_base =
+			IO_ADDRESS(OMAP34XX_HSUSB_OTG_BASE) + 0x2800,
+		.num_tx_ch	= 15,
+		.num_rx_ch	= 15,
+		.tx_ch_info	= tx_ch_info
+	}
+};
+EXPORT_SYMBOL(cppi41_dma_block);
+
+/* Queues 0 to 66 are pre-assigned, others are spare */
+static const u32 assigned_queues[] = { 0xffffffff, 0xffffffff, 0x7 };
+
+/* Queue manager information */
+struct cppi41_queue_mgr cppi41_queue_mgr[CPPI41_NUM_QUEUE_MGR] = {
+	[0] = {
+		.q_mgr_rgn_base =
+			IO_ADDRESS(OMAP34XX_HSUSB_OTG_BASE) + 0x4000,
+		.desc_mem_rgn_base =
+			IO_ADDRESS(OMAP34XX_HSUSB_OTG_BASE) + 0x5000,
+		.q_mgmt_rgn_base =
+			IO_ADDRESS(OMAP34XX_HSUSB_OTG_BASE) + 0x6000,
+		.q_stat_rgn_base =
+			IO_ADDRESS(OMAP34XX_HSUSB_OTG_BASE) + 0x6800,
+
+		.num_queue	= 96,
+		.queue_types	= CPPI41_FREE_DESC_BUF_QUEUE |
+					CPPI41_UNASSIGNED_QUEUE,
+		.base_fdbq_num	= 0,
+		.assigned	= assigned_queues
+	}
+};
+EXPORT_SYMBOL(cppi41_queue_mgr);
+
+int __init cppi41_init(struct musb *musb)
+{
+	u16 numch, blknum = usb_cppi41_info.dma_block, order;
+
+	/* Initialize for Linking RAM region 0 alone */
+	cppi41_queue_mgr_init(usb_cppi41_info.q_mgr, 0, 0x3fff);
+
+	numch =  USB_CPPI41_NUM_CH * 2;
+	order = get_count_order(numch);
+
+	/* TODO: check two teardown desc per channel (5 or 7 ?)*/
+	if (order < 5)
+		order = 5;
+
+	cppi41_dma_block_init(blknum, usb_cppi41_info.q_mgr, order,
+			dma_sched_table, numch);
+	return 0;
+}
+#endif /* CONFIG_USB_TI_CPPI41_DMA */
 
 struct am35x_glue {
 	struct device		*dev;
@@ -228,10 +409,36 @@ static irqreturn_t am35x_musb_interrupt(int irq, void *hci)
 	struct omap_musb_board_data *data = plat->board_data;
 	unsigned long flags;
 	irqreturn_t ret = IRQ_NONE;
+	u32 pend1 = 0, pend2 = 0, tx, rx;
 	u32 epintr, usbintr;
 
 	spin_lock_irqsave(&musb->lock, flags);
 
+	/*
+	 * CPPI 4.1 interrupts share the same IRQ and the EOI register but
+	 * don't get reflected in the interrupt source/mask registers.
+	 */
+	if (is_cppi41_enabled(musb)) {
+		/*
+		 * Check for the interrupts from Tx/Rx completion queues; they
+		 * are level-triggered and will stay asserted until the queues
+		 * are emptied.  We're using the queue pending register 0 as a
+		 * substitute for the interrupt status register and reading it
+		 * directly for speed.
+		 */
+		pend1 = musb_readl(reg_base, QMGR_PEND1_REG);
+		pend2 = musb_readl(reg_base, QMGR_PEND2_REG);
+
+		/* AM3517 uses 63,64,65 and 66 queues as completion queue */
+		if ((pend1 & (1 << 31)) || (pend2 & (7 << 0))) {
+			tx = (pend1 >> 31)  | ((pend2 & 1) ? (1 << 1) : 0);
+			rx = (pend2 >> 1) & 0x3;
+
+			DBG(4, "CPPI 4.1 IRQ: Tx %x, Rx %x\n", tx, rx);
+			cppi41_completion(musb, rx, tx);
+			ret = IRQ_HANDLED;
+		}
+	}
 	/* Get endpoint interrupts */
 	epintr = musb_readl(reg_base, EP_INTR_SRC_MASKED_REG);
 
@@ -383,6 +590,10 @@ static int am35x_musb_init(struct musb *musb)
 
 	msleep(5);
 
+#ifdef CONFIG_USB_TI_CPPI41_DMA
+	cppi41_init();
+#endif
+
 	musb->isr = am35x_musb_interrupt;
 
 	/* clear level interrupt */
@@ -407,6 +618,10 @@ static int am35x_musb_exit(struct musb *musb)
 
 	otg_put_transceiver(musb->xceiv);
 	usb_nop_xceiv_unregister();
+
+#ifdef CONFIG_USB_TI_CPPI41_DMA
+	cppi41_exit();
+#endif
 
 	return 0;
 }
@@ -443,7 +658,7 @@ static void am35x_musb_read_fifo(struct musb_hw_ep *hw_ep, u16 len, u8 *dst)
 
 static const struct musb_platform_ops am35x_ops = {
 	.fifo_mode	= 4,
-	.flags		= MUSB_GLUE_EP_ADDR_FLAT_MAPPING,
+	.flags		= MUSB_GLUE_EP_ADDR_FLAT_MAPPING | MUSB_GLUE_DMA_CPPI41,
 	.init		= am35x_musb_init,
 	.exit		= am35x_musb_exit,
 
@@ -457,6 +672,9 @@ static const struct musb_platform_ops am35x_ops = {
 
 	.read_fifo  = am35x_musb_read_fifo,
 	.write_fifo = musb_write_fifo,
+
+	.dma_controller_create = cppi41_dma_controller_create,
+	.dma_controller_destroy = cppi41_dma_controller_destroy,
 };
 
 static u64 am35x_dmamask = DMA_BIT_MASK(32);

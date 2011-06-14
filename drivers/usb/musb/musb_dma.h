@@ -214,6 +214,23 @@ static inline void cppi_dma_controller_destroy(struct dma_controller *c)
 }
 #endif
 
+#ifdef CONFIG_USB_TI_CPPI41_DMA
+extern struct dma_controller *__devinit
+cppi41_dma_controller_create(struct musb *, void __iomem *);
+
+extern void cppi41_dma_controller_destroy(struct dma_controller *);
+#else
+static inline struct dma_controller *__devinit
+cppi41_dma_controller_create(struct musb *musb, void __iomem *mregs)
+{
+	return NULL;
+}
+
+static inline void cppi41_dma_controller_destroy(struct dma_controller *c)
+{
+}
+#endif
+
 #ifdef CONFIG_USB_INVENTRA_DMA
 extern struct dma_controller *__devinit
 inventra_dma_controller_create(struct musb *, void __iomem *);

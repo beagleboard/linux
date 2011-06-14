@@ -322,4 +322,47 @@ static inline u32 omap1_usb2_init(unsigned nwires, unsigned alt_pingroup)
 }
 #endif
 
+/* DMA registers */
+#define USB_AUTOREQ_REG		0x14
+#define USB_TEARDOWN_REG	0x1c
+#define MOP_SOP_INTR_ENABLE	0x64
+/* 0x68-0x6c Reserved */
+#define USB_TX_MODE_REG		0x70	/* Transparent, CDC, [Generic] RNDIS */
+#define USB_RX_MODE_REG		0x74	/* Transparent, CDC, [Generic] RNDIS */
+#define EP_COUNT_MODE_REG	0x78
+#define USB_GENERIC_RNDIS_EP_SIZE_REG(n) (0x80 + (((n) - 1) << 2))
+
+#define QUEUE_THRESHOLD_INTR_ENABLE_REG	0xc0
+#define	QUEUE_63_THRESHOLD_REG	0xc4
+#define QUEUE_63_THRESHOLD_INTR_CLEAR_REG 0xc8
+#define	QUEUE_65_THRESHOLD_REG	0xd4
+#define QUEUE_65_THRESHOLD_INTR_CLEAR_REG 0xd8
+
+/* Mode register bits */
+#define USB_MODE_SHIFT(n)	((((n) - 1) << 1))
+#define USB_MODE_MASK(n)	(3 << USB_MODE_SHIFT(n))
+#define USB_RX_MODE_SHIFT(n)	USB_MODE_SHIFT(n)
+#define USB_TX_MODE_SHIFT(n)	USB_MODE_SHIFT(n)
+#define USB_RX_MODE_MASK(n)	USB_MODE_MASK(n)
+#define USB_TX_MODE_MASK(n)	USB_MODE_MASK(n)
+#define USB_TRANSPARENT_MODE	0
+#define USB_RNDIS_MODE		1
+#define USB_CDC_MODE		2
+#define USB_GENERIC_RNDIS_MODE	3
+
+/* AutoReq register bits */
+#define USB_RX_AUTOREQ_SHIFT(n) (((n) - 1) << 1)
+#define USB_RX_AUTOREQ_MASK(n)	(3 << USB_RX_AUTOREQ_SHIFT(n))
+#define USB_NO_AUTOREQ		0
+#define USB_AUTOREQ_ALL_BUT_EOP 1
+#define USB_AUTOREQ_ALWAYS	3
+
+/* Teardown register bits */
+#define USB_TX_TDOWN_SHIFT(n)	(16 + (n))
+#define USB_TX_TDOWN_MASK(n)	(1 << USB_TX_TDOWN_SHIFT(n))
+#define USB_RX_TDOWN_SHIFT(n)	(n)
+#define USB_RX_TDOWN_MASK(n)	(1 << USB_RX_TDOWN_SHIFT(n))
+
+#define USB_CPPI41_NUM_CH	15
+
 #endif	/* __ASM_ARCH_OMAP_USB_H */
