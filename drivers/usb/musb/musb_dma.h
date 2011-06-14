@@ -75,9 +75,9 @@ struct musb_hw_ep;
 #endif
 
 #ifdef CONFIG_USB_INVENTRA_DMA
-#define	is_inventra_dma()	1
+#define	is_inventra_dma(musb)	1
 #else
-#define	is_inventra_dma()	0
+#define	is_inventra_dma(musb)	0
 #endif
 
 #ifdef CONFIG_USB_TI_CPPI_DMA

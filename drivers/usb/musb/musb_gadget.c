@@ -683,7 +683,7 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 			use_mode_1 = 0;
 
 		if (request->actual < request->length) {
-			if (is_buffer_mapped(req) && is_inventra_dma()) {
+			if (is_buffer_mapped(req) && is_inventra_dma(musb)) {
 				struct dma_controller	*c;
 				struct dma_channel	*channel;
 				int			use_dma = 0;

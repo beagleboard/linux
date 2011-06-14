@@ -615,7 +615,7 @@ static bool musb_tx_dma_program(struct dma_controller *dma,
 	u16			csr;
 	u8			mode;
 
-	if (is_inventra_dma()) {
+	if (is_inventra_dma(hw_ep->musb)) {
 		if (length > channel->max_len)
 			length = channel->max_len;
 
@@ -1529,7 +1529,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 
 	/* FIXME this is _way_ too much in-line logic for Mentor DMA */
 
-	if (!is_inventra_dma() && (rx_csr & MUSB_RXCSR_H_REQPKT))  {
+	if (!is_inventra_dma(musb) && (rx_csr & MUSB_RXCSR_H_REQPKT))  {
 		/* REVISIT this happened for a while on some short reads...
 		 * the cleanup still needs investigation... looks bad...
 		 * and also duplicates dma cleanup code above ... plus,
@@ -1559,7 +1559,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 			| MUSB_RXCSR_RXPKTRDY);
 		musb_writew(hw_ep->regs, MUSB_RXCSR, val);
 
-		if (is_inventra_dma()) {
+		if (is_inventra_dma(musb)) {
 			if (usb_pipeisoc(pipe)) {
 				struct usb_iso_packet_descriptor *d;
 
@@ -1617,7 +1617,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 		}
 
 		/* we are expecting IN packets */
-		if (is_inventra_dma() && dma) {
+		if (is_inventra_dma(musb) && dma) {
 			struct dma_controller	*c;
 			u16			rx_count;
 			int			ret, length;
