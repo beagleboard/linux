@@ -395,7 +395,8 @@ static int omap2430_musb_exit(struct musb *musb)
 
 static const struct musb_platform_ops omap2430_ops = {
 	.fifo_mode	= 4,
-	.flags		= MUSB_GLUE_EP_ADDR_FLAT_MAPPING,
+	.flags		= MUSB_GLUE_EP_ADDR_FLAT_MAPPING |
+				MUSB_GLUE_DMA_INVENTRA,
 	.init		= omap2430_musb_init,
 	.exit		= omap2430_musb_exit,
 
@@ -409,6 +410,9 @@ static const struct musb_platform_ops omap2430_ops = {
 
 	.enable		= omap2430_musb_enable,
 	.disable	= omap2430_musb_disable,
+
+	.dma_controller_create = inventra_dma_controller_create,
+	.dma_controller_destroy = inventra_dma_controller_destroy,
 };
 
 static u64 omap2430_dmamask = DMA_BIT_MASK(32);

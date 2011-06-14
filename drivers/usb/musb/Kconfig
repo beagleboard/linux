@@ -93,36 +93,40 @@ config USB_MUSB_UX500
 
 choice
 	prompt 'MUSB DMA mode'
-	default USB_UX500_DMA if USB_MUSB_UX500
-	default USB_INVENTRA_DMA if USB_MUSB_OMAP2PLUS || USB_MUSB_BLACKFIN
-	default USB_TI_CPPI_DMA if USB_MUSB_DAVINCI
-	default USB_TUSB_OMAP_DMA if USB_MUSB_TUSB6010
+	default USB_UX500_DMA_HW if USB_MUSB_UX500
+	default USB_INVENTRA_DMA_HW if USB_MUSB_OMAP2PLUS || USB_MUSB_BLACKFIN
+	default USB_TI_CPPI_DMA_HW if USB_MUSB_DAVINCI
+	default USB_TUSB_OMAP_DMA_HW if USB_MUSB_TUSB6010
 	default MUSB_PIO_ONLY if USB_MUSB_TUSB6010 || USB_MUSB_DA8XX || USB_MUSB_AM35X
 	help
 	  Unfortunately, only one option can be enabled here. Ideally one
 	  should be able to build all these drivers into one kernel to
 	  allow using DMA on multiplatform kernels.
 
-config USB_UX500_DMA
-	bool 'ST Ericsson U8500 and U5500'
+config USB_UX500_DMA_HW
+	tristate 'ST Ericsson U8500 and U5500'
+	select USB_UX500_DMA
 	depends on USB_MUSB_UX500
 	help
 	  Enable DMA transfers on UX500 platforms.
 
-config USB_INVENTRA_DMA
-	bool 'Inventra'
+config USB_INVENTRA_DMA_HW
+	tristate 'Inventra'
+	select USB_INVENTRA_DMA
 	depends on USB_MUSB_OMAP2PLUS || USB_MUSB_BLACKFIN
 	help
 	  Enable DMA transfers using Mentor's engine.
 
-config USB_TI_CPPI_DMA
-	bool 'TI CPPI (Davinci)'
+config USB_TI_CPPI_DMA_HW
+	tristate 'TI CPPI (Davinci)'
+	select USB_TI_CPPI_DMA
 	depends on USB_MUSB_DAVINCI
 	help
 	  Enable DMA transfers when TI CPPI DMA is available.
 
-config USB_TUSB_OMAP_DMA
-	bool 'TUSB 6010'
+config USB_TUSB_OMAP_DMA_HW
+	tristate 'TUSB 6010'
+	select USB_TUSB_OMAP_DMA
 	depends on USB_MUSB_TUSB6010
 	depends on ARCH_OMAP
 	help
@@ -140,5 +144,21 @@ config MUSB_PIO_ONLY
 	  parameter.
 
 endchoice
+
+config USB_INVENTRA_DMA
+	bool
+	default n
+
+config USB_TI_CPPI_DMA
+	bool
+	default n
+
+config USB_TUSB_OMAP_DMA
+	bool
+	default n
+
+config USB_UX500_DMA
+	bool
+	default n
 
 endif # USB_MUSB_HDRC

@@ -1872,7 +1872,7 @@ static void musb_free(struct musb *musb)
 		struct dma_controller	*c = musb->dma_controller;
 
 		(void) c->stop(c);
-		dma_controller_destroy(c);
+		musb->ops->dma_controller_destroy(c);
 	}
 
 	kfree(musb);
@@ -1959,7 +1959,12 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 	if (use_dma && dev->dma_mask) {
 		struct dma_controller	*c;
 
-		c = dma_controller_create(musb, musb->mregs);
+		if (!musb->ops->dma_controller_create) {
+			dev_err(dev, "no dma_controller_create for non-PIO mode!\n");
+			status = -ENODEV;
+			goto fail3;
+		}
+		c = musb->ops->dma_controller_create(musb, musb->mregs);
 		musb->dma_controller = c;
 		if (c)
 			(void) c->start(c);

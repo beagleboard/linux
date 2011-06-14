@@ -178,9 +178,55 @@ struct dma_controller {
 extern void musb_dma_completion(struct musb *musb, u8 epnum, u8 transmit);
 
 
+#ifdef CONFIG_USB_TI_CPPI_DMA
 extern struct dma_controller *__devinit
-dma_controller_create(struct musb *, void __iomem *);
+cppi_dma_controller_create(struct musb *, void __iomem *);
 
-extern void dma_controller_destroy(struct dma_controller *);
+extern void cppi_dma_controller_destroy(struct dma_controller *);
+#else
+static inline struct dma_controller *__devinit
+cppi_dma_controller_create(struct musb *musb, void __iomem *mregs)
+{
+	return NULL;
+}
+
+static inline void cppi_dma_controller_destroy(struct dma_controller *c)
+{
+}
+#endif
+
+#ifdef CONFIG_USB_INVENTRA_DMA
+extern struct dma_controller *__devinit
+inventra_dma_controller_create(struct musb *, void __iomem *);
+
+extern void inventra_dma_controller_destroy(struct dma_controller *);
+#else
+static inline struct dma_controller *__devinit
+inventra_dma_controller_create(struct musb *musb, void __iomem *mregs)
+{
+	return NULL;
+}
+
+static inline void inventra_dma_controller_destroy(struct dma_controller *c)
+{
+}
+#endif
+
+#ifdef CONFIG_USB_TUSB_OMAP_DMA
+extern struct dma_controller *__devinit
+tusb_dma_controller_create(struct musb *, void __iomem *);
+
+extern void tusb_dma_controller_destroy(struct dma_controller *);
+#else
+static inline struct dma_controller *__devinit
+tusb_dma_controller_create(struct musb *musb, void __iomem *mregs)
+{
+	return NULL;
+}
+
+static inline void tusb_dma_controller_destroy(struct dma_controller *c)
+{
+}
+#endif
 
 #endif	/* __MUSB_DMA_H__ */

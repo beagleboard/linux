@@ -1318,7 +1318,7 @@ irqreturn_t cppi_interrupt(int irq, void *dev_id)
 
 /* Instantiate a software object representing a DMA controller. */
 struct dma_controller *__devinit
-dma_controller_create(struct musb *musb, void __iomem *mregs)
+cppi_dma_controller_create(struct musb *musb, void __iomem *mregs)
 {
 	struct cppi		*controller;
 	struct device		*dev = musb->controller;
@@ -1357,7 +1357,7 @@ dma_controller_create(struct musb *musb, void __iomem *mregs)
 	if (irq > 0) {
 		if (request_irq(irq, cppi_interrupt, 0, "cppi-dma", musb)) {
 			dev_err(dev, "request_irq %d failed!\n", irq);
-			dma_controller_destroy(&controller->controller);
+			cppi_dma_controller_destroy(&controller->controller);
 			return NULL;
 		}
 		controller->irq = irq;
@@ -1365,11 +1365,12 @@ dma_controller_create(struct musb *musb, void __iomem *mregs)
 
 	return &controller->controller;
 }
+EXPORT_SYMBOL(cppi_dma_controller_create);
 
 /*
  *  Destroy a previously-instantiated DMA controller.
  */
-void dma_controller_destroy(struct dma_controller *c)
+void cppi_dma_controller_destroy(struct dma_controller *c)
 {
 	struct cppi	*cppi;
 
@@ -1383,6 +1384,7 @@ void dma_controller_destroy(struct dma_controller *c)
 
 	kfree(cppi);
 }
+EXPORT_SYMBOL(cppi_dma_controller_destroy);
 
 /*
  * Context: controller irqlocked, endpoint selected
@@ -1563,3 +1565,16 @@ static int cppi_channel_abort(struct dma_channel *channel)
  * Power Management ... probably turn off cppi during suspend, restart;
  * check state ram?  Clocking is presumably shared with usb core.
  */
+MODULE_DESCRIPTION("CPPI dma controller driver for musb");
+MODULE_LICENSE("GPL v2");
+
+static int __init cppi_dma_init(void)
+{
+	return 0;
+}
+module_init(cppi_dma_init);
+
+static void __exit cppi_dma__exit(void)
+{
+}
+module_exit(cppi_dma__exit);
