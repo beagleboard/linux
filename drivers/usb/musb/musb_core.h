@@ -164,28 +164,12 @@ enum musb_g_ep0_state {
  * directly with the "flat" model, or after setting up an index register.
  */
 
-#if defined(CONFIG_ARCH_DAVINCI) || defined(CONFIG_SOC_OMAP2430) \
-		|| defined(CONFIG_SOC_OMAP3430) || defined(CONFIG_BLACKFIN) \
-		|| defined(CONFIG_ARCH_OMAP4)
-/* REVISIT indexed access seemed to
- * misbehave (on DaVinci) for at least peripheral IN ...
- */
-#define	MUSB_FLAT_REG
-#endif
+#define musb_ep_select(_musb, _mbase, _epnum) do { \
+	if (_musb->ops->flags & MUSB_GLUE_EP_ADDR_INDEXED_MAPPING) \
+		musb_writeb((_mbase), MUSB_INDEX, (_epnum)); \
+ } while (0)
 
-/* "flat" mapping: each endpoint has its own i/o address */
-#ifdef	MUSB_FLAT_REG
-#define musb_ep_select(_musb, _mbase, _epnum)	\
-	(((void)(_mbase)), ((void)(_epnum)))
-#define	MUSB_EP_OFFSET			MUSB_FLAT_OFFSET
-
-/* "indexed" mapping: INDEX register controls register bank select */
-#else
-#define musb_ep_select(_musb, _mbase, _epnum) \
-	musb_writeb((_mbase), MUSB_INDEX, (_epnum))
-#define	MUSB_EP_OFFSET			MUSB_INDEXED_OFFSET
-#endif
-
+#define	MUSB_EP_OFFSET	MUSB_OFFSET
 /****************************** FUNCTIONS ********************************/
 
 #define MUSB_HST_MODE(_musb)\
@@ -201,6 +185,8 @@ enum musb_g_ep0_state {
 /******************************** TYPES *************************************/
 
 #define     MUSB_GLUE_TUSB_STYLE   0x0001
+#define     MUSB_GLUE_EP_ADDR_FLAT_MAPPING	0x0002
+#define     MUSB_GLUE_EP_ADDR_INDEXED_MAPPING	0x0004
 
 /**
  * struct musb_platform_ops - Operations passed to musb_core by HW glue layer

@@ -1152,7 +1152,8 @@ static int tusb_musb_exit(struct musb *musb)
 
 static const struct musb_platform_ops tusb_ops = {
 	.fifo_mode	= 4,
-	.flags		= MUSB_GLUE_TUSB_STYLE,
+	.flags		= MUSB_GLUE_TUSB_STYLE |
+				MUSB_GLUE_EP_ADDR_INDEXED_MAPPING,
 	.init		= tusb_musb_init,
 	.exit		= tusb_musb_exit,
 

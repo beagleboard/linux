@@ -465,6 +465,7 @@ static int da8xx_musb_exit(struct musb *musb)
 
 static const struct musb_platform_ops da8xx_ops = {
 	.fifo_mode	= 2,
+	.flags		= MUSB_GLUE_EP_ADDR_FLAT_MAPPING,
 	.init		= da8xx_musb_init,
 	.exit		= da8xx_musb_exit,
 

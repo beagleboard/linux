@@ -448,6 +448,7 @@ static int bfin_musb_exit(struct musb *musb)
 
 static const struct musb_platform_ops bfin_ops = {
 	.fifo_mode	= 2,
+	.flags		= MUSB_GLUE_EP_ADDR_FLAT_MAPPING,
 	.init		= bfin_musb_init,
 	.exit		= bfin_musb_exit,
 
