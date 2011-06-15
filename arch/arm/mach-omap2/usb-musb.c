@@ -41,22 +41,15 @@ static struct musb_hdrc_config musb_config = {
 	.ram_bits	= 12,
 };
 
-static struct musb_hdrc_platform_data musb_plat = {
-#ifdef CONFIG_USB_MUSB_OTG
-	.mode		= MUSB_OTG,
-#elif defined(CONFIG_USB_MUSB_HDRC_HCD)
-	.mode		= MUSB_HOST,
-#elif defined(CONFIG_USB_GADGET_MUSB_HDRC)
-	.mode		= MUSB_PERIPHERAL,
-#endif
-	/* .clock is set dynamically */
-	.config		= &musb_config,
-
-	/* REVISIT charge pump on TWL4030 can supply up to
-	 * 100 mA ... but this value is board-specific, like
-	 * "mode", and should be passed to usb_musb_init().
-	 */
-	.power		= 50,			/* up to 100 mA */
+static struct musb_hdrc_platform_data musb_plat[] = {
+	{
+		.config         = &musb_config,
+		.clock          = "ick",
+	},
+	{
+		.config         = &musb_config,
+		.clock          = "ick",
+	},
 };
 
 static u64 musb_dmamask = DMA_BIT_MASK(32);
@@ -85,11 +78,11 @@ void __init usb_musb_init(struct omap_musb_board_data *musb_board_data)
 	 * REVISIT: This line can be removed once all the platforms using
 	 * musb_core.c have been converted to use use clkdev.
 	 */
-	musb_plat.clock = "ick";
-	musb_plat.board_data = board_data;
-	musb_plat.power = board_data->power >> 1;
-	musb_plat.mode = board_data->mode;
-	musb_plat.extvbus = board_data->extvbus;
+	musb_plat[0].clock = "ick";
+	musb_plat[0].board_data = board_data;
+	musb_plat[0].power = board_data->power >> 1;
+	musb_plat[0].mode = board_data->mode;
+	musb_plat[0].extvbus = board_data->extvbus;
 
 	/*
 	 * OMAP3630/AM35x platform has MUSB RTL-1.8 which has the fix for the

@@ -8,6 +8,7 @@ config USB_MUSB_HDRC
 	tristate 'Inventra Highspeed Dual Role Controller (TI, ADI, ...)'
 	depends on USB && USB_GADGET
 	select NOP_USB_XCEIV if (ARCH_DAVINCI || MACH_OMAP3EVM || BLACKFIN)
+	select NOP_USB_XCEIV if (ARCH_TI81XX)
 	select TWL4030_USB if MACH_OMAP_3430SDP
 	select TWL6030_USB if MACH_OMAP_4430SDP || MACH_OMAP4_PANDA
 	select USB_OTG_UTILS
@@ -59,6 +60,11 @@ config USB_MUSB_AM35X_GLUE
 	tristate "AM35x"
 	depends on ARCH_OMAP && USB_MUSB_HDRC
 
+config USB_MUSB_TI81XX_GLUE
+	select USB_MUSB_TI81XX
+	tristate "TI81XX"
+	depends on ARCH_TI81XX && USB_MUSB_HDRC
+
 config USB_MUSB_BLACKFIN_GLUE
 	select USB_MUSB_BLACKFIN
 	tristate "Blackfin"
@@ -84,6 +90,9 @@ config USB_MUSB_OMAP2PLUS
 config USB_MUSB_AM35X
 	bool
 	default n
+config USB_MUSB_TI81XX
+	bool
+	default n
 config USB_MUSB_BLACKFIN
 	bool
 	default n
@@ -97,7 +106,7 @@ choice
 	default USB_INVENTRA_DMA_HW if USB_MUSB_OMAP2PLUS || USB_MUSB_BLACKFIN
 	default USB_TI_CPPI_DMA_HW if USB_MUSB_DAVINCI
 	default USB_TUSB_OMAP_DMA_HW if USB_MUSB_TUSB6010
-	default USB_TI_CPPI41_DMA_HW if USB_MUSB_DA8XX || USB_MUSB_AM35X
+	default USB_TI_CPPI41_DMA_HW if USB_MUSB_DA8XX || USB_MUSB_AM35X || USB_MUSB_TI81XX
 	default MUSB_PIO_ONLY if USB_MUSB_TUSB6010 || USB_MUSB_DA8XX
 	help
 	  Unfortunately, only one option can be enabled here. Ideally one
@@ -128,7 +137,7 @@ config USB_TI_CPPI_DMA_HW
 config USB_TI_CPPI41_DMA_HW
 	tristate 'TI CPPI4.1'
 	select USB_TI_CPPI41_DMA
-	depends on USB_MUSB_DA8XX || USB_MUSB_AM35X
+	depends on USB_MUSB_DA8XX || USB_MUSB_AM35X || USB_MUSB_TI81XX
 	select CPPI41
 	help
 	 Configure this option to include the CPPI 4.1 support,

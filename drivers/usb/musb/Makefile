@@ -14,7 +14,8 @@ ifeq ($(CONFIG_USB_MUSB_DEBUG),y)
 endif
 # Hardware Glue Layer
 obj-$(CONFIG_USB_MUSB_OMAP2PLUS_GLUE)		+= omap2430.o
-obj-$(CONFIG_USB_MUSB_AM35X_GLUE)			+= am35x.o
+obj-$(CONFIG_USB_MUSB_AM35X_GLUE)		+= am35x.o
+obj-$(CONFIG_USB_MUSB_TI81XX_GLUE)		+= ti81xx.o
 obj-$(CONFIG_USB_MUSB_TUSB6010_GLUE)		+= tusb6010.o
 obj-$(CONFIG_USB_MUSB_DAVINCI_GLUE)			+= davinci.o
 obj-$(CONFIG_USB_MUSB_DA8XX_GLUE)			+= da8xx.o
