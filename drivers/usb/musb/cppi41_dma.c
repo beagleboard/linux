@@ -951,6 +951,8 @@ static void usb_tx_ch_teardown(struct cppi41_channel *tx_ch)
 	u32 td_reg, timeout = 0xfffff;
 	u8 ep_num = tx_ch->ch_num + 1;
 	unsigned long pd_addr;
+	struct cppi41_queue_obj tx_queue_obj;
+	struct usb_cppi41_info *cppi_info;
 
 	/* Initiate teardown for Tx DMA channel */
 	cppi41_dma_ch_teardown(&tx_ch->dma_ch_obj);
@@ -966,17 +968,44 @@ static void usb_tx_ch_teardown(struct cppi41_channel *tx_ch)
 
 	if (pd_addr) {
 
-		dprintk("Descriptor (%08lx) popped from teardown completion "
+		DBG(1, "Descriptor (%08lx) popped from teardown completion "
 			"queue\n", pd_addr);
 
 		if (usb_check_teardown(tx_ch, pd_addr)) {
-			dprintk("Teardown Desc (%p) rcvd\n", pd_addr);
+			DBG(1, "Teardown Desc (%lx) rcvd\n", pd_addr);
 		} else
 			ERR("Invalid PD(%08lx)popped from TearDn completion"
 				"queue\n", pd_addr);
 	} else {
 		if (timeout <= 0)
 			ERR("Teardown Desc not rcvd\n");
+	}
+
+	/* read the tx completion queue and remove
+	 * completion bd if any
+	 */
+	cppi_info = cppi->cppi_info;
+	if (cppi41_queue_init(&tx_queue_obj, cppi_info->q_mgr,
+			      cppi_info->tx_comp_q[tx_ch->ch_num])) {
+		ERR("ERROR: cppi41_queue_init failed for "
+		    "Tx completion queue");
+		return;
+	}
+
+	while ((pd_addr = cppi41_queue_pop(&tx_queue_obj)) != 0) {
+		struct usb_pkt_desc *curr_pd;
+
+		curr_pd = usb_get_pd_ptr(cppi, pd_addr);
+		if (curr_pd == NULL) {
+			ERR("Invalid PD popped from Tx completion queue\n");
+			continue;
+		}
+
+		DBG(1, "Tx-PD(%p) popped from completion queue\n", curr_pd);
+		DBG(1, "ch(%d)epnum(%d)len(%d)\n", curr_pd->ch_num,
+			curr_pd->ep_num, curr_pd->hw_desc.buf_len);
+
+		usb_put_free_pd(cppi, curr_pd);
 	}
 }
 
@@ -990,7 +1019,8 @@ static void usb_rx_ch_teardown(struct cppi41_channel *rx_ch)
 {
 	struct cppi41 *cppi = rx_ch->channel.private_data;
 	struct usb_cppi41_info *cppi_info = cppi->cppi_info;
-	u32 timeout = 0xfffff;
+	u32 timeout = 0xfffff, pd_addr;
+	struct cppi41_queue_obj rx_queue_obj;
 
 	cppi41_dma_ch_default_queue(&rx_ch->dma_ch_obj, 0, cppi->teardownQNum);
 
@@ -1011,7 +1041,7 @@ static void usb_rx_ch_teardown(struct cppi41_channel *rx_ch)
 			break;
 		}
 
-		dprintk("Descriptor (%08lx) popped from teardown completion "
+		DBG(1, "Descriptor (%08lx) popped from teardown completion "
 			"queue\n", pd_addr);
 
 		/*
@@ -1042,6 +1072,32 @@ static void usb_rx_ch_teardown(struct cppi41_channel *rx_ch)
 		 */
 		usb_put_free_pd(cppi, curr_pd);
 	} while (0);
+
+	/* read the rx completion queue and remove
+	 * completion bd if any
+	 */
+	if (cppi41_queue_init(&rx_queue_obj, cppi_info->q_mgr,
+			      cppi_info->rx_comp_q[rx_ch->ch_num])) {
+		ERR("ERROR: cppi41_queue_init failed for "
+		    "Rx completion queue");
+		return;
+	}
+
+	while ((pd_addr = cppi41_queue_pop(&rx_queue_obj)) != 0) {
+		struct usb_pkt_desc *curr_pd;
+
+		curr_pd = usb_get_pd_ptr(cppi, pd_addr);
+		if (curr_pd == NULL) {
+			ERR("Invalid PD popped from Rx completion queue\n");
+			continue;
+		}
+
+		DBG(1, "Rx-PD(%p) popped from completion queue\n", curr_pd);
+		DBG(1, "ch(%d)epnum(%d)len(%d)\n", curr_pd->ch_num,
+			curr_pd->ep_num, curr_pd->hw_desc.buf_len);
+
+		usb_put_free_pd(cppi, curr_pd);
+	}
 
 	/* Now restore the default Rx completion queue... */
 	cppi41_dma_ch_default_queue(&rx_ch->dma_ch_obj, cppi_info->q_mgr,
