@@ -724,6 +724,12 @@ void cppi41_exit(void)
 			allocated_queues[i] = 0;
 		}
 	}
+
+	/*
+	 * pop all the teardwon descriptor queued to tdQueue
+	 */
+	cppi41_free_teardown_queue(0);
+
 	for (i = 0; i < CPPI41_NUM_DMA_BLOCK; i++)
 		if (dma_teardown[i].virt_addr != NULL) {
 

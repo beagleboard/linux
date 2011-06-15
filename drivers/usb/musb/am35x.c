@@ -253,6 +253,19 @@ int __devinit cppi41_init(struct musb *musb)
 			dma_sched_table, numch);
 	return 0;
 }
+void cppi41_free(void)
+{
+	u32 numch, blknum, order;
+	struct usb_cppi41_info *cppi_info = &usb_cppi41_info[0];
+
+	numch =  USB_CPPI41_NUM_CH * 2;
+	order = get_count_order(numch);
+	blknum = cppi_info->dma_block;
+
+	cppi41_dma_block_uninit(blknum, cppi_info->q_mgr, order,
+			dma_sched_table, numch);
+	cppi41_queue_mgr_uninit(cppi_info->q_mgr);
+}
 #endif /* CONFIG_USB_TI_CPPI41_DMA */
 
 struct am35x_glue {
@@ -611,10 +624,6 @@ static int am35x_musb_exit(struct musb *musb)
 	otg_put_transceiver(musb->xceiv);
 	usb_nop_xceiv_unregister(musb->id);
 
-#ifdef CONFIG_USB_TI_CPPI41_DMA
-	cppi41_exit();
-#endif
-
 	return 0;
 }
 
@@ -865,6 +874,9 @@ subsys_initcall(am35x_init);
 
 static void __exit am35x_exit(void)
 {
+#ifdef CONFIG_USB_TI_CPPI41_DMA
+	cppi41_free();
+#endif
 	platform_driver_unregister(&am35x_driver);
 }
 module_exit(am35x_exit);
