@@ -5,7 +5,6 @@
 menu "CBUS support"
 
 config CBUS
-	depends on ARCH_OMAP
 	bool "CBUS support on OMAP"
 	---help---
 	  CBUS is a proprietary serial protocol by Nokia.  It is mainly
@@ -21,8 +20,10 @@ config CBUS_TAHVO
 
 	  If you want Tahvo support, you should say Y here.
 
+if CBUS_TAHVO
+
 config CBUS_TAHVO_USB
-	depends on CBUS_TAHVO && USB
+	depends on USB
 	select USB_OTG_UTILS
 	tristate "Support for Tahvo USB transceiver"
 	---help---
@@ -35,6 +36,8 @@ config CBUS_TAHVO_USB_HOST_BY_DEFAULT
 	  Say Y here, if you want the device to enter USB host mode
 	  by default on bootup.
 
+endif # CBUS_TAHVO
+
 config CBUS_RETU
 	depends on CBUS
 	bool "Support for Retu"
@@ -43,8 +46,10 @@ config CBUS_RETU
 
 	  If you want Retu support, you should say Y here.
 
+if CBUS_RETU
+
 config CBUS_RETU_POWERBUTTON
-	depends on CBUS_RETU
+	depends on INPUT
 	bool "Support for Retu power button"
 	---help---
 	  The power button on Nokia 770 is connected to the Retu ASIC.
@@ -52,25 +57,27 @@ config CBUS_RETU_POWERBUTTON
 	  If you want support for the Retu power button, you should say Y here.
 
 config CBUS_RETU_RTC
-	depends on CBUS_RETU && RTC_CLASS
+	depends on RTC_CLASS
 	tristate "Support for Retu pseudo-RTC"
 	---help---
 	  Say Y here if you want support for the device that alleges to be an
 	  RTC in Retu. This will expose a sysfs interface for it.
 
 config CBUS_RETU_WDT
-	depends on CBUS_RETU && SYSFS && WATCHDOG
+	depends on SYSFS && WATCHDOG
 	tristate "Support for Retu watchdog timer"
 	---help---
 	  Say Y here if you want support for the watchdog in Retu. This will
 	  expose a sysfs interface to grok it.
 
 config CBUS_RETU_HEADSET
-	depends on CBUS_RETU && SYSFS
+	depends on SYSFS
 	tristate "Support for headset detection with Retu/Vilma"
 	---help---
 	  Say Y here if you want support detecting a headset that's connected
 	  to Retu/Vilma. Detection state and events are exposed through
 	  sysfs.
+
+endif # CBUS_RETU
 
 endmenu
