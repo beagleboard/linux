@@ -30,21 +30,11 @@
 #include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/device.h>
-#include <linux/miscdevice.h>
-#include <linux/poll.h>
-#include <linux/fs.h>
 #include <linux/mutex.h>
 #include <linux/irq.h>
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
 #include <linux/platform_data/cbus.h>
-#include <linux/gpio.h>
-
-#include <asm/uaccess.h>
-#include <asm/mach-types.h>
-
-#include <plat/mux.h>
-#include <plat/board.h>
 
 #include "cbus.h"
 #include "retu.h"
