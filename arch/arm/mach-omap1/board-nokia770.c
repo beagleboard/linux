@@ -12,6 +12,7 @@
 #include <linux/init.h>
 #include <linux/mutex.h>
 #include <linux/platform_device.h>
+#include <linux/platform_data/cbus.h>
 #include <linux/irq.h>
 #include <linux/input.h>
 #include <linux/clk.h>
@@ -37,7 +38,6 @@
 #include <plat/lcd_mipid.h>
 #include <plat/mmc.h>
 #include <plat/clock.h>
-#include <plat/cbus.h>
 
 #define ADS7846_PENDOWN_GPIO	15
 

@@ -19,6 +19,7 @@
 #include <linux/io.h>
 #include <linux/stddef.h>
 #include <linux/platform_device.h>
+#include <linux/platform_data/cbus.h>
 #include <linux/i2c.h>
 #include <linux/spi/spi.h>
 #include <linux/usb/musb.h>
@@ -35,7 +36,6 @@
 #include <plat/onenand.h>
 #include <plat/mmc.h>
 #include <plat/serial.h>
-#include <plat/cbus.h>
 
 #include "mux.h"
 

@@ -37,6 +37,7 @@
 #include <linux/irq.h>
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
+#include <linux/platform_data/cbus.h>
 #include <linux/gpio.h>
 
 #include <asm/uaccess.h>
@@ -44,7 +45,6 @@
 
 #include <plat/mux.h>
 #include <plat/board.h>
-#include <plat/cbus.h>
 
 #include "cbus.h"
 #include "retu.h"

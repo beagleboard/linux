@@ -33,8 +33,7 @@
 #include <linux/spinlock.h>
 #include <linux/gpio.h>
 #include <linux/platform_device.h>
-
-#include <plat/cbus.h>
+#include <linux/platform_data/cbus.h>
 
 #include "cbus.h"
 

@@ -19,8 +19,8 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#ifndef __PLAT_CBUS_H
-#define __PLAT_CBUS_H
+#ifndef __INCLUDE_LINUX_CBUS_H
+#define __INCLUDE_LINUX_CBUS_H
 
 #define CBUS_RETU_DEVICE_ID	0x01
 #define CBUS_TAHVO_DEVICE_ID	0x02
@@ -37,4 +37,4 @@ struct cbus_retu_platform_data {
 	int	devid;
 };
 
-#endif /* __PLAT_CBUS_H */
+#endif /* __INCLUDE_LINUX_CBUS_H */
