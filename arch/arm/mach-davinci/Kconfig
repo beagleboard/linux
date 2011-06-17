@@ -55,14 +55,6 @@ config ARCH_DAVINCI_TNETV107X
 	select CP_INTC
 	bool "TNETV107X based system"
 
-config CPPI41
-	bool "CPPI 4.1 support"
-	help
-	 Configure this option to include the CPPI 4.1 support,
-	 The CPPI 4.1 DMA engine integrated with musb controller
-	 accelarate the usb packet transmission and receception
-	 to/from musb endpoints.
-
 comment "DaVinci Board Type"
 
 config MACH_DAVINCI_EVM

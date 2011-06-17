@@ -22,7 +22,7 @@
 #include <linux/errno.h>
 #include <linux/dma-mapping.h>
 
-#include <mach/cppi41.h>
+#include "cppi41.h"
 
 #include "musb_core.h"
 #include "musb_dma.h"

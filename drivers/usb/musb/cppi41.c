@@ -26,10 +26,11 @@
 
 #include <linux/io.h>
 #include <linux/init.h>
+#include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/dma-mapping.h>
 
-#include <mach/cppi41.h>
+#include "cppi41.h"
 
 #undef	CPPI41_DEBUG
 

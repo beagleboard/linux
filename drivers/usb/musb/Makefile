@@ -28,6 +28,7 @@ obj-$(CONFIG_USB_MUSB_UX500_GLUE)			+= ux500.o
 
 obj-$(CONFIG_USB_INVENTRA_DMA_HW)		+= musbhsdma.o
 obj-$(CONFIG_USB_TI_CPPI_DMA_HW)		+= cppi_dma.o
-obj-$(CONFIG_USB_TI_CPPI41_DMA_HW)		+= cppi41_dma.o
+obj-$(CONFIG_USB_TI_CPPI41_DMA_HW)		+= cppi41dma.o
+cppi41dma-y					+= cppi41.o cppi41_dma.o
 obj-$(CONFIG_USB_TUSB_OMAP_DMA_HW)		+= tusb6010_omap.o
 obj-$(CONFIG_USB_UX500_DMA_HW)			+= ux500_dma.o
