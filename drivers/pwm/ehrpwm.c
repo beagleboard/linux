@@ -24,6 +24,7 @@
 #include <linux/pwm/ehrpwm.h>
 
 #include <plat/clock.h>
+#include <plat/config_pwm.h>
 
 #ifdef DEBUG
 #define debug(format, args...) printk(format, ##args)
@@ -159,6 +160,8 @@
 #define TBPHSHR				0x4
 #define CMPAHR				0x10
 #define HRCNFG				0x1040
+
+#define AM335X_HRCNFG			0x40
 
 #define HRCNFG_EDGEMD_MASK		(BIT(1) | BIT(0))
 #define HRCNFG_LDMD_POS			0x3
@@ -841,9 +844,21 @@ int ehrpwm_hr_config(struct pwm_device *p, unsigned char loadmode,
 	if (loadmode > 1 || ctlmode > 1 || edgemode > 3)
 		return -EINVAL;
 
-	ehrpwm_reg_config(ehrpwm, HRCNFG, loadmode << HRCNFG_LDMD_POS, BIT(3));
-	ehrpwm_reg_config(ehrpwm, HRCNFG, ctlmode << HRCNFG_CTLMD_POS, BIT(2));
-	ehrpwm_reg_config(ehrpwm, HRCNFG, edgemode, HRCNFG_EDGEMD_MASK);
+	if (ehrpwm->version == PWM_VERSION_1) {
+		ehrpwm_reg_config(ehrpwm, AM335X_HRCNFG,
+				loadmode << HRCNFG_LDMD_POS, BIT(3));
+		ehrpwm_reg_config(ehrpwm, AM335X_HRCNFG,
+				ctlmode << HRCNFG_CTLMD_POS, BIT(2));
+		ehrpwm_reg_config(ehrpwm, AM335X_HRCNFG,
+				edgemode, HRCNFG_EDGEMD_MASK);
+	} else {
+		ehrpwm_reg_config(ehrpwm, HRCNFG,
+				loadmode << HRCNFG_LDMD_POS, BIT(3));
+		ehrpwm_reg_config(ehrpwm, HRCNFG,
+				ctlmode << HRCNFG_CTLMD_POS, BIT(2));
+		ehrpwm_reg_config(ehrpwm, HRCNFG,
+				edgemode, HRCNFG_EDGEMD_MASK);
+	}
 
 	return 0;
 }
@@ -854,8 +869,10 @@ inline int ehrpwm_reg_read(struct pwm_device *p, unsigned int reg,
 {
 	struct ehrpwm_pwm *ehrpwm = to_ehrpwm_pwm(p);
 
-	if (reg > HRCNFG)
-		return -EINVAL;
+	if (!(ehrpwm->version == PWM_VERSION_1)) {
+		if (reg > HRCNFG)
+			return -EINVAL;
+	}
 
 	*val = ehrpwm_read(ehrpwm, reg);
 
@@ -868,8 +885,10 @@ inline int ehrpwm_reg_write(struct pwm_device *p, unsigned int reg,
 {
 	struct ehrpwm_pwm *ehrpwm = to_ehrpwm_pwm(p);
 
-	if (reg > HRCNFG)
-		return -EINVAL;
+	if (!(ehrpwm->version == PWM_VERSION_1)) {
+		if (reg > HRCNFG)
+			return -EINVAL;
+	}
 
 	ehrpwm_write(ehrpwm, reg, val);
 
@@ -1065,7 +1084,11 @@ static int ehrpwm_hr_duty_config(struct pwm_device *p)
 	cmphr_val = (cmphr_val * no_of_mepsteps) / 1000;
 	cmphr_val = (cmphr_val << 8) + 0x180;
 	ehrpwm_write(ehrpwm, CMPAHR, cmphr_val);
-	ehrpwm_write(ehrpwm, HRCNFG, 0x2);
+
+	if (ehrpwm->version == PWM_VERSION_1)
+		ehrpwm_write(ehrpwm, AM335X_HRCNFG, 0x2);
+	else
+		ehrpwm_write(ehrpwm, HRCNFG, 0x2);
 
 	return 0;
 }
@@ -1090,7 +1113,10 @@ static int ehrpwm_pwm_set_dty(struct pwm_device *p)
 	/* High resolution module */
 	if (chan && ehrpwm->prescale_val <= 1) {
 		ret = ehrpwm_hr_duty_config(p);
-		ehrpwm_write(ehrpwm, HRCNFG, 0x2);
+		if (ehrpwm->version == PWM_VERSION_1)
+			ehrpwm_write(ehrpwm, AM335X_HRCNFG, 0x2);
+		else
+			ehrpwm_write(ehrpwm, HRCNFG, 0x2);
 	}
 
 	ehrpwm_pwm_set_pol(p);
@@ -1293,46 +1319,107 @@ static int ehrpwm_probe(struct platform_device *pdev)
 	int ret = 0;
 	int chan = 0;
 	struct pwmss_platform_data *pdata = (&pdev->dev)->platform_data;
-	int ch_mask;
+	int ch_mask = 0;
+	int val;
+	char con_id[PWM_CON_ID_STRING_LENGTH] = "epwmss";
 
-	ch_mask = pdata->channel_mask;
 	ehrpwm = kzalloc(sizeof(*ehrpwm), GFP_KERNEL);
 	if (!ehrpwm) {
 		dev_err(&pdev->dev, "failed to allocate memory\n");
 		ret = -ENOMEM;
-		return ret;
+		goto err_mem_failure;
 	}
 
-	ehrpwm->clk = clk_get(&pdev->dev, "ehrpwm");
+	ehrpwm->version = pdata->version;
+
+	if (ehrpwm->version == PWM_VERSION_1) {
+		sprintf(con_id, "%s%d_%s", con_id, pdev->id, "fck");
+		ehrpwm->clk = clk_get(&pdev->dev, con_id);
+	} else
+		ehrpwm->clk = clk_get(&pdev->dev, "ehrpwm");
+
 	if (IS_ERR(ehrpwm->clk)) {
 		ret = PTR_ERR(ehrpwm->clk);
-		goto err_free_device;
+		goto err_clock_failure;
 	}
+
+	if (ehrpwm->version == PWM_VERSION_1) {
+		down(&pdata->config_semaphore);
+		r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+
+		if (!r) {
+			dev_err(&pdev->dev, "no memory resource defined\n");
+			ret = -ENOMEM;
+			up(&pdata->config_semaphore);
+			goto err_resource_mem_failure;
+		}
+
+		r = request_mem_region(r->start, resource_size(r), pdev->name);
+
+		if (!r) {
+
+			if (pdata->config_mem_base) {
+				goto set_bit;
+			} else {
+				dev_err(&pdev->dev,
+					"failed to request memory resource\n");
+				ret = -EBUSY;
+				up(&pdata->config_semaphore);
+				goto err_request_mem_failure;
+			}
+		}
+
+		pdata->config_mem_base = ioremap(r->start, resource_size(r));
+
+		if (!pdata->config_mem_base) {
+
+			dev_err(&pdev->dev, "failed to ioremap() registers\n");
+			ret = -ENODEV;
+			up(&pdata->config_semaphore);
+			goto err_free_mem_config;
+		}
+
+set_bit:
+		pdata->pwmss_module_usage_count++;
+		clk_enable(ehrpwm->clk);
+		val = __raw_readw(pdata->config_mem_base + PWMSS_CLKCONFIG);
+		val |= BIT(EPWM_CLK_EN);
+		__raw_writew(val, pdata->config_mem_base + PWMSS_CLKCONFIG);
+		clk_disable(ehrpwm->clk);
+		up(&pdata->config_semaphore);
+
+	} else
+		ch_mask = pdata->channel_mask;
 
 	spin_lock_init(&ehrpwm->lock);
 	ehrpwm->ops.config = ehrpwm_pwm_config;
 	ehrpwm->ops.request = ehrpwm_pwm_request;
 	ehrpwm->ops.freq_transition_notifier_cb = ehrpwm_freq_transition_cb;
 	ehrpwm->prescale_val = 1;
-	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+
+	if (ehrpwm->version == PWM_VERSION_1)
+		r = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	else
+		r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+
 	if (!r) {
 		dev_err(&pdev->dev, "no memory resource defined\n");
 		ret = -ENODEV;
-		goto err_free_clk;
+		goto err_resource_mem2_failiure;
 	}
 
 	r = request_mem_region(r->start, resource_size(r), pdev->name);
 	if (!r) {
 		dev_err(&pdev->dev, "failed to request memory resource\n");
 		ret = -EBUSY;
-		goto err_free_clk;
+		goto err_request_mem2_failure;
 	}
 
 	ehrpwm->mmio_base = ioremap(r->start, resource_size(r));
 	if (!ehrpwm->mmio_base) {
 		dev_err(&pdev->dev, "failed to ioremap() registers\n");
 		ret = -ENODEV;
-		goto err_free_mem;
+		goto err_free_mem2;
 	}
 
 	ehrpwm->irq[0] = platform_get_irq(pdev, 0);
@@ -1362,15 +1449,18 @@ static int ehrpwm_probe(struct platform_device *pdev)
 	for (chan = 0; chan < NCHAN; chan++) {
 		ehrpwm->pwm[chan].ops = &ehrpwm->ops;
 		pwm_set_drvdata(&ehrpwm->pwm[chan], ehrpwm);
-		if (!(ch_mask & (0x1 << chan)))
-			continue;
+
+		if (!(ehrpwm->version == PWM_VERSION_1)) {
+			if (!(ch_mask & (0x1 << chan)))
+				continue;
+		}
+
 		ret =  pwm_register(&ehrpwm->pwm[chan], &pdev->dev, chan);
 		if (ret)
 			goto err_pwm_register;
 	}
 
 		platform_set_drvdata(pdev, ehrpwm);
-
 	return 0;
 
 err_pwm_register:
@@ -1384,12 +1474,31 @@ err_request_irq:
 		free_irq(ehrpwm->irq[0], ehrpwm);
 err_free_io:
 	iounmap(ehrpwm->mmio_base);
-err_free_mem:
+err_free_mem2:
 	release_mem_region(r->start, resource_size(r));
-err_free_clk:
+err_request_mem2_failure:
+err_resource_mem2_failiure:
+	if (ehrpwm->version == PWM_VERSION_1) {
+		down(&pdata->config_semaphore);
+		pdata->pwmss_module_usage_count--;
+
+		if (!pdata->pwmss_module_usage_count) {
+			iounmap(pdata->config_mem_base);
+			pdata->config_mem_base = NULL;
+		}
+		up(&pdata->config_semaphore);
+	}
+err_free_mem_config:
+	if (ehrpwm->version == PWM_VERSION_1) {
+		r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+		release_mem_region(r->start, resource_size(r));
+	}
+err_request_mem_failure:
+err_resource_mem_failure:
 	clk_put(ehrpwm->clk);
-err_free_device:
+err_clock_failure:
 	kfree(ehrpwm);
+err_mem_failure:
 	return ret;
 }
 
@@ -1423,6 +1532,25 @@ static int __devexit ehrpwm_remove(struct platform_device *pdev)
 	struct ehrpwm_pwm *ehrpwm = platform_get_drvdata(pdev);
 	struct resource *r;
 	unsigned char i;
+	int val;
+	struct pwmss_platform_data *pdata;
+
+	if (ehrpwm->version == PWM_VERSION_1) {
+		pdata = (&pdev->dev)->platform_data;
+		down(&pdata->config_semaphore);
+		pdata->pwmss_module_usage_count--;
+		val = __raw_readw(pdata->config_mem_base + PWMSS_CLKCONFIG);
+		val &= ~BIT(EPWM_CLK_EN);
+		__raw_writew(val, pdata->config_mem_base + PWMSS_CLKCONFIG);
+
+		if (!pdata->pwmss_module_usage_count) {
+			iounmap(pdata->config_mem_base);
+			pdata->config_mem_base = NULL;
+			r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+			release_mem_region(r->start, resource_size(r));
+		}
+		up(&pdata->config_semaphore);
+	}
 
 	for (i = 0; i < NCHAN; i++) {
 		if (pwm_is_registered(&ehrpwm->pwm[i]))
@@ -1433,7 +1561,12 @@ static int __devexit ehrpwm_remove(struct platform_device *pdev)
 		if (ehrpwm->irq[i] != -ENXIO)
 			free_irq(ehrpwm->irq[i], ehrpwm);
 	iounmap(ehrpwm->mmio_base);
-	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+
+	if (ehrpwm->version == PWM_VERSION_1)
+		r = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	else
+		r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+
 	release_mem_region(r->start, resource_size(r));
 	platform_set_drvdata(pdev, NULL);
 	clk_put(ehrpwm->clk);

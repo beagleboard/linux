@@ -29,6 +29,7 @@ struct ehrpwm_pwm {
 	int irq[2];
 	struct et_int st_etint;
 	struct tz_int st_tzint;
+	u8 version;
 };
 
 enum tz_event {

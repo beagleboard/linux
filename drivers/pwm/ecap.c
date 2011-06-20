@@ -22,6 +22,7 @@
 #include <linux/slab.h>
 
 #include <plat/clock.h>
+#include <plat/config_pwm.h>
 
 #define TIMER_CTR_REG			0x0
 #define CAPTURE_2_REG			0x0c
@@ -43,6 +44,7 @@ struct ecap_pwm {
 	struct clk	*clk;
 	int	clk_enabled;
 	void __iomem	*mmio_base;
+	u8 version;
 };
 
 static inline struct ecap_pwm *to_ecap_pwm(const struct pwm_device *p)
@@ -212,48 +214,110 @@ static int ecap_frequency_transition_cb(struct pwm_device *p)
 		return 0;
 }
 
-static int __init ecap_probe(struct platform_device *pdev)
+static int ecap_probe(struct platform_device *pdev)
 {
 	struct ecap_pwm *ep = NULL;
 	struct resource *r;
 	int ret = 0;
+	int val;
+	char con_id[PWM_CON_ID_STRING_LENGTH] = "epwmss";
+	struct pwmss_platform_data *pdata = (&pdev->dev)->platform_data;
 
 	ep = kzalloc(sizeof(*ep), GFP_KERNEL);
+
 	if (!ep) {
 		dev_err(&pdev->dev, "failed to allocate memory\n");
 		ret = -ENOMEM;
-		goto err_ecap_pwm_alloc;
+		goto err_mem_failure;
 	}
 
-	ep->clk = clk_get(&pdev->dev, "ecap");
+	ep->version = pdata->version;
+
+	if (ep->version == PWM_VERSION_1) {
+		sprintf(con_id, "%s%d_%s", con_id, pdev->id, "fck");
+		ep->clk = clk_get(&pdev->dev, con_id);
+	} else
+		ep->clk = clk_get(&pdev->dev, "ecap");
+
 	if (IS_ERR(ep->clk)) {
 		ret = PTR_ERR(ep->clk);
-		goto err_free;
+		goto err_clock_failure;
+	}
+
+	if (ep->version == PWM_VERSION_1) {
+		down(&pdata->config_semaphore);
+		r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+
+		if (!r) {
+			dev_err(&pdev->dev, "no memory resource defined\n");
+			ret = -ENOMEM;
+			up(&pdata->config_semaphore);
+			goto err_resource_mem_failure;
+		}
+
+		r = request_mem_region(r->start, resource_size(r), pdev->name);
+
+		if (!r) {
+
+			if (pdata->config_mem_base) {
+				goto set_bit;
+			} else {
+				dev_err(&pdev->dev,
+					"failed to request memory resource\n");
+				ret = -EBUSY;
+				up(&pdata->config_semaphore);
+				goto err_request_mem_failure;
+			}
+		}
+
+		pdata->config_mem_base = ioremap(r->start, resource_size(r));
+
+		if (!pdata->config_mem_base) {
+
+			dev_err(&pdev->dev, "failed to ioremap() registers\n");
+			ret = -ENODEV;
+			up(&pdata->config_semaphore);
+			goto err_free_mem_config;
+		}
+
+set_bit:
+		pdata->pwmss_module_usage_count++;
+		clk_enable(ep->clk);
+		val = __raw_readw(pdata->config_mem_base + PWMSS_CLKCONFIG);
+		val |= BIT(ECAP_CLK_EN);
+		__raw_writew(val, pdata->config_mem_base + PWMSS_CLKCONFIG);
+		clk_disable(ep->clk);
+		up(&pdata->config_semaphore);
 	}
 
 	spin_lock_init(&ep->lock);
 	ep->ops.config = ecap_pwm_config;
 	ep->ops.request = ecap_pwm_request;
 	ep->ops.freq_transition_notifier_cb = ecap_frequency_transition_cb;
-	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+
+	if (ep->version == PWM_VERSION_1)
+		r = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	else
+		r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+
 	if (!r) {
 		dev_err(&pdev->dev, "no memory resource defined\n");
 		ret = -ENODEV;
-		goto err_free_clk;
+		goto err_resource_mem2_failiure;
 	}
 
 	r = request_mem_region(r->start, resource_size(r), pdev->name);
 	if (!r) {
 		dev_err(&pdev->dev, "failed to request memory resource\n");
 		ret = -EBUSY;
-		goto err_free_clk;
+		goto err_request_mem2_failure;
 	}
 
 	ep->mmio_base = ioremap(r->start, resource_size(r));
 	if (!ep->mmio_base) {
 		dev_err(&pdev->dev, "failed to ioremap() registers\n");
 		ret = -ENODEV;
-		goto err_free_mem;
+		goto err_free_mem2;
 	}
 
 	ep->pwm.ops = &ep->ops;
@@ -262,13 +326,31 @@ static int __init ecap_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, ep);
 	return 0;
 
-err_free_mem:
+err_free_mem2:
 	release_mem_region(r->start, resource_size(r));
-err_free_clk:
+err_request_mem2_failure:
+err_resource_mem2_failiure:
+	if (ep->version == PWM_VERSION_1) {
+		down(&pdata->config_semaphore);
+		pdata->pwmss_module_usage_count--;
+
+		if (!pdata->pwmss_module_usage_count) {
+			iounmap(pdata->config_mem_base);
+			pdata->config_mem_base = NULL;
+		}
+		up(&pdata->config_semaphore);
+	}
+err_free_mem_config:
+	if (ep->version == PWM_VERSION_1) {
+		r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+		release_mem_region(r->start, resource_size(r));
+	}
+err_request_mem_failure:
+err_resource_mem_failure:
 	clk_put(ep->clk);
-err_free:
+err_clock_failure:
 	kfree(ep);
-err_ecap_pwm_alloc:
+err_mem_failure:
 	return ret;
 }
 
@@ -301,10 +383,33 @@ static int __devexit ecap_remove(struct platform_device *pdev)
 {
 	struct ecap_pwm *ep = platform_get_drvdata(pdev);
 	struct resource *r;
+	struct pwmss_platform_data *pdata;
+	int val;
+
+	if (ep->version == PWM_VERSION_1) {
+		pdata = (&pdev->dev)->platform_data;
+		down(&pdata->config_semaphore);
+		pdata->pwmss_module_usage_count--;
+		val = __raw_readw(pdata->config_mem_base + PWMSS_CLKCONFIG);
+		val &= ~BIT(ECAP_CLK_EN);
+		__raw_writew(val, pdata->config_mem_base + PWMSS_CLKCONFIG);
+
+		if (!pdata->pwmss_module_usage_count) {
+			iounmap(pdata->config_mem_base);
+			pdata->config_mem_base = NULL;
+			r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+			release_mem_region(r->start, resource_size(r));
+		}
+		up(&pdata->config_semaphore);
+	}
 
 	pwm_unregister(&ep->pwm);
 	iounmap(ep->mmio_base);
-	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+
+	if (ep->version == PWM_VERSION_1)
+		r = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	else
+		r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	release_mem_region(r->start, resource_size(r));
 	platform_set_drvdata(pdev, NULL);
 	clk_put(ep->clk);
