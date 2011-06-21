@@ -88,6 +88,8 @@
 #define USB_MENTOR_CORE_OFFSET	0x400
 
 #ifdef CONFIG_USB_TI_CPPI41_DMA
+#define CPPI41_QMGR_REG0SIZE	0x3fff
+
 /*
  * CPPI 4.1 resources used for USB OTG controller module:
  *
@@ -240,7 +242,7 @@ int __devinit cppi41_init(struct musb *musb)
 	cppi41_dma_block[0].sched_table_base = musb->ctrl_base + 0x2800;
 
 	/* Initialize for Linking RAM region 0 alone */
-	cppi41_queue_mgr_init(cppi_info->q_mgr, 0, 0x3fff);
+	cppi41_queue_mgr_init(cppi_info->q_mgr, 0, CPPI41_QMGR_REG0SIZE);
 
 	numch =  USB_CPPI41_NUM_CH * 2;
 	order = get_count_order(numch);

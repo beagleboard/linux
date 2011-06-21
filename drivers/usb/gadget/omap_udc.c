@@ -2795,6 +2795,7 @@ static int __init omap_udc_probe(struct platform_device *pdev)
 	struct omap_usb_config	*config = pdev->dev.platform_data;
 	struct clk		*dc_clk;
 	struct clk		*hhc_clk;
+	u8			pdev_id;
 
 	/* NOTE:  "knows" the order of the resources! */
 	if (!request_mem_region(pdev->resource[0].start,
@@ -2863,7 +2864,8 @@ static int __init omap_udc_probe(struct platform_device *pdev)
 		 * use it.  Except for OTG, we don't _need_ to talk to one;
 		 * but not having one probably means no VBUS detection.
 		 */
-		xceiv = otg_get_transceiver(0);
+		pdev_id = (pdev->id >= 0) ? pdev->id : 0;
+		xceiv = otg_get_transceiver(pdev_id);
 		if (xceiv)
 			type = xceiv->label;
 		else if (config->otg) {

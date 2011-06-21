@@ -1268,9 +1268,9 @@ static int __devinit ep_config_from_table(struct musb *musb)
 	int			offset;
 	struct musb_hw_ep	*hw_ep = musb->endpoints;
 
-	if (musb->config->fifo_mode) {
+	if (musb->config->fifo_mode)
 		fifo_mode = musb->config->fifo_mode;
-	} else if (musb->config->fifo_cfg) {
+	else if (musb->config->fifo_cfg) {
 		cfg = musb->config->fifo_cfg;
 		n = musb->config->fifo_cfg_size;
 		goto done;

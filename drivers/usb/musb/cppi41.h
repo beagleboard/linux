@@ -184,6 +184,16 @@
 
 #define CPPI41_TXDMA_MAXLEN		(4 * 1024 * 1024 - 1)
 #define CPPI41_RXDMA_MAXLEN		(64 * 1024)
+
+/*
+ * Queue Status register
+ */
+#define CPPI41_QSTATUS_REG0	0x90
+#define CPPI41_QSTATUS_REG1	0x94
+#define CPPI41_QSTATUS_REG2	0x98
+#define CPPI41_QSTATUS_REG3	0x9c
+#define CPPI41_QSTATUS_REG4	0xa0
+
 /*
  * DMA Scheduler - Table Region
  */

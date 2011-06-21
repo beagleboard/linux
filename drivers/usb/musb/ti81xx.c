@@ -1,5 +1,5 @@
 /*
- * Texas Instruments TI81XX "glue layer"
+ * Texas Instruments TI81XX "usb platform glue layer"
  *
  * Copyright (c) 2008, MontaVista Software, Inc. <source@mvista.com>
  *
@@ -699,9 +699,10 @@ static irqreturn_t cppi41dma_Interrupt(int irq, void *hci)
 		usbss_write(USBSS_IRQ_STATUS, intr_status);
 	else
 		printk(KERN_DEBUG "spurious usbss intr\n");
-	q_cmpl_status_0 = musb_readl(q_mgr_base, 0x98);
-	q_cmpl_status_1 = musb_readl(q_mgr_base, 0x9c);
-	q_cmpl_status_2 = musb_readl(q_mgr_base, 0xa0);
+
+	q_cmpl_status_0 = musb_readl(q_mgr_base, CPPI41_QSTATUS_REG2);
+	q_cmpl_status_1 = musb_readl(q_mgr_base, CPPI41_QSTATUS_REG3);
+	q_cmpl_status_2 = musb_readl(q_mgr_base, CPPI41_QSTATUS_REG4);
 
 	/* USB0 tx/rx completion */
 	/* usb0 tx completion interrupt for ep1..15 */
