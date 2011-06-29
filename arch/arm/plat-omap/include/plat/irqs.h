@@ -419,8 +419,15 @@
 #define OMAP_GPMC_NR_IRQS	8
 #define OMAP_GPMC_IRQ_END	(OMAP_GPMC_IRQ_BASE + OMAP_GPMC_NR_IRQS)
 
+#define CBUS_RETU_IRQ_BASE	OMAP_GPMC_IRQ_END
+#ifdef CONFIG_CBUS_RETU
+#define CBUS_RETU_NR_IRQS	16
+#else
+#define CBUS_RETU_NR_IRQS	0
+#endif
+#define CBUS_RETU_IRQ_END	(CBUS_RETU_IRQ_BASE + CBUS_RETU_NR_IRQS)
 
-#define NR_IRQS			OMAP_GPMC_IRQ_END
+#define NR_IRQS			CBUS_RETU_IRQ_END
 
 #define OMAP_IRQ_BIT(irq)	(1 << ((irq) % 32))
 
@@ -428,7 +435,11 @@
 #define INTCPS_NR_IRQS		96
 
 #ifndef __ASSEMBLY__
-extern void omap_init_irq(void);
+extern void __iomem *omap_irq_base;
+void omap1_init_irq(void);
+void omap2_init_irq(void);
+void omap3_init_irq(void);
+void ti816x_init_irq(void);
 extern int omap_irq_pending(void);
 void omap_intc_save_context(void);
 void omap_intc_restore_context(void);
