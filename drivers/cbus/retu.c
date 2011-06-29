@@ -441,9 +441,15 @@ static int __init retu_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, retu);
 
+	ret = irq_alloc_descs(-1, 0, MAX_RETU_IRQ_HANDLERS, 0);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "failed to allocate IRQ descs\n");
+		goto err1;
+	}
+
 	retu->irq	= platform_get_irq(pdev, 0);
-	retu->irq_base	= pdata->irq_base;
-	retu->irq_end	= pdata->irq_end;
+	retu->irq_base	= ret;
+	retu->irq_end	= ret + MAX_RETU_IRQ_HANDLERS;
 	retu->devid	= pdata->devid;
 	retu->dev	= &pdev->dev;
 	the_retu	= retu;
@@ -467,7 +473,7 @@ static int __init retu_probe(struct platform_device *pdev)
 			  "retu", retu);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Unable to register IRQ handler\n");
-		goto err1;
+		goto err2;
 	}
 
 	irq_set_irq_wake(retu->irq, 1);
@@ -478,15 +484,18 @@ static int __init retu_probe(struct platform_device *pdev)
 	ret = retu_allocate_children(&pdev->dev, retu->irq_base);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Unable to allocate Retu children\n");
-		goto err2;
+		goto err3;
 	}
 
 	return 0;
 
-err2:
+err3:
 	pm_power_off = NULL;
-	__retu_write_reg(retu, RETU_REG_IMR, 0xffff);
 	free_irq(retu->irq, retu);
+
+err2:
+	retu_irq_exit(retu);
+	irq_free_descs(retu->irq_base, MAX_RETU_IRQ_HANDLERS);
 
 err1:
 	kfree(retu);
@@ -503,11 +512,9 @@ static int __exit retu_remove(struct platform_device *pdev)
 	pm_power_off = NULL;
 	the_retu = NULL;
 
-	/* Mask all RETU interrupts */
-	__retu_write_reg(retu, RETU_REG_IMR, 0xffff);
-
 	free_irq(retu->irq, retu);
 	retu_irq_exit(retu);
+	irq_free_descs(retu->irq_base, MAX_RETU_IRQ_HANDLERS);
 	kfree(retu);
 
 	return 0;
