@@ -358,12 +358,9 @@ static const u8 musb_test_packet[53] = {
 
 void musb_load_testpacket(struct musb *musb)
 {
-	void __iomem	*regs = musb->endpoints[0].regs;
-
 	musb_ep_select(musb, musb->mregs, 0);
 	musb->ops->write_fifo(musb->control_ep,
 			sizeof(musb_test_packet), musb_test_packet);
-	musb_writew(regs, MUSB_CSR0, MUSB_CSR0_TXPKTRDY);
 }
 
 /*-------------------------------------------------------------------------*/

@@ -403,6 +403,10 @@ int musb_hub_control(
 				goto error;
 			}
 			musb_writeb(musb->mregs, MUSB_TESTMODE, temp);
+			if (wIndex == 4) {
+				musb_writew(musb->endpoints[0].regs,
+					MUSB_CSR0, MUSB_CSR0_TXPKTRDY);
+			}
 			break;
 		default:
 			goto error;

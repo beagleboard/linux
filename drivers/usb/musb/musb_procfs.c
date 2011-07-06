@@ -708,6 +708,9 @@ static int musb_proc_write(struct file *file, const char __user *buffer,
 			musb_load_testpacket(musb);
 			musb_writeb(mbase, MUSB_TESTMODE,
 					MUSB_TEST_PACKET);
+			musb_writew(musb->endpoints[0].regs,
+				MUSB_CSR0, MUSB_CSR0_TXPKTRDY);
+			DBG(2, "musb:testmode sending test packet\n");
 		}
 		break;
 

@@ -761,6 +761,9 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 
 			musb_writeb(mbase, MUSB_TESTMODE,
 					musb->test_mode_nr);
+			if (MUSB_TEST_PACKET == musb->test_mode_nr)
+				musb_writew(musb->endpoints[0].regs,
+					MUSB_CSR0, MUSB_CSR0_TXPKTRDY);
 		}
 		/* FALLTHROUGH */
 
