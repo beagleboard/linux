@@ -60,6 +60,7 @@ static struct {
 	u8 mem_rgn;
 	u16 q_mgr;
 	u16 q_num;
+	u32 num_desc;
 } dma_teardown[CPPI41_NUM_DMA_BLOCK];
 
 struct cppi41_dma_sched_tbl_t {
@@ -348,6 +349,7 @@ int cppi41_dma_block_init(u8 dma_num, u8 q_mgr, u8 num_order,
 				  sizeof(*curr_td), 0);
 		td_addr += sizeof(*curr_td);
 	}
+	dma_teardown[dma_num].num_desc = num_desc;
 
 	/* Initialize the DMA scheduler. */
 	num_reg = (tbl_size + 3) / 4;
@@ -760,8 +762,9 @@ EXPORT_SYMBOL(cppi41_dma_ch_disable);
 void cppi41_free_teardown_queue(int dma_num)
 {
 	unsigned long td_addr;
+	u32 num_desc = dma_teardown[dma_num].num_desc;
 
-	while (1) {
+	while (num_desc--) {
 		td_addr = cppi41_queue_pop(&dma_teardown[dma_num].queue_obj);
 
 		if (td_addr == 0)

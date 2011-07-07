@@ -314,7 +314,7 @@ static int __devinit cppi41_controller_start(struct dma_controller *controller)
 
  free_pds:
 	dma_free_coherent(cppi->musb->controller,
-			  USB_CPPI41_MAX_PD * USB_CPPI41_DESC_ALIGN,
+			  cppi->bd_size,
 			  cppi->pd_mem, cppi->pd_mem_phys);
 
 	return 0;

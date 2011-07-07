@@ -454,7 +454,11 @@ int __devinit cppi41_init(struct musb *musb)
 	/* Initialize for Linking RAM region 0 alone */
 	cppi41_queue_mgr_init(cppi_info->q_mgr, 0, 0x3fff);
 
+#ifdef CONFIG_USB_GADGET_MUSB_HDRC
+	numch =  USB_CPPI41_NUM_CH * 2;
+#else
 	numch =  USB_CPPI41_NUM_CH * 2 * 2;
+#endif
 	order = get_count_order(numch);
 
 	/* TODO: check two teardown desc per channel (5 or 7 ?)*/
@@ -494,7 +498,11 @@ void cppi41_free(void)
 	if (!cppi41_init_done)
 		return ;
 
+#ifdef CONFIG_USB_GADGET_MUSB_HDRC
+	numch =  USB_CPPI41_NUM_CH * 2;
+#else
 	numch =  USB_CPPI41_NUM_CH * 2 * 2;
+#endif
 	order = get_count_order(numch);
 	blknum = cppi_info->dma_block;
 
@@ -1228,6 +1236,13 @@ static int __exit ti81xx_remove(struct platform_device *pdev)
 
 	platform_device_del(glue->musb);
 	platform_device_put(glue->musb);
+
+#ifdef CONFIG_USB_GADGET_MUSB_HDRC
+#ifdef CONFIG_USB_TI_CPPI41_DMA
+	cppi41_free();
+#endif
+	usbotg_ss_uninit();
+#endif
 	clk_disable(glue->clk);
 	clk_disable(glue->phy_clk);
 	clk_put(glue->clk);
@@ -1326,11 +1341,12 @@ static void __exit ti81xx_glue_exit(void)
 	/* unregister platform driver */
 	platform_driver_unregister(&ti81xx_musb_driver);
 
+#ifndef CONFIG_USB_GADGET_MUSB_HDRC
 #ifdef CONFIG_USB_TI_CPPI41_DMA
 	cppi41_free();
 #endif
-
 	usbotg_ss_uninit();
+#endif
 }
 module_exit(ti81xx_glue_exit);
 
