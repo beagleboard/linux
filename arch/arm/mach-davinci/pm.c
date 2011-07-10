@@ -18,6 +18,7 @@
 #include <asm/cacheflush.h>
 #include <asm/delay.h>
 #include <asm/io.h>
+#include <asm/fncpy.h>
 
 #include <mach/da8xx.h>
 #include <mach/sram.h>
@@ -28,13 +29,8 @@
 #define DEEPSLEEP_SLEEPCOUNT_MASK	0xFFFF
 
 static void (*davinci_sram_suspend) (struct davinci_pm_config *);
+static void *davinci_sram_suspend_mem;
 static struct davinci_pm_config *pdata;
-
-static void davinci_sram_push(void *dest, void *src, unsigned int size)
-{
-	memcpy(dest, src, size);
-	flush_icache_range((unsigned long)dest, (unsigned long)(dest + size));
-}
 
 static void davinci_pm_suspend(void)
 {
@@ -124,14 +120,14 @@ static int __init davinci_pm_probe(struct platform_device *pdev)
 		return -ENOENT;
 	}
 
-	davinci_sram_suspend = sram_alloc(davinci_cpu_suspend_sz, NULL);
-	if (!davinci_sram_suspend) {
+	davinci_sram_suspend_mem = (void *)gen_pool_alloc(davinci_gen_pool,
+				davinci_cpu_suspend_sz);
+	if (!davinci_sram_suspend_mem) {
 		dev_err(&pdev->dev, "cannot allocate SRAM memory\n");
 		return -ENOMEM;
 	}
-
-	davinci_sram_push(davinci_sram_suspend, davinci_cpu_suspend,
-						davinci_cpu_suspend_sz);
+	davinci_sram_suspend = fncpy(davinci_sram_suspend_mem,
+				&davinci_cpu_suspend, davinci_cpu_suspend_sz);
 
 	suspend_set_ops(&davinci_pm_ops);
 
@@ -140,7 +136,8 @@ static int __init davinci_pm_probe(struct platform_device *pdev)
 
 static int __exit davinci_pm_remove(struct platform_device *pdev)
 {
-	sram_free(davinci_sram_suspend, davinci_cpu_suspend_sz);
+	gen_pool_free(davinci_gen_pool, (unsigned long)davinci_sram_suspend_mem,
+		davinci_cpu_suspend_sz);
 	return 0;
 }
 

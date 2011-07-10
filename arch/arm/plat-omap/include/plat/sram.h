@@ -12,16 +12,23 @@
 #define __ARCH_ARM_OMAP_SRAM_H
 
 #ifndef __ASSEMBLY__
+#include <linux/slab.h>
+#include <linux/genalloc.h>
 #include <asm/fncpy.h>
 
-extern void *omap_sram_push_address(unsigned long size);
+extern struct gen_pool *omap_gen_pool;
 
-/* Macro to push a function to the internal SRAM, using the fncpy API */
+/*
+ * Note that fncpy requires the SRAM address to be aligned to an 8-byte
+ * boundary, so the min_alloc_order for the pool is set appropriately.
+ */
 #define omap_sram_push(funcp, size) ({				\
-	typeof(&(funcp)) _res = NULL;				\
-	void *_sram_address = omap_sram_push_address(size);	\
-	if (_sram_address)					\
-		_res = fncpy(_sram_address, &(funcp), size);	\
+	typeof(&(funcp)) _res;					\
+	size_t _sz = size;					\
+	void *_sram = gen_pool_alloc(omap_gen_pool, _sz);	\
+	_res = (_sram ? fncpy(_sram, &(funcp), _sz) : NULL);	\
+	if (!_res)						\
+		pr_err("Not enough space in SRAM\n");		\
 	_res;							\
 })
 

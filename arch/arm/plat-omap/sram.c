@@ -69,7 +69,6 @@
 static unsigned long omap_sram_start;
 static void __iomem *omap_sram_base;
 static unsigned long omap_sram_size;
-static void __iomem *omap_sram_ceil;
 
 /*
  * Depending on the target RAMFS firewall setup, the public usable amount of
@@ -97,6 +96,9 @@ static int is_sram_locked(void)
 	} else
 		return 1; /* assume locked with no PPA or security driver */
 }
+
+struct gen_pool *omap_gen_pool;
+EXPORT_SYMBOL_GPL(omap_gen_pool);
 
 /*
  * The amount of SRAM depends on the core type.
@@ -153,6 +155,18 @@ static void __init omap_detect_sram(void)
 			omap_sram_size = 0x4000;
 		}
 	}
+	{
+		/* The first SRAM_BOOTLOADER_SZ of SRAM are reserved */
+		void *base = (void *)omap_sram_base + SRAM_BOOTLOADER_SZ;
+		phys_addr_t phys = omap_sram_start + SRAM_BOOTLOADER_SZ;
+		size_t len = omap_sram_size - SRAM_BOOTLOADER_SZ;
+
+		omap_gen_pool = gen_pool_create(ilog2(FNCPY_ALIGN), -1);
+		if (omap_gen_pool)
+			WARN_ON(gen_pool_add_virt(omap_gen_pool,
+					(unsigned long)base, phys, len, -1));
+		WARN_ON(!omap_gen_pool);
+	}
 }
 
 /*
@@ -188,39 +202,12 @@ static void __init omap_map_sram(void)
 		return;
 	}
 
-	omap_sram_ceil = omap_sram_base + omap_sram_size;
-
 	/*
 	 * Looks like we need to preserve some bootloader code at the
 	 * beginning of SRAM for jumping to flash for reboot to work...
 	 */
 	memset((void *)omap_sram_base + SRAM_BOOTLOADER_SZ, 0,
 	       omap_sram_size - SRAM_BOOTLOADER_SZ);
-}
-
-/*
- * Memory allocator for SRAM: calculates the new ceiling address
- * for pushing a function using the fncpy API.
- *
- * Note that fncpy requires the returned address to be aligned
- * to an 8-byte boundary.
- */
-void *omap_sram_push_address(unsigned long size)
-{
-	unsigned long available, new_ceil = (unsigned long)omap_sram_ceil;
-
-	available = omap_sram_ceil - (omap_sram_base + SRAM_BOOTLOADER_SZ);
-
-	if (size > available) {
-		pr_err("Not enough space in SRAM\n");
-		return NULL;
-	}
-
-	new_ceil -= size;
-	new_ceil = ROUND_DOWN(new_ceil, FNCPY_ALIGN);
-	omap_sram_ceil = IOMEM(new_ceil);
-
-	return (void *)omap_sram_ceil;
 }
 
 #ifdef CONFIG_ARCH_OMAP1
@@ -349,8 +336,6 @@ u32 omap3_configure_core_dpll(u32 m2, u32 unlock_dll, u32 f, u32 inc,
 #ifdef CONFIG_PM
 void omap3_sram_restore_context(void)
 {
-	omap_sram_ceil = omap_sram_base + omap_sram_size;
-
 	_omap3_sram_configure_core_dpll =
 		omap_sram_push(omap3_sram_configure_core_dpll,
 			       omap3_sram_configure_core_dpll_sz);

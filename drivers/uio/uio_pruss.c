@@ -62,7 +62,7 @@ MODULE_PARM_DESC(extram_pool_sz, "external ram pool size to allocate");
 struct uio_pruss_dev {
 	struct uio_info *info;
 	struct clk *pruss_clk;
-	dma_addr_t sram_paddr;
+	phys_addr_t sram_paddr;
 	dma_addr_t ddr_paddr;
 	void __iomem *prussio_vaddr;
 	void *sram_vaddr;
@@ -106,7 +106,8 @@ static void pruss_cleanup(struct platform_device *dev,
 			gdev->ddr_paddr);
 	}
 	if (gdev->sram_vaddr)
-		sram_free(gdev->sram_vaddr, sram_pool_sz);
+		gen_pool_free(davinci_gen_pool,
+			      (unsigned long)gdev->sram_vaddr, sram_pool_sz);
 	kfree(gdev->info);
 	clk_put(gdev->pruss_clk);
 	kfree(gdev);
@@ -152,11 +153,15 @@ static int __devinit pruss_probe(struct platform_device *dev)
 		goto out_free;
 	}
 
-	gdev->sram_vaddr = sram_alloc(sram_pool_sz, &(gdev->sram_paddr));
+	gdev->sram_vaddr = (void *)gen_pool_alloc(davinci_gen_pool,
+						  sram_pool_sz);
 	if (!gdev->sram_vaddr) {
 		dev_err(&dev->dev, "Could not allocate SRAM pool\n");
 		goto out_free;
 	}
+
+	gdev->sram_paddr = gen_pool_virt_to_phys(davinci_gen_pool,
+					(unsigned long)gdev->sram_vaddr);
 
 	gdev->ddr_vaddr = dma_alloc_coherent(&dev->dev, extram_pool_sz,
 				&(gdev->ddr_paddr), GFP_KERNEL | GFP_DMA);

@@ -75,7 +75,7 @@ struct davinci_soc_info {
 	int				gpio_ctlrs_num;
 	struct platform_device		*serial_dev;
 	struct emac_platform_data	*emac_pdata;
-	dma_addr_t			sram_dma;
+	phys_addr_t			sram_phys;
 	unsigned			sram_len;
 	struct platform_device		*reset_device;
 	void				(*reset)(struct platform_device *);

@@ -265,16 +265,18 @@ static int allocate_sram(struct snd_pcm_substream *substream, unsigned size,
 {
 	struct snd_dma_buffer *buf = &substream->dma_buffer;
 	struct snd_dma_buffer *iram_dma = NULL;
-	dma_addr_t iram_phys = 0;
+	phys_addr_t iram_phys;
 	void *iram_virt = NULL;
 
 	if (buf->private_data || !size)
 		return 0;
 
 	ppcm->period_bytes_max = size;
-	iram_virt = sram_alloc(size, &iram_phys);
+	iram_virt = (void *)gen_pool_alloc(davinci_gen_pool, size);
 	if (!iram_virt)
 		goto exit1;
+	iram_phys = gen_pool_virt_to_phys(davinci_gen_pool,
+					(unsigned long)iram_virt);
 	iram_dma = kzalloc(sizeof(*iram_dma), GFP_KERNEL);
 	if (!iram_dma)
 		goto exit2;
@@ -286,7 +288,7 @@ static int allocate_sram(struct snd_pcm_substream *substream, unsigned size,
 	return 0;
 exit2:
 	if (iram_virt)
-		sram_free(iram_virt, size);
+		gen_pool_free(davinci_gen_pool, (unsigned long)iram_virt, size);
 exit1:
 	return -ENOMEM;
 }
@@ -820,7 +822,8 @@ static void davinci_pcm_free(struct snd_pcm *pcm)
 		buf->area = NULL;
 		iram_dma = buf->private_data;
 		if (iram_dma) {
-			sram_free(iram_dma->area, iram_dma->bytes);
+			gen_pool_free(davinci_gen_pool,
+			      (unsigned long)iram_dma->area, iram_dma->bytes);
 			kfree(iram_dma);
 		}
 	}
