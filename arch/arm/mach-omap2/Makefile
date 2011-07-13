@@ -3,7 +3,7 @@
 #
 
 # Common support
-obj-y := id.o io.o control.o mux.o devices.o serial.o gpmc.o timer-gp.o pm.o \
+obj-y := id.o io.o control.o mux.o devices.o serial.o gpmc.o timer.o pm.o \
 	 common.o gpio.o dma.o wd_timer.o
 
 omap-2-3-common				= irq.o sdrc.o
@@ -145,9 +145,19 @@ obj-$(CONFIG_SOC_OMAP2420)		+= opp2420_data.o
 obj-$(CONFIG_SOC_OMAP2430)		+= opp2430_data.o
 
 # hwmod data
-obj-$(CONFIG_SOC_OMAP2420)		+= omap_hwmod_2420_data.o
-obj-$(CONFIG_SOC_OMAP2430)		+= omap_hwmod_2430_data.o
-obj-$(CONFIG_ARCH_OMAP3)		+= omap_hwmod_3xxx_data.o
+obj-$(CONFIG_SOC_OMAP2420)		+= omap_hwmod_2xxx_ipblock_data.o \
+					   omap_hwmod_2xxx_3xxx_ipblock_data.o \
+					   omap_hwmod_2xxx_interconnect_data.o \
+					   omap_hwmod_2xxx_3xxx_interconnect_data.o \
+					   omap_hwmod_2420_data.o
+obj-$(CONFIG_SOC_OMAP2430)		+= omap_hwmod_2xxx_ipblock_data.o \
+					   omap_hwmod_2xxx_3xxx_ipblock_data.o \
+					   omap_hwmod_2xxx_interconnect_data.o \
+					   omap_hwmod_2xxx_3xxx_interconnect_data.o \
+					   omap_hwmod_2430_data.o
+obj-$(CONFIG_ARCH_OMAP3)		+= omap_hwmod_2xxx_3xxx_ipblock_data.o \
+					   omap_hwmod_2xxx_3xxx_interconnect_data.o \
+					   omap_hwmod_3xxx_data.o
 obj-$(CONFIG_ARCH_OMAP4)		+= omap_hwmod_44xx_data.o
 
 # EMU peripherals
@@ -188,6 +198,8 @@ obj-$(CONFIG_MACH_OMAP_LDP)		+= board-ldp.o \
 obj-$(CONFIG_MACH_OMAP3530_LV_SOM)      += board-omap3logic.o \
 					   hsmmc.o
 obj-$(CONFIG_MACH_OMAP3_TORPEDO)        += board-omap3logic.o \
+					   hsmmc.o
+obj-$(CONFIG_MACH_ENCORE)		+= board-omap3encore.o \
 					   hsmmc.o
 obj-$(CONFIG_MACH_OVERO)		+= board-overo.o \
 					   hsmmc.o
@@ -238,6 +250,10 @@ obj-$(CONFIG_MACH_OMAP4_PANDA)		+= board-omap4panda.o \
 					   hsmmc.o \
 					   omap_phy_internal.o
 
+obj-$(CONFIG_MACH_PCM049)		+= board-omap4pcm049.o \
+					   hsmmc.o \
+					   omap_phy_internal.o
+
 obj-$(CONFIG_MACH_OMAP3517EVM)		+= board-am3517evm.o \
 					   omap_phy_internal.o \
 
@@ -269,4 +285,4 @@ obj-$(CONFIG_ARCH_OMAP4)		+= hwspinlock.o
 disp-$(CONFIG_OMAP2_DSS)		:= display.o
 obj-y					+= $(disp-m) $(disp-y)
 
-obj-y					+= common-board-devices.o
+obj-y					+= common-board-devices.o twl-common.o
