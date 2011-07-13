@@ -189,6 +189,8 @@ obj-$(CONFIG_MACH_OMAP3530_LV_SOM)      += board-omap3logic.o \
 					   hsmmc.o
 obj-$(CONFIG_MACH_OMAP3_TORPEDO)        += board-omap3logic.o \
 					   hsmmc.o
+obj-$(CONFIG_MACH_ENCORE)		+= board-omap3encore.o \
+					   hsmmc.o
 obj-$(CONFIG_MACH_OVERO)		+= board-overo.o \
 					   hsmmc.o
 obj-$(CONFIG_MACH_OMAP3EVM)		+= board-omap3evm.o \

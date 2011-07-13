@@ -173,6 +173,12 @@ config MACH_OMAP3_TORPEDO
 	 for full description please see the products webpage at
 	 http://www.logicpd.com/products/development-kits/zoom-omap35x-torpedo-development-kit
 
+config MACH_ENCORE
+        bool "Barnes & Noble Encore (Nook Color)"
+        depends on ARCH_OMAP3
+	default y
+        select OMAP_PACKAGE_CBP
+
 config MACH_OVERO
 	bool "Gumstix Overo board"
 	depends on ARCH_OMAP3
