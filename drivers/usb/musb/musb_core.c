@@ -2392,13 +2392,19 @@ static int musb_suspend(struct device *dev)
 {
 	struct musb	*musb = dev_to_musb(dev);
 	unsigned long	flags;
+	u8 devctl = musb_readb(musb->mregs, MUSB_DEVCTL);
+	int ret = 0;
 
 	spin_lock_irqsave(&musb->lock, flags);
 
 	if (is_peripheral_active(musb)) {
-		/* FIXME force disconnect unless we know USB will wake
-		 * the system up quickly enough to respond ...
+		/*
+		 * Don't allow system suspend while peripheral mode
+		 * is actve and cable is connected to host.
 		 */
+		if ((devctl & MUSB_DEVCTL_VBUS) == MUSB_DEVCTL_VBUS
+				&& (devctl & MUSB_DEVCTL_BDEVICE))
+			ret = -EBUSY;
 	} else if (is_host_active(musb)) {
 		/* we know all the children are suspended; sometimes
 		 * they will even be wakeup-enabled.
@@ -2406,7 +2412,7 @@ static int musb_suspend(struct device *dev)
 	}
 
 	spin_unlock_irqrestore(&musb->lock, flags);
-	return 0;
+	return ret;
 }
 
 static int musb_resume_noirq(struct device *dev)
