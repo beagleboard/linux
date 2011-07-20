@@ -18,6 +18,10 @@
 #include <linux/module.h>
 #include <linux/i2c/at24.h>
 #include <linux/gpio.h>
+#include <linux/mtd/mtd.h>
+#include <linux/mtd/nand.h>
+#include <linux/mtd/partitions.h>
+#include <linux/platform_device.h>
 #include <linux/clk.h>
 #include <linux/err.h>
 
@@ -100,6 +104,7 @@ static struct platform_device tsc_device = {
 	.resource       = tsc_resources,
 };
 
+#include "board-flash.h"
 #include "mux.h"
 
 #ifdef CONFIG_OMAP_MUX
@@ -268,6 +273,26 @@ static struct pinmux_config tsc_pin_mux[] = {
 	{NULL, 0},
 };
 
+/* Pin mux for nand flash module */
+static struct pinmux_config nand_pin_mux[] = {
+	{"gpmc_ad0.gpmc_ad0",	  OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_ad1.gpmc_ad1",	  OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_ad2.gpmc_ad2",	  OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_ad3.gpmc_ad3",	  OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_ad4.gpmc_ad4",	  OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_ad5.gpmc_ad5",	  OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_ad6.gpmc_ad6",	  OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_ad7.gpmc_ad7",	  OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_wait0.gpmc_wait0", OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_wpn.gpmc_wpn",	  OMAP_MUX_MODE7 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_csn0.gpmc_csn0",	  OMAP_MUX_MODE0 | AM33XX_PULL_DISA},
+	{"gpmc_advn_ale.gpmc_advn_ale",  OMAP_MUX_MODE0 | AM33XX_PULL_DISA},
+	{"gpmc_oen_ren.gpmc_oen_ren",	 OMAP_MUX_MODE0 | AM33XX_PULL_DISA},
+	{"gpmc_wen.gpmc_wen",     OMAP_MUX_MODE0 | AM33XX_PULL_DISA},
+	{"gpmc_ben0_cle.gpmc_ben0_cle",	 OMAP_MUX_MODE0 | AM33XX_PULL_DISA},
+	{NULL, 0},
+};
+
 
 /* Module pin mux for rgmii1 */
 static struct pinmux_config rgmii1_pin_mux[] = {
@@ -326,6 +351,7 @@ static struct pinmux_config mii1_pin_mux[] = {
 	{"mdio_clk.mdio_clk", OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT_PULLUP},
 	{NULL, 0},
 };
+
 
 /*
 * @pin_mux - single module pin-mux structure which defines pin-mux
@@ -508,11 +534,69 @@ static void usb1_init(int evm_id, int profile)
 	return;
 }
 
+/* NAND partition information */
+static struct mtd_partition am335x_nand_partitions[] = {
+/* All the partition sizes are listed in terms of NAND block size */
+	{
+		.name           = "SPL",
+		.offset         = 0,			/* Offset = 0x0 */
+		.size           = SZ_128K,
+		.mask_flags     = MTD_WRITEABLE,	/* force read-only */
+	},
+	{
+		.name           = "SPL.backup1",
+		.offset         = MTDPART_OFS_APPEND,	/* Offset = 0x20000 */
+		.size           = SZ_128K,
+		.mask_flags     = MTD_WRITEABLE,        /* force read-only */
+	},
+	{
+		.name           = "SPL.backup2",
+		.offset         = MTDPART_OFS_APPEND,	/* Offset = 0x40000 */
+		.size           = SZ_128K,
+		.mask_flags     = MTD_WRITEABLE,        /* force read-only */
+	},
+	{
+		.name           = "SPL.backup3",
+		.offset         = MTDPART_OFS_APPEND,	/* Offset = 0x60000 */
+		.size           = SZ_128K,
+		.mask_flags     = MTD_WRITEABLE,        /* force read-only */
+	},
+	{
+		.name           = "U-Boot",
+		.offset         = MTDPART_OFS_APPEND,   /* Offset = 0x80000 */
+		.size           = 15 * SZ_128K,
+		.mask_flags     = MTD_WRITEABLE,        /* force read-only */
+	},
+	{
+		.name           = "U-Boot Env",
+		.offset         = MTDPART_OFS_APPEND,   /* Offset = 0x260000 */
+		.size           = 1 * SZ_128K,
+	},
+	{
+		.name           = "Kernel",
+		.offset         = MTDPART_OFS_APPEND,   /* Offset = 0x280000 */
+		.size           = 40 * SZ_128K,
+	},
+	{
+		.name           = "File System",
+		.offset         = MTDPART_OFS_APPEND,   /* Offset = 0x780000 */
+		.size           = MTDPART_SIZ_FULL,
+	},
+};
+
+static void evm_nand_init(int evm_id, int profile)
+{
+	setup_pin_mux(nand_pin_mux);
+	board_nand_init(am335x_nand_partitions,
+		ARRAY_SIZE(am335x_nand_partitions), 0, 0);
+}
+
 /* Low-Cost EVM */
 static struct evm_dev_cfg low_cost_evm_dev_cfg[] = {
 	{rgmii1_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
 	{usb0_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
 	{usb1_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
+	{evm_nand_init, DEV_ON_BASEBOARD, PROFILE_NONE},
 	{NULL, 0, 0},
 };
 
@@ -529,6 +613,8 @@ static struct evm_dev_cfg gen_purp_evm_dev_cfg[] = {
 						PROFILE_4 | PROFILE_6) },
 	{usb0_init,	DEV_ON_BASEBOARD, PROFILE_ALL},
 	{usb1_init,	DEV_ON_BASEBOARD, PROFILE_ALL},
+	{evm_nand_init, DEV_ON_DGHTR_BRD,
+		(PROFILE_ALL & ~PROFILE_2 & ~PROFILE_3)},
 	{NULL, 0, 0},
 };
 
@@ -537,6 +623,7 @@ static struct evm_dev_cfg ind_auto_mtrl_evm_dev_cfg[] = {
 	{mii1_init,	DEV_ON_DGHTR_BRD, PROFILE_ALL},
 	{usb0_init,	DEV_ON_BASEBOARD, PROFILE_ALL},
 	{usb1_init,	DEV_ON_BASEBOARD, PROFILE_ALL},
+	{evm_nand_init, DEV_ON_DGHTR_BRD, PROFILE_ALL},
 	{NULL, 0, 0},
 };
 
@@ -549,6 +636,7 @@ static struct evm_dev_cfg ip_phn_evm_dev_cfg[] = {
 	{rgmii2_init,	DEV_ON_DGHTR_BRD, PROFILE_NONE},
 	{usb0_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
 	{usb1_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
+	{evm_nand_init, DEV_ON_DGHTR_BRD, PROFILE_NONE},
 	{NULL, 0, 0},
 };
 
