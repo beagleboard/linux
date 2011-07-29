@@ -35,6 +35,7 @@
 #include <plat/board.h>
 #include <plat/common.h>
 #include <plat/lcdc.h>
+#include <plat/usb.h>
 
 static const struct display_panel disp_panel = {
 	WVGA,
@@ -385,6 +386,18 @@ static void _configure_device(int evm_id, struct evm_dev_cfg *dev_cfg,
 
 #define AM335X_LCD_BL_PIN	GPIO_TO_PIN(0, 7)
 
+/* pinmux for usb0 drvvbus */
+static struct pinmux_config usb0_pin_mux[] = {
+	{"usb0_drvvbus.usb0_drvvbus",    OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
+	{NULL, 0},
+};
+
+/* pinmux for usb1 drvvbus */
+static struct pinmux_config usb1_pin_mux[] = {
+	{"usb1_drvvbus.usb1_drvvbus",    OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
+	{NULL, 0},
+};
+
 /* Module pin mux for eCAP0 */
 static struct pinmux_config ecap0_pin_mux[] = {
 	{"ecap0_in_pwm0_out.gpio0_7", AM33XX_PIN_OUTPUT},
@@ -483,9 +496,23 @@ static void mii1_init(int evm_id, int profile)
 	return;
 }
 
+static void usb0_init(int evm_id, int profile)
+{
+	setup_pin_mux(usb0_pin_mux);
+	return;
+}
+
+static void usb1_init(int evm_id, int profile)
+{
+	setup_pin_mux(usb1_pin_mux);
+	return;
+}
+
 /* Low-Cost EVM */
 static struct evm_dev_cfg low_cost_evm_dev_cfg[] = {
 	{rgmii1_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
+	{usb0_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
+	{usb1_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
 	{NULL, 0, 0},
 };
 
@@ -500,12 +527,16 @@ static struct evm_dev_cfg gen_purp_evm_dev_cfg[] = {
 	{rgmii1_init,	DEV_ON_BASEBOARD, PROFILE_ALL},
 	{rgmii2_init,	DEV_ON_DGHTR_BRD, (PROFILE_1 | PROFILE_2 |
 						PROFILE_4 | PROFILE_6) },
+	{usb0_init,	DEV_ON_BASEBOARD, PROFILE_ALL},
+	{usb1_init,	DEV_ON_BASEBOARD, PROFILE_ALL},
 	{NULL, 0, 0},
 };
 
 /* Industrial Auto Motor Control EVM */
 static struct evm_dev_cfg ind_auto_mtrl_evm_dev_cfg[] = {
 	{mii1_init,	DEV_ON_DGHTR_BRD, PROFILE_ALL},
+	{usb0_init,	DEV_ON_BASEBOARD, PROFILE_ALL},
+	{usb1_init,	DEV_ON_BASEBOARD, PROFILE_ALL},
 	{NULL, 0, 0},
 };
 
@@ -516,6 +547,8 @@ static struct evm_dev_cfg ip_phn_evm_dev_cfg[] = {
 	{tsc_init,	DEV_ON_DGHTR_BRD, PROFILE_NONE},
 	{rgmii1_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
 	{rgmii2_init,	DEV_ON_DGHTR_BRD, PROFILE_NONE},
+	{usb0_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
+	{usb1_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
 	{NULL, 0, 0},
 };
 
@@ -706,6 +739,13 @@ static struct i2c_board_info __initdata am335x_i2c_boardinfo[] = {
 
 };
 
+static struct omap_musb_board_data musb_board_data = {
+	.interface_type	= MUSB_INTERFACE_ULPI,
+	.mode           = MUSB_OTG,
+	.power		= 500,
+	.instances	= 1,
+};
+
 static int cpld_reg_probe(struct i2c_client *client,
 	    const struct i2c_device_id *id)
 {
@@ -755,6 +795,7 @@ static void __init am335x_evm_init(void)
 	omap_serial_init();
 	am335x_evm_i2c_init();
 	omap_sdrc_init(NULL, NULL);
+	usb_musb_init(&musb_board_data);
 	omap_board_config = am335x_evm_config;
 	omap_board_config_size = ARRAY_SIZE(am335x_evm_config);
 }
