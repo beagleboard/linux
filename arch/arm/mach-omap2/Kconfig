@@ -332,6 +332,11 @@ config MACH_TI8148EVM
 	depends on SOC_OMAPTI81XX
 	default y
 
+config MACH_AM335XEVM
+	bool "AM335X Evaluation Module"
+	depends on SOC_OMAPAM33XX
+	default y
+
 config MACH_OMAP_4430SDP
 	bool "OMAP 4430 SDP board"
 	default y

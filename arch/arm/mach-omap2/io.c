@@ -467,6 +467,13 @@ void __init ti81xx_init_early(void)
 	omap_hwmod_init_postsetup();
 	omap3xxx_clk_init();
 }
+
+void __init am33xx_init_early(void)
+{
+	omap2_set_globals_am33xx();
+	omap_common_init_early();
+	omap3xxx_clk_init();
+}
 #endif
 
 #ifdef CONFIG_ARCH_OMAP4
