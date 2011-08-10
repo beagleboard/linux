@@ -51,6 +51,7 @@ static void *usbss_virt_base;
 static u8 usbss_init_done;
 struct musb *gmusb[2];
 
+u8 usbid_sw_ctrl;
 #undef USB_TI81XX_DEBUG
 
 #ifdef USB_TI81XX_DEBUG
@@ -956,22 +957,37 @@ static irqreturn_t ti81xx_interrupt(int irq, void *hci)
 int ti81xx_musb_set_mode(struct musb *musb, u8 musb_mode)
 {
 	void __iomem *reg_base = musb->ctrl_base;
+	u32 regval;
 
 	/* TODO: implement this using CONF0 */
 	if (musb_mode == MUSB_HOST) {
-		musb_writel(reg_base, USB_MODE_REG, 0);
+		regval = musb_readl(reg_base, USB_MODE_REG);
+
+		regval &= ~USBMODE_USBID_HIGH;
+		if (usbid_sw_ctrl && cpu_is_ti816x())
+			regval |= USBMODE_USBID_MUXSEL;
+
+		musb_writel(reg_base, USB_MODE_REG, regval);
 		musb_writel(musb->ctrl_base, USB_PHY_UTMI_REG, 0x02);
-		DBG(4, "host: %s: value of mode reg=%x\n\n", __func__,
-					musb_readl(reg_base, USB_MODE_REG));
-	} else
-	if (musb_mode == MUSB_PERIPHERAL) {
+		DBG(4, "host: value of mode reg=%x regval(%x)\n",
+			musb_readl(reg_base, USB_MODE_REG), regval);
+	} else if (musb_mode == MUSB_PERIPHERAL) {
 		/* TODO commmented writing 8 to USB_MODE_REG device
 			mode is not working */
-		musb_writel(reg_base, USB_MODE_REG, 0x100);
-		DBG(4, "device: %s: value of mode reg=%x\n\n", __func__,
-					musb_readl(reg_base, USB_MODE_REG));
+		regval = musb_readl(reg_base, USB_MODE_REG);
+
+		regval |= USBMODE_USBID_HIGH;
+		if (usbid_sw_ctrl && cpu_is_ti816x())
+			regval |= USBMODE_USBID_MUXSEL;
+
+		musb_writel(reg_base, USB_MODE_REG, regval);
+		DBG(4, "device: value of mode reg=%x regval(%x)\n",
+			musb_readl(reg_base, USB_MODE_REG), regval);
+	} else if (musb_mode == MUSB_OTG) {
+		musb_writel(musb->ctrl_base, USB_PHY_UTMI_REG, 0x02);
 	} else
 		return -EIO;
+
 	return 0;
 }
 
@@ -1033,18 +1049,21 @@ int ti81xx_musb_init(struct musb *musb)
 	musb->a_wait_bcon = A_WAIT_BCON_TIMEOUT;
 	musb->isr = ti81xx_interrupt;
 
-#ifdef CONFIG_USB_MUSB_OTG
-	if (musb->id == 1)
-		mode = MUSB_HOST;
-	else
-		mode = MUSB_PERIPHERAL;
-#else
-	/* set musb controller to host mode */
-	if (is_host_enabled(musb))
-		mode = MUSB_HOST;
-	else
-		mode = MUSB_PERIPHERAL;
-#endif
+	if (cpu_is_ti816x())
+		usbid_sw_ctrl = 1;
+
+	if (is_otg_enabled(musb)) {
+		/* if usb-id contolled through software for ti816x then
+		 * configure the usb0 in peripheral mode and usb1 in
+		 * host mode
+		*/
+		if (usbid_sw_ctrl && cpu_is_ti816x())
+			mode = musb->id ? MUSB_HOST : MUSB_PERIPHERAL;
+		else
+			mode = MUSB_OTG;
+	} else
+		/* set musb controller to host mode */
+		mode = is_host_enabled(musb) ? MUSB_HOST : MUSB_PERIPHERAL;
 
 	/* set musb controller to host mode */
 	musb_platform_set_mode(musb, mode);

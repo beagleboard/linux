@@ -158,6 +158,9 @@
 #define USBSS_INTR_FLAGS	(USBSS_INTR_PD_CMPL | USBSS_INTR_TX_CMPL \
 					| USBSS_INTR_RX_CMPL)
 
+#define	USBMODE_USBID_MUXSEL	0x80
+#define	USBMODE_USBID_HIGH	0x100
+
 extern void usb_nop_xceiv_register(int id);
 void set_frame_threshold(u8 musb_id, u8 is_tx, u8 epnum, u8 value, u8 en_intr);
 void set_dma_threshold(u8 musb_id, u8 is_tx, u8 epnum, u8 value);
