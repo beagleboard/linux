@@ -102,14 +102,6 @@ int omap2_mcbsp_set_clks_src(u8 id, u8 fck_src_id)
 }
 EXPORT_SYMBOL(omap2_mcbsp_set_clks_src);
 
-struct omap_device_pm_latency omap2_mcbsp_latency[] = {
-	{
-		.deactivate_func = omap_device_idle_hwmods,
-		.activate_func   = omap_device_enable_hwmods,
-		.flags = OMAP_DEVICE_LATENCY_AUTO_ADJUST,
-	},
-};
-
 static int omap_init_mcbsp(struct omap_hwmod *oh, void *unused)
 {
 	int id, count = 1;
@@ -145,8 +137,7 @@ static int omap_init_mcbsp(struct omap_hwmod *oh, void *unused)
 		count++;
 	}
 	pdev = omap_device_build_ss(name, id, oh_device, count, pdata,
-				sizeof(*pdata), omap2_mcbsp_latency,
-				ARRAY_SIZE(omap2_mcbsp_latency), false);
+				sizeof(*pdata), NULL, 0, false);
 	kfree(pdata);
 	if (IS_ERR(pdev))  {
 		pr_err("%s: Can't build omap_device for %s:%s.\n", __func__,
