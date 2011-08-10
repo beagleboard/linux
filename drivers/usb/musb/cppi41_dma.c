@@ -751,19 +751,16 @@ static unsigned cppi41_next_rx_segment(struct cppi41_channel *rx_ch)
 		 * GENERIC_RNDIS mode. Without this RNDIS gadget taking
 		 * more then 2K ms for a 64 byte pings.
 		 */
-#ifdef CONFIG_USB_GADGET_MUSB_HDRC
+#if defined(CONFIG_USB_GADGET_MUSB_HDRC) || defined(CONFIG_USB_GADGET_MUSB_HDRC_MODULE)
 		gadget_driver = cppi->musb->gadget_driver;
 #endif
-		if (!strcmp(gadget_driver->driver.name, "g_ether")) {
-			cppi41_mode_update(rx_ch, USB_GENERIC_RNDIS_MODE);
-		} else {
-			max_rx_transfer_size = 512;
-			cppi41_mode_update(rx_ch, USB_TRANSPARENT_MODE);
-		}
+		if (!strcmp(gadget_driver->driver.name, "g_file_storage"))
+			max_rx_transfer_size = rx_ch->pkt_size;
 		pkt_len = 0;
 		if (rx_ch->length < max_rx_transfer_size)
 			pkt_len = rx_ch->length;
 		cppi41_set_ep_size(rx_ch, pkt_len);
+		cppi41_mode_update(rx_ch, USB_GENERIC_RNDIS_MODE);
 	} else {
 		/*
 		 * Rx can use the generic RNDIS mode where we can
