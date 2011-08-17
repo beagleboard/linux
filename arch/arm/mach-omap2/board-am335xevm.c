@@ -485,6 +485,13 @@ static struct pinmux_config mmc1_pin_mux[] = {
 	{NULL, 0},
 };
 
+/* Module pin mux for uart3 */
+static struct pinmux_config uart3_pin_mux[] = {
+	{"spi0_cs1.uart3_rxd", AM33XX_PIN_INPUT_PULLUP},
+	{"ecap0_in_pwm0_out.uart3_txd", AM33XX_PULL_ENBL},
+	{NULL, 0},
+};
+
 /*
 * @pin_mux - single module pin-mux structure which defines pin-mux
 *			details for all its pins.
@@ -696,6 +703,13 @@ static void usb0_init(int evm_id, int profile)
 static void usb1_init(int evm_id, int profile)
 {
 	setup_pin_mux(usb1_pin_mux);
+	return;
+}
+
+/* setup uart3 */
+static void uart3_init(int evm_id, int profile)
+{
+	setup_pin_mux(uart3_pin_mux);
 	return;
 }
 
@@ -1013,6 +1027,7 @@ static struct evm_dev_cfg ind_auto_mtrl_evm_dev_cfg[] = {
 	{usb1_init,	DEV_ON_BASEBOARD, PROFILE_ALL},
 	{evm_nand_init, DEV_ON_DGHTR_BRD, PROFILE_ALL},
 	{spi1_init,	DEV_ON_DGHTR_BRD, PROFILE_ALL},
+	{uart3_init,	DEV_ON_DGHTR_BRD, PROFILE_ALL},
 	{NULL, 0, 0},
 };
 
