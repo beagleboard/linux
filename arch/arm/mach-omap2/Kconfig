@@ -337,6 +337,11 @@ config MACH_AM335XEVM
 	depends on SOC_OMAPAM33XX
 	default y
 
+config MACH_AM335XIAEVM
+	bool "AM335X IA Evaluation Module"
+	depends on SOC_OMAPAM33XX
+	default y
+
 config MACH_OMAP_4430SDP
 	bool "OMAP 4430 SDP board"
 	default y

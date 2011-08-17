@@ -1382,3 +1382,13 @@ MACHINE_START(AM335XEVM, "am335xevm")
 	.timer		= &omap3_am33xx_timer,
 	.init_machine	= am335x_evm_init,
 MACHINE_END
+
+MACHINE_START(AM335XIAEVM, "am335xiaevm")
+	/* Maintainer: Texas Instruments */
+	.atag_offset	= 0x100,
+	.map_io		= am335x_evm_map_io,
+	.init_irq	= ti81xx_init_irq,
+	.init_early	= am33xx_init_early,
+	.timer		= &omap3_am33xx_timer,
+	.init_machine	= am335x_evm_init,
+MACHINE_END
