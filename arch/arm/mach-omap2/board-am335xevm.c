@@ -33,6 +33,7 @@
 #include <linux/wl12xx.h>
 #include <linux/ethtool.h>
 #include <linux/mfd/tps65910.h>
+#include <linux/pwm_backlight.h>
 
 /* LCD controller is similar to DA850 */
 #include <video/da8xx-fb.h>
@@ -122,6 +123,22 @@ static const struct display_panel disp_panel = {
 	32,
 	32,
 	COLOR_ACTIVE,
+};
+
+#define AM335X_LCD_BL_PIN	GPIO_TO_PIN(0, 7)
+/* LCD backlight platform Data */
+#define AM335X_BACKLIGHT_MAX_BRIGHTNESS        250
+#define AM335X_BACKLIGHT_DEFAULT_BRIGHTNESS    250
+#define AM335X_PWM_PERIOD_NANO_SECONDS        (10000 * 10)
+
+#define PWM_DEVICE_ID   "ecap.0"
+
+static struct platform_pwm_backlight_data am335x_backlight_data = {
+	.pwm_id         = PWM_DEVICE_ID,
+	.ch             = -1,
+	.max_brightness = AM335X_BACKLIGHT_MAX_BRIGHTNESS,
+	.dft_brightness = AM335X_BACKLIGHT_DEFAULT_BRIGHTNESS,
+	.pwm_period_ns  = AM335X_PWM_PERIOD_NANO_SECONDS,
 };
 
 static struct lcd_ctrl_config lcd_cfg = {
@@ -773,7 +790,6 @@ static void _configure_device(int evm_id, struct evm_dev_cfg *dev_cfg,
 	}
 }
 
-#define AM335X_LCD_BL_PIN	GPIO_TO_PIN(0, 7)
 
 /* pinmux for usb0 drvvbus */
 static struct pinmux_config usb0_pin_mux[] = {
@@ -797,7 +813,8 @@ static struct pinmux_config profibus_pin_mux[] = {
 
 /* Module pin mux for eCAP0 */
 static struct pinmux_config ecap0_pin_mux[] = {
-	{"ecap0_in_pwm0_out.gpio0_7", AM33XX_PIN_OUTPUT},
+	{"ecap0_in_pwm0_out.ecap0_in_pwm0_out",
+		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
 	{NULL, 0},
 };
 
@@ -854,6 +871,14 @@ static void am335x_gpio_bl_ctrl(int val)
 	/* lcd backlight */
 	gpio_set_value(AM335X_LCD_BL_PIN, val);
 }
+/* Setup pwm-backlight */
+static struct platform_device am335x_backlight = {
+	.name           = "pwm-backlight",
+	.id             = -1,
+	.dev            = {
+		.platform_data  = &am335x_backlight_data,
+	}
+};
 
 static int __init ecap0_init(void)
 {
@@ -861,12 +886,7 @@ static int __init ecap0_init(void)
 
 	if (backlight_enable) {
 		setup_pin_mux(ecap0_pin_mux);
-
-		status = gpio_request(AM335X_LCD_BL_PIN, "lcd bl\n");
-		if (status < 0)
-			pr_warn("Failed to request gpio for LCD backlight\n");
-
-		gpio_direction_output(AM335X_LCD_BL_PIN, 1);
+		platform_device_register(&am335x_backlight);
 	}
 	return status;
 }
