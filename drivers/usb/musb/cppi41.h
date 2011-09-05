@@ -135,6 +135,11 @@
 #define DMA_CH_RX_DEFAULT_RQ_QNUM_SHIFT 0
 #define DMA_CH_RX_DEFAULT_RQ_QNUM_MASK	(0xfff << \
 					 DMA_CH_RX_DEFAULT_RQ_QNUM_SHIFT)
+#define DMA_CH_RX_MAX_BUF_CNT_SHIFT	26
+#define	DMA_CH_RX_MAX_BUF_CNT_0		0
+#define	DMA_CH_RX_MAX_BUF_CNT_1		1
+#define	DMA_CH_RX_MAX_BUF_CNT_2		2
+#define	DMA_CH_RX_MAX_BUF_CNT_3		3
 
 /* Rx Channel N Host Packet Configuration Register A/B bits */
 #define DMA_CH_RX_HOST_FDQ_QMGR_SHIFT(n) (12 + 16 * ((n) & 1))
@@ -422,6 +427,11 @@ struct cppi41_rx_ch_cfg {
 	u8 retry_starved;	/* 0 = Drop packet on descriptor/buffer */
 				/* starvartion, 1 = DMA retries FIFO block */
 				/* transfer at a later time */
+	u8 rx_max_buf_cnt;	/* The DMA ignores the SOP bit and closes up
+				 * a packet after a max_buf_cnt buffer has been
+				 * filled OR if the EOP field is set in the
+				 * info word 0
+				 */
 	struct cppi41_queue rx_queue; /* Rx complete packets queue */
 	union {
 		struct cppi41_host_pkt_cfg host_pkt; /* Host packet */
@@ -622,6 +632,17 @@ void cppi41_dma_ch_default_queue(struct cppi41_dma_ch_obj *dma_ch_obj,
 void cppi41_rx_ch_configure(struct cppi41_dma_ch_obj *rx_ch_obj,
 			    struct cppi41_rx_ch_cfg  *cfg);
 
+/**
+ * cppi41_rx_ch_set_maxbufcnt - configure max rx buffer count
+ * @rx_ch_obj:	pointer to Rx channel object
+ * rx_max_buf_cnt: maximum rx buffer count
+ *
+ * This function configures the maximum rx buffer count in rx dma
+ * global configuration register. The valid rx_max_buf_cnt value
+ * must be 0 to 4.
+ */
+void cppi41_rx_ch_set_maxbufcnt(struct cppi41_dma_ch_obj *rx_ch_obj,
+			    u8 rx_max_buf_cnt);
 /**
  * cppi41_dma_ch_enable - enable CPPI 4.1 Tx/Rx DMA channel
  * @dma_ch_obj:	pointer to DMA channel object

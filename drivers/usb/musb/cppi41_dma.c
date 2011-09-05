@@ -98,6 +98,7 @@ struct cppi41_channel {
 	u16 pkt_size;
 	u8  transfer_mode;
 	u8  zlp_queued;
+	u8  inf_mode;
 };
 
 /**
@@ -127,6 +128,7 @@ struct cppi41 {
 	u32 automode_reg_offs;		/* USB_AUTOREQ_REG offset */
 	u32 teardown_reg_offs;		/* USB_TEARDOWN_REG offset */
 	u32 bd_size;
+	u8  inf_mode;
 };
 
 struct usb_cppi41_info usb_cppi41_info[2];
@@ -445,6 +447,7 @@ static struct dma_channel *cppi41_channel_alloc(struct dma_controller
 		rx_cfg.default_desc_type = cppi41_rx_host_desc;
 		rx_cfg.sop_offset = 0;
 		rx_cfg.retry_starved = 1;
+		rx_cfg.rx_max_buf_cnt = 0;
 		rx_cfg.rx_queue.q_mgr = cppi_ch->src_queue.q_mgr = q_mgr;
 		rx_cfg.rx_queue.q_num = cppi_info->rx_comp_q[ch_num];
 		for (i = 0; i < 4; i++)
@@ -748,7 +751,7 @@ static unsigned cppi41_next_rx_segment(struct cppi41_channel *rx_ch)
 	u32 max_rx_transfer_size = 64 * 1024;
 	u32 i, n_bd , pkt_len;
 	struct usb_gadget_driver *gadget_driver;
-	u8 en_bd_intr = cppi->en_bd_intr;
+	u8 en_bd_intr = cppi->en_bd_intr, mode;
 
 	if (is_peripheral_active(cppi->musb)) {
 		/* TODO: temporary fix for CDC/RNDIS which needs to be in
@@ -758,13 +761,26 @@ static unsigned cppi41_next_rx_segment(struct cppi41_channel *rx_ch)
 #if defined(CONFIG_USB_GADGET_MUSB_HDRC) || defined(CONFIG_USB_GADGET_MUSB_HDRC_MODULE)
 		gadget_driver = cppi->musb->gadget_driver;
 #endif
-		if (!strcmp(gadget_driver->driver.name, "g_file_storage"))
-			max_rx_transfer_size = rx_ch->pkt_size;
-		pkt_len = 0;
-		if (rx_ch->length < max_rx_transfer_size)
-			pkt_len = rx_ch->length;
-		cppi41_set_ep_size(rx_ch, pkt_len);
-		cppi41_mode_update(rx_ch, USB_GENERIC_RNDIS_MODE);
+		pkt_len = rx_ch->pkt_size;
+		mode = USB_GENERIC_RNDIS_MODE;
+		if (!strcmp(gadget_driver->driver.name, "g_file_storage")) {
+			if (cppi->inf_mode && length > pkt_len) {
+				pkt_len = 0;
+				length = length - rx_ch->pkt_size;
+				cppi41_rx_ch_set_maxbufcnt(&rx_ch->dma_ch_obj,
+					DMA_CH_RX_MAX_BUF_CNT_1);
+				rx_ch->inf_mode = 1;
+			} else {
+				max_rx_transfer_size = rx_ch->pkt_size;
+				mode = USB_TRANSPARENT_MODE;
+			}
+		} else
+			if (rx_ch->length < max_rx_transfer_size)
+				pkt_len = rx_ch->length;
+
+		if (mode != USB_TRANSPARENT_MODE)
+			cppi41_set_ep_size(rx_ch, pkt_len);
+		cppi41_mode_update(rx_ch, mode);
 	} else {
 		/*
 		 * Rx can use the generic RNDIS mode where we can
@@ -979,11 +995,11 @@ static void usb_tx_ch_teardown(struct cppi41_channel *tx_ch)
 
 	if (pd_addr) {
 
-		DBG(1, "Descriptor (%08lx) popped from teardown completion "
+		dev_dbg(musb->controller, "Descriptor (%08lx) popped from teardown completion "
 			"queue\n", pd_addr);
 
 		if (usb_check_teardown(tx_ch, pd_addr)) {
-			DBG(1, "Teardown Desc (%lx) rcvd\n", pd_addr);
+			dev_dbg(musb->controller, "Teardown Desc (%lx) rcvd\n", pd_addr);
 		} else
 			ERR("Invalid PD(%08lx)popped from TearDn completion"
 				"queue\n", pd_addr);
@@ -1012,8 +1028,8 @@ static void usb_tx_ch_teardown(struct cppi41_channel *tx_ch)
 			continue;
 		}
 
-		DBG(1, "Tx-PD(%p) popped from completion queue\n", curr_pd);
-		DBG(1, "ch(%d)epnum(%d)len(%d)\n", curr_pd->ch_num,
+		dev_dbg(musb->controller, "Tx-PD(%p) popped from completion queue\n", curr_pd);
+		dev_dbg(musb->controller, "ch(%d)epnum(%d)len(%d)\n", curr_pd->ch_num,
 			curr_pd->ep_num, curr_pd->hw_desc.buf_len);
 
 		usb_put_free_pd(cppi, curr_pd);
@@ -1029,6 +1045,7 @@ static void usb_tx_ch_teardown(struct cppi41_channel *tx_ch)
 static void usb_rx_ch_teardown(struct cppi41_channel *rx_ch)
 {
 	struct cppi41 *cppi = rx_ch->channel.private_data;
+	struct musb *musb = cppi->musb;
 	struct usb_cppi41_info *cppi_info = cppi->cppi_info;
 	u32 timeout = 0xfffff, pd_addr;
 	struct cppi41_queue_obj rx_queue_obj;
@@ -1052,7 +1069,7 @@ static void usb_rx_ch_teardown(struct cppi41_channel *rx_ch)
 			break;
 		}
 
-		DBG(1, "Descriptor (%08lx) popped from teardown completion "
+		dev_dbg(musb->controller, "Descriptor (%08lx) popped from teardown completion "
 			"queue\n", pd_addr);
 
 		/*
@@ -1103,8 +1120,8 @@ static void usb_rx_ch_teardown(struct cppi41_channel *rx_ch)
 			continue;
 		}
 
-		DBG(1, "Rx-PD(%p) popped from completion queue\n", curr_pd);
-		DBG(1, "ch(%d)epnum(%d)len(%d)\n", curr_pd->ch_num,
+		dev_dbg(musb->controller, "Rx-PD(%p) popped from completion queue\n", curr_pd);
+		dev_dbg(musb->controller, "ch(%d)epnum(%d)len(%d)\n", curr_pd->ch_num,
 			curr_pd->ep_num, curr_pd->hw_desc.buf_len);
 
 		usb_put_free_pd(cppi, curr_pd);
@@ -1279,6 +1296,12 @@ cppi41_dma_controller_create(struct musb  *musb, void __iomem *mregs)
 	cppi->cppi_info = (struct usb_cppi41_info *)&usb_cppi41_info[musb->id];;
 	cppi->en_bd_intr = cppi->cppi_info->bd_intr_ctrl;
 
+	/* enable infinite mode only for ti81xx silicon rev2 */
+	if (cpu_is_am33xx() || cpu_is_ti816x()) {
+		dev_dbg(musb->controller, "cppi41dma supports infinite mode\n");
+		cppi->inf_mode = 1;
+	}
+
 	return &cppi->controller;
 }
 EXPORT_SYMBOL(cppi41_dma_controller_create);
@@ -1406,7 +1429,7 @@ static void usb_process_rx_queue(struct cppi41 *cppi, unsigned index)
 		ch_num = curr_pd->ch_num;
 		ep_num = curr_pd->ep_num;
 
-		DBG(4, "Rx complete: dma channel(%d) ep%d len %d timeout %d\n",
+		dev_dbg(musb->controller, "Rx complete: dma channel(%d) ep%d len %d timeout %d\n",
 			ch_num, ep_num, length, (50-timeout));
 
 		rx_ch = &cppi->rx_cppi_ch[ch_num];
@@ -1415,7 +1438,7 @@ static void usb_process_rx_queue(struct cppi41 *cppi, unsigned index)
 		if (curr_pd->eop) {
 			curr_pd->eop = 0;
 			/* disable the rx dma schedular */
-			if (is_peripheral_active(cppi->musb))
+			if (is_peripheral_active(cppi->musb) && !cppi->inf_mode)
 				cppi41_schedtbl_remove_dma_ch(0, 0, ch_num, 0);
 		}
 
@@ -1459,6 +1482,11 @@ static void usb_process_rx_queue(struct cppi41 *cppi, unsigned index)
 			{
 				rx_ch->channel.status = MUSB_DMA_STATUS_FREE;
 
+				if (rx_ch->inf_mode) {
+					cppi41_rx_ch_set_maxbufcnt(
+					&rx_ch->dma_ch_obj, 0);
+					rx_ch->inf_mode = 0;
+				}
 				/* Rx completion routine callback */
 				musb_dma_completion(cppi->musb, ep_num, 0);
 			}

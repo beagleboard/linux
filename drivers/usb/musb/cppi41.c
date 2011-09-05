@@ -595,6 +595,9 @@ void cppi41_rx_ch_configure(struct cppi41_dma_ch_obj *rx_ch_obj,
 	       ((cfg->rx_queue.q_num << DMA_CH_RX_DEFAULT_RQ_QNUM_SHIFT) &
 		DMA_CH_RX_DEFAULT_RQ_QNUM_MASK);
 
+	val &= ~(0x7 << DMA_CH_RX_MAX_BUF_CNT_SHIFT);
+	val |= (cfg->rx_max_buf_cnt << DMA_CH_RX_MAX_BUF_CNT_SHIFT);
+
 	rx_ch_obj->global_cfg = val;
 	__raw_writel(val, base);
 	DBG("Rx channel global configuration @ %p, value written: %x, "
@@ -713,6 +716,24 @@ void cppi41_rx_ch_configure(struct cppi41_dma_ch_obj *rx_ch_obj,
 }
 EXPORT_SYMBOL(cppi41_rx_ch_configure);
 
+void cppi41_rx_ch_set_maxbufcnt(struct cppi41_dma_ch_obj *rx_ch_obj,
+			    u8 rx_max_buf_cnt)
+{
+	void __iomem *base = rx_ch_obj->base_addr;
+	u32 val = __raw_readl(rx_ch_obj->base_addr);
+
+	val = rx_ch_obj->global_cfg;
+	val &= ~(0x7 << DMA_CH_RX_MAX_BUF_CNT_SHIFT);
+	val |= (rx_max_buf_cnt << DMA_CH_RX_MAX_BUF_CNT_SHIFT);
+
+	rx_ch_obj->global_cfg = val;
+	__raw_writel(val, base);
+
+	DBG("%s: rx-global-cfg @ %p, value written: %x, "
+	    "value read: %x\n", __func__, base, val, __raw_readl(base));
+
+}
+EXPORT_SYMBOL(cppi41_rx_ch_set_maxbufcnt);
 /*
  * cppi41_dma_ch_teardown - teardown a given Tx/Rx channel
  */
