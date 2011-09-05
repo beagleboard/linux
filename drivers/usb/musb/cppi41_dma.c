@@ -664,6 +664,10 @@ static void cppi41_set_ep_size(struct cppi41_channel *rx_ch, u32 pkt_size)
 	struct cppi41 *cppi = rx_ch->channel.private_data;
 	void *__iomem reg_base = cppi->musb->ctrl_base;
 	u8 ep_num = rx_ch->ch_num + 1;
+	u32 res = pkt_size % 64;
+
+	/* epsize register must be multiple of 64 */
+	pkt_size += res ? (64 - res) : res;
 
 	musb_writel(reg_base, USB_GENERIC_RNDIS_EP_SIZE_REG(ep_num), pkt_size);
 }
