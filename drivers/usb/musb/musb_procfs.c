@@ -750,6 +750,18 @@ static int musb_proc_write(struct file *file, const char __user *buffer,
 		musb_simulate_babble_intr(musb);
 		break;
 
+	case 'K':
+		/* enable babble workaround */
+		musb->enable_babble_work = 1;
+		INFO("enabled babble workaround\n");
+		break;
+
+	case 'k':
+		/* disable babble workaround */
+		musb->enable_babble_work = 0;
+		INFO("disabled babble workaround\n");
+		break;
+
 	case '?':
 		INFO("?: you are seeing it\n");
 		INFO("S: suspend the usb bus\n");
@@ -759,6 +771,7 @@ static int musb_proc_write(struct file *file, const char __user *buffer,
 		INFO("H: host mode\n");
 		INFO("T: start sending TEST_PACKET\n");
 		INFO("D: set/read dbug level\n");
+		INFO("K/k: enable/disable babble workaround\n");
 		break;
 #endif
 

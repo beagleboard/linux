@@ -330,6 +330,7 @@ struct musb {
 	struct work_struct	irq_work;
 	struct work_struct      work;
 	struct work_struct	otg_notifier_work;
+	u8                      enable_babble_work;
 	u16			hwvers;
 
 /* this hub status bit is reserved by USB 2.0 and not seen by usbcore */
