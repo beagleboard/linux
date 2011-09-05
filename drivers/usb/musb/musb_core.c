@@ -2166,8 +2166,22 @@ static int __devinit musb_probe(struct platform_device *pdev)
 	int		status;
 	struct resource	*iomem;
 	void __iomem	*base;
+	char	res_name[20];
 
-	iomem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (pdev->id == -1)
+		strcpy(res_name, "mc");
+	else
+		sprintf(res_name, "musb%d-irq", pdev->id);
+	irq = platform_get_irq_byname(pdev, res_name);
+
+	if (pdev->id == -1)
+		iomem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	else {
+		sprintf(res_name, "musb%d", pdev->id);
+		iomem = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+			res_name);
+	}
+
 	if (!iomem || irq <= 0)
 		return -ENODEV;
 

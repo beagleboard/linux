@@ -41,10 +41,13 @@
 #include "cppi41_dma.h"
 
 struct ti81xx_glue {
-	struct device		*dev;
-	struct platform_device	*musb;
-	struct clk		*phy_clk;
-	struct clk		*clk;
+	struct device *dev;
+	struct clk *ick;		/* common usbss interface clk */
+	struct clk *fck;		/* common usbss functional clk */
+	struct resource *mem_pa;	/* usbss memory resource */
+	void *mem_va;			/* ioremapped virtual address */
+	struct platform_device *musb[2];/* child musb pdevs */
+	u8	irq;			/* usbss irq */
 };
 static u64 musb_dmamask = DMA_BIT_MASK(32);
 static void *usbss_virt_base;
@@ -84,21 +87,22 @@ static inline void usbss_write(u32 offset, u32 data)
 	__raw_writel(data, usbss_virt_base + offset);
 }
 
-static void usbotg_ss_init(struct musb *musb)
+static void usbotg_ss_init(void)
 {
 	if (!usbss_init_done) {
-		usbss_virt_base = ioremap(TI81XX_USBSS_BASE,
-					TI81XX_USBSS_LEN);
-		usbss_init_done = 1;
+		/* reset the usbss for usb0/usb1 */
+		usbss_write(USBSS_SYSCONFIG,
+			usbss_read(USBSS_SYSCONFIG) | USB_SOFT_RESET_MASK);
+
 		/* clear any USBSS interrupts */
 		usbss_write(USBSS_IRQ_EOI, 0);
 		usbss_write(USBSS_IRQ_STATUS, usbss_read(USBSS_IRQ_STATUS));
+		usbss_init_done = 1;
 	}
 }
 static void usbotg_ss_uninit(void)
 {
 	if (usbss_init_done) {
-		iounmap(usbss_virt_base);
 		usbss_init_done = 0;
 		usbss_virt_base = 0;
 	}
@@ -404,22 +408,22 @@ static const u32 assigned_queues[] = {	0xffffffff, /* queue 0..31 */
 					0x0fffffff  /* queue 128..155 */
 					};
 
-int __devinit cppi41_init(struct musb *musb)
+int __devinit cppi41_init(u8 id, u8 irq)
 {
-	struct usb_cppi41_info *cppi_info = &usb_cppi41_info[musb->id];
+	struct usb_cppi41_info *cppi_info = &usb_cppi41_info[id];
 	u16 numch, blknum, order;
-	u32 i, nIrq = TI81XX_IRQ_USBSS;
+	u32 i;
 
 	/* init cppi info structure  */
 	cppi_info->dma_block = 0;
 	for (i = 0 ; i < USB_CPPI41_NUM_CH ; i++)
-		cppi_info->ep_dma_ch[i] = i + (15 * musb->id);
+		cppi_info->ep_dma_ch[i] = i + (15 * id);
 
 	cppi_info->q_mgr = 0;
 	cppi_info->num_tx_comp_q = 15;
 	cppi_info->num_rx_comp_q = 15;
-	cppi_info->tx_comp_q = musb->id ? tx_comp_q1 : tx_comp_q;
-	cppi_info->rx_comp_q = musb->id ? rx_comp_q1 : rx_comp_q;
+	cppi_info->tx_comp_q = id ? tx_comp_q1 : tx_comp_q;
+	cppi_info->rx_comp_q = id ? rx_comp_q1 : rx_comp_q;
 	cppi_info->bd_intr_ctrl = 1;
 
 	if (cppi41_init_done)
@@ -470,21 +474,21 @@ int __devinit cppi41_init(struct musb *musb)
 			dma_sched_table, numch);
 
 	/* attach to the IRQ */
-	if (request_irq(nIrq, cppi41dma_Interrupt, 0, "cppi41_dma", 0))
-		printk(KERN_INFO "request_irq %d failed!\n", nIrq);
+	if (request_irq(irq, cppi41dma_Interrupt, 0, "cppi41_dma", 0))
+		printk(KERN_INFO "request_irq %d failed!\n", irq);
 	else
-		printk(KERN_INFO "registerd cppi-dma Intr @ IRQ %d\n", nIrq);
+		printk(KERN_INFO "registerd cppi-dma Intr @ IRQ %d\n", irq);
 
 	cppi41_init_done = 1;
-
-	/* enable all the interrupts */
-	usbss_write(USBSS_IRQ_EOI, 0);
-	usbss_write(USBSS_IRQ_ENABLE_SET, USBSS_INTR_FLAGS);
-	usbss_write(USBSS_IRQ_DMA_ENABLE_0, 0xFFFeFFFe);
 
 	DBG(4, "Cppi41 Init Done Qmgr-base(%p) dma-base(%p)\n",
 		cppi41_queue_mgr[0].q_mgr_rgn_base,
 		cppi41_dma_block[0].global_ctrl_base);
+
+	/* enable all usbss the interrupts */
+	usbss_write(USBSS_IRQ_EOI, 0);
+	usbss_write(USBSS_IRQ_ENABLE_SET, USBSS_INTR_FLAGS);
+	usbss_write(USBSS_IRQ_DMA_ENABLE_0, 0xFFFeFFFe);
 
 	printk(KERN_INFO "Cppi41 Init Done\n");
 
@@ -727,7 +731,7 @@ static irqreturn_t cppi41dma_Interrupt(int irq, void *hci)
 
 	DBG(4, "CPPI 4.1 IRQ: Tx %x, Rx %x\n", usb0_tx_intr,
 				usb0_rx_intr);
-	if (usb0_tx_intr || usb0_rx_intr) {
+	if (gmusb[0] && (usb0_tx_intr || usb0_rx_intr)) {
 		spin_lock_irqsave(&gmusb[0]->lock, flags);
 		cppi41_completion(gmusb[0], usb0_rx_intr,
 					usb0_tx_intr);
@@ -737,7 +741,7 @@ static irqreturn_t cppi41dma_Interrupt(int irq, void *hci)
 
 	DBG(4, "CPPI 4.1 IRQ: Tx %x, Rx %x\n", usb1_tx_intr,
 		usb1_rx_intr);
-	if (usb1_rx_intr || usb1_tx_intr) {
+	if (gmusb[1] && (usb1_rx_intr || usb1_tx_intr)) {
 		spin_lock_irqsave(&gmusb[1]->lock, flags);
 		cppi41_completion(gmusb[1], usb1_rx_intr,
 			usb1_tx_intr);
@@ -1018,8 +1022,6 @@ int ti81xx_musb_init(struct musb *musb)
 	/* mentor is at offset of 0x400 in am3517/ti81xx */
 	musb->mregs += USB_MENTOR_CORE_OFFSET;
 
-	/* usb subsystem init */
-	usbotg_ss_init(musb);
 
 	/* Returns zero if e.g. not clocked */
 	rev = musb_readl(reg_base, USB_REVISION_REG);
@@ -1039,12 +1041,6 @@ int ti81xx_musb_init(struct musb *musb)
 	/* Start the on-chip PHY and its PLL. */
 	if (data->set_phy_power)
 		data->set_phy_power(1);
-
-	msleep(5);
-
-#ifdef CONFIG_USB_TI_CPPI41_DMA
-	cppi41_init(musb);
-#endif
 
 	musb->a_wait_bcon = A_WAIT_BCON_TIMEOUT;
 	musb->isr = ti81xx_interrupt;
@@ -1073,7 +1069,6 @@ int ti81xx_musb_init(struct musb *musb)
 	musb->enable_babble_work = 0;
 
 	musb_writel(reg_base, USB_IRQ_EOI, 0);
-	usbss_write(USBSS_IRQ_EOI, 0);
 
 	return 0;
 err1:
@@ -1150,125 +1145,227 @@ static struct musb_platform_ops ti81xx_ops = {
 	.simulate_babble_intr	= musb_simulate_babble,
 };
 
-static int __init ti81xx_probe(struct platform_device *pdev)
+static void __devexit ti81xx_delete_musb_pdev(struct ti81xx_glue *glue, u8 id)
 {
-	struct ti81xx_glue		*glue;
-	struct platform_device		*musb;
-	struct musb_hdrc_platform_data  *pdata = pdev->dev.platform_data;
-	int                             ret;
-	struct clk *otg_fck = NULL;
+	platform_device_del(glue->musb[id]);
+	platform_device_put(glue->musb[id]);
+}
 
-	pdev->num_resources = 2;
-	glue = kzalloc(sizeof(*glue), GFP_KERNEL);
-	if (!glue) {
-		dev_err(&pdev->dev, "unable to allocate memory\n");
-		return -ENOMEM;
+static int __devinit ti81xx_create_musb_pdev(struct ti81xx_glue *glue, u8 id)
+{
+	struct device *dev = glue->dev;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct musb_hdrc_platform_data  *pdata = dev->platform_data;
+	struct platform_device	*musb;
+	struct resource *res;
+	struct resource	resources[2];
+	char res_name[10];
+	int ret;
+
+	/* get memory resource */
+	sprintf(res_name, "musb%d", id);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, res_name);
+	if (!res) {
+		dev_err(dev, "%s get mem resource failed\n", res_name);
+		ret = -ENODEV;
+		goto err0;
 	}
+	res->parent = NULL;
+	resources[0] = *res;
 
-	if (cpu_is_ti816x())
-		glue->clk = clk_get(&pdev->dev, "usbotg_ick");
-	else
-		glue->clk = clk_get(&pdev->dev, "usb_ick");
+	/* get irq resource */
+	sprintf(res_name, "musb%d-irq", id);
+	res = platform_get_resource_byname(pdev, IORESOURCE_IRQ, res_name);
+	if (!res) {
+		dev_err(dev, "%s get irq resource failed\n", res_name);
+		ret = -ENODEV;
+		goto err0;
+	}
+	res->parent = NULL;
+	resources[1] = *res;
 
-	if (IS_ERR(glue->clk)) {
-		dev_err(&pdev->dev, "unable to get clock\n");
-		ret = PTR_ERR(glue->clk);
+	/* allocate the child platform device */
+	musb = platform_device_alloc("musb-hdrc", id);
+	if (!musb) {
+		dev_err(dev, "failed to allocate musb device\n");
 		goto err0;
 	}
 
-	musb = platform_device_alloc("musb-hdrc", pdev->id);
-	if (!musb) {
-		dev_err(&pdev->dev, "failed to allocate musb device\n");
-		ret = -ENOMEM;
-		goto err1;
-	}
-
-	musb->dev.parent		= &pdev->dev;
+	musb->id			= id;
+	musb->dev.parent		= dev;
 	musb->dev.dma_mask		= &musb_dmamask;
 	musb->dev.coherent_dma_mask	= musb_dmamask;
 
-	glue->dev			= &pdev->dev;
-	glue->musb			= musb;
+	glue->musb[id]			= musb;
 
 	pdata->platform_ops		= &ti81xx_ops;
 
-	platform_set_drvdata(pdev, glue);
-	ret = platform_device_add_resources(musb, pdev->resource,
-			pdev->num_resources);
+	ret = platform_device_add_resources(musb, resources, 2);
 	if (ret) {
-		dev_err(&pdev->dev, "failed to add resources\n");
-		goto err3;
+		dev_err(dev, "failed to add resources\n");
+		goto err1;
 	}
 
 	ret = platform_device_add_data(musb, pdata, sizeof(*pdata));
 	if (ret) {
-		dev_err(&pdev->dev, "failed to add platform_data\n");
-		goto err2;
+		dev_err(dev, "failed to add platform_data\n");
+		goto err1;
 	}
-
-	ret = clk_enable(glue->clk);
-	if (ret) {
-		dev_err(&pdev->dev, "failed to enable clock\n");
-		goto err2;
-	}
-
-	/* Enable musb phy clock */
-	if (cpu_is_ti816x())
-		otg_fck = clk_get(NULL, "usbotg_ick");
-	else if (cpu_is_ti814x() && musb->id == 0)
-		otg_fck = clk_get(NULL, "usb_phy0_rclk_ick");
-	else if (cpu_is_ti814x() && musb->id == 1)
-		otg_fck = clk_get(NULL, "usb_phy1_rclk_ick");
-
-	clk_enable(otg_fck);
-	DBG(2, "usbotg_phy_ck=%lud\n", clk_get_rate(otg_fck));
-
-	platform_set_drvdata(pdev, glue);
-	glue->dev = &pdev->dev;
-	glue->phy_clk = otg_fck;
 
 	ret = platform_device_add(musb);
 	if (ret) {
-		dev_err(&pdev->dev, "failed to register musb device\n");
-		goto err3;
+		dev_err(dev, "failed to register musb device\n");
+		goto err1;
 	}
 
 	return 0;
 
-err3:
-	clk_disable(glue->clk);
-
-err2:
-	platform_device_put(musb);
-
 err1:
-	clk_put(glue->clk);
-
+	platform_device_put(musb);
 err0:
-	kfree(glue);
+	return ret;
+}
 
+static int __init ti81xx_probe(struct platform_device *pdev)
+{
+	struct ti81xx_glue *glue;
+	struct device *dev = &pdev->dev;
+	struct musb_hdrc_platform_data *plat = dev->platform_data;
+	struct omap_musb_board_data *data = plat->board_data;
+	int ret, i;
+	struct resource *res;
+
+	/* allocate glue */
+	glue = kzalloc(sizeof(*glue), GFP_KERNEL);
+	if (!glue) {
+		dev_err(&pdev->dev, "unable to allocate glue memory\n");
+		ret = -ENOMEM;
+		goto err0;
+	}
+
+	/* interface clock needs to be enabled for usbss register programming */
+	glue->ick = clk_get(&pdev->dev, "usbotg_ick");
+	if (IS_ERR(glue->ick)) {
+		dev_err(&pdev->dev, "unable to get usbss interface clock\n");
+		ret = PTR_ERR(glue->ick);
+		goto err1;
+	}
+
+	/* functional clock needs to be enabled for usbss register programming */
+	glue->fck = clk_get(&pdev->dev, "usbotg_fck");
+	if (IS_ERR(glue->fck)) {
+		dev_err(&pdev->dev, "unable to get usbss functional clock\n");
+		ret = PTR_ERR(glue->fck);
+		goto err2;
+	}
+
+	/* get memory resource */
+	glue->mem_pa = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!glue->mem_pa) {
+		dev_err(&pdev->dev, "failed to get usbss mem resourse\n");
+		ret = -ENODEV;
+		goto err3;
+	}
+
+	/* get memory resource */
+	res = platform_get_resource_byname(pdev, IORESOURCE_IRQ, "usbss-irq");
+	if (!res) {
+		dev_err(&pdev->dev, "failed to get usbss irq resourse\n");
+		ret = -ENODEV;
+		goto err3;
+	}
+	glue->irq = res->start;
+
+	/* enable interface clock */
+	ret = clk_enable(glue->ick);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to enable usbss interface clock\n");
+		goto err3;
+	}
+
+	/* enable functional clock */
+	ret = clk_enable(glue->fck);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to enable usbss functional clock\n");
+		goto err4;
+	}
+
+	/* iomap for usbss mem space */
+	glue->mem_va =
+		ioremap(glue->mem_pa->start, resource_size(glue->mem_pa));
+	if (!glue->mem_va) {
+		dev_err(&pdev->dev, "usbss ioremap failed\n");
+		ret = -ENOMEM;
+		goto err5;
+	}
+	usbss_virt_base = glue->mem_va;
+
+	glue->dev = &pdev->dev;
+	platform_set_drvdata(pdev, glue);
+
+	/* usb subsystem init */
+	usbotg_ss_init();
+
+	/* clear any USBSS interrupts */
+	__raw_writel(0, glue->mem_va + USBSS_IRQ_EOI);
+	__raw_writel(__raw_readl(glue->mem_va + USBSS_IRQ_STATUS),
+					glue->mem_va + USBSS_IRQ_STATUS);
+
+	/* create the child platform device for mulitple instances of musb */
+	for (i = 0; i <= data->instances; ++i) {
+#ifdef CONFIG_USB_TI_CPPI41_DMA
+		/* initialize the cppi41dma init */
+		cppi41_init(i, glue->irq);
+#endif
+		ret |= ti81xx_create_musb_pdev(glue, i);
+		if (ret != 0)
+			goto err6;
+	}
+
+	return 0;
+
+err6:
+	iounmap(glue->mem_va);
+err5:
+	clk_disable(glue->fck);
+err4:
+	clk_disable(glue->ick);
+err3:
+	clk_put(glue->fck);
+err2:
+	clk_put(glue->ick);
+err1:
+	kfree(glue);
+err0:
 	return ret;
 }
 
 static int __exit ti81xx_remove(struct platform_device *pdev)
 {
-	struct ti81xx_glue          *glue = platform_get_drvdata(pdev);
+	struct ti81xx_glue *glue = platform_get_drvdata(pdev);
+	struct device *dev = &pdev->dev;
+	struct musb_hdrc_platform_data *plat = dev->platform_data;
+	struct omap_musb_board_data *data = plat->board_data;
+	int i;
 
-	platform_device_del(glue->musb);
-	platform_device_put(glue->musb);
+	/* delete the child platform device for mulitple instances of musb */
+	for (i = 0; i <= data->instances; ++i)
+		ti81xx_delete_musb_pdev(glue, i);
 
-#ifdef CONFIG_USB_GADGET_MUSB_HDRC
 #ifdef CONFIG_USB_TI_CPPI41_DMA
 	cppi41_free();
 #endif
+	/* iounmap */
+	iounmap(glue->mem_va);
 	usbotg_ss_uninit();
-#endif
-	clk_disable(glue->clk);
-	clk_disable(glue->phy_clk);
-	clk_put(glue->clk);
-	clk_put(glue->phy_clk);
+
+	/* disable common usbss functional clock */
+	clk_disable(glue->fck);
+	clk_put(glue->fck);
+	/* disable common usbss interface clock */
+	clk_disable(glue->ick);
+	clk_put(glue->ick);
 	kfree(glue);
-	pdev->num_resources = 0;
 
 	return 0;
 }
@@ -1287,6 +1384,8 @@ static int ti81xx_suspend(struct device *dev)
 			data->set_phy_power(i);
 	}
 
+	/* disable the common usbss functional clock */
+	clk_disable(glue->fck);
 	/* disable the common usbss interface clock */
 	clk_disable(glue->ick);
 	return 0;
@@ -1350,8 +1449,10 @@ subsys_initcall(ti81xx_glue_init);
 
 static void __exit ti81xx_glue_exit(void)
 {
+#ifdef CONFIG_USB_TI_CPPI41_DMA
 	/* free the usbss irq */
 	free_irq(TI81XX_IRQ_USBSS, 0);
+#endif
 
 	/* disable the interrupts */
 	usbss_write(USBSS_IRQ_EOI, 0);
@@ -1360,13 +1461,6 @@ static void __exit ti81xx_glue_exit(void)
 
 	/* unregister platform driver */
 	platform_driver_unregister(&ti81xx_musb_driver);
-
-#ifndef CONFIG_USB_GADGET_MUSB_HDRC
-#ifdef CONFIG_USB_TI_CPPI41_DMA
-	cppi41_free();
-#endif
-	usbotg_ss_uninit();
-#endif
 }
 module_exit(ti81xx_glue_exit);
 
