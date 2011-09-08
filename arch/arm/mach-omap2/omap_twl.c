@@ -285,7 +285,7 @@ int __init omap3_twl_init(void)
 {
 	struct voltagedomain *voltdm;
 
-	if (!cpu_is_omap34xx())
+	if (!cpu_is_omap34xx() || cpu_is_am33xx())
 		return -ENODEV;
 
 	if (cpu_is_omap3630()) {

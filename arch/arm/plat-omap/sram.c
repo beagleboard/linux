@@ -370,6 +370,9 @@ static inline int omap34xx_sram_init(void)
 
 int __init omap_sram_init(void)
 {
+	if (cpu_is_am33xx())
+		return 0;
+
 	omap_detect_sram();
 	omap_map_sram();
 

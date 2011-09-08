@@ -790,7 +790,7 @@ static int __init omap3_pm_init(void)
 	struct clockdomain *neon_clkdm, *per_clkdm, *mpu_clkdm, *core_clkdm;
 	int ret;
 
-	if (!cpu_is_omap34xx())
+	if (!cpu_is_omap34xx() || cpu_is_am33xx())
 		return -ENODEV;
 
 	if (!omap3_has_io_chain_ctrl())
