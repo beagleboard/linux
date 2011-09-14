@@ -576,15 +576,15 @@ static unsigned cppi41_next_tx_segment(struct cppi41_channel *tx_ch)
 	 * transfer in one PD and one IRQ.  The only time we would NOT want
 	 * to use it is when the hardware constraints prevent it...
 	 */
-	if ((pkt_size & 0x3f) == 0 && length > pkt_size) {
-		num_pds  = 1;
-		pkt_size = length;
+	if ((pkt_size & 0x3f) == 0) {
+		num_pds  = length ? 1 : 0;
 		cppi41_mode_update(tx_ch, USB_GENERIC_RNDIS_MODE);
 	} else {
 		num_pds  = (length + pkt_size - 1) / pkt_size;
 		cppi41_mode_update(tx_ch, USB_TRANSPARENT_MODE);
 	}
 
+	pkt_size = length;
 	/*
 	 * If length of transmit buffer is 0 or a multiple of the endpoint size,
 	 * then send the zero length packet.
@@ -787,18 +787,16 @@ static unsigned cppi41_next_rx_segment(struct cppi41_channel *rx_ch)
 		 * probably fit this transfer in one PD and one IRQ
 		 * (or two with a short packet).
 		 */
-		if ((pkt_size & 0x3f) == 0 && length >= 2 * pkt_size) {
+		if ((pkt_size & 0x3f) == 0) {
 			cppi41_mode_update(rx_ch, USB_GENERIC_RNDIS_MODE);
 			cppi41_autoreq_update(rx_ch, USB_AUTOREQ_ALL_BUT_EOP);
 
-			if (likely(length < 0x10000))
-				pkt_size = length - length % pkt_size;
-			else
-				pkt_size = 0x10000;
+			pkt_size = (length > 0x10000) ? 0x10000 : length;
 			cppi41_set_ep_size(rx_ch, pkt_size);
 		} else {
 			cppi41_mode_update(rx_ch, USB_TRANSPARENT_MODE);
 			cppi41_autoreq_update(rx_ch, USB_NO_AUTOREQ);
+			max_rx_transfer_size = rx_ch->pkt_size;
 		}
 	}
 
