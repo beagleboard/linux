@@ -36,12 +36,12 @@ static struct omap_board_config_kernel generic_config[] = {
 static void __init omap_generic_init_early(void)
 {
 	omap2_init_common_infrastructure();
-	omap2_init_common_devices(NULL, NULL);
 }
 
 static void __init omap_generic_init(void)
 {
 	omap_serial_init();
+	omap_sdrc_init(NULL, NULL);
 	omap_board_config = generic_config;
 	omap_board_config_size = ARRAY_SIZE(generic_config);
 }
@@ -66,7 +66,7 @@ static void __init omap_generic_map_io(void)
 /* XXX This machine entry name should be updated */
 MACHINE_START(OMAP_GENERIC, "Generic OMAP24xx")
 	/* Maintainer: Paul Mundt <paul.mundt@nokia.com> */
-	.boot_params	= 0x80000100,
+	.atag_offset	= 0x100,
 	.reserve	= omap_reserve,
 	.map_io		= omap_generic_map_io,
 	.init_early	= omap_generic_init_early,
