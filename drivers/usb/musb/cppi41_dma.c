@@ -175,9 +175,11 @@ static int __devinit cppi41_controller_start(struct dma_controller *controller)
 	unsigned long pd_addr;
 	int i;
 	struct usb_cppi41_info *cppi_info;
+	struct musb *musb;
 
 	cppi = container_of(controller, struct cppi41, controller);
 	cppi_info = cppi->cppi_info;
+	musb = cppi->musb;
 
 	/*
 	 * TODO: We may need to check USB_CPPI41_MAX_PD here since CPPI 4.1
@@ -196,14 +198,14 @@ static int __devinit cppi41_controller_start(struct dma_controller *controller)
 					  &cppi->pd_mem_phys,
 					  GFP_KERNEL | GFP_DMA);
 	if (cppi->pd_mem == NULL) {
-		DBG(1, "ERROR: packet descriptor memory allocation failed\n");
+		dev_dbg(musb->controller, "ERROR: packet descriptor memory allocation failed\n");
 		return 0;
 	}
 	if (cppi41_mem_rgn_alloc(cppi_info->q_mgr, cppi->pd_mem_phys,
 				 USB_CPPI41_DESC_SIZE_SHIFT,
 				 get_count_order(USB_CPPI41_MAX_PD),
 				 &cppi->pd_mem_rgn)) {
-		DBG(1, "ERROR: queue manager memory region allocation "
+		dev_dbg(musb->controller, "ERROR: queue manager memory region allocation "
 		    "failed\n");
 		goto free_pds;
 	}
@@ -211,14 +213,14 @@ static int __devinit cppi41_controller_start(struct dma_controller *controller)
 	/* Allocate the teardown completion queue */
 	if (cppi41_queue_alloc(CPPI41_UNASSIGNED_QUEUE,
 			       0, &cppi->teardownQNum)) {
-		DBG(1, "ERROR: teardown completion queue allocation failed\n");
+		dev_dbg(musb->controller, "ERROR: teardown completion queue allocation failed\n");
 		goto free_mem_rgn;
 	}
-	DBG(4, "Allocated teardown completion queue %d in queue manager 0\n",
+	dev_dbg(musb->controller, "Allocated teardown completion queue %d in queue manager 0\n",
 	    cppi->teardownQNum);
 
 	if (cppi41_queue_init(&cppi->queue_obj, 0, cppi->teardownQNum)) {
-		DBG(1, "ERROR: teardown completion queue initialization "
+		dev_dbg(musb->controller, "ERROR: teardown completion queue initialization "
 		    "failed\n");
 		goto free_queue;
 	}
@@ -289,11 +291,11 @@ static int __devinit cppi41_controller_start(struct dma_controller *controller)
 
  free_queue:
 	if (cppi41_queue_free(0, cppi->teardownQNum))
-		DBG(1, "ERROR: failed to free teardown completion queue\n");
+		dev_dbg(musb->controller, "ERROR: failed to free teardown completion queue\n");
 
  free_mem_rgn:
 	if (cppi41_mem_rgn_free(cppi_info->q_mgr, cppi->pd_mem_rgn))
-		DBG(1, "ERROR: failed to free queue manager memory region\n");
+		dev_dbg(musb->controller, "ERROR: failed to free queue manager memory region\n");
 
  free_pds:
 	dma_free_coherent(cppi->musb->controller,
@@ -314,9 +316,11 @@ static int cppi41_controller_stop(struct dma_controller *controller)
 	struct cppi41 *cppi;
 	void __iomem *reg_base;
 	struct usb_cppi41_info *cppi_info;
+	struct musb *musb;
 
 	cppi = container_of(controller, struct cppi41, controller);
 	cppi_info = cppi->cppi_info;
+	musb = cppi->musb;
 
 	/*
 	 * pop all the teardwon descriptor queued to tdQueue
@@ -325,14 +329,14 @@ static int cppi41_controller_stop(struct dma_controller *controller)
 
 	/* Free the teardown completion queue */
 	if (cppi41_queue_free(cppi_info->q_mgr, cppi->teardownQNum))
-		DBG(1, "ERROR: failed to free teardown completion queue\n");
+		dev_dbg(musb->controller, "ERROR: failed to free teardown completion queue\n");
 
 	/*
 	 * Free the packet descriptor region allocated
 	 * for all Tx/Rx channels.
 	 */
 	if (cppi41_mem_rgn_free(cppi_info->q_mgr, cppi->pd_mem_rgn))
-		DBG(1, "ERROR: failed to free queue manager memory region\n");
+		dev_dbg(musb->controller, "ERROR: failed to free queue manager memory region\n");
 
 	dma_free_coherent(cppi->musb->controller,
 			  USB_CPPI41_MAX_PD * USB_CPPI41_DESC_ALIGN,
@@ -368,15 +372,17 @@ static struct dma_channel *cppi41_channel_alloc(struct dma_controller
 	struct cppi41_channel  *cppi_ch;
 	u32 ch_num, ep_num = ep->epnum;
 	struct usb_cppi41_info *cppi_info;
+	struct musb *musb;
 
 	cppi = container_of(controller, struct cppi41, controller);
 	cppi_info = cppi->cppi_info;
+	musb = cppi->musb;
 
 	/* Remember, ep_num: 1 .. Max_EP, and CPPI ch_num: 0 .. Max_EP - 1 */
 	ch_num = ep_num - 1;
 
 	if (ep_num > USB_CPPI41_NUM_CH) {
-		DBG(1, "No %cx DMA channel for EP%d\n",
+		dev_dbg(musb->controller, "No %cx DMA channel for EP%d\n",
 		    is_tx ? 'T' : 'R', ep_num);
 		return NULL;
 	}
@@ -389,7 +395,7 @@ static struct dma_channel *cppi41_channel_alloc(struct dma_controller
 		if (cppi41_tx_ch_init(&cppi_ch->dma_ch_obj,
 				      cppi_info->dma_block,
 				      cppi_info->ep_dma_ch[ch_num])) {
-			DBG(1, "ERROR: cppi41_tx_ch_init failed for "
+			dev_dbg(musb->controller, "ERROR: cppi41_tx_ch_init failed for "
 			    "channel %d\n", ch_num);
 			return NULL;
 		}
@@ -408,18 +414,18 @@ static struct dma_channel *cppi41_channel_alloc(struct dma_controller
 		if (cppi41_rx_ch_init(&cppi_ch->dma_ch_obj,
 				      cppi_info->dma_block,
 				      cppi_info->ep_dma_ch[ch_num])) {
-			DBG(1, "ERROR: cppi41_rx_ch_init failed\n");
+			dev_dbg(musb->controller, "ERROR: cppi41_rx_ch_init failed\n");
 			return NULL;
 		}
 
 		if (cppi41_queue_alloc(CPPI41_FREE_DESC_BUF_QUEUE |
 				       CPPI41_UNASSIGNED_QUEUE,
 				       q_mgr, &cppi_ch->src_queue.q_num)) {
-			DBG(1, "ERROR: cppi41_queue_alloc failed for "
+			dev_dbg(musb->controller, "ERROR: cppi41_queue_alloc failed for "
 			    "free descriptor/buffer queue\n");
 			return NULL;
 		}
-		DBG(4, "Allocated free descriptor/buffer queue %d in "
+		dev_dbg(musb->controller, "Allocated free descriptor/buffer queue %d in "
 		    "queue manager %d\n", cppi_ch->src_queue.q_num, q_mgr);
 
 		rx_cfg.default_desc_type = cppi41_rx_host_desc;
@@ -435,12 +441,12 @@ static struct dma_channel *cppi41_channel_alloc(struct dma_controller
 	/* Initialize the CPPI 4.1 DMA source queue */
 	if (cppi41_queue_init(&cppi_ch->queue_obj, cppi_ch->src_queue.q_mgr,
 			       cppi_ch->src_queue.q_num)) {
-		DBG(1, "ERROR: cppi41_queue_init failed for %s queue",
+		dev_dbg(musb->controller, "ERROR: cppi41_queue_init failed for %s queue",
 		    is_tx ? "Tx" : "Rx free descriptor/buffer");
 		if (is_tx == 0 &&
 		    cppi41_queue_free(cppi_ch->src_queue.q_mgr,
 				      cppi_ch->src_queue.q_num))
-			DBG(1, "ERROR: failed to free Rx descriptor/buffer "
+			dev_dbg(musb->controller, "ERROR: failed to free Rx descriptor/buffer "
 			    "queue\n");
 		 return NULL;
 	}
@@ -449,7 +455,7 @@ static struct dma_channel *cppi41_channel_alloc(struct dma_controller
 	cppi41_dma_ch_enable(&cppi_ch->dma_ch_obj);
 
 	if (cppi_ch->end_pt)
-		DBG(1, "Re-allocating DMA %cx channel %d (%p)\n",
+		dev_dbg(musb->controller, "Re-allocating DMA %cx channel %d (%p)\n",
 		    is_tx ? 'T' : 'R', ch_num, cppi_ch);
 
 	cppi_ch->end_pt = ep;
@@ -458,7 +464,7 @@ static struct dma_channel *cppi41_channel_alloc(struct dma_controller
 	cppi_ch->channel.max_len = is_tx ?
 				CPPI41_TXDMA_MAXLEN : CPPI41_RXDMA_MAXLEN;
 
-	DBG(4, "Allocated DMA %cx channel %d for EP%d\n", is_tx ? 'T' : 'R',
+	dev_dbg(musb->controller, "Allocated DMA %cx channel %d for EP%d\n", is_tx ? 'T' : 'R',
 	    ch_num, ep_num);
 
 	return &cppi_ch->channel;
@@ -474,8 +480,9 @@ static void cppi41_channel_release(struct dma_channel *channel)
 
 	/* REVISIT: for paranoia, check state and abort if needed... */
 	cppi_ch = container_of(channel, struct cppi41_channel, channel);
+
 	if (cppi_ch->end_pt == NULL)
-		DBG(1, "Releasing idle DMA channel %p\n", cppi_ch);
+		printk(KERN_INFO "Releasing idle DMA channel %p\n", cppi_ch);
 
 	/* But for now, not its IRQ */
 	cppi_ch->end_pt = NULL;
@@ -487,7 +494,7 @@ static void cppi41_channel_release(struct dma_channel *channel)
 	if (cppi_ch->transmit == 0 &&
 	    cppi41_queue_free(cppi_ch->src_queue.q_mgr,
 			      cppi_ch->src_queue.q_num))
-		DBG(1, "ERROR: failed to free Rx descriptor/buffer queue\n");
+		printk(KERN_ERR "ERROR: failed to free Rx descriptor/buffer queue\n");
 }
 
 static void cppi41_mode_update(struct cppi41_channel *cppi_ch, u8 mode)
@@ -537,6 +544,7 @@ static void cppi41_mode_update(struct cppi41_channel *cppi_ch, u8 mode)
 static unsigned cppi41_next_tx_segment(struct cppi41_channel *tx_ch)
 {
 	struct cppi41 *cppi = tx_ch->channel.private_data;
+	struct musb *musb = cppi->musb;
 	struct usb_pkt_desc *curr_pd;
 	u32 length = tx_ch->length - tx_ch->curr_offset;
 	u32 pkt_size = tx_ch->pkt_size;
@@ -566,7 +574,7 @@ static unsigned cppi41_next_tx_segment(struct cppi41_channel *tx_ch)
 	if (!length || (tx_ch->transfer_mode && length % pkt_size == 0))
 		num_pds++;
 
-	DBG(4, "TX DMA%u, %s, maxpkt %u, %u PDs, addr %#x, len %u\n",
+	dev_dbg(musb->controller, "TX DMA%u, %s, maxpkt %u, %u PDs, addr %#x, len %u\n",
 	    tx_ch->ch_num, tx_ch->dma_mode ? "accelerated" : "transparent",
 	    pkt_size, num_pds, tx_ch->start_addr + tx_ch->curr_offset, length);
 
@@ -576,7 +584,7 @@ static unsigned cppi41_next_tx_segment(struct cppi41_channel *tx_ch)
 		/* Get Tx host packet descriptor from the free pool */
 		curr_pd = usb_get_free_pd(cppi);
 		if (curr_pd == NULL) {
-			DBG(1, "No Tx PDs\n");
+			dev_dbg(musb->controller, "No Tx PDs\n");
 			break;
 		}
 
@@ -605,7 +613,7 @@ static unsigned cppi41_next_tx_segment(struct cppi41_channel *tx_ch)
 		if (pkt_size == 0)
 			tx_ch->zlp_queued = 1;
 
-		DBG(5, "TX PD %p: buf %08x, len %08x, pkt info %08x\n", curr_pd,
+		dev_dbg(musb->controller, "TX PD %p: buf %08x, len %08x, pkt info %08x\n", curr_pd,
 		    hw_desc->buf_ptr, hw_desc->buf_len, hw_desc->pkt_info);
 
 		cppi41_queue_push(&tx_ch->queue_obj, curr_pd->dma_addr,
@@ -710,6 +718,7 @@ static void cppi41_set_ep_size(struct cppi41_channel *rx_ch, u32 pkt_size)
 static unsigned cppi41_next_rx_segment(struct cppi41_channel *rx_ch)
 {
 	struct cppi41 *cppi = rx_ch->channel.private_data;
+	struct musb *musb = cppi->musb;
 	struct usb_pkt_desc *curr_pd;
 	struct cppi41_host_pkt_desc *hw_desc;
 	u32 length = rx_ch->length - rx_ch->curr_offset;
@@ -757,7 +766,7 @@ static unsigned cppi41_next_rx_segment(struct cppi41_channel *rx_ch)
 		}
 	}
 
-	DBG(4, "RX DMA%u, %s, maxpkt %u, addr %#x, rec'd %u/%u\n",
+	dev_dbg(musb->controller, "RX DMA%u, %s, maxpkt %u, addr %#x, rec'd %u/%u\n",
 	    rx_ch->ch_num, rx_ch->dma_mode ? "accelerated" : "transparent",
 	    pkt_size, rx_ch->start_addr + rx_ch->curr_offset,
 	    rx_ch->curr_offset, rx_ch->length);
@@ -770,7 +779,7 @@ static unsigned cppi41_next_rx_segment(struct cppi41_channel *rx_ch)
 		curr_pd = usb_get_free_pd(cppi);
 		if (curr_pd == NULL) {
 			/* Shouldn't ever happen! */
-			DBG(4, "No Rx PDs\n");
+			dev_dbg(musb->controller, "No Rx PDs\n");
 			goto sched;
 		}
 
@@ -847,7 +856,7 @@ static int cppi41_channel_program(struct dma_channel *channel,	u16 maxpacket,
 			cppi_ch->transmit ? 'T' : 'R', cppi_ch->ch_num);
 		break;
 	case MUSB_DMA_STATUS_UNKNOWN:
-		DBG(1, "%cx DMA%d not allocated!\n",
+		WARNING("%cx DMA%d not allocated!\n",
 		    cppi_ch->transmit ? 'T' : 'R', cppi_ch->ch_num);
 		return 0;
 	case MUSB_DMA_STATUS_FREE:
@@ -890,9 +899,10 @@ static int usb_check_teardown(struct cppi41_channel *cppi_ch,
 	u32 info;
 	struct cppi41 *cppi = cppi_ch->channel.private_data;
 	struct usb_cppi41_info *cppi_info = cppi->cppi_info;
+	struct musb *musb = cppi->musb;
 
 	if (cppi41_get_teardown_info(pd_addr, &info)) {
-		DBG(1, "ERROR: not a teardown descriptor\n");
+		dev_dbg(musb->controller, "ERROR: not a teardown descriptor\n");
 		return 0;
 	}
 
@@ -905,7 +915,7 @@ static int usb_check_teardown(struct cppi41_channel *cppi_ch,
 	     CPPI41_TEARDOWN_CHAN_NUM_SHIFT))
 		return 1;
 
-	DBG(1, "ERROR: unexpected values in teardown descriptor\n");
+	dev_dbg(musb->controller, "ERROR: unexpected values in teardown descriptor\n");
 	return 0;
 }
 
@@ -1037,6 +1047,8 @@ static int cppi41_channel_abort(struct dma_channel *channel)
 
 	cppi_ch = container_of(channel, struct cppi41_channel, channel);
 	ch_num = cppi_ch->ch_num;
+	cppi = cppi_ch->channel.private_data;
+	musb = cppi->musb;
 
 	switch (channel->status) {
 	case MUSB_DMA_STATUS_BUS_ABORT:
@@ -1048,15 +1060,13 @@ static int cppi41_channel_abort(struct dma_channel *channel)
 			__func__, channel->status);
 		break;
 	case MUSB_DMA_STATUS_UNKNOWN:
-		DBG(1, "%cx DMA%d not allocated\n",
+		dev_dbg(musb->controller, "%cx DMA%d not allocated\n",
 		    cppi_ch->transmit ? 'T' : 'R', ch_num);
 		/* FALLTHROUGH */
 	case MUSB_DMA_STATUS_FREE:
 		return 0;
 	}
 
-	cppi = cppi_ch->channel.private_data;
-	musb = cppi->musb;
 	reg_base = musb->ctrl_base;
 	epio = cppi_ch->end_pt->regs;
 	ep_num = ch_num + 1;
@@ -1208,10 +1218,11 @@ static void usb_process_tx_queue(struct cppi41 *cppi, unsigned index)
 	struct cppi41_queue_obj tx_queue_obj;
 	unsigned long pd_addr;
 	struct usb_cppi41_info *cppi_info = cppi->cppi_info;
+	struct musb *musb = cppi->musb;
 
 	if (cppi41_queue_init(&tx_queue_obj, cppi_info->q_mgr,
 			      cppi_info->tx_comp_q[index])) {
-		DBG(1, "ERROR: cppi41_queue_init failed for "
+		dev_dbg(musb->controller, "ERROR: cppi41_queue_init failed for "
 		    "Tx completion queue");
 		return;
 	}
@@ -1268,10 +1279,11 @@ static void usb_process_rx_queue(struct cppi41 *cppi, unsigned index)
 	struct cppi41_queue_obj rx_queue_obj;
 	unsigned long pd_addr;
 	struct usb_cppi41_info *cppi_info = cppi->cppi_info;
+	struct musb *musb = cppi->musb;
 
 	if (cppi41_queue_init(&rx_queue_obj, cppi_info->q_mgr,
 			      cppi_info->rx_comp_q[index])) {
-		DBG(1, "ERROR: cppi41_queue_init failed for Rx queue\n");
+		dev_dbg(musb->controller, "ERROR: cppi41_queue_init failed for Rx queue\n");
 		return;
 	}
 

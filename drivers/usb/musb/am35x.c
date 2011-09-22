@@ -425,7 +425,7 @@ static irqreturn_t am35x_musb_interrupt(int irq, void *hci)
 			tx = (pend1 >> 31)  | ((pend2 & 1) ? (1 << 1) : 0);
 			rx = (pend2 >> 1) & 0x3;
 
-			DBG(4, "CPPI 4.1 IRQ: Tx %x, Rx %x\n", tx, rx);
+			dev_dbg(musb->controller, "CPPI 4.1 IRQ: Tx %x, Rx %x\n", tx, rx);
 			cppi41_completion(musb, rx, tx);
 			ret = IRQ_HANDLED;
 		}
