@@ -1457,7 +1457,7 @@ static void usb_process_rx_queue(struct cppi41 *cppi, unsigned index)
 		struct usb_pkt_desc *curr_pd;
 		struct cppi41_channel *rx_ch;
 		u8 ch_num, ep_num;
-		u32 length, orig_buf_len, timeout = 50;
+		u32 length = 0, orig_buf_len, timeout = 50;
 
 		curr_pd = usb_get_pd_ptr(cppi, pd_addr);
 		if (curr_pd == NULL) {

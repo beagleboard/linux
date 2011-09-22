@@ -1160,7 +1160,7 @@ static int __devinit ti81xx_create_musb_pdev(struct ti81xx_glue *glue, u8 id)
 	struct resource *res;
 	struct resource	resources[2];
 	char res_name[10];
-	int ret;
+	int ret = 0;
 
 	/* get memory resource */
 	sprintf(res_name, "musb%d", id);
@@ -1232,7 +1232,7 @@ static int __init ti81xx_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct musb_hdrc_platform_data *plat = dev->platform_data;
 	struct omap_musb_board_data *data = plat->board_data;
-	int ret, i;
+	int ret = 0, i;
 	struct resource *res;
 
 	/* allocate glue */
@@ -1317,7 +1317,7 @@ static int __init ti81xx_probe(struct platform_device *pdev)
 		/* initialize the cppi41dma init */
 		cppi41_init(i, glue->irq);
 #endif
-		ret |= ti81xx_create_musb_pdev(glue, i);
+		ret = ti81xx_create_musb_pdev(glue, i);
 		if (ret != 0)
 			goto err6;
 	}
