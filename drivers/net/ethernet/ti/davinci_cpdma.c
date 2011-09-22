@@ -720,9 +720,6 @@ static int __cpdma_chan_process(struct cpdma_chan *chan)
 	int				status, outlen;
 	struct cpdma_desc_pool		*pool = ctlr->pool;
 	dma_addr_t			desc_dma;
-	unsigned long			flags;
-
-	spin_lock_irqsave(&chan->lock, flags);
 
 	desc = chan->head;
 	if (!desc) {
@@ -751,13 +748,10 @@ static int __cpdma_chan_process(struct cpdma_chan *chan)
 		chan_write(chan, hdp, desc_phys(pool, chan->head));
 	}
 
-	spin_unlock_irqrestore(&chan->lock, flags);
-
 	__cpdma_chan_free(chan, desc, outlen, status);
 	return status;
 
 unlock_ret:
-	spin_unlock_irqrestore(&chan->lock, flags);
 	return status;
 }
 
