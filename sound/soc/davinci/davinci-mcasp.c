@@ -108,6 +108,10 @@
 #define DAVINCI_MCASP_WFIFOSTS		(0x1014)
 #define DAVINCI_MCASP_RFIFOCTL		(0x1018)
 #define DAVINCI_MCASP_RFIFOSTS		(0x101C)
+#define MCASP_VER3_WFIFOCTL		(0x1000)
+#define MCASP_VER3_WFIFOSTS		(0x1004)
+#define MCASP_VER3_RFIFOCTL		(0x1008)
+#define MCASP_VER3_RFIFOSTS		(0x100C)
 
 /*
  * DAVINCI_MCASP_PWREMUMGT_REG - Power Down and Emulation Management
@@ -380,14 +384,28 @@ static void mcasp_start_tx(struct davinci_audio_dev *dev)
 static void davinci_mcasp_start(struct davinci_audio_dev *dev, int stream)
 {
 	if (stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		if (dev->txnumevt)	/* enable FIFO */
-			mcasp_set_bits(dev->base + DAVINCI_MCASP_WFIFOCTL,
-								FIFO_ENABLE);
+		if (dev->txnumevt) {	/* enable FIFO */
+			if (dev->version == MCASP_VERSION_3)
+				mcasp_set_bits(dev->base +
+						MCASP_VER3_WFIFOCTL,
+						FIFO_ENABLE);
+			else
+				mcasp_set_bits(dev->base +
+						DAVINCI_MCASP_WFIFOCTL,
+						FIFO_ENABLE);
+		}
 		mcasp_start_tx(dev);
 	} else {
-		if (dev->rxnumevt)	/* enable FIFO */
-			mcasp_set_bits(dev->base + DAVINCI_MCASP_RFIFOCTL,
-								FIFO_ENABLE);
+		if (dev->rxnumevt) {	/* enable FIFO */
+			if (dev->version == MCASP_VERSION_3)
+				mcasp_set_bits(dev->base +
+						MCASP_VER3_WFIFOCTL,
+						FIFO_ENABLE);
+			else
+				mcasp_set_bits(dev->base +
+						DAVINCI_MCASP_RFIFOCTL,
+						FIFO_ENABLE);
+		}
 		mcasp_start_rx(dev);
 	}
 }
@@ -407,14 +425,28 @@ static void mcasp_stop_tx(struct davinci_audio_dev *dev)
 static void davinci_mcasp_stop(struct davinci_audio_dev *dev, int stream)
 {
 	if (stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		if (dev->txnumevt)	/* disable FIFO */
-			mcasp_clr_bits(dev->base + DAVINCI_MCASP_WFIFOCTL,
-								FIFO_ENABLE);
+		if (dev->txnumevt) {	/* disable FIFO */
+			if (dev->version == MCASP_VERSION_3)
+				mcasp_clr_bits(dev->base +
+						MCASP_VER3_WFIFOCTL,
+						FIFO_ENABLE);
+			else
+				mcasp_clr_bits(dev->base +
+						DAVINCI_MCASP_WFIFOCTL,
+						FIFO_ENABLE);
+		}
 		mcasp_stop_tx(dev);
 	} else {
-		if (dev->rxnumevt)	/* disable FIFO */
-			mcasp_clr_bits(dev->base + DAVINCI_MCASP_RFIFOCTL,
-								FIFO_ENABLE);
+		if (dev->rxnumevt) {	/* disable FIFO */
+			if (dev->version == MCASP_VERSION_3)
+				mcasp_clr_bits(dev->base +
+						MCASP_VER3_RFIFOCTL,
+						FIFO_ENABLE);
+			else
+				mcasp_clr_bits(dev->base +
+						DAVINCI_MCASP_RFIFOCTL,
+						FIFO_ENABLE);
+		}
 		mcasp_stop_rx(dev);
 	}
 }
@@ -613,20 +645,36 @@ static void davinci_hw_common_param(struct davinci_audio_dev *dev, int stream)
 		if (dev->txnumevt * tx_ser > 64)
 			dev->txnumevt = 1;
 
-		mcasp_mod_bits(dev->base + DAVINCI_MCASP_WFIFOCTL, tx_ser,
+		if (dev->version == MCASP_VERSION_3) {
+			mcasp_mod_bits(dev->base + MCASP_VER3_WFIFOCTL, tx_ser,
 								NUMDMA_MASK);
-		mcasp_mod_bits(dev->base + DAVINCI_MCASP_WFIFOCTL,
+			mcasp_mod_bits(dev->base + MCASP_VER3_WFIFOCTL,
 				((dev->txnumevt * tx_ser) << 8), NUMEVT_MASK);
+		} else {
+			mcasp_mod_bits(dev->base + DAVINCI_MCASP_WFIFOCTL,
+							tx_ser, NUMDMA_MASK);
+			mcasp_mod_bits(dev->base + DAVINCI_MCASP_WFIFOCTL,
+				((dev->txnumevt * tx_ser) << 8), NUMEVT_MASK);
+		}
 	}
 
 	if (dev->rxnumevt && stream == SNDRV_PCM_STREAM_CAPTURE) {
 		if (dev->rxnumevt * rx_ser > 64)
 			dev->rxnumevt = 1;
 
-		mcasp_mod_bits(dev->base + DAVINCI_MCASP_RFIFOCTL, rx_ser,
+		if (dev->version == MCASP_VERSION_3) {
+			mcasp_mod_bits(dev->base + MCASP_VER3_RFIFOCTL, rx_ser,
 								NUMDMA_MASK);
-		mcasp_mod_bits(dev->base + DAVINCI_MCASP_RFIFOCTL,
-				((dev->rxnumevt * rx_ser) << 8), NUMEVT_MASK);
+			mcasp_mod_bits(dev->base + MCASP_VER3_RFIFOCTL,
+					((dev->rxnumevt * rx_ser) << 8),
+					NUMEVT_MASK);
+		} else {
+			mcasp_mod_bits(dev->base + DAVINCI_MCASP_RFIFOCTL,
+							rx_ser,	NUMDMA_MASK);
+			mcasp_mod_bits(dev->base + DAVINCI_MCASP_RFIFOCTL,
+					((dev->rxnumevt * rx_ser) << 8),
+					NUMEVT_MASK);
+		}
 	}
 }
 
@@ -916,7 +964,10 @@ static int davinci_mcasp_probe(struct platform_device *pdev)
 	dma_data->asp_chan_q = pdata->asp_chan_q;
 	dma_data->ram_chan_q = pdata->ram_chan_q;
 	dma_data->sram_size = pdata->sram_size_playback;
-	dma_data->dma_addr = (dma_addr_t) (pdata->tx_dma_offset +
+	if (dev->version == MCASP_VERSION_3)
+		dma_data->dma_addr = (dma_addr_t) (pdata->tx_dma_offset);
+	else
+		dma_data->dma_addr = (dma_addr_t) (pdata->tx_dma_offset +
 							mem->start);
 
 	/* first TX, then RX */
@@ -933,7 +984,10 @@ static int davinci_mcasp_probe(struct platform_device *pdev)
 	dma_data->asp_chan_q = pdata->asp_chan_q;
 	dma_data->ram_chan_q = pdata->ram_chan_q;
 	dma_data->sram_size = pdata->sram_size_capture;
-	dma_data->dma_addr = (dma_addr_t)(pdata->rx_dma_offset +
+	if (dev->version == MCASP_VERSION_3)
+		dma_data->dma_addr = (dma_addr_t) (pdata->rx_dma_offset);
+	else
+		dma_data->dma_addr = (dma_addr_t)(pdata->rx_dma_offset +
 							mem->start);
 
 	res = platform_get_resource(pdev, IORESOURCE_DMA, 1);
