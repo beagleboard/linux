@@ -760,9 +760,8 @@ static unsigned cppi41_next_rx_segment(struct cppi41_channel *rx_ch)
 		 * GENERIC_RNDIS mode. Without this RNDIS gadget taking
 		 * more then 2K ms for a 64 byte pings.
 		 */
-#if defined(CONFIG_USB_GADGET_MUSB_HDRC) || defined(CONFIG_USB_GADGET_MUSB_HDRC_MODULE)
 		gadget_driver = cppi->musb->gadget_driver;
-#endif
+
 		pkt_len = rx_ch->pkt_size;
 		mode = USB_GENERIC_RNDIS_MODE;
 		if (!strcmp(gadget_driver->driver.name, "g_file_storage")) {

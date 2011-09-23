@@ -107,17 +107,17 @@ static void usbotg_ss_uninit(void)
 		usbss_virt_base = 0;
 	}
 }
-void set_frame_threshold(u8 musb_id, u8 is_tx, u8 epnum, u8 value, u8 en_intr)
+void set_frame_threshold(struct musb *musb, u8 is_tx, u8 epnum, u8 value, u8 en_intr)
 {
 	u32     base, reg_val, frame_intr = 0, frame_base = 0;
 	u32     offs = epnum/4*4;
 	u8      indx = (epnum % 4) * 8;
 
 	if (is_tx)
-		base = musb_id ? USBSS_IRQ_FRAME_THRESHOLD_TX1 :
+		base = musb->id ? USBSS_IRQ_FRAME_THRESHOLD_TX1 :
 				USBSS_IRQ_FRAME_THRESHOLD_TX0;
 	else
-		base = musb_id ? USBSS_IRQ_FRAME_THRESHOLD_RX1 :
+		base = musb->id ? USBSS_IRQ_FRAME_THRESHOLD_RX1 :
 				USBSS_IRQ_FRAME_THRESHOLD_RX0;
 
 	reg_val = usbss_read(base + offs);
@@ -126,24 +126,24 @@ void set_frame_threshold(u8 musb_id, u8 is_tx, u8 epnum, u8 value, u8 en_intr)
 	usbss_write(base + offs, reg_val);
 
 	if (en_intr) {
-		frame_base = musb_id ? USBSS_IRQ_FRAME_ENABLE_1 :
+		frame_base = musb->id ? USBSS_IRQ_FRAME_ENABLE_1 :
 			USBSS_IRQ_FRAME_ENABLE_0;
-		frame_intr = musb_id ? usbss_read(USBSS_IRQ_FRAME_ENABLE_0) :
+		frame_intr = musb->id ? usbss_read(USBSS_IRQ_FRAME_ENABLE_0) :
 			usbss_read(USBSS_IRQ_FRAME_ENABLE_1);
 		frame_intr |= is_tx ? (1 << epnum) : (1 << (16 + epnum));
 		usbss_write(frame_base, frame_intr);
-		DBG(4, "%s: framebase=%x, frame_intr=%x\n", is_tx ? "tx" : "rx",
-			frame_base, frame_intr);
+		dev_dbg(musb->controller, "%s: framebase=%x, frame_intr=%x\n",
+			is_tx ? "tx" : "rx", frame_base, frame_intr);
 	}
 }
 
-void set_dma_threshold(u8 musb_id, u8 is_tx, u8 epnum, u8 value)
+void set_dma_threshold(struct musb *musb, u8 is_tx, u8 epnum, u8 value)
 {
 	u32     base, reg_val;
 	u32     offs = epnum/4*4;
 	u8      indx = (epnum % 4) * 8;
 
-	if (musb_id == 0)
+	if (musb->id == 0)
 		base = is_tx ? USBSS_IRQ_DMA_THRESHOLD_TX0 :
 				USBSS_IRQ_DMA_THRESHOLD_RX0;
 	else
@@ -153,7 +153,7 @@ void set_dma_threshold(u8 musb_id, u8 is_tx, u8 epnum, u8 value)
 	reg_val = usbss_read(base + offs);
 	reg_val &= ~(0xFF << indx);
 	reg_val |= (value << indx);
-	DBG(4, "base=%x, offs=%x, indx=%d, reg_val = (%x)%x\n",
+	dev_dbg(musb->controller, "base=%x, offs=%x, indx=%d, reg_val = (%x)%x\n",
 		base, offs, indx, reg_val, usbss_read(base + offs));
 	usbss_write(base + offs, reg_val);
 }
@@ -481,7 +481,7 @@ int __devinit cppi41_init(u8 id, u8 irq)
 
 	cppi41_init_done = 1;
 
-	DBG(4, "Cppi41 Init Done Qmgr-base(%p) dma-base(%p)\n",
+	printk(KERN_INFO "Cppi41 Init Done Qmgr-base(%p) dma-base(%p)\n",
 		cppi41_queue_mgr[0].q_mgr_rgn_base,
 		cppi41_dma_block[0].global_ctrl_base);
 
@@ -592,7 +592,8 @@ static void otg_timer(unsigned long _musb)
 	* status change events (from the transceiver) otherwise.
 	 */
 	devctl = musb_readb(mregs, MUSB_DEVCTL);
-	DBG(7, "Poll devctl %02x (%s)\n", devctl, otg_state_string(musb));
+	dev_dbg(musb->controller, "Poll devctl %02x (%s)\n", devctl,
+			otg_state_string(musb->xceiv->state));
 
 	spin_lock_irqsave(&musb->lock, flags);
 	switch (musb->xceiv->state) {
@@ -665,20 +666,22 @@ void ti81xx_musb_try_idle(struct musb *musb, unsigned long timeout)
 	/* Never idle if active, or when VBUS timeout is not set as host */
 	if (musb->is_active || (musb->a_wait_bcon == 0 &&
 				musb->xceiv->state == OTG_STATE_A_WAIT_BCON)) {
-		DBG(4, "%s active, deleting timer\n", otg_state_string(musb));
+		dev_dbg(musb->controller, "%s active, deleting timer\n",
+			otg_state_string(musb->xceiv->state));
 		del_timer(&otg_workaround);
 		last_timer = jiffies;
 		return;
 	}
 
 	if (time_after(last_timer, timeout) && timer_pending(&otg_workaround)) {
-		DBG(4, "Longer idle timer already pending, ignoring...\n");
+		dev_dbg(musb->controller, "Longer idle timer already pending, ignoring...\n");
 		return;
 	}
 	last_timer = timeout;
 
-	DBG(4, "%s inactive, starting idle timer for %u ms\n",
-	    otg_state_string(musb), jiffies_to_msecs(timeout - jiffies));
+	dev_dbg(musb->controller, "%s inactive, starting idle timer for %u ms\n",
+	    otg_state_string(musb->xceiv->state),
+		jiffies_to_msecs(timeout - jiffies));
 	mod_timer(&otg_workaround, timeout);
 }
 
@@ -729,7 +732,7 @@ static irqreturn_t cppi41dma_Interrupt(int irq, void *hci)
 
 	/* get proper musb handle based usb0/usb1 ctrl-id */
 
-	DBG(4, "CPPI 4.1 IRQ: Tx %x, Rx %x\n", usb0_tx_intr,
+	dev_dbg(musb->controller, "CPPI 4.1 IRQ: Tx %x, Rx %x\n", usb0_tx_intr,
 				usb0_rx_intr);
 	if (gmusb[0] && (usb0_tx_intr || usb0_rx_intr)) {
 		spin_lock_irqsave(&gmusb[0]->lock, flags);
@@ -739,7 +742,7 @@ static irqreturn_t cppi41dma_Interrupt(int irq, void *hci)
 		ret = IRQ_HANDLED;
 	}
 
-	DBG(4, "CPPI 4.1 IRQ: Tx %x, Rx %x\n", usb1_tx_intr,
+	dev_dbg(musb->controller, "CPPI 4.1 IRQ: Tx %x, Rx %x\n", usb1_tx_intr,
 		usb1_rx_intr);
 	if (gmusb[1] && (usb1_rx_intr || usb1_tx_intr)) {
 		spin_lock_irqsave(&gmusb[1]->lock, flags);
@@ -837,7 +840,7 @@ static irqreturn_t ti81xx_interrupt(int irq, void *hci)
 	/* Get usb core interrupts */
 	usbintr = musb_readl(reg_base, USB_CORE_INTR_STATUS_REG);
 	if (!usbintr && !epintr) {
-		DBG(4, "sprious interrupt\n");
+		dev_dbg(musb->controller, "sprious interrupt\n");
 		goto eoi;
 	}
 
@@ -845,7 +848,7 @@ static irqreturn_t ti81xx_interrupt(int irq, void *hci)
 		musb_writel(reg_base, USB_CORE_INTR_STATUS_REG, usbintr);
 	musb->int_usb =	(usbintr & USB_INTR_USB_MASK) >> USB_INTR_USB_SHIFT;
 
-	DBG(4, "usbintr (%x) epintr(%x)\n", usbintr, epintr);
+	dev_dbg(musb->controller, "usbintr (%x) epintr(%x)\n", usbintr, epintr);
 	/*
 	 * DRVVBUS IRQs are the only proxy we have (a very poor one!) for
 	 * AM3517's missing ID change IRQ.  We need an ID change IRQ to
@@ -892,20 +895,18 @@ static irqreturn_t ti81xx_interrupt(int irq, void *hci)
 			MUSB_HST_MODE(musb);
 			musb->xceiv->default_a = 1;
 			musb->xceiv->state = OTG_STATE_A_WAIT_VRISE;
-			portstate(musb->port1_status |= USB_PORT_STAT_POWER);
 			del_timer(&otg_workaround);
 		} else {
 			musb->is_active = 0;
 			MUSB_DEV_MODE(musb);
 			musb->xceiv->default_a = 0;
 			musb->xceiv->state = OTG_STATE_B_IDLE;
-			portstate(musb->port1_status &= ~USB_PORT_STAT_POWER);
 		}
 
 		/* NOTE: this must complete power-on within 100 ms. */
 		dev_dbg(musb->controller, "VBUS %s (%s)%s, devctl %02x\n",
 				drvvbus ? "on" : "off",
-				otg_state_string(musb),
+				otg_state_string(musb->xceiv->state),
 				err ? " ERROR" : "",
 				devctl);
 		ret = IRQ_HANDLED;
@@ -933,7 +934,7 @@ static irqreturn_t ti81xx_interrupt(int irq, void *hci)
 			 * We sometimes get unhandled IRQs in the peripheral
 			 * mode from EP0 and SOF...
 			 */
-			DBG(2, "Unhandled USB IRQ %08x-%08x\n",
+			dev_dbg(musb->controller, "Unhandled USB IRQ %08x-%08x\n",
 					 epintr, usbintr);
 		else if (printk_ratelimit())
 			/*
@@ -941,7 +942,7 @@ static irqreturn_t ti81xx_interrupt(int irq, void *hci)
 			 * peripheral mode after USB reset and then after some
 			 * time a real interrupt storm starting...
 			 */
-			DBG(2, "Spurious IRQ, CPPI 4.1 status %08x, %08x\n",
+			dev_dbg(musb->controller, "Spurious IRQ, CPPI 4.1 status %08x, %08x\n",
 					 pend1, pend2);
 	}
 
@@ -973,7 +974,7 @@ int ti81xx_musb_set_mode(struct musb *musb, u8 musb_mode)
 
 		musb_writel(reg_base, USB_MODE_REG, regval);
 		musb_writel(musb->ctrl_base, USB_PHY_UTMI_REG, 0x02);
-		DBG(4, "host: value of mode reg=%x regval(%x)\n",
+		dev_dbg(musb->controller, "host: value of mode reg=%x regval(%x)\n",
 			musb_readl(reg_base, USB_MODE_REG), regval);
 	} else if (musb_mode == MUSB_PERIPHERAL) {
 		/* TODO commmented writing 8 to USB_MODE_REG device
@@ -985,7 +986,7 @@ int ti81xx_musb_set_mode(struct musb *musb, u8 musb_mode)
 			regval |= USBMODE_USBID_MUXSEL;
 
 		musb_writel(reg_base, USB_MODE_REG, regval);
-		DBG(4, "device: value of mode reg=%x regval(%x)\n",
+		dev_dbg(musb->controller, "device: value of mode reg=%x regval(%x)\n",
 			musb_readl(reg_base, USB_MODE_REG), regval);
 	} else if (musb_mode == MUSB_OTG) {
 		musb_writel(musb->ctrl_base, USB_PHY_UTMI_REG, 0x02);

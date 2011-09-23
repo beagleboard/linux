@@ -9,9 +9,7 @@ musb_hdrc-y := musb_core.o
 musb_hdrc-y					+= musb_gadget_ep0.o musb_gadget.o
 musb_hdrc-y					+= musb_virthub.o musb_host.o
 musb_hdrc-$(CONFIG_DEBUG_FS)			+= musb_debugfs.o
-ifeq ($(CONFIG_USB_MUSB_DEBUG),y)
-	musb_hdrc-$(CONFIG_PROC_FS)             += musb_procfs.o
-endif
+musb_hdrc-$(CONFIG_PROC_FS)			+= musb_procfs.o
 # Hardware Glue Layer
 obj-$(CONFIG_USB_MUSB_OMAP2PLUS_GLUE)		+= omap2430.o
 obj-$(CONFIG_USB_MUSB_AM35X_GLUE)		+= am35x.o

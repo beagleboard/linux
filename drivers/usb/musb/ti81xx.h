@@ -10,6 +10,10 @@
 #ifndef __MUSB_HDRDF_H__
 #define __MUSB_HDRDF_H__
 
+#define TI81XX_USB_CPPIDMA_BASE 0x47402000
+#define TI81XX_USB_CPPIDMA_LEN  0x5FFF
+#define TI81XX_IRQ_USBSS        17
+
 /* Netra USB susbsystem register offsets */
 #define USBSS_REVISION			0x0000
 #define USBSS_SYSCONFIG			0x0010
@@ -162,6 +166,4 @@
 #define	USBMODE_USBID_HIGH	0x100
 
 extern void usb_nop_xceiv_register(int id);
-void set_frame_threshold(u8 musb_id, u8 is_tx, u8 epnum, u8 value, u8 en_intr);
-void set_dma_threshold(u8 musb_id, u8 is_tx, u8 epnum, u8 value);
 #endif

@@ -649,18 +649,6 @@ extern void musb_gb_work(struct work_struct *data);
 
 struct proc_dir_entry;
 
-#if defined(CONFIG_USB_MUSB_DEBUG) && defined(MUSB_CONFIG_PROC_FS)
 extern struct proc_dir_entry *musb_debug_create(char *name, struct musb *data);
 extern void musb_debug_delete(char *name, struct musb *data);
-
-#else
-static inline struct proc_dir_entry *
-musb_debug_create(char *name, struct musb *data)
-{
-	return NULL;
-}
-static inline void musb_debug_delete(char *name, struct musb *data)
-{
-}
-#endif
 #endif	/* __MUSB_CORE_H__ */
