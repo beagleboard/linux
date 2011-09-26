@@ -481,6 +481,7 @@ struct cppi41_dma_block {
 				/* Table registers. */
 	u8 num_tx_ch;		/* Number of the Tx channels. */
 	u8 num_rx_ch;		/* Number of the Rx channels. */
+	u8 num_max_ch;		/* maximum dma channels */
 	const struct cppi41_tx_ch *tx_ch_info;
 };
 

@@ -408,7 +408,7 @@ static const u32 assigned_queues[] = {	0xffffffff, /* queue 0..31 */
 					0x0fffffff  /* queue 128..155 */
 					};
 
-int __devinit cppi41_init(u8 id, u8 irq)
+int __devinit cppi41_init(u8 id, u8 irq, int num_instances)
 {
 	struct usb_cppi41_info *cppi_info = &usb_cppi41_info[id];
 	u16 numch, blknum, order;
@@ -459,11 +459,9 @@ int __devinit cppi41_init(u8 id, u8 irq)
 	/* Initialize for Linking RAM region 0 alone */
 	cppi41_queue_mgr_init(cppi_info->q_mgr, 0, 0x3fff);
 
-#ifdef CONFIG_USB_GADGET_MUSB_HDRC
-	numch =  USB_CPPI41_NUM_CH * 2;
-#else
-	numch =  USB_CPPI41_NUM_CH * 2 * 2;
-#endif
+	numch =  USB_CPPI41_NUM_CH * 2 * num_instances;
+	cppi41_dma_block[0].num_max_ch = numch;
+
 	order = get_count_order(numch);
 
 	/* TODO: check two teardown desc per channel (5 or 7 ?)*/
@@ -503,11 +501,7 @@ void cppi41_free(void)
 	if (!cppi41_init_done)
 		return ;
 
-#ifdef CONFIG_USB_GADGET_MUSB_HDRC
-	numch =  USB_CPPI41_NUM_CH * 2;
-#else
-	numch =  USB_CPPI41_NUM_CH * 2 * 2;
-#endif
+	numch = cppi41_dma_block[0].num_max_ch;
 	order = get_count_order(numch);
 	blknum = cppi_info->dma_block;
 
@@ -857,14 +851,20 @@ static irqreturn_t ti81xx_interrupt(int irq, void *hci)
 	 * value but DEVCTL.BDEVICE is invalid without DEVCTL.SESSION set.
 	 * Also, DRVVBUS pulses for SRP (but not at 5V) ...
 	 */
-	if ((usbintr & MUSB_INTR_BABBLE) && is_host_enabled(musb)) {
+	if ((usbintr & MUSB_INTR_BABBLE) && is_otg_enabled(musb)
+		&& (musb->xceiv->state == OTG_STATE_A_HOST))
+		is_babble = 1;
+	else if ((usbintr & MUSB_INTR_BABBLE) && !is_otg_enabled(musb)
+		&& is_host_enabled(musb))
+			is_babble = 1;
+
+	if (is_babble) {
+		if (musb->enable_babble_work)
+			musb->int_usb |= MUSB_INTR_DISCONNECT;
+
 		ERR("CAUTION: musb%d: Babble Interrupt Occured\n", musb->id);
 		ERR("Please issue long reset to make usb functional !!\n");
 	}
-
-	is_babble = is_host_capable() && (musb->int_usb & MUSB_INTR_BABBLE);
-	if (is_babble && musb->enable_babble_work)
-		musb->int_usb |= MUSB_INTR_DISCONNECT;
 
 	if (usbintr & (USB_INTR_DRVVBUS << USB_INTR_USB_SHIFT)) {
 		int drvvbus = musb_readl(reg_base, USB_STAT_REG);
@@ -1316,7 +1316,7 @@ static int __init ti81xx_probe(struct platform_device *pdev)
 	for (i = 0; i <= data->instances; ++i) {
 #ifdef CONFIG_USB_TI_CPPI41_DMA
 		/* initialize the cppi41dma init */
-		cppi41_init(i, glue->irq);
+		cppi41_init(i, glue->irq, data->instances+1);
 #endif
 		ret = ti81xx_create_musb_pdev(glue, i);
 		if (ret != 0)
