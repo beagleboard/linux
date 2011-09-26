@@ -6,6 +6,14 @@ config SND_DAVINCI_SOC
 	  the DAVINCI AC97 or I2S interface. You will also need
 	  to select the audio interfaces to support below.
 
+config SND_AM33XX_SOC
+	tristate "SoC Audio for the AM33XX chip"
+	depends on SOC_OMAPAM33XX
+	help
+	  Say Y or M if you want to add support for codecs attached to
+	  the AM33XX I2S interface. You will also need to select the
+	  audio interfaces to support below.
+
 config SND_DAVINCI_SOC_I2S
 	tristate
 
@@ -24,6 +32,15 @@ config SND_DAVINCI_SOC_EVM
 	help
 	  Say Y if you want to add support for SoC audio on TI
 	  DaVinci DM6446, DM355 or DM365 EVM platforms.
+
+config  SND_AM335X_SOC_EVM
+	tristate "SoC Audio support for AM335X EVM"
+	depends on SND_AM33XX_SOC
+	select SND_DAVINCI_SOC_MCASP
+	select SND_SOC_TLV320AIC3X
+	help
+	  Say Y if you want to add support for SoC audio on
+	  AM335X EVM
 
 choice
 	prompt "DM365 codec select"
