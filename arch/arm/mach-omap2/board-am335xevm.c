@@ -352,6 +352,13 @@ static struct pinmux_config mii1_pin_mux[] = {
 	{NULL, 0},
 };
 
+static struct pinmux_config i2c1_pin_mux[] = {
+	{"spi0_d1.i2c1_sda",    OMAP_MUX_MODE2 | AM33XX_SLEWCTRL_SLOW |
+					AM33XX_PULL_ENBL | AM33XX_INPUT_EN},
+	{"spi0_cs0.i2c1_scl",   OMAP_MUX_MODE2 | AM33XX_SLEWCTRL_SLOW |
+					AM33XX_PULL_ENBL | AM33XX_INPUT_EN},
+	{NULL, 0},
+};
 
 /*
 * @pin_mux - single module pin-mux structure which defines pin-mux
@@ -586,6 +593,19 @@ static void evm_nand_init(int evm_id, int profile)
 		ARRAY_SIZE(am335x_nand_partitions), 0, 0);
 }
 
+static struct i2c_board_info am335x_i2c_boardinfo1[] = {
+	{
+	},
+};
+
+static void i2c1_init(int evm_id, int profile)
+{
+	setup_pin_mux(i2c1_pin_mux);
+	omap_register_i2c_bus(2, 100, am335x_i2c_boardinfo1,
+			ARRAY_SIZE(am335x_i2c_boardinfo1));
+	return;
+}
+
 /* Low-Cost EVM */
 static struct evm_dev_cfg low_cost_evm_dev_cfg[] = {
 	{rgmii1_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
@@ -610,6 +630,7 @@ static struct evm_dev_cfg gen_purp_evm_dev_cfg[] = {
 	{usb1_init,	DEV_ON_BASEBOARD, PROFILE_ALL},
 	{evm_nand_init, DEV_ON_DGHTR_BRD,
 		(PROFILE_ALL & ~PROFILE_2 & ~PROFILE_3)},
+	{i2c1_init,	DEV_ON_DGHTR_BRD, (PROFILE_0 | PROFILE_3 | PROFILE_7)},
 	{NULL, 0, 0},
 };
 
@@ -632,6 +653,7 @@ static struct evm_dev_cfg ip_phn_evm_dev_cfg[] = {
 	{usb0_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
 	{usb1_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
 	{evm_nand_init, DEV_ON_DGHTR_BRD, PROFILE_NONE},
+	{i2c1_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
 	{NULL, 0, 0},
 };
 
