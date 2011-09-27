@@ -59,6 +59,7 @@
 #define OMAP_HSMMC_IE		0x0134
 #define OMAP_HSMMC_ISE		0x0138
 #define OMAP_HSMMC_CAPA		0x0140
+#define OMAP_HSMMC_PSTATE	0x0124
 
 #define VS18			(1 << 26)
 #define VS30			(1 << 25)
@@ -78,7 +79,7 @@
 #define CLKD_SHIFT		6
 #define DTO_MASK		0x000F0000
 #define DTO_SHIFT		16
-#define INT_EN_MASK		0x307F0033
+#define INT_EN_MASK		0x307F00f3
 #define BWR_ENABLE		(1 << 4)
 #define BRR_ENABLE		(1 << 5)
 #define DTO_ENABLE		(1 << 20)
@@ -89,6 +90,10 @@
 #define MSBS			(1 << 5)
 #define BCE			(1 << 1)
 #define FOUR_BIT		(1 << 1)
+#define DVAL_MASK		(3 << 9)
+#define DVAL_MAX		(3 << 9)	/* 8.4 ms debounce period */
+#define WPP_MASK		(1 << 8)
+#define WPP_ACT_LOW		(1 << 8)	/* WPP is Active Low */
 #define DW8			(1 << 5)
 #define CC			0x1
 #define TC			0x02
@@ -106,6 +111,14 @@
 #define SRD			(1 << 26)
 #define SOFTRESET		(1 << 1)
 #define RESETDONE		(1 << 0)
+#define CINS			(1 << 6)
+#define PSTATE_CINS_MASK	BIT(16)
+#define PSTATE_CINS_SHIFT	16
+#define PSTATE_WP_MASK		BIT(19)
+#define PSTATE_WP_SHIFT		19
+#define IE_CINS			0x00000040
+#define IE_CINS_SHIFT		6
+#define PSTATE_CINS     (1 << 16)
 
 /*
  * FIXME: Most likely all the data using these _DEVID defines should come
@@ -192,6 +205,8 @@ struct omap_hsmmc_host {
 	struct	omap_mmc_platform_data	*pdata;
 };
 
+static irqreturn_t omap_hsmmc_cd_handler(int irq, void *dev_id);
+
 static int omap_hsmmc_card_detect(struct device *dev, int slot)
 {
 	struct omap_mmc_platform_data *mmc = dev->platform_data;
@@ -223,6 +238,7 @@ static int omap_hsmmc_suspend_cdirq(struct device *dev, int slot)
 	struct omap_mmc_platform_data *mmc = dev->platform_data;
 
 	disable_irq(mmc->slots[0].card_detect_irq);
+
 	return 0;
 }
 
@@ -231,6 +247,7 @@ static int omap_hsmmc_resume_cdirq(struct device *dev, int slot)
 	struct omap_mmc_platform_data *mmc = dev->platform_data;
 
 	enable_irq(mmc->slots[0].card_detect_irq);
+
 	return 0;
 }
 
@@ -591,9 +608,11 @@ static void omap_hsmmc_enable_irq(struct omap_hsmmc_host *host,
 
 static void omap_hsmmc_disable_irq(struct omap_hsmmc_host *host)
 {
+
 	OMAP_HSMMC_WRITE(host->base, ISE, 0);
 	OMAP_HSMMC_WRITE(host->base, IE, 0);
 	OMAP_HSMMC_WRITE(host->base, STAT, STAT_CLEAR);
+
 }
 
 /* Calculate divisor for the given clock frequency */
@@ -1087,7 +1106,7 @@ static inline void omap_hsmmc_reset_controller_fsm(struct omap_hsmmc_host *host,
 			__func__);
 }
 
-static void omap_hsmmc_do_irq(struct omap_hsmmc_host *host, int status)
+static void omap_hsmmc_do_irq(struct omap_hsmmc_host *host, int status, int irq)
 {
 	struct mmc_data *data;
 	int end_cmd = 0, end_trans = 0;
@@ -1166,10 +1185,16 @@ static irqreturn_t omap_hsmmc_irq(int irq, void *dev_id)
 {
 	struct omap_hsmmc_host *host = dev_id;
 	int status;
+	struct omap_mmc_platform_data *pdata = host->pdata;
+
+	if (pdata->version == MMC_CTRL_VERSION_2) {
+		OMAP_HSMMC_WRITE(host->base, HCTL,
+			OMAP_HSMMC_READ(host->base, HCTL) | SDBP);
+	}
 
 	status = OMAP_HSMMC_READ(host->base, STAT);
 	do {
-		omap_hsmmc_do_irq(host, status);
+		omap_hsmmc_do_irq(host, status, irq);
 		/* Flush posted write */
 		status = OMAP_HSMMC_READ(host->base, STAT);
 	} while (status & INT_EN_MASK);
@@ -1337,22 +1362,29 @@ static void omap_hsmmc_config_dma_params(struct omap_hsmmc_host *host,
 				       struct scatterlist *sgl)
 {
 	int blksz, nblk, dma_ch;
+	int bindex = 0, cindex = 0;
+	struct omap_mmc_platform_data *pdata = host->pdata;
 
 	dma_ch = host->dma_ch;
+	blksz = host->data->blksz;
+	nblk = sg_dma_len(sgl) / blksz;
+
+	if (pdata->version == MMC_CTRL_VERSION_2) {
+		bindex = 4;
+		cindex = blksz;
+	}
+
 	if (data->flags & MMC_DATA_WRITE) {
 		omap_set_dma_dest_params(dma_ch, 0, OMAP_DMA_AMODE_CONSTANT,
 			(host->mapbase + OMAP_HSMMC_DATA), 0, 0);
 		omap_set_dma_src_params(dma_ch, 0, OMAP_DMA_AMODE_POST_INC,
-			sg_dma_address(sgl), 0, 0);
+			sg_dma_address(sgl), bindex, cindex);
 	} else {
 		omap_set_dma_src_params(dma_ch, 0, OMAP_DMA_AMODE_CONSTANT,
 			(host->mapbase + OMAP_HSMMC_DATA), 0, 0);
 		omap_set_dma_dest_params(dma_ch, 0, OMAP_DMA_AMODE_POST_INC,
-			sg_dma_address(sgl), 0, 0);
+			sg_dma_address(sgl), bindex, cindex);
 	}
-
-	blksz = host->data->blksz;
-	nblk = sg_dma_len(sgl) / blksz;
 
 	omap_set_dma_transfer_params(dma_ch, OMAP_DMA_DATA_TYPE_S32,
 			blksz / 4, nblk, OMAP_DMA_SYNC_FRAME,
@@ -1369,12 +1401,19 @@ static void omap_hsmmc_dma_cb(int lch, u16 ch_status, void *cb_data)
 {
 	struct omap_hsmmc_host *host = cb_data;
 	struct mmc_data *data;
+	struct omap_mmc_platform_data *pdata = host->pdata;
 	int dma_ch, req_in_progress;
 
-	if (!(ch_status & OMAP_DMA_BLOCK_IRQ)) {
-		dev_warn(mmc_dev(host->mmc), "unexpected dma status %x\n",
-			ch_status);
-		return;
+
+	if (pdata->version == MMC_CTRL_VERSION_2) {
+		if (ch_status & OMAP2_DMA_MISALIGNED_ERR_IRQ)
+			dev_dbg(mmc_dev(host->mmc), "MISALIGNED_ADRS_ERR\n");
+	} else {
+		if (!(ch_status & OMAP_DMA_BLOCK_IRQ)) {
+			dev_warn(mmc_dev(host->mmc), "unexpected dma status %x\n",
+				ch_status);
+			return;
+		}
 	}
 
 	spin_lock(&host->irq_lock);
@@ -1648,6 +1687,8 @@ static void omap_hsmmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 {
 	struct omap_hsmmc_host *host = mmc_priv(mmc);
 	int do_send_init_stream = 0;
+	struct omap_mmc_platform_data *pdata = host->pdata;
+	u32 regVal;
 
 	pm_runtime_get_sync(host->dev);
 
@@ -1671,6 +1712,18 @@ static void omap_hsmmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	}
 
 	/* FIXME: set registers based only on changes to ios */
+
+	if (pdata->version == MMC_CTRL_VERSION_2) {
+		/*
+		* Set
+		*	Debounce filter value to max
+		*	Write protect polarity to Active low level
+		*/
+		regVal = OMAP_HSMMC_READ(host->base, CON);
+		regVal &= ~(DVAL_MASK | WPP_MASK);
+		regVal |= (DVAL_MAX | WPP_ACT_LOW);
+		OMAP_HSMMC_WRITE(host->base, CON, regVal);
+	}
 
 	omap_hsmmc_set_bus_width(host);
 
@@ -1868,7 +1921,7 @@ static int __init omap_hsmmc_probe(struct platform_device *pdev)
 	struct omap_mmc_platform_data *pdata = pdev->dev.platform_data;
 	struct mmc_host *mmc;
 	struct omap_hsmmc_host *host = NULL;
-	struct resource *res;
+	struct resource *res, *dma_tx, *dma_rx;
 	int ret, irq;
 
 	if (pdata == NULL) {
@@ -1973,7 +2026,10 @@ static int __init omap_hsmmc_probe(struct platform_device *pdev)
 
 	/* Since we do only SG emulation, we can have as many segs
 	 * as we want. */
-	mmc->max_segs = 1024;
+	if (pdata->version == MMC_CTRL_VERSION_2)
+		mmc->max_segs = 1;
+	else
+		mmc->max_segs = 1024;
 
 	mmc->max_blk_size = 512;       /* Block Length at max can be 1024 */
 	mmc->max_blk_count = 0xFFFF;    /* No. of Blocks is 16 bits */
@@ -1995,30 +2051,49 @@ static int __init omap_hsmmc_probe(struct platform_device *pdev)
 	omap_hsmmc_conf_bus_power(host);
 
 	/* Select DMA lines */
-	switch (host->id) {
-	case OMAP_MMC1_DEVID:
-		host->dma_line_tx = OMAP24XX_DMA_MMC1_TX;
-		host->dma_line_rx = OMAP24XX_DMA_MMC1_RX;
-		break;
-	case OMAP_MMC2_DEVID:
-		host->dma_line_tx = OMAP24XX_DMA_MMC2_TX;
-		host->dma_line_rx = OMAP24XX_DMA_MMC2_RX;
-		break;
-	case OMAP_MMC3_DEVID:
-		host->dma_line_tx = OMAP34XX_DMA_MMC3_TX;
-		host->dma_line_rx = OMAP34XX_DMA_MMC3_RX;
-		break;
-	case OMAP_MMC4_DEVID:
-		host->dma_line_tx = OMAP44XX_DMA_MMC4_TX;
-		host->dma_line_rx = OMAP44XX_DMA_MMC4_RX;
-		break;
-	case OMAP_MMC5_DEVID:
-		host->dma_line_tx = OMAP44XX_DMA_MMC5_TX;
-		host->dma_line_rx = OMAP44XX_DMA_MMC5_RX;
-		break;
-	default:
-		dev_err(mmc_dev(host->mmc), "Invalid MMC id\n");
-		goto err_irq;
+	if (pdata->version == MMC_CTRL_VERSION_2) {
+		dma_rx = platform_get_resource_byname(pdev,
+							IORESOURCE_DMA, "rx");
+		if (!dma_rx) {
+			ret = -EINVAL;
+			goto err1;
+		}
+
+		dma_tx = platform_get_resource_byname(pdev,
+							IORESOURCE_DMA, "tx");
+		if (!dma_tx) {
+			ret = -EINVAL;
+			goto err1;
+		}
+		host->dma_line_tx = dma_tx->start;
+		host->dma_line_rx = dma_rx->start;
+
+	} else {
+		switch (host->id) {
+		case OMAP_MMC1_DEVID:
+			host->dma_line_tx = OMAP24XX_DMA_MMC1_TX;
+			host->dma_line_rx = OMAP24XX_DMA_MMC1_RX;
+			break;
+		case OMAP_MMC2_DEVID:
+			host->dma_line_tx = OMAP24XX_DMA_MMC2_TX;
+			host->dma_line_rx = OMAP24XX_DMA_MMC2_RX;
+			break;
+		case OMAP_MMC3_DEVID:
+			host->dma_line_tx = OMAP34XX_DMA_MMC3_TX;
+			host->dma_line_rx = OMAP34XX_DMA_MMC3_RX;
+			break;
+		case OMAP_MMC4_DEVID:
+			host->dma_line_tx = OMAP44XX_DMA_MMC4_TX;
+			host->dma_line_rx = OMAP44XX_DMA_MMC4_RX;
+			break;
+		case OMAP_MMC5_DEVID:
+			host->dma_line_tx = OMAP44XX_DMA_MMC5_TX;
+			host->dma_line_rx = OMAP44XX_DMA_MMC5_RX;
+			break;
+		default:
+			dev_err(mmc_dev(host->mmc), "Invalid MMC id\n");
+			goto err_irq;
+		}
 	}
 
 	/* Request IRQ for MMC operations */
