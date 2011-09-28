@@ -137,8 +137,7 @@ static void omap4_hsmmc1_before_set_reg(struct device *dev, int slot,
 	 */
 	reg = omap4_ctrl_pad_readl(control_pbias_offset);
 	reg &= ~(OMAP4_MMC1_PBIASLITE_PWRDNZ_MASK |
-		OMAP4_MMC1_PWRDNZ_MASK |
-		OMAP4_USBC1_ICUSB_PWRDNZ_MASK);
+		OMAP4_MMC1_PWRDNZ_MASK);
 	omap4_ctrl_pad_writel(reg, control_pbias_offset);
 }
 
@@ -156,8 +155,7 @@ static void omap4_hsmmc1_after_set_reg(struct device *dev, int slot,
 		else
 			reg |= OMAP4_MMC1_PBIASLITE_VMODE_MASK;
 		reg |= (OMAP4_MMC1_PBIASLITE_PWRDNZ_MASK |
-			OMAP4_MMC1_PWRDNZ_MASK |
-			OMAP4_USBC1_ICUSB_PWRDNZ_MASK);
+			OMAP4_MMC1_PWRDNZ_MASK);
 		omap4_ctrl_pad_writel(reg, control_pbias_offset);
 
 		timeout = jiffies + msecs_to_jiffies(5);
@@ -171,16 +169,14 @@ static void omap4_hsmmc1_after_set_reg(struct device *dev, int slot,
 		if (reg & OMAP4_MMC1_PBIASLITE_VMODE_ERROR_MASK) {
 			pr_err("Pbias Voltage is not same as LDO\n");
 			/* Caution : On VMODE_ERROR Power Down MMC IO */
-			reg &= ~(OMAP4_MMC1_PWRDNZ_MASK |
-				OMAP4_USBC1_ICUSB_PWRDNZ_MASK);
+			reg &= ~(OMAP4_MMC1_PWRDNZ_MASK);
 			omap4_ctrl_pad_writel(reg, control_pbias_offset);
 		}
 	} else {
 		reg = omap4_ctrl_pad_readl(control_pbias_offset);
 		reg |= (OMAP4_MMC1_PBIASLITE_PWRDNZ_MASK |
 			OMAP4_MMC1_PWRDNZ_MASK |
-			OMAP4_MMC1_PBIASLITE_VMODE_MASK |
-			OMAP4_USBC1_ICUSB_PWRDNZ_MASK);
+			OMAP4_MMC1_PBIASLITE_VMODE_MASK);
 		omap4_ctrl_pad_writel(reg, control_pbias_offset);
 	}
 }
@@ -430,7 +426,7 @@ static struct omap_device_pm_latency omap_hsmmc_latency[] = {
 void __init omap_init_hsmmc(struct omap2_hsmmc_info *hsmmcinfo, int ctrl_nr)
 {
 	struct omap_hwmod *oh;
-	struct omap_device *od;
+	struct platform_device *pdev;
 	struct omap_device_pm_latency *ohl;
 	char oh_name[MAX_OMAP_MMC_HWMOD_NAME_LEN];
 	struct omap_mmc_platform_data *mmc_data;
@@ -471,9 +467,9 @@ void __init omap_init_hsmmc(struct omap2_hsmmc_info *hsmmcinfo, int ctrl_nr)
 		mmc_data->controller_flags = mmc_dev_attr->flags;
 	}
 
-	od = omap_device_build(name, ctrl_nr - 1, oh, mmc_data,
+	pdev = omap_device_build(name, ctrl_nr - 1, oh, mmc_data,
 		sizeof(struct omap_mmc_platform_data), ohl, ohl_cnt, false);
-	if (IS_ERR(od)) {
+	if (IS_ERR(pdev)) {
 		WARN(1, "Can't build omap_device for %s:%s.\n", name, oh->name);
 		kfree(mmc_data->slots[0].name);
 		goto done;
@@ -482,7 +478,7 @@ void __init omap_init_hsmmc(struct omap2_hsmmc_info *hsmmcinfo, int ctrl_nr)
 	 * return device handle to board setup code
 	 * required to populate for regulator framework structure
 	 */
-	hsmmcinfo->dev = &od->pdev.dev;
+	hsmmcinfo->dev = &pdev->dev;
 
 done:
 	kfree(mmc_data);
