@@ -2970,7 +2970,16 @@ asmlinkage __visible void __sched notrace preempt_schedule_context(void)
 		 * an infinite recursion.
 		 */
 		prev_ctx = exception_enter();
+		/*
+		 * The add/subtract must not be traced by the function
+		 * tracer. But we still want to account for the
+		 * preempt off latency tracer. Since the _notrace versions
+		 * of add/subtract skip the accounting for latency tracer
+		 * we must force it manually.
+		 */
+		start_critical_timings();
 		__schedule();
+		stop_critical_timings();
 		exception_exit(prev_ctx);
 
 		__preempt_count_sub(PREEMPT_ACTIVE);
