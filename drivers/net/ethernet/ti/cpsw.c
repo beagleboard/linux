@@ -916,7 +916,7 @@ static int __devinit cpsw_probe(struct platform_device *pdev)
 			priv->mac_addr[4], priv->mac_addr[5]);
 	} else {
 		random_ether_addr(priv->mac_addr);
-		printk(KERN_INFO"Detected MACID=%x:%x:%x:%x:%x:%x\n",
+		printk(KERN_INFO"Random MACID=%x:%x:%x:%x:%x:%x\n",
 			priv->mac_addr[0], priv->mac_addr[1],
 			priv->mac_addr[2], priv->mac_addr[3],
 			priv->mac_addr[4], priv->mac_addr[5]);

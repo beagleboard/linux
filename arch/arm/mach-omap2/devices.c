@@ -1276,6 +1276,8 @@ void am33xx_cpsw_init(void)
 			am33xx_cpsw_slaves[1].mac_addr[i] = am33xx_macid1[i];
 	}
 
+	memcpy(am33xx_cpsw_pdata.mac_addr,
+			am33xx_cpsw_slaves[0].mac_addr, ETH_ALEN);
 	platform_device_register(&am33xx_cpsw_mdiodevice);
 	platform_device_register(&am33xx_cpsw_device);
 	clk_add_alias(NULL, dev_name(&am33xx_cpsw_mdiodevice.dev),
