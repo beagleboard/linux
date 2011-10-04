@@ -37,4 +37,8 @@
 #define PROFILE_7		(0x1 << 7)
 #define PROFILE_ALL		0xFF
 
+void am335x_evmid_fillup(unsigned int evmid);
+void am335x_cpsw_macidfillup(char *eeprommacid0, char *eeprommacid1);
+void am335x_cpsw_init(void);
+
 #endif

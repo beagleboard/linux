@@ -55,6 +55,12 @@
 /* TI81XX spefic control submodules */
 #define TI81XX_CONTROL_DEVCONF		0x600
 
+/* TI81XX CONTROL_DEVCONF register offsets */
+#define TI81XX_CONTROL_MAC_ID0_LO       (TI81XX_CONTROL_DEVCONF + 0x030)
+#define TI81XX_CONTROL_MAC_ID0_HI       (TI81XX_CONTROL_DEVCONF + 0x034)
+#define TI81XX_CONTROL_MAC_ID1_LO       (TI81XX_CONTROL_DEVCONF + 0x038)
+#define TI81XX_CONTROL_MAC_ID1_HI       (TI81XX_CONTROL_DEVCONF + 0x03c)
+
 /* Control register offsets - read/write with omap_ctrl_{read,write}{bwl}() */
 
 #define OMAP2_CONTROL_SYSCONFIG		(OMAP2_CONTROL_INTERFACE + 0x10)

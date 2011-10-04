@@ -17,6 +17,10 @@
 #include <linux/err.h>
 #include <linux/slab.h>
 #include <linux/of.h>
+#include <linux/davinci_emac.h>
+#include <linux/cpsw.h>
+#include <linux/etherdevice.h>
+#include <linux/dma-mapping.h>
 
 #include <mach/hardware.h>
 #include <mach/irqs.h>
@@ -39,6 +43,8 @@
 
 #define L3_MODULES_MAX_LEN 12
 #define L3_MODULES 3
+
+void am33xx_cpsw_init(void);
 
 static int __init omap3_l3_init(void)
 {
@@ -712,10 +718,201 @@ static int __init omap2_init_devices(void)
 	omap_init_sham();
 	omap_init_aes();
 	omap_init_vout();
+	am33xx_cpsw_init();
 
 	return 0;
 }
 arch_initcall(omap2_init_devices);
+
+#define AM33XX_CPSW_BASE		(0x4A100000)
+#define AM33XX_CPSW_MDIO_BASE		(0x4A101000)
+#define AM33XX_CPSW_SS_BASE		(0x4A101200)
+#define AM33XX_EMAC_MDIO_FREQ		(1000000)
+
+static u64 am33xx_cpsw_dmamask = DMA_BIT_MASK(32);
+/* TODO : Verify the offsets */
+static struct cpsw_slave_data am33xx_cpsw_slaves[] = {
+	{
+		.slave_reg_ofs  = 0x208,
+		.sliver_reg_ofs = 0xd80,
+		.phy_id		= "0:00",
+	},
+	{
+		.slave_reg_ofs  = 0x308,
+		.sliver_reg_ofs = 0xdc0,
+		.phy_id		= "0:01",
+	},
+};
+
+static struct cpsw_platform_data am33xx_cpsw_pdata = {
+	.ss_reg_ofs		= 0x1200,
+	.channels		= 8,
+	.cpdma_reg_ofs		= 0x800,
+	.slaves			= 2,
+	.slave_data		= am33xx_cpsw_slaves,
+	.ale_reg_ofs		= 0xd00,
+	.ale_entries		= 1024,
+	.host_port_reg_ofs      = 0x108,
+	.hw_stats_reg_ofs       = 0x900,
+	.bd_ram_ofs		= 0x2000,
+	.bd_ram_size		= SZ_8K,
+	.rx_descs               = 64,
+	.mac_control            = BIT(5), /* MIIEN */
+	.gigabit_en		= 1,
+	.host_port_num		= 0,
+	.no_bd_ram		= false,
+	.version		= CPSW_VERSION_2,
+};
+
+static struct mdio_platform_data am33xx_cpsw_mdiopdata = {
+	.bus_freq       = AM33XX_EMAC_MDIO_FREQ,
+};
+
+static struct resource am33xx_cpsw_mdioresources[] = {
+	{
+		.start  = AM33XX_CPSW_MDIO_BASE,
+		.end    = AM33XX_CPSW_MDIO_BASE + SZ_256 - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+};
+
+static struct platform_device am33xx_cpsw_mdiodevice = {
+	.name           = "davinci_mdio",
+	.id             = 0,
+	.num_resources  = ARRAY_SIZE(am33xx_cpsw_mdioresources),
+	.resource       = am33xx_cpsw_mdioresources,
+	.dev.platform_data = &am33xx_cpsw_mdiopdata,
+};
+
+static struct resource am33xx_cpsw_resources[] = {
+	{
+		.start  = AM33XX_CPSW_BASE,
+		.end    = AM33XX_CPSW_BASE + SZ_2K - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.start  = AM33XX_CPSW_SS_BASE,
+		.end    = AM33XX_CPSW_SS_BASE + SZ_256 - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.start	= AM33XX_IRQ_CPSW_C0_RX,
+		.end	= AM33XX_IRQ_CPSW_C0_RX,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.start	= AM33XX_IRQ_CPSW_RX,
+		.end	= AM33XX_IRQ_CPSW_RX,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.start	= AM33XX_IRQ_CPSW_TX,
+		.end	= AM33XX_IRQ_CPSW_TX,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.start	= AM33XX_IRQ_CPSW_C0,
+		.end	= AM33XX_IRQ_CPSW_C0,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device am33xx_cpsw_device = {
+	.name		=	"cpsw",
+	.id		=	0,
+	.num_resources	=	ARRAY_SIZE(am33xx_cpsw_resources),
+	.resource	=	am33xx_cpsw_resources,
+	.dev		=	{
+					.platform_data	= &am33xx_cpsw_pdata,
+					.dma_mask	= &am33xx_cpsw_dmamask,
+					.coherent_dma_mask = DMA_BIT_MASK(32),
+				},
+};
+
+static unsigned char  am33xx_macid0[ETH_ALEN];
+static unsigned char  am33xx_macid1[ETH_ALEN];
+static unsigned int   am33xx_evmid;
+
+/*
+* am33xx_evmid_fillup - set up board evmid
+* @evmid - evm id which needs to be configured
+*
+* This function is called to configure board evm id.
+* IA Motor Control EVM needs special setting of MAC PHY Id.
+* This function is called when IA Motor Control EVM is detected
+* during boot-up.
+*/
+void am33xx_evmid_fillup(unsigned int evmid)
+{
+	am33xx_evmid = evmid;
+	return;
+}
+
+/*
+* am33xx_cpsw_macidfillup - setup mac adrresses
+* @eeprommacid0 - mac id 0 which needs to be configured
+* @eeprommacid1 - mac id 1 which needs to be configured
+*
+* This function is called to configure mac addresses.
+* Mac addresses are read from eeprom and this function is called
+* to store those mac adresses in am33xx_macid0 and am33xx_macid1.
+* In case, mac address read from eFuse are invalid, mac addresses
+* stored in these variable are used.
+*/
+void am33xx_cpsw_macidfillup(char *eeprommacid0, char *eeprommacid1)
+{
+	u32 i;
+
+	/* Fillup these mac addresses with the mac adresses from eeprom */
+	for (i = 0; i < ETH_ALEN; i++) {
+		am33xx_macid0[i] = eeprommacid0[i];
+		am33xx_macid1[i] = eeprommacid1[i];
+	}
+
+	return;
+}
+
+void am33xx_cpsw_init(void)
+{
+	u32 mac_lo, mac_hi;
+	u32 i;
+
+	mac_lo = omap_ctrl_readl(TI81XX_CONTROL_MAC_ID0_LO);
+	mac_hi = omap_ctrl_readl(TI81XX_CONTROL_MAC_ID0_HI);
+	am33xx_cpsw_slaves[0].mac_addr[0] = mac_hi & 0xFF;
+	am33xx_cpsw_slaves[0].mac_addr[1] = (mac_hi & 0xFF00) >> 8;
+	am33xx_cpsw_slaves[0].mac_addr[2] = (mac_hi & 0xFF0000) >> 16;
+	am33xx_cpsw_slaves[0].mac_addr[3] = (mac_hi & 0xFF000000) >> 24;
+	am33xx_cpsw_slaves[0].mac_addr[4] = mac_lo & 0xFF;
+	am33xx_cpsw_slaves[0].mac_addr[5] = (mac_lo & 0xFF00) >> 8;
+
+	/* Read MACID0 from eeprom if eFuse MACID is invalid */
+	if (!is_valid_ether_addr(am33xx_cpsw_slaves[0].mac_addr)) {
+		for (i = 0; i < ETH_ALEN; i++)
+			am33xx_cpsw_slaves[0].mac_addr[i] = am33xx_macid0[i];
+	}
+
+	mac_lo = omap_ctrl_readl(TI81XX_CONTROL_MAC_ID1_LO);
+	mac_hi = omap_ctrl_readl(TI81XX_CONTROL_MAC_ID1_HI);
+	am33xx_cpsw_slaves[1].mac_addr[0] = mac_hi & 0xFF;
+	am33xx_cpsw_slaves[1].mac_addr[1] = (mac_hi & 0xFF00) >> 8;
+	am33xx_cpsw_slaves[1].mac_addr[2] = (mac_hi & 0xFF0000) >> 16;
+	am33xx_cpsw_slaves[1].mac_addr[3] = (mac_hi & 0xFF000000) >> 24;
+	am33xx_cpsw_slaves[1].mac_addr[4] = mac_lo & 0xFF;
+	am33xx_cpsw_slaves[1].mac_addr[5] = (mac_lo & 0xFF00) >> 8;
+
+	/* Read MACID1 from eeprom if eFuse MACID is invalid */
+	if (!is_valid_ether_addr(am33xx_cpsw_slaves[1].mac_addr)) {
+		for (i = 0; i < ETH_ALEN; i++)
+			am33xx_cpsw_slaves[1].mac_addr[i] = am33xx_macid1[i];
+	}
+
+	platform_device_register(&am33xx_cpsw_mdiodevice);
+	platform_device_register(&am33xx_cpsw_device);
+	clk_add_alias(NULL, dev_name(&am33xx_cpsw_mdiodevice.dev),
+			NULL, &am33xx_cpsw_device.dev);
+}
+
 
 #if defined(CONFIG_OMAP_WATCHDOG) || defined(CONFIG_OMAP_WATCHDOG_MODULE)
 static int __init omap_init_wdt(void)
