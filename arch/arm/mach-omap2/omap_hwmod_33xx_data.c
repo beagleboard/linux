@@ -1178,8 +1178,8 @@ static struct omap_hwmod_irq_info am33xx_mmc2_irqs[] = {
 };
 
 static struct omap_hwmod_dma_info am33xx_mmc2_edma_reqs[] = {
-	{ .name = "tx", .dma_req = 64, },
-	{ .name = "rx", .dma_req = 65, },
+	{ .name = "tx", .dma_req = AM33XX_DMA_MMCHS2_W, },
+	{ .name = "rx", .dma_req = AM33XX_DMA_MMCHS2_R, },
 	{ .dma_req = -1 }
 };
 

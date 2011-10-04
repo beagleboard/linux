@@ -41,10 +41,15 @@
 #include <plat/common.h>
 #include <plat/lcdc.h>
 #include <plat/usb.h>
+#include <plat/mmc.h>
 
 #include "board-flash.h"
 #include "mux.h"
 #include "devices.h"
+#include "hsmmc.h"
+
+/* Convert GPIO signal to GPIO pin number */
+#define GPIO_TO_PIN(bank, gpio) (32 * (bank) + (gpio))
 
 static const struct display_panel disp_panel = {
 	WVGA,
@@ -128,6 +133,24 @@ static struct snd_platform_data am335x_evm_snd_data1 = {
 	.txnumevt	= 1,
 	.rxnumevt	= 1,
 };
+
+static struct omap2_hsmmc_info am335x_mmc[] __initdata = {
+	{
+		.mmc            = 1,
+		.caps           = MMC_CAP_4_BIT_DATA,
+		.gpio_cd        = GPIO_TO_PIN(0, 6),
+		.gpio_wp        = GPIO_TO_PIN(3, 18),
+		.ocr_mask       = MMC_VDD_32_33 | MMC_VDD_33_34, /* 3V3 */
+	},
+	{
+		.mmc            = 0,	/* will be set at runtime */
+	},
+	{
+		.mmc            = 0,	/* will be set at runtime */
+	},
+	{}      /* Terminator */
+};
+
 
 #ifdef CONFIG_OMAP_MUX
 static struct omap_board_mux board_mux[] __initdata = {
@@ -392,6 +415,48 @@ static struct pinmux_config mcasp1_pin_mux[] = {
 	{NULL, 0},
 };
 
+
+/* Module pin mux for mmc0 */
+static struct pinmux_config mmc0_pin_mux[] = {
+	{"mmc0_dat3.mmc0_dat3",	OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"mmc0_dat2.mmc0_dat2",	OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"mmc0_dat1.mmc0_dat1",	OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"mmc0_dat0.mmc0_dat0",	OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"mmc0_clk.mmc0_clk",	OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"mmc0_cmd.mmc0_cmd",	OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"mcasp0_aclkr.mmc0_sdwp", OMAP_MUX_MODE7 | AM33XX_PIN_INPUT_PULLUP},
+	{"spi0_cs1.mmc0_sdcd",  OMAP_MUX_MODE7 | AM33XX_PIN_INPUT_PULLUP},
+	{NULL, 0},
+};
+
+static struct pinmux_config mmc0_no_cd_pin_mux[] = {
+	{"mmc0_dat3.mmc0_dat3",	OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"mmc0_dat2.mmc0_dat2",	OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"mmc0_dat1.mmc0_dat1",	OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"mmc0_dat0.mmc0_dat0",	OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"mmc0_clk.mmc0_clk",	OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"mmc0_cmd.mmc0_cmd",	OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"mcasp0_aclkr.mmc0_sdwp", OMAP_MUX_MODE4 | AM33XX_PIN_INPUT_PULLDOWN},
+	{NULL, 0},
+};
+
+/* Module pin mux for mmc1 */
+static struct pinmux_config mmc1_pin_mux[] = {
+	{"gpmc_ad7.mmc1_dat7",	OMAP_MUX_MODE1 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_ad6.mmc1_dat6",	OMAP_MUX_MODE1 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_ad5.mmc1_dat5",	OMAP_MUX_MODE1 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_ad4.mmc1_dat4",	OMAP_MUX_MODE1 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_ad3.mmc1_dat3",	OMAP_MUX_MODE1 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_ad2.mmc1_dat2",	OMAP_MUX_MODE1 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_ad1.mmc1_dat1",	OMAP_MUX_MODE1 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_ad0.mmc1_dat0",	OMAP_MUX_MODE1 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_csn1.mmc1_clk",	OMAP_MUX_MODE2 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_csn2.mmc1_cmd",	OMAP_MUX_MODE2 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_csn0.mmc1_sdwp",	OMAP_MUX_MODE7 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_advn_ale.mmc1_sdcd", OMAP_MUX_MODE7 | AM33XX_PIN_INPUT_PULLUP},
+	{NULL, 0},
+};
+
 /*
 * @pin_mux - single module pin-mux structure which defines pin-mux
 *			details for all its pins.
@@ -445,9 +510,6 @@ static void _configure_device(int evm_id, struct evm_dev_cfg *dev_cfg,
 		}
 	}
 }
-
-/* Convert GPIO signal to GPIO pin number */
-#define GPIO_TO_PIN(bank, gpio) (32 * (bank) + (gpio))
 
 #define AM335X_LCD_BL_PIN	GPIO_TO_PIN(0, 7)
 
@@ -648,6 +710,37 @@ static void mcasp1_init(int evm_id, int profile)
 	return;
 }
 
+static void mmc1_init(int evm_id, int profile)
+{
+	setup_pin_mux(mmc1_pin_mux);
+
+	am335x_mmc[1].mmc = 2;
+	am335x_mmc[1].caps = MMC_CAP_4_BIT_DATA;
+	am335x_mmc[1].gpio_cd = GPIO_TO_PIN(2, 2);
+	am335x_mmc[1].gpio_wp = GPIO_TO_PIN(1, 29);
+	am335x_mmc[1].ocr_mask = MMC_VDD_32_33 | MMC_VDD_33_34; /* 3V3 */
+
+	/* mmc will be initialized when mmc0_init is called */
+	return;
+}
+
+static void mmc0_init(int evm_id, int profile)
+{
+	setup_pin_mux(mmc0_pin_mux);
+
+	omap2_hsmmc_init(am335x_mmc);
+	return;
+}
+
+static void mmc0_no_cd_init(int evm_id, int profile)
+{
+	setup_pin_mux(mmc0_no_cd_pin_mux);
+
+	omap2_hsmmc_init(am335x_mmc);
+	return;
+}
+
+
 /* Low-Cost EVM */
 static struct evm_dev_cfg low_cost_evm_dev_cfg[] = {
 	{rgmii1_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
@@ -674,6 +767,9 @@ static struct evm_dev_cfg gen_purp_evm_dev_cfg[] = {
 		(PROFILE_ALL & ~PROFILE_2 & ~PROFILE_3)},
 	{i2c1_init,	DEV_ON_DGHTR_BRD, (PROFILE_0 | PROFILE_3 | PROFILE_7)},
 	{mcasp1_init,	DEV_ON_DGHTR_BRD, (PROFILE_0 | PROFILE_3 | PROFILE_7)},
+	{mmc1_init,	DEV_ON_DGHTR_BRD, PROFILE_2},
+	{mmc0_init,	DEV_ON_BASEBOARD, (PROFILE_ALL & ~PROFILE_5)},
+	{mmc0_no_cd_init,	DEV_ON_BASEBOARD, PROFILE_5},
 	{NULL, 0, 0},
 };
 
@@ -698,6 +794,7 @@ static struct evm_dev_cfg ip_phn_evm_dev_cfg[] = {
 	{evm_nand_init, DEV_ON_DGHTR_BRD, PROFILE_NONE},
 	{i2c1_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
 	{mcasp1_init,	DEV_ON_DGHTR_BRD, PROFILE_NONE},
+	{mmc0_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
 	{NULL, 0, 0},
 };
 
