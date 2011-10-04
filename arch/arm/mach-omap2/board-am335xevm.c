@@ -226,6 +226,64 @@ static struct pinmux_config lcdc_pin_mux[] = {
 	{NULL, 0},
 };
 
+/* Module pin mux for rgmii1 */
+static struct pinmux_config rgmii1_pin_mux[] = {
+	{"mii1_txen.rgmii1_tctl", OMAP_MUX_MODE2 | AM33XX_PIN_OUTPUT},
+	{"mii1_rxdv.rgmii1_rctl", OMAP_MUX_MODE2 | AM33XX_PIN_INPUT_PULLDOWN},
+	{"mii1_txd3.rgmii1_td3", OMAP_MUX_MODE2 | AM33XX_PIN_OUTPUT},
+	{"mii1_txd2.rgmii1_td2", OMAP_MUX_MODE2 | AM33XX_PIN_OUTPUT},
+	{"mii1_txd1.rgmii1_td1", OMAP_MUX_MODE2 | AM33XX_PIN_OUTPUT},
+	{"mii1_txd0.rgmii1_td0", OMAP_MUX_MODE2 | AM33XX_PIN_OUTPUT},
+	{"mii1_txclk.rgmii1_tclk", OMAP_MUX_MODE2 | AM33XX_PIN_OUTPUT},
+	{"mii1_rxclk.rgmii1_rclk", OMAP_MUX_MODE2 | AM33XX_PIN_INPUT_PULLDOWN},
+	{"mii1_rxd3.rgmii1_rd3", OMAP_MUX_MODE2 | AM33XX_PIN_INPUT_PULLDOWN},
+	{"mii1_rxd2.rgmii1_rd2", OMAP_MUX_MODE2 | AM33XX_PIN_INPUT_PULLDOWN},
+	{"mii1_rxd1.rgmii1_rd1", OMAP_MUX_MODE2 | AM33XX_PIN_INPUT_PULLDOWN},
+	{"mii1_rxd0.rgmii1_rd0", OMAP_MUX_MODE2 | AM33XX_PIN_INPUT_PULLDOWN},
+	{"mdio_data.mdio_data", OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"mdio_clk.mdio_clk", OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT_PULLUP},
+	{NULL, 0},
+};
+
+/* Module pin mux for rgmii2 */
+static struct pinmux_config rgmii2_pin_mux[] = {
+	{"gpmc_a0.rgmii2_tctl", OMAP_MUX_MODE2 | AM33XX_PIN_OUTPUT},
+	{"gpmc_a1.rgmii2_rctl", OMAP_MUX_MODE2 | AM33XX_PIN_INPUT_PULLDOWN},
+	{"gpmc_a2.rgmii2_td3", OMAP_MUX_MODE2 | AM33XX_PIN_OUTPUT},
+	{"gpmc_a3.rgmii2_td2", OMAP_MUX_MODE2 | AM33XX_PIN_OUTPUT},
+	{"gpmc_a4.rgmii2_td1", OMAP_MUX_MODE2 | AM33XX_PIN_OUTPUT},
+	{"gpmc_a5.rgmii2_td0", OMAP_MUX_MODE2 | AM33XX_PIN_OUTPUT},
+	{"gpmc_a6.rgmii2_tclk", OMAP_MUX_MODE2 | AM33XX_PIN_OUTPUT},
+	{"gpmc_a7.rgmii2_rclk", OMAP_MUX_MODE2 | AM33XX_PIN_INPUT_PULLDOWN},
+	{"gpmc_a8.rgmii2_rd3", OMAP_MUX_MODE2 | AM33XX_PIN_INPUT_PULLDOWN},
+	{"gpmc_a9.rgmii2_rd2", OMAP_MUX_MODE2 | AM33XX_PIN_INPUT_PULLDOWN},
+	{"gpmc_a10.rgmii2_rd1", OMAP_MUX_MODE2 | AM33XX_PIN_INPUT_PULLDOWN},
+	{"gpmc_a11.rgmii2_rd0", OMAP_MUX_MODE2 | AM33XX_PIN_INPUT_PULLDOWN},
+	{"mdio_data.mdio_data", OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"mdio_clk.mdio_clk", OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT_PULLUP},
+	{NULL, 0},
+};
+
+/* Module pin mux for mii1 */
+static struct pinmux_config mii1_pin_mux[] = {
+	{"mii1_rxerr.mii1_rxerr", OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLDOWN},
+	{"mii1_txen.mii1_txen", OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
+	{"mii1_rxdv.mii1_rxdv", OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLDOWN},
+	{"mii1_txd3.mii1_txd3", OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
+	{"mii1_txd2.mii1_txd2", OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
+	{"mii1_txd1.mii1_txd1", OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
+	{"mii1_txd0.mii1_txd0", OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
+	{"mii1_txclk.mii1_txclk", OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLDOWN},
+	{"mii1_rxclk.mii1_rxclk", OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLDOWN},
+	{"mii1_rxd3.mii1_rxd3", OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLDOWN},
+	{"mii1_rxd2.mii1_rxd2", OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLDOWN},
+	{"mii1_rxd1.mii1_rxd1", OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLDOWN},
+	{"mii1_rxd0.mii1_rxd0", OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLDOWN},
+	{"mdio_data.mdio_data", OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"mdio_clk.mdio_clk", OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT_PULLUP},
+	{NULL, 0},
+};
+
 /*
 * @pin_mux - single module pin-mux structure which defines pin-mux
 *			details for all its pins.
@@ -348,9 +406,27 @@ static void lcdc_init(int evm_id, int profile)
 	return;
 }
 
+static void rgmii1_init(int evm_id, int profile)
+{
+	setup_pin_mux(rgmii1_pin_mux);
+	return;
+}
+
+static void rgmii2_init(int evm_id, int profile)
+{
+	setup_pin_mux(rgmii2_pin_mux);
+	return;
+}
+
+static void mii1_init(int evm_id, int profile)
+{
+	setup_pin_mux(mii1_pin_mux);
+	return;
+}
 
 /* Low-Cost EVM */
 static struct evm_dev_cfg low_cost_evm_dev_cfg[] = {
+	{rgmii1_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
 	{NULL, 0, 0},
 };
 
@@ -360,11 +436,15 @@ static struct evm_dev_cfg gen_purp_evm_dev_cfg[] = {
 						PROFILE_2 | PROFILE_7) },
 	{lcdc_init,	DEV_ON_DGHTR_BRD, (PROFILE_0 | PROFILE_1 |
 						PROFILE_2 | PROFILE_7) },
+	{rgmii1_init,	DEV_ON_BASEBOARD, PROFILE_ALL},
+	{rgmii2_init,	DEV_ON_DGHTR_BRD, (PROFILE_1 | PROFILE_2 |
+						PROFILE_4 | PROFILE_6) },
 	{NULL, 0, 0},
 };
 
 /* Industrial Auto Motor Control EVM */
 static struct evm_dev_cfg ind_auto_mtrl_evm_dev_cfg[] = {
+	{mii1_init,	DEV_ON_DGHTR_BRD, PROFILE_ALL},
 	{NULL, 0, 0},
 };
 
@@ -372,6 +452,8 @@ static struct evm_dev_cfg ind_auto_mtrl_evm_dev_cfg[] = {
 static struct evm_dev_cfg ip_phn_evm_dev_cfg[] = {
 	{enable_ecap0,	DEV_ON_DGHTR_BRD, PROFILE_NONE},
 	{lcdc_init,	DEV_ON_DGHTR_BRD, PROFILE_NONE},
+	{rgmii1_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
+	{rgmii2_init,	DEV_ON_DGHTR_BRD, PROFILE_NONE},
 	{NULL, 0, 0},
 };
 
@@ -492,6 +574,12 @@ static void am335x_evm_setup(struct memory_accessor *mem_acc, void *context)
 	else
 		goto out;
 
+	/* Initialize cpsw after board detection is completed as board
+	 * information is required for configuring phy address and hence
+	 * should be call only after board detection
+	 */
+	am33xx_cpsw_init();
+
 	return;
 out:
 	/*
@@ -502,6 +590,12 @@ out:
 		"General purpose EVM in profile 0 with daughter card connected\n");
 	daughter_brd_detected = true;
 	setup_general_purpose_evm();
+
+	/* Initialize cpsw after board detection is completed as board
+	 * information is required for configuring phy address and hence
+	 * should be call only after board detection
+	 */
+	am33xx_cpsw_init();
 
 }
 

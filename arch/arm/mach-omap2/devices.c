@@ -1001,7 +1001,6 @@ static int __init omap2_init_devices(void)
 	omap_init_sham();
 	omap_init_aes();
 	omap_init_vout();
-	am33xx_cpsw_init();
 	am33xx_register_edma();
 
 	return 0;
