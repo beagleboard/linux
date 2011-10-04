@@ -34,12 +34,17 @@
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
+#include <asm/hardware/asp.h>
 
 #include <plat/irqs.h>
 #include <plat/board.h>
 #include <plat/common.h>
 #include <plat/lcdc.h>
 #include <plat/usb.h>
+
+#include "board-flash.h"
+#include "mux.h"
+#include "devices.h"
 
 static const struct display_panel disp_panel = {
 	WVGA,
@@ -104,8 +109,25 @@ static struct platform_device tsc_device = {
 	.resource       = tsc_resources,
 };
 
-#include "board-flash.h"
-#include "mux.h"
+static u8 am335x_iis_serializer_direction1[] = {
+	INACTIVE_MODE,	INACTIVE_MODE,	TX_MODE,	RX_MODE,
+	INACTIVE_MODE,	INACTIVE_MODE,	INACTIVE_MODE,	INACTIVE_MODE,
+	INACTIVE_MODE,	INACTIVE_MODE,	INACTIVE_MODE,	INACTIVE_MODE,
+	INACTIVE_MODE,	INACTIVE_MODE,	INACTIVE_MODE,	INACTIVE_MODE,
+};
+
+static struct snd_platform_data am335x_evm_snd_data1 = {
+	.tx_dma_offset	= 0x46400000,	/* McASP1 */
+	.rx_dma_offset	= 0x46400000,
+	.op_mode	= DAVINCI_MCASP_IIS_MODE,
+	.num_serializer	= ARRAY_SIZE(am335x_iis_serializer_direction1),
+	.tdm_slots	= 2,
+	.serial_dir	= am335x_iis_serializer_direction1,
+	.asp_chan_q	= EVENTQ_2,
+	.version	= MCASP_VERSION_3,
+	.txnumevt	= 1,
+	.rxnumevt	= 1,
+};
 
 #ifdef CONFIG_OMAP_MUX
 static struct omap_board_mux board_mux[] __initdata = {
@@ -360,6 +382,16 @@ static struct pinmux_config i2c1_pin_mux[] = {
 	{NULL, 0},
 };
 
+/* Module pin mux for mcasp1 */
+static struct pinmux_config mcasp1_pin_mux[] = {
+	{"mii1_crs.mcasp1_aclkx", OMAP_MUX_MODE4 | AM33XX_PIN_INPUT_PULLDOWN},
+	{"mii1_rxerr.mcasp1_fsx", OMAP_MUX_MODE4 | AM33XX_PIN_INPUT_PULLDOWN},
+	{"mii1_col.mcasp1_axr2", OMAP_MUX_MODE4 | AM33XX_PIN_INPUT_PULLDOWN},
+	{"rmii1_refclk.mcasp1_axr3", OMAP_MUX_MODE4 |
+						AM33XX_PIN_INPUT_PULLDOWN},
+	{NULL, 0},
+};
+
 /*
 * @pin_mux - single module pin-mux structure which defines pin-mux
 *			details for all its pins.
@@ -595,6 +627,7 @@ static void evm_nand_init(int evm_id, int profile)
 
 static struct i2c_board_info am335x_i2c_boardinfo1[] = {
 	{
+		I2C_BOARD_INFO("tlv320aic3x", 0x1b),
 	},
 };
 
@@ -603,6 +636,15 @@ static void i2c1_init(int evm_id, int profile)
 	setup_pin_mux(i2c1_pin_mux);
 	omap_register_i2c_bus(2, 100, am335x_i2c_boardinfo1,
 			ARRAY_SIZE(am335x_i2c_boardinfo1));
+	return;
+}
+
+/* Setup McASP 1 */
+static void mcasp1_init(int evm_id, int profile)
+{
+	/* Configure McASP */
+	setup_pin_mux(mcasp1_pin_mux);
+	am335x_register_mcasp1(&am335x_evm_snd_data1);
 	return;
 }
 
@@ -631,6 +673,7 @@ static struct evm_dev_cfg gen_purp_evm_dev_cfg[] = {
 	{evm_nand_init, DEV_ON_DGHTR_BRD,
 		(PROFILE_ALL & ~PROFILE_2 & ~PROFILE_3)},
 	{i2c1_init,	DEV_ON_DGHTR_BRD, (PROFILE_0 | PROFILE_3 | PROFILE_7)},
+	{mcasp1_init,	DEV_ON_DGHTR_BRD, (PROFILE_0 | PROFILE_3 | PROFILE_7)},
 	{NULL, 0, 0},
 };
 
@@ -654,6 +697,7 @@ static struct evm_dev_cfg ip_phn_evm_dev_cfg[] = {
 	{usb1_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
 	{evm_nand_init, DEV_ON_DGHTR_BRD, PROFILE_NONE},
 	{i2c1_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
+	{mcasp1_init,	DEV_ON_DGHTR_BRD, PROFILE_NONE},
 	{NULL, 0, 0},
 };
 

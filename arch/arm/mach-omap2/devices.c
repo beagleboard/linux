@@ -32,6 +32,8 @@
 #include <mach/edma.h>
 #endif
 
+#include <asm/hardware/asp.h>
+
 #include <plat/tc.h>
 #include <plat/board.h>
 #include <plat/mcbsp.h>
@@ -173,6 +175,61 @@ void __init am33xx_register_lcdc(struct da8xx_lcdc_platform_data *pdata)
 				ret);
 
 }
+
+#if defined(CONFIG_SND_AM335X_SOC_EVM) || \
+				defined(CONFIG_SND_AM335X_SOC_EVM_MODULE)
+static struct resource am335x_mcasp1_resource[] = {
+	{
+		.name = "mcasp1",
+		.start = AM33XX_ASP1_BASE,
+		.end = AM33XX_ASP1_BASE + (SZ_1K * 12) - 1,
+		.flags = IORESOURCE_MEM,
+	},
+	/* TX event */
+	{
+		.start = AM33XX_DMA_MCASP1_X,
+		.end = AM33XX_DMA_MCASP1_X,
+		.flags = IORESOURCE_DMA,
+	},
+	/* RX event */
+	{
+		.start = AM33XX_DMA_MCASP1_R,
+		.end = AM33XX_DMA_MCASP1_R,
+		.flags = IORESOURCE_DMA,
+	},
+};
+
+static struct platform_device am335x_mcasp1_device = {
+	.name = "davinci-mcasp",
+	.id = 1,
+	.num_resources = ARRAY_SIZE(am335x_mcasp1_resource),
+	.resource = am335x_mcasp1_resource,
+};
+
+void __init am335x_register_mcasp1(struct snd_platform_data *pdata)
+{
+	am335x_mcasp1_device.dev.platform_data = pdata;
+	platform_device_register(&am335x_mcasp1_device);
+}
+
+#else
+void __init am335x_register_mcasp1(struct snd_platform_data *pdata) {}
+#endif
+
+#if (defined(CONFIG_SND_AM33XX_SOC) || (defined(CONFIG_SND_AM33XX_SOC_MODULE)))
+struct platform_device am33xx_pcm_device = {
+	.name		= "davinci-pcm-audio",
+	.id		= -1,
+};
+
+static void am33xx_init_pcm(void)
+{
+	platform_device_register(&am33xx_pcm_device);
+}
+
+#else
+static inline void am33xx_init_pcm(void) {}
+#endif
 
 static struct resource omap3isp_resources[] = {
 	{
@@ -1030,6 +1087,7 @@ static int __init omap2_init_devices(void)
 	omap_init_aes();
 	omap_init_vout();
 	am33xx_register_edma();
+	am33xx_init_pcm();
 
 	return 0;
 }

@@ -120,7 +120,7 @@ struct snd_platform_data {
 enum {
 	MCASP_VERSION_1 = 0,	/* DM646x */
 	MCASP_VERSION_2,	/* DA8xx/OMAPL1x */
-	MCASP_VERSION_3,
+	MCASP_VERSION_3,	/* AM33xx */
 };
 
 enum dm365_clk_input_pin {
