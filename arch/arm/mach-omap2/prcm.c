@@ -35,6 +35,7 @@
 #include "cm2xxx_3xxx.h"
 #include "prm2xxx_3xxx.h"
 #include "prm44xx.h"
+#include "prm33xx.h"
 #include "prminst44xx.h"
 #include "prm-regbits-24xx.h"
 #include "prm-regbits-44xx.h"
@@ -67,6 +68,10 @@ static void omap_prcm_arch_reset(char mode, const char *cmd)
 		omap2xxx_clk_prepare_for_reboot();
 
 		prcm_offs = WKUP_MOD;
+	} else if (cpu_is_am33xx()) {
+		prcm_offs = AM33XX_PRM_DEVICE_MOD;
+		omap2_prm_set_mod_reg_bits(OMAP4430_RST_GLOBAL_COLD_SW_MASK,
+					prcm_offs, AM33XX_PRM_RSTCTRL_OFFSET);
 	} else if (cpu_is_omap34xx()) {
 		prcm_offs = OMAP3430_GR_MOD;
 		omap3_ctrl_write_boot_mode((cmd ? (u8)*cmd : 0));
