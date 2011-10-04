@@ -28,6 +28,10 @@
 #include <asm/mach/map.h>
 #include <asm/pmu.h>
 
+#ifdef	CONFIG_OMAP3_EDMA
+#include <mach/edma.h>
+#endif
+
 #include <plat/tc.h>
 #include <plat/board.h>
 #include <plat/mcbsp.h>
@@ -698,6 +702,248 @@ static void omap_init_vout(void)
 static inline void omap_init_vout(void) {}
 #endif
 
+#if defined(CONFIG_SOC_OMAPAM33XX) && defined(CONFIG_OMAP3_EDMA)
+
+#define AM33XX_TPCC_BASE		0x49000000
+#define AM33XX_TPTC0_BASE		0x49800000
+#define AM33XX_TPTC1_BASE		0x49900000
+#define AM33XX_TPTC2_BASE		0x49a00000
+
+#define AM33XX_SCM_BASE_EDMA		0x00000f90
+
+static struct resource am33xx_edma_resources[] = {
+	{
+		.name	= "edma_cc0",
+		.start	= AM33XX_TPCC_BASE,
+		.end	= AM33XX_TPCC_BASE + SZ_32K - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "edma_tc0",
+		.start	= AM33XX_TPTC0_BASE,
+		.end	= AM33XX_TPTC0_BASE + SZ_1K - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "edma_tc1",
+		.start	= AM33XX_TPTC1_BASE,
+		.end	= AM33XX_TPTC1_BASE + SZ_1K - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "edma_tc2",
+		.start	= AM33XX_TPTC2_BASE,
+		.end	= AM33XX_TPTC2_BASE + SZ_1K - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "edma0",
+		.start	= AM33XX_IRQ_TPCC0_INT_PO0,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.name	= "edma0_err",
+		.start	= AM33XX_IRQ_TPCC0_ERRINT_PO,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static const s16 am33xx_dma_rsv_chans[][2] = {
+	/* (offset, number) */
+	{0, 2},
+	{14, 2},
+	{26, 6},
+	{48, 4},
+	{56, 8},
+	{-1, -1}
+};
+
+static const s16 am33xx_dma_rsv_slots[][2] = {
+	/* (offset, number) */
+	{0, 2},
+	{14, 2},
+	{26, 6},
+	{48, 4},
+	{56, 8},
+	{64, 127},
+	{-1, -1}
+};
+
+/* Three Transfer Controllers on AM33XX */
+static const s8 am33xx_queue_tc_mapping[][2] = {
+	/* {event queue no, TC no} */
+	{0, 0},
+	{1, 1},
+	{2, 2},
+	{-1, -1}
+};
+
+static const s8 am33xx_queue_priority_mapping[][2] = {
+	/* {event queue no, Priority} */
+	{0, 0},
+	{1, 1},
+	{2, 2},
+	{-1, -1}
+};
+
+static struct event_to_channel_map am33xx_xbar_event_mapping[] = {
+	/* {xbar event no, Channel} */
+	{1, 12},	/* SDTXEVT1 -> MMCHS2 */
+	{2, 13},	/* SDRXEVT1 -> MMCHS2 */
+	{3, -1},
+	{4, -1},
+	{5, -1},
+	{6, -1},
+	{7, -1},
+	{8, -1},
+	{9, -1},
+	{10, -1},
+	{11, -1},
+	{12, -1},
+	{13, -1},
+	{14, -1},
+	{15, -1},
+	{16, -1},
+	{17, -1},
+	{18, -1},
+	{19, -1},
+	{20, -1},
+	{21, -1},
+	{22, -1},
+	{23, -1},
+	{24, -1},
+	{25, -1},
+	{26, -1},
+	{27, -1},
+	{28, -1},
+	{29, -1},
+	{30, -1},
+	{31, -1},
+	{-1, -1}
+};
+
+/**
+ * map_xbar_event_to_channel - maps a crossbar event to a DMA channel
+ * according to the configuration provided
+ * @event: the event number for which mapping is required
+ * @channel: channel being activated
+ * @xbar_event_mapping: array that has the event to channel map
+ *
+ * Events that are routed by default are not mapped. Only events that
+ * are crossbar mapped are routed to available channels according to
+ * the configuration provided
+ *
+ * Returns zero on success, else negative errno.
+ */
+int map_xbar_event_to_channel(unsigned int event, unsigned int *channel,
+			struct event_to_channel_map *xbar_event_mapping)
+{
+	unsigned int ctrl = 0;
+	unsigned int xbar_evt_no = 0;
+	unsigned int val = 0;
+	unsigned int offset = 0;
+	unsigned int mask = 0;
+
+	ctrl = EDMA_CTLR(event);
+	xbar_evt_no = event - (edma_info[ctrl]->num_channels);
+
+	if (event < edma_info[ctrl]->num_channels) {
+		*channel = event;
+	} else if (event < edma_info[ctrl]->num_events) {
+		*channel = xbar_event_mapping[xbar_evt_no].channel_no;
+		/* confirm the range */
+		if (*channel < EDMA_MAX_DMACH)
+			clear_bit(*channel, edma_info[ctrl]->edma_unused);
+		mask = (*channel)%4;
+		offset = (*channel)/4;
+		offset *= 4;
+		offset += mask;
+		val = (unsigned int)__raw_readl(AM33XX_CTRL_REGADDR(
+					AM33XX_SCM_BASE_EDMA + offset));
+		val = val & (~(0xFF));
+		val = val | (xbar_event_mapping[xbar_evt_no].xbar_event_no);
+		__raw_writel(val,
+			AM33XX_CTRL_REGADDR(AM33XX_SCM_BASE_EDMA + offset));
+		return 0;
+	} else {
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static struct edma_soc_info am33xx_edma_info[] = {
+	{
+		.n_channel		= 64,
+		.n_region		= 4,
+		.n_slot			= 256,
+		.n_tc			= 3,
+		.n_cc			= 1,
+		.rsv_chans		= am33xx_dma_rsv_chans,
+		.rsv_slots		= am33xx_dma_rsv_slots,
+		.queue_tc_mapping	= am33xx_queue_tc_mapping,
+		.queue_priority_mapping	= am33xx_queue_priority_mapping,
+		.is_xbar		= 1,
+		.n_events		= 95,
+		.xbar_event_mapping	= am33xx_xbar_event_mapping,
+		.map_xbar_channel	= map_xbar_event_to_channel,
+	},
+};
+
+static struct platform_device am33xx_edma_device = {
+	.name		= "edma",
+	.id		= -1,
+	.dev = {
+		.platform_data = am33xx_edma_info,
+	},
+	.num_resources	= ARRAY_SIZE(am33xx_edma_resources),
+	.resource	= am33xx_edma_resources,
+};
+
+int __init am33xx_register_edma(void)
+{
+	struct platform_device *pdev;
+	static struct clk *edma_clk;
+
+	if (cpu_is_am33xx())
+		pdev = &am33xx_edma_device;
+	else {
+		pr_err("%s: platform not supported\n", __func__);
+		return -ENODEV;
+	}
+
+	edma_clk = clk_get(NULL, "tpcc_ick");
+	if (IS_ERR(edma_clk)) {
+		printk(KERN_ERR "EDMA: Failed to get clock\n");
+		return -EBUSY;
+	}
+	clk_enable(edma_clk);
+	edma_clk = clk_get(NULL, "tptc0_ick");
+	if (IS_ERR(edma_clk)) {
+		printk(KERN_ERR "EDMA: Failed to get clock\n");
+		return -EBUSY;
+	}
+	clk_enable(edma_clk);
+	edma_clk = clk_get(NULL, "tptc1_ick");
+	if (IS_ERR(edma_clk)) {
+		printk(KERN_ERR "EDMA: Failed to get clock\n");
+		return -EBUSY;
+	}
+	clk_enable(edma_clk);
+	edma_clk = clk_get(NULL, "tptc2_ick");
+	if (IS_ERR(edma_clk)) {
+		printk(KERN_ERR "EDMA: Failed to get clock\n");
+		return -EBUSY;
+	}
+	clk_enable(edma_clk);
+
+	return platform_device_register(pdev);
+}
+
+#else
+static inline void am33xx_register_edma(void) {}
+#endif
+
 /*-------------------------------------------------------------------------*/
 
 static int __init omap2_init_devices(void)
@@ -719,6 +965,7 @@ static int __init omap2_init_devices(void)
 	omap_init_aes();
 	omap_init_vout();
 	am33xx_cpsw_init();
+	am33xx_register_edma();
 
 	return 0;
 }
