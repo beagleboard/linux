@@ -148,6 +148,7 @@
 
 #include "cm2xxx_3xxx.h"
 #include "cminst44xx.h"
+#include "cminst33xx.h"
 #include "prm2xxx_3xxx.h"
 #include "prm44xx.h"
 #include "prm33xx.h"
@@ -737,7 +738,7 @@ static void _disable_optional_clocks(struct omap_hwmod *oh)
 static void _enable_module(struct omap_hwmod *oh)
 {
 	/* The module mode does not exist prior OMAP4 */
-	if (cpu_is_omap24xx() || cpu_is_omap34xx())
+	if (!cpu_is_am33xx() && (cpu_is_omap24xx() || cpu_is_omap34xx()))
 		return;
 
 	if (!oh->clkdm || !oh->prcm.omap4.modulemode)
@@ -746,7 +747,13 @@ static void _enable_module(struct omap_hwmod *oh)
 	pr_debug("omap_hwmod: %s: _enable_module: %d\n",
 		 oh->name, oh->prcm.omap4.modulemode);
 
-	omap4_cminst_module_enable(oh->prcm.omap4.modulemode,
+	if (cpu_is_am33xx())
+		am33xx_cminst_module_enable(oh->prcm.omap4.modulemode,
+				   oh->clkdm->cm_inst,
+				   oh->clkdm->clkdm_offs,
+				   oh->prcm.omap4.clkctrl_offs);
+	else
+		omap4_cminst_module_enable(oh->prcm.omap4.modulemode,
 				   oh->clkdm->prcm_partition,
 				   oh->clkdm->cm_inst,
 				   oh->clkdm->clkdm_offs,
@@ -794,7 +801,7 @@ static int _omap4_disable_module(struct omap_hwmod *oh)
 	int v;
 
 	/* The module mode does not exist prior OMAP4 */
-	if (!cpu_is_omap44xx())
+	if (!cpu_is_omap44xx() && !cpu_is_am33xx())
 		return -EINVAL;
 
 	if (!oh->clkdm || !oh->prcm.omap4.modulemode)
@@ -802,7 +809,12 @@ static int _omap4_disable_module(struct omap_hwmod *oh)
 
 	pr_debug("omap_hwmod: %s: %s\n", oh->name, __func__);
 
-	omap4_cminst_module_disable(oh->clkdm->prcm_partition,
+	if (cpu_is_am33xx())
+		am33xx_cminst_module_disable(oh->clkdm->cm_inst,
+				    oh->clkdm->clkdm_offs,
+				    oh->prcm.omap4.clkctrl_offs);
+	else
+		omap4_cminst_module_disable(oh->clkdm->prcm_partition,
 				    oh->clkdm->cm_inst,
 				    oh->clkdm->clkdm_offs,
 				    oh->prcm.omap4.clkctrl_offs);
