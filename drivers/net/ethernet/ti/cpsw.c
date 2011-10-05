@@ -20,6 +20,7 @@
 #include <linux/platform_device.h>
 #include <linux/if_ether.h>
 #include <linux/etherdevice.h>
+#include <linux/ethtool.h>
 #include <linux/netdevice.h>
 #include <linux/phy.h>
 #include <linux/workqueue.h>
@@ -394,8 +395,10 @@ static void _cpsw_adjust_link(struct cpsw_slave *slave,
 		mac_control = priv->data.mac_control;
 		if (phy->speed == 10)
 			mac_control |= BIT(18); /* In Band mode */
-		if (phy->speed == 1000)
-			mac_control |= BIT(7);	/* GIGABITEN	*/
+		if (phy->speed == 1000) {
+			mac_control &= ~BIT(7);	/* TODO: Do not enable	*/
+			phy->speed = 100;	/* gig support now	*/
+		}
 		if (phy->duplex)
 			mac_control |= BIT(0);	/* FULLDUPLEXEN	*/
 		if (phy->interface == PHY_INTERFACE_MODE_RGMII) /* RGMII */
@@ -533,12 +536,18 @@ static void cpsw_set_phy_config(struct cpsw_priv *priv, struct phy_device *phy)
 	miibus->write(miibus, phy_addr, MII_BMCR, val);
 	tmp = miibus->read(miibus, phy_addr, MII_BMCR);
 
+	/* TODO: Disable 1 Gig mode support due to hw issue */
+	phy->supported &= ~(SUPPORTED_1000baseT_Half |
+				SUPPORTED_1000baseT_Full);
+
 	/* Enable gigabit support only if the speed is 1000Mbps */
 	if (phy->speed == CPSW_PHY_SPEED) {
 		tmp = miibus->read(miibus, phy_addr, MII_BMSR);
 		if (tmp & 0x1) {
 			val = miibus->read(miibus, phy_addr, MII_CTRL1000);
-			val |= BIT(9);
+			/* TODO: Disable gig addadvertisement currently */
+			val &= ~BIT(9);
+			val &= ~BIT(8);
 			miibus->write(miibus, phy_addr, MII_CTRL1000, val);
 			tmp = miibus->read(miibus, phy_addr, MII_CTRL1000);
 		}
