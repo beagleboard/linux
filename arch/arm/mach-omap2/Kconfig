@@ -106,9 +106,13 @@ comment "OMAP Board Type"
 	depends on ARCH_OMAP2PLUS
 
 config MACH_OMAP_GENERIC
-	bool "Generic OMAP board"
-	depends on ARCH_OMAP2
+	bool "Generic OMAP2+ board"
+	depends on ARCH_OMAP2PLUS
+	select USE_OF
 	default y
+	help
+	  Support for generic TI OMAP2+ boards using Flattened Device Tree.
+	  More information at Documentation/devicetree
 
 config MACH_OMAP2_TUSB6010
 	bool
@@ -171,6 +175,12 @@ config MACH_OMAP3_TORPEDO
 	 Support for the LogicPD OMAP35x Torpedo Development kit
 	 for full description please see the products webpage at
 	 http://www.logicpd.com/products/development-kits/zoom-omap35x-torpedo-development-kit
+
+config MACH_ENCORE
+        bool "Barnes & Noble Encore (Nook Color)"
+        depends on ARCH_OMAP3
+	default y
+        select OMAP_PACKAGE_CBP
 
 config MACH_OVERO
 	bool "Gumstix Overo board"
@@ -325,6 +335,12 @@ config MACH_OMAP4_PANDA
 	select OMAP_PACKAGE_CBL
 	select OMAP_PACKAGE_CBS
 	select REGULATOR_FIXED_VOLTAGE
+
+config MACH_PCM049
+	bool "OMAP4 based phyCORE OMAP4"
+	depends on ARCH_OMAP4
+	default y
+	select OMAP_PACKAGE_CBS
 
 config OMAP3_EMU
 	bool "OMAP3 debugging peripherals"
