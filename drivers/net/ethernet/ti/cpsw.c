@@ -399,6 +399,8 @@ static void _cpsw_adjust_link(struct cpsw_slave *slave,
 			mac_control &= ~BIT(7);	/* TODO: Do not enable	*/
 			phy->speed = 100;	/* gig support now	*/
 		}
+		if (phy->speed == 100)
+			mac_control |= BIT(15);
 		if (phy->duplex)
 			mac_control |= BIT(0);	/* FULLDUPLEXEN	*/
 		if (phy->interface == PHY_INTERFACE_MODE_RGMII) /* RGMII */
