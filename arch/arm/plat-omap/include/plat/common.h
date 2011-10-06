@@ -50,9 +50,12 @@ void omap2430_init_early(void);
 void omap3430_init_early(void);
 void omap35xx_init_early(void);
 void omap3630_init_early(void);
+void omap3_init_early(void);	/* Do not use this one */
 void am35xx_init_early(void);
 void ti816x_init_early(void);
 void omap4430_init_early(void);
+
+void omap_sram_init(void);
 
 /*
  * IO bases for various OMAP processors
