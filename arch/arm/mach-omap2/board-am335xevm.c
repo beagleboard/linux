@@ -18,6 +18,8 @@
 #include <linux/module.h>
 #include <linux/i2c/at24.h>
 #include <linux/gpio.h>
+#include <linux/spi/spi.h>
+#include <linux/spi/flash.h>
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/nand.h>
 #include <linux/mtd/partitions.h>
@@ -338,6 +340,31 @@ static struct pinmux_config nand_pin_mux[] = {
 	{NULL, 0},
 };
 
+/* Module pin mux for SPI fash */
+static struct pinmux_config spi0_pin_mux[] = {
+	{"spi0_sclk.spi0_sclk", OMAP_MUX_MODE0 | AM33XX_PULL_ENBL
+							| AM33XX_INPUT_EN},
+	{"spi0_d0.spi0_d0", OMAP_MUX_MODE0 | AM33XX_PULL_ENBL | AM33XX_PULL_UP
+							| AM33XX_INPUT_EN},
+	{"spi0_d1.spi0_d1", OMAP_MUX_MODE0 | AM33XX_PULL_ENBL
+							| AM33XX_INPUT_EN},
+	{"spi0_cs0.spi0_cs0", OMAP_MUX_MODE0 | AM33XX_PULL_ENBL | AM33XX_PULL_UP
+							| AM33XX_INPUT_EN},
+	{NULL, 0},
+};
+
+/* Module pin mux for SPI flash */
+static struct pinmux_config spi1_pin_mux[] = {
+	{"mcasp0_aclkx.spi1_sclk", OMAP_MUX_MODE3 | AM33XX_PULL_ENBL
+		| AM33XX_INPUT_EN},
+	{"mcasp0_fsx.spi1_d0", OMAP_MUX_MODE3 | AM33XX_PULL_ENBL
+		| AM33XX_PULL_UP | AM33XX_INPUT_EN},
+	{"mcasp0_axr0.spi1_d1", OMAP_MUX_MODE3 | AM33XX_PULL_ENBL
+		| AM33XX_INPUT_EN},
+	{"mcasp0_ahclkr.spi1_cs0", OMAP_MUX_MODE3 | AM33XX_PULL_ENBL
+		| AM33XX_PULL_UP | AM33XX_INPUT_EN},
+	{NULL, 0},
+};
 
 /* Module pin mux for rgmii1 */
 static struct pinmux_config rgmii1_pin_mux[] = {
@@ -680,6 +707,70 @@ static struct mtd_partition am335x_nand_partitions[] = {
 	},
 };
 
+/* SPI 0/1 Platform Data */
+/* SPI flash information */
+static struct mtd_partition am335x_spi_partitions[] = {
+	/* All the partition sizes are listed in terms of erase size */
+	{
+		.name       = "SPL",
+		.offset     = 0,			/* Offset = 0x0 */
+		.size       = SZ_128K,
+	},
+	{
+		.name       = "U-Boot",
+		.offset     = MTDPART_OFS_APPEND,	/* Offset = 0x20000 */
+		.size       = 2 * SZ_128K,
+	},
+	{
+		.name       = "U-Boot Env",
+		.offset     = MTDPART_OFS_APPEND,	/* Offset = 0x60000 */
+		.size       = 2 * SZ_4K,
+	},
+	{
+		.name       = "Kernel",
+		.offset     = MTDPART_OFS_APPEND,	/* Offset = 0x62000 */
+		.size       = 28 * SZ_128K,
+	},
+	{
+		.name       = "File System",
+		.offset     = MTDPART_OFS_APPEND,	/* Offset = 0x3E2000 */
+		.size       = MTDPART_SIZ_FULL,		/* size ~= 4.1 MiB */
+	}
+};
+
+static const struct flash_platform_data am335x_spi_flash = {
+	.type      = "w25q64",
+	.name      = "spi_flash",
+	.parts     = am335x_spi_partitions,
+	.nr_parts  = ARRAY_SIZE(am335x_spi_partitions),
+};
+
+/*
+ * SPI Flash works at 80Mhz however SPI Controller works at 48MHz.
+ * So setup Max speed to be less than that of Controller speed
+ */
+static struct spi_board_info am335x_spi0_slave_info[] = {
+	{
+		.modalias      = "m25p80",
+		.platform_data = &am335x_spi_flash,
+		.irq           = -1,
+		.max_speed_hz  = 24000000,
+		.bus_num       = 1,
+		.chip_select   = 0,
+	},
+};
+
+static struct spi_board_info am335x_spi1_slave_info[] = {
+	{
+		.modalias      = "m25p80",
+		.platform_data = &am335x_spi_flash,
+		.irq           = -1,
+		.max_speed_hz  = 12000000,
+		.bus_num       = 2,
+		.chip_select   = 0,
+	},
+};
+
 static void evm_nand_init(int evm_id, int profile)
 {
 	setup_pin_mux(nand_pin_mux);
@@ -741,6 +832,24 @@ static void mmc0_no_cd_init(int evm_id, int profile)
 }
 
 
+/* setup spi0 */
+static void spi0_init(int evm_id, int profile)
+{
+	setup_pin_mux(spi0_pin_mux);
+	spi_register_board_info(am335x_spi0_slave_info,
+			ARRAY_SIZE(am335x_spi0_slave_info));
+	return;
+}
+
+/* setup spi1 */
+static void spi1_init(int evm_id, int profile)
+{
+	setup_pin_mux(spi1_pin_mux);
+	spi_register_board_info(am335x_spi1_slave_info,
+			ARRAY_SIZE(am335x_spi1_slave_info));
+	return;
+}
+
 /* Low-Cost EVM */
 static struct evm_dev_cfg low_cost_evm_dev_cfg[] = {
 	{rgmii1_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
@@ -770,6 +879,7 @@ static struct evm_dev_cfg gen_purp_evm_dev_cfg[] = {
 	{mmc1_init,	DEV_ON_DGHTR_BRD, PROFILE_2},
 	{mmc0_init,	DEV_ON_BASEBOARD, (PROFILE_ALL & ~PROFILE_5)},
 	{mmc0_no_cd_init,	DEV_ON_BASEBOARD, PROFILE_5},
+	{spi0_init,	DEV_ON_DGHTR_BRD, PROFILE_2},
 	{NULL, 0, 0},
 };
 
@@ -779,6 +889,7 @@ static struct evm_dev_cfg ind_auto_mtrl_evm_dev_cfg[] = {
 	{usb0_init,	DEV_ON_BASEBOARD, PROFILE_ALL},
 	{usb1_init,	DEV_ON_BASEBOARD, PROFILE_ALL},
 	{evm_nand_init, DEV_ON_DGHTR_BRD, PROFILE_ALL},
+	{spi1_init,	DEV_ON_DGHTR_BRD, PROFILE_ALL},
 	{NULL, 0, 0},
 };
 
