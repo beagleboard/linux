@@ -54,5 +54,5 @@ config WL12XX_SDIO_TEST
 
 config WL12XX_PLATFORM_DATA
 	bool
-	depends on WL12XX_SDIO != n || WL1251_SDIO != n
 	default y
+	select WIRELESS_EXT
