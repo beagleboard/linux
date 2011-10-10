@@ -40,6 +40,7 @@
 #include <plat/dma.h>
 #include <plat/clock.h>
 #include <plat/mcspi.h>
+#include <mach/edma.h>
 
 #define OMAP2_MCSPI_MAX_FREQ		48000000
 
@@ -101,13 +102,13 @@ struct omap2_mcspi_dma {
 
 	struct completion dma_tx_completion;
 	struct completion dma_rx_completion;
+	int dummy_param_slot;
 };
 
 /* use PIO for small transfers, avoiding DMA setup/teardown overhead and
  * cache operations; better heuristics consider wordsize and bitrate.
  */
 #define DMA_MIN_BYTES			160
-
 
 struct omap2_mcspi {
 	struct work_struct	work;
@@ -303,6 +304,7 @@ omap2_mcspi_txrx_dma(struct spi_device *spi, struct spi_transfer *xfer)
 	u8			* rx;
 	const u8		* tx;
 	void __iomem		*chstat_reg;
+	struct edmacc_param	param;
 
 	mcspi = spi_master_get_devdata(spi->master);
 	mcspi_dma = &mcspi->dma_channels[spi->chip_select];
@@ -332,37 +334,57 @@ omap2_mcspi_txrx_dma(struct spi_device *spi, struct spi_transfer *xfer)
 	}
 
 	if (tx != NULL) {
-		omap_set_dma_transfer_params(mcspi_dma->dma_tx_channel,
-				data_type, element_count, 1,
-				OMAP_DMA_SYNC_ELEMENT,
-				mcspi_dma->dma_tx_sync_dev, 0);
+		int a_cnt, b_cnt, c_cnt, b_cntrld;
 
-		omap_set_dma_dest_params(mcspi_dma->dma_tx_channel, 0,
-				OMAP_DMA_AMODE_CONSTANT,
-				tx_reg, 0, 0);
+		a_cnt    = 1;
+		b_cnt    = 1;
+		c_cnt    = (element_count / a_cnt) / 256;
+		b_cntrld = SZ_64K - 1;
 
-		omap_set_dma_src_params(mcspi_dma->dma_tx_channel, 0,
-				OMAP_DMA_AMODE_POST_INC,
-				xfer->tx_dma, 0, 0);
+		param.opt          = TCINTEN |
+			EDMA_TCC(mcspi_dma->dma_tx_channel) | SYNCDIM ;
+		param.src          = xfer->tx_dma;
+		param.a_b_cnt      = a_cnt | b_cnt << 16;
+		param.dst          = tx_reg;
+		param.src_dst_bidx = a_cnt;
+		param.link_bcntrld = b_cntrld << 16;
+		param.src_dst_cidx = b_cnt;
+		param.ccnt         = element_count;
+		edma_write_slot(mcspi_dma->dma_tx_channel, &param);
+		edma_link(mcspi_dma->dma_tx_channel,
+				mcspi_dma->dummy_param_slot);
 	}
 
 	if (rx != NULL) {
+		int a_cnt, b_cnt, c_cnt, b_cntrld;
+
+		a_cnt    = 1;
+		c_cnt    = (element_count / a_cnt) / (SZ_64K - 1);
+		b_cnt    = element_count - c_cnt * (SZ_64K - 1);
+		b_cntrld = SZ_64K - 1;
+
+		if (b_cnt)
+			c_cnt++;
+		else
+			b_cnt = SZ_64K - 1;
+
 		elements = element_count - 1;
 		if (l & OMAP2_MCSPI_CHCONF_TURBO)
 			elements--;
 
-		omap_set_dma_transfer_params(mcspi_dma->dma_rx_channel,
-				data_type, elements, 1,
-				OMAP_DMA_SYNC_ELEMENT,
-				mcspi_dma->dma_rx_sync_dev, 1);
+		param.opt          = TCINTEN |
+			EDMA_TCC(mcspi_dma->dma_rx_channel);
+		param.src          = rx_reg;
+		param.a_b_cnt      = a_cnt | b_cnt << 16;
+		param.dst          = xfer->rx_dma;
+		param.src_dst_bidx = a_cnt << 16;
+		param.link_bcntrld = b_cntrld << 16;
+		param.src_dst_cidx = 1 << 16;
+		param.ccnt         = c_cnt;
+		edma_write_slot(mcspi_dma->dma_rx_channel, &param);
+		edma_link(mcspi_dma->dma_rx_channel,
+				mcspi_dma->dummy_param_slot);
 
-		omap_set_dma_src_params(mcspi_dma->dma_rx_channel, 0,
-				OMAP_DMA_AMODE_CONSTANT,
-				rx_reg, 0, 0);
-
-		omap_set_dma_dest_params(mcspi_dma->dma_rx_channel, 0,
-				OMAP_DMA_AMODE_POST_INC,
-				xfer->rx_dma, 0, 0);
 	}
 
 	if (tx != NULL) {
@@ -419,23 +441,6 @@ omap2_mcspi_txrx_dma(struct spi_device *spi, struct spi_transfer *xfer)
 			}
 		}
 
-		if (likely(mcspi_read_cs_reg(spi, OMAP2_MCSPI_CHSTAT0)
-				& OMAP2_MCSPI_CHSTAT_RXS)) {
-			u32 w;
-
-			w = mcspi_read_cs_reg(spi, OMAP2_MCSPI_RX0);
-			if (word_len <= 8)
-				((u8 *)xfer->rx_buf)[elements] = w;
-			else if (word_len <= 16)
-				((u16 *)xfer->rx_buf)[elements] = w;
-			else /* word_len <= 32 */
-				((u32 *)xfer->rx_buf)[elements] = w;
-		} else {
-			dev_err(&spi->dev, "DMA RX last word empty");
-			count -= (word_len <= 8)  ? 1 :
-				 (word_len <= 16) ? 2 :
-			       /* word_len <= 32 */ 4;
-		}
 		omap2_mcspi_set_enable(spi, 1);
 	}
 	return count;
@@ -718,13 +723,13 @@ static void omap2_mcspi_dma_rx_callback(int lch, u16 ch_status, void *data)
 	struct omap2_mcspi	*mcspi;
 	struct omap2_mcspi_dma	*mcspi_dma;
 
+	/* We must disable the DMA RX request */
+	omap2_mcspi_set_dma_req(spi, 1, 0);
 	mcspi = spi_master_get_devdata(spi->master);
 	mcspi_dma = &(mcspi->dma_channels[spi->chip_select]);
 
 	complete(&mcspi_dma->dma_rx_completion);
 
-	/* We must disable the DMA RX request */
-	omap2_mcspi_set_dma_req(spi, 1, 0);
 }
 
 static void omap2_mcspi_dma_tx_callback(int lch, u16 ch_status, void *data)
@@ -733,13 +738,13 @@ static void omap2_mcspi_dma_tx_callback(int lch, u16 ch_status, void *data)
 	struct omap2_mcspi	*mcspi;
 	struct omap2_mcspi_dma	*mcspi_dma;
 
+	/* We must disable the DMA TX request */
+	omap2_mcspi_set_dma_req(spi, 0, 0);
 	mcspi = spi_master_get_devdata(spi->master);
 	mcspi_dma = &(mcspi->dma_channels[spi->chip_select]);
 
 	complete(&mcspi_dma->dma_tx_completion);
 
-	/* We must disable the DMA TX request */
-	omap2_mcspi_set_dma_req(spi, 0, 0);
 }
 
 static int omap2_mcspi_request_dma(struct spi_device *spi)
@@ -747,6 +752,7 @@ static int omap2_mcspi_request_dma(struct spi_device *spi)
 	struct spi_master	*master = spi->master;
 	struct omap2_mcspi	*mcspi;
 	struct omap2_mcspi_dma	*mcspi_dma;
+	int			ret = 0;
 
 	mcspi = spi_master_get_devdata(master);
 	mcspi_dma = mcspi->dma_channels + spi->chip_select;
@@ -766,6 +772,18 @@ static int omap2_mcspi_request_dma(struct spi_device *spi)
 		dev_err(&spi->dev, "no TX DMA channel for McSPI\n");
 		return -EAGAIN;
 	}
+	ret = edma_alloc_slot(EDMA_CTLR(mcspi_dma->dma_tx_channel),
+			EDMA_SLOT_ANY);
+
+	if (ret < 0) {
+		pr_err("Unable to request SPI TX DMA param slot\n");
+		ret = -EAGAIN;
+		return ret;
+	}
+
+	mcspi_dma->dummy_param_slot = ret;
+	edma_link(mcspi_dma->dummy_param_slot,
+			mcspi_dma->dummy_param_slot);
 
 	init_completion(&mcspi_dma->dma_rx_completion);
 	init_completion(&mcspi_dma->dma_tx_completion);
