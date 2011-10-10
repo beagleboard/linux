@@ -360,7 +360,7 @@ static struct omap_mux __initdata am33xx_muxmodes[] = {
 		"xdma_event_intr0", NULL, NULL, NULL,
 		"spi1_cs1", NULL, NULL, NULL),
 	_AM33XX_MUXENTRY(XDMA_EVENT_INTR1, 0,
-		NULL, NULL, NULL, NULL,
+		"xdma_event_intr1", NULL, NULL, "clkout2",
 		NULL, NULL, NULL, NULL),
 	_AM33XX_MUXENTRY(WARMRSTN, 0,
 		NULL, NULL, NULL, NULL,

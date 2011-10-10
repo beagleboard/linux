@@ -1146,10 +1146,96 @@ static void __init am335x_evm_i2c_init(void)
 				ARRAY_SIZE(am335x_i2c_boardinfo));
 }
 
+static struct resource am335x_rtc_resources[] = {
+	{
+		.start		= AM33XX_RTC_BASE,
+		.end		= AM33XX_RTC_BASE + SZ_4K - 1,
+		.flags		= IORESOURCE_MEM,
+	},
+	{ /* timer irq */
+		.start		= AM33XX_IRQ_RTC_TIMER,
+		.end		= AM33XX_IRQ_RTC_TIMER,
+		.flags		= IORESOURCE_IRQ,
+	},
+	{ /* alarm irq */
+		.start		= AM33XX_IRQ_RTC_ALARM,
+		.end		= AM33XX_IRQ_RTC_ALARM,
+		.flags		= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device am335x_rtc_device = {
+	.name           = "omap_rtc",
+	.id             = -1,
+	.num_resources	= ARRAY_SIZE(am335x_rtc_resources),
+	.resource	= am335x_rtc_resources,
+};
+
+static int am335x_rtc_init(void)
+{
+	void __iomem *base;
+	struct clk *clk;
+
+	clk = clk_get(NULL, "rtc_fck");
+	if (IS_ERR(clk)) {
+		pr_err("rtc : Failed to get RTC clock\n");
+		return -1;
+	}
+
+	if (clk_enable(clk)) {
+		pr_err("rtc: Clock Enable Failed\n");
+		return -1;
+	}
+
+	base = ioremap(AM33XX_RTC_BASE, SZ_4K);
+
+	if (WARN_ON(!base))
+		return -ENOMEM;
+
+	/* Unlock the rtc's registers */
+	__raw_writel(0x83e70b13, base + 0x6c);
+	__raw_writel(0x95a4f1e0, base + 0x70);
+
+	/*
+	 * Enable the 32K OSc
+	 * TODO: Need a better way to handle this
+	 * Since we want the clock to be running before mmc init
+	 * we need to do it before the rtc probe happens
+	 */
+	__raw_writel(0x48, base + 0x54);
+
+	iounmap(base);
+
+	return  platform_device_register(&am335x_rtc_device);
+}
+
+/* Enable clkout2 */
+static struct pinmux_config clkout2_pin_mux[] = {
+	{"xdma_event_intr1.clkout2", OMAP_MUX_MODE3 | AM33XX_PIN_OUTPUT},
+	{NULL, 0},
+};
+
+static void __init clkout2_enable(void)
+{
+	struct clk *ck_32;
+
+	ck_32 = clk_get(NULL, "clkout2_ck");
+	if (IS_ERR(ck_32)) {
+		pr_err("Cannot clk_get ck_32\n");
+		return;
+	}
+
+	clk_enable(ck_32);
+
+	setup_pin_mux(clkout2_pin_mux);
+}
+
 static void __init am335x_evm_init(void)
 {
 	am33xx_mux_init(board_mux);
 	omap_serial_init();
+	am335x_rtc_init();
+	clkout2_enable();
 	am335x_evm_i2c_init();
 	omap_sdrc_init(NULL, NULL);
 	usb_musb_init(&musb_board_data);
