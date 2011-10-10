@@ -733,7 +733,7 @@ config RTC_DRV_DAVINCI
 
 config RTC_DRV_OMAP
 	tristate "TI OMAP1"
-	depends on ARCH_OMAP15XX || ARCH_OMAP16XX || ARCH_OMAP730 || ARCH_DAVINCI_DA8XX
+	depends on ARCH_OMAP15XX || ARCH_OMAP16XX || ARCH_OMAP730 || ARCH_DAVINCI_DA8XX || SOC_OMAPAM33XX
 	help
 	  Say "yes" here to support the real time clock on TI OMAP1 and
 	  DA8xx/OMAP-L13x chips.  This driver can also be built as a
