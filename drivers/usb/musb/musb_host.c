@@ -144,10 +144,11 @@ static void musb_h_tx_flush_fifo(struct musb_hw_ep *ep)
 		csr |= MUSB_TXCSR_FLUSHFIFO;
 		musb_writew(epio, MUSB_TXCSR, csr);
 		csr = musb_readw(epio, MUSB_TXCSR);
-		if (WARN(retries-- < 1,
-				"Could not flush host TX%d fifo: csr: %04x\n",
-				ep->epnum, csr))
+		if (retries-- < 1) {
+			dev_dbg(musb->controller, "Could not flush host TX%d fifo: csr: %04x\n",
+				ep->epnum, csr);
 			return;
+		}
 		mdelay(1);
 	}
 }
