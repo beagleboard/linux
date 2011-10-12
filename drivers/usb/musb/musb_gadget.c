@@ -406,8 +406,13 @@ static void txstate(struct musb *musb, struct musb_request *req)
 		} else if (is_cppi_enabled(musb) || is_cppi41_enabled(musb)) {
 			/* program endpoint CSR first, then setup DMA */
 			csr &= ~(MUSB_TXCSR_P_UNDERRUN | MUSB_TXCSR_TXPKTRDY);
-			csr |= MUSB_TXCSR_DMAENAB | MUSB_TXCSR_DMAMODE |
-			       MUSB_TXCSR_MODE;
+
+			if (request_size == 0)
+				csr &= ~(MUSB_TXCSR_DMAENAB |
+					MUSB_TXCSR_DMAMODE);
+			else
+				csr |= MUSB_TXCSR_DMAENAB | MUSB_TXCSR_DMAMODE |
+				       MUSB_TXCSR_MODE;
 			musb_writew(epio, MUSB_TXCSR,
 				(MUSB_TXCSR_P_WZC_BITS & ~MUSB_TXCSR_P_UNDERRUN)
 					| csr);
@@ -426,17 +431,22 @@ static void txstate(struct musb *musb, struct musb_request *req)
 			 * unreliable except for the last-packet-is-already-
 			 * short case.
 			 */
-			use_dma = use_dma && c->channel_program(
+			/* for zero byte transfer use pio mode */
+			if (request_size == 0)
+				use_dma = 0;
+			else {
+				use_dma = use_dma && c->channel_program(
 					musb_ep->dma, musb_ep->packet_sz,
 					0,
 					request->dma + request->actual,
 					request_size);
-			if (!use_dma) {
-				c->channel_release(musb_ep->dma);
-				musb_ep->dma = NULL;
-				csr &= ~MUSB_TXCSR_DMAENAB;
-				musb_writew(epio, MUSB_TXCSR, csr);
+				if (!use_dma) {
+					c->channel_release(musb_ep->dma);
+					musb_ep->dma = NULL;
+					csr &= ~MUSB_TXCSR_DMAENAB;
+					musb_writew(epio, MUSB_TXCSR, csr);
 				/* invariant: prequest->buf is non-null */
+				}
 			}
 		} else if (tusb_dma_omap(musb)) {
 			use_dma = use_dma && c->channel_program(
