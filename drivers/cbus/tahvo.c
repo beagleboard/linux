@@ -301,6 +301,10 @@ static int tahvo_allocate_children(struct device *parent, int irq_base)
 	if (!child)
 		return -ENOMEM;
 
+	child = tahvo_allocate_child("tahvo-pwm", parent, -1);
+	if (!child)
+		return -ENOMEM;
+
 	return 0;
 }
 
