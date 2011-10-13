@@ -427,7 +427,7 @@ static int retu_allocate_children(struct device *parent, int irq_base)
  * Probe for the Retu ASIC and allocate memory
  * for its device-struct if found
  */
-static int __init retu_probe(struct platform_device *pdev)
+static int __devinit retu_probe(struct platform_device *pdev)
 {
 	struct retu	*retu;
 	struct cbus_retu_platform_data *pdata = pdev->dev.platform_data;
@@ -507,7 +507,7 @@ err0:
 	return ret;
 }
 
-static int __exit retu_remove(struct platform_device *pdev)
+static int __devexit retu_remove(struct platform_device *pdev)
 {
 	struct retu		*retu = platform_get_drvdata(pdev);
 
@@ -523,7 +523,8 @@ static int __exit retu_remove(struct platform_device *pdev)
 }
 
 static struct platform_driver retu_driver = {
-	.remove		= __exit_p(retu_remove),
+	.probe		= retu_probe,
+	.remove		= __devexit_p(retu_remove),
 	.driver		= {
 		.name	= "retu",
 	},
@@ -531,7 +532,7 @@ static struct platform_driver retu_driver = {
 
 static int __init retu_init(void)
 {
-	return platform_driver_probe(&retu_driver, retu_probe);
+	return platform_driver_register(&retu_driver);
 }
 subsys_initcall(retu_init);
 

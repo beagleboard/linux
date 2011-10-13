@@ -396,6 +396,7 @@ static int __devexit tahvo_remove(struct platform_device *pdev)
 }
 
 static struct platform_driver tahvo_driver = {
+	.probe		= tahvo_probe,
 	.remove		= __devexit_p(tahvo_remove),
 	.driver		= {
 		.name	= "tahvo",
@@ -404,7 +405,7 @@ static struct platform_driver tahvo_driver = {
 
 static int __init tahvo_init(void)
 {
-	return platform_driver_probe(&tahvo_driver, tahvo_probe);
+	return platform_driver_register(&tahvo_driver);
 }
 subsys_initcall(tahvo_init);
 
