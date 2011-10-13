@@ -230,7 +230,7 @@ static struct omap_board_config_kernel am335x_evm_config[] __initdata = {
 struct am335x_evm_eeprom_config {
 	u32	header;
 	u8	name[8];
-	u32	version;
+	char	version[4];
 	u8	serial[12];
 	u8	opt[32];
 };
@@ -420,6 +420,21 @@ static struct pinmux_config mii1_pin_mux[] = {
 	{"mii1_rxd2.mii1_rxd2", OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLDOWN},
 	{"mii1_rxd1.mii1_rxd1", OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLDOWN},
 	{"mii1_rxd0.mii1_rxd0", OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLDOWN},
+	{"mdio_data.mdio_data", OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"mdio_clk.mdio_clk", OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT_PULLUP},
+	{NULL, 0},
+};
+
+/* Module pin mux for rmii1 */
+static struct pinmux_config rmii1_pin_mux[] = {
+	{"mii1_crs.rmii1_crs_dv", OMAP_MUX_MODE1 | AM33XX_PIN_INPUT_PULLDOWN},
+	{"mii1_rxerr.mii1_rxerr", OMAP_MUX_MODE1 | AM33XX_PIN_INPUT_PULLDOWN},
+	{"mii1_txen.mii1_txen", OMAP_MUX_MODE1 | AM33XX_PIN_OUTPUT},
+	{"mii1_txd1.mii1_txd1", OMAP_MUX_MODE1 | AM33XX_PIN_OUTPUT},
+	{"mii1_txd0.mii1_txd0", OMAP_MUX_MODE1 | AM33XX_PIN_OUTPUT},
+	{"mii1_rxd1.mii1_rxd1", OMAP_MUX_MODE1 | AM33XX_PIN_INPUT_PULLDOWN},
+	{"mii1_rxd0.mii1_rxd0", OMAP_MUX_MODE1 | AM33XX_PIN_INPUT_PULLDOWN},
+	{"rmii1_refclk.rmii1_refclk", OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLDOWN},
 	{"mdio_data.mdio_data", OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
 	{"mdio_clk.mdio_clk", OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT_PULLUP},
 	{NULL, 0},
@@ -691,6 +706,12 @@ static void rgmii2_init(int evm_id, int profile)
 static void mii1_init(int evm_id, int profile)
 {
 	setup_pin_mux(mii1_pin_mux);
+	return;
+}
+
+static void rmii1_init(int evm_id, int profile)
+{
+	setup_pin_mux(rmii1_pin_mux);
 	return;
 }
 
@@ -1049,6 +1070,24 @@ static struct evm_dev_cfg ip_phn_evm_dev_cfg[] = {
 	{NULL, 0, 0},
 };
 
+/* Beaglebone < Rev A3 */
+static struct evm_dev_cfg beaglebone_old_dev_cfg[] = {
+	{rmii1_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
+	{usb0_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
+	{usb1_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
+	{mmc0_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
+	{NULL, 0, 0},
+};
+
+/* Beaglebone Rev A3 and after */
+static struct evm_dev_cfg beaglebone_dev_cfg[] = {
+	{mii1_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
+	{usb0_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
+	{usb1_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
+	{mmc0_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
+	{NULL, 0, 0},
+};
+
 static void setup_low_cost_evm(void)
 {
 	pr_info("The board is a AM335x Low Cost EVM.\n");
@@ -1104,6 +1143,29 @@ static void setup_ip_phone_evm(void)
 	_configure_device(IP_PHN_EVM, ip_phn_evm_dev_cfg, PROFILE_NONE);
 }
 
+/* BeagleBone < Rev A3 */
+static void setup_beaglebone_old(void)
+{
+	pr_info("The board is a AM335x Beaglebone < Rev A3.\n");
+
+	/* Beagle Bone has Micro-SD slot which doesn't have Write Protect pin */
+	am335x_mmc[0].gpio_wp = -EINVAL;
+
+	_configure_device(LOW_COST_EVM, beaglebone_old_dev_cfg, PROFILE_NONE);
+}
+
+/* BeagleBone after Rev A3 */
+static void setup_beaglebone(void)
+{
+	pr_info("The board is a AM335x Beaglebone.\n");
+
+	/* Beagle Bone has Micro-SD slot which doesn't have Write Protect pin */
+	am335x_mmc[0].gpio_wp = -EINVAL;
+
+	_configure_device(LOW_COST_EVM, beaglebone_dev_cfg, PROFILE_NONE);
+}
+
+
 static void am335x_setup_daughter_board(struct memory_accessor *m, void *c)
 {
 	u8 tmp;
@@ -1149,23 +1211,34 @@ static void am335x_evm_setup(struct memory_accessor *mem_acc, void *context)
 		goto out;
 	}
 
-	snprintf(tmp, sizeof(config.name), "%s", config.name);
+	snprintf(tmp, sizeof(config.name) + 1, "%s", config.name);
 	pr_info("Board name: %s\n", tmp);
-	/* only 6 characters of options string used for now */
-	snprintf(tmp, 7, "%s", config.opt);
-	pr_info("SKU: %s\n", tmp);
+	snprintf(tmp, sizeof(config.version) + 1, "%s", config.version);
+	pr_info("Board version: %s\n", tmp);
 
-	if (!strncmp("SKU#00", config.opt, 6))
-		setup_low_cost_evm();
-	else if (!strncmp("SKU#01", config.opt, 6))
-		setup_general_purpose_evm();
-	else if (!strncmp("SKU#02", config.opt, 6))
-		setup_ind_auto_motor_ctrl_evm();
-	else if (!strncmp("SKU#03", config.opt, 6))
-		setup_ip_phone_evm();
-	else
-		goto out;
+	if (!strncmp("A335BONE", config.name, 8)) {
+		daughter_brd_detected = false;
+		if(!strncmp("00A1", config.version, 4) ||
+		   !strncmp("00A2", config.version, 4))
+			setup_beaglebone_old();
+		else
+			setup_beaglebone();
+	} else {
+		/* only 6 characters of options string used for now */
+		snprintf(tmp, 7, "%s", config.opt);
+		pr_info("SKU: %s\n", tmp);
 
+		if (!strncmp("SKU#00", config.opt, 6))
+			setup_low_cost_evm();
+		else if (!strncmp("SKU#01", config.opt, 6))
+			setup_general_purpose_evm();
+		else if (!strncmp("SKU#02", config.opt, 6))
+			setup_ind_auto_motor_ctrl_evm();
+		else if (!strncmp("SKU#03", config.opt, 6))
+			setup_ip_phone_evm();
+		else
+			goto out;
+	}
 	/* Initialize cpsw after board detection is completed as board
 	 * information is required for configuring phy address and hence
 	 * should be call only after board detection
@@ -1175,20 +1248,20 @@ static void am335x_evm_setup(struct memory_accessor *mem_acc, void *context)
 	return;
 out:
 	/*
-	 * for bring-up assume a full configuration, this should
-	 * eventually be changed to assume a minimal configuration
+	 * If the EEPROM hasn't been programed or an incorrect header
+	 * or board name are read, assume this is an old beaglebone board
+	 * (< Rev A3)
 	 */
 	pr_err("Could not detect any board, falling back to: "
-		"General purpose EVM in profile 0 with daughter card connected\n");
-	daughter_brd_detected = true;
-	setup_general_purpose_evm();
+		"Beaglebone (< Rev A3) with no daughter card connected\n");
+	daughter_brd_detected = false;
+	setup_beaglebone_old();
 
 	/* Initialize cpsw after board detection is completed as board
 	 * information is required for configuring phy address and hence
 	 * should be call only after board detection
 	 */
 	am33xx_cpsw_init();
-
 }
 
 static struct at24_platform_data am335x_daughter_board_eeprom_info = {
