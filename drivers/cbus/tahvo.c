@@ -129,40 +129,6 @@ void tahvo_set_clear_reg_bits(unsigned reg, u16 set, u16 clear)
 	mutex_unlock(&tahvo->mutex);
 }
 
-void tahvo_disable_irq(int id)
-{
-	struct tahvo		*tahvo = the_tahvo;
-	u16			mask;
-
-	mutex_lock(&tahvo->mutex);
-	mask = __tahvo_read_reg(tahvo, TAHVO_REG_IMR);
-	mask |= 1 << id;
-	__tahvo_write_reg(tahvo, TAHVO_REG_IMR, mask);
-	mutex_unlock(&tahvo->mutex);
-}
-EXPORT_SYMBOL(tahvo_disable_irq);
-
-void tahvo_enable_irq(int id)
-{
-	struct tahvo		*tahvo = the_tahvo;
-	u16			mask;
-
-	mutex_lock(&tahvo->mutex);
-	mask = __tahvo_read_reg(tahvo, TAHVO_REG_IMR);
-	mask &= ~(1 << id);
-	__tahvo_write_reg(tahvo, TAHVO_REG_IMR, mask);
-	mutex_unlock(&tahvo->mutex);
-}
-EXPORT_SYMBOL(tahvo_enable_irq);
-
-void tahvo_ack_irq(int id)
-{
-	struct tahvo		*tahvo = the_tahvo;
-
-	__tahvo_write_reg(tahvo, TAHVO_REG_IDR, 1 << id);
-}
-EXPORT_SYMBOL(tahvo_ack_irq);
-
 int tahvo_get_backlight_level(void)
 {
 	struct tahvo		*tahvo = the_tahvo;
