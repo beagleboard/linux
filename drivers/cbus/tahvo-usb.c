@@ -116,7 +116,6 @@ static struct platform_device *tahvo_otg_dev;
 
 static irqreturn_t omap_otg_irq(int irq, void *arg)
 {
-	struct tahvo_usb *tu = arg;
 	u16 otg_irq;
 
 	otg_irq = omap_readw(OTG_IRQ_SRC);
