@@ -108,9 +108,6 @@ void tahvo_set_clear_reg_bits(unsigned reg, u16 set, u16 clear)
 	mutex_unlock(&tahvo_lock);
 }
 
-/*
- * Disable given TAHVO interrupt
- */
 void tahvo_disable_irq(int id)
 {
 	u16 mask;
@@ -123,9 +120,6 @@ void tahvo_disable_irq(int id)
 }
 EXPORT_SYMBOL(tahvo_disable_irq);
 
-/*
- * Enable given TAHVO interrupt
- */
 void tahvo_enable_irq(int id)
 {
 	u16 mask;
@@ -138,9 +132,6 @@ void tahvo_enable_irq(int id)
 }
 EXPORT_SYMBOL(tahvo_enable_irq);
 
-/*
- * Acknowledge given TAHVO interrupt
- */
 void tahvo_ack_irq(int id)
 {
 	tahvo_write_reg(TAHVO_REG_IDR, 1 << id);
@@ -181,18 +172,12 @@ void tahvo_set_backlight_level(int level)
 }
 EXPORT_SYMBOL(tahvo_set_backlight_level);
 
-/*
- * TAHVO interrupt handler. Only schedules the tasklet.
- */
 static irqreturn_t tahvo_irq_handler(int irq, void *dev_id)
 {
 	tasklet_schedule(&tahvo_tasklet);
 	return IRQ_HANDLED;
 }
 
-/*
- * Tasklet handler
- */
 static void tahvo_tasklet_handler(unsigned long data)
 {
 	struct tahvo_irq_handler_desc *hnd;
@@ -283,14 +268,7 @@ void tahvo_free_irq(int id)
 }
 EXPORT_SYMBOL(tahvo_free_irq);
 
-/**
- * tahvo_probe - Probe for Tahvo ASIC
- * @dev: the Tahvo device
- *
- * Probe for the Tahvo ASIC and allocate memory
- * for its device-struct if found
- */
-static int __init tahvo_probe(struct platform_device *pdev)
+static int __devinit tahvo_probe(struct platform_device *pdev)
 {
 	int rev, id, ret;
 	int irq;
@@ -334,7 +312,7 @@ static int __init tahvo_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int __exit tahvo_remove(struct platform_device *pdev)
+static int __devexit tahvo_remove(struct platform_device *pdev)
 {
 	int irq;
 
@@ -350,25 +328,17 @@ static int __exit tahvo_remove(struct platform_device *pdev)
 }
 
 static struct platform_driver tahvo_driver = {
-	.remove		= __exit_p(tahvo_remove),
+	.remove		= __devexit_p(tahvo_remove),
 	.driver		= {
 		.name	= "tahvo",
 	},
 };
 
-/**
- * tahvo_init - initialise Tahvo driver
- *
- * Initialise the Tahvo driver and return 0 if everything worked ok
- */
 static int __init tahvo_init(void)
 {
 	return platform_driver_probe(&tahvo_driver, tahvo_probe);
 }
 
-/*
- * Cleanup
- */
 static void __exit tahvo_exit(void)
 {
 	platform_driver_unregister(&tahvo_driver);
