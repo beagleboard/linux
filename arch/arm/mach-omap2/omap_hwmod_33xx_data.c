@@ -441,6 +441,9 @@ static struct omap_hwmod am33xx_debugss_hwmod = {
 			.modulemode	= MODULEMODE_SWCTRL,
 		},
 	},
+#ifdef CONFIG_DEBUG_JTAG_ENABLE
+	.flags		= (HWMOD_INIT_NO_IDLE | HWMOD_INIT_NO_RESET),
+#endif
 };
 
 static struct omap_hwmod_class_sysconfig am33xx_elm_sysc = {
