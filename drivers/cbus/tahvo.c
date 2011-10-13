@@ -82,13 +82,14 @@ static void __tahvo_write_reg(struct tahvo *tahvo, unsigned reg, u16 val)
 
 /**
  * tahvo_read_reg - Read a value from a register in Tahvo
+ * @child: device pointer from the calling child
  * @reg: the register to read from
  *
  * This function returns the contents of the specified register
  */
-int tahvo_read_reg(unsigned reg)
+int tahvo_read_reg(struct device *child, unsigned reg)
 {
-	struct tahvo		*tahvo = the_tahvo;
+	struct tahvo		*tahvo = dev_get_drvdata(child->parent);
 
 	return __tahvo_read_reg(tahvo, reg);
 }
@@ -96,14 +97,15 @@ EXPORT_SYMBOL(tahvo_read_reg);
 
 /**
  * tahvo_write_reg - Write a value to a register in Tahvo
+ * @child: device pointer from the calling child
  * @reg: the register to write to
- * @reg: the value to write to the register
+ * @val : the value to write to the register
  *
  * This function writes a value to the specified register
  */
-void tahvo_write_reg(unsigned reg, u16 val)
+void tahvo_write_reg(struct device *child, unsigned reg, u16 val)
 {
-	struct tahvo		*tahvo = the_tahvo;
+	struct tahvo		*tahvo = dev_get_drvdata(child->parent);
 
 	__tahvo_write_reg(tahvo, reg, val);
 }
@@ -111,14 +113,16 @@ EXPORT_SYMBOL(tahvo_write_reg);
 
 /**
  * tahvo_set_clear_reg_bits - set and clear register bits atomically
+ * @child: device pointer from the calling child
  * @reg: the register to write to
  * @bits: the bits to set
  *
  * This function sets and clears the specified Tahvo register bits atomically
  */
-void tahvo_set_clear_reg_bits(unsigned reg, u16 set, u16 clear)
+void tahvo_set_clear_reg_bits(struct device *child, unsigned reg, u16 set,
+		u16 clear)
 {
-	struct tahvo		*tahvo = the_tahvo;
+	struct tahvo		*tahvo = dev_get_drvdata(child->parent);
 	u16			w;
 
 	mutex_lock(&tahvo->mutex);

@@ -90,6 +90,7 @@
 #endif
 
 struct tahvo_usb {
+	struct device		*dev;
 	struct platform_device *pt_dev;
 	struct otg_transceiver otg;
 	int vbus_state;
@@ -240,7 +241,7 @@ static void check_vbus_state(struct tahvo_usb *tu)
 {
 	int reg, prev_state;
 
-	reg = tahvo_read_reg(TAHVO_REG_IDSR);
+	reg = tahvo_read_reg(tu->dev, TAHVO_REG_IDSR);
 	if (reg & 0x01) {
 		u32 l;
 
@@ -304,7 +305,7 @@ static void tahvo_usb_become_host(struct tahvo_usb *tu)
 	omap_writel(l, OTG_CTRL);
 
 	/* Power up the transceiver in USB host mode */
-	tahvo_write_reg(TAHVO_REG_USBR, USBR_REGOUT | USBR_NSUSPEND |
+	tahvo_write_reg(tu->dev, TAHVO_REG_USBR, USBR_REGOUT | USBR_NSUSPEND |
 			USBR_MASTER_SW2 | USBR_MASTER_SW1);
 	tu->otg.state = OTG_STATE_A_IDLE;
 
@@ -330,7 +331,7 @@ static void tahvo_usb_become_peripheral(struct tahvo_usb *tu)
 	omap_writel(l, OTG_CTRL);
 
 	/* Power up transceiver and set it in USB perhiperal mode */
-	tahvo_write_reg(TAHVO_REG_USBR, USBR_SLAVE_CONTROL | USBR_REGOUT | USBR_NSUSPEND | USBR_SLAVE_SW);
+	tahvo_write_reg(tu->dev, TAHVO_REG_USBR, USBR_SLAVE_CONTROL | USBR_REGOUT | USBR_NSUSPEND | USBR_SLAVE_SW);
 	tu->otg.state = OTG_STATE_B_IDLE;
 
 	check_vbus_state(tu);
@@ -380,7 +381,7 @@ static void tahvo_usb_power_off(struct tahvo_usb *tu)
 	omap_writel(l, OTG_SYSCON_1);
 
 	/* Power off transceiver */
-	tahvo_write_reg(TAHVO_REG_USBR, 0);
+	tahvo_write_reg(tu->dev, TAHVO_REG_USBR, 0);
 	tu->otg.state = OTG_STATE_UNDEFINED;
 }
 
@@ -404,12 +405,12 @@ static int tahvo_usb_set_suspend(struct otg_transceiver *dev, int suspend)
 
 	dev_dbg(&tu->pt_dev->dev, "set_suspend\n");
 
-	w = tahvo_read_reg(TAHVO_REG_USBR);
+	w = tahvo_read_reg(tu->dev, TAHVO_REG_USBR);
 	if (suspend)
 		w &= ~USBR_NSUSPEND;
 	else
 		w |= USBR_NSUSPEND;
-	tahvo_write_reg(TAHVO_REG_USBR, w);
+	tahvo_write_reg(tu->dev, TAHVO_REG_USBR, w);
 
 	return 0;
 }
@@ -602,7 +603,8 @@ static int __init tahvo_usb_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	tahvo_usb_device = tu;
 
-	tu->pt_dev = container_of(dev, struct platform_device, dev);
+	tu->dev = dev;
+	tu->pt_dev = pdev;
 #ifdef CONFIG_USB_OTG
 	/* Default mode */
 #ifdef CONFIG_CBUS_TAHVO_USB_HOST_BY_DEFAULT
@@ -624,7 +626,7 @@ static int __init tahvo_usb_probe(struct platform_device *pdev)
 
 	/* Set initial state, so that we generate kevents only on
 	 * state changes */
-	tu->vbus_state = tahvo_read_reg(TAHVO_REG_IDSR) & 0x01;
+	tu->vbus_state = tahvo_read_reg(tu->dev, TAHVO_REG_IDSR) & 0x01;
 
 	irq = platform_get_irq(pdev, 0);
 	tu->irq = irq;
