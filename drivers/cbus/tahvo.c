@@ -299,8 +299,9 @@ static int __devinit tahvo_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	dev_err(&pdev->dev, "%s v%d.%d found\n", tahvo_is_betty ? "Betty" : "Tahvo",
-	       (rev >> 4) & 0x0f, rev & 0x0f);
+	dev_err(&pdev->dev, "%s v%d.%d found\n",
+			tahvo_is_betty ? "Betty" : "Tahvo",
+			(rev >> 4) & 0x0f, rev & 0x0f);
 
 	irq = platform_get_irq(pdev, 0);
 
