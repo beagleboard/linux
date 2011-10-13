@@ -33,13 +33,11 @@
 #include <linux/irq.h>
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
+#include <linux/platform_data/cbus.h>
 #include <linux/mutex.h>
 
 #include "cbus.h"
 #include "tahvo.h"
-
-#define TAHVO_ID		0x02
-#define PFX			"tahvo: "
 
 struct tahvo {
 	/* device lock */
@@ -73,7 +71,7 @@ EXPORT_SYMBOL(tahvo_get_status);
  */
 static int __tahvo_read_reg(struct tahvo *tahvo, unsigned reg)
 {
-	return cbus_read_reg(tahvo->dev, TAHVO_ID, reg);
+	return cbus_read_reg(tahvo->dev, CBUS_TAHVO_DEVICE_ID, reg);
 }
 
 /**
@@ -84,7 +82,7 @@ static int __tahvo_read_reg(struct tahvo *tahvo, unsigned reg)
  */
 static void __tahvo_write_reg(struct tahvo *tahvo, unsigned reg, u16 val)
 {
-	cbus_write_reg(tahvo->dev, TAHVO_ID, reg, val);
+	cbus_write_reg(tahvo->dev, CBUS_TAHVO_DEVICE_ID, reg, val);
 }
 
 /**
