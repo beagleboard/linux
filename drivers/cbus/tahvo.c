@@ -470,8 +470,6 @@ static int __devexit tahvo_remove(struct platform_device *pdev)
 
 	irq = platform_get_irq(pdev, 0);
 
-	/* Mask all TAHVO interrupts */
-	__tahvo_write_reg(tahvo, TAHVO_REG_IMR, 0xffff);
 	free_irq(irq, 0);
 	irq_free_descs(tahvo->irq_base, MAX_TAHVO_IRQ_HANDLERS);
 	kfree(tahvo);
@@ -491,13 +489,12 @@ static int __init tahvo_init(void)
 {
 	return platform_driver_probe(&tahvo_driver, tahvo_probe);
 }
+subsys_initcall(tahvo_init);
 
 static void __exit tahvo_exit(void)
 {
 	platform_driver_unregister(&tahvo_driver);
 }
-
-subsys_initcall(tahvo_init);
 module_exit(tahvo_exit);
 
 MODULE_DESCRIPTION("Tahvo ASIC control");
