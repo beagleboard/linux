@@ -51,7 +51,6 @@ struct tahvo {
 	int		ack;
 	int		mask;
 
-	unsigned int	wide_backlight:1;
 	unsigned int	mask_pending:1;
 	unsigned int	ack_pending:1;
 	unsigned int	is_betty:1;
@@ -132,42 +131,6 @@ void tahvo_set_clear_reg_bits(struct device *child, unsigned reg, u16 set,
 	__tahvo_write_reg(tahvo, reg, w);
 	mutex_unlock(&tahvo->mutex);
 }
-
-int tahvo_get_backlight_level(void)
-{
-	struct tahvo		*tahvo = the_tahvo;
-	int			mask;
-
-	if (tahvo->wide_backlight)
-		mask = 0x7f;
-	else
-		mask = 0x0f;
-	return __tahvo_read_reg(tahvo, TAHVO_REG_LEDPWMR) & mask;
-}
-EXPORT_SYMBOL(tahvo_get_backlight_level);
-
-int tahvo_get_max_backlight_level(void)
-{
-	struct tahvo		*tahvo = the_tahvo;
-
-	if (tahvo->wide_backlight)
-		return 0x7f;
-	else
-		return 0x0f;
-}
-EXPORT_SYMBOL(tahvo_get_max_backlight_level);
-
-void tahvo_set_backlight_level(int level)
-{
-	struct tahvo		*tahvo = the_tahvo;
-	int			max_level;
-
-	max_level = tahvo_get_max_backlight_level();
-	if (level > max_level)
-		level = max_level;
-	__tahvo_write_reg(tahvo, TAHVO_REG_LEDPWMR, level);
-}
-EXPORT_SYMBOL(tahvo_set_backlight_level);
 
 static irqreturn_t tahvo_irq_handler(int irq, void *_tahvo)
 {
@@ -379,20 +342,8 @@ static int __devinit tahvo_probe(struct platform_device *pdev)
 
 	id = (rev >> 8) & 0xff;
 
-	switch (id) {
-	case 0x03:
-		if ((rev & 0xff) >= 0x50)
-			tahvo->wide_backlight = true;
-		break;
-	case 0x0b:
+	if (id == 0x0b)
 		tahvo->is_betty = true;
-		tahvo->wide_backlight = true;
-		break;
-	default:
-		dev_err(&pdev->dev, "Tahvo/Betty chip not found");
-		ret = -ENODEV;
-		goto err2;
-	}
 
 	ret = tahvo_allocate_children(&pdev->dev, tahvo->irq_base);
 	if (ret < 0) {

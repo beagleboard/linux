@@ -54,8 +54,5 @@ int tahvo_read_reg(struct device *child, unsigned reg);
 void tahvo_write_reg(struct device *child, unsigned reg, u16 val);
 void tahvo_set_clear_reg_bits(struct device *child, unsigned reg, u16 set,
 		u16 clear);
-int tahvo_get_backlight_level(void);
-int tahvo_get_max_backlight_level(void);
-void tahvo_set_backlight_level(int level);
 
 #endif /* __DRIVERS_CBUS_TAHVO_H */
