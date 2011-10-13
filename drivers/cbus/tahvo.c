@@ -266,13 +266,15 @@ static struct device *tahvo_allocate_child(const char *name,
 
 	pdev->dev.parent = parent;
 
-	generic_resources[0].start = irq;
+	if (irq > 0) {
+		generic_resources[0].start = irq;
 
-	ret = platform_device_add_resources(pdev,
-			generic_resources, ARRAY_SIZE(generic_resources));
-	if (ret < 0) {
-		dev_dbg(parent, "can't add resources to %s\n", name);
-		goto err1;
+		ret = platform_device_add_resources(pdev, generic_resources,
+				ARRAY_SIZE(generic_resources));
+		if (ret < 0) {
+			dev_dbg(parent, "can't add resources to %s\n", name);
+			goto err1;
+		}
 	}
 
 	ret = platform_device_add(pdev);
