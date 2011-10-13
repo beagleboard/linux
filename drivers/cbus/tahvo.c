@@ -59,12 +59,6 @@ struct tahvo {
 
 static struct tahvo *the_tahvo;
 
-int tahvo_get_status(void)
-{
-	return the_tahvo != NULL;
-}
-EXPORT_SYMBOL(tahvo_get_status);
-
 /**
  * __tahvo_read_reg - Reads a value from a register in Tahvo
  * @tahvo: pointer to tahvo structure

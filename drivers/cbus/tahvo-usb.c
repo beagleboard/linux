@@ -594,10 +594,6 @@ static int __init tahvo_usb_probe(struct platform_device *pdev)
 	int ret;
 	int irq;
 
-	ret = tahvo_get_status();
-	if (!ret)
-		return -ENODEV;
-
 	dev_dbg(dev, "probe\n");
 
 	/* Create driver data */
