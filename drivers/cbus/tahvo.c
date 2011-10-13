@@ -284,13 +284,17 @@ static int __devinit tahvo_probe(struct platform_device *pdev)
 	rev = tahvo_read_reg(TAHVO_REG_ASICR);
 
 	id = (rev >> 8) & 0xff;
-	if (id == 0x03) {
+
+	switch (id) {
+	case 0x03:
 		if ((rev & 0xff) >= 0x50)
 			tahvo_7bit_backlight = 1;
-	} else if (id == 0x0b) {
+		break;
+	case 0x0b:
 		tahvo_is_betty = 1;
 		tahvo_7bit_backlight = 1;
-	} else {
+		break;
+	default:
 		dev_err(&pdev->dev, "Tahvo/Betty chip not found");
 		return -ENODEV;
 	}
