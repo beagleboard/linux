@@ -215,39 +215,26 @@ EXPORT_SYMBOL(tahvo_set_backlight_level);
 
 static irqreturn_t tahvo_irq_handler(int irq, void *_tahvo)
 {
-	struct tahvo_irq_handler_desc *hnd;
-
 	struct tahvo		*tahvo = _tahvo;
 	u16			id;
 	u16			im;
-	int			i;
 
-	for (;;) {
-		id = __tahvo_read_reg(tahvo, TAHVO_REG_IDR);
-		im = ~__tahvo_read_reg(tahvo, TAHVO_REG_IMR);
-		id &= im;
+	id = __tahvo_read_reg(tahvo, TAHVO_REG_IDR);
+	im = __tahvo_read_reg(tahvo, TAHVO_REG_IMR);
+	id &= ~im;
 
-		if (!id)
-			break;
+	if (!id) {
+		dev_vdbg(tahvo->dev, "No IRQ, spurious ?\n");
+		return IRQ_NONE;
+	}
 
-		for (i = 0; id != 0; i++, id >>= 1) {
-			if (!(id & 1))
-				continue;
-			hnd = &tahvo_irq_handlers[i];
-			if (hnd->func == NULL) {
-				/* Spurious tahvo interrupt - just ack it */
-				dev_err(tahvo->dev, "Spurious interrupt "
-						 "(id %d)\n", i);
-				tahvo_disable_irq(i);
-				tahvo_ack_irq(i);
-				continue;
-			}
-			hnd->func(hnd->arg);
-			/*
-			 * Don't acknowledge the interrupt here
-			 * It must be done explicitly
-			 */
-		}
+	while (id) {
+		unsigned long	pending = __ffs(id);
+		unsigned int	irq;
+
+		id &= ~BIT(pending);
+		irq = pending + tahvo->irq_base;
+		handle_nested_irq(irq);
 	}
 
 	return IRQ_HANDLED;
@@ -397,6 +384,63 @@ static void tahvo_irq_init(struct tahvo *tahvo)
 
 /* -------------------------------------------------------------------------- */
 
+static struct resource generic_resources[] = {
+	{
+		.start		= -EINVAL,	/* fixed later */
+		.flags		= IORESOURCE_IRQ,
+	},
+};
+
+static struct device *tahvo_allocate_child(const char *name,
+		struct device *parent, int irq)
+{
+	struct platform_device	*pdev;
+	int			ret;
+
+	pdev = platform_device_alloc(name, -1);
+	if (!pdev) {
+		dev_dbg(parent, "can't allocate %s\n", name);
+		goto err0;
+	}
+
+	pdev->dev.parent = parent;
+
+	generic_resources[0].start = irq;
+
+	ret = platform_device_add_resources(pdev,
+			generic_resources, ARRAY_SIZE(generic_resources));
+	if (ret < 0) {
+		dev_dbg(parent, "can't add resources to %s\n", name);
+		goto err1;
+	}
+
+	ret = platform_device_add(pdev);
+	if (ret < 0) {
+		dev_dbg(parent, "can't add %s\n", name);
+		goto err1;
+	}
+
+	return &pdev->dev;
+
+err1:
+	platform_device_put(pdev);
+
+err0:
+	return NULL;
+}
+
+static int tahvo_allocate_children(struct device *parent, int irq_base)
+{
+	struct device		*child;
+
+	child = tahvo_allocate_child("tahvo-usb", parent,
+			irq_base + TAHVO_INT_VBUSON);
+	if (!child)
+		return -ENOMEM;
+
+	return 0;
+}
+
 static int __devinit tahvo_probe(struct platform_device *pdev)
 {
 	struct tahvo		*tahvo;
@@ -447,6 +491,12 @@ static int __devinit tahvo_probe(struct platform_device *pdev)
 	default:
 		dev_err(&pdev->dev, "Tahvo/Betty chip not found");
 		ret = -ENODEV;
+		goto err2;
+	}
+
+	ret = tahvo_allocate_children(&pdev->dev, tahvo->irq_base);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "failed to allocate children\n");
 		goto err2;
 	}
 

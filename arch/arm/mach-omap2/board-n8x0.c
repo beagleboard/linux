@@ -251,11 +251,6 @@ static struct platform_device tahvo_device = {
 	},
 };
 
-static struct platform_device tahvo_usb_device = {
-	.name		= "tahvo-usb",
-	.id		= -1,
-};
-
 static void __init n8x0_cbus_init(void)
 {
 	int		ret;
@@ -297,7 +292,6 @@ static void __init n8x0_cbus_init(void)
 
 	tahvo_resource[0].start = gpio_to_irq(111);
 	platform_device_register(&tahvo_device);
-	platform_device_register(&tahvo_usb_device);
 }
 
 #else
