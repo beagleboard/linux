@@ -36,6 +36,8 @@
 #include <linux/platform_device.h>
 #include <linux/platform_data/cbus.h>
 
+#include <asm/bitops.h>
+
 #include "cbus.h"
 #include "retu.h"
 
@@ -183,8 +185,6 @@ static irqreturn_t retu_irq_handler(int irq, void *_retu)
 {
 	struct retu		*retu = _retu;
 
-	int			i;
-
 	u16			idr;
 	u16			imr;
 
@@ -199,11 +199,13 @@ static irqreturn_t retu_irq_handler(int irq, void *_retu)
 		return IRQ_NONE;
 	}
 
-	for (i = retu->irq_base; idr != 0; i++, idr >>= 1) {
-		if (!(idr & 1))
-			continue;
+	while (idr) {
+		unsigned long	pending = __ffs(idr);
+		unsigned int	irq;
 
-		handle_nested_irq(i);
+		idr &= ~BIT(pending);
+		irq = pending + retu->irq_base;
+		handle_nested_irq(irq);
 	}
 
 	return IRQ_HANDLED;
