@@ -279,7 +279,7 @@ static inline void retu_irq_setup(int irq)
 #ifdef CONFIG_ARM
 	set_irq_flags(irq, IRQF_VALID);
 #else
-	set_irq_noprobe(irq);
+	irq_set_noprobe(irq);
 #endif
 }
 
