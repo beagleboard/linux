@@ -469,8 +469,8 @@ static int __init retu_probe(struct platform_device *pdev)
 	/* Mask all RETU interrupts */
 	__retu_write_reg(retu, RETU_REG_IMR, 0xffff);
 
-	ret = request_threaded_irq(retu->irq, NULL, retu_irq_handler, 0,
-			  "retu", retu);
+	ret = request_threaded_irq(retu->irq, NULL, retu_irq_handler,
+			IRQF_ONESHOT, "retu", retu);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Unable to register IRQ handler\n");
 		goto err2;
