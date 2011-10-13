@@ -182,11 +182,11 @@ void tahvo_set_backlight_level(int level)
 }
 EXPORT_SYMBOL(tahvo_set_backlight_level);
 
-static irqreturn_t tahvo_irq_handler(int irq, void *dev_id)
+static irqreturn_t tahvo_irq_handler(int irq, void *_tahvo)
 {
 	struct tahvo_irq_handler_desc *hnd;
 
-	struct tahvo		*tahvo = the_tahvo;
+	struct tahvo		*tahvo = _tahvo;
 	u16			id;
 	u16			im;
 	int			i;
@@ -329,7 +329,7 @@ static int __devinit tahvo_probe(struct platform_device *pdev)
 
 	ret = request_threaded_irq(irq, NULL, tahvo_irq_handler,
 			IRQF_TRIGGER_RISING | IRQF_ONESHOT,
-			"tahvo", 0);
+			"tahvo", tahvo);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Unable to register IRQ handler\n");
 		goto err1;
