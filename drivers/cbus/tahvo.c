@@ -59,14 +59,6 @@ struct tahvo {
 
 static struct tahvo *the_tahvo;
 
-struct tahvo_irq_handler_desc {
-	int (*func)(unsigned long);
-	unsigned long arg;
-	char name[8];
-};
-
-static struct tahvo_irq_handler_desc tahvo_irq_handlers[MAX_TAHVO_IRQ_HANDLERS];
-
 int tahvo_get_status(void)
 {
 	return the_tahvo != NULL;
@@ -239,62 +231,6 @@ static irqreturn_t tahvo_irq_handler(int irq, void *_tahvo)
 
 	return IRQ_HANDLED;
 }
-
-/*
- * Register the handler for a given TAHVO interrupt source.
- */
-int tahvo_request_irq(int id, void *irq_handler, unsigned long arg, char *name)
-{
-	struct tahvo_irq_handler_desc *hnd;
-	struct tahvo		*tahvo = the_tahvo;
-
-	if (irq_handler == NULL || id >= MAX_TAHVO_IRQ_HANDLERS ||
-	    name == NULL) {
-		dev_err(tahvo->dev, "Invalid arguments to %s\n",
-		       __FUNCTION__);
-		return -EINVAL;
-	}
-	hnd = &tahvo_irq_handlers[id];
-	if (hnd->func != NULL) {
-		dev_err(tahvo->dev, "IRQ %d already reserved\n", id);
-		return -EBUSY;
-	}
-	dev_dbg(tahvo->dev, "Registering interrupt %d for device %s\n",
-	       id, name);
-	hnd->func = irq_handler;
-	hnd->arg = arg;
-	strlcpy(hnd->name, name, sizeof(hnd->name));
-
-	tahvo_ack_irq(id);
-	tahvo_enable_irq(id);
-
-	return 0;
-}
-EXPORT_SYMBOL(tahvo_request_irq);
-
-/*
- * Unregister the handler for a given TAHVO interrupt source.
- */
-void tahvo_free_irq(int id)
-{
-	struct tahvo_irq_handler_desc *hnd;
-	struct tahvo		*tahvo = the_tahvo;
-
-	if (id >= MAX_TAHVO_IRQ_HANDLERS) {
-		dev_err(tahvo->dev, "Invalid argument to %s\n",
-		       __FUNCTION__);
-		return;
-	}
-	hnd = &tahvo_irq_handlers[id];
-	if (hnd->func == NULL) {
-		dev_err(tahvo->dev, "IRQ %d already freed\n", id);
-		return;
-	}
-
-	tahvo_disable_irq(id);
-	hnd->func = NULL;
-}
-EXPORT_SYMBOL(tahvo_free_irq);
 
 /* -------------------------------------------------------------------------- */
 
