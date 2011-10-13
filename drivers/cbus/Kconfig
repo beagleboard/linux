@@ -24,6 +24,7 @@ if CBUS_TAHVO
 
 config CBUS_TAHVO_USB
 	depends on USB
+	depends on ARCH_OMAP
 	select USB_OTG_UTILS
 	tristate "Support for Tahvo USB transceiver"
 	---help---
@@ -58,6 +59,7 @@ config CBUS_RETU_POWERBUTTON
 
 config CBUS_RETU_RTC
 	depends on RTC_CLASS
+	depends on ARCH_OMAP
 	tristate "Support for Retu pseudo-RTC"
 	---help---
 	  Say Y here if you want support for the device that alleges to be an
@@ -65,6 +67,7 @@ config CBUS_RETU_RTC
 
 config CBUS_RETU_WDT
 	depends on SYSFS && WATCHDOG
+	depends on ARCH_OMAP
 	tristate "Support for Retu watchdog timer"
 	---help---
 	  Say Y here if you want support for the watchdog in Retu. This will
