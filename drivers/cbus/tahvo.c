@@ -56,8 +56,6 @@ struct tahvo {
 	unsigned int	is_betty:1;
 };
 
-static struct tahvo *the_tahvo;
-
 /**
  * __tahvo_read_reg - Reads a value from a register in Tahvo
  * @tahvo: pointer to tahvo structure
@@ -334,7 +332,6 @@ static int __devinit tahvo_probe(struct platform_device *pdev)
 	tahvo->irq_end	= ret + MAX_TAHVO_IRQ_HANDLERS;
 	tahvo->dev	= &pdev->dev;
 	tahvo->irq	= irq;
-	the_tahvo	= tahvo;
 
 	tahvo_irq_init(tahvo);
 
@@ -388,7 +385,6 @@ static int __devexit tahvo_remove(struct platform_device *pdev)
 	free_irq(irq, 0);
 	irq_free_descs(tahvo->irq_base, MAX_TAHVO_IRQ_HANDLERS);
 	kfree(tahvo);
-	the_tahvo = NULL;
 
 	return 0;
 }
