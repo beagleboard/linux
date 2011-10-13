@@ -271,4 +271,10 @@ config ARM_KPROBES_TEST
 	help
 	  Perform tests of kprobes API and instruction set simulation.
 
+config DEBUG_JTAG_ENABLE
+	bool "Enable JTAG clock for debugger connectivity"
+	help
+	 Say Y here if you want to enable the JTAG clock to enable
+	 connectivity to a debugger
+
 endmenu
