@@ -28,8 +28,4 @@ struct cbus_host_platform_data {
 	int	sel_gpio;
 };
 
-struct cbus_retu_platform_data {
-	int	devid;
-};
-
 #endif /* __INCLUDE_LINUX_CBUS_H */

@@ -219,17 +219,12 @@ static struct resource retu_resource[] = {
 	},
 };
 
-static struct cbus_retu_platform_data n8x0_retu_data = {
-	.devid		= CBUS_RETU_DEVICE_ID,
-};
-
 static struct platform_device retu_device = {
 	.name		= "retu",
 	.id		= -1,
 	.resource	= retu_resource,
 	.num_resources	= ARRAY_SIZE(retu_resource),
 	.dev		= {
-		.platform_data = &n8x0_retu_data,
 		.parent	= &n8x0_cbus_device.dev,
 	},
 };
