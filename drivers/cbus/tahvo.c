@@ -395,11 +395,21 @@ static int __devexit tahvo_remove(struct platform_device *pdev)
 	return 0;
 }
 
+
+static const struct of_device_id tahvo_match_table[] __devinitconst = {
+	{
+		.compatible = "nokia,tahvo",
+	},
+	{},
+};
+MODULE_DEVICE_TABLE(of, tahvo_match);
+
 static struct platform_driver tahvo_driver = {
 	.probe		= tahvo_probe,
 	.remove		= __devexit_p(tahvo_remove),
 	.driver		= {
 		.name	= "tahvo",
+		.of_match_table = tahvo_match_table,
 	},
 };
 

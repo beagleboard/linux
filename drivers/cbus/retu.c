@@ -522,11 +522,20 @@ static int __devexit retu_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct of_device_id retu_match_table[] __devinitconst = {
+	{
+		.compatible = "nokia,retu",
+	},
+	{},
+};
+MODULE_DEVICE_TABLE(of, retu_match);
+
 static struct platform_driver retu_driver = {
 	.probe		= retu_probe,
 	.remove		= __devexit_p(retu_remove),
 	.driver		= {
 		.name	= "retu",
+		.of_match_table = retu_match_table,
 	},
 };
 
