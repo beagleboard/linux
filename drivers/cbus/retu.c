@@ -46,8 +46,6 @@ struct retu {
 	struct mutex		mutex;
 	struct device		*dev;
 
-	int			devid;
-
 	int			irq_base;
 	int			irq_end;
 
@@ -71,7 +69,7 @@ static struct retu *the_retu;
  */
 static int __retu_read_reg(struct retu *retu, unsigned reg)
 {
-	return cbus_read_reg(retu->dev, retu->devid, reg);
+	return cbus_read_reg(retu->dev, CBUS_RETU_DEVICE_ID, reg);
 }
 
 /**
@@ -82,7 +80,7 @@ static int __retu_read_reg(struct retu *retu, unsigned reg)
  */
 static void __retu_write_reg(struct retu *retu, unsigned reg, u16 val)
 {
-	cbus_write_reg(retu->dev, retu->devid, reg, val);
+	cbus_write_reg(retu->dev, CBUS_RETU_DEVICE_ID, reg, val);
 }
 
 /**
@@ -430,7 +428,6 @@ static int retu_allocate_children(struct device *parent, int irq_base)
 static int __devinit retu_probe(struct platform_device *pdev)
 {
 	struct retu	*retu;
-	struct cbus_retu_platform_data *pdata = pdev->dev.platform_data;
 
 	int		ret = -ENOMEM;
 	int		rev;
@@ -452,7 +449,6 @@ static int __devinit retu_probe(struct platform_device *pdev)
 	retu->irq	= platform_get_irq(pdev, 0);
 	retu->irq_base	= ret;
 	retu->irq_end	= ret + MAX_RETU_IRQ_HANDLERS;
-	retu->devid	= pdata->devid;
 	retu->dev	= &pdev->dev;
 	the_retu	= retu;
 
