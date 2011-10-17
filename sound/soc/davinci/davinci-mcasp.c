@@ -384,27 +384,33 @@ static void mcasp_start_tx(struct davinci_audio_dev *dev)
 static void davinci_mcasp_start(struct davinci_audio_dev *dev, int stream)
 {
 	if (stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		if (dev->txnumevt) {	/* enable FIFO */
-			if (dev->version == MCASP_VERSION_3)
-				mcasp_set_bits(dev->base +
-						MCASP_VER3_WFIFOCTL,
-						FIFO_ENABLE);
-			else
-				mcasp_set_bits(dev->base +
-						DAVINCI_MCASP_WFIFOCTL,
-						FIFO_ENABLE);
+		if (dev->txnumevt) {	/* flush and enable FIFO */
+			if (dev->version == MCASP_VERSION_3) {
+				mcasp_clr_bits(dev->base + MCASP_VER3_WFIFOCTL,
+								FIFO_ENABLE);
+				mcasp_set_bits(dev->base + MCASP_VER3_WFIFOCTL,
+								FIFO_ENABLE);
+			} else {
+				mcasp_clr_bits(dev->base + DAVINCI_MCASP_WFIFOCTL,
+								FIFO_ENABLE);
+				mcasp_set_bits(dev->base + DAVINCI_MCASP_WFIFOCTL,
+								FIFO_ENABLE);
+			}
 		}
 		mcasp_start_tx(dev);
 	} else {
-		if (dev->rxnumevt) {	/* enable FIFO */
-			if (dev->version == MCASP_VERSION_3)
-				mcasp_set_bits(dev->base +
-						MCASP_VER3_WFIFOCTL,
-						FIFO_ENABLE);
-			else
-				mcasp_set_bits(dev->base +
-						DAVINCI_MCASP_RFIFOCTL,
-						FIFO_ENABLE);
+		if (dev->rxnumevt) {	/* flush and enable FIFO */
+			if (dev->version == MCASP_VERSION_3) {
+				mcasp_clr_bits(dev->base + MCASP_VER3_WFIFOCTL,
+								FIFO_ENABLE);
+				mcasp_set_bits(dev->base + MCASP_VER3_WFIFOCTL,
+								FIFO_ENABLE);
+			} else {
+				mcasp_clr_bits(dev->base + DAVINCI_MCASP_RFIFOCTL,
+								FIFO_ENABLE);
+				mcasp_set_bits(dev->base + DAVINCI_MCASP_RFIFOCTL,
+								FIFO_ENABLE);
+			}
 		}
 		mcasp_start_rx(dev);
 	}
@@ -427,24 +433,20 @@ static void davinci_mcasp_stop(struct davinci_audio_dev *dev, int stream)
 	if (stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		if (dev->txnumevt) {	/* disable FIFO */
 			if (dev->version == MCASP_VERSION_3)
-				mcasp_clr_bits(dev->base +
-						MCASP_VER3_WFIFOCTL,
+				mcasp_clr_bits(dev->base + MCASP_VER3_WFIFOCTL,
 						FIFO_ENABLE);
 			else
-				mcasp_clr_bits(dev->base +
-						DAVINCI_MCASP_WFIFOCTL,
+				mcasp_clr_bits(dev->base + DAVINCI_MCASP_WFIFOCTL,
 						FIFO_ENABLE);
 		}
 		mcasp_stop_tx(dev);
 	} else {
 		if (dev->rxnumevt) {	/* disable FIFO */
 			if (dev->version == MCASP_VERSION_3)
-				mcasp_clr_bits(dev->base +
-						MCASP_VER3_RFIFOCTL,
+				mcasp_clr_bits(dev->base + MCASP_VER3_RFIFOCTL,
 						FIFO_ENABLE);
 			else
-				mcasp_clr_bits(dev->base +
-						DAVINCI_MCASP_RFIFOCTL,
+				mcasp_clr_bits(dev->base + DAVINCI_MCASP_RFIFOCTL,
 						FIFO_ENABLE);
 		}
 		mcasp_stop_rx(dev);
