@@ -96,6 +96,7 @@
 #define P4o_s(a)	(TF(a & NAND_Ecc_P4o)		<< 1)
 
 #define MAX_HWECC_BYTES_OOB_64     24
+#define JFFS2_CLEAN_MARKER_OFFSET  0x2
 
 /* oob info generated runtime depending on ecc algorithm and layout selected */
 static struct nand_ecclayout omap_oobinfo;
@@ -1100,12 +1101,10 @@ static int __devinit omap_nand_probe(struct platform_device *pdev)
 	/* select ecc lyout */
 	if (info->nand.ecc.mode != NAND_ECC_SOFT) {
 
-		if (info->nand.options & NAND_BUSWIDTH_16)
-			offset = 2;
-		else {
-			offset = 1;
+		if (!(info->nand.options & NAND_BUSWIDTH_16))
 			info->nand.badblock_pattern = &bb_descrip_flashbased;
-		}
+
+		offset = JFFS2_CLEAN_MARKER_OFFSET;
 
 		if (info->mtd.oobsize == 64)
 			omap_oobinfo.eccbytes = info->nand.ecc.bytes *
