@@ -28,6 +28,7 @@
 #include <linux/clk.h>
 #include <linux/err.h>
 #include <linux/wl12xx.h>
+#include <linux/ethtool.h>
 
 /* LCD controller is similar to DA850 */
 #include <video/da8xx-fb.h>
@@ -58,6 +59,10 @@
 /* TLK PHY IDs */
 #define TLK110_PHY_ID		0x2000A201
 #define TLK110_PHY_MASK		0xfffffff0
+
+/* BBB PHY IDs */
+#define BBB_PHY_ID		0x7c0f1
+#define BBB_PHY_MASK		0xfffffffe
 
 /* TLK110 PHY register offsets */
 #define TLK110_COARSEGAIN_REG	0x00A3
@@ -1059,6 +1064,15 @@ static void spi1_init(int evm_id, int profile)
 	return;
 }
 
+
+static int beaglebone_phy_fixup(struct phy_device *phydev)
+{
+	phydev->supported &= ~(SUPPORTED_100baseT_Half |
+				SUPPORTED_100baseT_Full);
+
+	return 0;
+}
+
 #ifdef CONFIG_TLK110_WORKAROUND
 static int am335x_tlk110_phy_fixup(struct phy_device *phydev)
 {
@@ -1274,6 +1288,9 @@ static void setup_beaglebone_old(void)
 	am335x_mmc[0].gpio_wp = -EINVAL;
 
 	_configure_device(LOW_COST_EVM, beaglebone_old_dev_cfg, PROFILE_NONE);
+
+	phy_register_fixup_for_uid(BBB_PHY_ID, BBB_PHY_MASK,
+					beaglebone_phy_fixup);
 }
 
 /* BeagleBone after Rev A3 */
