@@ -380,6 +380,7 @@ void usb_ep_autoconfig_reset (struct usb_gadget *gadget)
 
 	list_for_each_entry (ep, &gadget->ep_list, ep_list) {
 		ep->driver_data = NULL;
+		ep->desc = NULL;
 	}
 #ifdef	MANY_ENDPOINTS
 	in_epnum = 0;

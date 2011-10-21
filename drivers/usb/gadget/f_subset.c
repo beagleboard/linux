@@ -307,6 +307,7 @@ geth_bind(struct usb_configuration *c, struct usb_function *f)
 	status = -ENODEV;
 
 	/* allocate instance-specific endpoints */
+	usb_ep_autoconfig_reset(cdev->gadget);
 	ep = usb_ep_autoconfig(cdev->gadget, &fs_subset_in_desc);
 	if (!ep)
 		goto fail;
