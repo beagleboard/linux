@@ -1132,7 +1132,7 @@ static int __init omap2_mcspi_probe(struct platform_device *pdev)
 	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (r == NULL) {
 		status = -ENODEV;
-		goto err1;
+		goto free_master;
 	}
 
 	r->start += pdata->regs_offset;
@@ -1141,14 +1141,14 @@ static int __init omap2_mcspi_probe(struct platform_device *pdev)
 	if (!request_mem_region(r->start, resource_size(r),
 				dev_name(&pdev->dev))) {
 		status = -EBUSY;
-		goto err1;
+		goto free_master;
 	}
 
 	mcspi->base = ioremap(r->start, resource_size(r));
 	if (!mcspi->base) {
 		dev_dbg(&pdev->dev, "can't ioremap MCSPI\n");
 		status = -ENOMEM;
-		goto err2;
+		goto release_region;
 	}
 
 	mcspi->dev = &pdev->dev;
@@ -1163,7 +1163,7 @@ static int __init omap2_mcspi_probe(struct platform_device *pdev)
 			GFP_KERNEL);
 
 	if (mcspi->dma_channels == NULL)
-		goto err2;
+		goto unmap_io;
 
 	for (i = 0; i < master->num_chipselect; i++) {
 		char dma_ch_name[14];
@@ -1193,27 +1193,34 @@ static int __init omap2_mcspi_probe(struct platform_device *pdev)
 		mcspi->dma_channels[i].dma_tx_sync_dev = dma_res->start;
 	}
 
+	if (status < 0)
+		goto dma_chnl_free;
+
 	pm_runtime_enable(&pdev->dev);
 
 	if (status || omap2_mcspi_master_setup(mcspi) < 0)
-		goto err3;
+		goto diable_pm;
 
 	status = spi_register_master(master);
 	if (status < 0)
-		goto err4;
+		goto err_spi_register;
 
 	return status;
 
-err4:
+err_spi_register:
 	spi_master_put(master);
-err3:
+diable_pm:
 	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
+dma_chnl_free:
 	kfree(mcspi->dma_channels);
-err2:
-	release_mem_region(r->start, resource_size(r));
+unmap_io:
 	iounmap(mcspi->base);
-err1:
+release_region:
+	release_mem_region(r->start, resource_size(r));
+free_master:
+	kfree(master);
+	platform_set_drvdata(pdev, NULL);
 	return status;
 }
 
@@ -1231,13 +1238,15 @@ static int __exit omap2_mcspi_remove(struct platform_device *pdev)
 
 	omap2_mcspi_disable_clocks(mcspi);
 	pm_runtime_disable(&pdev->dev);
+	kfree(dma_channels);
+	base = mcspi->base;
+	iounmap(base);
+
 	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	release_mem_region(r->start, resource_size(r));
 
-	base = mcspi->base;
 	spi_unregister_master(master);
-	iounmap(base);
-	kfree(dma_channels);
+	platform_set_drvdata(pdev, NULL);
 
 	return 0;
 }
