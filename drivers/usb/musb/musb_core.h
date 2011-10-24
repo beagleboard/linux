@@ -463,6 +463,8 @@ struct musb {
 #endif
 	/* id for multiple musb instances */
 	u8			id;
+	struct	timer_list	otg_workaround;
+	unsigned long		last_timer;
 };
 
 static inline struct musb *gadget_to_musb(struct usb_gadget *g)

@@ -573,8 +573,6 @@ void ti81xx_musb_disable(struct musb *musb)
 
 #define	POLL_SECONDS	2
 
-static struct timer_list otg_workaround;
-
 static void otg_timer(unsigned long _musb)
 {
 	struct musb		*musb = (void *)_musb;
@@ -612,7 +610,8 @@ static void otg_timer(unsigned long _musb)
 		 * VBUSERR got reported during enumeration" cases.
 		 */
 		if (devctl & MUSB_DEVCTL_VBUS) {
-			mod_timer(&otg_workaround, jiffies + POLL_SECONDS * HZ);
+			mod_timer(&musb->otg_workaround,
+					jiffies + POLL_SECONDS * HZ);
 			break;
 		}
 		musb->xceiv->state = OTG_STATE_A_WAIT_VRISE;
@@ -637,7 +636,8 @@ static void otg_timer(unsigned long _musb)
 		 */
 		devctl = musb_readb(mregs, MUSB_DEVCTL);
 		if (devctl & MUSB_DEVCTL_BDEVICE)
-			mod_timer(&otg_workaround, jiffies + POLL_SECONDS * HZ);
+			mod_timer(&musb->otg_workaround,
+					jiffies + POLL_SECONDS * HZ);
 		else
 			musb->xceiv->state = OTG_STATE_A_IDLE;
 		break;
@@ -649,8 +649,6 @@ static void otg_timer(unsigned long _musb)
 
 void ti81xx_musb_try_idle(struct musb *musb, unsigned long timeout)
 {
-	static unsigned long last_timer;
-
 	if (!is_otg_enabled(musb))
 		return;
 
@@ -662,21 +660,22 @@ void ti81xx_musb_try_idle(struct musb *musb, unsigned long timeout)
 				musb->xceiv->state == OTG_STATE_A_WAIT_BCON)) {
 		dev_dbg(musb->controller, "%s active, deleting timer\n",
 			otg_state_string(musb->xceiv->state));
-		del_timer(&otg_workaround);
-		last_timer = jiffies;
+		del_timer(&musb->otg_workaround);
+		musb->last_timer = jiffies;
 		return;
 	}
 
-	if (time_after(last_timer, timeout) && timer_pending(&otg_workaround)) {
+	if (time_after(musb->last_timer, timeout) &&
+					timer_pending(&musb->otg_workaround)) {
 		dev_dbg(musb->controller, "Longer idle timer already pending, ignoring...\n");
 		return;
 	}
-	last_timer = timeout;
+	musb->last_timer = timeout;
 
 	dev_dbg(musb->controller, "%s inactive, starting idle timer for %u ms\n",
 	    otg_state_string(musb->xceiv->state),
 		jiffies_to_msecs(timeout - jiffies));
-	mod_timer(&otg_workaround, timeout);
+	mod_timer(&musb->otg_workaround, timeout);
 }
 
 #ifdef CONFIG_USB_TI_CPPI41_DMA
@@ -888,14 +887,15 @@ static irqreturn_t ti81xx_interrupt(int irq, void *hci)
 			 */
 			musb->int_usb &= ~MUSB_INTR_VBUSERROR;
 			musb->xceiv->state = OTG_STATE_A_WAIT_VFALL;
-			mod_timer(&otg_workaround, jiffies + POLL_SECONDS * HZ);
+			mod_timer(&musb->otg_workaround,
+						jiffies + POLL_SECONDS * HZ);
 			WARNING("VBUS error workaround (delay coming)\n");
 		} else if (is_host_enabled(musb) && drvvbus) {
 			musb->is_active = 1;
 			MUSB_HST_MODE(musb);
 			musb->xceiv->default_a = 1;
 			musb->xceiv->state = OTG_STATE_A_WAIT_VRISE;
-			del_timer(&otg_workaround);
+			del_timer(&musb->otg_workaround);
 		} else {
 			musb->is_active = 0;
 			MUSB_DEV_MODE(musb);
@@ -924,7 +924,7 @@ static irqreturn_t ti81xx_interrupt(int irq, void *hci)
 
 	/* Poll for ID change */
 	if (is_otg_enabled(musb) && musb->xceiv->state == OTG_STATE_B_IDLE)
-		mod_timer(&otg_workaround, jiffies + POLL_SECONDS * HZ);
+		mod_timer(&musb->otg_workaround, jiffies + POLL_SECONDS * HZ);
 
 	spin_unlock_irqrestore(&musb->lock, flags);
 
@@ -1030,7 +1030,8 @@ int ti81xx_musb_init(struct musb *musb)
 		return -ENODEV;
 
 	if (is_host_enabled(musb))
-		setup_timer(&otg_workaround, otg_timer, (unsigned long) musb);
+		setup_timer(&musb->otg_workaround, otg_timer,
+					(unsigned long) musb);
 
 	/* Reset the controller */
 	musb_writel(reg_base, USB_CTRL_REG, USB_SOFT_RESET_MASK);
@@ -1114,7 +1115,7 @@ int ti81xx_musb_exit(struct musb *musb)
 	struct omap_musb_board_data *data = plat->board_data;
 
 	if (is_host_enabled(musb))
-		del_timer_sync(&otg_workaround);
+		del_timer_sync(&musb->otg_workaround);
 
 	/* Shutdown the on-chip PHY and its PLL. */
 	if (data->set_phy_power)
