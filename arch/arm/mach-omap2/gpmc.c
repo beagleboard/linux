@@ -909,6 +909,7 @@ int gpmc_enable_hwecc(int ecc_type, int cs, int mode,
 
 	return 0;
 }
+EXPORT_SYMBOL(gpmc_enable_hwecc);
 
 /**
  * gpmc_calculate_ecc - generate non-inverted ecc bytes
@@ -971,3 +972,4 @@ int gpmc_calculate_ecc(int ecc_type, int cs,
 
 	return 0;
 }
+EXPORT_SYMBOL(gpmc_calculate_ecc);
