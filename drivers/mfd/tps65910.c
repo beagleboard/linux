@@ -138,6 +138,7 @@ static int tps65910_i2c_probe(struct i2c_client *i2c,
 	struct tps65910_board *pmic_plat_data;
 	struct tps65910_platform_data *init_data;
 	int ret = 0;
+	unsigned char buff;
 
 	pmic_plat_data = dev_get_platdata(&i2c->dev);
 	if (!pmic_plat_data)
@@ -161,9 +162,24 @@ static int tps65910_i2c_probe(struct i2c_client *i2c,
 	tps65910->write = tps65910_i2c_write;
 	mutex_init(&tps65910->io_mutex);
 
-	ret = mfd_add_devices(tps65910->dev, -1,
-			      tps65910s, ARRAY_SIZE(tps65910s),
-			      NULL, 0);
+	/* Check that the device is actually there */
+	ret = tps65910_i2c_read(tps65910, 0x0, 1, &buff);
+	if (ret < 0) {
+		dev_err(tps65910->dev, "could not be detected\n");
+		ret = -ENODEV;
+		goto err;
+	}
+
+	dev_info(tps65910->dev, "JTAGREVNUM 0x%x\n", buff);
+
+	if (buff & ~JTAGVERNUM_VERNUM_MASK) {
+		dev_err(tps65910->dev, "unknown version\n");
+		ret = -ENODEV;
+		goto err;
+	}
+
+	ret = mfd_add_devices(tps65910->dev, -1, tps65910s,
+			ARRAY_SIZE(tps65910s), NULL, 0);
 	if (ret < 0)
 		goto err;
 
@@ -174,13 +190,14 @@ static int tps65910_i2c_probe(struct i2c_client *i2c,
 
 	ret = tps65910_irq_init(tps65910, init_data->irq, init_data);
 	if (ret < 0)
-		goto err;
+		goto err2;
 
 	kfree(init_data);
 	return ret;
 
-err:
+err2:
 	mfd_remove_devices(tps65910->dev);
+err:
 	kfree(tps65910);
 	kfree(init_data);
 	return ret;
