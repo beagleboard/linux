@@ -80,6 +80,11 @@ config SOC_OMAPTI816X
 	depends on ARCH_OMAP3
 	default y
 
+config SOC_OMAPAM33XX
+	bool "AM33XX support"
+	depends on ARCH_OMAP3
+	default y
+
 config OMAP_PACKAGE_ZAF
        bool
 
@@ -177,6 +182,12 @@ config MACH_OMAP3_TORPEDO
 	 Support for the LogicPD OMAP35x Torpedo Development kit
 	 for full description please see the products webpage at
 	 http://www.logicpd.com/products/development-kits/zoom-omap35x-torpedo-development-kit
+
+config MACH_ENCORE
+        bool "Barnes & Noble Encore (Nook Color)"
+        depends on ARCH_OMAP3
+	default y
+        select OMAP_PACKAGE_CBP
 
 config MACH_OVERO
 	bool "Gumstix Overo board"
@@ -331,6 +342,12 @@ config MACH_OMAP4_PANDA
 	select OMAP_PACKAGE_CBL
 	select OMAP_PACKAGE_CBS
 	select REGULATOR_FIXED_VOLTAGE
+
+config MACH_PCM049
+	bool "OMAP4 based phyCORE OMAP4"
+	depends on ARCH_OMAP4
+	default y
+	select OMAP_PACKAGE_CBS
 
 config OMAP3_EMU
 	bool "OMAP3 debugging peripherals"
