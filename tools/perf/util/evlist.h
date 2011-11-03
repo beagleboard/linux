@@ -25,6 +25,7 @@ struct perf_evlist {
 	struct pollfd	 *pollfd;
 	struct thread_map *threads;
 	struct cpu_map	  *cpus;
+	struct perf_evsel *selected;
 };
 
 struct perf_evsel;
@@ -52,6 +53,12 @@ union perf_event *perf_evlist__mmap_read(struct perf_evlist *self, int idx);
 int perf_evlist__alloc_mmap(struct perf_evlist *evlist);
 int perf_evlist__mmap(struct perf_evlist *evlist, int pages, bool overwrite);
 void perf_evlist__munmap(struct perf_evlist *evlist);
+
+void perf_evlist__disable(struct perf_evlist *evlist);
+void perf_evlist__enable(struct perf_evlist *evlist);
+
+void perf_evlist__set_selected(struct perf_evlist *evlist,
+			       struct perf_evsel *evsel);
 
 static inline void perf_evlist__set_maps(struct perf_evlist *evlist,
 					 struct cpu_map *cpus,

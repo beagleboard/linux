@@ -558,13 +558,14 @@ int __netpoll_rx(struct sk_buff *skb)
 	if (skb_shared(skb))
 		goto out;
 
-	iph = (struct iphdr *)skb->data;
 	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
 		goto out;
+	iph = (struct iphdr *)skb->data;
 	if (iph->ihl < 5 || iph->version != 4)
 		goto out;
 	if (!pskb_may_pull(skb, iph->ihl*4))
 		goto out;
+	iph = (struct iphdr *)skb->data;
 	if (ip_fast_csum((u8 *)iph, iph->ihl) != 0)
 		goto out;
 
@@ -579,6 +580,7 @@ int __netpoll_rx(struct sk_buff *skb)
 	if (pskb_trim_rcsum(skb, len))
 		goto out;
 
+	iph = (struct iphdr *)skb->data;
 	if (iph->protocol != IPPROTO_UDP)
 		goto out;
 
@@ -760,7 +762,7 @@ int __netpoll_setup(struct netpoll *np)
 	}
 
 	/* last thing to do is link it to the net device structure */
-	rcu_assign_pointer(ndev->npinfo, npinfo);
+	RCU_INIT_POINTER(ndev->npinfo, npinfo);
 
 	return 0;
 
@@ -901,7 +903,7 @@ void __netpoll_cleanup(struct netpoll *np)
 		if (ops->ndo_netpoll_cleanup)
 			ops->ndo_netpoll_cleanup(np->dev);
 
-		rcu_assign_pointer(np->dev->npinfo, NULL);
+		RCU_INIT_POINTER(np->dev->npinfo, NULL);
 
 		/* avoid racing with NAPI reading npinfo */
 		synchronize_rcu_bh();

@@ -79,7 +79,7 @@ static struct s3c2410_uartcfg universal_uartcfgs[] __initdata = {
 };
 
 static struct regulator_consumer_supply max8952_consumer =
-	REGULATOR_SUPPLY("vddarm", NULL);
+	REGULATOR_SUPPLY("vdd_arm", NULL);
 
 static struct max8952_platform_data universal_max8952_pdata __initdata = {
 	.gpio_vid0	= EXYNOS4_GPX0(3),
@@ -105,7 +105,7 @@ static struct max8952_platform_data universal_max8952_pdata __initdata = {
 };
 
 static struct regulator_consumer_supply lp3974_buck1_consumer =
-	REGULATOR_SUPPLY("vddint", NULL);
+	REGULATOR_SUPPLY("vdd_int", NULL);
 
 static struct regulator_consumer_supply lp3974_buck2_consumer =
 	REGULATOR_SUPPLY("vddg3d", NULL);
@@ -762,7 +762,7 @@ static void __init universal_machine_init(void)
 
 MACHINE_START(UNIVERSAL_C210, "UNIVERSAL_C210")
 	/* Maintainer: Kyungmin Park <kyungmin.park@samsung.com> */
-	.boot_params	= S5P_PA_SDRAM + 0x100,
+	.atag_offset	= 0x100,
 	.init_irq	= exynos4_init_irq,
 	.map_io		= universal_map_io,
 	.init_machine	= universal_machine_init,

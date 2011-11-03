@@ -379,7 +379,7 @@ enum {
 	/* BBIF2 */
 	VPU,
 	TSIF1,
-	_3DG_SGX530,
+	/* 3DG */
 	_2DDMAC,
 	IIC2_ALI2, IIC2_TACKI2, IIC2_WAITI2, IIC2_DTEI2,
 	IPMMU_IPMMUR, IPMMU_IPMMUR2,
@@ -436,7 +436,7 @@ static struct intc_vect intcs_vectors[] = {
 	/* BBIF2 */
 	INTCS_VECT(VPU, 0x980),
 	INTCS_VECT(TSIF1, 0x9a0),
-	INTCS_VECT(_3DG_SGX530, 0x9e0),
+	/* 3DG */
 	INTCS_VECT(_2DDMAC, 0xa00),
 	INTCS_VECT(IIC2_ALI2, 0xa80), INTCS_VECT(IIC2_TACKI2, 0xaa0),
 	INTCS_VECT(IIC2_WAITI2, 0xac0), INTCS_VECT(IIC2_DTEI2, 0xae0),
@@ -521,7 +521,7 @@ static struct intc_mask_reg intcs_mask_registers[] = {
 	    RTDMAC_1_DEI3, RTDMAC_1_DEI2, RTDMAC_1_DEI1, RTDMAC_1_DEI0 } },
 	{ 0xffd20198, 0xffd201d8, 8, /* IMR6SA / IMCR6SA */
 	  { 0, 0, MSIOF, 0,
-	    _3DG_SGX530, 0, 0, 0 } },
+	    0, 0, 0, 0 } },
 	{ 0xffd2019c, 0xffd201dc, 8, /* IMR7SA / IMCR7SA */
 	  { 0, TMU_TUNI2, TMU_TUNI1, TMU_TUNI0,
 	    0, 0, 0, 0 } },
@@ -561,7 +561,6 @@ static struct intc_prio_reg intcs_prio_registers[] = {
 					      TMU_TUNI2, TSIF1 } },
 	{ 0xffd2001c, 0, 16, 4, /* IPRHS */ { 0, 0, VEU, BEU } },
 	{ 0xffd20020, 0, 16, 4, /* IPRIS */ { 0, MSIOF, TSIF0, IIC0 } },
-	{ 0xffd20024, 0, 16, 4, /* IPRJS */ { 0, _3DG_SGX530, 0, 0 } },
 	{ 0xffd20028, 0, 16, 4, /* IPRKS */ { 0, 0, LMB, 0 } },
 	{ 0xffd2002c, 0, 16, 4, /* IPRLS */ { IPMMU, 0, 0, 0 } },
 	{ 0xffd20030, 0, 16, 4, /* IPRMS */ { IIC2, 0, 0, 0 } },
@@ -607,9 +606,16 @@ static void intcs_demux(unsigned int irq, struct irq_desc *desc)
 	generic_handle_irq(intcs_evt2irq(evtcodeas));
 }
 
+static void __iomem *intcs_ffd2;
+static void __iomem *intcs_ffd5;
+
 void __init sh7372_init_irq(void)
 {
-	void __iomem *intevtsa = ioremap_nocache(0xffd20100, PAGE_SIZE);
+	void __iomem *intevtsa;
+
+	intcs_ffd2 = ioremap_nocache(0xffd20000, PAGE_SIZE);
+	intevtsa = intcs_ffd2 + 0x100;
+	intcs_ffd5 = ioremap_nocache(0xffd50000, PAGE_SIZE);
 
 	register_intc_controller(&intca_desc);
 	register_intc_controller(&intcs_desc);
@@ -617,4 +623,47 @@ void __init sh7372_init_irq(void)
 	/* demux using INTEVTSA */
 	irq_set_handler_data(evt2irq(0xf80), (void *)intevtsa);
 	irq_set_chained_handler(evt2irq(0xf80), intcs_demux);
+}
+
+static unsigned short ffd2[0x200];
+static unsigned short ffd5[0x100];
+
+void sh7372_intcs_suspend(void)
+{
+	int k;
+
+	for (k = 0x00; k <= 0x30; k += 4)
+		ffd2[k] = __raw_readw(intcs_ffd2 + k);
+
+	for (k = 0x80; k <= 0xb0; k += 4)
+		ffd2[k] = __raw_readb(intcs_ffd2 + k);
+
+	for (k = 0x180; k <= 0x188; k += 4)
+		ffd2[k] = __raw_readb(intcs_ffd2 + k);
+
+	for (k = 0x00; k <= 0x3c; k += 4)
+		ffd5[k] = __raw_readw(intcs_ffd5 + k);
+
+	for (k = 0x80; k <= 0x9c; k += 4)
+		ffd5[k] = __raw_readb(intcs_ffd5 + k);
+}
+
+void sh7372_intcs_resume(void)
+{
+	int k;
+
+	for (k = 0x00; k <= 0x30; k += 4)
+		__raw_writew(ffd2[k], intcs_ffd2 + k);
+
+	for (k = 0x80; k <= 0xb0; k += 4)
+		__raw_writeb(ffd2[k], intcs_ffd2 + k);
+
+	for (k = 0x180; k <= 0x188; k += 4)
+		__raw_writeb(ffd2[k], intcs_ffd2 + k);
+
+	for (k = 0x00; k <= 0x3c; k += 4)
+		__raw_writew(ffd5[k], intcs_ffd5 + k);
+
+	for (k = 0x80; k <= 0x9c; k += 4)
+		__raw_writeb(ffd5[k], intcs_ffd5 + k);
 }

@@ -19,6 +19,8 @@
 
 #define IRQ_PPI(x)		S5P_IRQ(x+16)
 
+#define IRQ_MCT_LOCALTIMER	IRQ_PPI(12)
+
 /* SPI: Shared Peripheral Interrupt */
 
 #define IRQ_SPI(x)		S5P_IRQ(x+32)
@@ -80,9 +82,8 @@
 #define IRQ_HSMMC3		IRQ_SPI(76)
 #define IRQ_DWMCI		IRQ_SPI(77)
 
-#define IRQ_MIPICSI0		IRQ_SPI(78)
-
-#define IRQ_MIPICSI1		IRQ_SPI(80)
+#define IRQ_MIPI_CSIS0		IRQ_SPI(78)
+#define IRQ_MIPI_CSIS1		IRQ_SPI(80)
 
 #define IRQ_ONENAND_AUDI	IRQ_SPI(82)
 #define IRQ_ROTATOR		IRQ_SPI(83)

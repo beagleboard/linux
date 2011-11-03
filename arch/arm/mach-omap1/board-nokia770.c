@@ -7,7 +7,7 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
-
+#include <linux/gpio.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/mutex.h>
@@ -28,7 +28,6 @@
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
 
-#include <mach/gpio.h>
 #include <plat/mux.h>
 #include <plat/usb.h>
 #include <plat/board.h>
@@ -40,21 +39,6 @@
 #include <plat/clock.h>
 
 #define ADS7846_PENDOWN_GPIO	15
-
-static void __init omap_nokia770_init_irq(void)
-{
-	/* On Nokia 770, the SleepX signal is masked with an
-	 * MPUIO line by default.  It has to be unmasked for it
-	 * to become functional */
-
-	/* SleepX mask direction */
-	omap_writew((omap_readw(0xfffb5008) & ~2), 0xfffb5008);
-	/* Unmask SleepX signal */
-	omap_writew((omap_readw(0xfffb5004) & ~2), 0xfffb5004);
-
-	omap1_init_common_hw();
-	omap1_init_irq();
-}
 
 static const unsigned int nokia770_keymap[] = {
 	KEY(1, 0, GROUP_0 | KEY_UP),
@@ -351,6 +335,15 @@ static inline void nokia770_mmc_init(void)
 
 static void __init omap_nokia770_init(void)
 {
+	/* On Nokia 770, the SleepX signal is masked with an
+	 * MPUIO line by default.  It has to be unmasked for it
+	 * to become functional */
+
+	/* SleepX mask direction */
+	omap_writew((omap_readw(0xfffb5008) & ~2), 0xfffb5008);
+	/* Unmask SleepX signal */
+	omap_writew((omap_readw(0xfffb5004) & ~2), 0xfffb5004);
+
 	nokia770_cbus_init();
 	platform_add_devices(nokia770_devices, ARRAY_SIZE(nokia770_devices));
 	spi_register_board_info(nokia770_spi_board_info,
@@ -364,16 +357,12 @@ static void __init omap_nokia770_init(void)
 	nokia770_mmc_init();
 }
 
-static void __init omap_nokia770_map_io(void)
-{
-	omap1_map_common_io();
-}
-
 MACHINE_START(NOKIA770, "Nokia 770")
-	.boot_params	= 0x10000100,
-	.map_io		= omap_nokia770_map_io,
+	.atag_offset	= 0x100,
+	.map_io		= omap16xx_map_io,
+	.init_early     = omap1_init_early,
 	.reserve	= omap_reserve,
-	.init_irq	= omap_nokia770_init_irq,
+	.init_irq	= omap1_init_irq,
 	.init_machine	= omap_nokia770_init,
 	.timer		= &omap1_timer,
 MACHINE_END

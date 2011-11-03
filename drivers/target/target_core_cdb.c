@@ -24,6 +24,7 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/module.h>
 #include <asm/unaligned.h>
 #include <scsi/scsi.h>
 
@@ -67,6 +68,7 @@ target_emulate_inquiry_std(struct se_cmd *cmd)
 {
 	struct se_lun *lun = cmd->se_lun;
 	struct se_device *dev = cmd->se_dev;
+	struct se_portal_group *tpg = lun->lun_sep->sep_tpg;
 	unsigned char *buf;
 
 	/*
@@ -81,9 +83,13 @@ target_emulate_inquiry_std(struct se_cmd *cmd)
 
 	buf = transport_kmap_first_data_page(cmd);
 
-	buf[0] = dev->transport->get_device_type(dev);
-	if (buf[0] == TYPE_TAPE)
-		buf[1] = 0x80;
+	if (dev == tpg->tpg_virt_lun0.lun_se_dev) {
+		buf[0] = 0x3f; /* Not connected */
+	} else {
+		buf[0] = dev->transport->get_device_type(dev);
+		if (buf[0] == TYPE_TAPE)
+			buf[1] = 0x80;
+	}
 	buf[2] = dev->transport->get_device_rev(dev);
 
 	/*
@@ -147,6 +153,37 @@ target_emulate_evpd_80(struct se_cmd *cmd, unsigned char *buf)
 		buf[3] = len;
 	}
 	return 0;
+}
+
+static void
+target_parse_naa_6h_vendor_specific(struct se_device *dev, unsigned char *buf)
+{
+	unsigned char *p = &dev->se_sub_dev->t10_wwn.unit_serial[0];
+	int cnt;
+	bool next = true;
+
+	/*
+	 * Generate up to 36 bits of VENDOR SPECIFIC IDENTIFIER starting on
+	 * byte 3 bit 3-0 for NAA IEEE Registered Extended DESIGNATOR field
+	 * format, followed by 64 bits of VENDOR SPECIFIC IDENTIFIER EXTENSION
+	 * to complete the payload.  These are based from VPD=0x80 PRODUCT SERIAL
+	 * NUMBER set via vpd_unit_serial in target_core_configfs.c to ensure
+	 * per device uniqeness.
+	 */
+	for (cnt = 0; *p && cnt < 13; p++) {
+		int val = hex_to_bin(*p);
+
+		if (val < 0)
+			continue;
+
+		if (next) {
+			next = false;
+			buf[cnt++] |= val;
+		} else {
+			next = true;
+			buf[cnt] = val << 4;
+		}
+	}
 }
 
 /*
@@ -214,8 +251,7 @@ target_emulate_evpd_83(struct se_cmd *cmd, unsigned char *buf)
 	 * VENDOR_SPECIFIC_IDENTIFIER and
 	 * VENDOR_SPECIFIC_IDENTIFIER_EXTENTION
 	 */
-	buf[off++] |= hex_to_bin(dev->se_sub_dev->t10_wwn.unit_serial[0]);
-	hex2bin(&buf[off], &dev->se_sub_dev->t10_wwn.unit_serial[1], 12);
+	target_parse_naa_6h_vendor_specific(dev, &buf[off]);
 
 	len = 20;
 	off = (len + 4);
@@ -915,8 +951,8 @@ target_emulate_modesense(struct se_cmd *cmd, int ten)
 		length += target_modesense_control(dev, &buf[offset+length]);
 		break;
 	default:
-		pr_err("Got Unknown Mode Page: 0x%02x\n",
-				cdb[2] & 0x3f);
+		pr_err("MODE SENSE: unimplemented page/subpage: 0x%02x/0x%02x\n",
+		       cdb[2] & 0x3f, cdb[3]);
 		return PYX_TRANSPORT_UNKNOWN_MODE_PAGE;
 	}
 	offset += length;
@@ -1072,8 +1108,6 @@ target_emulate_unmap(struct se_task *task)
 		size -= 16;
 	}
 
-	task->task_scsi_status = GOOD;
-	transport_complete_task(task, 1);
 err:
 	transport_kunmap_first_data_page(cmd);
 
@@ -1085,24 +1119,17 @@ err:
  * Note this is not used for TCM/pSCSI passthrough
  */
 static int
-target_emulate_write_same(struct se_task *task, int write_same32)
+target_emulate_write_same(struct se_task *task, u32 num_blocks)
 {
 	struct se_cmd *cmd = task->task_se_cmd;
 	struct se_device *dev = cmd->se_dev;
 	sector_t range;
 	sector_t lba = cmd->t_task_lba;
-	unsigned int num_blocks;
 	int ret;
 	/*
-	 * Extract num_blocks from the WRITE_SAME_* CDB.  Then use the explict
-	 * range when non zero is supplied, otherwise calculate the remaining
-	 * range based on ->get_blocks() - starting LBA.
+	 * Use the explicit range when non zero is supplied, otherwise calculate
+	 * the remaining range based on ->get_blocks() - starting LBA.
 	 */
-	if (write_same32)
-		num_blocks = get_unaligned_be32(&cmd->t_task_cdb[28]);
-	else
-		num_blocks = get_unaligned_be32(&cmd->t_task_cdb[10]);
-
 	if (num_blocks != 0)
 		range = num_blocks;
 	else
@@ -1117,8 +1144,6 @@ target_emulate_write_same(struct se_task *task, int write_same32)
 		return ret;
 	}
 
-	task->task_scsi_status = GOOD;
-	transport_complete_task(task, 1);
 	return 0;
 }
 
@@ -1165,13 +1190,23 @@ transport_emulate_control_cdb(struct se_task *task)
 		}
 		ret = target_emulate_unmap(task);
 		break;
+	case WRITE_SAME:
+		if (!dev->transport->do_discard) {
+			pr_err("WRITE_SAME emulation not supported"
+					" for: %s\n", dev->transport->name);
+			return PYX_TRANSPORT_UNKNOWN_SAM_OPCODE;
+		}
+		ret = target_emulate_write_same(task,
+				get_unaligned_be16(&cmd->t_task_cdb[7]));
+		break;
 	case WRITE_SAME_16:
 		if (!dev->transport->do_discard) {
 			pr_err("WRITE_SAME_16 emulation not supported"
 					" for: %s\n", dev->transport->name);
 			return PYX_TRANSPORT_UNKNOWN_SAM_OPCODE;
 		}
-		ret = target_emulate_write_same(task, 0);
+		ret = target_emulate_write_same(task,
+				get_unaligned_be32(&cmd->t_task_cdb[10]));
 		break;
 	case VARIABLE_LENGTH_CMD:
 		service_action =
@@ -1184,7 +1219,8 @@ transport_emulate_control_cdb(struct se_task *task)
 					dev->transport->name);
 				return PYX_TRANSPORT_UNKNOWN_SAM_OPCODE;
 			}
-			ret = target_emulate_write_same(task, 1);
+			ret = target_emulate_write_same(task,
+				get_unaligned_be32(&cmd->t_task_cdb[28]));
 			break;
 		default:
 			pr_err("Unsupported VARIABLE_LENGTH_CMD SA:"
@@ -1219,8 +1255,63 @@ transport_emulate_control_cdb(struct se_task *task)
 
 	if (ret < 0)
 		return ret;
-	task->task_scsi_status = GOOD;
-	transport_complete_task(task, 1);
+	/*
+	 * Handle the successful completion here unless a caller
+	 * has explictly requested an asychronous completion.
+	 */
+	if (!(cmd->se_cmd_flags & SCF_EMULATE_CDB_ASYNC)) {
+		task->task_scsi_status = GOOD;
+		transport_complete_task(task, 1);
+	}
 
 	return PYX_TRANSPORT_SENT_TO_TRANSPORT;
 }
+
+/*
+ * Write a CDB into @cdb that is based on the one the intiator sent us,
+ * but updated to only cover the sectors that the current task handles.
+ */
+void target_get_task_cdb(struct se_task *task, unsigned char *cdb)
+{
+	struct se_cmd *cmd = task->task_se_cmd;
+	unsigned int cdb_len = scsi_command_size(cmd->t_task_cdb);
+
+	memcpy(cdb, cmd->t_task_cdb, cdb_len);
+	if (cmd->se_cmd_flags & SCF_SCSI_DATA_SG_IO_CDB) {
+		unsigned long long lba = task->task_lba;
+		u32 sectors = task->task_sectors;
+
+		switch (cdb_len) {
+		case 6:
+			/* 21-bit LBA and 8-bit sectors */
+			cdb[1] = (lba >> 16) & 0x1f;
+			cdb[2] = (lba >> 8) & 0xff;
+			cdb[3] = lba & 0xff;
+			cdb[4] = sectors & 0xff;
+			break;
+		case 10:
+			/* 32-bit LBA and 16-bit sectors */
+			put_unaligned_be32(lba, &cdb[2]);
+			put_unaligned_be16(sectors, &cdb[7]);
+			break;
+		case 12:
+			/* 32-bit LBA and 32-bit sectors */
+			put_unaligned_be32(lba, &cdb[2]);
+			put_unaligned_be32(sectors, &cdb[6]);
+			break;
+		case 16:
+			/* 64-bit LBA and 32-bit sectors */
+			put_unaligned_be64(lba, &cdb[2]);
+			put_unaligned_be32(sectors, &cdb[10]);
+			break;
+		case 32:
+			/* 64-bit LBA and 32-bit sectors, extended CDB */
+			put_unaligned_be64(lba, &cdb[12]);
+			put_unaligned_be32(sectors, &cdb[28]);
+			break;
+		default:
+			BUG();
+		}
+	}
+}
+EXPORT_SYMBOL(target_get_task_cdb);
