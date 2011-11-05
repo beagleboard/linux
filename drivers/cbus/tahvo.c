@@ -104,7 +104,9 @@ void tahvo_write_reg(struct device *child, unsigned reg, u16 val)
 {
 	struct tahvo		*tahvo = dev_get_drvdata(child->parent);
 
+	mutex_lock(&tahvo->mutex);
 	__tahvo_write_reg(tahvo, reg, val);
+	mutex_unlock(&tahvo->mutex);
 }
 EXPORT_SYMBOL(tahvo_write_reg);
 
