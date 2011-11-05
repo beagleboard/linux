@@ -66,6 +66,8 @@ void omap3_noncore_dpll_disable(struct clk *clk);
 int omap4_dpllmx_gatectrl_read(struct clk *clk);
 void omap4_dpllmx_allow_gatectrl(struct clk *clk);
 void omap4_dpllmx_deny_gatectrl(struct clk *clk);
+long omap4_dpll_regm4xen_round_rate(struct clk *clk, unsigned long target_rate);
+unsigned long omap4_dpll_regm4xen_recalc(struct clk *clk);
 
 #ifdef CONFIG_OMAP_RESET_CLOCKS
 void omap2_clk_disable_unused(struct clk *clk);
@@ -130,7 +132,7 @@ void omap2_clk_print_new_rates(const char *hfclkin_ck_name,
 			       const char *core_ck_name,
 			       const char *mpu_ck_name);
 
-extern u8 cpu_mask;
+extern u16 cpu_mask;
 
 extern const struct clkops clkops_omap2_dflt_wait;
 extern const struct clkops clkops_dummy;

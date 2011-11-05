@@ -129,15 +129,11 @@ static void omap4_hsmmc1_before_set_reg(struct device *dev, int slot,
 	 * Assume we power both OMAP VMMC1 (for CMD, CLK, DAT0..3) and the
 	 * card with Vcc regulator (from twl4030 or whatever).  OMAP has both
 	 * 1.8V and 3.0V modes, controlled by the PBIAS register.
-	 *
-	 * In 8-bit modes, OMAP VMMC1A (for DAT4..7) needs a supply, which
-	 * is most naturally TWL VSIM; those pins also use PBIAS.
-	 *
-	 * FIXME handle VMMC1A as needed ...
 	 */
 	reg = omap4_ctrl_pad_readl(control_pbias_offset);
 	reg &= ~(OMAP4_MMC1_PBIASLITE_PWRDNZ_MASK |
-		OMAP4_MMC1_PWRDNZ_MASK);
+		OMAP4_MMC1_PWRDNZ_MASK |
+		OMAP4_MMC1_PBIASLITE_VMODE_MASK);
 	omap4_ctrl_pad_writel(reg, control_pbias_offset);
 }
 
@@ -172,12 +168,6 @@ static void omap4_hsmmc1_after_set_reg(struct device *dev, int slot,
 			reg &= ~(OMAP4_MMC1_PWRDNZ_MASK);
 			omap4_ctrl_pad_writel(reg, control_pbias_offset);
 		}
-	} else {
-		reg = omap4_ctrl_pad_readl(control_pbias_offset);
-		reg |= (OMAP4_MMC1_PBIASLITE_PWRDNZ_MASK |
-			OMAP4_MMC1_PWRDNZ_MASK |
-			OMAP4_MMC1_PBIASLITE_VMODE_MASK);
-		omap4_ctrl_pad_writel(reg, control_pbias_offset);
 	}
 }
 
@@ -346,7 +336,15 @@ static int __init omap_hsmmc_pdata_init(struct omap2_hsmmc_info *c,
 	 *
 	 * temporary HACK: ocr_mask instead of fixed supply
 	 */
-	mmc->slots[0].ocr_mask = c->ocr_mask;
+	if (cpu_is_omap3505() || cpu_is_omap3517())
+		mmc->slots[0].ocr_mask = MMC_VDD_165_195 |
+					 MMC_VDD_26_27 |
+					 MMC_VDD_27_28 |
+					 MMC_VDD_29_30 |
+					 MMC_VDD_30_31 |
+					 MMC_VDD_31_32;
+	else
+		mmc->slots[0].ocr_mask = c->ocr_mask;
 
 	if (cpu_is_omap3517() || cpu_is_omap3505())
 		mmc->slots[0].set_power = nop_mmc_set_power;
@@ -489,7 +487,7 @@ void __init omap2_hsmmc_init(struct omap2_hsmmc_info *controllers)
 			OMAP4_SDMMC1_PUSTRENGTH_GRP1_MASK);
 		reg &= ~(OMAP4_SDMMC1_PUSTRENGTH_GRP2_MASK |
 			OMAP4_SDMMC1_PUSTRENGTH_GRP3_MASK);
-		reg |= (OMAP4_USBC1_DR0_SPEEDCTRL_MASK|
+		reg |= (OMAP4_SDMMC1_DR0_SPEEDCTRL_MASK |
 			OMAP4_SDMMC1_DR1_SPEEDCTRL_MASK |
 			OMAP4_SDMMC1_DR2_SPEEDCTRL_MASK);
 		omap4_ctrl_pad_writel(reg, control_mmc1);
