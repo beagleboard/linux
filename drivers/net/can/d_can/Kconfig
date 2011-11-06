@@ -1,0 +1,14 @@
+menuconfig CAN_D_CAN
+	tristate "Bosch D_CAN devices"
+	depends on CAN_DEV && HAS_IOMEM
+
+if CAN_D_CAN
+
+config CAN_D_CAN_PLATFORM
+	tristate "Generic Platform Bus based D_CAN driver"
+	---help---
+	  This driver adds support for the D_CAN chips connected to
+	  the "platform bus" (Linux abstraction for directly to the
+	  processor attached devices) which can be found on am335x
+	  and dm814x boards from TI (http://www.ti.com).
+endif
