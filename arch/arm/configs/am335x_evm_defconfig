@@ -658,7 +658,31 @@ CONFIG_DNS_RESOLVER=y
 #
 # CONFIG_NET_PKTGEN is not set
 # CONFIG_HAMRADIO is not set
-# CONFIG_CAN is not set
+CONFIG_CAN=y
+CONFIG_CAN_RAW=y
+CONFIG_CAN_BCM=y
+
+#
+# CAN Device Drivers
+#
+# CONFIG_CAN_VCAN is not set
+# CONFIG_CAN_SLCAN is not set
+CONFIG_CAN_DEV=y
+CONFIG_CAN_CALC_BITTIMING=y
+# CONFIG_CAN_TI_HECC is not set
+# CONFIG_CAN_MCP251X is not set
+# CONFIG_CAN_SJA1000 is not set
+# CONFIG_CAN_C_CAN is not set
+CONFIG_CAN_D_CAN=y
+CONFIG_CAN_D_CAN_PLATFORM=y
+
+#
+# CAN USB interfaces
+#
+# CONFIG_CAN_EMS_USB is not set
+# CONFIG_CAN_ESD_USB2 is not set
+# CONFIG_CAN_SOFTING is not set
+# CONFIG_CAN_DEBUG_DEVICES is not set
 # CONFIG_IRDA is not set
 CONFIG_BT=y
 CONFIG_BT_L2CAP=y
