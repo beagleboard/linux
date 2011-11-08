@@ -1,0 +1,86 @@
+#
+# CBUS device configuration
+#
+
+menu "CBUS support"
+
+config CBUS
+	bool "CBUS support on OMAP"
+	---help---
+	  CBUS is a proprietary serial protocol by Nokia.  It is mainly
+	  used for accessing Energy Management auxiliary chips.
+
+	  If you want CBUS support, you should say Y here.
+
+config CBUS_TAHVO
+	depends on CBUS
+	bool "Support for Tahvo"
+	---help---
+	  Tahvo is a mixed signal ASIC with some system features
+
+	  If you want Tahvo support, you should say Y here.
+
+if CBUS_TAHVO
+
+config CBUS_TAHVO_USB
+	depends on USB
+	depends on ARCH_OMAP
+	select USB_OTG_UTILS
+	tristate "Support for Tahvo USB transceiver"
+	---help---
+	  If you want Tahvo support for USB transceiver, say Y or M here.
+
+config CBUS_TAHVO_USB_HOST_BY_DEFAULT
+	depends on CBUS_TAHVO_USB && USB_OTG
+	boolean "Device in USB host mode by default"
+	---help---
+	  Say Y here, if you want the device to enter USB host mode
+	  by default on bootup.
+
+endif # CBUS_TAHVO
+
+config CBUS_RETU
+	depends on CBUS
+	bool "Support for Retu"
+	---help---
+	  Retu is a mixed signal ASIC with some system features
+
+	  If you want Retu support, you should say Y here.
+
+if CBUS_RETU
+
+config CBUS_RETU_POWERBUTTON
+	depends on INPUT
+	bool "Support for Retu power button"
+	---help---
+	  The power button on Nokia 770 is connected to the Retu ASIC.
+
+	  If you want support for the Retu power button, you should say Y here.
+
+config CBUS_RETU_RTC
+	depends on RTC_CLASS
+	depends on ARCH_OMAP
+	tristate "Support for Retu pseudo-RTC"
+	---help---
+	  Say Y here if you want support for the device that alleges to be an
+	  RTC in Retu. This will expose a sysfs interface for it.
+
+config CBUS_RETU_WDT
+	depends on SYSFS && WATCHDOG
+	depends on ARCH_OMAP
+	tristate "Support for Retu watchdog timer"
+	---help---
+	  Say Y here if you want support for the watchdog in Retu. This will
+	  expose a sysfs interface to grok it.
+
+config CBUS_RETU_HEADSET
+	depends on SYSFS
+	tristate "Support for headset detection with Retu/Vilma"
+	---help---
+	  Say Y here if you want support detecting a headset that's connected
+	  to Retu/Vilma. Detection state and events are exposed through
+	  sysfs.
+
+endif # CBUS_RETU
+
+endmenu
