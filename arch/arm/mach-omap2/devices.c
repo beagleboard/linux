@@ -54,8 +54,6 @@
 #define L3_MODULES_MAX_LEN 12
 #define L3_MODULES 3
 
-void am33xx_cpsw_init(void);
-
 static int __init omap3_l3_init(void)
 {
 	int l;
@@ -1242,7 +1240,7 @@ void am33xx_cpsw_macidfillup(char *eeprommacid0, char *eeprommacid1)
 	return;
 }
 
-void am33xx_cpsw_init(void)
+void am33xx_cpsw_init(unsigned int gigen)
 {
 	u32 mac_lo, mac_hi;
 	u32 i;
@@ -1281,6 +1279,8 @@ void am33xx_cpsw_init(void)
 		am33xx_cpsw_slaves[0].phy_id = "0:1e";
 		am33xx_cpsw_slaves[1].phy_id = "0:00";
 	}
+
+	am33xx_cpsw_pdata.gigabit_en = gigen;
 
 	memcpy(am33xx_cpsw_pdata.mac_addr,
 			am33xx_cpsw_slaves[0].mac_addr, ETH_ALEN);

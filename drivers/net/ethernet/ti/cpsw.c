@@ -517,9 +517,6 @@ static void cpsw_set_phy_config(struct cpsw_priv *priv, struct phy_device *phy)
 	u16 val = 0;
 	u16 tmp = 0;
 
-	if (!pdata->gigabit_en)
-		return;
-
 	if (!phy)
 		return;
 
@@ -529,6 +526,11 @@ static void cpsw_set_phy_config(struct cpsw_priv *priv, struct phy_device *phy)
 		return;
 
 	phy_addr = phy->addr;
+
+	/* Disable 1 Gig mode support if it is not supported */
+	if (!pdata->gigabit_en)
+		phy->supported &= ~(SUPPORTED_1000baseT_Half |
+					SUPPORTED_1000baseT_Full);
 
 	/* Following lines enable gigbit advertisement capability even in case
 	 * the advertisement is not enabled by default
