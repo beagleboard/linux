@@ -1028,6 +1028,8 @@ static struct evm_dev_cfg ind_auto_mtrl_evm_dev_cfg[] = {
 	{evm_nand_init, DEV_ON_DGHTR_BRD, PROFILE_ALL},
 	{spi1_init,	DEV_ON_DGHTR_BRD, PROFILE_ALL},
 	{uart3_init,	DEV_ON_DGHTR_BRD, PROFILE_ALL},
+	{i2c1_init,	DEV_ON_BASEBOARD, PROFILE_ALL},
+	{mmc0_no_cd_init,	DEV_ON_BASEBOARD, PROFILE_ALL},
 	{NULL, 0, 0},
 };
 
