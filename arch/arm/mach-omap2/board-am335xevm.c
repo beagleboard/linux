@@ -663,8 +663,7 @@ static int backlight_enable;
 
 struct wl12xx_platform_data am335xevm_wlan_data = {
 	.irq = OMAP_GPIO_IRQ(AM335XEVM_WLAN_IRQ_GPIO),
-	.board_ref_clock = WL12XX_REFCLOCK_26, /* 26 MHz */
-	.board_tcxo_clock = WL12XX_REFCLOCK_26, /* 26 MHz */
+	.board_ref_clock = WL12XX_REFCLOCK_38_XTAL, /* 38.4Mhz */
 };
 
 /* Module pin mux for wlan and bluetooth */
@@ -989,10 +988,8 @@ static void wl12xx_bluetooth_enable(void)
 	if (status < 0)
 		pr_err("Failed to request gpio for bt_enable");
 
-	pr_info("Enable bluetooth...\n");
+	pr_info("Configure Bluetooth Enable pin...\n");
 	gpio_direction_output(AM335XEVM_BT_ENABLE_GPIO, 0);
-	msleep(1);
-	gpio_set_value(AM335XEVM_BT_ENABLE_GPIO, 1);
 }
 
 static int wl12xx_set_power(struct device *dev, int slot, int on, int vdd)
