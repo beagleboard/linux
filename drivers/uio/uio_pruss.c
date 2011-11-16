@@ -25,7 +25,14 @@
 #include <linux/clk.h>
 #include <linux/dma-mapping.h>
 #include <linux/slab.h>
+
+#ifdef ARCH_DAVINCI_DA850
+#define ENABLE_SRAM_SUPPORT
+#endif
+
+#ifdef ENABLE_SRAM_SUPPORT
 #include <mach/sram.h>
+#endif
 
 #define DRV_NAME "pruss_uio"
 #define DRV_VERSION "1.0"
@@ -105,9 +112,11 @@ static void pruss_cleanup(struct platform_device *dev,
 		dma_free_coherent(&dev->dev, extram_pool_sz, gdev->ddr_vaddr,
 			gdev->ddr_paddr);
 	}
+#ifdef ENABLE_SRAM_SUPPORT
 	if (gdev->sram_vaddr)
 		gen_pool_free(davinci_gen_pool,
 			      (unsigned long)gdev->sram_vaddr, sram_pool_sz);
+#endif
 	kfree(gdev->info);
 	clk_put(gdev->pruss_clk);
 	kfree(gdev);
@@ -153,6 +162,7 @@ static int __devinit pruss_probe(struct platform_device *dev)
 		goto out_free;
 	}
 
+#ifdef ENABLE_SRAM_SUPPORT
 	gdev->sram_vaddr = (void *)gen_pool_alloc(davinci_gen_pool,
 						  sram_pool_sz);
 	if (!gdev->sram_vaddr) {
@@ -162,7 +172,7 @@ static int __devinit pruss_probe(struct platform_device *dev)
 
 	gdev->sram_paddr = gen_pool_virt_to_phys(davinci_gen_pool,
 					(unsigned long)gdev->sram_vaddr);
-
+#endif
 	gdev->ddr_vaddr = dma_alloc_coherent(&dev->dev, extram_pool_sz,
 				&(gdev->ddr_paddr), GFP_KERNEL | GFP_DMA);
 	if (!gdev->ddr_vaddr) {
@@ -184,8 +194,6 @@ static int __devinit pruss_probe(struct platform_device *dev)
 		p->mem[0].addr = regs_prussio->start;
 		p->mem[0].size = resource_size(regs_prussio);
 		p->mem[0].memtype = UIO_MEM_PHYS;
-
-		p->mem[1].addr = gdev->sram_paddr;
 		p->mem[1].size = sram_pool_sz;
 		p->mem[1].memtype = UIO_MEM_PHYS;
 
