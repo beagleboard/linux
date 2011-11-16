@@ -1249,6 +1249,17 @@ static __init int da850_wl12xx_init(void)
 
 #define DA850EVM_SATA_REFCLKPN_RATE	(100 * 1000 * 1000)
 
+#ifdef CONFIG_UIO_PRUSS
+struct uio_pruss_pdata da8xx_pruss_uio_pdata = {
+	.pintc_base	= 0x4000,
+};
+
+	ret = da8xx_register_pruss_uio(&da8xx_pruss_uio_pdata);
+	if (ret)
+		pr_warning("%s: pruss_uio initialization failed: %d\n",
+				__func__, ret);
+#endif
+
 static __init void da850_evm_init(void)
 {
 	int ret;
