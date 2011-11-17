@@ -48,11 +48,9 @@ struct tahvo {
 	int		irq_end;
 	int		irq;
 
-	int		ack;
 	int		mask;
 
 	unsigned int	mask_pending:1;
-	unsigned int	ack_pending:1;
 	unsigned int	is_betty:1;
 };
 
@@ -138,9 +136,12 @@ static irqreturn_t tahvo_irq_handler(int irq, void *_tahvo)
 	u16			id;
 	u16			im;
 
+	mutex_lock(&tahvo->mutex);
 	id = __tahvo_read_reg(tahvo, TAHVO_REG_IDR);
 	im = __tahvo_read_reg(tahvo, TAHVO_REG_IMR);
 	id &= ~im;
+	__tahvo_write_reg(tahvo, TAHVO_REG_IDR, id);
+	mutex_unlock(&tahvo->mutex);
 
 	if (!id) {
 		dev_vdbg(tahvo->dev, "No IRQ, spurious ?\n");
@@ -177,11 +178,6 @@ static void tahvo_irq_bus_sync_unlock(struct irq_data *data)
 		tahvo->mask_pending = false;
 	}
 
-	if (tahvo->ack_pending) {
-		__tahvo_write_reg(tahvo, TAHVO_REG_IDR, tahvo->ack);
-		tahvo->ack_pending = false;
-	}
-
 	mutex_unlock(&tahvo->mutex);
 }
 
@@ -203,22 +199,12 @@ static void tahvo_irq_unmask(struct irq_data *data)
 	tahvo->mask_pending = true;
 }
 
-static void tahvo_irq_ack(struct irq_data *data)
-{
-	struct tahvo		*tahvo = irq_data_get_irq_chip_data(data);
-	int			irq = data->irq;
-
-	tahvo->ack |= (1 << (irq - tahvo->irq_base));
-	tahvo->ack_pending = true;
-}
-
 static struct irq_chip tahvo_irq_chip = {
 	.name			= "tahvo",
 	.irq_bus_lock		= tahvo_irq_bus_lock,
 	.irq_bus_sync_unlock	= tahvo_irq_bus_sync_unlock,
 	.irq_mask		= tahvo_irq_mask,
 	.irq_unmask		= tahvo_irq_unmask,
-	.irq_ack		= tahvo_irq_ack,
 };
 
 static inline void tahvo_irq_setup(int irq)
@@ -238,8 +224,7 @@ static void tahvo_irq_init(struct tahvo *tahvo)
 
 	for (irq = base; irq < end; irq++) {
 		irq_set_chip_data(irq, tahvo);
-		irq_set_chip_and_handler(irq, &tahvo_irq_chip,
-				handle_simple_irq);
+		irq_set_chip(irq, &tahvo_irq_chip);
 		irq_set_nested_thread(irq, 1);
 		tahvo_irq_setup(irq);
 	}

@@ -51,9 +51,6 @@ struct retu {
 
 	int			irq;
 
-	int			ack;
-	bool			ack_pending;
-
 	int			mask;
 	bool			mask_pending;
 
@@ -189,9 +186,10 @@ static irqreturn_t retu_irq_handler(int irq, void *_retu)
 	mutex_lock(&retu->mutex);
 	idr = __retu_read_reg(retu, RETU_REG_IDR);
 	imr = __retu_read_reg(retu, RETU_REG_IMR);
+	idr &= ~imr;
+	__retu_write_reg(retu, RETU_REG_IDR, idr);
 	mutex_unlock(&retu->mutex);
 
-	idr &= ~imr;
 	if (!idr) {
 		dev_vdbg(retu->dev, "No IRQ, spurious?\n");
 		return IRQ_NONE;
@@ -230,15 +228,6 @@ static void retu_irq_unmask(struct irq_data *data)
 
 }
 
-static void retu_irq_ack(struct irq_data *data)
-{
-	struct retu		*retu = irq_data_get_irq_chip_data(data);
-	int			irq = data->irq;
-
-	retu->ack |= (1 << (irq - retu->irq_base));
-	retu->ack_pending = true;
-}
-
 static void retu_bus_lock(struct irq_data *data)
 {
 	struct retu		*retu = irq_data_get_irq_chip_data(data);
@@ -255,11 +244,6 @@ static void retu_bus_sync_unlock(struct irq_data *data)
 		retu->mask_pending = false;
 	}
 
-	if (retu->ack_pending) {
-		__retu_write_reg(retu, RETU_REG_IDR, retu->ack);
-		retu->ack_pending = false;
-	}
-
 	mutex_unlock(&retu->mutex);
 }
 
@@ -269,7 +253,6 @@ static struct irq_chip retu_irq_chip = {
 	.irq_bus_sync_unlock	= retu_bus_sync_unlock,
 	.irq_mask		= retu_irq_mask,
 	.irq_unmask		= retu_irq_unmask,
-	.irq_ack		= retu_irq_ack,
 };
 
 static inline void retu_irq_setup(int irq)
@@ -289,8 +272,7 @@ static void retu_irq_init(struct retu *retu)
 
 	for (irq = base; irq < end; irq++) {
 		irq_set_chip_data(irq, retu);
-		irq_set_chip_and_handler(irq, &retu_irq_chip,
-				handle_simple_irq);
+		irq_set_chip(irq, &retu_irq_chip);
 		irq_set_nested_thread(irq, 1);
 		retu_irq_setup(irq);
 	}
