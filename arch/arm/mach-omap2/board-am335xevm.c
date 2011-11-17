@@ -659,7 +659,6 @@ static int backlight_enable;
 
 #define AM335XEVM_WLAN_PMENA_GPIO	GPIO_TO_PIN(1, 30)
 #define AM335XEVM_WLAN_IRQ_GPIO		GPIO_TO_PIN(3, 17)
-#define AM335XEVM_BT_ENABLE_GPIO	GPIO_TO_PIN(1, 31)
 
 struct wl12xx_platform_data am335xevm_wlan_data = {
 	.irq = OMAP_GPIO_IRQ(AM335XEVM_WLAN_IRQ_GPIO),
@@ -685,7 +684,14 @@ static struct pinmux_config uart1_wl12xx_pin_mux[] = {
 	{NULL, 0},
 };
 
-static struct pinmux_config wl12xx_pin_mux[] = {
+static struct pinmux_config wl12xx_pin_mux_evm_rev1_1a[] = {
+	{"gpmc_a0.gpio1_16", OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT},
+	{"mcasp0_ahclkr.gpio3_17", OMAP_MUX_MODE7 | AM33XX_PIN_INPUT},
+	{"mcasp0_ahclkx.gpio0_17", OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT},
+	{NULL, 0},
+ };
+
+static struct pinmux_config wl12xx_pin_mux_evm_rev1_0[] = {
 	{"gpmc_csn1.gpio1_30", OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT},
 	{"mcasp0_ahclkr.gpio3_17", OMAP_MUX_MODE7 | AM33XX_PIN_INPUT},
 	{"gpmc_csn2.gpio1_31", OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT},
@@ -984,20 +990,21 @@ static void uart1_wl12xx_init(int evm_id, int profile)
 
 static void wl12xx_bluetooth_enable(void)
 {
-	int status = gpio_request(AM335XEVM_BT_ENABLE_GPIO, "bt_en\n");
+	int status = gpio_request(am335xevm_wlan_data.bt_enable_gpio,
+		"bt_en\n");
 	if (status < 0)
 		pr_err("Failed to request gpio for bt_enable");
 
 	pr_info("Configure Bluetooth Enable pin...\n");
-	gpio_direction_output(AM335XEVM_BT_ENABLE_GPIO, 0);
+	gpio_direction_output(am335xevm_wlan_data.bt_enable_gpio, 0);
 }
 
 static int wl12xx_set_power(struct device *dev, int slot, int on, int vdd)
 {
 	if (on)
-		gpio_set_value(AM335XEVM_WLAN_PMENA_GPIO, 1);
+		gpio_set_value(am335xevm_wlan_data.wlan_enable_gpio, 1);
 	else
-		gpio_set_value(AM335XEVM_WLAN_PMENA_GPIO, 0);
+		gpio_set_value(am335xevm_wlan_data.wlan_enable_gpio, 0);
 
 	return 0;
 }
@@ -1007,6 +1014,16 @@ static void wl12xx_init(int evm_id, int profile)
 	struct device *dev;
 	struct omap_mmc_platform_data *pdata;
 	int ret;
+
+	/* Register WLAN and BT enable pins based on the evm board revision */
+	if (gp_evm_revision == GP_EVM_REV_IS_1_1A) {
+		am335xevm_wlan_data.wlan_enable_gpio = GPIO_TO_PIN(1, 16);
+		am335xevm_wlan_data.bt_enable_gpio = GPIO_TO_PIN(0, 17);
+	}
+	else {
+		am335xevm_wlan_data.wlan_enable_gpio = GPIO_TO_PIN(1, 30);
+		am335xevm_wlan_data.bt_enable_gpio = GPIO_TO_PIN(1, 31);
+	}
 
 	wl12xx_bluetooth_enable();
 
@@ -1025,14 +1042,17 @@ static void wl12xx_init(int evm_id, int profile)
 		goto out;
 	}
 
-	ret = gpio_request_one(AM335XEVM_WLAN_PMENA_GPIO, GPIOF_OUT_INIT_LOW,
-			       "wlan_en");
+	ret = gpio_request_one(am335xevm_wlan_data.wlan_enable_gpio,
+		GPIOF_OUT_INIT_LOW, "wlan_en");
 	if (ret) {
 		pr_err("Error requesting wlan enable gpio: %d\n", ret);
 		goto out;
 	}
 
-	setup_pin_mux(wl12xx_pin_mux);
+	if (gp_evm_revision == GP_EVM_REV_IS_1_1A)
+		setup_pin_mux(wl12xx_pin_mux_evm_rev1_1a);
+	else
+		setup_pin_mux(wl12xx_pin_mux_evm_rev1_0);
 
 	pdata->slots[0].set_power = wl12xx_set_power;
 out:
