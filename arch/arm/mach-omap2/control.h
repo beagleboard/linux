@@ -338,6 +338,21 @@
 #define AM35XX_HECC_SW_RST		BIT(3)
 #define AM35XX_VPFE_PCLK_SW_RST		BIT(4)
 
+/* AM33XX CONTROL_STATUS bits */
+#define AM33XX_SYSBOOT0			(0xff << 0)
+#define AM33XX_DEVTYPE			(1 << 8)
+#define AM33XX_GPMC_CS0_BW		(1 << 16)
+#define AM33XX_GPMC_CS0_WAITEN		(1 << 17)
+#define AM33XX_GPMC_CS0_ADMUX		(0x3 << 18)
+#define AM33XX_SYSBOOT1			(0x3 << 22)
+
+/*
+ * CONTROL AM33XX STATUS register to identify boot-time configurations
+ */
+#define AM33XX_CONTROL_STATUS_OFF	0x040
+#define AM33XX_CONTROL_STATUS		AM33XX_L4_WK_IO_ADDRESS(AM33XX_CTRL_BASE + \
+						AM33XX_CONTROL_STATUS_OFF)
+
 /*
  * CONTROL OMAP STATUS register to identify OMAP3 features
  */
