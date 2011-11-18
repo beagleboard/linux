@@ -346,7 +346,8 @@ static int __devinit tahvo_probe(struct platform_device *pdev)
 			(rev >> 4) & 0x0f, rev & 0x0f);
 
 	/* Mask all TAHVO interrupts */
-	__tahvo_write_reg(tahvo, TAHVO_REG_IMR, 0xffff);
+	tahvo->mask = 0xffff;
+	__tahvo_write_reg(tahvo, TAHVO_REG_IMR, tahvo->mask);
 
 	ret = request_threaded_irq(irq, NULL, tahvo_irq_handler,
 			IRQF_TRIGGER_RISING | IRQF_ONESHOT,

@@ -447,7 +447,8 @@ static int __devinit retu_probe(struct platform_device *pdev)
 			(rev >> 4) & 0x07, rev & 0x0f);
 
 	/* Mask all RETU interrupts */
-	__retu_write_reg(retu, RETU_REG_IMR, 0xffff);
+	retu->mask = 0xffff;
+	__retu_write_reg(retu, RETU_REG_IMR, retu->mask);
 
 	ret = request_threaded_irq(retu->irq, NULL, retu_irq_handler,
 			IRQF_ONESHOT, "retu", retu);
