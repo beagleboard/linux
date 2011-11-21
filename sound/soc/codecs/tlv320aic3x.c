@@ -1147,6 +1147,11 @@ static int aic3x_set_power(struct snd_soc_codec *codec, int power)
 		codec->cache_only = 1;
 		ret = regulator_bulk_disable(ARRAY_SIZE(aic3x->supplies),
 					     aic3x->supplies);
+		/* Enable cache sync if regulator disable
+		 * event is not triggerd.
+		 * ToDo : Revisit later to fix it
+		 */
+		codec->cache_sync = 1;
 	}
 out:
 	return ret;
