@@ -769,6 +769,14 @@ static struct pinmux_config usb1_pin_mux[] = {
 	{NULL, 0},
 };
 
+/* pinmux for profibus */
+static struct pinmux_config profibus_pin_mux[] = {
+	{"uart1_rxd.pr1_uart0_rxd_mux1", OMAP_MUX_MODE5 | AM33XX_PIN_INPUT},
+	{"uart1_txd.pr1_uart0_txd_mux1", OMAP_MUX_MODE5 | AM33XX_PIN_OUTPUT},
+	{"mcasp0_fsr.pr1_pru0_pru_r30_5", OMAP_MUX_MODE5 | AM33XX_PIN_OUTPUT},
+	{NULL, 0},
+};
+
 /* Module pin mux for eCAP0 */
 static struct pinmux_config ecap0_pin_mux[] = {
 	{"ecap0_in_pwm0_out.gpio0_7", AM33XX_PIN_OUTPUT},
@@ -1303,6 +1311,11 @@ static int am335x_tlk110_phy_fixup(struct phy_device *phydev)
 }
 #endif
 
+static void profibus_init(int evm_id, int profile)
+{
+	setup_pin_mux(profibus_pin_mux);
+	return;
+}
 
 /* Low-Cost EVM */
 static struct evm_dev_cfg low_cost_evm_dev_cfg[] = {
@@ -1350,6 +1363,7 @@ static struct evm_dev_cfg ind_auto_mtrl_evm_dev_cfg[] = {
 	{mii1_init,	DEV_ON_DGHTR_BRD, PROFILE_ALL},
 	{usb0_init,	DEV_ON_BASEBOARD, PROFILE_ALL},
 	{usb1_init,	DEV_ON_BASEBOARD, PROFILE_ALL},
+	{profibus_init, DEV_ON_DGHTR_BRD, PROFILE_ALL},
 	{evm_nand_init, DEV_ON_DGHTR_BRD, PROFILE_ALL},
 	{spi1_init,	DEV_ON_DGHTR_BRD, PROFILE_ALL},
 	{uart3_init,	DEV_ON_DGHTR_BRD, PROFILE_ALL},
