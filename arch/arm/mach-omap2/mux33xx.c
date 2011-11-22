@@ -355,7 +355,7 @@ static struct omap_mux __initdata am33xx_muxmodes[] = {
 		NULL, NULL, NULL, NULL),
 	_AM33XX_MUXENTRY(MCASP0_AHCLKX, 0,
 		"mcasp0_ahclkx", "mcasp0_axr3",	NULL, "mcasp1_axr1",
-		NULL, NULL, NULL, "gpio0_17"),
+		NULL, NULL, NULL, "gpio3_21"),
 	_AM33XX_MUXENTRY(XDMA_EVENT_INTR0, 0,
 		"xdma_event_intr0", NULL, NULL, NULL,
 		"spi1_cs1", NULL, NULL, NULL),

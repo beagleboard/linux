@@ -815,7 +815,7 @@ static struct pinmux_config uart1_wl12xx_pin_mux[] = {
 static struct pinmux_config wl12xx_pin_mux_evm_rev1_1a[] = {
 	{"gpmc_a0.gpio1_16", OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT},
 	{"mcasp0_ahclkr.gpio3_17", OMAP_MUX_MODE7 | AM33XX_PIN_INPUT},
-	{"mcasp0_ahclkx.gpio0_17", OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT},
+	{"mcasp0_ahclkx.gpio3_21", OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT},
 	{NULL, 0},
  };
 
@@ -1129,8 +1129,10 @@ static void wl12xx_bluetooth_enable(void)
 
 static int wl12xx_set_power(struct device *dev, int slot, int on, int vdd)
 {
-	if (on)
+	if (on) {
 		gpio_set_value(am335xevm_wlan_data.wlan_enable_gpio, 1);
+		mdelay(70);
+	}
 	else
 		gpio_set_value(am335xevm_wlan_data.wlan_enable_gpio, 0);
 
@@ -1146,7 +1148,7 @@ static void wl12xx_init(int evm_id, int profile)
 	/* Register WLAN and BT enable pins based on the evm board revision */
 	if (gp_evm_revision == GP_EVM_REV_IS_1_1A) {
 		am335xevm_wlan_data.wlan_enable_gpio = GPIO_TO_PIN(1, 16);
-		am335xevm_wlan_data.bt_enable_gpio = GPIO_TO_PIN(0, 17);
+		am335xevm_wlan_data.bt_enable_gpio = GPIO_TO_PIN(3, 21);
 	}
 	else {
 		am335xevm_wlan_data.wlan_enable_gpio = GPIO_TO_PIN(1, 30);
