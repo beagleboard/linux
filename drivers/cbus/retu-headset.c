@@ -222,7 +222,7 @@ static void retu_headset_detect_timer(unsigned long arg)
 	spin_unlock_irqrestore(&hs->lock, flags);
 }
 
-static int __init retu_headset_probe(struct platform_device *pdev)
+static int __devinit retu_headset_probe(struct platform_device *pdev)
 {
 	struct retu_headset *hs;
 	int irq;
@@ -291,7 +291,7 @@ err1:
 	return r;
 }
 
-static int retu_headset_remove(struct platform_device *pdev)
+static int __devexit retu_headset_remove(struct platform_device *pdev)
 {
 	struct retu_headset *hs = platform_get_drvdata(pdev);
 
@@ -333,7 +333,8 @@ static int retu_headset_resume(struct platform_device *pdev)
 }
 
 static struct platform_driver retu_headset_driver = {
-	.remove		= retu_headset_remove,
+	.probe		= retu_headset_probe,
+	.remove		= __devexit_p(retu_headset_remove),
 	.suspend	= retu_headset_suspend,
 	.resume		= retu_headset_resume,
 	.driver		= {
@@ -341,19 +342,9 @@ static struct platform_driver retu_headset_driver = {
 	},
 };
 
-static int __init retu_headset_init(void)
-{
-	return platform_driver_probe(&retu_headset_driver, retu_headset_probe);
-}
+module_platform_driver(retu_headset_driver);
 
-static void __exit retu_headset_exit(void)
-{
-	platform_driver_unregister(&retu_headset_driver);
-}
-
-module_init(retu_headset_init);
-module_exit(retu_headset_exit);
-
+MODULE_ALIAS("platform:retu-headset");
 MODULE_DESCRIPTION("Retu/Vilma headset detection");
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Juha Yrjölä");

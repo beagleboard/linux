@@ -72,7 +72,7 @@ static irqreturn_t retubutton_irq(int irq, void *_pwr)
 	return IRQ_HANDLED;
 }
 
-static int __init retubutton_probe(struct platform_device *pdev)
+static int __devinit retubutton_probe(struct platform_device *pdev)
 {
 	struct retu_pwrbutton		*pwr;
 	int				ret = 0;
@@ -127,7 +127,7 @@ err0:
 	return ret;
 }
 
-static int __exit retubutton_remove(struct platform_device *pdev)
+static int __devexit retubutton_remove(struct platform_device *pdev)
 {
 	struct retu_pwrbutton		*pwr = platform_get_drvdata(pdev);
 
@@ -140,24 +140,16 @@ static int __exit retubutton_remove(struct platform_device *pdev)
 }
 
 static struct platform_driver retu_pwrbutton_driver = {
-	.remove		= __exit_p(retubutton_remove),
+	.probe		= retubutton_probe,
+	.remove		= __devexit_p(retubutton_remove),
 	.driver		= {
 		.name	= "retu-pwrbutton",
 	},
 };
 
-static int __init retubutton_init(void)
-{
-	return platform_driver_probe(&retu_pwrbutton_driver, retubutton_probe);
-}
-module_init(retubutton_init);
+module_platform_driver(retu_pwrbutton_driver);
 
-static void __exit retubutton_exit(void)
-{
-	platform_driver_unregister(&retu_pwrbutton_driver);
-}
-module_exit(retubutton_exit);
-
+MODULE_ALIAS("platform:retu-pwrbutton");
 MODULE_DESCRIPTION("Retu Power Button");
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Ari Saastamoinen");

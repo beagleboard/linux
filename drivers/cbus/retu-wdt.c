@@ -193,7 +193,7 @@ static const struct file_operations retu_wdt_fops = {
 	.release	= retu_wdt_release,
 };
 
-static int __init retu_wdt_probe(struct platform_device *pdev)
+static int __devinit retu_wdt_probe(struct platform_device *pdev)
 {
 	struct retu_wdt_dev *wdev;
 	int ret;
@@ -248,25 +248,16 @@ static int __devexit retu_wdt_remove(struct platform_device *pdev)
 }
 
 static struct platform_driver retu_wdt_driver = {
-	.remove		= __exit_p(retu_wdt_remove),
+	.probe		= retu_wdt_probe,
+	.remove		= __devexit_p(retu_wdt_remove),
 	.driver		= {
 		.name	= "retu-wdt",
 	},
 };
 
-static int __init retu_wdt_init(void)
-{
-	return platform_driver_probe(&retu_wdt_driver, retu_wdt_probe);
-}
+module_platform_driver(retu_wdt_driver);
 
-static void __exit retu_wdt_exit(void)
-{
-	platform_driver_unregister(&retu_wdt_driver);
-}
-
-module_init(retu_wdt_init);
-module_exit(retu_wdt_exit);
-
+MODULE_ALIAS("platform:retu-wdt");
 MODULE_DESCRIPTION("Retu WatchDog");
 MODULE_AUTHOR("Amit Kucheria");
 MODULE_LICENSE("GPL");

@@ -401,18 +401,9 @@ static struct platform_driver tahvo_driver = {
 	},
 };
 
-static int __init tahvo_init(void)
-{
-	return platform_driver_register(&tahvo_driver);
-}
-subsys_initcall(tahvo_init);
+module_platform_driver(tahvo_driver);
 
-static void __exit tahvo_exit(void)
-{
-	platform_driver_unregister(&tahvo_driver);
-}
-module_exit(tahvo_exit);
-
+MODULE_ALIAS("platform:tahvo");
 MODULE_DESCRIPTION("Tahvo ASIC control");
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Juha Yrjölä");

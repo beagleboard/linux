@@ -247,7 +247,7 @@ int cbus_write_reg(struct device *child, unsigned dev, unsigned reg,
 }
 EXPORT_SYMBOL(cbus_write_reg);
 
-static int __init cbus_bus_probe(struct platform_device *pdev)
+static int __devinit cbus_bus_probe(struct platform_device *pdev)
 {
 	struct cbus_host *chost;
 	struct cbus_host_platform_data *pdata = pdev->dev.platform_data;
@@ -296,7 +296,7 @@ exit1:
 	return ret;
 }
 
-static void __exit cbus_bus_remove(struct platform_device *pdev)
+static void __devexit cbus_bus_remove(struct platform_device *pdev)
 {
 	struct cbus_host	*chost = platform_get_drvdata(pdev);
 
@@ -308,23 +308,14 @@ static void __exit cbus_bus_remove(struct platform_device *pdev)
 }
 
 static struct platform_driver cbus_driver = {
-	.remove		= __exit_p(cbus_bus_remove),
+	.probe		= cbus_bus_probe,
+	.remove		= __devexit_p(cbus_bus_remove),
 	.driver		= {
 		.name	= "cbus",
 	},
 };
 
-static int __init cbus_bus_init(void)
-{
-	return platform_driver_probe(&cbus_driver, cbus_bus_probe);
-}
-subsys_initcall(cbus_bus_init);
-
-static void __exit cbus_bus_exit(void)
-{
-	platform_driver_unregister(&cbus_driver);
-}
-module_exit(cbus_bus_exit);
+module_platform_driver(cbus_driver);
 
 MODULE_DESCRIPTION("CBUS serial protocol");
 MODULE_LICENSE("GPL");

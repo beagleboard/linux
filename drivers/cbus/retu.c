@@ -518,18 +518,9 @@ static struct platform_driver retu_driver = {
 	},
 };
 
-static int __init retu_init(void)
-{
-	return platform_driver_register(&retu_driver);
-}
-subsys_initcall(retu_init);
+module_platform_driver(retu_driver);
 
-static void __exit retu_exit(void)
-{
-	platform_driver_unregister(&retu_driver);
-}
-module_exit(retu_exit);
-
+MODULE_ALIAS("platform:retu");
 MODULE_DESCRIPTION("Retu ASIC control");
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Juha Yrjölä");

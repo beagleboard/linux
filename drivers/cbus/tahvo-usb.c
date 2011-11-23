@@ -189,7 +189,7 @@ static int tahvo_otg_init(void)
 	return 0;
 }
 
-static int __init omap_otg_probe(struct platform_device *pdev)
+static int __devinit omap_otg_probe(struct platform_device *pdev)
 {
 	int ret;
 
@@ -205,7 +205,7 @@ static int __init omap_otg_probe(struct platform_device *pdev)
 			   tahvo_usb_device);
 }
 
-static int __exit omap_otg_remove(struct platform_device *pdev)
+static int __devexit omap_otg_remove(struct platform_device *pdev)
 {
 	free_irq(tahvo_otg_dev->resource[1].start, tahvo_usb_device);
 	tahvo_otg_dev = NULL;
@@ -214,10 +214,11 @@ static int __exit omap_otg_remove(struct platform_device *pdev)
 }
 
 struct platform_driver omap_otg_driver = {
+	.probe		= omap_otg_probe,
+	.remove		= __devexit_p(omap_otg_remove),
 	.driver		= {
 		.name	= "omap_otg",
 	},
-	.remove		= __exit_p(omap_otg_remove),
 };
 
 /*
@@ -588,7 +589,7 @@ static ssize_t otg_mode_store(struct device *device,
 static DEVICE_ATTR(otg_mode, 0644, otg_mode_show, otg_mode_store);
 #endif
 
-static int __init tahvo_usb_probe(struct platform_device *pdev)
+static int __devinit tahvo_usb_probe(struct platform_device *pdev)
 {
 	struct tahvo_usb *tu;
 	struct device *dev = &pdev->dev;
@@ -680,7 +681,7 @@ err_free_tu:
 	return ret;
 }
 
-static int __exit tahvo_usb_remove(struct platform_device *pdev)
+static int __devexit tahvo_usb_remove(struct platform_device *pdev)
 {
 	struct tahvo_usb *tu = platform_get_drvdata(pdev);
 
@@ -703,21 +704,22 @@ static int __exit tahvo_usb_remove(struct platform_device *pdev)
 }
 
 static struct platform_driver tahvo_usb_driver = {
+	.probe		= tahvo_usb_probe,
+	.remove		= __devexit_p(tahvo_usb_remove),
 	.driver		= {
 		.name	= "tahvo-usb",
 	},
-	.remove		= __exit_p(tahvo_usb_remove),
 };
 
 static int __init tahvo_usb_init(void)
 {
 	int ret = 0;
 
-	ret = platform_driver_probe(&tahvo_usb_driver, tahvo_usb_probe);
+	ret = platform_driver_register(&tahvo_usb_driver);
 	if (ret)
 		return ret;
 
-	ret = platform_driver_probe(&omap_otg_driver, omap_otg_probe);
+	ret = platform_driver_register(&omap_otg_driver);
 	if (ret) {
 		platform_driver_unregister(&tahvo_usb_driver);
 		return ret;
@@ -725,8 +727,7 @@ static int __init tahvo_usb_init(void)
 
 	return 0;
 }
-
-subsys_initcall(tahvo_usb_init);
+module_init(tahvo_usb_init);
 
 static void __exit tahvo_usb_exit(void)
 {
