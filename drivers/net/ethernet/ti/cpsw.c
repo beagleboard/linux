@@ -64,6 +64,14 @@ do {								\
 #define CPSW_MAX_PACKET_SIZE	(1500 + 14 + 4 + 4)
 #define CPSW_PHY_SPEED		1000
 
+/* CPSW control module masks */
+#define CPSW_INTPACEEN		(0x3 << 16)
+#define CPSW_INTPRESCALE_MASK	(0x7FF << 0)
+#define CPSW_CMINTMAX_CNT	63
+#define CPSW_CMINTMIN_CNT	2
+#define CPSW_CMINTMAX_INTVL	(1000 / CPSW_CMINTMIN_CNT)
+#define CPSW_CMINTMIN_INTVL	((1000 / CPSW_CMINTMAX_CNT) + 1)
+
 #define CPSW_IRQ_QUIRK
 #ifdef CPSW_IRQ_QUIRK
 #define cpsw_enable_irq(priv)	\
@@ -116,6 +124,14 @@ struct cpsw_ss_regs {
 	u32	rx_en;
 	u32	tx_en;
 	u32	misc_en;
+	u32	mem_allign1[8];
+	u32	rx_thresh_stat;
+	u32	rx_stat;
+	u32	tx_stat;
+	u32	misc_stat;
+	u32	mem_allign2[8];
+	u32	rx_imax;
+	u32	tx_imax;
 };
 
 struct cpsw_regs {
@@ -227,6 +243,8 @@ struct cpsw_priv {
 	struct cpsw_hw_stats __iomem	*hw_stats;
 	struct cpsw_host_regs __iomem	*host_port_regs;
 	u32				msg_enable;
+	u32				coal_intvl;
+	u32				bus_freq_mhz;
 	struct net_device_stats		stats;
 	int				rx_packet_max;
 	int				host_port;
@@ -251,6 +269,9 @@ struct cpsw_priv {
 #endif
 
 };
+
+static int cpsw_set_coalesce(struct net_device *ndev,
+			struct ethtool_coalesce *coal);
 
 static void __iomem *cpdma_base;
 
@@ -725,6 +746,14 @@ static int cpsw_ndo_open(struct net_device *ndev)
 	/* continue even if we didn't manage to submit all receive descs */
 	msg(info, ifup, "submitted %d rx descriptors\n", i);
 
+	/* Enable Interrupt pacing if configured */
+	if (priv->coal_intvl != 0) {
+		struct ethtool_coalesce coal;
+
+		coal.rx_coalesce_usecs = (priv->coal_intvl << 4);
+		cpsw_set_coalesce(ndev, &coal);
+	}
+
 	cpdma_ctlr_start(priv->dma);
 	cpsw_intr_enable(priv);
 	napi_enable(&priv->napi);
@@ -861,6 +890,86 @@ static void cpsw_ndo_poll_controller(struct net_device *ndev)
 }
 #endif
 
+/**
+ * cpsw_get_coalesce : Get interrupt coalesce settings for this device
+ * @ndev : CPSW network adapter
+ * @coal : ethtool coalesce settings structure
+ *
+ * Fetch the current interrupt coalesce settings
+ *
+ */
+static int cpsw_get_coalesce(struct net_device *ndev,
+				struct ethtool_coalesce *coal)
+{
+	struct cpsw_priv *priv = netdev_priv(ndev);
+
+	coal->rx_coalesce_usecs = priv->coal_intvl;
+	return 0;
+}
+
+/**
+ * cpsw_set_coalesce : Set interrupt coalesce settings for this device
+ * @ndev : CPSW network adapter
+ * @coal : ethtool coalesce settings structure
+ *
+ * Set interrupt coalesce parameters
+ *
+ */
+static int cpsw_set_coalesce(struct net_device *ndev,
+				struct ethtool_coalesce *coal)
+{
+	struct cpsw_priv *priv = netdev_priv(ndev);
+	u32 int_ctrl;
+	u32 num_interrupts = 0;
+	u32 prescale = 0;
+	u32 addnl_dvdr = 1;
+	u32 coal_intvl = 0;
+
+	if (!coal->rx_coalesce_usecs)
+		return -EINVAL;
+
+	coal_intvl = coal->rx_coalesce_usecs;
+
+	int_ctrl =  __raw_readl(&priv->ss_regs->int_control);
+	prescale = priv->bus_freq_mhz * 4;
+
+	if (coal_intvl < CPSW_CMINTMIN_INTVL)
+		coal_intvl = CPSW_CMINTMIN_INTVL;
+
+	if (coal_intvl > CPSW_CMINTMAX_INTVL) {
+		/*
+		 * Interrupt pacer works with 4us Pulse, we can
+		 * throttle further by dilating the 4us pulse.
+		 */
+		addnl_dvdr = CPSW_INTPRESCALE_MASK / prescale;
+
+		if (addnl_dvdr > 1) {
+			prescale *= addnl_dvdr;
+			if (coal_intvl > (CPSW_CMINTMAX_INTVL * addnl_dvdr))
+				coal_intvl = (CPSW_CMINTMAX_INTVL
+						* addnl_dvdr);
+		} else {
+			addnl_dvdr = 1;
+			coal_intvl = CPSW_CMINTMAX_INTVL;
+		}
+	}
+
+	num_interrupts = (1000 * addnl_dvdr) / coal_intvl;
+
+	int_ctrl |= CPSW_INTPACEEN;
+	int_ctrl &= (~CPSW_INTPRESCALE_MASK);
+	int_ctrl |= (prescale & CPSW_INTPRESCALE_MASK);
+	__raw_writel(int_ctrl, &priv->ss_regs->int_control);
+
+	__raw_writel(num_interrupts, &priv->ss_regs->rx_imax);
+	__raw_writel(num_interrupts, &priv->ss_regs->tx_imax);
+
+	printk(KERN_INFO"Set coalesce to %d usecs.\n", coal_intvl);
+	priv->coal_intvl = coal_intvl;
+
+	return 0;
+}
+
 static const struct net_device_ops cpsw_netdev_ops = {
 	.ndo_open		= cpsw_ndo_open,
 	.ndo_stop		= cpsw_ndo_stop,
@@ -901,6 +1010,8 @@ static const struct ethtool_ops cpsw_ethtool_ops = {
 	.get_msglevel	= cpsw_get_msglevel,
 	.set_msglevel	= cpsw_set_msglevel,
 	.get_link	= ethtool_op_get_link,
+	.get_coalesce	= cpsw_get_coalesce,
+	.set_coalesce	= cpsw_set_coalesce,
 };
 
 static void cpsw_slave_init(struct cpsw_slave *slave, struct cpsw_priv *priv)
@@ -981,6 +1092,10 @@ static int __devinit cpsw_probe(struct platform_device *pdev)
 	priv->clk = clk_get(&pdev->dev, NULL);
 	if (IS_ERR(priv->clk))
 		dev_err(priv->dev, "failed to get device clock\n");
+
+	priv->coal_intvl = 0;
+	priv->bus_freq_mhz = clk_get_rate(priv->clk) / 1000000;
+
 	priv->cpsw_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!priv->cpsw_res) {
 		dev_err(priv->dev, "error getting i/o resource\n");
