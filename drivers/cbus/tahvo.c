@@ -44,6 +44,8 @@ struct tahvo {
 	struct mutex	mutex;
 	struct device	*dev;
 
+	struct irq_chip	irq_chip;
+
 	int		irq_base;
 	int		irq_end;
 	int		irq;
@@ -199,14 +201,6 @@ static void tahvo_irq_unmask(struct irq_data *data)
 	tahvo->mask_pending = true;
 }
 
-static struct irq_chip tahvo_irq_chip = {
-	.name			= "tahvo",
-	.irq_bus_lock		= tahvo_irq_bus_lock,
-	.irq_bus_sync_unlock	= tahvo_irq_bus_sync_unlock,
-	.irq_mask		= tahvo_irq_mask,
-	.irq_unmask		= tahvo_irq_unmask,
-};
-
 static inline void tahvo_irq_setup(int irq)
 {
 #ifdef CONFIG_ARM
@@ -224,7 +218,7 @@ static void tahvo_irq_init(struct tahvo *tahvo)
 
 	for (irq = base; irq < end; irq++) {
 		irq_set_chip_data(irq, tahvo);
-		irq_set_chip(irq, &tahvo_irq_chip);
+		irq_set_chip(irq, &tahvo->irq_chip);
 		irq_set_nested_thread(irq, 1);
 		tahvo_irq_setup(irq);
 	}
@@ -297,6 +291,7 @@ static int tahvo_allocate_children(struct device *parent, int irq_base)
 
 static int __devinit tahvo_probe(struct platform_device *pdev)
 {
+	struct irq_chip		*chip;
 	struct tahvo		*tahvo;
 	int			rev;
 	int			ret;
@@ -320,6 +315,14 @@ static int __devinit tahvo_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "failed to allocate IRQ descs\n");
 		goto err1;
 	}
+
+	chip = &tahvo->irq_chip;
+
+	chip->name	= "tahvo",
+	chip->irq_bus_lock = tahvo_irq_bus_lock,
+	chip->irq_bus_sync_unlock = tahvo_irq_bus_sync_unlock,
+	chip->irq_mask	= tahvo_irq_mask,
+	chip->irq_unmask = tahvo_irq_unmask,
 
 	tahvo->irq_base	= ret;
 	tahvo->irq_end	= ret + MAX_TAHVO_IRQ_HANDLERS;
