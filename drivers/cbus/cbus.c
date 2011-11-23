@@ -296,7 +296,7 @@ exit1:
 	return ret;
 }
 
-static void __devexit cbus_bus_remove(struct platform_device *pdev)
+static int __devexit cbus_bus_remove(struct platform_device *pdev)
 {
 	struct cbus_host	*chost = platform_get_drvdata(pdev);
 
@@ -305,6 +305,8 @@ static void __devexit cbus_bus_remove(struct platform_device *pdev)
 	gpio_free(chost->clk_gpio);
 
 	kfree(chost);
+
+	return 0;
 }
 
 static struct platform_driver cbus_driver = {
