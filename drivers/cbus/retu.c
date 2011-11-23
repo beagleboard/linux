@@ -46,6 +46,8 @@ struct retu {
 	struct mutex		mutex;
 	struct device		*dev;
 
+	struct irq_chip		irq_chip;
+
 	int			irq_base;
 	int			irq_end;
 
@@ -247,14 +249,6 @@ static void retu_bus_sync_unlock(struct irq_data *data)
 	mutex_unlock(&retu->mutex);
 }
 
-static struct irq_chip retu_irq_chip = {
-	.name			= "retu",
-	.irq_bus_lock		= retu_bus_lock,
-	.irq_bus_sync_unlock	= retu_bus_sync_unlock,
-	.irq_mask		= retu_irq_mask,
-	.irq_unmask		= retu_irq_unmask,
-};
-
 static inline void retu_irq_setup(int irq)
 {
 #ifdef CONFIG_ARM
@@ -272,7 +266,7 @@ static void retu_irq_init(struct retu *retu)
 
 	for (irq = base; irq < end; irq++) {
 		irq_set_chip_data(irq, retu);
-		irq_set_chip(irq, &retu_irq_chip);
+		irq_set_chip(irq, &retu->irq_chip);
 		irq_set_nested_thread(irq, 1);
 		retu_irq_setup(irq);
 	}
@@ -409,6 +403,7 @@ static int retu_allocate_children(struct device *parent, int irq_base)
  */
 static int __devinit retu_probe(struct platform_device *pdev)
 {
+	struct irq_chip	*chip;
 	struct retu	*retu;
 
 	int		ret = -ENOMEM;
@@ -428,10 +423,19 @@ static int __devinit retu_probe(struct platform_device *pdev)
 		goto err1;
 	}
 
+	chip = &retu->irq_chip;
+
+	chip->name	= "retu",
+	chip->irq_bus_lock = retu_bus_lock,
+	chip->irq_bus_sync_unlock = retu_bus_sync_unlock,
+	chip->irq_mask	= retu_irq_mask,
+	chip->irq_unmask = retu_irq_unmask,
+
 	retu->irq	= platform_get_irq(pdev, 0);
 	retu->irq_base	= ret;
 	retu->irq_end	= ret + MAX_RETU_IRQ_HANDLERS;
 	retu->dev	= &pdev->dev;
+
 	the_retu	= retu;
 
 	mutex_init(&retu->mutex);
