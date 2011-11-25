@@ -148,6 +148,7 @@ struct da8xx_lcdc_platform_data TFC_S9700RTWV35TR_01B_pdata = {
 
 /* TSc controller */
 #include <linux/input/ti_tscadc.h>
+#include <linux/lis3lv02d.h>
 
 static struct resource tsc_resources[]  = {
 	[0] = {
@@ -1057,9 +1058,34 @@ static void evm_nand_init(int evm_id, int profile)
 		ARRAY_SIZE(am335x_nand_partitions), 0, 0);
 }
 
+static struct lis3lv02d_platform_data lis331dlh_pdata = {
+	.click_flags = LIS3_CLICK_SINGLE_X |
+			LIS3_CLICK_SINGLE_Y |
+			LIS3_CLICK_SINGLE_Z,
+	.wakeup_flags = LIS3_WAKEUP_X_LO | LIS3_WAKEUP_X_HI |
+			LIS3_WAKEUP_Y_LO | LIS3_WAKEUP_Y_HI |
+			LIS3_WAKEUP_Z_LO | LIS3_WAKEUP_Z_HI,
+	.irq_cfg = LIS3_IRQ1_CLICK | LIS3_IRQ2_CLICK,
+	.wakeup_thresh	= 10,
+	.click_thresh_x = 10,
+	.click_thresh_y = 10,
+	.click_thresh_z = 10,
+	.g_range	= 2,
+	.st_min_limits[0] = 120,
+	.st_min_limits[1] = 120,
+	.st_min_limits[2] = 140,
+	.st_max_limits[0] = 550,
+	.st_max_limits[1] = 550,
+	.st_max_limits[2] = 750,
+};
+
 static struct i2c_board_info am335x_i2c_boardinfo1[] = {
 	{
 		I2C_BOARD_INFO("tlv320aic3x", 0x1b),
+	},
+	{
+		I2C_BOARD_INFO("lis331dlh", 0x18),
+		.platform_data = &lis331dlh_pdata,
 	},
 };
 
@@ -1343,7 +1369,7 @@ static struct evm_dev_cfg gen_purp_evm_dev_cfg[] = {
 	{usb1_init,	DEV_ON_BASEBOARD, PROFILE_ALL},
 	{evm_nand_init, DEV_ON_DGHTR_BRD,
 		(PROFILE_ALL & ~PROFILE_2 & ~PROFILE_3)},
-	{i2c1_init,	DEV_ON_DGHTR_BRD, (PROFILE_0 | PROFILE_3 | PROFILE_7)},
+	{i2c1_init,     DEV_ON_DGHTR_BRD, (PROFILE_ALL & ~PROFILE_2)},
 	{mcasp1_init,	DEV_ON_DGHTR_BRD, (PROFILE_0 | PROFILE_3 | PROFILE_7)},
 	{mmc1_init,	DEV_ON_DGHTR_BRD, PROFILE_2},
 	{mmc2_wl12xx_init,	DEV_ON_BASEBOARD, (PROFILE_0 | PROFILE_3 |
