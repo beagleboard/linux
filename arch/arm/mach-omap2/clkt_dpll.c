@@ -206,13 +206,9 @@ void omap2_init_dpll_parent(struct clk *clk)
 		if (v == OMAP2XXX_EN_DPLL_LPBYPASS ||
 		    v == OMAP2XXX_EN_DPLL_FRBYPASS)
 			clk_reparent(clk, dd->clk_bypass);
-	} else if (cpu_is_omap34xx()) {
+	} else if (cpu_is_omap34xx() || cpu_is_omap44xx()) {
 		if (v == OMAP3XXX_EN_DPLL_LPBYPASS ||
-		    v == OMAP3XXX_EN_DPLL_FRBYPASS)
-			clk_reparent(clk, dd->clk_bypass);
-	} else if (cpu_is_omap44xx()) {
-		if (v == OMAP4XXX_EN_DPLL_LPBYPASS ||
-		    v == OMAP4XXX_EN_DPLL_FRBYPASS ||
+		    v == OMAP3XXX_EN_DPLL_FRBYPASS ||
 		    v == OMAP4XXX_EN_DPLL_MNBYPASS)
 			clk_reparent(clk, dd->clk_bypass);
 	}
@@ -252,13 +248,9 @@ u32 omap2_get_dpll_rate(struct clk *clk)
 		if (v == OMAP2XXX_EN_DPLL_LPBYPASS ||
 		    v == OMAP2XXX_EN_DPLL_FRBYPASS)
 			return dd->clk_bypass->rate;
-	} else if (cpu_is_omap34xx()) {
+	} else if (cpu_is_omap34xx() || cpu_is_omap44xx()) {
 		if (v == OMAP3XXX_EN_DPLL_LPBYPASS ||
-		    v == OMAP3XXX_EN_DPLL_FRBYPASS)
-			return dd->clk_bypass->rate;
-	} else if (cpu_is_omap44xx()) {
-		if (v == OMAP4XXX_EN_DPLL_LPBYPASS ||
-		    v == OMAP4XXX_EN_DPLL_FRBYPASS ||
+		    v == OMAP3XXX_EN_DPLL_FRBYPASS ||
 		    v == OMAP4XXX_EN_DPLL_MNBYPASS)
 			return dd->clk_bypass->rate;
 	}
