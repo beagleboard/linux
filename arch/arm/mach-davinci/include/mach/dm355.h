@@ -12,7 +12,7 @@
 #define __ASM_ARCH_DM355_H
 
 #include <mach/hardware.h>
-#include <mach/asp.h>
+#include <asm/hardware/asp.h>
 #include <media/davinci/vpfe_capture.h>
 
 #define DM355_ASYNC_EMIF_CONTROL_BASE	0x01E10000

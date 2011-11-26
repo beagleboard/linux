@@ -30,7 +30,7 @@
 #include <mach/time.h>
 #include <mach/serial.h>
 #include <mach/common.h>
-#include <mach/asp.h>
+#include <asm/hardware/asp.h>
 #include <mach/keyscan.h>
 #include <mach/spi.h>
 #include <mach/gpio-davinci.h>

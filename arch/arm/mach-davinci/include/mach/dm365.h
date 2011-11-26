@@ -16,7 +16,7 @@
 #include <linux/platform_device.h>
 #include <linux/davinci_emac.h>
 #include <mach/hardware.h>
-#include <mach/asp.h>
+#include <asm/hardware/asp.h>
 #include <mach/keyscan.h>
 #include <media/davinci/vpfe_capture.h>
 

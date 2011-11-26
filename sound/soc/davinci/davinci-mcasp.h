@@ -19,7 +19,7 @@
 #define DAVINCI_MCASP_H
 
 #include <linux/io.h>
-#include <mach/asp.h>
+#include <asm/hardware/asp.h>
 #include "davinci-pcm.h"
 
 #define DAVINCI_MCASP_RATES	SNDRV_PCM_RATE_8000_96000

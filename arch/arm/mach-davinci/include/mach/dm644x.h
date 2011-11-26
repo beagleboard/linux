@@ -24,7 +24,7 @@
 
 #include <linux/davinci_emac.h>
 #include <mach/hardware.h>
-#include <mach/asp.h>
+#include <asm/hardware/asp.h>
 #include <media/davinci/vpfe_capture.h>
 
 #define DM644X_EMAC_BASE		(0x01C80000)

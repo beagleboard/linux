@@ -1,8 +1,8 @@
 /*
- * <mach/asp.h> - DaVinci Audio Serial Port support
+ * <asm/hardware/asp.h> - DaVinci Audio Serial Port support
  */
-#ifndef __ASM_ARCH_DAVINCI_ASP_H
-#define __ASM_ARCH_DAVINCI_ASP_H
+#ifndef __ASM_HARDWARE_MCASP_H
+#define __ASM_HARDWARE_MCASP_H
 
 #include <mach/irqs.h>
 #include <mach/edma.h>
@@ -134,4 +134,9 @@ enum dm365_clk_input_pin {
 #define DAVINCI_MCASP_IIS_MODE	0
 #define DAVINCI_MCASP_DIT_MODE	1
 
-#endif /* __ASM_ARCH_DAVINCI_ASP_H */
+#if (defined(CONFIG_SOC_OMAPAM33XX) && (defined(CONFIG_SND_AM33XX_SOC) \
+				|| (defined(CONFIG_SND_AM33XX_SOC_MODULE))))
+#define davinci_gen_pool omap_gen_pool
+#endif
+
+#endif /* __ASM_HARDWARE_MCASP_H */

@@ -13,7 +13,7 @@
 #define _DAVINCI_PCM_H
 
 #include <mach/edma.h>
-#include <mach/asp.h>
+#include <asm/hardware/asp.h>
 
 
 struct davinci_pcm_dma_params {

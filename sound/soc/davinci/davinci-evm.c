@@ -22,7 +22,7 @@
 #include <asm/dma.h>
 #include <asm/mach-types.h>
 
-#include <mach/asp.h>
+#include <asm/hardware/asp.h>
 #include <mach/edma.h>
 #include <mach/mux.h>
 

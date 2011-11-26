@@ -12,7 +12,7 @@
 #define __ASM_ARCH_DM646X_H
 
 #include <mach/hardware.h>
-#include <mach/asp.h>
+#include <asm/hardware/asp.h>
 #include <linux/i2c.h>
 #include <linux/videodev2.h>
 #include <linux/davinci_emac.h>
