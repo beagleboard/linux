@@ -13,7 +13,8 @@
 #define DA8XX_FB_H
 
 enum panel_type {
-	QVGA = 0
+	QVGA = 0,
+	WVGA,
 };
 
 enum panel_shade {
@@ -28,7 +29,7 @@ enum raster_load_mode {
 };
 
 struct display_panel {
-	enum panel_type panel_type; /* QVGA */
+	enum panel_type panel_type;
 	int max_bpp;
 	int min_bpp;
 	enum panel_shade panel_shade;

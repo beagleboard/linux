@@ -32,6 +32,7 @@
 #include <linux/console.h>
 #include <linux/slab.h>
 #include <video/da8xx-fb.h>
+#include <asm/mach-types.h>
 
 #define DRIVER_NAME "da8xx_lcdc"
 
@@ -176,7 +177,7 @@ static struct fb_var_screeninfo da8xx_fb_var __devinitdata = {
 	.activate = 0,
 	.height = -1,
 	.width = -1,
-	.pixclock = 46666,	/* 46us - AUO display */
+	.pixclock = 33333,	/* 46us - AUO display */
 	.accel_flags = 0,
 	.left_margin = LEFT_MARGIN,
 	.right_margin = RIGHT_MARGIN,
@@ -238,6 +239,20 @@ static struct da8xx_panel known_lcd_panels[] = {
 		.vbp = 2,
 		.vsw = 10,
 		.pxl_clk = 7833600,
+		.invert_pxl_clk = 0,
+	},
+	/* ThreeFive S9700RTWV35TR */
+	[2] = {
+		.name = "TFC_S9700RTWV35TR_01B",
+		.width = 800,
+		.height = 480,
+		.hfp = 39,
+		.hbp = 39,
+		.hsw = 47,
+		.vfp = 13,
+		.vbp = 29,
+		.vsw = 2,
+		.pxl_clk = 30000000,
 		.invert_pxl_clk = 0,
 	},
 };
@@ -681,7 +696,9 @@ static int lcd_init(struct da8xx_fb_par *par, const struct lcd_ctrl_config *cfg,
 	if (ret < 0)
 		return ret;
 
-	if (QVGA != cfg->p_disp_panel->panel_type)
+
+	if ((QVGA != cfg->p_disp_panel->panel_type) &&
+			(WVGA != cfg->p_disp_panel->panel_type))
 		return -EINVAL;
 
 	if (cfg->bpp <= cfg->p_disp_panel->max_bpp &&
@@ -1102,6 +1119,7 @@ static int __devinit fb_probe(struct platform_device *device)
 	struct da8xx_panel *lcdc_info;
 	struct fb_info *da8xx_fb_info;
 	struct clk *fb_clk = NULL;
+	struct clk *lcdc_ick = NULL;
 	struct da8xx_fb_par *par;
 	resource_size_t len;
 	int ret, i;
@@ -1130,6 +1148,18 @@ static int __devinit fb_probe(struct platform_device *device)
 		goto err_request_mem;
 	}
 
+	/*
+	 * Some SoC will not have seperate interface clock,
+	 * so make lazy check here
+	 */
+	lcdc_ick = clk_get(&device->dev, "lcdc_ick");
+	if (IS_ERR(lcdc_ick))
+		dev_err(&device->dev, "Can not get lcdc_ick\n");
+
+	ret = clk_enable(lcdc_ick);
+	if (ret)
+		dev_err(&device->dev, "failed to enable lcdc_ick\n");
+
 	fb_clk = clk_get(&device->dev, NULL);
 	if (IS_ERR(fb_clk)) {
 		dev_err(&device->dev, "Can not get device clock\n");
@@ -1146,6 +1176,7 @@ static int __devinit fb_probe(struct platform_device *device)
 		lcd_revision = LCD_VERSION_1;
 		break;
 	case 0x4F200800:
+	case 0x4F201000:
 		lcd_revision = LCD_VERSION_2;
 		break;
 	default:
