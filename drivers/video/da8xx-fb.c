@@ -994,6 +994,14 @@ static int fb_wait_for_vsync(struct fb_info *info)
 	if (ret == 0)
 		return -ETIMEDOUT;
 
+	if (par->panel_power_ctrl) {
+		/* Switch off panel power and backlight */
+		par->panel_power_ctrl(0);
+
+		/* Switch on panel power and backlight */
+		par->panel_power_ctrl(1);
+	}
+
 	return 0;
 }
 
