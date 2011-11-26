@@ -22,6 +22,7 @@
 #include <linux/etherdevice.h>
 #include <linux/dma-mapping.h>
 #include <linux/can/platform/d_can.h>
+#include <linux/platform_data/uio_pruss.h>
 
 #include <mach/hardware.h>
 #include <mach/irqs.h>
@@ -1065,6 +1066,76 @@ int __init am33xx_register_edma(void)
 static inline void am33xx_register_edma(void) {}
 #endif
 
+#if defined (CONFIG_SOC_OMAPAM33XX)
+struct uio_pruss_pdata am335x_pruss_uio_pdata = {
+	.pintc_base	= 0x20000,
+};
+
+static struct resource am335x_pruss_resources[] = {
+	{
+		.start	= AM33XX_ICSS_BASE,
+		.end	= AM33XX_ICSS_BASE + AM33XX_ICSS_LEN,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= AM33XX_IRQ_ICSS0_0,
+		.end	= AM33XX_IRQ_ICSS0_0,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.start	= AM33XX_IRQ_ICSS0_1,
+		.end	= AM33XX_IRQ_ICSS0_1,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.start	= AM33XX_IRQ_ICSS0_2,
+		.end	= AM33XX_IRQ_ICSS0_2,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.start	= AM33XX_IRQ_ICSS0_3,
+		.end	= AM33XX_IRQ_ICSS0_3,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.start	= AM33XX_IRQ_ICSS0_4,
+		.end	= AM33XX_IRQ_ICSS0_4,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.start	= AM33XX_IRQ_ICSS0_5,
+		.end	= AM33XX_IRQ_ICSS0_5,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.start	= AM33XX_IRQ_ICSS0_6,
+		.end	= AM33XX_IRQ_ICSS0_6,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.start	= AM33XX_IRQ_ICSS0_7,
+		.end	= AM33XX_IRQ_ICSS0_7,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device am335x_pruss_uio_dev = {
+	.name		= "pruss_uio",
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(am335x_pruss_resources),
+	.resource	= am335x_pruss_resources,
+	.dev	 =	{
+		.coherent_dma_mask = 0xffffffff,
+	}
+};
+
+int __init am335x_register_pruss_uio(struct uio_pruss_pdata *config)
+{
+	am335x_pruss_uio_dev.dev.platform_data = config;
+	return platform_device_register(&am335x_pruss_uio_dev);
+}
+#endif
+
 /*-------------------------------------------------------------------------*/
 
 static int __init omap2_init_devices(void)
@@ -1088,7 +1159,9 @@ static int __init omap2_init_devices(void)
 	omap_init_vout();
 	am33xx_register_edma();
 	am33xx_init_pcm();
-
+#if defined (CONFIG_SOC_OMAPAM33XX)
+	am335x_register_pruss_uio(&am335x_pruss_uio_pdata);
+#endif
 	return 0;
 }
 arch_initcall(omap2_init_devices);
