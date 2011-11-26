@@ -517,25 +517,3 @@ MACHINE_START(OMAP3517EVM, "OMAP3517/AM3517 EVM")
 	.init_machine	= am3517_evm_init,
 	.timer		= &omap3_timer,
 MACHINE_END
-
-static struct omap_board_config_kernel am335x_evm_config[] __initdata = {
-};
-
-static void __init am335x_evm_init(void)
-{
-	omap_serial_init();
-	omap_sdrc_init(NULL, NULL);
-	omap_board_config = am335x_evm_config;
-	omap_board_config_size = ARRAY_SIZE(am335x_evm_config);
-}
-
-MACHINE_START(AM335XEVM, "am335xevm")
-	/* Maintainer: Texas Instruments */
-	.atag_offset	= 0x100,
-	.map_io		= am33xx_map_io,
-	.init_early	= am33xx_init_early,
-	.init_irq	= ti81xx_init_irq,
-	.handle_irq	= omap3_intc_handle_irq,
-	.timer		= &omap3_am33xx_timer,
-	.init_machine	= am335x_evm_init,
-MACHINE_END
