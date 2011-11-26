@@ -213,7 +213,7 @@ static inline void set_24xx_gpio_triggering(struct gpio_bank *bank, int gpio,
 	void __iomem *base = bank->base;
 	u32 gpio_bit = 1 << gpio;
 
-	if (cpu_is_omap44xx()) {
+	if (cpu_is_omap44xx() || cpu_is_am33xx()) {
 		_gpio_rmw(base, OMAP4_GPIO_LEVELDETECT0, gpio_bit,
 			  trigger & IRQ_TYPE_LEVEL_LOW);
 		_gpio_rmw(base, OMAP4_GPIO_LEVELDETECT1, gpio_bit,
@@ -233,7 +233,7 @@ static inline void set_24xx_gpio_triggering(struct gpio_bank *bank, int gpio,
 			  trigger & IRQ_TYPE_EDGE_FALLING);
 	}
 	if (likely(!(bank->non_wakeup_gpios & gpio_bit))) {
-		if (cpu_is_omap44xx()) {
+		if (cpu_is_omap44xx() || cpu_is_am33xx()) {
 			_gpio_rmw(base, OMAP4_GPIO_IRQWAKEN0, gpio_bit,
 				  trigger != 0);
 		} else {
@@ -264,7 +264,7 @@ static inline void set_24xx_gpio_triggering(struct gpio_bank *bank, int gpio,
 			bank->enabled_non_wakeup_gpios &= ~gpio_bit;
 	}
 
-	if (cpu_is_omap44xx()) {
+	if (cpu_is_omap44xx() || cpu_is_am33xx()) {
 		bank->level_mask =
 			__raw_readl(bank->base + OMAP4_GPIO_LEVELDETECT0) |
 			__raw_readl(bank->base + OMAP4_GPIO_LEVELDETECT1);
@@ -588,10 +588,10 @@ static int omap_gpio_request(struct gpio_chip *chip, unsigned offset)
 			void __iomem *reg = bank->base;
 			u32 ctrl;
 
-			if (cpu_is_omap24xx() || cpu_is_omap34xx())
-				reg += OMAP24XX_GPIO_CTRL;
-			else if (cpu_is_omap44xx())
+			if (cpu_is_omap44xx() || cpu_is_am33xx())
 				reg += OMAP4_GPIO_CTRL;
+			else if (cpu_is_omap24xx() || cpu_is_omap34xx())
+				reg += OMAP24XX_GPIO_CTRL;
 			ctrl = __raw_readl(reg);
 			/* Module is enabled, clocks are not gated */
 			ctrl &= 0xFFFFFFFE;
@@ -637,10 +637,10 @@ static void omap_gpio_free(struct gpio_chip *chip, unsigned offset)
 			void __iomem *reg = bank->base;
 			u32 ctrl;
 
-			if (cpu_is_omap24xx() || cpu_is_omap34xx())
-				reg += OMAP24XX_GPIO_CTRL;
-			else if (cpu_is_omap44xx())
+			if (cpu_is_omap44xx() || cpu_is_am33xx())
 				reg += OMAP4_GPIO_CTRL;
+			else if (cpu_is_omap24xx() || cpu_is_omap34xx())
+				reg += OMAP24XX_GPIO_CTRL;
 			ctrl = __raw_readl(reg);
 			/* Module is disabled, clocks are gated */
 			ctrl |= 1;
@@ -1023,7 +1023,7 @@ static inline int init_gpio_info(struct platform_device *pdev)
 static void omap_gpio_mod_init(struct gpio_bank *bank, int id)
 {
 	if (cpu_class_is_omap2()) {
-		if (cpu_is_omap44xx()) {
+		if (cpu_is_omap44xx() || cpu_is_am33xx()) {
 			__raw_writel(0xffffffff, bank->base +
 					OMAP4_GPIO_IRQSTATUSCLR0);
 			__raw_writel(0x00000000, bank->base +
@@ -1342,7 +1342,7 @@ void omap2_gpio_prepare_for_idle(int off_mode)
 	int i, c = 0;
 	int min = 0;
 
-	if (cpu_is_omap34xx())
+	if ((cpu_is_omap34xx() && !cpu_is_am33xx()))
 		min = 1;
 
 	for (i = min; i < gpio_bank_count; i++) {
@@ -1362,7 +1362,8 @@ void omap2_gpio_prepare_for_idle(int off_mode)
 		if (!(bank->enabled_non_wakeup_gpios))
 			continue;
 
-		if (cpu_is_omap24xx() || cpu_is_omap34xx()) {
+		if (cpu_is_omap24xx() || (cpu_is_omap34xx() &&
+							!cpu_is_am33xx())) {
 			bank->saved_datain = __raw_readl(bank->base +
 					OMAP24XX_GPIO_DATAIN);
 			l1 = __raw_readl(bank->base +
@@ -1371,7 +1372,7 @@ void omap2_gpio_prepare_for_idle(int off_mode)
 					OMAP24XX_GPIO_RISINGDETECT);
 		}
 
-		if (cpu_is_omap44xx()) {
+		if (cpu_is_omap44xx() || cpu_is_am33xx()) {
 			bank->saved_datain = __raw_readl(bank->base +
 						OMAP4_GPIO_DATAIN);
 			l1 = __raw_readl(bank->base +
@@ -1385,14 +1386,15 @@ void omap2_gpio_prepare_for_idle(int off_mode)
 		l1 &= ~bank->enabled_non_wakeup_gpios;
 		l2 &= ~bank->enabled_non_wakeup_gpios;
 
-		if (cpu_is_omap24xx() || cpu_is_omap34xx()) {
+		if (cpu_is_omap24xx() || (cpu_is_omap34xx() &&
+							!cpu_is_am33xx())) {
 			__raw_writel(l1, bank->base +
 					OMAP24XX_GPIO_FALLINGDETECT);
 			__raw_writel(l2, bank->base +
 					OMAP24XX_GPIO_RISINGDETECT);
 		}
 
-		if (cpu_is_omap44xx()) {
+		if (cpu_is_omap44xx() || cpu_is_am33xx()) {
 			__raw_writel(l1, bank->base + OMAP4_GPIO_FALLINGDETECT);
 			__raw_writel(l2, bank->base + OMAP4_GPIO_RISINGDETECT);
 		}
@@ -1411,7 +1413,7 @@ void omap2_gpio_resume_after_idle(void)
 	int i;
 	int min = 0;
 
-	if (cpu_is_omap34xx())
+	if ((cpu_is_omap34xx() && !cpu_is_am33xx()))
 		min = 1;
 	for (i = min; i < gpio_bank_count; i++) {
 		struct gpio_bank *bank = &gpio_bank[i];
@@ -1427,7 +1429,8 @@ void omap2_gpio_resume_after_idle(void)
 		if (!(bank->enabled_non_wakeup_gpios))
 			continue;
 
-		if (cpu_is_omap24xx() || cpu_is_omap34xx()) {
+		if (cpu_is_omap24xx() || (cpu_is_omap34xx() &&
+							!cpu_is_am33xx())) {
 			__raw_writel(bank->saved_fallingdetect,
 				 bank->base + OMAP24XX_GPIO_FALLINGDETECT);
 			__raw_writel(bank->saved_risingdetect,
@@ -1435,7 +1438,7 @@ void omap2_gpio_resume_after_idle(void)
 			l = __raw_readl(bank->base + OMAP24XX_GPIO_DATAIN);
 		}
 
-		if (cpu_is_omap44xx()) {
+		if (cpu_is_omap44xx() || cpu_is_am33xx()) {
 			__raw_writel(bank->saved_fallingdetect,
 				 bank->base + OMAP4_GPIO_FALLINGDETECT);
 			__raw_writel(bank->saved_risingdetect,
@@ -1469,7 +1472,8 @@ void omap2_gpio_resume_after_idle(void)
 		if (gen) {
 			u32 old0, old1;
 
-			if (cpu_is_omap24xx() || cpu_is_omap34xx()) {
+			if (cpu_is_omap24xx() || (cpu_is_omap34xx() &&
+							!cpu_is_am33xx())) {
 				old0 = __raw_readl(bank->base +
 					OMAP24XX_GPIO_LEVELDETECT0);
 				old1 = __raw_readl(bank->base +
@@ -1484,7 +1488,7 @@ void omap2_gpio_resume_after_idle(void)
 					OMAP24XX_GPIO_LEVELDETECT1);
 			}
 
-			if (cpu_is_omap44xx()) {
+			if (cpu_is_omap44xx() || cpu_is_am33xx()) {
 				old0 = __raw_readl(bank->base +
 						OMAP4_GPIO_LEVELDETECT0);
 				old1 = __raw_readl(bank->base +
