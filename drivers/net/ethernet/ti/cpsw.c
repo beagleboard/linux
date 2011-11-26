@@ -28,7 +28,7 @@
 #include <linux/interrupt.h>
 
 #include <linux/cpsw.h>
-
+#include <plat/dmtimer.h>
 #include "cpsw_ale.h"
 #include "davinci_cpdma.h"
 
@@ -62,7 +62,6 @@ do {								\
 #define CPSW_POLL_WEIGHT	64
 #define CPSW_MIN_PACKET_SIZE	60
 #define CPSW_MAX_PACKET_SIZE	(1500 + 14 + 4 + 4)
-
 #define CPSW_PHY_SPEED		1000
 
 #define CPSW_IRQ_QUIRK
@@ -83,6 +82,18 @@ do {								\
 #define cpsw_enable_irq(priv) do { } while (0);
 #define cpsw_disable_irq(priv) do { } while (0);
 #endif
+
+#define CPSW_CPDMA_EOI_REG	0x894
+#define CPSW_TIMER_MASK		0xA0908
+#define CPSW_TIMER_CAP_REG	0xFD0
+#define CPSW_RX_TIMER_REQ	5
+#define CPSW_TX_TIMER_REQ	6
+
+struct omap_dm_timer *stTimerRx;
+struct omap_dm_timer *stTimerTx;
+
+extern u32 omap_ctrl_readl(u16 offset);
+extern void omap_ctrl_writel(u32 val, u16 offset);
 
 static int debug_level;
 module_param(debug_level, int, 0);
@@ -241,6 +252,8 @@ struct cpsw_priv {
 
 };
 
+static void __iomem *cpdma_base;
+
 static void cpsw_intr_enable(struct cpsw_priv *priv)
 {
 	__raw_writel(0xFF, &priv->ss_regs->tx_en);
@@ -308,6 +321,24 @@ void cpsw_rx_handler(void *token, int len, int status)
 
 }
 
+static void set_cpsw_dmtimer_clear(void)
+{
+	omap_dm_timer_write_status(stTimerRx, OMAP_TIMER_INT_CAPTURE);
+	omap_dm_timer_write_status(stTimerTx, OMAP_TIMER_INT_CAPTURE);
+
+	omap_dm_timer_disable(stTimerRx);
+	omap_dm_timer_set_int_enable(stTimerRx, OMAP_TIMER_INT_CAPTURE);
+	omap_dm_timer_set_capture(stTimerRx, 1, 0, 0);
+	omap_dm_timer_enable(stTimerRx);
+
+	omap_dm_timer_disable(stTimerTx);
+	omap_dm_timer_set_int_enable(stTimerTx, OMAP_TIMER_INT_CAPTURE);
+	omap_dm_timer_set_capture(stTimerTx, 1, 0, 0);
+	omap_dm_timer_enable(stTimerTx);
+
+	return;
+}
+
 static irqreturn_t cpsw_interrupt(int irq, void *dev_id)
 {
 	struct cpsw_priv *priv = dev_id;
@@ -318,7 +349,6 @@ static irqreturn_t cpsw_interrupt(int irq, void *dev_id)
 		napi_schedule(&priv->napi);
 	}
 
-
 	return IRQ_HANDLED;
 }
 
@@ -327,17 +357,18 @@ static int cpsw_poll(struct napi_struct *napi, int budget)
 	struct cpsw_priv	*priv = napi_to_priv(napi);
 	int			num_tx, num_rx;
 
-
 	num_tx = cpdma_chan_process(priv->txch, 128);
 	num_rx = cpdma_chan_process(priv->rxch, budget);
 
 	if (num_rx || num_tx)
 		msg(dbg, intr, "poll %d rx, %d tx pkts\n", num_rx, num_tx);
 
-
 	if (num_rx < budget) {
 		napi_complete(napi);
 		cpdma_ctlr_eoi(priv->dma);
+		__raw_writel(0x1, cpdma_base + CPSW_CPDMA_EOI_REG);
+		__raw_writel(0x2, cpdma_base + CPSW_CPDMA_EOI_REG);
+		set_cpsw_dmtimer_clear();
 		cpsw_intr_enable(priv);
 		cpsw_enable_irq(priv);
 	}
@@ -894,6 +925,12 @@ static int __devinit cpsw_probe(struct platform_device *pdev)
 	struct resource			*res;
 	int ret = 0, i, k = 0;
 
+	cpdma_base = ioremap(AM33XX_CPSW_BASE, SZ_4K);
+	if (WARN_ON(!cpdma_base)) {
+		printk(KERN_ERR"errror: %s: ioremap", __func__);
+		return -ENODEV;
+	}
+
 	if (!data) {
 		pr_err("cpsw: platform data missing\n");
 		return -ENODEV;
@@ -992,6 +1029,20 @@ static int __devinit cpsw_probe(struct platform_device *pdev)
 
 
 	for_each_slave(priv, cpsw_slave_init, priv);
+
+	omap_ctrl_writel(CPSW_TIMER_MASK, CPSW_TIMER_CAP_REG);
+
+	/* Enable Timer */
+	stTimerRx = omap_dm_timer_request_specific(CPSW_RX_TIMER_REQ);
+	omap_dm_timer_set_int_enable(stTimerRx, OMAP_TIMER_INT_CAPTURE);
+	omap_dm_timer_set_capture(stTimerRx, 1, 0, 0);
+	omap_dm_timer_enable(stTimerRx);
+
+	/* Enable Timer */
+	stTimerTx = omap_dm_timer_request_specific(CPSW_TX_TIMER_REQ);
+	omap_dm_timer_set_int_enable(stTimerTx, OMAP_TIMER_INT_CAPTURE);
+	omap_dm_timer_set_capture(stTimerTx, 1, 0, 0);
+	omap_dm_timer_enable(stTimerTx);
 
 	memset(&dma_params, 0, sizeof(dma_params));
 	dma_params.dev			= &pdev->dev;

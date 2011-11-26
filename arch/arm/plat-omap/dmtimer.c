@@ -134,7 +134,6 @@ static void omap_dm_timer_reset(struct omap_dm_timer *timer)
 int omap_dm_timer_prepare(struct omap_dm_timer *timer)
 {
 	struct dmtimer_platform_data *pdata = timer->pdev->dev.platform_data;
-	int ret;
 
 	timer->fclk = clk_get(&timer->pdev->dev, "fck");
 	if (WARN_ON_ONCE(IS_ERR_OR_NULL(timer->fclk))) {
@@ -146,10 +145,8 @@ int omap_dm_timer_prepare(struct omap_dm_timer *timer)
 	if (pdata->needs_manual_reset)
 		omap_dm_timer_reset(timer);
 
-	ret = omap_dm_timer_set_source(timer, OMAP_TIMER_SRC_32_KHZ);
-
 	timer->posted = 1;
-	return ret;
+	return 0;
 }
 
 struct omap_dm_timer *omap_dm_timer_request(void)
@@ -493,6 +490,40 @@ int omap_dm_timer_set_pwm(struct omap_dm_timer *timer, int def_on,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(omap_dm_timer_set_pwm);
+
+int omap_dm_timer_set_capture(struct omap_dm_timer *timer, bool lht,
+				bool hlt, bool cm)
+{
+	u32 l;
+
+	if (unlikely(!timer))
+		return -EINVAL;
+
+	omap_dm_timer_enable(timer);
+	l = omap_dm_timer_read_reg(timer, OMAP_TIMER_CTRL_REG);
+
+	if (lht && hlt)
+		l |= OMAP_TIMER_CTRL_TCM_BOTHEDGES;
+	else if (lht)
+		l |= OMAP_TIMER_CTRL_TCM_LOWTOHIGH;
+	else if (hlt)
+		l |= OMAP_TIMER_CTRL_TCM_HIGHTOLOW;
+	else
+		l &= ~OMAP_TIMER_CTRL_TCM_BOTHEDGES;
+
+	if (cm)
+		l |= OMAP_TIMER_CTRL_CAPTMODE;
+	else
+		l &= ~OMAP_TIMER_CTRL_CAPTMODE;
+
+	omap_dm_timer_write_reg(timer, OMAP_TIMER_CTRL_REG, l);
+
+	/* Save the context */
+	timer->context.tclr = l;
+	omap_dm_timer_disable(timer);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(omap_dm_timer_set_capture);
 
 int omap_dm_timer_set_prescaler(struct omap_dm_timer *timer, int prescaler)
 {

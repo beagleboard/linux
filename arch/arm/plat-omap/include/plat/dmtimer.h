@@ -47,6 +47,7 @@
 
 /* timer interrupt enable bits */
 #define OMAP_TIMER_INT_CAPTURE			(1 << 2)
+#define OMAP_TIMER_INT_CAPTURE_RESET		(0 << 2)
 #define OMAP_TIMER_INT_OVERFLOW			(1 << 1)
 #define OMAP_TIMER_INT_MATCH			(1 << 0)
 
@@ -127,6 +128,8 @@ int omap_dm_timer_set_load(struct omap_dm_timer *timer, int autoreload, unsigned
 int omap_dm_timer_set_load_start(struct omap_dm_timer *timer, int autoreload, unsigned int value);
 int omap_dm_timer_set_match(struct omap_dm_timer *timer, int enable, unsigned int match);
 int omap_dm_timer_set_pwm(struct omap_dm_timer *timer, int def_on, int toggle, int trigger);
+int omap_dm_timer_set_capture(struct omap_dm_timer *timer,
+				bool lht, bool hlt, bool cm);
 int omap_dm_timer_set_prescaler(struct omap_dm_timer *timer, int prescaler);
 
 int omap_dm_timer_set_int_enable(struct omap_dm_timer *timer, unsigned int value);

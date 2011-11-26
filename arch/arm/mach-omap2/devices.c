@@ -1166,9 +1166,6 @@ static int __init omap2_init_devices(void)
 }
 arch_initcall(omap2_init_devices);
 
-#define AM33XX_CPSW_BASE		(0x4A100000)
-#define AM33XX_CPSW_MDIO_BASE		(0x4A101000)
-#define AM33XX_CPSW_SS_BASE		(0x4A101200)
 #define AM33XX_EMAC_MDIO_FREQ		(1000000)
 
 static u64 am33xx_cpsw_dmamask = DMA_BIT_MASK(32);
@@ -1243,13 +1240,13 @@ static struct resource am33xx_cpsw_resources[] = {
 		.flags	= IORESOURCE_IRQ,
 	},
 	{
-		.start	= AM33XX_IRQ_CPSW_RX,
-		.end	= AM33XX_IRQ_CPSW_RX,
+		.start	= AM33XX_IRQ_DMTIMER5,
+		.end	= AM33XX_IRQ_DMTIMER5,
 		.flags	= IORESOURCE_IRQ,
 	},
 	{
-		.start	= AM33XX_IRQ_CPSW_TX,
-		.end	= AM33XX_IRQ_CPSW_TX,
+		.start	= AM33XX_IRQ_DMTIMER6,
+		.end	= AM33XX_IRQ_DMTIMER6,
 		.flags	= IORESOURCE_IRQ,
 	},
 	{
