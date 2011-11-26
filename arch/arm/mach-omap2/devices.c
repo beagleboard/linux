@@ -24,6 +24,7 @@
 
 #include <mach/hardware.h>
 #include <mach/irqs.h>
+#include <mach/board-am335xevm.h>
 #include <asm/mach-types.h>
 #include <asm/mach/map.h>
 #include <asm/pmu.h>
@@ -1274,6 +1275,11 @@ void am33xx_cpsw_init(void)
 	if (!is_valid_ether_addr(am33xx_cpsw_slaves[1].mac_addr)) {
 		for (i = 0; i < ETH_ALEN; i++)
 			am33xx_cpsw_slaves[1].mac_addr[i] = am33xx_macid1[i];
+	}
+
+	if (am33xx_evmid == IND_AUT_MTR_EVM) {
+		am33xx_cpsw_slaves[0].phy_id = "0:1e";
+		am33xx_cpsw_slaves[1].phy_id = "0:00";
 	}
 
 	memcpy(am33xx_cpsw_pdata.mac_addr,

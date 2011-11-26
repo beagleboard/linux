@@ -17,6 +17,7 @@
 #include <linux/i2c.h>
 #include <linux/module.h>
 #include <linux/i2c/at24.h>
+#include <linux/phy.h>
 #include <linux/gpio.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/flash.h>
@@ -53,6 +54,57 @@
 
 /* Convert GPIO signal to GPIO pin number */
 #define GPIO_TO_PIN(bank, gpio) (32 * (bank) + (gpio))
+
+/* TLK PHY IDs */
+#define TLK110_PHY_ID		0x2000A201
+#define TLK110_PHY_MASK		0xfffffff0
+
+/* TLK110 PHY register offsets */
+#define TLK110_COARSEGAIN_REG	0x00A3
+#define TLK110_LPFHPF_REG	0x00AC
+#define TLK110_SPAREANALOG_REG	0x00B9
+#define TLK110_VRCR_REG		0x00D0
+#define TLK110_SETFFE_REG	0x0107
+#define TLK110_FTSP_REG		0x0154
+#define TLK110_ALFATPIDL_REG	0x002A
+#define TLK110_PSCOEF21_REG	0x0096
+#define TLK110_PSCOEF3_REG	0x0097
+#define TLK110_ALFAFACTOR1_REG	0x002C
+#define TLK110_ALFAFACTOR2_REG	0x0023
+#define TLK110_CFGPS_REG	0x0095
+#define TLK110_FTSPTXGAIN_REG	0x0150
+#define TLK110_SWSCR3_REG	0x000B
+#define TLK110_SCFALLBACK_REG	0x0040
+#define TLK110_PHYRCR_REG	0x001F
+
+/* TLK110 register writes values */
+#define TLK110_COARSEGAIN_VAL	0x0000
+#define TLK110_LPFHPF_VAL	0x8000
+#define TLK110_SPANALOG_VAL	0x0000
+#define TLK110_VRCR_VAL		0x0008
+#define TLK110_SETFFE_VAL	0x0605
+#define TLK110_FTSP_VAL		0x0255
+#define TLK110_ALFATPIDL_VAL	0x7998
+#define TLK110_PSCOEF21_VAL	0x3A20
+#define TLK110_PSCOEF3_VAL	0x003F
+#define TLK110_ALFACTOR1_VAL	0xFF80
+#define TLK110_ALFACTOR2_VAL	0x021C
+#define TLK110_CFGPS_VAL	0x0000
+#define TLK110_FTSPTXGAIN_VAL	0x6A88
+#define TLK110_SWSCR3_VAL	0x0000
+#define TLK110_SCFALLBACK_VAL	0xC11D
+#define TLK110_PHYRCR_VAL	0x4000
+
+#ifdef CONFIG_TLK110_WORKAROUND
+#define am335x_tlk110_phy_init()\
+	do {	\
+		phy_register_fixup_for_uid(TLK110_PHY_ID,\
+					TLK110_PHY_MASK,\
+					am335x_tlk110_phy_fixup);\
+	} while (0);
+#else
+#define am335x_tlk110_phy_init() do { } while (0);
+#endif
 
 static const struct display_panel disp_panel = {
 	WVGA,
@@ -242,6 +294,10 @@ static bool daughter_brd_detected;
 #define GP_EVM_REV_IS_1_1A		0x2
 #define GP_EVM_REV_IS_UNKNOWN		0xFF
 static unsigned int gp_evm_revision = GP_EVM_REV_IS_UNKNOWN;
+
+#define EEPROM_MAC_ADDRESS_OFFSET	60 /* 4+8+4+12+32 */
+#define EEPROM_NO_OF_MAC_ADDR		3
+static char am335x_mac_addr[EEPROM_NO_OF_MAC_ADDR][ETH_ALEN];
 
 #define AM335X_EEPROM_HEADER		0xEE3355AA
 
@@ -1003,6 +1059,65 @@ static void spi1_init(int evm_id, int profile)
 	return;
 }
 
+#ifdef CONFIG_TLK110_WORKAROUND
+static int am335x_tlk110_phy_fixup(struct phy_device *phydev)
+{
+	unsigned int val;
+
+	/* This is done as a workaround to support TLK110 rev1.0 phy */
+	val = phy_read(phydev, TLK110_COARSEGAIN_REG);
+	phy_write(phydev, TLK110_COARSEGAIN_REG, (val | TLK110_COARSEGAIN_VAL));
+
+	val = phy_read(phydev, TLK110_LPFHPF_REG);
+	phy_write(phydev, TLK110_LPFHPF_REG, (val | TLK110_LPFHPF_VAL));
+
+	val = phy_read(phydev, TLK110_SPAREANALOG_REG);
+	phy_write(phydev, TLK110_SPAREANALOG_REG, (val | TLK110_SPANALOG_VAL));
+
+	val = phy_read(phydev, TLK110_VRCR_REG);
+	phy_write(phydev, TLK110_VRCR_REG, (val | TLK110_VRCR_VAL));
+
+	val = phy_read(phydev, TLK110_SETFFE_REG);
+	phy_write(phydev, TLK110_SETFFE_REG, (val | TLK110_SETFFE_VAL));
+
+	val = phy_read(phydev, TLK110_FTSP_REG);
+	phy_write(phydev, TLK110_FTSP_REG, (val | TLK110_FTSP_VAL));
+
+	val = phy_read(phydev, TLK110_ALFATPIDL_REG);
+	phy_write(phydev, TLK110_ALFATPIDL_REG, (val | TLK110_ALFATPIDL_VAL));
+
+	val = phy_read(phydev, TLK110_PSCOEF21_REG);
+	phy_write(phydev, TLK110_PSCOEF21_REG, (val | TLK110_PSCOEF21_VAL));
+
+	val = phy_read(phydev, TLK110_PSCOEF3_REG);
+	phy_write(phydev, TLK110_PSCOEF3_REG, (val | TLK110_PSCOEF3_VAL));
+
+	val = phy_read(phydev, TLK110_ALFAFACTOR1_REG);
+	phy_write(phydev, TLK110_ALFAFACTOR1_REG, (val | TLK110_ALFACTOR1_VAL));
+
+	val = phy_read(phydev, TLK110_ALFAFACTOR2_REG);
+	phy_write(phydev, TLK110_ALFAFACTOR2_REG, (val | TLK110_ALFACTOR2_VAL));
+
+	val = phy_read(phydev, TLK110_CFGPS_REG);
+	phy_write(phydev, TLK110_CFGPS_REG, (val | TLK110_CFGPS_VAL));
+
+	val = phy_read(phydev, TLK110_FTSPTXGAIN_REG);
+	phy_write(phydev, TLK110_FTSPTXGAIN_REG, (val | TLK110_FTSPTXGAIN_VAL));
+
+	val = phy_read(phydev, TLK110_SWSCR3_REG);
+	phy_write(phydev, TLK110_SWSCR3_REG, (val | TLK110_SWSCR3_VAL));
+
+	val = phy_read(phydev, TLK110_SCFALLBACK_REG);
+	phy_write(phydev, TLK110_SCFALLBACK_REG, (val | TLK110_SCFALLBACK_VAL));
+
+	val = phy_read(phydev, TLK110_PHYRCR_REG);
+	phy_write(phydev, TLK110_PHYRCR_REG, (val | TLK110_PHYRCR_VAL));
+
+	return 0;
+}
+#endif
+
+
 /* Low-Cost EVM */
 static struct evm_dev_cfg low_cost_evm_dev_cfg[] = {
 	{rgmii1_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
@@ -1134,6 +1249,13 @@ static void setup_ind_auto_motor_ctrl_evm(void)
 	_configure_device(IND_AUT_MTR_EVM, ind_auto_mtrl_evm_dev_cfg,
 		PROFILE_0);
 
+	/* Fillup global evmid */
+	am33xx_evmid_fillup(IND_AUT_MTR_EVM);
+
+	/* Initialize TLK110 PHY registers for phy version 1.0 */
+	am335x_tlk110_phy_init();
+
+
 }
 
 static void setup_ip_phone_evm(void)
@@ -1191,6 +1313,19 @@ static void am335x_evm_setup(struct memory_accessor *mem_acc, void *context)
 {
 	int ret;
 	char tmp[10];
+
+	/* 1st get the MAC address from EEPROM */
+	ret = mem_acc->read(mem_acc, (char *)&am335x_mac_addr,
+		EEPROM_MAC_ADDRESS_OFFSET, sizeof(am335x_mac_addr));
+
+	if (ret != sizeof(am335x_mac_addr)) {
+		pr_warning("AM335X: EVM Config read fail: %d\n", ret);
+		return;
+	}
+
+	/* Fillup global mac id */
+	am33xx_cpsw_macidfillup(&am335x_mac_addr[0][0],
+				&am335x_mac_addr[1][0]);
 
 	/* get board specific data */
 	ret = mem_acc->read(mem_acc, (char *)&config, 0, sizeof(config));

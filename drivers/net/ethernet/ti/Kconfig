@@ -60,6 +60,16 @@ config TI_CPSW
 	  To compile this driver as a module, choose M here: the module
 	  will be called cpsw.
 
+config TLK110_WORKAROUND
+       tristate "TI TLK110 v1.0 PHY Workaround"
+       depends on TI_CPSW
+       help
+         This supports workaround for TLK110 rev 1.0 PHY.
+
+         This should be used  when TLK110 rev 1.0 PHY is used. In case of
+         higher version of TLK110 PHY, this workaround is not required
+         and disable it.
+
 config TLAN
 	tristate "TI ThunderLAN support"
 	depends on (PCI || EISA)
