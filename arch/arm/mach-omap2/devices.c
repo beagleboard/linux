@@ -41,6 +41,9 @@
 #include <plat/omap_device.h>
 #include <plat/omap4-keypad.h>
 
+/* LCD controller similar DA8xx */
+#include <video/da8xx-fb.h>
+
 #include "mux.h"
 #include "control.h"
 #include "devices.h"
@@ -136,6 +139,40 @@ static struct platform_device omap2cam_device = {
 	.resource	= omap2cam_resources,
 };
 #endif
+#define L4_PER_LCDC_PHYS        0x4830E000
+
+static struct resource am33xx_lcdc_resources[] = {
+	[0] = { /* registers */
+		.start  = L4_PER_LCDC_PHYS,
+		.end    = L4_PER_LCDC_PHYS + SZ_4K - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	[1] = { /* interrupt */
+		.start  = AM33XX_IRQ_LCD,
+		.end    = AM33XX_IRQ_LCD,
+		.flags  = IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device am33xx_lcdc_device = {
+	.name		= "da8xx_lcdc",
+	.id		= 0,
+	.num_resources	= ARRAY_SIZE(am33xx_lcdc_resources),
+	.resource	= am33xx_lcdc_resources,
+};
+
+void __init am33xx_register_lcdc(struct da8xx_lcdc_platform_data *pdata)
+{
+	int ret;
+
+	am33xx_lcdc_device.dev.platform_data = pdata;
+
+	ret = platform_device_register(&am33xx_lcdc_device);
+	if (ret)
+		pr_warning("am33xx_register_lcdc: lcdc registration failed: %d\n",
+				ret);
+
+}
 
 static struct resource omap3isp_resources[] = {
 	{

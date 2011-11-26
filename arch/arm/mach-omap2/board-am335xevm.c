@@ -18,6 +18,11 @@
 #include <linux/module.h>
 #include <linux/i2c/at24.h>
 #include <linux/gpio.h>
+#include <linux/clk.h>
+#include <linux/err.h>
+
+/* LCD controller is similar to DA850 */
+#include <video/da8xx-fb.h>
 
 #include <mach/hardware.h>
 #include <mach/board-am335xevm.h>
@@ -29,6 +34,37 @@
 #include <plat/irqs.h>
 #include <plat/board.h>
 #include <plat/common.h>
+#include <plat/lcdc.h>
+
+static const struct display_panel disp_panel = {
+	WVGA,
+	32,
+	32,
+	COLOR_ACTIVE,
+};
+
+static struct lcd_ctrl_config lcd_cfg = {
+	&disp_panel,
+	.ac_bias		= 255,
+	.ac_bias_intrpt		= 0,
+	.dma_burst_sz		= 16,
+	.bpp			= 32,
+	.fdd			= 0x80,
+	.tft_alt_mode		= 0,
+	.stn_565_mode		= 0,
+	.mono_8bit_mode		= 0,
+	.invert_line_clock	= 1,
+	.invert_frm_clock	= 1,
+	.sync_edge		= 0,
+	.sync_ctrl		= 1,
+	.raster_order		= 0,
+};
+
+struct da8xx_lcdc_platform_data TFC_S9700RTWV35TR_01B_pdata = {
+	.manu_name		= "ThreeFive",
+	.controller_data	= &lcd_cfg,
+	.type			= "TFC_S9700RTWV35TR_01B",
+};
 
 #include "common.h"
 
@@ -141,6 +177,55 @@ static u32 am335x_get_profile_selection(void)
 		return val & 0x7;
 }
 
+/* Module pin mux for LCDC */
+static struct pinmux_config lcdc_pin_mux[] = {
+	{"lcd_data0.lcd_data0",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+						       | AM33XX_PULL_DISA},
+	{"lcd_data1.lcd_data1",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+						       | AM33XX_PULL_DISA},
+	{"lcd_data2.lcd_data2",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+						       | AM33XX_PULL_DISA},
+	{"lcd_data3.lcd_data3",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+						       | AM33XX_PULL_DISA},
+	{"lcd_data4.lcd_data4",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+						       | AM33XX_PULL_DISA},
+	{"lcd_data5.lcd_data5",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+						       | AM33XX_PULL_DISA},
+	{"lcd_data6.lcd_data6",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+						       | AM33XX_PULL_DISA},
+	{"lcd_data7.lcd_data7",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+						       | AM33XX_PULL_DISA},
+	{"lcd_data8.lcd_data8",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+						       | AM33XX_PULL_DISA},
+	{"lcd_data9.lcd_data9",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+						       | AM33XX_PULL_DISA},
+	{"lcd_data10.lcd_data10",	OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+						       | AM33XX_PULL_DISA},
+	{"lcd_data11.lcd_data11",	OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+						       | AM33XX_PULL_DISA},
+	{"lcd_data12.lcd_data12",	OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+						       | AM33XX_PULL_DISA},
+	{"lcd_data13.lcd_data13",	OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+						       | AM33XX_PULL_DISA},
+	{"lcd_data14.lcd_data14",	OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+						       | AM33XX_PULL_DISA},
+	{"lcd_data15.lcd_data15",	OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+						       | AM33XX_PULL_DISA},
+	{"gpmc_ad8.lcd_data16",		OMAP_MUX_MODE1 | AM33XX_PIN_OUTPUT},
+	{"gpmc_ad9.lcd_data17",		OMAP_MUX_MODE1 | AM33XX_PIN_OUTPUT},
+	{"gpmc_ad10.lcd_data18",	OMAP_MUX_MODE1 | AM33XX_PIN_OUTPUT},
+	{"gpmc_ad11.lcd_data19",	OMAP_MUX_MODE1 | AM33XX_PIN_OUTPUT},
+	{"gpmc_ad12.lcd_data20",	OMAP_MUX_MODE1 | AM33XX_PIN_OUTPUT},
+	{"gpmc_ad13.lcd_data21",	OMAP_MUX_MODE1 | AM33XX_PIN_OUTPUT},
+	{"gpmc_ad14.lcd_data22",	OMAP_MUX_MODE1 | AM33XX_PIN_OUTPUT},
+	{"gpmc_ad15.lcd_data23",	OMAP_MUX_MODE1 | AM33XX_PIN_OUTPUT},
+	{"lcd_vsync.lcd_vsync",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
+	{"lcd_hsync.lcd_hsync",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
+	{"lcd_pclk.lcd_pclk",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
+	{"lcd_ac_bias_en.lcd_ac_bias_en", OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
+	{NULL, 0},
+};
+
 /*
 * @pin_mux - single module pin-mux structure which defines pin-mux
 *			details for all its pins.
@@ -230,6 +315,40 @@ static int __init ecap0_init(void)
 }
 late_initcall(ecap0_init);
 
+static int __init conf_disp_pll(int rate)
+{
+	struct clk *disp_pll;
+	int ret = -EINVAL;
+
+	disp_pll = clk_get(NULL, "dpll_disp_ck");
+	if (IS_ERR(disp_pll)) {
+		pr_err("Cannot clk_get disp_pll\n");
+		goto out;
+	}
+
+	ret = clk_set_rate(disp_pll, rate);
+	clk_put(disp_pll);
+out:
+	return ret;
+}
+
+static void lcdc_init(int evm_id, int profile)
+{
+
+	setup_pin_mux(lcdc_pin_mux);
+
+	if (conf_disp_pll(300000000)) {
+		pr_info("Failed configure display PLL, not attempting to"
+				"register LCDC\n");
+		return;
+	}
+
+	if (am33xx_register_lcdc(&TFC_S9700RTWV35TR_01B_pdata))
+		pr_info("Failed to register LCDC device\n");
+	return;
+}
+
+
 /* Low-Cost EVM */
 static struct evm_dev_cfg low_cost_evm_dev_cfg[] = {
 	{NULL, 0, 0},
@@ -238,6 +357,8 @@ static struct evm_dev_cfg low_cost_evm_dev_cfg[] = {
 /* General Purpose EVM */
 static struct evm_dev_cfg gen_purp_evm_dev_cfg[] = {
 	{enable_ecap0,	DEV_ON_DGHTR_BRD, (PROFILE_0 | PROFILE_1 |
+						PROFILE_2 | PROFILE_7) },
+	{lcdc_init,	DEV_ON_DGHTR_BRD, (PROFILE_0 | PROFILE_1 |
 						PROFILE_2 | PROFILE_7) },
 	{NULL, 0, 0},
 };
