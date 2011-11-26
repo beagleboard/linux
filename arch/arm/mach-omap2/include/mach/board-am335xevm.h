@@ -40,5 +40,6 @@
 void am33xx_evmid_fillup(unsigned int evmid);
 void am33xx_cpsw_macidfillup(char *eeprommacid0, char *eeprommacid1);
 void am33xx_cpsw_init(unsigned int gigen);
+void am33xx_d_can_init(unsigned int instance);
 
 #endif

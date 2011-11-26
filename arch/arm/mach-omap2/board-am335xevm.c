@@ -569,6 +569,18 @@ static struct pinmux_config uart3_pin_mux[] = {
 	{NULL, 0},
 };
 
+static struct pinmux_config d_can_gp_pin_mux[] = {
+	{"uart0_ctsn.d_can1_tx", OMAP_MUX_MODE2 | AM33XX_PULL_ENBL},
+	{"uart0_rtsn.d_can1_rx", OMAP_MUX_MODE2 | AM33XX_PIN_INPUT_PULLUP},
+	{NULL, 0},
+};
+
+static struct pinmux_config d_can_ia_pin_mux[] = {
+	{"uart0_rxd.d_can0_tx", OMAP_MUX_MODE2 | AM33XX_PULL_ENBL},
+	{"uart0_txd.d_can0_rx", OMAP_MUX_MODE2 | AM33XX_PIN_INPUT_PULLUP},
+	{NULL, 0},
+};
+
 /*
 * @pin_mux - single module pin-mux structure which defines pin-mux
 *			details for all its pins.
@@ -1030,6 +1042,28 @@ out:
 	return;
 }
 
+static void d_can_init(int evm_id, int profile)
+{
+	switch (evm_id) {
+	case IND_AUT_MTR_EVM:
+		if ((profile == PROFILE_0) || (profile == PROFILE_1)) {
+			setup_pin_mux(d_can_ia_pin_mux);
+			/* Instance Zero */
+			am33xx_d_can_init(0);
+		}
+		break;
+	case GEN_PURP_EVM:
+		if (profile == PROFILE_1) {
+			setup_pin_mux(d_can_gp_pin_mux);
+			/* Instance One */
+			am33xx_d_can_init(1);
+		}
+		break;
+	default:
+		break;
+	}
+}
+
 static void mmc0_init(int evm_id, int profile)
 {
 	setup_pin_mux(mmc0_pin_mux);
@@ -1168,6 +1202,7 @@ static struct evm_dev_cfg gen_purp_evm_dev_cfg[] = {
 	{uart1_wl12xx_init,	DEV_ON_BASEBOARD, (PROFILE_0 | PROFILE_3 |
 								PROFILE_5)},
 	{wl12xx_init,	DEV_ON_BASEBOARD, (PROFILE_0 | PROFILE_3 | PROFILE_5)},
+	{d_can_init,	DEV_ON_DGHTR_BRD, PROFILE_1},
 	{NULL, 0, 0},
 };
 
