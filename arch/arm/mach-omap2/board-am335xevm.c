@@ -1088,6 +1088,9 @@ static struct i2c_board_info am335x_i2c_boardinfo1[] = {
 		.platform_data = &lis331dlh_pdata,
 	},
 	{
+		I2C_BOARD_INFO("tsl2550", 0x39),
+	},
+	{
 		I2C_BOARD_INFO("tmp275", 0x48),
 	},
 };
