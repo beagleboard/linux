@@ -1173,6 +1173,27 @@ static int da8xx_pan_display(struct fb_var_screeninfo *var,
 	return ret;
 }
 
+static int alloc_fbmem(struct da8xx_fb_par *par)
+{
+	unsigned int order, size;
+	unsigned long addr;
+
+	size = PAGE_ALIGN(par->vram_size);
+	order = get_order(size);
+	par->vram_virt = (void*) __get_free_pages(GFP_KERNEL, order);
+	addr = (unsigned long) par->vram_virt;
+	if (addr) {
+		while (size > 0) {
+			SetPageReserved(virt_to_page(addr));
+			addr += PAGE_SIZE;
+			size -= PAGE_SIZE;
+		}
+		par->vram_phys = (u32) virt_to_phys((void *) par->vram_virt);
+		return 0;
+	}
+	return -ENOMEM;
+}
+
 static struct fb_ops da8xx_fb_ops = {
 	.owner = THIS_MODULE,
 	.fb_check_var = fb_check_var,
@@ -1305,11 +1326,8 @@ static int __devinit fb_probe(struct platform_device *device)
 	par->vram_size = PAGE_ALIGN(par->vram_size/8);
 	par->vram_size = par->vram_size * LCD_NUM_BUFFERS;
 
-	par->vram_virt = dma_alloc_coherent(NULL,
-					    par->vram_size,
-					    (resource_size_t *) &par->vram_phys,
-					    GFP_KERNEL | GFP_DMA);
-	if (!par->vram_virt) {
+	ret = alloc_fbmem(par);
+	if (ret) {
 		dev_err(&device->dev,
 			"GLCD: kmalloc for frame buffer failed\n");
 		ret = -EINVAL;
