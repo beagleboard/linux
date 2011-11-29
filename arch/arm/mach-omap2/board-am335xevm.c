@@ -1801,6 +1801,9 @@ static void __init am335x_evm_init(void)
 	/* Create an alias for icss clock */
 	if (clk_add_alias("pruss", NULL, "icss_uart_gclk", NULL))
 		pr_err("failed to create an alias: icss_uart_gclk --> pruss\n");
+	/* Create an alias for gfx/sgx clock */
+	if (clk_add_alias("sgx_ck", NULL, "gfx_fclk", NULL))
+		pr_err("failed to create an alias: gfx_fclk --> sgx_ck\n");
 }
 
 static void __init am335x_evm_map_io(void)
