@@ -1798,6 +1798,9 @@ static void __init am335x_evm_init(void)
 	usb_musb_init(&musb_board_data);
 	omap_board_config = am335x_evm_config;
 	omap_board_config_size = ARRAY_SIZE(am335x_evm_config);
+	/* Create an alias for icss clock */
+	if (clk_add_alias("pruss", NULL, "icss_uart_gclk", NULL))
+		pr_err("failed to create an alias: icss_uart_gclk --> pruss\n");
 }
 
 static void __init am335x_evm_map_io(void)
