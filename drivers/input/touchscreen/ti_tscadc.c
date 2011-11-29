@@ -135,7 +135,9 @@ static void tscadc_writel(struct tscadc *tsc, unsigned int reg,
 	writel(val, tsc->tsc_base + reg);
 }
 
-static void tsc_adc_step_config(struct tscadc *ts_dev)
+/* Configure ADC to sample on channel (1-8) */
+
+static void tsc_adc_step_config(struct tscadc *ts_dev, int channel)
 {
 	unsigned int	stepconfig = 0, delay = 0, chargeconfig = 0;
 
@@ -147,7 +149,7 @@ static void tsc_adc_step_config(struct tscadc *ts_dev)
  	 */
 	stepconfig = TSCADC_STEPCONFIG_MODE_SWONESHOT |
 		TSCADC_STEPCONFIG_2SAMPLES_AVG |
-		(0x7 << 19);
+		((channel-1) << 19);
 
 	delay = TSCADC_STEPCONFIG_SAMPLEDLY | TSCADC_STEPCONFIG_OPENDLY;
 
@@ -604,7 +606,7 @@ static	int __devinit tscadc_probe(struct platform_device *pdev)
 			goto err_fail;
 	}
 	else {
-		tsc_adc_step_config(ts_dev);
+		tsc_adc_step_config(ts_dev, 8);
 		tscadc_writel(ts_dev, TSCADC_REG_FIFO0THR, 0);
 		irqenable = TSCADC_IRQENB_FIFO0THRES;
 	}
