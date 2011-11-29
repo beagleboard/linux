@@ -187,14 +187,14 @@ static irqreturn_t tsc_adc_interrupt(int irq, void *dev)
 
 	status = tscadc_readl(ts_dev, TSCADC_REG_IRQSTATUS);
 
-	printk("interrupt! status=%x\n", status);
+	// printk("interrupt! status=%x\n", status);
 	// if (status & TSCADC_IRQENB_EOS) {
 	// 	irqclr |= TSCADC_IRQENB_EOS;
 	// }
 
 	if (status & TSCADC_IRQENB_FIFO0THRES) {
 		fifo1count = tscadc_readl(ts_dev, TSCADC_REG_FIFO0CNT);
-		printk("fifo 0 count = %d\n", fifo1count);
+		// printk("fifo 0 count = %d\n", fifo1count);
 	
 		for (i = 0; i < fifo1count; i++) {
 			read_sample = tscadc_readl(ts_dev, TSCADC_REG_FIFO0);
