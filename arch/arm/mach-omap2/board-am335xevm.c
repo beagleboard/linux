@@ -32,6 +32,7 @@
 #include <linux/err.h>
 #include <linux/wl12xx.h>
 #include <linux/ethtool.h>
+#include <linux/mfd/tps65910.h>
 
 /* LCD controller is similar to DA850 */
 #include <video/da8xx-fb.h>
@@ -1693,6 +1694,42 @@ static struct at24_platform_data am335x_baseboard_eeprom_info = {
 	.context        = (void *)NULL,
 };
 
+static struct regulator_init_data am335x_dummy = {
+	.constraints.always_on	= true,
+};
+
+static struct regulator_consumer_supply am335x_vdd1_supply[] = {
+	REGULATOR_SUPPLY("vdd_mpu", NULL),
+};
+
+static struct regulator_init_data am335x_vdd1 = {
+	.constraints = {
+		.min_uV			= 600000,
+		.max_uV			= 1500000,
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL,
+		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE,
+		.always_on		= 1,
+	},
+	.num_consumer_supplies	= ARRAY_SIZE(am335x_vdd1_supply),
+	.consumer_supplies	= am335x_vdd1_supply,
+};
+
+static struct tps65910_board am335x_tps65910_info = {
+	.tps65910_pmic_init_data[TPS65910_REG_VRTC]	= &am335x_dummy,
+	.tps65910_pmic_init_data[TPS65910_REG_VIO]	= &am335x_dummy,
+	.tps65910_pmic_init_data[TPS65910_REG_VDD1]	= &am335x_vdd1,
+	.tps65910_pmic_init_data[TPS65910_REG_VDD2]	= &am335x_dummy,
+	.tps65910_pmic_init_data[TPS65910_REG_VDD3]	= &am335x_dummy,
+	.tps65910_pmic_init_data[TPS65910_REG_VDIG1]	= &am335x_dummy,
+	.tps65910_pmic_init_data[TPS65910_REG_VDIG2]	= &am335x_dummy,
+	.tps65910_pmic_init_data[TPS65910_REG_VPLL]	= &am335x_dummy,
+	.tps65910_pmic_init_data[TPS65910_REG_VDAC]	= &am335x_dummy,
+	.tps65910_pmic_init_data[TPS65910_REG_VAUX1]	= &am335x_dummy,
+	.tps65910_pmic_init_data[TPS65910_REG_VAUX2]	= &am335x_dummy,
+	.tps65910_pmic_init_data[TPS65910_REG_VAUX33]	= &am335x_dummy,
+	.tps65910_pmic_init_data[TPS65910_REG_VMMC]	= &am335x_dummy,
+};
+
 /*
 * Daughter board Detection.
 * Every board has a ID memory (EEPROM) on board. We probe these devices at
@@ -1718,6 +1755,10 @@ static struct i2c_board_info __initdata am335x_i2c_boardinfo[] = {
 	},
 	{
 		I2C_BOARD_INFO("tlc59108", 0x40),
+	},
+	{
+		I2C_BOARD_INFO("tps65910", TPS65910_I2C_ID1),
+		.platform_data  = &am335x_tps65910_info,
 	},
 
 };
