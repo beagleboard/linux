@@ -484,6 +484,8 @@ size_t do_adc_sample(struct kobject *kobj, struct attribute *attr, char *buf) {
 	struct device *dev;
 	struct tscadc *ts_dev;
 	int channel_num;
+	int fifo0count = 0;
+	int read_sample = 0;
 
 	pdev = (struct platform_device *)container_of(kobj, struct device, kobj);
 	dev = &pdev->dev;
@@ -503,7 +505,17 @@ size_t do_adc_sample(struct kobject *kobj, struct attribute *attr, char *buf) {
 
 	tsc_adc_step_config(ts_dev, channel_num);
 
-	memcpy(buf, attr->name, strlen(attr->name)+1);
+	do {
+		fifo0count = tscadc_readl(ts_dev, TSCADC_REG_FIFO0CNT);
+	}
+	while (!fifo0count);
+
+	while (fifo0count--) {
+			  read_sample = tscadc_readl(ts_dev, TSCADC_REG_FIFO0) & 0xfff;
+			  // printk("polling sample: %d: %x\n", fifo0count, read_sample);
+	}
+	sprintf(buf, "%d", read_sample);
+
 	return strlen(attr->name);
 }
 
@@ -658,7 +670,7 @@ static	int __devinit tscadc_probe(struct platform_device *pdev)
 	}
 	else {
 		tscadc_writel(ts_dev, TSCADC_REG_FIFO0THR, 0);
-		irqenable = TSCADC_IRQENB_FIFO0THRES;
+		irqenable = 0; // TSCADC_IRQENB_FIFO0THRES;
 	}
 	tscadc_writel(ts_dev, TSCADC_REG_IRQENABLE, irqenable);
 
