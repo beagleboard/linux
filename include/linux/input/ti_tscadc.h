@@ -13,6 +13,7 @@
  *			0.
  * @x_plate_resistance:	X plate resistance.
  */
+#include <linux/device.h>
 
 #define TI_TSCADC_TSCMODE 0
 #define TI_TSCADC_GENMODE 1

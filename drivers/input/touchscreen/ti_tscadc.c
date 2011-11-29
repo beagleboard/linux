@@ -26,7 +26,18 @@
 #include <linux/io.h>
 #include <linux/input/ti_tscadc.h>
 #include <linux/delay.h>
+#include <linux/device.h>
 #include <linux/pm_runtime.h>
+
+size_t do_adc_sample(struct kobject *, struct attribute *, char *);
+static DEVICE_ATTR(ain1, S_IRUGO, do_adc_sample, NULL);
+static DEVICE_ATTR(ain2, S_IRUGO, do_adc_sample, NULL);
+static DEVICE_ATTR(ain3, S_IRUGO, do_adc_sample, NULL);
+static DEVICE_ATTR(ain4, S_IRUGO, do_adc_sample, NULL);
+static DEVICE_ATTR(ain5, S_IRUGO, do_adc_sample, NULL);
+static DEVICE_ATTR(ain6, S_IRUGO, do_adc_sample, NULL);
+static DEVICE_ATTR(ain7, S_IRUGO, do_adc_sample, NULL);
+static DEVICE_ATTR(ain8, S_IRUGO, do_adc_sample, NULL);
 
 /* Memory mapped registers here have incorrect offsets!
  * Correct after referring TRM */
@@ -150,12 +161,12 @@ static void tsc_adc_step_config(struct tscadc *ts_dev, int channel)
 	stepconfig = TSCADC_STEPCONFIG_MODE_SWONESHOT |
 		TSCADC_STEPCONFIG_2SAMPLES_AVG |
 		((channel-1) << 19);
-
+	
 	delay = TSCADC_STEPCONFIG_SAMPLEDLY | TSCADC_STEPCONFIG_OPENDLY;
 
 	tscadc_writel(ts_dev, TSCADC_REG_STEPCONFIG(10), stepconfig);
 	tscadc_writel(ts_dev, TSCADC_REG_STEPDELAY(10), delay);
-
+	
 	/* Get the ball rolling, this will trigger the FSM to step through
  	 * as soon as TSC_ADC_SS is turned on */
 	tscadc_writel(ts_dev, TSCADC_REG_SE, TSCADC_STPENB_STEPENB_GENERAL);
@@ -205,7 +216,7 @@ static irqreturn_t tsc_adc_interrupt(int irq, void *dev)
 		irqclr |= TSCADC_IRQENB_FIFO1THRES;
 	}
 
-	mdelay(500);
+	// mdelay(500);
 
 	tscadc_writel(ts_dev, TSCADC_REG_IRQSTATUS, irqclr);
 
@@ -213,7 +224,7 @@ static irqreturn_t tsc_adc_interrupt(int irq, void *dev)
 	tscadc_writel(ts_dev, TSCADC_REG_IRQEOI, 0x0);
 
 	/* Turn on Step 1 again */
-	tscadc_writel(ts_dev, TSCADC_REG_SE, TSCADC_STPENB_STEPENB_GENERAL);
+	// tscadc_writel(ts_dev, TSCADC_REG_SE, TSCADC_STPENB_STEPENB_GENERAL);
 	return IRQ_HANDLED;
 }
 
@@ -468,6 +479,34 @@ static irqreturn_t tsc_interrupt(int irq, void *dev)
 * The functions for inserting/removing driver as a module.
 */
 
+size_t do_adc_sample(struct kobject *kobj, struct attribute *attr, char *buf) {
+	struct platform_device *pdev;
+	struct device *dev;
+	struct tscadc *ts_dev;
+	int channel_num;
+
+	pdev = (struct platform_device *)container_of(kobj, struct device, kobj);
+	dev = &pdev->dev;
+
+	ts_dev = dev_get_drvdata(dev);
+
+	if(strncmp(attr->name, "ain", 3)) {
+		printk("Invalid ain num\n");
+		return -EINVAL;
+	}
+
+	channel_num = attr->name[3] - 0x30;
+	if(channel_num > 8 || channel_num < 1) {
+		printk("Invalid channel_num=%d\n", channel_num);
+		return -EINVAL;
+	}
+
+	tsc_adc_step_config(ts_dev, channel_num);
+
+	memcpy(buf, attr->name, strlen(attr->name)+1);
+	return strlen(attr->name);
+}
+
 static	int __devinit tscadc_probe(struct platform_device *pdev)
 {
 	struct tscadc			*ts_dev;
@@ -478,6 +517,18 @@ static	int __devinit tscadc_probe(struct platform_device *pdev)
 	struct	tsc_data		*pdata = pdev->dev.platform_data;
 	struct resource			*res;
 	struct clk			*clk;
+
+	printk("dev addr = %p\n", &pdev->dev);
+	printk("pdev addr = %p\n", pdev);
+
+	device_create_file(&pdev->dev, &dev_attr_ain1);
+	device_create_file(&pdev->dev, &dev_attr_ain2);
+	device_create_file(&pdev->dev, &dev_attr_ain3);
+	device_create_file(&pdev->dev, &dev_attr_ain4);
+	device_create_file(&pdev->dev, &dev_attr_ain5);
+	device_create_file(&pdev->dev, &dev_attr_ain6);
+	device_create_file(&pdev->dev, &dev_attr_ain7);
+	device_create_file(&pdev->dev, &dev_attr_ain8);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
@@ -606,7 +657,6 @@ static	int __devinit tscadc_probe(struct platform_device *pdev)
 			goto err_fail;
 	}
 	else {
-		tsc_adc_step_config(ts_dev, 8);
 		tscadc_writel(ts_dev, TSCADC_REG_FIFO0THR, 0);
 		irqenable = TSCADC_IRQENB_FIFO0THRES;
 	}
