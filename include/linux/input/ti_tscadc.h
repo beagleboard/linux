@@ -14,8 +14,12 @@
  * @x_plate_resistance:	X plate resistance.
  */
 
+#define TI_TSCADC_TSCMODE 0
+#define TI_TSCADC_GENMODE 1
+
 struct tsc_data {
 	int wires;
 	int analog_input;
 	int x_plate_resistance;
+	int mode;
 };

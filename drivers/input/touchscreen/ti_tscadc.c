@@ -28,6 +28,8 @@
 #include <linux/delay.h>
 #include <linux/pm_runtime.h>
 
+/* Memory mapped registers here have incorrect offsets!
+ * Correct after referring TRM */
 #define TSCADC_REG_IRQEOI		0x020
 #define TSCADC_REG_RAWIRQSTATUS		0x024
 #define TSCADC_REG_IRQSTATUS		0x028
@@ -58,12 +60,19 @@
 #define TSCADC_IRQWKUP_ENB		BIT(0)
 #define TSCADC_IRQWKUP_DISABLE		0x00
 #define TSCADC_STPENB_STEPENB		0x7FFF
+#define TSCADC_STPENB_STEPENB_TOUCHSCREEN	0x7FFF
+#define TSCADC_STPENB_STEPENB_GENERAL		0x0400
 #define TSCADC_IRQENB_FIFO0THRES	BIT(2)
+#define TSCADC_IRQENB_FIFO0OVERRUN	BIT(3)
 #define TSCADC_IRQENB_FIFO1THRES	BIT(5)
+#define TSCADC_IRQENB_EOS		BIT(1)
 #define TSCADC_IRQENB_PENUP		BIT(9)
 #define TSCADC_IRQENB_HW_PEN		BIT(0)
 #define TSCADC_STEPCONFIG_MODE_HWSYNC	0x2
+#define TSCADC_STEPCONFIG_MODE_SWCONT		0x1
+#define TSCADC_STEPCONFIG_MODE_SWONESHOT	0x0
 #define TSCADC_STEPCONFIG_2SAMPLES_AVG	(1 << 4)
+#define TSCADC_STEPCONFIG_NO_AVG	0
 #define TSCADC_STEPCONFIG_XPP		BIT(5)
 #define TSCADC_STEPCONFIG_XNN		BIT(6)
 #define TSCADC_STEPCONFIG_YPP		BIT(7)
@@ -109,6 +118,7 @@ struct tscadc {
 	int			wires;
 	int			analog_input;
 	int			x_plate_resistance;
+	int mode;
 	int			irq;
 	void __iomem		*tsc_base;
 	unsigned int		ctrl;
@@ -123,6 +133,86 @@ static void tscadc_writel(struct tscadc *tsc, unsigned int reg,
 					unsigned int val)
 {
 	writel(val, tsc->tsc_base + reg);
+}
+
+static void tsc_adc_step_config(struct tscadc *ts_dev)
+{
+	unsigned int	stepconfig = 0, delay = 0, chargeconfig = 0;
+
+	/*
+ 	 * Step Configuration
+ 	 * software-enabled continous mode
+ 	 * 2 sample averaging
+ 	 * sample channel 1 (SEL_INP mux bits = 0)
+ 	 */
+	stepconfig = TSCADC_STEPCONFIG_MODE_SWONESHOT |
+		TSCADC_STEPCONFIG_2SAMPLES_AVG |
+		(0x7 << 19);
+
+	delay = TSCADC_STEPCONFIG_SAMPLEDLY | TSCADC_STEPCONFIG_OPENDLY;
+
+	tscadc_writel(ts_dev, TSCADC_REG_STEPCONFIG(10), stepconfig);
+	tscadc_writel(ts_dev, TSCADC_REG_STEPDELAY(10), delay);
+
+	/* Get the ball rolling, this will trigger the FSM to step through
+ 	 * as soon as TSC_ADC_SS is turned on */
+	tscadc_writel(ts_dev, TSCADC_REG_SE, TSCADC_STPENB_STEPENB_GENERAL);
+}
+
+static irqreturn_t tsc_adc_interrupt(int irq, void *dev)
+{
+	struct tscadc		*ts_dev = (struct tscadc *)dev;
+	struct input_dev	*input_dev = ts_dev->input;
+	unsigned int		status, irqclr = 0;
+	int			i;
+	int			fsm = 0, fifo0count = 0, fifo1count = 0;
+	unsigned int		read_sample = 0, ready1 = 0;
+	unsigned int		prev_val_x = ~0, prev_val_y = ~0;
+	unsigned int		prev_diff_x = ~0, prev_diff_y = ~0;
+	unsigned int		cur_diff_x = 0, cur_diff_y = 0;
+	unsigned int		val_x = 0, val_y = 0, diffx = 0, diffy = 0;
+
+	status = tscadc_readl(ts_dev, TSCADC_REG_IRQSTATUS);
+
+	printk("interrupt! status=%x\n", status);
+	// if (status & TSCADC_IRQENB_EOS) {
+	// 	irqclr |= TSCADC_IRQENB_EOS;
+	// }
+
+	if (status & TSCADC_IRQENB_FIFO0THRES) {
+		fifo1count = tscadc_readl(ts_dev, TSCADC_REG_FIFO0CNT);
+		printk("fifo 0 count = %d\n", fifo1count);
+	
+		for (i = 0; i < fifo1count; i++) {
+			read_sample = tscadc_readl(ts_dev, TSCADC_REG_FIFO0);
+			printk("sample: %d: %x\n", i, read_sample);
+		}
+		irqclr |= TSCADC_IRQENB_FIFO0THRES;
+	}
+
+
+	if (status & TSCADC_IRQENB_FIFO1THRES) {
+		fifo1count = tscadc_readl(ts_dev, TSCADC_REG_FIFO1CNT);
+
+		for (i = 0; i < fifo1count; i++) {
+			read_sample = tscadc_readl(ts_dev, TSCADC_REG_FIFO1);
+			// read_sample = read_sample & 0xfff;
+			printk("sample: %d: %d\n", i, read_sample);
+			panic("sample read from fifo1!");
+		}
+		irqclr |= TSCADC_IRQENB_FIFO1THRES;
+	}
+
+	mdelay(500);
+
+	tscadc_writel(ts_dev, TSCADC_REG_IRQSTATUS, irqclr);
+
+	/* check pending interrupts */
+	tscadc_writel(ts_dev, TSCADC_REG_IRQEOI, 0x0);
+
+	/* Turn on Step 1 again */
+	tscadc_writel(ts_dev, TSCADC_REG_SE, TSCADC_STPENB_STEPENB_GENERAL);
+	return IRQ_HANDLED;
 }
 
 static void tsc_step_config(struct tscadc *ts_dev)
@@ -229,7 +319,7 @@ static void tsc_step_config(struct tscadc *ts_dev)
 	tscadc_writel(ts_dev, TSCADC_REG_STEPCONFIG14, stepconfigz2);
 	tscadc_writel(ts_dev, TSCADC_REG_STEPDELAY14, delay);
 
-	tscadc_writel(ts_dev, TSCADC_REG_SE, TSCADC_STPENB_STEPENB);
+	tscadc_writel(ts_dev, TSCADC_REG_SE, TSCADC_STPENB_STEPENB_TOUCHSCREEN);
 }
 
 static void tsc_idle_config(struct tscadc *ts_config)
@@ -247,7 +337,7 @@ static void tsc_idle_config(struct tscadc *ts_config)
 	tscadc_writel(ts_config, TSCADC_REG_IDLECONFIG, idleconfig);
 }
 
-static irqreturn_t tscadc_interrupt(int irq, void *dev)
+static irqreturn_t tsc_interrupt(int irq, void *dev)
 {
 	struct tscadc		*ts_dev = (struct tscadc *)dev;
 	struct input_dev	*input_dev = ts_dev->input;
@@ -368,7 +458,7 @@ static irqreturn_t tscadc_interrupt(int irq, void *dev)
 	/* check pending interrupts */
 	tscadc_writel(ts_dev, TSCADC_REG_IRQEOI, 0x0);
 
-	tscadc_writel(ts_dev, TSCADC_REG_SE, TSCADC_STPENB_STEPENB);
+	tscadc_writel(ts_dev, TSCADC_REG_SE, TSCADC_STPENB_STEPENB_TOUCHSCREEN);
 	return IRQ_HANDLED;
 }
 
@@ -406,13 +496,15 @@ static	int __devinit tscadc_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	input_dev = input_allocate_device();
-	if (!input_dev) {
-		dev_err(&pdev->dev, "failed to allocate input device.\n");
-		err = -ENOMEM;
-		goto err_free_mem;
+	if(pdata->mode == TI_TSCADC_TSCMODE) {
+		input_dev = input_allocate_device();
+		if (!input_dev) {
+			dev_err(&pdev->dev, "failed to allocate input device.\n");
+			err = -ENOMEM;
+			goto err_free_mem;
+		}
+		ts_dev->input = input_dev;
 	}
-	ts_dev->input = input_dev;
 
 	res =  request_mem_region(res->start, resource_size(res), pdev->name);
 	if (!res) {
@@ -428,8 +520,15 @@ static	int __devinit tscadc_probe(struct platform_device *pdev)
 		goto err_release_mem;
 	}
 
-	err = request_irq(ts_dev->irq, tscadc_interrupt, IRQF_DISABLED,
-				pdev->dev.driver->name, ts_dev);
+	if(pdata->mode == TI_TSCADC_TSCMODE) {
+		err = request_irq(ts_dev->irq, tsc_interrupt, IRQF_DISABLED,
+					pdev->dev.driver->name, ts_dev);
+	}
+	else {
+		err = request_irq(ts_dev->irq, tsc_adc_interrupt, IRQF_DISABLED,
+					pdev->dev.driver->name, ts_dev);
+	}
+
 	if (err) {
 		dev_err(&pdev->dev, "failed to allocate irq.\n");
 		goto err_unmap_regs;
@@ -445,12 +544,18 @@ static	int __devinit tscadc_probe(struct platform_device *pdev)
 		goto err_free_irq;
 	}
 	clock_rate = clk_get_rate(clk);
+
+	/* clk_value of atleast 21MHz required
+ 	 * Clock verified on BeagleBone to be 24MHz */
+
+
 	clk_value = clock_rate / ADC_CLK;
 	if (clk_value < 7) {
 		dev_err(&pdev->dev, "clock input less than min clock requirement\n");
 		err = -EINVAL;
 		goto err_fail;
 	}
+
 	/* TSCADC_CLKDIV needs to be configured to the value minus 1 */
 	clk_value = clk_value - 1;
 	tscadc_writel(ts_dev, TSCADC_REG_CLKDIV, clk_value);
@@ -458,53 +563,55 @@ static	int __devinit tscadc_probe(struct platform_device *pdev)
 	ts_dev->wires = pdata->wires;
 	ts_dev->analog_input = pdata->analog_input;
 	ts_dev->x_plate_resistance = pdata->x_plate_resistance;
+	ts_dev->mode = pdata->mode;
 
-	/* Set the control register bits */
+	/* Set the control register bits - 12.5.44 TRM */
 	ctrl = TSCADC_CNTRLREG_STEPCONFIGWRT |
-			TSCADC_CNTRLREG_TSCENB |
-			TSCADC_CNTRLREG_STEPID;
-	switch (ts_dev->wires) {
-	case 4:
-		ctrl |= TSCADC_CNTRLREG_4WIRE;
-		break;
-	case 5:
-		ctrl |= TSCADC_CNTRLREG_5WIRE;
-		break;
-	case 8:
-		ctrl |= TSCADC_CNTRLREG_8WIRE;
-		break;
+				TSCADC_CNTRLREG_STEPID;
+	if(pdata->mode == TI_TSCADC_TSCMODE) {
+		ctrl |= TSCADC_CNTRLREG_TSCENB;
+		switch (ts_dev->wires) {
+			case 4:
+				ctrl |= TSCADC_CNTRLREG_4WIRE;
+				break;
+			case 5:
+				ctrl |= TSCADC_CNTRLREG_5WIRE;
+				break;
+			case 8:
+				ctrl |= TSCADC_CNTRLREG_8WIRE;
+				break;
+		}
 	}
 	tscadc_writel(ts_dev, TSCADC_REG_CTRL, ctrl);
 	ts_dev->ctrl = ctrl;
 
-	/* Set register bits for Idel Config Mode */
-	tsc_idle_config(ts_dev);
-
-	/* IRQ Enable */
-	irqenable = TSCADC_IRQENB_FIFO1THRES;
+	/* Touch screen / ADC configuration */
+	if(pdata->mode == TI_TSCADC_TSCMODE) {
+		tsc_idle_config(ts_dev);
+		tsc_step_config(ts_dev);
+		tscadc_writel(ts_dev, TSCADC_REG_FIFO1THR, 6);
+		irqenable = TSCADC_IRQENB_FIFO1THRES;
+		/* Touch screen also needs an input_dev */
+		input_dev->name = "ti-tsc-adcc";
+		input_dev->dev.parent = &pdev->dev;
+		input_dev->evbit[0] = BIT_MASK(EV_KEY) | BIT_MASK(EV_ABS);
+		input_dev->keybit[BIT_WORD(BTN_TOUCH)] = BIT_MASK(BTN_TOUCH);
+		input_set_abs_params(input_dev, ABS_X, 0, MAX_12BIT, 0, 0);
+		input_set_abs_params(input_dev, ABS_Y, 0, MAX_12BIT, 0, 0);
+		/* register to the input system */
+		err = input_register_device(input_dev);
+		if (err)
+			goto err_fail;
+	}
+	else {
+		tsc_adc_step_config(ts_dev);
+		tscadc_writel(ts_dev, TSCADC_REG_FIFO0THR, 0);
+		irqenable = TSCADC_IRQENB_FIFO0THRES;
+	}
 	tscadc_writel(ts_dev, TSCADC_REG_IRQENABLE, irqenable);
 
-	tsc_step_config(ts_dev);
-
-	tscadc_writel(ts_dev, TSCADC_REG_FIFO1THR, 6);
-
 	ctrl |= TSCADC_CNTRLREG_TSCSSENB;
-	tscadc_writel(ts_dev, TSCADC_REG_CTRL, ctrl);
-
-	input_dev->name = "ti-tsc-adcc";
-	input_dev->dev.parent = &pdev->dev;
-
-	input_dev->evbit[0] = BIT_MASK(EV_KEY) | BIT_MASK(EV_ABS);
-	input_dev->keybit[BIT_WORD(BTN_TOUCH)] = BIT_MASK(BTN_TOUCH);
-
-	input_set_abs_params(input_dev, ABS_X, 0, MAX_12BIT, 0, 0);
-	input_set_abs_params(input_dev, ABS_Y, 0, MAX_12BIT, 0, 0);
-	input_set_abs_params(input_dev, ABS_PRESSURE, 0, MAX_12BIT, 0, 0);
-
-	/* register to the input system */
-	err = input_register_device(input_dev);
-	if (err)
-		goto err_fail;
+	tscadc_writel(ts_dev, TSCADC_REG_CTRL, ctrl);	/* Turn on TSC_ADC */
 
 	device_init_wakeup(&pdev->dev, true);
 	platform_set_drvdata(pdev, ts_dev);
