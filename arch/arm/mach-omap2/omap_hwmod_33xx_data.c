@@ -65,6 +65,7 @@ static struct omap_hwmod am33xx_mmc1_hwmod;
 static struct omap_hwmod am33xx_mmc2_hwmod;
 static struct omap_hwmod am33xx_spi0_hwmod;
 static struct omap_hwmod am33xx_spi1_hwmod;
+static struct omap_hwmod am33xx_elm_hwmod;
 
 /*
  * Interconnects hwmod structures
@@ -442,17 +443,56 @@ static struct omap_hwmod am33xx_debugss_hwmod = {
 	},
 };
 
+static struct omap_hwmod_class_sysconfig am33xx_elm_sysc = {
+	.rev_offs	= 0x0000,
+	.sysc_offs	= 0x0010,
+	.syss_offs	= 0x0014,
+	.sysc_flags	= (SYSC_HAS_CLOCKACTIVITY | SYSC_HAS_SIDLEMODE |
+				SYSC_HAS_SOFTRESET |
+				SYSS_HAS_RESET_STATUS),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
+	.sysc_fields	= &omap_hwmod_sysc_type1,
+};
 /* 'elm' class */
 static struct omap_hwmod_class am33xx_elm_hwmod_class = {
 	.name		= "elm",
+	.sysc		= &am33xx_elm_sysc,
+};
+
+static struct omap_hwmod_irq_info am33xx_elm_irqs[] = {
+	{ .irq = AM33XX_IRQ_ELM },
+	{ .irq = -1 }
+};
+
+struct omap_hwmod_addr_space am33xx_elm_addr_space[] = {
+	{
+		.pa_start	= AM33XX_ELM_BASE,
+		.pa_end		= AM33XX_ELM_BASE + SZ_8K - 1,
+		.flags		= ADDR_MAP_ON_INIT | ADDR_TYPE_RT,
+	},
+	{ }
+};
+
+struct omap_hwmod_ocp_if am33xx_l4_core__elm = {
+	.master		= &am33xx_l4per_hwmod,
+	.slave		= &am33xx_elm_hwmod,
+	.addr		= am33xx_elm_addr_space,
+	.user		= OCP_USER_MPU,
+};
+
+static struct omap_hwmod_ocp_if *am33xx_elm_slaves[] = {
+	&am33xx_l4_core__elm,
 };
 
 /* elm */
 static struct omap_hwmod am33xx_elm_hwmod = {
 	.name		= "elm",
 	.class		= &am33xx_elm_hwmod_class,
+	.mpu_irqs       = am33xx_elm_irqs,
 	.main_clk	= "elm_fck",
 	.clkdm_name	= "l4ls_clkdm",
+	.slaves		= am33xx_elm_slaves,
+	.slaves_cnt	= ARRAY_SIZE(am33xx_elm_slaves),
 	.prcm		= {
 		.omap4	= {
 			.clkctrl_offs	= AM33XX_CM_PER_ELM_CLKCTRL_OFFSET,

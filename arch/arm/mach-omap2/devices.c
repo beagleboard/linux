@@ -454,6 +454,33 @@ static void omap_init_mcspi(void)
 static inline void omap_init_mcspi(void) {}
 #endif
 
+#ifdef CONFIG_SOC_OMAPAM33XX
+
+static int omap_elm_init(struct omap_hwmod *oh, void *unused)
+{
+	struct platform_device *pdev;
+	char *name = "omap2_elm";
+	static int elm_num;
+
+
+	elm_num++;
+	pdev = omap_device_build(name, elm_num, oh, NULL,
+				0,	NULL,
+				0, 0);
+	return 0;
+}
+
+static void omap_init_elm(void)
+{
+
+	omap_hwmod_for_each_by_class("elm", omap_elm_init, NULL);
+}
+
+#else
+static void omap_init_elm(void) {}
+#endif
+
+
 static struct resource omap2_pmu_resource = {
 	.start	= 3,
 	.end	= 3,
@@ -995,6 +1022,7 @@ static int __init omap2_init_devices(void)
 	omap_init_camera();
 	omap_init_mbox();
 	omap_init_mcspi();
+	omap_init_elm();
 	omap_init_pmu();
 	omap_hdq_init();
 	omap_init_sti();
