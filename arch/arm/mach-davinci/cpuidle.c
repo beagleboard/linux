@@ -174,4 +174,3 @@ static int __init davinci_cpuidle_init(void)
 						davinci_cpuidle_probe);
 }
 device_initcall(davinci_cpuidle_init);
-
