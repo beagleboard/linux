@@ -469,7 +469,7 @@ static irqreturn_t tsc_interrupt(int irq, void *dev)
 static	int __devinit tscadc_probe(struct platform_device *pdev)
 {
 	struct tscadc			*ts_dev;
-	struct input_dev		*input_dev;
+	struct input_dev		*input_dev = NULL;
 	int				err;
 	int				clk_value;
 	int				clock_rate, irqenable, ctrl;
