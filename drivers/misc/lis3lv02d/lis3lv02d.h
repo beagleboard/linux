@@ -95,11 +95,27 @@ enum lis3lv02d_reg {
 	DD_THSE_H	= 0x3F,
 };
 
+enum lis331dlh_reg {
+	CTRL_REG5	= 0x24,
+	HP_FILTER_RESET_3DLH	= 0x25,
+	REFERENCE	= 0x26,
+};
+
 enum lis3_who_am_i {
+	WAI_3DLH	= 0x32,	/* 8 bits: LIS331DLH */
 	WAI_3DC		= 0x33,	/* 8 bits: LIS3DC, HP3DC */
 	WAI_12B		= 0x3A, /* 12 bits: LIS3LV02D[LQ]... */
 	WAI_8B		= 0x3B, /* 8 bits: LIS[23]02D[LQ]... */
 	WAI_6B		= 0x52, /* 6 bits: LIS331DLF - not supported */
+};
+
+enum lis3_type {
+	LIS3DC,
+	HP3DC,
+	LIS3LV02D,
+	LIS2302D,
+	LIS331DLF,
+	LIS331DLH,
 };
 
 enum lis3lv02d_ctrl1_12b {
@@ -129,6 +145,32 @@ enum lis3lv02d_ctrl1_3dc {
 	CTRL1_ODR3	= 0x80,
 };
 
+enum lis331dlh_ctrl1 {
+	CTRL1_DR0	= 0x08,
+	CTRL1_DR1	= 0x10,
+	CTRL1_PM0	= 0x20,
+	CTRL1_PM1	= 0x40,
+	CTRL1_PM2	= 0x80,
+};
+
+enum lis331dlh_ctrl2 {
+	CTRL2_HPEN1	= 0x04,
+	CTRL2_HPEN2	= 0x08,
+	CTRL2_FDS_3DLH	= 0x10,
+	CTRL2_BOOT_3DLH	= 0x80,
+};
+
+enum lis331dlh_ctrl4 {
+	CTRL4_STSIGN	= 0x08,
+	CTRL4_BLE	= 0x40,
+	CTRL4_BDU	= 0x80,
+};
+
+enum lis331dlh_ctrl5 {
+	CTRL5_TURNON0	= 0x01,
+	CTRL5_TURNON1	= 0x20,
+};
+
 enum lis3lv02d_ctrl2 {
 	CTRL2_DAS	= 0x01,
 	CTRL2_SIM	= 0x02,
@@ -146,6 +188,13 @@ enum lis3lv02d_ctrl4_3dc {
 	CTRL4_ST1	= 0x04,
 	CTRL4_FS0	= 0x10,
 	CTRL4_FS1	= 0x20,
+};
+
+/* Measurement Range */
+enum lis3lv02d_fs {
+	FS_2G_REGVAL = 0x00,
+	FS_4G_REGVAL = 0x10,
+	FS_8G_REGVAL = 0x30,
 };
 
 enum lis302d_ctrl2 {
@@ -185,6 +234,10 @@ enum lis3lv02d_ff_wu_cfg {
 	FF_WU_CFG_AOI	= 0x80,
 };
 
+enum lis331dlh_ff_wu_cfg {
+	FF_WU_CFG_6D	= 0x40,
+};
+
 enum lis3lv02d_ff_wu_src {
 	FF_WU_SRC_XL	= 0x01,
 	FF_WU_SRC_XH	= 0x02,
@@ -204,6 +257,10 @@ enum lis3lv02d_dd_cfg {
 	DD_CFG_ZHIE	= 0x20,
 	DD_CFG_LIR	= 0x40,
 	DD_CFG_IEND	= 0x80,
+};
+
+enum lis331dlh_dd_cfg {
+	DD_CFG_6D	= 0x40,
 };
 
 enum lis3lv02d_dd_src {
@@ -282,6 +339,8 @@ struct lis3lv02d {
 
 	struct lis3lv02d_platform_data *pdata;	/* for passing board config */
 	struct mutex		mutex;     /* Serialize poll and selftest */
+	u8			g_range; /* Hold the g range */
+	u8			shift_adj;
 };
 
 int lis3lv02d_init_device(struct lis3lv02d *lis3);

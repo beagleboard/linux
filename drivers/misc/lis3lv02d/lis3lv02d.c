@@ -80,6 +80,17 @@
 #define LIS3_SENSITIVITY_12B		((LIS3_ACCURACY * 1000) / 1024)
 #define LIS3_SENSITIVITY_8B		(18 * LIS3_ACCURACY)
 
+/* Sensitivity values for -2G, -4G, -8G and +2G, +4G, +8G scale */
+#define LIS3DLH_SENSITIVITY_2G		(LIS3_ACCURACY * 1)
+#define LIS3DLH_SENSITIVITY_4G		(LIS3_ACCURACY * 2)
+#define LIS3DLH_SENSITIVITY_8G		((LIS3_ACCURACY * 39)/10)
+
+#define SHIFT_ADJ_2G			4
+#define SHIFT_ADJ_4G			3
+#define SHIFT_ADJ_8G			2
+
+#define FS_MASK				(0x3 << 4)
+
 #define LIS3_DEFAULT_FUZZ_12B		3
 #define LIS3_DEFAULT_FLAT_12B		3
 #define LIS3_DEFAULT_FUZZ_8B		1
@@ -148,6 +159,12 @@ static inline int lis3lv02d_get_axis(s8 axis, int hw_values[3])
 		return -hw_values[-axis - 1];
 }
 
+static int lis3lv02d_decode(u8 pl, u8 ph, int adj)
+{
+	s16 v = pl | ph << 8;
+	return (int) v >> adj;
+}
+
 /**
  * lis3lv02d_get_xyz - Get X, Y and Z axis values from the accelerometer
  * @lis3: pointer to the device struct
@@ -176,9 +193,24 @@ static void lis3lv02d_get_xyz(struct lis3lv02d *lis3, int *x, int *y, int *z)
 				position[i] = (s8)data[i * 2];
 		}
 	} else {
-		position[0] = lis3->read_data(lis3, OUTX);
-		position[1] = lis3->read_data(lis3, OUTY);
-		position[2] = lis3->read_data(lis3, OUTZ);
+		if (lis3_dev.whoami == WAI_3DLH) {
+			position[0] =
+				lis3lv02d_decode(lis3->read_data(lis3, OUTX_L),
+				lis3->read_data(lis3, OUTX_H),
+				lis3_dev.shift_adj);
+			position[1] =
+				lis3lv02d_decode(lis3->read_data(lis3, OUTY_L),
+				lis3->read_data(lis3, OUTY_H),
+				lis3_dev.shift_adj);
+			position[2] =
+				lis3lv02d_decode(lis3->read_data(lis3, OUTZ_L),
+				lis3->read_data(lis3, OUTZ_H),
+				lis3_dev.shift_adj);
+		} else {
+			position[0] = lis3->read_data(lis3, OUTX);
+			position[1] = lis3->read_data(lis3, OUTY);
+			position[2] = lis3->read_data(lis3, OUTZ);
+		}
 	}
 
 	for (i = 0; i < 3; i++)
@@ -193,6 +225,7 @@ static void lis3lv02d_get_xyz(struct lis3lv02d *lis3, int *x, int *y, int *z)
 static int lis3_12_rates[4] = {40, 160, 640, 2560};
 static int lis3_8_rates[2] = {100, 400};
 static int lis3_3dc_rates[16] = {0, 1, 10, 25, 50, 100, 200, 400, 1600, 5000};
+static int lis3_3dlh_rates[4] = {50, 100, 400, 1000};
 
 /* ODR is Output Data Rate */
 static int lis3lv02d_get_odr(struct lis3lv02d *lis3)
@@ -265,7 +298,7 @@ static int lis3lv02d_selftest(struct lis3lv02d *lis3, s16 results[3])
 				(LIS3_IRQ1_DATA_READY | LIS3_IRQ2_DATA_READY));
 	}
 
-	if (lis3->whoami == WAI_3DC) {
+	if ((lis3_dev.whoami == WAI_3DC) || (lis3_dev.whoami == WAI_3DLH)) {
 		ctlreg = CTRL_REG4;
 		selftest = CTRL4_ST0;
 	} else {
@@ -396,6 +429,8 @@ int lis3lv02d_poweron(struct lis3lv02d *lis3)
 		lis3->read(lis3, CTRL_REG2, &reg);
 		if (lis3->whoami ==  WAI_12B)
 			reg |= CTRL2_BDU | CTRL2_BOOT;
+		else if (lis3->whoami ==  WAI_3DLH)
+			reg |= CTRL2_BOOT_3DLH;
 		else
 			reg |= CTRL2_BOOT_8B;
 		lis3->write(lis3, CTRL_REG2, reg);
@@ -724,6 +759,36 @@ void lis3lv02d_joystick_disable(struct lis3lv02d *lis3)
 }
 EXPORT_SYMBOL_GPL(lis3lv02d_joystick_disable);
 
+static void lis3lv02d_update_g_range(struct lis3lv02d *lis3)
+{
+	u8 reg;
+	u8 val;
+	u8 shift;
+
+	switch (lis3->g_range) {
+	case 8:
+		val = FS_8G_REGVAL;
+		shift = SHIFT_ADJ_8G;
+		lis3->scale = LIS3DLH_SENSITIVITY_8G;
+		break;
+	case 4:
+		val = FS_4G_REGVAL;
+		shift = SHIFT_ADJ_4G;
+		lis3->scale = LIS3DLH_SENSITIVITY_4G;
+		break;
+	case 2:
+	default:
+		val = FS_2G_REGVAL;
+		shift = SHIFT_ADJ_2G;
+		lis3->scale = LIS3DLH_SENSITIVITY_2G;
+		break;
+	}
+
+	lis3->shift_adj = shift;
+	lis3->read(lis3, CTRL_REG4, &reg);
+	lis3->write(lis3, CTRL_REG4, ((reg & ~FS_MASK) | val));
+}
+
 /* Sysfs stuff */
 static void lis3lv02d_sysfs_poweron(struct lis3lv02d *lis3)
 {
@@ -792,6 +857,13 @@ static ssize_t lis3lv02d_rate_show(struct device *dev,
 	return sprintf(buf, "%d\n", lis3lv02d_get_odr(lis3));
 }
 
+static ssize_t lis3lv02d_range_show(struct device *dev,
+			       struct device_attribute *attr, char *buf)
+{
+	lis3lv02d_sysfs_poweron(&lis3_dev);
+	return sprintf(buf, "%d\n", lis3_dev.g_range);
+}
+
 static ssize_t lis3lv02d_rate_set(struct device *dev,
 				struct device_attribute *attr, const char *buf,
 				size_t count)
@@ -809,15 +881,33 @@ static ssize_t lis3lv02d_rate_set(struct device *dev,
 	return count;
 }
 
+static ssize_t lis3lv02d_range_set(struct device *dev,
+				struct device_attribute *attr, const char *buf,
+				size_t count)
+{
+	unsigned long range;
+
+	if (strict_strtoul(buf, 0, &range))
+		return -EINVAL;
+
+	lis3_dev.g_range = range;
+	lis3lv02d_update_g_range(&lis3_dev);
+
+	return count;
+}
+
 static DEVICE_ATTR(selftest, S_IRUSR, lis3lv02d_selftest_show, NULL);
 static DEVICE_ATTR(position, S_IRUGO, lis3lv02d_position_show, NULL);
 static DEVICE_ATTR(rate, S_IRUGO | S_IWUSR, lis3lv02d_rate_show,
 					    lis3lv02d_rate_set);
+static DEVICE_ATTR(range, S_IRUGO | S_IWUSR, lis3lv02d_range_show,
+					    lis3lv02d_range_set);
 
 static struct attribute *lis3lv02d_attributes[] = {
 	&dev_attr_selftest.attr,
 	&dev_attr_position.attr,
 	&dev_attr_rate.attr,
+	&dev_attr_range.attr,
 	NULL
 };
 
@@ -953,6 +1043,19 @@ int lis3lv02d_init_device(struct lis3lv02d *lis3)
 		lis3->odrs = lis3_3dc_rates;
 		lis3->odr_mask = CTRL1_ODR0|CTRL1_ODR1|CTRL1_ODR2|CTRL1_ODR3;
 		lis3->scale = LIS3_SENSITIVITY_8B;
+		break;
+	case WAI_3DLH:
+		pr_info("8 bits 3DLH sensor found\n");
+		lis3->read_data = lis3lv02d_read_8;
+		lis3->mdps_max_val = 128;
+		lis3->pwron_delay = LIS3_PWRON_DELAY_WAI_8B;
+		lis3->odrs = lis3_3dlh_rates;
+		lis3->odr_mask = CTRL1_DR0 | CTRL1_DR1;
+		if (lis3->pdata) {
+			lis3->g_range = lis3->pdata->g_range;
+			lis3lv02d_update_g_range(lis3);
+		} else
+			lis3->scale = LIS3DLH_SENSITIVITY_2G;
 		break;
 	default:
 		pr_err("unknown sensor type 0x%X\n", lis3->whoami);

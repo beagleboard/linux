@@ -25,6 +25,7 @@
  * @axis_x:		Sensor orientation remapping for x-axis
  * @axis_y:		Sensor orientation remapping for y-axis
  * @axis_z:		Sensor orientation remapping for z-axis
+ * @g_range:		Value contains the acceleration range, +/-2, +/-4 and +/-8
  * @driver_features:	Enable bits for different features. Disabled by default
  * @default_rate:	Default sampling rate. 0 means reset default
  * @setup_resources:	Interrupt line setup call back function
@@ -113,6 +114,7 @@ struct lis3lv02d_platform_data {
 	s8 axis_x;
 	s8 axis_y;
 	s8 axis_z;
+	u8 g_range;
 #define LIS3_USE_BLOCK_READ	0x02
 	u16 driver_features;
 	int default_rate;
