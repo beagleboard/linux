@@ -52,6 +52,7 @@
 #include <plat/mmc.h>
 
 #include "board-flash.h"
+#include "cpuidle33xx.h"
 #include "mux.h"
 #include "devices.h"
 #include "hsmmc.h"
@@ -1838,8 +1839,56 @@ static void __init clkout2_enable(void)
 	setup_pin_mux(clkout2_pin_mux);
 }
 
+void __iomem * __init am33xx_get_mem_ctlr(void)
+{
+	void __iomem *am33xx_emif_base;
+
+	am33xx_emif_base = ioremap(AM33XX_EMIF0_BASE, SZ_32K);
+
+	if (!am33xx_emif_base)
+		pr_warning("%s: Unable to map DDR2 controller",	__func__);
+
+	return am33xx_emif_base;
+}
+
+static struct resource am33xx_cpuidle_resources[] = {
+	{
+		.start		= AM33XX_EMIF0_BASE,
+		.end		= AM33XX_EMIF0_BASE + SZ_32K - 1,
+		.flags		= IORESOURCE_MEM,
+	},
+};
+
+/* AM33XX devices support DDR2 power down */
+static struct am33xx_cpuidle_config am33xx_cpuidle_pdata = {
+	.ddr2_pdown	= 1,
+};
+
+static struct platform_device am33xx_cpuidle_device = {
+	.name			= "cpuidle-am33xx",
+	.num_resources		= ARRAY_SIZE(am33xx_cpuidle_resources),
+	.resource		= am33xx_cpuidle_resources,
+	.dev = {
+		.platform_data	= &am33xx_cpuidle_pdata,
+	},
+};
+
+static void __init am33xx_cpuidle_init(void)
+{
+	int ret;
+
+	am33xx_cpuidle_pdata.emif_base = am33xx_get_mem_ctlr();
+
+	ret = platform_device_register(&am33xx_cpuidle_device);
+
+	if (ret)
+		pr_warning("AM33XX cpuidle registration failed\n");
+
+}
+
 static void __init am335x_evm_init(void)
 {
+	am33xx_cpuidle_init();
 	am33xx_mux_init(board_mux);
 	omap_serial_init();
 	am335x_rtc_init();
