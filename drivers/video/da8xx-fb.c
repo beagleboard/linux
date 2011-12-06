@@ -769,6 +769,7 @@ static irqreturn_t lcdc_irq_handler_rev02(int irq, void *arg)
 	u32 reg_int;
 
 	if ((stat & LCD_SYNC_LOST) && (stat & LCD_FIFO_UNDERFLOW)) {
+		printk(KERN_ERR "LCDC sync lost or underflow error occured\n");
 		lcd_disable_raster();
 		clk_disable(par->lcdc_clk);
 		lcdc_write(stat, LCD_MASKED_STAT_REG);
@@ -832,6 +833,7 @@ static irqreturn_t lcdc_irq_handler_rev01(int irq, void *arg)
 	u32 reg_ras;
 
 	if ((stat & LCD_SYNC_LOST) && (stat & LCD_FIFO_UNDERFLOW)) {
+		printk(KERN_ERR "LCDC sync lost or underflow error occured\n");
 		lcd_disable_raster();
 		clk_disable(par->lcdc_clk);
 		lcdc_write(stat, LCD_STAT_REG);
