@@ -21,7 +21,7 @@
 
 #include <asm/cputype.h>
 
-#include <plat/common.h>
+#include "common.h"
 #include <plat/cpu.h>
 
 #include <mach/id.h>
@@ -340,6 +340,10 @@ static void __init omap3_check_revision(const char **cpu_rev)
 			break;
 		}
 		break;
+	case 0xb944:
+		omap_revision = AM335X_REV_ES1_0;
+		*cpu_rev = "1.0";
+		break;
 	default:
 		/* Unknown default to latest silicon rev as default */
 		omap_revision = OMAP3630_REV_ES1_2;
@@ -367,7 +371,7 @@ static void __init omap4_check_revision(void)
 	 * Few initial 4430 ES2.0 samples IDCODE is same as ES1.0
 	 * Use ARM register to detect the correct ES version
 	 */
-	if (!rev && (hawkeye != 0xb94e)) {
+	if (!rev && (hawkeye != 0xb94e) && (hawkeye != 0xb975)) {
 		idcode = read_cpuid(CPUID_ID);
 		rev = (idcode & 0xf) - 1;
 	}
@@ -389,8 +393,11 @@ static void __init omap4_check_revision(void)
 			omap_revision = OMAP4430_REV_ES2_1;
 			break;
 		case 4:
-		default:
 			omap_revision = OMAP4430_REV_ES2_2;
+			break;
+		case 6:
+		default:
+			omap_revision = OMAP4430_REV_ES2_3;
 		}
 		break;
 	case 0xb94e:
@@ -401,9 +408,17 @@ static void __init omap4_check_revision(void)
 			break;
 		}
 		break;
+	case 0xb975:
+		switch (rev) {
+		case 0:
+		default:
+			omap_revision = OMAP4470_REV_ES1_0;
+			break;
+		}
+		break;
 	default:
 		/* Unknown default to latest silicon rev as default */
-		omap_revision = OMAP4430_REV_ES2_2;
+		omap_revision = OMAP4430_REV_ES2_3;
 	}
 
 	pr_info("OMAP%04x ES%d.%d\n", omap_rev() >> 16,
@@ -432,6 +447,8 @@ static void __init omap3_cpuinfo(const char *cpu_rev)
 		cpu_name = (omap3_has_sgx()) ? "AM3517" : "AM3505";
 	} else if (cpu_is_ti816x()) {
 		cpu_name = "TI816X";
+	} else if (cpu_is_am335x()) {
+		cpu_name =  "AM335X";
 	} else if (omap3_has_iva() && omap3_has_sgx()) {
 		/* OMAP3430, OMAP3525, OMAP3515, OMAP3503 devices */
 		cpu_name = "OMAP3430/3530";

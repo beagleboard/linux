@@ -25,6 +25,7 @@ config ARCH_OMAP2
 	depends on ARCH_OMAP2PLUS
 	default y
 	select CPU_V6
+	select MULTI_IRQ_HANDLER
 
 config ARCH_OMAP3
 	bool "TI OMAP3"
@@ -36,6 +37,7 @@ config ARCH_OMAP3
 	select ARCH_HAS_OPP
 	select PM_OPP if PM
 	select ARM_CPU_SUSPEND if PM
+	select MULTI_IRQ_HANDLER
 
 config ARCH_OMAP4
 	bool "TI OMAP4"
@@ -76,6 +78,11 @@ config SOC_OMAP3430
 
 config SOC_OMAPTI816X
 	bool "TI816X support"
+	depends on ARCH_OMAP3
+	default y
+
+config SOC_OMAPAM33XX
+	bool "AM33XX support"
 	depends on ARCH_OMAP3
 	default y
 
@@ -176,6 +183,12 @@ config MACH_OMAP3_TORPEDO
 	 Support for the LogicPD OMAP35x Torpedo Development kit
 	 for full description please see the products webpage at
 	 http://www.logicpd.com/products/development-kits/zoom-omap35x-torpedo-development-kit
+
+config MACH_ENCORE
+        bool "Barnes & Noble Encore (Nook Color)"
+        depends on ARCH_OMAP3
+	default y
+        select OMAP_PACKAGE_CBP
 
 config MACH_OVERO
 	bool "Gumstix Overo board"
@@ -330,6 +343,12 @@ config MACH_OMAP4_PANDA
 	select OMAP_PACKAGE_CBL
 	select OMAP_PACKAGE_CBS
 	select REGULATOR_FIXED_VOLTAGE
+
+config MACH_PCM049
+	bool "OMAP4 based phyCORE OMAP4"
+	depends on ARCH_OMAP4
+	default y
+	select OMAP_PACKAGE_CBS
 
 config OMAP3_EMU
 	bool "OMAP3 debugging peripherals"
