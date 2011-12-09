@@ -25,6 +25,7 @@ config ARCH_OMAP2
 	depends on ARCH_OMAP2PLUS
 	default y
 	select CPU_V6
+	select MULTI_IRQ_HANDLER
 
 config ARCH_OMAP3
 	bool "TI OMAP3"
@@ -36,6 +37,7 @@ config ARCH_OMAP3
 	select ARCH_HAS_OPP
 	select PM_OPP if PM
 	select ARM_CPU_SUSPEND if PM
+	select MULTI_IRQ_HANDLER
 
 config ARCH_OMAP4
 	bool "TI OMAP4"
@@ -79,6 +81,11 @@ config SOC_OMAPTI816X
 	depends on ARCH_OMAP3
 	default y
 
+config SOC_OMAPAM33XX
+	bool "AM33XX support"
+	depends on ARCH_OMAP3
+	default y
+
 config OMAP_PACKAGE_ZAF
        bool
 
@@ -109,7 +116,6 @@ comment "OMAP Board Type"
 config MACH_OMAP_GENERIC
 	bool "Generic OMAP2+ board"
 	depends on ARCH_OMAP2PLUS
-	select USE_OF
 	default y
 	help
 	  Support for generic TI OMAP2+ boards using Flattened Device Tree.
@@ -176,6 +182,12 @@ config MACH_OMAP3_TORPEDO
 	 Support for the LogicPD OMAP35x Torpedo Development kit
 	 for full description please see the products webpage at
 	 http://www.logicpd.com/products/development-kits/zoom-omap35x-torpedo-development-kit
+
+config MACH_ENCORE
+        bool "Barnes & Noble Encore (Nook Color)"
+        depends on ARCH_OMAP3
+	default y
+        select OMAP_PACKAGE_CBP
 
 config MACH_OVERO
 	bool "Gumstix Overo board"
@@ -331,6 +343,12 @@ config MACH_OMAP4_PANDA
 	select OMAP_PACKAGE_CBS
 	select REGULATOR_FIXED_VOLTAGE
 
+config MACH_PCM049
+	bool "OMAP4 based phyCORE OMAP4"
+	depends on ARCH_OMAP4
+	default y
+	select OMAP_PACKAGE_CBS
+
 config OMAP3_EMU
 	bool "OMAP3 debugging peripherals"
 	depends on ARCH_OMAP3
@@ -351,6 +369,27 @@ config OMAP3_SDRC_AC_TIMING
 	  wish to say no.  Selecting yes without understanding what is
 	  going on could result in system crashes;
 
+config OMAP4_ERRATA_I688
+	bool "OMAP4 errata: Async Bridge Corruption"
+	depends on ARCH_OMAP4
+	select ARCH_HAS_BARRIERS
+	help
+	  If a data is stalled inside asynchronous bridge because of back
+	  pressure, it may be accepted multiple times, creating pointer
+	  misalignment that will corrupt next transfers on that data path
+	  until next reset of the system (No recovery procedure once the
+	  issue is hit, the path remains consistently broken). Async bridge
+	  can be found on path between MPU to EMIF and MPU to L3 interconnect.
+	  This situation can happen only when the idle is initiated by a
+	  Master Request Disconnection (which is trigged by software when
+	  executing WFI on CPU).
+	  The work-around for this errata needs all the initiators connected
+	  through async bridge must ensure that data path is properly drained
+	  before issuing WFI. This condition will be met if one Strongly ordered
+	  access is performed to the target right before executing the WFI.
+	  In MPU case, L3 T2ASYNC FIFO and DDR T2ASYNC FIFO needs to be drained.
+	  IO barrier ensure that there is no synchronisation loss on initiators
+	  operating on both interconnect port simultaneously.
 endmenu
 
 endif

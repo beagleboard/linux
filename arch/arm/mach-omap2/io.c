@@ -35,7 +35,7 @@
 #include "clock3xxx.h"
 #include "clock44xx.h"
 
-#include <plat/common.h>
+#include "common.h"
 #include <plat/omap-pm.h>
 #include "voltage.h"
 #include "powerdomain.h"
@@ -43,7 +43,7 @@
 #include "clockdomain.h"
 #include <plat/omap_hwmod.h>
 #include <plat/multi.h>
-#include <plat/common.h>
+#include "common.h"
 
 /*
  * The machine specific code may provide the extra mapping besides the
@@ -183,7 +183,24 @@ static struct map_desc omapti816x_io_desc[] __initdata = {
 		.pfn		= __phys_to_pfn(L4_34XX_PHYS),
 		.length		= L4_34XX_SIZE,
 		.type		= MT_DEVICE
+	}
+};
+#endif
+
+#ifdef CONFIG_SOC_OMAPAM33XX
+static struct map_desc omapam33xx_io_desc[] __initdata = {
+	{
+		.virtual	= L4_34XX_VIRT,
+		.pfn		= __phys_to_pfn(L4_34XX_PHYS),
+		.length		= L4_34XX_SIZE,
+		.type		= MT_DEVICE
 	},
+	{
+		.virtual	= L4_WK_AM33XX_VIRT,
+		.pfn		= __phys_to_pfn(L4_WK_AM33XX_PHYS),
+		.length		= L4_WK_AM33XX_SIZE,
+		.type		= MT_DEVICE
+	}
 };
 #endif
 
@@ -237,6 +254,15 @@ static struct map_desc omap44xx_io_desc[] __initdata = {
 		.length		= L4_EMU_44XX_SIZE,
 		.type		= MT_DEVICE,
 	},
+#ifdef CONFIG_OMAP4_ERRATA_I688
+	{
+		.virtual	= OMAP4_SRAM_VA,
+		.pfn		= __phys_to_pfn(OMAP4_SRAM_PA),
+		.length		= PAGE_SIZE,
+		.type		= MT_MEMORY_SO,
+	},
+#endif
+
 };
 #endif
 
@@ -267,6 +293,13 @@ void __init omap34xx_map_common_io(void)
 void __init omapti816x_map_common_io(void)
 {
 	iotable_init(omapti816x_io_desc, ARRAY_SIZE(omapti816x_io_desc));
+}
+#endif
+
+#ifdef CONFIG_SOC_OMAPAM33XX
+void __init omapam33xx_map_common_io(void)
+{
+	iotable_init(omapam33xx_io_desc, ARRAY_SIZE(omapam33xx_io_desc));
 }
 #endif
 
@@ -316,13 +349,9 @@ static int _set_hwmod_postsetup_state(struct omap_hwmod *oh, void *data)
 	return omap_hwmod_set_postsetup_state(oh, *(u8 *)data);
 }
 
-/* See irq.c, omap4-common.c and entry-macro.S */
-void __iomem *omap_irq_base;
-
 static void __init omap_common_init_early(void)
 {
 	omap2_check_revision();
-	omap_ioremap_init();
 	omap_init_consistent_dma_size();
 }
 
