@@ -24,6 +24,10 @@ config ARCH_OMAP2PLUS
 	select CLKDEV_LOOKUP
 	select GENERIC_IRQ_CHIP
 	select OMAP_DM_TIMER
+	select USE_OF
+	select ARM_APPENDED_DTB
+	select ARM_ATAG_DTB_COMPAT
+	select PROC_DEVICETREE
 	help
 	  "Systems based on OMAP2, OMAP3 or OMAP4"
 
