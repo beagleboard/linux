@@ -47,6 +47,7 @@
 #include <plat/omap_device.h>
 #include <plat/omap4-keypad.h>
 #include <plat/config_pwm.h>
+#include <plat/cpu.h>
 
 /* LCD controller similar DA8xx */
 #include <video/da8xx-fb.h>
@@ -1374,6 +1375,11 @@ void omap_init_pwmss(void)
 	am335x_register_ecap();
 }
 
+static struct platform_device am335x_sgx = {
+	.name	= "sgx",
+	.id	= -1,
+};
+
 #endif
 
 /*-------------------------------------------------------------------------*/
@@ -1402,6 +1408,8 @@ static int __init omap2_init_devices(void)
 #if defined (CONFIG_SOC_OMAPAM33XX)
 	am335x_register_pruss_uio(&am335x_pruss_uio_pdata);
 	omap_init_pwmss();
+	if (omap3_has_sgx())
+		platform_device_register(&am335x_sgx);
 #endif
 	return 0;
 }
