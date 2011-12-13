@@ -98,8 +98,6 @@ extern void (*musb_writeb)(void __iomem *addr, unsigned offset, u8 data);
 
 /****************************** PERIPHERAL ROLE *****************************/
 
-#define	is_peripheral_capable()	(1)
-
 extern irqreturn_t musb_g_ep0_irq(struct musb *);
 extern void musb_g_tx(struct musb *, u8);
 extern void musb_g_rx(struct musb *, u8);
@@ -110,8 +108,6 @@ extern void musb_g_wakeup(struct musb *);
 extern void musb_g_disconnect(struct musb *);
 
 /****************************** HOST ROLE ***********************************/
-
-#define	is_host_capable()	(1)
 
 extern irqreturn_t musb_h_ep0_irq(struct musb *);
 extern void musb_host_tx(struct musb *, u8);

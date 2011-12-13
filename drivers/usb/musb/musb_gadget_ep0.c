@@ -87,7 +87,7 @@ static int service_tx_status_request(
 	case USB_RECIP_DEVICE:
 		result[0] = musb->is_self_powered << USB_DEVICE_SELF_POWERED;
 		result[0] |= musb->may_wakeup << USB_DEVICE_REMOTE_WAKEUP;
-		if (musb->g.is_otg) {
+		if (is_otg_enabled(musb) && musb->g.is_otg) {
 			result[0] |= musb->g.b_hnp_enable
 				<< USB_DEVICE_B_HNP_ENABLE;
 			result[0] |= musb->g.a_alt_hnp_support
@@ -390,20 +390,26 @@ __acquires(musb->lock)
 						musb->test_mode = true;
 					break;
 				case USB_DEVICE_B_HNP_ENABLE:
-					if (!musb->g.is_otg)
-						goto stall;
-					musb->g.b_hnp_enable = 1;
-					musb_try_b_hnp_enable(musb);
+					if (is_otg_enabled(musb)) {
+						if (!musb->g.is_otg)
+							goto stall;
+						musb->g.b_hnp_enable = 1;
+						musb_try_b_hnp_enable(musb);
+					}
 					break;
 				case USB_DEVICE_A_HNP_SUPPORT:
-					if (!musb->g.is_otg)
-						goto stall;
-					musb->g.a_hnp_support = 1;
+					if (is_otg_enabled(musb)) {
+						if (!musb->g.is_otg)
+							goto stall;
+						musb->g.a_hnp_support = 1;
+					}
 					break;
 				case USB_DEVICE_A_ALT_HNP_SUPPORT:
-					if (!musb->g.is_otg)
-						goto stall;
-					musb->g.a_alt_hnp_support = 1;
+					if (is_otg_enabled(musb)) {
+						if (!musb->g.is_otg)
+							goto stall;
+						musb->g.a_alt_hnp_support = 1;
+					}
 					break;
 				case USB_DEVICE_DEBUG_MODE:
 					handled = 0;
