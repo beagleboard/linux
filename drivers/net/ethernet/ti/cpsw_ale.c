@@ -20,6 +20,8 @@
 #include <linux/io.h>
 #include <linux/stat.h>
 #include <linux/sysfs.h>
+#include <linux/export.h>
+#include <linux/module.h>
 
 #include "cpsw_ale.h"
 
@@ -352,6 +354,7 @@ int cpsw_ale_add_ucast(struct cpsw_ale *ale, u8 *addr, int port, int flags)
 	cpsw_ale_write(ale, idx, ale_entry);
 	return 0;
 }
+EXPORT_SYMBOL_GPL(cpsw_ale_add_ucast);
 
 int cpsw_ale_del_ucast(struct cpsw_ale *ale, u8 *addr, int port)
 {
@@ -366,6 +369,7 @@ int cpsw_ale_del_ucast(struct cpsw_ale *ale, u8 *addr, int port)
 	cpsw_ale_write(ale, idx, ale_entry);
 	return 0;
 }
+EXPORT_SYMBOL_GPL(cpsw_ale_del_ucast);
 
 int cpsw_ale_add_mcast(struct cpsw_ale *ale, u8 *addr, int port_mask)
 {
@@ -394,6 +398,7 @@ int cpsw_ale_add_mcast(struct cpsw_ale *ale, u8 *addr, int port_mask)
 	cpsw_ale_write(ale, idx, ale_entry);
 	return 0;
 }
+EXPORT_SYMBOL_GPL(cpsw_ale_add_mcast);
 
 int cpsw_ale_del_mcast(struct cpsw_ale *ale, u8 *addr, int port_mask)
 {
@@ -416,6 +421,7 @@ int cpsw_ale_del_mcast(struct cpsw_ale *ale, u8 *addr, int port_mask)
 	cpsw_ale_write(ale, idx, ale_entry);
 	return 0;
 }
+EXPORT_SYMBOL_GPL(cpsw_ale_del_mcast);
 
 struct ale_control_info {
 	const char	*name;
@@ -488,6 +494,7 @@ int cpsw_ale_control_set(struct cpsw_ale *ale, int port, int control,
 	}
 	return 0;
 }
+EXPORT_SYMBOL_GPL(cpsw_ale_control_set);
 
 int cpsw_ale_control_get(struct cpsw_ale *ale, int port, int control)
 {
@@ -510,6 +517,7 @@ int cpsw_ale_control_get(struct cpsw_ale *ale, int port, int control)
 	tmp = __raw_readl(ale->ale_regs + offset) >> shift;
 	return tmp & BITMASK(info->bits);
 }
+EXPORT_SYMBOL_GPL(cpsw_ale_control_get);
 
 static ssize_t cpsw_ale_control_show(struct device *dev,
 				     struct device_attribute *attr,
@@ -650,6 +658,7 @@ void cpsw_ale_start(struct cpsw_ale *ale)
 		add_timer(&ale->timer);
 	}
 }
+EXPORT_SYMBOL_GPL(cpsw_ale_start);
 
 void cpsw_ale_stop(struct cpsw_ale *ale)
 {
@@ -657,6 +666,7 @@ void cpsw_ale_stop(struct cpsw_ale *ale)
 	device_remove_file(ale->params.dev, &ale->ale_table_attr);
 	device_remove_file(ale->params.dev, &ale->ale_control_attr);
 }
+EXPORT_SYMBOL_GPL(cpsw_ale_stop);
 
 struct cpsw_ale *cpsw_ale_create(struct cpsw_ale_params *params)
 {
@@ -673,6 +683,7 @@ struct cpsw_ale *cpsw_ale_create(struct cpsw_ale_params *params)
 
 	return ale;
 }
+EXPORT_SYMBOL_GPL(cpsw_ale_create);
 
 int cpsw_ale_destroy(struct cpsw_ale *ale)
 {
@@ -683,3 +694,8 @@ int cpsw_ale_destroy(struct cpsw_ale *ale)
 	kfree(ale);
 	return 0;
 }
+EXPORT_SYMBOL_GPL(cpsw_ale_destroy);
+
+MODULE_DESCRIPTION("Ethernet Switch Address Lookup Engine driver");
+MODULE_AUTHOR("Chandan Nath <chandan.nath@ti.com>");
+MODULE_LICENSE("GPL");
