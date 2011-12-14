@@ -84,6 +84,16 @@ static void _write_clktrctrl(u8 c, s16 module, u32 mask)
 	omap2_cm_write_mod_reg(v, module, OMAP2_CM_CLKSTCTRL);
 }
 
+static void _am33xx_write_clktrctrl(u8 c, s16 module, u16 idx, u32 mask)
+{
+	u32 v;
+
+	v = omap2_cm_read_mod_reg(module, idx);
+	v &= ~mask;
+	v |= c << __ffs(mask);
+	omap2_cm_write_mod_reg(v, module, idx);
+}
+
 bool omap2_cm_is_clkdm_in_hwsup(s16 module, u32 mask)
 {
 	u32 v;
@@ -193,6 +203,30 @@ void omap2xxx_cm_set_apll96_auto_low_power_stop(void)
 {
 	_omap2xxx_set_apll_autoidle(OMAP2XXX_APLL_AUTOIDLE_DISABLE,
 				    OMAP24XX_AUTO_96M_MASK);
+}
+
+void am33xx_cm_clkdm_enable_hwsup(s16 inst, u16 clkdm, u32 mask)
+{
+	_am33xx_write_clktrctrl(OMAP34XX_CLKSTCTRL_ENABLE_AUTO, inst,
+				clkdm, mask);
+}
+
+void am33xx_cm_clkdm_disable_hwsup(s16 inst, u16 clkdm, u32 mask)
+{
+	_am33xx_write_clktrctrl(OMAP34XX_CLKSTCTRL_DISABLE_AUTO, inst,
+				clkdm, mask);
+}
+
+void am33xx_cm_clkdm_force_sleep(s16 inst, u16 clkdm, u32 mask)
+{
+	_am33xx_write_clktrctrl(OMAP34XX_CLKSTCTRL_FORCE_SLEEP, inst,
+				clkdm, mask);
+}
+
+void am33xx_cm_clkdm_force_wakeup(s16 inst, u16 clkdm, u32 mask)
+{
+	_am33xx_write_clktrctrl(OMAP34XX_CLKSTCTRL_FORCE_WAKEUP, inst,
+				clkdm, mask);
 }
 
 /*

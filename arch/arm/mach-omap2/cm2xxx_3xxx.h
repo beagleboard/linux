@@ -122,6 +122,12 @@ extern void omap3xxx_cm_clkdm_disable_hwsup(s16 module, u32 mask);
 extern void omap3xxx_cm_clkdm_force_sleep(s16 module, u32 mask);
 extern void omap3xxx_cm_clkdm_force_wakeup(s16 module, u32 mask);
 
+extern int am33xx_cm_wait_module_ready(u16 inst, u16 clkctrl_reg);
+extern void am33xx_cm_clkdm_enable_hwsup(s16 inst, u16 clkdm, u32 mask);
+extern void am33xx_cm_clkdm_disable_hwsup(s16 inst, u16 clkdm, u32 mask);
+extern void am33xx_cm_clkdm_force_sleep(s16 inst, u16 clkdm, u32 mask);
+extern void am33xx_cm_clkdm_force_wakeup(s16 inst, u16 clkdm, u32 mask);
+
 extern void omap2xxx_cm_set_dpll_disable_autoidle(void);
 extern void omap2xxx_cm_set_dpll_auto_low_power_stop(void);
 

@@ -147,6 +147,9 @@ static void _enable_hwsup(struct clockdomain *clkdm)
 	if (cpu_is_omap24xx())
 		omap2xxx_cm_clkdm_enable_hwsup(clkdm->pwrdm.ptr->prcm_offs,
 					       clkdm->clktrctrl_mask);
+	else if (cpu_is_am33xx())
+		am33xx_cm_clkdm_enable_hwsup(clkdm->cm_inst, clkdm->clkdm_offs,
+					       clkdm->clktrctrl_mask);
 	else if (cpu_is_omap34xx())
 		omap3xxx_cm_clkdm_enable_hwsup(clkdm->pwrdm.ptr->prcm_offs,
 					       clkdm->clktrctrl_mask);
@@ -157,6 +160,9 @@ static void _disable_hwsup(struct clockdomain *clkdm)
 	if (cpu_is_omap24xx())
 		omap2xxx_cm_clkdm_disable_hwsup(clkdm->pwrdm.ptr->prcm_offs,
 						clkdm->clktrctrl_mask);
+	else if (cpu_is_am33xx())
+		am33xx_cm_clkdm_disable_hwsup(clkdm->cm_inst, clkdm->clkdm_offs,
+					       clkdm->clktrctrl_mask);
 	else if (cpu_is_omap34xx())
 		omap3xxx_cm_clkdm_disable_hwsup(clkdm->pwrdm.ptr->prcm_offs,
 						clkdm->clktrctrl_mask);
@@ -211,14 +217,22 @@ static int omap2_clkdm_clk_disable(struct clockdomain *clkdm)
 
 static int omap3_clkdm_sleep(struct clockdomain *clkdm)
 {
-	omap3xxx_cm_clkdm_force_sleep(clkdm->pwrdm.ptr->prcm_offs,
+	if (cpu_is_am33xx())
+		am33xx_cm_clkdm_force_sleep(clkdm->cm_inst, clkdm->clkdm_offs,
+				clkdm->clktrctrl_mask);
+	else
+		omap3xxx_cm_clkdm_force_sleep(clkdm->pwrdm.ptr->prcm_offs,
 				clkdm->clktrctrl_mask);
 	return 0;
 }
 
 static int omap3_clkdm_wakeup(struct clockdomain *clkdm)
 {
-	omap3xxx_cm_clkdm_force_wakeup(clkdm->pwrdm.ptr->prcm_offs,
+	if (cpu_is_am33xx())
+		am33xx_cm_clkdm_force_wakeup(clkdm->cm_inst, clkdm->clkdm_offs,
+				clkdm->clktrctrl_mask);
+	else
+		omap3xxx_cm_clkdm_force_wakeup(clkdm->pwrdm.ptr->prcm_offs,
 				clkdm->clktrctrl_mask);
 	return 0;
 }
