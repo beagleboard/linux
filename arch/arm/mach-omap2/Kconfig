@@ -400,6 +400,14 @@ config OMAP4_ERRATA_I688
 	  In MPU case, L3 T2ASYNC FIFO and DDR T2ASYNC FIFO needs to be drained.
 	  IO barrier ensure that there is no synchronisation loss on initiators
 	  operating on both interconnect port simultaneously.
+
+config OMAP3_EDMA
+	bool "OMAP3 EDMA support"
+	default n
+	depends on ARCH_OMAP3
+	help
+	  Select this option if EDMA is used
+
 endmenu
 
 endif

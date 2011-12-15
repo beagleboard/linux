@@ -3,8 +3,15 @@
 #
 
 # Common support
-obj-y := common.o sram.o clock.o devices.o dma.o mux.o \
+obj-y := common.o sram.o clock.o devices.o mux.o \
 	 usb.o fb.o counter_32k.o
+
+ifeq ($(CONFIG_OMAP3_EDMA),y)
+ obj-y += sdma2edma.o
+else
+ obj-y += dma.o
+endif
+
 obj-m :=
 obj-n :=
 obj-  :=
