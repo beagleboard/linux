@@ -585,6 +585,17 @@ static struct pinmux_config d_can_ia_pin_mux[] = {
 	{NULL, 0},
 };
 
+/* Module pin mux for uart2 */
+static struct pinmux_config uart2_pin_mux[] = {
+	{"spi0_sclk.uart2_rxd", OMAP_MUX_MODE1 | AM33XX_SLEWCTRL_SLOW |
+						AM33XX_PIN_INPUT_PULLUP},
+	{"spi0_d0.uart2_txd", OMAP_MUX_MODE1 | AM33XX_PULL_UP |
+						AM33XX_PULL_DISA |
+						AM33XX_SLEWCTRL_SLOW},
+	{NULL, 0},
+};
+
+
 /*
 * @pin_mux - single module pin-mux structure which defines pin-mux
 *			details for all its pins.
@@ -939,6 +950,13 @@ static void usb1_init(int evm_id, int profile)
 static void uart3_init(int evm_id, int profile)
 {
 	setup_pin_mux(uart3_pin_mux);
+	return;
+}
+
+/* setup uart2 */
+static void uart2_init(int evm_id, int profile)
+{
+	setup_pin_mux(uart2_pin_mux);
 	return;
 }
 
@@ -1389,6 +1407,7 @@ static struct evm_dev_cfg gen_purp_evm_dev_cfg[] = {
 	{d_can_init,	DEV_ON_DGHTR_BRD, PROFILE_1},
 	{matrix_keypad_init, DEV_ON_DGHTR_BRD, PROFILE_0},
 	{volume_keys_init,  DEV_ON_DGHTR_BRD, PROFILE_0},
+	{uart2_init,	DEV_ON_DGHTR_BRD, PROFILE_3},
 	{NULL, 0, 0},
 };
 

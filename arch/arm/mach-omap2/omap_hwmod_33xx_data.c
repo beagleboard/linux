@@ -2116,6 +2116,12 @@ static struct omap_hwmod am33xx_uart2_hwmod = {
 };
 
 /* uart3 */
+static struct omap_hwmod_dma_info uart3_edma_reqs[] = {
+	{ .name = "tx",	.dma_req = 30, },
+	{ .name = "rx",	.dma_req = 31, },
+	{ .dma_req = -1 }
+};
+
 static struct omap_hwmod_addr_space am33xx_uart3_addr_space[] = {
 	{
 		.pa_start	= AM33XX_UART3_BASE,
@@ -2147,7 +2153,7 @@ static struct omap_hwmod am33xx_uart3_hwmod = {
 	.mpu_irqs	= am33xx_uart3_irqs,
 	.main_clk	= "uart3_fck",
 	.clkdm_name	= "l4ls_clkdm",
-	.sdma_reqs	= uart1_edma_reqs,
+	.sdma_reqs	= uart3_edma_reqs,
 	.prcm		= {
 		.omap4	= {
 			.clkctrl_offs	= AM33XX_CM_PER_UART2_CLKCTRL_OFFSET,
