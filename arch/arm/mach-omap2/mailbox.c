@@ -127,6 +127,20 @@ static int omap2_mbox_fifo_full(struct omap_mbox *mbox)
 	return mbox_read_reg(fifo->fifo_stat);
 }
 
+static int omap2_mbox_fifo_needs_flush(struct omap_mbox *mbox)
+{
+	struct omap_mbox2_fifo *fifo =
+		&((struct omap_mbox2_priv *)mbox->priv)->tx_fifo;
+	return (mbox_read_reg(fifo->msg_stat) == 0);
+}
+
+static mbox_msg_t omap2_mbox_fifo_readback(struct omap_mbox *mbox)
+{
+	struct omap_mbox2_fifo *fifo =
+		&((struct omap_mbox2_priv *)mbox->priv)->tx_fifo;
+	return (mbox_msg_t) mbox_read_reg(fifo->msg);
+}
+
 /* Mailbox IRQ handle functions */
 static void omap2_mbox_enable_irq(struct omap_mbox *mbox,
 		omap_mbox_type_t irq)
@@ -209,19 +223,21 @@ static void omap2_mbox_restore_ctx(struct omap_mbox *mbox)
 }
 
 static struct omap_mbox_ops omap2_mbox_ops = {
-	.type		= OMAP_MBOX_TYPE2,
-	.startup	= omap2_mbox_startup,
-	.shutdown	= omap2_mbox_shutdown,
-	.fifo_read	= omap2_mbox_fifo_read,
-	.fifo_write	= omap2_mbox_fifo_write,
-	.fifo_empty	= omap2_mbox_fifo_empty,
-	.fifo_full	= omap2_mbox_fifo_full,
-	.enable_irq	= omap2_mbox_enable_irq,
-	.disable_irq	= omap2_mbox_disable_irq,
-	.ack_irq	= omap2_mbox_ack_irq,
-	.is_irq		= omap2_mbox_is_irq,
-	.save_ctx	= omap2_mbox_save_ctx,
-	.restore_ctx	= omap2_mbox_restore_ctx,
+	.type			= OMAP_MBOX_TYPE2,
+	.startup		= omap2_mbox_startup,
+	.shutdown		= omap2_mbox_shutdown,
+	.fifo_read		= omap2_mbox_fifo_read,
+	.fifo_write		= omap2_mbox_fifo_write,
+	.fifo_empty		= omap2_mbox_fifo_empty,
+	.fifo_full		= omap2_mbox_fifo_full,
+	.fifo_needs_flush	= omap2_mbox_fifo_needs_flush,
+	.fifo_readback		= omap2_mbox_fifo_readback,
+	.enable_irq		= omap2_mbox_enable_irq,
+	.disable_irq		= omap2_mbox_disable_irq,
+	.ack_irq		= omap2_mbox_ack_irq,
+	.is_irq			= omap2_mbox_is_irq,
+	.save_ctx		= omap2_mbox_save_ctx,
+	.restore_ctx		= omap2_mbox_restore_ctx,
 };
 
 /*

@@ -29,6 +29,8 @@ struct omap_mbox_ops {
 	void		(*fifo_write)(struct omap_mbox *mbox, mbox_msg_t msg);
 	int		(*fifo_empty)(struct omap_mbox *mbox);
 	int		(*fifo_full)(struct omap_mbox *mbox);
+	int		(*fifo_needs_flush)(struct omap_mbox *mbox);
+	mbox_msg_t	(*fifo_readback)(struct omap_mbox *mbox);
 	/* irq */
 	void		(*enable_irq)(struct omap_mbox *mbox,
 						omap_mbox_irq_t irq);
@@ -61,6 +63,7 @@ struct omap_mbox {
 	struct blocking_notifier_head   notifier;
 };
 
+int omap_mbox_msg_rx_flush(struct omap_mbox *mbox);
 int omap_mbox_msg_send(struct omap_mbox *, mbox_msg_t msg);
 void omap_mbox_init_seq(struct omap_mbox *);
 
