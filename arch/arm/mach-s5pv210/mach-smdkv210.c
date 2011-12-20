@@ -20,6 +20,7 @@
 #include <linux/delay.h>
 #include <linux/pwm_backlight.h>
 
+#include <asm/hardware/vic.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
 #include <asm/setup.h>
@@ -273,6 +274,7 @@ static struct samsung_bl_gpio_info smdkv210_bl_gpio_info = {
 
 static struct platform_pwm_backlight_data smdkv210_bl_data = {
 	.pwm_id = 3,
+	.pwm_period_ns = 1000,
 };
 
 static void __init smdkv210_map_io(void)
@@ -315,6 +317,7 @@ MACHINE_START(SMDKV210, "SMDKV210")
 	/* Maintainer: Kukjin Kim <kgene.kim@samsung.com> */
 	.atag_offset	= 0x100,
 	.init_irq	= s5pv210_init_irq,
+	.handle_irq	= vic_handle_irq,
 	.map_io		= smdkv210_map_io,
 	.init_machine	= smdkv210_machine_init,
 	.timer		= &s5p_timer,
