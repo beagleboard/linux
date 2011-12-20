@@ -26,6 +26,7 @@
 #include "omap_hwmod_common_data.h"
 #include "control.h"
 #include "cm33xx.h"
+#include "prm33xx.h"
 
 /* Backward references (IPs with Bus Master capability) */
 static struct omap_hwmod am33xx_mpu_hwmod;
@@ -1332,6 +1333,7 @@ static struct omap_hwmod am33xx_ocmcram_hwmod = {
 			.modulemode	= MODULEMODE_SWCTRL,
 		},
 	},
+	.flags		= (HWMOD_INIT_NO_IDLE | HWMOD_INIT_NO_RESET),
 };
 
 /* 'ocpwp' class */
@@ -2431,18 +2433,26 @@ static struct omap_hwmod_class am33xx_wkup_m3_hwmod_class = {
 	.name		= "wkup_m3",
 };
 
+static struct omap_hwmod_rst_info am33xx_wkup_m3_resets[] = {
+	{ .name = "wkup_m3", .rst_shift = 3, .st_shift = 5 },
+};
+
 /* wkup_m3 */
 static struct omap_hwmod am33xx_wkup_m3_hwmod = {
 	.name		= "wkup_m3",
 	.class		= &am33xx_wkup_m3_hwmod_class,
 	.clkdm_name	= "l4_wkup_aon_clkdm",
 	.main_clk	= "wkup_m3_fck",
+	.rst_lines	= am33xx_wkup_m3_resets,
+	.rst_lines_cnt	= ARRAY_SIZE(am33xx_wkup_m3_resets),
 	.prcm		= {
 		.omap4	= {
 			.clkctrl_offs	= AM33XX_CM_WKUP_WKUP_M3_CLKCTRL_OFFSET,
+			.rstctrl_offs	= AM33XX_RM_WKUP_RSTCTRL_OFFSET,
 			.modulemode	= MODULEMODE_SWCTRL,
 		},
 	},
+	.flags		= HWMOD_INIT_NO_RESET,	/* Keep hardreset asserted */
 };
 
 /* L3 SLOW -> USBSS interface */
