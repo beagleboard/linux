@@ -155,18 +155,6 @@ static void __init omap_detect_sram(void)
 			omap_sram_size = 0x4000;
 		}
 	}
-	{
-		/* The first SRAM_BOOTLOADER_SZ of SRAM are reserved */
-		void *base = (void *)omap_sram_base + SRAM_BOOTLOADER_SZ;
-		phys_addr_t phys = omap_sram_start + SRAM_BOOTLOADER_SZ;
-		size_t len = omap_sram_size - SRAM_BOOTLOADER_SZ;
-
-		omap_gen_pool = gen_pool_create(ilog2(FNCPY_ALIGN), -1);
-		if (omap_gen_pool)
-			WARN_ON(gen_pool_add_virt(omap_gen_pool,
-					(unsigned long)base, phys, len, -1));
-		WARN_ON(!omap_gen_pool);
-	}
 }
 
 /*
@@ -208,6 +196,18 @@ static void __init omap_map_sram(void)
 	 */
 	memset((void *)omap_sram_base + SRAM_BOOTLOADER_SZ, 0,
 	       omap_sram_size - SRAM_BOOTLOADER_SZ);
+	{
+		/* The first SRAM_BOOTLOADER_SZ of SRAM are reserved */
+		void *base = (void *)omap_sram_base + SRAM_BOOTLOADER_SZ;
+		phys_addr_t phys = omap_sram_start + SRAM_BOOTLOADER_SZ;
+		size_t len = omap_sram_size - SRAM_BOOTLOADER_SZ;
+
+		omap_gen_pool = gen_pool_create(ilog2(FNCPY_ALIGN), -1);
+		if (omap_gen_pool)
+			WARN_ON(gen_pool_add_virt(omap_gen_pool,
+					(unsigned long)base, phys, len, -1));
+		WARN_ON(!omap_gen_pool);
+	}
 }
 
 #ifdef CONFIG_ARCH_OMAP1
