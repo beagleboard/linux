@@ -67,7 +67,7 @@ static int __init omap3_l3_init(void)
 	 * To avoid code running on other OMAPs in
 	 * multi-omap builds
 	 */
-	if (!(cpu_is_omap34xx()))
+	if (!(cpu_is_omap34xx()) || (cpu_is_am33xx()))
 		return -ENODEV;
 
 	l = snprintf(oh_name, L3_MODULES_MAX_LEN, "l3_main");
@@ -406,11 +406,12 @@ static void omap_init_audio(void)
 {
 	platform_device_register(&omap_mcbsp1);
 	platform_device_register(&omap_mcbsp2);
-	if (cpu_is_omap243x() || cpu_is_omap34xx() || cpu_is_omap44xx()) {
+	if ((cpu_is_omap243x() || cpu_is_omap34xx() || cpu_is_omap44xx()) &&
+		!cpu_is_am33xx()) {
 		platform_device_register(&omap_mcbsp3);
 		platform_device_register(&omap_mcbsp4);
 	}
-	if (cpu_is_omap243x() || cpu_is_omap34xx())
+	if ((cpu_is_omap243x() || cpu_is_omap34xx()) && !cpu_is_am33xx())
 		platform_device_register(&omap_mcbsp5);
 
 	platform_device_register(&omap_pcm);
@@ -561,7 +562,7 @@ static void omap_init_pmu(void)
 {
 	if (cpu_is_omap24xx())
 		omap_pmu_device.resource = &omap2_pmu_resource;
-	else if (cpu_is_omap34xx())
+	else if (cpu_is_omap34xx() && !cpu_is_am33xx())
 		omap_pmu_device.resource = &omap3_pmu_resource;
 	else
 		return;
@@ -622,7 +623,7 @@ static void omap_init_sham(void)
 	if (cpu_is_omap24xx()) {
 		sham_device.resource = omap2_sham_resources;
 		sham_device.num_resources = omap2_sham_resources_sz;
-	} else if (cpu_is_omap34xx()) {
+	} else if (cpu_is_omap34xx() && !cpu_is_am33xx()) {
 		sham_device.resource = omap3_sham_resources;
 		sham_device.num_resources = omap3_sham_resources_sz;
 	} else {
@@ -691,7 +692,7 @@ static void omap_init_aes(void)
 	if (cpu_is_omap24xx()) {
 		aes_device.resource = omap2_aes_resources;
 		aes_device.num_resources = omap2_aes_resources_sz;
-	} else if (cpu_is_omap34xx()) {
+	} else if (cpu_is_omap34xx() && !cpu_is_am33xx()) {
 		aes_device.resource = omap3_aes_resources;
 		aes_device.num_resources = omap3_aes_resources_sz;
 	} else {
