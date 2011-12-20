@@ -1021,6 +1021,71 @@ static struct omap_hwmod am33xx_lcdc_hwmod = {
 	},
 };
 
+/*
+ * 'mailbox' class
+ * mailbox module allowing communication between the on-chip processors using a
+ * queued mailbox-interrupt mechanism.
+ */
+
+static struct omap_hwmod_class_sysconfig am33xx_mailbox_sysc = {
+	.rev_offs	= 0x0000,
+	.sysc_offs	= 0x0010,
+	.sysc_flags	= (SYSC_HAS_RESET_STATUS | SYSC_HAS_SIDLEMODE |
+			   SYSC_HAS_SOFTRESET),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
+	.sysc_fields	= &omap_hwmod_sysc_type2,
+};
+
+static struct omap_hwmod_class am33xx_mailbox_hwmod_class = {
+	.name	= "mailbox",
+	.sysc	= &am33xx_mailbox_sysc,
+};
+
+/* mailbox */
+static struct omap_hwmod am33xx_mailbox_hwmod;
+static struct omap_hwmod_irq_info am33xx_mailbox_irqs[] = {
+	{ .irq = AM33XX_IRQ_MAILBOX },
+	{ .irq = -1 }
+};
+
+static struct omap_hwmod_addr_space am33xx_mailbox_addrs[] = {
+	{
+		.pa_start	= AM33XX_MAILBOX0_BASE,
+		.pa_end		= AM33XX_MAILBOX0_BASE + (SZ_4K - 1),
+		.flags		= ADDR_TYPE_RT
+	},
+	{ }
+};
+
+/* l4_cfg -> mailbox */
+static struct omap_hwmod_ocp_if am33xx_l4_per__mailbox = {
+	.master		= &am33xx_l4per_hwmod,
+	.slave		= &am33xx_mailbox_hwmod,
+	.addr		= am33xx_mailbox_addrs,
+	.user		= OCP_USER_MPU,
+};
+
+/* mailbox slave ports */
+static struct omap_hwmod_ocp_if *am33xx_mailbox_slaves[] = {
+	&am33xx_l4_per__mailbox,
+};
+
+static struct omap_hwmod am33xx_mailbox_hwmod = {
+	.name		= "mailbox",
+	.class		= &am33xx_mailbox_hwmod_class,
+	.clkdm_name	= "l4ls_clkdm",
+	.mpu_irqs	= am33xx_mailbox_irqs,
+	.main_clk	= "mailbox0_fck",
+	.prcm = {
+		.omap4 = {
+			.clkctrl_offs	= AM33XX_CM_PER_MAILBOX0_CLKCTRL_OFFSET,
+			.modulemode	= MODULEMODE_SWCTRL,
+		},
+	},
+	.slaves		= am33xx_mailbox_slaves,
+	.slaves_cnt	= ARRAY_SIZE(am33xx_mailbox_slaves),
+};
+
 /* 'mcasp' class */
 static struct omap_hwmod_class am33xx_mcasp_hwmod_class = {
 	.name		= "mcasp",
@@ -2514,6 +2579,8 @@ static __initdata struct omap_hwmod *am33xx_hwmods[] = {
 	&am33xx_icss_hwmod,
 	/* ieee5000 class */
 	&am33xx_ieee5000_hwmod,
+	/* mailbox class */
+	&am33xx_mailbox_hwmod,
 	/* mcasp class */
 	&am33xx_mcasp0_hwmod,
 	/* mmc class */
