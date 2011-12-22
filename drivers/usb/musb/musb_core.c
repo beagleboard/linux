@@ -969,7 +969,6 @@ void musb_start(struct musb *musb)
 
 	musb->is_active = 0;
 	devctl = musb_readb(regs, MUSB_DEVCTL);
-	devctl &= ~MUSB_DEVCTL_SESSION;
 
 	if (is_otg_enabled(musb)) {
 		/* session started after:
