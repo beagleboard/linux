@@ -1718,7 +1718,12 @@ static struct i2c_board_info __initdata am335x_i2c_boardinfo[] = {
 
 static struct omap_musb_board_data musb_board_data = {
 	.interface_type	= MUSB_INTERFACE_ULPI,
-	.mode           = MUSB_OTG,
+	/*
+	 * mode[0:3] = USB0PORT's mode
+	 * mode[4:7] = USB1PORT's mode
+	 * AM335X beta EVM has USB0 in OTG mode and USB1 in host mode.
+	 */
+	.mode           = (MUSB_HOST << 4) | MUSB_OTG,
 	.power		= 500,
 	.instances	= 1,
 };

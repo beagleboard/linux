@@ -165,5 +165,8 @@
 #define	USBMODE_USBID_MUXSEL	0x80
 #define	USBMODE_USBID_HIGH	0x100
 
+#define	USB0PORT_MODEMASK	0x0f
+#define	USB1PORT_MODEMASK	0xf0
+#define USB1PORT_MODESHIFT	4
 extern void usb_nop_xceiv_register(int id);
 #endif

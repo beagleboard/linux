@@ -1158,6 +1158,7 @@ static int __devinit ti81xx_create_musb_pdev(struct ti81xx_glue *glue, u8 id)
 	struct device *dev = glue->dev;
 	struct platform_device *pdev = to_platform_device(dev);
 	struct musb_hdrc_platform_data  *pdata = dev->platform_data;
+	struct omap_musb_board_data *bdata = pdata->board_data;
 	struct platform_device	*musb;
 	struct resource *res;
 	struct resource	resources[2];
@@ -1207,6 +1208,15 @@ static int __devinit ti81xx_create_musb_pdev(struct ti81xx_glue *glue, u8 id)
 		dev_err(dev, "failed to add resources\n");
 		goto err1;
 	}
+
+	if (id == 0)
+		pdata->mode = bdata->mode & USB0PORT_MODEMASK;
+	else
+		pdata->mode = (bdata->mode & USB1PORT_MODEMASK)
+					>> USB1PORT_MODESHIFT;
+
+	dev_info(dev, "musb%d, board_mode=0x%x, plat_mode=0x%x\n",
+					id, bdata->mode, pdata->mode);
 
 	ret = platform_device_add_data(musb, pdata, sizeof(*pdata));
 	if (ret) {
