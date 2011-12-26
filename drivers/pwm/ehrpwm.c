@@ -978,9 +978,10 @@ static int ehrpwm_pwm_set_pol(struct pwm_device *p)
 		ctreqcmp = 8;
 	}
 
-	val = ((p->active_high ? ACTCTL_CTREQCMP_LOW : ACTCTL_CTREQCMP_HIGH)
-		 << ctreqcmp) | (p->active_high ? ACTCTL_CTREQZRO_HIGH :
-			ACTCTL_CTREQZRO_LOW);
+
+	val = ((p->active_high ? ACTCTL_CTREQCMP_HIGH : ACTCTL_CTREQCMP_LOW)
+		 << ctreqcmp) | (p->active_high ? ACTCTL_CTREQZRO_LOW :
+			ACTCTL_CTREQZRO_HIGH);
 	ehrpwm_write(ehrpwm, act_ctrl_reg, val);
 
 	return 0;
