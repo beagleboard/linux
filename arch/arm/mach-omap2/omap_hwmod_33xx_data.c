@@ -71,6 +71,9 @@ static struct omap_hwmod am33xx_adc_tsc_hwmod;
 static struct omap_hwmod am33xx_tpcc_hwmod;
 static struct omap_hwmod am33xx_mcasp0_hwmod;
 static struct omap_hwmod am33xx_mcasp1_hwmod;
+static struct omap_hwmod am33xx_epwmss0_hwmod;
+static struct omap_hwmod am33xx_epwmss1_hwmod;
+static struct omap_hwmod am33xx_epwmss2_hwmod;
 
 /*
  * Interconnects hwmod structures
@@ -554,13 +557,51 @@ static struct omap_hwmod am33xx_emif_fw_hwmod = {
 };
 
 /* 'epwmss' class */
+static struct omap_hwmod_class_sysconfig am33xx_epwmss_sysc = {
+	.rev_offs	= 0x0,
+	.sysc_offs	= 0x10,
+	.sysc_flags	= SYSC_HAS_SIDLEMODE,
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART |
+			SIDLE_SMART_WKUP),
+	.sysc_fields	= &omap_hwmod_sysc_type2,
+};
+
 static struct omap_hwmod_class am33xx_epwmss_hwmod_class = {
 	.name		= "epwmss",
+	.sysc		= &am33xx_epwmss_sysc,
 };
 
 /* epwmss0 */
+static struct omap_hwmod_irq_info am33xx_epwmss0_irqs[] = {
+	{ .irq		= AM33XX_IRQ_PWMSS0_EPWM },
+	{ .irq		= AM33XX_IRQ_PWMSS0 },
+	{ .irq		= AM33XX_IRQ_PWMSS0_ECAP },
+	{ .irq		= -1 }
+};
+
+struct omap_hwmod_addr_space am33xx_epwmss0_addr_space[] = {
+	{
+		.pa_start	= AM33XX_EPWMSS0_BASE,
+		.pa_end		= AM33XX_EPWMSS0_BASE + SZ_4K - 1,
+		.flags		= ADDR_TYPE_RT
+	},
+	{ }
+};
+
+struct omap_hwmod_ocp_if am33xx_l4_core__epwmss0 = {
+	.master		= &am33xx_l4per_hwmod,
+	.slave		= &am33xx_epwmss0_hwmod,
+	.addr		= am33xx_epwmss0_addr_space,
+	.user		= OCP_USER_MPU,
+};
+
+static struct omap_hwmod_ocp_if *am33xx_epwmss0_slaves[] = {
+	&am33xx_l4_core__epwmss0,
+};
+
 static struct omap_hwmod am33xx_epwmss0_hwmod = {
 	.name		= "epwmss0",
+	.mpu_irqs	= am33xx_epwmss0_irqs,
 	.class		= &am33xx_epwmss_hwmod_class,
 	.main_clk	= "epwmss0_fck",
 	.clkdm_name	= "l4ls_clkdm",
@@ -570,11 +611,41 @@ static struct omap_hwmod am33xx_epwmss0_hwmod = {
 			.modulemode	= MODULEMODE_SWCTRL,
 		},
 	},
+	.slaves		= am33xx_epwmss0_slaves,
+	.slaves_cnt	= ARRAY_SIZE(am33xx_epwmss0_slaves),
 };
 
 /* epwmss1 */
+static struct omap_hwmod_irq_info am33xx_epwmss1_irqs[] = {
+	{ .irq		= AM33XX_IRQ_PWMSS1_EPWM },
+	{ .irq		= AM33XX_IRQ_PWMSS1 },
+	{ .irq		= AM33XX_IRQ_PWMSS1_ECAP },
+	{ .irq		= -1 }
+};
+
+struct omap_hwmod_addr_space am33xx_epwmss1_addr_space[] = {
+	{
+		.pa_start	= AM33XX_EPWMSS1_BASE,
+		.pa_end		= AM33XX_EPWMSS1_BASE + SZ_4K - 1,
+		.flags		= ADDR_TYPE_RT
+	},
+	{ }
+};
+
+struct omap_hwmod_ocp_if am33xx_l4_core__epwmss1 = {
+	.master		= &am33xx_l4per_hwmod,
+	.slave		= &am33xx_epwmss1_hwmod,
+	.addr		= am33xx_epwmss1_addr_space,
+	.user		= OCP_USER_MPU,
+};
+
+static struct omap_hwmod_ocp_if *am33xx_epwmss1_slaves[] = {
+	&am33xx_l4_core__epwmss1,
+};
+
 static struct omap_hwmod am33xx_epwmss1_hwmod = {
 	.name		= "epwmss1",
+	.mpu_irqs	= am33xx_epwmss1_irqs,
 	.class		= &am33xx_epwmss_hwmod_class,
 	.main_clk	= "epwmss1_fck",
 	.clkdm_name	= "l4ls_clkdm",
@@ -584,11 +655,41 @@ static struct omap_hwmod am33xx_epwmss1_hwmod = {
 			.modulemode	= MODULEMODE_SWCTRL,
 		},
 	},
+	.slaves		= am33xx_epwmss1_slaves,
+	.slaves_cnt	= ARRAY_SIZE(am33xx_epwmss1_slaves),
 };
 
 /* epwmss2 */
+static struct omap_hwmod_irq_info am33xx_epwmss2_irqs[] = {
+	{ .irq		= AM33XX_IRQ_PWMSS2_EPWM },
+	{ .irq		= AM33XX_IRQ_PWMSS2 },
+	{ .irq		= AM33XX_IRQ_PWMSS2_ECAP },
+	{ .irq		= -1 }
+};
+
+struct omap_hwmod_addr_space am33xx_epwmss2_addr_space[] = {
+	{
+		.pa_start	= AM33XX_EPWMSS2_BASE,
+		.pa_end		= AM33XX_EPWMSS2_BASE + SZ_4K - 1,
+		.flags		= ADDR_TYPE_RT
+	},
+	{ }
+};
+
+struct omap_hwmod_ocp_if am33xx_l4_core__epwmss2 = {
+	.master		= &am33xx_l4per_hwmod,
+	.slave		= &am33xx_epwmss2_hwmod,
+	.addr		= am33xx_epwmss2_addr_space,
+	.user		= OCP_USER_MPU,
+};
+
+static struct omap_hwmod_ocp_if *am33xx_epwmss2_slaves[] = {
+	&am33xx_l4_core__epwmss2,
+};
+
 static struct omap_hwmod am33xx_epwmss2_hwmod = {
 	.name		= "epwmss2",
+	.mpu_irqs	= am33xx_epwmss2_irqs,
 	.class		= &am33xx_epwmss_hwmod_class,
 	.main_clk	= "epwmss2_fck",
 	.clkdm_name	= "l4ls_clkdm",
@@ -598,6 +699,8 @@ static struct omap_hwmod am33xx_epwmss2_hwmod = {
 			.modulemode	= MODULEMODE_SWCTRL,
 		},
 	},
+	.slaves		= am33xx_epwmss2_slaves,
+	.slaves_cnt	= ARRAY_SIZE(am33xx_epwmss2_slaves),
 };
 
 static struct omap_hwmod_class_sysconfig am33xx_gpio_sysc = {
