@@ -108,4 +108,5 @@ static inline void omap_push_sram_idle(void) {}
 #else
 #define OMAP4_SRAM_PA		0x40300000
 #endif
+#define AM33XX_SRAM_PA		0x40300000
 #endif
