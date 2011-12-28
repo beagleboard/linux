@@ -23,6 +23,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/can/platform/d_can.h>
 #include <linux/platform_data/uio_pruss.h>
+#include <linux/pwm/pwm.h>
 
 #include <mach/hardware.h>
 #include <mach/irqs.h>
@@ -45,6 +46,7 @@
 #include <plat/omap_hwmod.h>
 #include <plat/omap_device.h>
 #include <plat/omap4-keypad.h>
+#include <plat/config_pwm.h>
 
 /* LCD controller similar DA8xx */
 #include <video/da8xx-fb.h>
@@ -1137,6 +1139,230 @@ int __init am335x_register_pruss_uio(struct uio_pruss_pdata *config)
 	am335x_pruss_uio_dev.dev.platform_data = config;
 	return platform_device_register(&am335x_pruss_uio_dev);
 }
+
+static struct resource am335x_epwm0_resurce[] = {
+	{
+		.start = AM33XX_EPWMSS0_BASE ,
+		.end   = AM33XX_EPWMSS0_BASE + AM33XX_CONFIG_SIZE,
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = AM33XX_EPWMSS0_BASE + AM33XX_EPWM_BASE,
+		.end   = AM33XX_EPWMSS0_BASE + AM33XX_EPWM_SIZE,
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = AM33XX_IRQ_PWMSS0,
+		.end   = AM33XX_IRQ_PWMSS0,
+		.flags = IORESOURCE_IRQ,
+	},
+	{
+		.start = AM33XX_IRQ_PWMSS0_EPWM,
+		.end   = AM33XX_IRQ_PWMSS0_EPWM,
+		.flags = IORESOURCE_IRQ,
+	}
+};
+
+static struct pwmss_platform_data  am335x_pwmss_config0;
+
+struct platform_device am335x_epwm0_device = {
+	.name          = "ehrpwm",
+	.id            = 0,
+	.dev           = {
+		.platform_data = &am335x_pwmss_config0,
+	},
+	.num_resources = ARRAY_SIZE(am335x_epwm0_resurce),
+	.resource      = am335x_epwm0_resurce,
+};
+
+static struct resource am335x_epwm1_resurce[] = {
+	{
+		.start = AM33XX_EPWMSS1_BASE ,
+		.end   = AM33XX_EPWMSS1_BASE + AM33XX_CONFIG_SIZE,
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = AM33XX_EPWMSS1_BASE + AM33XX_EPWM_BASE,
+		.end   = AM33XX_EPWMSS1_BASE + AM33XX_EPWM_SIZE,
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = AM33XX_IRQ_PWMSS1,
+		.end   = AM33XX_IRQ_PWMSS1,
+		.flags = IORESOURCE_IRQ,
+	},
+	{
+		.start = AM33XX_IRQ_PWMSS1_EPWM,
+		.end   = AM33XX_IRQ_PWMSS1_EPWM,
+		.flags = IORESOURCE_IRQ,
+	}
+};
+
+static struct pwmss_platform_data  am335x_pwmss_config1;
+
+struct platform_device am335x_epwm1_device = {
+	.name          = "ehrpwm",
+	.id            = 1,
+	.dev           = {
+		.platform_data = &am335x_pwmss_config1,
+	},
+	.num_resources = ARRAY_SIZE(am335x_epwm1_resurce),
+	.resource      = am335x_epwm1_resurce,
+};
+
+static struct resource am335x_epwm2_resurce[] = {
+	{
+		.start = AM33XX_EPWMSS2_BASE ,
+		.end   = AM33XX_EPWMSS2_BASE + AM33XX_CONFIG_SIZE,
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = AM33XX_EPWMSS2_BASE + AM33XX_EPWM_BASE,
+		.end   = AM33XX_EPWMSS2_BASE + AM33XX_EPWM_SIZE,
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = AM33XX_IRQ_PWMSS2,
+		.end   = AM33XX_IRQ_PWMSS2,
+		.flags = IORESOURCE_IRQ,
+	},
+	{
+		.start = AM33XX_IRQ_PWMSS2_EPWM,
+		.end   = AM33XX_IRQ_PWMSS2_EPWM,
+		.flags = IORESOURCE_IRQ,
+	}
+};
+
+static struct pwmss_platform_data am335x_pwmss_config2;
+
+struct platform_device am335x_epwm2_device = {
+	.name          = "ehrpwm",
+	.id            = 2,
+	.dev           = {
+		.platform_data = &am335x_pwmss_config2,
+	},
+	.num_resources = ARRAY_SIZE(am335x_epwm2_resurce),
+	.resource      = am335x_epwm2_resurce,
+};
+
+#define AM33XX_PWMSS_CTRL       0x664
+#define PWMSS2_TBCLKEN          (1 << 2)
+#define PWMSS1_TBCLKEN          (1 << 1)
+#define PWMSS0_TBCLKEN          (1 << 0)
+
+void __init am335x_register_epwm(void)
+{
+
+	__raw_writew((PWMSS2_TBCLKEN | PWMSS1_TBCLKEN | PWMSS0_TBCLKEN),
+			AM33XX_CTRL_REGADDR(AM33XX_PWMSS_CTRL));
+	am335x_pwmss_config0.version = PWM_VERSION_1;
+	am335x_pwmss_config1.version = PWM_VERSION_1;
+	am335x_pwmss_config2.version = PWM_VERSION_1;
+	sema_init(&am335x_pwmss_config0.config_semaphore, 1);
+	sema_init(&am335x_pwmss_config1.config_semaphore, 1);
+	sema_init(&am335x_pwmss_config2.config_semaphore, 1);
+	platform_device_register(&am335x_epwm0_device);
+	platform_device_register(&am335x_epwm1_device);
+	platform_device_register(&am335x_epwm2_device);
+}
+
+static struct resource am335x_ecap0_resurce[] = {
+	{
+		.start = AM33XX_EPWMSS0_BASE ,
+		.end   = AM33XX_EPWMSS0_BASE + AM33XX_CONFIG_SIZE,
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = AM33XX_EPWMSS0_BASE + AM33XX_ECAP_BASE,
+		.end   = AM33XX_EPWMSS0_BASE + AM33XX_ECAP_SIZE,
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = AM33XX_IRQ_PWMSS0_ECAP,
+		.end   = AM33XX_IRQ_PWMSS0_ECAP,
+		.flags = IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device am335x_ecap0_device = {
+	.name          = "ecap",
+	.id            = 0,
+	.dev           = {
+		.platform_data = &am335x_pwmss_config0,
+	},
+	.num_resources = ARRAY_SIZE(am335x_ecap0_resurce),
+	.resource      = am335x_ecap0_resurce,
+};
+
+static struct resource am335x_ecap1_resurce[] = {
+	{
+		.start = AM33XX_EPWMSS1_BASE ,
+		.end   = AM33XX_EPWMSS1_BASE + AM33XX_CONFIG_SIZE,
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = AM33XX_EPWMSS1_BASE + AM33XX_ECAP_BASE,
+		.end   = AM33XX_EPWMSS1_BASE + AM33XX_ECAP_SIZE,
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = AM33XX_IRQ_PWMSS1_ECAP,
+		.end   = AM33XX_IRQ_PWMSS1_ECAP,
+		.flags = IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device am335x_ecap1_device = {
+	.name          = "ecap",
+	.id            = 1,
+	.dev           = {
+		.platform_data = &am335x_pwmss_config1,
+	},
+	.num_resources = ARRAY_SIZE(am335x_ecap1_resurce),
+	.resource      = am335x_ecap1_resurce,
+};
+
+static struct resource am335x_ecap2_resurce[] = {
+	{
+		.start = AM33XX_EPWMSS2_BASE ,
+		.end   = AM33XX_EPWMSS2_BASE + AM33XX_CONFIG_SIZE,
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = AM33XX_EPWMSS2_BASE + AM33XX_ECAP_BASE,
+		.end   = AM33XX_EPWMSS2_BASE + AM33XX_ECAP_SIZE,
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = AM33XX_IRQ_PWMSS2_ECAP,
+		.end   = AM33XX_IRQ_PWMSS2_ECAP,
+		.flags = IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device am335x_ecap2_device = {
+	.name          = "ecap",
+	.id            = 2,
+	.dev           = {
+		.platform_data = &am335x_pwmss_config2,
+	},
+	.num_resources = ARRAY_SIZE(am335x_ecap2_resurce),
+	.resource      = am335x_ecap2_resurce,
+};
+
+void __init am335x_register_ecap(void)
+{
+	platform_device_register(&am335x_ecap0_device);
+	platform_device_register(&am335x_ecap1_device);
+	platform_device_register(&am335x_ecap2_device);
+}
+
+void omap_init_pwmss(void)
+{
+	am335x_register_epwm();
+	am335x_register_ecap();
+}
+
 #endif
 
 /*-------------------------------------------------------------------------*/
@@ -1164,6 +1390,7 @@ static int __init omap2_init_devices(void)
 	am33xx_init_pcm();
 #if defined (CONFIG_SOC_OMAPAM33XX)
 	am335x_register_pruss_uio(&am335x_pruss_uio_pdata);
+	omap_init_pwmss();
 #endif
 	return 0;
 }
