@@ -1323,8 +1323,10 @@ static struct clk dpll_mpu_ck = {
 	.parent		= &sys_clkin_ck,
 	.dpll_data	= &dpll_mpu_dd,
 	.init		= &omap2_init_dpll_parent,
-	.ops		= &clkops_null,
+	.ops		= &clkops_omap3_noncore_dpll_ops,
 	.recalc		= &omap3_dpll_recalc,
+	.round_rate     = &omap2_dpll_round_rate,
+	.set_rate       = &omap3_noncore_dpll_set_rate,
 };
 
 
