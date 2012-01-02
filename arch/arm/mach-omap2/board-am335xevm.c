@@ -1482,6 +1482,32 @@ static void mmc0_init(int evm_id, int profile)
 	return;
 }
 
+static struct i2c_board_info tps65217_i2c_boardinfo[] = {
+	{
+		I2C_BOARD_INFO("tps65217", TPS65217_I2C_ID),
+		.platform_data  = &beaglebone_tps65217_info,
+	},
+};
+
+static void tps65217_init(int evm_id, int profile)
+{
+	struct i2c_adapter *adapter;
+	struct i2c_client *client;
+
+	/* I2C1 adapter request */
+	adapter = i2c_get_adapter(1);
+	if (!adapter) {
+		pr_err("failed to get adapter i2c1\n");
+		return;
+	}
+
+	client = i2c_new_device(adapter, tps65217_i2c_boardinfo);
+	if (!client)
+		pr_err("failed to register tps65217 to i2c1\n");
+
+	i2c_put_adapter(adapter);
+}
+
 static void mmc0_no_cd_init(int evm_id, int profile)
 {
 	setup_pin_mux(mmc0_no_cd_pin_mux);
@@ -1666,6 +1692,7 @@ static struct evm_dev_cfg beaglebone_old_dev_cfg[] = {
 
 /* Beaglebone Rev A3 and after */
 static struct evm_dev_cfg beaglebone_dev_cfg[] = {
+	{tps65217_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
 	{mii1_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
 	{usb0_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
 	{usb1_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
@@ -1963,10 +1990,6 @@ static struct i2c_board_info __initdata am335x_i2c_boardinfo[] = {
 	{
 		I2C_BOARD_INFO("tps65910", TPS65910_I2C_ID1),
 		.platform_data  = &am335x_tps65910_info,
-	},
-	{
-		I2C_BOARD_INFO("tps65217", TPS65217_I2C_ID),
-		.platform_data  = &beaglebone_tps65217_info,
 	},
 };
 
