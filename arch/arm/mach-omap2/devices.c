@@ -404,14 +404,16 @@ OMAP_MCBSP_PLATFORM_DEVICE(5);
 
 static void omap_init_audio(void)
 {
+	if (cpu_is_am33xx())
+		return;
+
 	platform_device_register(&omap_mcbsp1);
 	platform_device_register(&omap_mcbsp2);
-	if ((cpu_is_omap243x() || cpu_is_omap34xx() || cpu_is_omap44xx()) &&
-		!cpu_is_am33xx()) {
+	if (cpu_is_omap243x() || cpu_is_omap34xx() || cpu_is_omap44xx()) {
 		platform_device_register(&omap_mcbsp3);
 		platform_device_register(&omap_mcbsp4);
 	}
-	if ((cpu_is_omap243x() || cpu_is_omap34xx()) && !cpu_is_am33xx())
+	if (cpu_is_omap243x() || cpu_is_omap34xx())
 		platform_device_register(&omap_mcbsp5);
 
 	platform_device_register(&omap_pcm);
