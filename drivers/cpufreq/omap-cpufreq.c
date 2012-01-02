@@ -329,9 +329,9 @@ static int __init omap_cpufreq_init(void)
 {
 	if (cpu_is_omap24xx())
 		mpu_clk_name = "virt_prcm_set";
-	else if (cpu_is_omap34xx())
+	else if (cpu_is_omap34xx() && !cpu_is_am33xx())
 		mpu_clk_name = "dpll1_ck";
-	else if (cpu_is_omap44xx())
+	else if (cpu_is_omap44xx() || cpu_is_am33xx())
 		mpu_clk_name = "dpll_mpu_ck";
 
 	if (!mpu_clk_name) {
