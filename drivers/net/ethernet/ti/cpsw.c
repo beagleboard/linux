@@ -828,15 +828,22 @@ static void cpsw_ndo_change_rx_flags(struct net_device *ndev, int flags)
 		dev_err(&ndev->dev, "multicast traffic cannot be filtered!\n");
 }
 
-static int cpsw_ndo_set_mac_address(struct net_device *ndev, void *addr)
+static int cpsw_ndo_set_mac_address(struct net_device *ndev, void *p)
 {
 	struct cpsw_priv *priv = netdev_priv(ndev);
+	struct sockaddr *addr = (struct sockaddr *)p;
+
+	if (!is_valid_ether_addr(addr->sa_data))
+		return -EADDRNOTAVAIL;
 
 	cpsw_ale_del_ucast(priv->ale, priv->mac_addr, priv->host_port);
-	memcpy(priv->mac_addr, ndev->dev_addr, ETH_ALEN);
+
+	memcpy(priv->mac_addr, addr->sa_data, ETH_ALEN);
+	memcpy(ndev->dev_addr, priv->mac_addr, ETH_ALEN);
+
 	cpsw_ale_add_ucast(priv->ale, priv->mac_addr, priv->host_port,
 			   0);
-			   /* ALE_SECURE); */
+	/* ALE_SECURE); */
 	for_each_slave(priv, cpsw_set_slave_mac, priv);
 	return 0;
 }
