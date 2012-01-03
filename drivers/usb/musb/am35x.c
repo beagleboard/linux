@@ -593,7 +593,7 @@ static int am35x_musb_init(struct musb *musb)
 
 	/* Start the on-chip PHY and its PLL. */
 	if (data->set_phy_power)
-		data->set_phy_power(1);
+		data->set_phy_power(0, 1);
 
 	msleep(5);
 
@@ -621,7 +621,7 @@ static int am35x_musb_exit(struct musb *musb)
 
 	/* Shutdown the on-chip PHY and its PLL. */
 	if (data->set_phy_power)
-		data->set_phy_power(0);
+		data->set_phy_power(0, 0);
 
 	otg_put_transceiver(musb->xceiv);
 	usb_nop_xceiv_unregister(musb->id);
@@ -812,7 +812,7 @@ static int am35x_suspend(struct device *dev)
 
 	/* Shutdown the on-chip PHY and its PLL. */
 	if (data->set_phy_power)
-		data->set_phy_power(0);
+		data->set_phy_power(0, 0);
 
 	clk_disable(glue->phy_clk);
 	clk_disable(glue->clk);
@@ -829,7 +829,7 @@ static int am35x_resume(struct device *dev)
 
 	/* Start the on-chip PHY and its PLL. */
 	if (data->set_phy_power)
-		data->set_phy_power(1);
+		data->set_phy_power(0, 1);
 
 	ret = clk_enable(glue->phy_clk);
 	if (ret) {

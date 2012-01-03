@@ -89,7 +89,7 @@ struct omap_musb_board_data {
 	u16	power;
 	unsigned extvbus:1;
 	u8	instances;
-	void	(*set_phy_power)(u8 on);
+	void	(*set_phy_power)(u8 id, u8 on);
 	void	(*clear_irq)(void);
 	void	(*set_mode)(u8 mode);
 	void	(*reset)(void);
@@ -109,10 +109,10 @@ extern int omap4430_phy_suspend(struct device *dev, int suspend);
 #endif
 
 extern void am35x_musb_reset(void);
-extern void am35x_musb_phy_power(u8 on);
+extern void am35x_musb_phy_power(u8 id, u8 on);
 extern void am35x_musb_clear_irq(void);
 extern void am35x_set_mode(u8 musb_mode);
-extern void ti81xx_musb_phy_power(u8 on);
+extern void ti81xx_musb_phy_power(u8 id, u8 on);
 
 /*
  * FIXME correct answer depends on hmc_mode,
@@ -275,9 +275,12 @@ static inline void omap2_usbfs_init(struct omap_usb_config *pdata)
 /* TI81XX specific definitions */
 #define USBCTRL0	0x620
 #define USBSTAT0	0x624
+#define USBCTRL1	0x628
+#define USBSTAT1	0x62c
 
 /* TI816X PHY controls bits */
 #define TI816X_USBPHY0_NORMAL_MODE	(1 << 0)
+#define TI816X_USBPHY1_NORMAL_MODE	(1 << 1)
 #define TI816X_USBPHY_REFCLK_OSC	(1 << 8)
 
 /* TI814X PHY controls bits */
@@ -293,15 +296,21 @@ static inline void omap2_usbfs_init(struct omap_usb_config *pdata)
 #define USBPHY_DPPULLUP		(1 << 9)
 #define USBPHY_CDET_EXTCTL	(1 << 10)
 #define USBPHY_GPIO_MODE	(1 << 12)
-#define USBPHY_DPOPBUFCTL	(1 << 13)
-#define USBPHY_DMOPBUFCTL	(1 << 14)
-#define USBPHY_DPINPUT		(1 << 15)
-#define USBPHY_DMINPUT		(1 << 16)
 #define USBPHY_DPGPIO_PD	(1 << 17)
 #define USBPHY_DMGPIO_PD	(1 << 18)
 #define USBPHY_OTGVDET_EN	(1 << 19)
 #define USBPHY_OTGSESSEND_EN	(1 << 20)
 #define USBPHY_DATA_POLARITY	(1 << 23)
+
+/* TI81XX only PHY bits */
+#define TI81XX_USBPHY_DPOPBUFCTL	(1 << 13)
+#define TI81XX_USBPHY_DMOPBUFCTL	(1 << 14)
+#define TI81XX_USBPHY_DPINPUT		(1 << 15)
+#define TI81XX_USBPHY_DMINPUT		(1 << 16)
+
+/* AM335X only PHY bits */
+#define AM335X_USBPHY_GPIO_SIG_INV     (1 << 13)
+#define AM335X_USBPHY_GPIO_SIG_CROSS   (1 << 14)
 
 #if defined(CONFIG_ARCH_OMAP1) && defined(CONFIG_USB)
 u32 omap1_usb0_init(unsigned nwires, unsigned is_device);

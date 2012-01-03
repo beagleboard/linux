@@ -784,7 +784,7 @@ void musb_babble_workaround(struct musb *musb)
 
 	/* Shutdown the on-chip PHY and its PLL. */
 	if (data->set_phy_power)
-		data->set_phy_power(0);
+		data->set_phy_power(musb->id, 0);
 	udelay(100);
 
 	musb_platform_set_mode(musb, MUSB_HOST);
@@ -792,7 +792,7 @@ void musb_babble_workaround(struct musb *musb)
 
 	/* enable the usbphy */
 	if (data->set_phy_power)
-		data->set_phy_power(1);
+		data->set_phy_power(musb->id, 1);
 	mdelay(100);
 
 	/* save the usbotgss register contents */
@@ -1042,7 +1042,7 @@ int ti81xx_musb_init(struct musb *musb)
 
 	/* Start the on-chip PHY and its PLL. */
 	if (data->set_phy_power)
-		data->set_phy_power(1);
+		data->set_phy_power(musb->id, 1);
 
 	musb->a_wait_bcon = A_WAIT_BCON_TIMEOUT;
 	musb->isr = ti81xx_interrupt;
@@ -1119,7 +1119,7 @@ int ti81xx_musb_exit(struct musb *musb)
 
 	/* Shutdown the on-chip PHY and its PLL. */
 	if (data->set_phy_power)
-		data->set_phy_power(0);
+		data->set_phy_power(musb->id, 0);
 
 	otg_put_transceiver(musb->xceiv);
 	usb_nop_xceiv_unregister(musb->id);
@@ -1383,7 +1383,7 @@ static int ti81xx_suspend(struct device *dev)
 	/* Shutdown the on-chip PHY and its PLL. */
 	for (i = 0; i <= data->instances; ++i) {
 		if (data->set_phy_power)
-			data->set_phy_power(i);
+			data->set_phy_power(i, 0);
 	}
 
 	/* disable the common usbss functional clock */
@@ -1403,7 +1403,7 @@ static int ti81xx_resume(struct device *dev)
 	/* Start the on-chip PHY and its PLL. */
 	for (i = 0; i <= data->instances; ++i) {
 		if (data->set_phy_power)
-			data->set_phy_power(i);
+			data->set_phy_power(i, 1);
 	}
 
 	/* enable the common usbss interface clock */

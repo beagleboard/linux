@@ -29,6 +29,8 @@
 #include <linux/usb.h>
 
 #include <plat/usb.h>
+#include <plat/am33xx.h>
+#include <plat/ti81xx.h>
 #include "control.h"
 
 /* OMAP control module register for UTMI PHY */
@@ -185,7 +187,7 @@ void am35x_musb_reset(void)
 	regval = omap_ctrl_readl(AM35XX_CONTROL_IP_SW_RESET);
 }
 
-void am35x_musb_phy_power(u8 on)
+void am35x_musb_phy_power(u8 id, u8 on)
 {
 	unsigned long timeout = jiffies + msecs_to_jiffies(100);
 	u32 devconf2;
@@ -261,37 +263,42 @@ void am35x_set_mode(u8 musb_mode)
 	omap_ctrl_writel(devconf2, AM35XX_CONTROL_DEVCONF2);
 }
 
-void ti81xx_musb_phy_power(u8 on)
+void ti81xx_musb_phy_power(u8 id, u8 on)
 {
 	void __iomem *scm_base = NULL;
 	u32 usbphycfg;
 
-	scm_base = ioremap(TI81XX_SCM_BASE, SZ_2K);
+	if (cpu_is_ti816x())
+		scm_base = ioremap(TI81XX_SCM_BASE, SZ_2K);
+	else if (cpu_is_am33xx())
+		scm_base = ioremap(AM33XX_SCM_BASE, SZ_2K);
+
 	if (!scm_base) {
 		pr_err("system control module ioremap failed\n");
 		return;
 	}
 
-	usbphycfg = __raw_readl(scm_base + USBCTRL0);
+	usbphycfg = __raw_readl(scm_base + (id ? USBCTRL1 : USBCTRL0));
 
 	if (on) {
 		if (cpu_is_ti816x()) {
-			usbphycfg |= TI816X_USBPHY0_NORMAL_MODE;
+			usbphycfg |= id ? TI816X_USBPHY1_NORMAL_MODE :
+						TI816X_USBPHY0_NORMAL_MODE;
 			usbphycfg &= ~TI816X_USBPHY_REFCLK_OSC;
-		} else if (cpu_is_ti814x()) {
-			usbphycfg &= ~(USBPHY_CM_PWRDN | USBPHY_OTG_PWRDN
-				| USBPHY_DPINPUT | USBPHY_DMINPUT);
-			usbphycfg |= (USBPHY_OTGVDET_EN | USBPHY_OTGSESSEND_EN
-				| USBPHY_DPOPBUFCTL | USBPHY_DMOPBUFCTL);
+		} else if (cpu_is_am33xx()) {
+			usbphycfg &= ~(USBPHY_CM_PWRDN | USBPHY_OTG_PWRDN);
+			usbphycfg |= (USBPHY_OTGVDET_EN | USBPHY_OTGSESSEND_EN);
 		}
 	} else {
 		if (cpu_is_ti816x())
-			usbphycfg &= ~TI816X_USBPHY0_NORMAL_MODE;
-		else if (cpu_is_ti814x())
+			usbphycfg &= ~((id ? TI816X_USBPHY1_NORMAL_MODE :
+					TI816X_USBPHY0_NORMAL_MODE)
+					| TI816X_USBPHY_REFCLK_OSC);
+		else if (cpu_is_am33xx())
 			usbphycfg |= USBPHY_CM_PWRDN | USBPHY_OTG_PWRDN;
 
 	}
-	__raw_writel(usbphycfg, scm_base + USBCTRL0);
+	__raw_writel(usbphycfg, scm_base + (id ? USBCTRL1 : USBCTRL0));
 
 	iounmap(scm_base);
 }
