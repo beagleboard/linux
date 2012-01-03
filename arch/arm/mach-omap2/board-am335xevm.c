@@ -104,7 +104,8 @@
 #define TLK110_SCFALLBACK_VAL	0xC11D
 #define TLK110_PHYRCR_VAL	0x4000
 
-#ifdef CONFIG_TLK110_WORKAROUND
+#if defined(CONFIG_TLK110_WORKAROUND) || \
+		defined(CONFIG_TLK110_WORKAROUND_MODULE)
 #define am335x_tlk110_phy_init()\
 	do {	\
 		phy_register_fixup_for_uid(TLK110_PHY_ID,\
@@ -1306,7 +1307,8 @@ static int beaglebone_phy_fixup(struct phy_device *phydev)
 	return 0;
 }
 
-#ifdef CONFIG_TLK110_WORKAROUND
+#if defined(CONFIG_TLK110_WORKAROUND) || \
+			defined(CONFIG_TLK110_WORKAROUND_MODULE)
 static int am335x_tlk110_phy_fixup(struct phy_device *phydev)
 {
 	unsigned int val;
