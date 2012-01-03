@@ -374,7 +374,7 @@ int __init omap_sram_init(void)
 		omap243x_sram_init();
 	else if (cpu_is_omap34xx() && !cpu_is_am33xx())
 		omap34xx_sram_init();
-	else if (!cpu_is_am33xx())
+	else if (cpu_is_am33xx())
 		am33xx_sram_init();
 
 	return 0;
