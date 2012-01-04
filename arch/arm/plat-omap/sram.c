@@ -358,6 +358,7 @@ static inline int omap34xx_sram_init(void)
 
 static inline int am33xx_sram_init(void)
 {
+	am33xx_push_sram_idle();
 	return 0;
 }
 

@@ -96,6 +96,15 @@ extern unsigned int save_secure_ram_context_sz;
 
 extern void omap3_save_scratchpad_contents(void);
 
+/* 33xx */
+/* am33xx_do_wfi function pointer and size, for copy to SRAM */
+extern void am33xx_do_wfi(void);
+extern unsigned int am33xx_do_wfi_sz;
+/* ... and its pointer from SRAM after copy */
+extern void (*am33xx_do_wfi_sram)(void);
+/* The resume location */
+extern void am33xx_resume_vector(void);
+
 #define PM_RTA_ERRATUM_i608		(1 << 0)
 #define PM_SDRC_WAKEUP_ERRATUM_i583	(1 << 1)
 
