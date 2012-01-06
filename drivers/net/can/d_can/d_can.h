@@ -59,6 +59,8 @@ struct d_can_priv {
 
 struct net_device *alloc_d_can_dev(int);
 void free_d_can_dev(struct net_device *dev);
+void d_can_power_up(struct d_can_priv *d_can);
+void d_can_power_down(struct d_can_priv *d_can);
 int register_d_can_dev(struct net_device *dev);
 void unregister_d_can_dev(struct net_device *dev);
 

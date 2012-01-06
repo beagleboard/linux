@@ -1309,6 +1309,42 @@ struct net_device *alloc_d_can_dev(int num_objs)
 }
 EXPORT_SYMBOL_GPL(alloc_d_can_dev);
 
+#ifdef CONFIG_PM
+void d_can_power_down(struct d_can_priv *d_can)
+{
+	unsigned int cnt;
+
+	d_can_set_bit(d_can, D_CAN_CTL, D_CAN_CTL_PDR);
+
+	/* Wait for the Init bit to get set */
+	cnt = D_CAN_WAIT_COUNT;
+	while (!d_can_get_bit(d_can, D_CAN_CTL, D_CAN_CTL_INIT) && cnt != 0) {
+		--cnt;
+		udelay(10);
+	}
+}
+EXPORT_SYMBOL_GPL(d_can_power_down);
+
+void d_can_power_up(struct d_can_priv *d_can)
+{
+	unsigned int cnt;
+
+	d_can_clear_bit(d_can, D_CAN_CTL, D_CAN_CTL_PDR);
+	d_can_clear_bit(d_can, D_CAN_CTL, D_CAN_CTL_INIT);
+
+	/* Wait for the Init bit to get clear */
+	cnt = D_CAN_WAIT_COUNT;
+	while (d_can_get_bit(d_can, D_CAN_CTL, D_CAN_CTL_INIT) && cnt != 0) {
+		--cnt;
+		udelay(10);
+	}
+}
+EXPORT_SYMBOL_GPL(d_can_power_up);
+#else
+#define d_can_power_down NULL
+#define d_can_power_up NULL
+#endif
+
 void free_d_can_dev(struct net_device *dev)
 {
 	free_candev(dev);

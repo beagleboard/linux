@@ -201,13 +201,58 @@ static int __devexit d_can_plat_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM
+static int d_can_suspend(struct platform_device *pdev, pm_message_t state)
+{
+	struct net_device *dev = platform_get_drvdata(pdev);
+	struct d_can_priv *priv = netdev_priv(dev);
+
+	if (netif_running(dev)) {
+		netif_stop_queue(dev);
+		netif_device_detach(dev);
+	}
+
+	d_can_power_down(priv);
+	priv->can.state = CAN_STATE_SLEEPING;
+
+	clk_disable(priv->ick);
+	clk_disable(priv->fck);
+
+	return 0;
+}
+
+static int d_can_resume(struct platform_device *pdev)
+{
+	struct net_device *dev = platform_get_drvdata(pdev);
+	struct d_can_priv *priv = netdev_priv(dev);
+
+	clk_enable(priv->ick);
+	clk_enable(priv->fck);
+
+	d_can_power_up(priv);
+	priv->can.state = CAN_STATE_ERROR_ACTIVE;
+
+	if (netif_running(dev)) {
+		netif_device_attach(dev);
+		netif_start_queue(dev);
+	}
+
+	return 0;
+}
+#else
+#define d_can_suspend NULL
+#define d_can_resume NULL
+#endif
+
 static struct platform_driver d_can_plat_driver = {
 	.driver = {
 		.name	= D_CAN_DRV_NAME,
 		.owner	= THIS_MODULE,
 	},
-	.probe	= d_can_plat_probe,
-	.remove = __devexit_p(d_can_plat_remove),
+	.probe		= d_can_plat_probe,
+	.remove		= __devexit_p(d_can_plat_remove),
+	.suspend	= d_can_suspend,
+	.resume		= d_can_resume,
 };
 
 static int __init d_can_plat_init(void)
