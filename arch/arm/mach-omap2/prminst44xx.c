@@ -19,6 +19,7 @@
 #include "common.h"
 
 #include "prm44xx.h"
+#include "prm33xx.h"
 #include "prminst44xx.h"
 #include "prm-regbits-44xx.h"
 #include "prcm44xx.h"
@@ -34,6 +35,11 @@ static u32 *omap44xx_prm_bases[] = {
 	[OMAP4430_CM2_PARTITION]		= 0,
 	[OMAP4430_SCRM_PARTITION]		= 0,
 	[OMAP4430_PRCM_MPU_PARTITION]		= OMAP2_L4_IO_ADDRESS(OMAP4430_PRCM_MPU_BASE),
+};
+
+static u32 *am33xx_prm_bases[] = {
+	[OMAP4430_INVALID_PRCM_PARTITION]	= 0,
+	[AM33XX_PRM_PARTITION]			= AM33XX_L4_WK_IO_ADDRESS(AM33XX_PRM_BASE),
 };
 
 /* Read a register in a PRM instance */
@@ -182,5 +188,8 @@ void __init omap44xx_prminst_init(void)
 	if (cpu_is_omap44xx()) {
 		_prm_bases = omap44xx_prm_bases;
 		max_prm_partitions = ARRAY_SIZE(omap44xx_prm_bases);
+	} else if (cpu_is_am33xx()) {
+		_prm_bases = am33xx_prm_bases;
+		max_prm_partitions = ARRAY_SIZE(am33xx_prm_bases);
 	}
 }

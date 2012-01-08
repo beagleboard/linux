@@ -1307,18 +1307,20 @@ static int _assert_hardreset(struct omap_hwmod *oh, const char *name)
 	if (IS_ERR_VALUE(ret))
 		return ret;
 
-	if (cpu_is_am33xx()) {
-		return am33xx_prminst_assert_hardreset(
-				oh->clkdm->pwrdm.ptr->prcm_offs,
-				ohri.rst_shift);
-	} else if (cpu_is_omap24xx() || cpu_is_omap34xx())
-		return omap2_prm_assert_hardreset(oh->prcm.omap2.module_offs,
-						  ohri.rst_shift);
-	else if (cpu_is_omap44xx())
+	/*
+	 * In order to use omap4 prm code for am33xx family of devices,
+	 * first check cpu_is_am33xx here.
+	 *
+	 * Note: cpu_is_omap34xx is true for am33xx device as well.
+	 */
+	if (cpu_is_omap44xx() || cpu_is_am33xx())
 		return omap4_prminst_assert_hardreset(ohri.rst_shift,
 				  oh->clkdm->pwrdm.ptr->prcm_partition,
 				  oh->clkdm->pwrdm.ptr->prcm_offs,
 				  oh->prcm.omap4.rstctrl_offs);
+	else if (cpu_is_omap24xx() || cpu_is_omap34xx())
+		return omap2_prm_assert_hardreset(oh->prcm.omap2.module_offs,
+						  ohri.rst_shift);
 	else
 		return -EINVAL;
 }
@@ -1345,15 +1347,13 @@ static int _deassert_hardreset(struct omap_hwmod *oh, const char *name)
 	if (IS_ERR_VALUE(ret))
 		return ret;
 
-	if (cpu_is_am33xx()) {
-		ret = am33xx_prminst_deassert_hardreset(
-				oh->clkdm->pwrdm.ptr->prcm_offs,
-				ohri.rst_shift, ohri.st_shift);
-	} else if (cpu_is_omap24xx() || cpu_is_omap34xx()) {
-		ret = omap2_prm_deassert_hardreset(oh->prcm.omap2.module_offs,
-						   ohri.rst_shift,
-						   ohri.st_shift);
-	} else if (cpu_is_omap44xx()) {
+	/*
+	 * In order to use omap4 prm code for am33xx family of devices,
+	 * first check cpu_is_am33xx here.
+	 *
+	 * Note: cpu_is_omap34xx is true for am33xx device as well.
+	 */
+	if (cpu_is_omap44xx() || cpu_is_am33xx()) {
 		if (ohri.st_shift)
 			pr_err("omap_hwmod: %s: %s: hwmod data error: OMAP4 does not support st_shift\n",
 			       oh->name, name);
@@ -1361,6 +1361,10 @@ static int _deassert_hardreset(struct omap_hwmod *oh, const char *name)
 				  oh->clkdm->pwrdm.ptr->prcm_partition,
 				  oh->clkdm->pwrdm.ptr->prcm_offs,
 				  oh->prcm.omap4.rstctrl_offs);
+	} else if (cpu_is_omap24xx() || cpu_is_omap34xx()) {
+		ret = omap2_prm_deassert_hardreset(oh->prcm.omap2.module_offs,
+						   ohri.rst_shift,
+						   ohri.st_shift);
 	} else {
 		return -EINVAL;
 	}
@@ -1391,18 +1395,20 @@ static int _read_hardreset(struct omap_hwmod *oh, const char *name)
 	if (IS_ERR_VALUE(ret))
 		return ret;
 
-	if (cpu_is_am33xx()) {
-		return am33xx_prminst_is_hardreset_asserted(
-				oh->clkdm->pwrdm.ptr->prcm_offs,
-				AM33XX_PM_RSTST, ohri.st_shift);
-	} else if (cpu_is_omap24xx() || cpu_is_omap34xx()) {
-		return omap2_prm_is_hardreset_asserted(oh->prcm.omap2.module_offs,
-						       ohri.st_shift);
-	} else if (cpu_is_omap44xx()) {
+	/*
+	 * In order to use omap4 prm code for am33xx family of devices,
+	 * first check cpu_is_am33xx here.
+	 *
+	 * Note: cpu_is_omap34xx is true for am33xx device as well.
+	 */
+	if (cpu_is_omap44xx() || cpu_is_am33xx()) {
 		return omap4_prminst_is_hardreset_asserted(ohri.rst_shift,
 				  oh->clkdm->pwrdm.ptr->prcm_partition,
 				  oh->clkdm->pwrdm.ptr->prcm_offs,
 				  oh->prcm.omap4.rstctrl_offs);
+	} else if (cpu_is_omap24xx() || cpu_is_omap34xx()) {
+		return omap2_prm_is_hardreset_asserted(oh->prcm.omap2.module_offs,
+						       ohri.st_shift);
 	} else {
 		return -EINVAL;
 	}

@@ -31,6 +31,8 @@
 #define OMAP4430_CM2_PARTITION			3
 #define OMAP4430_SCRM_PARTITION			4
 #define OMAP4430_PRCM_MPU_PARTITION		5
+/* AM33XX PRCM is closer to OMAP4, so try to reuse all API's */
+#define AM33XX_PRM_PARTITION			1
 
 /*
  * OMAP4_MAX_PRCM_PARTITIONS: set to the highest value of the PRCM partition
