@@ -92,6 +92,8 @@ struct powerdomain;
  * @pwrdm_clkdms: Clockdomains in this powerdomain
  * @node: list_head linking all powerdomains
  * @voltdm_node: list_head linking all powerdomains in a voltagedomain
+ * @pwrstctrl_offs: XXX_PWRSTCTRL reg offset from prcm_offs
+ * @pwrstst_offs: XXX_PWRSTST reg offset from prcm_offs
  * @state:
  * @state_counter:
  * @timer:
@@ -121,6 +123,8 @@ struct powerdomain {
 	unsigned ret_logic_off_counter;
 	unsigned ret_mem_off_counter[PWRDM_MAX_MEM_BANKS];
 
+	u8 pwrstctrl_offs;
+	u8 pwrstst_offs;
 #ifdef CONFIG_PM_DEBUG
 	s64 timer;
 	s64 state_timer[PWRDM_MAX_PWRSTS];

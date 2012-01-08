@@ -352,7 +352,16 @@ static struct powerdomain *powerdomains_omap44xx[] __initdata = {
 
 void __init omap44xx_powerdomains_init(void)
 {
+	int i;
+
 	pwrdm_register_platform_funcs(&omap4_pwrdm_operations);
+	/* Initialise PRM reg offs to default value */
+	for (i = 0; powerdomains_omap44xx[i] != NULL; i++) {
+		struct powerdomain *pwrdm = powerdomains_omap44xx[i];
+
+		pwrdm->pwrstctrl_offs = OMAP4_PM_PWSTCTRL;
+		pwrdm->pwrstst_offs = OMAP4_PM_PWSTST;
+	}
 	pwrdm_register_pwrdms(powerdomains_omap44xx);
 	pwrdm_complete_init();
 }
