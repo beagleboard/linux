@@ -39,6 +39,7 @@
 #include <plat/omap-pm.h>
 #include "voltage.h"
 #include "powerdomain.h"
+#include "prminst44xx.h"
 
 #include "clockdomain.h"
 #include <plat/omap_hwmod.h>
@@ -491,6 +492,7 @@ void __init omap4430_init_early(void)
 	omap4xxx_check_features();
 	omap_common_init_early();
 	omap44xx_voltagedomains_init();
+	omap44xx_prminst_init();
 	omap44xx_powerdomains_init();
 	omap44xx_clockdomains_init();
 	omap44xx_hwmod_init();

@@ -24,32 +24,34 @@
 #include "prcm44xx.h"
 #include "prcm_mpu44xx.h"
 
-static u32 _prm_bases[OMAP4_MAX_PRCM_PARTITIONS] = {
+static u32 **_prm_bases;
+static u32 max_prm_partitions;
+
+static u32 *omap44xx_prm_bases[] = {
 	[OMAP4430_INVALID_PRCM_PARTITION]	= 0,
-	[OMAP4430_PRM_PARTITION]		= OMAP4430_PRM_BASE,
+	[OMAP4430_PRM_PARTITION]		= OMAP2_L4_IO_ADDRESS(OMAP4430_PRM_BASE),
 	[OMAP4430_CM1_PARTITION]		= 0,
 	[OMAP4430_CM2_PARTITION]		= 0,
 	[OMAP4430_SCRM_PARTITION]		= 0,
-	[OMAP4430_PRCM_MPU_PARTITION]		= OMAP4430_PRCM_MPU_BASE,
+	[OMAP4430_PRCM_MPU_PARTITION]		= OMAP2_L4_IO_ADDRESS(OMAP4430_PRCM_MPU_BASE),
 };
 
 /* Read a register in a PRM instance */
 u32 omap4_prminst_read_inst_reg(u8 part, s16 inst, u16 idx)
 {
-	BUG_ON(part >= OMAP4_MAX_PRCM_PARTITIONS ||
+	BUG_ON(part >= max_prm_partitions ||
 	       part == OMAP4430_INVALID_PRCM_PARTITION ||
 	       !_prm_bases[part]);
-	return __raw_readl(OMAP2_L4_IO_ADDRESS(_prm_bases[part] + inst +
-					       idx));
+	return __raw_readl(_prm_bases[part] + ((inst + idx)/sizeof(u32)));
 }
 
 /* Write into a register in a PRM instance */
 void omap4_prminst_write_inst_reg(u32 val, u8 part, s16 inst, u16 idx)
 {
-	BUG_ON(part >= OMAP4_MAX_PRCM_PARTITIONS ||
+	BUG_ON(part >= max_prm_partitions ||
 	       part == OMAP4430_INVALID_PRCM_PARTITION ||
 	       !_prm_bases[part]);
-	__raw_writel(val, OMAP2_L4_IO_ADDRESS(_prm_bases[part] + inst + idx));
+	__raw_writel(val, _prm_bases[part] + ((inst + idx)/sizeof(u32)));
 }
 
 /* Read-modify-write a register in PRM. Caller must lock */
@@ -173,4 +175,12 @@ void omap4_prminst_global_warm_sw_reset(void)
 	v = omap4_prminst_read_inst_reg(OMAP4430_PRM_PARTITION,
 				    OMAP4430_PRM_DEVICE_INST,
 				    OMAP4_PRM_RSTCTRL_OFFSET);
+}
+
+void __init omap44xx_prminst_init(void)
+{
+	if (cpu_is_omap44xx()) {
+		_prm_bases = omap44xx_prm_bases;
+		max_prm_partitions = ARRAY_SIZE(omap44xx_prm_bases);
+	}
 }
