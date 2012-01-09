@@ -302,7 +302,7 @@ void omap3xxx_prm_restore_irqen(u32 *saved_mask)
 
 static int __init omap3xxx_prcm_init(void)
 {
-	if (cpu_is_omap34xx())
+	if (cpu_is_omap34xx() && !cpu_is_am33xx())
 		return omap_prcm_register_chain_handler(&omap3_prcm_irq_setup);
 	return 0;
 }
