@@ -970,15 +970,15 @@ int map_xbar_event_to_channel(unsigned int event, unsigned int *channel,
 	unsigned int mask = 0;
 
 	ctrl = EDMA_CTLR(event);
-	xbar_evt_no = event - (edma_info[ctrl]->num_channels);
+	xbar_evt_no = event - (edma_cc[ctrl]->num_channels);
 
-	if (event < edma_info[ctrl]->num_channels) {
+	if (event < edma_cc[ctrl]->num_channels) {
 		*channel = event;
-	} else if (event < edma_info[ctrl]->num_events) {
+	} else if (event < edma_cc[ctrl]->num_events) {
 		*channel = xbar_event_mapping[xbar_evt_no].channel_no;
 		/* confirm the range */
 		if (*channel < EDMA_MAX_DMACH)
-			clear_bit(*channel, edma_info[ctrl]->edma_unused);
+			clear_bit(*channel, edma_cc[ctrl]->edma_unused);
 		mask = (*channel)%4;
 		offset = (*channel)/4;
 		offset *= 4;
