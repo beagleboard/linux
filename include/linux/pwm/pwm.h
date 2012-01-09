@@ -105,6 +105,10 @@ struct pwm_device {
 	spinlock_t pwm_lock;
 };
 
+struct pwmss_platform_data {
+	int channel_mask;
+};
+
 struct pwm_device *pwm_request_byname(const char *name, const char *label);
 struct pwm_device *pwm_request(const char *bus_id, int id, const char *label);
 void pwm_release(struct pwm_device *p);

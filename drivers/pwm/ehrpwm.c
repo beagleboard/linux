@@ -20,6 +20,7 @@
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
+#include <linux/pwm/pwm.h>
 #include <linux/pwm/ehrpwm.h>
 
 #include <plat/clock.h>
@@ -1291,7 +1292,7 @@ static int ehrpwm_probe(struct platform_device *pdev)
 	struct resource *r;
 	int ret = 0;
 	int chan = 0;
-	struct ehrpwm_platform_data *pdata = (&pdev->dev)->platform_data;
+	struct pwmss_platform_data *pdata = (&pdev->dev)->platform_data;
 	int ch_mask;
 
 	ch_mask = pdata->channel_mask;

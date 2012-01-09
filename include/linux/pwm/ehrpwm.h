@@ -5,10 +5,6 @@
 
 #define NCHAN 2
 
-struct ehrpwm_platform_data {
-	int channel_mask;
-};
-
 struct ehrpwm_pwm;
 
 typedef int (*p_fcallback) (struct ehrpwm_pwm *, void *data);
