@@ -545,6 +545,36 @@ static int __devexit tscadc_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int tscadc_suspend(struct platform_device *pdev)
+{
+	struct tscadc *ts_dev = platform_get_drvdata(pdev);
+	unsigned int  status;
+
+	status = tscadc_readl(ts_dev, TSCADC_REG_CTRL);
+	status &= ~(TSCADC_CNTRLREG_TSCSSENB);
+	tscadc_writel(ts_dev, TSCADC_REG_CTRL, status);
+
+	clk_disable(ts_dev->tsc_ick);
+	clk_put(ts_dev->tsc_ick);
+
+	return 0;
+
+}
+
+static int tscadc_resume(struct platform_device *pdev)
+{
+	struct tscadc *ts_dev = platform_get_drvdata(pdev);
+	unsigned int  status;
+
+	clk_enable(ts_dev->tsc_ick);
+
+	status = tscadc_readl(ts_dev, TSCADC_REG_CTRL);
+	tscadc_writel(ts_dev, TSCADC_REG_CTRL,
+			(status | TSCADC_CNTRLREG_TSCSSENB));
+
+	return 0;
+}
+
 static struct platform_driver ti_tsc_driver = {
 	.probe	  = tscadc_probe,
 	.remove	 = __devexit_p(tscadc_remove),
@@ -552,6 +582,8 @@ static struct platform_driver ti_tsc_driver = {
 		.name   = "tsc",
 		.owner  = THIS_MODULE,
 	},
+	.suspend = tscadc_suspend,
+	.resume  = tscadc_resume,
 };
 
 static int __init ti_tsc_init(void)
