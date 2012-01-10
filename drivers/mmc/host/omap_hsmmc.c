@@ -1185,12 +1185,6 @@ static irqreturn_t omap_hsmmc_irq(int irq, void *dev_id)
 {
 	struct omap_hsmmc_host *host = dev_id;
 	int status;
-	struct omap_mmc_platform_data *pdata = host->pdata;
-
-	if (pdata->version == MMC_CTRL_VERSION_2) {
-		OMAP_HSMMC_WRITE(host->base, HCTL,
-			OMAP_HSMMC_READ(host->base, HCTL) | SDBP);
-	}
 
 	status = OMAP_HSMMC_READ(host->base, STAT);
 	do {
