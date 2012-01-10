@@ -32,6 +32,7 @@
 #include <linux/console.h>
 #include <linux/spinlock.h>
 #include <linux/slab.h>
+#include <linux/delay.h>
 #include <video/da8xx-fb.h>
 #include <asm/mach-types.h>
 
@@ -130,6 +131,8 @@
 #define RIGHT_MARGIN	64
 #define UPPER_MARGIN	32
 #define LOWER_MARGIN	32
+#define WAIT_FOR_FRAME_DONE	true
+#define NO_WAIT_FOR_FRAME_DONE	false
 
 static resource_size_t da8xx_fb_reg_base;
 static struct resource *lcdc_regs;
@@ -285,13 +288,39 @@ static inline void lcd_enable_raster(void)
 }
 
 /* Disable the Raster Engine of the LCD Controller */
-static inline void lcd_disable_raster(void)
+static inline void lcd_disable_raster(bool wait_for_frame_done)
 {
 	u32 reg;
+	u32 loop_cnt = 0;
+	u32 stat;
+	u32 i = 0;
+
+	if (wait_for_frame_done)
+		loop_cnt = 5000;
 
 	reg = lcdc_read(LCD_RASTER_CTRL_REG);
 	if (reg & LCD_RASTER_ENABLE)
 		lcdc_write(reg & ~LCD_RASTER_ENABLE, LCD_RASTER_CTRL_REG);
+
+	/* Wait for the current frame to complete */
+	do {
+		if (lcd_revision == LCD_VERSION_1)
+			stat = lcdc_read(LCD_STAT_REG);
+		else
+			stat = lcdc_read(LCD_RAW_STAT_REG);
+
+		mdelay(1);
+	} while (!(stat & BIT(0)) && (i++ < loop_cnt));
+
+	if (lcd_revision == LCD_VERSION_1)
+		lcdc_write(stat, LCD_STAT_REG);
+	else
+		lcdc_write(stat, LCD_MASKED_STAT_REG);
+
+	if ((loop_cnt != 0) && (i >= loop_cnt)) {
+		printk(KERN_ERR "LCD Controller timed out\n");
+		return;
+	}
 
 	if (lcd_revision == LCD_VERSION_2)
 		/* Write 1 to reset LCDC */
@@ -646,7 +675,7 @@ static int fb_setcolreg(unsigned regno, unsigned red, unsigned green,
 static void lcd_reset(struct da8xx_fb_par *par)
 {
 	/* Disable the Raster if previously Enabled */
-	lcd_disable_raster();
+	lcd_disable_raster(NO_WAIT_FOR_FRAME_DONE);
 
 	/* DMA has to be disabled */
 	lcdc_write(0, LCD_DMA_CTRL_REG);
@@ -772,7 +801,7 @@ static irqreturn_t lcdc_irq_handler_rev02(int irq, void *arg)
 
 	if ((stat & LCD_SYNC_LOST) && (stat & LCD_FIFO_UNDERFLOW)) {
 		printk(KERN_ERR "LCDC sync lost or underflow error occured\n");
-		lcd_disable_raster();
+		lcd_disable_raster(NO_WAIT_FOR_FRAME_DONE);
 		clk_disable(par->lcdc_clk);
 		lcdc_write(stat, LCD_MASKED_STAT_REG);
 		lcd_enable_raster();
@@ -784,7 +813,7 @@ static irqreturn_t lcdc_irq_handler_rev02(int irq, void *arg)
 		 * interrupt via the following write to the status register. If
 		 * this is done after then one gets multiple PL done interrupts.
 		 */
-		lcd_disable_raster();
+		lcd_disable_raster(NO_WAIT_FOR_FRAME_DONE);
 
 		lcdc_write(stat, LCD_MASKED_STAT_REG);
 
@@ -836,7 +865,7 @@ static irqreturn_t lcdc_irq_handler_rev01(int irq, void *arg)
 
 	if ((stat & LCD_SYNC_LOST) && (stat & LCD_FIFO_UNDERFLOW)) {
 		printk(KERN_ERR "LCDC sync lost or underflow error occured\n");
-		lcd_disable_raster();
+		lcd_disable_raster(NO_WAIT_FOR_FRAME_DONE);
 		clk_disable(par->lcdc_clk);
 		lcdc_write(stat, LCD_STAT_REG);
 		lcd_enable_raster();
@@ -848,7 +877,7 @@ static irqreturn_t lcdc_irq_handler_rev01(int irq, void *arg)
 		 * interrupt via the following write to the status register. If
 		 * this is done after then one gets multiple PL done interrupts.
 		 */
-		lcd_disable_raster();
+		lcd_disable_raster(NO_WAIT_FOR_FRAME_DONE);
 
 		lcdc_write(stat, LCD_STAT_REG);
 
@@ -959,7 +988,7 @@ static int lcd_da8xx_cpufreq_transition(struct notifier_block *nb,
 	par = container_of(nb, struct da8xx_fb_par, freq_transition);
 	if (val == CPUFREQ_POSTCHANGE) {
 		if (par->lcd_fck_rate != clk_get_rate(par->lcdc_clk)) {
-			lcd_disable_raster();
+			lcd_disable_raster(WAIT_FOR_FRAME_DONE);
 			lcd_calc_clk_divider(par);
 			lcd_enable_raster();
 		}
@@ -996,7 +1025,7 @@ static int __devexit fb_remove(struct platform_device *dev)
 		if (par->panel_power_ctrl)
 			par->panel_power_ctrl(0);
 
-		lcd_disable_raster();
+		lcd_disable_raster(WAIT_FOR_FRAME_DONE);
 		lcdc_write(0, LCD_RASTER_CTRL_REG);
 
 		/* disable DMA  */
@@ -1119,7 +1148,7 @@ static int cfb_blank(int blank, struct fb_info *info)
 		if (par->panel_power_ctrl)
 			par->panel_power_ctrl(0);
 
-		lcd_disable_raster();
+		lcd_disable_raster(WAIT_FOR_FRAME_DONE);
 		break;
 	default:
 		ret = -EINVAL;
@@ -1489,34 +1518,13 @@ static int fb_suspend(struct platform_device *dev, pm_message_t state)
 {
 	struct fb_info *info = platform_get_drvdata(dev);
 	struct da8xx_fb_par *par = info->par;
-	unsigned long timeo = jiffies + msecs_to_jiffies(5000);
-	u32 stat;
 
 	console_lock();
 	if (par->panel_power_ctrl)
 		par->panel_power_ctrl(0);
 
 	fb_set_suspend(info, 1);
-	lcd_disable_raster();
-
-	/* Wait for the current frame to complete */
-	do {
-		if (lcd_revision == LCD_VERSION_1)
-			stat = lcdc_read(LCD_STAT_REG);
-		else
-			stat = lcdc_read(LCD_MASKED_STAT_REG);
-		cpu_relax();
-	} while (!(stat & BIT(0)) && time_before(jiffies, timeo));
-
-	if (lcd_revision == LCD_VERSION_1)
-		lcdc_write(stat, LCD_STAT_REG);
-	else
-		lcdc_write(stat, LCD_MASKED_STAT_REG);
-
-	if (time_after_eq(jiffies, timeo)) {
-		dev_err(&dev->dev, "controller timed out\n");
-		return -ETIMEDOUT;
-	}
+	lcd_disable_raster(WAIT_FOR_FRAME_DONE);
 
 	clk_disable(par->lcdc_clk);
 	clk_disable(lcdc_ick);
