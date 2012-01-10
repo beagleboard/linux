@@ -576,11 +576,10 @@ static struct omap_hwmod_class_sysconfig am33xx_gpio_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
 	.syss_offs	= 0x0114,
-	.sysc_flags	= (SYSC_HAS_AUTOIDLE | SYSC_HAS_ENAWAKEUP |
-			SYSC_HAS_SIDLEMODE | SYSC_HAS_SOFTRESET |
-			SYSS_HAS_RESET_STATUS),
+	.sysc_flags	= (SYSC_HAS_AUTOIDLE | SYSC_HAS_SIDLEMODE |
+			SYSC_HAS_SOFTRESET | SYSS_HAS_RESET_STATUS),
 	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART |
-			SIDLE_SMART_WKUP),
+				SIDLE_SMART_WKUP),
 	.sysc_fields	= &omap_hwmod_sysc_type1,
 };
 
@@ -610,6 +609,7 @@ static struct omap_hwmod_ocp_if *am33xx_gpio0_slaves[] = {
 
 static struct omap_hwmod_opt_clk gpio0_opt_clks[] = {
 	{ .role = "dbclk", .clk = "gpio0_dbclk" },
+	{ .role = "fclk", .clk = "gpio0_fck" },
 };
 
 /* gpio0 */
@@ -646,6 +646,7 @@ static struct omap_hwmod_ocp_if *am33xx_gpio1_slaves[] = {
 
 static struct omap_hwmod_opt_clk gpio1_opt_clks[] = {
 	{ .role = "dbclk", .clk = "gpio1_dbclk" },
+	{ .role = "fclk", .clk = "gpio1_fck" },
 };
 
 static struct omap_hwmod am33xx_gpio1_hwmod = {
@@ -681,6 +682,7 @@ static struct omap_hwmod_ocp_if *am33xx_gpio2_slaves[] = {
 
 static struct omap_hwmod_opt_clk gpio2_opt_clks[] = {
 	{ .role = "dbclk", .clk = "gpio2_dbclk" },
+	{ .role = "fclk", .clk = "gpio2_fck" },
 };
 
 /* gpio2 */
@@ -693,7 +695,7 @@ static struct omap_hwmod am33xx_gpio2_hwmod = {
 	.clkdm_name	= "l4ls_clkdm",
 	.prcm		= {
 		.omap4	= {
-			.clkctrl_offs	= AM33XX_CM_PER_GPIO1_CLKCTRL_OFFSET,
+			.clkctrl_offs	= AM33XX_CM_PER_GPIO2_CLKCTRL_OFFSET,
 			.modulemode	= MODULEMODE_SWCTRL,
 		},
 	},
@@ -717,6 +719,7 @@ static struct omap_hwmod_ocp_if *am33xx_gpio3_slaves[] = {
 
 static struct omap_hwmod_opt_clk gpio3_opt_clks[] = {
 	{ .role = "dbclk", .clk = "gpio3_dbclk" },
+	{ .role = "fclk", .clk = "gpio3_fck" },
 };
 
 /* gpio3 */
@@ -729,7 +732,7 @@ static struct omap_hwmod am33xx_gpio3_hwmod = {
 	.clkdm_name	= "l4ls_clkdm",
 	.prcm		= {
 		.omap4	= {
-			.clkctrl_offs	= AM33XX_CM_PER_GPIO1_CLKCTRL_OFFSET,
+			.clkctrl_offs	= AM33XX_CM_PER_GPIO3_CLKCTRL_OFFSET,
 			.modulemode	= MODULEMODE_SWCTRL,
 		},
 	},
