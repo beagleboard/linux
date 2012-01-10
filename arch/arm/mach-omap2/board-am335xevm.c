@@ -140,10 +140,13 @@ static struct lcd_ctrl_config lcd_cfg = {
 	.raster_order		= 0,
 };
 
+static void am335x_gpio_bl_ctrl(int val);
+
 struct da8xx_lcdc_platform_data TFC_S9700RTWV35TR_01B_pdata = {
 	.manu_name		= "ThreeFive",
 	.controller_data	= &lcd_cfg,
 	.type			= "TFC_S9700RTWV35TR_01B",
+	.panel_power_ctrl	= am335x_gpio_bl_ctrl,
 };
 
 #include "common.h"
@@ -843,6 +846,12 @@ static struct pinmux_config wl12xx_pin_mux_evm_rev1_0[] = {
 static void enable_ecap0(int evm_id, int profile)
 {
 	backlight_enable = true;
+}
+
+static void am335x_gpio_bl_ctrl(int val)
+{
+	/* lcd backlight */
+	gpio_set_value(AM335X_LCD_BL_PIN, val);
 }
 
 static int __init ecap0_init(void)
