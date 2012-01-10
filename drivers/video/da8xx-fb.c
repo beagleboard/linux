@@ -135,6 +135,7 @@ static resource_size_t da8xx_fb_reg_base;
 static struct resource *lcdc_regs;
 static unsigned int lcd_revision;
 static irq_handler_t lcdc_irq_handler;
+struct clk *lcdc_ick;
 
 static inline unsigned int lcdc_read(unsigned int addr)
 {
@@ -1010,6 +1011,8 @@ static int __devexit fb_remove(struct platform_device *dev)
 		free_irq(par->irq, par);
 		clk_disable(par->lcdc_clk);
 		clk_put(par->lcdc_clk);
+		clk_disable(lcdc_ick);
+		clk_put(lcdc_ick);
 		framebuffer_release(info);
 		iounmap((void __iomem *)da8xx_fb_reg_base);
 		release_mem_region(lcdc_regs->start, resource_size(lcdc_regs));
@@ -1218,7 +1221,6 @@ static int __devinit fb_probe(struct platform_device *device)
 	struct da8xx_panel *lcdc_info;
 	struct fb_info *da8xx_fb_info;
 	struct clk *fb_clk = NULL;
-	struct clk *lcdc_ick = NULL;
 	struct da8xx_fb_par *par;
 	resource_size_t len;
 	int ret, i;
@@ -1471,6 +1473,9 @@ err_clk_put:
 	clk_put(fb_clk);
 
 err_ioremap:
+	clk_disable(lcdc_ick);
+	clk_put(lcdc_ick);
+
 	iounmap((void __iomem *)da8xx_fb_reg_base);
 
 err_request_mem:
@@ -1514,6 +1519,7 @@ static int fb_suspend(struct platform_device *dev, pm_message_t state)
 	}
 
 	clk_disable(par->lcdc_clk);
+	clk_disable(lcdc_ick);
 	console_unlock();
 
 	return 0;
@@ -1527,6 +1533,7 @@ static int fb_resume(struct platform_device *dev)
 	if (par->panel_power_ctrl)
 		par->panel_power_ctrl(1);
 
+	clk_enable(lcdc_ick);
 	clk_enable(par->lcdc_clk);
 
 	lcd_enable_raster();
