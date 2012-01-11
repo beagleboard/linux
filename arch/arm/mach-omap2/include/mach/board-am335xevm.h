@@ -23,7 +23,9 @@
 #define LOW_COST_EVM		0
 #define GEN_PURP_EVM		1
 #define IND_AUT_MTR_EVM		2
-#define IP_PHN_EVM			3
+#define IP_PHN_EVM		3
+#define BEAGLE_BONE_OLD		4
+#define BEAGLE_BONE_A3		5
 
 /* REVIST : check posibility of PROFILE_(x) syntax usage */
 #define PROFILE_NONE	-1	/* Few EVM doesn't have profiles */

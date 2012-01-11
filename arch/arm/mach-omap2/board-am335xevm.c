@@ -1545,6 +1545,9 @@ static void setup_beaglebone_old(void)
 
 	phy_register_fixup_for_uid(BBB_PHY_ID, BBB_PHY_MASK,
 					beaglebone_phy_fixup);
+
+	/* Fill up global evmid */
+	am33xx_evmid_fillup(BEAGLE_BONE_OLD);
 }
 
 /* BeagleBone after Rev A3 */
@@ -1556,6 +1559,9 @@ static void setup_beaglebone(void)
 	am335x_mmc[0].gpio_wp = -EINVAL;
 
 	_configure_device(LOW_COST_EVM, beaglebone_dev_cfg, PROFILE_NONE);
+
+	/* Fill up global evmid */
+	am33xx_evmid_fillup(BEAGLE_BONE_A3);
 }
 
 

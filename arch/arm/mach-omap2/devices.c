@@ -1314,6 +1314,11 @@ void am33xx_cpsw_macidfillup(char *eeprommacid0, char *eeprommacid1)
 	return;
 }
 
+#define MII_MODE_ENABLE		0x0
+#define RMII_MODE_ENABLE	0x5
+#define RGMII_MODE_ENABLE	0xA
+#define MAC_MII_SEL		0x650
+
 void am33xx_cpsw_init(unsigned int gigen)
 {
 	u32 mac_lo, mac_hi;
@@ -1349,9 +1354,18 @@ void am33xx_cpsw_init(unsigned int gigen)
 			am33xx_cpsw_slaves[1].mac_addr[i] = am33xx_macid1[i];
 	}
 
-	if (am33xx_evmid == IND_AUT_MTR_EVM) {
+	if (am33xx_evmid == BEAGLE_BONE_OLD) {
+		__raw_writel(RMII_MODE_ENABLE,
+				AM33XX_CTRL_REGADDR(MAC_MII_SEL));
+	} else if (am33xx_evmid == BEAGLE_BONE_A3) {
+		__raw_writel(MII_MODE_ENABLE,
+				AM33XX_CTRL_REGADDR(MAC_MII_SEL));
+	} else if (am33xx_evmid == IND_AUT_MTR_EVM) {
 		am33xx_cpsw_slaves[0].phy_id = "0:1e";
 		am33xx_cpsw_slaves[1].phy_id = "0:00";
+	} else {
+		__raw_writel(RGMII_MODE_ENABLE,
+				AM33XX_CTRL_REGADDR(MAC_MII_SEL));
 	}
 
 	am33xx_cpsw_pdata.gigabit_en = gigen;
