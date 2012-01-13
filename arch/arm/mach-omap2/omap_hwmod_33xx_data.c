@@ -68,6 +68,7 @@ static struct omap_hwmod am33xx_spi0_hwmod;
 static struct omap_hwmod am33xx_spi1_hwmod;
 static struct omap_hwmod am33xx_elm_hwmod;
 static struct omap_hwmod am33xx_adc_tsc_hwmod;
+static struct omap_hwmod am33xx_tpcc_hwmod;
 
 /*
  * Interconnects hwmod structures
@@ -2017,8 +2018,32 @@ static struct omap_hwmod_class am33xx_tpcc_hwmod_class = {
 
 /* tpcc */
 static struct omap_hwmod_irq_info am33xx_tpcc_irqs[] = {
-	{ .irq = AM33XX_IRQ_TPCC0_INT_PO0 },
+	{ .name	= "edma0", .irq = AM33XX_IRQ_TPCC0_INT_PO0 },
+	{ .name	= "edma0_err", .irq = AM33XX_IRQ_TPCC0_ERRINT_PO },
 	{ .irq = -1 },
+};
+
+/* TODO move this appropriate header. */
+#define AM33XX_TPCC_BASE		0x49000000
+
+static struct omap_hwmod_addr_space am33xx_tpcc_addr_space[] = {
+	{
+		.pa_start	= AM33XX_TPCC_BASE,
+		.pa_end		= AM33XX_TPCC_BASE + SZ_32K - 1,
+		.flags		= ADDR_TYPE_RT
+	},
+	{ }
+};
+
+static struct omap_hwmod_ocp_if am33xx_l3_slow__tpcc = {
+	.master		= &am33xx_l3slow_hwmod,
+	.slave		= &am33xx_tpcc_hwmod,
+	.addr		= am33xx_tpcc_addr_space,
+	.user		= OCP_USER_MPU,
+};
+
+static struct omap_hwmod_ocp_if *am33xx_tpcc_slaves[] = {
+	&am33xx_l3_slow__tpcc,
 };
 
 static struct omap_hwmod am33xx_tpcc_hwmod = {
@@ -2033,6 +2058,8 @@ static struct omap_hwmod am33xx_tpcc_hwmod = {
 			.modulemode	= MODULEMODE_SWCTRL,
 		},
 	},
+	.slaves		= am33xx_tpcc_slaves,
+	.slaves_cnt	= ARRAY_SIZE(am33xx_tpcc_slaves),
 };
 
 /* 'tptc' class */
