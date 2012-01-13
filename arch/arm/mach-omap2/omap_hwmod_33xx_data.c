@@ -67,6 +67,7 @@ static struct omap_hwmod am33xx_mmc2_hwmod;
 static struct omap_hwmod am33xx_spi0_hwmod;
 static struct omap_hwmod am33xx_spi1_hwmod;
 static struct omap_hwmod am33xx_elm_hwmod;
+static struct omap_hwmod am33xx_adc_tsc_hwmod;
 
 /*
  * Interconnects hwmod structures
@@ -227,6 +228,23 @@ static struct omap_hwmod_ocp_if am33xx_l4_wkup__gpio0 = {
 	.user		= OCP_USER_MPU | OCP_USER_SDMA,
 };
 
+/* L4 WKUP -> ADC_TSC */
+static struct omap_hwmod_addr_space am33xx_adc_tsc_addrs[] = {
+	{
+		.pa_start	= AM33XX_TSC_BASE,
+		.pa_end		= AM33XX_TSC_BASE + SZ_8K - 1,
+		.flags		= ADDR_TYPE_RT
+	},
+	{ }
+};
+
+static struct omap_hwmod_ocp_if am33xx_l4_wkup_adc_tsc = {
+	.master		= &am33xx_l4wkup_hwmod,
+	.slave		= &am33xx_adc_tsc_hwmod,
+	.addr		= am33xx_adc_tsc_addrs,
+	.user		= OCP_USER_MPU,
+};
+
 /* Master interfaces on the L4_WKUP interconnect */
 static struct omap_hwmod_ocp_if *am33xx_l4_wkup_masters[] = {
 	&am33xx_l4_wkup__gpio0,
@@ -258,6 +276,10 @@ static struct omap_hwmod_irq_info am33xx_adc_tsc_irqs[] = {
 	{ .irq = -1 }
 };
 
+static struct omap_hwmod_ocp_if *am33xx_adc_tsc_slaves[] = {
+	&am33xx_l4_wkup_adc_tsc,
+};
+
 static struct omap_hwmod am33xx_adc_tsc_hwmod = {
 	.name		= "adc_tsc",
 	.class		= &am33xx_adc_tsc_hwmod_class,
@@ -270,6 +292,9 @@ static struct omap_hwmod am33xx_adc_tsc_hwmod = {
 			.modulemode	= MODULEMODE_SWCTRL,
 		},
 	},
+	.flags		= HWMOD_INIT_NO_RESET | HWMOD_INIT_NO_IDLE,
+	.slaves		= am33xx_adc_tsc_slaves,
+	.slaves_cnt	= ARRAY_SIZE(am33xx_adc_tsc_slaves),
 };
 
 /* 'aes' class */
