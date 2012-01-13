@@ -69,6 +69,8 @@ static struct omap_hwmod am33xx_spi1_hwmod;
 static struct omap_hwmod am33xx_elm_hwmod;
 static struct omap_hwmod am33xx_adc_tsc_hwmod;
 static struct omap_hwmod am33xx_tpcc_hwmod;
+static struct omap_hwmod am33xx_mcasp0_hwmod;
+static struct omap_hwmod am33xx_mcasp1_hwmod;
 
 /*
  * Interconnects hwmod structures
@@ -1123,8 +1125,30 @@ static struct omap_hwmod_class am33xx_mcasp_hwmod_class = {
 
 /* mcasp0 */
 static struct omap_hwmod_irq_info am33xx_mcasp0_irqs[] = {
-	{ .irq = 80 },
+	{ .name = "ax", .irq = AM33XX_IRQ_MCASP0_AX, },
+	{ .name = "ar", .irq = AM33XX_IRQ_MCASP0_AR, },
 	{ .irq = -1 }
+};
+
+static struct omap_hwmod_addr_space am33xx_mcasp0_addr_space[] = {
+	{
+		.pa_start	= AM33XX_ASP0_BASE,
+		.pa_end		= AM33XX_ASP0_BASE + (SZ_1K * 12) - 1,
+		.flags		= ADDR_TYPE_RT
+	},
+	{ }
+};
+
+static struct omap_hwmod_ocp_if am33xx_l3_slow__mcasp0 = {
+	.master		= &am33xx_l3slow_hwmod,
+	.slave		= &am33xx_mcasp0_hwmod,
+	.clk		= "mcasp0_ick",
+	.addr		= am33xx_mcasp0_addr_space,
+	.user		= OCP_USER_MPU,
+};
+
+static struct omap_hwmod_ocp_if *am33xx_mcasp0_slaves[] = {
+	&am33xx_l3_slow__mcasp0,
 };
 
 static struct omap_hwmod am33xx_mcasp0_hwmod = {
@@ -1139,7 +1163,54 @@ static struct omap_hwmod am33xx_mcasp0_hwmod = {
 			.modulemode	= MODULEMODE_SWCTRL,
 		},
 	},
+	.slaves		= am33xx_mcasp0_slaves,
+	.slaves_cnt	= ARRAY_SIZE(am33xx_mcasp0_slaves),
 };
+
+/* mcasp1 */
+static struct omap_hwmod_irq_info am33xx_mcasp1_irqs[] = {
+	{ .name = "ax", .irq = AM33XX_IRQ_MCASP1_AX, },
+	{ .name = "ar", .irq = AM33XX_IRQ_MCASP1_AR, },
+	{ .irq = -1 }
+};
+
+static struct omap_hwmod_addr_space am33xx_mcasp1_addr_space[] = {
+	{
+		.pa_start	= AM33XX_ASP1_BASE,
+		.pa_end		= AM33XX_ASP1_BASE + (SZ_1K * 12) - 1,
+		.flags		= ADDR_TYPE_RT
+	},
+	{ }
+};
+
+static struct omap_hwmod_ocp_if am33xx_l3_slow__mcasp1 = {
+	.master		= &am33xx_l3slow_hwmod,
+	.slave		= &am33xx_mcasp1_hwmod,
+	.clk		= "mcasp1_ick",
+	.addr		= am33xx_mcasp1_addr_space,
+	.user		= OCP_USER_MPU,
+};
+
+static struct omap_hwmod_ocp_if *am33xx_mcasp1_slaves[] = {
+	&am33xx_l3_slow__mcasp1,
+};
+
+static struct omap_hwmod am33xx_mcasp1_hwmod = {
+	.name		= "mcasp1",
+	.class		= &am33xx_mcasp_hwmod_class,
+	.mpu_irqs	= am33xx_mcasp1_irqs,
+	.main_clk	= "mcasp1_fck",
+	.clkdm_name	= "l3s_clkdm",
+	.prcm		= {
+		.omap4	= {
+			.clkctrl_offs	= AM33XX_CM_PER_MCASP1_CLKCTRL_OFFSET,
+			.modulemode	= MODULEMODE_SWCTRL,
+		},
+	},
+	.slaves		= am33xx_mcasp1_slaves,
+	.slaves_cnt	= ARRAY_SIZE(am33xx_mcasp1_slaves),
+};
+
 
 /* 'mmc' class */
 
@@ -2648,6 +2719,7 @@ static __initdata struct omap_hwmod *am33xx_hwmods[] = {
 	&am33xx_mailbox_hwmod,
 	/* mcasp class */
 	&am33xx_mcasp0_hwmod,
+	&am33xx_mcasp1_hwmod,
 	/* mmc class */
 	&am33xx_mmc0_hwmod,
 	&am33xx_mmc1_hwmod,
