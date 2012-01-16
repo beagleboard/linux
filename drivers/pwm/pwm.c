@@ -30,6 +30,7 @@
 #include <linux/list.h>
 #include <linux/sched.h>
 #include <linux/platform_device.h>
+#include <linux/cpufreq.h>
 #include <linux/pwm/pwm.h>
 
 static const char *REQUEST_SYSFS = "sysfs";
@@ -652,6 +653,27 @@ static struct class pwm_class = {
 	.class_attrs = pwm_class_attrs,
 };
 
+static int pwm_freq_transition_notifier_cb(struct notifier_block *nb,
+		unsigned long val, void *data)
+{
+	struct pwm_device *p;
+
+	p = container_of(nb, struct pwm_device, freq_transition);
+
+	if (val == CPUFREQ_POSTCHANGE && pwm_is_requested(p))
+		p->ops->freq_transition_notifier_cb(p);
+
+	return 0;
+}
+
+static inline int pwm_cpufreq_notifier_register(struct pwm_device *p)
+{
+	p->freq_transition.notifier_call = pwm_freq_transition_notifier_cb;
+
+	return cpufreq_register_notifier(&p->freq_transition,
+		       CPUFREQ_TRANSITION_NOTIFIER);
+}
+
 int pwm_register_byname(struct pwm_device *p, struct device *parent,
 			const char *name)
 {
@@ -681,6 +703,11 @@ int pwm_register_byname(struct pwm_device *p, struct device *parent,
 
 	dev_set_drvdata(p->dev, p);
 	p->flags = BIT(FLAG_REGISTERED);
+
+	ret = pwm_cpufreq_notifier_register(p);
+
+	if (ret < 0)
+		printk(KERN_ERR "Failed to add cpufreq notifier\n");
 
 	spin_lock_init(&p->pwm_lock);
 	goto done;

@@ -59,6 +59,7 @@ struct pwm_device_ops {
 					 struct pwm_device *from_p);
 	int	(*set_callback)		(struct pwm_device *p,
 					 pwm_callback_t callback);
+	int	(*freq_transition_notifier_cb) (struct pwm_device *p);
 };
 
 struct pwm_config {
@@ -100,6 +101,7 @@ struct pwm_device {
 	unsigned long duty_ticks;
 	unsigned long period_ns;
 	unsigned long duty_ns;
+	struct notifier_block freq_transition;
 	spinlock_t pwm_lock;
 };
 
