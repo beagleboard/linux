@@ -1955,6 +1955,35 @@ error:
 }
 
 /**
+ * omap_hwmod_set_master_standbymode - set the hwmod's OCP master standbymode
+ * @oh: struct omap_hwmod *
+ * @standbymode: MSTANDBY field bits (shifted to bit 0)
+ *
+ * Sets the IP block's OCP master staandby mode in hardware, and updates our
+ * local copy.  Intended to be used by drivers that have some erratum
+ * that requires direct manipulation of the MSTANDBY bits.  Returns
+ * -EINVAL if @oh is null, or passes along the return value from
+ * _set_master_standbymode().
+ *
+ */
+int omap_hwmod_set_master_standbymode(struct omap_hwmod *oh, u8 standbymode)
+{
+	u32 v;
+	int retval = 0;
+
+	if (!oh)
+		return -EINVAL;
+
+	v = oh->_sysc_cache;
+
+	retval = _set_master_standbymode(oh, standbymode, &v);
+	if (!retval)
+		_write_sysconfig(v, oh);
+
+	return retval;
+}
+
+/**
  * omap_hwmod_set_slave_idlemode - set the hwmod's OCP slave idlemode
  * @oh: struct omap_hwmod *
  * @idlemode: SIDLEMODE field bits (shifted to bit 0)
