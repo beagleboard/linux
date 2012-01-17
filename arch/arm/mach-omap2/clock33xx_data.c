@@ -264,6 +264,7 @@ static struct clk l4ls_fck = {
 	.clkdm_name	= "l4ls_clkdm",
 	.parent		= &core_100m_ck,
 	.recalc		= &followparent_recalc,
+	.flags		= ENABLE_ON_INIT,
 };
 
 static struct clk timer2_ick = {
@@ -384,6 +385,7 @@ static struct clk control_fck = {
 	.clkdm_name	= "l4_wkup_clkdm",
 	.parent		= &div_l4_wkup_gclk_ck,
 	.recalc		= &followparent_recalc,
+	.flags		= ENABLE_ON_INIT,
 };
 
 static struct clk dcan0_fck = {
@@ -450,6 +452,7 @@ static struct clk emif_fw_fck = {
 	.clkdm_name	= "l4fw_clkdm",
 	.parent		= &core_100m_ck,
 	.recalc		= &followparent_recalc,
+	.flags		= ENABLE_ON_INIT,
 };
 
 static struct clk epwmss0_fck = {
@@ -581,6 +584,7 @@ static struct clk ieee5000_fck = {
 	.clkdm_name	= "l3s_clkdm",
 	.parent		= &core_100m_ck,
 	.recalc		= &followparent_recalc,
+	.flags		= ENABLE_ON_INIT,
 };
 
 static struct clk l3_instr_fck = {
@@ -591,6 +595,7 @@ static struct clk l3_instr_fck = {
 	.clkdm_name	= "l3_clkdm",
 	.parent		= &sysclk_div_ck,
 	.recalc		= &followparent_recalc,
+	.flags		= ENABLE_ON_INIT,
 };
 
 static struct clk l3_main_fck = {
@@ -601,6 +606,7 @@ static struct clk l3_main_fck = {
 	.clkdm_name	= "l3_clkdm",
 	.parent		= &sysclk_div_ck,
 	.recalc		= &followparent_recalc,
+	.flags		= ENABLE_ON_INIT,
 };
 
 static struct clk l4_hs_fck = {
@@ -611,6 +617,7 @@ static struct clk l4_hs_fck = {
 	.clkdm_name	= "l4hs_clkdm",
 	.parent		= &sysclk_div_ck,
 	.recalc		= &followparent_recalc,
+	.flags		= ENABLE_ON_INIT,
 };
 
 static struct clk l4fw_fck = {
@@ -621,6 +628,7 @@ static struct clk l4fw_fck = {
 	.clkdm_name	= "l4fw_clkdm",
 	.parent		= &core_100m_ck,
 	.recalc		= &followparent_recalc,
+	.flags		= ENABLE_ON_INIT,
 };
 
 static struct clk l4wkup_fck = {
@@ -631,6 +639,7 @@ static struct clk l4wkup_fck = {
 	.clkdm_name	= "l4_wkup_aon_clkdm",
 	.parent		= &div_l4_wkup_gclk_ck,
 	.recalc		= &followparent_recalc,
+	.flags		= ENABLE_ON_INIT,
 };
 
 static struct clk mailbox0_fck = {
@@ -1243,6 +1252,7 @@ static struct clk emif_fck = {
 	.clkdm_name	= "l3_clkdm",
 	.parent		= &ddr_pll_div_clk,
 	.recalc		= &followparent_recalc,
+	.flags		= ENABLE_ON_INIT,
 };
 
 static struct clk div_l4_rtc_gclk_ck = {
@@ -1706,6 +1716,7 @@ static struct clk vtp_clk_div_ck = {
 	.parent		= &sys_clkin_ck,
 	.ops		= &clkops_null,
 	.recalc		= &followparent_recalc,
+	.flags		= ENABLE_ON_INIT,
 };
 
 
