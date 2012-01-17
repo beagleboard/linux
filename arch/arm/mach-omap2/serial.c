@@ -362,7 +362,7 @@ void __init omap_serial_init_port(struct omap_board_data *bdata,
 		omap_up.errata |= UART_ERRATA_i202_MDR1_ACCESS;
 
 	/* Enable DMA Mode Force Idle Errata i291 for omap34xx/3630 */
-	if (cpu_is_omap34xx() || cpu_is_omap3630())
+	if ((cpu_is_omap34xx() || cpu_is_omap3630()) && !cpu_is_am33xx())
 		omap_up.errata |= UART_ERRATA_i291_DMA_FORCEIDLE;
 
 	pdata = &omap_up;
