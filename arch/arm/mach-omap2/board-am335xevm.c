@@ -52,6 +52,7 @@
 #include <plat/lcdc.h>
 #include <plat/usb.h>
 #include <plat/mmc.h>
+#include <plat/emif.h>
 
 #include "board-flash.h"
 #include "cpuidle33xx.h"
@@ -1913,15 +1914,21 @@ static void __init clkout2_enable(void)
 	setup_pin_mux(clkout2_pin_mux);
 }
 
+void __iomem *am33xx_emif_base;
+
 void __iomem * __init am33xx_get_mem_ctlr(void)
 {
-	void __iomem *am33xx_emif_base;
 
 	am33xx_emif_base = ioremap(AM33XX_EMIF0_BASE, SZ_32K);
 
 	if (!am33xx_emif_base)
 		pr_warning("%s: Unable to map DDR2 controller",	__func__);
 
+	return am33xx_emif_base;
+}
+
+void __iomem *am33xx_get_ram_base(void)
+{
 	return am33xx_emif_base;
 }
 

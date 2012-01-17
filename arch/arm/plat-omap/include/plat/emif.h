@@ -16,6 +16,10 @@
 #ifndef __EMIF_H
 #define __EMIF_H
 
+#ifndef __ASSEMBLER__
+extern void __iomem *am33xx_get_ram_base(void);
+#endif /* ASSEMBLER */
+
 #define EMIF_MOD_ID_REV			(0x0)
 #define EMIF4_0_SDRAM_STATUS            (0x04)
 #define EMIF4_0_SDRAM_CONFIG            (0x08)
