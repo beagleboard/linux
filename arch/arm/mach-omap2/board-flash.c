@@ -131,6 +131,29 @@ static struct gpmc_timings nand_timings = {
 	.wr_data_mux_bus = 0,
 };
 
+static struct gpmc_timings am335x_nand_timings = {
+
+	.sync_clk = 0,
+
+	.cs_on = 0,
+	.cs_rd_off = 44,
+	.cs_wr_off = 44,
+
+	.adv_on = 6,
+	.adv_rd_off = 34,
+	.adv_wr_off = 44,
+
+	.we_off = 40,
+	.oe_off = 54,
+
+	.access = 64,
+	.rd_cycle = 82,
+	.wr_cycle = 82,
+
+	.wr_access = 40,
+	.wr_data_mux_bus = 0,
+};
+
 static struct omap_nand_platform_data board_nand_data = {
 	.gpmc_t		= &nand_timings,
 };
@@ -148,8 +171,9 @@ __init board_nand_init(struct mtd_partition *nand_parts,
 	board_nand_data.gpmc_irq = OMAP_GPMC_IRQ_BASE + cs;
 
 	if (cpu_is_am335x()) {
-		board_nand_data.ecc_opt  = OMAP_ECC_BCH8_CODE_HW;
-		board_nand_data.xfer_type = NAND_OMAP_PREFETCH_POLLED;
+		board_nand_data.ecc_opt		= OMAP_ECC_BCH8_CODE_HW;
+		board_nand_data.xfer_type	= NAND_OMAP_PREFETCH_POLLED;
+		board_nand_data.gpmc_t		= &am335x_nand_timings;
 	}
 
 	gpmc_nand_init(&board_nand_data);
