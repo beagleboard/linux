@@ -35,15 +35,23 @@
 #include <asm/sizes.h>
 
 #include "pm.h"
+#include "pm33xx.h"
 
+void (*am33xx_do_wfi_sram)(void);
+
+#define DS_MODE		DS1_ID	/* DS0/1_ID */
+
+#ifdef CONFIG_SUSPEND
 static int m3_state;
-static struct device *mpu_dev;
 struct omap_mbox *m3_mbox;
 void __iomem *ipc_regs;
 void __iomem *m3_eoi;
 void __iomem *m3_code;
 
+static struct device *mpu_dev;
 bool enable_deep_sleep = true;
+
+static suspend_state_t suspend_state = PM_SUSPEND_ON;
 
 struct a8_wkup_m3_ipc_data {
 	int resume_addr;
@@ -53,17 +61,6 @@ struct a8_wkup_m3_ipc_data {
 } am33xx_lp_ipc;
 
 static int am33xx_set_low_power_state(struct a8_wkup_m3_ipc_data *);
-void (*am33xx_do_wfi_sram)(void);
-
-#define DS_RESUME_ADDR	0x40300010
-#define DS_MODE		0x5
-#define DS_IPC_DEFAULT	0xffffffff
-
-#define A8_M3_IPC_REGS	0x44E11328
-#define M3_TXEV_EOI	0x44E11324
-
-#ifdef CONFIG_SUSPEND
-static suspend_state_t suspend_state = PM_SUSPEND_ON;
 
 static int am33xx_do_sram_idle(long unsigned int state)
 {
@@ -129,7 +126,8 @@ static int am33xx_pm_begin(suspend_state_t state)
 
 	ret = omap_mbox_msg_send(m3_mbox, 0xABCDABCD);
 	if (!ret) {
-		pr_info("Message sent\n");
+		pr_info("Message sent for entering %s\n",
+			(DS_MODE == DS0_ID ? "DS0" : "DS1"));
 		omap_mbox_msg_rx_flush(m3_mbox);
 	}
 
@@ -158,15 +156,6 @@ static const struct platform_suspend_ops am33xx_pm_ops = {
 	.enter		= am33xx_pm_enter,
 	.valid		= suspend_valid_only_mem,
 };
-#endif /* CONFIG_SUSPEND */
-
-/*
- * Push the minimal suspend-resume code to SRAM
- */
-void am33xx_push_sram_idle(void)
-{
-	am33xx_do_wfi_sram = omap_sram_push(am33xx_do_wfi, am33xx_do_wfi_sz);
-}
 
 int am33xx_set_low_power_state(struct a8_wkup_m3_ipc_data *data)
 {
@@ -257,7 +246,7 @@ static int wkup_m3_init(void)
 		goto err4;
 	}
 
-	m3_code = ioremap(0x44D00000, SZ_16K);
+	m3_code = ioremap(M3_UMEM, SZ_16K);
 	if (!m3_code) {
 		pr_err("%s Could not ioremap M3 code space\n", __func__);
 		ret = -ENOMEM;
@@ -304,7 +293,15 @@ err1:
 exit:
 	return ret;
 }
+#endif /* CONFIG_SUSPEND */
 
+/*
+ * Push the minimal suspend-resume code to SRAM
+ */
+void am33xx_push_sram_idle(void)
+{
+	am33xx_do_wfi_sram = omap_sram_push(am33xx_do_wfi, am33xx_do_wfi_sz);
+}
 
 static int __init am33xx_pm_init(void)
 {
@@ -315,6 +312,7 @@ static int __init am33xx_pm_init(void)
 
 	pr_info("Power Management for AM33XX family\n");
 
+#ifdef CONFIG_SUSPEND
 	mpu_dev = omap_device_get_by_hwmod_name("mpu");
 
 	if (!mpu_dev) {
@@ -325,12 +323,11 @@ static int __init am33xx_pm_init(void)
 	ret = wkup_m3_init();
 
 	if (ret) {
-		pr_err("Could not initialise WKUP_M3."
+		pr_err("Could not initialise WKUP_M3. "
 			"Power management will be compromised\n");
 		enable_deep_sleep = false;
 	}
 
-#ifdef CONFIG_SUSPEND
 	if (enable_deep_sleep)
 		suspend_set_ops(&am33xx_pm_ops);
 #endif /* CONFIG_SUSPEND */

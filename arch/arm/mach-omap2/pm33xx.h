@@ -17,6 +17,15 @@
 extern void __iomem *am33xx_get_ram_base(void);
 #endif /* ASSEMBLER */
 
+#define M3_TXEV_EOI			(AM33XX_CTRL_BASE + 0x1324)
+#define A8_M3_IPC_REGS			(AM33XX_CTRL_BASE + 0x1328)
+#define DS_RESUME_ADDR			0x403000A0
+#define DS_IPC_DEFAULT			0xffffffff
+#define M3_UMEM				0x44D00000
+
+#define	DS0_ID				0x3
+#define DS1_ID				0x5
+
 /* DDR offsets */
 #define DDR_CMD0_IOCTRL			(AM33XX_CTRL_BASE + 0x1404)
 #define DDR_CMD1_IOCTRL			(AM33XX_CTRL_BASE + 0x1408)
