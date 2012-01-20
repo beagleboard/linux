@@ -38,7 +38,11 @@
 
 #include <mach/hardware.h>
 
-#define DEFAULT_RESOLUTION 12500
+/* Tolerance for MPU voltage is 4%, we have to pass +4% as a
+ * maximum voltage while setting the MPU regulator voltage.
+ * Which is taken from AM33XX datasheet */
+#define MPU_TOLERANCE	4
+#define PER_ROUND_VAL	100
 
 #ifdef CONFIG_SMP
 struct lpj_info {
@@ -136,7 +140,7 @@ static int omap_target(struct cpufreq_policy *policy,
 
 	if (freqs.new > freqs.old) {
 		ret = regulator_set_voltage(mpu_reg, volt_new,
-			volt_new + DEFAULT_RESOLUTION - 1);
+			volt_new + (volt_new * MPU_TOLERANCE) / PER_ROUND_VAL);
 		if (ret) {
 			dev_err(mpu_dev, "%s: unable to set voltage to %d uV (for %u MHz)\n",
 				__func__, volt_new, freqs.new/1000);
@@ -187,7 +191,7 @@ static int omap_target(struct cpufreq_policy *policy,
 
 	if (freqs.new < freqs.old) {
 		ret = regulator_set_voltage(mpu_reg, volt_new,
-			volt_new + DEFAULT_RESOLUTION - 1);
+			volt_new + (volt_new * MPU_TOLERANCE) / PER_ROUND_VAL);
 		if (ret) {
 			unsigned int temp;
 
