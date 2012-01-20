@@ -33,6 +33,7 @@
 #include <linux/wl12xx.h>
 #include <linux/ethtool.h>
 #include <linux/mfd/tps65910.h>
+#include <linux/mfd/tps65217.h>
 #include <linux/pwm_backlight.h>
 
 /* LCD controller is similar to DA850 */
@@ -1100,6 +1101,194 @@ static void evm_nand_init(int evm_id, int profile)
 		ARRAY_SIZE(am335x_nand_partitions), 0, 0);
 }
 
+/* TPS65217 voltage regulator support */
+
+/* 1.8V */
+static struct regulator_consumer_supply tps65217_dcdc1_consumers[] = {
+	{
+		.supply = "vdds_osc",
+	},
+	{
+		.supply = "vdds_pll_ddr",
+	},
+	{
+		.supply = "vdds_pll_mpu",
+	},
+	{
+		.supply = "vdds_pll_core_lcd",
+	},
+	{
+		.supply = "vdds_sram_mpu_bb",
+	},
+	{
+		.supply = "vdds_sram_core_bg",
+	},
+	{
+		.supply = "vdda_usb0_1p8v",
+	},
+	{
+		.supply = "vdds_ddr",
+	},
+	{
+		.supply = "vdds",
+	},
+	{
+		.supply = "vdds_hvx_1p8v",
+	},
+	{
+		.supply = "vdda_adc",
+	},
+	{
+		.supply = "ddr2",
+	},
+};
+
+/* 1.1V */
+static struct regulator_consumer_supply tps65217_dcdc2_consumers[] = {
+	{
+		.supply = "vdd_mpu",
+	},
+};
+
+/* 1.1V */
+static struct regulator_consumer_supply tps65217_dcdc3_consumers[] = {
+	{
+		.supply = "vdd_core",
+	},
+};
+
+/* 1.8V LDO */
+static struct regulator_consumer_supply tps65217_ldo1_consumers[] = {
+	{
+		.supply = "vdds_rtc",
+	},
+};
+
+/* 3.3V LDO */
+static struct regulator_consumer_supply tps65217_ldo2_consumers[] = {
+	{
+		.supply = "vdds_any_pn",
+	},
+};
+
+/* 3.3V LDO */
+static struct regulator_consumer_supply tps65217_ldo3_consumers[] = {
+	{
+		.supply = "vdds_hvx_ldo3_3p3v",
+	},
+	{
+		.supply = "vdda_usb0_3p3v",
+	},
+};
+
+/* 3.3V LDO */
+static struct regulator_consumer_supply tps65217_ldo4_consumers[] = {
+	{
+		.supply = "vdds_hvx_ldo4_3p3v",
+	},
+};
+
+static struct regulator_init_data tps65217_regulator_data[] = {
+	/* dcdc1 */
+	{
+		.constraints = {
+			.min_uV = 900000,
+			.max_uV = 1800000,
+			.boot_on = 1,
+			.always_on = 1,
+		},
+		.num_consumer_supplies = ARRAY_SIZE(tps65217_dcdc1_consumers),
+		.consumer_supplies = tps65217_dcdc1_consumers,
+	},
+
+	/* dcdc2 */
+	{
+		.constraints = {
+			.min_uV = 900000,
+			.max_uV = 3300000,
+			.valid_ops_mask = (REGULATOR_CHANGE_VOLTAGE |
+				REGULATOR_CHANGE_STATUS),
+			.boot_on = 1,
+			.always_on = 1,
+		},
+		.num_consumer_supplies = ARRAY_SIZE(tps65217_dcdc2_consumers),
+		.consumer_supplies = tps65217_dcdc2_consumers,
+	},
+
+	/* dcdc3 */
+	{
+		.constraints = {
+			.min_uV = 900000,
+			.max_uV = 1500000,
+			.valid_ops_mask = (REGULATOR_CHANGE_VOLTAGE |
+				REGULATOR_CHANGE_STATUS),
+			.boot_on = 1,
+			.always_on = 1,
+		},
+		.num_consumer_supplies = ARRAY_SIZE(tps65217_dcdc3_consumers),
+		.consumer_supplies = tps65217_dcdc3_consumers,
+	},
+
+	/* ldo1 */
+	{
+		.constraints = {
+			.min_uV = 1000000,
+			.max_uV = 3300000,
+			.valid_ops_mask = REGULATOR_CHANGE_STATUS,
+			.boot_on = 1,
+			.always_on = 1,
+		},
+		.num_consumer_supplies = ARRAY_SIZE(tps65217_ldo1_consumers),
+		.consumer_supplies = tps65217_ldo1_consumers,
+	},
+
+	/* ldo2 */
+	{
+		.constraints = {
+			.min_uV = 900000,
+			.max_uV = 3300000,
+			.valid_ops_mask = (REGULATOR_CHANGE_VOLTAGE |
+				REGULATOR_CHANGE_STATUS),
+			.boot_on = 1,
+			.always_on = 1,
+		},
+		.num_consumer_supplies = ARRAY_SIZE(tps65217_ldo2_consumers),
+		.consumer_supplies = tps65217_ldo2_consumers,
+	},
+
+	/* ldo3 */
+	{
+		.constraints = {
+			.min_uV = 1800000,
+			.max_uV = 3300000,
+			.valid_ops_mask = (REGULATOR_CHANGE_VOLTAGE |
+				REGULATOR_CHANGE_STATUS),
+			.boot_on = 1,
+			.always_on = 1,
+		},
+		.num_consumer_supplies = ARRAY_SIZE(tps65217_ldo3_consumers),
+		.consumer_supplies = tps65217_ldo3_consumers,
+	},
+
+	/* ldo4 */
+	{
+		.constraints = {
+			.min_uV = 1800000,
+			.max_uV = 3300000,
+			.valid_ops_mask = (REGULATOR_CHANGE_VOLTAGE |
+				REGULATOR_CHANGE_STATUS),
+			.boot_on = 1,
+			.always_on = 1,
+		},
+		.num_consumer_supplies = ARRAY_SIZE(tps65217_ldo4_consumers),
+		.consumer_supplies = tps65217_ldo4_consumers,
+	},
+};
+
+static struct tps65217_board beaglebone_tps65217_info = {
+	.tps65217_init_data = &tps65217_regulator_data[0],
+};
+
 static struct lis3lv02d_platform_data lis331dlh_pdata = {
 	.click_flags = LIS3_CLICK_SINGLE_X |
 			LIS3_CLICK_SINGLE_Y |
@@ -1573,6 +1762,9 @@ static void setup_beaglebone(void)
 
 	_configure_device(LOW_COST_EVM, beaglebone_dev_cfg, PROFILE_NONE);
 
+	/* TPS65217 regulator has full constraints */
+	regulator_has_full_constraints();
+
 	/* Fill up global evmid */
 	am33xx_evmid_fillup(BEAGLE_BONE_A3);
 }
@@ -1772,7 +1964,10 @@ static struct i2c_board_info __initdata am335x_i2c_boardinfo[] = {
 		I2C_BOARD_INFO("tps65910", TPS65910_I2C_ID1),
 		.platform_data  = &am335x_tps65910_info,
 	},
-
+	{
+		I2C_BOARD_INFO("tps65217", TPS65217_I2C_ID),
+		.platform_data  = &beaglebone_tps65217_info,
+	},
 };
 
 static struct omap_musb_board_data musb_board_data = {
