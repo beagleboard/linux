@@ -130,7 +130,7 @@ static const struct display_panel disp_panel = {
 /* LCD backlight platform Data */
 #define AM335X_BACKLIGHT_MAX_BRIGHTNESS        100
 #define AM335X_BACKLIGHT_DEFAULT_BRIGHTNESS    100
-#define AM335X_PWM_PERIOD_NANO_SECONDS        (10000 * 10)
+#define AM335X_PWM_PERIOD_NANO_SECONDS        (1000000 * 10)
 
 #define PWM_DEVICE_ID   "ecap.0"
 
