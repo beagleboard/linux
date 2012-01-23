@@ -341,6 +341,11 @@ static void gpmc_cs_get_memconf(int cs, u32 *base, u32 *size)
 	*base = (l & 0x3f) << GPMC_CHUNK_SHIFT;
 	mask = (l >> 8) & 0x0f;
 	*size = (1 << GPMC_SECTION_SHIFT) - (mask << GPMC_CHUNK_SHIFT);
+
+	if (cpu_is_am33xx()) {
+		*base = 0x8000000;
+		*size = 0x10000000;
+	}
 }
 
 static int gpmc_cs_mem_enabled(int cs)
