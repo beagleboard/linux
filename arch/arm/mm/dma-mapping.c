@@ -128,7 +128,20 @@ static void __dma_free_buffer(struct page *page, size_t size)
  */
 static pte_t **consistent_pte;
 
+#ifdef CONFIG_FB_DA8XX_CONSISTENT_DMA_SIZE
+
+#if (CONFIG_FB_DA8XX_CONSISTENT_DMA_SIZE == 0)
+#undef CONFIG_FB_DA8XX_CONSISTENT_DMA_SIZE
+#define CONFIG_FB_DA8XX_CONSISTENT_DMA_SIZE 2
+#endif
+
+#define DEFAULT_CONSISTENT_DMA_SIZE \
+	(((CONFIG_FB_DA8XX_CONSISTENT_DMA_SIZE + 1) & ~1) * 1024 * 1024)
+
+#else
 #define DEFAULT_CONSISTENT_DMA_SIZE SZ_2M
+#endif
+
 
 unsigned long consistent_base = CONSISTENT_END - DEFAULT_CONSISTENT_DMA_SIZE;
 

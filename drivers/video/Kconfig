@@ -2238,6 +2238,17 @@ config FB_DA8XX
 	  found on DA8xx/OMAP-L1xx SoCs.
 	  If unsure, say N.
 
+config FB_DA8XX_CONSISTENT_DMA_SIZE
+	int "Consistent DMA memory size (MB)"
+	depends on (FB_DA8XX && MACH_AM335XEVM)
+	range 1 14
+	default 4
+	help
+	  Increase the DMA consistent memory size according to your video
+	  memory needs, for example if you want to use multiple planes.
+	  The size must be 2MB aligned.
+	  If unsure say 1.
+
 config FB_VIRTUAL
 	tristate "Virtual Frame Buffer support (ONLY FOR TESTING!)"
 	depends on FB
