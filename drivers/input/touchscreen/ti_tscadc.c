@@ -545,7 +545,7 @@ static int __devexit tscadc_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static int tscadc_suspend(struct platform_device *pdev)
+static int tscadc_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	struct tscadc *ts_dev = platform_get_drvdata(pdev);
 	unsigned int  status;
