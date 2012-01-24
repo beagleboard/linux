@@ -394,6 +394,9 @@ misc_config:
 
 config_emif_timings:
 	mov	r3, #1275068416	@ 0x4c000000
+disable_sr:
+	mov	r4, #0
+	str	r4, [r3, #56]	@ 0x38
 	ldr	r4, emif_rd_lat_val
 	mov	r2, r4
 rd_lat:
