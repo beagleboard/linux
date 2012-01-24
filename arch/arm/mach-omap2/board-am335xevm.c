@@ -349,6 +349,12 @@ static u32 am335x_get_profile_selection(void)
 		return val & 0x7;
 }
 
+static struct pinmux_config haptics_pin_mux[] = {
+	{"gpmc_ad9.ehrpwm2B",		OMAP_MUX_MODE4 |
+		AM33XX_PIN_OUTPUT},
+	{NULL, 0},
+};
+
 /* Module pin mux for LCDC */
 static struct pinmux_config lcdc_pin_mux[] = {
 	{"lcd_data0.lcd_data0",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
@@ -982,6 +988,16 @@ static void uart3_init(int evm_id, int profile)
 static void uart2_init(int evm_id, int profile)
 {
 	setup_pin_mux(uart2_pin_mux);
+	return;
+}
+
+/* setup haptics */
+#define HAPTICS_MAX_FREQ (250)
+
+static void haptics_init(int evm_id, int profile)
+{
+	setup_pin_mux(haptics_pin_mux);
+	register_ehrpwm(HAPTICS_MAX_FREQ);
 	return;
 }
 
@@ -1648,6 +1664,7 @@ static struct evm_dev_cfg gen_purp_evm_dev_cfg[] = {
 	{matrix_keypad_init, DEV_ON_DGHTR_BRD, PROFILE_0},
 	{volume_keys_init,  DEV_ON_DGHTR_BRD, PROFILE_0},
 	{uart2_init,	DEV_ON_DGHTR_BRD, PROFILE_3},
+	{haptics_init,	DEV_ON_DGHTR_BRD, (PROFILE_4)},
 	{NULL, 0, 0},
 };
 

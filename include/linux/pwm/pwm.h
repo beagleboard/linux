@@ -102,15 +102,23 @@ struct pwm_device {
 	unsigned long period_ns;
 	unsigned long duty_ns;
 	struct notifier_block freq_transition;
+	unsigned long max_period_ticks;
 	spinlock_t pwm_lock;
 };
 
 #include <linux/semaphore.h>
+#include <linux/pwm/ehrpwm.h>
 
 enum {
 	PWM_VERSION_0,
 	PWM_VERSION_1,
 };
+
+struct pwm_chan_attrib {
+	int max_freq;
+};
+
+#define PWM_CHANNEL NCHAN
 
 struct pwmss_platform_data {
 	int channel_mask;
@@ -118,6 +126,7 @@ struct pwmss_platform_data {
 	int pwmss_module_usage_count;
 	void *config_mem_base;
 	u8 version;
+	struct pwm_chan_attrib chan_attrib[PWM_CHANNEL];
 };
 
 struct pwm_device *pwm_request_byname(const char *name, const char *label);

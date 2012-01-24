@@ -1253,16 +1253,27 @@ struct platform_device am335x_epwm2_device = {
 void __init am335x_register_epwm(void)
 {
 
-	__raw_writew((PWMSS2_TBCLKEN | PWMSS1_TBCLKEN | PWMSS0_TBCLKEN),
+	__raw_writew((PWMSS1_TBCLKEN | PWMSS0_TBCLKEN),
 			AM33XX_CTRL_REGADDR(AM33XX_PWMSS_CTRL));
 	am335x_pwmss_config0.version = PWM_VERSION_1;
 	am335x_pwmss_config1.version = PWM_VERSION_1;
-	am335x_pwmss_config2.version = PWM_VERSION_1;
 	sema_init(&am335x_pwmss_config0.config_semaphore, 1);
 	sema_init(&am335x_pwmss_config1.config_semaphore, 1);
-	sema_init(&am335x_pwmss_config2.config_semaphore, 1);
 	platform_device_register(&am335x_epwm0_device);
 	platform_device_register(&am335x_epwm1_device);
+}
+
+
+void register_ehrpwm(int max_freq)
+{
+	int val;
+
+	val = __raw_readw(AM33XX_CTRL_REGADDR(AM33XX_PWMSS_CTRL));
+	val |= PWMSS2_TBCLKEN;
+	__raw_writew(val, AM33XX_CTRL_REGADDR(AM33XX_PWMSS_CTRL));
+	am335x_pwmss_config2.chan_attrib[1].max_freq = max_freq;
+	sema_init(&am335x_pwmss_config2.config_semaphore, 1);
+	am335x_pwmss_config2.version = PWM_VERSION_1;
 	platform_device_register(&am335x_epwm2_device);
 }
 

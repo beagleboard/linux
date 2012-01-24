@@ -1246,7 +1246,12 @@ static int ehrpwm_pwm_config(struct pwm_device *p,
 
 	switch (c->config_mask) {
 	case BIT(PWM_CONFIG_PERIOD_TICKS):
-		p->period_ticks = c->period_ticks;
+		if (p->max_period_ticks &&
+				(p->max_period_ticks >= c->period_ticks))
+			p->period_ticks = p->max_period_ticks;
+		else
+			p->period_ticks = c->period_ticks;
+
 		ret = ehrpwm_pwm_set_prd(p);
 		break;
 
@@ -1449,6 +1454,15 @@ set_bit:
 	for (chan = 0; chan < NCHAN; chan++) {
 		ehrpwm->pwm[chan].ops = &ehrpwm->ops;
 		pwm_set_drvdata(&ehrpwm->pwm[chan], ehrpwm);
+		ehrpwm->pwm[chan].tick_hz = clk_get_rate(ehrpwm->clk);
+
+		if (pdata->chan_attrib[chan].max_freq) {
+			int period_ns = NSEC_PER_SEC
+				/ pdata->chan_attrib[chan].max_freq;
+
+			ehrpwm->pwm[chan].max_period_ticks =
+				pwm_ns_to_ticks(&ehrpwm->pwm[chan], period_ns);
+		}
 
 		if (!(ehrpwm->version == PWM_VERSION_1)) {
 			if (!(ch_mask & (0x1 << chan)))
