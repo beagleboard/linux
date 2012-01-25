@@ -196,9 +196,13 @@ static int ecap_pwm_request(struct pwm_device *p)
 static int ecap_frequency_transition_cb(struct pwm_device *p)
 {
 	struct ecap_pwm *ep = to_ecap_pwm(p);
-	unsigned long duty_ns;
+	unsigned long duty_ns, rate;
 
-	p->tick_hz = clk_get_rate(ep->clk);
+	rate = clk_get_rate(ep->clk);
+	if (rate == p->tick_hz)
+		return 0;
+	p->tick_hz = rate;
+
 	duty_ns = p->duty_ns;
 	if (pwm_is_running(p)) {
 		pwm_stop(p);
