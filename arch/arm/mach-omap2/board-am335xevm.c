@@ -19,6 +19,7 @@
 #include <linux/i2c/at24.h>
 #include <linux/phy.h>
 #include <linux/gpio.h>
+#include <linux/leds.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/flash.h>
 #include <linux/gpio_keys.h>
@@ -35,7 +36,6 @@
 #include <linux/mfd/tps65910.h>
 #include <linux/mfd/tps65217.h>
 #include <linux/pwm_backlight.h>
-#include <linux/input/ti_tscadc.h>
 #include <linux/reboot.h>
 #include <linux/pwm/pwm.h>
 #include <linux/opp.h>
@@ -174,6 +174,68 @@ struct da8xx_lcdc_platform_data TFC_S9700RTWV35TR_01B_pdata = {
 
 #include "common.h"
 
+static const struct display_panel bbtoys7_panel = {
+	WVGA,
+	16,
+	16,
+	COLOR_ACTIVE,
+};
+
+static struct lcd_ctrl_config bbtoys7_cfg = {
+	&bbtoys7_panel,
+	.ac_bias		= 255,
+	.ac_bias_intrpt		= 0,
+	.dma_burst_sz		= 16,
+	.bpp			= 16,
+	.fdd			= 0x80,
+	.tft_alt_mode		= 0,
+	.stn_565_mode		= 0,
+	.mono_8bit_mode		= 0,
+	.invert_line_clock	= 1,
+	.invert_frm_clock	= 1,
+	.sync_edge		= 0,
+	.sync_ctrl		= 1,
+	.raster_order		= 0,
+};
+
+struct da8xx_lcdc_platform_data bbtoys7_pdata = {
+	.manu_name		= "ThreeFive",
+	.controller_data	= &bbtoys7_cfg,
+	.type			= "TFC_S9700RTWV35TR_01B",
+};
+
+static const struct display_panel dvi_panel = {
+	WVGA,
+	16,
+	16,
+	COLOR_ACTIVE,
+};
+
+static struct lcd_ctrl_config dvi_cfg = {
+	&dvi_panel,
+	.ac_bias		= 255,
+	.ac_bias_intrpt		= 0,
+	.dma_burst_sz		= 16,
+	.bpp			= 16,
+	.fdd			= 0x80,
+	.tft_alt_mode		= 0,
+	.stn_565_mode		= 0,
+	.mono_8bit_mode		= 0,
+	.invert_line_clock	= 1,
+	.invert_frm_clock	= 1,
+	.sync_edge		= 0,
+	.sync_ctrl		= 1,
+	.raster_order		= 0,
+};
+
+struct da8xx_lcdc_platform_data dvi_pdata = {
+	.manu_name		= "BBToys",
+	.controller_data	= &dvi_cfg,
+	.type			= "1024x768@60",
+};
+
+/* TSc controller */
+#include <linux/input/ti_tscadc.h>
 #include <linux/lis3lv02d.h>
 
 /* TSc controller */
@@ -342,9 +404,34 @@ static struct am335x_evm_eeprom_config config;
 static struct am335x_eeprom_config1 config1;
 static bool daughter_brd_detected;
 
+struct beaglebone_cape_eeprom_config {
+	u32	header;
+	char  format_revision[2];
+	char	name[32];
+	char	version[4];
+	char	manufacturer[16];
+	char	partnumber[16];
+	u16  numpins;
+	char	serial[12];
+	u8	muxdata[170];
+	u16  current_3v3;
+	u16  current_vdd5v;
+	u16  current_sys5v;
+	u16  dc;
+};
+
+static struct beaglebone_cape_eeprom_config cape_config;
+static bool beaglebone_cape_detected;
+
+/* keep track of ADC pin usage */
+static int capecount = 0;
+static bool beaglebone_tsadcpins_free = 1;
+
+
 #define GP_EVM_REV_IS_1_0		0x1
 #define GP_EVM_REV_IS_1_1A		0x2
 #define GP_EVM_REV_IS_UNKNOWN		0xFF
+#define GP_EVM_ACTUALLY_BEAGLEBONE  0xBB
 static unsigned int gp_evm_revision = GP_EVM_REV_IS_UNKNOWN;
 
 unsigned int gigabit_enable = 1;
@@ -427,11 +514,102 @@ static struct pinmux_config lcdc_pin_mux[] = {
 	{NULL, 0},
 };
 
+/* Module pin mux for Beagleboardtoys DVI cape */
+static struct pinmux_config dvi_pin_mux[] = {
+	{"lcd_data0.lcd_data0",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+        | AM33XX_PULL_DISA},
+	{"lcd_data1.lcd_data1",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+        | AM33XX_PULL_DISA},
+	{"lcd_data2.lcd_data2",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+        | AM33XX_PULL_DISA},
+	{"lcd_data3.lcd_data3",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+        | AM33XX_PULL_DISA},
+	{"lcd_data4.lcd_data4",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+        | AM33XX_PULL_DISA},
+	{"lcd_data5.lcd_data5",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+        | AM33XX_PULL_DISA},
+	{"lcd_data6.lcd_data6",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+        | AM33XX_PULL_DISA},
+	{"lcd_data7.lcd_data7",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+        | AM33XX_PULL_DISA},
+	{"lcd_data8.lcd_data8",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+        | AM33XX_PULL_DISA},
+	{"lcd_data9.lcd_data9",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+        | AM33XX_PULL_DISA},
+	{"lcd_data10.lcd_data10",	OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+        | AM33XX_PULL_DISA},
+	{"lcd_data11.lcd_data11",	OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+        | AM33XX_PULL_DISA},
+	{"lcd_data12.lcd_data12",	OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+        | AM33XX_PULL_DISA},
+	{"lcd_data13.lcd_data13",	OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+        | AM33XX_PULL_DISA},
+	{"lcd_data14.lcd_data14",	OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+        | AM33XX_PULL_DISA},
+	{"lcd_data15.lcd_data15",	OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+        | AM33XX_PULL_DISA},
+	{"lcd_vsync.lcd_vsync",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
+	{"lcd_hsync.lcd_hsync",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
+	{"lcd_pclk.lcd_pclk",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
+	{"lcd_ac_bias_en.lcd_ac_bias_en", OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
+	{"gpmc_a2.rgmii2_td3", OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT}, // USR0 LED
+	{"gpmc_a3.rgmii2_td2", OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT}, // USR1 LED
+	{"gpmc_ad7.gpmc_ad7", OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT}, // DVI PDn
+	{NULL, 0},
+};
+
+/* Module pin mux for Beagleboardtoys 7" LCD cape */
+static struct pinmux_config bbtoys7_pin_mux[] = {
+	{"lcd_data0.lcd_data0",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+		| AM33XX_PULL_DISA},
+	{"lcd_data1.lcd_data1",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+		| AM33XX_PULL_DISA},
+	{"lcd_data2.lcd_data2",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+		| AM33XX_PULL_DISA},
+	{"lcd_data3.lcd_data3",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+		| AM33XX_PULL_DISA},
+	{"lcd_data4.lcd_data4",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+		| AM33XX_PULL_DISA},
+	{"lcd_data5.lcd_data5",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+		| AM33XX_PULL_DISA},
+	{"lcd_data6.lcd_data6",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+		| AM33XX_PULL_DISA},
+	{"lcd_data7.lcd_data7",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+		| AM33XX_PULL_DISA},
+	{"lcd_data8.lcd_data8",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+		| AM33XX_PULL_DISA},
+	{"lcd_data9.lcd_data9",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+		| AM33XX_PULL_DISA},
+	{"lcd_data10.lcd_data10",	OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+		| AM33XX_PULL_DISA},
+	{"lcd_data11.lcd_data11",	OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+		| AM33XX_PULL_DISA},
+	{"lcd_data12.lcd_data12",	OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+		| AM33XX_PULL_DISA},
+	{"lcd_data13.lcd_data13",	OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+		| AM33XX_PULL_DISA},
+	{"lcd_data14.lcd_data14",	OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+		| AM33XX_PULL_DISA},
+	{"lcd_data15.lcd_data15",	OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
+		| AM33XX_PULL_DISA},
+	{"lcd_vsync.lcd_vsync",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
+	{"lcd_hsync.lcd_hsync",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
+	{"lcd_pclk.lcd_pclk",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
+	{"lcd_ac_bias_en.lcd_ac_bias_en", OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT}, 
+	{"gpmc_a2.gpio1_18", OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT}, // Backlight
+	{"ecap0_in_pwm0_out.gpio0_7", OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT}, // AVDD_EN
+	{NULL, 0},
+};
+
 static struct pinmux_config tsc_pin_mux[] = {
 	{"ain0.ain0",           OMAP_MUX_MODE0 | AM33XX_INPUT_EN},
 	{"ain1.ain1",           OMAP_MUX_MODE0 | AM33XX_INPUT_EN},
 	{"ain2.ain2",           OMAP_MUX_MODE0 | AM33XX_INPUT_EN},
 	{"ain3.ain3",           OMAP_MUX_MODE0 | AM33XX_INPUT_EN},
+	{"ain4.ain4",           OMAP_MUX_MODE0 | AM33XX_INPUT_EN},
+	{"ain5.ain5",           OMAP_MUX_MODE0 | AM33XX_INPUT_EN},
+	{"ain6.ain6",           OMAP_MUX_MODE0 | AM33XX_INPUT_EN},
+	{"ain7.ain7",           OMAP_MUX_MODE0 | AM33XX_INPUT_EN},
 	{"vrefp.vrefp",         OMAP_MUX_MODE0 | AM33XX_INPUT_EN},
 	{"vrefn.vrefn",         OMAP_MUX_MODE0 | AM33XX_INPUT_EN},
 	{NULL, 0},
@@ -566,9 +744,9 @@ static struct pinmux_config i2c1_pin_mux[] = {
 
 static struct pinmux_config i2c2_pin_mux[] = {
 	{"uart1_ctsn.i2c2_sda",    OMAP_MUX_MODE3 | AM33XX_SLEWCTRL_SLOW |
-					AM33XX_PULL_UP | AM33XX_INPUT_EN},
+					AM33XX_PIN_INPUT_PULLUP},
 	{"uart1_rtsn.i2c2_scl",   OMAP_MUX_MODE3 | AM33XX_SLEWCTRL_SLOW |
-					AM33XX_PULL_UP | AM33XX_INPUT_EN},
+					AM33XX_PIN_INPUT_PULLUP},
 	{NULL, 0},
 };
 
@@ -846,6 +1024,64 @@ static struct pinmux_config profibus_pin_mux[] = {
 	{NULL, 0},
 };
 
+
+#define BEAGLEBONEDVI_USR0_LED  GPIO_TO_PIN(1, 18)
+#define BEAGLEBONEDVI_USR1_LED  GPIO_TO_PIN(1, 19)
+
+static struct gpio_led dvi_gpio_leds[] = {
+	{
+		.name			= "beaglebone::usr0",
+		.default_trigger	= "heartbeat",
+		.gpio			= BEAGLEBONE_USR1_LED,
+	},
+	{
+		.name			= "beaglebone::usr1",
+		.default_trigger	= "mmc0",
+		.gpio			= BEAGLEBONE_USR2_LED,
+	},
+	{
+		.name			= "beaglebone::usr2",
+		.gpio			= BEAGLEBONE_USR3_LED,
+	},
+	{
+		.name           = "beaglebone::usr3",
+		.gpio           = BEAGLEBONE_USR4_LED,
+	},
+	{
+		.name			= "dvi::usr0",
+		.default_trigger	= "heartbeat",
+		.gpio			= BEAGLEBONEDVI_USR0_LED,
+	},
+	{
+		.name			= "dvi::usr1",
+		.default_trigger	= "mmc0",
+		.gpio			= BEAGLEBONEDVI_USR1_LED,
+	},
+};
+
+static struct gpio_led_platform_data dvi_gpio_led_info = {
+	.leds		= dvi_gpio_leds,
+	.num_leds	= ARRAY_SIZE(dvi_gpio_leds),
+};
+
+static struct platform_device dvi_leds_gpio = {
+	.name	= "leds-gpio",
+	.id	= -1,
+	.dev	= {
+		.platform_data	= &dvi_gpio_led_info,
+	},
+};
+
+static struct pinmux_config bone_pin_mux[] = {
+	/* User LED gpios (gpio1_21 to gpio1_24) */
+    {"gpmc_a5.rgmii2_td0", OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT},
+    {"gpmc_a6.rgmii2_tclk", OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT},
+    {"gpmc_a7.rgmii2_rclk", OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT},
+    {"gpmc_a8.rgmii2_rd3", OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT},
+    /* Grounding gpio1_6 (pin 3 Conn A) signals bone tester to start diag tests */
+    {"gpmc_ad6.gpio1_6", OMAP_MUX_MODE7 | AM33XX_PIN_INPUT_PULLUP},
+};
+
 /* Module pin mux for eCAP0 */
 static struct pinmux_config ecap0_pin_mux[] = {
 	{"ecap0_in_pwm0_out.ecap0_in_pwm0_out",
@@ -968,6 +1204,51 @@ static void lcdc_init(int evm_id, int profile)
 	return;
 }
 
+#define BEAGLEBONE_LCD_AVDD_EN GPIO_TO_PIN(0, 7)
+#define BEAGLEBONE_LCD_BL GPIO_TO_PIN(1, 18)
+
+static void bbtoys7lcd_init(int evm_id, int profile)
+{
+	setup_pin_mux(bbtoys7_pin_mux);
+
+	// we are being stupid and setting pixclock from here instead of da8xx-fb.c
+	if (conf_disp_pll(300000000)) {
+		pr_info("Failed to set pixclock to 300000000, not attempting to"
+				"register LCD cape\n");
+		return;
+	}
+	
+	if (am33xx_register_lcdc(&bbtoys7_pdata))
+		pr_info("Failed to register Beagleboardtoys 7\" LCD cape device\n");
+	
+	gpio_request(BEAGLEBONE_LCD_BL, "BONE_LCD_BL");
+	gpio_direction_output(BEAGLEBONE_LCD_BL, 1);
+	gpio_request(BEAGLEBONE_LCD_AVDD_EN, "BONE_LCD_AVDD_EN");
+	gpio_direction_output(BEAGLEBONE_LCD_AVDD_EN, 1);
+
+	return;
+}
+
+#define BEAGLEBONEDVI_PDn  GPIO_TO_PIN(1, 7)
+
+static void dvi_init(int evm_id, int profile)
+{
+    setup_pin_mux(dvi_pin_mux);
+	gpio_request(BEAGLEBONEDVI_PDn, "DVI_PDn");
+	gpio_direction_output(BEAGLEBONEDVI_PDn, 1);
+
+	// we are being stupid and setting pixclock from here instead of da8xx-fb.c
+	if (conf_disp_pll(560000000)) {
+		pr_info("Failed to set pixclock to 56000000, not attempting to"
+				"register DVI adapter\n");
+		return;
+	}
+	
+	if (am33xx_register_lcdc(&dvi_pdata))
+		pr_info("Failed to register BeagleBoardToys DVI cape\n");
+	return;
+}
+
 static void tsc_init(int evm_id, int profile)
 {
 	int err;
@@ -975,15 +1256,47 @@ static void tsc_init(int evm_id, int profile)
 	if (gp_evm_revision == GP_EVM_REV_IS_1_1A) {
 		am335x_touchscreen_data.analog_input = 1;
 		pr_info("TSC connected to beta GP EVM\n");
-	} else {
+	}
+	if (gp_evm_revision == GP_EVM_REV_IS_1_1A) {
 		am335x_touchscreen_data.analog_input = 0;
 		pr_info("TSC connected to alpha GP EVM\n");
+	}
+	if( gp_evm_revision == GP_EVM_ACTUALLY_BEAGLEBONE) {
+		am335x_touchscreen_data.analog_input = 1;
+		pr_info("TSC connected to BeagleBone\n");;	
 	}
 	setup_pin_mux(tsc_pin_mux);
 
 	err = am33xx_register_tsc(&am335x_touchscreen_data);
 	if (err)
 		pr_err("failed to register touchscreen device\n");
+}
+
+static void bone_tsc_init(int evm_id, int profile)
+{
+	int err;
+	setup_pin_mux(tsc_pin_mux);
+	err = am33xx_register_tsc(&bone_touchscreen_data);
+	if (err)
+		pr_err("failed to register touchscreen device\n");
+}
+
+
+static void boneleds_init(int evm_id, int profile )
+{
+	int err;
+	setup_pin_mux(bone_pin_mux);
+	err = platform_device_register(&bone_leds_gpio);
+	if (err)
+		pr_err("failed to register BeagleBone LEDS\n");
+}
+
+static void dvileds_init(int evm_id, int profile )
+{
+	int err;
+	err = platform_device_register(&dvi_leds_gpio);
+	if (err)
+		pr_err("failed to register BeagleBone DVI cape LEDS\n");
 }
 
 static void rgmii1_init(int evm_id, int profile)
@@ -1431,17 +1744,105 @@ static void i2c1_init(int evm_id, int profile)
 	return;
 }
 
+static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context)
+{
+	capecount++;
+	int ret;
+	char tmp[32];
+	char name[32];
+	char manufacturer[32];
 
-static struct i2c_board_info am335x_i2c_boardinfo2[] = {
+	/* get cape specific data */
+	ret = mem_acc->read(mem_acc, (char *)&cape_config, 0, sizeof(cape_config));
+	if (ret != sizeof(cape_config)) {
+		pr_warning("BeagleBone cape EEPROM: could not read eeprom at address 0x%x\n", capecount + 0x53);
+		if ((capecount > 3) && (beaglebone_tsadcpins_free == 1)) {
+			pr_info("BeagleBone cape: exporting ADC pins to sysfs\n");
+			bone_tsc_init(0,0);
+			beaglebone_tsadcpins_free = 0;
+		}
+		return;
+	}
+
+	if (cape_config.header != AM335X_EEPROM_HEADER) {
+		pr_warning("BeagleBone Cape EEPROM: wrong header 0x%x, expected 0x%x\n",
+			cape_config.header, AM335X_EEPROM_HEADER);
+		goto out;
+	}
+
+	pr_info("BeagleBone cape EEPROM: found eeprom at address 0x%x\n", capecount + 0x53);
+	snprintf(name, sizeof(cape_config.name) + 1, "%s", cape_config.name);
+	snprintf(manufacturer, sizeof(cape_config.manufacturer) + 1, "%s", cape_config.manufacturer);
+	pr_info("BeagleBone cape: %s %s\n", manufacturer, name);
+	snprintf(tmp, sizeof(cape_config.partnumber) + 1, "%s", cape_config.partnumber);
+	pr_info("BeagleBone cape partnumber: %s\n", tmp);   
+
+	if (!strncmp("BB-BONE-DVID-01", cape_config.partnumber, 5)) {
+			pr_info("BeagleBone cape: initializing DVI cape\n");
+			dvi_init(0,0);
+	}
+	if (!strncmp("LCD01", cape_config.partnumber, 5)) {
+		pr_info("BeagleBone cape: initializing LCD cape\n");
+		bbtoys7lcd_init(0,0);
+		pr_info("BeagleBone cape: initializing LCD cape touchscreen\n");
+		tsc_init(0,0);
+		beaglebone_tsadcpins_free = 0;
+	}
+	
+	
+	if ((capecount > 3) && (beaglebone_tsadcpins_free == 1)) {
+		pr_info("BeagleBone cape: exporting ADC pins to sysfs\n");
+		bone_tsc_init(0,0);
+		beaglebone_tsadcpins_free = 0;
+	}
+	
+	return;
+out:
+	/*
+	 * If the EEPROM hasn't been programed or an incorrect header
+	 * or board name are read, assume this is an old beaglebone board
+	 * (< Rev A3)
+	 */
+	pr_err("Could not detect BeagleBone cape properly\n");
+	beaglebone_cape_detected = false;
+
+}
+
+static struct at24_platform_data cape_eeprom_info = {
+        .byte_len       = (256*1024) / 8,
+        .page_size      = 64,
+        .flags          = AT24_FLAG_ADDR16,
+        .context        = (void *)NULL,
+		.setup		  = beaglebone_cape_setup,
+};
+
+static struct i2c_board_info __initdata cape_i2c_boardinfo[] = {
+        {
+                I2C_BOARD_INFO("24c256", 0x54),
+                .platform_data  = &cape_eeprom_info,
+        },
+        {
+                I2C_BOARD_INFO("24c256", 0x55),
+                .platform_data  = &cape_eeprom_info,
+        },
+        {
+                I2C_BOARD_INFO("24c256", 0x56),
+                .platform_data  = &cape_eeprom_info,
+        },
+        {
+                I2C_BOARD_INFO("24c256", 0x57),
+                .platform_data  = &cape_eeprom_info,
+        },
 };
 
 static void i2c2_init(int evm_id, int profile)
 {
-	setup_pin_mux(i2c2_pin_mux);
-	omap_register_i2c_bus(3, 100, am335x_i2c_boardinfo2,
-			ARRAY_SIZE(am335x_i2c_boardinfo2));
-	return;
+        setup_pin_mux(i2c2_pin_mux);
+        omap_register_i2c_bus(3, 100, cape_i2c_boardinfo,
+                        ARRAY_SIZE(cape_i2c_boardinfo));
+        return;
 }
+
 
 /* Setup McASP 1 */
 static void mcasp1_init(int evm_id, int profile)
@@ -1826,8 +2227,9 @@ static struct evm_dev_cfg beaglebone_old_dev_cfg[] = {
 	{rmii1_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
 	{usb0_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
 	{usb1_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
-	{mmc0_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
 	{i2c2_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
+	{mmc0_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
+	{boneleds_init,	DEV_ON_BASEBOARD, PROFILE_ALL},
 	{NULL, 0, 0},
 };
 
@@ -1837,8 +2239,9 @@ static struct evm_dev_cfg beaglebone_dev_cfg[] = {
 	{mii1_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
 	{usb0_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
 	{usb1_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
-	{mmc0_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
 	{i2c2_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
+	{mmc0_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
+	{boneleds_init,	DEV_ON_BASEBOARD, PROFILE_ALL},
 	{NULL, 0, 0},
 };
 
@@ -1925,6 +2328,7 @@ static void setup_beaglebone_old(void)
 static void setup_beaglebone(void)
 {
 	pr_info("The board is a AM335x Beaglebone.\n");
+	gp_evm_revision = GP_EVM_ACTUALLY_BEAGLEBONE;
 
 	/* Beagle Bone has Micro-SD slot which doesn't have Write Protect pin */
 	am335x_mmc[0].gpio_wp = -EINVAL;
