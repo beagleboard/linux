@@ -242,6 +242,11 @@ struct da8xx_lcdc_platform_data dvi_pdata = {
 static struct tsc_data am335x_touchscreen_data  = {
 	.wires  = 4,
 	.x_plate_resistance = 200,
+	.mode = TI_TSCADC_TSCMODE,
+};
+
+static struct tsc_data bone_touchscreen_data  = {
+	.mode = TI_TSCADC_GENMODE,
 };
 
 static u8 am335x_iis_serializer_direction1[] = {
@@ -429,6 +434,7 @@ static bool beaglebone_tsadcpins_free = 1;
 
 
 #define GP_EVM_REV_IS_1_0		0x1
+#define GP_EVM_REV_IS_1_0A		0x1
 #define GP_EVM_REV_IS_1_1A		0x2
 #define GP_EVM_REV_IS_UNKNOWN		0xFF
 #define GP_EVM_ACTUALLY_BEAGLEBONE  0xBB
@@ -1022,6 +1028,47 @@ static struct pinmux_config profibus_pin_mux[] = {
 	{"uart1_txd.pr1_uart0_txd_mux1", OMAP_MUX_MODE5 | AM33XX_PIN_OUTPUT},
 	{"mcasp0_fsr.pr1_pru0_pru_r30_5", OMAP_MUX_MODE5 | AM33XX_PIN_OUTPUT},
 	{NULL, 0},
+};
+
+/* LEDS - gpio1_21 -> gpio1_24 */
+
+#define BEAGLEBONE_USR1_LED  GPIO_TO_PIN(1, 21)
+#define BEAGLEBONE_USR2_LED  GPIO_TO_PIN(1, 22)
+#define BEAGLEBONE_USR3_LED  GPIO_TO_PIN(1, 23)
+#define BEAGLEBONE_USR4_LED  GPIO_TO_PIN(1, 24)
+
+static struct gpio_led bone_gpio_leds[] = {
+	{
+		.name			= "beaglebone::usr0",
+		.default_trigger	= "heartbeat",
+		.gpio			= BEAGLEBONE_USR1_LED,
+	},
+	{
+		.name			= "beaglebone::usr1",
+		.default_trigger	= "mmc0",
+		.gpio			= BEAGLEBONE_USR2_LED,
+	},
+	{
+		.name			= "beaglebone::usr2",
+		.gpio			= BEAGLEBONE_USR3_LED,
+	},
+	{
+		.name           = "beaglebone::usr3",
+		.gpio           = BEAGLEBONE_USR4_LED,
+	},
+};
+
+static struct gpio_led_platform_data bone_gpio_led_info = {
+	.leds		= bone_gpio_leds,
+	.num_leds	= ARRAY_SIZE(bone_gpio_leds),
+};
+
+static struct platform_device bone_leds_gpio = {
+	.name	= "leds-gpio",
+	.id	= -1,
+	.dev	= {
+		.platform_data	= &bone_gpio_led_info,
+	},
 };
 
 
@@ -1777,11 +1824,11 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 	snprintf(tmp, sizeof(cape_config.partnumber) + 1, "%s", cape_config.partnumber);
 	pr_info("BeagleBone cape partnumber: %s\n", tmp);   
 
-	if (!strncmp("BB-BONE-DVID-01", cape_config.partnumber, 5)) {
+	if (!strncmp("BB-BONE-DVID-01", cape_config.partnumber, 15)) {
 			pr_info("BeagleBone cape: initializing DVI cape\n");
 			dvi_init(0,0);
 	}
-	if (!strncmp("LCD01", cape_config.partnumber, 5)) {
+	if (!strncmp("BB-BONE-LCD7-01", cape_config.partnumber, 15)) {
 		pr_info("BeagleBone cape: initializing LCD cape\n");
 		bbtoys7lcd_init(0,0);
 		pr_info("BeagleBone cape: initializing LCD cape touchscreen\n");
@@ -2258,6 +2305,7 @@ static void setup_general_purpose_evm(void)
 	pr_info("The board is general purpose EVM in profile %d\n", prof_sel);
 
 	if (!strncmp("1.1A", config.version, 4)) {
+		pr_info("EVM version is %s\n", config.version);
 		gp_evm_revision = GP_EVM_REV_IS_1_1A;
 	} else if (!strncmp("1.0", config.version, 3)) {
 		gp_evm_revision = GP_EVM_REV_IS_1_0;
