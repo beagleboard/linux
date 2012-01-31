@@ -606,6 +606,15 @@ void local_bh_enable_ip(unsigned long ip)
 }
 EXPORT_SYMBOL(local_bh_enable_ip);
 
+void _local_bh_enable(void)
+{
+	if (WARN_ON(current->softirq_nestcnt == 0))
+		return;
+	if (--current->softirq_nestcnt == 0)
+		migrate_enable();
+}
+EXPORT_SYMBOL(_local_bh_enable);
+
 int in_serving_softirq(void)
 {
 	return current->flags & PF_IN_SOFTIRQ;
