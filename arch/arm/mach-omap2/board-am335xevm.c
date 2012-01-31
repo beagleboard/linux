@@ -242,11 +242,11 @@ struct da8xx_lcdc_platform_data dvi_pdata = {
 static struct tsc_data am335x_touchscreen_data  = {
 	.wires  = 4,
 	.x_plate_resistance = 200,
-	.mode = TI_TSCADC_TSCMODE,
+//	.mode = TI_TSCADC_TSCMODE,
 };
 
 static struct tsc_data bone_touchscreen_data  = {
-	.mode = TI_TSCADC_GENMODE,
+//	.mode = TI_TSCADC_GENMODE,
 };
 
 static u8 am335x_iis_serializer_direction1[] = {
