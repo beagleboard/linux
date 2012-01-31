@@ -432,16 +432,9 @@ static void txstate(struct musb *musb, struct musb_request *req)
 			 * short case.
 			 */
 			/* for zero byte transfer use pio mode */
-
-			/* Use pio mode for interrupt transfer of size <= 64
-			 * byte. We have seen TxFiFoEmpty workqueue going into
-			 * infinite loop when a CDC device is connected to
-			 * another EVM. */
-
-			if ((request_size == 0) || (request_size <= 64 &&
-				musb_ep->type == USB_ENDPOINT_XFER_INT)) {
+			if (request_size == 0)
 				use_dma = 0;
-			} else {
+			else {
 				use_dma = use_dma && c->channel_program(
 					musb_ep->dma, musb_ep->packet_sz,
 					0,
