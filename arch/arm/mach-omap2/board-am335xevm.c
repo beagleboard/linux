@@ -181,6 +181,16 @@ static const struct display_panel bbtoys7_panel = {
 	COLOR_ACTIVE,
 };
 
+#define BBTOYS7LCD_PWM_DEVICE_ID   "ehrpwm.1:0"
+
+static struct platform_pwm_backlight_data bbtoys7lcd_backlight_data = {
+	.pwm_id         = BBTOYS7LCD_PWM_DEVICE_ID,
+	.ch             = -1,
+	.max_brightness = AM335X_BACKLIGHT_MAX_BRIGHTNESS,
+	.dft_brightness = AM335X_BACKLIGHT_DEFAULT_BRIGHTNESS,
+	.pwm_period_ns  = AM335X_PWM_PERIOD_NANO_SECONDS,
+};
+
 static struct lcd_ctrl_config bbtoys7_cfg = {
 	&bbtoys7_panel,
 	.ac_bias		= 255,
@@ -601,9 +611,9 @@ static struct pinmux_config bbtoys7_pin_mux[] = {
 	{"lcd_vsync.lcd_vsync",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
 	{"lcd_hsync.lcd_hsync",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
 	{"lcd_pclk.lcd_pclk",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
-	{"lcd_ac_bias_en.lcd_ac_bias_en", OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT}, 
-	{"gpmc_a2.gpio1_18", OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT}, // Backlight
+	{"lcd_ac_bias_en.lcd_ac_bias_en", OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
 	{"ecap0_in_pwm0_out.gpio0_7", OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT}, // AVDD_EN
+	{"gpmc_a2.ehrpwm1A", OMAP_MUX_MODE6 | AM33XX_PIN_OUTPUT}, // Backlight
 	{NULL, 0},
 };
 
@@ -1136,6 +1146,7 @@ static struct pinmux_config ecap0_pin_mux[] = {
 	{NULL, 0},
 };
 
+static int ehrpwm_backlight_enable;
 static int backlight_enable;
 
 #define AM335XEVM_WLAN_PMENA_GPIO	GPIO_TO_PIN(1, 30)
@@ -1218,6 +1229,30 @@ static int __init ecap0_init(void)
 }
 late_initcall(ecap0_init);
 
+static void enable_ehrpwm1(int evm_id, int profile)
+{
+	ehrpwm_backlight_enable = true;
+}
+
+/* Setup pwm-backlight for bbtoys7lcd */
+static struct platform_device bbtoys7lcd_backlight = {
+	.name           = "pwm-backlight",
+	.id             = -1,
+	.dev            = {
+		.platform_data  = &bbtoys7lcd_backlight_data,
+	}
+};
+
+static int __init ehrpwm1_init(void)
+{
+	int status = 0;
+	if (ehrpwm_backlight_enable) {
+		platform_device_register(&bbtoys7lcd_backlight);
+	}
+	return status;
+}
+late_initcall(ehrpwm1_init);
+
 static int __init conf_disp_pll(int rate)
 {
 	struct clk *disp_pll;
@@ -1252,11 +1287,12 @@ static void lcdc_init(int evm_id, int profile)
 }
 
 #define BEAGLEBONE_LCD_AVDD_EN GPIO_TO_PIN(0, 7)
-#define BEAGLEBONE_LCD_BL GPIO_TO_PIN(1, 18)
 
 static void bbtoys7lcd_init(int evm_id, int profile)
 {
 	setup_pin_mux(bbtoys7_pin_mux);
+	gpio_request(BEAGLEBONE_LCD_AVDD_EN, "BONE_LCD_AVDD_EN");
+	gpio_direction_output(BEAGLEBONE_LCD_AVDD_EN, 1);
 
 	// we are being stupid and setting pixclock from here instead of da8xx-fb.c
 	if (conf_disp_pll(300000000)) {
@@ -1267,12 +1303,7 @@ static void bbtoys7lcd_init(int evm_id, int profile)
 	
 	if (am33xx_register_lcdc(&bbtoys7_pdata))
 		pr_info("Failed to register Beagleboardtoys 7\" LCD cape device\n");
-	
-	gpio_request(BEAGLEBONE_LCD_BL, "BONE_LCD_BL");
-	gpio_direction_output(BEAGLEBONE_LCD_BL, 1);
-	gpio_request(BEAGLEBONE_LCD_AVDD_EN, "BONE_LCD_AVDD_EN");
-	gpio_direction_output(BEAGLEBONE_LCD_AVDD_EN, 1);
-
+		
 	return;
 }
 
@@ -1833,6 +1864,8 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 		bbtoys7lcd_init(0,0);
 		pr_info("BeagleBone cape: initializing LCD cape touchscreen\n");
 		tsc_init(0,0);
+		pr_info("BeagleBone cape: Registering PWM backlight for LCD cape\n");
+		enable_ehrpwm1(0,0);
 		beaglebone_tsadcpins_free = 0;
 	}
 	
