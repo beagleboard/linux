@@ -26,11 +26,13 @@
 #include <linux/io.h>
 #include <linux/input/ti_tscadc.h>
 #include <linux/delay.h>
+#include <linux/pm_runtime.h>
 
 #define TSCADC_REG_IRQEOI		0x020
 #define TSCADC_REG_RAWIRQSTATUS		0x024
 #define TSCADC_REG_IRQSTATUS		0x028
 #define TSCADC_REG_IRQENABLE		0x02C
+#define TSCADC_REG_IRQCLR		0x030
 #define TSCADC_REG_IRQWAKEUP		0x034
 #define TSCADC_REG_CTRL			0x040
 #define TSCADC_REG_ADCFSM		0x044
@@ -54,10 +56,12 @@
 
 /*	Register Bitfields	*/
 #define TSCADC_IRQWKUP_ENB		BIT(0)
+#define TSCADC_IRQWKUP_DISABLE		0x00
 #define TSCADC_STPENB_STEPENB		0x7FFF
 #define TSCADC_IRQENB_FIFO0THRES	BIT(2)
 #define TSCADC_IRQENB_FIFO1THRES	BIT(5)
 #define TSCADC_IRQENB_PENUP		BIT(9)
+#define TSCADC_IRQENB_HW_PEN		BIT(0)
 #define TSCADC_STEPCONFIG_MODE_HWSYNC	0x2
 #define TSCADC_STEPCONFIG_2SAMPLES_AVG	(1 << 4)
 #define TSCADC_STEPCONFIG_XPP		BIT(5)
@@ -104,9 +108,9 @@ struct tscadc {
 	int			wires;
 	int			analog_input;
 	int			x_plate_resistance;
-	struct clk		*tsc_ick;
 	int			irq;
 	void __iomem		*tsc_base;
+	unsigned int		ctrl;
 };
 
 static unsigned int tscadc_readl(struct tscadc *ts, unsigned int reg)
@@ -356,6 +360,7 @@ static irqreturn_t tscadc_interrupt(int irq, void *dev)
 		}
 		irqclr |= TSCADC_IRQENB_PENUP;
 	}
+	irqclr |= TSCADC_IRQENB_HW_PEN;
 
 	tscadc_writel(ts_dev, TSCADC_REG_IRQSTATUS, irqclr);
 
@@ -429,12 +434,8 @@ static	int __devinit tscadc_probe(struct platform_device *pdev)
 		goto err_unmap_regs;
 	}
 
-	ts_dev->tsc_ick = clk_get(&pdev->dev, "adc_tsc_ick");
-	if (IS_ERR(ts_dev->tsc_ick)) {
-		dev_err(&pdev->dev, "failed to get TSC ick\n");
-		goto err_free_irq;
-	}
-	clk_enable(ts_dev->tsc_ick);
+	pm_runtime_enable(&pdev->dev);
+	pm_runtime_get_sync(&pdev->dev);
 
 	clk = clk_get(&pdev->dev, "adc_tsc_fck");
 	if (IS_ERR(clk)) {
@@ -451,9 +452,6 @@ static	int __devinit tscadc_probe(struct platform_device *pdev)
 	/* TSCADC_CLKDIV needs to be configured to the value minus 1 */
 	clk_value = clk_value - 1;
 	tscadc_writel(ts_dev, TSCADC_REG_CLKDIV, clk_value);
-
-	 /* Enable wake-up of the SoC using touchscreen */
-	tscadc_writel(ts_dev, TSCADC_REG_IRQWAKEUP, TSCADC_IRQWKUP_ENB);
 
 	ts_dev->wires = pdata->wires;
 	ts_dev->analog_input = pdata->analog_input;
@@ -475,6 +473,7 @@ static	int __devinit tscadc_probe(struct platform_device *pdev)
 		break;
 	}
 	tscadc_writel(ts_dev, TSCADC_REG_CTRL, ctrl);
+	ts_dev->ctrl = ctrl;
 
 	/* Set register bits for Idel Config Mode */
 	tsc_idle_config(ts_dev);
@@ -505,12 +504,12 @@ static	int __devinit tscadc_probe(struct platform_device *pdev)
 	if (err)
 		goto err_fail;
 
+	device_init_wakeup(&pdev->dev, true);
 	platform_set_drvdata(pdev, ts_dev);
 	return 0;
 
 err_fail:
-	clk_disable(ts_dev->tsc_ick);
-	clk_put(ts_dev->tsc_ick);
+	pm_runtime_disable(&pdev->dev);
 err_free_irq:
 	free_irq(ts_dev->irq, ts_dev);
 err_unmap_regs:
@@ -536,11 +535,11 @@ static int __devexit tscadc_remove(struct platform_device *pdev)
 	iounmap(ts_dev->tsc_base);
 	release_mem_region(res->start, resource_size(res));
 
-	clk_disable(ts_dev->tsc_ick);
-	clk_put(ts_dev->tsc_ick);
+	pm_runtime_disable(&pdev->dev);
 
 	kfree(ts_dev);
 
+	device_init_wakeup(&pdev->dev, 0);
 	platform_set_drvdata(pdev, NULL);
 	return 0;
 }
@@ -548,14 +547,22 @@ static int __devexit tscadc_remove(struct platform_device *pdev)
 static int tscadc_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	struct tscadc *ts_dev = platform_get_drvdata(pdev);
-	unsigned int  status;
+	unsigned int idle;
 
-	status = tscadc_readl(ts_dev, TSCADC_REG_CTRL);
-	status &= ~(TSCADC_CNTRLREG_TSCSSENB);
-	tscadc_writel(ts_dev, TSCADC_REG_CTRL, status);
+	if (device_may_wakeup(&pdev->dev)) {
+		idle = tscadc_readl(ts_dev, TSCADC_REG_IRQENABLE);
+		tscadc_writel(ts_dev, TSCADC_REG_IRQENABLE,
+				(idle | TSCADC_IRQENB_HW_PEN));
+		tscadc_writel(ts_dev, TSCADC_REG_IRQWAKEUP, TSCADC_IRQWKUP_ENB);
+	}
 
-	clk_disable(ts_dev->tsc_ick);
-	clk_put(ts_dev->tsc_ick);
+	/* module disable */
+	idle = 0;
+	idle = tscadc_readl(ts_dev, TSCADC_REG_CTRL);
+	idle &= ~(TSCADC_CNTRLREG_TSCSSENB);
+	tscadc_writel(ts_dev, TSCADC_REG_CTRL, idle);
+
+	pm_runtime_put_sync(&pdev->dev);
 
 	return 0;
 
@@ -564,13 +571,24 @@ static int tscadc_suspend(struct platform_device *pdev, pm_message_t state)
 static int tscadc_resume(struct platform_device *pdev)
 {
 	struct tscadc *ts_dev = platform_get_drvdata(pdev);
-	unsigned int  status;
+	unsigned int restore;
 
-	clk_enable(ts_dev->tsc_ick);
+	pm_runtime_get_sync(&pdev->dev);
 
-	status = tscadc_readl(ts_dev, TSCADC_REG_CTRL);
+	if (device_may_wakeup(&pdev->dev)) {
+		tscadc_writel(ts_dev, TSCADC_REG_IRQWAKEUP,
+				TSCADC_IRQWKUP_DISABLE);
+		tscadc_writel(ts_dev, TSCADC_REG_IRQCLR, TSCADC_IRQENB_HW_PEN);
+	}
+
+	/* context restore */
+	tscadc_writel(ts_dev, TSCADC_REG_CTRL, ts_dev->ctrl);
+	tsc_idle_config(ts_dev);
+	tsc_step_config(ts_dev);
+	tscadc_writel(ts_dev, TSCADC_REG_FIFO1THR, 6);
+	restore = tscadc_readl(ts_dev, TSCADC_REG_CTRL);
 	tscadc_writel(ts_dev, TSCADC_REG_CTRL,
-			(status | TSCADC_CNTRLREG_TSCSSENB));
+			(restore | TSCADC_CNTRLREG_TSCSSENB));
 
 	return 0;
 }
