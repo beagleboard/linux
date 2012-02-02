@@ -379,6 +379,7 @@ static struct omap_hwmod am33xx_clkdiv32k_hwmod = {
 			.modulemode	= MODULEMODE_SWCTRL,
 		},
 	},
+	.flags		= (HWMOD_INIT_NO_IDLE | HWMOD_INIT_NO_RESET),
 };
 
 /* 'control' class */
