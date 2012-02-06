@@ -474,10 +474,17 @@ static ssize_t pwm_run_store(struct device *dev,
 			     const char *buf, size_t len)
 {
 	struct pwm_device *p = dev_get_drvdata(dev);
+	int ret;
+
 	if (sysfs_streq(buf, "1"))
-		pwm_start(p);
+		ret = pwm_start(p);
 	else if (sysfs_streq(buf, "0"))
-		pwm_stop(p);
+		ret = pwm_stop(p);
+	else
+		ret = -EINVAL;
+
+	if (ret < 0)
+		return ret;
 	return len;
 }
 static DEVICE_ATTR(run, S_IRUGO | S_IWUSR, pwm_run_show, pwm_run_store);
@@ -505,9 +512,15 @@ static ssize_t pwm_duty_ns_store(struct device *dev,
 {
 	unsigned long duty_ns;
 	struct pwm_device *p = dev_get_drvdata(dev);
+	int ret;
 
-	if (!kstrtoul(buf, 10, &duty_ns))
-		pwm_set_duty_ns(p, duty_ns);
+	if (!kstrtoul(buf, 10, &duty_ns)) {
+		ret = pwm_set_duty_ns(p, duty_ns);
+
+		if (ret < 0)
+			return ret;
+	}
+
 	return len;
 }
 static DEVICE_ATTR(duty_ns, S_IRUGO | S_IWUSR, pwm_duty_ns_show,
@@ -528,9 +541,15 @@ static ssize_t pwm_duty_percent_store(struct device *dev,
 {
 	unsigned long duty_ns;
 	struct pwm_device *p = dev_get_drvdata(dev);
+	int ret;
 
-	if (!kstrtoul(buf, 10, &duty_ns))
-		pwm_set_duty_percent(p, duty_ns);
+	if (!kstrtoul(buf, 10, &duty_ns)) {
+		ret = pwm_set_duty_percent(p, duty_ns);
+
+		if (ret < 0)
+			return ret;
+	}
+
 	return len;
 }
 
@@ -551,9 +570,15 @@ static ssize_t pwm_period_ns_store(struct device *dev,
 {
 	unsigned long period_ns;
 	struct pwm_device *p = dev_get_drvdata(dev);
+	int ret;
 
-	if (!kstrtoul(buf, 10, &period_ns))
-		pwm_set_period_ns(p, period_ns);
+	if (!kstrtoul(buf, 10, &period_ns)) {
+		ret = pwm_set_period_ns(p, period_ns);
+
+		if (ret < 0)
+			return ret;
+	}
+
 	return len;
 }
 static DEVICE_ATTR(period_ns, S_IRUGO | S_IWUSR, pwm_period_ns_show,
@@ -573,10 +598,15 @@ static ssize_t pwm_period_freq_store(struct device *dev,
 				   size_t len)
 {
 	unsigned long freq_hz;
+	int ret;
 
 	struct pwm_device *p = dev_get_drvdata(dev);
-	if (!kstrtoul(buf, 10, &freq_hz))
-		pwm_set_frequency(p, freq_hz);
+	if (!kstrtoul(buf, 10, &freq_hz)) {
+		ret = pwm_set_frequency(p, freq_hz);
+
+		if (ret < 0)
+			return ret;
+	}
 	return len;
 }
 
@@ -597,9 +627,15 @@ static ssize_t pwm_polarity_store(struct device *dev,
 {
 	unsigned long polarity;
 	struct pwm_device *p = dev_get_drvdata(dev);
+	int ret;
 
-	if (!kstrtoul(buf, 10, &polarity))
-		pwm_set_polarity(p, polarity);
+	if (!kstrtoul(buf, 10, &polarity)) {
+		ret = pwm_set_polarity(p, polarity);
+
+		if (ret < 0)
+			return ret;
+	}
+
 	return len;
 }
 static DEVICE_ATTR(polarity, S_IRUGO | S_IWUSR, pwm_polarity_show,
