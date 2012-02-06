@@ -158,8 +158,10 @@ unsigned long pwm_ticks_to_ns(struct pwm_device *p, unsigned long ticks)
 {
 	unsigned long long ns;
 
-	if (!p->tick_hz)
+	if (!p->tick_hz) {
+		pr_debug("%s: frequency is zero\n", dev_name(p->dev));
 		return 0;
+	}
 
 	ns = ticks;
 	ns *= 1000000000UL;
@@ -279,14 +281,13 @@ EXPORT_SYMBOL(pwm_get_period_ns);
 
 int pwm_set_frequency(struct pwm_device *p, unsigned long freq)
 {
-	struct pwm_config c = {
-		.config_mask = BIT(PWM_CONFIG_PERIOD_TICKS),
-		.period_ticks = pwm_ns_to_ticks(p, (NSEC_PER_SEC / freq)),
-	};
+	struct pwm_config c;
 
 	if (!freq)
 		return -EINVAL;
 
+	c.config_mask = BIT(PWM_CONFIG_PERIOD_TICKS),
+	c.period_ticks = pwm_ns_to_ticks(p, (NSEC_PER_SEC / freq)),
 	spin_lock(&p->pwm_lock);
 	p->period_ns = NSEC_PER_SEC / freq;
 	spin_unlock(&p->pwm_lock);
@@ -300,8 +301,10 @@ unsigned long pwm_get_frequency(struct pwm_device *p)
 
 	 period_ns = pwm_ticks_to_ns(p, p->period_ticks);
 
-	if (!period_ns)
+	if (!period_ns) {
+		pr_debug("%s: frequency is zero\n", dev_name(p->dev));
 		return 0;
+	}
 
 	return	NSEC_PER_SEC / period_ns;
 }
@@ -359,6 +362,11 @@ EXPORT_SYMBOL(pwm_set_duty_percent);
 unsigned long pwm_get_duty_percent(struct pwm_device *p)
 {
 	unsigned long long duty_percent;
+
+	if (!p->period_ns) {
+		pr_debug("%s: frequency is zero\n", dev_name(p->dev));
+		return 0;
+	}
 
 	duty_percent = pwm_ticks_to_ns(p, p->duty_ticks);
 	duty_percent *= 100;
