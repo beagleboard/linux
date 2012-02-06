@@ -124,7 +124,8 @@ void pwm_release(struct pwm_device *p)
 	mutex_lock(&device_list_mutex);
 
 	if (!test_and_clear_bit(FLAG_REQUESTED, &p->flags)) {
-		BUG();
+		pr_debug("%s pwm device is not requested!\n",
+				dev_name(p->dev));
 		goto done;
 	}
 
@@ -601,17 +602,16 @@ static ssize_t pwm_request_show(struct device *dev,
 				char *buf)
 {
 	struct pwm_device *p = dev_get_drvdata(dev);
-	struct pwm_device *ret;
+	int ret;
 
-	mutex_lock(&device_list_mutex);
-	ret = __pwm_request(p, REQUEST_SYSFS);
-	mutex_unlock(&device_list_mutex);
+	ret = test_bit(FLAG_REQUESTED, &p->flags);
 
-	if (IS_ERR_OR_NULL(ret))
-		return sprintf(buf, "fail (owner: %s  pid: %d)\n",
-			       p->label, p->pid);
+	if (ret)
+		return sprintf(buf, "%s requested by %s\n",
+				dev_name(p->dev), p->label);
 	else
-		return sprintf(buf, "%s (pid %d)\n", ret->label, ret->pid);
+		return sprintf(buf, "%s is free\n",
+				dev_name(p->dev));
 }
 
 static ssize_t pwm_request_store(struct device *dev,
@@ -619,8 +619,21 @@ static ssize_t pwm_request_store(struct device *dev,
 				 const char *buf, size_t len)
 {
 	struct pwm_device *p = dev_get_drvdata(dev);
+	unsigned long request;
+	struct pwm_device *ret;
 
-	pwm_release(p);
+	if (!kstrtoul(buf, 10, &request)) {
+		if (request) {
+			mutex_lock(&device_list_mutex);
+			ret = __pwm_request(p, REQUEST_SYSFS);
+			mutex_unlock(&device_list_mutex);
+
+			if (IS_ERR(ret))
+				return PTR_ERR(ret);
+		} else
+			pwm_release(p);
+	}
+
 	return len;
 }
 static DEVICE_ATTR(request, S_IRUGO | S_IWUSR, pwm_request_show,
