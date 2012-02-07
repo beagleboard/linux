@@ -39,6 +39,7 @@
 #include <linux/reboot.h>
 #include <linux/pwm/pwm.h>
 #include <linux/opp.h>
+#include <linux/w1-gpio.h>
 
 /* LCD controller is similar to DA850 */
 #include <video/da8xx-fb.h>
@@ -617,6 +618,11 @@ static struct pinmux_config bbtoys7_pin_mux[] = {
 	{NULL, 0},
 };
 
+static struct pinmux_config w1_gpio_pin_mux[] = {
+	{"gpmc_ad3.gpio1_3",	OMAP_MUX_MODE7 | AM33XX_PIN_INPUT_PULLUP},
+	{NULL, 0},
+};
+
 static struct pinmux_config tsc_pin_mux[] = {
 	{"ain0.ain0",           OMAP_MUX_MODE0 | AM33XX_INPUT_EN},
 	{"ain1.ain1",           OMAP_MUX_MODE0 | AM33XX_INPUT_EN},
@@ -1040,6 +1046,19 @@ static struct pinmux_config profibus_pin_mux[] = {
 	{NULL, 0},
 };
 
+#define BEAGLEBONE_W1_GPIO GPIO_TO_PIN(1, 3)
+
+static struct w1_gpio_platform_data bone_w1_gpio_pdata = {
+	.pin		= BEAGLEBONE_W1_GPIO,
+	.is_open_drain	= 0,
+};
+
+static struct platform_device bone_w1_device = {
+	.name			= "w1-gpio",
+	.id			= -1,
+	.dev.platform_data	= &bone_w1_gpio_pdata,
+};
+
 /* LEDS - gpio1_21 -> gpio1_24 */
 
 #define BEAGLEBONE_USR1_LED  GPIO_TO_PIN(1, 21)
@@ -1375,6 +1394,17 @@ static void dvileds_init(int evm_id, int profile )
 	err = platform_device_register(&dvi_leds_gpio);
 	if (err)
 		pr_err("failed to register BeagleBone DVI cape LEDS\n");
+}
+
+static void bonew1_gpio_init(int evm_id, int profile )
+{
+	int err;
+	setup_pin_mux(w1_gpio_pin_mux);
+	err = platform_device_register(&bone_w1_device);
+	if (err)
+		pr_err("failed to register w1-gpio\n");
+	else
+		pr_info("w1-gpio connected to P8_6\n");
 }
 
 static void rgmii1_init(int evm_id, int profile)
@@ -2322,6 +2352,7 @@ static struct evm_dev_cfg beaglebone_dev_cfg[] = {
 	{i2c2_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
 	{mmc0_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
 	{boneleds_init,	DEV_ON_BASEBOARD, PROFILE_ALL},
+	{bonew1_gpio_init, DEV_ON_BASEBOARD, PROFILE_ALL},
 	{NULL, 0, 0},
 };
 
