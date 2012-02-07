@@ -100,7 +100,6 @@ struct cppi41_channel {
 	u8  zlp_queued;
 	u8  inf_mode;
 	u8  tx_complete;
-	u8  count;
 };
 
 /**
@@ -1304,17 +1303,10 @@ void txdma_completion_work(struct work_struct *data)
 				epio = tx_ch->end_pt->regs;
 				csr = musb_readw(epio, MUSB_TXCSR);
 
-				if ((tx_ch->length > 128) &&
-					(csr & (MUSB_TXCSR_TXPKTRDY |
-					MUSB_TXCSR_FIFONOTEMPTY))) {
+				if (csr & (MUSB_TXCSR_TXPKTRDY |
+					MUSB_TXCSR_FIFONOTEMPTY)) {
 					resched = 1;
 				} else {
-					if (tx_ch->length < 128 &&
-							tx_ch->count > 0) {
-						tx_ch->count--;
-						resched = 1;
-						continue;
-					}
 					tx_ch->channel.status =
 						MUSB_DMA_STATUS_FREE;
 					tx_ch->tx_complete = 0;
@@ -1441,7 +1433,6 @@ static void usb_process_tx_queue(struct cppi41 *cppi, unsigned index)
 			 * failure with iperf.
 			 */
 			tx_ch->tx_complete = 1;
-			tx_ch->count = 1;
 			schedule_work(&cppi->txdma_work);
 		}
 	}
