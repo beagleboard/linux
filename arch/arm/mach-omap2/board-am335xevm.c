@@ -294,13 +294,58 @@ struct am335x_evm_eeprom_config {
 	u8	opt[32];
 };
 
+/*
+* EVM Config held in daughter board eeprom device.
+*
+* Header Format
+*
+*  Name			Size		Contents
+*			(Bytes)
+*-------------------------------------------------------------
+*  Header		4	0xAA, 0x55, 0x33, 0xEE
+*
+*  Board Name		8	Name for board in ASCII.
+*				example "A335GPBD" = "AM335x
+*				General Purpose Daughterboard"
+*
+*  Version		4	Hardware version code for board in
+*				in ASCII. "1.0A" = rev.01.0A
+*  Serial Number	12	Serial number of the board. This is a 12
+*				character string which is: WWYY4P13nnnn, where
+*				WW = 2 digit week of the year of production
+*				YY = 2 digit year of production
+*				nnnn = incrementing board number
+*  Configuration Option	32	Codes to show the configuration
+*				setup on this board.
+*  CPLD Version	8		CPLD code version for board in ASCII
+*				"CPLD1.0A" = rev. 01.0A of the CPLD
+*  Available	32700		Available space for other non-volatile
+*				codes/data
+*/
+
+struct am335x_eeprom_config1 {
+	u32	header;
+	u8	name[8];
+	char	version[4];
+	u8	serial[12];
+	u8	opt[32];
+	u8	cpld_ver[8];
+};
+
 static struct am335x_evm_eeprom_config config;
+static struct am335x_eeprom_config1 config1;
 static bool daughter_brd_detected;
 
 #define GP_EVM_REV_IS_1_0		0x1
 #define GP_EVM_REV_IS_1_1A		0x2
 #define GP_EVM_REV_IS_UNKNOWN		0xFF
 static unsigned int gp_evm_revision = GP_EVM_REV_IS_UNKNOWN;
+
+#define CPLD_REV_1_0A			0x1
+#define CPLD_REV_1_1A			0x2
+#define CPLD_UNKNOWN			0xFF
+static unsigned int cpld_version = CPLD_UNKNOWN;
+
 unsigned int gigabit_enable = 1;
 
 #define EEPROM_MAC_ADDRESS_OFFSET	60 /* 4+8+4+12+32 */
@@ -1816,22 +1861,32 @@ static void setup_beaglebone(void)
 
 static void am335x_setup_daughter_board(struct memory_accessor *m, void *c)
 {
-	u8 tmp;
 	int ret;
 
 	/*
-	 * try reading a byte from the EEPROM to see if it is
-	 * present. We could read a lot more, but that would
-	 * just slow the boot process and we have all the information
-	 * we need from the EEPROM on the base board anyway.
+	 * Read from the EEPROM to see the presence
+	 * of daughter board. If present, get daughter board
+	 * specific data.
 	 */
-	ret = m->read(m, &tmp, 0, sizeof(u8));
-	if (ret == sizeof(u8)) {
+
+	ret = m->read(m, (char *)&config1, 0, sizeof(config1));
+	if (ret == sizeof(config1)) {
 		pr_info("Detected a daughter card on AM335x EVM..");
 		daughter_brd_detected = true;
-	} else {
+	}
+	 else {
 		pr_info("No daughter card found\n");
 		daughter_brd_detected = false;
+		return;
+	}
+
+	if (!strncmp("CPLD1.0A", config1.cpld_ver, 8))
+		cpld_version = CPLD_REV_1_0A;
+	else if (!strncmp("CPLD1.1A", config1.cpld_ver, 8))
+		cpld_version = CPLD_REV_1_1A;
+	else {
+		pr_err("Unknown CPLD version found, falling back to 1.0A\n");
+		cpld_version = CPLD_REV_1_0A;
 	}
 }
 
