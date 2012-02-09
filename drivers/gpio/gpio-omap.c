@@ -28,8 +28,6 @@
 #include <asm/gpio.h>
 #include <asm/mach/irq.h>
 
-#include <plat/clock.h>
-
 struct gpio_bank {
 	unsigned long pbase;
 	void __iomem *base;
@@ -51,7 +49,6 @@ struct gpio_bank {
 	spinlock_t lock;
 	struct gpio_chip chip;
 	struct clk *dbck;
-	struct clk *fclk;
 	u32 mod_usage;
 	u32 dbck_enable_mask;
 	struct device *dev;
@@ -1222,12 +1219,6 @@ static int __devinit omap_gpio_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	bank->fclk = clk_get(bank->dev, "fclk");
-	if (IS_ERR(bank->fclk)) {
-		dev_err(bank->dev, "Could not get gpio fclk\n");
-		bank->fclk = NULL;
-	}
-
 	pm_runtime_enable(bank->dev);
 	pm_runtime_get_sync(bank->dev);
 
@@ -1255,10 +1246,6 @@ static int omap_gpio_suspend(void)
 		void __iomem *wake_clear;
 		void __iomem *wake_set;
 		unsigned long flags;
-
-		if ((bank->fclk) && (bank->fclk->usecount <= 0))
-			if (clk_enable(bank->fclk) < 0)
-				dev_err(bank->dev, "Could not enable fclk\n");
 
 		switch (bank->method) {
 #ifdef CONFIG_ARCH_OMAP16XX
@@ -1291,9 +1278,6 @@ static int omap_gpio_suspend(void)
 		__raw_writel(0xffffffff, wake_clear);
 		__raw_writel(bank->suspend_wakeup, wake_set);
 		spin_unlock_irqrestore(&bank->lock, flags);
-
-		if ((bank->fclk) && (bank->fclk->usecount > 0))
-			clk_disable(bank->fclk);
 	}
 
 	return 0;
@@ -1311,10 +1295,6 @@ static void omap_gpio_resume(void)
 		void __iomem *wake_clear;
 		void __iomem *wake_set;
 		unsigned long flags;
-
-		if ((bank->fclk) && (bank->fclk->usecount <= 0))
-			if (clk_enable(bank->fclk) < 0)
-				dev_err(bank->dev, "Could not enable fclk\n");
 
 		switch (bank->method) {
 #ifdef CONFIG_ARCH_OMAP16XX
