@@ -40,6 +40,7 @@
 #include <linux/pwm/pwm.h>
 #include <linux/opp.h>
 #include <linux/w1-gpio.h>
+#include <linux/can/platform/mcp251x.h>
 
 /* LCD controller is similar to DA850 */
 #include <video/da8xx-fb.h>
@@ -840,6 +841,15 @@ static struct pinmux_config d_can_gp_pin_mux[] = {
 static struct pinmux_config d_can_ia_pin_mux[] = {
 	{"uart0_rxd.d_can0_tx", OMAP_MUX_MODE2 | AM33XX_PULL_ENBL},
 	{"uart0_txd.d_can0_rx", OMAP_MUX_MODE2 | AM33XX_PIN_INPUT_PULLUP},
+	{NULL, 0},
+};
+
+static struct pinmux_config tt3201_pin_mux[] = {
+	{"uart1_rxd.d_can1_tx", OMAP_MUX_MODE2 | AM33XX_PIN_OUTPUT },
+	{"uart1_txd.d_can1_rx", OMAP_MUX_MODE2 | AM33XX_PIN_INPUT_PULLUP },
+	{"mcasp0_fsr.gpio3_19", OMAP_MUX_MODE7 | AM33XX_PIN_INPUT_PULLUP },
+	{"mcasp0_ahclkx.gpio3_21", OMAP_MUX_MODE7 | AM33XX_PIN_INPUT_PULLUP },
+	{"ecap0_in_pwm0_out.spi1_cs1", OMAP_MUX_MODE2 | AM33XX_PIN_OUTPUT_PULLUP },
 	{NULL, 0},
 };
 
@@ -1852,6 +1862,44 @@ static void i2c1_init(int evm_id, int profile)
 	return;
 }
 
+static struct mcp251x_platform_data mcp251x_info = {
+	.oscillator_frequency = 16000000,
+};
+
+static struct spi_board_info tt3201_spi_info[] = {
+	{
+		.modalias	= "mcp2515",
+		.max_speed_hz	= 10000000,
+		.bus_num	= 2,
+		.chip_select	= 0,
+		.mode		= SPI_MODE_0,
+		.platform_data	= &mcp251x_info,
+	},
+	{
+		.modalias	= "mcp2515",
+		.max_speed_hz	= 10000000,
+		.bus_num	= 2,
+		.chip_select	= 1,
+		.mode		= SPI_MODE_0,
+		.platform_data	= &mcp251x_info,
+	},
+};
+
+static void tt3201_init(int evm_id, int profile)
+{
+	pr_info("TowerTech TT3201 CAN Cape\n");
+
+	setup_pin_mux(spi1_pin_mux);
+	setup_pin_mux(tt3201_pin_mux);
+
+	tt3201_spi_info[0].irq = gpio_to_irq(GPIO_TO_PIN(3, 19));
+	tt3201_spi_info[1].irq = gpio_to_irq(GPIO_TO_PIN(3, 21));
+
+	spi_register_board_info(tt3201_spi_info,
+		ARRAY_SIZE(tt3201_spi_info));
+
+	am33xx_d_can_init(1);
+}
 static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context)
 {
 	capecount++;
@@ -1899,7 +1947,11 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 		beaglebone_tsadcpins_free = 0;
 	}
 	
-	
+	if (!strncmp("TT3201-001", cape_config.partnumber, 10)) {
+		pr_info("BeagleBone cape: initializing CAN cape\n");
+		tt3201_init(0,0);
+	}
+
 	if ((capecount > 3) && (beaglebone_tsadcpins_free == 1)) {
 		pr_info("BeagleBone cape: exporting ADC pins to sysfs\n");
 		bone_tsc_init(0,0);

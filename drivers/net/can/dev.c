@@ -392,7 +392,7 @@ void can_restart(unsigned long data)
 	stats->rx_bytes += cf->can_dlc;
 
 restart:
-	dev_dbg(dev->dev.parent, "restarted\n");
+	netdev_dbg(dev, "restarted\n");
 	priv->can_stats.restarts++;
 
 	/* Now restart the device */
@@ -400,7 +400,7 @@ restart:
 
 	netif_carrier_on(dev);
 	if (err)
-		dev_err(dev->dev.parent, "Error %d during restart", err);
+		netdev_err(dev, "error %d during restart", err);
 }
 
 int can_restart_now(struct net_device *dev)
@@ -433,7 +433,7 @@ void can_bus_off(struct net_device *dev)
 {
 	struct can_priv *priv = netdev_priv(dev);
 
-	dev_dbg(dev->dev.parent, "bus-off\n");
+	netdev_dbg(dev, "bus-off\n");
 
 	netif_carrier_off(dev);
 	priv->can_stats.bus_off++;
@@ -545,7 +545,7 @@ int open_candev(struct net_device *dev)
 	struct can_priv *priv = netdev_priv(dev);
 
 	if (!priv->bittiming.tq && !priv->bittiming.bitrate) {
-		dev_err(dev->dev.parent, "bit-timing not yet defined\n");
+		netdev_err(dev, "bit-timing not yet defined\n");
 		return -EINVAL;
 	}
 
