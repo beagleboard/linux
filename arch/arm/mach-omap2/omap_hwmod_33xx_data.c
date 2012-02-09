@@ -500,6 +500,8 @@ static struct omap_hwmod am33xx_cpgmac0_hwmod = {
 	},
 	.slaves		= am33xx_cpgmac0_slaves,
 	.slaves_cnt	= ARRAY_SIZE(am33xx_cpgmac0_slaves),
+	.flags		= (HWMOD_SWSUP_SIDLE | HWMOD_SWSUP_MSTANDBY |
+				HWMOD_INIT_NO_IDLE | HWMOD_INIT_NO_RESET),
 };
 
 /* 'dcan' class */
@@ -1022,6 +1024,8 @@ static struct omap_hwmod am33xx_gpmc_hwmod = {
 	},
 	.slaves		= am33xx_gpmc_slaves,
 	.slaves_cnt	= ARRAY_SIZE(am33xx_gpmc_slaves),
+	.flags		= (HWMOD_SWSUP_SIDLE | HWMOD_SWSUP_MSTANDBY |
+				HWMOD_INIT_NO_IDLE | HWMOD_INIT_NO_RESET),
 };
 
 /* 'i2c' class */
@@ -1344,6 +1348,7 @@ static struct omap_hwmod am33xx_lcdc_hwmod = {
 	},
 	.slaves		= am33xx_lcdc_slaves,
 	.slaves_cnt	= ARRAY_SIZE(am33xx_lcdc_slaves),
+	.flags		= (HWMOD_SWSUP_SIDLE | HWMOD_SWSUP_MSTANDBY),
 };
 
 /*
@@ -2037,6 +2042,7 @@ static struct omap_hwmod am33xx_timer0_hwmod = {
 	},
 	.slaves		= am33xx_timer0_slaves,
 	.slaves_cnt	= ARRAY_SIZE(am33xx_timer0_slaves),
+	.flags		= (HWMOD_INIT_NO_IDLE | HWMOD_INIT_NO_RESET),
 };
 
 /* timer1 1ms */
@@ -2474,6 +2480,7 @@ static struct omap_hwmod am33xx_tptc0_hwmod = {
 	},
 	.slaves		= am33xx_tptc0_slaves,
 	.slaves_cnt	= ARRAY_SIZE(am33xx_tptc0_slaves),
+	.flags		= (HWMOD_SWSUP_SIDLE | HWMOD_SWSUP_MSTANDBY),
 };
 
 /* tptc1 */
@@ -2517,6 +2524,7 @@ static struct omap_hwmod am33xx_tptc1_hwmod = {
 	},
 	.slaves		= am33xx_tptc1_slaves,
 	.slaves_cnt	= ARRAY_SIZE(am33xx_tptc1_slaves),
+	.flags		= (HWMOD_SWSUP_SIDLE | HWMOD_SWSUP_MSTANDBY),
 };
 
 /* tptc2 */
@@ -2560,6 +2568,7 @@ static struct omap_hwmod am33xx_tptc2_hwmod = {
 	},
 	.slaves		= am33xx_tptc2_slaves,
 	.slaves_cnt	= ARRAY_SIZE(am33xx_tptc2_slaves),
+	.flags		= (HWMOD_SWSUP_SIDLE | HWMOD_SWSUP_MSTANDBY),
 };
 
 /* 'uart' class */
@@ -2994,6 +3003,8 @@ static struct omap_hwmod am33xx_usbss_hwmod = {
 	},
 	.slaves		= am33xx_usbss_slaves,
 	.slaves_cnt	= ARRAY_SIZE(am33xx_usbss_slaves),
+	.class		= &am33xx_usbotg_class,
+	.flags		= (HWMOD_SWSUP_SIDLE | HWMOD_SWSUP_MSTANDBY),
 };
 
 /* gfx */
