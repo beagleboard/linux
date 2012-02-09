@@ -19,6 +19,8 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/io.h>
+#include <linux/clk.h>
+#include <linux/err.h>
 
 #include <mach/edma.h>
 
@@ -218,6 +220,7 @@ static inline void clear_bits(int offset, int len, unsigned long *p)
 
 struct edma *edma_cc[EDMA_MAX_CC];
 static int arch_num_cc;
+static struct clk *tpcc_ick, *tptc0_ick, *tptc1_ick, *tptc2_ick;
 
 /* dummy param set used to (re)initialize parameter RAM slots */
 static const struct edmacc_param dummy_paramset = {
@@ -1343,6 +1346,24 @@ void edma_clear_event(unsigned channel)
 EXPORT_SYMBOL(edma_clear_event);
 
 /*-----------------------------------------------------------------------*/
+static int edma_clk_setup(int enb_dis)
+{
+	int ret = 0;
+
+	if (enb_dis) {
+		ret = clk_enable(tpcc_ick);
+		ret |= clk_enable(tptc0_ick);
+		ret |= clk_enable(tptc1_ick);
+		ret |= clk_enable(tptc2_ick);
+	} else {
+		clk_disable(tpcc_ick);
+		clk_disable(tptc0_ick);
+		clk_disable(tptc1_ick);
+		clk_disable(tptc2_ick);
+	}
+
+	return ret;
+}
 
 static int __init edma_probe(struct platform_device *pdev)
 {
@@ -1362,6 +1383,34 @@ static int __init edma_probe(struct platform_device *pdev)
 
 	if (!info)
 		return -ENODEV;
+
+	tpcc_ick = clk_get(NULL, "tpcc_ick");
+	if (IS_ERR(tpcc_ick)) {
+		printk(KERN_ERR "EDMA: Failed to get tpcc_ick\n");
+		return -EBUSY;
+	}
+
+	tptc0_ick = clk_get(NULL, "tptc0_ick");
+	if (IS_ERR(tptc0_ick)) {
+		printk(KERN_ERR "EDMA: Failed to get tptc0_ick\n");
+		return -EBUSY;
+	}
+
+	tptc1_ick = clk_get(NULL, "tptc1_ick");
+	if (IS_ERR(tptc1_ick)) {
+		printk(KERN_ERR "EDMA: Failed to get tptc1_ick\n");
+		return -EBUSY;
+	}
+
+	tptc2_ick = clk_get(NULL, "tptc2_ick");
+	if (IS_ERR(tptc2_ick)) {
+		printk(KERN_ERR "EDMA: Failed to get tptc2_ick\n");
+		return -EBUSY;
+	}
+
+	status = edma_clk_setup(1);
+	if (status)
+		return status;
 
 	for (j = 0; j < EDMA_MAX_CC; j++) {
 		sprintf(res_name, "edma_cc%d", j);
@@ -1525,6 +1574,7 @@ fail1:
 			iounmap(edmacc_regs_base[i]);
 		kfree(edma_cc[i]);
 	}
+	edma_clk_setup(0);
 	return status;
 }
 

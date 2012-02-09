@@ -1044,7 +1044,6 @@ static struct platform_device am33xx_edma_device = {
 int __init am33xx_register_edma(void)
 {
 	struct platform_device *pdev;
-	static struct clk *edma_clk;
 
 	if (cpu_is_am33xx())
 		pdev = &am33xx_edma_device;
@@ -1052,31 +1051,6 @@ int __init am33xx_register_edma(void)
 		pr_err("%s: platform not supported\n", __func__);
 		return -ENODEV;
 	}
-
-	edma_clk = clk_get(NULL, "tpcc_ick");
-	if (IS_ERR(edma_clk)) {
-		printk(KERN_ERR "EDMA: Failed to get clock\n");
-		return -EBUSY;
-	}
-	clk_enable(edma_clk);
-	edma_clk = clk_get(NULL, "tptc0_ick");
-	if (IS_ERR(edma_clk)) {
-		printk(KERN_ERR "EDMA: Failed to get clock\n");
-		return -EBUSY;
-	}
-	clk_enable(edma_clk);
-	edma_clk = clk_get(NULL, "tptc1_ick");
-	if (IS_ERR(edma_clk)) {
-		printk(KERN_ERR "EDMA: Failed to get clock\n");
-		return -EBUSY;
-	}
-	clk_enable(edma_clk);
-	edma_clk = clk_get(NULL, "tptc2_ick");
-	if (IS_ERR(edma_clk)) {
-		printk(KERN_ERR "EDMA: Failed to get clock\n");
-		return -EBUSY;
-	}
-	clk_enable(edma_clk);
 
 	return platform_device_register(pdev);
 }
