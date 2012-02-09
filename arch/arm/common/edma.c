@@ -136,6 +136,11 @@ static inline unsigned int edma_read_array(unsigned ctlr, int offset, int i)
 {
 	return edma_read(ctlr, offset + (i << 2));
 }
+static inline unsigned int edma_read_array2(unsigned ctlr, int offset, int i,
+		int j)
+{
+	return edma_read(ctlr, offset + ((i*2 + j) << 2));
+}
 static inline void edma_write_array(unsigned ctlr, int offset, int i,
 		unsigned val)
 {
@@ -1451,6 +1456,61 @@ static int __init edma_probe(struct platform_device *pdev)
 		edma_cc[j]->num_slots = min_t(unsigned, info[j].n_slot,
 							EDMA_MAX_PARAMENTRY);
 		edma_cc[j]->num_cc = min_t(unsigned, info[j].n_cc, EDMA_MAX_CC);
+		edma_cc[j]->num_region = min_t(unsigned, info[j].n_region,
+							EDMA_MAX_REGION);
+
+		edma_cc[j]->bkp_prm_set = kzalloc((sizeof(struct edmacc_param) *
+						edma_cc[j]->num_slots),
+						GFP_KERNEL);
+		if (!edma_cc[j]->bkp_prm_set) {
+			status = -ENOMEM;
+			dev_err(&pdev->dev, "err: mem alloc bkp_prm_set\n");
+			goto fail1;
+		}
+
+		edma_cc[j]->bkp_ch_map = kzalloc((sizeof(unsigned int) *
+						edma_cc[j]->num_channels),
+						GFP_KERNEL);
+		if (!edma_cc[j]->bkp_ch_map) {
+			status = -ENOMEM;
+			dev_err(&pdev->dev, "err: mem alloc bkp_ch_map\n");
+			goto fail1;
+		}
+
+		edma_cc[j]->bkp_que_num = kzalloc((sizeof(unsigned int) * 8),
+								GFP_KERNEL);
+		if (!edma_cc[j]->bkp_que_num) {
+			status = -ENOMEM;
+			dev_err(&pdev->dev, "err: mem alloc bkp_que_num\n");
+			goto fail1;
+		}
+
+		edma_cc[j]->bkp_drae = kzalloc((sizeof(unsigned int) *
+							edma_cc[j]->num_region),
+							GFP_KERNEL);
+		if (!edma_cc[j]->bkp_drae) {
+			status = -ENOMEM;
+			dev_err(&pdev->dev, "err: mem alloc bkp_drae\n");
+			goto fail1;
+		}
+
+		edma_cc[j]->bkp_draeh = kzalloc((sizeof(unsigned int) *
+							edma_cc[j]->num_region),
+							GFP_KERNEL);
+		if (!edma_cc[j]->bkp_draeh) {
+			status = -ENOMEM;
+			dev_err(&pdev->dev, "err: mem alloc bkp_draeh\n");
+			goto fail1;
+		}
+
+		edma_cc[j]->bkp_qrae = kzalloc((sizeof(unsigned int) *
+							edma_cc[j]->num_region),
+							GFP_KERNEL);
+		if (!edma_cc[j]->bkp_qrae) {
+			status = -ENOMEM;
+			dev_err(&pdev->dev, "err: mem alloc bkp_qrae\n");
+			goto fail1;
+		}
 
 		edma_cc[j]->default_queue = info[j].default_queue;
 		if (!edma_cc[j]->default_queue)
@@ -1578,8 +1638,142 @@ fail1:
 	return status;
 }
 
+#ifdef CONFIG_PM
+static int edma3_suspend(struct platform_device *pdev, pm_message_t state)
+{
+	int i, j;
+
+	for (i = 0; i < arch_num_cc; i++) {
+		/* backup channel data */
+		for (j = 0; j < edma_cc[i]->num_channels; j++) {
+			edma_cc[i]->bkp_ch_map[j] = edma_read_array(i,
+							EDMA_DCHMAP, j);
+		}
+
+		/* backup DMA Queue Number */
+		for (j = 0; j < 8; j++) {
+			edma_cc[i]->bkp_que_num[j] = edma_read_array(i,
+							EDMA_DMAQNUM, j);
+		}
+
+		for (j = 0; j < edma_cc[i]->num_region; j++) {
+			/* backup DMA DMA Region Access Enable data */
+			edma_cc[i]->bkp_drae[j] = edma_read_array2(i,
+							EDMA_DRAE, j, 0);
+			edma_cc[i]->bkp_draeh[j] = edma_read_array2(i,
+							EDMA_DRAE, j, 1);
+
+			/* backup DMA QDMA Region Access Enable data */
+			edma_cc[i]->bkp_qrae[j] = edma_read_array(i,
+							EDMA_QRAE, j);
+		}
+
+		/* backup DMA shadow Event Set data */
+		edma_cc[i]->bkp_sh_esr = edma_shadow0_read_array(i, SH_ESR, 0);
+		edma_cc[i]->bkp_sh_esrh = edma_shadow0_read_array(i, SH_ESR, 1);
+
+		/* backup DMA Shadow Event Enable Set data */
+		edma_cc[i]->bkp_sh_eesr = edma_shadow0_read_array(i,
+							SH_EER, 0);
+		edma_cc[i]->bkp_sh_eesrh = edma_shadow0_read_array(i,
+							SH_EER, 1);
+
+		/* backup DMA Shadow Interrupt Enable Set data */
+		edma_cc[i]->bkp_sh_iesr = edma_shadow0_read_array(i,
+							SH_IER, 0);
+		edma_cc[i]->bkp_sh_iesrh = edma_shadow0_read_array(i,
+							SH_IER, 1);
+
+		edma_cc[i]->bkp_que_tc_map = edma_read(i, EDMA_QUETCMAP);
+
+		/* backup DMA Queue Priority data */
+		edma_cc[i]->bkp_que_pri = edma_read(i, EDMA_QUEPRI);
+
+		/* backup paramset */
+		for (j = 0; j < edma_cc[i]->num_slots; j++) {
+			memcpy_fromio(&edma_cc[i]->bkp_prm_set[j],
+				edmacc_regs_base[i] + PARM_OFFSET(j),
+				PARM_SIZE);
+		}
+	}
+
+	edma_clk_setup(0);
+
+	return 0;
+}
+
+static int edma3_resume(struct platform_device *pdev)
+{
+	int i, j;
+
+	edma_clk_setup(1);
+
+	for (i = 0; i < arch_num_cc; i++) {
+
+		/* restore channel data */
+		for (j = 0; j < edma_cc[i]->num_channels; j++) {
+			edma_write_array(i, EDMA_DCHMAP, j,
+						edma_cc[i]->bkp_ch_map[j]);
+		}
+
+		/* restore DMA Queue Number */
+		for (j = 0; j < 8; j++) {
+			edma_write_array(i, EDMA_DMAQNUM, j,
+						edma_cc[i]->bkp_que_num[j]);
+		}
+
+		for (j = 0; j < edma_cc[i]->num_region; j++) {
+			/* restore DMA DMA Region Access Enable data */
+			edma_write_array2(i, EDMA_DRAE, j, 0,
+						edma_cc[i]->bkp_drae[j]);
+			edma_write_array2(i, EDMA_DRAE, j, 1,
+						edma_cc[i]->bkp_draeh[j]);
+
+			/* restore DMA QDMA Region Access Enable data */
+			edma_write_array(i, EDMA_QRAE, j,
+						edma_cc[i]->bkp_qrae[j]);
+		}
+
+		/* restore DMA shadow Event Set data */
+		edma_shadow0_write_array(i, SH_ESR, 0, edma_cc[i]->bkp_sh_esr);
+		edma_shadow0_write_array(i, SH_ESR, 1, edma_cc[i]->bkp_sh_esrh);
+
+		/* restore DMA Shadow Event Enable Set data */
+		edma_shadow0_write_array(i, SH_EESR, 0,
+						edma_cc[i]->bkp_sh_eesr);
+		edma_shadow0_write_array(i, SH_EESR, 1,
+						edma_cc[i]->bkp_sh_eesrh);
+
+		/* restore DMA Shadow Interrupt Enable Set data */
+		edma_shadow0_write_array(i, SH_IESR, 0,
+						edma_cc[i]->bkp_sh_iesr);
+		edma_shadow0_write_array(i, SH_IESR, 1,
+						edma_cc[i]->bkp_sh_iesrh);
+
+		edma_write(i, EDMA_QUETCMAP, edma_cc[i]->bkp_que_tc_map);
+
+		/* restore DMA Queue Priority data */
+		edma_write(i, EDMA_QUEPRI, edma_cc[i]->bkp_que_pri);
+
+		/* restore paramset */
+		for (j = 0; j < edma_cc[i]->num_slots; j++) {
+			memcpy_toio(edmacc_regs_base[i] + PARM_OFFSET(j),
+				&edma_cc[i]->bkp_prm_set[j], PARM_SIZE);
+		}
+	}
+
+	return 0;
+}
+
+#else
+#define edma3_suspend	NULL
+#define edma3_resume		NULL
+#endif
+
 static struct platform_driver edma_driver = {
 	.driver.name	= "edma",
+	.suspend	= edma3_suspend,
+	.resume		= edma3_resume,
 };
 
 static int __init edma_init(void)

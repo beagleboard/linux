@@ -121,6 +121,7 @@ enum sync_dimension {
 #define EDMA_MAX_DMACH           64
 #define EDMA_MAX_PARAMENTRY     512
 #define EDMA_MAX_CC               2
+#define EDMA_MAX_REGION           4
 
 
 /* Mapping of crossbar event numbers to actual DMA channels*/
@@ -165,6 +166,22 @@ struct edma {
 	unsigned	is_xbar;
 	unsigned	num_events;
 	struct event_to_channel_map	*xbar_event_mapping;
+
+	/* suspend/resume backup parameters */
+	struct edmacc_param *bkp_prm_set;
+	unsigned int *bkp_ch_map;		/* 64 registers */
+	unsigned int *bkp_que_num;		/* 8 registers */
+	unsigned int *bkp_drae;
+	unsigned int *bkp_draeh;
+	unsigned int *bkp_qrae;
+	unsigned int bkp_sh_esr;
+	unsigned int bkp_sh_esrh;
+	unsigned int bkp_sh_eesr;
+	unsigned int bkp_sh_eesrh;
+	unsigned int bkp_sh_iesr;
+	unsigned int bkp_sh_iesrh;
+	unsigned int bkp_que_tc_map;
+	unsigned int bkp_que_pri;
 };
 
 extern struct edma *edma_cc[EDMA_MAX_CC];
