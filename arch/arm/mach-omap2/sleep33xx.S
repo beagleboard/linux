@@ -18,6 +18,8 @@
 #include <asm/memory.h>
 #include <asm/assembler.h>
 #include <mach/io.h>
+#include <plat/emif.h>
+#include "cm33xx.h"
 
 #include <plat/emif.h>
 #include <plat/sram.h>
@@ -556,7 +558,6 @@ vtp_ready:
 
 ddr_phy_base:
 	.word	DDR_PHY_BASE_ADDR
-
 ddr2_ratio_val:
 	.word	DDR2_RATIO
 data0_rd_dqs_slave_ratio0_val:

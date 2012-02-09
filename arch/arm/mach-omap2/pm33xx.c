@@ -39,7 +39,7 @@
 
 void (*am33xx_do_wfi_sram)(void);
 
-#define DS_MODE		DS1_ID	/* DS0/1_ID */
+#define DS_MODE		DS0_ID	/* DS0/1_ID */
 
 #ifdef CONFIG_SUSPEND
 static int m3_state;
@@ -51,6 +51,8 @@ void __iomem *m3_code;
 static struct device *mpu_dev;
 bool enable_deep_sleep = true;
 
+static int global_suspend_flag = 0;
+
 static suspend_state_t suspend_state = PM_SUSPEND_ON;
 
 struct a8_wkup_m3_ipc_data {
@@ -61,6 +63,8 @@ struct a8_wkup_m3_ipc_data {
 } am33xx_lp_ipc;
 
 static int am33xx_set_low_power_state(struct a8_wkup_m3_ipc_data *);
+static void am33xx_verify_lp_state(void);
+
 
 static int am33xx_do_sram_idle(long unsigned int state)
 {
@@ -77,23 +81,24 @@ static int am33xx_pm_suspend(void)
 {
 	int ret = 0;
 
-	/* Block console output in case it is on one of the OMAP UARTs */
-	if (!is_suspending()) {
-		if (!console_trylock()) {
-			ret = -EAGAIN;
-			goto err;
-		}
-	}
+	struct omap_hwmod *cpgmac_oh, *gpmc_oh, *usb_oh;
+
+	cpgmac_oh	= omap_hwmod_lookup("cpgmac0");
+	usb_oh		= omap_hwmod_lookup("usb_otg_hs");
+	gpmc_oh		= omap_hwmod_lookup("gpmc");
+
+	omap_hwmod_enable(cpgmac_oh);
+	omap_hwmod_enable(usb_oh);
+	omap_hwmod_enable(gpmc_oh);
+
+	omap_hwmod_idle(cpgmac_oh);
+	omap_hwmod_idle(usb_oh);
+	omap_hwmod_idle(gpmc_oh);
 
 	ret = cpu_suspend(0, am33xx_do_sram_idle);
 	if (ret)
 		pr_err("Could not suspend\n");
-	else
-		goto done;
 
-err:
-	pr_err("Console still active\n");
-done:
 	return ret;
 }
 
@@ -133,20 +138,48 @@ static int am33xx_pm_begin(suspend_state_t state)
 
 	omap_mbox_disable_irq(m3_mbox, IRQ_RX);
 
-	disable_hlt();
 	suspend_state = state;
 
 	return ret;
+}
+
+static void am33xx_m3_state_machine_reset(void)
+{
+	int ret = 0;
+
+	am33xx_lp_ipc.resume_addr = 0x0;
+	am33xx_lp_ipc.sleep_mode  = 0xe;
+	am33xx_lp_ipc.ipc_data1	  = DS_IPC_DEFAULT;
+	am33xx_lp_ipc.ipc_data2   = DS_IPC_DEFAULT;
+
+	am33xx_set_low_power_state(&am33xx_lp_ipc);
+
+	ret = omap_mbox_msg_send(m3_mbox, 0xABCDABCD);
+	if (!ret) {
+		pr_debug("Message sent for resetting M3 state machine\n");
+		omap_mbox_msg_rx_flush(m3_mbox);
+	}
 }
 
 static void am33xx_pm_end(void)
 {
 	suspend_state = PM_SUSPEND_ON;
 
-	if (!is_suspending())
-		console_unlock();
+	/* Check the global suspend flag followed by the IPC register */
+	am33xx_verify_lp_state();
+
+	/* TODO: This should be handled via some MBX API */
+	if (m3_mbox->ops->ack_irq)
+		m3_mbox->ops->ack_irq(m3_mbox, IRQ_RX);
 
 	omap_mbox_enable_irq(m3_mbox, IRQ_RX);
+
+	/* M3 state machine will get reset in a successful iteration,
+	 * for now we go ahead and reset it again to catch the bad
+	 * iterations
+	 */
+	am33xx_m3_state_machine_reset();
+
 	return;
 }
 
@@ -159,12 +192,51 @@ static const struct platform_suspend_ops am33xx_pm_ops = {
 
 int am33xx_set_low_power_state(struct a8_wkup_m3_ipc_data *data)
 {
-	__raw_writel(data->resume_addr, ipc_regs);
-	__raw_writel(data->sleep_mode, ipc_regs + 0x4);
-	__raw_writel(data->ipc_data1, ipc_regs + 0x8);
-	__raw_writel(data->ipc_data2, ipc_regs + 0xc);
+	writel(data->resume_addr, ipc_regs);
+	writel(data->sleep_mode, ipc_regs + 0x4);
+	writel(data->ipc_data1, ipc_regs + 0x8);
+	writel(data->ipc_data2, ipc_regs + 0xc);
 
 	return 0;
+}
+
+static void am33xx_verify_lp_state(void)
+{
+	int status;
+
+	if (global_suspend_flag) {
+		pr_err("Kernel core reported suspend failure\n");
+		goto clear_old_status;
+	}
+
+	/* If it's a failed transition and we check the old status,
+	 * the failure will be erroneoulsy logged as a pass
+	 * and the worst part is that the next WFI in the idle loop
+	 * will be intercepted by M3 as a signal to cut-off
+	 * the power to A8
+	 *
+	 * So, we MUST reset the M3 state machine even if the
+	 * result is pass. Other option could be to clear the
+	 * the CMD_STAT bits in the resume path and that also
+	 * should be done
+	 */
+	status = readl(ipc_regs + 0x4);
+	status &= 0xffff0000;
+
+	if (status == 0x0)
+		pr_info("DeepSleep transition passed\n");
+	else if (status == 0x10000)
+		pr_info("DeepSleep transition failed\n");
+	else
+		pr_info("Status = %0x\n", status);
+
+
+clear_old_status:
+	/* After decoding we write back the bad status */
+	status = readl(ipc_regs + 0x4);
+	status &= 0xffff0000;
+	status |= 0x10000;
+	writel(status, ipc_regs + 0x4);
 }
 
 /*
@@ -186,8 +258,8 @@ static irqreturn_t wkup_m3_txev_handler(int irq, void *unused)
 	m3_state++;
 
 	if (m3_eoi) {
-		__raw_writel(0x1, m3_eoi);
-		__raw_writel(0x0, m3_eoi);
+		writel(0x1, m3_eoi);
+		writel(0x0, m3_eoi);
 		return IRQ_HANDLED;
 	} else {
 		pr_err("%s unexpected interrupt. "
