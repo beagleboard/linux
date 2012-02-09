@@ -1183,6 +1183,8 @@ static struct clk timer0_fck = {
 	.clksel		= timer0_clkmux_sel,
 	.enable_reg	= AM33XX_CM_WKUP_TIMER0_CLKCTRL,
 	.enable_bit	= AM33XX_MODULEMODE_SWCTRL,
+	.clksel_reg	= AM33XX_CTRL_REGADDR(0x01BC),
+	.clksel_mask	= (0x3 << 4),
 	.ops		= &clkops_omap2_dflt,
 	.recalc		= &followparent_recalc,
 };

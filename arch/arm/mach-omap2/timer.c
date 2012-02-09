@@ -178,7 +178,7 @@ static int __init omap_dm_timer_init_one(struct omap_dm_timer *timer,
 
 	omap_hwmod_enable(oh);
 
-	sys_timer_reserved |= (1 << (gptimer_id - 1));
+	sys_timer_reserved |= (1 << (gptimer_id));
 
 	if (gptimer_id != 12) {
 		struct clk *src;
@@ -333,7 +333,7 @@ OMAP_SYS_TIMER(3)
 OMAP_SYS_TIMER_INIT(3_secure, OMAP3_SECURE_TIMER, OMAP3_CLKEV_SOURCE,
 			2, OMAP3_MPU_SOURCE)
 OMAP_SYS_TIMER(3_secure)
-OMAP_SYS_TIMER_INIT(3_am33xx, 1, OMAP4_MPU_SOURCE, 2, OMAP4_MPU_SOURCE)
+OMAP_SYS_TIMER_INIT(3_am33xx, 0, "clk_rc32k_ck", 1, OMAP4_MPU_SOURCE)
 OMAP_SYS_TIMER(3_am33xx)
 #endif
 
@@ -462,7 +462,7 @@ static int __init omap_timer_init(struct omap_hwmod *oh, void *unused)
 	pdata->timer_ip_version = oh->class->rev;
 
 	/* Mark clocksource and clockevent timers as reserved */
-	if ((sys_timer_reserved >> (id - 1)) & 0x1)
+	if ((sys_timer_reserved & (0x1 << id)))
 		pdata->reserved = 1;
 
 	pwrdm = omap_hwmod_get_pwrdm(oh);
