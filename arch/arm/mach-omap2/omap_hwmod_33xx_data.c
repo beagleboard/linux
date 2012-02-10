@@ -293,7 +293,7 @@ static struct omap_hwmod_class am33xx_adc_tsc_hwmod_class = {
 
 /* adc_tsc */
 static struct omap_hwmod_irq_info am33xx_adc_tsc_irqs[] = {
-	{ .irq = AM33XX_IRQ_TSC },
+	{ .irq = AM33XX_IRQ_ADC_GEN },
 	{ .irq = -1 }
 };
 
