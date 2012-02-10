@@ -48,6 +48,7 @@ static struct omap_hwmod am33xx_timer5_hwmod;
 static struct omap_hwmod am33xx_timer6_hwmod;
 static struct omap_hwmod am33xx_timer7_hwmod;
 static struct omap_hwmod am33xx_wd_timer1_hwmod;
+static struct omap_hwmod am33xx_tpcc_hwmod;
 static struct omap_hwmod am33xx_tptc0_hwmod;
 static struct omap_hwmod am33xx_tptc1_hwmod;
 static struct omap_hwmod am33xx_tptc2_hwmod;
@@ -66,7 +67,6 @@ static struct omap_hwmod am33xx_spi0_hwmod;
 static struct omap_hwmod am33xx_spi1_hwmod;
 static struct omap_hwmod am33xx_elm_hwmod;
 static struct omap_hwmod am33xx_adc_tsc_hwmod;
-static struct omap_hwmod am33xx_tpcc_hwmod;
 static struct omap_hwmod am33xx_mcasp0_hwmod;
 static struct omap_hwmod am33xx_mcasp1_hwmod;
 static struct omap_hwmod am33xx_epwmss0_hwmod;
@@ -2308,34 +2308,42 @@ static struct omap_hwmod am33xx_timer7_hwmod = {
 };
 
 /* tpcc */
+#define AM33XX_TPCC_BASE		0x49000000
+#define AM33XX_TPTC0_BASE		0x49800000
+#define AM33XX_TPTC1_BASE		0x49900000
+#define AM33XX_TPTC2_BASE		0x49a00000
+
+/* 'tpcc' class */
 static struct omap_hwmod_class am33xx_tpcc_hwmod_class = {
 	.name		= "tpcc",
 };
 
 static struct omap_hwmod_irq_info am33xx_tpcc_irqs[] = {
 	{ .name	= "edma0", .irq = 12 },
+	{ .name = "edma0_mperr", .irq = 13, },
 	{ .name	= "edma0_err", .irq = 14 },
 	{ .irq = -1 }
 };
 
 static struct omap_hwmod_addr_space am33xx_tpcc_addr_space[] = {
 	{
-		.pa_start	= 0x49000000,
-		.pa_end		= 0x49000000 + SZ_32K - 1,
+		.name		= "edma_cc0",
+		.pa_start	= AM33XX_TPCC_BASE,
+		.pa_end		= AM33XX_TPCC_BASE + SZ_32K - 1,
 		.flags		= ADDR_TYPE_RT
 	},
 	{ }
 };
 
-static struct omap_hwmod_ocp_if am33xx_l3_slow__tpcc = {
-	.master		= &am33xx_l3slow_hwmod,
+static struct omap_hwmod_ocp_if am33xx_l3_main__tpcc = {
+	.master		= &am33xx_l3_main_hwmod,
 	.slave		= &am33xx_tpcc_hwmod,
 	.addr		= am33xx_tpcc_addr_space,
 	.user		= OCP_USER_MPU,
 };
 
 static struct omap_hwmod_ocp_if *am33xx_tpcc_slaves[] = {
-	&am33xx_l3_slow__tpcc,
+	&am33xx_l3_main__tpcc,
 };
 
 static struct omap_hwmod am33xx_tpcc_hwmod = {
@@ -2377,8 +2385,9 @@ static struct omap_hwmod_irq_info am33xx_tptc0_irqs[] = {
 
 struct omap_hwmod_addr_space am33xx_tptc0_addr_space[] = {
 	{
-		.pa_start	= 0x49800000,
-		.pa_end		= 0x49800000 + SZ_8K - 1,
+		.name		= "edma_tc0",
+		.pa_start	= AM33XX_TPTC0_BASE,
+		.pa_end		= AM33XX_TPTC0_BASE + SZ_8K - 1,
 		.flags		= ADDR_MAP_ON_INIT | ADDR_TYPE_RT,
 	},
 	{ }
@@ -2419,8 +2428,9 @@ static struct omap_hwmod_irq_info am33xx_tptc1_irqs[] = {
 
 struct omap_hwmod_addr_space am33xx_tptc1_addr_space[] = {
 	{
-		.pa_start	= 0x49900000,
-		.pa_end		= 0x49900000 + SZ_8K - 1,
+		.name		= "edma_tc1",
+		.pa_start	= AM33XX_TPTC1_BASE,
+		.pa_end		= AM33XX_TPTC1_BASE + SZ_8K - 1,
 		.flags		= ADDR_MAP_ON_INIT | ADDR_TYPE_RT,
 	},
 	{ }
@@ -2461,8 +2471,9 @@ static struct omap_hwmod_irq_info am33xx_tptc2_irqs[] = {
 
 struct omap_hwmod_addr_space am33xx_tptc2_addr_space[] = {
 	{
-		.pa_start	= 0x49a00000,
-		.pa_end		= 0x49a00000 + SZ_8K - 1,
+		.name		= "edma_tc2",
+		.pa_start	= AM33XX_TPTC2_BASE,
+		.pa_end		= AM33XX_TPTC2_BASE + SZ_8K - 1,
 		.flags		= ADDR_MAP_ON_INIT | ADDR_TYPE_RT,
 	},
 	{ }
