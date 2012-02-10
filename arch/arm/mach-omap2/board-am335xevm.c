@@ -35,6 +35,7 @@
 #include <linux/mfd/tps65910.h>
 #include <linux/mfd/tps65217.h>
 #include <linux/pwm_backlight.h>
+#include <linux/input/ti_tscadc.h>
 
 /* LCD controller is similar to DA850 */
 #include <video/da8xx-fb.h>
@@ -167,36 +168,12 @@ struct da8xx_lcdc_platform_data TFC_S9700RTWV35TR_01B_pdata = {
 
 #include "common.h"
 
-/* TSc controller */
-#include <linux/input/ti_tscadc.h>
 #include <linux/lis3lv02d.h>
 
-static struct resource tsc_resources[]  = {
-	[0] = {
-		.start  = AM33XX_TSC_BASE,
-		.end    = AM33XX_TSC_BASE + SZ_8K - 1,
-		.flags  = IORESOURCE_MEM,
-	},
-	[1] = {
-		.start  = AM33XX_IRQ_ADC_GEN,
-		.end    = AM33XX_IRQ_ADC_GEN,
-		.flags  = IORESOURCE_IRQ,
-	},
-};
-
+/* TSc controller */
 static struct tsc_data am335x_touchscreen_data  = {
 	.wires  = 4,
 	.x_plate_resistance = 200,
-};
-
-static struct platform_device tsc_device = {
-	.name   = "tsc",
-	.id     = -1,
-	.dev    = {
-			.platform_data  = &am335x_touchscreen_data,
-	},
-	.num_resources  = ARRAY_SIZE(tsc_resources),
-	.resource       = tsc_resources,
 };
 
 static u8 am335x_iis_serializer_direction1[] = {
@@ -944,7 +921,8 @@ static void tsc_init(int evm_id, int profile)
 		pr_info("TSC connected to alpha GP EVM\n");
 	}
 	setup_pin_mux(tsc_pin_mux);
-	err = platform_device_register(&tsc_device);
+
+	err = am33xx_register_tsc(&am335x_touchscreen_data);
 	if (err)
 		pr_err("failed to register touchscreen device\n");
 }

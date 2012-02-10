@@ -24,6 +24,7 @@
 #include <linux/can/platform/d_can.h>
 #include <linux/platform_data/uio_pruss.h>
 #include <linux/pwm/pwm.h>
+#include <linux/input/ti_tscadc.h>
 
 #include <mach/hardware.h>
 #include <mach/irqs.h>
@@ -178,6 +179,28 @@ void __init am33xx_register_lcdc(struct da8xx_lcdc_platform_data *pdata)
 		pr_warning("am33xx_register_lcdc: lcdc registration failed: %d\n",
 				ret);
 
+}
+
+int __init am33xx_register_tsc(struct tsc_data *pdata)
+{
+	int id = -1;
+	struct platform_device *pdev;
+	struct omap_hwmod *oh;
+	char *oh_name = "adc_tsc";
+	char *dev_name = "tsc";
+
+	oh = omap_hwmod_lookup(oh_name);
+	if (!oh) {
+		pr_err("Could not look up TSC%d hwmod\n", id);
+		return -ENODEV;
+	}
+
+	pdev = omap_device_build(dev_name, id, oh, pdata,
+			sizeof(struct tsc_data), NULL, 0, 0);
+
+	WARN(IS_ERR(pdev), "Can't build omap_device for %s:%s.\n",
+			dev_name, oh->name);
+	return 0;
 }
 
 #if defined(CONFIG_SND_AM335X_SOC_EVM) || \
