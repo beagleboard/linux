@@ -737,8 +737,8 @@ static void _disable_optional_clocks(struct omap_hwmod *oh)
  */
 static void _enable_module(struct omap_hwmod *oh)
 {
-	/* The module mode does not exist prior OMAP4 */
-	if (!cpu_is_am33xx() && (cpu_is_omap24xx() || cpu_is_omap34xx()))
+	/* The module mode does not exist prior OMAP4 & AM33xx */
+	if (!cpu_is_omap44xx() && !cpu_is_am33xx())
 		return;
 
 	if (!oh->clkdm || !oh->prcm.omap4.modulemode)
@@ -771,7 +771,7 @@ static void _enable_module(struct omap_hwmod *oh)
  */
 static int _omap4_wait_target_disable(struct omap_hwmod *oh)
 {
-	if (!cpu_is_omap44xx())
+	if (!cpu_is_omap44xx() && !cpu_is_am33xx())
 		return 0;
 
 	if (!oh)
@@ -800,7 +800,7 @@ static int _omap4_disable_module(struct omap_hwmod *oh)
 {
 	int v;
 
-	/* The module mode does not exist prior OMAP4 */
+	/* The module mode does not exist prior OMAP4 & AM33xx */
 	if (!cpu_is_omap44xx() && !cpu_is_am33xx())
 		return -EINVAL;
 
@@ -1231,16 +1231,13 @@ static int _wait_target_ready(struct omap_hwmod *oh)
 
 	/* XXX check clock enable states */
 
-	if (cpu_is_omap24xx() || cpu_is_omap34xx()) {
-		if (cpu_is_am33xx())
-			ret = am33xx_cm_wait_module_ready(oh->clkdm->cm_inst,
-						oh->prcm.omap4.clkctrl_offs);
-		else
-			ret = omap2_cm_wait_module_ready(
-						oh->prcm.omap2.module_offs,
-						oh->prcm.omap2.idlest_reg_id,
-						oh->prcm.omap2.idlest_idle_bit);
-	} else if (cpu_is_omap44xx()) {
+	/*
+	 * In order to use omap4 cminst code for am33xx family of devices,
+	 * first check cpu_is_am33xx here.
+	 *
+	 * Note: cpu_is_omap34xx is true for am33xx device as well.
+	 */
+	if (cpu_is_omap44xx() || cpu_is_am33xx()) {
 		if (!oh->clkdm)
 			return -EINVAL;
 
@@ -1248,6 +1245,11 @@ static int _wait_target_ready(struct omap_hwmod *oh)
 						     oh->clkdm->cm_inst,
 						     oh->clkdm->clkdm_offs,
 						     oh->prcm.omap4.clkctrl_offs);
+	} else if (cpu_is_omap24xx() || cpu_is_omap34xx()) {
+			ret = omap2_cm_wait_module_ready(
+						oh->prcm.omap2.module_offs,
+						oh->prcm.omap2.idlest_reg_id,
+						oh->prcm.omap2.idlest_idle_bit);
 	} else {
 		BUG();
 	};

@@ -31,6 +31,7 @@
 #include "cm-regbits-44xx.h"
 #include "prcm44xx.h"
 #include "prm44xx.h"
+#include "prm33xx.h"
 #include "prcm_mpu44xx.h"
 
 /*
@@ -59,6 +60,11 @@ static u32 *omap44xx_cm_bases[] = {
 	[OMAP4430_CM2_PARTITION]		= OMAP2_L4_IO_ADDRESS(OMAP4430_CM2_BASE),
 	[OMAP4430_SCRM_PARTITION]		= 0,
 	[OMAP4430_PRCM_MPU_PARTITION]		= OMAP2_L4_IO_ADDRESS(OMAP4430_PRCM_MPU_BASE),
+};
+
+static u32 *am33xx_cm_bases[] = {
+	[OMAP4430_INVALID_PRCM_PARTITION]	= 0,
+	[AM33XX_PRM_PARTITION]			= AM33XX_L4_WK_IO_ADDRESS(AM33XX_PRM_BASE),
 };
 
 /* Private functions */
@@ -358,5 +364,8 @@ void __init omap44xx_cminst_init(void)
 	if (cpu_is_omap44xx()) {
 		_cm_bases = omap44xx_cm_bases;
 		max_cm_partitions = ARRAY_SIZE(omap44xx_cm_bases);
+	} else if (cpu_is_am33xx()) {
+		_cm_bases = am33xx_cm_bases;
+		max_cm_partitions = ARRAY_SIZE(am33xx_cm_bases);
 	}
 }
