@@ -49,13 +49,16 @@
 #define CLKCTRL_IDLEST_INTERFACE_IDLE		0x2
 #define CLKCTRL_IDLEST_DISABLED			0x3
 
-static u32 _cm_bases[OMAP4_MAX_PRCM_PARTITIONS] = {
+static u32 **_cm_bases;
+static u32 max_cm_partitions;
+
+static u32 *omap44xx_cm_bases[] = {
 	[OMAP4430_INVALID_PRCM_PARTITION]	= 0,
-	[OMAP4430_PRM_PARTITION]		= OMAP4430_PRM_BASE,
-	[OMAP4430_CM1_PARTITION]		= OMAP4430_CM1_BASE,
-	[OMAP4430_CM2_PARTITION]		= OMAP4430_CM2_BASE,
+	[OMAP4430_PRM_PARTITION]		= OMAP2_L4_IO_ADDRESS(OMAP4430_PRM_BASE),
+	[OMAP4430_CM1_PARTITION]		= OMAP2_L4_IO_ADDRESS(OMAP4430_CM1_BASE),
+	[OMAP4430_CM2_PARTITION]		= OMAP2_L4_IO_ADDRESS(OMAP4430_CM2_BASE),
 	[OMAP4430_SCRM_PARTITION]		= 0,
-	[OMAP4430_PRCM_MPU_PARTITION]		= OMAP4430_PRCM_MPU_BASE,
+	[OMAP4430_PRCM_MPU_PARTITION]		= OMAP2_L4_IO_ADDRESS(OMAP4430_PRCM_MPU_BASE),
 };
 
 /* Private functions */
@@ -103,19 +106,19 @@ static bool _is_module_ready(u8 part, u16 inst, s16 cdoffs, u16 clkctrl_offs)
 /* Read a register in a CM instance */
 u32 omap4_cminst_read_inst_reg(u8 part, s16 inst, u16 idx)
 {
-	BUG_ON(part >= OMAP4_MAX_PRCM_PARTITIONS ||
+	BUG_ON(part >= max_cm_partitions ||
 	       part == OMAP4430_INVALID_PRCM_PARTITION ||
 	       !_cm_bases[part]);
-	return __raw_readl(OMAP2_L4_IO_ADDRESS(_cm_bases[part] + inst + idx));
+	return __raw_readl(_cm_bases[part] + ((inst + idx)/sizeof(u32)));
 }
 
 /* Write into a register in a CM instance */
 void omap4_cminst_write_inst_reg(u32 val, u8 part, s16 inst, u16 idx)
 {
-	BUG_ON(part >= OMAP4_MAX_PRCM_PARTITIONS ||
+	BUG_ON(part >= max_cm_partitions ||
 	       part == OMAP4430_INVALID_PRCM_PARTITION ||
 	       !_cm_bases[part]);
-	__raw_writel(val, OMAP2_L4_IO_ADDRESS(_cm_bases[part] + inst + idx));
+	__raw_writel(val, _cm_bases[part] + ((inst + idx)/sizeof(u32)));
 }
 
 /* Read-modify-write a register in CM1. Caller must lock */
@@ -348,4 +351,12 @@ void omap4_cminst_module_disable(u8 part, u16 inst, s16 cdoffs,
 	v = omap4_cminst_read_inst_reg(part, inst, clkctrl_offs);
 	v &= ~OMAP4430_MODULEMODE_MASK;
 	omap4_cminst_write_inst_reg(v, part, inst, clkctrl_offs);
+}
+
+void __init omap44xx_cminst_init(void)
+{
+	if (cpu_is_omap44xx()) {
+		_cm_bases = omap44xx_cm_bases;
+		max_cm_partitions = ARRAY_SIZE(omap44xx_cm_bases);
+	}
 }
