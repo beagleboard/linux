@@ -332,9 +332,30 @@ static int omap_elm_remove(struct platform_device *pdev)
 }
 
 
+#ifdef CONFIG_PM
+static int omap_elm_suspend(struct platform_device *pdev, pm_message_t state)
+{
+	mtd->suspend(mtd);
+	pm_runtime_put_sync(&pdev->dev);
+	return 0;
+}
+
+static int omap_elm_resume(struct platform_device *pdev)
+{
+	pm_runtime_get_sync(&pdev->dev);
+	/* Restore ELM context by configuring */
+	omap_elm_config(bch_scheme);
+	return 0;
+}
+#endif
+
 static struct platform_driver omap_elm_driver = {
 	.probe		= omap_elm_probe,
 	.remove		= omap_elm_remove,
+#ifdef CONFIG_PM
+	.suspend	= omap_elm_suspend,
+	.resume		= omap_elm_resume,
+#endif
 	.driver		= {
 		.name	= DRIVER_NAME,
 		.owner	= THIS_MODULE,

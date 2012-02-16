@@ -136,6 +136,8 @@ struct omap_nand_info {
 	u_char				*buf;
 	int				buf_len;
 	int				ecc_opt;
+	int (*ctrlr_suspend) (void);
+	int (*ctrlr_resume) (void);
 };
 
 /**
@@ -1097,6 +1099,11 @@ static int __devinit omap_nand_probe(struct platform_device *pdev)
 			omap_configure_elm(&info->mtd, OMAP_BCH8_ECC);
 	}
 
+	if (pdata->ctrlr_suspend)
+		info->ctrlr_suspend = pdata->ctrlr_suspend;
+	if (pdata->ctrlr_resume)
+		info->ctrlr_resume = pdata->ctrlr_resume;
+
 	/* NAND write protect off */
 	gpmc_cs_configure(info->gpmc_cs, GPMC_CONFIG_WP, 0);
 
@@ -1309,9 +1316,41 @@ static int omap_nand_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM
+static int omap_nand_suspend(struct platform_device *pdev, pm_message_t state)
+{
+	struct mtd_info *mtd = platform_get_drvdata(pdev);
+	struct omap_nand_info *info = container_of(mtd, struct omap_nand_info,
+							mtd);
+
+	mtd->suspend(mtd);
+
+	if (info->ctrlr_suspend)
+		info->ctrlr_suspend();
+
+	return 0;
+}
+
+static int omap_nand_resume(struct platform_device *pdev)
+{
+	struct mtd_info *mtd = platform_get_drvdata(pdev);
+	struct omap_nand_info *info = container_of(mtd, struct omap_nand_info,
+							mtd);
+
+	if (info->ctrlr_resume)
+		info->ctrlr_resume();
+
+	return 0;
+}
+#endif
+
 static struct platform_driver omap_nand_driver = {
 	.probe		= omap_nand_probe,
 	.remove		= omap_nand_remove,
+#ifdef CONFIG_PM
+	.suspend	= omap_nand_suspend,
+	.resume		= omap_nand_resume,
+#endif
 	.driver		= {
 		.name	= DRIVER_NAME,
 		.owner	= THIS_MODULE,
