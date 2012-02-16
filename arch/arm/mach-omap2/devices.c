@@ -146,39 +146,29 @@ static struct platform_device omap2cam_device = {
 	.resource	= omap2cam_resources,
 };
 #endif
-#define L4_PER_LCDC_PHYS        0x4830E000
 
-static struct resource am33xx_lcdc_resources[] = {
-	[0] = { /* registers */
-		.start  = L4_PER_LCDC_PHYS,
-		.end    = L4_PER_LCDC_PHYS + SZ_4K - 1,
-		.flags  = IORESOURCE_MEM,
-	},
-	[1] = { /* interrupt */
-		.start  = AM33XX_IRQ_LCD,
-		.end    = AM33XX_IRQ_LCD,
-		.flags  = IORESOURCE_IRQ,
-	},
-};
-
-static struct platform_device am33xx_lcdc_device = {
-	.name		= "da8xx_lcdc",
-	.id		= 0,
-	.num_resources	= ARRAY_SIZE(am33xx_lcdc_resources),
-	.resource	= am33xx_lcdc_resources,
-};
-
-void __init am33xx_register_lcdc(struct da8xx_lcdc_platform_data *pdata)
+int __init am33xx_register_lcdc(struct da8xx_lcdc_platform_data *pdata)
 {
-	int ret;
+	int id = 0;
+	struct platform_device *pdev;
+	struct omap_hwmod *oh;
+	char *oh_name = "lcdc";
+	char *dev_name = "da8xx_lcdc";
 
-	am33xx_lcdc_device.dev.platform_data = pdata;
+	oh = omap_hwmod_lookup(oh_name);
+	if (!oh) {
+		pr_err("Could not look up LCD%d hwmod\n", id);
+		return -ENODEV;
+	}
 
-	ret = platform_device_register(&am33xx_lcdc_device);
-	if (ret)
-		pr_warning("am33xx_register_lcdc: lcdc registration failed: %d\n",
-				ret);
-
+	pdev = omap_device_build(dev_name, id, oh, pdata,
+			sizeof(struct da8xx_lcdc_platform_data), NULL, 0, 0);
+	if (IS_ERR(pdev)) {
+		WARN(1, "Can't build omap_device for %s:%s.\n",
+			dev_name, oh->name);
+		return PTR_ERR(pdev);
+	}
+	return 0;
 }
 
 int __init am33xx_register_tsc(struct tsc_data *pdata)
