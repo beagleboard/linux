@@ -534,28 +534,33 @@ static inline void omap_init_mcspi(void) {}
 
 #ifdef CONFIG_SOC_OMAPAM33XX
 
-static int omap_elm_init(struct omap_hwmod *oh, void *unused)
+static int __init omap_init_elm(void)
 {
+	int id = -1;
 	struct platform_device *pdev;
+	struct omap_hwmod *oh;
+	char *oh_name = "elm";
 	char *name = "omap2_elm";
-	static int elm_num;
 
+	oh = omap_hwmod_lookup(oh_name);
+	if (!oh) {
+		pr_err("Could not look up %s\n", oh_name);
+		return -ENODEV;
+	}
 
-	elm_num++;
-	pdev = omap_device_build(name, elm_num, oh, NULL,
-				0,	NULL,
-				0, 0);
+	pdev = omap_device_build(name, id, oh, NULL, 0, NULL, 0, 0);
+
+	if (IS_ERR(pdev)) {
+		WARN(1, "Can't build omap_device for %s:%s.\n",
+						name, oh->name);
+		return PTR_ERR(pdev);
+	}
+
 	return 0;
 }
 
-static void omap_init_elm(void)
-{
-
-	omap_hwmod_for_each_by_class("elm", omap_elm_init, NULL);
-}
-
 #else
-static void omap_init_elm(void) {}
+static inline  int omap_init_elm(void) { }
 #endif
 
 
