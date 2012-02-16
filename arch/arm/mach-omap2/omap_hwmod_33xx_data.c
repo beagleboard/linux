@@ -252,6 +252,7 @@ static struct omap_hwmod_addr_space am33xx_adc_tsc_addrs[] = {
 static struct omap_hwmod_ocp_if am33xx_l4_wkup_adc_tsc = {
 	.master		= &am33xx_l4wkup_hwmod,
 	.slave		= &am33xx_adc_tsc_hwmod,
+	.clk		= "adc_tsc_ick",
 	.addr		= am33xx_adc_tsc_addrs,
 	.user		= OCP_USER_MPU,
 };
