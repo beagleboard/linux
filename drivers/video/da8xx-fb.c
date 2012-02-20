@@ -33,6 +33,7 @@
 #include <linux/spinlock.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
+#include <linux/pm_runtime.h>
 #include <video/da8xx-fb.h>
 #include <asm/mach-types.h>
 
@@ -138,7 +139,6 @@ static resource_size_t da8xx_fb_reg_base;
 static struct resource *lcdc_regs;
 static unsigned int lcd_revision;
 static irq_handler_t lcdc_irq_handler;
-struct clk *lcdc_ick;
 
 static inline unsigned int lcdc_read(unsigned int addr)
 {
@@ -151,6 +151,7 @@ static inline void lcdc_write(unsigned int val, unsigned int addr)
 }
 
 struct da8xx_fb_par {
+	struct device *dev;
 	resource_size_t p_palette_base;
 	unsigned char *v_palette_base;
 	dma_addr_t		vram_phys;
@@ -797,15 +798,16 @@ static irqreturn_t lcdc_irq_handler_rev02(int irq, void *arg)
 {
 	struct da8xx_fb_par *par = arg;
 	u32 stat = lcdc_read(LCD_MASKED_STAT_REG);
+	struct device *dev = par->dev;
 	u32 reg_int;
 
 	if ((stat & LCD_SYNC_LOST) && (stat & LCD_FIFO_UNDERFLOW)) {
 		printk(KERN_ERR "LCDC sync lost or underflow error occured\n");
 		lcd_disable_raster(NO_WAIT_FOR_FRAME_DONE);
-		clk_disable(par->lcdc_clk);
+		pm_runtime_put_sync(dev);
 		lcdc_write(stat, LCD_MASKED_STAT_REG);
 		lcd_enable_raster();
-		clk_enable(par->lcdc_clk);
+		pm_runtime_get_sync(dev);
 	} else if (stat & LCD_PL_LOAD_DONE) {
 		/*
 		 * Must disable raster before changing state of any control bit.
@@ -1038,10 +1040,8 @@ static int __devexit fb_remove(struct platform_device *dev)
 		dma_free_coherent(NULL, par->vram_size, par->vram_virt,
 				  par->vram_phys);
 		free_irq(par->irq, par);
-		clk_disable(par->lcdc_clk);
-		clk_put(par->lcdc_clk);
-		clk_disable(lcdc_ick);
-		clk_put(lcdc_ick);
+		pm_runtime_put_sync(&dev->dev);
+		pm_runtime_disable(&dev->dev);
 		framebuffer_release(info);
 		iounmap((void __iomem *)da8xx_fb_reg_base);
 		release_mem_region(lcdc_regs->start, resource_size(lcdc_regs));
@@ -1257,27 +1257,17 @@ static int __devinit fb_probe(struct platform_device *device)
 		goto err_request_mem;
 	}
 
-	/*
-	 * Some SoC will not have seperate interface clock,
-	 * so make lazy check here
-	 */
-	lcdc_ick = clk_get(&device->dev, "lcdc_ick");
-	if (IS_ERR(lcdc_ick))
-		dev_err(&device->dev, "Can not get lcdc_ick\n");
-
-	ret = clk_enable(lcdc_ick);
-	if (ret)
-		dev_err(&device->dev, "failed to enable lcdc_ick\n");
-
 	fb_clk = clk_get(&device->dev, NULL);
 	if (IS_ERR(fb_clk)) {
 		dev_err(&device->dev, "Can not get device clock\n");
 		ret = -ENODEV;
 		goto err_ioremap;
 	}
-	ret = clk_enable(fb_clk);
-	if (ret)
-		goto err_clk_put;
+
+	pm_runtime_irq_safe(&device->dev);
+	pm_runtime_enable(&device->dev);
+	pm_runtime_get_sync(&device->dev);
+
 
 	/* Determine LCD IP Version */
 	switch (lcdc_read(LCD_PID_REG)) {
@@ -1306,7 +1296,7 @@ static int __devinit fb_probe(struct platform_device *device)
 	if (i == ARRAY_SIZE(known_lcd_panels)) {
 		dev_err(&device->dev, "GLCD: No valid panel found\n");
 		ret = -ENODEV;
-		goto err_clk_disable;
+		goto err_pm_runtime_disable;
 	} else
 		dev_info(&device->dev, "GLCD: Found %s panel\n",
 					fb_pdata->type);
@@ -1318,10 +1308,11 @@ static int __devinit fb_probe(struct platform_device *device)
 	if (!da8xx_fb_info) {
 		dev_dbg(&device->dev, "Memory allocation failed for fb_info\n");
 		ret = -ENOMEM;
-		goto err_clk_disable;
+		goto err_pm_runtime_disable;
 	}
 
 	par = da8xx_fb_info->par;
+	par->dev = &device->dev;
 	par->lcdc_clk = fb_clk;
 #ifdef CONFIG_CPU_FREQ
 	par->lcd_fck_rate = clk_get_rate(fb_clk);
@@ -1477,15 +1468,11 @@ err_release_fb_mem:
 err_release_fb:
 	framebuffer_release(da8xx_fb_info);
 
-err_clk_disable:
-	clk_disable(fb_clk);
-
-err_clk_put:
-	clk_put(fb_clk);
+err_pm_runtime_disable:
+	pm_runtime_put_sync(&device->dev);
+	pm_runtime_disable(&device->dev);
 
 err_ioremap:
-	clk_disable(lcdc_ick);
-	clk_put(lcdc_ick);
 
 	iounmap((void __iomem *)da8xx_fb_reg_base);
 
@@ -1508,8 +1495,7 @@ static int fb_suspend(struct platform_device *dev, pm_message_t state)
 	fb_set_suspend(info, 1);
 	lcd_disable_raster(WAIT_FOR_FRAME_DONE);
 
-	clk_disable(par->lcdc_clk);
-	clk_disable(lcdc_ick);
+	pm_runtime_put_sync(&dev->dev);
 	console_unlock();
 
 	return 0;
@@ -1523,8 +1509,7 @@ static int fb_resume(struct platform_device *dev)
 	if (par->panel_power_ctrl)
 		par->panel_power_ctrl(1);
 
-	clk_enable(lcdc_ick);
-	clk_enable(par->lcdc_clk);
+	pm_runtime_get_sync(&dev->dev);
 
 	lcd_enable_raster();
 
