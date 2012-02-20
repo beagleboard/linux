@@ -18,5 +18,6 @@ obj-$(CONFIG_MTD_BLOCK2MTD)	+= block2mtd.o
 obj-$(CONFIG_MTD_DATAFLASH)	+= mtd_dataflash.o
 obj-$(CONFIG_MTD_M25P80)	+= m25p80.o
 obj-$(CONFIG_MTD_SST25L)	+= sst25l.o
+obj-$(CONFIG_MTD_NAND_OMAP2)	+= omap2_elm.o
 
 CFLAGS_docg3.o			+= -I$(src)
