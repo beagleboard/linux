@@ -24,6 +24,7 @@
 #include <plat/dma.h>
 #include <plat/gpmc.h>
 #include <plat/nand.h>
+#include <plat/elm.h>
 
 #define	DRIVER_NAME	"omap2-nand"
 #define	OMAP_NAND_TIMEOUT_MS	5000
@@ -973,6 +974,14 @@ static int __devinit omap_nand_probe(struct platform_device *pdev)
 
 	info->nand.options	= pdata->devsize;
 	info->nand.options	|= NAND_SKIP_BBTSCAN;
+
+	/*
+	 * If ELM feature is used in OMAP NAND driver, then configure it
+	 */
+	if (pdata->elm_used) {
+		if (pdata->ecc_opt == OMAP_ECC_BCH8_CODE_HW)
+			omap_configure_elm(&info->mtd, OMAP_BCH8_ECC);
+	}
 
 	/* NAND write protect off */
 	gpmc_cs_configure(info->gpmc_cs, GPMC_CONFIG_WP, 0);
