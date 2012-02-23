@@ -39,13 +39,61 @@
 #include "musb_core.h"
 #include "cppi41_dma.h"
 
+#ifdef CONFIG_PM
+struct ti81xx_usbss_regs {
+	u32	sysconfig;
+
+	u32	irq_en_set;
+
+#ifdef CONFIG_USB_TI_CPPI41_DMA
+	u32	irq_dma_th_tx0[4];
+	u32	irq_dma_th_rx0[4];
+	u32	irq_dma_th_tx1[4];
+	u32	irq_dma_th_rx1[4];
+	u32	irq_dma_en[2];
+
+	u32	irq_frame_th_tx0[4];
+	u32	irq_frame_th_rx0[4];
+	u32	irq_frame_th_tx1[4];
+	u32	irq_frame_th_rx1[4];
+	u32	irq_frame_en[2];
+#endif
+};
+
+struct ti81xx_usb_regs {
+	u32	control;
+
+	u32	irq_en_set[2];
+
+#ifdef CONFIG_USB_TI_CPPI41_DMA
+	u32	tx_mode;
+	u32	rx_mode;
+	u32	grndis_size[15];
+	u32	auto_req;
+	u32	teardn;
+	u32	th_xdma_idle;
+#endif
+	u32	srp_fix;
+	u32	phy_utmi;
+	u32	mgc_utmi_loopback;
+	u32	mode;
+};
+#endif
+
 struct ti81xx_glue {
 	struct device *dev;
 	struct resource *mem_pa;	/* usbss memory resource */
 	void *mem_va;			/* ioremapped virtual address */
 	struct platform_device *musb[2];/* child musb pdevs */
 	u8	irq;			/* usbss irq */
+	u8	first;			/* ignore first call of resume */
+
+#ifdef CONFIG_PM
+	struct ti81xx_usbss_regs usbss_regs;
+	struct ti81xx_usb_regs usb_regs[2];
+#endif
 };
+
 static u64 musb_dmamask = DMA_BIT_MASK(32);
 static void *usbss_virt_base;
 static u8 usbss_init_done;
@@ -87,14 +135,11 @@ static inline void usbss_write(u32 offset, u32 data)
 static void usbotg_ss_init(void)
 {
 	if (!usbss_init_done) {
-		/* reset the usbss for usb0/usb1 */
-		usbss_write(USBSS_SYSCONFIG,
-			usbss_read(USBSS_SYSCONFIG) | USB_SOFT_RESET_MASK);
+		usbss_init_done = 1;
 
 		/* clear any USBSS interrupts */
 		usbss_write(USBSS_IRQ_EOI, 0);
 		usbss_write(USBSS_IRQ_STATUS, usbss_read(USBSS_IRQ_STATUS));
-		usbss_init_done = 1;
 	}
 }
 static void usbotg_ss_uninit(void)
@@ -1274,6 +1319,7 @@ static int __init ti81xx_probe(struct platform_device *pdev)
 	}
 	usbss_virt_base = glue->mem_va;
 
+	glue->first = 1;
 	glue->dev = &pdev->dev;
 	platform_set_drvdata(pdev, glue);
 
@@ -1344,12 +1390,148 @@ static int __exit ti81xx_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM
-static int ti81xx_suspend(struct device *dev)
+static void ti81xx_save_context(struct ti81xx_glue *glue)
+{
+	struct ti81xx_usbss_regs *usbss = &glue->usbss_regs;
+	u8 i, j;
+
+	/* save USBSS register */
+	usbss->irq_en_set = usbss_read(USBSS_IRQ_ENABLE_SET);
+
+#ifdef CONFIG_USB_TI_CPPI41_DMA
+	for (i = 0 ; i < 4 ; i++) {
+		usbss->irq_dma_th_tx0[i] =
+			usbss_read(USBSS_IRQ_DMA_THRESHOLD_TX0 + (0x4 * i));
+		usbss->irq_dma_th_rx0[i] =
+			usbss_read(USBSS_IRQ_DMA_THRESHOLD_RX0 + (0x4 * i));
+		usbss->irq_dma_th_tx1[i] =
+			usbss_read(USBSS_IRQ_DMA_THRESHOLD_TX1 + (0x4 * i));
+		usbss->irq_dma_th_rx1[i] =
+			usbss_read(USBSS_IRQ_DMA_THRESHOLD_RX1 + (0x4 * i));
+
+		usbss->irq_frame_th_tx0[i] =
+			usbss_read(USBSS_IRQ_FRAME_THRESHOLD_TX0 + (0x4 * i));
+		usbss->irq_frame_th_rx0[i] =
+			usbss_read(USBSS_IRQ_FRAME_THRESHOLD_RX0 + (0x4 * i));
+		usbss->irq_frame_th_tx1[i] =
+			usbss_read(USBSS_IRQ_FRAME_THRESHOLD_TX1 + (0x4 * i));
+		usbss->irq_frame_th_rx1[i] =
+			usbss_read(USBSS_IRQ_FRAME_THRESHOLD_RX1 + (0x4 * i));
+	}
+	for (i = 0 ; i < 2 ; i++) {
+		usbss->irq_dma_en[i] =
+			usbss_read(USBSS_IRQ_DMA_ENABLE_0 + (0x4 * i));
+		usbss->irq_frame_en[i] =
+			usbss_read(USBSS_IRQ_FRAME_ENABLE_0 + (0x4 * i));
+	}
+#endif
+	/* save usbX register */
+	for (i = 0 ; i < 2 ; i++) {
+		struct ti81xx_usb_regs *usb = &glue->usb_regs[i];
+		struct musb *musb = platform_get_drvdata(glue->musb[i]);
+		void __iomem *cbase = musb->ctrl_base;
+
+		musb_save_context(musb);
+		usb->control = musb_readl(cbase, USB_CTRL_REG);
+
+		for (j = 0 ; j < 2 ; j++)
+			usb->irq_en_set[j] = musb_readl(cbase,
+					USB_IRQ_ENABLE_SET_0 + (0x4 * j));
+#ifdef CONFIG_USB_TI_CPPI41_DMA
+		usb->tx_mode = musb_readl(cbase, USB_TX_MODE_REG);
+		usb->rx_mode = musb_readl(cbase, USB_RX_MODE_REG);
+
+		for (j = 0 ; j < 15 ; j++)
+			usb->grndis_size[j] = musb_readl(cbase,
+					USB_GENERIC_RNDIS_EP_SIZE_REG(j + 1));
+
+		usb->auto_req = musb_readl(cbase, TI81XX_USB_AUTOREQ_REG);
+		usb->teardn = musb_readl(cbase, TI81XX_USB_TEARDOWN_REG);
+		usb->th_xdma_idle = musb_readl(cbase, USB_TH_XDMA_IDLE_REG);
+#endif
+		usb->srp_fix = musb_readl(cbase, USB_SRP_FIX_TIME_REG);
+		usb->phy_utmi = musb_readl(cbase, USB_PHY_UTMI_REG);
+		usb->mgc_utmi_loopback = musb_readl(cbase, USB_PHY_UTMI_LB_REG);
+		usb->mode = musb_readl(cbase, USB_MODE_REG);
+	}
+	/* save CPPI4.1 DMA register */
+}
+static void ti81xx_restore_context(struct ti81xx_glue *glue)
+{
+	struct ti81xx_usbss_regs *usbss = &glue->usbss_regs;
+	u8 i, j;
+
+	/* restore USBSS register */
+	usbss_write(USBSS_IRQ_ENABLE_SET, usbss->irq_en_set);
+
+#ifdef CONFIG_USB_TI_CPPI41_DMA
+	for (i = 0 ; i < 4 ; i++) {
+		usbss_write(USBSS_IRQ_DMA_THRESHOLD_TX0 + (0x4 * i),
+				usbss->irq_dma_th_tx0[i]);
+		usbss_write(USBSS_IRQ_DMA_THRESHOLD_RX0 + (0x4 * i),
+				usbss->irq_dma_th_rx0[i]);
+		usbss_write(USBSS_IRQ_DMA_THRESHOLD_TX1 + (0x4 * i),
+				usbss->irq_dma_th_tx1[i]);
+		usbss_write(USBSS_IRQ_DMA_THRESHOLD_RX1 + (0x4 * i),
+				usbss->irq_dma_th_rx1[i]);
+
+		usbss_write(USBSS_IRQ_FRAME_THRESHOLD_TX0 + (0x4 * i),
+				usbss->irq_frame_th_tx0[i]);
+		usbss_write(USBSS_IRQ_FRAME_THRESHOLD_RX0 + (0x4 * i),
+				usbss->irq_frame_th_rx0[i]);
+		usbss_write(USBSS_IRQ_FRAME_THRESHOLD_TX1 + (0x4 * i),
+				usbss->irq_frame_th_tx1[i]);
+		usbss_write(USBSS_IRQ_FRAME_THRESHOLD_RX1 + (0x4 * i),
+				usbss->irq_frame_th_rx1[i]);
+	}
+	for (i = 0 ; i < 2 ; i++) {
+		usbss_write(USBSS_IRQ_DMA_ENABLE_0 + (0x4 * i),
+				usbss->irq_dma_en[i]);
+		usbss_write(USBSS_IRQ_FRAME_ENABLE_0 + (0x4 * i),
+				usbss->irq_frame_en[i]);
+	}
+#endif
+	/* restore usbX register */
+	for (i = 0 ; i < 2 ; i++) {
+		struct ti81xx_usb_regs *usb = &glue->usb_regs[i];
+		struct musb *musb = platform_get_drvdata(glue->musb[i]);
+		void __iomem *cbase = musb->ctrl_base;
+
+		musb_restore_context(musb);
+		musb_writel(cbase, USB_CTRL_REG, usb->control);
+
+		for (j = 0 ; j < 2 ; j++)
+			musb_writel(cbase, USB_IRQ_ENABLE_SET_0 + (0x4 * j),
+					usb->irq_en_set[j]);
+
+#ifdef CONFIG_USB_TI_CPPI41_DMA
+		musb_writel(cbase, USB_TX_MODE_REG, usb->tx_mode);
+		musb_writel(cbase, USB_RX_MODE_REG, usb->rx_mode);
+
+		for (j = 0 ; j < 15 ; j++)
+			musb_writel(cbase, USB_GENERIC_RNDIS_EP_SIZE_REG(j + 1),
+					usb->grndis_size[j]);
+
+		musb_writel(cbase, TI81XX_USB_AUTOREQ_REG, usb->auto_req);
+		musb_writel(cbase, TI81XX_USB_TEARDOWN_REG, usb->teardn);
+		musb_writel(cbase, USB_TH_XDMA_IDLE_REG, usb->th_xdma_idle);
+#endif
+		musb_writel(cbase, USB_SRP_FIX_TIME_REG, usb->srp_fix);
+		musb_writel(cbase, USB_PHY_UTMI_REG, usb->phy_utmi);
+		musb_writel(cbase, USB_PHY_UTMI_LB_REG, usb->mgc_utmi_loopback);
+		musb_writel(cbase, USB_MODE_REG, usb->mode);
+	}
+	/* restore CPPI4.1 DMA register */
+}
+static int ti81xx_runtime_suspend(struct device *dev)
 {
 	struct ti81xx_glue *glue = dev_get_drvdata(dev);
 	struct musb_hdrc_platform_data *plat = dev->platform_data;
 	struct omap_musb_board_data *data = plat->board_data;
 	int i;
+
+	/* save wrappers and cppi4.1 dma register */
+	ti81xx_save_context(glue);
 
 	/* Shutdown the on-chip PHY and its PLL. */
 	for (i = 0; i <= data->instances; ++i) {
@@ -1360,12 +1542,21 @@ static int ti81xx_suspend(struct device *dev)
 	return 0;
 }
 
-static int ti81xx_resume(struct device *dev)
+static int ti81xx_runtime_resume(struct device *dev)
 {
 	struct ti81xx_glue *glue = dev_get_drvdata(dev);
 	struct musb_hdrc_platform_data *plat = dev->platform_data;
 	struct omap_musb_board_data *data = plat->board_data;
-	int ret, i;
+	int i;
+
+	/*
+	 * ignore first call of resume as all registers are not yet
+	 * initialized
+	 */
+	if (glue->first) {
+		glue->first = 0;
+		return 0;
+	}
 
 	/* Start the on-chip PHY and its PLL. */
 	for (i = 0; i <= data->instances; ++i) {
@@ -1373,12 +1564,15 @@ static int ti81xx_resume(struct device *dev)
 			data->set_phy_power(i, 1);
 	}
 
+	/* restore wrappers and cppi4.1 dma register */
+	ti81xx_restore_context(glue);
+
 	return 0;
 }
 
 static const struct dev_pm_ops ti81xx_pm_ops = {
-	.suspend	= ti81xx_suspend,
-	.resume		= ti81xx_resume,
+	.runtime_suspend = ti81xx_runtime_suspend,
+	.runtime_resume	= ti81xx_runtime_resume,
 };
 
 #define DEV_PM_OPS	(&ti81xx_pm_ops)

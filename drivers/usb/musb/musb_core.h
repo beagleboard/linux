@@ -656,4 +656,6 @@ struct proc_dir_entry;
 
 extern struct proc_dir_entry *musb_debug_create(char *name, struct musb *data);
 extern void musb_debug_delete(char *name, struct musb *data);
+extern void musb_save_context(struct musb *musb);
+extern void musb_restore_context(struct musb *musb);
 #endif	/* __MUSB_CORE_H__ */
