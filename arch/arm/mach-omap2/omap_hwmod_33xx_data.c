@@ -973,10 +973,8 @@ static struct omap_hwmod_class_sysconfig gpmc_sysc = {
 	.sysc_offs	= 0x10,
 	.syss_offs	= 0x14,
 	.sysc_flags	= (SYSC_HAS_AUTOIDLE | SYSC_HAS_SIDLEMODE |
-			SYSC_HAS_MIDLEMODE | SYSC_HAS_SOFTRESET |
-			SYSS_HAS_RESET_STATUS),
-	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART |
-			MSTANDBY_FORCE | MSTANDBY_NO | MSTANDBY_SMART),
+			SYSC_HAS_SOFTRESET | SYSS_HAS_RESET_STATUS),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
 	.sysc_fields	= &omap_hwmod_sysc_type1,
 };
 
