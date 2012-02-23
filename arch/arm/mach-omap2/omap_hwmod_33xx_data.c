@@ -71,9 +71,12 @@ static struct omap_hwmod am33xx_elm_hwmod;
 static struct omap_hwmod am33xx_adc_tsc_hwmod;
 static struct omap_hwmod am33xx_mcasp0_hwmod;
 static struct omap_hwmod am33xx_mcasp1_hwmod;
-static struct omap_hwmod am33xx_epwmss0_hwmod;
-static struct omap_hwmod am33xx_epwmss1_hwmod;
-static struct omap_hwmod am33xx_epwmss2_hwmod;
+static struct omap_hwmod am33xx_ehrpwm0_hwmod;
+static struct omap_hwmod am33xx_ehrpwm1_hwmod;
+static struct omap_hwmod am33xx_ehrpwm2_hwmod;
+static struct omap_hwmod am33xx_ecap0_hwmod;
+static struct omap_hwmod am33xx_ecap1_hwmod;
+static struct omap_hwmod am33xx_ecap2_hwmod;
 static struct omap_hwmod am33xx_gpmc_hwmod;
 static struct omap_hwmod am33xx_lcdc_hwmod;
 static struct omap_hwmod am33xx_mailbox_hwmod;
@@ -667,10 +670,11 @@ static struct omap_hwmod am33xx_emif_fw_hwmod = {
 /* 'epwmss' class */
 static struct omap_hwmod_class_sysconfig am33xx_epwmss_sysc = {
 	.rev_offs	= 0x0,
-	.sysc_offs	= 0x10,
-	.sysc_flags	= SYSC_HAS_SIDLEMODE,
+	.sysc_offs	= 0x4,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_MIDLEMODE),
 	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART |
-			SIDLE_SMART_WKUP),
+			SIDLE_SMART_WKUP | MSTANDBY_FORCE | MSTANDBY_NO |
+			MSTANDBY_SMART | MSTANDBY_SMART_WKUP),
 	.sysc_fields	= &omap_hwmod_sysc_type2,
 };
 
@@ -679,127 +683,322 @@ static struct omap_hwmod_class am33xx_epwmss_hwmod_class = {
 	.sysc		= &am33xx_epwmss_sysc,
 };
 
-/* epwmss0 */
-static struct omap_hwmod_irq_info am33xx_epwmss0_irqs[] = {
+/* ehrpwm0 */
+static struct omap_hwmod_irq_info am33xx_ehrpwm0_irqs[] = {
 	{ .irq		= 86 },
 	{ .irq		= 58 },
-	{ .irq		= 31 },
 	{ .irq		= -1 }
 };
 
-struct omap_hwmod_addr_space am33xx_epwmss0_addr_space[] = {
+struct omap_hwmod_addr_space am33xx_ehrpwm0_addr_space[] = {
+/*
+ * Splitting the resources to handle access of PWMSS config space and module
+ * specific part independently
+ */
 	{
 		.pa_start	= 0x48300000,
-		.pa_end		= 0x48300000 + SZ_4K - 1,
+		.pa_end		= 0x48300000 + SZ_16 - 1,
+		.flags		= ADDR_MAP_ON_INIT | ADDR_TYPE_RT
+	},
+	{
+		.pa_start	= 0x48300000 + SZ_512,
+		.pa_end		= 0x48300000 + SZ_512 + SZ_256 - 1,
 		.flags		= ADDR_TYPE_RT
 	},
 	{ }
 };
 
-struct omap_hwmod_ocp_if am33xx_l4_core__epwmss0 = {
+struct omap_hwmod_ocp_if am33xx_l4_core__ehrpwm0 = {
 	.master		= &am33xx_l4per_hwmod,
-	.slave		= &am33xx_epwmss0_hwmod,
-	.addr		= am33xx_epwmss0_addr_space,
+	.slave		= &am33xx_ehrpwm0_hwmod,
+	.addr		= am33xx_ehrpwm0_addr_space,
 	.user		= OCP_USER_MPU,
 };
 
-static struct omap_hwmod_ocp_if *am33xx_epwmss0_slaves[] = {
-	&am33xx_l4_core__epwmss0,
+static struct omap_hwmod_ocp_if *am33xx_ehrpwm0_slaves[] = {
+	&am33xx_l4_core__ehrpwm0,
 };
 
-static struct omap_hwmod am33xx_epwmss0_hwmod = {
-	.name		= "epwmss0",
+static struct omap_hwmod_opt_clk ehrpwm0_opt_clks[] = {
+	{ .role = "tbclk", .clk = "ehrpwm0_tbclk" },
+};
+
+static struct omap_hwmod am33xx_ehrpwm0_hwmod = {
+	.name		= "ehrpwm.0",
+	.mpu_irqs	= am33xx_ehrpwm0_irqs,
 	.class		= &am33xx_epwmss_hwmod_class,
-	.clkdm_name	= "l4ls_clkdm",
-	.mpu_irqs	= am33xx_epwmss0_irqs,
 	.main_clk	= "epwmss0_fck",
+	.clkdm_name	= "l4ls_clkdm",
 	.prcm		= {
 		.omap4	= {
 			.clkctrl_offs	= AM33XX_CM_PER_EPWMSS0_CLKCTRL_OFFSET,
 			.modulemode	= MODULEMODE_SWCTRL,
 		},
 	},
-	.slaves		= am33xx_epwmss0_slaves,
-	.slaves_cnt	= ARRAY_SIZE(am33xx_epwmss0_slaves),
+	.slaves		= am33xx_ehrpwm0_slaves,
+	.slaves_cnt	= ARRAY_SIZE(am33xx_ehrpwm0_slaves),
+	.opt_clks	= ehrpwm0_opt_clks,
+	.opt_clks_cnt	= ARRAY_SIZE(ehrpwm0_opt_clks),
 };
 
-/* epwmss1 */
-static struct omap_hwmod_irq_info am33xx_epwmss1_irqs[] = {
+/* ehrpwm1 */
+static struct omap_hwmod_irq_info am33xx_ehrpwm1_irqs[] = {
 	{ .irq		= 87 },
 	{ .irq		= 59 },
-	{ .irq		= 47 },
 	{ .irq		= -1 }
 };
 
-struct omap_hwmod_addr_space am33xx_epwmss1_addr_space[] = {
+struct omap_hwmod_addr_space am33xx_ehrpwm1_addr_space[] = {
+/*
+ * Splitting the resources to handle access of PWMSS config space and module
+ * specific part independently
+ */
 	{
 		.pa_start	= 0x48302000,
-		.pa_end		= 0x48302000 + SZ_4K - 1,
+		.pa_end		= 0x48302000 + SZ_16 - 1,
+		.flags		= ADDR_MAP_ON_INIT | ADDR_TYPE_RT
+	},
+	{
+		.pa_start	= 0x48302000 + SZ_512,
+		.pa_end		= 0x48302000 + SZ_512 + SZ_256 - 1,
 		.flags		= ADDR_TYPE_RT
 	},
 	{ }
 };
 
-struct omap_hwmod_ocp_if am33xx_l4_core__epwmss1 = {
+struct omap_hwmod_ocp_if am33xx_l4_core__ehrpwm1 = {
 	.master		= &am33xx_l4per_hwmod,
-	.slave		= &am33xx_epwmss1_hwmod,
-	.addr		= am33xx_epwmss1_addr_space,
+	.slave		= &am33xx_ehrpwm1_hwmod,
+	.addr		= am33xx_ehrpwm1_addr_space,
 	.user		= OCP_USER_MPU,
 };
 
-static struct omap_hwmod_ocp_if *am33xx_epwmss1_slaves[] = {
-	&am33xx_l4_core__epwmss1,
+static struct omap_hwmod_ocp_if *am33xx_ehrpwm1_slaves[] = {
+	&am33xx_l4_core__ehrpwm1,
 };
 
-static struct omap_hwmod am33xx_epwmss1_hwmod = {
-	.name		= "epwmss1",
+static struct omap_hwmod_opt_clk ehrpwm1_opt_clks[] = {
+	{ .role = "tbclk", .clk = "ehrpwm1_tbclk" },
+};
+
+static struct omap_hwmod am33xx_ehrpwm1_hwmod = {
+	.name		= "ehrpwm.1",
+	.mpu_irqs	= am33xx_ehrpwm1_irqs,
 	.class		= &am33xx_epwmss_hwmod_class,
-	.clkdm_name	= "l4ls_clkdm",
-	.mpu_irqs	= am33xx_epwmss1_irqs,
 	.main_clk	= "epwmss1_fck",
+	.clkdm_name	= "l4ls_clkdm",
 	.prcm		= {
 		.omap4	= {
 			.clkctrl_offs	= AM33XX_CM_PER_EPWMSS1_CLKCTRL_OFFSET,
 			.modulemode	= MODULEMODE_SWCTRL,
 		},
 	},
-	.slaves		= am33xx_epwmss1_slaves,
-	.slaves_cnt	= ARRAY_SIZE(am33xx_epwmss1_slaves),
+	.slaves		= am33xx_ehrpwm1_slaves,
+	.slaves_cnt	= ARRAY_SIZE(am33xx_ehrpwm1_slaves),
+	.opt_clks	= ehrpwm1_opt_clks,
+	.opt_clks_cnt	= ARRAY_SIZE(ehrpwm1_opt_clks),
 };
 
-/* epwmss2 */
-static struct omap_hwmod_irq_info am33xx_epwmss2_irqs[] = {
+/* ehrpwm2 */
+static struct omap_hwmod_irq_info am33xx_ehrpwm2_irqs[] = {
 	{ .irq		= 39 },
 	{ .irq		= 60 },
-	{ .irq		= 61 },
 	{ .irq		= -1 }
 };
 
-struct omap_hwmod_addr_space am33xx_epwmss2_addr_space[] = {
+struct omap_hwmod_addr_space am33xx_ehrpwm2_addr_space[] = {
+/*
+ * Splitting the resources to handle access of PWMSS config space and module
+ * specific part independently
+ */
 	{
 		.pa_start	= 0x48304000,
-		.pa_end		= 0x48304000 + SZ_4K - 1,
+		.pa_end		= 0x48304000 + SZ_16 - 1,
+		.flags		= ADDR_MAP_ON_INIT | ADDR_TYPE_RT
+	},
+	{
+		.pa_start	= 0x48304000 + SZ_512,
+		.pa_end		= 0x48304000 + SZ_512 + SZ_256 - 1,
 		.flags		= ADDR_TYPE_RT
 	},
 	{ }
 };
 
-struct omap_hwmod_ocp_if am33xx_l4_core__epwmss2 = {
+struct omap_hwmod_ocp_if am33xx_l4_core__ehrpwm2 = {
 	.master		= &am33xx_l4per_hwmod,
-	.slave		= &am33xx_epwmss2_hwmod,
-	.addr		= am33xx_epwmss2_addr_space,
+	.slave		= &am33xx_ehrpwm2_hwmod,
+	.addr		= am33xx_ehrpwm2_addr_space,
 	.user		= OCP_USER_MPU,
 };
 
-static struct omap_hwmod_ocp_if *am33xx_epwmss2_slaves[] = {
-	&am33xx_l4_core__epwmss2,
+static struct omap_hwmod_ocp_if *am33xx_ehrpwm2_slaves[] = {
+	&am33xx_l4_core__ehrpwm2,
 };
 
-static struct omap_hwmod am33xx_epwmss2_hwmod = {
-	.name		= "epwmss2",
+static struct omap_hwmod_opt_clk ehrpwm2_opt_clks[] = {
+	{ .role = "tbclk", .clk = "ehrpwm2_tbclk" },
+};
+
+static struct omap_hwmod am33xx_ehrpwm2_hwmod = {
+	.name		= "ehrpwm.2",
+	.mpu_irqs	= am33xx_ehrpwm2_irqs,
+	.class		= &am33xx_epwmss_hwmod_class,
+	.main_clk	= "epwmss2_fck",
+	.clkdm_name	= "l4ls_clkdm",
+	.prcm		= {
+		.omap4	= {
+			.clkctrl_offs	= AM33XX_CM_PER_EPWMSS2_CLKCTRL_OFFSET,
+			.modulemode	= MODULEMODE_SWCTRL,
+		},
+	},
+	.slaves		= am33xx_ehrpwm2_slaves,
+	.slaves_cnt	= ARRAY_SIZE(am33xx_ehrpwm2_slaves),
+	.opt_clks	= ehrpwm2_opt_clks,
+	.opt_clks_cnt	= ARRAY_SIZE(ehrpwm2_opt_clks),
+};
+
+/* ecap0 */
+static struct omap_hwmod_irq_info am33xx_ecap0_irqs[] = {
+	{ .irq		= 31 },
+	{ .irq		= -1 }
+};
+
+struct omap_hwmod_addr_space am33xx_ecap0_addr_space[] = {
+/*
+ * Splitting the resources to handle access of PWMSS config space and module
+ * specific part independently
+ */
+	{
+		.pa_start	= 0x48300000,
+		.pa_end		= 0x48300000 + SZ_16 - 1,
+		.flags		= ADDR_MAP_ON_INIT | ADDR_TYPE_RT
+	},
+	{
+		.pa_start	= 0x48300000 + SZ_256,
+		.pa_end		= 0x48300000 + SZ_256 + SZ_256 - 1,
+		.flags		= ADDR_TYPE_RT
+	},
+	{ }
+};
+
+struct omap_hwmod_ocp_if am33xx_l4_core__ecap0 = {
+	.master		= &am33xx_l4per_hwmod,
+	.slave		= &am33xx_ecap0_hwmod,
+	.addr		= am33xx_ecap0_addr_space,
+	.user		= OCP_USER_MPU,
+};
+
+static struct omap_hwmod_ocp_if *am33xx_ecap0_slaves[] = {
+	&am33xx_l4_core__ecap0,
+};
+
+static struct omap_hwmod am33xx_ecap0_hwmod = {
+	.name		= "ecap.0",
+	.mpu_irqs	= am33xx_ecap0_irqs,
+	.class		= &am33xx_epwmss_hwmod_class,
+	.main_clk	= "epwmss0_fck",
+	.clkdm_name	= "l4ls_clkdm",
+	.prcm		= {
+		.omap4	= {
+			.clkctrl_offs	= AM33XX_CM_PER_EPWMSS0_CLKCTRL_OFFSET,
+			.modulemode	= MODULEMODE_SWCTRL,
+		},
+	},
+	.slaves		= am33xx_ecap0_slaves,
+	.slaves_cnt	= ARRAY_SIZE(am33xx_ecap0_slaves),
+};
+
+/* ecap1 */
+static struct omap_hwmod_irq_info am33xx_ecap1_irqs[] = {
+	{ .irq		= 47 },
+	{ .irq		= -1 }
+};
+
+struct omap_hwmod_addr_space am33xx_ecap1_addr_space[] = {
+/*
+ * Splitting the resources to handle access of PWMSS config space and module
+ * specific part independently
+ */
+	{
+		.pa_start	= 0x48302000,
+		.pa_end		= 0x48302000 + SZ_16 - 1,
+		.flags		= ADDR_MAP_ON_INIT | ADDR_TYPE_RT
+	},
+	{
+		.pa_start	= 0x48302000 + SZ_256,
+		.pa_end		= 0x48302000 + SZ_256 + SZ_256 - 1,
+		.flags		= ADDR_TYPE_RT
+	},
+	{ }
+};
+
+struct omap_hwmod_ocp_if am33xx_l4_core__ecap1 = {
+	.master		= &am33xx_l4per_hwmod,
+	.slave		= &am33xx_ecap1_hwmod,
+	.addr		= am33xx_ecap1_addr_space,
+	.user		= OCP_USER_MPU,
+};
+
+static struct omap_hwmod_ocp_if *am33xx_ecap1_slaves[] = {
+	&am33xx_l4_core__ecap1,
+};
+
+static struct omap_hwmod am33xx_ecap1_hwmod = {
+	.name		= "ecap.1",
+	.mpu_irqs	= am33xx_ecap1_irqs,
+	.class		= &am33xx_epwmss_hwmod_class,
+	.main_clk	= "epwmss1_fck",
+	.clkdm_name	= "l4ls_clkdm",
+	.prcm		= {
+		.omap4	= {
+			.clkctrl_offs	= AM33XX_CM_PER_EPWMSS1_CLKCTRL_OFFSET,
+			.modulemode	= MODULEMODE_SWCTRL,
+		},
+	},
+	.slaves		= am33xx_ecap1_slaves,
+	.slaves_cnt	= ARRAY_SIZE(am33xx_ecap1_slaves),
+};
+
+/* ecap2 */
+static struct omap_hwmod_irq_info am33xx_ecap2_irqs[] = {
+	{ .irq		= 61 },
+	{ .irq		= -1 }
+};
+
+struct omap_hwmod_addr_space am33xx_ecap2_addr_space[] = {
+/*
+ * Splitting the resources to handle access of PWMSS config space and module
+ * specific part independently
+ */
+	{
+		.pa_start	= 0x48304000,
+		.pa_end		= 0x48304000 + SZ_16 - 1,
+		.flags		= ADDR_MAP_ON_INIT | ADDR_TYPE_RT
+	},
+	{
+		.pa_start	= 0x48304000 + SZ_256,
+		.pa_end		= 0x48304000 + SZ_256 + SZ_256 - 1,
+		.flags		= ADDR_TYPE_RT
+	},
+	{ }
+};
+
+struct omap_hwmod_ocp_if am33xx_l4_core__ecap2 = {
+	.master		= &am33xx_l4per_hwmod,
+	.slave		= &am33xx_ecap2_hwmod,
+	.addr		= am33xx_ecap2_addr_space,
+	.user		= OCP_USER_MPU,
+};
+
+static struct omap_hwmod_ocp_if *am33xx_ecap2_slaves[] = {
+	&am33xx_l4_core__ecap2,
+};
+
+static struct omap_hwmod am33xx_ecap2_hwmod = {
+	.name		= "ecap.2",
+	.mpu_irqs	= am33xx_ecap2_irqs,
 	.class		= &am33xx_epwmss_hwmod_class,
 	.clkdm_name	= "l4ls_clkdm",
-	.mpu_irqs	= am33xx_epwmss2_irqs,
 	.main_clk	= "epwmss2_fck",
 	.prcm		= {
 		.omap4	= {
@@ -807,8 +1006,8 @@ static struct omap_hwmod am33xx_epwmss2_hwmod = {
 			.modulemode	= MODULEMODE_SWCTRL,
 		},
 	},
-	.slaves		= am33xx_epwmss2_slaves,
-	.slaves_cnt	= ARRAY_SIZE(am33xx_epwmss2_slaves),
+	.slaves		= am33xx_ecap2_slaves,
+	.slaves_cnt	= ARRAY_SIZE(am33xx_ecap2_slaves),
 };
 
 static struct omap_hwmod_class_sysconfig am33xx_gpio_sysc = {
@@ -3124,9 +3323,12 @@ static __initdata struct omap_hwmod *am33xx_hwmods[] = {
 	/* emif_fw class */
 	&am33xx_emif_fw_hwmod,
 	/* epwmss class */
-	&am33xx_epwmss0_hwmod,
-	&am33xx_epwmss1_hwmod,
-	&am33xx_epwmss2_hwmod,
+	&am33xx_ehrpwm0_hwmod,
+	&am33xx_ehrpwm1_hwmod,
+	&am33xx_ehrpwm2_hwmod,
+	&am33xx_ecap0_hwmod,
+	&am33xx_ecap1_hwmod,
+	&am33xx_ecap2_hwmod,
 	/* gpio class */
 	&am33xx_gpio0_hwmod,
 	&am33xx_gpio1_hwmod,
