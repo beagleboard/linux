@@ -845,49 +845,7 @@ static inline void omap_init_vout(void) {}
 
 #if defined(CONFIG_SOC_OMAPAM33XX) && defined(CONFIG_OMAP3_EDMA)
 
-#define AM33XX_TPCC_BASE		0x49000000
-#define AM33XX_TPTC0_BASE		0x49800000
-#define AM33XX_TPTC1_BASE		0x49900000
-#define AM33XX_TPTC2_BASE		0x49a00000
-
 #define AM33XX_SCM_BASE_EDMA		0x00000f90
-
-static struct resource am33xx_edma_resources[] = {
-	{
-		.name	= "edma_cc0",
-		.start	= AM33XX_TPCC_BASE,
-		.end	= AM33XX_TPCC_BASE + SZ_32K - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	{
-		.name	= "edma_tc0",
-		.start	= AM33XX_TPTC0_BASE,
-		.end	= AM33XX_TPTC0_BASE + SZ_1K - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	{
-		.name	= "edma_tc1",
-		.start	= AM33XX_TPTC1_BASE,
-		.end	= AM33XX_TPTC1_BASE + SZ_1K - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	{
-		.name	= "edma_tc2",
-		.start	= AM33XX_TPTC2_BASE,
-		.end	= AM33XX_TPTC2_BASE + SZ_1K - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	{
-		.name	= "edma0",
-		.start	= AM33XX_IRQ_TPCC0_INT_PO0,
-		.flags	= IORESOURCE_IRQ,
-	},
-	{
-		.name	= "edma0_err",
-		.start	= AM33XX_IRQ_TPCC0_ERRINT_PO,
-		.flags	= IORESOURCE_IRQ,
-	},
-};
 
 static const s16 am33xx_dma_rsv_chans[][2] = {
 	/* (offset, number) */
@@ -1031,28 +989,40 @@ static struct edma_soc_info am33xx_edma_info[] = {
 	},
 };
 
-static struct platform_device am33xx_edma_device = {
-	.name		= "edma",
-	.id		= -1,
-	.dev = {
-		.platform_data = am33xx_edma_info,
-	},
-	.num_resources	= ARRAY_SIZE(am33xx_edma_resources),
-	.resource	= am33xx_edma_resources,
-};
-
-int __init am33xx_register_edma(void)
+static int __init am33xx_register_edma(void)
 {
+	int i, l;
+	struct omap_hwmod *oh[4];
 	struct platform_device *pdev;
+	struct edma_soc_info *pdata = am33xx_edma_info;
+	char oh_name[8];
 
-	if (cpu_is_am33xx())
-		pdev = &am33xx_edma_device;
-	else {
-		pr_err("%s: platform not supported\n", __func__);
+	if (!cpu_is_am33xx())
+		return -ENODEV;
+
+	oh[0] = omap_hwmod_lookup("tpcc");
+	if (!oh[0]) {
+		pr_err("could not look up %s\n", "tpcc");
 		return -ENODEV;
 	}
 
-	return platform_device_register(pdev);
+	for (i = 0; i < 3; i++) {
+		l = snprintf(oh_name, 8, "tptc%d", i);
+
+		oh[i+1] = omap_hwmod_lookup(oh_name);
+		if (!oh[i+1]) {
+			pr_err("could not look up %s\n", oh_name);
+			return -ENODEV;
+		}
+	}
+
+	pdev = omap_device_build_ss("edma", 0, oh, 4, pdata, sizeof(*pdata),
+								NULL, 0, 0);
+
+	WARN(IS_ERR(pdev), "could not build omap_device for edma\n");
+
+	return IS_ERR(pdev) ? PTR_ERR(pdev) : 0;
+
 }
 
 #else
