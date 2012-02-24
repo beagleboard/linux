@@ -24,7 +24,6 @@
 #define AM33XX_PRM_REGADDR(inst, reg)                         \
 	AM33XX_L4_WK_IO_ADDRESS(AM33XX_PRM_BASE + (inst) + (reg))
 
-
 /* PRM instances */
 #define AM33XX_PRM_OCP_SOCKET_MOD	0x0B00
 #define AM33XX_PRM_PER_MOD		0x0C00
@@ -34,12 +33,6 @@
 #define AM33XX_PRM_RTC_MOD		0x1000
 #define AM33XX_PRM_GFX_MOD		0x1100
 #define AM33XX_PRM_CEFUSE_MOD		0x1200
-
-/* Register offsets (used to calculate correct offset) */
-#define AM33XX_PM_PWSTCTRL		0x0000
-#define AM33XX_PM_PWSTST		0x0004
-#define AM33XX_PM_RSTCTRL		0x0008
-#define AM33XX_PM_RSTST			0x000C
 
 /* PRM */
 
