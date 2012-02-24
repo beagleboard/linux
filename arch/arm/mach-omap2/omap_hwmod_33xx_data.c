@@ -516,6 +516,9 @@ static struct omap_hwmod am33xx_debugss_hwmod = {
 	.class		= &am33xx_debugss_hwmod_class,
 	.clkdm_name	= "l3_aon_clkdm",
 	.main_clk	= "debugss_ick",
+#ifdef CONFIG_DEBUG_JTAG_ENABLE
+	.flags		= (HWMOD_INIT_NO_IDLE | HWMOD_INIT_NO_RESET),
+#endif
 	.prcm		= {
 		.omap4	= {
 			.clkctrl_offs	= AM33XX_CM_WKUP_DEBUGSS_CLKCTRL_OFFSET,
