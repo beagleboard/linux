@@ -148,12 +148,10 @@
 
 #include "cm2xxx_3xxx.h"
 #include "cminst44xx.h"
-#include "cminst33xx.h"
 #include "prm2xxx_3xxx.h"
 #include "prm44xx.h"
 #include "prm33xx.h"
 #include "prminst44xx.h"
-#include "prminst33xx.h"
 #include "mux.h"
 
 /* Maximum microseconds to wait for OMAP module to softreset */
@@ -745,19 +743,13 @@ static void _enable_module(struct omap_hwmod *oh)
 		return;
 
 	pr_debug("omap_hwmod: %s: _enable_module: %d\n",
-		 oh->name, oh->prcm.omap4.modulemode);
+			oh->name, oh->prcm.omap4.modulemode);
 
-	if (cpu_is_am33xx())
-		am33xx_cminst_module_enable(oh->prcm.omap4.modulemode,
-				   oh->clkdm->cm_inst,
-				   oh->clkdm->clkdm_offs,
-				   oh->prcm.omap4.clkctrl_offs);
-	else
-		omap4_cminst_module_enable(oh->prcm.omap4.modulemode,
-				   oh->clkdm->prcm_partition,
-				   oh->clkdm->cm_inst,
-				   oh->clkdm->clkdm_offs,
-				   oh->prcm.omap4.clkctrl_offs);
+	omap4_cminst_module_enable(oh->prcm.omap4.modulemode,
+			oh->clkdm->prcm_partition,
+			oh->clkdm->cm_inst,
+			oh->clkdm->clkdm_offs,
+			oh->prcm.omap4.clkctrl_offs);
 }
 
 /**
@@ -809,20 +801,15 @@ static int _omap4_disable_module(struct omap_hwmod *oh)
 
 	pr_debug("omap_hwmod: %s: %s\n", oh->name, __func__);
 
-	if (cpu_is_am33xx())
-		am33xx_cminst_module_disable(oh->clkdm->cm_inst,
-				    oh->clkdm->clkdm_offs,
-				    oh->prcm.omap4.clkctrl_offs);
-	else
-		omap4_cminst_module_disable(oh->clkdm->prcm_partition,
-				    oh->clkdm->cm_inst,
-				    oh->clkdm->clkdm_offs,
-				    oh->prcm.omap4.clkctrl_offs);
+	omap4_cminst_module_disable(oh->clkdm->prcm_partition,
+			oh->clkdm->cm_inst,
+			oh->clkdm->clkdm_offs,
+			oh->prcm.omap4.clkctrl_offs);
 
 	v = _omap4_wait_target_disable(oh);
 	if (v)
 		pr_warn("omap_hwmod: %s: _wait_target_disable failed\n",
-			oh->name);
+				oh->name);
 
 	return 0;
 }

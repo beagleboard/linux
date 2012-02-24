@@ -128,3 +128,10 @@ struct clkdm_ops omap4_clkdm_operations = {
 	.clkdm_clk_enable	= omap4_clkdm_clk_enable,
 	.clkdm_clk_disable	= omap4_clkdm_clk_disable,
 };
+
+struct clkdm_ops am33xx_clkdm_operations = {
+	.clkdm_sleep		= omap4_clkdm_sleep,
+	.clkdm_wakeup		= omap4_clkdm_wakeup,
+	.clkdm_clk_enable	= omap4_clkdm_clk_enable,
+	.clkdm_clk_disable	= omap4_clkdm_clk_disable,
+};

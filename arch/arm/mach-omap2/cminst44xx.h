@@ -19,7 +19,7 @@ extern void omap4_cminst_clkdm_force_wakeup(u8 part, s16 inst, u16 cdoffs);
 
 extern int omap4_cminst_wait_module_ready(u8 part, u16 inst, s16 cdoffs, u16 clkctrl_offs);
 
-# ifdef CONFIG_ARCH_OMAP4
+# if defined (CONFIG_ARCH_OMAP4) || defined (CONFIG_SOC_OMAPAM33XX)
 extern int omap4_cminst_wait_module_idle(u8 part, u16 inst, s16 cdoffs,
 					 u16 clkctrl_offs);
 
