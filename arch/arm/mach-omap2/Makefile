@@ -89,7 +89,7 @@ obj-y					+= prm_common.o
 obj-$(CONFIG_ARCH_OMAP2)		+= prcm.o cm2xxx_3xxx.o prm2xxx_3xxx.o
 obj-$(CONFIG_ARCH_OMAP3)		+= prcm.o cm2xxx_3xxx.o prm2xxx_3xxx.o \
 					   vc3xxx_data.o vp3xxx_data.o
-obj-$(CONFIG_SOC_OMAPAM33XX)		+= cminst33xx.o prminst33xx.o cm33xx.o
+obj-$(CONFIG_SOC_OMAPAM33XX)		+= cminst44xx.o
 
 # XXX The presence of cm2xxx_3xxx.o on the line below is temporary and
 # will be removed once the OMAP4 part of the codebase is converted to
@@ -120,7 +120,8 @@ obj-$(CONFIG_ARCH_OMAP3)		+= $(powerdomain-common) \
 					   powerdomain2xxx_3xxx.o \
 					   powerdomains3xxx_data.o \
 					   powerdomains2xxx_3xxx_data.o
-obj-$(CONFIG_SOC_OMAPAM33XX)		+= powerdomain33xx.o \
+obj-$(CONFIG_SOC_OMAPAM33XX)		+= prminst44xx.o \
+					   powerdomain44xx.o \
 					   powerdomains33xx_data.o
 obj-$(CONFIG_ARCH_OMAP4)		+= $(powerdomain-common) \
 					   powerdomain44xx.o \
@@ -136,7 +137,8 @@ obj-$(CONFIG_ARCH_OMAP3)		+= clockdomain.o \
 					   clockdomain2xxx_3xxx.o \
 					   clockdomains2xxx_3xxx_data.o \
 					   clockdomains3xxx_data.o
-obj-$(CONFIG_SOC_OMAPAM33XX)		+= clockdomains33xx_data.o
+obj-$(CONFIG_SOC_OMAPAM33XX)		+= clockdomain44xx.o \
+					   clockdomains33xx_data.o
 obj-$(CONFIG_ARCH_OMAP4)		+= clockdomain.o \
 					   clockdomain44xx.o \
 					   clockdomains44xx_data.o
