@@ -131,6 +131,19 @@ struct gpmc_timings {
 	u16 wr_data_mux_bus;	/* WRDATAONADMUXBUS */
 };
 
+
+struct gpmc_devices_info {
+	void	*pdata;
+	int	flag;
+};
+
+#define	GPMC_DEVICE_NAND	(1 << 0)
+#define	GPMC_DEVICE_ONENAND	(1 << 1)
+#define	GPMC_DEVICE_NOR		(1 << 2)
+#define	GPMC_DEVICE_SMC91X	(1 << 3)
+#define	GPMC_DEVICE_SMS911X	(1 << 4)
+#define	GPMC_DEVICE_TUSB6010	(1 << 5)
+
 extern unsigned int gpmc_ns_to_ticks(unsigned int time_ns);
 extern unsigned int gpmc_ps_to_ticks(unsigned int time_ps);
 extern unsigned int gpmc_ticks_to_ns(unsigned int ticks);
