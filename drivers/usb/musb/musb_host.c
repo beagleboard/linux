@@ -2368,14 +2368,6 @@ static int musb_bus_suspend(struct usb_hcd *hcd)
 	struct musb	*musb = hcd_to_musb(hcd);
 	u8		devctl;
 
-	if (!is_otg_enabled(musb) && is_host_enabled(musb)) {
-		devctl = musb_readb(musb->mregs, MUSB_DEVCTL);
-		devctl &= MUSB_DEVCTL_SESSION;
-		musb_writeb(musb->mregs, MUSB_DEVCTL, devctl);
-		musb->is_active = 0;
-		return 0;
-	}
-
 	if (!is_host_active(musb))
 		return 0;
 
@@ -2405,18 +2397,6 @@ static int musb_bus_suspend(struct usb_hcd *hcd)
 
 static int musb_bus_resume(struct usb_hcd *hcd)
 {
-	struct musb	*musb = hcd_to_musb(hcd);
-	u8		devctl;
-
-	if (!is_otg_enabled(musb) && is_host_enabled(musb)) {
-		devctl = musb_readb(musb->mregs, MUSB_DEVCTL);
-		devctl |= MUSB_DEVCTL_SESSION;
-		musb_writeb(musb->mregs, MUSB_DEVCTL, devctl);
-		musb->is_active = 1;
-		return 0;
-	}
-
-	/* resuming child port does the work */
 	return 0;
 }
 

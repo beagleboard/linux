@@ -27,7 +27,6 @@
  */
 
 #include <linux/init.h>
-#include <linux/clk.h>
 #include <linux/io.h>
 #include <linux/usb/otg.h>
 #include <linux/platform_device.h>
@@ -42,8 +41,6 @@
 
 struct ti81xx_glue {
 	struct device *dev;
-	struct clk *ick;		/* common usbss interface clk */
-	struct clk *fck;		/* common usbss functional clk */
 	struct resource *mem_pa;	/* usbss memory resource */
 	void *mem_va;			/* ioremapped virtual address */
 	struct platform_device *musb[2];/* child musb pdevs */
@@ -1007,7 +1004,7 @@ int ti81xx_musb_init(struct musb *musb)
 	struct device *dev = musb->controller;
 	struct musb_hdrc_platform_data *plat = dev->platform_data;
 	struct omap_musb_board_data *data = plat->board_data;
-	u32 rev, status = 0;
+	u32 rev;
 	u8 mode;
 
 	if (musb->id < 2)
@@ -1019,15 +1016,8 @@ int ti81xx_musb_init(struct musb *musb)
 	if (!musb->xceiv)
 		return -ENODEV;
 
-	status = pm_runtime_get_sync(dev);
-	if (status < 0) {
-		dev_err(dev, "pm_runtime_get_sync FAILED");
-		goto err1;
-	}
-
 	/* mentor is at offset of 0x400 in am3517/ti81xx */
 	musb->mregs += USB_MENTOR_CORE_OFFSET;
-
 
 	/* Returns zero if e.g. not clocked */
 	rev = musb_readl(reg_base, USB_REVISION_REG);
@@ -1078,9 +1068,6 @@ int ti81xx_musb_init(struct musb *musb)
 	musb_writel(reg_base, USB_IRQ_EOI, 0);
 
 	return 0;
-err1:
-	pm_runtime_disable(dev);
-	return status;
 }
 
 /* TI81xx supports only 32bit read operation */
@@ -1260,28 +1247,12 @@ static int __init ti81xx_probe(struct platform_device *pdev)
 		goto err0;
 	}
 
-	/* interface clock needs to be enabled for usbss register programming */
-	glue->ick = clk_get(&pdev->dev, "usbotg_ick");
-	if (IS_ERR(glue->ick)) {
-		dev_err(&pdev->dev, "unable to get usbss interface clock\n");
-		ret = PTR_ERR(glue->ick);
-		goto err1;
-	}
-
-	/* functional clock needs to be enabled for usbss register programming */
-	glue->fck = clk_get(&pdev->dev, "usbotg_fck");
-	if (IS_ERR(glue->fck)) {
-		dev_err(&pdev->dev, "unable to get usbss functional clock\n");
-		ret = PTR_ERR(glue->fck);
-		goto err2;
-	}
-
 	/* get memory resource */
 	glue->mem_pa = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!glue->mem_pa) {
 		dev_err(&pdev->dev, "failed to get usbss mem resourse\n");
 		ret = -ENODEV;
-		goto err3;
+		goto err1;
 	}
 
 	/* get memory resource */
@@ -1289,23 +1260,9 @@ static int __init ti81xx_probe(struct platform_device *pdev)
 	if (!res) {
 		dev_err(&pdev->dev, "failed to get usbss irq resourse\n");
 		ret = -ENODEV;
-		goto err3;
+		goto err1;
 	}
 	glue->irq = res->start;
-
-	/* enable interface clock */
-	ret = clk_enable(glue->ick);
-	if (ret) {
-		dev_err(&pdev->dev, "failed to enable usbss interface clock\n");
-		goto err3;
-	}
-
-	/* enable functional clock */
-	ret = clk_enable(glue->fck);
-	if (ret) {
-		dev_err(&pdev->dev, "failed to enable usbss functional clock\n");
-		goto err4;
-	}
 
 	/* iomap for usbss mem space */
 	glue->mem_va =
@@ -1313,12 +1270,20 @@ static int __init ti81xx_probe(struct platform_device *pdev)
 	if (!glue->mem_va) {
 		dev_err(&pdev->dev, "usbss ioremap failed\n");
 		ret = -ENOMEM;
-		goto err5;
+		goto err1;
 	}
 	usbss_virt_base = glue->mem_va;
 
 	glue->dev = &pdev->dev;
 	platform_set_drvdata(pdev, glue);
+
+	/* enable clocks */
+	pm_runtime_enable(&pdev->dev);
+	ret = pm_runtime_get_sync(&pdev->dev);
+	if (ret < 0) {
+		dev_err(dev, "pm_runtime_get_sync FAILED");
+		goto err2;
+	}
 
 	/* usb subsystem init */
 	usbotg_ss_init();
@@ -1336,21 +1301,16 @@ static int __init ti81xx_probe(struct platform_device *pdev)
 #endif
 		ret = ti81xx_create_musb_pdev(glue, i);
 		if (ret != 0)
-			goto err6;
+			goto err3;
 	}
 
 	return 0;
 
-err6:
-	iounmap(glue->mem_va);
-err5:
-	clk_disable(glue->fck);
-err4:
-	clk_disable(glue->ick);
 err3:
-	clk_put(glue->fck);
+	pm_runtime_put_sync(&pdev->dev);
 err2:
-	clk_put(glue->ick);
+	pm_runtime_disable(&pdev->dev);
+	iounmap(glue->mem_va);
 err1:
 	kfree(glue);
 err0:
@@ -1376,12 +1336,8 @@ static int __exit ti81xx_remove(struct platform_device *pdev)
 	iounmap(glue->mem_va);
 	usbotg_ss_uninit();
 
-	/* disable common usbss functional clock */
-	clk_disable(glue->fck);
-	clk_put(glue->fck);
-	/* disable common usbss interface clock */
-	clk_disable(glue->ick);
-	clk_put(glue->ick);
+	pm_runtime_put_sync(&pdev->dev);
+	pm_runtime_disable(&pdev->dev);
 	kfree(glue);
 
 	return 0;
@@ -1401,10 +1357,6 @@ static int ti81xx_suspend(struct device *dev)
 			data->set_phy_power(i, 0);
 	}
 
-	/* disable the common usbss functional clock */
-	clk_disable(glue->fck);
-	/* disable the common usbss interface clock */
-	clk_disable(glue->ick);
 	return 0;
 }
 
@@ -1421,18 +1373,6 @@ static int ti81xx_resume(struct device *dev)
 			data->set_phy_power(i, 1);
 	}
 
-	/* enable the common usbss interface clock */
-	ret = clk_enable(glue->ick);
-	if (ret) {
-		dev_err(dev, "failed to enable iclock\n");
-		return ret;
-	}
-	/* enable the common usbss functional clock */
-	ret = clk_enable(glue->fck);
-	if (ret) {
-		dev_err(dev, "failed to enable fclock\n");
-		return ret;
-	}
 	return 0;
 }
 
@@ -1480,17 +1420,3 @@ static void __exit ti81xx_glue_exit(void)
 	platform_driver_unregister(&ti81xx_musb_driver);
 }
 module_exit(ti81xx_glue_exit);
-
-#ifdef CONFIG_PM
-void musb_platform_save_context(struct musb *musb,
-		 struct musb_context_registers *musb_context)
-{
-	/* Save CPPI41 DMA related registers */
-}
-
-void musb_platform_restore_context(struct musb *musb,
-		 struct musb_context_registers *musb_context)
-{
-	/* Restore CPPI41 DMA related registers */
-}
-#endif
