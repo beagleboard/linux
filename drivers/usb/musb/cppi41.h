@@ -305,6 +305,34 @@ struct cppi41_teardown_desc {
 #define cppi41_num_dma_block	CPPI41_NUM_DMA_BLOCK
 
 /**
+ * struct cppi41_queue_manager - CPPI 4.1 DMA queue manager registers for
+ * context save and restore.
+ */
+struct cppi41_queue_manager {
+	u32	link_ram_rgn0_base;
+	u32	link_ram_rgn0_size;
+	u32	link_ram_rgn1_base;
+
+	u32	memr_base[8];
+	u32	memr_ctrl[8];
+};
+
+/**
+ * struct cppi41_dma_regs - CPPI 4.1 DMA registers for
+ * context save and restore.
+ */
+struct cppi41_dma_regs {
+	u32	teardn_fdq_ctrl;
+	u32	emulation_ctrl;
+
+	/* CPPI DMA scheduler registers */
+	u32	sched_ctrl;
+
+	/* Queue manager registers */
+	struct cppi41_queue_manager qmgr;
+};
+
+/**
  * struct cppi41_queue - Queue Tuple
  *
  * The basic queue tuple in CPPI 4.1 used across all data structures
@@ -483,6 +511,7 @@ struct cppi41_dma_block {
 	u8 num_rx_ch;		/* Number of the Rx channels. */
 	u8 num_max_ch;		/* maximum dma channels */
 	const struct cppi41_tx_ch *tx_ch_info;
+	struct cppi41_dma_regs cppi41_regs; /* registers to save and restore */
 };
 
 extern struct cppi41_queue_mgr cppi41_queue_mgr[];
@@ -801,6 +830,21 @@ int cppi41_schedtbl_add_dma_ch(u8 dmanum, u8 qmgr, u8 dma_ch, u8 is_tx);
 int cppi41_schedtbl_remove_dma_ch(u8 dmanum, u8 qmgr, u8 dma_ch, u8 is_tx);
 
 /**
+ * cppi41_init_teardown_queue
+ */
+void cppi41_init_teardown_queue(int dma_num);
+
+/**
  * cppi41_free_teardown_queue
  */
 void cppi41_free_teardown_queue(int dma_num);
+
+/**
+ * cppi41_save_context
+ */
+void cppi41_save_context(u8 dma_num);
+
+/**
+ * cppi41_restore_context
+ */
+void cppi41_restore_context(u8 dma_num, u32 *sched_tbl);

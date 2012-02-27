@@ -1454,7 +1454,10 @@ static void ti81xx_save_context(struct ti81xx_glue *glue)
 		usb->mgc_utmi_loopback = musb_readl(cbase, USB_PHY_UTMI_LB_REG);
 		usb->mode = musb_readl(cbase, USB_MODE_REG);
 	}
-	/* save CPPI4.1 DMA register */
+#ifdef CONFIG_USB_TI_CPPI41_DMA
+	/* save CPPI4.1 DMA register for dma block 0 */
+	cppi41_save_context(0);
+#endif
 }
 static void ti81xx_restore_context(struct ti81xx_glue *glue)
 {
@@ -1521,7 +1524,10 @@ static void ti81xx_restore_context(struct ti81xx_glue *glue)
 		musb_writel(cbase, USB_PHY_UTMI_LB_REG, usb->mgc_utmi_loopback);
 		musb_writel(cbase, USB_MODE_REG, usb->mode);
 	}
-	/* restore CPPI4.1 DMA register */
+#ifdef CONFIG_USB_TI_CPPI41_DMA
+	/* restore CPPI4.1 DMA register for dma block 0 */
+	cppi41_restore_context(0, dma_sched_table);
+#endif
 }
 static int ti81xx_runtime_suspend(struct device *dev)
 {

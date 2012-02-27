@@ -267,8 +267,6 @@ int cppi41_dma_block_init(u8 dma_num, u8 q_mgr, u8 num_order,
 				 u32 *sched_tbl, u8 tbl_size)
 {
 	const struct cppi41_dma_block *dma_block;
-	struct cppi41_teardown_desc *curr_td;
-	dma_addr_t td_addr;
 	unsigned num_desc, num_reg;
 	void *ptr;
 	int error, i;
@@ -337,19 +335,12 @@ int cppi41_dma_block_init(u8 dma_num, u8 q_mgr, u8 num_order,
 
 	dma_teardown[dma_num].q_num = q_num;
 	dma_teardown[dma_num].q_mgr = q_mgr;
+	dma_teardown[dma_num].num_desc = num_desc;
 	/*
 	 * Push all teardown descriptors to the free teardown queue
 	 * for the CPPI 4.1 system.
 	 */
-	curr_td = dma_teardown[dma_num].virt_addr;
-	td_addr = dma_teardown[dma_num].phys_addr;
-
-	for (i = 0; i < num_desc; i++) {
-		cppi41_queue_push(&dma_teardown[dma_num].queue_obj, td_addr,
-				  sizeof(*curr_td), 0);
-		td_addr += sizeof(*curr_td);
-	}
-	dma_teardown[dma_num].num_desc = num_desc;
+	cppi41_init_teardown_queue(dma_num);
 
 	/* Initialize the DMA scheduler. */
 	num_reg = (tbl_size + 3) / 4;
@@ -780,6 +771,24 @@ void cppi41_dma_ch_disable(struct cppi41_dma_ch_obj *dma_ch_obj)
 }
 EXPORT_SYMBOL(cppi41_dma_ch_disable);
 
+void cppi41_init_teardown_queue(int dma_num)
+{
+	dma_addr_t td_addr;
+	struct cppi41_teardown_desc *curr_td;
+	u32 num_desc = dma_teardown[dma_num].num_desc;
+	int i;
+
+	curr_td = dma_teardown[dma_num].virt_addr;
+	td_addr = dma_teardown[dma_num].phys_addr;
+
+	for (i = 0; i < num_desc; i++) {
+		cppi41_queue_push(&dma_teardown[dma_num].queue_obj, td_addr,
+				  sizeof(*curr_td), 0);
+		td_addr += sizeof(*curr_td);
+	}
+}
+EXPORT_SYMBOL(cppi41_init_teardown_queue);
+
 void cppi41_free_teardown_queue(int dma_num)
 {
 	unsigned long td_addr;
@@ -1006,6 +1015,109 @@ int cppi41_get_teardown_info(unsigned long addr, u32 *info)
 	return 0;
 }
 EXPORT_SYMBOL(cppi41_get_teardown_info);
+
+/*
+ * cppi41_save_context - save regsiter context before going to suspend.
+ */
+void cppi41_save_context(u8 dma_num)
+{
+	const struct cppi41_dma_block *dma_block;
+	struct cppi41_dma_regs *cppi41;
+	struct cppi41_queue_manager *qmgr;
+	void __iomem *q_mgr_regs, *desc_mem_regs;
+	u8 i, q_mgr = 0;
+
+	dma_block = (struct cppi41_dma_block *)&cppi41_dma_block[dma_num];
+	cppi41 = (struct cppi41_dma_regs *)&dma_block->cppi41_regs;
+	qmgr = &cppi41->qmgr;
+	q_mgr_regs = cppi41_queue_mgr[q_mgr].q_mgr_rgn_base;
+	desc_mem_regs = cppi41_queue_mgr[q_mgr].desc_mem_rgn_base;
+
+	/* popout all teardown descriptors */
+	cppi41_free_teardown_queue(dma_num);
+
+	cppi41->teardn_fdq_ctrl = cppi_readl(dma_block->global_ctrl_base +
+			DMA_TEARDOWN_FREE_DESC_CTRL_REG);
+	cppi41->emulation_ctrl = cppi_readl(dma_block->global_ctrl_base +
+			DMA_EMULATION_CTRL_REG);
+
+	qmgr->link_ram_rgn0_base = cppi_readl(q_mgr_regs +
+				QMGR_LINKING_RAM_RGN0_BASE_REG);
+	qmgr->link_ram_rgn0_size = cppi_readl(q_mgr_regs +
+				QMGR_LINKING_RAM_RGN0_SIZE_REG);
+	qmgr->link_ram_rgn1_base = cppi_readl(q_mgr_regs +
+				QMGR_LINKING_RAM_RGN1_BASE_REG);
+
+	for (i = 0 ; i < 8 ; i++) {
+		qmgr->memr_base[i] = cppi_readl(desc_mem_regs +
+				QMGR_MEM_RGN_BASE_REG(i));
+		qmgr->memr_ctrl[i] = cppi_readl(desc_mem_regs +
+				QMGR_MEM_RGN_CTRL_REG(i));
+	}
+
+	cppi41->sched_ctrl = cppi_readl(dma_block->sched_ctrl_base +
+				DMA_SCHED_CTRL_REG);
+
+}
+EXPORT_SYMBOL(cppi41_save_context);
+
+/*
+ * cppi41_restore_context - restore regsiter context after resume.
+ */
+void cppi41_restore_context(u8 dma_num, u32 *sched_tbl)
+{
+	const struct cppi41_dma_block *dma_block;
+	struct cppi41_dma_regs *cppi41;
+	struct cppi41_queue_manager *qmgr;
+	void __iomem *q_mgr_regs, *desc_mem_regs;
+	unsigned num_reg;
+	u32 val;
+	u8 tbl_size;
+	u8 i, q_mgr = 0;
+
+	dma_block = (struct cppi41_dma_block *)&cppi41_dma_block[dma_num];
+	cppi41 = (struct cppi41_dma_regs *)&dma_block->cppi41_regs;
+	qmgr = &cppi41->qmgr;
+	q_mgr_regs = cppi41_queue_mgr[q_mgr].q_mgr_rgn_base;
+	desc_mem_regs = cppi41_queue_mgr[q_mgr].desc_mem_rgn_base;
+	tbl_size = dma_block->num_max_ch;
+
+	cppi_writel(cppi41->teardn_fdq_ctrl, dma_block->global_ctrl_base +
+			DMA_TEARDOWN_FREE_DESC_CTRL_REG);
+	cppi_writel(cppi41->emulation_ctrl, dma_block->global_ctrl_base +
+			DMA_EMULATION_CTRL_REG);
+
+	cppi_writel(qmgr->link_ram_rgn0_base, q_mgr_regs +
+				QMGR_LINKING_RAM_RGN0_BASE_REG);
+	cppi_writel(qmgr->link_ram_rgn0_size, q_mgr_regs +
+				QMGR_LINKING_RAM_RGN0_SIZE_REG);
+	cppi_writel(qmgr->link_ram_rgn1_base, q_mgr_regs +
+				QMGR_LINKING_RAM_RGN1_BASE_REG);
+
+	for (i = 0 ; i < 8 ; i++) {
+		cppi_writel(qmgr->memr_base[i], desc_mem_regs +
+				QMGR_MEM_RGN_BASE_REG(i));
+		cppi_writel(qmgr->memr_ctrl[i], desc_mem_regs +
+				QMGR_MEM_RGN_CTRL_REG(i));
+	}
+
+	/*
+	 * Push all teardown descriptors to the free teardown queue
+	 * for the CPPI 4.1 system.
+	 */
+	cppi41_init_teardown_queue(dma_num);
+
+	/* Initialize the DMA scheduler. */
+	num_reg = (tbl_size + 3) / 4;
+	for (i = 0; i < num_reg; i++) {
+		val = sched_tbl[i];
+		cppi_writel(val, dma_block->sched_table_base +
+			     DMA_SCHED_TABLE_WORD_REG(i));
+	}
+	cppi_writel(cppi41->sched_ctrl, dma_block->sched_ctrl_base +
+				DMA_SCHED_CTRL_REG);
+}
+EXPORT_SYMBOL(cppi41_restore_context);
 
 MODULE_DESCRIPTION("TI CPPI 4.1 support");
 MODULE_AUTHOR("MontaVista Software");
