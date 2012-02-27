@@ -2913,6 +2913,7 @@ static struct omap_hwmod_irq_info am33xx_usbss_mpu_irqs[] = {
 static struct omap_hwmod_ocp_if am33xx_l3_slow__usbss = {
 	.master		= &am33xx_l3slow_hwmod,
 	.slave		= &am33xx_usbss_hwmod,
+	.clk		= "usbotg_ick",
 	.addr		= am33xx_usbss_addr_space,
 	.user		= OCP_USER_MPU,
 	.flags		= OCPIF_SWSUP_IDLE,
@@ -2922,16 +2923,12 @@ static struct omap_hwmod_ocp_if *am33xx_usbss_slaves[] = {
 	&am33xx_l3_slow__usbss,
 };
 
-static struct omap_hwmod_opt_clk usbss_opt_clks[] = {
-	{ .role = "clkdcoldo", .clk = "usbotg_fck" },
-};
-
 static struct omap_hwmod am33xx_usbss_hwmod = {
 	.name		= "usb_otg_hs",
 	.class		= &am33xx_usbotg_class,
-	.clkdm_name	= "l4ls_clkdm",
+	.clkdm_name	= "wkup_usb_clkdm",
 	.mpu_irqs	= am33xx_usbss_mpu_irqs,
-	.main_clk	= "usbotg_ick",
+	.main_clk	= "usbotg_fck",
 	.flags		= HWMOD_CONTROL_OPT_CLKS_IN_RESET,
 	.prcm		= {
 		.omap4	= {
@@ -2939,8 +2936,6 @@ static struct omap_hwmod am33xx_usbss_hwmod = {
 			.modulemode	= MODULEMODE_SWCTRL,
 		},
 	},
-	.opt_clks	= usbss_opt_clks,
-	.opt_clks_cnt	= ARRAY_SIZE(usbss_opt_clks),
 	.slaves		= am33xx_usbss_slaves,
 	.slaves_cnt	= ARRAY_SIZE(am33xx_usbss_slaves),
 };
