@@ -29,6 +29,7 @@
 
 #include <asm/mach-types.h>
 #include <plat/gpmc.h>
+#include <plat/nand.h>
 
 #include <plat/sdrc.h>
 
@@ -741,6 +742,8 @@ static int __devinit gpmc_probe(struct platform_device *pdev)
 	u32 l;
 	int ret = -EINVAL;
 	struct resource *res = NULL;
+	struct gpmc_devices_info *gpmc_device = pdev->dev.platform_data;
+	void *p;
 
 	/* XXX: This should go away with HWMOD & runtime PM adaptation */
 	gpmc_clk_init();
@@ -783,6 +786,9 @@ static int __devinit gpmc_probe(struct platform_device *pdev)
 
 	gpmc_mem_init();
 
+	for (p = gpmc_device->pdata; p; gpmc_device++, p = gpmc_device->pdata)
+		if (gpmc_device->flag & GPMC_DEVICE_NAND)
+			gpmc_nand_init((struct omap_nand_platform_data *) p);
 	return 0;
 
 err_remap:

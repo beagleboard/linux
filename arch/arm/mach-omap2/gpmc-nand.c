@@ -81,7 +81,7 @@ static int omap2_nand_gpmc_retime(struct omap_nand_platform_data *gpmc_nand_data
 	return 0;
 }
 
-int __init gpmc_nand_init(struct omap_nand_platform_data *gpmc_nand_data)
+int __devinit gpmc_nand_init(struct omap_nand_platform_data *gpmc_nand_data)
 {
 	int err	= 0;
 	u8 cs = 0;
