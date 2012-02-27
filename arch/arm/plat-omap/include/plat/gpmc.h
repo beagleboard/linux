@@ -174,4 +174,6 @@ extern int gpmc_nand_write(int cs, int cmd, int wval);
 
 int gpmc_enable_hwecc(int ecc, int cs, int mode, int dev_width, int ecc_size);
 int gpmc_calculate_ecc(int ecc, int cs, const u_char *dat, u_char *ecc_code);
+int gpmc_suspend(void);
+int gpmc_resume(void);
 #endif

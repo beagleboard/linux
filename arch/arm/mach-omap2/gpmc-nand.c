@@ -108,6 +108,8 @@ int __devinit gpmc_nand_init(struct omap_nand_platform_data *gpmc_nand_data)
 	}
 
 	gpmc_nand_device.dev.platform_data = gpmc_nand_data;
+	gpmc_nand_data->ctrlr_suspend	= gpmc_suspend;
+	gpmc_nand_data->ctrlr_resume	= gpmc_resume;
 
 	printk(KERN_INFO "Registering NAND on CS%d\n", gpmc_nand_data->cs);
 

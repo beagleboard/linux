@@ -740,6 +740,8 @@ static void __devinit gpmc_mem_init(void)
 	}
 }
 
+struct device *gpmc_dev;
+
 static int __devinit gpmc_probe(struct platform_device *pdev)
 {
 	u32 l;
@@ -750,6 +752,8 @@ static int __devinit gpmc_probe(struct platform_device *pdev)
 
 	/* XXX: This should go away with HWMOD & runtime PM adaptation */
 	gpmc_clk_init(&pdev->dev);
+
+	gpmc_dev = &pdev->dev;
 
 	gpmc = devm_kzalloc(&pdev->dev, sizeof(struct gpmc), GFP_KERNEL);
 	if (!gpmc)
@@ -824,6 +828,20 @@ static struct platform_driver gpmc_driver = {
 };
 
 module_platform_driver(gpmc_driver);
+
+int gpmc_suspend(void)
+{
+	omap3_gpmc_save_context();
+	pm_runtime_put_sync(gpmc_dev);
+	return 0;
+}
+
+int gpmc_resume(void)
+{
+	pm_runtime_get_sync(gpmc_dev);
+	omap3_gpmc_restore_context();
+	return 0;
+}
 
 #ifdef CONFIG_ARCH_OMAP3
 static struct omap3_gpmc_regs gpmc_context;
