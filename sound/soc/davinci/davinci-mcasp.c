@@ -401,9 +401,9 @@ static void davinci_mcasp_start(struct davinci_audio_dev *dev, int stream)
 	} else {
 		if (dev->rxnumevt) {	/* flush and enable FIFO */
 			if (dev->version == MCASP_VERSION_3) {
-				mcasp_clr_bits(dev->base + MCASP_VER3_WFIFOCTL,
+				mcasp_clr_bits(dev->base + MCASP_VER3_RFIFOCTL,
 								FIFO_ENABLE);
-				mcasp_set_bits(dev->base + MCASP_VER3_WFIFOCTL,
+				mcasp_set_bits(dev->base + MCASP_VER3_RFIFOCTL,
 								FIFO_ENABLE);
 			} else {
 				mcasp_clr_bits(dev->base + DAVINCI_MCASP_RFIFOCTL,
