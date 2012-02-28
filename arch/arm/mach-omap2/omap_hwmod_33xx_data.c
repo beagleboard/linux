@@ -1415,8 +1415,18 @@ static struct omap_hwmod am33xx_mailbox_hwmod = {
 };
 
 /* 'mcasp' class */
+
+static struct omap_hwmod_class_sysconfig am33xx_mcasp_sysc = {
+	.rev_offs	= 0x0,
+	.sysc_offs	= 0x4,
+	.sysc_flags	= SYSC_HAS_SIDLEMODE,
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
+	.sysc_fields	= &omap_hwmod_sysc_type3,
+};
+
 static struct omap_hwmod_class am33xx_mcasp_hwmod_class = {
-	.name		= "mcasp",
+	.name	= "mcasp",
+	.sysc	= &am33xx_mcasp_sysc,
 };
 
 /* mcasp0 */
@@ -1424,6 +1434,12 @@ static struct omap_hwmod_irq_info am33xx_mcasp0_irqs[] = {
 	{ .name = "ax", .irq = 80, },
 	{ .name = "ar", .irq = 81, },
 	{ .irq = -1 }
+};
+
+static struct omap_hwmod_dma_info am33xx_mcasp0_edma_reqs[] = {
+	{ .name = "tx", .dma_req = AM33XX_DMA_MCASP0_X, },
+	{ .name = "rx", .dma_req = AM33XX_DMA_MCASP0_R, },
+	{ .dma_req = -1 }
 };
 
 static struct omap_hwmod_addr_space am33xx_mcasp0_addr_space[] = {
@@ -1452,6 +1468,7 @@ static struct omap_hwmod am33xx_mcasp0_hwmod = {
 	.class		= &am33xx_mcasp_hwmod_class,
 	.clkdm_name	= "l3s_clkdm",
 	.mpu_irqs	= am33xx_mcasp0_irqs,
+	.sdma_reqs	= am33xx_mcasp0_edma_reqs,
 	.main_clk	= "mcasp0_fck",
 	.prcm		= {
 		.omap4	= {
@@ -1469,6 +1486,13 @@ static struct omap_hwmod_irq_info am33xx_mcasp1_irqs[] = {
 	{ .name = "ar", .irq = 83, },
 	{ .irq = -1 }
 };
+
+static struct omap_hwmod_dma_info am33xx_mcasp1_edma_reqs[] = {
+	{ .name = "tx", .dma_req = AM33XX_DMA_MCASP1_X, },
+	{ .name = "rx", .dma_req = AM33XX_DMA_MCASP1_R, },
+	{ .dma_req = -1 }
+};
+
 
 static struct omap_hwmod_addr_space am33xx_mcasp1_addr_space[] = {
 	{
@@ -1496,6 +1520,7 @@ static struct omap_hwmod am33xx_mcasp1_hwmod = {
 	.class		= &am33xx_mcasp_hwmod_class,
 	.clkdm_name	= "l3s_clkdm",
 	.mpu_irqs	= am33xx_mcasp1_irqs,
+	.sdma_reqs	= am33xx_mcasp1_edma_reqs,
 	.main_clk	= "mcasp1_fck",
 	.prcm		= {
 		.omap4	= {
