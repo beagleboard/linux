@@ -196,42 +196,34 @@ int __init am33xx_register_tsc(struct tsc_data *pdata)
 
 #if defined(CONFIG_SND_AM335X_SOC_EVM) || \
 				defined(CONFIG_SND_AM335X_SOC_EVM_MODULE)
-static struct resource am335x_mcasp1_resource[] = {
-	{
-		.name = "mcasp1",
-		.start = AM33XX_ASP1_BASE,
-		.end = AM33XX_ASP1_BASE + (SZ_1K * 12) - 1,
-		.flags = IORESOURCE_MEM,
-	},
-	/* TX event */
-	{
-		.start = AM33XX_DMA_MCASP1_X,
-		.end = AM33XX_DMA_MCASP1_X,
-		.flags = IORESOURCE_DMA,
-	},
-	/* RX event */
-	{
-		.start = AM33XX_DMA_MCASP1_R,
-		.end = AM33XX_DMA_MCASP1_R,
-		.flags = IORESOURCE_DMA,
-	},
-};
-
-static struct platform_device am335x_mcasp1_device = {
-	.name = "davinci-mcasp",
-	.id = 1,
-	.num_resources = ARRAY_SIZE(am335x_mcasp1_resource),
-	.resource = am335x_mcasp1_resource,
-};
-
-void __init am335x_register_mcasp1(struct snd_platform_data *pdata)
+int __init am335x_register_mcasp(struct snd_platform_data *pdata, int ctrl_nr)
 {
-	am335x_mcasp1_device.dev.platform_data = pdata;
-	platform_device_register(&am335x_mcasp1_device);
+	int l;
+	struct omap_hwmod *oh;
+	struct platform_device *pdev;
+	char oh_name[12];
+	char *dev_name = "davinci-mcasp";
+
+	l = snprintf(oh_name, 12, "mcasp%d", ctrl_nr);
+
+	oh = omap_hwmod_lookup(oh_name);
+	if (!oh) {
+		pr_err("could not look up %s\n", oh_name);
+		return -ENODEV;
+	}
+
+	pdev = omap_device_build(dev_name, ctrl_nr, oh, pdata,
+			sizeof(struct snd_platform_data), NULL, 0, 0);
+	WARN(IS_ERR(pdev), "Can't build omap_device for %s:%s.\n",
+			dev_name, oh->name);
+	return IS_ERR(pdev) ? PTR_ERR(pdev) : 0;
 }
 
 #else
-void __init am335x_register_mcasp1(struct snd_platform_data *pdata) {}
+int __init am335x_register_mcasp(struct snd_platform_data *pdata, int ctrl_nr)
+{
+	return 0;
+}
 #endif
 
 #if (defined(CONFIG_SND_AM33XX_SOC) || (defined(CONFIG_SND_AM33XX_SOC_MODULE)))
