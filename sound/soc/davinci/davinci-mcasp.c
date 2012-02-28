@@ -972,8 +972,12 @@ static int davinci_mcasp_probe(struct platform_device *pdev)
 		dma_data->dma_addr = (dma_addr_t) (pdata->tx_dma_offset +
 							mem->start);
 
-	/* first TX, then RX */
-	res = platform_get_resource(pdev, IORESOURCE_DMA, 0);
+	if (dev->version == MCASP_VERSION_3)
+		res = platform_get_resource_byname(pdev, IORESOURCE_DMA, "tx");
+	else
+		/* first TX, then RX */
+		res = platform_get_resource(pdev, IORESOURCE_DMA, 0);
+
 	if (!res) {
 		dev_err(&pdev->dev, "no DMA resource\n");
 		ret = -ENODEV;
@@ -992,7 +996,11 @@ static int davinci_mcasp_probe(struct platform_device *pdev)
 		dma_data->dma_addr = (dma_addr_t)(pdata->rx_dma_offset +
 							mem->start);
 
-	res = platform_get_resource(pdev, IORESOURCE_DMA, 1);
+	if (dev->version == MCASP_VERSION_3)
+		res = platform_get_resource_byname(pdev, IORESOURCE_DMA, "rx");
+	else
+		res = platform_get_resource(pdev, IORESOURCE_DMA, 1);
+
 	if (!res) {
 		dev_err(&pdev->dev, "no DMA resource\n");
 		ret = -ENODEV;
