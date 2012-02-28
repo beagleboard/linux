@@ -1434,7 +1434,7 @@ static void mcasp1_init(int evm_id, int profile)
 {
 	/* Configure McASP */
 	setup_pin_mux(mcasp1_pin_mux);
-	am335x_register_mcasp1(&am335x_evm_snd_data1);
+	am335x_register_mcasp(&am335x_evm_snd_data1, 1);
 	return;
 }
 
