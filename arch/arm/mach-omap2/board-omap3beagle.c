@@ -51,6 +51,7 @@
 #include "mux.h"
 #include "hsmmc.h"
 #include "pm.h"
+#include "board-flash.h"
 #include "common-board-devices.h"
 
 /*
@@ -538,8 +539,9 @@ static void __init omap3_beagle_init(void)
 
 	usb_musb_init(NULL);
 	usbhs_init(&usbhs_bdata);
-	omap_nand_flash_init(NAND_BUSWIDTH_16, omap3beagle_nand_partitions,
-			     ARRAY_SIZE(omap3beagle_nand_partitions));
+	omap_nand_init(omap3beagle_nand_partitions,
+		ARRAY_SIZE(omap3beagle_nand_partitions), GPMC_CS_NUM + 1,
+		NAND_BUSWIDTH_16, NULL);
 
 	/* Ensure msecure is mux'd to be able to set the RTC. */
 	omap_mux_init_signal("sys_drm_msecure", OMAP_PIN_OFF_OUTPUT_HIGH);

@@ -57,6 +57,7 @@
 #include "mux.h"
 #include "sdram-micron-mt46h32m32lf-6.h"
 #include "hsmmc.h"
+#include "board-flash.h"
 #include "common-board-devices.h"
 
 #define OVERO_GPIO_BT_XGATE	15
@@ -510,8 +511,8 @@ static void __init overo_init(void)
 	omap_serial_init();
 	omap_sdrc_init(mt46h32m32lf6_sdrc_params,
 				  mt46h32m32lf6_sdrc_params);
-	omap_nand_flash_init(0, overo_nand_partitions,
-			     ARRAY_SIZE(overo_nand_partitions));
+	omap_nand_init(overo_nand_partitions,
+		ARRAY_SIZE(overo_nand_partitions), GPMC_CS_NUM + 1, 0, NULL);
 	usb_musb_init(NULL);
 	usbhs_init(&usbhs_bdata);
 	overo_spi_init();

@@ -91,24 +91,3 @@ void __init omap_ads7846_init(int bus_num, int gpio_pendown, int gpio_debounce,
 {
 }
 #endif
-
-#if defined(CONFIG_MTD_NAND_OMAP2) || defined(CONFIG_MTD_NAND_OMAP2_MODULE)
-static struct omap_nand_platform_data nand_data;
-
-void __init omap_nand_flash_init(int options, struct mtd_partition *parts,
-				 int nr_parts)
-{
-	nand_data.cs = GPMC_CS_NUM + 1;
-	nand_data.parts = parts;
-	nand_data.nr_parts = nr_parts;
-	nand_data.devsize = options;
-
-	if (gpmc_nand_init(&nand_data) < 0)
-		printk(KERN_ERR "Unable to register NAND device\n");
-}
-#else
-void __init omap_nand_flash_init(int options, struct mtd_partition *parts,
-				 int nr_parts)
-{
-}
-#endif
