@@ -672,6 +672,12 @@ static void __init omap3_evm_init(void)
 		pr_err("error setting wl12xx data\n");
 	platform_device_register(&omap3evm_wlan_regulator);
 #endif
+	/* NAND */
+	omap_nand_init(omap3_evm_nand_partitions,
+			ARRAY_SIZE(omap3_evm_nand_partitions),
+			0, NAND_BUSWIDTH_16, &nand_default_timings);
+	board_onenand_init(omap3_evm_onenand_partitions,
+			ARRAY_SIZE(omap3_evm_onenand_partitions), 0);
 }
 
 MACHINE_START(OMAP3EVM, "OMAP3 EVM")

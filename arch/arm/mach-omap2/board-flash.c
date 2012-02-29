@@ -108,7 +108,7 @@ __init board_onenand_init(struct mtd_partition *nor_parts, u8 nr_parts, u8 cs)
 		defined(CONFIG_MTD_NAND_OMAP2_MODULE)
 
 /* Note that all values in this struct are in nanoseconds */
-static struct gpmc_timings nand_timings = {
+struct gpmc_timings nand_default_timings = {
 
 	.sync_clk = 0,
 
@@ -131,22 +131,21 @@ static struct gpmc_timings nand_timings = {
 	.wr_data_mux_bus = 0,
 };
 
-static struct omap_nand_platform_data board_nand_data = {
-	.gpmc_t		= &nand_timings,
+static struct omap_nand_platform_data omap_nand_data = {
+	.gpmc_t		= &nand_default_timings,
 };
 
-void
-__init board_nand_init(struct mtd_partition *nand_parts,
-			u8 nr_parts, u8 cs, int nand_type)
+struct omap_nand_platform_data *
+__init omap_nand_init(struct mtd_partition *nand_parts, u8 nr_parts, u8 cs,
+				int nand_type, struct gpmc_timings *gpmc_t)
 {
-	board_nand_data.cs		= cs;
-	board_nand_data.parts		= nand_parts;
-	board_nand_data.nr_parts	= nr_parts;
-	board_nand_data.devsize		= nand_type;
+	omap_nand_data.cs		= cs;
+	omap_nand_data.parts		= nand_parts;
+	omap_nand_data.nr_parts		= nr_parts;
+	omap_nand_data.devsize		= nand_type;
+	omap_nand_data.gpmc_t		= gpmc_t;
 
-	board_nand_data.ecc_opt = OMAP_ECC_HAMMING_CODE_DEFAULT;
-	board_nand_data.gpmc_irq = OMAP_GPMC_IRQ_BASE + cs;
-	gpmc_nand_init(&board_nand_data);
+	return &omap_nand_data;
 }
 #endif /* CONFIG_MTD_NAND_OMAP2 || CONFIG_MTD_NAND_OMAP2_MODULE */
 
@@ -242,6 +241,7 @@ void board_flash_init(struct flash_partitions partition_info[],
 	if (nandcs > GPMC_CS_NUM)
 		pr_err("NAND: Unable to find configuration in GPMC\n");
 	else
-		board_nand_init(partition_info[2].parts,
-			partition_info[2].nr_parts, nandcs, nand_type);
+		omap_nand_init(partition_info[2].parts,
+			partition_info[2].nr_parts, nandcs,
+			nand_type, &nand_default_timings);
 }

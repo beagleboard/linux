@@ -39,11 +39,14 @@ static inline void board_flash_init(struct flash_partitions part[],
 
 #if defined(CONFIG_MTD_NAND_OMAP2) || \
 		defined(CONFIG_MTD_NAND_OMAP2_MODULE)
-extern void board_nand_init(struct mtd_partition *nand_parts,
-					u8 nr_parts, u8 cs, int nand_type);
+extern struct gpmc_timings nand_default_timings;
+extern struct omap_nand_platform_data *
+__init omap_nand_init(struct mtd_partition *nand_parts, u8 nr_parts, u8 cs,
+				int nand_type, struct gpmc_timings *gpmc_t);
 #else
-static inline void board_nand_init(struct mtd_partition *nand_parts,
-					u8 nr_parts, u8 cs, int nand_type)
+static inline struct omap_nand_platform_data *
+omap_nand_init(struct mtd_partition *nand_parts,
+		u8 nr_parts, u8 cs, int nand_type, struct gpmc_timings *gpmc_t);
 {
 }
 #endif
