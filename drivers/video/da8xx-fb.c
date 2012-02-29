@@ -286,6 +286,20 @@ static struct da8xx_panel known_lcd_panels[] = {
 		.pxl_clk = 56000000,
 		.invert_pxl_clk = 0,
 	},
+	[4] = {
+		 /* CDTech S035Q01 */ 
+		.name = "CDTech_S035Q01",
+		.width = 320,
+		.height = 240,
+		.hfp = 58,
+		.hbp = 21,
+		.hsw = 47,
+		.vfp = 23,
+		.vbp = 11,
+		.vsw = 2,
+		.pxl_clk = 8000000,
+		.invert_pxl_clk = 0,
+	},	
 };
 
 /* Enable the Raster Engine of the LCD Controller */

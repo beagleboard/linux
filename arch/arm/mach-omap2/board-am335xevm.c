@@ -216,6 +216,29 @@ struct da8xx_lcdc_platform_data bbtoys7_pdata = {
 	.type			= "TFC_S9700RTWV35TR_01B",
 };
 
+static struct lcd_ctrl_config bbtoys35_cfg = {
+	&bbtoys7_panel,
+	.ac_bias		= 255,
+	.ac_bias_intrpt		= 0,
+	.dma_burst_sz		= 16,
+	.bpp			= 16,
+	.fdd			= 0x80,
+	.tft_alt_mode		= 0,
+	.stn_565_mode		= 0,
+	.mono_8bit_mode		= 0,
+	.invert_line_clock	= 1,
+	.invert_frm_clock	= 1,
+	.sync_edge		= 0,
+	.sync_ctrl		= 1,
+	.raster_order		= 0,
+};
+
+struct da8xx_lcdc_platform_data bbtoys35_pdata = {
+	.manu_name		= "BBToys",
+	.controller_data	= &bbtoys35_cfg,
+	.type			= "CDTech_S035Q01",
+};
+
 static const struct display_panel dvi_panel = {
 	WVGA,
 	16,
@@ -1488,6 +1511,23 @@ static void bbtoys7lcd_init(int evm_id, int profile)
 	return;
 }
 
+static void bbtoys35lcd_init(int evm_id, int profile)
+{
+	setup_pin_mux(bbtoys7_pin_mux);
+	
+	// we are being stupid and setting pixclock from here instead of da8xx-fb.c
+	if (conf_disp_pll(16000000)) {
+		pr_info("Failed to set pixclock to 16000000, not attempting to"
+				"register LCD cape\n");
+		return;
+	}
+	
+	if (am33xx_register_lcdc(&bbtoys35_pdata))
+		pr_info("Failed to register Beagleboardtoys 3.5\" LCD cape device\n");
+	
+	return;
+}
+
 #define BEAGLEBONEDVI_PDn  GPIO_TO_PIN(1, 7)
 
 static void dvi_init(int evm_id, int profile)
@@ -2103,7 +2143,7 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 	
 	if (!strncmp("BB-BONE-LCD3-01", cape_config.partnumber, 15)) {
 		pr_info("BeagleBone cape: initializing LCD cape\n");
-		bbtoys7lcd_init(0,0);
+		bbtoys35lcd_init(0,0);
 		pr_info("BeagleBone cape: initializing LCD cape touchscreen\n");
 		tsc_init(0,0);
 		beaglebone_tsadcpins_free = 0;
