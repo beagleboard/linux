@@ -84,9 +84,32 @@ static int omap2_nand_gpmc_retime(struct omap_nand_platform_data *gpmc_nand_data
 int __init gpmc_nand_init(struct omap_nand_platform_data *gpmc_nand_data)
 {
 	int err	= 0;
+	u8 cs = 0;
 	struct device *dev = &gpmc_nand_device.dev;
 
+	/* if cs not provided, find out the chip-select on which NAND exist */
+	if (gpmc_nand_data->cs > GPMC_CS_NUM)
+		while (cs < GPMC_CS_NUM) {
+			u32 ret = 0;
+			ret = gpmc_cs_read_reg(cs, GPMC_CS_CONFIG1);
+
+			if ((ret & 0xC00) == 0x800) {
+				printk(KERN_INFO "Found NAND on CS%d\n", cs);
+				gpmc_nand_data->cs = cs;
+				break;
+			}
+			cs++;
+		}
+
+	if (gpmc_nand_data->cs > GPMC_CS_NUM) {
+		printk(KERN_INFO "NAND: Unable to find configuration "
+				 "in GPMC\n ");
+		return -ENODEV;
+	}
+
 	gpmc_nand_device.dev.platform_data = gpmc_nand_data;
+
+	printk(KERN_INFO "Registering NAND on CS%d\n", gpmc_nand_data->cs);
 
 	err = gpmc_cs_request(gpmc_nand_data->cs, NAND_IO_SIZE,
 				&gpmc_nand_data->phys_base);
