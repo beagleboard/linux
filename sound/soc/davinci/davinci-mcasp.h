@@ -38,6 +38,7 @@ enum {
 
 struct davinci_audio_dev {
 	struct davinci_pcm_dma_params dma_params[2];
+	struct device *dev;
 	void __iomem *base;
 	int sample_rate;
 	struct clk *clk;

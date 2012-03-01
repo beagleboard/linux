@@ -21,7 +21,7 @@
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/io.h>
-#include <linux/clk.h>
+#include <linux/pm_runtime.h>
 
 #include <sound/core.h>
 #include <sound/pcm.h>
@@ -826,20 +826,18 @@ static int davinci_mcasp_trigger(struct snd_pcm_substream *substream,
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-		if (!dev->clk_active) {
-			clk_enable(dev->clk);
-			dev->clk_active = 1;
-		}
+		ret = pm_runtime_get_sync(dev->dev);
+		if (ret < 0)
+			dev_err(dev->dev, "failed to get runtime pm\n");
+
 		davinci_mcasp_start(dev, substream->stream);
 		break;
 
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 		davinci_mcasp_stop(dev, substream->stream);
-		if (dev->clk_active) {
-			clk_disable(dev->clk);
-			dev->clk_active = 0;
-		}
-
+		ret = pm_runtime_put_sync(dev->dev);
+		if (ret < 0)
+			dev_err(dev->dev, "failed to put runtime pm\n");
 		break;
 
 	case SNDRV_PCM_TRIGGER_STOP:
@@ -937,14 +935,13 @@ static int davinci_mcasp_probe(struct platform_device *pdev)
 	}
 
 	pdata = pdev->dev.platform_data;
-	dev->clk = clk_get(&pdev->dev, NULL);
-	if (IS_ERR(dev->clk)) {
-		ret = -ENODEV;
+	pm_runtime_enable(&pdev->dev);
+
+	ret = pm_runtime_get_sync(&pdev->dev);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "failed to get runtime pm\n");
 		goto err_release_region;
 	}
-
-	clk_enable(dev->clk);
-	dev->clk_active = 1;
 
 	dev->base = ioremap(mem->start, resource_size(mem));
 	if (!dev->base) {
@@ -961,6 +958,7 @@ static int davinci_mcasp_probe(struct platform_device *pdev)
 	dev->version = pdata->version;
 	dev->txnumevt = pdata->txnumevt;
 	dev->rxnumevt = pdata->rxnumevt;
+	dev->dev	= &pdev->dev;
 
 	dma_data = &dev->dma_params[SNDRV_PCM_STREAM_PLAYBACK];
 	dma_data->asp_chan_q = pdata->asp_chan_q;
@@ -1018,9 +1016,9 @@ static int davinci_mcasp_probe(struct platform_device *pdev)
 err_iounmap:
 	iounmap(dev->base);
 err_release_clk:
-	clk_disable(dev->clk);
-	clk_put(dev->clk);
+	pm_runtime_put_sync(&pdev->dev);
 err_release_region:
+	pm_runtime_disable(&pdev->dev);
 	release_mem_region(mem->start, resource_size(mem));
 err_release_data:
 	kfree(dev);
@@ -1034,10 +1032,8 @@ static int davinci_mcasp_remove(struct platform_device *pdev)
 	struct resource *mem;
 
 	snd_soc_unregister_dai(&pdev->dev);
-	clk_disable(dev->clk);
-	clk_put(dev->clk);
-	dev->clk = NULL;
-
+	pm_runtime_put_sync(&pdev->dev);
+	pm_runtime_disable(&pdev->dev);
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	release_mem_region(mem->start, resource_size(mem));
 
