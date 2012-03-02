@@ -405,6 +405,9 @@ static int __init omap_hsmmc_pdata_init(struct omap2_hsmmc_info *c,
 		if (cpu_is_omap3517() || cpu_is_omap3505())
 			mmc->slots[0].set_power = am35x_hsmmc2_set_power;
 
+		if (cpu_is_am33xx())
+			mmc->slots[0].set_power = nop_mmc_set_power;
+
 		if (c->ext_clock)
 			c->transceiver = 1;
 		if (c->transceiver && (c->caps & MMC_CAP_8_BIT_DATA)) {
