@@ -59,10 +59,16 @@ static int cpu_hotplug_disabled;
 
 static struct {
 	struct task_struct *active_writer;
+
 	/* wait queue to wake up the active_writer */
 	wait_queue_head_t wq;
+#ifdef CONFIG_PREEMPT_RT_FULL
+	/* Makes the lock keep the task's state */
+	spinlock_t lock;
+#else
 	/* verifies that no writer will get active while readers are active */
 	struct mutex lock;
+#endif
 	/*
 	 * Also blocks the new readers during
 	 * an ongoing cpu hotplug operation.
@@ -75,11 +81,25 @@ static struct {
 } cpu_hotplug = {
 	.active_writer = NULL,
 	.wq = __WAIT_QUEUE_HEAD_INITIALIZER(cpu_hotplug.wq),
+#ifdef CONFIG_PREEMPT_RT_FULL
+	.lock = __SPIN_LOCK_UNLOCKED(cpu_hotplug.lock),
+#else
 	.lock = __MUTEX_INITIALIZER(cpu_hotplug.lock),
+#endif
 #ifdef CONFIG_DEBUG_LOCK_ALLOC
 	.dep_map = {.name = "cpu_hotplug.lock" },
 #endif
 };
+
+#ifdef CONFIG_PREEMPT_RT_FULL
+# define hotplug_lock()		rt_spin_lock(&cpu_hotplug.lock)
+# define hotplug_trylock()	rt_spin_trylock(&cpu_hotplug.lock)
+# define hotplug_unlock()	rt_spin_unlock(&cpu_hotplug.lock)
+#else
+# define hotplug_lock()		mutex_lock(&cpu_hotplug.lock)
+# define hotplug_trylock()	mutex_trylock(&cpu_hotplug.lock)
+# define hotplug_unlock()	mutex_unlock(&cpu_hotplug.lock)
+#endif
 
 /* Lockdep annotations for get/put_online_cpus() and cpu_hotplug_begin/end() */
 #define cpuhp_lock_acquire_read() lock_map_acquire_read(&cpu_hotplug.dep_map)
@@ -117,8 +137,8 @@ retry:
 		return;
 	}
 	preempt_enable();
-	mutex_lock(&cpu_hotplug.lock);
-	mutex_unlock(&cpu_hotplug.lock);
+	hotplug_lock();
+	hotplug_unlock();
 	preempt_disable();
 	goto retry;
 }
@@ -191,9 +211,9 @@ void get_online_cpus(void)
 	if (cpu_hotplug.active_writer == current)
 		return;
 	cpuhp_lock_acquire_read();
-	mutex_lock(&cpu_hotplug.lock);
+	hotplug_lock();
 	atomic_inc(&cpu_hotplug.refcount);
-	mutex_unlock(&cpu_hotplug.lock);
+	hotplug_unlock();
 }
 EXPORT_SYMBOL_GPL(get_online_cpus);
 
@@ -201,11 +221,11 @@ bool try_get_online_cpus(void)
 {
 	if (cpu_hotplug.active_writer == current)
 		return true;
-	if (!mutex_trylock(&cpu_hotplug.lock))
+	if (!hotplug_trylock())
 		return false;
 	cpuhp_lock_acquire_tryread();
 	atomic_inc(&cpu_hotplug.refcount);
-	mutex_unlock(&cpu_hotplug.lock);
+	hotplug_unlock();
 	return true;
 }
 EXPORT_SYMBOL_GPL(try_get_online_cpus);
@@ -259,11 +279,11 @@ void cpu_hotplug_begin(void)
 	cpuhp_lock_acquire();
 
 	for (;;) {
-		mutex_lock(&cpu_hotplug.lock);
+		hotplug_lock();
 		prepare_to_wait(&cpu_hotplug.wq, &wait, TASK_UNINTERRUPTIBLE);
 		if (likely(!atomic_read(&cpu_hotplug.refcount)))
 				break;
-		mutex_unlock(&cpu_hotplug.lock);
+		hotplug_unlock();
 		schedule();
 	}
 	finish_wait(&cpu_hotplug.wq, &wait);
@@ -272,7 +292,7 @@ void cpu_hotplug_begin(void)
 void cpu_hotplug_done(void)
 {
 	cpu_hotplug.active_writer = NULL;
-	mutex_unlock(&cpu_hotplug.lock);
+	hotplug_unlock();
 	cpuhp_lock_release();
 }
 
