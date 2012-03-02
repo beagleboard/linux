@@ -144,6 +144,8 @@ struct gpmc_devices_info {
 #define	GPMC_DEVICE_SMS911X	(1 << 4)
 #define	GPMC_DEVICE_TUSB6010	(1 << 5)
 
+extern int omap_init_gpmc(struct gpmc_devices_info *pdata, int pdata_len);
+
 extern unsigned int gpmc_ns_to_ticks(unsigned int time_ns);
 extern unsigned int gpmc_ps_to_ticks(unsigned int time_ps);
 extern unsigned int gpmc_ticks_to_ns(unsigned int ticks);

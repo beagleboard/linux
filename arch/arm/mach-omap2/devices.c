@@ -49,6 +49,7 @@
 #include <plat/omap4-keypad.h>
 #include <plat/config_pwm.h>
 #include <plat/cpu.h>
+#include <plat/gpmc.h>
 
 /* LCD controller similar DA8xx */
 #include <video/da8xx-fb.h>
@@ -1656,3 +1657,27 @@ static int __init omap_init_wdt(void)
 }
 subsys_initcall(omap_init_wdt);
 #endif
+
+int __init omap_init_gpmc(struct gpmc_devices_info *pdata, int pdata_len)
+{
+	struct omap_hwmod *oh;
+	struct platform_device *pdev;
+	char *name = "omap-gpmc";
+	char *oh_name = "gpmc";
+
+	oh = omap_hwmod_lookup(oh_name);
+	if (!oh) {
+		pr_err("Could not look up %s\n", oh_name);
+		return -ENODEV;
+	}
+
+	pdev = omap_device_build(name, -1, oh, pdata,
+					pdata_len, NULL, 0, 0);
+	if (IS_ERR(pdev)) {
+		WARN(1, "Can't build omap_device for %s:%s.\n",
+						name, oh->name);
+		return PTR_ERR(pdev);
+	}
+
+	return 0;
+}
