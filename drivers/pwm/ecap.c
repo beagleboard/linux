@@ -20,6 +20,7 @@
 #include <linux/io.h>
 #include <linux/pwm/pwm.h>
 #include <linux/slab.h>
+#include <linux/pm_runtime.h>
 
 #include <plat/clock.h>
 #include <plat/config_pwm.h>
@@ -45,6 +46,7 @@ struct ecap_pwm {
 	void __iomem	*mmio_base;
 	u8 version;
 	void __iomem *config_mem_base;
+	struct device *dev;
 };
 
 static inline struct ecap_pwm *to_ecap_pwm(const struct pwm_device *p)
@@ -68,7 +70,7 @@ static int ecap_pwm_stop(struct pwm_device *p)
 	spin_unlock_irqrestore(&ep->lock, flags);
 
 	/* For PWM clock should be disabled on stop */
-	clk_disable(ep->clk);
+	pm_runtime_put_sync(ep->dev);
 	clear_bit(FLAG_RUNNING, &p->flags);
 
 	return 0;
@@ -85,7 +87,7 @@ static int ecap_pwm_start(struct pwm_device *p)
 		return -EPERM;
 
 	/* For PWM clock should be enabled on start */
-	clk_enable(ep->clk);
+	pm_runtime_get_sync(ep->dev);
 
 	spin_lock_irqsave(&ep->lock, flags);
 	v = readw(ep->mmio_base + CAPTURE_CTRL2_REG);
@@ -102,7 +104,7 @@ static int ecap_pwm_set_polarity(struct pwm_device *p, char pol)
 	unsigned long flags, v;
 	struct ecap_pwm *ep = to_ecap_pwm(p);
 
-	clk_enable(ep->clk);
+	pm_runtime_get_sync(ep->dev);
 
 	spin_lock_irqsave(&ep->lock, flags);
 	v = readw(ep->mmio_base + CAPTURE_CTRL2_REG);
@@ -111,7 +113,7 @@ static int ecap_pwm_set_polarity(struct pwm_device *p, char pol)
 	writew(v, ep->mmio_base + CAPTURE_CTRL2_REG);
 	spin_unlock_irqrestore(&ep->lock, flags);
 
-	clk_disable(ep->clk);
+	pm_runtime_put_sync(ep->dev);
 	return 0;
 }
 
@@ -120,7 +122,7 @@ static int ecap_pwm_config_period(struct pwm_device *p)
 	unsigned long flags, v;
 	struct ecap_pwm *ep = to_ecap_pwm(p);
 
-	 clk_enable(ep->clk);
+	 pm_runtime_get_sync(ep->dev);
 
 	spin_lock_irqsave(&ep->lock, flags);
 	writel((p->period_ticks) - 1, ep->mmio_base + CAPTURE_3_REG);
@@ -129,7 +131,7 @@ static int ecap_pwm_config_period(struct pwm_device *p)
 	writew(v, ep->mmio_base + CAPTURE_CTRL2_REG);
 	spin_unlock_irqrestore(&ep->lock, flags);
 
-	clk_disable(ep->clk);
+	pm_runtime_put_sync(ep->dev);
 	return 0;
 }
 
@@ -138,7 +140,7 @@ static int ecap_pwm_config_duty(struct pwm_device *p)
 	unsigned long flags, v;
 	struct ecap_pwm *ep = to_ecap_pwm(p);
 
-	clk_enable(ep->clk);
+	pm_runtime_get_sync(ep->dev);
 
 	spin_lock_irqsave(&ep->lock, flags);
 	v = readw(ep->mmio_base + CAPTURE_CTRL2_REG);
@@ -153,7 +155,7 @@ static int ecap_pwm_config_duty(struct pwm_device *p)
 	}
 	spin_unlock_irqrestore(&ep->lock, flags);
 
-	clk_disable(ep->clk);
+	pm_runtime_put_sync(ep->dev);
 	return 0;
 }
 
@@ -246,6 +248,8 @@ static int ecap_probe(struct platform_device *pdev)
 	} else
 		ep->clk = clk_get(&pdev->dev, "ecap");
 
+	pm_runtime_enable(&pdev->dev);
+	ep->dev = &pdev->dev;
 	if (IS_ERR(ep->clk)) {
 		ret = PTR_ERR(ep->clk);
 		goto err_clk_get;
@@ -269,11 +273,11 @@ static int ecap_probe(struct platform_device *pdev)
 			goto err_get_resource;
 		}
 
-		clk_enable(ep->clk);
+		pm_runtime_get_sync(ep->dev);
 		val = readw(ep->config_mem_base + PWMSS_CLKCONFIG);
 		val |= BIT(ECAP_CLK_EN);
 		writew(val, ep->config_mem_base + PWMSS_CLKCONFIG);
-		clk_disable(ep->clk);
+		pm_runtime_put_sync(ep->dev);
 	}
 
 	spin_lock_init(&ep->lock);
@@ -321,6 +325,7 @@ err_request_mem:
 	}
 err_get_resource:
 	clk_put(ep->clk);
+	pm_runtime_disable(&pdev->dev);
 err_clk_get:
 	kfree(ep);
 	return ret;
@@ -332,7 +337,7 @@ static int ecap_suspend(struct platform_device *pdev, pm_message_t state)
 	struct ecap_pwm *ep = platform_get_drvdata(pdev);
 
 	if (ep->clk->usecount > 0)
-		clk_disable(ep->clk);
+		pm_runtime_put_sync(ep->dev);
 
 	return 0;
 }
@@ -341,7 +346,7 @@ static int ecap_resume(struct platform_device *pdev)
 {
 	struct ecap_pwm *ep = platform_get_drvdata(pdev);
 
-	clk_enable(ep->clk);
+	pm_runtime_get_sync(ep->dev);
 
 	return 0;
 }
@@ -377,6 +382,7 @@ static int __devexit ecap_remove(struct platform_device *pdev)
 	release_mem_region(r->start, resource_size(r));
 	platform_set_drvdata(pdev, NULL);
 	clk_put(ep->clk);
+	pm_runtime_disable(&pdev->dev);
 	kfree(ep);
 
 	return 0;
