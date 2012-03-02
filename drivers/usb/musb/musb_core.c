@@ -167,10 +167,10 @@ static inline void __tusb_musb_writeb(void __iomem *addr, unsigned offset,
 }
 
 static inline u8 __musb_readb(const void __iomem *addr, unsigned offset)
-	{ return __raw_readb(addr + offset); }
+	{ return readb(addr + offset); }
 
 static inline void __musb_writeb(void __iomem *addr, unsigned offset, u8 data)
-	{ __raw_writeb(data, addr + offset); }
+	{ writeb(data, addr + offset); }
 
 static int musb_ulpi_read(struct otg_transceiver *otg, u32 offset)
 {

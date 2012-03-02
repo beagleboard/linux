@@ -505,6 +505,10 @@ struct cppi41_queue_obj {
 				/* registers */
 };
 
+static inline u32 cppi_readl(const void __iomem *addr)
+	{ return readl(addr); }
+static inline void cppi_writel(u32 data, void __iomem *addr)
+	{ writel(data, addr); }
 /**
  * cppi41_queue_mgr_init - CPPI 4.1 queue manager initialization.
  * @q_mgr:	the queue manager to initialize

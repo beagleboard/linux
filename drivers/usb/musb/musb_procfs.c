@@ -514,7 +514,7 @@ static int dump_header_stats(struct musb *musb, char *buffer)
 			"\n",
 			musb_readl(musb->ctrl_base, DAVINCI_USB_CTRL_REG),
 			musb_readl(musb->ctrl_base, DAVINCI_USB_STAT_REG),
-			__raw_readl((void __force __iomem *)
+			readl((void __force __iomem *)
 					IO_ADDRESS(USBPHY_CTL_PADDR)),
 			musb_readl(musb->ctrl_base, DAVINCI_RNDIS_REG),
 			musb_readl(musb->ctrl_base, DAVINCI_AUTOREQ_REG),
