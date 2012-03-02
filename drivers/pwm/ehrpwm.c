@@ -22,6 +22,7 @@
 #include <linux/slab.h>
 #include <linux/pwm/pwm.h>
 #include <linux/pwm/ehrpwm.h>
+#include <linux/pm_runtime.h>
 
 #include <plat/clock.h>
 #include <plat/config_pwm.h>
@@ -910,7 +911,7 @@ static int ehrpwm_pwm_start(struct pwm_device *p)
 		return -EPERM;
 
 	/* For PWM clock should be enabled on start */
-	clk_enable(ehrpwm->clk);
+	pm_runtime_get_sync(ehrpwm->dev);
 
 	chan = p - &ehrpwm->pwm[0];
 	val = ehrpwm_read(ehrpwm, TBCTL);
@@ -964,7 +965,7 @@ static int ehrpwm_pwm_stop(struct pwm_device *p)
 	}
 
 	/* For PWM clock should be disabled on stop */
-	clk_disable(ehrpwm->clk);
+	pm_runtime_put_sync(ehrpwm->dev);
 	clear_bit(FLAG_RUNNING, &p->flags);
 	return 0;
 }
@@ -993,13 +994,12 @@ static int ehrpwm_pwm_set_pol(struct pwm_device *p)
 	}
 
 
-	clk_enable(ehrpwm->clk);
+	pm_runtime_get_sync(ehrpwm->dev);
 	val = ((p->active_high ? ACTCTL_CTREQCMP_HIGH : ACTCTL_CTREQCMP_LOW)
 		 << ctreqcmp) | (p->active_high ? ACTCTL_CTREQZRO_LOW :
 			ACTCTL_CTREQZRO_HIGH);
 	ehrpwm_write(ehrpwm, act_ctrl_reg, val);
-	clk_disable(ehrpwm->clk);
-
+	pm_runtime_put_sync(ehrpwm->dev);
 	return 0;
 }
 
@@ -1056,7 +1056,7 @@ static int ehrpwm_pwm_set_prd(struct pwm_device *p)
 		}
 	}
 
-	clk_enable(ehrpwm->clk);
+	pm_runtime_get_sync(ehrpwm->dev);
 	val = ehrpwm_read(ehrpwm, TBCTL);
 	val = (val & ~TBCTL_CLKDIV_MASK & ~TBCTL_HSPCLKDIV_MASK) | tb_div_val;
 	ehrpwm_write(ehrpwm, TBCTL, val);
@@ -1064,7 +1064,7 @@ static int ehrpwm_pwm_set_prd(struct pwm_device *p)
 
 	if (period_ticks <= 1) {
 		dev_err(p->dev, "Required period/frequency cannot be obtained");
-		clk_disable(ehrpwm->clk);
+		pm_runtime_put_sync(ehrpwm->dev);
 		return -EINVAL;
 	}
 	/*
@@ -1073,7 +1073,7 @@ static int ehrpwm_pwm_set_prd(struct pwm_device *p)
 	 * the programmed value.
 	 */
 	ehrpwm_write(ehrpwm, TBPRD, (unsigned short)(period_ticks - 1));
-	clk_disable(ehrpwm->clk);
+	pm_runtime_put_sync(ehrpwm->dev);
 	debug("\n period_ticks is %d", period_ticks);
 	ehrpwm->prescale_val = ps_div_val;
 	debug("\n Prescaler value is %d", ehrpwm->prescale_val);
@@ -1098,7 +1098,7 @@ static int ehrpwm_hr_duty_config(struct pwm_device *p)
 	 */
 	no_of_mepsteps = USEC_PER_SEC / ((p->tick_hz / USEC_PER_SEC) * 63);
 
-	clk_enable(ehrpwm->clk);
+	pm_runtime_get_sync(ehrpwm->dev);
 	/* Calculate the CMPHR Value */
 	cmphr_val = p->tick_hz / USEC_PER_SEC;
 	cmphr_val = (p->duty_ns * cmphr_val) % MSEC_PER_SEC;
@@ -1111,7 +1111,7 @@ static int ehrpwm_hr_duty_config(struct pwm_device *p)
 	else
 		ehrpwm_write(ehrpwm, HRCNFG, 0x2);
 
-	clk_disable(ehrpwm->clk);
+	pm_runtime_put_sync(ehrpwm->dev);
 	return 0;
 }
 
@@ -1132,7 +1132,7 @@ static int ehrpwm_pwm_set_dty(struct pwm_device *p)
 	duty_ticks = p->duty_ticks / ehrpwm->prescale_val;
 	debug("\n Prescaler value is %d", ehrpwm->prescale_val);
 	debug("\n duty ticks is %d", duty_ticks);
-	clk_enable(ehrpwm->clk);
+	pm_runtime_get_sync(ehrpwm->dev);
 	/* High resolution module */
 	if (chan && ehrpwm->prescale_val <= 1) {
 		ret = ehrpwm_hr_duty_config(p);
@@ -1144,8 +1144,7 @@ static int ehrpwm_pwm_set_dty(struct pwm_device *p)
 
 	ehrpwm_pwm_set_pol(p);
 	ehrpwm_write(ehrpwm, (chan ? CMPB : CMPA), duty_ticks);
-	clk_disable(ehrpwm->clk);
-
+	pm_runtime_put_sync(ehrpwm->dev);
 	return ret;
 }
 
@@ -1366,6 +1365,8 @@ static int ehrpwm_probe(struct platform_device *pdev)
 	} else
 		ehrpwm->clk = clk_get(&pdev->dev, "ehrpwm");
 
+	pm_runtime_enable(&pdev->dev);
+	ehrpwm->dev = &pdev->dev;
 	if (IS_ERR(ehrpwm->clk)) {
 		ret = PTR_ERR(ehrpwm->clk);
 		goto err_clock_failure;
@@ -1389,11 +1390,11 @@ static int ehrpwm_probe(struct platform_device *pdev)
 			goto err_free_mem_config;
 		}
 
-		clk_enable(ehrpwm->clk);
+		pm_runtime_get_sync(ehrpwm->dev);
 		val = readw(ehrpwm->config_mem_base + PWMSS_CLKCONFIG);
 		val |= BIT(EPWM_CLK_EN);
 		writew(val, ehrpwm->config_mem_base + PWMSS_CLKCONFIG);
-		clk_disable(ehrpwm->clk);
+		pm_runtime_put_sync(ehrpwm->dev);
 	} else
 		ch_mask = pdata->channel_mask;
 
@@ -1500,6 +1501,7 @@ err_resource_mem2_failiure:
 err_free_mem_config:
 err_resource_mem_failure:
 	clk_put(ehrpwm->clk);
+	pm_runtime_disable(ehrpwm->dev);
 err_clock_failure:
 	kfree(ehrpwm);
 err_mem_failure:
@@ -1512,7 +1514,7 @@ static int ehrpwm_suspend(struct platform_device *pdev, pm_message_t state)
 	struct ehrpwm_pwm *ehrpwm = platform_get_drvdata(pdev);
 
 	if (ehrpwm->clk->usecount > 0)
-		clk_disable(ehrpwm->clk);
+		pm_runtime_put_sync(ehrpwm->dev);
 
 	return 0;
 }
@@ -1521,7 +1523,7 @@ static int ehrpwm_resume(struct platform_device *pdev)
 {
 	struct ehrpwm_pwm *ehrpwm = platform_get_drvdata(pdev);
 
-	clk_enable(ehrpwm->clk);
+	pm_runtime_get_sync(ehrpwm->dev);
 
 	return 0;
 }
@@ -1566,6 +1568,7 @@ static int __devexit ehrpwm_remove(struct platform_device *pdev)
 	release_mem_region(r->start, resource_size(r));
 	platform_set_drvdata(pdev, NULL);
 	clk_put(ehrpwm->clk);
+	pm_runtime_disable(ehrpwm->dev);
 	kfree(ehrpwm);
 
 	return 0;

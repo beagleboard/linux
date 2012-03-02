@@ -31,6 +31,7 @@ struct ehrpwm_pwm {
 	struct tz_int st_tzint;
 	u8 version;
 	void __iomem *config_mem_base;
+	struct device *dev;
 };
 
 enum tz_event {
