@@ -55,6 +55,30 @@ struct davinci_audio_dev {
 	/* McASP FIFO related */
 	u8	txnumevt;
 	u8	rxnumevt;
+
+	/* backup related */
+	unsigned int *xrsrctl;
+	unsigned int pfunc;
+	unsigned int pdir;
+
+	unsigned int gblctlx;
+	unsigned int txmask;
+	unsigned int txfmt;
+	unsigned int txfmctl;
+	unsigned int aclkxctl;
+	unsigned int ahclkxctl;
+	unsigned int txtdm;
+	unsigned int wfifoctl;
+
+	unsigned int gblctlr;
+	unsigned int rxmask;
+	unsigned int rxfmt;
+	unsigned int rxfmctl;
+	unsigned int aclkrctl;
+	unsigned int ahclkrctl;
+	unsigned int rxtdm;
+	unsigned int rfifoctl;
+
 };
 
 #endif	/* DAVINCI_MCASP_H */

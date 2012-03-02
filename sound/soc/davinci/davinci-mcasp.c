@@ -960,6 +960,17 @@ static int davinci_mcasp_probe(struct platform_device *pdev)
 	dev->rxnumevt = pdata->rxnumevt;
 	dev->dev	= &pdev->dev;
 
+	if (dev->version == MCASP_VERSION_3) {
+		dev->xrsrctl = kzalloc((sizeof(unsigned int) *
+							dev->num_serializer),
+							GFP_KERNEL);
+		if (!dev->xrsrctl) {
+			ret = -ENOMEM;
+			dev_err(&pdev->dev, "err: mem alloc xrsrctl\n");
+			goto err_release_clk;
+		}
+	}
+
 	dma_data = &dev->dma_params[SNDRV_PCM_STREAM_PLAYBACK];
 	dma_data->asp_chan_q = pdata->asp_chan_q;
 	dma_data->ram_chan_q = pdata->ram_chan_q;
@@ -1014,6 +1025,8 @@ static int davinci_mcasp_probe(struct platform_device *pdev)
 	return 0;
 
 err_iounmap:
+	if (dev->version == MCASP_VERSION_3)
+		kfree(dev->xrsrctl);
 	iounmap(dev->base);
 err_release_clk:
 	pm_runtime_put_sync(&pdev->dev);
@@ -1036,15 +1049,125 @@ static int davinci_mcasp_remove(struct platform_device *pdev)
 	pm_runtime_disable(&pdev->dev);
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	release_mem_region(mem->start, resource_size(mem));
-
+	if (dev->version == MCASP_VERSION_3)
+		kfree(dev->xrsrctl);
 	kfree(dev);
 
 	return 0;
 }
 
+#ifdef CONFIG_PM
+static int davinci_mcasp_suspend(struct platform_device *pdev,
+							pm_message_t state)
+{
+	int ret = 0, idx;
+	struct davinci_audio_dev *dev = dev_get_drvdata(&pdev->dev);
+
+	if (dev->version == MCASP_VERSION_3) {
+		dev->gblctlx = mcasp_get_reg(dev->base +
+						DAVINCI_MCASP_GBLCTLX_REG);
+		dev->txmask = mcasp_get_reg(dev->base +
+						DAVINCI_MCASP_TXMASK_REG);
+		dev->txfmt = mcasp_get_reg(dev->base + DAVINCI_MCASP_TXFMT_REG);
+		dev->txfmctl = mcasp_get_reg(dev->base +
+						DAVINCI_MCASP_TXFMCTL_REG);
+		dev->aclkxctl = mcasp_get_reg(dev->base +
+						DAVINCI_MCASP_ACLKXCTL_REG);
+		dev->ahclkxctl = mcasp_get_reg(dev->base +
+						DAVINCI_MCASP_AHCLKXCTL_REG);
+		dev->txtdm = mcasp_get_reg(dev->base + DAVINCI_MCASP_TXTDM_REG);
+		dev->wfifoctl = mcasp_get_reg(dev->base + MCASP_VER3_WFIFOCTL);
+
+		dev->gblctlr = mcasp_get_reg(dev->base +
+						DAVINCI_MCASP_GBLCTLR_REG);
+		dev->rxmask = mcasp_get_reg(dev->base +
+						DAVINCI_MCASP_RXMASK_REG);
+		dev->rxfmt = mcasp_get_reg(dev->base + DAVINCI_MCASP_RXFMT_REG);
+		dev->rxfmctl = mcasp_get_reg(dev->base +
+						DAVINCI_MCASP_RXFMCTL_REG);
+		dev->aclkrctl = mcasp_get_reg(dev->base +
+						DAVINCI_MCASP_ACLKRCTL_REG);
+		dev->ahclkrctl = mcasp_get_reg(dev->base +
+						DAVINCI_MCASP_AHCLKRCTL_REG);
+		dev->rxtdm = mcasp_get_reg(dev->base + DAVINCI_MCASP_RXTDM_REG);
+		dev->rfifoctl = mcasp_get_reg(dev->base + MCASP_VER3_RFIFOCTL);
+
+		for (idx = 0; idx < dev->num_serializer; idx++) {
+			dev->xrsrctl[idx] = mcasp_get_reg(dev->base +
+						DAVINCI_MCASP_XRSRCTL_REG(idx));
+		}
+
+		dev->pfunc = mcasp_get_reg(dev->base + DAVINCI_MCASP_PFUNC_REG);
+		dev->pdir = mcasp_get_reg(dev->base + DAVINCI_MCASP_PDIR_REG);
+	}
+
+	ret = pm_runtime_put_sync(&pdev->dev);
+	if (ret < 0)
+		dev_err(&pdev->dev, "failed to get runtime pm\n");
+
+	/* only values < 0 indicate errors */
+	return IS_ERR_VALUE(ret) ? ret : 0;
+}
+
+static int davinci_mcasp_resume(struct platform_device *pdev)
+{
+	int ret = 0, idx;
+	struct davinci_audio_dev *dev = dev_get_drvdata(&pdev->dev);
+
+	ret = pm_runtime_get_sync(&pdev->dev);
+	if (ret < 0)
+		dev_err(&pdev->dev, "failed to get runtime pm\n");
+
+	if (dev->version == MCASP_VERSION_3) {
+		mcasp_set_reg(dev->base + DAVINCI_MCASP_GBLCTLX_REG,
+								dev->gblctlx);
+		mcasp_set_reg(dev->base + DAVINCI_MCASP_TXMASK_REG,
+								dev->txmask);
+		mcasp_set_reg(dev->base + DAVINCI_MCASP_TXFMT_REG, dev->txfmt);
+		mcasp_set_reg(dev->base + DAVINCI_MCASP_TXFMCTL_REG,
+								dev->txfmctl);
+		mcasp_set_reg(dev->base + DAVINCI_MCASP_ACLKXCTL_REG,
+								dev->aclkxctl);
+		mcasp_set_reg(dev->base + DAVINCI_MCASP_AHCLKXCTL_REG,
+								dev->ahclkxctl);
+		mcasp_set_reg(dev->base + DAVINCI_MCASP_TXTDM_REG, dev->txtdm);
+		mcasp_set_reg(dev->base + MCASP_VER3_WFIFOCTL, dev->wfifoctl);
+
+		mcasp_set_reg(dev->base + DAVINCI_MCASP_GBLCTLR_REG,
+								dev->gblctlr);
+		mcasp_set_reg(dev->base + DAVINCI_MCASP_RXMASK_REG,
+								dev->rxmask);
+		mcasp_set_reg(dev->base + DAVINCI_MCASP_RXFMT_REG, dev->rxfmt);
+		mcasp_set_reg(dev->base + DAVINCI_MCASP_RXFMCTL_REG,
+								dev->rxfmctl);
+		mcasp_set_reg(dev->base + DAVINCI_MCASP_ACLKRCTL_REG,
+								dev->aclkrctl);
+		mcasp_set_reg(dev->base + DAVINCI_MCASP_AHCLKRCTL_REG,
+								dev->ahclkrctl);
+		mcasp_set_reg(dev->base + DAVINCI_MCASP_RXTDM_REG, dev->rxtdm);
+		mcasp_set_reg(dev->base + MCASP_VER3_RFIFOCTL, dev->rfifoctl);
+
+		for (idx = 0; idx < dev->num_serializer; idx++) {
+			mcasp_set_reg((dev->base +
+						DAVINCI_MCASP_XRSRCTL_REG(idx)),
+						dev->xrsrctl[idx]);
+		}
+
+		mcasp_set_reg(dev->base + DAVINCI_MCASP_PFUNC_REG, dev->pfunc);
+		mcasp_set_reg(dev->base + DAVINCI_MCASP_PDIR_REG, dev->pdir);
+	}
+	/* only values < 0 indicate errors */
+	return IS_ERR_VALUE(ret) ? ret : 0;
+}
+#endif
+
 static struct platform_driver davinci_mcasp_driver = {
 	.probe		= davinci_mcasp_probe,
 	.remove		= davinci_mcasp_remove,
+#ifdef CONFIG_PM
+	.suspend	= davinci_mcasp_suspend,
+	.resume		= davinci_mcasp_resume,
+#endif
 	.driver		= {
 		.name	= "davinci-mcasp",
 		.owner	= THIS_MODULE,
