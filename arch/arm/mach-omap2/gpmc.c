@@ -26,6 +26,7 @@
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/interrupt.h>
+#include <linux/pm_runtime.h>
 
 #include <asm/mach-types.h>
 #include <plat/gpmc.h>
@@ -166,7 +167,7 @@ u32 gpmc_cs_read_reg(int cs, int idx)
 
 static struct clk *gpmc_l3_clk;
 
-static void __devinit gpmc_clk_init(void)
+static void __devinit gpmc_clk_init(struct device *dev)
 {
 	char *ck = NULL;
 
@@ -186,7 +187,8 @@ static void __devinit gpmc_clk_init(void)
 		BUG();
 	}
 
-	clk_enable(gpmc_l3_clk);
+	pm_runtime_enable(dev);
+	pm_runtime_get_sync(dev);
 }
 
 /* TODO: Add support for gpmc_fck to clock framework and use it */
@@ -747,7 +749,7 @@ static int __devinit gpmc_probe(struct platform_device *pdev)
 	void *p;
 
 	/* XXX: This should go away with HWMOD & runtime PM adaptation */
-	gpmc_clk_init();
+	gpmc_clk_init(&pdev->dev);
 
 	gpmc = devm_kzalloc(&pdev->dev, sizeof(struct gpmc), GFP_KERNEL);
 	if (!gpmc)
