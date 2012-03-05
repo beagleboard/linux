@@ -36,6 +36,7 @@
 #include <linux/mfd/tps65217.h>
 #include <linux/pwm_backlight.h>
 #include <linux/input/ti_tscadc.h>
+#include <linux/reboot.h>
 
 /* LCD controller is similar to DA850 */
 #include <video/da8xx-fb.h>
@@ -1911,18 +1912,19 @@ static void am335x_evm_setup(struct memory_accessor *mem_acc, void *context)
 	/* get board specific data */
 	ret = mem_acc->read(mem_acc, (char *)&config, 0, sizeof(config));
 	if (ret != sizeof(config)) {
-		pr_warning("AM335X EVM config read fail, read %d bytes\n", ret);
-		return;
+		pr_err("AM335X EVM config read fail, read %d bytes\n", ret);
+		pr_err("This likely means that there either is no/or a failed EEPROM\n");
+		goto out;
 	}
 
 	if (config.header != AM335X_EEPROM_HEADER) {
-		pr_warning("AM335X: wrong header 0x%x, expected 0x%x\n",
+		pr_err("AM335X: wrong header 0x%x, expected 0x%x\n",
 			config.header, AM335X_EEPROM_HEADER);
 		goto out;
 	}
 
 	if (strncmp("A335", config.name, 4)) {
-		pr_err("Board %s doesn't look like an AM335x board\n",
+		pr_err("Board %s\ndoesn't look like an AM335x board\n",
 			config.name);
 		goto out;
 	}
@@ -1962,23 +1964,20 @@ static void am335x_evm_setup(struct memory_accessor *mem_acc, void *context)
 	am33xx_cpsw_init(gigabit_enable);
 
 	return;
+
 out:
 	/*
 	 * If the EEPROM hasn't been programed or an incorrect header
-	 * or board name are read, assume this is an old beaglebone board
-	 * (< Rev A3)
+	 * or board name are read then the hardware details are unknown.
+	 * Notify the user and call machine_halt to stop the boot process.
 	 */
-	pr_err("Could not detect any board, falling back to: "
-		"Beaglebone (< Rev A3) with no daughter card connected\n");
-	daughter_brd_detected = false;
-	setup_beaglebone_old();
-
-	/* Initialize cpsw after board detection is completed as board
-	 * information is required for configuring phy address and hence
-	 * should be call only after board detection
-	 */
-
-	am33xx_cpsw_init(gigabit_enable);
+	pr_err("The error message above indicates that there is an issue with\n"
+		   "the EEPROM or the EEPROM contents.  After verifying the EEPROM\n"
+		   "contents, if any, refer to the %s function in the\n"
+		   "%s file to modify the board\n"
+		   "initialization code to match the hardware configuration\n",
+		   __func__ , __FILE__);
+	machine_halt();
 }
 
 static struct at24_platform_data am335x_daughter_board_eeprom_info = {
