@@ -202,16 +202,6 @@ static struct clockdomain l4_cefuse_am33xx_clkdm = {
 	.flags		= CLKDM_CAN_SWSUP,
 };
 
-static struct clockdomain wkup_usb_am33xx_clkdm = {
-	.name		= "wkup_usb_clkdm",
-	.pwrdm		= { .name = "wkup_pwrdm" },
-	.cm_inst	= AM33XX_CM_WKUP_MOD,
-	.prcm_partition	= AM33XX_PRM_PARTITION,
-	.clkdm_offs	= AM33XX_CM_CLKDCOLDO_DPLL_PER_OFFSET,
-	.clktrctrl_mask	= AM33XX_CLKTRCTRL_MASK,
-	.flags		= CLKDM_CAN_SWSUP,
-};
-
 static struct clockdomain *clockdomains_am33xx[] __initdata = {
 	&l4ls_am33xx_clkdm,
 	&l3s_am33xx_clkdm,
@@ -231,7 +221,6 @@ static struct clockdomain *clockdomains_am33xx[] __initdata = {
 	&gfx_l3_am33xx_clkdm,
 	&gfx_l4ls_gfx_am33xx_clkdm,
 	&l4_cefuse_am33xx_clkdm,
-	&wkup_usb_am33xx_clkdm,
 	NULL,
 };
 
