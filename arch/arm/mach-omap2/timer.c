@@ -155,6 +155,7 @@ static int __init omap_dm_timer_init_one(struct omap_dm_timer *timer,
 		return -ENODEV;
 
 	timer->irq = oh->mpu_irqs[0].irq;
+	timer->id = gptimer_id;
 	timer->phys_base = oh->slaves[0]->addr->pa_start;
 	size = oh->slaves[0]->addr->pa_end - timer->phys_base;
 
@@ -309,6 +310,35 @@ static void __init omap2_gp_clocksource_init(int gptimer_id,
 }
 #endif
 
+static void omap_dmtimer_resume(void)
+{
+	char name[10];
+	struct omap_hwmod *oh;
+
+	sprintf(name, "timer%d", clkev.id);
+	oh = omap_hwmod_lookup(name);
+	if (!oh)
+		return;
+
+	omap_hwmod_enable(oh);
+	__omap_dm_timer_load_start(&clkev,
+			OMAP_TIMER_CTRL_ST | OMAP_TIMER_CTRL_AR, 0, 1);
+	__omap_dm_timer_int_enable(&clkev, OMAP_TIMER_INT_OVERFLOW);
+}
+
+static void omap_dmtimer_suspend(void)
+{
+	char name[10];
+	struct omap_hwmod *oh;
+
+	sprintf(name, "timer%d", clkev.id);
+	oh = omap_hwmod_lookup(name);
+	if (!oh)
+		return;
+
+	omap_hwmod_idle(oh);
+}
+
 #define OMAP_SYS_TIMER_INIT(name, clkev_nr, clkev_src,			\
 				clksrc_nr, clksrc_src)			\
 static void __init omap##name##_timer_init(void)			\
@@ -319,7 +349,9 @@ static void __init omap##name##_timer_init(void)			\
 
 #define OMAP_SYS_TIMER(name)						\
 struct sys_timer omap##name##_timer = {					\
-	.init	= omap##name##_timer_init,				\
+	.init		= omap##name##_timer_init,			\
+	.suspend	= omap_dmtimer_suspend,				\
+	.resume		= omap_dmtimer_resume,				\
 };
 
 #ifdef CONFIG_ARCH_OMAP2
@@ -333,7 +365,7 @@ OMAP_SYS_TIMER(3)
 OMAP_SYS_TIMER_INIT(3_secure, OMAP3_SECURE_TIMER, OMAP3_CLKEV_SOURCE,
 			2, OMAP3_MPU_SOURCE)
 OMAP_SYS_TIMER(3_secure)
-OMAP_SYS_TIMER_INIT(3_am33xx, 0, "clk_rc32k_ck", 1, OMAP4_MPU_SOURCE)
+OMAP_SYS_TIMER_INIT(3_am33xx, 2, OMAP4_MPU_SOURCE, 1, OMAP4_MPU_SOURCE)
 OMAP_SYS_TIMER(3_am33xx)
 #endif
 
