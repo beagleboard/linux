@@ -112,7 +112,7 @@ void timer_tick(void)
 }
 #endif
 
-#if defined(CONFIG_PM) && !defined(CONFIG_GENERIC_CLOCKEVENTS)
+#if defined(CONFIG_PM)
 static int timer_suspend(void)
 {
 	if (system_timer->suspend)
