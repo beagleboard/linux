@@ -1147,9 +1147,41 @@ static struct spi_board_info am335x_spi1_slave_info[] = {
 	},
 };
 
+static struct gpmc_timings am335x_nand_timings = {
+	.sync_clk = 0,
+
+	.cs_on = 0,
+	.cs_rd_off = 44,
+	.cs_wr_off = 44,
+
+	.adv_on = 6,
+	.adv_rd_off = 34,
+	.adv_wr_off = 44,
+	.we_off = 40,
+	.oe_off = 54,
+
+	.access = 64,
+	.rd_cycle = 82,
+	.wr_cycle = 82,
+
+	.wr_access = 40,
+	.wr_data_mux_bus = 0,
+};
+
 static void evm_nand_init(int evm_id, int profile)
 {
+	struct gpmc_devices_info gpmc_device[2] = {
+		{ NULL, 0 },
+		{ NULL, 0 },
+	};
+
 	setup_pin_mux(nand_pin_mux);
+	gpmc_device[0].pdata = omap_nand_init(am335x_nand_partitions,
+		ARRAY_SIZE(am335x_nand_partitions), 0, 0,
+		&am335x_nand_timings);
+	gpmc_device[0].flag = GPMC_DEVICE_NAND;
+
+	omap_init_gpmc(gpmc_device, sizeof(gpmc_device));
 }
 
 /* TPS65217 voltage regulator support */
