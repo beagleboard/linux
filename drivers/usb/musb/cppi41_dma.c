@@ -764,7 +764,8 @@ static unsigned cppi41_next_rx_segment(struct cppi41_channel *rx_ch)
 
 		pkt_len = rx_ch->pkt_size;
 		mode = USB_GENERIC_RNDIS_MODE;
-		if (!strcmp(gadget_driver->driver.name, "g_file_storage")) {
+		if (!strcmp(gadget_driver->driver.name, "g_file_storage") ||
+			!strcmp(gadget_driver->driver.name, "g_mass_storage")) {
 			if (cppi->inf_mode && length > pkt_len) {
 				pkt_len = 0;
 				length = length - rx_ch->pkt_size;
