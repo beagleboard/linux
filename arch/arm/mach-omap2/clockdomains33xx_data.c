@@ -29,7 +29,7 @@ static struct clockdomain l4ls_am33xx_clkdm = {
 	.prcm_partition	= AM33XX_PRM_PARTITION,
 	.clkdm_offs	= AM33XX_CM_PER_L4LS_CLKSTCTRL_OFFSET,
 	.clktrctrl_mask	= AM33XX_CLKTRCTRL_MASK,
-	.flags		= CLKDM_CAN_SWSUP,
+	.flags		= (CLKDM_CAN_SWSUP | CLKDM_NO_AUTODEPS),
 };
 
 static struct clockdomain l3s_am33xx_clkdm = {
@@ -39,7 +39,7 @@ static struct clockdomain l3s_am33xx_clkdm = {
 	.prcm_partition	= AM33XX_PRM_PARTITION,
 	.clkdm_offs	= AM33XX_CM_PER_L3S_CLKSTCTRL_OFFSET,
 	.clktrctrl_mask	= AM33XX_CLKTRCTRL_MASK,
-	.flags		= CLKDM_CAN_SWSUP,
+	.flags		= (CLKDM_CAN_SWSUP | CLKDM_NO_AUTODEPS),
 };
 
 static struct clockdomain l4fw_am33xx_clkdm = {
@@ -49,7 +49,7 @@ static struct clockdomain l4fw_am33xx_clkdm = {
 	.prcm_partition	= AM33XX_PRM_PARTITION,
 	.clkdm_offs	= AM33XX_CM_PER_L4FW_CLKSTCTRL_OFFSET,
 	.clktrctrl_mask	= AM33XX_CLKTRCTRL_MASK,
-	.flags		= CLKDM_CAN_SWSUP,
+	.flags		= (CLKDM_CAN_SWSUP | CLKDM_NO_AUTODEPS),
 };
 
 static struct clockdomain l3_am33xx_clkdm = {
@@ -59,7 +59,7 @@ static struct clockdomain l3_am33xx_clkdm = {
 	.prcm_partition	= AM33XX_PRM_PARTITION,
 	.clkdm_offs	= AM33XX_CM_PER_L3_CLKSTCTRL_OFFSET,
 	.clktrctrl_mask	= AM33XX_CLKTRCTRL_MASK,
-	.flags		= CLKDM_CAN_SWSUP,
+	.flags		= (CLKDM_CAN_SWSUP | CLKDM_NO_AUTODEPS),
 };
 
 static struct clockdomain l4hs_am33xx_clkdm = {
@@ -69,7 +69,7 @@ static struct clockdomain l4hs_am33xx_clkdm = {
 	.prcm_partition	= AM33XX_PRM_PARTITION,
 	.clkdm_offs	= AM33XX_CM_PER_L4HS_CLKSTCTRL_OFFSET,
 	.clktrctrl_mask	= AM33XX_CLKTRCTRL_MASK,
-	.flags		= CLKDM_CAN_SWSUP,
+	.flags		= (CLKDM_CAN_SWSUP | CLKDM_NO_AUTODEPS),
 };
 
 static struct clockdomain ocpwp_l3_am33xx_clkdm = {
@@ -79,7 +79,7 @@ static struct clockdomain ocpwp_l3_am33xx_clkdm = {
 	.prcm_partition	= AM33XX_PRM_PARTITION,
 	.clkdm_offs	= AM33XX_CM_PER_OCPWP_L3_CLKSTCTRL_OFFSET,
 	.clktrctrl_mask	= AM33XX_CLKTRCTRL_MASK,
-	.flags		= CLKDM_CAN_SWSUP,
+	.flags		= (CLKDM_CAN_SWSUP | CLKDM_NO_AUTODEPS),
 };
 
 static struct clockdomain pruss_ocp_am33xx_clkdm = {
@@ -89,7 +89,7 @@ static struct clockdomain pruss_ocp_am33xx_clkdm = {
 	.prcm_partition	= AM33XX_PRM_PARTITION,
 	.clkdm_offs	= AM33XX_CM_PER_PRUSS_CLKSTCTRL_OFFSET,
 	.clktrctrl_mask	= AM33XX_CLKTRCTRL_MASK,
-	.flags		= CLKDM_CAN_SWSUP,
+	.flags		= (CLKDM_CAN_SWSUP | CLKDM_NO_AUTODEPS),
 };
 
 static struct clockdomain cpsw_125mhz_am33xx_clkdm = {
@@ -99,7 +99,7 @@ static struct clockdomain cpsw_125mhz_am33xx_clkdm = {
 	.prcm_partition	= AM33XX_PRM_PARTITION,
 	.clkdm_offs	= AM33XX_CM_PER_CPSW_CLKSTCTRL_OFFSET,
 	.clktrctrl_mask	= AM33XX_CLKTRCTRL_MASK,
-	.flags		= CLKDM_CAN_SWSUP,
+	.flags		= (CLKDM_CAN_SWSUP | CLKDM_NO_AUTODEPS),
 };
 
 static struct clockdomain lcdc_am33xx_clkdm = {
@@ -109,7 +109,7 @@ static struct clockdomain lcdc_am33xx_clkdm = {
 	.prcm_partition	= AM33XX_PRM_PARTITION,
 	.clkdm_offs	= AM33XX_CM_PER_LCDC_CLKSTCTRL_OFFSET,
 	.clktrctrl_mask	= AM33XX_CLKTRCTRL_MASK,
-	.flags		= CLKDM_CAN_SWSUP,
+	.flags		= (CLKDM_CAN_SWSUP | CLKDM_NO_AUTODEPS),
 };
 
 static struct clockdomain clk_24mhz_am33xx_clkdm = {
@@ -119,7 +119,7 @@ static struct clockdomain clk_24mhz_am33xx_clkdm = {
 	.prcm_partition	= AM33XX_PRM_PARTITION,
 	.clkdm_offs	= AM33XX_CM_PER_CLK_24MHZ_CLKSTCTRL_OFFSET,
 	.clktrctrl_mask	= AM33XX_CLKTRCTRL_MASK,
-	.flags		= CLKDM_CAN_SWSUP,
+	.flags		= (CLKDM_CAN_SWSUP | CLKDM_NO_AUTODEPS),
 };
 
 static struct clockdomain l4_wkup_am33xx_clkdm = {
@@ -129,7 +129,7 @@ static struct clockdomain l4_wkup_am33xx_clkdm = {
 	.prcm_partition	= AM33XX_PRM_PARTITION,
 	.clkdm_offs	= AM33XX_CM_WKUP_CLKSTCTRL_OFFSET,
 	.clktrctrl_mask	= AM33XX_CLKTRCTRL_MASK,
-	.flags		= CLKDM_CAN_SWSUP,
+	.flags		= (CLKDM_CAN_SWSUP | CLKDM_NO_AUTODEPS),
 };
 
 static struct clockdomain l3_aon_am33xx_clkdm = {
@@ -139,7 +139,7 @@ static struct clockdomain l3_aon_am33xx_clkdm = {
 	.prcm_partition	= AM33XX_PRM_PARTITION,
 	.clkdm_offs	= AM33XX_CM_L3_AON_CLKSTCTRL_OFFSET,
 	.clktrctrl_mask	= AM33XX_CLKTRCTRL_MASK,
-	.flags		= CLKDM_CAN_SWSUP,
+	.flags		= (CLKDM_CAN_SWSUP | CLKDM_NO_AUTODEPS),
 };
 
 static struct clockdomain l4_wkup_aon_am33xx_clkdm = {
@@ -149,7 +149,7 @@ static struct clockdomain l4_wkup_aon_am33xx_clkdm = {
 	.prcm_partition	= AM33XX_PRM_PARTITION,
 	.clkdm_offs	= AM33XX_CM_L4_WKUP_AON_CLKSTCTRL_OFFSET,
 	.clktrctrl_mask	= AM33XX_CLKTRCTRL_MASK,
-	.flags		= CLKDM_CAN_SWSUP,
+	.flags		= (CLKDM_CAN_SWSUP | CLKDM_NO_AUTODEPS),
 };
 
 static struct clockdomain mpu_am33xx_clkdm = {
@@ -159,7 +159,7 @@ static struct clockdomain mpu_am33xx_clkdm = {
 	.prcm_partition	= AM33XX_PRM_PARTITION,
 	.clkdm_offs	= AM33XX_CM_MPU_CLKSTCTRL_OFFSET,
 	.clktrctrl_mask	= AM33XX_CLKTRCTRL_MASK,
-	.flags		= CLKDM_CAN_SWSUP,
+	.flags		= (CLKDM_CAN_SWSUP | CLKDM_NO_AUTODEPS),
 };
 
 static struct clockdomain l4_rtc_am33xx_clkdm = {
@@ -169,7 +169,7 @@ static struct clockdomain l4_rtc_am33xx_clkdm = {
 	.prcm_partition	= AM33XX_PRM_PARTITION,
 	.clkdm_offs	= AM33XX_CM_RTC_CLKSTCTRL_OFFSET,
 	.clktrctrl_mask	= AM33XX_CLKTRCTRL_MASK,
-	.flags		= CLKDM_CAN_SWSUP,
+	.flags		= (CLKDM_CAN_SWSUP | CLKDM_NO_AUTODEPS),
 };
 
 static struct clockdomain gfx_l3_am33xx_clkdm = {
@@ -179,7 +179,7 @@ static struct clockdomain gfx_l3_am33xx_clkdm = {
 	.prcm_partition	= AM33XX_PRM_PARTITION,
 	.clkdm_offs	= AM33XX_CM_GFX_L3_CLKSTCTRL_OFFSET,
 	.clktrctrl_mask	= AM33XX_CLKTRCTRL_MASK,
-	.flags		= CLKDM_CAN_SWSUP,
+	.flags		= (CLKDM_CAN_SWSUP | CLKDM_NO_AUTODEPS),
 };
 
 static struct clockdomain gfx_l4ls_gfx_am33xx_clkdm = {
@@ -189,7 +189,7 @@ static struct clockdomain gfx_l4ls_gfx_am33xx_clkdm = {
 	.prcm_partition	= AM33XX_PRM_PARTITION,
 	.clkdm_offs	= AM33XX_CM_GFX_L4LS_GFX_CLKSTCTRL__1_OFFSET,
 	.clktrctrl_mask	= AM33XX_CLKTRCTRL_MASK,
-	.flags		= CLKDM_CAN_SWSUP,
+	.flags		= (CLKDM_CAN_SWSUP | CLKDM_NO_AUTODEPS),
 };
 
 static struct clockdomain l4_cefuse_am33xx_clkdm = {
@@ -199,7 +199,7 @@ static struct clockdomain l4_cefuse_am33xx_clkdm = {
 	.prcm_partition	= AM33XX_PRM_PARTITION,
 	.clkdm_offs	= AM33XX_CM_CEFUSE_CLKSTCTRL_OFFSET,
 	.clktrctrl_mask	= AM33XX_CLKTRCTRL_MASK,
-	.flags		= CLKDM_CAN_SWSUP,
+	.flags		= (CLKDM_CAN_SWSUP | CLKDM_NO_AUTODEPS),
 };
 
 static struct clockdomain *clockdomains_am33xx[] __initdata = {
