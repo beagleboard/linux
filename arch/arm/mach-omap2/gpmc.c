@@ -52,6 +52,7 @@
 #define GPMC_ECC_CONTROL	0x1f8
 #define GPMC_ECC_SIZE_CONFIG	0x1fc
 #define GPMC_ECC1_RESULT        0x200
+#define GPMC_ECC_BCH_RESULT_0	0x240
 
 #define GPMC_CS0_OFFSET		0x60
 #define GPMC_CS_SIZE		0x30
@@ -891,52 +892,73 @@ void omap3_gpmc_restore_context(void)
 
 /**
  * gpmc_enable_hwecc - enable hardware ecc functionality
+ * @ecc_type: ecc type e.g. Hamming, BCH
  * @cs: chip select number
  * @mode: read/write mode
  * @dev_width: device bus width(1 for x16, 0 for x8)
  * @ecc_size: bytes for which ECC will be generated
  */
-int gpmc_enable_hwecc(int cs, int mode, int dev_width, int ecc_size)
+int gpmc_enable_hwecc(int ecc_type, int cs, int mode,
+			int dev_width, int ecc_size)
 {
-	unsigned int val;
-
-	/* check if ecc module is in used */
-	if (gpmc->ecc_used != -EINVAL)
-		return -EINVAL;
-
-	gpmc->ecc_used = cs;
-
-	/* clear ecc and enable bits */
-	val = ((0x00000001<<8) | 0x00000001);
-	gpmc_write_reg(GPMC_ECC_CONTROL, val);
-
-	/* program ecc and result sizes */
-	val = ((((ecc_size >> 1) - 1) << 22) | (0x0000000F));
-	gpmc_write_reg(GPMC_ECC_SIZE_CONFIG, val);
+	unsigned int bch_mod = 0, bch_wrapmode = 0, eccsize1 = 0, eccsize0 = 0;
+	unsigned int ecc_conf_val = 0, ecc_size_conf_val = 0;
 
 	switch (mode) {
 	case GPMC_ECC_READ:
-		gpmc_write_reg(GPMC_ECC_CONTROL, 0x101);
+		if (ecc_type == OMAP_ECC_BCH4_CODE_HW) {
+			eccsize1 = 0xD; eccsize0 = 0x48;
+			bch_mod = 0;
+			bch_wrapmode = 0x09;
+		} else if (ecc_type == OMAP_ECC_BCH8_CODE_HW) {
+			eccsize1 = 0x1A; eccsize0 = 0x18;
+			bch_mod = 1;
+			bch_wrapmode = 0x04;
+		} else
+			eccsize1 = ((ecc_size >> 1) - 1);
 		break;
 	case GPMC_ECC_READSYN:
-		 gpmc_write_reg(GPMC_ECC_CONTROL, 0x100);
 		break;
 	case GPMC_ECC_WRITE:
-		gpmc_write_reg(GPMC_ECC_CONTROL, 0x101);
+		if (ecc_type == OMAP_ECC_BCH4_CODE_HW) {
+			eccsize1 = 0x20; eccsize0 = 0x00;
+			bch_mod = 0;
+			bch_wrapmode = 0x06;
+		} else if (ecc_type == OMAP_ECC_BCH8_CODE_HW) {
+			eccsize1 = 0x20; eccsize0 = 0x00;
+			bch_mod = 1;
+			bch_wrapmode = 0x06;
+		} else
+			eccsize1 = ((ecc_size >> 1) - 1);
 		break;
 	default:
 		printk(KERN_INFO "Error: Unrecognized Mode[%d]!\n", mode);
 		break;
 	}
 
-	/* (ECC 16 or 8 bit col) | ( CS  )  | ECC Enable */
-	val = (dev_width << 7) | (cs << 1) | (0x1);
-	gpmc_write_reg(GPMC_ECC_CONFIG, val);
+	/* clear ecc and enable bits */
+	if ((ecc_type == OMAP_ECC_BCH4_CODE_HW) ||
+		(ecc_type == OMAP_ECC_BCH8_CODE_HW)) {
+		gpmc_write_reg(GPMC_ECC_CONTROL, 0x00000001);
+		ecc_size_conf_val = (eccsize1 << 22) | (eccsize0 << 12);
+		ecc_conf_val = ((0x01 << 16) | (bch_mod << 12)
+			| (bch_wrapmode << 8) | (dev_width << 7)
+			| (0x03 << 4) | (cs << 1) | (0x1));
+	} else {
+		gpmc_write_reg(GPMC_ECC_CONTROL, 0x00000101);
+		ecc_size_conf_val = (eccsize1 << 22) | 0x0000000F;
+		ecc_conf_val = (dev_width << 7) | (cs << 1) | (0x1);
+	}
+
+	gpmc_write_reg(GPMC_ECC_SIZE_CONFIG, ecc_size_conf_val);
+	gpmc_write_reg(GPMC_ECC_CONFIG, ecc_conf_val);
+	gpmc_write_reg(GPMC_ECC_CONTROL, 0x00000101);
 	return 0;
 }
 
 /**
  * gpmc_calculate_ecc - generate non-inverted ecc bytes
+ * @ecc_type: ecc type e.g. Hamming, BCH
  * @cs: chip select number
  * @dat: data pointer over which ecc is computed
  * @ecc_code: ecc code buffer
@@ -947,20 +969,50 @@ int gpmc_enable_hwecc(int cs, int mode, int dev_width, int ecc_size)
  * an erased page will produce an ECC mismatch between generated and read
  * ECC bytes that has to be dealt with separately.
  */
-int gpmc_calculate_ecc(int cs, const u_char *dat, u_char *ecc_code)
+int gpmc_calculate_ecc(int ecc_type, int cs,
+		const u_char *dat, u_char *ecc_code)
 {
-	unsigned int val = 0x0;
+	unsigned int reg;
+	unsigned int val1 = 0x0, val2 = 0x0;
+	unsigned int val3 = 0x0, val4 = 0x0;
+	int i;
 
-	if (gpmc->ecc_used != cs)
-		return -EINVAL;
+	if ((ecc_type == OMAP_ECC_BCH4_CODE_HW) ||
+		(ecc_type == OMAP_ECC_BCH8_CODE_HW)) {
+		for (i = 0; i < 4; i++) {
+			/*
+			 * Reading HW ECC_BCH_Results
+			 * 0x240-0x24C, 0x250-0x25C, 0x260-0x26C, 0x270-0x27C
+			 */
+			reg =  GPMC_ECC_BCH_RESULT_0 + (0x10 * i);
+			val1 = gpmc_read_reg(reg);
+			val2 = gpmc_read_reg(reg + 4);
+			if (ecc_type == OMAP_ECC_BCH8_CODE_HW) {
+				val3 = gpmc_read_reg(reg + 8);
+				val4 = gpmc_read_reg(reg + 12);
 
-	/* read ecc result */
-	val = gpmc_read_reg(GPMC_ECC1_RESULT);
-	*ecc_code++ = val;          /* P128e, ..., P1e */
-	*ecc_code++ = val >> 16;    /* P128o, ..., P1o */
-	/* P2048o, P1024o, P512o, P256o, P2048e, P1024e, P512e, P256e */
-	*ecc_code++ = ((val >> 8) & 0x0f) | ((val >> 20) & 0xf0);
-
-	gpmc->ecc_used = -EINVAL;
+				*ecc_code++ = (val4 & 0xFF);
+				*ecc_code++ = ((val3 >> 24) & 0xFF);
+				*ecc_code++ = ((val3 >> 16) & 0xFF);
+				*ecc_code++ = ((val3 >> 8) & 0xFF);
+				*ecc_code++ = (val3 & 0xFF);
+				*ecc_code++ = ((val2 >> 24) & 0xFF);
+			}
+			*ecc_code++ = ((val2 >> 16) & 0xFF);
+			*ecc_code++ = ((val2 >> 8) & 0xFF);
+			*ecc_code++ = (val2 & 0xFF);
+			*ecc_code++ = ((val1 >> 24) & 0xFF);
+			*ecc_code++ = ((val1 >> 16) & 0xFF);
+			*ecc_code++ = ((val1 >> 8) & 0xFF);
+			*ecc_code++ = (val1 & 0xFF);
+		}
+	} else {
+		/* read ecc result */
+		val1 = gpmc_read_reg(GPMC_ECC1_RESULT);
+		*ecc_code++ = val1;          /* P128e, ..., P1e */
+		*ecc_code++ = val1 >> 16;    /* P128o, ..., P1o */
+		/* P2048o, P1024o, P512o, P256o, P2048e, P1024e, P512e, P256e */
+		*ecc_code++ = ((val1 >> 8) & 0x0f) | ((val1 >> 20) & 0xf0);
+	}
 	return 0;
 }
