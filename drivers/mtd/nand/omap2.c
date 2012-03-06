@@ -1156,14 +1156,7 @@ static int __devinit omap_nand_probe(struct platform_device *pdev)
 			omap_oobinfo.oobfree->offset = offset;
 			omap_oobinfo.oobfree->length = info->mtd.oobsize -
 						offset - omap_oobinfo.eccbytes;
-			/*
-			offset is calculated considering the following :
-			1) 12 bytes ECC for 512 byte access and 24 bytes ECC for
-			256 byte access in OOB_64 can be supported
-			2)Ecc bytes lie to the end of OOB area.
-			3)Ecc layout must match with u-boot's ECC layout.
-			*/
-			offset = info->mtd.oobsize - MAX_HWECC_BYTES_OOB_64;
+			offset = info->mtd.oobsize - omap_oobinfo.eccbytes;
 		}
 
 		for (i = 0; i < omap_oobinfo.eccbytes; i++)
