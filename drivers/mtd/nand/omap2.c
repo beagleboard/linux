@@ -24,14 +24,9 @@
 #include <plat/dma.h>
 #include <plat/gpmc.h>
 #include <plat/nand.h>
-#include <plat/elm.h>
 
 #define	DRIVER_NAME	"omap2-nand"
 #define	OMAP_NAND_TIMEOUT_MS	5000
-
-#define BCH8_ECC_BYTES        (512)
-#define BCH8_ECC_OOB_BYTES    (13)
-#define BCH8_ECC_MAX          ((BCH8_ECC_BYTES + BCH8_ECC_OOB_BYTES) * 8)
 
 #define NAND_Ecc_P1e		(1 << 0)
 #define NAND_Ecc_P2e		(1 << 1)
@@ -102,8 +97,6 @@
 
 #define MAX_HWECC_BYTES_OOB_64     24
 #define JFFS2_CLEAN_MARKER_OFFSET  0x2
-#define BCH_ECC_POS                    0x2
-#define BCH_JFFS2_CLEAN_MARKER_OFFSET  0x36
 
 int decode_bch(int select_4_8, unsigned char *ecc, unsigned int *err_loc);
 
@@ -795,70 +788,6 @@ static int omap_compare_ecc(u8 *ecc_data1,	/* read from NAND memory */
 }
 
 /**
- * omap_read_page_bch - BCH ecc based page read function
- * @mtd:	mtd info structure
- * @chip:	nand chip info structure
- * @buf:	buffer to store read data
- * @page:	page number to read
- *
- * For BCH ECC scheme, GPMC used for syndrome calculation and ELM module
- * used for error correction.
- */
-static int omap_read_page_bch(struct mtd_info *mtd, struct nand_chip *chip,
-				uint8_t *buf, int page)
-{
-	int i, eccsize = chip->ecc.size;
-	int eccbytes = chip->ecc.bytes;
-	int eccsteps = chip->ecc.steps;
-	uint8_t *p = buf;
-	uint8_t *ecc_calc = chip->buffers->ecccalc;
-	uint8_t *ecc_code = chip->buffers->ecccode;
-	uint32_t *eccpos = chip->ecc.layout->eccpos;
-	uint8_t *oob = &chip->oob_poi[eccpos[0]];
-	uint32_t data_pos;
-	uint32_t oob_pos;
-
-	data_pos = 0;
-	/* oob area start */
-	oob_pos = (eccsize * eccsteps) + chip->ecc.layout->eccpos[0];
-
-	for (i = 0; eccsteps; eccsteps--, i += eccbytes, p += eccsize,
-				oob += eccbytes) {
-		chip->ecc.hwctl(mtd, NAND_ECC_READ);
-		/* read data */
-		chip->cmdfunc(mtd, NAND_CMD_RNDOUT, data_pos, page);
-		chip->read_buf(mtd, p, eccsize);
-
-		/* read respective ecc from oob area */
-		chip->cmdfunc(mtd, NAND_CMD_RNDOUT, oob_pos, page);
-		chip->read_buf(mtd, oob, eccbytes);
-		/* read syndrome */
-		chip->ecc.calculate(mtd, p, &ecc_calc[i]);
-
-		data_pos += eccsize;
-		oob_pos += eccbytes;
-	}
-
-	for (i = 0; i < chip->ecc.total; i++)
-		ecc_code[i] = chip->oob_poi[eccpos[i]];
-
-	eccsteps = chip->ecc.steps;
-	p = buf;
-
-	for (i = 0 ; eccsteps; eccsteps--, i += eccbytes, p += eccsize) {
-		int stat;
-
-		stat = chip->ecc.correct(mtd, p, &ecc_code[i], &ecc_calc[i]);
-
-		if (stat < 0)
-			mtd->ecc_stats.failed++;
-		else
-			mtd->ecc_stats.corrected += stat;
-	}
-	return 0;
-}
-
-/**
  * omap_correct_data - Compares the ECC read with HW generated ECC
  * @mtd: MTD device structure
  * @dat: page data
@@ -940,47 +869,6 @@ static int omap_correct_data(struct mtd_info *mtd, u_char *dat,
 			calc_ecc = calc_ecc + eccsize;
 			read_ecc = read_ecc + eccsize;
 			dat += 512;
-		}
-		break;
-	case OMAP_ECC_BCH8_CODE_HW:
-		eccsize = BCH8_ECC_OOB_BYTES;
-
-		for (i = 0; i < blockCnt; i++) {
-			eccflag = 0;
-			/* check if area is flashed */
-			for (j = 0; (j < eccsize) && (eccflag == 0); j++)
-				if (read_ecc[j] != 0xFF)
-					eccflag = 1;
-
-			if (eccflag == 1) {
-				eccflag = 0;
-				/* check if any ecc error */
-				for (j = 0; (j < eccsize) && (eccflag == 0);
-						j++)
-					if (calc_ecc[j] != 0)
-						eccflag = 1;
-			}
-
-			count = 0;
-			if (eccflag == 1)
-				count  = elm_decode_bch_error(0, calc_ecc,
-						err_loc);
-
-			for (j = 0; j < count; j++) {
-				u32 bit_pos, byte_pos;
-
-				bit_pos   = err_loc[j] % 8;
-				byte_pos  = (BCH8_ECC_MAX - err_loc[j] - 1) / 8;
-				if (err_loc[j] < BCH8_ECC_MAX)
-					dat[byte_pos] ^=
-							1 << bit_pos;
-				/* else, not interested to correct ecc */
-			}
-
-			stat     += count;
-			calc_ecc  = calc_ecc + eccsize;
-			read_ecc  = read_ecc + eccsize;
-			dat      += BCH8_ECC_BYTES;
 		}
 		break;
 	}
@@ -1221,9 +1109,8 @@ static int __devinit omap_nand_probe(struct platform_device *pdev)
 			info->nand.ecc.bytes    = 4*7;
 			info->nand.ecc.size     = 4*512;
 		} else if (pdata->ecc_opt == OMAP_ECC_BCH8_CODE_HW) {
-			info->nand.ecc.bytes     = 13;
-			info->nand.ecc.size      = 512;
-			info->nand.ecc.read_page = omap_read_page_bch;
+			info->nand.ecc.bytes    = 13;
+			info->nand.ecc.size     = 4*512;
 		} else {
 			info->nand.ecc.bytes    = 3;
 			info->nand.ecc.size     = 512;
@@ -1264,12 +1151,6 @@ static int __devinit omap_nand_probe(struct platform_device *pdev)
 						offset + omap_oobinfo.eccbytes;
 			omap_oobinfo.oobfree->length = info->mtd.oobsize -
 				(offset + omap_oobinfo.eccbytes);
-		} else if (pdata->ecc_opt == OMAP_ECC_BCH8_CODE_HW) {
-			offset = BCH_ECC_POS; /* Synchronize with U-boot */
-			omap_oobinfo.oobfree->offset =
-				BCH_JFFS2_CLEAN_MARKER_OFFSET;
-			omap_oobinfo.oobfree->length = info->mtd.oobsize -
-						offset - omap_oobinfo.eccbytes;
 		} else {
 			omap_oobinfo.oobfree->offset = offset;
 			omap_oobinfo.oobfree->length = info->mtd.oobsize -
