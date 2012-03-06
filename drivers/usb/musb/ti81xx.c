@@ -1431,6 +1431,19 @@ static void ti81xx_save_context(struct ti81xx_glue *glue)
 		struct musb *musb = platform_get_drvdata(glue->musb[i]);
 		void __iomem *cbase = musb->ctrl_base;
 
+		/* disable the timers */
+		if (timer_pending(&musb->otg_workaround) &&
+					is_host_enabled(musb)) {
+			del_timer_sync(&musb->otg_workaround);
+			musb->en_otgw_timer = 1;
+		}
+
+		if (timer_pending(&musb->otg_workaround) &&
+					is_otg_enabled(musb)) {
+			del_timer_sync(&musb->otg_timer);
+			musb->en_otg_timer = 1;
+		}
+
 		musb_save_context(musb);
 		usb->control = musb_readl(cbase, USB_CTRL_REG);
 
@@ -1523,6 +1536,18 @@ static void ti81xx_restore_context(struct ti81xx_glue *glue)
 		musb_writel(cbase, USB_PHY_UTMI_REG, usb->phy_utmi);
 		musb_writel(cbase, USB_PHY_UTMI_LB_REG, usb->mgc_utmi_loopback);
 		musb_writel(cbase, USB_MODE_REG, usb->mode);
+
+		/* reenable the timers */
+		if (musb->en_otgw_timer && is_host_enabled(musb)) {
+			mod_timer(&musb->otg_workaround,
+					jiffies + POLL_SECONDS * HZ);
+			musb->en_otgw_timer = 0;
+		}
+		if (musb->en_otg_timer && is_otg_enabled(musb)) {
+			mod_timer(&musb->otg_timer,
+					jiffies + POLL_SECONDS * HZ);
+			musb->en_otg_timer = 0;
+		}
 	}
 #ifdef CONFIG_USB_TI_CPPI41_DMA
 	/* restore CPPI4.1 DMA register for dma block 0 */

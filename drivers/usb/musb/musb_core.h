@@ -464,6 +464,8 @@ struct musb {
 	int			first;
 	int			old_state;
 	struct	timer_list	otg_timer;
+	u8			en_otg_timer;
+	u8			en_otgw_timer;
 #ifndef CONFIG_MUSB_PIO_ONLY
 	u64			*orig_dma_mask;
 #endif
