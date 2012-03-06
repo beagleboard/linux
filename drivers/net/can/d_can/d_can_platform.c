@@ -134,6 +134,7 @@ static int __devinit d_can_plat_probe(struct platform_device *pdev)
 	priv->base = addr;
 	priv->can.clock.freq = clk_get_rate(fck);
 	priv->ram_init = pdata->ram_init;
+	priv->open_status = D_CAN_INITED;
 
 	platform_set_drvdata(pdev, ndev);
 	SET_NETDEV_DEV(ndev, &pdev->dev);

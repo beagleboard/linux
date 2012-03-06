@@ -1234,6 +1234,9 @@ static int d_can_open(struct net_device *ndev)
 	int err;
 	struct d_can_priv *priv = netdev_priv(ndev);
 
+	if (priv->open_status == D_CAN_OPENED)
+		return 0;
+
 	/* If enabled, tell runtime PM not to power off */
 	if (pm_runtime_enabled(&priv->pdev->dev)) {
 		err = pm_runtime_get_sync(&priv->pdev->dev);
@@ -1271,6 +1274,7 @@ static int d_can_open(struct net_device *ndev)
 	napi_enable(&priv->napi);
 	netif_start_queue(ndev);
 
+	priv->open_status = D_CAN_OPENED;
 	return 0;
 exit_free_irq:
 	free_irq(ndev->irq, ndev);
@@ -1288,6 +1292,9 @@ static int d_can_close(struct net_device *ndev)
 	int ret;
 	struct d_can_priv *priv = netdev_priv(ndev);
 
+	if (priv->open_status == D_CAN_CLOSED)
+		return 0;
+
 	netif_stop_queue(ndev);
 	napi_disable(&priv->napi);
 	d_can_stop(ndev);
@@ -1302,6 +1309,7 @@ static int d_can_close(struct net_device *ndev)
 			return ret;
 	}
 
+	priv->open_status = D_CAN_CLOSED;
 	return 0;
 }
 
@@ -1345,6 +1353,7 @@ EXPORT_SYMBOL_GPL(alloc_d_can_dev);
 void d_can_power_down(struct d_can_priv *d_can)
 {
 	unsigned int cnt;
+	struct net_device *ndev = platform_get_drvdata(d_can->pdev);
 
 	d_can_set_bit(d_can, D_CAN_CTL, D_CAN_CTL_PDR);
 
@@ -1354,12 +1363,22 @@ void d_can_power_down(struct d_can_priv *d_can)
 		--cnt;
 		udelay(10);
 	}
+
+	if ((d_can->open_status != D_CAN_INITED) &&
+			(d_can->open_status == D_CAN_OPENED))
+		d_can_close(ndev);
+
 }
 EXPORT_SYMBOL_GPL(d_can_power_down);
 
 void d_can_power_up(struct d_can_priv *d_can)
 {
 	unsigned int cnt;
+	struct net_device *ndev = platform_get_drvdata(d_can->pdev);
+
+	if ((d_can->open_status != D_CAN_INITED) &&
+			(d_can->open_status == D_CAN_CLOSED))
+		d_can_open(ndev);
 
 	d_can_clear_bit(d_can, D_CAN_CTL, D_CAN_CTL_PDR);
 	d_can_clear_bit(d_can, D_CAN_CTL, D_CAN_CTL_INIT);
