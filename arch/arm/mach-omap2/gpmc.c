@@ -911,9 +911,9 @@ int gpmc_enable_hwecc(int ecc_type, int cs, int mode,
 			bch_mod = 0;
 			bch_wrapmode = 0x09;
 		} else if (ecc_type == OMAP_ECC_BCH8_CODE_HW) {
-			eccsize1 = 0x1A; eccsize0 = 0x18;
+			eccsize1 = 0x2; eccsize0 = 0x1A;
 			bch_mod = 1;
-			bch_wrapmode = 0x04;
+			bch_wrapmode = 0x01;
 		} else
 			eccsize1 = ((ecc_size >> 1) - 1);
 		break;
@@ -925,9 +925,9 @@ int gpmc_enable_hwecc(int ecc_type, int cs, int mode,
 			bch_mod = 0;
 			bch_wrapmode = 0x06;
 		} else if (ecc_type == OMAP_ECC_BCH8_CODE_HW) {
-			eccsize1 = 0x20; eccsize0 = 0x00;
+			eccsize1 = 0x1c; eccsize0 = 0x00;
 			bch_mod = 1;
-			bch_wrapmode = 0x06;
+			bch_wrapmode = 0x01;
 		} else
 			eccsize1 = ((ecc_size >> 1) - 1);
 		break;
@@ -943,7 +943,7 @@ int gpmc_enable_hwecc(int ecc_type, int cs, int mode,
 		ecc_size_conf_val = (eccsize1 << 22) | (eccsize0 << 12);
 		ecc_conf_val = ((0x01 << 16) | (bch_mod << 12)
 			| (bch_wrapmode << 8) | (dev_width << 7)
-			| (0x03 << 4) | (cs << 1) | (0x1));
+			| (0x00 << 4) | (cs << 1) | (0x1));
 	} else {
 		gpmc_write_reg(GPMC_ECC_CONTROL, 0x00000101);
 		ecc_size_conf_val = (eccsize1 << 22) | 0x0000000F;
@@ -979,7 +979,7 @@ int gpmc_calculate_ecc(int ecc_type, int cs,
 
 	if ((ecc_type == OMAP_ECC_BCH4_CODE_HW) ||
 		(ecc_type == OMAP_ECC_BCH8_CODE_HW)) {
-		for (i = 0; i < 4; i++) {
+		for (i = 0; i < 1; i++) {
 			/*
 			 * Reading HW ECC_BCH_Results
 			 * 0x240-0x24C, 0x250-0x25C, 0x260-0x26C, 0x270-0x27C
