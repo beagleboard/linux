@@ -1305,6 +1305,17 @@ static int d_can_close(struct net_device *ndev)
 	return 0;
 }
 
+void d_can_reset_ram(struct d_can_priv *d_can, unsigned int instance,
+					unsigned int enable)
+{
+	if (d_can->ram_init)
+		d_can->ram_init(instance, enable);
+
+	/* Give some time delay for DCAN RAM initialization */
+	udelay(1);
+}
+EXPORT_SYMBOL_GPL(d_can_reset_ram);
+
 struct net_device *alloc_d_can_dev(int num_objs)
 {
 	struct net_device *dev;

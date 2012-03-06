@@ -34,6 +34,7 @@
  * static struct d_can_platform_data am33xx_evm_d_can_pdata = {
  *	.num_of_msg_objs	= 64,
  *	.dma_support		= false,
+ *	.ram_init		= d_can_hw_raminit,
  * };
  *
  * Please see include/linux/can/platform/d_can.h for description of
@@ -132,6 +133,7 @@ static int __devinit d_can_plat_probe(struct platform_device *pdev)
 	priv->pdev = pdev;
 	priv->base = addr;
 	priv->can.clock.freq = clk_get_rate(fck);
+	priv->ram_init = pdata->ram_init;
 
 	platform_set_drvdata(pdev, ndev);
 	SET_NETDEV_DEV(ndev, &pdev->dev);
@@ -142,6 +144,9 @@ static int __devinit d_can_plat_probe(struct platform_device *pdev)
 				D_CAN_DRV_NAME, ret);
 		goto exit_free_device;
 	}
+
+	/* Initialize DCAN RAM */
+	d_can_reset_ram(priv, pdev->id, 1);
 
 	dev_info(&pdev->dev, "device registered (irq=%d, irq_obj=%d)\n",
 						ndev->irq, priv->irq_obj);
@@ -171,6 +176,9 @@ static int __devexit d_can_plat_remove(struct platform_device *pdev)
 	struct d_can_priv *priv = netdev_priv(ndev);
 	struct resource *mem;
 
+	/* De-initialize DCAN RAM */
+	d_can_reset_ram(priv, pdev->id, 0);
+
 	unregister_d_can_dev(ndev);
 	platform_set_drvdata(pdev, NULL);
 
@@ -192,6 +200,9 @@ static int d_can_suspend(struct platform_device *pdev, pm_message_t state)
 	struct net_device *ndev = platform_get_drvdata(pdev);
 	struct d_can_priv *priv = netdev_priv(ndev);
 
+	/* De-initialize DCAN RAM */
+	d_can_reset_ram(priv, pdev->id, 0);
+
 	if (netif_running(ndev)) {
 		netif_stop_queue(ndev);
 		netif_device_detach(ndev);
@@ -208,6 +219,10 @@ static int d_can_resume(struct platform_device *pdev)
 	struct d_can_priv *priv = netdev_priv(ndev);
 
 	d_can_power_up(priv);
+
+	/* Initialize DCAN RAM */
+	d_can_reset_ram(priv, pdev->id, 1);
+
 	priv->can.state = CAN_STATE_ERROR_ACTIVE;
 	if (netif_running(ndev)) {
 		netif_device_attach(ndev);

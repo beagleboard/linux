@@ -26,6 +26,7 @@
  *
  * @num_of_msg_objs:	Number of message objects
  * @dma_support:	DMA support is required/not
+ * @ram_init:		DCAN RAM initialization
  *
  * Platform data structure to get all platform specific settings.
  * this structure also accounts the fact that the IP may have different
@@ -34,5 +35,6 @@
 struct d_can_platform_data {
 	u32 num_of_msg_objs;
 	bool dma_support;
+	void (*ram_init) (unsigned int, unsigned int);
 };
 #endif
