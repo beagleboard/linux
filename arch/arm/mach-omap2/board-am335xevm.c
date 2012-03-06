@@ -1040,26 +1040,31 @@ static struct mtd_partition am335x_nand_partitions[] = {
 		.name           = "SPL",
 		.offset         = 0,			/* Offset = 0x0 */
 		.size           = SZ_128K,
+		.mask_flags     = MTD_WRITEABLE,	/* force read-only */
 	},
 	{
 		.name           = "SPL.backup1",
 		.offset         = MTDPART_OFS_APPEND,	/* Offset = 0x20000 */
 		.size           = SZ_128K,
+		.mask_flags     = MTD_WRITEABLE,        /* force read-only */
 	},
 	{
 		.name           = "SPL.backup2",
 		.offset         = MTDPART_OFS_APPEND,	/* Offset = 0x40000 */
 		.size           = SZ_128K,
+		.mask_flags     = MTD_WRITEABLE,        /* force read-only */
 	},
 	{
 		.name           = "SPL.backup3",
 		.offset         = MTDPART_OFS_APPEND,	/* Offset = 0x60000 */
 		.size           = SZ_128K,
+		.mask_flags     = MTD_WRITEABLE,        /* force read-only */
 	},
 	{
 		.name           = "U-Boot",
 		.offset         = MTDPART_OFS_APPEND,   /* Offset = 0x80000 */
 		.size           = 15 * SZ_128K,
+		.mask_flags     = MTD_WRITEABLE,        /* force read-only */
 	},
 	{
 		.name           = "U-Boot Env",
