@@ -52,6 +52,8 @@ static struct omap_hwmod am33xx_tpcc_hwmod;
 static struct omap_hwmod am33xx_tptc0_hwmod;
 static struct omap_hwmod am33xx_tptc1_hwmod;
 static struct omap_hwmod am33xx_tptc2_hwmod;
+static struct omap_hwmod am33xx_dcan0_hwmod;
+static struct omap_hwmod am33xx_dcan1_hwmod;
 static struct omap_hwmod am33xx_gpio0_hwmod;
 static struct omap_hwmod am33xx_gpio1_hwmod;
 static struct omap_hwmod am33xx_gpio2_hwmod;
@@ -125,6 +127,42 @@ static struct omap_hwmod am33xx_l3slow_hwmod = {
 	.slaves_cnt	= ARRAY_SIZE(am33xx_l3_slow_slaves),
 };
 
+/* L4 PER -> DCAN0 */
+static struct omap_hwmod_addr_space am33xx_dcan0_addrs[] = {
+	{
+		.pa_start	= 0x481CC000,
+		.pa_end		= 0x481CC000 + SZ_4K - 1,
+		.flags		= ADDR_TYPE_RT
+	},
+	{ }
+};
+
+static struct omap_hwmod_ocp_if am33xx_l4_per__dcan0 = {
+	.master		= &am33xx_l4per_hwmod,
+	.slave		= &am33xx_dcan0_hwmod,
+	.clk		= "dcan0_ick",
+	.addr		= am33xx_dcan0_addrs,
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
+};
+
+/* L4 PER -> DCAN1 */
+static struct omap_hwmod_addr_space am33xx_dcan1_addrs[] = {
+	{
+		.pa_start	= 0x481D0000,
+		.pa_end		= 0x481D0000 + SZ_4K - 1,
+		.flags		= ADDR_TYPE_RT
+	},
+	{ }
+};
+
+static struct omap_hwmod_ocp_if am33xx_l4_per__dcan1 = {
+	.master		= &am33xx_l4per_hwmod,
+	.slave		= &am33xx_dcan1_hwmod,
+	.clk		= "dcan1_ick",
+	.addr		= am33xx_dcan1_addrs,
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
+};
+
 /* L4 PER -> GPIO2 */
 static struct omap_hwmod_addr_space am33xx_gpio1_addrs[] = {
 	{
@@ -181,6 +219,8 @@ static struct omap_hwmod_ocp_if am33xx_l4_per__gpio3 = {
 
 /* Master interfaces on the L4_PER interconnect */
 static struct omap_hwmod_ocp_if *am33xx_l4_per_masters[] = {
+	&am33xx_l4_per__dcan0,
+	&am33xx_l4_per__dcan1,
 	&am33xx_l4_per__gpio1,
 	&am33xx_l4_per__gpio2,
 	&am33xx_l4_per__gpio3,
@@ -464,17 +504,23 @@ static struct omap_hwmod am33xx_cpgmac0_hwmod = {
 
 /* 'dcan' class */
 static struct omap_hwmod_class am33xx_dcan_hwmod_class = {
-	.name		= "dcan",
+	.name		= "d_can",
+};
+
+/* dcan0 slave ports */
+static struct omap_hwmod_ocp_if *am33xx_dcan0_slaves[] = {
+	&am33xx_l4_per__dcan0,
 };
 
 /* dcan0 */
 static struct omap_hwmod_irq_info am33xx_dcan0_irqs[] = {
-	{ .irq = 52 },
+	{ .name = "d_can_ms", .irq = 52 },
+	{ .name = "d_can_mo", .irq = 53 },
 	{ .irq = -1 }
 };
 
 static struct omap_hwmod am33xx_dcan0_hwmod = {
-	.name		= "dcan0",
+	.name		= "d_can0",
 	.class		= &am33xx_dcan_hwmod_class,
 	.clkdm_name	= "l4ls_clkdm",
 	.mpu_irqs	= am33xx_dcan0_irqs,
@@ -485,15 +531,24 @@ static struct omap_hwmod am33xx_dcan0_hwmod = {
 			.modulemode	= MODULEMODE_SWCTRL,
 		},
 	},
+	.slaves		= am33xx_dcan0_slaves,
+	.slaves_cnt	= ARRAY_SIZE(am33xx_dcan0_slaves),
+};
+
+/* dcan1 slave ports */
+static struct omap_hwmod_ocp_if *am33xx_dcan1_slaves[] = {
+	&am33xx_l4_per__dcan1,
 };
 
 /* dcan1 */
 static struct omap_hwmod_irq_info am33xx_dcan1_irqs[] = {
-	{ .irq = 55 },
+	{ .name = "d_can_ms", .irq = 55 },
+	{ .name = "d_can_mo", .irq = 56 },
 	{ .irq = -1 }
 };
+
 static struct omap_hwmod am33xx_dcan1_hwmod = {
-	.name		= "dcan1",
+	.name		= "d_can1",
 	.class		= &am33xx_dcan_hwmod_class,
 	.clkdm_name	= "l4ls_clkdm",
 	.mpu_irqs	= am33xx_dcan1_irqs,
@@ -504,6 +559,8 @@ static struct omap_hwmod am33xx_dcan1_hwmod = {
 			.modulemode	= MODULEMODE_SWCTRL,
 		},
 	},
+	.slaves		= am33xx_dcan1_slaves,
+	.slaves_cnt	= ARRAY_SIZE(am33xx_dcan1_slaves),
 };
 
 /* debugss */
