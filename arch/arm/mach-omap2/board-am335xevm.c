@@ -2201,8 +2201,8 @@ static int am335x_rtc_init(void)
 		return -ENOMEM;
 
 	/* Unlock the rtc's registers */
-	__raw_writel(0x83e70b13, base + 0x6c);
-	__raw_writel(0x95a4f1e0, base + 0x70);
+	writel(0x83e70b13, base + 0x6c);
+	writel(0x95a4f1e0, base + 0x70);
 
 	/*
 	 * Enable the 32K OSc
@@ -2210,7 +2210,7 @@ static int am335x_rtc_init(void)
 	 * Since we want the clock to be running before mmc init
 	 * we need to do it before the rtc probe happens
 	 */
-	__raw_writel(0x48, base + 0x54);
+	writel(0x48, base + 0x54);
 
 	iounmap(base);
 
