@@ -122,6 +122,8 @@ static int am33xx_pm_begin(suspend_state_t state)
 {
 	int ret = 0;
 
+	disable_hlt();
+
 	am33xx_lp_ipc.resume_addr = DS_RESUME_ADDR;
 	am33xx_lp_ipc.sleep_mode  = DS_MODE;
 	am33xx_lp_ipc.ipc_data1	  = DS_IPC_DEFAULT;
@@ -179,6 +181,8 @@ static void am33xx_pm_end(void)
 	 * iterations
 	 */
 	am33xx_m3_state_machine_reset();
+
+	enable_hlt();
 
 	return;
 }
