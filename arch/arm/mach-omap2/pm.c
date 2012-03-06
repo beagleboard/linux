@@ -198,7 +198,7 @@ exit:
 
 static void __init omap3_init_voltages(void)
 {
-	if (!cpu_is_omap34xx())
+	if (!cpu_is_omap34xx() || cpu_is_am33xx())
 		return;
 
 	omap2_set_init_voltage("mpu_iva", "dpll1_ck", "mpu");
