@@ -768,11 +768,6 @@ static int __init gpmc_init(void)
 }
 postcore_initcall(gpmc_init);
 
-struct clk *gpmc_clock(void)
-{
-	return gpmc_l3_clk;
-}
-
 static irqreturn_t gpmc_handle_irq(int irq, void *dev)
 {
 	u8 cs;

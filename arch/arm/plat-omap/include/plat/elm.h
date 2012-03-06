@@ -106,6 +106,4 @@
 
 extern int elm_decode_bch_error(int bch_type, char *ecc_calc,
 		unsigned int *err_loc);
-extern void elm_clk_enable(void);
-extern void elm_clk_disable(void);
 #endif /* TI81_ELM_H */

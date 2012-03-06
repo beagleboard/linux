@@ -20,7 +20,6 @@
 #include <linux/mtd/partitions.h>
 #include <linux/io.h>
 #include <linux/slab.h>
-#include <linux/clk.h>
 
 #include <plat/dma.h>
 #include <plat/gpmc.h>
@@ -141,7 +140,6 @@ struct omap_nand_info {
 	u_char				*buf;
 	int				buf_len;
 	int				ecc_opt;
-	struct clk                      *ctrl_clk;
 };
 
 /**
@@ -1119,7 +1117,6 @@ static int __devinit omap_nand_probe(struct platform_device *pdev)
 
 	info->pdev = pdev;
 
-	info->ctrl_clk		= pdata->ctrl_clk;
 	info->gpmc_cs		= pdata->cs;
 	info->phys_base		= pdata->phys_base;
 
@@ -1341,39 +1338,9 @@ static int omap_nand_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_PM
-static int omap_nand_suspend(struct platform_device *pdev, pm_message_t state)
-{
-	struct mtd_info *mtd = platform_get_drvdata(pdev);
-	struct omap_nand_info *info = container_of(mtd, struct omap_nand_info,
-							mtd);
-
-	mtd->suspend(mtd);
-	clk_disable(info->ctrl_clk);
-	elm_clk_disable();
-	return 0;
-}
-
-static int omap_nand_resume(struct platform_device *pdev)
-{
-	struct mtd_info *mtd = platform_get_drvdata(pdev);
-	struct omap_nand_info *info = container_of(mtd, struct omap_nand_info,
-							mtd);
-
-	elm_clk_enable();
-	clk_enable(info->ctrl_clk);
-	mtd->resume(mtd);
-	return 0;
-}
-#endif
-
 static struct platform_driver omap_nand_driver = {
 	.probe		= omap_nand_probe,
 	.remove		= omap_nand_remove,
-#ifdef CONFIG_PM
-	.suspend	= omap_nand_suspend,
-	.resume		= omap_nand_resume,
-#endif
 	.driver		= {
 		.name	= DRIVER_NAME,
 		.owner	= THIS_MODULE,

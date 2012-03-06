@@ -29,7 +29,6 @@ struct omap_nand_platform_data {
 	unsigned long		phys_base;
 	int			devsize;
 	enum omap_ecc           ecc_opt;
-	struct clk              *ctrl_clk;
 };
 
 /* minimum size for IO mapping */

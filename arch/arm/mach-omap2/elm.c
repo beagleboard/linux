@@ -23,7 +23,6 @@
 
 static void  __iomem *elm_base;
 static struct completion elm_completion;
-static struct clk *elm_clk;
 
 static void elm_write_reg(int idx, u32 val)
 {
@@ -149,22 +148,11 @@ static irqreturn_t elm_isr(int this_irq, void *dev_id)
 	return IRQ_NONE;
 }
 
-void elm_clk_enable(void)
-{
-	clk_enable(elm_clk);
-}
-EXPORT_SYMBOL(elm_clk_enable);
-
-void elm_clk_disable(void)
-{
-	clk_disable(elm_clk);
-}
-EXPORT_SYMBOL(elm_clk_disable);
-
 static int __devinit omap_elm_probe(struct platform_device *pdev)
 {
 	struct resource *res = NULL, *irq = NULL;
 	int             ret_status = 0;
+	static struct clk *elm_clk;
 
 	irq = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 
