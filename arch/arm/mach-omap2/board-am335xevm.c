@@ -1150,8 +1150,6 @@ static struct spi_board_info am335x_spi1_slave_info[] = {
 static void evm_nand_init(int evm_id, int profile)
 {
 	setup_pin_mux(nand_pin_mux);
-	board_nand_init(am335x_nand_partitions,
-		ARRAY_SIZE(am335x_nand_partitions), 0, 0);
 }
 
 /* TPS65217 voltage regulator support */
