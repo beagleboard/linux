@@ -1,6 +1,3 @@
-#ifndef __CAN_PLATFORM_TI_D_CAN_H__
-#define __CAN_PLATFORM_TI_D_CAN_H__
-
 /*
  * D_CAN controller driver platform header
  *
@@ -21,30 +18,21 @@
  * GNU General Public License for more details.
  */
 
+#ifndef __CAN_PLATFORM_TI_D_CAN_H__
+#define __CAN_PLATFORM_TI_D_CAN_H__
+
 /**
  * struct d_can_platform_data - DCAN Platform Data
  *
- * @d_can_offset:	mostly 0 - should really never change
- * @d_can_ram_offset:	d_can RAM offset
- * @msg_obj_offset:	Mailbox RAM offset
  * @num_of_msg_objs:	Number of message objects
  * @dma_support:	DMA support is required/not
- * @parity_check:	Parity error checking is needed/not
- * @fck_name		Functional clock name
- * @ick_name		Interface clock name
  *
  * Platform data structure to get all platform specific settings.
  * this structure also accounts the fact that the IP may have different
  * RAM and mailbox offsets for different SOC's
  */
 struct d_can_platform_data {
-	u32 d_can_offset;
-	u32 d_can_ram_offset;
-	u32 msg_obj_offset;
 	u32 num_of_msg_objs;
 	bool dma_support;
-	bool parity_check;
-	char *fck_name;
-	char *ick_name;
 };
 #endif

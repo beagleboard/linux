@@ -32,13 +32,8 @@
  * number to use as follows:
  *
  * static struct d_can_platform_data am33xx_evm_d_can_pdata = {
- *	.d_can_offset		= 0,
- *	.d_can_ram_offset	= 0x1000,
  *	.num_of_msg_objs	= 64,
- *	.dma_support		= true,
- *	.parity_check		= false,
- *	.fck_name		= "dcan0_fck",
- *	.ick_name		= "dcan0_ick",
+ *	.dma_support		= false,
  * };
  *
  * Please see include/linux/can/platform/d_can.h for description of
@@ -58,6 +53,7 @@
 #include <linux/platform_device.h>
 #include <linux/can/platform/d_can.h>
 #include <linux/clk.h>
+#include <linux/pm_runtime.h>
 #include <linux/slab.h>
 #include <linux/can/dev.h>
 
@@ -71,6 +67,7 @@ static int __devinit d_can_plat_probe(struct platform_device *pdev)
 	struct d_can_priv *priv;
 	struct resource *mem;
 	struct d_can_platform_data *pdata;
+	struct clk *fck;
 
 	pdata = pdev->dev.platform_data;
 	if (!pdata) {
@@ -87,36 +84,26 @@ static int __devinit d_can_plat_probe(struct platform_device *pdev)
 	}
 
 	priv = netdev_priv(ndev);
-
-	priv->fck = clk_get(&pdev->dev, pdata->fck_name);
-	if (IS_ERR(priv->fck)) {
-		dev_err(&pdev->dev, "%s is not found\n", pdata->fck_name);
+	fck = clk_get(&pdev->dev, "fck");
+	if (IS_ERR(fck)) {
+		dev_err(&pdev->dev, "fck is not found\n");
 		ret = -ENODEV;
 		goto exit_free_ndev;
 	}
-	clk_enable(priv->fck);
-
-	priv->ick = clk_get(&pdev->dev, pdata->ick_name);
-	if (IS_ERR(priv->ick)) {
-		dev_err(&pdev->dev, "%s is not found\n", pdata->ick_name);
-		ret = -ENODEV;
-		goto exit_free_fck;
-	}
-	clk_enable(priv->ick);
 
 	/* get the platform data */
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!mem) {
 		ret = -ENODEV;
 		dev_err(&pdev->dev, "No mem resource\n");
-		goto exit_free_clks;
+		goto exit_clk_put;
 	}
 
 	if (!request_mem_region(mem->start, resource_size(mem),
 				D_CAN_DRV_NAME)) {
 		dev_err(&pdev->dev, "resource unavailable\n");
 		ret = -EBUSY;
-		goto exit_free_clks;
+		goto exit_clk_put;
 	}
 
 	addr = ioremap(mem->start, resource_size(mem));
@@ -127,21 +114,24 @@ static int __devinit d_can_plat_probe(struct platform_device *pdev)
 	}
 
 	/* IRQ specific to Error and status & can be used for Message Object */
-	ndev->irq = platform_get_irq_byname(pdev, "int0");
+	ndev->irq = platform_get_irq_byname(pdev, "d_can_ms");
 	if (!ndev->irq) {
 		dev_err(&pdev->dev, "No irq0 resource\n");
 		goto exit_iounmap;
 	}
 
 	/* IRQ specific for Message Object */
-	priv->irq_obj = platform_get_irq_byname(pdev, "int1");
+	priv->irq_obj = platform_get_irq_byname(pdev, "d_can_mo");
 	if (!priv->irq_obj) {
 		dev_err(&pdev->dev, "No irq1 resource\n");
 		goto exit_iounmap;
 	}
 
+	pm_runtime_enable(&pdev->dev);
+	pm_runtime_get_sync(&pdev->dev);
+	priv->pdev = pdev;
 	priv->base = addr;
-	priv->can.clock.freq = clk_get_rate(priv->fck);
+	priv->can.clock.freq = clk_get_rate(fck);
 
 	platform_set_drvdata(pdev, ndev);
 	SET_NETDEV_DEV(ndev, &pdev->dev);
@@ -153,23 +143,20 @@ static int __devinit d_can_plat_probe(struct platform_device *pdev)
 		goto exit_free_device;
 	}
 
-	dev_info(&pdev->dev, "%s device registered (irq=%d, irq_obj=%d)\n",
-				D_CAN_DRV_NAME, ndev->irq, priv->irq_obj);
+	dev_info(&pdev->dev, "device registered (irq=%d, irq_obj=%d)\n",
+						ndev->irq, priv->irq_obj);
 
 	return 0;
 
 exit_free_device:
 	platform_set_drvdata(pdev, NULL);
+	pm_runtime_disable(&pdev->dev);
 exit_iounmap:
 	iounmap(addr);
 exit_release_mem:
 	release_mem_region(mem->start, resource_size(mem));
-exit_free_clks:
-	clk_disable(priv->ick);
-	clk_put(priv->ick);
-exit_free_fck:
-	clk_disable(priv->fck);
-	clk_put(priv->fck);
+exit_clk_put:
+	clk_put(fck);
 exit_free_ndev:
 	free_d_can_dev(ndev);
 exit:
@@ -193,10 +180,8 @@ static int __devexit d_can_plat_remove(struct platform_device *pdev)
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	release_mem_region(mem->start, resource_size(mem));
 
-	clk_disable(priv->ick);
-	clk_disable(priv->fck);
-	clk_put(priv->ick);
-	clk_put(priv->fck);
+	pm_runtime_put_sync(&pdev->dev);
+	pm_runtime_disable(&pdev->dev);
 
 	return 0;
 }
@@ -204,37 +189,29 @@ static int __devexit d_can_plat_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM
 static int d_can_suspend(struct platform_device *pdev, pm_message_t state)
 {
-	struct net_device *dev = platform_get_drvdata(pdev);
-	struct d_can_priv *priv = netdev_priv(dev);
+	struct net_device *ndev = platform_get_drvdata(pdev);
+	struct d_can_priv *priv = netdev_priv(ndev);
 
-	if (netif_running(dev)) {
-		netif_stop_queue(dev);
-		netif_device_detach(dev);
+	if (netif_running(ndev)) {
+		netif_stop_queue(ndev);
+		netif_device_detach(ndev);
 	}
 
 	d_can_power_down(priv);
 	priv->can.state = CAN_STATE_SLEEPING;
-
-	clk_disable(priv->ick);
-	clk_disable(priv->fck);
-
 	return 0;
 }
 
 static int d_can_resume(struct platform_device *pdev)
 {
-	struct net_device *dev = platform_get_drvdata(pdev);
-	struct d_can_priv *priv = netdev_priv(dev);
-
-	clk_enable(priv->ick);
-	clk_enable(priv->fck);
+	struct net_device *ndev = platform_get_drvdata(pdev);
+	struct d_can_priv *priv = netdev_priv(ndev);
 
 	d_can_power_up(priv);
 	priv->can.state = CAN_STATE_ERROR_ACTIVE;
-
-	if (netif_running(dev)) {
-		netif_device_attach(dev);
-		netif_start_queue(dev);
+	if (netif_running(ndev)) {
+		netif_device_attach(ndev);
+		netif_start_queue(ndev);
 	}
 
 	return 0;

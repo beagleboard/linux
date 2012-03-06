@@ -37,6 +37,8 @@
 #include <linux/list.h>
 #include <linux/io.h>
 
+#include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
 #include <linux/can.h>
 #include <linux/can/dev.h>
 #include <linux/can/error.h>
@@ -1232,11 +1234,18 @@ static int d_can_open(struct net_device *ndev)
 	int err;
 	struct d_can_priv *priv = netdev_priv(ndev);
 
+	/* If enabled, tell runtime PM not to power off */
+	if (pm_runtime_enabled(&priv->pdev->dev)) {
+		err = pm_runtime_get_sync(&priv->pdev->dev);
+		if (err < 0)
+			return err;
+	}
+
 	/* Open common can device */
 	err = open_candev(ndev);
 	if (err) {
 		netdev_err(ndev, "open_candev() failed %d\n", err);
-		return err;
+		goto exit_put_sync;
 	}
 
 	/* register interrupt handler for Message Object (MO)
@@ -1267,11 +1276,16 @@ exit_free_irq:
 	free_irq(ndev->irq, ndev);
 exit_close_candev:
 	close_candev(ndev);
+exit_put_sync:
+	if (pm_runtime_enabled(&priv->pdev->dev))
+		pm_runtime_put_sync(&priv->pdev->dev);
+
 	return err;
 }
 
 static int d_can_close(struct net_device *ndev)
 {
+	int ret;
 	struct d_can_priv *priv = netdev_priv(ndev);
 
 	netif_stop_queue(ndev);
@@ -1280,6 +1294,13 @@ static int d_can_close(struct net_device *ndev)
 	free_irq(ndev->irq, ndev);
 	free_irq(priv->irq_obj, ndev);
 	close_candev(ndev);
+
+	/* If enabled, let runtime PM know the d_can is closed */
+	if (pm_runtime_enabled(&priv->pdev->dev)) {
+		ret = pm_runtime_put_sync(&priv->pdev->dev);
+		if (ret < 0)
+			return ret;
+	}
 
 	return 0;
 }
