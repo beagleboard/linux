@@ -1182,6 +1182,7 @@ static void evm_nand_init(int evm_id, int profile)
 		ARRAY_SIZE(am335x_nand_partitions), 0, 0,
 		&am335x_nand_timings);
 	pdata->ecc_opt = OMAP_ECC_HAMMING_CODE_DEFAULT;
+	pdata->elm_used = true;
 	gpmc_device[0].pdata = pdata;
 	gpmc_device[0].flag = GPMC_DEVICE_NAND;
 
