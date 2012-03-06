@@ -56,6 +56,7 @@
 #include <plat/usb.h>
 #include <plat/mmc.h>
 #include <plat/emif.h>
+#include <plat/nand.h>
 
 #include "board-flash.h"
 #include "cpuidle33xx.h"
@@ -1170,15 +1171,18 @@ static struct gpmc_timings am335x_nand_timings = {
 
 static void evm_nand_init(int evm_id, int profile)
 {
+	struct omap_nand_platform_data *pdata;
 	struct gpmc_devices_info gpmc_device[2] = {
 		{ NULL, 0 },
 		{ NULL, 0 },
 	};
 
 	setup_pin_mux(nand_pin_mux);
-	gpmc_device[0].pdata = omap_nand_init(am335x_nand_partitions,
+	pdata = omap_nand_init(am335x_nand_partitions,
 		ARRAY_SIZE(am335x_nand_partitions), 0, 0,
 		&am335x_nand_timings);
+	pdata->ecc_opt = OMAP_ECC_HAMMING_CODE_DEFAULT;
+	gpmc_device[0].pdata = pdata;
 	gpmc_device[0].flag = GPMC_DEVICE_NAND;
 
 	omap_init_gpmc(gpmc_device, sizeof(gpmc_device));
