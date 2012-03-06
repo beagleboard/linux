@@ -1581,124 +1581,54 @@ void am33xx_cpsw_init(unsigned int gigen)
 			NULL, &am33xx_cpsw_device.dev);
 }
 
-#define AM33XX_D_CAN_RAM_BASE			0x1000
-#define AM33XX_D_CAN_NUM_MSG_OBJS		64
-#define AM33XX_CTL_DCAN_RAMINIT_OFFSET		0x644
-#define AM33XX_D_CAN_RAMINIT_START(n)		(0x1 << n)
+#define AM33XX_DCAN_NUM_MSG_OBJS		64
+#define AM33XX_DCAN_RAMINIT_OFFSET		0x644
+#define AM33XX_DCAN_RAMINIT_START(n)		(0x1 << n)
 
-static void d_can_hw_raminit(unsigned int instance)
+static void d_can_hw_raminit(unsigned int instance, unsigned int enable)
 {
 	u32 val;
 
 	/* Read the value */
-	val = __raw_readl(AM33XX_CTRL_REGADDR(AM33XX_CTL_DCAN_RAMINIT_OFFSET));
-
-	/* Modify by setting "0" */
-	val &= ~AM33XX_D_CAN_RAMINIT_START(instance);
-	__raw_writel(val, AM33XX_CTRL_REGADDR(AM33XX_CTL_DCAN_RAMINIT_OFFSET));
-
-	/* Reset to one */
-	val |= AM33XX_D_CAN_RAMINIT_START(instance);
-	__raw_writel(val, AM33XX_CTRL_REGADDR(AM33XX_CTL_DCAN_RAMINIT_OFFSET));
-
-	/* Give some time delay for transition from 0 -> 1 */
-	udelay(1);
+	val = readl(AM33XX_CTRL_REGADDR(AM33XX_DCAN_RAMINIT_OFFSET));
+	if (enable) {
+		/* Set to "1" */
+		val &= ~AM33XX_DCAN_RAMINIT_START(instance);
+		val |= AM33XX_DCAN_RAMINIT_START(instance);
+		writel(val, AM33XX_CTRL_REGADDR(AM33XX_DCAN_RAMINIT_OFFSET));
+	} else {
+		/* Set to "0" */
+		val &= ~AM33XX_DCAN_RAMINIT_START(instance);
+		writel(val, AM33XX_CTRL_REGADDR(AM33XX_DCAN_RAMINIT_OFFSET));
+	}
 }
 
-static struct d_can_platform_data am33xx_evm_d_can0_pdata = {
-	.d_can_offset		= 0,
-	.d_can_ram_offset	= AM33XX_D_CAN_RAM_BASE,
-	.num_of_msg_objs	= AM33XX_D_CAN_NUM_MSG_OBJS,
+/* dcan dev_attr */
+static struct d_can_platform_data am33xx_dcan_info = {
+	.num_of_msg_objs	= AM33XX_DCAN_NUM_MSG_OBJS,
+	.ram_init		= d_can_hw_raminit,
 	.dma_support		= false,
-	.parity_check		= false,
-	.fck_name		= "dcan0_fck",
-	.ick_name		= "dcan0_ick",
-};
-
-static struct resource am33xx_d_can0_resources[] = {
-	{
-		.start	= AM33XX_D_CAN0_BASE,
-		.end	= AM33XX_D_CAN0_BASE + 0x3FFF,
-		.flags	= IORESOURCE_MEM,
-	},
-	{
-		.name	= "int0",
-		.start	= AM33XX_IRQ_DCAN0_0,
-		.end	= AM33XX_IRQ_DCAN0_0,
-		.flags	= IORESOURCE_IRQ,
-	},
-	{
-		.name	= "int1",
-		.start	= AM33XX_IRQ_DCAN0_1,
-		.end	= AM33XX_IRQ_DCAN0_1,
-		.flags	= IORESOURCE_IRQ,
-	},
-};
-
-static struct platform_device am33xx_d_can0_device = {
-	.dev		= {
-		.platform_data = &am33xx_evm_d_can0_pdata,
-	},
-	.name		= "d_can",
-	.id		= -1,
-	.num_resources	= ARRAY_SIZE(am33xx_d_can0_resources),
-	.resource	= am33xx_d_can0_resources,
-};
-
-static struct resource am33xx_d_can1_resources[] = {
-	{
-		.start	= AM33XX_D_CAN1_BASE,
-		.end	= AM33XX_D_CAN1_BASE + 0x3FFF,
-		.flags	= IORESOURCE_MEM,
-	},
-	{
-		.name	= "int0",
-		.start	= AM33XX_IRQ_DCAN1_0,
-		.end	= AM33XX_IRQ_DCAN1_0,
-		.flags	= IORESOURCE_IRQ,
-	},
-	{
-		.name	= "int1",
-		.start	= AM33XX_IRQ_DCAN1_1,
-		.end	= AM33XX_IRQ_DCAN1_1,
-		.flags	= IORESOURCE_IRQ,
-	},
-};
-
-static struct d_can_platform_data am33xx_evm_d_can1_pdata = {
-	.d_can_offset		= 0,
-	.d_can_ram_offset	= AM33XX_D_CAN_RAM_BASE,
-	.num_of_msg_objs	= AM33XX_D_CAN_NUM_MSG_OBJS,
-	.dma_support		= false,
-	.parity_check		= false,
-	.fck_name		= "dcan1_fck",
-	.ick_name		= "dcan1_ick",
-};
-
-static struct platform_device am33xx_d_can1_device = {
-	.dev		= {
-		.platform_data = &am33xx_evm_d_can1_pdata,
-	},
-	.name		= "d_can",
-	.id		= -1,
-	.num_resources	= ARRAY_SIZE(am33xx_d_can1_resources),
-	.resource	= am33xx_d_can1_resources,
 };
 
 void am33xx_d_can_init(unsigned int instance)
 {
-	switch (instance) {
-	case 0:
-		d_can_hw_raminit(instance);
-		platform_device_register(&am33xx_d_can0_device);
-		break;
-	case 1:
-		d_can_hw_raminit(instance);
-		platform_device_register(&am33xx_d_can1_device);
-		break;
-	default:
-		break;
+	struct omap_hwmod *oh;
+	struct platform_device *pdev;
+	char oh_name[L3_MODULES_MAX_LEN];
+
+	/* Copy string name to oh_name buffer */
+	snprintf(oh_name, L3_MODULES_MAX_LEN, "d_can%d", instance);
+
+	oh = omap_hwmod_lookup(oh_name);
+	if (!oh) {
+		pr_err("could not find %s hwmod data\n", oh_name);
+		return;
 	}
+
+	pdev = omap_device_build("d_can", instance, oh, &am33xx_dcan_info,
+			sizeof(am33xx_dcan_info), NULL, 0, 0);
+	if (IS_ERR(pdev))
+		pr_err("could not build omap_device for %s\n", oh_name);
 }
 
 #if defined(CONFIG_OMAP_WATCHDOG) || defined(CONFIG_OMAP_WATCHDOG_MODULE)
