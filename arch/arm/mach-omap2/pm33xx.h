@@ -26,6 +26,12 @@ extern void __iomem *am33xx_get_ram_base(void);
 #define	DS0_ID				0x3
 #define DS1_ID				0x5
 
+#define M3_STATE_UNKNOWN		-1
+#define M3_STATE_RESET			0
+#define M3_STATE_INITED			1
+#define M3_STATE_MSG_FOR_LP		2
+#define M3_STATE_MSG_FOR_RESET		3
+
 /* DDR offsets */
 #define DDR_CMD0_IOCTRL			(AM33XX_CTRL_BASE + 0x1404)
 #define DDR_CMD1_IOCTRL			(AM33XX_CTRL_BASE + 0x1408)

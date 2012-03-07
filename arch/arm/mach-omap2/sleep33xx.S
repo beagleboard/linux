@@ -26,7 +26,12 @@
 
 #include "cm33xx.h"
 #include "pm33xx.h"
+#include "control.h"
 
+/* We should probably pass in the virtual address of PRCM, Control and EMIF
+ * along with the physical addresses
+ * load it into the registers and then continue
+ */
 	.align 3
 ENTRY(am33xx_do_wfi)
 	stmfd	sp!, {r4 - r11, lr}	@ save registers on stack
@@ -34,21 +39,38 @@ ENTRY(am33xx_do_wfi)
 	/* Put DDR in Self-Refresh */
 	ldr	r0, emif_addr_func
 	blx	r0
-	add	r0, r0, #EMIF4_0_SDRAM_MGMT_CTRL
-	ldr	r3, [r0]
-	orr	r3, r3, #0xa0		@ a reasonable delay for entering SR
-	str	r3, [r0, #0]
+	add	r1, r0, #EMIF4_0_SDRAM_MGMT_CTRL
+	ldr	r2, [r1]
+	orr	r2, r2, #0xa0		@ a reasonable delay for entering SR
+	str	r2, [r1, #0]
 
-	ldr	r2, ddr_start
-	ldr	r1, [r2, #0]
-	ldr	r1, [r0, #0]
-	orr	r1, r1, #0x200
-	str	r1, [r0, #0]
+	ldr	r2, ddr_start		@ do a dummy access to DDR
+	ldr	r3, [r2, #0]
+	ldr	r3, [r1, #0]
+	orr	r3, r3, #0x200
+	str	r3, [r1, #0]
 
-	mov	r0, #0x1000
+	mov	r1, #0x1000		@ Give some time for the system to enter SR
 wait_sr:
-	subs	r0, r0, #1
+	subs	r1, r1, #1
 	bne	wait_sr
+	/* What if the system does not enter self-refresh at this point? */
+
+	/* The dark arts */
+#if 0
+	/* Now put the PHY in low power mode */
+ddr_lp_config:
+	add	r1, r0, #EMIF4_0_DDR_PHY_CTRL_1
+	mov	r2, #1
+	mov	r3, r2, lsl #20
+	str	r3, [r1]
+
+	/* IO to work in mDDR mode */
+	ldr	r0, virt_ddr_io_ctrl
+	ldr	r1, [r0]
+	mov	r3, r2, lsl #28
+	str	r3, [r0]
+#endif
 
 	/* Put the PLLs to LP bypass */
 #if 0
@@ -126,6 +148,28 @@ wait_pll_by5:
 	nop
 
 	/* We come here in case of an abort */
+	/* We must revert the PHY related changes before we can
+	 * start accessing DDR again
+	 */
+#if 0
+catch_race_conditions:
+	nop
+	b	catch_race_conditions
+#endif
+
+#if 0
+	add	r1, r0, #EMIF4_0_DDR_PHY_CTRL_1
+	mov	r2, #1
+	mov	r3, r2, lsl #20
+	str	r3, [r1]
+
+	/* IO to work in mDDR mode */
+	ldr	r0, virt_ddr_io_ctrl
+	ldr	r1, [r0]
+	mov	r3, r2, lsl #28
+	str	r3, [r0]
+#endif
+	mov	r0, #7
 	ldmfd	sp!, {r4 - r11, pc}	@ restore regs and return
 
 
@@ -200,6 +244,26 @@ wait_pll_lock5:
 	nop
 	nop
 	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+
+#if 0
+ddr_lp_config_revert:
+	ldr	r0, phys_emif_phy_ctrl_addr
+	ldr	r1, [r0]
+	bic	r1, r1, #20
+	str	r1, [r0]
+
+	/* Take out IO of mDDR mode */
+	ldr	r0, phys_ddr_io_ctrl
+	ldr	r1, [r0]
+	bic	r1, r1, #28
+	str	r1, [r0]
+#endif
+
 	/* Assume the PLL is locked at this point */
 restore_emif:
 	nop
@@ -496,6 +560,13 @@ per_pll_m:
 	.word	0xDEADBEEF
 per_pll_m2:
 	.word	0xDEADBEEF
+
+virt_ddr_io_ctrl:
+	.word	AM33XX_CTRL_REGADDR(0x0E04)
+phys_ddr_io_ctrl:
+	.word	0x44E10E04
+phys_emif_phy_ctrl_addr:
+	.word	0x4C0000E4
 
 virt_mpu_pll_idlest_addr:
 	.word	AM33XX_CM_IDLEST_DPLL_MPU
