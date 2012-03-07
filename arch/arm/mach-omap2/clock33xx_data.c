@@ -37,12 +37,6 @@ static struct clk clk_32768_ck = {
 	.ops		= &clkops_null,
 };
 
-static struct clk clk_32khz_ck = {
-	.name		= "clk_32khz_ck",
-	.rate		= 32768,
-	.ops		= &clkops_null,
-};
-
 /* On-Chip 32KHz RC OSC */
 static struct clk clk_rc32k_ck = {
 	.name		= "clk_rc32k_ck",
@@ -710,13 +704,24 @@ static struct clk aes0_fck = {
 	.recalc		= &followparent_recalc,
 };
 
+/*
+ * clkdiv32 is generated from fixed division of 732.4219
+ */
 static struct clk clkdiv32k_ick = {
 	.name		= "clkdiv32k_ick",
 	.clkdm_name	= "clk_24mhz_clkdm",
+	.rate		= 32768,
 	.parent		= &clk_24mhz,
 	.enable_reg	= AM33XX_CM_PER_CLKDIV32K_CLKCTRL,
 	.enable_bit	= AM33XX_MODULEMODE_SWCTRL,
 	.ops		= &clkops_omap2_dflt,
+};
+
+static struct clk clk_32khz_ck = {
+	.name		= "clk_32khz_ck",
+	.clkdm_name	= "clk_24mhz_clkdm",
+	.parent		= &clkdiv32k_ick,
+	.ops		= &clkops_null,
 	.recalc		= &followparent_recalc,
 };
 
@@ -1054,7 +1059,7 @@ static struct clk rng_fck = {
 static struct clk rtc_fck = {
 	.name		= "rtc_fck",
 	.clkdm_name	= "l4_rtc_clkdm",
-	.parent		= &clk_32khz_ck,
+	.parent		= &clk_32768_ck,
 	.enable_reg	= AM33XX_CM_RTC_RTC_CLKCTRL,
 	.enable_bit	= AM33XX_MODULEMODE_SWCTRL,
 	.ops		= &clkops_omap2_dflt,
@@ -1588,7 +1593,7 @@ static struct clk usbotg_ick = {
 
 static struct clk usbotg_fck = {
 	.name		= "usbotg_fck",
-	.clkdm_name	= "wkup_usb_clkdm",
+	.clkdm_name	= "l3s_clkdm",
 	.parent		= &usb_pll_clk,
 	.enable_reg	= AM33XX_CM_CLKDCOLDO_DPLL_PER,
 	.enable_bit	= AM33XX_ST_DPLL_CLKDCOLDO_SHIFT,
@@ -1957,7 +1962,7 @@ static struct clk wdt0_fck = {
 	.enable_reg	= AM33XX_CM_WKUP_WDT0_CLKCTRL,
 	.enable_bit	= AM33XX_MODULEMODE_SWCTRL,
 	.ops		= &clkops_omap2_dflt,
-	.recalc		= &omap2_clksel_recalc,
+	.recalc		= &followparent_recalc,
 };
 
 static struct clk wdt1_ick = {
