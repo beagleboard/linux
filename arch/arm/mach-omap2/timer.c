@@ -45,8 +45,12 @@
 #include <plat/omap_hwmod.h>
 #include <plat/omap_device.h>
 #include <plat/omap-pm.h>
+#include <plat/clock.h>
 
+#include "clockdomain.h"
 #include "powerdomain.h"
+#include "cm2xxx_3xxx.h"
+#include "cminst44xx.h"
 
 /* Parent clocks, eventually these will come from the clock framework */
 
@@ -56,6 +60,7 @@
 #define OMAP2_32K_SOURCE	"func_32k_ck"
 #define OMAP3_32K_SOURCE	"omap_32k_fck"
 #define OMAP4_32K_SOURCE	"sys_32k_ck"
+#define AM33XX_RTC32K_SOURCE	"clk_32768_ck"
 
 #ifdef CONFIG_OMAP_32K_TIMER
 #define OMAP2_CLKEV_SOURCE	OMAP2_32K_SOURCE
@@ -139,6 +144,67 @@ static struct clock_event_device clockevent_gpt = {
 	.set_mode	= omap2_gp_timer_set_mode,
 };
 
+static int _is_timer_idle(struct omap_hwmod *oh)
+{
+	int ret;
+
+	if (cpu_is_omap44xx() || cpu_is_am33xx()) {
+		if (!oh->clkdm)
+			return -EINVAL;
+		ret = omap4_cminst_wait_module_ready(oh->clkdm->prcm_partition,
+				oh->clkdm->cm_inst,
+				oh->clkdm->clkdm_offs,
+				oh->prcm.omap4.clkctrl_offs);
+	} else if (cpu_is_omap24xx() || cpu_is_omap34xx()) {
+		ret = omap2_cm_wait_module_ready(
+				oh->prcm.omap2.module_offs,
+				oh->prcm.omap2.idlest_reg_id,
+				oh->prcm.omap2.idlest_idle_bit);
+	} else {
+		BUG();
+	}
+
+	return ret;
+}
+
+static int omap_dm_timer_switch_src(struct omap_hwmod *oh,
+		struct omap_dm_timer *timer, const char *fck_source)
+{
+	struct clk *src, *cur_parent;
+	int res;
+
+	src = clk_get(NULL, fck_source);
+	if (IS_ERR(src))
+		return -EINVAL;
+
+	/* Reserve HW/clock-tree default source for fallback */
+	cur_parent = clk_get_parent(timer->fclk);
+
+	/* Switch to configured source */
+	res = __omap_dm_timer_set_source(timer->fclk, src);
+	if (IS_ERR_VALUE(res))
+		pr_warning("%s: timer%i cannot set source\n",
+				__func__, timer->id);
+
+	/* Check whether timer module is went into idle state */
+	res = _is_timer_idle(oh);
+	if (res && cur_parent) {
+		/* Fallback to default timer source */
+		pr_warning("%s: Switching to HW default clocksource(%s) for "
+				"timer%i, this may impact timekeeping in low "
+				"power state\n",
+				__func__, cur_parent->name, timer->id);
+
+		res = __omap_dm_timer_set_source(timer->fclk, cur_parent);
+		if (IS_ERR_VALUE(res))
+			pr_warning("%s: timer%i cannot set source\n",
+					__func__, timer->id);
+	}
+	clk_put(src);
+
+	return res;
+}
+
 static int __init omap_dm_timer_init_one(struct omap_dm_timer *timer,
 						int gptimer_id,
 						const char *fck_source)
@@ -182,18 +248,7 @@ static int __init omap_dm_timer_init_one(struct omap_dm_timer *timer,
 	sys_timer_reserved |= (1 << (gptimer_id));
 
 	if (gptimer_id != 12) {
-		struct clk *src;
-
-		src = clk_get(NULL, fck_source);
-		if (IS_ERR(src)) {
-			res = -EINVAL;
-		} else {
-			res = __omap_dm_timer_set_source(timer->fclk, src);
-			if (IS_ERR_VALUE(res))
-				pr_warning("%s: timer%i cannot set source\n",
-						__func__, gptimer_id);
-			clk_put(src);
-		}
+		res = omap_dm_timer_switch_src(oh, timer, fck_source);
 	}
 	__omap_dm_timer_init_regs(timer);
 	__omap_dm_timer_reset(timer, 1, 1);
@@ -365,7 +420,7 @@ OMAP_SYS_TIMER(3)
 OMAP_SYS_TIMER_INIT(3_secure, OMAP3_SECURE_TIMER, OMAP3_CLKEV_SOURCE,
 			2, OMAP3_MPU_SOURCE)
 OMAP_SYS_TIMER(3_secure)
-OMAP_SYS_TIMER_INIT(3_am33xx, 2, OMAP4_MPU_SOURCE, 1, OMAP4_MPU_SOURCE)
+OMAP_SYS_TIMER_INIT(3_am33xx, 2, OMAP4_MPU_SOURCE, 1, AM33XX_RTC32K_SOURCE)
 OMAP_SYS_TIMER(3_am33xx)
 #endif
 
