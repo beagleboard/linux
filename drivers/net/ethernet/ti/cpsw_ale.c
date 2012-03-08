@@ -662,6 +662,7 @@ EXPORT_SYMBOL_GPL(cpsw_ale_start);
 
 void cpsw_ale_stop(struct cpsw_ale *ale)
 {
+	cpsw_ale_control_set(ale, 0, ALE_ENABLE, 0);
 	del_timer_sync(&ale->timer);
 	device_remove_file(ale->params.dev, &ale->ale_table_attr);
 	device_remove_file(ale->params.dev, &ale->ale_control_attr);

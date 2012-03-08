@@ -351,6 +351,17 @@ int cpdma_ctlr_stop(struct cpdma_ctlr *ctlr)
 
 	ctlr->state = CPDMA_STATE_IDLE;
 
+	if (ctlr->params.has_soft_reset) {
+		unsigned long timeout = jiffies + HZ/10;
+
+		dma_reg_write(ctlr, CPDMA_SOFTRESET, 1);
+		while (time_before(jiffies, timeout)) {
+			if (dma_reg_read(ctlr, CPDMA_SOFTRESET) == 0)
+				break;
+		}
+		WARN_ON(!time_before(jiffies, timeout));
+	}
+
 	spin_unlock_irqrestore(&ctlr->lock, flags);
 	return 0;
 }

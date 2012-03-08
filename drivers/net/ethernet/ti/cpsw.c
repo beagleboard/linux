@@ -140,6 +140,7 @@ struct cpsw_regs {
 	u32	soft_reset;
 	u32	stat_port_en;
 	u32	ptype;
+	u32	soft_idle;
 };
 
 struct cpsw_slave_regs {
@@ -746,6 +747,16 @@ static int cpsw_ndo_open(struct net_device *ndev)
 		cpsw_set_coalesce(ndev, &coal);
 	}
 
+	/* Enable Timer for capturing cpsw rx interrupts */
+	omap_dm_timer_set_int_enable(dmtimer_rx, OMAP_TIMER_INT_CAPTURE);
+	omap_dm_timer_set_capture(dmtimer_rx, 1, 0, 0);
+	omap_dm_timer_enable(dmtimer_rx);
+
+	/* Enable Timer for capturing cpsw tx interrupts */
+	omap_dm_timer_set_int_enable(dmtimer_tx, OMAP_TIMER_INT_CAPTURE);
+	omap_dm_timer_set_capture(dmtimer_tx, 1, 0, 0);
+	omap_dm_timer_enable(dmtimer_tx);
+
 	cpdma_ctlr_start(priv->dma);
 	cpsw_intr_enable(priv);
 	napi_enable(&priv->napi);
@@ -770,6 +781,10 @@ static int cpsw_ndo_stop(struct net_device *ndev)
 	msg(info, ifdown, "shutting down cpsw device\n");
 	cpsw_intr_disable(priv);
 	cpdma_ctlr_int_ctrl(priv->dma, false);
+
+	omap_dm_timer_set_int_enable(dmtimer_rx, 0);
+	omap_dm_timer_set_int_enable(dmtimer_tx, 0);
+
 	netif_stop_queue(priv->ndev);
 	napi_disable(&priv->napi);
 	netif_carrier_off(priv->ndev);
@@ -1140,17 +1155,18 @@ static int __devinit cpsw_probe(struct platform_device *pdev)
 
 	omap_ctrl_writel(CPSW_TIMER_MASK, CPSW_TIMER_CAP_REG);
 
-	/* Enable Timer for capturing cpsw rx interrupts */
 	dmtimer_rx = omap_dm_timer_request_specific(CPSW_RX_TIMER_REQ);
-	omap_dm_timer_set_int_enable(dmtimer_rx, OMAP_TIMER_INT_CAPTURE);
-	omap_dm_timer_set_capture(dmtimer_rx, 1, 0, 0);
-	omap_dm_timer_enable(dmtimer_rx);
-
-	/* Enable Timer for capturing cpsw tx interrupts */
+	if (!dmtimer_rx) {
+		dev_err(priv->dev, "Error getting Rx Timer resource\n");
+		ret = -ENODEV;
+		goto clean_iomap_ret;
+	}
 	dmtimer_tx = omap_dm_timer_request_specific(CPSW_TX_TIMER_REQ);
-	omap_dm_timer_set_int_enable(dmtimer_tx, OMAP_TIMER_INT_CAPTURE);
-	omap_dm_timer_set_capture(dmtimer_tx, 1, 0, 0);
-	omap_dm_timer_enable(dmtimer_tx);
+	if (!dmtimer_tx) {
+		dev_err(priv->dev, "Error getting Tx Timer resource\n");
+		ret = -ENODEV;
+		goto clean_timer_rx_ret;
+	}
 
 	memset(&dma_params, 0, sizeof(dma_params));
 	dma_params.dev			= &pdev->dev;
@@ -1196,7 +1212,7 @@ static int __devinit cpsw_probe(struct platform_device *pdev)
 	if (!priv->dma) {
 		dev_err(priv->dev, "error initializing dma\n");
 		ret = -ENOMEM;
-		goto clean_iomap_ret;
+		goto clean_timer_ret;
 	}
 
 	priv->txch = cpdma_chan_create(priv->dma, tx_chan_num(0),
@@ -1275,6 +1291,10 @@ clean_dma_ret:
 	cpdma_chan_destroy(priv->txch);
 	cpdma_chan_destroy(priv->rxch);
 	cpdma_ctlr_destroy(priv->dma);
+clean_timer_ret:
+	omap_dm_timer_free(dmtimer_tx);
+clean_timer_rx_ret:
+	omap_dm_timer_free(dmtimer_rx);
 clean_iomap_ret:
 	iounmap(priv->regs);
 clean_cpsw_ss_iores_ret:
@@ -1299,6 +1319,8 @@ static int __devexit cpsw_remove(struct platform_device *pdev)
 	msg(notice, probe, "removing device\n");
 	platform_set_drvdata(pdev, NULL);
 
+	omap_dm_timer_free(dmtimer_rx);
+	omap_dm_timer_free(dmtimer_tx);
 	free_irq(ndev->irq, priv);
 	cpsw_ale_destroy(priv->ale);
 	cpdma_chan_destroy(priv->txch);
@@ -1320,9 +1342,16 @@ static int cpsw_suspend(struct device *dev)
 {
 	struct platform_device	*pdev = to_platform_device(dev);
 	struct net_device	*ndev = platform_get_drvdata(pdev);
+	struct cpsw_priv *priv = netdev_priv(ndev);
 
 	if (netif_running(ndev))
 		cpsw_ndo_stop(ndev);
+
+	soft_reset("cpsw", &priv->regs->soft_reset);
+	soft_reset("sliver 0", &priv->slaves[0].sliver->soft_reset);
+	soft_reset("sliver 1", &priv->slaves[1].sliver->soft_reset);
+	soft_reset("cpsw_ss", &priv->ss_regs->soft_reset);
+
 	return 0;
 }
 

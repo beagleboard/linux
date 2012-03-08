@@ -48,6 +48,8 @@
 
 #define DEF_OUT_FREQ		2200000		/* 2.2 MHz */
 
+#define CPGMAC_CLK_CTRL_REG	0x44E00014
+
 struct davinci_mdio_regs {
 	u32	version;
 	u32	control;
@@ -402,6 +404,28 @@ static int __devexit davinci_mdio_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static inline int wait_for_clock_enable(struct davinci_mdio_data *data)
+{
+	unsigned long timeout = jiffies + msecs_to_jiffies(MDIO_TIMEOUT);
+	u32 __iomem *cpgmac_clk = ioremap(CPGMAC_CLK_CTRL_REG, 4);
+	u32 reg = 0;
+
+	while (time_after(timeout, jiffies)) {
+		reg = readl(cpgmac_clk);
+		if ((reg & 0x70000) == 0)
+			goto iounmap_ret;
+	}
+	dev_err(data->dev,
+		"timed out waiting for CPGMAC clock enable, value = 0x%x\n",
+		reg);
+	iounmap(cpgmac_clk);
+	return -ETIMEDOUT;
+
+iounmap_ret:
+	iounmap(cpgmac_clk);
+	return 0;
+}
+
 static int davinci_mdio_suspend(struct device *dev)
 {
 	struct davinci_mdio_data *data = dev_get_drvdata(dev);
@@ -433,12 +457,15 @@ static int davinci_mdio_resume(struct device *dev)
 	if (data->clk)
 		clk_enable(data->clk);
 
+	/* Need to wait till Module is enabled */
+	wait_for_clock_enable(data);
+
 	/* restart the scan state machine */
 	ctrl = __raw_readl(&data->regs->control);
 	ctrl |= CONTROL_ENABLE;
 	__raw_writel(ctrl, &data->regs->control);
-
 	data->suspended = false;
+
 	spin_unlock(&data->lock);
 
 	return 0;
