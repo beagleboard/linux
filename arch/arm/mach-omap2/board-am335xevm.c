@@ -37,6 +37,7 @@
 #include <linux/pwm_backlight.h>
 #include <linux/input/ti_tscadc.h>
 #include <linux/reboot.h>
+#include <linux/pwm/pwm.h>
 
 /* LCD controller is similar to DA850 */
 #include <video/da8xx-fb.h>
@@ -912,11 +913,24 @@ static struct platform_device am335x_backlight = {
 	}
 };
 
+static struct pwmss_platform_data  pwm_pdata[3] = {
+	{
+		.version = PWM_VERSION_1,
+	},
+	{
+		.version = PWM_VERSION_1,
+	},
+	{
+		.version = PWM_VERSION_1,
+	},
+};
+
 static int __init ecap0_init(void)
 {
 	int status = 0;
 
 	if (backlight_enable) {
+		am33xx_register_ecap(0, &pwm_pdata[0]);
 		platform_device_register(&am335x_backlight);
 	}
 	return status;
@@ -1025,12 +1039,12 @@ static void uart2_init(int evm_id, int profile)
 }
 
 /* setup haptics */
-#define HAPTICS_MAX_FREQ (250)
-
+#define HAPTICS_MAX_FREQ 250
 static void haptics_init(int evm_id, int profile)
 {
 	setup_pin_mux(haptics_pin_mux);
-	return;
+	pwm_pdata[2].chan_attrib[1].max_freq = HAPTICS_MAX_FREQ;
+	am33xx_register_ehrpwm(2, &pwm_pdata[2]);
 }
 
 /* NAND partition information */
