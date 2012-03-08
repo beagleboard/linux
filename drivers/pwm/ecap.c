@@ -26,6 +26,7 @@
 #include <plat/config_pwm.h>
 
 #define TIMER_CTR_REG			0x0
+#define CAPTURE_1_REG			0x08
 #define CAPTURE_2_REG			0x0c
 #define CAPTURE_3_REG			0x10
 #define CAPTURE_4_REG			0x14
@@ -38,6 +39,16 @@
 #define ECTRL2_PLSL_LOW			BIT(10)
 #define ECTRL2_SYNC_EN			BIT(5)
 
+struct ecap_regs {
+	unsigned	tsctr;
+	unsigned	cap1;
+	unsigned	cap2;
+	unsigned	cap3;
+	unsigned	cap4;
+	unsigned short	ecctl2;
+	unsigned short	clkconfig;
+};
+
 struct ecap_pwm {
 	struct pwm_device pwm;
 	struct pwm_device_ops ops;
@@ -47,6 +58,7 @@ struct ecap_pwm {
 	u8 version;
 	void __iomem *config_mem_base;
 	struct device *dev;
+	struct ecap_regs ctx;
 };
 
 static inline struct ecap_pwm *to_ecap_pwm(const struct pwm_device *p)
@@ -332,12 +344,41 @@ err_clk_get:
 }
 
 #ifdef CONFIG_PM
+
+void ecap_save_reg(struct ecap_pwm *ep)
+{
+	pm_runtime_get_sync(ep->dev);
+
+	ep->ctx.ecctl2 = readw(ep->mmio_base + CAPTURE_CTRL2_REG);
+	ep->ctx.tsctr = readl(ep->mmio_base + TIMER_CTR_REG);
+	ep->ctx.cap1 = readl(ep->mmio_base + CAPTURE_1_REG);
+	ep->ctx.cap2 = readl(ep->mmio_base + CAPTURE_2_REG);
+	ep->ctx.cap4 = readl(ep->mmio_base + CAPTURE_4_REG);
+	ep->ctx.cap3 = readl(ep->mmio_base + CAPTURE_3_REG);
+
+	ep->ctx.clkconfig = readw(ep->config_mem_base + PWMSS_CLKCONFIG);
+
+	pm_runtime_put_sync(ep->dev);
+}
+
+void ecap_restore_reg(struct ecap_pwm *ep)
+{
+	writew(ep->ctx.clkconfig, ep->config_mem_base + PWMSS_CLKCONFIG);
+
+	writel(ep->ctx.cap3, ep->mmio_base + CAPTURE_3_REG);
+	writel(ep->ctx.cap4, ep->mmio_base + CAPTURE_4_REG);
+	writel(ep->ctx.cap2, ep->mmio_base + CAPTURE_2_REG);
+	writel(ep->ctx.cap1, ep->mmio_base + CAPTURE_1_REG);
+	writel(ep->ctx.tsctr, ep->mmio_base + TIMER_CTR_REG);
+	writew(ep->ctx.ecctl2, ep->mmio_base + CAPTURE_CTRL2_REG);
+}
+
 static int ecap_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	struct ecap_pwm *ep = platform_get_drvdata(pdev);
 
-	if (ep->clk->usecount > 0)
-		pm_runtime_put_sync(ep->dev);
+	ecap_save_reg(ep);
+	pm_runtime_put_sync(ep->dev);
 
 	return 0;
 }
@@ -347,6 +388,8 @@ static int ecap_resume(struct platform_device *pdev)
 	struct ecap_pwm *ep = platform_get_drvdata(pdev);
 
 	pm_runtime_get_sync(ep->dev);
+
+	ecap_restore_reg(ep);
 
 	return 0;
 }
