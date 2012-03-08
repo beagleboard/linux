@@ -51,27 +51,19 @@ void __iomem *m3_eoi;
 void __iomem *m3_code;
 
 bool enable_deep_sleep = true;
+static suspend_state_t suspend_state = PM_SUSPEND_ON;
 
 static struct device *mpu_dev;
 static struct omap_mbox *m3_mbox;
+static struct powerdomain *cefuse_pwrdm, *gfx_pwrdm;
+static struct clockdomain *gfx_l3_clkdm, *gfx_l4ls_clkdm;
 
 static int core_suspend_stat = -1;
 static int m3_state = M3_STATE_UNKNOWN;
 
-static suspend_state_t suspend_state = PM_SUSPEND_ON;
-
-struct a8_wkup_m3_ipc_data {
-	int resume_addr;
-	int sleep_mode;
-	int ipc_data1;
-	int ipc_data2;
-} am33xx_lp_ipc;
-
 static int am33xx_ipc_cmd(struct a8_wkup_m3_ipc_data *);
 static int am33xx_verify_lp_state(void);
 static void am33xx_m3_state_machine_reset(void);
-static struct powerdomain *cefuse_pwrdm, *gfx_pwrdm;
-static struct clockdomain *gfx_l3_clkdm, *gfx_l4ls_clkdm;
 
 static DECLARE_COMPLETION(a8_m3_sync);
 
@@ -259,7 +251,7 @@ static int am33xx_verify_lp_state(void)
 		pr_info("Successfully transitioned all domains to low power state\n");
 		goto clear_old_status;
 	} else if (status == 0x10000) {
-		pr_info("Could enter low power state\n"
+		pr_info("Could not enter low power state\n"
 			"Please check for active clocks in PER domain\n");
 		ret = -1;
 		goto clear_old_status;

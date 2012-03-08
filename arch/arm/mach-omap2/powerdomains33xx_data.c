@@ -27,10 +27,9 @@ static struct powerdomain gfx_33xx_pwrdm = {
 	.prcm_partition		= AM33XX_PRM_PARTITION,
 	.prcm_offs		= AM33XX_PRM_GFX_MOD,
 	.pwrsts			= PWRSTS_OFF_ON,
-//	.pwrsts_logic_ret	= PWRSTS_OFF_RET,
+	.pwrsts_logic_ret	= PWRSTS_OFF_RET,
 	.pwrstctrl_offs		= AM33XX_PM_GFX_PWRSTCTRL_OFFSET,
 	.pwrstst_offs		= AM33XX_PM_GFX_PWRSTST_OFFSET,
-#if 0
 	.flags			= PWRDM_HAS_LOWPOWERSTATECHANGE,
 	.banks			= 1,
 	.pwrsts_mem_ret		= {
@@ -39,7 +38,6 @@ static struct powerdomain gfx_33xx_pwrdm = {
 	.pwrsts_mem_on		= {
 		[0]	= PWRSTS_ON,		/* gfx_mem */
 	},
-#endif
 };
 
 static struct powerdomain rtc_33xx_pwrdm = {

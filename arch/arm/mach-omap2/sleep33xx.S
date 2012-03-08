@@ -36,6 +36,34 @@
 ENTRY(am33xx_do_wfi)
 	stmfd	sp!, {r4 - r11, lr}	@ save registers on stack
 
+	.macro	pll_bypass, name, clk_mode_addr, idlest_addr
+pll_bypass_\name:
+	ldr	r0, \clk_mode_addr
+	ldr	r1, [r0]
+	bic	r1, r1, #(7 << 0)
+	orr	r1, r1, #0x5
+	str	r1, [r0]
+	ldr	r0, \idlest_addr
+wait_pll_bypass_\name:
+	ldr	r1, [r0]
+	tst	r1, #0x0
+	bne	wait_pll_bypass_\name
+	.endm
+
+	.macro	pll_lock, name, clk_mode_addr, idlest_addr
+pll_lock_\name:
+	ldr	r0, \clk_mode_addr
+	ldr	r1, [r0]
+	bic	r1, r1, #(7 << 0)
+	orr	r1, r1, #0x7
+	str	r1, [r0]
+	ldr	r0, \idlest_addr
+wait_pll_lock_\name:
+	ldr	r1, [r0]
+	tst	r1, #0x1
+	bne	wait_pll_lock_\name
+	.endm
+
 	/* Put DDR in Self-Refresh */
 	ldr	r0, emif_addr_func
 	blx	r0
@@ -54,81 +82,20 @@ ENTRY(am33xx_do_wfi)
 wait_sr:
 	subs	r1, r1, #1
 	bne	wait_sr
-	/* What if the system does not enter self-refresh at this point? */
-
-	/* The dark arts */
-#if 0
-	/* Now put the PHY in low power mode */
-ddr_lp_config:
-	add	r1, r0, #EMIF4_0_DDR_PHY_CTRL_1
-	mov	r2, #1
-	mov	r3, r2, lsl #20
-	str	r3, [r1]
 
 	/* IO to work in mDDR mode */
 	ldr	r0, virt_ddr_io_ctrl
 	ldr	r1, [r0]
+	mov	r2, #1
 	mov	r3, r2, lsl #28
 	str	r3, [r0]
-#endif
 
-	/* Put the PLLs to LP bypass */
-#if 0
-	ldr	r0, virt_mpu_pll_clk_mode_addr
-	ldr	r1, [r0]
-	bic	r1, r1, #(7 << 0)
-	orr	r1, r1, #0x5
-	str	r1, [r0]
-	ldr	r0, virt_mpu_pll_idlest_addr
-wait_pll_by1:
-	ldr	r1, [r0]
-	tst	r1, #0x0
-	bne	wait_pll_by1
-
-	ldr	r0, virt_per_pll_clk_mode_addr
-	ldr	r1, [r0]
-	bic	r1, r1, #(7 << 0)
-	orr	r1, r1, #0x5
-	str	r1, [r0]
-	ldr	r0, virt_per_pll_idlest_addr
-wait_pll_by2:
-	ldr	r1, [r0]
-	tst	r1, #0x0
-	bne	wait_pll_by2
-
-	ldr	r0, virt_disp_pll_clk_mode_addr
-	ldr	r1, [r0]
-	bic	r1, r1, #(7 << 0)
-	orr	r1, r1, #0x5
-	str	r1, [r0]
-	ldr	r0, virt_disp_pll_idlest_addr
-wait_pll_by3:
-	ldr	r1, [r0]
-	tst	r1, #0x0
-	bne	wait_pll_by3
-
-	ldr	r0, virt_ddr_pll_clk_mode_addr
-	ldr	r1, [r0]
-	bic	r1, r1, #(7 << 0)
-	orr	r1, r1, #0x5
-	str	r1, [r0]
-	ldr	r0, virt_ddr_pll_idlest_addr
-wait_pll_by4:
-	ldr	r1, [r0]
-	tst	r1, #0x0
-	bne	wait_pll_by4
-
-	ldr	r0, virt_core_pll_clk_mode_addr
-	ldr	r1, [r0]
-	bic	r1, r1, #(7 << 0)
-	orr	r1, r1, #0x5
-	str	r1, [r0]
-	ldr	r0, virt_core_pll_idlest_addr
-wait_pll_by5:
-	ldr	r1, [r0]
-	tst	r1, #0x0
-	bne	wait_pll_by5
-#endif
+	/* Put the PLLs in bypass mode */
+	pll_bypass	core, virt_core_clk_mode, virt_core_idlest
+	pll_bypass	ddr, virt_ddr_clk_mode, virt_ddr_idlest
+	pll_bypass	disp, virt_disp_clk_mode, virt_disp_idlest
+	pll_bypass	per, virt_per_clk_mode, virt_per_idlest
+	pll_bypass	mpu, virt_mpu_clk_mode, virt_mpu_idlest
 
 	dsb
 	dmb
@@ -148,113 +115,50 @@ wait_pll_by5:
 	nop
 
 	/* We come here in case of an abort */
-	/* We must revert the PHY related changes before we can
-	 * start accessing DDR again
-	 */
-#if 0
-catch_race_conditions:
-	nop
-	b	catch_race_conditions
-#endif
+	/* Revert the PHY and PLL related changes */
 
-#if 0
-	add	r1, r0, #EMIF4_0_DDR_PHY_CTRL_1
-	mov	r2, #1
-	mov	r3, r2, lsl #20
-	str	r3, [r1]
+	/* Relock the PLLs */
+	pll_lock	mpu_abt, virt_mpu_clk_mode, virt_mpu_idlest
+	pll_lock	per_abt, virt_per_clk_mode, virt_per_idlest
+	pll_lock	disp_abt, virt_disp_clk_mode, virt_disp_idlest
+	pll_lock	ddr_abt, virt_ddr_clk_mode, virt_ddr_idlest
+	pll_lock	core_abt, virt_core_clk_mode, virt_core_idlest
 
 	/* IO to work in mDDR mode */
 	ldr	r0, virt_ddr_io_ctrl
 	ldr	r1, [r0]
 	mov	r3, r2, lsl #28
 	str	r3, [r0]
-#endif
+
 	mov	r0, #7
 	ldmfd	sp!, {r4 - r11, pc}	@ restore regs and return
 
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
 
 	/* Take the PLLs out of LP_BYPASS */
-#if 0
-	ldr	r1, phys_mpu_pll_clk_mode_addr
-	ldr	r2, [r1]
-	bic	r2, r2, #(7 << 0)
-	orr	r2, r2, #0x7
-	str	r2, [r1]
-	ldr	r1, phys_mpu_pll_idlest_addr
-wait_pll_lock1:
-	ldr	r2, [r1]
-	tst	r2, #0x1
-	bne	wait_pll_lock1
+	pll_lock	mpu, phys_mpu_clk_mode, phys_mpu_idlest
+	pll_lock	per, phys_per_clk_mode, phys_per_idlest
+	pll_lock	disp, phys_disp_clk_mode, phys_disp_idlest
+	pll_lock	ddr, phys_ddr_clk_mode, phys_ddr_idlest
+	pll_lock	core, phys_core_clk_mode, phys_core_idlest
 
-	ldr	r1, phys_core_pll_clk_mode_addr
-	ldr	r2, [r1]
-	bic	r2, r2, #(7 << 0)
-	orr	r2, r2, #0x7
-	str	r2, [r1]
-	ldr	r1, phys_core_pll_idlest_addr
-wait_pll_lock2:
-	ldr	r2, [r1]
-	tst	r2, #0x1
-	bne	wait_pll_lock2
-
-	ldr	r1, phys_per_pll_clk_mode_addr
-	ldr	r2, [r1]
-	bic	r2, r2, #(7 << 0)
-	orr	r2, r2, #0x7
-	str	r2, [r1]
-	ldr	r1, phys_per_pll_idlest_addr
-wait_pll_lock3:
-	ldr	r2, [r1]
-	tst	r2, #0x1
-	bne	wait_pll_lock3
-
-	ldr	r1, phys_disp_pll_clk_mode_addr
-	ldr	r2, [r1]
-	bic	r2, r2, #(7 << 0)
-	orr	r2, r2, #0x7
-	str	r2, [r1]
-	ldr	r1, phys_disp_pll_idlest_addr
-wait_pll_lock4:
-	ldr	r2, [r1]
-	tst	r2, #0x1
-	bne	wait_pll_lock4
-
-	ldr	r1, phys_ddr_pll_clk_mode_addr
-	ldr	r2, [r1]
-	bic	r2, r2, #(7 << 0)
-	orr	r2, r2, #0x7
-	str	r2, [r1]
-	ldr	r1, phys_ddr_pll_idlest_addr
-wait_pll_lock5:
-	ldr	r2, [r1]
-	tst	r2, #0x1
-	bne	wait_pll_lock5
-
+	/* Disable EMIF self-refresh */
 	ldr	r0, emif_phys_addr
 	add	r0, r0, #EMIF4_0_SDRAM_MGMT_CTRL
 	ldr	r1, [r0]
 	bic	r1, r1, #(0x7 << 7)
-	str	r1, [r0]
-#endif
-
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-
-#if 0
-ddr_lp_config_revert:
-	ldr	r0, phys_emif_phy_ctrl_addr
-	ldr	r1, [r0]
-	bic	r1, r1, #20
 	str	r1, [r0]
 
 	/* Take out IO of mDDR mode */
@@ -262,12 +166,19 @@ ddr_lp_config_revert:
 	ldr	r1, [r0]
 	bic	r1, r1, #28
 	str	r1, [r0]
-#endif
 
-	/* Assume the PLL is locked at this point */
-restore_emif:
-	nop
-	nop
+/*
+ * Instead of harcoding the EMIF and DDR PHY related settings
+ * in this file, the sane thing to do would have been to backup
+ * the register contents during suspend and restore it back in
+ * the resume path. However, due to the Si errata related to
+ * DDR PHY registers, these registers are read-only. So, we'll
+ * need to hardcode atleast the DDR PHY configuration over here.
+ * We _could_ back up the EMIF registers but in order to be
+ * consistent with the DDR setup procedure we skip this for now.
+ * The person updating the DDR PHY config values is expected
+ * to update the EMIF config values also.
+ */
 
 config_vtp:
 	ldr	r0, vtp0_addr
@@ -348,6 +259,7 @@ wr_dqs:
 	orr	r2, r2, r5
 	orr	r2, r2, r6
 	orr	r2, r2, r7
+	/* Done with crazy bit ops. store it now */
 	str	r2, [r0, #220]
 	ldr	r1, data0_wr_dqs_slave_ratio1_val
 	mov	r2, r1
@@ -364,6 +276,7 @@ wr_lvl:
 	orr	r2, r2, r5
 	orr	r2, r2, r6
 	orr	r2, r2, r7
+	/* Done with crazy bit ops. store it now */
 	str	r2, [r0, #240]
 	ldr	r1, data0_wr_lvl_init_ratio1_val
 	mov	r2, r1
@@ -380,6 +293,7 @@ gate_lvl:
 	orr	r2, r2, r5
 	orr	r2, r2, r6
 	orr	r2, r2, r7
+	/* Done with crazy bit ops. store it now */
 	str	r2, [r0, #248]
 	ldr	r1, data0_gate_lvl_init_ratio1_val
 	mov	r2, r1
@@ -396,6 +310,7 @@ we_slv:
 	orr	r2, r2, r5
 	orr	r2, r2, r6
 	orr	r2, r2, r7
+	/* Done with crazy bit ops. store it now */
 	str	r2, [r0, #264]
 	ldr	r1, data0_wr_lvl_slave_ratio1_val
 	mov	r2, r1
@@ -412,6 +327,7 @@ wr_data:
 	orr	r2, r2, r5
 	orr	r2, r2, r6
 	orr	r2, r2, r7
+	/* Done with crazy bit ops. store it now */
 	str	r2, [r0, #288]
 	ldr	r1, data0_wr_data_slave_ratio1_val
 	mov	r2, r1
@@ -529,9 +445,6 @@ ENTRY(am33xx_resume_vector)
 resume_addr:
 	.word	cpu_resume - PAGE_OFFSET + 0x80000000
 
-#define DPLL_LP_BYP_MODE	0x5
-#define DPLL_LOCK_MODE		0x7
-
 emif_addr_func:
 	.word	am33xx_get_ram_base
 emif_phys_addr:
@@ -542,79 +455,53 @@ emif_pm_ctrl:
 ddr_start:
 	.word PAGE_OFFSET
 
-mpu_pll_n:
-	.word	0xDEADBEEF
-mpu_pll_m:
-	.word	0xDEADBEEF
-mpu_pll_m2:
-	.word	0xDEADBEEF
-ddr_pll_m2:
-	.word	0xDEADBEEF
-ddr_pll_n:
-	.word	0xDEADBEEF
-ddr_pll_m:
-	.word	0xDEADBEEF
-per_pll_n:
-	.word	0xDEADBEEF
-per_pll_m:
-	.word	0xDEADBEEF
-per_pll_m2:
-	.word	0xDEADBEEF
-
-virt_ddr_io_ctrl:
-	.word	AM33XX_CTRL_REGADDR(0x0E04)
-phys_ddr_io_ctrl:
-	.word	0x44E10E04
-phys_emif_phy_ctrl_addr:
-	.word	0x4C0000E4
-
-virt_mpu_pll_idlest_addr:
+virt_mpu_idlest:
 	.word	AM33XX_CM_IDLEST_DPLL_MPU
-virt_mpu_pll_clk_mode_addr:
+virt_mpu_clk_mode:
 	.word	AM33XX_CM_CLKMODE_DPLL_MPU
 
 phys_pll_mod:
 	.word	AM33XX_CM_BASE + AM33XX_CM_WKUP_MOD
-phys_mpu_pll_idlest_addr:
-	.word	AM33XX_CM_CLKMODE_DPLL_MPU_OFFSET
-phys_mpu_pll_clk_mode_addr:
-	.word	AM33XX_CM_IDLEST_DPLL_MPU_OFFSET
+phys_mpu_clk_mode:
+	.word	AM33XX_CM_BASE + AM33XX_CM_WKUP_MOD + AM33XX_CM_CLKMODE_DPLL_MPU_OFFSET
+phys_mpu_idlest:
+	.word	AM33XX_CM_BASE + AM33XX_CM_WKUP_MOD + AM33XX_CM_IDLEST_DPLL_MPU_OFFSET
 
-virt_core_pll_idlest_addr:
+virt_core_idlest:
 	.word	AM33XX_CM_IDLEST_DPLL_CORE
-virt_core_pll_clk_mode_addr:
+virt_core_clk_mode:
 	.word	AM33XX_CM_CLKMODE_DPLL_CORE
-phys_core_pll_idlest_addr:
-	.word	AM33XX_CM_CLKMODE_DPLL_CORE_OFFSET
-phys_core_pll_clk_mode_addr:
-	.word	AM33XX_CM_IDLEST_DPLL_CORE_OFFSET
+phys_core_clk_mode:
+	.word	AM33XX_CM_BASE + AM33XX_CM_WKUP_MOD + AM33XX_CM_CLKMODE_DPLL_CORE_OFFSET
+phys_core_idlest:
+	.word	AM33XX_CM_BASE + AM33XX_CM_WKUP_MOD + AM33XX_CM_IDLEST_DPLL_CORE_OFFSET
 
-virt_per_pll_idlest_addr:
+virt_per_idlest:
 	.word	AM33XX_CM_IDLEST_DPLL_PER
-virt_per_pll_clk_mode_addr:
+virt_per_clk_mode:
 	.word	AM33XX_CM_CLKMODE_DPLL_PER
-phys_per_pll_idlest_addr:
-	.word	AM33XX_CM_CLKMODE_DPLL_PER_OFFSET
-phys_per_pll_clk_mode_addr:
-	.word	AM33XX_CM_IDLEST_DPLL_PER_OFFSET
+phys_per_clk_mode:
+	.word	AM33XX_CM_BASE + AM33XX_CM_WKUP_MOD + AM33XX_CM_CLKMODE_DPLL_PER_OFFSET
+phys_per_idlest:
+	.word	AM33XX_CM_BASE + AM33XX_CM_WKUP_MOD + AM33XX_CM_IDLEST_DPLL_PER_OFFSET
 
-virt_disp_pll_idlest_addr:
+virt_disp_idlest:
 	.word	AM33XX_CM_IDLEST_DPLL_DISP
-virt_disp_pll_clk_mode_addr:
+virt_disp_clk_mode:
 	.word	AM33XX_CM_CLKMODE_DPLL_DISP
-phys_disp_pll_idlest_addr:
-	.word	AM33XX_CM_CLKMODE_DPLL_DISP_OFFSET
-phys_disp_pll_clk_mode_addr:
-	.word	AM33XX_CM_IDLEST_DPLL_DISP_OFFSET
+phys_disp_clk_mode:
+	.word	AM33XX_CM_BASE + AM33XX_CM_WKUP_MOD + AM33XX_CM_CLKMODE_DPLL_DISP_OFFSET
+phys_disp_idlest:
+	.word	AM33XX_CM_BASE + AM33XX_CM_WKUP_MOD + AM33XX_CM_IDLEST_DPLL_DISP_OFFSET
 
-virt_ddr_pll_idlest_addr:
+virt_ddr_idlest:
 	.word	AM33XX_CM_IDLEST_DPLL_DDR
-virt_ddr_pll_clk_mode_addr:
+virt_ddr_clk_mode:
 	.word	AM33XX_CM_CLKMODE_DPLL_DDR
-phys_ddr_pll_idlest_addr:
-	.word	AM33XX_CM_CLKMODE_DPLL_DDR_OFFSET
-phys_ddr_pll_clk_mode_addr:
-	.word	AM33XX_CM_IDLEST_DPLL_DDR_OFFSET
+phys_ddr_clk_mode:
+	.word	AM33XX_CM_BASE + AM33XX_CM_WKUP_MOD + AM33XX_CM_CLKMODE_DPLL_DDR_OFFSET
+phys_ddr_idlest:
+	.word	AM33XX_CM_BASE + AM33XX_CM_WKUP_MOD + AM33XX_CM_IDLEST_DPLL_DDR_OFFSET
 
 
 /* DDR related stuff */
@@ -665,8 +552,6 @@ data1_rank0_delay1_val:
 
 control_base:
 	.word	AM33XX_CTRL_BASE
-Rddr_ioctrl_val:
-	.word	DDR_IOCTRL_VALUE
 ddr_io_ctrl_addr:
 	.word	DDR_IO_CTRL
 ddr_ioctrl_val:
@@ -675,6 +560,10 @@ ddr_cmd_offset:
 	.word	0x1404
 ddr_data_offset:
 	.word	0x1440
+virt_ddr_io_ctrl:
+	.word	AM33XX_CTRL_REGADDR(0x0E04)
+phys_ddr_io_ctrl:
+	.word	DDR_IO_CTRL
 
 ddr_cke_addr:
 	.word	DDR_CKE_CTRL

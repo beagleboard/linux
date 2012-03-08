@@ -15,11 +15,18 @@
 
 #ifndef __ASSEMBLER__
 extern void __iomem *am33xx_get_ram_base(void);
+
+struct a8_wkup_m3_ipc_data {
+	int resume_addr;
+	int sleep_mode;
+	int ipc_data1;
+	int ipc_data2;
+} am33xx_lp_ipc;
 #endif /* ASSEMBLER */
 
 #define M3_TXEV_EOI			(AM33XX_CTRL_BASE + 0x1324)
 #define A8_M3_IPC_REGS			(AM33XX_CTRL_BASE + 0x1328)
-#define DS_RESUME_ADDR			0x403000A0
+#define DS_RESUME_ADDR			0x40300220
 #define DS_IPC_DEFAULT			0xffffffff
 #define M3_UMEM				0x44D00000
 
