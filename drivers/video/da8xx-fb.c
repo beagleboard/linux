@@ -352,7 +352,8 @@ static void lcd_blit(int load_mode, struct da8xx_fb_par *par)
 		} else {
 			reg_int = lcdc_read(LCD_INT_ENABLE_SET_REG) |
 				LCD_V2_END_OF_FRAME0_INT_ENA |
-				LCD_V2_END_OF_FRAME1_INT_ENA;
+				LCD_V2_END_OF_FRAME1_INT_ENA |
+				LCD_V2_UNDERFLOW_INT_ENA | LCD_SYNC_LOST;
 			lcdc_write(reg_int, LCD_INT_ENABLE_SET_REG);
 		}
 		reg_dma |= LCD_DUAL_FRAME_BUFFER_ENABLE;
