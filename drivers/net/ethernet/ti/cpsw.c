@@ -311,6 +311,12 @@ void cpsw_rx_handler(void *token, int len, int status)
 	struct cpsw_priv	*priv = netdev_priv(ndev);
 	int			ret = 0;
 
+	if (unlikely(!netif_running(ndev)) ||
+			unlikely(!netif_carrier_ok(ndev))) {
+		dev_kfree_skb_any(skb);
+		return;
+	}
+
 	if (likely(status >= 0)) {
 		skb_put(skb, len);
 		skb->protocol = eth_type_trans(skb, ndev);
@@ -764,10 +770,10 @@ static int cpsw_ndo_stop(struct net_device *ndev)
 	msg(info, ifdown, "shutting down cpsw device\n");
 	cpsw_intr_disable(priv);
 	cpdma_ctlr_int_ctrl(priv->dma, false);
-	cpdma_ctlr_stop(priv->dma);
 	netif_stop_queue(priv->ndev);
 	napi_disable(&priv->napi);
 	netif_carrier_off(priv->ndev);
+	cpdma_ctlr_stop(priv->dma);
 	cpsw_ale_stop(priv->ale);
 	device_remove_file(&ndev->dev, &dev_attr_hw_stats);
 	for_each_slave(priv, cpsw_slave_stop, priv);
