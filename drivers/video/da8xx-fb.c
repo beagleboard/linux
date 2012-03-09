@@ -322,10 +322,6 @@ static inline void lcd_disable_raster(bool wait_for_frame_done)
 		printk(KERN_ERR "LCD Controller timed out\n");
 		return;
 	}
-
-	if (lcd_revision == LCD_VERSION_2)
-		/* Write 1 to reset LCDC */
-		lcdc_write(LCD_CLK_MAIN_RESET, LCD_CLK_RESET_REG);
 }
 
 static void lcd_blit(int load_mode, struct da8xx_fb_par *par)
@@ -805,10 +801,8 @@ static irqreturn_t lcdc_irq_handler_rev02(int irq, void *arg)
 	if ((stat & LCD_SYNC_LOST) && (stat & LCD_FIFO_UNDERFLOW)) {
 		printk(KERN_ERR "LCDC sync lost or underflow error occured\n");
 		lcd_disable_raster(NO_WAIT_FOR_FRAME_DONE);
-		pm_runtime_put_sync(dev);
 		lcdc_write(stat, LCD_MASKED_STAT_REG);
 		lcd_enable_raster();
-		pm_runtime_get_sync(dev);
 	} else if (stat & LCD_PL_LOAD_DONE) {
 		/*
 		 * Must disable raster before changing state of any control bit.
@@ -1517,7 +1511,8 @@ static void lcd_context_save(void)
 		lcdc_read(LCD_DMA_FRM_BUF_BASE_ADDR_1_REG);
 	reg_context.dma_frm_buf_ceiling_addr_1 =
 		lcdc_read(LCD_DMA_FRM_BUF_CEILING_ADDR_1_REG);
-	reg_context.raster_ctrl = lcdc_read(LCD_RASTER_CTRL_REG);
+	reg_context.raster_ctrl = lcdc_read(LCD_RASTER_CTRL_REG) &
+		~LCD_RASTER_ENABLE;
 	return;
 }
 
@@ -1552,10 +1547,11 @@ static int fb_suspend(struct platform_device *dev, pm_message_t state)
 		par->panel_power_ctrl(0);
 
 	fb_set_suspend(info, 1);
-	lcd_disable_raster(WAIT_FOR_FRAME_DONE);
 	lcd_context_save();
+	lcd_disable_raster(WAIT_FOR_FRAME_DONE);
+	msleep(10);
 
-	pm_runtime_put_sync(&dev->dev);
+	pm_runtime_put(&dev->dev);
 	console_unlock();
 
 	return 0;
@@ -1566,10 +1562,14 @@ static int fb_resume(struct platform_device *dev)
 	struct da8xx_fb_par *par = info->par;
 
 	console_lock();
-	if (par->panel_power_ctrl)
-		par->panel_power_ctrl(1);
 
 	pm_runtime_get_sync(&dev->dev);
+
+	msleep(1);
+	lcdc_write(LCD_CLK_MAIN_RESET, LCD_CLK_RESET_REG);
+	msleep(10);
+	lcdc_write(0, LCD_CLK_RESET_REG);
+	msleep(1);
 
 	lcd_context_restore();
 	lcd_enable_raster();
