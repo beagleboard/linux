@@ -1176,6 +1176,8 @@ static void evm_nand_init(int evm_id, int profile)
 	pdata = omap_nand_init(am335x_nand_partitions,
 		ARRAY_SIZE(am335x_nand_partitions), 0, 0,
 		&am335x_nand_timings);
+	if (!pdata)
+		return;
 	pdata->ecc_opt =OMAP_ECC_BCH8_CODE_HW;
 	pdata->elm_used = true;
 	gpmc_device[0].pdata = pdata;
