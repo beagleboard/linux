@@ -335,7 +335,8 @@ static int omap_elm_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM
 static int omap_elm_suspend(struct platform_device *pdev, pm_message_t state)
 {
-	mtd->suspend(mtd);
+	if (mtd && mtd->suspend)
+		mtd->suspend(mtd);
 	pm_runtime_put_sync(&pdev->dev);
 	return 0;
 }
