@@ -46,7 +46,8 @@ __init omap_nand_init(struct mtd_partition *nand_parts, u8 nr_parts, u8 cs,
 #else
 static inline struct omap_nand_platform_data *
 omap_nand_init(struct mtd_partition *nand_parts,
-		u8 nr_parts, u8 cs, int nand_type, struct gpmc_timings *gpmc_t);
+		u8 nr_parts, u8 cs, int nand_type, struct gpmc_timings *gpmc_t)
 {
+	return NULL;
 }
 #endif
