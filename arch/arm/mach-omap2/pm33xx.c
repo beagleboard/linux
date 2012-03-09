@@ -456,6 +456,7 @@ static int __init am33xx_pm_init(void)
 
 	pr_info("Power Management for AM33XX family\n");
 
+#ifdef CONFIG_SUSPEND
 	(void) clkdm_for_each(clkdms_setup, NULL);
 
 	/* CEFUSE domain should be turned off post bootup */
@@ -477,7 +478,6 @@ static int __init am33xx_pm_init(void)
 	if (gfx_l4ls_clkdm == NULL)
 		printk(KERN_ERR "Failed to get gfx_l4ls_gfx_clkdm\n");
 
-#ifdef CONFIG_SUSPEND
 	mpu_dev = omap_device_get_by_hwmod_name("mpu");
 
 	if (!mpu_dev) {
