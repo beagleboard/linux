@@ -1509,12 +1509,53 @@ err_mem_failure:
 }
 
 #ifdef CONFIG_PM
+
+void ehrpwm_context_save(struct ehrpwm_pwm *ehrpwm,
+		struct ehrpwm_context *ehrpwm_ctx)
+{
+	pm_runtime_get_sync(ehrpwm->dev);
+	ehrpwm_ctx->tbctl = ehrpwm_read(ehrpwm, TBCTL);
+	ehrpwm_ctx->tbprd = ehrpwm_read(ehrpwm, TBPRD);
+	if (ehrpwm->version == PWM_VERSION_1)
+		ehrpwm_ctx->hrcfg = ehrpwm_read(ehrpwm, AM335X_HRCNFG);
+	else
+		ehrpwm_ctx->hrcfg = ehrpwm_read(ehrpwm, HRCNFG);
+	ehrpwm_ctx->aqctla = ehrpwm_read(ehrpwm, AQCTLA);
+	ehrpwm_ctx->aqctlb = ehrpwm_read(ehrpwm, AQCTLB);
+	ehrpwm_ctx->cmpa = ehrpwm_read(ehrpwm, CMPA);
+	ehrpwm_ctx->cmpb = ehrpwm_read(ehrpwm, CMPB);
+	ehrpwm_ctx->tzctl = ehrpwm_read(ehrpwm, TZCTL);
+	ehrpwm_ctx->tzflg = ehrpwm_read(ehrpwm, TZFLG);
+	ehrpwm_ctx->tzclr = ehrpwm_read(ehrpwm, TZCLR);
+	ehrpwm_ctx->tzfrc = ehrpwm_read(ehrpwm, TZFRC);
+	pm_runtime_put_sync(ehrpwm->dev);
+}
+
+void ehrpwm_context_restore(struct ehrpwm_pwm *ehrpwm,
+		struct ehrpwm_context *ehrpwm_ctx)
+{
+	ehrpwm_write(ehrpwm, TBCTL, ehrpwm_ctx->tbctl);
+	ehrpwm_write(ehrpwm, TBPRD, ehrpwm_ctx->tbprd);
+	if (ehrpwm->version == PWM_VERSION_1)
+		ehrpwm_write(ehrpwm, AM335X_HRCNFG, ehrpwm_ctx->hrcfg);
+	else
+		ehrpwm_write(ehrpwm, HRCNFG, ehrpwm_ctx->hrcfg);
+	ehrpwm_write(ehrpwm, AQCTLA, ehrpwm_ctx->aqctla);
+	ehrpwm_write(ehrpwm, AQCTLB, ehrpwm_ctx->aqctlb);
+	ehrpwm_write(ehrpwm, CMPA, ehrpwm_ctx->cmpa);
+	ehrpwm_write(ehrpwm, CMPB, ehrpwm_ctx->cmpb);
+	ehrpwm_write(ehrpwm, TZCTL, ehrpwm_ctx->tzctl);
+	ehrpwm_write(ehrpwm, TZFLG, ehrpwm_ctx->tzflg);
+	ehrpwm_write(ehrpwm, TZCLR, ehrpwm_ctx->tzclr);
+	ehrpwm_write(ehrpwm, TZFRC, ehrpwm_ctx->tzfrc);
+}
+
 static int ehrpwm_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	struct ehrpwm_pwm *ehrpwm = platform_get_drvdata(pdev);
 
-	if (ehrpwm->clk->usecount > 0)
-		pm_runtime_put_sync(ehrpwm->dev);
+	ehrpwm_context_save(ehrpwm, &ehrpwm->ctx);
+	pm_runtime_put_sync(ehrpwm->dev);
 
 	return 0;
 }
@@ -1524,6 +1565,7 @@ static int ehrpwm_resume(struct platform_device *pdev)
 	struct ehrpwm_pwm *ehrpwm = platform_get_drvdata(pdev);
 
 	pm_runtime_get_sync(ehrpwm->dev);
+	ehrpwm_context_restore(ehrpwm, &ehrpwm->ctx);
 
 	return 0;
 }

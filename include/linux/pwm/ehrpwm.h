@@ -19,6 +19,20 @@ struct tz_int {
 	p_fcallback pcallback;
 };
 
+struct ehrpwm_context {
+	u32 tbctl;
+	u32 tbprd;
+	u32 hrcfg;
+	u32 aqctla;
+	u32 aqctlb;
+	u32 cmpa;
+	u32 cmpb;
+	u32 tzctl;
+	u32 tzflg;
+	u32 tzclr;
+	u32 tzfrc;
+};
+
 struct ehrpwm_pwm {
 	struct pwm_device pwm[NCHAN];
 	struct pwm_device_ops ops;
@@ -32,6 +46,7 @@ struct ehrpwm_pwm {
 	u8 version;
 	void __iomem *config_mem_base;
 	struct device *dev;
+	struct ehrpwm_context ctx;
 };
 
 enum tz_event {
