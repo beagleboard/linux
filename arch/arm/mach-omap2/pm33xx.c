@@ -371,8 +371,10 @@ static int wkup_m3_init(void)
 		goto err5;
 	}
 
+	pr_info("Trying to load am335x-pm-firmware.bin\n");
+
 	/* Now try to load the firware */
-	ret = request_firmware(&firmware, "cm3-firmware.bin", mpu_dev);
+	ret = request_firmware(&firmware, "am335x-pm-firmware.bin", mpu_dev);
 	if (ret < 0) {
 		dev_err(mpu_dev, "request_firmware failed\n");
 		goto err6;
