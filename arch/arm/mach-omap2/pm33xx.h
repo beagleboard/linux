@@ -22,6 +22,27 @@ struct a8_wkup_m3_ipc_data {
 	int ipc_data1;
 	int ipc_data2;
 } am33xx_lp_ipc;
+
+struct am33xx_padconf {
+	int	mii1_col;
+	int	mii1_crs;
+	int	mii1_rxerr;
+	int	mii1_txen;
+	int	mii1_rxdv;
+	int	mii1_txd3;
+	int	mii1_txd2;
+	int	mii1_txd1;
+	int	mii1_txd0;
+	int	mii1_txclk;
+	int	mii1_rxclk;
+	int	mii1_rxd3;
+	int	mii1_rxd2;
+	int	mii1_rxd1;
+	int	mii1_rxd0;
+	int	rmii1_refclk;
+	int	mdio_data;
+	int	mdio_clk;
+};
 #endif /* ASSEMBLER */
 
 #define M3_TXEV_EOI			(AM33XX_CTRL_BASE + 0x1324)

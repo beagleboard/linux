@@ -37,6 +37,7 @@
 
 #include "pm.h"
 #include "pm33xx.h"
+#include "control.h"
 #include "clockdomain.h"
 #include "powerdomain.h"
 
@@ -58,6 +59,9 @@ static struct omap_mbox *m3_mbox;
 static struct powerdomain *cefuse_pwrdm, *gfx_pwrdm;
 static struct clockdomain *gfx_l3_clkdm, *gfx_l4ls_clkdm;
 
+static struct am33xx_padconf lp_padconf;
+static int gmii_sel;
+
 static int core_suspend_stat = -1;
 static int m3_state = M3_STATE_UNKNOWN;
 
@@ -66,6 +70,64 @@ static int am33xx_verify_lp_state(void);
 static void am33xx_m3_state_machine_reset(void);
 
 static DECLARE_COMPLETION(a8_m3_sync);
+
+static void save_padconf(void)
+{
+	lp_padconf.mii1_col	= readl(AM33XX_CTRL_REGADDR(0x0908));
+	lp_padconf.mii1_crs	= readl(AM33XX_CTRL_REGADDR(0x090c));
+	lp_padconf.mii1_rxerr	= readl(AM33XX_CTRL_REGADDR(0x0910));
+	lp_padconf.mii1_txen	= readl(AM33XX_CTRL_REGADDR(0x0914));
+	lp_padconf.mii1_rxdv	= readl(AM33XX_CTRL_REGADDR(0x0918));
+	lp_padconf.mii1_txd3	= readl(AM33XX_CTRL_REGADDR(0x091c));
+	lp_padconf.mii1_txd2	= readl(AM33XX_CTRL_REGADDR(0x0920));
+	lp_padconf.mii1_txd1	= readl(AM33XX_CTRL_REGADDR(0x0924));
+	lp_padconf.mii1_txd0	= readl(AM33XX_CTRL_REGADDR(0x0928));
+	lp_padconf.mii1_txclk	= readl(AM33XX_CTRL_REGADDR(0x092c));
+	lp_padconf.mii1_rxclk	= readl(AM33XX_CTRL_REGADDR(0x0930));
+	lp_padconf.mii1_rxd3	= readl(AM33XX_CTRL_REGADDR(0x0934));
+	lp_padconf.mii1_rxd2	= readl(AM33XX_CTRL_REGADDR(0x0938));
+	lp_padconf.mii1_rxd1	= readl(AM33XX_CTRL_REGADDR(0x093c));
+	lp_padconf.mii1_rxd0	= readl(AM33XX_CTRL_REGADDR(0x0940));
+	lp_padconf.rmii1_refclk	= readl(AM33XX_CTRL_REGADDR(0x0944));
+	lp_padconf.mdio_data	= readl(AM33XX_CTRL_REGADDR(0x0948));
+	lp_padconf.mdio_clk	= readl(AM33XX_CTRL_REGADDR(0x094c));
+	gmii_sel		= readl(AM33XX_CTRL_REGADDR(0x0650));
+}
+
+static void restore_padconf(void)
+{
+	writel(lp_padconf.mii1_col, AM33XX_CTRL_REGADDR(0x0908));
+	writel(lp_padconf.mii1_crs, AM33XX_CTRL_REGADDR(0x090c));
+	writel(lp_padconf.mii1_rxerr, AM33XX_CTRL_REGADDR(0x0910));
+	writel(lp_padconf.mii1_txen, AM33XX_CTRL_REGADDR(0x0914));
+	writel(lp_padconf.mii1_rxdv, AM33XX_CTRL_REGADDR(0x0918));
+	writel(lp_padconf.mii1_txd3, AM33XX_CTRL_REGADDR(0x091c));
+	writel(lp_padconf.mii1_txd2, AM33XX_CTRL_REGADDR(0x0920));
+	writel(lp_padconf.mii1_txd1, AM33XX_CTRL_REGADDR(0x0924));
+	writel(lp_padconf.mii1_txd0, AM33XX_CTRL_REGADDR(0x0928));
+	writel(lp_padconf.mii1_txclk, AM33XX_CTRL_REGADDR(0x092c));
+	writel(lp_padconf.mii1_rxclk, AM33XX_CTRL_REGADDR(0x0930));
+	writel(lp_padconf.mii1_rxd3, AM33XX_CTRL_REGADDR(0x0934));
+	writel(lp_padconf.mii1_rxd2, AM33XX_CTRL_REGADDR(0x0938));
+	writel(lp_padconf.mii1_rxd1, AM33XX_CTRL_REGADDR(0x093c));
+	writel(lp_padconf.mii1_rxd0, AM33XX_CTRL_REGADDR(0x0940));
+	writel(lp_padconf.rmii1_refclk, AM33XX_CTRL_REGADDR(0x0944));
+	writel(lp_padconf.mdio_data, AM33XX_CTRL_REGADDR(0x0948));
+	writel(lp_padconf.mdio_clk, AM33XX_CTRL_REGADDR(0x094c));
+	writel(gmii_sel, AM33XX_CTRL_REGADDR(0x0650));
+}
+
+
+static int am33xx_pm_prepare_late(void)
+{
+	save_padconf();
+	return 0;
+}
+
+static void am33xx_pm_finish(void)
+{
+	restore_padconf();
+}
 
 static int am33xx_do_sram_idle(long unsigned int state)
 {
@@ -221,6 +283,8 @@ static const struct platform_suspend_ops am33xx_pm_ops = {
 	.end		= am33xx_pm_end,
 	.enter		= am33xx_pm_enter,
 	.valid		= suspend_valid_only_mem,
+	.prepare	= am33xx_pm_prepare_late,
+	.finish		= am33xx_pm_finish,
 };
 
 int am33xx_ipc_cmd(struct a8_wkup_m3_ipc_data *data)
