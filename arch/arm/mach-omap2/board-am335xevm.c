@@ -1184,6 +1184,7 @@ static void evm_nand_init(int evm_id, int profile)
 	gpmc_device[0].flag = GPMC_DEVICE_NAND;
 
 	omap_init_gpmc(gpmc_device, sizeof(gpmc_device));
+	omap_init_elm();
 }
 
 /* TPS65217 voltage regulator support */
