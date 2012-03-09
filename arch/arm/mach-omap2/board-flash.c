@@ -104,9 +104,6 @@ __init board_onenand_init(struct mtd_partition *nor_parts, u8 nr_parts, u8 cs)
 }
 #endif /* CONFIG_MTD_ONENAND_OMAP2 || CONFIG_MTD_ONENAND_OMAP2_MODULE */
 
-#if defined(CONFIG_MTD_NAND_OMAP2) || \
-		defined(CONFIG_MTD_NAND_OMAP2_MODULE)
-
 /* Note that all values in this struct are in nanoseconds */
 struct gpmc_timings nand_default_timings = {
 
@@ -130,6 +127,9 @@ struct gpmc_timings nand_default_timings = {
 	.wr_access = 30,
 	.wr_data_mux_bus = 0,
 };
+
+#if defined(CONFIG_MTD_NAND_OMAP2) || \
+		defined(CONFIG_MTD_NAND_OMAP2_MODULE)
 
 static struct omap_nand_platform_data omap_nand_data = {
 	.gpmc_t		= &nand_default_timings,
