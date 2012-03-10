@@ -1986,6 +1986,35 @@ static struct clk wdt1_fck = {
 	.recalc		= &omap2_clksel_recalc,
 };
 
+/*
+ * Provides clock definitions for enabling bits for Time base module in
+ * PWMSS ctrl register.
+ */
+
+static struct clk ehrpwm0_tbclk = {
+	.name		= "ehrpwm0_tbclk",
+	.enable_reg	= AM33XX_CONTROL_PWMSS_CTRL,
+	.enable_bit	= AM33XX_PWMSS0_TBCLKEN,
+	.ops		= &clkops_omap2_dflt,
+	.flags		= ENABLE_ON_INIT,
+};
+
+static struct clk ehrpwm1_tbclk = {
+	.name		= "ehrpwm1_tbclk",
+	.enable_reg	= AM33XX_CONTROL_PWMSS_CTRL,
+	.enable_bit	= AM33XX_PWMSS1_TBCLKEN,
+	.ops		= &clkops_omap2_dflt,
+	.flags		= ENABLE_ON_INIT,
+};
+
+static struct clk ehrpwm2_tbclk = {
+	.name		= "ehrpwm2_tbclk",
+	.enable_reg	= AM33XX_CONTROL_PWMSS_CTRL,
+	.enable_bit	= AM33XX_PWMSS2_TBCLKEN,
+	.ops		= &clkops_omap2_dflt,
+	.flags		= ENABLE_ON_INIT,
+};
+
 
 /*
  * clkdev
@@ -2165,6 +2194,9 @@ static struct omap_clk am33xx_clks[] = {
 	CLK(NULL,	"gpt6_ick",		&timer6_ick,		CK_AM33XX),
 	CLK(NULL,	"gpt7_ick",		&timer7_ick,		CK_AM33XX),
 	CLK(NULL,	"vtp_clk",		&vtp_clk,		CK_AM33XX),
+	CLK(NULL,	"ehrpwm0_tbclk",	&ehrpwm0_tbclk,	CK_AM33XX),
+	CLK(NULL,	"ehrpwm1_tbclk",	&ehrpwm1_tbclk,	CK_AM33XX),
+	CLK(NULL,	"ehrpwm2_tbclk",	&ehrpwm2_tbclk,	CK_AM33XX),
 };
 
 int __init am33xx_clk_init(void)
