@@ -1553,6 +1553,8 @@ static void ti81xx_restore_context(struct ti81xx_glue *glue)
 	/* restore CPPI4.1 DMA register for dma block 0 */
 	cppi41_restore_context(0, dma_sched_table);
 #endif
+	/* controller needs 200ms delay to resume */
+	msleep(200);
 }
 static int ti81xx_runtime_suspend(struct device *dev)
 {
