@@ -176,13 +176,13 @@ struct ehrpwm_suspend_params {
 static inline unsigned short ehrpwm_read(struct ehrpwm_pwm *ehrpwm,
 	unsigned int offset)
 {
-	return __raw_readw(ehrpwm->mmio_base + offset);
+	return readw(ehrpwm->mmio_base + offset);
 }
 
 static inline void ehrpwm_write(struct ehrpwm_pwm *ehrpwm, unsigned int offset,
 	unsigned short val)
 {
-	__raw_writew(val, ehrpwm->mmio_base + offset);
+	writew(val, ehrpwm->mmio_base + offset);
 }
 
 static void ehrpwm_reg_config(struct ehrpwm_pwm *ehrpwm, unsigned int offset,
