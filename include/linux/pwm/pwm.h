@@ -122,9 +122,6 @@ struct pwm_chan_attrib {
 
 struct pwmss_platform_data {
 	int channel_mask;
-	struct semaphore config_semaphore;
-	int pwmss_module_usage_count;
-	void *config_mem_base;
 	u8 version;
 	struct pwm_chan_attrib chan_attrib[PWM_CHANNEL];
 };
