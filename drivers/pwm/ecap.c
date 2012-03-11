@@ -42,9 +42,9 @@ struct ecap_pwm {
 	struct pwm_device_ops ops;
 	spinlock_t	lock;
 	struct clk	*clk;
-	int	clk_enabled;
 	void __iomem	*mmio_base;
 	u8 version;
+	void __iomem *config_mem_base;
 };
 
 static inline struct ecap_pwm *to_ecap_pwm(const struct pwm_device *p)
@@ -54,21 +54,21 @@ static inline struct ecap_pwm *to_ecap_pwm(const struct pwm_device *p)
 
 static int ecap_pwm_stop(struct pwm_device *p)
 {
-	unsigned long flags;
+	unsigned long flags, v;
 	struct ecap_pwm *ep = to_ecap_pwm(p);
 
-	clk_enable(ep->clk);
+	/* Trying to stop a non-running PWM, not allowed */
+	if (!pwm_is_running(p))
+		return -EPERM;
 
 	spin_lock_irqsave(&ep->lock, flags);
-	__raw_writew(__raw_readw(ep->mmio_base + CAPTURE_CTRL2_REG) &
-		~BIT(4), ep->mmio_base + CAPTURE_CTRL2_REG);
+	v = readw(ep->mmio_base + CAPTURE_CTRL2_REG);
+	v &= ~BIT(4);
+	writew(v, ep->mmio_base + CAPTURE_CTRL2_REG);
 	spin_unlock_irqrestore(&ep->lock, flags);
 
+	/* For PWM clock should be disabled on stop */
 	clk_disable(ep->clk);
-	if (ep->clk_enabled) {
-		clk_disable(ep->clk);
-		ep->clk_enabled = 0;
-	}
 	clear_bit(FLAG_RUNNING, &p->flags);
 
 	return 0;
@@ -77,22 +77,21 @@ static int ecap_pwm_stop(struct pwm_device *p)
 static int ecap_pwm_start(struct pwm_device *p)
 {
 	int ret = 0;
-	unsigned long flags;
+	unsigned long flags, v;
 	struct ecap_pwm *ep = to_ecap_pwm(p);
 
-	clk_enable(ep->clk);
-	spin_lock_irqsave(&ep->lock, flags);
-	__raw_writew(__raw_readw(ep->mmio_base + CAPTURE_CTRL2_REG) |
-		BIT(4), ep->mmio_base + CAPTURE_CTRL2_REG);
-	spin_unlock_irqrestore(&ep->lock, flags);
+	/* Trying to start a running PWM, not allowed */
+	if (pwm_is_running(p))
+		return -EPERM;
 
-	clk_disable(ep->clk);
-	if (!ep->clk_enabled) {
-		ret = clk_enable(ep->clk);
-		if (ret)
-			return ret;
-		ep->clk_enabled = 1;
-	}
+	/* For PWM clock should be enabled on start */
+	clk_enable(ep->clk);
+
+	spin_lock_irqsave(&ep->lock, flags);
+	v = readw(ep->mmio_base + CAPTURE_CTRL2_REG);
+	v |= BIT(4);
+	writew(v, ep->mmio_base + CAPTURE_CTRL2_REG);
+	spin_unlock_irqrestore(&ep->lock, flags);
 	set_bit(FLAG_RUNNING, &p->flags);
 
 	return ret;
@@ -100,14 +99,16 @@ static int ecap_pwm_start(struct pwm_device *p)
 
 static int ecap_pwm_set_polarity(struct pwm_device *p, char pol)
 {
-	unsigned long flags;
+	unsigned long flags, v;
 	struct ecap_pwm *ep = to_ecap_pwm(p);
 
 	clk_enable(ep->clk);
 
 	spin_lock_irqsave(&ep->lock, flags);
-	 __raw_writew((__raw_readw(ep->mmio_base + CAPTURE_CTRL2_REG) &
-		 ~BIT(10)) | (!pol << 10), ep->mmio_base + CAPTURE_CTRL2_REG);
+	v = readw(ep->mmio_base + CAPTURE_CTRL2_REG);
+	v &= ~BIT(10);
+	v |= (!pol << 10);
+	writew(v, ep->mmio_base + CAPTURE_CTRL2_REG);
 	spin_unlock_irqrestore(&ep->lock, flags);
 
 	clk_disable(ep->clk);
@@ -122,9 +123,9 @@ static int ecap_pwm_config_period(struct pwm_device *p)
 	 clk_enable(ep->clk);
 
 	spin_lock_irqsave(&ep->lock, flags);
-	__raw_writel((p->period_ticks) - 1, ep->mmio_base + CAPTURE_3_REG);
-	__raw_writew(ECTRL2_MDSL_ECAP | ECTRL2_SYNCOSEL_MASK |
-		 ECTRL2_CTRSTP_FREERUN, ep->mmio_base + CAPTURE_CTRL2_REG);
+	writel((p->period_ticks) - 1, ep->mmio_base + CAPTURE_3_REG);
+	writew(ECTRL2_MDSL_ECAP | ECTRL2_SYNCOSEL_MASK | ECTRL2_CTRSTP_FREERUN,
+			ep->mmio_base + CAPTURE_CTRL2_REG);
 	spin_unlock_irqrestore(&ep->lock, flags);
 
 	clk_disable(ep->clk);
@@ -139,13 +140,13 @@ static int ecap_pwm_config_duty(struct pwm_device *p)
 	clk_enable(ep->clk);
 
 	spin_lock_irqsave(&ep->lock, flags);
-	__raw_writew(ECTRL2_MDSL_ECAP | ECTRL2_SYNCOSEL_MASK |
-	 ECTRL2_CTRSTP_FREERUN, ep->mmio_base + CAPTURE_CTRL2_REG);
+	writew(ECTRL2_MDSL_ECAP | ECTRL2_SYNCOSEL_MASK | ECTRL2_CTRSTP_FREERUN,
+			ep->mmio_base + CAPTURE_CTRL2_REG);
 	if (p->duty_ticks > 0) {
-		__raw_writel(p->duty_ticks, ep->mmio_base + CAPTURE_4_REG);
+		writel(p->duty_ticks, ep->mmio_base + CAPTURE_4_REG);
 	} else {
-	__raw_writel(p->duty_ticks, ep->mmio_base + CAPTURE_2_REG);
-	__raw_writel(0, ep->mmio_base + TIMER_CTR_REG);
+		writel(p->duty_ticks, ep->mmio_base + CAPTURE_2_REG);
+		writel(0, ep->mmio_base + TIMER_CTR_REG);
 	}
 	spin_unlock_irqrestore(&ep->lock, flags);
 
@@ -231,8 +232,7 @@ static int ecap_probe(struct platform_device *pdev)
 
 	if (!ep) {
 		dev_err(&pdev->dev, "failed to allocate memory\n");
-		ret = -ENOMEM;
-		goto err_mem_failure;
+		return -ENOMEM;
 	}
 
 	ep->version = pdata->version;
@@ -245,53 +245,32 @@ static int ecap_probe(struct platform_device *pdev)
 
 	if (IS_ERR(ep->clk)) {
 		ret = PTR_ERR(ep->clk);
-		goto err_clock_failure;
+		goto err_clk_get;
 	}
 
 	if (ep->version == PWM_VERSION_1) {
-		down(&pdata->config_semaphore);
 		r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 
 		if (!r) {
 			dev_err(&pdev->dev, "no memory resource defined\n");
 			ret = -ENOMEM;
-			up(&pdata->config_semaphore);
-			goto err_resource_mem_failure;
+			goto err_get_resource;
 		}
 
-		r = request_mem_region(r->start, resource_size(r), pdev->name);
+		ep->config_mem_base = ioremap(r->start, resource_size(r));
 
-		if (!r) {
-
-			if (pdata->config_mem_base) {
-				goto set_bit;
-			} else {
-				dev_err(&pdev->dev,
-					"failed to request memory resource\n");
-				ret = -EBUSY;
-				up(&pdata->config_semaphore);
-				goto err_request_mem_failure;
-			}
-		}
-
-		pdata->config_mem_base = ioremap(r->start, resource_size(r));
-
-		if (!pdata->config_mem_base) {
+		if (!ep->config_mem_base) {
 
 			dev_err(&pdev->dev, "failed to ioremap() registers\n");
-			ret = -ENODEV;
-			up(&pdata->config_semaphore);
-			goto err_free_mem_config;
+			ret = -ENOMEM;
+			goto err_get_resource;
 		}
 
-set_bit:
-		pdata->pwmss_module_usage_count++;
 		clk_enable(ep->clk);
-		val = __raw_readw(pdata->config_mem_base + PWMSS_CLKCONFIG);
+		val = readw(ep->config_mem_base + PWMSS_CLKCONFIG);
 		val |= BIT(ECAP_CLK_EN);
-		__raw_writew(val, pdata->config_mem_base + PWMSS_CLKCONFIG);
+		writew(val, ep->config_mem_base + PWMSS_CLKCONFIG);
 		clk_disable(ep->clk);
-		up(&pdata->config_semaphore);
 	}
 
 	spin_lock_init(&ep->lock);
@@ -307,21 +286,21 @@ set_bit:
 	if (!r) {
 		dev_err(&pdev->dev, "no memory resource defined\n");
 		ret = -ENODEV;
-		goto err_resource_mem2_failiure;
+		goto err_request_mem;
 	}
 
 	r = request_mem_region(r->start, resource_size(r), pdev->name);
 	if (!r) {
 		dev_err(&pdev->dev, "failed to request memory resource\n");
 		ret = -EBUSY;
-		goto err_request_mem2_failure;
+		goto err_request_mem;
 	}
 
 	ep->mmio_base = ioremap(r->start, resource_size(r));
 	if (!ep->mmio_base) {
 		dev_err(&pdev->dev, "failed to ioremap() registers\n");
 		ret = -ENODEV;
-		goto err_free_mem2;
+		goto err_ioremap;
 	}
 
 	ep->pwm.ops = &ep->ops;
@@ -330,31 +309,17 @@ set_bit:
 	platform_set_drvdata(pdev, ep);
 	return 0;
 
-err_free_mem2:
+err_ioremap:
 	release_mem_region(r->start, resource_size(r));
-err_request_mem2_failure:
-err_resource_mem2_failiure:
+err_request_mem:
 	if (ep->version == PWM_VERSION_1) {
-		down(&pdata->config_semaphore);
-		pdata->pwmss_module_usage_count--;
-
-		if (!pdata->pwmss_module_usage_count) {
-			iounmap(pdata->config_mem_base);
-			pdata->config_mem_base = NULL;
-		}
-		up(&pdata->config_semaphore);
+		iounmap(ep->config_mem_base);
+		ep->config_mem_base = NULL;
 	}
-err_free_mem_config:
-	if (ep->version == PWM_VERSION_1) {
-		r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-		release_mem_region(r->start, resource_size(r));
-	}
-err_request_mem_failure:
-err_resource_mem_failure:
+err_get_resource:
 	clk_put(ep->clk);
-err_clock_failure:
+err_clk_get:
 	kfree(ep);
-err_mem_failure:
 	return ret;
 }
 
@@ -392,19 +357,11 @@ static int __devexit ecap_remove(struct platform_device *pdev)
 
 	if (ep->version == PWM_VERSION_1) {
 		pdata = (&pdev->dev)->platform_data;
-		down(&pdata->config_semaphore);
-		pdata->pwmss_module_usage_count--;
-		val = __raw_readw(pdata->config_mem_base + PWMSS_CLKCONFIG);
+		val = readw(ep->config_mem_base + PWMSS_CLKCONFIG);
 		val &= ~BIT(ECAP_CLK_EN);
-		__raw_writew(val, pdata->config_mem_base + PWMSS_CLKCONFIG);
-
-		if (!pdata->pwmss_module_usage_count) {
-			iounmap(pdata->config_mem_base);
-			pdata->config_mem_base = NULL;
-			r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-			release_mem_region(r->start, resource_size(r));
-		}
-		up(&pdata->config_semaphore);
+		writew(val, ep->config_mem_base + PWMSS_CLKCONFIG);
+		iounmap(ep->config_mem_base);
+		ep->config_mem_base = NULL;
 	}
 
 	pwm_unregister(&ep->pwm);
