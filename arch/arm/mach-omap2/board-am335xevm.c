@@ -1030,7 +1030,6 @@ static void uart2_init(int evm_id, int profile)
 static void haptics_init(int evm_id, int profile)
 {
 	setup_pin_mux(haptics_pin_mux);
-	register_ehrpwm(HAPTICS_MAX_FREQ);
 	return;
 }
 
