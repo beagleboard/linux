@@ -63,7 +63,7 @@ static int ecap_pwm_stop(struct pwm_device *p)
 
 	spin_lock_irqsave(&ep->lock, flags);
 	v = readw(ep->mmio_base + CAPTURE_CTRL2_REG);
-	v &= ~BIT(4);
+	v &= ~ECTRL2_CTRSTP_FREERUN;
 	writew(v, ep->mmio_base + CAPTURE_CTRL2_REG);
 	spin_unlock_irqrestore(&ep->lock, flags);
 
@@ -89,7 +89,7 @@ static int ecap_pwm_start(struct pwm_device *p)
 
 	spin_lock_irqsave(&ep->lock, flags);
 	v = readw(ep->mmio_base + CAPTURE_CTRL2_REG);
-	v |= BIT(4);
+	v |= ECTRL2_CTRSTP_FREERUN;
 	writew(v, ep->mmio_base + CAPTURE_CTRL2_REG);
 	spin_unlock_irqrestore(&ep->lock, flags);
 	set_bit(FLAG_RUNNING, &p->flags);
@@ -106,7 +106,7 @@ static int ecap_pwm_set_polarity(struct pwm_device *p, char pol)
 
 	spin_lock_irqsave(&ep->lock, flags);
 	v = readw(ep->mmio_base + CAPTURE_CTRL2_REG);
-	v &= ~BIT(10);
+	v &= ~ECTRL2_PLSL_LOW;
 	v |= (!pol << 10);
 	writew(v, ep->mmio_base + CAPTURE_CTRL2_REG);
 	spin_unlock_irqrestore(&ep->lock, flags);
@@ -117,15 +117,16 @@ static int ecap_pwm_set_polarity(struct pwm_device *p, char pol)
 
 static int ecap_pwm_config_period(struct pwm_device *p)
 {
-	unsigned long flags;
+	unsigned long flags, v;
 	struct ecap_pwm *ep = to_ecap_pwm(p);
 
 	 clk_enable(ep->clk);
 
 	spin_lock_irqsave(&ep->lock, flags);
 	writel((p->period_ticks) - 1, ep->mmio_base + CAPTURE_3_REG);
-	writew(ECTRL2_MDSL_ECAP | ECTRL2_SYNCOSEL_MASK | ECTRL2_CTRSTP_FREERUN,
-			ep->mmio_base + CAPTURE_CTRL2_REG);
+	v = readw(ep->mmio_base + CAPTURE_CTRL2_REG);
+	v |= (ECTRL2_MDSL_ECAP | ECTRL2_SYNCOSEL_MASK);
+	writew(v, ep->mmio_base + CAPTURE_CTRL2_REG);
 	spin_unlock_irqrestore(&ep->lock, flags);
 
 	clk_disable(ep->clk);
@@ -134,14 +135,16 @@ static int ecap_pwm_config_period(struct pwm_device *p)
 
 static int ecap_pwm_config_duty(struct pwm_device *p)
 {
-	unsigned long flags;
+	unsigned long flags, v;
 	struct ecap_pwm *ep = to_ecap_pwm(p);
 
 	clk_enable(ep->clk);
 
 	spin_lock_irqsave(&ep->lock, flags);
-	writew(ECTRL2_MDSL_ECAP | ECTRL2_SYNCOSEL_MASK | ECTRL2_CTRSTP_FREERUN,
-			ep->mmio_base + CAPTURE_CTRL2_REG);
+	v = readw(ep->mmio_base + CAPTURE_CTRL2_REG);
+	v |= (ECTRL2_MDSL_ECAP | ECTRL2_SYNCOSEL_MASK);
+	writew(v, ep->mmio_base + CAPTURE_CTRL2_REG);
+
 	if (p->duty_ticks > 0) {
 		writel(p->duty_ticks, ep->mmio_base + CAPTURE_4_REG);
 	} else {
