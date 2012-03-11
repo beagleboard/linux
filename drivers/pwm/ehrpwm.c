@@ -904,6 +904,14 @@ static int ehrpwm_pwm_start(struct pwm_device *p)
 	unsigned short read_val2;
 	int chan;
 
+
+	/* Trying to start a running PWM, not allowed */
+	if (pwm_is_running(p))
+		return -EPERM;
+
+	/* For PWM clock should be enabled on start */
+	clk_enable(ehrpwm->clk);
+
 	chan = p - &ehrpwm->pwm[0];
 	val = ehrpwm_read(ehrpwm, TBCTL);
 	val = (val & ~TBCTL_CTRMODE_MASK) | (TBCTL_CTRMOD_CTRUP |
@@ -922,8 +930,8 @@ static int ehrpwm_pwm_start(struct pwm_device *p)
 	read_val2 = chan ? read_val2 : (read_val2 >> 2);
 	if (!(read_val1 & 0x4) || (read_val2 == 0x3))
 		ehrpwm_tz_clr_evt_status(p);
-	set_bit(FLAG_RUNNING, &p->flags);
 
+	set_bit(FLAG_RUNNING, &p->flags);
 	return 0;
 }
 
@@ -938,6 +946,10 @@ static int ehrpwm_pwm_stop(struct pwm_device *p)
 	unsigned short read_val;
 	int chan;
 
+	/* Trying to stop a non-running PWM, not allowed */
+	if (!pwm_is_running(p))
+		return -EPERM;
+
 	chan = p - &ehrpwm->pwm[0];
 	/* Set the Trip Zone Action to low */
 	ehrpwm_tz_set_action(p, chan, 0x2);
@@ -950,8 +962,10 @@ static int ehrpwm_pwm_stop(struct pwm_device *p)
 		ehrpwm_tz_clr_evt_status(p);
 		ehrpwm_tz_force_evt(p, TZ_ONE_SHOT_EVENT);
 	}
-	clear_bit(FLAG_RUNNING, &p->flags);
 
+	/* For PWM clock should be disabled on stop */
+	clk_disable(ehrpwm->clk);
+	clear_bit(FLAG_RUNNING, &p->flags);
 	return 0;
 }
 
@@ -979,10 +993,12 @@ static int ehrpwm_pwm_set_pol(struct pwm_device *p)
 	}
 
 
+	clk_enable(ehrpwm->clk);
 	val = ((p->active_high ? ACTCTL_CTREQCMP_HIGH : ACTCTL_CTREQCMP_LOW)
 		 << ctreqcmp) | (p->active_high ? ACTCTL_CTREQZRO_LOW :
 			ACTCTL_CTREQZRO_HIGH);
 	ehrpwm_write(ehrpwm, act_ctrl_reg, val);
+	clk_disable(ehrpwm->clk);
 
 	return 0;
 }
@@ -1040,6 +1056,7 @@ static int ehrpwm_pwm_set_prd(struct pwm_device *p)
 		}
 	}
 
+	clk_enable(ehrpwm->clk);
 	val = ehrpwm_read(ehrpwm, TBCTL);
 	val = (val & ~TBCTL_CLKDIV_MASK & ~TBCTL_HSPCLKDIV_MASK) | tb_div_val;
 	ehrpwm_write(ehrpwm, TBCTL, val);
@@ -1047,6 +1064,7 @@ static int ehrpwm_pwm_set_prd(struct pwm_device *p)
 
 	if (period_ticks <= 1) {
 		dev_err(p->dev, "Required period/frequency cannot be obtained");
+		clk_disable(ehrpwm->clk);
 		return -EINVAL;
 	}
 	/*
@@ -1055,6 +1073,7 @@ static int ehrpwm_pwm_set_prd(struct pwm_device *p)
 	 * the programmed value.
 	 */
 	ehrpwm_write(ehrpwm, TBPRD, (unsigned short)(period_ticks - 1));
+	clk_disable(ehrpwm->clk);
 	debug("\n period_ticks is %d", period_ticks);
 	ehrpwm->prescale_val = ps_div_val;
 	debug("\n Prescaler value is %d", ehrpwm->prescale_val);
@@ -1079,6 +1098,7 @@ static int ehrpwm_hr_duty_config(struct pwm_device *p)
 	 */
 	no_of_mepsteps = USEC_PER_SEC / ((p->tick_hz / USEC_PER_SEC) * 63);
 
+	clk_enable(ehrpwm->clk);
 	/* Calculate the CMPHR Value */
 	cmphr_val = p->tick_hz / USEC_PER_SEC;
 	cmphr_val = (p->duty_ns * cmphr_val) % MSEC_PER_SEC;
@@ -1091,6 +1111,7 @@ static int ehrpwm_hr_duty_config(struct pwm_device *p)
 	else
 		ehrpwm_write(ehrpwm, HRCNFG, 0x2);
 
+	clk_disable(ehrpwm->clk);
 	return 0;
 }
 
@@ -1111,6 +1132,7 @@ static int ehrpwm_pwm_set_dty(struct pwm_device *p)
 	duty_ticks = p->duty_ticks / ehrpwm->prescale_val;
 	debug("\n Prescaler value is %d", ehrpwm->prescale_val);
 	debug("\n duty ticks is %d", duty_ticks);
+	clk_enable(ehrpwm->clk);
 	/* High resolution module */
 	if (chan && ehrpwm->prescale_val <= 1) {
 		ret = ehrpwm_hr_duty_config(p);
@@ -1122,6 +1144,7 @@ static int ehrpwm_pwm_set_dty(struct pwm_device *p)
 
 	ehrpwm_pwm_set_pol(p);
 	ehrpwm_write(ehrpwm, (chan ? CMPB : CMPA), duty_ticks);
+	clk_disable(ehrpwm->clk);
 
 	return ret;
 }
@@ -1291,7 +1314,6 @@ static int ehrpwm_pwm_request(struct pwm_device *p)
 
 	p->tick_hz = clk_get_rate(ehrpwm->clk);
 	debug("\n The clk freq is %lu", p->tick_hz);
-	clk_enable(ehrpwm->clk);
 	ehrpwm_pwm_stop(p);
 
 	return 0;
@@ -1350,50 +1372,28 @@ static int ehrpwm_probe(struct platform_device *pdev)
 	}
 
 	if (ehrpwm->version == PWM_VERSION_1) {
-		down(&pdata->config_semaphore);
 		r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 
 		if (!r) {
 			dev_err(&pdev->dev, "no memory resource defined\n");
 			ret = -ENOMEM;
-			up(&pdata->config_semaphore);
 			goto err_resource_mem_failure;
 		}
 
-		r = request_mem_region(r->start, resource_size(r), pdev->name);
+		ehrpwm->config_mem_base = ioremap(r->start, resource_size(r));
 
-		if (!r) {
-
-			if (pdata->config_mem_base) {
-				goto set_bit;
-			} else {
-				dev_err(&pdev->dev,
-					"failed to request memory resource\n");
-				ret = -EBUSY;
-				up(&pdata->config_semaphore);
-				goto err_request_mem_failure;
-			}
-		}
-
-		pdata->config_mem_base = ioremap(r->start, resource_size(r));
-
-		if (!pdata->config_mem_base) {
+		if (!ehrpwm->config_mem_base) {
 
 			dev_err(&pdev->dev, "failed to ioremap() registers\n");
 			ret = -ENODEV;
-			up(&pdata->config_semaphore);
 			goto err_free_mem_config;
 		}
 
-set_bit:
-		pdata->pwmss_module_usage_count++;
 		clk_enable(ehrpwm->clk);
-		val = __raw_readw(pdata->config_mem_base + PWMSS_CLKCONFIG);
+		val = readw(ehrpwm->config_mem_base + PWMSS_CLKCONFIG);
 		val |= BIT(EPWM_CLK_EN);
-		__raw_writew(val, pdata->config_mem_base + PWMSS_CLKCONFIG);
+		writew(val, ehrpwm->config_mem_base + PWMSS_CLKCONFIG);
 		clk_disable(ehrpwm->clk);
-		up(&pdata->config_semaphore);
-
 	} else
 		ch_mask = pdata->channel_mask;
 
@@ -1494,21 +1494,10 @@ err_free_mem2:
 err_request_mem2_failure:
 err_resource_mem2_failiure:
 	if (ehrpwm->version == PWM_VERSION_1) {
-		down(&pdata->config_semaphore);
-		pdata->pwmss_module_usage_count--;
-
-		if (!pdata->pwmss_module_usage_count) {
-			iounmap(pdata->config_mem_base);
-			pdata->config_mem_base = NULL;
-		}
-		up(&pdata->config_semaphore);
+		iounmap(ehrpwm->config_mem_base);
+		ehrpwm->config_mem_base = NULL;
 	}
 err_free_mem_config:
-	if (ehrpwm->version == PWM_VERSION_1) {
-		r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-		release_mem_region(r->start, resource_size(r));
-	}
-err_request_mem_failure:
 err_resource_mem_failure:
 	clk_put(ehrpwm->clk);
 err_clock_failure:
@@ -1552,19 +1541,11 @@ static int __devexit ehrpwm_remove(struct platform_device *pdev)
 
 	if (ehrpwm->version == PWM_VERSION_1) {
 		pdata = (&pdev->dev)->platform_data;
-		down(&pdata->config_semaphore);
-		pdata->pwmss_module_usage_count--;
-		val = __raw_readw(pdata->config_mem_base + PWMSS_CLKCONFIG);
+		val = readw(ehrpwm->config_mem_base + PWMSS_CLKCONFIG);
 		val &= ~BIT(EPWM_CLK_EN);
-		__raw_writew(val, pdata->config_mem_base + PWMSS_CLKCONFIG);
-
-		if (!pdata->pwmss_module_usage_count) {
-			iounmap(pdata->config_mem_base);
-			pdata->config_mem_base = NULL;
-			r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-			release_mem_region(r->start, resource_size(r));
-		}
-		up(&pdata->config_semaphore);
+		writew(val, ehrpwm->config_mem_base + PWMSS_CLKCONFIG);
+		iounmap(ehrpwm->config_mem_base);
+		ehrpwm->config_mem_base = NULL;
 	}
 
 	for (i = 0; i < NCHAN; i++) {
