@@ -2271,7 +2271,6 @@ void musb_save_context(struct musb *musb)
 	int i;
 	void __iomem *musb_base = musb->mregs;
 	void __iomem *epio;
-	u8 devctl;
 
 	if (is_host_enabled(musb)) {
 		musb->context.frame = musb_readw(musb_base, MUSB_FRAME);
@@ -2283,12 +2282,6 @@ void musb_save_context(struct musb *musb)
 	musb->context.intrrxe = musb_readw(musb_base, MUSB_INTRRXE);
 	musb->context.intrusbe = musb_readb(musb_base, MUSB_INTRUSBE);
 	musb->context.index = musb_readb(musb_base, MUSB_INDEX);
-
-	/* switch off the session */
-	devctl = musb_readb(musb_base, MUSB_DEVCTL);
-	devctl &= ~MUSB_DEVCTL_SESSION;
-	musb_writeb(musb_base, MUSB_DEVCTL, devctl);
-
 	musb->context.devctl = musb_readb(musb_base, MUSB_DEVCTL);
 
 	for (i = 0; i < musb->config->num_eps; ++i) {
@@ -2356,22 +2349,17 @@ void musb_restore_context(struct musb *musb)
 	void __iomem *musb_base = musb->mregs;
 	void __iomem *ep_target_regs;
 	void __iomem *epio;
-	u8 devctl;
 
 	if (is_host_enabled(musb)) {
 		musb_writew(musb_base, MUSB_FRAME, musb->context.frame);
 		musb_writeb(musb_base, MUSB_TESTMODE, musb->context.testmode);
 		musb_write_ulpi_buscontrol(musb->mregs, musb->context.busctl);
 	}
-
-	/* switch on the session */
-	devctl = musb->context.devctl | MUSB_DEVCTL_SESSION;
-	musb_writeb(musb_base, MUSB_DEVCTL, devctl);
-
 	musb_writeb(musb_base, MUSB_POWER, musb->context.power);
 	musb_writew(musb_base, MUSB_INTRTXE, musb->context.intrtxe);
 	musb_writew(musb_base, MUSB_INTRRXE, musb->context.intrrxe);
 	musb_writeb(musb_base, MUSB_INTRUSBE, musb->context.intrusbe);
+	musb_writeb(musb_base, MUSB_DEVCTL, musb->context.devctl);
 
 	for (i = 0; i < musb->config->num_eps; ++i) {
 		struct musb_hw_ep	*hw_ep;
