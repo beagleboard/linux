@@ -25,6 +25,7 @@
 #include <linux/suspend.h>
 #include <linux/completion.h>
 #include <linux/regulator/consumer.h>
+#include <linux/pm_runtime.h>
 
 #include <plat/prcm.h>
 #include <plat/mailbox.h>
@@ -56,6 +57,7 @@ bool enable_deep_sleep = true;
 static suspend_state_t suspend_state = PM_SUSPEND_ON;
 
 static struct device *mpu_dev;
+static struct device *i2c_dev;
 static struct omap_mbox *m3_mbox;
 static struct powerdomain *cefuse_pwrdm, *gfx_pwrdm;
 static struct clockdomain *gfx_l3_clkdm, *gfx_l4ls_clkdm;
@@ -71,6 +73,28 @@ static int am33xx_verify_lp_state(void);
 static void am33xx_m3_state_machine_reset(void);
 
 static DECLARE_COMPLETION(a8_m3_sync);
+
+#define VOLT_TOLERANCE	12500 /* 12.5mV */
+
+struct suspend_opp_change {
+	char *clk_name;
+	char *reg_name;
+	unsigned long freq1;	/* Frequency in suspend mode */
+	unsigned long freq2;	/* Frequency in active mode */
+	unsigned int volt1;	/* Voltage in suspend mode */
+	unsigned int volt2;	/* Voltage in active mode */
+	struct clk *clk;
+	struct regulator *reg;
+};
+
+static struct suspend_opp_change opp[] = {
+	{
+		.clk_name	= "dpll_mpu_ck",
+		.reg_name	= "vdd_mpu",
+		.freq1		= 275000000,
+		.volt1		= 965000,
+	},
+};
 
 static void save_padconf(void)
 {
@@ -121,12 +145,54 @@ static void restore_padconf(void)
 
 static int am33xx_pm_prepare_late(void)
 {
+	int ret = 0;
+
 	save_padconf();
-	return 0;
+
+	if(!opp[0].clk || !opp[0].reg || !i2c_dev) {
+		pr_debug("Not attempting OPP change in suspend\n");
+		return ret;
+	}
+
+	opp[0].freq2 = clk_get_rate(opp[0].clk);
+	ret = clk_set_rate(opp[0].clk, opp[0].freq1);
+	if (ret) {
+		pr_debug("Failed to set %s frequency to %luMHz\n",
+					opp[0].clk_name, opp[0].freq1/1000000);
+	} else {
+		opp[0].volt2 = regulator_get_voltage(opp[0].reg);
+		ret = regulator_set_voltage(opp[0].reg, opp[0].volt1,
+					opp[0].volt1 + VOLT_TOLERANCE);
+		if (ret)
+			pr_debug("Failed to set %s voltage to %dmV\n",
+					opp[0].reg_name, opp[0].volt1/1000);
+	}
+
+	return ret;
 }
 
 static void am33xx_pm_finish(void)
 {
+	int ret = 0;
+
+	if(!opp[0].clk || !opp[0].reg || !i2c_dev) {
+		pr_debug("Not attempting OPP change in resume\n");
+		goto padconf;
+	}
+
+	ret = regulator_set_voltage(opp[0].reg, opp[0].volt2,
+					opp[0].volt2 + VOLT_TOLERANCE);
+	if (ret) {
+		pr_warning("Failed to restore %s voltage to %dmV\n",
+					opp[0].reg_name, opp[0].volt2/1000);
+	} else {
+		ret = clk_set_rate(opp[0].clk, opp[0].freq2);
+		if (ret)
+			pr_warning("Failed to restore %s frequency to %luMHz\n",
+					opp[0].clk_name, opp[0].freq2/1000000);
+	}
+
+padconf:
 	restore_padconf();
 }
 
@@ -208,6 +274,9 @@ static int am33xx_pm_begin(suspend_state_t state)
 
 	disable_hlt();
 
+	if(i2c_dev)
+		pm_runtime_forbid(i2c_dev);
+
 	am33xx_lp_ipc.resume_addr = DS_RESUME_ADDR;
 	am33xx_lp_ipc.sleep_mode  = DS_MODE;
 	am33xx_lp_ipc.ipc_data1	  = DS_IPC_DEFAULT;
@@ -275,6 +344,9 @@ static void am33xx_pm_end(void)
 	omap_mbox_enable_irq(m3_mbox, IRQ_RX);
 
 	am33xx_m3_state_machine_reset();
+
+	if(i2c_dev)
+		pm_runtime_allow(i2c_dev);
 
 	enable_hlt();
 
@@ -511,7 +583,7 @@ void am33xx_push_sram_idle(void)
 
 static int __init am33xx_pm_init(void)
 {
-	int ret;
+	int ret, i;
 
 	if (!cpu_is_am33xx())
 		return -ENODEV;
@@ -545,6 +617,26 @@ static int __init am33xx_pm_init(void)
 	if (!mpu_dev) {
 		pr_warning("%s: unable to get the mpu device\n", __func__);
 		return -EINVAL;
+	}
+
+	i2c_dev = omap_device_get_by_hwmod_name("i2c1");
+
+	if (!i2c_dev) {
+		pr_warning("%s: unable to get the i2c device\n", __func__);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(opp); i++) {
+		opp[i].clk = clk_get(NULL, opp[i].clk_name);
+		if (IS_ERR(opp[i].clk))
+			pr_warning("Could not get %s clock\n", opp[i].clk_name);
+
+		if (opp[i].reg_name) {
+			opp[i].reg = regulator_get(NULL, opp[i].reg_name);
+			if (IS_ERR(opp[i].reg))
+				pr_warning("Could not get %s regulator\n",
+							opp[i].reg_name);
+		}
 	}
 
 	ret = wkup_m3_init();
