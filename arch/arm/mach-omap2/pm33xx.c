@@ -24,6 +24,7 @@
 #include <linux/sched.h>
 #include <linux/suspend.h>
 #include <linux/completion.h>
+#include <linux/regulator/consumer.h>
 
 #include <plat/prcm.h>
 #include <plat/mailbox.h>

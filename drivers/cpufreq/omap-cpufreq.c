@@ -26,6 +26,7 @@
 #include <linux/cpu.h>
 #include <linux/module.h>
 #include <linux/regulator/consumer.h>
+#include <linux/suspend.h>
 
 #include <asm/system.h>
 #include <asm/smp_plat.h>
@@ -60,6 +61,8 @@ static struct clk *mpu_clk;
 static char *mpu_clk_name;
 static struct device *mpu_dev;
 static struct regulator *mpu_reg;
+static DEFINE_MUTEX(omap_cpu_lock);
+static bool is_suspended;
 
 static int omap_verify_speed(struct cpufreq_policy *policy)
 {
@@ -88,6 +91,9 @@ static int omap_target(struct cpufreq_policy *policy,
 	struct cpufreq_freqs freqs;
 	struct opp *opp;
 	int volt_old = 0, volt_new = 0;
+
+	if (is_suspended)
+		return -EBUSY;
 
 	if (!freq_table) {
 		dev_err(mpu_dev, "%s: cpu%d: no freq table!\n", __func__,
@@ -230,6 +236,24 @@ static inline void freq_table_free(void)
 		opp_free_cpufreq_table(mpu_dev, &freq_table);
 }
 
+static int omap_pm_notify(struct notifier_block *nb, unsigned long event,
+	void *dummy)
+{
+	mutex_lock(&omap_cpu_lock);
+	if (event == PM_SUSPEND_PREPARE) {
+		is_suspended = true;
+	} else if (event == PM_POST_SUSPEND) {
+		is_suspended = false;
+	}
+	mutex_unlock(&omap_cpu_lock);
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block omap_cpu_pm_notifier = {
+	.notifier_call = omap_pm_notify,
+};
+
 static int __cpuinit omap_cpu_init(struct cpufreq_policy *policy)
 {
 	int result = 0;
@@ -294,6 +318,8 @@ static int __cpuinit omap_cpu_init(struct cpufreq_policy *policy)
 
 	/* FIXME: what's the actual transition time? */
 	policy->cpuinfo.transition_latency = 300 * 1000;
+
+	register_pm_notifier(&omap_cpu_pm_notifier);
 
 	return 0;
 
