@@ -447,6 +447,7 @@ static	int __devinit tscadc_probe(struct platform_device *pdev)
 	clk_value = clock_rate / ADC_CLK;
 	if (clk_value < 7) {
 		dev_err(&pdev->dev, "clock input less than min clock requirement\n");
+		err = -EINVAL;
 		goto err_fail;
 	}
 	/* TSCADC_CLKDIV needs to be configured to the value minus 1 */
