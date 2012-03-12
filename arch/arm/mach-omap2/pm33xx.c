@@ -255,6 +255,8 @@ static void am33xx_m3_state_machine_reset(void)
 	ret = omap_mbox_msg_send(m3_mbox, 0xABCDABCD);
 	if (!ret) {
 		pr_debug("Message sent for resetting M3 state machine\n");
+		if (!wait_for_completion_timeout(&a8_m3_sync, msecs_to_jiffies(5000)))
+			pr_err("A8<->CM3 sync failure\n");
 	} else {
 		pr_debug("Could not reset M3 state machine!!!\n");
 		m3_state = M3_STATE_UNKNOWN;
@@ -320,7 +322,7 @@ static int am33xx_verify_lp_state(void)
 		ret = -1;
 		goto clear_old_status;
 	} else {
-		pr_info("Status = %0x\n", status);
+		pr_info("Something went wrong :(\nStatus = %0x\n", status);
 		ret = -1;
 	}
 
@@ -359,6 +361,7 @@ static irqreturn_t wkup_m3_txev_handler(int irq, void *unused)
 		omap_mbox_msg_rx_flush(m3_mbox);
 		if (m3_mbox->ops->ack_irq)
 			m3_mbox->ops->ack_irq(m3_mbox, IRQ_RX);
+		complete(&a8_m3_sync);
 	} else if (m3_state == M3_STATE_MSG_FOR_LP) {
 		/* Read back the MBOX and disable the interrupt to M3 since we are going down */
 		omap_mbox_msg_rx_flush(m3_mbox);
