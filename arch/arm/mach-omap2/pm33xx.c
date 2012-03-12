@@ -482,15 +482,6 @@ err1:
 exit:
 	return ret;
 }
-#endif /* CONFIG_SUSPEND */
-
-/*
- * Push the minimal suspend-resume code to SRAM
- */
-void am33xx_push_sram_idle(void)
-{
-	am33xx_do_wfi_sram = omap_sram_push(am33xx_do_wfi, am33xx_do_wfi_sz);
-}
 
 /*
  * Enable hardware supervised mode for all clockdomains if it's
@@ -503,6 +494,15 @@ static int __init clkdms_setup(struct clockdomain *clkdm, void *unused)
 			atomic_read(&clkdm->usecount) == 0)
 		clkdm_sleep(clkdm);
 	return 0;
+}
+#endif /* CONFIG_SUSPEND */
+
+/*
+ * Push the minimal suspend-resume code to SRAM
+ */
+void am33xx_push_sram_idle(void)
+{
+	am33xx_do_wfi_sram = omap_sram_push(am33xx_do_wfi, am33xx_do_wfi_sz);
 }
 
 static int __init am33xx_pm_init(void)
