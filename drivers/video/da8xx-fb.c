@@ -795,7 +795,6 @@ static irqreturn_t lcdc_irq_handler_rev02(int irq, void *arg)
 {
 	struct da8xx_fb_par *par = arg;
 	u32 stat = lcdc_read(LCD_MASKED_STAT_REG);
-	struct device *dev = par->dev;
 	u32 reg_int;
 
 	if ((stat & LCD_SYNC_LOST) && (stat & LCD_FIFO_UNDERFLOW)) {
