@@ -900,6 +900,7 @@ static struct pinmux_config wl12xx_pin_mux_evm_rev1_0[] = {
 static void enable_ecap0(int evm_id, int profile)
 {
 	backlight_enable = true;
+	setup_pin_mux(ecap0_pin_mux);
 }
 
 /* Setup pwm-backlight */
@@ -916,7 +917,6 @@ static int __init ecap0_init(void)
 	int status = 0;
 
 	if (backlight_enable) {
-		setup_pin_mux(ecap0_pin_mux);
 		platform_device_register(&am335x_backlight);
 	}
 	return status;
