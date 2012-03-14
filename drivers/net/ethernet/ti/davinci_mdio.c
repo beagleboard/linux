@@ -49,6 +49,8 @@
 #define DEF_OUT_FREQ		2200000		/* 2.2 MHz */
 
 #define CPGMAC_CLK_CTRL_REG	0x44E00014
+#define CPGMAC_CLK_SYSC         0x4A101208
+#define CPSW_NO_IDLE_NO_STDBY   0xA
 
 struct davinci_mdio_regs {
 	u32	version;
@@ -408,20 +410,25 @@ static inline int wait_for_clock_enable(struct davinci_mdio_data *data)
 {
 	unsigned long timeout = jiffies + msecs_to_jiffies(MDIO_TIMEOUT);
 	u32 __iomem *cpgmac_clk = ioremap(CPGMAC_CLK_CTRL_REG, 4);
+	u32 __iomem *cpgmac_sysc = ioremap(CPGMAC_CLK_SYSC, 4);
 	u32 reg = 0;
 
 	while (time_after(timeout, jiffies)) {
 		reg = readl(cpgmac_clk);
-		if ((reg & 0x70000) == 0)
+		if ((reg & 0x30000) == 0) {
+                        writel(CPSW_NO_IDLE_NO_STDBY, cpgmac_sysc);
 			goto iounmap_ret;
+                }
 	}
 	dev_err(data->dev,
 		"timed out waiting for CPGMAC clock enable, value = 0x%x\n",
 		reg);
+	iounmap(cpgmac_sysc);
 	iounmap(cpgmac_clk);
 	return -ETIMEDOUT;
 
 iounmap_ret:
+	iounmap(cpgmac_sysc);
 	iounmap(cpgmac_clk);
 	return 0;
 }
