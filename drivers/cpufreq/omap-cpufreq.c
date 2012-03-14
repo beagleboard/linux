@@ -45,6 +45,10 @@
 #define MPU_TOLERANCE	4
 #define PER_ROUND_VAL	100
 
+/* Use 275MHz when entering suspend */
+#define SLEEP_FREQ	(275 * 1000)
+
+
 #ifdef CONFIG_SMP
 struct lpj_info {
 	unsigned long	ref;
@@ -237,14 +241,33 @@ static inline void freq_table_free(void)
 }
 
 static int omap_pm_notify(struct notifier_block *nb, unsigned long event,
-	void *dummy)
+                                void *dummy)
 {
+	struct cpufreq_policy *policy = cpufreq_cpu_get(0);
+	static unsigned int saved_frequency;
+
 	mutex_lock(&omap_cpu_lock);
-	if (event == PM_SUSPEND_PREPARE) {
+	switch (event) {
+	case PM_SUSPEND_PREPARE:
+		if (is_suspended)
+			goto out;
+
+                saved_frequency = omap_getspeed(0);
+
+                mutex_unlock(&omap_cpu_lock);
+		omap_target(policy, SLEEP_FREQ, CPUFREQ_RELATION_H);
+		mutex_lock(&omap_cpu_lock);
 		is_suspended = true;
-	} else if (event == PM_POST_SUSPEND) {
-		is_suspended = false;
+                break;
+
+        case PM_POST_SUSPEND:
+                is_suspended = false;
+                mutex_unlock(&omap_cpu_lock);
+		omap_target(policy, saved_frequency, CPUFREQ_RELATION_H);
+		mutex_lock(&omap_cpu_lock);
+                break;
 	}
+out:
 	mutex_unlock(&omap_cpu_lock);
 
 	return NOTIFY_OK;
