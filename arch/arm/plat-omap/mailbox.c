@@ -139,8 +139,8 @@ int omap_mbox_msg_rx_flush(struct omap_mbox *mbox)
 		ret++;
 		msg = mbox_fifo_readback(mbox);
 	}
-	if (!ret)
-		pr_info("Flushed %s Rx FIFO via %d readbacks\n", mbox->name, ret);
+	if (ret)
+		pr_debug("Flushed %s Rx FIFO via %d readbacks\n", mbox->name, ret);
 
 	return ret;
 }
