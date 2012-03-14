@@ -37,6 +37,7 @@
 #include <asm/sizes.h>
 
 #include "pm.h"
+#include "cm33xx.h"
 #include "pm33xx.h"
 #include "control.h"
 #include "clockdomain.h"
@@ -45,6 +46,8 @@
 void (*am33xx_do_wfi_sram)(void);
 
 #define DS_MODE		DS0_ID	/* DS0/1_ID */
+#define MODULE_DISABLE	0x0
+#define MODULE_ENABLE	0x2
 
 #ifdef CONFIG_SUSPEND
 
@@ -167,7 +170,11 @@ static int am33xx_pm_suspend(void)
 	else
 		pr_err("Could not program GFX to low power state\n");
 
+	writel(0x0, AM33XX_CM_MPU_MPU_CLKCTRL);
+
 	ret = cpu_suspend(0, am33xx_do_sram_idle);
+
+	writel(0x2, AM33XX_CM_MPU_MPU_CLKCTRL);
 
 	if (gfx_pwrdm) {
 		state = pwrdm_read_pwrst(gfx_pwrdm);
