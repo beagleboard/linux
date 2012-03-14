@@ -1878,7 +1878,7 @@ static struct clk gfx_fclk = {
 	.recalc		= &omap2_clksel_recalc,
 	.round_rate	= &omap2_clksel_round_rate,
 	.set_rate	= &omap2_clksel_set_rate,
-	.ops		= &clkops_null,
+	.ops		= &clkops_omap2_dflt,
 };
 
 static const struct clksel sysclkout_pre_sel[] = {
