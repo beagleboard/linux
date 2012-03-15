@@ -416,7 +416,7 @@ static inline int wait_for_clock_enable(struct davinci_mdio_data *data)
 	while (time_after(timeout, jiffies)) {
 		reg = readl(cpgmac_clk);
 		if ((reg & 0x30000) == 0) {
-                        writel(CPSW_NO_IDLE_NO_STDBY, cpgmac_sysc);
+			writel(CPSW_NO_IDLE_NO_STDBY, cpgmac_sysc);
 			goto iounmap_ret;
                 }
 	}
