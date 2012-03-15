@@ -897,6 +897,39 @@ inline int ehrpwm_reg_write(struct pwm_device *p, unsigned int reg,
 }
 EXPORT_SYMBOL(ehrpwm_reg_write);
 
+static int ehrpwm_pwm_set_pol(struct pwm_device *p)
+{
+	unsigned int act_ctrl_reg;
+	unsigned int cmp_reg;
+	unsigned int ctreqcmp_mask;
+	unsigned int ctreqcmp;
+	unsigned short val;
+	struct ehrpwm_pwm *ehrpwm = to_ehrpwm_pwm(p);
+	int chan;
+
+	chan = p - &ehrpwm->pwm[0];
+	if (!chan) {
+		act_ctrl_reg = AQCTLA;
+		cmp_reg = CMPA;
+		ctreqcmp_mask = ACTCTL_CAU_MASK;
+		ctreqcmp = 4;
+	} else {
+		act_ctrl_reg = AQCTLB;
+		cmp_reg = CMPB;
+		ctreqcmp_mask = ACTCTL_CBU_MASK;
+		ctreqcmp = 8;
+	}
+
+
+	pm_runtime_get_sync(ehrpwm->dev);
+	val = ((p->active_high ? ACTCTL_CTREQCMP_HIGH : ACTCTL_CTREQCMP_LOW)
+		 << ctreqcmp) | (p->active_high ? ACTCTL_CTREQZRO_LOW :
+			ACTCTL_CTREQZRO_HIGH);
+	ehrpwm_write(ehrpwm, act_ctrl_reg, val);
+	pm_runtime_put_sync(ehrpwm->dev);
+	return 0;
+}
+
 static int ehrpwm_pwm_start(struct pwm_device *p)
 {
 	struct ehrpwm_pwm *ehrpwm = to_ehrpwm_pwm(p);
@@ -913,6 +946,7 @@ static int ehrpwm_pwm_start(struct pwm_device *p)
 	/* For PWM clock should be enabled on start */
 	pm_runtime_get_sync(ehrpwm->dev);
 
+	ehrpwm_pwm_set_pol(p);
 	chan = p - &ehrpwm->pwm[0];
 	val = ehrpwm_read(ehrpwm, TBCTL);
 	val = (val & ~TBCTL_CTRMODE_MASK) | (TBCTL_CTRMOD_CTRUP |
@@ -967,39 +1001,6 @@ static int ehrpwm_pwm_stop(struct pwm_device *p)
 	/* For PWM clock should be disabled on stop */
 	pm_runtime_put_sync(ehrpwm->dev);
 	clear_bit(FLAG_RUNNING, &p->flags);
-	return 0;
-}
-
-static int ehrpwm_pwm_set_pol(struct pwm_device *p)
-{
-	unsigned int act_ctrl_reg;
-	unsigned int cmp_reg;
-	unsigned int ctreqcmp_mask;
-	unsigned int ctreqcmp;
-	unsigned short val;
-	struct ehrpwm_pwm *ehrpwm = to_ehrpwm_pwm(p);
-	int chan;
-
-	chan = p - &ehrpwm->pwm[0];
-	if (!chan) {
-		act_ctrl_reg = AQCTLA;
-		cmp_reg = CMPA;
-		ctreqcmp_mask = ACTCTL_CAU_MASK;
-		ctreqcmp = 4;
-	} else {
-		act_ctrl_reg = AQCTLB;
-		cmp_reg = CMPB;
-		ctreqcmp_mask = ACTCTL_CBU_MASK;
-		ctreqcmp = 8;
-	}
-
-
-	pm_runtime_get_sync(ehrpwm->dev);
-	val = ((p->active_high ? ACTCTL_CTREQCMP_HIGH : ACTCTL_CTREQCMP_LOW)
-		 << ctreqcmp) | (p->active_high ? ACTCTL_CTREQZRO_LOW :
-			ACTCTL_CTREQZRO_HIGH);
-	ehrpwm_write(ehrpwm, act_ctrl_reg, val);
-	pm_runtime_put_sync(ehrpwm->dev);
 	return 0;
 }
 
@@ -1142,7 +1143,6 @@ static int ehrpwm_pwm_set_dty(struct pwm_device *p)
 			ehrpwm_write(ehrpwm, HRCNFG, 0x2);
 	}
 
-	ehrpwm_pwm_set_pol(p);
 	ehrpwm_write(ehrpwm, (chan ? CMPB : CMPA), duty_ticks);
 	pm_runtime_put_sync(ehrpwm->dev);
 	return ret;
