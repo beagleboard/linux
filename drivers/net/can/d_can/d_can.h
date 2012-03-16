@@ -35,10 +35,6 @@
 #define D_CAN_DRV_DESC	"CAN bus driver for Bosch D_CAN controller " \
 			D_CAN_VERSION
 
-#define D_CAN_CLOSED		0 /* Module in power down mode or disabled */
-#define D_CAN_OPENED		1 /* Module in active mode */
-#define D_CAN_INITED		2 /* Module is inited but not opened */
-
 /* d_can private data structure */
 struct d_can_priv {
 	struct can_priv can;	/* must be the first member */
@@ -59,15 +55,15 @@ struct d_can_priv {
 	unsigned int tx_next;
 	unsigned int tx_echo;
 	unsigned int rx_next;
-	unsigned int open_status;
+	bool opened;
 	void *priv;		/* for board-specific data */
 	void (*ram_init) (unsigned int, unsigned int);
 };
 
 struct net_device *alloc_d_can_dev(int);
 void free_d_can_dev(struct net_device *dev);
-void d_can_power_up(struct d_can_priv *d_can);
-void d_can_power_down(struct d_can_priv *d_can);
+int d_can_power_up(struct d_can_priv *d_can);
+int d_can_power_down(struct d_can_priv *d_can);
 int register_d_can_dev(struct net_device *dev);
 void unregister_d_can_dev(struct net_device *dev);
 void d_can_reset_ram(struct d_can_priv *d_can, unsigned int instance,

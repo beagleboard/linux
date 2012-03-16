@@ -134,7 +134,7 @@ static int __devinit d_can_plat_probe(struct platform_device *pdev)
 	priv->base = addr;
 	priv->can.clock.freq = clk_get_rate(fck);
 	priv->ram_init = pdata->ram_init;
-	priv->open_status = D_CAN_INITED;
+	priv->opened = false;
 
 	platform_set_drvdata(pdev, ndev);
 	SET_NETDEV_DEV(ndev, &pdev->dev);
@@ -198,33 +198,53 @@ static int __devexit d_can_plat_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM
 static int d_can_suspend(struct platform_device *pdev, pm_message_t state)
 {
+	int ret;
 	struct net_device *ndev = platform_get_drvdata(pdev);
 	struct d_can_priv *priv = netdev_priv(ndev);
-
-	/* De-initialize DCAN RAM */
-	d_can_reset_ram(priv, pdev->id, 0);
 
 	if (netif_running(ndev)) {
 		netif_stop_queue(ndev);
 		netif_device_detach(ndev);
 	}
 
-	d_can_power_down(priv);
+	ret = d_can_power_down(priv);
+	if (ret) {
+		dev_err(&pdev->dev, "Not entered power down mode\n");
+		return ret;
+	}
+
 	priv->can.state = CAN_STATE_SLEEPING;
+
+	/* De-initialize DCAN RAM */
+	d_can_reset_ram(priv, pdev->id, 0);
+
+	/* Disable the module */
+	pm_runtime_put_sync(&pdev->dev);
+
 	return 0;
 }
 
 static int d_can_resume(struct platform_device *pdev)
 {
+	int ret;
+
 	struct net_device *ndev = platform_get_drvdata(pdev);
 	struct d_can_priv *priv = netdev_priv(ndev);
 
-	d_can_power_up(priv);
+	/* Enable the module */
+	pm_runtime_get_sync(&pdev->dev);
 
 	/* Initialize DCAN RAM */
 	d_can_reset_ram(priv, pdev->id, 1);
 
+	ret = d_can_power_up(priv);
+	if (ret) {
+		dev_err(&pdev->dev, "Not came out from power down mode\n");
+		return ret;
+	}
+
 	priv->can.state = CAN_STATE_ERROR_ACTIVE;
+
 	if (netif_running(ndev)) {
 		netif_device_attach(ndev);
 		netif_start_queue(ndev);

@@ -38,7 +38,6 @@
 #include <linux/io.h>
 
 #include <linux/platform_device.h>
-#include <linux/pm_runtime.h>
 #include <linux/can.h>
 #include <linux/can/dev.h>
 #include <linux/can/error.h>
@@ -257,7 +256,7 @@
 #define MIN_TIMEOUT_VALUE		6
 
 /* Wait for ~1 sec for INIT bit */
-#define D_CAN_WAIT_COUNT		100
+#define D_CAN_WAIT_COUNT		1000
 
 #define D_CAN_IF_RX_NUM			0
 #define D_CAN_IF_TX_NUM			1
@@ -1234,21 +1233,11 @@ static int d_can_open(struct net_device *ndev)
 	int err;
 	struct d_can_priv *priv = netdev_priv(ndev);
 
-	if (priv->open_status == D_CAN_OPENED)
-		return 0;
-
-	/* If enabled, tell runtime PM not to power off */
-	if (pm_runtime_enabled(&priv->pdev->dev)) {
-		err = pm_runtime_get_sync(&priv->pdev->dev);
-		if (err < 0)
-			return err;
-	}
-
 	/* Open common can device */
 	err = open_candev(ndev);
 	if (err) {
 		netdev_err(ndev, "open_candev() failed %d\n", err);
-		goto exit_put_sync;
+		return err;
 	}
 
 	/* register interrupt handler for Message Object (MO)
@@ -1274,26 +1263,19 @@ static int d_can_open(struct net_device *ndev)
 	napi_enable(&priv->napi);
 	netif_start_queue(ndev);
 
-	priv->open_status = D_CAN_OPENED;
+	priv->opened = true;
 	return 0;
 exit_free_irq:
 	free_irq(ndev->irq, ndev);
 exit_close_candev:
 	close_candev(ndev);
-exit_put_sync:
-	if (pm_runtime_enabled(&priv->pdev->dev))
-		pm_runtime_put_sync(&priv->pdev->dev);
 
 	return err;
 }
 
 static int d_can_close(struct net_device *ndev)
 {
-	int ret;
 	struct d_can_priv *priv = netdev_priv(ndev);
-
-	if (priv->open_status == D_CAN_CLOSED)
-		return 0;
 
 	netif_stop_queue(ndev);
 	napi_disable(&priv->napi);
@@ -1301,15 +1283,8 @@ static int d_can_close(struct net_device *ndev)
 	free_irq(ndev->irq, ndev);
 	free_irq(priv->irq_obj, ndev);
 	close_candev(ndev);
+	priv->opened = false;
 
-	/* If enabled, let runtime PM know the d_can is closed */
-	if (pm_runtime_enabled(&priv->pdev->dev)) {
-		ret = pm_runtime_put_sync(&priv->pdev->dev);
-		if (ret < 0)
-			return ret;
-	}
-
-	priv->open_status = D_CAN_CLOSED;
 	return 0;
 }
 
@@ -1350,45 +1325,50 @@ struct net_device *alloc_d_can_dev(int num_objs)
 EXPORT_SYMBOL_GPL(alloc_d_can_dev);
 
 #ifdef CONFIG_PM
-void d_can_power_down(struct d_can_priv *d_can)
+int d_can_power_down(struct d_can_priv *d_can)
 {
-	unsigned int cnt;
+	unsigned long time_out;
 	struct net_device *ndev = platform_get_drvdata(d_can->pdev);
 
 	d_can_set_bit(d_can, D_CAN_CTL, D_CAN_CTL_PDR);
 
-	/* Wait for the Init bit to get set */
-	cnt = D_CAN_WAIT_COUNT;
-	while (!d_can_get_bit(d_can, D_CAN_CTL, D_CAN_CTL_INIT) && cnt != 0) {
-		--cnt;
-		udelay(10);
-	}
+	/* Wait for the PDA bit to get set */
+	time_out = jiffies + msecs_to_jiffies(D_CAN_WAIT_COUNT);
+	while (!d_can_get_bit(d_can, D_CAN_ES, D_CAN_ES_PDA) &&
+				time_after(time_out, jiffies))
+		cpu_relax();
 
-	if ((d_can->open_status != D_CAN_INITED) &&
-			(d_can->open_status == D_CAN_OPENED))
-		d_can_close(ndev);
+	if (time_after(jiffies, time_out))
+		return -ETIMEDOUT;
 
+	if (d_can->opened)
+		d_can_stop(ndev);
+
+	return 0;
 }
 EXPORT_SYMBOL_GPL(d_can_power_down);
 
-void d_can_power_up(struct d_can_priv *d_can)
+int d_can_power_up(struct d_can_priv *d_can)
 {
-	unsigned int cnt;
+	unsigned long time_out;
 	struct net_device *ndev = platform_get_drvdata(d_can->pdev);
-
-	if ((d_can->open_status != D_CAN_INITED) &&
-			(d_can->open_status == D_CAN_CLOSED))
-		d_can_open(ndev);
 
 	d_can_clear_bit(d_can, D_CAN_CTL, D_CAN_CTL_PDR);
 	d_can_clear_bit(d_can, D_CAN_CTL, D_CAN_CTL_INIT);
 
-	/* Wait for the Init bit to get clear */
-	cnt = D_CAN_WAIT_COUNT;
-	while (d_can_get_bit(d_can, D_CAN_CTL, D_CAN_CTL_INIT) && cnt != 0) {
-		--cnt;
-		udelay(10);
-	}
+	/* Wait for the PDA bit to get clear */
+	time_out = jiffies + msecs_to_jiffies(D_CAN_WAIT_COUNT);
+	while (d_can_get_bit(d_can, D_CAN_ES, D_CAN_ES_PDA) &&
+				time_after(time_out, jiffies))
+		cpu_relax();
+
+	if (time_after(jiffies, time_out))
+		return -ETIMEDOUT;
+
+	if (d_can->opened)
+		d_can_start(ndev);
+
+	return 0;
 }
 EXPORT_SYMBOL_GPL(d_can_power_up);
 #else
