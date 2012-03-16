@@ -279,10 +279,19 @@ static inline void lcd_enable_raster(void)
 {
 	u32 reg;
 
+	/* Put LCDC in reset for several cycles */
+	if (lcd_revision == LCD_VERSION_2)
+		lcdc_write(LCD_CLK_MAIN_RESET, LCD_CLK_RESET_REG);
+
+	mdelay(1);
+
 	/* Bring LCDC out of reset */
 	if (lcd_revision == LCD_VERSION_2)
 		lcdc_write(0, LCD_CLK_RESET_REG);
 
+	mdelay(1);
+
+	/* Above reset sequence doesnot reset register context */
 	reg = lcdc_read(LCD_RASTER_CTRL_REG);
 	if (!(reg & LCD_RASTER_ENABLE))
 		lcdc_write(reg | LCD_RASTER_ENABLE, LCD_RASTER_CTRL_REG);
@@ -1510,8 +1519,7 @@ static void lcd_context_save(void)
 		lcdc_read(LCD_DMA_FRM_BUF_BASE_ADDR_1_REG);
 	reg_context.dma_frm_buf_ceiling_addr_1 =
 		lcdc_read(LCD_DMA_FRM_BUF_CEILING_ADDR_1_REG);
-	reg_context.raster_ctrl = lcdc_read(LCD_RASTER_CTRL_REG) &
-		~LCD_RASTER_ENABLE;
+	reg_context.raster_ctrl = lcdc_read(LCD_RASTER_CTRL_REG);
 	return;
 }
 
@@ -1546,9 +1554,8 @@ static int fb_suspend(struct platform_device *dev, pm_message_t state)
 		par->panel_power_ctrl(0);
 
 	fb_set_suspend(info, 1);
-	lcd_context_save();
 	lcd_disable_raster(WAIT_FOR_FRAME_DONE);
-	msleep(10);
+	lcd_context_save();
 
 	pm_runtime_put(&dev->dev);
 	console_unlock();
@@ -1565,11 +1572,6 @@ static int fb_resume(struct platform_device *dev)
 	pm_runtime_get_sync(&dev->dev);
 
 	msleep(1);
-	lcdc_write(LCD_CLK_MAIN_RESET, LCD_CLK_RESET_REG);
-	msleep(10);
-	lcdc_write(0, LCD_CLK_RESET_REG);
-	msleep(1);
-
 	lcd_context_restore();
 	lcd_enable_raster();
 
