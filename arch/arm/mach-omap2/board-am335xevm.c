@@ -1070,6 +1070,82 @@ static void beaglebone_lcd7_keys_init(int evm_id, int profile)
 		pr_err("failed to register gpio keys for LCD7 cape\n");
 }
 
+/* pinmux for lcd3 keys */
+static struct pinmux_config lcd3_keys_pin_mux[] = {
+	{"gpmc_a0.gpio1_16",  OMAP_MUX_MODE7 | AM33XX_PIN_INPUT},
+	{"gpmc_a1.gpio1_17",    OMAP_MUX_MODE7 | AM33XX_PIN_INPUT},
+	{"mcasp0_fsr.gpio3_19",  OMAP_MUX_MODE7 | AM33XX_PIN_INPUT},
+	{"gpmc_ben1.gpio1_28",    OMAP_MUX_MODE7 | AM33XX_PIN_INPUT},
+	{"ecap0_in_pwm0_out.gpio0_7",    OMAP_MUX_MODE7 | AM33XX_PIN_INPUT},
+	{NULL, 0},
+};
+
+/* Configure GPIOs for lcd3 keys */
+static struct gpio_keys_button beaglebone_lcd3_gpio_keys[] = {
+	{
+		.code                   = KEY_LEFT,
+		.gpio                   = GPIO_TO_PIN(1, 16),
+		.active_low             = false,
+		.desc                   = "left",
+		.type                   = EV_KEY,
+		.wakeup                 = 1,
+	},
+	{
+		.code                   = KEY_RIGHT,
+		.gpio                   = GPIO_TO_PIN(1, 17),
+		.active_low             = false,
+		.desc                   = "right",
+		.type                   = EV_KEY,
+		.wakeup                 = 1,
+	},
+	{
+		.code                   = KEY_UP,
+		.gpio                   = GPIO_TO_PIN(3, 19),
+		.active_low             = false,
+		.desc                   = "up",
+		.type                   = EV_KEY,
+		.wakeup                 = 1,
+	},
+	{
+		.code                   = KEY_DOWN,
+		.gpio                   = GPIO_TO_PIN(1, 28),
+		.active_low             = false,
+		.desc                   = "down",
+		.type                   = EV_KEY,
+		.wakeup                 = 1,
+	},
+	{
+		.code                   = KEY_ENTER,
+		.gpio                   = GPIO_TO_PIN(0, 7),
+		.active_low             = false,
+		.desc                   = "down",
+		.type                   = EV_KEY,
+		.wakeup                 = 1,
+	},
+};
+
+static struct gpio_keys_platform_data beaglebone_lcd3_gpio_key_info = {
+	.buttons        = beaglebone_lcd3_gpio_keys,
+	.nbuttons       = ARRAY_SIZE(beaglebone_lcd3_gpio_keys),
+};
+
+static struct platform_device beaglebone_lcd3_keys = {
+	.name   = "gpio-keys",
+	.id     = -1,
+	.dev    = {
+		.platform_data  = &beaglebone_lcd3_gpio_key_info,
+	},
+};
+
+static void beaglebone_lcd3_keys_init(int evm_id, int profile)
+{
+	int err;
+	setup_pin_mux(lcd3_keys_pin_mux);
+	err = platform_device_register(&beaglebone_lcd3_keys);
+	if (err)
+		pr_err("failed to register gpio keys for LCD3 cape\n");
+}
+
 /*
 * @evm_id - evm id which needs to be configured
 * @dev_cfg - single evm structure which includes
@@ -2031,10 +2107,8 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 		pr_info("BeagleBone cape: initializing LCD cape touchscreen\n");
 		tsc_init(0,0);
 		beaglebone_tsadcpins_free = 0;
-		// gpio1_16 -> button
-		// gpio1_17 -> button
-		// gpio3_19 -> button
-		// gpio1_28 -> button
+		pr_info("BeagleBone cape: Registering gpio-keys for LCD cape\n");
+		beaglebone_lcd3_keys_init(0,0);
 	}
 	
 	if (!strncmp("BB-BONE-VGA-01", cape_config.partnumber, 15)) {
