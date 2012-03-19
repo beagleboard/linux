@@ -1000,6 +1000,7 @@ static struct pinmux_config lcd7_keys_pin_mux[] = {
 	{"gpmc_a1.gpio1_17",    OMAP_MUX_MODE7 | AM33XX_PIN_INPUT},
 	{"gpmc_a3.gpio1_19",  OMAP_MUX_MODE7 | AM33XX_PIN_INPUT},
 	{"mcasp0_axr0.gpio3_16",    OMAP_MUX_MODE7 | AM33XX_PIN_INPUT},
+	{"mcasp0_fsr.gpio3_19",    OMAP_MUX_MODE7 | AM33XX_PIN_INPUT},
 	{NULL, 0},
 };
 
@@ -1034,6 +1035,14 @@ static struct gpio_keys_button beaglebone_lcd7_gpio_keys[] = {
 		.gpio                   = GPIO_TO_PIN(3, 16),
 		.active_low             = false,
 		.desc                   = "down",
+		.type                   = EV_KEY,
+		.wakeup                 = 1,
+	},
+	{
+		.code                   = KEY_ENTER,
+		.gpio                   = GPIO_TO_PIN(3, 19),
+		.active_low             = false,
+		.desc                   = "enter",
 		.type                   = EV_KEY,
 		.wakeup                 = 1,
 	},
