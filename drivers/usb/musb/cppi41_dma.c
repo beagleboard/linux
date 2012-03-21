@@ -100,6 +100,7 @@ struct cppi41_channel {
 	u8  zlp_queued;
 	u8  inf_mode;
 	u8  tx_complete;
+	u8  hb_mult;
 };
 
 /**
@@ -798,7 +799,7 @@ static unsigned cppi41_next_rx_segment(struct cppi41_channel *rx_ch)
 		} else {
 			cppi41_mode_update(rx_ch, USB_TRANSPARENT_MODE);
 			cppi41_autoreq_update(rx_ch, USB_NO_AUTOREQ);
-			max_rx_transfer_size = rx_ch->pkt_size;
+			max_rx_transfer_size = rx_ch->hb_mult * rx_ch->pkt_size;
 		}
 	}
 
@@ -913,7 +914,8 @@ static int cppi41_channel_program(struct dma_channel *channel,	u16 maxpacket,
 	/* Set the transfer parameters, then queue up the first segment */
 	cppi_ch->start_addr = dma_addr;
 	cppi_ch->curr_offset = 0;
-	cppi_ch->pkt_size = maxpacket;
+	cppi_ch->hb_mult = (maxpacket >> 11) & 0x03;
+	cppi_ch->pkt_size = maxpacket & 0x7ff;
 	cppi_ch->length = length;
 	cppi_ch->transfer_mode = mode;
 	cppi_ch->zlp_queued = 0;
