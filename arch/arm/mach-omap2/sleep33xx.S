@@ -26,6 +26,7 @@
 
 #include "cm33xx.h"
 #include "pm33xx.h"
+#include "prm33xx.h"
 #include "control.h"
 
 /* We should probably pass in the virtual address of PRCM, Control and EMIF
@@ -64,9 +65,17 @@ wait_pll_lock_\name:
 	bne	wait_pll_lock_\name
 	.endm
 
-	/* Put DDR in Self-Refresh */
+	/* EMIF config for low power mode */
 	ldr	r0, emif_addr_func
 	blx	r0
+
+	str	r0, emif_addr_virt
+
+	/* Ensure that all the writes to DDR leave the A8 */
+	dsb
+	dmb
+	isb
+
 	add	r1, r0, #EMIF4_0_SDRAM_MGMT_CTRL
 	ldr	r2, [r1]
 	orr	r2, r2, #0xa0		@ a reasonable delay for entering SR
@@ -75,13 +84,41 @@ wait_pll_lock_\name:
 	ldr	r2, ddr_start		@ do a dummy access to DDR
 	ldr	r3, [r2, #0]
 	ldr	r3, [r1, #0]
-	orr	r3, r3, #0x200
+	orr	r3, r3, #0x200		@ now set the LP MODE to Self-Refresh
 	str	r3, [r1, #0]
+	str	r2, [r1, #4]		@ write to shadow register also
 
 	mov	r1, #0x1000		@ Give some time for the system to enter SR
 wait_sr:
 	subs	r1, r1, #1
 	bne	wait_sr
+
+	/* Disable EMIF at this point */
+	ldr	r1, virt_emif_clkctrl
+	ldr	r2, [r1]
+	bic	r2, r2, #(3 << 0)
+	str	r2, [r1]
+
+	ldr	r1, virt_emif_clkctrl
+wait_emif_disable:
+	ldr	r2, [r1]
+	ldr	r3, module_disabled_val
+	cmp	r2, r3
+	bne	wait_emif_disable
+
+	/* Weak pull down for DQ, DM */
+	ldr	r1, virt_ddr_io_pull1
+	ldr	r2, susp_io_pull
+	str	r2, [r1]
+
+	ldr	r1, virt_ddr_io_pull2
+	ldr	r2, susp_io_pull
+	str	r2, [r1]
+
+	/* Disable VTP with N & P = 0x1 */
+	ldr	r1, virt_ddr_vtp_ctrl
+	ldr	r2, susp_vtp_ctrl_val
+	str	r2, [r1]
 
 	/* IO to work in mDDR mode */
 	ldr	r0, virt_ddr_io_ctrl
@@ -89,6 +126,12 @@ wait_sr:
 	mov	r2, #1
 	mov	r3, r2, lsl #28
 	str	r3, [r0]
+
+	/* Enable SRAM LDO ret mode */
+	ldr	r0, virt_sram_ldo_addr
+	ldr	r1, [r0]
+	orr	r1, #1
+	str	r1, [r0]
 
 	/* Put the PLLs in bypass mode */
 	pll_bypass	core, virt_core_clk_mode, virt_core_idlest
@@ -115,7 +158,6 @@ wait_sr:
 	nop
 
 	/* We come here in case of an abort */
-	/* Revert the PHY and PLL related changes */
 
 	/* Relock the PLLs */
 	pll_lock	mpu_abt, virt_mpu_clk_mode, virt_mpu_idlest
@@ -124,11 +166,70 @@ wait_sr:
 	pll_lock	ddr_abt, virt_ddr_clk_mode, virt_ddr_idlest
 	pll_lock	core_abt, virt_core_clk_mode, virt_core_idlest
 
-	/* IO to work in mDDR mode */
+	/* Disable SRAM LDO ret mode */
+	ldr	r0, virt_sram_ldo_addr
+	ldr	r1, [r0]
+	bic	r1, #1
+	str	r1, [r0]
+
+	/* IO to work in DDR mode */
 	ldr	r0, virt_ddr_io_ctrl
 	ldr	r1, [r0]
+	mov	r2, #0x0
 	mov	r3, r2, lsl #28
 	str	r3, [r0]
+
+	/* Restore the pull for DQ, DM */
+	ldr	r1, virt_ddr_io_pull1
+	ldr	r2, resume_io_pull1
+	str	r2, [r1]
+
+	ldr	r1, virt_ddr_io_pull2
+	ldr	r2, resume_io_pull2
+	str	r2, [r1]
+
+	/* Enable VTP */
+config_vtp_abt:
+	ldr	r0, virt_ddr_vtp_ctrl
+	ldr	r1, [r0]
+	mov	r2, #0x0	@ clear the register
+	str	r2, [r0]
+	mov	r2, #0x6	@ write the filter value
+	str	r2, [r0]
+
+	ldr	r1, [r0]
+	ldr	r2, vtp_enable	@ set the enable bit
+	orr	r2, r2, r1
+	str	r2, [r0]
+
+	ldr	r1, [r0]	@ toggle the CLRZ bit
+	bic	r1, #1
+	str	r1, [r0]
+
+	ldr	r1, [r0]
+	orr	r1, #1
+	str	r1, [r0]
+
+poll_vtp_ready_abt:
+	ldr	r1, [r0]	@ poll for VTP ready
+	tst	r1, #(1 << 5)
+	beq	poll_vtp_ready_abt
+
+	/* Enable EMIF */
+	ldr	r1, virt_emif_clkctrl
+	mov	r2, #0x2
+	str	r2, [r1]
+wait_emif_enable:
+	ldr	r3, [r1]
+	cmp	r2, r3
+	bne	wait_emif_enable
+
+	/* Disable EMIF self-refresh */
+	ldr	r0, emif_addr_virt
+	add	r0, r0, #EMIF4_0_SDRAM_MGMT_CTRL
+	ldr	r1, [r0]
+	bic	r1, r1, #(0x7 << 7)
+	str	r1, [r0]
 
 	mov	r0, #7
 	ldmfd	sp!, {r4 - r11, pc}	@ restore regs and return
@@ -153,6 +254,21 @@ wait_sr:
 	pll_lock	disp, phys_disp_clk_mode, phys_disp_idlest
 	pll_lock	ddr, phys_ddr_clk_mode, phys_ddr_idlest
 	pll_lock	core, phys_core_clk_mode, phys_core_idlest
+
+	/* Disable SRAM LDO ret mode */
+	ldr	r0, phys_sram_ldo_addr
+	ldr	r1, [r0]
+	bic	r1, #1
+	str	r1, [r0]
+
+	/* Restore the pull for DQ, DM */
+	ldr	r1, phys_ddr_io_pull1
+	ldr	r2, resume_io_pull1
+	str	r2, [r1]
+
+	ldr	r1, phys_ddr_io_pull2
+	ldr	r2, resume_io_pull2
+	str	r2, [r1]
 
 	/* Disable EMIF self-refresh */
 	ldr	r0, emif_phys_addr
@@ -183,11 +299,17 @@ wait_sr:
 config_vtp:
 	ldr	r0, vtp0_addr
 	ldr	r1, [r0]
-	ldr	r2, vtp_enable
-	orr	r1, r2
-	str	r1, [r0]
+	mov	r2, #0x0	@ clear the register
+	str	r2, [r0]
+	mov	r2, #0x6	@ write the filter value
+	str	r2, [r0]
 
 	ldr	r1, [r0]
+	ldr	r2, vtp_enable	@ set the enable bit
+	orr	r2, r2, r1
+	str	r2, [r0]
+
+	ldr	r1, [r0]	@ toggle the CLRZ bit
 	bic	r1, #1
 	str	r1, [r0]
 
@@ -196,7 +318,7 @@ config_vtp:
 	str	r1, [r0]
 
 poll_vtp_ready:
-	ldr	r1, [r0]
+	ldr	r1, [r0]	@ poll for VTP ready
 	tst	r1, #(1 << 5)
 	beq	poll_vtp_ready
 
@@ -503,6 +625,17 @@ phys_ddr_clk_mode:
 phys_ddr_idlest:
 	.word	AM33XX_CM_BASE + AM33XX_CM_WKUP_MOD + AM33XX_CM_IDLEST_DPLL_DDR_OFFSET
 
+virt_sram_ldo_addr:
+	.word	AM33XX_PRM_LDO_SRAM_MPU_CTRL
+phys_sram_ldo_addr:
+	.word	AM33XX_PRM_BASE + AM33XX_PRM_DEVICE_MOD + AM33XX_PRM_LDO_SRAM_MPU_CTRL_OFFSET
+
+virt_emif_clkctrl:
+	.word	AM33XX_CM_PER_EMIF_CLKCTRL
+phys_emif_clkctrl:
+	.word	AM33XX_CM_BASE + AM33XX_CM_PER_MOD + AM33XX_CM_PER_EMIF_CLKCTRL_OFFSET
+module_disabled_val:
+	.word	0x30000
 
 /* DDR related stuff */
 vtp0_addr:
@@ -564,6 +697,22 @@ virt_ddr_io_ctrl:
 	.word	AM33XX_CTRL_REGADDR(0x0E04)
 phys_ddr_io_ctrl:
 	.word	DDR_IO_CTRL
+virt_ddr_vtp_ctrl:
+	.word	AM33XX_CTRL_REGADDR(0x0E0C)
+phys_ddr_vtp_ctrl:
+	.word	VTP0_CTRL_REG
+virt_ddr_io_pull1:
+	.word	AM33XX_CTRL_REGADDR(0x1440)
+phys_ddr_io_pull1:
+	.word	AM33XX_CTRL_BASE + (0x1440)
+virt_ddr_io_pull2:
+	.word	AM33XX_CTRL_REGADDR(0x1444)
+phys_ddr_io_pull2:
+	.word	AM33XX_CTRL_BASE + (0x1444)
+virt_ddr_io_pull3:
+	.word	AM33XX_CTRL_REGADDR(0x1448)
+phys_ddr_io_pull3:
+	.word	AM33XX_CTRL_BASE + (0x1448)
 
 ddr_cke_addr:
 	.word	DDR_CKE_CTRL
@@ -581,6 +730,22 @@ emif_ref_ctrl_const_val:
 	.word	0x4650
 emif_ref_ctrl_val:
 	.word	EMIF_SDREF
+
+susp_io_pull:
+	.word	0x3FF00003
+resume_io_pull1:
+	.word	0x18B
+resume_io_pull2:
+	.word	0x18B
+dyn_pd_val:
+	.word	0x100000
+susp_sdram_config:
+	.word	0x40805332
+susp_vtp_ctrl_val:
+	.word	0x10117
+emif_addr_virt:
+	.word	0xDEADBEEF
+
 
 ENTRY(am33xx_do_wfi_sz)
 	.word	. - am33xx_do_wfi
