@@ -1009,7 +1009,7 @@ static struct gpio_keys_button beaglebone_lcd7_gpio_keys[] = {
 	{
 		.code                   = KEY_LEFT,
 		.gpio                   = GPIO_TO_PIN(1, 16),
-		.active_low             = false,
+		.active_low             = true,
 		.desc                   = "left",
 		.type                   = EV_KEY,
 		.wakeup                 = 1,
@@ -1017,7 +1017,7 @@ static struct gpio_keys_button beaglebone_lcd7_gpio_keys[] = {
 	{
 		.code                   = KEY_RIGHT,
 		.gpio                   = GPIO_TO_PIN(1, 17),
-		.active_low             = false,
+		.active_low             = true,
 		.desc                   = "right",
 		.type                   = EV_KEY,
 		.wakeup                 = 1,
@@ -1025,7 +1025,7 @@ static struct gpio_keys_button beaglebone_lcd7_gpio_keys[] = {
 	{
 		.code                   = KEY_UP,
 		.gpio                   = GPIO_TO_PIN(1, 19),
-		.active_low             = false,
+		.active_low             = true,
 		.desc                   = "up",
 		.type                   = EV_KEY,
 		.wakeup                 = 1,
@@ -1033,7 +1033,7 @@ static struct gpio_keys_button beaglebone_lcd7_gpio_keys[] = {
 	{
 		.code                   = KEY_DOWN,
 		.gpio                   = GPIO_TO_PIN(3, 16),
-		.active_low             = false,
+		.active_low             = true,
 		.desc                   = "down",
 		.type                   = EV_KEY,
 		.wakeup                 = 1,
@@ -1041,7 +1041,7 @@ static struct gpio_keys_button beaglebone_lcd7_gpio_keys[] = {
 	{
 		.code                   = KEY_ENTER,
 		.gpio                   = GPIO_TO_PIN(3, 19),
-		.active_low             = false,
+		.active_low             = true,
 		.desc                   = "enter",
 		.type                   = EV_KEY,
 		.wakeup                 = 1,
@@ -1085,7 +1085,7 @@ static struct gpio_keys_button beaglebone_lcd3_gpio_keys[] = {
 	{
 		.code                   = KEY_LEFT,
 		.gpio                   = GPIO_TO_PIN(1, 16),
-		.active_low             = false,
+		.active_low             = true,
 		.desc                   = "left",
 		.type                   = EV_KEY,
 		.wakeup                 = 1,
@@ -1093,7 +1093,7 @@ static struct gpio_keys_button beaglebone_lcd3_gpio_keys[] = {
 	{
 		.code                   = KEY_RIGHT,
 		.gpio                   = GPIO_TO_PIN(1, 17),
-		.active_low             = false,
+		.active_low             = true,
 		.desc                   = "right",
 		.type                   = EV_KEY,
 		.wakeup                 = 1,
@@ -1101,7 +1101,7 @@ static struct gpio_keys_button beaglebone_lcd3_gpio_keys[] = {
 	{
 		.code                   = KEY_UP,
 		.gpio                   = GPIO_TO_PIN(3, 19),
-		.active_low             = false,
+		.active_low             = true,
 		.desc                   = "up",
 		.type                   = EV_KEY,
 		.wakeup                 = 1,
@@ -1109,7 +1109,7 @@ static struct gpio_keys_button beaglebone_lcd3_gpio_keys[] = {
 	{
 		.code                   = KEY_DOWN,
 		.gpio                   = GPIO_TO_PIN(1, 28),
-		.active_low             = false,
+		.active_low             = true,
 		.desc                   = "down",
 		.type                   = EV_KEY,
 		.wakeup                 = 1,
@@ -1117,7 +1117,7 @@ static struct gpio_keys_button beaglebone_lcd3_gpio_keys[] = {
 	{
 		.code                   = KEY_ENTER,
 		.gpio                   = GPIO_TO_PIN(0, 7),
-		.active_low             = false,
+		.active_low             = true,
 		.desc                   = "down",
 		.type                   = EV_KEY,
 		.wakeup                 = 1,
