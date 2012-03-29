@@ -145,11 +145,9 @@ static struct fb_var_screeninfo st7735fb_var __devinitdata = {
 
 static int st7735_write(struct st7735fb_par *par, u8 data)
 {
-	u8 txbuf[2]; /* allocation from stack must go */
+	par->buf[0] = data;
 
-	txbuf[0] = data;
-
-	return spi_write(par->spi, &txbuf[0], 1);
+	return spi_write(par->spi, par->buf, 1);
 }
 
 static void st7735_write_data(struct st7735fb_par *par, u8 data)
@@ -243,16 +241,17 @@ static void st7735_reset(struct st7735fb_par *par)
 static void st7735fb_update_display(struct st7735fb_par *par)
 {
 	int ret = 0;
-	u8 *vmem = par->info->screen_base;
+	u16 *vmem;
+#ifdef __LITTLE_ENDIAN
+	int i;
+	u16 *vmem16 = (u16 *)par->info->screen_base;
+	vmem = par->ssbuf;
 
-	/*
-		TODO:
-		Allow a subset of pages to be passed in
-		(for deferred I/O).  Check pages against
-		pan display settings to see if they
-		should be updated.
-	*/
-	/* For now, just write the full 40KiB on each update */
+	for (i=0; i<WIDTH*HEIGHT*BPP/8/2; i++)
+		vmem[i] = swab16(vmem16[i]);
+#else
+	vmem = (u16 *)par->info->screen_base;
+#endif
 
 	/* Set row/column data window */
 	st7735_set_addr_win(par, 0, 0, WIDTH-1, HEIGHT-1);
@@ -261,7 +260,7 @@ static void st7735fb_update_display(struct st7735fb_par *par)
 	st7735_write_cmd(par, ST7735_RAMWR);
 
 	/* Blast framebuffer to ST7735 internal display RAM */
-	ret = st7735_write_data_buf(par, vmem, WIDTH*HEIGHT*BPP/8);
+	ret = st7735_write_data_buf(par, (u8 *)vmem, WIDTH*HEIGHT*BPP/8);
 	if (ret < 0)
 		pr_err("%s: spi_write failed to update display buffer\n",
 			par->info->fix.id);
@@ -369,7 +368,7 @@ static struct fb_ops st7735fb_ops = {
 };
 
 static struct fb_deferred_io st7735fb_defio = {
-	.delay		= HZ,
+	.delay		= HZ/20,
 	.deferred_io	= st7735fb_deferred_io,
 };
 
@@ -395,7 +394,11 @@ static int __devinit st7735fb_probe (struct spi_device *spi)
 		return -EINVAL;
 	}
 
-	vmem = vzalloc(vmem_size);
+#ifdef __LITTLE_ENDIAN
+	vmem = (u8 *)vmalloc(vmem_size);
+#else
+	vmem = (u8 *)kmalloc(vmem_size, GFP_KERNEL);
+#endif
 	if (!vmem)
 		return retval;
 
@@ -431,6 +434,14 @@ static int __devinit st7735fb_probe (struct spi_device *spi)
 	par->spi = spi;
 	par->rst = pdata->rst_gpio;
 	par->dc = pdata->dc_gpio;
+	par->buf = kmalloc(1, GFP_KERNEL);
+
+#ifdef __LITTLE_ENDIAN
+	/* Allocated swapped shadow buffer */
+	par->ssbuf = kmalloc(vmem_size, GFP_KERNEL);
+	if (!par->ssbuf)
+		return retval;
+#endif
 
 	retval = register_framebuffer(info);
 	if (retval < 0)
@@ -457,7 +468,11 @@ fbreg_fail:
 	framebuffer_release(info);
 
 fballoc_fail:
+#ifdef __LITTLE_ENDIAN
 	vfree(vmem);
+#else
+	kfree(vmem);
+#endif
 
 	return retval;
 }

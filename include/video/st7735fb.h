@@ -36,6 +36,8 @@ struct st7735fb_par {
 	struct fb_info *info;
 	int rst;
 	int dc;
+	u16 *ssbuf;
+	u8 *buf;
 };
 
 struct st7735fb_platform_data {
