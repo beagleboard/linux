@@ -72,8 +72,6 @@ do {								\
 #define CPSW_CMINTMAX_INTVL	(1000 / CPSW_CMINTMIN_CNT)
 #define CPSW_CMINTMIN_INTVL	((1000 / CPSW_CMINTMAX_CNT) + 1)
 
-#define CPSW_IRQ_QUIRK
-#ifdef CPSW_IRQ_QUIRK
 #define cpsw_enable_irq(priv)	\
 	do {			\
 		u32 i;		\
@@ -86,10 +84,6 @@ do {								\
 		for (i = 0; i < priv->num_irqs; i++) \
 			disable_irq_nosync(priv->irqs_table[i]); \
 	} while (0);
-#else
-#define cpsw_enable_irq(priv) do { } while (0);
-#define cpsw_disable_irq(priv) do { } while (0);
-#endif
 
 #define CPSW_CPDMA_EOI_REG	0x894
 #define CPSW_TIMER_MASK		0xA0908
@@ -263,11 +257,9 @@ struct cpsw_priv {
 	struct cpdma_chan		*txch, *rxch;
 	struct cpsw_ale			*ale;
 
-#ifdef CPSW_IRQ_QUIRK
 	/* snapshot of IRQ numbers */
 	u32 irqs_table[4];
 	u32 num_irqs;
-#endif
 
 };
 
@@ -1047,7 +1039,6 @@ static int __devinit cpsw_probe(struct platform_device *pdev)
 	struct cpdma_params		dma_params;
 	struct cpsw_ale_params		ale_params;
 	void __iomem			*regs;
-	struct resource			*res;
 	int ret = 0, i, k = 0;
 
 	if (!data) {
@@ -1241,26 +1232,14 @@ static int __devinit cpsw_probe(struct platform_device *pdev)
 		goto clean_dma_ret;
 	}
 
-	ndev->irq = platform_get_irq(pdev, 0);
-	if (ndev->irq < 0) {
-		dev_err(priv->dev, "error getting irq resource\n");
-		ret = -ENOENT;
-		goto clean_ale_ret;
-	}
-
-	while ((res = platform_get_resource(priv->pdev, IORESOURCE_IRQ, k))) {
-		for (i = res->start; i <= res->end; i++) {
-			if (request_irq(i, cpsw_interrupt, IRQF_DISABLED,
-					dev_name(&pdev->dev), priv)) {
-				dev_err(priv->dev, "error attaching irq\n");
-				goto clean_ale_ret;
-			}
-			#ifdef CPSW_IRQ_QUIRK
-			priv->irqs_table[k] = i;
-			priv->num_irqs = k;
-			#endif
+	while ((i = platform_get_irq(pdev, k)) >= 0) {
+		if (request_irq(i, cpsw_interrupt, IRQF_DISABLED,
+				dev_name(&pdev->dev), priv)) {
+			dev_err(priv->dev, "error attaching irq\n");
+			goto clean_ale_ret;
 		}
-		k++;
+		priv->irqs_table[k] = i;
+		priv->num_irqs = ++k;
 	}
 
 	ndev->flags |= IFF_ALLMULTI;	/* see cpsw_ndo_change_rx_flags() */
@@ -1315,13 +1294,15 @@ static int __devexit cpsw_remove(struct platform_device *pdev)
 {
 	struct net_device *ndev = platform_get_drvdata(pdev);
 	struct cpsw_priv *priv = netdev_priv(ndev);
+	u32 i;
 
 	msg(notice, probe, "removing device\n");
 	platform_set_drvdata(pdev, NULL);
 
 	omap_dm_timer_free(dmtimer_rx);
 	omap_dm_timer_free(dmtimer_tx);
-	free_irq(ndev->irq, priv);
+	for (i = 0; i < priv->num_irqs; i++)
+		free_irq(priv->irqs_table[i], priv);
 	cpsw_ale_destroy(priv->ale);
 	cpdma_chan_destroy(priv->txch);
 	cpdma_chan_destroy(priv->rxch);
@@ -1333,6 +1314,7 @@ static int __devexit cpsw_remove(struct platform_device *pdev)
 				resource_size(priv->cpsw_ss_res));
 	clk_put(priv->clk);
 	kfree(priv->slaves);
+	unregister_netdev(ndev);
 	free_netdev(ndev);
 
 	return 0;
