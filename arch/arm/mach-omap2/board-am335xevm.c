@@ -345,11 +345,6 @@ static bool daughter_brd_detected;
 #define GP_EVM_REV_IS_UNKNOWN		0xFF
 static unsigned int gp_evm_revision = GP_EVM_REV_IS_UNKNOWN;
 
-#define CPLD_REV_1_0A			0x1
-#define CPLD_REV_1_1A			0x2
-#define CPLD_UNKNOWN			0xFF
-static unsigned int cpld_version = CPLD_UNKNOWN;
-
 unsigned int gigabit_enable = 1;
 
 #define EEPROM_MAC_ADDRESS_OFFSET	60 /* 4+8+4+12+32 */
@@ -1917,9 +1912,8 @@ static void am335x_setup_daughter_board(struct memory_accessor *m, void *c)
 	int ret;
 
 	/*
-	 * Read from the EEPROM to see the presence
-	 * of daughter board. If present, get daughter board
-	 * specific data.
+	 * Read from the EEPROM to see the presence of daughter board.
+	 * If present, print the cpld version.
 	 */
 
 	ret = m->read(m, (char *)&config1, 0, sizeof(config1));
@@ -1933,14 +1927,10 @@ static void am335x_setup_daughter_board(struct memory_accessor *m, void *c)
 		return;
 	}
 
-	if (!strncmp("CPLD1.0A", config1.cpld_ver, 8))
-		cpld_version = CPLD_REV_1_0A;
-	else if (!strncmp("CPLD1.1A", config1.cpld_ver, 8))
-		cpld_version = CPLD_REV_1_1A;
-	else {
-		pr_err("Unknown CPLD version found, falling back to 1.0A\n");
-		cpld_version = CPLD_REV_1_0A;
-	}
+	if (!strncmp("CPLD", config1.cpld_ver, 4))
+		pr_info("CPLD version: %s\n", config1.cpld_ver);
+	else
+		pr_err("Unknown CPLD version found\n");
 }
 
 static void am335x_evm_setup(struct memory_accessor *mem_acc, void *context)
