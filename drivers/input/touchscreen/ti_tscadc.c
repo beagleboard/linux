@@ -89,6 +89,7 @@
 #define TSCADC_CNTRLREG_TSCSSENB	BIT(0)
 #define TSCADC_CNTRLREG_STEPID		BIT(1)
 #define TSCADC_CNTRLREG_STEPCONFIGWRT	BIT(2)
+#define TSCADC_CNTRLREG_POWERDOWN	BIT(4)
 #define TSCADC_CNTRLREG_TSCENB		BIT(7)
 #define TSCADC_CNTRLREG_4WIRE		(0x1 << 5)
 #define TSCADC_CNTRLREG_5WIRE		(0x1 << 6)
@@ -554,14 +555,15 @@ static int tscadc_suspend(struct platform_device *pdev, pm_message_t state)
 		idle = tscadc_readl(ts_dev, TSCADC_REG_IRQENABLE);
 		tscadc_writel(ts_dev, TSCADC_REG_IRQENABLE,
 				(idle | TSCADC_IRQENB_HW_PEN));
+		tscadc_writel(ts_dev, TSCADC_REG_SE, 0x00);
 		tscadc_writel(ts_dev, TSCADC_REG_IRQWAKEUP, TSCADC_IRQWKUP_ENB);
-	}
-
+	} else {
 	/* module disable */
-	idle = 0;
 	idle = tscadc_readl(ts_dev, TSCADC_REG_CTRL);
 	idle &= ~(TSCADC_CNTRLREG_TSCSSENB);
-	tscadc_writel(ts_dev, TSCADC_REG_CTRL, idle);
+	tscadc_writel(ts_dev, TSCADC_REG_CTRL, (idle |
+				TSCADC_CNTRLREG_POWERDOWN));
+	}
 
 	pm_runtime_put_sync(&pdev->dev);
 
@@ -584,6 +586,10 @@ static int tscadc_resume(struct platform_device *pdev)
 
 	/* context restore */
 	tscadc_writel(ts_dev, TSCADC_REG_CTRL, ts_dev->ctrl);
+	/* Make sure ADC is powered up */
+	restore = tscadc_readl(ts_dev, TSCADC_REG_CTRL);
+	restore &= ~(TSCADC_CNTRLREG_POWERDOWN);
+	tscadc_writel(ts_dev, TSCADC_REG_CTRL, restore);
 	tsc_idle_config(ts_dev);
 	tsc_step_config(ts_dev);
 	tscadc_writel(ts_dev, TSCADC_REG_FIFO1THR, 6);
