@@ -2099,6 +2099,7 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 	int ret;
 	char tmp[32];
 	char name[32];
+	char version[4];
 	char manufacturer[32];
 
 	/* get cape specific data */
@@ -2121,8 +2122,9 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 
 	pr_info("BeagleBone cape EEPROM: found eeprom at address 0x%x\n", capecount + 0x53);
 	snprintf(name, sizeof(cape_config.name) + 1, "%s", cape_config.name);
+	snprintf(version, sizeof(cape_config.version) + 1, "%s", cape_config.version);
 	snprintf(manufacturer, sizeof(cape_config.manufacturer) + 1, "%s", cape_config.manufacturer);
-	pr_info("BeagleBone cape: %s %s\n", manufacturer, name);
+	pr_info("BeagleBone cape: %s %s, revision %s\n", manufacturer, name, version);
 	snprintf(tmp, sizeof(cape_config.partnumber) + 1, "%s", cape_config.partnumber);
 	pr_info("BeagleBone cape partnumber: %s\n", tmp);   
 
