@@ -114,11 +114,11 @@ struct am33xx_padconf {
 #define DATA1_RANK0_DELAYS_0		(DDR_PHY_BASE_ADDR + 0x1D8)
 
 /* Temp placeholder for the values we want in the registers */
-#define EMIF_READ_LATENCY	0x04
-#define EMIF_TIM1		0x0666B3D6
-#define EMIF_TIM2		0x143731DA
-#define EMIF_TIM3		0x00000347
-#define EMIF_SDCFG		0x43805332
+#define EMIF_READ_LATENCY	0x100005	/* Enable Dynamic Power Down */
+#define EMIF_TIM1		0x0666B3C9
+#define EMIF_TIM2		0x243631CA
+#define EMIF_TIM3		0x0000033F
+#define EMIF_SDCFG		0x41805332
 #define EMIF_SDREF		0x0000081a
 #define EMIF_SDMGT		0x80000000
 #define EMIF_SDRAM		0x00004650
