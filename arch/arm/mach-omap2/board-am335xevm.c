@@ -1436,6 +1436,7 @@ late_initcall(ecap0_init);
 static void enable_ehrpwm1(int evm_id, int profile)
 {
 	ehrpwm_backlight_enable = true;
+	am33xx_register_ehrpwm(1, &pwm_pdata[1]);
 }
 
 /* Setup pwm-backlight for bbtoys7lcd */
