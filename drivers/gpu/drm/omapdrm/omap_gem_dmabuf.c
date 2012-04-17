@@ -90,8 +90,20 @@ static void *omap_gem_dmabuf_kmap(struct dma_buf *buffer,
 {
 	struct drm_gem_object *obj = buffer->priv;
 	struct page **pages;
+	dma_addr_t dma_addr;
 	omap_gem_get_pages(obj, &pages, false);
 	omap_gem_cpu_sync_page(obj, page_num);
+
+	/*
+	 * invalidate/flush the cache for this page deliberately.
+	 * XXX: revisit this, to find the proper place for invoking these calls.
+	 */
+	dma_addr = dma_map_page(obj->dev->dev, pages[page_num], 0, PAGE_SIZE,
+				DMA_BIDIRECTIONAL);
+	if (!dma_mapping_error(obj->dev->dev, dma_addr))
+		dma_unmap_page(obj->dev->dev, dma_addr, PAGE_SIZE,
+			       DMA_BIDIRECTIONAL);
+
 	return kmap(pages[page_num]);
 }
 
@@ -100,8 +112,19 @@ static void omap_gem_dmabuf_kunmap(struct dma_buf *buffer,
 {
 	struct drm_gem_object *obj = buffer->priv;
 	struct page **pages;
+	dma_addr_t dma_addr;
 	omap_gem_get_pages(obj, &pages, false);
 	kunmap(pages[page_num]);
+
+	/*
+	 * invalidate/flush the cache for this page deliberately.
+	 * XXX: revisit this, to find the proper place for invoking these calls.
+	 */
+	dma_addr = dma_map_page(obj->dev->dev, pages[page_num], 0, PAGE_SIZE,
+				DMA_BIDIRECTIONAL);
+	if (!dma_mapping_error(obj->dev->dev, dma_addr))
+		dma_unmap_page(obj->dev->dev, dma_addr, PAGE_SIZE,
+			       DMA_BIDIRECTIONAL);
 }
 
 static int omap_gem_dmabuf_mmap(struct dma_buf *buffer,
