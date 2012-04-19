@@ -545,38 +545,6 @@ static struct pinmux_config batterycape_pin_mux[] = {
 	
 /* Module pin mux for LCDC */
 static struct pinmux_config lcdc_pin_mux[] = {
-	{"lcd_data0.lcd_data0",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-						       | AM33XX_PULL_DISA},
-	{"lcd_data1.lcd_data1",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-						       | AM33XX_PULL_DISA},
-	{"lcd_data2.lcd_data2",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-						       | AM33XX_PULL_DISA},
-	{"lcd_data3.lcd_data3",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-						       | AM33XX_PULL_DISA},
-	{"lcd_data4.lcd_data4",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-						       | AM33XX_PULL_DISA},
-	{"lcd_data5.lcd_data5",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-						       | AM33XX_PULL_DISA},
-	{"lcd_data6.lcd_data6",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-						       | AM33XX_PULL_DISA},
-	{"lcd_data7.lcd_data7",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-						       | AM33XX_PULL_DISA},
-	{"lcd_data8.lcd_data8",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-						       | AM33XX_PULL_DISA},
-	{"lcd_data9.lcd_data9",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-						       | AM33XX_PULL_DISA},
-	{"lcd_data10.lcd_data10",	OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-						       | AM33XX_PULL_DISA},
-	{"lcd_data11.lcd_data11",	OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-						       | AM33XX_PULL_DISA},
-	{"lcd_data12.lcd_data12",	OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-						       | AM33XX_PULL_DISA},
-	{"lcd_data13.lcd_data13",	OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-						       | AM33XX_PULL_DISA},
-	{"lcd_data14.lcd_data14",	OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-						       | AM33XX_PULL_DISA},
-	{"lcd_data15.lcd_data15",	OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-						       | AM33XX_PULL_DISA},
 	{"gpmc_ad8.lcd_data16",		OMAP_MUX_MODE1 | AM33XX_PIN_OUTPUT},
 	{"gpmc_ad9.lcd_data17",		OMAP_MUX_MODE1 | AM33XX_PIN_OUTPUT},
 	{"gpmc_ad10.lcd_data18",	OMAP_MUX_MODE1 | AM33XX_PIN_OUTPUT},
@@ -585,15 +553,11 @@ static struct pinmux_config lcdc_pin_mux[] = {
 	{"gpmc_ad13.lcd_data21",	OMAP_MUX_MODE1 | AM33XX_PIN_OUTPUT},
 	{"gpmc_ad14.lcd_data22",	OMAP_MUX_MODE1 | AM33XX_PIN_OUTPUT},
 	{"gpmc_ad15.lcd_data23",	OMAP_MUX_MODE1 | AM33XX_PIN_OUTPUT},
-	{"lcd_vsync.lcd_vsync",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
-	{"lcd_hsync.lcd_hsync",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
-	{"lcd_pclk.lcd_pclk",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
-	{"lcd_ac_bias_en.lcd_ac_bias_en", OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
 	{NULL, 0},
 };
 
-/* Module pin mux for Beagleboardtoys DVI cape */
-static struct pinmux_config dvi_pin_mux[] = {
+
+static struct pinmux_config lcdc16_pin_mux[] = {
 	{"lcd_data0.lcd_data0",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
         | AM33XX_PULL_DISA},
 	{"lcd_data1.lcd_data1",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
@@ -630,90 +594,31 @@ static struct pinmux_config dvi_pin_mux[] = {
 	{"lcd_hsync.lcd_hsync",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
 	{"lcd_pclk.lcd_pclk",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
 	{"lcd_ac_bias_en.lcd_ac_bias_en", OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
+	{NULL, 0},
+};
+
+
+/* Module pin mux for Beagleboardtoys DVI cape */
+static struct pinmux_config dvia1_pin_mux[] = {
 	{"gpmc_a2.rgmii2_td3", OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT}, // USR0 LED
 	{"gpmc_a3.rgmii2_td2", OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT}, // USR1 LED
 	{"gpmc_ad7.gpmc_ad7", OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT}, // DVI PDn
 	{NULL, 0},
 };
 
+static struct pinmux_config dvia2_pin_mux[] = {
+	{"gpmc_a2.rgmii2_td3", OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT}, // USR0 LED
+	{"gpmc_a3.rgmii2_td2", OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT}, // USR1 LED
+	{"gpmc_csn2.gpio1_31", OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT}, // DVI PDn
+	{NULL, 0},
+};
+
 /* Module pin mux for Beagleboardtoys 3.5" LCD cape */
 static struct pinmux_config bbtoys35_pin_mux[] = {
-	{"lcd_data0.lcd_data0",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-		| AM33XX_PULL_DISA},
-	{"lcd_data1.lcd_data1",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-		| AM33XX_PULL_DISA},
-	{"lcd_data2.lcd_data2",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-		| AM33XX_PULL_DISA},
-	{"lcd_data3.lcd_data3",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-		| AM33XX_PULL_DISA},
-	{"lcd_data4.lcd_data4",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-		| AM33XX_PULL_DISA},
-	{"lcd_data5.lcd_data5",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-		| AM33XX_PULL_DISA},
-	{"lcd_data6.lcd_data6",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-		| AM33XX_PULL_DISA},
-	{"lcd_data7.lcd_data7",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-		| AM33XX_PULL_DISA},
-	{"lcd_data8.lcd_data8",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-		| AM33XX_PULL_DISA},
-	{"lcd_data9.lcd_data9",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-		| AM33XX_PULL_DISA},
-	{"lcd_data10.lcd_data10",	OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-		| AM33XX_PULL_DISA},
-	{"lcd_data11.lcd_data11",	OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-		| AM33XX_PULL_DISA},
-	{"lcd_data12.lcd_data12",	OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-		| AM33XX_PULL_DISA},
-	{"lcd_data13.lcd_data13",	OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-		| AM33XX_PULL_DISA},
-	{"lcd_data14.lcd_data14",	OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-		| AM33XX_PULL_DISA},
-	{"lcd_data15.lcd_data15",	OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-		| AM33XX_PULL_DISA},
-	{"lcd_vsync.lcd_vsync",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
-	{"lcd_hsync.lcd_hsync",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
-	{"lcd_pclk.lcd_pclk",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
-	{"lcd_ac_bias_en.lcd_ac_bias_en", OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
 	{NULL, 0},
 };
 /* Module pin mux for Beagleboardtoys 7" LCD cape */
 static struct pinmux_config bbtoys7_pin_mux[] = {
-	{"lcd_data0.lcd_data0",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-		| AM33XX_PULL_DISA},
-	{"lcd_data1.lcd_data1",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-		| AM33XX_PULL_DISA},
-	{"lcd_data2.lcd_data2",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-		| AM33XX_PULL_DISA},
-	{"lcd_data3.lcd_data3",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-		| AM33XX_PULL_DISA},
-	{"lcd_data4.lcd_data4",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-		| AM33XX_PULL_DISA},
-	{"lcd_data5.lcd_data5",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-		| AM33XX_PULL_DISA},
-	{"lcd_data6.lcd_data6",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-		| AM33XX_PULL_DISA},
-	{"lcd_data7.lcd_data7",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-		| AM33XX_PULL_DISA},
-	{"lcd_data8.lcd_data8",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-		| AM33XX_PULL_DISA},
-	{"lcd_data9.lcd_data9",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-		| AM33XX_PULL_DISA},
-	{"lcd_data10.lcd_data10",	OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-		| AM33XX_PULL_DISA},
-	{"lcd_data11.lcd_data11",	OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-		| AM33XX_PULL_DISA},
-	{"lcd_data12.lcd_data12",	OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-		| AM33XX_PULL_DISA},
-	{"lcd_data13.lcd_data13",	OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-		| AM33XX_PULL_DISA},
-	{"lcd_data14.lcd_data14",	OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-		| AM33XX_PULL_DISA},
-	{"lcd_data15.lcd_data15",	OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
-		| AM33XX_PULL_DISA},
-	{"lcd_vsync.lcd_vsync",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
-	{"lcd_hsync.lcd_hsync",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
-	{"lcd_pclk.lcd_pclk",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
-	{"lcd_ac_bias_en.lcd_ac_bias_en", OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
 	{"ecap0_in_pwm0_out.gpio0_7", OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT}, // AVDD_EN
 	{"gpmc_a2.ehrpwm1A", OMAP_MUX_MODE6 | AM33XX_PIN_OUTPUT}, // Backlight
 	{NULL, 0},
@@ -1567,6 +1472,7 @@ out:
 static void lcdc_init(int evm_id, int profile)
 {
 
+	setup_pin_mux(lcdc16_pin_mux);
 	setup_pin_mux(lcdc_pin_mux);
 
 	if (conf_disp_pll(300000000)) {
@@ -1584,6 +1490,7 @@ static void lcdc_init(int evm_id, int profile)
 
 static void bbtoys7lcd_init(int evm_id, int profile)
 {
+	setup_pin_mux(lcdc16_pin_mux);
 	setup_pin_mux(bbtoys7_pin_mux);
 	gpio_request(BEAGLEBONE_LCD_AVDD_EN, "BONE_LCD_AVDD_EN");
 	gpio_direction_output(BEAGLEBONE_LCD_AVDD_EN, 1);
@@ -1603,6 +1510,7 @@ static void bbtoys7lcd_init(int evm_id, int profile)
 
 static void bbtoys35lcd_init(int evm_id, int profile)
 {
+	setup_pin_mux(lcdc16_pin_mux);
 	setup_pin_mux(bbtoys35_pin_mux);
 	
 	// we are being stupid and setting pixclock from here instead of da8xx-fb.c
@@ -1618,13 +1526,12 @@ static void bbtoys35lcd_init(int evm_id, int profile)
 	return;
 }
 
-#define BEAGLEBONEDVI_PDn  GPIO_TO_PIN(1, 7)
+#define BEAGLEBONEDVI_PDn_A1  GPIO_TO_PIN(1, 7)
+#define BEAGLEBONEDVI_PDn_A2  GPIO_TO_PIN(1, 31)
 
 static void dvi_init(int evm_id, int profile)
 {
-    setup_pin_mux(dvi_pin_mux);
-	gpio_request(BEAGLEBONEDVI_PDn, "DVI_PDn");
-	gpio_direction_output(BEAGLEBONEDVI_PDn, 1);
+	setup_pin_mux(lcdc16_pin_mux);
 
 	// we are being stupid and setting pixclock from here instead of da8xx-fb.c
 	if (conf_disp_pll(560000000)) {
@@ -2218,8 +2125,21 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 	pr_info("BeagleBone cape partnumber: %s\n", tmp);   
 
 	if (!strncmp("BB-BONE-DVID-01", cape_config.partnumber, 15)) {
-			pr_info("BeagleBone cape: initializing DVI cape\n");
+		pr_info("BeagleBone cape: initializing DVI cape\n");
+		
+		if (!strncmp("00A1", cape_config.version, 4) || !strncmp("000A", cape_config.version, 4)) {
+			pr_info("BeagleBone cape: DVI init for revision A1 or older\n");
+			setup_pin_mux(dvia1_pin_mux);
+			gpio_request(BEAGLEBONEDVI_PDn_A1, "DVI_PDn");
+			gpio_direction_output(BEAGLEBONEDVI_PDn_A1, 1);
 			dvi_init(0,0);
+		} else {
+			pr_info("BeagleBone cape: DVI init for revision A2 or newer\n");
+			setup_pin_mux(dvia2_pin_mux);
+			gpio_request(BEAGLEBONEDVI_PDn_A2, "DVI_PDn");
+			gpio_direction_output(BEAGLEBONEDVI_PDn_A2, 1);
+			dvi_init(0,0);
+		}
 	}
 	if (!strncmp("BB-BONE-LCD7-01", cape_config.partnumber, 15)) {
 		pr_info("BeagleBone cape: initializing LCD cape\n");
