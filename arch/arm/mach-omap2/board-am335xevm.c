@@ -2154,7 +2154,7 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 		beaglebone_lcd3_keys_init(0,0);
 	}
 	
-	if (!strncmp("BB-BONE-VGA-01", cape_config.partnumber, 15)) {
+	if (!strncmp("BB-BONE-VGA-01", cape_config.partnumber, 14)) {
 		pr_info("BeagleBone cape: initializing VGA cape\n");
 		dvi_init(0,0);
 	}
