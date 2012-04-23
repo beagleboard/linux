@@ -38,6 +38,7 @@
 #include <linux/input/ti_tscadc.h>
 #include <linux/reboot.h>
 #include <linux/pwm/pwm.h>
+#include <linux/opp.h>
 
 /* LCD controller is similar to DA850 */
 #include <video/da8xx-fb.h>
@@ -50,6 +51,7 @@
 #include <asm/mach/map.h>
 #include <asm/hardware/asp.h>
 
+#include <plat/omap_device.h>
 #include <plat/irqs.h>
 #include <plat/board.h>
 #include <plat/common.h>
@@ -1600,6 +1602,14 @@ static void tps65217_init(int evm_id, int profile)
 {
 	struct i2c_adapter *adapter;
 	struct i2c_client *client;
+	struct device *mpu_dev;
+	struct tps65217 *tps;
+	unsigned int val;
+	int ret;
+
+	mpu_dev = omap_device_get_by_hwmod_name("mpu");
+	if (!mpu_dev)
+		pr_warning("%s: unable to get the mpu device\n", __func__);
 
 	/* I2C1 adapter request */
 	adapter = i2c_get_adapter(1);
@@ -1613,6 +1623,28 @@ static void tps65217_init(int evm_id, int profile)
 		pr_err("failed to register tps65217 to i2c1\n");
 
 	i2c_put_adapter(adapter);
+
+	tps = (struct tps65217 *)i2c_get_clientdata(client);
+
+	ret = tps65217_reg_read(tps, TPS65217_REG_STATUS, &val);
+	if (ret) {
+		pr_err("failed to read tps65217 status reg\n");
+		return;
+	}
+
+	if (!(val & TPS65217_STATUS_ACPWR)) {
+		/* If powered by USB then disable OPP120 and OPPTURBO */
+		pr_info("Maximum current provided by the USB port is 500mA"
+			" which is not sufficient when operating @OPP120 and"
+			" OPPTURBO. The current requirement for some use-cases"
+			" using OPP100 might also exceed the maximum current"
+			" that the USB port can provide. Unless you are fully"
+			" confident that the current requirements for OPP100"
+			" use-case don't exceed the USB limits, switching to"
+			" AC power is recommended.\n");
+		opp_disable(mpu_dev, 600000000);
+		opp_disable(mpu_dev, 720000000);
+	}
 }
 
 static void mmc0_no_cd_init(int evm_id, int profile)
