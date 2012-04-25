@@ -135,6 +135,36 @@ static const struct display_panel disp_panel = {
 	COLOR_ACTIVE,
 };
 
+
+#if defined(CONFIG_CHARGER_GPIO)
+
+#include <linux/power_supply.h>
+#include <linux/power/gpio-charger.h>
+
+/* charger */
+static char *beaglebone_batteries[] = {
+	"battery",
+};
+
+static struct gpio_charger_platform_data beaglebone_charger_pdata = {
+	.name = "battery-cape",
+	.type = POWER_SUPPLY_TYPE_BATTERY,
+	.gpio = GPIO_TO_PIN(1,16),
+	.gpio_active_low = 0,
+	.supplied_to = beaglebone_batteries,
+	.num_supplicants = ARRAY_SIZE(beaglebone_batteries),
+};
+
+static struct platform_device beaglebone_charger_device = {
+	.name = "gpio-charger",
+	.dev = {
+		.platform_data = &beaglebone_charger_pdata,
+	},
+};
+
+#endif /* gpio-charger */
+
+
 /* LCD backlight platform Data */
 #define AM335X_BACKLIGHT_MAX_BRIGHTNESS        100
 #define AM335X_BACKLIGHT_DEFAULT_BRIGHTNESS    50
@@ -506,6 +536,13 @@ static struct pinmux_config haptics_pin_mux[] = {
 	{NULL, 0},
 };
 
+/* Module pin mux for battery cape */
+static struct pinmux_config batterycape_pin_mux[] = {
+	{"gpmc_a0.gpio1_16",  OMAP_MUX_MODE7 | AM33XX_PIN_INPUT},
+	{NULL, 0},
+};
+
+	
 /* Module pin mux for LCDC */
 static struct pinmux_config lcdc_pin_mux[] = {
 	{"lcd_data0.lcd_data0",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT
@@ -2203,7 +2240,14 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 		pr_info("BeagleBone cape: initializing battery cape\n");
 		// gpio1_6, P9_15 lowbat output
 		// AIN4, P9_33 vbat
-		//foo_init(0,0);
+		setup_pin_mux(batterycape_pin_mux);
+		#if defined(CONFIG_CHARGER_GPIO)
+			int err;
+			err = platform_device_register(&beaglebone_charger_device);
+			if (err)
+				pr_err("failed to register BeagleBone battery cape gpio\n");
+		
+		#endif
 	}
 	
 	if (!strncmp("BB-BONE-SERL", cape_config.partnumber, 12)) {
