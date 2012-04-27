@@ -29,9 +29,16 @@
 #include <linux/backlight.h>
 #include <linux/fb.h>
 
-#define tlc59108_MODULE_NAME	"tlc59108"
 #define TLC59108_MODE1   0x00
-#define TLC59108_PWM2    0x04
+#define TLC59108_MODE2   0x01
+#define TLC59108_PWM0 0x02
+#define TLC59108_PWM1 0x03
+#define TLC59108_PWM2 0x04
+#define TLC59108_PWM3 0x05
+#define TLC59108_PWM4 0x06
+#define TLC59108_PWM5 0x07
+#define TLC59108_PWM6 0x08
+#define TLC59108_PWM7 0x09
 #define TLC59108_LEDOUT0 0x0c
 #define TLC59108_LEDOUT1 0x0d
 #define TLC59108_MAX_BRIGHTNESS 0xFF
@@ -43,15 +50,9 @@ struct tlc59108_bl {
 
 static void tlc59108_bl_set_backlight(struct tlc59108_bl *data, int brightness)
 {
-	/* Set Mode1 Register */
-	i2c_smbus_write_byte_data(data->client, TLC59108_MODE1, 0x00);
-
-	/* Set LEDOUT0 Register */
-	i2c_smbus_write_byte_data(data->client, TLC59108_LEDOUT0, 0x21);
-
 	/* Set Backlight Duty Cycle*/
 	i2c_smbus_write_byte_data(data->client, TLC59108_PWM2,
-				  brightness & 0xff);
+				  0xff - brightness );
 }
 
 static int tlc59108_bl_get_brightness(struct backlight_device *dev)
@@ -65,7 +66,17 @@ static int tlc59108_bl_update_status(struct backlight_device *dev)
 {
 	struct backlight_properties *props = &dev->props;
 	struct tlc59108_bl *data = dev_get_drvdata(&dev->dev);
+
 	int brightness = props->brightness;
+
+	if (dev->props.state & BL_CORE_FBBLANK) {
+		brightness = 0;
+		/* Set LEDOUT0 Register */
+		i2c_smbus_write_byte_data(data->client, TLC59108_LEDOUT0, 0x10);
+	} else {
+		/* Set LEDOUT0 Register */
+		i2c_smbus_write_byte_data(data->client, TLC59108_LEDOUT0, 0x30);
+	}
 
 	tlc59108_bl_set_backlight(data, brightness);
 
@@ -77,7 +88,7 @@ static const struct backlight_ops bl_ops = {
 	.update_status		= tlc59108_bl_update_status,
 };
 
-static int tlc59108_probe(struct i2c_client *c, const struct i2c_device_id *id)
+static int __devinit tlc59108_probe(struct i2c_client *c, const struct i2c_device_id *id)
 {
 	struct backlight_properties props;
 	struct tlc59108_bl *data = kzalloc(sizeof(struct tlc59108_bl),
@@ -104,6 +115,11 @@ static int tlc59108_probe(struct i2c_client *c, const struct i2c_device_id *id)
 
 	backlight_update_status(data->bl);
 
+	i2c_smbus_write_byte_data(data->client, TLC59108_MODE1, 0x00);
+	i2c_smbus_write_byte_data(data->client, TLC59108_PWM2, 0x80);
+	i2c_smbus_write_byte_data(data->client, TLC59108_LEDOUT1, 0x05);
+	i2c_smbus_write_byte_data(data->client, TLC59108_LEDOUT1, 0x15);
+
 	return 0;
 
 err_reg:
@@ -125,7 +141,7 @@ static int tlc59108_remove(struct i2c_client *c)
 }
 
 /* I2C Device ID table */
-static const struct i2c_device_id tlc59108_id[] = {
+static struct i2c_device_id tlc59108_id[] = {
 	{ "tlc59108", 0 },
 	{ }
 };
@@ -134,12 +150,12 @@ MODULE_DEVICE_TABLE(i2c, tlc59108_id);
 /* I2C driver data */
 static struct i2c_driver tlc59108_driver = {
 	.driver = {
-		.owner = THIS_MODULE,
-		.name = tlc59108_MODULE_NAME,
+		.owner	= THIS_MODULE,
+		.name	= "tlc59108"
 	},
+	.id_table = tlc59108_id,
 	.probe = tlc59108_probe,
 	.remove = tlc59108_remove,
-	.id_table = tlc59108_id,
 };
 
 static int __init tlc59108_init(void)
@@ -157,4 +173,4 @@ module_exit(tlc59108_exit);
 
 MODULE_DESCRIPTION("LCD/Backlight control for TLC59108");
 MODULE_AUTHOR("Senthil Natarajan <senthil.n@ti.com>");
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");
