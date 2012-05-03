@@ -467,6 +467,7 @@ int __devinit cppi41_init(u8 id, u8 irq, int num_instances)
 	cppi_info->tx_comp_q = id ? tx_comp_q1 : tx_comp_q;
 	cppi_info->rx_comp_q = id ? rx_comp_q1 : rx_comp_q;
 	cppi_info->bd_intr_ctrl = 1;
+	cppi_info->version = usbss_read(USBSS_REVISION);
 
 	if (cppi41_init_done)
 		return 0;
