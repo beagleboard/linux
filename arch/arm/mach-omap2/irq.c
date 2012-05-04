@@ -50,10 +50,12 @@
 static struct omap_irq_bank {
 	void __iomem *base_reg;
 	unsigned int nr_irqs;
+	unsigned int nr_regs_req;
 } __attribute__ ((aligned(4))) irq_banks[] = {
 	{
 		/* MPU INTC */
 		.nr_irqs	= 96,
+		.nr_regs_req	= 3,
 	},
 };
 
@@ -63,8 +65,8 @@ struct omap3_intc_regs {
 	u32 protection;
 	u32 idle;
 	u32 threshold;
-	u32 ilr[INTCPS_NR_IRQS];
-	u32 mir[INTCPS_NR_MIR_REGS];
+	u32 ilr[INTCPS_MAX_NR_IRQS];
+	u32 mir[INTCPS_MAX_NR_REGS_REQ];
 };
 
 /* INTC bank register get/set */
@@ -162,6 +164,7 @@ static void __init omap_init_irq(u32 base, int nr_irqs)
 		struct omap_irq_bank *bank = irq_banks + i;
 
 		bank->nr_irqs = nr_irqs;
+		bank->nr_regs_req = 0;
 
 		/* Static mapping, never released */
 		bank->base_reg = ioremap(base, SZ_4K);
@@ -172,8 +175,10 @@ static void __init omap_init_irq(u32 base, int nr_irqs)
 
 		omap_irq_bank_init_one(bank);
 
-		for (j = 0; j < bank->nr_irqs; j += 32)
+		for (j = 0; j < bank->nr_irqs; j += 32) {
 			omap_alloc_gc(bank->base_reg + j, j, 32);
+			bank->nr_regs_req++;
+		}
 
 		nr_of_irqs += bank->nr_irqs;
 		nr_banks++;
@@ -198,25 +203,19 @@ void __init ti81xx_init_irq(void)
 	omap_init_irq(OMAP34XX_IC_BASE, 128);
 }
 
-static inline void omap_intc_handle_irq(void __iomem *base_addr, struct pt_regs *regs)
+static inline void omap_intc_handle_irq(void __iomem *base_addr,
+		unsigned int no_regs_req, struct pt_regs *regs)
 {
-	u32 irqnr;
+	u32 irqnr = 0;
 
 	do {
-		irqnr = readl_relaxed(base_addr + 0x98);
-		if (irqnr)
-			goto out;
+		int i = 0;
 
-		irqnr = readl_relaxed(base_addr + 0xb8);
-		if (irqnr)
-			goto out;
-
-		irqnr = readl_relaxed(base_addr + 0xd8);
-#ifdef CONFIG_SOC_OMAPTI816X
-		if (irqnr)
-			goto out;
-		irqnr = readl_relaxed(base_addr + 0xf8);
-#endif
+		for (i = 0; i < no_regs_req; i++) {
+			irqnr = readl_relaxed(base_addr + 0x98 + (0x20 * i));
+			if (irqnr)
+				goto out;
+		}
 
 out:
 		if (!irqnr)
@@ -233,7 +232,7 @@ out:
 asmlinkage void __exception_irq_entry omap2_intc_handle_irq(struct pt_regs *regs)
 {
 	void __iomem *base_addr = OMAP2_IRQ_BASE;
-	omap_intc_handle_irq(base_addr, regs);
+	omap_intc_handle_irq(base_addr, irq_banks[0].nr_regs_req, regs);
 }
 
 #ifdef CONFIG_ARCH_OMAP3
@@ -252,10 +251,10 @@ void omap_intc_save_context(void)
 			intc_bank_read_reg(bank, INTC_IDLE);
 		intc_context[ind].threshold =
 			intc_bank_read_reg(bank, INTC_THRESHOLD);
-		for (i = 0; i < INTCPS_NR_IRQS; i++)
+		for (i = 0; i < bank->nr_irqs; i++)
 			intc_context[ind].ilr[i] =
 				intc_bank_read_reg(bank, (0x100 + 0x4*i));
-		for (i = 0; i < INTCPS_NR_MIR_REGS; i++)
+		for (i = 0; i < bank->nr_regs_req; i++)
 			intc_context[ind].mir[i] =
 				intc_bank_read_reg(&irq_banks[0], INTC_MIR0 +
 				(0x20 * i));
@@ -278,10 +277,10 @@ void omap_intc_restore_context(void)
 					bank, INTC_IDLE);
 		intc_bank_write_reg(intc_context[ind].threshold,
 					bank, INTC_THRESHOLD);
-		for (i = 0; i < INTCPS_NR_IRQS; i++)
+		for (i = 0; i < bank->nr_irqs; i++)
 			intc_bank_write_reg(intc_context[ind].ilr[i],
 				bank, (0x100 + 0x4*i));
-		for (i = 0; i < INTCPS_NR_MIR_REGS; i++)
+		for (i = 0; i < bank->nr_regs_req; i++)
 			intc_bank_write_reg(intc_context[ind].mir[i],
 				 &irq_banks[0], INTC_MIR0 + (0x20 * i));
 	}
@@ -312,6 +311,6 @@ void omap3_intc_resume_idle(void)
 asmlinkage void __exception_irq_entry omap3_intc_handle_irq(struct pt_regs *regs)
 {
 	void __iomem *base_addr = OMAP3_IRQ_BASE;
-	omap_intc_handle_irq(base_addr, regs);
+	omap_intc_handle_irq(base_addr, irq_banks[0].nr_regs_req, regs);
 }
 #endif /* CONFIG_ARCH_OMAP3 */

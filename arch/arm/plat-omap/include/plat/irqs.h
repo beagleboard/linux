@@ -434,8 +434,11 @@
 
 #define OMAP_IRQ_BIT(irq)	(1 << ((irq) % 32))
 
-#define INTCPS_NR_MIR_REGS	3
-#define INTCPS_NR_IRQS		96
+/*
+ * Max from AM33XX device
+ */
+#define INTCPS_MAX_NR_REGS_REQ	4
+#define INTCPS_MAX_NR_IRQS	128
 
 #include <mach/hardware.h>
 
