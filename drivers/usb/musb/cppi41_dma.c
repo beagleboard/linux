@@ -864,7 +864,24 @@ sched:
 	if (is_host_active(cppi->musb) && rx_ch->channel.actual_len) {
 		void __iomem *epio = rx_ch->end_pt->regs;
 		u16 csr = musb_readw(epio, MUSB_RXCSR);
+		u8 curr_toggle = (csr & MUSB_RXCSR_H_DATATOGGLE) ? 1 : 0;
 
+		/* check if data toggle bit got out of sync */
+		if (curr_toggle == rx_ch->end_pt->prev_toggle) {
+			dev_dbg(musb->controller,
+				"Data toggle same as previous (=%d) on ep%d\n",
+					curr_toggle, rx_ch->end_pt->epnum);
+
+			csr |= MUSB_RXCSR_H_DATATOGGLE |
+					MUSB_RXCSR_H_WR_DATATOGGLE;
+			musb_writew(epio, MUSB_RXCSR, csr);
+
+			rx_ch->end_pt->prev_toggle = !curr_toggle;
+		} else {
+			rx_ch->end_pt->prev_toggle = curr_toggle;
+		}
+
+		csr = musb_readw(epio, MUSB_RXCSR);
 		csr |= MUSB_RXCSR_H_REQPKT | MUSB_RXCSR_H_WZC_BITS;
 		musb_writew(epio, MUSB_RXCSR, csr);
 	}
