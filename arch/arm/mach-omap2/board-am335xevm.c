@@ -953,6 +953,18 @@ static struct pinmux_config tt3201_pin_mux[] = {
 	{NULL, 0},
 };
 
+static struct pinmux_config uart1dcan1_pin_mux[] = {
+	{"uart1_rxd.d_can1_tx", OMAP_MUX_MODE2 | AM33XX_PIN_OUTPUT },
+	{"uart1_txd.d_can1_rx", OMAP_MUX_MODE2 | AM33XX_PIN_INPUT_PULLUP },
+	{NULL, 0},
+};
+
+static struct pinmux_config uart1_pin_mux[] = {
+	{"uart1_txd.uart1_txd", OMAP_MUX_MODE0 | AM33XX_PULL_ENBL},
+	{"uart1_rxd.uart1_rxd", OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{NULL, 0},
+};
+
 /* Module pin mux for uart2 */
 static struct pinmux_config uart2_pin_mux[] = {
 	{"spi0_sclk.uart2_rxd", OMAP_MUX_MODE1 | AM33XX_SLEWCTRL_SLOW |
@@ -2250,12 +2262,24 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 		#endif
 	}
 	
-	if (!strncmp("BB-BONE-SERL", cape_config.partnumber, 12)) {
-		pr_info("BeagleBone cape: initializing serial cape\n");
-		// 01 -> CAN
-		// 02 -> Profibus
-		// 03 -> RS232
-		// 04 -> RS485
+	if (!strncmp("BB-BONE-SERL-01", cape_config.partnumber, 15)) {
+		pr_info("BeagleBone cape: initializing CAN cape\n");
+		setup_pin_mux(uart1dcan1_pin_mux);
+		am33xx_d_can_init(1);
+	}
+		if (!strncmp("BB-BONE-SERL-02", cape_config.partnumber, 15)) {
+		pr_info("BeagleBone cape: not initializing Profibus cape\n");
+		// gpio1_0
+		// gpio1_4
+		//foo_init(0,0);
+	}
+		if (!strncmp("BB-BONE-SERL-03", cape_config.partnumber, 15)) {
+		pr_info("BeagleBone cape: initializing RS232 cape\n");
+		pr_info("BeagleBone cape: only uart1 is supported!\n");
+		setup_pin_mux(uart1_pin_mux);
+	}
+		if (!strncmp("BB-BONE-SERL-04", cape_config.partnumber, 15)) {
+		pr_info("BeagleBone cape: not initializing RS485 cape\n");
 		//foo_init(0,0);
 	}
 	
