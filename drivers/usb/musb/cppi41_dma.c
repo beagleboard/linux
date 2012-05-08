@@ -1206,6 +1206,11 @@ static int cppi41_channel_abort(struct dma_channel *channel)
 	if (cppi_ch->transmit) {
 		dprintk("Tx channel teardown, cppi_ch = %p\n", cppi_ch);
 
+		/* disable the DMAreq before teardown */
+		csr  = musb_readw(epio, MUSB_TXCSR);
+		csr &= ~MUSB_TXCSR_DMAENAB;
+		musb_writew(epio, MUSB_TXCSR, csr);
+
 		/* Tear down Tx DMA channel */
 		usb_tx_ch_teardown(cppi_ch);
 
@@ -1223,11 +1228,30 @@ static int cppi41_channel_abort(struct dma_channel *channel)
 	} else { /* Rx */
 		dprintk("Rx channel teardown, cppi_ch = %p\n", cppi_ch);
 
+		/* disable the DMAreq and remove reqpkt */
+		csr  = musb_readw(epio, MUSB_RXCSR);
+		dev_dbg(musb->controller,
+			"before rx-teardown: rxcsr %x rxcount %x\n", csr,
+			musb_readw(epio, MUSB_RXCOUNT));
+
+		/* For host, clear (just) ReqPkt at end of current packet(s) */
+		if (is_host_active(cppi->musb))
+			csr &= ~MUSB_RXCSR_H_REQPKT;
+
+		csr &= ~MUSB_RXCSR_DMAENAB;
+		musb_writew(epio, MUSB_RXCSR, csr);
+
+
 		/* Flush FIFO of the endpoint */
 		csr  = musb_readw(epio, MUSB_RXCSR);
-		csr |= MUSB_RXCSR_FLUSHFIFO | MUSB_RXCSR_H_WZC_BITS;
+
+		if (csr & MUSB_RXCSR_RXPKTRDY)
+			csr |= MUSB_RXCSR_FLUSHFIFO;
+
+		csr |= MUSB_RXCSR_H_WZC_BITS;
 		musb_writew(epio, MUSB_RXCSR, csr);
 		musb_writew(epio, MUSB_RXCSR, csr);
+		csr  = musb_readw(epio, MUSB_RXCSR);
 
 		/* Issue CPPI FIFO teardown for Rx channel */
 		td_reg  = musb_readl(reg_base, cppi->teardown_reg_offs);
@@ -1246,22 +1270,6 @@ static int cppi41_channel_abort(struct dma_channel *channel)
 
 		/* For host, ensure ReqPkt is never set again */
 		cppi41_autoreq_update(cppi_ch, USB_NO_AUTOREQ);
-
-		/* For host, clear (just) ReqPkt at end of current packet(s) */
-		if (is_host_active(cppi->musb))
-			csr &= ~MUSB_RXCSR_H_REQPKT;
-		csr |= MUSB_RXCSR_H_WZC_BITS;
-
-		/* Clear DMA enable */
-		csr &= ~MUSB_RXCSR_DMAENAB;
-		musb_writew(epio, MUSB_RXCSR, csr);
-
-		/* Flush the FIFO of endpoint once again */
-		csr  = musb_readw(epio, MUSB_RXCSR);
-		csr |= MUSB_RXCSR_FLUSHFIFO | MUSB_RXCSR_H_WZC_BITS;
-		musb_writew(epio, MUSB_RXCSR, csr);
-
-		udelay(50);
 	}
 
 	/*
