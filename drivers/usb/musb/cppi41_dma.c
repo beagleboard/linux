@@ -1198,7 +1198,7 @@ static int cppi41_channel_abort(struct dma_channel *channel)
 	void __iomem *reg_base, *epio;
 	unsigned long pd_addr;
 	u32 csr, td_reg;
-	u8 ch_num, ep_num;
+	u8 ch_num, ep_num, i;
 
 	cppi_ch = container_of(channel, struct cppi41_channel, channel);
 	ch_num = cppi_ch->ch_num;
@@ -1250,10 +1250,14 @@ static int cppi41_channel_abort(struct dma_channel *channel)
 		musb_writel(reg_base, cppi->teardown_reg_offs, td_reg);
 
 		/* Flush FIFO of the endpoint */
-		csr  = musb_readw(epio, MUSB_TXCSR);
-		csr |= MUSB_TXCSR_FLUSHFIFO | MUSB_TXCSR_H_WZC_BITS;
-		musb_writew(epio, MUSB_TXCSR, csr);
-		musb_writew(epio, MUSB_TXCSR, csr);
+		for (i = 0; i < 2; ++i) {
+			csr  = musb_readw(epio, MUSB_TXCSR);
+			if (csr & MUSB_TXCSR_TXPKTRDY) {
+				csr |= MUSB_TXCSR_FLUSHFIFO |
+					MUSB_TXCSR_H_WZC_BITS;
+				musb_writew(epio, MUSB_TXCSR, csr);
+			}
+		}
 	} else { /* Rx */
 		dprintk("Rx channel teardown, cppi_ch = %p\n", cppi_ch);
 
