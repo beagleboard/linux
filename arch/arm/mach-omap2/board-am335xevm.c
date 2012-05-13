@@ -2231,6 +2231,304 @@ static void tt3201_init(int evm_id, int profile)
 
 	am33xx_d_can_init(1);
 }
+
+static const char* cape_pins[] = {
+/*
+  From SRM RevA5.0.1:
+*/
+  /* offset  88 - P9-22 */ "uart2_rxd",
+  /* offset  90 - P9-21 */ "uart2_txd",
+  /* offset  92 - P9-18 */ "spi0_d1",
+  /* offset  94 - P9-17 */ "spi0_cs0",
+  /* offset  96 - P9-42 */ "ecap0_in_pwm0_out",
+  /* offset  98 - P8-35 */ "lcd_data12",
+  /* offset 100 - P8-33 */ "lcd_data13",
+  /* offset 102 - P8-31 */ "lcd_data14",
+  /* offset 104 - P8-32 */ "lcd_data15",
+  /* offset 106 - P9-19 */ "uart1_rtsn",
+  /* offset 108 - P9-20 */ "uart1_ctsn",
+  /* offset 110 - P9-26 */ "uart1_rxd",
+  /* offset 112 - P9-24 */ "uart1_txd",
+  /* offset 114 - P9-41 */ "xdma_event_intr1",
+  /* offset 116 - P8-19 */ "gpmc_ad8",
+  /* offset 118 - P8-13 */ "gpmc_ad9",
+  /* offset 120 - P8-14 */ "gpmc_ad10",
+  /* offset 122 - P8-17 */ "gpmc_ad12",
+  /* offset 124 - P9-11 */ "gpmc_wait0",
+  /* offset 126 - P9-13 */ "gpmc_wpn",
+  /* offset 128 - P8-25 */ "gpmc_ad0",
+  /* offset 130 - P8-24 */ "gpmc_ad1",
+  /* offset 132 - P8- 5 */ "gpmc_ad2",
+  /* offset 134 - P8- 6 */ "gpmc_ad3",
+  /* offset 136 - P8-23 */ "gpmc_ad4",
+  /* offset 138 - P8-22 */ "gpmc_ad5",
+  /* offset 140 - P8- 3 */ "gpmc_ad6",
+  /* offset 142 - P8- 4 */ "gpmc_ad7",
+  /* offset 144 - P8-12 */ "gpmc_ad12",
+  /* offset 146 - P8-11 */ "gpmc_ad13",
+  /* offset 148 - P8-16 */ "gpmc_ad14",
+  /* offset 150 - P8-15 */ "gpmc_ad15",
+  /* offset 152 - P9-15 */ "gpmc_a0",
+  /* offset 154 - P9-23 */ "gpmc_a1",
+  /* offset 156 - P9-14 */ "gpmc_a2",
+  /* offset 158 - P9-16 */ "gpmc_a3",
+  /* offset 160 - P9-12 */ "gpmc_be1n",
+  /* offset 162 - P8-26 */ "gpmc_csn0",
+  /* offset 164 - P8-21 */ "gpmc_csn1",
+  /* offset 166 - P8-20 */ "gpmc_csn2",
+  /* offset 168 - P8-18 */ "gpmc_clk",
+  /* offset 170 - P8-7  */ "gpmc_advn_ale",
+  /* offset 172 - P8-9  */ "gpmc_ben0_cle",
+  /* offset 174 - P8-10 */ "gpmc_wen",
+  /* offset 176 - P8-8  */ "gpmc_csn3",
+  /* offset 178 - P8-45 */ "lcd_data0",
+  /* offset 180 - P8-46 */ "lcd_data1",
+  /* offset 182 - P8-43 */ "lcd_data2",
+  /* offset 184 - P8-44 */ "lcd_data3",
+  /* offset 186 - P8-41 */ "lcd_data4",
+  /* offset 188 - P8-42 */ "lcd_data5",
+  /* offset 190 - P8-39 */ "lcd_data6",
+  /* offset 192 - P8-40 */ "lcd_data7",
+  /* offset 194 - P8-37 */ "lcd_data8",
+  /* offset 196 - P8-38 */ "lcd_data9",
+  /* offset 198 - P8-36 */ "lcd_data10",
+  /* offset 200 - P8-34 */ "lcd_data11",
+  /* offset 202 - P8-27 */ "lcd_vsync",
+  /* offset 204 - P8-29 */ "lcd_hsync",
+  /* offset 206 - P8-28 */ "lcd_pclk",
+  /* offset 208 - P8-30 */ "lcd_ac_bias_en",
+  /* offset 210 - P9-29 */ "mcasp0_fsx",
+  /* offset 212 - P9-30 */ "mcasp0_axr0",
+  /* offset 214 - P9-28 */ "mcasp0_ahclkr",
+  /* offset 216 - P9-27 */ "mcasp0_fsr",
+  /* offset 218 - P9-31 */ "mcasp0_aclkx",
+  /* offset 220 - P9-25 */ "mcasp0_ahclkx",
+  /* offset 222 - P9-39 */ "ain0",
+  /* offset 224 - P9-40 */ "ain1",
+  /* offset 226 - P9-37 */ "ain2",
+  /* offset 228 - P9-38 */ "ain3",
+  /* offset 230 - P9-33 */ "ain4",
+  /* offset 232 - P9-36 */ "ain5",
+  /* offset 234 - P9-35 */ "ain6",
+};
+
+#define BIG_ENDIAN_16( i) ( ((i & 255) << 8) | ((i >> 8) & 255) )
+#define NR_ITEMS( x) (sizeof( (x)) / sizeof( *(x)))
+
+extern int am33xx_mux_get_entry( int index, struct omap_mux** mux);
+
+typedef union {
+/*
+  From SRM RevA5.0.1:
+  Bit 15     Pin is used or not: 0=Unused by Cape 1=Used by Cape
+  Bit 14-13  Pin Direction: 10=Output 01=Input 11=BDIR
+  Bit 12-7   Reserved
+  Bit 6      Slew Rate: 0=Fast 1=Slow
+  Bit 5      Rx Enable: 0=Disabled 1=Enabled
+  Bit 4      Pull Up/Dn Select: 0=Pulldown 1=PullUp
+  Bit 3      Pull Up/DN enabled: 0=Enabled 1=Disabled
+  Bit 2-0    Mux Mode Selection: Mode 0-7
+*/
+	struct {
+		uint16_t    mux             : 3;
+	  	uint16_t    pull_enable     : 1;
+		uint16_t    pull_up         : 1;
+	  	uint16_t    rx_enable       : 1;
+		uint16_t    slew_rate       : 1;
+	  	uint16_t    reserved        : 6;
+	  	uint16_t    direction       : 2;
+	  	uint16_t    used            : 1;
+	};
+  	uint16_t      value;
+} pin_def;
+
+#define DEBUG_EEPROM_CONFIG 0
+
+static int bone_io_get_mux_setting( pin_def setting)
+{
+	int pin_setting;
+
+	switch (setting.direction) {
+	case 1:
+	/* input */
+	  	if (setting.pull_enable) {
+			if (setting.pull_up) {
+			  	pin_setting = AM33XX_PIN_INPUT_PULLUP;
+			} else {
+			  	pin_setting = AM33XX_PIN_INPUT_PULLDOWN;
+			}
+		} else {
+		  	pin_setting = AM33XX_PIN_INPUT;
+		}
+		if (!setting.rx_enable) {
+#if DEBUG_EEPROM_CONFIG
+			pr_warning( "  pin is set as input but the receiver is not enabled!\n");
+#endif
+		}
+		break;
+	case 2:
+	/* output */
+	  	pin_setting = AM33XX_PIN_OUTPUT;
+		break;
+	case 3:
+	/* bi-dir */
+	default:
+	/* reserved */
+#if DEBUG_EEPROM_CONFIG
+	  	pr_warning( "  pin ignored because it uses an unsupported mode: 0x%04x\n",
+			    setting.direction);
+#endif
+		return -1;
+	}
+#if DEBUG_EEPROM_CONFIG
+	pr_info("  pin is configured as %s\n",
+		(pin_setting & AM33XX_PIN_INPUT) ? "input" : "output");
+#endif
+	switch (setting.mux) {
+	case 0: pin_setting |= OMAP_MUX_MODE0; break;
+	case 1: pin_setting |= OMAP_MUX_MODE1; break;
+	case 2: pin_setting |= OMAP_MUX_MODE2; break;
+	case 3: pin_setting |= OMAP_MUX_MODE3; break;
+	case 4: pin_setting |= OMAP_MUX_MODE4; break;
+	case 5: pin_setting |= OMAP_MUX_MODE5; break;
+	case 6: pin_setting |= OMAP_MUX_MODE6; break;
+	case 7: pin_setting |= OMAP_MUX_MODE7; break;
+	}
+	return pin_setting;
+}
+
+static struct omap_mux* bone_io_pin_lookup( const char* pin_name)
+{
+	int index = 0;
+	struct omap_mux* mux;
+
+	for (;;) {
+		if (am33xx_mux_get_entry( index, &mux) < 0) {
+		  	/* no more entries */
+#if DEBUG_EEPROM_CONFIG
+		  	pr_warning( "   configuration error, pin '%s' not found in mux database\n",
+				    pin_name);
+#endif
+			return NULL;
+		}
+		if (mux != NULL &&
+		    mux->muxnames[ 0] != NULL &&
+		    strcmp( mux->muxnames[ 0], pin_name) == 0)
+		{
+			/* entry found */
+#if DEBUG_EEPROM_CONFIG
+			pr_info( "   found pin '%s' at index %d in mux database'\n",
+				 pin_name, index);
+#endif
+			return mux;
+		}
+		++index;
+	}
+}
+
+static int bone_io_config_pin( const char* pin_name, pin_def eeprom_setting)
+{
+	struct omap_mux* mux;
+	char* signal_name;
+	int pin_setting = bone_io_get_mux_setting( eeprom_setting);
+	int l1, l2;
+	char full_name[ 50];
+
+	if (pin_setting < 0) {
+		return -1;
+	}
+
+	mux = bone_io_pin_lookup( pin_name);
+
+	if (mux == NULL) {
+		return -1;
+	}
+
+	signal_name = mux->muxnames[ eeprom_setting.mux];
+
+	if (signal_name == NULL) {
+#if DEBUG_EEPROM_CONFIG
+	  	pr_warning( "    Configuration error, no signal found for pin '%s' in mode %d\n",
+			    pin_name, eeprom_setting.mux);
+#endif
+		return -1;
+	}
+
+#if DEBUG_EEPROM_CONFIG
+	pr_info( "    setting pin '%s' to signal '%s'\n",
+		 pin_name, signal_name);
+#endif
+  	l1 = strlen( pin_name);
+	l2 = strlen( signal_name);
+
+	if (l1 + 1 + l2 + 1 > sizeof( full_name)) {
+#if DEBUG_EEPROM_CONFIG
+	  	pr_warning( "    Internal error, combined signal name too long\n");
+#endif
+		return -1;
+	} else {
+	  	memcpy( full_name, pin_name, l1);
+		full_name[ l1] = '.';
+		memcpy( full_name + l1 + 1, signal_name, l2);
+		full_name[ l1 + 1 + l2] = '\0';
+		if (omap_mux_init_signal( full_name, pin_setting) < 0) {
+			return -1;
+		}
+#if DEBUG_EEPROM_CONFIG
+		pr_info( "     mux '%s' was set to mode 0x%04x\n",
+			 full_name, pin_setting);
+#endif
+	}
+	// return 0 for input, 1 for output
+	return (pin_setting & AM33XX_PIN_INPUT) ? 0 : 1;
+}
+
+#define RULER( x) \
+	do { \
+		char* p = status; \
+		int i = 0; \
+		int cnt = x; \
+		status[ cnt] = '\0'; \
+		while (cnt--) { \
+			if (++i == 10) { \
+				*p++ = '+'; \
+				i = 0; \
+			} else { \
+				*p++ = '-'; \
+			} \
+		} \
+		pr_info( "+%s+\n", status); \
+	} while (0)
+
+static void bone_io_config_from_cape_eeprom( void)
+{
+	int i;
+	int cnt = BIG_ENDIAN_16( cape_config.numpins);
+	u16* pmuxdata;
+	char status[ NR_ITEMS( cape_config.muxdata) + 1];
+
+	pr_info( "BeagleBone cape: configuring %2d out of %2d signals:\n",
+		 cnt, NR_ITEMS( cape_config.muxdata));
+	RULER( NR_ITEMS( cape_config.muxdata));
+	for (i = 0, pmuxdata = cape_config.muxdata ; i < NR_ITEMS( cape_config.muxdata) ; ++i, ++pmuxdata) {
+		const char* pin_name = cape_pins[ i];
+		pin_def pin_setting = { .value = BIG_ENDIAN_16( *pmuxdata) };
+
+		if (pin_setting.used) {
+			switch (bone_io_config_pin( pin_name, pin_setting)) {
+			case 0:  status[ i] = 'i'; break;
+			case 1:  status[ i] = 'o'; break;
+			default: status[ i] = '#'; break;
+			}
+		} else {
+			status[ i] = ' ';
+		}
+	}
+	status[ NR_ITEMS( cape_config.muxdata)] = '\0';
+	pr_info( "|%s|\n", status);
+	RULER( NR_ITEMS( cape_config.muxdata));
+}
+
 static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context)
 {
 	int ret;
@@ -2279,6 +2577,12 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 	pr_info("BeagleBone cape: %s %s, revision %s\n", manufacturer, name, version);
 	snprintf(tmp, sizeof(cape_config.partnumber) + 1, "%s", cape_config.partnumber);
 	pr_info("BeagleBone cape partnumber: %s\n", tmp);   
+
+	if (!strncmp( "BEBOPR", cape_config.name, 6)) {
+		pr_info( "BeagleBone cape: initializing BEBOPR cape\n");
+		bone_io_config_from_cape_eeprom();
+		return;	// if configured from eeprom, skip all other initialization
+	}
 
 	if (!strncmp("BB-BONE-DVID-01", cape_config.partnumber, 15)) {
 		pr_info("BeagleBone cape: initializing DVI cape\n");

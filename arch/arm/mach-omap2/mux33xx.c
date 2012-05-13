@@ -616,6 +616,20 @@ int __init am33xx_mux_init(struct omap_board_mux *board_subset)
 			AM33XX_CONTROL_PADCONF_MUX_SIZE, am33xx_muxmodes,
 			NULL, board_subset, NULL);
 }
+
+#define NR_ITEMS( x) (sizeof( (x)) / sizeof( *(x)))
+
+int am33xx_mux_get_entry( int index, struct omap_mux** mux)
+{
+  if (index >= 0 && index < NR_ITEMS( am33xx_muxmodes)) {
+    *mux = &am33xx_muxmodes[ index];
+    return 0;
+  } else {
+    *mux = NULL;
+    return -1;
+  }
+}
+
 #else
 int __init am33xx_mux_init(struct omap_board_mux *board_subset)
 {
