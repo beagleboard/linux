@@ -483,7 +483,7 @@ struct beaglebone_cape_eeprom_config {
 	char	partnumber[16];
 	u16  numpins;
 	char	serial[12];
-	u8	muxdata[170];
+	u16	muxdata[74];
 	u16  current_3v3;
 	u16  current_vdd5v;
 	u16  current_sys5v;
