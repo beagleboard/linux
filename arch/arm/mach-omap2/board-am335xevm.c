@@ -41,6 +41,7 @@
 #include <linux/opp.h>
 #include <linux/w1-gpio.h>
 #include <linux/can/platform/mcp251x.h>
+#include <linux/input/ti_tscadc.h>
 
 /* LCD controller is similar to DA850 */
 #include <video/da8xx-fb.h>
@@ -300,7 +301,6 @@ struct da8xx_lcdc_platform_data dvi_pdata = {
 };
 
 /* TSc controller */
-#include <linux/input/ti_tscadc.h>
 #include <linux/lis3lv02d.h>
 
 /* TSc controller */
@@ -2200,13 +2200,13 @@ static void tt3201_init(int evm_id, int profile)
 }
 static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context)
 {
-	capecount++;
 	int ret;
 	char tmp[32];
 	char name[32];
 	char version[4];
 	char manufacturer[32];
 
+	capecount++;
 	/* get cape specific data */
 	ret = mem_acc->read(mem_acc, (char *)&cape_config, 0, sizeof(cape_config));
 	if (ret != sizeof(cape_config)) {
