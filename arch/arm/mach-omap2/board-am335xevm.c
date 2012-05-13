@@ -1428,6 +1428,7 @@ static struct pinmux_config bone_pin_mux[] = {
     {"gpmc_a8.rgmii2_rd3", OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT},
     /* Grounding gpio1_6 (pin 3 Conn A) signals bone tester to start diag tests */
     {"gpmc_ad6.gpio1_6", OMAP_MUX_MODE7 | AM33XX_PIN_INPUT_PULLUP},
+	{NULL, 0},
 };
 
 /* Module pin mux for eCAP0 */
