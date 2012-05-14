@@ -2501,7 +2501,10 @@ static void bone_io_config_from_cape_eeprom( void)
 		const char* pin_name = cape_pins[ i];
 		pin_def pin_setting = { .value = BIG_ENDIAN_16( *pmuxdata) };
 
-		if (pin_setting.used) {
+		// Detect broken I2C configuration to prevent bus hangup!
+		if (i >= 9 && i <= 10) {
+			status[ i] = '-';
+		} else if (pin_setting.used) {
 			switch (bone_io_config_pin( pin_name, pin_setting)) {
 			case 0:	 status[ i] = 'i'; break;
 			case 1:	 status[ i] = 'o'; break;
