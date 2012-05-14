@@ -497,6 +497,7 @@ static bool beaglebone_cape_detected;
 static int capecount = 0;
 static bool beaglebone_tsadcpins_free = 1;
 static bool beaglebone_leds_free = 1;
+static bool beaglebone_spi1_free = 1;
 
 
 #define GP_EVM_REV_IS_1_0		0x1
@@ -1897,6 +1898,16 @@ static struct spi_board_info am335x_spi1_slave_info[] = {
 	},
 };
 
+static struct spi_board_info bone_spidev2_info[] = {
+	{
+		.modalias      = "spidev",
+		.irq           = -1,
+		.max_speed_hz  = 12000000,
+		.bus_num       = 2,
+		.chip_select   = 0,
+	},
+};
+
 static struct gpmc_timings am335x_nand_timings = {
 	.sync_clk = 0,
 
@@ -2199,8 +2210,9 @@ static struct spi_board_info tt3201_spi_info[] = {
 
 static void tt3201_init(int evm_id, int profile)
 {
-	pr_info("TowerTech TT3201 CAN Cape\n");
-
+	pr_info("TowerTech TT3201 CAN cape\n");
+	
+	beaglebone_spi1_free = 0;
 	setup_pin_mux(spi1_pin_mux);
 	setup_pin_mux(tt3201_pin_mux);
 
@@ -2234,12 +2246,18 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 			if (beaglebone_leds_free == 1) {
 				boneleds_init(0,0);
 			}
+			if(beaglebone_spi1_free == 1) {
+				beaglebone_spi1_free = 0;
+				pr_info("BeagleBone cape: exporting SPI pins as spidev\n");
+				setup_pin_mux(spi1_pin_mux);
+				spi_register_board_info(bone_spidev2_info, ARRAY_SIZE(bone_spidev2_info));
+			}
 		}
 		return;
 	}
 
 	if (cape_config.header != AM335X_EEPROM_HEADER) {
-		pr_warning("BeagleBone Cape EEPROM: wrong header 0x%x, expected 0x%x\n",
+		pr_warning("BeagleBone cape EEPROM: wrong header 0x%x, expected 0x%x\n",
 			cape_config.header, AM335X_EEPROM_HEADER);
 		goto out;
 	}
@@ -2629,7 +2647,6 @@ static void spi1_init(int evm_id, int profile)
 			ARRAY_SIZE(am335x_spi1_slave_info));
 	return;
 }
-
 
 static int beaglebone_phy_fixup(struct phy_device *phydev)
 {
