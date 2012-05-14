@@ -1509,6 +1509,16 @@ static struct pwmss_platform_data  pwm_pdata[3] = {
 	},
 };
 
+static void register_all_pwms(void)
+{
+	am33xx_register_ehrpwm(0, &pwm_pdata[0]);
+	am33xx_register_ehrpwm(1, &pwm_pdata[1]);
+	am33xx_register_ehrpwm(2, &pwm_pdata[2]);
+	am33xx_register_ecap(0, &pwm_pdata[0]);
+	am33xx_register_ecap(1, &pwm_pdata[1]);
+	am33xx_register_ecap(2, &pwm_pdata[2]);
+}
+
 static int __init ecap0_init(void)
 {
 	int status = 0;
@@ -1524,7 +1534,10 @@ late_initcall(ecap0_init);
 static void enable_ehrpwm1(int evm_id, int profile)
 {
 	ehrpwm_backlight_enable = true;
-	am33xx_register_ehrpwm(1, &pwm_pdata[1]);
+	/*am33xx_register_ehrpwm(1, &pwm_pdata[1]);
+	 *TODO:no longer required as we are registering 
+	 *all pwms for the beaglebone
+	 */
 }
 
 /* Setup pwm-backlight for bbtoys7lcd */
@@ -2883,6 +2896,11 @@ static void setup_beaglebone(void)
 
 	/* Fill up global evmid */
 	am33xx_evmid_fillup(BEAGLE_BONE_A3);
+
+	/*TODO:We are registering all pwms for the beaglebone here
+	 *this may effect power management in the future
+	 */
+	register_all_pwms();
 }
 
 
