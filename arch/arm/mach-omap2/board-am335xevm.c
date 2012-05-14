@@ -2488,6 +2488,12 @@ static void bone_io_config_from_cape_eeprom( void)
 	u16* pmuxdata;
 	char status[ NR_ITEMS( cape_config.muxdata) + 1];
 
+	// Workaround for capes that have encoded this as ASCII
+	if (cnt > 256) {
+		pr_info( "BeagleBone cape: workaround for bad 'numpins' setting\n");
+		cnt = (cape_config.numpins & 255) - '0';
+		cnt = 10 * cnt + ((cape_config.numpins >> 8) & 255) - '0';
+	}
 	pr_info( "BeagleBone cape: configuring %2d out of %2d signals:\n",
 		 cnt, NR_ITEMS( cape_config.muxdata));
 	RULER( NR_ITEMS( cape_config.muxdata));
