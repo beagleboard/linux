@@ -2481,12 +2481,21 @@ static int bone_io_config_pin( const char* pin_name, pin_def eeprom_setting)
 		pr_info( "+%s+\n", status); \
 	} while (0)
 
-static void bone_io_config_from_cape_eeprom( void)
+static int bone_io_config_from_cape_eeprom( void)
 {
 	int i;
 	int cnt = BIG_ENDIAN_16( cape_config.numpins);
 	u16* pmuxdata;
 	char status[ NR_ITEMS( cape_config.muxdata) + 1];
+	char revision[ NR_ITEMS( cape_config.format_revision) + 1];
+
+	strncpy( revision, cape_config.format_revision, NR_ITEMS( revision) - 1);
+	revision[ NR_ITEMS( revision) - 1] = '\0';
+	if (strcmp( revision, "A0") != 0) {
+		pr_warn( "BeagleBone cape: configuration revision '%s' is not supported\n",
+			revision);
+		return -1;
+	}
 
 	// Workaround for capes that have encoded this as ASCII
 	if (cnt > 256) {
@@ -2494,8 +2503,8 @@ static void bone_io_config_from_cape_eeprom( void)
 		cnt = (cape_config.numpins & 255) - '0';
 		cnt = 10 * cnt + ((cape_config.numpins >> 8) & 255) - '0';
 	}
-	pr_info( "BeagleBone cape: configuring %2d out of %2d signals:\n",
-		 cnt, NR_ITEMS( cape_config.muxdata));
+	pr_info( "BeagleBone cape: revision %s format, configuring %2d out of %2d signals:\n",
+		revision, cnt, NR_ITEMS( cape_config.muxdata));
 	RULER( NR_ITEMS( cape_config.muxdata));
 	for (i = 0, pmuxdata = cape_config.muxdata ; i < NR_ITEMS( cape_config.muxdata) ; ++i, ++pmuxdata) {
 		const char* pin_name = cape_pins[ i];
@@ -2517,6 +2526,7 @@ static void bone_io_config_from_cape_eeprom( void)
 	status[ NR_ITEMS( cape_config.muxdata)] = '\0';
 	pr_info( "|%s|\n", status);
 	RULER( NR_ITEMS( cape_config.muxdata));
+	return 0;
 }
 
 static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context)
