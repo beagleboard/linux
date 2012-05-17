@@ -638,7 +638,7 @@ static void cpsw_slave_open(struct cpsw_slave *slave, struct cpsw_priv *priv)
 		    slave->data->phy_id, slave->slave_num);
 		slave->phy = NULL;
 	} else {
-		printk(KERN_ERR"\nCPSW phy found : id is : 0x%x\n",
+		printk(KERN_INFO"\nCPSW phy found : id is : 0x%x\n",
 			slave->phy->phy_id);
 		cpsw_set_phy_config(priv, slave->phy);
 		phy_start(slave->phy);

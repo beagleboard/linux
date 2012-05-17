@@ -380,7 +380,7 @@ struct phy_device * phy_connect(struct net_device *dev, const char *bus_id,
 	 * PHY with the requested name */
 	d = bus_find_device_by_name(&mdio_bus_type, NULL, bus_id);
 	if (!d) {
-		pr_err("PHY %s not found\n", bus_id);
+		pr_info("PHY %s not found\n", bus_id);
 		return ERR_PTR(-ENODEV);
 	}
 	phydev = to_phy_device(d);
@@ -503,7 +503,7 @@ struct phy_device *phy_attach(struct net_device *dev,
 	 * PHY with the requested name */
 	d = bus_find_device_by_name(bus, NULL, bus_id);
 	if (!d) {
-		pr_err("PHY %s not found\n", bus_id);
+		pr_info("PHY %s not found\n", bus_id);
 		return ERR_PTR(-ENODEV);
 	}
 	phydev = to_phy_device(d);
