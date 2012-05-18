@@ -629,6 +629,14 @@ static struct pinmux_config bbtoys7_pin_mux[] = {
 	{NULL, 0},
 };
 
+/* Module pin mux for Beagleboardtoys 7" LCD cape */
+static struct pinmux_config bbtoys7a2_pin_mux[] = {
+	{"gpmc_csn2.gpio1_31", OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT}, // AVDD_EN
+	{"gpmc_a2.ehrpwm1A", OMAP_MUX_MODE6 | AM33XX_PIN_OUTPUT}, // Backlight
+	{NULL, 0},
+};
+
+
 static struct pinmux_config w1_gpio_pin_mux[] = {
 	{"gpmc_ad3.gpio1_3",	OMAP_MUX_MODE7 | AM33XX_PIN_INPUT_PULLUP},
 	{NULL, 0},
@@ -1595,13 +1603,11 @@ static void lcdc_init(int evm_id, int profile)
 }
 
 #define BEAGLEBONE_LCD_AVDD_EN GPIO_TO_PIN(0, 7)
+#define BEAGLEBONE_LCD7A2_AVDD_EN GPIO_TO_PIN(1, 31)
 
 static void bbtoys7lcd_init(int evm_id, int profile)
 {
 	setup_pin_mux(lcdc16_pin_mux);
-	setup_pin_mux(bbtoys7_pin_mux);
-	gpio_request(BEAGLEBONE_LCD_AVDD_EN, "BONE_LCD_AVDD_EN");
-	gpio_direction_output(BEAGLEBONE_LCD_AVDD_EN, 1);
 
 	// we are being stupid and setting pixclock from here instead of da8xx-fb.c
 	if (conf_disp_pll(300000000)) {
@@ -2292,6 +2298,18 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 	}
 	if (!strncmp("BB-BONE-LCD7-01", cape_config.partnumber, 15)) {
 		pr_info("BeagleBone cape: initializing LCD cape\n");
+
+		if (!strncmp("00A2", cape_config.version, 4)) {
+			setup_pin_mux(bbtoys7a2_pin_mux);
+			gpio_request(BEAGLEBONE_LCD7A2_AVDD_EN, "BONE_LCD_AVDD_EN");
+			gpio_direction_output(BEAGLEBONE_LCD7A2_AVDD_EN, 1);
+		} else {
+			setup_pin_mux(bbtoys7_pin_mux);
+			gpio_request(BEAGLEBONE_LCD_AVDD_EN, "BONE_LCD_AVDD_EN");
+			gpio_direction_output(BEAGLEBONE_LCD_AVDD_EN, 1);
+			bbtoys7lcd_init(0,0);
+		}
+
 		bbtoys7lcd_init(0,0);
 		pr_info("BeagleBone cape: initializing LCD cape touchscreen\n");
 		tsc_init(0,0);
