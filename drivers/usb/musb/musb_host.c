@@ -359,7 +359,8 @@ static inline void musb_save_toggle(struct musb_qh *qh, int is_in,
 		curr_toggle = csr ? 1 : 0;
 
 		/* check if data toggle has gone out of sync */
-		if (curr_toggle == qh->hw_ep->prev_toggle) {
+		if (is_dma_capable() && qh->hw_ep->rx_channel &&
+				curr_toggle == qh->hw_ep->prev_toggle) {
 			dev_dbg(musb->controller,
 				"Data toggle same as previous (=%d) on ep%d\n",
 					curr_toggle, qh->hw_ep->epnum);
