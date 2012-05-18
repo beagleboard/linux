@@ -121,7 +121,7 @@ static int ecap_pwm_set_polarity(struct pwm_device *p, char pol)
 	spin_lock_irqsave(&ep->lock, flags);
 	v = readw(ep->mmio_base + CAPTURE_CTRL2_REG);
 	v &= ~ECTRL2_PLSL_LOW;
-	v |= (!pol << 10);
+	v |= pol << 10;
 	writew(v, ep->mmio_base + CAPTURE_CTRL2_REG);
 	spin_unlock_irqrestore(&ep->lock, flags);
 
@@ -188,6 +188,7 @@ static int ecap_pwm_config(struct pwm_device *p,
 		break;
 
 	case BIT(PWM_CONFIG_POLARITY):
+		p->active_high = c->polarity;
 		ret = ecap_pwm_set_polarity(p, c->polarity);
 		break;
 
