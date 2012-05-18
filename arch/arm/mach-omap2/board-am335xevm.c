@@ -2384,6 +2384,11 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 		pr_info("BeagleBone cape: initializing CAN cape\n");
 		tt3201_init(0,0);
 	}
+
+	if (!strncmp("BB-BONE-CAM-01", cape_config.partnumber, 14)) {
+		pr_info("BeagleBone cape: recognized Camera cape\n");
+		beaglebone_w1gpio_free = 0;
+	}
 	
 	if ((capecount > 3) && (beaglebone_tsadcpins_free == 1)) {
 		pr_info("BeagleBone cape: exporting ADC pins to sysfs\n");
