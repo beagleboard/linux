@@ -498,7 +498,7 @@ static int capecount = 0;
 static bool beaglebone_tsadcpins_free = 1;
 static bool beaglebone_leds_free = 1;
 static bool beaglebone_spi1_free = 1;
-
+static bool beaglebone_w1gpio_free = 1;
 
 #define GP_EVM_REV_IS_1_0		0x1
 #define GP_EVM_REV_IS_1_0A		0x1
@@ -1727,6 +1727,7 @@ static void lcd7leds_init(int evm_id, int profile )
 
 static void bonew1_gpio_init(int evm_id, int profile )
 {
+	beaglebone_w1gpio_free = 0;
 	int err;
 	setup_pin_mux(w1_gpio_pin_mux);
 	err = platform_device_register(&bone_w1_device);
@@ -2257,6 +2258,9 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 				pr_info("BeagleBone cape: exporting SPI pins as spidev\n");
 				setup_pin_mux(spi1_pin_mux);
 				spi_register_board_info(bone_spidev2_info, ARRAY_SIZE(bone_spidev2_info));
+			}
+			if(beaglebone_w1gpio_free == 1) {
+				bonew1_gpio_init(0,0);
 			}
 		}
 		return;
@@ -2831,7 +2835,6 @@ static struct evm_dev_cfg beaglebone_dev_cfg[] = {
 	{usb1_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
 	{i2c2_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
 	{mmc0_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
-	{bonew1_gpio_init, DEV_ON_BASEBOARD, PROFILE_ALL},
 	{NULL, 0, 0},
 };
 
