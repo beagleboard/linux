@@ -157,11 +157,11 @@ static void tsc_adc_step_config(struct tscadc *ts_dev, int channel)
 	/*
  	 * Step Configuration
  	 * software-enabled continous mode
- 	 * 2 sample averaging
+ 	 * 4 sample averaging
  	 * sample channel 1 (SEL_INP mux bits = 0)
  	 */
 	stepconfig = TSCADC_STEPCONFIG_MODE_SWONESHOT |
-		TSCADC_STEPCONFIG_2SAMPLES_AVG |
+		TSCADC_STEPCONFIG_4SAMPLES_AVG |
 		((channel-1) << 19);
 	
 	delay = TSCADC_STEPCONFIG_SAMPLEDLY | TSCADC_STEPCONFIG_OPENDLY;
@@ -242,7 +242,7 @@ static void tsc_step_config(struct tscadc *ts_dev)
 	delay = TSCADC_STEPCONFIG_SAMPLEDLY | TSCADC_STEPCONFIG_OPENDLY;
 
 	stepconfigx = TSCADC_STEPCONFIG_MODE_HWSYNC |
-			TSCADC_STEPCONFIG_2SAMPLES_AVG | TSCADC_STEPCONFIG_XPP;
+			TSCADC_STEPCONFIG_4SAMPLES_AVG | TSCADC_STEPCONFIG_XPP;
 
 	switch (ts_dev->wires) {
 	case 4:
@@ -279,7 +279,7 @@ static void tsc_step_config(struct tscadc *ts_dev)
 	}
 
 	stepconfigy = TSCADC_STEPCONFIG_MODE_HWSYNC |
-			TSCADC_STEPCONFIG_2SAMPLES_AVG | TSCADC_STEPCONFIG_YNN |
+			TSCADC_STEPCONFIG_4SAMPLES_AVG | TSCADC_STEPCONFIG_YNN |
 			TSCADC_STEPCONFIG_INM | TSCADC_STEPCONFIG_FIFO1;
 	switch (ts_dev->wires) {
 	case 4:
@@ -324,7 +324,7 @@ static void tsc_step_config(struct tscadc *ts_dev)
 
 	 /* Configure to calculate pressure */
 	stepconfigz1 = TSCADC_STEPCONFIG_MODE_HWSYNC |
-				TSCADC_STEPCONFIG_2SAMPLES_AVG |
+				TSCADC_STEPCONFIG_4SAMPLES_AVG |
 				TSCADC_STEPCONFIG_XNP |
 				TSCADC_STEPCONFIG_YPN | TSCADC_STEPCONFIG_INM;
 	stepconfigz2 = stepconfigz1 | TSCADC_STEPCONFIG_Z1 |
