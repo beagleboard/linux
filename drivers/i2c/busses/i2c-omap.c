@@ -408,6 +408,8 @@ static int omap_i2c_init(struct omap_i2c_dev *dev)
 		if (dev->speed > 400 ||
 			       pdata->flags & OMAP_I2C_FLAG_FORCE_19200_INT_CLK)
 			internal_clk = 19200;
+		else if (pdata->flags & OMAP_I2C_FLAG_FORCE_12000_INT_CLK)
+			internal_clk = 12000;
 		else if (dev->speed > 100)
 			internal_clk = 9600;
 		else

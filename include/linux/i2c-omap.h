@@ -24,6 +24,7 @@
 #define OMAP_I2C_FLAG_APPLY_ERRATA_I207	BIT(4)
 #define OMAP_I2C_FLAG_ALWAYS_ARMXOR_CLK	BIT(5)
 #define OMAP_I2C_FLAG_FORCE_19200_INT_CLK	BIT(6)
+#define OMAP_I2C_FLAG_FORCE_12000_INT_CLK        BIT(9)
 /* how the CPU address bus must be translated for I2C unit access */
 #define OMAP_I2C_FLAG_BUS_SHIFT_NONE 0
 #define OMAP_I2C_FLAG_BUS_SHIFT_1		BIT(7)

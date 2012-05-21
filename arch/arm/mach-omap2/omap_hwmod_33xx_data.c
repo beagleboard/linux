@@ -1207,7 +1207,8 @@ static struct omap_hwmod_class_sysconfig am33xx_i2c_sysc = {
 
 static struct omap_i2c_dev_attr i2c_dev_attr = {
 	.flags		= OMAP_I2C_FLAG_BUS_SHIFT_NONE |
-					OMAP_I2C_FLAG_RESET_REGS_POSTIDLE,
+					OMAP_I2C_FLAG_RESET_REGS_POSTIDLE |
+					OMAP_I2C_FLAG_FORCE_12000_INT_CLK,
 };
 
 static struct omap_hwmod_class i2c_class = {
