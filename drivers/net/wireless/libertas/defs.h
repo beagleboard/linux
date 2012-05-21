@@ -46,14 +46,7 @@
 
 extern unsigned int lbs_debug;
 
-#ifdef DEBUG
-#define LBS_DEB_LL(grp, grpnam, fmt, args...) \
-do { if ((lbs_debug & (grp)) == (grp)) \
-  printk(KERN_DEBUG DRV_NAME grpnam "%s: " fmt, \
-         in_interrupt() ? " (INT)" : "", ## args); } while (0)
-#else
 #define LBS_DEB_LL(grp, grpnam, fmt, args...) do {} while (0)
-#endif
 
 #define lbs_deb_enter(grp) \
   LBS_DEB_LL(grp | LBS_DEB_ENTER, " enter", "%s()\n", __func__);
