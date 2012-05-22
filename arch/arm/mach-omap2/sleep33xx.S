@@ -273,21 +273,9 @@ ENTRY(am33xx_resume_from_deep_sleep)
 	bic	r1, r1, #28
 	str	r1, [r0]
 
-/*
- * Instead of harcoding the EMIF and DDR PHY related settings
- * in this file, the sane thing to do would have been to backup
- * the register contents during suspend and restore it back in
- * the resume path. However, due to the Si errata related to
- * DDR PHY registers, these registers are read-only. So, we'll
- * need to hardcode atleast the DDR PHY configuration over here.
- * We _could_ back up the EMIF registers but in order to be
- * consistent with the DDR setup procedure we skip this for now.
- * The person updating the DDR PHY config values is expected
- * to update the EMIF config values also.
- */
 
 config_vtp:
-	ldr	r0, vtp0_addr
+	ldr	r0, phys_ddr_vtp_ctrl
 	ldr	r1, [r0]
 	mov	r2, #0x0	@ clear the register
 	str	r2, [r0]
@@ -312,179 +300,6 @@ poll_vtp_ready:
 	tst	r1, #(1 << 5)
 	beq	poll_vtp_ready
 
-cmd_macro_config:
-	ldr	r0, ddr_phy_base
-	ldr	r1, [r0]
-	ldr	r2, ddr2_ratio_val
-	mov	r3, r2
-	@ TODO: Need to use proper variable here
-	mov	r4, #0
-	str	r3, [r0, #28]	@cmd0
-	str	r4, [r0, #32]
-	str	r4, [r0, #36]
-	str	r4, [r0, #40]
-	str	r4, [r0, #44]
-	str	r3, [r0, #80]	@cmd1
-	str	r4, [r0, #84]
-	str	r4, [r0, #88]
-	str	r4, [r0, #92]
-	str	r4, [r0, #96]
-	str	r3, [r0, #132]	@cmd2
-	str	r4, [r0, #136]
-	str	r4, [r0, #140]
-	str	r4, [r0, #144]
-	str	r4, [r0, #148]
-
-	mov	r3, #0x0
-	bl	data_macro_config
-	mov	r3, #0xa4
-	bl	data_macro_config
-	b	setup_rank_delays
-
-data_macro_config:
-	ldr	r0, ddr_phy_base
-	add	r0, r0, r3
-rd_dqs:
-	ldr	r1, data0_rd_dqs_slave_ratio0_val
-	mov	r2, r1
-	/* shift by 30, 20, 10 and orr */
-	mov	r5, r2, lsl #10
-	mov	r6, r2, lsl #20
-	mov	r7, r2, lsl #30
-	orr	r2, r2, r5
-	orr	r2, r2, r6
-	orr	r2, r2, r7
-	/* Done with crazy bit ops. store it now */
-	str	r2, [r0, #200]
-	ldr	r1, data0_rd_dqs_slave_ratio1_val
-	mov	r2, r1
-	mov	r5, r2, lsr #2
-	mov	r2, r5
-	str	r2, [r0, #204]
-wr_dqs:
-	ldr	r1, data0_wr_dqs_slave_ratio0_val
-	mov	r2, r1
-	/* shift by 30, 20, 10 and orr */
-	mov	r5, r2, lsl #10
-	mov	r6, r2, lsl #20
-	mov	r7, r2, lsl #30
-	orr	r2, r2, r5
-	orr	r2, r2, r6
-	orr	r2, r2, r7
-	/* Done with crazy bit ops. store it now */
-	str	r2, [r0, #220]
-	ldr	r1, data0_wr_dqs_slave_ratio1_val
-	mov	r2, r1
-	mov	r5, r2, lsr #2
-	mov	r2, r5
-	str	r2, [r0, #224]
-wr_lvl:
-	ldr	r1, data0_wr_lvl_init_ratio0_val
-	mov	r2, r1
-	/* shift by 30, 20, 10 and orr */
-	mov	r5, r2, lsl #10
-	mov	r6, r2, lsl #20
-	mov	r7, r2, lsl #30
-	orr	r2, r2, r5
-	orr	r2, r2, r6
-	orr	r2, r2, r7
-	/* Done with crazy bit ops. store it now */
-	str	r2, [r0, #240]
-	ldr	r1, data0_wr_lvl_init_ratio1_val
-	mov	r2, r1
-	mov	r5, r2, lsr #2
-	mov	r2, r5
-	str	r2, [r0, #244]
-gate_lvl:
-	ldr	r1, data0_gate_lvl_init_ratio0_val
-	mov	r2, r1
-	/* shift by 30, 20, 10 and orr */
-	mov	r5, r2, lsl #10
-	mov	r6, r2, lsl #20
-	mov	r7, r2, lsl #30
-	orr	r2, r2, r5
-	orr	r2, r2, r6
-	orr	r2, r2, r7
-	/* Done with crazy bit ops. store it now */
-	str	r2, [r0, #248]
-	ldr	r1, data0_gate_lvl_init_ratio1_val
-	mov	r2, r1
-	mov	r5, r2, lsr #2
-	mov	r2, r5
-	str	r2, [r0, #256]
-we_slv:
-	ldr	r1, data0_wr_lvl_slave_ratio0_val
-	mov	r2, r1
-	/* shift by 30, 20, 10 and orr */
-	mov	r5, r2, lsl #10
-	mov	r6, r2, lsl #20
-	mov	r7, r2, lsl #30
-	orr	r2, r2, r5
-	orr	r2, r2, r6
-	orr	r2, r2, r7
-	/* Done with crazy bit ops. store it now */
-	str	r2, [r0, #264]
-	ldr	r1, data0_wr_lvl_slave_ratio1_val
-	mov	r2, r1
-	mov	r5, r2, lsr #2
-	mov	r2, r5
-	str	r2, [r0, #268]
-wr_data:
-	ldr	r1, data0_wr_data_slave_ratio0_val
-	mov	r2, r1
-	/* shift by 30, 20, 10 and orr */
-	mov	r5, r2, lsl #10
-	mov	r6, r2, lsl #20
-	mov	r7, r2, lsl #30
-	orr	r2, r2, r5
-	orr	r2, r2, r6
-	orr	r2, r2, r7
-	/* Done with crazy bit ops. store it now */
-	str	r2, [r0, #288]
-	ldr	r1, data0_wr_data_slave_ratio1_val
-	mov	r2, r1
-	mov	r5, r2, lsr #2
-	mov	r2, r5
-	str	r2, [r0, #292]
-dll_lock:
-	ldr	r1, data0_dll_lock_diff_val
-	mov	r2, r1
-	str	r2, [r0, #312]
-
-setup_rank_delays:
-	ldr	r1, data0_rank0_delay0_val
-	mov	r2, r1
-	str	r2, [r0, #308]
-	ldr	r1, data1_rank0_delay1_val
-	mov	r2, r1
-	str	r2, [r0, #472]
-
-setup_io_ctrl:
-	ldr	r0, control_base
-	ldr	r1, ddr_ioctrl_val
-	mov	r2, r1
-	ldr	r4, ddr_cmd_offset
-	mov	r3, r4
-	str	r2, [r0, r3]	@cmd0 0x1404
-	add	r3, r3, #4
-	str	r2, [r0, r3]	@cmd1 0x1408
-	add	r3, r3, #4
-	str	r2, [r0, r3]	@cmd2 0x140c
-	ldr	r4, ddr_data_offset
-	mov	r3, r4
-	str	r2, [r0, r3]	@data0 0x1440
-	add	r3, r3, #4
-	str	r2, [r0, r3]	@data1 0x1444
-
-misc_config:
-	ldr	r1, ddr_io_ctrl_addr
-	ldr	r2, [r1]
-	and	r2, #0xefffffff
-	str	r2, [r1]
-	ldr	r1, ddr_cke_addr
-	ldr	r2, [r1]
-	orr	r2, #0x00000001
-	str	r2, [r1]
 
 config_emif_timings:
 	mov	r3, #1275068416	@ 0x4c000000
@@ -628,61 +443,6 @@ module_disabled_val:
 	.word	0x30000
 
 /* DDR related stuff */
-vtp0_addr:
-	.word	VTP0_CTRL_REG
-vtp_enable:
-	.word	VTP_CTRL_ENABLE
-vtp_start_en:
-	.word	VTP_CTRL_START_EN
-vtp_ready:
-	.word	VTP_CTRL_READY
-
-ddr_phy_base:
-	.word	DDR_PHY_BASE_ADDR
-ddr2_ratio_val:
-	.word	DDR2_RATIO
-data0_rd_dqs_slave_ratio0_val:
-	.word	DDR2_RD_DQS
-data0_rd_dqs_slave_ratio1_val:
-	.word	DDR2_RD_DQS
-data0_wr_dqs_slave_ratio0_val:
-	.word	DDR2_WR_DQS
-data0_wr_dqs_slave_ratio1_val:
-	.word	DDR2_WR_DQS
-data0_wr_lvl_init_ratio0_val:
-	.word	DDR2_PHY_WRLVL
-data0_wr_lvl_init_ratio1_val:
-	.word	DDR2_PHY_WRLVL
-data0_gate_lvl_init_ratio0_val:
-	.word	DDR2_PHY_GATELVL
-data0_gate_lvl_init_ratio1_val:
-	.word	DDR2_PHY_GATELVL
-data0_wr_lvl_slave_ratio0_val:
-	.word	DDR2_PHY_FIFO_WE
-data0_wr_lvl_slave_ratio1_val:
-	.word	DDR2_PHY_FIFO_WE
-data0_wr_data_slave_ratio0_val:
-	.word	DDR2_PHY_WR_DATA
-data0_wr_data_slave_ratio1_val:
-	.word	DDR2_PHY_WR_DATA
-data0_dll_lock_diff_val:
-	.word	PHY_DLL_LOCK_DIFF
-
-data0_rank0_delay0_val:
-	.word	PHY_RANK0_DELAY
-data1_rank0_delay1_val:
-	.word	PHY_RANK0_DELAY
-
-control_base:
-	.word	AM33XX_CTRL_BASE
-ddr_io_ctrl_addr:
-	.word	DDR_IO_CTRL
-ddr_ioctrl_val:
-	.word	0x18B
-ddr_cmd_offset:
-	.word	0x1404
-ddr_data_offset:
-	.word	0x1440
 virt_ddr_io_ctrl:
 	.word	AM33XX_CTRL_REGADDR(0x0E04)
 phys_ddr_io_ctrl:
@@ -691,6 +451,9 @@ virt_ddr_vtp_ctrl:
 	.word	AM33XX_CTRL_REGADDR(0x0E0C)
 phys_ddr_vtp_ctrl:
 	.word	VTP0_CTRL_REG
+vtp_enable:
+	.word	VTP_CTRL_ENABLE
+
 virt_ddr_io_pull1:
 	.word	AM33XX_CTRL_REGADDR(0x1440)
 phys_ddr_io_pull1:
