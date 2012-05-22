@@ -2542,25 +2542,6 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 	ret = mem_acc->read(mem_acc, (char *)&cape_config, 0, sizeof(cape_config));
 	if (ret != sizeof(cape_config)) {
 		pr_warning("BeagleBone cape EEPROM: could not read eeprom at address 0x%x\n", capecount + 0x53);
-		if (capecount > 3) {
-			if (beaglebone_tsadcpins_free == 1) {
-				pr_info("BeagleBone cape: exporting ADC pins to sysfs\n");
-				bone_tsc_init(0,0);
-				beaglebone_tsadcpins_free = 0;
-			}
-			if (beaglebone_leds_free == 1) {
-				boneleds_init(0,0);
-			}
-			if(beaglebone_spi1_free == 1) {
-				beaglebone_spi1_free = 0;
-				pr_info("BeagleBone cape: exporting SPI pins as spidev\n");
-				setup_pin_mux(spi1_pin_mux);
-				spi_register_board_info(bone_spidev2_info, ARRAY_SIZE(bone_spidev2_info));
-			}
-			if(beaglebone_w1gpio_free == 1) {
-				bonew1_gpio_init(0,0);
-			}
-		}
 		return;
 	}
 
@@ -2693,12 +2674,27 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 		pr_info("BeagleBone cape: recognized Camera cape\n");
 		beaglebone_w1gpio_free = 0;
 	}
-	
-	if ((capecount > 3) && (beaglebone_tsadcpins_free == 1)) {
-		pr_info("BeagleBone cape: exporting ADC pins to sysfs\n");
-		bone_tsc_init(0,0);
-		beaglebone_tsadcpins_free = 0;
-	}
+
+	if (capecount > 3) {
+		if (beaglebone_tsadcpins_free == 1) {
+			pr_info("BeagleBone cape: exporting ADC pins to sysfs\n");
+			bone_tsc_init(0,0);
+			beaglebone_tsadcpins_free = 0;
+		}
+		if (beaglebone_leds_free == 1) {
+			pr_info("Beaglebone: initializing onboard LEDs");
+			boneleds_init(0,0);
+		}
+		if(beaglebone_spi1_free == 1) {
+			beaglebone_spi1_free = 0;
+			pr_info("BeagleBone cape: exporting SPI pins as spidev\n");
+			setup_pin_mux(spi1_pin_mux);
+			spi_register_board_info(bone_spidev2_info, ARRAY_SIZE(bone_spidev2_info));
+		}
+		if(beaglebone_w1gpio_free == 1) {
+			bonew1_gpio_init(0,0);
+		}
+	}	
 	
 	return;
 out:
