@@ -885,11 +885,8 @@ static struct pinmux_config uart1_pin_mux[] = {
 
 /* Module pin mux for uart2 */
 static struct pinmux_config uart2_pin_mux[] = {
-	{"spi0_sclk.uart2_rxd", OMAP_MUX_MODE1 | AM33XX_SLEWCTRL_SLOW |
-						AM33XX_PIN_INPUT_PULLUP},
-	{"spi0_d0.uart2_txd", OMAP_MUX_MODE1 | AM33XX_PULL_UP |
-						AM33XX_PULL_DISA |
-						AM33XX_SLEWCTRL_SLOW},
+	{"spi0_d0.uart2_txd", OMAP_MUX_MODE1 | AM33XX_PIN_OUTPUT},
+	{"spi0_sclk.uart2_rxd", OMAP_MUX_MODE1 | AM33XX_PIN_INPUT_PULLUP},
 	{NULL, 0},
 };
 
