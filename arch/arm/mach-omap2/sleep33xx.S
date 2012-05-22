@@ -71,6 +71,26 @@ wait_pll_lock_\name:
 
 	str	r0, emif_addr_virt
 
+	/* Save EMIF configuration */
+	ldr	r1, [r0, #EMIF4_0_SDRAM_CONFIG]
+	str	r1, emif_sdcfg_val
+	ldr	r1, [r0, #EMIF4_0_SDRAM_REF_CTRL]
+	str	r1, emif_ref_ctrl_val
+	ldr	r1, [r0, #EMIF4_0_SDRAM_TIM_1]
+	str	r1, emif_timing1_val
+	ldr	r1, [r0, #EMIF4_0_SDRAM_TIM_2]
+	str	r1, emif_timing2_val
+	ldr	r1, [r0, #EMIF4_0_SDRAM_TIM_3]
+	str	r1, emif_timing3_val
+	ldr	r1, [r0, #EMIF4_0_SDRAM_MGMT_CTRL]
+	str	r1, emif_pmcr_val
+	ldr	r1, [r0, #EMIF4_0_SDRAM_MGMT_CTRL_SHADOW]
+	str	r1, emif_pmcr_shdw_val
+	ldr	r1, [r0, #EMIF4_0_ZQ_CONFIG]
+	str	r1, emif_zqcfg_val
+	ldr	r1, [r0, #EMIF4_0_DDR_PHY_CTRL_1]
+	str	r1, emif_rd_lat_val
+
 	/* Ensure that all the writes to DDR leave the A8 */
 	dsb
 	dmb
@@ -302,58 +322,52 @@ poll_vtp_ready:
 
 
 config_emif_timings:
-	mov	r3, #1275068416	@ 0x4c000000
-disable_sr:
-	mov	r4, #0
-	str	r4, [r3, #56]	@ 0x38
+	ldr	r3, emif_phys_addr
 	ldr	r4, emif_rd_lat_val
-	mov	r2, r4
 rd_lat:
-	str	r2, [r3, #228]	@ 0xe4
-	str	r2, [r3, #232]	@ 0xe8
-	str	r2, [r3, #236]	@ 0xec
+	str	r4, [r3, #EMIF4_0_DDR_PHY_CTRL_1]
+	str	r4, [r3, #EMIF4_0_DDR_PHY_CTRL_1_SHADOW]
 timing1:
 	ldr	r4, emif_timing1_val
-	mov	r2, r4
-	str	r2, [r3, #24]
-	str	r2, [r3, #28]
+	str	r4, [r3, #EMIF4_0_SDRAM_TIM_1]
+	str	r4, [r3, #EMIF4_0_SDRAM_TIM_1_SHADOW]
 timing2:
 	ldr	r4, emif_timing2_val
-	mov	r2, r4
-	str	r2, [r3, #32]
-	str	r2, [r3, #36]	@ 0x24
+	str	r4, [r3, #EMIF4_0_SDRAM_TIM_2]
+	str	r4, [r3, #EMIF4_0_SDRAM_TIM_2_SHADOW]
 timing3:
 	ldr	r4, emif_timing3_val
-	mov	r2, r4
-	str	r2, [r3, #40]	@ 0x28
-	str	r2, [r3, #44]	@ 0x2c
-sdcfg1:
-	ldr	r4, emif_sdcfg_val
-	mov	r2, r4
-	str	r2, [r3, #8]
-	str	r2, [r3, #12]
-ref_ctrl_const:
-	ldr	r4, emif_ref_ctrl_const_val
-	mov	r2, r4
-	str	r2, [r3, #16]
-	str	r2, [r3, #20]
-
-	/* GEL had a loop with init value of 5000 */
-	mov	r0, #0x1000
-wait_loop1:
-	subs	r0, r0, #1
-	bne	wait_loop1
-
-ref_ctrl_actual:
+	str	r4, [r3, #EMIF4_0_SDRAM_TIM_3]
+	str	r4, [r3, #EMIF4_0_SDRAM_TIM_3_SHADOW]
+sdram_ref_ctrl:
 	ldr	r4, emif_ref_ctrl_val
-	mov	r2, r4
-	str	r2, [r3, #16]
-	str	r2, [r3, #20]
-sdcfg2:
+	str	r4, [r3, #EMIF4_0_SDRAM_REF_CTRL]
+	str	r4, [r3, #EMIF4_0_SDRAM_REF_CTRL_SHADOW]
+pmcr:
+	ldr	r4, emif_pmcr_val
+	str	r4, [r3, #EMIF4_0_SDRAM_MGMT_CTRL]
+pmcr_shdw:
+	ldr	r4, emif_pmcr_shdw_val
+	str	r4, [r3, #EMIF4_0_SDRAM_MGMT_CTRL_SHADOW]
+
+	/*
+	 * Output impedence calib needed only for DDR3
+	 * but since the initial state of this will be
+	 * disabled for DDR2 no harm in restoring the
+	 * old configuration
+	 */
+zqcfg:
+	ldr	r4, emif_zqcfg_val
+	str	r4, [r3, #EMIF4_0_ZQ_CONFIG]
+
+	/*
+	 * A write to SDRAM CONFIG register triggers
+	 * an init sequence and hence it must be done
+	 * at the end
+	 */
+sdcfg:
 	ldr	r4, emif_sdcfg_val
-	mov	r2, r4
-	str	r2, [r3, #8]
-	str	r2, [r3, #12]
+	str	r4, [r3, #EMIF4_0_SDRAM_CONFIG]
 
 	/* Back from la-la-land. Kill some time for sanity to settle in */
 	mov	r0, #0x1000
@@ -377,10 +391,8 @@ emif_addr_func:
 emif_phys_addr:
 	.word	AM33XX_EMIF0_BASE
 
-emif_pm_ctrl:
-	.word EMIF4_0_SDRAM_MGMT_CTRL
 ddr_start:
-	.word PAGE_OFFSET
+	.word	PAGE_OFFSET
 
 virt_mpu_idlest:
 	.word	AM33XX_CM_IDLEST_DPLL_MPU
@@ -467,36 +479,33 @@ virt_ddr_io_pull3:
 phys_ddr_io_pull3:
 	.word	AM33XX_CTRL_BASE + (0x1448)
 
-ddr_cke_addr:
-	.word	DDR_CKE_CTRL
-emif_rd_lat_val:
-	.word	EMIF_READ_LATENCY
-emif_timing1_val:
-	.word	EMIF_TIM1
-emif_timing2_val:
-	.word	EMIF_TIM2
-emif_timing3_val:
-	.word	EMIF_TIM3
-emif_sdcfg_val:
-	.word	EMIF_SDCFG
-emif_ref_ctrl_const_val:
-	.word	0x4650
-emif_ref_ctrl_val:
-	.word	EMIF_SDREF
-
 susp_io_pull:
 	.word	0x3FF00003
 resume_io_pull1:
 	.word	0x18B
 resume_io_pull2:
 	.word	0x18B
-dyn_pd_val:
-	.word	0x100000
-susp_sdram_config:
-	.word	0x40805332
 susp_vtp_ctrl_val:
 	.word	0x10117
 emif_addr_virt:
+	.word	0xDEADBEEF
+emif_rd_lat_val:
+	.word	0xDEADBEEF
+emif_timing1_val:
+	.word	0xDEADBEEF
+emif_timing2_val:
+	.word	0xDEADBEEF
+emif_timing3_val:
+	.word	0xDEADBEEF
+emif_sdcfg_val:
+	.word	0xDEADBEEF
+emif_ref_ctrl_val:
+	.word	0xDEADBEEF
+emif_zqcfg_val:
+	.word	0xDEADBEEF
+emif_pmcr_val:
+	.word	0xDEADBEEF
+emif_pmcr_shdw_val:
 	.word	0xDEADBEEF
 
 

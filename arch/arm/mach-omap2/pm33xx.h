@@ -60,17 +60,6 @@ struct am33xx_padconf {
 #define M3_STATE_MSG_FOR_LP		2
 #define M3_STATE_MSG_FOR_RESET		3
 
-/* Temp placeholder for the values we want in the registers */
-#define EMIF_READ_LATENCY	0x100005	/* Enable Dynamic Power Down */
-#define EMIF_TIM1		0x0666B3C9
-#define EMIF_TIM2		0x243631CA
-#define EMIF_TIM3		0x0000033F
-#define EMIF_SDCFG		0x41805332
-#define EMIF_SDREF		0x0000081a
-#define EMIF_SDMGT		0x80000000
-#define EMIF_SDRAM		0x00004650
-#define EMIF_PHYCFG		0x2
-
 #define VTP_CTRL_READY		(0x1 << 5)
 #define VTP_CTRL_ENABLE		(0x1 << 6)
 #define VTP_CTRL_LOCK_EN	(0x1 << 4)
