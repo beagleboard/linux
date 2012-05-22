@@ -104,13 +104,13 @@ pll_mode_restored_\name:
 	ldr	r2, [r1]
 	orr	r2, r2, #0xa0		@ a reasonable delay for entering SR
 	str	r2, [r1, #0]
+	str	r2, [r1, #4]		@ write to shadow register also
 
 	ldr	r2, ddr_start		@ do a dummy access to DDR
 	ldr	r3, [r2, #0]
 	ldr	r3, [r1, #0]
 	orr	r3, r3, #0x200		@ now set the LP MODE to Self-Refresh
 	str	r3, [r1, #0]
-	str	r2, [r1, #4]		@ write to shadow register also
 
 	mov	r1, #0x1000		@ Give some time for the system to enter SR
 wait_sr:
@@ -130,6 +130,11 @@ wait_emif_disable:
 	cmp	r2, r3
 	bne	wait_emif_disable
 
+	/* DDR3 reset override and mDDR mode selection */
+	ldr	r0, virt_ddr_io_ctrl
+	mov	r1, #(0x9 << 28)
+	str	r1, [r0]
+
 	/* Weak pull down for DQ, DM */
 	ldr	r1, virt_ddr_io_pull1
 	ldr	r2, susp_io_pull
@@ -143,13 +148,6 @@ wait_emif_disable:
 	ldr	r1, virt_ddr_vtp_ctrl
 	ldr	r2, susp_vtp_ctrl_val
 	str	r2, [r1]
-
-	/* IO to work in mDDR mode */
-	ldr	r0, virt_ddr_io_ctrl
-	ldr	r1, [r0]
-	mov	r2, #1
-	mov	r3, r2, lsl #28
-	str	r3, [r0]
 
 	/* Enable SRAM LDO ret mode */
 	ldr	r0, virt_sram_ldo_addr
@@ -198,13 +196,6 @@ wait_emif_disable:
 	bic	r1, #1
 	str	r1, [r0]
 
-	/* IO to work in DDR mode */
-	ldr	r0, virt_ddr_io_ctrl
-	ldr	r1, [r0]
-	mov	r2, #0x0
-	mov	r3, r2, lsl #28
-	str	r3, [r0]
-
 	/* Restore the pull for DQ, DM */
 	ldr	r1, virt_ddr_io_pull1
 	ldr	r2, resume_io_pull1
@@ -213,6 +204,15 @@ wait_emif_disable:
 	ldr	r1, virt_ddr_io_pull2
 	ldr	r2, resume_io_pull2
 	str	r2, [r1]
+
+	/* Enable EMIF */
+	ldr	r1, virt_emif_clkctrl
+	mov	r2, #0x2
+	str	r2, [r1]
+wait_emif_enable:
+	ldr	r3, [r1]
+	cmp	r2, r3
+	bne	wait_emif_enable
 
 	/* Enable VTP */
 config_vtp_abt:
@@ -241,14 +241,10 @@ poll_vtp_ready_abt:
 	tst	r1, #(1 << 5)
 	beq	poll_vtp_ready_abt
 
-	/* Enable EMIF */
-	ldr	r1, virt_emif_clkctrl
-	mov	r2, #0x2
-	str	r2, [r1]
-wait_emif_enable:
-	ldr	r3, [r1]
-	cmp	r2, r3
-	bne	wait_emif_enable
+	/* DDR3 reset override and mDDR mode clear */
+	ldr	r0, virt_ddr_io_ctrl
+	mov	r1, #0
+	str	r1, [r0]
 
 	/* Disable EMIF self-refresh */
 	ldr	r0, emif_addr_virt
@@ -286,19 +282,6 @@ ENTRY(am33xx_resume_from_deep_sleep)
 	ldr	r2, resume_io_pull2
 	str	r2, [r1]
 
-	/* Disable EMIF self-refresh */
-	ldr	r0, emif_phys_addr
-	add	r0, r0, #EMIF4_0_SDRAM_MGMT_CTRL
-	ldr	r1, [r0]
-	bic	r1, r1, #(0x7 << 7)
-	str	r1, [r0]
-
-	/* Take out IO of mDDR mode */
-	ldr	r0, phys_ddr_io_ctrl
-	ldr	r1, [r0]
-	bic	r1, r1, #28
-	str	r1, [r0]
-
 
 config_vtp:
 	ldr	r0, phys_ddr_vtp_ctrl
@@ -326,6 +309,10 @@ poll_vtp_ready:
 	tst	r1, #(1 << 5)
 	beq	poll_vtp_ready
 
+	/* DDR3 reset override and mDDR mode clear */
+	ldr	r0, phys_ddr_io_ctrl
+	mov	r1, #0
+	str	r1, [r0]
 
 config_emif_timings:
 	ldr	r3, emif_phys_addr
