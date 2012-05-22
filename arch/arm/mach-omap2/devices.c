@@ -446,6 +446,20 @@ static void omap_init_mcspi(void)
 static inline void omap_init_mcspi(void) {}
 #endif
 
+#include "cm33xx.h"
+
+int __init am33xx_register_ehrpwm(void)
+{
+	void __iomem *iobase;
+	unsigned short regword;
+
+	iobase = AM33XX_CM_REGADDR(0, 0x10664);
+	regword = readw(iobase);
+	regword |= 0x7;
+	writew(regword, iobase);
+	return 0;
+}
+
 /**
  * omap_init_rng - bind the RNG hwmod to the RNG omap_device
  *
@@ -732,6 +746,7 @@ static int __init omap2_init_devices(void)
 	omap_init_vout();
 	omap_init_ocp2scp();
 
+	am33xx_register_ehrpwm();
 	return 0;
 }
 arch_initcall(omap2_init_devices);
