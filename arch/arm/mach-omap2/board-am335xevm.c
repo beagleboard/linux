@@ -2657,8 +2657,9 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 	}
 		if (!strncmp("BB-BONE-SERL-03", cape_config.partnumber, 15)) {
 		pr_info("BeagleBone cape: initializing RS232 cape\n");
-		pr_info("BeagleBone cape: only uart1 is supported!\n");
-		setup_pin_mux(uart1_pin_mux);
+		pr_info("BeagleBone RS232 cape: only uart2/ttyO2 is supported.\n");
+		pr_info("BeagleBone RS232 cape: Jumper J27 and J23.\n");
+		setup_pin_mux(uart2_pin_mux);
 	}
 		if (!strncmp("BB-BONE-SERL-04", cape_config.partnumber, 15)) {
 		pr_info("BeagleBone cape: not initializing RS485 cape\n");
