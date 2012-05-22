@@ -37,10 +37,11 @@
 ENTRY(am33xx_do_wfi)
 	stmfd	sp!, {r4 - r11, lr}	@ save registers on stack
 
-	.macro	pll_bypass, name, clk_mode_addr, idlest_addr
+	.macro	pll_bypass, name, clk_mode_addr, idlest_addr, pll_mode
 pll_bypass_\name:
 	ldr	r0, \clk_mode_addr
 	ldr	r1, [r0]
+	str	r1, clk_mode_\pll_mode
 	bic	r1, r1, #(7 << 0)
 	orr	r1, r1, #0x5
 	str	r1, [r0]
@@ -51,18 +52,21 @@ wait_pll_bypass_\name:
 	bne	wait_pll_bypass_\name
 	.endm
 
-	.macro	pll_lock, name, clk_mode_addr, idlest_addr
+	.macro	pll_lock, name, clk_mode_addr, idlest_addr, pll_mode
 pll_lock_\name:
 	ldr	r0, \clk_mode_addr
-	ldr	r1, [r0]
-	bic	r1, r1, #(7 << 0)
-	orr	r1, r1, #0x7
+	ldr	r1, clk_mode_\pll_mode
 	str	r1, [r0]
+	and	r1, r1, #0x7
+	cmp	r1, #0x7
+	bne	pll_mode_restored_\name
 	ldr	r0, \idlest_addr
 wait_pll_lock_\name:
 	ldr	r1, [r0]
 	ands	r1, #0x1
 	beq	wait_pll_lock_\name
+pll_mode_restored_\name:
+	nop
 	.endm
 
 	/* EMIF config for low power mode */
@@ -154,11 +158,11 @@ wait_emif_disable:
 	str	r1, [r0]
 
 	/* Put the PLLs in bypass mode */
-	pll_bypass	core, virt_core_clk_mode, virt_core_idlest
-	pll_bypass	ddr, virt_ddr_clk_mode, virt_ddr_idlest
-	pll_bypass	disp, virt_disp_clk_mode, virt_disp_idlest
-	pll_bypass	per, virt_per_clk_mode, virt_per_idlest
-	pll_bypass	mpu, virt_mpu_clk_mode, virt_mpu_idlest
+	pll_bypass	core, virt_core_clk_mode, virt_core_idlest, core_val
+	pll_bypass	ddr, virt_ddr_clk_mode, virt_ddr_idlest, ddr_val
+	pll_bypass	disp, virt_disp_clk_mode, virt_disp_idlest, disp_val
+	pll_bypass	per, virt_per_clk_mode, virt_per_idlest, per_val
+	pll_bypass	mpu, virt_mpu_clk_mode, virt_mpu_idlest, mpu_val
 
 	dsb
 	dmb
@@ -176,15 +180,17 @@ wait_emif_disable:
 	nop
 	nop
 	nop
+	nop
+	nop
 
 	/* We come here in case of an abort */
 
 	/* Relock the PLLs */
-	pll_lock	mpu_abt, virt_mpu_clk_mode, virt_mpu_idlest
-	pll_lock	per_abt, virt_per_clk_mode, virt_per_idlest
-	pll_lock	disp_abt, virt_disp_clk_mode, virt_disp_idlest
-	pll_lock	ddr_abt, virt_ddr_clk_mode, virt_ddr_idlest
-	pll_lock	core_abt, virt_core_clk_mode, virt_core_idlest
+	pll_lock	mpu_abt, virt_mpu_clk_mode, virt_mpu_idlest, mpu_val
+	pll_lock	per_abt, virt_per_clk_mode, virt_per_idlest, per_val
+	pll_lock	disp_abt, virt_disp_clk_mode, virt_disp_idlest, disp_val
+	pll_lock	ddr_abt, virt_ddr_clk_mode, virt_ddr_idlest, ddr_val
+	pll_lock	core_abt, virt_core_clk_mode, virt_core_idlest, core_val
 
 	/* Disable SRAM LDO ret mode */
 	ldr	r0, virt_sram_ldo_addr
@@ -259,11 +265,11 @@ ENTRY(am33xx_resume_offset)
 
 ENTRY(am33xx_resume_from_deep_sleep)
 	/* Take the PLLs out of LP_BYPASS */
-	pll_lock	mpu, phys_mpu_clk_mode, phys_mpu_idlest
-	pll_lock	per, phys_per_clk_mode, phys_per_idlest
-	pll_lock	disp, phys_disp_clk_mode, phys_disp_idlest
-	pll_lock	ddr, phys_ddr_clk_mode, phys_ddr_idlest
-	pll_lock	core, phys_core_clk_mode, phys_core_idlest
+	pll_lock	mpu, phys_mpu_clk_mode, phys_mpu_idlest, mpu_val
+	pll_lock	per, phys_per_clk_mode, phys_per_idlest, per_val
+	pll_lock	disp, phys_disp_clk_mode, phys_disp_idlest, disp_val
+	pll_lock	ddr, phys_ddr_clk_mode, phys_ddr_idlest, ddr_val
+	pll_lock	core, phys_core_clk_mode, phys_core_idlest, core_val
 
 	/* Disable SRAM LDO ret mode */
 	ldr	r0, phys_sram_ldo_addr
@@ -508,6 +514,17 @@ emif_pmcr_val:
 emif_pmcr_shdw_val:
 	.word	0xDEADBEEF
 
+/* PLL CLKMODE before suspend */
+clk_mode_mpu_val:
+	.word	0xDEADBEEF
+clk_mode_per_val:
+	.word	0xDEADBEEF
+clk_mode_disp_val:
+	.word	0xDEADBEEF
+clk_mode_ddr_val:
+	.word	0xDEADBEEF
+clk_mode_core_val:
+	.word	0xDEADBEEF
 
 ENTRY(am33xx_do_wfi_sz)
 	.word	. - am33xx_do_wfi
