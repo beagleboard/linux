@@ -61,8 +61,8 @@ pll_lock_\name:
 	ldr	r0, \idlest_addr
 wait_pll_lock_\name:
 	ldr	r1, [r0]
-	tst	r1, #0x1
-	bne	wait_pll_lock_\name
+	ands	r1, #0x1
+	beq	wait_pll_lock_\name
 	.endm
 
 	/* EMIF config for low power mode */
