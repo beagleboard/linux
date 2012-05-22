@@ -47,7 +47,7 @@ struct am33xx_padconf {
 
 #define M3_TXEV_EOI			(AM33XX_CTRL_BASE + 0x1324)
 #define A8_M3_IPC_REGS			(AM33XX_CTRL_BASE + 0x1328)
-#define DS_RESUME_ADDR			0x40300340
+#define DS_RESUME_BASE			0x40300000
 #define DS_IPC_DEFAULT			0xffffffff
 #define M3_UMEM				0x44D00000
 

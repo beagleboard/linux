@@ -234,20 +234,10 @@ wait_emif_enable:
 	mov	r0, #7
 	ldmfd	sp!, {r4 - r11, pc}	@ restore regs and return
 
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
+ENTRY(am33xx_resume_offset)
+	.word . - am33xx_do_wfi
 
+ENTRY(am33xx_resume_from_deep_sleep)
 	/* Take the PLLs out of LP_BYPASS */
 	pll_lock	mpu, phys_mpu_clk_mode, phys_mpu_idlest
 	pll_lock	per, phys_per_clk_mode, phys_per_idlest

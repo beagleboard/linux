@@ -217,7 +217,13 @@ static int am33xx_pm_begin(suspend_state_t state)
 
 	disable_hlt();
 
-	am33xx_lp_ipc.resume_addr = DS_RESUME_ADDR;
+	/*
+	 * Populate the resume address as part of IPC data
+	 * The offset to be added comes from sleep33xx.S
+	 * Add 4 bytes to ensure that resume happens from
+	 * the word *after* the word which holds the resume offset
+	 */
+	am33xx_lp_ipc.resume_addr = (DS_RESUME_BASE + am33xx_resume_offset + 4);
 	am33xx_lp_ipc.sleep_mode  = DS_MODE;
 	am33xx_lp_ipc.ipc_data1	  = DS_IPC_DEFAULT;
 	am33xx_lp_ipc.ipc_data2   = DS_IPC_DEFAULT;
