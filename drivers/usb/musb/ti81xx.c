@@ -1069,6 +1069,8 @@ int ti81xx_musb_init(struct musb *musb)
 	if (!rev)
 		return -ENODEV;
 
+	pr_info("MUSB%d controller's USBSS revision = %08x\n", musb->id, rev);
+
 	if (is_host_enabled(musb))
 		setup_timer(&musb->otg_workaround, otg_timer,
 					(unsigned long) musb);
