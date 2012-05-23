@@ -218,7 +218,6 @@ int __init am335x_register_mcasp(struct snd_platform_data *pdata, int ctrl_nr)
 			dev_name, oh->name);
 	return IS_ERR(pdev) ? PTR_ERR(pdev) : 0;
 }
-
 #else
 int __init am335x_register_mcasp(struct snd_platform_data *pdata, int ctrl_nr)
 {
@@ -234,6 +233,7 @@ struct platform_device am33xx_pcm_device = {
 
 static void am33xx_init_pcm(void)
 {
+	printk("cape: pcm register");
 	platform_device_register(&am33xx_pcm_device);
 }
 

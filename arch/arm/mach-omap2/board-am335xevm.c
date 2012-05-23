@@ -43,6 +43,8 @@
 #include <linux/can/platform/mcp251x.h>
 #include <linux/input/ti_tscadc.h>
 
+#include <sound/tlv320aic3x.h>
+
 /* LCD controller is similar to DA850 */
 #include <video/da8xx-fb.h>
 
@@ -315,7 +317,7 @@ static struct tsc_data bone_touchscreen_data  = {
 };
 
 static u8 am335x_iis_serializer_direction1[] = {
-	INACTIVE_MODE,	INACTIVE_MODE,	TX_MODE,	RX_MODE,
+	INACTIVE_MODE,	INACTIVE_MODE,	RX_MODE,	TX_MODE,
 	INACTIVE_MODE,	INACTIVE_MODE,	INACTIVE_MODE,	INACTIVE_MODE,
 	INACTIVE_MODE,	INACTIVE_MODE,	INACTIVE_MODE,	INACTIVE_MODE,
 	INACTIVE_MODE,	INACTIVE_MODE,	INACTIVE_MODE,	INACTIVE_MODE,
@@ -324,6 +326,19 @@ static u8 am335x_iis_serializer_direction1[] = {
 static struct snd_platform_data am335x_evm_snd_data1 = {
 	.tx_dma_offset	= 0x46400000,	/* McASP1 */
 	.rx_dma_offset	= 0x46400000,
+	.op_mode	= DAVINCI_MCASP_IIS_MODE,
+	.num_serializer	= ARRAY_SIZE(am335x_iis_serializer_direction1),
+	.tdm_slots	= 2,
+	.serial_dir	= am335x_iis_serializer_direction1,
+	.asp_chan_q	= EVENTQ_2,
+	.version	= MCASP_VERSION_3,
+	.txnumevt	= 1,
+	.rxnumevt	= 1,
+};
+
+static struct snd_platform_data bone_snd_data1 = {
+	.tx_dma_offset	= 0x46000000,	/* McASP0*/
+	.rx_dma_offset	= 0x46000000,
 	.op_mode	= DAVINCI_MCASP_IIS_MODE,
 	.num_serializer	= ARRAY_SIZE(am335x_iis_serializer_direction1),
 	.tdm_slots	= 2,
@@ -796,11 +811,18 @@ static struct pinmux_config mcasp1_pin_mux[] = {
 	{"mii1_crs.mcasp1_aclkx", OMAP_MUX_MODE4 | AM33XX_PIN_INPUT_PULLDOWN},
 	{"mii1_rxerr.mcasp1_fsx", OMAP_MUX_MODE4 | AM33XX_PIN_INPUT_PULLDOWN},
 	{"mii1_col.mcasp1_axr2", OMAP_MUX_MODE4 | AM33XX_PIN_INPUT_PULLDOWN},
-	{"rmii1_refclk.mcasp1_axr3", OMAP_MUX_MODE4 |
-						AM33XX_PIN_INPUT_PULLDOWN},
+	{"rmii1_refclk.mcasp1_axr3", OMAP_MUX_MODE4 | AM33XX_PIN_INPUT_PULLDOWN},
 	{NULL, 0},
 };
 
+/* Module pin mux for mcasp0 */
+static struct pinmux_config mcasp0_pin_mux[] = {
+	{"mcasp0_aclkx.mcasp0_aclkx", OMAP_MUX_MODE0 |AM33XX_PIN_INPUT_PULLDOWN},
+	{"mcasp0_fsx.mcasp0_fsx", OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLDOWN},
+	{"mcasp0_ahclkr.mcasp0_axr2", OMAP_MUX_MODE2 | AM33XX_PIN_INPUT_PULLDOWN},
+	{"mcasp0_ahclkx.mcasp0_axr3", OMAP_MUX_MODE2 | AM33XX_PIN_INPUT_PULLDOWN},
+	{NULL, 0},
+};
 
 /* Module pin mux for mmc0 */
 static struct pinmux_config mmc0_pin_mux[] = {
@@ -1956,6 +1978,15 @@ static void evm_nand_init(int evm_id, int profile)
 	omap_init_elm();
 }
 
+static struct regulator_consumer_supply bone_audio_supplies[] = {
+        /* tlv320aic3x analog supplies */
+        REGULATOR_SUPPLY("AVDD", "3-001b"),
+        REGULATOR_SUPPLY("DRVDD", "3-001b"),
+        /* tlv320aic3x digital supplies */
+        REGULATOR_SUPPLY("IOVDD", "3-001b"),
+        REGULATOR_SUPPLY("DVDD", "3-001b"),
+};
+
 /* TPS65217 voltage regulator support */
 
 /* 1.8V */
@@ -2227,6 +2258,25 @@ static void tt3201_init(int evm_id, int profile)
 		ARRAY_SIZE(tt3201_spi_info));
 
 	am33xx_d_can_init(1);
+}
+
+/* Setup McASP 1 */
+static void mcasp1_init(int evm_id, int profile)
+{
+	/* Configure McASP */
+	setup_pin_mux(mcasp1_pin_mux);
+	am335x_register_mcasp(&am335x_evm_snd_data1, 1);
+	return;
+}
+
+/* Setup McASP 0 */
+static void mcasp0_init(int evm_id, int profile)
+{
+	printk("Beaglebone cape: mcasp0 init\n");
+	/* Configure McASP */
+	setup_pin_mux(mcasp0_pin_mux);
+	am335x_register_mcasp(&bone_snd_data1, 0);
+	return;
 }
 
 static const char* cape_pins[] = {
@@ -2567,7 +2617,8 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 		
 		beaglebone_leds_free = 0;
 		dvileds_init(0,0);
-		
+		mcasp0_init(0,0);
+	
 		if (!strncmp("00A1", cape_config.version, 4) || !strncmp("000A", cape_config.version, 4)) {
 			pr_info("BeagleBone cape: DVI init for revision A1 or older\n");
 			setup_pin_mux(dvia1_pin_mux);
@@ -2715,6 +2766,9 @@ static struct at24_platform_data cape_eeprom_info = {
 };
 
 static struct i2c_board_info __initdata cape_i2c_boardinfo[] = {
+	{
+		I2C_BOARD_INFO("tlv320aic3x", 0x1b),
+	},
         {
                 I2C_BOARD_INFO("24c256", 0x54),
                 .platform_data  = &cape_eeprom_info,
@@ -2739,16 +2793,6 @@ static void i2c2_init(int evm_id, int profile)
         omap_register_i2c_bus(3, 100, cape_i2c_boardinfo,
                         ARRAY_SIZE(cape_i2c_boardinfo));
         return;
-}
-
-
-/* Setup McASP 1 */
-static void mcasp1_init(int evm_id, int profile)
-{
-	/* Configure McASP */
-	setup_pin_mux(mcasp1_pin_mux);
-	am335x_register_mcasp(&am335x_evm_snd_data1, 1);
-	return;
 }
 
 static void mmc1_init(int evm_id, int profile)

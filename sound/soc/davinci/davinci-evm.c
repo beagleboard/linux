@@ -244,9 +244,9 @@ static struct snd_soc_dai_link da850_evm_dai = {
 static struct snd_soc_dai_link am335x_evm_dai = {
 	.name = "TLV320AIC3X",
 	.stream_name = "AIC3X",
-	.cpu_dai_name = "davinci-mcasp.1",
+	.cpu_dai_name = "davinci-mcasp.0",
 	.codec_dai_name = "tlv320aic3x-hifi",
-	.codec_name = "tlv320aic3x-codec.2-001b",
+	.codec_name = "tlv320aic3x-codec.3-001b",
 	.platform_name = "davinci-pcm-audio",
 	.init = evm_aic3x_init,
 	.ops = &evm_ops,
@@ -331,8 +331,9 @@ static int __init evm_init(void)
 		return -EINVAL;
 
 	evm_snd_device = platform_device_alloc("soc-audio", index);
-	if (!evm_snd_device)
+	if (!evm_snd_device) {
 		return -ENOMEM;
+	}
 
 	platform_set_drvdata(evm_snd_device, evm_snd_dev_data);
 	ret = platform_device_add(evm_snd_device);

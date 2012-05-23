@@ -52,7 +52,7 @@
 
 #include "tlv320aic3x.h"
 
-#define AIC3X_NUM_SUPPLIES	4
+#define AIC3X_NUM_SUPPLIES	0
 static const char *aic3x_supply_names[AIC3X_NUM_SUPPLIES] = {
 	"IOVDD",	/* I/O Voltage */
 	"DVDD",		/* Digital Core Voltage */
