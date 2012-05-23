@@ -246,6 +246,7 @@ musb_start_urb(struct musb *musb, int is_in, struct musb_qh *qh)
 	/* initialize software qh state */
 	qh->offset = 0;
 	qh->segsize = 0;
+	hw_ep->xfer_type = qh->type;
 
 	/* gather right source of data */
 	switch (qh->type) {

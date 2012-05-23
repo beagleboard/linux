@@ -125,6 +125,9 @@
 /* USB interrupt register bits */
 #define USB_INTR_USB_SHIFT      0
 #define USB_INTR_USB_MASK       (0x1ff << USB_INTR_USB_SHIFT) /* 8 Mentor */
+#define USB_INTR_TXFIFO_MASK     (0xffff << 16)
+#define USB_INTR_TXFIFO_EMPTY	17
+
 				/* interrupts and DRVVBUS interrupt */
 #define USB_INTR_DRVVBUS        0x100
 #define USB_INTR_RX_SHIFT       16
