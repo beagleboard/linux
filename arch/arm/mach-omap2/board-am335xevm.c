@@ -2589,7 +2589,7 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 	ret = mem_acc->read(mem_acc, (char *)&cape_config, 0, sizeof(cape_config));
 	if (ret != sizeof(cape_config)) {
 		pr_warning("BeagleBone cape EEPROM: could not read eeprom at address 0x%x\n", capecount + 0x53);
-		return;
+		goto out2;
 	}
 
 	if (cape_config.header != AM335X_EEPROM_HEADER) {
@@ -2724,6 +2724,16 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 		beaglebone_w1gpio_free = 0;
 	}
 
+	goto out2;
+out:
+	/*
+	 * If the EEPROM hasn't been programed or an incorrect header
+	 * or board name are read, assume this is an old beaglebone board
+	 * (< Rev A3)
+	 */
+	pr_err("Could not detect BeagleBone cape properly\n");
+	beaglebone_cape_detected = false;
+out2:
 	if (capecount > 3) {
 		if (beaglebone_tsadcpins_free == 1) {
 			pr_info("BeagleBone cape: exporting ADC pins to sysfs\n");
@@ -2741,20 +2751,10 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 			spi_register_board_info(bone_spidev2_info, ARRAY_SIZE(bone_spidev2_info));
 		}
 		if(beaglebone_w1gpio_free == 1) {
+			pr_info("BeagleBone cape: initializing w1-gpio\n");
 			bonew1_gpio_init(0,0);
 		}
-	}	
-	
-	return;
-out:
-	/*
-	 * If the EEPROM hasn't been programed or an incorrect header
-	 * or board name are read, assume this is an old beaglebone board
-	 * (< Rev A3)
-	 */
-	pr_err("Could not detect BeagleBone cape properly\n");
-	beaglebone_cape_detected = false;
-
+	}
 }
 
 static struct at24_platform_data cape_eeprom_info = {
