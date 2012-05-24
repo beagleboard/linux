@@ -652,6 +652,7 @@ static inline const char *get_dma_name(struct musb *musb)
 		return "?dma?";
 #endif
 }
+extern int ep_config_from_table(struct musb *musb);
 
 extern void musb_gb_work(struct work_struct *data);
 /*-------------------------- ProcFS definitions ---------------------*/

@@ -719,6 +719,7 @@ static int musb_proc_write(struct file *file, const char __user *buffer,
 		INFO("T: start sending TEST_PACKET\n");
 		INFO("D: set/read dbug level\n");
 		INFO("K/k: enable/disable babble workaround\n");
+		INFO("b: generate software babble interrupt\n");
 		break;
 
 	default:

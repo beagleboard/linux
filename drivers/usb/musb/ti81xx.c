@@ -813,8 +813,7 @@ int musb_simulate_babble(struct musb *musb)
 	mdelay(100);
 
 	/* generate s/w babble interrupt */
-	musb_writel(reg_base, USB_IRQ_STATUS_RAW_1,
-		MUSB_INTR_BABBLE);
+	musb_writel(reg_base, USB_IRQ_STATUS_RAW_1, MUSB_INTR_BABBLE);
 	return 0;
 }
 EXPORT_SYMBOL(musb_simulate_babble);
@@ -828,7 +827,8 @@ void musb_babble_workaround(struct musb *musb)
 
 	/* Reset the controller */
 	musb_writel(reg_base, USB_CTRL_REG, USB_SOFT_RESET_MASK);
-	udelay(100);
+	while ((musb_readl(reg_base, USB_CTRL_REG) & 0x1))
+		cpu_relax();
 
 	/* Shutdown the on-chip PHY and its PLL. */
 	if (data->set_phy_power)
@@ -843,9 +843,8 @@ void musb_babble_workaround(struct musb *musb)
 		data->set_phy_power(musb->id, 1);
 	mdelay(100);
 
-	/* save the usbotgss register contents */
-	musb_platform_enable(musb);
-
+	/* re-setup the endpoint fifo addresses */
+	ep_config_from_table(musb);
 	musb_start(musb);
 }
 
