@@ -481,7 +481,14 @@ static void musb_advance_schedule(struct musb *musb, struct urb *urb,
 		}
 	}
 
-	if (qh != NULL && qh->is_ready) {
+	/* we should not start next urb when current urb
+	 * has failed, this is because stack will unlink/dequeue
+	 * remaining urbs. Programming the next urb will endup in
+	 * urb completion because of expected error (cause of current
+	 * urb failure) interrupts and interfere with urb dequeue
+	 * initiated by stack and cause a crash.
+	 */
+	if (status == 0 && qh != NULL && qh->is_ready) {
 		dev_dbg(musb->controller, "... next ep%d %cX urb %p\n",
 		    hw_ep->epnum, is_in ? 'R' : 'T', next_urb(qh));
 		musb_start_urb(musb, is_in, qh);
@@ -1891,8 +1898,19 @@ finish:
 	urb->actual_length += xfer_len;
 	qh->offset += xfer_len;
 	if (done) {
-		if (urb->status == -EINPROGRESS)
-			urb->status = status;
+		if (urb->status == -EINPROGRESS) {
+			/* If short packet is not expected any transfer length
+			 * less than actual length is an error, hence
+			 * set urb status to -EREMOTEIO
+			 */
+			if ((urb->status == -EINPROGRESS)
+				&& (urb->transfer_flags & URB_SHORT_NOT_OK)
+				&& (urb->actual_length
+					< urb->transfer_buffer_length))
+				urb->status = -EREMOTEIO;
+			else
+				urb->status = status;
+		}
 		musb_advance_schedule(musb, urb, hw_ep, USB_DIR_IN);
 	}
 }
