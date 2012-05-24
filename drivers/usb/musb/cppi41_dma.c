@@ -653,6 +653,9 @@ static unsigned cppi41_next_tx_segment(struct cppi41_channel *tx_ch)
 		dev_dbg(musb->controller, "TX PD %p: buf %08x, len %08x, pkt info %08x\n", curr_pd,
 		    hw_desc->buf_ptr, hw_desc->buf_len, hw_desc->pkt_info);
 
+		/* make sure descriptor details are updated to memory*/
+		dsb();
+
 		/* enable tx fifo empty interrupt */
 		if (tx_ch->txfifo_intr_enable) {
 			dev_dbg(musb->controller, "txs(%p %d) enable txFintr\n",
@@ -869,6 +872,10 @@ static unsigned cppi41_next_rx_segment(struct cppi41_channel *rx_ch)
 
 		if (en_bd_intr)
 			hw_desc->orig_buf_len |= CPPI41_PKT_INTR_FLAG;
+
+		/* make sure descriptor details are updated to memory*/
+		dsb();
+
 		/*
 		 * Push the free Rx packet descriptor
 		 * to the free descriptor/buffer queue.
