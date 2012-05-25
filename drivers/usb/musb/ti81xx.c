@@ -708,6 +708,12 @@ static void otg_timer(unsigned long _musb)
 		devctl = musb_readb(mregs, MUSB_DEVCTL);
 		if (devctl & MUSB_DEVCTL_HM) {
 			musb->xceiv->state = OTG_STATE_A_IDLE;
+		} else if ((devctl & MUSB_DEVCTL_SESSION) &&
+				!(devctl & MUSB_DEVCTL_BDEVICE)) {
+			mod_timer(&musb->otg_workaround,
+					jiffies + POLL_SECONDS * HZ);
+			musb_writeb(musb->mregs, MUSB_DEVCTL, devctl &
+				~MUSB_DEVCTL_SESSION);
 		} else {
 			mod_timer(&musb->otg_workaround,
 					jiffies + POLL_SECONDS * HZ);
@@ -976,11 +982,21 @@ static irqreturn_t ti81xx_interrupt(int irq, void *hci)
 						jiffies + POLL_SECONDS * HZ);
 			WARNING("VBUS error workaround (delay coming)\n");
 		} else if (is_host_enabled(musb) && drvvbus) {
-			musb->is_active = 1;
-			MUSB_HST_MODE(musb);
-			musb->xceiv->default_a = 1;
-			musb->xceiv->state = OTG_STATE_A_WAIT_VRISE;
-			del_timer(&musb->otg_workaround);
+			if ((devctl & MUSB_DEVCTL_SESSION) &&
+				!(devctl & MUSB_DEVCTL_BDEVICE) &&
+				!(devctl & MUSB_DEVCTL_HM)) {
+				dev_dbg(musb->controller,
+					"Only micro-A plug is connected\n");
+			} else {
+				if (musb->is_active)
+					del_timer(&musb->otg_workaround);
+				else
+					musb->is_active = 1;
+
+				MUSB_HST_MODE(musb);
+				musb->xceiv->default_a = 1;
+				musb->xceiv->state = OTG_STATE_A_WAIT_VRISE;
+			}
 		} else {
 			musb->is_active = 0;
 			MUSB_DEV_MODE(musb);
