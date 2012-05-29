@@ -272,6 +272,12 @@ struct da8xx_lcdc_platform_data bbtoys35_pdata = {
 	.type			= "CDTech_S035Q01",
 };
 
+struct da8xx_lcdc_platform_data bbtoys43_pdata = {
+	.manu_name		= "BBToys",
+	.controller_data	= &lcd_cfg,
+	.type			= "NHD-4.3-ATXI#-T-1",
+};
+
 static const struct display_panel dvi_panel = {
 	WVGA,
 	16,
@@ -562,14 +568,14 @@ static struct pinmux_config batterycape_pin_mux[] = {
 	
 /* Module pin mux for LCDC */
 static struct pinmux_config lcdc_pin_mux[] = {
-	{"gpmc_ad8.lcd_data16",		OMAP_MUX_MODE1 | AM33XX_PIN_OUTPUT},
-	{"gpmc_ad9.lcd_data17",		OMAP_MUX_MODE1 | AM33XX_PIN_OUTPUT},
-	{"gpmc_ad10.lcd_data18",	OMAP_MUX_MODE1 | AM33XX_PIN_OUTPUT},
-	{"gpmc_ad11.lcd_data19",	OMAP_MUX_MODE1 | AM33XX_PIN_OUTPUT},
-	{"gpmc_ad12.lcd_data20",	OMAP_MUX_MODE1 | AM33XX_PIN_OUTPUT},
-	{"gpmc_ad13.lcd_data21",	OMAP_MUX_MODE1 | AM33XX_PIN_OUTPUT},
-	{"gpmc_ad14.lcd_data22",	OMAP_MUX_MODE1 | AM33XX_PIN_OUTPUT},
-	{"gpmc_ad15.lcd_data23",	OMAP_MUX_MODE1 | AM33XX_PIN_OUTPUT},
+	{"gpmc_ad8.lcd_data23",		OMAP_MUX_MODE1 | AM33XX_PIN_OUTPUT},
+	{"gpmc_ad9.lcd_data22",		OMAP_MUX_MODE1 | AM33XX_PIN_OUTPUT},
+	{"gpmc_ad10.lcd_data21",	OMAP_MUX_MODE1 | AM33XX_PIN_OUTPUT},
+	{"gpmc_ad11.lcd_data20",	OMAP_MUX_MODE1 | AM33XX_PIN_OUTPUT},
+	{"gpmc_ad12.lcd_data19",	OMAP_MUX_MODE1 | AM33XX_PIN_OUTPUT},
+	{"gpmc_ad13.lcd_data18",	OMAP_MUX_MODE1 | AM33XX_PIN_OUTPUT},
+	{"gpmc_ad14.lcd_data17",	OMAP_MUX_MODE1 | AM33XX_PIN_OUTPUT},
+	{"gpmc_ad15.lcd_data16",	OMAP_MUX_MODE1 | AM33XX_PIN_OUTPUT},
 	{NULL, 0},
 };
 
@@ -1659,6 +1665,24 @@ static void bbtoys35lcd_init(int evm_id, int profile)
 	return;
 }
 
+static void bbtoys43lcd_init(int evm_id, int profile)
+{
+	setup_pin_mux(lcdc16_pin_mux);
+	setup_pin_mux(lcdc_pin_mux);
+	
+	// we are being stupid and setting pixclock from here instead of da8xx-fb.c
+	if (conf_disp_pll(18000000)) {
+		pr_info("Failed to set pixclock to 18000000, not attempting to"
+				"register LCD cape\n");
+		return;
+	}
+	
+	if (am33xx_register_lcdc(&bbtoys43_pdata))
+		pr_info("Failed to register Beagleboardtoys 4.3\" LCD cape device\n");
+	
+	return;
+}
+
 #define BEAGLEBONEDVI_PDn_A1  GPIO_TO_PIN(1, 7)
 #define BEAGLEBONEDVI_PDn_A2  GPIO_TO_PIN(1, 31)
 
@@ -2671,6 +2695,14 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 		beaglebone_lcd3_keys_init(0,0);
 		beaglebone_leds_free = 0;
 		lcd3leds_init(0,0);
+	}
+
+	if (!strncmp("BB-BONE-LCD4-01", cape_config.partnumber, 15)) {
+		pr_info("BeagleBone cape: initializing LCD cape\n");
+		bbtoys43lcd_init(0,0);
+		pr_info("BeagleBone cape: initializing LCD cape touchscreen\n");
+		tsc_init(0,0);
+		beaglebone_tsadcpins_free = 0;
 	}
 	
 	if (!strncmp("BB-BONE-VGA-01", cape_config.partnumber, 14)) {
