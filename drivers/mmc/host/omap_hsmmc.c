@@ -90,6 +90,7 @@
 #define MSBS			(1 << 5)
 #define BCE			(1 << 1)
 #define FOUR_BIT		(1 << 1)
+#define HSPE			(1 << 2)
 #define DVAL_MASK		(3 << 9)
 #define DVAL_MAX		(3 << 9)	/* 8.4 ms debounce period */
 #define WPP_MASK		(1 << 8)
@@ -634,14 +635,25 @@ static void omap_hsmmc_set_clock(struct omap_hsmmc_host *host)
 	struct mmc_ios *ios = &host->mmc->ios;
 	unsigned long regval;
 	unsigned long timeout;
+	unsigned long clkdiv;
 
 	dev_dbg(mmc_dev(host->mmc), "Set clock to %uHz\n", ios->clock);
+
+	clkdiv = calc_divisor(host, ios);
+	regval = OMAP_HSMMC_READ(host->base, HCTL);
+	/* Enable HSPE bit for high speed card */
+	if (ios->clock && (clk_get_rate(host->fclk)/clkdiv) > 25000000)
+		regval |= HSPE;
+	else
+		regval &= ~HSPE;
+
+	OMAP_HSMMC_WRITE(host->base, HCTL, regval);
 
 	omap_hsmmc_stop_clock(host);
 
 	regval = OMAP_HSMMC_READ(host->base, SYSCTL);
 	regval = regval & ~(CLKD_MASK | DTO_MASK);
-	regval = regval | (calc_divisor(host, ios) << 6) | (DTO << 16);
+	regval = regval | (clkdiv << 6) | (DTO << 16);
 	OMAP_HSMMC_WRITE(host->base, SYSCTL, regval);
 	OMAP_HSMMC_WRITE(host->base, SYSCTL,
 		OMAP_HSMMC_READ(host->base, SYSCTL) | ICE);
