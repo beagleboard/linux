@@ -639,7 +639,6 @@ static struct pinmux_config dvia2_pin_mux[] = {
 /* Module pin mux for Beagleboardtoys 3.5" LCD cape */
 static struct pinmux_config bbtoys35_pin_mux[] = {
 	{"gpmc_a2.gpio1_18", OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT}, // USR0 LED
-	{"gpmc_a3.gpio1_19", OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT}, // USR1 LED
 	{NULL, 0},
 };
 
@@ -1196,7 +1195,7 @@ static struct platform_device beaglebone_lcd3_keys = {
 static struct pinmux_config lcd3a1_keys_pin_mux[] = {
 	{"gpmc_a0.gpio1_16",  OMAP_MUX_MODE7 | AM33XX_PIN_INPUT}, // Left
 	{"gpmc_a1.gpio1_17",    OMAP_MUX_MODE7 | AM33XX_PIN_INPUT}, //Right
-	{"gpmc_a3.gpio1_19", OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT}, // Up
+	{"gpmc_a3.gpio1_19", OMAP_MUX_MODE7 | AM33XX_PIN_INPUT}, // Up
 	{"mcasp0_axr0.gpio3_16",    OMAP_MUX_MODE7 | AM33XX_PIN_INPUT}, //Down
 	{"mcasp0_fsr.gpio3_19",  OMAP_MUX_MODE7 | AM33XX_PIN_INPUT}, // Enter
 	{NULL, 0},
@@ -1424,7 +1423,6 @@ static struct platform_device dvi_leds_gpio = {
 };
 
 #define BEAGLEBONELCD3_USR0_LED  GPIO_TO_PIN(1, 18)
-#define BEAGLEBONELCD3_USR1_LED  GPIO_TO_PIN(1, 19)
 
 static struct gpio_led lcd3_gpio_leds[] = {
 	{
@@ -1449,11 +1447,6 @@ static struct gpio_led lcd3_gpio_leds[] = {
 		.name			= "lcd3::usr0",
 		.default_trigger	= "heartbeat",
 		.gpio			= BEAGLEBONELCD3_USR0_LED,
-	},
-	{
-		.name			= "lcd3::usr1",
-		.default_trigger	= "mmc0",
-		.gpio			= BEAGLEBONELCD3_USR1_LED,
 	},
 };
 
