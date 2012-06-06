@@ -1051,12 +1051,11 @@ static void volume_keys_init(int evm_id, int profile)
 
 /* pinmux for lcd7 keys */
 static struct pinmux_config lcd7_keys_pin_mux[] = {
-	{"gpmc_a0.gpio1_16",  OMAP_MUX_MODE7 | AM33XX_PIN_INPUT},
-	{"gpmc_a1.gpio1_17",    OMAP_MUX_MODE7 | AM33XX_PIN_INPUT},
-	{"gpmc_a3.gpio1_19",  OMAP_MUX_MODE7 | AM33XX_PIN_INPUT},
-	{"mcasp0_axr0.gpio3_16",    OMAP_MUX_MODE7 | AM33XX_PIN_INPUT},
-	{"mcasp0_fsr.gpio3_19",    OMAP_MUX_MODE7 | AM33XX_PIN_INPUT},
-	{"gpmc_ben1.gpio1_28",    OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT},
+	{"gpmc_a0.gpio1_16",  OMAP_MUX_MODE7 | AM33XX_PIN_INPUT}, //left
+	{"gpmc_a1.gpio1_17",    OMAP_MUX_MODE7 | AM33XX_PIN_INPUT}, //right
+	{"gpmc_a3.gpio1_19",  OMAP_MUX_MODE7 | AM33XX_PIN_INPUT}, //up
+	{"mcasp0_axr0.gpio3_16",    OMAP_MUX_MODE7 | AM33XX_PIN_INPUT}, //down
+	{"mcasp0_fsr.gpio3_19",    OMAP_MUX_MODE7 | AM33XX_PIN_INPUT}, //enter
 	{NULL, 0},
 };
 
@@ -2738,6 +2737,7 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 		pr_info("BeagleBone cape: Registering gpio-keys for LCD cape\n");
 		beaglebone_lcd7_keys_init(0,0);
 		
+		beaglebone_spi1_free = 0;
 		// A1 or newer
 		beaglebone_leds_free = 0;
 		lcd7leds_init(0,0);
@@ -2765,6 +2765,7 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 			if (err)
 				pr_err("failed to register gpio keys for LCD3 rev A1 or later cape\n");
 		}
+		beaglebone_spi1_free = 0;
 		beaglebone_leds_free = 0;
 		lcd3leds_init(0,0);
 	}
