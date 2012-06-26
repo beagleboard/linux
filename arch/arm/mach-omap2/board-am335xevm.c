@@ -2691,6 +2691,7 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 		
 		beaglebone_leds_free = 0;
 		dvileds_init(0,0);
+		beaglebone_spi1_free = 0;
 		mcasp0_init(0,0);
 	
 		if (!strncmp("00A1", cape_config.version, 4) || !strncmp("000A", cape_config.version, 4)) {
