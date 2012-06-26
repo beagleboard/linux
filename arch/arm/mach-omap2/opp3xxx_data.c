@@ -154,7 +154,15 @@ static struct omap_opp_def __initdata omap36xx_opp_def_list[] = {
 
 /* VDD1 */
 
-#define AM33XX_VDD_MPU_OPP50_UV		950000
+/*
+ * Errata 1.0.15: OPP50 Operation on MPU Domain is Not Supported.
+ *
+ * To minimize power consumption, the ARM Cortex-A8 may be operated at
+ * the lower frequency defined by OPP50, but the respective voltage
+ * domain VDD_MPU must be operated as defined by OPP100. So MPU OPP50
+ * definition is modified to 275MHz, 1.1V.
+ */
+#define AM33XX_VDD_MPU_OPP50_UV		1100000
 #define AM33XX_VDD_MPU_OPP100_UV	1100000
 #define AM33XX_VDD_MPU_OPP120_UV	1200000
 #define AM33XX_VDD_MPU_OPPTURBO_UV	1260000
