@@ -1002,6 +1002,13 @@ config VIDEO_S5P_MIPI_CSIS
 
 source "drivers/media/video/s5p-tv/Kconfig"
 
+config VIDEO_QL_CAMIF
+	tristate "QuickLogic Camera Interface support (EXPERIMENTAL)"
+	depends on VIDEO_DEV && SOC_CAMERA && SOC_OMAPAM33XX && EXPERIMENTAL
+	select VIDEOBUF2_DMA_CONTIG
+	---help---
+	  This is a v4l2 driver for the QuickLogic CAMIF controller.
+
 #
 # USB Multimedia device configuration
 #

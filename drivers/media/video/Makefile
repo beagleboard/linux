@@ -195,6 +195,8 @@ obj-y	+= davinci/
 
 obj-$(CONFIG_ARCH_OMAP)	+= omap/
 
+obj-$(CONFIG_VIDEO_QL_CAMIF)	+= cssp_camera/
+
 ccflags-y += -Idrivers/media/dvb/dvb-core
 ccflags-y += -Idrivers/media/dvb/frontends
 ccflags-y += -Idrivers/media/common/tuners

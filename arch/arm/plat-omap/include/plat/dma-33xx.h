@@ -83,5 +83,6 @@
 #define AM33XX_DMA_PWMSS2_EPW				63
 #define AM33XX_DMA_MMCHS2_W				64	/* xBar */
 #define AM33XX_DMA_MMCHS2_R				65	/* xBar */
+#define AM33XX_DMA_XDMA_EVENT_INTR2			93	/* xBar */
 
 #endif

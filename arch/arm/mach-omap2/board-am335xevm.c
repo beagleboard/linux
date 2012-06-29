@@ -65,6 +65,10 @@
 #include <plat/mmc.h>
 #include <plat/emif.h>
 #include <plat/nand.h>
+#include <plat/dma-33xx.h>
+
+#include <media/soc_camera.h>
+#include <media/mt9t112.h>
 
 #include "board-flash.h"
 #include "cpuidle33xx.h"
@@ -800,6 +804,42 @@ static struct pinmux_config i2c1_pin_mux[] = {
 					AM33XX_PULL_ENBL | AM33XX_INPUT_EN},
 	{"spi0_cs0.i2c1_scl",   OMAP_MUX_MODE2 | AM33XX_SLEWCTRL_SLOW |
 					AM33XX_PULL_ENBL | AM33XX_INPUT_EN},
+	{NULL, 0},
+};
+
+/* Pin mux for GPMC bus */
+static struct pinmux_config gpmc_pin_mux[] = {
+	{"gpmc_ad0.gpmc_ad0",	  OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_ad1.gpmc_ad1",	  OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_ad2.gpmc_ad2",	  OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_ad3.gpmc_ad3",	  OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_ad4.gpmc_ad4",	  OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_ad5.gpmc_ad5",	  OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_ad6.gpmc_ad6",	  OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_ad7.gpmc_ad7",	  OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_ad8.gpmc_ad8",	  OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_ad9.gpmc_ad9",	  OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_ad10.gpmc_ad10",	  OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_ad11.gpmc_ad11",	  OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_ad12.gpmc_ad12",	  OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_ad13.gpmc_ad13",	  OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_ad14.gpmc_ad14",	  OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_ad15.gpmc_ad15",	  OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_wait0.gpmc_wait0", OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_wpn.gpmc_wpn",	  OMAP_MUX_MODE7 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_csn1.gpmc_csn1",	  OMAP_MUX_MODE0 | AM33XX_PULL_DISA},
+	{"gpmc_advn_ale.gpmc_advn_ale",  OMAP_MUX_MODE0 | AM33XX_PULL_DISA},
+	{"gpmc_oen_ren.gpmc_oen_ren",	 OMAP_MUX_MODE0 | AM33XX_PULL_DISA},
+	{"gpmc_wen.gpmc_wen",     OMAP_MUX_MODE0 | AM33XX_PULL_DISA},
+	{"gpmc_ben0_cle.gpmc_ben0_cle",	 OMAP_MUX_MODE0 | AM33XX_PULL_DISA},
+	{"gpmc_clk.gpmc_clk",	 OMAP_MUX_MODE0 | AM33XX_PIN_INPUT},
+	{"ecap0_in_pwm0_out.xdma_event_intr2", OMAP_MUX_MODE6 | AM33XX_PIN_INPUT}, // DMAREQ
+	{NULL, 0},
+};
+
+static struct pinmux_config camera_cape_pin_mux[] = {
+	{"spi0_d1.gpio0_4",    OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT },		// QL CSSP and Camera Sensor Reset
+	{"spi0_cs0.gpio0_5",   OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT_PULLUP },	// 1V8 and 2V8 Power Enable
 	{NULL, 0},
 };
 
@@ -1801,6 +1841,156 @@ static void dvileds_init(int evm_id, int profile )
 	if (err)
 		pr_err("failed to register BeagleBone DVI cape LEDS\n");
 }
+
+static struct resource cssp_camera_resources[] = {
+	{
+		.name = "gpmc_phys_mem_slot",
+		.flags = IORESOURCE_MEM,
+	},
+};
+
+static struct mt9t112_camera_info mt9t111_cam_info = {
+	/* divider calculated for 32Mhz CAM_MCLK */
+	.divider = {
+		.m = 24, .n = 1,
+		.p1 = 0, .p2 = 7, .p3 = 0, .p4 = 11, .p5 = 15, .p6 = 7, .p7 = 0,
+	},
+};
+
+static struct soc_camera_link mt9t111_camera_link =  {
+	.priv = &mt9t111_cam_info,
+	.i2c_adapter_id = 3,
+};
+
+static struct i2c_board_info i2c_camera = {
+	I2C_BOARD_INFO("mt9t112", 0x3c),
+	.platform_data = &mt9t111_camera_link,
+};
+
+struct cssp_cam_platform_data {
+	struct i2c_board_info *cam_i2c_board_info;
+	const char *cam_clk_name;
+	int dma_ch;
+	int cssp_reset_pin;
+};
+
+static struct cssp_cam_platform_data cssp_cam_platform_data = {
+	.cam_i2c_board_info = &i2c_camera,
+	.cam_clk_name = "clkout2_ck",
+	.dma_ch = AM33XX_DMA_XDMA_EVENT_INTR2,
+	.cssp_reset_pin = GPIO_TO_PIN(0, 4),
+};
+
+static struct platform_device cssp_camera = {
+	.name  = "cssp-camera",
+	.id    = -1,
+	.dev   = {
+		.platform_data = &cssp_cam_platform_data,
+	},
+	.num_resources = sizeof(cssp_camera_resources) / sizeof(cssp_camera_resources[0]),
+	.resource = cssp_camera_resources,
+};
+
+static struct gpmc_timings cssp_timings = {
+	/* Minimum clock period for synchronous mode (in picoseconds) */
+	.sync_clk = 10000,
+
+	.cs_on = 0,
+	.cs_rd_off = 23 * 10,		/* Read deassertion time */
+	.cs_wr_off = 23 * 10,		/* Write deassertion time */
+
+	/* ADV signal timings corresponding to GPMC_CONFIG3 */
+	.adv_on = 0,			/* Assertion time */
+	.adv_rd_off = 2 * 10,		/* Read deassertion time */
+	.adv_wr_off = 2 * 10,		/* Write deassertion time */
+
+	/* WE signals timings corresponding to GPMC_CONFIG4 */
+	.we_on = 3 * 10,		/* WE assertion time */
+	.we_off = 23 * 10,		/* WE deassertion time */
+
+	/* OE signals timings corresponding to GPMC_CONFIG4 */
+	.oe_on = 3 * 10,		/* OE assertion time */
+	.oe_off = 23 * 10,		/* OE deassertion time */
+
+	/* Access time and cycle time timings corresponding to GPMC_CONFIG5 */
+	.page_burst_access = 1 * 10,	/* Multiple access word delay */
+	.access = 7 * 10,		/* Start-cycle to first data valid delay */
+	.rd_cycle = 23 * 10,		/* Total read cycle time */
+	.wr_cycle = 23 * 10,		/* Total write cycle time */
+
+	/* The following are only on OMAP3430 */
+	.wr_access = 7 * 10,		/* WRACCESSTIME */
+	.wr_data_mux_bus = 3 * 10,	/* WRDATAONADMUXBUS */
+};
+
+static int gpmc_cssp_init(void)
+{
+	int cs = 1; /* Chip Select on GPMC bus */
+	int val;
+	long unsigned int cssp_gpmc_mem_base_phys;
+
+	if (gpmc_cs_request(cs, SZ_16M, &cssp_gpmc_mem_base_phys) < 0) {
+			printk(KERN_ERR "[cssp_cam platform init]: gpmc_cs_request failed\n");
+			return -1;
+	}
+
+	cssp_camera_resources[0].start = cssp_gpmc_mem_base_phys;
+	cssp_camera_resources[0].end = cssp_gpmc_mem_base_phys + 0x1ffff;
+
+	if (gpmc_cs_configure(cs, GPMC_CONFIG_DEV_TYPE, GPMC_DEVICETYPE_NOR) < 0) {
+			printk(KERN_ERR "[cssp_cam platform init]: gpmc_cs_configure failed\n");
+			return -1;
+	}
+
+	val = GPMC_CONFIG1_READMULTIPLE_SUPP;
+	val |= GPMC_CONFIG1_READTYPE_SYNC;
+	val |= GPMC_CONFIG1_WRITETYPE_SYNC;
+	val |= GPMC_CONFIG1_CLKACTIVATIONTIME(1);
+	val |= GPMC_CONFIG1_PAGE_LEN(2);
+	val |= GPMC_CONFIG1_DEVICESIZE_16;
+	val |= GPMC_CONFIG1_DEVICETYPE_NOR;
+	val |= GPMC_CONFIG1_MUXADDDATA;
+	gpmc_cs_write_reg(cs, GPMC_CS_CONFIG1, val);
+
+	if (gpmc_cs_set_timings(cs, &cssp_timings) < 0) {
+		printk(KERN_ERR "Failed gpmc_cs_set_timings for QuickLogic CAMIF device\n");
+		goto free;
+	}
+
+	val = gpmc_cs_read_reg(cs, GPMC_CS_CONFIG6);
+	val &= 0xe0f0f030;
+	val |= 0x07030481;
+	gpmc_cs_write_reg(cs, GPMC_CS_CONFIG6, val);
+
+	printk(KERN_INFO "gpmc_cssp_init for QuickLogic CAMIF device succeeded\n");
+
+	return 0;
+
+free:
+	gpmc_cs_free(cs);
+
+	printk(KERN_ERR "Could not initialize QuickLogic CAMIF device\n");
+
+	return -1;
+}
+
+static void cssp_gpmc_init(void)
+{
+	struct gpmc_devices_info gpmc_device[2] = {
+			{ NULL, GPMC_DEVICE_NOR },
+		};
+
+	setup_pin_mux(camera_cape_pin_mux);
+	setup_pin_mux(gpmc_pin_mux);
+
+	omap_init_gpmc(gpmc_device, sizeof(gpmc_device));
+	gpmc_cssp_init();
+
+	platform_device_register(&cssp_camera);
+
+	printk(KERN_INFO "[cssp_cam platform init]: cssp_gpmc_init: DONE\n");
+}
+
 
 static void lcd3leds_init(int evm_id, int profile )
 {
@@ -2821,6 +3011,7 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 	if (!strncmp("BB-BONE-CAM-01", cape_config.partnumber, 14)) {
 		pr_info("BeagleBone cape: recognized Camera cape\n");
 		beaglebone_w1gpio_free = 0;
+		cssp_gpmc_init();
 	}
 
 	goto out2;
@@ -3729,15 +3920,13 @@ static struct pinmux_config clkout2_pin_mux[] = {
 
 static void __init clkout2_enable(void)
 {
-	struct clk *ck_32;
+	void __iomem *base;
+	unsigned int val;
 
-	ck_32 = clk_get(NULL, "clkout2_ck");
-	if (IS_ERR(ck_32)) {
-		pr_err("Cannot clk_get ck_32\n");
-		return;
-	}
-
-	clk_enable(ck_32);
+	base = ioremap(0x44E00700, SZ_4K);
+	val = (5 << 3) | (3 << 0); //32 MHz
+	writel(val, base);
+	iounmap(base);
 
 	setup_pin_mux(clkout2_pin_mux);
 }

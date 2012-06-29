@@ -968,7 +968,7 @@ static struct event_to_channel_map am33xx_xbar_event_mapping[] = {
 	{27, -1},
 	{28, -1},
 	{29, -1},
-	{30, -1},
+	{30, 20},	/* XDMA_EVENT_INTR2 */
 	{31, -1},
 	{-1, -1}
 };
