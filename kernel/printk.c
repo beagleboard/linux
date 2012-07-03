@@ -1756,6 +1756,13 @@ static int __init console_setup(char *str)
 	char *s, *options, *brl_options = NULL;
 	int idx;
 
+#ifdef CONFIG_SERIAL_OMAP
+	if (!strncmp(str, "tty0", 4) && '0' <= str[4] && '9' >= str[4]) {
+		str[3] = 'O';
+		pr_warn("We are opening your eyes, assuming you want to use an OMAP based serial driver and not a zeroMAP based one! ;)\n");
+		pr_warn("Which means 'tty0%s' was changed to 'ttyO%s' automagically for your pleasure.\n", str+4, str+4);
+	}
+#endif
 #ifdef CONFIG_A11Y_BRAILLE_CONSOLE
 	if (!memcmp(str, "brl,", 4)) {
 		brl_options = "";
