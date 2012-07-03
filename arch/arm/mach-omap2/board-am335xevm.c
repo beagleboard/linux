@@ -2881,8 +2881,10 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 		
 		beaglebone_leds_free = 0;
 		dvileds_init(0,0);
-		beaglebone_spi1_free = 0;
-		mcasp0_init(0,0);
+
+		// Uncomment these for custom DVI capes with audio populated
+		//beaglebone_spi1_free = 0;
+		//mcasp0_init(0,0);
 	
 		if (!strncmp("00A1", cape_config.version, 4) || !strncmp("000A", cape_config.version, 4)) {
 			pr_info("BeagleBone cape: DVI init for revision A1 or older\n");
@@ -2898,6 +2900,32 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 			dvi_init(0,0);
 		}
 	}
+
+	if (!strncmp("BB-BONE-DVID-02", cape_config.partnumber, 15)) {
+		pr_info("BeagleBone cape: initializing DVI+audio cape\n");
+
+		beaglebone_leds_free = 0;
+		dvileds_init(0,0);
+
+		beaglebone_spi1_free = 0;
+		mcasp0_init(0,0);
+	
+		setup_pin_mux(dvia2_pin_mux);
+		gpio_request(BEAGLEBONEDVI_PDn_A2, "DVI_PDn");
+		gpio_direction_output(BEAGLEBONEDVI_PDn_A2, 1);
+		dvi_init(0,0);
+	}
+
+	if (!strncmp("BB-BONE-AUDI-01", cape_config.partnumber, 15)) {
+		pr_info("BeagleBone cape: initializing audio cape\n");
+
+		beaglebone_leds_free = 0;
+		dvileds_init(0,0);
+
+		beaglebone_spi1_free = 0;
+		mcasp0_init(0,0);
+	}
+
 	if (!strncmp("BB-BONE-LCD7-01", cape_config.partnumber, 15)) {
 		pr_info("BeagleBone cape: initializing LCD cape\n");
 
