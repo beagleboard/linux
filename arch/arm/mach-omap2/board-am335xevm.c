@@ -2999,7 +2999,8 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 		pr_info("BeagleBone cape: initializing battery cape\n");
 		// gpio1_6, P9_15 lowbat output
 		// AIN4, P9_33 vbat
-		setup_pin_mux(batterycape_pin_mux);
+		/* LBO doesn't work, so disable it for now
+ 		setup_pin_mux(batterycape_pin_mux);
 		#if defined(CONFIG_CHARGER_GPIO)
 			int err;
 			err = platform_device_register(&beaglebone_charger_device);
@@ -3007,6 +3008,7 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 				pr_err("failed to register BeagleBone battery cape gpio\n");
 		
 		#endif
+		*/
 	}
 	
 	if (!strncmp("BB-BONE-SERL-01", cape_config.partnumber, 15)) {
