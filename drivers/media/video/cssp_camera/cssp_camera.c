@@ -60,6 +60,11 @@ static struct cssp_cam_fmt formats[] = {
 		.depth	= 16,
 		.code	= V4L2_MBUS_FMT_YUYV8_2X8,
 	},
+/*
+ * UYVY doesn't work properly. VYUY and YVYU are not tested.
+ * So disable the UYVY, VYUY and YVYU modes for now
+ */
+#if 0
 	{
 		.name	= "4:2:2, packed, UYVY",
 		.fourcc	= V4L2_PIX_FMT_UYVY,
@@ -78,6 +83,7 @@ static struct cssp_cam_fmt formats[] = {
 		.depth	= 16,
 		.code	= V4L2_MBUS_FMT_YVYU8_2X8,
 	},
+#endif
 	{
 		.name	= "RGB565 (LE)",
 		.fourcc	= V4L2_PIX_FMT_RGB565,
