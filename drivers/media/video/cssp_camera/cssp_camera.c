@@ -191,6 +191,21 @@ static void dma_callback(unsigned lch, u16 ch_status, void *data)
 	if (ch_status == DMA_COMPLETE) {
 		struct vb2_buffer *vb = dev->current_vb;
 		struct timeval ts;
+		struct edmacc_param dma_tr_params;
+
+		edma_read_slot(dev->dma_ch, &dma_tr_params);
+		if ((dma_tr_params.opt != 0) ||
+			(dma_tr_params.src != 0) ||
+			(dma_tr_params.a_b_cnt != 0) ||
+			(dma_tr_params.dst != 0) ||
+			(dma_tr_params.src_dst_bidx != 0) ||
+			(dma_tr_params.link_bcntrld != 0xffff) ||
+			(dma_tr_params.src_dst_cidx != 0) ||
+			(dma_tr_params.ccnt != 0)) {
+
+			trigger_dma_transfer_to_buf(dev, dev->current_vb);
+			return;
+		}
 
 		vb->v4l2_buf.field = dev->field;
 		dev->field_count++;
@@ -204,7 +219,6 @@ static void dma_callback(unsigned lch, u16 ch_status, void *data)
 		/* check if we have new buffer queued */
 		dequeue_buffer_for_dma(dev);
 	} else {
-		printk(KERN_ERR "[cssp_camera]: EDMA error (ch_status = %d)\n", ch_status);
 		/* we got a missed interrupt so just start a new DMA with the existing buffer */
 		if (dev->current_vb != NULL)
 			trigger_dma_transfer_to_buf(dev, dev->current_vb);
