@@ -1895,9 +1895,10 @@ static struct gpmc_timings cssp_timings = {
 	/* Minimum clock period for synchronous mode (in picoseconds) */
 	.sync_clk = 10000,
 
+	/* CS signal timings corresponding to GPMC_CONFIG2 */
 	.cs_on = 0,
-	.cs_rd_off = 23 * 10,		/* Read deassertion time */
-	.cs_wr_off = 23 * 10,		/* Write deassertion time */
+	.cs_rd_off = 8 * 10,		/* Read deassertion time */
+	.cs_wr_off = 20 * 10,		/* Write deassertion time */
 
 	/* ADV signal timings corresponding to GPMC_CONFIG3 */
 	.adv_on = 0,			/* Assertion time */
@@ -1906,17 +1907,17 @@ static struct gpmc_timings cssp_timings = {
 
 	/* WE signals timings corresponding to GPMC_CONFIG4 */
 	.we_on = 3 * 10,		/* WE assertion time */
-	.we_off = 23 * 10,		/* WE deassertion time */
+	.we_off = 8 * 10,		/* WE deassertion time */
 
 	/* OE signals timings corresponding to GPMC_CONFIG4 */
 	.oe_on = 3 * 10,		/* OE assertion time */
-	.oe_off = 23 * 10,		/* OE deassertion time */
+	.oe_off = 8 * 10,		/* OE deassertion time */
 
 	/* Access time and cycle time timings corresponding to GPMC_CONFIG5 */
 	.page_burst_access = 1 * 10,	/* Multiple access word delay */
 	.access = 7 * 10,		/* Start-cycle to first data valid delay */
-	.rd_cycle = 23 * 10,		/* Total read cycle time */
-	.wr_cycle = 23 * 10,		/* Total write cycle time */
+	.rd_cycle = 8 * 10,		/* Total read cycle time */
+	.wr_cycle = 20 * 10,		/* Total write cycle time */
 
 	/* The following are only on OMAP3430 */
 	.wr_access = 7 * 10,		/* WRACCESSTIME */

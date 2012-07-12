@@ -147,7 +147,6 @@ static int trigger_dma_transfer_to_buf(struct cssp_cam_dev *dev, struct vb2_buff
 	// Enable data capture
 	dev->mode |= ENABLE;
 	writew(dev->mode, dev->reg_base_virt + REG_MODE);
-	readw(dev->reg_base_virt + REG_MODE);
 
 	dev->current_vb = vb;
 
@@ -182,7 +181,6 @@ static void dma_callback(unsigned lch, u16 ch_status, void *data)
 	// Disable data capture
 	dev->mode &= ~ENABLE;
 	writew(dev->mode, dev->reg_base_virt + REG_MODE);
-	readw(dev->reg_base_virt + REG_MODE);
 
 	if (ch_status == DMA_COMPLETE) {
 		struct vb2_buffer *vb = dev->current_vb;
@@ -223,7 +221,7 @@ static int configure_edma(struct cssp_cam_dev *cam)
 		return -1;
 	}
 
-	cam->dma_ch = edma_alloc_channel(dma_channel, dma_callback, cam, EVENTQ_1);
+	cam->dma_ch = edma_alloc_channel(dma_channel, dma_callback, cam, EVENTQ_0);
 	if (cam->dma_ch < 0) {
 		printk(KERN_ERR "[%s]: allocating channel for DMA failed\n", pdev->name);
 		return -EBUSY;
@@ -526,7 +524,6 @@ static int stop_streaming(struct vb2_queue *vq)
 	// Disable data capture
 	dev->mode &= ~ENABLE;
 	writew(dev->mode, dev->reg_base_virt + REG_MODE);
-	readw(dev->reg_base_virt + REG_MODE);
 
 	stop_camera_sensor(dev);
 
