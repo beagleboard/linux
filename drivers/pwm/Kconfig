@@ -191,4 +191,15 @@ config PWM_VT8500
 	  To compile this driver as a module, choose M here: the module
 	  will be called pwm-vt8500.
 
+config  EHRPWM_TEST
+	tristate "EHRPWM TEST support"
+	depends on PWM_TIEHRPWM
+
+	help
+	  Test driver support for the EHRPWM PWM driver found on AM33XX
+	  TI SOC
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called pwm_ehrpwm.
+
 endif
