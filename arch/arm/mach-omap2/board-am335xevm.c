@@ -660,6 +660,12 @@ static struct pinmux_config bbtoys7a2_pin_mux[] = {
 	{NULL, 0},
 };
 
+/* Module pin mux for Beagleboardtoys 7" LCD cape */
+static struct pinmux_config bbtoys7a3_pin_mux[] = {
+	{"spi0_sclk.gpio0_2", OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT}, // AVDD_EN
+	{"gpmc_a2.ehrpwm1A", OMAP_MUX_MODE6 | AM33XX_PIN_OUTPUT}, // Backlight
+	{NULL, 0},
+};
 
 static struct pinmux_config w1_gpio_pin_mux[] = {
 	{"gpmc_ad3.gpio1_3",	OMAP_MUX_MODE7 | AM33XX_PIN_INPUT_PULLUP},
@@ -1160,6 +1166,82 @@ static void beaglebone_lcd7_keys_init(int evm_id, int profile)
 	int err;
 	setup_pin_mux(lcd7_keys_pin_mux);
 	err = platform_device_register(&beaglebone_lcd7_keys);
+	if (err)
+		pr_err("failed to register gpio keys for LCD7 cape\n");
+}
+
+/* pinmux for lcd7 keys */
+static struct pinmux_config lcd7a3_keys_pin_mux[] = {
+	{"gpmc_a0.gpio1_16",  OMAP_MUX_MODE7 | AM33XX_PIN_INPUT}, //left
+	{"gpmc_a1.gpio1_17",    OMAP_MUX_MODE7 | AM33XX_PIN_INPUT}, //right
+	{"gpmc_a3.gpio1_19",  OMAP_MUX_MODE7 | AM33XX_PIN_INPUT}, //up
+	{"mcasp0_axr0.gpio3_16",    OMAP_MUX_MODE7 | AM33XX_PIN_INPUT}, //down
+	{"sdpi0_d0.gpio0_3",    OMAP_MUX_MODE7 | AM33XX_PIN_INPUT}, //enter
+	{NULL, 0},
+};
+
+/* Configure GPIOs for lcd7 keys */
+static struct gpio_keys_button beaglebone_lcd7a3_gpio_keys[] = {
+	{
+		.code                   = KEY_LEFT,
+		.gpio                   = GPIO_TO_PIN(1, 16),
+		.active_low             = true,
+		.desc                   = "left",
+		.type                   = EV_KEY,
+		.wakeup                 = 1,
+	},
+	{
+		.code                   = KEY_RIGHT,
+		.gpio                   = GPIO_TO_PIN(1, 17),
+		.active_low             = true,
+		.desc                   = "right",
+		.type                   = EV_KEY,
+		.wakeup                 = 1,
+	},
+	{
+		.code                   = KEY_UP,
+		.gpio                   = GPIO_TO_PIN(1, 19),
+		.active_low             = true,
+		.desc                   = "up",
+		.type                   = EV_KEY,
+		.wakeup                 = 1,
+	},
+	{
+		.code                   = KEY_DOWN,
+		.gpio                   = GPIO_TO_PIN(3, 16),
+		.active_low             = true,
+		.desc                   = "down",
+		.type                   = EV_KEY,
+		.wakeup                 = 1,
+	},
+	{
+		.code                   = KEY_ENTER,
+		.gpio                   = GPIO_TO_PIN(0, 3),
+		.active_low             = true,
+		.desc                   = "enter",
+		.type                   = EV_KEY,
+		.wakeup                 = 1,
+	},
+};
+
+static struct gpio_keys_platform_data beaglebone_lcd7a3_gpio_key_info = {
+	.buttons        = beaglebone_lcd7a3_gpio_keys,
+	.nbuttons       = ARRAY_SIZE(beaglebone_lcd7a3_gpio_keys),
+};
+
+static struct platform_device beaglebone_lcd7a3_keys = {
+	.name   = "gpio-keys",
+	.id     = -1,
+	.dev    = {
+		.platform_data  = &beaglebone_lcd7a3_gpio_key_info,
+	},
+};
+
+static void beaglebone_lcd7a3_keys_init(int evm_id, int profile)
+{
+	int err;
+	setup_pin_mux(lcd7a3_keys_pin_mux);
+	err = platform_device_register(&beaglebone_lcd7a3_keys);
 	if (err)
 		pr_err("failed to register gpio keys for LCD7 cape\n");
 }
@@ -1719,6 +1801,7 @@ static void lcdc_init(int evm_id, int profile)
 
 #define BEAGLEBONE_LCD_AVDD_EN GPIO_TO_PIN(0, 7)
 #define BEAGLEBONE_LCD7A2_AVDD_EN GPIO_TO_PIN(1, 31)
+#define BEAGLEBONE_LCD7A3_AVDD_EN GPIO_TO_PIN(0, 2)
 
 static void bbtoys7lcd_init(int evm_id, int profile)
 {
@@ -2934,6 +3017,10 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 			setup_pin_mux(bbtoys7a2_pin_mux);
 			gpio_request(BEAGLEBONE_LCD7A2_AVDD_EN, "BONE_LCD_AVDD_EN");
 			gpio_direction_output(BEAGLEBONE_LCD7A2_AVDD_EN, 1);
+		} else if(!strncmp("00A3", cape_config.version, 4)) {
+			setup_pin_mux(bbtoys7a3_pin_mux);
+			gpio_request(BEAGLEBONE_LCD7A3_AVDD_EN, "BONE_LCD_AVDD_EN");
+			gpio_direction_output(BEAGLEBONE_LCD7A3_AVDD_EN, 1);			
 		} else {
 			setup_pin_mux(bbtoys7_pin_mux);
 			gpio_request(BEAGLEBONE_LCD_AVDD_EN, "BONE_LCD_AVDD_EN");
@@ -2948,7 +3035,11 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 		enable_ehrpwm1(0,0);
 		beaglebone_tsadcpins_free = 0;
 		pr_info("BeagleBone cape: Registering gpio-keys for LCD cape\n");
-		beaglebone_lcd7_keys_init(0,0);
+		if (!strncmp("00A3", cape_config.version, 4)) {
+			beaglebone_lcd7a3_keys_init(0,0);
+		} else {
+			beaglebone_lcd7_keys_init(0,0);
+		}
 		
 		beaglebone_spi1_free = 0;
 		// A1 or newer
