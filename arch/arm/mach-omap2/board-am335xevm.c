@@ -913,6 +913,7 @@ static struct pinmux_config mmc1_pin_mux[] = {
 	{"gpmc_csn2.mmc1_cmd",	OMAP_MUX_MODE2 | AM33XX_PIN_INPUT_PULLUP},
 	{"gpmc_csn0.gpio1_29",	OMAP_MUX_MODE7 | AM33XX_PIN_INPUT_PULLUP},
 	{"gpmc_advn_ale.mmc1_sdcd", OMAP_MUX_MODE7 | AM33XX_PIN_INPUT_PULLUP},
+	{"uart1_rxd.mmc1_sdwp", OMAP_MUX_MODE1 | AM33XX_PIN_INPUT_PULLDOWN},
 	{NULL, 0},
 };
 
@@ -2627,6 +2628,28 @@ static void mcasp0_init(int evm_id, int profile)
 	return;
 }
 
+static void mmc0_init(int evm_id, int profile)
+{
+	setup_pin_mux(mmc0_pin_mux);
+
+	omap2_hsmmc_init(am335x_mmc);
+	return;
+}
+
+static void emmc_bone_init(int evm_id, int profile)
+{
+	printk("cape: emmc_bone_init\n");
+	setup_pin_mux(mmc1_pin_mux);
+	am335x_mmc[1].mmc = 2;
+	am335x_mmc[1].caps = MMC_CAP_4_BIT_DATA;
+	am335x_mmc[1].nonremovable = true;
+	am335x_mmc[1].gpio_cd = -EINVAL;
+	am335x_mmc[1].gpio_wp = -EINVAL;
+	am335x_mmc[1].ocr_mask = MMC_VDD_32_33 | MMC_VDD_33_34; /* 3V3 */
+	/* mmc will be initialized when mmc0_init is called */
+	return;
+}
+
 static const char* cape_pins[] = {
 /*
   From SRM RevA5.0.1:
@@ -2923,7 +2946,6 @@ static int bone_io_config_from_cape_eeprom( void)
 	RULER( NR_ITEMS( cape_config.muxdata));
 	return 0;
 }
-
 static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context)
 {
 	int ret;
@@ -3102,6 +3124,12 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 		#endif
 		*/
 	}
+
+	if (!strncmp("BB-BONE-eMMC1-01", cape_config.partnumber, 15)) {
+		pr_info("BeagleBone cape: initializing eMMC cape\n");
+		beaglebone_w1gpio_free = 0;
+		emmc_bone_init(0,0);
+	}
 	
 	if (!strncmp("BB-BONE-SERL-01", cape_config.partnumber, 15)) {
 		pr_info("BeagleBone cape: initializing CAN cape\n");
@@ -3147,6 +3175,7 @@ out:
 	beaglebone_cape_detected = false;
 out2:
 	if (capecount > 3) {
+		mmc0_init(0,0);
 		if (beaglebone_tsadcpins_free == 1) {
 			pr_info("BeagleBone cape: exporting ADC pins to sysfs\n");
 			bone_tsc_init(0,0);
@@ -3336,14 +3365,6 @@ static void d_can_init(int evm_id, int profile)
 	default:
 		break;
 	}
-}
-
-static void mmc0_init(int evm_id, int profile)
-{
-	setup_pin_mux(mmc0_pin_mux);
-
-	omap2_hsmmc_init(am335x_mmc);
-	return;
 }
 
 static struct i2c_board_info tps65217_i2c_boardinfo[] = {
@@ -3589,11 +3610,10 @@ static struct evm_dev_cfg beaglebone_old_dev_cfg[] = {
 /* Beaglebone Rev A3 and after */
 static struct evm_dev_cfg beaglebone_dev_cfg[] = {
 	{tps65217_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
+	{i2c2_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
 	{mii1_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
 	{usb0_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
 	{usb1_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
-	{i2c2_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
-	{mmc0_init,	DEV_ON_BASEBOARD, PROFILE_NONE},
 	{NULL, 0, 0},
 };
 
