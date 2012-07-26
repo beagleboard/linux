@@ -3158,7 +3158,7 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 		tt3201_init(0,0);
 	}
 
-	if (!strncmp("BB-BONE-CAM-01", cape_config.partnumber, 14)) {
+	if (!strncmp("BB-BONE-CAM-01", cape_config.partnumber, 14) || !strncmp("BB-BONE-CAM3-01", cape_config.partnumber, 15)) {
 		pr_info("BeagleBone cape: recognized Camera cape\n");
 		beaglebone_w1gpio_free = 0;
 		cssp_gpmc_init();
