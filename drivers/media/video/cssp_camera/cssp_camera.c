@@ -51,6 +51,7 @@
 #define PCLK_POL		BIT(14) /* PCLK polarity (0 - rising edge, 1 - falling edge */
 #define HS_EN			BIT(13) /* High speed bus (0 =< 50 MHz, 1 > 50 MHz) */
 #define ENABLE			BIT(12)
+#define REV			0xFF	/* Chip Revision mask */
 
 
 static struct cssp_cam_fmt formats[] = {
@@ -123,7 +124,7 @@ static int reset_cssp(struct cssp_cam_dev *cam)
 
 	err = configure_gpio(cam->reset_pin, 0, "cssp_reset");
 	if (err) {
-		printk(KERN_ERR "[%s]: failed to configure cssp reset pin\n", pdev->name);
+		dev_err(&pdev->dev, "failed to configure cssp reset pin\n");
 		return -1;
 	}
 
@@ -190,7 +191,6 @@ static void dma_callback(unsigned lch, u16 ch_status, void *data)
 
 	if (ch_status == DMA_COMPLETE) {
 		struct vb2_buffer *vb = dev->current_vb;
-		struct timeval ts;
 		struct edmacc_param dma_tr_params;
 
 		edma_read_slot(dev->dma_ch, &dma_tr_params);
@@ -208,13 +208,10 @@ static void dma_callback(unsigned lch, u16 ch_status, void *data)
 		}
 
 		vb->v4l2_buf.field = dev->field;
-		dev->field_count++;
-		vb->v4l2_buf.sequence = dev->field_count >> 1;
-		do_gettimeofday(&ts);
-		vb->v4l2_buf.timestamp = ts;
+		vb->v4l2_buf.sequence = dev->frame_cnt++;
+		do_gettimeofday(&vb->v4l2_buf.timestamp);
 		vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
 		dev->current_vb = NULL;
-		dev->frame_cnt++;
 
 		/* check if we have new buffer queued */
 		dequeue_buffer_for_dma(dev);
@@ -237,16 +234,16 @@ static int configure_edma(struct cssp_cam_dev *cam)
 	pdev->dev.coherent_dma_mask = (u32)~0;
 
 	if (dma_set_mask(&pdev->dev, (u32)~0)) {
-		printk(KERN_ERR "[%s]: failed setting mask for DMA\n", pdev->name);
+		dev_err(&pdev->dev, "failed setting mask for DMA\n");
 		return -1;
 	}
 
 	cam->dma_ch = edma_alloc_channel(dma_channel, dma_callback, cam, EVENTQ_0);
 	if (cam->dma_ch < 0) {
-		printk(KERN_ERR "[%s]: allocating channel for DMA failed\n", pdev->name);
+		dev_err(&pdev->dev, "allocating channel for DMA failed\n");
 		return -EBUSY;
 	} else {
-		printk(KERN_ERR "[%s]: allocating channel for DMA succeeded, chan=%d\n", pdev->name, cam->dma_ch);
+		dev_info(&pdev->dev, "allocating channel for DMA succeeded, chan=%d\n", cam->dma_ch);
 	}
 
 	cam->dma_tr_params.opt = TCINTEN | TCC(cam->dma_ch);
@@ -273,7 +270,7 @@ static int configure_cssp(struct cssp_cam_dev *cam)
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "gpmc_phys_mem_slot");
 	if (res == NULL) {
-		printk(KERN_ERR "[%s]: failed to get gpmc_phys_mem_slot resource\n", pdev->name);
+		dev_err(&pdev->dev, "failed to get gpmc_phys_mem_slot resource\n");
 		return -ENODEV;
 	}
 
@@ -289,15 +286,16 @@ static int configure_cssp(struct cssp_cam_dev *cam)
 
 	cam->reg_base_virt = (unsigned int)ioremap(cam->reg_base_phys, cam->reg_size);
 	if (cam->reg_base_virt == 0) {
-		printk(KERN_ERR "[%s]: ioremap of registers region failed\n", pdev->name);
+		dev_err(&pdev->dev, "ioremap of registers region failed\n");
 		release_mem_region(cam->reg_base_phys, cam->reg_size);
 		return -ENOMEM;
 	}
 
-	printk(KERN_INFO "[%s]: reg_base_virt = 0x%x\n", pdev->name, cam->reg_base_virt);
+	dev_info(&pdev->dev, "reg_base_virt = 0x%x\n", cam->reg_base_virt);
 
 	val = readw(cam->reg_base_virt + REG_MODE);
-	printk(KERN_INFO "[%s]: reading register address=0x0 returns 0x%x\n", pdev->name, val);
+	cam->rev = val & REV;
+	dev_info(&pdev->dev, "CSSP Revision %c%d\n", 'A' + ((cam->rev & 0xf0) >> 4), cam->rev & 0x0f);
 
 	return 0;
 }
@@ -322,7 +320,7 @@ static int configure_camera_sensor(struct cssp_cam_dev *cam)
 
 	adapter	= i2c_get_adapter(((struct soc_camera_link *)(info->platform_data))->i2c_adapter_id);
 	if (!adapter) {
-		printk(KERN_INFO "[%s]: failed to get adapter...\n", __func__);
+		dev_err(&cam->pdev->dev, "failed to get i2c adapter...\n");
 		return -ENODEV;
 	}
 
@@ -333,7 +331,7 @@ static int configure_camera_sensor(struct cssp_cam_dev *cam)
 		return -ENODEV;
 	}
 
-	printk(KERN_INFO "[%s]: client's name is: %s\n", __func__, client->name);
+	dev_info(&cam->pdev->dev, "client's name is: %s\n", client->name);
 
 	subdev = (struct v4l2_subdev *)i2c_get_clientdata(client);
 	if (subdev == NULL) {
@@ -416,6 +414,8 @@ static int queue_setup(struct vb2_queue *vq, const struct v4l2_format *fmt,
 	sizes[0] = size;
 
 	alloc_ctxs[0] = dev->dma_cont_ctx;
+
+	dev->frame_cnt = 0;
 
 	dprintk(dev, 1, "%s, count=%d, size=%ld\n", __func__, *nbuffers, size);
 
@@ -659,6 +659,20 @@ static int vidioc_try_fmt_vid_cap(struct file *file, void *priv,
 	pix->bytesperline = (pix->width * fmt->depth) >> 3;
 	pix->sizeimage = pix->height * pix->bytesperline;
 
+	if ((pix->sizeimage % BYTES_PER_DMA_EVT) != 0)
+		return -EINVAL;
+
+	switch (mbus_fmt.field) {
+	case V4L2_FIELD_ANY:
+		pix->field = V4L2_FIELD_NONE;
+		break;
+	case V4L2_FIELD_NONE:
+		break;
+	default:
+		dev_err(&dev->pdev->dev, "Field type %d unsupported.\n", mbus_fmt.field);
+		return -EINVAL;
+	}
+
 	return 0;
 }
 
@@ -744,42 +758,29 @@ static int vidioc_log_status(struct file *file, void *priv)
 	return 0;
 }
 
-static int vidioc_s_std(struct file *file, void *priv, v4l2_std_id *i)
-{
-	return 0;
-}
-
-/* only one input in this sample driver */
 static int vidioc_enum_input(struct file *file, void *priv,
 				struct v4l2_input *inp)
 {
-	return -EINVAL;
+	if (inp->index > 0)
+		return -EINVAL;
 
 	inp->type = V4L2_INPUT_TYPE_CAMERA;
-	inp->std = V4L2_STD_525_60;
 	sprintf(inp->name, "Camera %u", inp->index);
+
 	return 0;
 }
 
 static int vidioc_g_input(struct file *file, void *priv, unsigned int *i)
 {
-	struct cssp_cam_dev *dev = video_drvdata(file);
-
-	*i = dev->input;
+	*i = 0;
 
 	return 0;
 }
 
 static int vidioc_s_input(struct file *file, void *priv, unsigned int i)
 {
-	struct cssp_cam_dev *dev = video_drvdata(file);
-
-	return -EINVAL;
-
-	if (i == dev->input)
-		return 0;
-
-	dev->input = i;
+	if (i > 0)
+		return -EINVAL;
 
 	return 0;
 }
@@ -805,7 +806,6 @@ static const struct v4l2_ioctl_ops cssp_cam_ioctl_ops = {
 	.vidioc_querybuf		= vidioc_querybuf,
 	.vidioc_qbuf			= vidioc_qbuf,
 	.vidioc_dqbuf			= vidioc_dqbuf,
-	.vidioc_s_std			= vidioc_s_std,
 	.vidioc_enum_input		= vidioc_enum_input,
 	.vidioc_g_input			= vidioc_g_input,
 	.vidioc_s_input			= vidioc_s_input,
@@ -894,8 +894,6 @@ static struct video_device cssp_cam_template = {
 	.ioctl_ops	= &cssp_cam_ioctl_ops,
 	.minor		= -1,
 	.release	= video_device_release,
-	.tvnorms	= V4L2_STD_525_60,
-	.current_norm	= V4L2_STD_NTSC_M,
 };
 
 static int __init  video_probe(struct cssp_cam_dev *cam_dev)
@@ -1006,12 +1004,12 @@ static int __init  cssp_cam_probe(struct platform_device *pdev)
 
 	cssp_cam_platform_data = (struct cssp_cam_platform_data *) pdev->dev.platform_data;
 	if (cssp_cam_platform_data == NULL) {
-		printk(KERN_ERR "[%s]: missing platform data\n", pdev->name);
+		dev_err(&pdev->dev, "missing platform data\n");
 		return -ENODEV;
 	}
 
 	if (cssp_cam_platform_data->cam_i2c_board_info == NULL) {
-		printk(KERN_ERR "[%s]: missing camera i2c board info\n", pdev->name);
+		dev_err(&pdev->dev, "missing camera i2c board info\n");
 		return -ENODEV;
 	}
 
@@ -1027,7 +1025,7 @@ static int __init  cssp_cam_probe(struct platform_device *pdev)
 	cam_dev->camera_clk = clk_get(&pdev->dev, cssp_cam_platform_data->cam_clk_name);
 	if (IS_ERR(cam_dev->camera_clk)) {
 		ret = PTR_ERR(cam_dev->camera_clk);
-		printk(KERN_ERR "[%s]: cannot clk_get %s\n", pdev->name, cssp_cam_platform_data->cam_clk_name);
+		dev_err(&pdev->dev, "cannot clk_get %s\n", cssp_cam_platform_data->cam_clk_name);
 		goto fail0;
 	}
 
@@ -1043,7 +1041,7 @@ static int __init  cssp_cam_probe(struct platform_device *pdev)
 
 	ret = configure_camera_sensor(cam_dev);
 	if (ret) {
-		printk(KERN_ERR "[%s]: camera sensor configuration failed\n", pdev->name);
+		dev_err(&pdev->dev, "camera sensor configuration failed\n");
 		goto fail3;
 	}
 
@@ -1097,7 +1095,7 @@ static int cssp_cam_remove(struct platform_device *pdev)
 
 	kfree(cam);
 
-	printk(KERN_INFO "[%s]: removed\n", pdev->name);
+	dev_info(&pdev->dev, "removed\n");
 
 	return 0;
 }
@@ -1112,20 +1110,8 @@ static struct platform_driver cssp_cam_driver = {
 	},
 };
 
+module_platform_driver(cssp_cam_driver);
 
-static int __init cssp_cam_init(void)
-{
-	return platform_driver_register(&cssp_cam_driver);
-}
-
-static void __exit cssp_cam_exit(void)
-{
-	platform_driver_unregister(&cssp_cam_driver);
-}
-
-
-module_init(cssp_cam_init);
-module_exit(cssp_cam_exit);
 
 /*
  * Macros sets license, author and description

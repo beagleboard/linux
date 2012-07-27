@@ -111,9 +111,6 @@ struct cssp_cam_dev {
 	int				streaming_started;
 	struct vb2_buffer		*current_vb;
 
-	/* Input Number */
-	int				input;
-
 	/* video capture */
 	struct cssp_cam_fmt		*fmt;
 	u32				width;
@@ -123,8 +120,6 @@ struct cssp_cam_dev {
 	enum v4l2_colorspace		colorspace;
 	struct vb2_queue		vb_vidq;
 	enum v4l2_field			field;
-	unsigned int			field_count;
-
 
 	/* Camera Sensor */
 	struct i2c_board_info		*camera_board_info;
@@ -142,6 +137,8 @@ struct cssp_cam_dev {
 	int				frame_cnt;
 
 	int				reset_pin;
+
+	int				rev;
 };
 
 
