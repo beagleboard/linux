@@ -2951,24 +2951,6 @@ static struct omap_hwmod_ocp_if am33xx_l4_ls__mcasp0 = {
 	.user		= OCP_USER_MPU,
 };
 
-/* l3 s -> mcasp0 data */
-static struct omap_hwmod_addr_space am33xx_mcasp0_data_addr_space[] = {
-	{
-		.pa_start	= 0x46000000,
-		.pa_end		= 0x46000000 + SZ_4M - 1,
-		.flags		= ADDR_TYPE_RT
-	},
-	{ }
-};
-
-static struct omap_hwmod_ocp_if am33xx_l3_s__mcasp0_data = {
-	.master		= &am33xx_l3_s_hwmod,
-	.slave		= &am33xx_mcasp0_hwmod,
-	.clk		= "l3s_gclk",
-	.addr		= am33xx_mcasp0_data_addr_space,
-	.user		= OCP_USER_SDMA,
-};
-
 /* l4 ls -> mcasp1 */
 static struct omap_hwmod_addr_space am33xx_mcasp1_addr_space[] = {
 	{
@@ -2985,24 +2967,6 @@ static struct omap_hwmod_ocp_if am33xx_l4_ls__mcasp1 = {
 	.clk		= "l4ls_gclk",
 	.addr		= am33xx_mcasp1_addr_space,
 	.user		= OCP_USER_MPU,
-};
-
-/* l3 s -> mcasp1 data */
-static struct omap_hwmod_addr_space am33xx_mcasp1_data_addr_space[] = {
-	{
-		.pa_start	= 0x46400000,
-		.pa_end		= 0x46400000 + SZ_4M - 1,
-		.flags		= ADDR_TYPE_RT
-	},
-	{ }
-};
-
-static struct omap_hwmod_ocp_if am33xx_l3_s__mcasp1_data = {
-	.master		= &am33xx_l3_s_hwmod,
-	.slave		= &am33xx_mcasp1_hwmod,
-	.clk		= "l3s_gclk",
-	.addr		= am33xx_mcasp1_data_addr_space,
-	.user		= OCP_USER_SDMA,
 };
 
 /* l4 ls -> mmc0 */
@@ -3525,9 +3489,7 @@ static struct omap_hwmod_ocp_if *am33xx_hwmod_ocp_ifs[] __initdata = {
 	&am33xx_l4_per__i2c3,
 	&am33xx_l4_per__mailbox,
 	&am33xx_l4_ls__mcasp0,
-	&am33xx_l3_s__mcasp0_data,
 	&am33xx_l4_ls__mcasp1,
-	&am33xx_l3_s__mcasp1_data,
 	&am33xx_l4_ls__mmc0,
 	&am33xx_l4_ls__mmc1,
 	&am33xx_l3_s__mmc2,
