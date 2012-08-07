@@ -729,12 +729,6 @@ static struct omap_hwmod am33xx_ehrpwm0_hwmod = {
 	.class		= &am33xx_epwmss_hwmod_class,
 	.main_clk	= "epwmss0_fck",
 	.clkdm_name	= "l4ls_clkdm",
-	.prcm		= {
-		.omap4	= {
-			.clkctrl_offs	= AM33XX_CM_PER_EPWMSS0_CLKCTRL_OFFSET,
-			.modulemode	= MODULEMODE_SWCTRL,
-		},
-	},
 	.slaves		= am33xx_ehrpwm0_slaves,
 	.slaves_cnt	= ARRAY_SIZE(am33xx_ehrpwm0_slaves),
 	.opt_clks	= ehrpwm0_opt_clks,
@@ -787,12 +781,6 @@ static struct omap_hwmod am33xx_ehrpwm1_hwmod = {
 	.class		= &am33xx_epwmss_hwmod_class,
 	.main_clk	= "epwmss1_fck",
 	.clkdm_name	= "l4ls_clkdm",
-	.prcm		= {
-		.omap4	= {
-			.clkctrl_offs	= AM33XX_CM_PER_EPWMSS1_CLKCTRL_OFFSET,
-			.modulemode	= MODULEMODE_SWCTRL,
-		},
-	},
 	.slaves		= am33xx_ehrpwm1_slaves,
 	.slaves_cnt	= ARRAY_SIZE(am33xx_ehrpwm1_slaves),
 	.opt_clks	= ehrpwm1_opt_clks,
@@ -845,12 +833,6 @@ static struct omap_hwmod am33xx_ehrpwm2_hwmod = {
 	.class		= &am33xx_epwmss_hwmod_class,
 	.main_clk	= "epwmss2_fck",
 	.clkdm_name	= "l4ls_clkdm",
-	.prcm		= {
-		.omap4	= {
-			.clkctrl_offs	= AM33XX_CM_PER_EPWMSS2_CLKCTRL_OFFSET,
-			.modulemode	= MODULEMODE_SWCTRL,
-		},
-	},
 	.slaves		= am33xx_ehrpwm2_slaves,
 	.slaves_cnt	= ARRAY_SIZE(am33xx_ehrpwm2_slaves),
 	.opt_clks	= ehrpwm2_opt_clks,
@@ -898,12 +880,6 @@ static struct omap_hwmod am33xx_ecap0_hwmod = {
 	.class		= &am33xx_epwmss_hwmod_class,
 	.main_clk	= "epwmss0_fck",
 	.clkdm_name	= "l4ls_clkdm",
-	.prcm		= {
-		.omap4	= {
-			.clkctrl_offs	= AM33XX_CM_PER_EPWMSS0_CLKCTRL_OFFSET,
-			.modulemode	= MODULEMODE_SWCTRL,
-		},
-	},
 	.slaves		= am33xx_ecap0_slaves,
 	.slaves_cnt	= ARRAY_SIZE(am33xx_ecap0_slaves),
 };
@@ -949,12 +925,6 @@ static struct omap_hwmod am33xx_ecap1_hwmod = {
 	.class		= &am33xx_epwmss_hwmod_class,
 	.main_clk	= "epwmss1_fck",
 	.clkdm_name	= "l4ls_clkdm",
-	.prcm		= {
-		.omap4	= {
-			.clkctrl_offs	= AM33XX_CM_PER_EPWMSS1_CLKCTRL_OFFSET,
-			.modulemode	= MODULEMODE_SWCTRL,
-		},
-	},
 	.slaves		= am33xx_ecap1_slaves,
 	.slaves_cnt	= ARRAY_SIZE(am33xx_ecap1_slaves),
 };
@@ -1000,12 +970,6 @@ static struct omap_hwmod am33xx_ecap2_hwmod = {
 	.class		= &am33xx_epwmss_hwmod_class,
 	.clkdm_name	= "l4ls_clkdm",
 	.main_clk	= "epwmss2_fck",
-	.prcm		= {
-		.omap4	= {
-			.clkctrl_offs	= AM33XX_CM_PER_EPWMSS2_CLKCTRL_OFFSET,
-			.modulemode	= MODULEMODE_SWCTRL,
-		},
-	},
 	.slaves		= am33xx_ecap2_slaves,
 	.slaves_cnt	= ARRAY_SIZE(am33xx_ecap2_slaves),
 };
