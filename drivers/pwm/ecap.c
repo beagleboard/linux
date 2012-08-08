@@ -77,7 +77,7 @@ static int ecap_pwm_stop(struct pwm_device *p)
 
 	spin_lock_irqsave(&ep->lock, flags);
 	v = readw(ep->mmio_base + CAPTURE_CTRL2_REG);
-	v &= ~ECTRL2_CTRSTP_FREERUN;
+	v &= ~(ECTRL2_CTRSTP_FREERUN | ECTRL2_MDSL_ECAP);
 	writew(v, ep->mmio_base + CAPTURE_CTRL2_REG);
 	spin_unlock_irqrestore(&ep->lock, flags);
 
@@ -103,7 +103,7 @@ static int ecap_pwm_start(struct pwm_device *p)
 
 	spin_lock_irqsave(&ep->lock, flags);
 	v = readw(ep->mmio_base + CAPTURE_CTRL2_REG);
-	v |= ECTRL2_CTRSTP_FREERUN;
+	v |= (ECTRL2_CTRSTP_FREERUN | ECTRL2_MDSL_ECAP);
 	writew(v, ep->mmio_base + CAPTURE_CTRL2_REG);
 	spin_unlock_irqrestore(&ep->lock, flags);
 	set_bit(FLAG_RUNNING, &p->flags);
