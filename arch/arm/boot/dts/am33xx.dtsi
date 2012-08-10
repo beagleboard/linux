@@ -684,6 +684,9 @@
 			reg = <0x48038000 0x2000>;
 			interrupts = <80 81>;
 			status = "disabled";
+			asp-chan-q = <2>;	/* EVENTQ_2 */
+			tx-dma-offset = <0x46000000>;
+			rx-dma-offset = <0x46000000>;
 		};
 
 		mcasp1: mcasp@4803C000 {
@@ -694,6 +697,9 @@
 			reg = <0x4803C000 0x2000>;
 			interrupts = <82 83>;
 			status = "disabled";
+			asp-chan-q = <2>;	/* EVENTQ_2 */
+			tx-dma-offset = <0x46400000>;
+			rx-dma-offset = <0x46400000>;
 		};
 
 	};
