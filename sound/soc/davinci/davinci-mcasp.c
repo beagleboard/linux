@@ -1048,6 +1048,22 @@ static struct snd_platform_data *davinci_mcasp_set_pdata_from_of(
 		pdata->serial_dir = of_serial_dir;
 	}
 
+	ret = of_property_read_u32(np, "asp-chan-q", &pdata->asp_chan_q);
+	if (ret < 0)
+		goto nodata;
+
+	ret = of_property_read_u32(np, "ram-chan-q", &val);
+	if (ret >= 0)
+		pdata->ram_chan_q = val;
+
+	ret = of_property_read_u32(np, "tx-dma-offset",	&pdata->tx_dma_offset);
+	if (ret < 0)
+		goto nodata;
+
+	ret = of_property_read_u32(np, "rx-dma-offset",	&pdata->rx_dma_offset);
+	if (ret < 0)
+		goto nodata;
+
 	ret = of_property_read_u32(np, "tx-num-evt", &val);
 	if (ret >= 0)
 		pdata->txnumevt = val;
@@ -1147,7 +1163,10 @@ static int davinci_mcasp_probe(struct platform_device *pdev)
 	dma_data->ram_chan_q = pdata->ram_chan_q;
 	dma_data->sram_pool = pdata->sram_pool;
 	dma_data->sram_size = pdata->sram_size_playback;
-	dma_data->dma_addr = (dma_addr_t) (pdata->tx_dma_offset +
+	if (dev->version == MCASP_VERSION_3)
+		dma_data->dma_addr = (dma_addr_t) (pdata->tx_dma_offset);
+	else
+		dma_data->dma_addr = (dma_addr_t) (pdata->tx_dma_offset +
 							mem->start);
 
 	/* first TX, then RX */
@@ -1165,7 +1184,10 @@ static int davinci_mcasp_probe(struct platform_device *pdev)
 	dma_data->ram_chan_q = pdata->ram_chan_q;
 	dma_data->sram_pool = pdata->sram_pool;
 	dma_data->sram_size = pdata->sram_size_capture;
-	dma_data->dma_addr = (dma_addr_t)(pdata->rx_dma_offset +
+	if (dev->version == MCASP_VERSION_3)
+		dma_data->dma_addr = (dma_addr_t) (pdata->rx_dma_offset);
+	else
+		dma_data->dma_addr = (dma_addr_t)(pdata->rx_dma_offset +
 							mem->start);
 
 	res = platform_get_resource(pdev, IORESOURCE_DMA, 1);
