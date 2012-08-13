@@ -3165,6 +3165,12 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 		cssp_gpmc_init();
 	}
 
+	if (!strncmp("BB-BONE-MOTOR-01", cape_config.partnumber, 16)) {
+		pr_info("BeagleBone cape: initializing Motor cape\n");
+		beaglebone_w1gpio_free = 0;
+		beaglebone_spi1_free = 0;
+        }
+
 	goto out2;
 out:
 	/*
