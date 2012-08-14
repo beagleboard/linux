@@ -1284,8 +1284,8 @@ static int ehrpwm_pwm_config(struct pwm_device *p,
 		break;
 
 	case BIT(PWM_CONFIG_POLARITY):
+		/* Polarity configuration done from pwm_start */
 		p->active_high = c->polarity;
-		ret = ehrpwm_pwm_set_pol(p);
 		break;
 
 	case BIT(PWM_CONFIG_START):
