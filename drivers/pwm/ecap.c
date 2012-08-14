@@ -131,16 +131,13 @@ static int ecap_pwm_set_polarity(struct pwm_device *p, char pol)
 
 static int ecap_pwm_config_period(struct pwm_device *p)
 {
-	unsigned long flags, v;
+	unsigned long flags;
 	struct ecap_pwm *ep = to_ecap_pwm(p);
 
 	 pm_runtime_get_sync(ep->dev);
 
 	spin_lock_irqsave(&ep->lock, flags);
 	writel((p->period_ticks) - 1, ep->mmio_base + CAPTURE_3_REG);
-	v = readw(ep->mmio_base + CAPTURE_CTRL2_REG);
-	v |= (ECTRL2_MDSL_ECAP | ECTRL2_SYNCOSEL_MASK);
-	writew(v, ep->mmio_base + CAPTURE_CTRL2_REG);
 	spin_unlock_irqrestore(&ep->lock, flags);
 
 	pm_runtime_put_sync(ep->dev);
@@ -166,6 +163,12 @@ static int ecap_pwm_config_duty(struct pwm_device *p)
 		writel(0, ep->mmio_base + TIMER_CTR_REG);
 	}
 	spin_unlock_irqrestore(&ep->lock, flags);
+
+	if (!pwm_is_running(p)) {
+		v = readw(ep->mmio_base + CAPTURE_CTRL2_REG);
+		v &= ~ECTRL2_MDSL_ECAP;
+		writew(v, ep->mmio_base + CAPTURE_CTRL2_REG);
+	}
 
 	pm_runtime_put_sync(ep->dev);
 	return 0;
