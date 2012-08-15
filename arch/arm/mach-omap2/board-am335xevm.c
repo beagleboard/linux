@@ -846,6 +846,7 @@ static struct pinmux_config gpmc_pin_mux[] = {
 static struct pinmux_config camera_cape_pin_mux[] = {
 	{"spi0_d1.gpio0_4",    OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT },		// QL CSSP and Camera Sensor Reset
 	{"spi0_cs0.gpio0_5",   OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT_PULLUP },	// 1V8 and 2V8 Power Enable
+	{"gpmc_csn1.gpio0_30",   OMAP_MUX_MODE7 | AM33XX_PIN_INPUT},		// Sensor orientation detect: low -> frontfacing, high -> backfacing
 	{NULL, 0},
 };
 
@@ -2065,8 +2066,8 @@ static void cssp_gpmc_init(void)
 			{ NULL, GPMC_DEVICE_NOR },
 		};
 
-	setup_pin_mux(camera_cape_pin_mux);
 	setup_pin_mux(gpmc_pin_mux);
+	setup_pin_mux(camera_cape_pin_mux);
 
 	omap_init_gpmc(gpmc_device, sizeof(gpmc_device));
 	gpmc_cssp_init();
