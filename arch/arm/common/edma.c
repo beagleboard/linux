@@ -25,7 +25,7 @@
 #include <linux/io.h>
 #include <linux/slab.h>
 
-#include <mach/edma.h>
+#include <linux/platform_data/edma.h>
 
 /* Offsets matching "struct edmacc_param" */
 #define PARM_OPT		0x00
@@ -1390,7 +1390,7 @@ EXPORT_SYMBOL(edma_clear_event);
 
 /*-----------------------------------------------------------------------*/
 
-static int __init edma_probe(struct platform_device *pdev)
+static int edma_probe(struct platform_device *pdev)
 {
 	struct edma_soc_info	**info = pdev->dev.platform_data;
 	const s8		(*queue_priority_mapping)[2];
@@ -1588,4 +1588,3 @@ static int __init edma_init(void)
 	return platform_driver_probe(&edma_driver, edma_probe);
 }
 arch_initcall(edma_init);
-

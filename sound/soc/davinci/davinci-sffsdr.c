@@ -17,6 +17,7 @@
 #include <linux/timer.h>
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
+#include <linux/platform_data/edma.h>
 #include <linux/gpio.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
@@ -28,7 +29,6 @@
 #include <asm/plat-sffsdr/sffsdr-fpga.h>
 #endif
 
-#include <mach/edma.h>
 
 #include "../codecs/pcm3008.h"
 #include "davinci-pcm.h"
@@ -123,8 +123,8 @@ static struct resource sffsdr_snd_resources[] = {
 };
 
 static struct evm_snd_platform_data sffsdr_snd_data = {
-	.tx_dma_ch	= DAVINCI_DMA_MCBSP_TX,
-	.rx_dma_ch	= DAVINCI_DMA_MCBSP_RX,
+	.tx_dma_ch	= 2,	/* MCBSP_TX */
+	.rx_dma_ch	= 3,	/* MCBSP_RX */
 };
 
 static struct platform_device *sffsdr_snd_device;
