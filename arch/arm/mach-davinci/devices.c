@@ -19,9 +19,10 @@
 #include <mach/irqs.h>
 #include <mach/cputype.h>
 #include <mach/mux.h>
-#include <mach/edma.h>
 #include <linux/platform_data/mmc-davinci.h>
 #include <mach/time.h>
+#include <linux/platform_data/edma.h>
+
 
 #include "davinci.h"
 #include "clock.h"
@@ -141,10 +142,10 @@ static struct resource mmcsd0_resources[] = {
 	},
 	/* DMA channels: RX, then TX */
 	{
-		.start = EDMA_CTLR_CHAN(0, DAVINCI_DMA_MMCRXEVT),
+		.start = EDMA_CTLR_CHAN(0, 26),	/* MMCRXEVT */
 		.flags = IORESOURCE_DMA,
 	}, {
-		.start = EDMA_CTLR_CHAN(0, DAVINCI_DMA_MMCTXEVT),
+		.start = EDMA_CTLR_CHAN(0, 27),	/* MMCTXEVT */
 		.flags = IORESOURCE_DMA,
 	},
 };
