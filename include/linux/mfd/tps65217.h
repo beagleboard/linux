@@ -209,6 +209,27 @@ enum tps65217_regulator_id {
 #define TPS65217_NUM_LDO		4
 /* Number of total regulators available */
 #define TPS65217_NUM_REGULATOR		(TPS65217_NUM_DCDC + TPS65217_NUM_LDO)
+/* Number of subdevices (regulators + backlight) */
+#define TPS65217_NUM_SUBDEVS		(TPS65217_NUM_REGULATOR + 1)
+/* Index of the backlight subdevice */
+#define TPS65217_SUBDEV_BL		TPS65217_NUM_REGULATOR
+
+enum tps65217_bl_isel {
+	TPS65217_BL_ISET1 = 1,
+	TPS65217_BL_ISET2 = 2,
+};
+
+enum tps65217_bl_fdim {
+	TPS65217_BL_FDIM_100HZ,
+	TPS65217_BL_FDIM_200HZ,
+	TPS65217_BL_FDIM_500HZ,
+	TPS65217_BL_FDIM_1000HZ,
+};
+
+struct tps65217_bl_pdata {
+	enum tps65217_bl_isel isel;
+	enum tps65217_bl_fdim fdim;
+};
 
 /**
  * struct tps65217_board - packages regulator init data
@@ -218,6 +239,8 @@ enum tps65217_regulator_id {
  */
 struct tps65217_board {
 	struct regulator_init_data *tps65217_init_data;
+	struct device_node *of_node[TPS65217_NUM_SUBDEVS];
+	struct tps65217_bl_pdata *bl_pdata;
 };
 
 /**
@@ -264,6 +287,7 @@ struct tps65217 {
 
 	/* Client devices */
 	struct platform_device *regulator_pdev[TPS65217_NUM_REGULATOR];
+	struct platform_device *bl_pdev;
 };
 
 static inline struct tps65217 *dev_to_tps65217(struct device *dev)

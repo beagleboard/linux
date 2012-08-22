@@ -350,6 +350,13 @@ config BACKLIGHT_TLC59108
 	  If you have an LCD Panel with backlight control via TLC59108,
 	  say Y to enable its LCD control driver.
 
+config BACKLIGHT_TPS65217
+	tristate "Backlight driver for TI TPS65217 using WLED"
+	depends on BACKLIGHT_CLASS_DEVICE && MFD_TPS65217
+	help
+	  If you have a Texas Instruments TPS65217 say Y to enable the
+	  backlight driver.
+
 endif # BACKLIGHT_CLASS_DEVICE
 
 endif # BACKLIGHT_LCD_SUPPORT

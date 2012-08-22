@@ -189,7 +189,32 @@ static int __devinit tps65217_probe(struct i2c_client *client,
 		platform_device_add(pdev);
 	}
 
+	if (pdata->bl_pdata || pdata->of_node[TPS65217_SUBDEV_BL]) {
+		tps->bl_pdev = platform_device_alloc("tps65217-bl", 0);
+		if (!tps->bl_pdev) {
+			dev_err(tps->dev, "Cannot create backlight platform device\n");
+			ret = -ENOMEM;
+			goto err_alloc_bl_pdev;
+		}
+
+		tps->bl_pdev->dev.parent = tps->dev;
+
+		if (pdata->bl_pdata)
+			tps->bl_pdev->dev.platform_data = pdata->bl_pdata;
+		else
+			tps->bl_pdev->dev.of_node =
+				pdata->of_node[TPS65217_SUBDEV_BL];
+
+		platform_device_add(tps->bl_pdev);
+	}
+
 	return 0;
+
+err_alloc_bl_pdev:
+	for (i = 0; i < TPS65217_NUM_REGULATOR; i++)
+		platform_device_unregister(tps->regulator_pdev[i]);
+
+	return ret;
 
 err_regmap:
 	regmap_exit(tps->regmap);
@@ -201,6 +226,9 @@ static int __devexit tps65217_remove(struct i2c_client *client)
 {
 	struct tps65217 *tps = i2c_get_clientdata(client);
 	int i;
+
+	if (tps->bl_pdev)
+		platform_device_unregister(tps->bl_pdev);
 
 	for (i = 0; i < TPS65217_NUM_REGULATOR; i++)
 		platform_device_unregister(tps->regulator_pdev[i]);
