@@ -35,6 +35,7 @@
 #include <linux/edma.h>
 #include <linux/mmc/mmc.h>
 
+#include <linux/platform_data/edma.h>
 #include <linux/platform_data/mmc-davinci.h>
 
 /*
