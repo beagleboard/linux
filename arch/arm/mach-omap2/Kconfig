@@ -120,6 +120,9 @@ config SOC_AM33XX
 	select CPU_V7
 	select MULTI_IRQ_HANDLER
 	select COMMON_CLK
+	select MACH_AM335XEVM
+	select MACH_AM335XIAEVM
+	select MACH_TAM335X
 
 config OMAP_PACKAGE_ZAF
        bool
