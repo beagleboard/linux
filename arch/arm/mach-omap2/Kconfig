@@ -35,6 +35,9 @@ config ARCH_OMAP2
 	default y
 	select CPU_V6
 	select MULTI_IRQ_HANDLER
+	select MACH_AM335XEVM
+	select MACH_AM335XIAEVM
+	select MACH_TAM335X
 	select SOC_HAS_OMAP2_SDRC
 	select COMMON_CLK
 
@@ -152,6 +155,15 @@ config MACH_OMAP_GENERIC
 	help
 	  Support for generic TI OMAP2+ boards using Flattened Device Tree.
 	  More information at Documentation/devicetree
+
+config MACH_AM335XEVM
+       bool
+
+config MACH_AM335XIAEVM
+       bool
+
+config MACH_TAM335X
+       bool
 
 config MACH_OMAP2_TUSB6010
 	bool
