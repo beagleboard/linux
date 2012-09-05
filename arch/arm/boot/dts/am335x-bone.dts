@@ -85,12 +85,14 @@
 			led0 {
 				label = "beaglebone:green:usr0";
 				gpios = <&gpio2 21 0>;
+				linux,default-trigger = "heartbeat";
 				default-state = "off";
 			};
 
 			led1 {
 				label = "beaglebone:green:usr1";
 				gpios = <&gpio2 22 0>;
+				linux,default-trigger = "mmc0";
 				default-state = "off";
 			};
 
