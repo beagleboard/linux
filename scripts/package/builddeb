@@ -25,44 +25,8 @@ create_package() {
 	chown -R root:root "$pdir"
 	chmod -R go-w "$pdir"
 
-	# Attempt to find the correct Debian architecture
-	local forcearch="" debarch=""
-	case "$UTS_MACHINE" in
-	i386|ia64|alpha)
-		debarch="$UTS_MACHINE" ;;
-	x86_64)
-		debarch=amd64 ;;
-	sparc*)
-		debarch=sparc ;;
-	s390*)
-		debarch=s390 ;;
-	ppc*)
-		debarch=powerpc ;;
-	parisc*)
-		debarch=hppa ;;
-	mips*)
-		debarch=mips$(grep -q CPU_LITTLE_ENDIAN=y .config && echo el) ;;
-	arm*)
-		debarch=arm$(grep -q CONFIG_AEABI=y .config && echo el) ;;
-	*)
-		echo "" >&2
-		echo "** ** **  WARNING  ** ** **" >&2
-		echo "" >&2
-		echo "Your architecture doesn't have it's equivalent" >&2
-		echo "Debian userspace architecture defined!" >&2
-		echo "Falling back to using your current userspace instead!" >&2
-		echo "Please add support for $UTS_MACHINE to ${0} ..." >&2
-		echo "" >&2
-	esac
-	if [ -n "$KBUILD_DEBARCH" ] ; then
-		debarch="$KBUILD_DEBARCH"
-	fi
-	if [ -n "$debarch" ] ; then
-		forcearch="-DArchitecture=$debarch"
-	fi
-
 	# Create the package
-	dpkg-gencontrol -isp $forcearch -p$pname -P"$pdir"
+	dpkg-gencontrol -p$pname -P"$pdir"
 	dpkg --build "$pdir" ..
 }
 
@@ -82,6 +46,38 @@ packagename=linux-image-$version
 fwpackagename=linux-firmware-image
 kernel_headers_packagename=linux-headers-$version
 libc_headers_packagename=linux-libc-dev
+
+# Attempt to find the correct Debian architecture
+case "$UTS_MACHINE" in
+i386|ia64|alpha)
+	debarch="$UTS_MACHINE" ;;
+x86_64)
+	debarch=amd64 ;;
+sparc*)
+	debarch=sparc ;;
+s390*)
+	debarch=s390 ;;
+ppc*)
+	debarch=powerpc ;;
+parisc*)
+	debarch=hppa ;;
+mips*)
+	debarch=mips$(grep -q CPU_LITTLE_ENDIAN=y .config && echo el) ;;
+arm*)
+	debarch=arm$(grep -q CONFIG_AEABI=y .config && echo el) ;;
+*)
+	echo "" >&2
+	echo "** ** **  WARNING  ** ** **" >&2
+	echo "" >&2
+	echo "Your architecture doesn't have it's equivalent" >&2
+	echo "Debian userspace architecture defined!" >&2
+	echo "Falling back to using your current userspace instead!" >&2
+	echo "Please add support for $UTS_MACHINE to ${0} ..." >&2
+	echo "" >&2
+esac
+if [ -n "$KBUILD_DEBARCH" ] ; then
+	debarch="$KBUILD_DEBARCH"
+fi
 
 if [ "$ARCH" = "um" ] ; then
 	packagename=user-mode-linux-$version
@@ -234,8 +230,8 @@ else
 Package: $packagename
 Provides: linux-image, linux-image-2.6, linux-modules-$version
 Suggests: $fwpackagename
-Architecture: any
-Description: Linux kernel, version $version
+Architecture: $debarch
+Description: Linux kernel, version $version on $debarch
  This package contains the Linux kernel, modules and corresponding other
  files, version: $version.
 EOF
@@ -252,15 +248,14 @@ mkdir -p "$destdir"
 (cd $objtree; tar -c -f - -T "$objtree/debian/hdrobjfiles") | (cd $destdir; tar -xf -)
 ln -sf "/usr/src/linux-headers-$version" "$kernel_headers_dir/lib/modules/$version/build"
 rm -f "$objtree/debian/hdrsrcfiles" "$objtree/debian/hdrobjfiles"
-arch=$(dpkg --print-architecture)
 
 cat <<EOF >> debian/control
 
 Package: $kernel_headers_packagename
+Architecture: $debarch
 Provides: linux-headers, linux-headers-2.6
-Architecture: $arch
-Description: Linux kernel headers for $KERNELRELEASE on $arch
- This package provides kernel header files for $KERNELRELEASE on $arch
+Description: Linux kernel headers for $KERNELRELEASE on $debarch
+ This package provides kernel header files for $KERNELRELEASE on $debarch
  .
  This is useful for people who need to build external modules
 EOF
