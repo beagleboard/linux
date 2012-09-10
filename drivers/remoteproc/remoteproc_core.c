@@ -994,7 +994,8 @@ static void rproc_fw_config_virtio(const struct firmware *fw, void *context)
 
 	/* count the number of notify-ids */
 	rproc->max_notifyid = -1;
-	ret = rproc_handle_resources(rproc, tablesz, rproc_count_vrings_handler);
+	ret = rproc_handle_resources(rproc, tablesz,
+						rproc_count_vrings_handler);
 	if (ret)
 		goto out;
 
