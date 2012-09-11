@@ -4,6 +4,7 @@ This isn't an exhaustive list, but you should add new prefixes to it before
 using them to avoid name-space collisions.
 
 ad	Avionic Design GmbH
+adafruit	Adafruit Industries
 adi	Analog Devices, Inc.
 ak	Asahi Kasei Corp.
 amcc	Applied Micro Circuits Corporation (APM, formally AMCC)
@@ -48,6 +49,7 @@ schindler	Schindler
 sil	Silicon Image
 simtek
 sirf	SiRF Technology, Inc.
+sitronix Sitronix Technology Corp.
 snps 	Synopsys, Inc.
 st	STMicroelectronics
 stericsson	ST-Ericsson
