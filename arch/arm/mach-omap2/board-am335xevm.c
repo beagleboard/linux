@@ -524,6 +524,7 @@ static bool beaglebone_tsadcpins_free = 1;
 static bool beaglebone_leds_free = 1;
 static bool beaglebone_spi1_free = 1;
 static bool beaglebone_w1gpio_free = 1;
+static bool beaglebone_skip_mmc0_init = 0;
 
 #define GP_EVM_REV_IS_1_0		0x1
 #define GP_EVM_REV_IS_1_0A		0x1
@@ -3182,7 +3183,10 @@ out:
 	beaglebone_cape_detected = false;
 out2:
 	if (capecount > 3) {
-		mmc0_init(0,0);
+		if (beaglebone_skip_mmc0_init == 0 ) {
+			pr_info("BeagleBone cape: initializing mmc");
+			mmc0_init(0,0);
+		}
 		if (beaglebone_tsadcpins_free == 1) {
 			pr_info("BeagleBone cape: exporting ADC pins to sysfs\n");
 			bone_tsc_init(0,0);
