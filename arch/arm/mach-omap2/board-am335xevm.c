@@ -3156,6 +3156,11 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 	}
 	
 	if (!strncmp("TT3201-001", cape_config.partnumber, 10)) {
+		beaglebone_skip_mmc0_init = 1;
+
+		pr_info("BeagleBone cape: initializing mmc");
+		mmc0_init(0,0);
+
 		pr_info("BeagleBone cape: initializing CAN cape\n");
 		tt3201_init(0,0);
 	}
