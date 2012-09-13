@@ -2244,9 +2244,7 @@ static int omap_hsmmc_suspend(struct device *dev)
 		if (ret) {
 			host->suspended = 0;
 			if (host->pdata->resume) {
-				ret = host->pdata->resume(&pdev->dev,
-							  host->slot_id);
-				if (ret)
+				if (host->pdata->resume(&pdev->dev, host->slot_id))
 					dev_dbg(mmc_dev(host->mmc),
 						"Unmask interrupt failed\n");
 			}
