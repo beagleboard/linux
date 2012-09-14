@@ -445,6 +445,7 @@ enum rproc_crash_type {
  * @table_ptr: pointer to the resource table in effect
  * @cached_table: copy of the resource table
  * @table_csum: checksum of the resource table
+ * @fw_version: human readable version information extracted from f/w
  * @has_iommu: flag to indicate if remote processor is behind an MMU
  */
 struct rproc {
@@ -477,6 +478,7 @@ struct rproc {
 	struct resource_table *table_ptr;
 	struct resource_table *cached_table;
 	u32 table_csum;
+	char *fw_version;
 	bool has_iommu;
 };
 
