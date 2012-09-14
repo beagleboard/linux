@@ -44,6 +44,7 @@
 #include <linux/i2c-omap.h>
 #include <linux/pm_runtime.h>
 #include <linux/pinctrl/consumer.h>
+#include <linux/err.h>
 
 /* I2C controller revisions */
 #define OMAP_I2C_OMAP1_REV_2		0x20
@@ -1083,6 +1084,7 @@ omap_i2c_probe(struct platform_device *pdev)
 	int r;
 	u32 rev;
 	u16 minor, major, scheme;
+	struct pinctrl *pinctrl;
 
 	/* NOTE: driver uses the static register mapping */
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -1251,6 +1253,13 @@ omap_i2c_probe(struct platform_device *pdev)
 		 major, minor, dev->speed);
 
 	of_i2c_register_devices(adap);
+
+	pinctrl = devm_pinctrl_get_select_default(&pdev->dev);
+	if (IS_ERR(pinctrl))
+		dev_warn(dev->dev, "unable to select pin group\n");
+
+	/* dev_info(dev->dev, "bus %d rev%d.%d.%d at %d kHz\n", adap->nr,
+		 dev->dtrev, dev->rev >> 4, dev->rev & 0xf, dev->speed); */
 
 	pm_runtime_mark_last_busy(dev->dev);
 	pm_runtime_put_autosuspend(dev->dev);
