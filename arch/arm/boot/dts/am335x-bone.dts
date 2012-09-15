@@ -66,7 +66,7 @@
 				0x60 0x17	/* gpmc_a8.gpio1_24, OUTPUT_PULLUP | MODE7 */
 			>;
 		};
-		i2c3_pins: pinmux_i2c3_pins {
+		i2c2_pins: pinmux_i2c2_pins {
 			pinctrl-single,pins = <
 				0x178 0x73 	/* uart1_ctsn.i2c2_sda, SLEWCTRL_SLOW | INPUT_PULLUP | MODE3 */
 				0x17c 0x73	/* uart1_rtsn.i2c2_scl, SLEWCTRL_SLOW | INPUT_PULLUP | MODE3 */
@@ -159,7 +159,7 @@
 	};
 };
 
-&i2c1 {
+&i2c0 {
 	status = "okay";
 	clock-frequency = <400000>;
 
@@ -174,10 +174,10 @@
        
 };
 
-&i2c3 {
+&i2c2 {
 	status = "okay";
 	pinctrl-names = "default";
-	pinctrl-0 = <&i2c3_pins>;
+	pinctrl-0 = <&i2c2_pins>;
 
 	clock-frequency = <100000>;
 
