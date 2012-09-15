@@ -209,31 +209,31 @@
 			status = "disabled";
 		};
 
-		i2c1: i2c@44e0b000 {
+		i2c0: i2c@44e0b000 {
 			compatible = "ti,omap4-i2c";
 			#address-cells = <1>;
 			#size-cells = <0>;
-			ti,hwmods = "i2c1";
+			ti,hwmods = "i2c1";	/* TODO: Fix hwmod */
 			reg = <0x44e0b000 0x1000>;
 			interrupts = <70>;
 			status = "disabled";
 		};
 
-		i2c2: i2c@4802a000 {
+		i2c1: i2c@4802a000 {
 			compatible = "ti,omap4-i2c";
 			#address-cells = <1>;
 			#size-cells = <0>;
-			ti,hwmods = "i2c2";
+			ti,hwmods = "i2c2";	/* TODO: Fix hwmod */
 			reg = <0x4802a000 0x1000>;
 			interrupts = <71>;
 			status = "disabled";
 		};
 
-		i2c3: i2c@4819c000 {
+		i2c2: i2c@4819c000 {
 			compatible = "ti,omap4-i2c";
 			#address-cells = <1>;
 			#size-cells = <0>;
-			ti,hwmods = "i2c3";
+			ti,hwmods = "i2c3";	/* TODO: Fix hwmod */
 			reg = <0x4819c000 0x1000>;
 			interrupts = <30>;
 			status = "disabled";
