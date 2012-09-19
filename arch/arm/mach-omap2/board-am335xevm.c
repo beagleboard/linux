@@ -668,6 +668,12 @@ static struct pinmux_config bbtoys7a3_pin_mux[] = {
 	{NULL, 0},
 };
 
+/* Module pin mux for Beagleboardtoys 3" LCD cape */
+static struct pinmux_config bbtoys3_pin_mux[] = {
+	{"gpmc_a2.ehrpwm1A", OMAP_MUX_MODE6 | AM33XX_PIN_OUTPUT}, // Backlight
+	{NULL, 0},
+};
+
 static struct pinmux_config w1_gpio_pin_mux[] = {
 	{"gpmc_ad3.gpio1_3",	OMAP_MUX_MODE7 | AM33XX_PIN_INPUT_PULLUP},
 	{NULL, 0},
@@ -1383,6 +1389,73 @@ static struct platform_device lcd3a1_keys = {
 	},
 };
 
+/* pinmux for lcd3 A2 or newer keys */
+static struct pinmux_config lcd3a2_keys_pin_mux[] = {
+	{"gpmc_a0.gpio1_16",  OMAP_MUX_MODE7 | AM33XX_PIN_INPUT}, // Left
+	{"gpmc_a1.gpio1_17",    OMAP_MUX_MODE7 | AM33XX_PIN_INPUT}, //Right
+	{"gpmc_a3.gpio1_19", OMAP_MUX_MODE7 | AM33XX_PIN_INPUT}, // Up
+	{"mcasp0_axr0.gpio3_16",    OMAP_MUX_MODE7 | AM33XX_PIN_INPUT}, //Down
+	{"spi0_d0.gpio0_3",    OMAP_MUX_MODE7 | AM33XX_PIN_INPUT}, // Enter
+	{NULL, 0},
+};
+
+/* Configure GPIOs for lcd3 rev A2 or newer keys */
+static struct gpio_keys_button lcd3a2_gpio_keys[] = {
+	{
+		.code                   = KEY_LEFT,
+		.gpio                   = GPIO_TO_PIN(1, 16),
+		.active_low             = true,
+		.desc                   = "left",
+		.type                   = EV_KEY,
+		.wakeup                 = 1,
+	},
+	{
+		.code                   = KEY_RIGHT,
+		.gpio                   = GPIO_TO_PIN(1, 17),
+		.active_low             = true,
+		.desc                   = "right",
+		.type                   = EV_KEY,
+		.wakeup                 = 1,
+	},
+	{
+		.code                   = KEY_UP,
+		.gpio                   = GPIO_TO_PIN(1, 19),
+		.active_low             = true,
+		.desc                   = "up",
+		.type                   = EV_KEY,
+		.wakeup                 = 1,
+	},
+	{
+		.code                   = KEY_DOWN,
+		.gpio                   = GPIO_TO_PIN(3, 16),
+		.active_low             = true,
+		.desc                   = "down",
+		.type                   = EV_KEY,
+		.wakeup                 = 1,
+	},
+	{
+		.code                   = KEY_ENTER,
+		.gpio                   = GPIO_TO_PIN(0, 3),
+		.active_low             = true,
+		.desc                   = "enter",
+		.type                   = EV_KEY,
+		.wakeup                 = 1,
+	},
+};
+
+static struct gpio_keys_platform_data lcd3a2_gpio_key_info = {
+	.buttons        = lcd3a2_gpio_keys,
+	.nbuttons       = ARRAY_SIZE(lcd3a2_gpio_keys),
+};
+
+static struct platform_device lcd3a2_keys = {
+	.name   = "gpio-keys",
+	.id     = -1,
+	.dev    = {
+		.platform_data  = &lcd3a2_gpio_key_info,
+	},
+};
+
 /*
 * @evm_id - evm id which needs to be configured
 * @dev_cfg - single evm structure which includes
@@ -1588,6 +1661,46 @@ static struct platform_device lcd3_leds_gpio = {
 	},
 };
 
+#define BEAGLEBONELCD3A2_USR0_LED  GPIO_TO_PIN(3, 19)
+
+static struct gpio_led lcd3a2_gpio_leds[] = {
+	{
+		.name			= "beaglebone::usr0",
+		.default_trigger	= "heartbeat",
+		.gpio			= BEAGLEBONE_USR1_LED,
+	},
+	{
+		.name			= "beaglebone::usr1",
+		.default_trigger	= "mmc0",
+		.gpio			= BEAGLEBONE_USR2_LED,
+	},
+	{
+		.name			= "beaglebone::usr2",
+		.gpio			= BEAGLEBONE_USR3_LED,
+	},
+	{
+		.name           = "beaglebone::usr3",
+		.gpio           = BEAGLEBONE_USR4_LED,
+	},
+	{
+		.name			= "lcd3::usr0",
+		.default_trigger	= "heartbeat",
+		.gpio			= BEAGLEBONELCD3A2_USR0_LED,
+	},
+};
+
+static struct gpio_led_platform_data lcd3a2_gpio_led_info = {
+	.leds		= lcd3a2_gpio_leds,
+	.num_leds	= ARRAY_SIZE(lcd3a2_gpio_leds),
+};
+
+static struct platform_device lcd3a2_leds_gpio = {
+	.name	= "leds-gpio",
+	.id	= -1,
+	.dev	= {
+		.platform_data	= &lcd3a2_gpio_led_info,
+	},
+};
 #define BEAGLEBONELCD7_USR_LED  GPIO_TO_PIN(1, 28)
 
 static struct gpio_led lcd7_gpio_leds[] = {
@@ -3089,17 +3202,29 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 			err = platform_device_register(&beaglebone_lcd3_keys);
 			if (err)
 				pr_err("failed to register gpio keys for LCD3 rev A or earlier cape\n");
-		} else {
+			lcd3leds_init(0,0);
+		} else if (!strncmp("00A1", cape_config.version, 4)) {
 			pr_info("BeagleBone cape: Registering gpio-keys for LCD rev A1 or later cape\n");
 			int err;
 			setup_pin_mux(lcd3a1_keys_pin_mux);
 			err = platform_device_register(&lcd3a1_keys);
 			if (err)
 				pr_err("failed to register gpio keys for LCD3 rev A1 or later cape\n");
+			lcd3leds_init(0,0);
+		} else {
+			pr_info("BeagleBone cape: Registering gpio-keys for LCD rev A2 or later cape\n");
+			int err;
+			setup_pin_mux(lcd3a2_keys_pin_mux);
+			err = platform_device_register(&lcd3a2_keys);
+			if (err)
+				pr_err("failed to register gpio keys for LCD3 rev A2 or later cape\n");
+			platform_device_register(&lcd3a2_leds_gpio);
+			// uses PWM backlight instead of PMIC
+			setup_pin_mux(bbtoys3_pin_mux);
+			enable_ehrpwm1(0,0);
 		}
 		beaglebone_spi1_free = 0;
 		beaglebone_leds_free = 0;
-		lcd3leds_init(0,0);
 	}
 
 	if (!strncmp("BB-BONE-LCD4-01", cape_config.partnumber, 15)) {
