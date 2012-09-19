@@ -3045,6 +3045,10 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 			setup_pin_mux(bbtoys7a3_pin_mux);
 			gpio_request(BEAGLEBONE_LCD7A3_AVDD_EN, "BONE_LCD_AVDD_EN");
 			gpio_direction_output(BEAGLEBONE_LCD7A3_AVDD_EN, 1);			
+		} else if(!strncmp("00A4", cape_config.version, 4)) {
+			setup_pin_mux(bbtoys7a3_pin_mux);
+			gpio_request(BEAGLEBONE_LCD7A3_AVDD_EN, "BONE_LCD_AVDD_EN");
+			gpio_direction_output(BEAGLEBONE_LCD7A3_AVDD_EN, 1);			
 		} else {
 			setup_pin_mux(bbtoys7_pin_mux);
 			gpio_request(BEAGLEBONE_LCD_AVDD_EN, "BONE_LCD_AVDD_EN");
