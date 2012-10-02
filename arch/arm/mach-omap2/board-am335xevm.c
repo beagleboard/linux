@@ -647,6 +647,12 @@ static struct pinmux_config bbtoys35_pin_mux[] = {
 	{NULL, 0},
 };
 
+/* Module pin mux for EHRPWM 1A */
+static struct pinmux_config ehrpwm1a_pin_mux[] = {
+	{"gpmc_a2.ehrpwm1A", OMAP_MUX_MODE6 | AM33XX_PIN_OUTPUT}, // Backlight
+	{NULL, 0},
+};
+
 /* Module pin mux for Beagleboardtoys 7" LCD cape */
 static struct pinmux_config bbtoys7_pin_mux[] = {
 	{"ecap0_in_pwm0_out.gpio0_7", OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT}, // AVDD_EN
@@ -3233,6 +3239,11 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 		pr_info("BeagleBone cape: initializing LCD cape touchscreen\n");
 		tsc_init(0,0);
 		beaglebone_tsadcpins_free = 0;
+		
+		if (!strncmp("00A1", cape_config.version, 4)) {
+			enable_ehrpwm1(0,0);
+			setup_pin_mux(ehrpwm1a_pin_mux);
+		}
 	}
 	
 	if (!strncmp("BB-BONE-VGA-01", cape_config.partnumber, 14)) {
