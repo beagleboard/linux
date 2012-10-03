@@ -43,7 +43,6 @@ MODULE_PARM_DESC(vid_limit, "capture memory limit in megabytes");
 
 #define VGA_RES (VGA_WIDTH * VGA_HEIGHT)
 #define BYTES_PER_PIXEL 2
-#define BYTES_PER_DMA_EVT 32
 
 /* PaRAM.opt: */
 #define TCC(v) (((v) & 0x3f) << 12)
@@ -133,6 +132,7 @@ struct cssp_cam_dev {
 	struct edmacc_param		dma_tr_params;
 	int				dma_ch;
 	u64				dma_mask;
+	int				dma_req_len;
 
 	int				frame_cnt;
 

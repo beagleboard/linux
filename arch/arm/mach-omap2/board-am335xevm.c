@@ -2058,7 +2058,7 @@ static struct mt9t112_camera_info mt9t111_cam_info = {
 	/* divider calculated for 32Mhz CAM_MCLK */
 	.divider = {
 		.m = 24, .n = 1,
-		.p1 = 0, .p2 = 7, .p3 = 0, .p4 = 11, .p5 = 15, .p6 = 7, .p7 = 0,
+		.p1 = 0, .p2 = 7, .p3 = 0, .p4 = 10, .p5 = 14, .p6 = 7, .p7 = 0,
 	},
 };
 
@@ -2098,35 +2098,35 @@ static struct platform_device cssp_camera = {
 
 static struct gpmc_timings cssp_timings = {
 	/* Minimum clock period for synchronous mode (in picoseconds) */
-	.sync_clk = 10000,
+	.sync_clk = 20000,
 
 	/* CS signal timings corresponding to GPMC_CONFIG2 */
-	.cs_on = 0,
-	.cs_rd_off = 8 * 10,		/* Read deassertion time */
-	.cs_wr_off = 20 * 10,		/* Write deassertion time */
+	.cs_on = 1,
+	.cs_rd_off = 16 * 10,		/* Read deassertion time */
+	.cs_wr_off = 31 * 10,		/* Write deassertion time */
 
 	/* ADV signal timings corresponding to GPMC_CONFIG3 */
 	.adv_on = 0,			/* Assertion time */
-	.adv_rd_off = 2 * 10,		/* Read deassertion time */
-	.adv_wr_off = 2 * 10,		/* Write deassertion time */
+	.adv_rd_off = 4 * 10,		/* Read deassertion time */
+	.adv_wr_off = 4 * 10,		/* Write deassertion time */
 
 	/* WE signals timings corresponding to GPMC_CONFIG4 */
-	.we_on = 3 * 10,		/* WE assertion time */
-	.we_off = 8 * 10,		/* WE deassertion time */
+	.we_on = 6 * 10,		/* WE assertion time */
+	.we_off = 31 * 10,		/* WE deassertion time */
 
 	/* OE signals timings corresponding to GPMC_CONFIG4 */
-	.oe_on = 3 * 10,		/* OE assertion time */
-	.oe_off = 8 * 10,		/* OE deassertion time */
+	.oe_on = 6 * 10,		/* OE assertion time */
+	.oe_off = 16 * 10,		/* OE deassertion time */
 
 	/* Access time and cycle time timings corresponding to GPMC_CONFIG5 */
-	.page_burst_access = 1 * 10,	/* Multiple access word delay */
-	.access = 7 * 10,		/* Start-cycle to first data valid delay */
-	.rd_cycle = 8 * 10,		/* Total read cycle time */
-	.wr_cycle = 20 * 10,		/* Total write cycle time */
+	.page_burst_access = 2 * 10,	/* Multiple access word delay */
+	.access = 14 * 10,		/* Start-cycle to first data valid delay */
+	.rd_cycle = 16 * 10,		/* Total read cycle time */
+	.wr_cycle = 31 * 10,		/* Total write cycle time */
 
 	/* The following are only on OMAP3430 */
-	.wr_access = 7 * 10,		/* WRACCESSTIME */
-	.wr_data_mux_bus = 3 * 10,	/* WRDATAONADMUXBUS */
+	.wr_access = 10 * 10,		/* WRACCESSTIME */
+	.wr_data_mux_bus = 6 * 10,	/* WRDATAONADMUXBUS */
 };
 
 static int gpmc_cssp_init(void)
@@ -2151,7 +2151,7 @@ static int gpmc_cssp_init(void)
 	val = GPMC_CONFIG1_READMULTIPLE_SUPP;
 	val |= GPMC_CONFIG1_READTYPE_SYNC;
 	val |= GPMC_CONFIG1_WRITETYPE_SYNC;
-	val |= GPMC_CONFIG1_CLKACTIVATIONTIME(1);
+	val |= GPMC_CONFIG1_CLKACTIVATIONTIME(2);
 	val |= GPMC_CONFIG1_PAGE_LEN(2);
 	val |= GPMC_CONFIG1_DEVICESIZE_16;
 	val |= GPMC_CONFIG1_DEVICETYPE_NOR;
@@ -2165,7 +2165,7 @@ static int gpmc_cssp_init(void)
 
 	val = gpmc_cs_read_reg(cs, GPMC_CS_CONFIG6);
 	val &= 0xe0f0f030;
-	val |= 0x07030481;
+	val |= 0x0a060484;
 	gpmc_cs_write_reg(cs, GPMC_CS_CONFIG6, val);
 
 	printk(KERN_INFO "gpmc_cssp_init for QuickLogic CAMIF device succeeded\n");

@@ -51,6 +51,7 @@
 #define PCLK_POL		BIT(14) /* PCLK polarity (0 - rising edge, 1 - falling edge */
 #define HS_EN			BIT(13) /* High speed bus (0 =< 50 MHz, 1 > 50 MHz) */
 #define ENABLE			BIT(12)
+#define LDR_EN			BIT(11) /* Large DMA Request Support (0 - 32 bytes, 1 - 128 bytes) */
 #define REV			0xFF	/* Chip Revision mask */
 
 
@@ -151,11 +152,11 @@ static int trigger_dma_transfer_to_buf(struct cssp_cam_dev *dev, struct vb2_buff
 	// Enable DMA
 	edma_write_slot(dev->dma_ch, &dev->dma_tr_params);
 
+	dev->current_vb = vb;
+
 	// Enable data capture
 	dev->mode |= ENABLE;
 	writew(dev->mode, dev->reg_base_virt + REG_MODE);
-
-	dev->current_vb = vb;
 
 	return 0;
 }
@@ -217,8 +218,10 @@ static void dma_callback(unsigned lch, u16 ch_status, void *data)
 		dequeue_buffer_for_dma(dev);
 	} else {
 		/* we got a missed interrupt so just start a new DMA with the existing buffer */
-		if (dev->current_vb != NULL)
-			trigger_dma_transfer_to_buf(dev, dev->current_vb);
+		if (dev->current_vb != NULL) {
+			if (trigger_dma_transfer_to_buf(dev, dev->current_vb))
+				dev_err(&dev->pdev->dev, "No buffer allocated!\n");
+		}
 	}
 }
 
@@ -246,12 +249,14 @@ static int configure_edma(struct cssp_cam_dev *cam)
 		dev_info(&pdev->dev, "allocating channel for DMA succeeded, chan=%d\n", cam->dma_ch);
 	}
 
+	cam->dma_req_len = cam->rev > 3 ? 128 : 32;
+
 	cam->dma_tr_params.opt = TCINTEN | TCC(cam->dma_ch);
 	cam->dma_tr_params.src = cam->reg_base_phys + REG_DATA;
-	cam->dma_tr_params.a_b_cnt = ACNT(BYTES_PER_DMA_EVT) | BCNT((VGA_WIDTH * BYTES_PER_PIXEL) / BYTES_PER_DMA_EVT);
-	cam->dma_tr_params.src_dst_bidx = SRCBIDX(0) | DSTBIDX(BYTES_PER_DMA_EVT);
-	cam->dma_tr_params.link_bcntrld = BCNTRLD((VGA_WIDTH * BYTES_PER_PIXEL) / BYTES_PER_DMA_EVT) | LINK(0xffff);
-	cam->dma_tr_params.src_dst_cidx = SRCCIDX(0) | DSTCIDX(BYTES_PER_DMA_EVT);
+	cam->dma_tr_params.a_b_cnt = ACNT(cam->dma_req_len) | BCNT((VGA_WIDTH * BYTES_PER_PIXEL) / cam->dma_req_len);
+	cam->dma_tr_params.src_dst_bidx = SRCBIDX(0) | DSTBIDX(cam->dma_req_len);
+	cam->dma_tr_params.link_bcntrld = BCNTRLD((VGA_WIDTH * BYTES_PER_PIXEL) / cam->dma_req_len) | LINK(0xffff);
+	cam->dma_tr_params.src_dst_cidx = SRCCIDX(0) | DSTCIDX(cam->dma_req_len);
 	cam->dma_tr_params.ccnt = CCNT(VGA_HEIGHT);
 
 	return 0;
@@ -659,7 +664,7 @@ static int vidioc_try_fmt_vid_cap(struct file *file, void *priv,
 	pix->bytesperline = (pix->width * fmt->depth) >> 3;
 	pix->sizeimage = pix->height * pix->bytesperline;
 
-	if ((pix->sizeimage % BYTES_PER_DMA_EVT) != 0)
+	if ((pix->sizeimage % dev->dma_req_len) != 0)
 		return -EINVAL;
 
 	switch (mbus_fmt.field) {
@@ -683,6 +688,8 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 	struct vb2_queue *q = &dev->vb_vidq;
 	struct v4l2_pix_format *pix = &f->fmt.pix;
 	struct v4l2_mbus_framefmt mbus_fmt;
+	int i = 0, rem;
+	u32 bytesperline, height;
 
 	int ret = vidioc_try_fmt_vid_cap(file, priv, f);
 	if (ret < 0)
@@ -705,10 +712,21 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 	v4l2_fill_mbus_format(&mbus_fmt, pix, dev->fmt->code);
 	v4l2_subdev_call(dev->subdev, video, s_mbus_fmt, &mbus_fmt);
 
+	/* Calculate DMA transfer parameters based on DMA request length */
+	bytesperline = dev->bytesperline;
+	do {
+		rem = bytesperline % dev->dma_req_len;
+		if (rem != 0) {
+			bytesperline <<= 1;
+			i++;
+		}
+	} while (rem != 0);
+	height = dev->height >> i;
+
 	/* Set the EDMA for the new resolution */
-	dev->dma_tr_params.a_b_cnt = ACNT(BYTES_PER_DMA_EVT) | BCNT(dev->bytesperline / BYTES_PER_DMA_EVT);
-	dev->dma_tr_params.link_bcntrld = BCNTRLD(dev->bytesperline / BYTES_PER_DMA_EVT) | LINK(0xffff);
-	dev->dma_tr_params.ccnt = CCNT(dev->height);
+	dev->dma_tr_params.a_b_cnt = ACNT(dev->dma_req_len) | BCNT(bytesperline / dev->dma_req_len);
+	dev->dma_tr_params.link_bcntrld = BCNTRLD(bytesperline / dev->dma_req_len) | LINK(0xffff);
+	dev->dma_tr_params.ccnt = CCNT(height);
 
 	return 0;
 }
@@ -929,7 +947,7 @@ static int __init  video_probe(struct cssp_cam_dev *cam_dev)
 	q = &cam_dev->vb_vidq;
 	memset(q, 0, sizeof(cam_dev->vb_vidq));
 	q->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-	q->io_modes = VB2_MMAP | VB2_USERPTR | VB2_READ;
+	q->io_modes = VB2_MMAP | VB2_READ;
 	q->drv_priv = cam_dev;
 	q->buf_struct_size = sizeof(struct cssp_cam_buffer);
 	q->ops = &cssp_cam_video_qops;
@@ -1037,7 +1055,9 @@ static int __init  cssp_cam_probe(struct platform_device *pdev)
 	if (ret)
 		goto fail2;
 
-	cam_dev->mode = FMT_2X8_EN | PCLK_POL | HS_EN;
+	cam_dev->mode = FMT_2X8_EN | PCLK_POL | HS_EN;	// falling edge
+	if (cam_dev->rev > 3)
+		cam_dev->mode |= LDR_EN;
 
 	ret = configure_camera_sensor(cam_dev);
 	if (ret) {
