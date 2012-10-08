@@ -789,6 +789,22 @@ out:
 }
 EXPORT_SYMBOL(rpmsg_send_offchannel_raw);
 
+/**
+ * rpmsg_get_virtio_dev - Get underlying virtio device
+ * @rpdev: the rpmsg channel
+ *
+ * Returns the underlying remoteproc virtio device, if one exists. Returns NULL
+ * otherwise.
+ */
+struct virtio_device *rpmsg_get_virtio_dev(struct rpmsg_channel *rpdev)
+{
+	if (!rpdev || !rpdev->vrp)
+		return NULL;
+
+	return rpdev->vrp->vdev;
+}
+EXPORT_SYMBOL(rpmsg_get_virtio_dev);
+
 static int rpmsg_recv_single(struct virtproc_info *vrp, struct device *dev,
 			     struct rpmsg_hdr *msg, unsigned int len)
 {
