@@ -26,6 +26,7 @@
 #include <linux/err.h>
 #include <linux/kref.h>
 #include <linux/slab.h>
+#include <linux/device.h>
 
 #include "remoteproc_internal.h"
 
@@ -361,3 +362,24 @@ void rproc_remove_virtio_dev(struct rproc_vdev *rvdev)
 {
 	unregister_virtio_device(&rvdev->vdev);
 }
+
+/**
+ * rproc_vdev_to_rproc_safe() - Deduces a remoteproc from a virtio device
+ * @vdev: The virtio_device
+ *
+ * This function deduces the remoteproc from a given virtio device safely. If
+ * the virtio device is not one used by remoteproc, return NULL (as opposed to
+ * vdev_to_rproc which would return an invalid pointer)
+ */
+struct rproc *rproc_vdev_to_rproc_safe(struct virtio_device *vdev)
+{
+	struct rproc_vdev *rvdev;
+
+	if (!vdev->dev.parent || vdev->dev.parent->type != &rproc_type)
+		return NULL;
+
+	rvdev = vdev_to_rvdev(vdev);
+
+	return rvdev->rproc;
+}
+EXPORT_SYMBOL(rproc_vdev_to_rproc_safe);

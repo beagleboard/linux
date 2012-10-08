@@ -117,4 +117,6 @@ struct resource_table *rproc_find_loaded_rsc_table(struct rproc *rproc,
 
 extern const struct rproc_fw_ops rproc_elf_fw_ops;
 
+extern struct device_type rproc_type;
+
 #endif /* REMOTEPROC_INTERNAL_H */
