@@ -680,6 +680,19 @@ static struct pinmux_config bbtoys3_pin_mux[] = {
 	{NULL, 0},
 };
 
+/* Module pin mux for Beagleboardtoys 4" LCD Rev A1 cape */
+static struct pinmux_config bbtoys43a1_pin_mux[] = {
+	{"gpmc_a0.gpio1_16",  OMAP_MUX_MODE7 | AM33XX_PIN_INPUT}, //left
+	{"gpmc_a1.gpio1_17",    OMAP_MUX_MODE7 | AM33XX_PIN_INPUT}, //right
+	{"gpmc_a3.gpio1_19",  OMAP_MUX_MODE7 | AM33XX_PIN_INPUT}, //up
+	{"mcasp0_axr0.gpio3_16",    OMAP_MUX_MODE7 | AM33XX_PIN_INPUT}, //down
+	{"mcasp0_fsr.gpio3_19",    OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT}, // DISEN
+	{"gpmc_ben1.gpio1_28",    OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT}, // LED1
+	{NULL, 0},
+};
+	// GPIO0_14 TSC_INT
+	// GPIO0_15 ENTER
+
 static struct pinmux_config w1_gpio_pin_mux[] = {
 	{"gpmc_ad3.gpio1_3",	OMAP_MUX_MODE7 | AM33XX_PIN_INPUT_PULLUP},
 	{NULL, 0},
@@ -1960,24 +1973,6 @@ static void bbtoys35lcd_init(int evm_id, int profile)
 	return;
 }
 
-static void bbtoys43lcd_init(int evm_id, int profile)
-{
-	setup_pin_mux(lcdc16_pin_mux);
-	setup_pin_mux(lcdc_pin_mux);
-	
-	// we are being stupid and setting pixclock from here instead of da8xx-fb.c
-	if (conf_disp_pll(18000000)) {
-		pr_info("Failed to set pixclock to 18000000, not attempting to"
-				"register LCD cape\n");
-		return;
-	}
-	
-	if (am33xx_register_lcdc(&bbtoys43_pdata))
-		pr_info("Failed to register Beagleboardtoys 4.3\" LCD cape device\n");
-	
-	return;
-}
-
 #define BEAGLEBONEDVI_PDn_A1  GPIO_TO_PIN(1, 7)
 #define BEAGLEBONEDVI_PDn_A2  GPIO_TO_PIN(1, 31)
 
@@ -3235,12 +3230,30 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 
 	if (!strncmp("BB-BONE-LCD4-01", cape_config.partnumber, 15)) {
 		pr_info("BeagleBone cape: initializing LCD cape\n");
-		bbtoys43lcd_init(0,0);
+	
+		setup_pin_mux(lcdc16_pin_mux);
+	
+		// we are being stupid and setting pixclock from here instead of da8xx-fb.c
+		if (conf_disp_pll(18000000)) {
+			pr_info("Failed to set pixclock to 18000000, not attempting to"
+					"register LCD cape\n");
+		}
+	
+		if (am33xx_register_lcdc(&bbtoys43_pdata)) {
+			pr_info("Failed to register Beagleboardtoys 4.3\" LCD cape device\n");
+		}
+	
 		pr_info("BeagleBone cape: initializing LCD cape touchscreen\n");
 		tsc_init(0,0);
 		beaglebone_tsadcpins_free = 0;
 		
 		if (!strncmp("00A1", cape_config.version, 4)) {
+			setup_pin_mux(bbtoys43a1_pin_mux);
+
+			gpio_request(GPIO_TO_PIN(3, 19), "LCD4_DISEN");
+			gpio_direction_output(GPIO_TO_PIN(3, 19), 1);
+			gpio_set_value(GPIO_TO_PIN(3, 19), 1);
+
 			enable_ehrpwm1(0,0);
 			setup_pin_mux(ehrpwm1a_pin_mux);
 		}
