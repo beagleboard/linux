@@ -188,12 +188,19 @@ static struct platform_pwm_backlight_data am335x_backlight_data = {
 	.pwm_period_ns  = AM335X_PWM_PERIOD_NANO_SECONDS,
 };
 
+static const struct display_panel bbtoys7_panel = {
+	WVGA,
+	16,
+	16,
+	COLOR_ACTIVE,
+};
+
 static struct lcd_ctrl_config lcd_cfg = {
-	&disp_panel,
+	&bbtoys7_panel,
 	.ac_bias		= 255,
 	.ac_bias_intrpt		= 0,
 	.dma_burst_sz		= 16,
-	.bpp			= 32,
+	.bpp			= 16,
 	.fdd			= 0x80,
 	.tft_alt_mode		= 0,
 	.stn_565_mode		= 0,
@@ -212,13 +219,6 @@ struct da8xx_lcdc_platform_data TFC_S9700RTWV35TR_01B_pdata = {
 };
 
 #include "common.h"
-
-static const struct display_panel bbtoys7_panel = {
-	WVGA,
-	16,
-	16,
-	COLOR_ACTIVE,
-};
 
 #define BBTOYS7LCD_PWM_DEVICE_ID   "ehrpwm.1:0"
 
@@ -688,10 +688,10 @@ static struct pinmux_config bbtoys43a1_pin_mux[] = {
 	{"mcasp0_axr0.gpio3_16",    OMAP_MUX_MODE7 | AM33XX_PIN_INPUT}, //down
 	{"mcasp0_fsr.gpio3_19",    OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT}, // DISEN
 	{"gpmc_ben1.gpio1_28",    OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT}, // LED1
+	{"uart1_txd.gpio0_15", OMAP_MUX_MODE7 | AM33XX_PIN_INPUT}, // ENTER
+	{"uart1_rxd.gpio0_14", OMAP_MUX_MODE7 | AM33XX_PIN_INPUT}, // TSC_INT
 	{NULL, 0},
 };
-	// GPIO0_14 TSC_INT
-	// GPIO0_15 ENTER
 
 static struct pinmux_config w1_gpio_pin_mux[] = {
 	{"gpmc_ad3.gpio1_3",	OMAP_MUX_MODE7 | AM33XX_PIN_INPUT_PULLUP},
@@ -1472,6 +1472,63 @@ static struct platform_device lcd3a2_keys = {
 	.id     = -1,
 	.dev    = {
 		.platform_data  = &lcd3a2_gpio_key_info,
+	},
+};
+
+/* Configure GPIOs for lcd43 keys */
+static struct gpio_keys_button beaglebone_lcd43_gpio_keys[] = {
+	{
+		.code                   = KEY_LEFT,
+		.gpio                   = GPIO_TO_PIN(1, 16),
+		.active_low             = true,
+		.desc                   = "left",
+		.type                   = EV_KEY,
+		.wakeup                 = 1,
+	},
+	{
+		.code                   = KEY_RIGHT,
+		.gpio                   = GPIO_TO_PIN(1, 17),
+		.active_low             = true,
+		.desc                   = "right",
+		.type                   = EV_KEY,
+		.wakeup                 = 1,
+	},
+	{
+		.code                   = KEY_UP,
+		.gpio                   = GPIO_TO_PIN(1, 19),
+		.active_low             = true,
+		.desc                   = "up",
+		.type                   = EV_KEY,
+		.wakeup                 = 1,
+	},
+	{
+		.code                   = KEY_DOWN,
+		.gpio                   = GPIO_TO_PIN(3, 16),
+		.active_low             = true,
+		.desc                   = "down",
+		.type                   = EV_KEY,
+		.wakeup                 = 1,
+	},
+	{
+		.code                   = KEY_ENTER,
+		.gpio                   = GPIO_TO_PIN(0, 15),
+		.active_low             = true,
+		.desc                   = "enter",
+		.type                   = EV_KEY,
+		.wakeup                 = 1,
+	},
+};
+
+static struct gpio_keys_platform_data beaglebone_lcd43_gpio_key_info = {
+	.buttons        = beaglebone_lcd43_gpio_keys,
+	.nbuttons       = ARRAY_SIZE(beaglebone_lcd43_gpio_keys),
+};
+
+static struct platform_device beaglebone_lcd43_keys = {
+	.name   = "gpio-keys",
+	.id     = -1,
+	.dev    = {
+		.platform_data  = &beaglebone_lcd43_gpio_key_info,
 	},
 };
 
@@ -3249,6 +3306,7 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 		
 		if (!strncmp("00A1", cape_config.version, 4)) {
 			setup_pin_mux(bbtoys43a1_pin_mux);
+			platform_device_register(&beaglebone_lcd43_keys);
 
 			gpio_request(GPIO_TO_PIN(3, 19), "LCD4_DISEN");
 			gpio_direction_output(GPIO_TO_PIN(3, 19), 1);
