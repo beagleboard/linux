@@ -6,6 +6,10 @@ Required properties:
 - interrupts: rtc timer, alarm interrupts in order
 - interrupt-parent: phandle for the interrupt controller
 
+Optional properties:
+- ti,system-power-controller: Telling whether or not rtc is controlling
+  the system power.
+
 Example:
 
 rtc@1c23000 {
@@ -14,4 +18,5 @@ rtc@1c23000 {
 	interrupts = <19
 		      19>;
 	interrupt-parent = <&intc>;
+	ti,system-power-controller;
 };
