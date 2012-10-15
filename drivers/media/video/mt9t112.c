@@ -688,6 +688,32 @@ static int mt9t112_auto_focus_trigger(const struct i2c_client *client)
 	return ret;
 }
 
+static int mt9t112_set_orientation(const struct i2c_client *client, int flip)
+{
+	int ret;
+
+	// if flip = 0 set [normal]
+	// if flip = 1 set [horizontal mirror]
+	// if flip = 2 set [vertical flip]
+	// if flip = 3 set [rotate 180]
+	flip &= 0x3;
+
+	// [CAM1_CTX_A_READ_MODE]
+	mt9t112_mcu_mask_set(ret, client, VAR(18, 0x000C), 0x0003, flip);
+	// [CAM1_CTX_A_PIXEL_ORDER]
+	mt9t112_mcu_write(ret, client, VAR8(18, 0x000E), flip);
+
+	// [CAM1_CTX_B_READ_MODE]
+	mt9t112_mcu_mask_set(ret, client, VAR(18, 0x0054), 0x0003, flip);
+	// [CAM1_CTX_B_PIXEL_ORDER]
+	mt9t112_mcu_write(ret, client, VAR8(18, 0x0056), flip);
+
+	// [SEQ_CMD]
+	mt9t112_mcu_write(ret, client, VAR8(1, 0), 0x06);
+
+	return ret;
+}
+
 static int mt9t112_init_camera(const struct i2c_client *client)
 {
 	int ret;
@@ -829,6 +855,10 @@ static int mt9t112_s_stream(struct v4l2_subdev *sd, int enable)
 				 priv->frame.height);
 
 	ECHECKER(ret, mt9t112_auto_focus_trigger(client));
+
+	if (priv->info->flags & MT9T112_FLAG_VFLIP) {
+		ECHECKER(ret, mt9t112_set_orientation(client, 2));
+	}
 
 	dev_dbg(&client->dev, "format : %d\n", priv->format->code);
 	dev_dbg(&client->dev, "size   : %d x %d\n",

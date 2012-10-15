@@ -872,7 +872,7 @@ static struct pinmux_config gpmc_pin_mux[] = {
 static struct pinmux_config camera_cape_pin_mux[] = {
 	{"spi0_d1.gpio0_4",    OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT },		// QL CSSP and Camera Sensor Reset
 	{"spi0_cs0.gpio0_5",   OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT_PULLUP },	// 1V8 and 2V8 Power Enable
-	{"gpmc_csn1.gpio0_30",   OMAP_MUX_MODE7 | AM33XX_PIN_INPUT},		// Sensor orientation detect: low -> frontfacing, high -> backfacing
+	{"gpmc_wait0.gpio0_30", OMAP_MUX_MODE7 | AM33XX_PIN_INPUT},		// Sensor orientation detect: low -> frontfacing, high -> backfacing
 	{NULL, 0},
 };
 
@@ -2232,17 +2232,36 @@ free:
 	return -1;
 }
 
+#define BEAGLEBONE_CAMERA_ORIENTATION GPIO_TO_PIN(0, 30)
+
 static void cssp_gpmc_init(void)
 {
 	struct gpmc_devices_info gpmc_device[2] = {
 			{ NULL, GPMC_DEVICE_NOR },
 		};
+	int status;
 
 	setup_pin_mux(gpmc_pin_mux);
 	setup_pin_mux(camera_cape_pin_mux);
 
 	omap_init_gpmc(gpmc_device, sizeof(gpmc_device));
 	gpmc_cssp_init();
+
+	/* Get the sensor orientation and setup sensor flags as appropriate */
+	status = gpio_request(BEAGLEBONE_CAMERA_ORIENTATION, "camera orientation");
+	if (status < 0) {
+		pr_err("Failed to request gpio for camera sensor orientation");
+	} else {
+		int orientation;
+
+		orientation = gpio_get_value(BEAGLEBONE_CAMERA_ORIENTATION);
+		if (orientation == 0) {
+			mt9t111_cam_info.flags = MT9T112_FLAG_VFLIP;
+			pr_info("Camera cape sensor is facing forward\n");
+		} else {
+			pr_info("Camera cape sensor is facing backward\n");
+		}
+	}
 
 	platform_device_register(&cssp_camera);
 
