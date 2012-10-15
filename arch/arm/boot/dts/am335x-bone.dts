@@ -99,6 +99,7 @@
 			led2 {
 				label = "beaglebone:green:usr2";
 				gpios = <&gpio2 23 0>;
+				linux,default-trigger = "cpu0";
 				default-state = "off";
 			};
 
