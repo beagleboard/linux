@@ -51,6 +51,7 @@ simtek
 sirf	SiRF Technology, Inc.
 sitronix Sitronix Technology Corp.
 snps 	Synopsys, Inc.
+spansion	Spansion, Inc.
 st	STMicroelectronics
 stericsson	ST-Ericsson
 ti	Texas Instruments
