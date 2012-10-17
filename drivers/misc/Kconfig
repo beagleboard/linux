@@ -499,6 +499,12 @@ config USB_SWITCH_FSA9480
 	  stereo and mono audio, video, microphone and UART data to use
 	  a common connector port.
 
+config GPEVT
+	tristate "Amazing GPIO DMA Event Test Driver(tm)"
+	depends on TI_EDMA
+	help
+	  Simply amazing!
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
