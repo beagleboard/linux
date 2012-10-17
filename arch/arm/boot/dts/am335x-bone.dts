@@ -26,7 +26,7 @@
 
 	am33xx_pinmux: pinmux@44e10800 {
 		pinctrl-names = "default";
-		pinctrl-0 = <&user_leds_s0 &spi1_pins_s0 &lcd_pins_s0>;
+		pinctrl-0 = <&user_leds_s0 &spi1_pins_s0 &lcd_pins_s0 &gpevt_pins_s0>;
 
 		user_leds_s0: user_leds_s0 {
 			pinctrl-single,pins = <
@@ -52,6 +52,12 @@
 				0x1ac 0x17	/* mcasp0_ahclkx.gpio3_21, OUTPUT_PULLUP | MODE7 */
 			>;
 		};
+
+		gpevt_pins_s0: gpevt_pins_s0 {
+			pinctrl-single,pins = <
+				0x090 0x37	/* gpmc_advn_ale.gpio2_2, INPUT_PULLUP | MODE7 */
+			>;
+		};
 	};
 
 	ocp {
@@ -67,6 +73,13 @@
 				reg = <0x24>;
 			};
 
+		};
+
+		gpevt {
+			compatible = "gpevt";
+			dmas = <&edma 12>;
+			dma-names = "gpioevt";
+			gpio-evt = <&gpio3 2 0>;
 		};
 	};
 
@@ -172,4 +185,8 @@
 		st7735-rst = <&gpio4 19 0>;
 		st7735-dc = <&gpio4 21 0>;
 	};
+};
+
+&edma {
+	ti,edma-xbar-event-map = <32 12>;
 };
