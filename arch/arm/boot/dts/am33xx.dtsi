@@ -244,6 +244,7 @@
 			ti,hwmods = "mmc1";
 			ti,dual-volt;
 			ti,needs-special-reset;
+			ti,needs-special-hs-handling;
 			dmas = <&edma 24
 				&edma 25>;
 			dma-names = "tx", "rx";
@@ -254,6 +255,7 @@
 			compatible = "ti,omap3-hsmmc";
 			ti,hwmods = "mmc2";
 			ti,needs-special-reset;
+			ti,needs-special-hs-handling;
 			dmas = <&edma 2
 				&edma 3>;
 			dma-names = "tx", "rx";
@@ -264,6 +266,7 @@
 			compatible = "ti,omap3-hsmmc";
 			ti,hwmods = "mmc3";
 			ti,needs-special-reset;
+			ti,needs-special-hs-handling;
 			status = "disabled";
 		};
 
