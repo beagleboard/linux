@@ -371,6 +371,26 @@ struct dma_slave_config {
 	unsigned int slave_id;
 };
 
+/* struct dmaengine_chan_caps - expose capability of a channel
+ * Note: each channel can have same or different capabilities
+ *
+ * This primarily classifies capabilities into
+ * a) APIs/ops supported
+ * b) channel physical capabilities
+ *
+ * @cap_mask: api/ops capability (DMA_INTERRUPT and DMA_PRIVATE
+ *	       are invalid api/ops and will never be set)
+ * @seg_nr: maximum number of SG segments supported on a SG/SLAVE
+ *	    channel (0 for no maximum or not a SG/SLAVE channel)
+ * @seg_len: maximum length of SG segments supported on a SG/SLAVE
+ *	     channel (0 for no maximum or not a SG/SLAVE channel)
+ */
+struct dmaengine_chan_caps {
+	dma_cap_mask_t cap_mask;
+	int seg_nr;
+	int seg_len;
+};
+
 static inline const char *dma_chan_name(struct dma_chan *chan)
 {
 	return dev_name(&chan->dev->device);
@@ -534,6 +554,7 @@ struct dma_tx_state {
  *	struct with auxiliary transfer status information, otherwise the call
  *	will just return a simple status code
  * @device_issue_pending: push pending transactions to hardware
+ * @device_channel_caps: return the channel capabilities
  */
 struct dma_device {
 
@@ -602,6 +623,8 @@ struct dma_device {
 					    dma_cookie_t cookie,
 					    struct dma_tx_state *txstate);
 	void (*device_issue_pending)(struct dma_chan *chan);
+	struct dmaengine_chan_caps *(*device_channel_caps)(
+		struct dma_chan *chan, enum dma_transfer_direction direction);
 };
 
 static inline int dmaengine_device_control(struct dma_chan *chan,
@@ -967,6 +990,23 @@ dma_set_tx_state(struct dma_tx_state *st, dma_cookie_t last, dma_cookie_t used, 
 		st->used = used;
 		st->residue = residue;
 	}
+}
+
+/**
+ * dma_get_channel_caps - flush pending transactions to HW
+ * @chan: target DMA channel
+ * @dir: direction of transfer
+ *
+ * Get the channel-specific capabilities. If the dmaengine
+ * driver does not implement per channel capbilities then
+ * NULL is returned.
+ */
+static inline struct dmaengine_chan_caps
+*dma_get_channel_caps(struct dma_chan *chan, enum dma_transfer_direction dir)
+{
+	if (chan->device->device_channel_caps)
+		return chan->device->device_channel_caps(chan, dir);
+	return NULL;
 }
 
 enum dma_status dma_sync_wait(struct dma_chan *chan, dma_cookie_t cookie);
