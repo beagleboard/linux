@@ -144,18 +144,6 @@
 /* MMCSD Init clock in Hz in opendrain mode */
 #define MMCSD_INIT_CLOCK		200000
 
-/*
- * One scatterlist dma "segment" is at most MAX_CCNT rw_threshold units,
- * and we handle up to MAX_NR_SG segments.  MMC_BLOCK_BOUNCE kicks in only
- * for drivers with max_segs == 1, making the segments bigger (64KB)
- * than the page or two that's otherwise typical. nr_sg (passed from
- * platform data) == 16 gives at least the same throughput boost, using
- * EDMA transfer linkage instead of spending CPU time copying pages.
- */
-#define MAX_CCNT	((1 << 16) - 1)
-
-#define MAX_NR_SG	16
-
 static unsigned rw_threshold = 32;
 module_param(rw_threshold, uint, S_IRUGO);
 MODULE_PARM_DESC(rw_threshold,
@@ -216,8 +204,6 @@ struct mmc_davinci_host {
 	u8 version;
 	/* for ns in one cycle calculation */
 	unsigned ns_in_one_cycle;
-	/* Number of sg segments */
-	u8 nr_sg;
 #ifdef CONFIG_CPU_FREQ
 	struct notifier_block	freq_transition;
 #endif
@@ -421,16 +407,7 @@ static int mmc_davinci_send_dma_request(struct mmc_davinci_host *host,
 	int ret = 0;
 
 	if (host->data_dir == DAVINCI_MMC_DATADIR_WRITE) {
-		struct dma_slave_config dma_tx_conf = {
-			.direction = DMA_MEM_TO_DEV,
-			.dst_addr = host->mem_res->start + DAVINCI_MMCDXR,
-			.dst_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES,
-			.dst_maxburst =
-				rw_threshold / DMA_SLAVE_BUSWIDTH_4_BYTES,
-		};
 		chan = host->dma_tx;
-		dmaengine_slave_config(host->dma_tx, &dma_tx_conf);
-
 		desc = dmaengine_prep_slave_sg(host->dma_tx,
 				data->sg,
 				host->sg_len,
@@ -443,16 +420,7 @@ static int mmc_davinci_send_dma_request(struct mmc_davinci_host *host,
 			goto out;
 		}
 	} else {
-		struct dma_slave_config dma_rx_conf = {
-			.direction = DMA_DEV_TO_MEM,
-			.src_addr = host->mem_res->start + DAVINCI_MMCDRR,
-			.src_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES,
-			.src_maxburst =
-				rw_threshold / DMA_SLAVE_BUSWIDTH_4_BYTES,
-		};
 		chan = host->dma_rx;
-		dmaengine_slave_config(host->dma_rx, &dma_rx_conf);
-
 		desc = dmaengine_prep_slave_sg(host->dma_rx,
 				data->sg,
 				host->sg_len,
@@ -1165,6 +1133,7 @@ static int __init davinci_mmcsd_probe(struct platform_device *pdev)
 	struct resource *r, *mem = NULL;
 	int ret = 0, irq = 0;
 	size_t mem_size;
+	struct dmaengine_chan_caps *dma_chan_caps;
 
 	/* REVISIT:  when we're fully converted, fail if pdata is NULL */
 
@@ -1214,12 +1183,6 @@ static int __init davinci_mmcsd_probe(struct platform_device *pdev)
 
 	init_mmcsd_host(host);
 
-	if (pdata->nr_sg)
-		host->nr_sg = pdata->nr_sg - 1;
-
-	if (host->nr_sg > MAX_NR_SG || !host->nr_sg)
-		host->nr_sg = MAX_NR_SG;
-
 	host->use_dma = use_dma;
 	host->mmc_irq = irq;
 	host->sdio_irq = platform_get_irq(pdev, 1);
@@ -1248,14 +1211,27 @@ static int __init davinci_mmcsd_probe(struct platform_device *pdev)
 		mmc->caps |= pdata->caps;
 	mmc->ocr_avail = MMC_VDD_32_33 | MMC_VDD_33_34;
 
-	/* With no iommu coalescing pages, each phys_seg is a hw_seg.
-	 * Each hw_seg uses one EDMA parameter RAM slot, always one
-	 * channel and then usually some linked slots.
-	 */
-	mmc->max_segs		= MAX_NR_SG;
+	{
+		struct dma_slave_config dma_txrx_conf = {
+			.src_addr = host->mem_res->start + DAVINCI_MMCDRR,
+			.src_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES,
+			.src_maxburst =
+				rw_threshold / DMA_SLAVE_BUSWIDTH_4_BYTES,
+			.dst_addr = host->mem_res->start + DAVINCI_MMCDXR,
+			.dst_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES,
+			.dst_maxburst =
+				rw_threshold / DMA_SLAVE_BUSWIDTH_4_BYTES,
+		};
+		dmaengine_slave_config(host->dma_tx, &dma_txrx_conf);
+		dmaengine_slave_config(host->dma_rx, &dma_txrx_conf);
+	}
 
-	/* EDMA limit per hw segment (one or two MBytes) */
-	mmc->max_seg_size	= MAX_CCNT * rw_threshold;
+	/* Just check one channel for the DMA SG limits */
+	dma_chan_caps = dma_get_channel_caps(host->dma_tx, DMA_MEM_TO_DEV);
+	if (dma_chan_caps) {
+		mmc->max_segs = dma_chan_caps->seg_nr;
+		mmc->max_seg_size = dma_chan_caps->seg_len;
+	}
 
 	/* MMC/SD controller limits for multiblock requests */
 	mmc->max_blk_size	= 4095;  /* BLEN is 12 bits */
