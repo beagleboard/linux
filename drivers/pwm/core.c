@@ -486,7 +486,7 @@ static struct pwm_chip *of_node_to_pwmchip(struct device_node *np)
  * becomes mandatory for devices that look up the PWM device via the con_id
  * parameter.
  */
-static struct pwm_device *of_pwm_request(struct device_node *np,
+struct pwm_device *of_pwm_request(struct device_node *np,
 					 const char *con_id)
 {
 	struct pwm_device *pwm = NULL;
@@ -494,6 +494,9 @@ static struct pwm_device *of_pwm_request(struct device_node *np,
 	struct pwm_chip *pc;
 	int index = 0;
 	int err;
+
+	if (!np)
+		return ERR_PTR(-ENODEV);
 
 	if (con_id) {
 		index = of_property_match_string(np, "pwm-names", con_id);
@@ -545,6 +548,7 @@ put:
 
 	return pwm;
 }
+EXPORT_SYMBOL(of_pwm_request);
 
 /**
  * pwm_add_table() - register PWM device consumers
