@@ -70,6 +70,7 @@ struct edma_chan {
 	bool				alloced;
 	int				slot[EDMA_MAX_SLOTS];
 	struct dma_slave_config		cfg;
+	struct dmaengine_chan_caps	caps;
 };
 
 struct edma_cc {
@@ -462,6 +463,28 @@ static void edma_issue_pending(struct dma_chan *chan)
 	spin_unlock_irqrestore(&echan->vchan.lock, flags);
 }
 
+static struct dmaengine_chan_caps
+*edma_get_channel_caps(struct dma_chan *chan, enum dma_transfer_direction dir)
+{
+	struct edma_chan *echan;
+	enum dma_slave_buswidth width = 0;
+	u32 burst = 0;
+
+	if (chan) {
+		echan = to_edma_chan(chan);
+		if (dir == DMA_MEM_TO_DEV) {
+			width = echan->cfg.dst_addr_width;
+			burst = echan->cfg.dst_maxburst;
+		} else if (dir == DMA_DEV_TO_MEM) {
+			width = echan->cfg.src_addr_width;
+			burst = echan->cfg.src_maxburst;
+		}
+		echan->caps.seg_len = (SZ_64K - 1) * width * burst;
+		return &echan->caps;
+	}
+	return NULL;
+}
+
 static size_t edma_desc_size(struct edma_desc *edesc)
 {
 	int i;
@@ -521,6 +544,9 @@ static void __init edma_chan_init(struct edma_cc *ecc,
 		echan->ch_num = EDMA_CTLR_CHAN(ecc->ctlr, i);
 		echan->ecc = ecc;
 		echan->vchan.desc_free = edma_desc_free;
+		dma_cap_set(DMA_SLAVE, echan->caps.cap_mask);
+		dma_cap_set(DMA_SG, echan->caps.cap_mask);
+		echan->caps.seg_nr = MAX_NR_SG;
 
 		vchan_init(&echan->vchan, dma);
 
@@ -537,6 +563,7 @@ static void edma_dma_init(struct edma_cc *ecc, struct dma_device *dma,
 	dma->device_alloc_chan_resources = edma_alloc_chan_resources;
 	dma->device_free_chan_resources = edma_free_chan_resources;
 	dma->device_issue_pending = edma_issue_pending;
+	dma->device_channel_caps = edma_get_channel_caps;
 	dma->device_tx_status = edma_tx_status;
 	dma->device_control = edma_control;
 	dma->dev = dev;
