@@ -112,6 +112,7 @@
 				label = "beaglebone:green:usr3";
 				gpios = <&gpio2 24 0>;
 				default-state = "off";
+				linux,default-trigger = "mmc1";
 			};
 		};
 
