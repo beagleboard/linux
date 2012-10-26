@@ -1878,6 +1878,16 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 	 * as we want. */
 	mmc->max_segs = 1024;
 
+	/* Eventually we should get our max_segs limitation for EDMA by
+	 * querying the dmaengine API */
+	if (pdev->dev.of_node) {
+		struct device_node *parent = of_node_get(pdev->dev.of_node->parent);
+		struct device_node *node;
+		node = of_find_node_by_name(parent, "edma");
+		if (node)
+			mmc->max_segs = 16;
+	}
+
 	mmc->max_blk_size = 512;       /* Block Length at max can be 1024 */
 	mmc->max_blk_count = 0xFFFF;    /* No. of Blocks is 16 bits */
 	mmc->max_req_size = mmc->max_blk_size * mmc->max_blk_count;
