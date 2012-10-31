@@ -85,6 +85,10 @@
 			dma-names = "gpioevt";
 			gpio-evt = <&gpio3 2 0>;
 		};
+
+		rtc@44e3e000 {
+			ti,system-power-controller;
+		};
 	};
 
 	leds {
