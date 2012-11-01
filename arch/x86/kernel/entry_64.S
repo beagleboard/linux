@@ -370,8 +370,8 @@ GLOBAL(int_with_check)
 	/* First do a reschedule test. */
 	/* edx:	work, edi: workmask */
 int_careful:
-	bt $TIF_NEED_RESCHED,%edx
-	jnc  int_very_careful
+	testl $_TIF_NEED_RESCHED_MASK,%edx
+	jz  int_very_careful
 	TRACE_IRQS_ON
 	ENABLE_INTERRUPTS(CLBR_NONE)
 	pushq_cfi %rdi
@@ -776,7 +776,23 @@ retint_kernel:
 	bt	$9,EFLAGS(%rsp)	/* interrupts were off? */
 	jnc	1f
 0:	cmpl	$0,PER_CPU_VAR(__preempt_count)
+#ifndef CONFIG_PREEMPT_LAZY
 	jnz	1f
+#else
+	jz	do_preempt_schedule_irq
+
+	# atleast preempt count == 0 ?
+	cmpl $_PREEMPT_ENABLED,PER_CPU_VAR(__preempt_count)
+	jnz	1f
+
+	GET_THREAD_INFO(%rcx)
+	cmpl	$0, TI_preempt_lazy_count(%rcx)
+	jnz	1f
+
+	bt	$TIF_NEED_RESCHED_LAZY,TI_flags(%rcx)
+	jnc	1f
+do_preempt_schedule_irq:
+#endif
 	call	preempt_schedule_irq
 	jmp	0b
 1:
@@ -846,8 +862,8 @@ native_irq_return_ldt:
 	/* edi: workmask, edx: work */
 retint_careful:
 	CFI_RESTORE_STATE
-	bt    $TIF_NEED_RESCHED,%edx
-	jnc   retint_signal
+	testl $_TIF_NEED_RESCHED_MASK,%edx
+	jz   retint_signal
 	TRACE_IRQS_ON
 	ENABLE_INTERRUPTS(CLBR_NONE)
 	pushq_cfi %rdi
