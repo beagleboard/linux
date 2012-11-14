@@ -3324,6 +3324,9 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 		beaglebone_tsadcpins_free = 0;
 		
 		if (!strncmp("00A1", cape_config.version, 4)) {
+			// gpio3_16 is used as DOWN
+			beaglebone_spi1_free = 0;
+
 			setup_pin_mux(bbtoys43a1_pin_mux);
 			platform_device_register(&beaglebone_lcd43_keys);
 
