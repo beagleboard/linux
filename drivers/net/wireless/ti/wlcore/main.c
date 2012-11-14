@@ -5259,6 +5259,48 @@ out:
 	return ret;
 }
 
+int wlcore_rx_ba_max_subframes(struct wl1271 *wl, u8 hlid)
+{
+	struct wl12xx_vif *wlvif;
+	struct ieee80211_vif *vif;
+	struct ieee80211_sta *sta;
+
+	int win_size;
+
+	wlvif = wl->links[hlid].wlvif;
+	if (unlikely(!wlvif)) {
+		win_size = -EINVAL;
+		wl1271_error("wlvif for hlid %d is null", hlid);
+		goto out;
+	}
+
+	vif = wl12xx_wlvif_to_vif(wlvif);
+	if (unlikely(!vif)) {
+		win_size = -EINVAL;
+		wl1271_error("vif for hlid %d is null", hlid);
+		goto out;
+	}
+
+	rcu_read_lock();
+	sta = ieee80211_find_sta(vif, wlvif->bss_type != BSS_TYPE_AP_BSS ?
+					   vif->bss_conf.bssid :
+					   wl->links[hlid].addr);
+	if (unlikely(!sta)) {
+		win_size = -EINVAL;
+		wl1271_error("sta for hlid %d is null", hlid);
+
+		rcu_read_unlock();
+		goto out;
+	}
+
+	win_size = sta->max_rx_aggregation_subframes;
+	rcu_read_unlock();
+
+out:
+	return win_size;
+}
+EXPORT_SYMBOL_GPL(wlcore_rx_ba_max_subframes);
+
 static int wl1271_op_ampdu_action(struct ieee80211_hw *hw,
 				  struct ieee80211_vif *vif,
 				  enum ieee80211_ampdu_mlme_action action,
@@ -5269,6 +5311,7 @@ static int wl1271_op_ampdu_action(struct ieee80211_hw *hw,
 	struct wl12xx_vif *wlvif = wl12xx_vif_to_data(vif);
 	int ret;
 	u8 hlid, *ba_bitmap;
+	int win_size;
 
 	wl1271_debug(DEBUG_MAC80211, "mac80211 ampdu action %d tid %d", action,
 		     tid);
@@ -5325,8 +5368,15 @@ static int wl1271_op_ampdu_action(struct ieee80211_hw *hw,
 			break;
 		}
 
+		win_size = wlcore_rx_ba_max_subframes(wl, hlid);
+		if (win_size < 0) {
+			ret = -EINVAL;
+			wl1271_error("cannot get link rx_ba_max_subframes");
+			break;
+		}
+
 		ret = wl12xx_acx_set_ba_receiver_session(wl, tid, *ssn, true,
-							 hlid);
+							 hlid, win_size);
 		if (!ret) {
 			*ba_bitmap |= BIT(tid);
 			wl->ba_rx_session_count++;
@@ -5347,7 +5397,7 @@ static int wl1271_op_ampdu_action(struct ieee80211_hw *hw,
 		}
 
 		ret = wl12xx_acx_set_ba_receiver_session(wl, tid, 0, false,
-							 hlid);
+							 hlid, 0);
 		if (!ret) {
 			*ba_bitmap &= ~BIT(tid);
 			wl->ba_rx_session_count--;
