@@ -745,8 +745,9 @@ static int __init omap2_init_devices(void)
 	omap_init_aes();
 	omap_init_vout();
 	omap_init_ocp2scp();
-
-	am33xx_register_ehrpwm();
+	if (soc_is_am33xx()) {
+		am33xx_register_ehrpwm();
+	}
 	return 0;
 }
 arch_initcall(omap2_init_devices);
