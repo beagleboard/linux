@@ -1107,6 +1107,7 @@ static void smsc911x_tx_update_txcounters(struct net_device *dev)
 {
 	struct smsc911x_data *pdata = netdev_priv(dev);
 	unsigned int tx_stat;
+	unsigned int bytes_compl = 0, pkts_compl = 0;
 
 	while ((tx_stat = smsc911x_tx_get_txstatus(pdata)) != 0) {
 		if (unlikely(tx_stat & 0x80000000)) {
@@ -1124,6 +1125,8 @@ static void smsc911x_tx_update_txcounters(struct net_device *dev)
 			} else {
 				dev->stats.tx_packets++;
 				dev->stats.tx_bytes += (tx_stat >> 16);
+				pkts_compl++;
+				bytes_compl += (tx_stat >> 16);
 			}
 			if (unlikely(tx_stat & TX_STS_EXCESS_COL_)) {
 				dev->stats.collisions += 16;
@@ -1140,6 +1143,7 @@ static void smsc911x_tx_update_txcounters(struct net_device *dev)
 			}
 		}
 	}
+	netdev_completed_queue(dev, pkts_compl, bytes_compl);
 }
 
 /* Increments the Rx error counters */
@@ -1602,6 +1606,7 @@ static int smsc911x_stop(struct net_device *dev)
 	/* At this point all Rx and Tx activity is stopped */
 	dev->stats.rx_dropped += smsc911x_reg_read(pdata, RX_DROP);
 	smsc911x_tx_update_txcounters(dev);
+	netdev_reset_queue(dev);
 
 	/* Bring the PHY down */
 	if (pdata->phy_dev)
@@ -1645,6 +1650,7 @@ static int smsc911x_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	wrsz >>= 2;
 
 	pdata->ops->tx_writefifo(pdata, (unsigned int *)bufp, wrsz);
+	netdev_sent_queue(dev, skb->len);
 	freespace -= (skb->len + 32);
 	skb_tx_timestamp(skb);
 	dev_kfree_skb(skb);
