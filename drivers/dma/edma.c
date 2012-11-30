@@ -395,8 +395,11 @@ static int edma_alloc_chan_resources(struct dma_chan *chan)
 	a_ch_num = edma_alloc_channel(echan->ch_num, edma_callback,
 					chan, EVENTQ_DEFAULT);
 
+	/* NOTE: DO NOT RETURN ENODEV */
+	/* It causes dmaengine to remove the device from it's list */
+
 	if (a_ch_num < 0) {
-		ret = -ENODEV;
+		ret = -EINVAL;
 		goto err_no_chan;
 	}
 
@@ -404,7 +407,7 @@ static int edma_alloc_chan_resources(struct dma_chan *chan)
 		dev_err(dev, "failed to allocate requested channel %u:%u\n",
 			EDMA_CTLR(echan->ch_num),
 			EDMA_CHAN_SLOT(echan->ch_num));
-		ret = -ENODEV;
+		ret = -EINVAL;
 		goto err_wrong_chan;
 	}
 
@@ -591,6 +594,7 @@ static int edma_probe(struct platform_device *pdev)
 
 	dma_cap_zero(ecc->dma_slave.cap_mask);
 	dma_cap_set(DMA_SLAVE, ecc->dma_slave.cap_mask);
+	dma_cap_set(DMA_PRIVATE, ecc->dma_slave.cap_mask);
 
 	edma_dma_init(ecc, &ecc->dma_slave, &pdev->dev);
 
