@@ -41,6 +41,8 @@
 #include <linux/pinctrl/consumer.h>
 #include <linux/pm_runtime.h>
 #include <linux/platform_data/mmc-omap.h>
+#include <linux/pinctrl/consumer.h>
+#include <linux/err.h>
 
 /* OMAP HSMMC Host Controller Registers */
 #define OMAP_HSMMC_SYSSTATUS	0x0014
@@ -392,6 +394,7 @@ static inline int omap_hsmmc_have_reg(void)
 static int omap_hsmmc_gpio_init(struct omap_mmc_platform_data *pdata)
 {
 	int ret;
+	unsigned long flags;
 
 	if (gpio_is_valid(pdata->slots[0].switch_pin)) {
 		if (pdata->slots[0].cover)
@@ -421,6 +424,24 @@ static int omap_hsmmc_gpio_init(struct omap_mmc_platform_data *pdata)
 	} else
 		pdata->slots[0].gpio_wp = -EINVAL;
 
+	if (gpio_is_valid(pdata->slots[0].gpio_reset)) {
+		flags = pdata->slots[0].gpio_reset_active_low ?
+				GPIOF_OUT_INIT_LOW : GPIOF_OUT_INIT_HIGH;
+		ret = gpio_request_one(pdata->slots[0].gpio_reset, flags,
+				"mmc_reset");
+		if (ret)
+			goto err_free_wp;
+
+		/* hold reset */
+		udelay(pdata->slots[0].gpio_reset_hold_us);
+
+		gpio_set_value(pdata->slots[0].gpio_reset,
+				!pdata->slots[0].gpio_reset_active_low);
+
+	} else
+		pdata->slots[0].gpio_reset = -EINVAL;
+
+
 	return 0;
 
 err_free_wp:
@@ -434,6 +455,8 @@ err_free_sp:
 
 static void omap_hsmmc_gpio_free(struct omap_mmc_platform_data *pdata)
 {
+	if (gpio_is_valid(pdata->slots[0].gpio_reset))
+		gpio_free(pdata->slots[0].gpio_reset);
 	if (gpio_is_valid(pdata->slots[0].gpio_wp))
 		gpio_free(pdata->slots[0].gpio_wp);
 	if (gpio_is_valid(pdata->slots[0].switch_pin))
@@ -788,7 +811,7 @@ omap_hsmmc_start_command(struct omap_hsmmc_host *host, struct mmc_command *cmd,
 	 * ac, bc, adtc, bcr. Only commands ending an open ended transfer need
 	 * a val of 0x3, rest 0x0.
 	 */
-	if (cmd == host->mrq->stop)
+	if (host->mrq && cmd == host->mrq->stop)
 		cmdtype = 0x3;
 
 	cmdreg = (cmd->opcode << 24) | (resptype << 16) | (cmdtype << 22);
@@ -829,6 +852,8 @@ static void omap_hsmmc_request_done(struct omap_hsmmc_host *host, struct mmc_req
 {
 	int dma_ch;
 	unsigned long flags;
+
+	BUG_ON(mrq == NULL);
 
 	spin_lock_irqsave(&host->irq_lock, flags);
 	host->req_in_progress = 0;
@@ -1720,6 +1745,7 @@ static struct omap_mmc_platform_data *of_get_hsmmc_pdata(struct device *dev)
 	struct device_node *np = dev->of_node;
 	u32 bus_width, max_freq;
 	int cd_gpio, wp_gpio;
+	enum of_gpio_flags reset_flags;
 
 	cd_gpio = of_get_named_gpio(np, "cd-gpios", 0);
 	wp_gpio = of_get_named_gpio(np, "wp-gpios", 0);
@@ -1737,6 +1763,14 @@ static struct omap_mmc_platform_data *of_get_hsmmc_pdata(struct device *dev)
 	pdata->nr_slots = 1;
 	pdata->slots[0].switch_pin = cd_gpio;
 	pdata->slots[0].gpio_wp = wp_gpio;
+	reset_flags = 0;
+	pdata->slots[0].gpio_reset = of_get_named_gpio_flags(np,
+			"reset-gpios", 0, &reset_flags);
+	pdata->slots[0].gpio_reset_active_low =
+		(reset_flags & OF_GPIO_ACTIVE_LOW) != 0;
+	pdata->slots[0].gpio_reset_hold_us = 100;	/* default */
+	of_property_read_u32(np, "reset-gpio-hold-us",
+			&pdata->slots[0].gpio_reset_hold_us);
 
 	if (of_find_property(np, "ti,non-removable", NULL)) {
 		pdata->slots[0].nonremovable = true;
@@ -1801,6 +1835,10 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "No Slots\n");
 		return -ENXIO;
 	}
+
+	pinctrl = devm_pinctrl_get_select_default(&pdev->dev);
+	if (IS_ERR(pinctrl))
+		dev_warn(&pdev->dev, "unable to select pin group\n");
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	irq = platform_get_irq(pdev, 0);
