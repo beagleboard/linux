@@ -664,6 +664,54 @@ static int ieee80211_assign_beacon(struct ieee80211_sub_if_data *sdata,
 	return changed;
 }
 
+static u32 get_rates_from_ie(struct ieee80211_sub_if_data *sdata,
+			     const u8 *ies, u32 ies_len, u8 eid)
+{
+	struct ieee80211_supported_band *sband;
+	int i, j, rate;
+	u32 rates = 0;
+	const u8 *ie = cfg80211_find_ie(eid, ies, ies_len);
+
+	if (!ie)
+		return 0;
+
+	sband = sdata->local->hw.wiphy->bands[ieee80211_get_sdata_band(sdata)];
+	for (i = 0; i < ie[1]; i++) {
+		if (!(ie[2+i] & 0x80))
+			continue;
+
+		rate = (ie[2+i] & 0x7f) * 5;
+
+		for (j = 0; j < sband->n_bitrates; j++) {
+			if (sband->bitrates[j].bitrate == rate)
+				rates |= BIT(j);
+		}
+	}
+	return rates;
+}
+static u32 ieee80211_get_basic_rates(struct ieee80211_sub_if_data *sdata)
+{
+	struct sk_buff *skb;
+	struct ieee80211_mgmt *beacon;
+	const u8 *ies;
+	u32 rates = 0;
+
+	skb = ieee80211_beacon_get(&sdata->local->hw, &sdata->vif);
+	if (!skb)
+		return 0;
+
+	beacon = (struct ieee80211_mgmt *)skb->data;
+	ies = beacon->u.beacon.variable;
+
+	rates |= get_rates_from_ie(sdata, ies, skb_tail_pointer(skb) - ies,
+				   WLAN_EID_SUPP_RATES);
+	rates |= get_rates_from_ie(sdata, ies, skb_tail_pointer(skb) - ies,
+				   WLAN_EID_EXT_SUPP_RATES);
+
+	dev_kfree_skb(skb);
+	return rates;
+}
+
 static int ieee80211_start_ap(struct wiphy *wiphy, struct net_device *dev,
 			      struct cfg80211_ap_settings *params)
 {
@@ -753,6 +801,9 @@ static int ieee80211_start_ap(struct wiphy *wiphy, struct net_device *dev,
 		return err;
 	}
 	changed |= err;
+
+	sdata->vif.bss_conf.basic_rates = ieee80211_get_basic_rates(sdata);
+	changed |= BSS_CHANGED_BASIC_RATES;
 
 	err = drv_start_ap(sdata->local, sdata);
 	if (err) {
