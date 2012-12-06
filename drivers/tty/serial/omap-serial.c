@@ -835,6 +835,8 @@ serial_omap_set_termios(struct uart_port *port, struct ktermios *termios,
 		cval |= UART_LCR_PARITY;
 	if (!(termios->c_cflag & PARODD))
 		cval |= UART_LCR_EPAR;
+	if (termios->c_cflag & CMSPAR)
+		cval |= UART_LCR_SPAR;
 
 	/*
 	 * Ask the core to calculate the divisor for us.
