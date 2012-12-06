@@ -21,13 +21,23 @@ static void print_data(const char *data, int len)
 {
 	int i;
 	const char *p = data;
+	const char *s;
 
 	/* no data, don't print */
 	if (len == 0)
 		return;
 
 	if (util_is_printable_string(data, len)) {
-		printf(" = \"%s\"", (const char *)data);
+		printf(" = ");
+
+		s = data;
+		do {
+			printf("\"%s\"", s);
+			s += strlen(s) + 1;
+			if (s < data + len)
+				printf(", ");
+		} while (s < data + len);
+
 	} else if ((len % 4) == 0) {
 		printf(" = <");
 		for (i = 0; i < len; i += 4)
