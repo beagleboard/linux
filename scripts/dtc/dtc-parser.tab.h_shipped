@@ -40,27 +40,28 @@
       know about them.  */
    enum yytokentype {
      DT_V1 = 258,
-     DT_MEMRESERVE = 259,
-     DT_LSHIFT = 260,
-     DT_RSHIFT = 261,
-     DT_LE = 262,
-     DT_GE = 263,
-     DT_EQ = 264,
-     DT_NE = 265,
-     DT_AND = 266,
-     DT_OR = 267,
-     DT_BITS = 268,
-     DT_DEL_PROP = 269,
-     DT_DEL_NODE = 270,
-     DT_PROPNODENAME = 271,
-     DT_LITERAL = 272,
-     DT_CHAR_LITERAL = 273,
-     DT_BASE = 274,
-     DT_BYTE = 275,
-     DT_STRING = 276,
-     DT_LABEL = 277,
-     DT_REF = 278,
-     DT_INCBIN = 279
+     DT_PLUGIN = 259,
+     DT_MEMRESERVE = 260,
+     DT_LSHIFT = 261,
+     DT_RSHIFT = 262,
+     DT_LE = 263,
+     DT_GE = 264,
+     DT_EQ = 265,
+     DT_NE = 266,
+     DT_AND = 267,
+     DT_OR = 268,
+     DT_BITS = 269,
+     DT_DEL_PROP = 270,
+     DT_DEL_NODE = 271,
+     DT_PROPNODENAME = 272,
+     DT_LITERAL = 273,
+     DT_CHAR_LITERAL = 274,
+     DT_BASE = 275,
+     DT_BYTE = 276,
+     DT_STRING = 277,
+     DT_LABEL = 278,
+     DT_REF = 279,
+     DT_INCBIN = 280
    };
 #endif
 
@@ -71,7 +72,7 @@ typedef union YYSTYPE
 {
 
 /* Line 1676 of yacc.c  */
-#line 40 "dtc-parser.y"
+#line 41 "dtc-parser.y"
 
 	char *propnodename;
 	char *literal;
@@ -91,11 +92,12 @@ typedef union YYSTYPE
 	struct node *nodelist;
 	struct reserve_info *re;
 	uint64_t integer;
+	int is_plugin;
 
 
 
 /* Line 1676 of yacc.c  */
-#line 99 "dtc-parser.tab.h"
+#line 101 "dtc-parser.tab.h"
 } YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */
