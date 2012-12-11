@@ -192,6 +192,73 @@ static struct {
 	.i2c_settings = EXPANSION_I2C_NONE,
 };
 
+#if defined(CONFIG_WL12XX) || defined(CONFIG_WL12XX_MODULE)
+#include <linux/regulator/fixed.h>
+#include <linux/ti_wilink_st.h>
+#include <linux/wl12xx.h>
+
+#define OMAP_BEAGLE_WLAN_EN_GPIO    (139)
+#define OMAP_BEAGLE_BT_EN_GPIO      (138)
+#define OMAP_BEAGLE_WLAN_IRQ_GPIO   (137)
+#define OMAP_BEAGLE_FM_EN_BT_WU     (136)
+
+struct wl12xx_platform_data omap_beagle_wlan_data __initdata = {
+	.board_ref_clock = WL12XX_REFCLOCK_38, /* 38.4 MHz */
+};
+
+static struct ti_st_plat_data wilink_platform_data = {
+	.nshutdown_gpio	= OMAP_BEAGLE_BT_EN_GPIO,
+	.dev_name		= "/dev/ttyO1",
+	.flow_cntrl		= 1,
+	.baud_rate		= 3000000,
+	.chip_enable	= NULL,
+	.suspend		= NULL,
+	.resume			= NULL,
+};
+
+static struct platform_device wl12xx_device = {
+		.name		= "kim",
+		.id			= -1,
+		.dev.platform_data = &wilink_platform_data,
+};
+
+static struct platform_device btwilink_device = {
+	.name	= "btwilink",
+	.id	= -1,
+};
+#endif
+
+static struct regulator_consumer_supply beagle_vmmc2_supply =
+	REGULATOR_SUPPLY("vmmc", "omap_hsmmc.1");
+
+static struct regulator_init_data beagle_vmmc2 = {
+	.constraints = {
+		.valid_ops_mask = REGULATOR_CHANGE_STATUS,
+	},
+	.num_consumer_supplies = 1,
+	.consumer_supplies = &beagle_vmmc2_supply,
+};
+
+#if defined(CONFIG_WL12XX) || defined(CONFIG_WL12XX_MODULE)
+static struct fixed_voltage_config beagle_vwlan = {
+	.supply_name = "vwl1271",
+	.microvolts = 1800000,  /* 1.8V */
+	.gpio = OMAP_BEAGLE_WLAN_EN_GPIO,
+	.startup_delay = 70000, /* 70ms */
+	.enable_high = 1,
+	.enabled_at_boot = 0,
+	.init_data = &beagle_vmmc2,
+};
+
+static struct platform_device omap_vwlan_device = {
+	.name		= "reg-fixed-voltage",
+	.id		= 1,
+	.dev = {
+		.platform_data = &beagle_vwlan,
+	},
+};
+#endif
+
 //rcn-ee: this is just a fake regulator, the zippy hardware provides 3.3/1.8 with jumper..
 static struct fixed_voltage_config beagle_vzippy = {
 	.supply_name = "vzippy",
@@ -430,6 +497,26 @@ static struct omap2_hsmmc_info mmc_zippy[] = {
 	},
 	{}	/* Terminator */
 };
+
+static struct omap2_hsmmc_info mmcbbt[] = {
+	{
+		.mmc		= 1,
+		.caps		= MMC_CAP_4_BIT_DATA,
+		.gpio_wp	= -EINVAL,
+		.deferred	= true,
+	},
+	{
+		.name		= "wl1271",
+		.mmc		= 2,
+		.caps		= MMC_CAP_4_BIT_DATA | MMC_CAP_POWER_OFF_CARD,
+		.gpio_wp	= -EINVAL,
+		.gpio_cd	= -EINVAL,
+		.ocr_mask	= MMC_VDD_165_195,
+		.nonremovable	= true,
+	},
+	{}	/* Terminator */
+};
+
 static struct regulator_consumer_supply beagle_vmmc1_supply[] = {
 	REGULATOR_SUPPLY("vmmc", "omap_hsmmc.0"),
 };
@@ -446,6 +533,13 @@ static int beagle_twl_gpio_setup(struct device *dev,
 	int r;
 
 	switch (expansion_config.mmc_settings) {
+	case EXPANSION_MMC_WIFI:
+		mmcbbt[0].gpio_wp = beagle_config.mmc1_gpio_wp;
+		/* gpio + 0 is "mmc0_cd" (input/IRQ) */
+		mmcbbt[0].gpio_cd = gpio + 0;
+
+		omap_hsmmc_late_init(mmcbbt);
+		break;
 	case EXPANSION_MMC_ZIPPY:
 		mmc_zippy[0].gpio_wp = beagle_config.mmc1_gpio_wp;
 		/* gpio + 0 is "mmc0_cd" (input/IRQ) */
@@ -808,6 +902,13 @@ static void __init omap3_beagle_init(void)
 		omap_mux_init_gpio(OMAP3BEAGLE_GPIO_ZIPPY_MMC_CD, OMAP_PIN_INPUT);
 	}
 
+	if (!strcmp(expansionboard_name, "bbtoys-wifi"))
+	{
+	#if defined(CONFIG_WL12XX) || defined(CONFIG_WL12XX_MODULE)
+		expansion_config.mmc_settings = EXPANSION_MMC_WIFI;
+	#endif
+	}
+
 	if (!strcmp(expansionboard2_name, "bbtoys-ulcd"))
 	{
 		int r;
@@ -826,6 +927,10 @@ static void __init omap3_beagle_init(void)
 		omap_mux_init_gpio(beagle_config.mmc1_gpio_wp, OMAP_PIN_INPUT);
 
 	switch (expansion_config.mmc_settings) {
+	case EXPANSION_MMC_WIFI:
+		mmcbbt[0].caps = beagle_config.mmc_caps;
+		omap_hsmmc_init(mmcbbt);
+		break;
 	case EXPANSION_MMC_ZIPPY:
 		mmc_zippy[0].caps = beagle_config.mmc_caps;
 		omap_hsmmc_init(mmc_zippy);
@@ -889,6 +994,20 @@ static void __init omap3_beagle_init(void)
 		gpio_export(141, 1);
 		gpio_request(162, "sysfs");
 		gpio_export(162, 1);
+	}
+
+	if (!strcmp(expansionboard_name, "bbtoys-wifi"))
+	{
+	#if defined(CONFIG_WL12XX) || defined(CONFIG_WL12XX_MODULE)
+		omap_beagle_wlan_data.irq = gpio_to_irq(OMAP_BEAGLE_WLAN_IRQ_GPIO);
+		if (wl12xx_set_platform_data(&omap_beagle_wlan_data))
+			pr_err("error setting wl12xx data\n");
+		pr_info("Beagle expansionboard: registering wl12xx bt platform device\n");
+		platform_device_register(&wl12xx_device);
+		platform_device_register(&btwilink_device);
+		pr_info("Beagle expansionboard: registering wl12xx wifi platform device\n");
+		platform_device_register(&omap_vwlan_device);
+	#endif
 	}
 
 	if (!strcmp(expansionboard2_name, "bbtoys-ulcd"))
