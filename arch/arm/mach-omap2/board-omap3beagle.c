@@ -21,6 +21,7 @@
 #include <linux/io.h>
 #include <linux/leds.h>
 #include <linux/gpio.h>
+#include <linux/irq.h>
 #include <linux/input.h>
 #include <linux/gpio_keys.h>
 #include <linux/opp.h>
@@ -161,6 +162,8 @@ static void __init omap3_beagle_init_rev(void)
 		omap3_beagle_version = OMAP3BEAGLE_BOARD_UNKN;
 	}
 }
+
+char expansionboard_name[16];
 
 static struct mtd_partition omap3beagle_nand_partitions[] = {
 	/* All the partition sizes are listed in terms of NAND block size */
@@ -448,6 +451,18 @@ static struct omap_board_mux board_mux[] __initdata = {
 };
 #endif
 
+static int __init expansionboard_setup(char *str)
+{
+	if (!machine_is_omap3_beagle())
+		return 0;
+
+	if (!str)
+		return -EINVAL;
+	strncpy(expansionboard_name, str, 16);
+	pr_info("Beagle expansionboard: %s\n", expansionboard_name);
+	return 0;
+}
+
 static int __init beagle_opp_init(void)
 {
 	int r = 0;
@@ -533,6 +548,8 @@ static void __init omap3_beagle_init(void)
 	omap_mux_init_signal("sdrc_cke0", OMAP_PIN_OUTPUT);
 	omap_mux_init_signal("sdrc_cke1", OMAP_PIN_OUTPUT);
 }
+
+early_param("buddy", expansionboard_setup);
 
 MACHINE_START(OMAP3_BEAGLE, "OMAP3 Beagle Board")
 	/* Maintainer: Syed Mohammed Khasim - http://beagleboard.org */
