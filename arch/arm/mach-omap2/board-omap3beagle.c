@@ -42,6 +42,7 @@
 #include <asm/mach/flash.h>
 
 #include <video/omapdss.h>
+#include <video/omap-panel-generic-dpi.h>
 #include <video/omap-panel-tfp410.h>
 #include <linux/platform_data/mtd-nand-omap2.h>
 
@@ -88,12 +89,16 @@ static struct {
 	int dvi_pd_gpio;
 	int usr_button_gpio;
 	int mmc_caps;
+	char *lcd_driver_name;
+	int lcd_pwren;
 } beagle_config = {
 	.mmc1_gpio_wp = -EINVAL,
 	.usb_pwr_level = GPIOF_OUT_INIT_LOW,
 	.dvi_pd_gpio = -EINVAL,
 	.usr_button_gpio = 4,
 	.mmc_caps = MMC_CAP_4_BIT_DATA | MMC_CAP_8_BIT_DATA,
+	.lcd_driver_name = "",
+	.lcd_pwren = 156,
 };
 
 static struct gpio omap3_beagle_rev_gpios[] __initdata = {
@@ -165,6 +170,7 @@ static void __init omap3_beagle_init_rev(void)
 }
 
 char expansionboard_name[16];
+char expansionboard2_name[16];
 
 enum {
 	EXPANSION_MMC_NONE = 0,
@@ -175,6 +181,7 @@ enum {
 enum {
 	EXPANSION_I2C_NONE = 0,
 	EXPANSION_I2C_ZIPPY,
+	EXPANSION_I2C_7ULCD,
 };
 
 static struct {
@@ -339,9 +346,53 @@ static struct omap_dss_device beagle_tv_device = {
 	.phy.venc.type = OMAP_DSS_VENC_TYPE_SVIDEO,
 };
 
+static int beagle_enable_lcd(struct omap_dss_device *dssdev)
+{
+	if (gpio_is_valid(beagle_config.lcd_pwren)) {
+		pr_info("%s: Enabling LCD\n", __FUNCTION__);
+		gpio_set_value(beagle_config.lcd_pwren, 0);
+	} else {
+		pr_info("%s: Invalid LCD enable GPIO: %d\n",
+			__FUNCTION__, beagle_config.lcd_pwren);
+	}
+
+	return 0;
+}
+
+static void beagle_disable_lcd(struct omap_dss_device *dssdev)
+{
+	if (gpio_is_valid(beagle_config.lcd_pwren)) {
+		pr_info("%s: Disabling LCD\n", __FUNCTION__);
+		gpio_set_value(beagle_config.lcd_pwren, 1);
+	} else {
+		pr_info("%s: Invalid LCD enable GPIO: %d\n",
+			__FUNCTION__, beagle_config.lcd_pwren);
+	}
+
+	return;
+}
+
+static struct panel_generic_dpi_data lcd_panel = {
+	.name = "tfc_s9700rtwv35tr-01b",
+	.platform_enable = beagle_enable_lcd,
+	.platform_disable = beagle_disable_lcd,
+};
+
+static struct omap_dss_device beagle_lcd_device = {
+	.type                   = OMAP_DISPLAY_TYPE_DPI,
+	.name                   = "lcd",
+	.driver_name		= "generic_dpi_panel",
+	.phy.dpi.data_lines     = 24,
+	.platform_enable        = beagle_enable_lcd,
+	.platform_disable       = beagle_disable_lcd,
+	.reset_gpio 		= -EINVAL,
+	.data			= &lcd_panel,
+};
+
 static struct omap_dss_device *beagle_dss_devices[] = {
 	&beagle_dvi_device,
 	&beagle_tv_device,
+	&beagle_lcd_device,
 };
 
 static struct omap_dss_board_info beagle_dss_data = {
@@ -509,6 +560,53 @@ static struct i2c_board_info __initdata zippy_i2c2_rtc[] = {
 #endif
 };
 
+#if defined(CONFIG_TOUCHSCREEN_TSC2007) || defined(CONFIG_TOUCHSCREEN_TSC2007_MODULE)
+/* Touchscreen */
+#include <linux/i2c/tsc2007.h>
+
+#define OMAP3BEAGLE_TSC2007_GPIO 157
+
+static int omap3beagle_tsc2007_get_pendown_state(void)
+{
+	return !gpio_get_value(OMAP3BEAGLE_TSC2007_GPIO);
+}
+
+static struct tsc2007_platform_data tsc2007_info = {
+	.model = 2007,
+	.x_plate_ohms = 180,
+	.get_pendown_state = omap3beagle_tsc2007_get_pendown_state,
+};
+
+static struct i2c_board_info __initdata beagle_i2c2_bbtoys_ulcd[] = {
+	{
+		I2C_BOARD_INFO("tlc59108", 0x40),
+	},
+	{
+		I2C_BOARD_INFO("tsc2007", 0x48),
+		.platform_data = &tsc2007_info,
+	},
+};
+
+static void __init omap3beagle_tsc2007_init(void)
+{
+	int r;
+
+	omap_mux_init_gpio(OMAP3BEAGLE_TSC2007_GPIO, OMAP_PIN_INPUT_PULLUP);
+
+	r = gpio_request_one(OMAP3BEAGLE_TSC2007_GPIO, GPIOF_IN, "tsc2007_pen_down");
+	if (r < 0) {
+		pr_err("Beagle expansionboard: failed to request GPIO#%d for "
+		"tsc2007 pen down IRQ\n", OMAP3BEAGLE_TSC2007_GPIO);
+		return;
+	}
+
+	beagle_i2c2_bbtoys_ulcd[0].irq = gpio_to_irq(OMAP3BEAGLE_TSC2007_GPIO);
+	irq_set_irq_type(gpio_to_irq(OMAP3BEAGLE_TSC2007_GPIO), IRQ_TYPE_EDGE_FALLING);
+}
+#else
+static struct i2c_board_info __initdata beagle_i2c2_bbtoys_ulcd[] = {};
+#endif
+
 static int __init omap3_beagle_i2c_init(void)
 {
 	omap3_pmic_get_config(&beagle_twldata,
@@ -521,6 +619,10 @@ static int __init omap3_beagle_i2c_init(void)
 	omap3_pmic_init("twl4030", &beagle_twldata);
 
 	switch (expansion_config.i2c_settings) {
+	case EXPANSION_I2C_7ULCD:
+		omap_register_i2c_bus(2, 400,  beagle_i2c2_bbtoys_ulcd,
+							ARRAY_SIZE(beagle_i2c2_bbtoys_ulcd));
+		break;
 	case EXPANSION_I2C_ZIPPY:
 		omap_register_i2c_bus(2, 400, zippy_i2c2_rtc, ARRAY_SIZE(zippy_i2c2_rtc));
 		break;
@@ -629,6 +731,18 @@ static int __init expansionboard_setup(char *str)
 	return 0;
 }
 
+static int __init expansionboard2_setup(char *str)
+{
+	if (!machine_is_omap3_beagle())
+		return 0;
+
+	if (!str)
+		return -EINVAL;
+	strncpy(expansionboard2_name, str, 16);
+	pr_info("Beagle expansionboard2: %s\n", expansionboard2_name);
+	return 0;
+}
+
 static int __init beagle_opp_init(void)
 {
 	int r = 0;
@@ -692,6 +806,20 @@ static void __init omap3_beagle_init(void)
 
 		omap_mux_init_gpio(OMAP3BEAGLE_GPIO_ZIPPY_MMC_WP, OMAP_PIN_INPUT);
 		omap_mux_init_gpio(OMAP3BEAGLE_GPIO_ZIPPY_MMC_CD, OMAP_PIN_INPUT);
+	}
+
+	if (!strcmp(expansionboard2_name, "bbtoys-ulcd"))
+	{
+		int r;
+		expansion_config.i2c_settings = EXPANSION_I2C_7ULCD;
+
+		/* TODO: set lcd_driver_name by command line or device tree */
+		beagle_config.lcd_driver_name = "tfc_s9700rtwv35tr-01b",
+		lcd_panel.name = beagle_config.lcd_driver_name;
+
+		r = gpio_request_one(beagle_config.lcd_pwren, GPIOF_OUT_INIT_LOW, "LCD power");
+		if (r < 0)
+			pr_err("Beagle expansionboard: Unable to get LCD power enable GPIO\n");
 	}
 
 	if (gpio_is_valid(beagle_config.mmc1_gpio_wp))
@@ -763,6 +891,14 @@ static void __init omap3_beagle_init(void)
 		gpio_export(162, 1);
 	}
 
+	if (!strcmp(expansionboard2_name, "bbtoys-ulcd"))
+	{
+	#if defined(CONFIG_TOUCHSCREEN_TSC2007) || defined(CONFIG_TOUCHSCREEN_TSC2007_MODULE)
+		pr_info("Beagle expansionboard: initializing touchscreen: tsc2007\n");
+		omap3beagle_tsc2007_init();
+	#endif
+	}
+
 	usb_musb_init(NULL);
 	usbhs_init(&usbhs_bdata);
 	board_nand_init(omap3beagle_nand_partitions,
@@ -779,6 +915,7 @@ static void __init omap3_beagle_init(void)
 }
 
 early_param("buddy", expansionboard_setup);
+early_param("buddy2", expansionboard2_setup);
 
 MACHINE_START(OMAP3_BEAGLE, "OMAP3 Beagle Board")
 	/* Maintainer: Syed Mohammed Khasim - http://beagleboard.org */
