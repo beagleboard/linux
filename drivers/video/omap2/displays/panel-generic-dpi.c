@@ -538,6 +538,33 @@ static struct panel_config generic_dpi_panels[] = {
 		},
 		.name			= "primeview_pd104slf",
 	},
+
+	/* ThreeFiveCorp S9700RTWV35TR-01B */
+	{
+		{
+			.x_res		= 800,
+			.y_res		= 480,
+
+			.pixel_clock	= 30000,
+
+			.hsw		= 49,
+			.hfp		= 41,
+			.hbp		= 40,
+
+			.vsw		= 4,
+			.vfp		= 14,
+			.vbp		= 29,
+
+			.vsync_level	= OMAPDSS_SIG_ACTIVE_LOW,
+			.hsync_level	= OMAPDSS_SIG_ACTIVE_LOW,
+			.data_pclk_edge	= OMAPDSS_DRIVE_SIG_RISING_EDGE,
+			.de_level	= OMAPDSS_SIG_ACTIVE_HIGH,
+			.sync_pclk_edge	= OMAPDSS_DRIVE_SIG_OPPOSITE_EDGES,
+		},
+		.power_on_delay		= 50,
+		.power_off_delay	= 100,
+		.name			= "tfc_s9700rtwv35tr-01b",
+	},
 };
 
 struct panel_drv_data {
