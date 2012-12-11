@@ -246,6 +246,46 @@ static void __init omap3beagle_enc28j60_init(void)
 static inline void __init omap3beagle_enc28j60_init(void) { return; }
 #endif
 
+#if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
+#include <linux/platform_data/spi-omap2-mcspi.h>
+#include <linux/spi/spi.h>
+
+#define OMAP3BEAGLE_GPIO_KS8851_IRQ 157
+
+static struct omap2_mcspi_device_config ks8851_spi_chip_info = {
+	.turbo_mode	= 0,
+};
+
+static struct spi_board_info omap3beagle_zippy2_spi_board_info[] __initdata = {
+	{
+		.modalias		= "ks8851",
+		.bus_num		= 4,
+		.chip_select	= 0,
+		.max_speed_hz	= 36000000,
+		.controller_data	= &ks8851_spi_chip_info,
+	},
+};
+
+static void __init omap3beagle_ks8851_init(void)
+{
+	if ((gpio_request(OMAP3BEAGLE_GPIO_KS8851_IRQ, "KS8851_IRQ") == 0) &&
+	    (gpio_direction_input(OMAP3BEAGLE_GPIO_KS8851_IRQ) == 0)) {
+		gpio_export(OMAP3BEAGLE_GPIO_KS8851_IRQ, 0);
+		omap3beagle_zippy2_spi_board_info[0].irq = gpio_to_irq(OMAP3BEAGLE_GPIO_KS8851_IRQ);
+		irq_set_irq_type(omap3beagle_zippy2_spi_board_info[0].irq, IRQ_TYPE_EDGE_FALLING);
+	} else {
+		pr_err("Beagle expansionboard: could not obtain gpio for KS8851_IRQ\n");
+		return;
+	}
+
+	spi_register_board_info(omap3beagle_zippy2_spi_board_info,
+			ARRAY_SIZE(omap3beagle_zippy2_spi_board_info));
+}
+
+#else
+static inline void __init omap3beagle_ks8851_init(void) { return; }
+#endif
+
 static struct mtd_partition omap3beagle_nand_partitions[] = {
 	/* All the partition sizes are listed in terms of NAND block size */
 	{
@@ -642,7 +682,7 @@ static void __init omap3_beagle_init(void)
 	omap3_mux_init(board_mux, OMAP_PACKAGE_CBB);
 	omap3_beagle_init_rev();
 
-	if (!strcmp(expansionboard_name, "zippy"))
+	if ((!strcmp(expansionboard_name, "zippy")) || (!strcmp(expansionboard_name, "zippy2")))
 	{
 		pr_info("Beagle expansionboard: initializing zippy mmc\n");
 		platform_device_register(&omap_zippy_device);
@@ -684,6 +724,12 @@ static void __init omap3_beagle_init(void)
 	{
 		pr_info("Beagle expansionboard: initializing enc28j60\n");
 		omap3beagle_enc28j60_init();
+	}
+
+	if (!strcmp(expansionboard_name, "zippy2"))
+	{
+		pr_info("Beagle expansionboard: initializing ks_8851\n");
+		omap3beagle_ks8851_init();
 	}
 
 	usb_musb_init(NULL);
