@@ -173,6 +173,7 @@ static void __init omap3_beagle_init_rev(void)
 char expansionboard_name[16];
 char expansionboard2_name[16];
 char camera_name[16];
+char wl12xx_name[16];
 
 enum {
 	EXPANSION_MMC_NONE = 0,
@@ -206,6 +207,10 @@ static struct {
 
 struct wl12xx_platform_data omap_beagle_wlan_data __initdata = {
 	.board_ref_clock = WL12XX_REFCLOCK_38, /* 38.4 MHz */
+};
+
+struct wl12xx_platform_data omap_beagle_wlan_data_26mhz __initdata = {
+	.board_ref_clock = WL12XX_REFCLOCK_26, /* 26 MHz */
 };
 
 static struct ti_st_plat_data wilink_platform_data = {
@@ -956,6 +961,18 @@ static int __init camera_setup(char *str)
 	return 0;
 }
 
+static int __init wl12xx_setup(char *str)
+{
+	if (!machine_is_omap3_beagle())
+		return 0;
+
+	if (!str)
+		return -EINVAL;
+	strncpy(wl12xx_name, str, 16);
+	pr_info("Beagle wl12xx clk: %s\n", wl12xx_name);
+	return 0;
+}
+
 static int __init beagle_opp_init(void)
 {
 	int r = 0;
@@ -1083,9 +1100,29 @@ static void __init omap3_beagle_init(void)
 		omap_mux_init_gpio(OMAP3BEAGLE_GPIO_ZIPPY_MMC_CD, OMAP_PIN_INPUT);
 	}
 
-	if (!strcmp(expansionboard_name, "bbtoys-wifi"))
+	if ((!strcmp(expansionboard_name, "bbtoys-wifi")) || (!strcmp(expansionboard_name, "lsr-com6l-adpt")))
 	{
 	#if defined(CONFIG_WL12XX) || defined(CONFIG_WL12XX_MODULE)
+		pr_info("Beagle expansion: wl12xx: setting up gpio pinmux\n");
+
+		omap_mux_init_gpio(OMAP_BEAGLE_FM_EN_BT_WU, OMAP_PIN_OUTPUT);
+		omap_mux_init_gpio(OMAP_BEAGLE_BT_EN_GPIO, OMAP_PIN_OUTPUT);
+		omap_mux_init_gpio(OMAP_BEAGLE_WLAN_EN_GPIO, OMAP_PIN_OUTPUT);
+
+		omap_mux_init_gpio(OMAP_BEAGLE_WLAN_IRQ_GPIO, OMAP_PIN_INPUT_PULLUP);
+
+		/* WLAN SDIO: MMC2 CLK */
+		omap_mux_init_signal("sdmmc2_clk.sdmmc2_clk", OMAP_PIN_INPUT_PULLUP);
+
+		/* WLAN SDIO: MMC2 CMD */
+		omap_mux_init_signal("sdmmc2_cmd.sdmmc2_cmd", OMAP_PIN_INPUT_PULLUP);
+
+		/* WLAN SDIO: MMC2 DAT[0-3] */
+		omap_mux_init_signal("sdmmc2_dat0.sdmmc2_dat0", OMAP_PIN_INPUT_PULLUP);
+		omap_mux_init_signal("sdmmc2_dat1.sdmmc2_dat1", OMAP_PIN_INPUT_PULLUP);
+		omap_mux_init_signal("sdmmc2_dat2.sdmmc2_dat2", OMAP_PIN_INPUT_PULLUP);
+		omap_mux_init_signal("sdmmc2_dat3.sdmmc2_dat3", OMAP_PIN_INPUT_PULLUP);
+
 		expansion_config.mmc_settings = EXPANSION_MMC_WIFI;
 	#endif
 	}
@@ -1177,12 +1214,24 @@ static void __init omap3_beagle_init(void)
 		gpio_export(162, 1);
 	}
 
-	if (!strcmp(expansionboard_name, "bbtoys-wifi"))
+	if ((!strcmp(expansionboard_name, "bbtoys-wifi")) || (!strcmp(expansionboard_name, "lsr-com6l-adpt")))
 	{
 	#if defined(CONFIG_WL12XX) || defined(CONFIG_WL12XX_MODULE)
-		omap_beagle_wlan_data.irq = gpio_to_irq(OMAP_BEAGLE_WLAN_IRQ_GPIO);
-		if (wl12xx_set_platform_data(&omap_beagle_wlan_data))
-			pr_err("error setting wl12xx data\n");
+		pr_info("Beagle expansionboard: initializing wl12xx platform\n");
+
+		if (!strcmp(wl12xx_name, "wl12xx_26mhz")) {
+			pr_info("wl12xx: 26Mhz reference clock (TiWi5)\n");
+			omap_beagle_wlan_data_26mhz.irq = gpio_to_irq(OMAP_BEAGLE_WLAN_IRQ_GPIO);
+			if (wl12xx_set_platform_data(&omap_beagle_wlan_data_26mhz))
+				pr_err("error setting wl12xx data\n");
+		} else {
+			pr_info("wl12xx: 38.4Mhz reference clock (TiWi2/TiWi-BLE)\n");
+			pr_info("wl12xx: for (TiWi5) support pass kernel [wl12xx_clk=wl12xx_26mhz]\n");
+			omap_beagle_wlan_data.irq = gpio_to_irq(OMAP_BEAGLE_WLAN_IRQ_GPIO);
+			if (wl12xx_set_platform_data(&omap_beagle_wlan_data))
+				pr_err("error setting wl12xx data\n");
+		}
+
 		pr_info("Beagle expansionboard: registering wl12xx bt platform device\n");
 		platform_device_register(&wl12xx_device);
 		platform_device_register(&btwilink_device);
@@ -1267,6 +1316,7 @@ static int __init omap3_beagle_late_initcall(void)
 early_param("buddy", expansionboard_setup);
 early_param("buddy2", expansionboard2_setup);
 early_param("camera", camera_setup);
+early_param("wl12xx_clk", wl12xx_setup);
 
 late_initcall(omap3_beagle_late_initcall);
 
