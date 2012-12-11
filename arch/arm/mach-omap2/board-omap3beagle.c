@@ -732,6 +732,37 @@ static void __init omap3_beagle_init(void)
 		omap3beagle_ks8851_init();
 	}
 
+	if (!strcmp(expansionboard_name, "trainer"))
+	{
+		pr_info("Beagle expansionboard: exporting GPIOs 130-141,162 to userspace\n");
+		gpio_request(130, "sysfs");
+		gpio_export(130, 1);
+		gpio_request(131, "sysfs");
+		gpio_export(131, 1);
+		gpio_request(132, "sysfs");
+		gpio_export(132, 1);
+		gpio_request(133, "sysfs");
+		gpio_export(133, 1);
+		gpio_request(134, "sysfs");
+		gpio_export(134, 1);
+		gpio_request(135, "sysfs");
+		gpio_export(135, 1);
+		gpio_request(136, "sysfs");
+		gpio_export(136, 1);
+		gpio_request(137, "sysfs");
+		gpio_export(137, 1);
+		gpio_request(138, "sysfs");
+		gpio_export(138, 1);
+		gpio_request(139, "sysfs");
+		gpio_export(139, 1);
+		gpio_request(140, "sysfs");
+		gpio_export(140, 1);
+		gpio_request(141, "sysfs");
+		gpio_export(141, 1);
+		gpio_request(162, "sysfs");
+		gpio_export(162, 1);
+	}
+
 	usb_musb_init(NULL);
 	usbhs_init(&usbhs_bdata);
 	board_nand_init(omap3beagle_nand_partitions,
