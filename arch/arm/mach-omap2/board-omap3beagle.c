@@ -40,6 +40,7 @@
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
 #include <asm/mach/flash.h>
+#include <linux/spi/spi.h>
 
 #include <video/omapdss.h>
 #include <video/omap-panel-generic-dpi.h>
@@ -885,6 +886,68 @@ static int __init beagle_opp_init(void)
 }
 device_initcall(beagle_opp_init);
 
+static void __init omap3_beagle_config_mcspi3_mux(void)
+{
+	/* NOTE: Clock pins need to be in input mode */
+	omap_mux_init_signal("sdmmc2_clk.mcspi3_clk", OMAP_PIN_INPUT);
+	omap_mux_init_signal("sdmmc2_cmd.mcspi3_simo", OMAP_PIN_OUTPUT);
+	omap_mux_init_signal("sdmmc2_dat0.mcspi3_somi", OMAP_PIN_INPUT_PULLUP);
+	omap_mux_init_signal("sdmmc2_dat2.mcspi3_cs1", OMAP_PIN_OUTPUT);
+	omap_mux_init_signal("sdmmc2_dat3.mcspi3_cs0", OMAP_PIN_OUTPUT);
+}
+
+static void __init omap3_beagle_config_mcspi4_mux(void)
+{
+	/* NOTE: Clock pins need to be in input mode */
+	omap_mux_init_signal("mcbsp1_clkr.mcspi4_clk", OMAP_PIN_INPUT);
+	omap_mux_init_signal("mcbsp1_dx.mcspi4_simo", OMAP_PIN_OUTPUT);
+	omap_mux_init_signal("mcbsp1_dr.mcspi4_somi", OMAP_PIN_INPUT_PULLUP);
+	omap_mux_init_signal("mcbsp1_fsx.mcspi4_cs0", OMAP_PIN_OUTPUT);
+}
+
+static void __init omap3_beagle_config_mcbsp3_mux(void)
+{
+	omap_mux_init_signal("mcbsp3_fsx.uart2_rx", OMAP_PIN_INPUT);
+	omap_mux_init_signal("uart2_cts.mcbsp3_dx", OMAP_PIN_OUTPUT);
+	omap_mux_init_signal("uart2_rts.mcbsp3_dr", OMAP_PIN_INPUT);
+	/* NOTE: Clock pins need to be in input mode */
+	omap_mux_init_signal("uart2_tx.mcbsp3_clkx", OMAP_PIN_INPUT);
+}
+
+static void __init omap3_beagle_config_fpga_mux(void)
+{
+	omap3_beagle_config_mcbsp3_mux();
+	omap3_beagle_config_mcspi3_mux();
+	omap3_beagle_config_mcspi4_mux();
+}
+
+static struct spi_board_info beagle_mcspi_board_info[] = {
+	/* spi 3.0 */
+	{
+		.modalias	= "spidev",
+		.max_speed_hz	= 48000000, //48 Mbps
+		.bus_num	= 3,
+		.chip_select	= 0,
+		.mode = SPI_MODE_1,
+	},
+	/* spi 3.1 */
+	{
+		.modalias	= "spidev",
+		.max_speed_hz	= 48000000, //48 Mbps
+		.bus_num	= 3,
+		.chip_select	= 1,
+		.mode = SPI_MODE_1,
+	},
+	/* spi 4.0 */
+	{
+		.modalias	= "spidev",
+		.max_speed_hz	= 48000000, //48 Mbps
+		.bus_num	= 4,
+		.chip_select	= 0,
+		.mode = SPI_MODE_1,
+	},
+};
+
 static void __init omap3_beagle_init(void)
 {
 	omap3_mux_init(board_mux, OMAP_PACKAGE_CBB);
@@ -1008,6 +1071,17 @@ static void __init omap3_beagle_init(void)
 		pr_info("Beagle expansionboard: registering wl12xx wifi platform device\n");
 		platform_device_register(&omap_vwlan_device);
 	#endif
+	}
+
+	if (!strcmp(expansionboard_name, "beaglefpga"))
+	{
+		pr_info("Beagle expansionboard: enabling SPIdev for McSPI3/4 and pin muxing for McBSP3 slave mode\n");
+
+		/* FPGA pin settings configure McSPI 3, McSPI 4 and McBSP 3 */
+		omap3_beagle_config_fpga_mux();
+
+		/* register McSPI 3 and McSPI 4 for FPGA programming and control */
+		spi_register_board_info(beagle_mcspi_board_info, ARRAY_SIZE(beagle_mcspi_board_info));
 	}
 
 	if (!strcmp(expansionboard2_name, "bbtoys-ulcd"))
