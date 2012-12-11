@@ -1084,6 +1084,14 @@ static void __init omap3_beagle_init(void)
 		spi_register_board_info(beagle_mcspi_board_info, ARRAY_SIZE(beagle_mcspi_board_info));
 	}
 
+	if (!strcmp(expansionboard_name, "spidev"))
+	{
+		pr_info("Beagle expansionboard: registering spidev\n");
+		omap3_beagle_config_mcspi3_mux();
+		omap3_beagle_config_mcspi4_mux();
+		spi_register_board_info(beagle_mcspi_board_info, ARRAY_SIZE(beagle_mcspi_board_info));
+	}
+
 	if (!strcmp(expansionboard2_name, "bbtoys-ulcd"))
 	{
 	#if defined(CONFIG_TOUCHSCREEN_TSC2007) || defined(CONFIG_TOUCHSCREEN_TSC2007_MODULE)
