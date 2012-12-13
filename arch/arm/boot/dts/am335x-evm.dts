@@ -70,7 +70,7 @@
 			};
 		};
 
-		i2c2: i2c@4802a000 {
+		i2c20: i2c@4802a000 {
 			status = "okay";
 			clock-frequency = <100000>;
 
