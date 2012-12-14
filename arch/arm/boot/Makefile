@@ -60,6 +60,10 @@ $(obj)/zImage-dtb.%:	$(obj)/dts/%.dtb $(obj)/zImage
 
 endif
 
+ifeq ($(CONFIG_OF_RESOLVE),y)
+DTC_FLAGS += -@
+endif
+
 ifneq ($(LOADADDR),)
   UIMAGE_LOADADDR=$(LOADADDR)
 else
