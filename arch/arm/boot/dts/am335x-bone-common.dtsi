@@ -73,7 +73,7 @@
 		};
 	};
 
-	ocp {
+	ocp: ocp {
 		uart1: serial@44e09000 {
 			status = "okay";
 		};
@@ -128,35 +128,6 @@
 		};
 	};
 
-	leds {
-		compatible = "gpio-leds";
-
-		led@2 {
-			label = "beaglebone:green:heartbeat";
-			gpios = <&gpio2 21 0>;
-			linux,default-trigger = "heartbeat";
-			default-state = "off";
-		};
-
-		led@3 {
-			label = "beaglebone:green:mmc0";
-			gpios = <&gpio2 22 0>;
-			linux,default-trigger = "mmc0";
-			default-state = "off";
-		};
-
-		led@4 {
-			label = "beaglebone:green:usr2";
-			gpios = <&gpio2 23 0>;
-			default-state = "off";
-		};
-
-		led@5 {
-			label = "beaglebone:green:usr3";
-			gpios = <&gpio2 24 0>;
-			default-state = "off";
-		};
-	};
 };
 
 &i2c0 {
@@ -165,41 +136,6 @@
 
 	tps: tps@24 {
 		reg = <0x24>;
-	};
-
-	baseboard_eeprom: baseboard_eeprom@50 {
-		compatible = "at,24c256";
-		reg = <0x50>;
-	};
-       
-};
-
-&i2c2 {
-	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&i2c2_pins>;
-
-	clock-frequency = <100000>;
-
-	/* OK, I know these are cape but for now it will do */
-	cape_eeprom_0: cape_eeprom_0@54 {
-		compatible = "at,24c256";
-		reg = <0x54>;
-	};
-
-	cape_eeprom_1: cape_eeprom_1@55 {
-		compatible = "at,24c256";
-		reg = <0x55>;
-	};
-
-	cape_eeprom_2: cape_eeprom_2@56 {
-		compatible = "at,24c256";
-		reg = <0x56>;
-	};
-
-	cape_eeprom_3: cape_eeprom_3@57 {
-		compatible = "at,24c256";
-		reg = <0x57>;
 	};
 };
 
@@ -262,20 +198,6 @@
 &mmc1 {
 	status = "okay";
 	vmmc-supply = <&ldo3_reg>;
-};
-
-&spi1 {
-	status = "okay";
-
-	lcd@0 {
-		compatible = "adafruit,tft-lcd-1.8-green", "sitronix,st7735";
-		spi-max-frequency = <8000000>;
-		reg = <0>;
-		spi-cpol;
-		spi-cpha;
-		st7735-rst = <&gpio4 19 0>;
-		st7735-dc = <&gpio4 21 0>;
-	};
 };
 
 &edma {
