@@ -281,3 +281,7 @@
 &edma {
 	ti,edma-xbar-event-map = <32 12>;
 };
+
+&sham {
+	status = "okay";
+};
