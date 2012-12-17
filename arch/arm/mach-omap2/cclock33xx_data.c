@@ -413,6 +413,10 @@ static struct clk smartreflex1_fck;
 DEFINE_STRUCT_CLK_HW_OMAP(smartreflex1_fck, NULL);
 DEFINE_STRUCT_CLK(smartreflex1_fck, dpll_core_ck_parents, clk_ops_null);
 
+static struct clk sha0_fck;
+DEFINE_STRUCT_CLK_HW_OMAP(sha0_fck, NULL);
+DEFINE_STRUCT_CLK(sha0_fck, dpll_core_ck_parents, clk_ops_null);
+
 /*
  * Modules clock nodes
  *
@@ -905,6 +909,7 @@ static struct omap_clk am33xx_clks[] = {
 	CLK(NULL,	"mmu_fck",		&mmu_fck,	CK_AM33XX),
 	CLK(NULL,	"smartreflex0_fck",	&smartreflex0_fck,	CK_AM33XX),
 	CLK(NULL,	"smartreflex1_fck",	&smartreflex1_fck,	CK_AM33XX),
+	CLK(NULL,	"sha0_fck",		&sha0_fck,	CK_AM33XX),
 	CLK(NULL,	"timer1_fck",		&timer1_fck,	CK_AM33XX),
 	CLK(NULL,	"timer2_fck",		&timer2_fck,	CK_AM33XX),
 	CLK(NULL,	"timer3_fck",		&timer3_fck,	CK_AM33XX),
