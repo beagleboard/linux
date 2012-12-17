@@ -455,5 +455,13 @@
 			interrupts = <16>;
 			ti,hwmods = "adc_tsc";
 		};
+
+		lcdc: lcdc@4830e000 {
+			compatible = "ti,am3352-lcdc", "ti,da830-lcdc";
+			reg = <0x4830e000 0x1000>;
+			interrupts = <36>;
+			status = "disabled";
+			ti,hwmods = "lcdc";
+		};
 	};
 };
