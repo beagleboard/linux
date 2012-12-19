@@ -169,3 +169,5 @@ obj-$(CONFIG_FB_VIRTUAL)          += vfb.o
 
 #video output switch sysfs driver
 obj-$(CONFIG_VIDEO_OUTPUT_CONTROL) += output.o
+obj-$(CONFIG_DISPLAY_TIMING) += display_timing.o
+obj-$(CONFIG_VIDEOMODE) += videomode.o
