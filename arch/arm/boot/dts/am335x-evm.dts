@@ -362,3 +362,7 @@
 &sham {
 	status = "okay";
 };
+
+&aes {
+	status = "okay";
+};
