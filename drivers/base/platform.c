@@ -270,6 +270,80 @@ int platform_device_add_data(struct platform_device *pdev, const void *data,
 }
 EXPORT_SYMBOL_GPL(platform_device_add_data);
 
+static struct resource *platform_device_parent_resource(
+		struct platform_device *pdev, struct resource *r)
+{
+	unsigned long type;
+
+	if (r->parent)
+		return r->parent;
+
+	type = resource_type(r);
+	switch (type) {
+		case IORESOURCE_MEM:
+			return &iomem_resource;
+		case IORESOURCE_IO:
+			return &ioport_resource;
+		/* TODO: What about the other resources? */
+		default:
+			break;
+	}
+	pr_debug("%s: no parent for resource %p type 0x%lx\n",
+			dev_name(&pdev->dev), r, resource_type(r));
+	return NULL;
+}
+
+int platform_device_unlink_resources(struct platform_device *pdev)
+{
+	struct resource *r;
+	int i;
+
+	for (i = pdev->num_resources - 1; i >= 0; i--) {
+		r = &pdev->resource[i];
+		if (r->parent == NULL)
+			continue;
+		release_resource(r);
+	}
+	return 0;
+}
+EXPORT_SYMBOL_GPL(platform_device_unlink_resources);
+
+int platform_device_link_resources(struct platform_device *pdev)
+{
+	int i;
+	struct resource *p, *r;
+
+	for (i = 0; i < pdev->num_resources; i++) {
+		r = &pdev->resource[i];
+
+		if (r->name == NULL)
+			r->name = dev_name(&pdev->dev);
+
+		/* already linked */
+		if (r->parent != NULL)
+			continue;
+
+		p = platform_device_parent_resource(pdev, r);
+		if (p && insert_resource(p, r)) {
+			pr_err("%s: failed to claim resource %d\n",
+			       dev_name(&pdev->dev), i);
+			goto fail;
+		}
+	}
+
+	return 0;
+
+fail:
+	while (--i >= 0) {
+		r = &pdev->resource[i];
+		if (r->parent == NULL)
+			continue;
+		release_resource(r);
+	}
+	return -EBUSY;
+}
+EXPORT_SYMBOL_GPL(platform_device_link_resources);
+
 /**
  * platform_device_add - add a platform device to device hierarchy
  * @pdev: platform device we're adding
@@ -279,7 +353,7 @@ EXPORT_SYMBOL_GPL(platform_device_add_data);
  */
 int platform_device_add(struct platform_device *pdev)
 {
-	int i, ret;
+	int ret;
 
 	if (!pdev)
 		return -EINVAL;
@@ -311,28 +385,10 @@ int platform_device_add(struct platform_device *pdev)
 		break;
 	}
 
-	for (i = 0; i < pdev->num_resources; i++) {
-		struct resource *p, *r = &pdev->resource[i];
-
-		if (r->name == NULL)
-			r->name = dev_name(&pdev->dev);
-
-		p = r->parent;
-		if (!p) {
-			if (resource_type(r) == IORESOURCE_MEM)
-				p = &iomem_resource;
-			else if (resource_type(r) == IORESOURCE_IO)
-				p = &ioport_resource;
-		}
-
-		if (p && insert_resource(p, r)) {
-			printk(KERN_ERR
-			       "%s: failed to claim resource %d\n",
-			       dev_name(&pdev->dev), i);
-			ret = -EBUSY;
-			goto failed;
-		}
-	}
+	/* make sure the resources are linked properly */
+	ret = platform_device_link_resources(pdev);
+	if (ret != 0)
+		goto failed_res;
 
 	pr_debug("Registering platform device '%s'. Parent at %s\n",
 		 dev_name(&pdev->dev), dev_name(pdev->dev.parent));
@@ -341,18 +397,12 @@ int platform_device_add(struct platform_device *pdev)
 	if (ret == 0)
 		return ret;
 
- failed:
+	platform_device_unlink_resources(pdev);
+
+ failed_res:
 	if (pdev->id_auto) {
 		ida_simple_remove(&platform_devid_ida, pdev->id);
 		pdev->id = PLATFORM_DEVID_AUTO;
-	}
-
-	while (--i >= 0) {
-		struct resource *r = &pdev->resource[i];
-		unsigned long type = resource_type(r);
-
-		if (type == IORESOURCE_MEM || type == IORESOURCE_IO)
-			release_resource(r);
 	}
 
  err_out:
@@ -370,8 +420,6 @@ EXPORT_SYMBOL_GPL(platform_device_add);
  */
 void platform_device_del(struct platform_device *pdev)
 {
-	int i;
-
 	if (pdev) {
 		device_del(&pdev->dev);
 
@@ -380,13 +428,7 @@ void platform_device_del(struct platform_device *pdev)
 			pdev->id = PLATFORM_DEVID_AUTO;
 		}
 
-		for (i = 0; i < pdev->num_resources; i++) {
-			struct resource *r = &pdev->resource[i];
-			unsigned long type = resource_type(r);
-
-			if (type == IORESOURCE_MEM || type == IORESOURCE_IO)
-				release_resource(r);
-		}
+		platform_device_unlink_resources(pdev);
 	}
 }
 EXPORT_SYMBOL_GPL(platform_device_del);
