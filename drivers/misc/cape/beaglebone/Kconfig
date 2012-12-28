@@ -1,0 +1,10 @@
+#
+# Beaglebone capes
+#
+
+config BEAGLEBONE_PINMUX_HELPER
+	tristate "Beaglebone Pinmux Helper"
+	depends on ARCH_OMAP2PLUS && OF
+	default n
+	help
+	  Say Y here to include support for the pinmux helper
