@@ -62,6 +62,9 @@ int of_device_add(struct platform_device *ofdev)
 	if (!ofdev->dev.parent)
 		set_dev_node(&ofdev->dev, of_node_to_nid(ofdev->dev.of_node));
 
+	/* make sure we add the resources to the appropriate lists */
+	platform_device_link_resources(ofdev);
+
 	return device_add(&ofdev->dev);
 }
 
