@@ -1,0 +1,53 @@
+/*
+* Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*/
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "ti,beaglebone-black";
+	ti,on-baseboard;
+
+	/* identification */
+	part-number = "*";	/* any part number */
+	version = "*";		/* any version */
+
+	fragment@0 {
+		target = <&am33xx_pinmux>;
+		__overlay__ {
+			emmc2_pins: pinmux_emmc2_pins {
+				pinctrl-single,pins = <
+					0x80 0x32	/* gpmc_csn1.mmc1_clk, INPUT_PULLUP | MODE2 */
+					0x84 0x32	/* gpmc_csn1.mmc1_cmd, INPUT_PULLUP | MODE2 */
+					0x00 0x31	/* gpmc_ad0.mmc1_dat0, INPUT_PULLUP | MODE1 */
+					0x04 0x31	/* gpmc_ad1.mmc1_dat1, INPUT_PULLUP | MODE1 */
+					0x08 0x31	/* gpmc_ad2.mmc1_dat2, INPUT_PULLUP | MODE1 */
+					0x0c 0x31	/* gpmc_ad3.mmc1_dat3, INPUT_PULLUP | MODE1 */
+					0x10 0x31	/* gpmc_ad4.mmc1_dat4, INPUT_PULLUP | MODE1 */
+					0x14 0x31	/* gpmc_ad5.mmc1_dat5, INPUT_PULLUP | MODE1 */
+					0x18 0x31	/* gpmc_ad6.mmc1_dat6, INPUT_PULLUP | MODE1 */
+					0x1c 0x31	/* gpmc_ad7.mmc1_dat7, INPUT_PULLUP | MODE1 */
+
+					/* the reset */
+					0x50 0x17	/* gpmc_a4.gpio1_20, OUTPUT | MODE7 | PULLUP */
+				>;
+			};
+		};
+	};
+	fragment@1 {
+		target = <&mmc2>;
+		__overlay__ {
+			pinctrl-names = "default";
+			pinctrl-0 = <&emmc2_pins>;	/* wrong numbering */
+			vmmc-supply = <&ldo3_reg>;
+			bus-width = <4>;
+			ti,non-removable;
+			status = "okay";
+			reset-gpios = <&gpio2 20 1>;	/* active low */
+		};
+	};
+};
