@@ -293,4 +293,8 @@ extern int platform_pm_restore(struct device *dev);
 #define USE_PLATFORM_PM_SLEEP_OPS
 #endif
 
+/* helper functions for resource list managment */
+int platform_device_unlink_resources(struct platform_device *pdev);
+int platform_device_link_resources(struct platform_device *pdev);
+
 #endif /* _PLATFORM_DEVICE_H_ */
