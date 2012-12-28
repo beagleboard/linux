@@ -1,0 +1,18 @@
+#
+# Beaglebone capes
+#
+
+config CAPE_BEAGLEBONE
+	tristate "Beaglebone cape support"
+	depends on ARCH_OMAP2PLUS && OF && I2C
+	default n
+	select OF_PLUGIN
+	help
+	  Say Y here to include support for beaglebone capes
+
+config CAPE_BEAGLEBONE_GEIGER
+	tristate "Beaglebone Geiger Cape"
+	depends on CAPE_BEAGLEBONE
+	default n
+	help
+	  Say Y here to include support for the Geiger Cape
