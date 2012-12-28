@@ -147,6 +147,9 @@ quiet_cmd_mkdir = MKDIR   $(patsubst $(objtree)/%,%,$@)
 quiet_cmd_ihex  = IHEX    $@
       cmd_ihex  = $(OBJCOPY) -Iihex -Obinary $< $@
 
+quiet_cmd_dtco	= DTCO $@
+      cmd_dtco	= $(objtree)/scripts/dtc/dtc -O dtb -o $@ -b 0 $(DTC_FLAGS) -@ $<
+
 quiet_cmd_ihex2fw  = IHEX2FW $@
       cmd_ihex2fw  = $(objtree)/$(obj)/ihex2fw $< $@
 
@@ -232,6 +235,10 @@ $(obj)/%.fw: $(obj)/%.HEX $(ihex2fw_dep) | $(objtree)/$(obj)/$$(dir %)
 # .H16 is our own modified form of Intel HEX, with 16-bit length for records.
 $(obj)/%.fw: $(obj)/%.H16 $(ihex2fw_dep) | $(objtree)/$(obj)/$$(dir %)
 	$(call cmd,h16tofw)
+
+# DTBO is device tree blob object
+$(obj)/%.dtbo: $(obj)/%.dts | $(objtree)/$(obj)/$$(dir %)
+	$(call cmd,dtco)
 
 $(firmware-dirs):
 	$(call cmd,mkdir)
