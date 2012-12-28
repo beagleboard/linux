@@ -134,6 +134,107 @@
 		};
 	};
 
+	bone_capemgr {
+		compatible = "ti,bone-capemgr";
+		status = "okay";
+
+		eeprom = <&baseboard_eeprom>;
+
+		baseboardmaps {
+			baseboard_beaglebone: board@0 {
+				board-name = "A335BONE";
+				compatible-name = "ti,beaglebone";
+			};
+
+			baseboard_beaglebone_black: board@1 {
+				board-name = "A335BNLT";
+				compatible-name = "ti,beaglebone-black";
+			};
+		};
+
+		slots {
+			slot@0 {
+				eeprom = <&cape_eeprom0>;
+			};
+
+			slot@1 {
+				eeprom = <&cape_eeprom1>;
+			};
+
+			slot@2 {
+				eeprom = <&cape_eeprom2>;
+			};
+
+			slot@3 {
+				eeprom = <&cape_eeprom3>;
+			};
+
+			/* Beaglebone black has it soldered on */
+			// slot@4 {
+			// 	ti,cape-override;
+			// 	compatible = "ti,beaglebone-black";
+			// 	board-name = "Bone-LT-eMMC-2G";
+			// 	version = "00A0";
+			// 	manufacturer = "Texas Instruments";
+			// 	part-number = "BB-BONE-EMMC-2G";
+			// };
+
+			/* geiger cape version A0 without an EEPROM */
+			slot@5 {
+				ti,cape-override;
+				compatible = "kernel-command-line", "runtime";
+				board-name = "Bone-Geiger";
+				version = "00A0";
+				manufacturer = "Geiger Inc.";
+				part-number = "BB-BONE-GEIGER";
+			};
+		};
+
+		/* mapping between board names and dtb objects */
+		capemaps {
+			/* DVI cape */
+			cape@0 {
+				/* board-name = "BeagleBone DVI-D CAPE"; */
+				part-number = "BB-BONE-DVID-01";
+				version@00A0 {
+					version = "00A0";
+					dtbo = "cape-bone-dvi-00A0.dtbo";
+				};
+				version@00A1 {
+					version = "00A1", "01";
+					dtbo = "cape-bone-dvi-00A1.dtbo";
+				};
+			};
+
+			/* beaglebone black emmc on board */
+			cape@1 {
+				/* board-name = "BeagleBone 2G eMMC1 CAPE"; */
+				part-number = "BB-BONE-EMMC-2G";
+				version@00A0 {
+					version = "00A0";
+					dtbo = "cape-bone-2g-emmc1.dtbo";
+				};
+			};
+
+			/* geiger cape */
+			cape@2 {
+				part-number = "BB-BONE-GEIGER";
+				version@00A0 {
+					version = "00A0";
+					dtbo = "cape-bone-geiger-00A0.dtbo";
+				};
+			};
+
+			/* LCD3 cape */
+			cape@3 {
+				part-number = "BB-BONE-LCD3-01";
+				version@00A0 {
+					version = "00A0";
+					dtbo = "cape-bone-lcd3-00A0.dtbo";
+				};
+			};
+		};
+	};
 };
 
 &i2c0 {
