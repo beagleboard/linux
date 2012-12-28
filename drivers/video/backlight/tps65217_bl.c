@@ -247,12 +247,14 @@ tps65217_bl_parse_dt(struct platform_device *pdev, struct tps65217 **tpsp,
 
 	rnode = of_node_get(tps->dev->of_node);
 
-	node = of_find_node_by_name(rnode, "backlight");
+	node = of_get_child_by_name(rnode, "backlight");
 	of_node_put(rnode);
 	rnode = NULL;
 
-	if (!node)
+	if (!node) {
+		dev_err(&pdev->dev, "failed to find backlight node\n");
 		return ERR_PTR(-ENODEV);
+	}
 
 	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata) {
@@ -339,8 +341,10 @@ static int tps65217_bl_probe(struct platform_device *pdev)
 
 	if (pdev->dev.of_node) {
 		pdata = tps65217_bl_parse_dt(pdev, &tps, &brightness);
-		if (IS_ERR(pdata))
+		if (IS_ERR(pdata)) {
+			dev_err(&pdev->dev, "DT parse failed.\n");
 			return PTR_ERR(pdata);
+		}
 	} else {
 		if (!pdev->dev.platform_data) {
 			dev_err(&pdev->dev, "no platform data provided\n");
