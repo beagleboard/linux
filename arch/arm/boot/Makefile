@@ -55,7 +55,7 @@ $(obj)/zImage:	$(obj)/compressed/vmlinux FORCE
 	$(call if_changed,objcopy)
 	@$(kecho) '  Kernel: $@ is ready'
 
-$(obj)/zImage-dtb.%:	$(obj)/%.dtb $(obj)/zImage
+$(obj)/zImage-dtb.%:	$(obj)/dts/%.dtb $(obj)/zImage
 	cat $(obj)/zImage $< > $@
 
 endif
