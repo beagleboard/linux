@@ -591,4 +591,63 @@ static inline int of_property_read_u32(const struct device_node *np,
 	return of_property_read_u32_array(np, propname, out_value, 1);
 }
 
+/**
+ * General utilities for working with live trees.
+ *
+ * All functions with two leading underscores operate
+ * without taking node references, so you either have to
+ * own the devtree lock or work on detached trees only.
+ */
+
+#ifdef CONFIG_OF
+
+/* iterator for internal use; not references, neither affects devtree lock */
+#define __for_each_child_of_node(dn, chld) \
+	for (chld = (dn)->child; chld != NULL; chld = chld->sibling)
+
+void __of_free_property(struct property *prop);
+void __of_free_tree(struct device_node *node);
+struct property *__of_copy_property(const struct property *prop, gfp_t flags);
+struct device_node *__of_create_empty_node( const char *name,
+		const char *type, const char *full_name,
+		phandle phandle, gfp_t flags);
+struct device_node *__of_find_node_by_full_name(struct device_node *node,
+		const char *full_name);
+int of_multi_prop_cmp(const struct property *prop, const char *value);
+
+#else /* !CONFIG_OF */
+
+#define __for_each_child_of_node(dn, chld) \
+	while (0)
+
+static inline void __of_free_property(struct property *prop) { }
+
+static inline void __of_free_tree(struct device_node *node) { }
+
+static inline struct property *__of_copy_property(const struct property *prop,
+		gfp_t flags)
+{
+	return NULL;
+}
+
+static inline struct device_node *__of_create_empty_node( const char *name,
+		const char *type, const char *full_name,
+		phandle phandle, gfp_t flags)
+{
+	return NULL;
+}
+
+static inline struct device_node *__of_find_node_by_full_name(struct device_node *node,
+		const char *full_name)
+{
+	return NULL;
+}
+
+static inline int of_multi_prop_cmp(const struct property *prop, const char *value)
+{
+	return -1;
+}
+
+#endif	/* !CONFIG_OF */
+
 #endif /* _LINUX_OF_H */
