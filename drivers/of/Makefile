@@ -1,4 +1,4 @@
-obj-y = base.o device.o platform.o
+obj-y = base.o device.o platform.o util.o
 obj-$(CONFIG_OF_FLATTREE) += fdt.o
 obj-$(CONFIG_OF_PROMTREE) += pdt.o
 obj-$(CONFIG_OF_ADDRESS)  += address.o
