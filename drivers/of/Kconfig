@@ -83,4 +83,13 @@ config OF_MTD
 	depends on MTD
 	def_bool y
 
+config OF_RESOLVE
+	bool "OF Dynamic resolution support"
+	depends on OF
+	select OF_DYNAMIC
+	select OF_DEVICE
+	help
+	  Enable OF dynamic resolution support. This allows you to
+	  load Device Tree object fragments are run time.
+
 endmenu # OF
