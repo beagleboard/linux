@@ -92,4 +92,14 @@ config OF_RESOLVE
 	  Enable OF dynamic resolution support. This allows you to
 	  load Device Tree object fragments are run time.
 
+config OF_OVERLAY
+	bool "OF overlay support"
+	depends on OF
+	select OF_DYNAMIC
+	select OF_DEVICE
+	select OF_RESOLVE
+	help
+	  OpenFirmware overlay support. Allows you to modify on runtime the
+	  live tree using overlays.
+
 endmenu # OF
