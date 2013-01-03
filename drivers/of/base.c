@@ -1126,6 +1126,61 @@ int of_property_notify(int action, struct device_node *np,
 }
 #endif
 
+#ifdef CONFIG_PROC_DEVICETREE
+
+void of_add_proc_dt_entry(struct device_node *dn)
+{
+	struct proc_dir_entry *ent;
+
+	ent = proc_mkdir(strrchr(dn->full_name, '/') + 1, dn->parent->pde);
+	if (ent)
+		proc_device_tree_add_node(dn, ent);
+}
+
+void of_remove_proc_dt_entry(struct device_node *dn)
+{
+	struct device_node *parent;
+	struct property *prop;
+
+	if (!dn)
+		return;
+
+	parent = dn->parent;
+	prop = dn->properties;
+	while (prop) {
+		if (dn->pde)
+			remove_proc_entry(prop->name, dn->pde);
+		prop = prop->next;
+	}
+
+	if (dn->pde)
+		remove_proc_entry(dn->pde->name,
+				parent ? parent->pde : NULL);
+}
+
+void of_add_proc_dt_prop_entry(struct device_node *np,
+		struct property *prop)
+{
+	if (np && prop && np->pde)
+		proc_device_tree_add_prop(np->pde, prop);
+}
+
+void of_remove_proc_dt_prop_entry(struct device_node *np,
+		struct property *prop)
+{
+	if (np && prop && np->pde)
+		proc_device_tree_remove_prop(np->pde, prop);
+}
+
+void of_update_proc_dt_prop_entry(struct device_node *np,
+		struct property *newprop, struct property *oldprop)
+{
+	if (np && newprop && oldprop && np->pde)
+		proc_device_tree_update_prop(np->pde, newprop, oldprop);
+}
+
+#endif /* CONFIG_PROC_DEVICETREE */
+
 /**
  * of_add_property - Add a property to a node
  */
@@ -1153,11 +1208,8 @@ int of_add_property(struct device_node *np, struct property *prop)
 	*next = prop;
 	write_unlock_irqrestore(&devtree_lock, flags);
 
-#ifdef CONFIG_PROC_DEVICETREE
 	/* try to add to proc as well if it was initialized */
-	if (np->pde)
-		proc_device_tree_add_prop(np->pde, prop);
-#endif /* CONFIG_PROC_DEVICETREE */
+	of_add_proc_dt_prop_entry(np, prop);
 
 	return 0;
 }
@@ -1199,11 +1251,7 @@ int of_remove_property(struct device_node *np, struct property *prop)
 	if (!found)
 		return -ENODEV;
 
-#ifdef CONFIG_PROC_DEVICETREE
-	/* try to remove the proc node as well */
-	if (np->pde)
-		proc_device_tree_remove_prop(np->pde, prop);
-#endif /* CONFIG_PROC_DEVICETREE */
+	of_remove_proc_dt_prop_entry(np, prop);
 
 	return 0;
 }
@@ -1253,11 +1301,8 @@ int of_update_property(struct device_node *np, struct property *newprop)
 	if (!found)
 		return -ENODEV;
 
-#ifdef CONFIG_PROC_DEVICETREE
 	/* try to add to proc as well if it was initialized */
-	if (np->pde)
-		proc_device_tree_update_prop(np->pde, newprop, oldprop);
-#endif /* CONFIG_PROC_DEVICETREE */
+	of_update_proc_dt_prop_entry(np, newprop, oldprop);
 
 	return 0;
 }
@@ -1293,22 +1338,6 @@ int of_reconfig_notify(unsigned long action, void *p)
 	return notifier_to_errno(rc);
 }
 
-#ifdef CONFIG_PROC_DEVICETREE
-static void of_add_proc_dt_entry(struct device_node *dn)
-{
-	struct proc_dir_entry *ent;
-
-	ent = proc_mkdir(strrchr(dn->full_name, '/') + 1, dn->parent->pde);
-	if (ent)
-		proc_device_tree_add_node(dn, ent);
-}
-#else
-static void of_add_proc_dt_entry(struct device_node *dn)
-{
-	return;
-}
-#endif
-
 /**
  * of_attach_node - Plug a device node into the tree and global list.
  */
@@ -1331,27 +1360,6 @@ int of_attach_node(struct device_node *np)
 	of_add_proc_dt_entry(np);
 	return 0;
 }
-
-#ifdef CONFIG_PROC_DEVICETREE
-static void of_remove_proc_dt_entry(struct device_node *dn)
-{
-	struct device_node *parent = dn->parent;
-	struct property *prop = dn->properties;
-
-	while (prop) {
-		remove_proc_entry(prop->name, dn->pde);
-		prop = prop->next;
-	}
-
-	if (dn->pde)
-		remove_proc_entry(dn->pde->name, parent->pde);
-}
-#else
-static void of_remove_proc_dt_entry(struct device_node *dn)
-{
-	return;
-}
-#endif
 
 /**
  * of_detach_node - "Unplug" a node from the device tree.
