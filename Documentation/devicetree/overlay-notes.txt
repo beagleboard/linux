@@ -1,0 +1,179 @@
+Device Tree Overlay Notes
+-------------------------
+
+This document describes the implementation of the in-kernel
+device tree overlay functionality residing in drivers/of/overlay.c and is a
+companion document to Documentation/devicetree/dt-object-internal.txt[1] &
+Documentation/devicetree/dynamic-resolution-notes.txt[2]
+
+How overlays work
+-----------------
+
+A Device Tree's overlay purpose is to modify the kernel's live tree, and
+have the modification affecting the state of the the kernel in a way that
+is reflecting the changes.
+Since the kernel mainly deals with devices, any new device node that result
+in an active device should have it created while if the device node is either
+disabled or removed all together, the affected device should be deregistered.
+
+Lets take an example where we have a foo board with the following base tree
+which is taken from [1].
+
+---- foo.dts -----------------------------------------------------------------
+	/* FOO platform */
+	/ {
+		compatible = "corp,foo";
+
+		/* shared resources */
+		res: res {
+		};
+
+		/* On chip peripherals */
+		ocp: ocp {
+			/* peripherals that are always instantiated */
+			peripheral1 { ... };
+		}
+	};
+---- foo.dts -----------------------------------------------------------------
+
+The overlay bar.dts, when loaded (and resolved as described in [2]) should
+
+---- bar.dts -----------------------------------------------------------------
+/plugin/;	/* allow undefined label references and record them */
+/ {
+	....	/* various properties for loader use; i.e. part id etc. */
+	fragment@0 {
+		target = <&ocp>;
+		__overlay__ {
+			/* bar peripheral */
+			bar {
+				compatible = "corp,bar";
+				... /* various properties and child nodes */
+			}
+		};
+	};
+};
+---- bar.dts -----------------------------------------------------------------
+
+result in foo+bar.dts
+
+---- foo+bar.dts -------------------------------------------------------------
+	/* FOO platform + bar peripheral */
+	/ {
+		compatible = "corp,foo";
+
+		/* shared resources */
+		res: res {
+		};
+
+		/* On chip peripherals */
+		ocp: ocp {
+			/* peripherals that are always instantiated */
+			peripheral1 { ... };
+
+			/* bar peripheral */
+			bar {
+				compatible = "corp,bar";
+				... /* various properties and child nodes */
+			}
+		}
+	};
+---- foo+bar.dts -------------------------------------------------------------
+
+As a result of the the overlay, a new device node (bar) has been created
+so a bar platform device will be registered and if a matching device driver
+is loaded the device will be created as expected.
+
+Overlay in-kernel API
+---------------------
+
+The steps typically required to get an overlay to work are as follows:
+
+1. Use of_build_overlay_info() to create an array of initialized and
+ready to use of_overlay_info structures.
+2. Call of_overlay() to apply the overlays declared in the array.
+3. If the overlay needs to be removed, call of_overlay_revert().
+4. Finally release the memory taken by the overlay info array by
+of_free_overlay_info().
+
+/**
+ * of_build_overlay_info	- Build an overlay info array
+ * @tree:	Device node containing all the overlays
+ * @cntp:	Pointer to where the overlay info count will be help
+ * @ovinfop:	Pointer to the pointer of an overlay info structure.
+ *
+ * Helper function that given a tree containing overlay information,
+ * allocates and builds an overlay info array containing it, ready
+ * for use using of_overlay.
+ *
+ * Returns 0 on success with the @cntp @ovinfop pointers valid,
+ * while on error a negative error value is returned.
+ */
+int of_build_overlay_info(struct device_node *tree,
+		int *cntp, struct of_overlay_info **ovinfop);
+
+/**
+ * of_free_overlay_info	- Free an overlay info array
+ * @count:	Number of of_overlay_info's
+ * @ovinfo_tab:	Array of overlay_info's to free
+ *
+ * Releases the memory of a previously allocate ovinfo array
+ * by of_build_overlay_info.
+ * Returns 0, or an error if the arguments are bogus.
+ */
+int of_free_overlay_info(int count, struct of_overlay_info *ovinfo_tab);
+
+/**
+ * of_overlay	- Apply @count overlays pointed at by @ovinfo_tab
+ * @count:	Number of of_overlay_info's
+ * @ovinfo_tab:	Array of overlay_info's to apply
+ *
+ * Applies the overlays given, while handling all error conditions
+ * appropriately. Either the operation succeeds, or if it fails the
+ * live tree is reverted to the state before the attempt.
+ * Returns 0, or an error if the overlay attempt failed.
+ */
+int of_overlay(int count, struct of_overlay_info *ovinfo_tab);
+
+/**
+ * of_overlay_revert	- Revert a previously applied overlay
+ * @count:	Number of of_overlay_info's
+ * @ovinfo_tab:	Array of overlay_info's to apply
+ *
+ * Revert a previous overlay. The state of the live tree
+ * is reverted to the one before the overlay.
+ * Returns 0, or an error if the overlay table is not given.
+ */
+int of_overlay_revert(int count, struct of_overlay_info *ovinfo_tab);
+
+Overlay DTS Format
+------------------
+
+The DTS of an overlay should have the following format:
+
+{
+	/* ignored properties by the overlay */
+
+	fragment@0 {	/* first child node */
+		target=<phandle>;	/* target of the overlay */
+		__overlay__ {
+			property-a;	/* add property-a to the target */
+			-property-b;	/* remove property-b from target */
+			node-a {	/* add to an existing, or create a node-a */
+				...
+			};
+			-node-b {	/* remove an existing node-b */
+				...
+			};
+		};
+	}
+	fragment@1 {	/* second child node */
+		...
+	};
+	/* more fragments follow */
+}
+
+It should be noted that the DT overlay format described is the one expected
+by the of_build_overlay_info() function, which is a helper function. There
+is nothing stopping someone coming up with his own DTS format and that will
+end up filling in the fields of the of_overlay_info array. 
