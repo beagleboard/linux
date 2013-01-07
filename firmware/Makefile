@@ -146,6 +146,9 @@ fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
 fw-shipped-$(CONFIG_CAPE_BEAGLEBONE_GEIGER) += \
 	capes/cape-bone-geiger-00A0.dtbo
 
+# the weather cape
+fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += capes/cape-bone-weather-00A0.dtbo
+
 fw-shipped-all := $(fw-shipped-y) $(fw-shipped-m) $(fw-shipped-)
 
 # Directories which we _might_ need to create, so we have a rule for them.
