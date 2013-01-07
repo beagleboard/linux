@@ -1,0 +1,68 @@
+/*
+* Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*/
+/dts-v1/;
+/plugin/;
+
+/ {
+       compatible = "ti,beaglebone";
+       part-number = "BB-BONE-WTHR-01";
+       version = "00A0";
+
+       fragment@0 {
+               target = <&am33xx_pinmux>;
+               __overlay__ {
+			weather_cape_w1_pins: pinmux_weather_cape_w1_pins {
+				pinctrl-single,pins = <
+					0x0c 0x37       /* gpmc_ad3.gpio1_3, OMAP_PIN_INPUT_PULLUP | OMAP_MUX_MODE7 - w1-gpio */
+				>;
+			};
+               };
+       };
+
+       fragment@1 {
+               target = <&i2c2>;
+
+               __overlay__ {
+		       /* needed to avoid gripping by DTC */
+		       #address-cells = <1>;
+		       #size-cells = <0>;
+
+		       /* Ambient light sensor */
+		       tsl2550@39 {
+			       compatible = "tsl,tsl2550";
+			       reg = <0x39>;
+		       };
+
+		       /* Humidity Sensor */
+		       sht21@40 {
+			       compatible = "sensiron,sht21";
+			       reg = <0x40>;
+		       };
+
+		       /* Barometric pressure sensor */
+		       bmp085@77 {
+			       compatible = "bosch,bmp085";
+			       reg = <0x77>;
+		       };
+               };
+       };
+
+       fragment@2 {
+               target = <&ocp>;
+               __overlay__ {
+		       onewire@0 {
+			       compatible      = "w1-gpio";
+			       pinctrl-names   = "default";
+			       pinctrl-0       = <&weather_cape_w1_pins>;
+			       status          = "okay";
+
+			       gpios = <&gpio2 3 0>;
+		       };
+               };
+       };
+};
