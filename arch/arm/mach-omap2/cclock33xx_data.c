@@ -952,6 +952,7 @@ static struct omap_clk am33xx_clks[] = {
 	CLK("48300200.ehrpwm",	"tbclk",	&ehrpwm0_tbclk,	CK_AM33XX),
 	CLK("48302200.ehrpwm",	"tbclk",	&ehrpwm1_tbclk,	CK_AM33XX),
 	CLK("48304200.ehrpwm",	"tbclk",	&ehrpwm2_tbclk,	CK_AM33XX),
+	CLK("4830e000.fb", 	"fck",		&lcd_gclk,	CK_AM33XX),
 };
 
 
