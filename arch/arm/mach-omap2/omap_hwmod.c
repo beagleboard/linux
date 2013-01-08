@@ -784,7 +784,9 @@ static int _init_interface_clks(struct omap_hwmod *oh)
 		if (IS_ERR(c)) {
 			pr_warning("omap_hwmod: %s: cannot clk_get interface_clk %s\n",
 				   oh->name, os->clk);
-			ret = -EINVAL;
+			if (ret == 0)
+				ret = -EINVAL;
+			continue;
 		}
 		os->_clk = c;
 		/*
@@ -820,7 +822,9 @@ static int _init_opt_clks(struct omap_hwmod *oh)
 		if (IS_ERR(c)) {
 			pr_warning("omap_hwmod: %s: cannot clk_get opt_clk %s\n",
 				   oh->name, oc->clk);
-			ret = -EINVAL;
+			if (ret == 0)
+				ret = -EINVAL;
+			continue;
 		}
 		oc->_clk = c;
 		/*
