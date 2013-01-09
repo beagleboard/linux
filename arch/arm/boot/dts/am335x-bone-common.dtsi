@@ -188,6 +188,16 @@
 				manufacturer = "Geiger Inc.";
 				part-number = "BB-BONE-GEIGER";
 			};
+
+			/* Beaglebone black has it soldered on */
+			slot@6 {
+				ti,cape-override;
+				compatible = "ti,beaglebone-black";
+				board-name = "Bone-Black-HDMI";
+				version = "00A0";
+				manufacturer = "Texas Instruments";
+				part-number = "BB-BONELT-HDMI";
+			};
 		};
 
 		/* mapping between board names and dtb objects */
@@ -242,6 +252,16 @@
 					dtbo = "cape-bone-weather-00A0.dtbo";
 				};
 			};
+
+			/* beaglebone black hdmi on board */
+			cape@5 {
+				part-number = "BB-BONELT-HDMI";
+				version@00A0 {
+					version = "00A0";
+					dtbo = "cape-boneblack-hdmi-00A0.dtbo";
+				};
+			};
+
 		};
 	};
 };
