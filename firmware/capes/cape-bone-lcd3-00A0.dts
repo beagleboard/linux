@@ -87,13 +87,23 @@
 			#size-cells = <1>;
 
 			tscadc {
-				compatible = "ti-tscadc-dt";
+				compatible = "ti,ti-tscadc";
+				reg = <0x44e0d000 0x1000>;
 
-				tsc-wires = <4>;
-				tsc-x-plate-resistance = <200>;
-				tsc-steps = <6>;
+				interrupt-parent = <&intc>;
+				interrupts = <16>;
+				ti,hwmods = "adc_tsc";
 
-				adc-channels = <4>;
+				tsc {
+					wires = <4>;
+					x-plate-resistance = <200>;
+					coordinate-readouts = <5>;
+					wire-config = <0x00 0x11 0x22 0x33>;
+				};
+
+				adc {
+					adc-channels = <4>;
+				};
 			};
 
 			gpio-leds-cape-lcd3 {
@@ -165,19 +175,6 @@
 					gpio-key,wakeup;
 				};
 			};
-
-//			lcd3-cape {
-//				compatible = "da8xx-dt";
-//
-//				pinctrl-names = "default";
-//				pinctrl-0 = <&bone_lcd3_cape_lcd_pins>;
-//
-//				ti,hwmods = "lcdc";
-//
-//				disp-pll = <16000000>;
-//				panel-type = "CDTech_S035Q01";
-//
-//			};
 
 			/* Settings for CDTech_S035Q01 / LCD3 cape: */
 			panel {
