@@ -65,6 +65,10 @@
 			status = "okay";
 		};
 
+		uart5: serial@481a8000 {
+			status = "okay";
+		};
+
 		i2c1: i2c@44e0b000 {
 			status = "okay";
 			clock-frequency = <400000>;
