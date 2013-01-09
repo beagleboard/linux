@@ -59,6 +59,10 @@
 		target = <&ocp>;
 		__overlay__ {
 
+			/* avoid stupid warning */
+			#address-cells = <1>;
+			#size-cells = <1>;
+
 			gpio-leds-cape-dvi {
 				compatible = "gpio-leds";
 				pinctrl-names = "default";
@@ -79,17 +83,52 @@
 				};
 			};
 
-			dvi-cape {
-				compatible = "da8xx-dt";
+			/* Settings for DVI 1024x768@60 */
+			panel {
+				compatible = "lcdc,panel";
 				pinctrl-names = "default";
-				ti,hwmods = "lcdc";
-
-				disp-pll = <560000000>;
-				panel-type = "1024x768@60";
-
 				pinctrl-0 = <&bone_dvi_cape_dvi_00A0_pins>;
-				powerdn-gpio = <&gpio2 7 0>;
+				panel-info {
+					ac-bias           = <255>;
+					ac-bias-intrpt    = <0>;
+					dma-burst-sz      = <16>;
+					bpp               = <16>;
+					fdd               = <0x80>;
+					tft-alt-mode      = <0>;
+					stn-565-mode      = <0>;
+					mono-8bit-mode    = <0>;
+					invert-line-clock = <1>;
+					invert-frm-clock  = <1>;
+					sync-edge         = <0>;
+					sync-ctrl         = <1>;
+					raster-order      = <0>;
+					fifo-th           = <0>;
+				};
+				display-timings {
+					native-mode = <&timing0>;
+					timing0: 1024x768 {
+						hactive         = <1024>;
+						vactive         = <768>;
+						hback-porch     = <80>;
+						hfront-porch    = <48>;
+						vback-porch     = <15>;
+						vfront-porch    = <3>;
+						hsync-len       = <32>;
+						vsync-len       = <4>;
+						clock-frequency = <56000000>;
+					};
+				};
 			};
+
+			fb {
+				compatible = "ti,am33xx-lcdc";
+				reg = <0x4830e000 0x1000>;
+				interrupt-parent = <&intc>;
+				interrupts = <36>;
+				ti,hwmods = "lcdc";
+				ti,power-gpio = <&gpio2 7 0x0>;
+			};
+
 		};
 	};
 };
