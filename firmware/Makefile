@@ -149,6 +149,9 @@ fw-shipped-$(CONFIG_CAPE_BEAGLEBONE_GEIGER) += \
 # the weather cape
 fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += capes/cape-bone-weather-00A0.dtbo
 
+# the HDMI virtual cape on the beaglebone-black
+fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += capes/cape-boneblack-hdmi-00A0.dtbo
+
 fw-shipped-all := $(fw-shipped-y) $(fw-shipped-m) $(fw-shipped-)
 
 # Directories which we _might_ need to create, so we have a rule for them.
