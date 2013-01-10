@@ -675,5 +675,26 @@
 				&edma 5>;
 			dma-names = "tx", "rx";
 		};
+
+		mcasp0: mcasp@48038000 {
+			compatible = "ti,omap2-mcasp-audio";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			ti,hwmods = "mcasp0";
+			reg = <0x48038000 0x2000>;
+			interrupts = <80 81>;
+			status = "disabled";
+		};
+
+		mcasp1: mcasp@4803C000 {
+			compatible = "ti,omap2-mcasp-audio";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			ti,hwmods = "mcasp1";
+			reg = <0x4803C000 0x2000>;
+			interrupts = <82 83>;
+			status = "disabled";
+		};
+
 	};
 };
