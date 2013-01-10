@@ -275,66 +275,6 @@
 			status = "disabled";
 		};
 
-		usb0_phy: phy0 {
-			compatible = "nop-xceiv-usb";
-		};
-
-		usb1_phy: phy1 {
-			compatible = "nop-xceiv-usb";
-		};
-
-		usb_otg_hs: usb_otg_hs {
-			compatible = "ti,musb-am33xx";
-			ti,hwmods = "usb_otg_hs";
-			multipoint = <1>;
-			num-eps = <16>;
-			ram-bits = <12>;
-			port0-mode = <3>;
-			port1-mode = <1>;
-			power = <250>;
-			usb0-phy = <&usb0_phy>;
-			usb1-phy = <&usb1_phy>;
-		};
-
-		rtc {
-			compatible = "ti,da830-rtc";
-			ti,hwmods = "rtc";
-		};
-
-		spi0: spi@48030000 {
-			compatible = "ti,omap4-mcspi";
-			ti,hwmods = "spi0";
-			#address-cells = <1>;
-			#size-cells = <0>;
-			reg = <0x48030000 0x400>;
-			interrupt-parent = <&intc>;
-			interrupt = <65>;
-			dmas = <&edma 16
-				&edma 17
-				&edma 18
-				&edma 19>;
-			dma-names = "tx0", "rx0", "tx1", "rx1";
-			ti,spi-num-cs = <2>;
-			status = "disabled";
-		};
-
-		spi1: spi@481a0000 {
-			compatible = "ti,omap4-mcspi";
-			ti,hwmods = "spi1";
-			#address-cells = <1>;
-			#size-cells = <0>;
-			reg = <0x481a0000 0x400>;
-			interrupt-parent = <&intc>;
-			interrupt = <125>;
-			dmas = <&edma 42
-				&edma 43
-				&edma 44
-				&edma 45>;
-			dma-names = "tx0", "rx0", "tx1", "rx1";
-			ti,spi-num-cs = <2>;
-			status = "disabled";
-		};
-
 		wdt2: wdt@44e35000 {
 			compatible = "ti,omap3-wdt";
 			ti,hwmods = "wd_timer2";
@@ -540,6 +480,11 @@
 				&edma 45>;
 			dma-names = "tx0", "rx0", "tx1", "rx1";
 			status = "disabled";
+
+		};
+
+		nop-phy {
+			compatible = "nop-xceiv-usb";
 		};
 
 		usb@47400000 {
@@ -554,7 +499,7 @@
 			num-eps = <16>;
 			ram-bits = <12>;
 			port0-mode = <3>;
-			port1-mode = <3>;
+			port1-mode = <1>;
 			power = <250>;
 			ti,hwmods = "usb_otg_hs";
 		};
