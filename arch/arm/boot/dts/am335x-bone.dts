@@ -26,7 +26,7 @@
 
 	am33xx_pinmux: pinmux@44e10800 {
 		pinctrl-names = "default";
-		pinctrl-0 = <&user_leds_s0>;
+		pinctrl-0 = <&user_leds_s0 &spi1_pins_s0>;
 
 		user_leds_s0: user_leds_s0 {
 			pinctrl-single,pins = <
@@ -34,6 +34,15 @@
 				0x58 0x17	/* gpmc_a6.gpio1_22, OUTPUT_PULLUP | MODE7 */
 				0x5c 0x7	/* gpmc_a7.gpio1_23, OUTPUT | MODE7 */
 				0x60 0x17	/* gpmc_a8.gpio1_24, OUTPUT_PULLUP | MODE7 */
+			>;
+		};
+
+		spi1_pins_s0: spi1_pins_s0 {
+			pinctrl-single,pins = <
+				0x190 0x33	/* mcasp0_aclkx.spi1_sclk, INPUT_PULLUP | MODE3 */
+				0x194 0x33	/* mcasp0_fsx.spi1_d0, INPUT_PULLUP | MODE3 */
+				0x198 0x13	/* mcasp0_axr0.spi1_d1, OUTPUT_PULLUP | MODE3 */
+				0x19c 0x13	/* mcasp0_ahclkr.spi1_cs0, OUTPUT_PULLUP | MODE3 */
 			>;
 		};
 	};
@@ -142,4 +151,8 @@
 &mmc1 {
 	status = "okay";
 	vmmc-supply = <&ldo3_reg>;
+};
+
+&spi1 {
+	status = "okay";
 };
