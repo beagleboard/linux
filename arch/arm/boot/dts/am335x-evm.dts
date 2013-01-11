@@ -26,7 +26,7 @@
 
 	am33xx_pinmux: pinmux@44e10800 {
 		pinctrl-names = "default";
-		pinctrl-0 = <&matrix_keypad_s0 &volume_keys_s0>;
+		pinctrl-0 = <&matrix_keypad_s0 &volume_keys_s0 &spi0_pins_s0>;
 
 		matrix_keypad_s0: matrix_keypad_s0 {
 			pinctrl-single,pins = <
@@ -44,6 +44,16 @@
 				0x154 0x27	/* spi0_d0.gpio0_3, INPUT | MODE7 */
 			>;
 		};
+
+		spi0_pins_s0: spi0_pins_s0 {
+			pinctrl-single,pins = <
+				0x150 0x30	/* spi0_sclk.spi0_sclk, INPUT_PULLUP | MODE0 */
+				0x154 0x30	/* spi0_d0.spi0_d0, INPUT_PULLUP | MODE0 */
+				0x158 0x10	/* spi0_d1.spi0_d1, OUTPUT_PULLUP | MODE0 */
+				0x15c 0x10	/* spi0_cs0.spi0_cs0, OUTPUT_PULLUP | MODE0 */
+			>;
+		};
+
 	};
 
 	ocp {
@@ -250,4 +260,13 @@
 &mmc1 {
 	status = "okay";
 	vmmc-supply = <&vmmc_reg>;
+};
+
+&spi0 {
+	status = "okay";
+	spi-flash@0 {
+		compatible = "spansion,s25fl064k", "m25p80";
+		spi-max-frequency = <24000000>;
+		reg = <0>;
+	};
 };
