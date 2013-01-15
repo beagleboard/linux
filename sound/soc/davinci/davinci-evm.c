@@ -393,7 +393,7 @@ static int davinci_evm_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static int __devexit davinci_evm_remove(struct platform_device *pdev)
+static int davinci_evm_remove(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
 
@@ -404,7 +404,7 @@ static int __devexit davinci_evm_remove(struct platform_device *pdev)
 
 static struct platform_driver davinci_evm_driver = {
 	.probe		= davinci_evm_probe,
-	.remove		= __devexit_p(davinci_evm_remove),
+	.remove		= davinci_evm_remove,
 	.driver		= {
 		.name	= "davinci_evm",
 		.owner	= THIS_MODULE,
