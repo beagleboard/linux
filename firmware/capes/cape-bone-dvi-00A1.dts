@@ -149,7 +149,7 @@
 				interrupt-parent = <&intc>;
 				interrupts = <36>;
 				ti,hwmods = "lcdc";
-				ti,power-gpio = <&gpio2 7 0x0>;
+				ti,power-gpio = <&gpio1 7 0x0>;
 			};
 
 		};
