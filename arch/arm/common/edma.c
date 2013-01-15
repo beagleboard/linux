@@ -576,8 +576,6 @@ static int prepare_unused_channel_list(struct device *dev, void *data)
 
 /*-----------------------------------------------------------------------*/
 
-static bool unused_chan_list_done;
-
 /* Resource alloc/free:  dma channels, parameter RAM slots */
 
 /**
@@ -618,19 +616,18 @@ int edma_alloc_channel(int channel,
 	unsigned i, done = 0, ctlr = 0;
 	int ret = 0;
 
-	if (!unused_chan_list_done) {
-		/*
-		 * Scan all the platform devices to find out the EDMA channels
-		 * used and clear them in the unused list, making the rest
-		 * available for ARM usage.
-		 */
-		ret = bus_for_each_dev(&platform_bus_type, NULL, NULL,
-				prepare_unused_channel_list);
-		if (ret < 0)
-			return ret;
-
-		unused_chan_list_done = true;
-	}
+	/*
+	 * Scan all the platform devices to find out the EDMA channels
+	 * used and clear them in the unused list, making the rest
+	 * available for ARM usage.
+	 *
+	 * Note: We do this every time now, since when devices are
+	 * dynamically created the old unused list must be updated.
+	 */
+	ret = bus_for_each_dev(&platform_bus_type, NULL, NULL,
+			prepare_unused_channel_list);
+	if (ret < 0)
+		return ret;
 
 	if (channel >= 0) {
 		ctlr = EDMA_CTLR(channel);
