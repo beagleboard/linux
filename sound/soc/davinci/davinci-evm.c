@@ -24,8 +24,7 @@
 #include <asm/dma.h>
 #include <asm/mach-types.h>
 
-#include <mach/asp.h>
-#include <mach/edma.h>
+#include <linux/edma.h>
 
 #include "davinci-pcm.h"
 #include "davinci-i2s.h"
