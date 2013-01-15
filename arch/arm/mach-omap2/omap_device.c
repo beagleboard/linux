@@ -616,7 +616,7 @@ static int omap_device_fixup_resources(struct omap_device *od)
 
 		/* this is our new resource table */
 		res = rnew;
-		res_count = j;
+		res_count = j + pdev->num_resources;
 
 	} else {
 		dev_dbg(&pdev->dev, "%s(): using resources from hwmod %d\n",
