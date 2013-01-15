@@ -3786,6 +3786,7 @@ static int __init regulator_init_complete(void)
 	struct regulation_constraints *c;
 	int enabled, ret;
 
+#ifndef CONFIG_REGULATOR_DUMMY
 	/*
 	 * Since DT doesn't provide an idiomatic mechanism for
 	 * enabling full constraints and since it's much more natural
@@ -3794,6 +3795,7 @@ static int __init regulator_init_complete(void)
 	 */
 	if (of_have_populated_dt())
 		has_full_constraints = true;
+#endif
 
 	mutex_lock(&regulator_list_mutex);
 
