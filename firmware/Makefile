@@ -138,20 +138,20 @@ fw-shipped-$(CONFIG_YAM) += yam/1200.bin yam/9600.bin
 
 # all the generic capes
 fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
-	capes/cape-bone-2g-emmc1.dtbo \
-	capes/cape-bone-dvi-00A0.dtbo capes/cape-bone-dvi-00A1.dtbo \
-		capes/cape-bone-dvi-00A2.dtbo \
-	capes/cape-bone-lcd3-00A0.dtbo
+	cape-bone-2g-emmc1.dtbo \
+	cape-bone-dvi-00A0.dtbo cape-bone-dvi-00A1.dtbo \
+		cape-bone-dvi-00A2.dtbo \
+	cape-bone-lcd3-00A0.dtbo
 
 # the geiger cape
 fw-shipped-$(CONFIG_CAPE_BEAGLEBONE_GEIGER) += \
-	capes/cape-bone-geiger-00A0.dtbo
+	cape-bone-geiger-00A0.dtbo
 
 # the weather cape
-fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += capes/cape-bone-weather-00A0.dtbo
+fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += cape-bone-weather-00A0.dtbo
 
 # the HDMI virtual cape on the beaglebone-black
-fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += capes/cape-boneblack-hdmi-00A0.dtbo
+fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += cape-boneblack-hdmi-00A0.dtbo
 
 fw-shipped-all := $(fw-shipped-y) $(fw-shipped-m) $(fw-shipped-)
 
@@ -254,7 +254,7 @@ $(obj)/%.fw: $(obj)/%.H16 $(ihex2fw_dep) | $(objtree)/$(obj)/$$(dir %)
 	$(call cmd,h16tofw)
 
 # DTBO is device tree blob object
-$(obj)/%.dtbo: $(obj)/%.dts | $(objtree)/$(obj)/$$(dir %)
+$(obj)/%.dtbo: $(obj)/capes/%.dts | $(objtree)/$(obj)/$$(dir %)
 	$(call cmd,dtco)
 
 $(firmware-dirs):
