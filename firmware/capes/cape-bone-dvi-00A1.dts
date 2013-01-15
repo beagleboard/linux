@@ -9,11 +9,11 @@
 /plugin/;
 
 / {
-	compatible = "ti,beaglebone", "ti,beaglebone-black";
+	compatible = "ti,beaglebone";
 
 	/* identification */
 	part-number = "BB-BONE-DVID-01";
-	version = "00A1", "01";
+	version = "00A1", "A1";
 
 	fragment@0 {
 		target = <&am33xx_pinmux>;
@@ -28,7 +28,7 @@
 
 			bone_dvi_cape_dvi_00A1_pins: pinmux_bone_dvi_cape_dvi_00A1_pins {
 				pinctrl-single,pins = <
-					0x84 0x07	/* gpmc_csn2.gpio1_31, OUTPUT | MODE7 - DVIPDn */
+					0x1c 0x07	/* gpmc_ad7.gpio1_7, OUTPUT | MODE7 - DVIPDn */
 
 					0xa0 0x08	/* lcd_data0.lcd_data0, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT | AM33XX_PULL_DISA */
 					0xa4 0x08	/* lcd_data1.lcd_data1, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT | AM33XX_PULL_DISA */
@@ -50,6 +50,16 @@
 					0xe4 0x00	/* lcd_hsync.lcd_hsync, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT */
 					0xe8 0x00	/* lcd_pclk.lcd_pclk, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT */
 					0xec 0x00	/* lcd_ac_bias_en.lcd_ac_bias_en, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT */
+				>;
+			};
+
+			bone_dvi_cape_audio_pins: pinmux_bone_dvi_cape_audio_pins {
+				pinctrl-single,pins = <
+					0x190 0x20	/* mcasp0_aclkx.mcasp0_aclkx, INPUT | MODE0 */
+					0x194 0x20	/* mcasp0_fsx.mcasp0_fsx, INPUT | MODE0 */
+					0x19c 0x22	/* mcasp0_ahclkr.mcasp0_axr2, INPUT | MODE2 */
+					0x1ac 0x22	/* mcasp0_ahclkx.mcasp0_axr3, INPUT | MODE2 */
+
 				>;
 			};
 		};
@@ -129,6 +139,7 @@
 						vback-porch     = <13>;
 						clock-frequency = <64000000>;
 					};
+
 				};
 			};
 
@@ -138,9 +149,64 @@
 				interrupt-parent = <&intc>;
 				interrupts = <36>;
 				ti,hwmods = "lcdc";
-				ti,power-gpio = <&gpio2 31 0x0>;
+				ti,power-gpio = <&gpio2 7 0x0>;
+			};
 
+		};
+	};
+
+	fragment@2 {
+		target = <&i2c2>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			tlv320aic3x: tlv320aic3x@1b {
+				compatible = "ti,tlv320aic3x";
+				reg = <0x1b>;
+				status = "okay";
 			};
 		};
+	};
+
+	fragment@3 {
+		target = <&mcasp0>;
+		__overlay__ {
+			pinctrl-names = "default";
+			pinctrl-0 = <&bone_dvi_cape_audio_pins>;
+
+			status = "okay";
+
+			op-mode = <0>;          /* MCASP_IIS_MODE */
+			tdm-slots = <2>;
+			num-serializer = <16>;
+			serial-dir = <  /* 0: INACTIVE, 1: TX, 2: RX */
+				0 0 2 1
+				0 0 0 0
+				0 0 0 0
+				0 0 0 0
+			>;
+			tx-num-evt = <1>;
+			rx-num-evt = <1>;
+		};
+	};
+
+	fragment@4 {
+		target = <&ocp>;
+		__overlay__ {
+			sound {
+				compatible = "ti,da830-evm-audio";
+				ti,model = "DA830 EVM";
+				ti,audio-codec = <&tlv320aic3x>;
+				ti,mcasp-controller = <&mcasp0>;
+				ti,codec-clock-rate = <12000000>;
+				ti,audio-routing =
+					"Headphone Jack",       "HPLOUT",
+					"Headphone Jack",       "HPROUT",
+					"LINE1L",               "Line In",
+					"LINE1R",               "Line In";
+			};
+		};
+
 	};
 };
