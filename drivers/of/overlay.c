@@ -13,6 +13,7 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
+#include <linux/of_i2c.h>
 #include <linux/string.h>
 #include <linux/ctype.h>
 #include <linux/errno.h>
@@ -368,6 +369,72 @@ static int of_overlay_prep_one(struct of_overlay_info *ovinfo)
 	return 0;
 }
 
+static int of_overlay_device_entry_change(struct of_overlay_info *ovinfo,
+		struct of_overlay_device_entry *re, int revert)
+{
+	struct i2c_adapter *adap = NULL;
+	struct i2c_client *client;
+	struct platform_device *pdev, *parent_pdev = NULL;
+	int state;
+
+	state = !!re->state  ^ !!revert;
+
+	if (re->np && re->np->parent) {
+		pr_debug("%s: parent is %s\n",
+				__func__, re->np->parent->full_name);
+		adap = of_find_i2c_adapter_by_node(re->np->parent);
+		if (adap == NULL)
+			parent_pdev = of_find_device_by_node(re->np->parent);
+	}
+
+	if (state) {
+
+		/* try to see if it's an I2C client node */
+		if (adap == NULL) {
+
+			pr_debug("%s: creating new platform device "
+					"new_node='%s' %p\n",
+					__func__, re->np->full_name, re->np);
+
+			pdev = of_platform_device_create(re->np, NULL,
+					parent_pdev ? &parent_pdev->dev : NULL);
+			if (pdev == NULL) {
+				pr_warn("%s: Failed to create platform device "
+						"for '%s'\n",
+						__func__, re->np->full_name);
+			}
+		} else {
+			pr_debug("%s: creating new i2c_client device "
+					"new_node='%s' %p\n",
+					__func__, re->np->full_name, re->np);
+
+			client = of_i2c_register_device(adap, re->np);
+
+			if (client == NULL) {
+				pr_warn("%s: Failed to create i2c client device "
+						"for '%s'\n",
+						__func__, re->np->full_name);
+			}
+		}
+
+	} else {
+
+		if (re->pdev) {
+			pr_debug("%s: removing pdev %s\n", __func__,
+					dev_name(&re->pdev->dev));
+			platform_device_unregister(re->pdev);
+		}
+	}
+
+	if (adap)
+		put_device(&adap->dev);
+
+	if (parent_pdev)
+		of_dev_put(parent_pdev);
+
+	return 0;
+}
+
 /**
  * Revert one overlay
  * Either due to an error, or due to normal overlay removal.
@@ -380,7 +447,6 @@ static void of_overlay_revert_one(struct of_overlay_info *ovinfo)
 	struct of_overlay_device_entry *re, *ren;
 	struct of_overlay_log_entry *le, *len;
 	struct property *prop, **propp;
-	struct platform_device *pdev, *parent_pdev;
 	int ret;
 	unsigned long flags;
 
@@ -393,37 +459,10 @@ static void of_overlay_revert_one(struct of_overlay_info *ovinfo)
 	/* overlay applied correctly, now create/destroy pdevs */
 	list_for_each_entry_safe_reverse(re, ren, &ovinfo->de_list, node) {
 
-		if (!re->state) {
-
-			parent_pdev = of_find_device_by_node(re->np->parent);
-
-			pr_debug("%s: creating new platform device "
-					"new_node='%s' %p\n",
-					__func__, re->np->full_name, re->np);
-
-			pdev = of_platform_device_create(re->np, NULL,
-					parent_pdev ? &parent_pdev->dev : NULL);
-			of_dev_put(parent_pdev);
-
-			if (pdev == NULL) {
-				pr_warn("%s: Failed to create platform device "
-						"for '%s'\n",
-						__func__, re->np->full_name);
-			}
-
-		} else {
-
-			if (re->pdev) {
-				pr_debug("%s: removing pdev %s\n", __func__,
-						dev_name(&re->pdev->dev));
-				platform_device_unregister(re->pdev);
-			}
-		}
+		of_overlay_device_entry_change(ovinfo, re, 1);
 
 		of_node_put(re->np);
-
 		list_del(&re->node);
-
 		kfree(re);
 	}
 
@@ -515,8 +554,7 @@ static void of_overlay_revert_one(struct of_overlay_info *ovinfo)
  */
 static int of_overlay_post_one(struct of_overlay_info *ovinfo, int err)
 {
-	struct of_overlay_device_entry *re, *ren;
-	struct platform_device *pdev, *parent_pdev;
+	struct of_overlay_device_entry *re;
 
 	of_reconfig_notifier_unregister(&ovinfo->notifier);
 
@@ -527,36 +565,8 @@ static int of_overlay_post_one(struct of_overlay_info *ovinfo, int err)
 	}
 
 	/* overlay applied correctly, now create/destroy pdevs */
-	list_for_each_entry_safe(re, ren, &ovinfo->de_list, node) {
-
-		if (re->state) {
-
-			parent_pdev = of_find_device_by_node(re->np->parent);
-
-			pr_debug("%s: creating new platform device "
-					"new_node='%s' %p\n",
-					__func__, re->np->full_name, re->np);
-
-			pdev = of_platform_device_create(re->np, NULL,
-					parent_pdev ? &parent_pdev->dev : NULL);
-			of_dev_put(parent_pdev);
-
-			if (pdev == NULL) {
-				pr_warn("%s: Failed to create platform device "
-						"for '%s'\n",
-						__func__, re->np->full_name);
-			}
-
-			/* keep it around */
-			re->pdev = pdev;
-
-		} else {
-
-			if (re->pdev) {
-				platform_device_unregister(re->pdev);
-			}
-		}
-	}
+	list_for_each_entry(re, &ovinfo->de_list, node)
+		of_overlay_device_entry_change(ovinfo, re, 0);
 
 	return 0;
 }
