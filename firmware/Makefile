@@ -139,9 +139,10 @@ fw-shipped-$(CONFIG_YAM) += yam/1200.bin yam/9600.bin
 # all the generic capes
 fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
 	cape-bone-2g-emmc1.dtbo \
-	cape-bone-dvi-00A0.dtbo cape-bone-dvi-00A1.dtbo \
-		cape-bone-dvi-00A2.dtbo \
-	cape-bone-lcd3-00A0.dtbo
+	cape-bone-dvi-00A0.dtbo capes/cape-bone-dvi-00A1.dtbo \
+	cape-bone-dvi-00A2.dtbo \
+	cape-bone-lcd3-00A0.dtbo \
+	cape-bone-lcd3-00A2.dtbo
 
 # the geiger cape
 fw-shipped-$(CONFIG_CAPE_BEAGLEBONE_GEIGER) += \
