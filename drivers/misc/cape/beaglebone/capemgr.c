@@ -1522,7 +1522,7 @@ static int bone_capemgr_loader(void *data)
 	return bone_capemgr_load(slot);
 }
 
-static int __devinit
+static int
 bone_capemgr_probe(struct platform_device *pdev)
 {
 	struct bone_capemgr_info *info;
@@ -1748,7 +1748,7 @@ err_exit:
 	return ret;
 }
 
-static int __devexit bone_capemgr_remove(struct platform_device *pdev)
+static int bone_capemgr_remove(struct platform_device *pdev)
 {
 	struct bone_capemgr_info *info = platform_get_drvdata(pdev);
 	struct bone_cape_slot *slot, *slotn;
@@ -1818,7 +1818,7 @@ static struct dev_pm_ops bone_capemgr_pm_ops = {
 
 static struct platform_driver bone_capemgr_driver = {
 	.probe		= bone_capemgr_probe,
-	.remove		= __devexit_p(bone_capemgr_remove),
+	.remove		= bone_capemgr_remove,
 	.driver		= {
 		.name	= "bone-capemgr",
 		.owner	= THIS_MODULE,
