@@ -257,9 +257,6 @@ static void of_overlay_device_entry_entry_add(struct of_overlay_info *ovinfo,
 static int of_overlay_notify(struct notifier_block *nb,
 				unsigned long action, void *arg)
 {
-#ifdef DEBUG
-	char *propstr = NULL, *spropstr = NULL;
-#endif
 	struct of_overlay_info *ovinfo;
 	struct device_node *node;
 	struct property *prop, *sprop, *cprop;
@@ -278,9 +275,6 @@ static int of_overlay_notify(struct notifier_block *nb,
 		if (node == NULL)
 			return notifier_from_errno(-EINVAL);
 		prop = NULL;
-#ifdef DEBUG
-		propstr = NULL;
-#endif
 		break;
 	case OF_RECONFIG_ADD_PROPERTY:
 	case OF_RECONFIG_REMOVE_PROPERTY:
@@ -294,9 +288,6 @@ static int of_overlay_notify(struct notifier_block *nb,
 		prop = pr->prop;
 		if (prop == NULL)
 			return notifier_from_errno(-EINVAL);
-#ifdef DEBUG
-		propstr = __of_dump_prop(prop);
-#endif
 		break;
 	default:
 		return notifier_from_errno(0);
@@ -306,38 +297,6 @@ static int of_overlay_notify(struct notifier_block *nb,
 	err = of_overlay_log_entry_entry_add(ovinfo, action, node, prop);
 	if (err != 0)
 		return notifier_from_errno(err);
-
-#ifdef DEBUG
-	switch (action) {
-	case OF_RECONFIG_ATTACH_NODE:
-		pr_debug("ATTACH_NODE: %s\n", node->full_name);
-		break;
-	case OF_RECONFIG_DETACH_NODE:
-		pr_debug("DETACH_NODE: %s\n", node->full_name);
-		break;
-	case OF_RECONFIG_ADD_PROPERTY:
-		pr_debug("ADD_PROP:    %s %s%s\n", node->full_name,
-				prop->name, propstr);
-		break;
-	case OF_RECONFIG_REMOVE_PROPERTY:
-		pr_debug("REMOVE_PROP: %s %s%s\n", node->full_name,
-				prop->name, propstr);
-		break;
-	case OF_RECONFIG_UPDATE_PROPERTY:
-		sprop = of_find_property(node, prop->name, NULL);
-		if (sprop)
-			spropstr = __of_dump_prop(sprop);
-		pr_debug("UPDATE_PROP: %s '%s%s' -> '%s%s'\n", node->full_name,
-				prop->name, spropstr,
-				prop->name, propstr);
-		break;
-
-	}
-
-	/* NULL is fine */
-	kfree(propstr);
-	kfree(spropstr);
-#endif
 
 	/* come up with the device entry (if any) */
 	pdev = NULL;
