@@ -1,4 +1,4 @@
-OMAP GLUE
+OMAP GLUE AND OTHER OMAP SPECIFIC COMPONENTS
 
 OMAP MUSB GLUE
  - compatible : Should be "ti,omap4-musb" or "ti,omap3-musb"
@@ -30,4 +30,23 @@ Board specific device node entry
 	interface_type = <1>;
 	mode = <3>;
 	power = <50>;
+};
+
+OMAP CONTROL USB
+
+Required properties:
+ - compatible: Should be "ti,omap-control-usb"
+ - reg : Address and length of the register set for the device. It contains
+   the address of "control_dev_conf" and "otghs_control".
+ - reg-names: The names of the register addresses corresponding to the registers
+   filled in "reg".
+ - ti,has_mailbox: This is used to specify if the platform uses mailbox in
+   control module.
+
+omap_control_usb@4a002300 {
+	compatible = "ti,omap-control-usb";
+	reg = <0x4a002300 0x4>,
+	      <0x4a00233c 0x4>;
+	reg-names = "control_dev_conf", "otghs_control";
+	ti,has_mailbox;
 };
