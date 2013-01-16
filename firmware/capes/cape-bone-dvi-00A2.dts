@@ -95,7 +95,7 @@
 
 			/* Settings for DVI 1024x768@60 */
 			panel {
-				compatible = "lcdc,panel";
+				compatible = "tilcdc,panel";
 				pinctrl-names = "default";
 				pinctrl-0 = <&bone_dvi_cape_dvi_00A2_pins>;
 				panel-info {
@@ -144,7 +144,7 @@
 			};
 
 			fb {
-				compatible = "ti,am33xx-lcdc";
+				compatible = "ti,am33xx-tilcdc";
 				reg = <0x4830e000 0x1000>;
 				interrupt-parent = <&intc>;
 				interrupts = <36>;
