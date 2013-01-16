@@ -295,4 +295,7 @@ endif
 emac-$(CONFIG_TI_DAVINCI_EMAC)		:= am35xx-emac.o
 obj-y					+= $(emac-m) $(emac-y)
 
+cpsw-$(CONFIG_TI_CPSW)			:= am33xx-cpsw.o
+obj-y					+= $(cpsw-m) $(cpsw-y)
+
 obj-y					+= common-board-devices.o twl-common.o dss-common.o
