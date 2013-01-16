@@ -69,14 +69,14 @@
 			#size-cells = <1>;
 
 			hdmi {
-				compatible = "lcdc,slave";
+				compatible = "tilcdc,slave";
 				i2c = <&i2c0>;
 				pinctrl-names = "default";
 				pinctrl-0 = <&nxp_hdmi_bonelt_pins>;
 			};
 
 			fb {
-				compatible = "ti,am33xx-lcdc";
+				compatible = "ti,am33xx-tilcdc";
 				reg = <0x4830e000 0x1000>;
 				interrupt-parent = <&intc>;
 				interrupts = <36>;
