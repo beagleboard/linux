@@ -36,6 +36,7 @@
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/lcm.h>
+#include <linux/clk-provider.h>
 #include <video/of_display_timing.h>
 #include <video/da8xx-fb.h>
 #include <asm/div64.h>
@@ -133,6 +134,10 @@
 #define WSI_TIMEOUT	50
 #define PALETTE_SIZE	256
 
+#define	LCD_CLK_SHIFT	8
+#define	LCD_CLK_WIDTH	8
+#define	LCD_CLK_MIN_DIV	2
+
 static void __iomem *da8xx_fb_reg_base;
 static struct resource *lcdc_regs;
 static unsigned int lcd_revision;
@@ -181,6 +186,9 @@ struct da8xx_fb_par {
 	u32 pseudo_palette[16];
 	struct fb_videomode	mode;
 	struct lcd_ctrl_config	cfg;
+#ifdef CONFIG_COMMON_CLK
+	struct clk		*child_clk;
+#endif
 };
 
 static struct fb_var_screeninfo da8xx_fb_var;
@@ -683,12 +691,27 @@ static void da8xx_fb_lcd_reset(void)
 	}
 }
 
+#ifndef	CONFIG_COMMON_CLK
 static inline unsigned da8xx_fb_calc_clk_divider(struct da8xx_fb_par *par,
 						 unsigned pixclock)
 {
 	return par->lcd_fck_rate / (PICOS2KHZ(pixclock) * 1000);
 }
+#endif
 
+#ifdef	CONFIG_COMMON_CLK
+static inline unsigned da8xx_fb_round_clk(struct da8xx_fb_par *par,
+					  unsigned pixclock)
+{
+	unsigned long rate;
+
+	rate = PICOS2KHZ(pixclock) * 1000;
+	rate = clk_round_rate(par->child_clk, rate);
+	rate = KHZ2PICOS(rate / 1000);
+
+	return rate;
+}
+#else
 static inline unsigned da8xx_fb_round_clk(struct da8xx_fb_par *par,
 					  unsigned pixclock)
 {
@@ -703,19 +726,43 @@ static inline void da8xx_fb_config_clk_divider(unsigned div)
 	/* Configure the LCD clock divisor. */
 	lcdc_write(LCD_CLK_DIVISOR(div) |
 			(LCD_RASTER_MODE & 0x1), LCD_CTRL_REG);
+}
+#endif
 
+static inline void da8xx_fb_clkc_enable(void)
+{
 	if (lcd_revision == LCD_VERSION_2)
 		lcdc_write(LCD_V2_DMA_CLK_EN | LCD_V2_LIDD_CLK_EN |
 				LCD_V2_CORE_CLK_EN, LCD_CLK_ENABLE_REG);
 }
 
-static inline void da8xx_fb_calc_config_clk_divider(struct da8xx_fb_par *par,
+#ifdef	CONFIG_COMMON_CLK
+static inline int da8xx_fb_calc_config_clk_divider(struct da8xx_fb_par *par,
+						    struct fb_videomode *mode)
+{
+	int ret;
+
+	ret = clk_set_rate(par->child_clk, PICOS2KHZ(mode->pixclock) * 1000);
+	if (IS_ERR_VALUE(ret)) {
+		dev_err(par->dev, "unable to setup pixel clock of %u ps",
+			mode->pixclock);
+		return ret;
+	}
+	da8xx_fb_clkc_enable();
+	return 0;
+}
+#else
+static inline int da8xx_fb_calc_config_clk_divider(struct da8xx_fb_par *par,
 						    struct fb_videomode *mode)
 {
 	unsigned div = da8xx_fb_calc_clk_divider(par, mode->pixclock);
 
 	da8xx_fb_config_clk_divider(div);
+	da8xx_fb_clkc_enable();
+
+	return 0;
 }
+#endif
 
 static int lcd_init(struct da8xx_fb_par *par, const struct lcd_ctrl_config *cfg,
 		struct fb_videomode *panel)
@@ -723,7 +770,9 @@ static int lcd_init(struct da8xx_fb_par *par, const struct lcd_ctrl_config *cfg,
 	u32 bpp;
 	int ret = 0;
 
-	da8xx_fb_calc_config_clk_divider(par, panel);
+	ret = da8xx_fb_calc_config_clk_divider(par, panel);
+	if (IS_ERR_VALUE(ret))
+		return ret;
 
 	if (panel->sync & FB_SYNC_CLK_INVERT)
 		lcdc_write((lcdc_read(LCD_RASTER_TIMING_2_REG) |
@@ -1405,6 +1454,25 @@ static int fb_probe(struct platform_device *device)
 	par->cfg = *lcd_cfg;
 
 	da8xx_fb_lcd_reset();
+
+#ifdef	CONFIG_COMMON_CLK
+	/* set sane divisor value to begin along with the mode */
+	lcdc_write(LCD_RASTER_MODE | LCD_CLK_DIVISOR(LCD_CLK_MIN_DIV),
+		   LCD_CTRL_REG);
+
+	par->child_clk = clk_register_min_divider(NULL, "da8xx_fb_clk",
+					      __clk_get_name(fb_clk),
+					      CLK_SET_RATE_PARENT,
+					      da8xx_fb_reg_base + LCD_CTRL_REG,
+					      LCD_CLK_SHIFT, LCD_CLK_WIDTH,
+					      LCD_CLK_MIN_DIV,
+					      CLK_DIVIDER_ONE_BASED, NULL);
+	if (IS_ERR(par->child_clk)) {
+		dev_err(&device->dev, "error registering clk\n");
+		ret = -ENODEV;
+		goto err_release_fb;
+	}
+#endif
 
 	/* allocate frame buffer */
 	par->vram_size = lcdc_info->xres * lcdc_info->yres * lcd_cfg->bpp;
