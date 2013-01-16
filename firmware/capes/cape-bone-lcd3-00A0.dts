@@ -178,7 +178,7 @@
 
 			/* Settings for CDTech_S035Q01 / LCD3 cape: */
 			panel {
-				compatible = "lcdc,panel";
+				compatible = "tilcdc,panel";
 				pinctrl-names = "default";
 				pinctrl-0 = <&bone_lcd3_cape_lcd_pins>;
 				panel-info {
@@ -214,7 +214,7 @@
 			};
 
 			fb {
-				compatible = "ti,am33xx-lcdc";
+				compatible = "ti,am33xx-tilcdc";
 				reg = <0x4830e000 0x1000>;
 				interrupt-parent = <&intc>;
 				interrupts = <36>;
