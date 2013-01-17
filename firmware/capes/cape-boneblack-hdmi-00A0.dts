@@ -44,22 +44,6 @@
 		};
 	};
 
-	fragment@1 {
-		target = <&i2c0>;
-
-		__overlay__ {
-			/* needed to avoid gripping by DTC */
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			/* NXP TDA998x */
-			tsl2550@34 {
-				compatible = "tda998x";
-				reg = <0x34>;
-			};
-               };
-	};
-
 	fragment@2 {
 		target = <&ocp>;
 		__overlay__ {
