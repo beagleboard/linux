@@ -86,7 +86,7 @@ int cpdma_chan_submit(struct cpdma_chan *chan, void *token, void *data,
 int cpdma_chan_process(struct cpdma_chan *chan, int quota);
 
 int cpdma_ctlr_int_ctrl(struct cpdma_ctlr *ctlr, bool enable);
-void cpdma_ctlr_eoi(struct cpdma_ctlr *ctlr);
+void cpdma_ctlr_eoi(struct cpdma_ctlr *ctlr, u32 value);
 int cpdma_chan_int_ctrl(struct cpdma_chan *chan, bool enable);
 
 enum cpdma_control {
