@@ -236,13 +236,18 @@ EXPORT_SYMBOL_GPL(clk_divider_ops);
 
 static struct clk *_register_divider(struct device *dev, const char *name,
 		const char *parent_name, unsigned long flags,
-		void __iomem *reg, u8 shift, u8 width,
+		void __iomem *reg, u8 shift, u8 width, u8 min_div,
 		u8 clk_divider_flags, const struct clk_div_table *table,
 		spinlock_t *lock)
 {
 	struct clk_divider *div;
 	struct clk *clk;
 	struct clk_init_data init;
+
+	if (!min_div) {
+		pr_err("%s: minimum divider cannot be zero\n", __func__);
+		return ERR_PTR(-EINVAL);
+	}
 
 	/* allocate the divider */
 	div = kzalloc(sizeof(struct clk_divider), GFP_KERNEL);
@@ -261,6 +266,7 @@ static struct clk *_register_divider(struct device *dev, const char *name,
 	div->reg = reg;
 	div->shift = shift;
 	div->width = width;
+	div->min_div = min_div;
 	div->flags = clk_divider_flags;
 	div->lock = lock;
 	div->hw.init = &init;
@@ -273,6 +279,29 @@ static struct clk *_register_divider(struct device *dev, const char *name,
 		kfree(div);
 
 	return clk;
+}
+
+/**
+ * clk_register_min_divider - register a divider clock having minimum divider
+ * constraints with clock framework
+ * @dev: device registering this clock
+ * @name: name of this clock
+ * @parent_name: name of clock's parent
+ * @flags: framework-specific flags
+ * @reg: register address to adjust divider
+ * @shift: number of bits to shift the bitfield
+ * @width: width of the bitfield
+ * @min_div: minimum allowable divider
+ * @clk_divider_flags: divider-specific flags for this clock
+ * @lock: shared register lock for this clock
+ */
+struct clk *clk_register_min_divider(struct device *dev, const char *name,
+		const char *parent_name, unsigned long flags,
+		void __iomem *reg, u8 shift, u8 width, u8 min_div,
+		u8 clk_divider_flags, spinlock_t *lock)
+{
+	return _register_divider(dev, name, parent_name, flags, reg, shift,
+			width, min_div, clk_divider_flags, NULL, lock);
 }
 
 /**
@@ -293,7 +322,8 @@ struct clk *clk_register_divider(struct device *dev, const char *name,
 		u8 clk_divider_flags, spinlock_t *lock)
 {
 	return _register_divider(dev, name, parent_name, flags, reg, shift,
-			width, clk_divider_flags, NULL, lock);
+			width, CLK_DIVIDER_MIN_DIV_DEFAULT, clk_divider_flags,
+			NULL, lock);
 }
 
 /**
@@ -317,5 +347,6 @@ struct clk *clk_register_divider_table(struct device *dev, const char *name,
 		spinlock_t *lock)
 {
 	return _register_divider(dev, name, parent_name, flags, reg, shift,
-			width, clk_divider_flags, table, lock);
+			width, CLK_DIVIDER_MIN_DIV_DEFAULT, clk_divider_flags,
+			table, lock);
 }
