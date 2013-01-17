@@ -248,15 +248,22 @@ struct clk_divider {
 	void __iomem	*reg;
 	u8		shift;
 	u8		width;
+	u8		min_div;
 	u8		flags;
 	const struct clk_div_table	*table;
 	spinlock_t	*lock;
 };
 
+#define	CLK_DIVIDER_MIN_DIV_DEFAULT	1
+
 #define CLK_DIVIDER_ONE_BASED		BIT(0)
 #define CLK_DIVIDER_POWER_OF_TWO	BIT(1)
 
 extern const struct clk_ops clk_divider_ops;
+struct clk *clk_register_min_divider(struct device *dev, const char *name,
+		const char *parent_name, unsigned long flags,
+		void __iomem *reg, u8 shift, u8 width, u8 min_div,
+		u8 clk_divider_flags, spinlock_t *lock);
 struct clk *clk_register_divider(struct device *dev, const char *name,
 		const char *parent_name, unsigned long flags,
 		void __iomem *reg, u8 shift, u8 width,
