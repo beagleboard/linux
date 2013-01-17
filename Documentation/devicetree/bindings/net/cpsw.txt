@@ -20,6 +20,7 @@ Required properties:
 - cpts_clock_shift	: Denominator to convert input clock ticks into nanoseconds
 - phy_id		: Specifies slave phy id
 - mac-address		: Specifies slave MAC address
+- disable-napi		: Disables driver NAPI
 
 Optional properties:
 - ti,hwmods		: Must be "cpgmac0"
