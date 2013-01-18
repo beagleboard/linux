@@ -1785,6 +1785,9 @@ static struct omap_mmc_platform_data *of_get_hsmmc_pdata(struct device *dev)
 	if (of_find_property(np, "ti,needs-special-hs-handling", NULL))
 		pdata->slots[0].features |= HSMMC_HAS_HSPE_SUPPORT;
 
+	if (of_find_property(np, "ti,vcc-aux-disable-is-sleep", NULL))
+		pdata->slots[0].vcc_aux_disable_is_sleep = 1;
+
 	return pdata;
 }
 #else
