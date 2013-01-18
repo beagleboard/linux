@@ -187,7 +187,7 @@ static int pruss_probe(struct platform_device *dev)
 		goto out_free;
 	}
 
-	if (pdata->sram_pool) {
+	if (pdata && pdata->sram_pool) {
 		gdev->sram_pool = pdata->sram_pool;
 #ifdef CONFIG_ARCH_DAVINCI_DA850
 		gdev->sram_vaddr =
