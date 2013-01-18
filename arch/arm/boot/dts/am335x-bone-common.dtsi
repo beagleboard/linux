@@ -35,11 +35,6 @@
 				0x19c 0x13	/* mcasp0_ahclkr.spi1_cs0, OUTPUT_PULLUP | MODE3 */
 			>;
 		};
-		gpevt_pins: pinmux_gpevt_pins {
-			pinctrl-single,pins = <
-				0x090 0x37	/* gpmc_advn_ale.gpio2_2, INPUT_PULLUP | MODE7 */
-			>;
-		};
 		userled_pins: pinmux_userled_pins {
 			pinctrl-single,pins = <
 				0x54 0x7	/* gpmc_a5.gpio1_21, OUTPUT | MODE7 */
@@ -64,10 +59,6 @@
 
 	ocp: ocp {
 		uart1: serial@44e09000 {
-			status = "okay";
-		};
-
-		uart5: serial@481a8000 {
 			status = "okay";
 		};
 
@@ -103,13 +94,6 @@
 				default-state = "off";
 				linux,default-trigger = "mmc1";
 			};
-		};
-
-		gpevt {
-			compatible = "gpevt";
-			dmas = <&edma 12>;
-			dma-names = "gpioevt";
-			gpio-evt = <&gpio3 2 0>;
 		};
 
 		rtc@44e3e000 {
