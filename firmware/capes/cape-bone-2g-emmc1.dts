@@ -48,6 +48,7 @@
 			ti,non-removable;
 			status = "okay";
 			reset-gpios = <&gpio2 20 1>;	/* active low */
+			ti,vcc-aux-disable-is-sleep;
 		};
 	};
 };
