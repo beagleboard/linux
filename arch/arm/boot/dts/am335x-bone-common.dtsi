@@ -1,0 +1,290 @@
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/include/ "am33xx.dtsi"
+
+/ {
+	model = "TI AM335x BeagleBone";
+	compatible = "ti,am335x-bone", "ti,am33xx";
+
+	cpus {
+		cpu@0 {
+			cpu0-supply = <&dcdc2_reg>;
+		};
+	};
+
+	memory {
+		device_type = "memory";
+		reg = <0x80000000 0x10000000>; /* 256 MB */
+	};
+
+	am33xx_pinmux: pinmux@44e10800 {
+		pinctrl-names = "default";
+		pinctrl-0 = <&user_leds_s0 &spi1_pins_s0 &lcd_pins_s0 &gpevt_pins_s0>;
+
+		user_leds_s0: user_leds_s0 {
+			pinctrl-single,pins = <
+				0x54 0x7	/* gpmc_a5.gpio1_21, OUTPUT | MODE7 */
+				0x58 0x17	/* gpmc_a6.gpio1_22, OUTPUT_PULLUP | MODE7 */
+				0x5c 0x7	/* gpmc_a7.gpio1_23, OUTPUT | MODE7 */
+				0x60 0x17	/* gpmc_a8.gpio1_24, OUTPUT_PULLUP | MODE7 */
+			>;
+		};
+
+		spi1_pins_s0: spi1_pins_s0 {
+			pinctrl-single,pins = <
+				0x190 0x33	/* mcasp0_aclkx.spi1_sclk, INPUT_PULLUP | MODE3 */
+				0x194 0x33	/* mcasp0_fsx.spi1_d0, INPUT_PULLUP | MODE3 */
+				0x198 0x13	/* mcasp0_axr0.spi1_d1, OUTPUT_PULLUP | MODE3 */
+				0x19c 0x13	/* mcasp0_ahclkr.spi1_cs0, OUTPUT_PULLUP | MODE3 */
+			>;
+		};
+
+		lcd_pins_s0: lcd_pins_s0 {
+			pinctrl-single,pins = <
+				0x1a4 0x17	/* mcasp0_fsr.gpio3_19, OUTPUT_PULLUP | MODE7 */
+				0x1ac 0x17	/* mcasp0_ahclkx.gpio3_21, OUTPUT_PULLUP | MODE7 */
+			>;
+		};
+
+		gpevt_pins_s0: gpevt_pins_s0 {
+			pinctrl-single,pins = <
+				0x090 0x37	/* gpmc_advn_ale.gpio2_2, INPUT_PULLUP | MODE7 */
+			>;
+		};
+		userled_pins: pinmux_userled_pins {
+			pinctrl-single,pins = <
+				0x54 0x7	/* gpmc_a5.gpio1_21, OUTPUT | MODE7 */
+				0x58 0x17	/* gpmc_a6.gpio1_22, OUTPUT_PULLUP | MODE7 */
+				0x5c 0x7	/* gpmc_a7.gpio1_23, OUTPUT | MODE7 */
+				0x60 0x17	/* gpmc_a8.gpio1_24, OUTPUT_PULLUP | MODE7 */
+			>;
+		};
+		i2c2_pins: pinmux_i2c2_pins {
+			pinctrl-single,pins = <
+				0x178 0x73 	/* uart1_ctsn.i2c2_sda, SLEWCTRL_SLOW | INPUT_PULLUP | MODE3 */
+				0x17c 0x73	/* uart1_rtsn.i2c2_scl, SLEWCTRL_SLOW | INPUT_PULLUP | MODE3 */
+			>;
+		};
+	};
+
+	ocp {
+		uart1: serial@44e09000 {
+			status = "okay";
+		};
+
+		uart5: serial@481a8000 {
+			status = "okay";
+		};
+
+		gpio-leds {
+			compatible = "gpio-leds";
+			pinctrl-names = "default";
+			pinctrl-0 = <&userled_pins>;
+
+			led0 {
+				label = "beaglebone:green:usr0";
+				gpios = <&gpio2 21 0>;
+				linux,default-trigger = "heartbeat";
+				default-state = "off";
+			};
+
+			led1 {
+				label = "beaglebone:green:usr1";
+				gpios = <&gpio2 22 0>;
+				linux,default-trigger = "mmc0";
+				default-state = "off";
+			};
+
+			led2 {
+				label = "beaglebone:green:usr2";
+				gpios = <&gpio2 23 0>;
+				linux,default-trigger = "cpu0";
+				default-state = "off";
+			};
+
+			led3 {
+				label = "beaglebone:green:usr3";
+				gpios = <&gpio2 24 0>;
+				default-state = "off";
+			};
+		};
+
+		gpevt {
+			compatible = "gpevt";
+			dmas = <&edma 12>;
+			dma-names = "gpioevt";
+			gpio-evt = <&gpio3 2 0>;
+		};
+
+		rtc@44e3e000 {
+			ti,system-power-controller;
+		};
+	};
+
+	leds {
+		compatible = "gpio-leds";
+
+		led@2 {
+			label = "beaglebone:green:heartbeat";
+			gpios = <&gpio2 21 0>;
+			linux,default-trigger = "heartbeat";
+			default-state = "off";
+		};
+
+		led@3 {
+			label = "beaglebone:green:mmc0";
+			gpios = <&gpio2 22 0>;
+			linux,default-trigger = "mmc0";
+			default-state = "off";
+		};
+
+		led@4 {
+			label = "beaglebone:green:usr2";
+			gpios = <&gpio2 23 0>;
+			default-state = "off";
+		};
+
+		led@5 {
+			label = "beaglebone:green:usr3";
+			gpios = <&gpio2 24 0>;
+			default-state = "off";
+		};
+	};
+};
+
+&i2c0 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	tps: tps@24 {
+		reg = <0x24>;
+	};
+
+	baseboard_eeprom: baseboard_eeprom@50 {
+		compatible = "at,24c256";
+		reg = <0x50>;
+	};
+       
+};
+
+&i2c2 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c2_pins>;
+
+	clock-frequency = <100000>;
+
+	/* OK, I know these are cape but for now it will do */
+	cape_eeprom_0: cape_eeprom_0@54 {
+		compatible = "at,24c256";
+		reg = <0x54>;
+	};
+
+	cape_eeprom_1: cape_eeprom_1@55 {
+		compatible = "at,24c256";
+		reg = <0x55>;
+	};
+
+	cape_eeprom_2: cape_eeprom_2@56 {
+		compatible = "at,24c256";
+		reg = <0x56>;
+	};
+
+	cape_eeprom_3: cape_eeprom_3@57 {
+		compatible = "at,24c256";
+		reg = <0x57>;
+	};
+};
+
+/include/ "tps65217.dtsi"
+
+&tps {
+	ti,pmic-shutdown-controller;
+
+	regulators {
+		dcdc1_reg: regulator@0 {
+			regulator-always-on;
+		};
+
+		dcdc2_reg: regulator@1 {
+			/* VDD_MPU voltage limits 0.95V - 1.26V with +/-4% tolerance */
+			regulator-name = "vdd_mpu";
+			regulator-min-microvolt = <925000>;
+			regulator-max-microvolt = <1325000>;
+			regulator-boot-on;
+			regulator-always-on;
+		};
+
+		dcdc3_reg: regulator@2 {
+			/* VDD_CORE voltage limits 0.95V - 1.1V with +/-4% tolerance */
+			regulator-name = "vdd_core";
+			regulator-min-microvolt = <925000>;
+			regulator-max-microvolt = <1150000>;
+			regulator-boot-on;
+			regulator-always-on;
+		};
+
+		ldo1_reg: regulator@3 {
+			regulator-always-on;
+		};
+
+		ldo2_reg: regulator@4 {
+			regulator-always-on;
+		};
+
+		ldo3_reg: regulator@5 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <3300000>;
+			regulator-always-on;
+		};
+
+		ldo4_reg: regulator@6 {
+			regulator-always-on;
+		};
+	};
+};
+
+&cpsw_emac0 {
+	phy_id = <&davinci_mdio>, <0>;
+};
+
+&cpsw_emac1 {
+	phy_id = <&davinci_mdio>, <1>;
+};
+
+&mmc1 {
+	status = "okay";
+	vmmc-supply = <&ldo3_reg>;
+};
+
+&spi1 {
+	status = "okay";
+
+	lcd@0 {
+		compatible = "adafruit,tft-lcd-1.8-green", "sitronix,st7735";
+		spi-max-frequency = <8000000>;
+		reg = <0>;
+		spi-cpol;
+		spi-cpha;
+		st7735-rst = <&gpio4 19 0>;
+		st7735-dc = <&gpio4 21 0>;
+	};
+};
+
+&edma {
+	ti,edma-xbar-event-map = <32 12>;
+};
+
+&sham {
+	status = "okay";
+};
+
+&aes {
+	status = "okay";
+};
