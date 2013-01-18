@@ -10,3 +10,10 @@
 /include/ "am33xx.dtsi"
 
 /include/ "am335x-bone-common.dtsi"
+
+&mmc2 {
+	vmmc-supply = <&ldo3_reg>;
+	bus-width = <4>;
+	ti,non-removable;
+	status = "okay";
+};
