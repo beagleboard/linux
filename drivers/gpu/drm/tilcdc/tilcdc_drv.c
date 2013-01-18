@@ -209,10 +209,13 @@ static int tilcdc_load(struct drm_device *dev, unsigned long flags)
 		dev_info(&pdev->dev, "No power control GPIO\n");
 	} else {
 		gpioflags = GPIOF_DIR_OUT;
-		if (ofgpioflags & OF_GPIO_ACTIVE_LOW)
+		if (ofgpioflags & OF_GPIO_ACTIVE_LOW) {
 			gpioflags |= GPIOF_INIT_LOW;
-		else
+			dev_info(&pdev->dev, "Power GPIO active low, initial state set to low\n");
+		} else {
 			gpioflags |= GPIOF_INIT_HIGH;
+			dev_info(&pdev->dev, "Power GPIO active high, initial state set to high\n");
+		}
 		ret = devm_gpio_request_one(&pdev->dev, gpio,
 		gpioflags, "lcdc_drv:PDN");
 		if (ret != 0) {
