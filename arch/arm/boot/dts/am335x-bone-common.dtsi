@@ -359,6 +359,7 @@
 &mmc1 {
 	status = "okay";
 	vmmc-supply = <&ldo3_reg>;
+	ti,vcc-aux-disable-is-sleep;
 };
 
 &edma {
