@@ -35,6 +35,7 @@
 #include <linux/regulator/machine.h>
 #include <linux/regulator/fixed.h>
 #include <linux/i2c/twl.h>
+#include <linux/i2c/at24.h>
 
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -185,6 +186,7 @@ enum {
 	EXPANSION_I2C_NONE = 0,
 	EXPANSION_I2C_ZIPPY,
 	EXPANSION_I2C_7ULCD,
+	EXPANSION_I2C_COM6L,
 };
 
 static struct {
@@ -813,6 +815,20 @@ static struct isp_platform_data beagle_isp_platform_data = {
 };
 #endif
 
+static struct at24_platform_data beagle_at24_eeprom_info = {
+	.byte_len	= (256*1024) / 8,
+	.page_size	= 64,
+	.flags		= AT24_FLAG_ADDR16,
+	.context	= (void *)NULL,
+};
+
+static struct i2c_board_info __initdata com6l_adpt_eeprom[] = {
+	{
+		I2C_BOARD_INFO("24c256", 0x50),
+		.platform_data  = &beagle_at24_eeprom_info,
+	},
+};
+
 static int __init omap3_beagle_i2c_init(void)
 {
 	omap3_pmic_get_config(&beagle_twldata,
@@ -831,6 +847,9 @@ static int __init omap3_beagle_i2c_init(void)
 		break;
 	case EXPANSION_I2C_ZIPPY:
 		omap_register_i2c_bus(2, 400, zippy_i2c2_rtc, ARRAY_SIZE(zippy_i2c2_rtc));
+		break;
+	case EXPANSION_I2C_COM6L:
+		omap_register_i2c_bus(2, 400, com6l_adpt_eeprom, ARRAY_SIZE(com6l_adpt_eeprom));
 		break;
 	default:
 		omap_register_i2c_bus(2, 400, NULL, 0);
@@ -1124,6 +1143,7 @@ static void __init omap3_beagle_init(void)
 		omap_mux_init_signal("sdmmc2_dat3.sdmmc2_dat3", OMAP_PIN_INPUT_PULLUP);
 
 		expansion_config.mmc_settings = EXPANSION_MMC_WIFI;
+		expansion_config.i2c_settings = EXPANSION_I2C_COM6L;
 	#endif
 	}
 
