@@ -33,6 +33,7 @@
 #include <linux/mmc/host.h>
 
 #include <linux/regulator/machine.h>
+#include <linux/regulator/fixed.h>
 #include <linux/i2c/twl.h>
 
 #include <asm/mach-types.h>
@@ -165,6 +166,86 @@ static void __init omap3_beagle_init_rev(void)
 
 char expansionboard_name[16];
 
+enum {
+	EXPANSION_MMC_NONE = 0,
+	EXPANSION_MMC_ZIPPY,
+	EXPANSION_MMC_WIFI,
+};
+
+enum {
+	EXPANSION_I2C_NONE = 0,
+	EXPANSION_I2C_ZIPPY,
+};
+
+static struct {
+	int mmc_settings;
+	int i2c_settings;
+} expansion_config = {
+	.mmc_settings = EXPANSION_MMC_NONE,
+	.i2c_settings = EXPANSION_I2C_NONE,
+};
+
+//rcn-ee: this is just a fake regulator, the zippy hardware provides 3.3/1.8 with jumper..
+static struct fixed_voltage_config beagle_vzippy = {
+	.supply_name = "vzippy",
+	.microvolts = 3300000,  /* 3.3V */
+	.startup_delay = 70000, /* 70ms */
+	.enable_high = 1,
+	.enabled_at_boot = 0,
+	.init_data = &beagle_vmmc2,
+};
+
+static struct platform_device omap_zippy_device = {
+	.name	= "reg-fixed-voltage",
+	.id		= 1,
+	.dev = {
+		.platform_data = &beagle_vzippy,
+	},
+};
+
+#define OMAP3BEAGLE_GPIO_ZIPPY_MMC_WP 141
+#define OMAP3BEAGLE_GPIO_ZIPPY_MMC_CD 162
+
+#if defined(CONFIG_ENC28J60) || defined(CONFIG_ENC28J60_MODULE)
+#include <linux/platform_data/spi-omap2-mcspi.h>
+#include <linux/spi/spi.h>
+
+#define OMAP3BEAGLE_GPIO_ENC28J60_IRQ 157
+
+static struct omap2_mcspi_device_config enc28j60_spi_chip_info = {
+	.turbo_mode	= 0,
+};
+
+static struct spi_board_info omap3beagle_zippy_spi_board_info[] __initdata = {
+	{
+		.modalias		= "enc28j60",
+		.bus_num		= 4,
+		.chip_select	= 0,
+		.max_speed_hz	= 20000000,
+		.controller_data	= &enc28j60_spi_chip_info,
+	},
+};
+
+static void __init omap3beagle_enc28j60_init(void)
+{
+	if ((gpio_request(OMAP3BEAGLE_GPIO_ENC28J60_IRQ, "ENC28J60_IRQ") == 0) &&
+	    (gpio_direction_input(OMAP3BEAGLE_GPIO_ENC28J60_IRQ) == 0)) {
+		gpio_export(OMAP3BEAGLE_GPIO_ENC28J60_IRQ, 0);
+		omap3beagle_zippy_spi_board_info[0].irq = gpio_to_irq(OMAP3BEAGLE_GPIO_ENC28J60_IRQ);
+		irq_set_irq_type(omap3beagle_zippy_spi_board_info[0].irq, IRQ_TYPE_EDGE_FALLING);
+	} else {
+		pr_err("Beagle expansionboard: could not obtain gpio for ENC28J60_IRQ\n");
+		return;
+	}
+
+	spi_register_board_info(omap3beagle_zippy_spi_board_info,
+			ARRAY_SIZE(omap3beagle_zippy_spi_board_info));
+}
+
+#else
+static inline void __init omap3beagle_enc28j60_init(void) { return; }
+#endif
+
 static struct mtd_partition omap3beagle_nand_partitions[] = {
 	/* All the partition sizes are listed in terms of NAND block size */
 	{
@@ -241,6 +322,23 @@ static struct omap2_hsmmc_info mmc[] = {
 	{}	/* Terminator */
 };
 
+static struct omap2_hsmmc_info mmc_zippy[] = {
+	{
+		.mmc		= 1,
+		.caps		= MMC_CAP_4_BIT_DATA,
+		.gpio_wp	= -EINVAL,
+		.deferred	= true,
+	},
+	{
+		.mmc		= 2,
+		.caps		= MMC_CAP_4_BIT_DATA,
+		.gpio_wp	= OMAP3BEAGLE_GPIO_ZIPPY_MMC_WP,
+		.gpio_cd	= OMAP3BEAGLE_GPIO_ZIPPY_MMC_CD,
+		.transceiver	= true,
+		.deferred	= true,
+	},
+	{}	/* Terminator */
+};
 static struct regulator_consumer_supply beagle_vmmc1_supply[] = {
 	REGULATOR_SUPPLY("vmmc", "omap_hsmmc.0"),
 };
@@ -256,10 +354,21 @@ static int beagle_twl_gpio_setup(struct device *dev,
 {
 	int r;
 
-	mmc[0].gpio_wp = beagle_config.mmc1_gpio_wp;
-	/* gpio + 0 is "mmc0_cd" (input/IRQ) */
-	mmc[0].gpio_cd = gpio + 0;
-	omap_hsmmc_late_init(mmc);
+	switch (expansion_config.mmc_settings) {
+	case EXPANSION_MMC_ZIPPY:
+		mmc_zippy[0].gpio_wp = beagle_config.mmc1_gpio_wp;
+		/* gpio + 0 is "mmc0_cd" (input/IRQ) */
+		mmc_zippy[0].gpio_cd = gpio + 0;
+
+		omap_hsmmc_late_init(mmc_zippy);
+		break;
+	default:
+		mmc[0].gpio_wp = beagle_config.mmc1_gpio_wp;
+		/* gpio + 0 is "mmc0_cd" (input/IRQ) */
+		mmc[0].gpio_cd = gpio + 0;
+
+		omap_hsmmc_late_init(mmc);
+	}
 
 	/*
 	 * TWL4030_GPIO_MAX + 0 == ledA, EHCI nEN_USB_PWR (out, XM active
@@ -352,6 +461,14 @@ static struct i2c_board_info __initdata beagle_i2c_eeprom[] = {
        },
 };
 
+static struct i2c_board_info __initdata zippy_i2c2_rtc[] = {
+#if defined(CONFIG_RTC_DRV_DS1307) || defined(CONFIG_RTC_DRV_DS1307_MODULE)
+	{
+		I2C_BOARD_INFO("ds1307", 0x68),
+	},
+#endif
+};
+
 static int __init omap3_beagle_i2c_init(void)
 {
 	omap3_pmic_get_config(&beagle_twldata,
@@ -362,6 +479,15 @@ static int __init omap3_beagle_i2c_init(void)
 	beagle_twldata.vpll2->constraints.name = "VDVI";
 
 	omap3_pmic_init("twl4030", &beagle_twldata);
+
+	switch (expansion_config.i2c_settings) {
+	case EXPANSION_I2C_ZIPPY:
+		omap_register_i2c_bus(2, 400, zippy_i2c2_rtc, ARRAY_SIZE(zippy_i2c2_rtc));
+		break;
+	default:
+		omap_register_i2c_bus(2, 400, NULL, 0);
+	}
+
 	/* Bus 3 is attached to the DVI port where devices like the pico DLP
 	 * projector don't work reliably with 400kHz */
 	omap_register_i2c_bus(3, 100, beagle_i2c_eeprom, ARRAY_SIZE(beagle_i2c_eeprom));
@@ -516,10 +642,30 @@ static void __init omap3_beagle_init(void)
 	omap3_mux_init(board_mux, OMAP_PACKAGE_CBB);
 	omap3_beagle_init_rev();
 
+	if (!strcmp(expansionboard_name, "zippy"))
+	{
+		pr_info("Beagle expansionboard: initializing zippy mmc\n");
+		platform_device_register(&omap_zippy_device);
+
+		expansion_config.i2c_settings = EXPANSION_I2C_ZIPPY;
+		expansion_config.mmc_settings = EXPANSION_MMC_ZIPPY;
+
+		omap_mux_init_gpio(OMAP3BEAGLE_GPIO_ZIPPY_MMC_WP, OMAP_PIN_INPUT);
+		omap_mux_init_gpio(OMAP3BEAGLE_GPIO_ZIPPY_MMC_CD, OMAP_PIN_INPUT);
+	}
+
 	if (gpio_is_valid(beagle_config.mmc1_gpio_wp))
 		omap_mux_init_gpio(beagle_config.mmc1_gpio_wp, OMAP_PIN_INPUT);
-	mmc[0].caps = beagle_config.mmc_caps;
-	omap_hsmmc_init(mmc);
+
+	switch (expansion_config.mmc_settings) {
+	case EXPANSION_MMC_ZIPPY:
+		mmc_zippy[0].caps = beagle_config.mmc_caps;
+		omap_hsmmc_init(mmc_zippy);
+		break;
+	default:
+		mmc[0].caps = beagle_config.mmc_caps;
+		omap_hsmmc_init(mmc);
+	}
 
 	omap3_beagle_i2c_init();
 
@@ -533,6 +679,12 @@ static void __init omap3_beagle_init(void)
 	omap_serial_init();
 	omap_sdrc_init(mt46h32m32lf6_sdrc_params,
 				  mt46h32m32lf6_sdrc_params);
+
+	if (!strcmp(expansionboard_name, "zippy"))
+	{
+		pr_info("Beagle expansionboard: initializing enc28j60\n");
+		omap3beagle_enc28j60_init();
+	}
 
 	usb_musb_init(NULL);
 	usbhs_init(&usbhs_bdata);
