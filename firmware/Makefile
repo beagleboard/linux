@@ -150,6 +150,10 @@ fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
 fw-shipped-$(CONFIG_CAPE_BEAGLEBONE_GEIGER) += \
 	cape-bone-geiger-00A0.dtbo
 
+# the nixie cape
+fw-shipped-$(CONFIG_CAPE_BEAGLEBONE_NIXIE) += \
+	cape-bone-nixie-00A0.dtbo
+
 # the weather cape
 fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += cape-bone-weather-00A0.dtbo
 
