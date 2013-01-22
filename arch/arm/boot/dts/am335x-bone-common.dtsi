@@ -475,3 +475,9 @@
 &aes {
 	status = "okay";
 };
+
+&usb_otg_hs {
+	interface_type = <1>;
+	power = <500>;
+	status = "okay";
+};
