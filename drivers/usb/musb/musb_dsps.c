@@ -415,18 +415,29 @@ static int dsps_musb_init(struct musb *musb)
 	/* mentor core register starts at offset of 0x400 from musb base */
 	musb->mregs += wrp->musb_core_offset;
 
+#if 1
 	/* NOP driver needs change if supporting dual instance */
 	usb_nop_xceiv_register();
 	musb->xceiv = usb_get_phy(USB_PHY_TYPE_USB2);
-	if (IS_ERR_OR_NULL(musb->xceiv))
+#else
+	/* Get the NOP PHY */
+	sprintf(name, "usb%d-phy", pdev->id);
+	musb->xceiv = devm_usb_get_phy_by_phandle(&parent_pdev->dev, name);
+#endif
+	if (IS_ERR_OR_NULL(musb->xceiv)) {
+		dev_err(dev, "%s:%d %s: FAIL\n", __FILE__, __LINE__, __func__);
 		return -EPROBE_DEFER;
+	}
 
 	/* Returns zero if e.g. not clocked */
 	rev = dsps_readl(reg_base, wrp->revision);
 	if (!rev) {
+		dev_err(dev, "%s:%d %s: FAIL\n", __FILE__, __LINE__, __func__);
 		status = -ENODEV;
 		goto err0;
 	}
+
+	dev_info(dev, "pdev->id = %d\n", pdev->id);
 
 	setup_timer(&glue->timer[pdev->id], otg_timer, (unsigned long) musb);
 
@@ -445,6 +456,8 @@ static int dsps_musb_init(struct musb *musb)
 
 	/* clear level interrupt */
 	dsps_writel(reg_base, wrp->eoi, 0);
+
+	dev_info(dev, "%s:%d %s: OK\n", __FILE__, __LINE__, __func__);
 
 	return 0;
 err0:
@@ -761,9 +774,41 @@ static const struct platform_device_id musb_dsps_id_table[] = {
 MODULE_DEVICE_TABLE(platform, musb_dsps_id_table);
 
 #ifdef CONFIG_OF
+
+static const struct dsps_musb_wrapper am33xx_driver_data = {
+	.revision		= 0x00,
+	.control		= 0x14,
+	.status			= 0x18,
+	.eoi			= 0x24,
+	.epintr_set		= 0x38,
+	.epintr_clear		= 0x40,
+	.epintr_status		= 0x30,
+	.coreintr_set		= 0x3c,
+	.coreintr_clear		= 0x44,
+	.coreintr_status	= 0x34,
+	.phy_utmi		= 0xe0,
+	.mode			= 0xe8,
+	.reset			= 0,
+	.otg_disable		= 21,
+	.iddig			= 8,
+	.usb_shift		= 0,
+	.usb_mask		= 0x1ff,
+	.usb_bitmap		= (0x1ff << 0),
+	.drvvbus		= 8,
+	.txep_shift		= 0,
+	.txep_mask		= 0xffff,
+	.txep_bitmap		= (0xffff << 0),
+	.rxep_shift		= 16,
+	.rxep_mask		= 0xfffe,
+	.rxep_bitmap		= (0xfffe << 16),
+	.musb_core_offset	= 0x400,
+	.poll_seconds		= 2,
+	.instances		= 2,
+};
+
 static const struct of_device_id musb_dsps_of_match[] = {
 	{ .compatible = "ti,musb-am33xx",
-		.data = (void *) &ti81xx_driver_data, },
+		.data = (void *) &am33xx_driver_data, },
 	{  },
 };
 MODULE_DEVICE_TABLE(of, musb_dsps_of_match);
