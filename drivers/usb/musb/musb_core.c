@@ -1955,11 +1955,43 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 		musb_write_ulpi_buscontrol(musb->mregs, busctl);
 	}
 
-	MUSB_DEV_MODE(musb);
-	musb->xceiv->otg->default_a = 0;
-	musb->xceiv->state = OTG_STATE_B_IDLE;
+	dev_info(dev, "*** mode=%d\n", plat->mode);
+	dev_info(dev, "*** power=%d\n", plat->power);
 
-	status = musb_gadget_setup(musb);
+	/* For the host-only role, we can activate right away.
+	 * (We expect the ID pin to be forcibly grounded!!)
+	 * Otherwise, wait till the gadget driver hooks up.
+	 */
+	if (plat->mode == MUSB_HOST) {	/* host mode */
+
+		del_timer(&musb->otg_timer);
+
+		MUSB_HST_MODE(musb);
+		musb->xceiv->otg->default_a = 1;
+		musb->xceiv->state = OTG_STATE_A_WAIT_VRISE;
+
+		status = usb_add_hcd(hcd, 0, 0);
+
+		hcd->self.uses_pio_for_control = 1;
+		dev_dbg(musb->controller, "%s mode, status %d, devctl %02x %c\n",
+			"HOST", status,
+			musb_readb(musb->mregs, MUSB_DEVCTL),
+			(musb_readb(musb->mregs, MUSB_DEVCTL)
+				& MUSB_DEVCTL_BDEVICE
+				? 'B' : 'A'));
+
+	} else {
+		MUSB_DEV_MODE(musb);
+		musb->xceiv->otg->default_a = 0;
+		musb->xceiv->state = OTG_STATE_B_IDLE;
+
+		status = musb_gadget_setup(musb);
+
+		dev_dbg(musb->controller, "%s mode, status %d, dev%02x\n",
+			plat->mode == MUSB_OTG ? "OTG" : "PERIPHERAL",
+			status,
+			musb_readb(musb->mregs, MUSB_DEVCTL));
+	}
 
 	if (status < 0)
 		goto fail3;
@@ -1982,7 +2014,10 @@ fail5:
 	musb_exit_debugfs(musb);
 
 fail4:
-	musb_gadget_cleanup(musb);
+	if (plat->mode == MUSB_HOST)
+		usb_remove_hcd(hcd);
+	else
+		musb_gadget_cleanup(musb);
 
 fail3:
 	pm_runtime_put_sync(musb->controller);
