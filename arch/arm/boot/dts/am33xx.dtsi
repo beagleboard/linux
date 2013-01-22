@@ -24,7 +24,7 @@
 	};
 
 	cpus {
-		cpu@0 {
+		cpu: cpu@0 {
 			compatible = "arm,cortex-a8";
 
 			/*
