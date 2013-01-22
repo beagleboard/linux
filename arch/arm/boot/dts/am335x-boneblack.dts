@@ -42,3 +42,19 @@
 	ti,non-removable;
 	status = "okay";
 };
+
+
+&cpu {
+	/*
+	 * To consider voltage drop between PMIC and SoC,
+	 * tolerance value is reduced to 2% from 4% and
+	 * voltage value is increased as a precaution.
+	 */
+	operating-points = <
+		/* kHz    uV */
+		1000000	1350000
+		800000	1300000
+		600000  1112000
+		300000   969000
+	>;
+};
