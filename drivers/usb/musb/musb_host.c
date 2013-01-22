@@ -2431,12 +2431,15 @@ static int musb_bus_suspend(struct usb_hcd *hcd)
 		break;
 	}
 
+#if 0
 	if (musb->is_active) {
 		WARNING("trying to suspend as %s while active\n",
 				otg_state_string(musb->xceiv->state));
 		return -EBUSY;
-	} else
-		return 0;
+	}
+#endif
+
+	return 0;
 }
 
 static int musb_bus_resume(struct usb_hcd *hcd)
