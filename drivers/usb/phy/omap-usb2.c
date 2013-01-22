@@ -143,6 +143,7 @@ static int omap_usb2_probe(struct platform_device *pdev)
 	phy->phy.label		= "omap-usb2";
 	phy->phy.set_suspend	= omap_usb2_suspend;
 	phy->phy.otg		= otg;
+	phy->phy.type		= USB_PHY_TYPE_USB2;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 
@@ -168,7 +169,7 @@ static int omap_usb2_probe(struct platform_device *pdev)
 	}
 	clk_prepare(phy->wkupclk);
 
-	usb_add_phy(&phy->phy, USB_PHY_TYPE_USB2);
+	usb_add_phy_dev(&phy->phy);
 
 	platform_set_drvdata(pdev, phy);
 
