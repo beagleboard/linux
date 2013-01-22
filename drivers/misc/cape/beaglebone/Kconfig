@@ -16,3 +16,12 @@ config CAPE_BEAGLEBONE_GEIGER
 	default n
 	help
 	  Say Y here to include support for the Geiger Cape
+
+
+config CAPE_BEAGLEBONE_NIXIE
+	tristate "Beaglebone Nixie Cape"
+	depends on CAPE_BEAGLEBONE
+	default n
+	help
+	  Say Y here to include support for the Nixie Cape
+
