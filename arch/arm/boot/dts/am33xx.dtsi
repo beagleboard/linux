@@ -404,11 +404,15 @@
 
 		};
 
-		nop-phy {
+		nop-phy@0 {
 			compatible = "nop-xceiv-usb";
 		};
 
-		usb@47400000 {
+		nop-phy@1 {
+			compatible = "nop-xceiv-usb";
+		};
+
+		usb_otg_hs: usb@47400000 {
 			compatible = "ti,musb-am33xx";
 			reg = <0x47400000 0x1000	/* usbss */
 			       0x47401000 0x800		/* musb instance 0 */
@@ -423,6 +427,7 @@
 			port1-mode = <1>;
 			power = <250>;
 			ti,hwmods = "usb_otg_hs";
+			status = "disabled";
 		};
 
 		mac: ethernet@4a100000 {
