@@ -181,6 +181,17 @@
 				manufacturer = "Texas Instruments";
 				part-number = "BB-BONELT-HDMI";
 			};
+
+			/* Nixie cape version A0 without an EEPROM */
+			slot@7 {
+				ti,cape-override;
+				compatible = "kernel-command-line", "runtime";
+				board-name = "Bone-Nixie";
+				version = "00A0";
+				manufacturer = "Ranostay Industries";
+				part-number = "BB-BONE-NIXIE";
+			};
+
 		};
 
 		/* mapping between board names and dtb objects */
@@ -249,6 +260,14 @@
 				};
 			};
 
+			/* nixie cape */
+			cape@6 {
+				part-number = "BB-BONE-NIXIE";
+				version@00A0 {
+					version = "00A0";
+					dtbo = "cape-bone-nixie-00A0.dtbo";
+				};
+			};
 		};
 	};
 };
