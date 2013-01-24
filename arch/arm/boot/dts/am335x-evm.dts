@@ -270,3 +270,16 @@
 		reg = <0>;
 	};
 };
+
+&tscadc {
+	tsc {
+		ti,wires = <4>;
+		ti,x-plate-resistance = <200>;
+		ti,steps-to-configure = <5>;
+		ti,wire-config = <0x00 0x11 0x22 0x33>;
+	};
+
+	adc {
+		ti,adc-channels = <4>;
+	};
+};
