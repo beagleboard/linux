@@ -833,7 +833,7 @@ static int __init omap3_beagle_i2c_init(void)
 {
 	omap3_pmic_get_config(&beagle_twldata,
 			TWL_COMMON_PDATA_USB | TWL_COMMON_PDATA_MADC |
-			TWL_COMMON_PDATA_AUDIO,
+			TWL_COMMON_PDATA_AUDIO | TWL_COMMON_PDATA_POWER,
 			TWL_COMMON_REGULATOR_VDAC | TWL_COMMON_REGULATOR_VPLL2);
 
 	beagle_twldata.vpll2->constraints.name = "VDVI";
