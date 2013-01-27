@@ -385,7 +385,8 @@ static int bonegeiger_probe(struct platform_device *pdev)
 
 	info->vsense_channel = iio_channel_get(NULL, info->vsense_name);
 	if (IS_ERR(info->vsense_channel)) {
-		dev_err(&pdev->dev, "Could not get AIN5 analog input\n");
+		dev_err(&pdev->dev, "Could not get %s analog input\n",
+					info->vsense_name);
 		err = PTR_ERR(info->vsense_channel);
 		goto err_no_vsense;
 	}
