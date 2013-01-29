@@ -136,6 +136,10 @@ static const struct iio_chan_spec st_magn_2_16bit_channels[] = {
 static const struct st_sensors st_magn_sensors[] = {
 	{
 		.wai = ST_MAGN_1_WAI_EXP,
+		.sensors_supported = {
+			[0] = LSM303DLHC_MAGN_DEV_NAME,
+			[1] = LSM303DLM_MAGN_DEV_NAME,
+		},
 		.ch = (struct iio_chan_spec *)st_magn_16bit_channels,
 		.odr = {
 			.addr = ST_MAGN_1_ODR_ADDR,
@@ -210,6 +214,9 @@ static const struct st_sensors st_magn_sensors[] = {
 	},
 	{
 		.wai = ST_MAGN_2_WAI_EXP,
+		.sensors_supported = {
+			[0] = LIS3MDL_MAGN_DEV_NAME,
+		},
 		.ch = (struct iio_chan_spec *)st_magn_2_16bit_channels,
 		.odr = {
 			.addr = ST_MAGN_2_ODR_ADDR,
