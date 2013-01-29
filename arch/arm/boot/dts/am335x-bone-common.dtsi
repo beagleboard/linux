@@ -137,14 +137,14 @@
 			};
 
 			/* Beaglebone black has it soldered on */
-			// slot@4 {
-			// 	ti,cape-override;
-			// 	compatible = "ti,beaglebone-black";
-			// 	board-name = "Bone-LT-eMMC-2G";
-			// 	version = "00A0";
-			// 	manufacturer = "Texas Instruments";
-			// 	part-number = "BB-BONE-EMMC-2G";
-			// };
+			 slot@4 {
+				ti,cape-override;
+				compatible = "ti,beaglebone-black";
+				board-name = "Bone-LT-eMMC-2G";
+				version = "00A0";
+				manufacturer = "Texas Instruments";
+				part-number = "BB-BONE-EMMC-2G";
+			 };
 
 			/* geiger cape version A0 without an EEPROM */
 			slot@5 {
