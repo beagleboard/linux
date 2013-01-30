@@ -43,6 +43,7 @@ struct tilcdc_drm_private {
 
 	/* don't attempt resolutions w/ higher W * H * Hz: */
 	uint32_t max_bandwidth;
+	int allow_non_rblank;	/* ATM we don't support non reduced blank modes */
 
 	/* register contents saved across suspend/resume: */
 	u32 saved_register[12];
