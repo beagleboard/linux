@@ -21,6 +21,7 @@
 #include <video/display_timing.h>
 #include <video/of_display_timing.h>
 #include <video/videomode.h>
+#include <linux/of_gpio.h>
 
 #include "tilcdc_drv.h"
 
@@ -29,6 +30,7 @@ struct panel_module {
 	struct tilcdc_panel_info *info;
 	struct display_timings *timings;
 	struct backlight_device *backlight;
+	int gpio;
 };
 #define to_panel_module(x) container_of(x, struct panel_module, base)
 
@@ -359,8 +361,9 @@ static int panel_probe(struct platform_device *pdev)
 	struct panel_module *panel_mod;
 	struct tilcdc_module *mod;
 	struct pinctrl *pinctrl;
+	enum of_gpio_flags ofgpioflags;
+	unsigned long gpioflags;
 	int ret = -EINVAL;
-
 
 	/* bail out early if no DT data: */
 	if (!node) {
@@ -396,6 +399,27 @@ static int panel_probe(struct platform_device *pdev)
 	panel_mod->backlight = of_find_backlight_by_node(node);
 	if (panel_mod->backlight)
 		dev_info(&pdev->dev, "found backlight\n");
+
+	panel_mod->gpio = of_get_named_gpio_flags(pdev->dev.of_node, "ti,power-gpio",
+                       0, &ofgpioflags);
+	if (IS_ERR_VALUE(panel_mod->gpio)) {
+		dev_warn(&pdev->dev, "panel: No power control GPIO\n");
+	} else {
+		gpioflags = GPIOF_DIR_OUT;
+		if (ofgpioflags & OF_GPIO_ACTIVE_LOW) {
+			gpioflags |= GPIOF_INIT_LOW;
+			dev_info(&pdev->dev, "Power GPIO active low, initial state set to low\n");
+		} else {
+			gpioflags |= GPIOF_INIT_HIGH;
+			dev_info(&pdev->dev, "Power GPIO active high, initial state set to high\n");
+		}
+		ret = devm_gpio_request_one(&pdev->dev, panel_mod->gpio,
+				gpioflags, "panel:PDN");
+		if (ret != 0) {
+			dev_err(&pdev->dev, "Failed to request power gpio\n");
+			goto fail;
+		}
+	}
 
 	return 0;
 
