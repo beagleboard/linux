@@ -93,57 +93,13 @@
 				};
 			};
 
-			/* Settings for DVI 1024x768@60 */
+			/* use the DVI panel now */
 			panel {
-				compatible = "tilcdc,panel";
+				compatible = "tilcdc,tfp410";
 				pinctrl-names = "default";
 				pinctrl-0 = <&bone_dvi_cape_dvi_00A2_pins>;
 				ti,power-gpio = <&gpio1 31 0x0>;
-				panel-info {
-					ac-bias           = <255>;
-					ac-bias-intrpt    = <0>;
-					dma-burst-sz      = <16>;
-					bpp               = <16>;
-					fdd               = <0x80>;
-					tft-alt-mode      = <0>;
-					stn-565-mode      = <0>;
-					mono-8bit-mode    = <0>;
-					sync-edge         = <0>;
-					sync-ctrl         = <1>;
-					raster-order      = <0>;
-					fifo-th           = <0>;
-				};
-				display-timings {
-					native-mode = <&timing1>;
-					timing0: 1024x768 {
-						hactive         = <1024>;
-						vactive         = <768>;
-						hback-porch     = <80>;
-						hfront-porch    = <48>;
-						vback-porch     = <15>;
-						vfront-porch    = <3>;
-						hsync-len       = <32>;
-						vsync-len       = <4>;
-						clock-frequency = <56000000>;
-						hsync-active	= <0>;
-						vsync-active	= <0>;
-					};
-					/* 1280 x 720 @ 60 Hz  Reduced blanking VESA CVT 0.92M9-R */
-					timing1: 1280x720-60 {
-						hactive         = <1280>;
-						hfront-porch    = <48>;
-						hsync-len       = <32>;
-						hback-porch     = <80>;
-						vactive         = <720>;
-						vfront-porch    = <3>;
-						vsync-len       = <5>;
-						vback-porch     = <13>;
-						clock-frequency = <64000000>;
-						hsync-active	= <0>;
-						vsync-active	= <0>;
-					};
-
-				};
+				i2c = <&i2c2>;
 			};
 
 			fb {
