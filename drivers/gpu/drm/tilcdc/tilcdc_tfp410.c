@@ -329,6 +329,8 @@ static int tfp410_probe(struct platform_device *pdev)
 	struct tilcdc_module *mod;
 	struct pinctrl *pinctrl;
 	uint32_t i2c_phandle;
+	enum of_gpio_flags ofgpioflags;
+	unsigned long gpioflags;
 	int ret = -EINVAL;
 
 	/* bail out early if no DT data: */
@@ -368,14 +370,23 @@ static int tfp410_probe(struct platform_device *pdev)
 
 	of_node_put(i2c_node);
 
-	tfp410_mod->gpio = of_get_named_gpio_flags(node, "powerdn-gpio",
-			0, NULL);
+	tfp410_mod->gpio = of_get_named_gpio_flags(pdev->dev.of_node, "ti,power-gpio",
+                       0, &ofgpioflags);
 	if (IS_ERR_VALUE(tfp410_mod->gpio)) {
-		dev_warn(&pdev->dev, "No power down GPIO\n");
+		dev_warn(&pdev->dev, "tftp410: No power control GPIO\n");
 	} else {
-		ret = gpio_request(tfp410_mod->gpio, "DVI_PDn");
-		if (ret) {
-			dev_err(&pdev->dev, "could not get DVI_PDn gpio\n");
+		gpioflags = GPIOF_DIR_OUT;
+		if (ofgpioflags & OF_GPIO_ACTIVE_LOW) {
+			gpioflags |= GPIOF_INIT_LOW;
+			dev_info(&pdev->dev, "Power GPIO active low, initial state set to low\n");
+		} else {
+			gpioflags |= GPIOF_INIT_HIGH;
+			dev_info(&pdev->dev, "Power GPIO active high, initial state set to high\n");
+		}
+		ret = devm_gpio_request_one(&pdev->dev, tfp410_mod->gpio,
+				gpioflags, "tfp410:PDN");
+		if (ret != 0) {
+			dev_err(&pdev->dev, "Failed to request power gpio\n");
 			goto fail;
 		}
 	}
