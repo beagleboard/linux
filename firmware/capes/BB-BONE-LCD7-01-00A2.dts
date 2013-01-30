@@ -83,6 +83,7 @@
 				compatible      = "pwm-backlight";
  				pinctrl-names   = "default";
 				pinctrl-0       = <&pwm_bl_pins>;
+				status = "okay";
 
 				pwms = <&ehrpwm1 0 500000 0>;
 				pwm-names = "LCD7";
