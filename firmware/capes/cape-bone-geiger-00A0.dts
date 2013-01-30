@@ -36,14 +36,14 @@
 		};
 	};
 
-	fragment@2 {
+	fragment@1 {
 		target = <&epwmss1>;
 		__overlay__ {
 			status = "okay";
 		};
 	};
 
-	fragment@1 {
+	fragment@2 {
 		target = <&ehrpwm1>;
 		__overlay__ {
 			status = "okay";
