@@ -99,16 +99,17 @@
 				interrupt-parent = <&intc>;
 				interrupts = <16>;
 				ti,hwmods = "adc_tsc";
+				status = "okay";
 
 				tsc {
-					wires = <4>;
-					x-plate-resistance = <200>;
-					coordinate-readouts = <5>;
-					wire-config = <0x00 0x11 0x22 0x33>;
+					ti,wires = <4>;
+					ti,x-plate-resistance = <200>;
+					ti,coordinate-readouts = <5>;
+					ti,wire-config = <0x00 0x11 0x22 0x33>;
 				};
 
 				adc {
-					adc-channels = <4>;
+					ti,adc-channels = <4 5 6 7>;
 				};
 			};
 
