@@ -27,6 +27,7 @@
 struct tfp410_module {
 	struct tilcdc_module base;
 	struct i2c_adapter *i2c;
+	enum of_gpio_flags ofgpioflags;
 	int gpio;
 };
 #define to_tfp410_module(x) container_of(x, struct tfp410_module, base)
@@ -66,17 +67,22 @@ static void tfp410_encoder_destroy(struct drm_encoder *encoder)
 static void tfp410_encoder_dpms(struct drm_encoder *encoder, int mode)
 {
 	struct tfp410_encoder *tfp410_encoder = to_tfp410_encoder(encoder);
+	int state;
 
 	if (tfp410_encoder->dpms == mode)
 		return;
 
-	if (mode == DRM_MODE_DPMS_ON) {
-		DBG("Power on");
-		gpio_direction_output(tfp410_encoder->mod->gpio, 1);
-	} else {
-		DBG("Power off");
-		gpio_direction_output(tfp410_encoder->mod->gpio, 0);
-	}
+	if (IS_ERR_VALUE(tfp410_encoder->mod->gpio))
+		return;
+
+	state = mode == DRM_MODE_DPMS_ON;
+	if (tfp410_encoder->mod->ofgpioflags & OF_GPIO_ACTIVE_LOW)
+		state = !state;
+
+	pr_debug("%s: dpms %d, gpio-state %d\n", __func__,
+			mode == DRM_MODE_DPMS_ON, state);
+
+	gpio_direction_output(tfp410_encoder->mod->gpio, state);
 
 	tfp410_encoder->dpms = mode;
 }
@@ -329,7 +335,6 @@ static int tfp410_probe(struct platform_device *pdev)
 	struct tilcdc_module *mod;
 	struct pinctrl *pinctrl;
 	uint32_t i2c_phandle;
-	enum of_gpio_flags ofgpioflags;
 	unsigned long gpioflags;
 	int ret = -EINVAL;
 
@@ -371,12 +376,12 @@ static int tfp410_probe(struct platform_device *pdev)
 	of_node_put(i2c_node);
 
 	tfp410_mod->gpio = of_get_named_gpio_flags(pdev->dev.of_node, "ti,power-gpio",
-                       0, &ofgpioflags);
+                       0, &tfp410_mod->ofgpioflags);
 	if (IS_ERR_VALUE(tfp410_mod->gpio)) {
 		dev_warn(&pdev->dev, "tftp410: No power control GPIO\n");
 	} else {
 		gpioflags = GPIOF_DIR_OUT;
-		if (ofgpioflags & OF_GPIO_ACTIVE_LOW) {
+		if (tfp410_mod->ofgpioflags & OF_GPIO_ACTIVE_LOW) {
 			gpioflags |= GPIOF_INIT_LOW;
 			dev_info(&pdev->dev, "Power GPIO active low, initial state set to low\n");
 		} else {
