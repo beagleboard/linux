@@ -235,8 +235,11 @@ static int tilcdc_load(struct drm_device *dev, unsigned long flags)
 	}
 #endif
 
-	if (of_property_read_u32(node, "max-bandwidth", &priv->max_bandwidth))
+	if (of_property_read_u32(node, "ti,max-bandwidth", &priv->max_bandwidth))
 		priv->max_bandwidth = 1280 * 1024 * 60;
+
+	priv->allow_non_rblank = of_property_read_bool(node,
+			"ti,allow-non-reduced-blanking-modes");
 
 	pm_runtime_enable(dev->dev);
 
