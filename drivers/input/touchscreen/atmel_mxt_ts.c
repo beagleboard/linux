@@ -174,6 +174,7 @@
 					 MXT_TOUCH_CTRL_RPTEN)
 #define MXT_TOUCH_CTRL_SCANNING		(MXT_TOUCH_CTRL_ENABLE | \
 					 MXT_TOUCH_CTRL_SCANEN)
+#define MXT_TOUCH_CTRL_OFF		0x0
 
 /* MXT_PROCI_GRIPFACE_T20 field */
 #define MXT_GRIPFACE_CTRL	0
@@ -2592,7 +2593,7 @@ static void mxt_stop(struct mxt_data *data)
 {
 	/* Disable touch reporting */
 	mxt_write_object(data, MXT_TOUCH_MULTI_T9, MXT_TOUCH_CTRL,
-			 MXT_TOUCH_CTRL_SCANNING);
+			 MXT_TOUCH_CTRL_OFF);
 }
 
 static int mxt_input_open(struct input_dev *dev)
