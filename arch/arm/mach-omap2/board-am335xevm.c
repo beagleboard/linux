@@ -389,6 +389,7 @@ static struct omap_board_mux board_mux[] __initdata = {
 #define	board_mux	NULL
 #endif
 
+
 /* module pin mux structure */
 struct pinmux_config {
 	const char *string_name; /* signal name format */
@@ -525,6 +526,7 @@ static bool beaglebone_leds_free = 1;
 static bool beaglebone_spi1_free = 1;
 static bool beaglebone_w1gpio_free = 1;
 static bool beaglebone_skip_mmc0_init = 0;
+static bool beaglebone_wl12xx = 0;
 
 #define GP_EVM_REV_IS_1_0		0x1
 #define GP_EVM_REV_IS_1_0A		0x1
@@ -625,6 +627,19 @@ static struct pinmux_config lcdc16_pin_mux[] = {
 	{NULL, 0},
 };
 
+/* Module pin mux for LSR BeagleBone TiWi Cape */
+static struct pinmux_config mmc1_wl12xx_pin_mux[] = {
+	/* pin 16/17 on J8 will be jumpered as a workaround for Rev. 3 TiWi Cape */
+	{"gpmc_ad14.gpio1_14",  OMAP_MUX_MODE7 | AM33XX_PIN_INPUT_PULLUP},
+	/* WLAN SDIO */
+	{"gpmc_ad11.mmc1_dat3",  OMAP_MUX_MODE2 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_ad2.mmc1_dat2",  OMAP_MUX_MODE1 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_ad1.mmc1_dat1",  OMAP_MUX_MODE1 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_ad0.mmc1_dat0",  OMAP_MUX_MODE1 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_csn1.mmc1_clk",  OMAP_MUX_MODE2 | AM33XX_PIN_INPUT_PULLUP},
+	{"gpmc_csn2.mmc1_cmd",  OMAP_MUX_MODE2 | AM33XX_PIN_INPUT_PULLUP},
+	{NULL, 0},
+};
 
 /* Module pin mux for Beagleboardtoys DVI cape */
 static struct pinmux_config dvia1_pin_mux[] = {
@@ -1839,12 +1854,34 @@ static struct pinmux_config ecap0_pin_mux[] = {
 static int ehrpwm_backlight_enable;
 static int backlight_enable;
 
+#define BEAGLEBONE_WLAN_PMENA_GPIO      GPIO_TO_PIN(1, 4)
+#define BEAGLEBONE_WLAN_IRQ_GPIO        GPIO_TO_PIN(1, 7)
+#define BEAGLEBONE_BT_PMENA_GPIO        GPIO_TO_PIN(1, 12)
+
+struct wl12xx_platform_data beaglebone_wlan_data = {
+	.wlan_enable_gpio = BEAGLEBONE_WLAN_PMENA_GPIO,
+	.bt_enable_gpio   = BEAGLEBONE_BT_PMENA_GPIO,
+	.irq = OMAP_GPIO_IRQ(BEAGLEBONE_WLAN_IRQ_GPIO),
+	.board_ref_clock  = WL12XX_REFCLOCK_38_XTAL, /* 38.4Mhz */
+};
+
 #define AM335XEVM_WLAN_PMENA_GPIO	GPIO_TO_PIN(1, 30)
 #define AM335XEVM_WLAN_IRQ_GPIO		GPIO_TO_PIN(3, 17)
 
 struct wl12xx_platform_data am335xevm_wlan_data = {
 	.irq = OMAP_GPIO_IRQ(AM335XEVM_WLAN_IRQ_GPIO),
-	.board_ref_clock = WL12XX_REFCLOCK_38_XTAL, /* 38.4Mhz */
+	.board_ref_clock = WL12XX_REFCLOCK_38_XTAL, /* 38.4mhz */
+};
+
+static struct pinmux_config beaglebone_wl12xx_pin_mux[] = {
+    /* BT UART (no flow control) */
+	{"uart1_rxd.uart1_rxd", OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"uart1_txd.uart1_txd", OMAP_MUX_MODE0 | AM33XX_PULL_ENBL},
+	/* GPIO */
+	{"gpmc_ad4.gpio1_4", OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT},   // WLAN_EN
+	{"gpmc_ad7.gpio1_7", OMAP_MUX_MODE7 | AM33XX_PIN_INPUT},    // WLAN_IRQ
+	{"gpmc_ad12.gpio1_12", OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT}, // BT_EN
+	{NULL, 0},
 };
 
 /* Module pin mux for wlan and bluetooth */
@@ -2842,6 +2879,83 @@ static void emmc_bone_init(int evm_id, int profile)
 	return;
 }
 
+/* On the LSR BeagleBone TiWi Cape, the WL12xx is on MMC1 */
+static void mmc1_wl12xx_init(int evm_id, int profile)
+{
+	setup_pin_mux(mmc1_wl12xx_pin_mux);
+
+	am335x_mmc[1].mmc = 2;
+	am335x_mmc[1].name = "wl1271";
+	am335x_mmc[1].caps = MMC_CAP_4_BIT_DATA | MMC_CAP_POWER_OFF_CARD
+		    | MMC_PM_KEEP_POWER;
+	am335x_mmc[1].nonremovable = true;
+	am335x_mmc[1].gpio_cd = -EINVAL;
+	am335x_mmc[1].gpio_wp = -EINVAL;
+	am335x_mmc[1].ocr_mask = MMC_VDD_32_33 | MMC_VDD_33_34; /* 3V3 */
+ 
+	/* Actual initialization occurs during mmc0_init() */
+}
+
+static int beaglebone_wl12xx_set_power(struct device *dev,
+     int slot, int on, int vdd)
+{
+	if (on) {
+		mdelay(70);
+		gpio_set_value(beaglebone_wlan_data.wlan_enable_gpio, 1);
+		mdelay(70);
+	}
+	else
+		gpio_set_value(beaglebone_wlan_data.wlan_enable_gpio, 0);
+
+	return 0;
+}
+
+static void wl12xx_bluetooth_enable(struct wl12xx_platform_data *wlan_data);
+
+static void beaglebone_wl12xx_init(int evm_id, int profile)
+{
+	struct device *dev;
+	struct omap_mmc_platform_data *pdata;
+	int ret;
+
+	if (wl12xx_set_platform_data(&beaglebone_wlan_data))
+	{
+	    pr_err("%s: wl12xx error setting platform data\n", __FUNCTION__);
+	}
+
+	/* Problem: this device is not available until after hsmmc_init() is called */
+	dev = am335x_mmc[1].dev;
+	if (!dev) {
+	    	pr_err("%s: wl12xx MMC initalization failed\n", __FUNCTION__);
+		goto out;
+	}
+
+	pdata = dev->platform_data;
+	if (!pdata) {
+	    	pr_err("%s: wl12xx MMC platform data not set\n", __FUNCTION__);
+		goto out;
+	}
+
+	ret = gpio_request_one(beaglebone_wlan_data.wlan_enable_gpio,
+	    GPIOF_OUT_INIT_LOW, "wlan_en");
+	if (ret) 
+	{
+	    pr_err("%s: Error requesting WLAN enable\n", __FUNCTION__);
+	    goto out;
+	}
+
+	/* configure pin mux for GPIO, BT UART */
+	setup_pin_mux(beaglebone_wl12xx_pin_mux);
+
+	/* turn on bluetooth */
+	wl12xx_bluetooth_enable(&beaglebone_wlan_data);
+
+	/* install callback to control WLAN_EN  */
+	pdata->slots[0].set_power = beaglebone_wl12xx_set_power;
+out:
+	return;
+}
+
 static const char* cape_pins[] = {
 /*
   From SRM RevA5.0.1:
@@ -3138,6 +3252,7 @@ static int bone_io_config_from_cape_eeprom( void)
 	RULER( NR_ITEMS( cape_config.muxdata));
 	return 0;
 }
+
 static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context)
 {
 	int ret;
@@ -3410,6 +3525,39 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 		beaglebone_spi1_free = 0;
         }
 
+#define CLKOUT2SRC_32HZ (0)
+#define CLKOUT2DIV_1    (0)
+#define CLKOUT2ENV      (1 << 7)
+
+	if (!strncmp("BB-BONE-WIFI-01", cape_config.partnumber, 15)) {
+
+		struct clk *ck_32;
+		void __iomem *base;
+		unsigned int val;
+
+		pr_info("BeagleBone cape: initializing TiWi WiFi cape\n");
+
+		base = ioremap(0x44E00700, SZ_4K);
+		if (base)
+		{
+			val = (CLKOUT2DIV_1 | CLKOUT2SRC_32HZ);
+			writel(val, base);
+			iounmap(base);
+			ck_32 = clk_get(NULL, "clkout2_ck");
+			
+			if (IS_ERR(ck_32)) {
+				pr_err("%s: clk_get failed on ck_32\n", __FUNCTION__);
+				return;
+			}
+
+			/* map the 32KHz clock to SLOW_CLOCK on the TiWi */
+			clk_enable(ck_32);
+
+			mmc1_wl12xx_init(DEV_ON_BASEBOARD, PROFILE_NONE);
+			beaglebone_wl12xx = 1;
+		}
+	}
+
 	goto out2;
 out:
 	/*
@@ -3443,6 +3591,9 @@ out2:
 		if(beaglebone_w1gpio_free == 1) {
 			pr_info("BeagleBone cape: initializing w1-gpio\n");
 			bonew1_gpio_init(0,0);
+		}
+		if(beaglebone_wl12xx == 1) {
+			beaglebone_wl12xx_init(DEV_ON_BASEBOARD, PROFILE_NONE);
 		}
 	}
 }
@@ -3521,15 +3672,16 @@ static void uart1_wl12xx_init(int evm_id, int profile)
 	setup_pin_mux(uart1_wl12xx_pin_mux);
 }
 
-static void wl12xx_bluetooth_enable(void)
+static void wl12xx_bluetooth_enable(struct wl12xx_platform_data *wlan_data)
 {
-	int status = gpio_request(am335xevm_wlan_data.bt_enable_gpio,
+	int status = gpio_request(wlan_data->bt_enable_gpio,
 		"bt_en\n");
 	if (status < 0)
 		pr_err("Failed to request gpio for bt_enable");
 
 	pr_info("Configure Bluetooth Enable pin...\n");
-	gpio_direction_output(am335xevm_wlan_data.bt_enable_gpio, 0);
+	gpio_direction_output(wlan_data->bt_enable_gpio, 0);
+	gpio_free(wlan_data->bt_enable_gpio);
 }
 
 static int wl12xx_set_power(struct device *dev, int slot, int on, int vdd)
@@ -3560,7 +3712,7 @@ static void wl12xx_init(int evm_id, int profile)
 		am335xevm_wlan_data.bt_enable_gpio = GPIO_TO_PIN(1, 31);
 	}
 
-	wl12xx_bluetooth_enable();
+	wl12xx_bluetooth_enable(&am335xevm_wlan_data);
 
 	if (wl12xx_set_platform_data(&am335xevm_wlan_data))
 		pr_err("error setting wl12xx data\n");
@@ -3967,6 +4119,7 @@ static void setup_beaglebone(void)
 	 *this may effect power management in the future
 	 */
 	register_all_pwms();
+
 }
 
 
