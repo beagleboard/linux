@@ -28,7 +28,7 @@
 
 &mmc2 {
 	vmmc-supply = <&ldo3_reg>;
-	bus-width = <4>;
+	bus-width = <8>;
 	ti,non-removable;
 	status = "okay";
 };
