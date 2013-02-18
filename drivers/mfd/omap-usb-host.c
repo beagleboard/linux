@@ -299,9 +299,6 @@ static int usbhs_runtime_resume(struct device *dev)
 	if (is_ehci_tll_mode(pdata->port_mode[1]))
 		clk_enable(omap->usbhost_p2_fck);
 
-	clk_enable(omap->utmi_p1_fck);
-	clk_enable(omap->utmi_p2_fck);
-
 	spin_unlock_irqrestore(&omap->lock, flags);
 
 	return 0;
@@ -326,9 +323,6 @@ static int usbhs_runtime_suspend(struct device *dev)
 		clk_disable(omap->usbhost_p1_fck);
 	if (is_ehci_tll_mode(pdata->port_mode[1]))
 		clk_disable(omap->usbhost_p2_fck);
-
-	clk_disable(omap->utmi_p2_fck);
-	clk_disable(omap->utmi_p1_fck);
 
 	if (omap->ehci_logic_fck && !IS_ERR(omap->ehci_logic_fck))
 		clk_disable(omap->ehci_logic_fck);
