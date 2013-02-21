@@ -18,6 +18,8 @@
 
 #include <linux/kernel.h>
 
+#include <plat/dmtimer.h>
+
 #include "omap_device.h"
 #include "remoteproc.h"
 
@@ -114,4 +116,89 @@ out:
 	if (ret)
 		pr_err("failed for proc %s\n", dev_name(&pdev->dev));
 	return ret;
+}
+
+/**
+ * omap_rproc_request_timer - request a timer for a remoteproc
+ * @np - device node pointer to the desired timer
+ *
+ * This function is used primarily to request a timer associated with
+ * a remoteproc. The remoteproc driver core needs to store the returned
+ * handle to invoke other timer specific ops (like starting a timer either
+ * during device initialization or during a resume operation, or for
+ * stopping/freeing a timer).
+ *
+ * Returns an OMAP timer handle on success, otherwise an equivalent ERR_PTR
+ */
+struct omap_dm_timer *omap_rproc_request_timer(struct device_node *np)
+{
+	struct omap_dm_timer *timer;
+	int ret = 0;
+
+	timer = omap_dm_timer_request_by_node(np);
+	if (!timer) {
+		pr_err("request for timer node %p failed\n", np);
+		return ERR_PTR(-EBUSY);
+	}
+
+	ret = omap_dm_timer_set_source(timer, OMAP_TIMER_SRC_SYS_CLK);
+	if (ret) {
+		pr_err("error setting OMAP_TIMER_SRC_SYS_CLK as source for timer node %p\n",
+		       np);
+		omap_dm_timer_free(timer);
+		return ERR_PTR(ret);
+	}
+
+	/* clean counter, remoteproc code will set the value */
+	omap_dm_timer_set_load(timer, 0, 0);
+
+	return timer;
+}
+
+/**
+ * omap_rproc_start_timer - start a timer for a remoteproc
+ * @timer - handle to a OMAP timer
+ *
+ * This function is used to start a timer associated with a remoteproc,
+ * obtained using the request_timer ops. The function needs to be invoked
+ * by the remoteproc driver core to start the timer (during device
+ * initialization) or to just resume the timer.
+ *
+ * Returns 0 on success, otherwise a failure as returned by DMTimer API
+ */
+int omap_rproc_start_timer(struct omap_dm_timer *timer)
+{
+	return omap_dm_timer_start(timer);
+}
+
+/**
+ * omap_rproc_stop_timer - stop a timer for a remoteproc
+ * @timer - handle to a struct omap_dm_timer
+ *
+ * This function is used to disable a timer associated with a remoteproc,
+ * and needs to be called either during a device shutdown or suspend
+ * operation. The separate function allows the remoteproc driver core to
+ * just stop a timer without having to release the timer during a suspend
+ * operation.
+ *
+ * Returns 0 on success, otherwise a failure as returned by DMTimer API
+ */
+int omap_rproc_stop_timer(struct omap_dm_timer *timer)
+{
+	return omap_dm_timer_stop(timer);
+}
+
+/**
+ * omap_rproc_release_timer - release a timer for a remoteproc
+ * @timer - handle to a struct omap_dm_timer
+ *
+ * This function is used primarily to release a timer associated with
+ * a remoteproc. The dmtimer will be available for other clients to use
+ * once released.
+ *
+ * Returns 0 on success, otherwise a failure as returned by DMTimer API
+ */
+int omap_rproc_release_timer(struct omap_dm_timer *timer)
+{
+	return omap_dm_timer_free(timer);
 }

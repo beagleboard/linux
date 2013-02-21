@@ -18,15 +18,34 @@
 #define _PLAT_REMOTEPROC_H
 
 struct platform_device;
+struct device_node;
+struct omap_dm_timer;
+
+/**
+ * struct omap_rproc_timer_ops - platform data ops for dmtimer handlers
+ * @request_timer: omap-specific handler for requesting a rproc timer
+ * @release_timer: omap-specific handler for freeing a rproc timer
+ * @start_timer: omap-specific handler for enabling a rproc timer
+ * @stop_timer: omap-specific handler for disabling a rproc timer
+ */
+struct omap_rproc_timer_ops {
+	struct omap_dm_timer * (*request_timer)(struct device_node *np);
+	int (*release_timer)(struct omap_dm_timer *timer);
+	int (*start_timer)(struct omap_dm_timer *timer);
+	int (*stop_timer)(struct omap_dm_timer *timer);
+};
 
 /*
  * struct omap_rproc_pdata - omap remoteproc's platform data
  * @device_enable: omap-specific handler for enabling a device
  * @device_shutdown: omap-specific handler for shutting down a device
+ * @timer_ops: platform data ops for OMAP dmtimer handlers
  */
 struct omap_rproc_pdata {
 	int (*device_enable)(struct platform_device *pdev);
 	int (*device_shutdown)(struct platform_device *pdev);
+
+	struct omap_rproc_timer_ops *timer_ops;
 };
 
 #endif /* _PLAT_REMOTEPROC_H */
