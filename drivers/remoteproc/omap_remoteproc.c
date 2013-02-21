@@ -66,12 +66,22 @@ struct omap_rproc_mem {
 };
 
 /**
+ * struct omap_rproc_timers_info - timers for the omap rproc
+ * @odt: timer pointer
+ */
+struct omap_rproc_timers_info {
+	struct omap_dm_timer *odt;
+};
+
+/**
  * struct omap_rproc - omap remote processor state
  * @mbox: mailbox channel handle
  * @client: mailbox client to request the mailbox channel
  * @boot_data: boot data structure for setting processor boot address
  * @mem: internal memory regions data
  * @num_mems: number of internal memory regions
+ * @num_timers: number of rproc timer(s)
+ * @timers: timer(s) info used by rproc
  * @rproc: rproc handle
  */
 struct omap_rproc {
@@ -80,6 +90,8 @@ struct omap_rproc {
 	struct omap_rproc_boot_data *boot_data;
 	struct omap_rproc_mem *mem;
 	int num_mems;
+	int num_timers;
+	struct omap_rproc_timers_info *timers;
 	struct rproc *rproc;
 };
 
@@ -92,6 +104,102 @@ struct omap_rproc_dev_data {
 	const char *device_name;
 	const char *fw_name;
 };
+
+/**
+ * omap_rproc_enable_timers - enable the timers for a remoteproc
+ * @pdev - the remoteproc platform device
+ * @configure - boolean flag used to acquire and configure the timer handle
+ *
+ * This function is used primarily to enable the timers associated with
+ * a remoteproc. The configure flag is provided to allow the remoteproc
+ * driver core to either acquire and start a timer (during device
+ * initialization) or to just start a timer (during a resume operation).
+ */
+static int
+omap_rproc_enable_timers(struct platform_device *pdev, bool configure)
+{
+	int i;
+	int ret = 0;
+	struct rproc *rproc = platform_get_drvdata(pdev);
+	struct omap_rproc *oproc = rproc->priv;
+	struct omap_rproc_pdata *pdata = pdev->dev.platform_data;
+	struct omap_rproc_timer_ops *timer_ops = pdata->timer_ops;
+	struct omap_rproc_timers_info *timers = oproc->timers;
+	struct device *dev = &pdev->dev;
+	struct device_node *np = NULL;
+
+	if (oproc->num_timers <= 0)
+		return 0;
+
+	if (!configure)
+		goto start_timers;
+
+	for (i = 0; i < oproc->num_timers; i++) {
+		np = of_parse_phandle(dev->of_node, "timers", i);
+		if (!np) {
+			ret = -ENXIO;
+			dev_err(dev, "device node lookup for timer at index %d failed: %d\n",
+				i, ret);
+			goto free_timers;
+		}
+
+		timers[i].odt = timer_ops->request_timer(np);
+		of_node_put(np);
+		if (IS_ERR(timers[i].odt)) {
+			dev_err(dev, "request for timer %p failed: %ld\n", np,
+				PTR_ERR(timers[i].odt));
+			ret = -EBUSY;
+			goto free_timers;
+		}
+	}
+
+start_timers:
+	for (i = 0; i < oproc->num_timers; i++)
+		timer_ops->start_timer(timers[i].odt);
+	return 0;
+
+free_timers:
+	while (i--) {
+		timer_ops->release_timer(timers[i].odt);
+		timers[i].odt = NULL;
+	}
+
+	return ret;
+}
+
+/**
+ * omap_rproc_disable_timers - disable the timers for a remoteproc
+ * @pdev - the remoteproc platform device
+ * @configure - boolean flag used to release the timer handle
+ *
+ * This function is used primarily to disable the timers associated with
+ * a remoteproc. The configure flag is provided to allow the remoteproc
+ * driver core to either stop and release a timer (during device shutdown)
+ * or to just stop a timer (during a suspend operation).
+ */
+static int
+omap_rproc_disable_timers(struct platform_device *pdev, bool configure)
+{
+	int i;
+	struct rproc *rproc = platform_get_drvdata(pdev);
+	struct omap_rproc *oproc = rproc->priv;
+	struct omap_rproc_pdata *pdata = pdev->dev.platform_data;
+	struct omap_rproc_timer_ops *timer_ops = pdata->timer_ops;
+	struct omap_rproc_timers_info *timers = oproc->timers;
+
+	if (oproc->num_timers <= 0)
+		return 0;
+
+	for (i = 0; i < oproc->num_timers; i++) {
+		timer_ops->stop_timer(timers[i].odt);
+		if (configure) {
+			timer_ops->release_timer(timers[i].odt);
+			timers[i].odt = NULL;
+		}
+	}
+
+	return 0;
+}
 
 /**
  * omap_rproc_mbox_callback() - inbound mailbox message handler
@@ -211,14 +319,22 @@ static int omap_rproc_start(struct rproc *rproc)
 		goto put_mbox;
 	}
 
+	ret = omap_rproc_enable_timers(pdev, true);
+	if (ret) {
+		dev_err(dev, "omap_rproc_enable_timers failed: %d\n", ret);
+		goto put_mbox;
+	}
+
 	ret = pdata->device_enable(pdev);
 	if (ret) {
 		dev_err(dev, "omap_device_enable failed: %d\n", ret);
-		goto put_mbox;
+		goto reset_timers;
 	}
 
 	return 0;
 
+reset_timers:
+	omap_rproc_disable_timers(pdev, true);
 put_mbox:
 	mbox_free_channel(oproc->mbox);
 	return ret;
@@ -234,6 +350,10 @@ static int omap_rproc_stop(struct rproc *rproc)
 	int ret;
 
 	ret = pdata->device_shutdown(pdev);
+	if (ret)
+		return ret;
+
+	ret = omap_rproc_disable_timers(pdev, true);
 	if (ret)
 		return ret;
 
@@ -422,6 +542,7 @@ static int omap_rproc_probe(struct platform_device *pdev)
 {
 	struct omap_rproc_pdata *pdata = pdev->dev.platform_data;
 	struct device_node *np = pdev->dev.of_node;
+	struct omap_rproc_timer_ops *timer_ops;
 	struct omap_rproc *oproc;
 	struct rproc *rproc;
 	const char *firmware;
@@ -464,6 +585,40 @@ static int omap_rproc_probe(struct platform_device *pdev)
 	ret = omap_rproc_get_boot_data(pdev, rproc);
 	if (ret)
 		goto free_rproc;
+
+	timer_ops = pdata->timer_ops;
+	/*
+	 * Timer nodes are directly used in client nodes as phandles, so
+	 * retrieve the count using NULL as cells-name.
+	 * XXX: Use the much simpler of_property_count_elems_of_size
+	 * if available
+	 */
+	oproc->num_timers = of_count_phandle_with_args(np, "timers", NULL);
+	if (oproc->num_timers <= 0) {
+		dev_dbg(&pdev->dev, "device does not have timers, status = %d\n",
+			oproc->num_timers);
+		oproc->num_timers = 0;
+	} else {
+		if (!timer_ops || !timer_ops->request_timer ||
+		    !timer_ops->release_timer || !timer_ops->start_timer ||
+		    !timer_ops->stop_timer) {
+			dev_err(&pdev->dev, "device does not have required timer ops\n");
+			ret = -ENODEV;
+			goto free_rproc;
+		}
+	}
+
+	if (oproc->num_timers) {
+		oproc->timers = devm_kzalloc(&pdev->dev, sizeof(*oproc->timers)
+					     * oproc->num_timers, GFP_KERNEL);
+		if (!oproc->timers) {
+			ret = -ENOMEM;
+			goto free_rproc;
+		}
+
+		dev_dbg(&pdev->dev, "device has %d tick timers\n",
+			oproc->num_timers);
+	}
 
 	if (of_reserved_mem_device_init(&pdev->dev)) {
 		dev_err(&pdev->dev, "device does not have specific CMA pool\n");
