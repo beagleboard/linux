@@ -2,6 +2,13 @@
 # Beaglebone capes
 #
 
+config BEAGLEBONE_PINMUX_HELPER
+	tristate "Beaglebone Pinmux Helper"
+	depends on ARCH_OMAP2PLUS && OF
+	default n
+	help
+	  Say Y here to include support for the pinmux helper
+
 config CAPE_BEAGLEBONE
 	tristate "Beaglebone cape support"
 	depends on ARCH_OMAP2PLUS && OF && I2C
