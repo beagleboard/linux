@@ -47,6 +47,8 @@ static u8 w1_gpio_read_bit(void *data)
 	return gpio_get_value(pdata->pin) ? 1 : 0;
 }
 
+#ifdef CONFIG_OF
+
 static struct of_device_id w1_gpio_dt_ids[] = {
 	{ .compatible = "w1-gpio" },
 	{}
@@ -71,6 +73,15 @@ static int w1_gpio_probe_dt(struct platform_device *pdev)
 
 	return 0;
 }
+
+#else
+
+static inline int w1_gpio_probe_dt(struct platform_device *pdev)
+{
+	return -ENOSYS;
+}
+
+#endif
 
 static int w1_gpio_probe(struct platform_device *pdev)
 {
